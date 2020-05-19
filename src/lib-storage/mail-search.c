@@ -60,12 +60,43 @@ mailbox_uidset_change(struct mail_search_arg *arg, struct mailbox *box,
 }
 
 static void
-mail_search_arg_change_uidset(struct mail_search_args *args,
-			      struct mail_search_arg *arg,
-			      const ARRAY_TYPE(seq_range) *search_saved_uidset)
+mailbox_seqset_change(struct mail_search_arg *arg, struct mailbox *box)
+{
+	const struct seq_range *seqset;
+	unsigned int count;
+	uint32_t seq1, seq2;
+
+	seqset = array_get(&arg->value.seqset, &count);
+	if (count > 0 && seqset[count-1].seq2 == (uint32_t)-1) {
+		/* n:* -> n:maxseq. */
+		mailbox_get_seq_range(box, 1, (uint32_t)-1,
+				      &seq1, &seq2);
+		if (seq2 == 0) {
+			/* no mails in mailbox - nothing can match */
+			array_clear(&arg->value.seqset);
+		} else if (seqset[count-1].seq1 == (uint32_t)-1) {
+			/* "*" alone needs a bit special handling
+			   NOTE: This could be e.g. 5,* so use
+			   seqset[last] */
+			seq_range_array_remove(&arg->value.seqset, (uint32_t)-1);
+			seq_range_array_add(&arg->value.seqset, seq2);
+		} else {
+			seq_range_array_remove_range(&arg->value.seqset,
+						     seq2+1, (uint32_t)-1);
+		}
+	}
+}
+
+static void
+mail_search_arg_change_sets(struct mail_search_args *args,
+			    struct mail_search_arg *arg,
+			    const ARRAY_TYPE(seq_range) *search_saved_uidset)
 {
 	for (; arg != NULL; arg = arg->next) {
 		switch (arg->type) {
+		case SEARCH_SEQSET:
+			mailbox_seqset_change(arg, args->box);
+			break;
 		case SEARCH_UIDSET:
 			T_BEGIN {
 				mailbox_uidset_change(arg, args->box,
@@ -75,8 +106,8 @@ mail_search_arg_change_uidset(struct mail_search_args *args,
 		case SEARCH_INTHREAD:
 		case SEARCH_SUB:
 		case SEARCH_OR:
-			mail_search_arg_change_uidset(args, arg->value.subargs,
-						      search_saved_uidset);
+			mail_search_arg_change_sets(args, arg->value.subargs,
+						    search_saved_uidset);
 			break;
 		default:
 			break;
@@ -143,7 +174,7 @@ void mail_search_arg_init(struct mail_search_args *args,
 }
 
 void mail_search_args_init(struct mail_search_args *args,
-			   struct mailbox *box, bool change_uidsets,
+			   struct mailbox *box, bool change_sets,
 			   const ARRAY_TYPE(seq_range) *search_saved_uidset)
 {
 	i_assert(args->init_refcount <= args->refcount);
@@ -154,11 +185,11 @@ void mail_search_args_init(struct mail_search_args *args,
 	}
 
 	args->box = box;
-	if (change_uidsets) {
-		/* Change uidsets before simplifying the args, since it can't
-		   handle search_saved_uidset. */
-		mail_search_arg_change_uidset(args, args->args,
-					      search_saved_uidset);
+	if (change_sets) {
+		/* Change seqsets/uidsets before simplifying the args, since it
+		   can't handle search_saved_uidset. */
+		mail_search_arg_change_sets(args, args->args,
+					    search_saved_uidset);
 	}
 	if (!args->simplified)
 		mail_search_args_simplify(args);

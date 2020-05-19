@@ -153,10 +153,11 @@ struct mail_search_args {
 typedef void mail_search_foreach_callback_t(struct mail_search_arg *arg,
 					    void *context);
 
-/* Allocate keywords for search arguments. If change_uidsets is TRUE,
-   change uidsets to seqsets. */
+/* Allocate keywords for search arguments. If change_sets is TRUE,
+   change uidsets to seqsets and convert "*" in seqsets to the current highest
+   message sequence. */
 void mail_search_args_init(struct mail_search_args *args,
-			   struct mailbox *box, bool change_uidsets,
+			   struct mailbox *box, bool change_sets,
 			   const ARRAY_TYPE(seq_range) *search_saved_uidset)
 	ATTR_NULL(4);
 /* Initialize arg and its children. args is used for getting mailbox and
