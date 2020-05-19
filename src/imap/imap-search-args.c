@@ -310,14 +310,14 @@ void imap_search_seqset_iter_deinit(struct imap_search_seqset_iter **_iter)
 
 bool imap_search_seqset_iter_next(struct imap_search_seqset_iter *iter)
 {
-	if (!array_is_created(&iter->seqset_left))
+	if (!array_is_created(&iter->seqset_left) ||
+	    array_count(&iter->seqset_left) == 0)
 		return FALSE;
 
 	/* remove the last batch of searched mails from seqset_left */
-	seq_range_array_invert(&iter->search_args->args->value.seqset,
-			       1, UINT32_MAX);
-	seq_range_array_intersect(&iter->seqset_left,
-				  &iter->search_args->args->value.seqset);
+	if (seq_range_array_remove_seq_range(&iter->seqset_left,
+			&iter->search_args->args->value.seqset) == 0)
+		i_unreached();
 	imap_search_seqset_next_batch(iter);
 	return array_count(&iter->search_args->args->value.seqset) > 0;
 }
