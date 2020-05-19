@@ -680,11 +680,9 @@ void auth_master_wait(struct auth_master_connection *conn)
 struct auth_master_lookup {
 	struct auth_master_request *req;
 	struct event *event;
-	const char *user;
-	const char *expected_reply;
 
-	pool_t pool;
-	const char **fields;
+	char *user;
+	const char *expected_reply;
 
 	void (*finished)(struct auth_master_lookup *lookup,
 			 int result, const char *const *fields);
@@ -863,16 +861,17 @@ auth_lookup_reply_callback(const struct auth_master_reply *reply,
 			   struct auth_master_lookup *lookup)
 {
 	const char *value;
-	const char *const *args = reply->args;
+	const char *const *args = reply->args, *const *fields;
 	unsigned int i, len;
+	const char *error_fields[2];
 	int result;
 
 	if (reply->errormsg != NULL) {
-		lookup->fields = p_new(lookup->pool, const char *, 2);
-		lookup->fields[0] = p_strdup(lookup->pool, reply->errormsg);
+		i_zero(&error_fields);
+		error_fields[0] = reply->errormsg;
 		e_debug(lookup->event, "auth %s error: %s",
 			lookup->expected_reply, reply->errormsg);
-		lookup->finished(lookup, -1, lookup->fields);
+		lookup->finished(lookup, -1, error_fields);
 		return 1;
 	}
 	i_assert(reply->reply != NULL);
@@ -880,12 +879,10 @@ auth_lookup_reply_callback(const struct auth_master_reply *reply,
 
 	result = parse_reply(lookup, reply->reply, args);
 
+	fields = args;
 	len = str_array_length(args);
 	i_assert(*args != NULL || len == 0); /* for static analyzer */
 	if (result >= 0) {
-		lookup->fields = p_new(lookup->pool, const char *, len + 1);
-		for (i = 0; i < len; i++)
-			lookup->fields[i] = p_strdup(lookup->pool, args[i]);
 		if (len == 0) {
 			e_debug(lookup->event, "auth %s input: (empty)",
 				lookup->expected_reply);
@@ -897,24 +894,24 @@ auth_lookup_reply_callback(const struct auth_master_reply *reply,
 		}
 	} else {
 		/* put the reason string into first field */
-		lookup->fields = p_new(lookup->pool, const char *, 2);
+		i_zero(&error_fields);
 		for (i = 0; i < len; i++) {
 			if (str_begins(args[i], "reason=", &value)) {
-				lookup->fields[0] =
-					p_strdup(lookup->pool, value);
+				error_fields[0] = value;
 				break;
 			}
 		}
-		if (lookup->fields[0] != NULL) {
+		if (error_fields[0] != NULL) {
 			e_debug(lookup->event, "auth %s error: %s",
-				lookup->expected_reply, lookup->fields[0]);
+				lookup->expected_reply, error_fields[0]);
 		} else {
 			e_debug(lookup->event, "auth %s error: (unknown)",
 				lookup->expected_reply);
 		}
+		fields = error_fields;
 	}
 
-	lookup->finished(lookup, result, lookup->fields);
+	lookup->finished(lookup, result, fields);
 	return 1;
 }
 
@@ -981,7 +978,8 @@ static void
 auth_master_pass_lookup_destroyed(struct auth_master_pass_lookup *lookup)
 {
 	event_unref(&lookup->lookup.event);
-	pool_unref(&lookup->lookup.pool);
+	i_free(lookup->lookup.user);
+	i_free(lookup);
 }
 
 static void
@@ -1024,12 +1022,9 @@ auth_master_pass_lookup_async(struct auth_master_connection *conn,
 {
 	struct auth_master_request *req;
 	struct auth_master_pass_lookup *lookup;
-	pool_t pool;
 	string_t *args;
 
-	pool = pool_alloconly_create("auth_master_pass_lookup", 1024);
-	lookup = p_new(pool, struct auth_master_pass_lookup, 1);
-	lookup->lookup.pool = pool;
+	lookup = i_new(struct auth_master_pass_lookup, 1);
 	lookup->lookup.finished = auth_master_pass_lookup_finished;
 	lookup->callback = callback;
 	lookup->context = context;
@@ -1045,7 +1040,7 @@ auth_master_pass_lookup_async(struct auth_master_connection *conn,
 	}
 
 	lookup->lookup.expected_reply = "PASS";
-	lookup->lookup.user = user;
+	lookup->lookup.user = i_strdup(user);
 
 	args = t_str_new(128);
 	str_append(args, user);
@@ -1140,7 +1135,8 @@ static void
 auth_master_user_lookup_destroyed(struct auth_master_user_lookup *lookup)
 {
 	event_unref(&lookup->lookup.event);
-	pool_unref(&lookup->lookup.pool);
+	i_free(lookup->lookup.user);
+	i_free(lookup);
 }
 
 static void
@@ -1193,12 +1189,9 @@ auth_master_user_lookup_async(struct auth_master_connection *conn,
 {
 	struct auth_master_request *req;
 	struct auth_master_user_lookup *lookup;
-	pool_t pool;
 	string_t *args;
 
-	pool = pool_alloconly_create("auth_master_user_lookup", 1024);
-	lookup = p_new(pool, struct auth_master_user_lookup, 1);
-	lookup->lookup.pool = pool;
+	lookup = i_new(struct auth_master_user_lookup, 1);
 	lookup->lookup.finished = auth_master_user_lookup_finished;
 	lookup->callback = callback;
 	lookup->context = context;
@@ -1214,7 +1207,7 @@ auth_master_user_lookup_async(struct auth_master_connection *conn,
 	}
 
 	lookup->lookup.expected_reply = "USER";
-	lookup->lookup.user = user;
+	lookup->lookup.user = i_strdup(user);
 
 	args = t_str_new(128);
 	str_append(args, user);
