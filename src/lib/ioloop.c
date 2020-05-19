@@ -21,6 +21,7 @@ struct ioloop *current_ioloop = NULL;
 uint64_t ioloop_global_wait_usecs = 0;
 
 static ARRAY(io_switch_callback_t *) io_switch_callbacks = ARRAY_INIT;
+static ARRAY(io_destroy_callback_t *) io_destroy_callbacks = ARRAY_INIT;
 static bool panic_on_leak = FALSE, panic_on_leak_set = FALSE;
 
 static void io_loop_initialize_handler(struct ioloop *ioloop)
@@ -839,6 +840,12 @@ void io_loop_destroy(struct ioloop **_ioloop)
 
 	/* ->prev won't work unless loops are destroyed in create order */
         i_assert(ioloop == current_ioloop);
+	if (array_is_created(&io_destroy_callbacks)) {
+		io_destroy_callback_t *const *callbackp;
+		array_foreach(&io_destroy_callbacks, callbackp)
+			(*callbackp)(current_ioloop);
+	}
+
 	io_loop_set_current(current_ioloop->prev);
 
 	if (ioloop->notify_handler_context != NULL)
@@ -933,6 +940,11 @@ static void io_switch_callbacks_free(void)
 	array_free(&io_switch_callbacks);
 }
 
+static void io_destroy_callbacks_free(void)
+{
+	array_free(&io_destroy_callbacks);
+}
+
 void io_loop_set_current(struct ioloop *ioloop)
 {
 	io_switch_callback_t *const *callbackp;
@@ -975,6 +987,30 @@ void io_loop_remove_switch_callback(io_switch_callback_t *callback)
 		if (*callbackp == callback) {
 			idx = array_foreach_idx(&io_switch_callbacks, callbackp);
 			array_delete(&io_switch_callbacks, idx, 1);
+			return;
+		}
+	}
+	i_unreached();
+}
+
+void io_loop_add_destroy_callback(io_destroy_callback_t *callback)
+{
+	if (!array_is_created(&io_destroy_callbacks)) {
+		i_array_init(&io_destroy_callbacks, 4);
+		lib_atexit_priority(io_destroy_callbacks_free, LIB_ATEXIT_PRIORITY_LOW);
+	}
+	array_push_back(&io_destroy_callbacks, &callback);
+}
+
+void io_loop_remove_destroy_callback(io_destroy_callback_t *callback)
+{
+	io_destroy_callback_t *const *callbackp;
+	unsigned int idx;
+
+	array_foreach(&io_destroy_callbacks, callbackp) {
+		if (*callbackp == callback) {
+			idx = array_foreach_idx(&io_destroy_callbacks, callbackp);
+			array_delete(&io_destroy_callbacks, idx, 1);
 			return;
 		}
 	}
