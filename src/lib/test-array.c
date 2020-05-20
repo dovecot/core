@@ -361,6 +361,30 @@ enum fatal_test_state fatal_array(unsigned int stage)
 		array_copy(&ad.arr, 1, &as.arr, 0, 4);
 		return FATAL_TEST_FAILURE;
 	}
+	case 3: {
+		ARRAY(uint8_t) arr;
+		uint8_t value = 0;
+
+		t_array_init(&arr, 2);
+		array_push_back(&arr, &value);
+		test_expect_fatal_string("Buffer write out of range");
+		/* this is supposed to assert-crash before it even attempts to
+		   access value */
+		array_append(&arr, &value, UINT_MAX);
+		return FATAL_TEST_FAILURE;
+	}
+	case 4: {
+		ARRAY(uint32_t) arr;
+		uint32_t value = 0;
+
+		t_array_init(&arr, 2);
+		array_push_back(&arr, &value);
+		test_expect_fatal_string("Buffer write out of range");
+		/* this is supposed to assert-crash before it even attempts to
+		   access value */
+		array_append(&arr, &value, UINT_MAX);
+		return FATAL_TEST_FAILURE;
+	}
 	}
 	test_end();
 	/* Forces the compiler to check the value of useless_ptr, so that it
