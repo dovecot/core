@@ -219,6 +219,7 @@ hash_table_insert_node(struct hash_table *table, void *key, void *value,
 	unsigned int hash;
 	bool check_existing = TRUE;
 
+	i_assert(table->nodes_count < UINT_MAX);
 	i_assert(key != NULL);
 
 	if(opcode == HASH_TABLE_OP_RESIZE)
