@@ -107,12 +107,10 @@ int smtp_xtext_parse(const char *xtext, const char **value_r,
 		return -1;
 	}
 
-	if (value_r != NULL) {
-		*value_r = str_c(value);
-		if (strlen(*value_r) != str_len(value)) {
-			*error_r = "Encountered NUL character in xtext";
-			return -1;
-		}
+	*value_r = str_c(value);
+	if (strlen(*value_r) != str_len(value)) {
+		*error_r = "Encountered NUL character in xtext";
+		return -1;
 	}
 	return 1;
 }
