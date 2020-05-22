@@ -226,6 +226,31 @@ static void test_program_io_big(void)
 	test_end();
 }
 
+static void test_program_wait_no_io(void)
+{
+	struct program_client_settings set = pc_set;
+	struct program_client *pc;
+
+	/* nasty program that reads data in bits with intermittent delays
+	   and then finally reads the rest in one go. */
+	const char *const args[] = {
+		"-c", "sleep 1",
+		NULL
+	};
+
+	test_begin("test_program_wait (no timeout, no I/O)");
+
+	set.client_connect_timeout_msecs = 0;
+	set.input_idle_timeout_msecs = 0;
+	pc = program_client_local_create("/bin/sh", args, &set);
+
+	test_assert(program_client_run(pc) == 1);
+
+	program_client_destroy(&pc);
+
+	test_end();
+}
+
 int main(int argc, char *argv[])
 {
 	struct ioloop *ioloop;
@@ -237,6 +262,7 @@ int main(int argc, char *argv[])
 		test_program_io_async,
 		test_program_io_big,
 		test_program_failure,
+		test_program_wait_no_io,
 		NULL
 	};
 
