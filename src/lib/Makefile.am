@@ -192,6 +192,7 @@ headers = \
 	eacces-error.h \
 	env-util.h \
 	event-filter.h \
+	event-filter-private.h \
 	event-log.h \
 	execv-const.h \
 	failures.h \
