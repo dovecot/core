@@ -14,9 +14,8 @@ Documentation=http://wiki2.dovecot.org/
 After=local-fs.target network-online.target
 
 [Service]
-Type=simple
+Type=notify
 ExecStart=@sbindir@/dovecot -F
-PIDFile=@rundir@/master.pid
 ExecReload=@bindir@/doveadm reload
 ExecStop=@bindir@/doveadm stop
 PrivateTmp=true

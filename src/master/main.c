@@ -26,6 +26,9 @@
 #include "service-process.h"
 #include "service-log.h"
 #include "dovecot-version.h"
+#ifdef HAVE_SYSTEMD
+#  include "sd-daemon.h"
+#endif
 
 #include <stdio.h>
 #include <unistd.h>
@@ -544,6 +547,9 @@ static void main_init(const struct master_settings *set)
 	master_clients_init();
 
 	services_monitor_start(services);
+#ifdef HAVE_SYSTEMD
+	sd_notify(0, "READY=1");
+#endif
 	startup_finished = TRUE;
 }
 
