@@ -295,6 +295,10 @@ The default port is specified by
 .TP
 .BI tcps: host[:port]
 This is the same as tcp, but with SSL.
+.TP
+.BI command\ [arg1\ [,\ arg2,\ ..]]
+Runs a local command that connects its standard input & output
+to a dsync server.
 .RE
 .\"------------------------------------------------------------------------
 .SH "EXIT STATUS"
