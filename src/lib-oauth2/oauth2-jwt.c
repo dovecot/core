@@ -295,13 +295,13 @@ oauth2_jwt_body_process(ARRAY_TYPE(oauth2_field) *fields, struct json_tree *tree
 	if ((ret = get_time_field(tree, "nbf", &nbf)) < 0) {
 		*error_r = "Malformed 'nbf' field";
 		return -1;
-	} else if (ret == 0)
+	} else if (ret == 0 || nbf == 0)
 		nbf = t0;
 
 	if ((ret = get_time_field(tree, "iat", &iat)) < 0) {
 		*error_r = "Malformed 'iat' field";
 		return -1;
-	} else if (ret == 0)
+	} else if (ret == 0 || iat == 0)
 		iat = t0;
 
 	if (nbf > t0) {
