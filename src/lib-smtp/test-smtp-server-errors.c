@@ -582,7 +582,7 @@ test_many_bad_commands_client_input(struct client_connection *conn)
 	while ((ret=smtp_reply_parse_next(ctx->parser, FALSE,
 					  &reply, &error)) > 0) {
 		if (debug)
-			i_debug("REPLY: %s", smtp_reply_log(reply));
+			i_debug("REPLY #%u: %s", ctx->reply, smtp_reply_log(reply));
 
 		switch (ctx->reply++) {
 		/* greeting */
@@ -651,20 +651,20 @@ static void test_client_many_bad_commands(unsigned int index)
 
 /* server */
 
-struct _many_bad_commands {
-	struct istream *payload_input;
-	struct io *io;
-
-	bool serviced:1;
-};
-
 static void
 test_server_many_bad_commands_disconnect(void *context ATTR_UNUSED,
-					   const char *reason)
+					 const char *reason)
 {
+	struct server_connection *sconn = context;
+
 	if (debug)
 		i_debug("Disconnect: %s", reason);
-	io_loop_stop(ioloop);
+
+	sconn->context = POINTER_CAST(POINTER_CAST_TO(sconn->context,
+						      unsigned int) + 1);
+
+	if (POINTER_CAST_TO(sconn->context, unsigned int) == 2)
+		io_loop_stop(ioloop);
 }
 
 static int
