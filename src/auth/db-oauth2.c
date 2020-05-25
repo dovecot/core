@@ -632,6 +632,26 @@ static void db_oauth2_lookup_introspect(struct db_oauth2_request *req)
 					      db_oauth2_introspect_continue, req);
 }
 
+static int db_oauth2_local_validation(struct db_oauth2_request *req)
+{
+	bool is_jwt;
+	const char *error = NULL;
+	enum passdb_result passdb_result;
+	ARRAY_TYPE(oauth2_field) fields;
+	t_array_init(&fields, 8);
+	if (oauth2_try_parse_jwt(&req->db->oauth2_set, req->auth_request->mech_password,
+				 &fields, &is_jwt, &error) < 0) {
+		if (!is_jwt)
+			return -1;
+		passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
+	} else {
+		db_oauth2_fields_merge(req, &fields);
+		db_oauth2_process_fields(req, &passdb_result, &error);
+	}
+	db_oauth2_callback(req, passdb_result, error);
+	return 0;
+}
+
 static void
 db_oauth2_lookup_continue(struct oauth2_request_result *result,
 			  struct db_oauth2_request *req)
@@ -710,28 +730,6 @@ db_oauth2_lookup_passwd_grant(struct oauth2_request_result *result,
 		db_oauth2_process_fields(req, &passdb_result, &error);
 	}
 	db_oauth2_callback(req, passdb_result, error);
-}
-
-static int db_oauth2_local_validation(struct db_oauth2_request *req)
-{
-	bool is_jwt;
-	struct auth_request *request = req->auth_request;
-	const char *error = NULL;
-	enum passdb_result passdb_result;
-	ARRAY_TYPE(oauth2_field) fields;
-	t_array_init(&fields, 8);
-
-	if (oauth2_try_parse_jwt(&req->db->oauth2_set, request->mech_password,
-				 &fields, &is_jwt, &error) < 0) {
-		if (!is_jwt)
-			return -1;
-		passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
-	} else {
-		db_oauth2_fields_merge(req, &fields);
-		db_oauth2_process_fields(req, &passdb_result, &error);
-	}
-	db_oauth2_callback(req, passdb_result, error);
-	return 0;
 }
 
 #undef db_oauth2_lookup
