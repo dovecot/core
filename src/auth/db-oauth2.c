@@ -633,6 +633,36 @@ static void db_oauth2_lookup_introspect(struct db_oauth2_request *req)
 }
 
 static void
+db_oauth2_lookup_continue(struct oauth2_request_result *result,
+			  struct db_oauth2_request *req)
+{
+	enum passdb_result passdb_result;
+	const char *error;
+
+	req->req = NULL;
+
+	if (!result->success) {
+		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
+		error = result->error;
+	} else if (!result->valid) {
+		passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
+		error = "Invalid token";
+	} else {
+		db_oauth2_fields_merge(req, result->fields);
+		if (*req->db->set.introspection_url != '\0' &&
+		    (req->db->set.force_introspection ||
+		     !db_oauth2_have_all_fields(req))) {
+			e_debug(authdb_event(req->auth_request),
+				"oauth2: Introspection needed after token validation");
+			db_oauth2_lookup_introspect(req);
+			return;
+		}
+		db_oauth2_process_fields(req, &passdb_result, &error);
+	}
+	db_oauth2_callback(req, passdb_result, error);
+}
+
+static void
 db_oauth2_lookup_passwd_grant(struct oauth2_request_result *result,
 			      struct db_oauth2_request *req)
 {
@@ -675,36 +705,6 @@ db_oauth2_lookup_passwd_grant(struct oauth2_request_result *result,
 				error = "Internal error";
 				db_oauth2_callback(req, passdb_result, error);
 			}
-			return;
-		}
-		db_oauth2_process_fields(req, &passdb_result, &error);
-	}
-	db_oauth2_callback(req, passdb_result, error);
-}
-
-static void
-db_oauth2_lookup_continue(struct oauth2_request_result *result,
-			  struct db_oauth2_request *req)
-{
-	enum passdb_result passdb_result;
-	const char *error;
-
-	req->req = NULL;
-
-	if (!result->success) {
-		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
-		error = result->error;
-	} else if (!result->valid) {
-		passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
-		error = "Invalid token";
-	} else {
-		db_oauth2_fields_merge(req, result->fields);
-		if (*req->db->set.introspection_url != '\0' &&
-		    (req->db->set.force_introspection ||
-		     !db_oauth2_have_all_fields(req))) {
-			e_debug(authdb_event(req->auth_request),
-				"oauth2: Introspection needed after token validation");
-			db_oauth2_lookup_introspect(req);
 			return;
 		}
 		db_oauth2_process_fields(req, &passdb_result, &error);
