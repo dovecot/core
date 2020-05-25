@@ -774,7 +774,7 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 			return;
 		}
 		e_debug(authdb_event(req->auth_request),
-                        "Token not a JWT token, falling back to online validation");
+			"Token not a JWT token, falling back to online validation");
 
 	}
 	if (db->oauth2_set.use_grant_password) {
