@@ -687,6 +687,31 @@ static void db_oauth2_local_validation(struct db_oauth2_request *req,
 }
 
 static void
+db_oauth2_lookup_continue_valid(struct db_oauth2_request *req,
+				ARRAY_TYPE(oauth2_field) *fields)
+{
+	enum passdb_result passdb_result;
+	const char *error;
+
+	db_oauth2_fields_merge(req, fields);
+	if (db_oauth2_have_all_fields(req) &&
+	    !req->db->set.force_introspection) {
+		/* pass */
+	} else if (req->db->oauth2_set.introspection_mode == INTROSPECTION_MODE_LOCAL) {
+		db_oauth2_local_validation(req, req->token);
+		return;
+	} else if (!db_oauth2_user_is_enabled(req, &passdb_result, &error)) {
+		db_oauth2_callback(req, passdb_result, error);
+		return;
+	} else if (*req->db->set.introspection_url != '\0') {
+		db_oauth2_lookup_introspect(req);
+		return;
+	}
+	db_oauth2_process_fields(req, &passdb_result, &error);
+	db_oauth2_callback(req, passdb_result, error);
+}
+
+static void
 db_oauth2_lookup_continue(struct oauth2_request_result *result,
 			  struct db_oauth2_request *req)
 {
@@ -703,20 +728,8 @@ db_oauth2_lookup_continue(struct oauth2_request_result *result,
 		passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
 		error = "Invalid token";
 	} else {
-		db_oauth2_fields_merge(req, result->fields);
-		if (db_oauth2_have_all_fields(req) &&
-		    !req->db->set.force_introspection) {
-			/* pass */
-		} else if (req->db->oauth2_set.introspection_mode == INTROSPECTION_MODE_LOCAL) {
-			db_oauth2_local_validation(req, req->token);
-			return;
-		} else if (!db_oauth2_user_is_enabled(req, &passdb_result, &error)) {
-			db_oauth2_callback(req, passdb_result, error);
-		} else if (*req->db->set.introspection_url != '\0') {
-			db_oauth2_lookup_introspect(req);
-			return;
-		}
-		db_oauth2_process_fields(req, &passdb_result, &error);
+		db_oauth2_lookup_continue_valid(req, result->fields);
+		return;
 	}
 	db_oauth2_callback(req, passdb_result, error);
 }
