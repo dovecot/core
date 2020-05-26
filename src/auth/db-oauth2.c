@@ -681,6 +681,7 @@ db_oauth2_lookup_continue(struct oauth2_request_result *result,
 	enum passdb_result passdb_result;
 	const char *error;
 
+	i_assert(req->token != NULL);
 	req->req = NULL;
 
 	if (result->error != NULL) {
@@ -691,12 +692,8 @@ db_oauth2_lookup_continue(struct oauth2_request_result *result,
 		error = "Invalid token";
 	} else {
 		db_oauth2_fields_merge(req, result->fields);
-		if (req->token == NULL) {
-			db_oauth2_callback(req, PASSDB_RESULT_INTERNAL_FAILURE,
-					   "OAuth2 token missing from reply");
-			return;
-		} else if (db_oauth2_have_all_fields(req) &&
-			   !req->db->set.force_introspection) {
+		if (db_oauth2_have_all_fields(req) &&
+		    !req->db->set.force_introspection) {
 			/* pass */
 		} else if (req->db->oauth2_set.introspection_mode == INTROSPECTION_MODE_LOCAL) {
 			db_oauth2_local_validation(req, req->token);
@@ -747,7 +744,12 @@ db_oauth2_lookup_passwd_grant(struct oauth2_request_result *result,
 		array_foreach(result->fields, f)
 			if (strcmp(f->name, "access_token") == 0)
 				req->token = p_strdup(req->pool, f->value);
-		db_oauth2_lookup_continue(result, req);
+		if (req->token == NULL) {
+			db_oauth2_callback(req, PASSDB_RESULT_INTERNAL_FAILURE,
+					   "OAuth2 token missing from reply");
+		} else {
+			db_oauth2_lookup_continue(result, req);
+		}
 	}
 }
 
