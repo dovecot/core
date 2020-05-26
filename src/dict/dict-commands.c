@@ -35,13 +35,15 @@ struct dict_connection_cmd {
 	unsigned int async_reply_id;
 	unsigned int trans_id; /* obsolete */
 	unsigned int rows;
+
+	bool uncork_pending;
 };
 
 struct dict_command_stats cmd_stats;
 
 static int cmd_iterate_flush(struct dict_connection_cmd *cmd);
 
-static void dict_connection_cmd_output_more(struct dict_connection_cmd *cmd);
+static bool dict_connection_cmd_output_more(struct dict_connection_cmd *cmd);
 
 static void dict_connection_cmd_free(struct dict_connection_cmd *cmd)
 {
@@ -52,6 +54,8 @@ static void dict_connection_cmd_free(struct dict_connection_cmd *cmd)
 			e_error(cmd->event, "dict_iterate() failed: %s", error);
 	}
 	i_free(cmd->reply);
+	if (cmd->uncork_pending)
+		o_stream_uncork(cmd->conn->conn.output);
 
 	if (dict_connection_unref(cmd->conn) && !cmd->conn->destroyed)
 		connection_input_resume(&cmd->conn->conn);
@@ -309,8 +313,20 @@ static void cmd_iterate_callback(void *context)
 
 	dict_connection_ref(conn);
 	o_stream_cork(conn->conn.output);
-	dict_connection_cmd_output_more(cmd);
-	o_stream_uncork(conn->conn.output);
+	/* Uncork only if all the output has been finished. Some dict drivers
+	   (e.g. dict-client) don't do any kind of buffering internally, so
+	   this callback can write out only a single iteration. By leaving the
+	   ostream corked it doesn't result in many tiny writes. */
+	cmd->uncork_pending = FALSE;
+	if (dict_connection_cmd_output_more(cmd)) {
+		/* NOTE: cmd may be freed now */
+		o_stream_uncork(conn->conn.output);
+	} else {
+		/* It's possible that the command gets finished via some other
+		   code path. To make sure this doesn't cause hangs, uncork the
+		   output when command gets freed. */
+		cmd->uncork_pending = TRUE;
+	}
 	dict_connection_unref_safe(conn);
 }
 
@@ -337,7 +353,7 @@ static int cmd_iterate(struct dict_connection_cmd *cmd, const char *line)
 	if (max_rows > 0)
 		dict_iterate_set_limit(cmd->iter, max_rows);
 	dict_iterate_set_async_callback(cmd->iter, cmd_iterate_callback, cmd);
-	dict_connection_cmd_output_more(cmd);
+	(void)dict_connection_cmd_output_more(cmd);
 	return 1;
 }
 
@@ -692,16 +708,16 @@ void dict_connection_cmds_output_more(struct dict_connection *conn)
 	}
 }
 
-static void dict_connection_cmd_output_more(struct dict_connection_cmd *cmd)
+static bool dict_connection_cmd_output_more(struct dict_connection_cmd *cmd)
 {
 	struct dict_connection_cmd *const *first_cmdp;
 
 	if (cmd->conn->conn.minor_version < DICT_CLIENT_PROTOCOL_TIMINGS_MIN_VERSION) {
 		first_cmdp = array_front(&cmd->conn->cmds);
 		if (*first_cmdp != cmd)
-			return;
+			return TRUE;
 	}
-	(void)dict_connection_cmds_try_output_more(cmd->conn);
+	return dict_connection_cmds_try_output_more(cmd->conn);
 }
 
 void dict_commands_init(void)
