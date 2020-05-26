@@ -4,7 +4,7 @@
 #include "array.h"
 #include "llist.h"
 #include "buffer.h"
-#include "hash2.h"
+#include "hash.h"
 #include "dcrypt.h"
 #include "oauth2.h"
 #include "oauth2-private.h"
@@ -16,9 +16,11 @@ struct oauth2_key_cache_entry {
 	struct oauth2_key_cache_entry *prev, *next;
 };
 
+HASH_TABLE_DEFINE_TYPE(oauth2_key_cache, const char*, struct oauth2_key_cache_entry*);
+
 struct oauth2_validation_key_cache {
 	pool_t pool;
-	struct hash2_table *keys;
+	HASH_TABLE_TYPE(oauth2_key_cache) keys;
 	struct oauth2_key_cache_entry *list_start;
 };
 
@@ -28,8 +30,7 @@ struct oauth2_validation_key_cache *oauth2_validation_key_cache_init(void)
 	struct oauth2_validation_key_cache *cache =
 		p_new(pool, struct oauth2_validation_key_cache, 1);
 	cache->pool = pool;
-	cache->keys = hash2_create(8, sizeof(struct oauth2_key_cache_entry),
-				   hash2_str_hash, hash2_strcmp, NULL);
+	hash_table_create(&cache->keys, pool, 8, str_hash, strcmp);
 	return cache;
 }
 
@@ -47,7 +48,7 @@ void oauth2_validation_key_cache_deinit(struct oauth2_validation_key_cache **_ca
 			dcrypt_key_unref_public(&entry->pubkey);
 		entry = entry->next;
 	}
-	hash2_destroy(&cache->keys);
+	hash_table_destroy(&cache->keys);
 	pool_unref(&cache->pool);
 }
 
@@ -57,7 +58,7 @@ int oauth2_validation_key_cache_lookup_pubkey(struct oauth2_validation_key_cache
 {
 	if (cache == NULL)
 		return -1;
-	struct oauth2_key_cache_entry *entry = hash2_lookup(cache->keys, key_id);
+	struct oauth2_key_cache_entry *entry = hash_table_lookup(cache->keys, key_id);
 	if (entry == NULL || entry->pubkey == NULL)
 		return -1;
 
@@ -71,7 +72,7 @@ int oauth2_validation_key_cache_lookup_hmac_key(struct oauth2_validation_key_cac
 {
 	if (cache == NULL)
 		return -1;
-	struct oauth2_key_cache_entry *entry = hash2_lookup(cache->keys, key_id);
+	struct oauth2_key_cache_entry *entry = hash_table_lookup(cache->keys, key_id);
 	if (entry == NULL || entry->hmac_key == NULL ||
 	    entry->hmac_key->used == 0)
 		return -1;
@@ -86,7 +87,7 @@ void oauth2_validation_key_cache_insert_pubkey(struct oauth2_validation_key_cach
 {
 	if (cache == NULL)
 		return;
-	struct oauth2_key_cache_entry *entry = hash2_lookup(cache->keys, key_id);
+	struct oauth2_key_cache_entry *entry = hash_table_lookup(cache->keys, key_id);
 	if (entry != NULL) {
 		dcrypt_key_unref_public(&entry->pubkey);
 		entry->pubkey = pubkey;
@@ -94,10 +95,11 @@ void oauth2_validation_key_cache_insert_pubkey(struct oauth2_validation_key_cach
 			buffer_set_used_size(entry->hmac_key, 0);
 		return;
 	}
-	entry = hash2_insert(cache->keys, key_id);
+	entry = p_new(cache->pool, struct oauth2_key_cache_entry, 1);
 	entry->key_id = p_strdup(cache->pool, key_id);
 	entry->pubkey = pubkey;
 	DLLIST_PREPEND(&cache->list_start, entry);
+	hash_table_insert(cache->keys, entry->key_id, entry);
 }
 
 void oauth2_validation_key_cache_insert_hmac_key(struct oauth2_validation_key_cache *cache,
@@ -106,7 +108,7 @@ void oauth2_validation_key_cache_insert_hmac_key(struct oauth2_validation_key_ca
 {
 	if (cache == NULL)
 		return;
-	struct oauth2_key_cache_entry *entry = hash2_lookup(cache->keys, key_id);
+	struct oauth2_key_cache_entry *entry = hash_table_lookup(cache->keys, key_id);
 	if (entry != NULL) {
 		dcrypt_key_unref_public(&entry->pubkey);
 		if (entry->hmac_key == NULL)
@@ -116,11 +118,12 @@ void oauth2_validation_key_cache_insert_hmac_key(struct oauth2_validation_key_ca
 		buffer_append(entry->hmac_key, hmac_key->data, hmac_key->used);
 		return;
 	}
-	entry = hash2_insert(cache->keys, key_id);
+	entry = p_new(cache->pool, struct oauth2_key_cache_entry, 1);
 	entry->key_id = p_strdup(cache->pool, key_id);
 	entry->hmac_key = buffer_create_dynamic(cache->pool, hmac_key->used);
 	buffer_append(entry->hmac_key, hmac_key->data, hmac_key->used);
 	DLLIST_PREPEND(&cache->list_start, entry);
+	hash_table_insert(cache->keys, entry->key_id, entry);
 }
 
 int oauth2_validation_key_cache_evict(struct oauth2_validation_key_cache *cache,
@@ -128,12 +131,12 @@ int oauth2_validation_key_cache_evict(struct oauth2_validation_key_cache *cache,
 {
 	if (cache == NULL)
 		return -1;
-	struct oauth2_key_cache_entry *entry = hash2_lookup(cache->keys, key_id);
+	struct oauth2_key_cache_entry *entry = hash_table_lookup(cache->keys, key_id);
 	if (entry == NULL)
 		return -1;
 	if (entry->pubkey != NULL)
 		dcrypt_key_unref_public(&entry->pubkey);
 	DLLIST_REMOVE(&cache->list_start, entry);
-	hash2_remove(cache->keys, key_id);
+	hash_table_remove(cache->keys, key_id);
 	return 0;
 }
