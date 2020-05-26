@@ -50,16 +50,15 @@ oauth2_request_field_parse(const struct oauth2_field *field,
 }
 
 static void
-oauth2_request_continue(struct oauth2_request *req, bool success,
-			const char *error)
+oauth2_request_continue(struct oauth2_request *req, const char *error)
 {
 	struct oauth2_request_result res;
 	i_zero(&res);
 
 	unsigned int status_hi = req->response_status/100;
 
-	res.success = success && (status_hi == 2 || status_hi == 4);
-	res.valid = success && (status_hi == 2);
+	res.success = error == NULL && (status_hi == 2 || status_hi == 4);
+	res.valid = error == NULL && (status_hi == 2);
 	res.error = error;
 
 	if (res.success) {

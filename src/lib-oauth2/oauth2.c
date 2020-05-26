@@ -37,7 +37,6 @@ int oauth2_json_tree_build(const buffer_t *json, struct json_tree **tree_r,
 void
 oauth2_parse_json(struct oauth2_request *req)
 {
-	bool success;
 	enum json_type type;
 	const char *token, *error;
 	int ret;
@@ -71,21 +70,20 @@ oauth2_parse_json(struct oauth2_request *req)
 	if (ret > 0) {
 		(void)json_parser_deinit(&req->parser, &error);
 		error = "Invalid response data";
-		success = FALSE;
 	} else if (i_stream_read_eof(req->is) &&
 		   req->is->v_offset == 0 && req->is->stream_errno == 0) {
 		/* discard error, empty response is OK. */
 		(void)json_parser_deinit(&req->parser, &error);
 		error = NULL;
-		success = TRUE;
+	} else if (json_parser_deinit(&req->parser, &error) == 0) {
+		error = NULL;
 	} else {
-		ret = json_parser_deinit(&req->parser, &error);
-		success = (ret == 0);
+		i_assert(error != NULL);
 	}
 
 	i_stream_unref(&req->is);
 
-	req->json_parsed_cb(req, success, error);
+	req->json_parsed_cb(req, error);
 }
 
 void

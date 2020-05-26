@@ -20,8 +20,7 @@ struct oauth2_request {
 	const char *username;
 	const char *key_file_template;
 
-	void (*json_parsed_cb)(struct oauth2_request*, bool success,
-			       const char *error);
+	void (*json_parsed_cb)(struct oauth2_request *, const char *error);
 
 	ARRAY_TYPE(oauth2_field) fields;
 	char *field_name;

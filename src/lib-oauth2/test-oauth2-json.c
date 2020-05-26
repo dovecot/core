@@ -9,9 +9,9 @@
 
 static void
 test_oauth_json_valid_parsed(struct oauth2_request *req ATTR_UNUSED,
-			    bool success, const char *error ATTR_UNUSED)
+			     const char *error)
 {
-	test_assert(success);
+	test_assert(error == NULL);
 }
 
 static void test_oauth2_json_valid(void)
