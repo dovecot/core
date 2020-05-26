@@ -484,6 +484,18 @@ static void db_oauth2_fields_merge(struct db_oauth2_request *req,
 	}
 }
 
+static const char *
+db_oauth2_field_find(const ARRAY_TYPE(oauth2_field) *fields, const char *name)
+{
+	const struct oauth2_field *f;
+
+	array_foreach(fields, f) {
+		if (strcmp(f->name, name) == 0)
+			return f->value;
+	}
+	return NULL;
+}
+
 static void db_oauth2_callback(struct db_oauth2_request *req,
 			       enum passdb_result result,
 			       const char *error)
@@ -714,20 +726,18 @@ db_oauth2_lookup_passwd_grant(struct oauth2_request_result *result,
 			      struct db_oauth2_request *req)
 {
 	enum passdb_result passdb_result;
-	const char *error;
-	const struct oauth2_field *f;
+	const char *token, *error;
 
 	i_assert(req->token == NULL);
 	req->req = NULL;
 
 	if (result->valid) {
-		array_foreach(result->fields, f)
-			if (strcmp(f->name, "access_token") == 0)
-				req->token = p_strdup(req->pool, f->value);
-		if (req->token == NULL) {
+		token = db_oauth2_field_find(result->fields, "access_token");
+		if (token == NULL) {
 			db_oauth2_callback(req, PASSDB_RESULT_INTERNAL_FAILURE,
 					   "OAuth2 token missing from reply");
 		} else {
+			req->token = p_strdup(req->pool, token);
 			db_oauth2_lookup_continue(result, req);
 		}
 		return;
@@ -738,13 +748,7 @@ db_oauth2_lookup_passwd_grant(struct oauth2_request_result *result,
 		error = result->error;
 	else {
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
-		error = NULL;
-		array_foreach(result->fields, f) {
-			if (strcmp(f->name, "error") == 0) {
-				error = f->value;
-				break;
-			}
-		}
+		error = db_oauth2_field_find(result->fields, "error");
 		if (error != NULL &&
 		    strcmp("invalid_grant", error) == 0) {
 			passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
