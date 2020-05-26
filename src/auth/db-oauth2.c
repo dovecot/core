@@ -261,12 +261,17 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 		db->oauth2_set.introspection_mode = INTROSPECTION_MODE_GET;
 	} else if (strcmp(db->set.introspection_mode, "post") == 0) {
 		db->oauth2_set.introspection_mode = INTROSPECTION_MODE_POST;
+	} else if (strcmp(db->set.introspection_mode, "local") == 0) {
+		if (*db->set.local_validation_key_dict == '\0')
+			i_fatal("oauth2: local_validation_key_dict is required "
+				"for local introspection.");
+		db->oauth2_set.introspection_mode = INTROSPECTION_MODE_LOCAL;
 	} else {
-		i_fatal("Invalid value '%s' for introspection mode, must be on auth, get or post",
+		i_fatal("oauth2: Invalid value '%s' for introspection mode, must be on auth, get, post or local",
 			db->set.introspection_mode);
 	}
 
-	if (*db->set.local_validation_key_dict != '\0') {
+	if (db->oauth2_set.introspection_mode == INTROSPECTION_MODE_LOCAL) {
 		struct dict_settings dict_set = {
 			.username = "",
 			.base_dir = global_auth_settings->base_dir,
@@ -674,6 +679,9 @@ db_oauth2_lookup_continue(struct oauth2_request_result *result,
 		} else if (db_oauth2_have_all_fields(req) &&
 			   !req->db->set.force_introspection) {
 			/* pass */
+		} else if (req->db->oauth2_set.introspection_mode == INTROSPECTION_MODE_LOCAL) {
+			db_oauth2_local_validation(req, req->token);
+			return;
 		} else if (*req->db->set.introspection_url != '\0') {
 			db_oauth2_lookup_introspect(req);
 			return;
@@ -747,7 +755,8 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 	input.real_remote_port = req->auth_request->real_remote_port;
 	input.service = req->auth_request->service;
 
-	if (db->oauth2_set.key_dict != NULL) {
+	if (db->oauth2_set.introspection_mode == INTROSPECTION_MODE_LOCAL &&
+	    !db_oauth2_uses_password_grant(db)) {
 		/* try to validate token locally */
 		e_debug(authdb_event(req->auth_request),
 			"oauth2: Attempting to locally validate token");
