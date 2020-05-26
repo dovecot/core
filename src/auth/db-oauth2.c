@@ -719,26 +719,7 @@ db_oauth2_lookup_passwd_grant(struct oauth2_request_result *result,
 
 	req->req = NULL;
 
-	if (!result->valid) {
-		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
-		if (result->error == NULL) {
-			error = NULL;
-			array_foreach(result->fields, f) {
-				if (strcmp(f->name, "error") == 0) {
-					error = f->value;
-					break;
-				}
-			}
-			if (error != NULL &&
-			    strcmp("invalid_grant", error) == 0) {
-				passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
-			}
-			if (error == NULL)
-				error = "Internal error";
-		} else
-			error = result->error;
-		db_oauth2_callback(req, passdb_result, error);
-	} else {
+	if (result->valid) {
 		/* make sure token is NULL if no access_token is found */
 		req->token = NULL;
 		array_foreach(result->fields, f)
@@ -750,7 +731,29 @@ db_oauth2_lookup_passwd_grant(struct oauth2_request_result *result,
 		} else {
 			db_oauth2_lookup_continue(result, req);
 		}
+		return;
 	}
+
+	passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
+	if (result->error != NULL)
+		error = result->error;
+	else {
+		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
+		error = NULL;
+		array_foreach(result->fields, f) {
+			if (strcmp(f->name, "error") == 0) {
+				error = f->value;
+				break;
+			}
+		}
+		if (error != NULL &&
+		    strcmp("invalid_grant", error) == 0) {
+			passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
+		}
+		if (error == NULL)
+			error = "Internal error";
+	}
+	db_oauth2_callback(req, passdb_result, error);
 }
 
 #undef db_oauth2_lookup
