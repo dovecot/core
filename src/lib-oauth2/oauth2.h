@@ -56,13 +56,11 @@ struct oauth2_settings {
 struct oauth2_request_result {
 	/* Oauth2 server response fields */
 	ARRAY_TYPE(oauth2_field) *fields;
-	/* Error message */
+	/* Non-NULL if there was an unexpected internal error. */
 	const char *error;
-	/* Request handled successfully */
-	bool success:1;
 	/* timestamp token expires at */
 	time_t expires_at;
-	/* User authenticated successfully */
+	/* User authenticated successfully. Implies that error==NULL. */
 	bool valid:1;
 };
 

@@ -14,7 +14,6 @@ static void
 oauth2_request_callback(struct oauth2_request *req,
 			struct oauth2_request_result *res)
 {
-	i_assert(res->success == (res->error == NULL));
 	i_assert(req->req_callback != NULL);
 	oauth2_request_callback_t *callback = req->req_callback;
 	req->req_callback = NULL;
@@ -29,7 +28,6 @@ oauth2_request_field_parse(const struct oauth2_field *field,
 	if (strcasecmp(field->name, "expires_in") == 0) {
 		uint32_t expires_in = 0;
 		if (str_to_uint32(field->value, &expires_in) < 0) {
-			res->success = FALSE;
 			res->error = t_strdup_printf(
 				"Malformed number '%s' in expires_in",
 				field->value);
@@ -39,7 +37,6 @@ oauth2_request_field_parse(const struct oauth2_field *field,
 		}
 	} else if (strcasecmp(field->name, "token_type") == 0) {
 		if (strcasecmp(field->value, "bearer") != 0) {
-			res->success = FALSE;
 			res->error = t_strdup_printf(
 				"Expected Bearer token, got '%s'",
 				field->value);
@@ -57,19 +54,19 @@ oauth2_request_continue(struct oauth2_request *req, const char *error)
 
 	unsigned int status_hi = req->response_status/100;
 
-	res.success = error == NULL && (status_hi == 2 || status_hi == 4);
-	res.valid = error == NULL && (status_hi == 2);
-	res.error = error;
-
-	if (res.success) {
+	if (error != NULL)
+		res.error = error;
+	else if (status_hi != 2 && status_hi != 4)
+		res.error = "Internal Server Error";
+	else {
 		const struct oauth2_field *field;
 		/* see if we can figure out when it expires */
 		array_foreach(&req->fields, field) {
 			if (!oauth2_request_field_parse(field, &res))
 				break;
 		}
-	} else if (res.error == NULL)
-		res.error = "Internal Server Error";
+		res.valid = (status_hi == 2) && res.error == NULL;
+	}
 
 	res.fields = &req->fields;
 

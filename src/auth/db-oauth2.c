@@ -617,9 +617,9 @@ db_oauth2_introspect_continue(struct oauth2_request_result *result,
 
 	e_debug(authdb_event(req->auth_request),
 		"Introspection result: %s",
-		result->success ? "success" : "failed");
+		result->error == NULL ? "success" : "failed");
 
-	if (!result->success) {
+	if (result->error != NULL) {
 		/* fail here */
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 		error = result->error;
@@ -680,7 +680,7 @@ db_oauth2_lookup_continue(struct oauth2_request_result *result,
 
 	req->req = NULL;
 
-	if (!result->success) {
+	if (result->error != NULL) {
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 		error = result->error;
 	} else if (!result->valid) {
@@ -721,7 +721,7 @@ db_oauth2_lookup_passwd_grant(struct oauth2_request_result *result,
 
 	if (!result->valid) {
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
-		if (result->success) {
+		if (result->error == NULL) {
 			error = NULL;
 			array_foreach(result->fields, f) {
 				if (strcmp(f->name, "error") == 0) {
