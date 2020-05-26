@@ -711,26 +711,15 @@ db_oauth2_lookup_passwd_grant(struct oauth2_request_result *result,
 				error = "Internal error";
 		} else
 			error = result->error;
+		db_oauth2_callback(req, passdb_result, error);
 	} else {
-		db_oauth2_fields_merge(req, result->fields);
-		if (*req->db->set.introspection_url != '\0' &&
-		    (req->db->set.force_introspection ||
-		     !db_oauth2_have_all_fields(req))) {
-			auth_request_log_debug(req->auth_request, AUTH_SUBSYS_DB,
-					       "oauth2: Introspection needed after token validation");
-			req->token = auth_fields_find(req->fields, "access_token");
-			if (req->token != NULL)
-				db_oauth2_lookup_introspect(req);
-			else {
-				passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
-				error = "Internal error";
-				db_oauth2_callback(req, passdb_result, error);
-			}
-			return;
-		}
-		db_oauth2_process_fields(req, &passdb_result, &error);
+		/* make sure token is NULL if no access_token is found */
+		req->token = NULL;
+		array_foreach(result->fields, f)
+			if (strcmp(f->name, "access_token") == 0)
+				req->token = p_strdup(req->pool, f->value);
+		db_oauth2_lookup_continue(result, req);
 	}
-	db_oauth2_callback(req, passdb_result, error);
 }
 
 #undef db_oauth2_lookup
