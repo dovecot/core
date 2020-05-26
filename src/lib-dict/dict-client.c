@@ -63,14 +63,14 @@ struct client_dict_cmd {
 	} api_callback;
 };
 
-struct dict_connection {
+struct dict_client_connection {
 	struct connection conn;
 	struct client_dict *dict;
 };
 
 struct client_dict {
 	struct dict dict;
-	struct dict_connection conn;
+	struct dict_client_connection conn;
 
 	char *uri, *username;
 	enum dict_data_type value_type;
@@ -444,7 +444,8 @@ static void client_dict_cmd_backgrounded(struct client_dict *dict)
 }
 
 static int
-dict_conn_assign_next_async_id(struct dict_connection *conn, const char *line)
+dict_conn_assign_next_async_id(struct dict_client_connection *conn,
+			       const char *line)
 {
 	struct client_dict_cmd *const *cmds;
 	unsigned int i, count, async_id;
@@ -470,7 +471,7 @@ dict_conn_assign_next_async_id(struct dict_connection *conn, const char *line)
 	return -1;
 }
 
-static int dict_conn_find_async_id(struct dict_connection *conn,
+static int dict_conn_find_async_id(struct dict_client_connection *conn,
 				   const char *async_arg,
 				   const char *line, unsigned int *idx_r)
 {
@@ -499,7 +500,8 @@ static int dict_conn_find_async_id(struct dict_connection *conn,
 
 static int dict_conn_input_line(struct connection *_conn, const char *line)
 {
-	struct dict_connection *conn = (struct dict_connection *)_conn;
+	struct dict_client_connection *conn =
+		(struct dict_client_connection *)_conn;
 	struct client_dict *dict = conn->dict;
 	struct client_dict_cmd *const *cmds;
 	const char *const *args;
@@ -674,7 +676,8 @@ static int client_dict_reconnect(struct client_dict *dict, const char *reason,
 
 static void dict_conn_destroy(struct connection *_conn)
 {
-	struct dict_connection *conn = (struct dict_connection *)_conn;
+	struct dict_client_connection *conn =
+		(struct dict_client_connection *)_conn;
 
 	client_dict_disconnect(conn->dict, connection_disconnect_reason(_conn));
 }
