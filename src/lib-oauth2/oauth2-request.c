@@ -77,17 +77,15 @@ static void
 oauth2_request_response(const struct http_response *response,
 			struct oauth2_request *req)
 {
-	if (response->payload == NULL) {
-		struct oauth2_request_result res;
-		i_zero(&res);
-		res.error = http_response_get_message(response);
-		oauth2_request_callback(req, &res);
-		return;
+	if (response->payload != NULL) {
+		req->is = response->payload;
+		i_stream_ref(req->is);
+	} else {
+		req->is = i_stream_create_from_data("", 0);
 	}
+
 	req->response_status = response->status;
 	p_array_init(&req->fields, req->pool, 1);
-	req->is = response->payload;
-	i_stream_ref(req->is);
 	req->parser = json_parser_init(req->is);
 	req->json_parsed_cb = oauth2_request_continue;
 	req->io = io_add_istream(req->is, oauth2_parse_json, req);
