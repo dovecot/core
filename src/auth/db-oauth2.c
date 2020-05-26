@@ -632,24 +632,22 @@ static void db_oauth2_lookup_introspect(struct db_oauth2_request *req)
 					      db_oauth2_introspect_continue, req);
 }
 
-static int db_oauth2_local_validation(struct db_oauth2_request *req)
+static void db_oauth2_local_validation(struct db_oauth2_request *req,
+				       const char *token)
 {
-	bool is_jwt;
+	bool is_jwt ATTR_UNUSED;
 	const char *error = NULL;
 	enum passdb_result passdb_result;
 	ARRAY_TYPE(oauth2_field) fields;
 	t_array_init(&fields, 8);
-	if (oauth2_try_parse_jwt(&req->db->oauth2_set, req->auth_request->mech_password,
+	if (oauth2_try_parse_jwt(&req->db->oauth2_set, token,
 				 &fields, &is_jwt, &error) < 0) {
-		if (!is_jwt)
-			return -1;
 		passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
 	} else {
 		db_oauth2_fields_merge(req, &fields);
 		db_oauth2_process_fields(req, &passdb_result, &error);
 	}
 	db_oauth2_callback(req, passdb_result, error);
-	return 0;
 }
 
 static void
@@ -761,10 +759,7 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 		/* try to validate token locally */
 		e_debug(authdb_event(req->auth_request),
 			"oauth2: Attempting to locally validate token");
-		/* will send result if ret = 0 */
-		if (db_oauth2_local_validation(req) < 0)
-			db_oauth2_callback(req, PASSDB_RESULT_PASSWORD_MISMATCH,
-					   "oauth2: Not a JWT token");
+		db_oauth2_local_validation(req, request->mech_password);
 		return;
 
 	}
