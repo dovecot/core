@@ -433,7 +433,7 @@ db_oauth2_template_export(struct db_oauth2_request *req,
 		{ NULL, NULL }
 	};
 	string_t *dest;
-	const char *const *args, *value;
+	const char *const *args, *value, *error;
 	struct passdb_template *tmpl = req->db->tmpl;
 	unsigned int i, count;
 
@@ -452,7 +452,10 @@ db_oauth2_template_export(struct db_oauth2_request *req,
 				table = db_oauth2_value_get_var_expand_table(req->auth_request,
 									     auth_fields_find(req->fields, args[i]));
 			if (var_expand_with_funcs(dest, args[i+1], table, funcs_table,
-						  req, error_r) < 0) {
+						  req, &error) < 0) {
+				*error_r = t_strdup_printf(
+					"var_expand(%s) failed: %s",
+					args[i+1], error);
 				*result_r = PASSDB_RESULT_INTERNAL_FAILURE;
 				return FALSE;
 			}
