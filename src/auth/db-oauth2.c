@@ -749,12 +749,10 @@ db_oauth2_lookup_passwd_grant(struct oauth2_request_result *result,
 	else {
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 		error = db_oauth2_field_find(result->fields, "error");
-		if (error != NULL &&
-		    strcmp("invalid_grant", error) == 0) {
-			passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
-		}
 		if (error == NULL)
 			error = "OAuth2 server returned failure without error field";
+		else if (strcmp("invalid_grant", error) == 0)
+			passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
 	}
 	db_oauth2_callback(req, passdb_result, error);
 }
