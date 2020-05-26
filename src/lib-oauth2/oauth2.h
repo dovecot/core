@@ -40,7 +40,8 @@ struct oauth2_settings {
 	enum {
 		INTROSPECTION_MODE_GET_AUTH,
 		INTROSPECTION_MODE_GET,
-		INTROSPECTION_MODE_POST
+		INTROSPECTION_MODE_POST,
+		INTROSPECTION_MODE_LOCAL,
 	} introspection_mode;
 	unsigned int timeout_msecs;
 	/* Should X-Dovecot-Auth-* headers be sent */
