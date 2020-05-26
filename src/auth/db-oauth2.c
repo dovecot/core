@@ -717,11 +717,10 @@ db_oauth2_lookup_passwd_grant(struct oauth2_request_result *result,
 	const char *error;
 	const struct oauth2_field *f;
 
+	i_assert(req->token == NULL);
 	req->req = NULL;
 
 	if (result->valid) {
-		/* make sure token is NULL if no access_token is found */
-		req->token = NULL;
 		array_foreach(result->fields, f)
 			if (strcmp(f->name, "access_token") == 0)
 				req->token = p_strdup(req->pool, f->value);
@@ -794,6 +793,8 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 		e_debug(authdb_event(req->auth_request),
 			"Making grant url request to %s",
 			db->set.grant_url);
+		/* There is no valid token until grant looks it up. */
+		req->token = NULL;
 		req->req = oauth2_passwd_grant_start(&db->oauth2_set, &input,
 						     request->fields.user, request->mech_password,
 						     db_oauth2_lookup_passwd_grant, req);
