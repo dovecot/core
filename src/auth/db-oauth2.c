@@ -667,11 +667,14 @@ db_oauth2_lookup_continue(struct oauth2_request_result *result,
 		error = "Invalid token";
 	} else {
 		db_oauth2_fields_merge(req, result->fields);
-		if (*req->db->set.introspection_url != '\0' &&
-		    (req->db->set.force_introspection ||
-		     !db_oauth2_have_all_fields(req))) {
-			e_debug(authdb_event(req->auth_request),
-				"oauth2: Introspection needed after token validation");
+		if (req->token == NULL) {
+			db_oauth2_callback(req, PASSDB_RESULT_INTERNAL_FAILURE,
+					   "OAuth2 token missing from reply");
+			return;
+		} else if (db_oauth2_have_all_fields(req) &&
+			   !req->db->set.force_introspection) {
+			/* pass */
+		} else if (*req->db->set.introspection_url != '\0') {
 			db_oauth2_lookup_introspect(req);
 			return;
 		}
