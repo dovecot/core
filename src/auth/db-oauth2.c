@@ -715,23 +715,18 @@ static void
 db_oauth2_lookup_continue(struct oauth2_request_result *result,
 			  struct db_oauth2_request *req)
 {
-	enum passdb_result passdb_result;
-	const char *error;
-
 	i_assert(req->token != NULL);
 	req->req = NULL;
 
 	if (result->error != NULL) {
-		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
-		error = result->error;
+		db_oauth2_callback(req, PASSDB_RESULT_INTERNAL_FAILURE,
+				   result->error);
 	} else if (!result->valid) {
-		passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
-		error = "Invalid token";
+		db_oauth2_callback(req, PASSDB_RESULT_PASSWORD_MISMATCH,
+				   "Invalid token");
 	} else {
 		db_oauth2_lookup_continue_valid(req, result->fields);
-		return;
 	}
-	db_oauth2_callback(req, passdb_result, error);
 }
 
 static void
