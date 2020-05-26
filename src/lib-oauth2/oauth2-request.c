@@ -53,11 +53,10 @@ oauth2_request_continue(struct oauth2_request *req, const char *error)
 	i_zero(&res);
 
 	unsigned int status_hi = req->response_status/100;
+	i_assert(status_hi == 2 || status_hi == 4);
 
 	if (error != NULL)
 		res.error = error;
-	else if (status_hi != 2 && status_hi != 4)
-		res.error = "Internal Server Error";
 	else {
 		const struct oauth2_field *field;
 		/* see if we can figure out when it expires */
@@ -77,6 +76,18 @@ static void
 oauth2_request_response(const struct http_response *response,
 			struct oauth2_request *req)
 {
+	req->response_status = response->status;
+	unsigned int status_hi = req->response_status/100;
+
+	if (status_hi != 2 && status_hi != 4) {
+		/* Unexpected internal error */
+		struct oauth2_request_result res = {
+			.error = http_response_get_message(response),
+		};
+		oauth2_request_callback(req, &res);
+		return;
+	}
+
 	if (response->payload != NULL) {
 		req->is = response->payload;
 		i_stream_ref(req->is);
@@ -84,7 +95,6 @@ oauth2_request_response(const struct http_response *response,
 		req->is = i_stream_create_from_data("", 0);
 	}
 
-	req->response_status = response->status;
 	p_array_init(&req->fields, req->pool, 1);
 	req->parser = json_parser_init(req->is);
 	req->json_parsed_cb = oauth2_request_continue;
