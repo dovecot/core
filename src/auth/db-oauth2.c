@@ -764,17 +764,10 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 		e_debug(authdb_event(req->auth_request),
 			"oauth2: Attempting to locally validate token");
 		/* will send result if ret = 0 */
-		if (db_oauth2_local_validation(req) == 0)
-			return;
-		/* fallback to online validation */
-		if (*db->oauth2_set.tokeninfo_url == '\0' &&
-		    *db->oauth2_set.introspection_url == '\0') {
+		if (db_oauth2_local_validation(req) < 0)
 			db_oauth2_callback(req, PASSDB_RESULT_PASSWORD_MISMATCH,
 					   "oauth2: Not a JWT token");
-			return;
-		}
-		e_debug(authdb_event(req->auth_request),
-			"Token not a JWT token, falling back to online validation");
+		return;
 
 	}
 	if (db->oauth2_set.use_grant_password) {
