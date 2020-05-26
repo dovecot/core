@@ -746,7 +746,7 @@ db_oauth2_lookup_passwd_grant(struct oauth2_request_result *result,
 					   "OAuth2 token missing from reply");
 		} else {
 			req->token = p_strdup(req->pool, token);
-			db_oauth2_lookup_continue(result, req);
+			db_oauth2_lookup_continue_valid(req, result->fields);
 		}
 		return;
 	}
