@@ -754,7 +754,7 @@ db_oauth2_lookup_passwd_grant(struct oauth2_request_result *result,
 			passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
 		}
 		if (error == NULL)
-			error = "Internal error";
+			error = "OAuth2 server returned failure without error field";
 	}
 	db_oauth2_callback(req, passdb_result, error);
 }
