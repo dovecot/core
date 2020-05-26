@@ -20,7 +20,7 @@ static int test_writer_server_input_args(struct connection *conn,
 {
 	/* check filter */
 	test_assert_strcmp(args[0], "FILTER");
-	test_assert_strcmp(args[1], "ntest");
+	test_assert_strcmp(args[1], "(event=\"test\")");
 	/* send commands now */
 	string_t *send_buf = t_str_new(128);
 	o_stream_nsend_str(conn->output, "CATEGORY\ttest\n");
@@ -100,7 +100,7 @@ bool test_stats_callback(struct event *event,
 static const char *settings_blob_1 =
 "metric=test\n"
 "metric/test/metric_name=test\n"
-"metric/test/filter=event:test\n"
+"metric/test/filter=event=test\n"
 "\n";
 
 static void test_client_writer(void)

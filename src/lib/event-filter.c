@@ -35,7 +35,6 @@ static const struct log_type_map {
 };
 
 struct event_filter_query_internal {
-	enum event_filter_log_type log_type_mask;
 	struct event_filter_node *expr;
 	void *context;
 };
@@ -104,6 +103,51 @@ void event_filter_unref(struct event_filter **_filter)
 	}
 }
 
+int event_filter_parse(const char *str, struct event_filter *filter,
+		       const char **error_r)
+{
+	struct event_filter_query_internal *int_query;
+	struct event_filter_parser_state state;
+	int ret;
+
+	i_zero(&state);
+	state.input = str;
+	state.len = strlen(str);
+	state.pos = 0;
+	state.pool = filter->pool;
+
+	event_filter_parser_lex_init(&state.scanner);
+	event_filter_parser_set_extra(&state, state.scanner);
+
+	ret = event_filter_parser_parse(&state);
+
+	event_filter_parser_lex_destroy(state.scanner);
+
+	if ((ret == 0) && (state.output != NULL)) {
+		/* success - non-NULL expression */
+		i_assert(state.error == NULL);
+
+		int_query = array_append_space(&filter->queries);
+		int_query->context = NULL;
+		int_query->expr = state.output;
+
+		filter->named_queries_only = filter->named_queries_only && state.has_event_name;
+	} else if (ret != 0) {
+		/* error */
+		i_assert(state.output == NULL);
+		i_assert(state.error != NULL);
+
+		*error_r = state.error;
+	}
+
+	/*
+	 * Note that success with a NULL expression output is possible, but
+	 * turns into a no-op.
+	 */
+
+	return (ret != 0) ? -1 : 0;
+}
+
 bool event_filter_category_to_log_type(const char *name,
 				       enum event_filter_log_type *log_type_r)
 {
@@ -155,7 +199,6 @@ event_filter_add_categories(pool_t pool,
 			    const char *const *categories)
 {
 	unsigned int categories_count = str_array_length(categories);
-	enum event_filter_log_type log_type;
 	unsigned int i;
 
 	if (categories_count == 0)
@@ -164,16 +207,13 @@ event_filter_add_categories(pool_t pool,
 	for (i = 0; i < categories_count; i++) {
 		struct event_filter_node *node;
 
-		if (event_filter_category_to_log_type(categories[i], &log_type)) {
-			int_query->log_type_mask |= log_type;
-			continue;
-		}
-
 		node = p_new(pool, struct event_filter_node, 1);
 		node->type = EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY;
 		node->op = EVENT_FILTER_OP_CMP_EQ;
-		node->category.name = p_strdup(pool, categories[i]);
-		node->category.ptr = event_category_find_registered(categories[i]);
+		if (!event_filter_category_to_log_type(categories[i], &node->category.log_type)) {
+			node->category.name = p_strdup(pool, categories[i]);
+			node->category.ptr = event_category_find_registered(categories[i]);
+		}
 
 		add_node(pool, &int_query->expr, node);
 	}
@@ -246,11 +286,6 @@ void event_filter_add(struct event_filter *filter,
 
 	event_filter_add_categories(filter->pool, int_query, query->categories);
 	event_filter_add_fields(filter->pool, int_query, query->fields);
-
-	if (int_query->log_type_mask == 0) {
-		/* no explicit log types given. default to all. */
-		int_query->log_type_mask = EVENT_FILTER_LOG_TYPE_ALL;
-	}
 }
 
 static struct event_filter_node *
@@ -291,7 +326,6 @@ event_filter_merge_with_context_internal(struct event_filter *dest,
 		struct event_filter_query_internal *new;
 
 		new = array_append_space(&dest->queries);
-		new->log_type_mask = int_query->log_type_mask;
 		new->expr = clone_expr(dest->pool, int_query->expr);
 		new->context = with_context ? new_context : int_query->context;
 	} T_END;
@@ -308,46 +342,6 @@ void event_filter_merge_with_context(struct event_filter *dest,
 				     void *new_context)
 {
 	event_filter_merge_with_context_internal(dest, src, new_context, TRUE);
-}
-
-static void
-event_filter_export_query_expr(const struct event_filter_query_internal *query,
-			       struct event_filter_node *node,
-			       string_t *dest)
-{
-	if (node == NULL)
-		return;
-
-	switch (node->type) {
-	case EVENT_FILTER_NODE_TYPE_LOGIC:
-		/* currently only AND is supported */
-		i_assert(node->op == EVENT_FILTER_OP_AND);
-		event_filter_export_query_expr(query, node->children[0], dest);
-		event_filter_export_query_expr(query, node->children[1], dest);
-		break;
-	case EVENT_FILTER_NODE_TYPE_EVENT_NAME:
-		str_append_c(dest, EVENT_FILTER_CODE_NAME);
-		str_append_tabescaped(dest, node->str);
-		str_append_c(dest, '\t');
-		break;
-	case EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION:
-		str_append_c(dest, EVENT_FILTER_CODE_SOURCE);
-		str_append_tabescaped(dest, node->str);
-		str_printfa(dest, "\t%ju\t", node->intmax);
-		break;
-	case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:
-		str_append_c(dest, EVENT_FILTER_CODE_CATEGORY);
-		str_append_tabescaped(dest, node->category.name);
-		str_append_c(dest, '\t');
-		break;
-	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD:
-		str_append_c(dest, EVENT_FILTER_CODE_FIELD);
-		str_append_tabescaped(dest, node->field.key);
-		str_append_c(dest, '\t');
-		str_append_tabescaped(dest, node->field.value.str);
-		str_append_c(dest, '\t');
-		break;
-	}
 }
 
 static const char *
@@ -374,27 +368,27 @@ event_filter_export_query_expr_op(enum event_filter_node_op op)
 }
 
 static void
-event_filter_export_query_expr_new(const struct event_filter_query_internal *query,
-				   struct event_filter_node *node,
-				   string_t *dest)
+event_filter_export_query_expr(const struct event_filter_query_internal *query,
+			       struct event_filter_node *node,
+			       string_t *dest)
 {
 	switch (node->type) {
 	case EVENT_FILTER_NODE_TYPE_LOGIC:
 		str_append_c(dest, '(');
 		switch (node->op) {
 		case EVENT_FILTER_OP_AND:
-			event_filter_export_query_expr_new(query, node->children[0], dest);
+			event_filter_export_query_expr(query, node->children[0], dest);
 			str_append(dest, " AND ");
-			event_filter_export_query_expr_new(query, node->children[1], dest);
+			event_filter_export_query_expr(query, node->children[1], dest);
 			break;
 		case EVENT_FILTER_OP_OR:
-			event_filter_export_query_expr_new(query, node->children[0], dest);
+			event_filter_export_query_expr(query, node->children[0], dest);
 			str_append(dest, " OR ");
-			event_filter_export_query_expr_new(query, node->children[1], dest);
+			event_filter_export_query_expr(query, node->children[1], dest);
 			break;
 		case EVENT_FILTER_OP_NOT:
 			str_append(dest, "NOT ");
-			event_filter_export_query_expr_new(query, node->children[0], dest);
+			event_filter_export_query_expr(query, node->children[0], dest);
 			break;
 		case EVENT_FILTER_OP_CMP_EQ:
 		case EVENT_FILTER_OP_CMP_GT:
@@ -447,27 +441,8 @@ static void
 event_filter_export_query(const struct event_filter_query_internal *query,
 			  string_t *dest)
 {
-	unsigned int i;
-
-	event_filter_export_query_expr(query, query->expr, dest);
-
-	if (query->log_type_mask != EVENT_FILTER_LOG_TYPE_ALL) {
-		for (i = 0; i < N_ELEMENTS(event_filter_log_type_map); i++) {
-			if ((query->log_type_mask & event_filter_log_type_map[i].log_type) == 0)
-				continue;
-			str_append_c(dest, EVENT_FILTER_CODE_CATEGORY);
-			str_append_tabescaped(dest, event_filter_log_type_map[i].name);
-			str_append_c(dest, '\t');
-		}
-	}
-}
-
-static void
-event_filter_export_query_new(const struct event_filter_query_internal *query,
-			      string_t *dest)
-{
 	str_append_c(dest, '(');
-	event_filter_export_query_expr_new(query, query->expr, dest);
+	event_filter_export_query_expr(query, query->expr, dest);
 	str_append_c(dest, ')');
 }
 
@@ -478,110 +453,10 @@ void event_filter_export(struct event_filter *filter, string_t *dest)
 
 	array_foreach(&filter->queries, query) {
 		if (!first)
-			str_append_c(dest, '\t');
+			str_append(dest, " OR ");
 		first = FALSE;
 		event_filter_export_query(query, dest);
 	}
-}
-
-void event_filter_export_new(struct event_filter *filter, string_t *dest)
-{
-	const struct event_filter_query_internal *query;
-	bool first = TRUE;
-
-	array_foreach(&filter->queries, query) {
-		if (!first)
-			str_append(dest, " OR ");
-		first = FALSE;
-		event_filter_export_query_new(query, dest);
-	}
-}
-
-bool event_filter_import(struct event_filter *filter, const char *str,
-			 const char **error_r)
-{
-	return event_filter_import_unescaped(filter,
-		t_strsplit_tabescaped(str), error_r);
-}
-
-bool event_filter_import_unescaped(struct event_filter *filter,
-				   const char *const *args,
-				   const char **error_r)
-{
-	struct event_filter_query query;
-	ARRAY_TYPE(const_string) categories;
-	ARRAY(struct event_filter_field) fields;
-	bool changed;
-
-	t_array_init(&categories, 8);
-	t_array_init(&fields, 8);
-	i_zero(&query);
-	changed = FALSE;
-	for (unsigned int i = 0; args[i] != NULL; i++) {
-		const char *arg = args[i];
-
-		if (arg[0] == '\0') {
-			/* finish the query */
-			if (array_count(&categories) > 0) {
-				array_append_zero(&categories);
-				query.categories = array_front(&categories);
-			}
-			if (array_count(&fields) > 0) {
-				array_append_zero(&fields);
-				query.fields = array_front(&fields);
-			}
-			event_filter_add(filter, &query);
-
-			/* start the next query */
-			i_zero(&query);
-			array_clear(&categories);
-			array_clear(&fields);
-			changed = FALSE;
-			continue;
-		}
-
-		enum event_filter_code code = arg[0];
-		arg++;
-		switch (code) {
-		case EVENT_FILTER_CODE_NAME:
-			query.name = arg;
-			break;
-		case EVENT_FILTER_CODE_SOURCE:
-			query.source_filename = arg;
-			i++;
-			if (args[i] == NULL) {
-				*error_r = "Source line number missing";
-				return FALSE;
-			}
-			if (str_to_uint(args[i], &query.source_linenum) < 0) {
-				*error_r = "Invalid Source line number";
-				return FALSE;
-			}
-			break;
-		case EVENT_FILTER_CODE_CATEGORY:
-			array_push_back(&categories, &arg);
-			break;
-		case EVENT_FILTER_CODE_FIELD: {
-			struct event_filter_field *field;
-
-			field = array_append_space(&fields);
-			field->key = arg;
-			i++;
-			if (args[i] == NULL) {
-				*error_r = "Field value missing";
-				return FALSE;
-			}
-			field->value = args[i];
-			break;
-		}
-		}
-		changed = TRUE;
-	}
-	if (changed) {
-		*error_r = "Expected TAB at the end";
-		return FALSE;
-	}
-	return TRUE;
 }
 
 static bool
@@ -764,13 +639,6 @@ event_filter_query_match(const struct event_filter_query_internal *query,
 
 	i_assert(ctx->type < N_ELEMENTS(event_filter_log_type_map));
 	log_type = event_filter_log_type_map[ctx->type].log_type;
-	if ((query->log_type_mask & log_type) == 0)
-		return FALSE;
-
-	/* Nothing to evaluate - this can happen if the filter consists
-	   solely of log types (e.g., cat:debug) */
-	if (query->expr == NULL)
-		return TRUE;
 
 	return event_filter_query_match_eval(query->expr, event, source_filename,
 					     source_linenum, log_type);

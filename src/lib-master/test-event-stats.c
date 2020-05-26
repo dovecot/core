@@ -158,7 +158,8 @@ static void stats_conn_input(struct connection *_conn)
 	struct ostream *stats_data_out;
 	struct server_connection *conn = (struct server_connection *)_conn;
 	const char *handshake = "VERSION\tstats-server\t3\t0\n"
-		"FILTER\tctest1\t\tctest2\t\tctest3\t\tctest4\t\tctest5\t\n";
+		"FILTER\tcategory=test1 OR category=test2 OR category=test3 OR "
+		"category=test4 OR category=test5\n";
 	const char *line = NULL;
 	if (!conn->handshake_sent) {
 		conn->handshake_sent = TRUE;

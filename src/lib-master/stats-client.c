@@ -40,7 +40,7 @@ client_handshake_filter(const char *const *args, struct event_filter **filter_r,
 	}
 
 	*filter_r = event_filter_create();
-	if (!event_filter_import_unescaped(*filter_r, args+1, error_r)) {
+	if (!event_filter_import(*filter_r, t_str_tabunescape(args[1]), error_r)) {
 		event_filter_unref(filter_r);
 		return -1;
 	}

@@ -5,6 +5,7 @@
 #include "llist.h"
 #include "hash.h"
 #include "str.h"
+#include "strescape.h"
 #include "lib-event-private.h"
 #include "event-filter.h"
 #include "ostream.h"
@@ -33,10 +34,13 @@ static struct connection_list *writer_clients = NULL;
 
 static void client_writer_send_handshake(struct writer_client *client)
 {
+	string_t *filter = t_str_new(128);
 	string_t *str = t_str_new(128);
 
+	event_filter_export(stats_metrics_get_event_filter(stats_metrics), filter);
+
 	str_append(str, "FILTER\t");
-	event_filter_export(stats_metrics_get_event_filter(stats_metrics), str);
+	str_append_tabescaped(str, str_c(filter));
 	str_append_c(str, '\n');
 	o_stream_nsend(client->conn.output, str_data(str), str_len(str));
 }
