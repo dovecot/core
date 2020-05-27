@@ -147,6 +147,8 @@ struct dcrypt_private_key {
 	char *key_id;
 };
 
+#define DCRYPT_SET_ERROR(error) STMT_START { if (error_r != NULL) *error_r = (error); } STMT_END
+
 static bool
 dcrypt_openssl_public_key_id(struct dcrypt_public_key *key,
 			     const char *algorithm, buffer_t *result,
@@ -203,7 +205,7 @@ static bool dcrypt_openssl_error(const char **error_r)
 	}
 
 	ec = ERR_get_error();
-	*error_r = t_strdup_printf("%s", ERR_error_string(ec, NULL));
+	DCRYPT_SET_ERROR(t_strdup_printf("%s", ERR_error_string(ec, NULL)));
 	return FALSE;
 }
 
@@ -224,8 +226,7 @@ dcrypt_openssl_padding_mode(enum dcrypt_padding padding,
 	case DCRYPT_PADDING_RSA_NO:
 		return RSA_NO_PADDING;
 	default:
-		if (*error_r != NULL)
-			*error_r = "Unsupported padding mode";
+		DCRYPT_SET_ERROR("Unsupported padding mode");
 		return -1;
 	}
 	i_unreached();
@@ -266,10 +267,8 @@ dcrypt_openssl_ctx_sym_create(const char *algorithm, enum dcrypt_sym_mode mode,
 
 	cipher = EVP_get_cipherbyname(algorithm);
 	if (cipher == NULL) {
-		if (error_r != NULL) {
-			*error_r = t_strdup_printf("Invalid cipher %s",
-						   algorithm);
-		}
+		DCRYPT_SET_ERROR(t_strdup_printf("Invalid cipher %s",
+						 algorithm));
 		return FALSE;
 	}
 
@@ -540,8 +539,8 @@ dcrypt_openssl_ctx_sym_final(struct dcrypt_context_symmetric *ctx,
 		}
 	}
 
-	if (ec == 0 && error_r != NULL)
-		*error_r = "data authentication failed";
+	if (ec == 0)
+		DCRYPT_SET_ERROR("data authentication failed");
 	else if (ec < 0)
 		dcrypt_openssl_error(error_r);
 
@@ -562,10 +561,8 @@ dcrypt_openssl_ctx_hmac_create(const char *algorithm,
 
 	md = EVP_get_digestbyname(algorithm);
 	if(md == NULL) {
-		if (error_r != NULL) {
-			*error_r = t_strdup_printf("Invalid digest %s",
-						   algorithm);
-		}
+		DCRYPT_SET_ERROR(t_strdup_printf("Invalid digest %s",
+						 algorithm));
 		return FALSE;
 	}
 
@@ -835,8 +832,7 @@ dcrypt_openssl_ecdh_derive_secret_peer(struct dcrypt_public_key *peer_key,
 	EVP_PKEY *local = NULL;
 	EVP_PKEY *peer = peer_key->key;
 	if (EVP_PKEY_base_id(peer) != EVP_PKEY_EC) {
-		if (error_r != NULL)
-			*error_r = "Only ECC key can be used";
+		DCRYPT_SET_ERROR("Only ECC key can be used");
 		return FALSE;
 	}
 
@@ -886,8 +882,7 @@ dcrypt_openssl_pbkdf2(const unsigned char *password, size_t password_len,
 	/* determine MD */
 	const EVP_MD* md = EVP_get_digestbyname(hash);
 	if (md == NULL) {
-		if (error_r != NULL)
-			*error_r = t_strdup_printf("Invalid digest %s", hash);
+		DCRYPT_SET_ERROR(t_strdup_printf("Invalid digest %s", hash));
 		return FALSE;
 	}
 
@@ -926,9 +921,8 @@ dcrypt_openssl_generate_keypair(struct dcrypt_keypair *pair_r,
 	} else if (kind == DCRYPT_KEY_EC) {
 		int nid = OBJ_sn2nid(curve);
 		if (nid == NID_undef) {
-			if (error_r != NULL)
-				*error_r = t_strdup_printf(
-					"Unknown EC curve %s", curve);
+			DCRYPT_SET_ERROR(t_strdup_printf("Unknown EC curve %s",
+							 curve));
 			return FALSE;
 		}
 		if (dcrypt_openssl_generate_ec_key(nid, &pkey, error_r)) {
@@ -943,8 +937,7 @@ dcrypt_openssl_generate_keypair(struct dcrypt_keypair *pair_r,
 			return dcrypt_openssl_error(error_r);
 		}
 	}
-	if (error_r != NULL)
-		*error_r = "Key type not supported in this build";
+	DCRYPT_SET_ERROR("Key type not supported in this build");
 	return FALSE;
 }
 
@@ -1060,14 +1053,12 @@ dcrypt_openssl_load_private_key_dovecot_v1(struct dcrypt_private_key **key_r,
 	BIGNUM *point = NULL;
 
 	if (str_to_int(input[1], &nid) != 0) {
-		if (error_r != NULL)
-			*error_r = "Corrupted data";
+		DCRYPT_SET_ERROR("Corrupted data");
 		return FALSE;
 	}
 
 	if (str_to_int(input[2], &enctype) != 0) {
-		if (error_r != NULL)
-			*error_r = "Corrupted data";
+		DCRYPT_SET_ERROR("Corrupted data");
 		return FALSE;
 	}
 
@@ -1081,7 +1072,7 @@ dcrypt_openssl_load_private_key_dovecot_v1(struct dcrypt_private_key **key_r,
 	} else if (enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_PASSWORD) {
 		/* by password */
 		if (password == NULL) {
-			if (error_r != NULL) *error_r = "password missing";
+			DCRYPT_SET_ERROR("password missing");
 			return FALSE;
 		}
 		const char *enc_priv_pt = input[3];
@@ -1093,7 +1084,7 @@ dcrypt_openssl_load_private_key_dovecot_v1(struct dcrypt_private_key **key_r,
 	} else if (enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_PK) {
 		/* by key */
 		if (dec_key == NULL) {
-			if (error_r != NULL) *error_r = "decrypt key missing";
+			DCRYPT_SET_ERROR("decrypt key missing");
 			return FALSE;
 		}
 		const char *enc_priv_pt = input[3];
@@ -1103,8 +1094,7 @@ dcrypt_openssl_load_private_key_dovecot_v1(struct dcrypt_private_key **key_r,
 			return FALSE;
 		}
 	} else {
-		if (error_r != NULL)
-			*error_r = "Invalid key data";
+		DCRYPT_SET_ERROR("Invalid key data");
 		return FALSE;
 	}
 
@@ -1148,8 +1138,7 @@ dcrypt_openssl_load_private_key_dovecot_v1(struct dcrypt_private_key **key_r,
 		const char *digest_hex =
 			binary_to_hex(digest, SHA256_DIGEST_LENGTH);
 		if (strcmp(digest_hex, input[len-1]) != 0) {
-			if (error_r != NULL)
-				*error_r = "Key id mismatch after load";
+			DCRYPT_SET_ERROR("Key id mismatch after load");
 			EC_KEY_free(eckey);
 			return FALSE;
 		}
@@ -1239,14 +1228,12 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 
 	/* check for encryption type */
 	if (str_to_int(input[2], &enctype) != 0) {
-		if (error_r != NULL)
-			*error_r = "Corrupted data";
+		DCRYPT_SET_ERROR("Corrupted data");
 		return FALSE;
 	}
 
 	if (enctype < 0 || enctype > 2) {
-		if (error_r != NULL)
-			*error_r = "Corrupted data";
+		DCRYPT_SET_ERROR("Corrupted data");
 		return FALSE;
 	}
 
@@ -1254,8 +1241,7 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 	if ((enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_NONE && len != 5) ||
 	    (enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_PASSWORD && len != 9) ||
  	    (enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_PK && len != 11)) {
-		if (error_r != NULL)
-			*error_r = "Corrupted data";
+		DCRYPT_SET_ERROR("Corrupted data");
 		return FALSE;
 	}
 
@@ -1268,19 +1254,17 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 	/* decode and possibly decipher private key value */
 	if (enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_NONE) {
 		if (hex_to_binary(input[3], key_data) != 0) {
-			if (error_r != NULL)
-				*error_r = "Corrupted data";
+			DCRYPT_SET_ERROR("Corrupted data");
 		}
 	} else if (enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_PK) {
 		if (dec_key == NULL) {
-			if (error_r != NULL) *error_r = "decrypt key missing";
+			DCRYPT_SET_ERROR("decrypt key missing");
 			return FALSE;
 		}
 		unsigned int rounds;
 		struct dcrypt_public_key *pubkey = NULL;
 		if (str_to_uint(input[6], &rounds) != 0) {
-			if (error_r != NULL)
-				*error_r = "Corrupted data";
+			DCRYPT_SET_ERROR("Corrupted data");
 			return FALSE;
 		}
 
@@ -1298,8 +1282,7 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 
 		if (strcmp(binary_to_hex(data->data, data->used),
 			   input[9]) != 0) {
-			if (error_r != NULL)
-				*error_r = "No private key available";
+			DCRYPT_SET_ERROR("No private key available");
 			return FALSE;
 		}
 
@@ -1334,13 +1317,12 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 		}
 	} else if (enctype == DCRYPT_DOVECOT_KEY_ENCRYPT_PASSWORD) {
 		if (password == NULL) {
-			if (error_r != NULL) *error_r = "password missing";
+			DCRYPT_SET_ERROR("password missing");
 			return FALSE;
 		}
 		unsigned int rounds;
 		if (str_to_uint(input[6], &rounds) != 0) {
-			if (error_r != NULL)
-				*error_r = "Corrupted data";
+			DCRYPT_SET_ERROR("Corrupted data");
 			return FALSE;
 		}
 
@@ -1350,8 +1332,7 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 		data = t_buffer_create(strlen(input[7])/2);
 		if (hex_to_binary(input[4], salt) != 0 ||
 		    hex_to_binary(input[7], data) != 0) {
-			if (error_r != NULL)
-				*error_r = "Corrupted data";
+			DCRYPT_SET_ERROR("Corrupted data");
 			return FALSE;
 		}
 
@@ -1444,8 +1425,7 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 	if (strcmp(binary_to_hex(key_data->data, key_data->used),
 		   input[len-1]) != 0) {
 		dcrypt_openssl_unref_private_key(key_r);
-		if (error_r != NULL)
-			*error_r = "Key id mismatch after load";
+		DCRYPT_SET_ERROR("Key id mismatch after load");
 		return FALSE;
 	}
 
@@ -1520,26 +1500,26 @@ static bool load_jwk_ec_key(EVP_PKEY **key_r, bool want_private_key,
 
 	if ((node = json_tree_find_key(root, "crv")) == NULL ||
 	    (crv = json_tree_get_value_str(node)) == NULL) {
-		*error_r = "Missing crv parameter";
+		DCRYPT_SET_ERROR("Missing crv parameter");
 		return FALSE;
 	}
 
 	if ((node = json_tree_find_key(root, "x")) == NULL ||
 	    (x = json_tree_get_value_str(node)) == NULL) {
-		*error_r = "Missing x parameter";
+		DCRYPT_SET_ERROR("Missing x parameter");
 		return FALSE;
 	}
 
 	if ((node = json_tree_find_key(root, "y")) == NULL ||
 	    (y = json_tree_get_value_str(node)) == NULL) {
-		*error_r = "Missing y parameter";
+		DCRYPT_SET_ERROR("Missing y parameter");
 		return FALSE;
 	}
 
 	if ((node = json_tree_find_key(root, "d")) == NULL ||
 	    (d = json_tree_get_value_str(node)) == NULL) {
 		if (want_private_key) {
-			*error_r = "Missing d parameter";
+			DCRYPT_SET_ERROR("Missing d parameter");
 			return FALSE;
 		}
 	}
@@ -1551,13 +1531,13 @@ static bool load_jwk_ec_key(EVP_PKEY **key_r, bool want_private_key,
 	/* determine NID */
 	int nid = jwk_curve_to_nid(crv);
 	if (nid == 0) {
-		*error_r = t_strdup_printf("Unsupported curve: %s", crv);
+		DCRYPT_SET_ERROR(t_strdup_printf("Unsupported curve: %s", crv));
 		return FALSE;
 	}
 	/* create key */
 	EC_KEY *ec_key = EC_KEY_new_by_curve_name(nid);
 	if (ec_key == NULL) {
-		*error_r = "Cannot allocate memory";
+		DCRYPT_SET_ERROR("Cannot allocate memory");
 		return FALSE;
 	}
 
@@ -1676,50 +1656,50 @@ static bool load_jwk_rsa_key(EVP_PKEY **key_r, bool want_private_key,
 	/* n and e must be present */
 	if ((node = json_tree_find_key(root, "n")) == NULL ||
 	    (n = json_tree_get_value_str(node)) == NULL) {
-		*error_r = "Missing n parameter";
+		DCRYPT_SET_ERROR("Missing n parameter");
 		return FALSE;
 	}
 
 	if ((node = json_tree_find_key(root, "e")) == NULL ||
 	    (e = json_tree_get_value_str(node)) == NULL) {
-		*error_r = "Missing e parameter";
+		DCRYPT_SET_ERROR("Missing e parameter");
 		return FALSE;
 	}
 
 	if (want_private_key) {
 		if ((node = json_tree_find_key(root, "d")) == NULL ||
 		    (d = json_tree_get_value_str(node)) == NULL) {
-			*error_r = "Missing d parameter";
+			DCRYPT_SET_ERROR("Missing d parameter");
 			return FALSE;
 		}
 
 		if ((node = json_tree_find_key(root, "p")) == NULL ||
 		    (p = json_tree_get_value_str(node)) == NULL) {
-			*error_r = "Missing p parameter";
+			DCRYPT_SET_ERROR("Missing p parameter");
 			return FALSE;
 		}
 
 		if ((node = json_tree_find_key(root, "q")) == NULL ||
 		    (q = json_tree_get_value_str(node)) == NULL) {
-			*error_r = "Missing q parameter";
+			DCRYPT_SET_ERROR("Missing q parameter");
 			return FALSE;
 		}
 
 		if ((node = json_tree_find_key(root, "dp")) == NULL ||
 		    (dp = json_tree_get_value_str(node)) == NULL) {
-			*error_r = "Missing dp parameter";
+			DCRYPT_SET_ERROR("Missing dp parameter");
 			return FALSE;
 		}
 
 		if ((node = json_tree_find_key(root, "dq")) == NULL ||
 		    (dq = json_tree_get_value_str(node)) == NULL) {
-			*error_r = "Missing dq parameter";
+			DCRYPT_SET_ERROR("Missing dq parameter");
 			return FALSE;
 		}
 
 		if ((node = json_tree_find_key(root, "qi")) == NULL ||
 		    (qi = json_tree_get_value_str(node)) == NULL) {
-			*error_r = "Missing qi parameter";
+			DCRYPT_SET_ERROR("Missing qi parameter");
 			return FALSE;
 		}
 	}
@@ -1828,9 +1808,8 @@ dcrypt_openssl_load_private_key_jwk(struct dcrypt_private_key **key_r,
 	bool ret;
 
 	if (parse_jwk_key(data, &key_tree, &error) != 0) {
-		if (error_r != NULL)
-			*error_r = t_strdup_printf("Cannot load JWK private key: %s",
-						   error);
+		DCRYPT_SET_ERROR(t_strdup_printf("Cannot load JWK private key: %s",
+						 error));
 		return FALSE;
 	}
 
@@ -1838,8 +1817,7 @@ dcrypt_openssl_load_private_key_jwk(struct dcrypt_private_key **key_r,
 
 	/* check key type */
 	if ((node = json_tree_find_key(root, "kty")) == NULL) {
-		if (error_r != NULL)
-			*error_r = "Cannot load JWK private key: no kty parameter";
+		DCRYPT_SET_ERROR("Cannot load JWK private key: no kty parameter");
 		json_tree_deinit(&key_tree);
 		return FALSE;
 	}
@@ -1857,8 +1835,8 @@ dcrypt_openssl_load_private_key_jwk(struct dcrypt_private_key **key_r,
 
 	i_assert(ret || error != NULL);
 
-	if (!ret && error_r != NULL)
-		*error_r = t_strdup_printf("Cannot load JWK private key: %s", error);
+	if (!ret)
+		DCRYPT_SET_ERROR(t_strdup_printf("Cannot load JWK private key: %s", error));
 	else if (ret) {
 		*key_r = i_new(struct dcrypt_private_key, 1);
 		(*key_r)->key = pkey;
@@ -1888,9 +1866,8 @@ dcrypt_openssl_load_public_key_jwk(struct dcrypt_public_key **key_r,
 	bool ret;
 
 	if (parse_jwk_key(data, &key_tree, &error) != 0) {
-		if (error_r != NULL)
-			*error_r = t_strdup_printf("Cannot load JWK public key: %s",
-						   error);
+		DCRYPT_SET_ERROR(t_strdup_printf("Cannot load JWK public key: %s",
+						   error));
 		return FALSE;
 	}
 
@@ -1898,8 +1875,7 @@ dcrypt_openssl_load_public_key_jwk(struct dcrypt_public_key **key_r,
 
 	/* check key type */
 	if ((node = json_tree_find_key(root, "kty")) == NULL) {
-		if (error_r != NULL)
-			*error_r = "Cannot load JWK public key: no kty parameter";
+		DCRYPT_SET_ERROR("Cannot load JWK public key: no kty parameter");
 		json_tree_deinit(&key_tree);
 		return FALSE;
 	}
@@ -1917,8 +1893,8 @@ dcrypt_openssl_load_public_key_jwk(struct dcrypt_public_key **key_r,
 
 	i_assert(ret || error != NULL);
 
-	if (!ret && error_r != NULL)
-		*error_r = t_strdup_printf("Cannot load JWK public key: %s", error);
+	if (!ret)
+		DCRYPT_SET_ERROR(t_strdup_printf("Cannot load JWK public key: %s", error));
 	else if (ret) {
 		*key_r = i_new(struct dcrypt_public_key, 1);
 		(*key_r)->key = pkey;
@@ -1998,7 +1974,7 @@ static bool store_jwk_ec_key(EVP_PKEY *pkey, bool is_private_key,
 	if (is_private_key) {
 		const BIGNUM *d = EC_KEY_get0_private_key(ec_key);
 		if (d == NULL) {
-			*error_r = "No private key available";
+			DCRYPT_SET_ERROR("No private key available");
 			return FALSE;
 		}
 		str_append(temp, "\",\"d\":\"");
@@ -2024,7 +2000,7 @@ static bool store_jwk_key(EVP_PKEY *pkey, bool is_private_key,
 		return store_jwk_ec_key(pkey, is_private_key, usage, key_id,
 					cipher, password, enc_key, dest, error_r);
 	}
-	*error_r = "Unsupported key type";
+	DCRYPT_SET_ERROR("Unsupported key type");
 	return FALSE;
 }
 
@@ -2058,8 +2034,7 @@ dcrypt_openssl_load_public_key_dovecot_v1(struct dcrypt_public_key **key_r,
 {
 	int nid;
 	if (str_to_int(input[1], &nid) != 0) {
-		if (error_r != NULL)
-			*error_r = "Corrupted data";
+		DCRYPT_SET_ERROR("Corrupted data");
 		return FALSE;
 	}
 
@@ -2101,8 +2076,7 @@ dcrypt_openssl_load_public_key_dovecot_v1(struct dcrypt_public_key **key_r,
 		dcrypt_openssl_public_key_id_old(&tmp, dgst, NULL);
 		if (strcmp(binary_to_hex(dgst->data, dgst->used),
 			   input[len-1]) != 0) {
-			if (error_r != NULL)
-				*error_r = "Key id mismatch after load";
+			DCRYPT_SET_ERROR("Key id mismatch after load");
 			EVP_PKEY_free(key);
 			return FALSE;
 		}
@@ -2143,8 +2117,7 @@ dcrypt_openssl_load_public_key_dovecot_v2(struct dcrypt_public_key **key_r,
 	tmpkey.key = pkey;
 	dcrypt_openssl_public_key_id(&tmpkey, "sha256", dgst, NULL);
 	if (strcmp(binary_to_hex(dgst->data, dgst->used), input[len-1]) != 0) {
-		if (error_r != NULL)
-			*error_r = "Key id mismatch after load";
+		DCRYPT_SET_ERROR("Key id mismatch after load");
 		EVP_PKEY_free(pkey);
 		return FALSE;
 	}
@@ -2294,8 +2267,7 @@ dcrypt_openssl_store_private_key_dovecot(struct dcrypt_private_key *key,
 	if (len < 1)
 		return dcrypt_openssl_error(error_r);
 	if (len > (int)sizeof(objtxt)) {
-		if (error_r != NULL)
-			*error_r = "Object identifier too long";
+		DCRYPT_SET_ERROR("Object identifier too long");
 		return FALSE;
 	}
 
@@ -2421,7 +2393,7 @@ dcrypt_openssl_load_private_key(struct dcrypt_private_key **key_r,
 		return FALSE;
 	}
 	if (kind != DCRYPT_KEY_KIND_PRIVATE) {
-		if (error_r != NULL) *error_r = "key is not private";
+		DCRYPT_SET_ERROR("key is not private");
 		return FALSE;
 	}
 
@@ -2476,7 +2448,7 @@ dcrypt_openssl_load_public_key(struct dcrypt_public_key **key_r,
 	}
 	/* JWK private keys can be loaded as public */
 	if (kind != DCRYPT_KEY_KIND_PUBLIC && format != DCRYPT_FORMAT_JWK) {
-		if (error_r != NULL) *error_r = "key is not public";
+		DCRYPT_SET_ERROR("key is not public");
 		return FALSE;
 	}
 
@@ -2503,8 +2475,7 @@ dcrypt_openssl_load_public_key(struct dcrypt_public_key **key_r,
 			return dcrypt_openssl_error(error_r);
 		}
 		if (strcmp(buf, "-----BEGIN PUBLIC KEY-----") != 0) {
-			if (error_r != NULL)
-				*error_r = "Missing public key header";
+			DCRYPT_SET_ERROR("Missing public key header");
 			return FALSE;
 		}
 		BIO *b64 = BIO_new(BIO_f_base64());
@@ -2574,10 +2545,8 @@ dcrypt_openssl_store_private_key(struct dcrypt_private_key *key,
 	if (cipher != NULL) {
 		algo = EVP_get_cipherbyname(cipher);
 		if (algo == NULL) {
-			if (error_r != NULL) {
-				*error_r = t_strdup_printf(
-					"Invalid cipher %s", cipher);
-			}
+			DCRYPT_SET_ERROR(t_strdup_printf("Invalid cipher %s",
+							 cipher));
 			return FALSE;
 		}
 	}
@@ -2721,10 +2690,7 @@ dcrypt_openssl_key_string_get_info(
 		version = DCRYPT_KEY_VERSION_NA;
 		key_data += 11;
 		if (str_begins(key_data, "RSA ")) {
-			if (error_r != NULL)
-				*error_r = "RSA private key format not "
-					"supported, convert it to PKEY format "
-					"with openssl pkey";
+			DCRYPT_SET_ERROR("RSA private key format not supported, convert it to PKEY format with openssl pkey");
 			return FALSE;
 		}
 		if (str_begins(key_data, "ENCRYPTED ")) {
@@ -2736,8 +2702,7 @@ dcrypt_openssl_key_string_get_info(
 		else if (str_begins(key_data, "PUBLIC KEY-----"))
 			kind = DCRYPT_KEY_KIND_PUBLIC;
 		else {
-			if (error_r != NULL)
-				*error_r = "Unknown/invalid PEM key type";
+			DCRYPT_SET_ERROR("Unknown/invalid PEM key type");
 			return FALSE;
 		}
 	} else if (*key_data == '{') {
@@ -2748,8 +2713,7 @@ dcrypt_openssl_key_string_get_info(
 		const struct json_tree_node *root, *node;
 		const char *value, *error;
 		if (parse_jwk_key(key_data, &tree, &error) != 0) {
-			if (error_r != NULL)
-				*error_r = "Unknown/invalid key data";
+			DCRYPT_SET_ERROR("Unknown/invalid key data");
 			return FALSE;
 		}
 
@@ -2758,8 +2722,7 @@ dcrypt_openssl_key_string_get_info(
 		if ((node = json_tree_find_key(root, "kty")) == NULL ||
 		    (value = json_tree_get_value_str(node)) == NULL) {
 			json_tree_deinit(&tree);
-			if (error_r != NULL)
-				*error_r = "Invalid JWK key: Missing kty parameter";
+			DCRYPT_SET_ERROR("Invalid JWK key: Missing kty parameter");
 			return FALSE;
 		} else if (strcmp(value, "RSA") == 0) {
 			if (json_tree_find_key(root, "d") != NULL)
@@ -2773,29 +2736,23 @@ dcrypt_openssl_key_string_get_info(
 				kind = DCRYPT_KEY_KIND_PUBLIC;
 		} else {
 			json_tree_deinit(&tree);
-			if (error_r != NULL)
-				*error_r = "Unsupported JWK key type";
+			DCRYPT_SET_ERROR("Unsupported JWK key type");
 			return FALSE;
 		}
 		json_tree_deinit(&tree);
 	} else {
 		if (str_begins(key_data, "1:")) {
-			if (error_r != NULL)
-				*error_r = "Dovecot v1 key format "
-					"uses tab to separate fields";
+			DCRYPT_SET_ERROR("Dovecot v1 key format uses tab to separate fields");
 			return FALSE;
 		} else if (str_begins(key_data, "2\t")) {
-			if (error_r != NULL)
-				*error_r = "Dovecot v2 key format uses "
-					"colon to separate fields";
+			DCRYPT_SET_ERROR("Dovecot v2 key format uses colon to separate fields");
 			return FALSE;
 		}
 		const char **fields = t_strsplit(key_data, ":\t");
 		int nfields = str_array_length(fields);
 
 		if (nfields < 2) {
-			if (error_r != NULL)
-				*error_r = "Unknown key format";
+			DCRYPT_SET_ERROR("Unknown key format");
 			return FALSE;
 		}
 
@@ -2818,8 +2775,7 @@ dcrypt_openssl_key_string_get_info(
 				if (encryption_key_hash_r != NULL)
 					encryption_key_hash = i_strdup(fields[nfields-2]);
 			} else {
-				if (error_r != NULL)
-					*error_r = "Invalid dovecot v1 encoding";
+				DCRYPT_SET_ERROR("Invalid dovecot v1 encoding");
 				return FALSE;
 			}
 		} else if (strcmp(fields[0], "2") == 0) {
@@ -2838,13 +2794,11 @@ dcrypt_openssl_key_string_get_info(
 				if (encryption_key_hash_r != NULL)
 					encryption_key_hash = i_strdup(fields[nfields-2]);
 			} else {
-				if (error_r != NULL)
-					*error_r = "Invalid dovecot v2 encoding";
+				DCRYPT_SET_ERROR("Invalid dovecot v2 encoding");
 				return FALSE;
 			}
 		} else {
-			if (error_r != NULL)
-				*error_r = "Invalid dovecot key version";
+			DCRYPT_SET_ERROR("Invalid dovecot key version");
 			return FALSE;
 		}
 
@@ -3002,8 +2956,7 @@ dcrypt_openssl_name2oid(const char *name, buffer_t *oid, const char **error_r)
 	size_t len = OBJ_length(obj);
 	if (len == 0)
 	{
-		if (error_r != NULL)
-			*error_r = "Object has no OID assigned";
+		DCRYPT_SET_ERROR("Object has no OID assigned");
 		return FALSE;
 	}
 	len = i2d_ASN1_OBJECT(obj, NULL);
@@ -3046,8 +2999,7 @@ dcrypt_openssl_public_key_id_old(struct dcrypt_public_key *key,
 	EVP_PKEY *pub = key->key;
 
 	if (EVP_PKEY_base_id(pub) != EVP_PKEY_EC) {
-		if (error_r != NULL)
-			*error_r = "Only EC key supported";
+		DCRYPT_SET_ERROR("Only EC key supported");
 		return FALSE;
 	}
 
@@ -3070,8 +3022,7 @@ dcrypt_openssl_private_key_id_old(struct dcrypt_private_key *key,
 	EVP_PKEY *priv = key->key;
 
 	if (EVP_PKEY_base_id(priv) != EVP_PKEY_EC) {
-		if (error_r != NULL)
-			*error_r = "Only EC key supported";
+		DCRYPT_SET_ERROR("Only EC key supported");
 		return FALSE;
 	}
 
@@ -3132,10 +3083,7 @@ dcrypt_openssl_public_key_id(struct dcrypt_public_key *key,
 	EVP_PKEY *pub = key->key;
 
 	if (md == NULL) {
-		if (error_r != NULL) {
-			*error_r = t_strdup_printf(
-				"Unknown cipher %s", algorithm);
-		}
+		DCRYPT_SET_ERROR(t_strdup_printf("Unknown cipher %s", algorithm));
 		return FALSE;
 	}
 
@@ -3152,9 +3100,7 @@ dcrypt_openssl_private_key_id(struct dcrypt_private_key *key,
 	EVP_PKEY *priv = key->key;
 
 	if (md == NULL) {
-		if (error_r != NULL)
-			*error_r = t_strdup_printf(
-				"Unknown cipher %s", algorithm);
+		DCRYPT_SET_ERROR(t_strdup_printf("Unknown cipher %s", algorithm));
 		return FALSE;
 	}
 
@@ -3270,7 +3216,7 @@ dcrypt_openssl_sign(struct dcrypt_private_key *key, const char *algorithm,
 		break;
 	case DCRYPT_SIGNATURE_FORMAT_X962:
 		if (EVP_PKEY_base_id(key->key) == EVP_PKEY_RSA) {
-			*error_r = "Format does not support RSA";
+			DCRYPT_SET_ERROR("Format does not support RSA");
 			return FALSE;
 		}
 		return dcrypt_openssl_sign_ecdsa(key, algorithm,
@@ -3290,10 +3236,7 @@ dcrypt_openssl_sign(struct dcrypt_private_key *key, const char *algorithm,
 		return FALSE;
 
 	if (md == NULL) {
-		if (error_r != NULL) {
-			 *error_r = t_strdup_printf(
-				"Unknown digest %s", algorithm);
-		}
+		DCRYPT_SET_ERROR(t_strdup_printf("Unknown digest %s", algorithm));
 		return FALSE;
 	}
 
@@ -3332,8 +3275,7 @@ dcrypt_openssl_verify_ecdsa(struct dcrypt_public_key *key, const char *algorithm
 			    bool *valid_r, const char **error_r)
 {
         if ((signature_len % 2) != 0) {
-                if (error_r != NULL)
-                        *error_r = "Truncated signature";
+                DCRYPT_SET_ERROR("Truncated signature");
                 return FALSE;
         }
 
@@ -3393,7 +3335,7 @@ dcrypt_openssl_verify(struct dcrypt_public_key *key, const char *algorithm,
 		break;
 	case DCRYPT_SIGNATURE_FORMAT_X962:
 		if (EVP_PKEY_base_id(key->key) == EVP_PKEY_RSA) {
-			*error_r = "Format does not support RSA";
+			DCRYPT_SET_ERROR("Format does not support RSA");
 			return FALSE;
 		}
 		return dcrypt_openssl_verify_ecdsa(key, algorithm,
@@ -3413,10 +3355,7 @@ dcrypt_openssl_verify(struct dcrypt_public_key *key, const char *algorithm,
 		return FALSE;
 
 	if (md == NULL) {
-		if (error_r != NULL) {
-			 *error_r = t_strdup_printf(
-				"Unknown digest %s", algorithm);
-		}
+		DCRYPT_SET_ERROR(t_strdup_printf("Unknown digest %s", algorithm));
 		return FALSE;
 	}
 
@@ -3455,8 +3394,7 @@ dcrypt_openssl_key_store_private_raw(struct dcrypt_private_key *key,
 	t_array_init(&keys, 2);
 
 	if (EVP_PKEY_base_id(priv) == EVP_PKEY_RSA) {
-		if (error_r != NULL)
-			*error_r = "Not implemented";
+		DCRYPT_SET_ERROR("Not implemented");
 		return FALSE;
 	} else if (EVP_PKEY_base_id(priv) == EVP_PKEY_EC) {
 		/* store OID */
@@ -3466,8 +3404,7 @@ dcrypt_openssl_key_store_private_raw(struct dcrypt_private_key *key,
 		ASN1_OBJECT *obj = OBJ_nid2obj(nid);
 		int len = OBJ_length(obj);
 		if (len == 0) {
-			if (error_r != NULL)
-				*error_r = "Object has no OID assigned";
+			DCRYPT_SET_ERROR("Object has no OID assigned");
 			return FALSE;
 		}
 		len = i2d_ASN1_OBJECT(obj, NULL);
@@ -3487,8 +3424,7 @@ dcrypt_openssl_key_store_private_raw(struct dcrypt_private_key *key,
 		item->len = len;
 		*type_r = DCRYPT_KEY_EC;
 	} else {
-		if (error_r != NULL)
-			*error_r = "Key type unsupported";
+		DCRYPT_SET_ERROR("Key type unsupported");
 		return FALSE;
 	}
 
@@ -3509,8 +3445,7 @@ dcrypt_openssl_key_store_public_raw(struct dcrypt_public_key *key,
 	t_array_init(&keys, 2);
 
 	if (EVP_PKEY_base_id(pub) == EVP_PKEY_RSA) {
-		if (error_r != NULL)
-			*error_r = "Not implemented";
+		DCRYPT_SET_ERROR("Not implemented");
 		return FALSE;
 	} else if (EVP_PKEY_base_id(pub) == EVP_PKEY_EC) {
 		/* store OID */
@@ -3520,8 +3455,7 @@ dcrypt_openssl_key_store_public_raw(struct dcrypt_public_key *key,
 		ASN1_OBJECT *obj = OBJ_nid2obj(nid);
 		int len = OBJ_length(obj);
 		if (len == 0) {
-			if (error_r != NULL)
-				*error_r = "Object has no OID assigned";
+			DCRYPT_SET_ERROR("Object has no OID assigned");
 			return FALSE;
 		}
 		len = i2d_ASN1_OBJECT(obj, NULL);
@@ -3546,8 +3480,7 @@ dcrypt_openssl_key_store_public_raw(struct dcrypt_public_key *key,
 			return dcrypt_openssl_error(error_r);
 		*type_r = DCRYPT_KEY_EC;
 	} else {
-		if (error_r != NULL)
-			*error_r = "Key type unsupported";
+		DCRYPT_SET_ERROR("Key type unsupported");
 		return FALSE;
 	}
 
@@ -3567,14 +3500,12 @@ dcrypt_openssl_key_load_private_raw(struct dcrypt_private_key **key_r,
 	const struct dcrypt_raw_key *item;
 
 	if (type == DCRYPT_KEY_RSA) {
-		if (error_r != NULL)
-			*error_r = "Not implemented";
+		DCRYPT_SET_ERROR("Not implemented");
 		return FALSE;
 	} else if (type == DCRYPT_KEY_EC) {
 		/* get curve */
 		if (array_count(keys) < 2) {
-			if (error_r != NULL)
-				*error_r = "Invalid parameters";
+			DCRYPT_SET_ERROR("Invalid parameters");
 			return FALSE;
 		}
 		item = array_idx(keys, 0);
@@ -3632,8 +3563,7 @@ dcrypt_openssl_key_load_private_raw(struct dcrypt_private_key **key_r,
 		(*key_r)->ref++;
 		return TRUE;
 	} else {
-		if (error_r != NULL)
-			*error_r = "Key type unsupported";
+		DCRYPT_SET_ERROR("Key type unsupported");
 	}
 
 	return FALSE;
@@ -3650,14 +3580,12 @@ dcrypt_openssl_key_load_public_raw(struct dcrypt_public_key **key_r,
 	const struct dcrypt_raw_key *item;
 
 	if (type == DCRYPT_KEY_RSA) {
-		if (error_r != NULL)
-			*error_r = "Not implemented";
+		DCRYPT_SET_ERROR("Not implemented");
 		return FALSE;
 	} else if (type == DCRYPT_KEY_EC) {
 		/* get curve */
 		if (array_count(keys) < 2) {
-			if (error_r != NULL)
-				*error_r = "Invalid parameters";
+			DCRYPT_SET_ERROR("Invalid parameters");
 			return FALSE;
 		}
 		item = array_idx(keys, 0);
@@ -3709,8 +3637,7 @@ dcrypt_openssl_key_load_public_raw(struct dcrypt_public_key **key_r,
 		(*key_r)->ref++;
 		return TRUE;
 	} else {
-		if (error_r != NULL)
-			*error_r = "Key type unsupported";
+		DCRYPT_SET_ERROR("Key type unsupported");
 	}
 
 	return FALSE;
@@ -3724,7 +3651,7 @@ dcrypt_openssl_key_get_curve_public(struct dcrypt_public_key *key,
 	char objtxt[OID_TEXT_MAX_LEN];
 
 	if (EVP_PKEY_base_id(pkey) != EVP_PKEY_EC) {
-		*error_r = "Unsupported key type";
+		DCRYPT_SET_ERROR("Unsupported key type");
 		return FALSE;
 	}
 
@@ -3737,7 +3664,7 @@ dcrypt_openssl_key_get_curve_public(struct dcrypt_public_key *key,
 	if (len < 1) {
 		return dcrypt_openssl_error(error_r);
 	} else if ((unsigned int)len > sizeof(objtxt)) {
-		*error_r = "Object name too long";
+		DCRYPT_SET_ERROR("Object name too long");
 		return FALSE;
 	}
 
