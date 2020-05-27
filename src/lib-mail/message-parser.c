@@ -557,7 +557,7 @@ static bool block_is_at_eoh(const struct message_block *block)
 
 static bool parse_too_many_nested_mime_parts(struct message_parser_ctx *ctx)
 {
-	return ctx->nested_parts_count > ctx->max_nested_mime_parts;
+	return ctx->nested_parts_count+1 >= ctx->max_nested_mime_parts;
 }
 
 #define MUTEX_FLAGS \
