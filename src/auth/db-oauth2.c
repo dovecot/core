@@ -460,7 +460,7 @@ static void db_oauth2_fields_merge(struct db_oauth2_request *req,
 
 	array_foreach(fields, field) {
 		e_debug(authdb_event(req->auth_request),
-			"oauth2: Processing field %s",
+			"Processing field %s",
 			field->name);
 		auth_fields_add(req->fields, field->name, field->value, 0);
 	}
@@ -476,7 +476,7 @@ static void db_oauth2_callback(struct db_oauth2_request *req,
 	i_assert(result == PASSDB_RESULT_OK || error != NULL);
 
 	e_debug(authdb_event(req->auth_request),
-		"oauth2: callback(result: %s, error: %s)",
+		"callback(result: %s, error: %s)",
 		passdb_result_to_string(result), error);
 
 	if (callback != NULL) {
@@ -555,7 +555,7 @@ db_oauth2_token_in_scope(struct db_oauth2_request *req,
 		if (value == NULL)
 			value = auth_fields_find(req->fields, "aud");
 		e_debug(authdb_event(req->auth_request),
-			"oauth2: Token scope(s): %s",
+			"Token scope(s): %s",
 			value);
 		if (value != NULL) {
 			const char **wanted_scopes =
@@ -600,7 +600,7 @@ db_oauth2_introspect_continue(struct oauth2_request_result *result,
 	req->req = NULL;
 
 	e_debug(authdb_event(req->auth_request),
-		"oauth2: Introspection result: %s",
+		"Introspection result: %s",
 		result->success ? "success" : "failed");
 
 	if (!result->success) {
@@ -620,7 +620,7 @@ static void db_oauth2_lookup_introspect(struct db_oauth2_request *req)
 	i_zero(&input);
 
 	e_debug(authdb_event(req->auth_request),
-		"oauth2: Making introspection request to %s",
+		"Making introspection request to %s",
 		req->db->set.introspection_url);
 	input.token = req->token;
 	input.local_ip = req->auth_request->local_ip;
@@ -759,27 +759,27 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 	    !db_oauth2_uses_password_grant(db)) {
 		/* try to validate token locally */
 		e_debug(authdb_event(req->auth_request),
-			"oauth2: Attempting to locally validate token");
+			"Attempting to locally validate token");
 		db_oauth2_local_validation(req, request->mech_password);
 		return;
 
 	}
 	if (db->oauth2_set.use_grant_password) {
 		e_debug(authdb_event(req->auth_request),
-			"oauth2: Making grant url request to %s",
+			"Making grant url request to %s",
 			db->set.grant_url);
 		req->req = oauth2_passwd_grant_start(&db->oauth2_set, &input,
 						     request->user, request->mech_password,
 						     db_oauth2_lookup_passwd_grant, req);
 	} else if (*db->oauth2_set.tokeninfo_url == '\0') {
 		e_debug(authdb_event(req->auth_request),
-			"oauth2: Making introspection request to %s",
+			"Making introspection request to %s",
 			db->set.introspection_url);
 		req->req = oauth2_introspection_start(&req->db->oauth2_set, &input,
 						      db_oauth2_introspect_continue, req);
 	} else {
 		e_debug(authdb_event(req->auth_request),
-			"oauth2: Making token validation lookup to %s",
+			"Making token validation lookup to %s",
 			db->oauth2_set.tokeninfo_url);
 		req->req = oauth2_token_validation_start(&db->oauth2_set, &input,
 							 db_oauth2_lookup_continue, req);
