@@ -513,8 +513,8 @@ void lib_signals_set_expected(int signo, bool expected,
 {
 	struct signal_handler *h;
 
-	for (signo = 0; signo < MAX_SIGNAL_VALUE; signo++) {
-		for (h = signal_handlers[signo]; h != NULL; h = h->next) {
+	for (h = signal_handlers[signo]; h != NULL; h = h->next) {
+		if (h->handler == handler && h->context == context) {
 			if (h->expected == expected)
 				return;
 			h->expected = expected;
