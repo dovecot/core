@@ -55,6 +55,8 @@ static failure_callback_t *orig_info_callback, *orig_debug_callback = NULL;
 
 static bool log_recursing = FALSE;
 
+static bool printed_response = FALSE;
+
 static void ATTR_FORMAT(2, 0)
 doveadm_server_log_handler(const struct failure_context *ctx,
 			   const char *format, va_list args)
@@ -169,6 +171,8 @@ doveadm_cmd_server_post(struct client_connection_tcp *conn, const char *cmd_name
 		i_error("BUG: Command '%s' returned unknown error code %d",
 			cmd_name, doveadm_exit_code);
 	}
+
+	printed_response = TRUE;
 }
 
 static void
@@ -382,6 +386,7 @@ static bool client_handle_command(struct client_connection_tcp *conn,
 	cctx.local_port = conn->conn.local_port;
 	cctx.remote_port = conn->conn.remote_port;
 	doveadm_exit_code = 0;
+	printed_response = FALSE;
 
 	flags = args[0];
 	cctx.username = args[1];
@@ -416,7 +421,7 @@ static bool client_handle_command(struct client_connection_tcp *conn,
 	/* Disable IO while running a command. This is required for commands
 	   that do IO themselves (e.g. dsync-server). */
 	io_remove(&conn->io);
-	if (doveadm_cmd_handle(conn, cmd_name, argc-2, args+2, &cctx) < 0)
+	if (!printed_response && doveadm_cmd_handle(conn, cmd_name, argc-2, args+2, &cctx) < 0)
 		o_stream_nsend(conn->output, "\n-\n", 3);
 	o_stream_uncork(conn->output);
 	conn->io = io_add_istream(conn->input, client_connection_tcp_input, conn);
