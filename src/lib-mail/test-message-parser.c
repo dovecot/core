@@ -175,6 +175,36 @@ static void test_message_parser_small_blocks(void)
 	test_end();
 }
 
+static void test_message_parser_stop_early(void)
+{
+	struct message_parser_ctx *parser;
+	struct istream *input;
+	struct message_part *parts;
+	struct message_block block;
+	unsigned int i;
+	pool_t pool;
+	int ret;
+
+	test_begin("message parser stop early");
+	pool = pool_alloconly_create("message parser", 10240);
+	input = test_istream_create(test_msg);
+
+	test_istream_set_allow_eof(input, FALSE);
+	for (i = 1; i <= TEST_MSG_LEN+1; i++) {
+		i_stream_seek(input, 0);
+		test_istream_set_size(input, i);
+		parser = message_parser_init(pool, input, &set_empty);
+		while ((ret = message_parser_parse_next_block(parser,
+							      &block)) > 0) ;
+		test_assert(ret == 0);
+		message_parser_deinit(&parser, &parts);
+	}
+
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
 static void test_message_parser_truncated_mime_headers(void)
 {
 static const char input_msg[] =
@@ -1058,6 +1088,7 @@ int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_message_parser_small_blocks,
+		test_message_parser_stop_early,
 		test_message_parser_truncated_mime_headers,
 		test_message_parser_truncated_mime_headers2,
 		test_message_parser_truncated_mime_headers3,

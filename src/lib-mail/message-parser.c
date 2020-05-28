@@ -787,7 +787,9 @@ int message_parser_deinit_from_parts(struct message_parser_ctx **_ctx,
 	if (ctx->hdr_parser_ctx != NULL)
 		message_parse_header_deinit(&ctx->hdr_parser_ctx);
 	boundary_remove_until(ctx, NULL);
-	i_assert(ctx->nested_parts_count == 0);
+	/* caller might have stopped the parsing early */
+	i_assert(ctx->nested_parts_count == 0 ||
+		 i_stream_have_bytes_left(ctx->input));
 
 	i_stream_unref(&ctx->input);
 	array_free(&ctx->next_part_stack);
