@@ -17,16 +17,6 @@ enum event_filter_code {
 	EVENT_FILTER_CODE_FIELD		= 'f',
 };
 
-enum event_filter_log_type {
-	EVENT_FILTER_LOG_TYPE_DEBUG	= BIT(0),
-	EVENT_FILTER_LOG_TYPE_INFO	= BIT(1),
-	EVENT_FILTER_LOG_TYPE_WARNING	= BIT(2),
-	EVENT_FILTER_LOG_TYPE_ERROR	= BIT(3),
-	EVENT_FILTER_LOG_TYPE_FATAL	= BIT(4),
-	EVENT_FILTER_LOG_TYPE_PANIC	= BIT(5),
-
-	EVENT_FILTER_LOG_TYPE_ALL	= 0xff,
-};
 static const char *event_filter_log_type_names[] = {
 	"debug", "info", "warning", "error", "fatal", "panic",
 };
@@ -109,9 +99,8 @@ void event_filter_unref(struct event_filter **_filter)
 	}
 }
 
-static bool
-event_filter_category_to_log_type(const char *name,
-				  enum event_filter_log_type *log_type_r)
+bool event_filter_category_to_log_type(const char *name,
+				       enum event_filter_log_type *log_type_r)
 {
 	unsigned int i;
 

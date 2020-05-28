@@ -26,6 +26,17 @@ enum event_filter_node_type {
 	EVENT_FILTER_NODE_TYPE_EVENT_FIELD, /* field */
 };
 
+enum event_filter_log_type {
+	EVENT_FILTER_LOG_TYPE_DEBUG	= BIT(0),
+	EVENT_FILTER_LOG_TYPE_INFO	= BIT(1),
+	EVENT_FILTER_LOG_TYPE_WARNING	= BIT(2),
+	EVENT_FILTER_LOG_TYPE_ERROR	= BIT(3),
+	EVENT_FILTER_LOG_TYPE_FATAL	= BIT(4),
+	EVENT_FILTER_LOG_TYPE_PANIC	= BIT(5),
+
+	EVENT_FILTER_LOG_TYPE_ALL	= 0xff,
+};
+
 struct event_filter_node {
 	enum event_filter_node_type type;
 	enum event_filter_node_op op;
@@ -52,5 +63,8 @@ struct event_filter_node {
 	} category;
 	struct event_field field;
 };
+
+bool event_filter_category_to_log_type(const char *name,
+				       enum event_filter_log_type *log_type_r);
 
 #endif
