@@ -90,4 +90,7 @@ smtp_client_connection_get_extra_capability(struct smtp_client_connection *conn,
 enum smtp_client_connection_state
 smtp_client_connection_get_state(struct smtp_client_connection *conn);
 
+void smtp_client_connection_get_remote_ip(
+	struct smtp_client_connection *conn, struct ip_addr *ip_r);
+
 #endif

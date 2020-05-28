@@ -283,6 +283,12 @@ smtp_client_connection_get_state(struct smtp_client_connection *conn)
 	return conn->state;
 }
 
+void smtp_client_connection_get_remote_ip(
+	struct smtp_client_connection *conn, struct ip_addr *ip_r)
+{
+	*ip_r = conn->conn.remote_ip;
+}
+
 static void
 smtp_client_command_timeout(struct smtp_client_connection *conn)
 {
