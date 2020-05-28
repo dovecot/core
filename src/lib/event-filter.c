@@ -497,7 +497,8 @@ event_has_category(struct event *event, struct event_filter_node *node)
 }
 
 static bool
-event_match_field(struct event *event, const struct event_field *wanted_field)
+event_match_field(struct event *event, const struct event_field *wanted_field,
+		  enum event_filter_node_op op)
 {
 	const struct event_field *field;
 
@@ -511,6 +512,10 @@ event_match_field(struct event *event, const struct event_field *wanted_field)
 	}
 	switch (field->value_type) {
 	case EVENT_FIELD_VALUE_TYPE_STR:
+		if (op != EVENT_FILTER_OP_CMP_EQ) {
+			/* we only support string equality comparisons */
+			return FALSE;
+		}
 		if (field->value.str[0] == '\0') {
 			/* field was removed, but it matches "field=" filter */
 			return wanted_field->value.str[0] == '\0';
@@ -519,9 +524,29 @@ event_match_field(struct event *event, const struct event_field *wanted_field)
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
 		if (wanted_field->value.intmax > INT_MIN) {
 			/* compare against an integer */
-			return field->value.intmax == wanted_field->value.intmax;
+			switch (op) {
+			case EVENT_FILTER_OP_CMP_EQ:
+				return field->value.intmax == wanted_field->value.intmax;
+			case EVENT_FILTER_OP_CMP_GT:
+				return field->value.intmax > wanted_field->value.intmax;
+			case EVENT_FILTER_OP_CMP_LT:
+				return field->value.intmax < wanted_field->value.intmax;
+			case EVENT_FILTER_OP_CMP_GE:
+				return field->value.intmax >= wanted_field->value.intmax;
+			case EVENT_FILTER_OP_CMP_LE:
+				return field->value.intmax <= wanted_field->value.intmax;
+			case EVENT_FILTER_OP_AND:
+			case EVENT_FILTER_OP_OR:
+			case EVENT_FILTER_OP_NOT:
+				i_unreached();
+			}
+			i_unreached();
 		} else {
 			/* compare against an "integer" with wildcards */
+			if (op != EVENT_FILTER_OP_CMP_EQ) {
+				/* we only support string equality comparisons */
+				return FALSE;
+			}
 			char tmp[MAX_INT_STRLEN];
 			i_snprintf(tmp, sizeof(tmp), "%jd", field->value.intmax);
 			return wildcard_match_icase(tmp, wanted_field->value.str);
@@ -558,7 +583,7 @@ event_filter_query_match_cmp(struct event_filter_node *node,
 		case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:
 			return event_has_category(event, node);
 		case EVENT_FILTER_NODE_TYPE_EVENT_FIELD:
-			return event_match_field(event, &node->field);
+			return event_match_field(event, &node->field, node->op);
 	}
 
 	i_unreached();
