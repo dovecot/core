@@ -523,6 +523,8 @@ auth_master_next_request_id(struct auth_master_connection *conn)
 
 void auth_user_info_export(string_t *str, const struct auth_user_info *info)
 {
+	const char *const *fieldp;
+
 	if (info->service != NULL) {
 		str_append(str, "\tservice=");
 		str_append(str, info->service);
@@ -554,6 +556,12 @@ void auth_user_info_export(string_t *str, const struct auth_user_info *info)
 	    *info->forward_fields != '\0') {
 		str_append(str, "\tforward_fields=");
 		str_append_tabescaped(str, info->forward_fields);
+	}
+	if (array_is_created(&info->extra_fields)) {
+		array_foreach(&info->extra_fields, fieldp) {
+			str_append_c(str, '\t');
+			str_append_tabescaped(str, *fieldp);
+		}
 	}
 }
 

@@ -15,6 +15,7 @@ struct auth_user_info {
 	struct ip_addr local_ip, remote_ip, real_local_ip, real_remote_ip;
 	in_port_t local_port, remote_port, real_local_port, real_remote_port;
 	const char *forward_fields;
+	ARRAY_TYPE(const_string) extra_fields;
 	bool debug;
 };
 
