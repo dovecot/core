@@ -430,6 +430,11 @@ static void test_jwt_broken_token(void)
 				 "q2wwwWWJVJxqw-J3uQ0DdlIyWfoZ7Z0QrdzvMW_B-jo",
 			.is_jwt = TRUE
 		},
+		{ /* algorithm is 'none' */
+			.token = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0."
+				 "eyJleHAiOjE1ODEzMzA3OTN9.",
+			.is_jwt = TRUE
+		}
 	};
 
 	test_begin("JWT broken tokens");
