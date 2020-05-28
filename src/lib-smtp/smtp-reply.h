@@ -45,6 +45,19 @@ smtp_reply_is_temp_fail(const struct smtp_reply *reply)
 	return ((reply->status / 100) == 4);
 }
 
+static inline bool ATTR_NULL(3)
+smtp_reply_code_equals(const struct smtp_reply *reply, unsigned int status,
+		       const struct smtp_reply_enhanced_code enhanced_code)
+{
+	if (reply->status != status)
+		return FALSE;
+	if (reply->enhanced_code.x != enhanced_code.x ||
+	    reply->enhanced_code.y != enhanced_code.y ||
+	    reply->enhanced_code.z != enhanced_code.z)
+		return FALSE;
+	return TRUE;
+}
+
 void smtp_reply_init(struct smtp_reply *reply, unsigned int status,
 	const char *text);
 void smtp_reply_printf(struct smtp_reply *reply, unsigned int status,
