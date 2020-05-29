@@ -50,12 +50,20 @@ struct auth_worker_list_context {
 };
 
 static struct connection_list *clients = NULL;
-static struct auth_worker_client *auth_worker_client = NULL;
 static bool auth_worker_client_error = FALSE;
 
 static int auth_worker_output(struct auth_worker_client *client);
 static void auth_worker_client_destroy(struct connection *conn);
 static void auth_worker_client_unref(struct auth_worker_client **_client);
+
+static struct auth_worker_client *auth_worker_get_client(void)
+{
+	if (!auth_worker_has_client())
+		return NULL;
+	struct auth_worker_client *client =
+		container_of(clients->connections, struct auth_worker_client, conn);
+	return client;
+}
 
 static void auth_worker_log_finished(struct auth_worker_command *cmd,
 				     const char *error)
@@ -78,7 +86,7 @@ void auth_worker_refresh_proctitle(const char *state)
 
 	if (auth_worker_client_error)
 		state = "error";
-	else if (auth_worker_client == NULL)
+	else if (!auth_worker_has_client())
 		state = "waiting for connection";
 	process_title_set(t_strdup_printf("worker: %s", state));
 }
@@ -869,7 +877,6 @@ auth_worker_client_create(struct auth *auth,
 
 	auth_worker_refresh_proctitle(CLIENT_STATE_HANDSHAKE);
 
-	auth_worker_client = client;
 	if (auth_worker_client_error)
 		auth_worker_client_send_error();
 	return client;
@@ -877,6 +884,8 @@ auth_worker_client_create(struct auth *auth,
 
 void auth_worker_client_send_error(void)
 {
+	struct auth_worker_client *auth_worker_client =
+		auth_worker_get_client();
 	auth_worker_client_error = TRUE;
 	if (auth_worker_client != NULL &&
 	    !auth_worker_client->error_sent) {
@@ -888,6 +897,8 @@ void auth_worker_client_send_error(void)
 
 void auth_worker_client_send_success(void)
 {
+	struct auth_worker_client *auth_worker_client =
+		auth_worker_get_client();
 	auth_worker_client_error = FALSE;
 	if (auth_worker_client == NULL)
 		return;
@@ -902,6 +913,8 @@ void auth_worker_client_send_success(void)
 
 void auth_worker_client_send_shutdown(void)
 {
+	struct auth_worker_client *auth_worker_client =
+		auth_worker_get_client();
 	if (auth_worker_client != NULL)
 		o_stream_nsend_str(auth_worker_client->conn.output,
 				   "SHUTDOWN\n");
