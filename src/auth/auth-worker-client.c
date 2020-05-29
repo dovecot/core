@@ -28,7 +28,7 @@ struct auth_worker_client {
 	struct connection conn;
 	int refcount;
 
-        struct auth *auth;
+	struct auth *auth;
 	struct event *event;
 	time_t cmd_start;
 
@@ -227,7 +227,7 @@ auth_worker_handle_passv(struct auth_worker_command *cmd,
 {
 	/* verify plaintext password */
 	struct auth_request *auth_request;
-        struct auth_passdb *passdb;
+	struct auth_passdb *passdb;
 	const char *password;
 	unsigned int passdb_id;
 
