@@ -73,4 +73,23 @@ struct event_filter_node {
 bool event_filter_category_to_log_type(const char *name,
 				       enum event_filter_log_type *log_type_r);
 
+/* lexer & parser state */
+struct event_filter_parser_state {
+	void *scanner;
+	const char *input;
+	size_t len;
+	size_t pos;
+
+	pool_t pool;
+	struct event_filter_node *output;
+	const char *error;
+	bool has_event_name:1;
+};
+
+int event_filter_parser_lex_init(void **scanner);
+int event_filter_parser_lex_destroy(void *yyscanner);
+int event_filter_parser_parse(struct event_filter_parser_state *state);
+void event_filter_parser_set_extra(void *user, void *yyscanner);
+void event_filter_parser_error(void *scan, const char *e);
+
 #endif

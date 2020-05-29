@@ -297,6 +297,8 @@ AC_ISC_POSIX
 AC_PROG_CC
 AC_PROG_CPP
 AC_PROG_CXX # lucene plugin needs this
+AC_CHECK_TOOL([FLEX],[flex],AC_ERROR(flex is required))
+AC_CHECK_TOOL([BISON],[bison],AC_ERROR(bison is required))
 AC_HEADER_STDC
 AC_C_INLINE
 AC_PROG_LIBTOOL

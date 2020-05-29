@@ -3,9 +3,32 @@ AM_CPPFLAGS = \
 
 noinst_LTLIBRARIES = liblib.la
 
-BUILT_SOURCES = $(srcdir)/unicodemap.c
+BUILT_SOURCES = $(srcdir)/unicodemap.c \
+		event-filter-parser-lexer.c \
+		event-filter-parser-parser.c \
+		event-filter-parser-parser.h
 
 EXTRA_DIST = unicodemap.c unicodemap.pl UnicodeData.txt
+
+# Squelch autoconf error about using .[ly] sources but not defining $(LEX)
+# and $(YACC).  Using false here avoids accidental use.
+LEX=/bin/false
+YACC=/bin/false
+
+# We use custom rules here because we want to use flex and bison instead
+# of lex and yacc (or bison in yacc-compatibility mode).  Both flex and
+# bison can handle properly naming the generated files, and it is simpler
+# and cleaner to make this rule ourselves instead of working around ylwrap
+# and yywrap's antiquated notion of what is hapenning.
+.l.c:
+	$(AM_V_GEN)$(FLEX) -o $@ $<
+
+.y.c:
+	$(AM_V_GEN)$(BISON) -o $@ $<
+
+# Bison generates both a header and a .c file.  Without the following
+# dependency, anything including the header will race the bison process.
+event-filter-parser-parser.h: event-filter-parser-parser.c
 
 $(srcdir)/UnicodeData.txt:
 	test -f $@ || wget -O $@ https://dovecot.org/res/UnicodeData.txt
@@ -33,6 +56,8 @@ liblib_la_SOURCES = \
 	env-util.c \
 	event-filter.c \
 	event-filter-parser.c \
+	event-filter-parser-lexer.l \
+	event-filter-parser-parser.y \
 	event-log.c \
 	execv-const.c \
 	failures.c \
@@ -192,6 +217,7 @@ headers = \
 	eacces-error.h \
 	env-util.h \
 	event-filter.h \
+	event-filter-parser-parser.h \
 	event-filter-private.h \
 	event-log.h \
 	execv-const.h \

@@ -10,6 +10,10 @@
 #include "event-filter.h"
 #include "event-filter-private.h"
 
+/* Note: this has to match the regexp behavior in the event filter lexer file */
+#define event_filter_append_escaped(dst, str) \
+	str_append_escaped((dst), (str), strlen(str))
+
 enum event_filter_code {
 	EVENT_FILTER_CODE_NAME		= 'n',
 	EVENT_FILTER_CODE_SOURCE	= 's',
@@ -112,6 +116,18 @@ bool event_filter_category_to_log_type(const char *name,
 		}
 	}
 	return FALSE;
+}
+
+static const char *
+event_filter_category_from_log_type(enum event_filter_log_type log_type)
+{
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(event_filter_log_type_map); i++) {
+		if (event_filter_log_type_map[i].log_type == log_type)
+			return event_filter_log_type_map[i].name;
+	}
+	i_unreached();
 }
 
 static void add_node(pool_t pool, struct event_filter_node **root,
@@ -252,6 +268,7 @@ clone_expr(pool_t pool, struct event_filter_node *old)
 	new->children[1] = clone_expr(pool, old->children[1]);
 	new->str = p_strdup_empty(pool, old->str);
 	new->intmax = old->intmax;
+	new->category.log_type = old->category.log_type;
 	new->category.name = p_strdup_empty(pool, old->category.name);
 	new->category.ptr = old->category.ptr;
 	new->field.key = p_strdup_empty(pool, old->field.key);
@@ -333,6 +350,99 @@ event_filter_export_query_expr(const struct event_filter_query_internal *query,
 	}
 }
 
+static const char *
+event_filter_export_query_expr_op(enum event_filter_node_op op)
+{
+	switch (op) {
+	case EVENT_FILTER_OP_AND:
+	case EVENT_FILTER_OP_OR:
+	case EVENT_FILTER_OP_NOT:
+		i_unreached();
+	case EVENT_FILTER_OP_CMP_EQ:
+		return "=";
+	case EVENT_FILTER_OP_CMP_GT:
+		return ">";
+	case EVENT_FILTER_OP_CMP_LT:
+		return "<";
+	case EVENT_FILTER_OP_CMP_GE:
+		return ">=";
+	case EVENT_FILTER_OP_CMP_LE:
+		return "<=";
+	}
+
+	i_unreached();
+}
+
+static void
+event_filter_export_query_expr_new(const struct event_filter_query_internal *query,
+				   struct event_filter_node *node,
+				   string_t *dest)
+{
+	switch (node->type) {
+	case EVENT_FILTER_NODE_TYPE_LOGIC:
+		str_append_c(dest, '(');
+		switch (node->op) {
+		case EVENT_FILTER_OP_AND:
+			event_filter_export_query_expr_new(query, node->children[0], dest);
+			str_append(dest, " AND ");
+			event_filter_export_query_expr_new(query, node->children[1], dest);
+			break;
+		case EVENT_FILTER_OP_OR:
+			event_filter_export_query_expr_new(query, node->children[0], dest);
+			str_append(dest, " OR ");
+			event_filter_export_query_expr_new(query, node->children[1], dest);
+			break;
+		case EVENT_FILTER_OP_NOT:
+			str_append(dest, "NOT ");
+			event_filter_export_query_expr_new(query, node->children[0], dest);
+			break;
+		case EVENT_FILTER_OP_CMP_EQ:
+		case EVENT_FILTER_OP_CMP_GT:
+		case EVENT_FILTER_OP_CMP_LT:
+		case EVENT_FILTER_OP_CMP_GE:
+		case EVENT_FILTER_OP_CMP_LE:
+			i_unreached();
+		}
+		str_append_c(dest, ')');
+		break;
+	case EVENT_FILTER_NODE_TYPE_EVENT_NAME:
+		str_append(dest, "event");
+		str_append(dest, event_filter_export_query_expr_op(node->op));
+		str_append_c(dest, '"');
+		event_filter_append_escaped(dest, node->str);
+		str_append_c(dest, '"');
+		break;
+	case EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION:
+		str_append(dest, "source_location");
+		str_append(dest, event_filter_export_query_expr_op(node->op));
+		str_append_c(dest, '"');
+		event_filter_append_escaped(dest, node->str);
+		if (node->intmax != 0)
+			str_printfa(dest, ":%ju", node->intmax);
+		str_append_c(dest, '"');
+		break;
+	case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:
+		str_append(dest, "category");
+		str_append(dest, event_filter_export_query_expr_op(node->op));
+		if (node->category.name != NULL) {
+			str_append_c(dest, '"');
+			event_filter_append_escaped(dest, node->category.name);
+			str_append_c(dest, '"');
+		} else
+			str_append(dest, event_filter_category_from_log_type(node->category.log_type));
+		break;
+	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD:
+		str_append_c(dest, '"');
+		event_filter_append_escaped(dest, node->field.key);
+		str_append_c(dest, '"');
+		str_append(dest, event_filter_export_query_expr_op(node->op));
+		str_append_c(dest, '"');
+		event_filter_append_escaped(dest, node->field.value.str);
+		str_append_c(dest, '"');
+		break;
+	}
+}
+
 static void
 event_filter_export_query(const struct event_filter_query_internal *query,
 			  string_t *dest)
@@ -352,6 +462,15 @@ event_filter_export_query(const struct event_filter_query_internal *query,
 	}
 }
 
+static void
+event_filter_export_query_new(const struct event_filter_query_internal *query,
+			      string_t *dest)
+{
+	str_append_c(dest, '(');
+	event_filter_export_query_expr_new(query, query->expr, dest);
+	str_append_c(dest, ')');
+}
+
 void event_filter_export(struct event_filter *filter, string_t *dest)
 {
 	const struct event_filter_query_internal *query;
@@ -362,6 +481,19 @@ void event_filter_export(struct event_filter *filter, string_t *dest)
 			str_append_c(dest, '\t');
 		first = FALSE;
 		event_filter_export_query(query, dest);
+	}
+}
+
+void event_filter_export_new(struct event_filter *filter, string_t *dest)
+{
+	const struct event_filter_query_internal *query;
+	bool first = TRUE;
+
+	array_foreach(&filter->queries, query) {
+		if (!first)
+			str_append(dest, " OR ");
+		first = FALSE;
+		event_filter_export_query_new(query, dest);
 	}
 }
 
@@ -755,6 +887,9 @@ event_filter_query_update_category(struct event_filter_query_internal *query,
 	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD:
 		break;
 	case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:
+		if (node->category.name == NULL)
+			break; /* log type */
+
 		if (add) {
 			if (node->category.ptr != NULL)
 				break;
