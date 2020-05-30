@@ -344,7 +344,7 @@ int sd_notify(int unset_environment, const char *state) {
                 return 0;
 
         /* Must be an abstract socket, or an absolute path */
-        if ((e[0] != '@' && e[0] != '/') || e[1] == 0) {
+        if ((e[0] != '@' && e[0] != '/') || e[1] == 0 || strlen(e) > (sizeof(sockaddr.un.sun_path)-1)) {
                 r = -EINVAL;
                 goto finish;
         }
@@ -356,7 +356,7 @@ int sd_notify(int unset_environment, const char *state) {
 
         memset(&sockaddr, 0, sizeof(sockaddr));
         sockaddr.sa.sa_family = AF_UNIX;
-        strncpy(sockaddr.un.sun_path, e, sizeof(sockaddr.un.sun_path));
+        strncpy(sockaddr.un.sun_path, e, sizeof(sockaddr.un.sun_path)-1);
 
         if (sockaddr.un.sun_path[0] == '@')
                 sockaddr.un.sun_path[0] = 0;
