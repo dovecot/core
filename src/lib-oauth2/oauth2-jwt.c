@@ -263,8 +263,9 @@ oauth2_jwt_header_process(struct json_tree *tree, const char **alg_r,
 		return -1;
 	}
 
-	/* these are lost when tree is deinit */
-	*alg_r = t_strdup(algo);
+	/* These are lost when tree is deinitialized.
+	   Make sure algorithm is uppercased. */
+	*alg_r = t_str_ucase(algo);
 	*kid_r = t_strdup(kid);
 	return 0;
 }
