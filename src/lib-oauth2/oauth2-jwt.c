@@ -45,21 +45,23 @@ static int get_time_field(const struct json_tree *tree, const char *key,
 }
 
 static int oauth2_lookup_hmac_key(const struct oauth2_settings *set,
-				  const char *key_id, const buffer_t **hmac_key_r,
+				  const char *algo, const char *key_id,
+				  const buffer_t **hmac_key_r,
 				  const char **error_r)
 {
 	const char *base64_key;
-	if (oauth2_validation_key_cache_lookup_hmac_key(set->key_cache, key_id,
+	const char *cache_key_id = t_strconcat(key_id, ".", algo, NULL);
+	if (oauth2_validation_key_cache_lookup_hmac_key(set->key_cache, cache_key_id,
 							hmac_key_r) == 0)
 		return 0;
 	int ret;
-	const char *lookup_key = t_strconcat(DICT_PATH_SHARED, key_id, NULL);
+	const char *lookup_key = t_strconcat(DICT_PATH_SHARED, algo, "/", key_id, NULL);
 	/* do a synchronous dict lookup */
 	if ((ret = dict_lookup(set->key_dict, pool_datastack_create(),
 			       lookup_key, &base64_key, error_r)) < 0) {
 		return -1;
 	} else if (ret == 0) {
-		*error_r = t_strdup_printf("Key '%s' not found", key_id);
+		*error_r = t_strdup_printf("%s key '%s' not found", algo, key_id);
 		return -1;
 	}
 
@@ -69,7 +71,7 @@ static int oauth2_lookup_hmac_key(const struct oauth2_settings *set,
 		*error_r = "Invalid base64 encoded key";
 		return -1;
 	}
-	oauth2_validation_key_cache_insert_hmac_key(set->key_cache, key_id, key);
+	oauth2_validation_key_cache_insert_hmac_key(set->key_cache, cache_key_id, key);
 	*hmac_key_r = key;
 	return 0;
 }
@@ -91,7 +93,7 @@ static int oauth2_validate_hmac(const struct oauth2_settings *set,
 	}
 
 	const buffer_t *key;
-	if (oauth2_lookup_hmac_key(set, key_id, &key, error_r) < 0)
+	if (oauth2_lookup_hmac_key(set, algo, key_id, &key, error_r) < 0)
 		return -1;
 	struct hmac_context ctx;
 	hmac_init(&ctx, key->data, key->used, method);
@@ -113,20 +115,22 @@ static int oauth2_validate_hmac(const struct oauth2_settings *set,
 }
 
 static int oauth2_lookup_pubkey(const struct oauth2_settings *set,
-				const char *key_id, struct dcrypt_public_key **key_r,
+				const char *algo, const char *key_id,
+				struct dcrypt_public_key **key_r,
 				const char **error_r)
 {
 	const char *key_str;
-	if (oauth2_validation_key_cache_lookup_pubkey(set->key_cache, key_id, key_r) == 0)
+	const char *cache_key_id = t_strconcat(key_id, ".", algo, NULL);
+	if (oauth2_validation_key_cache_lookup_pubkey(set->key_cache, cache_key_id, key_r) == 0)
 		return 0;
 	int ret;
-	const char *lookup_key = t_strconcat(DICT_PATH_SHARED, key_id, NULL);
+	const char *lookup_key = t_strconcat(DICT_PATH_SHARED, algo, "/", key_id, NULL);
 	/* do a synchronous dict lookup */
 	if ((ret = dict_lookup(set->key_dict, pool_datastack_create(),
 			       lookup_key, &key_str, error_r)) < 0) {
 		return -1;
 	} else if (ret == 0) {
-		*error_r = t_strdup_printf("Key '%s' not found", key_id);
+		*error_r = t_strdup_printf("%s key '%s' not found", algo, key_id);
 		return -1;
 	}
 
@@ -139,7 +143,7 @@ static int oauth2_lookup_pubkey(const struct oauth2_settings *set,
 	}
 
 	/* cache key */
-	oauth2_validation_key_cache_insert_pubkey(set->key_cache, key_id, pubkey);
+	oauth2_validation_key_cache_insert_pubkey(set->key_cache, cache_key_id, pubkey);
 	*key_r = pubkey;
 	return 0;
 }
@@ -185,7 +189,7 @@ static int oauth2_validate_rsa_ecdsa(const struct oauth2_settings *set,
 		t_base64url_decode_str(BASE64_DECODE_FLAG_NO_PADDING, blobs[2]);
 
 	struct dcrypt_public_key *pubkey;
-	if (oauth2_lookup_pubkey(set, key_id, &pubkey, error_r) < 0)
+	if (oauth2_lookup_pubkey(set, algo, key_id, &pubkey, error_r) < 0)
 		return -1;
 
 	/* data to verify */
