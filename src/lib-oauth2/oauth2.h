@@ -36,6 +36,8 @@ struct oauth2_settings {
 	struct dict *key_dict;
 	/* cache for validation keys */
 	struct oauth2_validation_key_cache *key_cache;
+	/* valid issuer names */
+	const char *const *issuers;
 
 	enum {
 		INTROSPECTION_MODE_GET_AUTH,

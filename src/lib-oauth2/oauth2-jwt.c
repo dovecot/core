@@ -11,6 +11,7 @@
 #include "json-tree.h"
 #include "array.h"
 #include "base64.h"
+#include "str-sanitize.h"
 #include "dcrypt.h"
 #include "var-expand.h"
 #include "oauth2.h"
@@ -275,7 +276,8 @@ oauth2_jwt_header_process(struct json_tree *tree, const char **alg_r,
 }
 
 static int
-oauth2_jwt_body_process(ARRAY_TYPE(oauth2_field) *fields, struct json_tree *tree,
+oauth2_jwt_body_process(const struct oauth2_settings *set,
+			ARRAY_TYPE(oauth2_field) *fields, struct json_tree *tree,
 			const char **error_r)
 {
 	const char *sub = get_field(tree, "sub");
@@ -328,6 +330,19 @@ oauth2_jwt_body_process(ARRAY_TYPE(oauth2_field) *fields, struct json_tree *tree
 	    exp < nbf) {
 		*error_r = "Token time values are conflicting";
 		return -1;
+	}
+
+	const char *iss = get_field(tree, "iss");
+	if (set->issuers != NULL && *set->issuers != NULL) {
+		if (iss == NULL) {
+			*error_r = "Token is missing 'iss' field";
+			return -1;
+		}
+		if (!str_array_find(set->issuers, iss)) {
+			*error_r = t_strdup_printf("Issuer '%s' is not allowed",
+						   str_sanitize_utf8(iss, 128));
+			return -1;
+		}
 	}
 
 	oauth2_jwt_copy_fields(fields, tree);
@@ -390,7 +405,7 @@ int oauth2_try_parse_jwt(const struct oauth2_settings *set,
 		t_base64url_decode_str(BASE64_DECODE_FLAG_NO_PADDING, blobs[1]);
 	if (oauth2_json_tree_build(body, &body_tree, error_r) == -1)
 		return -1;
-	ret = oauth2_jwt_body_process(fields, body_tree, error_r);
+	ret = oauth2_jwt_body_process(set, fields, body_tree, error_r);
 	json_tree_deinit(&body_tree);
 
 	return ret;

@@ -52,6 +52,8 @@ struct passdb_oauth2_settings {
 	const char *pass_attrs;
 	/* template to expand into key path, turns on local validation support */
 	const char *local_validation_key_dict;
+	/* valid token issuers */
+	const char *issuers;
 
 	/* TLS options */
 	const char *tls_ca_cert_file;
@@ -119,6 +121,7 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(active_value),
 	DEF_STR(client_id),
 	DEF_STR(client_secret),
+	DEF_STR(issuers),
 	DEF_INT(timeout_msecs),
 	DEF_INT(max_idle_time_msecs),
 	DEF_INT(max_parallel_connections),
@@ -153,6 +156,7 @@ static struct passdb_oauth2_settings default_oauth2_settings = {
 	.active_value = "",
 	.client_id = "",
 	.client_secret = "",
+	.issuers = "",
 	.pass_attrs = "",
 	.local_validation_key_dict = "",
 	.rawlog_dir = "",
@@ -286,6 +290,10 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 		/* initialize key cache */
 		db->oauth2_set.key_cache = oauth2_validation_key_cache_init();
 	}
+
+	if (*db->set.issuers != '\0')
+		db->oauth2_set.issuers = (const char *const *)
+			p_strsplit_spaces(pool, db->set.issuers, " ");
 
 	DLLIST_PREPEND(&db_oauth2_head, db);
 
