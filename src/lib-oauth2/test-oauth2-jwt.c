@@ -205,12 +205,12 @@ static buffer_t *create_jwt_token_fields(const char *algo, time_t exp, time_t ia
 	return tokenbuf;
 }
 
-#define save_key(key) save_key_to("default", (key))
-static void save_key_to(const char *name, const char *keydata)
+#define save_key(algo, key) save_key_to(algo, "default", (key))
+static void save_key_to(const char *algo, const char *name, const char *keydata)
 {
 	const char *error;
 	struct dict_transaction_context *ctx = dict_transaction_begin(keys_dict);
-	dict_set(ctx, t_strconcat(DICT_PATH_SHARED, name, NULL), keydata);
+	dict_set(ctx, t_strconcat(DICT_PATH_SHARED, algo, "/", name, NULL), keydata);
 	if (dict_transaction_commit(&ctx, &error) < 0)
 		i_error("dict_set(%s) failed: %s", name, error);
 }
@@ -468,12 +468,12 @@ static void test_jwt_key_files(void)
 	void *ptr = buffer_append_space_unsafe(secret, 32);
 	random_fill(ptr, 32);
 	buffer_t *b64_key = t_base64_encode(0, (size_t)-1, secret->data, secret->used);
-	save_key_to("first", str_c(b64_key));
+	save_key_to("HS256", "first", str_c(b64_key));
 	buffer_t *secret2 = t_buffer_create(32);
 	ptr = buffer_append_space_unsafe(secret2, 32);
 	random_fill(ptr, 32);
 	b64_key = t_base64_encode(0, (size_t)-1, secret2->data, secret2->used);
-	save_key_to("second", str_c(b64_key));
+	save_key_to("HS256", "second", str_c(b64_key));
 
 	/* create and sign token */
 	buffer_t *token_1 = create_jwt_token_kid("HS256", "first");
@@ -491,7 +491,7 @@ static void test_jwt_key_files(void)
 
 	test_assert(parse_jwt_token(&req, str_c(token_3), &is_jwt, &error) != 0);
 	test_assert(is_jwt == TRUE);
-	test_assert_strcmp(error, "Key 'missing' not found");
+	test_assert_strcmp(error, "HS256 key 'missing' not found");
 	test_assert(parse_jwt_token(&req, str_c(token_4), &is_jwt, &error) != 0);
 	test_assert(is_jwt == TRUE);
 	test_assert_strcmp(error, "'kid' field is empty");
@@ -508,7 +508,7 @@ static void test_jwt_rs_token(void)
 	test_begin("JWT RSA token");
 	/* write public key to file */
 	oauth2_validation_key_cache_evict(key_cache, "default");
-	save_key(rsa_public_key);
+	save_key("RS256", rsa_public_key);
 
 	buffer_t *tokenbuf = create_jwt_token("RS256");
 	/* sign token */
@@ -541,7 +541,7 @@ static void test_jwt_ps_token(void)
 	test_begin("JWT RSAPSS token");
 	/* write public key to file */
 	oauth2_validation_key_cache_evict(key_cache, "default");
-	save_key(rsa_public_key);
+	save_key("PS256", rsa_public_key);
 
 	buffer_t *tokenbuf = create_jwt_token("PS256");
 	/* sign token */
@@ -586,7 +586,7 @@ static void test_jwt_ec_token(void)
 		exit(1);
 	}
 	oauth2_validation_key_cache_evict(key_cache, "default");
-	save_key(str_c(keybuf));
+	save_key("ES256", str_c(keybuf));
 
 	buffer_t *tokenbuf = create_jwt_token("ES256");
 	/* sign token */
@@ -634,7 +634,7 @@ static void test_do_init(void)
 	random_fill(ptr, 32);
 	buffer_t *b64_key = t_base64_encode(0, (size_t)-1,
 					    hs_sign_key->data, hs_sign_key->used);
-	save_key(str_c(b64_key));
+	save_key("HS256", str_c(b64_key));
 }
 
 static void test_do_deinit(void)
