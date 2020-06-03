@@ -3,6 +3,10 @@
 
 #include "net.h"
 
+struct auth_master_request;
+struct auth_master_reply;
+struct auth_master_connection;
+
 enum auth_master_flags {
 	/* Enable logging debug information */
 	AUTH_MASTER_FLAG_DEBUG			= 0x01,
@@ -19,6 +23,8 @@ enum auth_master_flags {
 struct auth_master_reply {
 	const char *reply;
 	const char *const *args;
+
+	const char *errormsg;
 };
 
 /* Returns 1 upon full completion, 0 upon successful partial completion (will
@@ -26,6 +32,25 @@ struct auth_master_reply {
 typedef int
 auth_master_request_callback_t(const struct auth_master_reply *reply,
 			       void *context);
+
+struct auth_master_request *
+auth_master_request(struct auth_master_connection *conn, const char *cmd,
+		    const unsigned char *args, size_t args_size,
+		    auth_master_request_callback_t *callback, void *context);
+#define auth_master_request(conn, cmd, args, args_size, callback, context) \
+	auth_master_request(conn, cmd, args, args_size + \
+		CALLBACK_TYPECHECK(callback, int (*)( \
+			const struct auth_master_reply *reply, \
+			typeof(context))), \
+		(auth_master_request_callback_t *)callback, context)
+
+int auth_master_request_submit(struct auth_master_request **_req);
+
+void auth_master_request_set_event(struct auth_master_request *req,
+				   struct event *event);
+
+void auth_master_request_abort(struct auth_master_request **_req);
+bool auth_master_request_wait(struct auth_master_request *req);
 
 /*
  * Connection
