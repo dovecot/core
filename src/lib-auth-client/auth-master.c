@@ -561,6 +561,15 @@ auth_lookup_reply_callback(const struct auth_master_reply *reply, void *context)
 		lookup->fields = p_new(lookup->pool, const char *, len + 1);
 		for (i = 0; i < len; i++)
 			lookup->fields[i] = p_strdup(lookup->pool, args[i]);
+		if (len == 0) {
+			e_debug(lookup->event, "auth %s input: (empty)",
+				lookup->expected_reply);
+		} else {
+			args = args_hide_passwords(args);
+			e_debug(lookup->event, "auth %s input: %s",
+				lookup->expected_reply,
+				t_strarray_join(args, " "));
+		}
 	} else {
 		/* put the reason string into first field */
 		lookup->fields = p_new(lookup->pool, const char *, 2);
@@ -571,10 +580,14 @@ auth_lookup_reply_callback(const struct auth_master_reply *reply, void *context)
 				break;
 			}
 		}
+		if (lookup->fields[0] != NULL) {
+			e_debug(lookup->event, "auth %s error: %s",
+				lookup->expected_reply, lookup->fields[0]);
+		} else {
+			e_debug(lookup->event, "auth %s error: (unknown)",
+				lookup->expected_reply);
+		}
 	}
-	args = args_hide_passwords(args);
-	e_debug(lookup->event, "auth %s input: %s",
-		lookup->expected_reply, t_strarray_join(args, " "));
 	return 1;
 }
 
