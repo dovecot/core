@@ -808,7 +808,7 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 		/* try to validate token locally */
 		e_debug(authdb_event(req->auth_request),
 			"Attempting to locally validate token");
-		db_oauth2_local_validation(req, request->mech_password);
+		db_oauth2_local_validation(req, token);
 		return;
 
 	}

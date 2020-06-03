@@ -66,6 +66,7 @@ struct auth_userdb_settings {
 struct auth_settings {
 	pool_t pool;
 	ARRAY_TYPE(const_string) mechanisms;
+	const char *oauth2_config_file;
 	const char *realms;
 	const char *default_domain;
 	uoff_t cache_size;

@@ -309,6 +309,7 @@ const struct setting_parser_info auth_userdb_post_setting_parser_info = {
 
 static const struct setting_define auth_setting_defines[] = {
 	DEF(BOOLLIST, mechanisms),
+	DEF(STR, oauth2_config_file),
 	DEF(STR, realms),
 	DEF(STR, default_domain),
 	DEF(SIZE, cache_size),
@@ -379,6 +380,7 @@ static const struct setting_define auth_setting_defines[] = {
 };
 
 static const struct auth_settings auth_default_settings = {
+	.oauth2_config_file = "",
 	.realms = "",
 	.default_domain = "",
 	.cache_size = 0,
