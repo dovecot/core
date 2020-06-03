@@ -263,7 +263,7 @@ int auth_master_connect(struct auth_master_connection *conn)
 	return 0;
 }
 
-static void auth_idle_timeout(struct auth_master_connection *conn)
+static void auth_master_idle_timeout(struct auth_master_connection *conn)
 {
 	auth_master_disconnect(conn);
 }
@@ -304,7 +304,7 @@ void auth_master_unset_io(struct auth_master_connection *conn)
 			auth_master_disconnect(conn);
 		else if (conn->to == NULL) {
 			conn->to = timeout_add(1000*AUTH_MASTER_IDLE_SECS,
-					       auth_idle_timeout, conn);
+					       auth_master_idle_timeout, conn);
 		}
 	}
 }
