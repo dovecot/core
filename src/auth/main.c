@@ -31,6 +31,7 @@
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
 #include "auth-policy.h"
+#include "db-oauth2.h"
 
 #include <unistd.h>
 #include <sys/stat.h>
@@ -269,6 +270,7 @@ static void main_deinit(void)
 	auth_policy_deinit();
 	mech_register_deinit(&mech_reg);
 	mech_otp_deinit();
+	db_oauth2_deinit();
 	mech_deinit(global_auth_settings);
 	settings_free(global_auth_settings);
 

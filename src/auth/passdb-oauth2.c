@@ -61,10 +61,8 @@ oauth2_preinit(pool_t pool, const char *args)
 	return &module->module;
 }
 
-static void oauth2_deinit(struct passdb_module *passdb)
+static void oauth2_deinit(struct passdb_module *passdb ATTR_UNUSED)
 {
-	struct oauth2_passdb_module *module = (struct oauth2_passdb_module *)passdb;
-	db_oauth2_unref(&module->db);
 }
 
 /* FIXME: Remove when oauth2 mech is fixed */
