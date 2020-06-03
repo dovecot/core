@@ -276,9 +276,9 @@ oauth2_jwt_header_process(struct json_tree *tree, const char **alg_r,
 }
 
 static int
-oauth2_jwt_body_process(const struct oauth2_settings *set,
+oauth2_jwt_body_process(const struct oauth2_settings *set, const char *alg, const char *kid,
 			ARRAY_TYPE(oauth2_field) *fields, struct json_tree *tree,
-			const char **error_r)
+			const char *const *blobs, const char **error_r)
 {
 	const char *sub = get_field(tree, "sub");
 
@@ -345,6 +345,9 @@ oauth2_jwt_body_process(const struct oauth2_settings *set,
 		}
 	}
 
+	if (oauth2_validate_signature(set, alg, kid, blobs, error_r) < 0)
+		return -1;
+
 	oauth2_jwt_copy_fields(fields, tree);
 	return 0;
 }
@@ -395,17 +398,13 @@ int oauth2_try_parse_jwt(const struct oauth2_settings *set,
 		return -1;
 	}
 
-	/* from now on, this is considered a JWT token. try to validate signature. */
-	if (oauth2_validate_signature(set, alg, kid, blobs, error_r) < 0)
-		return -1;
-
-	/* then parse the actual body */
+	/* parse body */
 	struct json_tree *body_tree;
 	buffer_t *body =
 		t_base64url_decode_str(BASE64_DECODE_FLAG_NO_PADDING, blobs[1]);
 	if (oauth2_json_tree_build(body, &body_tree, error_r) == -1)
 		return -1;
-	ret = oauth2_jwt_body_process(set, fields, body_tree, error_r);
+	ret = oauth2_jwt_body_process(set, alg, kid, fields, body_tree, blobs, error_r);
 	json_tree_deinit(&body_tree);
 
 	return ret;
