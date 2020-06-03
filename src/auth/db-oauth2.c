@@ -82,8 +82,6 @@ struct db_oauth2 {
 	struct oauth2_settings oauth2_set;
 
 	struct db_oauth2_request *head;
-
-	unsigned int refcount;
 };
 
 static struct db_oauth2 *db_oauth2_head = NULL;
@@ -157,7 +155,6 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 
 	for(db = db_oauth2_head; db != NULL; db = db->next) {
 		if (strcmp(db->config_path, config_path) == 0) {
-			db->refcount++;
 			return db;
 		}
 	}
@@ -165,7 +162,6 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	pool_t pool = pool_alloconly_create("db_oauth2", 128);
 	db = p_new(pool, struct db_oauth2, 1);
 	db->pool = pool;
-	db->refcount = 1;
 	db->config_path = p_strdup(pool, config_path);
 	db->set = default_oauth2_settings;
 
@@ -253,18 +249,9 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	return db;
 }
 
-void db_oauth2_ref(struct db_oauth2 *db)
-{
-	i_assert(db->refcount > 0);
-	db->refcount++;
-}
-
-void db_oauth2_unref(struct db_oauth2 **_db)
+static void db_oauth2_free(struct db_oauth2 **_db)
 {
 	struct db_oauth2 *ptr, *db = *_db;
-	i_assert(db->refcount > 0);
-
-	if (--db->refcount > 0) return;
 
 	for(ptr = db_oauth2_head; ptr != NULL; ptr = ptr->next) {
 		if (ptr == db) {
@@ -845,4 +832,12 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 bool db_oauth2_uses_password_grant(const struct db_oauth2 *db)
 {
 	return db->set.use_grant_password;
+}
+
+void db_oauth2_deinit(void)
+{
+	while (db_oauth2_head != NULL) {
+		struct db_oauth2 *db = db_oauth2_head;
+		db_oauth2_free(&db);
+	}
 }
