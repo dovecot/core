@@ -137,11 +137,6 @@ static void auth_request_timeout(struct auth_master_connection *conn)
 	auth_request_lookup_abort(conn);
 }
 
-static void auth_idle_timeout(struct auth_master_connection *conn)
-{
-	auth_master_disconnect(conn);
-}
-
 static int
 auth_master_handshake_line(struct connection *_conn, const char *line)
 {
@@ -266,6 +261,11 @@ int auth_master_connect(struct auth_master_connection *conn)
 
 	connection_input_halt(&conn->conn);
 	return 0;
+}
+
+static void auth_idle_timeout(struct auth_master_connection *conn)
+{
+	auth_master_disconnect(conn);
 }
 
 void auth_master_set_io(struct auth_master_connection *conn)
