@@ -160,19 +160,17 @@ void auth_master_request_fail(struct auth_master_request **_req,
 	auth_master_request_abort(_req);
 }
 
-static void
-auth_master_request_send(struct auth_master_connection *conn,
-			 const char *cmd, unsigned int id,
-			 const unsigned char *args, size_t args_size)
+static void auth_master_request_send(struct auth_master_request *req)
 {
-	const char *id_str = dec2str(id);
+	struct auth_master_connection *conn = req->conn;
+	const char *id_str = dec2str(req->id);
 
 	const struct const_iovec iov[] = {
-		{ cmd, strlen(cmd), },
+		{ req->cmd, strlen(req->cmd), },
 		{ "\t", 1 },
 		{ id_str, strlen(id_str), },
-		{ "\t", args_size > 0 ? 1 : 0 },
-		{ args, args_size },
+		{ "\t", req->args_size > 0 ? 1 : 0 },
+		{ req->args, req->args_size },
 		{ "\r\n", 2 },
 	};
 	unsigned int iovc = N_ELEMENTS(iov);
@@ -249,8 +247,7 @@ int auth_master_request_submit(struct auth_master_request **_req)
 		conn->sent_handshake = TRUE;
 	}
 
-	auth_master_request_send(req->conn, req->cmd, req->id,
-				 req->args, req->args_size);
+	auth_master_request_send(req);
 	o_stream_uncork(conn->conn.output);
 
 	if (o_stream_flush(conn->conn.output) < 0) {
