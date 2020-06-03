@@ -9,7 +9,8 @@
 
 void auth_request_lookup_abort(struct auth_master_connection *conn)
 {
-	io_loop_stop(conn->ioloop);
+	if (conn->ioloop != NULL)
+		io_loop_stop(conn->ioloop);
 	conn->aborted = TRUE;
 }
 

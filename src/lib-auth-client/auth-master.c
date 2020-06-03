@@ -82,14 +82,28 @@ auth_master_init(const char *auth_socket_path, enum auth_master_flags flags)
 	return conn;
 }
 
-void auth_master_disconnect(struct auth_master_connection *conn)
+static void
+auth_master_connection_failure(struct auth_master_connection *conn,
+			       const char *reason)
 {
+	if (reason == NULL)
+		reason = "Disconnected from auth service";
+
+	if (conn->connected)
+		e_debug(conn->conn.event, "%s", reason);
+
 	conn->connected = FALSE;
-	connection_disconnect(&conn->conn);
+	conn->sent_handshake = FALSE;
 
 	timeout_remove(&conn->to);
 
-	conn->sent_handshake = FALSE;
+	auth_request_lookup_abort(conn);
+}
+
+void auth_master_disconnect(struct auth_master_connection *conn)
+{
+	connection_disconnect(&conn->conn);
+	auth_master_connection_failure(conn, NULL);
 }
 
 static void
@@ -149,24 +163,30 @@ static void auth_master_destroy(struct connection *_conn)
 
 	switch (_conn->disconnect_reason) {
 	case CONNECTION_DISCONNECT_HANDSHAKE_FAILED:
+		auth_master_connection_failure(
+			conn, "Handshake with auth service failed");
 		break;
 	case CONNECTION_DISCONNECT_BUFFER_FULL:
 		e_error(conn->conn.event, "BUG: Received more than %d bytes",
 			MAX_INBUF_SIZE);
+		auth_master_connection_failure(conn, NULL);
 		break;
 	default:
 		if (!conn->aborted)
 			e_error(conn->conn.event, "Disconnected unexpectedly");
+		auth_master_connection_failure(conn, NULL);
 	}
-	auth_request_lookup_abort(conn);
 }
 
 static void auth_request_timeout(struct auth_master_connection *conn)
 {
-	if (!connection_handshake_received(&conn->conn))
+	if (!connection_handshake_received(&conn->conn)) {
 		e_error(conn->conn.event, "Connecting timed out");
-	else
-		e_error(conn->conn.event, "Request timed out");
+		auth_master_connection_failure(conn, "Connecting timed out");
+		return;
+	}
+
+	e_error(conn->conn.event, "Request timed out");
 	auth_request_lookup_abort(conn);
 }
 
@@ -186,16 +206,13 @@ auth_master_handshake_line(struct connection *_conn, const char *line)
 			e_error(conn->conn.event,
 				"Auth server sent invalid version line: %s",
 				line);
-			auth_request_lookup_abort(conn);
 			return -1;
 		}
 
 		if (connection_verify_version(_conn, "auth-master",
 					      major_version,
-					      minor_version) < 0) {
-			auth_request_lookup_abort(conn);
+					      minor_version) < 0)
 			return -1;
-		}
 		return 0;
 	} else if (strcmp(tmp[0], "SPID") != 0) {
 		return 0;
@@ -255,7 +272,7 @@ auth_master_input_args(struct connection *_conn, const char *const *args)
 
 	ret = auth_master_handle_input(conn, args);
 	if (ret < 0) {
-		auth_request_lookup_abort(conn);
+		auth_master_disconnect(conn);
 		return -1;
 	}
 	/* The continue/stop return 0/1 semantics for auth_master_handle_input()
