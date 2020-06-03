@@ -773,16 +773,19 @@ auth_user_list_reply_callback(const char *cmd, const char *const *args,
 			ctx->failed = TRUE;
 		}
 		ctx->finished = TRUE;
-	} else if (strcmp(cmd, "LIST") == 0 && args[0] != NULL) {
-		/* we'll just read all the users into memory. otherwise we'd
-		   have to use a separate connection for listing and there's
-		   a higher chance of a failure since the connection could be
-		   open to dovecot-auth for a long time. */
-		str_append(ctx->username, args[0]);
-	} else {
+		return FALSE;
+	}
+	if (strcmp(cmd, "LIST") != 0 || args[0] == NULL) {
 		e_error(conn->event, "User listing returned invalid input");
 		ctx->failed = TRUE;
+		return FALSE;
 	}
+
+	/* We'll just read all the users into memory. otherwise we'd have to use
+	   a separate connection for listing and there's a higher chance of a
+	   failure since the connection could be open to dovecot-auth for a long
+	   time. */
+	str_append(ctx->username, args[0]);
 	return FALSE;
 }
 
