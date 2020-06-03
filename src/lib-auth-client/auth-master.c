@@ -53,6 +53,7 @@ struct auth_master_connection *
 auth_master_init(const char *auth_socket_path, enum auth_master_flags flags)
 {
 	struct auth_master_connection *conn;
+	struct event *event_parent;
 	pool_t pool;
 
 	pool = pool_alloconly_create("auth_master_connection", 1024);
@@ -65,15 +66,16 @@ auth_master_init(const char *auth_socket_path, enum auth_master_flags flags)
 	conn->clist = connection_list_init(&auth_master_set,
 					   &auth_master_vfuncs);
 
-	conn->event_parent = conn->event = event_create(NULL);
-	event_add_category(conn->event_parent, &event_category_auth_client);
-	event_set_append_log_prefix(conn->event_parent, "auth-master: ");
-	event_set_forced_debug(conn->event_parent,
+	event_parent = event_create(NULL);
+	event_add_category(event_parent, &event_category_auth_client);
+	event_set_append_log_prefix(event_parent, "auth-master: ");
+	event_set_forced_debug(event_parent,
 			       HAS_ALL_BITS(flags, AUTH_MASTER_FLAG_DEBUG));
 
-	conn->conn.event_parent = conn->event_parent;
+	conn->conn.event_parent = event_parent;
 	connection_init_client_unix(conn->clist, &conn->conn,
 				    conn->auth_socket_path);
+	event_unref(&event_parent);
 
 	if ((flags & AUTH_MASTER_FLAG_NO_INNER_IOLOOP) != 0)
 		conn->ioloop = current_ioloop;
@@ -111,7 +113,6 @@ auth_master_unref(struct auth_master_connection **_conn)
 	auth_master_disconnect(conn);
 	connection_deinit(&conn->conn);
 	connection_list_deinit(&clist);
-	event_unref(&conn->event_parent);
 	pool_unref(&conn->pool);
 }
 
@@ -150,12 +151,12 @@ static void auth_master_destroy(struct connection *_conn)
 	case CONNECTION_DISCONNECT_HANDSHAKE_FAILED:
 		break;
 	case CONNECTION_DISCONNECT_BUFFER_FULL:
-		e_error(conn->event, "BUG: Received more than %d bytes",
+		e_error(conn->conn.event, "BUG: Received more than %d bytes",
 			MAX_INBUF_SIZE);
 		break;
 	default:
 		if (!conn->aborted)
-			e_error(conn->event, "Disconnected unexpectedly");
+			e_error(conn->conn.event, "Disconnected unexpectedly");
 	}
 	auth_request_lookup_abort(conn);
 }
@@ -163,9 +164,9 @@ static void auth_master_destroy(struct connection *_conn)
 static void auth_request_timeout(struct auth_master_connection *conn)
 {
 	if (!connection_handshake_received(&conn->conn))
-		e_error(conn->event, "Connecting timed out");
+		e_error(conn->conn.event, "Connecting timed out");
 	else
-		e_error(conn->event, "Request timed out");
+		e_error(conn->conn.event, "Request timed out");
 	auth_request_lookup_abort(conn);
 }
 
@@ -182,7 +183,7 @@ auth_master_handshake_line(struct connection *_conn, const char *line)
 	    tmp[1] != NULL && tmp[2] != NULL) {
 		if (str_to_uint(tmp[1], &major_version) < 0 ||
 		    str_to_uint(tmp[2], &minor_version) < 0) {
-			e_error(conn->event,
+			e_error(conn->conn.event,
 				"Auth server sent invalid version line: %s",
 				line);
 			auth_request_lookup_abort(conn);
@@ -201,7 +202,7 @@ auth_master_handshake_line(struct connection *_conn, const char *line)
 	}
 
 	if (str_to_pid(tmp[1], &conn->auth_server_pid) < 0) {
-		e_error(conn->event,
+		e_error(conn->conn.event,
 			"Authentication server sent invalid SPID: %s", line);
 		return -1;
 	}
@@ -215,20 +216,20 @@ auth_master_handle_input(struct auth_master_connection *conn,
 	unsigned int id;
 
 	if (strcmp(args[0], "CUID") == 0) {
-		e_error(conn->event, "%s is an auth client socket. "
+		e_error(conn->conn.event, "%s is an auth client socket. "
 			"It should be a master socket.",
 			conn->auth_socket_path);
 		return -1;
 	}
 
 	if (args[1] == NULL || str_to_uint(args[1], &id) < 0) {
-		e_error(conn->event, "BUG: Unexpected input: %s",
+		e_error(conn->conn.event, "BUG: Unexpected input: %s",
 			t_strarray_join(args, "\t"));
 		return -1;
 	}
 
 	if (id != conn->id_counter) {
-		e_error(conn->event,
+		e_error(conn->conn.event,
 			"Auth server sent reply with unknown ID %u", id);
 		return -1;
 	}
@@ -301,11 +302,11 @@ int auth_master_connect(struct auth_master_connection *conn)
 		connection_switch_ioloop_to(&conn->conn, conn->ioloop);
 	if (connection_client_connect(&conn->conn) < 0) {
 		if (errno == EACCES) {
-			e_error(conn->event,
+			e_error(conn->conn.event,
 				"%s", eacces_error_get("connect",
 						       conn->auth_socket_path));
 		} else {
-			e_error(conn->event, "connect(%s) failed: %m",
+			e_error(conn->conn.event, "connect(%s) failed: %m",
 				conn->auth_socket_path);
 		}
 		return -1;
@@ -485,7 +486,8 @@ auth_master_user_event_create(struct auth_master_connection *conn,
 {
 	struct event *event;
 
-	event = event_create(conn->event_parent);
+	event = event_create(conn->conn.event);
+	event_drop_parent_log_prefixes(event, 1);
 	event_set_append_log_prefix(event, prefix);
 
 	if (info != NULL) {
@@ -980,7 +982,8 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 	}
 	str_append_c(str, '\n');
 
-	ctx.event = event_create(conn->event_parent);
+	ctx.event = event_create(conn->conn.event);
+	event_drop_parent_log_prefixes(ctx.event, 1);
 	event_set_append_log_prefix(ctx.event, "auth cache flush: ");
 
 	e_debug(ctx.event, "Started cache flush");

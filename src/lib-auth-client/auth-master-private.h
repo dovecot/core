@@ -17,7 +17,6 @@ struct auth_master_connection {
 	struct connection_list *clist;
 	int refcount;
 	pool_t pool;
-	struct event *event_parent, *event;
 
 	const char *auth_socket_path;
 	enum auth_master_flags flags;
