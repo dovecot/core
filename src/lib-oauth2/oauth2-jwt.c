@@ -46,17 +46,17 @@ static int get_time_field(const struct json_tree *tree, const char *key,
 }
 
 static int oauth2_lookup_hmac_key(const struct oauth2_settings *set,
-				  const char *alg, const char *key_id,
+				  const char *azp, const char *alg, const char *key_id,
 				  const buffer_t **hmac_key_r,
 				  const char **error_r)
 {
 	const char *base64_key;
-	const char *cache_key_id = t_strconcat(key_id, ".", alg, NULL);
+	const char *cache_key_id = t_strconcat(azp, ".", alg, ".", key_id, NULL);
 	if (oauth2_validation_key_cache_lookup_hmac_key(set->key_cache, cache_key_id,
 							hmac_key_r) == 0)
 		return 0;
 	int ret;
-	const char *lookup_key = t_strconcat(DICT_PATH_SHARED, alg, "/", key_id, NULL);
+	const char *lookup_key = t_strconcat(DICT_PATH_SHARED, azp, "/", alg, "/", key_id, NULL);
 	/* do a synchronous dict lookup */
 	if ((ret = dict_lookup(set->key_dict, pool_datastack_create(),
 			       lookup_key, &base64_key, error_r)) < 0) {
@@ -78,7 +78,7 @@ static int oauth2_lookup_hmac_key(const struct oauth2_settings *set,
 }
 
 static int oauth2_validate_hmac(const struct oauth2_settings *set,
-				const char *alg, const char *key_id,
+				const char *azp, const char *alg, const char *key_id,
 				const char *const *blobs, const char **error_r)
 {
 	const struct hash_method *method;
@@ -94,7 +94,7 @@ static int oauth2_validate_hmac(const struct oauth2_settings *set,
 	}
 
 	const buffer_t *key;
-	if (oauth2_lookup_hmac_key(set, alg, key_id, &key, error_r) < 0)
+	if (oauth2_lookup_hmac_key(set, azp, alg, key_id, &key, error_r) < 0)
 		return -1;
 	struct hmac_context ctx;
 	hmac_init(&ctx, key->data, key->used, method);
@@ -116,16 +116,16 @@ static int oauth2_validate_hmac(const struct oauth2_settings *set,
 }
 
 static int oauth2_lookup_pubkey(const struct oauth2_settings *set,
-				const char *alg, const char *key_id,
+				const char *azp, const char *alg, const char *key_id,
 				struct dcrypt_public_key **key_r,
 				const char **error_r)
 {
 	const char *key_str;
-	const char *cache_key_id = t_strconcat(key_id, ".", alg, NULL);
+	const char *cache_key_id = t_strconcat(azp, ".", alg, ".", key_id, NULL);
 	if (oauth2_validation_key_cache_lookup_pubkey(set->key_cache, cache_key_id, key_r) == 0)
 		return 0;
 	int ret;
-	const char *lookup_key = t_strconcat(DICT_PATH_SHARED, alg, "/", key_id, NULL);
+	const char *lookup_key = t_strconcat(DICT_PATH_SHARED, azp, "/", alg, "/", key_id, NULL);
 	/* do a synchronous dict lookup */
 	if ((ret = dict_lookup(set->key_dict, pool_datastack_create(),
 			       lookup_key, &key_str, error_r)) < 0) {
@@ -150,7 +150,7 @@ static int oauth2_lookup_pubkey(const struct oauth2_settings *set,
 }
 
 static int oauth2_validate_rsa_ecdsa(const struct oauth2_settings *set,
-				     const char *alg, const char *key_id,
+				     const char *azp, const char *alg, const char *key_id,
 				     const char *const *blobs, const char **error_r)
 {
 	const char *method;
@@ -190,7 +190,7 @@ static int oauth2_validate_rsa_ecdsa(const struct oauth2_settings *set,
 		t_base64url_decode_str(BASE64_DECODE_FLAG_NO_PADDING, blobs[2]);
 
 	struct dcrypt_public_key *pubkey;
-	if (oauth2_lookup_pubkey(set, alg, key_id, &pubkey, error_r) < 0)
+	if (oauth2_lookup_pubkey(set, azp, alg, key_id, &pubkey, error_r) < 0)
 		return -1;
 
 	/* data to verify */
@@ -209,14 +209,14 @@ static int oauth2_validate_rsa_ecdsa(const struct oauth2_settings *set,
 }
 
 static int oauth2_validate_signature(const struct oauth2_settings *set,
-				     const char *alg, const char *key_id,
+				     const char *azp, const char *alg, const char *key_id,
 				     const char *const *blobs, const char **error_r)
 {
 	if (str_begins(alg, "HS"))
-		return oauth2_validate_hmac(set, alg, key_id, blobs, error_r);
+		return oauth2_validate_hmac(set, azp, alg, key_id, blobs, error_r);
 	else if (str_begins(alg, "RS") || str_begins(alg, "PS") ||
 		 str_begins(alg, "ES"))
-		return oauth2_validate_rsa_ecdsa(set, alg, key_id, blobs, error_r);
+		return oauth2_validate_rsa_ecdsa(set, azp, alg, key_id, blobs, error_r);
 
 	*error_r = t_strdup_printf("Unsupported algorithm '%s'", alg);
 	return -1;
@@ -345,7 +345,12 @@ oauth2_jwt_body_process(const struct oauth2_settings *set, const char *alg, cons
 		}
 	}
 
-	if (oauth2_validate_signature(set, alg, kid, blobs, error_r) < 0)
+	/* see if there is azp */
+	const char *azp = get_field(tree, "azp");
+	if (azp == NULL)
+		azp = "default";
+
+	if (oauth2_validate_signature(set, azp, alg, kid, blobs, error_r) < 0)
 		return -1;
 
 	oauth2_jwt_copy_fields(fields, tree);
