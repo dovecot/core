@@ -403,6 +403,31 @@ int oauth2_try_parse_jwt(const struct oauth2_settings *set,
 		return -1;
 	}
 
+	size_t pos = strcspn(kid, "./%");
+	if (pos < strlen(kid)) {
+		/* sanitize kid, cannot allow dots or / in it, so we encode them */
+		string_t *new_kid = t_str_new(strlen(kid));
+		/* put initial data */
+		str_append_data(new_kid, kid, pos);
+		for (const char *c = kid+pos; *c != '\0'; c++) {
+			switch (*c) {
+			case '.':
+				str_append(new_kid, "%2e");
+				break;
+			case '/':
+				str_append(new_kid, "%2f");
+				break;
+			case '%':
+				str_append(new_kid, "%25");
+				break;
+			default:
+				str_append_c(new_kid, *c);
+				break;
+			}
+		}
+		kid = str_c(new_kid);
+	}
+
 	/* parse body */
 	struct json_tree *body_tree;
 	buffer_t *body =
