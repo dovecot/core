@@ -10,13 +10,15 @@
 ##   auth = GET request with Bearer authentication
 ##   get  = GET request with token appended to URL
 ##   post = POST request with token=bearer_token as content
+##   local = perform local validation only
 # introspection_mode = auth
 
 ## Force introspection even if tokeninfo contains wanted fields
 ## Set this to yes if you are using active_attribute
 # force_introspection = no
 
-## Validation key dictionary, turns on local validation
+## Validation key dictionary (e.g. fs:posix:prefix=/etc/dovecot/keys/)
+## Lookup key is /shared/<azp:default>/<alg>/<kid:default>
 # local_validation_key_dict =
 
 ## A single wanted scope of validity (optional)
@@ -34,6 +36,9 @@
 ## Expected value in active_attribute (empty = require present, but anything goes)
 # active_value =
 
+## Expected issuer(s) for the token (space separated list)
+# issuers =
+
 ## Extra fields to set in passdb response (in passdb static style)
 # pass_attrs =
 
@@ -44,7 +49,7 @@
 # debug = no
 
 ## Max parallel connections (how many simultaneous connections to open)
-# max_parallel_connections = 1
+# max_parallel_connections = 10
 
 ## Max pipelined requests (how many requests to send per connection, requires server-side support)
 # max_pipelined_requests = 1
