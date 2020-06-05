@@ -1,6 +1,5 @@
-/* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 #ifndef OAUTH2_PRIVATE_H
-#define OAUTH2_PRIVATE_H 1
+#define OAUTH2_PRIVATE_H
 
 struct json_tree;
 struct dcrypt_public_key;
@@ -40,16 +39,17 @@ void oauth2_parse_json(struct oauth2_request *req);
 int oauth2_json_tree_build(const buffer_t *json, struct json_tree **tree_r,
 			   const char **error_r);
 
-int oauth2_validation_key_cache_lookup_pubkey(struct oauth2_validation_key_cache *cache,
-					      const char *key_id,
-					      struct dcrypt_public_key **pubkey_r);
-int oauth2_validation_key_cache_lookup_hmac_key(struct oauth2_validation_key_cache *cache,
-						const char *key_id,
-						const buffer_t **hmac_key_r);
-void oauth2_validation_key_cache_insert_pubkey(struct oauth2_validation_key_cache *cache,
-					       const char *key_id,
-					       struct dcrypt_public_key *pubkey);
-void oauth2_validation_key_cache_insert_hmac_key(struct oauth2_validation_key_cache *cache,
-						 const char *key_id,
-						 const buffer_t *hmac_key);
+int oauth2_validation_key_cache_lookup_pubkey(
+	struct oauth2_validation_key_cache *cache, const char *key_id,
+	struct dcrypt_public_key **pubkey_r);
+int oauth2_validation_key_cache_lookup_hmac_key(
+	struct oauth2_validation_key_cache *cache, const char *key_id,
+	const buffer_t **hmac_key_r);
+void oauth2_validation_key_cache_insert_pubkey(
+	struct oauth2_validation_key_cache *cache, const char *key_id,
+	struct dcrypt_public_key *pubkey);
+void oauth2_validation_key_cache_insert_hmac_key(
+	struct oauth2_validation_key_cache *cache, const char *key_id,
+	const buffer_t *hmac_key);
+
 #endif
