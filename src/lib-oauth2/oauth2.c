@@ -43,12 +43,6 @@ void oauth2_request_abort(struct oauth2_request **_req)
 	oauth2_request_free_internal(req);
 }
 
-void oauth2_request_free_internal(struct oauth2_request *req)
-{
-	timeout_remove(&req->to_delayed_error);
-	pool_unref(&req->pool);
-}
-
 bool oauth2_valid_token(const char *token)
 {
 	if (token == NULL || *token == '\0' || strpbrk(token, "\r\n") != NULL)

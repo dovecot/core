@@ -10,6 +10,12 @@
 #include "oauth2.h"
 #include "oauth2-private.h"
 
+void oauth2_request_free_internal(struct oauth2_request *req)
+{
+	timeout_remove(&req->to_delayed_error);
+	pool_unref(&req->pool);
+}
+
 static void
 oauth2_request_callback(struct oauth2_request *req,
 			struct oauth2_request_result *res)
