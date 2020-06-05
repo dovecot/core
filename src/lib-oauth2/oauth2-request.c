@@ -159,8 +159,9 @@ oauth2_request_response(const struct http_response *response,
 	oauth2_request_parse_json(req);
 }
 
-void oauth2_request_set_headers(struct oauth2_request *req,
-				const struct oauth2_request_input *input)
+static void
+oauth2_request_set_headers(struct oauth2_request *req,
+			   const struct oauth2_request_input *input)
 {
 	if (!req->set->send_auth_headers)
 		return;
