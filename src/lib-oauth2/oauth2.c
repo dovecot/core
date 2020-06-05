@@ -34,15 +34,6 @@ int oauth2_json_tree_build(const buffer_t *json, struct json_tree **tree_r,
 	return ret;
 }
 
-void oauth2_request_abort(struct oauth2_request **_req)
-{
-	struct oauth2_request *req = *_req;
-	*_req = NULL;
-
-	http_client_request_abort(&req->req);
-	oauth2_request_free_internal(req);
-}
-
 bool oauth2_valid_token(const char *token)
 {
 	if (token == NULL || *token == '\0' || strpbrk(token, "\r\n") != NULL)
