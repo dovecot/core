@@ -1,8 +1,8 @@
 /* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
 #include "istream.h"
-#include "http-client.h"
 #include "json-tree.h"
 #include "oauth2.h"
 #include "oauth2-private.h"
@@ -39,31 +39,4 @@ bool oauth2_valid_token(const char *token)
 	if (token == NULL || *token == '\0' || strpbrk(token, "\r\n") != NULL)
 		return FALSE;
 	return TRUE;
-}
-
-void oauth2_request_set_headers(struct oauth2_request *req,
-				const struct oauth2_request_input *input)
-{
-	if (!req->set->send_auth_headers)
-		return;
-	if (input->service != NULL) {
-		http_client_request_add_header(
-			req->req, "X-Dovecot-Auth-Service", input->service);
-	}
-	if (input->local_ip.family != 0) {
-		const char *addr;
-		if (net_ipport2str(&input->local_ip, input->local_port,
-				   &addr) == 0)	 {
-			http_client_request_add_header(
-				req->req, "X-Dovecot-Auth-Local", addr);
-		}
-	}
-	if (input->remote_ip.family != 0) {
-		const char *addr;
-		if (net_ipport2str(&input->remote_ip, input->remote_port,
-				   &addr) == 0) {
-			http_client_request_add_header(
-				req->req, "X-Dovecot-Auth-Remote", addr);
-		}
-	}
 }

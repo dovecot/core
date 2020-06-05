@@ -159,6 +159,33 @@ oauth2_request_response(const struct http_response *response,
 	oauth2_parse_json(req);
 }
 
+void oauth2_request_set_headers(struct oauth2_request *req,
+				const struct oauth2_request_input *input)
+{
+	if (!req->set->send_auth_headers)
+		return;
+	if (input->service != NULL) {
+		http_client_request_add_header(
+			req->req, "X-Dovecot-Auth-Service", input->service);
+	}
+	if (input->local_ip.family != 0) {
+		const char *addr;
+		if (net_ipport2str(&input->local_ip, input->local_port,
+				   &addr) == 0)	 {
+			http_client_request_add_header(
+				req->req, "X-Dovecot-Auth-Local", addr);
+		}
+	}
+	if (input->remote_ip.family != 0) {
+		const char *addr;
+		if (net_ipport2str(&input->remote_ip, input->remote_port,
+				   &addr) == 0) {
+			http_client_request_add_header(
+				req->req, "X-Dovecot-Auth-Remote", addr);
+		}
+	}
+}
+
 static struct oauth2_request *
 oauth2_request_start(const struct oauth2_settings *set,
 		     const struct oauth2_request_input *input,
