@@ -701,7 +701,8 @@ db_oauth2_lookup_continue_valid(struct db_oauth2_request *req,
 	if (db_oauth2_have_all_fields(req) &&
 	    !req->db->set.force_introspection) {
 		/* pass */
-	} else if (req->db->oauth2_set.introspection_mode == INTROSPECTION_MODE_LOCAL) {
+	} else if (req->db->oauth2_set.introspection_mode ==
+		   INTROSPECTION_MODE_LOCAL) {
 		e_debug(authdb_event(req->auth_request),
 			"Attempting to locally validate token");
 		db_oauth2_local_validation(req, req->token);
