@@ -10,7 +10,7 @@
 #include "oauth2.h"
 #include "oauth2-private.h"
 
-void oauth2_request_free_internal(struct oauth2_request *req)
+static void oauth2_request_free(struct oauth2_request *req)
 {
 	timeout_remove(&req->to_delayed_error);
 	pool_unref(&req->pool);
@@ -24,7 +24,7 @@ oauth2_request_callback(struct oauth2_request *req,
 	oauth2_request_callback_t *callback = req->req_callback;
 	req->req_callback = NULL;
 	callback(res, req->req_context);
-	oauth2_request_free_internal(req);
+	oauth2_request_free(req);
 }
 
 static bool
@@ -358,5 +358,5 @@ void oauth2_request_abort(struct oauth2_request **_req)
 	*_req = NULL;
 
 	http_client_request_abort(&req->req);
-	oauth2_request_free_internal(req);
+	oauth2_request_free(req);
 }
