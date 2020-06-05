@@ -6,7 +6,6 @@
 #include "json-tree.h"
 #include "oauth2.h"
 #include "oauth2-private.h"
-#include "safe-memset.h"
 
 int oauth2_json_tree_build(const buffer_t *json, struct json_tree **tree_r,
 			   const char **error_r)
