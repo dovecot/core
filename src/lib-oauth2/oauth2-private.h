@@ -35,7 +35,7 @@ void oauth2_request_set_headers(struct oauth2_request *req,
 
 void oauth2_request_free_internal(struct oauth2_request *req);
 
-void oauth2_parse_json(struct oauth2_request *req);
+void oauth2_request_parse_json(struct oauth2_request *req);
 int oauth2_json_tree_build(const buffer_t *json, struct json_tree **tree_r,
 			   const char **error_r);
 

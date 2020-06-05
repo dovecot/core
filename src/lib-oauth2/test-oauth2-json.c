@@ -73,7 +73,7 @@ static void test_oauth2_json_valid(void)
 	/* Parse the JSON response */
 	for (pos = 0; pos <= strlen(test_input); pos +=2) {
 		test_istream_set_size(req->is, pos);
-		oauth2_parse_json(req);
+		oauth2_request_parse_json(req);
 		if (req->is == NULL)
 			break;
 	}

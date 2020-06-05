@@ -78,7 +78,7 @@ oauth2_request_continue(struct oauth2_request *req, const char *error)
 	oauth2_request_callback(req, &res);
 }
 
-void oauth2_parse_json(struct oauth2_request *req)
+void oauth2_request_parse_json(struct oauth2_request *req)
 {
 	enum json_type type;
 	const char *token, *error;
@@ -155,8 +155,8 @@ oauth2_request_response(const struct http_response *response,
 	p_array_init(&req->fields, req->pool, 1);
 	req->parser = json_parser_init(req->is);
 	req->json_parsed_cb = oauth2_request_continue;
-	req->io = io_add_istream(req->is, oauth2_parse_json, req);
-	oauth2_parse_json(req);
+	req->io = io_add_istream(req->is, oauth2_request_parse_json, req);
+	oauth2_request_parse_json(req);
 }
 
 void oauth2_request_set_headers(struct oauth2_request *req,
