@@ -133,19 +133,21 @@ oauth2_request_start(const struct oauth2_settings *set,
 	if (payload != NULL && strcmp(method, "POST") == 0) {
 		struct istream *is = i_stream_create_from_string(payload);
 
-		http_client_request_add_header(req->req, "Content-Type",
-					       "application/x-www-form-urlencoded");
+		http_client_request_add_header(
+			req->req, "Content-Type",
+			"application/x-www-form-urlencoded");
 
 		http_client_request_set_payload(req->req, is, FALSE);
 		i_stream_unref(&is);
 	}
 	if (add_auth_bearer &&
 	    http_client_request_get_origin_url(req->req)->user == NULL &&
-	    set->introspection_mode == INTROSPECTION_MODE_GET_AUTH)
+	    set->introspection_mode == INTROSPECTION_MODE_GET_AUTH) {
 		http_client_request_add_header(req->req,
 					       "Authorization",
 					       t_strdup_printf("Bearer %s",
 							       input->token));
+	}
 	http_client_request_set_timeout_msecs(req->req,
 					      req->set->timeout_msecs);
 	http_client_request_submit(req->req);
@@ -157,10 +159,10 @@ oauth2_request_start(const struct oauth2_settings *set,
 struct oauth2_request *
 oauth2_refresh_start(const struct oauth2_settings *set,
 		     const struct oauth2_request_input *input,
-		     oauth2_request_callback_t *callback,
-		     void *context)
+		     oauth2_request_callback_t *callback, void *context)
 {
 	string_t *payload = t_str_new(128);
+
 	str_append(payload, "client_secret=");
 	http_url_escape_param(payload, set->client_secret);
 	str_append(payload, "&grant_type=refresh_token&refresh_token=");
@@ -176,15 +178,14 @@ oauth2_refresh_start(const struct oauth2_settings *set,
 struct oauth2_request *
 oauth2_introspection_start(const struct oauth2_settings *set,
 			   const struct oauth2_request_input *input,
-			   oauth2_request_callback_t *callback,
-			   void *context)
+			   oauth2_request_callback_t *callback, void *context)
 {
-
 	string_t *enc;
 	const char *url;
 	const char *method;
 	string_t *payload = NULL;
 	pool_t p = NULL;
+
 	switch (set->introspection_mode) {
 	case INTROSPECTION_MODE_GET:
 		enc = t_str_new(64);
@@ -230,6 +231,7 @@ oauth2_token_validation_start(const struct oauth2_settings *set,
 			      void *context)
 {
 	string_t *enc = t_str_new(64);
+
 	str_append(enc, set->tokeninfo_url);
 	http_url_escape_param(enc, input->token);
 
@@ -241,13 +243,12 @@ oauth2_token_validation_start(const struct oauth2_settings *set,
 struct oauth2_request *
 oauth2_passwd_grant_start(const struct oauth2_settings *set,
 			  const struct oauth2_request_input *input,
-			  const char *username,
-			  const char *password,
-			  oauth2_request_callback_t *callback,
-			  void *context)
+			  const char *username, const char *password,
+			  oauth2_request_callback_t *callback, void *context)
 {
 	pool_t pool = pool_alloconly_create_clean("oauth2 request", 1024);
 	string_t *payload = str_new(pool, 128);
+
 	/* add token */
 	str_append(payload, "grant_type=password&username=");
 	http_url_escape_param(payload, username);
