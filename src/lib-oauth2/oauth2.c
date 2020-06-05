@@ -18,6 +18,7 @@ int oauth2_json_tree_build(const buffer_t *json, struct json_tree **tree_r,
 	enum json_type type;
 	const char *value;
 	int ret;
+
 	while ((ret = json_parse_next(parser, &type, &value)) > 0) {
 		/* this is safe to reuse here because it gets rewritten in while
 		   loop */
@@ -34,8 +35,7 @@ int oauth2_json_tree_build(const buffer_t *json, struct json_tree **tree_r,
 	return ret;
 }
 
-void
-oauth2_parse_json(struct oauth2_request *req)
+void oauth2_parse_json(struct oauth2_request *req)
 {
 	enum json_type type;
 	const char *token, *error;
@@ -86,8 +86,7 @@ oauth2_parse_json(struct oauth2_request *req)
 	req->json_parsed_cb(req, error);
 }
 
-void
-oauth2_request_abort(struct oauth2_request **_req)
+void oauth2_request_abort(struct oauth2_request **_req)
 {
 	struct oauth2_request *req = *_req;
 	*_req = NULL;
@@ -96,8 +95,7 @@ oauth2_request_abort(struct oauth2_request **_req)
 	oauth2_request_free_internal(req);
 }
 
-void
-oauth2_request_free_internal(struct oauth2_request *req)
+void oauth2_request_free_internal(struct oauth2_request *req)
 {
 	timeout_remove(&req->to_delayed_error);
 	pool_unref(&req->pool);
@@ -116,17 +114,23 @@ void oauth2_request_set_headers(struct oauth2_request *req,
 	if (!req->set->send_auth_headers)
 		return;
 	if (input->service != NULL) {
-		http_client_request_add_header(req->req, "X-Dovecot-Auth-Service",
-					       input->service);
+		http_client_request_add_header(
+			req->req, "X-Dovecot-Auth-Service", input->service);
 	}
 	if (input->local_ip.family != 0) {
 		const char *addr;
-		if (net_ipport2str(&input->local_ip, input->local_port, &addr) == 0)	
-			http_client_request_add_header(req->req, "X-Dovecot-Auth-Local", addr);
+		if (net_ipport2str(&input->local_ip, input->local_port,
+				   &addr) == 0)	 {
+			http_client_request_add_header(
+				req->req, "X-Dovecot-Auth-Local", addr);
+		}
 	}
 	if (input->remote_ip.family != 0) {
 		const char *addr;
-		if (net_ipport2str(&input->remote_ip, input->remote_port, &addr) == 0)    
-			http_client_request_add_header(req->req, "X-Dovecot-Auth-Remote", addr);
+		if (net_ipport2str(&input->remote_ip, input->remote_port,
+				   &addr) == 0) {
+			http_client_request_add_header(
+				req->req, "X-Dovecot-Auth-Remote", addr);
+		}
 	}
 }
