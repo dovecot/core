@@ -473,6 +473,25 @@ lmtp_proxy_is_ourself(const struct client *client,
 }
 
 static void
+lmtp_proxy_rcpt_init_auth_user_info(struct lmtp_recipient *lrcpt,
+				    struct auth_user_info *info_r)
+{
+	struct client *client = lrcpt->client;
+
+	i_zero(info_r);
+	info_r->service = master_service_get_name(master_service);
+	info_r->local_ip = client->local_ip;
+	info_r->real_local_ip = client->real_local_ip;
+	info_r->remote_ip = client->remote_ip;
+	info_r->real_remote_ip = client->real_remote_ip;
+	info_r->local_port = client->local_port;
+	info_r->real_local_port = client->real_local_port;
+	info_r->remote_port = client->remote_port;
+	info_r->real_remote_port = client->real_remote_port;
+	info_r->forward_fields = lrcpt->forward_fields;
+}
+
+static void
 lmtp_proxy_rcpt_approved(struct smtp_server_recipient *rcpt ATTR_UNUSED,
 			 struct lmtp_proxy_recipient *lprcpt)
 {
@@ -600,17 +619,7 @@ int lmtp_proxy_rcpt(struct client *client,
 	input.module = input.service = "lmtp";
 	mail_storage_service_init_settings(storage_service, &input);
 
-	i_zero(&info);
-	info.service = master_service_get_name(master_service);
-	info.local_ip = client->local_ip;
-	info.real_local_ip = client->real_local_ip;
-	info.remote_ip = client->remote_ip;
-	info.real_remote_ip = client->real_remote_ip;
-	info.local_port = client->local_port;
-	info.real_local_port = client->real_local_port;
-	info.remote_port = client->remote_port;
-	info.real_remote_port = client->real_remote_port;
-	info.forward_fields = lrcpt->forward_fields;
+	lmtp_proxy_rcpt_init_auth_user_info(lrcpt, &info);
 
 	// FIXME: make this async
 	username = orig_username = lrcpt->username;
