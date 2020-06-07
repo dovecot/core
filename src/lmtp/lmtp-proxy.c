@@ -472,6 +472,43 @@ lmtp_proxy_is_ourself(const struct client *client,
 	return TRUE;
 }
 
+static int
+lmtp_proxy_rcpt_get_connection(struct lmtp_proxy_recipient *lprcpt,
+			       const struct lmtp_proxy_rcpt_settings *set,
+			       struct lmtp_proxy_connection **conn_r)
+{
+	struct lmtp_recipient *lrcpt = lprcpt->rcpt;
+	struct client *client = lrcpt->client;
+	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
+	struct smtp_server_transaction *trans;
+	struct lmtp_proxy_connection *conn;
+	struct smtp_proxy_data proxy_data;
+
+	smtp_server_connection_get_proxy_data(rcpt->conn, &proxy_data);
+	if (proxy_data.ttl_plus_1 == 1) {
+		e_error(rcpt->event,
+			"Proxying to <%s> appears to be looping (TTL=0)",
+			smtp_address_encode(rcpt->path));
+		smtp_server_recipient_reply(rcpt, 554, "5.4.6",
+					    "Proxying appears to be looping "
+					    "(TTL=0)");
+		return -1;
+	}
+
+	if (client->proxy == NULL) {
+		trans = smtp_server_connection_get_transaction(rcpt->conn);
+		i_assert(trans != NULL); /* MAIL command is synchronous */
+
+		client->proxy = lmtp_proxy_init(client, trans);
+	}
+
+	conn = lmtp_proxy_get_connection(client->proxy, set);
+	i_assert(conn != lprcpt->conn);
+
+	*conn_r = lprcpt->conn = conn;
+	return 0;
+}
+
 static void
 lmtp_proxy_rcpt_init_auth_user_info(struct lmtp_recipient *lrcpt,
 				    struct auth_user_info *info_r)
@@ -583,7 +620,7 @@ lmtp_proxy_rcpt_login_cb(const struct smtp_reply *proxy_reply, void *context)
 }
 
 int lmtp_proxy_rcpt(struct client *client,
-		    struct smtp_server_cmd_ctx *cmd,
+		    struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 		    struct lmtp_recipient *lrcpt)
 {
 	struct auth_master_connection *auth_conn;
@@ -591,19 +628,14 @@ int lmtp_proxy_rcpt(struct client *client,
 	struct lmtp_proxy_connection *conn;
 	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
 	struct lmtp_proxy_recipient *lprcpt;
-	struct smtp_server_transaction *trans;
 	struct smtp_address *address = rcpt->path;
 	struct auth_user_info info;
 	struct mail_storage_service_input input;
 	const char *const *fields, *errstr, *username, *orig_username;
-	struct smtp_proxy_data proxy_data;
 	struct smtp_address *user;
 	string_t *fwfields;
 	pool_t auth_pool;
 	int ret;
-
-	trans = smtp_server_connection_get_transaction(cmd->conn);
-	i_assert(trans != NULL); /* MAIL command is synchronous */
 
 	lprcpt = p_new(rcpt->pool, struct lmtp_proxy_recipient, 1);
 	lprcpt->rcpt = lrcpt;
@@ -682,25 +714,12 @@ int lmtp_proxy_rcpt(struct client *client,
 		return -1;
 	}
 
-	smtp_server_connection_get_proxy_data(cmd->conn, &proxy_data);
-	if (proxy_data.ttl_plus_1 == 1) {
-		e_error(rcpt->event,
-			"Proxying to <%s> appears to be looping (TTL=0)",
-			username);
-		smtp_server_recipient_reply(rcpt, 554, "5.4.6",
-					    "Proxying appears to be looping "
-					    "(TTL=0)");
+	if (lmtp_proxy_rcpt_get_connection(lprcpt, &set, &conn) < 0) {
 		pool_unref(&auth_pool);
 		return -1;
 	}
 
-	if (client->proxy == NULL)
-		client->proxy = lmtp_proxy_init(client, trans);
-
-	conn = lmtp_proxy_get_connection(client->proxy, &set);
-
 	lprcpt->address = smtp_address_clone(rcpt->pool, address);
-	lprcpt->conn = conn;
 
 	smtp_server_recipient_add_hook(
 		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
