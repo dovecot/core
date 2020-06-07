@@ -575,10 +575,6 @@ lmtp_proxy_rcpt_login_cb(const struct smtp_reply *proxy_reply, void *context)
 			lprcpt->forward_fields, lprcpt->forward_fields_size);
 	}
 
-	smtp_server_recipient_add_hook(
-		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
-		lmtp_proxy_rcpt_approved, lprcpt);
-
 	relay_rcpt = smtp_client_transaction_add_pool_rcpt(
 		conn->lmtp_trans, rcpt->pool, lprcpt->address, rcpt_params,
 		lmtp_proxy_rcpt_cb, lprcpt);
@@ -705,6 +701,10 @@ int lmtp_proxy_rcpt(struct client *client,
 
 	lprcpt->address = smtp_address_clone(rcpt->pool, address);
 	lprcpt->conn = conn;
+
+	smtp_server_recipient_add_hook(
+		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
+		lmtp_proxy_rcpt_approved, lprcpt);
 
 	/* Copy forward fields returned from passdb */
 	fwfields = NULL;
