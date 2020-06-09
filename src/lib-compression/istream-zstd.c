@@ -138,6 +138,8 @@ static ssize_t i_stream_zstd_read(struct istream_private *stream)
 					stream->istream.stream_errno = EPIPE;
 				return ret;
 			}
+			if (ret == 0)
+				return 0;
 			buffer_append(zstream->frame_buffer, data, size);
 			i_stream_skip(stream->parent, size);
 			zstream->input.src = zstream->frame_buffer->data;
@@ -145,6 +147,7 @@ static ssize_t i_stream_zstd_read(struct istream_private *stream)
 			zstream->input.pos = 0;
 		}
 
+		i_assert(zstream->input.size > 0);
 		i_assert(zstream->data_buffer->used == 0);
 		zstream->output.dst = buffer_append_space_unsafe(zstream->data_buffer,
 								 ZSTD_DStreamOutSize());
