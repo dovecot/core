@@ -162,21 +162,33 @@ fs_compress_try_create_stream(struct compress_fs_file *file,
 			      struct istream *plain_input)
 {
 	struct tee_istream *tee_input;
-	struct istream *child_input, *ret_input, *try_inputs[3];
-
-	if (!file->fs->try_plain)
-		return file->fs->compress_handler->create_istream(plain_input, FALSE);
+	struct istream *child_input, *ret_input, *input, **try_inputs;
+	ARRAY(struct istream *) try_inputs_arr;
+	unsigned int i, count;
 
 	tee_input = tee_i_stream_create(plain_input);
-	child_input = tee_i_stream_create_child(tee_input);
-	try_inputs[0] = file->fs->compress_handler->create_istream(child_input, FALSE);
-	try_inputs[1] = tee_i_stream_create_child(tee_input);
-	try_inputs[2] = NULL;
-	i_stream_unref(&child_input);
 
+	t_array_init(&try_inputs_arr, 10);
+	for (i = 0; compression_handlers[i].name != NULL; i++) {
+		if (compression_handlers[i].create_istream != NULL) {
+			child_input = tee_i_stream_create_child(tee_input);
+			input = compression_handlers[i].
+				create_istream(child_input, FALSE);
+			i_stream_unref(&child_input);
+			array_push_back(&try_inputs_arr, &input);
+		}
+	}
+	if (file->fs->try_plain) {
+		input = tee_i_stream_create_child(tee_input);
+		array_push_back(&try_inputs_arr, &input);
+	}
+	count = array_count(&try_inputs_arr);
+	array_append_zero(&try_inputs_arr);
+
+	try_inputs = array_idx_modifiable(&try_inputs_arr, 0);
 	ret_input = istream_try_create(try_inputs);
-	i_stream_unref(&try_inputs[0]);
-	i_stream_unref(&try_inputs[1]);
+	for (i = 0; i < count; i++)
+		i_stream_unref(&try_inputs[i]);
 	return ret_input;
 }
 
