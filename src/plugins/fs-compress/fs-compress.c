@@ -12,7 +12,7 @@
 
 struct compress_fs {
 	struct fs fs;
-	const struct compression_handler *handler;
+	const struct compression_handler *compress_handler;
 	unsigned int compress_level;
 	bool try_plain;
 };
@@ -77,7 +77,7 @@ fs_compress_init(struct fs *_fs, const char *args,
 		return -1;
 	}
 	args = p;
-	ret = compression_lookup_handler(compression_name, &fs->handler);
+	ret = compression_lookup_handler(compression_name, &fs->compress_handler);
 	if (ret <= 0) {
 		*error_r = t_strdup_printf("Compression method '%s' %s.",
 					   compression_name, ret == 0 ?
@@ -165,11 +165,11 @@ fs_compress_try_create_stream(struct compress_fs_file *file,
 	struct istream *child_input, *ret_input, *try_inputs[3];
 
 	if (!file->fs->try_plain)
-		return file->fs->handler->create_istream(plain_input, FALSE);
+		return file->fs->compress_handler->create_istream(plain_input, FALSE);
 
 	tee_input = tee_i_stream_create(plain_input);
 	child_input = tee_i_stream_create_child(tee_input);
-	try_inputs[0] = file->fs->handler->create_istream(child_input, FALSE);
+	try_inputs[0] = file->fs->compress_handler->create_istream(child_input, FALSE);
 	try_inputs[1] = tee_i_stream_create_child(tee_input);
 	try_inputs[2] = NULL;
 	i_stream_unref(&child_input);
@@ -215,7 +215,7 @@ static void fs_compress_write_stream(struct fs_file *_file)
 		iostream_temp_create_named(_file->fs->temp_path_prefix,
 					   IOSTREAM_TEMP_FLAG_TRY_FD_DUP,
 					   fs_file_path(_file));
-	_file->output = file->fs->handler->
+	_file->output = file->fs->compress_handler->
 		create_ostream(file->temp_output, file->fs->compress_level);
 }
 
