@@ -140,6 +140,11 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 		if (changes.no_read_perm)
 			copy_ctx->hide_saved_uids = TRUE;
 
+		if (seq_range_count(&changes.saved_uids) == 0) {
+			/* storage doesn't support returning UIDs */
+			copy_ctx->hide_saved_uids = TRUE;
+		}
+
 		if (copy_ctx->uid_validity == 0)
 			copy_ctx->uid_validity = changes.uid_validity;
 		else if (copy_ctx->uid_validity != changes.uid_validity) {
@@ -149,7 +154,8 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 		seq_range_array_merge(&copy_ctx->src_uids, &src_uids);
 		seq_range_array_merge(&copy_ctx->saved_uids, &changes.saved_uids);
 
-		i_assert(copy_ctx->copy_count == seq_range_count(&copy_ctx->saved_uids));
+		i_assert(copy_ctx->copy_count == seq_range_count(&copy_ctx->saved_uids) ||
+			 copy_ctx->hide_saved_uids);
 		copy_update_trashed(client, copy_ctx->destbox, copy_ctx->copy_count);
 		pool_unref(&changes.pool);
 	}
