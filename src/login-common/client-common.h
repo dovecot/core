@@ -84,6 +84,7 @@ struct client_auth_reply {
 	/* for proxying */
 	const char *host, *hostip, *source_ip;
 	const char *destuser, *password, *proxy_mech;
+	const char *fingerprint;
 	in_port_t port;
 	unsigned int proxy_timeout_msecs;
 	unsigned int proxy_refresh_secs;

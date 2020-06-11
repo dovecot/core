@@ -1,6 +1,8 @@
 #ifndef IOSTREAM_SSL_H
 #define IOSTREAM_SSL_H
 
+#include "../login-common/login-settings.h"
+
 struct ssl_iostream;
 struct ssl_iostream_context;
 
@@ -120,7 +122,7 @@ int ssl_iostream_check_cert_validity(struct ssl_iostream *ssl_io,
    will always return FALSE before even checking the hostname. */
 bool ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io, const char *name,
 				  const char **reason_r);
-const char *ssl_iostream_get_peer_name(struct ssl_iostream *ssl_io);
+const char *ssl_iostream_get_peer_name(struct ssl_iostream *ssl_io, struct login_settings *set);
 const char *ssl_iostream_get_compression(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_server_name(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_security_string(struct ssl_iostream *ssl_io);
@@ -171,5 +173,10 @@ int ssl_iostream_server_context_cache_get(const struct ssl_iostream_settings *se
 					  struct ssl_iostream_context **ctx_r,
 					  const char **error_r);
 void ssl_iostream_context_cache_free(void);
+
+const char *ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, struct login_settings *set);
+const char *ssl_iostream_get_fingerprint_base64(struct ssl_iostream *ssl_io, struct login_settings *set);
+const char *__ssl_iostream_get_fingerprint(struct ssl_iostream *ssl_io, struct login_settings *set, bool base64mode);
+char *__base64(const char *input, int length);
 
 #endif

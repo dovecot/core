@@ -270,6 +270,18 @@ static void checkpassword_setup_env(struct auth_request *request)
 		env_put(t_strconcat("MASTER_USER=",
 				    request->master_user, NULL));
 	}
+	if (request->cert_loginname != NULL) {
+		env_put(t_strconcat("SSL_USERNAME_CONTENT=",
+					request->cert_loginname, NULL));
+	}
+	if (request->cert_fingerprint != NULL) {
+		env_put(t_strconcat("SSL_FINGERPRINT=",
+					request->cert_fingerprint, NULL));
+	}
+	if (request->cert_fingerprint_base64 != NULL) {
+		env_put(t_strconcat("SSL_FINGERPRINT_BASE64=",
+					request->cert_fingerprint_base64, NULL));
+	}
 	if (!auth_fields_is_empty(request->extra_fields)) {
 		const ARRAY_TYPE(auth_field) *fields =
 			auth_fields_export(request->extra_fields);

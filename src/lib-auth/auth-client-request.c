@@ -42,6 +42,18 @@ static void auth_server_send_new_request(struct auth_client_connection *conn,
 		str_append(str, "\tcert_username=");
 		str_append_tabescaped(str, info->cert_username);
 	}
+	if (info->cert_loginname != NULL) {
+		str_append(str, "\tcert_loginname=");
+		str_append_tabescaped(str, info->cert_loginname);
+	}
+	if (info->cert_fingerprint != NULL) {
+		str_append(str, "\tcert_fingerprint=");
+		str_append_tabescaped(str, info->cert_fingerprint);
+	}
+	if (info->cert_fingerprint_base64 != NULL) {
+		str_append(str, "\tcert_fingerprint_base64=");
+		str_append_tabescaped(str, info->cert_fingerprint_base64);
+	}
 	if (info->local_ip.family != 0)
 		str_printfa(str, "\tlip=%s", net_ip2addr(&info->local_ip));
 	if (info->remote_ip.family != 0)

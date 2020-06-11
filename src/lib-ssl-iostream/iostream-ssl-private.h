@@ -47,6 +47,8 @@ struct iostream_ssl_vfuncs {
 	const char *(*get_cipher)(struct ssl_iostream *ssl_io, unsigned int *bits_r);
 	const char *(*get_pfs)(struct ssl_iostream *ssl_io);
 	const char *(*get_protocol_name)(struct ssl_iostream *ssl_io);
+	const char *(*get_fingerprint)(struct ssl_iostream *ssl_io, struct login_settings *set);
+	const char *(*get_fingerprint_base64)(struct ssl_iostream *ssl_io, struct login_settings *set);
 };
 
 void iostream_ssl_module_init(const struct iostream_ssl_vfuncs *vfuncs);
