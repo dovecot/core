@@ -17,16 +17,17 @@ enum event_filter_code {
 	EVENT_FILTER_CODE_FIELD		= 'f',
 };
 
-static const char *event_filter_log_type_names[] = {
-	"debug", "info", "warning", "error", "fatal", "panic",
-};
-static enum event_filter_log_type event_filter_log_types[] = {
-	EVENT_FILTER_LOG_TYPE_DEBUG,
-	EVENT_FILTER_LOG_TYPE_INFO,
-	EVENT_FILTER_LOG_TYPE_WARNING,
-	EVENT_FILTER_LOG_TYPE_ERROR,
-	EVENT_FILTER_LOG_TYPE_FATAL,
-	EVENT_FILTER_LOG_TYPE_PANIC,
+/* map <log type> to <event filter log type & name> */
+static const struct log_type_map {
+	enum event_filter_log_type log_type;
+	const char *name;
+} event_filter_log_type_map[] = {
+	[LOG_TYPE_DEBUG]   = { EVENT_FILTER_LOG_TYPE_DEBUG, "debug" },
+	[LOG_TYPE_INFO]    = { EVENT_FILTER_LOG_TYPE_INFO, "info" },
+	[LOG_TYPE_WARNING] = { EVENT_FILTER_LOG_TYPE_WARNING, "warning" },
+	[LOG_TYPE_ERROR]   = { EVENT_FILTER_LOG_TYPE_ERROR, "error" },
+	[LOG_TYPE_FATAL]   = { EVENT_FILTER_LOG_TYPE_FATAL, "fatal" },
+	[LOG_TYPE_PANIC]   = { EVENT_FILTER_LOG_TYPE_PANIC, "panic" },
 };
 
 struct event_filter_query_internal {
@@ -104,9 +105,9 @@ bool event_filter_category_to_log_type(const char *name,
 {
 	unsigned int i;
 
-	for (i = 0; i < N_ELEMENTS(event_filter_log_type_names); i++) {
-		if (strcmp(name, event_filter_log_type_names[i]) == 0) {
-			*log_type_r = 1 << i;
+	for (i = 0; i < N_ELEMENTS(event_filter_log_type_map); i++) {
+		if (strcmp(name, event_filter_log_type_map[i].name) == 0) {
+			*log_type_r = event_filter_log_type_map[i].log_type;
 			return TRUE;
 		}
 	}
@@ -341,11 +342,11 @@ event_filter_export_query(const struct event_filter_query_internal *query,
 	event_filter_export_query_expr(query, query->expr, dest);
 
 	if (query->log_type_mask != EVENT_FILTER_LOG_TYPE_ALL) {
-		for (i = 0; i < N_ELEMENTS(event_filter_log_type_names); i++) {
-			if ((query->log_type_mask & (1 << i)) == 0)
+		for (i = 0; i < N_ELEMENTS(event_filter_log_type_map); i++) {
+			if ((query->log_type_mask & event_filter_log_type_map[i].log_type) == 0)
 				continue;
 			str_append_c(dest, EVENT_FILTER_CODE_CATEGORY);
-			str_append_tabescaped(dest, event_filter_log_type_names[i]);
+			str_append_tabescaped(dest, event_filter_log_type_map[i].name);
 			str_append_c(dest, '\t');
 		}
 	}
@@ -615,8 +616,8 @@ event_filter_query_match(const struct event_filter_query_internal *query,
 			 unsigned int source_linenum,
 			 const struct failure_context *ctx)
 {
-	i_assert(ctx->type < N_ELEMENTS(event_filter_log_types));
-	if ((query->log_type_mask & event_filter_log_types[ctx->type]) == 0)
+	i_assert(ctx->type < N_ELEMENTS(event_filter_log_type_map));
+	if ((query->log_type_mask & event_filter_log_type_map[ctx->type].log_type) == 0)
 		return FALSE;
 
 	/* Nothing to evaluate - this can happen if the filter consists
