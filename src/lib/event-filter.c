@@ -464,10 +464,15 @@ event_category_match(const struct event_category *category,
 }
 
 static bool
-event_has_category(struct event *event, struct event_filter_node *node)
+event_has_category(struct event *event, struct event_filter_node *node,
+		   enum event_filter_log_type log_type)
 {
 	struct event_category *wanted_category = node->category.ptr;
 	struct event_category *const *catp;
+
+	/* category is a log type */
+	if (node->category.name == NULL)
+		return (node->category.log_type & log_type) != 0;
 
 	/* category not registered, therefore the event cannot have it */
 	if (wanted_category == NULL)
@@ -551,7 +556,8 @@ event_match_field(struct event *event, const struct event_field *wanted_field,
 static bool
 event_filter_query_match_cmp(struct event_filter_node *node,
 			     struct event *event, const char *source_filename,
-			     unsigned int source_linenum)
+			     unsigned int source_linenum,
+			     enum event_filter_log_type log_type)
 {
 	i_assert((node->op == EVENT_FILTER_OP_CMP_EQ) ||
 		 (node->op == EVENT_FILTER_OP_CMP_GT) ||
@@ -571,7 +577,7 @@ event_filter_query_match_cmp(struct event_filter_node *node,
 				 source_filename == NULL ||
 				 strcmp(event->source_filename, node->str) != 0);
 		case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:
-			return event_has_category(event, node);
+			return event_has_category(event, node, log_type);
 		case EVENT_FILTER_NODE_TYPE_EVENT_FIELD:
 			return event_match_field(event, &node->field, node->op);
 	}
@@ -582,7 +588,8 @@ event_filter_query_match_cmp(struct event_filter_node *node,
 static bool
 event_filter_query_match_eval(struct event_filter_node *node,
 			      struct event *event, const char *source_filename,
-			      unsigned int source_linenum)
+			      unsigned int source_linenum,
+			      enum event_filter_log_type log_type)
 {
 	switch (node->op) {
 	case EVENT_FILTER_OP_CMP_EQ:
@@ -591,20 +598,25 @@ event_filter_query_match_eval(struct event_filter_node *node,
 	case EVENT_FILTER_OP_CMP_GE:
 	case EVENT_FILTER_OP_CMP_LE:
 		return event_filter_query_match_cmp(node, event, source_filename,
-						    source_linenum);
+						    source_linenum, log_type);
 	case EVENT_FILTER_OP_AND:
 		return event_filter_query_match_eval(node->children[0], event,
-						     source_filename, source_linenum) &&
+						     source_filename, source_linenum,
+						     log_type) &&
 		       event_filter_query_match_eval(node->children[1], event,
-						     source_filename, source_linenum);
+						     source_filename, source_linenum,
+						     log_type);
 	case EVENT_FILTER_OP_OR:
 		return event_filter_query_match_eval(node->children[0], event,
-						     source_filename, source_linenum) ||
+						     source_filename, source_linenum,
+						     log_type) ||
 		       event_filter_query_match_eval(node->children[1], event,
-						     source_filename, source_linenum);
+						     source_filename, source_linenum,
+						     log_type);
 	case EVENT_FILTER_OP_NOT:
 		return !event_filter_query_match_eval(node->children[0], event,
-						      source_filename, source_linenum);
+						      source_filename, source_linenum,
+						      log_type);
 	}
 
 	i_unreached();
@@ -616,8 +628,11 @@ event_filter_query_match(const struct event_filter_query_internal *query,
 			 unsigned int source_linenum,
 			 const struct failure_context *ctx)
 {
+	enum event_filter_log_type log_type;
+
 	i_assert(ctx->type < N_ELEMENTS(event_filter_log_type_map));
-	if ((query->log_type_mask & event_filter_log_type_map[ctx->type].log_type) == 0)
+	log_type = event_filter_log_type_map[ctx->type].log_type;
+	if ((query->log_type_mask & log_type) == 0)
 		return FALSE;
 
 	/* Nothing to evaluate - this can happen if the filter consists
@@ -626,7 +641,7 @@ event_filter_query_match(const struct event_filter_query_internal *query,
 		return TRUE;
 
 	return event_filter_query_match_eval(query->expr, event, source_filename,
-					     source_linenum);
+					     source_linenum, log_type);
 }
 
 static bool

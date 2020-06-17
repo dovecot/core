@@ -49,15 +49,21 @@ struct event_filter_node {
 	uintmax_t intmax;
 	struct {
 		/*
-		 * We may be dealing with one of two situations:
+		 * We may be dealing with one of three situations:
 		 *
-		 * (1) the category is registered
-		 * (2) the category is not registered
+		 * 1) the category is a special "log type" category
+		 * 2) the category is a "normal" category which is:
+		 *    a) registered
+		 *    b) not registered
 		 *
-		 * Regardless of which of the two cases we're dealing with,
-		 * we have a name for it.  Additionally, if a category is
-		 * registered, the category pointer is non-NULL.
+		 * A "log type" category is always stored here as the
+		 * log_type enum value with the name and ptr members being
+		 * NULL.
+		 *
+		 * A regular category always has a name.  Additionally, if
+		 * it is registered, the category pointer is non-NULL.
 		 */
+		enum event_filter_log_type log_type;
 		const char *name;
 		struct event_category *ptr;
 	} category;
