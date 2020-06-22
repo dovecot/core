@@ -193,12 +193,13 @@ void mail_index_write(struct mail_index *index, bool want_rotate,
 		/* make sure we don't keep getting back in here */
 		index->reopen_main_index = TRUE;
 	} else {
-		e_debug(index->event, "Recreating %s because: %s",
-			index->filepath, reason);
 		if (mail_index_recreate(index) < 0) {
 			(void)mail_index_move_to_memory(index);
 			return;
 		}
+		event_set_name(index->event, "mail_index_recreated");
+		e_debug(index->event, "Recreated %s because: %s",
+			index->filepath, reason);
 	}
 
 	index->last_read_log_file_seq = hdr->log_file_seq;
