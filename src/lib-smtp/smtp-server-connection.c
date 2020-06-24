@@ -61,11 +61,11 @@ static bool
 smtp_server_connection_check_pipeline(struct smtp_server_connection *conn)
 {
 	if (conn->command_queue_count >
-	    conn->server->set.max_pipelined_commands) {
+	    conn->set.max_pipelined_commands) {
 		e_debug(conn->event, "Command pipeline is full "
 			"(pipelined commands %u > limit %u)",
 			conn->command_queue_count,
-			conn->server->set.max_pipelined_commands);
+			conn->set.max_pipelined_commands);
 		return FALSE;
 	}
 	return TRUE;
