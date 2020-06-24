@@ -60,12 +60,19 @@ smtp_server_connection_get_stats(struct smtp_server_connection *conn)
 static bool
 smtp_server_connection_check_pipeline(struct smtp_server_connection *conn)
 {
-	if (conn->command_queue_count >
-	    conn->set.max_pipelined_commands) {
+	unsigned int pipeline = conn->command_queue_count;
+
+	if (conn->command_queue_tail != NULL) {
+		i_assert(pipeline > 0);
+		if (conn->command_queue_tail->state ==
+		    SMTP_SERVER_COMMAND_STATE_SUBMITTED_REPLY)
+			pipeline--;
+	}
+
+	if (pipeline >= conn->set.max_pipelined_commands) {
 		e_debug(conn->event, "Command pipeline is full "
 			"(pipelined commands %u > limit %u)",
-			conn->command_queue_count,
-			conn->set.max_pipelined_commands);
+			pipeline, conn->set.max_pipelined_commands);
 		return FALSE;
 	}
 	return TRUE;
