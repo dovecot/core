@@ -315,11 +315,22 @@ static void lib_signals_update_expected_signals(bool expected)
 
 static void lib_signals_enable_delayed_hander(void)
 {
-	if (current_ioloop != NULL && sig_pipe_fd[0] > 0) {
-		io_sig = io_add(sig_pipe_fd[0], IO_READ,
-			signal_read, NULL);
-		io_set_never_wait_alone(io_sig, signals_expected == 0);
+	struct signal_handler *h;
+
+	if (current_ioloop == NULL || sig_pipe_fd[0] <= 0)
+		return;
+
+	/* initialize current_ioloop for signal handlers created before the
+	   first ioloop. */
+	for (int signo = 0; signo < MAX_SIGNAL_VALUE; signo++) {
+		for (h = signal_handlers[signo]; h != NULL; h = h->next) {
+			if (h->current_ioloop == NULL)
+				h->current_ioloop = current_ioloop;
+		}
 	}
+
+	io_sig = io_add(sig_pipe_fd[0], IO_READ, signal_read, NULL);
+	io_set_never_wait_alone(io_sig, signals_expected == 0);
 }
 
 static void lib_signals_disable_delayed_hander(void)
