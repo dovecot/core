@@ -523,6 +523,9 @@ smtp_server_command_handle_reply(struct smtp_server_command *cmd)
 	if (!smtp_server_command_replied(&cmd))
 		return smtp_server_connection_unref(&conn);
 
+	if (cmd->input_locked)
+		smtp_server_command_input_unlock(&cmd->context);
+
 	/* Submit reply */
 	switch (cmd->state) {
 	case SMTP_SERVER_COMMAND_STATE_NEW:
