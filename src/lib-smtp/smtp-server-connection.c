@@ -57,6 +57,20 @@ smtp_server_connection_get_stats(struct smtp_server_connection *conn)
 	return &conn->stats;
 }
 
+static bool
+smtp_server_connection_check_pipeline(struct smtp_server_connection *conn)
+{
+	if (conn->command_queue_count >
+	    conn->server->set.max_pipelined_commands) {
+		e_debug(conn->event, "Command pipeline is full "
+			"(pipelined commands %u > limit %u)",
+			conn->command_queue_count,
+			conn->server->set.max_pipelined_commands);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 void smtp_server_connection_input_halt(struct smtp_server_connection *conn)
 {
 	connection_input_halt(&conn->conn);
@@ -72,8 +86,7 @@ void smtp_server_connection_input_resume(struct smtp_server_connection *conn)
 		if (conn->input_locked || conn->input_broken ||
 			conn->disconnected)
 			return;
-		if (conn->command_queue_count >
-			conn->server->set.max_pipelined_commands)
+		if (!smtp_server_connection_check_pipeline(conn))
 			return;
 
 		/* Is queued command still blocking input? */
@@ -449,8 +462,7 @@ smtp_server_connection_handle_input(struct smtp_server_connection *conn)
 			if (conn->closing)
 				break;
 
-			if (conn->command_queue_count >=
-				conn->server->set.max_pipelined_commands) {
+			if (!smtp_server_connection_check_pipeline(conn)) {
 				smtp_server_connection_input_halt(conn);
 				return;
 			}
@@ -577,8 +589,7 @@ static void smtp_server_connection_input(struct connection *_conn)
 	i_assert(!conn->halted);
 
 
-	if (conn->command_queue_count >
-	    conn->server->set.max_pipelined_commands) {
+	if (!smtp_server_connection_check_pipeline(conn)) {
 		smtp_server_connection_input_halt(conn);
 		return;
 	}
