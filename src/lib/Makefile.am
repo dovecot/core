@@ -4,9 +4,9 @@ AM_CPPFLAGS = \
 noinst_LTLIBRARIES = liblib.la
 
 BUILT_SOURCES = $(srcdir)/unicodemap.c \
-		event-filter-parser-lexer.c \
-		event-filter-parser-parser.c \
-		event-filter-parser-parser.h
+		event-filter-lexer.c \
+		event-filter-parser.c \
+		event-filter-parser.h
 
 EXTRA_DIST = unicodemap.c unicodemap.pl UnicodeData.txt
 
@@ -28,7 +28,7 @@ YACC=/bin/false
 
 # Bison generates both a header and a .c file.  Without the following
 # dependency, anything including the header will race the bison process.
-event-filter-parser-parser.h: event-filter-parser-parser.c
+event-filter-parser.h: event-filter-parser.c
 
 $(srcdir)/UnicodeData.txt:
 	test -f $@ || wget -O $@ https://dovecot.org/res/UnicodeData.txt
@@ -55,8 +55,8 @@ liblib_la_SOURCES = \
 	eacces-error.c \
 	env-util.c \
 	event-filter.c \
-	event-filter-parser-lexer.l \
-	event-filter-parser-parser.y \
+	event-filter-lexer.l \
+	event-filter-parser.y \
 	event-log.c \
 	execv-const.c \
 	failures.c \
@@ -216,7 +216,7 @@ headers = \
 	eacces-error.h \
 	env-util.h \
 	event-filter.h \
-	event-filter-parser-parser.h \
+	event-filter-parser.h \
 	event-filter-private.h \
 	event-log.h \
 	execv-const.h \

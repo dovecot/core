@@ -12,7 +12,7 @@
 #include "lib.h"
 #include "str.h"
 #include "event-filter-private.h"
-#include "event-filter-parser-parser.h"
+#include "event-filter-parser.h"
 
 /* mimic renaming done by bison's api.prefix %define */
 #define YYSTYPE         EVENT_FILTER_PARSER_STYPE
