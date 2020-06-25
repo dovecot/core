@@ -7,6 +7,7 @@
 #include "base64.h"
 #include "hex-binary.h"
 #include "str.h"
+#include "strescape.h"
 #include "var-expand.h"
 #include "wildcard-match.h"
 #include "settings-parser.h"
@@ -193,6 +194,8 @@ static void auth_connected(struct auth_client *client,
 	info.local_port = input->info.local_port;
 	info.remote_ip = input->info.remote_ip;
 	info.remote_port = input->info.remote_port;
+	info.extra_fields = input->info.extra_fields;
+	info.forward_fields = input->info.forward_fields;
 	info.initial_resp_base64 = str_c(base64_resp);
 	if (doveadm_settings->auth_debug ||
 	    event_want_debug_log(event_auth))
@@ -240,8 +243,27 @@ static void auth_user_info_parse(struct auth_user_info *info, const char *arg)
 	} else if (str_begins(arg, "rport=")) {
 		if (net_str2port(arg + 6, &info->remote_port) < 0)
 			i_fatal("rport: Invalid port number");
+	} else if (str_begins(arg, "forward_")) {
+		const char *key = arg+8;
+		const char *value = strchr(arg+8, '=');
+
+		if (value == NULL)
+			value = "";
+		else
+			key = t_strdup_until(key, value++);
+		key = str_tabescape(key);
+		value = str_tabescape(value);
+		if (info->forward_fields == NULL) {
+			info->forward_fields =
+				t_strdup_printf("%s=%s", key, value);
+		} else {
+			info->forward_fields =
+				t_strdup_printf("%s\t%s=%s", info->forward_fields, key, value);
+		}
 	} else {
-		i_fatal("Unknown -x argument: %s", arg);
+		if (!array_is_created(&info->extra_fields))
+			t_array_init(&info->extra_fields, 4);
+		array_push_back(&info->extra_fields, &arg);
 	}
 }
 
