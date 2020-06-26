@@ -35,6 +35,7 @@ compile_commands.json
 /stamp.h
 /stamp-h1
 /stamp-h2
+/ylwrap
 /autom4te.cache
 /ChangeLog
 /cc-wrapper.sh
