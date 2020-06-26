@@ -122,6 +122,13 @@ int dlua_script_init(struct dlua_script *script, const char **error_r)
 	return ret;
 }
 
+static int dlua_atpanic(lua_State *L)
+{
+	struct dlua_script *script = dlua_script_from_state(L);
+	const char *error = lua_tostring(script->L, -1);
+	i_panic("Lua script '%s': %s", script->filename, error);
+}
+
 static struct dlua_script *dlua_create_script(const char *name,
 					      struct event *event_parent)
 {
@@ -135,6 +142,7 @@ static struct dlua_script *dlua_create_script(const char *name,
 	script->L = lua_newstate(dlua_alloc, script);
 	i_assert(script->L != NULL);
 	script->ref = 1;
+	lua_atpanic(script->L, dlua_atpanic);
 	luaL_openlibs(script->L);
 	script->event = event_create(event_parent);
 	event_add_category(script->event, &event_category_lua);
