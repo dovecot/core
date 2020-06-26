@@ -397,6 +397,9 @@ static void auth_lua_dovecot_auth_register(struct dlua_script *script)
 
 	/* put this as "dovecot.auth" */
 	lua_setfield(script->L, -2, "auth");
+
+	/* pop dovecot */
+	lua_pop(script->L, 1);
 }
 
 int auth_lua_script_init(struct dlua_script *script, const char **error_r)
