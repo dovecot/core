@@ -434,6 +434,7 @@ static int auth_lua_call_lookup(struct dlua_script *script, const char *fn,
 		*error_r = t_strdup_printf("db-lua: %s(req) failed: %s",
 					   fn, lua_tostring(script->L, -1));
 		lua_pop(script->L, 1);
+		i_assert(lua_gettop(script->L) == 0);
 		return -1;
 	} else if (!lua_isnumber(script->L, -2)) {
 		*error_r = t_strdup_printf("db-lua: %s(req) invalid return value "
@@ -450,6 +451,7 @@ static int auth_lua_call_lookup(struct dlua_script *script, const char *fn,
 	if (err != 0) {
 		lua_pop(script->L, 2);
 		lua_gc(script->L, LUA_GCCOLLECT, 0);
+		i_assert(lua_gettop(script->L) == 0);
 		return PASSDB_RESULT_INTERNAL_FAILURE;
 	}
 
@@ -532,6 +534,7 @@ static void auth_lua_export_table(struct dlua_script *script, struct auth_reques
 	*/
 	lua_pop(script->L, 3);
 	lua_gc(script->L, LUA_GCCOLLECT, 0);
+	i_assert(lua_gettop(script->L) == 0);
 }
 
 static enum userdb_result
@@ -583,6 +586,8 @@ auth_lua_call_lookup_finish(struct dlua_script *script, struct auth_request *req
 	const char *str = t_strdup(lua_tostring(script->L, -1));
 	lua_pop(script->L, 2);
 	lua_gc(script->L, LUA_GCCOLLECT, 0);
+	/* stack should be empty now */
+	i_assert(lua_gettop(script->L) == 0);
 
 	if (ret != PASSDB_RESULT_OK && ret != PASSDB_RESULT_NEXT) {
 		*error_r = str;
@@ -621,6 +626,7 @@ auth_lua_call_password_verify(struct dlua_script *script,
 		*error_r = t_strdup_printf("db-lua: %s(req, password) failed: %s",
 					   AUTH_LUA_PASSWORD_VERIFY,
 					   lua_tostring(script->L, -1));
+		i_assert(lua_gettop(script->L) == 0);
 		lua_pop(script->L, 1);
 		return PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (!lua_isnumber(script->L, -2)) {
@@ -640,6 +646,7 @@ auth_lua_call_password_verify(struct dlua_script *script,
 	if (err != 0) {
 		lua_pop(script->L, 2);
 		lua_gc(script->L, LUA_GCCOLLECT, 0);
+		i_assert(lua_gettop(script->L) == 0);
 		return PASSDB_RESULT_INTERNAL_FAILURE;
 	}
 
@@ -656,6 +663,7 @@ auth_lua_call_passdb_lookup(struct dlua_script *script,
 	*scheme_r = *password_r = NULL;
 	if (auth_lua_call_lookup(script, AUTH_LUA_PASSDB_LOOKUP, req, error_r) < 0) {
 		lua_gc(script->L, LUA_GCCOLLECT, 0);
+		i_assert(lua_gettop(script->L) == 0);
 		return PASSDB_RESULT_INTERNAL_FAILURE;
 	}
 
@@ -669,6 +677,7 @@ auth_lua_call_userdb_lookup(struct dlua_script *script,
 {
 	if (auth_lua_call_lookup(script, AUTH_LUA_USERDB_LOOKUP, req, error_r) < 0) {
 		lua_gc(script->L, LUA_GCCOLLECT, 0);
+		i_assert(lua_gettop(script->L) == 0);
 		return USERDB_RESULT_INTERNAL_FAILURE;
 	}
 
@@ -680,6 +689,7 @@ auth_lua_call_userdb_lookup(struct dlua_script *script,
 	const char *str = t_strdup(lua_tostring(script->L, -1));
 	lua_pop(script->L, 2);
 	lua_gc(script->L, LUA_GCCOLLECT, 0);
+	i_assert(lua_gettop(script->L) == 0);
 
 	if (ret != USERDB_RESULT_OK) {
 		*error_r = str;
@@ -717,6 +727,7 @@ auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_reques
 			lua_tostring(script->L, -1));
 		actx->ctx.failed = TRUE;
 		lua_pop(script->L, 1);
+		i_assert(lua_gettop(script->L) == 0);
 		return &actx->ctx;
 	}
 
@@ -726,6 +737,7 @@ auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_reques
 		actx->ctx.failed = TRUE;
 		lua_pop(script->L, 1);
 		lua_gc(script->L, LUA_GCCOLLECT, 0);
+		i_assert(lua_gettop(script->L) == 0);
 		return &actx->ctx;
 	}
 
@@ -749,6 +761,7 @@ auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_reques
 	}
 
 	lua_gc(script->L, LUA_GCCOLLECT, 0);
+	i_assert(lua_gettop(script->L) == 0);
 
 	actx->ctx.auth_request = req;
 	actx->ctx.callback = callback;
