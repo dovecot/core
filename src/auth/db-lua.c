@@ -522,7 +522,12 @@ static void auth_lua_export_table(struct dlua_script *script, struct auth_reques
 		lua_pop(script->L, 1);
 	}
 
-	lua_pop(script->L, 2);
+	/* stack has
+		key
+		table
+		passdb_result
+	*/
+	lua_pop(script->L, 3);
 	lua_gc(script->L, LUA_GCCOLLECT, 0);
 }
 
