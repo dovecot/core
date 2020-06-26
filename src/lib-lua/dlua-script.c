@@ -4,6 +4,7 @@
 #include "llist.h"
 #include "istream.h"
 #include "sha1.h"
+#include "str.h"
 #include "hex-binary.h"
 #include "eacces-error.h"
 #include "dlua-script-private.h"
@@ -353,4 +354,30 @@ void dlua_setmembers(struct dlua_script *script,
 		lua_setfield(script->L, idx-1, values->name);
 		values++;
 	}
+}
+
+void dlua_dump_stack(struct dlua_script *script)
+{
+	/* get everything in stack */
+	int top = lua_gettop(script->L);
+	for (int i = 1; i <= top; i++) T_BEGIN {  /* repeat for each level */
+		int t = lua_type(script->L, i);
+		string_t *line = t_str_new(32);
+		str_printfa(line, "#%d: ", i);
+		switch (t) {
+		case LUA_TSTRING:  /* strings */
+			str_printfa(line, "`%s'", lua_tostring(script->L, i));
+			break;
+		case LUA_TBOOLEAN:  /* booleans */
+			str_printfa(line, "`%s'", lua_toboolean(script->L, i) ? "true" : "false");
+			break;
+		case LUA_TNUMBER:  /* numbers */
+			str_printfa(line, "%g", lua_tonumber(script->L, i));
+			break;
+		default:  /* other values */
+			str_printfa(line, "%s", lua_typename(script->L, t));
+			break;
+		}
+		i_debug("%s", str_c(line));
+	} T_END;
 }
