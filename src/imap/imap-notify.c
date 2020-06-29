@@ -304,7 +304,7 @@ static int imap_client_notify_more(struct client *client)
 	}
 
 	if (ret < 0) {
-		client_send_line(notify_ns->ctx->client,
+		client_send_line(client,
 			"* NO NOTIFY error, some events may have got lost");
 	}
 	return ret;
