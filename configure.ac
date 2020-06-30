@@ -2,8 +2,8 @@ AC_PREREQ([2.59])
 
 # Be sure to update ABI version also if anything changes that might require
 # recompiling plugins. Most importantly that means if any structs are changed.
-AC_INIT([Dovecot],[2.4.devel],[dovecot@dovecot.org])
-AC_DEFINE_UNQUOTED([DOVECOT_ABI_VERSION], "2.4.ABIv0($PACKAGE_VERSION)", [Dovecot ABI version])
+AC_INIT([Dovecot],[2.3.11],[dovecot@dovecot.org])
+AC_DEFINE_UNQUOTED([DOVECOT_ABI_VERSION], "2.3.ABIv11($PACKAGE_VERSION)", [Dovecot ABI version])
 
 AC_CONFIG_SRCDIR([src])
 AC_CONFIG_MACRO_DIR([m4])
