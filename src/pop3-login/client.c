@@ -140,20 +140,36 @@ static void pop3_client_input(struct client *client)
 	client_unref(&client);
 }
 
+static bool client_read_cmd_name(struct client *client, const char **cmd_r)
+{
+	const unsigned char *data;
+	size_t size, i;
+	if (i_stream_read_more(client->input, &data, &size) <= 0)
+		return FALSE;
+	for(i = 0; i < size; i++) {
+		if (data[i] == ' ' ||
+		    data[i] == '\r' ||
+		    data[i] == '\n') {
+			*cmd_r = t_str_ucase(t_strndup(data, i));
+			i_stream_skip(client->input, i+1);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 static bool pop3_client_input_next_cmd(struct client *client)
 {
 	struct pop3_client *pop3_client = (struct pop3_client *)client;
-	char *line, *args;
+	const char *cmd, *args;
+	bool parsed;
 
-	if ((line = i_stream_next_line(client->input)) == NULL)
+	if (!client_read_cmd_name(client, &cmd))
+		return FALSE;
+	if ((args = i_stream_next_line(client->input)) == NULL)
 		return FALSE;
 
-	args = strchr(line, ' ');
-	if (args != NULL)
-		*args++ = '\0';
-
-	if (client_command_execute(pop3_client, line,
-				   args != NULL ? args : ""))
+	if (client_command_execute(pop3_client, cmd, args))
 		client->bad_counter = 0;
 	else if (++client->bad_counter >= CLIENT_MAX_BAD_COMMANDS) {
 		client_send_reply(client, POP3_CMD_REPLY_ERROR,
