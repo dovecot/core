@@ -1,3 +1,92 @@
+v2.3.11 2020-06-17  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* CVE-2020-12100: Parsing mails with a large number of MIME parts could
+	  have resulted in excessive CPU usage or a crash due to running out of
+	  stack memory.
+	* CVE-2020-12673: Dovecot's NTLM implementation does not correctly check
+	  message buffer size, which leads to reading past allocation which can
+	  lead to crash.
+	* CVE-2020-10967: lmtp/submission: Issuing the RCPT command with an
+	  address that has the empty quoted string as local-part causes the lmtp
+	  service to crash.
+	* CVE-2020-12674: Dovecot's RPA mechanism implementation accepts
+	  zero-length message, which leads to assert-crash later on.
+	* Events: Fix inconsistency in events. See event documentation in
+	  https://doc.dovecot.org.
+	* imap_command_finished event's cmd_name field now contains "unknown"
+	  for unknown commands. A new "cmd_input_name" field contains the
+	  command name exactly as it was sent.
+	* lib-index: Renamed mail_cache_compress_* settings to mail_cache_purge_*.
+	  Note that these settings are mainly intended for testing and usually
+	  shouldn't be changed.
+	* events: Renamed "index" event category to "mail-index".
+	* events: service:<name> category is now using the name from
+	  configuration file.
+	* dns-client: service dns_client was renamed to dns-client.
+	* log: Prefixes generally use the service name from configuration file.
+	  For example dict-async service will now use
+	  "dict-async(pid): " log prefix instead of "dict(pid): "
+	* *-login: Changed logging done by proxying to use a consistent prefix
+	  containing the IP address and port.
+	* *-login: Changed disconnection log messages to be slightly clearer.
+	+ dict: Add events for dictionaries.
+	+ lib-index: Finish logging with events.
+	+ oauth2: Support local validation of JWT tokens.
+	+ stats: Add support for dynamic histograms and grouping. See
+	  https://doc.dovecot.org/configuration_manual/stats/.
+	+ imap: Implement RFC 8514: IMAP SAVEDATE
+	+ lib-index: If a long-running transaction (e.g. SORT/FETCH on a huge
+	  folder) adds a lot of data to dovecot.index.cache file, commit those
+	  changes periodically to make them visible to other concurrent sessions
+	  as well.
+	+ stats: Add OpenMetrics exporter for statistics. See
+	  https://doc.dovecot.org/configuration_manual/stats/openmetrics/.
+	+ stats: Support disabling stats-writer socket by setting
+	  stats_writer_socket_path="".
+	- auth-worker: Process keeps slowly increasing its memory usage and
+	  eventually dies with "out of memory" due to reaching vsz_limit.
+	- auth: Prevent potential timing attacks in authentication secret
+	  comparisons: OAUTH2 JWT-token HMAC, imap-urlauth token, crypt() result.
+	- auth: Several auth-mechanisms allowed input to be truncated by NUL
+	  which can potentially lead to unintentional issues or even successful
+	  logins which should have failed.
+	- auth: When auth policy returned a delay, auth_request_finished event
+	  had policy_result=ok field instead of policy_result=delayed.
+	- auth: auth process crash when auth_policy_server_url is set to an
+	  invalid URL.
+	- dict-ldap: Crash occurs if var_expand template expansion fails.
+	- dict: If dict client disconnected while iteration was still running,
+	  dict process could have started using 100% CPU, although it was still
+	  handling clients.
+	- doveadm: Running doveadm commands via proxying may hang, especially
+	  when doveadm is printing a lot of output.
+	- imap: "MOVE * destfolder" goes to a loop copying the last mail to the
+	  destination until the imap process dies due to running out of memory.
+	- imap: Running "UID MOVE 1:* Trash" on an empty folder goes to infinite
+	  loop.
+	- imap: SEARCH doesn't support $.
+	- lib-compress: Buffer over-read in zlib stream read.
+	- lib-dns: If DNS lookup times out, lib-dns can cause crash in calling
+	  process.
+	- lib-index: Fixed several bugs in dovecot.index.cache handling that
+	  could have caused cached data to be lost.
+	- lib-index: Writing to >=1 GB dovecot.index.cache files may cause
+	  assert-crashes:
+	  Panic: file mail-index-util.c: line 37 (mail_index_uint32_to_offset):
+	  assertion failed: (offset < 0x40000000)
+	- lib-ssl-iostream: Fix buggy OpenSSL error handling without
+	  assert-crashing. If there is no error available, log it as an error
+	  instead of crashing:
+	  Panic: file iostream-openssl.c: line 599 (openssl_iostream_handle_error):
+	  assertion failed: (errno != 0)
+	- lib-ssl-iostream: ssl_key_password setting did not work.
+	- submission: A segfault crash may occur when the client or server
+	  disconnects while a non-transaction command like NOOP or VRFY is still
+	  being processed.
+	- virtual: Copying/moving mails with IMAP into a virtual folder assert-crashes:
+	  Panic: file cmd-copy.c: line 152 (fetch_and_copy): assertion failed:
+	  (copy_ctx->copy_count == seq_range_count(&copy_ctx->saved_uids))
+
 v2.3.10  2020-03-06  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* Disable retpoline migitations by default. These can cause severe
