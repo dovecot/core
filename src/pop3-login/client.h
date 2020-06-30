@@ -23,6 +23,8 @@ struct pop3_client {
 	unsigned int apop_server_pid, apop_connect_uid;
 	enum pop3_proxy_state proxy_state;
 	bool proxy_xclient;
+	bool auth_mech_name_parsed;
+	bool authenticating;
 };
 
 enum pop3_cmd_reply {

@@ -95,8 +95,6 @@ static bool client_command_execute(struct pop3_client *client, const char *cmd,
 		return cmd_user(client, args);
 	if (strcmp(cmd, "PASS") == 0)
 		return cmd_pass(client, args);
-	if (strcmp(cmd, "AUTH") == 0)
-		return cmd_auth(client, args);
 	if (strcmp(cmd, "APOP") == 0)
 		return cmd_apop(client, args);
 	if (strcmp(cmd, "STLS") == 0)
@@ -164,8 +162,19 @@ static bool pop3_client_input_next_cmd(struct client *client)
 	const char *cmd, *args;
 	bool parsed;
 
-	if (!client_read_cmd_name(client, &cmd))
+	if (!pop3_client->authenticating && !client_read_cmd_name(client, &cmd))
 		return FALSE;
+
+	if (pop3_client->authenticating ||
+	    strcmp(cmd, "AUTH") == 0) {
+		pop3_client->authenticating = TRUE;
+		int ret = cmd_auth(pop3_client, &parsed);
+		if (ret == 0 || !parsed)
+			return FALSE;
+		pop3_client->authenticating = !parsed;
+		return parsed;
+	}
+
 	if ((args = i_stream_next_line(client->input)) == NULL)
 		return FALSE;
 
