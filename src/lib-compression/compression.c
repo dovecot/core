@@ -128,8 +128,8 @@ compression_detect_handler(struct istream *input)
 	return NULL;
 }
 
-const struct compression_handler *
-compression_lookup_handler_from_ext(const char *path)
+int compression_lookup_handler_from_ext(const char *path,
+					const struct compression_handler **handler_r)
 {
 	unsigned int i;
 	size_t len, path_len = strlen(path);
@@ -140,10 +140,17 @@ compression_lookup_handler_from_ext(const char *path)
 
 		len = strlen(compression_handlers[i].ext);
 		if (path_len > len &&
-		    strcmp(path + path_len - len, compression_handlers[i].ext) == 0)
-			return &compression_handlers[i];
+		    strcmp(path + path_len - len, compression_handlers[i].ext) == 0) {
+			if (compression_handlers[i].create_istream == NULL ||
+			    compression_handlers[i].create_ostream == NULL) {
+				/* Handler is known but not compiled in */
+				return 0;
+			}
+			(*handler_r) = &compression_handlers[i];
+			return 1;
+		}
 	}
-	return NULL;
+	return -1;
 }
 
 const struct compression_handler compression_handlers[] = {

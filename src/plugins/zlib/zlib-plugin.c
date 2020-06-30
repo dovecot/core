@@ -260,8 +260,7 @@ static void zlib_mailbox_open_input(struct mailbox *box)
 	struct stat st;
 	int fd;
 
-	handler = compression_lookup_handler_from_ext(box->name);
-	if (handler == NULL || handler->create_istream == NULL)
+	if (compression_lookup_handler_from_ext(box->name, &handler) <= 0)
 		return;
 
 	if (mail_storage_is_mailbox_file(box->storage)) {

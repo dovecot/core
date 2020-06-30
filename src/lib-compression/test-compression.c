@@ -738,11 +738,12 @@ static void test_uncompress_file(const char *path)
 	struct istream *input, *file_input;
 	const unsigned char *data;
 	size_t size;
+	int ret;
 
-	handler = compression_lookup_handler_from_ext(path);
-	if (handler == NULL)
+	ret = compression_lookup_handler_from_ext(path, &handler);
+	if (ret < 0)
 		i_fatal("Can't detect compression algorithm from path %s", path);
-	if (handler->create_istream == NULL)
+	else if (ret == 0)
 		i_fatal("Support not compiled in for %s", handler->name);
 
 	file_input = i_stream_create_file(path, IO_BLOCK_SIZE);
@@ -765,11 +766,12 @@ static void test_compress_file(const char *in_path, const char *out_path)
 	unsigned char output_sha1[SHA1_RESULTLEN], input_sha1[SHA1_RESULTLEN];
 	const unsigned char *data;
 	size_t size;
+	int ret;
 
-	handler = compression_lookup_handler_from_ext(out_path);
-	if (handler == NULL)
+	ret = compression_lookup_handler_from_ext(out_path, &handler);
+	if (ret < 0)
 		i_fatal("Can't detect compression algorithm from path %s", out_path);
-	if (handler->create_ostream == NULL)
+	if (ret == 0)
 		i_fatal("Support not compiled in for %s", handler->name);
 
 	/* write the compressed output file */

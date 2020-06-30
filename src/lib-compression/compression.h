@@ -19,8 +19,9 @@ int compression_lookup_handler(const char *name,
 /* Detect handler by looking at the first few bytes of the input stream. */
 const struct compression_handler *
 compression_detect_handler(struct istream *input);
-/* Lookup handler based on filename extension in the path */
-const struct compression_handler *
-compression_lookup_handler_from_ext(const char *path);
+/* Lookup handler based on filename extension in the path, returns the same
+ * values as compression_lookup_handler. */
+int compression_lookup_handler_from_ext(const char *path,
+					const struct compression_handler **handler_r);
 
 #endif
