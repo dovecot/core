@@ -72,6 +72,7 @@ static bool cmd_compress(struct client_command_context *cmd)
 	struct ostream *old_output;
 	const char *mechanism, *value;
 	unsigned int level;
+	int ret;
 
 	/* <mechanism> */
 	if (!client_read_args(cmd, 0, 0, &args))
@@ -89,9 +90,12 @@ static bool cmd_compress(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	handler = compression_lookup_handler(t_str_lcase(mechanism));
-	if (handler == NULL || handler->create_istream == NULL) {
-		client_send_tagline(cmd, "NO Unknown compression mechanism.");
+	ret = compression_lookup_handler(t_str_lcase(mechanism), &handler);
+	if (ret <= 0) {
+		const char * tagline =
+			t_strdup_printf("NO %s compression mechanism",
+					ret == 0 ? "Unsupported" : "Unknown");
+		client_send_tagline(cmd, tagline);
 		return TRUE;
 	}
 
@@ -136,9 +140,10 @@ static void imap_zlib_client_created(struct client **clientp)
 {
 	struct client *client = *clientp;
 	struct zlib_client *zclient;
+	const struct compression_handler *handler;
 
 	if (mail_user_is_plugin_loaded(client->user, imap_zlib_module) &&
-	    compression_lookup_handler("deflate") != NULL) {
+	    compression_lookup_handler("deflate", &handler) > 0) {
 		zclient = p_new(client->pool, struct zlib_client, 1);
 		MODULE_CONTEXT_SET(client, imap_zlib_imap_module, zclient);
 

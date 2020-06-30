@@ -339,6 +339,7 @@ static void zlib_mail_user_created(struct mail_user *user)
 	struct mail_user_vfuncs *v = user->vlast;
 	struct zlib_user *zuser;
 	const char *name;
+	int ret;
 
 	zuser = p_new(user->pool, struct zlib_user, 1);
 	zuser->module_ctx.super = *v;
@@ -347,11 +348,11 @@ static void zlib_mail_user_created(struct mail_user *user)
 
 	name = mail_user_plugin_getenv(user, "zlib_save");
 	if (name != NULL && *name != '\0') {
-		zuser->save_handler = compression_lookup_handler(name);
-		if (zuser->save_handler == NULL)
-			i_error("zlib_save: Unknown handler: %s", name);
-		else if (zuser->save_handler->create_ostream == NULL) {
-			i_error("zlib_save: Support not compiled in for handler: %s", name);
+		ret = compression_lookup_handler(name, &zuser->save_handler);
+		if (ret <= 0) {
+			i_error("zlib_save: %s: %s", ret == 0 ?
+				"Support not compiled in for handler" :
+				"Unknown handler", name);
 			zuser->save_handler = NULL;
 		}
 	}

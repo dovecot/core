@@ -598,13 +598,13 @@ static void test_compression(void)
 
 static void test_gz(const char *str1, const char *str2)
 {
-	const struct compression_handler *gz = compression_lookup_handler("gz");
+	const struct compression_handler *gz;
 	struct ostream *buf_output, *output;
 	struct istream *test_input, *input;
 	buffer_t *buf = t_buffer_create(512);
 
-	if (gz == NULL || gz->create_ostream == NULL)
-		return; /* not compiled in */
+	if (compression_lookup_handler("gz", &gz) <= 0 )
+		return; /* not compiled in or unkown*/
 
 	/* write concated output */
 	buf_output = o_stream_create_buffer(buf);
@@ -662,7 +662,7 @@ static void test_gz_no_concat(void)
 
 static void test_gz_header(void)
 {
-	const struct compression_handler *gz = compression_lookup_handler("gz");
+	const struct compression_handler *gz;
 	const char *input_strings[] = {
 		"\x1F\x8B",
 		"\x1F\x8B\x01\x02"/* GZ_FLAG_FHCRC */"\xFF\xFF\x01\x01\x01\x01",
@@ -672,9 +672,8 @@ static void test_gz_header(void)
 		"\x1F\x8B\x01\x0C"/* GZ_FLAG_FEXTRA | GZ_FLAG_FNAME */"\xFF\xFF\x01\x01\x01\x01",
 	};
 	struct istream *file_input, *input;
-
-	if (gz == NULL || gz->create_istream == NULL)
-		return; /* not compiled in */
+	if (compression_lookup_handler("gz", &gz) <= 0 )
+		return; /* not compiled in or unkown*/
 
 	test_begin("gz header");
 	for (unsigned int i = 0; i < N_ELEMENTS(input_strings); i++) {
@@ -692,7 +691,7 @@ static void test_gz_header(void)
 
 static void test_gz_large_header(void)
 {
-	const struct compression_handler *gz = compression_lookup_handler("gz");
+	const struct compression_handler *gz;
 	static const unsigned char gz_input[] = {
 		0x1f, 0x8b, 0x08, 0x08,
 		'a','a','a','a','a','a','a','a','a','a','a',
@@ -701,8 +700,8 @@ static void test_gz_large_header(void)
 	struct istream *file_input, *input;
 	size_t i;
 
-	if (gz == NULL || gz->create_istream == NULL)
-		return; /* not compiled in */
+	if (compression_lookup_handler("gz", &gz) <= 0 )
+		return; /* not compiled in or unkown*/
 
 	test_begin("gz large header");
 

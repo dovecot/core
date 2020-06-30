@@ -46,6 +46,7 @@ fs_compress_init(struct fs *_fs, const char *args,
 	struct compress_fs *fs = (struct compress_fs *)_fs;
 	const char *p, *compression_name, *level_str;
 	const char *parent_name, *parent_args;
+	int ret;
 
 	/* get compression handler name */
 	if (str_begins(args, "maybe-")) {
@@ -76,11 +77,11 @@ fs_compress_init(struct fs *_fs, const char *args,
 		return -1;
 	}
 	args = p;
-
-	fs->handler = compression_lookup_handler(compression_name);
-	if (fs->handler == NULL) {
-		*error_r = t_strdup_printf(
-			"Compression method '%s' not supported", compression_name);
+	ret = compression_lookup_handler(compression_name, &fs->handler);
+	if (ret <= 0) {
+		*error_r = t_strdup_printf("Compression method '%s' %s.",
+					   compression_name, ret == 0 ?
+					   "not supported" : "unknown");
 		return -1;
 	}
 

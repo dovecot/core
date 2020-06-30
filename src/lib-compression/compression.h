@@ -12,8 +12,10 @@ struct compression_handler {
 
 extern const struct compression_handler compression_handlers[];
 
-/* Lookup handler by its name (gz, bz2) */
-const struct compression_handler *compression_lookup_handler(const char *name);
+/* Returns 1 if compression handler was found and is usable, 0 if support isn't
+   compiled in, -1 if unknown. */
+int compression_lookup_handler(const char *name,
+			       const struct compression_handler **handler_r);
 /* Detect handler by looking at the first few bytes of the input stream. */
 const struct compression_handler *
 compression_detect_handler(struct istream *input);
