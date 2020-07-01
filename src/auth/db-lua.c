@@ -746,23 +746,38 @@ auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_reques
 
 	p_array_init(&actx->users, pool, 8);
 
-	lua_pushvalue(script->L, -1);
+	/* stack is now
+		table */
+
+	/* see lua_next documentation */
 	lua_pushnil(script->L);
 	while (lua_next(script->L, -2) != 0) {
-		lua_pushvalue(script->L, -2);
+		/* stack is now
+			value
+			key
+			table */
 		if (!lua_isstring(script->L, -1)) {
 			e_error(authdb_event(req),
 				"db-lua: Value is not string");
 			actx->ctx.failed = TRUE;
-			lua_pop(script->L, 1);
+			lua_pop(script->L, 3);
 			lua_gc(script->L, LUA_GCCOLLECT, 0);
+			i_assert(lua_gettop(script->L) == 0);
 			return &actx->ctx;
 		}
-		const char *str = p_strdup(pool, lua_tostring(script->L, -2));
+		const char *str = p_strdup(pool, lua_tostring(script->L, -1));
 		array_push_back(&actx->users, &str);
-		lua_pop(script->L, 2);
+		lua_pop(script->L, 1);
+		/* stack is now
+			key
+			table */
 	}
 
+	/* stack is now
+		table
+	*/
+
+	lua_pop(script->L, 1);
 	lua_gc(script->L, LUA_GCCOLLECT, 0);
 	i_assert(lua_gettop(script->L) == 0);
 
