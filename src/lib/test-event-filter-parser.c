@@ -227,6 +227,8 @@ static void testcase(const char *name, const char *input, const char *exp,
 
 	test_assert_strcmp(exp, got);
 
+	event_filter_unref(&filter);
+
 	test_end();
 }
 
