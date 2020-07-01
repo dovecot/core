@@ -710,6 +710,9 @@ auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_reques
 	int ret;
 
 	actx->pool = pool;
+	actx->ctx.auth_request = req;
+	actx->ctx.callback = callback;
+	actx->ctx.context = context;
 
 	lua_getglobal(script->L, AUTH_LUA_USERDB_ITERATE);
 	if (!lua_isfunction(script->L, -1)) {
@@ -762,10 +765,6 @@ auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_reques
 
 	lua_gc(script->L, LUA_GCCOLLECT, 0);
 	i_assert(lua_gettop(script->L) == 0);
-
-	actx->ctx.auth_request = req;
-	actx->ctx.callback = callback;
-	actx->ctx.context = context;
 
 	return &actx->ctx;
 }
