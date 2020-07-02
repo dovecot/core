@@ -15,6 +15,8 @@
 #include "event-filter-private.h"
 #include "event-filter-parser.h"
 
+#define YY_FATAL_ERROR(msg) { i_fatal("event filter parsing: %s", (msg)); }
+
 /* mimic renaming done by bison's api.prefix %define */
 #define YYSTYPE         EVENT_FILTER_PARSER_STYPE
 
