@@ -3,6 +3,7 @@
 %option nounput
 %option noinput
 %option noyywrap
+%option noyyalloc noyyrealloc noyyfree
 %option reentrant
 %option bison-bridge
 %option never-interactive
@@ -70,6 +71,31 @@ static size_t event_filter_parser_input_proc(char *buf, size_t size, yyscan_t sc
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
+
+void *yyalloc(size_t bytes, void* yyscanner ATTR_UNUSED)
+{
+	void *ptr = calloc(1, bytes);
+	if (ptr == NULL)
+		i_fatal_status(FATAL_OUTOFMEM, "calloc(1, %zu): Out of memory",
+			       bytes);
+	return ptr;
+}
+
+void *yyrealloc (void *ptr, size_t bytes, void *yyscanner ATTR_UNUSED)
+{
+	void *nptr = realloc(ptr, bytes);
+	if (nptr == NULL)
+		i_fatal_status(FATAL_OUTOFMEM, "realloc(ptr, %zu): Out of memory",
+			       bytes);
+	return nptr;
+}
+
+void yyfree(void *ptr, void *yyscanner ATTR_UNUSED)
+{
+	if (ptr == NULL)
+		return;
+	free(ptr);
+}
 
 static size_t event_filter_parser_input_proc(char *buf, size_t size, yyscan_t scanner)
 {
