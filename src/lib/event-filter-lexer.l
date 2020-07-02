@@ -28,7 +28,17 @@ static size_t event_filter_parser_input_proc(char *buf, size_t size, yyscan_t sc
 #pragma clang diagnostic ignored "-Wunknown-warning-option"
 /* ignore strict bool warnings in generated code */
 #pragma clang diagnostic ignored "-Wstrict-bool"
+/* ignore sign comparison errors (buggy flex) */
+#pragma clang diagnostic ignored "-Wsign-compare"
+/* ignore unused functions */
+#pragma clang diagnostic ignored "-Wunused-function"
+#else
+/* and same for gcc */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wunused-function"
 #endif
+
 %}
 
 %x string
