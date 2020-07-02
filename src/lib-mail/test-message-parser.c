@@ -532,6 +532,51 @@ static const char input_msg[] =
 	test_end();
 }
 
+static void test_message_parser_trailing_dashes(void)
+{
+static const char input_msg[] =
+"Content-Type: multipart/mixed; boundary=\"a--\"\n"
+"\n"
+"--a--\n"
+"Content-Type: multipart/mixed; boundary=\"a----\"\n"
+"\n"
+"--a----\n"
+"Content-Type: text/plain\n"
+"\n"
+"body\n"
+"--a------\n"
+"Content-Type: text/html\n"
+"\n"
+"body2\n"
+"--a----";
+	struct message_parser_ctx *parser;
+	struct istream *input;
+	struct message_part *parts;
+	struct message_block block;
+	pool_t pool;
+	int ret;
+
+	test_begin("message parser trailing dashes");
+	pool = pool_alloconly_create("message parser", 10240);
+	input = test_istream_create(input_msg);
+
+	parser = message_parser_init(pool, input, &set_empty);
+	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
+	test_assert(ret < 0);
+	message_parser_deinit(&parser, &parts);
+
+	test_assert(parts->children_count == 2);
+	test_assert(parts->children->next == NULL);
+	test_assert(parts->children->children_count == 1);
+	test_assert(parts->children->children->next == NULL);
+	test_assert(parts->children->children->children_count == 0);
+
+	test_parsed_parts(input, parts);
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
 static void test_message_parser_continuing_mime_boundary(void)
 {
 static const char input_msg[] =
@@ -1095,6 +1140,7 @@ int main(void)
 		test_message_parser_empty_multipart,
 		test_message_parser_duplicate_mime_boundary,
 		test_message_parser_garbage_suffix_mime_boundary,
+		test_message_parser_trailing_dashes,
 		test_message_parser_continuing_mime_boundary,
 		test_message_parser_continuing_truncated_mime_boundary,
 		test_message_parser_continuing_mime_boundary_reverse,

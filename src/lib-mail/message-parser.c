@@ -19,7 +19,7 @@ static int parse_next_body_to_eof(struct message_parser_ctx *ctx,
 
 static struct message_boundary *
 boundary_find(struct message_boundary *boundaries,
-	      const unsigned char *data, size_t len)
+	      const unsigned char *data, size_t len, bool trailing_dashes)
 {
 	struct message_boundary *best = NULL;
 
@@ -33,7 +33,11 @@ boundary_find(struct message_boundary *boundaries,
 		    memcmp(boundaries->boundary, data, boundaries->len) == 0 &&
 		    (best == NULL || best->len < boundaries->len)) {
 			best = boundaries;
-			if (best->len == len) {
+			/* If we see "foo--", it could either mean that there
+			   is a boundary named "foo" that ends now or there's
+			   a boundary "foo--" which continues. */
+			if (best->len == len ||
+			    (best->len == len-2 && trailing_dashes)) {
 				/* This is exactly the wanted boundary. There
 				   can't be a better one. */
 				break;
@@ -261,6 +265,7 @@ boundary_line_find(struct message_parser_ctx *ctx,
 		return 0;
 	}
 	size_t find_size = size;
+	bool trailing_dashes = FALSE;
 
 	if (lf_pos != NULL) {
 		find_size = lf_pos - data;
@@ -268,11 +273,12 @@ boundary_line_find(struct message_parser_ctx *ctx,
 			find_size--;
 		if (find_size > 2 && data[find_size-1] == '-' &&
 		    data[find_size-2] == '-')
-			find_size -= 2;
+			trailing_dashes = TRUE;
 	} else if (find_size > BOUNDARY_END_MAX_LEN)
 		find_size = BOUNDARY_END_MAX_LEN;
 
-	*boundary_r = boundary_find(ctx->boundaries, data, find_size);
+	*boundary_r = boundary_find(ctx->boundaries, data, find_size,
+				    trailing_dashes);
 	if (*boundary_r == NULL)
 		return -1;
 
