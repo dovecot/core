@@ -34,11 +34,14 @@ static size_t event_filter_parser_input_proc(char *buf, size_t size, yyscan_t sc
 #pragma clang diagnostic ignored "-Wsign-compare"
 /* ignore unused functions */
 #pragma clang diagnostic ignored "-Wunused-function"
+/* ignore unused parameters */
+#pragma clang diagnostic ignored "-Wunused-parameter"
 #else
 /* and same for gcc */
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
 #pragma GCC diagnostic ignored "-Wunused-function"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #endif
 
 %}
