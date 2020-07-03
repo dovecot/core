@@ -86,18 +86,25 @@ static void i_stream_zstd_error(struct zstd_istream *zstream, const char *error)
 			    "zstd.read(%s): %s at %"PRIuUOFF_T,
 			    i_stream_get_name(&zstream->istream.istream), error,
 			    i_stream_get_absolute_offset(&zstream->istream.istream));
-	zstream->istream.istream.stream_errno = EIO;
 	if (zstream->log_errors)
 		i_error("%s", zstream->istream.iostream.error);
 }
 
 static void i_stream_zstd_read_error(struct zstd_istream *zstream, size_t err)
 {
+	ZSTD_ErrorCode errcode = ZSTD_getErrorCode(err);
 	const char *error = ZSTD_getErrorName(err);
-	if (err == ZSTD_error_memory_allocation)
+	if (errcode == ZSTD_error_memory_allocation)
 		i_fatal_status(FATAL_OUTOFMEM, "zstd.read(%s): Out of memory",
 			       i_stream_get_name(&zstream->istream.istream));
-
+	else if (errcode == ZSTD_error_prefix_unknown ||
+		 errcode == ZSTD_error_parameter_unsupported ||
+		 errcode == ZSTD_error_dictionary_wrong ||
+		 errcode == ZSTD_error_init_missing) {
+		zstream->istream.istream.stream_errno = EINVAL;
+	} else {
+		zstream->istream.istream.stream_errno = EIO;
+	}
 	i_stream_zstd_error(zstream, error);
 }
 
