@@ -7,14 +7,19 @@
 #include "mail-index-view-private.h"
 #include "mail-transaction-log.h"
 
+#undef mail_index_view_clone
+#undef mail_index_view_dup_private
+
 struct mail_index_view *
-mail_index_view_dup_private(const struct mail_index_view *src)
+mail_index_view_dup_private(const struct mail_index_view *src,
+			    const char *source_filename,
+			    unsigned int source_linenum)
 {
 	struct mail_index_view *view;
 	struct mail_index_map *map;
 
 	view = i_new(struct mail_index_view, 1);
-	mail_index_view_clone(view, src);
+	mail_index_view_clone(view, src, source_filename, source_linenum);
 
 	map = mail_index_map_clone(view->map);
 	mail_index_unmap(&view->map);
@@ -23,7 +28,9 @@ mail_index_view_dup_private(const struct mail_index_view *src)
 }
 
 void mail_index_view_clone(struct mail_index_view *dest,
-			   const struct mail_index_view *src)
+			   const struct mail_index_view *src,
+			   const char *source_filename,
+			   unsigned int source_linenum)
 {
 	i_zero(dest);
 	dest->refcount = 1;
@@ -47,6 +54,9 @@ void mail_index_view_clone(struct mail_index_view *dest,
 
 	i_array_init(&dest->module_contexts,
 		     I_MIN(5, mail_index_module_register.id));
+
+	dest->source_filename = source_filename;
+	dest->source_linenum = source_linenum;
 
 	DLLIST_PREPEND(&dest->index->views, dest);
 }

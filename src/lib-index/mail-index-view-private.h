@@ -87,9 +87,18 @@ struct mail_index_view *
 mail_index_view_open_with_map(struct mail_index *index,
 			      struct mail_index_map *map);
 void mail_index_view_clone(struct mail_index_view *dest,
-			   const struct mail_index_view *src);
+			   const struct mail_index_view *src,
+			   const char *source_filename,
+			   unsigned int source_linenum);
+#define mail_index_view_clone(dest, src) \
+	mail_index_view_clone(dest, src, __FILE__, __LINE__)
+
 struct mail_index_view *
-mail_index_view_dup_private(const struct mail_index_view *src);
+mail_index_view_dup_private(const struct mail_index_view *src,
+			    const char *source_filename,
+			    unsigned int source_linenum);
+#define mail_index_view_dup_private(src) \
+	mail_index_view_dup_private(src, __FILE__, __LINE__)
 void mail_index_view_ref(struct mail_index_view *view);
 void mail_index_view_unref_maps(struct mail_index_view *view);
 void mail_index_view_add_hidden_transaction(struct mail_index_view *view,
