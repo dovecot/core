@@ -574,6 +574,23 @@ static void test_compression_handler_errors(const struct compression_handler *ha
 	test_assert(input->stream_errno == EPIPE);
 	i_stream_unref(&input);
 
+	/* Cannot do the next check if we don't know if it's compressed. */
+	if (handler->is_compressed != NULL) {
+		/* test incrementally reading up to 32 bytes of plaintext data
+		   that should not match any handlers' header */
+		for (size_t i = 0; i < 32; i++) {
+			is = test_istream_create_data("dededededededededededededededede", i);
+			input = handler->create_istream(is, FALSE);
+			i_stream_unref(&is);
+			while (i_stream_read_more(input, &data, &size) >= 0) {
+				test_assert_idx(size == 0, i);
+				i_stream_skip(input, size);
+			}
+			test_assert_idx(input->stream_errno == EINVAL, i);
+			i_stream_unref(&input);
+		}
+	}
+
 	test_end();
 }
 
