@@ -166,5 +166,6 @@ const struct compression_handler compression_handlers[] = {
 	  i_stream_create_lz4, o_stream_create_lz4 },
 	{ "zstd", ".zstd", is_compressed_zstd,
 	  i_stream_create_zstd, o_stream_create_zstd },
+	{ "unsupported", NULL, NULL, NULL, NULL },
 	{ NULL, NULL, NULL, NULL, NULL }
 };
