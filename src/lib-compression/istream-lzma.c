@@ -19,6 +19,7 @@ struct lzma_istream {
 	uoff_t eof_offset;
 	struct stat last_parent_statbuf;
 
+	bool hdr_read:1;
 	bool log_errors:1;
 	bool marked:1;
 	bool strm_closed:1;
@@ -119,7 +120,8 @@ static ssize_t i_stream_lzma_read(struct istream_private *stream)
 			ret = lzma_code(&zstream->strm, LZMA_FINISH);
 			if (ret != LZMA_STREAM_END)
 				if (lzma_handle_error(zstream, ret) == 0)
-					stream->istream.stream_errno = EPIPE;
+					stream->istream.stream_errno =
+						zstream->hdr_read ? EPIPE : EINVAL;
 			stream->istream.eof = TRUE;
 		}
 		return -1;
@@ -135,6 +137,8 @@ static ssize_t i_stream_lzma_read(struct istream_private *stream)
 
 	zstream->strm.next_out = stream->w_buffer + stream->pos;
 	zstream->strm.avail_out = out_size;
+	if (!zstream->hdr_read && size > LZMA_STREAM_HEADER_SIZE)
+		zstream->hdr_read = TRUE;
 	ret = lzma_code(&zstream->strm, LZMA_RUN);
 
 	out_size -= zstream->strm.avail_out;
