@@ -25,16 +25,6 @@ struct zstd_ostream {
 	bool finished:1;
 };
 
-static void o_stream_zstd_error(struct zstd_ostream *zstream, const char *error)
-{
-	io_stream_set_error(&zstream->ostream.iostream,
-			    "zstd.write(%s): %s at %"PRIuUOFF_T,
-			    o_stream_get_name(&zstream->ostream.ostream), error,
-			    zstream->ostream.ostream.offset);
-	if (zstream->log_errors)
-		i_error("%s", zstream->ostream.iostream.error);
-}
-
 static void o_stream_zstd_write_error(struct zstd_ostream *zstream, size_t err)
 {
 	ZSTD_ErrorCode errcode = ZSTD_getErrorCode(err);
@@ -45,12 +35,17 @@ static void o_stream_zstd_write_error(struct zstd_ostream *zstream, size_t err)
 	else if (errcode == ZSTD_error_prefix_unknown ||
 		 errcode == ZSTD_error_parameter_unsupported ||
 		 errcode == ZSTD_error_dictionary_wrong ||
-		 errcode == ZSTD_error_init_missing) {
+		 errcode == ZSTD_error_init_missing)
 		zstream->ostream.ostream.stream_errno = EINVAL;
-	} else {
+	else
 		zstream->ostream.ostream.stream_errno = EIO;
-	}
-	o_stream_zstd_error(zstream, error);
+
+	io_stream_set_error(&zstream->ostream.iostream,
+			    "zstd.write(%s): %s at %"PRIuUOFF_T,
+			    o_stream_get_name(&zstream->ostream.ostream), error,
+			    zstream->ostream.ostream.offset);
+	if (zstream->log_errors)
+		i_error("%s", zstream->ostream.iostream.error);
 }
 
 static ssize_t o_stream_zstd_send_outbuf(struct zstd_ostream *zstream)
