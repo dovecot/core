@@ -29,6 +29,7 @@ struct zstd_istream {
 	/* storage for data */
 	buffer_t *data_buffer;
 
+	bool hdr_read:1;
 	bool log_errors:1;
 	bool marked:1;
 	bool zs_closed:1;
@@ -134,7 +135,9 @@ static ssize_t i_stream_zstd_read(struct istream_private *stream)
 				stream->istream.stream_errno =
 					stream->parent->stream_errno;
 				stream->istream.eof = stream->parent->eof;
-				if (zstream->remain &&
+				if (!zstream->hdr_read)
+					stream->istream.stream_errno = EINVAL;
+				else if (zstream->remain &&
 				    stream->istream.stream_errno == 0)
 					/* truncated data */
 					stream->istream.stream_errno = EPIPE;
@@ -158,12 +161,13 @@ static ssize_t i_stream_zstd_read(struct istream_private *stream)
 
 		ret = ZSTD_decompressStream(zstream->dstream, &zstream->output,
 					    &zstream->input);
-
 		if (ZSTD_isError(ret) != 0) {
 			i_stream_zstd_read_error(zstream, ret);
 			return -1;
 		}
-
+		/* ZSTD magic number is 4 bytes, but it's only defined after v0.8 */
+		if (!zstream->hdr_read && zstream->input.size > 4)
+			zstream->hdr_read = TRUE;
 		zstream->remain = ret > 0;
 		buffer_set_used_size(zstream->data_buffer, zstream->output.pos);
 	}
