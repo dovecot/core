@@ -37,10 +37,19 @@ static void o_stream_zstd_error(struct zstd_ostream *zstream, const char *error)
 
 static void o_stream_zstd_write_error(struct zstd_ostream *zstream, size_t err)
 {
+	ZSTD_ErrorCode errcode = ZSTD_getErrorCode(err);
 	const char *error = ZSTD_getErrorName(err);
-	if (err == ZSTD_error_memory_allocation)
+	if (errcode == ZSTD_error_memory_allocation)
 		i_fatal_status(FATAL_OUTOFMEM, "zstd.write(%s): Out of memory",
 			       o_stream_get_name(&zstream->ostream.ostream));
+	else if (errcode == ZSTD_error_prefix_unknown ||
+		 errcode == ZSTD_error_parameter_unsupported ||
+		 errcode == ZSTD_error_dictionary_wrong ||
+		 errcode == ZSTD_error_init_missing) {
+		zstream->ostream.ostream.stream_errno = EINVAL;
+	} else {
+		zstream->ostream.ostream.stream_errno = EIO;
+	}
 	o_stream_zstd_error(zstream, error);
 }
 
