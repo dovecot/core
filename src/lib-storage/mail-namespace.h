@@ -83,6 +83,12 @@ struct mail_namespace {
 	bool destroyed:1;
 };
 
+/* Returns TRUE when namespace can be removed without consequence. */
+static inline bool mail_namespace_is_removable(const struct mail_namespace *ns)
+{
+	return ((ns->flags & NAMESPACE_FLAG_USABLE) == 0 &&
+		(ns->flags & NAMESPACE_FLAG_AUTOCREATED) != 0);
+}
 
 /* Allocate a new namespace, and fill it based on the passed in settings.
    This is the most low-level namespace creation function. The storage isn't

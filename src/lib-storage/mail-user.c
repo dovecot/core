@@ -374,9 +374,7 @@ void mail_user_drop_useless_namespaces(struct mail_user *user)
 	for (ns = user->namespaces; ns != NULL; ns = next) {
 		next = ns->next;
 
-		if ((ns->flags & NAMESPACE_FLAG_USABLE) == 0 &&
-		    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) != 0 &&
-		    ns->prefix_len > 0)
+		if (mail_namespace_is_removable(ns) && ns->prefix_len > 0)
 			mail_namespace_destroy(ns);
 	}
 }
