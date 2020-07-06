@@ -17,6 +17,7 @@ struct bzlib_istream {
 	uoff_t eof_offset;
 	struct stat last_parent_statbuf;
 
+	bool hdr_read:1;
 	bool log_errors:1;
 	bool marked:1;
 	bool zs_closed:1;
@@ -75,7 +76,10 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 		} else {
 			i_assert(stream->parent->eof);
 			bzlib_read_error(zstream, "unexpected EOF");
-			stream->istream.stream_errno = EPIPE;
+			if (!zstream->hdr_read)
+				stream->istream.stream_errno = EINVAL;
+			else
+				stream->istream.stream_errno = EPIPE;
 		}
 		return -1;
 	}
@@ -91,6 +95,7 @@ static ssize_t i_stream_bzlib_read(struct istream_private *stream)
 	zstream->zs.next_out = (char *)stream->w_buffer + stream->pos;
 	zstream->zs.avail_out = out_size;
 	ret = BZ2_bzDecompress(&zstream->zs);
+	zstream->hdr_read = TRUE;
 
 	out_size -= zstream->zs.avail_out;
 	stream->pos += out_size;
