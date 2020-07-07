@@ -29,6 +29,7 @@ static int dirsize_quota_init(struct quota_root *root, const char *args,
 			      const char **error_r)
 {
 	root->auto_updating = TRUE;
+	event_set_append_log_prefix(root->backend.event, "quota-dirsize: ");
 	return quota_root_default_init(root, args, error_r);
 }
 

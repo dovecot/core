@@ -86,6 +86,7 @@ struct quota_backend_vfuncs {
 struct quota_backend {
 	/* quota backends equal if backend1.name == backend2.name */
 	const char *name;
+	struct event *event;
 	struct quota_backend_vfuncs v;
 };
 

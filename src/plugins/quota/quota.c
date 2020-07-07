@@ -376,6 +376,7 @@ static void quota_root_deinit(struct quota_root *root)
 
 	if (root->limit_set_dict != NULL)
 		dict_deinit(&root->limit_set_dict);
+	event_unref(&root->backend.event);
 	root->backend.v.deinit(root);
 	pool_unref(&pool);
 }
@@ -411,9 +412,14 @@ quota_root_init(struct quota_root_settings *root_set, struct quota *quota,
 		     sizeof(void *), 10);
 
 	if (root->backend.v.init != NULL) {
+		root->backend.event = event_create(quota->event);
+		event_set_forced_debug(root->backend.event, root->quota->set->debug);
+
 		if (root->backend.v.init(root, root_set->args, error_r) < 0) {
 			*error_r = t_strdup_printf("%s quota init failed: %s",
 					root->backend.name, *error_r);
+
+			event_unref(&root->backend.event);
 			return -1;
 		}
 	} else {
