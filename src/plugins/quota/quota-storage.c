@@ -266,14 +266,14 @@ static int quota_check(struct mail_save_context *ctx, struct mailbox *src_box)
 	case QUOTA_ALLOC_RESULT_TEMPFAIL:
 		/* Log the error, but allow saving anyway. */
 		e_error(qt->quota->event,
-			"quota: Failed to check if user is under quota: %s - "
+			"Failed to check if user is under quota: %s - "
 			"saving mail anyway", error);
 		return 0;
 	case QUOTA_ALLOC_RESULT_BACKGROUND_CALC:
 		/* Could not determine if there is enough space due to ongoing
 		   background quota calculation, allow saving anyway. */
 		e_warning(qt->quota->event,
-			  "quota: Failed to check if user is under quota: %s - "
+			  "Failed to check if user is under quota: %s - "
 			  "saving mail anyway", error);
 		return 0;
 	default:
@@ -299,10 +299,10 @@ quota_copy(struct mail_save_context *ctx, struct mail *mail)
 	if (quota_transaction_set_limits(qt, &error_res, &error) < 0) {
 		if (error_res == QUOTA_GET_RESULT_BACKGROUND_CALC) {
 			e_warning(qt->quota->event,
-				  "quota: %s - copying mail anyway", error);
+				  "%s - copying mail anyway", error);
 		} else {
 			e_error(qt->quota->event,
-				"quota: %s - copying mail anyway", error);
+				"%s - copying mail anyway", error);
 		}
 	}
 
@@ -346,7 +346,7 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 		case QUOTA_ALLOC_RESULT_TEMPFAIL:
 			/* Log the error, but allow saving anyway. */
 			e_error(qt->quota->event,
-				"quota: Failed to check if user is under quota: %s - "
+				"Failed to check if user is under quota: %s - "
 				"saving mail anyway", error);
 			break;
 		case QUOTA_ALLOC_RESULT_BACKGROUND_CALC:
@@ -354,7 +354,7 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 			 * ongoing background quota calculation, allow saving
 			 * anyway. */
 			e_warning(qt->quota->event,
-				  "quota: Failed to check if user is under quota: %s - "
+				  "Failed to check if user is under quota: %s - "
 				  "saving mail anyway", error);
 			break;
 		default:
@@ -372,10 +372,10 @@ quota_save_begin(struct mail_save_context *ctx, struct istream *input)
 	if (quota_transaction_set_limits(qt, &error_res, &error) < 0) {
 		if (error_res == QUOTA_GET_RESULT_BACKGROUND_CALC)
 			e_warning(qt->quota->event,
-				  "quota: %s - saving mail anyway", error);
+				  "%s - saving mail anyway", error);
 		else
 			e_error(qt->quota->event,
-				"quota: %s - saving mail anyway", error);
+				"%s - saving mail anyway", error);
 	}
 
 	return qbox->module_ctx.super.save_begin(ctx, input);
@@ -748,7 +748,7 @@ static void quota_root_set_namespace(struct quota_root *root,
 						      root->ns_prefix);
 		if (root->ns == NULL && !silent_errors) {
 			e_error(root->quota->event,
-				"quota: Unknown namespace: %s",
+				"Unknown namespace: %s",
 				root->ns_prefix);
 		}
 	}
@@ -759,7 +759,7 @@ static void quota_root_set_namespace(struct quota_root *root,
 		if ((ns->flags & NAMESPACE_FLAG_UNUSABLE) != 0 &&
 		    !silent_errors)
 			e_error(root->quota->event,
-				"quota: Unknown namespace: %s", name);
+				"Unknown namespace: %s", name);
 	}
 }
 

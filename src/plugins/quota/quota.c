@@ -413,6 +413,7 @@ quota_root_init(struct quota_root_settings *root_set, struct quota *quota,
 
 	if (root->backend.v.init != NULL) {
 		root->backend.event = event_create(quota->event);
+		event_drop_parent_log_prefixes(root->backend.event, 1);
 		event_set_forced_debug(root->backend.event, root->quota->set->debug);
 
 		if (root->backend.v.init(root, root_set->args, error_r) < 0) {
@@ -449,6 +450,7 @@ int quota_init(struct quota_settings *quota_set, struct mail_user *user,
 	quota = i_new(struct quota, 1);
 	quota->event = event_create(user->event);
 	event_set_forced_debug(quota->event, quota_set->debug);
+	event_set_append_log_prefix(quota->event, "quota: ");
 	quota->user = user;
 	quota->set = quota_set;
 	i_array_init(&quota->roots, 8);
@@ -1045,7 +1047,7 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 
 	restrict_access_init(&set.restrict_set);
 
-	e_debug(root->quota->event, "quota: Executing warning: %s (because %s)", cmd, reason);
+	e_debug(root->quota->event, "Executing warning: %s (because %s)", cmd, reason);
 
 	args = t_strsplit_spaces(cmd, " ");
 	if (last_arg != NULL) {
@@ -1208,7 +1210,7 @@ static bool quota_over_flag_init_root(struct quota_root *root,
 	name = t_strconcat(root->set->set_name, "_over_script", NULL);
 	*quota_over_script_r = mail_user_plugin_getenv(root->quota->user, name);
 	if (*quota_over_script_r == NULL) {
-		e_debug(root->quota->event, "quota: quota_over_flag check: "
+		e_debug(root->quota->event, "quota_over_flag check: "
 			"%s unset - skipping", name);
 		return FALSE;
 	}
@@ -1217,7 +1219,7 @@ static bool quota_over_flag_init_root(struct quota_root *root,
 	name = t_strconcat(root->set->set_name, "_over_flag_value", NULL);
 	flag_mask = mail_user_plugin_getenv(root->quota->user, name);
 	if (flag_mask == NULL) {
-		e_debug(root->quota->event, "quota: quota_over_flag check: "
+		e_debug(root->quota->event, "quota_over_flag check: "
 			"%s unset - skipping", name);
 		return FALSE;
 	}
@@ -1246,7 +1248,7 @@ static void quota_over_flag_check_root(struct quota_root *root)
 	if (root->quota->user->session_create_time +
 	    QUOTA_OVER_FLAG_MAX_DELAY_SECS < ioloop_time) {
 		/* userdb's quota_over_flag lookup is too old. */
-		e_debug(root->quota->event, "quota: quota_over_flag check: "
+		e_debug(root->quota->event, "quota_over_flag check: "
 			"Flag lookup time is too old - skipping");
 		return;
 	}
@@ -1254,7 +1256,7 @@ static void quota_over_flag_check_root(struct quota_root *root)
 		/* we don't know whether the quota_over_script was executed
 		   before hibernation. just assume that it was, so we don't
 		   unnecessarily call it too often. */
-		e_debug(root->quota->event, "quota: quota_over_flag check: "
+		e_debug(root->quota->event, "quota_over_flag check: "
 			"Session was already hibernated - skipping");
 		return;
 	}
@@ -1269,17 +1271,18 @@ static void quota_over_flag_check_root(struct quota_root *root)
 					 &limit, &error);
 		if (ret == QUOTA_GET_RESULT_INTERNAL_ERROR) {
 			/* can't reliably verify this */
-			e_error(root->quota->event,
-				"quota: Quota %s lookup failed - can't verify quota_over_flag: %s",
+			e_error(root->quota->event, "Quota %s lookup failed -"
+				"can't verify quota_over_flag: %s",
 				resources[i], error);
 			return;
 		}
-		e_debug(root->quota->event, "quota: quota_over_flag check: %s ret=%d value=%"PRIu64" limit=%"PRIu64,
-			resources[i], ret, value, limit);
+		e_debug(root->quota->event, "quota_over_flag check: %s ret=%d"
+			"value=%"PRIu64" limit=%"PRIu64, resources[i], ret,
+			value, limit);
 		if (ret == QUOTA_GET_RESULT_LIMITED && value >= limit)
 			cur_overquota = TRUE;
 	}
-	e_debug(root->quota->event, "quota: quota_over_flag=%d(%s) vs currently overquota=%d",
+	e_debug(root->quota->event, "quota_over_flag=%d(%s) vs currently overquota=%d",
 		quota_over_status ? 1 : 0,
 		quota_over_flag == NULL ? "(null)" : quota_over_flag,
 		cur_overquota ? 1 : 0);
