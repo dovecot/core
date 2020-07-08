@@ -36,8 +36,12 @@ void test_begin(const char *name);
  * When i is greater than or equals 0 it is used to identify the barrage of
  * tests failed like in test_assert_idx.
 */
-#define test_assert_strcmp_idx(s1, s2, i) STMT_START { \
-		if ((null_strcmp(s1,s2) != 0)) test_assert_failed_strcmp_idx("strcmp(" #s1 ","  #s2 ")", __FILE__, __LINE__, s1, s2, i); \
+#define test_assert_strcmp_idx(_s1, _s2, i) STMT_START { \
+		const char *s1 = _s1; \
+		const char *s2 = _s2; \
+		if ((null_strcmp(s1,s2) != 0)) \
+			test_assert_failed_strcmp_idx("strcmp(" #_s1 ","  #_s2 ")", \
+						      __FILE__, __LINE__, s1, s2, i); \
 	} STMT_END
 
 void test_assert_failed(const char *code, const char *file, unsigned int line);
