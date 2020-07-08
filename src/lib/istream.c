@@ -560,7 +560,7 @@ static char *i_stream_next_line_finish(struct istream_private *stream, size_t i)
 	char *ret;
 	size_t end;
 
-	if (i > 0 && stream->buffer[i-1] == '\r') {
+	if (i > stream->skip && stream->buffer[i-1] == '\r') {
 		end = i - 1;
 		stream->line_crlf = TRUE;
 	} else {
@@ -568,7 +568,8 @@ static char *i_stream_next_line_finish(struct istream_private *stream, size_t i)
 		stream->line_crlf = FALSE;
 	}
 
-	if (stream->buffer == stream->w_buffer) {
+	if (stream->buffer == stream->w_buffer &&
+	    end < stream->buffer_size) {
 		/* modify the buffer directly */
 		stream->w_buffer[end] = '\0';
 		ret = (char *)stream->w_buffer + stream->skip;
@@ -577,8 +578,9 @@ static char *i_stream_next_line_finish(struct istream_private *stream, size_t i)
 		if (stream->line_str == NULL)
 			stream->line_str = str_new(default_pool, 256);
 		str_truncate(stream->line_str, 0);
-		str_append_data(stream->line_str, stream->buffer + stream->skip,
-				end - stream->skip);
+		if (stream->skip < end)
+			str_append_data(stream->line_str, stream->buffer + stream->skip,
+					end - stream->skip);
 		ret = str_c_modifiable(stream->line_str);
 	}
 
