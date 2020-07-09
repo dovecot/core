@@ -110,6 +110,7 @@ int cmd_auth(struct pop3_client *pop3_client, bool *parsed_r)
 			}
 			client_send_raw(client, ".\r\n");
 			*parsed_r = TRUE;
+			(void)i_stream_read_next_line(client->input);
 			return 1;
 		}
 		i_free(client->auth_mech_name);
