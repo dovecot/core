@@ -121,6 +121,7 @@ int cmd_auth(struct pop3_client *pop3_client, bool *parsed_r)
 		i_stream_skip(client->input, i);
 	}
 
+	client->authenticating = TRUE;
 	/* get SASL-IR, if any */
 	if ((ret = client_auth_read_line(client)) <= 0)
 		return ret;

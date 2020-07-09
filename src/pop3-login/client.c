@@ -117,7 +117,16 @@ static bool client_command_execute(struct pop3_client *client, const char *cmd,
 
 static void pop3_client_input(struct client *client)
 {
-	i_assert(!client->authenticating);
+	if (client->authenticating) {
+		struct pop3_client *pop3_client =
+			container_of(client, struct pop3_client, common);
+		bool parsed;
+		cmd_auth(pop3_client, &parsed);
+		if (!parsed)
+			client->authenticating = FALSE;
+		else
+			return;
+	}
 
 	if (!client_read(client))
 		return;
@@ -169,16 +178,13 @@ static bool pop3_client_input_next_cmd(struct client *client)
 	const char *cmd, *args;
 	bool parsed;
 
-	if (!pop3_client->authenticating && !client_read_cmd_name(client, &cmd))
+	if (!client_read_cmd_name(client, &cmd))
 		return FALSE;
 
-	if (pop3_client->authenticating ||
-	    strcmp(cmd, "AUTH") == 0) {
-		pop3_client->authenticating = TRUE;
+	if (strcmp(cmd, "AUTH") == 0) {
 		int ret = cmd_auth(pop3_client, &parsed);
 		if (ret == 0 || !parsed)
 			return FALSE;
-		pop3_client->authenticating = !parsed;
 		return parsed;
 	}
 
