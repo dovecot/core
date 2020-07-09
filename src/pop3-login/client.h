@@ -24,7 +24,6 @@ struct pop3_client {
 	enum pop3_proxy_state proxy_state;
 	bool proxy_xclient;
 	bool auth_mech_name_parsed;
-	bool authenticating;
 };
 
 enum pop3_cmd_reply {
