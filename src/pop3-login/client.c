@@ -117,16 +117,7 @@ static bool client_command_execute(struct pop3_client *client, const char *cmd,
 
 static void pop3_client_input(struct client *client)
 {
-	if (client->authenticating) {
-		struct pop3_client *pop3_client =
-			container_of(client, struct pop3_client, common);
-		bool parsed;
-		cmd_auth(pop3_client, &parsed);
-		if (!parsed)
-			client->authenticating = FALSE;
-		else
-			return;
-	}
+	i_assert(!client->authenticating);
 
 	if (!client_read(client))
 		return;
@@ -176,22 +167,28 @@ static bool pop3_client_input_next_cmd(struct client *client)
 {
 	struct pop3_client *pop3_client = (struct pop3_client *)client;
 	const char *cmd, *args;
-	bool parsed;
 
-	if (!client_read_cmd_name(client, &cmd))
-		return FALSE;
-
-	if (strcmp(cmd, "AUTH") == 0) {
-		int ret = cmd_auth(pop3_client, &parsed);
-		if (ret == 0 || !parsed)
+	if (pop3_client->current_cmd == NULL) {
+		if (!client_read_cmd_name(client, &cmd))
 			return FALSE;
-		return parsed;
+		pop3_client->current_cmd = i_strdup(cmd);
+	}
+
+	if (strcmp(pop3_client->current_cmd, "AUTH") == 0) {
+		if (cmd_auth(pop3_client) <= 0) {
+			/* Need more input / destroyed. We also get here when
+			   SASL authentication is actually started. */
+			return FALSE;
+		}
+		/* AUTH command finished already (SASL probe or ERR reply) */
+		i_free(pop3_client->current_cmd);
+		return TRUE;
 	}
 
 	if ((args = i_stream_next_line(client->input)) == NULL)
 		return FALSE;
 
-	if (client_command_execute(pop3_client, cmd, args))
+	if (client_command_execute(pop3_client, pop3_client->current_cmd, args))
 		client->bad_counter = 0;
 	else if (++client->bad_counter >= CLIENT_MAX_BAD_COMMANDS) {
 		client_send_reply(client, POP3_CMD_REPLY_ERROR,
@@ -200,6 +197,7 @@ static bool pop3_client_input_next_cmd(struct client *client)
 			       "Disconnected: Too many bad commands");
 		return FALSE;
 	}
+	i_free(pop3_client->current_cmd);
 	return TRUE;
 }
 
@@ -220,6 +218,7 @@ static void pop3_client_destroy(struct client *client)
 {
 	struct pop3_client *pop3_client = (struct pop3_client *)client;
 
+	i_free_and_null(pop3_client->current_cmd);
 	i_free_and_null(pop3_client->last_user);
 	i_free_and_null(pop3_client->apop_challenge);
 }
