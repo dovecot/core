@@ -76,7 +76,7 @@ void pop3_client_auth_result(struct client *client,
 	}
 }
 
-int cmd_auth(struct pop3_client *pop3_client, bool *parsed_r)
+int cmd_auth(struct pop3_client *pop3_client)
 {
 	/* NOTE: This command's input is handled specially because the
 	   SASL-IR can be large. */
@@ -84,8 +84,6 @@ int cmd_auth(struct pop3_client *pop3_client, bool *parsed_r)
 	const unsigned char *data;
 	size_t i, size;
 	int ret;
-
-	*parsed_r = FALSE;
 
 	/* <auth mechanism name> [<initial SASL response>] */
 	if (!pop3_client->auth_mech_name_parsed) {
@@ -109,7 +107,6 @@ int cmd_auth(struct pop3_client *pop3_client, bool *parsed_r)
 				client_send_raw(client, "\r\n");
 			}
 			client_send_raw(client, ".\r\n");
-			*parsed_r = TRUE;
 			(void)i_stream_read_next_line(client->input);
 			return 1;
 		}
@@ -121,7 +118,6 @@ int cmd_auth(struct pop3_client *pop3_client, bool *parsed_r)
 		i_stream_skip(client->input, i);
 	}
 
-	client->authenticating = TRUE;
 	/* get SASL-IR, if any */
 	if ((ret = client_auth_read_line(client)) <= 0)
 		return ret;
@@ -130,7 +126,6 @@ int cmd_auth(struct pop3_client *pop3_client, bool *parsed_r)
 	if (client->auth_response->used > 0)
 		ir = t_strdup(str_c(client->auth_response));
 
-	*parsed_r = TRUE;
 	pop3_client->auth_mech_name_parsed = FALSE;
 	return client_auth_begin(client, t_strdup(client->auth_mech_name), ir);
 }
