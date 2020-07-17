@@ -517,6 +517,7 @@ const struct fs fs_class_randomfail = {
 	.v = {
 		fs_randomfail_alloc,
 		fs_randomfail_init,
+		NULL,
 		fs_randomfail_free,
 		fs_randomfail_get_properties,
 		fs_randomfail_file_alloc,

@@ -173,6 +173,7 @@ const struct fs fs_class_sis_queue = {
 	.v = {
 		fs_sis_queue_alloc,
 		fs_sis_queue_init,
+		NULL,
 		fs_sis_queue_free,
 		fs_wrapper_get_properties,
 		fs_sis_queue_file_alloc,

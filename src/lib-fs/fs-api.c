@@ -227,6 +227,9 @@ void fs_unref(struct fs **_fs)
 	}
 	i_assert(fs->files == NULL);
 
+	if (fs->v.deinit != NULL)
+		fs->v.deinit(fs);
+
 	event_unref(&fs->event);
 	i_free(fs->username);
 	i_free(fs->session_id);

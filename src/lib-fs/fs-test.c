@@ -408,6 +408,7 @@ const struct fs fs_class_test = {
 	.v = {
 		fs_test_alloc,
 		fs_test_init,
+		NULL,
 		fs_test_free,
 		fs_test_get_properties,
 		fs_test_file_alloc,

@@ -332,6 +332,7 @@ const struct fs fs_class_sis = {
 	.v = {
 		fs_sis_alloc,
 		fs_sis_init,
+		NULL,
 		fs_sis_free,
 		fs_wrapper_get_properties,
 		fs_sis_file_alloc,

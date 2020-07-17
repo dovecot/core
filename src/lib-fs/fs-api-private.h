@@ -29,6 +29,7 @@ struct fs_vfuncs {
 	struct fs *(*alloc)(void);
 	int (*init)(struct fs *fs, const char *args,
 		    const struct fs_settings *set, const char **error_r);
+	void (*deinit)(struct fs *fs);
 	void (*free)(struct fs *fs);
 
 	enum fs_properties (*get_properties)(struct fs *fs);

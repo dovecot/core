@@ -990,6 +990,7 @@ const struct fs fs_class_posix = {
 	.v = {
 		fs_posix_alloc,
 		fs_posix_init,
+		NULL,
 		fs_posix_free,
 		fs_posix_get_properties,
 		fs_posix_file_alloc,

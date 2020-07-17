@@ -278,6 +278,7 @@ const struct fs fs_class_compress = {
 	.v = {
 		fs_compress_alloc,
 		fs_compress_init,
+		NULL,
 		fs_compress_free,
 		fs_wrapper_get_properties,
 		fs_compress_file_alloc,

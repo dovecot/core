@@ -493,6 +493,7 @@ const struct fs fs_class_metawrap = {
 	.v = {
 		fs_metawrap_alloc,
 		fs_metawrap_init,
+		NULL,
 		fs_metawrap_free,
 		fs_metawrap_get_properties,
 		fs_metawrap_file_alloc,

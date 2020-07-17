@@ -326,6 +326,7 @@ const struct fs fs_class_dict = {
 	.v = {
 		fs_dict_alloc,
 		fs_dict_init,
+		NULL,
 		fs_dict_free,
 		fs_dict_get_properties,
 		fs_dict_file_alloc,
