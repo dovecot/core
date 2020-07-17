@@ -69,7 +69,7 @@ fs_metawrap_init(struct fs *_fs, const char *args,
 	return 0;
 }
 
-static void fs_metawrap_deinit(struct fs *_fs)
+static void fs_metawrap_free(struct fs *_fs)
 {
 	struct metawrap_fs *fs = (struct metawrap_fs *)_fs;
 
@@ -493,7 +493,7 @@ const struct fs fs_class_metawrap = {
 	.v = {
 		fs_metawrap_alloc,
 		fs_metawrap_init,
-		fs_metawrap_deinit,
+		fs_metawrap_free,
 		fs_metawrap_get_properties,
 		fs_metawrap_file_alloc,
 		fs_metawrap_file_init,

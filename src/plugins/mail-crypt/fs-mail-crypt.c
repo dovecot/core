@@ -37,7 +37,7 @@ const struct fs fs_class_mail_crypt = {
 	.v = {
 		fs_crypt_alloc,
 		fs_crypt_init,
-		fs_crypt_deinit,
+		fs_crypt_free,
 		fs_wrapper_get_properties,
 		fs_crypt_file_alloc,
 		fs_crypt_file_init,

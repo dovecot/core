@@ -24,7 +24,7 @@ fs_test_init(struct fs *_fs ATTR_UNUSED, const char *args ATTR_UNUSED,
 	return 0;
 }
 
-static void fs_test_deinit(struct fs *_fs)
+static void fs_test_free(struct fs *_fs)
 {
 	struct test_fs *fs = (struct test_fs *)_fs;
 
@@ -408,7 +408,7 @@ const struct fs fs_class_test = {
 	.v = {
 		fs_test_alloc,
 		fs_test_init,
-		fs_test_deinit,
+		fs_test_free,
 		fs_test_get_properties,
 		fs_test_file_alloc,
 		fs_test_file_init,

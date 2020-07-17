@@ -194,7 +194,7 @@ fs_randomfail_init(struct fs *_fs, const char *args,
 	return 0;
 }
 
-static void fs_randomfail_deinit(struct fs *_fs)
+static void fs_randomfail_free(struct fs *_fs)
 {
 	struct randomfail_fs *fs = (struct randomfail_fs *)_fs;
 
@@ -517,7 +517,7 @@ const struct fs fs_class_randomfail = {
 	.v = {
 		fs_randomfail_alloc,
 		fs_randomfail_init,
-		fs_randomfail_deinit,
+		fs_randomfail_free,
 		fs_randomfail_get_properties,
 		fs_randomfail_file_alloc,
 		fs_randomfail_file_init,

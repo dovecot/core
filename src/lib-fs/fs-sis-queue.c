@@ -55,7 +55,7 @@ fs_sis_queue_init(struct fs *_fs, const char *args,
 	return 0;
 }
 
-static void fs_sis_queue_deinit(struct fs *_fs)
+static void fs_sis_queue_free(struct fs *_fs)
 {
 	struct sis_queue_fs *fs = (struct sis_queue_fs *)_fs;
 
@@ -173,7 +173,7 @@ const struct fs fs_class_sis_queue = {
 	.v = {
 		fs_sis_queue_alloc,
 		fs_sis_queue_init,
-		fs_sis_queue_deinit,
+		fs_sis_queue_free,
 		fs_wrapper_get_properties,
 		fs_sis_queue_file_alloc,
 		fs_sis_queue_file_init,

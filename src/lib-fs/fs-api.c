@@ -236,7 +236,7 @@ void fs_unref(struct fs **_fs)
 			stats_dist_deinit(&fs->stats.timings[i]);
 	}
 	T_BEGIN {
-		fs->v.deinit(fs);
+		fs->v.free(fs);
 	} T_END;
 	array_free_i(&module_contexts_arr);
 }

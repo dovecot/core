@@ -83,7 +83,7 @@ fs_dict_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 	return 0;
 }
 
-static void fs_dict_deinit(struct fs *_fs)
+static void fs_dict_free(struct fs *_fs)
 {
 	struct dict_fs *fs = (struct dict_fs *)_fs;
 
@@ -326,7 +326,7 @@ const struct fs fs_class_dict = {
 	.v = {
 		fs_dict_alloc,
 		fs_dict_init,
-		fs_dict_deinit,
+		fs_dict_free,
 		fs_dict_get_properties,
 		fs_dict_file_alloc,
 		fs_dict_file_init,

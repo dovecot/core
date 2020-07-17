@@ -116,7 +116,7 @@ fs_crypt_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 	return 0;
 }
 
-static void fs_crypt_deinit(struct fs *_fs)
+static void fs_crypt_free(struct fs *_fs)
 {
 	struct crypt_fs *fs = (struct crypt_fs *)_fs;
 

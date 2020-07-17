@@ -130,7 +130,7 @@ fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 	return 0;
 }
 
-static void fs_posix_deinit(struct fs *_fs)
+static void fs_posix_free(struct fs *_fs)
 {
 	struct posix_fs *fs = container_of(_fs, struct posix_fs, fs);
 
@@ -990,7 +990,7 @@ const struct fs fs_class_posix = {
 	.v = {
 		fs_posix_alloc,
 		fs_posix_init,
-		fs_posix_deinit,
+		fs_posix_free,
 		fs_posix_get_properties,
 		fs_posix_file_alloc,
 		fs_posix_file_init,

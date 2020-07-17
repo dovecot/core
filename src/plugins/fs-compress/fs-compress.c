@@ -96,7 +96,7 @@ fs_compress_init(struct fs *_fs, const char *args,
 	return fs_init(parent_name, parent_args, set, &_fs->parent, error_r);
 }
 
-static void fs_compress_deinit(struct fs *_fs)
+static void fs_compress_free(struct fs *_fs)
 {
 	struct compress_fs *fs = (struct compress_fs *)_fs;
 
@@ -278,7 +278,7 @@ const struct fs fs_class_compress = {
 	.v = {
 		fs_compress_alloc,
 		fs_compress_init,
-		fs_compress_deinit,
+		fs_compress_free,
 		fs_wrapper_get_properties,
 		fs_compress_file_alloc,
 		fs_compress_file_init,

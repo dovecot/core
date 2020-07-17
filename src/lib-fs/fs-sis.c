@@ -67,7 +67,7 @@ fs_sis_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 	return 0;
 }
 
-static void fs_sis_deinit(struct fs *_fs)
+static void fs_sis_free(struct fs *_fs)
 {
 	struct sis_fs *fs = (struct sis_fs *)_fs;
 
@@ -332,7 +332,7 @@ const struct fs fs_class_sis = {
 	.v = {
 		fs_sis_alloc,
 		fs_sis_init,
-		fs_sis_deinit,
+		fs_sis_free,
 		fs_wrapper_get_properties,
 		fs_sis_file_alloc,
 		fs_sis_file_init,
