@@ -28,6 +28,9 @@ struct compress_fs_file {
 	struct ostream *temp_output;
 };
 
+#define COMPRESS_FS(ptr)	container_of((ptr), struct compress_fs, fs)
+#define COMPRESS_FILE(ptr)	container_of((ptr), struct compress_fs_file, file)
+
 extern const struct fs fs_class_compress;
 
 static struct fs *fs_compress_alloc(void)
@@ -43,7 +46,7 @@ static int
 fs_compress_init(struct fs *_fs, const char *args,
 		 const struct fs_settings *set, const char **error_r)
 {
-	struct compress_fs *fs = (struct compress_fs *)_fs;
+	struct compress_fs *fs = COMPRESS_FS(_fs);
 	const char *p, *compression_name, *level_str;
 	const char *parent_name, *parent_args;
 	int ret;
@@ -98,7 +101,7 @@ fs_compress_init(struct fs *_fs, const char *args,
 
 static void fs_compress_free(struct fs *_fs)
 {
-	struct compress_fs *fs = (struct compress_fs *)_fs;
+	struct compress_fs *fs = COMPRESS_FS(_fs);
 
 	fs_deinit(&_fs->parent);
 	i_free(fs);
@@ -114,8 +117,8 @@ static void
 fs_compress_file_init(struct fs_file *_file, const char *path,
 		      enum fs_open_mode mode, enum fs_open_flags flags)
 {
-	struct compress_fs *fs = (struct compress_fs *)_file->fs;
-	struct compress_fs_file *file = (struct compress_fs_file *)_file;
+	struct compress_fs *fs = COMPRESS_FS(_file->fs);
+	struct compress_fs_file *file = COMPRESS_FILE(_file);
 
 	file->file.path = i_strdup(path);
 	file->fs = fs;
@@ -139,7 +142,7 @@ fs_compress_file_init(struct fs_file *_file, const char *path,
 
 static void fs_compress_file_deinit(struct fs_file *_file)
 {
-	struct compress_fs_file *file = (struct compress_fs_file *)_file;
+	struct compress_fs_file *file = COMPRESS_FILE(_file);
 
 	if (file->super_read != _file->parent)
 		fs_file_deinit(&file->super_read);
@@ -150,7 +153,7 @@ static void fs_compress_file_deinit(struct fs_file *_file)
 
 static void fs_compress_file_close(struct fs_file *_file)
 {
-	struct compress_fs_file *file = (struct compress_fs_file *)_file;
+	struct compress_fs_file *file = COMPRESS_FILE(_file);
 
 	i_stream_unref(&file->input);
 	fs_file_close(file->super_read);
@@ -195,7 +198,7 @@ fs_compress_try_create_stream(struct compress_fs_file *file,
 static struct istream *
 fs_compress_read_stream(struct fs_file *_file, size_t max_buffer_size)
 {
-	struct compress_fs_file *file = (struct compress_fs_file *)_file;
+	struct compress_fs_file *file = COMPRESS_FILE(_file);
 	struct istream *input;
 
 	if (file->input != NULL) {
@@ -214,7 +217,7 @@ fs_compress_read_stream(struct fs_file *_file, size_t max_buffer_size)
 
 static void fs_compress_write_stream(struct fs_file *_file)
 {
-	struct compress_fs_file *file = (struct compress_fs_file *)_file;
+	struct compress_fs_file *file = COMPRESS_FILE(_file);
 
 	if (file->fs->compress_level == 0) {
 		fs_wrapper_write_stream(_file);
@@ -233,7 +236,7 @@ static void fs_compress_write_stream(struct fs_file *_file)
 
 static int fs_compress_write_stream_finish(struct fs_file *_file, bool success)
 {
-	struct compress_fs_file *file = (struct compress_fs_file *)_file;
+	struct compress_fs_file *file = COMPRESS_FILE(_file);
 	struct istream *input;
 	int ret;
 
