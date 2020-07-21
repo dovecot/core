@@ -37,6 +37,9 @@ struct crypt_fs_file {
 	struct ostream *temp_output;
 };
 
+#define CRYPT_FS(ptr)	container_of((ptr), struct crypt_fs, fs)
+#define CRYPT_FILE(ptr)	container_of((ptr), struct crypt_fs_file, file)
+
 /* defined outside this file */
 extern const struct fs FS_CLASS_CRYPT;
 
@@ -57,7 +60,7 @@ static int
 fs_crypt_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 	      const char **error_r)
 {
-	struct crypt_fs *fs = (struct crypt_fs *)_fs;
+	struct crypt_fs *fs = CRYPT_FS(_fs);
 	const char *enc_algo, *set_prefix;
 	const char *p, *arg, *value, *error, *parent_name, *parent_args;
 	const char *public_key_path = "", *private_key_path = "", *password = "";
@@ -118,7 +121,7 @@ fs_crypt_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 
 static void fs_crypt_free(struct fs *_fs)
 {
-	struct crypt_fs *fs = (struct crypt_fs *)_fs;
+	struct crypt_fs *fs = CRYPT_FS(_fs);
 
 	mail_crypt_global_keys_free(&fs->keys);
 	fs_deinit(&_fs->parent);
@@ -140,8 +143,8 @@ static void
 fs_crypt_file_init(struct fs_file *_file, const char *path,
 		   enum fs_open_mode mode, enum fs_open_flags flags)
 {
-	struct crypt_fs *fs = (struct crypt_fs *)_file->fs;
-	struct crypt_fs_file *file = (struct crypt_fs_file *)_file;
+	struct crypt_fs *fs = CRYPT_FS(_file->fs);
+	struct crypt_fs_file *file = CRYPT_FILE(_file);
 
 	file->file.path = i_strdup(path);
 	file->fs = fs;
@@ -165,7 +168,7 @@ fs_crypt_file_init(struct fs_file *_file, const char *path,
 
 static void fs_crypt_file_deinit(struct fs_file *_file)
 {
-	struct crypt_fs_file *file = (struct crypt_fs_file *)_file;
+	struct crypt_fs_file *file = CRYPT_FILE(_file);
 
 	if (file->super_read != _file->parent)
 		fs_file_deinit(&file->super_read);
@@ -176,7 +179,7 @@ static void fs_crypt_file_deinit(struct fs_file *_file)
 
 static void fs_crypt_file_close(struct fs_file *_file)
 {
-	struct crypt_fs_file *file = (struct crypt_fs_file *)_file;
+	struct crypt_fs_file *file = CRYPT_FILE(_file);
 
 	i_stream_unref(&file->input);
 	fs_file_close(file->super_read);
@@ -261,7 +264,7 @@ fs_crypt_istream_get_key(const char *pubkey_digest,
 static struct istream *
 fs_crypt_read_stream(struct fs_file *_file, size_t max_buffer_size)
 {
-	struct crypt_fs_file *file = (struct crypt_fs_file *)_file;
+	struct crypt_fs_file *file = CRYPT_FILE(_file);
 	struct istream *input;
 
 	if (file->input != NULL) {
@@ -281,7 +284,7 @@ fs_crypt_read_stream(struct fs_file *_file, size_t max_buffer_size)
 
 static void fs_crypt_write_stream(struct fs_file *_file)
 {
-	struct crypt_fs_file *file = (struct crypt_fs_file *)_file;
+	struct crypt_fs_file *file = CRYPT_FILE(_file);
 	const char *error;
 
 	i_assert(_file->output == NULL);
@@ -321,7 +324,7 @@ static void fs_crypt_write_stream(struct fs_file *_file)
 
 static int fs_crypt_write_stream_finish(struct fs_file *_file, bool success)
 {
-	struct crypt_fs_file *file = (struct crypt_fs_file *)_file;
+	struct crypt_fs_file *file = CRYPT_FILE(_file);
 	struct istream *input;
 	int ret;
 
