@@ -230,6 +230,7 @@ void fs_unref(struct fs **_fs)
 	if (fs->v.deinit != NULL)
 		fs->v.deinit(fs);
 
+	fs_deinit(&fs->parent);
 	event_unref(&fs->event);
 	i_free(fs->username);
 	i_free(fs->session_id);
