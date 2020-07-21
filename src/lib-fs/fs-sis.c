@@ -74,7 +74,6 @@ static void fs_sis_free(struct fs *_fs)
 {
 	struct sis_fs *fs = SIS_FS(_fs);
 
-	fs_deinit(&_fs->parent);
 	i_free(fs);
 }
 

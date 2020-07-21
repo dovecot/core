@@ -202,7 +202,6 @@ static void fs_randomfail_free(struct fs *_fs)
 {
 	struct randomfail_fs *fs = RANDOMFAIL_FS(_fs);
 
-	fs_deinit(&_fs->parent);
 	i_free(fs);
 }
 

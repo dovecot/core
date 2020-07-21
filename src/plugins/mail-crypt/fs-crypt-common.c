@@ -124,7 +124,6 @@ static void fs_crypt_free(struct fs *_fs)
 	struct crypt_fs *fs = CRYPT_FS(_fs);
 
 	mail_crypt_global_keys_free(&fs->keys);
-	fs_deinit(&_fs->parent);
 	i_free(fs->enc_algo);
 	i_free(fs->set_prefix);
 	i_free(fs->public_key_path);

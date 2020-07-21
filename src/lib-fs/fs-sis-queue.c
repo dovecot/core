@@ -62,7 +62,6 @@ static void fs_sis_queue_free(struct fs *_fs)
 {
 	struct sis_queue_fs *fs = SISQUEUE_FS(_fs);
 
-	fs_deinit(&_fs->parent);
 	i_free(fs->queue_dir);
 	i_free(fs);
 }

@@ -103,7 +103,6 @@ static void fs_compress_free(struct fs *_fs)
 {
 	struct compress_fs *fs = COMPRESS_FS(_fs);
 
-	fs_deinit(&_fs->parent);
 	i_free(fs);
 }
 
