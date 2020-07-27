@@ -4,14 +4,17 @@
 #include "imap-resp-code.h"
 #include "mail-namespace.h"
 #include "imap-commands.h"
+#include "str.h"
 
 bool cmd_create(struct client_command_context *cmd)
 {
 	struct mail_namespace *ns;
 	const char *mailbox, *orig_mailbox;
 	struct mailbox *box;
+	struct mailbox_metadata metadata;
 	bool directory;
 	size_t len;
+	string_t *msg;
 
 	/* <mailbox> */
 	if (!client_read_string_args(cmd, 1, &mailbox))
@@ -42,8 +45,13 @@ bool cmd_create(struct client_command_context *cmd)
 	mailbox_set_reason(box, "CREATE");
 	if (mailbox_create(box, NULL, directory) < 0)
 		client_send_box_error(cmd, box);
-	else
-		client_send_tagline(cmd, "OK Create completed.");
+	else {
+		msg = t_str_new(128);
+		mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata);
+		str_printfa(msg, "OK [MAILBOXID (%s)] Create completed.",
+						 guid_128_to_string(metadata.guid));
+		client_send_tagline(cmd, str_c(msg));
+	}
 	mailbox_free(&box);
 	return TRUE;
 }

@@ -496,6 +496,9 @@ imap_search_inthread(struct mail_search_build_context *ctx)
 }
 
 CALLBACK_STR(x_guid, SEARCH_GUID)
+CALLBACK_STR(emailid, SEARCH_GUID)
+CALLBACK_STR(threadid, SEARCH_GUID)
+CALLBACK_STR(mailboxid, SEARCH_MAILBOX_GUID)
 
 static struct mail_search_arg *
 imap_search_x_mailbox(struct mail_search_build_context *ctx)
@@ -610,6 +613,11 @@ static const struct mail_search_register_arg imap_register_args[] = {
 
 	/* SEARCH=MIMEPART extension: */
 	{ "MIMEPART", imap_search_mimepart },
+
+	/* OBJECTID extension: */
+	{ "EMAILID", imap_search_emailid },
+	{ "THREADID", imap_search_threadid },
+	{ "MAILBOXID", imap_search_mailboxid },
 
 	/* Other Dovecot extensions: */
 	{ "INTHREAD", imap_search_inthread },

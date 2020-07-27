@@ -9,9 +9,10 @@ enum imap_status_item_flags {
 	IMAP_STATUS_ITEM_UNSEEN = BIT(4),
 	IMAP_STATUS_ITEM_HIGHESTMODSEQ = BIT(5),
 	IMAP_STATUS_ITEM_SIZE = BIT(6),
+	IMAP_STATUS_ITEM_MAILBOXID = BIT(7),
 
 	IMAP_STATUS_ITEM_X_SIZE = BIT(16), /* to be deprecated */
-	IMAP_STATUS_ITEM_X_GUID = BIT(17),
+	IMAP_STATUS_ITEM_X_GUID = BIT(17), /* to be deprecated */
 };
 
 struct imap_status_items {
