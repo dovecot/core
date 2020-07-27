@@ -272,14 +272,15 @@ void auth_client_request_server_input(struct auth_client_request *request,
 		break;
 	}
 
+	for (tmp = args; *tmp != NULL; tmp++) {
+		if (str_begins(*tmp, "resp=")) {
+			base64_data = *tmp + 5;
+			break;
+		}
+	}
+
 	switch (status) {
 	case AUTH_REQUEST_STATUS_OK:
-		for (tmp = args; *tmp != NULL; tmp++) {
-			if (str_begins(*tmp, "resp=")) {
-				base64_data = *tmp + 5;
-				break;
-			}
-		}
 		e_debug(e->event(), "Finished");
 		break;
 	case AUTH_REQUEST_STATUS_CONTINUE:
