@@ -224,9 +224,13 @@ static bool compare_test_stats_data_line(const char *reference, const char *actu
 {
 	const char *const *ref_args = t_strsplit(reference, "\t");
 	const char *const *act_args = t_strsplit(actual, "\t");
-	unsigned int max = I_MIN(str_array_length(ref_args), str_array_length(act_args));
+	unsigned int max = str_array_length(ref_args);
 
-	for(size_t i=0; i < max && *ref_args != NULL; i++) {
+	/* different lengths imply not equal */
+	if (str_array_length(ref_args) != str_array_length(act_args))
+		return FALSE;
+
+	for (size_t i = 0; i < max; i++) {
 		if (i > 1 && i < 6) continue;
 		if (*(ref_args[i]) == 'l') {
 			i++;
