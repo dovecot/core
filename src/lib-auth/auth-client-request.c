@@ -111,6 +111,11 @@ static void auth_server_send_new_request(struct auth_client_connection *conn,
 	}
 	str_append_c(str, '\n');
 
+	struct event_passthrough *e =
+		event_create_passthrough(request->event)->
+		set_name("auth_client_request_started");
+	e_debug(e->event(), "Started request");
+
 	if (o_stream_send(conn->conn.output, str_data(str), str_len(str)) < 0) {
 		e_error(request->event,
 			"Error sending request to auth server: %m");
@@ -142,11 +147,6 @@ auth_client_request_new(struct auth_client *client,
 	event_set_append_log_prefix(request->event,
 				    t_strdup_printf("request [%u]: ",
 						    request->id));
-
-	struct event_passthrough *e =
-		event_create_passthrough(request->event)->
-		set_name("auth_client_request_started");
-	e_debug(e->event(), "Started request");
 
 	T_BEGIN {
 		auth_server_send_new_request(request->conn, request, request_info);
