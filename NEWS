@@ -1,3 +1,13 @@
+v2.3.11.2 2020-07-13	Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	- auth: Lua passdb/userdb leaks stack elements per call, eventually
+	  causing the stack to become too deep and crashing the auth or
+	  auth-worker process.
+	- lib-mail: v2.3.11 regression: MIME parts not returned correctly by
+	  Dovecot MIME parser.
+	- pop3-login: Login would fail with "Input buffer full" if the initial
+	  response for SASL was too long.
+
 v2.3.11 2020-06-17  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* CVE-2020-12100: Parsing mails with a large number of MIME parts could
