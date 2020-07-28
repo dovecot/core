@@ -939,24 +939,18 @@ static bool fetch_emailid_init(struct imap_fetch_init_context *ctx)
 static int fetch_threadid(struct imap_fetch_context *ctx, struct mail *mail,
 		      void *context ATTR_UNUSED)
 {
-	const char *value;
-
-	if (mail_get_special(mail, MAIL_FETCH_GUID, &value) < 0)
-		return -1;
-
-	str_printfa(ctx->state.cur_str, "THREADID (%s) ", value);
+	str_append(ctx->state.cur_str, "THREADID NIL ");
 	return 1;
 }
 
 static bool fetch_threadid_init(struct imap_fetch_init_context *ctx)
 {
-	ctx->fetch_ctx->fetch_data |= MAIL_FETCH_GUID;
 	imap_fetch_add_handler(ctx, IMAP_FETCH_HANDLER_FLAG_BUFFERED,
 			       "", fetch_threadid, NULL);
 	return TRUE;
 }
 
-static int fetch_mailboxid(struct imap_fetch_context *ctx, struct mail *mail,
+static int fetch_x_mailbox_guid(struct imap_fetch_context *ctx, struct mail *mail,
 			   void *context ATTR_UNUSED)
 {
 	struct mailbox_metadata metadata;
@@ -964,15 +958,15 @@ static int fetch_mailboxid(struct imap_fetch_context *ctx, struct mail *mail,
 	if (mailbox_get_metadata(mail->box, MAILBOX_METADATA_GUID, &metadata) < 0)
 		return -1;
 
-	str_printfa(ctx->state.cur_str, "MAILBOXID (%s) ",
+	str_printfa(ctx->state.cur_str, "X-MAILBOX-GUID %s ",
 			guid_128_to_string(metadata.guid));
 	return 1;
 }
 
-static bool fetch_mailboxid_init(struct imap_fetch_init_context *ctx)
+static bool fetch_x_mailbox_guid_init(struct imap_fetch_init_context *ctx)
 {
 	imap_fetch_add_handler(ctx, IMAP_FETCH_HANDLER_FLAG_BUFFERED,
-			       NULL, fetch_mailboxid, NULL);
+			       NULL, fetch_x_mailbox_guid, NULL);
 	return TRUE;
 }
 
@@ -1076,7 +1070,6 @@ imap_fetch_default_handlers[] = {
 	{ "ENVELOPE", fetch_envelope_init },
 	{ "FLAGS", imap_fetch_flags_init },
 	{ "INTERNALDATE", fetch_internaldate_init },
-	{ "MAILBOXID", fetch_mailboxid_init },
 	{ "MODSEQ", imap_fetch_modseq_init },
 	{ "PREVIEW", imap_fetch_preview_init },
 	{ "RFC822", imap_fetch_rfc822_init },
@@ -1086,6 +1079,7 @@ imap_fetch_default_handlers[] = {
 	{ "SAVEDATE", imap_fetch_savedate_init },
 	{ "X-GUID", fetch_guid_init },
 	{ "X-MAILBOX", fetch_x_mailbox_init },
+	{ "X-MAILBOX-GUID", fetch_x_mailbox_guid_init },
 	{ "X-REAL-UID", fetch_x_real_uid_init },
 	{ "X-SAVEDATE", fetch_x_savedate_init }
 };

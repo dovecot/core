@@ -64,7 +64,6 @@ static const struct {
 	  "INTHREAD REFS ((OR TEXT foo OR KEYWORD bar SEEN))" },
 	{ "EMAILID foo", NULL },
 	{ "THREADID foo", NULL },
-	{ "MAILBOXID foo", NULL },
 	{ "X-GUID foo", NULL },
 	{ "X-MAILBOX foo", NULL },
 	{ "X-REAL-UID 1,5:6,10:15", NULL },

@@ -617,7 +617,6 @@ static const struct mail_search_register_arg imap_register_args[] = {
 	/* OBJECTID extension: */
 	{ "EMAILID", imap_search_emailid },
 	{ "THREADID", imap_search_threadid },
-	{ "MAILBOXID", imap_search_mailboxid },
 
 	/* Other Dovecot extensions: */
 	{ "INTHREAD", imap_search_inthread },

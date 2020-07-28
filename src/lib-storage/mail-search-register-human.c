@@ -175,7 +175,6 @@ static const struct mail_search_register_arg human_register_args[] = {
 	/* OBJECTID extension: */
 	{ "EMAILID", human_search_guid },
 	{ "THREADID", human_search_guid },
-	{ "MAILBOXID", human_search_mailbox_guid },
 
 	/* Other Dovecot extensions: */
 	{ "GUID", human_search_guid },
