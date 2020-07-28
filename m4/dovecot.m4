@@ -6,7 +6,7 @@ dnl This file is free software; the authors give
 dnl unlimited permission to copy and/or distribute it, with or without
 dnl modifications, as long as this notice is preserved.
 
-# serial 31
+# serial 32
 
 dnl
 dnl Check for support for D_FORTIFY_SOURCE=2
@@ -68,14 +68,6 @@ AC_DEFUN([DC_DOVECOT_CFLAGS],[
           CFLAGS="$old_cflags"
         ])
 
-  ])
-  AS_IF([test "$have_clang" = "yes"], [
-    dnl clang specific options
-    AS_IF([test "$want_devel_checks" = "yes"], [
-      dnl FIXME: enable once md[45], sha[12] can be compiled without
-      dnl CFLAGS="$CFLAGS -fsanitize=integer,undefined -ftrapv"
-      :
-    ])
   ])
 ])
 
@@ -340,6 +332,7 @@ AC_DEFUN([DC_DOVECOT_HARDENING],[
 	AC_CC_D_FORTIFY_SOURCE
 	AC_CC_RETPOLINE
 	AC_LD_RELRO
+	DOVECOT_WANT_UBSAN
 ])
 
 AC_DEFUN([DC_DOVECOT],[
@@ -548,4 +541,46 @@ AC_DEFUN([CC_CLANG],[
       AS_VAR_SET([have_clang], [no])
   ])
   AC_MSG_RESULT([$have_clang])
+])
+
+AC_DEFUN([DOVECOT_WANT_UBSAN], [
+  AC_ARG_ENABLE(ubsan,
+    AS_HELP_STRING([--enable-ubsan], [Enable undefined behaviour sanitizes (default=no)]),
+                   [want_ubsan=yes], [want_ubsan=no])
+  AC_MSG_CHECKING([whether we want undefined behaviour sanitizer])
+  AC_MSG_RESULT([$want_ubsan])
+  AS_IF([test x$want_ubsan = xyes], [
+     san_flags=""
+     gl_COMPILER_OPTION_IF([-fsanitize=undefined], [
+             san_flags="$san_flags -fsanitize=undefined"
+             AC_DEFINE([HAVE_FSANITIZE_UNDEFINED], [1], [Define if your compiler has -fsanitize=undefined])
+     ])
+     gl_COMPILER_OPTION_IF([-fno-sanitize=nonnull-attribute], [
+             san_flags="$san_flags -fno-sanitize=nonnull-attribute"
+             AC_DEFINE([HAVE_FNO_SANITIZE_NONNULL_ATTRIBUTE], [1], [Define if your compiler has -fno-sanitize=nonnull-attribute])
+     ])
+     gl_COMPILER_OPTION_IF([-fsanitize=implicit-integer-truncation], [
+             san_flags="$san_flags -fsanitize=implicit-integer-truncation"
+             AC_DEFINE([HAVE_FSANITIZE_IMPLICIT_INTEGER_TRUNCATION], [1], [Define if your compiler has -fsanitize=implicit-integer-truncation])
+     ])
+     gl_COMPILER_OPTION_IF([-fsanitize=local-bounds], [
+             san_flags="$san_flags -fsanitize=local-bounds"
+             AC_DEFINE([HAVE_FSANITIZE_LOCAL_BOUNDS], [1], [Define if your compiler has -fsanitize=local-bounds])
+     ])
+     gl_COMPILER_OPTION_IF([-fsanitize=integer], [
+             san_flags="$san_flags -fsanitize=integer"
+             AC_DEFINE([HAVE_FSANITIZE_INTEGER], [1], [Define if your compiler has -fsanitize=integer])
+     ])
+     gl_COMPILER_OPTION_IF([-fsanitize=nullability], [
+             san_flags="$san_flags -fsanitize=nullability"
+             AC_DEFINE([HAVE_FSANITIZE_NULLABILITY], [1], [Define if your compiler has -fsanitize=nullability])
+     ])
+     AS_IF([test "$san_flags" != "" ], [
+       EXTRA_CFLAGS="$EXTRA_CFLAGS $san_flags -U_FORTIFY_SOURCE -g -ggdb3 -O0 -fno-omit-frame-pointer"
+       AC_DEFINE([HAVE_UNDEFINED_SANITIZER], [1], [Define if your compiler supports undefined sanitizers])
+     ], [
+       AC_MSG_ERROR([No undefined sanitizer support in your compiler])
+     ])
+     san_flags=""
+  ])
 ])

@@ -254,3 +254,29 @@
 	 (st_a).st_ino != (st_b).st_ino)
 
 #endif
+
+#ifdef HAVE_UNDEFINED_SANITIZER
+# define ATTR_NO_SANITIZE(x) __attribute__((no_sanitize((x))))
+#else
+# define ATTR_NO_SANITIZE(x)
+#endif
+
+/* gcc and clang do this differently, see
+   https://gcc.gnu.org/onlinedocs/gcc-10.2.0/gcc/Common-Function-Attributes.html */
+#ifdef HAVE_FSANITIZE_UNDEFINED
+# ifdef __clang__
+#  define ATTR_NO_SANITIZE_UNDEFINED ATTR_NO_SANITIZE("undefined")
+# else
+#  define ATTR_NO_SANITIZE_UNDEFINED __attribute__((no_sanitize_undefined))
+# endif
+#else
+# define ATTR_NO_SANITIZE_UNDEFINED
+#endif
+
+#ifdef HAVE_FSANITIZE_INTEGER
+# define ATTR_NO_SANITIZE_INTEGER ATTR_NO_SANITIZE("integer")
+# define ATTR_NO_SANITIZE_IMPLICIT_CONVERSION ATTR_NO_SANITIZE("implicit-conversion")
+#else
+# define ATTR_NO_SANITIZE_INTEGER
+# define ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
+#endif
