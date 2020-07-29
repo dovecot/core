@@ -1,3 +1,12 @@
+v2.3.11.3 2020-07-29	Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	- pop3-login: Login didn't handle commands in multiple IP packets properly.
+	  This mainly affected large XCLIENT commands or a large SASL initial
+	  response parameter in the AUTH command.
+	- pop3: pop3_deleted_flag setting was broken, causing:
+	  Panic: file seq-range-array.c: line 472 (seq_range_array_invert):
+	  assertion failed: (range[count-1].seq2 <= max_seq)
+
 v2.3.11.2 2020-07-13	Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	- auth: Lua passdb/userdb leaks stack elements per call, eventually
