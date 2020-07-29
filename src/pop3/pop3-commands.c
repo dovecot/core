@@ -283,7 +283,7 @@ bool client_update_mails(struct client *client)
 		if (mailbox_search_deinit(&ctx) < 0)
 			ret = FALSE;
 		/* don't bother setting \Seen flags for deleted messages */
-		seq_range_array_invert(&deleted_msgs, 1, client->messages_count);
+		seq_range_array_invert(&deleted_msgs, 1, client->highest_seq);
 		seq_range_array_intersect(&seen_msgs, &deleted_msgs);
 	}
 
