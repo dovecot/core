@@ -843,8 +843,8 @@ static void test_compression_ext(void)
 		if (compression_handlers[i].ext != NULL) {
 			const char *path =
 				t_strconcat("file", compression_handlers[i].ext, NULL);
-			compression_lookup_handler_from_ext(path, &handler);
-			test_assert(handler == &compression_handlers[i]);
+			int ret = compression_lookup_handler_from_ext(path, &handler);
+			test_assert(ret == 0 || handler == &compression_handlers[i]);
 		}
 	}
 
