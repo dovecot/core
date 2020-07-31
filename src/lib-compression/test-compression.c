@@ -834,6 +834,23 @@ static void test_compress_file(const char *in_path, const char *out_path)
 	i_close_fd(&fd_out);
 }
 
+static void test_compression_ext(void)
+{
+	const struct compression_handler *handler;
+	test_begin("compression handler by extension");
+
+	for (unsigned int i = 0; compression_handlers[i].name != NULL; i++) {
+		if (compression_handlers[i].ext != NULL) {
+			const char *path =
+				t_strconcat("file", compression_handlers[i].ext, NULL);
+			compression_lookup_handler_from_ext(path, &handler);
+			test_assert(handler == &compression_handlers[i]);
+		}
+	}
+
+	test_end();
+}
+
 int main(int argc, char *argv[])
 {
 	static void (*const test_functions[])(void) = {
@@ -842,6 +859,7 @@ int main(int argc, char *argv[])
 		test_gz_no_concat,
 		test_gz_header,
 		test_gz_large_header,
+		test_compression_ext,
 		NULL
 	};
 	if (argc == 2) {
