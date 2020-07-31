@@ -11,6 +11,16 @@
 #include "zstd.h"
 #include "zstd_errors.h"
 
+#ifndef HAVE_ZSTD_GETERRORCODE
+ZSTD_ErrorCode ZSTD_getErrorCode(size_t functionResult)
+{
+	ssize_t errcode = (ssize_t)functionResult;
+	if (errcode < 0)
+		return -errcode;
+	return ZSTD_error_no_error;
+}
+#endif
+
 struct zstd_istream {
 	struct istream_private istream;
 
@@ -89,7 +99,10 @@ static void i_stream_zstd_read_error(struct zstd_istream *zstream, size_t err)
 		i_fatal_status(FATAL_OUTOFMEM, "zstd.read(%s): Out of memory",
 			       i_stream_get_name(&zstream->istream.istream));
 	else if (errcode == ZSTD_error_prefix_unknown ||
+#if HAVE_DECL_ZSTD_ERROR_PARAMETER_UNSUPPORTED == 1
 		 errcode == ZSTD_error_parameter_unsupported ||
+#endif
+
 		 errcode == ZSTD_error_dictionary_wrong ||
 		 errcode == ZSTD_error_init_missing)
 		zstream->istream.istream.stream_errno = EINVAL;

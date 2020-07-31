@@ -33,7 +33,9 @@ static void o_stream_zstd_write_error(struct zstd_ostream *zstream, size_t err)
 		i_fatal_status(FATAL_OUTOFMEM, "zstd.write(%s): Out of memory",
 			       o_stream_get_name(&zstream->ostream.ostream));
 	else if (errcode == ZSTD_error_prefix_unknown ||
+#if HAVE_DECL_ZSTD_ERROR_PARAMETER_UNSUPPORTED == 1
 		 errcode == ZSTD_error_parameter_unsupported ||
+#endif
 		 errcode == ZSTD_error_dictionary_wrong ||
 		 errcode == ZSTD_error_init_missing)
 		zstream->ostream.ostream.stream_errno = EINVAL;
