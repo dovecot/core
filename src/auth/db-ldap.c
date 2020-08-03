@@ -1473,8 +1473,8 @@ db_ldap_value_get_var_expand_table(struct auth_request *auth_request,
 	struct var_expand_table *table;
 	unsigned int count = 1;
 
-	table = auth_request_get_var_expand_table_full(auth_request, NULL,
-						       &count);
+	table = auth_request_get_var_expand_table_full(auth_request,
+			auth_request->fields.user, NULL, &count);
 	table[0].key = '$';
 	table[0].value = ldap_value;
 	return table;

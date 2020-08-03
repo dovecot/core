@@ -82,6 +82,7 @@ auth_request_str_escape(const char *string,
 
 struct var_expand_table *
 auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
+				       const char *username,
 				       auth_request_escape_func_t *escape_func,
 				       unsigned int *count)
 {
@@ -89,7 +90,7 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	const unsigned int auth_count =
 		N_ELEMENTS(auth_request_var_expand_static_tab);
 	struct var_expand_table *tab, *ret_tab;
-	const char *orig_user, *auth_user, *username;
+	const char *orig_user, *auth_user;
 
 	if (escape_func == NULL)
 		escape_func = escape_none;
@@ -104,7 +105,8 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	memcpy(tab, auth_request_var_expand_static_tab,
 	       auth_count * sizeof(*tab));
 
-	username = fields->user != NULL ? fields->user : "";
+	if (username == NULL)
+		username = "";
 	tab[0].value = escape_func(username, auth_request);
 	tab[1].value = escape_func(t_strcut(username, '@'),
 				   auth_request);
@@ -209,8 +211,8 @@ auth_request_get_var_expand_table(const struct auth_request *auth_request,
 {
 	unsigned int count = 0;
 
-	return auth_request_get_var_expand_table_full(auth_request, escape_func,
-						      &count);
+	return auth_request_get_var_expand_table_full(auth_request,
+		auth_request->fields.user, escape_func, &count);
 }
 
 static const char *field_get_default(const char *data)

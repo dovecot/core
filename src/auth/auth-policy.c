@@ -468,8 +468,8 @@ const struct var_expand_table *policy_get_var_expand_table(struct auth_request *
 	struct var_expand_table *table;
 	unsigned int count = 2;
 
-	table = auth_request_get_var_expand_table_full(auth_request, auth_policy_escape_function,
-						       &count);
+	table = auth_request_get_var_expand_table_full(auth_request,
+		auth_request->fields.user, auth_policy_escape_function, &count);
 	table[0].key = '\0';
 	table[0].long_key = "hashed_password";
 	table[0].value = hashed_password;
