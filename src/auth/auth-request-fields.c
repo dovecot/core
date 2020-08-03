@@ -3,6 +3,7 @@
 #include "auth-common.h"
 #include "str.h"
 #include "strescape.h"
+#include "str-sanitize.h"
 #include "auth-request.h"
 
 static void
@@ -240,5 +241,149 @@ bool auth_request_import(struct auth_request *request,
 	} else
 		return FALSE;
 
+	return TRUE;
+}
+
+static char *
+auth_request_fix_username(struct auth_request *request, const char *username,
+			  const char **error_r)
+{
+	const struct auth_settings *set = request->set;
+	unsigned char *p;
+	char *user;
+
+	if (*set->default_realm != '\0' &&
+	    strchr(username, '@') == NULL) {
+		user = p_strconcat(request->pool, username, "@",
+				   set->default_realm, NULL);
+	} else {
+		user = p_strdup(request->pool, username);
+	}
+
+	for (p = (unsigned char *)user; *p != '\0'; p++) {
+		if (set->username_translation_map[*p & 0xff] != 0)
+			*p = set->username_translation_map[*p & 0xff];
+		if (set->username_chars_map[*p & 0xff] == 0) {
+			*error_r = t_strdup_printf(
+				"Username character disallowed by auth_username_chars: "
+				"0x%02x (username: %s)", *p,
+				str_sanitize(username, 128));
+			return NULL;
+		}
+	}
+
+	if (*set->username_format != '\0') {
+		/* username format given, put it through variable expansion.
+		   we'll have to temporarily replace request->user to get
+		   %u to be the wanted username */
+		const char *error;
+		string_t *dest;
+
+		dest = t_str_new(256);
+		unsigned int count = 0;
+		const struct var_expand_table *table =
+			auth_request_get_var_expand_table_full(request,
+				user, NULL, &count);
+		if (auth_request_var_expand_with_table(dest,
+				set->username_format, request,
+				table, NULL, &error) <= 0) {
+			*error_r = t_strdup_printf(
+				"Failed to expand username_format=%s: %s",
+				set->username_format, error);
+		}
+		user = p_strdup(request->pool, str_c(dest));
+	}
+
+	if (user[0] == '\0') {
+		/* Some PAM plugins go nuts with empty usernames */
+		*error_r = "Empty username";
+		return NULL;
+	}
+	return user;
+}
+
+bool auth_request_set_username(struct auth_request *request,
+			       const char *username, const char **error_r)
+{
+	const struct auth_settings *set = request->set;
+	const char *p, *login_username = NULL;
+
+	if (*set->master_user_separator != '\0' && !request->userdb_lookup) {
+		/* check if the username contains a master user */
+		p = strchr(username, *set->master_user_separator);
+		if (p != NULL) {
+			/* it does, set it. */
+			login_username = t_strdup_until(username, p);
+
+			/* username is the master user */
+			username = p + 1;
+		}
+	}
+
+	if (request->fields.original_username == NULL) {
+		/* the username may change later, but we need to use this
+		   username when verifying at least DIGEST-MD5 password. */
+		request->fields.original_username =
+			p_strdup(request->pool, username);
+	}
+	if (request->fields.cert_username) {
+		/* cert_username overrides the username given by
+		   authentication mechanism. but still do checks and
+		   translations to it. */
+		username = request->fields.user;
+	}
+
+	request->fields.user = auth_request_fix_username(request, username, error_r);
+	if (request->fields.user == NULL)
+		return FALSE;
+	if (request->fields.translated_username == NULL) {
+		/* similar to original_username, but after translations */
+		request->fields.translated_username = request->fields.user;
+	}
+	request->user_changed_by_lookup = TRUE;
+
+	if (login_username != NULL) {
+		if (!auth_request_set_login_username(request,
+						     login_username,
+						     error_r))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+bool auth_request_set_login_username(struct auth_request *request,
+				     const char *username,
+				     const char **error_r)
+{
+	struct auth_passdb *master_passdb;
+
+	if (username[0] == '\0') {
+		*error_r = "Master user login attempted to use empty login username";
+		return FALSE;
+	}
+
+	if (strcmp(username, request->fields.user) == 0) {
+		/* The usernames are the same, we don't really wish to log
+		   in as someone else */
+		return TRUE;
+	}
+
+	 /* lookup request->user from masterdb first */
+	master_passdb = auth_request_get_auth(request)->masterdbs;
+	if (master_passdb == NULL) {
+		*error_r = "Master user login attempted without master passdbs";
+		return FALSE;
+	}
+	request->passdb = master_passdb;
+
+	request->fields.requested_login_user =
+		auth_request_fix_username(request, username, error_r);
+	if (request->fields.requested_login_user == NULL)
+		return FALSE;
+
+	e_debug(request->event,
+		"%sMaster user lookup for login: %s",
+		auth_request_get_log_prefix_db(request),
+		request->fields.requested_login_user);
 	return TRUE;
 }
