@@ -91,7 +91,7 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 	string_t *str;
 
 	set = module->set;
-	set.debug = auth_request->debug;
+	set.debug = event_want_debug(auth_request->event);
 	set.dns_client_socket_path =
 		t_strconcat(auth_request->set->base_dir, "/",
 			    DNS_CLIENT_SOCKET_NAME, NULL);

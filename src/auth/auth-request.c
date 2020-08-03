@@ -107,7 +107,6 @@ static void auth_request_post_alloc_init(struct auth_request *request, struct ev
 	request->last_access = ioloop_time;
 	request->session_pid = (pid_t)-1;
 	request->set = global_auth_settings;
-	request->debug = request->set->debug;
 	request->extra_fields = auth_fields_init(request->pool);
 	request->event = event_create(parent_event);
 	request->mech_event = event_create(request->event);
@@ -172,9 +171,6 @@ void auth_request_init(struct auth_request *request)
 
 	auth = auth_request_get_auth(request);
 	request->set = auth->set;
-	/* NOTE: request->debug may already be TRUE here */
-	if (request->set->debug)
-		request->debug = TRUE;
 	request->passdb = auth->passdbs;
 	request->userdb = auth->userdbs;
 }
@@ -454,7 +450,7 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 	}
 	if (request->session_id != NULL)
 		str_printfa(dest, "\tsession=%s", request->session_id);
-	if (request->debug)
+	if (event_want_debug(request->event))
 		str_append(dest, "\tdebug");
 	switch(request->secured) {
 	case AUTH_REQUEST_SECURED_NONE: break;
@@ -520,10 +516,9 @@ bool auth_request_import_info(struct auth_request *request,
 		request->local_name = p_strdup(request->pool, value);
 	else if (strcmp(key, "session") == 0)
 		request->session_id = p_strdup(request->pool, value);
-	else if (strcmp(key, "debug") == 0) {
-		request->debug = TRUE;
+	else if (strcmp(key, "debug") == 0)
 		event_set_forced_debug(request->event, TRUE);
-	} else if (strcmp(key, "client_id") == 0)
+	else if (strcmp(key, "client_id") == 0)
 		request->client_id = p_strdup(request->pool, value);
 	else if (strcmp(key, "forward_fields") == 0) {
 		auth_fields_import_prefixed(request->extra_fields,

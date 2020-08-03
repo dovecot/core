@@ -117,8 +117,6 @@ struct auth_request {
 	bool userdb_lookup:1;
 	/* DIGEST-MD5 kludge */
 	bool domain_is_realm:1;
-	/* auth_debug is enabled for this request */
-	bool debug:1;
 
 	enum auth_request_secured secured;
 

@@ -19,7 +19,6 @@ static void test_db_lua_auth_verify(void)
 	struct event *event = event_create(req->event);
 	array_push_back(&req->authdb_event, &event);
 	req->passdb = passdb_mock();
-	req->debug = TRUE;
 	req->user = "testuser";
 
 	static const char *luascript =
@@ -64,7 +63,6 @@ static void test_db_lua_auth_lookup_numberish_value(void)
 	struct event *event = event_create(req->event);
 	array_push_back(&req->authdb_event, &event);
 	req->passdb = passdb_mock();
-	req->debug = TRUE;
 	req->user = "testuser";
 
 	static const char *luascript =
@@ -108,7 +106,6 @@ static void test_db_lua_auth_lookup(void)
 	struct event *event = event_create(req->event);
 	array_push_back(&req->authdb_event, &event);
 	req->passdb = passdb_mock();
-	req->debug = TRUE;
 	req->user = "testuser";
 
 	static const char *luascript =
