@@ -8,22 +8,26 @@
 #include "auth-request.h"
 #include "db-lua.h"
 
+static struct auth_settings test_lua_auth_set = {
+	.master_user_separator = "",
+	.default_realm = "",
+	.username_format = "",
+};
+
 static struct auth_request *test_db_lua_auth_request_new(void)
 {
+	const char *error;
 	struct auth_request *req = auth_request_new_dummy();
+	req->set = global_auth_settings;
 	struct event *event = event_create(req->event);
 	array_push_back(&req->authdb_event, &event);
 	req->passdb = passdb_mock();
-	req->fields.user = "testuser";
+	test_assert(auth_request_set_username(req, "testuser", &error));
 	return req;
 }
 
 static void test_db_lua_auth_verify(void)
 {
-	struct auth_settings set;
-	i_zero(&set);
-	global_auth_settings = &set;
-
 	struct auth_request *req = test_db_lua_auth_request_new();
 
 	static const char *luascript =
@@ -58,9 +62,6 @@ static void test_db_lua_auth_verify(void)
 static void test_db_lua_auth_lookup_numberish_value(void)
 {
 	const char *scheme,*pass;
-	struct auth_settings set;
-	i_zero(&set);
-	global_auth_settings = &set;
 
 	struct auth_request *req = test_db_lua_auth_request_new();
 
@@ -95,9 +96,6 @@ static void test_db_lua_auth_lookup_numberish_value(void)
 static void test_db_lua_auth_lookup(void)
 {
 	const char *scheme,*pass;
-	struct auth_settings set;
-	i_zero(&set);
-	global_auth_settings = &set;
 
 	struct auth_request *req = test_db_lua_auth_request_new();
 
@@ -128,6 +126,9 @@ static void test_db_lua_auth_lookup(void)
 }
 
 void test_db_lua(void) {
+	memset(test_lua_auth_set.username_chars_map, 0xff,
+	       sizeof(test_lua_auth_set.username_chars_map));
+	global_auth_settings = &test_lua_auth_set;
 	test_db_lua_auth_lookup();
 	test_db_lua_auth_lookup_numberish_value();
 	test_db_lua_auth_verify();
