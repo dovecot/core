@@ -425,8 +425,7 @@ static int auth_lua_call_lookup(struct dlua_script *script, const char *fn,
 		return -1;
 	}
 
-	if (req->debug)
-		e_debug(authdb_event(req), "Calling %s", fn);
+	e_debug(authdb_event(req), "Calling %s", fn);
 
 	/* call with auth request as parameter */
 	auth_lua_push_auth_request(script, req);
@@ -615,9 +614,7 @@ auth_lua_call_password_verify(struct dlua_script *script,
 		return PASSDB_RESULT_INTERNAL_FAILURE;
 	}
 
-	if (req->debug)
-		e_debug(authdb_event(req), "Calling %s",
-			AUTH_LUA_PASSWORD_VERIFY);
+	e_debug(authdb_event(req), "Calling %s", AUTH_LUA_PASSWORD_VERIFY);
 
 	/* call with auth request, password as parameters */
 	auth_lua_push_auth_request(script, req);
@@ -720,9 +717,7 @@ auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_reques
 		return &actx->ctx;
 	}
 
-	if (req->debug)
-		e_debug(authdb_event(req), "Calling %s",
-			AUTH_LUA_USERDB_ITERATE);
+	e_debug(authdb_event(req), "Calling %s", AUTH_LUA_USERDB_ITERATE);
 
 	if ((ret = lua_pcall(script->L, 0, 1, 0)) != 0) {
 		e_error(authdb_event(req),
