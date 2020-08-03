@@ -346,8 +346,8 @@ auth_request_expand_cache_key(const struct auth_request *request,
 	/* Uniquely identify the request's passdb/userdb with the P/U prefix
 	   and by "%!", which expands to the passdb/userdb ID number. */
 	key = t_strconcat(request->userdb_lookup ? "U" : "P", "%!",
-			  request->master_user == NULL ? "" : "+%{master_user}",
-			  "\t", key, NULL);
+		request->fields.master_user == NULL ? "" : "+%{master_user}",
+		"\t", key, NULL);
 
 	/* It's fine to have unknown %variables in the cache key.
 	   For example db-ldap can have pass_attrs containing
@@ -423,16 +423,16 @@ void auth_cache_insert(struct auth_cache *cache, struct auth_request *request,
 
 	/* store into cache using the translated username, except if we're doing
 	   a master user login */
-	current_username = request->user;
-	if (request->translated_username != NULL &&
-	    request->requested_login_user == NULL &&
-	    request->master_user == NULL)
-		request->user = t_strdup_noconst(request->translated_username);
+	current_username = request->fields.user;
+	if (request->fields.translated_username != NULL &&
+	    request->fields.requested_login_user == NULL &&
+	    request->fields.master_user == NULL)
+		request->fields.user = t_strdup_noconst(request->fields.translated_username);
 
 	key = auth_request_expand_cache_key(request, key);
 	key_len = strlen(key);
 
-	request->user = current_username;
+	request->fields.user = current_username;
 
 	data_size = key_len + 1 + value_len + 1;
 	alloc_size = sizeof(struct auth_cache_node) -

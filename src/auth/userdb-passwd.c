@@ -45,7 +45,7 @@ passwd_check_warnings(struct auth_request *auth_request,
 	msecs = timeval_diff_msecs(&end_tv, start_tv);
 	if (msecs >= PASSWD_SLOW_WARN_MSECS) {
 		i_warning("passwd: Lookup for %s took %u secs",
-			  auth_request->user, msecs/1000);
+			  auth_request->fields.user, msecs/1000);
 		return;
 	}
 	if (worker || module->slow_warned)
@@ -89,7 +89,7 @@ static void passwd_lookup(struct auth_request *auth_request,
 	e_debug(authdb_event(auth_request), "lookup");
 
 	i_gettimeofday(&start_tv);
-	ret = i_getpwnam(auth_request->user, &pw);
+	ret = i_getpwnam(auth_request->fields.user, &pw);
 	if (start_tv.tv_sec != 0)
 		passwd_check_warnings(auth_request, module, &start_tv);
 

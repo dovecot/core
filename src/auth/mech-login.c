@@ -20,7 +20,7 @@ mech_login_auth_continue(struct auth_request *request,
 	static const char prompt2[] = "Password:";
 	const char *username, *error;
 
-	if (request->user == NULL) {
+	if (request->fields.user == NULL) {
 		username = t_strndup(data, data_size);
 
 		if (!auth_request_set_username(request, username, &error)) {

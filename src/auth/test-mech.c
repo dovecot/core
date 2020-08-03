@@ -70,7 +70,7 @@ request_handler_reply_mock_callback(struct auth_request *request,
 	if (request->passdb_result == PASSDB_RESULT_OK)
 		request->failed = FALSE;
 	else if (request->mech == &mech_otp) {
-		if (null_strcmp(request->user, "otp_phase_2") == 0)
+		if (null_strcmp(request->fields.user, "otp_phase_2") == 0)
 			request->failed = FALSE;
 	} else if (request->mech == &mech_oauthbearer) {
 	}
@@ -152,14 +152,14 @@ static void test_mech_prepare_request(struct auth_request **request_r,
 	request->userdb = auth->userdbs;
 	handler->refcount = 1;
 
-	auth_fields_add(request->extra_fields, "nodelay", "", 0);
+	auth_fields_add(request->fields.extra_fields, "nodelay", "", 0);
 	auth_request_ref(request);
 	auth_request_state_count[AUTH_REQUEST_STATE_NEW] = 1;
 
 	if (test_case->set_username_before_test || test_case->set_cert_username)
-		request->user = p_strdup(request->pool, test_case->username);
+		request->fields.user = p_strdup(request->pool, test_case->username);
 	if (test_case->set_cert_username)
-		request->cert_username = TRUE;
+		request->fields.cert_username = TRUE;
 
 	*request_r = request;
 }
@@ -358,10 +358,10 @@ static void test_mechs(void)
 						   test_case->success);
 		}
 
-		const char *username = request->user;
+		const char *username = request->fields.user;
 
-		if (request->master_user != NULL)
-			username = request->master_user;
+		if (request->fields.master_user != NULL)
+			username = request->fields.master_user;
 
 		if (!test_case->set_username_before_test && test_case->success) {
 			/* If the username was set by the test logic, do not
@@ -415,7 +415,7 @@ static void test_rpa(void)
 	struct auth_request *req = mech->auth_new();
 	global_auth_settings->realms_arr = t_strsplit("example.com", " ");
 	req->set = global_auth_settings;
-	req->service = "login";
+	req->fields.service = "login";
 	req->handler = &handler;
 	req->mech_event = event_create(NULL);
 	req->event = event_create(NULL);
@@ -446,7 +446,7 @@ static void test_ntlm(void)
 	struct auth_request *req = mech->auth_new();
 	global_auth_settings->realms_arr = t_strsplit("example.com", " ");
 	req->set = global_auth_settings;
-	req->service = "login";
+	req->fields.service = "login";
 	req->handler = &handler;
 	req->mech_event = event_create(NULL);
 	req->event = event_create(NULL);

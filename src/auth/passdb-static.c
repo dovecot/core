@@ -37,7 +37,7 @@ static_save_fields(struct auth_request *request, const char **password_r,
 				module->static_password_tmpl, error);
 			return PASSDB_RESULT_INTERNAL_FAILURE;
 		}
-	} else if (auth_fields_exists(request->extra_fields, "nopassword")) {
+	} else if (auth_fields_exists(request->fields.extra_fields, "nopassword")) {
 		*password_r = "";
 	} else {
 		return auth_request_password_missing(request);

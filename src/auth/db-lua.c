@@ -166,12 +166,12 @@ static int auth_request_lua_passdb(lua_State *L)
 	const char *key = luaL_checkstring(L, 2);
 	lua_pop(L, 1);
 
-	if (request->extra_fields == NULL) {
+	if (request->fields.extra_fields == NULL) {
 		lua_pushnil(L);
 		return 1;
 	}
 
-	lua_pushstring(L, auth_fields_find(request->extra_fields, key));
+	lua_pushstring(L, auth_fields_find(request->fields.extra_fields, key));
 	return 1;
 }
 
@@ -182,12 +182,12 @@ static int auth_request_lua_userdb(lua_State *L)
 	const char *key = luaL_checkstring(L, 2);
 	lua_pop(L, 1);
 
-	if (request->userdb_reply == NULL) {
+	if (request->fields.userdb_reply == NULL) {
 		lua_pushnil(L);
 		return 1;
 	}
 
-	lua_pushstring(L, auth_fields_find(request->userdb_reply, key));
+	lua_pushstring(L, auth_fields_find(request->fields.userdb_reply, key));
 	return 1;
 }
 
@@ -202,8 +202,10 @@ static int auth_request_lua_password_verify(lua_State *L)
 	const unsigned char *raw_password = NULL;
 	size_t raw_password_size;
 	int ret;
-	struct password_generate_params gen_params = {.user = request->original_username,
-						      .rounds = 0};
+	struct password_generate_params gen_params = {
+		.user = request->fields.original_username,
+		.rounds = 0
+	};
 	scheme = password_get_scheme(&crypted_password);
 	if (scheme == NULL)
 		scheme = "PLAIN";
@@ -310,12 +312,14 @@ static void auth_lua_push_auth_request(struct dlua_script *script, struct auth_r
 	luaL_setmetatable(script->L, "userdb_"AUTH_LUA_AUTH_REQUEST);
 	lua_setfield(script->L, -2, "userdb");
 
+	lua_pushboolean(script->L, req->fields.skip_password_check);
+	lua_setfield(script->L, -2, "skip_password_check");
+
 #undef LUA_TABLE_SETBOOL
 #define LUA_TABLE_SETBOOL(field) \
 	lua_pushboolean(script->L, req->field); \
 	lua_setfield(script->L, -2, #field);
 
-	LUA_TABLE_SETBOOL(skip_password_check);
 	LUA_TABLE_SETBOOL(passdbs_seen_user_unknown);
 	LUA_TABLE_SETBOOL(passdbs_seen_internal_failure);
 	LUA_TABLE_SETBOOL(userdbs_seen_internal_failure);

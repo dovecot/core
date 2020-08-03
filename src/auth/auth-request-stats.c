@@ -53,10 +53,10 @@ void auth_request_stats_send(struct auth_request *request)
 
 	str = t_str_new(256);
 	str_append(str, "ADD-USER\t");
-	if (request->user != NULL)
-		str_append_tabescaped(str, request->user);
+	if (request->fields.user != NULL)
+		str_append_tabescaped(str, request->fields.user);
 	str_append_c(str, '\t');
-	str_append_tabescaped(str, request->service);
+	str_append_tabescaped(str, request->fields.service);
 	str_append_c(str, '\t');
 	base64_encode(buf->data, buf->used, str);
 

@@ -107,7 +107,7 @@ static void auth_request_post_alloc_init(struct auth_request *request, struct ev
 	request->last_access = ioloop_time;
 	request->session_pid = (pid_t)-1;
 	request->set = global_auth_settings;
-	request->extra_fields = auth_fields_init(request->pool);
+	request->fields.extra_fields = auth_fields_init(request->pool);
 	request->event = event_create(parent_event);
 	request->mech_event = event_create(request->event);
 
@@ -130,7 +130,7 @@ auth_request_new(const struct mech_module *mech, struct event *parent_event)
 	request = mech->auth_new();
 	auth_request_post_alloc_init(request, parent_event);
 	request->mech = mech;
-	request->mech_name = mech->mech_name;
+	request->fields.mech_name = mech->mech_name;
 	event_add_str(request->event, "mech", request->mech->mech_name);
 
 	return request;
@@ -177,7 +177,7 @@ void auth_request_init(struct auth_request *request)
 
 struct auth *auth_request_get_auth(struct auth_request *request)
 {
-	return auth_find_service(request->service);
+	return auth_find_service(request->fields.service);
 }
 
 void auth_request_success(struct auth_request *request,
@@ -209,21 +209,21 @@ auth_request_finished_event(struct auth_request *request, struct event *event)
 {
 	struct event_passthrough *e = event_create_passthrough(event);
 
-	e->add_str("user", request->user);
-	e->add_str("orig_user", request->original_username);
-	e->add_str("translated_user", request->translated_username);
-	e->add_str("login_user", request->requested_login_user);
-	e->add_str("master_user", request->master_user);
+	e->add_str("user", request->fields.user);
+	e->add_str("orig_user", request->fields.original_username);
+	e->add_str("translated_user", request->fields.translated_username);
+	e->add_str("login_user", request->fields.requested_login_user);
+	e->add_str("master_user", request->fields.master_user);
 	if (request->failed) {
 		if (request->internal_failure) {
 			e->add_str("error", "internal failure");
 		} else {
 			e->add_str("error", "authentication failed");
 		}
-	} else if (request->successful) {
+	} else if (request->fields.successful) {
 		e->add_str("success", "yes");
 	}
-	switch(request->secured) {
+	switch (request->fields.secured) {
 	case AUTH_REQUEST_SECURED_NONE:
 		e->add_str("transport", "insecure");
 		break;
@@ -240,7 +240,7 @@ auth_request_finished_event(struct auth_request *request, struct event *event)
 		return e;
 	}
 	e->add_str("credentials_scheme", request->credentials_scheme);
-	e->add_str("realm", request->realm);
+	e->add_str("realm", request->fields.realm);
 	if (request->policy_penalty > 0)
 		e->add_int("policy_penalty", request->policy_penalty);
 	if (request->policy_refusal) {
@@ -281,7 +281,7 @@ void auth_request_success_continue(struct auth_policy_check_ctx *ctx)
 		auth_request_fail(request);
 		return;
 	}
-	request->successful = TRUE;
+	request->fields.successful = TRUE;
 
 	/* log before delay */
 	auth_request_log_finished(request);
@@ -293,7 +293,7 @@ void auth_request_success_continue(struct auth_policy_check_ctx *ctx)
 		return;
 	}
 
-	if (ctx->success_data->used > 0 && !request->final_resp_ok) {
+	if (ctx->success_data->used > 0 && !request->fields.final_resp_ok) {
 		/* we'll need one more SASL round, since client doesn't support
 		   the final SASL response */
 		auth_request_handler_reply_continue(request,
@@ -304,7 +304,7 @@ void auth_request_success_continue(struct auth_policy_check_ctx *ctx)
 	if (request->set->stats) {
 		stats = auth_request_stats_get(request);
 		stats->auth_success_count++;
-		if (request->master_user != NULL)
+		if (request->fields.master_user != NULL)
 			stats->auth_master_success_count++;
 	}
 
@@ -404,128 +404,130 @@ auth_request_export_fields(string_t *dest, struct auth_fields *auth_fields,
 
 void auth_request_export(struct auth_request *request, string_t *dest)
 {
+	const struct auth_request_fields *fields = &request->fields;
+
 	str_append(dest, "user=");
-	str_append_tabescaped(dest, request->user);
+	str_append_tabescaped(dest, fields->user);
 
-	auth_str_add_keyvalue(dest, "service", request->service);
+	auth_str_add_keyvalue(dest, "service", fields->service);
 
-	 if (request->master_user != NULL) {
-		auth_str_add_keyvalue(dest, "master-user",
-				      request->master_user);
-	}
+	if (fields->master_user != NULL)
+		auth_str_add_keyvalue(dest, "master-user", fields->master_user);
 	auth_str_add_keyvalue(dest, "original-username",
-			      request->original_username);
-	if (request->requested_login_user != NULL) {
+			      fields->original_username);
+	if (fields->requested_login_user != NULL) {
 		auth_str_add_keyvalue(dest, "requested-login-user",
-				      request->requested_login_user);
+				      fields->requested_login_user);
 	}
 
-	if (request->local_ip.family != 0) {
+	if (fields->local_ip.family != 0) {
 		auth_str_add_keyvalue(dest, "lip",
-				      net_ip2addr(&request->local_ip));
+				      net_ip2addr(&fields->local_ip));
 	}
-	if (request->remote_ip.family != 0) {
+	if (fields->remote_ip.family != 0) {
 		auth_str_add_keyvalue(dest, "rip",
-				      net_ip2addr(&request->remote_ip));
+				      net_ip2addr(&fields->remote_ip));
 	}
-	if (request->local_port != 0)
-		str_printfa(dest, "\tlport=%u", request->local_port);
-	if (request->remote_port != 0)
-		str_printfa(dest, "\trport=%u", request->remote_port);
-	if (request->real_local_ip.family != 0) {
+	if (fields->local_port != 0)
+		str_printfa(dest, "\tlport=%u", fields->local_port);
+	if (fields->remote_port != 0)
+		str_printfa(dest, "\trport=%u", fields->remote_port);
+	if (fields->real_local_ip.family != 0) {
 		auth_str_add_keyvalue(dest, "real_lip",
-				      net_ip2addr(&request->real_local_ip));
+				      net_ip2addr(&fields->real_local_ip));
 	}
-	if (request->real_remote_ip.family != 0) {
+	if (fields->real_remote_ip.family != 0) {
 		auth_str_add_keyvalue(dest, "real_rip",
-				      net_ip2addr(&request->real_remote_ip));
+				      net_ip2addr(&fields->real_remote_ip));
 	}
-	if (request->real_local_port != 0)
-		str_printfa(dest, "\treal_lport=%u", request->real_local_port);
-	if (request->real_remote_port != 0)
-		str_printfa(dest, "\treal_rport=%u", request->real_remote_port);
-	if (request->local_name != 0) {
+	if (fields->real_local_port != 0)
+		str_printfa(dest, "\treal_lport=%u", fields->real_local_port);
+	if (fields->real_remote_port != 0)
+		str_printfa(dest, "\treal_rport=%u", fields->real_remote_port);
+	if (fields->local_name != 0) {
 		str_append(dest, "\tlocal_name=");
-		str_append_tabescaped(dest, request->local_name);
+		str_append_tabescaped(dest, fields->local_name);
 	}
-	if (request->session_id != NULL)
-		str_printfa(dest, "\tsession=%s", request->session_id);
+	if (fields->session_id != NULL)
+		str_printfa(dest, "\tsession=%s", fields->session_id);
 	if (event_want_debug(request->event))
 		str_append(dest, "\tdebug");
-	switch(request->secured) {
+	switch (fields->secured) {
 	case AUTH_REQUEST_SECURED_NONE: break;
 	case AUTH_REQUEST_SECURED: str_append(dest, "\tsecured"); break;
 	case AUTH_REQUEST_SECURED_TLS: str_append(dest, "\tsecured=tls"); break;
 	default: break;
 	}
-	if (request->skip_password_check)
+	if (fields->skip_password_check)
 		str_append(dest, "\tskip-password-check");
-	if (request->delayed_credentials != NULL)
+	if (fields->delayed_credentials != NULL)
 		str_append(dest, "\tdelayed-credentials");
-	if (request->valid_client_cert)
+	if (fields->valid_client_cert)
 		str_append(dest, "\tvalid-client-cert");
-	if (request->no_penalty)
+	if (fields->no_penalty)
 		str_append(dest, "\tno-penalty");
-	if (request->successful)
+	if (fields->successful)
 		str_append(dest, "\tsuccessful");
-	if (request->mech_name != NULL)
-		auth_str_add_keyvalue(dest, "mech", request->mech_name);
-	if (request->client_id != NULL)
-		auth_str_add_keyvalue(dest, "client_id", request->client_id);
+	if (fields->mech_name != NULL)
+		auth_str_add_keyvalue(dest, "mech", fields->mech_name);
+	if (fields->client_id != NULL)
+		auth_str_add_keyvalue(dest, "client_id", fields->client_id);
 	/* export passdb extra fields */
-	auth_request_export_fields(dest, request->extra_fields, "passdb_");
+	auth_request_export_fields(dest, fields->extra_fields, "passdb_");
 	/* export any userdb fields */
-	if (request->userdb_reply != NULL)
-		auth_request_export_fields(dest, request->userdb_reply, "userdb_");
+	if (fields->userdb_reply != NULL)
+		auth_request_export_fields(dest, fields->userdb_reply, "userdb_");
 }
 
 bool auth_request_import_info(struct auth_request *request,
 			      const char *key, const char *value)
 {
+	struct auth_request_fields *fields = &request->fields;
+
 	i_assert(value != NULL);
 
 	/* authentication and user lookups may set these */
 	if (strcmp(key, "service") == 0)
-		request->service = p_strdup(request->pool, value);
+		fields->service = p_strdup(request->pool, value);
 	else if (strcmp(key, "lip") == 0) {
-		(void)net_addr2ip(value, &request->local_ip);
-		if (request->real_local_ip.family == 0)
-			request->real_local_ip = request->local_ip;
+		(void)net_addr2ip(value, &fields->local_ip);
+		if (fields->real_local_ip.family == 0)
+			fields->real_local_ip = fields->local_ip;
 	} else if (strcmp(key, "rip") == 0) {
-		(void)net_addr2ip(value, &request->remote_ip);
-		if (request->real_remote_ip.family == 0)
-			request->real_remote_ip = request->remote_ip;
+		(void)net_addr2ip(value, &fields->remote_ip);
+		if (fields->real_remote_ip.family == 0)
+			fields->real_remote_ip = fields->remote_ip;
 	} else if (strcmp(key, "lport") == 0) {
-		(void)net_str2port(value, &request->local_port);
-		if (request->real_local_port == 0)
-			request->real_local_port = request->local_port;
+		(void)net_str2port(value, &fields->local_port);
+		if (fields->real_local_port == 0)
+			fields->real_local_port = fields->local_port;
 	} else if (strcmp(key, "rport") == 0) {
-		(void)net_str2port(value, &request->remote_port);
-		if (request->real_remote_port == 0)
-			request->real_remote_port = request->remote_port;
+		(void)net_str2port(value, &fields->remote_port);
+		if (fields->real_remote_port == 0)
+			fields->real_remote_port = fields->remote_port;
 	}
 	else if (strcmp(key, "real_lip") == 0)
-		(void)net_addr2ip(value, &request->real_local_ip);
+		(void)net_addr2ip(value, &fields->real_local_ip);
 	else if (strcmp(key, "real_rip") == 0)
-		(void)net_addr2ip(value, &request->real_remote_ip);
+		(void)net_addr2ip(value, &fields->real_remote_ip);
 	else if (strcmp(key, "real_lport") == 0)
-		(void)net_str2port(value, &request->real_local_port);
+		(void)net_str2port(value, &fields->real_local_port);
 	else if (strcmp(key, "real_rport") == 0)
-		(void)net_str2port(value, &request->real_remote_port);
+		(void)net_str2port(value, &fields->real_remote_port);
 	else if (strcmp(key, "local_name") == 0)
-		request->local_name = p_strdup(request->pool, value);
+		fields->local_name = p_strdup(request->pool, value);
 	else if (strcmp(key, "session") == 0)
-		request->session_id = p_strdup(request->pool, value);
+		fields->session_id = p_strdup(request->pool, value);
 	else if (strcmp(key, "debug") == 0)
 		event_set_forced_debug(request->event, TRUE);
 	else if (strcmp(key, "client_id") == 0)
-		request->client_id = p_strdup(request->pool, value);
+		fields->client_id = p_strdup(request->pool, value);
 	else if (strcmp(key, "forward_fields") == 0) {
-		auth_fields_import_prefixed(request->extra_fields,
+		auth_fields_import_prefixed(fields->extra_fields,
 					    "forward_", value, 0);
 		/* make sure the forward_ fields aren't deleted by
 		   auth_fields_rollback() if the first passdb lookup fails. */
-		auth_fields_snapshot(request->extra_fields);
+		auth_fields_snapshot(fields->extra_fields);
 	} else
 		return FALSE;
 	/* NOTE: keep in sync with auth_request_export() */
@@ -535,6 +537,8 @@ bool auth_request_import_info(struct auth_request *request,
 bool auth_request_import_auth(struct auth_request *request,
 			      const char *key, const char *value)
 {
+	struct auth_request_fields *fields = &request->fields;
+
 	i_assert(value != NULL);
 
 	if (auth_request_import_info(request, key, value))
@@ -543,22 +547,22 @@ bool auth_request_import_auth(struct auth_request *request,
 	/* auth client may set these */
 	if (strcmp(key, "secured") == 0) {
 		if (strcmp(value, "tls") == 0)
-			request->secured = AUTH_REQUEST_SECURED_TLS;
+			fields->secured = AUTH_REQUEST_SECURED_TLS;
 		else
-			request->secured = AUTH_REQUEST_SECURED;
+			fields->secured = AUTH_REQUEST_SECURED;
 	}
 	else if (strcmp(key, "final-resp-ok") == 0)
-		request->final_resp_ok = TRUE;
+		fields->final_resp_ok = TRUE;
 	else if (strcmp(key, "no-penalty") == 0)
-		request->no_penalty = TRUE;
+		fields->no_penalty = TRUE;
 	else if (strcmp(key, "valid-client-cert") == 0)
-		request->valid_client_cert = TRUE;
+		fields->valid_client_cert = TRUE;
 	else if (strcmp(key, "cert_username") == 0) {
 		if (request->set->ssl_username_from_cert && *value != '\0') {
 			/* get username from SSL certificate. it overrides
 			   the username given by the auth mechanism. */
-			request->user = p_strdup(request->pool, value);
-			request->cert_username = TRUE;
+			fields->user = p_strdup(request->pool, value);
+			fields->cert_username = TRUE;
 		}
 	} else {
 		return FALSE;
@@ -587,6 +591,8 @@ bool auth_request_import_master(struct auth_request *request,
 bool auth_request_import(struct auth_request *request,
 			 const char *key, const char *value)
 {
+	struct auth_request_fields *fields = &request->fields;
+
 	i_assert(value != NULL);
 
 	if (auth_request_import_auth(request, key, value))
@@ -594,31 +600,31 @@ bool auth_request_import(struct auth_request *request,
 
 	/* for communication between auth master and worker processes */
 	if (strcmp(key, "user") == 0)
-		request->user = p_strdup(request->pool, value);
+		fields->user = p_strdup(request->pool, value);
 	else if (strcmp(key, "master-user") == 0)
-		request->master_user = p_strdup(request->pool, value);
+		fields->master_user = p_strdup(request->pool, value);
 	else if (strcmp(key, "original-username") == 0)
-		request->original_username = p_strdup(request->pool, value);
+		fields->original_username = p_strdup(request->pool, value);
 	else if (strcmp(key, "requested-login-user") == 0)
-		request->requested_login_user = p_strdup(request->pool, value);
+		fields->requested_login_user = p_strdup(request->pool, value);
 	else if (strcmp(key, "successful") == 0)
-		request->successful = TRUE;
+		fields->successful = TRUE;
 	else if (strcmp(key, "skip-password-check") == 0)
-		request->skip_password_check = TRUE;
+		fields->skip_password_check = TRUE;
 	else if (strcmp(key, "delayed-credentials") == 0) {
 		/* just make passdb_handle_credentials() work identically in
 		   auth-worker as it does in auth-master. the worker shouldn't
 		   care about the actual contents of the credentials. */
-		request->delayed_credentials = &uchar_nul;
-		request->delayed_credentials_size = 1;
+		fields->delayed_credentials = &uchar_nul;
+		fields->delayed_credentials_size = 1;
 	} else if (strcmp(key, "mech") == 0)
-		request->mech_name = p_strdup(request->pool, value);
+		fields->mech_name = p_strdup(request->pool, value);
 	else if (str_begins(key, "passdb_"))
-		auth_fields_add(request->extra_fields, key+7, value, 0);
+		auth_fields_add(fields->extra_fields, key+7, value, 0);
 	else if (str_begins(key, "userdb_")) {
-		if (request->userdb_reply == NULL)
-			request->userdb_reply = auth_fields_init(request->pool);
-		auth_fields_add(request->userdb_reply, key+7, value, 0);
+		if (fields->userdb_reply == NULL)
+			fields->userdb_reply = auth_fields_init(request->pool);
+		auth_fields_add(fields->userdb_reply, key+7, value, 0);
 	} else
 		return FALSE;
 
@@ -657,7 +663,7 @@ void auth_request_continue(struct auth_request *request,
 {
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	if (request->successful) {
+	if (request->fields.successful) {
 		auth_request_success(request, "", 0);
 		return;
 	}
@@ -675,8 +681,10 @@ static void auth_request_save_cache(struct auth_request *request,
 	struct auth_passdb *passdb = request->passdb;
 	const char *encoded_password;
 	string_t *str;
-	struct password_generate_params gen_params = {.user = request->user,
-						      .rounds = 0 };
+	struct password_generate_params gen_params = {
+		.user = request->fields.user,
+		.rounds = 0
+	};
 
 	switch (result) {
 	case PASSDB_RESULT_USER_UNKNOWN:
@@ -708,7 +716,7 @@ static void auth_request_save_cache(struct auth_request *request,
 	}
 
 	if (request->passdb_password == NULL &&
-	    !auth_fields_exists(request->extra_fields, "nopassword")) {
+	    !auth_fields_exists(request->fields.extra_fields, "nopassword")) {
 		/* passdb didn't provide the correct password */
 		if (result != PASSDB_RESULT_OK ||
 		    request->mech_password == NULL)
@@ -739,13 +747,13 @@ static void auth_request_save_cache(struct auth_request *request,
 		str_append_tabescaped(str, request->passdb_password);
 	}
 
-	if (!auth_fields_is_empty(request->extra_fields)) {
+	if (!auth_fields_is_empty(request->fields.extra_fields)) {
 		str_append_c(str, '\t');
 		/* add only those extra fields to cache that were set by this
 		   passdb lookup. the CHANGED flag does this, because we
 		   snapshotted the extra_fields before the current passdb
 		   lookup. */
-		auth_fields_append(request->extra_fields, str,
+		auth_fields_append(request->fields.extra_fields, str,
 				   AUTH_FIELD_FLAG_CHANGED,
 				   AUTH_FIELD_FLAG_CHANGED);
 	}
@@ -761,11 +769,11 @@ static void auth_request_master_lookup_finish(struct auth_request *request)
 	/* master login successful. update user and master_user variables. */
 	e_info(authdb_event(request),
 	       "Master user logging in as %s",
-	       request->requested_login_user);
+	       request->fields.requested_login_user);
 
-	request->master_user = request->user;
-	request->user = request->requested_login_user;
-	request->requested_login_user = NULL;
+	request->fields.master_user = request->fields.user;
+	request->fields.user = request->fields.requested_login_user;
+	request->fields.requested_login_user = NULL;
 }
 
 static bool
@@ -821,7 +829,7 @@ auth_request_want_skip_passdb(struct auth_request *request,
 	const char *const *username_filter = passdb->passdb->username_filter;
 	const char *username;
 
-	username = request->user;
+	username = request->fields.user;
 
 	if (!auth_request_mechanism_accepted(mechs, request->mech)) {
 		auth_request_log_debug(request,
@@ -842,7 +850,7 @@ auth_request_want_skip_passdb(struct auth_request *request,
 
 	/* skip_password_check basically specifies if authentication is
 	   finished */
-	bool authenticated = request->skip_password_check;
+	bool authenticated = request->fields.skip_password_check;
 
 	switch (passdb->skip) {
 	case AUTH_PASSDB_SKIP_NEVER:
@@ -907,13 +915,13 @@ auth_request_lookup_end_common(struct auth_request *request,
 {
 	const char *p;
 	struct event_passthrough *e = event_create_passthrough(event)->
-		add_str("user", request->user);
-	if (request->master_user != NULL)
-		e->add_str("master_user", request->master_user);
-	if ((p = strchr(request->user, '@')) == NULL)
-		e->add_str("username", request->user);
+		add_str("user", request->fields.user);
+	if (request->fields.master_user != NULL)
+		e->add_str("master_user", request->fields.master_user);
+	if ((p = strchr(request->fields.user, '@')) == NULL)
+		e->add_str("username", request->fields.user);
 	else
-		e->add_str("username", t_strdup_until(request->user, p))->
+		e->add_str("username", t_strdup_until(request->fields.user, p))->
 			add_str("domain", p + 1);
 	return e;
 }
@@ -1057,7 +1065,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		if (*result == PASSDB_RESULT_OK) {
 			/* password was successfully verified. don't bother
 			   checking it again. */
-			request->skip_password_check = TRUE;
+			request->fields.skip_password_check = TRUE;
 		}
 		break;
 	case AUTH_DB_RULE_CONTINUE_OK:
@@ -1065,7 +1073,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		request->passdb_success = TRUE;
 		/* password was successfully verified. don't bother
 		   checking it again. */
-		request->skip_password_check = TRUE;
+		request->fields.skip_password_check = TRUE;
 		break;
 	case AUTH_DB_RULE_CONTINUE_FAIL:
 		passdb_continue = TRUE;
@@ -1074,10 +1082,10 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 	}
 	/* nopassword check is specific to a single passdb and shouldn't leak
 	   to the next one. we already added it to cache. */
-	auth_fields_remove(request->extra_fields, "nopassword");
-	auth_fields_remove(request->extra_fields, "noauthenticate");
+	auth_fields_remove(request->fields.extra_fields, "nopassword");
+	auth_fields_remove(request->fields.extra_fields, "noauthenticate");
 
-	if (request->requested_login_user != NULL &&
+	if (request->fields.requested_login_user != NULL &&
 	    *result == PASSDB_RESULT_OK) {
 		auth_request_master_lookup_finish(request);
 		/* if the passdb lookup continues, it continues with non-master
@@ -1093,16 +1101,16 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 
 	if (*result == PASSDB_RESULT_OK || *result == PASSDB_RESULT_NEXT) {
 		/* this passdb lookup succeeded, preserve its extra fields */
-		auth_fields_snapshot(request->extra_fields);
+		auth_fields_snapshot(request->fields.extra_fields);
 		request->snapshot_have_userdb_prefetch_set =
 			request->userdb_prefetch_set;
-		if (request->userdb_reply != NULL)
-			auth_fields_snapshot(request->userdb_reply);
+		if (request->fields.userdb_reply != NULL)
+			auth_fields_snapshot(request->fields.userdb_reply);
 	} else {
 		/* this passdb lookup failed, remove any extra fields it set */
-		auth_fields_rollback(request->extra_fields);
-		if (request->userdb_reply != NULL) {
-			auth_fields_rollback(request->userdb_reply);
+		auth_fields_rollback(request->fields.extra_fields);
+		if (request->fields.userdb_reply != NULL) {
+			auth_fields_rollback(request->fields.userdb_reply);
 			request->userdb_prefetch_set =
 				request->snapshot_have_userdb_prefetch_set;
 		}
@@ -1176,7 +1184,7 @@ void auth_request_verify_plain_callback(enum passdb_result result,
 	auth_request_set_state(request, AUTH_REQUEST_STATE_MECH_CONTINUE);
 
 	if (result == PASSDB_RESULT_OK &&
-	    auth_fields_exists(request->extra_fields, "noauthenticate"))
+	    auth_fields_exists(request->fields.extra_fields, "noauthenticate"))
 		result = PASSDB_RESULT_NEXT;
 
 	if (result != PASSDB_RESULT_INTERNAL_FAILURE)
@@ -1219,7 +1227,7 @@ static bool password_has_illegal_chars(const char *password)
 
 static bool auth_request_is_disabled_master_user(struct auth_request *request)
 {
-	if (request->requested_login_user == NULL ||
+	if (request->fields.requested_login_user == NULL ||
 	    request->passdb != NULL)
 		return FALSE;
 
@@ -1227,7 +1235,7 @@ static bool auth_request_is_disabled_master_user(struct auth_request *request)
 	e_info(request->mech_event,
 	       "Attempted master login with no master passdbs "
 	       "(trying to log in as user: %s)",
-	       request->requested_login_user);
+	       request->fields.requested_login_user);
 	return TRUE;
 }
 
@@ -1272,7 +1280,8 @@ void auth_request_policy_check_callback(int result, void *context)
 	if (result < 0) {
 		/* fail it right here and now */
 		auth_request_fail(ctx->request);
-	} else if (ctx->type != AUTH_POLICY_CHECK_TYPE_SUCCESS && result > 0 && !ctx->request->no_penalty) {
+	} else if (ctx->type != AUTH_POLICY_CHECK_TYPE_SUCCESS && result > 0 &&
+		   !ctx->request->fields.no_penalty) {
 		ctx->request->to_penalty = timeout_add(result * 1000,
 				auth_request_policy_penalty_finish,
 				context);
@@ -1391,28 +1400,28 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 	}
 	if (!auth_request_handle_passdb_callback(&result, request)) {
 		/* try next passdb */
-		if (request->skip_password_check &&
-		    request->delayed_credentials == NULL && size > 0) {
+		if (request->fields.skip_password_check &&
+		    request->fields.delayed_credentials == NULL && size > 0) {
 			/* passdb continue* rule after a successful lookup.
 			   remember these credentials and use them later on. */
 			unsigned char *dup;
 
 			dup = p_malloc(request->pool, size);
 			memcpy(dup, credentials, size);
-			request->delayed_credentials = dup;
-			request->delayed_credentials_size = size;
+			request->fields.delayed_credentials = dup;
+			request->fields.delayed_credentials_size = size;
 		}
 		auth_request_lookup_credentials(request,
 			request->credentials_scheme,
 		  	request->private_callback.lookup_credentials);
 	} else {
-		if (request->delayed_credentials != NULL && size == 0) {
+		if (request->fields.delayed_credentials != NULL && size == 0) {
 			/* we did multiple passdb lookups, but the last one
 			   didn't provide any credentials (e.g. just wanted to
 			   add some extra fields). so use the first passdb's
 			   credentials instead. */
-			credentials = request->delayed_credentials;
-			size = request->delayed_credentials_size;
+			credentials = request->fields.delayed_credentials;
+			size = request->fields.delayed_credentials_size;
 		}
 		if (request->set->debug_passwords &&
 		    result == PASSDB_RESULT_OK) {
@@ -1445,7 +1454,7 @@ void auth_request_lookup_credentials_callback(enum passdb_result result,
 	auth_request_set_state(request, AUTH_REQUEST_STATE_MECH_CONTINUE);
 
 	if (result == PASSDB_RESULT_OK &&
-	    auth_fields_exists(request->extra_fields, "noauthenticate"))
+	    auth_fields_exists(request->fields.extra_fields, "noauthenticate"))
 		result = PASSDB_RESULT_NEXT;
 
 	if (result != PASSDB_RESULT_INTERNAL_FAILURE)
@@ -1602,7 +1611,7 @@ static void auth_request_userdb_save_cache(struct auth_request *request,
 		cache_value = "";
 	else {
 		str = t_str_new(128);
-		auth_fields_append(request->userdb_reply, str,
+		auth_fields_append(request->fields.userdb_reply, str,
 				   AUTH_FIELD_FLAG_CHANGED,
 				   AUTH_FIELD_FLAG_CHANGED);
 		if (request->user_changed_by_lookup) {
@@ -1610,7 +1619,7 @@ static void auth_request_userdb_save_cache(struct auth_request *request,
 			if (str_len(str) > 0)
 				str_append_c(str, '\t');
 			str_append(str, "user=");
-			str_append_tabescaped(str, request->user);
+			str_append_tabescaped(str, request->fields.user);
 		}
 		if (str_len(str) == 0) {
 			/* no userdb fields. but we can't save an empty string,
@@ -1652,7 +1661,7 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 	if (*value == '\0') {
 		/* negative cache entry */
 		*result_r = USERDB_RESULT_USER_UNKNOWN;
-		request->userdb_reply = auth_fields_init(request->pool);
+		request->fields.userdb_reply = auth_fields_init(request->pool);
 		return TRUE;
 	}
 
@@ -1661,8 +1670,8 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 	   Don't use auth_request_init_userdb_reply(), because the entire
 	   userdb part of the result comes from the cache so we don't want to
 	   initialize it with default_fields. */
-	if (request->userdb_reply == NULL)
-		request->userdb_reply = auth_fields_init(request->pool);
+	if (request->fields.userdb_reply == NULL)
+		request->fields.userdb_reply = auth_fields_init(request->pool);
 	auth_request_userdb_import(request, value);
 	*result_r = USERDB_RESULT_OK;
 	return TRUE;
@@ -1737,11 +1746,11 @@ void auth_request_userdb_callback(enum userdb_result result,
 					USERDB_RESULT_INTERNAL_FAILURE, request);
 				return;
 			}
-			auth_fields_snapshot(request->userdb_reply);
+			auth_fields_snapshot(request->fields.userdb_reply);
 		} else {
 			/* this userdb lookup failed, remove any extra fields
 			   it set */
-			auth_fields_rollback(request->userdb_reply);
+			auth_fields_rollback(request->fields.userdb_reply);
 		}
 		request->user_changed_by_lookup = FALSE;
 
@@ -1814,7 +1823,7 @@ void auth_request_lookup_user(struct auth_request *request,
 	request->user_changed_by_lookup = FALSE;
 	request->userdb_lookup = TRUE;
 	request->userdb_result_from_cache = FALSE;
-	if (request->userdb_reply == NULL)
+	if (request->fields.userdb_reply == NULL)
 		auth_request_init_userdb_reply(request);
 	else {
 		/* we still want to set default_fields. these override any
@@ -1891,8 +1900,8 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 		char *old_username;
 		string_t *dest;
 
-		old_username = request->user;
-		request->user = user;
+		old_username = request->fields.user;
+		request->fields.user = user;
 
 		dest = t_str_new(256);
 		if (auth_request_var_expand(dest, set->username_format,
@@ -1903,7 +1912,7 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 		}
 		user = p_strdup(request->pool, str_c(dest));
 
-		request->user = old_username;
+		request->fields.user = old_username;
 	}
 
 	if (user[0] == '\0') {
@@ -1932,24 +1941,25 @@ bool auth_request_set_username(struct auth_request *request,
 		}
 	}
 
-	if (request->original_username == NULL) {
+	if (request->fields.original_username == NULL) {
 		/* the username may change later, but we need to use this
 		   username when verifying at least DIGEST-MD5 password. */
-		request->original_username = p_strdup(request->pool, username);
+		request->fields.original_username =
+			p_strdup(request->pool, username);
 	}
-	if (request->cert_username) {
+	if (request->fields.cert_username) {
 		/* cert_username overrides the username given by
 		   authentication mechanism. but still do checks and
 		   translations to it. */
-		username = request->user;
+		username = request->fields.user;
 	}
 
-	 request->user = auth_request_fix_username(request, username, error_r);
-	if (request->user == NULL)
+	request->fields.user = auth_request_fix_username(request, username, error_r);
+	if (request->fields.user == NULL)
 		return FALSE;
-	if (request->translated_username == NULL) {
+	if (request->fields.translated_username == NULL) {
 		/* similar to original_username, but after translations */
-		request->translated_username = request->user;
+		request->fields.translated_username = request->fields.user;
 	}
 	request->user_changed_by_lookup = TRUE;
 
@@ -1973,7 +1983,7 @@ bool auth_request_set_login_username(struct auth_request *request,
 		return FALSE;
 	}
 
-	if (strcmp(username, request->user) == 0) {
+	if (strcmp(username, request->fields.user) == 0) {
 		/* The usernames are the same, we don't really wish to log
 		   in as someone else */
 		return TRUE;
@@ -1987,15 +1997,15 @@ bool auth_request_set_login_username(struct auth_request *request,
 	}
 	request->passdb = master_passdb;
 
-	request->requested_login_user =
+	request->fields.requested_login_user =
 		auth_request_fix_username(request, username, error_r);
-	if (request->requested_login_user == NULL)
+	if (request->fields.requested_login_user == NULL)
 		return FALSE;
 
 	e_debug(request->event,
 		"%sMaster user lookup for login: %s",
 		get_log_prefix_db(request),
-		request->requested_login_user);
+		request->fields.requested_login_user);
 	return TRUE;
 }
 
@@ -2105,7 +2115,7 @@ auth_request_try_update_username(struct auth_request *request,
 {
 	const char *new_value;
 
-	new_value = get_updated_username(request->user, name, value);
+	new_value = get_updated_username(request->fields.user, name, value);
 	if (new_value == NULL)
 		return FALSE;
 	if (new_value[0] == '\0') {
@@ -2115,11 +2125,11 @@ auth_request_try_update_username(struct auth_request *request,
 		return TRUE;
 	}
 
-	if (strcmp(request->user, new_value) != 0) {
+	if (strcmp(request->fields.user, new_value) != 0) {
 		e_debug(authdb_event(request),
 			"username changed %s -> %s",
-			request->user, new_value);
-		request->user = p_strdup(request->pool, new_value);
+			request->fields.user, new_value);
+		request->fields.user = p_strdup(request->pool, new_value);
 		request->user_changed_by_lookup = TRUE;
 	}
 	return TRUE;
@@ -2151,12 +2161,12 @@ void auth_request_set_field(struct auth_request *request,
 	if (name_len > 10 && strcmp(name+name_len-10, ":protected") == 0) {
 		/* set this field only if it hasn't been set before */
 		name = t_strndup(name, name_len-10);
-		if (auth_fields_exists(request->extra_fields, name))
+		if (auth_fields_exists(request->fields.extra_fields, name))
 			return;
 	} else if (name_len > 7 && strcmp(name+name_len-7, ":remove") == 0) {
 		/* remove this field entirely */
 		name = t_strndup(name, name_len-7);
-		auth_fields_remove(request->extra_fields, name);
+		auth_fields_remove(request->fields.extra_fields, name);
 		return;
 	}
 
@@ -2174,9 +2184,11 @@ void auth_request_set_field(struct auth_request *request,
 		/* don't change the original value so it gets saved correctly
 		   to cache. */
 	} else if (strcmp(name, "login_user") == 0) {
-		request->requested_login_user = p_strdup(request->pool, value);
+		request->fields.requested_login_user =
+			p_strdup(request->pool, value);
 	} else if (strcmp(name, "allow_nets") == 0) {
-		auth_request_validate_networks(request, name, value, &request->remote_ip);
+		auth_request_validate_networks(request, name, value,
+					       &request->fields.remote_ip);
 	} else if (strcmp(name, "fail") == 0) {
 		request->failed = TRUE;
 	} else if (strcmp(name, "delay_until") == 0) {
@@ -2213,11 +2225,12 @@ void auth_request_set_field(struct auth_request *request,
 			request->delay_until = timestamp;
 		}
 	} else if (strcmp(name, "allow_real_nets") == 0) {
-		auth_request_validate_networks(request, name, value, &request->real_remote_ip);
+		auth_request_validate_networks(request, name, value,
+					       &request->fields.real_remote_ip);
 	} else if (str_begins(name, "userdb_")) {
 		/* for prefetch userdb */
 		request->userdb_prefetch_set = TRUE;
-		if (request->userdb_reply == NULL)
+		if (request->fields.userdb_reply == NULL)
 			auth_request_init_userdb_reply(request);
 		if (strcmp(name, "userdb_userdb_import") == 0) {
 			/* we can't put the whole userdb_userdb_import
@@ -2231,14 +2244,14 @@ void auth_request_set_field(struct auth_request *request,
 	} else if (strcmp(name, "noauthenticate") == 0) {
 		/* add "nopassword" also so that passdbs won't try to verify
 		   the password. */
-		auth_fields_add(request->extra_fields, name, value, 0);
-		auth_fields_add(request->extra_fields, "nopassword", NULL, 0);
+		auth_fields_add(request->fields.extra_fields, name, value, 0);
+		auth_fields_add(request->fields.extra_fields, "nopassword", NULL, 0);
 	} else if (strcmp(name, "nopassword") == 0) {
 		/* NULL password - anything goes */
 		const char *password = request->passdb_password;
 
 		if (password != NULL &&
-		    !auth_fields_exists(request->extra_fields, "noauthenticate")) {
+		    !auth_fields_exists(request->fields.extra_fields, "noauthenticate")) {
 			(void)password_get_scheme(&password);
 			if (*password != '\0') {
 				e_error(authdb_event(request),
@@ -2248,14 +2261,14 @@ void auth_request_set_field(struct auth_request *request,
 			}
 		}
 		request->passdb_password = NULL;
-		auth_fields_add(request->extra_fields, name, value, 0);
+		auth_fields_add(request->fields.extra_fields, name, value, 0);
 		return;
 	} else if (strcmp(name, "passdb_import") == 0) {
 		auth_request_passdb_import(request, value, "", default_scheme);
 		return;
 	} else {
 		/* these fields are returned to client */
-		auth_fields_add(request->extra_fields, name, value, 0);
+		auth_fields_add(request->fields.extra_fields, name, value, 0);
 		return;
 	}
 
@@ -2263,7 +2276,7 @@ void auth_request_set_field(struct auth_request *request,
 	   a) auth cache is used, b) if we're a worker and we'll need to send
 	   this to the main auth process that can store it in the cache,
 	   c) for easily checking :protected fields' existence. */
-	auth_fields_add(request->extra_fields, name, value,
+	auth_fields_add(request->fields.extra_fields, name, value,
 			AUTH_FIELD_FLAG_HIDDEN);
 }
 
@@ -2308,7 +2321,7 @@ void auth_request_init_userdb_reply(struct auth_request *request)
 {
 	const char *error;
 
-	request->userdb_reply = auth_fields_init(request->pool);
+	request->fields.userdb_reply = auth_fields_init(request->pool);
 	if (userdb_template_export(request->userdb->default_fields_tmpl,
 				   request, &error) < 0) {
 		e_error(authdb_event(request),
@@ -2334,9 +2347,9 @@ static void auth_request_set_uidgid_file(struct auth_request *request,
 			"stat(%s) failed: %m", str_c(path));
 		request->userdb_lookup_tempfailed = TRUE;
 	} else {
-		auth_fields_add(request->userdb_reply,
+		auth_fields_add(request->fields.userdb_reply,
 				"uid", dec2str(st.st_uid), 0);
-		auth_fields_add(request->userdb_reply,
+		auth_fields_add(request->fields.userdb_reply,
 				"gid", dec2str(st.st_gid), 0);
 	}
 }
@@ -2371,12 +2384,12 @@ void auth_request_set_userdb_field(struct auth_request *request,
 	if (name_len > 10 && strcmp(name+name_len-10, ":protected") == 0) {
 		/* set this field only if it hasn't been set before */
 		name = t_strndup(name, name_len-10);
-		if (auth_fields_exists(request->userdb_reply, name))
+		if (auth_fields_exists(request->fields.userdb_reply, name))
 			return;
 	} else if (name_len > 7 && strcmp(name+name_len-7, ":remove") == 0) {
 		/* remove this field entirely */
 		name = t_strndup(name, name_len-7);
-		auth_fields_remove(request->userdb_reply, name);
+		auth_fields_remove(request->fields.userdb_reply, name);
 		return;
 	}
 
@@ -2417,7 +2430,7 @@ void auth_request_set_userdb_field(struct auth_request *request,
 		return;
 	}
 
-	auth_fields_add(request->userdb_reply, name, value, 0);
+	auth_fields_add(request->fields.userdb_reply, name, value, 0);
 }
 
 void auth_request_set_userdb_field_values(struct auth_request *request,
@@ -2444,7 +2457,7 @@ void auth_request_set_userdb_field_values(struct auth_request *request,
 				str_append_c(value, ',');
 			str_append(value, dec2str(gid));
 		}
-		auth_fields_add(request->userdb_reply, name, str_c(value), 0);
+		auth_fields_add(request->fields.userdb_reply, name, str_c(value), 0);
 	} else {
 		/* add only one */
 		if (values[1] != NULL) {
@@ -2461,8 +2474,8 @@ static bool auth_request_proxy_is_self(struct auth_request *request)
 	const char *port = NULL;
 
 	/* check if the port is the same */
-	port = auth_fields_find(request->extra_fields, "port");
-	if (port != NULL && !str_uint_equals(port, request->local_port))
+	port = auth_fields_find(request->fields.extra_fields, "port");
+	if (port != NULL && !str_uint_equals(port, request->fields.local_port))
 		return FALSE;
 	/* don't check destuser. in some systems destuser is intentionally
 	   changed to proxied connections, but that shouldn't affect the
@@ -2480,7 +2493,7 @@ auth_request_proxy_ip_is_self(struct auth_request *request,
 {
 	unsigned int i;
 
-	if (net_ip_compare(ip, &request->real_local_ip))
+	if (net_ip_compare(ip, &request->fields.real_local_ip))
 		return TRUE;
 
 	for (i = 0; request->set->proxy_self_ips[i].family != 0; i++) {
@@ -2494,17 +2507,19 @@ static void
 auth_request_proxy_finish_ip(struct auth_request *request,
 			     bool proxy_host_is_self)
 {
-	if (!auth_fields_exists(request->extra_fields, "proxy_maybe")) {
+	const struct auth_request_fields *fields = &request->fields;
+
+	if (!auth_fields_exists(fields->extra_fields, "proxy_maybe")) {
 		/* proxying */
 	} else if (!proxy_host_is_self ||
 		   !auth_request_proxy_is_self(request)) {
 		/* proxy destination isn't ourself - proxy */
-		auth_fields_remove(request->extra_fields, "proxy_maybe");
-		auth_fields_add(request->extra_fields, "proxy", NULL, 0);
+		auth_fields_remove(fields->extra_fields, "proxy_maybe");
+		auth_fields_add(fields->extra_fields, "proxy", NULL, 0);
 	} else {
 		/* proxying to ourself - log in without proxying by dropping
 		   all the proxying fields. */
-		bool proxy_always = auth_fields_exists(request->extra_fields,
+		bool proxy_always = auth_fields_exists(fields->extra_fields,
 							"proxy_always");
 
 		auth_request_proxy_finish_failure(request);
@@ -2514,7 +2529,7 @@ auth_request_proxy_finish_ip(struct auth_request *request,
 
 			   we've matched self here, so add proxy field and
 			   let director fill the host. */
-			auth_fields_add(request->extra_fields,
+			auth_fields_add(request->fields.extra_fields,
 					"proxy", NULL, 0);
 		}
 	}
@@ -2532,7 +2547,7 @@ auth_request_proxy_dns_callback(const struct dns_lookup_result *result,
 	request->dns_lookup_ctx = NULL;
 	ctx->dns_lookup = NULL;
 
-	host = auth_fields_find(request->extra_fields, "host");
+	host = auth_fields_find(request->fields.extra_fields, "host");
 	i_assert(host != NULL);
 
 	if (result->ret != 0) {
@@ -2546,7 +2561,7 @@ auth_request_proxy_dns_callback(const struct dns_lookup_result *result,
 				"DNS lookup for %s took %u.%03u s",
 				host, result->msecs/1000, result->msecs % 1000);
 		}
-		auth_fields_add(request->extra_fields, "hostip",
+		auth_fields_add(request->fields.extra_fields, "hostip",
 				net_ip2addr(&result->ips[0]), 0);
 		proxy_host_is_self = FALSE;
 		for (i = 0; i < result->ips_count; i++) {
@@ -2576,7 +2591,7 @@ static int auth_request_proxy_host_lookup(struct auth_request *request,
 	i_zero(&dns_set);
 	dns_set.dns_client_socket_path = AUTH_DNS_SOCKET_PATH;
 	dns_set.timeout_msecs = AUTH_DNS_DEFAULT_TIMEOUT_MSECS;
-	value = auth_fields_find(request->extra_fields, "proxy_timeout");
+	value = auth_fields_find(request->fields.extra_fields, "proxy_timeout");
 	if (value != NULL) {
 		if (str_to_uint(value, &secs) < 0) {
 			auth_request_log_error(request, AUTH_SUBSYS_PROXY,
@@ -2609,28 +2624,28 @@ int auth_request_proxy_finish(struct auth_request *request,
 
 	if (request->auth_only)
 		return 1;
-	if (!auth_fields_exists(request->extra_fields, "proxy") &&
-	    !auth_fields_exists(request->extra_fields, "proxy_maybe"))
+	if (!auth_fields_exists(request->fields.extra_fields, "proxy") &&
+	    !auth_fields_exists(request->fields.extra_fields, "proxy_maybe"))
 		return 1;
 
-	host = auth_fields_find(request->extra_fields, "host");
+	host = auth_fields_find(request->fields.extra_fields, "host");
 	if (host == NULL) {
 		/* director can set the host. give it access to lip and lport
 		   so it can also perform proxy_maybe internally */
 		proxy_host_is_self = FALSE;
-		if (request->local_ip.family != 0) {
-			auth_fields_add(request->extra_fields, "lip",
-					net_ip2addr(&request->local_ip), 0);
+		if (request->fields.local_ip.family != 0) {
+			auth_fields_add(request->fields.extra_fields, "lip",
+				net_ip2addr(&request->fields.local_ip), 0);
 		}
-		if (request->local_port != 0) {
-			auth_fields_add(request->extra_fields, "lport",
-					dec2str(request->local_port), 0);
+		if (request->fields.local_port != 0) {
+			auth_fields_add(request->fields.extra_fields, "lport",
+				dec2str(request->fields.local_port), 0);
 		}
 	} else if (net_addr2ip(host, &ip) == 0) {
 		proxy_host_is_self =
 			auth_request_proxy_ip_is_self(request, &ip);
 	} else {
-		hostip = auth_fields_find(request->extra_fields, "hostip");
+		hostip = auth_fields_find(request->fields.extra_fields, "hostip");
 		if (hostip != NULL && net_addr2ip(hostip, &ip) < 0) {
 			auth_request_log_error(request, AUTH_SUBSYS_PROXY,
 				"Invalid hostip in passdb: %s", hostip);
@@ -2651,12 +2666,12 @@ int auth_request_proxy_finish(struct auth_request *request,
 void auth_request_proxy_finish_failure(struct auth_request *request)
 {
 	/* drop all proxying fields */
-	auth_fields_remove(request->extra_fields, "proxy");
-	auth_fields_remove(request->extra_fields, "proxy_maybe");
-	auth_fields_remove(request->extra_fields, "proxy_always");
-	auth_fields_remove(request->extra_fields, "host");
-	auth_fields_remove(request->extra_fields, "port");
-	auth_fields_remove(request->extra_fields, "destuser");
+	auth_fields_remove(request->fields.extra_fields, "proxy");
+	auth_fields_remove(request->fields.extra_fields, "proxy_maybe");
+	auth_fields_remove(request->fields.extra_fields, "proxy_always");
+	auth_fields_remove(request->fields.extra_fields, "host");
+	auth_fields_remove(request->fields.extra_fields, "port");
+	auth_fields_remove(request->fields.extra_fields, "destuser");
 }
 
 static void log_password_failure(struct auth_request *request,
@@ -2784,10 +2799,12 @@ int auth_request_password_verify_log(struct auth_request *request,
 	size_t raw_password_size;
 	const char *error;
 	int ret;
-	struct password_generate_params gen_params = {.user = request->original_username,
-						      .rounds = 0};
+	struct password_generate_params gen_params = {
+		.user = request->fields.original_username,
+		.rounds = 0
+	};
 
-	if (request->skip_password_check) {
+	if (request->fields.skip_password_check) {
 		/* passdb continue* rule after a successful authentication */
 		return 1;
 	}
@@ -2797,7 +2814,7 @@ int auth_request_password_verify_log(struct auth_request *request,
 		return 0;
 	}
 
-	if (auth_fields_exists(request->extra_fields, "nopassword")) {
+	if (auth_fields_exists(request->fields.extra_fields, "nopassword")) {
 		auth_request_log_debug(request, subsystem,
 					"Allowing any password");
 		return 1;
@@ -2843,7 +2860,7 @@ int auth_request_password_verify_log(struct auth_request *request,
 
 enum passdb_result auth_request_password_missing(struct auth_request *request)
 {
-	if (request->skip_password_check) {
+	if (request->fields.skip_password_check) {
 		/* This passdb wasn't used for authentication */
 		return PASSDB_RESULT_OK;
 	}
@@ -2886,20 +2903,21 @@ static void get_log_identifier(string_t *str, struct auth_request *auth_request)
 {
 	const char *ip;
 
-	if (auth_request->user == NULL)
+	if (auth_request->fields.user == NULL)
 	        str_append(str, "?");
 	else
-	        str_sanitize_append(str, auth_request->user, MAX_LOG_USERNAME_LEN);
+		str_sanitize_append(str, auth_request->fields.user,
+				    MAX_LOG_USERNAME_LEN);
 
-	ip = net_ip2addr(&auth_request->remote_ip);
+	ip = net_ip2addr(&auth_request->fields.remote_ip);
 	if (ip[0] != '\0') {
 	        str_append_c(str, ',');
 	        str_append(str, ip);
 	}
-	if (auth_request->requested_login_user != NULL)
+	if (auth_request->fields.requested_login_user != NULL)
 	        str_append(str, ",master");
-	if (auth_request->session_id != NULL)
-	        str_printfa(str, ",<%s>", auth_request->session_id);
+	if (auth_request->fields.session_id != NULL)
+	        str_printfa(str, ",<%s>", auth_request->fields.session_id);
 }
 
 void auth_request_log_debug(struct auth_request *auth_request,

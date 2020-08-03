@@ -104,7 +104,7 @@ auth_penalty_get_ident(struct auth_request *auth_request)
 {
 	struct ip_addr ip;
 
-	ip = auth_request->remote_ip;
+	ip = auth_request->fields.remote_ip;
 	if (IPADDR_IS_V6(&ip)) {
 		memset(ip.u.ip6.s6_addr + PENALTY_IPV6_MASK_BITS/CHAR_BIT, 0,
 		       sizeof(ip.u.ip6.s6_addr) -
@@ -121,7 +121,8 @@ void auth_penalty_lookup(struct auth_penalty *penalty,
 	const char *ident;
 
 	ident = auth_penalty_get_ident(auth_request);
-	if (penalty->disabled || ident == NULL || auth_request->no_penalty) {
+	if (penalty->disabled || ident == NULL ||
+	    auth_request->fields.no_penalty) {
 		callback(0, auth_request);
 		return;
 	}
@@ -144,7 +145,7 @@ get_userpass_checksum(struct auth_request *auth_request)
 {
 	return auth_request->mech_password == NULL ? 0 :
 		crc32_str_more(crc32_str(auth_request->mech_password),
-			       auth_request->user);
+			       auth_request->fields.user);
 }
 
 void auth_penalty_update(struct auth_penalty *penalty,
@@ -153,7 +154,8 @@ void auth_penalty_update(struct auth_penalty *penalty,
 	const char *ident;
 
 	ident = auth_penalty_get_ident(auth_request);
-	if (penalty->disabled || ident == NULL || auth_request->no_penalty)
+	if (penalty->disabled || ident == NULL ||
+	    auth_request->fields.no_penalty)
 		return;
 
 	if (value > AUTH_PENALTY_MAX_PENALTY) {

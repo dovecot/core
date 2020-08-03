@@ -81,7 +81,7 @@ static void static_lookup(struct auth_request *auth_request,
 		(struct static_userdb_module *)_module;
 	struct static_context *ctx;
 
-	if (!auth_request->successful && !module->allow_all_users) {
+	if (!auth_request->fields.successful && !module->allow_all_users) {
 		/* this is a userdb-only lookup. we need to know if this
 		   users exists or not. use a passdb lookup to do that.
 		   if the passdb doesn't support returning credentials, this

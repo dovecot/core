@@ -30,16 +30,8 @@ enum auth_request_secured {
 	AUTH_REQUEST_SECURED_TLS,
 };
 
-struct auth_request {
-	int refcount;
-
-	pool_t pool;
-
-	struct event *event;
-	struct event *mech_event;
-	ARRAY(struct event *) authdb_event;
-
-        enum auth_request_state state;
+/* All auth request fields are exported to auth-worker process. */
+struct auth_request_fields {
         /* user contains the user who is being authenticated.
            When master user is logging in as someone else, it gets more
            complicated. Initially user is set to master's username and the
@@ -57,13 +49,44 @@ struct auth_request {
 	const char *translated_username;
 	/* realm for the request, may be specified by some auth mechanisms */
 	const char *realm;
-	char *mech_password; /* set if verify_plain() is called */
-	char *passdb_password; /* set after password lookup if successful */
+
+	const char *service, *mech_name, *session_id, *local_name, *client_id;
+	struct ip_addr local_ip, remote_ip, real_local_ip, real_remote_ip;
+	in_port_t local_port, remote_port, real_local_port, real_remote_port;
+
         /* extra_fields are returned in authentication reply. Fields prefixed
            with "userdb_" are automatically placed to userdb_reply instead. */
         struct auth_fields *extra_fields;
 	/* the whole userdb result reply */
 	struct auth_fields *userdb_reply;
+
+	const unsigned char *delayed_credentials;
+	size_t delayed_credentials_size;
+
+	enum auth_request_secured secured;
+
+	bool successful:1;
+	bool skip_password_check:1;
+
+	/* flags received from auth client: */
+	bool final_resp_ok:1;
+	bool no_penalty:1;
+	bool valid_client_cert:1;
+	bool cert_username:1;
+};
+
+struct auth_request {
+	int refcount;
+
+	pool_t pool;
+
+	struct event *event;
+	struct event *mech_event;
+	ARRAY(struct event *) authdb_event;
+
+        enum auth_request_state state;
+	char *mech_password; /* set if verify_plain() is called */
+	char *passdb_password; /* set after password lookup if successful */
 	struct auth_request_proxy_dns_lookup_ctx *dns_lookup_ctx;
 	/* The final result of passdb lookup (delayed due to asynchronous
 	   proxy DNS lookups) */
@@ -87,9 +110,7 @@ struct auth_request {
 	time_t delay_until;
 	pid_t session_pid;
 
-	const char *service, *mech_name, *session_id, *local_name, *client_id;
-	struct ip_addr local_ip, remote_ip, real_local_ip, real_remote_ip;
-	in_port_t local_port, remote_port, real_local_port, real_remote_port;
+	struct auth_request_fields fields;
 
 	struct timeout *to_abort, *to_penalty;
 	unsigned int policy_penalty;
@@ -104,8 +125,6 @@ struct auth_request {
                 userdb_callback_t *userdb;
 	} private_callback;
 	const char *credentials_scheme;
-	const unsigned char *delayed_credentials;
-	size_t delayed_credentials_size;
 
 	void *context;
 
@@ -118,17 +137,9 @@ struct auth_request {
 	/* DIGEST-MD5 kludge */
 	bool domain_is_realm:1;
 
-	enum auth_request_secured secured;
-
-	/* flags received from auth client: */
-	bool final_resp_ok:1;
-	bool no_penalty:1;
-	bool valid_client_cert:1;
-	bool cert_username:1;
 	bool request_auth_token:1;
 
 	/* success/failure states: */
-	bool successful:1;
 	bool failed:1; /* overrides any other success */
 	bool internal_failure:1;
 	bool passdbs_seen_user_unknown:1;
@@ -137,7 +148,6 @@ struct auth_request {
 
 	/* current state: */
 	bool accept_cont_input:1;
-	bool skip_password_check:1;
 	bool prefer_plain_credentials:1;
 	bool in_delayed_failure_queue:1;
 	bool removed_from_handler:1;

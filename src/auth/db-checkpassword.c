@@ -236,46 +236,48 @@ static void env_put_auth_vars(struct auth_request *request)
 
 static void checkpassword_setup_env(struct auth_request *request)
 {
+	const struct auth_request_fields *fields = &request->fields;
+
 	/* Besides passing the standard username and password in a
 	   pipe, also pass some other possibly interesting information
 	   via environment. Use UCSPI names for local/remote IPs. */
 	env_put("PROTO=TCP"); /* UCSPI */
 	env_put(t_strdup_printf("ORIG_UID=%s", dec2str(getuid())));
-	env_put(t_strconcat("SERVICE=", request->service, NULL));
-	if (request->local_ip.family != 0) {
+	env_put(t_strconcat("SERVICE=", fields->service, NULL));
+	if (fields->local_ip.family != 0) {
 		env_put(t_strconcat("TCPLOCALIP=",
-				    net_ip2addr(&request->local_ip), NULL));
+				    net_ip2addr(&fields->local_ip), NULL));
 		/* FIXME: for backwards compatibility only,
 		   remove some day */
 		env_put(t_strconcat("LOCAL_IP=",
-				    net_ip2addr(&request->local_ip), NULL));
+				    net_ip2addr(&fields->local_ip), NULL));
 	}
-	if (request->remote_ip.family != 0) {
+	if (fields->remote_ip.family != 0) {
 		env_put(t_strconcat("TCPREMOTEIP=",
-				    net_ip2addr(&request->remote_ip), NULL));
+				    net_ip2addr(&fields->remote_ip), NULL));
 		/* FIXME: for backwards compatibility only,
 		   remove some day */
 		env_put(t_strconcat("REMOTE_IP=",
-				    net_ip2addr(&request->remote_ip), NULL));
+				    net_ip2addr(&fields->remote_ip), NULL));
 	}
-	if (request->local_port != 0) {
+	if (fields->local_port != 0) {
 		env_put(t_strdup_printf("TCPLOCALPORT=%u",
-					request->local_port));
+					fields->local_port));
 	}
-	if (request->remote_port != 0) {
+	if (fields->remote_port != 0) {
 		env_put(t_strdup_printf("TCPREMOTEPORT=%u",
-					request->remote_port));
+					fields->remote_port));
 	}
-	if (request->master_user != NULL) {
+	if (fields->master_user != NULL) {
 		env_put(t_strconcat("MASTER_USER=",
-				    request->master_user, NULL));
+				    fields->master_user, NULL));
 	}
-	if (!auth_fields_is_empty(request->extra_fields)) {
-		const ARRAY_TYPE(auth_field) *fields =
-			auth_fields_export(request->extra_fields);
+	if (!auth_fields_is_empty(fields->extra_fields)) {
+		const ARRAY_TYPE(auth_field) *extra_fields =
+			auth_fields_export(fields->extra_fields);
 
 		/* extra fields could come from master db */
-		env_put_extra_fields(fields);
+		env_put_extra_fields(extra_fields);
 	}
 	env_put_auth_vars(request);
 }
@@ -341,7 +343,8 @@ static void checkpassword_child_output(struct chkpw_auth_request *request)
 	ssize_t ret;
 
 	buf = t_buffer_create(CHECKPASSWORD_MAX_REQUEST_LEN);
-	buffer_append(buf, auth_request->user, strlen(auth_request->user)+1);
+	buffer_append(buf, auth_request->fields.user,
+		      strlen(auth_request->fields.user)+1);
 	if (request->auth_password != NULL) {
 		buffer_append(buf, request->auth_password,
 			      strlen(request->auth_password)+1);
@@ -463,7 +466,7 @@ void db_checkpassword_call(struct db_checkpassword *db,
 	pid_t pid;
 
 	/* <username> \0 <password> \0 timestamp \0 */
-	output_len = strlen(request->user) + 3;
+	output_len = strlen(request->fields.user) + 3;
 	if (auth_password != NULL)
 		output_len += strlen(auth_password);
 	if (output_len > CHECKPASSWORD_MAX_REQUEST_LEN) {

@@ -19,7 +19,7 @@ static void test_db_lua_auth_verify(void)
 	struct event *event = event_create(req->event);
 	array_push_back(&req->authdb_event, &event);
 	req->passdb = passdb_mock();
-	req->user = "testuser";
+	req->fields.user = "testuser";
 
 	static const char *luascript =
 "function auth_password_verify(req, pass)\n"
@@ -63,7 +63,7 @@ static void test_db_lua_auth_lookup_numberish_value(void)
 	struct event *event = event_create(req->event);
 	array_push_back(&req->authdb_event, &event);
 	req->passdb = passdb_mock();
-	req->user = "testuser";
+	req->fields.user = "testuser";
 
 	static const char *luascript =
 "function auth_passdb_lookup(req)\n"
@@ -80,7 +80,7 @@ static void test_db_lua_auth_lookup_numberish_value(void)
 	if (script != NULL) {
 		test_assert(auth_lua_script_init(script, &error) == 0);
 		test_assert(auth_lua_call_passdb_lookup(script, req, &scheme, &pass, &error) == 1);
-		test_assert(strcmp(req->user, "01234") == 0);
+		test_assert(strcmp(req->fields.user, "01234") == 0);
 		dlua_script_unref(&script);
 	}
 	if (error != NULL) {
@@ -106,7 +106,7 @@ static void test_db_lua_auth_lookup(void)
 	struct event *event = event_create(req->event);
 	array_push_back(&req->authdb_event, &event);
 	req->passdb = passdb_mock();
-	req->user = "testuser";
+	req->fields.user = "testuser";
 
 	static const char *luascript =
 "function auth_passdb_lookup(req)\n"

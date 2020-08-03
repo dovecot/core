@@ -80,7 +80,7 @@ pam_userpass_conv(int num_msg, pam_const struct pam_message **msg,
 		case PAM_PROMPT_ECHO_ON:
 			/* Assume we're asking for user. We might not ever
 			   get here because PAM already knows the user. */
-			string = strdup(ctx->request->user);
+			string = strdup(ctx->request->fields.user);
 			if (string == NULL)
 				i_fatal_status(FATAL_OUTOFMEM, "Out of memory");
 			break;
@@ -240,10 +240,10 @@ static void set_pam_items(struct auth_request *request, pam_handle_t *pamh)
 	const char *host;
 
 	/* These shouldn't fail, and we don't really care if they do. */
-	host = net_ip2addr(&request->remote_ip);
+	host = net_ip2addr(&request->fields.remote_ip);
 	if (host[0] != '\0')
 		(void)pam_set_item(pamh, PAM_RHOST, host);
-	(void)pam_set_item(pamh, PAM_RUSER, request->user);
+	(void)pam_set_item(pamh, PAM_RUSER, request->fields.user);
 	/* TTY is needed by eg. pam_access module */
 	(void)pam_set_item(pamh, PAM_TTY, "dovecot");
 }
@@ -265,7 +265,7 @@ pam_verify_plain_call(struct auth_request *request, const char *service,
 	ctx.request = request;
 	ctx.pass = password;
 
-	status = pam_start(service, request->user, &conv, &pamh);
+	status = pam_start(service, request->fields.user, &conv, &pamh);
 	if (status != PAM_SUCCESS) {
 		e_error(authdb_event(request),
 			"pam_start() failed: %s",

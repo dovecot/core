@@ -70,6 +70,7 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 				       auth_request_escape_func_t *escape_func,
 				       unsigned int *count)
 {
+	const struct auth_request_fields *fields = &auth_request->fields;
 	const unsigned int auth_count =
 		N_ELEMENTS(auth_request_var_expand_static_tab);
 	struct var_expand_table *tab, *ret_tab;
@@ -88,19 +89,19 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	memcpy(tab, auth_request_var_expand_static_tab,
 	       auth_count * sizeof(*tab));
 
-	username = auth_request->user != NULL ? auth_request->user : "";
+	username = fields->user != NULL ? fields->user : "";
 	tab[0].value = escape_func(username, auth_request);
 	tab[1].value = escape_func(t_strcut(username, '@'),
 				   auth_request);
 	tab[2].value = i_strchr_to_next(username, '@');
 	if (tab[2].value != NULL)
 		tab[2].value = escape_func(tab[2].value, auth_request);
-	tab[3].value = escape_func(auth_request->service, auth_request);
+	tab[3].value = escape_func(fields->service, auth_request);
 	/* tab[4] = we have no home dir */
-	if (auth_request->local_ip.family != 0)
-		tab[5].value = net_ip2addr(&auth_request->local_ip);
-	if (auth_request->remote_ip.family != 0)
-		tab[6].value = net_ip2addr(&auth_request->remote_ip);
+	if (fields->local_ip.family != 0)
+		tab[5].value = net_ip2addr(&fields->local_ip);
+	if (fields->remote_ip.family != 0)
+		tab[6].value = net_ip2addr(&fields->remote_ip);
 	tab[7].value = dec2str(auth_request->client_pid);
 	if (auth_request->mech_password != NULL) {
 		tab[8].value = escape_func(auth_request->mech_password,
@@ -113,20 +114,20 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 		tab[9].value = auth_request->passdb == NULL ? "" :
 			dec2str(auth_request->passdb->passdb->id);
 	}
-	tab[10].value = auth_request->mech_name == NULL ? "" :
-		escape_func(auth_request->mech_name, auth_request);
-	switch(auth_request->secured) {
+	tab[10].value = fields->mech_name == NULL ? "" :
+		escape_func(fields->mech_name, auth_request);
+	switch (fields->secured) {
 	case AUTH_REQUEST_SECURED_NONE: tab[11].value = ""; break;
 	case AUTH_REQUEST_SECURED: tab[11].value = "secured"; break;
 	case AUTH_REQUEST_SECURED_TLS: tab[11].value = "TLS"; break;
 	default: tab[11].value = ""; break;
 	};
-	tab[12].value = dec2str(auth_request->local_port);
-	tab[13].value = dec2str(auth_request->remote_port);
-	tab[14].value = auth_request->valid_client_cert ? "valid" : "";
+	tab[12].value = dec2str(fields->local_port);
+	tab[13].value = dec2str(fields->remote_port);
+	tab[14].value = fields->valid_client_cert ? "valid" : "";
 
-	if (auth_request->requested_login_user != NULL) {
-		const char *login_user = auth_request->requested_login_user;
+	if (fields->requested_login_user != NULL) {
+		const char *login_user = fields->requested_login_user;
 
 		tab[15].value = escape_func(login_user, auth_request);
 		tab[16].value = escape_func(t_strcut(login_user, '@'),
@@ -137,14 +138,14 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 						    auth_request);
 		}
 	}
-	tab[18].value = auth_request->session_id == NULL ? NULL :
-		escape_func(auth_request->session_id, auth_request);
-	if (auth_request->real_local_ip.family != 0)
-		tab[19].value = net_ip2addr(&auth_request->real_local_ip);
-	if (auth_request->real_remote_ip.family != 0)
-		tab[20].value = net_ip2addr(&auth_request->real_remote_ip);
-	tab[21].value = dec2str(auth_request->real_local_port);
-	tab[22].value = dec2str(auth_request->real_remote_port);
+	tab[18].value = fields->session_id == NULL ? NULL :
+		escape_func(fields->session_id, auth_request);
+	if (fields->real_local_ip.family != 0)
+		tab[19].value = net_ip2addr(&fields->real_local_ip);
+	if (fields->real_remote_ip.family != 0)
+		tab[20].value = net_ip2addr(&fields->real_remote_ip);
+	tab[21].value = dec2str(fields->real_local_port);
+	tab[22].value = dec2str(fields->real_remote_port);
 	tab[23].value = i_strchr_to_next(username, '@');
 	if (tab[23].value != NULL) {
 		tab[23].value = escape_func(t_strcut(tab[23].value, '@'),
@@ -153,21 +154,21 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	tab[24].value = strrchr(username, '@');
 	if (tab[24].value != NULL)
 		tab[24].value = escape_func(tab[24].value+1, auth_request);
-	tab[25].value = auth_request->master_user == NULL ? NULL :
-		escape_func(auth_request->master_user, auth_request);
+	tab[25].value = fields->master_user == NULL ? NULL :
+		escape_func(fields->master_user, auth_request);
 	tab[26].value = auth_request->session_pid == (pid_t)-1 ? NULL :
 		dec2str(auth_request->session_pid);
 
-	orig_user = auth_request->original_username != NULL ?
-		auth_request->original_username : username;
+	orig_user = fields->original_username != NULL ?
+		fields->original_username : username;
 	tab[27].value = escape_func(orig_user, auth_request);
 	tab[28].value = escape_func(t_strcut(orig_user, '@'), auth_request);
 	tab[29].value = i_strchr_to_next(orig_user, '@');
 	if (tab[29].value != NULL)
 		tab[29].value = escape_func(tab[29].value, auth_request);
 
-	if (auth_request->master_user != NULL)
-		auth_user = auth_request->master_user;
+	if (fields->master_user != NULL)
+		auth_user = fields->master_user;
 	else
 		auth_user = orig_user;
 	tab[30].value = escape_func(auth_user, auth_request);
@@ -175,10 +176,10 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	tab[32].value = i_strchr_to_next(auth_user, '@');
 	if (tab[32].value != NULL)
 		tab[32].value = escape_func(tab[32].value, auth_request);
-	if (auth_request->local_name != NULL)
-		tab[33].value = escape_func(auth_request->local_name, auth_request);
-	if (auth_request->client_id != NULL)
-		tab[34].value = escape_func(auth_request->client_id, auth_request);
+	if (fields->local_name != NULL)
+		tab[33].value = escape_func(fields->local_name, auth_request);
+	if (fields->client_id != NULL)
+		tab[34].value = escape_func(fields->client_id, auth_request);
 	return ret_tab;
 }
 
@@ -214,7 +215,7 @@ auth_request_var_expand_func_passdb(const char *data, void *context,
 	const char *field_name = t_strcut(data, ':');
 	const char *value;
 
-	value = auth_fields_find(ctx->auth_request->extra_fields, field_name);
+	value = auth_fields_find(ctx->auth_request->fields.extra_fields, field_name);
 	*value_r = ctx->escape_func(value != NULL ? value : field_get_default(data),
 				    ctx->auth_request);
 	return 1;
@@ -229,8 +230,8 @@ auth_request_var_expand_func_userdb(const char *data, void *context,
 	const char *field_name = t_strcut(data, ':');
 	const char *value;
 
-	value = ctx->auth_request->userdb_reply == NULL ? NULL :
-		auth_fields_find(ctx->auth_request->userdb_reply, field_name);
+	value = ctx->auth_request->fields.userdb_reply == NULL ? NULL :
+		auth_fields_find(ctx->auth_request->fields.userdb_reply, field_name);
 	*value_r = ctx->escape_func(value != NULL ? value : field_get_default(data),
 				    ctx->auth_request);
 	return 1;

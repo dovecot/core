@@ -111,12 +111,12 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 		/* we can generate anything out of plaintext passwords */
 		plaintext = t_strndup(*credentials_r, *size_r);
 		i_zero(&pwd_gen_params);
-		pwd_gen_params.user = auth_request->original_username;
+		pwd_gen_params.user = auth_request->fields.original_username;
 		if (!auth_request->domain_is_realm &&
 		    strchr(pwd_gen_params.user, '@') != NULL) {
 			/* domain must not be used as realm. add the @realm. */
 			pwd_gen_params.user = t_strconcat(pwd_gen_params.user, "@",
-					       auth_request->realm, NULL);
+					       auth_request->fields.realm, NULL);
 		}
 		if (auth_request->set->debug_passwords) {
 			e_debug(authdb_event(auth_request),
@@ -145,7 +145,8 @@ void passdb_handle_credentials(enum passdb_result result,
 	if (result != PASSDB_RESULT_OK) {
 		callback(result, NULL, 0, auth_request);
 		return;
-	} else if (auth_fields_exists(auth_request->extra_fields, "noauthenticate")) {
+	} else if (auth_fields_exists(auth_request->fields.extra_fields,
+				      "noauthenticate")) {
 		callback(PASSDB_RESULT_NEXT, NULL, 0, auth_request);
 		return;
 	}
@@ -157,7 +158,7 @@ void passdb_handle_credentials(enum passdb_result result,
 	} else if (*auth_request->credentials_scheme == '\0') {
 		/* We're doing a passdb lookup (not authenticating).
 		   Pass through a NULL password without an error. */
-	} else if (auth_request->delayed_credentials != NULL) {
+	} else if (auth_request->fields.delayed_credentials != NULL) {
 		/* We already have valid credentials from an earlier
 		   passdb lookup. auth_request_lookup_credentials_finish()
 		   will use them. */

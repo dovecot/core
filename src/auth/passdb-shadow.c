@@ -17,7 +17,7 @@ shadow_lookup(struct auth_request *request, struct spwd **spw_r)
 {
 	e_debug(authdb_event(request), "lookup");
 
-	*spw_r = getspnam(request->user);
+	*spw_r = getspnam(request->fields.user);
 	if (*spw_r == NULL) {
 		auth_request_log_unknown_user(request, AUTH_SUBSYS_DB);
 		return PASSDB_RESULT_USER_UNKNOWN;

@@ -113,7 +113,7 @@ ntlm_verify_credentials(struct ntlm_auth_request *request,
 		 * Authentication target == NULL because we are acting
 		 * as a standalone server, not as NT domain member.
 		 */
-		ntlmssp_v2_response(auth_request->user, NULL,
+		ntlmssp_v2_response(auth_request->fields.user, NULL,
 				    credentials, request->challenge, blob,
 				    response_length - NTLMSSP_V2_RESPONSE_SIZE,
 				    ntlm_v2_response);

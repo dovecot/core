@@ -274,8 +274,9 @@ rpa_parse_token3(struct rpa_auth_request *request, const void *data,
 	if (!auth_request_set_username(auth_request, user, error))
 		return FALSE;
 
-	request->username_ucs2be = ucs2be_str(request->pool, auth_request->user,
-					      &request->username_len);
+	request->username_ucs2be =
+		ucs2be_str(request->pool, auth_request->fields.user,
+			   &request->username_len);
 	request->realm_ucs2be = ucs2be_str(request->pool, realm,
 					   &request->realm_len);
 
@@ -338,13 +339,13 @@ mech_rpa_build_token2(struct rpa_auth_request *request, size_t *size)
 
 	realms = t_str_new(64);
 	for (tmp = set->realms_arr; *tmp != NULL; tmp++) {
-		rpa_add_realm(realms, *tmp, request->auth_request.service);
+		rpa_add_realm(realms, *tmp, request->auth_request.fields.service);
 	}
 
 	if (str_len(realms) == 0) {
 		rpa_add_realm(realms, *set->default_realm != '\0' ?
 			      set->default_realm : my_hostname,
-			      request->auth_request.service);
+			      request->auth_request.fields.service);
 	}
 
 	realms_len = str_len(realms) - 1;
@@ -482,7 +483,7 @@ mech_rpa_auth_phase1(struct auth_request *auth_request,
 		return;
 	}
 
-	service = t_str_lcase(auth_request->service);
+	service = t_str_lcase(auth_request->fields.service);
 
 	token2 = mech_rpa_build_token2(request, &token2_size);
 

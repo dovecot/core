@@ -110,7 +110,7 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 		e_debug(authdb_event(request), "cache: "
 			"validating password on worker");
 		auth_request_ref(request);
-		auth_worker_call(request->pool, request->user, str_c(str),
+		auth_worker_call(request->pool, request->fields.user, str_c(str),
 				 passdb_cache_verify_plain_callback, request);
 		return TRUE;
 	} else {

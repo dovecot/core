@@ -68,7 +68,8 @@ passdb_dict_lookup_key(struct auth_request *auth_request,
 			return PASSDB_RESULT_INTERNAL_FAILURE;
 
 		if (auth_request->passdb_password == NULL &&
-		    !auth_fields_exists(auth_request->extra_fields, "nopassword")) {
+		    !auth_fields_exists(auth_request->fields.extra_fields,
+					"nopassword")) {
 			return auth_request_password_missing(auth_request);
 		} else {
 			return PASSDB_RESULT_OK;

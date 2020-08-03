@@ -631,15 +631,15 @@ static void db_oauth2_lookup_introspect(struct db_oauth2_request *req)
 		"Making introspection request to %s",
 		req->db->set.introspection_url);
 	input.token = req->token;
-	input.local_ip = req->auth_request->local_ip;
-	input.local_port = req->auth_request->local_port;
-	input.remote_ip = req->auth_request->remote_ip;
-	input.remote_port = req->auth_request->remote_port;
-	input.real_local_ip = req->auth_request->real_local_ip;
-	input.real_local_port = req->auth_request->real_local_port;
-	input.real_remote_ip = req->auth_request->real_remote_ip;
-	input.real_remote_port = req->auth_request->real_remote_port;
-	input.service = req->auth_request->service;
+	input.local_ip = req->auth_request->fields.local_ip;
+	input.local_port = req->auth_request->fields.local_port;
+	input.remote_ip = req->auth_request->fields.remote_ip;
+	input.remote_port = req->auth_request->fields.remote_port;
+	input.real_local_ip = req->auth_request->fields.real_local_ip;
+	input.real_local_port = req->auth_request->fields.real_local_port;
+	input.real_remote_ip = req->auth_request->fields.real_remote_ip;
+	input.real_remote_port = req->auth_request->fields.real_remote_port;
+	input.service = req->auth_request->fields.service;
 
 	req->req = oauth2_introspection_start(&req->db->oauth2_set, &input,
 					      db_oauth2_introspect_continue, req);
@@ -753,15 +753,15 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 	req->auth_request = request;
 
 	input.token = token;
-	input.local_ip = req->auth_request->local_ip;
-	input.local_port = req->auth_request->local_port;
-	input.remote_ip = req->auth_request->remote_ip;
-	input.remote_port = req->auth_request->remote_port;
-	input.real_local_ip = req->auth_request->real_local_ip;
-	input.real_local_port = req->auth_request->real_local_port;
-	input.real_remote_ip = req->auth_request->real_remote_ip;
-	input.real_remote_port = req->auth_request->real_remote_port;
-	input.service = req->auth_request->service;
+	input.local_ip = req->auth_request->fields.local_ip;
+	input.local_port = req->auth_request->fields.local_port;
+	input.remote_ip = req->auth_request->fields.remote_ip;
+	input.remote_port = req->auth_request->fields.remote_port;
+	input.real_local_ip = req->auth_request->fields.real_local_ip;
+	input.real_local_port = req->auth_request->fields.real_local_port;
+	input.real_remote_ip = req->auth_request->fields.real_remote_ip;
+	input.real_remote_port = req->auth_request->fields.real_remote_port;
+	input.service = req->auth_request->fields.service;
 
 	if (db->oauth2_set.introspection_mode == INTROSPECTION_MODE_LOCAL &&
 	    !db_oauth2_uses_password_grant(db)) {
@@ -777,7 +777,7 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 			"Making grant url request to %s",
 			db->set.grant_url);
 		req->req = oauth2_passwd_grant_start(&db->oauth2_set, &input,
-						     request->user, request->mech_password,
+						     request->fields.user, request->mech_password,
 						     db_oauth2_lookup_passwd_grant, req);
 	} else if (*db->oauth2_set.tokeninfo_url == '\0') {
 		e_debug(authdb_event(req->auth_request),

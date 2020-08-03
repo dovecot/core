@@ -12,7 +12,7 @@ mech_external_auth_continue(struct auth_request *request,
 	const char *authzid, *error;
 
 	authzid = t_strndup(data, data_size);
-	if (request->user == NULL) {
+	if (request->fields.user == NULL) {
 		e_info(request->mech_event,
 		       "username not known");
 		auth_request_fail(request);

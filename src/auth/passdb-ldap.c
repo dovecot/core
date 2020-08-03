@@ -83,7 +83,7 @@ ldap_lookup_finish(struct auth_request *auth_request,
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (auth_request->passdb_password == NULL &&
 		   ldap_request->require_password &&
-		   !auth_fields_exists(auth_request->extra_fields, "nopassword")) {
+		   !auth_fields_exists(auth_request->fields.extra_fields, "nopassword")) {
 		passdb_result = auth_request_password_missing(auth_request);
 	} else {
 		/* passdb_password may change on the way,
@@ -258,7 +258,7 @@ static void ldap_bind_lookup_dn_callback(struct ldap_connection *conn,
 	} else if (res == NULL || passdb_ldap_request->entries != 1) {
 		/* failure */
 		ldap_bind_lookup_dn_fail(auth_request, passdb_ldap_request, res);
-	} else if (auth_request->skip_password_check) {
+	} else if (auth_request->fields.skip_password_check) {
 		/* we've already verified that the password matched -
 		   we just wanted to get any extra fields */
 		passdb_ldap_request->callback.
