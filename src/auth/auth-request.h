@@ -1,6 +1,10 @@
 #ifndef AUTH_REQUEST_H
 #define AUTH_REQUEST_H
 
+#ifndef AUTH_REQUEST_FIELDS_CONST
+#  define AUTH_REQUEST_FIELDS_CONST const
+#endif
+
 #include "array.h"
 #include "net.h"
 #include "var-expand.h"
@@ -121,7 +125,11 @@ struct auth_request {
 	time_t delay_until;
 	pid_t session_pid;
 
-	struct auth_request_fields fields;
+	/* These are const for most of the code, so they don't try to modify
+	   the fields directly. Only auth-request-fields.c and unit tests have
+	   the fields writable. This way it's more difficult to make them
+	   out-of-sync with events. */
+	AUTH_REQUEST_FIELDS_CONST struct auth_request_fields fields;
 
 	struct timeout *to_abort, *to_penalty;
 	unsigned int policy_penalty;

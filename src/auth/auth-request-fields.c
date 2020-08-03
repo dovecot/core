@@ -1,5 +1,7 @@
 /* Copyright (c) 2002-2020 Dovecot authors, see the included COPYING file */
 
+#define AUTH_REQUEST_FIELDS_CONST
+
 #include "auth-common.h"
 #include "str.h"
 #include "strescape.h"

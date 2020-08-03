@@ -3,6 +3,8 @@
 #ifndef TEST_AUTH_H
 #define TEST_AUTH_H 1
 
+#define AUTH_REQUEST_FIELDS_CONST
+
 #include "lib.h"
 #include "test-common.h"
 
