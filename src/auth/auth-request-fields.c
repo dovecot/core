@@ -387,3 +387,18 @@ bool auth_request_set_login_username(struct auth_request *request,
 		request->fields.requested_login_user);
 	return TRUE;
 }
+
+void auth_request_master_user_login_finish(struct auth_request *request)
+{
+	if (request->failed)
+		return;
+
+	/* master login successful. update user and master_user variables. */
+	e_info(authdb_event(request),
+	       "Master user logging in as %s",
+	       request->fields.requested_login_user);
+
+	request->fields.master_user = request->fields.user;
+	request->fields.user = request->fields.requested_login_user;
+	request->fields.requested_login_user = NULL;
+}

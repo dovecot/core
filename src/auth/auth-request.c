@@ -523,21 +523,6 @@ static void auth_request_save_cache(struct auth_request *request,
 			  result == PASSDB_RESULT_OK);
 }
 
-static void auth_request_master_lookup_finish(struct auth_request *request)
-{
-	if (request->failed)
-		return;
-
-	/* master login successful. update user and master_user variables. */
-	e_info(authdb_event(request),
-	       "Master user logging in as %s",
-	       request->fields.requested_login_user);
-
-	request->fields.master_user = request->fields.user;
-	request->fields.user = request->fields.requested_login_user;
-	request->fields.requested_login_user = NULL;
-}
-
 static bool
 auth_request_mechanism_accepted(const char *const *mechs,
 				const struct mech_module *mech)
@@ -851,7 +836,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 
 	if (request->fields.requested_login_user != NULL &&
 	    *result == PASSDB_RESULT_OK) {
-		auth_request_master_lookup_finish(request);
+		auth_request_master_user_login_finish(request);
 		/* if the passdb lookup continues, it continues with non-master
 		   passdbs for the requested_login_user. */
 		next_passdb = auth_request_get_auth(request)->passdbs;
