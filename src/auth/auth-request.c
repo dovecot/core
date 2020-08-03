@@ -1659,22 +1659,21 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 		   we'll have to temporarily replace request->user to get
 		   %u to be the wanted username */
 		const char *error;
-		char *old_username;
 		string_t *dest;
 
-		old_username = request->fields.user;
-		request->fields.user = user;
-
 		dest = t_str_new(256);
-		if (auth_request_var_expand(dest, set->username_format,
-					    request, NULL, &error) <= 0) {
+		unsigned int count = 0;
+		const struct var_expand_table *table =
+			auth_request_get_var_expand_table_full(request,
+				user, NULL, &count);
+		if (auth_request_var_expand_with_table(dest,
+				set->username_format, request,
+				table, NULL, &error) <= 0) {
 			*error_r = t_strdup_printf(
 				"Failed to expand username_format=%s: %s",
 				set->username_format, error);
 		}
 		user = p_strdup(request->pool, str_c(dest));
-
-		request->fields.user = old_username;
 	}
 
 	if (user[0] == '\0') {
