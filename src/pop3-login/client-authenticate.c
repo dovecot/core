@@ -127,6 +127,15 @@ int cmd_auth(struct pop3_client *pop3_client)
 		ir = t_strdup(str_c(client->auth_response));
 
 	pop3_client->auth_mech_name_parsed = FALSE;
+	/* The whole AUTH line command is parsed now. The rest of the SASL
+	   protocol exchange happens in login-common code. We can free the
+	   current command here already, because no pop3-login code is called
+	   until the authentication is finished. Also, there's currently no
+	   single location that is called in pop3-login code after the
+	   authentication is finished. For example it could be an auth failure
+	   or it could be a successful authentication with a proxying
+	   failure. */
+	i_free(pop3_client->current_cmd);
 	return client_auth_begin(client, t_strdup(client->auth_mech_name), ir);
 }
 
