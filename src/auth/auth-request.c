@@ -1731,7 +1731,7 @@ auth_request_try_update_username(struct auth_request *request,
 		e_debug(authdb_event(request),
 			"username changed %s -> %s",
 			request->fields.user, new_value);
-		request->fields.user = p_strdup(request->pool, new_value);
+		auth_request_set_username_forced(request, new_value);
 		request->user_changed_by_lookup = TRUE;
 	}
 	return TRUE;

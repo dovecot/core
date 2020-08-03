@@ -36,7 +36,7 @@ static bool user_callback(const char *reply, void *context)
 			username = t_strdup_until(username, args++);
 		if (username[0] != '\0' &&
 		    strcmp(request->fields.user, username) != 0) {
-			request->fields.user = p_strdup(request->pool, username);
+			auth_request_set_username_forced(request, username);
 			request->user_changed_by_lookup = TRUE;
 		}
 	} else {

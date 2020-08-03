@@ -201,7 +201,7 @@ bool auth_request_import_auth(struct auth_request *request,
 		if (request->set->ssl_username_from_cert && *value != '\0') {
 			/* get username from SSL certificate. it overrides
 			   the username given by the auth mechanism. */
-			fields->user = p_strdup(request->pool, value);
+			auth_request_set_username_forced(request, value);
 			fields->cert_username = TRUE;
 		}
 	} else {
@@ -222,7 +222,7 @@ bool auth_request_import(struct auth_request *request,
 
 	/* for communication between auth master and worker processes */
 	if (strcmp(key, "user") == 0)
-		fields->user = p_strdup(request->pool, value);
+		auth_request_set_username_forced(request, value);
 	else if (strcmp(key, "master-user") == 0)
 		fields->master_user = p_strdup(request->pool, value);
 	else if (strcmp(key, "original-username") == 0)
@@ -347,7 +347,7 @@ bool auth_request_set_username(struct auth_request *request,
 		request->fields.user = NULL;
 		return FALSE;
 	}
-	request->fields.user = p_strdup(request->pool, username);
+	auth_request_set_username_forced(request, username);
 	if (request->fields.translated_username == NULL) {
 		/* similar to original_username, but after translations */
 		request->fields.translated_username = request->fields.user;
@@ -361,6 +361,14 @@ bool auth_request_set_username(struct auth_request *request,
 			return FALSE;
 	}
 	return TRUE;
+}
+
+void auth_request_set_username_forced(struct auth_request *request,
+				      const char *username)
+{
+	i_assert(username != NULL);
+
+	request->fields.user = p_strdup(request->pool, username);
 }
 
 bool auth_request_set_login_username(struct auth_request *request,
@@ -413,6 +421,7 @@ void auth_request_master_user_login_finish(struct auth_request *request)
 	       request->fields.requested_login_user);
 
 	request->fields.master_user = request->fields.user;
-	request->fields.user = request->fields.requested_login_user;
+	auth_request_set_username_forced(request,
+					 request->fields.requested_login_user);
 	request->fields.requested_login_user = NULL;
 }

@@ -230,6 +230,9 @@ void auth_request_lookup_user(struct auth_request *request,
 
 bool auth_request_set_username(struct auth_request *request,
 			       const char *username, const char **error_r);
+/* Change the username without any translations or checks. */
+void auth_request_set_username_forced(struct auth_request *request,
+				      const char *username);
 bool auth_request_set_login_username(struct auth_request *request,
                                      const char *username,
                                      const char **error_r);

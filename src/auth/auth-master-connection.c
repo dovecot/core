@@ -603,14 +603,13 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 		if (!auth_request_import_info(auth_request, name, arg) &&
 		    strcmp(name, "user") == 0) {
 			/* username mask */
-			auth_request->fields.user =
-				p_strdup(auth_request->pool, arg);
+			auth_request_set_username_forced(auth_request, arg);
 		}
 	}
 
 	/* rest of the code doesn't like NULL user or service */
 	if (auth_request->fields.user == NULL)
-		auth_request->fields.user = "";
+		auth_request_set_username_forced(auth_request, "");
 	if (auth_request->fields.service == NULL)
 		auth_request->fields.service = "";
 
