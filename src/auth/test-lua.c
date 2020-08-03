@@ -8,18 +8,23 @@
 #include "auth-request.h"
 #include "db-lua.h"
 
+static struct auth_request *test_db_lua_auth_request_new(void)
+{
+	struct auth_request *req = auth_request_new_dummy();
+	struct event *event = event_create(req->event);
+	array_push_back(&req->authdb_event, &event);
+	req->passdb = passdb_mock();
+	req->fields.user = "testuser";
+	return req;
+}
+
 static void test_db_lua_auth_verify(void)
 {
 	struct auth_settings set;
 	i_zero(&set);
 	global_auth_settings = &set;
 
-	struct auth_request *req = auth_request_new_dummy();
-
-	struct event *event = event_create(req->event);
-	array_push_back(&req->authdb_event, &event);
-	req->passdb = passdb_mock();
-	req->fields.user = "testuser";
+	struct auth_request *req = test_db_lua_auth_request_new();
 
 	static const char *luascript =
 "function auth_password_verify(req, pass)\n"
@@ -44,8 +49,7 @@ static void test_db_lua_auth_verify(void)
 	}
 	i_free(req->passdb);
 
-	event_unref(&event);
-	array_pop_back(&req->authdb_event);
+	auth_request_passdb_lookup_end(req, PASSDB_RESULT_OK);
 	auth_request_unref(&req);
 
 	test_end();
@@ -58,12 +62,7 @@ static void test_db_lua_auth_lookup_numberish_value(void)
 	i_zero(&set);
 	global_auth_settings = &set;
 
-	struct auth_request *req = auth_request_new_dummy();
-
-	struct event *event = event_create(req->event);
-	array_push_back(&req->authdb_event, &event);
-	req->passdb = passdb_mock();
-	req->fields.user = "testuser";
+	struct auth_request *req = test_db_lua_auth_request_new();
 
 	static const char *luascript =
 "function auth_passdb_lookup(req)\n"
@@ -87,8 +86,7 @@ static void test_db_lua_auth_lookup_numberish_value(void)
 		i_error("Test failed: %s", error);
 	}
 	i_free(req->passdb);
-	event_unref(&event);
-	array_pop_back(&req->authdb_event);
+	auth_request_passdb_lookup_end(req, PASSDB_RESULT_OK);
 	auth_request_unref(&req);
 
 	test_end();
@@ -101,12 +99,7 @@ static void test_db_lua_auth_lookup(void)
 	i_zero(&set);
 	global_auth_settings = &set;
 
-	struct auth_request *req = auth_request_new_dummy();
-
-	struct event *event = event_create(req->event);
-	array_push_back(&req->authdb_event, &event);
-	req->passdb = passdb_mock();
-	req->fields.user = "testuser";
+	struct auth_request *req = test_db_lua_auth_request_new();
 
 	static const char *luascript =
 "function auth_passdb_lookup(req)\n"
@@ -128,8 +121,7 @@ static void test_db_lua_auth_lookup(void)
 		i_error("Test failed: %s", error);
 	}
 	i_free(req->passdb);
-	event_unref(&event);
-	array_pop_back(&req->authdb_event);
+	auth_request_passdb_lookup_end(req, PASSDB_RESULT_OK);
 	auth_request_unref(&req);
 
 	test_end();
