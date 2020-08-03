@@ -6,6 +6,15 @@
 #include "str-sanitize.h"
 #include "auth-request.h"
 
+void auth_request_fields_init(struct auth_request *request)
+{
+	request->fields.extra_fields = auth_fields_init(request->pool);
+	if (request->mech != NULL) {
+		request->fields.mech_name = request->mech->mech_name;
+		event_add_str(request->event, "mech", request->mech->mech_name);
+	}
+}
+
 static void
 auth_str_add_keyvalue(string_t *dest, const char *key, const char *value)
 {

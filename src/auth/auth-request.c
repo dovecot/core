@@ -107,9 +107,9 @@ static void auth_request_post_alloc_init(struct auth_request *request, struct ev
 	request->last_access = ioloop_time;
 	request->session_pid = (pid_t)-1;
 	request->set = global_auth_settings;
-	request->fields.extra_fields = auth_fields_init(request->pool);
 	request->event = event_create(parent_event);
 	request->mech_event = event_create(request->event);
+	auth_request_fields_init(request);
 
 	level = request->set->verbose ? LOG_TYPE_INFO : LOG_TYPE_WARNING;
 	event_set_min_log_level(request->event, level);
@@ -128,10 +128,8 @@ auth_request_new(const struct mech_module *mech, struct event *parent_event)
 	struct auth_request *request;
 
 	request = mech->auth_new();
-	auth_request_post_alloc_init(request, parent_event);
 	request->mech = mech;
-	request->fields.mech_name = mech->mech_name;
-	event_add_str(request->event, "mech", request->mech->mech_name);
+	auth_request_post_alloc_init(request, parent_event);
 
 	return request;
 }

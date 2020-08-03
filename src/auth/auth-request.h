@@ -315,6 +315,7 @@ auth_request_finished_event(struct auth_request *request, struct event *event);
 void auth_request_log_finished(struct auth_request *request);
 void auth_request_master_user_login_finish(struct auth_request *request);
 const char *auth_request_get_log_prefix_db(struct auth_request *auth_request);
+void auth_request_fields_init(struct auth_request *request);
 
 void auth_request_passdb_lookup_begin(struct auth_request *request);
 void auth_request_passdb_lookup_end(struct auth_request *request,
