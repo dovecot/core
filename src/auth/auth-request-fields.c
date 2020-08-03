@@ -425,3 +425,10 @@ void auth_request_master_user_login_finish(struct auth_request *request)
 					 request->fields.requested_login_user);
 	request->fields.requested_login_user = NULL;
 }
+
+void auth_request_set_realm(struct auth_request *request, const char *realm)
+{
+	i_assert(realm != NULL);
+
+	request->fields.realm = p_strdup(request->pool, realm);
+}

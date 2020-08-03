@@ -236,6 +236,7 @@ void auth_request_set_username_forced(struct auth_request *request,
 bool auth_request_set_login_username(struct auth_request *request,
                                      const char *username,
                                      const char **error_r);
+void auth_request_set_realm(struct auth_request *request, const char *realm);
 
 void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,

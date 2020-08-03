@@ -258,8 +258,7 @@ static bool auth_handle_response(struct digest_auth_request *request,
 
 	if (strcmp(key, "realm") == 0) {
 		if (request->auth_request.fields.realm == NULL && *value != '\0')
-			request->auth_request.fields.realm =
-				p_strdup(request->pool, value);
+			auth_request_set_realm(&request->auth_request, value);
 		return TRUE;
 	}
 
