@@ -97,6 +97,7 @@ libauth_la_SOURCES = \
 	mech-plain-common.c \
 	auth-penalty.c \
 	auth-request.c \
+	auth-request-fields.c \
 	auth-request-handler.c \
 	auth-request-stats.c \
 	auth-request-var-expand.c \
