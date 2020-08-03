@@ -80,7 +80,7 @@ static const char *get_log_prefix_mech(struct auth_request *auth_request)
 	return str_c(str);
 }
 
-static const char *get_log_prefix_db(struct auth_request *auth_request)
+const char *auth_request_get_log_prefix_db(struct auth_request *auth_request)
 {
 	string_t *str = t_str_new(64);
 	auth_request_get_log_prefix(str, auth_request, AUTH_SUBSYS_DB);
@@ -656,7 +656,8 @@ void auth_request_passdb_lookup_begin(struct auth_request *request)
 	event_add_str(event, "passdb_id", dec2str(request->passdb->passdb->id));
 	event_add_str(event, "passdb_name", name);
 	event_add_str(event, "passdb", request->passdb->passdb->iface.name);
-	event_set_log_prefix_callback(event, FALSE, get_log_prefix_db, request);
+	event_set_log_prefix_callback(event, FALSE,
+		auth_request_get_log_prefix_db, request);
 
 	/* check if we should enable verbose logging here */
 	if (*request->passdb->set->auth_verbose == 'y')
@@ -718,7 +719,8 @@ void auth_request_userdb_lookup_begin(struct auth_request *request)
 	event_add_str(event, "userdb_id", dec2str(request->userdb->userdb->id));
 	event_add_str(event, "userdb_name", name);
 	event_add_str(event, "userdb", request->userdb->userdb->iface->name);
-	event_set_log_prefix_callback(event, FALSE, get_log_prefix_db, request);
+	event_set_log_prefix_callback(event, FALSE,
+		auth_request_get_log_prefix_db, request);
 
 	/* check if we should enable verbose logging here*/
 	if (*request->userdb->set->auth_verbose == 'y')
@@ -898,7 +900,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		/* admin forgot to put proper passdb last */
 		e_error(request->event,
 			"%sLast passdb had noauthenticate field, cannot authenticate user",
-			get_log_prefix_db(request));
+			auth_request_get_log_prefix_db(request));
 		*result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (request->passdb_success) {
 		/* either this or a previous passdb lookup succeeded. */
@@ -1412,13 +1414,13 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 		e_debug(request->event,
 			value == NULL ? "%suserdb cache miss" :
 			"%suserdb cache expired",
-			get_log_prefix_db(request));
+			auth_request_get_log_prefix_db(request));
 		return FALSE;
 	}
 	stats->auth_cache_hit_count++;
 	e_debug(request->event,
 		"%suserdb cache hit: %s",
-		get_log_prefix_db(request), value);
+		auth_request_get_log_prefix_db(request), value);
 
 	if (*value == '\0') {
 		/* negative cache entry */
@@ -1503,7 +1505,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 						   request, &error) < 0) {
 				e_error(request->event,
 					"%sFailed to expand override_fields: %s",
-					get_log_prefix_db(request), error);
+					auth_request_get_log_prefix_db(request), error);
 				request->private_callback.userdb(
 					USERDB_RESULT_INTERNAL_FAILURE, request);
 				return;
@@ -1527,7 +1529,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 					   request, &error) < 0) {
 			e_error(request->event,
 				"%sFailed to expand override_fields: %s",
-				get_log_prefix_db(request), error);
+				auth_request_get_log_prefix_db(request), error);
 			result = USERDB_RESULT_INTERNAL_FAILURE;
 		} else {
 			result = USERDB_RESULT_OK;
@@ -1543,7 +1545,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 		if (auth_request_get_auth(request)->userdbs->next == NULL) {
 			e_error(request->event,
 				"%suser not found from userdb",
-				get_log_prefix_db(request));
+				auth_request_get_log_prefix_db(request));
 		} else {
 			e_error(request->mech_event,
 				"user not found from any userdbs");
@@ -1568,7 +1570,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 						   &result, TRUE)) {
 			e_info(request->event,
 			       "%sFalling back to expired data from cache",
-				get_log_prefix_db(request));
+				auth_request_get_log_prefix_db(request));
 		}
 	}
 
@@ -1765,7 +1767,7 @@ bool auth_request_set_login_username(struct auth_request *request,
 
 	e_debug(request->event,
 		"%sMaster user lookup for login: %s",
-		get_log_prefix_db(request),
+		auth_request_get_log_prefix_db(request),
 		request->fields.requested_login_user);
 	return TRUE;
 }
