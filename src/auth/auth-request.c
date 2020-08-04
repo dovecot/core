@@ -1151,12 +1151,8 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 		    request->fields.delayed_credentials == NULL && size > 0) {
 			/* passdb continue* rule after a successful lookup.
 			   remember these credentials and use them later on. */
-			unsigned char *dup;
-
-			dup = p_malloc(request->pool, size);
-			memcpy(dup, credentials, size);
-			request->fields.delayed_credentials = dup;
-			request->fields.delayed_credentials_size = size;
+			auth_request_set_delayed_credentials(request,
+				credentials, size);
 		}
 		auth_request_lookup_credentials(request,
 			request->credentials_scheme,

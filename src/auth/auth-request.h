@@ -60,6 +60,10 @@ struct auth_request_fields {
 	/* the whole userdb result reply */
 	struct auth_fields *userdb_reply;
 
+	/* Credentials from the first successful passdb lookup. These are used
+	   as the final credentials, unless overridden by later passdb
+	   lookups. Note that the requests in auth-worker processes see these
+	   only as 1 byte sized \0 strings. */
 	const unsigned char *delayed_credentials;
 	size_t delayed_credentials_size;
 
@@ -251,6 +255,10 @@ void auth_request_set_realm(struct auth_request *request, const char *realm);
 void auth_request_set_auth_successful(struct auth_request *request);
 /* Password was successfully verified by a passdb. */
 void auth_request_set_password_verified(struct auth_request *request);
+/* Save credentials from a successful passdb lookup. */
+void auth_request_set_delayed_credentials(struct auth_request *request,
+					  const unsigned char *credentials,
+					  size_t size);
 
 void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,

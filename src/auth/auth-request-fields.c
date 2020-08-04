@@ -466,3 +466,12 @@ void auth_request_init_userdb_reply(struct auth_request *request,
 		}
 	}
 }
+
+void auth_request_set_delayed_credentials(struct auth_request *request,
+					  const unsigned char *credentials,
+					  size_t size)
+{
+	request->fields.delayed_credentials =
+		p_memdup(request->pool, credentials, size);
+	request->fields.delayed_credentials_size = size;
+}
