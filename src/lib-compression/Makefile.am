@@ -27,6 +27,9 @@ pkginc_lib_HEADERS = \
 	istream-zlib.h \
 	ostream-zlib.h
 
+noinst_HEADERS = \
+	iostream-zstd-private.h
+
 pkglib_LTLIBRARIES = libdovecot-compression.la
 libdovecot_compression_la_SOURCES = 
 libdovecot_compression_la_LIBADD = libcompression.la ../lib-dovecot/libdovecot.la $(COMPRESS_LIBS)

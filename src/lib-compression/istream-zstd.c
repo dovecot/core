@@ -10,6 +10,7 @@
 
 #include "zstd.h"
 #include "zstd_errors.h"
+#include "iostream-zstd-private.h"
 
 #ifndef HAVE_ZSTD_GETERRORCODE
 ZSTD_ErrorCode ZSTD_getErrorCode(size_t functionResult)
@@ -93,7 +94,7 @@ static void i_stream_zstd_close(struct iostream_private *stream,
 
 static void i_stream_zstd_read_error(struct zstd_istream *zstream, size_t err)
 {
-	ZSTD_ErrorCode errcode = ZSTD_getErrorCode(err);
+	ZSTD_ErrorCode errcode = zstd_version_errcode(ZSTD_getErrorCode(err));
 	const char *error = ZSTD_getErrorName(err);
 	if (errcode == ZSTD_error_memory_allocation)
 		i_fatal_status(FATAL_OUTOFMEM, "zstd.read(%s): Out of memory",

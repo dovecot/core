@@ -10,6 +10,7 @@
 
 #include "zstd.h"
 #include "zstd_errors.h"
+#include "iostream-zstd-private.h"
 
 struct zstd_ostream {
 	struct ostream_private ostream;
@@ -27,7 +28,7 @@ struct zstd_ostream {
 
 static void o_stream_zstd_write_error(struct zstd_ostream *zstream, size_t err)
 {
-	ZSTD_ErrorCode errcode = ZSTD_getErrorCode(err);
+	ZSTD_ErrorCode errcode = zstd_version_errcode(ZSTD_getErrorCode(err));
 	const char *error = ZSTD_getErrorName(err);
 	if (errcode == ZSTD_error_memory_allocation)
 		i_fatal_status(FATAL_OUTOFMEM, "zstd.write(%s): Out of memory",
