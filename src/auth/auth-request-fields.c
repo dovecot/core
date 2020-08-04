@@ -5,6 +5,7 @@
 #include "strescape.h"
 #include "str-sanitize.h"
 #include "auth-request.h"
+#include "userdb-template.h"
 
 void auth_request_fields_init(struct auth_request *request)
 {
@@ -441,4 +442,16 @@ void auth_request_set_auth_successful(struct auth_request *request)
 void auth_request_set_password_verified(struct auth_request *request)
 {
 	request->fields.skip_password_check = TRUE;
+}
+
+void auth_request_init_userdb_reply(struct auth_request *request)
+{
+	const char *error;
+
+	request->fields.userdb_reply = auth_fields_init(request->pool);
+	if (userdb_template_export(request->userdb->default_fields_tmpl,
+				   request, &error) < 0) {
+		e_error(authdb_event(request),
+			"Failed to expand default_fields: %s", error);
+	}
 }

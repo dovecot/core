@@ -1919,18 +1919,6 @@ void auth_request_set_fields(struct auth_request *request,
 	}
 }
 
-void auth_request_init_userdb_reply(struct auth_request *request)
-{
-	const char *error;
-
-	request->fields.userdb_reply = auth_fields_init(request->pool);
-	if (userdb_template_export(request->userdb->default_fields_tmpl,
-				   request, &error) < 0) {
-		e_error(authdb_event(request),
-			"Failed to expand default_fields: %s", error);
-	}
-}
-
 static void auth_request_set_uidgid_file(struct auth_request *request,
 					 const char *path_template)
 {
