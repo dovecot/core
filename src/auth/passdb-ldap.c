@@ -96,7 +96,7 @@ ldap_lookup_finish(struct auth_request *auth_request,
 	/* auth_request_set_field() sets scheme */
 	i_assert(password == NULL || scheme != NULL);
 
-	if (auth_request->credentials_scheme != NULL) {
+	if (auth_request->wanted_credentials_scheme != NULL) {
 		passdb_handle_credentials(passdb_result, password, scheme,
 			ldap_request->callback.lookup_credentials,
 			auth_request);
@@ -200,7 +200,7 @@ static void passdb_ldap_request_fail(struct passdb_ldap_request *request,
 {
 	struct auth_request *auth_request = request->request.ldap.auth_request;
 
-	if (auth_request->credentials_scheme != NULL) {
+	if (auth_request->wanted_credentials_scheme != NULL) {
 		request->callback.lookup_credentials(passdb_result, NULL, 0,
 						     auth_request);
 	} else {

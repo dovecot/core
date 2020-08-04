@@ -114,7 +114,7 @@ static void sql_query_callback(struct sql_result *result,
 	/* auth_request_set_field() sets scheme */
 	i_assert(password == NULL || scheme != NULL);
 
-	if (auth_request->credentials_scheme != NULL) {
+	if (auth_request->wanted_credentials_scheme != NULL) {
 		passdb_handle_credentials(passdb_result, password, scheme,
 			sql_request->callback.lookup_credentials,
 			auth_request);

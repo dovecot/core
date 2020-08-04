@@ -237,7 +237,7 @@ auth_request_finished_event(struct auth_request *request, struct event *event)
 	if (request->userdb_lookup) {
 		return e;
 	}
-	e->add_str("credentials_scheme", request->credentials_scheme);
+	e->add_str("credentials_scheme", request->wanted_credentials_scheme);
 	e->add_str("realm", request->fields.realm);
 	if (request->policy_penalty > 0)
 		e->add_int("policy_penalty", request->policy_penalty);
@@ -1110,7 +1110,10 @@ void auth_request_default_verify_plain_continue(struct auth_request *request,
 	}
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_PASSDB);
-	request->credentials_scheme = NULL;
+	/* In case this request had already done a credentials lookup (is it
+	   even possible?), make sure wanted_credentials_scheme is cleared
+	   so passdbs don't think we're doing a credentials lookup. */
+	request->wanted_credentials_scheme = NULL;
 
 	if (passdb->passdb->iface.verify_plain == NULL) {
 		/* we're deinitializing and just want to get rid of this
@@ -1155,7 +1158,7 @@ auth_request_lookup_credentials_finish(enum passdb_result result,
 				credentials, size);
 		}
 		auth_request_lookup_credentials(request,
-			request->credentials_scheme,
+			request->wanted_credentials_scheme,
 		  	request->private_callback.lookup_credentials);
 	} else {
 		if (request->fields.delayed_credentials != NULL && size == 0) {
@@ -1234,8 +1237,9 @@ void auth_request_lookup_credentials(struct auth_request *request,
 
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
-	if (request->credentials_scheme == NULL)
-		request->credentials_scheme = p_strdup(request->pool, scheme);
+	if (request->wanted_credentials_scheme == NULL)
+		request->wanted_credentials_scheme =
+			p_strdup(request->pool, scheme);
 	request->user_changed_by_lookup = FALSE;
 
 	if (request->policy_processed || !request->set->policy_check_before_auth)

@@ -350,8 +350,8 @@ lookup_credentials_callback(enum passdb_result result,
 		if (request->user_changed_by_lookup)
 			str_append_tabescaped(str, request->fields.user);
 		str_append_c(str, '\t');
-		if (request->credentials_scheme[0] != '\0') {
-			str_printfa(str, "{%s.b64}", request->credentials_scheme);
+		if (request->wanted_credentials_scheme[0] != '\0') {
+			str_printfa(str, "{%s.b64}", request->wanted_credentials_scheme);
 			base64_encode(credentials, size, str);
 		} else {
 			i_assert(size == 0);
@@ -389,7 +389,8 @@ auth_worker_handle_passl(struct auth_worker_command *cmd,
 		*error_r = "BUG: PASSL had missing parameters";
 		return FALSE;
 	}
-	auth_request->credentials_scheme = p_strdup(auth_request->pool, scheme);
+	auth_request->wanted_credentials_scheme =
+		p_strdup(auth_request->pool, scheme);
 
 	while (auth_request->passdb->passdb->id != passdb_id) {
 		auth_request->passdb = auth_request->passdb->next;

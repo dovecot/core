@@ -60,7 +60,7 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 			    const char *input, const char *input_scheme,
 			    const unsigned char **credentials_r, size_t *size_r)
 {
-	const char *wanted_scheme = auth_request->credentials_scheme;
+	const char *wanted_scheme = auth_request->wanted_credentials_scheme;
 	const char *plaintext, *error;
 	int ret;
 	struct password_generate_params pwd_gen_params;
@@ -87,9 +87,9 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 	}
 
 	if (*wanted_scheme == '\0') {
-		/* anything goes. change the credentials_scheme to what we
-		   actually got, so blocking passdbs work. */
-		auth_request->credentials_scheme =
+		/* anything goes. change the wanted_credentials_scheme to what
+		   we actually got, so blocking passdbs work. */
+		auth_request->wanted_credentials_scheme =
 			p_strdup(auth_request->pool, t_strcut(input_scheme, '.'));
 		return TRUE;
 	}
@@ -155,7 +155,7 @@ void passdb_handle_credentials(enum passdb_result result,
 		if (!passdb_get_credentials(auth_request, password, scheme,
 					    &credentials, &size))
 			result = PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
-	} else if (*auth_request->credentials_scheme == '\0') {
+	} else if (*auth_request->wanted_credentials_scheme == '\0') {
 		/* We're doing a passdb lookup (not authenticating).
 		   Pass through a NULL password without an error. */
 	} else if (auth_request->fields.delayed_credentials != NULL) {
@@ -165,7 +165,7 @@ void passdb_handle_credentials(enum passdb_result result,
 	} else {
 		e_info(authdb_event(auth_request),
 		       "Requested %s scheme, but we have a NULL password",
-		       auth_request->credentials_scheme);
+		       auth_request->wanted_credentials_scheme);
 		result = PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
 	}
 

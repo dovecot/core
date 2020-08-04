@@ -143,7 +143,17 @@ struct auth_request {
 		set_credentials_callback_t *set_credentials;
                 userdb_callback_t *userdb;
 	} private_callback;
-	const char *credentials_scheme;
+	/* Used by passdb's credentials lookup to determine which scheme is
+	   wanted by the caller. For example CRAM-MD5 SASL mechanism wants
+	   CRAM-MD5 scheme for passwords.
+
+	   When doing a PASS lookup (without authenticating), this is set to ""
+	   to imply that caller accepts any kind of credentials. After the
+	   credentials lookup is finished, this is set to the scheme that was
+	   actually received.
+
+	   Otherwise, this is kept as NULL. */
+	const char *wanted_credentials_scheme;
 
 	void *context;
 

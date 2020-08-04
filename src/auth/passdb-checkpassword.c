@@ -95,7 +95,7 @@ credentials_checkpassword_callback(struct auth_request *request,
 	}
 	scheme = password_get_scheme(&crypted_pass);
 	if (scheme == NULL)
-		scheme = request->credentials_scheme;
+		scheme = request->wanted_credentials_scheme;
 
 	passdb_handle_credentials(PASSDB_RESULT_OK, crypted_pass, scheme,
 				  callback, request);

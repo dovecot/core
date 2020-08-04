@@ -105,7 +105,7 @@ static void passdb_dict_lookup_pass(struct passdb_dict_request *dict_request)
 		i_assert(password == NULL || scheme != NULL);
 	}
 
-	if (auth_request->credentials_scheme != NULL) {
+	if (auth_request->wanted_credentials_scheme != NULL) {
 		passdb_handle_credentials(passdb_result, password, scheme,
 			dict_request->callback.lookup_credentials,
 			auth_request);
