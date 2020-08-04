@@ -1,6 +1,6 @@
 /* Copyright (c) 2020 Dovecot authors, see the included COPYING file */
 
-#include "lib.h"
+#include "test-auth.h"
 #include "auth.h"
 #include "str.h"
 #include "auth-common.h"
@@ -12,8 +12,6 @@
 #include "mech-otp-skey-common.h"
 #include "settings-parser.h"
 #include "password-scheme.h"
-#include "test-common.h"
-#include "test-auth.h"
 #include "auth-token.h"
 
 #include <unistd.h>
