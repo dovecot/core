@@ -253,7 +253,7 @@ bool auth_request_import(struct auth_request *request,
 	return TRUE;
 }
 
-static char *
+static const char *
 auth_request_fix_username(struct auth_request *request, const char *username,
 			  const char **error_r)
 {
@@ -263,10 +263,10 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 
 	if (*set->default_realm != '\0' &&
 	    strchr(username, '@') == NULL) {
-		user = p_strconcat(request->pool, username, "@",
+		user = p_strconcat(unsafe_data_stack_pool, username, "@",
 				   set->default_realm, NULL);
 	} else {
-		user = p_strdup(request->pool, username);
+		user = t_strdup_noconst(username);
 	}
 
 	for (p = (unsigned char *)user; *p != '\0'; p++) {
@@ -300,7 +300,7 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 				"Failed to expand username_format=%s: %s",
 				set->username_format, error);
 		}
-		user = p_strdup(request->pool, str_c(dest));
+		user = str_c_modifiable(dest);
 	}
 
 	if (user[0] == '\0') {
@@ -342,7 +342,8 @@ bool auth_request_set_username(struct auth_request *request,
 		username = request->fields.user;
 	}
 
-	request->fields.user = auth_request_fix_username(request, username, error_r);
+	request->fields.user = p_strdup(request->pool,
+		auth_request_fix_username(request, username, error_r));
 	if (request->fields.user == NULL)
 		return FALSE;
 	if (request->fields.translated_username == NULL) {
@@ -385,8 +386,8 @@ bool auth_request_set_login_username(struct auth_request *request,
 	}
 	request->passdb = master_passdb;
 
-	request->fields.requested_login_user =
-		auth_request_fix_username(request, username, error_r);
+	request->fields.requested_login_user = p_strdup(request->pool,
+		auth_request_fix_username(request, username, error_r));
 	if (request->fields.requested_login_user == NULL)
 		return FALSE;
 
