@@ -1449,8 +1449,8 @@ auth_request_lookup_user_cache(struct auth_request *request, const char *key,
 	if (*value == '\0') {
 		/* negative cache entry */
 		*result_r = USERDB_RESULT_USER_UNKNOWN;
-		auth_request_init_userdb_reply(request, FALSE);
-		return TRUE;
+	} else {
+		*result_r = USERDB_RESULT_OK;
 	}
 
 	/* We want to preserve any userdb fields set by the earlier passdb
@@ -1460,7 +1460,6 @@ auth_request_lookup_user_cache(struct auth_request *request, const char *key,
 	if (request->fields.userdb_reply == NULL)
 		auth_request_init_userdb_reply(request, FALSE);
 	auth_request_userdb_import(request, value);
-	*result_r = USERDB_RESULT_OK;
 	return TRUE;
 }
 
