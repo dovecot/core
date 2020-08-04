@@ -129,46 +129,64 @@ bool auth_request_import_info(struct auth_request *request,
 			      const char *key, const char *value)
 {
 	struct auth_request_fields *fields = &request->fields;
+	struct event *event = request->event;
 
 	i_assert(value != NULL);
 
 	/* authentication and user lookups may set these */
-	if (strcmp(key, "service") == 0)
+	if (strcmp(key, "service") == 0) {
 		fields->service = p_strdup(request->pool, value);
-	else if (strcmp(key, "lip") == 0) {
-		(void)net_addr2ip(value, &fields->local_ip);
+		event_add_str(event, "service", value);
+	} else if (strcmp(key, "lip") == 0) {
+		if (net_addr2ip(value, &fields->local_ip) < 0)
+			return TRUE;
+		event_add_str(event, "local_ip", value);
 		if (fields->real_local_ip.family == 0)
-			fields->real_local_ip = fields->local_ip;
+			auth_request_import_info(request, "real_lip", value);
 	} else if (strcmp(key, "rip") == 0) {
-		(void)net_addr2ip(value, &fields->remote_ip);
+		if (net_addr2ip(value, &fields->remote_ip) < 0)
+			return TRUE;
+		event_add_str(event, "remote_ip", value);
 		if (fields->real_remote_ip.family == 0)
-			fields->real_remote_ip = fields->remote_ip;
+			auth_request_import_info(request, "real_rip", value);
 	} else if (strcmp(key, "lport") == 0) {
-		(void)net_str2port(value, &fields->local_port);
+		if (net_str2port(value, &fields->local_port) < 0)
+			return TRUE;
+		event_add_int(event, "local_port", fields->local_port);
 		if (fields->real_local_port == 0)
-			fields->real_local_port = fields->local_port;
+			auth_request_import_info(request, "real_lport", value);
 	} else if (strcmp(key, "rport") == 0) {
-		(void)net_str2port(value, &fields->remote_port);
+		if (net_str2port(value, &fields->remote_port) < 0)
+			return TRUE;
+		event_add_int(event, "remote_port", fields->remote_port);
 		if (fields->real_remote_port == 0)
-			fields->real_remote_port = fields->remote_port;
-	}
-	else if (strcmp(key, "real_lip") == 0)
-		(void)net_addr2ip(value, &fields->real_local_ip);
-	else if (strcmp(key, "real_rip") == 0)
-		(void)net_addr2ip(value, &fields->real_remote_ip);
-	else if (strcmp(key, "real_lport") == 0)
-		(void)net_str2port(value, &fields->real_local_port);
-	else if (strcmp(key, "real_rport") == 0)
-		(void)net_str2port(value, &fields->real_remote_port);
-	else if (strcmp(key, "local_name") == 0)
+			auth_request_import_info(request, "real_rport", value);
+	} else if (strcmp(key, "real_lip") == 0) {
+		if (net_addr2ip(value, &fields->real_local_ip) == 0)
+			event_add_str(event, "real_local_ip", value);
+	} else if (strcmp(key, "real_rip") == 0) {
+		if (net_addr2ip(value, &fields->real_remote_ip) == 0)
+			event_add_str(event, "real_remote_ip", value);
+	} else if (strcmp(key, "real_lport") == 0) {
+		if (net_str2port(value, &fields->real_local_port) == 0)
+			event_add_int(event, "real_local_port",
+				      fields->real_local_port);
+	} else if (strcmp(key, "real_rport") == 0) {
+		if (net_str2port(value, &fields->real_remote_port) == 0)
+			event_add_int(event, "real_remote_port",
+				      fields->real_remote_port);
+	} else if (strcmp(key, "local_name") == 0) {
 		fields->local_name = p_strdup(request->pool, value);
-	else if (strcmp(key, "session") == 0)
+		event_add_str(event, "local_name", value);
+	} else if (strcmp(key, "session") == 0) {
 		fields->session_id = p_strdup(request->pool, value);
-	else if (strcmp(key, "debug") == 0)
+		event_add_str(event, "session", value);
+	} else if (strcmp(key, "debug") == 0)
 		event_set_forced_debug(request->event, TRUE);
-	else if (strcmp(key, "client_id") == 0)
+	else if (strcmp(key, "client_id") == 0) {
 		fields->client_id = p_strdup(request->pool, value);
-	else if (strcmp(key, "forward_fields") == 0) {
+		event_add_str(event, "client_id", value);
+	} else if (strcmp(key, "forward_fields") == 0) {
 		auth_fields_import_prefixed(fields->extra_fields,
 					    "forward_", value, 0);
 		/* make sure the forward_ fields aren't deleted by
