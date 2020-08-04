@@ -207,11 +207,6 @@ auth_request_finished_event(struct auth_request *request, struct event *event)
 {
 	struct event_passthrough *e = event_create_passthrough(event);
 
-	e->add_str("user", request->fields.user);
-	e->add_str("original_user", request->fields.original_username);
-	e->add_str("translated_user", request->fields.translated_username);
-	e->add_str("login_user", request->fields.requested_login_user);
-	e->add_str("master_user", request->fields.master_user);
 	if (request->failed) {
 		if (request->internal_failure) {
 			e->add_str("error", "internal failure");
@@ -221,23 +216,9 @@ auth_request_finished_event(struct auth_request *request, struct event *event)
 	} else if (request->fields.successful) {
 		e->add_str("success", "yes");
 	}
-	switch (request->fields.secured) {
-	case AUTH_REQUEST_SECURED_NONE:
-		e->add_str("transport", "insecure");
-		break;
-	case AUTH_REQUEST_SECURED:
-		e->add_str("transport", "trusted");
-		break;
-	case AUTH_REQUEST_SECURED_TLS:
-		e->add_str("transport", "TLS");
-		break;
-	default:
-		i_unreached();
-	}
 	if (request->userdb_lookup) {
 		return e;
 	}
-	e->add_str("realm", request->fields.realm);
 	if (request->policy_penalty > 0)
 		e->add_int("policy_penalty", request->policy_penalty);
 	if (request->policy_refusal) {
@@ -654,25 +635,13 @@ void auth_request_passdb_lookup_begin(struct auth_request *request)
 	array_push_back(&request->authdb_event, &event);
 }
 
-static struct event_passthrough *
-auth_request_lookup_end_common(struct auth_request *request,
-			       struct event *event)
-{
-	const char *p;
-	struct event_passthrough *e = event_create_passthrough(event)->
-		add_str("user", request->fields.user);
-	if (request->fields.master_user != NULL)
-		e->add_str("master_user", request->fields.master_user);
-	return e;
-}
-
 void auth_request_passdb_lookup_end(struct auth_request *request,
 				    enum passdb_result result)
 {
 	i_assert(array_count(&request->authdb_event) > 0);
 	struct event *event = authdb_event(request);
 	struct event_passthrough *e =
-		auth_request_lookup_end_common(request, event)->
+		event_create_passthrough(event)->
 		set_name("auth_passdb_request_finished")->
 		add_str("result", passdb_result_to_string(result));
 	e_debug(e->event(), "Finished passdb lookup");
@@ -718,7 +687,7 @@ void auth_request_userdb_lookup_end(struct auth_request *request,
 	i_assert(array_count(&request->authdb_event) > 0);
 	struct event *event = authdb_event(request);
 	struct event_passthrough *e =
-		auth_request_lookup_end_common(request, event)->
+		event_create_passthrough(event)->
 		set_name("auth_userdb_request_finished")->
 		add_str("result", userdb_result_to_string(result));
 	e_debug(e->event(), "Finished userdb lookup");

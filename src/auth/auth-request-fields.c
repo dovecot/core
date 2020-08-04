@@ -17,6 +17,8 @@ void auth_request_fields_init(struct auth_request *request)
 		event_add_str(request->event, "mechanism",
 			      request->mech->mech_name);
 	}
+	/* Default to "insecure" until it's changed later */
+	event_add_str(request->event, "transport", "insecure");
 }
 
 static void
@@ -190,10 +192,13 @@ bool auth_request_import_auth(struct auth_request *request,
 
 	/* auth client may set these */
 	if (strcmp(key, "secured") == 0) {
-		if (strcmp(value, "tls") == 0)
+		if (strcmp(value, "tls") == 0) {
 			fields->secured = AUTH_REQUEST_SECURED_TLS;
-		else
+			event_add_str(request->event, "transport", "TLS");
+		} else {
 			fields->secured = AUTH_REQUEST_SECURED;
+			event_add_str(request->event, "transport", "trusted");
+		}
 	}
 	else if (strcmp(key, "final-resp-ok") == 0)
 		fields->final_resp_ok = TRUE;
@@ -227,11 +232,13 @@ bool auth_request_import(struct auth_request *request,
 	/* for communication between auth master and worker processes */
 	if (strcmp(key, "user") == 0)
 		auth_request_set_username_forced(request, value);
-	else if (strcmp(key, "master-user") == 0)
+	else if (strcmp(key, "master-user") == 0) {
 		fields->master_user = p_strdup(request->pool, value);
-	else if (strcmp(key, "original-username") == 0)
+		event_add_str(request->event, "master_user", value);
+	} else if (strcmp(key, "original-username") == 0) {
 		fields->original_username = p_strdup(request->pool, value);
-	else if (strcmp(key, "requested-login-user") == 0)
+		event_add_str(request->event, "original_user", value);
+	} else if (strcmp(key, "requested-login-user") == 0)
 		auth_request_set_login_username_forced(request, value);
 	else if (strcmp(key, "successful") == 0)
 		auth_request_set_auth_successful(request);
@@ -243,9 +250,10 @@ bool auth_request_import(struct auth_request *request,
 		   care about the actual contents of the credentials. */
 		fields->delayed_credentials = &uchar_nul;
 		fields->delayed_credentials_size = 1;
-	} else if (strcmp(key, "mech") == 0)
+	} else if (strcmp(key, "mech") == 0) {
 		fields->mech_name = p_strdup(request->pool, value);
-	else if (str_begins(key, "passdb_"))
+		event_add_str(request->event, "mechanism", value);
+	} else if (str_begins(key, "passdb_"))
 		auth_fields_add(fields->extra_fields, key+7, value, 0);
 	else if (str_begins(key, "userdb_")) {
 		if (fields->userdb_reply == NULL)
@@ -339,6 +347,8 @@ bool auth_request_set_username(struct auth_request *request,
 		   username when verifying at least DIGEST-MD5 password. */
 		request->fields.original_username =
 			p_strdup(request->pool, username);
+		event_add_str(request->event, "original_user",
+			      request->fields.original_username);
 	}
 	if (request->fields.cert_username) {
 		/* cert_username overrides the username given by
@@ -349,12 +359,15 @@ bool auth_request_set_username(struct auth_request *request,
 
 	if (auth_request_fix_username(request, &username, error_r) < 0) {
 		request->fields.user = NULL;
+		event_field_clear(request->event, "user");
 		return FALSE;
 	}
 	auth_request_set_username_forced(request, username);
 	if (request->fields.translated_username == NULL) {
 		/* similar to original_username, but after translations */
 		request->fields.translated_username = request->fields.user;
+		event_add_str(request->event, "translated_user",
+			      request->fields.translated_username);
 	}
 	request->user_changed_by_lookup = TRUE;
 
@@ -373,6 +386,7 @@ void auth_request_set_username_forced(struct auth_request *request,
 	i_assert(username != NULL);
 
 	request->fields.user = p_strdup(request->pool, username);
+	event_add_str(request->event, "user", request->fields.user);
 }
 
 void auth_request_set_login_username_forced(struct auth_request *request,
@@ -382,6 +396,8 @@ void auth_request_set_login_username_forced(struct auth_request *request,
 
 	request->fields.requested_login_user =
 		p_strdup(request->pool, username);
+	event_add_str(request->event, "login_user",
+		      request->fields.requested_login_user);
 }
 
 bool auth_request_set_login_username(struct auth_request *request,
@@ -411,6 +427,7 @@ bool auth_request_set_login_username(struct auth_request *request,
 
 	if (auth_request_fix_username(request, &username, error_r) < 0) {
 		request->fields.requested_login_user = NULL;
+		event_field_clear(request->event, "login_user");
 		return FALSE;
 	}
 	auth_request_set_login_username_forced(request, username);
@@ -433,9 +450,13 @@ void auth_request_master_user_login_finish(struct auth_request *request)
 	       request->fields.requested_login_user);
 
 	request->fields.master_user = request->fields.user;
+	event_add_str(request->event, "master_user",
+		      request->fields.master_user);
+
 	auth_request_set_username_forced(request,
 					 request->fields.requested_login_user);
 	request->fields.requested_login_user = NULL;
+	event_field_clear(request->event, "login_user");
 }
 
 void auth_request_set_realm(struct auth_request *request, const char *realm)
@@ -443,6 +464,7 @@ void auth_request_set_realm(struct auth_request *request, const char *realm)
 	i_assert(realm != NULL);
 
 	request->fields.realm = p_strdup(request->pool, realm);
+	event_add_str(request->event, "realm", request->fields.realm);
 }
 
 void auth_request_set_auth_successful(struct auth_request *request)
