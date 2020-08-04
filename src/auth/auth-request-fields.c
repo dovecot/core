@@ -229,7 +229,7 @@ bool auth_request_import(struct auth_request *request,
 	else if (strcmp(key, "original-username") == 0)
 		fields->original_username = p_strdup(request->pool, value);
 	else if (strcmp(key, "requested-login-user") == 0)
-		fields->requested_login_user = p_strdup(request->pool, value);
+		auth_request_set_login_username_forced(request, value);
 	else if (strcmp(key, "successful") == 0)
 		auth_request_set_auth_successful(request);
 	else if (strcmp(key, "skip-password-check") == 0)
@@ -372,6 +372,15 @@ void auth_request_set_username_forced(struct auth_request *request,
 	request->fields.user = p_strdup(request->pool, username);
 }
 
+void auth_request_set_login_username_forced(struct auth_request *request,
+					    const char *username)
+{
+	i_assert(username != NULL);
+
+	request->fields.requested_login_user =
+		p_strdup(request->pool, username);
+}
+
 bool auth_request_set_login_username(struct auth_request *request,
 				     const char *username,
 				     const char **error_r)
@@ -401,8 +410,7 @@ bool auth_request_set_login_username(struct auth_request *request,
 		request->fields.requested_login_user = NULL;
 		return FALSE;
 	}
-	request->fields.requested_login_user =
-		p_strdup(request->pool, username);
+	auth_request_set_login_username_forced(request, username);
 
 	e_debug(request->event,
 		"%sMaster user lookup for login: %s",

@@ -243,6 +243,9 @@ void auth_request_set_username_forced(struct auth_request *request,
 bool auth_request_set_login_username(struct auth_request *request,
                                      const char *username,
                                      const char **error_r);
+/* Change the login username without any translations or checks. */
+void auth_request_set_login_username_forced(struct auth_request *request,
+					    const char *username);
 void auth_request_set_realm(struct auth_request *request, const char *realm);
 /* Request was fully successfully authenticated, including policy checks etc. */
 void auth_request_set_auth_successful(struct auth_request *request);

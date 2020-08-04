@@ -1785,8 +1785,7 @@ void auth_request_set_field(struct auth_request *request,
 		/* don't change the original value so it gets saved correctly
 		   to cache. */
 	} else if (strcmp(name, "login_user") == 0) {
-		request->fields.requested_login_user =
-			p_strdup(request->pool, value);
+		auth_request_set_login_username_forced(request, value);
 	} else if (strcmp(name, "allow_nets") == 0) {
 		auth_request_validate_networks(request, name, value,
 					       &request->fields.remote_ip);
