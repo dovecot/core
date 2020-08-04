@@ -1408,17 +1408,16 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 	if (*value == '\0') {
 		/* negative cache entry */
 		*result_r = USERDB_RESULT_USER_UNKNOWN;
-		request->fields.userdb_reply = auth_fields_init(request->pool);
+		auth_request_init_userdb_reply(request, FALSE);
 		return TRUE;
 	}
 
 	/* We want to preserve any userdb fields set by the earlier passdb
 	   lookup, so initialize userdb_reply only if it doesn't exist.
-	   Don't use auth_request_init_userdb_reply(), because the entire
-	   userdb part of the result comes from the cache so we don't want to
-	   initialize it with default_fields. */
+	   Don't add userdb's default_fields, because the entire userdb part of
+	   the result comes from the cache. */
 	if (request->fields.userdb_reply == NULL)
-		request->fields.userdb_reply = auth_fields_init(request->pool);
+		auth_request_init_userdb_reply(request, FALSE);
 	auth_request_userdb_import(request, value);
 	*result_r = USERDB_RESULT_OK;
 	return TRUE;

@@ -246,7 +246,7 @@ bool auth_request_import(struct auth_request *request,
 		auth_fields_add(fields->extra_fields, key+7, value, 0);
 	else if (str_begins(key, "userdb_")) {
 		if (fields->userdb_reply == NULL)
-			fields->userdb_reply = auth_fields_init(request->pool);
+			auth_request_init_userdb_reply(request, FALSE);
 		auth_fields_add(fields->userdb_reply, key+7, value, 0);
 	} else
 		return FALSE;
