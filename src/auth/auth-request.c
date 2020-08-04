@@ -1571,7 +1571,7 @@ void auth_request_lookup_user(struct auth_request *request,
 	request->userdb_lookup = TRUE;
 	request->userdb_result_from_cache = FALSE;
 	if (request->fields.userdb_reply == NULL)
-		auth_request_init_userdb_reply(request);
+		auth_request_init_userdb_reply(request, TRUE);
 	else {
 		/* we still want to set default_fields. these override any
 		   existing fields set by previous userdbs (because if that is
@@ -1833,7 +1833,7 @@ void auth_request_set_field(struct auth_request *request,
 		/* for prefetch userdb */
 		request->userdb_prefetch_set = TRUE;
 		if (request->fields.userdb_reply == NULL)
-			auth_request_init_userdb_reply(request);
+			auth_request_init_userdb_reply(request, TRUE);
 		if (strcmp(name, "userdb_userdb_import") == 0) {
 			/* we can't put the whole userdb_userdb_import
 			   value to extra_cache_fields or it doesn't work

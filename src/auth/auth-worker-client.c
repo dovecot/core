@@ -549,7 +549,7 @@ auth_worker_handle_user(struct auth_worker_command *cmd,
 	}
 
 	if (auth_request->fields.userdb_reply == NULL)
-		auth_request_init_userdb_reply(auth_request);
+		auth_request_init_userdb_reply(auth_request, TRUE);
 	auth_request_userdb_lookup_begin(auth_request);
 	auth_request->userdb->userdb->iface->
 		lookup(auth_request, lookup_user_callback);

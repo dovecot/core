@@ -260,7 +260,8 @@ void auth_request_set_fields(struct auth_request *request,
 			     const char *const *fields,
 			     const char *default_scheme) ATTR_NULL(3);
 
-void auth_request_init_userdb_reply(struct auth_request *request);
+void auth_request_init_userdb_reply(struct auth_request *request,
+				    bool add_default_fields);
 void auth_request_set_userdb_field(struct auth_request *request,
 				   const char *name, const char *value);
 void auth_request_set_userdb_field_values(struct auth_request *request,
