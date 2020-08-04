@@ -237,7 +237,6 @@ auth_request_finished_event(struct auth_request *request, struct event *event)
 	if (request->userdb_lookup) {
 		return e;
 	}
-	e->add_str("credentials_scheme", request->wanted_credentials_scheme);
 	e->add_str("realm", request->fields.realm);
 	if (request->policy_penalty > 0)
 		e->add_int("policy_penalty", request->policy_penalty);
