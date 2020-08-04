@@ -1467,6 +1467,7 @@ auth_request_lookup_user_cache(struct auth_request *request, const char *key,
 void auth_request_userdb_callback(enum userdb_result result,
 				  struct auth_request *request)
 {
+	enum userdb_result orig_result = result;
 	struct auth_userdb *userdb = request->userdb;
 	struct auth_userdb *next_userdb;
 	enum auth_db_rule result_rule;
@@ -1582,7 +1583,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 		/* no caching */
 	} else if (result != USERDB_RESULT_INTERNAL_FAILURE) {
 		if (request->userdb_cache_result != AUTH_REQUEST_CACHE_HIT)
-			auth_request_userdb_save_cache(request, result);
+			auth_request_userdb_save_cache(request, orig_result);
 	} else if (passdb_cache != NULL && userdb->cache_key != NULL) {
 		/* lookup failed. if we're looking here only because the
 		   request was expired in cache, fallback to using cached
