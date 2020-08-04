@@ -610,8 +610,10 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 	/* rest of the code doesn't like NULL user or service */
 	if (auth_request->fields.user == NULL)
 		auth_request_set_username_forced(auth_request, "");
-	if (auth_request->fields.service == NULL)
-		auth_request->fields.service = "";
+	if (auth_request->fields.service == NULL) {
+		auth_request_import(auth_request, "service", "");
+		i_assert(auth_request->fields.service != NULL);
+	}
 
 	ctx = i_new(struct master_list_iter_ctx, 1);
 	ctx->conn = conn;
