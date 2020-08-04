@@ -230,7 +230,7 @@ bool auth_request_import(struct auth_request *request,
 	else if (strcmp(key, "requested-login-user") == 0)
 		fields->requested_login_user = p_strdup(request->pool, value);
 	else if (strcmp(key, "successful") == 0)
-		fields->successful = TRUE;
+		auth_request_set_auth_successful(request);
 	else if (strcmp(key, "skip-password-check") == 0)
 		fields->skip_password_check = TRUE;
 	else if (strcmp(key, "delayed-credentials") == 0) {
@@ -431,4 +431,9 @@ void auth_request_set_realm(struct auth_request *request, const char *realm)
 	i_assert(realm != NULL);
 
 	request->fields.realm = p_strdup(request->pool, realm);
+}
+
+void auth_request_set_auth_successful(struct auth_request *request)
+{
+	request->fields.successful = TRUE;
 }

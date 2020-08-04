@@ -279,7 +279,7 @@ void auth_request_success_continue(struct auth_policy_check_ctx *ctx)
 		auth_request_fail(request);
 		return;
 	}
-	request->fields.successful = TRUE;
+	auth_request_set_auth_successful(request);
 
 	/* log before delay */
 	auth_request_log_finished(request);

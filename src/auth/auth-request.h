@@ -65,6 +65,9 @@ struct auth_request_fields {
 
 	enum auth_request_secured secured;
 
+	/* Authentication was successfully finished, including policy checks
+	   and such. There may still be some final delay or final SASL
+	   response. */
 	bool successful:1;
 	bool skip_password_check:1;
 
@@ -237,6 +240,8 @@ bool auth_request_set_login_username(struct auth_request *request,
                                      const char *username,
                                      const char **error_r);
 void auth_request_set_realm(struct auth_request *request, const char *realm);
+/* Request was fully successfully authenticated, including policy checks etc. */
+void auth_request_set_auth_successful(struct auth_request *request);
 
 void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
