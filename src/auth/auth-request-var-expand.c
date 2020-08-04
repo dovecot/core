@@ -57,6 +57,7 @@ auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT+1] = {
 	{ '\0', NULL, "real_remote_ip" },
 	{ '\0', NULL, "real_local_port" },
 	{ '\0', NULL, "real_remote_port" },
+	{ '\0', NULL, "mechanism" },
 
 	/* be sure to update AUTH_REQUEST_VAR_TAB_COUNT */
 	{ '\0', NULL, NULL }
@@ -127,7 +128,7 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 		tab[9].value = auth_request->passdb == NULL ? "" :
 			dec2str(auth_request->passdb->passdb->id);
 	}
-	tab[10].value = fields->mech_name == NULL ? "" :
+	tab[10].value = tab[43].value = fields->mech_name == NULL ? "" :
 		escape_func(fields->mech_name, auth_request);
 	switch (fields->secured) {
 	case AUTH_REQUEST_SECURED_NONE: tab[11].value = ""; break;
