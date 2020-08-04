@@ -58,6 +58,9 @@ auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT+1] = {
 	{ '\0', NULL, "real_local_port" },
 	{ '\0', NULL, "real_remote_port" },
 	{ '\0', NULL, "mechanism" },
+	{ '\0', NULL, "original_user" },
+	{ '\0', NULL, "original_username" },
+	{ '\0', NULL, "original_domain" },
 
 	/* be sure to update AUTH_REQUEST_VAR_TAB_COUNT */
 	{ '\0', NULL, NULL }
@@ -177,11 +180,12 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 
 	orig_user = fields->original_username != NULL ?
 		fields->original_username : username;
-	tab[27].value = escape_func(orig_user, auth_request);
-	tab[28].value = escape_func(t_strcut(orig_user, '@'), auth_request);
-	tab[29].value = i_strchr_to_next(orig_user, '@');
+	tab[27].value = tab[44].value = escape_func(orig_user, auth_request);
+	tab[28].value = tab[45].value = escape_func(t_strcut(orig_user, '@'), auth_request);
+	tab[29].value = tab[46].value = i_strchr_to_next(orig_user, '@');
 	if (tab[29].value != NULL)
-		tab[29].value = escape_func(tab[29].value, auth_request);
+		tab[29].value = tab[46].value =
+			escape_func(tab[29].value, auth_request);
 
 	if (fields->master_user != NULL)
 		auth_user = fields->master_user;
