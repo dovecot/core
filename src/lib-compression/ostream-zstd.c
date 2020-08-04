@@ -181,6 +181,8 @@ o_stream_create_zstd(struct ostream *output, int level)
 
 	i_assert(level >= 1 && level <= ZSTD_maxCLevel());
 
+	zstd_version_check();
+
 	zstream = i_new(struct zstd_ostream, 1);
 	zstream->ostream.sendv = o_stream_zstd_sendv;
 	zstream->ostream.flush = o_stream_zstd_flush;

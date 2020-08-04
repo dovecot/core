@@ -243,6 +243,8 @@ i_stream_create_zstd(struct istream *input, bool log_errors)
 {
 	struct zstd_istream *zstream;
 
+	zstd_version_check();
+
 	zstream = i_new(struct zstd_istream, 1);
 	zstream->log_errors = log_errors;
 

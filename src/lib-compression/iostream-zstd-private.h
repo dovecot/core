@@ -22,4 +22,14 @@ static inline ZSTD_ErrorCode zstd_version_errcode(ZSTD_ErrorCode err)
 	return err;
 }
 
+static inline void zstd_version_check(void)
+{
+	/* error codes were pinned on 1.3.1, so we only care about
+	   versions before that. */
+	if (ZSTD_VERSION_NUMBER < 10301 || ZSTD_versionNumber() < 10301)
+		if (ZSTD_versionNumber() / 100 != ZSTD_VERSION_NUMBER / 100)
+			i_warning("zstd: Compiled against %u, but %u installed!",
+				  ZSTD_VERSION_NUMBER, ZSTD_versionNumber());
+}
+
 #endif
