@@ -253,8 +253,8 @@ bool auth_request_import(struct auth_request *request,
 	return TRUE;
 }
 
-static const char *
-auth_request_fix_username(struct auth_request *request, const char *username,
+static int
+auth_request_fix_username(struct auth_request *request, const char **username,
 			  const char **error_r)
 {
 	const struct auth_settings *set = request->set;
@@ -262,11 +262,11 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 	char *user;
 
 	if (*set->default_realm != '\0' &&
-	    strchr(username, '@') == NULL) {
-		user = p_strconcat(unsafe_data_stack_pool, username, "@",
+	    strchr(*username, '@') == NULL) {
+		user = p_strconcat(unsafe_data_stack_pool, *username, "@",
 				   set->default_realm, NULL);
 	} else {
-		user = t_strdup_noconst(username);
+		user = t_strdup_noconst(*username);
 	}
 
 	for (p = (unsigned char *)user; *p != '\0'; p++) {
@@ -276,8 +276,8 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 			*error_r = t_strdup_printf(
 				"Username character disallowed by auth_username_chars: "
 				"0x%02x (username: %s)", *p,
-				str_sanitize(username, 128));
-			return NULL;
+				str_sanitize(*username, 128));
+			return -1;
 		}
 	}
 
@@ -306,9 +306,10 @@ auth_request_fix_username(struct auth_request *request, const char *username,
 	if (user[0] == '\0') {
 		/* Some PAM plugins go nuts with empty usernames */
 		*error_r = "Empty username";
-		return NULL;
+		return -1;
 	}
-	return user;
+	*username = user;
+	return 0;
 }
 
 bool auth_request_set_username(struct auth_request *request,
@@ -342,10 +343,11 @@ bool auth_request_set_username(struct auth_request *request,
 		username = request->fields.user;
 	}
 
-	request->fields.user = p_strdup(request->pool,
-		auth_request_fix_username(request, username, error_r));
-	if (request->fields.user == NULL)
+	if (auth_request_fix_username(request, &username, error_r) < 0) {
+		request->fields.user = NULL;
 		return FALSE;
+	}
+	request->fields.user = p_strdup(request->pool, username);
 	if (request->fields.translated_username == NULL) {
 		/* similar to original_username, but after translations */
 		request->fields.translated_username = request->fields.user;
@@ -386,10 +388,12 @@ bool auth_request_set_login_username(struct auth_request *request,
 	}
 	request->passdb = master_passdb;
 
-	request->fields.requested_login_user = p_strdup(request->pool,
-		auth_request_fix_username(request, username, error_r));
-	if (request->fields.requested_login_user == NULL)
+	if (auth_request_fix_username(request, &username, error_r) < 0) {
+		request->fields.requested_login_user = NULL;
 		return FALSE;
+	}
+	request->fields.requested_login_user =
+		p_strdup(request->pool, username);
 
 	e_debug(request->event,
 		"%sMaster user lookup for login: %s",
