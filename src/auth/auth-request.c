@@ -812,7 +812,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		if (*result == PASSDB_RESULT_OK) {
 			/* password was successfully verified. don't bother
 			   checking it again. */
-			request->fields.skip_password_check = TRUE;
+			auth_request_set_password_verified(request);
 		}
 		break;
 	case AUTH_DB_RULE_CONTINUE_OK:
@@ -820,7 +820,7 @@ auth_request_handle_passdb_callback(enum passdb_result *result,
 		request->passdb_success = TRUE;
 		/* password was successfully verified. don't bother
 		   checking it again. */
-		request->fields.skip_password_check = TRUE;
+		auth_request_set_password_verified(request);
 		break;
 	case AUTH_DB_RULE_CONTINUE_FAIL:
 		passdb_continue = TRUE;

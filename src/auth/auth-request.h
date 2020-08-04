@@ -69,6 +69,10 @@ struct auth_request_fields {
 	   and such. There may still be some final delay or final SASL
 	   response. */
 	bool successful:1;
+	/* Password was verified successfully by a passdb. The following
+	   passdbs shouldn't attempt to verify the password again. Note that
+	   this differs from passdb_success, which may be set to FALSE due to
+	   the result_* rules. */
 	bool skip_password_check:1;
 
 	/* flags received from auth client: */
@@ -242,6 +246,8 @@ bool auth_request_set_login_username(struct auth_request *request,
 void auth_request_set_realm(struct auth_request *request, const char *realm);
 /* Request was fully successfully authenticated, including policy checks etc. */
 void auth_request_set_auth_successful(struct auth_request *request);
+/* Password was successfully verified by a passdb. */
+void auth_request_set_password_verified(struct auth_request *request);
 
 void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,

@@ -232,7 +232,7 @@ bool auth_request_import(struct auth_request *request,
 	else if (strcmp(key, "successful") == 0)
 		auth_request_set_auth_successful(request);
 	else if (strcmp(key, "skip-password-check") == 0)
-		fields->skip_password_check = TRUE;
+		auth_request_set_password_verified(request);
 	else if (strcmp(key, "delayed-credentials") == 0) {
 		/* just make passdb_handle_credentials() work identically in
 		   auth-worker as it does in auth-master. the worker shouldn't
@@ -436,4 +436,9 @@ void auth_request_set_realm(struct auth_request *request, const char *realm)
 void auth_request_set_auth_successful(struct auth_request *request)
 {
 	request->fields.successful = TRUE;
+}
+
+void auth_request_set_password_verified(struct auth_request *request)
+{
+	request->fields.skip_password_check = TRUE;
 }
