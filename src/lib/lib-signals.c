@@ -396,8 +396,12 @@ static void lib_signals_update_expected_signals(bool expected)
 	}
 
 	sig_ioloop = signal_ioloops;
-	for (; sig_ioloop != NULL; sig_ioloop = sig_ioloop->next)
-		io_set_never_wait_alone(sig_ioloop->io, signals_expected == 0);
+	for (; sig_ioloop != NULL; sig_ioloop = sig_ioloop->next) {
+		if (sig_ioloop->io != NULL) {
+			io_set_never_wait_alone(sig_ioloop->io,
+						signals_expected == 0);
+		}
+	}
 }
 
 static void lib_signals_ioloop_switch(void)
