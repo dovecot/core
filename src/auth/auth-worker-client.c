@@ -762,7 +762,7 @@ auth_worker_client_input_args(struct connection *conn, const char *const *args)
 	cmd->event = event_create(client->conn.event);
 	event_add_category(cmd->event, &event_category_auth);
 	event_add_str(cmd->event, "command", args[1]);
-	event_add_int(cmd->event, "id", id);
+	event_add_int(cmd->event, "command_id", id);
 	event_set_append_log_prefix(cmd->event, t_strdup_printf("auth-worker<%u>: ", id));
 	client->cmd_start = ioloop_time;
 	client->refcount++;
