@@ -219,7 +219,7 @@ extern const char auth_default_subsystems[2];
 
 struct auth_request *
 auth_request_new(const struct mech_module *mech, struct event *parent_event);
-struct auth_request *auth_request_new_dummy(void);
+struct auth_request *auth_request_new_dummy(struct event *parent_event);
 void auth_request_init(struct auth_request *request);
 struct auth *auth_request_get_auth(struct auth_request *request);
 

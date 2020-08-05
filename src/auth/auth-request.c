@@ -134,7 +134,7 @@ auth_request_new(const struct mech_module *mech, struct event *parent_event)
 	return request;
 }
 
-struct auth_request *auth_request_new_dummy(void)
+struct auth_request *auth_request_new_dummy(struct event *parent_event)
 {
 	struct auth_request *request;
 	pool_t pool;
@@ -143,7 +143,7 @@ struct auth_request *auth_request_new_dummy(void)
 	request = p_new(pool, struct auth_request, 1);
 	request->pool = pool;
 
-	auth_request_post_alloc_init(request, NULL);
+	auth_request_post_alloc_init(request, parent_event);
 	return request;
 }
 

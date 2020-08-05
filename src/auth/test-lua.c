@@ -17,7 +17,7 @@ static struct auth_settings test_lua_auth_set = {
 static struct auth_request *test_db_lua_auth_request_new(void)
 {
 	const char *error;
-	struct auth_request *req = auth_request_new_dummy();
+	struct auth_request *req = auth_request_new_dummy(NULL);
 	req->set = global_auth_settings;
 	struct event *event = event_create(req->event);
 	array_push_back(&req->authdb_event, &event);
