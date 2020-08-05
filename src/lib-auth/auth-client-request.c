@@ -1,6 +1,7 @@
 /* Copyright (c) 2003-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "str.h"
 #include "strescape.h"
 #include "ostream.h"
@@ -96,6 +97,13 @@ static void auth_server_send_new_request(struct auth_client_connection *conn,
 	    *info->forward_fields != '\0') {
 		str_append(str, "\tforward_fields=");
 		str_append_tabescaped(str, info->forward_fields);
+	}
+	if (array_is_created(&info->extra_fields)) {
+		const char *const *fieldp;
+		array_foreach(&info->extra_fields, fieldp) {
+			str_append_c(str, '\t');
+			str_append_tabescaped(str, *fieldp);
+		}
 	}
 	if (info->initial_resp_base64 != NULL) {
 		str_append(str, "\tresp=");
