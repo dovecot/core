@@ -663,11 +663,6 @@ auth_request_lookup_end_common(struct auth_request *request,
 		add_str("user", request->fields.user);
 	if (request->fields.master_user != NULL)
 		e->add_str("master_user", request->fields.master_user);
-	if ((p = strchr(request->fields.user, '@')) == NULL)
-		e->add_str("username", request->fields.user);
-	else
-		e->add_str("username", t_strdup_until(request->fields.user, p))->
-			add_str("domain", p + 1);
 	return e;
 }
 
