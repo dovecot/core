@@ -65,8 +65,7 @@ test_subprocess_child(int (*func)(void *context), void *context,
 	ret = func(context);
 
 	/* Prevent race condition */
-	lib_signals_clear_handlers(SIGTERM);
-	lib_signals_ignore(SIGTERM, TRUE);
+	lib_signals_clear_handlers_and_ignore(SIGTERM);
 
 	event_unref(&test_subprocess_event);
 	lib_signals_deinit();

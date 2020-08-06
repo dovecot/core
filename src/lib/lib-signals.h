@@ -42,9 +42,9 @@ void lib_signals_set_handler(int signo, enum libsig_flags flags,
 	ATTR_NULL(4);
 /* Ignore given signal. */
 void lib_signals_ignore(int signo, bool restart_syscalls);
-/* Clear all signal handlers for a specific signal and restore default system
-   handler. */
-void lib_signals_clear_handlers(int signo);
+/* Clear all signal handlers for a specific signal and set the signal to be
+   ignored. */
+void lib_signals_clear_handlers_and_ignore(int signo);
 /* Unset specific signal handler for specific signal. */
 void lib_signals_unset_handler(int signo,
 			       signal_handler_t *handler, void *context)

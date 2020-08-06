@@ -520,16 +520,9 @@ void lib_signals_set_handler(int signo, enum libsig_flags flags,
 	signal_handler_switch_ioloop(h);
 }
 
-void lib_signals_ignore(int signo, bool restart_syscalls)
+static void lib_signals_ignore_forced(int signo, bool restart_syscalls)
 {
 	struct sigaction act;
-
-	if (signo < 0 || signo > MAX_SIGNAL_VALUE) {
-		i_panic("Trying to ignore signal %d, but max is %d",
-			signo, MAX_SIGNAL_VALUE);
-	}
-
-	i_assert(signal_handlers[signo] == NULL);
 
 	if (sigemptyset(&act.sa_mask) < 0)
 		i_fatal("sigemptyset(): %m");
@@ -550,26 +543,26 @@ void lib_signals_ignore(int signo, bool restart_syscalls)
 		i_fatal("sigaction(%d): %m", signo);
 }
 
-static void lib_signals_restore_system_default(int signo)
+void lib_signals_ignore(int signo, bool restart_syscalls)
 {
-	struct sigaction act;
+	if (signo < 0 || signo > MAX_SIGNAL_VALUE) {
+		i_panic("Trying to ignore signal %d, but max is %d",
+			signo, MAX_SIGNAL_VALUE);
+	}
 
-	if (sigemptyset(&act.sa_mask) < 0)
-		i_fatal("sigemptyset(): %m");
-	act.sa_flags = 0;
-	act.sa_handler = SIG_DFL;
-	if (sigaction(signo, &act, NULL) < 0)
-		i_fatal("sigaction(%d): %m", signo);
+	i_assert(signal_handlers[signo] == NULL);
+
+	lib_signals_ignore_forced(signo, restart_syscalls);
 }
 
-void lib_signals_clear_handlers(int signo)
+void lib_signals_clear_handlers_and_ignore(int signo)
 {
 	struct signal_handler *h;
 
 	if (signal_handlers[signo] == NULL)
 		return;
 
-	lib_signals_restore_system_default(signo);
+	lib_signals_ignore_forced(signo, TRUE);
 
 	h = signal_handlers[signo];
 	signal_handlers[signo] = NULL;
@@ -594,7 +587,7 @@ void lib_signals_unset_handler(int signo, signal_handler_t *handler,
 			if (p == &signal_handlers[signo] &&
 			    (*p)->next == NULL) {
 				/* last handler is to be removed */
-				lib_signals_restore_system_default(signo);
+				lib_signals_ignore_forced(signo, TRUE);
 			}
 			h = *p;
 			*p = h->next;
@@ -691,7 +684,7 @@ void lib_signals_deinit(void)
 
 	for (i = 0; i < MAX_SIGNAL_VALUE; i++) {
 		if (signal_handlers[i] != NULL)
-			lib_signals_clear_handlers(i);
+			lib_signals_clear_handlers_and_ignore(i);
 	}
 	i_assert(signals_expected == 0);
 
