@@ -94,8 +94,10 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 		str_append(dest, "\tlocal_name=");
 		str_append_tabescaped(dest, fields->local_name);
 	}
-	if (fields->session_id != NULL)
-		str_printfa(dest, "\tsession=%s", fields->session_id);
+	if (fields->session_id != NULL) {
+		str_append(dest, "\tsession=");
+		str_append_tabescaped(dest, fields->session_id);
+	}
 	if (event_want_debug(request->event))
 		str_append(dest, "\tdebug");
 	switch (fields->secured) {
