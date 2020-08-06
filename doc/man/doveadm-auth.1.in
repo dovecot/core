@@ -36,7 +36,8 @@ For multiple conditions the
 .B \-x
 option could be supplied multiple times.
 .br
-Possible names for the
+All the given fields are forwarded to the auth process without checking for
+their validity. The important names for the
 .I auth_info
 are:
 .RS
@@ -60,6 +61,31 @@ The local port, e.g. 143
 .TP
 .B rport
 The remote port, e.g. 24567
+.TP
+.B real_lip
+The "real" local IP address (server) for the test. This is intended to be the
+local server\(aqs IP, while "lip" contains the connecting proxy server\(aqs
+local IP.
+.TP
+.B real_rip
+The "real" remote IP address (client) for the test. This is intended to be the
+connecting proxy server\(aqs IP address, while "rip" contains the original
+client\(aqs IP.
+.TP
+.B real_lport
+The "real" local port for proxied connections.
+.TP
+.B real_rport
+The "real" remote port for proxied connections.
+.TP
+.B local_name
+Provide the client TLS connection\(aqs SNI name.
+.TP
+.B client_id
+IMAP client ID string.
+.TP
+.B session
+Session ID string, mainly for logging purposes.
 .RE
 .\"------------------------------------------------------------------------
 .SH ARGUMENTS
