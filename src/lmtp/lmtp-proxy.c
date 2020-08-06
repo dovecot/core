@@ -624,7 +624,7 @@ int lmtp_proxy_rcpt(struct client *client,
 		/* The existing "user" event field is overridden with the new
 		   user name, while old username is available as "orig_user" */
 		event_add_str(rcpt->event, "user", username);
-		event_add_str(rcpt->event, "orig_user", orig_username);
+		event_add_str(rcpt->event, "original_user", orig_username);
 
 		if (smtp_address_parse_username(pool_datastack_create(),
 						username, &user, &errstr) < 0) {
