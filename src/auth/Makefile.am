@@ -284,6 +284,7 @@ test_auth_cache_CPPFLAGS = $(AM_CPPFLAGS)
 
 test_auth_SOURCES = \
 	test-auth-request-var-expand.c \
+	test-auth-request-fields.c \
 	test-username-filter.c \
 	test-db-dict.c \
 	test-lua.c \

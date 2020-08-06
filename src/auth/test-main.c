@@ -13,6 +13,7 @@ int main(int argc, const char *argv[])
 	int ret;
 	static const struct named_test test_functions[] = {
 		TEST_NAMED(test_auth_request_var_expand)
+		TEST_NAMED(test_auth_request_fields)
 		TEST_NAMED(test_db_dict_parse_cache_key)
 		TEST_NAMED(test_username_filter)
 #if defined(BUILTIN_LUA)
