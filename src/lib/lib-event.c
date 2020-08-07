@@ -745,7 +745,11 @@ static struct event_category *event_category_register(struct event_category *cat
 static bool
 event_find_category(struct event *event, const struct event_category *category)
 {
+	struct event_internal_category *internal = category->internal;
 	struct event_category *const *categoryp;
+
+	/* make sure we're always looking for a representative */
+	i_assert(category == &internal->representative);
 
 	array_foreach(&event->categories, categoryp) {
 		if (*categoryp == category)
@@ -765,7 +769,7 @@ event_add_categories(struct event *event,
 
 	for (unsigned int i = 0; categories[i] != NULL; i++) {
 		representative = event_category_register(categories[i]);
-		if (!event_find_category(event, categories[i]))
+		if (!event_find_category(event, representative))
 			array_push_back(&event->categories, &representative);
 	}
 	event_set_changed(event);
