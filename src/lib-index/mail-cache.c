@@ -426,7 +426,7 @@ mail_cache_map_full(struct mail_cache *cache, size_t offset, size_t size,
 			*data_r = NULL;
 			return 0;
 		}
-		if (offset + size > (uoff_t)st.st_size)
+		if (size > (uoff_t)st.st_size - offset)
 			size = st.st_size - offset;
 	}
 
