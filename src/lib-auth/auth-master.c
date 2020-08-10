@@ -529,7 +529,14 @@ void auth_user_info_export(string_t *str, const struct auth_user_info *info)
 		str_append(str, "\tservice=");
 		str_append(str, info->service);
 	}
-
+	if (info->session_id != NULL) {
+		str_append(str, "\tsession=");
+		str_append_tabescaped(str, info->session_id);
+	}
+	if (info->local_name != NULL) {
+		str_append(str, "\tlocal_name=");
+		str_append_tabescaped(str, info->local_name);
+	}
 	if (info->local_ip.family != 0)
 		str_printfa(str, "\tlip=%s", net_ip2addr(&info->local_ip));
 	if (info->local_port != 0)
