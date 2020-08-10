@@ -344,23 +344,28 @@ static void test_mail_transaction_log_file_modseq_offsets(void)
 	uint64_t modseq_at;
 	const char *error;
 	/* initial_offset */
-	test_assert(mail_transaction_log_file_get_highest_modseq_at(file, modseq_next_offset[1], &modseq, &error) == 0);
+	test_assert(mail_transaction_log_file_get_highest_modseq_at(
+		file, modseq_next_offset[1], &modseq, &error) == 1);
 	test_assert(modseq == 1);
 	/* sync_offset fast path */
-	test_assert(mail_transaction_log_file_get_highest_modseq_at(file, file->sync_offset, &modseq, &error) == 0);
+	test_assert(mail_transaction_log_file_get_highest_modseq_at(
+		file, file->sync_offset, &modseq, &error) == 1);
 	test_assert(modseq == max_modseq);
 	/* do some random testing with cache */
 	for (unsigned int i = 0; i < LOG_FILE_MODSEQ_CACHE_SIZE*10; i++) {
 		modseq = i_rand_minmax(1, max_modseq);
-		test_assert(mail_transaction_log_file_get_highest_modseq_at(file, modseq_next_offset[modseq], &modseq_at, &error) == 0);
+		test_assert(mail_transaction_log_file_get_highest_modseq_at(
+			file, modseq_next_offset[modseq], &modseq_at, &error) == 1);
 		test_assert(modseq_at == modseq);
-		test_assert(mail_transaction_log_file_get_highest_modseq_at(file, modseq_alt_next_offset[modseq], &modseq_at, &error) == 0);
+		test_assert(mail_transaction_log_file_get_highest_modseq_at(
+			file, modseq_alt_next_offset[modseq], &modseq_at, &error) == 1);
 		test_assert(modseq_at == modseq);
 	}
 	/* go through all modseqs - do this after randomness testing or
 	   modseq_alt_next_offset[] matching isn't triggered */
 	for (modseq = 1; modseq <= max_modseq; modseq++) {
-		test_assert(mail_transaction_log_file_get_highest_modseq_at(file, modseq_next_offset[modseq], &modseq_at, &error) == 0);
+		test_assert(mail_transaction_log_file_get_highest_modseq_at(
+			file, modseq_next_offset[modseq], &modseq_at, &error) == 1);
 		test_assert(modseq_at == modseq);
 	}
 

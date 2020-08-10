@@ -53,7 +53,7 @@ int mail_transaction_log_file_get_highest_modseq_at(
 		const char **error_r ATTR_UNUSED)
 {
 	*highest_modseq_r = 0;
-	return 0;
+	return 1;
 }
 
 void mail_transaction_update_modseq(const struct mail_transaction_header *hdr ATTR_UNUSED,

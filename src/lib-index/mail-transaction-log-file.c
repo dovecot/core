@@ -1208,7 +1208,7 @@ int mail_transaction_log_file_get_highest_modseq_at(
 
 	if (offset == file->sync_offset) {
 		*highest_modseq_r = file->sync_highest_modseq;
-		return 0;
+		return 1;
 	}
 
 	cache = modseq_cache_get_offset(file, offset);
@@ -1219,7 +1219,7 @@ int mail_transaction_log_file_get_highest_modseq_at(
 	} else if (cache->offset == offset) {
 		/* exact cache hit */
 		*highest_modseq_r = cache->highest_modseq;
-		return 0;
+		return 1;
 	} else {
 		/* use cache to skip over some records */
 		cur_offset = cache->offset;
@@ -1232,14 +1232,14 @@ int mail_transaction_log_file_get_highest_modseq_at(
 			"Failed to map transaction log %s for getting modseq "
 			"at offset=%"PRIuUOFF_T" with start_offset=%"PRIuUOFF_T": %s",
 			file->filepath, offset, cur_offset, reason);
-		return -1;
+		return ret;
 	}
 
 	i_assert(cur_offset >= file->buffer_offset);
 	i_assert(cur_offset + file->buffer->used >= offset);
 	while (cur_offset < offset) {
 		if (log_get_synced_record(file, &cur_offset, &hdr, error_r) < 0)
-			return- 1;
+			return 0;
 		mail_transaction_update_modseq(hdr, hdr + 1, &cur_modseq,
 			MAIL_TRANSACTION_LOG_HDR_VERSION(&file->hdr));
 	}
@@ -1252,7 +1252,7 @@ int mail_transaction_log_file_get_highest_modseq_at(
 	file->modseq_cache[0].highest_modseq = cur_modseq;
 
 	*highest_modseq_r = cur_modseq;
-	return 0;
+	return 1;
 }
 
 static int
