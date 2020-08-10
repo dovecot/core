@@ -935,6 +935,7 @@ auth_master_user_list_init(struct auth_master_connection *conn,
 	str_append_c(str, '\n');
 
 	auth_master_user_event_create(conn, "userdb list: ", info);
+	event_add_str(conn->event," user_mask", user_mask);
 
 	struct event_passthrough *e =
 		event_create_passthrough(conn->event)->
