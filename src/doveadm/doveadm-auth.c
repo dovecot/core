@@ -190,6 +190,8 @@ static void auth_connected(struct auth_client *client,
 	i_zero(&info);
 	info.mech = "PLAIN";
 	info.service = input->info.service;
+	info.session_id = input->info.session_id;
+	info.local_name = input->info.local_name;
 	info.local_ip = input->info.local_ip;
 	info.local_port = input->info.local_port;
 	info.remote_ip = input->info.remote_ip;
@@ -231,6 +233,10 @@ static void auth_user_info_parse(struct auth_user_info *info, const char *arg)
 {
 	if (str_begins(arg, "service="))
 		info->service = arg + 8;
+	else if (str_begins(arg, "session="))
+		info->session_id = arg + 8;
+	else if (str_begins(arg, "local_name="))
+		info->local_name = arg + 11;
 	else if (str_begins(arg, "lip=")) {
 		if (net_addr2ip(arg + 4, &info->local_ip) < 0)
 			i_fatal("lip: Invalid ip");
