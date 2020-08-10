@@ -401,7 +401,8 @@ mail_index_map_latest_file(struct mail_index *index, const char **reason_r)
 
 	mail_index_unmap(&index->map);
 	index->map = new_map;
-	*reason_r = "Index mapped";
+	*reason_r = t_strdup_printf("Index mapped (file_seq=%u)",
+				    index->map->hdr.log_file_seq);
 	return 1;
 }
 

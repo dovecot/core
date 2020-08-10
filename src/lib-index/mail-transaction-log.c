@@ -330,6 +330,9 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset)
 	old_head = log->head;
 	mail_transaction_log_set_head(log, file);
 
+	e_debug(log->index->event, "Rotated transaction log %s (seq=%u, reset=%s)",
+		file->filepath, file->hdr.file_seq, reset ? "yes" : "no");
+
 	/* the newly created log file is already locked */
 	mail_transaction_log_file_unlock(old_head,
 		!log->index->log_sync_locked ? "rotating" :
@@ -385,6 +388,8 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush,
 
 	file = mail_transaction_log_file_alloc(log, log->filepath);
 	if (mail_transaction_log_file_open(file, reason_r) <= 0) {
+		*reason_r = t_strdup_printf(
+			"Failed to refresh main transaction log: %s", *reason_r);
 		mail_transaction_log_file_free(&file);
 		return -1;
 	}
@@ -483,6 +488,8 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 	/* see if we have it in log.2 file */
 	file = mail_transaction_log_file_alloc(log, log->filepath2);
 	if ((ret = mail_transaction_log_file_open(file, reason_r)) <= 0) {
+		*reason_r = t_strdup_printf(
+			"Not found from .log.2: %s", *reason_r);
 		mail_transaction_log_file_free(&file);
 		return ret;
 	}

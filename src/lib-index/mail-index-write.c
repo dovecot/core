@@ -200,8 +200,8 @@ void mail_index_write(struct mail_index *index, bool want_rotate,
 			return;
 		}
 		event_set_name(index->event, "mail_index_recreated");
-		e_debug(index->event, "Recreated %s because: %s",
-			index->filepath, reason);
+		e_debug(index->event, "Recreated %s (file_seq=%u) because: %s",
+			index->filepath, hdr->log_file_seq, reason);
 	}
 
 	index->last_read_log_file_seq = hdr->log_file_seq;
