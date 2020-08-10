@@ -419,12 +419,16 @@ int mail_index_map(struct mail_index *index,
 		index->map = mail_index_map_alloc(index);
 
 	/* first try updating the existing mapping from transaction log. */
-	if (index->initial_mapped && !index->reopen_main_index) {
-		/* we're not creating/opening the index.
-		   sync this as a view from transaction log. */
-		ret = mail_index_sync_map(&index->map, type, FALSE, "initial mapping");
-	} else {
+	if (!index->initial_mapped || index->reopen_main_index) {
+		/* index is being created/opened for the first time */
 		ret = 0;
+	} else if (mail_index_sync_map_want_index_reopen(index->map, type)) {
+		/* it's likely more efficient to reopen the index file than
+		   sync from the transaction log. */
+		ret = 0;
+	} else {
+		/* sync the map from the transaction log. */
+		ret = mail_index_sync_map(&index->map, type, FALSE, "initial mapping");
 	}
 
 	if (ret == 0) {

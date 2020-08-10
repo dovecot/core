@@ -893,9 +893,8 @@ void mail_index_map_check(struct mail_index_map *map)
 }
 #endif
 
-static bool
-mail_index_sync_map_want_index_reopen(struct mail_index_map *map,
-				      enum mail_index_sync_handler_type type)
+bool mail_index_sync_map_want_index_reopen(struct mail_index_map *map,
+					   enum mail_index_sync_handler_type type)
 {
 	struct mail_index *index = map->index;
 
@@ -946,13 +945,10 @@ int mail_index_sync_map(struct mail_index_map **_map,
 	int ret;
 	bool had_dirty, reset;
 
+	i_assert(index->log->head != NULL);
 	i_assert(index->map == map || type == MAIL_INDEX_SYNC_HANDLER_VIEW);
 	i_assert(!force || index->log->head != NULL);
 
-	if (mail_index_sync_map_want_index_reopen(map, type))
-		return 0;
-
-	i_assert(index->log->head != NULL);
 	start_offset = type == MAIL_INDEX_SYNC_HANDLER_FILE ?
 		map->hdr.log_file_tail_offset : map->hdr.log_file_head_offset;
 
