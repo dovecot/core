@@ -930,8 +930,8 @@ bool mail_index_sync_map_want_index_reopen(struct mail_index_map *map,
 }
 
 int mail_index_sync_map(struct mail_index_map **_map,
-			enum mail_index_sync_handler_type type, bool force,
-			const char *sync_reason)
+			enum mail_index_sync_handler_type type,
+			const char **reason_r)
 {
 	struct mail_index_map *map = *_map;
 	struct mail_index *index = map->index;
@@ -947,7 +947,6 @@ int mail_index_sync_map(struct mail_index_map **_map,
 
 	i_assert(index->log->head != NULL);
 	i_assert(index->map == map || type == MAIL_INDEX_SYNC_HANDLER_VIEW);
-	i_assert(!force || index->log->head != NULL);
 
 	start_offset = type == MAIL_INDEX_SYNC_HANDLER_FILE ?
 		map->hdr.log_file_tail_offset : map->hdr.log_file_head_offset;
@@ -963,16 +962,12 @@ int mail_index_sync_map(struct mail_index_map **_map,
 			/* I/O failure */
 			return -1;
 		}
-		if (force) {
-			/* the seq/offset is probably broken */
-			mail_index_set_error(index, "Index %s: Lost log for "
-				"seq=%u offset=%"PRIuUOFF_T": %s "
-				"(initial_mapped=%d, reason=%s)", index->filepath,
-				map->hdr.log_file_seq, start_offset, reason,
-				index->initial_mapped ? 1 : 0, sync_reason);
-			(void)mail_index_fsck(index);
-		}
-		/* can't use it. sync by re-reading index. */
+		/* the seq/offset is probably broken */
+		*reason_r = t_strdup_printf(
+			"Lost log for seq=%u offset=%"PRIuUOFF_T": %s "
+			"(initial_mapped=%d)",
+			map->hdr.log_file_seq, start_offset, reason,
+			index->initial_mapped ? 1 : 0);
 		return 0;
 	}
 

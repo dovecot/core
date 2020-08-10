@@ -410,6 +410,7 @@ mail_index_map_latest_sync(struct mail_index *index,
 			   enum mail_index_sync_handler_type type,
 			   const char *reason)
 {
+	const char *map_reason;
 	int ret;
 
 	if (index->log->head == NULL || index->indexid == 0) {
@@ -419,15 +420,23 @@ mail_index_map_latest_sync(struct mail_index *index,
 	}
 
 	/* and update the map with the latest changes from transaction log */
-	ret = mail_index_sync_map(&index->map, type, TRUE, reason);
+	ret = mail_index_sync_map(&index->map, type, &map_reason);
 	if (ret != 0)
 		return ret;
 
-	/* we fsck'd the index. try opening again. */
+	/* fsck the index and try to reopen */
+	mail_index_set_error(index, "Index %s: %s: %s - fscking",
+			     index->filepath, reason, map_reason);
+	if (mail_index_fsck(index) < 0)
+		return -1;
+
 	ret = mail_index_map_latest_file(index, &reason);
 	if (ret > 0 && index->indexid != 0) {
-		ret = mail_index_sync_map(&index->map,
-					  type, TRUE, reason);
+		ret = mail_index_sync_map(&index->map, type, &map_reason);
+		if (ret == 0) {
+			mail_index_set_error(index, "Index %s: %s: %s",
+				index->filepath, reason, map_reason);
+		}
 	}
 	return ret;
 }
@@ -455,7 +464,13 @@ int mail_index_map(struct mail_index *index,
 		ret = 0;
 	} else {
 		/* sync the map from the transaction log. */
-		ret = mail_index_sync_map(&index->map, type, FALSE, "initial mapping");
+		ret = mail_index_sync_map(&index->map, type, &reason);
+		if (ret == 0) {
+			e_debug(index->event,
+				"Couldn't sync map from transaction log: %s - "
+				"reopening index instead",
+				reason);
+		}
 	}
 
 	if (ret == 0) {
