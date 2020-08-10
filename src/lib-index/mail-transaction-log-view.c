@@ -93,7 +93,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		/* transaction log is closed already. this log view shouldn't
 		   be used anymore. */
 		*reason_r = "Log already closed";
-		return -1;
+		return 0;
 	}
 
 	if (min_file_seq == 0) {
@@ -151,7 +151,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			") > max_file_offset (%"PRIuUOFF_T")",
 			min_file_seq, min_file_offset, max_file_offset);
 		mail_transaction_log_view_set_corrupted(view, "%s", *reason_r);
-		return -1;
+		return 0;
 	}
 
 	view->tail = view->head = file = NULL;
@@ -239,7 +239,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			") < hdr_size (%u)",
 			min_file_seq, min_file_offset, view->tail->hdr.hdr_size);
 		mail_transaction_log_view_set_corrupted(view, "%s", *reason_r);
-		return -1;
+		return 0;
 	}
 	if (max_file_offset < view->head->hdr.hdr_size) {
 		/* log file offset is probably corrupted in the index file. */
@@ -248,7 +248,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			") < hdr_size (%u)",
 			max_file_seq, max_file_offset, view->head->hdr.hdr_size);
 		mail_transaction_log_view_set_corrupted(view, "%s", *reason_r);
-		return -1;
+		return 0;
 	}
 
 	/* we have all of them. update refcounts. */
@@ -314,7 +314,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			") > sync_offset (%"PRIuUOFF_T")", min_file_seq,
 			min_file_offset, view->head->sync_offset);
 		mail_transaction_log_view_set_corrupted(view, "%s", *reason_r);
-		return -1;
+		return 0;
 	}
 
 	i_assert(max_file_seq == (uint32_t)-1 ||
@@ -335,9 +335,10 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	view->max_file_offset = I_MIN(max_file_offset, view->head->sync_offset);
 	view->broken = FALSE;
 
-	if (mail_transaction_log_file_get_highest_modseq_at(view->cur,
-				view->cur_offset, &view->prev_modseq, reason_r) <= 0)
-		return -1;
+	ret = mail_transaction_log_file_get_highest_modseq_at(view->cur,
+		view->cur_offset, &view->prev_modseq, reason_r);
+	if (ret <= 0)
+		return ret;
 
 	i_assert(view->cur_offset <= view->cur->sync_offset);
 	return 1;

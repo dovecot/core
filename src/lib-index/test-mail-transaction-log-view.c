@@ -219,7 +219,7 @@ static void test_mail_transaction_log_view(void)
 
 	test_begin("closed log handling");
 	view->log = NULL;
-	test_assert(mail_transaction_log_view_set(view, 0, 0, (uint32_t)-1, UOFF_T_MAX, &reset, &reason) == -1);
+	test_assert(mail_transaction_log_view_set(view, 0, 0, (uint32_t)-1, UOFF_T_MAX, &reset, &reason) == 0);
 	view->log = log;
 	test_end();
 
