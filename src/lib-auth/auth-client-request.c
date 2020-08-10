@@ -111,20 +111,13 @@ static void auth_server_send_new_request(struct auth_client_connection *conn,
 		event_add_str(request->event, "local_name", info->local_name);
 	}
 	if (info->ssl_cipher_bits != 0 && info->ssl_cipher != NULL) {
-		str_append(str, "\tssl_cipher=");
-		str_append_tabescaped(str, info->ssl_cipher);
-		str_printfa(str, "\tssl_cipher_bits=%u", info->ssl_cipher_bits);
 		event_add_str(request->event, "tls_cipher", info->ssl_cipher);
 		event_add_int(request->event, "tls_cipher_bits", info->ssl_cipher_bits);
 		if (info->ssl_pfs != NULL) {
-			str_append(str, "\tssl_pfs=");
-			str_append_tabescaped(str, info->ssl_pfs);
 			event_add_str(request->event, "tls_pfs", info->ssl_pfs);
 		}
 	}
 	if (info->ssl_protocol != NULL) {
-		str_append(str, "\tssl_protocol=");
-		str_append_tabescaped(str, info->ssl_protocol);
 		event_add_str(request->event, "tls_protocol", info->ssl_protocol);
 	}
 	if (info->client_id != NULL &&
