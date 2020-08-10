@@ -75,12 +75,33 @@ mail_transaction_log_get_file_seqs(struct mail_transaction_log *log)
 	return str_c(str) + 1;
 }
 
+static void
+view_set_failed_unref(struct mail_transaction_log_file *head,
+		      struct mail_transaction_log_file *tail)
+{
+	struct mail_transaction_log_file *file;
+
+	if (tail == NULL) {
+		i_assert(head == NULL);
+		return;
+	}
+
+	for (file = tail; file != head; file = file->next) {
+		i_assert(file != NULL);
+		i_assert(file->refcount > 0);
+		file->refcount--;
+	}
+	i_assert(file != NULL);
+	i_assert(file->refcount > 0);
+	file->refcount--;
+}
+
 int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 				  uint32_t min_file_seq, uoff_t min_file_offset,
 				  uint32_t max_file_seq, uoff_t max_file_offset,
 				  bool *reset_r, const char **reason_r)
 {
-	struct mail_transaction_log_file *file, *const *files;
+	struct mail_transaction_log_file *tail, *head, *file, *const *files;
 	uoff_t start_offset, end_offset;
 	unsigned int i;
 	uint32_t seq;
@@ -154,7 +175,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		return 0;
 	}
 
-	view->tail = view->head = file = NULL;
+	tail = head = file = NULL;
 	for (seq = min_file_seq; seq <= max_file_seq; seq++) {
 		const char *reason = NULL;
 
@@ -173,6 +194,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 					*reason_r = t_strdup_printf(
 						"Failed to find file seq=%u: %s",
 						seq, reason);
+					view_set_failed_unref(head, tail);
 					return -1;
 				}
 
@@ -184,7 +206,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		if (file == NULL || file->hdr.file_seq != seq) {
 			i_assert(reason != NULL);
 			if (file == NULL && max_file_seq == (uint32_t)-1 &&
-			    view->head == view->log->head) {
+			    head == view->log->head) {
 				/* we just wanted to sync everything */
 				i_assert(max_file_offset == UOFF_T_MAX);
 				max_file_seq = seq-1;
@@ -192,8 +214,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			}
 			/* if any of the found files reset the index,
 			   ignore any missing files up to it */
-			file = view->tail != NULL ? view->tail :
-				view->log->files;
+			file = tail != NULL ? tail : view->log->files;
 			for (;; file = file->next) {
 				if (file == NULL ||
 				    file->hdr.file_seq > max_file_seq) {
@@ -202,6 +223,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 						"Missing middle file seq=%u (between %u..%u, we have seqs %s): %s",
 						seq, min_file_seq, max_file_seq,
 						mail_transaction_log_get_file_seqs(view->log), reason);
+					view_set_failed_unref(head, tail);
 					return 0;
 				}
 
@@ -211,20 +233,26 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 					break;
 				}
 			}
+			/* we're going to rebuild the head/tail. remove the old
+			   references first. */
+			view_set_failed_unref(head, tail);
 			seq = file->hdr.file_seq;
-			view->tail = NULL;
+			tail = NULL;
 		} 
 
-		if (view->tail == NULL)
-			view->tail = file;
-		view->head = file;
+		if (tail == NULL)
+			tail = file;
+		head = file;
+		/* NOTE: we need to reference immediately or it could become
+		   freed by mail_transaction_log_find_file() */
+		file->refcount++;
 		file = file->next;
 	}
-	i_assert(view->tail != NULL);
+	i_assert(tail != NULL);
 
 	if (min_file_offset == 0) {
 		/* beginning of the file */
-		min_file_offset = view->tail->hdr.hdr_size;
+		min_file_offset = tail->hdr.hdr_size;
 		if (min_file_offset > max_file_offset &&
 		    min_file_seq == max_file_seq) {
 			/* we don't actually want to show anything */
@@ -232,22 +260,24 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 		}
 	}
 
-	if (min_file_offset < view->tail->hdr.hdr_size) {
+	if (min_file_offset < tail->hdr.hdr_size) {
 		/* log file offset is probably corrupted in the index file. */
 		*reason_r = t_strdup_printf(
 			"Invalid min_file_offset: file_seq=%u, min_file_offset (%"PRIuUOFF_T
 			") < hdr_size (%u)",
-			min_file_seq, min_file_offset, view->tail->hdr.hdr_size);
+			min_file_seq, min_file_offset, tail->hdr.hdr_size);
 		mail_transaction_log_view_set_corrupted(view, "%s", *reason_r);
+		view_set_failed_unref(head, tail);
 		return 0;
 	}
-	if (max_file_offset < view->head->hdr.hdr_size) {
+	if (max_file_offset < head->hdr.hdr_size) {
 		/* log file offset is probably corrupted in the index file. */
 		*reason_r = t_strdup_printf(
 			"Invalid max_file_offset: file_seq=%u, min_file_offset (%"PRIuUOFF_T
 			") < hdr_size (%u)",
-			max_file_seq, max_file_offset, view->head->hdr.hdr_size);
+			max_file_seq, max_file_offset, head->hdr.hdr_size);
 		mail_transaction_log_view_set_corrupted(view, "%s", *reason_r);
+		view_set_failed_unref(head, tail);
 		return 0;
 	}
 
@@ -255,11 +285,12 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 	mail_transaction_log_view_unref_all(view);
 
 	/* Reference all used files. */
-	for (file = view->tail;; file = file->next) {
+	view->tail = tail;
+	view->head = head;
+	for (file = view->tail; ; file = file->next) {
 		array_push_back(&view->file_refs, &file);
-		file->refcount++;
 
-		if (file == view->head)
+		if (file == head)
 			break;
 	}
 

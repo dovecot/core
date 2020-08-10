@@ -8,6 +8,7 @@
 
 static struct mail_transaction_log *log;
 static struct mail_transaction_log_view *view;
+static bool clean_refcount0_files = FALSE;
 
 static void
 test_transaction_log_file_add(uint32_t file_seq)
@@ -54,13 +55,24 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 				   struct mail_transaction_log_file **file_r,
 				   const char **reason_r)
 {
-	struct mail_transaction_log_file *file;
+	struct mail_transaction_log_file *file, *next;
 
-	for (file = log->files; file != NULL; file = file->next) {
+	for (file = log->files; file != NULL; file = next) {
+		next = file->next;
 		if (file->hdr.file_seq == file_seq) {
 			*file_r = file;
 			return 1;
 		}
+		/* refcount=0 files at the beginning of the list may be freed */
+		if (file->refcount == 0 && file == log->files &&
+		    clean_refcount0_files)
+			log->files = next;
+	}
+	if (clean_refcount0_files && file_seq == 4) {
+		/* "clean refcount=0 files" test autocreates this file */
+		test_transaction_log_file_add(4);
+		*file_r = log->head;
+		return 1;
 	}
 	*reason_r = "not found";
 	return 0;
@@ -221,6 +233,18 @@ static void test_mail_transaction_log_view(void)
 	view->log = NULL;
 	test_assert(mail_transaction_log_view_set(view, 0, 0, (uint32_t)-1, UOFF_T_MAX, &reset, &reason) == 0);
 	view->log = log;
+	test_end();
+
+	test_begin("clean refcount=0 files");
+	oldfile = log->files;
+	/* clear all references */
+	mail_transaction_log_view_clear(view, 0);
+	clean_refcount0_files = TRUE;
+	/* create a new file during mail_transaction_log_view_set(), which
+	   triggers freeing any unreferenced files. */
+	test_assert(mail_transaction_log_view_set(view, 2, 0, 4, UOFF_T_MAX, &reset, &reason) == 1);
+	clean_refcount0_files = FALSE;
+	log->files = oldfile;
 	test_end();
 
 	mail_transaction_log_view_close(&view);
