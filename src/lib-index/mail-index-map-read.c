@@ -405,6 +405,32 @@ mail_index_map_latest_file(struct mail_index *index, const char **reason_r)
 	return 1;
 }
 
+static int
+mail_index_map_latest_sync(struct mail_index *index,
+			   enum mail_index_sync_handler_type type,
+			   const char *reason)
+{
+	int ret = 1;
+
+	/* if we're creating the index file, we don't have any
+	   logs yet */
+	if (index->log->head != NULL && index->indexid != 0) {
+		/* and update the map with the latest changes
+		   from transaction log */
+		ret = mail_index_sync_map(&index->map, type,
+					  TRUE, reason);
+	}
+	if (ret == 0) {
+		/* we fsck'd the index. try opening again. */
+		ret = mail_index_map_latest_file(index, &reason);
+		if (ret > 0 && index->indexid != 0) {
+			ret = mail_index_sync_map(&index->map,
+						  type, TRUE, reason);
+		}
+	}
+	return ret;
+}
+
 int mail_index_map(struct mail_index *index,
 		   enum mail_index_sync_handler_type type)
 {
@@ -439,22 +465,7 @@ int mail_index_map(struct mail_index *index,
 		   don't even try to use the transaction log. */
 		ret = mail_index_map_latest_file(index, &reason);
 		if (ret > 0) {
-			/* if we're creating the index file, we don't have any
-			   logs yet */
-			if (index->log->head != NULL && index->indexid != 0) {
-				/* and update the map with the latest changes
-				   from transaction log */
-				ret = mail_index_sync_map(&index->map, type,
-							  TRUE, reason);
-			}
-			if (ret == 0) {
-				/* we fsck'd the index. try opening again. */
-				ret = mail_index_map_latest_file(index, &reason);
-				if (ret > 0 && index->indexid != 0) {
-					ret = mail_index_sync_map(&index->map,
-						type, TRUE, reason);
-				}
-			}
+			ret = mail_index_map_latest_sync(index, type, reason);
 		} else if (ret == 0 && !index->readonly) {
 			/* make sure we don't try to open the file again */
 			if (unlink(index->filepath) < 0 && errno != ENOENT)
