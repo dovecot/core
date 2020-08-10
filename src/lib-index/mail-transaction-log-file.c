@@ -103,6 +103,7 @@ void mail_transaction_log_file_free(struct mail_transaction_log_file **_file)
 	*_file = NULL;
 
 	i_assert(!file->locked);
+	i_assert(file->refcount == 0);
 
 	for (p = &file->log->files; *p != NULL; p = &(*p)->next) {
 		if (*p == file) {
