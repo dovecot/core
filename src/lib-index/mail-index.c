@@ -815,11 +815,13 @@ int mail_index_unlink(struct mail_index *index)
 	}
 }
 
-int mail_index_reopen_if_changed(struct mail_index *index,
+int mail_index_reopen_if_changed(struct mail_index *index, bool *reopened_r,
 				 const char **reason_r)
 {
 	struct stat st1, st2;
 	int ret;
+
+	*reopened_r = FALSE;
 
 	if (MAIL_INDEX_IS_IN_MEMORY(index)) {
 		*reason_r = "in-memory index";
@@ -863,8 +865,10 @@ int mail_index_reopen_if_changed(struct mail_index *index,
 final:
 	if ((ret = mail_index_try_open_only(index)) == 0)
 		*reason_r = "index not found via open()";
-	else if (ret > 0)
+	else if (ret > 0) {
 		*reason_r = "index opened";
+		*reopened_r = TRUE;
+	}
 	return ret;
 }
 

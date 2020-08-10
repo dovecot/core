@@ -307,14 +307,14 @@ mail_index_map_latest_file(struct mail_index *index, const char **reason_r)
 	struct mail_index_map *old_map, *new_map;
 	struct stat st;
 	uoff_t file_size;
-	bool use_mmap, unusable = FALSE;
+	bool use_mmap, reopened, unusable = FALSE;
 	const char *error;
 	int ret, try;
 
 	*reason_r = NULL;
 
 	index->reopen_main_index = FALSE;
-	ret = mail_index_reopen_if_changed(index, reason_r);
+	ret = mail_index_reopen_if_changed(index, &reopened, reason_r);
 	if (ret <= 0) {
 		if (ret < 0)
 			return -1;

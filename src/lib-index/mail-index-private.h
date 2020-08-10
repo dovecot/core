@@ -250,7 +250,10 @@ int mail_index_create_tmp_file(struct mail_index *index,
 
 int mail_index_try_open_only(struct mail_index *index);
 void mail_index_close_file(struct mail_index *index);
-int mail_index_reopen_if_changed(struct mail_index *index,
+/* Returns 1 if index was successfully (re-)opened, 0 if the index no longer
+   exists, -1 if I/O error. If 1 is returned, reopened_r=TRUE if a new index
+   was actually reopened (or if index wasn't even open before this call). */
+int mail_index_reopen_if_changed(struct mail_index *index, bool *reopened_r,
 				 const char **reason_r);
 /* Update/rewrite the main index file from index->map */
 void mail_index_write(struct mail_index *index, bool want_rotate,
