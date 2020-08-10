@@ -69,6 +69,7 @@ test_programs = \
 	test-mail-index-sync-ext \
 	test-mail-index-transaction-finish \
 	test-mail-index-transaction-update \
+	test-mail-index-write \
 	test-mail-transaction-log-append \
 	test-mail-transaction-log-file \
 	test-mail-transaction-log-view
@@ -113,6 +114,10 @@ test_mail_index_transaction_finish_DEPENDENCIES = $(test_deps)
 test_mail_index_transaction_update_SOURCES = test-mail-index-transaction-update.c
 test_mail_index_transaction_update_LDADD = mail-index-transaction-update.lo $(test_libs)
 test_mail_index_transaction_update_DEPENDENCIES = $(test_deps)
+
+test_mail_index_write_SOURCES = test-mail-index-write.c
+test_mail_index_write_LDADD = mail-index-write.lo $(test_libs)
+test_mail_index_write_DEPENDENCIES = $(test_deps)
 
 test_mail_transaction_log_append_SOURCES = test-mail-transaction-log-append.c
 test_mail_transaction_log_append_LDADD = mail-transaction-log-append.lo $(test_libs)
