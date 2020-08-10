@@ -10,7 +10,7 @@ struct auth_cache_node {
 	/* TRUE if the user gave the correct password the last time. */
 	bool last_success:1;
 
-	char data[4]; /* key \0 value \0 */
+	char data[]; /* key \0 value \0 */
 };
 
 struct auth_cache;

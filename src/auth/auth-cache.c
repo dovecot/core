@@ -440,8 +440,7 @@ void auth_cache_insert(struct auth_cache *cache, struct auth_request *request,
 	key_len = strlen(key);
 
 	data_size = key_len + 1 + value_len + 1;
-	alloc_size = sizeof(struct auth_cache_node) -
-		sizeof(node->data) + data_size;
+	alloc_size = sizeof(struct auth_cache_node) + data_size;
 
 	/* make sure we have enough space */
 	while (cache->size_left < alloc_size && cache->tail != NULL)
