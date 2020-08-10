@@ -410,23 +410,24 @@ mail_index_map_latest_sync(struct mail_index *index,
 			   enum mail_index_sync_handler_type type,
 			   const char *reason)
 {
-	int ret = 1;
+	int ret;
 
-	/* if we're creating the index file, we don't have any
-	   logs yet */
-	if (index->log->head != NULL && index->indexid != 0) {
-		/* and update the map with the latest changes
-		   from transaction log */
-		ret = mail_index_sync_map(&index->map, type,
-					  TRUE, reason);
+	if (index->log->head == NULL || index->indexid == 0) {
+		/* we're creating the index file, we don't have any
+		   logs yet */
+		return 1;
 	}
-	if (ret == 0) {
-		/* we fsck'd the index. try opening again. */
-		ret = mail_index_map_latest_file(index, &reason);
-		if (ret > 0 && index->indexid != 0) {
-			ret = mail_index_sync_map(&index->map,
-						  type, TRUE, reason);
-		}
+
+	/* and update the map with the latest changes from transaction log */
+	ret = mail_index_sync_map(&index->map, type, TRUE, reason);
+	if (ret != 0)
+		return ret;
+
+	/* we fsck'd the index. try opening again. */
+	ret = mail_index_map_latest_file(index, &reason);
+	if (ret > 0 && index->indexid != 0) {
+		ret = mail_index_sync_map(&index->map,
+					  type, TRUE, reason);
 	}
 	return ret;
 }
