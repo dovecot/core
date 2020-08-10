@@ -202,9 +202,16 @@ void mail_transaction_log_indexid_changed(struct mail_transaction_log *log)
 
 	if (log->head != NULL &&
 	    log->head->hdr.indexid != log->index->indexid) {
-		if (--log->head->refcount == 0)
-			mail_transaction_log_file_free(&log->head);
+		struct mail_transaction_log_file *old_head = log->head;
+
 		(void)mail_transaction_log_create(log, FALSE);
+		if (--old_head->refcount == 0) {
+			if (old_head == log->head) {
+				/* failed to create a new log */
+				log->head = NULL;
+			}
+			mail_transaction_log_file_free(&old_head);
+		}
 	}
 }
 
