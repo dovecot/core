@@ -196,6 +196,10 @@ static void auth_connected(struct auth_client *client,
 	info.local_port = input->info.local_port;
 	info.remote_ip = input->info.remote_ip;
 	info.remote_port = input->info.remote_port;
+	info.real_local_ip = input->info.real_local_ip;
+	info.real_remote_ip = input->info.real_remote_ip;
+	info.real_local_port = input->info.real_local_port;
+	info.real_remote_port = input->info.real_remote_port;
 	info.extra_fields = input->info.extra_fields;
 	info.forward_fields = input->info.forward_fields;
 	info.initial_resp_base64 = str_c(base64_resp);
@@ -249,6 +253,18 @@ static void auth_user_info_parse(struct auth_user_info *info, const char *arg)
 	} else if (str_begins(arg, "rport=")) {
 		if (net_str2port(arg + 6, &info->remote_port) < 0)
 			i_fatal("rport: Invalid port number");
+	} else if (str_begins(arg, "real_lip=")) {
+		if (net_addr2ip(arg + 9, &info->real_local_ip) < 0)
+			i_fatal("real_lip: Invalid ip");
+	} else if (str_begins(arg, "real_rip=")) {
+		if (net_addr2ip(arg + 9, &info->real_remote_ip) < 0)
+			i_fatal("real_rip: Invalid ip");
+	} else if (str_begins(arg, "real_lport=")) {
+		if (net_str2port(arg + 11, &info->real_local_port) < 0)
+			i_fatal("real_lport: Invalid port number");
+	} else if (str_begins(arg, "real_rport=")) {
+		if (net_str2port(arg + 11, &info->real_remote_port) < 0)
+			i_fatal("real_rport: Invalid port number");
 	} else if (str_begins(arg, "forward_")) {
 		const char *key = arg+8;
 		const char *value = strchr(arg+8, '=');
