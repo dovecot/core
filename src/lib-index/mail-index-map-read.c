@@ -410,7 +410,8 @@ mail_index_map_latest_sync(struct mail_index *index,
 			   enum mail_index_sync_handler_type type,
 			   const char *reason)
 {
-	const char *map_reason;
+	const char *map_reason, *reopen_reason;
+	bool reopened;
 	int ret;
 
 	if (index->log->head == NULL || index->indexid == 0) {
@@ -424,11 +425,33 @@ mail_index_map_latest_sync(struct mail_index *index,
 	if (ret != 0)
 		return ret;
 
-	/* fsck the index and try to reopen */
-	mail_index_set_error(index, "Index %s: %s: %s - fscking",
-			     index->filepath, reason, map_reason);
-	if (mail_index_fsck(index) < 0)
-		return -1;
+	if (index->fd == -1) {
+		reopen_reason = "Index not open";
+		reopened = FALSE;
+	} else {
+		/* Check if the index was recreated while we were opening it.
+		   This is unlikely, but could happen if
+		   mail_index_log_optimization_settings.max_size is tiny. */
+		ret = mail_index_reopen_if_changed(index, &reopened, &reopen_reason);
+		if (ret < 0)
+			return -1;
+		if (ret == 0) {
+			/* Index was unexpectedly lost. The mailbox was
+			   probably deleted while we were opening it. Handle
+			   this as an error. */
+			index->index_deleted = TRUE;
+			return -1;
+		}
+	}
+	if (!reopened) {
+		/* fsck the index and try to reopen */
+		mail_index_set_error(index, "Index %s: %s: %s - fscking "
+				     "(reopen_reason: %s)",
+				     index->filepath, reason, map_reason,
+				     reopen_reason);
+		if (mail_index_fsck(index) < 0)
+			return -1;
+	}
 
 	ret = mail_index_map_latest_file(index, &reason);
 	if (ret > 0 && index->indexid != 0) {
