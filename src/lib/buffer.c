@@ -134,6 +134,15 @@ buffer_t *buffer_create_dynamic(pool_t pool, size_t init_size)
 {
 	struct real_buffer *buf;
 
+#ifdef DEBUG
+	/* we increment this by 1 later on, so if it's SIZE_MAX
+	   it turns into 0 and hides a potential bug.
+
+	   Too scary to use in production for now, though. This
+	   can change in future. */
+	i_assert(init_size < SIZE_MAX);
+#endif
+
 	buf = p_new(pool, struct real_buffer, 1);
 	buf->pool = pool;
 	buf->dynamic = TRUE;
