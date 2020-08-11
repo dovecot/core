@@ -280,3 +280,7 @@
 # define ATTR_NO_SANITIZE_INTEGER
 # define ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
 #endif
+
+/* negate enumeration flags in a way that avoids implicit conversion */
+#define ENUM_NEGATE(x) \
+	((unsigned int)(~(x)) + COMPILE_ERROR_IF_TRUE(sizeof((x)) > sizeof(int) || (x) < 0 || (x) > INT_MAX))
