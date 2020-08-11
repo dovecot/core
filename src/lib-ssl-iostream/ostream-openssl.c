@@ -57,7 +57,8 @@ o_stream_ssl_buffer(struct ssl_ostream *sstream, const struct const_iovec *iov,
 	unsigned int i;
 
 	if (sstream->buffer == NULL)
-		sstream->buffer = buffer_create_dynamic(default_pool, sstream->ostream.max_buffer_size);
+		sstream->buffer = buffer_create_dynamic(default_pool,
+			I_MIN(IO_BLOCK_SIZE, sstream->ostream.max_buffer_size));
 
 	skip_left = bytes_sent;
 	for (i = 0; i < iov_count; i++) {
