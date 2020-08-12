@@ -452,10 +452,16 @@ http_client_connection_start_idle_timeout(struct http_client_connection *conn)
 		/* Instant death for (urgent) connections above limit */
 		timeout = 0;
 	} else {
+		unsigned int idle_slots_avail;
+		double idle_time_per_slot;
+
 		/* Kill duplicate connections quicker;
 		   linearly based on the number of connections */
-		timeout = ((max - idle_count) *
-			   (set->max_idle_time_msecs / max));
+		idle_slots_avail = max - idle_count;
+		idle_time_per_slot = (double)set->max_idle_time_msecs / max;
+		timeout = (unsigned int)(idle_time_per_slot * idle_slots_avail);
+		if (timeout < HTTP_CLIENT_MIN_IDLE_TIMEOUT_MSECS)
+			timeout = HTTP_CLIENT_MIN_IDLE_TIMEOUT_MSECS;
 	}
 
 	conn->to_idle = timeout_add_to(
