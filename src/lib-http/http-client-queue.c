@@ -826,7 +826,7 @@ http_client_queue_request_timeout_cmp(struct http_client_request *const *req1,
 	}
 
 	/* Sort by minimum attempts for fairness */
-	return ((*req2)->attempts - (*req1)->attempts);
+	return ((int)(*req2)->attempts - (int)(*req1)->attempts);
 }
 
 static void
