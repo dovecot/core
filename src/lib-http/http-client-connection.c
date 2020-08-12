@@ -477,6 +477,7 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 {
 	struct http_client_peer *peer;
 	struct http_client_peer_pool *ppool = conn->ppool;
+	struct http_client_peer_shared *pshared = ppool->peer;
 	struct http_client *client;
 	const struct http_client_settings *set;
 
@@ -509,9 +510,9 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 		if (client->waiting)
 			io_loop_stop(client->ioloop);
 
-		count = array_count(&peer->conns);
+		count = array_count(&ppool->conns);
 		i_assert(count > 0);
-		max = set->max_parallel_connections;
+		max = http_client_peer_shared_max_connections(pshared);
 		i_assert(max > 0);
 
 		/* Set timeout for this connection */
@@ -523,7 +524,7 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 
 			/* Kill duplicate connections quicker;
 			   linearly based on the number of connections */
-			i_assert(array_count(&ppool->conns) >= idle_count + 1);
+			i_assert(count >= idle_count + 1);
 			timeout = ((max - idle_count) *
 				   (set->max_idle_time_msecs / max));
 		}
