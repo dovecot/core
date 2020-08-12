@@ -152,7 +152,9 @@ static inline int o_stream_uncork_flush(struct ostream *stream)
 }
 
 /* Set "flush pending" state of stream. If set, the flush callback is called
-   when more data is allowed to be sent, even if the buffer itself is empty. */
+   when more data is allowed to be sent, even if the buffer itself is empty.
+   Note that if the stream is corked, the flush callback won't be called until
+   the stream is first uncorked. */
 void o_stream_set_flush_pending(struct ostream *stream, bool set);
 /* Returns the number of bytes currently in all the pending write buffers of
    this ostream, including its parent streams. This function is commonly used
