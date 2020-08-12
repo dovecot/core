@@ -461,10 +461,32 @@ http_client_connection_start_idle_timeout(struct http_client_connection *conn)
 	return timeout;
 }
 
-void http_client_connection_lost_peer(struct http_client_connection *conn)
+static void
+http_client_connection_start_idle(struct http_client_connection *conn,
+				  const char *reason)
 {
 	struct http_client_peer_pool *ppool = conn->ppool;
+	unsigned int timeout;
 
+	if (conn->idle) {
+		e_debug(conn->event, "%s; already idle", reason);
+		return;
+	}
+
+	timeout = http_client_connection_start_idle_timeout(conn);
+	if (timeout == UINT_MAX)
+		e_debug(conn->event, "%s; going idle", reason);
+	else {
+		e_debug(conn->event, "%s; going idle (timeout = %u msecs)",
+			reason, timeout);
+	}
+
+	conn->idle = TRUE;
+	array_push_back(&ppool->idle_conns, &conn);
+}
+
+void http_client_connection_lost_peer(struct http_client_connection *conn)
+{
 	if (!conn->connected) {
 		http_client_connection_unref(&conn);
 		return;
@@ -472,32 +494,13 @@ void http_client_connection_lost_peer(struct http_client_connection *conn)
 
 	i_assert(!conn->in_req_callback);
 
-	if (!conn->idle) {
-		unsigned int timeout;
-
-		timeout = http_client_connection_start_idle_timeout(conn);
-
-		if (timeout == UINT_MAX)
-			e_debug(conn->event, "Lost peer; going idle");
-		else {
-			e_debug(conn->event,
-				"Lost peer; going idle (timeout = %u msecs)",
-				timeout);
-		}
-
-		conn->idle = TRUE;
-		array_push_back(&ppool->idle_conns, &conn);
-	} else {
-		e_debug(conn->event, "Lost peer; already idle");
-	}
-
+	http_client_connection_start_idle(conn, "Lost peer");
 	http_client_connection_detach_peer(conn);
 }
 
 void http_client_connection_check_idle(struct http_client_connection *conn)
 {
 	struct http_client_peer *peer;
-	struct http_client_peer_pool *ppool = conn->ppool;
 
 	peer = conn->peer;
 	if (peer == NULL) {
@@ -515,26 +518,14 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 	    array_count(&conn->request_wait_list) == 0 &&
 	    !conn->in_req_callback && conn->incoming_payload == NULL) {
 		struct http_client *client = peer->client;
-		unsigned int timeout;
 
 		i_assert(conn->to_requests == NULL);
 
 		if (client->waiting)
 			io_loop_stop(client->ioloop);
 
-		timeout = http_client_connection_start_idle_timeout(conn);
-
-		if (timeout == UINT_MAX) {
-			e_debug(conn->event,
-				"No more requests queued; going idle");
-		} else {
-			e_debug(conn->event,
-				"No more requests queued; going idle "
-				"(timeout = %u msecs)", timeout);
-		}
-
-		conn->idle = TRUE;
-		array_push_back(&ppool->idle_conns, &conn);
+		http_client_connection_start_idle(
+			conn, "No more requests queued");
 	}
 }
 
