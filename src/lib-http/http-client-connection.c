@@ -444,7 +444,10 @@ http_client_connection_start_idle_timeout(struct http_client_connection *conn)
 	i_assert(max > 0);
 
 	/* Set timeout for this connection */
-	if (count > max || idle_count >= max) {
+	if (idle_count == 0) {
+		/* No idle connections yet; use the maximum idle time. */
+		timeout = set->max_idle_time_msecs;
+	} else if (count > max || idle_count >= max) {
 		/* Instant death for (urgent) connections above limit */
 		timeout = 0;
 	} else {
