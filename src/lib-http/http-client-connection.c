@@ -479,7 +479,6 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 	struct http_client_peer_pool *ppool = conn->ppool;
 	struct http_client *client;
 	const struct http_client_settings *set;
-	unsigned int timeout, count;
 
 	peer = conn->peer;
 	if (peer == NULL) {
@@ -500,6 +499,8 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 	    array_count(&conn->request_wait_list) == 0 &&
 	    !conn->in_req_callback && conn->incoming_payload == NULL &&
 	    set->max_idle_time_msecs > 0) {
+		unsigned int timeout, count, max;
+
 		i_assert(peer != NULL);
 		client = peer->client;
 
@@ -510,9 +511,11 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 
 		count = array_count(&peer->conns);
 		i_assert(count > 0);
+		max = set->max_parallel_connections;
+		i_assert(max > 0);
 
 		/* Set timeout for this connection */
-		if (count > set->max_parallel_connections) {
+		if (count > max) {
 			/* Instant death for (urgent) connections above limit */
 			timeout = 0;
 		} else {
@@ -521,10 +524,8 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 			/* Kill duplicate connections quicker;
 			   linearly based on the number of connections */
 			i_assert(array_count(&ppool->conns) >= idle_count + 1);
-			timeout =
-				((set->max_parallel_connections - idle_count) *
-				 (set->max_idle_time_msecs /
-				  set->max_parallel_connections));
+			timeout = ((max - idle_count) *
+				   (set->max_idle_time_msecs / max));
 		}
 
 		e_debug(conn->event,
