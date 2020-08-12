@@ -429,7 +429,7 @@ http_client_connection_start_idle_timeout(struct http_client_connection *conn)
 		http_client_connection_get_settings(conn);
 	struct http_client_peer_pool *ppool = conn->ppool;
 	struct http_client_peer_shared *pshared = ppool->peer;
-	unsigned int timeout, count, max;
+	unsigned int timeout, count, idle_count, max;
 
 	i_assert(conn->to_idle == NULL);
 
@@ -437,20 +437,19 @@ http_client_connection_start_idle_timeout(struct http_client_connection *conn)
 		return UINT_MAX;
 
 	count = array_count(&ppool->conns);
-	i_assert(count > 0);
+	idle_count = array_count(&ppool->idle_conns);
 	max = http_client_peer_shared_max_connections(pshared);
+	i_assert(count > 0);
+	i_assert(count >= idle_count + 1);
 	i_assert(max > 0);
 
 	/* Set timeout for this connection */
-	if (count > max) {
+	if (count > max || idle_count >= max) {
 		/* Instant death for (urgent) connections above limit */
 		timeout = 0;
 	} else {
-		unsigned int idle_count = array_count(&ppool->idle_conns);
-
 		/* Kill duplicate connections quicker;
 		   linearly based on the number of connections */
-		i_assert(count >= idle_count + 1);
 		timeout = ((max - idle_count) *
 			   (set->max_idle_time_msecs / max));
 	}
