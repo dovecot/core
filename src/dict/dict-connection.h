@@ -29,6 +29,7 @@ struct dict_connection {
 	ARRAY(struct dict_connection_cmd *) cmds;
 	unsigned int async_id_counter;
 
+	bool iter_flush_pending;
 	bool destroyed;
 };
 

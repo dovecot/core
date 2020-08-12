@@ -238,6 +238,7 @@ static bool dict_connection_flush_if_full(struct dict_connection *conn)
 			/* continue later when there's more space
 			   in output buffer */
 			o_stream_set_flush_pending(conn->conn.output, TRUE);
+			conn->iter_flush_pending = TRUE;
 			return FALSE;
 		}
 		/* flushed everything, continue */
@@ -313,13 +314,20 @@ static void cmd_iterate_callback(void *context)
 
 	dict_connection_ref(conn);
 	o_stream_cork(conn->conn.output);
-	/* Uncork only if all the output has been finished. Some dict drivers
-	   (e.g. dict-client) don't do any kind of buffering internally, so
-	   this callback can write out only a single iteration. By leaving the
-	   ostream corked it doesn't result in many tiny writes. */
+	/* Don't uncork if we're just waiting for more input from the dict
+	   driver. Some dict drivers (e.g. dict-client) don't do any kind of
+	   buffering internally, so this callback can write out only a single
+	   iteration. By leaving the ostream corked it doesn't result in many
+	   tiny writes. However, we could be here also because the connection
+	   output buffer is full already, in which case don't want to leave a
+	   cork. */
+	conn->iter_flush_pending = FALSE;
 	cmd->uncork_pending = FALSE;
 	if (dict_connection_cmd_output_more(cmd)) {
 		/* NOTE: cmd may be freed now */
+		o_stream_uncork(conn->conn.output);
+	} else if (conn->iter_flush_pending) {
+		/* Don't leave the stream uncorked or we might get stuck. */
 		o_stream_uncork(conn->conn.output);
 	} else {
 		/* It's possible that the command gets finished via some other
