@@ -194,6 +194,7 @@ struct http_client_connection {
 	ARRAY_TYPE(http_client_request) request_wait_list;
 
 	bool connected:1;           /* Connection is connected */
+	bool idle:1;		    /* Connection is idle */
 	bool tunneling:1;           /* Last sent request turns this
 	                               connection into tunnel */
 	bool connect_succeeded:1;   /* Connection succeeded including SSL */

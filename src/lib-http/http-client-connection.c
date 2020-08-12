@@ -110,7 +110,7 @@ http_client_connection_count_pending(struct http_client_connection *conn)
 
 bool http_client_connection_is_idle(struct http_client_connection *conn)
 {
-	return (conn->to_idle != NULL);
+	return conn->idle;
 }
 
 bool http_client_connection_is_active(struct http_client_connection *conn)
@@ -436,8 +436,10 @@ void http_client_connection_lost_peer(struct http_client_connection *conn)
 
 	i_assert(!conn->in_req_callback);
 
-	if (conn->to_idle == NULL) {
+	if (!conn->idle) {
 		unsigned int timeout, count, max;
+
+		i_assert(conn->to_idle == NULL);
 
 		count = array_count(&ppool->conns);
 		i_assert(count > 0);
@@ -465,6 +467,8 @@ void http_client_connection_lost_peer(struct http_client_connection *conn)
 		conn->to_idle = timeout_add_to(
 			conn->conn.ioloop, timeout,
 			http_client_connection_idle_timeout, conn);
+
+		conn->idle = TRUE;
 		array_push_back(&ppool->idle_conns, &conn);
 	} else {
 		e_debug(conn->event, "Lost peer; already idle");
@@ -483,14 +487,15 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 
 	peer = conn->peer;
 	if (peer == NULL) {
-		i_assert(conn->to_idle != NULL);
+		i_assert(conn->idle);
 		return;
 	}
 
-	if (conn->to_idle != NULL) {
-		/* Timeout already set */
+	if (conn->idle) {
+		/* Already idle */
 		return;
 	}
+	i_assert(conn->to_idle == NULL);
 
 	client = peer->client;
 	set = &client->set;
@@ -536,6 +541,8 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 		conn->to_idle = timeout_add_to(
 			conn->conn.ioloop, timeout,
 			http_client_connection_idle_timeout, conn);
+
+		conn->idle = TRUE;
 		array_push_back(&ppool->idle_conns, &conn);
 	}
 }
@@ -546,8 +553,8 @@ http_client_connection_stop_idle(struct http_client_connection *conn)
 	struct http_client_connection *const *conn_idx;
 	ARRAY_TYPE(http_client_connection) *conn_arr;
 
-	if (conn->to_idle != NULL)
-		timeout_remove(&conn->to_idle);
+	timeout_remove(&conn->to_idle);
+	conn->idle = FALSE;
 
 	conn_arr = &conn->ppool->idle_conns;
 	array_foreach(conn_arr, conn_idx) {
