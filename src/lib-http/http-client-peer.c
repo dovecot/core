@@ -549,7 +549,12 @@ http_client_peer_shared_max_connections(struct http_client_peer_shared *pshared)
 
 	peer = pshared->peers_list;
 	while (peer != NULL) {
-		max_conns += peer->client->set.max_parallel_connections;
+		const struct http_client_settings *set = &peer->client->set;
+		unsigned int client_max_conns = set->max_parallel_connections;
+
+		if ((UINT_MAX - max_conns) <= client_max_conns)
+			return UINT_MAX;
+		max_conns += client_max_conns;
 		peer = peer->shared_next;
 	}
 
