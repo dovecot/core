@@ -2,6 +2,7 @@ doveadm_moduledir = $(moduledir)/doveadm
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
@@ -52,3 +53,26 @@ doveadm_module_LTLIBRARIES = \
 
 lib10_doveadm_acl_plugin_la_SOURCES = \
 	doveadm-acl.c
+
+test_programs = \
+	test-acl
+
+test_libs = \
+	$(module_LTLIBRARIES) \
+	$(LIBDOVECOT_STORAGE) \
+	$(LIBDOVECOT)
+test_deps = \
+	$(module_LTLIBRARIES) \
+	$(LIBDOVECOT_STORAGE_DEPS) \
+	$(LIBDOVECOT_DEPS)
+
+test_acl_SOURCES = test-acl.c
+test_acl_LDADD = $(test_libs)
+test_acl_DEPENDENCIES = $(test_deps)
+
+check-local:
+	for bin in $(test_programs); do \
+	  if ! env $(test_options) $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	done
+
+noinst_PROGRAMS = $(test_programs)
