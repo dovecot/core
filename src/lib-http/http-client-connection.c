@@ -428,7 +428,6 @@ void http_client_connection_lost_peer(struct http_client_connection *conn)
 		http_client_connection_get_settings(conn);
 	struct http_client_peer_pool *ppool = conn->ppool;
 	struct http_client_peer_shared *pshared = ppool->peer;
-	unsigned int timeout, count;
 
 	if (!conn->connected) {
 		http_client_connection_unref(&conn);
@@ -438,11 +437,15 @@ void http_client_connection_lost_peer(struct http_client_connection *conn)
 	i_assert(!conn->in_req_callback);
 
 	if (conn->to_idle == NULL) {
+		unsigned int timeout, count, max;
+
 		count = array_count(&ppool->conns);
 		i_assert(count > 0);
+		max = http_client_peer_shared_max_connections(pshared);
+		i_assert(max > 0);
 
 		/* Set timeout for this connection */
-		if (count > http_client_peer_shared_max_connections(pshared)) {
+		if (count > max) {
 			/* Instant death for (urgent) connections above limit */
 			timeout = 0;
 		} else {
@@ -451,10 +454,8 @@ void http_client_connection_lost_peer(struct http_client_connection *conn)
 			/* Kill duplicate connections quicker;
 			   linearly based on the number of connections */
 			i_assert(count >= idle_count + 1);
-			timeout =
-				((set->max_parallel_connections - idle_count) *
-				 (set->max_idle_time_msecs /
-				  set->max_parallel_connections));
+			timeout = ((max - idle_count) *
+				   (set->max_idle_time_msecs / max));
 		}
 
 		e_debug(conn->event,
