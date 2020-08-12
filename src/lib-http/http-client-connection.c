@@ -422,12 +422,45 @@ http_client_connection_idle_timeout(struct http_client_connection *conn)
 	http_client_connection_close(&conn);
 }
 
-void http_client_connection_lost_peer(struct http_client_connection *conn)
+static unsigned int
+http_client_connection_start_idle_timeout(struct http_client_connection *conn)
 {
 	const struct http_client_settings *set =
 		http_client_connection_get_settings(conn);
 	struct http_client_peer_pool *ppool = conn->ppool;
 	struct http_client_peer_shared *pshared = ppool->peer;
+	unsigned int timeout, count, max;
+
+	i_assert(conn->to_idle == NULL);
+
+	count = array_count(&ppool->conns);
+	i_assert(count > 0);
+	max = http_client_peer_shared_max_connections(pshared);
+	i_assert(max > 0);
+
+	/* Set timeout for this connection */
+	if (count > max) {
+		/* Instant death for (urgent) connections above limit */
+		timeout = 0;
+	} else {
+		unsigned int idle_count = array_count(&ppool->idle_conns);
+
+		/* Kill duplicate connections quicker;
+		   linearly based on the number of connections */
+		i_assert(count >= idle_count + 1);
+		timeout = ((max - idle_count) *
+			   (set->max_idle_time_msecs / max));
+	}
+
+	conn->to_idle = timeout_add_to(
+		conn->conn.ioloop, timeout,
+		http_client_connection_idle_timeout, conn);
+	return timeout;
+}
+
+void http_client_connection_lost_peer(struct http_client_connection *conn)
+{
+	struct http_client_peer_pool *ppool = conn->ppool;
 
 	if (!conn->connected) {
 		http_client_connection_unref(&conn);
@@ -437,36 +470,13 @@ void http_client_connection_lost_peer(struct http_client_connection *conn)
 	i_assert(!conn->in_req_callback);
 
 	if (!conn->idle) {
-		unsigned int timeout, count, max;
+		unsigned int timeout;
 
-		i_assert(conn->to_idle == NULL);
-
-		count = array_count(&ppool->conns);
-		i_assert(count > 0);
-		max = http_client_peer_shared_max_connections(pshared);
-		i_assert(max > 0);
-
-		/* Set timeout for this connection */
-		if (count > max) {
-			/* Instant death for (urgent) connections above limit */
-			timeout = 0;
-		} else {
-			unsigned int idle_count = array_count(&ppool->idle_conns);
-
-			/* Kill duplicate connections quicker;
-			   linearly based on the number of connections */
-			i_assert(count >= idle_count + 1);
-			timeout = ((max - idle_count) *
-				   (set->max_idle_time_msecs / max));
-		}
+		timeout = http_client_connection_start_idle_timeout(conn);
 
 		e_debug(conn->event,
 			"Lost peer; going idle (timeout = %u msecs)",
 			timeout);
-
-		conn->to_idle = timeout_add_to(
-			conn->conn.ioloop, timeout,
-			http_client_connection_idle_timeout, conn);
 
 		conn->idle = TRUE;
 		array_push_back(&ppool->idle_conns, &conn);
@@ -481,7 +491,6 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 {
 	struct http_client_peer *peer;
 	struct http_client_peer_pool *ppool = conn->ppool;
-	struct http_client_peer_shared *pshared = ppool->peer;
 	struct http_client *client;
 	const struct http_client_settings *set;
 
@@ -495,7 +504,6 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 		/* Already idle */
 		return;
 	}
-	i_assert(conn->to_idle == NULL);
 
 	client = peer->client;
 	set = &client->set;
@@ -505,7 +513,7 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 	    array_count(&conn->request_wait_list) == 0 &&
 	    !conn->in_req_callback && conn->incoming_payload == NULL &&
 	    set->max_idle_time_msecs > 0) {
-		unsigned int timeout, count, max;
+		unsigned int timeout;
 
 		i_assert(peer != NULL);
 		client = peer->client;
@@ -515,32 +523,11 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 		if (client->waiting)
 			io_loop_stop(client->ioloop);
 
-		count = array_count(&ppool->conns);
-		i_assert(count > 0);
-		max = http_client_peer_shared_max_connections(pshared);
-		i_assert(max > 0);
-
-		/* Set timeout for this connection */
-		if (count > max) {
-			/* Instant death for (urgent) connections above limit */
-			timeout = 0;
-		} else {
-			unsigned int idle_count = array_count(&ppool->idle_conns);
-
-			/* Kill duplicate connections quicker;
-			   linearly based on the number of connections */
-			i_assert(count >= idle_count + 1);
-			timeout = ((max - idle_count) *
-				   (set->max_idle_time_msecs / max));
-		}
+		timeout = http_client_connection_start_idle_timeout(conn);
 
 		e_debug(conn->event,
 			"No more requests queued; going idle "
 			"(timeout = %u msecs)", timeout);
-
-		conn->to_idle = timeout_add_to(
-			conn->conn.ioloop, timeout,
-			http_client_connection_idle_timeout, conn);
 
 		conn->idle = TRUE;
 		array_push_back(&ppool->idle_conns, &conn);
