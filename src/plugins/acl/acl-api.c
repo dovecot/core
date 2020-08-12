@@ -493,7 +493,7 @@ void acl_rights_sort(struct acl_object *aclobj)
 				rights[dest] = rights[i];
 		}
 	}
-	if (++dest != count)
+	if (++dest < count)
 		array_delete(&aclobj->rights, dest, count - dest);
 }
 
