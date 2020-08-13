@@ -464,7 +464,7 @@ http_client_connection_start_idle_timeout(struct http_client_connection *conn)
 			timeout = HTTP_CLIENT_MIN_IDLE_TIMEOUT_MSECS;
 	}
 
-	conn->to_idle = timeout_add_to(
+	conn->to_idle = timeout_add_short_to(
 		conn->conn.ioloop, timeout,
 		http_client_connection_idle_timeout, conn);
 	return timeout;
