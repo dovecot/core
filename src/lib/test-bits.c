@@ -97,7 +97,8 @@ static void test_sum_overflows(void)
 	test_end();
 }
 
-static void test_bits_fraclog(void)
+static void ATTR_NO_SANITIZE_INTEGER ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
+test_bits_fraclog(void)
 {
 	unsigned int fracbits;
 	for (fracbits = 0; fracbits < 6; fracbits++) {
@@ -124,7 +125,8 @@ static void test_bits_fraclog(void)
 /* The compiler *should* generate different code when the fracbits parameter
    is a compile-time constant, so we also need to check that's the case.
 */
-static void test_bits_fraclog_const(void)
+static void ATTR_NO_SANITIZE_INTEGER ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
+test_bits_fraclog_const(void)
 {
 #define FRACBITS 2
 #define STR2(s) #s

@@ -468,7 +468,8 @@ void *t_malloc0(size_t size)
 	return mem;
 }
 
-bool t_try_realloc(void *mem, size_t size)
+bool ATTR_NO_SANITIZE_INTEGER
+t_try_realloc(void *mem, size_t size)
 {
 	size_t debug_adjust = 0, last_alloc_size;
 	unsigned char *after_last_alloc;

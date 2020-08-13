@@ -74,7 +74,8 @@ int otp_read_hex(const char *data, const char **endptr, unsigned char *hash)
 	count++; \
 } while (0)
 
-int otp_read_words(const char *data, const char **endptr, unsigned char *hash)
+int ATTR_NO_SANITIZE_INTEGER
+otp_read_words(const char *data, const char **endptr, unsigned char *hash)
 {
 	bool space = FALSE;
 	unsigned int len = 0, count = 0;

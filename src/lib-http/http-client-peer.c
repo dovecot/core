@@ -33,8 +33,8 @@ http_client_peer_connection_failed_pool(struct http_client_peer *peer,
  * Peer address
  */
 
-unsigned int http_client_peer_addr_hash
-(const struct http_client_peer_addr *peer)
+unsigned int ATTR_NO_SANITIZE_INTEGER
+http_client_peer_addr_hash(const struct http_client_peer_addr *peer)
 {
 	unsigned int hash = (unsigned int)peer->type;
 

@@ -419,7 +419,9 @@ void buffer_verify_pool(buffer_t *_buf)
 	}
 }
 
-void buffer_truncate_rshift_bits(buffer_t *buf, size_t bits)
+void ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
+	ATTR_NO_SANITIZE_INTEGER
+buffer_truncate_rshift_bits(buffer_t *buf, size_t bits)
 {
 	/* no-op if it's shorten than bits in any case.. */
 	if (buf->used * 8 < bits) return;

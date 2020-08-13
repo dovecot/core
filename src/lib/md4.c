@@ -66,6 +66,8 @@
  * the bit counters.  There're no alignment requirements.
  */
 static const void * ATTR_NOWARN_UNUSED_RESULT ATTR_UNSIGNED_WRAPS
+	ATTR_NO_SANITIZE_UNDEFINED ATTR_NO_SANITIZE_INTEGER
+	ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
 body(struct md4_context *ctx, const void *data, size_t size)
 {
 	const unsigned char *ptr;
@@ -208,7 +210,9 @@ void md4_update(struct md4_context *ctx, const void *data, size_t size)
 	memcpy(ctx->buffer, data, size);
 }
 
-void md4_final(struct md4_context *ctx, unsigned char result[STATIC_ARRAY MD4_RESULTLEN])
+void ATTR_NO_SANITIZE_UNDEFINED ATTR_NO_SANITIZE_INTEGER
+	ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
+md4_final(struct md4_context *ctx, unsigned char result[STATIC_ARRAY MD4_RESULTLEN])
 {
 	/* @UNSAFE */
 	unsigned long used, free;

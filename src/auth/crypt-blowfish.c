@@ -640,7 +640,9 @@ static const unsigned char flags_by_subtype[26] =
 	{2, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4, 0};
 
-static char *BF_crypt(const char *key, const char *setting,
+static char * ATTR_NO_SANITIZE_UNDEFINED ATTR_NO_SANITIZE_INTEGER
+	ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
+BF_crypt(const char *key, const char *setting,
 	char *output, size_t size,
 	BF_word min)
 {

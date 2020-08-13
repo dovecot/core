@@ -67,7 +67,8 @@ unsigned int bits_required64(uint64_t num)
 }
 #endif
 
-static inline uint64_t
+static inline uint64_t ATTR_NO_SANITIZE_INTEGER
+	ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
 bits_rotl64(uint64_t num, unsigned int count)
 {
 	const unsigned int mask = CHAR_BIT*sizeof(num) - 1;
@@ -75,7 +76,8 @@ bits_rotl64(uint64_t num, unsigned int count)
 	return (num << count) | (num >> (-count & mask));
 }
 
-static inline uint32_t
+static inline uint32_t ATTR_NO_SANITIZE_INTEGER
+	ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
 bits_rotl32(uint32_t num, unsigned int count)
 {
         const unsigned int mask = CHAR_BIT*sizeof(num) - 1;
@@ -83,7 +85,8 @@ bits_rotl32(uint32_t num, unsigned int count)
         return (num << count) | (num >> (-count & mask));
 }
 
-static inline uint64_t
+static inline uint64_t ATTR_NO_SANITIZE_INTEGER
+	ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
 bits_rotr64(uint64_t num, unsigned int count)
 {
 	const unsigned int mask = CHAR_BIT*sizeof(num) - 1;
@@ -91,7 +94,8 @@ bits_rotr64(uint64_t num, unsigned int count)
 	return (num >> count) | (num << (-count & mask));
 }
 
-static inline uint32_t
+static inline uint32_t ATTR_NO_SANITIZE_INTEGER
+	ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
 bits_rotr32(uint32_t num, unsigned int count)
 {
 	const unsigned int mask = CHAR_BIT*sizeof(num) - 1;
@@ -143,7 +147,8 @@ bits_fraclog_bucket_start(unsigned int bucket, unsigned int fracbits)
 	unsigned int bandstart = fracoffs1 << (bandnum - 1);
 	return bandstart;
 }
-static inline unsigned int ATTR_CONST
+static inline unsigned int ATTR_CONST ATTR_NO_SANITIZE_INTEGER
+	ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
 bits_fraclog_bucket_end(unsigned int bucket, unsigned int fracbits)
 {
 	unsigned int bandnum = bucket >> fracbits;
