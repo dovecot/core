@@ -124,7 +124,6 @@ static ssize_t i_stream_zstd_read(struct istream_private *stream)
 		container_of(stream, struct zstd_istream, istream);
 	const unsigned char *data;
 	size_t size;
-	ssize_t ret;
 
 	if (stream->istream.eof)
 		return -1;
@@ -143,6 +142,7 @@ static ssize_t i_stream_zstd_read(struct istream_private *stream)
 
 		/* see if we can get more */
 		if (zstream->input.pos == zstream->input.size) {
+			ssize_t ret;
 			buffer_set_used_size(zstream->frame_buffer, 0);
 			/* need to read more */
 			if ((ret = i_stream_read_more(stream->parent, &data, &size)) < 0) {
@@ -173,16 +173,16 @@ static ssize_t i_stream_zstd_read(struct istream_private *stream)
 		zstream->output.pos = 0;
 		zstream->output.size = ZSTD_DStreamOutSize();
 
-		ret = ZSTD_decompressStream(zstream->dstream, &zstream->output,
-					    &zstream->input);
-		if (ZSTD_isError(ret) != 0) {
-			i_stream_zstd_read_error(zstream, ret);
+		size_t zret = ZSTD_decompressStream(zstream->dstream, &zstream->output,
+						    &zstream->input);
+		if (ZSTD_isError(zret) != 0) {
+			i_stream_zstd_read_error(zstream, zret);
 			return -1;
 		}
 		/* ZSTD magic number is 4 bytes, but it's only defined after v0.8 */
 		if (!zstream->hdr_read && zstream->input.size > 4)
 			zstream->hdr_read = TRUE;
-		zstream->remain = ret > 0;
+		zstream->remain = zret > 0;
 		buffer_set_used_size(zstream->data_buffer, zstream->output.pos);
 	}
 	i_unreached();
