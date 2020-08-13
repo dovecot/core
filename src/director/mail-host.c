@@ -408,8 +408,8 @@ mail_host_get_by_hash_ring(struct mail_tag *tag, unsigned int hash)
 	unsigned int count, idx;
 
 	vhosts = array_get(&tag->vhosts, &count);
-	array_bsearch_insert_pos(&tag->vhosts, &hash,
-				 mail_vhost_hash_cmp, &idx);
+	(void)array_bsearch_insert_pos(&tag->vhosts, &hash,
+				       mail_vhost_hash_cmp, &idx);
 	i_assert(idx <= count);
 	if (idx == count) {
 		if (count == 0)
