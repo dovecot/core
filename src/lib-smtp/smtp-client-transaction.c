@@ -8,6 +8,7 @@
 #include "istream-crlf.h"
 #include "ostream.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "dns-lookup.h"
 
 #include "smtp-common.h"
@@ -141,7 +142,7 @@ smtp_client_transaction_rcpt_update_event(
 	const char *to = smtp_address_encode(rcpt->rcpt_to);
 
 	event_set_append_log_prefix(rcpt->event,
-				    t_strdup_printf("rcpt <%s>: ", to));
+		t_strdup_printf("rcpt <%s>: ", str_sanitize(to, 128)));
 	event_add_str(rcpt->event, "rcpt_to", to);
 	smtp_params_rcpt_add_to_event(&rcpt->rcpt_params, rcpt->event);
 }

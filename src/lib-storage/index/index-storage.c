@@ -6,6 +6,7 @@
 #include "ostream.h"
 #include "ioloop.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "mkdir-parents.h"
 #include "dict.h"
 #include "mail-index-alloc-cache.h"
@@ -391,7 +392,7 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *vname,
 	event_add_category(box->event, &event_category_mailbox);
 	event_add_str(box->event, "mailbox", box->vname);
 	event_set_append_log_prefix(box->event,
-		t_strdup_printf("Mailbox %s: ", box->vname));
+		t_strdup_printf("Mailbox %s: ", str_sanitize(box->vname, 128)));
 
 	p_array_init(&box->search_results, box->pool, 16);
 	array_create(&box->module_contexts,

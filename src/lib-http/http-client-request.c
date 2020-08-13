@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "net.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "hash.h"
 #include "array.h"
 #include "llist.h"
@@ -60,7 +61,7 @@ http_client_request_update_event(struct http_client_request *req)
 		event_add_str(req->event, "target", req->target);
 	event_set_append_log_prefix(
 		req->event, t_strdup_printf("request %s: ",
-					    http_client_request_label(req)));
+			str_sanitize(http_client_request_label(req), 256)));
 }
 
 static struct event_passthrough *

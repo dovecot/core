@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "net.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "hash.h"
 #include "array.h"
 #include "bsearch-insert-pos.h"
@@ -89,7 +90,7 @@ http_client_queue_create(struct http_client_host *host,
 
 	queue->event = event_create(queue->client->event);
 	event_set_append_log_prefix(queue->event,
-		t_strdup_printf("queue %s: ", queue->name));
+		t_strdup_printf("queue %s: ", str_sanitize(queue->name, 256)));
 	queue->ips_connect_idx = 0;
 	i_array_init(&queue->pending_peers, 8);
 	i_array_init(&queue->requests, 16);

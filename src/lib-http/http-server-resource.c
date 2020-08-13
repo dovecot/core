@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "bsearch-insert-pos.h"
+#include "str-sanitize.h"
 
 #include "http-url.h"
 #include "http-server-private.h"
@@ -126,7 +127,8 @@ static void http_server_resource_update_event(struct http_server_resource *res)
 
 	event_add_str(res->event, "path", locs[0]->path);
 	event_set_append_log_prefix(
-		res->event, t_strdup_printf("resource %s: ", locs[0]->path));
+		res->event, t_strdup_printf("resource %s: ",
+			str_sanitize(locs[0]->path, 128)));
 }
 
 #undef http_server_resource_create

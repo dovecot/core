@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "llist.h"
+#include "str-sanitize.h"
 #include "smtp-address.h"
 #include "smtp-reply.h"
 
@@ -16,7 +17,7 @@ smtp_server_recipient_update_event(struct smtp_server_recipient_private *prcpt)
 	event_add_str(event, "rcpt_to", path);
 	smtp_params_rcpt_add_to_event(&prcpt->rcpt.params, event);
 	event_set_append_log_prefix(event,
-				    t_strdup_printf("rcpt %s: ", path));
+		t_strdup_printf("rcpt %s: ", str_sanitize(path, 128)));
 }
 
 struct smtp_server_recipient *
