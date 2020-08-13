@@ -142,8 +142,8 @@ void event_copy_categories(struct event *to, struct event *from)
 {
 	unsigned int cat_count;
 	struct event_category *const *categories = event_get_categories(from, &cat_count);
-	while (cat_count-- > 0)
-		event_add_category(to, categories[cat_count]);
+	for (unsigned int i = 1; i <= cat_count; i++)
+		event_add_category(to, categories[cat_count-i]);
 }
 
 void event_copy_fields(struct event *to, struct event *from)
