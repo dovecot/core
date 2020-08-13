@@ -31,7 +31,8 @@ uint32_t i_rand_limit(uint32_t upper_bound)
 {
 	i_assert(upper_bound > 0);
 
-	uint32_t val, min = -upper_bound % upper_bound;
+	uint32_t val;
+	uint32_t min = ~(upper_bound - 1) % upper_bound;
 	while((val = i_rand()) < min);
 	return val % upper_bound;
 }
