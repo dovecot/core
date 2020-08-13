@@ -21,8 +21,8 @@
 const char *ntlmssp_t_str_i(const void *message, struct ntlmssp_buffer *buffer,
 			    bool unicode)
 {
-	unsigned int len = read_le16(&buffer->length);
-	const char *p = ((const char *) message) + read_le32(&buffer->offset);
+	unsigned int len = le16_to_cpu(buffer->length);
+	const char *p = ((const char *) message) + le32_to_cpu(buffer->offset);
 	string_t *str;
 
 	if (unicode)
@@ -61,12 +61,12 @@ static void ntlmssp_append_string(buffer_t *buf, size_t buffer_offset,
 	struct ntlmssp_buffer buffer;
 	unsigned int length;
 
-	write_le32(&buffer.offset, buf->used);
+	buffer.offset = cpu32_to_le(buf->used);
 
 	length = append_string(buf, str, FALSE, unicode);
 
-	write_le16(&buffer.length, length);
-	write_le16(&buffer.space, length);
+	buffer.length = cpu16_to_le(length);
+	buffer.space = cpu16_to_le(length);
 	buffer_write(buf, buffer_offset, &buffer, sizeof(buffer));
 }
 
@@ -78,7 +78,7 @@ static void ntlmssp_append_target_info(buffer_t *buf, size_t buffer_offset, ...)
 	unsigned int length, total_length = 0;
 	int type;
 
-	write_le32(&buffer.offset, buf->used);
+	buffer.offset = cpu32_to_le(buf->used);
 
 	va_start(args, buffer_offset);
 
@@ -87,7 +87,7 @@ static void ntlmssp_append_target_info(buffer_t *buf, size_t buffer_offset, ...)
 		type = va_arg(args, int);
 
 		i_zero(&info);
-		write_le16(&info.type, type);
+		info.type = cpu16_to_le(type);
 
 		switch (type) {
 			case NTPLMSSP_V2_TARGET_END:
@@ -99,8 +99,8 @@ static void ntlmssp_append_target_info(buffer_t *buf, size_t buffer_offset, ...)
 			case NTPLMSSP_V2_TARGET_FQDN:
 			case NTPLMSSP_V2_TARGET_DNS:
 				data = va_arg(args, const char *);
-				write_le16(&info.length,
-					   strlen(data) * sizeof(ucs2le_t));
+				info.length = cpu16_to_le(strlen(data) *
+							  sizeof(ucs2le_t));
 				buffer_append(buf, &info, sizeof(info));
 				length = append_string(buf, data, FALSE, TRUE) +
 					 sizeof(info);
@@ -116,8 +116,8 @@ static void ntlmssp_append_target_info(buffer_t *buf, size_t buffer_offset, ...)
 
 	va_end(args);
 
-	write_le16(&buffer.length, total_length);
-	write_le16(&buffer.space, total_length);
+	buffer.length = cpu16_to_le(total_length);
+	buffer.space = cpu16_to_le(total_length);
 	buffer_write(buf, buffer_offset, &buffer, sizeof(buffer));
 }
 
@@ -145,16 +145,16 @@ ntlmssp_create_challenge(pool_t pool, const struct ntlmssp_request *request,
 			 size_t *size)
 {
 	buffer_t *buf;
-	uint32_t flags = ntlmssp_flags(read_le32(&request->flags));
+	uint32_t flags = ntlmssp_flags(le32_to_cpu(request->flags));
 	bool unicode = (flags & NTLMSSP_NEGOTIATE_UNICODE) != 0;
 	struct ntlmssp_challenge c;
 
 	buf = buffer_create_dynamic(pool, sizeof(struct ntlmssp_challenge));
 
 	i_zero(&c);
-	write_le64(&c.magic, NTLMSSP_MAGIC);
-	write_le32(&c.type, NTLMSSP_MSG_TYPE2);
-	write_le32(&c.flags, flags);
+	c.magic = cpu64_to_le(NTLMSSP_MAGIC);
+	c.type = cpu32_to_le(NTLMSSP_MSG_TYPE2);
+	c.flags = cpu32_to_le(flags);
 	random_fill(c.challenge, sizeof(c.challenge));
 
 	buffer_write(buf, 0, &c, sizeof(c));
@@ -176,9 +176,9 @@ ntlmssp_create_challenge(pool_t pool, const struct ntlmssp_request *request,
 static bool ntlmssp_check_buffer(const struct ntlmssp_buffer *buffer,
 				 size_t data_size, const char **error)
 {
-	uint32_t offset = read_le32(&buffer->offset);
-	uint16_t length = read_le16(&buffer->length);
-	uint16_t space = read_le16(&buffer->space);
+	uint32_t offset = le32_to_cpu(buffer->offset);
+	uint16_t length = le16_to_cpu(buffer->length);
+	uint16_t space = le16_to_cpu(buffer->space);
 
 	/* Empty buffer is ok */
 	if (length == 0 && space == 0)
@@ -212,17 +212,17 @@ bool ntlmssp_check_request(const struct ntlmssp_request *request,
 		return FALSE;
 	}
 
-	if (read_le64(&request->magic) != NTLMSSP_MAGIC) {
+	if (le64_to_cpu(request->magic) != NTLMSSP_MAGIC) {
 		*error = "signature mismatch";
 		return FALSE;
 	}
 
-	if (read_le32(&request->type) != NTLMSSP_MSG_TYPE1) {
+	if (le32_to_cpu(request->type) != NTLMSSP_MSG_TYPE1) {
 		*error = "message type mismatch";
 		return FALSE;
 	}
 
-	flags = read_le32(&request->flags);
+	flags = le32_to_cpu(request->flags);
 
 	if ((flags & NTLMSSP_NEGOTIATE_NTLM) == 0) {
 		*error = "client doesn't advertise NTLM support";
@@ -240,12 +240,12 @@ bool ntlmssp_check_response(const struct ntlmssp_response *response,
 		return FALSE;
 	}
 
-	if (read_le64(&response->magic) != NTLMSSP_MAGIC) {
+	if (le64_to_cpu(response->magic) != NTLMSSP_MAGIC) {
 		*error = "signature mismatch";
 		return FALSE;
 	}
 
-	if (read_le32(&response->type) != NTLMSSP_MSG_TYPE3) {
+	if (le32_to_cpu(response->type) != NTLMSSP_MSG_TYPE3) {
 		*error = "message type mismatch";
 		return FALSE;
 	}

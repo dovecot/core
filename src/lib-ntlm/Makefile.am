@@ -12,7 +12,6 @@ noinst_HEADERS = \
 	ntlm.h \
 	ntlm-types.h \
 	ntlm-flags.h \
-	ntlm-byteorder.h \
 	ntlm-des.h \
 	ntlm-encrypt.h \
 	ntlm-message.h

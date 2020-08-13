@@ -3,9 +3,9 @@
 
 #include <stddef.h>
 
+#include "byteorder.h"
 #include "ntlm-types.h"
 #include "ntlm-flags.h"
-#include "ntlm-byteorder.h"
 #include "ntlm-encrypt.h"
 #include "ntlm-message.h"
 
@@ -15,7 +15,7 @@
 static inline const void *
 ntlmssp_buffer_data_i(void *message, struct ntlmssp_buffer *buffer)
 {
-	return ((char *) message) + read_le32(&buffer->offset);
+	return ((char *) message) + le32_to_cpu(buffer->offset);
 }
 
 #define ntlmssp_buffer_length(message, buffer) \
@@ -24,7 +24,7 @@ ntlmssp_buffer_data_i(void *message, struct ntlmssp_buffer *buffer)
 static inline unsigned int
 ntlmssp_buffer_length_i(struct ntlmssp_buffer *buffer)
 {
-	return read_le16(&buffer->length);
+	return le16_to_cpu(buffer->length);
 }
 
 #define ntlmssp_t_str(message, buffer, unicode) \
