@@ -347,17 +347,17 @@ static int log_connection_handshake(struct log_connection *log)
 	   full handshake packet immediately. if not, treat it as an error
 	   message that we want to log. */
 	ret = i_stream_read(log->input);
-	if (ret < 0) {
+	if (ret == -1) {
 		i_error("read(log %s) failed: %s", log->default_prefix,
 			i_stream_get_error(log->input));
 		return -1;
 	}
-	if ((size_t)ret < sizeof(handshake)) {
+	data = i_stream_get_data(log->input, &size);
+	if (size < sizeof(handshake)) {
 		/* this isn't a handshake */
 		return 0;
 	}
 
-	data = i_stream_get_data(log->input, &size);
 	i_assert(size >= sizeof(handshake));
 	memcpy(&handshake, data, sizeof(handshake));
 
