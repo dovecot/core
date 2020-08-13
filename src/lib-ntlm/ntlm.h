@@ -15,7 +15,7 @@
 static inline const void *
 ntlmssp_buffer_data_i(void *message, struct ntlmssp_buffer *buffer)
 {
-	return ((char *) message) + le32_to_cpu(buffer->offset);
+	return CONST_PTR_OFFSET(message, le32_to_cpu(buffer->offset));
 }
 
 #define ntlmssp_buffer_length(message, buffer) \

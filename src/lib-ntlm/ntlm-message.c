@@ -22,7 +22,7 @@ const char *ntlmssp_t_str_i(const void *message, struct ntlmssp_buffer *buffer,
 			    bool unicode)
 {
 	unsigned int len = le16_to_cpu(buffer->length);
-	const char *p = ((const char *) message) + le32_to_cpu(buffer->offset);
+	const char *p = CONST_PTR_OFFSET(message, le32_to_cpu(buffer->offset));
 	string_t *str;
 
 	if (unicode)
