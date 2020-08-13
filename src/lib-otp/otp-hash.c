@@ -147,7 +147,7 @@ void otp_hash(unsigned int algo, const char *seed, const char *passphrase,
 	digest_update(&ctx, passphrase, strlen(passphrase));
 	digest_otp_final(&ctx, result);
 
-	while (step-- > 0) {
+	for (unsigned int i = 0; i < step; i++) {
 		digest_init(&ctx, algo);
 		digest_update(&ctx, result, OTP_HASH_SIZE);
 		digest_otp_final(&ctx, result);
