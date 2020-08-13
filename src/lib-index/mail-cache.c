@@ -46,7 +46,7 @@ void mail_cache_set_corrupted(struct mail_cache *cache, const char *fmt, ...)
 	T_BEGIN {
 		const char *reason = t_strdup_vprintf(fmt, va);
 		const char *errstr = t_strdup_printf(
-			"Deleting corrupted file: %s", reason);
+			"Deleting corrupted cache: %s", reason);
 		e_error(event_create_passthrough(cache->event)->
 			set_name("mail_cache_corrupted")->
 			add_str("reason", reason)->event(), "%s", errstr);
@@ -569,8 +569,6 @@ mail_cache_open_or_create_path(struct mail_index *index, const char *path)
 
 	cache->event = event_create(index->event);
 	event_add_category(cache->event, &event_category_mail_cache);
-	event_set_append_log_prefix(cache->event,
-		t_strdup_printf("Cache %s: ", cache->filepath));
 
 	cache->dotlock_settings.use_excl_lock =
 		(index->flags & MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL) != 0;
