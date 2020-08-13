@@ -158,7 +158,7 @@ static void test_istream_next_line(void)
 	const char *const *lines = t_strsplit(test_data_1, "\n");
 	for(i = 0; i < sizeof(test_data_1); i++) {
 		test_istream_set_size(is, i);
-		i_stream_read(is);
+		test_assert(i_stream_read(is) >= 0);
 		const char *line = i_stream_next_line(is);
 		if (line != NULL) {
 			test_assert_strcmp_idx(lines[n], line, n);
@@ -183,13 +183,13 @@ static void test_istream_next_line(void)
 	/* requires one extra read to get the last line */
 	for(i = 0; i < sizeof(test_data_1) + 1; i++) {
 		test_istream_set_size(is, I_MIN(sizeof(test_data_1), i));
-		i_stream_read(is);
+		(void)i_stream_read(is);
 		const char *line = i_stream_next_line(is);
 		if (line != NULL) {
 			test_assert_strcmp_idx(lines[n], line, n);
 			n++;
 		}
-		i_stream_read(is);
+		(void)i_stream_read(is);
 	}
 	test_assert(n == 4);
 	test_assert(is->stream_errno == 0);
@@ -210,7 +210,7 @@ static void test_istream_next_line(void)
 
 	for(i = 0; i < sizeof(test_data_3); i++) {
 		test_istream_set_size(is, i);
-		i_stream_read(is);
+		test_assert(i_stream_read(is) >= 0);
 		const char *line = i_stream_next_line(is);
 		if (line != NULL) {
 			test_assert_strcmp_idx(lines[n], line, n);
