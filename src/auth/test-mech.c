@@ -196,8 +196,8 @@ test_mech_construct_apop_challenge(unsigned int connect_uid, unsigned long *len_
 {
 	string_t *apop_challenge = t_str_new(128);
 
-	str_printfa(apop_challenge,"<%lx.%u.%"PRIdTIME_T"", (unsigned long) getpid(),
-		    connect_uid, process_start_time+10);
+	str_printfa(apop_challenge,"<%lx.%lx.%"PRIxTIME_T".", (unsigned long)getpid(),
+		    (unsigned long)connect_uid, process_start_time+10);
 	str_append_data(apop_challenge, "\0testuser\0responseoflen16-", 26);
 	*len_r = apop_challenge->used;
 	return apop_challenge->data;
