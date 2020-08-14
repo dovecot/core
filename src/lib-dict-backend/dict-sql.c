@@ -46,6 +46,7 @@ struct sql_dict_iterate_context {
 	const struct dict_sql_map *map;
 	size_t key_prefix_len, pattern_prefix_len;
 	unsigned int path_idx, sql_fields_start_idx, next_map_idx;
+	bool destroyed;
 	bool synchronous_result;
 	bool iter_query_sent;
 	bool allow_null_map; /* allow next map to be NULL */
@@ -714,10 +715,15 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 static void sql_dict_iterate_callback(struct sql_result *result,
 				      struct sql_dict_iterate_context *ctx)
 {
-	sql_result_ref(result);
-	ctx->result = result;
-	if (ctx->ctx.async_callback != NULL && !ctx->synchronous_result)
-		ctx->ctx.async_callback(ctx->ctx.async_context);
+	if (!ctx->destroyed) {
+		sql_result_ref(result);
+		ctx->result = result;
+		if (ctx->ctx.async_callback != NULL && !ctx->synchronous_result)
+			ctx->ctx.async_callback(ctx->ctx.async_context);
+	}
+
+	pool_t pool_copy = ctx->pool;
+	pool_unref(&pool_copy);
 }
 
 static int sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
@@ -744,6 +750,7 @@ static int sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 	} else {
 		i_assert(ctx->result == NULL);
 		ctx->synchronous_result = TRUE;
+		pool_ref(ctx->pool);
 		sql_statement_query(&stmt, sql_dict_iterate_callback, ctx);
 		ctx->synchronous_result = FALSE;
 	}
@@ -805,6 +812,7 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 		else {
 			/* get more results asynchronously */
 			ctx->synchronous_result = TRUE;
+			pool_ref(ctx->pool);
 			sql_result_more(&ctx->result, sql_dict_iterate_callback, ctx);
 			ctx->synchronous_result = FALSE;
 			if (ctx->result == NULL) {
@@ -876,7 +884,10 @@ static int sql_dict_iterate_deinit(struct dict_iterate_context *_ctx,
 	*error_r = t_strdup(ctx->error);
 	if (ctx->result != NULL)
 		sql_result_unref(ctx->result);
-	pool_unref(&ctx->pool);
+	ctx->destroyed = TRUE;
+
+	pool_t pool_copy = ctx->pool;
+	pool_unref(&pool_copy);
 	return ret;
 }
 
