@@ -141,8 +141,7 @@ static struct test {
 #undef CHECK_REAL
 
 	/* check empty parens */
-	BAD("()",
-	    "event filter: syntax error, unexpected ')', expecting TOKEN or STRING or NOT or '('"),
+	BAD("()", "event filter: syntax error"),
 
 	/* check name only / name+comparator (!negated & negated) */
 #define CHECK_CMP_REAL(not, name, cmp, err) \
@@ -153,17 +152,17 @@ static struct test {
 	CHECK_CMP_REAL("NOT ", name, cmp, err)
 #define CHECK(name) \
 	CHECK_CMP(name, "", \
-	    "event filter: syntax error, unexpected $end, expecting '=' or '>' or '<'"), \
+	    "event filter: syntax error"), \
 	CHECK_CMP(name, "=", \
-	    "event filter: syntax error, unexpected $end"), \
+	    "event filter: syntax error"), \
 	CHECK_CMP(name, "<", \
-	    "event filter: syntax error, unexpected $end"), \
+	    "event filter: syntax error"), \
 	CHECK_CMP(name, "<=", \
-	    "event filter: syntax error, unexpected $end"), \
+	    "event filter: syntax error"), \
 	CHECK_CMP(name, ">", \
-	    "event filter: syntax error, unexpected $end"), \
+	    "event filter: syntax error"), \
 	CHECK_CMP(name, ">=", \
-	    "event filter: syntax error, unexpected $end")
+	    "event filter: syntax error")
 
 	CHECK("event"),
 	CHECK("source_location"),
@@ -205,7 +204,6 @@ static void testcase(const char *name, const char *input, const char *exp,
 {
 	struct event_filter *filter;
 	const char *error;
-	const char *got;
 	int ret;
 
 	test_begin(t_strdup_printf("event filter parser: %s: %s", name, input));
@@ -220,12 +218,10 @@ static void testcase(const char *name, const char *input, const char *exp,
 
 		event_filter_export(filter, tmp);
 
-		got = str_c(tmp);
+		test_assert_strcmp(exp, str_c(tmp));
 	} else {
-		got = error;
+		test_assert(str_begins(error, exp));
 	}
-
-	test_assert_strcmp(exp, got);
 
 	event_filter_unref(&filter);
 
