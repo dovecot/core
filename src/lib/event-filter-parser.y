@@ -2,6 +2,7 @@
 
 %define api.pure
 %define api.prefix {event_filter_parser_}
+%define parse.error verbose
 %lex-param {void *scanner}
 %parse-param {struct event_filter_parser_state *state}
 
