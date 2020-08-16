@@ -735,7 +735,7 @@ mech_gssapi_auth_free(struct auth_request *request)
 const struct mech_module mech_gssapi = {
 	"GSSAPI",
 
-	.flags = 0,
+	.flags = MECH_SEC_ALLOW_NULS,
 	.passdb_need = MECH_PASSDB_NEED_NOTHING,
 
 	mech_gssapi_auth_new,
