@@ -192,11 +192,11 @@ static void test_mech_handle_challenge(struct auth_request *request,
 }
 
 static inline const unsigned char *
-test_mech_construct_apop_challenge(unsigned int connect_uid, unsigned long *len_r)
+test_mech_construct_apop_challenge(unsigned int connect_uid, size_t *len_r)
 {
 	string_t *apop_challenge = t_str_new(128);
 
-	str_printfa(apop_challenge,"<%lx.%u.%"PRIdTIME_T"", (unsigned long) getpid(),
+	str_printfa(apop_challenge,"<%lx.%u.%"PRIxTIME_T"", (unsigned long) getpid(),
 		    connect_uid, process_start_time+10);
 	str_append_data(apop_challenge, "\0testuser\0responseoflen16-", 26);
 	*len_r = apop_challenge->used;
@@ -323,7 +323,7 @@ static void test_mechs(void)
 		struct test_case *test_case = &tests[running_test];
 		const struct mech_module *mech = test_case->mech;
 		struct auth_request *request;
-		const char *testname = t_strdup_printf("auth mech %s %d/%lu",
+		const char *testname = t_strdup_printf("auth mech %s %d/%zu",
 						       mech->mech_name,
 						       running_test+1,
 						       N_ELEMENTS(tests));
