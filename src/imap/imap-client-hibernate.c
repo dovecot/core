@@ -166,7 +166,7 @@ imap_hibernate_process_send(struct client *client, const buffer_t *state,
 			   "/"IMAP_HIBERNATE_SOCKET_NAME, NULL);
 	fd = net_connect_unix_with_retries(path, 1000);
 	if (fd == -1) {
-		i_error("net_connect_unix(%s) failed: %m", path);
+		e_error(client->event, "net_connect_unix(%s) failed: %m", path);
 		return -1;
 	}
 	net_set_nonblock(fd, FALSE);
@@ -211,7 +211,7 @@ bool imap_client_hibernate(struct client **_client)
 	state = buffer_create_dynamic(default_pool, 1024);
 	ret = imap_state_export_internal(client, state, &error);
 	if (ret < 0) {
-		i_error("Couldn't hibernate imap client: "
+		e_error(client->event, "Couldn't hibernate imap client: "
 			"Couldn't export state: %s (mailbox=%s)", error,
 			client->mailbox == NULL ? "" :
 			mailbox_get_vname(client->mailbox));
@@ -234,7 +234,8 @@ bool imap_client_hibernate(struct client **_client)
 	if (ret > 0) {
 		if (imap_hibernate_process_send(client, state, fd_notify,
 						&fd_hibernate, &error) < 0) {
-			i_error("Couldn't hibernate imap client: %s", error);
+			e_error(client->event,
+				"Couldn't hibernate imap client: %s", error);
 			ret = -1;
 		}
 	}

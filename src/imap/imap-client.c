@@ -301,7 +301,8 @@ const char *client_stats(struct client *client)
 	if (var_expand_with_funcs(str, client->set->imap_logout_format,
 				  tab, mail_user_var_expand_func_table,
 				  client->user, &error) < 0) {
-		i_error("Failed to expand imap_logout_format=%s: %s",
+		e_error(client->event,
+			"Failed to expand imap_logout_format=%s: %s",
 			client->set->imap_logout_format, error);
 	}
 	return str_c(str);

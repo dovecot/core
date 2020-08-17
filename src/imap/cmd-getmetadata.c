@@ -203,7 +203,8 @@ static void cmd_getmetadata_send_entry(struct imap_getmetadata_context *ctx,
 		value_len = strlen(value.value);
 	else if (value.value_stream != NULL) {
 		if (i_stream_get_size(value.value_stream, TRUE, &value_len) < 0) {
-			i_error("GETMETADATA %s: i_stream_get_size(%s) failed: %s", entry,
+			e_error(client->event,
+				"GETMETADATA %s: i_stream_get_size(%s) failed: %s", entry,
 				i_stream_get_name(value.value_stream),
 				i_stream_get_error(value.value_stream));
 			i_stream_unref(&value.value_stream);
@@ -257,7 +258,7 @@ cmd_getmetadata_stream_continue(struct imap_getmetadata_context *ctx)
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 		return FALSE;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
-		i_error("read(%s) failed: %s",
+		e_error(ctx->cmd->client->event, "read(%s) failed: %s",
 			i_stream_get_name(ctx->cur_stream),
 			i_stream_get_error(ctx->cur_stream));
 		client_disconnect(ctx->cmd->client,

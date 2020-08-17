@@ -109,7 +109,7 @@ static int cmd_urlfetch_transfer_literal(struct client_command_context *cmd)
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 		return 0;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
-		i_error("read(%s) failed: %s (URLFETCH)",
+		e_error(client->event, "read(%s) failed: %s (URLFETCH)",
 			i_stream_get_name(ctx->input),
 			i_stream_get_error(ctx->input));
 		client_disconnect(client, "URLFETCH failed");

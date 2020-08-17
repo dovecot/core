@@ -385,9 +385,10 @@ login_client_connected(const struct master_login_client *login_client,
 		if (write_full(login_client->fd, MSG_BYE_INTERNAL_ERROR,
 			       strlen(MSG_BYE_INTERNAL_ERROR)) < 0)
 			if (errno != EAGAIN && errno != EPIPE)
-				i_error("write_full(client) failed: %m");
+				e_error(client->event,
+					"write_full(client) failed: %m");
 
-		i_error("%s", error);
+		e_error(client->event, "%s", error);
 		client_destroy(client, error);
 		return;
 	}
