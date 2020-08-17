@@ -108,5 +108,10 @@ int imap_parser_read_tag(struct imap_parser *parser, const char **tag_r);
    needed, -1 if input isn't a valid command name string. */
 int imap_parser_read_command_name(struct imap_parser *parser,
 				  const char **name_r);
+/* For IMAP clients: Read the command tag, which could also be "+" or "*".
+   Returns 1 if tag was returned, 0 if more data is needed, -1 if input isn't
+   valid. */
+int imap_parser_client_read_tag(struct imap_parser *parser,
+				const char **tag_r);
 
 #endif
