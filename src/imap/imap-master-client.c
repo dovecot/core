@@ -202,14 +202,14 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 
 	if (imap_master_client_parse_input(args, pool, &input, &master_input,
 					   &error) < 0) {
-		i_error("imap-master: Failed to parse client input: %s", error);
+		e_error(conn->event, "imap-master: Failed to parse client input: %s", error);
 		o_stream_nsend_str(conn->output, t_strdup_printf(
 			"-Failed to parse client input: %s\n", error));
 		i_close_fd(&fd_client);
 		return -1;
 	}
 	if (imap_master_client_verify(&master_input, fd_client, &error) < 0) {
-		i_error("imap-master: Failed to verify client input: %s", error);
+		e_error(conn->event, "imap-master: Failed to verify client input: %s", error);
 		o_stream_nsend_str(conn->output, t_strdup_printf(
 			"-Failed to verify client input: %s\n", error));
 		i_close_fd(&fd_client);
@@ -226,7 +226,8 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	ret = client_create_from_input(&input, fd_client, fd_client,
 				       &imap_client, &error);
 	if (ret < 0) {
-		i_error("imap-master(%s): Failed to create client: %s",
+		e_error(conn->event,
+			"imap-master(%s): Failed to create client: %s",
 			input.username, error);
 		i_close_fd(&fd_client);
 		return -1;
@@ -311,12 +312,12 @@ imap_master_client_input_line(struct connection *conn, const char *line)
 
 	fd_client = i_stream_unix_get_read_fd(conn->input);
 	if (fd_client == -1) {
-		i_error("imap-master: IMAP client fd not received");
+		e_error(conn->event, "imap-master: IMAP client fd not received");
 		return -1;
 	}
 
 	if (imap_debug)
-		i_debug("imap-master: Client input: %s", line);
+		e_debug(conn->event, "imap-master: Client input: %s", line);
 
 	pool = pool_alloconly_create("imap master client cmd", 1024);
 	args = p_strsplit_tabescaped(pool, line);
