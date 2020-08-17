@@ -244,18 +244,13 @@ static bool imap_client_try_move_back(struct imap_client *client)
 		/* success */
 		imap_client_stop(client);
 		return TRUE;
-	} else if (ret < 0) {
+	} else if (ret < 0 || imap_move_has_reached_timeout(client)) {
 		/* failed to connect to the imap-master socket */
 		e_error(client->event, "Failed to unhibernate client: %s", error);
 		imap_client_destroy(&client, error);
 		return TRUE;
 	}
 
-	if (imap_move_has_reached_timeout(client)) {
-		/* we've waited long enough */
-		imap_client_destroy(&client, error);
-		return TRUE;
-	}
 	/* Stop listening for client's IOs while waiting for the next
 	   reconnection attempt. However if we got here because of an external
 	   notification keep waiting to see if client sends any IO, since that
