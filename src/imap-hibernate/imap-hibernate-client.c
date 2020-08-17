@@ -180,7 +180,7 @@ imap_hibernate_client_input_args(struct connection *conn,
 	const char *error;
 
 	if (imap_hibernate_client_parse_input(args, pool, &state, &error) < 0) {
-		i_error("Failed to parse client input: %s", error);
+		e_error(conn->event, "Failed to parse client input: %s", error);
 		o_stream_nsend_str(conn->output, t_strdup_printf(
 			"-Failed to parse client input: %s\n", error));
 		return -1;
@@ -206,7 +206,7 @@ imap_hibernate_client_input_line(struct connection *conn, const char *line)
 		return 1;
 	}
 	if (client->finished) {
-		i_error("Received unexpected line: %s", line);
+		e_error(conn->event, "Received unexpected line: %s", line);
 		return -1;
 	}
 
@@ -216,7 +216,7 @@ imap_hibernate_client_input_line(struct connection *conn, const char *line)
 
 		fd = i_stream_unix_get_read_fd(conn->input);
 		if (fd == -1) {
-			i_error("IMAP client fd not received");
+			e_error(conn->event, "IMAP client fd not received");
 			return -1;
 		}
 
@@ -224,15 +224,17 @@ imap_hibernate_client_input_line(struct connection *conn, const char *line)
 		args = p_strsplit_tabescaped(pool, line);
 		ret = imap_hibernate_client_input_args(conn, (void *)args, fd, pool);
 		if (ret >= 0 && client->debug)
-			i_debug("Create client with input: %s", line);
+			e_debug(conn->event, "Create client with input: %s", line);
 		pool_unref(&pool);
 	} else {
 		fd = i_stream_unix_get_read_fd(conn->input);
 		if (fd == -1) {
-			i_error("IMAP notify fd not received (input: %s)", line);
+			e_error(conn->event,
+				"IMAP notify fd not received (input: %s)", line);
 			ret = -1;
 		} else if (line[0] != '\0') {
-			i_error("Expected empty notify fd line from client, but got: %s", line);
+			e_error(conn->event,
+				"Expected empty notify fd line from client, but got: %s", line);
 			o_stream_nsend_str(conn->output,
 					   "Expected empty notify fd line");
 			ret = -1;

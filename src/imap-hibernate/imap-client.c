@@ -189,7 +189,7 @@ imap_client_move_back_send_callback(void *context, struct ostream *output)
 	/* send the fd first */
 	ret = fd_send(o_stream_get_fd(output), client->fd, str_data(str), 1);
 	if (ret < 0) {
-		i_error("fd_send(%s) failed: %m",
+		e_error(client->event, "fd_send(%s) failed: %m",
 			o_stream_get_name(output));
 		imap_client_destroy(&client, "Failed to recreate imap process");
 		return;
@@ -237,7 +237,7 @@ static bool imap_client_try_move_back(struct imap_client *client)
 		return TRUE;
 	} else if (ret < 0) {
 		/* failed to connect to the imap-master socket */
-		i_error("Failed to unhibernate client: %s", error);
+		e_error(client->event, "Failed to unhibernate client: %s", error);
 		imap_client_destroy(&client, error);
 		return TRUE;
 	}
@@ -600,7 +600,8 @@ imap_client_create(int fd, const struct imap_client_state *state)
 		if (var_expand_with_funcs(str, state->mail_log_prefix,
 					  imap_client_get_var_expand_table(client),
 					  funcs, fields, &error) <= 0) {
-			i_error("Failed to expand mail_log_prefix=%s: %s",
+			e_error(client->event,
+				"Failed to expand mail_log_prefix=%s: %s",
 				state->mail_log_prefix, error);
 		}
 		client->log_prefix = p_strdup(pool, str_c(str));
@@ -648,7 +649,7 @@ void imap_client_destroy(struct imap_client **_client, const char *reason)
 	if (reason != NULL) {
 		/* the client input/output bytes don't count the DONE+IDLE by
 		   imap-hibernate, but that shouldn't matter much. */
-		i_info("%s %s", reason, client->state.stats);
+		e_info(client->event, "%s %s", reason, client->state.stats);
 	}
 
 	if (client->state.anvil_sent) {
