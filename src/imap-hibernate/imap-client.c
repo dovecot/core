@@ -212,6 +212,15 @@ imap_client_move_back_read_callback(void *context, const char *line)
 	}
 }
 
+static bool imap_move_has_reached_timeout(struct imap_client *client)
+{
+	int max_secs = client->input_pending ?
+		IMAP_CLIENT_MOVE_BACK_WITH_INPUT_TIMEOUT_SECS :
+		IMAP_CLIENT_MOVE_BACK_WITHOUT_INPUT_TIMEOUT_SECS;
+	return client->move_back_start != 0 &&
+		ioloop_time - client->move_back_start > max_secs;
+}
+
 static bool imap_client_try_move_back(struct imap_client *client)
 {
 	const struct master_service_settings *master_set;
@@ -242,11 +251,7 @@ static bool imap_client_try_move_back(struct imap_client *client)
 		return TRUE;
 	}
 
-	int max_secs = client->input_pending ?
-		IMAP_CLIENT_MOVE_BACK_WITH_INPUT_TIMEOUT_SECS :
-		IMAP_CLIENT_MOVE_BACK_WITHOUT_INPUT_TIMEOUT_SECS;
-	if (client->move_back_start != 0 &&
-	    ioloop_time - client->move_back_start > max_secs) {
+	if (imap_move_has_reached_timeout(client)) {
 		/* we've waited long enough */
 		imap_client_destroy(&client, error);
 		return TRUE;
