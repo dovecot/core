@@ -196,7 +196,7 @@ static int client_command_execute(struct imap_client *client, const char *cmd,
 
 static bool client_invalid_command(struct imap_client *client)
 {
-	if (*client->cmd_tag == '\0')
+	if (client->cmd_tag == NULL || *client->cmd_tag == '\0')
 		client->cmd_tag = "*";
 	if (++client->common.bad_counter >= CLIENT_MAX_BAD_COMMANDS) {
 		client_send_reply(&client->common, IMAP_CMD_REPLY_BYE,
@@ -207,33 +207,6 @@ static bool client_invalid_command(struct imap_client *client)
 	}
 	client_send_reply(&client->common, IMAP_CMD_REPLY_BAD,
 			  "Error in IMAP command received by server.");
-	return TRUE;
-}
-
-static bool imap_is_valid_tag(const char *tag)
-{
-	for (; *tag != '\0'; tag++) {
-		switch (*tag) {
-		case '+':
-		/* atom-specials: */
-		case '(':
-		case ')':
-		case '{':
-		case '/':
-		case ' ':
-		/* list-wildcards: */
-		case '%':
-		case '*':
-		/* quoted-specials: */
-		case '"':
-		case '\\':
-			return FALSE;
-		default:
-			if (*tag < ' ') /* CTL */
-				return FALSE;
-			break;
-		}
-	}
 	return TRUE;
 }
 
@@ -261,6 +234,9 @@ static int client_parse_command(struct imap_client *client,
 
 static bool client_handle_input(struct imap_client *client)
 {
+	const char *tag, *name;
+	int ret;
+
 	i_assert(!client->common.authenticating);
 
 	if (client->cmd_finished) {
@@ -282,23 +258,35 @@ static bool client_handle_input(struct imap_client *client)
 	}
 
 	if (client->cmd_tag == NULL) {
-                client->cmd_tag = imap_parser_read_word(client->parser);
-		if (client->cmd_tag == NULL)
+		ret = imap_parser_read_tag(client->parser, &tag);
+		if (ret == 0)
 			return FALSE; /* need more data */
-		if (!imap_is_valid_tag(client->cmd_tag) ||
-		    strlen(client->cmd_tag) > IMAP_TAG_MAX_LEN) {
+		if (ret < 0 || strlen(tag) > IMAP_TAG_MAX_LEN) {
 			/* the tag is invalid, don't allow it and don't
 			   send it back. this attempts to prevent any
 			   potentially dangerous replies in case someone tries
 			   to access us using HTTP protocol. */
-			client->cmd_tag = "";
+			client->skip_line = TRUE;
+			client->cmd_finished = TRUE;
+			if (!client_invalid_command(client))
+				return FALSE;
+			return client_handle_input(client);
 		}
+		client->cmd_tag = tag;
 	}
 
 	if (client->cmd_name == NULL) {
-                client->cmd_name = imap_parser_read_word(client->parser);
-		if (client->cmd_name == NULL)
+		ret = imap_parser_read_command_name(client->parser, &name);
+		if (ret == 0)
 			return FALSE; /* need more data */
+		if (ret < 0) {
+			client->skip_line = TRUE;
+			client->cmd_finished = TRUE;
+			if (!client_invalid_command(client))
+				return FALSE;
+			return client_handle_input(client);
+		}
+		client->cmd_name = name;
 	}
 	return client->common.v.input_next_cmd(&client->common);
 }
