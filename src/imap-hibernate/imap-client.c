@@ -141,8 +141,12 @@ imap_client_move_back_send_callback(void *context, struct ostream *output)
 		str_printfa(str, "\ttag=%s", client->state.tag);
 	if (state->local_ip.family != 0)
 		str_printfa(str, "\tlip=%s", net_ip2addr(&state->local_ip));
+	if (state->local_port != 0)
+		str_printfa(str, "\tlport=%u", state->local_port);
 	if (state->remote_ip.family != 0)
 		str_printfa(str, "\trip=%s", net_ip2addr(&state->remote_ip));
+	if (state->remote_port != 0)
+		str_printfa(str, "\trport=%u", state->remote_port);
 	if (state->userdb_fields != NULL) {
 		str_append(str, "\tuserdb_fields=");
 		str_append_tabescaped(str, state->userdb_fields);

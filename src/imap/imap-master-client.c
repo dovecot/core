@@ -90,10 +90,22 @@ imap_master_client_parse_input(const char *const *args, pool_t pool,
 					"Invalid lip value: %s", value);
 				return -1;
 			}
+		} else if (strcmp(key, "lport") == 0) {
+			if (net_str2port(value, &input_r->local_port) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid lport value: %s", value);
+				return -1;
+			}
 		} else if (strcmp(key, "rip") == 0) {
 			if (net_addr2ip(value, &input_r->remote_ip) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid rip value: %s", value);
+				return -1;
+			}
+		} else if (strcmp(key, "rport") == 0) {
+			if (net_str2port(value, &input_r->remote_port) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid rport value: %s", value);
 				return -1;
 			}
 		} else if (strcmp(key, "peer_dev_major") == 0) {
