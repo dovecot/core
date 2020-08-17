@@ -9,6 +9,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "str-sanitize.h"
+#include "time-util.h"
 #include "master-service.h"
 #include "mail-storage-service.h"
 #include "imap-client.h"
@@ -30,6 +31,8 @@ struct imap_master_input {
 	buffer_t *state;
 	/* command tag */
 	const char *tag;
+	/* Timestamp when hibernation started */
+	struct timeval hibernation_start_time;
 
 	dev_t peer_dev;
 	ino_t peer_ino;
@@ -132,6 +135,12 @@ imap_master_client_parse_input(const char *const *args, pool_t pool,
 			if (str_to_time(value, &input_r->session_create_time) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid session_created value: %s", value);
+				return -1;
+			}
+		} else if (strcmp(key, "hibernation_started") == 0) {
+			if (str_to_timeval(value, &master_input_r->hibernation_start_time) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid hibernation_started value: %s", value);
 				return -1;
 			}
 		} else if (strcmp(key, "userdb_fields") == 0) {
@@ -243,8 +252,12 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	}
 	client->imap_client_created = TRUE;
 
+	long long hibernation_usecs =
+		timeval_diff_usecs(&ioloop_timeval,
+				   &master_input.hibernation_start_time);
 	struct event *event = event_create(imap_client->event);
 	event_set_name(event, "imap_client_unhibernated");
+	event_add_int(event, "hibernation_usecs", hibernation_usecs);
 	imap_client->state_import_bad_idle_done =
 		master_input.state_import_bad_idle_done;
 	imap_client->state_import_idle_continue =
@@ -309,7 +322,9 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	if (master_input.tag != NULL)
 		imap_state_import_idle_cmd_tag(imap_client, master_input.tag);
 
-	e_debug(event, "imap-master: Unhibernated because %s", reason);
+	e_debug(event, "imap-master: Unhibernated because %s "
+		"(hibernated for %llu.%06llu secs)", reason,
+		hibernation_usecs/1000000, hibernation_usecs%1000000);
 	event_unref(&event);
 
 	/* make sure all pending input gets handled */

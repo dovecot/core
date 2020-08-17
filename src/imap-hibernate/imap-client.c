@@ -14,6 +14,7 @@
 #include "base64.h"
 #include "str.h"
 #include "strescape.h"
+#include "time-util.h"
 #include "var-expand.h"
 #include "master-service.h"
 #include "master-service-settings.h"
@@ -113,9 +114,14 @@ static void
 imap_client_unhibernate_failed(struct imap_client **_client, const char *error)
 {
 	struct imap_client *client = *_client;
+	struct timeval created;
+	event_get_create_time(client->event, &created);
+
 	struct event_passthrough *e =
 		event_create_passthrough(client->event)->
 		set_name("imap_client_unhibernated")->
+		add_int("hibernation_usecs",
+			timeval_diff_usecs(&ioloop_timeval, &created))->
 		add_str("error", error);
 	e_error(e->event(), IMAP_CLIENT_UNHIBERNATE_ERROR": %s", error);
 	imap_client_destroy(_client, IMAP_CLIENT_UNHIBERNATE_ERROR);
@@ -146,11 +152,16 @@ imap_client_move_back_send_callback(void *context, struct ostream *output)
 	struct imap_client *client = context;
 	const struct imap_client_state *state = &client->state;
 	string_t *str = t_str_new(256);
+	struct timeval created;
 	const unsigned char *input_data;
 	size_t input_size;
 	ssize_t ret;
 
 	str_append_tabescaped(str, state->username);
+	event_get_create_time(client->event, &created);
+	str_printfa(str, "\thibernation_started=%"PRIdTIME_T".%06u",
+		    created.tv_sec, (unsigned int)created.tv_usec);
+
 	if (state->session_id != NULL) {
 		str_append(str, "\tsession=");
 		str_append_tabescaped(str, state->session_id);
