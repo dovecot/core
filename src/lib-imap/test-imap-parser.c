@@ -79,11 +79,78 @@ static void test_imap_parser_partial_list(void)
 	test_end();
 }
 
+static void test_imap_parser_read_tag_cmd(void)
+{
+	enum read_type {
+		BOTH,
+		TAG,
+		COMMAND
+	};
+	struct {
+		const char *input;
+		const char *tag;
+		int ret;
+		enum read_type type;
+	} tests[] = {
+		{ "tag foo", "tag", 1, BOTH },
+		{ "tag\r", "tag", 1, BOTH },
+		{ "tag\rfoo", "tag", 1, BOTH },
+		{ "tag\nfoo", "tag", 1, BOTH },
+		{ "tag\r\nfoo", "tag", 1, BOTH },
+		{ "\n", NULL, -1, BOTH },
+		{ "tag", NULL, 0, BOTH },
+		{ "tag\t", NULL, -1, BOTH },
+		{ "tag\001", NULL, -1, BOTH },
+		{ "tag\x80", NULL, -1, BOTH },
+		{ "tag(", NULL, -1, BOTH },
+		{ "tag)", NULL, -1, BOTH },
+		{ "tag{", NULL, -1, BOTH },
+		{ "tag/ ", "tag/", 1, BOTH },
+		{ "tag%", NULL, -1, BOTH },
+		{ "tag*", NULL, -1, BOTH },
+		{ "tag\"", NULL, -1, BOTH },
+		{ "tag\\", NULL, -1, BOTH },
+		{ "tag+", NULL, -1, TAG },
+		{ "tag+ ", "tag+", 1, COMMAND },
+	};
+	struct istream *input;
+	struct imap_parser *parser;
+	const char *atom;
+	int ret;
+
+	test_begin("imap_parser_read_tag and imap_parser_read_command_name");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		if (tests[i].type != COMMAND) {
+			input = test_istream_create(tests[i].input);
+			test_assert(i_stream_read(input) > 0);
+			parser = imap_parser_create(input, NULL, 1024);
+			ret = imap_parser_read_tag(parser, &atom);
+			test_assert_idx(ret == tests[i].ret, i);
+			test_assert_idx(ret <= 0 || strcmp(tests[i].tag, atom) == 0, i);
+			imap_parser_unref(&parser);
+			i_stream_destroy(&input);
+		}
+
+		if (tests[i].type != TAG) {
+			input = test_istream_create(tests[i].input);
+			test_assert(i_stream_read(input) > 0);
+			parser = imap_parser_create(input, NULL, 1024);
+			ret = imap_parser_read_command_name(parser, &atom);
+			test_assert_idx(ret == tests[i].ret, i);
+			test_assert_idx(ret <= 0 || strcmp(tests[i].tag, atom) == 0, i);
+			imap_parser_unref(&parser);
+			i_stream_destroy(&input);
+		}
+	}
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_imap_parser_crlf,
 		test_imap_parser_partial_list,
+		test_imap_parser_read_tag_cmd,
 		NULL
 	};
 	return test_run(test_functions);

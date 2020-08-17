@@ -947,3 +947,70 @@ const char *imap_parser_read_word(struct imap_parser *parser)
 		return NULL;
 	}
 }
+
+static int
+imap_parser_read_next_atom(struct imap_parser *parser, bool parsing_tag,
+			   const char **atom_r)
+{
+	const unsigned char *data;
+	size_t i, data_size;
+
+	data = i_stream_get_data(parser->input, &data_size);
+
+	/*
+	   tag            = 1*<any ASTRING-CHAR except "+">
+	   ASTRING-CHAR   = ATOM-CHAR / resp-specials
+	   ATOM-CHAR      = <any CHAR except atom-specials>
+
+	   x-command      = "X" atom <experimental command arguments>
+	   atom           = 1*ATOM-CHAR
+	*/
+	for (i = 0; i < data_size; i++) {
+		/* explicitly check for atom-specials, because
+		   IS_ATOM_PARSER_INPUT() allows some atom-specials */
+		switch (data[i]) {
+		case ' ':
+		case '\r':
+		case '\n':
+			data_size = i + (data[i] == ' ' ? 1 : 0);
+			parser->line_size += data_size;
+			i_stream_skip(parser->input, data_size);
+			*atom_r = p_strndup(parser->pool, data, i);
+			/* don't allow empty string */
+			return i == 0 ? -1 : 1;
+		/* atom-specials: */
+		case '(':
+		case ')':
+		case '{':
+		/* list-wildcards: */
+		case '%':
+		case '*':
+		/* quoted-specials: */
+		case '"':
+		case '\\':
+		/* resp-specials: */
+		case ']':
+			return -1;
+		case '+':
+			if (parsing_tag)
+				return -1;
+			break;
+		default:
+			if ((unsigned char)data[i] < ' ' ||
+			    (unsigned char)data[i] >= 0x80)
+				return -1;
+		}
+	}
+	return 0;
+}
+
+int imap_parser_read_tag(struct imap_parser *parser, const char **tag_r)
+{
+	return imap_parser_read_next_atom(parser, TRUE, tag_r);
+}
+
+int imap_parser_read_command_name(struct imap_parser *parser,
+				  const char **name_r)
+{
+	return imap_parser_read_next_atom(parser, FALSE, name_r);
+}
