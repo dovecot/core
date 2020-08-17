@@ -113,8 +113,11 @@ static void
 imap_client_unhibernate_failed(struct imap_client **_client, const char *error)
 {
 	struct imap_client *client = *_client;
-
-	e_error(client->event, IMAP_CLIENT_UNHIBERNATE_ERROR": %s", error);
+	struct event_passthrough *e =
+		event_create_passthrough(client->event)->
+		set_name("imap_client_unhibernated")->
+		add_str("error", error);
+	e_error(e->event(), IMAP_CLIENT_UNHIBERNATE_ERROR": %s", error);
 	imap_client_destroy(_client, IMAP_CLIENT_UNHIBERNATE_ERROR);
 }
 
