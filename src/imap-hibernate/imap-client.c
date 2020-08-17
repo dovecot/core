@@ -59,6 +59,7 @@ struct imap_client {
 
 	struct imap_client *prev, *next;
 	pool_t pool;
+	struct event *event;
 	struct imap_client_state state;
 	ARRAY(struct imap_client_notify) notifys;
 
@@ -83,6 +84,14 @@ static struct imap_client *imap_clients;
 static struct priorityq *unhibernate_queue;
 static struct timeout *to_unhibernate;
 static const char imap_still_here_text[] = "* OK Still here\r\n";
+
+static struct event_category event_category_imap = {
+	.name = "imap",
+};
+static struct event_category event_category_imap_hibernate = {
+	.name = "imap-hibernate",
+	.parent = &event_category_imap,
+};
 
 static void imap_client_stop(struct imap_client *client);
 void imap_client_destroy(struct imap_client **_client, const char *reason);
@@ -563,6 +572,21 @@ imap_client_create(int fd, const struct imap_client_state *state)
 	client->state.userdb_fields = p_strdup(pool, state->userdb_fields);
 	client->state.stats = p_strdup(pool, state->stats);
 
+	client->event = event_create(NULL);
+	event_add_category(client->event, &event_category_imap_hibernate);
+	event_add_str(client->event, "user", state->username);
+	event_add_str(client->event, "session", state->session_id);
+	if (state->local_ip.family != 0)
+		event_add_str(client->event, "local_ip",
+			      net_ip2addr(&state->local_ip));
+	if (state->local_port != 0)
+		event_add_int(client->event, "local_port", state->local_port);
+	if (state->remote_ip.family != 0)
+		event_add_str(client->event, "remote_ip",
+			      net_ip2addr(&state->remote_ip));
+	if (state->remote_port != 0)
+		event_add_int(client->event, "remote_port", state->remote_port);
+
 	if (state->state_size > 0) {
 		client->state.state = statebuf = p_malloc(pool, state->state_size);
 		memcpy(statebuf, state->state, state->state_size);
@@ -652,6 +676,7 @@ void imap_client_destroy(struct imap_client **_client, const char *reason)
 	i_stream_destroy(&client->input);
 	o_stream_destroy(&client->output);
 	i_close_fd(&client->fd);
+	event_unref(&client->event);
 	pool_unref(&client->pool);
 
 	master_service_client_connection_destroyed(master_service);
