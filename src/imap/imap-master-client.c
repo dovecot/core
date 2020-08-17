@@ -227,11 +227,6 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 		i_close_fd(&fd_client);
 		return -1;
 	}
-	/* Send a success notification before we start anything that lasts
-	   potentially a long time. imap-hibernate process is waiting for us
-	   to answer. Even if we fail later, we log the error anyway. */
-	o_stream_nsend_str(conn->output, "+\n");
-	(void)o_stream_flush(conn->output);
 
 	/* NOTE: before client_create_from_input() on failures we need to close
 	   fd_client, but afterward it gets closed by client_destroy() */
@@ -241,6 +236,8 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 		e_error(conn->event,
 			"imap-master(%s): Failed to create client: %s",
 			input.username, error);
+		o_stream_nsend_str(conn->output, t_strdup_printf(
+			"-Failed to create client: %s\n", error));
 		i_close_fd(&fd_client);
 		return -1;
 	}
@@ -260,6 +257,12 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 		e_debug(imap_client->event,
 			"imap-master: Unhibernated because IDLE was stopped with DONE");
 	}
+
+	/* Send a success notification before we start anything that lasts
+	   potentially a long time. imap-hibernate process is waiting for us
+	   to answer. Even if we fail later, we log the error anyway. */
+	o_stream_nsend_str(conn->output, "+\n");
+	(void)o_stream_flush(conn->output);
 
 	if (client_create_finish(imap_client, &error) < 0) {
 		e_error(imap_client->event, "imap-master(%s): %s",
