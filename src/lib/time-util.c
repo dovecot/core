@@ -131,3 +131,31 @@ const char *t_strfgmtime(const char *fmt, time_t t)
 {
 	return strftime_real(fmt, gmtime(&t));
 }
+
+int str_to_timeval(const char *str, struct timeval *tv_r)
+{
+	tv_r->tv_usec = 0;
+
+	const char *p = strchr(str, '.');
+	if (p == NULL)
+		return str_to_time(str, &tv_r->tv_sec);
+
+	int ret;
+	T_BEGIN {
+		ret = str_to_time(t_strdup_until(str, p++), &tv_r->tv_sec);
+	} T_END;
+	if (ret < 0 || p[0] == '\0')
+		return -1;
+
+	unsigned int len = strlen(p);
+	if (len > 6)
+		return -1; /* we don't support sub-microseconds */
+	char usecs_str[7] = "000000";
+	memcpy(usecs_str, p, len);
+
+	unsigned int usec;
+	if (str_to_uint(usecs_str, &usec) < 0)
+		return -1;
+	tv_r->tv_usec = usec;
+	return 0;
+}

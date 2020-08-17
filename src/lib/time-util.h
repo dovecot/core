@@ -77,4 +77,11 @@ const char *t_strftime(const char *fmt, const struct tm *tm) ATTR_STRFTIME(1);
 const char *t_strflocaltime(const char *fmt, time_t t) ATTR_STRFTIME(1);
 const char *t_strfgmtime(const char *fmt, time_t t) ATTR_STRFTIME(1);
 
+/* Parse string as <unix timestamp>[.<usecs>] into timeval. <usecs> must not
+   have higher precision time, i.e. a maximum of 6 digits is allowed. Note that
+   ".1" is handled as ".1000000" so the string should have been written using
+   "%06u" printf format. */
+int str_to_timeval(const char *str, struct timeval *tv_r)
+	ATTR_WARN_UNUSED_RESULT;
+
 #endif
