@@ -262,6 +262,10 @@ static bool imap_client_try_move_back(struct imap_client *client)
 		return TRUE;
 	}
 
+	e_debug(event_create_passthrough(client->event)->
+		set_name("imap_client_unhibernate_retried")->
+		add_str("error", error)->event(),
+		"Unhibernation failed: %s - retrying", error);
 	/* Stop listening for client's IOs while waiting for the next
 	   reconnection attempt. However if we got here because of an external
 	   notification keep waiting to see if client sends any IO, since that
