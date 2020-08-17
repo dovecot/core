@@ -1176,6 +1176,19 @@ bool client_handle_unfinished_cmd(struct client_command_context *cmd)
 	return TRUE;
 }
 
+static void
+client_command_failed_early(struct client_command_context **_cmd,
+			    const char *error)
+{
+	struct client_command_context *cmd = *_cmd;
+
+	io_loop_time_refresh();
+	command_stats_start(cmd);
+	client_send_command_error(cmd, error);
+	cmd->param_error = TRUE;
+	client_command_free(_cmd);
+}
+
 static bool client_command_input(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
@@ -1239,11 +1252,7 @@ static bool client_command_input(struct client_command_context *cmd)
 
 	if (cmd->func == NULL) {
 		/* unknown command */
-		io_loop_time_refresh();
-		command_stats_start(cmd);
-		client_send_command_error(cmd, "Unknown command.");
-		cmd->param_error = TRUE;
-		client_command_free(&cmd);
+		client_command_failed_early(&cmd, "Unknown command.");
 		return TRUE;
 	} else {
 		i_assert(!client->disconnected);
