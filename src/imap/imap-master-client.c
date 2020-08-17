@@ -246,6 +246,21 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	}
 	client->imap_client_created = TRUE;
 
+	imap_client->state_import_bad_idle_done =
+		master_input.state_import_bad_idle_done;
+	imap_client->state_import_idle_continue =
+		master_input.state_import_idle_continue;
+	if (imap_client->state_import_bad_idle_done) {
+		e_debug(imap_client->event,
+			"imap-master: Unhibernated because IDLE was stopped with BAD command");
+	} else if (imap_client->state_import_idle_continue) {
+		e_debug(imap_client->event,
+			"imap-master: Unhibernated to send mailbox changes");
+	} else {
+		e_debug(imap_client->event,
+			"imap-master: Unhibernated because IDLE was stopped with DONE");
+	}
+
 	if (client_create_finish(imap_client, &error) < 0) {
 		e_error(imap_client->event, "imap-master(%s): %s",
 			input.username, error);
@@ -267,20 +282,6 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 			master_input.client_input->used);
 		client_destroy(imap_client, "Client initialization failed");
 		return -1;
-	}
-	imap_client->state_import_bad_idle_done =
-		master_input.state_import_bad_idle_done;
-	imap_client->state_import_idle_continue =
-		master_input.state_import_idle_continue;
-	if (imap_client->state_import_bad_idle_done) {
-		e_debug(imap_client->event,
-			"imap-master: Unhibernated because IDLE was stopped with BAD command");
-	} else if (imap_client->state_import_idle_continue) {
-		e_debug(imap_client->event,
-			"imap-master: Unhibernated to send mailbox changes");
-	} else {
-		e_debug(imap_client->event,
-			"imap-master: Unhibernated because IDLE was stopped with DONE");
 	}
 
 	ret = imap_state_import_internal(imap_client, master_input.state->data,
