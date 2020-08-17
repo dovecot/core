@@ -212,15 +212,23 @@ bool imap_client_hibernate(struct client **_client)
 		return FALSE;
 	}
 
+	struct event_passthrough *e =
+		event_create_passthrough(client->event)->
+		set_name("imap_client_hibernated");
+	if (client->mailbox != NULL)
+		e->add_str("mailbox", mailbox_get_vname(client->mailbox));
+
 	state = buffer_create_dynamic(default_pool, 1024);
 	ret = imap_state_export_internal(client, state, &error);
 	if (ret < 0) {
-		e_error(client->event, "Couldn't hibernate imap client: "
+		e->add_str("error", error);
+		e_error(e->event(), "Couldn't hibernate imap client: "
 			"Couldn't export state: %s (mailbox=%s)", error,
 			client->mailbox == NULL ? "" :
 			mailbox_get_vname(client->mailbox));
 	} else if (ret == 0) {
-		e_debug(client->event, "Couldn't hibernate imap client: "
+		e->add_str("error", error);
+		e_debug(e->event(), "Couldn't hibernate imap client: "
 			"Couldn't export state: %s (mailbox=%s)", error,
 			client->mailbox == NULL ? "" :
 			mailbox_get_vname(client->mailbox));
@@ -229,7 +237,8 @@ bool imap_client_hibernate(struct client **_client)
 		fd_notify = mailbox_watch_extract_notify_fd(client->mailbox,
 							    &error);
 		if (fd_notify == -1) {
-			e_debug(client->event, "Couldn't hibernate imap client: "
+			e->add_str("error", error);
+			e_debug(e->event(), "Couldn't hibernate imap client: "
 				"Couldn't extract notifications fd: %s",
 				error);
 			ret = -1;
@@ -238,7 +247,8 @@ bool imap_client_hibernate(struct client **_client)
 	if (ret > 0) {
 		if (imap_hibernate_process_send(client, state, fd_notify,
 						&fd_hibernate, &error) < 0) {
-			e_error(client->event,
+			e->add_str("error", error);
+			e_error(e->event(),
 				"Couldn't hibernate imap client: %s", error);
 			ret = -1;
 		}
@@ -247,7 +257,7 @@ bool imap_client_hibernate(struct client **_client)
 	if (ret > 0) {
 		/* hide the disconnect log message, because the client didn't
 		   actually log out */
-		e_debug(client->event,
+		e_debug(e->event(),
 			"Successfully hibernated imap client in mailbox %s",
 			client->mailbox == NULL ? "<none>" :
 			mailbox_get_vname(client->mailbox));
