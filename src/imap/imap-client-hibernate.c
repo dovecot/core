@@ -97,8 +97,10 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 		str_append(cmd, "\tmailbox=");
 		str_append_tabescaped(cmd, mailbox_get_vname(client->mailbox));
 	}
-	if (tag != NULL)
-		str_printfa(cmd, "\ttag=%s", tag);
+	if (tag != NULL) {
+		str_append(cmd, "\ttag=");
+		str_append_tabescaped(cmd, tag);
+	}
 	str_append(cmd, "\tstats=");
 	str_append_tabescaped(cmd, client_stats(client));
 	if (client->command_queue != NULL &&
