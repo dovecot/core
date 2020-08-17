@@ -45,7 +45,7 @@ static bool
 backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 				 struct smtp_server_cmd_ctx *cmd,
 				 const struct smtp_reply *reply,
-				 struct smtp_reply *reply_r)
+				 struct smtp_reply *reply_r) ATTR_NULL(2)
 {
 	const char *enh_code, *msg, *log_msg = NULL;
 	const char *const *reply_lines;
@@ -1155,8 +1155,11 @@ static void backend_relay_ready_cb(const struct smtp_reply *reply,
 				   void *context)
 {
 	struct submission_backend_relay *backend = context;
+	struct smtp_reply dummy;
 
 	/* check relay status */
+	if (!backend_relay_handle_relay_reply(backend, NULL, reply, &dummy))
+		return;
 	if (!smtp_reply_is_success(reply)) {
 		i_error("Failed to establish relay connection: %s",
 			smtp_reply_log(reply));
