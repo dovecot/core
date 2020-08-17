@@ -1014,3 +1014,9 @@ int imap_parser_read_command_name(struct imap_parser *parser,
 {
 	return imap_parser_read_next_atom(parser, FALSE, name_r);
 }
+
+int imap_parser_client_read_tag(struct imap_parser *parser,
+				const char **tag_r)
+{
+	return imap_parser_read_next_atom(parser, FALSE, tag_r);
+}
