@@ -1175,6 +1175,9 @@ client_command_failed_early(struct client_command_context **_cmd,
 {
 	struct client_command_context *cmd = *_cmd;
 
+	/* ignore the rest of this line */
+	cmd->client->input_skip_line = TRUE;
+
 	io_loop_time_refresh();
 	command_stats_start(cmd);
 	client_send_command_error(cmd, error);
@@ -1186,6 +1189,8 @@ static bool client_command_input(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
 	struct command *command;
+	const char *tag, *name;
+	int ret;
 
         if (cmd->func != NULL) {
 		/* command is being executed - continue it */
@@ -1200,27 +1205,33 @@ static bool client_command_input(struct client_command_context *cmd)
 	}
 
 	if (cmd->tag == NULL) {
-                cmd->tag = imap_parser_read_word(cmd->parser);
-		if (cmd->tag == NULL)
+		ret = imap_parser_read_tag(cmd->parser, &tag);
+		if (ret == 0)
 			return FALSE; /* need more data */
-		cmd->tag = p_strdup(cmd->pool, cmd->tag);
+		if (ret < 0) {
+			client_command_failed_early(&cmd, "Invalid tag.");
+			return TRUE;
+		}
+		cmd->tag = p_strdup(cmd->pool, tag);
 	}
 
 	if (cmd->name == NULL) {
-		cmd->name = imap_parser_read_word(cmd->parser);
-		if (cmd->name == NULL)
+		ret = imap_parser_read_command_name(cmd->parser, &name);
+		if (ret == 0)
 			return FALSE; /* need more data */
+		if (ret < 0) {
+			client_command_failed_early(&cmd, "Invalid command name.");
+			return TRUE;
+		}
 
 		/* UID commands are a special case. better to handle them
 		   here. */
-		if (!cmd->uid && strcasecmp(cmd->name, "UID") == 0) {
+		if (!cmd->uid && strcasecmp(name, "UID") == 0) {
 			cmd->uid = TRUE;
-			cmd->name = imap_parser_read_word(cmd->parser);
-			if (cmd->name == NULL)
-				return FALSE; /* need more data */
+			return client_command_input(cmd);
 		}
-		cmd->name = !cmd->uid ? p_strdup(cmd->pool, cmd->name) :
-			p_strconcat(cmd->pool, "UID ", cmd->name, NULL);
+		cmd->name = !cmd->uid ? p_strdup(cmd->pool, name) :
+			p_strconcat(cmd->pool, "UID ", name, NULL);
 		client_command_init_finished(cmd);
 		imap_refresh_proctitle();
 	}
