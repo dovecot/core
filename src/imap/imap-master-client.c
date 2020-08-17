@@ -318,6 +318,12 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 		client_destroy(imap_client, "Client state initialization failed");
 		return -1;
 	}
+	if (imap_client->mailbox != NULL) {
+		/* Would be nice to set this earlier, but the previous errors
+		   happen rarely enough that it shouldn't really matter. */
+		event_add_str(event, "mailbox",
+			      mailbox_get_vname(imap_client->mailbox));
+	}
 
 	if (master_input.tag != NULL)
 		imap_state_import_idle_cmd_tag(imap_client, master_input.tag);
