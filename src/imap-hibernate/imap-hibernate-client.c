@@ -129,6 +129,8 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 			state_r->idle_cmd = TRUE;
 		} else if (strcmp(key, "session") == 0) {
 			state_r->session_id = value;
+		} else if (strcmp(key, "mailbox") == 0) {
+			state_r->mailbox_vname = value;
 		} else if (strcmp(key, "session_created") == 0) {
 			if (str_to_time(value, &state_r->session_created) < 0) {
 				*error_r = t_strdup_printf(

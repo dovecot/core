@@ -602,6 +602,8 @@ imap_client_create(int fd, const struct imap_client_state *state)
 	event_add_category(client->event, &event_category_imap_hibernate);
 	event_add_str(client->event, "user", state->username);
 	event_add_str(client->event, "session", state->session_id);
+	if (state->mailbox_vname != NULL)
+		event_add_str(client->event, "mailbox", state->mailbox_vname);
 	if (state->local_ip.family != 0)
 		event_add_str(client->event, "local_ip",
 			      net_ip2addr(&state->local_ip));

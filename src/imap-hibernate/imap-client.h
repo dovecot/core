@@ -7,7 +7,7 @@ struct imap_client_state {
 	/* required: */
 	const char *username, *mail_log_prefix;
 	/* optional: */
-	const char *session_id, *userdb_fields, *stats;
+	const char *session_id, *mailbox_vname, *userdb_fields, *stats;
 	struct ip_addr local_ip, remote_ip;
 	in_port_t local_port, remote_port;
 	time_t session_created;

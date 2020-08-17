@@ -93,6 +93,10 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 		str_printfa(cmd, "\tuid=%s", dec2str(user->uid));
 	if (user->gid != (gid_t)-1)
 		str_printfa(cmd, "\tgid=%s", dec2str(user->gid));
+	if (client->mailbox != NULL) {
+		str_append(cmd, "\tmailbox=");
+		str_append_tabescaped(cmd, mailbox_get_vname(client->mailbox));
+	}
 	if (tag != NULL)
 		str_printfa(cmd, "\ttag=%s", tag);
 	str_append(cmd, "\tstats=");
