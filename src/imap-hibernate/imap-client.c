@@ -40,6 +40,7 @@
 #define IMAP_UNHIBERNATE_RETRY_MSECS 100
 
 #define IMAP_CLIENT_BUFFER_FULL_ERROR "Client output buffer is full"
+#define IMAP_CLIENT_UNHIBERNATE_ERROR "Failed to unhibernate client"
 
 enum imap_client_input_state {
 	IMAP_CLIENT_INPUT_STATE_UNKNOWN,
@@ -106,6 +107,15 @@ static void imap_client_disconnected(struct imap_client **_client)
 
 	reason = io_stream_get_disconnect_reason(client->input, client->output);
 	imap_client_destroy(_client, reason);
+}
+
+static void
+imap_client_unhibernate_failed(struct imap_client **_client, const char *error)
+{
+	struct imap_client *client = *_client;
+
+	e_error(client->event, IMAP_CLIENT_UNHIBERNATE_ERROR": %s", error);
+	imap_client_destroy(_client, IMAP_CLIENT_UNHIBERNATE_ERROR);
 }
 
 static void
@@ -189,9 +199,9 @@ imap_client_move_back_send_callback(void *context, struct ostream *output)
 	/* send the fd first */
 	ret = fd_send(o_stream_get_fd(output), client->fd, str_data(str), 1);
 	if (ret < 0) {
-		e_error(client->event, "fd_send(%s) failed: %m",
-			o_stream_get_name(output));
-		imap_client_destroy(&client, "Failed to recreate imap process");
+		const char *error = t_strdup_printf(
+			"fd_send(%s) failed: %m", o_stream_get_name(output));
+		imap_client_unhibernate_failed(&client, error);
 		return;
 	}
 	i_assert(ret > 0);
@@ -205,8 +215,7 @@ imap_client_move_back_read_callback(void *context, const char *line)
 
 	if (line[0] != '+') {
 		/* failed - FIXME: retry later? */
-		imap_client_destroy(&client, t_strdup_printf(
-			"Failed to recreate imap process: %s", line+1));
+		imap_client_unhibernate_failed(&client, line+1);
 	} else {
 		imap_client_destroy(&client, NULL);
 	}
@@ -246,8 +255,7 @@ static bool imap_client_try_move_back(struct imap_client *client)
 		return TRUE;
 	} else if (ret < 0 || imap_move_has_reached_timeout(client)) {
 		/* failed to connect to the imap-master socket */
-		e_error(client->event, "Failed to unhibernate client: %s", error);
-		imap_client_destroy(&client, error);
+		imap_client_unhibernate_failed(&client, error);
 		return TRUE;
 	}
 
