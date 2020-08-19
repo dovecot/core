@@ -3173,6 +3173,194 @@ static void test_multi_ip_attempts(void)
 }
 
 /*
+ * Idle connections
+ */
+
+/* server */
+
+struct _idle_connections_sctx {
+	bool eoh;
+};
+
+static int test_idle_connections_init(struct server_connection *conn)
+{
+	struct _idle_connections_sctx *ctx;
+
+	ctx = p_new(conn->pool, struct _idle_connections_sctx, 1);
+	conn->context = ctx;
+	return 0;
+}
+
+static void test_idle_connections_input(struct server_connection *conn)
+{
+	struct _idle_connections_sctx *ctx = conn->context;
+	const char *line;
+
+	while ((line = i_stream_read_next_line(conn->conn.input)) != NULL) {
+		if (*line == '\0') {
+			ctx->eoh = TRUE;
+			break;
+		}
+	}
+
+	if (conn->conn.input->stream_errno != 0) {
+		i_fatal("server: Stream error: %s",
+			i_stream_get_error(conn->conn.input));
+	}
+	if (line == NULL) {
+		if (conn->conn.input->eof)
+			server_connection_deinit(&conn);
+		return;
+	}
+
+	i_assert(ctx->eoh);
+	ctx->eoh = FALSE;
+
+	string_t *resp;
+
+	resp = t_str_new(512);
+	str_printfa(resp,
+		    "HTTP/1.1 200 OK\r\n"
+		    "Content-Length: 0\r\n"
+		    "\r\n");
+	o_stream_nsend(conn->conn.output, str_data(resp), str_len(resp));
+	if (o_stream_flush(conn->conn.output) < 0) {
+		i_fatal("server: Flush error: %s",
+			o_stream_get_error(conn->conn.output));
+	}
+}
+
+static void test_server_idle_connections(unsigned int index)
+{
+	test_server_init = test_idle_connections_init;
+	test_server_input = test_idle_connections_input;
+	test_server_run(index);
+}
+
+/* client */
+
+struct _idle_connections {
+	struct http_client *client;
+	unsigned int max, count;
+	struct timeout *to;
+};
+
+static void
+test_client_idle_connections_response_stage2(const struct http_response *resp,
+					   struct _idle_connections *ctx)
+{
+	test_client_assert_response(
+		resp, resp->status == 200);
+
+	if (--ctx->count == 0) {
+		i_free(ctx);
+		io_loop_stop(ioloop);
+	}
+}
+
+static void test_client_idle_connections_stage2_start(struct _idle_connections *ctx)
+{
+	struct http_client_request *hreq;
+	unsigned int i;
+
+	if (debug)
+		i_debug("STAGE 2");
+
+	timeout_remove(&ctx->to);
+
+	ctx->count = ctx->max;
+
+	for (i = 0; i < ctx->count; i++) {
+		hreq = http_client_request(
+			ctx->client, "GET", net_ip2addr(&bind_ip),
+			t_strdup_printf("/idle-connections-stage2-%d.txt", i),
+			test_client_idle_connections_response_stage2, ctx);
+		http_client_request_set_port(hreq, bind_ports[0]);
+		http_client_request_submit(hreq);
+	}
+}
+
+static void
+test_client_idle_connections_response_stage1(const struct http_response *resp,
+					   struct _idle_connections *ctx)
+{
+	test_client_assert_response(resp, resp->status == 200);
+
+	if (--ctx->count == 0) {
+		if (debug)
+			i_debug("START STAGE 2");
+		ctx->to = timeout_add_short(
+			550, test_client_idle_connections_stage2_start, ctx);
+	}
+}
+
+static bool
+test_client_idle_connections(const struct http_client_settings *client_set)
+{
+	struct http_client_request *hreq;
+	struct _idle_connections *ctx;
+	unsigned int i;
+
+	if (debug)
+		i_debug("STAGE 1");
+
+	ctx = i_new(struct _idle_connections, 1);
+	ctx->max = client_set->max_parallel_connections;
+	ctx->count = client_set->max_parallel_connections;
+
+	ctx->client = http_client = http_client_init(client_set);
+
+	for (i = 0; i < ctx->count; i++) {
+		hreq = http_client_request(
+			ctx->client, "GET", net_ip2addr(&bind_ip),
+			t_strdup_printf("/idle-connections-stage1-%d.txt", i),
+			test_client_idle_connections_response_stage1, ctx);
+		http_client_request_set_port(hreq, bind_ports[0]);
+		http_client_request_submit(hreq);
+	}
+
+	return TRUE;
+}
+
+/* test */
+
+static void test_idle_connections(void)
+{
+	struct http_client_settings http_client_set;
+
+	test_client_defaults(&http_client_set);
+	http_client_set.max_idle_time_msecs = 1000;
+
+	test_begin("idle connections (max 1)");
+	http_client_set.max_parallel_connections = 1;
+	test_run_client_server(&http_client_set,
+			       test_client_idle_connections,
+			       test_server_idle_connections, 1, NULL);
+	test_end();
+
+	test_begin("idle connections (max 2)");
+	http_client_set.max_parallel_connections = 2;
+	test_run_client_server(&http_client_set,
+			       test_client_idle_connections,
+			       test_server_idle_connections, 1, NULL);
+	test_end();
+
+	test_begin("idle connections (max 4)");
+	http_client_set.max_parallel_connections = 4;
+	test_run_client_server(&http_client_set,
+			       test_client_idle_connections,
+			       test_server_idle_connections, 1, NULL);
+	test_end();
+
+	test_begin("idle connections (max 8)");
+	http_client_set.max_parallel_connections = 8;
+	test_run_client_server(&http_client_set,
+			       test_client_idle_connections,
+			       test_server_idle_connections, 1, NULL);
+	test_end();
+}
+
+/*
  * All tests
  */
 
@@ -3206,6 +3394,7 @@ static void (*const test_functions[])(void) = {
 	test_peer_reuse_failure,
 	test_reconnect_failure,
 	test_multi_ip_attempts,
+	test_idle_connections,
 	NULL
 };
 
