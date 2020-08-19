@@ -35,7 +35,7 @@ static struct test_channel test_channel[2];
 static void test_multiplex_channel_write(struct test_channel *channel)
 {
 	unsigned char buf[128];
-	size_t len = i_rand() % sizeof(buf);
+	size_t len = i_rand_limit(sizeof(buf));
 	random_fill(buf, len);
 	o_stream_nsend(channel->out, buf, len);
 	o_stream_nsend(channel->out_alt, buf, len);
@@ -47,7 +47,7 @@ static void test_multiplex_stream_write(struct ostream *channel ATTR_UNUSED)
 	    test_channel[1].received->used > 1000)
 		io_loop_stop(current_ioloop);
 	else
-		test_multiplex_channel_write(&test_channel[i_rand() % 2]);
+		test_multiplex_channel_write(&test_channel[i_rand_limit(2)]);
 }
 
 static void test_istream_multiplex_stream_read(struct test_channel *channel)

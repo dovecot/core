@@ -117,7 +117,7 @@ static void test_array_swap(void)
 		}
 	}
 	for (i = 0; i < 1000; i++)
-		array_swap(&foos[i_rand()%3], &foos[i_rand()%3]);
+		array_swap(&foos[i_rand_limit(3)], &foos[i_rand_limit(3)]);
 	/* Just want size 3, 5, and 7 in any order */
 	test_assert(array_count(&foos[0]) * array_count(&foos[1]) * array_count(&foos[2]) == 3*5*7);
 	test_assert(array_count(&foos[0]) + array_count(&foos[1]) + array_count(&foos[2]) == 3+5+7);
@@ -201,10 +201,10 @@ static void test_array_cmp(void)
 	test_assert(array_equal_fn_ctx(&arr1, &arr2, test_compare_ushort_fuzz, &fuzz) == TRUE);
 
 	for (i = 0; i < 256; i++) {
-		unsigned int j = i_rand() % NELEMS;
+		unsigned int j = i_rand_limit(NELEMS);
 		const unsigned short *ptmp = array_idx(&arr2, j);
 		unsigned short tmp = *ptmp;
-		unsigned short repl = tmp + deltas[i_rand() % N_ELEMENTS(deltas)];
+		unsigned short repl = tmp + deltas[i_rand_limit(N_ELEMENTS(deltas))];
 
 		array_idx_set(&arr2, j, &repl);
 		test_assert_idx(array_cmp(&arr1, &arr2) == (tmp == repl), i);
@@ -254,16 +254,16 @@ static void test_array_cmp_str(void)
 	test_assert(array_cmp(&arr1, &arr2) == TRUE); /* pointers shared, so identical */
 	test_assert(array_equal_fn(&arr1, &arr2, test_compare_string) == TRUE); /* therefore value same */
 	for (i = 0; i < 2560; i++) {
-		unsigned int j = i_rand() % NELEMS;
+		unsigned int j = i_rand_limit(NELEMS);
 		const char *const *ostr_p = array_idx(&arr2, j);
 		const char *ostr = *ostr_p;
 		unsigned int olen = strlen(ostr);
-		unsigned int rc = i_rand() % (olen + 1);
+		unsigned int rc = i_rand_limit(olen + 1);
 		char ochar = ostr[rc];
 		char buf[12];
 		const char *bufp = buf;
 		memcpy(buf, ostr, olen+1);
-		buf[rc] = i_rand() % (CHAR_MAX + 1 - CHAR_MIN) + CHAR_MIN;
+		buf[rc] = i_rand_limit(CHAR_MAX + 1 - CHAR_MIN) + CHAR_MIN;
 		if(rc == olen)
 			buf[rc+1] = '\0';
 		array_idx_set(&arr2, j, &bufp);

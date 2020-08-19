@@ -92,18 +92,19 @@ static void test_ostream_multiplex_stream_read(struct istream *is)
 
 static void test_ostream_multiplex_stream_write(struct ostream *channel ATTR_UNUSED)
 {
-	size_t rounds = 1 + i_rand() % 10;
+	size_t rounds = 1 + i_rand_limit(10);
 	for(size_t i = 0; i < rounds; i++) {
-		if ((i_rand() % 2) != 0) {
+		if ((i_rand_limit(2)) != 0) {
 			o_stream_cork(chan1);
 			/* send one byte at a time */
-			for(const char *p = msgs[i_rand() % N_ELEMENTS(msgs)];
+			for(const char *p = msgs[i_rand_limit(N_ELEMENTS(msgs))];
 			    *p != '\0'; p++) {
 				o_stream_nsend(chan1, p, 1);
 			}
 			o_stream_uncork(chan1);
 		} else {
-			o_stream_nsend_str(chan0, msgs[i_rand() % N_ELEMENTS(msgs)]);
+			o_stream_nsend_str(chan0,
+					   msgs[i_rand_limit(N_ELEMENTS(msgs))]);
 		}
 	}
 }

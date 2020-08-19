@@ -269,10 +269,11 @@ static void test_send_msg(struct ostream *os, uint8_t cid, const char *msg)
 
 static void test_istream_multiplex_stream_write(struct ostream *channel)
 {
-	size_t rounds = i_rand() % 10;
+	size_t rounds = i_rand_limit(10);
 	for(size_t i = 0; i < rounds; i++) {
-		uint8_t cid = i_rand() % 2;
-		test_send_msg(channel, cid, msgs[1 + i_rand() % (N_ELEMENTS(msgs) - 1)]);
+		uint8_t cid = i_rand_limit(2);
+		test_send_msg(channel, cid,
+			      msgs[1 + i_rand_limit(N_ELEMENTS(msgs) - 1)]);
 	}
 }
 
@@ -287,7 +288,7 @@ static void test_istream_multiplex_stream(void)
 	fd_set_nonblock(fds[0], TRUE);
 	fd_set_nonblock(fds[1], TRUE);
 	struct ostream *os = o_stream_create_fd(fds[1], (size_t)-1);
-	struct istream *is = i_stream_create_fd(fds[0], 10 + i_rand() % 10);
+	struct istream *is = i_stream_create_fd(fds[0], 10 + i_rand_limit(10));
 
 	struct istream *chan0 = i_stream_create_multiplex(is, (size_t)-1);
 	struct istream *chan1 = i_stream_multiplex_add_channel(chan0, 1);

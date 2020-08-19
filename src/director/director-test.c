@@ -519,7 +519,7 @@ director_connection_disconnect_timeout(void *context ATTR_UNUSED)
 		count++;
 
 	if (count != 0) {
-		i = 0; count = i_rand() % count;
+		i = 0; count = i_rand_limit(count);
 		for (conn = director_connections; i < count; conn = conn->next) {
 			i_assert(conn != NULL);
 			i++;
