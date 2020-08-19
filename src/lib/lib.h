@@ -90,6 +90,16 @@ uint32_t i_rand(void);
 /* Returns a random integer < upper_bound. */
 uint32_t i_rand_limit(uint32_t upper_bound);
 
+static inline unsigned short i_rand_ushort(void)
+{
+        return i_rand_limit(USHRT_MAX + 1);
+}
+
+static inline unsigned char i_rand_uchar(void)
+{
+        return i_rand_limit(UCHAR_MAX + 1);
+}
+
 /* Returns a random integer >= min_val, and <= max_val. */
 static inline uint32_t i_rand_minmax(uint32_t min_val, uint32_t max_val)
 {
