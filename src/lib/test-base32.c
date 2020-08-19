@@ -153,7 +153,7 @@ static void test_base32_random(void)
 	for (i = 0; i < 1000; i++) {
 		max = i_rand_limit(sizeof(buf));
 		for (j = 0; j < max; j++)
-			buf[j] = i_rand();
+			buf[j] = i_rand_uchar();
 
 		str_truncate(str, 0);
 		str_truncate(dest, 0);
@@ -168,7 +168,7 @@ static void test_base32_random(void)
 	for (i = 0; i < 1000; i++) {
 		max = i_rand_limit(sizeof(buf));
 		for (j = 0; j < max; j++)
-			buf[j] = i_rand();
+			buf[j] = i_rand_uchar();
 
 		str_truncate(str, 0);
 		str_truncate(dest, 0);

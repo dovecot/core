@@ -191,7 +191,7 @@ static void test_array_cmp(void)
 	t_array_init(&arr1, NELEMS);
 	t_array_init(&arr2, NELEMS);
 	for (i = 0; i < NELEMS; i++) {
-		elems[i] = i_rand();
+		elems[i] = i_rand_ushort();
 		array_push_back(&arr2, &elems[i]);
 	}
 	array_append(&arr1, elems, NELEMS);

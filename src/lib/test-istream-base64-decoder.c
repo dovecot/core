@@ -153,7 +153,7 @@ test_istream_base64_io_random(void)
 		/* Initialize test data */
 		in_buf_size = i_rand_limit(sizeof(in_buf));
 		for (j = 0; j < in_buf_size; j++)
-			in_buf[j] = i_rand();
+			in_buf[j] = i_rand_uchar();
 
 		/* Reset final output buffer */
 		buffer_set_used_size(out_buf, 0);

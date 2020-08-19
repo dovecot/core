@@ -113,7 +113,7 @@ static void test_base64_random(void)
 	for (i = 0; i < 1000; i++) {
 		max = i_rand_limit(sizeof(buf));
 		for (j = 0; j < max; j++)
-			buf[j] = i_rand();
+			buf[j] = i_rand_uchar();
 
 		str_truncate(str, 0);
 		str_truncate(dest, 0);
@@ -237,7 +237,7 @@ static void test_base64url_random(void)
 	for (i = 0; i < 1000; i++) {
 		max = i_rand_limit(sizeof(buf));
 		for (j = 0; j < max; j++)
-			buf[j] = i_rand();
+			buf[j] = i_rand_uchar();
 
 		str_truncate(str, 0);
 		str_truncate(dest, 0);
@@ -1091,7 +1091,7 @@ test_base64_random_lowlevel_case(const struct base64_scheme *b64,
 	for (i = 0; i < 1000; i++) {
 		in_buf_size = i_rand_limit(sizeof(in_buf));
 		for (j = 0; j < in_buf_size; j++)
-			in_buf[j] = i_rand();
+			in_buf[j] = i_rand_uchar();
 
 		test_base64_random_lowlevel_one_block(b64, enc_flags, dec_flags,
 						      max_line_len, i,
@@ -1112,7 +1112,7 @@ test_base64_random_lowlevel_case(const struct base64_scheme *b64,
 	for (i = 0; i < 1000; i++) {
 		in_buf_size = i_rand_limit(sizeof(in_buf));
 		for (j = 0; j < in_buf_size; j++)
-			in_buf[j] = i_rand();
+			in_buf[j] = i_rand_uchar();
 
 		test_base64_random_lowlevel_stream(b64, enc_flags, dec_flags,
 						   max_line_len, i,
@@ -1133,7 +1133,7 @@ test_base64_random_lowlevel_case(const struct base64_scheme *b64,
 	for (i = 0; i < 1000; i++) {
 		in_buf_size = i_rand_limit(sizeof(in_buf));
 		for (j = 0; j < in_buf_size; j++)
-			in_buf[j] = i_rand();
+			in_buf[j] = i_rand_uchar();
 
 		test_base64_random_lowlevel_stream(b64, enc_flags, dec_flags,
 						   max_line_len, i,
