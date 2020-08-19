@@ -103,7 +103,7 @@ static void test_base64_decode(void)
 static void test_base64_random(void)
 {
 	string_t *str, *dest;
-	char buf[10];
+	unsigned char buf[10];
 	unsigned int i, j, max;
 
 	str = t_str_new(256);
@@ -227,7 +227,7 @@ static void test_base64url_decode(void)
 static void test_base64url_random(void)
 {
 	string_t *str, *dest;
-	char buf[10];
+	unsigned char buf[10];
 	unsigned int i, j, max;
 
 	str = t_str_new(256);
