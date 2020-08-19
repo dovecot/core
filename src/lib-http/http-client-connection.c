@@ -522,10 +522,7 @@ void http_client_connection_check_idle(struct http_client_connection *conn)
 		return;
 	}
 
-	if (conn->connected &&
-	    array_is_created(&conn->request_wait_list) &&
-	    array_count(&conn->request_wait_list) == 0 &&
-	    !conn->in_req_callback && conn->incoming_payload == NULL) {
+	if (conn->connected && !http_client_connection_is_active(conn)) {
 		struct http_client *client = peer->client;
 
 		i_assert(conn->to_requests == NULL);
