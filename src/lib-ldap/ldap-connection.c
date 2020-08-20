@@ -234,10 +234,29 @@ void ldap_connection_result_success(struct ldap_connection *conn,
 		req->result_callback(&res, req->result_callback_ctx);
 }
 
+static struct ldap_op_queue_entry *
+ldap_connection_next_unsent_request(struct ldap_connection *conn,
+				    unsigned int *index_r)
+{
+	struct ldap_op_queue_entry *req = NULL;
+	*index_r = 0;
+
+	for (unsigned int i = 0; i < aqueue_count(conn->request_queue); i++) {
+		struct ldap_op_queue_entry *const *reqp =
+			array_idx(&conn->request_array,
+				aqueue_idx(conn->request_queue, i));
+		if ((*reqp)->msgid > -1)
+			break;
+		*index_r = i;
+		req = *reqp;
+	}
+	return req;
+}
+
 static
 void ldap_connection_send_next(struct ldap_connection *conn)
 {
-	unsigned int i = 0, n;
+	unsigned int index;
 	struct ldap_op_queue_entry *req;
 
 	timeout_remove(&conn->to_reconnect);
@@ -254,21 +273,7 @@ void ldap_connection_send_next(struct ldap_connection *conn)
 
 	if (conn->pending > 10) return; /* try again later */
 
-	req = NULL;
-	/* get next request */
-	n = aqueue_count(conn->request_queue);
-
-	for(i=0; i < n; i++) {
-		struct ldap_op_queue_entry *const *reqp =
-			array_idx(&conn->request_array,
-				  aqueue_idx(conn->request_queue, i));
-		if ((*reqp)->msgid > -1)
-			break;
-		req = *reqp;
-	}
-
-	i--;
-
+	req = ldap_connection_next_unsent_request(conn, &index);
 	/* nothing to actually send */
 	if (req == NULL) return;
 
@@ -287,7 +292,7 @@ void ldap_connection_send_next(struct ldap_connection *conn)
 			req->result_callback(&res, req->result_callback_ctx);
 
 		ldap_connection_request_destroy(&req);
-		aqueue_delete(conn->request_queue, i);
+		aqueue_delete(conn->request_queue, index);
 	} else conn->pending++;
 }
 
