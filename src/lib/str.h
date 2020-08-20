@@ -43,6 +43,18 @@ static inline void str_append_c(string_t *str, unsigned char chr)
 {
 	buffer_append_c(str, chr);
 }
+/* This macro ensures we add unsigned char to str to avoid
+   implicit casts which cause errors with clang's implicit integer truncation
+   sanitizier. Issues caught by these sanitizers are not undefined behavior,
+   but are often unintentional.
+   We also need to check that the type we are adding is compatible with char,
+   so that we don't end up doing a narrowing cast. */
+#ifdef HAVE_TYPE_CHECKS
+#  define str_append_c(str, chr) \
+	str_append_c((str), __builtin_choose_expr( \
+		__builtin_types_compatible_p(typeof((chr)), char), \
+			(unsigned char)(chr), (chr)))
+#endif
 
 static inline void str_append_str(string_t *dest, const string_t *src)
 {
