@@ -539,7 +539,8 @@ dotlock_create(struct dotlock *dotlock, enum dotlock_create_flags flags,
 			}
 		}
 
-		if (last_notify != now && set->callback != NULL) {
+		if (last_notify != now && set->callback != NULL &&
+		    now < max_wait_time) {
 			last_notify = now;
 			change_secs = now - lock_info.last_change;
 			wait_left = max_wait_time - now;
