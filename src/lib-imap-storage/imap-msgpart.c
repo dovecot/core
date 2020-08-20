@@ -505,7 +505,7 @@ imap_msgpart_get_partial(struct mail *mail, const struct imap_msgpart *msgpart,
 	if (!mail->has_no_nuls && convert_nuls) {
 		/* IMAP literals must not contain NULs. change them to
 		   0x80 characters. */
-		input2 = i_stream_create_nonuls(result->input, 0x80);
+		input2 = i_stream_create_nonuls(result->input, '\x80');
 		i_stream_unref(&result->input);
 		result->input = input2;
 	}
