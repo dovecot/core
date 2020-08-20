@@ -269,8 +269,17 @@ imapc_quota_refresh_update(struct quota *quota,
 
 			root->bytes_last = refresh_root->bytes_cur;
 			root->count_last = refresh_root->count_cur;
-			root->root.bytes_limit = refresh_root->bytes_limit;
-			root->root.count_limit = refresh_root->count_limit;
+
+			/* If limits are higher than what dovecot can handle
+			   consider them unlimited. */
+			if (refresh_root->bytes_limit > INT64_MAX)
+				root->root.bytes_limit = 0;
+			else
+				root->root.bytes_limit = refresh_root->bytes_limit;
+			if (refresh_root->count_limit > INT64_MAX)
+				root->root.count_limit = 0;
+			else
+				root->root.count_limit = refresh_root->count_limit;
 		}
 	}
 }
