@@ -246,13 +246,10 @@ bool password_generate_encoded(const char *plaintext, const struct password_gene
 
 const char *password_generate_salt(size_t len)
 {
-	unsigned int i;
 	char *salt;
-
 	salt = t_malloc_no0(len + 1);
-	random_fill(salt, len);
-	for (i = 0; i < len; i++)
-		salt[i] = salt_chars[salt[i] % (sizeof(salt_chars)-1)];
+	for (size_t i = 0; i < len; i++)
+		salt[i] = salt_chars[i_rand_limit(sizeof(salt_chars) - 1)];
 	salt[len] = '\0';
 	return salt;
 }
