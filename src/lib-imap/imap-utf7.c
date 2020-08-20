@@ -111,7 +111,7 @@ int imap_utf8_to_utf7(const char *src, string_t *dest)
 				*u++ = u16 >> 8;
 				*u++ = u16 & 0xff;
 			}
-			p += uni_utf8_char_bytes(*p);
+			p += uni_utf8_char_bytes((unsigned char)*p);
 		}
 		mbase64_encode(dest, utf16, u-utf16);
 	}

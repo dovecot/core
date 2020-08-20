@@ -91,12 +91,12 @@ unsigned int uni_utf8_partial_strlen_n(const void *input, size_t size,
    parameter is the first byte of the UTF-8 sequence. Invalid input is
    returned with length 1. */
 static inline unsigned int ATTR_CONST
-uni_utf8_char_bytes(char chr)
+uni_utf8_char_bytes(unsigned char chr)
 {
 	/* 0x00 .. 0x7f are ASCII. 0x80 .. 0xC1 are invalid. */
-	if ((uint8_t)chr < (192 + 2))
+	if (chr < (192 + 2))
 		return 1;
-	return uni_utf8_non1_bytes[(uint8_t)chr - (192 + 2)];
+	return uni_utf8_non1_bytes[chr - (192 + 2)];
 }
 
 /* Return given character in titlecase. */
