@@ -209,10 +209,11 @@ void index_mail_parse_header_init(struct index_mail *mail,
 		array_clear(&mail->header_lines);
 		array_clear(&mail->header_match_lines);
 
-		mail->header_match_value += HEADER_MATCH_SKIP_COUNT;
 		i_assert((mail->header_match_value &
 			  (HEADER_MATCH_SKIP_COUNT-1)) == 0);
-		if (mail->header_match_value == 0) {
+		if (mail->header_match_value + HEADER_MATCH_SKIP_COUNT <= UINT8_MAX)
+			mail->header_match_value += HEADER_MATCH_SKIP_COUNT;
+		else {
 			/* wrapped, we'll have to clear the buffer */
 			array_clear(&mail->header_match);
 			mail->header_match_value = HEADER_MATCH_SKIP_COUNT;
