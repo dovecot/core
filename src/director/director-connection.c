@@ -158,6 +158,14 @@ director_connection_log_disconnect(struct director_connection *conn, int err,
 				   const char *errstr);
 static int director_connection_send_done(struct director_connection *conn);
 
+static void
+director_connection_set_name(struct director_connection *conn, const char *name)
+{
+	char *old_name = conn->name;
+	conn->name = i_strdup(name);
+	i_free(old_name);
+}
+
 static void ATTR_FORMAT(2, 3)
 director_cmd_error(struct director_connection *conn, const char *fmt, ...)
 {
@@ -347,8 +355,8 @@ static bool director_connection_assign_left(struct director_connection *conn)
 		return TRUE;
 	}
 	dir->left = conn;
-	i_free(conn->name);
-	conn->name = i_strdup_printf("%s/left", conn->host->name);
+	director_connection_set_name(conn,
+		t_strdup_printf("%s/left", conn->host->name));
 	director_connection_assigned(conn);
 	return TRUE;
 }
@@ -430,8 +438,8 @@ static bool director_connection_assign_right(struct director_connection *conn)
 			"Replacing with %s", conn->host->name));
 	}
 	dir->right = conn;
-	i_free(conn->name);
-	conn->name = i_strdup_printf("%s/right", conn->host->name);
+	director_connection_set_name(conn,
+		t_strdup_printf("%s/right", conn->host->name));
 	director_connection_assigned(conn);
 	director_send_delayed_syncs(dir);
 	return TRUE;
@@ -2324,7 +2332,8 @@ director_connection_init_in(struct director *dir, int fd,
 	conn = director_connection_init_common(dir, fd);
 	conn->in = TRUE;
 	director_connection_set_connected(conn);
-	conn->name = i_strdup_printf("%s/in", net_ip2addr(ip));
+	director_connection_set_name(conn,
+		t_strdup_printf("%s/in", net_ip2addr(ip)));
 	conn->io = io_add(conn->fd, IO_READ, director_connection_input, conn);
 	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_ME_TIMEOUT_MSECS,
 				    director_connection_init_timeout, conn);
@@ -2403,7 +2412,8 @@ director_connection_init_out(struct director *dir, int fd,
 	director_host_restarted(host);
 
 	conn = director_connection_init_common(dir, fd);
-	conn->name = i_strdup_printf("%s/out", host->name);
+	director_connection_set_name(conn,
+		t_strdup_printf("%s/out", host->name));
 	conn->host = host;
 	director_host_ref(host);
 	conn->io = io_add(conn->fd, IO_WRITE,
