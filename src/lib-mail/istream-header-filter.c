@@ -393,11 +393,15 @@ handle_end_body_with_lf(struct header_filter_istream *mstream, ssize_t ret)
 {
 	struct istream_private *stream = &mstream->istream;
 	const unsigned char *data;
-	size_t size, last_offset;
+	size_t size;
+	uoff_t last_offset;
 	bool last_lf;
 
 	data = i_stream_get_data(stream->parent, &size);
-	last_offset = stream->parent->v_offset + size-1;
+	if (stream->parent->v_offset + size == 0 && size == 0)
+		last_offset = (uoff_t)-1;
+	else
+		last_offset = stream->parent->v_offset + size - 1;
 
 	if (mstream->last_lf_offset == last_offset)
 		last_lf = TRUE;
