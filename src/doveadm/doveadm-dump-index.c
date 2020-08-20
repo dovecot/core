@@ -385,7 +385,7 @@ static const char *cache_decision2str(enum mail_cache_decision_type type)
 {
 	const char *str;
 
-	switch (type & ~MAIL_CACHE_DECISION_FORCED) {
+	switch (type & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED)) {
 	case MAIL_CACHE_DECISION_NO:
 		str = "no";
 		break;

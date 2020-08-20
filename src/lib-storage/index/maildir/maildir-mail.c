@@ -234,7 +234,7 @@ static int maildir_get_pop3_state(struct index_mail *mail)
 		MAIL_FETCH_VIRTUAL_SIZE;
 
 	if (mail->data.wanted_headers != NULL ||
-	    (mail->data.wanted_fields & ~allowed_pop3_fields) != 0)
+	    (mail->data.wanted_fields & ENUM_NEGATE(allowed_pop3_fields)) != 0)
 		not_pop3_only = TRUE;
 
 	/* get vsize decisions */
@@ -243,7 +243,7 @@ static int maildir_get_pop3_state(struct index_mail *mail)
 	if (not_pop3_only) {
 		vsize_dec = mail_cache_field_get_decision(box->cache,
 							  vsize_idx);
-		vsize_dec &= ~MAIL_CACHE_DECISION_FORCED;
+		vsize_dec &= ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED);
 	} else {
 		/* also check if there are any non-[pv]size cached fields */
 		vsize_dec = MAIL_CACHE_DECISION_NO;
@@ -251,7 +251,7 @@ static int maildir_get_pop3_state(struct index_mail *mail)
 						      pool_datastack_create(),
 						      &count);
 		for (i = 0; i < count; i++) {
-			dec = fields[i].decision & ~MAIL_CACHE_DECISION_FORCED;
+			dec = fields[i].decision & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED);
 			if (fields[i].idx == vsize_idx)
 				vsize_dec = dec;
 			else if (dec != MAIL_CACHE_DECISION_NO &&

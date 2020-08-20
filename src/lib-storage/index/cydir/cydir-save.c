@@ -104,7 +104,7 @@ int cydir_save_begin(struct mail_save_context *_ctx, struct istream *input)
 		return -1;
 
 	/* add to index */
-	save_flags = _ctx->data.flags & ~MAIL_RECENT;
+	save_flags = _ctx->data.flags & ENUM_NEGATE(MAIL_RECENT);
 	mail_index_append(ctx->trans, 0, &ctx->seq);
 	mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE,
 				save_flags);

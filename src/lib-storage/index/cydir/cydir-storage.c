@@ -47,7 +47,7 @@ cydir_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	pool_t pool;
 
 	/* cydir can't work without index files */
-	flags &= ~MAILBOX_FLAG_NO_INDEX_FILES;
+	flags &= ENUM_NEGATE(MAILBOX_FLAG_NO_INDEX_FILES);
 
 	pool = pool_alloconly_create("cydir mailbox", 1024*3);
 	mbox = p_new(pool, struct cydir_mailbox, 1);

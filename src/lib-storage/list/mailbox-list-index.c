@@ -358,8 +358,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 		if (!ilist->has_backing_store && !guid_128_is_empty(irec->guid) &&
 		    (rec->flags & (MAILBOX_LIST_INDEX_FLAG_NONEXISTENT |
 				   MAILBOX_LIST_INDEX_FLAG_NOSELECT)) != 0) {
-			node->flags &= ~(MAILBOX_LIST_INDEX_FLAG_NONEXISTENT |
-					 MAILBOX_LIST_INDEX_FLAG_NOSELECT);
+			node->flags &= ENUM_NEGATE(MAILBOX_LIST_INDEX_FLAG_NONEXISTENT | MAILBOX_LIST_INDEX_FLAG_NOSELECT);
 			*error_r = t_strdup_printf(
 				"non-selectable mailbox '%s' (uid=%u) already has GUID - "
 				"marking it selectable", node->name, node->uid);

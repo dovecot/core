@@ -462,7 +462,7 @@ int net_listen_full(const struct ip_addr *my_ip, in_port_t *port,
 		if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT,
 			       &opt, sizeof(opt)) < 0)
 #endif
-			*flags &= ~NET_LISTEN_FLAG_REUSEPORT;
+			*flags &= ENUM_NEGATE(NET_LISTEN_FLAG_REUSEPORT);
 	}
 
 	/* If using IPv6, bind only to IPv6 if possible. This avoids

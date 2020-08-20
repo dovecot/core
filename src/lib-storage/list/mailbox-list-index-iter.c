@@ -94,7 +94,8 @@ mailbox_list_index_update_info(struct mailbox_list_index_iterate_context *ctx)
 		/* listing INBOX itself */
 		ctx->info.vname = "INBOX";
 		if (mail_namespace_is_inbox_noinferiors(ctx->info.ns)) {
-			ctx->info.flags &= ~(MAILBOX_CHILDREN|MAILBOX_NOCHILDREN);
+			ctx->info.flags &= ENUM_NEGATE(MAILBOX_CHILDREN |
+						       MAILBOX_NOCHILDREN);
 			ctx->info.flags |= MAILBOX_NOINFERIORS;
 		}
 	} else {

@@ -221,7 +221,7 @@ mdbox_mail_update_flags(struct mail *mail, enum modify_type modify_type,
 {
 	if ((flags & DBOX_INDEX_FLAG_ALT) != 0) {
 		mdbox_purge_alt_flag_change(mail, modify_type != MODIFY_REMOVE);
-		flags &= ~DBOX_INDEX_FLAG_ALT;
+		flags &= ENUM_NEGATE(DBOX_INDEX_FLAG_ALT);
 		if (flags == 0 && modify_type != MODIFY_REPLACE)
 			return;
 	}

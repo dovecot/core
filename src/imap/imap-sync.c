@@ -176,7 +176,7 @@ imap_sync_init(struct client *client, struct mailbox *box,
 
 	if (client->notify_immediate_expunges) {
 		/* NOTIFY enabled without SELECTED-DELAYED */
-		flags &= ~MAILBOX_SYNC_FLAG_NO_EXPUNGES;
+		flags &= ENUM_NEGATE(MAILBOX_SYNC_FLAG_NO_EXPUNGES);
 	}
 
 	ctx = i_new(struct imap_sync_context, 1);
@@ -678,7 +678,7 @@ static void get_common_sync_flags(struct client *client,
 	}
 	i_assert(noexpunges_count == 0 || noexpunges_count == count);
 	if (fast_count != count)
-		*flags_r &= ~MAILBOX_SYNC_FLAG_FAST;
+		*flags_r &= ENUM_NEGATE(MAILBOX_SYNC_FLAG_FAST);
 
 	i_assert((*flags_r & MAILBOX_SYNC_FLAG_FIX_INCONSISTENT) == 0);
 }

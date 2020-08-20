@@ -474,7 +474,7 @@ int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 
 		mail_index_append(ctx->trans, ctx->next_uid, &ctx->seq);
 		mail_index_update_flags(ctx->trans, ctx->seq, MODIFY_REPLACE,
-					save_flags & ~MAIL_RECENT);
+					save_flags & ENUM_NEGATE(MAIL_RECENT));
 		if (mdata->keywords != NULL) {
 			mail_index_update_keywords(ctx->trans, ctx->seq,
 						   MODIFY_REPLACE,

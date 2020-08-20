@@ -271,8 +271,8 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	ibc_set.import_commit_msgs_interval = set->import_commit_msgs_interval;
 	ibc_set.hashed_headers = set->hashed_headers;
 	/* reverse the backup direction for the slave */
-	ibc_set.brain_flags = flags & ~(DSYNC_BRAIN_FLAG_BACKUP_SEND |
-					DSYNC_BRAIN_FLAG_BACKUP_RECV);
+	ibc_set.brain_flags = flags & ENUM_NEGATE(DSYNC_BRAIN_FLAG_BACKUP_SEND |
+						  DSYNC_BRAIN_FLAG_BACKUP_RECV);
 	if ((flags & DSYNC_BRAIN_FLAG_BACKUP_SEND) != 0)
 		ibc_set.brain_flags |= DSYNC_BRAIN_FLAG_BACKUP_RECV;
 	else if ((flags & DSYNC_BRAIN_FLAG_BACKUP_RECV) != 0)

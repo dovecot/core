@@ -1760,7 +1760,7 @@ int mailbox_mark_index_deleted(struct mailbox *box, bool del)
 	old_flag = box->flags & MAILBOX_FLAG_OPEN_DELETED;
 	box->flags |= MAILBOX_FLAG_OPEN_DELETED;
 	ret = mailbox_open(box);
-	box->flags = (box->flags & ~MAILBOX_FLAG_OPEN_DELETED) | old_flag;
+	box->flags = (box->flags & ENUM_NEGATE(MAILBOX_FLAG_OPEN_DELETED)) | old_flag;
 	if (ret < 0)
 		return -1;
 
@@ -2474,7 +2474,7 @@ void mailbox_save_set_flags(struct mail_save_context *ctx,
 	if (ctx->data.keywords != NULL)
 		mailbox_keywords_unref(&ctx->data.keywords);
 
-	ctx->data.flags = flags & ~mailbox_get_private_flags_mask(box);
+	ctx->data.flags = flags & ENUM_NEGATE(mailbox_get_private_flags_mask(box));
 	ctx->data.pvt_flags = flags & mailbox_get_private_flags_mask(box);
 	ctx->data.keywords = keywords;
 	if (keywords != NULL)

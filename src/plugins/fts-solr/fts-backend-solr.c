@@ -189,7 +189,7 @@ fts_backend_solr_init(struct fts_backend *_backend, const char **error_r)
 	}
 	if (fuser->set.use_libfts) {
 		/* change our flags so we get proper input */
-		_backend->flags &= ~FTS_BACKEND_FLAG_FUZZY_SEARCH;
+		_backend->flags &= ENUM_NEGATE(FTS_BACKEND_FLAG_FUZZY_SEARCH);
 		_backend->flags |= FTS_BACKEND_FLAG_TOKENIZED_INPUT;
 	}
 

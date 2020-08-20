@@ -221,7 +221,7 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 	_mail->mail_stream_opened = TRUE;
 
 	/* drop any fields that we may already be fetching currently */
-	fields &= ~mail->fetching_fields;
+	fields &= ENUM_NEGATE(mail->fetching_fields);
 	if (headers_have_subset(mail->fetching_headers, headers))
 		headers = NULL;
 	if (fields == 0 && headers == NULL)
@@ -424,40 +424,40 @@ imapc_mail_have_fields(struct imapc_mail *imail, enum mail_fetch_field fields)
 	if ((fields & MAIL_FETCH_RECEIVED_DATE) != 0) {
 		if (imail->imail.data.received_date == (time_t)-1)
 			return FALSE;
-		fields &= ~MAIL_FETCH_RECEIVED_DATE;
+		fields &= ENUM_NEGATE(MAIL_FETCH_RECEIVED_DATE);
 	}
 	if ((fields & MAIL_FETCH_SAVE_DATE) != 0) {
 		i_assert(HAS_ALL_BITS(mbox->capabilities,
 				      IMAPC_CAPABILITY_SAVEDATE));
 		if (imail->imail.data.save_date == (time_t)-1)
 			return FALSE;
-		fields &= ~MAIL_FETCH_SAVE_DATE;
+		fields &= ENUM_NEGATE(MAIL_FETCH_SAVE_DATE);
 	}
 	if ((fields & (MAIL_FETCH_PHYSICAL_SIZE | MAIL_FETCH_VIRTUAL_SIZE)) != 0) {
 		if (imail->imail.data.physical_size == UOFF_T_MAX)
 			return FALSE;
-		fields &= ~(MAIL_FETCH_PHYSICAL_SIZE | MAIL_FETCH_VIRTUAL_SIZE);
+		fields &= ENUM_NEGATE(MAIL_FETCH_PHYSICAL_SIZE | MAIL_FETCH_VIRTUAL_SIZE);
 	}
 	if ((fields & MAIL_FETCH_GUID) != 0) {
 		if (imail->imail.data.guid == NULL)
 			return FALSE;
-		fields &= ~MAIL_FETCH_GUID;
+		fields &= ENUM_NEGATE(MAIL_FETCH_GUID);
 	}
 	if ((fields & MAIL_FETCH_IMAP_BODY) != 0) {
 		if (imail->imail.data.body == NULL)
 			return FALSE;
-		fields &= ~MAIL_FETCH_IMAP_BODY;
+		fields &= ENUM_NEGATE(MAIL_FETCH_IMAP_BODY);
 	}
 	if ((fields & MAIL_FETCH_IMAP_BODYSTRUCTURE) != 0) {
 		if (imail->imail.data.bodystructure == NULL)
 			return FALSE;
-		fields &= ~MAIL_FETCH_IMAP_BODYSTRUCTURE;
+		fields &= ENUM_NEGATE(MAIL_FETCH_IMAP_BODYSTRUCTURE);
 	}
 	if ((fields & (MAIL_FETCH_STREAM_HEADER |
 		       MAIL_FETCH_STREAM_BODY)) != 0) {
 		if (imail->imail.data.stream == NULL)
 			return FALSE;
-		fields &= ~(MAIL_FETCH_STREAM_HEADER | MAIL_FETCH_STREAM_BODY);
+		fields &= ENUM_NEGATE(MAIL_FETCH_STREAM_HEADER | MAIL_FETCH_STREAM_BODY);
 	}
 	i_assert(fields == 0);
 	return TRUE;

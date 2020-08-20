@@ -179,7 +179,8 @@ maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname,
 	/* insert into index */
 	mail_index_append(ctx->trans, mdata->uid, &ctx->seq);
 	mail_index_update_flags(ctx->trans, ctx->seq,
-				MODIFY_REPLACE, mdata->flags & ~MAIL_RECENT);
+				MODIFY_REPLACE,
+				mdata->flags & ENUM_NEGATE(MAIL_RECENT));
 	if (mdata->keywords != NULL) {
 		mail_index_update_keywords(ctx->trans, ctx->seq,
 					   MODIFY_REPLACE, mdata->keywords);

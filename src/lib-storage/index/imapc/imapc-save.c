@@ -223,7 +223,8 @@ static int imapc_save_append(struct imapc_save_context *ctx)
 		string_t *str = t_str_new(64);
 
 		str_append(str, " (");
-		imap_write_flags(str, mdata->flags & ~MAIL_RECENT, NULL);
+		imap_write_flags(str, mdata->flags & ENUM_NEGATE(MAIL_RECENT),
+				 NULL);
 		if (mdata->keywords != NULL)
 			imapc_append_keywords(str, mdata->keywords);
 		str_append_c(str, ')');

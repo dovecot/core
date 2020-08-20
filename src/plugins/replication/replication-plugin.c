@@ -256,7 +256,7 @@ replication_want_sync_changes(const struct mail_transaction_commit_changes *chan
 	/* Replication needs to be triggered on all the user-visible changes,
 	   but not e.g. due to writes to cache file. */
 	return (changes->changes_mask &
-		~MAIL_INDEX_TRANSACTION_CHANGE_OTHERS) != 0;
+		ENUM_NEGATE(MAIL_INDEX_TRANSACTION_CHANGE_OTHERS)) != 0;
 }
 
 static void

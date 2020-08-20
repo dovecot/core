@@ -281,9 +281,9 @@ acl_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 		if (!acl_flags)
 			flags &= MAIL_SEEN | MAIL_DELETED;
 		if (!acl_flag_seen)
-			flags &= ~MAIL_SEEN;
+			flags &= ENUM_NEGATE(MAIL_SEEN);
 		if (!acl_flag_del)
-			flags &= ~MAIL_DELETED;
+			flags &= ENUM_NEGATE(MAIL_DELETED);
 	} else if (!acl_flags || !acl_flag_seen || !acl_flag_del) {
 		/* we don't have permission to replace all the flags. */
 		if (!acl_flags && !acl_flag_seen && !acl_flag_del) {
@@ -293,7 +293,8 @@ acl_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 
 		/* handle this by first removing the allowed flags and
 		   then adding the allowed flags */
-		acl_mail_update_flags(_mail, MODIFY_REMOVE, ~flags);
+		acl_mail_update_flags(_mail, MODIFY_REMOVE,
+				      ENUM_NEGATE(flags));
 		if (flags != 0)
 			acl_mail_update_flags(_mail, MODIFY_ADD, flags);
 		return;
@@ -370,12 +371,12 @@ acl_save_get_flags(struct mailbox *box, enum mail_flags *flags,
 		return -1;
 
 	if (!acl_flag_seen) {
-		*flags &= ~MAIL_SEEN;
-		*pvt_flags &= ~MAIL_SEEN;
+		*flags &= ENUM_NEGATE(MAIL_SEEN);
+		*pvt_flags &= ENUM_NEGATE(MAIL_SEEN);
 	}
 	if (!acl_flag_del) {
-		*flags &= ~MAIL_DELETED;
-		*pvt_flags &= ~MAIL_DELETED;
+		*flags &= ENUM_NEGATE(MAIL_DELETED);
+		*pvt_flags &= ENUM_NEGATE(MAIL_DELETED);
 	}
 	if (!acl_flags) {
 		*flags &= MAIL_SEEN | MAIL_DELETED;
@@ -591,9 +592,9 @@ static int acl_mailbox_get_status(struct mailbox *box,
 			status_r->allow_new_keywords = FALSE;
 		}
 		if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_DELETED) <= 0)
-			status_r->permanent_flags &= ~MAIL_DELETED;
+			status_r->permanent_flags &= ENUM_NEGATE(MAIL_DELETED);
 		if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_SEEN) <= 0)
-			status_r->permanent_flags &= ~MAIL_SEEN;
+			status_r->permanent_flags &= ENUM_NEGATE(MAIL_SEEN);
 	}
 	return 0;
 }

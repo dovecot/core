@@ -96,14 +96,14 @@ cdb_dict_lookup(struct dict *_dict, pool_t pool,
 	if ((dict->flag & CDB_WITH_NULL) != 0) {
 		ret = cdb_find(&dict->cdb, key, (unsigned)strlen(key)+1);
 		if (ret > 0)
-			dict->flag &= ~CDB_WITHOUT_NULL;
+			dict->flag &= ENUM_NEGATE(CDB_WITHOUT_NULL);
 	}
 
 	/* ...or not */
 	if (ret == 0 && (dict->flag & CDB_WITHOUT_NULL) != 0) {
 		ret = cdb_find(&dict->cdb, key, (unsigned)strlen(key));
 		if (ret > 0)
-			dict->flag &= ~CDB_WITH_NULL;
+			dict->flag &= ENUM_NEGATE(CDB_WITH_NULL);
 	}
 
 	if (ret <= 0) {

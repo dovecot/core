@@ -227,7 +227,7 @@ static void mail_index_map_clear_recent_flags(struct mail_index_map *map)
 
 	for (seq = 1; seq <= map->hdr.messages_count; seq++) {
 		rec = MAIL_INDEX_REC_AT_SEQ(map, seq);
-		rec->flags &= ~MAIL_RECENT;
+		rec->flags &= ENUM_NEGATE(MAIL_RECENT);
 	}
 }
 

@@ -358,7 +358,7 @@ static void test_mail_index_flag_update_random(void)
 		case 1:
 			modify_type = MODIFY_REMOVE;
 			for (seq = seq1; seq <= seq2; seq++)
-				flags[seq] &= ~change;
+				flags[seq] &= ENUM_NEGATE(change);
 			break;
 		case 2:
 			modify_type = MODIFY_REPLACE;

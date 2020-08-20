@@ -181,7 +181,7 @@ static void imap_search_result_save(struct imap_search_context *ctx)
 		imap_append_quoted(str, ctx->cmd->tag);
 		str_append_c(str, ']');
 		client_send_line(client, str_c(str));
-		ctx->return_options &= ~SEARCH_RETURN_UPDATE;
+		ctx->return_options &= ENUM_NEGATE(SEARCH_RETURN_UPDATE);
 		imap_search_context_free(ctx);
 		return;
 	}

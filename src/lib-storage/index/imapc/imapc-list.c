@@ -255,7 +255,7 @@ static void imapc_untagged_lsub(const struct imapc_untagged_reply *reply,
 		else {
 			/* LSUB \Noselect means that the mailbox isn't
 			   subscribed, but it has children that are */
-			node->flags &= ~MAILBOX_NOSELECT;
+			node->flags &= ENUM_NEGATE(MAILBOX_NOSELECT);
 		}
 	}
 }

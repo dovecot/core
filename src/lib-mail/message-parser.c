@@ -597,7 +597,7 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 			parse_next_body_multipart_init(ctx);
 			ctx->multipart = TRUE;
 		} else {
-			part->flags &= ~MESSAGE_PART_FLAG_MULTIPART;
+			part->flags &= ENUM_NEGATE(MESSAGE_PART_FLAG_MULTIPART);
 		}
 	}
 
@@ -706,7 +706,7 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 		   !parse_too_many_nested_mime_parts(ctx)) {
 		ctx->parse_next_block = parse_next_body_message_rfc822_init;
 	} else {
-		part->flags &= ~MESSAGE_PART_FLAG_MESSAGE_RFC822;
+		part->flags &= ENUM_NEGATE(MESSAGE_PART_FLAG_MESSAGE_RFC822);
 		if (ctx->boundaries != NULL)
 			ctx->parse_next_block = parse_next_body_to_boundary;
 		else

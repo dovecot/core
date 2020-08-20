@@ -130,23 +130,23 @@ maildir_filename_flags_full_set(struct maildir_keywords_sync_ctx *ctx,
 
 		if ((flags_left & MAIL_DRAFT) != 0 && nextflag > 'D') {
 			str_append_c(flags_str, 'D');
-			flags_left &= ~MAIL_DRAFT;
+			flags_left &= ENUM_NEGATE(MAIL_DRAFT);
 		}
 		if ((flags_left & MAIL_FLAGGED) != 0 && nextflag > 'F') {
 			str_append_c(flags_str, 'F');
-			flags_left &= ~MAIL_FLAGGED;
+			flags_left &= ENUM_NEGATE(MAIL_FLAGGED);
 		}
 		if ((flags_left & MAIL_ANSWERED) != 0 && nextflag > 'R') {
 			str_append_c(flags_str, 'R');
-			flags_left &= ~MAIL_ANSWERED;
+			flags_left &= ENUM_NEGATE(MAIL_ANSWERED);
 		}
 		if ((flags_left & MAIL_SEEN) != 0 && nextflag > 'S') {
 			str_append_c(flags_str, 'S');
-			flags_left &= ~MAIL_SEEN;
+			flags_left &= ENUM_NEGATE(MAIL_SEEN);
 		}
 		if ((flags_left & MAIL_DELETED) != 0 && nextflag > 'T') {
 			str_append_c(flags_str, 'T');
-			flags_left &= ~MAIL_DELETED;
+			flags_left &= ENUM_NEGATE(MAIL_DELETED);
 		}
 
 		if (keywords != NULL && array_is_created(keywords) &&

@@ -376,7 +376,7 @@ mail_index_sync_begin_init(struct mail_index *index,
 	if (!locked) {
 		/* it looks like we have something to sync. lock the file and
 		   check again. */
-		flags &= ~MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
+		flags &= ENUM_NEGATE(MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES);
 		return mail_index_sync_begin_init(index, flags, log_file_seq,
 						  log_file_offset);
 	}
@@ -988,7 +988,7 @@ void mail_index_sync_flags_apply(const struct mail_index_sync_rec *sync_rec,
 {
 	i_assert(sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS);
 
-	*flags = (*flags & ~sync_rec->remove_flags) | sync_rec->add_flags;
+	*flags = (*flags & ENUM_NEGATE(sync_rec->remove_flags)) | sync_rec->add_flags;
 }
 
 bool mail_index_sync_keywords_apply(const struct mail_index_sync_rec *sync_rec,

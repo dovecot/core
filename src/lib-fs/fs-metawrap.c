@@ -88,7 +88,7 @@ static enum fs_properties fs_metawrap_get_properties(struct fs *_fs)
 	if (fs->wrap_metadata) {
 		/* we don't have a quick stat() to see the file's size,
 		   because of the metadata header */
-		props &= ~FS_PROPERTY_STAT;
+		props &= ENUM_NEGATE(FS_PROPERTY_STAT);
 		/* Copying can copy the whole metadata. */
 		props |= FS_PROPERTY_COPY_METADATA;
 	}
@@ -113,7 +113,7 @@ fs_metawrap_file_init(struct fs_file *_file, const char *path,
 	file->open_mode = mode;
 
 	/* avoid unnecessarily creating two seekable streams */
-	flags &= ~FS_OPEN_FLAG_SEEKABLE;
+	flags &= ENUM_NEGATE(FS_OPEN_FLAG_SEEKABLE);
 
 	file->file.parent = fs_file_init_parent(_file, path, mode | flags);
 	if (file->fs->wrap_metadata && mode == FS_OPEN_MODE_READONLY &&

@@ -984,7 +984,7 @@ int mail_index_sync_map(struct mail_index_map **_map,
 
 	had_dirty = (map->hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0;
 	if (had_dirty)
-		map->hdr.flags &= ~MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
+		map->hdr.flags &= ENUM_NEGATE(MAIL_INDEX_HDR_FLAG_HAVE_DIRTY);
 
 	if (map->hdr_base != map->hdr_copy_buf->data) {
 		/* if syncing updates the header, it updates hdr_copy_buf

@@ -146,7 +146,7 @@ o_stream_temp_sendv(struct ostream_private *stream,
 	enum ostream_send_istream_result res;
 
 
-	tstream->flags &= ~IOSTREAM_TEMP_FLAG_TRY_FD_DUP;
+	tstream->flags &= ENUM_NEGATE(IOSTREAM_TEMP_FLAG_TRY_FD_DUP);
 	if (tstream->dupstream != NULL) {
 		if (o_stream_temp_dup_cancel(tstream, &res))
 			return -1;
@@ -256,7 +256,7 @@ o_stream_temp_send_istream(struct ostream_private *_outstream,
 	if ((outstream->flags & IOSTREAM_TEMP_FLAG_TRY_FD_DUP) != 0) {
 		if (o_stream_temp_dup_istream(outstream, instream, &res))
 			return res;
-		outstream->flags &= ~IOSTREAM_TEMP_FLAG_TRY_FD_DUP;
+		outstream->flags &= ENUM_NEGATE(IOSTREAM_TEMP_FLAG_TRY_FD_DUP);
 	}
 	return io_stream_copy(&outstream->ostream.ostream, instream);
 }

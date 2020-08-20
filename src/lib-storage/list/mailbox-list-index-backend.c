@@ -312,9 +312,9 @@ index_list_mailbox_create_selectable(struct mailbox *box,
 	i_assert(guid_128_is_empty(rec.guid));
 
 	/* make it selectable */
-	node->flags &= ~(MAILBOX_LIST_INDEX_FLAG_NONEXISTENT |
-			 MAILBOX_LIST_INDEX_FLAG_NOSELECT |
-			 MAILBOX_LIST_INDEX_FLAG_NOINFERIORS);
+	node->flags &= ENUM_NEGATE(MAILBOX_LIST_INDEX_FLAG_NONEXISTENT |
+				   MAILBOX_LIST_INDEX_FLAG_NOSELECT |
+				   MAILBOX_LIST_INDEX_FLAG_NOINFERIORS);
 	mail_index_update_flags(sync_ctx->trans, seq, MODIFY_REPLACE,
 				(enum mail_flags)node->flags);
 
@@ -806,7 +806,7 @@ index_list_rename_mailbox(struct mailbox_list *_oldlist, const char *oldname,
 	if ((newnode->flags & MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME) != 0) {
 		/* mailbox is renamed - clear away the corruption flag so the
 		   new name will be written to the mailbox index header. */
-		newnode->flags &= ~MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME;
+		newnode->flags &= ENUM_NEGATE(MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME);
 		mail_index_update_flags(sync_ctx->trans, oldseq, MODIFY_REMOVE,
 			(enum mail_flags)MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME);
 	}

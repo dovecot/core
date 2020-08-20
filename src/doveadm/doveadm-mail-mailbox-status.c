@@ -75,8 +75,8 @@ static void status_parse_fields(struct status_cmd_context *ctx,
 		}
 
 		if (ctx->total_sum &&
-		    ((ctx->status_items & ~TOTAL_STATUS_ITEMS) != 0 ||
-		     (ctx->metadata_items & ~TOTAL_METADATA_ITEMS) != 0)) {
+		    ((ctx->status_items & ENUM_NEGATE(TOTAL_STATUS_ITEMS)) != 0 ||
+		     (ctx->metadata_items & ENUM_NEGATE(TOTAL_METADATA_ITEMS)) != 0)) {
 			i_fatal_status(EX_USAGE,
 				"Status field %s can't be used with -t", field);
 		}

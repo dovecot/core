@@ -197,7 +197,7 @@ mailbox_list_index_node_clear_exists(struct mailbox_list_index_node *node)
 		if (node->children != NULL)
 			mailbox_list_index_node_clear_exists(node->children);
 
-		node->flags &= ~MAILBOX_LIST_INDEX_FLAG_SYNC_EXISTS;
+		node->flags &= ENUM_NEGATE(MAILBOX_LIST_INDEX_FLAG_SYNC_EXISTS);
 		node = node->next;
 	}
 }

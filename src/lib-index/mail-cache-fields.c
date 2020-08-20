@@ -37,7 +37,7 @@ static bool field_has_fixed_size(enum mail_cache_field_type type)
 
 static bool field_decision_is_valid(enum mail_cache_decision_type type)
 {
-	switch (type & ~MAIL_CACHE_DECISION_FORCED) {
+	switch (type & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED)) {
 	case MAIL_CACHE_DECISION_NO:
 	case MAIL_CACHE_DECISION_TEMP:
 	case MAIL_CACHE_DECISION_YES:
@@ -394,7 +394,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 
 		/* ignore any forced-flags in the file */
 		enum mail_cache_decision_type file_dec =
-			decisions[i] & ~MAIL_CACHE_DECISION_FORCED;
+			decisions[i] & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED);
 
 		if (hash_table_lookup_full(cache->field_name_hash, names,
 					   &orig_key, &orig_value)) {
@@ -405,7 +405,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 			if ((cur_dec & MAIL_CACHE_DECISION_FORCED) != 0) {
 				/* Forced decision. If the decision has
 				   changed, update the fields in the file. */
-				if ((cur_dec & ~MAIL_CACHE_DECISION_FORCED) != file_dec)
+				if ((cur_dec & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED)) != file_dec)
 					cache->field_header_write_pending = TRUE;
 			} else if (cache->fields[fidx].decision_dirty) {
 				/* Decisions have recently been updated

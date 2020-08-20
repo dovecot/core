@@ -1277,7 +1277,7 @@ get_cache_fields(struct dsync_ibc_stream *ibc,
 		dsync_serializer_encode_add(encoder, "name", field->name);
 
 		memset(decision, 0, sizeof(decision));
-		switch (field->decision & ~MAIL_CACHE_DECISION_FORCED) {
+		switch (field->decision & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED)) {
 		case MAIL_CACHE_DECISION_NO:
 			decision[0] = 'n';
 			break;

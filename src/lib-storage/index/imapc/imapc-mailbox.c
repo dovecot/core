@@ -544,7 +544,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	}
 	/* FIXME: we should ideally also pass these through so they show up
 	   to clients. */
-	flags &= ~MAIL_RECENT;
+	flags &= ENUM_NEGATE(MAIL_RECENT);
 
 	/* if this is a reply to some FETCH request, update the mail's fields */
 	array_foreach(&mbox->fetch_requests, fetch_requestp) {

@@ -466,7 +466,7 @@ int index_mail_parse_headers_internal(struct index_mail *mail,
 	if (index_mail_stream_check_failure(mail) < 0)
 		return -1;
 	data->hdr_size_set = TRUE;
-	data->access_part &= ~PARSE_HDR;
+	data->access_part &= ENUM_NEGATE(PARSE_HDR);
 	return 0;
 }
 

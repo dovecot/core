@@ -81,7 +81,8 @@ static void virtual_sync_external_flags(struct virtual_sync_context *ctx,
 	flags = mail_get_flags(bbox->sync_mail);
 
 	/* we don't need to keep recent flags here */
-	mail_index_update_flags(ctx->trans, vseq, MODIFY_REPLACE, flags & ~(MAIL_RECENT));
+	mail_index_update_flags(ctx->trans, vseq, MODIFY_REPLACE,
+				flags & ENUM_NEGATE(MAIL_RECENT));
 
 	/* copy keywords */
 	kw_names = mail_get_keywords(bbox->sync_mail);

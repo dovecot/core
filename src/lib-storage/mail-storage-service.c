@@ -959,7 +959,7 @@ mail_storage_service_init(struct master_service *service,
 	    getuid() != 0) {
 		/* service { user } isn't root. the permission drop can't be
 		   temporary. */
-		flags &= ~MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
+		flags &= ENUM_NEGATE(MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP);
 	}
 
 	(void)umask(0077);
@@ -1017,11 +1017,11 @@ mail_storage_service_input_get_flags(struct mail_storage_service_ctx *ctx,
 {
 	enum mail_storage_service_flags flags;
 
-	flags = (ctx->flags & ~input->flags_override_remove) |
+	flags = (ctx->flags & ENUM_NEGATE(input->flags_override_remove)) |
 		input->flags_override_add;
 	if (input->no_userdb_lookup) {
 		/* FIXME: for API backwards compatibility only */
-		flags &= ~MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
+		flags &= ENUM_NEGATE(MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP);
 	}
 	return flags;
 }

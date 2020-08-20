@@ -240,7 +240,7 @@ static int pop3c_mailbox_get_metadata(struct mailbox *box,
 		/* a bit ugly way to do this, but better than nothing for now.
 		   FIXME: if indexes are enabled, keep this there. */
 		mail_generate_guid_128_hash(box->name, metadata_r->guid);
-		items &= ~MAILBOX_METADATA_GUID;
+		items &= ENUM_NEGATE(MAILBOX_METADATA_GUID);
 	}
 	if (items != 0) {
 		if (index_mailbox_get_metadata(box, items, metadata_r) < 0)

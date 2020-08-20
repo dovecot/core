@@ -264,7 +264,7 @@ enum mail_flags index_mail_get_flags(struct mail *_mail)
 	if (index_mail_get_pvt(_mail)) {
 		/* mailbox has private flags */
 		pvt_flags_mask = mailbox_get_private_flags_mask(_mail->box);
-		flags &= ~pvt_flags_mask;
+		flags &= ENUM_NEGATE(pvt_flags_mask);
 		rec = mail_index_lookup(_mail->transaction->view_pvt,
 					mail->seq_pvt);
 		flags |= rec->flags & pvt_flags_mask;
@@ -728,10 +728,10 @@ static void index_mail_body_parsed_cache_flags(struct index_mail *mail)
 
 	/* cache flags should never get unset as long as the message doesn't
 	   change, but try to handle it anyway */
-	cache_flags &= ~(MAIL_CACHE_FLAG_BINARY_HEADER |
-			 MAIL_CACHE_FLAG_BINARY_BODY |
-			 MAIL_CACHE_FLAG_HAS_NULS |
-			 MAIL_CACHE_FLAG_HAS_NO_NULS);
+	cache_flags &= ENUM_NEGATE(MAIL_CACHE_FLAG_BINARY_HEADER |
+				   MAIL_CACHE_FLAG_BINARY_BODY |
+				   MAIL_CACHE_FLAG_HAS_NULS |
+				   MAIL_CACHE_FLAG_HAS_NO_NULS);
 	if (message_parts_have_nuls(data->parts)) {
 		_mail->has_nuls = TRUE;
 		_mail->has_no_nuls = FALSE;
@@ -2270,7 +2270,7 @@ void index_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 		/* mailbox has private flags */
 		pvt_flags_mask = mailbox_get_private_flags_mask(_mail->box);
 		pvt_flags = flags & pvt_flags_mask;
-		flags &= ~pvt_flags_mask;
+		flags &= ENUM_NEGATE(pvt_flags_mask);
 		if (index_mail_update_pvt_flags(_mail, modify_type, pvt_flags)) {
 			mail_index_update_flags(_mail->transaction->itrans_pvt,
 						mail->seq_pvt,

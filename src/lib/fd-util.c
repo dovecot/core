@@ -108,7 +108,7 @@ void fd_set_nonblock(int fd, bool nonblock)
 	if (nonblock)
 		flags |= O_NONBLOCK;
 	else
-		flags &= ~O_NONBLOCK;
+		flags &= ENUM_NEGATE(O_NONBLOCK);
 
 	if (fcntl(fd, F_SETFL, flags) < 0)
 		i_fatal("fcntl(%d, F_SETFL) failed: %m", fd);

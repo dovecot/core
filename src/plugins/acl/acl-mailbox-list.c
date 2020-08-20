@@ -356,10 +356,10 @@ acl_mailbox_list_info_is_visible(struct mailbox_list_iterate_context *_ctx)
 		if ((_ctx->flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) != 0) {
 			/* don't waste time checking if there are visible
 			   children, but also don't return incorrect flags */
-			info->flags &= ~MAILBOX_CHILDREN;
+			info->flags &= ENUM_NEGATE(MAILBOX_CHILDREN);
 		} else if ((info->flags & MAILBOX_CHILDREN) != 0 &&
 			   !iter_mailbox_has_visible_children(_ctx, FALSE, FALSE)) {
-			info->flags &= ~MAILBOX_CHILDREN;
+			info->flags &= ENUM_NEGATE(MAILBOX_CHILDREN);
 			info->flags |= MAILBOX_NOCHILDREN;
 		}
 		return ret;

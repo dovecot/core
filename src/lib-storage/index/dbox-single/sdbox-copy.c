@@ -109,7 +109,7 @@ sdbox_copy_hardlink(struct mail_save_context *_ctx, struct mail *mail)
 	src_file = sdbox_file_init(src_mbox, mail->uid);
 	dest_file = sdbox_file_init(dest_mbox, 0);
 
-	ctx->ctx.data.flags &= ~DBOX_INDEX_FLAG_ALT;
+	ctx->ctx.data.flags &= ENUM_NEGATE(DBOX_INDEX_FLAG_ALT);
 
 	src_path = src_file->primary_path;
 	dest_path = dest_file->primary_path;

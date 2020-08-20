@@ -886,7 +886,7 @@ bool mail_cache_field_want_add(struct mail_cache_transaction_ctx *ctx,
 	mail_cache_transaction_refresh_decisions(ctx);
 
 	decision = mail_cache_field_get_decision(ctx->view->cache, field_idx);
-	decision &= ~MAIL_CACHE_DECISION_FORCED;
+	decision &= ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED);
 	switch (decision) {
 	case MAIL_CACHE_DECISION_NO:
 		return FALSE;

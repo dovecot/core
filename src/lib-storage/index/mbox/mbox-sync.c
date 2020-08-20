@@ -343,7 +343,7 @@ static void mbox_sync_get_dirty_flags(struct mbox_sync_mail_context *mail_ctx,
 
 	/* default to undirtying the message. it gets added back if
 	   flags/keywords don't match what is in the index. */
-	mail_ctx->mail.flags &= ~MAIL_INDEX_MAIL_FLAG_DIRTY;
+	mail_ctx->mail.flags &= ENUM_NEGATE(MAIL_INDEX_MAIL_FLAG_DIRTY);
 
 	/* replace flags */
 	idx_flags = rec->flags & MAIL_FLAGS_NONRECENT;
@@ -420,10 +420,10 @@ static void mbox_sync_update_index(struct mbox_sync_mail_context *mail_ctx,
 	ARRAY_TYPE(keyword_indexes) idx_keywords;
 	uint8_t mbox_flags;
 
-	mbox_flags = mail->flags & ~MAIL_RECENT;
+	mbox_flags = mail->flags & ENUM_NEGATE(MAIL_RECENT);
 	if (!sync_ctx->delay_writes) {
 		/* changes are written to the mbox file */
-		mbox_flags &= ~MAIL_INDEX_MAIL_FLAG_DIRTY;
+		mbox_flags &= ENUM_NEGATE(MAIL_INDEX_MAIL_FLAG_DIRTY);
 	} else if (mail_ctx->need_rewrite) {
 		/* make sure this message gets written later */
 		mbox_flags |= MAIL_INDEX_MAIL_FLAG_DIRTY;

@@ -209,7 +209,7 @@ static int search_arg_match_index(struct index_search_context *ctx,
 	case SEARCH_FLAGS:
 		/* recent flag shouldn't be set, but indexes from v1.0.x
 		   may contain it. */
-		flags = rec->flags & ~MAIL_RECENT;
+		flags = rec->flags & ENUM_NEGATE(MAIL_RECENT);
 		if ((arg->value.flags & MAIL_RECENT) != 0 &&
 		    mailbox_recent_flags_have_uid(ctx->box, rec->uid))
 			flags |= MAIL_RECENT;
@@ -218,7 +218,7 @@ static int search_arg_match_index(struct index_search_context *ctx,
 			   no private flags */
 		} else {
 			pvt_flags_mask = mailbox_get_private_flags_mask(ctx->box);
-			flags &= ~pvt_flags_mask;
+			flags &= ENUM_NEGATE(pvt_flags_mask);
 			if (index_search_get_pvt(ctx, rec->uid)) {
 				rec = mail_index_lookup(ctx->mail_ctx.transaction->view_pvt,
 							ctx->pvt_seq);

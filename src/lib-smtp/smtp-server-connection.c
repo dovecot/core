@@ -196,7 +196,7 @@ void smtp_server_connection_set_ssl_streams(struct smtp_server_connection *conn,
 					    struct ostream *output)
 {
 	conn->ssl_secured = TRUE;
-	conn->set.capabilities &= ~SMTP_CAPABILITY_STARTTLS;
+	conn->set.capabilities &= ENUM_NEGATE(SMTP_CAPABILITY_STARTTLS);
 
 	smtp_server_connection_set_streams(conn, input, output);
 }
@@ -410,7 +410,7 @@ int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 	}
 
 	conn->ssl_secured = TRUE;
-	conn->set.capabilities &= ~SMTP_CAPABILITY_STARTTLS;
+	conn->set.capabilities &= ENUM_NEGATE(SMTP_CAPABILITY_STARTTLS);
 
 	if (conn->ssl_start)
 		smtp_server_connection_ready(conn);
@@ -981,7 +981,7 @@ smtp_server_connection_create(
 
 	conn->ssl_start = ssl_start;
 	if (ssl_start)
-		conn->set.capabilities &= ~SMTP_CAPABILITY_STARTTLS;
+		conn->set.capabilities &= ENUM_NEGATE(SMTP_CAPABILITY_STARTTLS);
 
 	/* Halt input until started */
 	smtp_server_connection_halt(conn);
@@ -1221,7 +1221,7 @@ void smtp_server_connection_login(struct smtp_server_connection *conn,
 	i_assert(conn->username == NULL);
 	i_assert(conn->helo_domain == NULL);
 
-	conn->set.capabilities &= ~SMTP_CAPABILITY_STARTTLS;
+	conn->set.capabilities &= ENUM_NEGATE(SMTP_CAPABILITY_STARTTLS);
 	conn->username = i_strdup(username);
 	if (helo != NULL && *helo != '\0') {
 		conn->helo_domain = i_strdup(helo);

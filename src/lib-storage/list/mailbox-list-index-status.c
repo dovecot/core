@@ -159,7 +159,7 @@ index_list_get_status(struct mailbox *box, enum mailbox_status_items items,
 {
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
 
-	if ((items & ~CACHED_STATUS_ITEMS) == 0 && !box->opened) {
+	if ((items & ENUM_NEGATE(CACHED_STATUS_ITEMS)) == 0 && !box->opened) {
 		if (index_list_get_cached_status(box, items, status_r) > 0)
 			return 0;
 		/* nonsynced / error, fallback to doing it the slow way */
@@ -276,13 +276,13 @@ index_list_try_get_metadata(struct mailbox *box,
 	}
 	/* see if we have a chance of fulfilling this without opening
 	   the mailbox. */
-	noncached_items = items & ~(MAILBOX_METADATA_GUID |
-				    MAILBOX_METADATA_VIRTUAL_SIZE |
-				    MAILBOX_METADATA_FIRST_SAVE_DATE);
+	noncached_items = items & ENUM_NEGATE(MAILBOX_METADATA_GUID |
+					      MAILBOX_METADATA_VIRTUAL_SIZE |
+					      MAILBOX_METADATA_FIRST_SAVE_DATE);
 	if ((noncached_items & MAILBOX_METADATA_PHYSICAL_SIZE) != 0 &&
 	    box->mail_vfuncs->get_physical_size ==
 	    box->mail_vfuncs->get_virtual_size)
-		noncached_items = items & ~MAILBOX_METADATA_PHYSICAL_SIZE;
+		noncached_items = items & ENUM_NEGATE(MAILBOX_METADATA_PHYSICAL_SIZE);
 
 	if (noncached_items != 0)
 		return 0;

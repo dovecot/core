@@ -295,7 +295,7 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 
 	index_flags = ibox->index_flags;
 	if (move_to_memory)
-		index_flags &= ~MAIL_INDEX_OPEN_FLAG_CREATE;
+		index_flags &= ENUM_NEGATE(MAIL_INDEX_OPEN_FLAG_CREATE);
 
 	if (index_storage_mailbox_alloc_index(box) < 0)
 		return -1;
@@ -972,7 +972,7 @@ mail_copy_cache_field(struct mail_save_context *ctx, struct mail *src_mail,
 	dest_field = mail_cache_register_get_field(dest_trans->box->cache,
 						   dest_field_idx);
 	if ((dest_field->decision &
-	     ~MAIL_CACHE_DECISION_FORCED) == MAIL_CACHE_DECISION_NO) {
+	     ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED)) == MAIL_CACHE_DECISION_NO) {
 		/* field not wanted in destination mailbox */
 		return;
 	}

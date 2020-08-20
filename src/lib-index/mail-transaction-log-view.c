@@ -582,7 +582,7 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 				"expunge record missing protection mask");
 			return FALSE;
 		}
-		rec_type &= ~MAIL_TRANSACTION_EXPUNGE_PROT;
+		rec_type &= ENUM_NEGATE(MAIL_TRANSACTION_EXPUNGE_PROT);
 	}
 	if ((hdr->type & MAIL_TRANSACTION_EXPUNGE_GUID) != 0) {
 		if (rec_type != (MAIL_TRANSACTION_EXPUNGE_GUID |
@@ -591,7 +591,7 @@ log_view_is_record_valid(struct mail_transaction_log_file *file,
 				"expunge guid record missing protection mask");
 			return FALSE;
 		}
-		rec_type &= ~MAIL_TRANSACTION_EXPUNGE_PROT;
+		rec_type &= ENUM_NEGATE(MAIL_TRANSACTION_EXPUNGE_PROT);
 	}
 
 	if (rec_size == 0) {
@@ -841,7 +841,7 @@ int mail_transaction_log_view_next(struct mail_transaction_log_view *view,
 	    (MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_EXPUNGE_PROT) ||
 	    (hdr->type & MAIL_TRANSACTION_TYPE_MASK) ==
 	    (MAIL_TRANSACTION_EXPUNGE_GUID | MAIL_TRANSACTION_EXPUNGE_PROT))
-		view->tmp_hdr.type = hdr->type & ~MAIL_TRANSACTION_EXPUNGE_PROT;
+		view->tmp_hdr.type = hdr->type & ENUM_NEGATE(MAIL_TRANSACTION_EXPUNGE_PROT);
 	else
 		view->tmp_hdr.type = hdr->type;
 

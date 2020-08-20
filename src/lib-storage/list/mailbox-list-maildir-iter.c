@@ -39,7 +39,7 @@ static void node_fix_parents(struct mailbox_node *node)
 			node->flags |= MAILBOX_NONEXISTENT;
 
 		node->flags |= MAILBOX_CHILDREN;
-		node->flags &= ~MAILBOX_NOCHILDREN;
+		node->flags &= ENUM_NEGATE(MAILBOX_NOCHILDREN);
 	}
 }
 
@@ -80,7 +80,7 @@ maildir_fill_parents(struct maildir_list_iterate_context *ctx,
 			if (!update_only)
 				node->flags |= MAILBOX_MATCHED;
 			node->flags |= MAILBOX_CHILDREN;
-			node->flags &= ~MAILBOX_NOCHILDREN;
+			node->flags &= ENUM_NEGATE(MAILBOX_NOCHILDREN);
 			node_fix_parents(node);
 		}
 	}
@@ -101,7 +101,7 @@ static void maildir_set_children(struct maildir_list_iterate_context *ctx,
 
 		node = mailbox_tree_lookup(ctx->tree_ctx, vname);
 		if (node != NULL) {
-			node->flags &= ~MAILBOX_NOCHILDREN;
+			node->flags &= ENUM_NEGATE(MAILBOX_NOCHILDREN);
 			node->flags |= MAILBOX_CHILDREN;
 			break;
 		}
@@ -134,7 +134,7 @@ maildir_fill_inbox(struct maildir_list_iterate_context *ctx,
 	if (update_only) {
 		node = mailbox_tree_lookup(ctx->tree_ctx, inbox_name);
 		if (node != NULL)
-			node->flags &= ~MAILBOX_NONEXISTENT;
+			node->flags &= ENUM_NEGATE(MAILBOX_NONEXISTENT);
 		return 0;
 	}
 
@@ -147,7 +147,7 @@ maildir_fill_inbox(struct maildir_list_iterate_context *ctx,
 		if (created)
 			node->flags = MAILBOX_NOCHILDREN;
 		else
-			node->flags &= ~MAILBOX_NONEXISTENT;
+			node->flags &= ENUM_NEGATE(MAILBOX_NONEXISTENT);
 		node->flags |= MAILBOX_MATCHED;
 	}
 	return 0;
@@ -338,7 +338,7 @@ maildir_fill_readdir_entry(struct maildir_list_iterate_context *ctx,
 
 	/* we know the children flags ourself, so ignore if any of
 	   them were set. */
-	flags &= ~(MAILBOX_NOINFERIORS | MAILBOX_CHILDREN | MAILBOX_NOCHILDREN);
+	flags &= ENUM_NEGATE(MAILBOX_NOINFERIORS | MAILBOX_CHILDREN | MAILBOX_NOCHILDREN);
 
 	if ((match & IMAP_MATCH_PARENT) != 0)
 		maildir_fill_parents(ctx, glob, update_only, vname);
@@ -352,7 +352,7 @@ maildir_fill_readdir_entry(struct maildir_list_iterate_context *ctx,
 			if (created)
 				node->flags = MAILBOX_NOCHILDREN;
 			else
-				node->flags &= ~MAILBOX_NONEXISTENT;
+				node->flags &= ENUM_NEGATE(MAILBOX_NONEXISTENT);
 			if (!update_only)
 				node->flags |= MAILBOX_MATCHED;
 			node->flags |= flags;
@@ -509,7 +509,7 @@ maildir_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 	if (strcmp(ctx->info.vname, "INBOX") == 0 &&
 	    mail_namespace_is_inbox_noinferiors(ctx->info.ns)) {
 		i_assert((ctx->info.flags & MAILBOX_NOCHILDREN) != 0);
-		ctx->info.flags &= ~MAILBOX_NOCHILDREN;
+		ctx->info.flags &= ENUM_NEGATE(MAILBOX_NOCHILDREN);
 		ctx->info.flags |= MAILBOX_NOINFERIORS;
 	}
 	if ((_ctx->flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) != 0 &&

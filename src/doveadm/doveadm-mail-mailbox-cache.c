@@ -115,7 +115,7 @@ static const char *
 cmd_mailbox_cache_decision_to_str(enum mail_cache_decision_type decision)
 {
 	string_t *ret = t_str_new(10);
-	switch((decision & ~MAIL_CACHE_DECISION_FORCED)) {
+	switch((decision & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED))) {
 	case MAIL_CACHE_DECISION_NO:
 		str_append(ret, "no");
 		break;

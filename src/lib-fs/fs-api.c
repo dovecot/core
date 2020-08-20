@@ -279,12 +279,12 @@ struct fs_file *fs_file_init_with_event(struct fs *fs, struct event *event,
 	T_BEGIN {
 		file = fs->v.file_alloc();
 		file->fs = fs;
-		file->flags = mode_flags & ~FS_OPEN_MODE_MASK;
+		file->flags = mode_flags & ENUM_NEGATE(FS_OPEN_MODE_MASK);
 		file->event = fs_create_event(fs, event);
 		event_set_ptr(file->event, FS_EVENT_FIELD_FS, fs);
 		event_set_ptr(file->event, FS_EVENT_FIELD_FILE, file);
 		fs->v.file_init(file, path, mode_flags & FS_OPEN_MODE_MASK,
-				mode_flags & ~FS_OPEN_MODE_MASK);
+				mode_flags & ENUM_NEGATE(FS_OPEN_MODE_MASK));
 	} T_END;
 
 	fs->files_open_count++;
@@ -335,7 +335,7 @@ void fs_file_set_flags(struct fs_file *file,
 		       enum fs_open_flags remove_flags)
 {
 	file->flags |= add_flags;
-	file->flags &= ~remove_flags;
+	file->flags &= ENUM_NEGATE(remove_flags);
 
 	if (file->parent != NULL)
 		fs_file_set_flags(file->parent, add_flags, remove_flags);

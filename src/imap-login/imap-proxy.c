@@ -280,7 +280,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			/* used literals with LOGIN command, just ignore. */
 			return 0;
 		}
-		imap_client->proxy_sent_state &= ~IMAP_PROXY_SENT_STATE_AUTHENTICATE;
+		imap_client->proxy_sent_state &= ENUM_NEGATE(IMAP_PROXY_SENT_STATE_AUTHENTICATE);
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_AUTH_CONTINUE;
 
 		str = t_str_new(128);
@@ -317,7 +317,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		o_stream_nsend(output, str_data(str), str_len(str));
 		return 0;
 	} else if (str_begins(line, "S ")) {
-		imap_client->proxy_sent_state &= ~IMAP_PROXY_SENT_STATE_STARTTLS;
+		imap_client->proxy_sent_state &= ENUM_NEGATE(IMAP_PROXY_SENT_STATE_STARTTLS);
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_STARTTLS;
 
 		if (!str_begins(line, "S OK ")) {
@@ -342,7 +342,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		return 1;
 	} else if (str_begins(line, "L OK ")) {
 		/* Login successful. Send this line to client. */
-		imap_client->proxy_sent_state &= ~IMAP_PROXY_SENT_STATE_LOGIN;
+		imap_client->proxy_sent_state &= ENUM_NEGATE(IMAP_PROXY_SENT_STATE_LOGIN);
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_LOGIN;
 		str = t_str_new(128);
 		client_send_login_reply(imap_client, str, line + 5);
@@ -351,7 +351,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		client_proxy_finish_destroy_client(client);
 		return 1;
 	} else if (str_begins(line, "L ")) {
-		imap_client->proxy_sent_state &= ~IMAP_PROXY_SENT_STATE_LOGIN;
+		imap_client->proxy_sent_state &= ENUM_NEGATE(IMAP_PROXY_SENT_STATE_LOGIN);
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_LOGIN;
 
 		line += 2;
@@ -402,7 +402,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		return 0;
 	} else if (str_begins(line, "C ")) {
 		/* Reply to CAPABILITY command we sent */
-		imap_client->proxy_sent_state &= ~IMAP_PROXY_SENT_STATE_CAPABILITY;
+		imap_client->proxy_sent_state &= ENUM_NEGATE(IMAP_PROXY_SENT_STATE_CAPABILITY);
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_CAPABILITY;
 		if (str_begins(line, "C OK ") &&
 		    HAS_NO_BITS(imap_client->proxy_sent_state,
@@ -420,7 +420,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 		/* Reply to ID command we sent, ignore it unless
 		   pipelining is disabled, in which case send
 		   either STARTTLS or login */
-		imap_client->proxy_sent_state &= ~IMAP_PROXY_SENT_STATE_ID;
+		imap_client->proxy_sent_state &= ENUM_NEGATE(IMAP_PROXY_SENT_STATE_ID);
 		imap_client->proxy_rcvd_state = IMAP_PROXY_RCVD_STATE_ID;
 
 		if (client->proxy_nopipelining) {

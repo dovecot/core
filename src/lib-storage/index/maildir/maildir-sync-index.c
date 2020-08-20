@@ -223,7 +223,7 @@ int maildir_sync_index_begin(struct maildir_mailbox *mbox,
 	sync_flags = index_storage_get_sync_flags(&mbox->box);
 	/* don't drop recent messages if we're saving messages */
 	if (maildir_sync_ctx == NULL)
-		sync_flags &= ~MAIL_INDEX_SYNC_FLAG_DROP_RECENT;
+		sync_flags &= ENUM_NEGATE(MAIL_INDEX_SYNC_FLAG_DROP_RECENT);
 
 	if (index_storage_expunged_sync_begin(_box, &sync_ctx, &view,
 					      &trans, sync_flags) < 0)
@@ -506,7 +506,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 
 		/* the private flags are kept only in indexes. don't use them
 		   at all even for newly seen mails */
-		ctx->flags &= ~private_flags_mask;
+		ctx->flags &= ENUM_NEGATE(private_flags_mask);
 
 	again:
 		seq++;

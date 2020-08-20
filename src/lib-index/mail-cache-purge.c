@@ -69,7 +69,7 @@ mail_cache_purge_field(struct mail_cache_copy_context *ctx,
 	}
 	*field_seen = ctx->field_seen_value;
 
-	dec = cache_field->decision & ~MAIL_CACHE_DECISION_FORCED;
+	dec = cache_field->decision & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED);
 	if (ctx->new_msg) {
 		if (dec == MAIL_CACHE_DECISION_NO)
 			return;
@@ -191,7 +191,7 @@ mail_cache_purge_check_field(struct mail_cache_copy_context *ctx,
 	priv->field.decision = dec;
 
 	/* drop all fields we don't want */
-	if ((dec & ~MAIL_CACHE_DECISION_FORCED) == MAIL_CACHE_DECISION_NO) {
+	if ((dec & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED)) == MAIL_CACHE_DECISION_NO) {
 		priv->used = FALSE;
 		priv->field.last_used = 0;
 	}

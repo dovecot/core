@@ -385,9 +385,9 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'f':
 			if (strcmp(optarg, "in") == 0)
-				flags &= ~RAWLOG_FLAG_LOG_OUTPUT;
+				flags &= ENUM_NEGATE(RAWLOG_FLAG_LOG_OUTPUT);
 			else if (strcmp(optarg, "out") == 0)
-				flags &= ~RAWLOG_FLAG_LOG_INPUT;
+				flags &= ENUM_NEGATE(RAWLOG_FLAG_LOG_INPUT);
 			else
 				i_fatal("Invalid filter: %s", optarg);
 			break;

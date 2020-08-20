@@ -150,7 +150,7 @@ fs_crypt_file_init(struct fs_file *_file, const char *path,
 	file->open_mode = mode;
 
 	/* avoid unnecessarily creating two seekable streams */
-	flags &= ~FS_OPEN_FLAG_SEEKABLE;
+	flags &= ENUM_NEGATE(FS_OPEN_FLAG_SEEKABLE);
 
 	file->file.parent = fs_file_init_parent(_file, path, mode | flags);
 	if (mode == FS_OPEN_MODE_READONLY &&

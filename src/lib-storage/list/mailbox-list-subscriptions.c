@@ -184,7 +184,7 @@ void mailbox_list_set_subscription_flags(struct mailbox_list *list,
 {
 	struct mailbox_node *node;
 
-	*flags &= ~(MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED);
+	*flags &= ENUM_NEGATE(MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED);
 
 	node = mailbox_tree_lookup(list->subscriptions, vname);
 	if (node != NULL) {
@@ -298,7 +298,7 @@ mailbox_list_subscriptions_iter_next(struct mailbox_list_iterate_context *_ctx)
 
 	}
 
-	ctx->info.flags &= ~(MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED);
+	ctx->info.flags &= ENUM_NEGATE(MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED);
 	ctx->info.flags |=
 		node->flags & (MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED);
 	return &ctx->info;

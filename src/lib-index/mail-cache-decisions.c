@@ -72,7 +72,7 @@
 
 const char *mail_cache_decision_to_string(enum mail_cache_decision_type dec)
 {
-	switch (dec & ~MAIL_CACHE_DECISION_FORCED) {
+	switch (dec & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED)) {
 	case MAIL_CACHE_DECISION_NO:
 		return "no";
 	case MAIL_CACHE_DECISION_TEMP:

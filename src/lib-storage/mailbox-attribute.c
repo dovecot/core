@@ -299,7 +299,7 @@ mailbox_attribute_set_common(struct mailbox_transaction_context *t,
 			i_unreached();
 		}
 		/* the value was validated. */
-		type_flags &= ~MAIL_ATTRIBUTE_TYPE_FLAG_VALIDATED;
+		type_flags &= ENUM_NEGATE(MAIL_ATTRIBUTE_TYPE_FLAG_VALIDATED);
 	}
 
 	ret = t->box->v.attribute_set(t, type_flags, key, value);
@@ -378,7 +378,7 @@ mailbox_attribute_get_common(struct mailbox *box,
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_OVERRIDE:
 			/* we already checked that this attribute has
 			   validated-flag */
-			type_flags &= ~MAIL_ATTRIBUTE_TYPE_FLAG_VALIDATED;
+			type_flags &= ENUM_NEGATE(MAIL_ATTRIBUTE_TYPE_FLAG_VALIDATED);
 
 			if (iattr->get == NULL)
 				break;

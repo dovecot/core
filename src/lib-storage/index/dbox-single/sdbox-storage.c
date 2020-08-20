@@ -123,7 +123,7 @@ sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	pool_t pool;
 
 	/* dbox can't work without index files */
-	flags &= ~MAILBOX_FLAG_NO_INDEX_FILES;
+	flags &= ENUM_NEGATE(MAILBOX_FLAG_NO_INDEX_FILES);
 
 	pool = pool_alloconly_create("sdbox mailbox", 1024*3);
 	mbox = p_new(pool, struct sdbox_mailbox, 1);
