@@ -176,7 +176,7 @@ director_cmd_error(struct director_connection *conn, const char *fmt, ...)
 	va_list args;
 
 	va_start(args, fmt);
-	e_error(conn->dir->event, "director(%s): Command %s: %s (input: %s)", conn->name,
+	e_error(conn->event, "Command %s: %s (input: %s)",
 		conn->cur_cmd, t_strdup_vprintf(fmt, args),
 		t_strarray_join(conn->cur_args, "\t"));
 	va_end(args);
@@ -254,7 +254,7 @@ director_connection_init_timeout(struct director_connection *conn)
 	director_connection_append_stats(conn, reason);
 	str_append_c(reason, ')');
 
-	e_error(conn->dir->event, "director(%s): %s", conn->name, str_c(reason));
+	e_error(conn->event, "%s", str_c(reason));
 	director_connection_disconnected(&conn, "Handshake timeout");
 }
 
@@ -403,7 +403,7 @@ static void director_send_delayed_syncs(struct director *dir)
 
 	i_assert(dir->right != NULL);
 
-	e_debug(dir->event, "director(%s): Sending delayed SYNCs", dir->right->name);
+	e_debug(dir->right->event, "Sending delayed SYNCs");
 	array_foreach(&dir->dir_hosts, hostp) {
 		if ((*hostp)->delayed_sync_seq == 0)
 			continue;
@@ -555,10 +555,10 @@ static bool director_cmd_me(struct director_connection *conn,
 	if (next_comm_attempt > ioloop_time) {
 		/* the director recently sent invalid protocol data,
 		   don't try retrying yet */
-		e_error(conn->dir->event,
-			"director(%s): Remote sent invalid protocol data recently, "
+		e_error(conn->event,
+			"Remote sent invalid protocol data recently, "
 			"waiting %u secs before allowing further communication",
-			conn->name, (unsigned int)(next_comm_attempt-ioloop_time));
+			(unsigned int)(next_comm_attempt-ioloop_time));
 		return FALSE;
 	} else if (dir->left == NULL) {
 		/* a) - just in case the left is also our right side reset
@@ -791,8 +791,8 @@ director_handshake_cmd_user(struct director_connection *conn,
 
 	host = mail_host_lookup(conn->dir->mail_hosts, &ip);
 	if (host == NULL) {
-		e_error(conn->dir->event, "director(%s): USER used unknown host %s in handshake",
-			conn->name, args[1]);
+		e_error(conn->event, "USER used unknown host %s in handshake",
+			args[1]);
 		return FALSE;
 	}
 
@@ -959,8 +959,7 @@ director_cmd_host_hand_start(struct director_connection *conn,
 
 	if (remote_ring_completed != 0 && !conn->dir->ring_handshaked) {
 		/* clear everything we have and use only what remote sends us */
-		e_debug(conn->dir->event, "%s: We're joining a ring - replace all hosts",
-			conn->name);
+		e_debug(conn->event, "We're joining a ring - replace all hosts");
 		hosts = mail_hosts_get(conn->dir->mail_hosts);
 		while (array_count(hosts) > 0) {
 			hostp = array_front(hosts);
@@ -968,11 +967,11 @@ director_cmd_host_hand_start(struct director_connection *conn,
 		}
 	} else if (remote_ring_completed == 0 && conn->dir->ring_handshaked) {
 		/* ignore whatever remote sends */
-		e_debug(conn->dir->event, "%s: Remote is joining our ring - "
-			"ignore all remote HOSTs", conn->name);
+		e_debug(conn->event, "Remote is joining our ring - "
+			"ignore all remote HOSTs");
 		conn->ignore_host_events = TRUE;
 	} else {
-		e_debug(conn->dir->event, "%s: Merge rings' hosts", conn->name);
+		e_debug(conn->event, "Merge rings' hosts");
 	}
 	conn->handshake_sending_hosts = TRUE;
 	return TRUE;
@@ -1161,9 +1160,9 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 
 		host_tag = mail_host_get_tag(host);
 		if (strcmp(tag, host_tag) != 0) {
-			e_error(conn->dir->event,
-				"director(%s): Host %s changed tag from '%s' to '%s'",
-				conn->name, host->ip_str,
+			e_error(conn->event,
+				"Host %s changed tag from '%s' to '%s'",
+				host->ip_str,
 				host_tag, tag);
 			mail_host_set_tag(host, tag);
 			update = TRUE;
@@ -1171,8 +1170,8 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 		if (update && host->desynced) {
 			string_t *str = t_str_new(128);
 
-			str_printfa(str, "director(%s): Host %s is being updated before previous update had finished (",
-				  conn->name, host->ip_str);
+			str_printfa(str, "Host %s is being updated before previous update had finished (",
+				  host->ip_str);
 			if (host->down != down &&
 			    host->last_updown_change > last_updown_change) {
 				/* our host has a newer change. preserve it. */
@@ -1195,7 +1194,7 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 			vhost_count = I_MIN(vhost_count, host->vhost_count);
 			str_printfa(str, "setting to state=%s vhosts=%u",
 				    down ? "down" : "up", vhost_count);
-			e_warning(conn->dir->event, "%s", str_c(str));
+			e_warning(conn->event, "%s", str_c(str));
 			/* make the change appear to come from us, so it
 			   reaches the full ring */
 			dir_host = NULL;
@@ -1443,14 +1442,14 @@ static bool director_handshake_cmd_done(struct director_connection *conn)
 	}
 
 	str = t_str_new(128);
-	str_printfa(str, "director(%s): Handshake finished in %u.%03u secs (",
-		    conn->name, handshake_msecs/1000, handshake_msecs%1000);
+	str_printfa(str, "Handshake finished in %u.%03u secs (",
+		    handshake_msecs/1000, handshake_msecs%1000);
 	director_connection_append_stats(conn, str);
 	str_append_c(str, ')');
 	if (handshake_msecs >= DIRECTOR_HANDSHAKE_WARN_SECS*1000)
-		e_warning(dir->event, "%s", str_c(str));
+		e_warning(conn->event, "%s", str_c(str));
 	else
-		e_info(dir->event, "%s", str_c(str));
+		e_info(conn->event, "%s", str_c(str));
 
 	/* the host is up now, make sure we can connect to it immediately
 	   if needed */
@@ -1487,10 +1486,9 @@ director_handshake_cmd_options(struct director_connection *conn,
 			consistent_hashing = TRUE;
 	}
 	if (!consistent_hashing) {
-		e_error(conn->dir->event, "director(%s): director_consistent_hashing settings "
+		e_error(conn->event, "director_consistent_hashing settings "
 			"differ between directors. Set "
-			"director_consistent_hashing=yes on old directors",
-			conn->name);
+			"director_consistent_hashing=yes on old directors");
 		return -1;
 	}
 	return 1;
@@ -1505,24 +1503,24 @@ director_connection_handle_handshake(struct director_connection *conn,
 	/* both incoming and outgoing connections get VERSION and ME */
 	if (strcmp(cmd, "VERSION") == 0 && str_array_length(args) >= 3) {
 		if (strcmp(args[0], DIRECTOR_VERSION_NAME) != 0) {
-			e_error(conn->dir->event, "director(%s): Wrong protocol in socket "
+			e_error(conn->event, "Wrong protocol in socket "
 				"(%s vs %s)",
-				conn->name, args[0], DIRECTOR_VERSION_NAME);
+				args[0], DIRECTOR_VERSION_NAME);
 			return -1;
 		} else if (str_to_uint(args[1], &major_version) < 0 ||
 			str_to_uint(args[2], &conn->minor_version) < 0) {
-			e_error(conn->dir->event, "director(%s): Invalid protocol version: "
-				"%s.%s", conn->name, args[1], args[2]);
+			e_error(conn->event, "Invalid protocol version: "
+				"%s.%s", args[1], args[2]);
 			return -1;
 		} else if (major_version != DIRECTOR_VERSION_MAJOR) {
-			e_error(conn->dir->event, "director(%s): Incompatible protocol version: "
-				"%u vs %u", conn->name, major_version,
+			e_error(conn->event, "Incompatible protocol version: "
+				"%u vs %u", major_version,
 				DIRECTOR_VERSION_MAJOR);
 			return -1;
 		}
 		if (conn->minor_version < DIRECTOR_VERSION_TAGS_V2 &&
 		    mail_hosts_have_tags(conn->dir->mail_hosts)) {
-			e_error(conn->dir->event, "director(%s): Director version supports incompatible tags", conn->name);
+			e_error(conn->event, "Director version supports incompatible tags");
 			return -1;
 		}
 		conn->version_received = TRUE;
@@ -1600,9 +1598,9 @@ director_connection_sync_host(struct director_connection *conn,
 
 		if (hosts_hash != 0 &&
 		    hosts_hash != mail_hosts_hash(conn->dir->mail_hosts)) {
-			e_error(conn->dir->event, "director(%s): Hosts unexpectedly changed during SYNC reply - resending"
+			e_error(conn->event, "Hosts unexpectedly changed during SYNC reply - resending"
 				"(seq=%u, old hosts_hash=%u, new hosts_hash=%u)",
-				conn->name, seq, hosts_hash,
+				seq, hosts_hash,
 				mail_hosts_hash(dir->mail_hosts));
 			(void)director_resend_sync(dir);
 			return FALSE;
@@ -1677,9 +1675,9 @@ director_connection_sync_host(struct director_connection *conn,
 			   with the same wrong hosts_hash. FIXME: this gets
 			   triggered unnecessarily sometimes if hosts are
 			   changing rapidly. */
-			e_error(conn->dir->event, "director(%s): Director %s SYNC request hosts don't match us - resending hosts "
+			e_error(conn->event, "Director %s SYNC request hosts don't match us - resending hosts "
 				"(seq=%u, remote hosts_hash=%u, my hosts_hash=%u)",
-				conn->name, host->ip_str, seq,
+				host->ip_str, seq,
 				hosts_hash, mail_hosts_hash(dir->mail_hosts));
 			director_resend_hosts(dir);
 			return FALSE;
@@ -1690,8 +1688,8 @@ director_connection_sync_host(struct director_connection *conn,
 			director_sync_send(dir, host, seq, minor_version,
 					   timestamp, hosts_hash);
 		} else {
-			e_debug(dir->event, "director(%s): We have no right connection - "
-				"delay replying to SYNC until finished", conn->name);
+			e_debug(conn->event, "We have no right connection - "
+				"delay replying to SYNC until finished");
 			host->delayed_sync_seq = seq;
 			host->delayed_sync_minor_version = minor_version;
 			host->delayed_sync_timestamp = timestamp;
@@ -1866,10 +1864,10 @@ static bool director_cmd_ping(struct director_connection *conn,
 	    str_to_uintmax(args[1], &send_buffer_size) == 0) {
 		int diff_secs = ioloop_time - sent_time;
 		if (diff_secs*1000+500 > DIRECTOR_CONNECTION_PINGPONG_WARN_MSECS) {
-			e_warning(conn->dir->event,
-				  "director(%s): PING response took %d secs to receive "
+			e_warning(conn->event,
+				  "PING response took %d secs to receive "
 				  "(send buffer was %ju bytes)",
-				  conn->name, diff_secs, send_buffer_size);
+				  diff_secs, send_buffer_size);
 		}
 	}
 	director_connection_send(conn,
@@ -1930,9 +1928,9 @@ static bool director_cmd_pong(struct director_connection *conn,
 		if (ping_msecs > DIRECTOR_CONNECTION_PINGPONG_WARN_MSECS) {
 			string_t *extra = t_str_new(128);
 			director_ping_append_extra(conn, extra, sent_time, send_buffer_size);
-			e_warning(conn->dir->event,
-				  "director(%s): PONG response took %u.%03u secs (%s)",
-				  conn->name, ping_msecs/1000, ping_msecs%1000,
+			e_warning(conn->event,
+				  "PONG response took %u.%03u secs (%s)",
+				  ping_msecs/1000, ping_msecs%1000,
 				  str_c(extra));
 		}
 		conn->last_ping_msecs = ping_msecs;
@@ -2021,7 +2019,7 @@ director_connection_handle_line(struct director_connection *conn,
 	const char *cmd, *const *args;
 	bool ret;
 
-	e_debug(conn->dir->event, "input: %s: %s", conn->name, line);
+	e_debug(conn->event, "input: %s", line);
 
 	args = t_strsplit_tabescaped_inplace(line);
 	cmd = args[0];
@@ -2198,8 +2196,7 @@ static int director_connection_send_done(struct director_connection *conn)
 		director_connection_send(conn,
 			"OPTIONS\t"DIRECTOR_OPT_CONSISTENT_HASHING"\n");
 	} else {
-		e_error(conn->dir->event, "director(%s): Director version is too old for supporting director_consistent_hashing=yes",
-			conn->name);
+		e_error(conn->event, "Director version is too old for supporting director_consistent_hashing=yes");
 		return -1;
 	}
 	director_connection_send(conn, "DONE\n");
@@ -2353,8 +2350,7 @@ static void director_connection_connected(struct director_connection *conn)
 	int err;
 
 	if ((err = net_geterror(conn->fd)) != 0) {
-		e_error(conn->dir->event, "director(%s): connect() failed: %s", conn->name,
-			strerror(err));
+		e_error(conn->event, "connect() failed: %s", strerror(err));
 		director_connection_disconnected(&conn, strerror(err));
 		return;
 	}
@@ -2564,8 +2560,7 @@ void director_connection_send(struct director_connection *conn,
 	if (event_want_debug(conn->dir->event)) T_BEGIN {
 		const char *const *lines = t_strsplit(data, "\n");
 		for (; lines[1] != NULL; lines++)
-			e_debug(conn->dir->event, "output: %s: %s",
-				conn->name, *lines);
+			e_debug(conn->event, "output: %s", *lines);
 	} T_END;
 	ret = o_stream_send(conn->output, data, len);
 	if (ret != (off_t)len) {
