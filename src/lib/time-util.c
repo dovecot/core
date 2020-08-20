@@ -38,21 +38,21 @@ int timeval_cmp(const struct timeval *tv1, const struct timeval *tv2)
 int timeval_cmp_margin(const struct timeval *tv1, const struct timeval *tv2,
 	unsigned int usec_margin)
 {
-	unsigned long long usecs_diff;
+	long long usecs_diff;
 	int sec_margin, ret;
 
 	if (tv1->tv_sec < tv2->tv_sec) {
 		sec_margin = ((int)usec_margin / 1000000) + 1;
 		if ((tv2->tv_sec - tv1->tv_sec) > sec_margin)
 			return -1;
-		usecs_diff = (tv2->tv_sec - tv1->tv_sec) * 1000000ULL +
+		usecs_diff = (tv2->tv_sec - tv1->tv_sec) * 1000000LL +
 			(tv2->tv_usec - tv1->tv_usec);
 		ret = -1;
 	} else if (tv1->tv_sec > tv2->tv_sec) {
 		sec_margin = ((int)usec_margin / 1000000) + 1;
 		if ((tv1->tv_sec - tv2->tv_sec) > sec_margin)
 			return 1;
-		usecs_diff = (tv1->tv_sec - tv2->tv_sec) * 1000000ULL +
+		usecs_diff = (tv1->tv_sec - tv2->tv_sec) * 1000000LL +
 			(tv1->tv_usec - tv2->tv_usec);
 		ret = 1;
 	} else if (tv1->tv_usec < tv2->tv_usec) {
@@ -62,12 +62,18 @@ int timeval_cmp_margin(const struct timeval *tv1, const struct timeval *tv2,
 		usecs_diff = tv1->tv_usec - tv2->tv_usec;
 		ret = 1;
 	}
-	return usecs_diff > usec_margin ? ret : 0;
+	i_assert(usecs_diff >= 0);
+	return (unsigned long long)usecs_diff > usec_margin ? ret : 0;
 }
 
 int timeval_diff_msecs(const struct timeval *tv1, const struct timeval *tv2)
 {
-	return timeval_diff_usecs(tv1, tv2) / 1000;
+	long long diff = timeval_diff_usecs(tv1, tv2) / 1000LL;
+#ifdef DEBUG
+	/* FIXME v2.4: Remove the ifdef */
+	i_assert(diff <= INT_MAX);
+#endif
+	return (int)diff;
 }
 
 long long timeval_diff_usecs(const struct timeval *tv1,
