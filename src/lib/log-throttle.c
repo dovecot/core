@@ -32,6 +32,7 @@ log_throttle_init(const struct log_throttle_settings *set,
 		throttle->set.interval_msecs = 1000;
 	throttle->callback = callback;
 	throttle->context = context;
+	throttle->last_time = ioloop_timeval;
 	return throttle;
 }
 
