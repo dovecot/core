@@ -327,12 +327,12 @@ static bool director_connection_assign_left(struct director_connection *conn)
 
 	/* make sure this is the correct incoming connection */
 	if (conn->host->self) {
-		e_error(conn->dir->event, "Connection from self, dropping");
+		e_error(conn->event, "Connection from self, dropping");
 		return FALSE;
 	} else if (dir->left == NULL) {
 		/* no conflicts yet */
 	} else if (dir->left->host == conn->host) {
-		e_warning(dir->event,
+		e_warning(conn->event,
 			  "Replacing left director connection %s with %s",
 			  dir->left->host->name, conn->host->name);
 		director_connection_deinit(&dir->left, t_strdup_printf(
@@ -428,14 +428,14 @@ static bool director_connection_assign_right(struct director_connection *conn)
 		if (director_host_cmp_to_self(conn->host, dir->right->host,
 					      dir->self_host) <= 0) {
 			/* the old connection is the correct one */
-			e_warning(dir->event,
+			e_warning(conn->event,
 				  "Aborting incorrect outgoing connection to %s "
 				  "(already connected to correct one: %s)",
 				  conn->host->name, dir->right->host->name);
 			conn->wrong_host = TRUE;
 			return FALSE;
 		}
-		e_warning(dir->event,
+		e_warning(conn->event,
 			  "Replacing right director connection %s with %s",
 			  dir->right->host->name, conn->host->name);
 		director_connection_deinit(&dir->right, t_strdup_printf(
@@ -487,7 +487,7 @@ static bool director_cmd_me(struct director_connection *conn,
 
 	if (!conn->in && (!net_ip_compare(&conn->host->ip, &ip) ||
 			  conn->host->port != port)) {
-		e_error(conn->dir->event,
+		e_error(conn->event,
 			"Remote director thinks it's someone else "
 			"(connected to %s:%u, remote says it's %s:%u)",
 			conn->host->ip_str, conn->host->port,
@@ -508,7 +508,7 @@ static bool director_cmd_me(struct director_connection *conn,
 		diff = ioloop_time - remote_time;
 		if (diff > DIRECTOR_MAX_CLOCK_DIFF_WARN_SECS ||
 		    (diff < 0 && -diff > DIRECTOR_MAX_CLOCK_DIFF_WARN_SECS)) {
-			e_warning(dir->event,
+			e_warning(conn->event,
 				  "Director %s clock differs from ours by %d secs",
 				  conn->name, diff);
 		}
@@ -632,7 +632,7 @@ director_user_refresh(struct director_connection *conn,
 	if (timestamp + (time_t)dir->set->director_user_expire <= ioloop_time) {
 		/* Ignore this refresh entirely, regardless of whether the
 		   user already exists or not. */
-		e_debug(dir->event,
+		e_debug(conn->event,
 			"user refresh: %u has expired timestamp %"PRIdTIME_T,
 			  username_hash, timestamp);
 		return -1;
@@ -643,14 +643,14 @@ director_user_refresh(struct director_connection *conn,
 		*user_r = user_directory_add(users, username_hash,
 					     host, timestamp);
 		(*user_r)->weak = weak;
-		e_debug(dir->event, "user refresh: %u added", username_hash);
+		e_debug(conn->event, "user refresh: %u added", username_hash);
 		return 1;
 	}
 
 	if (user->weak) {
 		if (!weak) {
 			/* removing user's weakness */
-			e_debug(dir->event, "user refresh: %u weakness removed",
+			e_debug(conn->event, "user refresh: %u weakness removed",
 				username_hash);
 			unset_weak_user = TRUE;
 			user->weak = FALSE;
@@ -661,11 +661,11 @@ director_user_refresh(struct director_connection *conn,
 	} else if (weak &&
 		   !user_directory_user_is_recently_updated(users, user)) {
 		/* mark the user as weak */
-		e_debug(dir->event, "user refresh: %u set weak", username_hash);
+		e_debug(conn->event, "user refresh: %u set weak", username_hash);
 		user->weak = TRUE;
 		ret = TRUE;
 	} else if (weak) {
-		e_debug(dir->event,
+		e_debug(conn->event,
 			"user refresh: %u weak update to %s ignored, "
 			"we recently changed it to %s",
 			username_hash, host->ip_str,
@@ -678,14 +678,14 @@ director_user_refresh(struct director_connection *conn,
 		/* host conflict for a user that is already near expiring. we can
 		   assume that the other director had already dropped this user
 		   and we should have as well. use the new host. */
-		e_debug(dir->event, "user refresh: %u is nearly expired, "
+		e_debug(conn->event, "user refresh: %u is nearly expired, "
 			"replacing host %s with %s", username_hash,
 			user->host->ip_str, host->ip_str);
 		ret = TRUE;
 	} else if (USER_IS_BEING_KILLED(user)) {
 		/* user is still being moved - ignore conflicting host updates
 		   from other directors who don't yet know about the move. */
-		e_debug(dir->event, "user refresh: %u is being moved, "
+		e_debug(conn->event, "user refresh: %u is being moved, "
 			"preserve its host %s instead of replacing with %s",
 			username_hash, user->host->ip_str, host->ip_str);
 		host = user->host;
@@ -710,7 +710,7 @@ director_user_refresh(struct director_connection *conn,
 				    user_kill_state_names[user->kill_ctx->kill_state]);
 		}
 		str_append_c(str, ')');
-		e_error(conn->dir->event, "%s", str_c(str));
+		e_error(conn->event, "%s", str_c(str));
 
 		/* we want all the directors to redirect the user to same
 		   server, but we don't want two directors fighting over which
@@ -749,13 +749,13 @@ director_user_refresh(struct director_connection *conn,
 		   It's not a big problem - most likely it's only a few seconds
 		   difference. The worst that can happen is that some users
 		   take up memory that should have been freed already. */
-		e_debug(dir->event, "user refresh: %u refreshed timestamp from %u to %"PRIdTIME_T,
+		e_debug(conn->event, "user refresh: %u refreshed timestamp from %u to %"PRIdTIME_T,
 			username_hash, user->timestamp, timestamp);
 		user_directory_refresh(users, user);
 		user->timestamp = timestamp;
 		ret = TRUE;
 	} else {
-		e_debug(dir->event, "user refresh: %u ignored timestamp %"PRIdTIME_T" (we have %u)",
+		e_debug(conn->event, "user refresh: %u ignored timestamp %"PRIdTIME_T" (we have %u)",
 			username_hash, timestamp, user->timestamp);
 	}
 
@@ -917,7 +917,7 @@ static bool director_cmd_director(struct director_connection *conn,
 	if (conn->dir->right != NULL &&
 	    director_host_cmp_to_self(host, conn->dir->right->host,
 				      conn->dir->self_host) > 0) {
-		e_debug(conn->dir->event,
+		e_debug(conn->event,
 			"Received DIRECTOR update for a host where we should be connected to. "
 			"Not forwarding it since it's probably crashed.");
 	} else {
@@ -1071,7 +1071,7 @@ director_cmd_user_weak(struct director_connection *conn,
 	} else if (dir_host == conn->dir->self_host) {
 		/* We originated this USER-WEAK request. The entire ring has seen
 		   it and there weren't any conflicts. Make the user non-weak. */
-		e_debug(conn->dir->event,
+		e_debug(conn->event,
 			"user refresh: %u Our USER-WEAK seen by the entire ring",
 			username_hash);
 		src_host = conn->dir->self_host;
@@ -1081,7 +1081,7 @@ director_cmd_user_weak(struct director_connection *conn,
 		   update saying what really happened. We'll still need to forward
 		   this around the ring to the origin so it also knows it has
 		   travelled through the ring. */
-		e_debug(conn->dir->event,
+		e_debug(conn->event,
 			"user refresh: %u Remote USER-WEAK from %s seen by the entire ring, ignoring",
 			username_hash, dir_host->ip_str);
 		weak_forward = TRUE;
@@ -1216,7 +1216,7 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 		mail_host_set_vhost_count(host, vhost_count, log_prefix);
 		director_update_host(conn->dir, src_host, dir_host, host);
 	} else {
-		e_debug(conn->dir->event,
+		e_debug(conn->event,
 			"Ignoring host %s update vhost_count=%u "
 			"down=%d last_updown_change=%ld (hosts_hash=%u)",
 			net_ip2addr(&ip), vhost_count, down ? 1 : 0,
@@ -1417,7 +1417,7 @@ director_cmd_user_killed_everywhere(struct director_connection *conn,
 
 	if (ret > 0) {
 		i_assert(dir_host != NULL);
-		e_debug(conn->dir->event,
+		e_debug(conn->event,
 			"User %u - ignoring already seen USER-KILLED-EVERYWHERE "
 			"with seq=%u <= %s.last_seq=%u", username_hash,
 			seq, dir_host->name, dir_host->last_seq);
@@ -1614,7 +1614,7 @@ director_connection_sync_host(struct director_connection *conn,
 			/* duplicate SYNC (which was sent just in case the
 			   previous one got lost) */
 		} else {
-			e_debug(dir->event, "Ring is synced (%s sent seq=%u, hosts_hash=%u)",
+			e_debug(conn->event, "Ring is synced (%s sent seq=%u, hosts_hash=%u)",
 				conn->name, seq,
 				mail_hosts_hash(dir->mail_hosts));
 			int sync_msecs =
@@ -1628,13 +1628,13 @@ director_connection_sync_host(struct director_connection *conn,
 		    timestamp < host->last_sync_timestamp +
 		    DIRECTOR_SYNC_STALE_TIMESTAMP_RESET_SECS) {
 			/* stale SYNC event */
-			e_debug(dir->event, "Ignore stale SYNC event for %s "
+			e_debug(conn->event, "Ignore stale SYNC event for %s "
 				"(seq %u < %u, timestamp=%u)",
 				host->name, seq, host->last_sync_seq,
 				timestamp);
 			return FALSE;
 		} else if (seq < host->last_sync_seq) {
-			e_warning(dir->event,
+			e_warning(conn->event,
 				  "Last SYNC seq for %s appears to be stale, resetting "
 				  "(seq=%u, timestamp=%u -> seq=%u, timestamp=%u)",
 				  host->name, host->last_sync_seq,
@@ -1647,14 +1647,14 @@ director_connection_sync_host(struct director_connection *conn,
 			host->last_sync_seq = seq;
 			host->last_sync_timestamp = timestamp;
 			host->last_sync_seq_counter = 1;
-			e_debug(dir->event, "Update SYNC for %s "
+			e_debug(conn->event, "Update SYNC for %s "
 				"(seq=%u, timestamp=%u -> seq=%u, timestamp=%u)",
 				host->name, host->last_sync_seq,
 				host->last_sync_timestamp, seq, timestamp);
 		} else if (++host->last_sync_seq_counter >
 			   DIRECTOR_MAX_SYNC_SEQ_DUPLICATES) {
 			/* we've received this too many times already */
-			e_debug(dir->event, "Ignore duplicate #%u SYNC event for %s "
+			e_debug(conn->event, "Ignore duplicate #%u SYNC event for %s "
 				"(seq=%u, timestamp %u <= %u)",
 				host->last_sync_seq_counter, host->name, seq,
 				timestamp, host->last_sync_timestamp);
@@ -1664,7 +1664,7 @@ director_connection_sync_host(struct director_connection *conn,
 		if (hosts_hash != 0 &&
 		    hosts_hash != mail_hosts_hash(conn->dir->mail_hosts)) {
 			if (host->desynced_hosts_hash != hosts_hash) {
-				e_debug(dir->event, "Ignore director %s stale SYNC request whose hosts don't match us "
+				e_debug(conn->event, "Ignore director %s stale SYNC request whose hosts don't match us "
 					"(seq=%u, remote hosts_hash=%u, my hosts_hash=%u)",
 					host->ip_str, seq, hosts_hash,
 					mail_hosts_hash(dir->mail_hosts));
@@ -1799,13 +1799,13 @@ static bool director_cmd_connect(struct director_connection *conn,
 	    director_host_cmp_to_self(host, dir->right->host,
 				      dir->self_host) <= 0) {
 		/* the old connection is the correct one */
-		e_debug(dir->event, "Ignoring CONNECT request to %s (current right is %s)",
+		e_debug(conn->event, "Ignoring CONNECT request to %s (current right is %s)",
 			host->name, dir->right->name);
 		director_reconnect_after_wrong_connect(conn);
 		return TRUE;
 	}
 	if (host->removed) {
-		e_debug(dir->event, "Ignoring CONNECT request to %s (director is removed)",
+		e_debug(conn->event, "Ignoring CONNECT request to %s (director is removed)",
 			host->name);
 		director_reconnect_after_wrong_connect(conn);
 		return TRUE;
@@ -2002,7 +2002,7 @@ director_connection_handle_cmd(struct director_connection *conn,
 	if (strcmp(cmd, "CONNECT") == 0)
 		return director_cmd_connect(conn, args);
 	if (strcmp(cmd, "QUIT") == 0) {
-		e_warning(conn->dir->event,
+		e_warning(conn->event,
 			  "Director %s disconnected us with reason: %s",
 			  conn->name, t_strarray_join(args, " "));
 		return FALSE;
@@ -2045,7 +2045,7 @@ director_connection_log_disconnect(struct director_connection *conn, int err,
 	i_assert(conn->connected);
 
 	if (conn->connect_request_to != NULL) {
-		e_warning(conn->dir->event,
+		e_warning(conn->event,
 			  "Director %s tried to connect to us, "
 			  "should use %s instead",
 			  conn->name, conn->connect_request_to->name);
@@ -2072,7 +2072,7 @@ director_connection_log_disconnect(struct director_connection *conn, int err,
 	if (conn->synced)
 		str_append(str, ", synced");
 	str_append_c(str, ')');
-	e_error(conn->dir->event, "%s", str_c(str));
+	e_error(conn->event, "%s", str_c(str));
 }
 
 static void director_connection_input(struct director_connection *conn)
@@ -2340,7 +2340,7 @@ director_connection_init_in(struct director *dir, int fd,
 	conn->to_ping = timeout_add(DIRECTOR_CONNECTION_ME_TIMEOUT_MSECS,
 				    director_connection_init_timeout, conn);
 
-	e_info(dir->event, "Incoming connection from director %s", conn->name);
+	e_info(conn->event, "Incoming connection from director %s", conn->name);
 	director_connection_send_handshake(conn);
 	return conn;
 }
@@ -2436,7 +2436,7 @@ void director_connection_deinit(struct director_connection **_conn,
 	i_assert(conn->fd != -1);
 
 	if (conn->host != NULL) {
-		e_debug(dir->event, "Disconnecting from %s: %s",
+		e_debug(conn->event, "Disconnecting from %s: %s",
 			conn->host->name, remote_reason);
 	}
 	if (*remote_reason != '\0' &&
@@ -2557,7 +2557,7 @@ void director_connection_send(struct director_connection *conn,
 	if (conn->output->closed || !conn->connected)
 		return;
 
-	if (event_want_debug(conn->dir->event)) T_BEGIN {
+	if (event_want_debug(conn->event)) T_BEGIN {
 		const char *const *lines = t_strsplit(data, "\n");
 		for (; lines[1] != NULL; lines++)
 			e_debug(conn->event, "output: %s", *lines);
