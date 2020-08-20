@@ -38,7 +38,7 @@ struct message_parser_ctx {
 	ARRAY(struct message_part **) next_part_stack;
 
 	size_t skip;
-	char last_chr;
+	unsigned char last_chr;
 	unsigned int want_count;
 
 	struct message_header_parser_ctx *hdr_parser_ctx;
