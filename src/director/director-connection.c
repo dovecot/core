@@ -99,6 +99,7 @@
 struct director_connection {
 	int refcount;
 	struct director *dir;
+	struct event *event;
 	char *name;
 	struct timeval created, connected_time, me_received_time;
 	struct timeval connected_user_cpu;
@@ -164,6 +165,9 @@ director_connection_set_name(struct director_connection *conn, const char *name)
 	char *old_name = conn->name;
 	conn->name = i_strdup(name);
 	i_free(old_name);
+
+	event_set_append_log_prefix(conn->event,
+		t_strdup_printf("director(%s): ", conn->name));
 }
 
 static void ATTR_FORMAT(2, 3)
@@ -2293,6 +2297,7 @@ director_connection_init_common(struct director *dir, int fd)
 	conn->created = ioloop_timeval;
 	conn->fd = fd;
 	conn->dir = dir;
+	conn->event = event_create(dir->event);
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE);
 	conn->output = o_stream_create_fd(conn->fd, dir->set->director_output_buffer_size);
 	o_stream_set_no_error_handling(conn->output, TRUE);
@@ -2502,6 +2507,7 @@ static bool director_connection_unref(struct director_connection *conn)
 		director_host_unref(conn->host);
 	i_stream_unref(&conn->input);
 	o_stream_unref(&conn->output);
+	event_unref(&conn->event);
 	i_free(conn->name);
 	i_free(conn);
 	return FALSE;
