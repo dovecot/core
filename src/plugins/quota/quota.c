@@ -1460,7 +1460,8 @@ void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail)
 void quota_free_bytes(struct quota_transaction_context *ctx,
 		      uoff_t physical_size)
 {
-	ctx->bytes_used -= physical_size;
+	i_assert(physical_size <= INT64_MAX);
+	ctx->bytes_used -= (int64_t)physical_size;
 	ctx->count_used--;
 }
 
