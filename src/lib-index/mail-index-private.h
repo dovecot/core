@@ -48,7 +48,7 @@ typedef int mail_index_expunge_handler_t(struct mail_index_sync_map_ctx *ctx,
 typedef void mail_index_sync_lost_handler_t(struct mail_index *index);
 
 #define MAIL_INDEX_HEADER_SIZE_ALIGN(size) \
-	(((size) + 7) & ~7)
+	(((size) + 7) & ~7U)
 
 struct mail_index_ext {
 	const char *name;

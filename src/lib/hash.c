@@ -576,7 +576,7 @@ unsigned int strfastcase_hash(const char *p)
 	unsigned int g, h = 0;
 
 	while (*s != '\0') {
-		h = (h << 4) + ((*s) & ~0x20);
+		h = (h << 4) + ((*s) & ~0x20U);
 		if ((g = h & 0xf0000000UL) != 0) {
 			h = h ^ (g >> 24);
 			h = h ^ g;

@@ -195,7 +195,7 @@ static void test_bit_tests(void)
 	test_begin("HAS_..._BITS() macro tests");
 
 	test_assert(HAS_NO_BITS(1,0));
-	test_assert(HAS_NO_BITS(2,~2));
+	test_assert(HAS_NO_BITS(2,~2U));
 	test_assert(!HAS_NO_BITS(2,2));
 
 	/* OUCH - this vacuously true expression fails. However, if you are
@@ -204,11 +204,11 @@ static void test_bit_tests(void)
 	/* test_assert(HAS_ANY_BITS(6,0)); */
 	test_assert(HAS_ANY_BITS(3,1));
 	test_assert(HAS_ANY_BITS(2,3));
-	test_assert(!HAS_ANY_BITS(7,~(7|128)));
+	test_assert(!HAS_ANY_BITS(7,~(7U|128U)));
 
 	test_assert(HAS_ALL_BITS(0,0));
 	test_assert(HAS_ALL_BITS(30,14));
-	test_assert(!HAS_ALL_BITS(~1,~0));
+	test_assert(!HAS_ALL_BITS(~1U,~0U));
 
 	/* Trap double-evaluation */
 	unsigned int v=10,b=2;

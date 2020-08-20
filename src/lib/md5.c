@@ -215,7 +215,7 @@ md5_update(struct md5_context *ctx, const void *data, size_t size)
 	}
 
 	if (size >= 64) {
-		data = body(ctx, data, size & ~(unsigned long)0x3f);
+		data = body(ctx, data, size & ~0x3fUL);
 		size &= 0x3f;
 	}
 

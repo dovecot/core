@@ -802,7 +802,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	i_assert(fixed_size == UINT_MAX || fixed_size == data_size);
 
 	data_size32 = (uint32_t)data_size;
-	full_size = sizeof(field_idx) + ((data_size + 3) & ~3);
+	full_size = sizeof(field_idx) + ((data_size + 3) & ~3U);
 	if (fixed_size == UINT_MAX)
 		full_size += sizeof(data_size32);
 

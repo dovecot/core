@@ -725,7 +725,7 @@ mail_index_sync_record_real(struct mail_index_sync_map_ctx *ctx,
 		}
 
 		/* the record is padded to 32bits in the transaction log */
-		record_size = (sizeof(*rec) + ctx->cur_ext_record_size + 3) & ~3;
+		record_size = (sizeof(*rec) + ctx->cur_ext_record_size + 3) & ~3U;
 
 		for (i = 0; i < hdr->size; i += record_size) {
 			rec = CONST_PTR_OFFSET(data, i);

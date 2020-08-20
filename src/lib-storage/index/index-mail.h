@@ -149,7 +149,7 @@ struct index_mail {
 #define HEADER_MATCH_FLAG_FOUND 1
 #define HEADER_MATCH_SKIP_COUNT 2
 #define HEADER_MATCH_USABLE(mail, num) \
-	((num & ~1) == (mail)->header_match_value)
+	((num & ~1U) == (mail)->header_match_value)
 	ARRAY(uint8_t) header_match;
 	ARRAY(unsigned int) header_match_lines;
 	uint8_t header_match_value;

@@ -402,7 +402,7 @@ mailbox_list_index_notify_read_next(struct mailbox_list_notify_index *inotify)
 		/* the record is padded to 32bits in the transaction log */
 		ext = array_idx(&inotify->view->index->extensions,
 				inotify->cur_ext_id);
-		record_size = (sizeof(*rec) + ext->record_size + 3) & ~3;
+		record_size = (sizeof(*rec) + ext->record_size + 3) & ~3U;
 		for (i = 0; i < hdr->size; i += record_size) {
 			rec = CONST_PTR_OFFSET(data, i);
 
