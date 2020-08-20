@@ -599,9 +599,10 @@ int var_expand_with_funcs(string_t *dest, const char *str,
 					/* if offset is < 0 then we want to
 					   start at the end */
 					size_t len = strlen(var);
+					size_t offset_from_end = -ctx.offset;
 
-					if (len > (size_t)-ctx.offset)
-						var += len + ctx.offset;
+					if (len > offset_from_end)
+						var += len - offset_from_end;
 				} else {
 					while (*var != '\0' && ctx.offset > 0) {
 						ctx.offset--;
