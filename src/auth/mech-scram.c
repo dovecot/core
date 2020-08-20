@@ -243,9 +243,9 @@ static bool verify_credentials(struct scram_auth_request *request)
 	hmac_update(&ctx, auth_message, strlen(auth_message));
 	hmac_final(&ctx, client_signature);
 
+	const unsigned char *proof_data = request->proof->data;
 	for (i = 0; i < sizeof(client_signature); i++)
-		client_key[i] =
-			((char*)request->proof->data)[i] ^ client_signature[i];
+		client_key[i] = proof_data[i] ^ client_signature[i];
 
 	hash_method_get_digest(hmethod, client_key, sizeof(client_key),
 			       stored_key);
