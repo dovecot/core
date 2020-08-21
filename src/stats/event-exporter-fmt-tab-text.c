@@ -81,16 +81,10 @@ static void tabtext_export_timestamps(string_t *dest, struct event *event,
 	str_append_c(dest, '\t');
 }
 
-static void append_category(string_t *dest, struct event_category *cat)
+static void append_category(string_t *dest, const char *cat)
 {
-	/* append parent's categories */
-	if (cat->parent != NULL)
-		append_category(dest, cat->parent);
-
-	/* append this */
 	str_append(dest, "category:");
-	str_append_tabescaped(dest, cat->name);
-	str_append_c(dest, '\t');
+	str_append_tabescaped(dest, cat);
 }
 
 static void tabtext_export_categories(string_t *dest, struct event *event,
@@ -98,14 +92,15 @@ static void tabtext_export_categories(string_t *dest, struct event *event,
 {
 	struct event_category *const *cats;
 	unsigned int count;
-	unsigned int i;
 
 	if ((info->include & EVENT_EXPORTER_INCL_CATEGORIES) == 0)
 		return;
 
 	cats = event_get_categories(event, &count);
-	for (i = 0; i < count; i++)
-		append_category(dest, cats[i]);
+	event_export_helper_fmt_categories(dest, cats, count,
+					   append_category, "\t");
+
+	str_append_c(dest, '\t'); /* extra \t to have something to remove later */
 }
 
 static void tabtext_export_fields(string_t *dest, struct event *event,
