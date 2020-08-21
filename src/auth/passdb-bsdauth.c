@@ -17,40 +17,39 @@ static void
 bsdauth_verify_plain(struct auth_request *request, const char *password,
 		    verify_plain_callback_t *callback)
 {
-	struct passwd pw;
 	const char *type;
-	int result;
+	auth_session_t *result;
 
 	e_debug(authdb_event(request), "lookup");
 
-	switch (i_getpwnam(request->user, &pw)) {
-	case -1:
-		e_error(authdb_event(request),
-			"getpwnam() failed: %m");
-		callback(PASSDB_RESULT_INTERNAL_FAILURE, request);
-		return;
-	case 0:
-		auth_request_log_unknown_user(request, AUTH_SUBSYS_DB);
-		callback(PASSDB_RESULT_USER_UNKNOWN, request);
-		return;
-	}
-
-	/* check if the password is valid */
+	/* check if the auth is valid */
 	type = t_strdup_printf("auth-%s", request->service);
-	result = auth_userokay(request->user, NULL, t_strdup_noconst(type),
+	result = auth_usercheck(request->user, NULL, t_strdup_noconst(type),
 			       t_strdup_noconst(password));
 
-	/* clear the passwords from memory */
-	safe_memset(pw.pw_passwd, 0, strlen(pw.pw_passwd));
-
-	if (result == 0) {
+	if (auth_getstate(result) == 0) {
 		auth_request_log_password_mismatch(request, AUTH_SUBSYS_DB);
 		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
 		return;
 	}
 
-	/* make sure we're using the username exactly as it's in the database */
-        auth_request_set_field(request, "user", pw.pw_name, NULL);
+	/* make sure we're using the username as defined by the database.
+	 * On OpenBSD, auth "styles" will translate a request->user of "name:style"
+	 * to "name" authenticated via "style"; or the default auth style on a system
+	 * might do something unusual to map any input to any username it wants.
+	 * See authenticate(3).
+	 */
+	if(auth_getpwd(result) == NULL) {
+		/* FIXME: internal error?
+		 * It would be strange but not impossible to
+		 * accept a user with missing account details.
+		 */
+		auth_request_set_field(request, "user", NULL, NULL);
+	} else {
+		auth_request_set_field(request, "user", auth_getpwd(result)->pw_name, NULL);
+	}
+
+	auth_close(result); // should equal the earlier auth_getstate()
 
 	callback(PASSDB_RESULT_OK, request);
 }
