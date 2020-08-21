@@ -109,17 +109,18 @@ void http_server_switch_ioloop(struct http_server *server)
 
 void http_server_shut_down(struct http_server *server)
 {
-	struct connection *_conn, *_next;
+	struct connection *_conn;
 
 	server->shutting_down = TRUE;
 
-	for (_conn = server->conn_list->connections;
-		_conn != NULL; _conn = _next) {
+	_conn = server->conn_list->connections;
+	while (_conn != NULL) {
 		struct http_server_connection *conn =
 			(struct http_server_connection *)_conn;
+		struct connection *_next = _conn->next;
 
-		_next = _conn->next;
 		(void)http_server_connection_shut_down(conn);
+		_conn = _next;
 	}
 }
 
