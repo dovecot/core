@@ -96,23 +96,11 @@ static void json_export_timestamps(string_t *dest, struct event *event,
 	str_append_c(dest, ',');
 }
 
-static void append_category(string_t *dest, struct event_category *cat)
-{
-	/* append parent's categories */
-	if (cat->parent != NULL)
-		append_category(dest, cat->parent);
-
-	/* append this */
-	append_str(dest, cat->name);
-	str_append_c(dest, ',');
-}
-
 static void json_export_categories(string_t *dest, struct event *event,
 				   const struct metric_export_info *info)
 {
 	struct event_category *const *cats;
 	unsigned int count;
-	unsigned int i;
 
 	if ((info->include & EVENT_EXPORTER_INCL_CATEGORIES) == 0)
 		return;
@@ -121,12 +109,8 @@ static void json_export_categories(string_t *dest, struct event *event,
 	str_append(dest, ":[");
 
 	cats = event_get_categories(event, &count);
-	for (i = 0; i < count; i++)
-		append_category(dest, cats[i]);
-
-	/* remove trailing comma */
-	if (count != 0)
-		str_truncate(dest, str_len(dest) - 1);
+	event_export_helper_fmt_categories(dest, cats, count,
+					   append_str, ",");
 
 	str_append(dest, "],");
 }
