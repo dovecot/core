@@ -11,6 +11,7 @@
                           AC_CHECK_LIB(cassandra, cass_cluster_set_use_hostname_resolution, [
                                       AC_DEFINE(HAVE_CASS_CLUSTER_SET_USE_HOSTNAME_RESOLUTION,, [Build with cass_cluster_set_use_hostname_resolution() support])
                           ],, $CASSANDRA_LIBS)
+                          AC_CHECK_DECLS([CASS_SSL_VERIFY_PEER_IDENTITY_DNS], [], [], [[#include <cassandra.h>]])
                   ], [
                     AS_IF([test "$want_cassandra" = yes], [
                       AC_ERROR([Can't build with Cassandra support: cassandra.h not found])
