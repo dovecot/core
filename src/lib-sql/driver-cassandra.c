@@ -1,6 +1,7 @@
 /* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "istream.h"
 #include "array.h"
 #include "hostpid.h"
 #include "hex-binary.h"
@@ -10,6 +11,7 @@
 #include "write-full.h"
 #include "time-util.h"
 #include "var-expand.h"
+#include "safe-memset.h"
 #include "settings-parser.h"
 #include "sql-api-private.h"
 
@@ -89,6 +91,7 @@ struct cassandra_db {
 	CassLogLevel log_level;
 	bool debug_queries;
 	bool latency_aware_routing;
+	bool init_ssl;
 	unsigned int protocol_version;
 	unsigned int num_threads;
 	unsigned int connect_timeout_msecs, request_timeout_msecs;
@@ -101,6 +104,7 @@ struct cassandra_db {
 	CassCluster *cluster;
 	CassSession *session;
 	CassTimestampGen *timestamp_gen;
+	CassSsl *ssl;
 
 	int fd_pipe[2];
 	struct io *io_pipe;
@@ -110,6 +114,12 @@ struct cassandra_db {
 	unsigned int callback_ids;
 
 	char *metrics_path;
+	char *ssl_ca_file;
+	char *ssl_cert_file;
+	char *ssl_private_key_file;
+	char *ssl_private_key_password;
+	CassSslVerifyFlags ssl_verify_flags;
+
 	struct timeout *to_metrics;
 	uint64_t counters[CASSANDRA_COUNTER_COUNT];
 
@@ -594,6 +604,9 @@ static int driver_cassandra_parse_connect_string(struct cassandra_db *db,
 		}
 		key = t_strdup_until(*args, value++);
 
+		if (str_begins(key, "ssl_"))
+			db->init_ssl = TRUE;
+
 		if (strcmp(key, "host") == 0) {
 			if (str_len(hosts) > 0)
 				str_append_c(hosts, ',');
@@ -760,6 +773,35 @@ static int driver_cassandra_parse_connect_string(struct cassandra_db *db,
 					value);
 				return -1;
 			}
+		} else if (strcmp(key, "ssl_ca") == 0) {
+			db->ssl_ca_file = i_strdup(value);
+		} else if (strcmp(key, "ssl_cert_file") == 0) {
+			db->ssl_cert_file = i_strdup(value);
+		} else if (strcmp(key, "ssl_private_key_file") == 0) {
+			db->ssl_private_key_file = i_strdup(value);
+		} else if (strcmp(key, "ssl_private_key_password") == 0) {
+			db->ssl_private_key_password = i_strdup(value);
+		} else if (strcmp(key, "ssl_verify") == 0) {
+			if (strcmp(value, "none") == 0) {
+				db->ssl_verify_flags = CASS_SSL_VERIFY_NONE;
+			} else if (strcmp(value, "cert") == 0) {
+				db->ssl_verify_flags = CASS_SSL_VERIFY_PEER_CERT;
+			} else if (strcmp(value, "cert-ip") == 0) {
+				db->ssl_verify_flags =
+					CASS_SSL_VERIFY_PEER_CERT |
+					CASS_SSL_VERIFY_PEER_IDENTITY;
+#if HAVE_DECL_CASS_SSL_VERIFY_PEER_IDENTITY_DNS == 1
+			} else if (strcmp(value, "cert-dns") == 0) {
+				db->ssl_verify_flags =
+					CASS_SSL_VERIFY_PEER_CERT |
+					CASS_SSL_VERIFY_PEER_IDENTITY_DNS;
+#endif
+			} else {
+				*error_r = t_strdup_printf(
+					"Unsupported ssl_verify flags: '%s'",
+					value);
+				return -1;
+			}
 		} else {
 			*error_r = t_strdup_printf(
 				"Unknown connect string: %s", key);
@@ -782,6 +824,13 @@ static int driver_cassandra_parse_connect_string(struct cassandra_db *db,
 		*error_r = t_strdup_printf("No dbname given in connect string");
 		return -1;
 	}
+
+	if ((db->ssl_cert_file != NULL && db->ssl_private_key_file == NULL) ||
+	    (db->ssl_cert_file == NULL && db->ssl_private_key_file != NULL)) {
+		*error_r = "ssl_cert_file and ssl_private_key_file need to be both set";
+		return -1;
+	}
+
 	db->hosts = i_strdup(str_c(hosts));
 	return 0;
 }
@@ -876,8 +925,59 @@ static void driver_cassandra_free(struct cassandra_db **_db)
 	i_free(db->keyspace);
 	i_free(db->user);
 	i_free(db->password);
+	i_free(db->ssl_ca_file);
+	i_free(db->ssl_cert_file);
+	i_free(db->ssl_private_key_file);
+	i_free_and_null(db->ssl_private_key_password);
 	array_free(&db->api.module_contexts);
+	if (db->ssl != NULL)
+		cass_ssl_free(db->ssl);
 	i_free(db);
+}
+
+static int driver_cassandra_init_ssl(struct cassandra_db *db, const char **error_r)
+{
+	buffer_t *buf = t_buffer_create(512);
+	CassError c_err;
+
+	db->ssl = cass_ssl_new();
+	i_assert(db->ssl != NULL);
+
+	if (db->ssl_ca_file != NULL) {
+		if (buffer_append_full_file(buf, db->ssl_ca_file, SIZE_MAX,
+					    error_r) < 0)
+			return -1;
+		if ((c_err = cass_ssl_add_trusted_cert(db->ssl, str_c(buf))) != CASS_OK) {
+			*error_r = cass_error_desc(c_err);
+			return -1;
+		}
+	}
+
+	if (db->ssl_private_key_file != NULL && db->ssl_cert_file != NULL) {
+		buffer_set_used_size(buf, 0);
+		if (buffer_append_full_file(buf, db->ssl_private_key_file,
+					    SIZE_MAX, error_r) < 0)
+			return -1;
+		c_err = cass_ssl_set_private_key(db->ssl, str_c(buf),
+					         db->ssl_private_key_password);
+		safe_memset(buffer_get_modifiable_data(buf, NULL), 0, buf->used);
+		if (c_err != CASS_OK) {
+			*error_r = cass_error_desc(c_err);
+			return -1;
+		}
+
+		buffer_set_used_size(buf, 0);
+		if (buffer_append_full_file(buf, db->ssl_cert_file, SIZE_MAX, error_r) < 0)
+			return -1;
+		if ((c_err = cass_ssl_set_cert(db->ssl, str_c(buf))) != CASS_OK) {
+			*error_r = cass_error_desc(c_err);
+			return -1;
+		}
+	}
+
+	cass_ssl_set_verify_flags(db->ssl, db->ssl_verify_flags);
+
+	return 0;
 }
 
 static int driver_cassandra_init_full_v(const struct sql_settings *set,
@@ -911,6 +1011,13 @@ static int driver_cassandra_init_full_v(const struct sql_settings *set,
 		return -1;
 	}
 
+	const char *tmp;
+	if (db->init_ssl &&
+	    (ret = driver_cassandra_init_ssl(db, &tmp)) < 0) {
+		driver_cassandra_free(&db);
+		return -1;
+	}
+
 	driver_cassandra_init_log();
 	cass_log_set_level(db->log_level);
 	if (db->log_level >= CASS_LOG_DEBUG)
@@ -925,6 +1032,19 @@ static int driver_cassandra_init_full_v(const struct sql_settings *set,
 
 	db->timestamp_gen = cass_timestamp_gen_monotonic_new();
 	db->cluster = cass_cluster_new();
+
+#ifdef HAVE_CASS_CLUSTER_SET_USE_HOSTNAME_RESOLUTION
+	if ((db->ssl_verify_flags & CASS_SSL_VERIFY_PEER_IDENTITY_DNS) != 0) {
+		CassError c_err;
+		if ((c_err = cass_cluster_set_use_hostname_resolution(
+				db->cluster, cass_true)) != CASS_OK) {
+			*error_r = cass_error_desc(c_err);
+			driver_cassandra_free(&db);
+			return -1;
+		}
+	}
+#endif
+	cass_cluster_set_ssl(db->cluster, db->ssl);
 	cass_cluster_set_timestamp_gen(db->cluster, db->timestamp_gen);
 	cass_cluster_set_connect_timeout(db->cluster, db->connect_timeout_msecs);
 	cass_cluster_set_request_timeout(db->cluster, db->request_timeout_msecs);
@@ -951,6 +1071,10 @@ static int driver_cassandra_init_full_v(const struct sql_settings *set,
 			db->cluster, db->execution_retry_interval_msecs,
 			db->execution_retry_times);
 #endif
+	if (db->ssl != NULL) {
+		e_debug(db->api.event, "Enabling TLS for cluster");
+		cass_cluster_set_ssl(db->cluster, db->ssl);
+	}
 	db->session = cass_session_new();
 	if (db->metrics_path != NULL)
 		db->to_metrics = timeout_add(1000, driver_cassandra_metrics_write,
