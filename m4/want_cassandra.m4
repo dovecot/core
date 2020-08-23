@@ -8,6 +8,9 @@
                           AC_CHECK_LIB(cassandra, cass_cluster_set_constant_speculative_execution_policy, [
                                        AC_DEFINE(HAVE_CASSANDRA_SPECULATIVE_POLICY, 1, [Cassandra supports speculative execution policy])
                           ],, $CASSANDRA_LIBS)
+                          AC_CHECK_LIB(cassandra, cass_cluster_set_use_hostname_resolution, [
+                                      AC_DEFINE(HAVE_CASS_CLUSTER_SET_USE_HOSTNAME_RESOLUTION,, [Build with cass_cluster_set_use_hostname_resolution() support])
+                          ],, $CASSANDRA_LIBS)
                   ], [
                     AS_IF([test "$want_cassandra" = yes], [
                       AC_ERROR([Can't build with Cassandra support: cassandra.h not found])
