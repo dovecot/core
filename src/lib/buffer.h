@@ -162,4 +162,28 @@ void buffer_verify_pool(buffer_t *buf);
 */
 void buffer_truncate_rshift_bits(buffer_t *buf, size_t bits);
 
+enum buffer_append_result {
+	/* Stream reached EOF successfully */
+	BUFFER_APPEND_OK = 0,
+	/* Error was encountered */
+	BUFFER_APPEND_READ_ERROR = -1,
+	/* Stream is non-blocking, call again later */
+	BUFFER_APPEND_READ_MORE = -2,
+	/* Stream was consumed up to max_read_size */
+	BUFFER_APPEND_READ_MAX_SIZE = -3,
+};
+
+/* Attempt to fully read a stream. Since this can be a network stream, it
+   can return BUFFER_APPEND_READ_MORE, which means you need to call this
+   function again. It is caller's responsibility to keep track of
+   max_read_size in case more reading is needed. */
+enum buffer_append_result
+buffer_append_full_istream(buffer_t *buf, struct istream *is, size_t max_read_size,
+			   const char **error_r);
+
+/* Attempt to fully read a file. BUFFER_APPEND_READ_MORE is never returned. */
+enum buffer_append_result
+buffer_append_full_file(buffer_t *buf, const char *file, size_t max_read_size,
+			const char **error_r);
+
 #endif

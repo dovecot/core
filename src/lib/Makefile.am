@@ -47,6 +47,7 @@ liblib_la_SOURCES = \
 	bits.c \
 	bsearch-insert-pos.c \
 	buffer.c \
+	buffer-istream.c \
 	child-wait.c \
 	compat.c \
 	connection.c \
@@ -372,6 +373,7 @@ test_lib_SOURCES = \
 	test-bits.c \
 	test-bsearch-insert-pos.c \
 	test-buffer.c \
+	test-buffer-istream.c \
 	test-byteorder.c \
 	test-connection.c \
 	test-crc32.c \
