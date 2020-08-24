@@ -176,7 +176,8 @@ imap_hibernate_process_send(struct client *client, const buffer_t *state,
 			   "/"IMAP_HIBERNATE_SOCKET_NAME, NULL);
 	fd = net_connect_unix_with_retries(path, 1000);
 	if (fd == -1) {
-		e_error(client->event, "net_connect_unix(%s) failed: %m", path);
+		*error_r = t_strdup_printf(
+			"net_connect_unix(%s) failed: %m", path);
 		return -1;
 	}
 	net_set_nonblock(fd, FALSE);
