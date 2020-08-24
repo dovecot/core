@@ -143,7 +143,6 @@ struct client *client_create(int fd_in, int fd_out,
 	o_stream_set_flush_callback(client->output, client_output, client);
 
 	p_array_init(&client->module_contexts, client->pool, 5);
-	client->io = io_add_istream(client->input, client_input, client);
         client->last_input = ioloop_time;
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
 				      client_idle_timeout, client);
@@ -228,6 +227,7 @@ int client_create_finish(struct client *client, const char **error_r)
 		return -1;
 	mail_namespaces_set_storage_callbacks(client->user->namespaces,
 					      &mail_storage_callbacks, client);
+	client->io = io_add_istream(client->input, client_input, client);
 
 	client->v.init(client);
 	return 0;
