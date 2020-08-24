@@ -323,8 +323,9 @@ enum mailbox_feature client_enabled_mailbox_features(struct client *client);
 const char *const *client_enabled_features(struct client *client);
 
 /* Send client processing to imap-idle process. If successful, returns TRUE
-   and destroys the client. */
-bool imap_client_hibernate(struct client **client);
+   and destroys the client. If hibernation failed, the exact reason is
+   returned (mainly for unit tests). */
+bool imap_client_hibernate(struct client **client, const char **reason_r);
 
 struct imap_search_update *
 client_search_update_lookup(struct client *client, const char *tag,
