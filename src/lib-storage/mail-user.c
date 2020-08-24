@@ -698,6 +698,7 @@ void mail_user_init_fs_settings(struct mail_user *user,
 				struct fs_settings *fs_set,
 				struct ssl_iostream_settings *ssl_set)
 {
+	fs_set->event = user->event;
 	fs_set->username = user->username;
 	fs_set->session_id = user->session_id;
 	fs_set->base_dir = user->set->base_dir;
