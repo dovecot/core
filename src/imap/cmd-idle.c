@@ -175,11 +175,12 @@ static void idle_add_keepalive_timeout(struct cmd_idle_context *ctx)
 static void idle_hibernate_timeout(struct cmd_idle_context *ctx)
 {
 	struct client *client = ctx->client;
+	const char *reason;
 
 	i_assert(ctx->sync_ctx == NULL);
 	i_assert(!ctx->sync_pending);
 
-	if (imap_client_hibernate(&client)) {
+	if (imap_client_hibernate(&client, &reason)) {
 		/* client may be destroyed now */
 	} else {
 		/* failed - don't bother retrying */
