@@ -343,6 +343,9 @@ void client_continue_pending_input(struct client *client);
 void client_add_missing_io(struct client *client);
 const char *client_stats(struct client *client);
 
+void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
+			      const buffer_t *state, int fd_notify);
+
 void client_input(struct client *client);
 bool client_handle_input(struct client *client);
 int client_output(struct client *client);
