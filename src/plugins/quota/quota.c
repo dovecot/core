@@ -310,6 +310,7 @@ int quota_user_read_settings(struct mail_user *user,
 	pool = pool_alloconly_create("quota settings", 2048);
 	quota_set = p_new(pool, struct quota_settings, 1);
 	quota_set->pool = pool;
+	quota_set->event = event_create(user->event);
 	quota_set->test_alloc = quota_default_test_alloc;
 	quota_set->debug = user->mail_debug;
 	quota_set->quota_exceeded_msg =
@@ -342,6 +343,7 @@ int quota_user_read_settings(struct mail_user *user,
 				   &error) < 0) {
 			*error_r = t_strdup_printf("Invalid quota root %s: %s",
 						   root_name, error);
+			event_unref(&quota_set->event);
 			pool_unref(&pool);
 			return -1;
 		}
@@ -350,6 +352,7 @@ int quota_user_read_settings(struct mail_user *user,
 	}
 	if (quota_set->max_mail_size == 0 &&
 	    array_count(&quota_set->root_sets) == 0) {
+		event_unref(&quota_set->event);
 		pool_unref(&pool);
 		return 0;
 	}
@@ -365,6 +368,7 @@ void quota_settings_deinit(struct quota_settings **_quota_set)
 
 	*_quota_set = NULL;
 
+	event_unref(&quota_set->event);
 	pool_unref(&quota_set->pool);
 }
 
@@ -439,6 +443,8 @@ int quota_init(struct quota_settings *quota_set, struct mail_user *user,
 	int ret;
 
 	quota = i_new(struct quota, 1);
+	quota->event = event_create(user->event);
+	event_set_forced_debug(quota->event, quota_set->debug);
 	quota->user = user;
 	quota->set = quota_set;
 	i_array_init(&quota->roots, 8);
@@ -475,6 +481,7 @@ void quota_deinit(struct quota **_quota)
 
 	array_free(&quota->roots);
 	array_free(&quota->namespaces);
+	event_unref(&quota->event);
 	i_free(quota);
 }
 
