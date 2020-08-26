@@ -343,7 +343,9 @@ static void test_mechs(void)
 			test_expect_error_string(test_case->expect_error);
 
 		request->state = AUTH_REQUEST_STATE_NEW;
-		request->initial_response = test_case->in;
+		unsigned char *input_dup = test_case->len == 0 ? NULL :
+			i_memdup(test_case->in, test_case->len);
+		request->initial_response = input_dup;
 		request->initial_response_len = test_case->len;
 		auth_request_initial(request);
 
@@ -381,6 +383,7 @@ static void test_mechs(void)
 
 		event_unref(&request->event);
 		event_unref(&request->mech_event);
+		i_free(input_dup);
 		mech->auth_free(request);
 
 		test_end();
