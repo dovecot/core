@@ -334,6 +334,7 @@ mail_cache_transaction_update_index(struct mail_cache_transaction_ctx *ctx,
 		ctx->records_written++;
 	}
 	if (trans != ctx->trans) {
+		i_assert(cache->index->log_sync_locked);
 		if (mail_index_transaction_commit(&trans) < 0) {
 			/* failed, but can't really do anything */
 		} else {
@@ -515,13 +516,36 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx,
 		return 0;
 	}
 
-	if (mail_cache_transaction_lock(ctx) <= 0)
+	/* If we're going to be committing a transaction, the log must be
+	   locked before we lock cache or we can deadlock. */
+	bool lock_log = !ctx->cache->index->log_sync_locked &&
+		!committing && !ctx->have_noncommited_mails;
+	if (lock_log) {
+		uint32_t file_seq;
+		uoff_t file_offset;
+
+		if (mail_transaction_log_sync_lock(ctx->cache->index->log,
+				"mail cache transaction flush",
+				&file_seq, &file_offset) < 0)
+			return -1;
+	}
+
+	if (mail_cache_transaction_lock(ctx) <= 0) {
+		if (lock_log) {
+			mail_transaction_log_sync_unlock(ctx->cache->index->log,
+				"mail cache transaction flush: cache lock failed");
+		}
 		return -1;
+	}
 
 	i_assert(ctx->cache_data != NULL);
 	i_assert(ctx->last_rec_pos <= ctx->cache_data->used);
 
 	if (mail_cache_transaction_update_fields(ctx) < 0) {
+		if (lock_log) {
+			mail_transaction_log_sync_unlock(ctx->cache->index->log,
+				"mail cache transaction flush: field update failed");
+		}
 		mail_cache_unlock(ctx->cache);
 		return -1;
 	}
@@ -552,6 +576,11 @@ mail_cache_transaction_flush(struct mail_cache_transaction_ctx *ctx,
 	}
 	if (mail_cache_flush_and_unlock(ctx->cache) < 0)
 		ret = -1;
+
+	if (lock_log) {
+		mail_transaction_log_sync_unlock(ctx->cache->index->log,
+			"mail cache transaction flush");
+	}
 	return ret;
 }
 
