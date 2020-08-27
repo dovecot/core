@@ -353,7 +353,7 @@ void auth_client_send_cancel(struct auth_client *client, unsigned int id)
 	const char *str = t_strdup_printf("CANCEL\t%u\n", id);
 
 	if (o_stream_send_str(client->conn->conn.output, str) < 0) {
-		e_error(client->conn->event,
+		e_error(client->conn->conn.event,
 			"Error sending request to auth server: %m");
 	}
 }

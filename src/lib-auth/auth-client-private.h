@@ -22,7 +22,6 @@ struct auth_client_request {
 struct auth_client_connection {
 	struct connection conn;
 	pool_t pool;
-	struct event *event;
 
 	struct auth_client *client;
 	time_t last_connect;
