@@ -29,7 +29,7 @@ struct vqpasswd *vpopmail_lookup_vqp(struct auth_request *request,
 	memset(vpop_user, '\0', VPOPMAIL_LIMIT);
 	memset(vpop_domain, '\0', VPOPMAIL_LIMIT);
 
-	if (parse_email(request->user, vpop_user, vpop_domain,
+	if (parse_email(request->fields.user, vpop_user, vpop_domain,
 			VPOPMAIL_LIMIT-1) < 0) {
 		e_info(authdb_event(request),
 		       "parse_email() failed");
@@ -103,10 +103,10 @@ static void vpopmail_lookup(struct auth_request *auth_request,
 		return;
 	}
 
-	if (auth_request->successful) {
+	if (auth_request->fields.successful) {
 		/* update the last login only when we're really  */
 		vset_lastauth(vpop_user, vpop_domain,
-			      t_strdup_noconst(auth_request->service));
+			      t_strdup_noconst(auth_request->fields.service));
 	}
 
 	if (vpw->pw_dir == NULL || vpw->pw_dir[0] == '\0') {

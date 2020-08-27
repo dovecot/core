@@ -34,24 +34,24 @@ static bool vpopmail_is_disabled(struct auth_request *request,
 	struct vpopmail_passdb_module *module =
 		(struct vpopmail_passdb_module *)_module;
 
-	if (strcasecmp(request->service, "IMAP") == 0) {
+	if (strcasecmp(request->fields.service, "IMAP") == 0) {
 		if ((vpw->pw_flags & NO_IMAP) != 0) {
 			/* IMAP from webmail IP may still be allowed */
 			if (!net_ip_compare(&module->webmail_ip,
-					    &request->remote_ip))
+					    &request->fields.remote_ip))
 				return TRUE;
 		}
 		if ((vpw->pw_flags & NO_WEBMAIL) != 0) {
 			if (net_ip_compare(&module->webmail_ip,
-					   &request->remote_ip))
+					   &request->fields.remote_ip))
 				return TRUE;
 		}
 	}
 	if ((vpw->pw_flags & NO_POP) != 0 &&
-	    strcasecmp(request->service, "POP3") == 0)
+	    strcasecmp(request->fields.service, "POP3") == 0)
 		return TRUE;
 	if ((vpw->pw_flags & NO_SMTP) != 0 &&
-	    strcasecmp(request->service, "SMTP") == 0)
+	    strcasecmp(request->fields.service, "SMTP") == 0)
 		return TRUE;
 	return FALSE;
 }
@@ -73,7 +73,7 @@ vpopmail_password_lookup(struct auth_request *auth_request, bool *cleartext,
 	if (vpopmail_is_disabled(auth_request, vpw)) {
 		e_info(authdb_event(auth_request),
 		       "%s disabled in vpopmail for this user",
-		       auth_request->service);
+		       auth_request->fields.service);
 		password = NULL;
 		*result_r = PASSDB_RESULT_USER_DISABLED;
 	} else {
@@ -151,11 +151,11 @@ vpopmail_verify_plain(struct auth_request *request, const char *password,
 	}
 
 #ifdef POP_AUTH_OPEN_RELAY
-	if (strcasecmp(request->service, "POP3") == 0 ||
-	    strcasecmp(request->service, "IMAP") == 0) {
-		const char *host = net_ip2addr(&request->remote_ip);
+	if (strcasecmp(request->fields.service, "POP3") == 0 ||
+	    strcasecmp(request->fields.service, "IMAP") == 0) {
+		const char *host = net_ip2addr(&request->fields.remote_ip);
 		/* vpopmail 5.4 does not understand IPv6 */
-		if (host[0] != '\0' && IPADDR_IS_V4(&request->remote_ip)) {
+		if (host[0] != '\0' && IPADDR_IS_V4(&request->fields.remote_ip)) {
 			/* use putenv() directly rather than env_put() which
 			   would leak memory every time we got here. use a
 			   static buffer for putenv() as SUSv2 requirements
