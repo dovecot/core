@@ -1989,7 +1989,7 @@ driver_cassandra_bind_int(struct cassandra_sql_statement *stmt,
 
 	switch (value_type) {
 	case CASS_VALUE_TYPE_INT:
-		if (value < -2147483648 || value > 2147483647)
+		if (value < INT32_MIN || value > INT32_MAX)
 			return CASS_ERROR_LIB_INVALID_VALUE_TYPE;
 		return cass_statement_bind_int32(stmt->cass_stmt, column_idx,
 						 value);
@@ -1998,12 +1998,12 @@ driver_cassandra_bind_int(struct cassandra_sql_statement *stmt,
 		return cass_statement_bind_int64(stmt->cass_stmt, column_idx,
 						 value);
 	case CASS_VALUE_TYPE_SMALL_INT:
-		if (value < -32768 || value > 32767)
+		if (value < INT16_MIN || value > INT16_MAX)
 			return CASS_ERROR_LIB_INVALID_VALUE_TYPE;
 		return cass_statement_bind_int16(stmt->cass_stmt, column_idx,
 						 value);
 	case CASS_VALUE_TYPE_TINY_INT:
-		if (value < -128 || value > 127)
+		if (value < INT8_MIN || value > INT8_MAX)
 			return CASS_ERROR_LIB_INVALID_VALUE_TYPE;
 		return cass_statement_bind_int8(stmt->cass_stmt, column_idx,
 						value);
