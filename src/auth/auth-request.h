@@ -176,6 +176,7 @@ struct auth_request {
 	bool userdbs_seen_internal_failure:1;
 
 	/* current state: */
+	bool handler_pending_reply:1;
 	bool accept_cont_input:1;
 	bool prefer_plain_credentials:1;
 	bool in_delayed_failure_queue:1;

@@ -366,6 +366,8 @@ void auth_request_handler_reply(struct auth_request *request,
 				const void *auth_reply, size_t reply_size)
 {
 	struct auth_request_handler *handler = request->handler;
+
+	request->handler_pending_reply = FALSE;
 	handler->reply_callback(request, result, auth_reply, reply_size);
 }
 
@@ -437,6 +439,15 @@ auth_request_handler_default_reply_continue(struct auth_request *request,
 {
 	auth_request_handler_reply(request, AUTH_CLIENT_RESULT_CONTINUE,
 				   reply, reply_size);
+}
+
+void auth_request_handler_abort(struct auth_request *request)
+{
+	i_assert(request->handler_pending_reply);
+
+	/* request destroyed while waiting for auth_request_penalty_finish()
+	   to be called. */
+	auth_request_handler_unref(&request->handler);
 }
 
 static void
@@ -665,6 +676,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	/* handler is referenced until auth_request_handler_reply()
 	   is called. */
 	handler->refcount++;
+	request->handler_pending_reply = TRUE;
 
 	/* before we start authenticating, see if we need to wait first */
 	auth_penalty_lookup(auth_penalty, request, auth_penalty_callback);

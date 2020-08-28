@@ -331,6 +331,9 @@ void auth_request_unref(struct auth_request **_request)
 
 	i_assert(array_count(&request->authdb_event) == 0);
 
+	if (request->handler_pending_reply)
+		auth_request_handler_abort(request);
+
 	event_unref(&request->mech_event);
 	event_unref(&request->event);
 	auth_request_stats_send(request);
