@@ -279,7 +279,7 @@ int net_connect_unix(const char *path)
 #ifdef ENAMETOOLONG
 		errno = ENAMETOOLONG;
 #else
-		errno = EINVAL;
+		errno = EOVERFLOW;
 #endif
 		return -1;
 	}
@@ -513,7 +513,11 @@ int net_listen_unix(const char *path, int backlog)
 	sa.un.sun_family = AF_UNIX;
 	if (i_strocpy(sa.un.sun_path, path, sizeof(sa.un.sun_path)) < 0) {
 		/* too long path */
+#ifdef ENAMETOOLONG
+		errno = ENAMETOOLONG;
+#else
 		errno = EOVERFLOW;
+#endif
 		return -1;
 	}
 
