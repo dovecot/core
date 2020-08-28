@@ -98,7 +98,7 @@ zlib_mail_cache_open(struct zlib_user *zuser, struct mail *mail,
 	input = i_stream_create_seekable_path(inputs,
 				i_stream_get_max_buffer_size(inputs[0]),
 				str_c(temp_prefix));
-	i_stream_set_name(input, t_strdup_printf("zlib(%s)",
+	i_stream_set_name(input, t_strdup_printf("compress(%s)",
 						 i_stream_get_name(inputs[0])));
 	i_stream_unref(&inputs[0]);
 
