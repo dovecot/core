@@ -109,7 +109,7 @@ static void acl_mailbox_copy_acls_from_parent(struct mailbox *box)
 			(void)acl_object_update(abox->aclobj, &update);
 	}
 	/* FIXME: Add error handling */
-	acl_object_list_deinit(&iter);
+	(void)acl_object_list_deinit(&iter);
 	acl_object_deinit(&parent_aclobj);
 }
 
