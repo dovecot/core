@@ -111,8 +111,10 @@ static int o_stream_lzma_send_flush(struct lzma_ostream *zstream, bool final)
 
 	i_assert(zs->avail_in == 0);
 
-	if (zstream->flushed)
+	if (zstream->flushed) {
+		i_assert(zstream->outbuf_used == 0);
 		return 1;
+	}
 
 	if ((ret = o_stream_flush_parent_if_needed(&zstream->ostream)) <= 0)
 		return ret;
@@ -153,7 +155,8 @@ static int o_stream_lzma_send_flush(struct lzma_ostream *zstream, bool final)
 
 	if (final)
 		zstream->flushed = TRUE;
-	return zstream->outbuf_used == 0 ? 1 : 0;
+	i_assert(zstream->outbuf_used == 0);
+	return 1;
 }
 
 static int o_stream_lzma_flush(struct ostream_private *stream)

@@ -107,8 +107,10 @@ static int o_stream_zstd_send_flush(struct zstd_ostream *zstream, bool final)
 {
 	int ret;
 
-	if (zstream->flushed)
+	if (zstream->flushed) {
+		i_assert(zstream->output.pos == 0);
 		return 1;
+	}
 
 	if ((ret = o_stream_flush_parent_if_needed(&zstream->ostream)) <= 0)
 		return ret;
@@ -136,6 +138,7 @@ static int o_stream_zstd_send_flush(struct zstd_ostream *zstream, bool final)
 
 	if (final)
 		zstream->flushed = TRUE;
+	i_assert(zstream->output.pos == 0);
 	return 1;
 }
 
