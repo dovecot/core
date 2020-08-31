@@ -16,8 +16,8 @@ smtp_server_recipient_update_event(struct smtp_server_recipient_private *prcpt)
 
 	event_add_str(event, "rcpt_to", path);
 	smtp_params_rcpt_add_to_event(&prcpt->rcpt.params, event);
-	event_set_append_log_prefix(event,
-		t_strdup_printf("rcpt %s: ", str_sanitize(path, 128)));
+	event_set_append_log_prefix(
+		event, t_strdup_printf("rcpt %s: ", str_sanitize(path, 128)));
 }
 
 struct smtp_server_recipient *
@@ -151,7 +151,7 @@ void smtp_server_recipient_data_replied(struct smtp_server_recipient *rcpt)
 	rcpt->replied = TRUE;
 	if (!smtp_server_recipient_call_hooks(
 		&rcpt, SMTP_SERVER_RECIPIENT_HOOK_DATA_REPLIED)) {
-		/* nothing to do */
+		/* Nothing to do */
 	}
 }
 
@@ -182,7 +182,7 @@ void smtp_server_recipient_replyv(struct smtp_server_recipient *rcpt,
 					 status, enh_code, fmt, args);
 		return;
 	}
-		
+
 	smtp_server_reply_index(rcpt->cmd, rcpt->index, status, enh_code,
 				"<%s> %s", smtp_address_encode(rcpt->path),
 				t_strdup_vprintf(fmt, args));
@@ -254,7 +254,7 @@ void smtp_server_recipient_add_hook(struct smtp_server_recipient *rcpt,
 
 	hook = prcpt->hooks_head;
 	while (hook != NULL) {
-		/* no double registrations */
+		/* No double registrations */
 		i_assert(hook->type != type || hook->func != func);
 
 		hook = hook->next;
