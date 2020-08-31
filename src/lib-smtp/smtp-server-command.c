@@ -11,9 +11,9 @@
  * Command registry
  */
 
-void smtp_server_command_register(struct smtp_server *server,
-	const char *name, smtp_server_cmd_start_func_t *func,
-	enum smtp_server_command_flags flags)
+void smtp_server_command_register(struct smtp_server *server, const char *name,
+				  smtp_server_cmd_start_func_t *func,
+				  enum smtp_server_command_flags flags)
 {
 	struct smtp_server_command_reg cmd;
 
@@ -75,50 +75,46 @@ void smtp_server_commands_init(struct smtp_server *server)
 
 	switch (server->set.protocol) {
 	case SMTP_PROTOCOL_SMTP:
-		smtp_server_command_register(server,
-			"EHLO", smtp_server_cmd_ehlo,
+		smtp_server_command_register(
+			server,	"EHLO", smtp_server_cmd_ehlo,
 			SMTP_SERVER_CMD_FLAG_PRETLS |
 			SMTP_SERVER_CMD_FLAG_PREAUTH);
-		smtp_server_command_register(server,
-			"HELO", smtp_server_cmd_helo,
+		smtp_server_command_register(
+			server, "HELO", smtp_server_cmd_helo,
 			SMTP_SERVER_CMD_FLAG_PREAUTH);
 		break;
 	case SMTP_PROTOCOL_LMTP:
-		smtp_server_command_register(server,
-			"LHLO", smtp_server_cmd_ehlo,
+		smtp_server_command_register(
+			server, "LHLO", smtp_server_cmd_ehlo,
 			SMTP_SERVER_CMD_FLAG_PRETLS |
 			SMTP_SERVER_CMD_FLAG_PREAUTH);
 		break;
 	}
 
-	smtp_server_command_register(server,
-		"AUTH", smtp_server_cmd_auth,
+	smtp_server_command_register(
+		server, "AUTH", smtp_server_cmd_auth,
 		SMTP_SERVER_CMD_FLAG_PREAUTH);
-	smtp_server_command_register(server,
-		"STARTTLS", smtp_server_cmd_starttls,
+	smtp_server_command_register(
+		server, "STARTTLS", smtp_server_cmd_starttls,
 		SMTP_SERVER_CMD_FLAG_PRETLS | SMTP_SERVER_CMD_FLAG_PREAUTH);
-	smtp_server_command_register(server,
-		"MAIL", smtp_server_cmd_mail, 0);
-	smtp_server_command_register(server,
-		"RCPT", smtp_server_cmd_rcpt, 0);
-	smtp_server_command_register(server,
-		"DATA", smtp_server_cmd_data, 0);
-	smtp_server_command_register(server,
-		"BDAT", smtp_server_cmd_bdat, 0);
-	smtp_server_command_register(server,
-		"RSET", smtp_server_cmd_rset,
+	smtp_server_command_register(
+		server, "MAIL", smtp_server_cmd_mail, 0);
+	smtp_server_command_register(server, "RCPT", smtp_server_cmd_rcpt, 0);
+	smtp_server_command_register(server, "DATA", smtp_server_cmd_data, 0);
+	smtp_server_command_register(server, "BDAT", smtp_server_cmd_bdat, 0);
+	smtp_server_command_register(
+		server, "RSET", smtp_server_cmd_rset,
 		SMTP_SERVER_CMD_FLAG_PREAUTH);
-	smtp_server_command_register(server,
-		"VRFY", smtp_server_cmd_vrfy, 0);
-	smtp_server_command_register(server,
-		"NOOP", smtp_server_cmd_noop,
+	smtp_server_command_register(server, "VRFY", smtp_server_cmd_vrfy, 0);
+	smtp_server_command_register(
+		server, "NOOP", smtp_server_cmd_noop,
 		SMTP_SERVER_CMD_FLAG_PRETLS | SMTP_SERVER_CMD_FLAG_PREAUTH);
-	smtp_server_command_register(server,
-		"QUIT", smtp_server_cmd_quit,
+	smtp_server_command_register(
+		server, "QUIT", smtp_server_cmd_quit,
 		SMTP_SERVER_CMD_FLAG_PRETLS | SMTP_SERVER_CMD_FLAG_PREAUTH);
 
-	smtp_server_command_register(server,
-		"XCLIENT", smtp_server_cmd_xclient,
+	smtp_server_command_register(
+		server, "XCLIENT", smtp_server_cmd_xclient,
 		SMTP_SERVER_CMD_FLAG_PREAUTH);
 }
 
@@ -126,8 +122,7 @@ void smtp_server_commands_init(struct smtp_server *server)
  *
  */
 
-static void
-smtp_server_command_update_event(struct smtp_server_command *cmd)
+static void smtp_server_command_update_event(struct smtp_server_command *cmd)
 {
 	struct event *event = cmd->context.event;
 	const char *label = (cmd->context.name == NULL ?
@@ -305,7 +300,7 @@ bool smtp_server_command_unref(struct smtp_server_command **_cmd)
 		conn->command_queue_count--;
 	}
 
-	/* execute hooks */
+	/* Execute hooks */
 	if (!smtp_server_command_call_hooks(
 		&cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY, TRUE))
 		i_unreached();
@@ -321,7 +316,7 @@ void smtp_server_command_abort(struct smtp_server_command **_cmd)
 	struct smtp_server_command *cmd = *_cmd;
 	struct smtp_server_connection *conn = cmd->context.conn;
 
-	/* preemptively remove command from queue (references may still exist)
+	/* Preemptively remove command from queue (references may still exist)
 	 */
 	if (cmd->state >= SMTP_SERVER_COMMAND_STATE_FINISHED) {
 		e_debug(cmd->context.event, "Abort");
@@ -356,7 +351,7 @@ void smtp_server_command_add_hook(struct smtp_server_command *cmd,
 
 	hook = cmd->hooks_head;
 	while (hook != NULL) {
-		/* no double registrations */
+		/* No double registrations */
 		i_assert(hook->type != type || hook->func != func);
 
 		hook = hook->next;
@@ -524,7 +519,7 @@ smtp_server_command_handle_reply(struct smtp_server_command *cmd)
 	if (!smtp_server_command_replied(&cmd))
 		return smtp_server_connection_unref(&conn);
 
-	/* submit reply */
+	/* Submit reply */
 	switch (cmd->state) {
 	case SMTP_SERVER_COMMAND_STATE_NEW:
 	case SMTP_SERVER_COMMAND_STATE_PROCESSING:
@@ -575,7 +570,7 @@ void smtp_server_command_submit_reply(struct smtp_server_command *cmd)
 
 	smtp_server_command_remove_hooks(cmd, SMTP_SERVER_COMMAND_HOOK_NEXT);
 
-	/* limit number of consecutive bad commands */
+	/* Limit number of consecutive bad commands */
 	if (is_bad)
 		conn->bad_counter++;
 	else if (cmd->replies_submitted == cmd->replies_expected)
@@ -629,7 +624,7 @@ bool smtp_server_command_reply_is_forwarded(struct smtp_server_command *cmd)
 
 struct smtp_server_reply *
 smtp_server_command_get_reply(struct smtp_server_command *cmd,
-	unsigned int idx)
+			      unsigned int idx)
 {
 	struct smtp_server_reply *reply;
 
@@ -645,7 +640,7 @@ smtp_server_command_get_reply(struct smtp_server_command *cmd,
 }
 
 bool smtp_server_command_reply_status_equals(struct smtp_server_command *cmd,
-	unsigned int status)
+					     unsigned int status)
 {
 	struct smtp_server_reply *reply;
 
@@ -742,8 +737,8 @@ void smtp_server_command_fail(struct smtp_server_command *cmd,
 				array_idx(&cmd->replies, i);
 			sent = reply->sent;
 		}
-	
-		/* send the same reply for all */
+
+		/* Send the same reply for all */
 		if (!sent) {
 			va_list args_copy;
 			VA_COPY(args_copy, args);
@@ -773,7 +768,8 @@ void smtp_server_command_input_unlock(struct smtp_server_cmd_ctx *cmd)
 	smtp_server_connection_input_resume(conn);
 }
 
-void smtp_server_command_input_capture(struct smtp_server_cmd_ctx *cmd,
+void smtp_server_command_input_capture(
+	struct smtp_server_cmd_ctx *cmd,
 	smtp_server_cmd_input_callback_t *callback)
 {
 	struct smtp_server_command *command = cmd->cmd;
