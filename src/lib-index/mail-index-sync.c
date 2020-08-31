@@ -277,7 +277,8 @@ mail_index_need_sync(struct mail_index *index, enum mail_index_sync_flags flags,
 		return TRUE;
 
 	/* already synced */
-	return mail_cache_need_purge(index->cache);
+	const char *reason;
+	return mail_cache_need_purge(index->cache, &reason);
 }
 
 static int
@@ -939,11 +940,11 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	/* The previously called expunged handlers will update cache's
 	   record_count and deleted_record_count. That also has a side effect
 	   of updating whether cache needs to be purged. */
-	if (ret == 0 && mail_cache_need_purge(index->cache) &&
+	if (ret == 0 && mail_cache_need_purge(index->cache, &reason) &&
 	    !mail_cache_transactions_have_changes(index->cache)) {
 		if (mail_cache_purge(index->cache,
 				     index->cache->need_purge_file_seq,
-				     "syncing") < 0) {
+				     reason) < 0) {
 			/* can't really do anything if it fails */
 		}
 		/* Make sure the newly committed cache record offsets are

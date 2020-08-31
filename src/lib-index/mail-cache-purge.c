@@ -636,11 +636,22 @@ int mail_cache_purge(struct mail_cache *cache, uint32_t purge_file_seq,
 	return ret;
 }
 
-bool mail_cache_need_purge(struct mail_cache *cache)
+bool mail_cache_need_purge(struct mail_cache *cache, const char **reason_r)
 {
-	return cache->need_purge_file_seq != 0 &&
-		(cache->index->flags & MAIL_INDEX_OPEN_FLAG_SAVEONLY) == 0 &&
-		!cache->index->readonly;
+	if (cache->need_purge_file_seq == 0)
+		return FALSE; /* delayed purging not requested */
+	if (cache->index->readonly)
+		return FALSE; /* no purging when opened as read-only */
+	if ((cache->index->flags & MAIL_INDEX_OPEN_FLAG_SAVEONLY) != 0) {
+		/* Mail deliveries don't really need to purge, even if there
+		   could be some work to do. Just delay until the next regular
+		   mail access comes before doing any extra work. */
+		return FALSE;
+	}
+
+	i_assert(cache->need_purge_reason != NULL);
+	*reason_r = cache->need_purge_reason;
+	return TRUE;
 }
 
 void mail_cache_purge_later(struct mail_cache *cache, const char *reason)

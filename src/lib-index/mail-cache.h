@@ -65,7 +65,7 @@ mail_cache_register_get_list(struct mail_cache *cache, pool_t pool,
 			     unsigned int *count_r);
 
 /* Returns TRUE if cache should be purged. */
-bool mail_cache_need_purge(struct mail_cache *cache);
+bool mail_cache_need_purge(struct mail_cache *cache, const char **reason_r);
 /* Set cache file to be purged later. */
 void mail_cache_purge_later(struct mail_cache *cache, const char *reason);
 /* Don't try to purge the cache file later after all. */
