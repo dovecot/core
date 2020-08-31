@@ -14,7 +14,7 @@
 #include "stats-metrics.h"
 #include "stats-service-private.h"
 
-#define OPENMETRICS_CONTENT_VERSION "0.0.4"
+#define OPENMETRICS_CONTENT_VERSION "0.0.5"
 
 #ifdef DOVECOT_REVISION
 #define OPENMETRICS_BUILD_INFO \
@@ -97,10 +97,10 @@ static bool openmetrics_check_name(const char *name)
 static void openmetrics_export_dovecot(string_t *out, int64_t timestamp)
 {
 	i_assert(stats_startup_time <= ioloop_time);
-	str_append(out, "# HELP dovecot_stats_uptime_seconds "
+	str_append(out, "# HELP process_start_time_seconds "
 			"Dovecot stats service uptime\n");
-	str_append(out, "# TYPE dovecot_stats_uptime_seconds counter\n");
-	str_printfa(out, "dovecot_stats_uptime_seconds %"PRId64" %"PRId64"\n\n",
+	str_append(out, "# TYPE process_start_time_seconds gauge\n");
+	str_printfa(out, "process_start_time_seconds %"PRId64" %"PRId64"\n\n",
 		    (int64_t)(ioloop_time - stats_startup_time), timestamp);
 
 	str_append(out, "# HELP dovecot_build_info "
@@ -119,10 +119,10 @@ openmetrics_export_metric_value(struct openmetrics_request *req, string_t *out,
 	str_append(out, req->metric->name);
 	switch (req->metric_type) {
 	case OPENMETRICS_METRIC_TYPE_COUNT:
-		str_append(out, "_count");
+		str_append(out, "_total");
 		break;
 	case OPENMETRICS_METRIC_TYPE_DURATION:
-		str_append(out, "_duration_usecs_sum");
+		str_append(out, "_duration_seconds_total");
 		break;
 	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
 		i_unreached();
@@ -141,8 +141,8 @@ openmetrics_export_metric_value(struct openmetrics_request *req, string_t *out,
 			    timestamp);
 		break;
 	case OPENMETRICS_METRIC_TYPE_DURATION:
-		str_printfa(out, " %"PRIu64" %"PRId64"\n",
-			    stats_dist_get_sum(metric->duration_stats),
+		str_printfa(out, " %f %"PRId64"\n",
+			    stats_dist_get_sum(metric->duration_stats)/1000.0,
 			    timestamp);
 		break;
 	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
@@ -181,7 +181,7 @@ openmetrics_export_histogram_bucket(struct openmetrics_request *req,
 	/* Metric name */
 	str_append(out, "dovecot_");
 	str_append(out, metric->name);
-	str_append(out, "_histogram_bucket");
+	str_append(out, "_bucket");
 	/* Labels */
 	str_append_c(out, '{');
 	if (str_len(req->labels) > 0) {
@@ -210,7 +210,7 @@ openmetrics_export_histogram(struct openmetrics_request *req, string_t *out,
 			openmetrics_find_histogram_bucket(metric, i);
 
 		if (sub_metric != NULL) {
-			sum += stats_dist_get_sum(sub_metric->duration_stats);
+			sum += stats_dist_get_sum(sub_metric->duration_stats)/1000.0;
 			count += stats_dist_get_count(
 				sub_metric->duration_stats);
 		}
@@ -222,18 +222,18 @@ openmetrics_export_histogram(struct openmetrics_request *req, string_t *out,
 	/* Sum */
 	str_append(out, "dovecot_");
 	str_append(out, metric->name);
-	str_append(out, "_histogram_sum");
+	str_append(out, "_sum");
 	/* Labels */
 	if (str_len(req->labels) > 0) {
 		str_append_c(out, '{');
 		str_append_str(out, req->labels);
 		str_append_c(out, '}');
 	}
-	str_printfa(out, " %"PRIu64" %"PRId64"\n", sum, timestamp);
+	str_printfa(out, " %f %"PRId64"\n", sum, timestamp);
 	/* Count */
 	str_append(out, "dovecot_");
 	str_append(out, metric->name);
-	str_append(out, "_histogram_count");
+	str_append(out, "_count");
 	/* Labels */
 	if (str_len(req->labels) > 0) {
 		str_append_c(out, '{');
@@ -256,13 +256,13 @@ openmetrics_export_metric_header(struct openmetrics_request *req, string_t *out)
 	str_append(out, metric->name);
 	switch (req->metric_type) {
 	case OPENMETRICS_METRIC_TYPE_COUNT:
-		str_append(out, "_count Total number");
+		str_append(out, "_total Total number of all events of this kind");
 		break;
 	case OPENMETRICS_METRIC_TYPE_DURATION:
-		str_append(out, "_duration_usecs_sum Duration");
+		str_append(out, "_duration_seconds_total Total duration of all events of this kind");
 		break;
 	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
-		str_append(out, "_histogram Histogram");
+		str_append(out, " Histogram");
 		break;
 	}
 	if (*metric->set->description != '\0') {
@@ -275,13 +275,13 @@ openmetrics_export_metric_header(struct openmetrics_request *req, string_t *out)
 	str_append(out, metric->name);
 	switch (req->metric_type) {
 	case OPENMETRICS_METRIC_TYPE_COUNT:
-		str_append(out, "_count counter\n");
+		str_append(out, "_total counter\n");
 		break;
 	case OPENMETRICS_METRIC_TYPE_DURATION:
-		str_append(out, "_duration_usecs_sum counter\n");
+		str_append(out, "_duration_seconds_total counter\n");
 		break;
 	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
-		str_append(out, "_histogram histogram\n");
+		str_append(out, " histogram\n");
 		break;
 	}
 }
