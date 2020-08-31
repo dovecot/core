@@ -340,6 +340,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	buffer_free(&ctx.buffer);
 	buffer_free(&ctx.field_seen);
 
+	*file_size_r = output->offset;
 	(void)o_stream_seek(output, 0);
 	o_stream_nsend(output, &hdr, sizeof(hdr));
 
@@ -352,7 +353,6 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		array_free(ext_offsets);
 		return -1;
 	}
-	*file_size_r = output->offset;
 	o_stream_destroy(&output);
 
 	if (cache->index->fsync_mode == FSYNC_MODE_ALWAYS) {
