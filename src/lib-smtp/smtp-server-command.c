@@ -459,13 +459,6 @@ smtp_server_command_get_reply_count(struct smtp_server_command *cmd)
 	return cmd->replies_expected;
 }
 
-void smtp_server_command_ready_to_reply(struct smtp_server_command *cmd)
-{
-	cmd->state = SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY;
-	e_debug(cmd->context.event, "Ready to reply");
-	smtp_server_connection_trigger_output(cmd->context.conn);
-}
-
 bool smtp_server_command_next_to_reply(struct smtp_server_command **_cmd)
 {
 	struct smtp_server_command *cmd = *_cmd;
@@ -474,6 +467,13 @@ bool smtp_server_command_next_to_reply(struct smtp_server_command **_cmd)
 
 	return smtp_server_command_call_hooks(
 		_cmd, SMTP_SERVER_COMMAND_HOOK_NEXT, TRUE);
+}
+
+void smtp_server_command_ready_to_reply(struct smtp_server_command *cmd)
+{
+	cmd->state = SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY;
+	e_debug(cmd->context.event, "Ready to reply");
+	smtp_server_connection_trigger_output(cmd->context.conn);
 }
 
 static bool
