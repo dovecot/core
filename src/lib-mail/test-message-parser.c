@@ -178,9 +178,10 @@ static void test_message_parser_small_blocks(void)
 static void test_message_parser_stop_early(void)
 {
 	struct message_parser_ctx *parser;
-	struct istream *input;
+	struct istream *input, *input2;
 	struct message_part *parts;
 	struct message_block block;
+	const char *error;
 	unsigned int i;
 	pool_t pool;
 	int ret;
@@ -198,6 +199,24 @@ static void test_message_parser_stop_early(void)
 							      &block)) > 0) ;
 		test_assert(ret == 0);
 		message_parser_deinit(&parser, &parts);
+
+		/* test preparsed - first re-parse everything with a stream
+		   that sees EOF at this position */
+		input2 = i_stream_create_from_data(test_msg, i);
+		parser = message_parser_init(pool, input2, &set_empty);
+		while ((ret = message_parser_parse_next_block(parser,
+							      &block)) > 0) ;
+		test_assert(ret == -1);
+		message_parser_deinit(&parser, &parts);
+
+		/* now parse from the parts */
+		i_stream_seek(input2, 0);
+		parser = message_parser_init_from_parts(parts, input2, &set_empty);
+		while ((ret = message_parser_parse_next_block(parser,
+							      &block)) > 0) ;
+		test_assert(ret == -1);
+		test_assert(message_parser_deinit_from_parts(&parser, &parts, &error) == 0);
+		i_stream_unref(&input2);
 	}
 
 	i_stream_unref(&input);

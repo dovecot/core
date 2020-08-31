@@ -138,6 +138,7 @@ message_part_append(struct message_parser_ctx *ctx)
 	struct message_part *parent = ctx->part;
 	struct message_part *part;
 
+	i_assert(!ctx->preparsed);
 	i_assert(parent != NULL);
 	i_assert((parent->flags & (MESSAGE_PART_FLAG_MULTIPART |
 				   MESSAGE_PART_FLAG_MESSAGE_RFC822)) != 0);
@@ -171,12 +172,14 @@ static void message_part_finish(struct message_parser_ctx *ctx)
 {
 	struct message_part **const *parent_next_partp;
 
-	i_assert(ctx->nested_parts_count > 0);
-	ctx->nested_parts_count--;
+	if (!ctx->preparsed) {
+		i_assert(ctx->nested_parts_count > 0);
+		ctx->nested_parts_count--;
 
-	parent_next_partp = array_back(&ctx->next_part_stack);
-	array_pop_back(&ctx->next_part_stack);
-	ctx->next_part = *parent_next_partp;
+		parent_next_partp = array_back(&ctx->next_part_stack);
+		array_pop_back(&ctx->next_part_stack);
+		ctx->next_part = *parent_next_partp;
+	}
 
 	message_size_add(&ctx->part->parent->body_size, &ctx->part->body_size);
 	message_size_add(&ctx->part->parent->body_size, &ctx->part->header_size);
