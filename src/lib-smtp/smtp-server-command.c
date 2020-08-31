@@ -465,8 +465,12 @@ bool smtp_server_command_next_to_reply(struct smtp_server_command **_cmd)
 
 	e_debug(cmd->context.event, "Next to reply");
 
-	return smtp_server_command_call_hooks(
-		_cmd, SMTP_SERVER_COMMAND_HOOK_NEXT, TRUE);
+	if (!smtp_server_command_call_hooks(
+		_cmd, SMTP_SERVER_COMMAND_HOOK_NEXT, TRUE))
+		return FALSE;
+
+	smtp_server_command_remove_hooks(cmd, SMTP_SERVER_COMMAND_HOOK_NEXT);
+	return TRUE;
 }
 
 void smtp_server_command_ready_to_reply(struct smtp_server_command *cmd)
@@ -567,8 +571,6 @@ void smtp_server_command_submit_reply(struct smtp_server_command *cmd)
 	}
 
 	i_assert(submitted == cmd->replies_submitted);
-
-	smtp_server_command_remove_hooks(cmd, SMTP_SERVER_COMMAND_HOOK_NEXT);
 
 	/* Limit number of consecutive bad commands */
 	if (is_bad)

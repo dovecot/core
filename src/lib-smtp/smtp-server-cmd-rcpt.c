@@ -26,7 +26,13 @@ cmd_rcpt_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 static bool cmd_rcpt_check_state(struct smtp_server_cmd_ctx *cmd)
 {
 	struct smtp_server_connection *conn = cmd->conn;
+	struct smtp_server_command *command = cmd->cmd;
 	struct smtp_server_transaction *trans = conn->state.trans;
+
+	if (smtp_server_command_is_replied(command) &&
+	    !smtp_server_command_replied_success(command) &&
+	    !smtp_server_command_reply_is_forwarded(command))
+		return FALSE;
 
 	if (conn->state.pending_mail_cmds == 0 && trans == NULL) {
 		smtp_server_reply(cmd,
@@ -55,21 +61,13 @@ cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd,
 	i_assert(conn->state.pending_rcpt_cmds > 0);
 	conn->state.pending_rcpt_cmds--;
 
-	if (conn->state.state < SMTP_SERVER_STATE_RCPT_TO) {
-		i_assert(conn->state.state == SMTP_SERVER_STATE_MAIL_FROM);
-		smtp_server_connection_set_state(
-			conn, SMTP_SERVER_STATE_RCPT_TO,
-			smtp_address_encode(data->rcpt->path));
-	}
-
 	i_assert(smtp_server_command_is_replied(command));
+	i_assert(conn->state.state == SMTP_SERVER_STATE_RCPT_TO ||
+		 !smtp_server_command_replied_success(command));
+
 	if (!smtp_server_command_replied_success(command)) {
+		/* Failure */
 		conn->state.denied_rcpt_cmds++;
-
-		/* Failure; substitute our own error if predictable */
-		if (smtp_server_command_reply_is_forwarded(command))
-			(void)cmd_rcpt_check_state(cmd);
-
 		smtp_server_recipient_denied(
 			rcpt, smtp_server_command_get_reply(cmd->cmd, 0));
 		return;

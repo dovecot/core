@@ -14,6 +14,12 @@
 static bool cmd_mail_check_state(struct smtp_server_cmd_ctx *cmd)
 {
 	struct smtp_server_connection *conn = cmd->conn;
+	struct smtp_server_command *command = cmd->cmd;
+
+	if (smtp_server_command_is_replied(command) &&
+	    !smtp_server_command_replied_success(command) &&
+	    !smtp_server_command_reply_is_forwarded(command))
+		return FALSE;
 
 	if (conn->state.trans != NULL) {
 		smtp_server_reply(cmd, 503, "5.5.0", "MAIL already given");
@@ -33,10 +39,11 @@ cmd_mail_completed(struct smtp_server_cmd_ctx *cmd,
 	conn->state.pending_mail_cmds--;
 
 	i_assert(smtp_server_command_is_replied(command));
+	i_assert(conn->state.state == SMTP_SERVER_STATE_MAIL_FROM ||
+		 !smtp_server_command_replied_success(command));
+
 	if (!smtp_server_command_replied_success(command)) {
-		/* Failure; substitute our own error if predictable */
-		if (smtp_server_command_reply_is_forwarded(command))
-			(void)cmd_mail_check_state(cmd);
+		/* Failure */
 		return;
 	}
 

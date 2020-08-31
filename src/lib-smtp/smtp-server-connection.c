@@ -638,10 +638,10 @@ smtp_server_connection_next_reply(struct smtp_server_connection *conn)
 		return FALSE;
 	}
 
-	if (cmd->state < SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY) {
-		(void)smtp_server_command_next_to_reply(&cmd);
+	if (!smtp_server_command_next_to_reply(&cmd))
 		return FALSE;
-	}
+	if (cmd->state < SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY)
+		return FALSE;
 
 	i_assert(cmd->state == SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY &&
 		 array_is_created(&cmd->replies));
