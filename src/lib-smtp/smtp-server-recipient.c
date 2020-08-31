@@ -29,7 +29,15 @@ smtp_server_recipient_create_event(struct smtp_server_recipient_private *prcpt)
 	if (rcpt->event != NULL)
 		return;
 
-	rcpt->event = event_create(conn->event);
+	if (conn->state.trans == NULL) {
+		/* Use connection event directly if there is no transaction */
+		rcpt->event = event_create(conn->event);
+	} else {
+		/* Use transaction event, but drop its log prefix so that the
+		   connection event prefix remains. */
+		rcpt->event = event_create(conn->state.trans->event);
+		event_drop_parent_log_prefixes(rcpt->event, 1);
+	}
 	smtp_server_recipient_update_event(prcpt);
 }
 
