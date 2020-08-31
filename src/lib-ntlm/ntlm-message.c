@@ -176,6 +176,11 @@ ntlmssp_create_challenge(pool_t pool, const struct ntlmssp_request *request,
 static bool ntlmssp_check_buffer(const struct ntlmssp_buffer *buffer,
 				 size_t data_size, const char **error)
 {
+	if (data_size < sizeof(*buffer)) {
+		*error = "data_size is smaller than buffer header";
+		return FALSE;
+	}
+
 	uint32_t offset = le32_to_cpu(buffer->offset);
 	uint16_t length = le16_to_cpu(buffer->length);
 	uint16_t space = le16_to_cpu(buffer->space);
