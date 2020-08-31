@@ -134,6 +134,7 @@ struct mail_cache {
 	/* 0 is no need for purging, otherwise the file sequence number
 	   which we want purged. */
 	uint32_t need_purge_file_seq;
+	char *need_purge_reason;
 
 	unsigned int *file_field_map;
 	unsigned int file_fields_count;

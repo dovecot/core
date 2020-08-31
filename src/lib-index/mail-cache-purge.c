@@ -499,7 +499,7 @@ static int mail_cache_purge_locked(struct mail_cache *cache,
 			return -1;
 
 		/* was just purged, forget this */
-		cache->need_purge_file_seq = 0;
+		mail_cache_purge_later_reset(cache);
 
 		if (*unlock) {
 			(void)mail_cache_unlock(cache);
@@ -531,7 +531,7 @@ static int mail_cache_purge_locked(struct mail_cache *cache,
 	if (mail_cache_header_fields_read(cache) < 0)
 		return -1;
 
-	cache->need_purge_file_seq = 0;
+	mail_cache_purge_later_reset(cache);
 	return 0;
 }
 
@@ -641,4 +641,19 @@ bool mail_cache_need_purge(struct mail_cache *cache)
 	return cache->need_purge_file_seq != 0 &&
 		(cache->index->flags & MAIL_INDEX_OPEN_FLAG_SAVEONLY) == 0 &&
 		!cache->index->readonly;
+}
+
+void mail_cache_purge_later(struct mail_cache *cache, const char *reason)
+{
+	i_assert(cache->hdr != NULL);
+
+	cache->need_purge_file_seq = cache->hdr->file_seq;
+	i_free(cache->need_purge_reason);
+	cache->need_purge_reason = i_strdup(reason);
+}
+
+void mail_cache_purge_later_reset(struct mail_cache *cache)
+{
+	cache->need_purge_file_seq = 0;
+	i_free(cache->need_purge_reason);
 }

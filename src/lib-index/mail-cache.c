@@ -146,7 +146,7 @@ static int mail_cache_try_open(struct mail_cache *cache)
 	if (cache->fd == -1) {
 		mail_cache_file_close(cache);
 		if (errno == ENOENT) {
-			cache->need_purge_file_seq = 0;
+			mail_cache_purge_later_reset(cache);
 			return 0;
 		}
 
@@ -223,11 +223,11 @@ static void mail_cache_update_need_purge(struct mail_cache *cache)
 	struct stat st;
 	unsigned int msg_count;
 	unsigned int records_count, cont_percentage, delete_percentage;
-	bool want_purge = FALSE;
+	const char *want_purge_reason = NULL;
 
 	if (hdr->minor_version == 0) {
 		/* purge to get ourself into the new header version */
-		cache->need_purge_file_seq = hdr->file_seq;
+		mail_cache_purge_later(cache, "Minor version too old");
 		return;
 	}
 
@@ -248,24 +248,28 @@ static void mail_cache_update_need_purge(struct mail_cache *cache)
 	cont_percentage = hdr->continued_record_count * 100 / records_count;
 	if (cont_percentage >= set->purge_continued_percentage) {
 		/* too many continued rows, purge */
-		want_purge = TRUE;
+		want_purge_reason = t_strdup_printf(
+			"Too many continued records (%u/%u)",
+			hdr->continued_record_count, records_count);
 	}
 
 	delete_percentage = hdr->deleted_record_count * 100 /
 		(records_count + hdr->deleted_record_count);
 	if (delete_percentage >= set->purge_delete_percentage) {
 		/* too many deleted records, purge */
-		want_purge = TRUE;
+		want_purge_reason = t_strdup_printf(
+			"Too many deleted records (%u/%u)",
+			hdr->deleted_record_count, records_count);
 	}
 
-	if (want_purge) {
+	if (want_purge_reason != NULL) {
 		if (fstat(cache->fd, &st) < 0) {
 			if (!ESTALE_FSTAT(errno))
 				mail_cache_set_syscall_error(cache, "fstat()");
 			return;
 		}
 		if ((uoff_t)st.st_size >= set->purge_min_size)
-			cache->need_purge_file_seq = hdr->file_seq;
+			mail_cache_purge_later(cache, want_purge_reason);
 	}
 
 }
@@ -316,10 +320,9 @@ mail_cache_map_finish(struct mail_cache *cache, uoff_t offset, size_t size,
 		/* verify the header validity only with offset=0. this way
 		   we won't waste time re-verifying it all the time */
 		if (!mail_cache_verify_header(cache, hdr)) {
-			cache->need_purge_file_seq =
-				!MAIL_CACHE_IS_UNUSABLE(cache) &&
-				cache->hdr->file_seq != 0 ?
-				cache->hdr->file_seq : 0;
+			if (!MAIL_CACHE_IS_UNUSABLE(cache) &&
+			    cache->hdr->file_seq != 0)
+				mail_cache_purge_later(cache, "Invalid header");
 			*corrupted_r = TRUE;
 			return -1;
 		}
@@ -617,6 +620,7 @@ void mail_cache_free(struct mail_cache **_cache)
 	hash_table_destroy(&cache->field_name_hash);
 	pool_unref(&cache->field_pool);
 	event_unref(&cache->event);
+	i_free(cache->need_purge_reason);
 	i_free(cache->field_file_map);
 	i_free(cache->file_field_map);
 	i_free(cache->fields);
