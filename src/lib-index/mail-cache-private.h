@@ -277,6 +277,23 @@ struct event_passthrough *
 mail_cache_decision_changed_event(struct mail_cache *cache, struct event *event,
 				  unsigned int field);
 
+struct mail_cache_purge_drop_ctx {
+	struct mail_cache *cache;
+	time_t max_yes_downgrade_time;
+	time_t max_temp_drop_time;
+};
+enum mail_cache_purge_drop_decision {
+	MAIL_CACHE_PURGE_DROP_DECISION_NONE,
+	MAIL_CACHE_PURGE_DROP_DECISION_DROP,
+	MAIL_CACHE_PURGE_DROP_DECISION_TO_TEMP,
+};
+void mail_cache_purge_drop_init(struct mail_cache *cache,
+				const struct mail_index_header *hdr,
+				struct mail_cache_purge_drop_ctx *ctx_r);
+enum mail_cache_purge_drop_decision
+mail_cache_purge_drop_test(struct mail_cache_purge_drop_ctx *ctx,
+			   unsigned int field);
+
 int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 			       uint32_t seq, const void *data,
 			       void **sync_context, void *context);

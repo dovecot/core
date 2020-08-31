@@ -327,8 +327,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 	char *orig_key;
 	void *orig_value;
 	unsigned int fidx, new_fields_count;
-	enum mail_cache_decision_type dec;
-	time_t max_drop_time;
+	struct mail_cache_purge_drop_ctx drop_ctx;
 	uint32_t offset, i;
 
 	if (mail_cache_header_fields_get_offset(cache, &offset, &field_hdr) < 0)
@@ -373,10 +372,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 	for (i = 0; i < cache->fields_count; i++)
 		cache->field_file_map[i] = (uint32_t)-1;
 
-	max_drop_time = cache->index->map->hdr.day_stamp == 0 ? 0 :
-		cache->index->map->hdr.day_stamp -
-		cache->index->optimization_set.cache.unaccessed_field_drop_secs;
-
+	mail_cache_purge_drop_init(cache, &cache->index->map->hdr, &drop_ctx);
 	i_zero(&field);
 	for (i = 0; i < field_hdr->fields_count; i++) {
 		for (p = names; p != end && *p != '\0'; p++) ;
@@ -445,17 +441,24 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 		if ((time_t)last_used[i] > cache->fields[fidx].field.last_used)
 			cache->fields[fidx].field.last_used = last_used[i];
 
-		dec = cache->fields[fidx].field.decision;
-		if (cache->fields[fidx].field.last_used < max_drop_time &&
-		    cache->fields[fidx].field.last_used != 0 &&
-		    (dec & MAIL_CACHE_DECISION_FORCED) == 0 &&
-		    dec != MAIL_CACHE_DECISION_NO) {
-			/* time to drop this field. don't bother dropping
-			   fields that have never been used. */
+		switch (mail_cache_purge_drop_test(&drop_ctx, fidx)) {
+		case MAIL_CACHE_PURGE_DROP_DECISION_NONE:
+			break;
+		case MAIL_CACHE_PURGE_DROP_DECISION_DROP:
 			mail_cache_purge_later(cache, t_strdup_printf(
 				"Drop old field %s (last_used=%"PRIdTIME_T")",
 				cache->fields[fidx].field.name,
 				cache->fields[fidx].field.last_used));
+			break;
+		case MAIL_CACHE_PURGE_DROP_DECISION_TO_TEMP:
+			/* This cache decision change can cause the field to be
+			   dropped for old mails, so do it via purging. */
+			mail_cache_purge_later(cache, t_strdup_printf(
+				"Change cache decision to temp for old field %s "
+				"(last_used=%"PRIdTIME_T")",
+				cache->fields[fidx].field.name,
+				cache->fields[fidx].field.last_used));
+			break;
 		}
 
                 names = p + 1;

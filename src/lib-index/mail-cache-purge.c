@@ -16,7 +16,7 @@
 struct mail_cache_copy_context {
 	struct mail_cache *cache;
 	struct event *event;
-	time_t max_temp_drop_time, max_yes_downgrade_time;
+	struct mail_cache_purge_drop_ctx drop_ctx;
 
 	buffer_t *buffer, *field_seen;
 	ARRAY(unsigned int) bitmask_pos;
@@ -157,12 +157,10 @@ mail_cache_purge_check_field(struct mail_cache_copy_context *ctx,
 	struct mail_cache_field_private *priv = &ctx->cache->fields[field];
 	enum mail_cache_decision_type dec = priv->field.decision;
 
-	if ((dec & MAIL_CACHE_DECISION_FORCED) != 0)
-		;
-	else if (dec != MAIL_CACHE_DECISION_NO &&
-		 priv->field.last_used < ctx->max_temp_drop_time) {
-		/* YES or TEMP decision field hasn't been accessed for a long
-		   time now. Drop it. */
+	switch (mail_cache_purge_drop_test(&ctx->drop_ctx, field)) {
+	case MAIL_CACHE_PURGE_DROP_DECISION_NONE:
+		break;
+	case MAIL_CACHE_PURGE_DROP_DECISION_DROP: {
 		const char *dec_str = mail_cache_decision_to_string(dec);
 		struct event_passthrough *e =
 			event_create_passthrough(ctx->event)->
@@ -174,10 +172,9 @@ mail_cache_purge_check_field(struct mail_cache_copy_context *ctx,
 			"(decision=%s, last_used=%"PRIdTIME_T")",
 			priv->field.name, dec_str, priv->field.last_used);
 		dec = MAIL_CACHE_DECISION_NO;
-	} else if (dec == MAIL_CACHE_DECISION_YES &&
-		   priv->field.last_used < ctx->max_yes_downgrade_time) {
-		/* YES decision field hasn't been accessed for a while
-		   now. Change its decision to TEMP. */
+		break;
+	}
+	case MAIL_CACHE_PURGE_DROP_DECISION_TO_TEMP: {
 		struct event_passthrough *e =
 			mail_cache_decision_changed_event(
 				ctx->cache, ctx->event, field)->
@@ -188,6 +185,8 @@ mail_cache_purge_check_field(struct mail_cache_copy_context *ctx,
 			"(last_used=%"PRIdTIME_T")",
 			priv->field.name, priv->field.last_used);
 		dec = MAIL_CACHE_DECISION_TEMP;
+		break;
+	}
 	}
 	priv->field.decision = dec;
 
@@ -255,12 +254,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	/* @UNSAFE: drop unused fields and create a field mapping for
 	   used fields */
 	idx_hdr = mail_index_get_header(view);
-	if (idx_hdr->day_stamp != 0) {
-		ctx.max_yes_downgrade_time = idx_hdr->day_stamp -
-			cache->index->optimization_set.cache.unaccessed_field_drop_secs;
-		ctx.max_temp_drop_time = idx_hdr->day_stamp -
-			2 * cache->index->optimization_set.cache.unaccessed_field_drop_secs;
-	}
+	mail_cache_purge_drop_init(cache, idx_hdr, &ctx.drop_ctx);
 
 	orig_fields_count = cache->fields_count;
 	if (cache->file_fields_count == 0) {
@@ -667,4 +661,44 @@ void mail_cache_purge_later_reset(struct mail_cache *cache)
 {
 	cache->need_purge_file_seq = 0;
 	i_free(cache->need_purge_reason);
+}
+
+void mail_cache_purge_drop_init(struct mail_cache *cache,
+				const struct mail_index_header *hdr,
+				struct mail_cache_purge_drop_ctx *ctx_r)
+{
+	i_zero(ctx_r);
+	ctx_r->cache = cache;
+	if (hdr->day_stamp != 0) {
+		const struct mail_index_cache_optimization_settings *opt =
+			&cache->index->optimization_set.cache;
+		ctx_r->max_yes_downgrade_time = hdr->day_stamp -
+			opt->unaccessed_field_drop_secs;
+		ctx_r->max_temp_drop_time = hdr->day_stamp -
+			2 * opt->unaccessed_field_drop_secs;
+	}
+}
+
+enum mail_cache_purge_drop_decision
+mail_cache_purge_drop_test(struct mail_cache_purge_drop_ctx *ctx,
+			   unsigned int field)
+{
+	struct mail_cache_field_private *priv = &ctx->cache->fields[field];
+	enum mail_cache_decision_type dec = priv->field.decision;
+
+	if ((dec & MAIL_CACHE_DECISION_FORCED) != 0)
+		return MAIL_CACHE_PURGE_DROP_DECISION_NONE;
+	if (dec != MAIL_CACHE_DECISION_NO &&
+	    priv->field.last_used < ctx->max_temp_drop_time) {
+		/* YES or TEMP decision field hasn't been accessed for a long
+		   time now. Drop it. */
+		return MAIL_CACHE_PURGE_DROP_DECISION_DROP;
+	}
+	if (dec == MAIL_CACHE_DECISION_YES &&
+	    priv->field.last_used < ctx->max_yes_downgrade_time) {
+		/* YES decision field hasn't been accessed for a while
+		   now. Change its decision to TEMP. */
+		return MAIL_CACHE_PURGE_DROP_DECISION_TO_TEMP;
+	}
+	return MAIL_CACHE_PURGE_DROP_DECISION_NONE;
 }
