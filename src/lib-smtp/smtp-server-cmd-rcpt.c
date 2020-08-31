@@ -14,6 +14,8 @@
 
 struct smtp_server_cmd_rcpt {
 	struct smtp_server_recipient *rcpt;
+
+	bool initialized:1;
 };
 
 static void
@@ -64,6 +66,7 @@ cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd,
 	i_assert(smtp_server_command_is_replied(command));
 	i_assert(conn->state.state == SMTP_SERVER_STATE_RCPT_TO ||
 		 !smtp_server_command_replied_success(command));
+	i_assert(data->initialized);
 
 	if (!smtp_server_command_replied_success(command)) {
 		/* Failure */
@@ -83,8 +86,14 @@ cmd_rcpt_recheck(struct smtp_server_cmd_ctx *cmd,
 		 struct smtp_server_cmd_rcpt *data ATTR_UNUSED)
 {
 	struct smtp_server_connection *conn = cmd->conn;
+	struct smtp_server_recipient *rcpt = data->rcpt;
 
 	i_assert(conn->state.pending_mail_cmds == 0);
+
+	if (!data->initialized) {
+		smtp_server_recipient_initialize(rcpt);
+		data->initialized = TRUE;
+	}
 
 	/* All preceeding commands have finished and now the transaction state
 	   is clear. This provides the opportunity to re-check the transaction
@@ -205,6 +214,11 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 				     cmd_rcpt_completed, rcpt_data);
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_DESTROY,
 				     cmd_rcpt_destroy, rcpt_data);
+
+	if (conn->state.trans != NULL) {
+		smtp_server_recipient_initialize(rcpt);
+		rcpt_data->initialized = TRUE;
+	}
 
 	conn->state.pending_rcpt_cmds++;
 

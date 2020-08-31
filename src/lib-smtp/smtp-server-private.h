@@ -369,6 +369,8 @@ void smtp_server_recipient_ref(struct smtp_server_recipient *rcpt);
 bool smtp_server_recipient_unref(struct smtp_server_recipient **_rcpt);
 void smtp_server_recipient_destroy(struct smtp_server_recipient **_rcpt);
 
+void smtp_server_recipient_initialize(struct smtp_server_recipient *rcpt);
+
 bool smtp_server_recipient_approved(struct smtp_server_recipient **_rcpt);
 void smtp_server_recipient_denied(struct smtp_server_recipient *rcpt,
 				  const struct smtp_server_reply *reply);

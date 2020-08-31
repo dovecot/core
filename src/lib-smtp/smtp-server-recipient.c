@@ -20,6 +20,19 @@ smtp_server_recipient_update_event(struct smtp_server_recipient_private *prcpt)
 		event, t_strdup_printf("rcpt %s: ", str_sanitize(path, 128)));
 }
 
+static void
+smtp_server_recipient_create_event(struct smtp_server_recipient_private *prcpt)
+{
+	struct smtp_server_recipient *rcpt = &prcpt->rcpt;
+	struct smtp_server_connection *conn = rcpt->conn;
+
+	if (rcpt->event != NULL)
+		return;
+
+	rcpt->event = event_create(conn->event);
+	smtp_server_recipient_update_event(prcpt);
+}
+
 struct smtp_server_recipient *
 smtp_server_recipient_create(struct smtp_server_cmd_ctx *cmd,
 			     const struct smtp_address *rcpt_to,
@@ -36,9 +49,6 @@ smtp_server_recipient_create(struct smtp_server_cmd_ctx *cmd,
 	prcpt->rcpt.cmd = cmd;
 	prcpt->rcpt.path = smtp_address_clone(pool, rcpt_to);
 	smtp_params_rcpt_copy(pool, &prcpt->rcpt.params, params);
-
-	prcpt->rcpt.event = event_create(cmd->conn->event);
-	smtp_server_recipient_update_event(prcpt);
 
 	return &prcpt->rcpt;
 }
@@ -77,6 +87,8 @@ bool smtp_server_recipient_unref(struct smtp_server_recipient **_rcpt)
 		i_unreached();
 
 	if (!rcpt->finished) {
+		smtp_server_recipient_create_event(prcpt);
+
 		struct event_passthrough *e =
 			event_create_passthrough(rcpt->event)->
 			set_name("smtp_server_transaction_rcpt_finished");
@@ -97,6 +109,14 @@ void smtp_server_recipient_destroy(struct smtp_server_recipient **_rcpt)
 	smtp_server_recipient_unref(_rcpt);
 }
 
+void smtp_server_recipient_initialize(struct smtp_server_recipient *rcpt)
+{
+	struct smtp_server_recipient_private *prcpt =
+		(struct smtp_server_recipient_private *)rcpt;
+
+	smtp_server_recipient_create_event(prcpt);
+}
+
 const struct smtp_address *
 smtp_server_recipient_get_original(struct smtp_server_recipient *rcpt)
 {
@@ -111,6 +131,7 @@ bool smtp_server_recipient_approved(struct smtp_server_recipient **_rcpt)
 	struct smtp_server_transaction *trans = rcpt->conn->state.trans;
 
 	i_assert(trans != NULL);
+	i_assert(rcpt->event != NULL);
 
 	e_debug(rcpt->event, "Approved");
 
@@ -125,6 +146,8 @@ void smtp_server_recipient_denied(struct smtp_server_recipient *rcpt,
 				  const struct smtp_server_reply *reply)
 {
 	i_assert(!rcpt->finished);
+	i_assert(rcpt->event != NULL);
+
 	rcpt->finished = TRUE;
 
 	struct event_passthrough *e =
