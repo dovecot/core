@@ -44,9 +44,6 @@ struct istream *i_stream_create_fd_autoclose(int *fd, size_t max_buffer_size);
 /* Open the given path only when something is actually tried to be read from
    the stream. */
 struct istream *i_stream_create_file(const char *path, size_t max_buffer_size);
-struct istream *i_stream_create_mmap(int fd, size_t block_size,
-				     uoff_t start_offset, uoff_t v_size,
-				     bool autoclose_fd);
 /* Create an input stream using the provided data block. That data block must
 remain allocated during the full lifetime of the stream. */
 struct istream *i_stream_create_from_data(const void *data, size_t size);

@@ -103,7 +103,6 @@ liblib_la_SOURCES = \
 	istream-hash.c \
 	istream-jsonstr.c \
 	istream-limit.c \
-	istream-mmap.c \
 	istream-multiplex.c \
 	istream-rawlog.c \
 	istream-seekable.c \
