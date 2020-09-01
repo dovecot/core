@@ -132,7 +132,7 @@ int mail_index_map_ext_get_next(struct mail_index_map *map,
 
 	*name_r = t_strndup(CONST_PTR_OFFSET(map->hdr_base, name_offset),
 			    ext_hdr->name_size);
-	if (strcmp(*name_r, str_sanitize(*name_r, -1)) != 0) {
+	if (strcmp(*name_r, str_sanitize(*name_r, SIZE_MAX)) != 0) {
 		/* we allow only plain ASCII names, so this extension
 		   is most likely broken */
 		*name_r = "";
