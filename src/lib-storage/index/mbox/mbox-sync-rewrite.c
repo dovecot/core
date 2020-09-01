@@ -309,7 +309,7 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 	if (pwrite_full(sync_ctx->write_fd,
 			str_data(ctx->header) + ctx->header_first_change,
 			str_len(ctx->header) - ctx->header_first_change,
-			ctx->hdr_offset + ctx->header_first_change +
+			(off_t)ctx->hdr_offset + (off_t)ctx->header_first_change +
 			move_diff) < 0) {
 		mbox_set_syscall_error(sync_ctx->mbox, "pwrite_full()");
 		return -1;
@@ -319,7 +319,7 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 	    (ctx->imapbase_updated || ctx->sync_ctx->base_uid_last != 0)) {
 		/* the position might have moved as a result of moving
 		   whitespace */
-		mbox_sync_first_mail_written(ctx, ctx->hdr_offset + move_diff);
+		mbox_sync_first_mail_written(ctx, (off_t)ctx->hdr_offset + move_diff);
 	}
 
 	mbox_sync_file_updated(sync_ctx, FALSE);
@@ -540,8 +540,8 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 			/* give the rest of the extra space to first mail.
 			   we might also have to move the mail backwards to
 			   fill the expunged space */
-			padding_per_mail = move_diff + expunged_space +
-				mails[idx].space;
+			padding_per_mail = move_diff + (off_t)expunged_space +
+				(off_t)mails[idx].space;
 		}
 
 		next_end_offset = mails[idx].offset;

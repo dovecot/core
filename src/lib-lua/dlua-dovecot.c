@@ -598,7 +598,7 @@ static int dlua_clear_flag(lua_State *L)
 	lua_Integer value = luaL_checkinteger(script->L, 1);
 	lua_Integer flag = luaL_checkinteger(script->L, 2);
 
-	lua_pushinteger(script->L, value & (~flag));
+	lua_pushinteger(script->L, value & (lua_Integer)~flag);
 	return 1;
 }
 

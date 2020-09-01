@@ -448,7 +448,7 @@ static int sync_flag_update(const struct mail_transaction_flag_update *u,
 	    (view->index->flags & MAIL_INDEX_OPEN_FLAG_NO_DIRTY) == 0)
 		view->map->hdr.flags |= MAIL_INDEX_HDR_FLAG_HAVE_DIRTY;
 
-        flag_mask = ~u->remove_flags;
+        flag_mask = (unsigned char)~u->remove_flags;
 
 	if (((u->add_flags | u->remove_flags) &
 	     (MAIL_SEEN | MAIL_DELETED)) == 0) {

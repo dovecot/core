@@ -1284,7 +1284,7 @@ master_status_send(struct master_service *service, bool important_update)
 
 	ret = write(MASTER_STATUS_FD, &service->master_status,
 		    sizeof(service->master_status));
-	if (ret == sizeof(service->master_status)) {
+	if (ret == (ssize_t)sizeof(service->master_status)) {
 		/* success */
 		io_remove(&service->io_status_write);
 		service->last_sent_status_time = ioloop_time;

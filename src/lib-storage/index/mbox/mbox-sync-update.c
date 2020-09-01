@@ -47,7 +47,7 @@ void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,
 		for (i = 0; i < MBOX_HDR_COUNT; i++) {
 			if (ctx->hdr_pos[i] > pos &&
 			    ctx->hdr_pos[i] != SIZE_MAX)
-				ctx->hdr_pos[i] += diff;
+				ctx->hdr_pos[i] = (ssize_t)ctx->hdr_pos[i] + diff;
 		}
 
 		if (ctx->mail.space > 0) {
@@ -56,7 +56,7 @@ void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,
 				 ctx->mail.offset > ctx->hdr_offset + pos + have);
 			if (ctx->mail.offset > ctx->hdr_offset + pos) {
 				/* free space offset moves */
-				ctx->mail.offset += diff;
+				ctx->mail.offset = (ssize_t)ctx->mail.offset + diff;
 			}
 		}
 

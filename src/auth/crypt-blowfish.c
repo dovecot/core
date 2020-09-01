@@ -587,7 +587,7 @@ static void BF_set_key(const char *key, BF_key expanded, BF_key initial,
 			tmp[0] <<= 8;
 			tmp[0] |= (unsigned char)*ptr; /* correct */
 			tmp[1] <<= 8;
-			tmp[1] |= (BF_word_signed)(signed char)*ptr; /* bug */
+			tmp[1] |= (BF_word)(signed char)*ptr; /* bug */
 /*
  * Sign extension in the first char has no effect - nothing to overwrite yet,
  * and those extra 24 bits will be fully shifted out of the 32-bit word.  For

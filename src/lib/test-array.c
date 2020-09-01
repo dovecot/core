@@ -263,7 +263,7 @@ static void test_array_cmp_str(void)
 		char buf[12];
 		const char *bufp = buf;
 		memcpy(buf, ostr, olen+1);
-		buf[rc] = i_rand_limit(CHAR_MAX + 1 - CHAR_MIN) + CHAR_MIN;
+		buf[rc] = (int32_t)i_rand_limit(CHAR_MAX + 1 - CHAR_MIN) + CHAR_MIN;
 		if(rc == olen)
 			buf[rc+1] = '\0';
 		array_idx_set(&arr2, j, &bufp);

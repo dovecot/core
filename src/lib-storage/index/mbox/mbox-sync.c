@@ -661,8 +661,8 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 		/* read the From-line before rewriting overwrites it */
 		if (mbox_read_from_line(mail_ctx) < 0)
 			return -1;
-		i_assert(mail_ctx->mail.from_offset + move_diff != 1 &&
-			 mail_ctx->mail.from_offset + move_diff != 2);
+		i_assert((off_t)mail_ctx->mail.from_offset + move_diff != 1 &&
+			 (off_t)mail_ctx->mail.from_offset + move_diff != 2);
 
 		mbox_sync_update_header(mail_ctx);
 		ret = mbox_sync_try_rewrite(mail_ctx, move_diff);
@@ -674,8 +674,8 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			   new location */
 			i_assert((off_t)mail_ctx->mail.from_offset >=
 				 -move_diff);
-			mail_ctx->mail.from_offset += move_diff;
-			mail_ctx->mail.offset += move_diff;
+			mail_ctx->mail.from_offset = (off_t)mail_ctx->mail.from_offset + move_diff;
+			mail_ctx->mail.offset = (off_t)mail_ctx->mail.offset + move_diff;
 			if (mbox_write_from_line(mail_ctx) < 0)
 				return -1;
 		} else {

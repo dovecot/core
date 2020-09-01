@@ -236,7 +236,7 @@ keywords_update_records(struct mail_index_sync_map_ctx *ctx,
 		}
 		break;
 	case MODIFY_REMOVE:
-		data_mask = ~data_mask;
+		data_mask = (unsigned char)~data_mask;
 		for (; seq1 <= seq2; seq1++) {
 			rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq1);
 			data = PTR_OFFSET(rec, data_offset);

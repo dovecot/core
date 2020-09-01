@@ -75,7 +75,7 @@ internal_line_match(const char *line, const char *prefix, const char *text)
 
 	if (line[0] != '\001')
 		return FALSE;
-	uint8_t type = line[1];
+	uint8_t type = (uint8_t)line[1];
 	if (type != ((LOG_TYPE_DEBUG+1) | 0x80))
 		return FALSE;
 	line += 2;
