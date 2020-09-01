@@ -234,7 +234,9 @@ static void *pool_block_attach(struct allocfree_pool *apool, struct pool_block *
 static struct pool_block *
 pool_block_detach(struct allocfree_pool *apool, unsigned char *mem)
 {
-	struct pool_block *block = PTR_OFFSET(mem, -SIZEOF_POOLBLOCK);
+	/* cannot use PTR_OFFSET because of negative value */
+	i_assert((uintptr_t)mem >= SIZEOF_POOLBLOCK);
+	struct pool_block *block = (struct pool_block *)(mem - SIZEOF_POOLBLOCK);
 
 	/* make sure the block we are dealing with is correct */
 	i_assert(block->block == mem);
