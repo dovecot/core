@@ -743,7 +743,7 @@ static int otp_verify(const char *plaintext, const struct password_generate_para
 	const char *password, *generated;
 
 	password = t_strndup(raw_password, size);
-	if (password_generate_otp(plaintext, password, -1, &generated) < 0) {
+	if (password_generate_otp(plaintext, password, UINT_MAX, &generated) < 0) {
 		*error_r = "Invalid OTP data in passdb";
 		return -1;
 	}
