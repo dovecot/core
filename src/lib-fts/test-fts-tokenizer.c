@@ -475,7 +475,7 @@ static void test_fts_tokenizer_address_maxlen(void)
 
 static void test_fts_tokenizer_random(void)
 {
-	const char test_chars[] = { 0, ' ', '.', 'a', 'b', 'c', '-', '@', '\xC3', '\xA4' };
+	const unsigned char test_chars[] = { 0, ' ', '.', 'a', 'b', 'c', '-', '@', '\xC3', '\xA4' };
 	const char *const settings[] = {"algorithm", "simple", NULL};
 	const char *const email_settings[] = {"maxlen", "9", NULL};
 	unsigned int i;
