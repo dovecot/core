@@ -384,6 +384,7 @@ test_lib_SOURCES = \
 	test-event-log.c \
 	test-failures.c \
 	test-fd-util.c \
+	test-file-cache.c \
 	test-file-create-locked.c \
 	test-guid.c \
 	test-hash.c \
