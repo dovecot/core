@@ -2369,6 +2369,22 @@ static void test_event_log_message(void)
 				"appended2.appended3.appended5.TEXT",
 			.result_str_out = "appended2.appended3.appended5.TEXT",
 		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3.",
+				  FLAG_DROP_PREFIXES_1 },
+				{ TYPE_PREFIX_APPEND, "appended4.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended5.",
+				  (FLAG_DROP_PREFIXES_1 |
+				   FLAG_DROP_PREFIXES_2) },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.result = "global3.Info: appended5.TEXT",
+			.result_str_out = "appended5.TEXT",
+		},
 	};
 
 	test_begin("event log message");

@@ -218,8 +218,7 @@ event_get_log_message(struct event *event,
 		}
 	} else if (!event->log_prefix_replace &&
 		   (!params->no_send || !glmctx->str_out_done)) {
-		if (event->log_prefixes_dropped > prefixes_dropped)
-			prefixes_dropped = event->log_prefixes_dropped;
+		prefixes_dropped += event->log_prefixes_dropped;
 		if (event_get_log_message(event->parent, glmctx,
 					  prefixes_dropped, fmt, args))
 			ret = TRUE;
