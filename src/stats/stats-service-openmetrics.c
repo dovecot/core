@@ -103,9 +103,9 @@ static void openmetrics_export_dovecot(string_t *out, int64_t timestamp)
 	str_printfa(out, "process_start_time_seconds %"PRId64" %"PRId64"\n",
 		    (int64_t)(ioloop_time - stats_startup_time), timestamp);
 
-	str_append(out, "# HELP dovecot_build_info "
+	str_append(out, "# HELP dovecot_build "
 			"Dovecot build information\n");
-	str_append(out, "# TYPE dovecot_build_info info\n");
+	str_append(out, "# TYPE dovecot_build info\n");
 	str_printfa(out, "dovecot_build_info{"OPENMETRICS_BUILD_INFO"} "
 			 "1 %"PRId64"\n", timestamp);
 }
@@ -260,10 +260,10 @@ openmetrics_export_metric_header(struct openmetrics_request *req, string_t *out)
 	str_append(out, metric->name);
 	switch (req->metric_type) {
 	case OPENMETRICS_METRIC_TYPE_COUNT:
-		str_append(out, "_total Total number of all events of this kind");
+		str_append(out, " Total number of all events of this kind");
 		break;
 	case OPENMETRICS_METRIC_TYPE_DURATION:
-		str_append(out, "_duration_seconds_total Total duration of all events of this kind");
+		str_append(out, "_duration_seconds Total duration of all events of this kind");
 		break;
 	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
 		str_append(out, " Histogram");
@@ -279,10 +279,10 @@ openmetrics_export_metric_header(struct openmetrics_request *req, string_t *out)
 	str_append(out, metric->name);
 	switch (req->metric_type) {
 	case OPENMETRICS_METRIC_TYPE_COUNT:
-		str_append(out, "_total counter\n");
+		str_append(out, " counter\n");
 		break;
 	case OPENMETRICS_METRIC_TYPE_DURATION:
-		str_append(out, "_duration_seconds_total counter\n");
+		str_append(out, "_duration_seconds counter\n");
 		break;
 	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
 		str_append(out, " histogram\n");
