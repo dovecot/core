@@ -14,7 +14,7 @@
 #include "stats-metrics.h"
 #include "stats-service-private.h"
 
-#define OPENMETRICS_CONTENT_VERSION "0.0.5"
+#define OPENMETRICS_CONTENT_VERSION "0.0.4"
 
 #ifdef DOVECOT_REVISION
 #define OPENMETRICS_BUILD_INFO \
@@ -141,8 +141,9 @@ openmetrics_export_metric_value(struct openmetrics_request *req, string_t *out,
 			    timestamp);
 		break;
 	case OPENMETRICS_METRIC_TYPE_DURATION:
+		/* Convert from us to seconds */
 		str_printfa(out, " %f %"PRId64"\n",
-			    stats_dist_get_sum(metric->duration_stats)/1000.0,
+			    stats_dist_get_sum(metric->duration_stats)/100000.0,
 			    timestamp);
 		break;
 	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
@@ -210,7 +211,8 @@ openmetrics_export_histogram(struct openmetrics_request *req, string_t *out,
 			openmetrics_find_histogram_bucket(metric, i);
 
 		if (sub_metric != NULL) {
-			sum += stats_dist_get_sum(sub_metric->duration_stats)/1000.0;
+			/* Convert from us to seconds */
+			sum += stats_dist_get_sum(sub_metric->duration_stats)/100000.0;
 			count += stats_dist_get_count(
 				sub_metric->duration_stats);
 		}
@@ -229,7 +231,7 @@ openmetrics_export_histogram(struct openmetrics_request *req, string_t *out,
 		str_append_str(out, req->labels);
 		str_append_c(out, '}');
 	}
-	str_printfa(out, " %f %"PRId64"\n", sum, timestamp);
+	str_printfa(out, " %.6f %"PRId64"\n", sum, timestamp);
 	/* Count */
 	str_append(out, "dovecot_");
 	str_append(out, metric->name);
