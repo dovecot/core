@@ -14,7 +14,7 @@
 #include "stats-metrics.h"
 #include "stats-service-private.h"
 
-#define OPENMETRICS_CONTENT_VERSION "0.0.4"
+#define OPENMETRICS_CONTENT_VERSION "0.0.1"
 
 #ifdef DOVECOT_REVISION
 #define OPENMETRICS_BUILD_INFO \
@@ -100,14 +100,19 @@ static void openmetrics_export_dovecot(string_t *out, int64_t timestamp)
 	str_append(out, "# HELP process_start_time_seconds "
 			"Dovecot stats service uptime\n");
 	str_append(out, "# TYPE process_start_time_seconds gauge\n");
-	str_printfa(out, "process_start_time_seconds %"PRId64" %"PRId64"\n\n",
+	str_printfa(out, "process_start_time_seconds %"PRId64" %"PRId64"\n",
 		    (int64_t)(ioloop_time - stats_startup_time), timestamp);
 
 	str_append(out, "# HELP dovecot_build_info "
 			"Dovecot build information\n");
-	str_append(out, "# TYPE dovecot_build_info untyped\n");
+	str_append(out, "# TYPE dovecot_build_info info\n");
 	str_printfa(out, "dovecot_build_info{"OPENMETRICS_BUILD_INFO"} "
 			 "1 %"PRId64"\n", timestamp);
+}
+
+static void openmetrics_export_eof(string_t *out)
+{
+	str_append(out, "# EOF\n");
 }
 
 static void
@@ -142,7 +147,7 @@ openmetrics_export_metric_value(struct openmetrics_request *req, string_t *out,
 		break;
 	case OPENMETRICS_METRIC_TYPE_DURATION:
 		/* Convert from us to seconds */
-		str_printfa(out, " %f %"PRId64"\n",
+		str_printfa(out, " %.6f %"PRId64"\n",
 			    stats_dist_get_sum(metric->duration_stats)/100000.0,
 			    timestamp);
 		break;
@@ -249,9 +254,6 @@ static void
 openmetrics_export_metric_header(struct openmetrics_request *req, string_t *out)
 {
 	const struct metric *metric = req->metric;
-
-	/* Empty line */
-	str_append_c(out, '\n');
 
 	/* Description */
 	str_append(out, "# HELP dovecot_");
@@ -681,6 +683,15 @@ static int openmetrics_export(struct openmetrics_request *req)
 		}
 	}
 
+	/* Send EOF */
+	str_truncate(out, 0);
+	openmetrics_export_eof(out);
+        ret = openmetrics_send_buffer(req, out);
+        if (ret < 0) {
+            openmetrics_handle_write_error(req);
+            return -1;
+        }
+
 	/* Cleanup everything except the output stream */
 	openmetrics_request_deinit(req);
 
@@ -733,7 +744,7 @@ stats_service_openmetrics_request(void *context ATTR_UNUSED,
 	hsresp = http_server_response_create(hsreq, 200, "OK");
 	http_server_response_add_header(
 		hsresp, "Content-Type",
-		"text/plain; version="OPENMETRICS_CONTENT_VERSION"; "
+		"application/openmetrics-text; version="OPENMETRICS_CONTENT_VERSION"; "
 		"charset=utf-8");
 
 	req->output = http_server_response_get_payload_output(
