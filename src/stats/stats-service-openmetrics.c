@@ -98,10 +98,10 @@ static void openmetrics_export_dovecot(string_t *out)
 {
 	i_assert(stats_startup_time <= ioloop_time);
 	str_append(out, "# HELP process_start_time_seconds "
-			"Dovecot stats service uptime\n");
+			"Timestamp of service start\n");
 	str_append(out, "# TYPE process_start_time_seconds gauge\n");
 	str_printfa(out, "process_start_time_seconds %"PRId64"\n",
-		    (int64_t)(ioloop_time - stats_startup_time));
+		    (int64_t)stats_startup_time);
 
 	str_append(out, "# HELP dovecot_build "
 			"Dovecot build information\n");
