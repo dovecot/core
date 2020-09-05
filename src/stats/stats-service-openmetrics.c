@@ -14,7 +14,7 @@
 #include "stats-metrics.h"
 #include "stats-service-private.h"
 
-#define OPENMETRICS_CONTENT_VERSION "0.0.1"
+#define OPENMETRICS_CONTENT_VERSION "0.0.4"
 
 #ifdef DOVECOT_REVISION
 #define OPENMETRICS_BUILD_INFO \
@@ -731,7 +731,7 @@ stats_service_openmetrics_request(void *context ATTR_UNUSED,
 	hsresp = http_server_response_create(hsreq, 200, "OK");
 	http_server_response_add_header(
 		hsresp, "Content-Type",
-		"application/openmetrics-text; version="OPENMETRICS_CONTENT_VERSION"; "
+		"text/plain; version="OPENMETRICS_CONTENT_VERSION"; "
 		"charset=utf-8");
 
 	req->output = http_server_response_get_payload_output(
