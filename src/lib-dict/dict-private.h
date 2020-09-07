@@ -47,6 +47,8 @@ struct dict_vfuncs {
 			      const struct timespec *ts);
 };
 
+struct dict_commit_callback_ctx;
+
 struct dict {
 	const char *name;
 
@@ -57,6 +59,7 @@ struct dict {
 	int refcount;
 	struct event *event;
 	struct ioloop *ioloop, *prev_ioloop;
+	struct dict_commit_callback_ctx *commits;
 };
 
 struct dict_iterate_context {

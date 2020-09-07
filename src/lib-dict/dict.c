@@ -10,10 +10,15 @@
 #include "dict-private.h"
 
 struct dict_commit_callback_ctx {
+	pool_t pool;
+	struct dict_commit_callback_ctx *prev, *next;
 	struct dict *dict;
 	struct event *event;
 	dict_transaction_commit_callback_t *callback;
+	struct timeout *to;
 	void *context;
+	struct dict_commit_result result;
+	bool background:1;
 };
 
 struct dict_lookup_callback_ctx {
@@ -24,6 +29,9 @@ struct dict_lookup_callback_ctx {
 };
 
 static ARRAY(struct dict *) dict_drivers;
+
+static void
+dict_commit_async_timeout(struct dict_commit_callback_ctx *ctx);
 
 static struct event_category event_category_dict = {
 	.name = "dict",
@@ -159,6 +167,8 @@ void dict_wait(struct dict *dict)
 	e_debug(dict->event, "Waiting for dict to finish pending operations");
 	if (dict->v.wait != NULL)
 		dict->v.wait(dict);
+	while (dict->commits != NULL)
+		dict_commit_async_timeout(dict->commits);
 }
 
 bool dict_switch_ioloop(struct dict *dict)
@@ -240,24 +250,37 @@ dict_lookup_callback(const struct dict_lookup_result *result,
 	i_free(ctx);
 }
 
+static void
+dict_commit_async_timeout(struct dict_commit_callback_ctx *ctx)
+{
+	DLLIST_REMOVE(&ctx->dict->commits, ctx);
+	timeout_remove(&ctx->to);
+	dict_pre_api_callback(ctx->dict);
+	if (ctx->callback != NULL)
+		ctx->callback(&ctx->result, ctx->context);
+	else if (ctx->result.ret < 0)
+		e_error(ctx->event, "Commit failed: %s", ctx->result.error);
+	dict_post_api_callback(ctx->dict);
+
+	dict_transaction_finished(ctx->event, ctx->result.ret, FALSE, ctx->result.error);
+	event_unref(&ctx->event);
+	dict_unref(&ctx->dict);
+	pool_unref(&ctx->pool);
+}
+
 static void dict_commit_callback(const struct dict_commit_result *result,
 				 void *context)
 {
 	struct dict_commit_callback_ctx *ctx = context;
 
 	i_assert(result->ret >= 0 || result->error != NULL);
-	dict_pre_api_callback(ctx->dict);
-	if (ctx->callback != NULL)
-		ctx->callback(result, ctx->context);
-	else if (result->ret < 0) {
-		e_error(ctx->event, "Commit failed: %s", result->error);
+	ctx->result = *result;
+	if (ctx->background) {
+		ctx->result.error = p_strdup(ctx->pool, ctx->result.error);
+		ctx->to = timeout_add_short(0, dict_commit_async_timeout, ctx);
+	} else {
+		dict_commit_async_timeout(ctx);
 	}
-	dict_post_api_callback(ctx->dict);
-
-	dict_transaction_finished(ctx->event, result->ret, FALSE, result->error);
-	event_unref(&ctx->event);
-	dict_unref(&ctx->dict);
-	i_free(ctx);
 }
 
 int dict_lookup(struct dict *dict, pool_t pool, const char *key,
@@ -473,17 +496,19 @@ dict_transaction_commit_sync_callback(const struct dict_commit_result *result,
 int dict_transaction_commit(struct dict_transaction_context **_ctx,
 			    const char **error_r)
 {
+	pool_t pool = pool_alloconly_create("dict_commit_callback_ctx", 64);
 	struct dict_commit_callback_ctx *cctx =
-		i_new(struct dict_commit_callback_ctx, 1);
+		p_new(pool, struct dict_commit_callback_ctx, 1);
 	struct dict_transaction_context *ctx = *_ctx;
 	struct dict_commit_sync_result result;
 
 	*_ctx = NULL;
-
+	cctx->pool = pool;
 	i_zero(&result);
 	i_assert(ctx->dict->transaction_count > 0);
 	ctx->dict->transaction_count--;
 	DLLIST_REMOVE(&ctx->dict->transactions, ctx);
+	DLLIST_PREPEND(&ctx->dict->commits, cctx);
 	cctx->dict = ctx->dict;
 	dict_ref(cctx->dict);
 	cctx->callback = dict_transaction_commit_sync_callback;
@@ -500,22 +525,25 @@ void dict_transaction_commit_async(struct dict_transaction_context **_ctx,
 				   dict_transaction_commit_callback_t *callback,
 				   void *context)
 {
+	pool_t pool = pool_alloconly_create("dict_commit_callback_ctx", 64);
 	struct dict_commit_callback_ctx *cctx =
-		i_new(struct dict_commit_callback_ctx, 1);
+		p_new(pool, struct dict_commit_callback_ctx, 1);
 	struct dict_transaction_context *ctx = *_ctx;
 
 	*_ctx = NULL;
 	i_assert(ctx->dict->transaction_count > 0);
 	ctx->dict->transaction_count--;
 	DLLIST_REMOVE(&ctx->dict->transactions, ctx);
+	DLLIST_PREPEND(&ctx->dict->commits, cctx);
 	if (callback == NULL)
 		callback = dict_transaction_commit_async_noop_callback;
+	cctx->pool = pool;
 	cctx->dict = ctx->dict;
 	dict_ref(cctx->dict);
 	cctx->callback = callback;
 	cctx->context = context;
 	cctx->event = ctx->event;
-
+	cctx->background = TRUE;
 	ctx->dict->v.transaction_commit(ctx, TRUE, dict_commit_callback, cctx);
 }
 
