@@ -188,7 +188,7 @@ fs_compress_try_create_stream(struct compress_fs_file *file,
 	array_append_zero(&try_inputs_arr);
 
 	try_inputs = array_idx_modifiable(&try_inputs_arr, 0);
-	ret_input = istream_try_create(try_inputs);
+	ret_input = istream_try_create(try_inputs, COMPRESSION_HDR_MAX_SIZE);
 	for (i = 0; i < count; i++)
 		i_stream_unref(&try_inputs[i]);
 	return ret_input;
