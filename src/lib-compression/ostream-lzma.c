@@ -140,7 +140,10 @@ static int o_stream_lzma_send_flush(struct lzma_ostream *zstream, bool final)
 		ret = lzma_code(zs, LZMA_FINISH);
 		switch (ret) {
 		case LZMA_OK:
+			/* still unfinished - need to call lzma_code() again */
+			break;
 		case LZMA_STREAM_END:
+			/* output is fully finished */
 			done = TRUE;
 			break;
 		case LZMA_MEM_ERROR:
