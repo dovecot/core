@@ -66,32 +66,34 @@ static void test_ostream_buffer_size(void)
 
 	test_begin("ostream buffer size/available");
 	output = o_stream_create_buffer(str);
-	test_assert(o_stream_get_buffer_used_size(output) == 0);
+	test_assert(str_len(str) == 0);
 	test_assert(o_stream_get_buffer_avail_size(output) == (size_t)-1);
 
 	/* test shrinking sink's max buffer size */
 	o_stream_set_max_buffer_size(output, 10);
-	test_assert(o_stream_get_buffer_used_size(output) == 0);
+	test_assert(str_len(str) == 0);
 	test_assert(o_stream_get_buffer_avail_size(output) == 10);
 
 	/* partial send */
 	const char *partial_input = "01234567890123456789";
 	ssize_t ret = o_stream_send_str(output, partial_input);
 	test_assert(ret == 10);
-	test_assert(o_stream_get_buffer_used_size(output) == 10);
-	test_assert(o_stream_get_buffer_avail_size(output) == 0);
+	test_assert(str_len(str) == 10);
+	test_assert(o_stream_get_buffer_avail_size(output) == 10);
 	
 	/* increase max buffer size so that it can hold the whole message */
 	o_stream_set_max_buffer_size(output, 100);
-	test_assert(o_stream_get_buffer_used_size(output) == 10);
-	test_assert(o_stream_get_buffer_avail_size(output) == 90);
+	test_assert(str_len(str) == 10);
+	test_assert(o_stream_get_buffer_avail_size(output) == 100);
 
 	/* send the rest */
 	ret += o_stream_send_str(output, partial_input + ret);
 	test_assert(ret == (ssize_t)strlen(partial_input));
 	test_assert(output->offset == str_len(str));
-	test_assert(o_stream_get_buffer_used_size(output) == 20);
-	test_assert(o_stream_get_buffer_avail_size(output) == 80);
+	test_assert(str_len(str) == 20);
+
+	/* used size is always 0 */
+	test_assert(o_stream_get_buffer_used_size(output) == 0);
 
 	/* check buffered data */
 	test_assert(strcmp(str_c(str), partial_input) == 0);
