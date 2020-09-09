@@ -117,6 +117,7 @@ static ssize_t i_stream_lzma_read(struct istream_private *stream)
 				stream->parent->stream_errno;
 		} else {
 			i_assert(stream->parent->eof);
+			lzma_stream_end(zstream);
 			ret = lzma_code(&zstream->strm, LZMA_FINISH);
 			if (ret != LZMA_STREAM_END)
 				if (lzma_handle_error(zstream, ret) == 0)
