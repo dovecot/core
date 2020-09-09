@@ -119,10 +119,15 @@ static ssize_t i_stream_lzma_read(struct istream_private *stream)
 			i_assert(stream->parent->eof);
 			lzma_stream_end(zstream);
 			ret = lzma_code(&zstream->strm, LZMA_FINISH);
-			if (ret != LZMA_STREAM_END)
-				if (lzma_handle_error(zstream, ret) == 0)
-					stream->istream.stream_errno =
-						zstream->hdr_read ? EPIPE : EINVAL;
+			if (lzma_handle_error(zstream, ret) < 0)
+				;
+			else if (!zstream->hdr_read) {
+				lzma_read_error(zstream, "file too small (not xz file?)");
+				stream->istream.stream_errno = EINVAL;
+			} else if (ret != LZMA_STREAM_END) {
+				lzma_read_error(zstream, "unexpected EOF");
+				stream->istream.stream_errno = EPIPE;
+			}
 			stream->istream.eof = TRUE;
 		}
 		return -1;
