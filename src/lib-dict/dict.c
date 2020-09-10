@@ -18,7 +18,7 @@ struct dict_commit_callback_ctx {
 	struct timeout *to;
 	void *context;
 	struct dict_commit_result result;
-	bool background:1;
+	bool delayed_callback:1;
 };
 
 struct dict_lookup_callback_ctx {
@@ -275,7 +275,7 @@ static void dict_commit_callback(const struct dict_commit_result *result,
 
 	i_assert(result->ret >= 0 || result->error != NULL);
 	ctx->result = *result;
-	if (ctx->background) {
+	if (ctx->delayed_callback) {
 		ctx->result.error = p_strdup(ctx->pool, ctx->result.error);
 		ctx->to = timeout_add_short(0, dict_commit_async_timeout, ctx);
 	} else {
@@ -543,7 +543,7 @@ void dict_transaction_commit_async(struct dict_transaction_context **_ctx,
 	cctx->callback = callback;
 	cctx->context = context;
 	cctx->event = ctx->event;
-	cctx->background = TRUE;
+	cctx->delayed_callback = TRUE;
 	ctx->dict->v.transaction_commit(ctx, TRUE, dict_commit_callback, cctx);
 }
 
