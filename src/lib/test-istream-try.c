@@ -156,7 +156,7 @@ static void test_istream_try_buffer_full(void)
 	const char *test_strings[] = { "Zm9v", "YmFy" };
 	struct istream *test_inputs[3], *try_input, *input, *input2;
 
-	test_begin("istream try");
+	test_begin("istream try buffer full");
 
 	for (unsigned int i = 0; i < 2; i++) {
 		input = test_istream_create(test_strings[i]);
