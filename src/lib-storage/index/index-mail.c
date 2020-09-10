@@ -590,7 +590,15 @@ int index_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	struct index_mail_data *data = &mail->data;
 	uoff_t size;
 
-	data->cache_fetch_fields |= MAIL_FETCH_PHYSICAL_SIZE;
+	if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NOT_IN_CACHE &&
+	    _mail->lookup_abort != MAIL_LOOKUP_ABORT_READ_MAIL) {
+		/* If size.physical isn't in cache yet, add it. Do this only
+		   when the caller appears to actually want it to be cached.
+		   We don't want to cache the size when coming in here from
+		   i_stream_mail_try_get_cached_size() or
+		   index_mail_get_cached_body_size(). */
+		data->cache_fetch_fields |= MAIL_FETCH_PHYSICAL_SIZE;
+	}
 	if (data->physical_size == (uoff_t)-1) {
 		if (index_mail_get_cached_uoff_t(mail,
 						 MAIL_CACHE_PHYSICAL_FULL_SIZE,
