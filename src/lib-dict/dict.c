@@ -159,6 +159,7 @@ void dict_deinit(struct dict **_dict)
 	i_assert(dict->iter_count == 0);
 	i_assert(dict->transaction_count == 0);
 	i_assert(dict->transactions == NULL);
+	i_assert(dict->commits == NULL);
 	dict_unref(&dict);
 }
 
