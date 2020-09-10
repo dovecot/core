@@ -1548,18 +1548,16 @@ bool index_mail_get_cached_bodystructure(struct index_mail *mail,
 
 	str = str_new(mail->mail.data_pool, 128);
 	if ((data->cache_flags & MAIL_CACHE_FLAG_TEXT_PLAIN_7BIT_ASCII) != 0 &&
-	    get_cached_parts(mail)) {
+	    get_cached_parts(mail))
 		index_mail_get_plain_bodystructure(mail, str, TRUE);
-		*value_r = data->bodystructure = str_c(str);
-		return TRUE;
-	}
-	if (index_mail_cache_lookup_field(mail, str, bodystructure_cache_field) > 0) {
-		*value_r = data->bodystructure = str_c(str);
-		return TRUE;
+	else if (index_mail_cache_lookup_field(mail, str,
+			bodystructure_cache_field) <= 0) {
+		str_free(&str);
+		return FALSE;
 	}
 
-	str_free(&str);
-	return FALSE;
+	*value_r = data->bodystructure = str_c(str);
+	return TRUE;
 }
 
 int index_mail_get_special(struct mail *_mail,
