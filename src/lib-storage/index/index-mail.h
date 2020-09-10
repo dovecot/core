@@ -195,6 +195,11 @@ int index_mail_parse_headers(struct index_mail *mail,
 			     struct mailbox_header_lookup_ctx *headers,
 			     const char *reason)
 	ATTR_NULL(2);
+/* Same as index_mail_parse_headers(), but assume that the stream is
+   already opened. */
+int index_mail_parse_headers_internal(struct index_mail *mail,
+				      struct mailbox_header_lookup_ctx *headers)
+	ATTR_NULL(2);
 int index_mail_headers_get_envelope(struct index_mail *mail);
 
 int index_mail_get_first_header(struct mail *_mail, const char *field,

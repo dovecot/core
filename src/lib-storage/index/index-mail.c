@@ -1306,7 +1306,7 @@ int index_mail_init_stream(struct index_mail *mail,
 		if (!data->hdr_size_set) {
 			if ((data->access_part & PARSE_HDR) != 0) {
 				(void)get_cached_parts(mail);
-				if (index_mail_parse_headers(mail, NULL, "parse header") < 0)
+				if (index_mail_parse_headers_internal(mail, NULL) < 0)
 					return -1;
 			} else {
 				if (message_get_header_size(data->stream,
