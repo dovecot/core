@@ -545,6 +545,7 @@ void dict_transaction_commit_async(struct dict_transaction_context **_ctx,
 	cctx->event = ctx->event;
 	cctx->delayed_callback = TRUE;
 	ctx->dict->v.transaction_commit(ctx, TRUE, dict_commit_callback, cctx);
+	cctx->delayed_callback = FALSE;
 }
 
 void dict_transaction_rollback(struct dict_transaction_context **_ctx)
