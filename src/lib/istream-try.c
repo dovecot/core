@@ -64,7 +64,7 @@ i_stream_try_is_buffer_full(struct try_istream *tstream,
 	while (try_input->real_stream->parent != NULL) {
 		try_input = try_input->real_stream->parent;
 		if (try_input->real_stream->pos >= try_input->real_stream->buffer_size &&
-		    try_input->real_stream->pos > tstream->min_buffer_full_size)
+		    try_input->real_stream->pos >= tstream->min_buffer_full_size)
 			return TRUE;
 	}
 	return FALSE;
