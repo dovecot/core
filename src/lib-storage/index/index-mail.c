@@ -96,6 +96,25 @@ int index_mail_cache_lookup_field(struct index_mail *mail, buffer_t *buf,
 	return ret;
 }
 
+static void index_mail_try_set_attachment_keywords(struct index_mail *mail)
+{
+	enum mail_lookup_abort orig_lookup_abort = mail->mail.mail.lookup_abort;
+	mail->mail.mail.lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
+	(void)mail_set_attachment_keywords(&mail->mail.mail);
+	mail->mail.mail.lookup_abort = orig_lookup_abort;
+}
+
+static bool
+index_mail_want_attachment_keywords_on_fetch(struct index_mail *mail)
+{
+	const struct mail_storage_settings *mail_set =
+		mailbox_get_settings(mail->mail.mail.box);
+
+	return mail_set->parsed_mail_attachment_detection_add_flags_on_save &&
+		!mail_set->parsed_mail_attachment_detection_no_flags_on_fetch &&
+		!mail_has_attachment_keywords(&mail->mail.mail);
+}
+
 static int get_serialized_parts(struct index_mail *mail, buffer_t **part_buf_r)
 {
 	const unsigned int field_idx =
@@ -160,6 +179,8 @@ static bool get_cached_parts(struct index_mail *mail)
 	}
 
 	mail->data.parts = part;
+	if (index_mail_want_attachment_keywords_on_fetch(mail))
+		index_mail_try_set_attachment_keywords(mail);
 	return TRUE;
 }
 
@@ -1163,11 +1184,8 @@ index_mail_parse_body_finish(struct index_mail *mail,
 	index_mail_cache_sizes(mail);
 	index_mail_cache_dates(mail);
 	if (mail_set->parsed_mail_attachment_detection_add_flags_on_save &&
-	    mail->data.parsed_bodystructure &&
-	    !mail_has_attachment_keywords(&mail->mail.mail)) {
-		i_assert(mail->data.parts != NULL);
-		(void)mail_set_attachment_keywords(&mail->mail.mail);
-	}
+	    !mail_has_attachment_keywords(&mail->mail.mail))
+		index_mail_try_set_attachment_keywords(mail);
 	return 0;
 }
 
@@ -1557,6 +1575,8 @@ bool index_mail_get_cached_bodystructure(struct index_mail *mail,
 	}
 
 	*value_r = data->bodystructure = str_c(str);
+	if (index_mail_want_attachment_keywords_on_fetch(mail))
+		index_mail_try_set_attachment_keywords(mail);
 	return TRUE;
 }
 
