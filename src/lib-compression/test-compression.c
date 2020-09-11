@@ -584,6 +584,7 @@ test_compression_handler_large_random_io(const struct compression_handler *handl
 	i_stream_unref(&dec_input);
 	i_stream_unref(&input);
 	buffer_free(&buf);
+	i_free(randomness);
 	test_end();
 }
 
