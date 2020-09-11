@@ -108,8 +108,7 @@ void smtp_command_parser_deinit(struct smtp_command_parser **_parser)
 	*_parser = NULL;
 }
 
-static void
-smtp_command_parser_restart(struct smtp_command_parser *parser)
+static void smtp_command_parser_restart(struct smtp_command_parser *parser)
 {
 	i_free(parser->state.cmd_name);
 	i_free(parser->state.cmd_params);
@@ -118,7 +117,7 @@ smtp_command_parser_restart(struct smtp_command_parser *parser)
 }
 
 void smtp_command_parser_set_stream(struct smtp_command_parser *parser,
-	struct istream *input)
+				    struct istream *input)
 {
 	i_stream_unref(&parser->input);
 	if (input != NULL) {
@@ -149,8 +148,8 @@ static int smtp_command_parse_identifier(struct smtp_command_parser *parser)
 	while (p < parser->end && i_isalpha(*p))
 		p++;
 	if ((p - parser->cur) > SMTP_COMMAND_PARSER_MAX_COMMAND_LENGTH) {
-		smtp_command_parser_error(parser,
-			SMTP_COMMAND_PARSE_ERROR_BAD_COMMAND,
+		smtp_command_parser_error(
+			parser, SMTP_COMMAND_PARSE_ERROR_BAD_COMMAND,
 			"Command name is too long");
 		return -1;
 	}
@@ -167,8 +166,8 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 {
 	const unsigned char *p, *mp;
 	uoff_t max_size = (parser->auth_response ?
-		parser->limits.max_auth_size :
-		parser->limits.max_parameters_size);
+			   parser->limits.max_auth_size :
+			   parser->limits.max_parameters_size);
 	int nch = 1;
 
 	/* We assume parameters to match textstr (HT, SP, Printable US-ASCII).
@@ -187,8 +186,8 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 		if (nch == 0)
 			break;
 		if (nch < 0) {
-			smtp_command_parser_error(parser,
-				SMTP_COMMAND_PARSE_ERROR_BAD_COMMAND,
+			smtp_command_parser_error(
+				parser, SMTP_COMMAND_PARSE_ERROR_BAD_COMMAND,
 				"Invalid UTF-8 character in command parameters");
 			return -1;
 		}
@@ -198,11 +197,10 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 		p += nch;
 	}
 	if (max_size > 0 && (uoff_t)(p - parser->cur) > max_size) {
-		smtp_command_parser_error(parser,
-			SMTP_COMMAND_PARSE_ERROR_LINE_TOO_LONG,
+		smtp_command_parser_error(
+			parser, SMTP_COMMAND_PARSE_ERROR_LINE_TOO_LONG,
 			"%s line is too long",
-			(parser->auth_response ?
-				"AUTH response" : "Command"));
+			(parser->auth_response ? "AUTH response" : "Command"));
 		return -1;
 	}
 	parser->state.poff = p - parser->cur;
@@ -223,8 +221,8 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 	}
 
 	if (!parser->auth_response && mp > parser->cur && *parser->cur == ' ') {
-		smtp_command_parser_error(parser,
-			SMTP_COMMAND_PARSE_ERROR_BAD_COMMAND,
+		smtp_command_parser_error(
+			parser, SMTP_COMMAND_PARSE_ERROR_BAD_COMMAND,
 			"Duplicate space after command name");
 		return -1;
 	}
@@ -235,8 +233,7 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 	return 1;
 }
 
-static int
-smtp_command_parse_line(struct smtp_command_parser *parser)
+static int smtp_command_parse_line(struct smtp_command_parser *parser)
 {
 	int ret;
 
@@ -253,7 +250,7 @@ smtp_command_parse_line(struct smtp_command_parser *parser)
 		case SMTP_COMMAND_PARSE_STATE_INIT:
 			smtp_command_parser_restart(parser);
 			if (parser->auth_response) {
-				/* parse AUTH response as bare parameters */
+				/* Parse AUTH response as bare parameters */
 				parser->state.state =
 					SMTP_COMMAND_PARSE_STATE_PARAMETERS;
 			} else {
@@ -266,7 +263,8 @@ smtp_command_parse_line(struct smtp_command_parser *parser)
 				break;
 			/* fall through */
 		case SMTP_COMMAND_PARSE_STATE_COMMAND:
-			if ((ret=smtp_command_parse_identifier(parser)) <= 0)
+			ret = smtp_command_parse_identifier(parser);
+			if (ret <= 0)
 				return ret;
 			parser->state.state = SMTP_COMMAND_PARSE_STATE_SP;
 			if (parser->cur == parser->end)
@@ -295,7 +293,8 @@ smtp_command_parse_line(struct smtp_command_parser *parser)
 				return 0;
 			/* fall through */
 		case SMTP_COMMAND_PARSE_STATE_PARAMETERS:
-			if ((ret=smtp_command_parse_parameters(parser)) <= 0)
+			ret = smtp_command_parse_parameters(parser);
+			if (ret <= 0)
 				return ret;
 			parser->state.state = SMTP_COMMAND_PARSE_STATE_CR;
 			if (parser->cur == parser->end)
@@ -310,8 +309,8 @@ smtp_command_parse_line(struct smtp_command_parser *parser)
 					"Unexpected character %s in %s",
 					_chr_sanitize(*parser->cur),
 					(parser->auth_response ?
-						"AUTH response" :
-						"command parameters"));
+					 "AUTH response" :
+					 "command parameters"));
 				return -1;
 			}
 			parser->state.state = SMTP_COMMAND_PARSE_STATE_LF;
@@ -325,7 +324,7 @@ smtp_command_parse_line(struct smtp_command_parser *parser)
 					"Expected LF after CR at end of %s, "
 					"but found %s",
 					(parser->auth_response ?
-						"AUTH response" : "command"),
+					 "AUTH response" : "command"),
 					_chr_sanitize(*parser->cur));
 				return -1;
 			}
@@ -333,7 +332,7 @@ smtp_command_parse_line(struct smtp_command_parser *parser)
 			parser->state.state = SMTP_COMMAND_PARSE_STATE_INIT;
 			return 1;
 		case SMTP_COMMAND_PARSE_STATE_ERROR:
-			/* skip until end of line */
+			/* Skip until end of line */
 			while (parser->cur < parser->end &&
 			       *parser->cur != '\n')
 				parser->cur++;
@@ -370,25 +369,25 @@ static int smtp_command_parse(struct smtp_command_parser *parser)
 	}
 
 	if (ret == -2) {
-		/* should not really happen */
-		smtp_command_parser_error(parser,
-			SMTP_COMMAND_PARSE_ERROR_LINE_TOO_LONG,
+		/* Should not really happen */
+		smtp_command_parser_error(
+			parser, SMTP_COMMAND_PARSE_ERROR_LINE_TOO_LONG,
 			"%s line is too long",
-			(parser->auth_response ?
-				"AUTH response" : "Command"));
+			(parser->auth_response ? "AUTH response" : "Command"));
 		return -1;
 	}
 	if (ret < 0) {
 		i_assert(parser->input->eof);
 		if (parser->input->stream_errno == 0) {
-			if (parser->state.state == SMTP_COMMAND_PARSE_STATE_INIT)
+			if (parser->state.state ==
+			    SMTP_COMMAND_PARSE_STATE_INIT)
 				ret = -2;
-			smtp_command_parser_error(parser,
-				SMTP_COMMAND_PARSE_ERROR_BROKEN_COMMAND,
+			smtp_command_parser_error(
+				parser, SMTP_COMMAND_PARSE_ERROR_BROKEN_COMMAND,
 				"Premature end of input");
 		} else {
-			smtp_command_parser_error(parser,
-				SMTP_COMMAND_PARSE_ERROR_BROKEN_STREAM,
+			smtp_command_parser_error(
+				parser, SMTP_COMMAND_PARSE_ERROR_BROKEN_STREAM,
 				"Stream error: %s",
 				i_stream_get_error(parser->input));
 		}
@@ -403,8 +402,7 @@ bool smtp_command_parser_pending_data(struct smtp_command_parser *parser)
 	return i_stream_have_bytes_left(parser->data);
 }
 
-static int
-smtp_command_parse_finish_data(struct smtp_command_parser *parser)
+static int smtp_command_parse_finish_data(struct smtp_command_parser *parser)
 {
 	const unsigned char *data;
 	size_t size;
@@ -427,18 +425,18 @@ smtp_command_parse_finish_data(struct smtp_command_parser *parser)
 		case 0:
 			return 0;
 		case EIO:
-			smtp_command_parser_error(parser,
-				SMTP_COMMAND_PARSE_ERROR_BROKEN_COMMAND,
+			smtp_command_parser_error(
+				parser, SMTP_COMMAND_PARSE_ERROR_BROKEN_COMMAND,
 				"Invalid command data");
 			break;
 		case EMSGSIZE:
-			smtp_command_parser_error(parser,
-				SMTP_COMMAND_PARSE_ERROR_DATA_TOO_LARGE,
+			smtp_command_parser_error(
+				parser,	SMTP_COMMAND_PARSE_ERROR_DATA_TOO_LARGE,
 				"Command data too large");
 			break;
 		default:
-			smtp_command_parser_error(parser,
-				SMTP_COMMAND_PARSE_ERROR_BROKEN_STREAM,
+			smtp_command_parser_error(
+				parser, SMTP_COMMAND_PARSE_ERROR_BROKEN_STREAM,
 				"Stream error while skipping command data: "
 				"%s", i_stream_get_error(parser->data));
 		}
@@ -456,8 +454,8 @@ int smtp_command_parse_next(struct smtp_command_parser *parser,
 	int ret;
 
 	i_assert(!parser->auth_response ||
-		parser->state.state == SMTP_COMMAND_PARSE_STATE_INIT ||
-		parser->state.state == SMTP_COMMAND_PARSE_STATE_ERROR);
+		 parser->state.state == SMTP_COMMAND_PARSE_STATE_INIT ||
+		 parser->state.state == SMTP_COMMAND_PARSE_STATE_ERROR);
 	parser->auth_response = FALSE;
 
 	*error_code_r = parser->error_code = SMTP_COMMAND_PARSE_ERROR_NONE;
@@ -465,9 +463,10 @@ int smtp_command_parse_next(struct smtp_command_parser *parser,
 
 	i_free_and_null(parser->error);
 
-	/* make sure we finished streaming payload from previous command
+	/* Make sure we finished streaming payload from previous command
 	   before we continue. */
-	if ((ret = smtp_command_parse_finish_data(parser)) <= 0) {
+	ret = smtp_command_parse_finish_data(parser);
+	if (ret <= 0) {
 		if (ret < 0) {
 			*error_code_r = parser->error_code;
 			*error_r = parser->error;
@@ -475,7 +474,8 @@ int smtp_command_parse_next(struct smtp_command_parser *parser,
 		return ret;
 	}
 
-	if ((ret=smtp_command_parse(parser)) <= 0) {
+	ret = smtp_command_parse(parser);
+	if (ret <= 0) {
 		if (ret < 0) {
 			*error_code_r = parser->error_code;
 			*error_r = parser->error;
@@ -487,23 +487,23 @@ int smtp_command_parse_next(struct smtp_command_parser *parser,
 	i_assert(parser->state.state == SMTP_COMMAND_PARSE_STATE_INIT);
 	*cmd_name_r = parser->state.cmd_name;
 	*cmd_params_r = (parser->state.cmd_params == NULL ?
-		"" : parser->state.cmd_params);
+			 "" : parser->state.cmd_params);
 	return 1;
 }
 
 struct istream *
 smtp_command_parse_data_with_size(struct smtp_command_parser *parser,
-	uoff_t size)
+				  uoff_t size)
 {
 	i_assert(parser->data == NULL);
 	if (size > parser->limits.max_data_size) {
-		/* not supposed to happen; command should check size */
+		/* Not supposed to happen; command should check size */
 		parser->data = i_stream_create_error_str(EMSGSIZE, 
 			"Command data size exceeds maximum "
 			"(%"PRIuUOFF_T" > %"PRIuUOFF_T")",
 			size, parser->limits.max_data_size);
 	} else {
-		// FIXME: make exact_size stream type
+		// FIXME: Make exact_size stream type
 		struct istream *limit_input =
 			i_stream_create_limit(parser->input, size);
 		parser->data = i_stream_create_min_sized(limit_input, size);
@@ -542,8 +542,8 @@ int smtp_command_parse_auth_response(struct smtp_command_parser *parser,
 	int ret;
 
 	i_assert(parser->auth_response ||
-		parser->state.state == SMTP_COMMAND_PARSE_STATE_INIT ||
-		parser->state.state == SMTP_COMMAND_PARSE_STATE_ERROR);
+		 parser->state.state == SMTP_COMMAND_PARSE_STATE_INIT ||
+		 parser->state.state == SMTP_COMMAND_PARSE_STATE_ERROR);
 	parser->auth_response = TRUE;
 
 	*error_code_r = parser->error_code = SMTP_COMMAND_PARSE_ERROR_NONE;
@@ -551,9 +551,10 @@ int smtp_command_parse_auth_response(struct smtp_command_parser *parser,
 
 	i_free_and_null(parser->error);
 
-	/* make sure we finished streaming payload from previous command
+	/* Make sure we finished streaming payload from previous command
 	   before we continue. */
-	if ((ret = smtp_command_parse_finish_data(parser)) <= 0) {
+	ret = smtp_command_parse_finish_data(parser);
+	if (ret <= 0) {
 		if (ret < 0) {
 			*error_code_r = parser->error_code;
 			*error_r = parser->error;
@@ -561,7 +562,8 @@ int smtp_command_parse_auth_response(struct smtp_command_parser *parser,
 		return ret;
 	}
 
-	if ((ret=smtp_command_parse(parser)) <= 0) {
+	ret = smtp_command_parse(parser);
+	if (ret <= 0) {
 		if (ret < 0) {
 			*error_code_r = parser->error_code;
 			*error_r = parser->error;
