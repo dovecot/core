@@ -115,7 +115,22 @@ test_programs = \
 	test-rfc2231-parser \
 	test-rfc822-parser
 
-noinst_PROGRAMS = $(test_programs)
+fuzz_programs =
+
+if USE_FUZZER
+fuzz_programs += fuzz-message-parser
+
+nodist_EXTRA_fuzz_message_parser_SOURCES = force-cxx-linking.cxx
+
+fuzz_message_parser_CPPFLAGS = $(FUZZER_CPPFLAGS)
+fuzz_message_parser_LDFLAGS = $(FUZZER_LDFLAGS)
+fuzz_message_parser_SOURCES = fuzz-message-parser.c
+fuzz_message_parser_LDADD = $(test_libs)
+fuzz_message_parser_DEPENDENCIES = $(test_deps)
+
+endif
+
+noinst_PROGRAMS = $(fuzz_programs) $(test_programs)
 
 test_libs = \
 	$(noinst_LTLIBRARIES) \
