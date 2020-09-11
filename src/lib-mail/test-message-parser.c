@@ -1127,6 +1127,87 @@ static const char input_msg[] =
 	test_end();
 }
 
+static void test_message_parser_mime_part_limit_rfc822(void)
+{
+static const char input_msg[] =
+"Content-Type: multipart/mixed; boundary=\"1\"\n"
+"\n"
+"--1\n"
+"Content-Type: multipart/mixed; boundary=\"2\"\n"
+"\n"
+"--2\n"
+"Content-Type: message/rfc822\n"
+"\n"
+"Content-Type: text/plain\n"
+"\n"
+"1\n"
+"--2\n"
+"Content-Type: message/rfc822\n"
+"\n"
+"Content-Type: text/plain\n"
+"\n"
+"22\n"
+"--1\n"
+"Content-Type: message/rfc822\n"
+"\n"
+"Content-Type: text/plain\n"
+"\n"
+"333\n";
+	const struct message_parser_settings parser_set = {
+		.max_total_mime_parts = 3,
+	};
+	struct message_parser_ctx *parser;
+	struct istream *input;
+	struct message_part *parts, *part;
+	struct message_block block;
+	pool_t pool;
+	int ret;
+
+	test_begin("message parser mime part limit rfc822");
+	pool = pool_alloconly_create("message parser", 10240);
+	input = test_istream_create(input_msg);
+
+	parser = message_parser_init(pool, input, &parser_set);
+	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
+	test_assert(ret < 0);
+	message_parser_deinit(&parser, &parts);
+
+	part = parts;
+	test_assert(part->children_count == 2);
+	test_assert(part->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
+	test_assert(part->header_size.lines == 2);
+	test_assert(part->header_size.physical_size == 45);
+	test_assert(part->header_size.virtual_size == 45+2);
+	test_assert(part->body_size.lines == 21);
+	test_assert(part->body_size.physical_size == 238);
+	test_assert(part->body_size.virtual_size == 238+21);
+
+	part = parts->children;
+	test_assert(part->children_count == 1);
+	test_assert(part->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
+	test_assert(part->header_size.lines == 2);
+	test_assert(part->header_size.physical_size == 45);
+	test_assert(part->header_size.virtual_size == 45+2);
+	test_assert(part->body_size.lines == 18);
+	test_assert(part->body_size.physical_size == 189);
+	test_assert(part->body_size.virtual_size == 189+18);
+
+	part = parts->children->children;
+	test_assert(part->children_count == 0);
+	test_assert(part->flags == MESSAGE_PART_FLAG_IS_MIME);
+	test_assert(part->header_size.lines == 2);
+	test_assert(part->header_size.physical_size == 30);
+	test_assert(part->header_size.virtual_size == 30+2);
+	test_assert(part->body_size.lines == 15);
+	test_assert(part->body_size.physical_size == 155);
+	test_assert(part->body_size.virtual_size == 155+15);
+
+	test_parsed_parts(input, parts);
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
 static void test_message_parser_mime_version(void)
 {
 	test_begin("message parser mime version");
@@ -1301,6 +1382,7 @@ int main(void)
 		test_message_parser_mime_part_nested_limit,
 		test_message_parser_mime_part_nested_limit_rfc822,
 		test_message_parser_mime_part_limit,
+		test_message_parser_mime_part_limit_rfc822,
 		test_message_parser_mime_version,
 		test_message_parser_mime_version_missing,
 		NULL
