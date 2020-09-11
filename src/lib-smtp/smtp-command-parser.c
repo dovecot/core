@@ -180,7 +180,7 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 		if (parser->auth_response)
 			ch = *p;
 		else {
-			nch = uni_utf8_get_char_n(p, (size_t)(p - parser->end),
+			nch = uni_utf8_get_char_n(p, (size_t)(parser->end - p),
 						  &ch);
 		}
 		if (nch == 0)
