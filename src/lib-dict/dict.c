@@ -165,11 +165,15 @@ void dict_deinit(struct dict **_dict)
 
 void dict_wait(struct dict *dict)
 {
+	struct dict_commit_callback_ctx *commit, *next;
+
 	e_debug(dict->event, "Waiting for dict to finish pending operations");
 	if (dict->v.wait != NULL)
 		dict->v.wait(dict);
-	while (dict->commits != NULL)
-		dict_commit_async_timeout(dict->commits);
+	for (commit = dict->commits; commit != NULL; commit = next) {
+		next = commit->next;
+		dict_commit_async_timeout(commit);
+	}
 }
 
 bool dict_switch_ioloop(struct dict *dict)
