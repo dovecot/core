@@ -73,6 +73,18 @@ valid_command_parse_tests[] = {
 unsigned int valid_command_parse_test_count =
 	N_ELEMENTS(valid_command_parse_tests);
 
+static void
+test_smtp_command_parse_valid_check(
+	const struct smtp_command_parse_valid_test *test,
+	const char *cmd_name,  const char *cmd_params)
+{
+	test_out(t_strdup_printf("command name = `%s'", test->cmd_name),
+		 null_strcmp(cmd_name, test->cmd_name) == 0);
+	test_out(t_strdup_printf("command params = `%s'",
+				 str_sanitize(test->cmd_params, 24)),
+		 null_strcmp(cmd_params, test->cmd_params) == 0);
+}
+
 static void test_smtp_command_parse_valid(void)
 {
 	unsigned int i;
@@ -81,37 +93,73 @@ static void test_smtp_command_parse_valid(void)
 		struct istream *input;
 		const struct smtp_command_parse_valid_test *test;
 		struct smtp_command_parser *parser;
-		const char *cmd_name = NULL, *cmd_params = NULL, *error = NULL;
+		const char *command_text, *cmd_name, *cmd_params, *error;
 		enum smtp_command_parse_error error_code;
+		unsigned int pos, command_text_len;
 		int ret;
 
-		test = &valid_command_parse_tests[i];
-		input = i_stream_create_from_data(test->command,
-						  strlen(test->command));
-		parser = smtp_command_parser_init(input, &test->limits);
-		i_stream_unref(&input);
-
 		test_begin(t_strdup_printf("smtp command valid [%d]", i));
+
+		cmd_name = cmd_params = error = NULL;
+
+		test = &valid_command_parse_tests[i];
+		command_text = test->command;
+		command_text_len = strlen(command_text);
+
+		/* Fully buffered input */
+		input = i_stream_create_from_data(command_text,
+						  command_text_len);
+		parser = smtp_command_parser_init(input, &test->limits);
 
 		while ((ret = smtp_command_parse_next(
 			parser, &cmd_name, &cmd_params,
 			&error_code, &error)) > 0);
 
-		test_out_reason("parse success", ret == -2, error);
-
+		test_out_reason("parse success [buffer]", ret == -2,
+				(ret == -2 ? NULL : error));
 		if (ret == 0) {
 			/* Verify last command only */
-			test_out(t_strdup_printf("command name = `%s'",
-						 test->cmd_name),
-				 null_strcmp(cmd_name, test->cmd_name) == 0);
-			test_out(t_strdup_printf("command params = `%s'",
-						 str_sanitize(test->cmd_params,
-							      24)),
-				 null_strcmp(cmd_params,
-					     test->cmd_params) == 0);
+			test_smtp_command_parse_valid_check(
+				test, cmd_name, cmd_params);
 		}
-		test_end();
+
 		smtp_command_parser_deinit(&parser);
+		i_stream_unref(&input);
+
+		error = NULL;
+		error_code = SMTP_COMMAND_PARSE_ERROR_NONE;
+		ret = 0;
+
+		/* Trickle stream */
+		input = test_istream_create_data(command_text,
+						 command_text_len);
+		parser = smtp_command_parser_init(input, &test->limits);
+
+		for (pos = 0; pos <= command_text_len && ret == 0; pos++) {
+			test_istream_set_size(input, pos);
+			ret = smtp_command_parse_next(
+				parser, &cmd_name, &cmd_params,
+				&error_code, &error);
+		}
+		test_istream_set_size(input, command_text_len);
+		if (ret >= 0) {
+			while ((ret = smtp_command_parse_next(
+				parser, &cmd_name, &cmd_params,
+				&error_code, &error)) > 0);
+		}
+
+		test_out_reason("parse success [stream]", ret == -2,
+				(ret == -2 ? NULL : error));
+		if (ret == 0) {
+			/* Verify last command only */
+			test_smtp_command_parse_valid_check(
+				test, cmd_name, cmd_params);
+		}
+
+		smtp_command_parser_deinit(&parser);
+		i_stream_unref(&input);
+
+		test_end();
 	} T_END;
 }
 
@@ -185,27 +233,63 @@ static void test_smtp_command_parse_invalid(void)
 		struct smtp_command_parser *parser;
 		const char *command_text, *cmd_name, *cmd_params, *error;
 		enum smtp_command_parse_error error_code;
+		unsigned int pos, command_text_len;
 		int ret;
+
+		test_begin(t_strdup_printf("smtp command invalid [%d]", i));
 
 		test = &invalid_command_parse_tests[i];
 		command_text = test->command;
-		input = i_stream_create_from_data(command_text,
-						  strlen(command_text));
-		parser = smtp_command_parser_init(input, &test->limits);
-		i_stream_unref(&input);
+		command_text_len = strlen(command_text);
 
-		test_begin(t_strdup_printf("smtp command invalid [%d]", i));
+		/* Fully buffered input */
+		input = i_stream_create_from_data(command_text,
+						  command_text_len);
+		parser = smtp_command_parser_init(input, &test->limits);
 
 		while ((ret = smtp_command_parse_next(
 			parser, &cmd_name, &cmd_params,
 			&error_code, &error)) > 0);
-		test_out_reason(t_strdup_printf("parse(\"%s\")",
+
+		test_out_reason(t_strdup_printf("parse(\"%s\") [buffer]",
 						str_sanitize(command_text, 28)),
 				ret == -1, error);
 		test_out_quiet("error code", error_code == test->error_code);
 
-		test_end();
 		smtp_command_parser_deinit(&parser);
+		i_stream_unref(&input);
+
+		error = NULL;
+		error_code = SMTP_COMMAND_PARSE_ERROR_NONE;
+		ret = 0;
+
+		/* Trickle stream */
+		input = test_istream_create_data(command_text,
+						 command_text_len);
+		parser = smtp_command_parser_init(input, &test->limits);
+
+		for (pos = 0; pos <= command_text_len && ret == 0; pos++) {
+			test_istream_set_size(input, pos);
+			ret = smtp_command_parse_next(
+				parser, &cmd_name, &cmd_params,
+				&error_code, &error);
+		}
+		test_istream_set_size(input, command_text_len);
+		if (ret >= 0) {
+			while ((ret = smtp_command_parse_next(
+				parser, &cmd_name, &cmd_params,
+				&error_code, &error)) > 0);
+		}
+
+		test_out_reason(t_strdup_printf("parse(\"%s\") [stream]",
+						str_sanitize(command_text, 28)),
+				ret == -1, error);
+		test_out_quiet("error code", error_code == test->error_code);
+
+		smtp_command_parser_deinit(&parser);
+		i_stream_unref(&input);
+
+		test_end();
 	} T_END;
 }
 
@@ -244,6 +328,16 @@ valid_auth_response_parse_tests[] = {
 unsigned int valid_auth_response_parse_test_count =
 	N_ELEMENTS(valid_auth_response_parse_tests);
 
+static void
+test_smtp_auth_response_parse_valid_check(
+	const struct smtp_auth_response_parse_valid_test *test,
+	const char *line)
+{
+	test_out(t_strdup_printf("line = `%s'",
+			 str_sanitize(test->line, 24)),
+		 null_strcmp(line, test->line) == 0);
+}
+
 static void test_smtp_auth_response_parse_valid(void)
 {
 	unsigned int i;
@@ -252,31 +346,68 @@ static void test_smtp_auth_response_parse_valid(void)
 		struct istream *input;
 		const struct smtp_auth_response_parse_valid_test *test;
 		struct smtp_command_parser *parser;
-		const char *line, *error = NULL;
+		const char *response_text, *line, *error;
 		enum smtp_command_parse_error error_code;
+		unsigned int pos, response_text_len;
 		int ret;
 
-		test = &valid_auth_response_parse_tests[i];
-		input = i_stream_create_from_data(test->auth_response,
-						  strlen(test->auth_response));
-		parser = smtp_command_parser_init(input, &test->limits);
-		i_stream_unref(&input);
-
 		test_begin(t_strdup_printf("smtp auth_response valid [%d]", i));
+
+		line = error = NULL;
+
+		test = &valid_auth_response_parse_tests[i];
+		response_text = test->auth_response;
+		response_text_len = strlen(response_text);
+
+		/* Fully buffered input */
+		input = i_stream_create_from_data(response_text,
+						  response_text_len);
+		parser = smtp_command_parser_init(input, &test->limits);
 
 		while ((ret = smtp_command_parse_auth_response(
 			parser, &line, &error_code, &error)) > 0);
 
-		test_out_reason("parse success", ret == -2, error);
-
+		test_out_reason("parse success [buffer]", ret == -2,
+				(ret == -2 ? NULL : error));
 		if (ret == 0) {
-			/* verify last response only */
-			test_out(t_strdup_printf("line = `%s'",
-						 str_sanitize(test->line, 24)),
-				 null_strcmp(line, test->line) == 0);
+			/* Verify last reponse only */
+			test_smtp_auth_response_parse_valid_check(test, line);
 		}
-		test_end();
+
 		smtp_command_parser_deinit(&parser);
+		i_stream_unref(&input);
+
+		error = NULL;
+		error_code = SMTP_COMMAND_PARSE_ERROR_NONE;
+		ret = 0;
+
+		/* Trickle stream */
+		input = test_istream_create_data(response_text,
+						 response_text_len);
+		parser = smtp_command_parser_init(input, &test->limits);
+
+		for (pos = 0; pos <= response_text_len && ret == 0; pos++) {
+			test_istream_set_size(input, pos);
+			ret = smtp_command_parse_auth_response(
+				parser, &line, &error_code, &error);
+		}
+		test_istream_set_size(input, response_text_len);
+		if (ret >= 0) {
+			while ((ret = smtp_command_parse_auth_response(
+				parser, &line, &error_code, &error)) > 0);
+		}
+
+		test_out_reason("parse success [stream]", ret == -2,
+				(ret == -2 ? NULL : error));
+		if (ret == 0) {
+			/* Verify last reponse only */
+			test_smtp_auth_response_parse_valid_check(test, line);
+		}
+
+		smtp_command_parser_deinit(&parser);
+		i_stream_unref(&input);
+
+		test_end();
 	} T_END;
 }
 
@@ -328,28 +459,63 @@ static void test_smtp_auth_response_parse_invalid(void)
 		struct smtp_command_parser *parser;
 		const char *response_text, *line, *error;
 		enum smtp_command_parse_error error_code;
+		unsigned int pos, response_text_len;
 		int ret;
-
-		test = &invalid_auth_response_parse_tests[i];
-		response_text = test->auth_response;
-		input = i_stream_create_from_data(response_text,
-						  strlen(response_text));
-		parser = smtp_command_parser_init(input, &test->limits);
-		i_stream_unref(&input);
 
 		test_begin(
 			t_strdup_printf("smtp auth response invalid [%d]", i));
 
+		test = &invalid_auth_response_parse_tests[i];
+		response_text = test->auth_response;
+		response_text_len = strlen(response_text);
+
+		/* Fully buffered input */
+		input = i_stream_create_from_data(response_text,
+						  strlen(response_text));
+		parser = smtp_command_parser_init(input, &test->limits);
+
 		while ((ret = smtp_command_parse_auth_response(
 			parser, &line, &error_code, &error)) > 0);
-		test_out_reason(t_strdup_printf("parse(\"%s\")",
+
+		test_out_reason(t_strdup_printf("parse(\"%s\") [buffer]",
 						str_sanitize(response_text,
 							     28)),
 				ret == -1, error);
 		test_out_quiet("error code", error_code == test->error_code);
 
-		test_end();
 		smtp_command_parser_deinit(&parser);
+		i_stream_unref(&input);
+
+		error = NULL;
+		error_code = SMTP_COMMAND_PARSE_ERROR_NONE;
+		ret = 0;
+
+		/* Trickle stream */
+		input = test_istream_create_data(response_text,
+						 response_text_len);
+		parser = smtp_command_parser_init(input, &test->limits);
+
+		for (pos = 0; pos <= response_text_len && ret == 0; pos++) {
+			test_istream_set_size(input, pos);
+			ret = smtp_command_parse_auth_response(
+				parser, &line, &error_code, &error);
+		}
+		test_istream_set_size(input, response_text_len);
+		if (ret >= 0) {
+			while ((ret = smtp_command_parse_auth_response(
+				parser, &line, &error_code, &error)) > 0);
+		}
+
+		test_out_reason(t_strdup_printf("parse(\"%s\") [stream]",
+						str_sanitize(response_text,
+							     28)),
+				ret == -1, error);
+		test_out_quiet("error code", error_code == test->error_code);
+
+		smtp_command_parser_deinit(&parser);
+		i_stream_unref(&input);
+
+		test_end();
 	} T_END;
 }
 
