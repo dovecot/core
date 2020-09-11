@@ -703,7 +703,8 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 		ctx->multipart = FALSE;
 		ctx->parse_next_block = parse_next_body_to_boundary;
 	} else if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0 &&
-		   !parse_too_many_nested_mime_parts(ctx)) {
+		   !parse_too_many_nested_mime_parts(ctx) &&
+		   ctx->total_parts_count < ctx->max_total_mime_parts) {
 		ctx->parse_next_block = parse_next_body_message_rfc822_init;
 	} else {
 		part->flags &= ENUM_NEGATE(MESSAGE_PART_FLAG_MESSAGE_RFC822);
