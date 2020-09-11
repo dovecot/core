@@ -218,6 +218,22 @@ static const struct smtp_command_parse_invalid_test
 		.command = "MAIL FROM:f\xc3\xb6\xc3\xa4@\xc3\xb6\xc3",
 		.error_code = SMTP_COMMAND_PARSE_ERROR_BROKEN_COMMAND,
 	},
+	{
+		.command = "FROP \xF1",
+		.error_code = SMTP_COMMAND_PARSE_ERROR_BROKEN_COMMAND,
+	},
+	{
+		.command = "FROP \xF1\x80",
+		.error_code = SMTP_COMMAND_PARSE_ERROR_BROKEN_COMMAND,
+	},
+	{
+		.command = "FROP \xF1\x80\x80",
+		.error_code = SMTP_COMMAND_PARSE_ERROR_BROKEN_COMMAND,
+	},
+	{
+		.command = "FROP \xF1\x80\x80\x80",
+		.error_code = SMTP_COMMAND_PARSE_ERROR_BROKEN_COMMAND,
+	},
 };
 
 unsigned int invalid_command_parse_test_count =
