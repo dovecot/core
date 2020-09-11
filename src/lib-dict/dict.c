@@ -178,10 +178,18 @@ void dict_wait(struct dict *dict)
 
 bool dict_switch_ioloop(struct dict *dict)
 {
-	if (dict->v.switch_ioloop != NULL)
-		return dict->v.switch_ioloop(dict);
-	else
-		return FALSE;
+	struct dict_commit_callback_ctx *commit;
+	bool ret = FALSE;
+
+	for (commit = dict->commits; commit != NULL; commit = commit->next) {
+		commit->to = io_loop_move_timeout(&commit->to);
+		ret = TRUE;
+	}
+	if (dict->v.switch_ioloop != NULL) {
+		if (dict->v.switch_ioloop(dict))
+			return TRUE;
+	}
+	return ret;
 }
 
 static bool dict_key_prefix_is_valid(const char *key)
