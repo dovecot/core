@@ -30,15 +30,14 @@ static void test_file_cache_read(void)
 
 	/* this should be 0 before read */
 	size_t size;
-	const char *map = file_cache_get_map(cache, &size);
+	const unsigned char *map = file_cache_get_map(cache, &size);
 	test_assert(map == NULL);
 	test_assert(size == 0);
 	test_assert(map == NULL);
 
 	test_assert(file_cache_read(cache, 0, 13) == 13);
 	map = file_cache_get_map(cache, &size);
-	test_assert(size == 13);
-	test_assert_strcmp(map, "initial data\n");
+	test_assert(size == 13 && memcmp(map, "initial data\n", 13) == 0);
 
 	file_cache_free(&cache);
 	i_close_fd(&fd);
@@ -63,21 +62,21 @@ static void test_file_cache_write_read(void)
 
 	/* this should be 0 before read */
 	size_t size;
-	const char *map = file_cache_get_map(cache, &size);
+	const unsigned char *map = file_cache_get_map(cache, &size);
 	test_assert(map == NULL);
 	test_assert(size == 0);
 	test_assert(map == NULL);
 	test_assert(file_cache_read(cache, 0, 13) == 13);
 	file_cache_write(cache, "updated data\n", 13, 0);
 	map = file_cache_get_map(cache, &size);
-	test_assert_strcmp(map, "updated data\n");
+	test_assert(size == 13 && memcmp(map, "updated data\n", 13) == 0);
 	file_cache_free(&cache);
 	i_close_fd(&fd);
 
 	struct istream *is = i_stream_create_file(TEST_FILENAME, SIZE_MAX);
 	const unsigned char *data;
 	test_assert(i_stream_read_more(is, &data, &size) > 0 && size == 13);
-	test_assert(memcmp(data, "initial data\n", 13) == 0);
+	test_assert(size == 13 && memcmp(data, "initial data\n", 13) == 0);
 	i_stream_destroy(&is);
 	i_unlink(TEST_FILENAME);
 
@@ -101,8 +100,8 @@ static void test_file_cache_read_invalidate(void)
 	/* this should be 0 before read */
 	size_t size;
 	test_assert(file_cache_read(cache, 0, 13) == 13);
-	const char *map = file_cache_get_map(cache, &size);
-	test_assert_strcmp(map, "initial data\n");
+	const unsigned char *map = file_cache_get_map(cache, &size);
+	test_assert(size == 13 && memcmp(map, "initial data\n", 13) == 0);
 
 	/* update file */
 	os = o_stream_create_file(TEST_FILENAME, 0, 0600, 0);
@@ -111,14 +110,14 @@ static void test_file_cache_read_invalidate(void)
 	o_stream_destroy(&os);
 
 	map = file_cache_get_map(cache, &size);
-	test_assert_strcmp(map, "initial data\n");
+	test_assert(size == 13 && memcmp(map, "initial data\n", 13) == 0);
 
 	/* invalidate cache */
 	file_cache_invalidate(cache, 0, size);
 	test_assert(file_cache_read(cache, 0, 13) == 13);
 	map = file_cache_get_map(cache, &size);
 	test_assert(size == 13);
-	test_assert_strcmp(map, "updated data\n");
+	test_assert(size == 13 && memcmp(map, "updated data\n", 13) == 0);
 	file_cache_free(&cache);
 	i_close_fd(&fd);
 	i_unlink(TEST_FILENAME);
@@ -154,7 +153,7 @@ static void test_file_cache_multipage(void)
 		    (ssize_t)total_size-(ssize_t)page_size*3);
 
 	size_t size;
-	const char *map = file_cache_get_map(cache, &size);
+	const unsigned char *map = file_cache_get_map(cache, &size);
 	test_assert(size == total_size);
 	test_assert(map != NULL);
 
@@ -194,10 +193,9 @@ static void test_file_cache_anon(void)
 	file_cache_write(cache, "initial data", 12, 0);
 
 	size_t size;
-	const char *map = file_cache_get_map(cache, &size);
-	test_assert(size == 12);
+	const unsigned char *map = file_cache_get_map(cache, &size);
 	test_assert(map != NULL);
-	test_assert_strcmp(map, "initial data");
+	test_assert(size == 12 && memcmp(map, "initial data", 12) == 0);
 
 	file_cache_free(&cache);
 	i_unlink_if_exists(TEST_FILENAME);
@@ -226,10 +224,9 @@ static void test_file_cache_switch_fd(void)
 	file_cache_set_fd(cache, fd);
 	test_assert(file_cache_read(cache, 0, 13) == 13);
 	size_t size;
-	const char *map = file_cache_get_map(cache, &size);
-	test_assert(size == 13);
+	const unsigned char *map = file_cache_get_map(cache, &size);
 	test_assert(map != NULL);
-	test_assert_strcmp(map, "updated data\n");
+	test_assert(size == 13 && memcmp(map, "updated data\n", 13) == 0);
 
 	file_cache_free(&cache);
 	i_close_fd(&fd);
@@ -252,7 +249,7 @@ static void test_file_cache_errors(void)
 	test_expect_error_string("fstat(.test_file_cache) failed: "
 				 "Bad file descriptor");
 	test_assert(file_cache_read(cache, 0, 2*1024*1024) == -1);
-	const char *map = file_cache_get_map(cache, &size);
+	const unsigned char *map = file_cache_get_map(cache, &size);
 	test_assert(size == 0);
 	test_assert(map == NULL);
 
