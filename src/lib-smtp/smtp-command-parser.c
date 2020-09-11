@@ -191,8 +191,7 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 				"Invalid UTF-8 character in command parameters");
 			return -1;
 		}
-		if ((parser->auth_response || (ch & 0x80) == 0x00) &&
-		    !smtp_char_is_textstr((unsigned char)ch))
+		if (nch == 1 && !smtp_char_is_textstr((unsigned char)ch))
 			break;
 		p += nch;
 	}
