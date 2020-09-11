@@ -157,11 +157,13 @@ smtp_server_cmd_ehlo_reply_create(struct smtp_server_cmd_ctx *cmd)
 	unsigned int extra_caps_count, i, j;
 	struct smtp_server_reply *reply;
 
-	i_assert(cmd->cmd->reg->func == smtp_server_cmd_ehlo);
 	reply = smtp_server_reply_create_ehlo(cmd->cmd);
 
-	if (helo_data->helo.old_smtp)
+	if (helo_data->helo.old_smtp) {
+		i_assert(cmd->cmd->reg->func == smtp_server_cmd_helo);
 		return reply;
+	}
+	i_assert(cmd->cmd->reg->func == smtp_server_cmd_ehlo);
 
 	extra_caps_count = 0;
 	if (array_is_created(&conn->extra_capabilities)) {
