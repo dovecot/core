@@ -565,6 +565,7 @@ test_compression_handler_large_random_io(const struct compression_handler *handl
 	i_stream_unref(&input);
 
 	input = iostream_temp_finish(&temp_output, SIZE_MAX);
+	o_stream_unref(&output);
 
 	/* verify that reading the input works */
 
