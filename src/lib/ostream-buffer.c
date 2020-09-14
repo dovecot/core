@@ -54,13 +54,11 @@ o_stream_buffer_sendv(struct ostream_private *stream,
 }
 
 static size_t
-o_stream_buffer_get_buffer_used_size(const struct ostream_private *stream ATTR_UNUSED)
+o_stream_buffer_get_buffer_used_size(const struct ostream_private *stream)
 {
-	/* Don't treat the destination buffer as the ostream buffer size.
-	   Otherwise ostream-buffer can't be used in a normal way in some
-	   places that stop sending more data to it if the buffer size grows
-	   beyond IO_BLOCK_SIZE. */
-	return 0;
+	struct buffer_ostream *bstream = (struct buffer_ostream *)stream;
+
+	return bstream->buf->used;
 }
 
 struct ostream *o_stream_create_buffer(buffer_t *buf)
