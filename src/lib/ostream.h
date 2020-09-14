@@ -67,7 +67,14 @@ struct ostream *o_stream_create_fd_file_autoclose(int *fd, uoff_t offset);
 /* Create ostream for file. If append flag is not set, file will be truncated. */
 struct ostream *o_stream_create_file(const char *path, uoff_t offset, mode_t mode,
 				     enum ostream_create_file_flags flags);
-/* Create an output stream to a buffer. */
+/* Create an output stream to a buffer. Note that the buffer is treated as the
+   ostream's internal buffer. This means that o_stream_get_buffer_used_size()
+   returns buf->used, and _get_buffer_avail_size() returns how many bytes can
+   be written until the buffer's max size is reached. This behavior may make
+   ostream-buffer unsuitable for code that assumes that having bytes in the
+   internal buffer means that ostream isn't finished flushing its internal
+   buffer. Especially o_stream_flush_parent_if_needed() (used by
+   lib-compression ostreams) don't work with this. */
 struct ostream *o_stream_create_buffer(buffer_t *buf);
 /* Create an output streams that always fails the writes. */
 struct ostream *o_stream_create_error(int stream_errno);
