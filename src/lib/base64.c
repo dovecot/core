@@ -137,6 +137,80 @@ size_t base64_encode_get_size(struct base64_encoder *enc, size_t src_size)
 	return out_size;
 }
 
+size_t base64_encode_get_full_space(struct base64_encoder *enc,
+				    size_t dst_space)
+{
+	bool crlf = HAS_ALL_BITS(enc->flags, BASE64_ENCODE_FLAG_CRLF);
+	bool no_padding = HAS_ALL_BITS(enc->flags,
+				       BASE64_ENCODE_FLAG_NO_PADDING);
+	size_t src_space = 0;
+
+	i_assert(enc->w_buf_len <= sizeof(enc->w_buf));
+
+	if (enc->max_line_len < SIZE_MAX) {
+		size_t max_line_space, lines, nl_space;
+
+		/* Calculate how many line endings must be added if all space
+		   were used. */
+		max_line_space = enc->max_line_len + (crlf ? 2 : 1);
+		lines = dst_space / max_line_space;
+
+		/* Calculate how much space is used by newline characters and
+		   subtract this from the available space. */
+		nl_space = lines * (crlf ? 2 : 1);
+		if (dst_space <= nl_space)
+			return 0;
+		dst_space -= nl_space;
+	}
+
+	if (dst_space <= enc->w_buf_len)
+		return 0;
+	dst_space -= enc->w_buf_len;
+
+	if (enc->pending_lf)
+		dst_space--;
+	if (dst_space == 0)
+		return 0;
+
+	/* Handle sub-position */
+	switch (enc->sub_pos) {
+	case 0:
+		break;
+	case 1:
+		dst_space--;
+		src_space++;
+		/* fall through */
+	case 2:
+		if (dst_space < 2)
+			return src_space;
+		dst_space -= 2;
+		src_space++;
+		break;
+	default:
+		i_unreached();
+	}
+
+	if (dst_space == 0)
+		return src_space;
+
+	src_space += dst_space / 4 * 3;
+	if (no_padding) {
+		switch (dst_space % 4) {
+		case 0:
+		case 1:
+			break;
+		case 2:
+			src_space += 1;
+			break;
+		case 3:
+			src_space += 2;
+			break;
+		}
+	}
+
+	return src_space;
+}
+
 static void
 base64_encode_more_data(struct base64_encoder *enc,
 			const unsigned char *src_c, size_t src_size,

@@ -89,6 +89,12 @@ uoff_t base64_get_full_encoded_size(struct base64_encoder *enc,
    base64_encode_more() with the indicated src_size. */
 size_t base64_encode_get_size(struct base64_encoder *enc, size_t src_size);
 
+/* Translate the space in the destination buffer to the number of bytes that can
+   be encoded at most to complete the full base64 encoding, including padding
+   and newlines if configured. */
+size_t base64_encode_get_full_space(struct base64_encoder *enc,
+				    size_t dst_space);
+
 /* Translates binary data into some form of Base64. The src must not point to
    dest buffer. Returns TRUE when all the provided data is encoded. Returns
    FALSE when the space in the provided buffer is insufficient. The return value

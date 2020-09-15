@@ -970,7 +970,7 @@ test_base64_random_lowlevel_stream(const struct base64_scheme *b64,
 	struct base64_decoder dec;
 	const unsigned char *buf_p, *buf_begin, *buf_end;
 	int ret;
-	size_t out_space;
+	size_t out_space, out_full_size;
 	void *out_data;
 	buffer_t out;
 
@@ -982,12 +982,13 @@ test_base64_random_lowlevel_stream(const struct base64_scheme *b64,
 	buf_end = buf_begin + in_buf_size;
 
 	base64_encode_init(&enc, b64, enc_flags, max_line_len);
+	out_full_size = base64_get_full_encoded_size(&enc, in_buf_size);
 	out_space = 0;
 	for (buf_p = buf_begin; buf_p < buf_end; ) {
 		size_t buf_ch, out_ch;
 		size_t left = (buf_end - buf_p);
 		size_t used = buf1->used;
-		size_t src_pos, out_size;
+		size_t src_pos, out_size, src_full_space;
 		bool eres;
 
 		if (chunk_size == 0) {
@@ -1005,6 +1006,11 @@ test_base64_random_lowlevel_stream(const struct base64_scheme *b64,
 		if (buf_ch > left)
 			buf_ch = left;
 
+		src_full_space = base64_encode_get_full_space(
+			&enc, out_full_size - used);
+		test_assert_idx(src_full_space >= (size_t)(buf_end - buf_p),
+				test_idx);
+
 		out_size = base64_encode_get_size(&enc, buf_ch);
 
 		eres = base64_encode_more(&enc, buf_p, buf_ch, &src_pos, &out);
@@ -1020,8 +1026,7 @@ test_base64_random_lowlevel_stream(const struct base64_scheme *b64,
 
 	/* Verify encode */
 
-	test_assert(base64_get_full_encoded_size(&enc, in_buf_size) ==
-		    buf1->used);
+	test_assert(out_full_size == buf1->used);
 
 	buffer_set_used_size(buf2, 0);
 	base64_encode_init(&enc, b64, enc_flags, max_line_len);
