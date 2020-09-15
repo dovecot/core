@@ -823,6 +823,13 @@ void login_proxy_kill_idle(void)
 }
 
 static bool
+want_kick_host(struct login_proxy *proxy, const char *const *args,
+	unsigned int key_idx ATTR_UNUSED)
+{
+	return str_array_find(args, proxy->host);
+}
+
+static bool
 want_kick_virtual_user(struct login_proxy *proxy, const char *const *args,
 		       unsigned int key_idx ATTR_UNUSED)
 {
@@ -884,6 +891,12 @@ static void
 login_proxy_cmd_kick(struct ipc_cmd *cmd, const char *const *args)
 {
 	login_proxy_cmd_kick_full(cmd, args, want_kick_virtual_user, 0);
+}
+
+static void
+login_proxy_cmd_kick_host(struct ipc_cmd *cmd, const char *const *args)
+{
+	login_proxy_cmd_kick_full(cmd, args, want_kick_host, 0);
 }
 
 static void
@@ -1037,6 +1050,8 @@ static void login_proxy_ipc_cmd(struct ipc_cmd *cmd, const char *line)
 		login_proxy_cmd_kick_director_hash(cmd, args);
 	else if (strcmp(name, "LIST-FULL") == 0)
 		login_proxy_cmd_list(cmd, args);
+	else if (strcmp(name, "KICK-HOST") == 0)
+		login_proxy_cmd_kick_host(cmd, args);
 	else
 		ipc_cmd_fail(&cmd, "Unknown command");
 }
