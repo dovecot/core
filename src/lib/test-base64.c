@@ -465,9 +465,10 @@ static void test_base64_encode_lowlevel(void)
 				   test->max_line_len);
 		out_size = base64_get_full_encoded_size(
 			&enc, strlen(test->input));
-		base64_encode_more(&enc, test->input, strlen(test->input),
-				   NULL, str);
-		base64_encode_finish(&enc, str);
+		test_assert_idx(base64_encode_more(&enc, test->input,
+						   strlen(test->input),
+						   NULL, str), i);
+		test_assert_idx(base64_encode_finish(&enc, str), i);
 
 		test_assert_idx(strcmp(test->output, str_c(str)) == 0, i);
 		test_assert_idx(test->flags != 0 || test->max_line_len != 0 ||
@@ -934,8 +935,10 @@ test_base64_random_lowlevel_one_block(const struct base64_scheme *b64,
 	space = buffer_append_space_unsafe(buf1, enc_size);
 	buffer_create_from_data(&buf, space, enc_size);
 
-	base64_encode_more(&enc, in_buf, in_buf_size, NULL, &buf);
-	base64_encode_finish(&enc, &buf);
+	if (!base64_encode_more(&enc, in_buf, in_buf_size, NULL, &buf))
+		test_assert_idx(FALSE, test_idx);
+	if (!base64_encode_finish(&enc, &buf))
+		test_assert_idx(FALSE, test_idx);
 
 	test_assert(base64_get_full_encoded_size(&enc, in_buf_size) ==
 		    buf1->used);
@@ -985,6 +988,7 @@ test_base64_random_lowlevel_stream(const struct base64_scheme *b64,
 		size_t left = (buf_end - buf_p);
 		size_t used = buf1->used;
 		size_t src_pos, out_size;
+		bool eres;
 
 		if (chunk_size == 0) {
 			buf_ch = i_rand_limit(32);
@@ -1003,14 +1007,16 @@ test_base64_random_lowlevel_stream(const struct base64_scheme *b64,
 
 		out_size = base64_encode_get_size(&enc, buf_ch);
 
-		base64_encode_more(&enc, buf_p, buf_ch, &src_pos, &out);
+		eres = base64_encode_more(&enc, buf_p, buf_ch, &src_pos, &out);
+		test_assert_idx((eres && src_pos == buf_ch) ||
+				(!eres && src_pos < buf_ch), test_idx);
 		test_assert_idx(out.used <= out_size, test_idx);
 		buf_p += src_pos;
 		i_assert(out_space >= out.used);
 		out_space -= out.used;
 		buffer_set_used_size(buf1, used + out.used);
 	}
-	base64_encode_finish(&enc, buf1);
+	test_assert_idx(base64_encode_finish(&enc, buf1), test_idx);
 
 	/* Verify encode */
 
@@ -1019,8 +1025,9 @@ test_base64_random_lowlevel_stream(const struct base64_scheme *b64,
 
 	buffer_set_used_size(buf2, 0);
 	base64_encode_init(&enc, b64, enc_flags, max_line_len);
-	base64_encode_more(&enc, in_buf, in_buf_size, NULL, buf2);
-	base64_encode_finish(&enc, buf2);
+	test_assert_idx(base64_encode_more(&enc, in_buf, in_buf_size,
+					   NULL, buf2), test_idx);
+	test_assert_idx(base64_encode_finish(&enc, buf2), test_idx);
 	test_assert_idx(buffer_cmp(buf1, buf2), test_idx);
 
 	/* Decode */

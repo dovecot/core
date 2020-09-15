@@ -302,13 +302,14 @@ bool base64_encode_more(struct base64_encoder *enc,
 {
 	bool crlf = HAS_ALL_BITS(enc->flags, BASE64_ENCODE_FLAG_CRLF);
 	const unsigned char *src_c, *src_p;
-	size_t src_pos;
+	size_t src_pos, src_left;
 
 	i_assert(!enc->finishing);
 	i_assert(!enc->finished);
 
 	src_p = src_c = src;
-	while (src_size > 0) {
+	src_left = src_size;
+	while (src_left > 0) {
 		size_t dst_avail, dst_pos, line_avail, written;
 
 		/* determine how much we can write in destination buffer */
@@ -333,11 +334,11 @@ bool base64_encode_more(struct base64_encoder *enc,
 
 		if (line_avail > 0) {
 			dst_pos = dest->used;
-			base64_encode_more_data(enc, src_p, src_size, &src_pos,
+			base64_encode_more_data(enc, src_p, src_left, &src_pos,
 						line_avail, dest);
-			i_assert(src_pos <= src_size);
+			i_assert(src_pos <= src_left);
 			src_p += src_pos;
-			src_size -= src_pos;
+			src_left -= src_pos;
 			i_assert(dest->used >= dst_pos);
 			written = dest->used - dst_pos;
 
@@ -352,7 +353,7 @@ bool base64_encode_more(struct base64_encoder *enc,
 		if (dst_avail == 0)
 			break;
 
-		if (src_size > 0 && enc->cur_line_len == enc->max_line_len) {
+		if (src_left > 0 && enc->cur_line_len == enc->max_line_len) {
 			if (crlf) {
 				if (dst_avail >= 2) {
 					/* emit the full CRLF sequence */
