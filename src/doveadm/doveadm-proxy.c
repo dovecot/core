@@ -14,6 +14,7 @@
 struct proxy_context {
 	struct ipc_client *ipc;
 	const char *username_field;
+	const char *kick_hosts;
 };
 
 extern struct doveadm_cmd_ver2 doveadm_cmd_proxy[];
@@ -38,6 +39,9 @@ cmd_proxy_init(int argc, char *argv[], const char *getopt_args,
 			break;
 		case 'f':
 			ctx->username_field = optarg;
+			break;
+		case 'h':
+			ctx->kick_hosts = optarg;
 			break;
 		default:
 			proxy_cmd_help(cmd);
@@ -146,9 +150,9 @@ static void cmd_proxy_kick(int argc, char *argv[])
 	struct proxy_context *ctx;
 	string_t *cmd;
 
-	ctx = cmd_proxy_init(argc, argv, "a:f:", cmd_proxy_kick);
+	ctx = cmd_proxy_init(argc, argv, "a:f:h:", cmd_proxy_kick);
 
-	if (argv[optind] == NULL) {
+	if (argv[optind] == NULL && ctx->kick_hosts == NULL) {
 		proxy_cmd_help(cmd_proxy_kick);
 		return;
 	}
@@ -159,7 +163,11 @@ static void cmd_proxy_kick(int argc, char *argv[])
 
 	cmd = t_str_new(128);
 	str_append(cmd, "proxy\t*\t");
-	if (ctx->username_field == NULL)
+        if (ctx->kick_hosts != NULL) {
+		str_append(cmd, "KICK-HOST\t");
+		str_append(cmd, ctx->kick_hosts);
+        }
+	else if (ctx->username_field == NULL)
 		str_append(cmd, "KICK");
 	else {
 		str_append(cmd, "KICK-ALT\t");
@@ -185,11 +193,12 @@ DOVEADM_CMD_PARAMS_END
 },
 {
 	.name = "proxy kick",
-	.usage = "[-a <ipc socket path>] [-f <passdb field>] <user> [...]",
+	.usage = "[-a <ipc socket path>] [-f <passdb field>] [-h <host> [...] | <user> [...]]",
 	.old_cmd = cmd_proxy_kick,
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('f', "passdb-field", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('h', "host", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('\0', "user", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 }
