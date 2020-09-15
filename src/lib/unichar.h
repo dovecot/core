@@ -4,9 +4,13 @@
 /* Character used to replace invalid input. */
 #define UNICODE_REPLACEMENT_CHAR 0xfffd
 #define UNICODE_REPLACEMENT_CHAR_UTF8 "\xEF\xBF\xBD"
+#define UNICODE_REPLACEMENT_CHAR_UTF8_LEN \
+	(sizeof(UNICODE_REPLACEMENT_CHAR_UTF8) - 1);
 /* Horizontal ellipsis character ('...') */
 #define UNICODE_HORIZONTAL_ELLIPSIS_CHAR 0x2026
 #define UNICODE_HORIZONTAL_ELLIPSIS_CHAR_UTF8 "\xE2\x80\xA6"
+#define UNICODE_HORIZONTAL_ELLIPSIS_CHAR_UTF8_LEN \
+	(sizeof(UNICODE_HORIZONTAL_ELLIPSIS_CHAR_UTF8) - 1);
 
 /* Characters >= base require surrogates */
 #define UTF16_SURROGATE_BASE 0x10000
