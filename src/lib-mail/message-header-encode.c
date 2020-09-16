@@ -94,7 +94,7 @@ void message_header_encode_q(const unsigned char *input, unsigned int len,
 			str_printfa(output, "=%02X", input[i]);
 			break;
 		default:
-			if (input[i] < 32 || (input[i] & 0x80) != 0) {
+			if (input[i] < 0x20 || input[i] > 0x7e) {
 				line_len_left -= 2;
 				str_printfa(output, "=%02X", input[i]);
 			} else {

@@ -60,6 +60,33 @@ static void test_message_header_decode_read_overflow(void)
 	test_end();
 }
 
+static void check_encoded(string_t *encoded, unsigned int test_idx)
+{
+	const unsigned char *enc = str_data(encoded), *p, *pend;
+	size_t enc_len = str_len(encoded), cur_line_len = 0;
+
+	p = enc;
+	pend = enc + enc_len;
+	while (p < pend) {
+		if (*p == '\r') {
+			p++;
+			continue;
+		}
+		if (*p == '\n') {
+			test_assert_idx(cur_line_len <= 76, test_idx);
+			cur_line_len = 0;
+			p++;
+			continue;
+		}
+		cur_line_len++;
+		test_assert_idx((*p >= 0x20 && *p <= 0x7e) || *p == '\t',
+				test_idx);
+		p++;
+	}
+
+	test_assert_idx(cur_line_len <= 76, test_idx);
+}
+
 static void test_message_header_decode_encode_random(void)
 {
 	string_t *encoded, *decoded;
@@ -82,6 +109,7 @@ static void test_message_header_decode_encode_random(void)
 
 		/* test Q */
 		message_header_encode_q(buf, buflen, encoded, 0);
+		check_encoded(encoded, i);
 		message_header_decode_utf8(encoded->data, encoded->used,
 					   decoded, NULL);
 		test_assert_idx(decoded->used == buflen &&
@@ -92,6 +120,7 @@ static void test_message_header_decode_encode_random(void)
 		str_truncate(decoded, 0);
 
 		message_header_encode_b(buf, buflen, encoded, 0);
+		check_encoded(encoded, i);
 		message_header_decode_utf8(encoded->data, encoded->used,
 					   decoded, NULL);
 		test_assert_idx(decoded->used == buflen &&
