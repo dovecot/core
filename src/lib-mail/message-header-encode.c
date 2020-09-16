@@ -61,6 +61,9 @@ void message_header_encode_q(const unsigned char *input, size_t len,
 {
 	size_t i, line_len_left;
 
+	if (len == 0)
+		return;
+
 	line_len_left = MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN;
 
 	if (first_line_len >= MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN - 3) {
@@ -111,6 +114,9 @@ void message_header_encode_b(const unsigned char *input, size_t len,
 			     string_t *output, size_t first_line_len)
 {
 	size_t line_len, line_len_left, max;
+
+	if (len == 0)
+		return;
 
 	line_len = first_line_len;
 	if (line_len >= MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN) {
