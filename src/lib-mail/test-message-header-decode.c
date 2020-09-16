@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "buffer.h"
 #include "str.h"
+#include "randgen.h"
 #include "charset-utf8.h"
 #include "message-header-encode.h"
 #include "message-header-decode.h"
@@ -87,13 +88,71 @@ static void check_encoded(string_t *encoded, unsigned int test_idx)
 	test_assert_idx(cur_line_len <= 76, test_idx);
 }
 
+static void
+check_encode_decode_result(const unsigned char *inbuf, size_t inbuf_len,
+			   string_t *out, unsigned int test_idx)
+{
+	static const unsigned char *rep_char =
+		(const unsigned char *)UNICODE_REPLACEMENT_CHAR_UTF8;
+	static const unsigned int rep_char_len =
+		UNICODE_REPLACEMENT_CHAR_UTF8_LEN;
+	const unsigned char *outbuf = str_data(out);
+	size_t outbuf_len = str_len(out);
+	const unsigned char *pin, *pinend, *pout, *poutend;
+	bool invalid_char = FALSE;
+
+	if (test_has_failed())
+		return;
+
+	pin = inbuf;
+	pinend = inbuf + inbuf_len;
+	pout = outbuf;
+	poutend = outbuf + outbuf_len;
+
+	while (pin < pinend) {
+		unichar_t ch;
+		int nch;
+
+		nch = uni_utf8_get_char_n(pin, pinend - pin, &ch);
+		if (nch <= 0) {
+			/* Invalid character; check proper substitution of
+			   replacement character in encoded/decoded output. */
+			pin++;
+			if (!invalid_char) {
+				/* Only one character is substituted for a run
+				   of bad stuff. */
+				test_assert_idx(
+					(poutend - pout) >= rep_char_len &&
+					memcmp(pout, rep_char,
+					       rep_char_len) == 0, test_idx);
+				pout += rep_char_len;
+			}
+			invalid_char = TRUE;
+		} else {
+			/* Valid character; check matching character bytes. */
+			invalid_char = FALSE;
+			test_assert_idx((pinend - pin) >= nch &&
+					(poutend - pout) >= nch &&
+					memcmp(pin, pout, nch) == 0, test_idx);
+			pin += nch;
+			pout += nch;
+		}
+
+		if (test_has_failed())
+			return;
+	}
+
+	/* Both buffers must have reached the end now. */
+	test_assert_idx(pin == pinend && pout == poutend, test_idx);
+}
+
 static void test_message_header_decode_encode_random(void)
 {
 	string_t *encoded, *decoded;
 	unsigned char buf[1024];
 	unsigned int i, j, buflen;
 
-	test_begin("message header encode & decode randomly");
+	test_begin("message header encode & decode randomly (7 bit)");
 
 	encoded = t_str_new(256);
 	decoded = t_str_new(256);
@@ -125,6 +184,34 @@ static void test_message_header_decode_encode_random(void)
 					   decoded, NULL);
 		test_assert_idx(decoded->used == buflen &&
 				memcmp(decoded->data, buf, buflen) == 0, i);
+	}
+	test_end();
+
+	test_begin("message header encode & decode randomly (8 bit)");
+
+	for (i = 0; i < 1000; i++) {
+		buflen = i_rand_limit(sizeof(buf));
+		random_fill(buf, buflen);
+
+		str_truncate(encoded, 0);
+		str_truncate(decoded, 0);
+
+		/* test Q */
+		message_header_encode_q(buf, buflen, encoded, 0);
+		check_encoded(encoded, i);
+		message_header_decode_utf8(encoded->data, encoded->used,
+					   decoded, NULL);
+		check_encode_decode_result(buf, buflen, decoded, i);
+
+		/* test B */
+		str_truncate(encoded, 0);
+		str_truncate(decoded, 0);
+
+		message_header_encode_b(buf, buflen, encoded, 0);
+		check_encoded(encoded, i);
+		message_header_decode_utf8(encoded->data, encoded->used,
+					   decoded, NULL);
+		check_encode_decode_result(buf, buflen, decoded, i);
 	}
 	test_end();
 }
