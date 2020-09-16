@@ -45,7 +45,7 @@ static void test_message_header_decode(void)
 		str_truncate(dest, 0);
 		message_header_decode_utf8((const unsigned char *)data[i],
 					   strlen(data[i]), dest, NULL);
-		test_assert_strcmp(str_c(dest), data[i+1]);
+		test_assert_strcmp_idx(str_c(dest), data[i+1], i / 2);
 	}
 	test_end();
 }
@@ -84,8 +84,8 @@ static void test_message_header_decode_encode_random(void)
 		message_header_encode_q(buf, buflen, encoded, 0);
 		message_header_decode_utf8(encoded->data, encoded->used,
 					   decoded, NULL);
-		test_assert(decoded->used == buflen &&
-			    memcmp(decoded->data, buf, buflen) == 0);
+		test_assert_idx(decoded->used == buflen &&
+				memcmp(decoded->data, buf, buflen) == 0, i);
 
 		/* test B */
 		str_truncate(encoded, 0);
@@ -94,8 +94,8 @@ static void test_message_header_decode_encode_random(void)
 		message_header_encode_b(buf, buflen, encoded, 0);
 		message_header_decode_utf8(encoded->data, encoded->used,
 					   decoded, NULL);
-		test_assert(decoded->used == buflen &&
-			    memcmp(decoded->data, buf, buflen) == 0);
+		test_assert_idx(decoded->used == buflen &&
+				memcmp(decoded->data, buf, buflen) == 0, i);
 	}
 	test_end();
 }
