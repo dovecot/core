@@ -176,48 +176,124 @@ void message_header_encode_q(const unsigned char *input, size_t len,
 void message_header_encode_b(const unsigned char *input, size_t len,
 			     string_t *output, size_t first_line_len)
 {
-	size_t line_len, line_len_left, max;
+	static const unsigned char *rep_char =
+		(const unsigned char *)UNICODE_REPLACEMENT_CHAR_UTF8;
+	static const unsigned int rep_char_len =
+		UNICODE_REPLACEMENT_CHAR_UTF8_LEN;
+	struct base64_encoder b64enc;
+	size_t line_len_left;
 
 	if (len == 0)
 		return;
 
-	line_len = first_line_len;
-	if (line_len >= MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN) {
+	line_len_left = MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN;
+
+	if (first_line_len >= MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN - 3) {
 		str_append(output, "\n\t");
-		line_len = 1;
+		line_len_left--;
+	} else {
+		line_len_left -= first_line_len;
 	}
 
+	str_append(output, "=?utf-8?b?");
+	base64_encode_init(&b64enc, &base64_scheme, 0, 0);
 	for (;;) {
-		line_len_left = MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN - line_len;
-		max = MAX_BASE64_DECODED_SIZE(line_len_left);
-		do {
-			max--;
-			if (max > len)
-				max = len;
-			else {
-				/* all of it doesn't fit. find a character where we
-				   can split it from. */
-				while (max > 0 && (input[max] & 0xc0) == 0x80)
-					max--;
-			}
-		} while (MAX_BASE64_ENCODED_SIZE(max) > line_len_left &&
-			 max > 0);
+		unichar_t ch;
+		size_t space, max, old_bufsize, n_in, n_out;
+		int nch = 1;
 
-		if (max > 0) {
-			str_append(output, "=?utf-8?b?");
-			base64_encode(input, max, output);
-			str_append(output, "?=");
+		/* Determine how many octets can be encoded on (the remainder
+		   of) this line */
+		space = base64_encode_get_full_space(&b64enc, line_len_left);
+		max = I_MIN(space, len);
+
+		/* Check UTF-8 code points in the input and determine a proper
+		   boundary for the end of this fragment if the encoded size
+		   exceeds the maximum (remaining) line length. */
+		for (n_in = 0; n_in < max;) {
+			nch = uni_utf8_get_char_n(&input[n_in],
+						  len - n_in, &ch);
+			if (nch <= 0)
+				break;
+			if ((n_in + nch) > max)
+				break;
+			n_in += nch;
 		}
 
-		input += max;
-		len -= max;
+		/* Encode this fragment up until the maximum fragment size or
+		   the first invalid UTF-8 code point in the input. */
+		if (n_in > 0) {
+			old_bufsize = output->used;
+			if (!base64_encode_more(&b64enc, input, n_in,
+						  &n_in, output))
+				i_unreached();
+			n_out = output->used - old_bufsize;
+
+			/* Update sizes and pointers */
+			i_assert(len >= n_in);
+			i_assert(line_len_left >= n_out);
+			input += n_in;
+			len -= n_in;
+			line_len_left -= n_out;
+		}
+
+		/* Determine whether a repacement character needs to be written
+		   and how much space there is left for it on the current line.
+		 */
+		space = 0;
+		if (nch <= 0) {
+			space = base64_encode_get_full_space(
+				&b64enc, line_len_left);
+		}
+
+		/* Start a new line once insufficient space is available. */
+		if ((nch > 0 && len > 0) ||
+		    (nch <= 0 && space < rep_char_len)) {
+			old_bufsize = output->used;
+			if (!base64_encode_finish(&b64enc, output))
+				i_unreached();
+			n_out = output->used - old_bufsize;
+			i_assert(line_len_left >= n_out);
+
+			str_append(output, "?=\n\t=?utf-8?b?");
+			line_len_left = MIME_MAX_LINE_LEN -
+				MIME_WRAPPER_LEN - 1;
+			base64_encode_reset(&b64enc);
+		}
+
+		/* Write replacement character if needed. */
+		n_in = 0;
+		n_out = 0;
+		if (nch <= 0) {
+			old_bufsize = output->used;
+			if (!base64_encode_more(&b64enc, rep_char, rep_char_len,
+						NULL, output))
+				i_unreached();
+
+			n_in = 1;
+			n_out = output->used - old_bufsize;
+
+			/* Skip more invalid characters in the input. */
+			for (; n_in < len; n_in++) {
+				nch = uni_utf8_get_char_n(&input[n_in],
+							  len - n_in, &ch);
+				if (nch > 0)
+					break;
+			}
+		}
+
+		/* Update sizes and pointers */
+		i_assert(line_len_left >= n_out);
+		input += n_in;
+		len -= n_in;
+		line_len_left -= n_out;
 
 		if (len == 0)
 			break;
-
-		str_append(output, "\n\t");
-		line_len = 1;
 	}
+	if (!base64_encode_finish(&b64enc, output))
+		i_unreached();
+	str_append(output, "?=");
 }
 
 void message_header_encode(const char *input, string_t *output)
