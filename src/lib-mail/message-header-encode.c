@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "unichar.h"
 #include "base64.h"
 #include "message-header-encode.h"
 
@@ -59,7 +60,12 @@ input_idx_need_encoding(const unsigned char *input, size_t i, size_t len)
 void message_header_encode_q(const unsigned char *input, size_t len,
 			     string_t *output, size_t first_line_len)
 {
-	size_t i, line_len_left;
+	static const unsigned char *rep_char =
+		(const unsigned char *)UNICODE_REPLACEMENT_CHAR_UTF8;
+	static const unsigned int rep_char_len =
+		UNICODE_REPLACEMENT_CHAR_UTF8_LEN;
+	size_t line_len_left;
+	bool invalid_char = FALSE;
 
 	if (len == 0)
 		return;
@@ -74,38 +80,95 @@ void message_header_encode_q(const unsigned char *input, size_t len,
 	}
 
 	str_append(output, "=?utf-8?q?");
-	for (i = 0; i < len; i++) {
-		if (line_len_left < 3) {
-			/* if we're not at the beginning of an UTF8 character,
-			   go backwards until we are */
-			while (i > 0 && (input[i] & 0xc0) == 0x80) {
-				str_truncate(output, str_len(output)-3);
-				i--;
-			}
-			str_append(output, "?=\n\t=?utf-8?q?");
-			line_len_left = MIME_MAX_LINE_LEN -
-				MIME_WRAPPER_LEN - 1;
-		}
-		switch (input[i]) {
+	for (;;) {
+		unichar_t ch;
+		int nch = 1;
+		size_t n_in, n_out = 0, j;
+
+		/* Determine how many bytes are to be consumed from input and
+		   written to output. */
+		switch (input[0]) {
 		case ' ':
-			str_append_c(output, '_');
+			/* Space is translated to a single '_'. */
+			n_out = 1;
+			n_in = 1;
 			break;
 		case '=':
 		case '?':
 		case '_':
-			line_len_left -= 2;
-			str_printfa(output, "=%02X", input[i]);
+			/* Special characters are escaped. */
+			n_in = 1;
+			n_out = 3;
 			break;
 		default:
-			if (input[i] < 0x20 || input[i] > 0x7e) {
-				line_len_left -= 2;
-				str_printfa(output, "=%02X", input[i]);
+			nch = uni_utf8_get_char_n(input, len, &ch);
+			if (nch <= 0) {
+				/* Invalid UTF-8 character */
+				n_in = 1;
+				if (!invalid_char) {
+					/* First octet of bad stuff; will emit
+					   replacement character. */
+					n_out = rep_char_len * 3;
+				} else {
+					/* Emit only one replacement char for
+					   a burst of bad stuff. */
+					n_out = 0;
+				}
+			} else if (nch > 1) {
+				/* Unicode characters are escaped as several
+				   escape sequences for each octet. */
+				n_in = nch;
+				n_out = nch * 3;
+			} else if (ch < 0x20 || ch > 0x7e) {
+				/* Control characters are escaped. */
+				i_assert(ch < 0x80);
+				n_in = 1;
+				n_out = 3;
 			} else {
-				str_append_c(output, input[i]);
+				/* Other ASCII characters are written to output
+				   directly. */
+				n_in = 1;
+				n_out = 1;
 			}
-			break;
 		}
-		line_len_left--;
+		invalid_char = (nch <= 0);
+
+		/* Start a new line once unsufficient space is available to
+		   write more to the current line. */
+		if (line_len_left < n_out) {
+			str_append(output, "?=\n\t=?utf-8?q?");
+			line_len_left = MIME_MAX_LINE_LEN -
+				MIME_WRAPPER_LEN - 1;
+		}
+
+		/* Encode the character */
+		if (input[0] == ' ') {
+			/* Write special escape sequence for space character */
+			str_append_c(output, '_');
+		} else if (invalid_char) {
+			/* Write replacement character for invalid UTF-8 code
+			   point. */
+			for (j = 0; n_out > 0 && j < rep_char_len; j++)
+				str_printfa(output, "=%02X", rep_char[j]);
+		} else if (n_out > 1) {
+			/* Write one or more escape sequences for a special
+			   character, a control character, or a valid UTF-8
+			   code point. */
+			for (j = 0; j < n_in; j++)
+				str_printfa(output, "=%02X", input[j]);
+		} else {
+			/* Write other ASCII characters directly to output. */
+			str_append_c(output, input[0]);
+		}
+
+		/* Update sizes and pointers */
+		i_assert(len >= n_in);
+		line_len_left -= n_out;
+		input += n_in;
+		len -= n_in;
+
+		if (len == 0)
+			break;
 	}
 	str_append(output, "?=");
 }
