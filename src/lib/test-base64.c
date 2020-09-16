@@ -984,7 +984,7 @@ test_base64_random_lowlevel_stream(const struct base64_scheme *b64,
 		size_t buf_ch, out_ch;
 		size_t left = (buf_end - buf_p);
 		size_t used = buf1->used;
-		size_t src_pos;
+		size_t src_pos, out_size;
 
 		if (chunk_size == 0) {
 			buf_ch = i_rand_limit(32);
@@ -1001,7 +1001,10 @@ test_base64_random_lowlevel_stream(const struct base64_scheme *b64,
 		if (buf_ch > left)
 			buf_ch = left;
 
+		out_size = base64_encode_get_size(&enc, buf_ch);
+
 		base64_encode_more(&enc, buf_p, buf_ch, &src_pos, &out);
+		test_assert_idx(out.used <= out_size, test_idx);
 		buf_p += src_pos;
 		i_assert(out_space >= out.used);
 		out_space -= out.used;
