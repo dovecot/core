@@ -1084,6 +1084,9 @@ test_base64_random_lowlevel_case(const struct base64_scheme *b64,
 	buffer_t *buf1, *buf2;
 	unsigned int i, j;
 
+	if (test_has_failed())
+		return;
+
 	buf1 = t_buffer_create(MAX_BASE64_ENCODED_SIZE(sizeof(in_buf)));
 	buf2 = t_buffer_create(MAX_BASE64_ENCODED_SIZE(sizeof(in_buf)));
 
