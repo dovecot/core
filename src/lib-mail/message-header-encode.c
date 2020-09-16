@@ -11,8 +11,8 @@
 #define IS_LWSP(c) \
 	((c) == ' ' || (c) == '\t' || (c) == '\n')
 
-static bool input_idx_need_encoding(const unsigned char *input,
-				    unsigned int i, unsigned int len)
+static bool
+input_idx_need_encoding(const unsigned char *input, size_t i, size_t len)
 {
 	switch (input[i]) {
 	case '\r':
@@ -56,10 +56,10 @@ static bool input_idx_need_encoding(const unsigned char *input,
 	return FALSE;
 }
 
-void message_header_encode_q(const unsigned char *input, unsigned int len,
-			     string_t *output, unsigned int first_line_len)
+void message_header_encode_q(const unsigned char *input, size_t len,
+			     string_t *output, size_t first_line_len)
 {
-	unsigned int i, line_len_left;
+	size_t i, line_len_left;
 
 	line_len_left = MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN;
 
@@ -107,10 +107,10 @@ void message_header_encode_q(const unsigned char *input, unsigned int len,
 	str_append(output, "?=");
 }
 
-void message_header_encode_b(const unsigned char *input, unsigned int len,
-			     string_t *output, unsigned int first_line_len)
+void message_header_encode_b(const unsigned char *input, size_t len,
+			     string_t *output, size_t first_line_len)
 {
-	unsigned int line_len, line_len_left, max;
+	size_t line_len, line_len_left, max;
 
 	line_len = first_line_len;
 	if (line_len >= MIME_MAX_LINE_LEN - MIME_WRAPPER_LEN) {
@@ -156,13 +156,13 @@ void message_header_encode(const char *input, string_t *output)
 	message_header_encode_data((const void *)input, strlen(input), output);
 }
 
-void message_header_encode_data(const unsigned char *input, unsigned int len,
+void message_header_encode_data(const unsigned char *input, size_t len,
 				string_t *output)
 {
-	unsigned int i, j, first_line_len, cur_line_len, last_idx;
-	unsigned int enc_chars, enc_len, base64_len, q_len;
+	size_t i, j, first_line_len, cur_line_len, last_idx;
+	size_t enc_chars, enc_len, base64_len, q_len;
 	const unsigned char *next_line_input;
-	unsigned int next_line_len = 0;
+	size_t next_line_len = 0;
 	bool use_q, cr;
 
 	/* find the first word that needs encoding */
