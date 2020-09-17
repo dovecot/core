@@ -199,7 +199,7 @@ static void test_message_header_encode(void)
 	for (i = 0; i < N_ELEMENTS(data); i += 2) {
 		str_truncate(str, 0);
 		message_header_encode(data[i], str);
-		test_assert(strcmp(str_c(str), data[i+1]) == 0);
+		test_assert_strcmp(str_c(str), data[i+1]);
 	}
 	test_end();
 }
@@ -211,11 +211,11 @@ static void test_message_header_encode_data(void)
 
 	test_begin("message header encode data");
 	message_header_encode_data(nuls, 1, str);
-	test_assert(strcmp(str_c(str), "=?utf-8?q?=00?=") == 0);
+	test_assert_strcmp(str_c(str), "=?utf-8?q?=00?=");
 
 	str_truncate(str, 0);
 	message_header_encode_data(nuls, sizeof(nuls), str);
-	test_assert(strcmp(str_c(str), "=?utf-8?b?AAAAAAAAAAAAAA==?=") == 0);
+	test_assert_strcmp(str_c(str), "=?utf-8?b?AAAAAAAAAAAAAA==?=");
 	test_end();
 }
 
