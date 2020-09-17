@@ -45,7 +45,7 @@ static void test_message_header_decode(void)
 		str_truncate(dest, 0);
 		message_header_decode_utf8((const unsigned char *)data[i],
 					   strlen(data[i]), dest, NULL);
-		test_assert(strcmp(str_c(dest), data[i+1]) == 0);
+		test_assert_strcmp(str_c(dest), data[i+1]);
 	}
 	test_end();
 }
