@@ -823,17 +823,18 @@ void login_proxy_kill_idle(void)
 }
 
 static bool
-want_kick_virtual_user(struct client *client, const char *const *args,
+want_kick_virtual_user(struct login_proxy *proxy, const char *const *args,
 		       unsigned int key_idx ATTR_UNUSED)
 {
-	return str_array_find(args, client->virtual_user);
+	return str_array_find(args, proxy->client->virtual_user);
 }
 
 static bool
-want_kick_alt_username(struct client *client, const char *const *args,
+want_kick_alt_username(struct login_proxy *proxy, const char *const *args,
 		       unsigned int key_idx)
 {
 	unsigned int i;
+	struct client *client = proxy->client;
 
 	if (client->alt_usernames == NULL)
 		return FALSE;
@@ -848,7 +849,7 @@ want_kick_alt_username(struct client *client, const char *const *args,
 
 static void
 login_proxy_cmd_kick_full(struct ipc_cmd *cmd, const char *const *args,
-			  bool (*want_kick)(struct client *, const char *const *,
+			  bool (*want_kick)(struct login_proxy *, const char *const *,
 					    unsigned int), unsigned int key_idx)
 {
 	struct login_proxy *proxy, *next;
@@ -862,7 +863,7 @@ login_proxy_cmd_kick_full(struct ipc_cmd *cmd, const char *const *args,
 	for (proxy = login_proxies; proxy != NULL; proxy = next) T_BEGIN {
 		next = proxy->next;
 
-		if (want_kick(proxy->client, args, key_idx)) {
+		if (want_kick(proxy, args, key_idx)) {
 			login_proxy_free_full(&proxy, KILLED_BY_ADMIN_REASON,
 					      LOGIN_PROXY_FREE_FLAG_DELAYED);
 			count++;
@@ -871,7 +872,7 @@ login_proxy_cmd_kick_full(struct ipc_cmd *cmd, const char *const *args,
 	for (proxy = login_proxies_pending; proxy != NULL; proxy = next) T_BEGIN {
 		next = proxy->next;
 
-		if (want_kick(proxy->client, args, key_idx)) {
+		if (want_kick(proxy, args, key_idx)) {
 			client_destroy(proxy->client, KILLED_BY_ADMIN_REASON);
 			count++;
 		}
