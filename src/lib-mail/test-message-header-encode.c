@@ -180,6 +180,10 @@ static void test_message_header_encode(void)
 		"a =?", "a =?utf-8?q?=3D=3F?=",
 		"foo\001bar", "=?utf-8?q?foo=01bar?=",
 		"\x01\x02\x03\x04\x05\x06\x07\x08", "=?utf-8?b?AQIDBAUGBwg=?=",
+#define TEXT30 "123456789012345678901234567890"
+		TEXT30 " \xc3\xa4 " TEXT30 "\xc3\xa4 stuff",
+			TEXT30 " =?utf-8?q?=C3=A4_12345678901234567890123456?=\n"
+			"\t=?utf-8?q?7890=C3=A4?= stuff",
 
 		"a\r\n b", "a\r\n b",
 		"a\r\n\tb", "a\r\n\tb",
