@@ -264,6 +264,11 @@ static void proxy_free_password(struct client *client)
 
 static void client_proxy_append_conn_info(string_t *str, struct client *client)
 {
+	const char *source_host;
+
+	source_host = login_proxy_get_source_host(client->login_proxy);
+	if (source_host[0] != '\0')
+		str_printfa(str, " from %s", source_host);
 	if (strcmp(client->virtual_user, client->proxy_user) != 0) {
 		/* remote username is different, log it */
 		str_printfa(str, " as user %s", client->proxy_user);
