@@ -551,8 +551,9 @@ static bool mail_storage_settings_check(void *_set, pool_t pool,
 		while(*options != NULL) {
 			const char *opt = *options;
 
-			if (strcmp(opt, "add-flags-on-save") == 0) {
-				set->parsed_mail_attachment_detection_add_flags_on_save = TRUE;
+			if (strcmp(opt, "add-flags") == 0 ||
+			    strcmp(opt, "add-flags-on-save") == 0) {
+				set->parsed_mail_attachment_detection_add_flags = TRUE;
 			} else if (strcmp(opt, "no-flags-on-fetch") == 0) {
 				set->parsed_mail_attachment_detection_no_flags_on_fetch = TRUE;
 			} else if (strcmp(opt, "exclude-inlined") == 0) {

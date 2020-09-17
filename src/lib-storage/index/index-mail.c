@@ -110,7 +110,7 @@ index_mail_want_attachment_keywords_on_fetch(struct index_mail *mail)
 	const struct mail_storage_settings *mail_set =
 		mailbox_get_settings(mail->mail.mail.box);
 
-	return mail_set->parsed_mail_attachment_detection_add_flags_on_save &&
+	return mail_set->parsed_mail_attachment_detection_add_flags &&
 		!mail_set->parsed_mail_attachment_detection_no_flags_on_fetch &&
 		!mail_has_attachment_keywords(&mail->mail.mail);
 }
@@ -1183,7 +1183,7 @@ index_mail_parse_body_finish(struct index_mail *mail,
 	index_mail_body_parsed_cache_bodystructure(mail, field);
 	index_mail_cache_sizes(mail);
 	index_mail_cache_dates(mail);
-	if (mail_set->parsed_mail_attachment_detection_add_flags_on_save &&
+	if (mail_set->parsed_mail_attachment_detection_add_flags &&
 	    !mail_has_attachment_keywords(&mail->mail.mail))
 		index_mail_try_set_attachment_keywords(mail);
 	return 0;
@@ -1971,7 +1971,7 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 	   The attachment flag detection is done while parsing BODYSTRUCTURE.
 	   We want to do this for mails that are being saved, but also when
 	   we need to open the mail body anyway. */
-	if (mail_set->parsed_mail_attachment_detection_add_flags_on_save &&
+	if (mail_set->parsed_mail_attachment_detection_add_flags &&
 	    (_mail->saving || data->access_part != 0) &&
 	    !mail_has_attachment_keywords(&mail->mail.mail)) {
 		data->save_bodystructure_header = TRUE;

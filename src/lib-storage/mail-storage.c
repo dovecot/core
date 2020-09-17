@@ -2570,7 +2570,7 @@ int mailbox_save_begin(struct mail_save_context **ctx, struct istream *input)
 	/* make sure parts get parsed early on */
 	const struct mail_storage_settings *mail_set =
 		mailbox_get_settings(box);
-	if (mail_set->parsed_mail_attachment_detection_add_flags_on_save)
+	if (mail_set->parsed_mail_attachment_detection_add_flags)
 		mail_add_temp_wanted_fields((*ctx)->dest_mail,
 					    MAIL_FETCH_MESSAGE_PARTS, NULL);
 
