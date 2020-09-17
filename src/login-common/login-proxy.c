@@ -633,6 +633,11 @@ struct event *login_proxy_get_event(struct login_proxy *proxy)
 	return proxy->event;
 }
 
+const char *login_proxy_get_source_host(const struct login_proxy *proxy)
+{
+	return net_ip2addr(&proxy->source_ip);
+}
+
 const char *login_proxy_get_host(const struct login_proxy *proxy)
 {
 	return proxy->host;
