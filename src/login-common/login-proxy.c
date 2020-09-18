@@ -824,7 +824,7 @@ void login_proxy_kill_idle(void)
 
 static bool
 want_kick_host(struct login_proxy *proxy, const char *const *args,
-	unsigned int key_idx ATTR_UNUSED)
+	       unsigned int key_idx ATTR_UNUSED)
 {
 	return str_array_find(args, proxy->host);
 }

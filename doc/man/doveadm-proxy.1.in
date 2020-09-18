@@ -58,10 +58,14 @@ wildcards (e.g. *@example.org).
 .SS proxy kick
 .B doveadm proxy kick
 [\fB\-a\fP \fIipc_socket_path\fP]
-.I user
+[\fB\-f\fP \fIpassdb_field\fP]
+[\fB\-h\fP \fIhost_list\fP | \fIuser\fP]
+\" .I user
 .PP
 Kick all the connections being proxied for the given
 .IR user .
+or for the given backend
+.IR hosts_list .
 .\"-------------------------------------
 .SS proxy list
 .B doveadm proxy list
