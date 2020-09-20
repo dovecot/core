@@ -17,13 +17,11 @@
 
 #define HTTP_CLIENT_HOST_MINIMUM_IDLE_TIMEOUT_MSECS 100
 
-static void
-http_client_host_lookup_done(struct http_client_host *host);
+static void http_client_host_lookup_done(struct http_client_host *host);
 static void
 http_client_host_lookup_failure(struct http_client_host *host,
-	const char *error);
-static bool
-http_client_host_is_idle(struct http_client_host *host);
+				const char *error);
+static bool http_client_host_is_idle(struct http_client_host *host);
 static void http_client_host_free_shared(struct http_client_host **_host);
 
 /*
@@ -38,8 +36,7 @@ http_client_host_shared_idle_timeout(struct http_client_host_shared *hshared)
 }
 
 static void
-http_client_host_shared_check_idle(
-	struct http_client_host_shared *hshared)
+http_client_host_shared_check_idle(struct http_client_host_shared *hshared)
 {
 	struct http_client_host *host;
 	int timeout = 0;
@@ -57,23 +54,24 @@ http_client_host_shared_check_idle(
 	}
 
 	if (!hshared->unix_local && !hshared->explicit_ip &&
-		hshared->ips_timeout.tv_sec > 0) {
-		timeout = timeval_diff_msecs
-			(&hshared->ips_timeout, &ioloop_timeval);
+	    hshared->ips_timeout.tv_sec > 0) {
+		timeout = timeval_diff_msecs(&hshared->ips_timeout,
+					     &ioloop_timeval);
 	}
 
 	if (timeout <= HTTP_CLIENT_HOST_MINIMUM_IDLE_TIMEOUT_MSECS)
 		timeout = HTTP_CLIENT_HOST_MINIMUM_IDLE_TIMEOUT_MSECS;
 
 	hshared->to_idle = timeout_add_to(hshared->cctx->ioloop, timeout,
-		http_client_host_shared_idle_timeout, hshared);
+					  http_client_host_shared_idle_timeout,
+					  hshared);
 
 	e_debug(hshared->event, "Host is idle (timeout = %u msecs)", timeout);
 }
 
 static void
 http_client_host_shared_lookup_failure(struct http_client_host_shared *hshared,
-			      const char *error)
+				       const char *error)
 {
 	struct http_client_host *host;
 
@@ -91,7 +89,7 @@ http_client_host_shared_lookup_failure(struct http_client_host_shared *hshared,
 
 static void
 http_client_host_shared_dns_callback(const struct dns_lookup_result *result,
-			      struct http_client_host_shared *hshared)
+				     struct http_client_host_shared *hshared)
 {
 	struct http_client_context *cctx = hshared->cctx;
 	struct http_client_host *host;
@@ -99,7 +97,7 @@ http_client_host_shared_dns_callback(const struct dns_lookup_result *result,
 	hshared->dns_lookup = NULL;
 
 	if (result->ret != 0) {
-		/* lookup failed */
+		/* Lookup failed */
 		http_client_host_shared_lookup_failure(hshared, result->error);
 		return;
 	}
@@ -109,15 +107,16 @@ http_client_host_shared_dns_callback(const struct dns_lookup_result *result,
 
 	i_assert(result->ips_count > 0);
 	hshared->ips = i_realloc_type(hshared->ips, struct ip_addr,
-				   hshared->ips_count, result->ips_count);
+				      hshared->ips_count, result->ips_count);
 	hshared->ips_count = result->ips_count;
-	memcpy(hshared->ips, result->ips, sizeof(*hshared->ips) * hshared->ips_count);
+	memcpy(hshared->ips, result->ips,
+	       sizeof(*hshared->ips) * hshared->ips_count);
 
 	hshared->ips_timeout = ioloop_timeval;
 	i_assert(cctx->dns_ttl_msecs > 0);
 	timeval_add_msecs(&hshared->ips_timeout, cctx->dns_ttl_msecs);
 
-	/* notify all sessions */
+	/* Notify all sessions */
 	host = hshared->hosts_list;
 	while (host != NULL) {
 		http_client_host_lookup_done(host);
@@ -125,8 +124,8 @@ http_client_host_shared_dns_callback(const struct dns_lookup_result *result,
 	}
 }
 
-static void http_client_host_shared_lookup
-(struct http_client_host_shared *hshared)
+static void
+http_client_host_shared_lookup(struct http_client_host_shared *hshared)
 {
 	struct http_client_context *cctx = hshared->cctx;
 	struct dns_lookup_settings dns_set;
@@ -141,7 +140,8 @@ static void http_client_host_shared_lookup
 	if (cctx->dns_client != NULL) {
 		e_debug(hshared->event, "Performing asynchronous DNS lookup");
 		(void)dns_client_lookup(cctx->dns_client, hshared->name,
-			http_client_host_shared_dns_callback, hshared, &hshared->dns_lookup);
+					http_client_host_shared_dns_callback,
+					hshared, &hshared->dns_lookup);
 	} else if (cctx->dns_client_socket_path != NULL) {
 		i_assert(cctx->dns_lookup_timeout_msecs > 0);
 		e_debug(hshared->event, "Performing asynchronous DNS lookup");
@@ -150,13 +150,15 @@ static void http_client_host_shared_lookup
 		dns_set.timeout_msecs = cctx->dns_lookup_timeout_msecs;
 		dns_set.ioloop = cctx->ioloop;
 		(void)dns_lookup(hshared->name, &dns_set,
-				 http_client_host_shared_dns_callback, hshared, &hshared->dns_lookup);
+				 http_client_host_shared_dns_callback,
+				 hshared, &hshared->dns_lookup);
 	} else {
 		unsigned int ips_count;
 
 		ret = net_gethostbyname(hshared->name, &ips, &ips_count);
 		if (ret != 0) {
-			http_client_host_shared_lookup_failure(hshared, net_gethosterror(ret));
+			http_client_host_shared_lookup_failure(
+				hshared, net_gethosterror(ret));
 			return;
 		}
 
@@ -188,7 +190,7 @@ http_client_host_shared_refresh(struct http_client_host_shared *hshared)
 		return -1;
 
 	if (hshared->ips_count > 0 &&
-		timeval_cmp(&hshared->ips_timeout, &ioloop_timeval) > 0)
+	    timeval_cmp(&hshared->ips_timeout, &ioloop_timeval) > 0)
 		return 0;
 
 	if (hshared->to_idle != NULL)
@@ -202,8 +204,9 @@ http_client_host_shared_refresh(struct http_client_host_shared *hshared)
 	return (hshared->ips_count > 0 ? 1 : -1);
 }
 
-static struct http_client_host_shared *http_client_host_shared_create
-(struct http_client_context *cctx, const char *name)
+static struct http_client_host_shared *
+http_client_host_shared_create(struct http_client_context *cctx,
+			       const char *name)
 {
 	struct http_client_host_shared *hshared;
 
@@ -220,16 +223,16 @@ static struct http_client_host_shared *http_client_host_shared_create
 }
 
 static struct http_client_host_shared *
-http_client_host_shared_get
-(struct http_client_context *cctx,
-	const struct http_url *host_url)
+http_client_host_shared_get(struct http_client_context *cctx,
+			    const struct http_url *host_url)
 {
 	struct http_client_host_shared *hshared;
 
 	if (host_url == NULL) {
 		hshared = cctx->unix_host;
 		if (hshared == NULL) {
-			hshared = http_client_host_shared_create(cctx, "[unix]");
+			hshared = http_client_host_shared_create(
+				cctx, "[unix]");
 			hshared->name = i_strdup("[unix]");
 			hshared->unix_local = TRUE;
 
@@ -244,13 +247,16 @@ http_client_host_shared_get
 
 		hshared = hash_table_lookup(cctx->hosts, hostname);
 		if (hshared == NULL) {
-			hshared = http_client_host_shared_create(cctx, hostname);
+			hshared = http_client_host_shared_create(
+				cctx, hostname);
 			hostname = hshared->name;
 			hash_table_insert(cctx->hosts, hostname, hshared);
 
-			if (ip.family != 0 || net_addr2ip(hshared->name, &ip) == 0) {
+			if (ip.family != 0 ||
+			    net_addr2ip(hshared->name, &ip) == 0) {
 				hshared->ips_count = 1;
-				hshared->ips = i_new(struct ip_addr, hshared->ips_count);
+				hshared->ips = i_new(struct ip_addr,
+						     hshared->ips_count);
 				hshared->ips[0] = ip;
 				hshared->explicit_ip = TRUE;
 			}
@@ -285,7 +291,7 @@ void http_client_host_shared_free(struct http_client_host_shared **_hshared)
 	if (hshared->dns_lookup != NULL)
 		dns_lookup_abort(&hshared->dns_lookup);
 
-	/* drop client sessions */
+	/* Drop client sessions */
 	while (hshared->hosts_list != NULL) {
 		host = hshared->hosts_list;
 		http_client_host_free_shared(&host);
@@ -303,7 +309,7 @@ static void
 http_client_host_shared_request_submitted(
 	struct http_client_host_shared *hshared)
 {
-	/* cancel host idle timeout */
+	/* Cancel host idle timeout */
 	timeout_remove(&hshared->to_idle);
 }
 
@@ -324,7 +330,7 @@ void http_client_host_shared_switch_ioloop(
 
 struct http_client_host *
 http_client_host_get(struct http_client *client,
-	const struct http_url *host_url)
+		     const struct http_url *host_url)
 {
 	struct http_client_host_shared *hshared;
 	struct http_client_host *host;
@@ -344,9 +350,9 @@ http_client_host_get(struct http_client *client,
 		host->shared = hshared;
 		i_array_init(&host->queues, 4);
 		DLLIST_PREPEND_FULL(&hshared->hosts_list,
-			host, shared_prev, shared_next);
-		DLLIST_PREPEND_FULL(&client->hosts_list,
-			host, client_prev, client_next);
+				    host, shared_prev, shared_next);
+		DLLIST_PREPEND_FULL(&client->hosts_list, host,
+				    client_prev, client_next);
 
 		e_debug(hshared->event, "Host session created");
 	}
@@ -366,19 +372,18 @@ static void http_client_host_free_shared(struct http_client_host **_host)
 
 	e_debug(hshared->event, "Host session destroy");
 
-	DLLIST_REMOVE_FULL(&hshared->hosts_list,
-		host, shared_prev, shared_next);
-	DLLIST_REMOVE_FULL(&client->hosts_list,
-		host, client_prev, client_next);
+	DLLIST_REMOVE_FULL(&hshared->hosts_list, host,
+			   shared_prev, shared_next);
+	DLLIST_REMOVE_FULL(&client->hosts_list, host,
+			   client_prev, client_next);
 
-	/* drop request queues */
+	/* Drop request queues */
 	t_array_init(&queues, array_count(&host->queues));
-	array_copy(&queues.arr, 0,
-		&host->queues.arr, 0, array_count(&host->queues));
+	array_copy(&queues.arr, 0, &host->queues.arr, 0,
+		   array_count(&host->queues));
 	array_clear(&host->queues);
-	array_foreach(&queues, queue_idx) {
+	array_foreach(&queues, queue_idx)
 		http_client_queue_free(*queue_idx);
-	}
 	array_free(&host->queues);
 
 	i_free(host);
@@ -394,18 +399,15 @@ void http_client_host_free(struct http_client_host **_host)
 	http_client_host_shared_check_idle(hshared);
 }
 
-static void
-http_client_host_lookup_done(
-	struct http_client_host *host)
+static void http_client_host_lookup_done(struct http_client_host *host)
 {
 	struct http_client *client = host->client;
 	struct http_client_queue *const *queue_idx;
 	unsigned int requests = 0;
 
-	/* notify all queues */
-	array_foreach_modifiable(&host->queues, queue_idx) {
+	/* Notify all queues */
+	array_foreach_modifiable(&host->queues, queue_idx)
 		requests += http_client_queue_host_lookup_done(*queue_idx);
-	}
 
 	if (requests == 0 && client->waiting)
 		io_loop_stop(client->ioloop);
@@ -413,7 +415,7 @@ http_client_host_lookup_done(
 
 static void
 http_client_host_lookup_failure(struct http_client_host *host,
-	const char *error)
+				const char *error)
 {
 	struct http_client_queue *const *queue_idx;
 
@@ -422,7 +424,7 @@ http_client_host_lookup_failure(struct http_client_host *host,
 }
 
 void http_client_host_submit_request(struct http_client_host *host,
-	struct http_client_request *req)
+				     struct http_client_request *req)
 {
 	struct http_client *client = req->client;
 	struct http_client_queue *queue;
@@ -433,33 +435,32 @@ void http_client_host_submit_request(struct http_client_host *host,
 
 	http_client_request_get_peer_addr(req, &addr);
 	if (http_client_peer_addr_is_https(&addr) &&
-		client->ssl_ctx == NULL) {
+	    client->ssl_ctx == NULL) {
 		if (http_client_init_ssl_ctx(client, &error) < 0) {
-			http_client_request_error(&req,
-				HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED, error);
+			http_client_request_error(
+				&req, HTTP_CLIENT_REQUEST_ERROR_CONNECT_FAILED,
+				error);
 			return;
 		}
 	}
 
 	http_client_host_shared_request_submitted(host->shared);
 
-	/* add request to queue */
+	/* Add request to queue */
 	queue = http_client_queue_get(host, &addr);
 	http_client_queue_submit_request(queue, req);
 
-	/* queue will trigger host lookup once the request is activated
+	/* Queue will trigger host lookup once the request is activated
 	   (may be delayed) */
 }
 
-static bool
-http_client_host_is_idle(struct http_client_host *host)
+static bool http_client_host_is_idle(struct http_client_host *host)
 {
 	struct http_client_queue *const *queue_idx;
 	unsigned int requests = 0;
 
-	array_foreach(&host->queues, queue_idx) {
+	array_foreach(&host->queues, queue_idx)
 		requests += http_client_queue_requests_active(*queue_idx);
-	}
 
 	return (requests > 0);
 }
@@ -475,7 +476,7 @@ int http_client_host_refresh(struct http_client_host *host)
 }
 
 bool http_client_host_get_ip_idx(struct http_client_host *host,
-	const struct ip_addr *ip, unsigned int *idx_r)
+				 const struct ip_addr *ip, unsigned int *idx_r)
 {
 	struct http_client_host_shared *hshared = host->shared;
 	unsigned int i;
@@ -496,4 +497,3 @@ void http_client_host_switch_ioloop(struct http_client_host *host)
 	array_foreach(&host->queues, queue_idx)
 		http_client_queue_switch_ioloop(*queue_idx);
 }
-
