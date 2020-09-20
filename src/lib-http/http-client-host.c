@@ -461,7 +461,7 @@ static bool http_client_host_is_idle(struct http_client_host *host)
 	array_foreach(&host->queues, queue_idx)
 		requests += http_client_queue_requests_active(*queue_idx);
 
-	return (requests > 0);
+	return (requests == 0);
 }
 
 void http_client_host_check_idle(struct http_client_host *host)
