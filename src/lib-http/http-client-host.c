@@ -146,8 +146,6 @@ http_client_host_shared_lookup(struct http_client_host_shared *hshared)
 	i_assert(!hshared->explicit_ip);
 	i_assert(hshared->dns_lookup == NULL);
 
-	hshared->ips_count = 0;
-
 	if (cctx->dns_client != NULL) {
 		e_debug(hshared->event, "Performing asynchronous DNS lookup");
 		(void)dns_client_lookup(cctx->dns_client, hshared->name,
