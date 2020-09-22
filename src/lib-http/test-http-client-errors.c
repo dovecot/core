@@ -3361,6 +3361,200 @@ static void test_idle_connections(void)
 }
 
 /*
+ * Idle hosts
+ */
+
+/* dns */
+
+static void
+test_dns_idle_hosts_input(struct server_connection *conn)
+{
+	const char *line;
+
+	if (!conn->version_sent) {
+		conn->version_sent = TRUE;
+		o_stream_nsend_str(conn->conn.output, "VERSION\tdns\t1\t0\n");
+	}
+
+	while ((line = i_stream_read_next_line(conn->conn.input)) != NULL) {
+		if (str_begins(line, "VERSION"))
+			continue;
+		if (debug)
+			i_debug("DNS REQUEST: %s", line);
+
+		if (strcmp(line, "IP\thosta") == 0) {
+			o_stream_nsend_str(conn->conn.output,
+					   "0\t127.0.0.1\n");
+		} else {
+			i_sleep_msecs(300);
+			o_stream_nsend_str(
+				conn->conn.output,
+				t_strdup_printf("%d\tFAIL\n", EAI_FAIL));
+		}
+	}
+}
+
+static void test_dns_idle_hosts(void)
+{
+	test_server_input = test_dns_idle_hosts_input;
+	test_server_run(0);
+}
+
+/* server */
+
+struct _idle_hosts_sctx {
+	bool eoh;
+};
+
+static int test_idle_hosts_init(struct server_connection *conn)
+{
+	struct _idle_hosts_sctx *ctx;
+
+	ctx = p_new(conn->pool, struct _idle_hosts_sctx, 1);
+	conn->context = ctx;
+	return 0;
+}
+
+static void test_idle_hosts_input(struct server_connection *conn)
+{
+	struct _idle_hosts_sctx *ctx = conn->context;
+	const char *line;
+
+	while ((line = i_stream_read_next_line(conn->conn.input)) != NULL) {
+		if (*line == '\0') {
+			ctx->eoh = TRUE;
+			break;
+		}
+	}
+
+	if (conn->conn.input->stream_errno != 0) {
+		i_fatal("server: Stream error: %s",
+			i_stream_get_error(conn->conn.input));
+	}
+	if (line == NULL) {
+		if (conn->conn.input->eof)
+			server_connection_deinit(&conn);
+		return;
+	}
+
+	i_assert(ctx->eoh);
+	ctx->eoh = FALSE;
+
+	string_t *resp;
+
+	resp = t_str_new(512);
+	str_printfa(resp,
+		    "HTTP/1.1 200 OK\r\n"
+		    "Content-Length: 0\r\n"
+		    "\r\n");
+	o_stream_nsend(conn->conn.output, str_data(resp), str_len(resp));
+	if (o_stream_flush(conn->conn.output) < 0) {
+		i_fatal("server: Flush error: %s",
+			o_stream_get_error(conn->conn.output));
+	}
+}
+
+static void test_server_idle_hosts(unsigned int index)
+{
+	test_server_init = test_idle_hosts_init;
+	test_server_input = test_idle_hosts_input;
+	test_server_run(index);
+}
+
+/* client */
+
+struct _idle_hosts {
+	struct http_client *client;
+	struct http_client_request *hostb_req;
+	unsigned int count;
+};
+
+static void
+test_client_idle_hosts_response_hosta(const struct http_response *resp,
+				      struct _idle_hosts *ctx)
+{
+	test_client_assert_response(resp, resp->status == 200);
+
+	if (--ctx->count == 0) {
+		i_free(ctx);
+		io_loop_stop(ioloop);
+	}
+}
+
+static void
+test_client_idle_hosts_response_hostb(const struct http_response *resp,
+				      struct _idle_hosts *ctx)
+{
+	test_client_assert_response(resp,
+		resp->status == HTTP_CLIENT_REQUEST_ERROR_HOST_LOOKUP_FAILED);
+
+	if (http_client_request_try_retry(ctx->hostb_req)) {
+		if (debug)
+			i_debug("retrying");
+		return;
+	}
+
+	ctx->hostb_req = NULL;
+}
+
+static bool
+test_client_idle_hosts(const struct http_client_settings *client_set)
+{
+	struct http_client_request *hreq;
+	struct _idle_hosts *ctx;
+
+	ctx = i_new(struct _idle_hosts, 1);
+	ctx->count = 2;
+
+	ctx->client = http_client = http_client_init(client_set);
+
+	hreq = http_client_request(
+		ctx->client, "GET", "hosta",
+		t_strdup_printf("/idle-hosts-a1.txt"),
+		test_client_idle_hosts_response_hosta, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+
+	hreq = ctx->hostb_req = http_client_request(
+		ctx->client, "GET", "hostb",
+		t_strdup_printf("/idle-hosts-b.txt"),
+		test_client_idle_hosts_response_hostb, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_submit(hreq);
+
+	hreq = http_client_request(
+		ctx->client, "GET", "hosta",
+		t_strdup_printf("/idle-hosts-a2.txt"),
+		test_client_idle_hosts_response_hosta, ctx);
+	http_client_request_set_port(hreq, bind_ports[0]);
+	http_client_request_delay_msecs(hreq, 600);
+	http_client_request_submit(hreq);
+
+	return TRUE;
+}
+
+/* test */
+
+static void test_idle_hosts(void)
+{
+	struct http_client_settings http_client_set;
+
+	test_client_defaults(&http_client_set);
+	http_client_set.dns_client_socket_path = "./dns-test";
+	http_client_set.dns_ttl_msecs = 400;
+	http_client_set.max_parallel_connections = 1;
+	http_client_set.max_idle_time_msecs = 100;
+	http_client_set.max_attempts = 2;
+
+	test_begin("idle hosts");
+	test_run_client_server(&http_client_set,
+			       test_client_idle_hosts,
+			       test_server_idle_hosts, 1,
+			       test_dns_idle_hosts);
+	test_end();
+}
+
+/*
  * All tests
  */
 
@@ -3395,6 +3589,7 @@ static void (*const test_functions[])(void) = {
 	test_reconnect_failure,
 	test_multi_ip_attempts,
 	test_idle_connections,
+	test_idle_hosts,
 	NULL
 };
 
