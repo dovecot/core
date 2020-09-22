@@ -88,10 +88,31 @@ http_client_host_shared_lookup_failure(struct http_client_host_shared *hshared,
 }
 
 static void
+http_client_host_shared_lookup_success(struct http_client_host_shared *hshared,
+				       const struct ip_addr *ips,
+				       unsigned int ips_count)
+{
+	struct http_client_context *cctx = hshared->cctx;
+
+	i_assert(ips_count > 0);
+
+	e_debug(hshared->event,
+		"DNS lookup successful; got %d IPs", ips_count);
+
+	hshared->ips = i_realloc_type(hshared->ips, struct ip_addr,
+				      hshared->ips_count, ips_count);
+	hshared->ips_count = ips_count;
+	memcpy(hshared->ips, ips, sizeof(struct ip_addr) * ips_count);
+
+	hshared->ips_timeout = ioloop_timeval;
+	i_assert(cctx->dns_ttl_msecs > 0);
+	timeval_add_msecs(&hshared->ips_timeout, cctx->dns_ttl_msecs);
+}
+
+static void
 http_client_host_shared_dns_callback(const struct dns_lookup_result *result,
 				     struct http_client_host_shared *hshared)
 {
-	struct http_client_context *cctx = hshared->cctx;
 	struct http_client_host *host;
 
 	hshared->dns_lookup = NULL;
@@ -102,19 +123,8 @@ http_client_host_shared_dns_callback(const struct dns_lookup_result *result,
 		return;
 	}
 
-	e_debug(hshared->event,
-		"DNS lookup successful; got %d IPs", result->ips_count);
-
-	i_assert(result->ips_count > 0);
-	hshared->ips = i_realloc_type(hshared->ips, struct ip_addr,
-				      hshared->ips_count, result->ips_count);
-	hshared->ips_count = result->ips_count;
-	memcpy(hshared->ips, result->ips,
-	       sizeof(*hshared->ips) * hshared->ips_count);
-
-	hshared->ips_timeout = ioloop_timeval;
-	i_assert(cctx->dns_ttl_msecs > 0);
-	timeval_add_msecs(&hshared->ips_timeout, cctx->dns_ttl_msecs);
+	http_client_host_shared_lookup_success(hshared, result->ips,
+					       result->ips_count);
 
 	/* Notify all sessions */
 	host = hshared->hosts_list;
@@ -129,7 +139,6 @@ http_client_host_shared_lookup(struct http_client_host_shared *hshared)
 {
 	struct http_client_context *cctx = hshared->cctx;
 	struct dns_lookup_settings dns_set;
-	struct ip_addr *ips;
 	int ret;
 
 	i_assert(!hshared->explicit_ip);
@@ -153,6 +162,7 @@ http_client_host_shared_lookup(struct http_client_host_shared *hshared)
 				 http_client_host_shared_dns_callback,
 				 hshared, &hshared->dns_lookup);
 	} else {
+		struct ip_addr *ips;
 		unsigned int ips_count;
 
 		ret = net_gethostbyname(hshared->name, &ips, &ips_count);
@@ -162,19 +172,7 @@ http_client_host_shared_lookup(struct http_client_host_shared *hshared)
 			return;
 		}
 
-		e_debug(hshared->event,
-			"DNS lookup successful; got %d IPs", ips_count);
-
-		i_free(hshared->ips);
-		hshared->ips_count = ips_count;
-		hshared->ips = i_new(struct ip_addr, ips_count);
-		memcpy(hshared->ips, ips, ips_count * sizeof(*ips));
-	}
-
-	if (hshared->ips_count > 0) {
-		hshared->ips_timeout = ioloop_timeval;
-		i_assert(cctx->dns_ttl_msecs > 0);
-		timeval_add_msecs(&hshared->ips_timeout, cctx->dns_ttl_msecs);
+		http_client_host_shared_lookup_success(hshared, ips, ips_count);
 	}
 }
 
