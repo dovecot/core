@@ -107,8 +107,12 @@ status_output(struct status_cmd_context *ctx, struct mailbox *box,
 		doveadm_print_num(metadata->virtual_size);
 	if ((ctx->metadata_items & MAILBOX_METADATA_GUID) != 0)
 		doveadm_print(guid_128_to_string(metadata->guid));
-	if ((ctx->metadata_items & MAILBOX_METADATA_FIRST_SAVE_DATE) != 0)
-		doveadm_print_num(metadata->first_save_date);
+	if ((ctx->metadata_items & MAILBOX_METADATA_FIRST_SAVE_DATE) > 0) {
+		if (metadata->first_save_date > -1)
+			doveadm_print_num(metadata->first_save_date);
+		else
+			doveadm_print("never");
+	}
 }
 
 static void
