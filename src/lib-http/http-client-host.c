@@ -187,14 +187,15 @@ http_client_host_shared_refresh(struct http_client_host_shared *hshared)
 	if (hshared->dns_lookup != NULL)
 		return -1;
 
-	if (hshared->ips_count > 0 &&
-	    timeval_cmp(&hshared->ips_timeout, &ioloop_timeval) > 0)
-		return 0;
+	if (hshared->ips_count == 0) {
+		e_debug(hshared->event, "Need to perform DNS lookup");
+	} else {
+		if (timeval_cmp(&hshared->ips_timeout, &ioloop_timeval) > 0)
+			return 0;
 
-	if (hshared->to_idle != NULL)
-		return 0;
-
-	e_debug(hshared->event, "IPs have expired; need to refresh DNS lookup");
+		e_debug(hshared->event, "IPs have expired; "
+			"need to refresh DNS lookup");
+	}
 
 	http_client_host_shared_lookup(hshared);
 	if (hshared->dns_lookup != NULL)
