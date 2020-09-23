@@ -75,6 +75,8 @@ http_client_host_shared_lookup_failure(struct http_client_host_shared *hshared,
 {
 	struct http_client_host *host;
 
+	e_debug(hshared->event, "DNS lookup failed: %s", error);
+
 	error = t_strdup_printf("Failed to lookup host %s: %s",
 				hshared->name, error);
 
