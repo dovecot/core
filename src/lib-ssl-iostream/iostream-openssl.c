@@ -524,22 +524,16 @@ openssl_iostream_bio_input(struct ssl_iostream *ssl_io,
 		ssl_io->closed = TRUE;
 		return -1;
 	}
-	if (i_stream_get_data_size(ssl_io->plain_input) > 0) {
-		i_error("SSL: Too much data in buffered plain input buffer");
-		i_free(ssl_io->plain_stream_errstr);
-		ssl_io->plain_stream_errstr =
-			i_strdup("SSL: Too much data in buffered plain input buffer");
-		ssl_io->plain_stream_errno = EINVAL;
-		ssl_io->closed = TRUE;
-		return -1;
-	}
 	if (bytes_read) {
 		if (ssl_io->ostream_flush_waiting_input) {
 			ssl_io->ostream_flush_waiting_input = FALSE;
 			o_stream_set_flush_pending(ssl_io->plain_output, TRUE);
 		}
-		if (type != OPENSSL_IOSTREAM_SYNC_TYPE_FIRST_READ &&
-		    type != OPENSSL_IOSTREAM_SYNC_TYPE_CONTINUE_READ)
+	}
+	if (bytes_read || i_stream_get_data_size(ssl_io->plain_input) > 0) {
+		if (i_stream_get_data_size(ssl_io->plain_input) > 0 ||
+		    (type != OPENSSL_IOSTREAM_SYNC_TYPE_FIRST_READ &&
+		     type != OPENSSL_IOSTREAM_SYNC_TYPE_CONTINUE_READ))
 			i_stream_set_input_pending(ssl_io->ssl_input, TRUE);
 		ssl_io->want_read = FALSE;
 	}
