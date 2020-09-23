@@ -55,13 +55,14 @@ static void test_message_header_hash_more(void)
 
 	test_begin("message_header_hash_more");
 	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		const unsigned char *test_input =
+			(const unsigned char *)tests[i].input;
 		size_t input_len = tests[i].input == test_input_with_nuls ?
 			sizeof(test_input_with_nuls)-1 : strlen(tests[i].input);
 		md5_init(&md5_ctx);
 		i_zero(&ctx);
 		message_header_hash_more(&ctx, &hash_method_md5, &md5_ctx,
-					 tests[i].version,
-					 (const unsigned char *)tests[i].input,
+					 tests[i].version, test_input,
 					 input_len);
 		md5_final(&md5_ctx, md5_input);
 
@@ -75,10 +76,9 @@ static void test_message_header_hash_more(void)
 		md5_init(&md5_ctx);
 		i_zero(&ctx);
 		for (unsigned int j = 0; j < input_len; j++) {
-			unsigned char chr = tests[i].input[j];
 			message_header_hash_more(&ctx, &hash_method_md5,
 						 &md5_ctx, tests[i].version,
-						 &chr, 1);
+						 test_input+j, 1);
 		}
 		md5_final(&md5_ctx, md5_input);
 		test_assert_idx(memcmp(md5_input, md5_output, MD5_RESULTLEN) == 0, i);
