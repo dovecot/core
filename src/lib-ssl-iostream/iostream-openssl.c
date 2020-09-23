@@ -391,7 +391,7 @@ static void openssl_iostream_destroy(struct ssl_iostream *ssl_io)
 
 static int openssl_iostream_bio_output_real(struct ssl_iostream *ssl_io)
 {
-	size_t bytes, max_bytes;
+	size_t bytes, max_bytes = 0;
 	ssize_t sent;
 	unsigned char buffer[IO_BLOCK_SIZE];
 	int result = 0;
@@ -405,8 +405,6 @@ static int openssl_iostream_bio_output_real(struct ssl_iostream *ssl_io)
 		if (bytes > max_bytes) {
 			if (max_bytes == 0) {
 				/* wait until output buffer clears */
-				o_stream_set_flush_pending(ssl_io->plain_output,
-							   TRUE);
 				break;
 			}
 			bytes = max_bytes;
@@ -430,7 +428,13 @@ static int openssl_iostream_bio_output_real(struct ssl_iostream *ssl_io)
 		i_assert(sent == (ssize_t)bytes);
 		result = 1;
 	}
-	o_stream_uncork(ssl_io->plain_output);
+
+	ret = o_stream_uncork_flush(ssl_io->plain_output);
+	if (ret < 0)
+		return -1;
+	if (ret == 0 || (bytes > 0 && max_bytes == 0))
+		o_stream_set_flush_pending(ssl_io->plain_output, TRUE);
+
 	return result;
 }
 
