@@ -389,7 +389,7 @@ static void openssl_iostream_destroy(struct ssl_iostream *ssl_io)
 	ssl_iostream_unref(&ssl_io);
 }
 
-static int openssl_iostream_bio_output(struct ssl_iostream *ssl_io)
+static int openssl_iostream_bio_output_real(struct ssl_iostream *ssl_io)
 {
 	size_t bytes, max_bytes;
 	ssize_t sent;
@@ -424,13 +424,6 @@ static int openssl_iostream_bio_output(struct ssl_iostream *ssl_io)
 		   fully succeed or completely fail due to some error. */
 		sent = o_stream_send(ssl_io->plain_output, buffer, bytes);
 		if (sent < 0) {
-			i_assert(ssl_io->plain_output->stream_errno != 0);
-			i_free(ssl_io->plain_stream_errstr);
-			ssl_io->plain_stream_errstr =
-				i_strdup(o_stream_get_error(ssl_io->plain_output));
-			ssl_io->plain_stream_errno =
-				ssl_io->plain_output->stream_errno;
-			ssl_io->closed = TRUE;
 			result = -1;
 			break;
 		}
@@ -439,6 +432,23 @@ static int openssl_iostream_bio_output(struct ssl_iostream *ssl_io)
 	}
 	o_stream_uncork(ssl_io->plain_output);
 	return result;
+}
+
+static int openssl_iostream_bio_output(struct ssl_iostream *ssl_io)
+{
+	int ret;
+
+	ret = openssl_iostream_bio_output_real(ssl_io);
+	if (ret < 0) {
+		i_assert(ssl_io->plain_output->stream_errno != 0);
+		i_free(ssl_io->plain_stream_errstr);
+		ssl_io->plain_stream_errstr =
+			i_strdup(o_stream_get_error(ssl_io->plain_output));
+		ssl_io->plain_stream_errno =
+			ssl_io->plain_output->stream_errno;
+		ssl_io->closed = TRUE;
+	}
+	return ret;
 }
 
 static ssize_t
