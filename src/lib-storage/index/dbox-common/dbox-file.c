@@ -66,7 +66,7 @@ void dbox_file_init(struct dbox_file *file)
 {
 	file->refcount = 1;
 	file->fd = -1;
-	file->cur_offset = (uoff_t)-1;
+	file->cur_offset = UOFF_T_MAX;
 	file->cur_path = file->primary_path;
 }
 
@@ -305,7 +305,7 @@ void dbox_file_close(struct dbox_file *file)
 			dbox_file_set_syscall_error(file, "close()");
 		file->fd = -1;
 	}
-	file->cur_offset = (uoff_t)-1;
+	file->cur_offset = UOFF_T_MAX;
 }
 
 int dbox_file_try_lock(struct dbox_file *file)
@@ -433,7 +433,7 @@ dbox_file_seek_next_at_metadata(struct dbox_file *file, uoff_t *offset)
 
 void dbox_file_seek_rewind(struct dbox_file *file)
 {
-	file->cur_offset = (uoff_t)-1;
+	file->cur_offset = UOFF_T_MAX;
 }
 
 int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r)
@@ -443,7 +443,7 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r)
 
 	i_assert(file->input != NULL);
 
-	if (file->cur_offset == (uoff_t)-1) {
+	if (file->cur_offset == UOFF_T_MAX) {
 		/* first mail. we may not have read the file at all yet,
 		   so set the offset afterwards. */
 		offset = 0;
@@ -710,7 +710,7 @@ int dbox_file_metadata_read(struct dbox_file *file)
 	uoff_t metadata_offset;
 	int ret;
 
-	i_assert(file->cur_offset != (uoff_t)-1);
+	i_assert(file->cur_offset != UOFF_T_MAX);
 
 	if (file->metadata_read_offset == file->cur_offset)
 		return 1;
@@ -750,7 +750,7 @@ uoff_t dbox_file_get_plaintext_size(struct dbox_file *file)
 	value = dbox_file_metadata_get(file, DBOX_METADATA_PHYSICAL_SIZE);
 	if (value == NULL ||
 	    str_to_uintmax_hex(value, &size) < 0 ||
-	    size > (uoff_t)-1) {
+	    size > UOFF_T_MAX) {
 		/* no. that means we can use the size in the header */
 		return file->cur_physical_size;
 	}

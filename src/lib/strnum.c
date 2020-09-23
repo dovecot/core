@@ -427,7 +427,7 @@ int str_to_uoff(const char *str, uoff_t *num_r)
 	if (str_to_uintmax(str, &l) < 0)
 		return -1;
 
-	if (l > (uoff_t)-1)
+	if (l > UOFF_T_MAX)
 		return -1;
 	*num_r = (uoff_t)l;
 	return 0;

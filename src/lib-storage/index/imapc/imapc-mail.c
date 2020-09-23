@@ -174,9 +174,9 @@ static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	uoff_t old_offset;
 	int ret;
 
-	if (data->physical_size == (uoff_t)-1)
+	if (data->physical_size == UOFF_T_MAX)
 		(void)index_mail_get_physical_size(_mail, size_r);
-	if (data->physical_size != (uoff_t)-1) {
+	if (data->physical_size != UOFF_T_MAX) {
 		*size_r = data->physical_size;
 		return 0;
 	}
@@ -188,7 +188,7 @@ static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 		   so try not to trust it too much. */
 		if (imapc_mail_fetch(_mail, MAIL_FETCH_PHYSICAL_SIZE, NULL) < 0)
 			return -1;
-		if (data->physical_size == (uoff_t)-1) {
+		if (data->physical_size == UOFF_T_MAX) {
 			if (imapc_mail_failed(_mail, "RFC822.SIZE") < 0)
 				return -1;
 			/* assume that the server never returns RFC822.SIZE

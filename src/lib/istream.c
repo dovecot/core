@@ -1080,7 +1080,7 @@ bool i_stream_nonseekable_try_seek(struct istream_private *stream,
 static int
 seekable_i_stream_get_size(struct istream_private *stream)
 {
-	if (stream->cached_stream_size == (uoff_t)-1) {
+	if (stream->cached_stream_size == UOFF_T_MAX) {
 		uoff_t old_offset = stream->istream.v_offset;
 		ssize_t ret;
 
@@ -1201,7 +1201,7 @@ i_stream_create(struct istream_private *_stream, struct istream *parent, int fd,
 	_stream->statbuf.st_atime =
 		_stream->statbuf.st_mtime =
 		_stream->statbuf.st_ctime = ioloop_time;
-	_stream->cached_stream_size = (uoff_t)-1;
+	_stream->cached_stream_size = UOFF_T_MAX;
 
 	io_stream_init(&_stream->iostream);
 

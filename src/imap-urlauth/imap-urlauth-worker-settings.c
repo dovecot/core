@@ -40,7 +40,7 @@ struct service_settings imap_urlauth_worker_service_settings = {
 	.client_limit = 1,
 	.service_count = 1,
 	.idle_kill = 0,
-	.vsz_limit = (uoff_t)-1,
+	.vsz_limit = UOFF_T_MAX,
 
 	.unix_listeners = { { &imap_urlauth_worker_unix_listeners_buf,
 			      sizeof(imap_urlauth_worker_unix_listeners[0]) } },

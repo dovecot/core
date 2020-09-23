@@ -503,7 +503,7 @@ static void squat_uidlist_free_from_memory(struct squat_uidlist *uidlist)
 
 	if (uidlist->file_cache != NULL) {
 		file_cache_invalidate(uidlist->file_cache,
-				      page_size, (uoff_t)-1);
+				      page_size, UOFF_T_MAX);
 	} else {
 		(void)madvise(uidlist->mmap_base, uidlist->mmap_size,
 			      MADV_DONTNEED);

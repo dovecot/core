@@ -399,7 +399,7 @@ handle_end_body_with_lf(struct header_filter_istream *mstream, ssize_t ret)
 
 	data = i_stream_get_data(stream->parent, &size);
 	if (stream->parent->v_offset + size == 0 && size == 0)
-		last_offset = (uoff_t)-1;
+		last_offset = UOFF_T_MAX;
 	else
 		last_offset = stream->parent->v_offset + size - 1;
 
@@ -428,7 +428,7 @@ handle_end_body_with_lf(struct header_filter_istream *mstream, ssize_t ret)
 		stream->buffer = mstream->hdr_buf->data;
 		return mstream->crlf ? 2 : 1;
 	} else {
-		mstream->last_lf_offset = last_lf ? last_offset : (uoff_t)-1;
+		mstream->last_lf_offset = last_lf ? last_offset : UOFF_T_MAX;
 	}
 	return ret;
 }
@@ -594,7 +594,7 @@ i_stream_header_filter_stat(struct istream_private *stream, bool exact)
 	} else if (mstream->last_lf_added) {
 		/* yes, we have added LF */
 		stream->statbuf.st_size += mstream->crlf ? 2 : 1;
-	} else if (mstream->last_lf_offset != (uoff_t)-1) {
+	} else if (mstream->last_lf_offset != UOFF_T_MAX) {
 		/* no, we didn't need to add LF */
 	} else {
 		/* check if we need to add LF */
@@ -665,7 +665,7 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->add_missing_eoh = (flags & HEADER_FILTER_ADD_MISSING_EOH) != 0;
 	mstream->end_body_with_lf =
 		(flags & HEADER_FILTER_END_BODY_WITH_LF) != 0;
-	mstream->last_lf_offset = (uoff_t)-1;
+	mstream->last_lf_offset = UOFF_T_MAX;
 	mstream->last_added_newline = TRUE;
 
 	mstream->istream.iostream.destroy = i_stream_header_filter_destroy;

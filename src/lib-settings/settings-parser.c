@@ -482,7 +482,7 @@ int settings_get_size(const char *str, uoff_t *bytes_r,
 		*error_r = t_strconcat("Invalid size: ", str, NULL);
 		return -1;
 	}
-	if (num > ((uoff_t)-1) / multiply) {
+	if (num > (UOFF_T_MAX) / multiply) {
 		*error_r = t_strconcat("Size is too large: ", str, NULL);
 		return -1;
 	}

@@ -162,7 +162,7 @@ static void i_stream_bzlib_reset(struct bzlib_istream *zstream)
 	struct istream_private *stream = &zstream->istream;
 
 	i_stream_seek(stream->parent, stream->parent_start_offset);
-	zstream->eof_offset = (uoff_t)-1;
+	zstream->eof_offset = UOFF_T_MAX;
 	zstream->zs.next_in = NULL;
 	zstream->zs.avail_in = 0;
 
@@ -214,7 +214,7 @@ struct istream *i_stream_create_bz2(struct istream *input, bool log_errors)
 	struct bzlib_istream *zstream;
 
 	zstream = i_new(struct bzlib_istream, 1);
-	zstream->eof_offset = (uoff_t)-1;
+	zstream->eof_offset = UOFF_T_MAX;
 	zstream->log_errors = log_errors;
 
 	i_stream_bzlib_init(zstream);

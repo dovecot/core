@@ -75,7 +75,7 @@ static int pop3c_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	struct message_size hdr_size, body_size;
 	struct istream *input;
 
-	if (mail->data.virtual_size != (uoff_t)-1) {
+	if (mail->data.virtual_size != UOFF_T_MAX) {
 		/* virtual size is already known. it's the same as our
 		   (correct) physical size */
 		*size_r = mail->data.virtual_size;
@@ -104,7 +104,7 @@ static int pop3c_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	if (mail_get_stream(_mail, &hdr_size, &body_size, &input) < 0)
 		return -1;
 
-	i_assert(mail->data.physical_size != (uoff_t)-1);
+	i_assert(mail->data.physical_size != UOFF_T_MAX);
 	*size_r = mail->data.physical_size;
 	return 0;
 }

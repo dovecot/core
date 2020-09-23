@@ -501,8 +501,8 @@ static void index_mail_try_set_body_size(struct index_mail *mail)
 	struct index_mail_data *data = &mail->data;
 
 	if (data->hdr_size_set && !data->inexact_total_sizes &&
-	    data->physical_size != (uoff_t)-1 &&
-	    data->virtual_size != (uoff_t)-1) {
+	    data->physical_size != UOFF_T_MAX &&
+	    data->virtual_size != UOFF_T_MAX) {
 		/* We know the total size of this mail and we know the
 		   header size, so we can calculate also the body size.
 		   However, don't do this if there's a possibility that
@@ -527,9 +527,9 @@ bool index_mail_get_cached_virtual_size(struct index_mail *mail, uoff_t *size_r)
 	const uint32_t *vsize = index_mail_get_vsize_extension(_mail);
 
 	data->cache_fetch_fields |= MAIL_FETCH_VIRTUAL_SIZE;
-	if (data->virtual_size == (uoff_t)-1 && vsize != NULL && *vsize > 0)
+	if (data->virtual_size == UOFF_T_MAX && vsize != NULL && *vsize > 0)
 		data->virtual_size = (*vsize)-1;
-	if (data->virtual_size == (uoff_t)-1) {
+	if (data->virtual_size == UOFF_T_MAX) {
 		if (index_mail_get_cached_uoff_t(mail,
 						 MAIL_CACHE_VIRTUAL_FULL_SIZE,
 						 &size))
@@ -600,7 +600,7 @@ int index_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 		return -1;
 	i_stream_seek(data->stream, old_offset);
 
-	i_assert(data->virtual_size != (uoff_t)-1);
+	i_assert(data->virtual_size != UOFF_T_MAX);
 	*size_r = data->virtual_size;
 	return 0;
 }
@@ -620,7 +620,7 @@ int index_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 		   index_mail_get_cached_body_size(). */
 		data->cache_fetch_fields |= MAIL_FETCH_PHYSICAL_SIZE;
 	}
-	if (data->physical_size == (uoff_t)-1) {
+	if (data->physical_size == UOFF_T_MAX) {
 		if (index_mail_get_cached_uoff_t(mail,
 						 MAIL_CACHE_PHYSICAL_FULL_SIZE,
 						 &size))
@@ -629,7 +629,7 @@ int index_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 			(void)get_cached_msgpart_sizes(mail);
 	}
 	*size_r = data->physical_size;
-	return *size_r == (uoff_t)-1 ? -1 : 0;
+	return *size_r == UOFF_T_MAX ? -1 : 0;
 }
 
 void index_mail_cache_add(struct index_mail *mail, enum index_cache_field field,
@@ -970,7 +970,7 @@ static void index_mail_cache_sizes(struct index_mail *mail)
 	*/
 	if ((mail_index_map_get_ext_idx(view->index->map, _mail->box->mail_vsize_ext_id, &idx) ||
 	     mail_index_map_get_ext_idx(view->index->map, _mail->box->vsize_hdr_ext_id, &idx)) &&
-	    (sizes[0] != (uoff_t)-1 &&
+	    (sizes[0] != UOFF_T_MAX &&
 	     sizes[0] < (uint32_t)-1)) {
 		const uint32_t *vsize_ext =
 			index_mail_get_vsize_extension(_mail);
@@ -984,11 +984,11 @@ static void index_mail_cache_sizes(struct index_mail *mail)
 					      _mail->box->mail_vsize_ext_id, &vsize, NULL);
 		}
 		/* it's already in index, so don't update cache */
-		sizes[0] = (uoff_t)-1;
+		sizes[0] = UOFF_T_MAX;
 	}
 
 	for (i = 0; i < N_ELEMENTS(size_fields); i++) {
-		if (sizes[i] != (uoff_t)-1 &&
+		if (sizes[i] != UOFF_T_MAX &&
 		    index_mail_want_cache(mail, size_fields[i])) {
 			index_mail_cache_add(mail, size_fields[i],
 					     &sizes[i], sizeof(sizes[i]));
@@ -1745,8 +1745,8 @@ static void index_mail_init_data(struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
 
-	data->virtual_size = (uoff_t)-1;
-	data->physical_size = (uoff_t)-1;
+	data->virtual_size = UOFF_T_MAX;
+	data->physical_size = UOFF_T_MAX;
 	data->save_date = (time_t)-1;
 	data->received_date = (time_t)-1;
 	data->sent_date.time = (uint32_t)-1;
@@ -2419,15 +2419,15 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 		break;
 	case MAIL_FETCH_PHYSICAL_SIZE:
 		field_name = "physical size";
-		imail->data.physical_size = (uoff_t)-1;
-		imail->data.virtual_size = (uoff_t)-1;
+		imail->data.physical_size = UOFF_T_MAX;
+		imail->data.virtual_size = UOFF_T_MAX;
 		imail->data.parts = NULL;
 		index_mail_reset_vsize_ext(mail);
 		break;
 	case MAIL_FETCH_VIRTUAL_SIZE:
 		field_name = "virtual size";
-		imail->data.physical_size = (uoff_t)-1;
-		imail->data.virtual_size = (uoff_t)-1;
+		imail->data.physical_size = UOFF_T_MAX;
+		imail->data.virtual_size = UOFF_T_MAX;
 		imail->data.parts = NULL;
 		index_mail_reset_vsize_ext(mail);
 		break;

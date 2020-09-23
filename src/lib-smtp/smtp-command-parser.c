@@ -519,7 +519,7 @@ smtp_command_parse_data_with_dot(struct smtp_command_parser *parser)
 	i_assert(parser->data == NULL);
 
 	data = i_stream_create_dot(parser->input, TRUE);
-	if (parser->limits.max_data_size != (uoff_t)-1) {
+	if (parser->limits.max_data_size != UOFF_T_MAX) {
 		parser->data = i_stream_create_failure_at(
 			data, parser->limits.max_data_size, EMSGSIZE,
 			t_strdup_printf("Command data size exceeds maximum "

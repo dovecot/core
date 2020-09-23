@@ -155,7 +155,7 @@ static int mbox_write_content_length(struct mbox_save_context *ctx)
 	const char *str;
 	size_t len;
 
-	i_assert(ctx->eoh_offset != (uoff_t)-1);
+	i_assert(ctx->eoh_offset != UOFF_T_MAX);
 
 	if (ctx->mbox->mbox_writeonly) {
 		/* we can't seek, don't set Content-Length */
@@ -283,7 +283,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 		return -1;
 	}
 
-	if (ctx->append_offset == (uoff_t)-1) {
+	if (ctx->append_offset == UOFF_T_MAX) {
 		/* first appended mail in this transaction */
 		if (t->write_lock_id == 0) {
 			if (mbox_lock(mbox, F_WRLCK, &t->write_lock_id) <= 0)
@@ -309,7 +309,7 @@ mbox_save_init_file(struct mbox_save_context *ctx,
 	}
 
 	/* the syncing above could have changed the append offset */
-	if (ctx->append_offset == (uoff_t)-1) {
+	if (ctx->append_offset == UOFF_T_MAX) {
 		if (mbox_seek_to_end(ctx, &ctx->append_offset) < 0)
 			return -1;
 
@@ -426,9 +426,9 @@ mbox_save_alloc(struct mailbox_transaction_context *t)
 		ctx->ctx.transaction = t;
 		ctx->mbox = mbox;
 		ctx->trans = t->itrans;
-		ctx->append_offset = (uoff_t)-1;
+		ctx->append_offset = UOFF_T_MAX;
 		ctx->headers = str_new(default_pool, 512);
-		ctx->mail_offset = (uoff_t)-1;
+		ctx->mail_offset = UOFF_T_MAX;
 		t->save_ctx = &ctx->ctx;
 	}
 	return t->save_ctx;
@@ -501,7 +501,7 @@ int mbox_save_begin(struct mail_save_context *_ctx, struct istream *input)
 	i_assert(ctx->mbox->mbox_lock_type == F_WRLCK);
 
 	ctx->mail_offset = ctx->output->offset;
-	ctx->eoh_offset = (uoff_t)-1;
+	ctx->eoh_offset = UOFF_T_MAX;
 	ctx->last_char = '\n';
 
 	if (write_from_line(ctx, mdata->received_date, mdata->from_envelope) < 0)
@@ -548,7 +548,7 @@ static int mbox_save_body(struct mbox_save_context *ctx)
 
 static int mbox_save_finish_headers(struct mbox_save_context *ctx)
 {
-	i_assert(ctx->eoh_offset == (uoff_t)-1);
+	i_assert(ctx->eoh_offset == UOFF_T_MAX);
 
 	/* append our own headers and ending empty line */
 	ctx->extra_hdr_offset = ctx->output->offset;
@@ -571,7 +571,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 	if (ctx->failed)
 		return -1;
 
-	if (ctx->eoh_offset != (uoff_t)-1) {
+	if (ctx->eoh_offset != UOFF_T_MAX) {
 		/* writing body */
 		return mbox_save_body(ctx);
 	}
@@ -654,7 +654,7 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 {
 	struct mbox_save_context *ctx = MBOX_SAVECTX(_ctx);
 
-	if (!ctx->failed && ctx->eoh_offset == (uoff_t)-1)
+	if (!ctx->failed && ctx->eoh_offset == UOFF_T_MAX)
 		(void)mbox_save_finish_headers(ctx);
 
 	if (ctx->output != NULL) {
@@ -679,14 +679,14 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 	if (ctx->input != NULL)
 		i_stream_destroy(&ctx->input);
 
-	if (ctx->failed && ctx->mail_offset != (uoff_t)-1) {
+	if (ctx->failed && ctx->mail_offset != UOFF_T_MAX) {
 		/* saving this mail failed - truncate back to beginning of it */
 		i_assert(ctx->output != NULL);
 		(void)o_stream_flush(ctx->output);
 		if (ftruncate(ctx->mbox->mbox_fd, (off_t)ctx->mail_offset) < 0)
 			mbox_set_syscall_error(ctx->mbox, "ftruncate()");
 		(void)o_stream_seek(ctx->output, ctx->mail_offset);
-		ctx->mail_offset = (uoff_t)-1;
+		ctx->mail_offset = UOFF_T_MAX;
 	}
 
 	if (ctx->seq != 0 && ctx->failed) {
@@ -712,7 +712,7 @@ static void mbox_transaction_save_deinit(struct mbox_save_context *ctx)
 
 static void mbox_save_truncate(struct mbox_save_context *ctx)
 {
-	if (ctx->append_offset == (uoff_t)-1 || ctx->mbox->mbox_fd == -1)
+	if (ctx->append_offset == UOFF_T_MAX || ctx->mbox->mbox_fd == -1)
 		return;
 
 	i_assert(ctx->mbox->mbox_lock_type == F_WRLCK);

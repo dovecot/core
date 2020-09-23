@@ -15,8 +15,8 @@ static void test_istream_children(void)
 	parent = test_istream_create_data("123456789", 9);
 	test_istream_set_max_buffer_size(parent, 3);
 
-	child1 = i_stream_create_limit(parent, (uoff_t)-1);
-	child2 = i_stream_create_limit(parent, (uoff_t)-1);
+	child1 = i_stream_create_limit(parent, UOFF_T_MAX);
+	child2 = i_stream_create_limit(parent, UOFF_T_MAX);
 
 	/* child1 read beginning */
 	test_assert(i_stream_read(child1) == 3);

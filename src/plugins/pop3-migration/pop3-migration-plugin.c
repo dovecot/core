@@ -362,7 +362,7 @@ static int pop3_map_read(struct mail_storage *storage, struct mailbox *pop3_box)
 	struct mail *mail;
 	struct pop3_uidl_map *map;
 	const char *uidl;
-	uoff_t size = (uoff_t)-1;
+	uoff_t size = UOFF_T_MAX;
 	int ret = 0;
 
 	if (array_is_created(&mstorage->pop3_uidl_map)) {
@@ -553,7 +553,7 @@ static int imap_map_read(struct mailbox *box)
 	struct mail_search_context *ctx;
 	struct mail *mail;
 	struct imap_msg_map *map;
-	uoff_t psize = (uoff_t)-1;
+	uoff_t psize = UOFF_T_MAX;
 	string_t *uidl;
 	int ret = 0;
 

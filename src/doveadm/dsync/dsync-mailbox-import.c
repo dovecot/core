@@ -1377,7 +1377,7 @@ dsync_mailbox_import_want_change(struct dsync_mailbox_importer *importer,
 		}
 	}
 	if (importer->sync_max_size > 0) {
-		i_assert(change->virtual_size != (uoff_t)-1);
+		i_assert(change->virtual_size != UOFF_T_MAX);
 		if (change->virtual_size < importer->sync_max_size) {
 			/* mail is too large - skip it */
 			*result_r = "Ignoring missing local mail with too large size";
@@ -1674,7 +1674,7 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 		 ((change->received_timestamp > 0 ||
 		   (importer->sync_since_timestamp == 0 &&
 		    importer->sync_until_timestamp == 0)) &&
-		  (change->virtual_size != (uoff_t)-1 || importer->sync_max_size == 0)));
+		  (change->virtual_size != UOFF_T_MAX || importer->sync_max_size == 0)));
 
 	/* try to find the matching local mail */
 	if (!importer_next_mail(importer, change->uid)) {

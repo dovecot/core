@@ -204,8 +204,8 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 		}
 
 		/* gzip file with concatenated content */
-		stream->cached_stream_size = (uoff_t)-1;
-		zstream->eof_offset = (uoff_t)-1;
+		stream->cached_stream_size = UOFF_T_MAX;
+		zstream->eof_offset = UOFF_T_MAX;
 		zstream->header_read = FALSE;
 		zstream->trailer_read = FALSE;
 		zstream->crc32 = 0;
@@ -328,7 +328,7 @@ static void i_stream_zlib_reset(struct zlib_istream *zstream)
 	struct istream_private *stream = &zstream->istream;
 
 	i_stream_seek(stream->parent, stream->parent_start_offset);
-	zstream->eof_offset = (uoff_t)-1;
+	zstream->eof_offset = UOFF_T_MAX;
 	zstream->crc32 = 0;
 
 	zstream->zs.next_in = NULL;
@@ -384,7 +384,7 @@ i_stream_create_zlib(struct istream *input, bool gz, bool log_errors)
 	struct zlib_istream *zstream;
 
 	zstream = i_new(struct zlib_istream, 1);
-	zstream->eof_offset = (uoff_t)-1;
+	zstream->eof_offset = UOFF_T_MAX;
 	zstream->gz = gz;
 	zstream->log_errors = log_errors;
 

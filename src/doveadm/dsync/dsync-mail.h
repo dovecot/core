@@ -82,7 +82,7 @@ struct dsync_mail_change {
 	/* Received timestamp for saves, if brain.sync_since/until_timestamp is set */
 	time_t received_timestamp;
 	/* Mail's size for saves if brain.sync_max_size is set,
-	   (uoff_t)-1 otherwise. */
+	   UOFF_T_MAX otherwise. */
 	uoff_t virtual_size;
 };
 

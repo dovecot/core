@@ -28,7 +28,7 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 
 	i_stream_sync(sync_ctx->input);
 
-	output = o_stream_create_fd_file(sync_ctx->write_fd, (uoff_t)-1, FALSE);
+	output = o_stream_create_fd_file(sync_ctx->write_fd, UOFF_T_MAX, FALSE);
 	i_stream_seek(sync_ctx->file_input, source);
 	if (o_stream_seek(output, dest) < 0) {
 		mbox_set_syscall_error(sync_ctx->mbox,

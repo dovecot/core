@@ -1268,7 +1268,7 @@ get_modseq_next_offset_at(struct mail_transaction_log_file *file,
 	/* make sure we've read until end of file. this is especially important
 	   with non-head logs which might only have been opened without being
 	   synced. */
-	ret = mail_transaction_log_file_map(file, *cur_offset, (uoff_t)-1, &reason);
+	ret = mail_transaction_log_file_map(file, *cur_offset, UOFF_T_MAX, &reason);
 	if (ret <= 0) {
 		mail_index_set_error(file->log->index,
 			"Failed to map transaction log %s for getting offset "
@@ -1722,7 +1722,7 @@ log_file_map_check_offsets(struct mail_transaction_log_file *file,
 		}
 		return FALSE;
 	}
-	if (end_offset != (uoff_t)-1 && end_offset > file->sync_offset) {
+	if (end_offset != UOFF_T_MAX && end_offset > file->sync_offset) {
 		*reason_r = t_strdup_printf(
 			"%s: end_offset (%"PRIuUOFF_T") > "
 			"current sync_offset (%"PRIuUOFF_T")",
@@ -1858,7 +1858,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 		 file->sync_offset >= file->buffer_offset + file->buffer->used);
 
 	if (file->locked_sync_offset_updated && file == file->log->head &&
-	    end_offset == (uoff_t)-1) {
+	    end_offset == UOFF_T_MAX) {
 		/* we're not interested of going further than sync_offset */
 		if (!log_file_map_check_offsets(file, start_offset,
 						end_offset, reason_r))
@@ -1876,7 +1876,7 @@ int mail_transaction_log_file_map(struct mail_transaction_log_file *file,
 
 	if (file->locked) {
 		/* set this only when we've synced to end of file while locked
-		   (either end_offset=(uoff_t)-1 or we had to read anyway) */
+		   (either end_offset=UOFF_T_MAX or we had to read anyway) */
 		file->locked_sync_offset_updated = TRUE;
 	}
 

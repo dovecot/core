@@ -862,7 +862,7 @@ smtp_server_connection_alloc(struct smtp_server *server,
 
 		conn->set.max_message_size = set->max_message_size;
 		if (set->max_message_size == 0 ||
-		    set->max_message_size == (uoff_t)-1) {
+		    set->max_message_size == UOFF_T_MAX) {
 			conn->set.command_limits.max_data_size = UOFF_T_MAX;
 		} else if (conn->set.command_limits.max_data_size != 0) {
 			/* Explicit limit given */

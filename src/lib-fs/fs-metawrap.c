@@ -349,7 +349,7 @@ fs_metawrap_create_updated_istream(struct metawrap_fs_file *file,
 					       str_len(file->metadata_header));
 
 	i_stream_seek(input, file->metadata_write_size);
-	inputs[1] = i_stream_create_limit(input, (uoff_t)-1);
+	inputs[1] = i_stream_create_limit(input, UOFF_T_MAX);
 	inputs[2] = NULL;
 	input2 = i_stream_create_concat(inputs);
 	i_stream_unref(&inputs[0]);

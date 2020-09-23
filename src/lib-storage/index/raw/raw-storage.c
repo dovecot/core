@@ -141,7 +141,7 @@ raw_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	mbox->mtime = mbox->ctime = (time_t)-1;
 	mbox->storage = RAW_STORAGE(storage);
-	mbox->size = (uoff_t)-1;
+	mbox->size = UOFF_T_MAX;
 	return &mbox->box;
 }
 

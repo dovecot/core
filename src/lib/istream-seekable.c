@@ -334,7 +334,7 @@ i_stream_seekable_stat(struct istream_private *stream, bool exact)
 	uoff_t old_offset, len;
 	ssize_t ret;
 
-	if (sstream->size != (uoff_t)-1) {
+	if (sstream->size != UOFF_T_MAX) {
 		/* we've already reached EOF and know the size */
 		stream->statbuf.st_size = sstream->size;
 		return 0;
@@ -434,7 +434,7 @@ i_streams_merge(struct istream *input[], size_t max_buffer_size,
 	sstream->context = context;
         sstream->istream.max_buffer_size = max_buffer_size;
 	sstream->fd = -1;
-	sstream->size = (uoff_t)-1;
+	sstream->size = UOFF_T_MAX;
 
 	sstream->input = i_new(struct istream *, count + 1);
 	memcpy(sstream->input, input, sizeof(*input) * count);

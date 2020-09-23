@@ -37,7 +37,7 @@ struct service_settings config_service_settings = {
 	.client_limit = 0,
 	.service_count = 0,
 	.idle_kill = UINT_MAX,
-	.vsz_limit = (uoff_t)-1,
+	.vsz_limit = UOFF_T_MAX,
 
 	.unix_listeners = { { &config_unix_listeners_buf,
 			      sizeof(config_unix_listeners[0]) } },

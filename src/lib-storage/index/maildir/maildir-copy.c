@@ -115,9 +115,9 @@ maildir_copy_hardlink(struct mail_save_context *ctx, struct mail *mail)
 	old_abort = mail->lookup_abort;
 	mail->lookup_abort = MAIL_LOOKUP_ABORT_READ_MAIL;
 	if (mail_get_physical_size(mail, &size) < 0)
-		size = (uoff_t)-1;
+		size = UOFF_T_MAX;
 	if (mail_get_virtual_size(mail, &vsize) < 0)
-		vsize = (uoff_t)-1;
+		vsize = UOFF_T_MAX;
 	maildir_save_set_sizes(mf, size, vsize);
 	mail->lookup_abort = old_abort;
 	return 1;

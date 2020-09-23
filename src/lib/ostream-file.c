@@ -1102,7 +1102,7 @@ o_stream_create_fd_file(int fd, uoff_t offset, bool autoclose_fd)
 	struct file_ostream *fstream;
 	struct ostream *ostream;
 
-	if (offset == (uoff_t)-1)
+	if (offset == UOFF_T_MAX)
 		offset = lseek(fd, 0, SEEK_CUR);
 
 	fstream = i_new(struct file_ostream, 1);

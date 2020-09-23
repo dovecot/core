@@ -837,7 +837,7 @@ void http_server_request_forward_payload(struct http_server_request *req,
 
 	i_assert(req->req.payload != NULL);
 
-	if (max_size == (uoff_t)-1) {
+	if (max_size == UOFF_T_MAX) {
 		i_stream_ref(input);
 	} else {
 		if ((ret = i_stream_get_size(input, TRUE,

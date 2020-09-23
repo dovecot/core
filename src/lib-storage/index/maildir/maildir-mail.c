@@ -392,9 +392,9 @@ static int maildir_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 			return -1;
 	}
 
-	if (data->virtual_size == (uoff_t)-1) {
+	if (data->virtual_size == UOFF_T_MAX) {
 		if (index_mail_get_cached_virtual_size(mail, size_r)) {
-			i_assert(mail->data.virtual_size != (uoff_t)-1);
+			i_assert(mail->data.virtual_size != UOFF_T_MAX);
 			maildir_handle_size_caching(mail, TRUE, TRUE);
 			return 0;
 		}
@@ -402,7 +402,7 @@ static int maildir_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 					      &data->virtual_size) < 0)
 			return -1;
 	}
-	if (data->virtual_size != (uoff_t)-1) {
+	if (data->virtual_size != UOFF_T_MAX) {
 		data->dont_cache_fetch_fields |= MAIL_FETCH_VIRTUAL_SIZE;
 		*size_r = data->virtual_size;
 		return 0;
@@ -438,9 +438,9 @@ static int maildir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 			return -1;
 	}
 
-	if (data->physical_size == (uoff_t)-1) {
+	if (data->physical_size == UOFF_T_MAX) {
 		if (index_mail_get_physical_size(_mail, size_r) == 0) {
-			i_assert(mail->data.physical_size != (uoff_t)-1);
+			i_assert(mail->data.physical_size != UOFF_T_MAX);
 			maildir_handle_size_caching(mail, TRUE, FALSE);
 			return 0;
 		}
@@ -448,7 +448,7 @@ static int maildir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 					      &data->physical_size) < 0)
 			return -1;
 	}
-	if (data->physical_size != (uoff_t)-1) {
+	if (data->physical_size != UOFF_T_MAX) {
 		data->dont_cache_fetch_fields |= MAIL_FETCH_PHYSICAL_SIZE;
 		*size_r = data->physical_size;
 		return 0;
@@ -676,7 +676,7 @@ do_fix_size(struct maildir_mailbox *mbox, const char *path,
 	info = strchr(fname, MAILDIR_INFO_SEP);
 	if (info == NULL) info = "";
 
-	if (ctx->physical_size == (uoff_t)-1) {
+	if (ctx->physical_size == UOFF_T_MAX) {
 		if (stat(path, &st) < 0) {
 			if (errno == ENOENT)
 				return 0;
@@ -728,7 +728,7 @@ maildir_mail_remove_sizes_from_filename(struct mail *mail,
 		return;
 
 	i_zero(&ctx);
-	ctx.physical_size = (uoff_t)-1;
+	ctx.physical_size = UOFF_T_MAX;
 	if (field == MAIL_FETCH_VIRTUAL_SIZE &&
 	    maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,
 				      &size)) {

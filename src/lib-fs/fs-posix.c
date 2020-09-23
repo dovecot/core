@@ -647,7 +647,7 @@ static void fs_posix_write_stream(struct fs_file *_file)
 	} else {
 		i_assert(file->fd != -1);
 		_file->output = o_stream_create_fd_file(file->fd,
-							(uoff_t)-1, FALSE);
+							UOFF_T_MAX, FALSE);
 	}
 	o_stream_set_name(_file->output, file->full_path);
 }

@@ -741,7 +741,7 @@ struct istream *fs_read_stream(struct fs_file *file, size_t max_buffer_size)
 
 	if (file->seekable_input != NULL) {
 		/* allow multiple open streams, each in a different position */
-		input = i_stream_create_limit(file->seekable_input, (uoff_t)-1);
+		input = i_stream_create_limit(file->seekable_input, UOFF_T_MAX);
 		i_stream_seek(input, 0);
 		return input;
 	}

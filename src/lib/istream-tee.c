@@ -205,7 +205,7 @@ struct tee_istream *tee_i_stream_create(struct istream *input)
 		i_stream_ref(input);
 		tee->input = input;
 	} else {
-		tee->input = i_stream_create_limit(input, (uoff_t)-1);
+		tee->input = i_stream_create_limit(input, UOFF_T_MAX);
 	}
 	return tee;
 }

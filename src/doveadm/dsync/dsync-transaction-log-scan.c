@@ -574,7 +574,7 @@ dsync_transaction_log_scan_find_new_expunge(struct dsync_transaction_log_scan *s
 	if (mail_transaction_log_view_set(log_view,
 					  scan->last_log_seq,
 					  scan->last_log_offset,
-					  (uint32_t)-1, (uoff_t)-1,
+					  (uint32_t)-1, UOFF_T_MAX,
 					  &reset, &reason) > 0) {
 		while (!found &&
 		       mail_transaction_log_view_next(log_view, &hdr, &data) > 0) {

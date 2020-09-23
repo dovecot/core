@@ -52,7 +52,7 @@ i_stream_failure_at_read(struct istream_private *stream)
 			stream->pos = new_pos;
 		}
 	} else if (ret < 0 && stream->istream.stream_errno == 0 &&
-		   fstream->failure_offset == (uoff_t)-1) {
+		   fstream->failure_offset == UOFF_T_MAX) {
 		/* failure at EOF */
 		stream->istream.stream_errno = errno =
 			fstream->error_code;
@@ -90,6 +90,6 @@ struct istream *
 i_stream_create_failure_at_eof(struct istream *input, int stream_errno,
 			       const char *error_string)
 {
-	return i_stream_create_failure_at(input, (uoff_t)-1, stream_errno,
+	return i_stream_create_failure_at(input, UOFF_T_MAX, stream_errno,
 					  error_string);
 }

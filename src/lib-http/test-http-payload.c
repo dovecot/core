@@ -1680,7 +1680,7 @@ static void
 test_init_server_settings(struct http_server_settings *server_set_r)
 {
 	i_zero(server_set_r);
-	server_set_r->request_limits.max_payload_size = (uoff_t)-1;
+	server_set_r->request_limits.max_payload_size = UOFF_T_MAX;
 	server_set_r->debug = debug;
 
 	if (small_socket_buffers) {

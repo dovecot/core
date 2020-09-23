@@ -481,7 +481,7 @@ static int fetch(struct client *client, unsigned int msgnum, uoff_t body_lines,
 		return ret;
 	}
 
-	if (body_lines == (uoff_t)-1 && client->seen_bitmask != NULL) {
+	if (body_lines == UOFF_T_MAX && client->seen_bitmask != NULL) {
 		if ((mail_get_flags(ctx->mail) & MAIL_SEEN) == 0) {
 			/* mark the message seen with RETR command */
 			client->seen_bitmask[msgnum / CHAR_BIT] |=
@@ -491,7 +491,7 @@ static int fetch(struct client *client, unsigned int msgnum, uoff_t body_lines,
 	}
 
 	ctx->body_lines = body_lines;
-	if (body_lines == (uoff_t)-1) {
+	if (body_lines == UOFF_T_MAX) {
 		client_send_line(client, "+OK %"PRIuUOFF_T" octets",
 				 client->message_sizes[msgnum]);
 	} else {
@@ -519,7 +519,7 @@ static int cmd_retr(struct client *client, const char *args)
 		client->last_seen_pop3_msn = msgnum+1;
 
 	client->retr_count++;
-	return fetch(client, msgnum, (uoff_t)-1, "RETR", &client->retr_bytes);
+	return fetch(client, msgnum, UOFF_T_MAX, "RETR", &client->retr_bytes);
 }
 
 static int cmd_rset(struct client *client, const char *args ATTR_UNUSED)

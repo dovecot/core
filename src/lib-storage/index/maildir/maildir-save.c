@@ -163,8 +163,8 @@ maildir_save_add(struct mail_save_context *_ctx, const char *tmp_fname,
 	mf = p_new(ctx->pool, struct maildir_filename, 1);
 	mf->tmp_name = mf->dest_basename = p_strdup(ctx->pool, tmp_fname);
 	mf->flags = mdata->flags;
-	mf->size = (uoff_t)-1;
-	mf->vsize = (uoff_t)-1;
+	mf->size = UOFF_T_MAX;
+	mf->vsize = UOFF_T_MAX;
 
 	ctx->file_last = mf;
 	i_assert(*ctx->files_tail == NULL);
@@ -236,12 +236,12 @@ maildir_get_dest_filename(struct maildir_save_context *ctx,
 {
 	const char *basename = mf->dest_basename;
 
-	if (mf->size != (uoff_t)-1 && !mf->preserve_filename) {
+	if (mf->size != UOFF_T_MAX && !mf->preserve_filename) {
 		basename = t_strdup_printf("%s,%c=%"PRIuUOFF_T, basename,
 					   MAILDIR_EXTRA_FILE_SIZE, mf->size);
 	}
 
-	if (mf->vsize != (uoff_t)-1 && !mf->preserve_filename) {
+	if (mf->vsize != UOFF_T_MAX && !mf->preserve_filename) {
 		basename = t_strdup_printf("%s,%c=%"PRIuUOFF_T, basename,
 					   MAILDIR_EXTRA_VIRTUAL_SIZE,
 					   mf->vsize);
@@ -308,7 +308,7 @@ int maildir_save_file_get_size(struct mailbox_transaction_context *t,
 	struct maildir_filename *mf = maildir_save_get_mf(t, seq);
 
 	*size_r = vsize ? mf->vsize : mf->size;
-	return *size_r == (uoff_t)-1 ? -1 : 0;
+	return *size_r == UOFF_T_MAX ? -1 : 0;
 }
 
 const char *maildir_save_file_get_path(struct mailbox_transaction_context *t,
@@ -561,7 +561,7 @@ static int maildir_save_finish_real(struct mail_save_context *_ctx)
 	if (ctx->cur_dest_mail == NULL ||
 	    mail_get_virtual_size(ctx->cur_dest_mail,
 				  &ctx->file_last->vsize) < 0)
-		ctx->file_last->vsize = (uoff_t)-1;
+		ctx->file_last->vsize = UOFF_T_MAX;
 
 	output_errno = _ctx->data.output->stream_errno;
 	output_errstr = t_strdup(o_stream_get_error(_ctx->data.output));
@@ -826,10 +826,10 @@ maildir_filename_check_conflicts(struct maildir_save_context *ctx,
 
 	if (!maildir_filename_get_size(mf->dest_basename,
 				       MAILDIR_EXTRA_FILE_SIZE, &size))
-		size = (uoff_t)-1;
+		size = UOFF_T_MAX;
 	if (!maildir_filename_get_size(mf->dest_basename,
 				       MAILDIR_EXTRA_VIRTUAL_SIZE, &vsize))
-		vsize = (uoff_t)-1;
+		vsize = UOFF_T_MAX;
 
 	if (size != mf->size || vsize != mf->vsize ||
 	    !ctx->locked_uidlist_refresh ||
@@ -841,9 +841,9 @@ maildir_filename_check_conflicts(struct maildir_save_context *ctx,
 
 		   b) file already exists. give it another name.
 		   but preserve the size/vsize in the filename if possible */
-		if (mf->size == (uoff_t)-1)
+		if (mf->size == UOFF_T_MAX)
 			mf->size = size;
-		if (mf->vsize == (uoff_t)-1)
+		if (mf->vsize == UOFF_T_MAX)
 			mf->vsize = size;
 
 		mf->guid = mf->dest_basename;

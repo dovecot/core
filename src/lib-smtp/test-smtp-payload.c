@@ -778,7 +778,7 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 		}
 
 		if (debug) {
-			uoff_t raw_size = (uoff_t)-1, b64_size = (uoff_t)-1;
+			uoff_t raw_size = UOFF_T_MAX, b64_size = UOFF_T_MAX;
 
 			(void)i_stream_get_size(fstream, TRUE, &raw_size);
 			(void)i_stream_get_size(payload, TRUE, &b64_size);

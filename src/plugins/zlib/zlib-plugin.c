@@ -110,7 +110,7 @@ zlib_mail_cache_open(struct zlib_user *zuser, struct mail *mail,
 		cache->input = input;
 		/* index-mail wants the stream to be destroyed at close, so create
 		   a new stream instead of just increasing reference. */
-		return i_stream_create_limit(cache->input, (uoff_t)-1);
+		return i_stream_create_limit(cache->input, UOFF_T_MAX);
 	} else {
 		return input;
 	}
@@ -136,7 +136,7 @@ static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
 		   already be seeked into the wanted offset. */
 		i_stream_unref(stream);
 		i_stream_seek(cache->input, 0);
-		*stream = i_stream_create_limit(cache->input, (uoff_t)-1);
+		*stream = i_stream_create_limit(cache->input, UOFF_T_MAX);
 		return zmail->module_ctx.super.istream_opened(_mail, stream);
 	}
 

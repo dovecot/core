@@ -795,7 +795,7 @@ void lmtp_proxy_data(struct client *client,
 		e_error(client->event,
 			"i_stream_get_size(data_input) failed: %s",
 			i_stream_get_error(proxy->data_input));
-		size = (uoff_t)-1;
+		size = UOFF_T_MAX;
 	}
 
 	/* Create the data_input streams first */
@@ -807,9 +807,9 @@ void lmtp_proxy_data(struct client *client,
 			continue;
 		}
 
-		if (size == (uoff_t)-1) {
+		if (size == UOFF_T_MAX) {
 			conn->data_input =
-				i_stream_create_limit(data_input, (uoff_t)-1);
+				i_stream_create_limit(data_input, UOFF_T_MAX);
 		} else {
 			conn->data_input =
 				i_stream_create_sized(data_input, size);

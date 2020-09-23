@@ -297,7 +297,7 @@ static int test_input_stream(struct istream *file_input)
 			ret = -1;
 
 		/* try again without knowing the message's size */
-		msg_size = (uoff_t)-1;
+		msg_size = UOFF_T_MAX;
 	}
 
 	/* try with a wrong message size */

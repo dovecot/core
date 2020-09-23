@@ -947,7 +947,7 @@ int mail_index_sync_map(struct mail_index_map **_map,
 	view = mail_index_view_open_with_map(index, map);
 	ret = mail_transaction_log_view_set(view->log_view,
 					    map->hdr.log_file_seq, start_offset,
-					    (uint32_t)-1, (uoff_t)-1,
+					    (uint32_t)-1, UOFF_T_MAX,
 					    &reset, &reason);
 	if (ret <= 0) {
 		mail_index_view_close(&view);

@@ -318,7 +318,7 @@ int mail_index_sync_begin(struct mail_index *index,
 	int ret;
 
 	ret = mail_index_sync_begin_to(index, ctx_r, view_r, trans_r,
-				       (uint32_t)-1, (uoff_t)-1, flags);
+				       (uint32_t)-1, UOFF_T_MAX, flags);
 	i_assert(ret != 0 ||
 		 (flags & MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES) != 0);
 	return ret;

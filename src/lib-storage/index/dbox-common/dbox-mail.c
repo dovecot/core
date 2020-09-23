@@ -107,7 +107,7 @@ int dbox_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 	if (value == NULL)
 		return index_mail_get_virtual_size(_mail, size_r);
 
-	if (str_to_uintmax_hex(value, &size) < 0 || size > (uoff_t)-1)
+	if (str_to_uintmax_hex(value, &size) < 0 || size > UOFF_T_MAX)
 		return -1;
 	data->virtual_size = (uoff_t)size;
 	*size_r = data->virtual_size;

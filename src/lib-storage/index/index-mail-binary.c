@@ -139,7 +139,7 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 		block->converted = TRUE;
 		block->converted_hdr = TRUE;
 
-		linput = i_stream_create_limit(ctx->input, (uoff_t)-1);
+		linput = i_stream_create_limit(ctx->input, UOFF_T_MAX);
 		block->input = i_stream_create_header_filter(linput,
 				HEADER_FILTER_EXCLUDE | HEADER_FILTER_HIDE_BODY,
 				filter_headers, N_ELEMENTS(filter_headers),

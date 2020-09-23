@@ -821,7 +821,7 @@ void smtp_server_reply_ehlo_add_size(struct smtp_server_reply *reply)
 	if ((caps & SMTP_CAPABILITY_SIZE) == 0)
 		return;
 
-	if (cap_size > 0 && cap_size != (uoff_t)-1) {
+	if (cap_size > 0 && cap_size != UOFF_T_MAX) {
 		smtp_server_reply_ehlo_add_param(reply,
 			"SIZE", "%"PRIuUOFF_T, cap_size);
 	} else {

@@ -83,7 +83,7 @@ static bool test_istream_concat_random(void)
 	if (simult > 0) {
 		limits = t_new(struct istream *, simult);
 		for (i = 0; i < simult; i++)
-			limits[i] = i_stream_create_limit(concat, (uoff_t)-1);
+			limits[i] = i_stream_create_limit(concat, UOFF_T_MAX);
 	}
 
 	for (i = 0; i < 1000; i++) {

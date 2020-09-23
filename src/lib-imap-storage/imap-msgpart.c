@@ -41,7 +41,7 @@ struct imap_msgpart {
         struct mailbox_header_lookup_ctx *header_ctx;
 	const char *const *headers;
 
-	/* which part of the message part to fetch (default: 0..(uoff_t)-1) */
+	/* which part of the message part to fetch (default: 0..UOFF_T_MAX) */
 	uoff_t partial_offset, partial_size;
 
 	bool decode_cte_to_binary:1;
@@ -62,7 +62,7 @@ static struct imap_msgpart *imap_msgpart_type(enum fetch_type fetch_type)
 	pool = pool_alloconly_create("imap msgpart", sizeof(*msgpart)+32);
 	msgpart = p_new(pool, struct imap_msgpart, 1);
 	msgpart->pool = pool;
-	msgpart->partial_size = (uoff_t)-1;
+	msgpart->partial_size = UOFF_T_MAX;
 	msgpart->fetch_type = fetch_type;
 	msgpart->section_number = "";
 	if (fetch_type == FETCH_HEADER || fetch_type == FETCH_FULL)
@@ -207,7 +207,7 @@ int imap_msgpart_parse(const char *section, struct imap_msgpart **msgpart_r)
 	pool = pool_alloconly_create("imap msgpart", 1024);
 	msgpart = *msgpart_r = p_new(pool, struct imap_msgpart, 1);
 	msgpart->pool = pool;
-	msgpart->partial_size = (uoff_t)-1;
+	msgpart->partial_size = UOFF_T_MAX;
 
 	/* get the section number */
 	next_digit = TRUE;
@@ -442,7 +442,7 @@ imap_msgpart_crlf_seek(struct mail *mail, struct istream *input,
 
 	if (mail->uid > 0 &&
 	    (msgpart->partial_offset != 0 ||
-	     msgpart->partial_size != (uoff_t)-1) && !input->eof) {
+	     msgpart->partial_size != UOFF_T_MAX) && !input->eof) {
 		/* update cache */
 		cache->uid = mail->uid;
 		cache->physical_start = physical_start;

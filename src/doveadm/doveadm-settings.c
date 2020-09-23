@@ -43,7 +43,7 @@ struct service_settings doveadm_service_settings = {
 	.client_limit = 1,
 	.service_count = 1,
 	.idle_kill = 0,
-	.vsz_limit = (uoff_t)-1,
+	.vsz_limit = UOFF_T_MAX,
 
 	.unix_listeners = { { &doveadm_unix_listeners_buf,
 			      sizeof(doveadm_unix_listeners[0]) } },

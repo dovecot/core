@@ -83,7 +83,7 @@ static int maildir_sum_dir(const char *dir, uint64_t *total_bytes,
 			continue;
 
 		p = strstr(dp->d_name, ",S=");
-		num = (uoff_t)-1;
+		num = UOFF_T_MAX;
 		if (p != NULL) {
 			/* ,S=nnnn[:,] */
 			p += 3;
@@ -92,13 +92,13 @@ static int maildir_sum_dir(const char *dir, uint64_t *total_bytes,
 
 			if (*p != ':' && *p != '\0' && *p != ',') {
 				/* not in expected format, fallback to stat() */
-				num = (uoff_t)-1;
+				num = UOFF_T_MAX;
 			} else {
 				*total_bytes += num;
 				*total_count += 1;
 			}
 		}
-		if (num == (uoff_t)-1) {
+		if (num == UOFF_T_MAX) {
 			struct stat st;
 
 			str_truncate(path, len);

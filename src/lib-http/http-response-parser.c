@@ -65,7 +65,7 @@ http_response_parser_restart(struct http_response_parser *parser)
 	http_message_parser_restart(&parser->parser, NULL);
 	parser->response_status = 0;
 	parser->response_reason = NULL;
-	parser->response_offset = (uoff_t)-1;
+	parser->response_offset = UOFF_T_MAX;
 }
 
 static int http_response_parse_status(struct http_response_parser *parser)

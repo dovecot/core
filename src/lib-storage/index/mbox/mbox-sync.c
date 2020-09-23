@@ -639,7 +639,7 @@ static void mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
 static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 {
 	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
-	uoff_t orig_from_offset, postlf_from_offset = (uoff_t)-1;
+	uoff_t orig_from_offset, postlf_from_offset = UOFF_T_MAX;
 	off_t move_diff;
 	int ret;
 
@@ -715,7 +715,7 @@ static int mbox_sync_handle_header(struct mbox_sync_mail_context *mail_ctx)
 			   from_offset to point to the beginning of the
 			   From-line, because the previous [CR]LF is already
 			   covered by expunged_space. */
-			i_assert(postlf_from_offset != (uoff_t)-1);
+			i_assert(postlf_from_offset != UOFF_T_MAX);
 			mail_ctx->mail.from_offset = postlf_from_offset;
 
 			i_zero(&mail);

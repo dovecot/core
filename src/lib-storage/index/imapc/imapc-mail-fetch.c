@@ -351,7 +351,7 @@ imapc_mail_get_wanted_fetch_fields(struct imapc_mail *mail)
 	}
 	if ((data->wanted_fields & (MAIL_FETCH_PHYSICAL_SIZE |
 				    MAIL_FETCH_VIRTUAL_SIZE)) != 0 &&
-	    data->physical_size == (uoff_t)-1 &&
+	    data->physical_size == UOFF_T_MAX &&
 	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE))
 		fields |= MAIL_FETCH_PHYSICAL_SIZE | MAIL_FETCH_VIRTUAL_SIZE;
 	if ((data->wanted_fields & MAIL_FETCH_IMAP_BODY) != 0 &&
@@ -434,7 +434,7 @@ imapc_mail_have_fields(struct imapc_mail *imail, enum mail_fetch_field fields)
 		fields &= ~MAIL_FETCH_SAVE_DATE;
 	}
 	if ((fields & (MAIL_FETCH_PHYSICAL_SIZE | MAIL_FETCH_VIRTUAL_SIZE)) != 0) {
-		if (imail->imail.data.physical_size == (uoff_t)-1)
+		if (imail->imail.data.physical_size == UOFF_T_MAX)
 			return FALSE;
 		fields &= ~(MAIL_FETCH_PHYSICAL_SIZE | MAIL_FETCH_VIRTUAL_SIZE);
 	}
@@ -613,7 +613,7 @@ void imapc_mail_init_stream(struct imapc_mail *mail)
 			   set it to size, because there's no guarantees about
 			   the content having proper CRLF newlines, especially
 			   not if istream_opened() has changed the stream. */
-			imail->data.virtual_size = (uoff_t)-1;
+			imail->data.virtual_size = UOFF_T_MAX;
 		}
 		imail->data.physical_size = size;
 	}

@@ -237,7 +237,7 @@ int mail_index_map_check_header(struct mail_index_map *map,
 	struct mail_index *index = map->index;
 	const struct mail_index_header *hdr = &map->hdr;
 
-	if (!mail_index_check_header_compat(index, hdr, (uoff_t)-1, error_r))
+	if (!mail_index_check_header_compat(index, hdr, UOFF_T_MAX, error_r))
 		return 0;
 
 	/* following some extra checks that only take a bit of CPU */

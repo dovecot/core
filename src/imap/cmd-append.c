@@ -261,7 +261,7 @@ static void cmd_append_catenate_text(struct client_command_context *cmd)
 {
 	struct cmd_append_context *ctx = cmd->context;
 
-	if (ctx->literal_size > (uoff_t)-1 - ctx->cat_msg_size &&
+	if (ctx->literal_size > UOFF_T_MAX - ctx->cat_msg_size &&
 	    !ctx->failed) {
 		client_send_tagline(cmd,
 			"NO [TOOBIG] Composed message grows too big.");

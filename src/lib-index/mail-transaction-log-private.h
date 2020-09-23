@@ -61,7 +61,7 @@ struct mail_transaction_log_file {
 	uoff_t saved_tail_sync_offset;
 
 	/* if we've seen _INDEX_[UN9DELETED transaction in this file,
-	   this is the offset. otherwise (uoff_t)-1 */
+	   this is the offset. otherwise UOFF_T_MAX */
 	uoff_t index_deleted_offset, index_undeleted_offset;
 
 	struct modseq_cache modseq_cache[LOG_FILE_MODSEQ_CACHE_SIZE];

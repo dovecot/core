@@ -309,7 +309,7 @@ i_stream_concat_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 {
 	struct concat_istream *cstream = (struct concat_istream *)stream;
 	i_assert(cstream->cur_input == cstream->input[cstream->cur_idx]);
-	uoff_t v_offset = (uoff_t)-1;
+	uoff_t v_offset = UOFF_T_MAX;
 	unsigned int i, cur_idx;
 
 	/* make sure we have all sizes */

@@ -60,7 +60,7 @@ struct ostream *o_stream_create_fd(int fd, size_t max_buffer_size);
 /* The fd is set to -1 immediately to avoid accidentally closing it twice. */
 struct ostream *o_stream_create_fd_autoclose(int *fd, size_t max_buffer_size);
 /* Create an output stream from a regular file which begins at given offset.
-   If offset==(uoff_t)-1, the current offset isn't known. */
+   If offset==UOFF_T_MAX, the current offset isn't known. */
 struct ostream *
 o_stream_create_fd_file(int fd, uoff_t offset, bool autoclose_fd);
 struct ostream *o_stream_create_fd_file_autoclose(int *fd, uoff_t offset);

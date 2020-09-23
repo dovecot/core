@@ -54,7 +54,7 @@ static ssize_t i_stream_limit_read(struct istream_private *stream)
 	if (ret == -2)
 		return -2;
 
-	if (lstream->v_size != (uoff_t)-1) {
+	if (lstream->v_size != UOFF_T_MAX) {
 		left = lstream->v_size - stream->istream.v_offset;
 		if (pos >= left) {
 			pos = left;
@@ -82,7 +82,7 @@ i_stream_limit_stat(struct istream_private *stream, bool exact)
 	}
 
 	stream->statbuf = *st;
-	if (lstream->v_size != (uoff_t)-1)
+	if (lstream->v_size != UOFF_T_MAX)
 		stream->statbuf.st_size = lstream->v_size;
 	return 0;
 }
@@ -93,7 +93,7 @@ static int i_stream_limit_get_size(struct istream_private *stream,
 	struct limit_istream *lstream = (struct limit_istream *) stream;
 	const struct stat *st;
 
-	if (lstream->v_size != (uoff_t)-1) {
+	if (lstream->v_size != UOFF_T_MAX) {
 		*size_r = lstream->v_size;
 		return 1;
 	}

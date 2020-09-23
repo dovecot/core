@@ -88,7 +88,7 @@ view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges,
 		   we can't do this, so sync only up to the reset. */
 		mail_transaction_log_view_get_prev_pos(view->log_view,
 						       &end_seq, &end_offset);
-		end_seq--; end_offset = (uoff_t)-1;
+		end_seq--; end_offset = UOFF_T_MAX;
 		if (end_seq < start_seq) {
 			/* we have only this reset log */
 			mail_transaction_log_view_clear(view->log_view,

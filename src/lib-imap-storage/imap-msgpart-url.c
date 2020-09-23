@@ -61,7 +61,7 @@ int imap_msgpart_url_create(struct mail_user *user, const struct imap_url *url,
 
 	imap_msgpart_set_partial(msgpart, url->partial_offset,
 				 url->partial_size == 0 ?
-				 (uoff_t)-1 : url->partial_size);
+				 UOFF_T_MAX : url->partial_size);
 
 	*mpurl_r = mpurl;
 	return 0;

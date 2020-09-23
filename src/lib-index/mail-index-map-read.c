@@ -262,7 +262,7 @@ static int mail_index_read_map(struct mail_index_map *map, uoff_t file_size)
 
 	for (i = 0;; i++) {
 		try_retry = i < MAIL_INDEX_ESTALE_RETRY_COUNT;
-		if (file_size == (uoff_t)-1) {
+		if (file_size == UOFF_T_MAX) {
 			/* fstat() below failed */
 			ret = 0;
 			retry = try_retry;
@@ -293,7 +293,7 @@ static int mail_index_read_map(struct mail_index_map *map, uoff_t file_size)
 				mail_index_set_syscall_error(index, "fstat()");
 				return -1;
 			}
-			file_size = (uoff_t)-1;
+			file_size = UOFF_T_MAX;
 		}
 	}
 	return ret;
@@ -335,13 +335,13 @@ mail_index_map_latest_file(struct mail_index *index, const char **reason_r)
 			mail_index_set_syscall_error(index, "fstat()");
 			return -1;
 		}
-		file_size = (uoff_t)-1;
+		file_size = UOFF_T_MAX;
 	}
 
 	/* mmaping seems to be slower than just reading the file, so even if
 	   mmap isn't disabled don't use it unless the file is large enough */
 	use_mmap = (index->flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) == 0 &&
-		file_size != (uoff_t)-1 && file_size > MAIL_INDEX_MMAP_MIN_SIZE;
+		file_size != UOFF_T_MAX && file_size > MAIL_INDEX_MMAP_MIN_SIZE;
 
 	new_map = mail_index_map_alloc(index);
 	if (use_mmap) {

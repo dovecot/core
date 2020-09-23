@@ -254,7 +254,7 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 		str_append_c(ctx->header, '\n');
 	}
 
-	if (ctx->content_length == (uoff_t)-1 &&
+	if (ctx->content_length == UOFF_T_MAX &&
 	    ctx->mail.body_size >= MBOX_MIN_CONTENT_LENGTH_SIZE) {
 		str_printfa(ctx->header, "Content-Length: %"PRIuUOFF_T"\n",
 			    ctx->mail.body_size);
