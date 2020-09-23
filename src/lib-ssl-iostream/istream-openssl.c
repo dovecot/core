@@ -29,7 +29,7 @@ static void i_stream_ssl_destroy(struct iostream_private *stream)
 	ssl_iostream_unref(&sstream->ssl_io);
 }
 
-static ssize_t i_stream_ssl_read_real(struct istream_private *stream)
+static ssize_t i_stream_ssl_read(struct istream_private *stream)
 {
 	struct ssl_istream *sstream = (struct ssl_istream *)stream;
 	struct ssl_iostream *ssl_io = sstream->ssl_io;
@@ -108,17 +108,6 @@ static ssize_t i_stream_ssl_read_real(struct istream_private *stream)
 	if (SSL_pending(ssl_io->ssl) > 0)
 		i_stream_set_input_pending(ssl_io->ssl_input, TRUE);
 	return total_ret;
-}
-
-static ssize_t i_stream_ssl_read(struct istream_private *stream)
-{
-	struct ssl_istream *sstream = (struct ssl_istream *)stream;
-	ssize_t ret;
-
-	if ((ret = i_stream_ssl_read_real(stream)) >= 0) {
-		i_assert(i_stream_get_data_size(sstream->ssl_io->plain_input) == 0);
-	}
-	return ret;
 }
 
 struct istream *openssl_i_stream_create_ssl(struct ssl_iostream *ssl_io)
