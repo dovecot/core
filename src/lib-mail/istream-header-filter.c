@@ -168,7 +168,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 
 	/* remove skipped data from hdr_buf */
 	buffer_copy(mstream->hdr_buf, 0,
-		    mstream->hdr_buf, mstream->istream.skip, (size_t)-1);
+		    mstream->hdr_buf, mstream->istream.skip, SIZE_MAX);
 
         mstream->istream.pos -= mstream->istream.skip;
 	mstream->istream.skip = 0;

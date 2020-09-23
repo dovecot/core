@@ -178,7 +178,7 @@ static int file_dict_refresh(struct file_dict *dict, const char **error_r)
 	p_clear(dict->hash_pool);
 
 	if (dict->fd != -1) {
-		input = i_stream_create_fd(dict->fd, (size_t)-1);
+		input = i_stream_create_fd(dict->fd, SIZE_MAX);
 
 		while ((key = i_stream_read_next_line(input)) != NULL) {
 			/* strdup() before the second read */

@@ -48,7 +48,7 @@ static ssize_t test_read(struct istream_private *stream)
 		tstream->skip_diff = new_skip_diff;
 
 		cur_max = tstream->max_pos;
-		if (stream->max_buffer_size < (size_t)-1 - stream->skip &&
+		if (stream->max_buffer_size < SIZE_MAX - stream->skip &&
 		    cur_max > stream->skip + stream->max_buffer_size)
 			cur_max = stream->skip + stream->max_buffer_size;
 
@@ -120,7 +120,7 @@ struct istream *test_istream_create_data(const void *data, size_t size)
 	i_stream_create(&tstream->istream, NULL, -1, 0);
 	tstream->istream.statbuf.st_size = tstream->max_pos = size;
 	tstream->allow_eof = TRUE;
-	tstream->istream.max_buffer_size = (size_t)-1;
+	tstream->istream.max_buffer_size = SIZE_MAX;
 	return &tstream->istream.istream;
 }
 

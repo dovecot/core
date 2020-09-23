@@ -145,7 +145,7 @@ winbind_helper_connect(const struct auth_settings *set,
 	winbind->in_pipe =
 		i_stream_create_fd_autoclose(&infd[0], AUTH_CLIENT_MAX_LINE_LENGTH);
 	winbind->out_pipe =
-		o_stream_create_fd_autoclose(&outfd[1], (size_t)-1);
+		o_stream_create_fd_autoclose(&outfd[1], SIZE_MAX);
 
 	if (!sigchld_handler_set) {
 		sigchld_handler_set = TRUE;

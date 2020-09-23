@@ -70,7 +70,7 @@ int main(int argc ATTR_UNUSED, char *argv[])
 		return 1;
 
 	valid = buffer_create_dynamic(default_pool, 4096);
-	input = i_stream_create_fd(fd, (size_t)-1);
+	input = i_stream_create_fd(fd, SIZE_MAX);
 	ret = 0;
 	while (ret == 0 && (line = i_stream_read_next_line(input)) != NULL) {
 		if (last != input->v_offset/(1024*100)) {

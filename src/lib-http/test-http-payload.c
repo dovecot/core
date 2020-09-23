@@ -366,7 +366,7 @@ static int client_request_echo_send_more(struct client_request *creq)
 	offset = creq->data->v_offset;
 	o_stream_set_max_buffer_size(output, IO_BLOCK_SIZE);
 	res = o_stream_send_istream(output, creq->data);
-	o_stream_set_max_buffer_size(output, (size_t)-1);
+	o_stream_set_max_buffer_size(output, SIZE_MAX);
 
 	i_assert(creq->data->v_offset >= offset);
 	if (debug) {
@@ -558,7 +558,7 @@ static void client_request_read_echo(struct client_request *creq)
 
 	o_stream_set_max_buffer_size(creq->payload_output, IO_BLOCK_SIZE);
 	res = o_stream_send_istream(creq->payload_output, creq->payload_input);
-	o_stream_set_max_buffer_size(creq->payload_output, (size_t)-1);
+	o_stream_set_max_buffer_size(creq->payload_output, SIZE_MAX);
 
 	switch (res) {
 	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
@@ -692,7 +692,7 @@ client_handle_echo_request(struct client_request *creq,
 			break;
 		case PAYLOAD_HANDLING_FORWARD:
 			http_server_request_forward_payload(req,
-				payload_output, (size_t)-1,
+				payload_output, SIZE_MAX,
 				client_request_finish_payload_in, creq);
 			break;
 		case PAYLOAD_HANDLING_HANDLER:

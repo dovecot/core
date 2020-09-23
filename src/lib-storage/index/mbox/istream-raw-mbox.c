@@ -276,7 +276,7 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 
 	/* See if we have From-line here - note that it works right only
 	   because all characters are different in mbox_from. */
-        fromp = mbox_from; from_start_pos = from_after_pos = (size_t)-1;
+        fromp = mbox_from; from_start_pos = from_after_pos = SIZE_MAX;
 	eoh_char = rstream->body_offset == (uoff_t)-1 ? '\n' : -1;
 	for (i = stream->pos; i < pos; i++) {
 		if (buf[i] == eoh_char &&
@@ -312,7 +312,7 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 					}
 				}
 				fromp = mbox_from;
-			} else if (from_after_pos != (size_t)-1) {
+			} else if (from_after_pos != SIZE_MAX) {
 				/* we have the whole From-line here now.
 				   See if it's a valid one. */
 			mbox_verify:
@@ -332,7 +332,7 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 							   from_start_pos);
 					break;
 				}
-				from_after_pos = (size_t)-1;
+				from_after_pos = SIZE_MAX;
 			}
 		} else {
 			fromp = mbox_from;
@@ -344,7 +344,7 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 	/* we want to go at least one byte further next time */
 	rstream->input_peak_offset = stream->istream.v_offset + i;
 
-	if (from_after_pos != (size_t)-1) {
+	if (from_after_pos != SIZE_MAX) {
 		/* we're waiting for the \n at the end of From-line */
 		new_pos = from_start_pos;
 	} else {

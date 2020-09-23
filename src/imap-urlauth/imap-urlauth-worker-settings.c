@@ -78,10 +78,10 @@ const struct setting_parser_info imap_urlauth_worker_setting_parser_info = {
 	.defines = imap_urlauth_worker_setting_defines,
 	.defaults = &imap_urlauth_worker_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct imap_urlauth_worker_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 
 	.dependencies = imap_urlauth_worker_setting_dependencies
 };

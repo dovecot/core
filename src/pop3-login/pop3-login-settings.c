@@ -62,8 +62,8 @@ const struct setting_parser_info pop3_login_setting_parser_info = {
 	.module_name = "pop3-login",
 	.defines = pop3_login_setting_defines,
 
-	.type_offset = (size_t)-1,
-	.parent_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
+	.parent_offset = SIZE_MAX,
 
 	.dependencies = pop3_login_setting_dependencies
 };

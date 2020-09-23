@@ -96,7 +96,7 @@ static int fetch_stream_continue(struct imap_fetch_context *ctx)
 
 	o_stream_set_max_buffer_size(ctx->client->output, 0);
 	res = o_stream_send_istream(ctx->client->output, state->cur_input);
-	o_stream_set_max_buffer_size(ctx->client->output, (size_t)-1);
+	o_stream_set_max_buffer_size(ctx->client->output, SIZE_MAX);
 
 	if (ctx->state.cur_stats_sizep != NULL) {
 		*ctx->state.cur_stats_sizep +=

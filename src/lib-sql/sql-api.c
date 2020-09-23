@@ -505,7 +505,7 @@ sql_result_build_map(struct sql_result *result,
 			}
 			i_assert(def->offset + field_size <= dest_size);
 		} else {
-			result->map[i].offset = (size_t)-1;
+			result->map[i].offset = SIZE_MAX;
 		}
 	}
 }
@@ -529,7 +529,7 @@ static void sql_result_fetch(struct sql_result *result)
 	memset(result->fetch_dest, 0, result->fetch_dest_size);
 	count = result->map_size;
 	for (i = 0; i < count; i++) {
-		if (result->map[i].offset == (size_t)-1)
+		if (result->map[i].offset == SIZE_MAX)
 			continue;
 
 		value = sql_result_get_field_value(result, i);

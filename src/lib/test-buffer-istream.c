@@ -74,7 +74,7 @@ static void test_buffer_append_full_istream(void)
 	fd_set_nonblock(fds[0], TRUE);
 	fd_set_nonblock(fds[1], TRUE);
 
-	struct istream *is = i_stream_create_fd(fds[0], (size_t)-1);
+	struct istream *is = i_stream_create_fd(fds[0], SIZE_MAX);
 	/* test just the READ_MORE stuff */
 
 	test_assert(write_full(fds[1], "some data ", 10) == 0);

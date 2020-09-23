@@ -388,7 +388,7 @@ int replicator_queue_import(struct replicator_queue *queue, const char *path)
 		return -1;
 	}
 
-	input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
+	input = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		T_BEGIN {
 			ret = replicator_queue_import_line(queue, line);

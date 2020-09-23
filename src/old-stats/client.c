@@ -140,7 +140,7 @@ struct client *client_create(int fd)
 	client->fd = fd;
 	client->io = io_add(fd, IO_READ, client_input, client);
 	client->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
-	client->output = o_stream_create_fd(fd, (size_t)-1);
+	client->output = o_stream_create_fd(fd, SIZE_MAX);
 	o_stream_set_no_error_handling(client->output, TRUE);
 	o_stream_set_flush_callback(client->output, client_output, client);
 	client->cmd_pool = pool_alloconly_create("cmd pool", 1024);

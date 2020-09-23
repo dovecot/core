@@ -162,7 +162,7 @@ smtp_reply_parser_init(struct istream *input, size_t max_reply_size)
 
 	parser = i_new(struct smtp_reply_parser, 1);
 	parser->max_reply_size =
-		(max_reply_size > 0 ? max_reply_size : (size_t)-1);
+		(max_reply_size > 0 ? max_reply_size : SIZE_MAX);
 	parser->input = input;
 	i_stream_ref(input);
 	parser->strbuf = str_new(default_pool, 128);

@@ -30,7 +30,7 @@ static bool global_memory_free_something(void)
 
 void global_memory_alloc(size_t size)
 {
-	i_assert(size < (size_t)-1 - global_used_memory);
+	i_assert(size < SIZE_MAX - global_used_memory);
 	global_used_memory += size;
 
 	while (global_used_memory > stats_settings->memory_limit) {

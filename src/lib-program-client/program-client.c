@@ -584,7 +584,7 @@ void program_client_init_streams(struct program_client *pclient)
 	if (pclient->fd_in >= 0) {
 		struct istream *program_input;
 
-		program_input = i_stream_create_fd(pclient->fd_in, (size_t)-1);
+		program_input = i_stream_create_fd(pclient->fd_in, SIZE_MAX);
 		i_stream_set_name(program_input, "program stdout");
 		pclient->raw_program_input = program_input;
 	}
@@ -598,7 +598,7 @@ void program_client_init_streams(struct program_client *pclient)
 		for(i = 0; i < count; i++) {
 			i_assert(efds[i].parent_fd >= 0);
 			efds[i].input = i_stream_create_fd
-				(efds[i].parent_fd, (size_t)-1);
+				(efds[i].parent_fd, SIZE_MAX);
 			i_stream_set_name(efds[i].input,
 				t_strdup_printf("program output fd=%d",
 						efds[i].child_fd));

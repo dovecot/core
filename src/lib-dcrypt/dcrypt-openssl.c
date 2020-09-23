@@ -1207,7 +1207,7 @@ dcrypt_openssl_cipher_key_dovecot_v2(const char *cipher,
 		res = FALSE;
 	} else {
 		/* provide result if succeeded */
-		buffer_append_buf(result_r, tmp, 0, (size_t)-1);
+		buffer_append_buf(result_r, tmp, 0, SIZE_MAX);
 		res = TRUE;
 	}
 	/* and ensure no data leaks */
@@ -1920,7 +1920,7 @@ static int bn2base64url(const BIGNUM *bn, string_t *dest)
 	unsigned char *data = t_malloc_no0(len);
 	if (BN_bn2bin(bn, data) != len)
 		return -1;
-	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, (size_t)-1, data, len, dest);
+	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, SIZE_MAX, data, len, dest);
 	return 0;
 }
 

@@ -506,16 +506,16 @@ cmd_dsync_ibc_stream_init(struct dsync_cmd_context *ctx,
 	if (ctx->input == NULL) {
 		fd_set_nonblock(ctx->fd_in, TRUE);
 		fd_set_nonblock(ctx->fd_out, TRUE);
-		ctx->input = i_stream_create_fd(ctx->fd_in, (size_t)-1);
-		ctx->output = o_stream_create_fd(ctx->fd_out, (size_t)-1);
+		ctx->input = i_stream_create_fd(ctx->fd_in, SIZE_MAX);
+		ctx->output = o_stream_create_fd(ctx->fd_out, SIZE_MAX);
 	} else {
 		i_assert(ctx->fd_in == -1 && ctx->fd_out == -1);
 		ctx->fd_in = i_stream_get_fd(ctx->input);
 		ctx->fd_out = o_stream_get_fd(ctx->output);
 		ctx->input_orig_bufsize = i_stream_get_max_buffer_size(ctx->input);
 		ctx->output_orig_bufsize = o_stream_get_max_buffer_size(ctx->output);
-		i_stream_set_max_buffer_size(ctx->input, (size_t)-1);
-		o_stream_set_max_buffer_size(ctx->output, (size_t)-1);
+		i_stream_set_max_buffer_size(ctx->input, SIZE_MAX);
+		o_stream_set_max_buffer_size(ctx->output, SIZE_MAX);
 	}
 	if (ctx->rawlog_path != NULL) {
 		iostream_rawlog_create_path(ctx->rawlog_path,

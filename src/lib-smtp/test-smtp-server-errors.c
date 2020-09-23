@@ -612,7 +612,7 @@ test_many_bad_commands_client_connected(struct client_connection *conn)
 	struct _many_bad_commands_client *ctx;
 
 	ctx = p_new(conn->pool, struct _many_bad_commands_client, 1);
-	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
 	conn->context = ctx;
 
 	switch (client_index) {
@@ -1121,7 +1121,7 @@ static void test_bad_mail_client_connected(struct client_connection *conn)
 	struct _bad_mail_client *ctx;
 
 	ctx = p_new(conn->pool, struct _bad_mail_client, 1);
-	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
 	conn->context = ctx;
 
 	switch (client_index) {
@@ -1308,7 +1308,7 @@ static void test_bad_rcpt_client_connected(struct client_connection *conn)
 	struct _bad_rcpt_client *ctx;
 
 	ctx = p_new(conn->pool, struct _bad_rcpt_client, 1);
-	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
 	conn->context = ctx;
 
 	switch (client_index) {
@@ -1489,7 +1489,7 @@ test_bad_vrfy_client_connected(struct client_connection *conn)
 	struct _bad_vrfy_client *ctx;
 
 	ctx = p_new(conn->pool, struct _bad_vrfy_client, 1);
-	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
 	conn->context = ctx;
 
 	switch (client_index) {
@@ -1644,7 +1644,7 @@ test_bad_noop_client_connected(struct client_connection *conn)
 	struct _bad_noop_client *ctx;
 
 	ctx = p_new(conn->pool, struct _bad_noop_client, 1);
-	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
 	conn->context = ctx;
 
 	switch (client_index) {
@@ -1799,7 +1799,7 @@ test_mail_workarounds_client_connected(struct client_connection *conn)
 	struct _mail_workarounds_client *ctx;
 
 	ctx = p_new(conn->pool, struct _mail_workarounds_client, 1);
-	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
 	conn->context = ctx;
 
 	switch (client_index) {
@@ -2002,7 +2002,7 @@ test_rcpt_workarounds_client_connected(struct client_connection *conn)
 	struct _rcpt_workarounds_client *ctx;
 
 	ctx = p_new(conn->pool, struct _rcpt_workarounds_client, 1);
-	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
 	conn->context = ctx;
 
 	switch (client_index) {
@@ -2558,7 +2558,7 @@ test_mail_broken_path_client_connected(struct client_connection *conn)
 	struct _mail_broken_path_client *ctx;
 
 	ctx = p_new(conn->pool, struct _mail_broken_path_client, 1);
-	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
 	conn->context = ctx;
 
 	switch (client_index) {
@@ -2820,8 +2820,8 @@ static void client_connection_destroy(struct connection *_conn)
 /* */
 
 static struct connection_settings client_connection_set = {
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.client = TRUE
 };
 

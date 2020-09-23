@@ -101,10 +101,10 @@ static const struct setting_parser_info pop3c_setting_parser_info = {
 	.defines = pop3c_setting_defines,
 	.defaults = &pop3c_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct pop3c_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.parent = &mail_user_setting_parser_info,
 
         .check_func = pop3c_settings_check

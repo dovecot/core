@@ -70,7 +70,7 @@ struct ostream *o_stream_create_buffer(buffer_t *buf)
 	/* we don't set buffer as blocking, because if max_buffer_size is
 	   changed it can get truncated. this is used in various places in
 	   unit tests. */
-	bstream->ostream.max_buffer_size = (size_t)-1;
+	bstream->ostream.max_buffer_size = SIZE_MAX;
 	bstream->ostream.seek = o_stream_buffer_seek;
 	bstream->ostream.sendv = o_stream_buffer_sendv;
 	bstream->ostream.write_at = o_stream_buffer_write_at;

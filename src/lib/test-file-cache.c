@@ -70,7 +70,7 @@ static void test_file_cache_write_read(void)
 	file_cache_free(&cache);
 	i_close_fd(&fd);
 
-	struct istream *is = i_stream_create_file(TEST_FILENAME, (size_t)-1);
+	struct istream *is = i_stream_create_file(TEST_FILENAME, SIZE_MAX);
 	const unsigned char *data;
 	test_assert(i_stream_read_more(is, &data, &size) > 0 && size == 13);
 	test_assert(memcmp(data, "initial data\n", 13) == 0);

@@ -199,7 +199,7 @@ static inline void
 array_append_array_i(struct array *dest_array, const struct array *src_array)
 {
 	i_assert(dest_array->element_size == src_array->element_size);
-	buffer_append_buf(dest_array->buffer, src_array->buffer, 0, (size_t)-1);
+	buffer_append_buf(dest_array->buffer, src_array->buffer, 0, SIZE_MAX);
 }
 #define array_append_array(dest_array, src_array) \
 	array_append_array_i(&(dest_array)->arr + ARRAY_TYPES_CHECK(dest_array, src_array), \

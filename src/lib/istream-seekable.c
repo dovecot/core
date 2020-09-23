@@ -238,7 +238,7 @@ static int i_stream_seekable_write_failed(struct seekable_istream *sstream)
 
 	i_assert(sstream->fd != -1);
 
-	stream->max_buffer_size = (size_t)-1;
+	stream->max_buffer_size = SIZE_MAX;
 	data = i_stream_alloc(stream, sstream->write_peak);
 
 	if (pread_full(sstream->fd, data, sstream->write_peak, 0) < 0) {
@@ -266,7 +266,7 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 
 		/* copy everything to temp file and use it as the stream */
 		if (copy_to_temp_file(sstream) < 0) {
-			stream->max_buffer_size = (size_t)-1;
+			stream->max_buffer_size = SIZE_MAX;
 			if (!read_from_buffer(sstream, &ret))
 				i_unreached();
 			return ret;

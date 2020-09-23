@@ -303,7 +303,7 @@ master_connection_create(int fd, struct mail_storage_service_ctx *storage_servic
 	conn->storage_service = storage_service;
 	conn->fd = fd;
 	conn->io = io_add(conn->fd, IO_READ, master_connection_input, conn);
-	conn->input = i_stream_create_fd(conn->fd, (size_t)-1);
+	conn->input = i_stream_create_fd(conn->fd, SIZE_MAX);
 
 	handshake = t_strdup_printf(INDEXER_WORKER_HANDSHAKE,
 		master_service_get_process_limit(master_service));

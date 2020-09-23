@@ -1807,7 +1807,7 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 	conn->fd = fd;
 	conn->input = conn->raw_input =
 		i_stream_create_fd(fd, conn->client->set.max_line_length);
-	conn->output = conn->raw_output = o_stream_create_fd(fd, (size_t)-1);
+	conn->output = conn->raw_output = o_stream_create_fd(fd, SIZE_MAX);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 
 	if (*conn->client->set.rawlog_dir != '\0' &&
@@ -2068,7 +2068,7 @@ static int imapc_command_try_send_stream(struct imapc_connection *conn,
 	/* we're sending the stream now */
 	o_stream_set_max_buffer_size(conn->output, 0);
 	res = o_stream_send_istream(conn->output, stream->input);
-	o_stream_set_max_buffer_size(conn->output, (size_t)-1);
+	o_stream_set_max_buffer_size(conn->output, SIZE_MAX);
 
 	switch (res) {
 	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:

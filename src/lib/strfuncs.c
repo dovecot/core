@@ -91,7 +91,7 @@ char *p_strndup(pool_t pool, const void *str, size_t max_chars)
 	size_t len;
 
 	i_assert(str != NULL);
-	i_assert(max_chars != (size_t)-1);
+	i_assert(max_chars != SIZE_MAX);
 
 	len = 0;
 	while (len < max_chars && ((const char *) str)[len] != '\0')

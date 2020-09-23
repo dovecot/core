@@ -62,8 +62,8 @@ const struct setting_parser_info imap_urlauth_login_setting_parser_info = {
 	.module_name = "imap-urlauth-login",
 	.defines = imap_urlauth_login_setting_defines,
 
-	.type_offset = (size_t)-1,
-	.parent_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
+	.parent_offset = SIZE_MAX,
 
 	.dependencies = imap_urlauth_login_setting_dependencies
 };

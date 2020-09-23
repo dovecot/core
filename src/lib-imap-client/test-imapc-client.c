@@ -160,8 +160,8 @@ test_server_wait_connection(struct test_server *server, bool send_banner)
 		i_debug("Client connected");
 
 	fd_set_nonblock(server->fd, FALSE);
-	server->input = i_stream_create_fd(server->fd, (size_t)-1);
-	server->output = o_stream_create_fd(server->fd, (size_t)-1);
+	server->input = i_stream_create_fd(server->fd, SIZE_MAX);
+	server->output = o_stream_create_fd(server->fd, SIZE_MAX);
 	o_stream_set_no_error_handling(server->output, TRUE);
 
 	if (send_banner) {

@@ -191,7 +191,7 @@ static int fs_crypt_read_file(const char *set_name, const char *path,
 	struct istream *input;
 	int ret;
 
-	input = i_stream_create_file(path, (size_t)-1);
+	input = i_stream_create_file(path, SIZE_MAX);
 	while (i_stream_read(input) > 0) ;
 	if (input->stream_errno != 0) {
 		*error_r = t_strdup_printf("%s: read(%s) failed: %s",

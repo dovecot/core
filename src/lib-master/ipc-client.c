@@ -106,8 +106,8 @@ static int ipc_client_connect(struct ipc_client *client)
 	}
 
 	client->io = io_add(client->fd, IO_READ, ipc_client_input, client);
-	client->input = i_stream_create_fd(client->fd, (size_t)-1);
-	client->output = o_stream_create_fd(client->fd, (size_t)-1);
+	client->input = i_stream_create_fd(client->fd, SIZE_MAX);
+	client->output = o_stream_create_fd(client->fd, SIZE_MAX);
 	o_stream_set_no_error_handling(client->output, TRUE);
 	return 0;
 }

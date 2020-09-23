@@ -30,9 +30,9 @@ const struct setting_parser_info fs_crypt_setting_parser_info = {
 	.defines = fs_crypt_setting_defines,
 	.defaults = &fs_crypt_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct fs_crypt_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.dependencies = fs_crypt_setting_dependencies
 };

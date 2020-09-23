@@ -59,10 +59,10 @@ static const struct setting_parser_info strlist_info = {
 	.defines = NULL,
 	.defaults = NULL,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = 0,
 
-	.parent_offset = (size_t)-1
+	.parent_offset = SIZE_MAX
 };
 
 HASH_TABLE_DEFINE_TYPE(setting_link, struct setting_link *,
@@ -534,7 +534,7 @@ setting_link_init_set_struct(struct setting_parser_context *ctx,
 	setting_parser_copy_defaults(ctx, link->info, link);
 	array_push_back(link->array, &link->set_struct);
 
-	if (link->info->parent_offset != (size_t)-1 && link->parent != NULL) {
+	if (link->info->parent_offset != SIZE_MAX && link->parent != NULL) {
 		ptr = STRUCT_MEMBER_P(link->set_struct,
 				      link->info->parent_offset);
 		*((void **)ptr) = link->parent->set_struct;
@@ -1151,7 +1151,7 @@ int settings_parse_exec(struct setting_parser_context *ctx,
 	}
 	i_close_fd(&fd[1]);
 
-	input = i_stream_create_fd_autoclose(&fd[0], (size_t)-1);
+	input = i_stream_create_fd_autoclose(&fd[0], SIZE_MAX);
 	i_stream_set_name(input, bin_path);
 	ret = settings_parse_stream_read(ctx, input);
 	i_stream_destroy(&input);
@@ -1483,7 +1483,7 @@ static void settings_set_parent(const struct setting_parser_info *info,
 {
 	void **ptr;
 
-	if (info->parent_offset == (size_t)-1)
+	if (info->parent_offset == SIZE_MAX)
 		return;
 
 	ptr = PTR_OFFSET(child, info->parent_offset);
@@ -2055,7 +2055,7 @@ settings_copy_deflist_unique(const struct setting_define *def,
 	unsigned int i, j, src_count, dest_count, ccount;
 	unsigned int type_offset;
 
-	i_assert(def->list_info->type_offset != (size_t)-1);
+	i_assert(def->list_info->type_offset != SIZE_MAX);
 
 	src_arr = CONST_PTR_OFFSET(src_link->set_struct, def->offset);
 	src_carr = CONST_PTR_OFFSET(src_link->change_struct, def->offset);

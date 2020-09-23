@@ -561,7 +561,7 @@ http_message_parse_body_encoded(struct http_message_parser *parser,
 		/* FIXME: enforce max payload size (relevant to http-client
 		   only) */
 		parser->payload =
-			i_stream_create_limit(parser->input, (size_t)-1);
+			i_stream_create_limit(parser->input, SIZE_MAX);
 	} else {
 		/* RFC 7230, Section 3.3.3: Message Body Length
 
@@ -631,7 +631,7 @@ static int http_message_parse_body_closed(struct http_message_parser *parser)
 	 */
 	// FIXME: enforce max payload size (relevant to http-client only)
 	// FIXME: handle request case correctly.
-	parser->payload = i_stream_create_limit(parser->input, (size_t)-1);
+	parser->payload = i_stream_create_limit(parser->input, SIZE_MAX);
 	return 0;
 }
 

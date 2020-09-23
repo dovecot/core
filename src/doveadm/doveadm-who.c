@@ -185,7 +185,7 @@ void who_lookup(struct who_context *ctx, who_callback_t *callback)
 	if (write(fd, ANVIL_CMD, strlen(ANVIL_CMD)) < 0)
 		i_fatal("write(%s) failed: %m", ctx->anvil_path);
 
-	input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
+	input = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		if (*line == '\0')
 			break;

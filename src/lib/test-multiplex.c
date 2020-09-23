@@ -85,7 +85,7 @@ static void setup_channel(struct test_channel *channel,
 	test_assert(pipe(channel->fds) == 0);
 	fd_set_nonblock(channel->fds[0], TRUE);
 	fd_set_nonblock(channel->fds[1], TRUE);
-	channel->in_alt = i_stream_create_fd(channel->fds[0], (size_t)-1);
+	channel->in_alt = i_stream_create_fd(channel->fds[0], SIZE_MAX);
 	channel->out_alt = o_stream_create_fd(channel->fds[1], IO_BLOCK_SIZE);
 	channel->io_alt = io_add_istream(channel->in_alt, test_istream_read_alt,
 					 channel);
@@ -126,10 +126,10 @@ static void test_multiplex_stream(void) {
 	test_assert(pipe(fds) == 0);
 	fd_set_nonblock(fds[0], TRUE);
 	fd_set_nonblock(fds[1], TRUE);
-	struct ostream *os = o_stream_create_fd(fds[1], (size_t)-1);
-	struct istream *is = i_stream_create_fd(fds[0], (size_t)-1);
+	struct ostream *os = o_stream_create_fd(fds[1], SIZE_MAX);
+	struct istream *is = i_stream_create_fd(fds[0], SIZE_MAX);
 
-	struct istream *ichan0 = i_stream_create_multiplex(is, (size_t)-1);
+	struct istream *ichan0 = i_stream_create_multiplex(is, SIZE_MAX);
 	struct istream *ichan1 = i_stream_multiplex_add_channel(ichan0, 1);
 	i_stream_unref(&is);
 

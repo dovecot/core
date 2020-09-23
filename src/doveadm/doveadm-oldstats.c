@@ -81,7 +81,7 @@ static void stats_dump(const char *path, const char *cmd)
 	if (write_full(fd, cmd, strlen(cmd)) < 0)
 		i_fatal("write(%s) failed: %m", path);
 
-	input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
+	input = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
 
 	/* read header */
 	args = read_next_line(input);
@@ -476,7 +476,7 @@ static void stats_top(const char *path, const char *sort_type)
 	hash_table_create(&ctx.sessions, default_pool, 0, str_hash, strcmp);
 	net_set_nonblock(ctx.fd, FALSE);
 
-	ctx.input = i_stream_create_fd(ctx.fd, (size_t)-1);
+	ctx.input = i_stream_create_fd(ctx.fd, SIZE_MAX);
 
 	if (strstr(sort_type, "cpu") != NULL)
 		ctx.lines_sort = sort_cpu;
@@ -503,7 +503,7 @@ static void stats_reset(const char *path, const char **items ATTR_UNUSED)
 
 	fd = doveadm_connect(path);
 	net_set_nonblock(fd, FALSE);
-	input = i_stream_create_fd(fd, (size_t)-1);
+	input = i_stream_create_fd(fd, SIZE_MAX);
 
 	cmd = t_str_new(10);
 	str_append(cmd, "RESET");

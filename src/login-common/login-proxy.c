@@ -156,7 +156,7 @@ static void proxy_plain_connected(struct login_proxy *proxy)
 	proxy->server_input =
 		i_stream_create_fd(proxy->server_fd, MAX_PROXY_INPUT_SIZE);
 	proxy->server_output =
-		o_stream_create_fd(proxy->server_fd, (size_t)-1);
+		o_stream_create_fd(proxy->server_fd, SIZE_MAX);
 	o_stream_set_no_error_handling(proxy->server_output, TRUE);
 
 	proxy->server_io =

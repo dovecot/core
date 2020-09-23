@@ -489,7 +489,7 @@ static void
 mail_cache_transaction_drop_last_flush(struct mail_cache_transaction_ctx *ctx)
 {
 	buffer_copy(ctx->cache_data, 0,
-		    ctx->cache_data, ctx->last_rec_pos, (size_t)-1);
+		    ctx->cache_data, ctx->last_rec_pos, SIZE_MAX);
 	buffer_set_used_size(ctx->cache_data,
 			     ctx->cache_data->used - ctx->last_rec_pos);
 	ctx->last_rec_pos = 0;

@@ -1242,7 +1242,7 @@ int http_client_request_send_more(struct http_client_request *req,
 	offset = req->payload_input->v_offset;
 	o_stream_set_max_buffer_size(output, IO_BLOCK_SIZE);
 	res = o_stream_send_istream(output, req->payload_input);
-	o_stream_set_max_buffer_size(output, (size_t)-1);
+	o_stream_set_max_buffer_size(output, SIZE_MAX);
 
 	i_assert(req->payload_input->v_offset >= offset);
 	e_debug(req->event, "Send more (sent %"PRIuUOFF_T", buffered=%zu)",

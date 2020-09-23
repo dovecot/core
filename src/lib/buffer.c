@@ -46,7 +46,7 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 	unsigned int extra;
 	size_t new_size;
 
-	if (unlikely((size_t)-1 - pos < data_size))
+	if (unlikely(SIZE_MAX - pos < data_size))
 		i_panic("Buffer write out of range (%zu + %zu)", pos, data_size);
 
 	new_size = pos + data_size;
@@ -214,7 +214,7 @@ void buffer_insert(buffer_t *_buf, size_t pos,
 	if (pos >= buf->used)
 		buffer_write(_buf, pos, data, data_size);
 	else {
-		buffer_copy(_buf, pos + data_size, _buf, pos, (size_t)-1);
+		buffer_copy(_buf, pos + data_size, _buf, pos, SIZE_MAX);
 		memcpy(buf->w_buffer + pos, data, data_size);
 	}
 }
@@ -262,7 +262,7 @@ void buffer_replace(buffer_t *_buf, size_t pos, size_t size,
 		} else {
 			/* insert */
 			buffer_copy(_buf, pos + data_size, _buf, pos + size,
-				    (size_t)-1);
+				    SIZE_MAX);
 			memcpy(buf->w_buffer + pos, data, data_size);
 		}
 	} else {
@@ -295,7 +295,7 @@ void buffer_insert_zero(buffer_t *_buf, size_t pos, size_t data_size)
 	if (pos >= buf->used)
 		buffer_write_zero(_buf, pos, data_size);
 	else {
-		buffer_copy(_buf, pos + data_size, _buf, pos, (size_t)-1);
+		buffer_copy(_buf, pos + data_size, _buf, pos, SIZE_MAX);
 		memset(buf->w_buffer + pos, 0, data_size);
 	}
 }

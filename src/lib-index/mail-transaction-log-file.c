@@ -1548,7 +1548,7 @@ mail_transaction_log_file_insert_read(struct mail_transaction_log_file *file,
 	ssize_t ret;
 
 	size = file->buffer_offset - offset;
-	buffer_copy(file->buffer, size, file->buffer, 0, (size_t)-1);
+	buffer_copy(file->buffer, size, file->buffer, 0, SIZE_MAX);
 
 	data = buffer_get_space_unsafe(file->buffer, 0, size);
 	ret = pread_full(file->fd, data, size, offset);
@@ -1559,7 +1559,7 @@ mail_transaction_log_file_insert_read(struct mail_transaction_log_file *file,
 	}
 
 	/* failure. don't leave ourself to inconsistent state */
-	buffer_copy(file->buffer, 0, file->buffer, size, (size_t)-1);
+	buffer_copy(file->buffer, 0, file->buffer, size, SIZE_MAX);
 	buffer_set_used_size(file->buffer, file->buffer->used - size);
 
 	if (ret == 0) {

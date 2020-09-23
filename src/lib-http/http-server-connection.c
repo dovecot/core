@@ -948,8 +948,8 @@ bool http_server_connection_pending_payload(
 }
 
 static struct connection_settings http_server_connection_set = {
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.client = FALSE,
 	.log_connection_id = TRUE,
 };

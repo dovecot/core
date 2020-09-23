@@ -606,7 +606,7 @@ imap_urlauth_fetch_reply_set_literal_stream(struct imap_urlauth_connection *conn
 
 	if (conn->literal_fd != -1) {
 		reply->input = i_stream_create_fd_autoclose(&conn->literal_fd,
-							    (size_t)-1);
+							    SIZE_MAX);
 		if (i_stream_get_size(reply->input, TRUE, &fd_size) < 1 ||
 		    fd_size != conn->literal_size) {
 			i_stream_unref(&reply->input);
@@ -908,8 +908,8 @@ imap_urlauth_connection_do_connect(struct imap_urlauth_connection *conn)
 	timeout_remove(&conn->to_reconnect);
 
 	conn->fd = fd;
-	conn->input = i_stream_create_fd(fd, (size_t)-1);
-	conn->output = o_stream_create_fd(fd, (size_t)-1);
+	conn->input = i_stream_create_fd(fd, SIZE_MAX);
+	conn->output = o_stream_create_fd(fd, SIZE_MAX);
 	conn->io = io_add(fd, IO_READ, imap_urlauth_input, conn);
 	conn->state = IMAP_URLAUTH_STATE_AUTHENTICATING;
 

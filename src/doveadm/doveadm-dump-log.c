@@ -524,7 +524,7 @@ static void cmd_dump_log(int argc ATTR_UNUSED, char *argv[])
 	unsigned int version;
 	int ret;
 
-	input = i_stream_create_file(argv[1], (size_t)-1);
+	input = i_stream_create_file(argv[1], SIZE_MAX);
 	dump_hdr(input, &modseq, &version);
 	do {
 		T_BEGIN {

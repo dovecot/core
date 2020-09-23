@@ -194,7 +194,7 @@ client_create_standalone(const char *access_user,
 	client->debug = debug;
 
 	client->input = i_stream_create_fd(fd_in, MAX_INBUF_SIZE);
-	client->output = o_stream_create_fd(fd_out, (size_t)-1);
+	client->output = o_stream_create_fd(fd_out, SIZE_MAX);
 	client->io = io_add(fd_in, IO_READ, client_input, client);
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
 				      client_idle_timeout, client);
@@ -789,7 +789,7 @@ client_ctrl_read_fds(struct client *client)
 
 	client->ctrl_input =
 		i_stream_create_fd(client->fd_ctrl, MAX_INBUF_SIZE);
-	client->ctrl_output = o_stream_create_fd(client->fd_ctrl, (size_t)-1);
+	client->ctrl_output = o_stream_create_fd(client->fd_ctrl, SIZE_MAX);
 	o_stream_set_no_error_handling(client->ctrl_output, TRUE);
 	return 1;
 }
@@ -913,7 +913,7 @@ static void client_ctrl_input(struct client *client)
 	}
 
 	client->input = i_stream_create_fd(client->fd_in, MAX_INBUF_SIZE);
-	client->output = o_stream_create_fd(client->fd_out, (size_t)-1);
+	client->output = o_stream_create_fd(client->fd_out, SIZE_MAX);
 	client->io = io_add(client->fd_in, IO_READ, client_input, client);
 	o_stream_set_no_error_handling(client->output, TRUE);
 	o_stream_set_flush_callback(client->output, client_output, client);

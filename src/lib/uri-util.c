@@ -249,7 +249,7 @@ bool uri_data_decode(struct uri_parser *parser, const char *data,
 
 	if (pend == NULL) {
 		/* NULL means unlimited; solely rely on '\0' */
-		pend = (const unsigned char *)(size_t)-1;
+		pend = (const unsigned char *)SIZE_MAX;
 	}
 	
 	if (p >= pend || *p == '\0') {

@@ -419,7 +419,7 @@ dbox_file_seek_next_at_metadata(struct dbox_file *file, uoff_t *offset)
 
 	/* skip over the actual metadata */
 	buf_size = i_stream_get_max_buffer_size(file->input);
-	i_stream_set_max_buffer_size(file->input, (size_t)-1);
+	i_stream_set_max_buffer_size(file->input, SIZE_MAX);
 	while ((line = i_stream_read_next_line(file->input)) != NULL) {
 		if (*line == DBOX_METADATA_OLDV1_SPACE || *line == '\0') {
 			/* end of metadata */
@@ -689,7 +689,7 @@ dbox_file_metadata_read_at(struct dbox_file *file, uoff_t metadata_offset)
 	ret = 0;
 	buf_size = i_stream_get_max_buffer_size(file->input);
 	/* use unlimited line length for metadata */
-	i_stream_set_max_buffer_size(file->input, (size_t)-1);
+	i_stream_set_max_buffer_size(file->input, SIZE_MAX);
 	while ((line = i_stream_read_next_line(file->input)) != NULL) {
 		if (*line == DBOX_METADATA_OLDV1_SPACE || *line == '\0') {
 			/* end of metadata */

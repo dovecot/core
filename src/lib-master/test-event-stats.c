@@ -64,8 +64,8 @@ static void stats_conn_input(struct connection *_conn);
 static bool compare_test_stats_to(const char *format, ...) ATTR_FORMAT(1, 2);
 
 static struct connection_settings stats_conn_set = {
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.client = FALSE
 };
 
@@ -177,7 +177,7 @@ static void stats_conn_input(struct connection *_conn)
 					i_fatal("failed create stats data file %m");
 				}
 
-				stats_data_out = o_stream_create_fd_autoclose(&fd, (size_t)-1);
+				stats_data_out = o_stream_create_fd_autoclose(&fd, SIZE_MAX);
 				o_stream_nsend_str(stats_data_out, line);
 				o_stream_nsend_str(stats_data_out, "\n");
 
@@ -268,7 +268,7 @@ static bool compare_test_stats_to(const char *format, ...)
 	/* Wait stats data to be recorded by stats process */
 	wait_for_signal(stats_ready);
 
-	input = i_stream_create_file(stats_data_file, (size_t)-1);
+	input = i_stream_create_file(stats_data_file, SIZE_MAX);
 	while (i_stream_read(input) > 0) ;
 	if (input->stream_errno != 0) {
 		i_fatal("stats data file read failed: %s",

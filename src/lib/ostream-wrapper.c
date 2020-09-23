@@ -371,7 +371,7 @@ wrapper_ostream_writev(struct wrapper_ostream *wostream,
 	i_assert(parent != NULL);
 	o_stream_set_max_buffer_size(parent, IO_BLOCK_SIZE);
 	sent = o_stream_sendv(parent, iov, iov_count);
-	o_stream_set_max_buffer_size(parent, (size_t)-1);
+	o_stream_set_max_buffer_size(parent, SIZE_MAX);
 	if (sent < 0) {
 		wrapper_ostream_handle_parent_error(wostream);
 		return -1;
@@ -1007,8 +1007,8 @@ wrapper_ostream_get_buffer_avail_size(const struct ostream_private *stream)
 	struct wrapper_ostream *wostream = (struct wrapper_ostream *)stream;
 	size_t size = 0;
 
-	if (wostream->ostream.max_buffer_size == (size_t)-1)
-		return (size_t)-1;
+	if (wostream->ostream.max_buffer_size == SIZE_MAX)
+		return SIZE_MAX;
 
 	if (wostream->buffer == NULL)
 		size = wostream->ostream.max_buffer_size;

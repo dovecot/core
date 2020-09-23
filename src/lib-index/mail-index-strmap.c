@@ -265,7 +265,7 @@ static int mail_index_strmap_open(struct mail_index_strmap_view *view)
 		mail_index_strmap_set_syscall_error(strmap, "open()");
 		return -1;
 	}
-	strmap->input = i_stream_create_fd(strmap->fd, (size_t)-1);
+	strmap->input = i_stream_create_fd(strmap->fd, SIZE_MAX);
 	ret = i_stream_read_bytes(strmap->input, &data, &size, sizeof(hdr));
 	if (ret <= 0) {
 		if (ret < 0) {

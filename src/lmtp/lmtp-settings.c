@@ -108,10 +108,10 @@ const struct setting_parser_info lmtp_setting_parser_info = {
 	.defines = lmtp_setting_defines,
 	.defaults = &lmtp_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct lmtp_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 
 	.check_func = lmtp_settings_check,
 	.dependencies = lmtp_setting_dependencies

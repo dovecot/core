@@ -154,8 +154,8 @@ static void memcached_conn_connected(struct connection *_conn, bool success)
 }
 
 static const struct connection_settings memcached_conn_set = {
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.client = TRUE
 };
 

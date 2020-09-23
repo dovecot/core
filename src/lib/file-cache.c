@@ -70,7 +70,7 @@ int file_cache_set_size(struct file_cache *cache, uoff_t size)
 	if (size <= cache->mmap_length)
 		return 0;
 
-	if (size > (size_t)-1) {
+	if (size > SIZE_MAX) {
 		i_error("file_cache_set_size(%s, %"PRIuUOFF_T"): size too large",
 			cache->path, size);
 		return -1;

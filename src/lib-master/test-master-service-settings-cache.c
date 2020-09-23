@@ -38,10 +38,10 @@ static const struct setting_parser_info test_setting_parser_info = {
 	.defines = test_setting_defines,
 	.defaults = &test_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct test_service_settings),
 
-	.parent_offset = (size_t)-1
+	.parent_offset = SIZE_MAX
 };
 
 int master_service_settings_read(struct master_service *service ATTR_UNUSED,

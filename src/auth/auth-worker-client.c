@@ -856,8 +856,8 @@ static const struct connection_settings auth_worker_client_set =
 	.service_name_out = "auth-worker",
 	.major_version = AUTH_WORKER_PROTOCOL_MAJOR_VERSION,
 	.minor_version = AUTH_WORKER_PROTOCOL_MINOR_VERSION,
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1, /* we use throttling */
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX, /* we use throttling */
 };
 
 struct auth_worker_client *

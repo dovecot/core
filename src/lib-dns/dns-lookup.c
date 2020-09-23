@@ -287,8 +287,8 @@ static const struct connection_settings dns_client_set = {
 	.service_name_out = "dns-client",
 	.major_version = 1,
 	.minor_version = 0,
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.client = TRUE,
 };
 

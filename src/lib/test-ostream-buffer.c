@@ -67,7 +67,7 @@ static void test_ostream_buffer_size(void)
 	test_begin("ostream buffer size/available");
 	output = o_stream_create_buffer(str);
 	test_assert(o_stream_get_buffer_used_size(output) == 0);
-	test_assert(o_stream_get_buffer_avail_size(output) == (size_t)-1);
+	test_assert(o_stream_get_buffer_avail_size(output) == SIZE_MAX);
 
 	/* test shrinking sink's max buffer size */
 	o_stream_set_max_buffer_size(output, 10);

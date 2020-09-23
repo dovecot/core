@@ -146,10 +146,10 @@ const struct setting_parser_info submission_setting_parser_info = {
 	.defines = submission_setting_defines,
 	.defaults = &submission_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct submission_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 
 	.check_func = submission_settings_verify,
 	.dependencies = submission_setting_dependencies

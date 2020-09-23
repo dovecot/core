@@ -121,10 +121,10 @@ const struct setting_parser_info imap_setting_parser_info = {
 	.defines = imap_setting_defines,
 	.defaults = &imap_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct imap_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 
 	.check_func = imap_settings_verify,
 	.dependencies = imap_setting_dependencies

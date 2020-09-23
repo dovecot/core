@@ -77,10 +77,10 @@ const struct setting_parser_info replicator_setting_parser_info = {
 	.defines = replicator_setting_defines,
 	.defaults = &replicator_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct replicator_settings),
 
-	.parent_offset = (size_t)-1
+	.parent_offset = SIZE_MAX
 };
 
 const struct replicator_settings *replicator_settings;

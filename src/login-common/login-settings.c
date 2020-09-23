@@ -78,10 +78,10 @@ const struct setting_parser_info login_setting_parser_info = {
 	.defines = login_setting_defines,
 	.defaults = &login_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct login_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 
 	.check_func = login_settings_check
 };

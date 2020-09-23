@@ -98,7 +98,7 @@ static void test_istream_dot_one(const struct dot_test *test,
 	test_assert(memcmp(str_data(str), test->output, output_len) == 0);
 
 	/* read the data after the '.' line and verify it's still there */
-	i_stream_set_max_buffer_size(test_input, (size_t)-1);
+	i_stream_set_max_buffer_size(test_input, SIZE_MAX);
 	(void)i_stream_read(test_input);
 	data = i_stream_get_data(test_input, &size);
 	test_assert(size == strlen(test->parent_input));

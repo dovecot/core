@@ -129,7 +129,7 @@ passwd_file_iterate_init(struct auth_request *auth_request,
 		i_error("open(%s) failed: %m", ctx->path);
 		ctx->ctx.failed = TRUE;
 	} else {
-		ctx->input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
+		ctx->input = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
 	}
 	return &ctx->ctx;
 }

@@ -73,11 +73,11 @@ void buffer_insert_zero(buffer_t *buf, size_t pos, size_t data_size);
 
 /* Copy data from buffer to another. The buffers may be same in which case
    it's internal copying, possibly with overlapping positions (ie. memmove()
-   like functionality). copy_size may be set to (size_t)-1 to copy the rest of
+   like functionality). copy_size may be set to SIZE_MAX to copy the rest of
    the used data in buffer. */
 void buffer_copy(buffer_t *dest, size_t dest_pos,
 		 const buffer_t *src, size_t src_pos, size_t copy_size);
-/* Append data to buffer from another. copy_size may be set to (size_t)-1 to
+/* Append data to buffer from another. copy_size may be set to SIZE_MAX to
    copy the rest of the used data in buffer. */
 void buffer_append_buf(buffer_t *dest, const buffer_t *src,
 		       size_t src_pos, size_t copy_size);

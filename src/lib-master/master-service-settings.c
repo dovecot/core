@@ -100,10 +100,10 @@ const struct setting_parser_info master_service_setting_parser_info = {
 	.defines = master_service_setting_defines,
 	.defaults = &master_service_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct master_service_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.check_func = master_service_settings_check
 };
 
@@ -493,7 +493,7 @@ int master_service_settings_get_filters(struct master_service *service,
 			retry = FALSE;
 		}
 		service->config_fd = fd;
-		struct istream *is = i_stream_create_fd(fd, (size_t)-1);
+		struct istream *is = i_stream_create_fd(fd, SIZE_MAX);
 		const char *line;
 		/* try read response */
 		while((line = i_stream_read_next_line(is)) != NULL) {
@@ -581,7 +581,7 @@ int master_service_settings_read(struct master_service *service,
 			SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
 
 	if (fd != -1) {
-		istream = i_stream_create_fd(fd, (size_t)-1);
+		istream = i_stream_create_fd(fd, SIZE_MAX);
 		now = time(NULL);
 		timeout = now + CONFIG_READ_TIMEOUT_SECS;
 		do {

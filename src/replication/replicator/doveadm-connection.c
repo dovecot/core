@@ -322,8 +322,8 @@ static struct connection_settings doveadm_conn_set = {
 	.major_version = REPLICATOR_DOVEADM_MAJOR_VERSION,
 	.minor_version = REPLICATOR_DOVEADM_MINOR_VERSION,
 
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.client = FALSE
 };
 

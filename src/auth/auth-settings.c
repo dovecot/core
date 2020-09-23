@@ -156,7 +156,7 @@ const struct setting_parser_info auth_passdb_setting_parser_info = {
 	.type_offset = offsetof(struct auth_passdb_settings, name),
 	.struct_size = sizeof(struct auth_passdb_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.parent = &auth_setting_parser_info,
 
 	.check_func = auth_passdb_settings_check
@@ -206,7 +206,7 @@ const struct setting_parser_info auth_userdb_setting_parser_info = {
 	.type_offset = offsetof(struct auth_userdb_settings, name),
 	.struct_size = sizeof(struct auth_userdb_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.parent = &auth_setting_parser_info,
 
 	.check_func = auth_userdb_settings_check
@@ -344,10 +344,10 @@ const struct setting_parser_info auth_setting_parser_info = {
 	.defines = auth_setting_defines,
 	.defaults = &auth_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct auth_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 
 	.check_func = auth_settings_check
 };

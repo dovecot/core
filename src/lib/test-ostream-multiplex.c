@@ -24,7 +24,7 @@ static void test_ostream_multiplex_simple(void)
 
 	buffer_t *result = t_str_new(64);
 	struct ostream *os = test_ostream_create(result);
-	struct ostream *os2 = o_stream_create_multiplex(os, (size_t)-1);
+	struct ostream *os2 = o_stream_create_multiplex(os, SIZE_MAX);
 	struct ostream *os3 = o_stream_multiplex_add_channel(os2, 1);
 
 	test_assert(o_stream_send_str(os2, "hello") == 5);
@@ -120,10 +120,10 @@ static void test_ostream_multiplex_stream(void)
 	test_assert(pipe(fds) == 0);
 	fd_set_nonblock(fds[0], TRUE);
 	fd_set_nonblock(fds[1], TRUE);
-	struct ostream *os = o_stream_create_fd(fds[1], (size_t)-1);
-	struct istream *is = i_stream_create_fd(fds[0], (size_t)-1);
+	struct ostream *os = o_stream_create_fd(fds[1], SIZE_MAX);
+	struct istream *is = i_stream_create_fd(fds[0], SIZE_MAX);
 
-	chan0 = o_stream_create_multiplex(os, (size_t)-1);
+	chan0 = o_stream_create_multiplex(os, SIZE_MAX);
 	chan1 = o_stream_multiplex_add_channel(chan0, 1);
 
 	struct io *io0 =
@@ -157,7 +157,7 @@ static void test_ostream_multiplex_cork(void)
 	test_begin("ostream multiplex (corking)");
 	buffer_t *output = t_buffer_create(128);
 	struct ostream *os = test_ostream_create(output);
-	struct ostream *chan0 = o_stream_create_multiplex(os, (size_t)-1);
+	struct ostream *chan0 = o_stream_create_multiplex(os, SIZE_MAX);
 
 	const struct const_iovec iov[] = {
 		{ "hello", 5 },

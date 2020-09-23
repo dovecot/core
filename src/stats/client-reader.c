@@ -174,7 +174,7 @@ static struct connection_settings client_set = {
 	.minor_version = 0,
 
 	.input_max_size = 1024,
-	.output_max_size = (size_t)-1,
+	.output_max_size = SIZE_MAX,
 	.client = FALSE,
 };
 

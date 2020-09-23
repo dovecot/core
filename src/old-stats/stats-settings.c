@@ -96,10 +96,10 @@ const struct setting_parser_info old_stats_setting_parser_info = {
 	.defines = old_stats_setting_defines,
 	.defaults = &old_stats_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct old_stats_settings),
 
-	.parent_offset = (size_t)-1
+	.parent_offset = SIZE_MAX
 };
 
 const struct old_stats_settings *stats_settings;

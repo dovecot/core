@@ -684,8 +684,8 @@ static void dict_conn_destroy(struct connection *_conn)
 }
 
 static const struct connection_settings dict_conn_set = {
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.unix_client_connect_msecs = 1000,
 	.client = TRUE
 };

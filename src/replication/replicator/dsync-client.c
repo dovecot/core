@@ -176,8 +176,8 @@ static int dsync_connect(struct dsync_client *client)
 	}
 	client->last_connect_failure = 0;
 	client->io = io_add(client->fd, IO_READ, dsync_input, client);
-	client->input = i_stream_create_fd(client->fd, (size_t)-1);
-	client->output = o_stream_create_fd(client->fd, (size_t)-1);
+	client->input = i_stream_create_fd(client->fd, SIZE_MAX);
+	client->output = o_stream_create_fd(client->fd, SIZE_MAX);
 	o_stream_set_no_error_handling(client->output, TRUE);
 	o_stream_nsend_str(client->output, DOVEADM_HANDSHAKE);
 	return 0;

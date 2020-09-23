@@ -79,10 +79,10 @@ const struct setting_parser_info master_service_ssl_setting_parser_info = {
 	.defines = master_service_ssl_setting_defines,
 	.defaults = &master_service_ssl_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct master_service_ssl_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.check_func = master_service_ssl_settings_check
 };
 

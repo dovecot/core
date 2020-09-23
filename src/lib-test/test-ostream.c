@@ -145,7 +145,7 @@ struct ostream *test_ostream_create(buffer_t *output)
 	struct ostream *ostream;
 
 	tstream = i_new(struct test_ostream, 1);
-	tstream->ostream.max_buffer_size = (size_t)-1;
+	tstream->ostream.max_buffer_size = SIZE_MAX;
 	tstream->ostream.iostream.destroy = o_stream_test_destroy;
 	tstream->ostream.sendv = o_stream_test_sendv;
 	tstream->ostream.flush = o_stream_test_flush;
@@ -155,7 +155,7 @@ struct ostream *test_ostream_create(buffer_t *output)
 	tstream->ostream.ostream.blocking = TRUE;
 
 	tstream->output_buf = output;
-	tstream->max_output_size = (size_t)-1;
+	tstream->max_output_size = SIZE_MAX;
 	ostream = o_stream_create(&tstream->ostream, NULL, -1);
 	o_stream_set_name(ostream, "(test-ostream)");
 	return ostream;

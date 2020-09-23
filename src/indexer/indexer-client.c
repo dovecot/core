@@ -207,7 +207,7 @@ indexer_client_create(int fd, struct indexer_queue *queue)
 	client->queue = queue;
 	client->fd = fd;
 	client->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
-	client->output = o_stream_create_fd(fd, (size_t)-1);
+	client->output = o_stream_create_fd(fd, SIZE_MAX);
 	o_stream_set_no_error_handling(client->output, TRUE);
 	client->io = io_add(fd, IO_READ, indexer_client_input, client);
 

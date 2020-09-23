@@ -353,7 +353,7 @@ static void cmd_log_errors(int argc, char *argv[])
 		i_fatal("net_connect_unix(%s) failed: %m", path);
 	net_set_nonblock(fd, FALSE);
 
-	input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
+	input = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
 	doveadm_print_formatted_set_format("%{timestamp} %{type}: %{prefix}: %{text}\n");

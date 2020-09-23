@@ -45,10 +45,10 @@ const struct setting_parser_info smtp_submit_setting_parser_info = {
 	.defines = smtp_submit_setting_defines,
 	.defaults = &smtp_submit_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct smtp_submit_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 
 #ifndef CONFIG_BINARY
 	.check_func = smtp_submit_settings_check,

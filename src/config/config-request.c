@@ -200,7 +200,7 @@ setting_export_section_name(string_t *str, const struct setting_define *def,
 		return;
 	}
 	name_offset = def->list_info->type_offset;
-	i_assert(name_offset != (size_t)-1);
+	i_assert(name_offset != SIZE_MAX);
 
 	name = CONST_PTR_OFFSET(set, name_offset);
 	if (*name == NULL || **name == '\0') {

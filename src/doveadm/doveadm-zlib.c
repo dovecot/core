@@ -164,7 +164,7 @@ static void cmd_zlibconnect(int argc ATTR_UNUSED, char *argv[])
 
 	i_zero(&client);
 	client.fd = fd;
-	client.input = i_stream_create_fd(fd, (size_t)-1);
+	client.input = i_stream_create_fd(fd, SIZE_MAX);
 	client.output = o_stream_create_fd(fd, 0);
 	o_stream_set_no_error_handling(client.output, TRUE);
 	client.io_client = io_add(STDIN_FILENO, IO_READ, client_input, &client);

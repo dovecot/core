@@ -107,10 +107,10 @@ const struct setting_parser_info dict_setting_parser_info = {
 	.defines = dict_setting_defines,
 	.defaults = &dict_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct dict_server_settings),
 
-	.parent_offset = (size_t)-1
+	.parent_offset = SIZE_MAX
 };
 
 const struct dict_server_settings *dict_settings;

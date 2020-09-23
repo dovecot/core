@@ -51,7 +51,7 @@ static const struct setting_parser_info file_listener_setting_parser_info = {
 	.type_offset = offsetof(struct file_listener_settings, path),
 	.struct_size = sizeof(struct file_listener_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.parent = &service_setting_parser_info
 };
 
@@ -86,7 +86,7 @@ static const struct setting_parser_info inet_listener_setting_parser_info = {
 	.type_offset = offsetof(struct inet_listener_settings, name),
 	.struct_size = sizeof(struct inet_listener_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.parent = &service_setting_parser_info
 };
 
@@ -237,10 +237,10 @@ const struct setting_parser_info master_setting_parser_info = {
 	.defines = master_setting_defines,
 	.defaults = &master_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct master_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 
 	.check_func = master_settings_verify
 };

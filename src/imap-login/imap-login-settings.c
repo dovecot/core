@@ -81,10 +81,10 @@ static const struct setting_parser_info imap_login_setting_parser_info = {
 	.defines = imap_login_setting_defines,
 	.defaults = &imap_login_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct imap_login_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.dependencies = imap_login_setting_dependencies
 };
 

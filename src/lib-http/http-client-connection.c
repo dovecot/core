@@ -1582,8 +1582,8 @@ http_client_connection_connected(struct connection *_conn, bool success)
 }
 
 static const struct connection_settings http_client_connection_set = {
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.client = TRUE,
 	.delayed_unix_client_connected_callback = TRUE,
 	.log_connection_id = TRUE,

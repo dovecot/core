@@ -248,7 +248,7 @@ cmd_getmetadata_stream_continue(struct imap_getmetadata_context *ctx)
 
 	o_stream_set_max_buffer_size(ctx->cmd->client->output, 0);
 	res = o_stream_send_istream(ctx->cmd->client->output, ctx->cur_stream);
-	o_stream_set_max_buffer_size(ctx->cmd->client->output, (size_t)-1);
+	o_stream_set_max_buffer_size(ctx->cmd->client->output, SIZE_MAX);
 
 	switch (res) {
 	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:

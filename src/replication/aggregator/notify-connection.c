@@ -111,7 +111,7 @@ void notify_connection_create(int fd, bool fifo)
 	conn->io = io_add(fd, IO_READ, notify_input, conn);
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
 	if (!fifo) {
-		conn->output = o_stream_create_fd(fd, (size_t)-1);
+		conn->output = o_stream_create_fd(fd, SIZE_MAX);
 		o_stream_set_no_error_handling(conn->output, TRUE);
 	}
 

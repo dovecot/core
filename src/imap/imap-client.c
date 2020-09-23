@@ -135,7 +135,7 @@ struct client *client_create(int fd_in, int fd_out,
 	client->fd_out = fd_out;
 	client->input = i_stream_create_fd(fd_in,
 					   set->imap_max_line_length);
-	client->output = o_stream_create_fd(fd_out, (size_t)-1);
+	client->output = o_stream_create_fd(fd_out, SIZE_MAX);
 	o_stream_set_no_error_handling(client->output, TRUE);
 	i_stream_set_name(client->input, "<imap client>");
 	o_stream_set_name(client->output, "<imap client>");

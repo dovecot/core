@@ -97,7 +97,7 @@ static void mech_gssapi_log_error(struct auth_request *request,
 
 		e_info(request->mech_event,
 		       "While %s: %s", description,
-		       str_sanitize(status_string.value, (size_t)-1));
+		       str_sanitize(status_string.value, SIZE_MAX));
 
 		(void)gss_release_buffer(&minor_status, &status_string);
 	} while (message_context != 0);

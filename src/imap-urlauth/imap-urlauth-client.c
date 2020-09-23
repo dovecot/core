@@ -95,7 +95,7 @@ int client_create(const char *service, const char *username,
 	client->username = i_strdup(username);
 	client->service = i_strdup(service);
 
-	client->output = o_stream_create_fd(fd_out, (size_t)-1);
+	client->output = o_stream_create_fd(fd_out, SIZE_MAX);
 
 	imap_urlauth_client_count++;
 	DLLIST_PREPEND(&imap_urlauth_clients, client);
@@ -176,7 +176,7 @@ static int client_worker_connect(struct client *client)
 		return -1;
 	}
 
-	client->ctrl_output = o_stream_create_fd(client->fd_ctrl, (size_t)-1);
+	client->ctrl_output = o_stream_create_fd(client->fd_ctrl, SIZE_MAX);
 
 	/* send protocol version handshake */
 	if (o_stream_send_str(client->ctrl_output, handshake) < 0) {

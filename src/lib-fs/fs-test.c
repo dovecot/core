@@ -277,7 +277,7 @@ static int fs_test_copy(struct fs_file *_src, struct fs_file *_dest)
 		return -1;
 	}
 	buffer_set_used_size(dest->contents, 0);
-	buffer_append_buf(dest->contents, src->contents, 0, (size_t)-1);
+	buffer_append_buf(dest->contents, src->contents, 0, SIZE_MAX);
 	dest->exists = TRUE;
 	return 0;
 }

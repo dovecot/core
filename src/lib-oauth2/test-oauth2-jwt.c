@@ -23,7 +23,7 @@
 #include <sys/types.h>
 
 #define base64url_encode_str(str, dest) \
-	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, (size_t)-1, (str), \
+	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, SIZE_MAX, (str), \
 			 strlen((str)), (dest))
 
 /**
@@ -222,7 +222,7 @@ static void sign_jwt_token_hs256(buffer_t *tokenbuf, buffer_t *key)
 	buffer_t *sig = t_hmac_buffer(&hash_method_sha256, key->data, key->used,
 				      tokenbuf);
 	buffer_append(tokenbuf, ".", 1);
-	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, (size_t)-1,
+	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, SIZE_MAX,
 			 sig->data, sig->used, tokenbuf);
 }
 
@@ -468,12 +468,12 @@ static void test_jwt_key_files(void)
 	buffer_t *secret = t_buffer_create(32);
 	void *ptr = buffer_append_space_unsafe(secret, 32);
 	random_fill(ptr, 32);
-	buffer_t *b64_key = t_base64_encode(0, (size_t)-1, secret->data, secret->used);
+	buffer_t *b64_key = t_base64_encode(0, SIZE_MAX, secret->data, secret->used);
 	save_key_to("HS256", "first", str_c(b64_key));
 	buffer_t *secret2 = t_buffer_create(32);
 	ptr = buffer_append_space_unsafe(secret2, 32);
 	random_fill(ptr, 32);
-	b64_key = t_base64_encode(0, (size_t)-1, secret2->data, secret2->used);
+	b64_key = t_base64_encode(0, SIZE_MAX, secret2->data, secret2->used);
 	save_key_to("HS256", "second", str_c(b64_key));
 
 	/* create and sign token */
@@ -507,7 +507,7 @@ static void test_jwt_kid_escape(void)
 	 buffer_t *secret = t_buffer_create(32);
 	 void *ptr = buffer_append_space_unsafe(secret, 32);
 	 random_fill(ptr, 32);
-	 buffer_t *b64_key = t_base64_encode(0, (size_t)-1, secret->data, secret->used);
+	 buffer_t *b64_key = t_base64_encode(0, SIZE_MAX, secret->data, secret->used);
 	 save_key_to("HS256", "hello%2eworld%2f%25", str_c(b64_key));
 	/* make a token */
 	buffer_t *tokenbuf = create_jwt_token_kid("HS256", "hello.world/%");
@@ -542,7 +542,7 @@ static void test_jwt_rs_token(void)
 	dcrypt_key_unref_private(&key);
 	/* convert to base64 */
 	buffer_append(tokenbuf, ".", 1);
-	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, (size_t)-1,
+	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, SIZE_MAX,
 			 sig->data, sig->used, tokenbuf);
 
 	test_jwt_token(str_c(tokenbuf));
@@ -575,7 +575,7 @@ static void test_jwt_ps_token(void)
 	dcrypt_key_unref_private(&key);
 	/* convert to base64 */
 	buffer_append(tokenbuf, ".", 1);
-	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, (size_t)-1,
+	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, SIZE_MAX,
 			 sig->data, sig->used, tokenbuf);
 
 	test_jwt_token(str_c(tokenbuf));
@@ -618,7 +618,7 @@ static void test_jwt_ec_token(void)
 	dcrypt_keypair_unref(&pair);
 	/* convert to base64 */
 	buffer_append(tokenbuf, ".", 1);
-	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, (size_t)-1,
+	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, SIZE_MAX,
 			 sig->data, sig->used, tokenbuf);
 	test_jwt_token(str_c(tokenbuf));
 
@@ -650,7 +650,7 @@ static void test_do_init(void)
 	hs_sign_key =buffer_create_dynamic(default_pool, 32);
 	void *ptr = buffer_append_space_unsafe(hs_sign_key, 32);
 	random_fill(ptr, 32);
-	buffer_t *b64_key = t_base64_encode(0, (size_t)-1,
+	buffer_t *b64_key = t_base64_encode(0, SIZE_MAX,
 					    hs_sign_key->data, hs_sign_key->used);
 	save_key("HS256", str_c(b64_key));
 }

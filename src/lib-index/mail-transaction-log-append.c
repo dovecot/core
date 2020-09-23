@@ -54,7 +54,7 @@ log_buffer_move_to_memory(struct mail_transaction_log_append_ctx *ctx)
 	i_assert(MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file));
 
 	i_assert(file->buffer_offset + file->buffer->used == file->sync_offset);
-	buffer_append_buf(file->buffer, ctx->output, 0, (size_t)-1);
+	buffer_append_buf(file->buffer, ctx->output, 0, SIZE_MAX);
 	file->sync_offset = file->buffer_offset + file->buffer->used;
 	return 0;
 }
@@ -71,7 +71,7 @@ static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
 			file->buffer = buffer_create_dynamic(default_pool, 4096);
 			file->buffer_offset = sizeof(file->hdr);
 		}
-		buffer_append_buf(file->buffer, ctx->output, 0, (size_t)-1);
+		buffer_append_buf(file->buffer, ctx->output, 0, SIZE_MAX);
 		file->sync_offset = file->buffer_offset + file->buffer->used;
 		return 0;
 	}

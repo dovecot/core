@@ -98,7 +98,7 @@ static int cmd_urlfetch_transfer_literal(struct client_command_context *cmd)
 	/* transfer literal to client */
 	o_stream_set_max_buffer_size(client->output, 0);
 	res = o_stream_send_istream(client->output, ctx->input);
-	o_stream_set_max_buffer_size(client->output, (size_t)-1);
+	o_stream_set_max_buffer_size(client->output, SIZE_MAX);
 
 	switch (res) {
 	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:

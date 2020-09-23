@@ -146,7 +146,7 @@ test_program_input_handle(struct test_client *client, const char *line)
 			break;
 		case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
 			client->body =
-				iostream_temp_finish(&client->os_body, -1);
+				iostream_temp_finish(&client->os_body, SIZE_MAX);
 			i_stream_unref(&client->is_body);
 			client->state = CLIENT_STATE_FINISH;
 			return 0;
@@ -252,8 +252,8 @@ static void test_program_connected(struct test_server *server)
 	client = p_new(pool, struct test_client, 1);
 	client->pool = pool;
 	client->fd = fd;
-	client->in = i_stream_create_fd(fd, -1);
-	client->out = o_stream_create_fd(fd, -1);
+	client->in = i_stream_create_fd(fd, SIZE_MAX);
+	client->out = o_stream_create_fd(fd, SIZE_MAX);
 	client->io = io_add_istream(client->in, test_program_input, client);
 	p_array_init(&client->args, client->pool, 2);
 	server->client = client;

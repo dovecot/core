@@ -276,7 +276,7 @@ login_connection_init(struct director *dir, int fd,
 	conn->refcount = 1;
 	conn->fd = fd;
 	conn->dir = dir;
-	conn->output = o_stream_create_fd(conn->fd, (size_t)-1);
+	conn->output = o_stream_create_fd(conn->fd, SIZE_MAX);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	if (type != LOGIN_CONNECTION_TYPE_AUTHREPLY) {
 		i_assert(auth != NULL);

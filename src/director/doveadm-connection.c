@@ -1094,7 +1094,7 @@ doveadm_connection_init(struct director *dir, int fd)
 	conn->fd = fd;
 	conn->dir = dir;
 	conn->input = i_stream_create_fd(conn->fd, 1024);
-	conn->output = o_stream_create_fd(conn->fd, (size_t)-1);
+	conn->output = o_stream_create_fd(conn->fd, SIZE_MAX);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	doveadm_connection_set_io(conn);
 	o_stream_nsend_str(conn->output, DOVEADM_HANDSHAKE);

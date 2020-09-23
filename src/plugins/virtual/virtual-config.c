@@ -54,7 +54,7 @@ virtual_search_args_parse(const string_t *rule, const char **error_r)
 	input = i_stream_create_from_data(str_data(rule), str_len(rule));
 	(void)i_stream_read(input);
 
-	imap_parser = imap_parser_create(input, NULL, (size_t)-1);
+	imap_parser = imap_parser_create(input, NULL, SIZE_MAX);
 	ret = imap_parser_finish_line(imap_parser, 0,  0, &args);
 	if (ret < 0) {
 		sargs = NULL;
@@ -501,7 +501,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	ctx.mbox = mbox;
 	ctx.pool = mbox->box.pool;
 	ctx.rule = t_str_new(256);
-	ctx.input = i_stream_create_fd(fd, (size_t)-1);
+	ctx.input = i_stream_create_fd(fd, SIZE_MAX);
 	i_stream_set_return_partial_line(ctx.input, TRUE);
 	while ((line = i_stream_read_next_line(ctx.input)) != NULL) {
 		linenum++;

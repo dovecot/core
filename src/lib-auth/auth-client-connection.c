@@ -47,7 +47,7 @@ static const struct connection_settings auth_client_connection_set = {
 	.minor_version = AUTH_CLIENT_PROTOCOL_MINOR_VERSION,
 	.unix_client_connect_msecs = 1000,
 	.input_max_size = AUTH_SERVER_CONN_MAX_LINE_LENGTH,
-	.output_max_size = (size_t)-1,
+	.output_max_size = SIZE_MAX,
 	.client = TRUE,
 };
 

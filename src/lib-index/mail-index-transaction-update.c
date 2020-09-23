@@ -999,7 +999,7 @@ void mail_index_update_header_ext(struct mail_index_transaction *t,
 
 	hdr = array_idx_get_space(&t->ext_hdr_updates, ext_id);
 	if (hdr->alloc_size < offset || hdr->alloc_size - offset < size) {
-		i_assert(size < (size_t)-1 - offset);
+		i_assert(size < SIZE_MAX - offset);
 		new_size = nearest_power(offset + size);
 		hdr->mask = i_realloc(hdr->mask, hdr->alloc_size, new_size);
 		hdr->data = i_realloc(hdr->data, hdr->alloc_size, new_size);

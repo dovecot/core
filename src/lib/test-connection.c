@@ -17,8 +17,8 @@ static const struct connection_settings client_set =
 	.major_version = 1,
 	.minor_version = 0,
 	.client = TRUE,
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 };
 
 static const struct connection_settings server_set =
@@ -28,8 +28,8 @@ static const struct connection_settings server_set =
 	.major_version = 1,
 	.minor_version = 0,
 	.client = FALSE,
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 };
 
 static bool received_quit = FALSE;
@@ -133,7 +133,7 @@ static const struct connection_settings no_input_client_set =
 	.minor_version = 0,
 	.client = TRUE,
 	.input_max_size = 0,
-	.output_max_size = (size_t)-1,
+	.output_max_size = SIZE_MAX,
 };
 
 static const struct connection_settings no_input_server_set =
@@ -144,14 +144,14 @@ static const struct connection_settings no_input_server_set =
 	.minor_version = 0,
 	.client = FALSE,
 	.input_max_size = 0,
-	.output_max_size = (size_t)-1,
+	.output_max_size = SIZE_MAX,
 };
 
 static void
 test_connection_no_input_input(struct connection *conn)
 {
 	const char *input;
-	struct istream *is = i_stream_create_fd(conn->fd_in, -1);
+	struct istream *is = i_stream_create_fd(conn->fd_in, SIZE_MAX);
 	i_stream_set_blocking(is, FALSE);
 	while ((input = i_stream_read_next_line(is)) != NULL) {
 		const char *const *args = t_strsplit_tabescaped(input);
@@ -299,7 +299,7 @@ static const struct connection_settings input_full_client_set =
 	.minor_version = 0,
 	.client = TRUE,
 	.input_max_size = 100,
-	.output_max_size = (size_t)-1,
+	.output_max_size = SIZE_MAX,
 };
 
 static int test_connection_input_full_input_args(struct connection *conn,
@@ -460,8 +460,8 @@ static const struct connection_settings idle_kill_server_set =
 	.major_version = 1,
 	.minor_version = 0,
 	.client = FALSE,
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.input_idle_timeout_secs = 1,
 };
 
@@ -518,8 +518,8 @@ static void test_connection_handshake_failed_version(void)
 		.major_version = 1,
 		.minor_version = 0,
 		.client = TRUE,
-		.input_max_size = (size_t)-1,
-		.output_max_size = (size_t)-1,
+		.input_max_size = SIZE_MAX,
+		.output_max_size = SIZE_MAX,
 	},
 	{
 		.service_name_in = "TEST-C",
@@ -527,8 +527,8 @@ static void test_connection_handshake_failed_version(void)
 		.major_version = 1,
 		.minor_version = 0,
 		.client = TRUE,
-		.input_max_size = (size_t)-1,
-		.output_max_size = (size_t)-1,
+		.input_max_size = SIZE_MAX,
+		.output_max_size = SIZE_MAX,
 	},
 	{
 		.service_name_in = "TEST-S",
@@ -536,8 +536,8 @@ static void test_connection_handshake_failed_version(void)
 		.major_version = 2,
 		.minor_version = 0,
 		.client = TRUE,
-		.input_max_size = (size_t)-1,
-		.output_max_size = (size_t)-1,
+		.input_max_size = SIZE_MAX,
+		.output_max_size = SIZE_MAX,
 	}
 	};
 
@@ -547,8 +547,8 @@ static void test_connection_handshake_failed_version(void)
 		.major_version = 1,
 		.minor_version = 2,
 		.client = TRUE,
-		.input_max_size = (size_t)-1,
-		.output_max_size = (size_t)-1,
+		.input_max_size = SIZE_MAX,
+		.output_max_size = SIZE_MAX,
 	};
 
 	test_begin("connection handshake failed (version)");
@@ -699,8 +699,8 @@ static const struct connection_settings no_version_client_set =
 	.major_version = 0,
 	.minor_version = 0,
 	.client = TRUE,
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.dont_send_version = TRUE,
 };
 
@@ -708,8 +708,8 @@ static const struct connection_settings no_version_server_set =
 {
 	.major_version = 0,
 	.minor_version = 0,
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.dont_send_version = TRUE,
 };
 

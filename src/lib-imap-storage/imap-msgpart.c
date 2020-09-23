@@ -148,7 +148,7 @@ imap_msgpart_get_header_fields(pool_t pool, const char *header_list,
 	int result = 0;
 
 	input = i_stream_create_from_data(header_list, strlen(header_list));
-	parser = imap_parser_create(input, NULL, (size_t)-1);
+	parser = imap_parser_create(input, NULL, SIZE_MAX);
 
 	if (imap_parser_finish_line(parser, 0, 0, &args) > 0 &&
 	    imap_arg_get_list_full(args, &hdr_list, &list_count) &&

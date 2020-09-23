@@ -511,7 +511,7 @@ void master_login_add(struct master_login *login, int fd)
 	conn->create_time = ioloop_timeval;
 	conn->fd = fd;
 	conn->io = io_add(conn->fd, IO_READ, master_login_conn_input, conn);
-	conn->output = o_stream_create_fd(fd, (size_t)-1);
+	conn->output = o_stream_create_fd(fd, SIZE_MAX);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 
 	DLLIST_PREPEND(&login->conns, conn);

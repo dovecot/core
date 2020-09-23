@@ -466,11 +466,11 @@ int mbox_sync_parse_next_mail(struct istream *input,
 	ctx->hdr_offset = ctx->mail.offset;
 	ctx->mail.flags = MAIL_RECENT; /* default to having recent flag */
 
-        ctx->header_first_change = (size_t)-1;
+        ctx->header_first_change = SIZE_MAX;
 	ctx->header_last_change = 0;
 
 	for (i = 0; i < MBOX_HDR_COUNT; i++)
-		ctx->hdr_pos[i] = (size_t)-1;
+		ctx->hdr_pos[i] = SIZE_MAX;
 
 	ctx->content_length = (uoff_t)-1;
 	str_truncate(ctx->header, 0);
@@ -505,7 +505,7 @@ int mbox_sync_parse_next_mail(struct istream *input,
 				/* this header is broken, remove it */
 				ctx->need_rewrite = TRUE;
 				str_truncate(ctx->header, line_start_pos);
-				if (ctx->header_first_change == (size_t)-1) {
+				if (ctx->header_first_change == SIZE_MAX) {
 					ctx->header_first_change =
 						line_start_pos;
 				}

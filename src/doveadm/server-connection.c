@@ -124,7 +124,7 @@ static int server_connection_send_cmd_input_more(struct server_connection *conn)
 	/* ostream-dot writes only up to max buffer size, so keep it non-zero */
 	o_stream_set_max_buffer_size(conn->cmd_output, IO_BLOCK_SIZE);
 	res = o_stream_send_istream(conn->cmd_output, conn->cmd_input);
-	o_stream_set_max_buffer_size(conn->cmd_output, (size_t)-1);
+	o_stream_set_max_buffer_size(conn->cmd_output, SIZE_MAX);
 
 	switch (res) {
 	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
@@ -571,7 +571,7 @@ int server_connection_create(struct doveadm_server *server,
 						     doveadm_settings->doveadm_port);
 	net_set_nonblock(conn->fd, TRUE);
 	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE);
-	conn->output = o_stream_create_fd(conn->fd, (size_t)-1);
+	conn->output = o_stream_create_fd(conn->fd, SIZE_MAX);
 	o_stream_set_flush_callback(conn->output, server_connection_output, conn);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 

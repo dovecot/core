@@ -72,7 +72,7 @@ static void stats_dump(const char *path, const char *const *fields, bool reset)
 	if (write_full(fd, str_data(cmd), str_len(cmd)) < 0)
 		i_fatal("write(%s) failed: %m", path);
 
-	input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
+	input = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
 	if ((line = i_stream_read_next_line(input)) == NULL)
 		i_fatal("%s: Failed to read VERSION line", path);
 	else if (!version_string_verify(line, "stats-reader-server", 2)) {

@@ -72,7 +72,7 @@ charset_to_utf8_try(struct charset_translation *t,
 	ic_srcbuf = (ICONV_CONST char *) src;
 
 	if (iconv(t->cd, &ic_srcbuf, &srcleft,
-		  &ic_destbuf, &destleft) != (size_t)-1) {
+		  &ic_destbuf, &destleft) != SIZE_MAX) {
 		i_assert(srcleft == 0);
 		*result = CHARSET_RET_OK;
 	} else if (errno == E2BIG) {
@@ -106,7 +106,7 @@ iconv_charset_to_utf8(struct charset_translation *t,
 {
 	enum charset_result result;
 	size_t pos, size;
-	size_t prev_invalid_pos = (size_t)-1;
+	size_t prev_invalid_pos = SIZE_MAX;
 	bool ret;
 
 	for (pos = 0;;) {
@@ -129,7 +129,7 @@ iconv_charset_to_utf8(struct charset_translation *t,
 		}
 	}
 
-	if (prev_invalid_pos != (size_t)-1)
+	if (prev_invalid_pos != SIZE_MAX)
 		result = CHARSET_RET_INVALID_INPUT;
 
 	i_assert(*src_size - pos <= CHARSET_MAX_PENDING_BUF_SIZE);
