@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
 	/* use log prefix and log to stderr until we've configured the real
 	   logging */
 	global_log_prefix = i_strdup_printf("log(%s): ", my_pid);
-	i_set_failure_file("/dev/stderr", global_log_prefix);
+	i_set_failure_file("/dev/stderr", global_log_prefix, 0600);
 
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;

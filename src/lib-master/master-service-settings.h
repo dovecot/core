@@ -12,6 +12,7 @@ struct master_service_settings {
 	const char *state_dir;
 	const char *instance_name;
 	const char *log_path;
+	mode_t log_file_mode;
 	const char *info_log_path;
 	const char *debug_log_path;
 	const char *log_timestamp;
