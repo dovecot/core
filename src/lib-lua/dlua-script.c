@@ -12,6 +12,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+/* the registry entry with a pointer to struct dlua_script */
+#define LUA_SCRIPT_REGISTRY_KEY	"DLUA_SCRIPT"
+
 #define LUA_SCRIPT_INIT_FN "script_init"
 #define LUA_SCRIPT_DEINIT_FN "script_deinit"
 
@@ -85,10 +88,15 @@ static const char *dlua_reader(lua_State *L, void *ctx, size_t *size_r)
 struct dlua_script *dlua_script_from_state(lua_State *L)
 {
 	struct dlua_script *script;
-	for(script = dlua_scripts; script != NULL; script = script->next)
-		if (script->L == L)
-			return script;
-	i_unreached();
+
+	/* get light pointer from globals */
+	lua_pushstring(L, LUA_SCRIPT_REGISTRY_KEY);
+	lua_gettable(L, LUA_REGISTRYINDEX);
+	script = lua_touserdata(L, -1);
+	lua_pop(L, 1);
+	i_assert(script != NULL);
+
+	return script;
 }
 
 int dlua_script_init(struct dlua_script *script, const char **error_r)
@@ -167,6 +175,11 @@ static int
 dlua_script_create_finish(struct dlua_script *script, struct dlua_script **script_r,
 			  const char **error_r)
 {
+	/* store pointer as light data to registry before calling the script */
+	lua_pushstring(script->L, LUA_SCRIPT_REGISTRY_KEY);
+	lua_pushlightuserdata(script->L, script);
+	lua_settable(script->L, LUA_REGISTRYINDEX);
+
 	if (dlua_run_script(script, error_r) < 0) {
 		dlua_script_unref(&script);
 		return -1;
