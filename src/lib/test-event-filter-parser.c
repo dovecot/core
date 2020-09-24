@@ -336,32 +336,43 @@ static void test_event_filter_parser_simple_nesting(void)
  * Test '<key><op><value>' with each possible operator and each possible
  * quoting of <key> and <value>.  Some quotings are not allowed.  The keyq
  * and valueq arguments specify whether the <key> and <value> strings
- * should be quoted.
+ * should be quoted.  key_special indicates that the key is *not* a field
+ * and therefore only the = operator should parse successfully.
  */
 static void generated_single_comparison(const char *name,
 					bool parens,
 					const char *key,
 					enum quoting keyq,
+					bool key_special,
 					const char *value_in,
 					const char *value_exp,
 					enum quoting valueq)
 {
 	unsigned int c, q;
+	bool should_fail;
 
 	for (c = 0; c < N_ELEMENTS(comparators); c++) {
 		string_t *output = t_str_new(128);
 
-		str_append_c(output, '(');
-		if (keyq != QUOTE_MUST_NOT)
+		if (key_special && (strcmp(comparators[c], "=") != 0)) {
+			/* the key is a not a field, only = is allowed */
+			str_append(output, "event filter: Only fields support inequality comparisons");
+			should_fail = TRUE;
+		} else {
+			/* the key is a field, all comparators are allowed */
+			str_append_c(output, '(');
+			if (keyq != QUOTE_MUST_NOT)
+				str_append_c(output, '"');
+			str_append(output, key);
+			if (keyq != QUOTE_MUST_NOT)
+				str_append_c(output, '"');
+			str_append(output, comparators[c]);
 			str_append_c(output, '"');
-		str_append(output, key);
-		if (keyq != QUOTE_MUST_NOT)
+			str_append_escaped(output, value_exp, strlen(value_exp));
 			str_append_c(output, '"');
-		str_append(output, comparators[c]);
-		str_append_c(output, '"');
-		str_append_escaped(output, value_exp, strlen(value_exp));
-		str_append_c(output, '"');
-		str_append_c(output, ')');
+			str_append_c(output, ')');
+			should_fail = FALSE;
+		}
 
 		for (q = 0; q < 4; q++) {
 			const bool qkey = (q & 1) == 1;
@@ -396,7 +407,7 @@ static void generated_single_comparison(const char *name,
 			testcase(name,
 				 str_c(input),
 				 str_c(output),
-				 FALSE);
+				 should_fail);
 		}
 	}
 }
@@ -412,6 +423,7 @@ static void test_event_filter_parser_generated(bool parens)
 						    parens,
 						    what_special[w],
 						    QUOTE_MUST_NOT,
+						    TRUE,
 						    values_single[v],
 						    values_single[v],
 						    QUOTE_MAY);
@@ -421,6 +433,7 @@ static void test_event_filter_parser_generated(bool parens)
 						    parens,
 						    what_special[w],
 						    QUOTE_MUST_NOT,
+						    TRUE,
 						    values_multi[v],
 						    values_multi[v],
 						    QUOTE_MUST);
@@ -430,6 +443,7 @@ static void test_event_filter_parser_generated(bool parens)
 						    parens,
 						    what_special[w],
 						    QUOTE_MUST_NOT,
+						    TRUE,
 						    values_oper[v].in,
 						    values_oper[v].out_unquoted,
 						    QUOTE_MUST_NOT);
@@ -437,6 +451,7 @@ static void test_event_filter_parser_generated(bool parens)
 						    parens,
 						    what_special[w],
 						    QUOTE_MUST_NOT,
+						    TRUE,
 						    values_oper[v].in,
 						    values_oper[v].out_quoted,
 						    QUOTE_MUST);
@@ -450,6 +465,7 @@ static void test_event_filter_parser_generated(bool parens)
 						    parens,
 						    what_fields_single[w],
 						    QUOTE_MAY,
+						    FALSE,
 						    values_single[v],
 						    values_single[v],
 						    QUOTE_MAY);
@@ -459,6 +475,7 @@ static void test_event_filter_parser_generated(bool parens)
 						    parens,
 						    what_fields_single[w],
 						    QUOTE_MAY,
+						    FALSE,
 						    values_multi[v],
 						    values_multi[v],
 						    QUOTE_MUST);
@@ -468,6 +485,7 @@ static void test_event_filter_parser_generated(bool parens)
 						    parens,
 						    what_fields_single[w],
 						    QUOTE_MAY,
+						    FALSE,
 						    values_oper[v].in,
 						    values_oper[v].out_unquoted,
 						    QUOTE_MUST_NOT);
@@ -475,6 +493,7 @@ static void test_event_filter_parser_generated(bool parens)
 						    parens,
 						    what_fields_single[w],
 						    QUOTE_MAY,
+						    FALSE,
 						    values_oper[v].in,
 						    values_oper[v].out_quoted,
 						    QUOTE_MUST);

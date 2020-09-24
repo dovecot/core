@@ -42,6 +42,13 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 	else
 		type = EVENT_FILTER_NODE_TYPE_EVENT_FIELD;
 
+	/* only fields support comparators other than EQ */
+	if ((type != EVENT_FILTER_NODE_TYPE_EVENT_FIELD) &&
+	    (op != EVENT_FILTER_OP_CMP_EQ)) {
+		state->error = "Only fields support inequality comparisons";
+		return NULL;
+	}
+
 	node = p_new(state->pool, struct event_filter_node, 1);
 	node->type = type;
 	node->op = op;
@@ -150,7 +157,13 @@ expr : expr AND expr		{ $$ = logic(state, $1, $3, EVENT_FILTER_OP_AND); }
      | key_value		{ $$ = $1; }
      ;
 
-key_value : key op value	{ $$ = key_value(state, $1, $3, $2); }
+key_value : key op value	{
+					$$ = key_value(state, $1, $3, $2);
+					if ($$ == NULL) {
+						yyerror(state, state->error);
+						YYERROR;
+					}
+				}
 	  ;
 
 key : TOKEN			{ $$ = $1; }
