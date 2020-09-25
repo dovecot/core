@@ -94,6 +94,11 @@ smtp_client_transaction_mail_replied(
 	const struct smtp_reply *reply)
 {
 	struct smtp_client_transaction_mail *mail = *_mail;
+
+	if (mail == NULL)
+		return;
+	*_mail = NULL;
+
 	smtp_client_command_callback_t *mail_callback = mail->mail_callback;
 	void *context = mail->context;
 
@@ -103,7 +108,7 @@ smtp_client_transaction_mail_replied(
 	if (mail_callback != NULL)
 		mail_callback(reply, context);
 
-	smtp_client_transaction_mail_free(_mail);
+	smtp_client_transaction_mail_free(&mail);
 }
 
 void smtp_client_transaction_mail_abort(
