@@ -330,6 +330,11 @@ smtp_client_transaction_rcpt_replied(
 	const struct smtp_reply *reply)
 {
 	struct smtp_client_transaction_rcpt *rcpt = *_rcpt;
+
+	*_rcpt = NULL;
+	if (rcpt == NULL)
+		return;
+
 	bool success = smtp_reply_is_success(reply);
 	smtp_client_command_callback_t *rcpt_callback = rcpt->rcpt_callback;
 	void *context = rcpt->context;
@@ -341,9 +346,9 @@ smtp_client_transaction_rcpt_replied(
 	rcpt->finished = !success;
 
 	if (success)
-		smtp_client_transaction_rcpt_approved(_rcpt);
+		smtp_client_transaction_rcpt_approved(&rcpt);
 	else
-		smtp_client_transaction_rcpt_denied(_rcpt, reply);
+		smtp_client_transaction_rcpt_denied(&rcpt, reply);
 
 	/* Call the callback */
 	if (rcpt_callback != NULL)
