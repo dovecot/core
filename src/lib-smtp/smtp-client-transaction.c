@@ -103,12 +103,11 @@ smtp_client_transaction_mail_replied(
 	void *context = mail->context;
 
 	mail->mail_callback = NULL;
+	smtp_client_transaction_mail_free(&mail);
 
 	/* Call the callback */
 	if (mail_callback != NULL)
 		mail_callback(reply, context);
-
-	smtp_client_transaction_mail_free(&mail);
 }
 
 void smtp_client_transaction_mail_abort(
@@ -143,11 +142,10 @@ smtp_client_transaction_mail_fail_reply(
 	void *context = mail->context;
 
 	mail->mail_callback = NULL;
+	smtp_client_transaction_mail_free(&mail);
 
 	if (callback != NULL)
 		callback(reply, context);
-
-	smtp_client_transaction_mail_free(&mail);
 }
 
 /*
@@ -210,6 +208,7 @@ smtp_client_transaction_rcpt_free(
 
 	struct smtp_client_transaction *trans = rcpt->trans;
 
+	smtp_client_command_abort(&rcpt->cmd_rcpt_to);
 	if (trans->rcpts_send == rcpt)
 		trans->rcpts_send = rcpt->next;
 	if (trans->rcpts_data == rcpt)
@@ -411,10 +410,10 @@ smtp_client_transaction_rcpt_fail_reply(
 	smtp_reply_add_to_event(reply, e);
 	e_debug(e->event(), "Failed");
 
+	smtp_client_transaction_rcpt_free(&rcpt);
+
 	if (callback != NULL)
 		callback(reply, context);
-
-	smtp_client_transaction_rcpt_free(&rcpt);
 }
 
 static void
@@ -586,16 +585,12 @@ void smtp_client_transaction_abort(struct smtp_client_transaction *trans)
 	while (trans->mail_head != NULL) {
 		struct smtp_client_transaction_mail *mail = trans->mail_head;
 
-		if (mail->cmd_mail_from != NULL)
-			smtp_client_command_abort(&mail->cmd_mail_from);
 		smtp_client_transaction_mail_free(&mail);
 	}
 	while (trans->rcpts_queue_count > 0) {
 		struct smtp_client_transaction_rcpt *rcpt =
 			trans->rcpts_queue_head;
 
-		if (rcpt->cmd_rcpt_to != NULL)
-			smtp_client_command_abort(&rcpt->cmd_rcpt_to);
 		smtp_client_transaction_rcpt_free(&rcpt);
 	}
 	if (trans->cmd_data != NULL)
@@ -750,8 +745,6 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 	while (trans->mail_head != NULL) {
 		struct smtp_client_transaction_mail *mail = trans->mail_head;
 
-		if (mail->cmd_mail_from != NULL)
-			smtp_client_command_abort(&mail->cmd_mail_from);
 		smtp_client_transaction_mail_fail_reply(&mail, reply);
 	}
 
