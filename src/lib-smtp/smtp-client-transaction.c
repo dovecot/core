@@ -359,6 +359,11 @@ void smtp_client_transaction_rcpt_abort(
 	struct smtp_client_transaction_rcpt **_rcpt)
 {
 	struct smtp_client_transaction_rcpt *rcpt = *_rcpt;
+
+	if (rcpt == NULL)
+		return;
+	*_rcpt = NULL;
+
 	struct smtp_client_transaction *trans = rcpt->trans;
 
 	i_assert(rcpt->queued || rcpt->external_pool);
@@ -366,7 +371,7 @@ void smtp_client_transaction_rcpt_abort(
 	i_assert(trans->state <= SMTP_CLIENT_TRANSACTION_STATE_RCPT_TO ||
 		 trans->state == SMTP_CLIENT_TRANSACTION_STATE_ABORTED);
 
-	smtp_client_transaction_rcpt_free(_rcpt);
+	smtp_client_transaction_rcpt_free(&rcpt);
 }
 
 static void
