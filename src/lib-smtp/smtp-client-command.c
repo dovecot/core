@@ -181,6 +181,11 @@ void smtp_client_command_unlock(struct smtp_client_command *cmd)
 void smtp_client_command_abort(struct smtp_client_command **_cmd)
 {
 	struct smtp_client_command *cmd = *_cmd;
+
+	if (cmd == NULL)
+		return;
+	*_cmd = NULL;
+
 	struct smtp_client_connection *conn = cmd->conn;
 	enum smtp_client_command_state state = cmd->state;
 	bool disconnected =
@@ -191,8 +196,6 @@ void smtp_client_command_abort(struct smtp_client_command **_cmd)
 	bool was_sent =
 		(!disconnected && state > SMTP_CLIENT_COMMAND_STATE_SUBMITTED &&
 		 state < SMTP_CLIENT_COMMAND_STATE_FINISHED);
-
-	*_cmd = NULL;
 
 	smtp_client_command_drop_callback(cmd);
 
