@@ -859,7 +859,7 @@ login_proxy_cmd_kick_full(struct ipc_cmd *cmd, const char *const *args,
 		return;
 	}
 
-	for (proxy = login_proxies; proxy != NULL; proxy = next) {
+	for (proxy = login_proxies; proxy != NULL; proxy = next) T_BEGIN {
 		next = proxy->next;
 
 		if (want_kick(proxy->client, args, key_idx)) {
@@ -867,15 +867,15 @@ login_proxy_cmd_kick_full(struct ipc_cmd *cmd, const char *const *args,
 					      LOGIN_PROXY_FREE_FLAG_DELAYED);
 			count++;
 		}
-	}
-	for (proxy = login_proxies_pending; proxy != NULL; proxy = next) {
+	} T_END;
+	for (proxy = login_proxies_pending; proxy != NULL; proxy = next) T_BEGIN {
 		next = proxy->next;
 
 		if (want_kick(proxy->client, args, key_idx)) {
 			client_destroy(proxy->client, KILLED_BY_ADMIN_REASON);
 			count++;
 		}
-	}
+	} T_END;
 	ipc_cmd_success_reply(&cmd, t_strdup_printf("%u", count));
 }
 
