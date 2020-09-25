@@ -134,6 +134,11 @@ smtp_client_transaction_mail_fail_reply(
 	const struct smtp_reply *reply)
 {
 	struct smtp_client_transaction_mail *mail = *_mail;
+
+	if (mail == NULL)
+		return;
+	*_mail = NULL;
+
 	smtp_client_command_callback_t *callback = mail->mail_callback;
 	void *context = mail->context;
 
@@ -142,7 +147,7 @@ smtp_client_transaction_mail_fail_reply(
 	if (callback != NULL)
 		callback(reply, context);
 
-	smtp_client_transaction_mail_free(_mail);
+	smtp_client_transaction_mail_free(&mail);
 }
 
 /*
