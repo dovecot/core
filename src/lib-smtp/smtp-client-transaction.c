@@ -75,9 +75,12 @@ static void
 smtp_client_transaction_mail_free(struct smtp_client_transaction_mail **_mail)
 {
 	struct smtp_client_transaction_mail *mail = *_mail;
-	struct smtp_client_transaction *trans = mail->trans;
 
+	if (mail == NULL)
+		return;
 	*_mail = NULL;
+
+	struct smtp_client_transaction *trans = mail->trans;
 
 	if (mail->cmd_mail_from != NULL)
 		smtp_client_command_abort(&mail->cmd_mail_from);
