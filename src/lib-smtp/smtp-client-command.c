@@ -292,11 +292,14 @@ void smtp_client_command_fail_reply(struct smtp_client_command **_cmd,
 				    const struct smtp_reply *reply)
 {
 	struct smtp_client_command *cmd = *_cmd, *tmp_cmd;
+
+	if (cmd == NULL)
+		return;
+	*_cmd = NULL;
+	
 	struct smtp_client_connection *conn = cmd->conn;
 	enum smtp_client_command_state state = cmd->state;
 	smtp_client_command_callback_t *callback = cmd->callback;
-
-	*_cmd = NULL;
 
 	if (state >= SMTP_CLIENT_COMMAND_STATE_FINISHED)
 		return;
