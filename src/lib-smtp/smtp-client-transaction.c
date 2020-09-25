@@ -115,12 +115,17 @@ void smtp_client_transaction_mail_abort(
 	struct smtp_client_transaction_mail **_mail)
 {
 	struct smtp_client_transaction_mail *mail = *_mail;
+
+	if (mail == NULL)
+		return;
+	*_mail = NULL;
+
 	struct smtp_client_transaction *trans = mail->trans;
 
 	i_assert(trans->state <= SMTP_CLIENT_TRANSACTION_STATE_MAIL_FROM ||
 		 trans->state == SMTP_CLIENT_TRANSACTION_STATE_ABORTED);
 
-	smtp_client_transaction_mail_free(_mail);
+	smtp_client_transaction_mail_free(&mail);
 }
 
 static void
