@@ -952,6 +952,8 @@ int smtp_client_command_input_reply(struct smtp_client_command *cmd,
 				    const struct smtp_reply *reply)
 {
 	struct smtp_client_connection *conn = cmd->conn;
+	smtp_client_command_callback_t *callback = cmd->callback;
+	void *context = cmd->context;
 	bool finished;
 
 	i_assert(cmd->replies_seen < cmd->replies_expected);
@@ -982,13 +984,13 @@ int smtp_client_command_input_reply(struct smtp_client_command *cmd,
 			cmd->state = SMTP_CLIENT_COMMAND_STATE_FINISHED;
 
 		smtp_client_connection_update_cmd_timeout(conn);
+		smtp_client_command_drop_callback(cmd);
 	}
 
-	if (!cmd->aborting && cmd->callback != NULL)
-		cmd->callback(reply, cmd->context);
+	if (!cmd->aborting && callback != NULL)
+		callback(reply, context);
 
 	if (finished) {
-		smtp_client_command_drop_callback(cmd);
 		smtp_client_command_unref(&cmd);
 		smtp_client_connection_trigger_output(conn);
 	}
