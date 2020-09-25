@@ -203,9 +203,12 @@ smtp_client_transaction_rcpt_free(
 	struct smtp_client_transaction_rcpt **_rcpt)
 {
 	struct smtp_client_transaction_rcpt *rcpt = *_rcpt;
-	struct smtp_client_transaction *trans = rcpt->trans;
 
+	if (rcpt == NULL)
+		return;
 	*_rcpt = NULL;
+
+	struct smtp_client_transaction *trans = rcpt->trans;
 
 	if (trans->rcpts_send == rcpt)
 		trans->rcpts_send = rcpt->next;
