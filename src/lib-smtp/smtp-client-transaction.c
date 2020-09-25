@@ -253,6 +253,9 @@ smtp_client_transaction_rcpt_approved(
 	struct smtp_client_transaction_rcpt **_rcpt)
 {
 	struct smtp_client_transaction_rcpt *prcpt = *_rcpt;
+
+	i_assert(prcpt != NULL);
+
 	struct smtp_client_transaction *trans = prcpt->trans;
 	struct smtp_client_transaction_rcpt *rcpt;
 	pool_t pool;
@@ -302,9 +305,11 @@ smtp_client_transaction_rcpt_denied(
 	const struct smtp_reply *reply)
 {
 	struct smtp_client_transaction_rcpt *prcpt = *_rcpt;
-	struct smtp_client_transaction *trans = prcpt->trans;
 
 	*_rcpt = NULL;
+	i_assert(prcpt != NULL);
+
+	struct smtp_client_transaction *trans = prcpt->trans;
 
 	trans->rcpts_denied++;
 	trans->rcpts_failed++;
