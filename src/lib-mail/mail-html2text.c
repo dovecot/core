@@ -87,7 +87,7 @@ parse_tag_name(struct mail_html2text *ht,
 		return 8 + 1;
 	}
 
-	if (size >= 10 && i_memcasecmp(data, "blockquote", 10) == 0 &&
+	if (size >= 11 && i_memcasecmp(data, "blockquote", 10) == 0 &&
 	    (HTML_WHITESPACE(data[10]) || data[10] == '>')) {
 		ht->quote_level++;
 		ht->state = HTML_STATE_TAG;
