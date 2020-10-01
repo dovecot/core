@@ -11,7 +11,7 @@ struct seq_range_iter {
 	unsigned int prev_n, prev_idx;
 };
 
-static inline uint32_t ATTR_PURE seq_range_length(struct seq_range *range)
+static inline uint32_t ATTR_PURE seq_range_length(const struct seq_range *range)
 {
 	i_assert(range->seq2 >= range->seq1);
 	return range->seq2 - range->seq1 + 1;
