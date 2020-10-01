@@ -35,38 +35,14 @@ seq_range_lookup(const ARRAY_TYPE(seq_range) *array,
 	return FALSE;
 }
 
-bool seq_range_array_add(ARRAY_TYPE(seq_range) *array, uint32_t seq)
+static bool
+seq_range_array_add_slow_path(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 {
 	struct seq_range *data, value;
 	unsigned int idx, count;
 
 	value.seq1 = value.seq2 = seq;
-
 	data = array_get_modifiable(array, &count);
-	if (count == 0) {
-		array_push_back(array, &value);
-		return FALSE;
-	}
-
-	/* quick checks */
-	if (data[count-1].seq2 < seq) {
-		if (data[count-1].seq2 == seq-1) {
-			/* grow last range */
-			data[count-1].seq2 = seq;
-		} else {
-			array_push_back(array, &value);
-		}
-		return FALSE;
-	}
-	if (data[0].seq1 > seq) {
-		if (data[0].seq1-1 == seq) {
-			/* grow down first range */
-			data[0].seq1 = seq;
-		} else {
-			array_push_front(array, &value);
-		}
-		return FALSE;
-	}
 
 	/* somewhere in the middle, array is sorted so find it with
 	   binary search */
@@ -100,6 +76,42 @@ bool seq_range_array_add(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 		}
 	}
 	return FALSE;
+}
+
+bool seq_range_array_add(ARRAY_TYPE(seq_range) *array, uint32_t seq)
+{
+	struct seq_range *data, value;
+	unsigned int count;
+
+	value.seq1 = value.seq2 = seq;
+
+	data = array_get_modifiable(array, &count);
+	if (count == 0) {
+		array_push_back(array, &value);
+		return FALSE;
+	}
+
+	/* quick checks */
+	if (data[count-1].seq2 < seq) {
+		if (data[count-1].seq2 == seq-1) {
+			/* grow last range */
+			data[count-1].seq2 = seq;
+		} else {
+			array_push_back(array, &value);
+		}
+		return FALSE;
+	}
+	if (data[0].seq1 > seq) {
+		if (data[0].seq1-1 == seq) {
+			/* grow down first range */
+			data[0].seq1 = seq;
+		} else {
+			array_push_front(array, &value);
+		}
+		return FALSE;
+	}
+
+	return seq_range_array_add_slow_path(array, seq);
 }
 
 void seq_range_array_add_with_init(ARRAY_TYPE(seq_range) *array,
