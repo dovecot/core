@@ -115,6 +115,42 @@ test_compression_handler_short(const struct compression_handler *handler,
 }
 
 static void
+test_compression_handler_empty(const struct compression_handler *handler,
+			       bool autodetect)
+{
+	buffer_t *buffer;
+	struct ostream *test_output;
+	struct ostream *output;
+
+	struct istream *test_input;
+	struct istream *input;
+
+	/* create stream and finish it without writing anything */
+	test_begin(t_strdup_printf("compression handler %s (empty, autodetect=%s)",
+				   handler->name, autodetect ? "yes" : "no"));
+	buffer = buffer_create_dynamic(default_pool, 128);
+	test_output = test_ostream_create(buffer);
+	output = handler->create_ostream(test_output, 1);
+	o_stream_unref(&test_output);
+	test_assert(o_stream_finish(output) == 1);
+	o_stream_unref(&output);
+
+	/* read the input */
+	test_input = test_istream_create_data(buffer->data, buffer->used);
+	input = !autodetect ? handler->create_istream(test_input, TRUE) :
+		i_stream_create_decompress(test_input, 0);
+	i_stream_unref(&test_input);
+
+	test_assert(i_stream_read(input) == -1);
+	test_assert(i_stream_get_data_size(input) == 0);
+	i_stream_unref(&input);
+
+	buffer_free(&buffer);
+
+	test_end();
+}
+
+static void
 test_compression_handler_seek(const struct compression_handler *handler,
 			      bool autodetect)
 {
@@ -700,6 +736,7 @@ static void test_compression_int(bool autodetect)
 			    !autodetect)
 				test_compression_handler_detect(&compression_handlers[i]);
 			test_compression_handler_short(&compression_handlers[i], autodetect);
+			test_compression_handler_empty(&compression_handlers[i], autodetect);
 			test_compression_handler(&compression_handlers[i], autodetect);
 			test_compression_handler_seek(&compression_handlers[i], autodetect);
 			test_compression_handler_reset(&compression_handlers[i], autodetect);

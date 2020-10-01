@@ -51,15 +51,16 @@ static bool is_compressed_bzlib(struct istream *input)
 	const unsigned char *data;
 	size_t size;
 
-	if (i_stream_read_bytes(input, &data, &size, 4+6) <= 0)
+	if (i_stream_read_bytes(input, &data, &size, 4) <= 0)
 		return FALSE;
-	if (data[0] != 'B' || data[1] != 'Z')
-		return FALSE;
-	if (data[2] != 'h' && data[2] != '0')
+	if (memcmp(data, "BZh", 3) != 0)
 		return FALSE;
 	if (data[3] < '1' || data[3] > '9')
 		return FALSE;
-	return memcmp(data + 4, "\x31\x41\x59\x26\x53\x59", 6) == 0;
+	/* The above is enough to be considered as the bzlib magic.
+	   Normally it's followed by data header beginning with 0x31. However,
+	   with empty compressed files it's followed by 0x17. */
+	return TRUE;
 }
 
 static bool is_compressed_xz(struct istream *input)
