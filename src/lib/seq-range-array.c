@@ -345,7 +345,7 @@ unsigned int seq_range_array_remove_range(ARRAY_TYPE(seq_range) *array,
 	for (idx2 = idx; idx2 < count; idx2++) {
 		if (data[idx2].seq1 > seq2)
 			break;
-		remove_count += data[idx2].seq2 - data[idx2].seq1 + 1;
+		remove_count += seq_range_length(&data[idx2]);
 	}
 	array_delete(array, idx, idx2-idx);
 	return remove_count;
@@ -442,7 +442,7 @@ unsigned int seq_range_count(const ARRAY_TYPE(seq_range) *array)
 	unsigned int seq_count = 0;
 
 	array_foreach(array, range)
-		seq_count += range->seq2 - range->seq1 + 1;
+		seq_count += seq_range_length(range);
 	return seq_count;
 }
 
