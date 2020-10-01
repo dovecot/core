@@ -160,45 +160,11 @@ static void fs_compress_file_close(struct fs_file *_file)
 }
 
 static struct istream *
-fs_compress_try_create_stream(struct compress_fs_file *file,
-			      struct istream *plain_input)
-{
-	struct tee_istream *tee_input;
-	struct istream *child_input, *ret_input, *input, **try_inputs;
-	ARRAY(struct istream *) try_inputs_arr;
-	unsigned int i, count;
-
-	tee_input = tee_i_stream_create(plain_input);
-
-	t_array_init(&try_inputs_arr, 10);
-	for (i = 0; compression_handlers[i].name != NULL; i++) {
-		if (compression_handlers[i].create_istream != NULL) {
-			child_input = tee_i_stream_create_child(tee_input);
-			input = compression_handlers[i].
-				create_istream(child_input, FALSE);
-			i_stream_unref(&child_input);
-			array_push_back(&try_inputs_arr, &input);
-		}
-	}
-	if (file->fs->try_plain) {
-		input = tee_i_stream_create_child(tee_input);
-		array_push_back(&try_inputs_arr, &input);
-	}
-	count = array_count(&try_inputs_arr);
-	array_append_zero(&try_inputs_arr);
-
-	try_inputs = array_idx_modifiable(&try_inputs_arr, 0);
-	ret_input = istream_try_create(try_inputs, COMPRESSION_HDR_MAX_SIZE);
-	for (i = 0; i < count; i++)
-		i_stream_unref(&try_inputs[i]);
-	return ret_input;
-}
-
-static struct istream *
 fs_compress_read_stream(struct fs_file *_file, size_t max_buffer_size)
 {
 	struct compress_fs_file *file = COMPRESS_FILE(_file);
 	struct istream *input;
+	enum istream_decompress_flags flags = 0;
 
 	if (file->input != NULL) {
 		i_stream_ref(file->input);
@@ -207,8 +173,9 @@ fs_compress_read_stream(struct fs_file *_file, size_t max_buffer_size)
 	}
 
 	input = fs_read_stream(file->super_read, max_buffer_size);
-	file->input = fs_compress_try_create_stream(file, input);
-
+	if (file->fs->try_plain)
+		flags |= ISTREAM_DECOMPRESS_FLAG_TRY;
+	file->input = i_stream_create_decompress(input, flags);
 	i_stream_unref(&input);
 	i_stream_ref(file->input);
 	return file->input;
