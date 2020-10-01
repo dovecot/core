@@ -1,6 +1,11 @@
 #ifndef SEQ_RANGE_ARRAY_H
 #define SEQ_RANGE_ARRAY_H
 
+/* NOTE: A full 0..UINT_MAX sequence range isn't valid to use here, because its
+   size would become UINT_MAX+1, which can't be returned by e.g.
+   seq_range_count() and similar functions. Attempting to use such sequence
+   ranges will result in assert-crash. */
+
 struct seq_range {
 	uint32_t seq1, seq2;
 };
@@ -14,6 +19,7 @@ struct seq_range_iter {
 static inline uint32_t ATTR_PURE seq_range_length(const struct seq_range *range)
 {
 	i_assert(range->seq2 >= range->seq1);
+	i_assert(range->seq1 > 0 || range->seq2 < (uint32_t)-1);
 	return range->seq2 - range->seq1 + 1;
 }
 

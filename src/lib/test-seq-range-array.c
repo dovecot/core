@@ -124,14 +124,13 @@ static void test_seq_range_array_remove_range(void)
 	test_begin("seq_range_array_remove_range()");
 	t_array_init(&range, 8);
 
-	seq_range_array_add_range(&range, 0, (uint32_t)-1);
+	seq_range_array_add_range(&range, 0, (uint32_t)-2);
 	test_assert(seq_range_array_remove_range(&range, 0, 2) == 3);
-	r = array_front(&range); test_assert(r->seq1 == 3 && r->seq2 == (uint32_t)-1);
+	r = array_front(&range); test_assert(r->seq1 == 3 && r->seq2 == (uint32_t)-2);
 
-	seq_range_array_add_range(&range, 0, (uint32_t)-1);
+	seq_range_array_add_range(&range, 0, (uint32_t)-2);
 	test_assert(array_count(&range) == 1);
-	/* return value wraps to 0 because it doesn't fit into uint32_t */
-	test_assert(seq_range_array_remove_range(&range, 0, (uint32_t)-1) == 0);
+	test_assert(seq_range_array_remove_range(&range, 0, (uint32_t)-2) == UINT_MAX);
 	test_assert(array_count(&range) == 0);
 
 	seq_range_array_add_range(&range, (uint32_t)-1, (uint32_t)-1);
@@ -287,8 +286,8 @@ static void test_seq_range_array_invert_edges(void)
 	} tests[] = {
 		{ -1, -1, -1, -1,
 		  0, 0xffffffff, -1, -1 },
-		{ 0, 0xffffffff, -1, -1,
-		  -1, -1, -1, -1 },
+		/*{ 0, 0xffffffff, -1, -1, too large, will assert-crash
+		  -1, -1, -1, -1 }, */
 		{ 0, 0xfffffffe, -1, -1,
 		  0xffffffff, 0xffffffff, -1, -1 },
 		{ 1, 0xfffffffe, -1, -1,
@@ -373,4 +372,48 @@ void test_seq_range_array(void)
 	test_seq_range_array_invert_edges();
 	test_seq_range_array_have_common();
 	test_seq_range_array_random();
+}
+
+enum fatal_test_state fatal_seq_range_array(unsigned int stage)
+{
+	ARRAY_TYPE(seq_range) arr;
+	struct seq_range *range;
+
+	t_array_init(&arr, 2);
+	switch (stage) {
+	case 0:
+		test_begin("seq_range_array fatals");
+		test_expect_fatal_string("!seq_range_is_overflowed(array)");
+		seq_range_array_add_range(&arr, 0, (uint32_t)-1);
+		return FATAL_TEST_FAILURE;
+	case 1:
+		seq_range_array_add_range(&arr, 1, (uint32_t)-1);
+		test_expect_fatal_string("!seq_range_is_overflowed(array)");
+		seq_range_array_add(&arr, 0);
+		return FATAL_TEST_FAILURE;
+	case 2:
+		seq_range_array_add_range(&arr, 0, (uint32_t)-2);
+		test_expect_fatal_string("!seq_range_is_overflowed(array)");
+		seq_range_array_add(&arr, (uint32_t)-1);
+		return FATAL_TEST_FAILURE;
+	case 3:
+		range = array_append_space(&arr);
+		range->seq2 = (uint32_t)-1;
+		test_expect_fatal_string("range->seq1 > 0 || range->seq2 < (uint32_t)-1");
+		i_error("This shouldn't return: %u", seq_range_count(&arr));
+		return FATAL_TEST_FAILURE;
+	case 4:
+		range = array_append_space(&arr);
+		range->seq2 = (uint32_t)-2;
+		test_assert(seq_range_count(&arr) == (uint32_t)-1);
+
+		range = array_append_space(&arr);
+		range->seq1 = (uint32_t)-2;
+		range->seq2 = (uint32_t)-1;
+		test_expect_fatal_string("UINT_MAX - seq_count >= seq_range_length(range)");
+		i_error("This shouldn't return: %u", seq_range_count(&arr));
+		return FATAL_TEST_FAILURE;
+	}
+	test_end();
+	return FATAL_TEST_FINISHED;
 }

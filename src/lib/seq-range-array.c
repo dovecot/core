@@ -4,6 +4,16 @@
 #include "array.h"
 #include "seq-range-array.h"
 
+static bool seq_range_is_overflowed(const ARRAY_TYPE(seq_range) *array)
+{
+	const struct seq_range *range;
+	unsigned int count;
+
+	range = array_get(array, &count);
+	return count == 1 && range[0].seq1 == 0 &&
+		range[0].seq2 == (uint32_t)-1;
+}
+
 static bool ATTR_NOWARN_UNUSED_RESULT
 seq_range_lookup(const ARRAY_TYPE(seq_range) *array,
 		 uint32_t seq, unsigned int *idx_r)
@@ -107,6 +117,7 @@ bool seq_range_array_add(ARRAY_TYPE(seq_range) *array, uint32_t seq)
 	} else {
 		exists = seq_range_array_add_slow_path(array, seq);
 	}
+	i_assert(!seq_range_is_overflowed(array));
 	return exists;
 }
 
@@ -194,6 +205,7 @@ seq_range_array_add_range_internal(ARRAY_TYPE(seq_range) *array,
 			array_delete(array, idx1 + 1, idx2 - idx1);
 		}
 	}
+	i_assert(!seq_range_is_overflowed(array));
 }
 
 void seq_range_array_add_range(ARRAY_TYPE(seq_range) *array,
@@ -353,6 +365,7 @@ unsigned int seq_range_array_remove_range(ARRAY_TYPE(seq_range) *array,
 	for (idx2 = idx; idx2 < count; idx2++) {
 		if (data[idx2].seq1 > seq2)
 			break;
+		i_assert(UINT_MAX - remove_count >= seq_range_length(&data[idx2]));
 		remove_count += seq_range_length(&data[idx2]);
 	}
 	array_delete(array, idx, idx2-idx);
@@ -362,14 +375,16 @@ unsigned int seq_range_array_remove_range(ARRAY_TYPE(seq_range) *array,
 unsigned int seq_range_array_remove_seq_range(ARRAY_TYPE(seq_range) *dest,
 					      const ARRAY_TYPE(seq_range) *src)
 {
-	unsigned int ret = 0;
+	unsigned int count, full_count = 0;
 	const struct seq_range *src_range;
 
 	array_foreach(src, src_range) {
-		ret += seq_range_array_remove_range(dest, src_range->seq1,
-						    src_range->seq2);
+		count = seq_range_array_remove_range(dest, src_range->seq1,
+						     src_range->seq2);
+		i_assert(UINT_MAX - full_count >= count);
+		full_count += count;
 	}
-	return ret;
+	return full_count;
 }
 
 void seq_range_array_remove_nth(ARRAY_TYPE(seq_range) *array,
@@ -398,22 +413,26 @@ unsigned int seq_range_array_intersect(ARRAY_TYPE(seq_range) *dest,
 				       const ARRAY_TYPE(seq_range) *src)
 {
 	const struct seq_range *src_range;
-	unsigned int i, count, ret = 0;
+	unsigned int i, count, remove_count, full_count = 0;
 	uint32_t last_seq = 0;
 
 	src_range = array_get(src, &count);
 	for (i = 0; i < count; i++) {
 		if (last_seq + 1 < src_range[i].seq1) {
-			ret += seq_range_array_remove_range(dest,
-					last_seq + 1, src_range[i].seq1 - 1);
+			remove_count = seq_range_array_remove_range(dest,
+				last_seq + 1, src_range[i].seq1 - 1);
+			i_assert(UINT_MAX - full_count >= remove_count);
+			full_count += remove_count;
 		}
 		last_seq = src_range[i].seq2;
 	}
 	if (last_seq != (uint32_t)-1) {
-		ret += seq_range_array_remove_range(dest, last_seq + 1,
-						    (uint32_t)-1);
+		remove_count = seq_range_array_remove_range(dest, last_seq + 1,
+							    (uint32_t)-1);
+		i_assert(UINT_MAX - full_count >= remove_count);
+		full_count += remove_count;
 	}
-	return ret;
+	return full_count;
 }
 
 bool seq_range_exists(const ARRAY_TYPE(seq_range) *array, uint32_t seq)
@@ -449,8 +468,10 @@ unsigned int seq_range_count(const ARRAY_TYPE(seq_range) *array)
 	const struct seq_range *range;
 	unsigned int seq_count = 0;
 
-	array_foreach(array, range)
+	array_foreach(array, range) {
+		i_assert(UINT_MAX - seq_count >= seq_range_length(range));
 		seq_count += seq_range_length(range);
+	}
 	return seq_count;
 }
 
