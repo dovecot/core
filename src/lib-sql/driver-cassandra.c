@@ -513,9 +513,8 @@ driver_cassandra_set_callback(CassFuture *future, struct cassandra_db *db,
 static void connect_callback(CassFuture *future, void *context)
 {
 	struct cassandra_db *db = context;
-	CassError rc;
 
-	if ((rc = cass_future_error_code(future)) != CASS_OK) {
+	if (cass_future_error_code(future) != CASS_OK) {
 		driver_cassandra_log_error(db, future,
 					   "Couldn't connect to Cassandra");
 		driver_cassandra_close(db, "Couldn't connect to Cassandra");

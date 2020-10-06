@@ -647,7 +647,7 @@ wrapper_ostream_sendv_real(struct wrapper_ostream *wostream,
 	if (!wrapper_ostream_is_empty(wostream) &&
 	    (!stream->corked || wrapper_ostream_is_filled(wostream)) &&
 	    wrapper_ostream_send_prepare(wostream, size) &&
-	    (ret = wrapper_ostream_flush_buffer(wostream)) < 0)
+	    wrapper_ostream_flush_buffer(wostream) < 0)
 		return -1;
 
 	if (!stream->corked && wrapper_ostream_is_full(wostream)) {

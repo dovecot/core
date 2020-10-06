@@ -433,7 +433,6 @@ lua_storage_mail_user_set_metadata_unset(struct dlua_script *script,
 					 size_t value_len)
 {
 	const char *error;
-	int ret;
 
 	/* reformat key */
 	if ((key = lua_storage_mail_user_metadata_key(key)) == NULL) {
@@ -452,8 +451,8 @@ lua_storage_mail_user_set_metadata_unset(struct dlua_script *script,
 				  "Cannot open INBOX: %s", error);
 	}
 
-	if ((ret = lua_storage_mailbox_attribute_set(mbox, key, value,
-	     value_len, &error)) < 0) {
+	if (lua_storage_mailbox_attribute_set(mbox, key, value, value_len,
+					      &error) < 0) {
 		mailbox_free(&mbox);
 		return luaL_error(script->L,
 				  "Cannot get attribute: %s", error);

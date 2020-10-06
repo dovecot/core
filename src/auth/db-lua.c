@@ -708,7 +708,6 @@ auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_reques
 	pool_t pool = pool_alloconly_create(MEMPOOL_GROWING"lua userdb iterate", 128);
 	struct auth_lua_userdb_iterate_context *actx =
 		p_new(pool, struct auth_lua_userdb_iterate_context, 1);
-	int ret;
 
 	actx->pool = pool;
 	actx->ctx.auth_request = req;
@@ -723,7 +722,7 @@ auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_reques
 
 	e_debug(authdb_event(req), "Calling %s", AUTH_LUA_USERDB_ITERATE);
 
-	if ((ret = lua_pcall(script->L, 0, 1, 0)) != 0) {
+	if (lua_pcall(script->L, 0, 1, 0) != 0) {
 		e_error(authdb_event(req),
 			"db-lua: " AUTH_LUA_USERDB_ITERATE " failed: %s",
 			lua_tostring(script->L, -1));

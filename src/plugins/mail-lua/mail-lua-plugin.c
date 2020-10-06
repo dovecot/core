@@ -62,13 +62,12 @@ static void mail_lua_user_deinit_pre(struct mail_user *user)
 {
 	struct mail_lua_user_context *luser = MAIL_LUA_USER_CONTEXT(user);
 	const char *error;
-	int ret;
 
 	if (luser == NULL)
 		return;
 
-	if ((ret = mail_lua_call_hook(luser->script, user, MAIL_LUA_USER_DEINIT_PRE_FN,
-				      &error)) < 0) {
+	if (mail_lua_call_hook(luser->script, user, MAIL_LUA_USER_DEINIT_PRE_FN,
+			       &error) < 0) {
 		e_error(user->event, "mail-lua: %s", error);
 	}
 
@@ -79,15 +78,14 @@ static void mail_lua_user_deinit(struct mail_user *user)
 {
 	struct mail_lua_user_context *luser = MAIL_LUA_USER_CONTEXT(user);
 	const char *error;
-	int ret;
 
 	if (luser == NULL)
 		return;
 
 	luser->module_ctx.super.deinit(user);
 
-	if ((ret = mail_lua_call_hook(luser->script, user, MAIL_LUA_USER_DEINIT_FN,
-				      &error)) < 0) {
+	if (mail_lua_call_hook(luser->script, user, MAIL_LUA_USER_DEINIT_FN,
+			       &error) < 0) {
 		e_error(user->event, "mail-lua: %s", error);
 	}
 

@@ -188,8 +188,6 @@ push_notification_driver_lua_begin_txn(
 	event_set_name(event, DLUA_CALL_FINISHED);
 	event_add_str(event, "function_name", DLUA_FN_BEGIN_TXN);
 
-	int luaerr;
-
 	/* Start txn and store whatever LUA gives us back, it's our txid */
 	lua_getglobal(ctx->script->L, DLUA_FN_BEGIN_TXN);
 	if (!lua_isfunction(ctx->script->L, -1)) {
@@ -211,7 +209,7 @@ push_notification_driver_lua_begin_txn(
 
 	/* Push mail user as argument */
 	dlua_push_mail_user(ctx->script, user);
-	if ((luaerr = lua_pcall(ctx->script->L, 1, 1, 0)) != 0) {
+	if (lua_pcall(ctx->script->L, 1, 1, 0) != 0) {
 		const char *error = lua_tostring(ctx->script->L, -1);
 		event_add_str(event, "error", error);
 		e_error(event, "%s", error);
@@ -505,7 +503,6 @@ push_notification_driver_lua_call(
 	const struct push_notification_txn_mbox *mbox,
 	struct push_notification_txn_msg *msg)
 {
-	int luaerr;
 	const char *fn =
 		push_notification_driver_lua_to_fn(event->event->event->name);
 	struct event *e = event_create(ctx->event);
@@ -546,7 +543,7 @@ push_notification_driver_lua_call(
 		i_unreached();
 
 	/* Perform call */
-	if ((luaerr = lua_pcall(ctx->script->L, 2, 0, 0)) != 0) {
+	if (lua_pcall(ctx->script->L, 2, 0, 0) != 0) {
 		const char *error = lua_tostring(ctx->script->L, -1);
 		event_add_str(e, "error", error);
 		e_error(e, "%s", error);
