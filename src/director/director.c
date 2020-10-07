@@ -1564,7 +1564,7 @@ director_get_username_hash(struct director *dir, const char *username,
 	if (mail_user_hash(username, dir->set->director_username_hash, hash_r,
 			   &error))
 		return TRUE;
-	e_error(dir->event, "Failed to expand director_user_expire=%s: %s",
+	e_error(dir->event, "Failed to expand director_username_hash=%s: %s",
 		dir->set->director_username_hash, error);
 	return FALSE;
 }
