@@ -183,7 +183,10 @@ static int json_skip_string(struct json_parser *parser)
 			return 1;
 		}
 		if (*parser->data == '\\') {
-			switch (*++parser->data) {
+			parser->data++;
+			if (parser->data == parser->end)
+				break;
+			switch (*parser->data) {
 			case '"':
 			case '\\':
 			case '/':
