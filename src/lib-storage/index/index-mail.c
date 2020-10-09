@@ -1327,7 +1327,7 @@ int index_mail_init_stream(struct index_mail *mail,
 	if (hdr_size != NULL || body_size != NULL || want_attachment_kw) {
 		i_stream_seek(data->stream, 0);
 		if (!data->hdr_size_set || want_attachment_kw) {
-			if ((data->access_part & PARSE_HDR) != 0) {
+			if ((data->access_part & (PARSE_HDR | PARSE_BODY)) != 0) {
 				(void)get_cached_parts(mail);
 				if (index_mail_parse_headers_internal(mail, NULL) < 0)
 					return -1;

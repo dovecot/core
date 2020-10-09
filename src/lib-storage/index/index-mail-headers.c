@@ -447,7 +447,8 @@ int index_mail_parse_headers_internal(struct index_mail *mail,
 
 	index_mail_parse_header_init(mail, headers);
 
-	if (data->parts == NULL || data->save_bodystructure_header) {
+	if (data->parts == NULL || data->save_bodystructure_header ||
+	    (data->access_part & PARSE_BODY) != 0) {
 		/* initialize bodystructure parsing in case we read the whole
 		   message. */
 		index_mail_init_parser(mail);
