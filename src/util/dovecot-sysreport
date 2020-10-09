@@ -2,7 +2,7 @@
 
 set -eu
 
-dest="dovecot-sysreport-$(hostname)-$(date +'%s').tar.gz"
+dest="dovecot-sysreport-$(uname -n)-$(date +'%s').tar.gz"
 conf_flag=""
 binary=""
 core=""
