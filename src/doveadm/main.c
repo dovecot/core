@@ -115,6 +115,7 @@ int main(int argc, char *argv[])
 	};
 	enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN |
+		MASTER_SERVICE_FLAG_HAVE_STARTTLS |
 		MASTER_SERVICE_FLAG_USE_SSL_SETTINGS;
 	struct master_service_settings_input input;
 	struct master_service_settings_output output;
