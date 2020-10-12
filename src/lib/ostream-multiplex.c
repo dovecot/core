@@ -107,6 +107,7 @@ o_stream_multiplex_sendv(struct multiplex_ostream *mstream)
 			propagate_error(mstream, mstream->parent->stream_errno);
 			break;
 		}
+		i_assert((size_t)ret == 1 + 4 + amt);
 		buffer_delete(channel->buf, 0, amt);
 		channel->last_sent_counter = ++mstream->send_counter;
 	}
