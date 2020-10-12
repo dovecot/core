@@ -214,7 +214,7 @@ mail_log_update_wanted_fields(struct mail *mail, enum mail_log_field fields)
 	unsigned int hdr_idx = 0;
 
 	if ((fields & MAIL_LOG_FIELD_MSGID) != 0)
-		headers[hdr_idx++] = "Message-ID";
+		headers[hdr_idx++] = "Message-Id";
 	if ((fields & MAIL_LOG_FIELD_FROM) != 0)
 		headers[hdr_idx++] = "From";
 	if ((fields & MAIL_LOG_FIELD_SUBJECT) != 0)
@@ -271,7 +271,7 @@ mail_log_append_mail_message_real(struct mail_log_mail_txn_context *ctx,
 		str_append(text, ", ");
 	}
 	if ((muser->fields & MAIL_LOG_FIELD_MSGID) != 0) {
-		mail_log_append_mail_header(text, mail, "msgid", "Message-ID");
+		mail_log_append_mail_header(text, mail, "msgid", "Message-Id");
 		str_append(text, ", ");
 	}
 	if ((muser->fields & MAIL_LOG_FIELD_PSIZE) != 0) {

@@ -47,7 +47,7 @@ struct mail_deliver_transaction {
 };
 
 static const char *lda_log_wanted_headers[] = {
-	"From", "Message-ID", "Subject",
+	"From", "Message-Id", "Subject",
 	NULL
 };
 static enum mail_fetch_field lda_log_wanted_fetch_fields =

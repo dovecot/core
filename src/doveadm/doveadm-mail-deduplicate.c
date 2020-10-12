@@ -90,7 +90,7 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 	hash_table_create(&hash, pool, 0, str_hash, strcmp);
 	while (doveadm_mail_iter_next(iter, &mail)) {
 		if (ctx->by_msgid) {
-			if (mail_get_first_header(mail, "Message-ID", &key) < 0) {
+			if (mail_get_first_header(mail, "Message-Id", &key) < 0) {
 				errstr = mailbox_get_last_internal_error(mail->box, &error);
 				if (error == MAIL_ERROR_NOTFOUND)
 					continue;

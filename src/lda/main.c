@@ -45,7 +45,7 @@ struct event_category event_category_lda = {
 };
 
 static const char *wanted_headers[] = {
-	"From", "To", "Message-ID", "Subject", "Return-Path",
+	"From", "To", "Message-Id", "Subject", "Return-Path",
 	NULL
 };
 

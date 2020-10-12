@@ -64,7 +64,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 	string_t *str;
 	int ret;
 
-	if (mail_get_first_header(mail, "Message-ID", &orig_msgid) < 0)
+	if (mail_get_first_header(mail, "Message-Id", &orig_msgid) < 0)
 		orig_msgid = NULL;
 
 	if (mail_get_first_header(mail, "Auto-Submitted", &value) > 0 &&

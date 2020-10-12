@@ -698,7 +698,7 @@ lmtp_local_open_raw_mail(struct lmtp_local *local,
 			 struct istream *input)
 {
 	static const char *wanted_headers[] = {
-		"From", "To", "Message-ID", "Subject", "Return-Path",
+		"From", "To","Message-Id", "Subject", "Return-Path",
 		NULL
 	};
 	struct client *client = local->client;

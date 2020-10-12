@@ -13,7 +13,7 @@
 
 const char *message_part_envelope_headers[] = {
 	"Date", "Subject", "From", "Sender", "Reply-To",
-	"To", "Cc", "Bcc", "In-Reply-To", "Message-ID",
+	"To", "Cc", "Bcc", "In-Reply-To", "Message-Id",
 	NULL
 };
 

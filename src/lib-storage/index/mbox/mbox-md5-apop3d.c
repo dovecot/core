@@ -71,7 +71,7 @@ static bool parse_x_delivery_id(struct mbox_md5_context *ctx,
 static struct mbox_md5_header_func md5_header_funcs[] = {
 	{ "Date", parse_date },
 	{ "Delivered-To", parse_delivered_to },
-	{ "Message-ID", parse_message_id },
+	{ "Message-Id", parse_message_id },
 	{ "Received", parse_received },
 	{ "X-Delivery-ID", parse_x_delivery_id }
 };

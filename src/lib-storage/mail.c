@@ -370,7 +370,7 @@ int mail_get_message_id(struct mail *mail, const char **value_r)
 
 	*value_r = NULL;
 
-	ret = mail_get_first_header(mail, "Message-ID", &hdr_value);
+	ret = mail_get_first_header(mail, "Message-Id", &hdr_value);
 	if (ret <= 0)
 		return ret;
 

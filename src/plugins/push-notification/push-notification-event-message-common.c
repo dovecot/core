@@ -92,7 +92,7 @@ void push_notification_message_fill(
 
 	if ((*message_id == NULL) &&
 	    (event_flags & PUSH_NOTIFICATION_MESSAGE_HDR_MESSAGE_ID) != 0 &&
-	    (mail_get_first_header(mail, "Message-ID", &value) >= 0)) {
+	    (mail_get_first_header(mail, "Message-Id", &value) >= 0)) {
 		*message_id = p_strdup(pool, value);
 	}
 
