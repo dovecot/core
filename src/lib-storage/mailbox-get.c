@@ -97,12 +97,14 @@ mailbox_get_expunges_init(struct mailbox *box, uint64_t prev_modseq,
 					    &reset, &reason);
 	if (ret == 0) {
 		mail_transaction_log_get_tail(box->index->log, &tail_seq);
-		i_assert(tail_seq > log_seq);
-		ret = mail_transaction_log_view_set(log_view, tail_seq, 0,
-					box->view->log_file_head_seq,
-					box->view->log_file_head_offset,
-					&reset, &reason);
-		i_assert(ret != 0);
+		if (tail_seq <= box->view->log_file_head_seq) {
+			i_assert(tail_seq > log_seq);
+			ret = mail_transaction_log_view_set(log_view, tail_seq, 0,
+							    box->view->log_file_head_seq,
+							    box->view->log_file_head_offset,
+							    &reset, &reason);
+			i_assert(ret != 0);
+		}
 		*modseq_too_old_r = TRUE;
 	}
 	if (ret <= 0) {
