@@ -21,12 +21,14 @@ int master_service_ssl_init(struct master_service *service,
 
 	i_assert(service->ssl_ctx_initialized);
 
+	set = master_service_ssl_settings_get(service);
 	if (service->ssl_ctx == NULL) {
-		*error_r = "Failed to initialize SSL context";
+		if (strcmp(set->ssl, "no") == 0)
+			*error_r = "SSL is disabled (ssl=no)";
+		else
+			*error_r = "Failed to initialize SSL context";
 		return -1;
 	}
-
-	set = master_service_ssl_settings_get(service);
 
 	i_zero(&ssl_set);
 	ssl_set.verbose = set->verbose_ssl;
