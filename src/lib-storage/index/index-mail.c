@@ -1794,7 +1794,6 @@ void index_mail_close(struct mail *_mail)
 	/* make sure old mail isn't visible in the event anymore even if it's
 	   attempted to be used. */
 	event_unref(&_mail->event);
-	index_mail_init_event(&mail->mail.mail);
 
 	/* If uid == 0 but seq != 0, we came here from saving a (non-mbox)
 	   message. If that happens, don't bother checking if anything should
@@ -2031,6 +2030,8 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 	mail_index_lookup_uid(_mail->transaction->view, seq,
 			      &mail->mail.mail.uid);
 
+	if (_mail->event == NULL)
+		index_mail_init_event(_mail);
 	event_add_int(_mail->event, "seq", _mail->seq);
 	event_add_int(_mail->event, "uid", _mail->uid);
 	event_set_append_log_prefix(_mail->event, t_strdup_printf(
