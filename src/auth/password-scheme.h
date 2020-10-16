@@ -95,7 +95,6 @@ const char *password_generate_md5_crypt(const char *pw, const char *salt);
 int password_generate_otp(const char *pw, const char *state_data,
 			  unsigned int algo, const char **result_r)
 	ATTR_NULL(2);
-void password_generate_rpa(const char *pw, unsigned char result[]);
 
 int crypt_verify(const char *plaintext,
 		 const struct password_generate_params *params,
