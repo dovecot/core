@@ -72,6 +72,19 @@ int uni_utf8_to_ucs4_n(const unsigned char *input, size_t size,
 void uni_ucs4_to_utf8(const unichar_t *input, size_t len, buffer_t *output);
 void uni_ucs4_to_utf8_c(unichar_t chr, buffer_t *output);
 
+/* Return number of octets needed to encode this codepoint in UTF-8. */
+static inline unsigned int uni_ucs4_to_utf8_len(unichar_t chr)
+{
+	i_assert(uni_is_valid_ucs4(chr));
+	if (chr > 0xFFFF)
+		return 4;
+	if (chr > 0x07FF)
+		return 3;
+	if (chr > 0x007f)
+		return 2;
+	return 1;
+}
+
 /* Returns char_bytes (>0) if *chr_r is set, 0 for incomplete trailing character,
    -1 for invalid input. */
 int uni_utf8_get_char(const char *input, unichar_t *chr_r);
