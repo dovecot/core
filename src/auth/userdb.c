@@ -228,7 +228,6 @@ extern struct userdb_module_interface userdb_prefetch;
 extern struct userdb_module_interface userdb_static;
 extern struct userdb_module_interface userdb_passwd;
 extern struct userdb_module_interface userdb_passwd_file;
-extern struct userdb_module_interface userdb_vpopmail;
 extern struct userdb_module_interface userdb_ldap;
 extern struct userdb_module_interface userdb_sql;
 extern struct userdb_module_interface userdb_checkpassword;
@@ -245,7 +244,6 @@ void userdbs_init(void)
 	userdb_register_module(&userdb_passwd_file);
 	userdb_register_module(&userdb_prefetch);
 	userdb_register_module(&userdb_static);
-	userdb_register_module(&userdb_vpopmail);
 	userdb_register_module(&userdb_ldap);
 	userdb_register_module(&userdb_sql);
 	userdb_register_module(&userdb_checkpassword);

@@ -91,22 +91,6 @@ AS_HELP_STRING([--with-libunwind], [Build with libunwind support (auto)]),
   TEST_WITH(libunwind, $withval),
   want_libunwind=auto)
 
-AC_ARG_WITH(vpopmail,
-AS_HELP_STRING([--with-vpopmail], [Build with vpopmail support (auto)]),
-	if test x$withval = xno; then
-		want_vpopmail=no
-	else
-		if test x$withval = xyes || test x$withval = xauto; then
-			vpopmail_home="`echo ~vpopmail`"
-			want_vpopmail=$withval
-		else
-			vpopmail_home="$withval"
-			want_vpopmail=yes
-		fi
-	fi, [
-		want_vpopmail=no
-	])
-
 # Berkeley DB support is more or less broken. Disabled for now.
 #AC_ARG_WITH(db,
 #AS_HELP_STRING([--with-db], [Build with Berkeley DB support]),

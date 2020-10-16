@@ -706,9 +706,6 @@ static void print_build_options(void)
 #ifdef PASSDB_SQL 
 		" sql"
 #endif
-#ifdef PASSDB_VPOPMAIL
-		" vpopmail"
-#endif
 	"\nUserdb:"
 #ifdef USERDB_CHECKPASSWORD
 		" checkpassword"
@@ -736,9 +733,6 @@ static void print_build_options(void)
 #endif
 #ifdef USERDB_STATIC 
 		" static"
-#endif
-#ifdef USERDB_VPOPMAIL
-		" vpopmail"
 #endif
 	"\n", IO_BLOCK_SIZE);
 }

@@ -11,7 +11,6 @@ example_DATA = \
 	auth-sql.conf.ext \
 	auth-static.conf.ext \
 	auth-system.conf.ext \
-	auth-vpopmail.conf.ext \
 	10-auth.conf \
 	10-director.conf \
 	10-logging.conf \

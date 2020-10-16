@@ -137,7 +137,6 @@ libauth_la_SOURCES = \
 	passdb-passwd-file.c \
 	passdb-pam.c \
 	passdb-shadow.c \
-	passdb-vpopmail.c \
 	passdb-sql.c \
 	passdb-static.c \
 	passdb-template.c \
@@ -149,7 +148,6 @@ libauth_la_SOURCES = \
 	userdb-passwd-file.c \
 	userdb-prefetch.c \
 	userdb-static.c \
-	userdb-vpopmail.c \
 	userdb-sql.c \
 	userdb-template.c \
 	$(ldap_sources) \
@@ -193,8 +191,7 @@ headers = \
 	password-scheme.h \
 	userdb.h \
 	userdb-blocking.h \
-	userdb-template.h \
-	userdb-vpopmail.h
+	userdb-template.h
 
 if GSSAPI_PLUGIN
 libmech_gssapi_la_LDFLAGS = -module -avoid-version
