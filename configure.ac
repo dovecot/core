@@ -81,11 +81,6 @@ AS_HELP_STRING([--with-gssapi=yes|plugin Build with GSSAPI authentication suppor
   TEST_WITH(gssapi, $withval, plugin),
   want_gssapi=no)
 
-AC_ARG_WITH(sia,
-AS_HELP_STRING([--with-sia], [Build with Tru64 SIA support]),
-  TEST_WITH(sia, $withval),
-  want_sia=no)
-
 AC_ARG_WITH(ldap,
 AS_HELP_STRING([--with-ldap=yes|plugin], [Build with LDAP support]),
   TEST_WITH(ldap, $withval, plugin),
@@ -561,7 +556,6 @@ DOVECOT_WANT_PAM
 DOVECOT_WANT_CHECKPASSWORD
 DOVECOT_WANT_BSDAUTH
 DOVECOT_WANT_GSSAPI
-DOVECOT_WANT_SIA
 DOVECOT_WANT_LDAP
 DOVECOT_WANT_DB
 DOVECOT_WANT_CDB
