@@ -601,8 +601,8 @@ fs_set_verror(struct event *event, const char *fmt, va_list args)
 
 	/* free old error after strdup in case args point to the old error */
 	if (file != NULL) {
-		char *old_error = file->last_error;
 		file = fs_file_get_error_file(file);
+		char *old_error = file->last_error;
 
 		if (old_error != NULL && strcmp(old_error, new_error) == 0) {
 			/* identical error - ignore */
