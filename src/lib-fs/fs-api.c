@@ -321,7 +321,8 @@ void fs_file_free(struct fs_file *file)
 		   fs_file_last_error(). Log it to make sure it's not lost.
 		   Note that the errors are always set only to the file at
 		   the root of the parent hierarchy. */
-		e_error(file->event, "%s (in file deinit)", file->last_error);
+		e_error(file->event, "%s (in file %s deinit)",
+			file->last_error, fs_file_path(file));
 	}
 
 	fs_file_deinit(&file->parent);
@@ -608,7 +609,8 @@ fs_set_verror(struct event *event, const char *fmt, va_list args)
 		} else if (file->last_error_changed) {
 			/* multiple fs_set_error() calls used without
 			   fs_file_last_error() in the middle. */
-			e_error(file->event, "%s (overwriting error)", old_error);
+			e_error(file->event, "%s (overwriting error for file %s)",
+				old_error, fs_file_path(file));
 		}
 		if (errno == EAGAIN || errno == ENOENT || errno == EEXIST ||
 		    errno == ENOTEMPTY) {
@@ -630,8 +632,8 @@ fs_set_verror(struct event *event, const char *fmt, va_list args)
 		} else if (iter->last_error != NULL) {
 			/* multiple fs_set_error() calls before the iter
 			   finishes */
-			e_error(iter->fs->event, "%s (overwriting error)",
-				iter->last_error);
+			e_error(iter->fs->event, "%s (overwriting error for file %s)",
+				iter->last_error, fs_file_path(file));
 		}
 		i_free(iter->last_error);
 		iter->last_error = new_error;
