@@ -604,7 +604,9 @@ fs_set_verror(struct event *event, const char *fmt, va_list args)
 		file = fs_file_get_error_file(file);
 		char *old_error = file->last_error;
 
-		if (old_error != NULL && strcmp(old_error, new_error) == 0) {
+		if (old_error == NULL) {
+			i_assert(!file->last_error_changed);
+		} else if (strcmp(old_error, new_error) == 0) {
 			/* identical error - ignore */
 		} else if (file->last_error_changed) {
 			/* multiple fs_set_error() calls used without
