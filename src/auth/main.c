@@ -43,7 +43,6 @@ enum auth_socket_type {
 	AUTH_SOCKET_LOGIN_CLIENT,
 	AUTH_SOCKET_MASTER,
 	AUTH_SOCKET_USERDB,
-	AUTH_SOCKET_POSTFIX,
 	AUTH_SOCKET_TOKEN,
 	AUTH_SOCKET_TOKEN_LOGIN
 };
@@ -121,8 +120,6 @@ auth_socket_type_get(const char *path)
 		return AUTH_SOCKET_MASTER;
 	else if (strcmp(suffix, "userdb") == 0)
 		return AUTH_SOCKET_USERDB;
-	else if (strcmp(suffix, "postmap") == 0)
-		return AUTH_SOCKET_POSTFIX;
 	else if (strcmp(suffix, "token") == 0)
 		return AUTH_SOCKET_TOKEN;
 	else if (strcmp(suffix, "tokenlogin") == 0)
@@ -336,9 +333,6 @@ static void client_connected(struct master_service_connection *conn)
 	case AUTH_SOCKET_USERDB:
 		(void)auth_master_connection_create(auth, conn->fd,
 						    l->path, &l->st, TRUE);
-		break;
-	case AUTH_SOCKET_POSTFIX:
-		e_error(auth_event, "postfix socketmap is no longer supported");
 		break;
 	case AUTH_SOCKET_LOGIN_CLIENT:
 		auth_client_connection_create(auth, conn->fd, TRUE, FALSE);
