@@ -89,6 +89,7 @@ static inline unsigned int uni_ucs4_to_utf8_len(unichar_t chr)
    -1 for invalid input. */
 int uni_utf8_get_char(const char *input, unichar_t *chr_r);
 int uni_utf8_get_char_n(const void *input, size_t max_len, unichar_t *chr_r);
+int uni_utf8_get_char_buf(const void *buffer, size_t size, unichar_t *chr_r);
 /* Returns number of characters in UTF-8 string. */
 unsigned int uni_utf8_strlen(const char *input) ATTR_PURE;
 /* Returns number of characters in UTF-8 input of specified size. */

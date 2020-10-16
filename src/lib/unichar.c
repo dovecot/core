@@ -29,22 +29,18 @@ unsigned int uni_strlen(const unichar_t *str)
 	return len;
 }
 
-int uni_utf8_get_char(const char *input, unichar_t *chr_r)
-{
-	return uni_utf8_get_char_n((const unsigned char *)input, SIZE_MAX,
-				   chr_r);
-}
-
-int uni_utf8_get_char_n(const void *_input, size_t max_len, unichar_t *chr_r)
+static int
+uni_utf8_parse_char(const void *_buffer, size_t size, bool cstr,
+		    unichar_t *chr_r)
 {
 	static unichar_t lowest_valid_chr_table[] =
 		{ 0, 0, 0x80, 0x800, 0x10000, 0x200000, 0x4000000 };
-	const unsigned char *input = _input;
+	const unsigned char *input = _buffer;
 	unichar_t chr, lowest_valid_chr;
 	unsigned int i, len;
 	int ret;
 
-	i_assert(max_len > 0);
+	i_assert(size > 0);
 
 	if (*input < 0x80) {
 		*chr_r = *input;
@@ -77,20 +73,20 @@ int uni_utf8_get_char_n(const void *_input, size_t max_len, unichar_t *chr_r)
 		return -1;
 	}
 
-	if (len <= max_len) {
+	if (len <= size) {
 		lowest_valid_chr = lowest_valid_chr_table[len];
 		ret = len;
 	} else {
 		/* check first if the input is invalid before returning 0 */
 		lowest_valid_chr = 0;
 		ret = 0;
-		len = max_len;
+		len = size;
 	}
 
 	/* the following bytes must all be 10xxxxxx */
 	for (i = 1; i < len; i++) {
 		if ((input[i] & 0xc0) != 0x80) {
-			return (max_len == SIZE_MAX && input[i] == '\0' ?
+			return (cstr && size == SIZE_MAX && input[i] == '\0' ?
 				0 : -1);
 		}
 
@@ -108,6 +104,21 @@ int uni_utf8_get_char_n(const void *_input, size_t max_len, unichar_t *chr_r)
 
 	*chr_r = chr;
 	return ret;
+}
+
+int uni_utf8_get_char(const char *input, unichar_t *chr_r)
+{
+	return uni_utf8_parse_char(input, SIZE_MAX, TRUE, chr_r);
+}
+
+int uni_utf8_get_char_n(const void *input, size_t max_len, unichar_t *chr_r)
+{
+	return uni_utf8_parse_char(input, max_len, TRUE, chr_r);
+}
+
+int uni_utf8_get_char_buf(const void *buffer, size_t size, unichar_t *chr_r)
+{
+	return uni_utf8_parse_char(buffer, size, FALSE, chr_r);
 }
 
 int uni_utf8_to_ucs4(const char *input, ARRAY_TYPE(unichars) *output)
