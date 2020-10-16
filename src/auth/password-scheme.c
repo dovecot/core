@@ -775,19 +775,6 @@ skey_generate(const char *plaintext, const struct password_generate_params *para
 	*size_r = strlen(password);
 }
 
-static void
-rpa_generate(const char *plaintext, const struct password_generate_params *params ATTR_UNUSED,
-	     const unsigned char **raw_password_r, size_t *size_r)
-{
-	unsigned char *digest;
-
-	digest = t_malloc_no0(MD5_RESULTLEN);
-	password_generate_rpa(plaintext, digest);
-
-	*raw_password_r = digest;
-	*size_r = MD5_RESULTLEN;
-}
-
 static const struct password_scheme builtin_schemes[] = {
 	{ "MD5", PW_ENCODING_NONE, 0, md5_verify, md5_crypt_generate },
 	{ "MD5-CRYPT", PW_ENCODING_NONE, 0,
@@ -826,7 +813,6 @@ static const struct password_scheme builtin_schemes[] = {
 	{ "NTLM", PW_ENCODING_HEX, NTLMSSP_HASH_SIZE, NULL, ntlm_generate },
 	{ "OTP", PW_ENCODING_NONE, 0, otp_verify, otp_generate },
 	{ "SKEY", PW_ENCODING_NONE, 0, otp_verify, skey_generate },
-	{ "RPA", PW_ENCODING_HEX, MD5_RESULTLEN, NULL, rpa_generate },
         { "PBKDF2", PW_ENCODING_NONE, 0, pbkdf2_verify, pbkdf2_generate },
 };
 

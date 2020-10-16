@@ -56,7 +56,6 @@ libpassword_la_SOURCES = \
 	password-scheme-md5crypt.c \
 	password-scheme-scram.c \
 	password-scheme-otp.c \
-	password-scheme-rpa.c \
 	password-scheme-pbkdf2.c \
 	password-scheme-sodium.c
 libpassword_la_CFLAGS = $(AM_CPPFLAGS) $(LIBSODIUM_CFLAGS)
@@ -124,7 +123,6 @@ libauth_la_SOURCES = \
 	mech-otp.c \
 	mech-scram.c \
 	mech-skey.c \
-	mech-rpa.c \
 	mech-apop.c \
 	mech-winbind.c \
 	mech-dovecot-token.c \

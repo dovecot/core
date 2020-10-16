@@ -111,7 +111,6 @@ static void test_password_schemes(void)
 	test_password_scheme("MD5-CRYPT", "{MD5-CRYPT}$1$GgvxyNz8$OjZhLh4P.gF1lxYEbLZ3e/", "test");
 	test_password_scheme("OTP", "{OTP}sha1 1024 ae6b49aa481f7233 f69fc7f98b8fbf54", "test");
 	test_password_scheme("PBKDF2", "{PBKDF2}$1$bUnT4Pl7yFtYX0KU$5000$50a83cafdc517b9f46519415e53c6a858908680a", "test");
-	test_password_scheme("RPA", "{RPA}f89cb77d46507afe985d80822b6b6c39", "test");
 	test_password_scheme("SKEY", "{SKEY}md4 1024 ce20d20fae368ff2 689aea1b24ed6438", "test");
 	test_password_scheme("CRAM-MD5", "{CRAM-MD5}e02d374fde0dc75a17a557039a3a5338c7743304777dccd376f332bee68d2cf6", "test");
 	test_password_scheme("DIGEST-MD5", "{DIGEST-MD5}77c1a8c437c9b08ba2f460fe5d58db5d", "test");
