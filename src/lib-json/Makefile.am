@@ -36,7 +36,14 @@ test_programs = \
 	test-json-tree \
 	test-json-tree-io
 
-noinst_PROGRAMS = json-format $(test_programs)
+fuzz_programs =
+
+if USE_FUZZER
+fuzz_programs += \
+        fuzz-json-istream
+endif
+
+noinst_PROGRAMS = json-format $(test_programs) $(fuzz_programs)
 
 json_format_SOURCE = \
 	json-format.c
@@ -109,6 +116,18 @@ test_json_tree_io_DEPENDENCIES = \
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
+
+nodist_EXTRA_fuzz_json_istream_SOURCES = force-cxx-linking.cxx
+fuzz_json_istream_CPPFLAGS = \
+	$(FUZZER_CPPFLAGS)
+fuzz_json_istream_LDFLAGS = \
+	$(FUZZER_LDFLAGS)
+fuzz_json_istream_SOURCES = \
+	fuzz-json-istream.c
+fuzz_json_istream_LDADD = \
+	$(test_libs)
+fuzz_json_istream_DEPENDENCIES = \
+	$(test_deps)
 
 check: check-am check-test
 check-test: all-am
