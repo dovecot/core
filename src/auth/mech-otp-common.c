@@ -1,5 +1,5 @@
 /*
- * Common code for OTP and SKEY authentication mechanisms.
+ * Common code for OTP authentication mechanisms.
  *
  * Copyright (c) 2006 Andrey Panin <pazke@donpac.ru>
  *
@@ -11,7 +11,7 @@
 #include "mech.h"
 
 #include "otp.h"
-#include "mech-otp-skey-common.h"
+#include "mech-otp-common.h"
 
 static HASH_TABLE(char *, struct auth_request *) otp_lock_table;
 
@@ -58,7 +58,7 @@ void otp_set_credentials_callback(bool success,
 	otp_unlock(auth_request);
 }
 
-void mech_otp_skey_auth_free(struct auth_request *auth_request)
+void mech_otp_auth_free(struct auth_request *auth_request)
 {
 	otp_unlock(auth_request);
 

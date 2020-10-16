@@ -20,7 +20,7 @@
 #include "passdb-cache.h"
 #include "mech.h"
 #include "otp.h"
-#include "mech-otp-skey-common.h"
+#include "mech-otp-common.h"
 #include "auth.h"
 #include "auth-penalty.h"
 #include "auth-token.h"

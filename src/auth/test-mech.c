@@ -9,7 +9,7 @@
 #include "auth-settings.h"
 #include "mech-digest-md5-private.h"
 #include "otp.h"
-#include "mech-otp-skey-common.h"
+#include "mech-otp-common.h"
 #include "settings-parser.h"
 #include "password-scheme.h"
 #include "auth-token.h"

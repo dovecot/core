@@ -763,18 +763,6 @@ otp_generate(const char *plaintext, const struct password_generate_params *param
 	*size_r = strlen(password);
 }
 
-static void
-skey_generate(const char *plaintext, const struct password_generate_params *params ATTR_UNUSED,
-	      const unsigned char **raw_password_r, size_t *size_r)
-{
-	const char *password;
-
-	if (password_generate_otp(plaintext, NULL, OTP_HASH_MD4, &password) < 0)
-		i_unreached();
-	*raw_password_r = (const unsigned char *)password;
-	*size_r = strlen(password);
-}
-
 static const struct password_scheme builtin_schemes[] = {
 	{ "MD5", PW_ENCODING_NONE, 0, md5_verify, md5_crypt_generate },
 	{ "MD5-CRYPT", PW_ENCODING_NONE, 0,
@@ -812,7 +800,6 @@ static const struct password_scheme builtin_schemes[] = {
 	{ "LANMAN", PW_ENCODING_HEX, LM_HASH_SIZE, NULL, lm_generate },
 	{ "NTLM", PW_ENCODING_HEX, NTLMSSP_HASH_SIZE, NULL, ntlm_generate },
 	{ "OTP", PW_ENCODING_NONE, 0, otp_verify, otp_generate },
-	{ "SKEY", PW_ENCODING_NONE, 0, otp_verify, skey_generate },
         { "PBKDF2", PW_ENCODING_NONE, 0, pbkdf2_verify, pbkdf2_generate },
 };
 
