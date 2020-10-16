@@ -324,7 +324,6 @@ extern struct passdb_module_interface passdb_checkpassword;
 extern struct passdb_module_interface passdb_vpopmail;
 extern struct passdb_module_interface passdb_ldap;
 extern struct passdb_module_interface passdb_sql;
-extern struct passdb_module_interface passdb_sia;
 extern struct passdb_module_interface passdb_static;
 extern struct passdb_module_interface passdb_oauth2;
 
@@ -345,7 +344,6 @@ void passdbs_init(void)
 	passdb_register_module(&passdb_vpopmail);
 	passdb_register_module(&passdb_ldap);
 	passdb_register_module(&passdb_sql);
-	passdb_register_module(&passdb_sia);
 	passdb_register_module(&passdb_static);
 	passdb_register_module(&passdb_oauth2);
 }

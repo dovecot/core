@@ -140,7 +140,6 @@ libauth_la_SOURCES = \
 	passdb-passwd-file.c \
 	passdb-pam.c \
 	passdb-shadow.c \
-	passdb-sia.c \
 	passdb-vpopmail.c \
 	passdb-sql.c \
 	passdb-static.c \
