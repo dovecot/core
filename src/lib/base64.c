@@ -692,7 +692,7 @@ int base64_decode_more(struct base64_decoder *dec,
 			dec->sub_pos++;
 			break;
 		case 2:
-			dec->buf = (dec->buf << 4) | (dm >> 2);
+			dec->buf = ((dec->buf << 4) & 0xff) | (dm >> 2);
 			buffer_append_c(dest, dec->buf);
 			dst_avail--;
 			dec->buf = dm;

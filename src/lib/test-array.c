@@ -204,7 +204,8 @@ static void test_array_cmp(void)
 		unsigned int j = i_rand_limit(NELEMS);
 		const unsigned short *ptmp = array_idx(&arr2, j);
 		unsigned short tmp = *ptmp;
-		unsigned short repl = tmp + deltas[i_rand_limit(N_ELEMENTS(deltas))];
+		unsigned short repl = ((unsigned int)tmp +
+			deltas[i_rand_limit(N_ELEMENTS(deltas))]) & 0xffff;
 
 		array_idx_set(&arr2, j, &repl);
 		test_assert_idx(array_cmp(&arr1, &arr2) == (tmp == repl), i);

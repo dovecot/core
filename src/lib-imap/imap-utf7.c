@@ -214,7 +214,7 @@ static int mbase64_decode_to_utf8(string_t *dest, const char **_src)
 			break;
 		}
 
-		output[outpos % 4] = (input[1] << 4) | (input[2] >> 2);
+		output[outpos % 4] = ((input[1] << 4) & 0xff) | (input[2] >> 2);
 		if (++outpos % 4 == outstart) {
 			if (utf16buf_to_utf8(dest, output, &outstart, 4) < 0)
 				return -1;

@@ -85,7 +85,7 @@ static void test_istream_seekable_random(void)
 		data_len = i_rand_minmax(1, 100);
 		w_data = t_malloc_no0(data_len);
 		for (j = 0; j < data_len; j++)
-			w_data[j] = offset++;
+			w_data[j] = (offset++) & 0xff;
 		streams[i] = test_istream_create_data(w_data, data_len);
 		streams[i]->seekable = FALSE;
 		test_istream_set_allow_eof(streams[i], TRUE);
