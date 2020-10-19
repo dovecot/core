@@ -290,9 +290,13 @@ static void
 openmetrics_export_submetric(struct openmetrics_request *req, string_t *out,
 			     const struct metric *metric, int64_t timestamp)
 {
-	str_append_c(req->labels, '"');
-	json_append_escaped(req->labels, metric->sub_name);
-	str_append_c(req->labels, '"');
+	/* This metric may be a submetric and therefore have a label
+	   associated with it. */
+	if (metric->sub_name != NULL) {
+		str_append_c(req->labels, '"');
+		json_append_escaped(req->labels, metric->sub_name);
+		str_append_c(req->labels, '"');
+	}
 
 	if (req->metric_type == OPENMETRICS_METRIC_TYPE_HISTOGRAM) {
 		if (metric->group_by == NULL ||
