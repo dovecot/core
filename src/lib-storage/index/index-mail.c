@@ -508,11 +508,25 @@ static void index_mail_try_set_body_size(struct index_mail *mail)
 		   However, don't do this if there's a possibility that
 		   physical_size or virtual_size don't actually match the
 		   mail stream's size (e.g. buggy imapc servers). */
-		data->body_size.physical_size = data->physical_size -
-			data->hdr_size.physical_size;
-		data->body_size.virtual_size = data->virtual_size -
-			data->hdr_size.virtual_size;
-		data->body_size_set = TRUE;
+		if (data->physical_size < data->hdr_size.physical_size) {
+			mail_set_cache_corrupted(&mail->mail.mail,
+				MAIL_FETCH_PHYSICAL_SIZE, t_strdup_printf(
+				"Cached physical size smaller than header size "
+				"(%"PRIuUOFF_T" < %"PRIuUOFF_T")",
+				data->physical_size, data->hdr_size.physical_size));
+		} else if (data->virtual_size < data->hdr_size.virtual_size) {
+			mail_set_cache_corrupted(&mail->mail.mail,
+				MAIL_FETCH_VIRTUAL_SIZE, t_strdup_printf(
+				"Cached virtual size smaller than header size "
+				"(%"PRIuUOFF_T" < %"PRIuUOFF_T")",
+				data->virtual_size, data->hdr_size.virtual_size));
+		} else {
+			data->body_size.physical_size = data->physical_size -
+				data->hdr_size.physical_size;
+			data->body_size.virtual_size = data->virtual_size -
+				data->hdr_size.virtual_size;
+			data->body_size_set = TRUE;
+		}
 	}
 }
 
