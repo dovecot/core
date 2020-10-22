@@ -266,8 +266,10 @@ ssize_t i_stream_read(struct istream *stream)
 	}
 #endif
 
-	_stream->prev_snapshot =
-		_stream->snapshot(_stream, _stream->prev_snapshot);
+	if (_stream->skip != _stream->pos || _stream->prev_snapshot != NULL) {
+		_stream->prev_snapshot =
+			_stream->snapshot(_stream, _stream->prev_snapshot);
+	}
 	ret = i_stream_read_memarea(stream);
 	if (ret > 0)
 		i_stream_snapshot_free(&_stream->prev_snapshot);
