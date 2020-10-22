@@ -588,8 +588,8 @@ static void db_oauth2_process_fields(struct db_oauth2_request *req,
 {
 	*error_r = NULL;
 
-	if (db_oauth2_validate_username(req, result_r, error_r) &&
-	    db_oauth2_user_is_enabled(req, result_r, error_r) &&
+	if (db_oauth2_user_is_enabled(req, result_r, error_r) &&
+	    db_oauth2_validate_username(req, result_r, error_r) &&
 	    db_oauth2_token_in_scope(req, result_r, error_r) &&
 	    db_oauth2_template_export(req, result_r, error_r)) {
 		*result_r = PASSDB_RESULT_OK;
@@ -690,6 +690,8 @@ db_oauth2_lookup_continue(struct oauth2_request_result *result,
 		} else if (req->db->oauth2_set.introspection_mode == INTROSPECTION_MODE_LOCAL) {
 			db_oauth2_local_validation(req, req->token);
 			return;
+		} else if (!db_oauth2_user_is_enabled(req, &passdb_result, &error)) {
+			db_oauth2_callback(req, passdb_result, error);
 		} else if (*req->db->set.introspection_url != '\0') {
 			db_oauth2_lookup_introspect(req);
 			return;
