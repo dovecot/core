@@ -48,7 +48,7 @@ mail_transaction_log_mark_corrupted(struct mail_transaction_log_file *file)
 			file->filepath, "fcntl(F_GETFL)");
 		return;
 	}
-	if (fcntl(file->fd, F_SETFL, flags & ENUM_NEGATE(O_APPEND)) < 0) {
+	if (fcntl(file->fd, F_SETFL, flags & ~O_APPEND) < 0) {
 		mail_index_file_set_syscall_error(file->log->index,
 			file->filepath, "fcntl(F_SETFL)");
 		return;
