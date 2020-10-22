@@ -545,8 +545,8 @@ db_oauth2_user_is_enabled(struct db_oauth2_request *req,
 		if (active_value == NULL ||
 		    (*req->db->set.active_value != '\0' &&
 		     strcmp(req->db->set.active_value, active_value) != 0)) {
-			*error_r = "User account is not active";
-			*result_r = PASSDB_RESULT_USER_DISABLED;
+			*error_r = "Provided token is not valid";
+			*result_r = PASSDB_RESULT_PASSWORD_MISMATCH;
 			return FALSE;
 		}
 	}
