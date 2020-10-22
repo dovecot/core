@@ -162,7 +162,8 @@ static ssize_t read_more(struct seekable_istream *sstream)
 		sstream->cur_input = sstream->input[sstream->cur_idx++];
 		if (sstream->cur_input == NULL) {
 			/* last one, EOF */
-			sstream->size = sstream->istream.istream.v_offset;
+			sstream->size = sstream->istream.istream.v_offset +
+				(sstream->istream.pos - sstream->istream.skip);
 			sstream->istream.istream.eof = TRUE;
 			/* Now that EOF is reached, the stream can't return 0
 			   anymore. Callers can now use this stream in places

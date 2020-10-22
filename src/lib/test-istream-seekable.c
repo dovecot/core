@@ -216,6 +216,23 @@ static void test_istream_seekable_invalid_read(void)
 	test_end();
 }
 
+static void test_istream_seekable_get_size(void)
+{
+	test_begin("istream seekable get size");
+	struct istream *str_input = test_istream_create("123456");
+	str_input->seekable = FALSE;
+	struct istream *seek_inputs[] = { str_input, NULL };
+	struct istream *input = i_stream_create_seekable(seek_inputs, 32, fd_callback, NULL);
+	uoff_t size;
+	test_assert(i_stream_read(input) == 6);
+	test_assert(i_stream_read(input) == -1);
+	test_assert(i_stream_get_size(input, TRUE, &size) == 1 &&
+		    size == 6);
+	i_stream_unref(&input);
+	i_stream_unref(&str_input);
+	test_end();
+}
+
 void test_istream_seekable(void)
 {
 	unsigned int i;
@@ -234,4 +251,5 @@ void test_istream_seekable(void)
 	test_istream_seekable_eof();
 	test_istream_seekable_early_end();
 	test_istream_seekable_invalid_read();
+	test_istream_seekable_get_size();
 }
