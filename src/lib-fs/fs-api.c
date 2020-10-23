@@ -635,7 +635,7 @@ fs_set_verror(struct event *event, const char *fmt, va_list args)
 			/* multiple fs_set_error() calls before the iter
 			   finishes */
 			e_error(iter->fs->event, "%s (overwriting error for file %s)",
-				iter->last_error, fs_file_path(file));
+				iter->last_error, iter->path);
 		}
 		i_free(iter->last_error);
 		iter->last_error = new_error;
@@ -1246,6 +1246,7 @@ fs_iter_init_with_event(struct fs *fs, struct event *event,
 		iter = fs->v.iter_alloc();
 		iter->fs = fs;
 		iter->flags = flags;
+		iter->path = i_strdup(path);
 		iter->event = fs_create_event(fs, event);
 		event_set_ptr(iter->event, FS_EVENT_FIELD_FS, fs);
 		event_set_ptr(iter->event, FS_EVENT_FIELD_ITER, iter);
@@ -1281,6 +1282,7 @@ int fs_iter_deinit(struct fs_iter **_iter, const char **error_r)
 	if (ret < 0)
 		*error_r = t_strdup(iter->last_error);
 	i_free(iter->last_error);
+	i_free(iter->path);
 	i_free(iter);
 	event_unref(&event);
 	return ret;

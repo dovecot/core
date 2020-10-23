@@ -155,6 +155,7 @@ struct fs_iter {
 
 	struct fs *fs;
 	struct event *event;
+	char *path;
 	enum fs_iter_flags flags;
 	struct timeval start_time;
 	char *last_error;
