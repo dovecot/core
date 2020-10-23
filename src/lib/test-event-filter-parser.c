@@ -206,7 +206,7 @@ static void testcase(const char *name, const char *input, const char *exp,
 	const char *error;
 	int ret;
 
-	test_begin(t_strdup_printf("event filter parser: %s: %s", name, input));
+	test_begin(t_strdup_printf("event filter parser: %s", name));
 
 	filter = event_filter_create();
 	ret = event_filter_parse(input, filter, &error);
@@ -218,9 +218,11 @@ static void testcase(const char *name, const char *input, const char *exp,
 
 		event_filter_export(filter, tmp);
 
-		test_assert_strcmp(exp, str_c(tmp));
+		test_out_quiet(t_strdup_printf("input: %s", input),
+			       strcmp(exp, str_c(tmp)) == 0);
 	} else {
-		test_assert(str_begins(error, exp));
+		test_out_quiet(t_strdup_printf("input: %s", input),
+			       str_begins(error, exp));
 	}
 
 	event_filter_unref(&filter);
