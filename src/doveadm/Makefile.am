@@ -36,7 +36,6 @@ AM_CPPFLAGS = \
 
 cmd_pw_libs = \
 	../auth/libpassword.la \
-	../lib-ntlm/libntlm.la \
 	../lib-otp/libotp.la
 
 libs = \

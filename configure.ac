@@ -836,7 +836,6 @@ src/lib-ldap/Makefile
 src/lib-lua/Makefile
 src/lib-mail/Makefile
 src/lib-master/Makefile
-src/lib-ntlm/Makefile
 src/lib-program-client/Makefile
 src/lib-otp/Makefile
 src/lib-dovecot/Makefile

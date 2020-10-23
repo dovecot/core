@@ -40,7 +40,6 @@ SUBDIRS = \
 	lib-index \
 	lib-storage \
 	lib-sql \
-	lib-ntlm \
 	lib-otp \
 	lib-lda \
 	lib-dict-backend \

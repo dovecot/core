@@ -71,7 +71,6 @@ extern const struct mech_module mech_apop;
 extern const struct mech_module mech_cram_md5;
 extern const struct mech_module mech_digest_md5;
 extern const struct mech_module mech_external;
-extern const struct mech_module mech_ntlm;
 extern const struct mech_module mech_otp;
 extern const struct mech_module mech_scram_sha1;
 extern const struct mech_module mech_scram_sha256;
@@ -203,7 +202,6 @@ void mech_init(const struct auth_settings *set)
 		mech_register_module(&mech_winbind_ntlm);
 		mech_register_module(&mech_winbind_spnego);
 	} else {
-		mech_register_module(&mech_ntlm);
 #if defined(HAVE_GSSAPI_SPNEGO) && defined(BUILTIN_GSSAPI)
 		mech_register_module(&mech_gssapi_spnego);
 #endif
@@ -231,7 +229,6 @@ void mech_deinit(const struct auth_settings *set)
 		mech_unregister_module(&mech_winbind_ntlm);
 		mech_unregister_module(&mech_winbind_spnego);
 	} else {
-		mech_unregister_module(&mech_ntlm);
 #if defined(HAVE_GSSAPI_SPNEGO) && defined(BUILTIN_GSSAPI)
 		mech_unregister_module(&mech_gssapi_spnego);
 #endif

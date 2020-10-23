@@ -100,8 +100,6 @@ static void test_password_schemes(void)
 	test_password_scheme("PLAIN-MD4", "{PLAIN-MD4}db346d691d7acc4dc2625db19f9e3f52", "test");
 	test_password_scheme("MD5", "{MD5}$1$wmyrgRuV$kImF6.9MAFQNHe23kq5vI/", "test");
 	test_password_scheme("SHA1", "{SHA1}qUqP5cyxm6YcTAhz05Hph5gvu9M=", "test");
-	test_password_scheme("LANMAN", "{LANMAN}01fc5a6be7bc6929aad3b435b51404ee", "test");
-	test_password_scheme("NTLM", "{NTLM}0cb6948805f797bf2a82807973b89537", "test");
 	test_password_scheme("SMD5", "{SMD5}JTu1KRwptKZJg/RLd+6Vn5GUd0M=", "test");
 	test_password_scheme("LDAP-MD5", "{LDAP-MD5}CY9rzUYh03PK3k6DJie09g==", "test");
 	test_password_scheme("SHA256", "{SHA256}n4bQgYhMfWWaL+qgxVrQFaO/TxsrC4Is0V1sFbDwCgg=", "test");
