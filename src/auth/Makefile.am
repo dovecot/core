@@ -32,7 +32,6 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-sql \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-old-stats \
-	-I$(top_srcdir)/src/lib-ntlm \
 	-I$(top_srcdir)/src/lib-otp \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-oauth2 \
@@ -72,7 +71,6 @@ auth_libs = \
 	libauth.la \
 	libstats_auth.la \
 	libpassword.la \
-	../lib-ntlm/libntlm.la \
 	../lib-otp/libotp.la \
 	$(LIBDOVECOT_LUA) \
 	$(LIBDOVECOT_SQL)
@@ -119,7 +117,6 @@ libauth_la_SOURCES = \
 	mech-digest-md5.c \
 	mech-external.c \
 	mech-gssapi.c \
-	mech-ntlm.c \
 	mech-otp.c \
 	mech-scram.c \
 	mech-apop.c \
@@ -258,7 +255,6 @@ test_libs = \
 test_libpassword_SOURCES = test-libpassword.c
 test_libpassword_LDADD = \
 	libpassword.la \
-	../lib-ntlm/libntlm.la \
         ../lib-otp/libotp.la \
 	$(CRYPT_LIBS) \
 	$(LIBDOVECOT_SQL) \

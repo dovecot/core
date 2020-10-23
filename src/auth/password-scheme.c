@@ -9,7 +9,6 @@
 #include "md5.h"
 #include "hmac.h"
 #include "hmac-cram-md5.h"
-#include "ntlm.h"
 #include "mycrypt.h"
 #include "randgen.h"
 #include "sha1.h"
@@ -710,32 +709,6 @@ plain_md5_generate(const char *plaintext, const struct password_generate_params 
 	*size_r = MD5_RESULTLEN;
 }
 
-static void
-lm_generate(const char *plaintext, const struct password_generate_params *params ATTR_UNUSED,
-	    const unsigned char **raw_password_r, size_t *size_r)
-{
-	unsigned char *digest;
-
-	digest = t_malloc_no0(LM_HASH_SIZE);
-	lm_hash(plaintext, digest);
-
-	*raw_password_r = digest;
-	*size_r = LM_HASH_SIZE;
-}
-
-static void
-ntlm_generate(const char *plaintext, const struct password_generate_params *params ATTR_UNUSED,
-	      const unsigned char **raw_password_r, size_t *size_r)
-{
-	unsigned char *digest;
-
-	digest = t_malloc_no0(NTLMSSP_HASH_SIZE);
-	ntlm_v1_hash(plaintext, digest);
-
-	*raw_password_r = digest;
-	*size_r = NTLMSSP_HASH_SIZE;
-}
-
 static int otp_verify(const char *plaintext, const struct password_generate_params *params ATTR_UNUSED,
 		      const unsigned char *raw_password, size_t size,
 		      const char **error_r)
@@ -797,8 +770,6 @@ static const struct password_scheme builtin_schemes[] = {
 	  NULL, plain_md5_generate },
 	{ "LDAP-MD5", PW_ENCODING_BASE64, MD5_RESULTLEN,
 	  NULL, plain_md5_generate },
-	{ "LANMAN", PW_ENCODING_HEX, LM_HASH_SIZE, NULL, lm_generate },
-	{ "NTLM", PW_ENCODING_HEX, NTLMSSP_HASH_SIZE, NULL, ntlm_generate },
 	{ "OTP", PW_ENCODING_NONE, 0, otp_verify, otp_generate },
         { "PBKDF2", PW_ENCODING_NONE, 0, pbkdf2_verify, pbkdf2_generate },
 };
