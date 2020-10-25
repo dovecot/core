@@ -289,9 +289,8 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 static struct auth_request *mech_oauth2_auth_new(void)
 {
 	struct oauth2_auth_request *request;
-	pool_t pool;
-
-	pool = pool_alloconly_create(MEMPOOL_GROWING"oauth2_auth_request", 2048);
+	pool_t pool = pool_alloconly_create_clean(MEMPOOL_GROWING
+						  "oauth2_auth_request", 2048);
 	request = p_new(pool, struct oauth2_auth_request, 1);
 	request->auth.pool = pool;
 	request->db_req.pool = pool;
