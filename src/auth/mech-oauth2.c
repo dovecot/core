@@ -102,7 +102,7 @@ mech_oauth2_verify_token_continue(struct db_oauth2_request *db_request,
 	struct auth_request *auth_request = &oauth2_req->auth;
 	if (result != PASSDB_RESULT_OK) {
 		e_error(auth_request->mech_event, "%s", error);
-		oauth2_req->callback(result, NULL, 0, auth_request);
+		oauth2_verify_callback(result, NULL, 0, auth_request);
 		return;
 	}
 	db_request->auth_request->passdb_success = TRUE;
