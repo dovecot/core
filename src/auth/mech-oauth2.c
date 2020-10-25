@@ -1,14 +1,12 @@
 /* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
-#include "safe-memset.h"
 #include "str.h"
+#include "json-generator.h"
 #include "mech.h"
 #include "passdb.h"
 #include "db-oauth2.h"
 #include "oauth2.h"
-#include "json-ostream.h"
-#include <ctype.h>
 
 struct oauth2_auth_request {
 	struct auth_request auth;
@@ -43,22 +41,32 @@ static bool oauth2_unescape_username(const char *in, const char **username_r)
 }
 
 static void
-oauth2_send_error(struct oauth2_auth_request *oauth2_req, int code)
+oauth2_send_failure(struct oauth2_auth_request *oauth2_req, int code,
+		    const char *status)
 {
 	struct auth_request *request = &oauth2_req->auth;
-	const char *error;
+	const char *oidc_url = db_oauth2_get_openid_configuration_url(oauth2_req->db);
+	string_t *str = t_str_new(256);
+	struct json_generator *gen = json_generator_init_str(str, 0);
+	json_generate_object_open(gen);
+
 	if (strcmp(request->mech->mech_name, "XOAUTH2") == 0) {
-		error = t_strdup_printf("{\"status\":\"%d\",\"schemes\":\"bearer\","
-					"\"scope\":\"mail\"}", code);
-	} else if (code == 401) {
-		error = "{\"status\":\"invalid_token\",\"scope\":\"mail\"}";
-	} else if (code == 403) {
-		error = "{\"status\":\"access_denied\",\"scope\":\"mail\"}";
-	} else {
-		error = "{\"status\":\"invalid_request\",\"scope\":\"mail\"}";
+		status = dec2str(code);
+		json_generate_object_member(gen, "schemes");
+		json_generate_string(gen, "bearer");
 	}
+
+	json_generate_object_member(gen, "status");
+	json_generate_string(gen, status);
+	json_generate_object_member(gen, "scope");
+	json_generate_string(gen, "mail");
+	json_generate_object_member(gen, "openid-configuration");
+	json_generate_string(gen, oidc_url);
+	json_generate_object_close(gen);
+	json_generator_deinit(&gen);
+
 	oauth2_req->failed = TRUE;
-	auth_request_fail_with_reply(request, error, strlen(error));
+	auth_request_fail_with_reply(request, str->data, str->used);
 }
 
 static void
@@ -71,15 +79,16 @@ oauth2_verify_callback(enum passdb_result result,
 
 	switch (result) {
 	case PASSDB_RESULT_INTERNAL_FAILURE:
-		oauth2_send_error(oauth2_req, 500);
+		/* Non-standard response */
+		oauth2_send_failure(oauth2_req, 500, "internal_failure");
 		break;
 	case PASSDB_RESULT_USER_DISABLED:
 	case PASSDB_RESULT_PASS_EXPIRED:
 		/* user is explicitly disabled, don't allow it to log in */
-		oauth2_send_error(oauth2_req, 403);
+		oauth2_send_failure(oauth2_req, 403, "insufficient_scope");
 		return;
 	case PASSDB_RESULT_PASSWORD_MISMATCH:
-		oauth2_send_error(oauth2_req, 401);
+		oauth2_send_failure(oauth2_req, 401, "invalid_token");
 		break;
 	case PASSDB_RESULT_NEXT:
 	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
@@ -148,6 +157,11 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 	if (oauth2_req->failed)
 		return;
 
+	if (data_size == 0) {
+		 oauth2_send_failure(oauth2_req, 401, "invalid_token");
+		 return;
+	}
+
 	/* split the data from ^A */
 	bool user_given = FALSE;
 	const char *value;
@@ -170,7 +184,8 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 			} else {
 				e_info(request->mech_event,
 				       "Invalid continued data");
-				oauth2_send_error(oauth2_req, 400);
+				oauth2_send_failure(oauth2_req, 401,
+						    "invalid_token");
 				return;
 			}
 		}
@@ -180,14 +195,17 @@ mech_xoauth2_auth_continue(struct auth_request *request,
 	if (user_given && !auth_request_set_username(request, username, &error)) {
 		e_info(request->mech_event,
 		       "%s", error);
-		auth_request_fail(request);
+		oauth2_send_failure(oauth2_req, 400, "invalid_request");
 		return;
 	}
 	if (user_given && token != NULL)
 		mech_oauth2_verify_token(oauth2_req, token);
-	else {
-		e_info(request->mech_event, "Missing username or token");
-		auth_request_fail(request);
+	else if (token == NULL) {
+		e_info(request->mech_event, "Missing token");
+		oauth2_send_failure(oauth2_req, 401, "invalid_token");
+	} else {
+		e_info(request->mech_event, "Missing username");
+		oauth2_send_failure(oauth2_req, 401, "invalid_token");
 	}
 }
 
@@ -204,20 +222,24 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 	oauth2_init_db(oauth2_req);
 	if (oauth2_req->failed)
 		return;
+	if (data_size == 0) {
+		 oauth2_send_failure(oauth2_req, 401, "invalid_token");
+		 return;
+	}
 
 	bool user_given = FALSE;
 	const char *value, *error;
 	const char *username;
 	const char *const *ptr;
 	/* split the data from ^A */
-	const char **fields =
+	const char *const *fields =
 		t_strsplit(t_strndup(data, data_size), "\x01");
 	const char *token = NULL;
 	/* ensure initial field is OK */
 	if (*fields == NULL || *(fields[0]) == '\0') {
 		e_info(request->mech_event,
 		       "Invalid continued data");
-		oauth2_send_error(oauth2_req, 400);
+		oauth2_send_failure(oauth2_req, 401, "invalid_token");
 		return;
 	}
 
@@ -227,13 +249,15 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 		case 'f':
 			e_info(request->mech_event,
 			       "Client requested non-standard mechanism");
-			oauth2_send_error(oauth2_req, 400);
+			oauth2_send_failure(oauth2_req, 400,
+					    "request_not_supported");
 			return;
 		case 'p':
 			/* channel binding is not supported */
 			e_info(request->mech_event,
 			       "Client requested and used channel-binding");
-			oauth2_send_error(oauth2_req, 400);
+			oauth2_send_failure(oauth2_req, 400,
+					    "request_not_supported");
 			return;
 		case 'n':
 		case 'y':
@@ -244,8 +268,9 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 			    !oauth2_unescape_username((*ptr)+2, &username)) {
 				 e_info(request->mech_event,
 					"Invalid username escaping");
-				oauth2_send_error(oauth2_req, 400);
-				return;
+				 oauth2_send_failure(oauth2_req, 400,
+						     "invalid_request");
+				 return;
 			} else {
 				user_given = TRUE;
 			}
@@ -253,7 +278,7 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 		default:
 			e_info(request->mech_event,
 			       "Invalid gs2-header in request");
-			oauth2_send_error(oauth2_req, 400);
+			oauth2_send_failure(oauth2_req, 400, "invalid_request");
 			return;
 		}
 	}
@@ -266,7 +291,8 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 			} else {
 				e_info(request->mech_event,
 				       "Invalid continued data");
-				oauth2_send_error(oauth2_req, 400);
+				oauth2_send_failure(oauth2_req, 401,
+						    "invalid_token");
 				return;
 			}
 		}
@@ -275,14 +301,17 @@ mech_oauthbearer_auth_continue(struct auth_request *request,
 	if (user_given && !auth_request_set_username(request, username, &error)) {
 		e_info(request->mech_event,
 		       "%s", error);
-		auth_request_fail(request);
+		oauth2_send_failure(oauth2_req, 400, "invalid_request");
 		return;
 	}
 	if (user_given && token != NULL)
 		mech_oauth2_verify_token(oauth2_req, token);
-	else {
-		e_info(request->mech_event, "Missing username or token");
-		auth_request_fail(request);
+	else if (token == NULL) {
+		e_info(request->mech_event, "Missing token");
+		oauth2_send_failure(oauth2_req, 401, "invalid_token");
+	} else {
+		e_info(request->mech_event, "Missing username");
+		oauth2_send_failure(oauth2_req, 401, "invalid_request");
 	}
 }
 
