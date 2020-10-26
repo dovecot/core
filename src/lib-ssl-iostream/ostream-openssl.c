@@ -123,8 +123,18 @@ static int o_stream_ssl_flush_buffer(struct ssl_ostream *sstream)
 				break;
 		} else {
 			pos += ret;
-			(void)openssl_iostream_bio_sync(
+			ret = openssl_iostream_bio_sync(
 				ssl_io, OPENSSL_IOSTREAM_SYNC_TYPE_WRITE);
+			if (ret < 0) {
+				i_assert(ssl_io->plain_stream_errstr != NULL &&
+					 ssl_io->plain_stream_errno != 0);
+				io_stream_set_error(
+					&sstream->ostream.iostream,
+					"%s", ssl_io->plain_stream_errstr);
+				sstream->ostream.ostream.stream_errno =
+					ssl_io->plain_stream_errno;
+				break;
+			}
 		}
 	}
 	buffer_delete(sstream->buffer, 0, pos);

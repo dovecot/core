@@ -386,12 +386,12 @@ static void openssl_iostream_destroy(struct ssl_iostream *ssl_io)
 	ssl_iostream_unref(&ssl_io);
 }
 
-static bool openssl_iostream_bio_output(struct ssl_iostream *ssl_io)
+static int openssl_iostream_bio_output(struct ssl_iostream *ssl_io)
 {
 	size_t bytes, max_bytes;
 	ssize_t sent;
 	unsigned char buffer[IO_BLOCK_SIZE];
-	bool bytes_sent = FALSE;
+	int result = 0;
 	int ret;
 
 	o_stream_cork(ssl_io->plain_output);
@@ -428,13 +428,14 @@ static bool openssl_iostream_bio_output(struct ssl_iostream *ssl_io)
 			ssl_io->plain_stream_errno =
 				ssl_io->plain_output->stream_errno;
 			ssl_io->closed = TRUE;
+			result = -1;
 			break;
 		}
 		i_assert(sent == (ssize_t)bytes);
-		bytes_sent = TRUE;
+		result = 1;
 	}
 	o_stream_uncork(ssl_io->plain_output);
-	return bytes_sent;
+	return result;
 }
 
 static ssize_t
@@ -458,8 +459,9 @@ openssl_iostream_read_more(struct ssl_iostream *ssl_io,
 	return 0;
 }
 
-static bool openssl_iostream_bio_input(struct ssl_iostream *ssl_io,
-				       enum openssl_iostream_sync_type type)
+static int
+openssl_iostream_bio_input(struct ssl_iostream *ssl_io,
+			   enum openssl_iostream_sync_type type)
 {
 	const unsigned char *data;
 	size_t bytes, size;
@@ -480,7 +482,7 @@ static bool openssl_iostream_bio_input(struct ssl_iostream *ssl_io,
 					ssl_io->plain_input->stream_errno;
 			}
 			ssl_io->closed = TRUE;
-			return FALSE;
+			return -1;
 		}
 		if (size == 0) {
 			/* wait for more input */
@@ -503,7 +505,7 @@ static bool openssl_iostream_bio_input(struct ssl_iostream *ssl_io,
 			i_strdup("SSL BIO buffer size too small");
 		ssl_io->plain_stream_errno = EINVAL;
 		ssl_io->closed = TRUE;
-		return FALSE;
+		return -1;
 	}
 	if (i_stream_get_data_size(ssl_io->plain_input) > 0) {
 		i_error("SSL: Too much data in buffered plain input buffer");
@@ -512,7 +514,7 @@ static bool openssl_iostream_bio_input(struct ssl_iostream *ssl_io,
 			i_strdup("SSL: Too much data in buffered plain input buffer");
 		ssl_io->plain_stream_errno = EINVAL;
 		ssl_io->closed = TRUE;
-		return FALSE;
+		return -1;
 	}
 	if (bytes_read) {
 		if (ssl_io->ostream_flush_waiting_input) {
@@ -524,17 +526,17 @@ static bool openssl_iostream_bio_input(struct ssl_iostream *ssl_io,
 			i_stream_set_input_pending(ssl_io->ssl_input, TRUE);
 		ssl_io->want_read = FALSE;
 	}
-	return bytes_read;
+	return (bytes_read ? 1 : 0);
 }
 
-bool openssl_iostream_bio_sync(struct ssl_iostream *ssl_io,
-			       enum openssl_iostream_sync_type type)
+int openssl_iostream_bio_sync(struct ssl_iostream *ssl_io,
+			      enum openssl_iostream_sync_type type)
 {
-	bool ret;
+	int ret;
 
 	ret = openssl_iostream_bio_output(ssl_io);
-	if (openssl_iostream_bio_input(ssl_io, type))
-		ret = TRUE;
+	if (ret >= 0 && openssl_iostream_bio_input(ssl_io, type) > 0)
+		ret = 1;
 	return ret;
 }
 
@@ -547,7 +549,8 @@ int openssl_iostream_more(struct ssl_iostream *ssl_io,
 		if ((ret = ssl_iostream_handshake(ssl_io)) <= 0)
 			return ret;
 	}
-	(void)openssl_iostream_bio_sync(ssl_io, type);
+	if (openssl_iostream_bio_sync(ssl_io, type) < 0)
+		return -1;
 	return 1;
 }
 
@@ -573,7 +576,7 @@ int openssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 	err = SSL_get_error(ssl_io->ssl, ret);
 	switch (err) {
 	case SSL_ERROR_WANT_WRITE:
-		if (!openssl_iostream_bio_sync(ssl_io, type)) {
+		if (openssl_iostream_bio_sync(ssl_io, type) == 0) {
 			if (type != OPENSSL_IOSTREAM_SYNC_TYPE_WRITE)
 				i_panic("SSL ostream buffer size not unlimited");
 			return 0;
