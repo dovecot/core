@@ -604,16 +604,21 @@ list_handle_corruption_locked(struct mailbox_list *list,
 			      enum mail_storage_list_index_rebuild_reason reason)
 {
 	struct mail_storage *const *storagep;
+	const char *errstr;
+	enum mail_error error;
 
 	array_foreach(&list->ns->all_storages, storagep) {
-		if ((*storagep)->v.list_index_rebuild != NULL) {
-			if ((*storagep)->v.list_index_rebuild(*storagep, reason) < 0)
-				return -1;
-			else {
-				/* FIXME: implement a generic handler that
-				   just lists mailbox directories in filesystem
-				   and adds the missing ones to the index. */
-			}
+		if ((*storagep)->v.list_index_rebuild == NULL)
+			continue;
+
+		if ((*storagep)->v.list_index_rebuild(*storagep, reason) < 0) {
+			errstr = mail_storage_get_last_internal_error(*storagep, &error);
+			mailbox_list_set_error(list, error, errstr);
+			return -1;
+		} else {
+			/* FIXME: implement a generic handler that
+			   just lists mailbox directories in filesystem
+			   and adds the missing ones to the index. */
 		}
 	}
 	return mailbox_list_index_set_uncorrupted(list);
