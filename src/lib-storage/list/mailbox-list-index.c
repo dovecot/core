@@ -549,8 +549,15 @@ int mailbox_list_index_refresh_force(struct mailbox_list *list)
 	}
 	mail_index_view_close(&view);
 
-	if (mailbox_list_index_handle_corruption(list) < 0)
+	if (mailbox_list_index_handle_corruption(list) < 0) {
+		const char *errstr;
+		enum mail_error error;
+
+		errstr = mailbox_list_get_last_internal_error(list, &error);
+		mailbox_list_set_error(list, error, t_strdup_printf(
+			"Failed to rebuild mailbox list index: %s", errstr));
 		ret = -1;
+	}
 	return ret;
 }
 
