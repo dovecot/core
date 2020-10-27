@@ -729,6 +729,10 @@ static int inbox_info_init(struct ns_list_iterate_context *ctx,
 
 	if ((ret = mailbox_list_mailbox(ctx->inbox_info.ns->list, "INBOX", &flags)) > 0)
 		ctx->inbox_info.flags = flags;
+	else if (ret < 0) {
+		ctx->cur_ns = ctx->inbox_info.ns;
+		mailbox_list_ns_iter_failed(ctx);
+	}
 	return ret;
 }
 
