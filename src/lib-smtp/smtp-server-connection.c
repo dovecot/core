@@ -748,10 +748,11 @@ static int smtp_server_connection_output(struct smtp_server_connection *conn)
 		smtp_server_connection_timeout_reset(conn);
 		smtp_server_connection_send_replies(conn);
 	}
-	if (ret >= 0 && !conn->corked && conn->conn.output != NULL) {
+	if (ret >= 0 && !conn->corked && conn->conn.output != NULL)
 		ret = o_stream_uncork_flush(conn->conn.output);
-		if (ret < 0)
-			smtp_server_connection_handle_output_error(conn);
+	if (conn->conn.output != NULL && conn->conn.output->closed) {
+		smtp_server_connection_handle_output_error(conn);
+		ret = -1;
 	}
 	smtp_server_connection_unref(&conn);
 	return ret;
