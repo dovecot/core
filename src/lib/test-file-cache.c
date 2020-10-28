@@ -32,6 +32,7 @@ static void test_file_cache_read(void)
 	size_t size;
 	const char *map = file_cache_get_map(cache, &size);
 	test_assert(size == 0);
+	test_assert(map == NULL);
 
 	test_assert(file_cache_read(cache, 0, 13) == 13);
 	map = file_cache_get_map(cache, &size);
@@ -63,6 +64,7 @@ static void test_file_cache_write_read(void)
 	size_t size;
 	const char *map = file_cache_get_map(cache, &size);
 	test_assert(size == 0);
+	test_assert(map == NULL);
 	test_assert(file_cache_read(cache, 0, 13) == 13);
 	file_cache_write(cache, "updated data\n", 13, 0);
 	map = file_cache_get_map(cache, &size);
