@@ -93,8 +93,10 @@ mail_deliver_update_event(struct mail_deliver_context *ctx)
 	event_add_str(ctx->event, "message_id", ctx->fields.message_id);
 	event_add_str(ctx->event, "message_subject", ctx->fields.subject);
 	event_add_str(ctx->event, "message_from", ctx->fields.from);
-	event_add_int(ctx->event, "message_size", ctx->fields.psize);
-	event_add_int(ctx->event, "message_vsize", ctx->fields.vsize);
+	if (ctx->fields.psize != UOFF_T_MAX)
+		event_add_int(ctx->event, "message_size", ctx->fields.psize);
+	if (ctx->fields.vsize != UOFF_T_MAX)
+		event_add_int(ctx->event, "message_vsize", ctx->fields.vsize);
 }
 
 static void
