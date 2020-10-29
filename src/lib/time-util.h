@@ -80,6 +80,11 @@ static inline void timeval_add(struct timeval *tv, const struct timeval *val)
 	}
 }
 
+static inline time_t timeval_round(struct timeval *tv)
+{
+	return (tv->tv_usec < 500000 ? tv->tv_sec : tv->tv_sec + 1);
+}
+
 /* Convert t to local time and return timestamp on that day at 00:00:00. */
 time_t time_to_local_day_start(time_t t);
 
