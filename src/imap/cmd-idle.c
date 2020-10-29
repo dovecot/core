@@ -101,12 +101,8 @@ static void idle_client_input(struct cmd_idle_context *ctx)
 {
 	struct client *client = ctx->client;
 
-	if (idle_client_input_more(ctx)) {
-		if (client->disconnected)
-			client_destroy(client, NULL);
-		else
-			client_continue_pending_input(client);
-	}
+	if (idle_client_input_more(ctx))
+		client_continue_pending_input(client);
 }
 
 static void keepalive_timeout(struct cmd_idle_context *ctx)

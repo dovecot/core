@@ -122,10 +122,7 @@ static void client_input_append(struct client_command_context *cmd)
 	cmd_sync_delayed(client);
 	o_stream_uncork(client->output);
 
-	if (client->disconnected)
-		client_destroy(client, NULL);
-	else
-		client_continue_pending_input(client);
+	client_continue_pending_input(client);
 }
 
 static void cmd_append_finish(struct cmd_append_context *ctx)
