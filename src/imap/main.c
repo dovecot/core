@@ -227,10 +227,7 @@ client_add_input_finalize(struct client *client)
 
 	/* we could have already handled LOGOUT, or we might need to continue
 	   pending ambiguous commands. */
-	if (client->disconnected)
-		client_destroy(client, NULL);
-	else
-		client_continue_pending_input(client);
+	client_continue_pending_input(client);
 }
 
 int client_create_from_input(const struct mail_storage_service_input *input,
