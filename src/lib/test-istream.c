@@ -61,7 +61,7 @@ static void test_istream_next_line_expect(struct istream *is, const char *expect
 					  unsigned int i)
 {
 	const char *line = i_stream_next_line(is);
-	return test_assert_strcmp_idx(line, expect, i);
+	test_assert_strcmp_idx(line, expect, i);
 }
 
 static void test_istream_next_line(void)
