@@ -1117,7 +1117,9 @@ void client_continue_pending_input(struct client *client)
 		if (!ret)
 			break;
 	}
-	if (!client->input->closed && !client->output->closed)
+	if (client->input->closed || client->output->closed)
+		client_destroy(client, NULL);
+	else
 		client_check_command_hangs(client);
 }
 
