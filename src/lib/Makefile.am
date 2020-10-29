@@ -51,6 +51,7 @@ liblib_la_SOURCES = \
 	child-wait.c \
 	compat.c \
 	connection.c \
+	cpu-limit.c \
 	crc32.c \
 	data-stack.c \
 	eacces-error.c \
@@ -211,6 +212,7 @@ headers = \
 	child-wait.h \
 	compat.h \
 	connection.h \
+	cpu-limit.h \
 	crc32.h \
 	data-stack.h \
 	eacces-error.h \
@@ -376,6 +378,7 @@ test_lib_SOURCES = \
 	test-byteorder.c \
 	test-connection.c \
 	test-crc32.c \
+	test-cpu-limit.c \
 	test-data-stack.c \
 	test-event-category-register.c \
 	test-event-filter.c \
