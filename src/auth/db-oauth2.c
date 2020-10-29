@@ -540,11 +540,12 @@ static bool
 db_oauth2_user_is_enabled(struct db_oauth2_request *req,
 			  enum passdb_result *result_r, const char **error_r)
 {
-	if (*req->db->set.active_attribute != '\0') {
-		const char *active_value = auth_fields_find(req->fields, req->db->set.active_attribute);
-		if (active_value == NULL ||
-		    (*req->db->set.active_value != '\0' &&
-		     strcmp(req->db->set.active_value, active_value) != 0)) {
+	if (*req->db->set.active_attribute != '\0' &&
+	    *req->db->set.active_value != '\0') {
+		const char *active_value =
+			auth_fields_find(req->fields, req->db->set.active_attribute);
+		if (active_value != NULL &&
+		    strcmp(req->db->set.active_value, active_value) != 0) {
 			*error_r = "Provided token is not valid";
 			*result_r = PASSDB_RESULT_PASSWORD_MISMATCH;
 			return FALSE;
