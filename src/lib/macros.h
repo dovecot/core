@@ -64,28 +64,13 @@
 #define CONST_STRUCT_MEMBER_P(struct_p, struct_offset) \
 	((const void *) ((const char *) (struct_p) + (long) (struct_offset)))
 
-/* Provide simple macro statement wrappers (adapted from Perl):
+/* Provide simple macro statement wrappers:
    STMT_START { statements; } STMT_END;
    can be used as a single statement, as in
-   if (x) STMT_START { ... } STMT_END; else ...
-
-   For gcc we will wrap the statements within `({' and `})' braces.
-   For SunOS they will be wrapped within `if (1)' and `else (void) 0',
-   and otherwise within `do' and `while (0)'. */
+   if (x) STMT_START { ... } STMT_END; else ... */
 #if !(defined (STMT_START) && defined (STMT_END))
-#  if defined (__GNUC__) && !defined (__cplusplus) && \
-	!defined (__STRICT_ANSI__) && !defined (PEDANTIC)
-#    define STMT_START (void)(
-#    define STMT_END   )
-#  else
-#    if (defined (sun) || defined (__sun__))
-#      define STMT_START if (1)
-#      define STMT_END   else (void)0
-#    else
-#      define STMT_START do
-#      define STMT_END   while (0)
-#    endif
-#  endif
+#  define STMT_START do
+#  define STMT_END while (0)
 #endif
 
 /* Provide macros to feature the GCC function attribute. */
