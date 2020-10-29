@@ -35,6 +35,7 @@
 static bool verbose_proctitle = FALSE;
 static struct mail_storage_service_ctx *storage_service;
 static struct master_login *master_login = NULL;
+static struct timeout *to_proctitle;
 
 imap_client_created_func_t *hook_client_created = NULL;
 bool imap_debug = FALSE;
@@ -50,6 +51,19 @@ imap_client_created_hook_set(imap_client_created_func_t *new_hook)
 
 	hook_client_created = new_hook;
 	return old_hook;
+}
+
+static void imap_refresh_proctitle_callback(void *context ATTR_UNUSED)
+{
+	timeout_remove(&to_proctitle);
+	imap_refresh_proctitle();
+}
+
+void imap_refresh_proctitle_delayed(void)
+{
+	if (to_proctitle == NULL)
+		to_proctitle = timeout_add_short(0,
+			imap_refresh_proctitle_callback, NULL);
 }
 
 void imap_refresh_proctitle(void)
@@ -542,6 +556,7 @@ int main(int argc, char *argv[])
 	commands_deinit();
 	imap_master_clients_deinit();
 
+	timeout_remove(&to_proctitle);
 	master_service_deinit(&master_service);
 	return 0;
 }

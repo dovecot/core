@@ -1433,7 +1433,7 @@ int client_output(struct client *client)
 	client_output_commands(client);
 	(void)cmd_sync_delayed(client);
 
-	imap_refresh_proctitle();
+	imap_refresh_proctitle_delayed();
 	if (client->output->closed)
 		client_destroy(client, NULL);
 	else {
