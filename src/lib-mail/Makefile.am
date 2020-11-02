@@ -92,6 +92,7 @@ test_programs = \
 	test-istream-qp-decoder \
 	test-istream-qp-encoder \
 	test-mail-html2text \
+	test-mail-user-hash \
 	test-mbox-from \
 	test-message-address \
 	test-message-date \
@@ -224,6 +225,10 @@ test_rfc2231_parser_DEPENDENCIES = $(test_deps)
 test_rfc822_parser_SOURCES = test-rfc822-parser.c
 test_rfc822_parser_LDADD = $(test_libs)
 test_rfc822_parser_DEPENDENCIES = $(test_deps)
+
+test_mail_user_hash_SOURCES = test-mail-user-hash.c
+test_mail_user_hash_LDADD = $(test_libs)
+test_mail_user_hash_DEPENDENCIES = $(test_deps)
 
 check-local:
 	for bin in $(test_programs); do \
