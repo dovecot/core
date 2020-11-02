@@ -379,6 +379,74 @@ static void test_message_decoder_invalid_content_transfer_encoding(void)
 	test_end();
 }
 
+static void test_message_decoder_charset(void)
+{
+	/* ensure we decode correctly */
+	static const unsigned char test_message_input[] =
+	/* none of these should work */
+"Content-Type: multipart/mixed; boundary=\"1\"\n"
+"MIME-Version: 1.0\n\n"
+"--1\n"
+"Content-Transfer-Encoding: binary\n"
+"Content-Type: text/plain; charset=utf-16le\n\n"
+"\x54\x00\x65\x00\x73\x00\x74\x00\x20\x00\x6d\x00\x65\x00\x73\x00\x73\x00\x61\x00\x67\x00\x65\x00\n\x00\n"
+"--1\n"
+"Content-Transfer-Encoding: base64\n"
+"Content-Type: text/plain; charset=utf-16be\n\n"
+"AFQAZQBzAHQAIABtAGUAcwBzAGEAZwBlAAo=\n\n"
+"--1\n"
+"Content-Transfer-Encoding: base64\n"
+"Content-Type: text/plain; charset=utf-16le\n\n"
+"VABlAHMAdAAgAG0AZQBzAHMAYQBnAGUACgA=\n\n"
+"--1\n"
+"Content-Transfer-Encoding: base64\n"
+"Content-Type: text/plain; charset=EUC-JP\n\n"
+"odjApLOmv824osDruMCh2Q==\n\n"
+"--1\n"
+"Content-Transfer-Encoding: binary\n"
+"Content-Type: text/plain; charset=UTF-8\n\n"
+"\xad\xad\xad\xad\xad\xad\n"
+"--1--\n";
+
+	static const char *test_message_output =
+"Test message\nTest message\nTest message\n"
+"\xe3\x80\x8e\xe4\xb8\x96\xe7\x95\x8c\xe4\xba\xba"
+"\xe6\xa8\xa9\xe5\xae\xa3\xe8\xa8\x80\xe3\x80\x8f"
+UNICODE_REPLACEMENT_CHAR_UTF8;
+
+	test_begin("message decoder charset");
+
+	const struct message_parser_settings parser_set = { .flags = 0, };
+	struct message_parser_ctx *parser;
+	struct message_decoder_context *decoder;
+	struct message_part *parts;
+	struct message_block input, output;
+	struct istream *istream;
+	string_t *str_out = t_str_new(20);
+	int ret;
+
+	pool_t pool = pool_alloconly_create("message parser", 10240);
+	istream = test_istream_create_data(test_message_input,
+					   sizeof(test_message_input)-1);
+	parser = message_parser_init(pool, istream, &parser_set);
+	decoder = message_decoder_init(NULL, 0);
+
+	while ((ret = message_parser_parse_next_block(parser, &input)) > 0) {
+		message_part_data_parse_from_header(pool, input.part, input.hdr);
+		if (message_decoder_decode_next_block(decoder, &input, &output) &&
+		    output.hdr == NULL && output.size > 0)
+			str_append_data(str_out, output.data, output.size);
+	}
+
+	test_assert_strcmp(test_message_output, str_c(str_out));
+	message_decoder_deinit(&decoder);
+	message_parser_deinit(&parser, &parts);
+	test_assert(istream->stream_errno == 0);
+
+	i_stream_unref(&istream);
+	pool_unref(&pool);
+	test_end();
+}
 
 int main(void)
 {
@@ -388,6 +456,7 @@ int main(void)
 		test_message_decoder_current_content_type,
 		test_message_decoder_content_transfer_encoding,
 		test_message_decoder_invalid_content_transfer_encoding,
+		test_message_decoder_charset,
 		NULL
 	};
 	return test_run(test_functions);
