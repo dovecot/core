@@ -1043,6 +1043,160 @@ static const char input_msg[] =
 	test_end();
 }
 
+static void test_message_parser_mime_version(void)
+{
+	test_begin("message parser mime version");
+
+	/* Check that MIME version is accepted. */
+static const char *const input_msgs[] = {
+	/* valid mime header */
+"Content-Type: multipart/mixed; boundary=\"1\"\n"
+"MIME-Version: 1.0\n\n"
+"--1\n"
+"Content-Type: text/plain\n"
+"\n"
+"hello, world\n"
+"--1\n",
+	/* future mime header */
+"Content-Type: multipart/mixed; boundary=\"1\"\n"
+"MIME-Version: 2.0\n\n"
+"--1\n"
+"Content-Type: text/plain\n"
+"\n"
+"hello, world\n"
+"--1\n",
+	/* invalid value in mime header */
+"Content-Type: multipart/mixed; boundary=\"1\"\n"
+"MIME-Version: abc\n\n"
+"--1\n"
+"Content-Type: text/plain\n"
+"\n"
+"hello, world\n"
+"--1\n",
+	/* missing value in mime header */
+"Content-Type: multipart/mixed; boundary=\"1\"\n"
+"MIME-Version:\n\n"
+"--1\n"
+"Content-Type: text/plain\n"
+"\n"
+"hello, world\n"
+"--1\n"
+	};
+
+	const struct message_parser_settings parser_set = {
+		.max_total_mime_parts = 2,
+		.flags = MESSAGE_PARSER_FLAG_MIME_VERSION_STRICT,
+	};
+	struct istream *input;
+	struct message_part *parts, *part;
+	pool_t pool;
+
+	for (size_t i = 0; i < N_ELEMENTS(input_msgs); i++) {
+		int variance = strlen(input_msgs[i]) - strlen(input_msgs[0]);
+		pool = pool_alloconly_create("message parser", 10240);
+		input = test_istream_create(input_msgs[i]);
+
+		test_assert(message_parse_stream(pool, input, &parser_set, TRUE, &parts) < 0);
+		part = parts;
+
+		test_assert_idx(part->children_count == 1, i);
+		test_assert_idx(part->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME), i);
+		test_assert_idx(part->header_size.lines == 3, i);
+		test_assert_idx(part->header_size.physical_size == (size_t)(63 + variance), i);
+		test_assert_idx(part->header_size.virtual_size == (size_t)(66 + variance), i);
+		test_assert_idx(part->body_size.lines == 5, i);
+		test_assert_idx(part->body_size.physical_size == 47, i);
+		test_assert_idx(part->body_size.virtual_size == 52, i);
+		test_assert_strcmp_idx(part->data->content_type, "multipart", i);
+		test_assert_strcmp_idx(part->data->content_subtype, "mixed", i);
+		part = part->children;
+
+		test_assert_idx(part->children_count == 0, i);
+		test_assert_idx(part->flags == 72, i);
+		test_assert_idx(part->header_size.lines == 2, i);
+		test_assert_idx(part->header_size.physical_size == 26, i);
+		test_assert_idx(part->header_size.virtual_size == 28, i);
+		test_assert_idx(part->body_size.lines == 2, i);
+		test_assert_idx(part->body_size.physical_size == 17, i);
+		test_assert_strcmp_idx(part->data->content_type, "text", i);
+		test_assert_strcmp_idx(part->data->content_subtype, "plain", i);
+
+		test_parsed_parts(input, parts);
+		i_stream_unref(&input);
+		pool_unref(&pool);
+	};
+
+	/* test for +10MB header */
+	const size_t test_hdr_size = 10*1024*1024UL;
+	const size_t test_msg_size = test_hdr_size + 1024UL;
+	/* add space for parser */
+	pool = pool_alloconly_create("10mb header", test_msg_size + 10240UL);
+	string_t *buffer = str_new(pool, test_msg_size + 1);
+
+	str_append(buffer, "MIME-Version: ");
+
+	/* @UNSAFE */
+	char *tmp = buffer_append_space_unsafe(buffer, test_hdr_size);
+	memset(tmp, 'a', test_hdr_size);
+
+	str_append_c(buffer, '\n');
+	str_append(buffer, "Content-Type: multipart/mixed; boundary=1\n\n--1--");
+
+	input = test_istream_create_data(buffer->data, buffer->used);
+	test_assert(message_parse_stream(pool, input, &parser_set, TRUE, &parts) < 0);
+
+	i_stream_unref(&input);
+	pool_unref(&pool);
+	test_end();
+}
+
+static void test_message_parser_mime_version_missing(void)
+{
+	test_begin("message parser mime version missing");
+
+static const char input_msg[] =
+"Content-Type: multipart/mixed; boundary=\"1\"\n\n"
+"--1\n"
+"Content-Type: text/plain\n"
+"\n"
+"hello, world\n"
+"--1\n";
+
+	const struct message_parser_settings parser_set = {
+		.max_total_mime_parts = 2,
+		.flags = MESSAGE_PARSER_FLAG_MIME_VERSION_STRICT,
+	};
+	struct istream *input;
+	struct message_part *parts, *part;
+	pool_t pool;
+
+	pool = pool_alloconly_create("message parser", 10240);
+	input = test_istream_create(input_msg);
+
+	test_assert(message_parse_stream(pool, input, &parser_set, TRUE, &parts) < 0);
+	part = parts;
+
+	/* non-MIME message should end up as plain text mail */
+
+	test_assert(part->children_count == 0);
+	test_assert(part->flags == MESSAGE_PART_FLAG_TEXT);
+	test_assert(part->header_size.lines == 2);
+	test_assert(part->header_size.physical_size == 45);
+	test_assert(part->header_size.virtual_size == 47);
+	test_assert(part->body_size.lines == 5);
+	test_assert(part->body_size.physical_size == 47);
+	test_assert(part->body_size.virtual_size == 52);
+	test_assert(part->children == NULL);
+	test_assert(part->data->content_type == NULL);
+	test_assert(part->data->content_subtype == NULL);
+
+	test_parsed_parts(input, parts);
+	i_stream_unref(&input);
+	pool_unref(&pool);
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -1063,6 +1217,8 @@ int main(void)
 		test_message_parser_mime_part_nested_limit,
 		test_message_parser_mime_part_nested_limit_rfc822,
 		test_message_parser_mime_part_limit,
+		test_message_parser_mime_version,
+		test_message_parser_mime_version_missing,
 		NULL
 	};
 	return test_run(test_functions);
