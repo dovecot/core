@@ -187,6 +187,9 @@ struct mail_index {
 	uint32_t last_read_log_file_seq;
 	uint32_t last_read_log_file_tail_offset;
 
+	/* log file which last updated index_deleted */
+	uint32_t index_delete_changed_file_seq;
+
 	/* transaction log head seq/offset when we last fscked */
 	uint32_t fsck_log_head_file_seq;
 	uoff_t fsck_log_head_file_offset;

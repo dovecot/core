@@ -1397,17 +1397,21 @@ log_file_track_sync(struct mail_transaction_log_file *file,
 			return ret < 0 ? -1 : 1;
 		break;
 	case MAIL_TRANSACTION_INDEX_DELETED:
-		if (file->sync_offset < file->index_undeleted_offset)
+		if (file->sync_offset < file->index_undeleted_offset ||
+		    file->hdr.file_seq < file->log->index->index_delete_changed_file_seq)
 			break;
 		file->log->index->index_deleted = TRUE;
 		file->log->index->index_delete_requested = FALSE;
+		file->log->index->index_delete_changed_file_seq = file->hdr.file_seq;
 		file->index_deleted_offset = file->sync_offset + trans_size;
 		break;
 	case MAIL_TRANSACTION_INDEX_UNDELETED:
-		if (file->sync_offset < file->index_deleted_offset)
+		if (file->sync_offset < file->index_deleted_offset ||
+		    file->hdr.file_seq < file->log->index->index_delete_changed_file_seq)
 			break;
 		file->log->index->index_deleted = FALSE;
 		file->log->index->index_delete_requested = FALSE;
+		file->log->index->index_delete_changed_file_seq = file->hdr.file_seq;
 		file->index_undeleted_offset = file->sync_offset + trans_size;
 		break;
 	case MAIL_TRANSACTION_BOUNDARY: {
