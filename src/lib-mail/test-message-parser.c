@@ -4,6 +4,7 @@
 #include "str.h"
 #include "istream.h"
 #include "message-parser.h"
+#include "message-part-data.h"
 #include "test-common.h"
 
 static const char test_msg[] =
@@ -40,6 +41,24 @@ static const char test_msg[] =
 #define TEST_MSG_LEN (sizeof(test_msg)-1)
 
 static const struct message_parser_settings set_empty = { .flags = 0 };
+
+static int message_parse_stream(pool_t pool, struct istream *input,
+				const struct message_parser_settings *set,
+				bool parse_data, struct message_part **parts_r)
+{
+	int ret;
+	struct message_parser_ctx *parser;
+	struct message_block block;
+
+	i_zero(&block);
+	parser = message_parser_init(pool, input, set);
+	while ((ret = message_parser_parse_next_block(parser, &block)) > 0)
+		if (parse_data)
+			message_part_data_parse_from_header(pool, block.part,
+							    block.hdr);
+	message_parser_deinit(&parser, parts_r);
+	return ret;
+}
 
 static bool msg_parts_cmp(struct message_part *p1, struct message_part *p2)
 {
@@ -177,45 +196,31 @@ static void test_message_parser_small_blocks(void)
 
 static void test_message_parser_stop_early(void)
 {
-	struct message_parser_ctx *parser;
 	struct istream *input, *input2;
 	struct message_part *parts;
-	struct message_block block;
-	const char *error;
 	unsigned int i;
 	pool_t pool;
-	int ret;
 
 	test_begin("message parser in stop early");
-	pool = pool_alloconly_create("message parser", 10240);
+	pool = pool_alloconly_create("message parser", 524288);
 	input = test_istream_create(test_msg);
 
 	test_istream_set_allow_eof(input, FALSE);
 	for (i = 1; i <= TEST_MSG_LEN+1; i++) {
 		i_stream_seek(input, 0);
 		test_istream_set_size(input, i);
-		parser = message_parser_init(pool, input, &set_empty);
-		while ((ret = message_parser_parse_next_block(parser,
-							      &block)) > 0) ;
-		test_assert(ret == 0);
-		message_parser_deinit(&parser, &parts);
+
+		test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) == 0);
 
 		/* test preparsed - first re-parse everything with a stream
 		   that sees EOF at this position */
 		input2 = i_stream_create_from_data(test_msg, i);
-		parser = message_parser_init(pool, input2, &set_empty);
-		while ((ret = message_parser_parse_next_block(parser,
-							      &block)) > 0) ;
-		test_assert(ret == -1);
-		message_parser_deinit(&parser, &parts);
+		test_assert(message_parse_stream(pool, input2, &set_empty, FALSE, &parts) == -1);
 
 		/* now parse from the parts */
 		i_stream_seek(input2, 0);
-		parser = message_parser_init_from_parts(parts, input2, &set_empty);
-		while ((ret = message_parser_parse_next_block(parser,
-							      &block)) > 0) ;
-		test_assert(ret == -1);
-		test_assert(message_parser_deinit_from_parts(&parser, &parts, &error) == 0);
+		test_assert(message_parse_stream(pool, input2, &set_empty, FALSE, &parts) == -1);
+
 		i_stream_unref(&input2);
 	}
 
@@ -237,21 +242,15 @@ static const char input_msg[] =
 "--:foo\n"
 "Content-Type: text/html\n"
 "--:foo--\n";
-	struct message_parser_ctx *parser;
 	struct istream *input;
 	struct message_part *parts, *part;
-	struct message_block block;
 	pool_t pool;
-	int ret;
 
 	test_begin("message parser truncated mime headers");
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, &set_empty);
-	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
-	test_assert(ret < 0);
-	message_parser_deinit(&parser, &parts);
+	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
 
 	test_assert((parts->flags & MESSAGE_PART_FLAG_MULTIPART) != 0);
 	test_assert(parts->children_count == 4);
@@ -302,21 +301,15 @@ static const char input_msg[] =
 "Content-Type: text/plain\n"
 "\n"
 "--a\n\n";
-	struct message_parser_ctx *parser;
 	struct istream *input;
 	struct message_part *parts;
-	struct message_block block;
 	pool_t pool;
-	int ret;
 
 	test_begin("message parser truncated mime headers 2");
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, &set_empty);
-	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
-	test_assert(ret < 0);
-	message_parser_deinit(&parser, &parts);
+	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
 
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->children_count == 2);
@@ -358,21 +351,15 @@ static void test_message_parser_truncated_mime_headers3(void)
 {
 static const char input_msg[] =
 "Content-Type: multipart/mixed; boundary=\"ab\"\n";
-	struct message_parser_ctx *parser;
 	struct istream *input;
 	struct message_part *parts;
-	struct message_block block;
 	pool_t pool;
-	int ret;
 
 	test_begin("message parser truncated mime headers 3");
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, &set_empty);
-	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
-	test_assert(ret < 0);
-	message_parser_deinit(&parser, &parts);
+	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
 
 	test_assert(parts->children_count == 0);
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
@@ -396,21 +383,15 @@ static const char input_msg[] =
 "Content-Type: multipart/mixed; boundary=\"ab\"\n"
 "\n"
 "body\n";
-	struct message_parser_ctx *parser;
 	struct istream *input;
 	struct message_part *parts;
-	struct message_block block;
 	pool_t pool;
-	int ret;
 
 	test_begin("message parser empty multipart");
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, &set_empty);
-	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
-	test_assert(ret < 0);
-	message_parser_deinit(&parser, &parts);
+	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
 
 	test_assert(parts->children_count == 0);
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
@@ -441,21 +422,15 @@ static const char input_msg[] =
 "Content-Type: text/plain\n"
 "\n"
 "body\n";
-	struct message_parser_ctx *parser;
 	struct istream *input;
 	struct message_part *parts;
-	struct message_block block;
 	pool_t pool;
-	int ret;
 
 	test_begin("message parser duplicate mime boundary");
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, &set_empty);
-	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
-	test_assert(ret < 0);
-	message_parser_deinit(&parser, &parts);
+	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
 
 	test_assert(parts->children_count == 2);
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
@@ -502,21 +477,15 @@ static const char input_msg[] =
 "Content-Type: text/plain\n"
 "\n"
 "body\n";
-	struct message_parser_ctx *parser;
 	struct istream *input;
 	struct message_part *parts;
-	struct message_block block;
 	pool_t pool;
-	int ret;
 
 	test_begin("message parser garbage suffix mime boundary");
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, &set_empty);
-	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
-	test_assert(ret < 0);
-	message_parser_deinit(&parser, &parts);
+	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
 
 	test_assert(parts->children_count == 2);
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
@@ -568,21 +537,15 @@ static const char input_msg[] =
 "\n"
 "body2\n"
 "--a----";
-	struct message_parser_ctx *parser;
 	struct istream *input;
 	struct message_part *parts;
-	struct message_block block;
 	pool_t pool;
-	int ret;
 
 	test_begin("message parser trailing dashes");
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, &set_empty);
-	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
-	test_assert(ret < 0);
-	message_parser_deinit(&parser, &parts);
+	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
 
 	test_assert(parts->children_count == 2);
 	test_assert(parts->children->next == NULL);
@@ -608,21 +571,15 @@ static const char input_msg[] =
 "Content-Type: text/plain\n"
 "\n"
 "body\n";
-	struct message_parser_ctx *parser;
 	struct istream *input;
 	struct message_part *parts;
-	struct message_block block;
 	pool_t pool;
-	int ret;
 
 	test_begin("message parser continuing mime boundary");
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, &set_empty);
-	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
-	test_assert(ret < 0);
-	message_parser_deinit(&parser, &parts);
+	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
 
 	test_assert(parts->children_count == 2);
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
@@ -670,21 +627,15 @@ static const char input_msg[] =
 "\n"
 "--ab--\n"
 "--a--\n\n";
-	struct message_parser_ctx *parser;
 	struct istream *input;
 	struct message_part *parts, *part;
-	struct message_block block;
 	pool_t pool;
-	int ret;
 
 	test_begin("message parser continuing truncated mime boundary");
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, &set_empty);
-	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
-	test_assert(ret < 0);
-	message_parser_deinit(&parser, &parts);
+	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
 
 	part = parts;
 	test_assert(part->children_count == 3);
@@ -753,21 +704,15 @@ static const char input_msg[] =
 "Content-Type: text/html\n"
 "\n"
 "body2\n";
-	struct message_parser_ctx *parser;
 	struct istream *input;
 	struct message_part *parts;
-	struct message_block block;
 	pool_t pool;
-	int ret;
 
 	test_begin("message parser continuing mime boundary reverse");
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, &set_empty);
-	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
-	test_assert(ret < 0);
-	message_parser_deinit(&parser, &parts);
+	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
 
 	test_assert(parts->children_count == 3);
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
@@ -869,21 +814,15 @@ static const char input_msg[] =
 "Content-Type: text/plain\n"
 "\n"
 "4444\n";
-	struct message_parser_ctx *parser;
 	struct istream *input;
 	struct message_part *parts, *part;
-	struct message_block block;
 	pool_t pool;
-	int ret;
 
 	test_begin("message parser long mime boundary");
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, &set_empty);
-	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
-	test_assert(ret < 0);
-	message_parser_deinit(&parser, &parts);
+	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
 
 	part = parts;
 	test_assert(part->children_count == 6);
@@ -956,21 +895,15 @@ static const char input_msg[] =
 	const struct message_parser_settings parser_set = {
 		.max_nested_mime_parts = 2,
 	};
-	struct message_parser_ctx *parser;
 	struct istream *input;
 	struct message_part *parts, *part;
-	struct message_block block;
 	pool_t pool;
-	int ret;
 
 	test_begin("message parser mime part nested limit");
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, &parser_set);
-	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
-	test_assert(ret < 0);
-	message_parser_deinit(&parser, &parts);
+	test_assert(message_parse_stream(pool, input, &parser_set, FALSE, &parts) < 0);
 
 	part = parts;
 	test_assert(part->children_count == 2);
@@ -1021,21 +954,15 @@ static const char input_msg[] =
 	const struct message_parser_settings parser_set = {
 		.max_nested_mime_parts = 2,
 	};
-	struct message_parser_ctx *parser;
 	struct istream *input;
 	struct message_part *parts, *part;
-	struct message_block block;
 	pool_t pool;
-	int ret;
 
 	test_begin("message parser mime part nested limit rfc822");
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, &parser_set);
-	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
-	test_assert(ret < 0);
-	message_parser_deinit(&parser, &parts);
+	test_assert(message_parse_stream(pool, input, &parser_set, FALSE, &parts) < 0);
 
 	part = parts;
 	test_assert(part->children_count == 1);
@@ -1086,21 +1013,15 @@ static const char input_msg[] =
 	const struct message_parser_settings parser_set = {
 		.max_total_mime_parts = 4,
 	};
-	struct message_parser_ctx *parser;
 	struct istream *input;
 	struct message_part *parts, *part;
-	struct message_block block;
 	pool_t pool;
-	int ret;
 
 	test_begin("message parser mime part limit");
 	pool = pool_alloconly_create("message parser", 10240);
 	input = test_istream_create(input_msg);
 
-	parser = message_parser_init(pool, input, &parser_set);
-	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) ;
-	test_assert(ret < 0);
-	message_parser_deinit(&parser, &parts);
+	test_assert(message_parse_stream(pool, input, &parser_set, FALSE, &parts) < 0);
 
 	part = parts;
 	test_assert(part->children_count == 3);
