@@ -117,6 +117,7 @@ noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
 	$(noinst_LTLIBRARIES) \
+	../lib-charset/libcharset.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 

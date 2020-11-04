@@ -9,22 +9,6 @@
 #include "message-header-decode.h"
 #include "test-common.h"
 
-
-bool charset_is_utf8(const char *charset ATTR_UNUSED) { return TRUE; }
-
-int charset_to_utf8_begin(const char *charset ATTR_UNUSED,
-			  normalizer_func_t *normalizer ATTR_UNUSED,
-			  struct charset_translation **t_r ATTR_UNUSED) { return 0; }
-void charset_to_utf8_end(struct charset_translation **t ATTR_UNUSED) {}
-
-enum charset_result
-charset_to_utf8(struct charset_translation *t ATTR_UNUSED,
-		const unsigned char *src, size_t *src_size, buffer_t *dest)
-{
-	buffer_append(dest, src, *src_size);
-	return CHARSET_RET_OK;
-}
-
 static void test_message_header_decode(void)
 {
 	static const char *data[] = {
