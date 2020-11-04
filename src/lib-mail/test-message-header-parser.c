@@ -278,6 +278,9 @@ static void test_message_header_parser_no_eoh(void)
 	parser = message_parse_header_init(input, NULL, 0);
 	test_assert(message_parse_header_next(parser, &hdr) > 0 &&
 		    strcmp(hdr->name, "a") == 0);
+	test_assert_strcmp(message_header_strdup(pool_datastack_create(),
+						 hdr->value, hdr->value_len),
+			   "b");
 	test_assert(message_parse_header_next(parser, &hdr) < 0);
 	message_parse_header_deinit(&parser);
 	test_assert(input->stream_errno == 0);
