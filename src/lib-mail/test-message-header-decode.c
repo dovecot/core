@@ -19,6 +19,10 @@ static void test_message_header_decode(void)
 		"a =?utf-8?q?=c3=a4?=  x  =?utf-8?q?=c3=a4?= b", "a \xC3\xA4  x  \xC3\xA4 b",
 		"a =?utf-8?b?w6TDpCDDpA==?= b", "a \xC3\xA4\xC3\xA4 \xC3\xA4 b",
 		"=?utf-8?b?w6Qgw6Q=?=", "\xC3\xA4 \xC3\xA4",
+		"a =?utf-8?b?////?= b", "a "UNICODE_REPLACEMENT_CHAR_UTF8" b",
+		"a =?utf-16le?b?UADkAGkAdgDkAOQA?= b", "a P\xC3\xA4iv\xC3\xA4\xC3\xA4 b",
+		"a =?utf-9?b?UMOkaXbDpMOk?= b", "a P\xC3\xA4iv\xC3\xA4\xC3\xA4 b",
+
 	};
 	string_t *dest;
 	unsigned int i;
