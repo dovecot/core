@@ -262,6 +262,22 @@ auth_request_handle_failure(struct auth_request *request, const char *reply)
 }
 
 static void
+auth_request_handler_reply_continue_finish(struct auth_request *request,
+					   const void *auth_reply,
+					   size_t reply_size)
+{
+        struct auth_request_handler *handler = request->handler;
+	string_t *str;
+
+	str = t_str_new(64 + MAX_BASE64_ENCODED_SIZE(reply_size));
+	str_printfa(str, "CONT\t%u\t", request->id);
+	base64_encode(auth_reply, reply_size, str);
+
+	request->accept_cont_input = TRUE;
+	handler->callback(str_c(str), handler->conn);
+}
+
+static void
 auth_request_handler_reply_success_finish(struct auth_request *request)
 {
         struct auth_request_handler *handler = request->handler;
@@ -385,12 +401,8 @@ auth_request_handler_default_reply_callback(struct auth_request *request,
 
 	switch (result) {
 	case AUTH_CLIENT_RESULT_CONTINUE:
-		str = t_str_new(16 + MAX_BASE64_ENCODED_SIZE(reply_size));
-		str_printfa(str, "CONT\t%u\t", request->id);
-		base64_encode(auth_reply, reply_size, str);
-
-		request->accept_cont_input = TRUE;
-		handler->callback(str_c(str), handler->conn);
+		auth_request_handler_reply_continue_finish(request, auth_reply,
+							   reply_size);
 		break;
 	case AUTH_CLIENT_RESULT_SUCCESS:
 		if (reply_size > 0) {
