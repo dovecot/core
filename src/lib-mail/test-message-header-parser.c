@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "unichar.h"
 #include "istream.h"
 #include "message-size.h"
 #include "message-header-parser.h"
@@ -284,6 +285,30 @@ static void test_message_header_parser_no_eoh(void)
 	test_end();
 }
 
+static void test_message_header_parser_nul(void)
+{
+	static const unsigned char str[] = "a :\0\0b\n";
+	struct message_header_parser_ctx *parser;
+	struct message_header_line *hdr;
+	struct istream *input;
+
+	test_begin("message header parser NUL");
+
+	input = test_istream_create_data(str, sizeof(str)-1);
+	parser = message_parse_header_init(input, NULL, 0);
+	test_assert(message_parse_header_next(parser, &hdr) > 0 &&
+		    strcmp(hdr->name, "a") == 0);
+	test_assert(hdr->value_len >= 3 && memcmp("\0\0b", hdr->value, 3) == 0);
+	test_assert_strcmp(message_header_strdup(pool_datastack_create(),
+						 hdr->value, hdr->value_len),
+			   UNICODE_REPLACEMENT_CHAR_UTF8 UNICODE_REPLACEMENT_CHAR_UTF8"b");
+	test_assert(message_parse_header_next(parser, &hdr) < 0);
+	message_parse_header_deinit(&parser);
+	test_assert(input->stream_errno == 0);
+	i_stream_unref(&input);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -292,6 +317,7 @@ int main(void)
 		test_message_header_parser_long_lines,
 		test_message_header_parser_extra_cr_in_eoh,
 		test_message_header_parser_no_eoh,
+		test_message_header_parser_nul,
 		NULL
 	};
 	return test_run(test_functions);
