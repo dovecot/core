@@ -60,6 +60,11 @@ sasl_server_filter_mech(struct client *client, struct auth_mech_desc *mech,
 	    !client->set->auth_allow_cleartext &&
 	    (mech->flags & MECH_SEC_PLAINTEXT) != 0)
 		return FALSE;
+	/* Disable mechanisms that require channel binding when there is no TLS
+	   layer (yet). */
+	if (client->ssl_iostream == NULL &&
+	    (mech->flags & MECH_SEC_CHANNEL_BINDING) != 0)
+		return FALSE;
 
 	return TRUE;
 }
@@ -335,6 +340,16 @@ args_parse_user(struct client *client, const char *key, const char *value)
 	return TRUE;
 }
 
+static int
+sasl_server_channel_binding(const char *type, void *context,
+			    const buffer_t **data_r, const char **error_r)
+{
+	struct client *client = context;
+
+	return ssl_iostream_get_channel_binding(client->ssl_iostream,
+						type, data_r, error_r);
+}
+
 static void
 sasl_server_auth_success_finish(struct client *client, bool nologin,
 				const char *data, const char *const *args)
@@ -585,6 +600,9 @@ void sasl_server_auth_begin(struct client *client, const char *mech_name,
 	client->auth_request =
 		auth_client_request_new(auth_client, &info,
 					authenticate_callback, client);
+	auth_client_request_enable_channel_binding(client->auth_request,
+						   sasl_server_channel_binding,
+						   client);
 }
 
 static void ATTR_NULL(2, 3)
