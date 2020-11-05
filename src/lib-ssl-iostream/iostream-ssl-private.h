@@ -58,6 +58,10 @@ struct iostream_ssl_vfuncs {
 	const char *(*get_application_protocol)(struct ssl_iostream *ssl_io);
 	void (*set_application_protocols)(struct ssl_iostream_context *ctx,
 					  const char *const *names);
+
+	int (*get_channel_binding)(struct ssl_iostream *ssl_io,
+				   const char *type, const buffer_t **data_r,
+				   const char **error_r);
 };
 
 void iostream_ssl_module_init(const struct iostream_ssl_vfuncs *vfuncs);

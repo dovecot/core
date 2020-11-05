@@ -7,6 +7,9 @@
 struct ssl_iostream;
 struct ssl_iostream_context;
 
+#define SSL_CHANNEL_BIND_TYPE_TLS_UNIQUE "tls-unique"
+#define SSL_CHANNEL_BIND_TYPE_TLS_EXPORTER "tls-exporter"
+
 enum ssl_iostream_protocol_version {
 	/* Version not yet known at this protocol stage */
 	SSL_IOSTREAM_PROTOCOL_VERSION_UNKNOWN = 0,
@@ -237,6 +240,14 @@ const char *ssl_iostream_get_protocol_name(struct ssl_iostream *ssl_io);
 /* Returns currently used SSL protocol version. */
 enum ssl_iostream_protocol_version
 ssl_iostream_get_protocol_version(struct ssl_iostream *ssl_io);
+/* Returns 0 if channel binding type is supported with channel binding data of
+   requested type in data_r. Returns -1 if channel binding (of that type) is not
+   supported and error message is returned in error_r. The ssl_io parameter
+   may be NULL, in which case -1 is returned along with a generic error
+   applicable to an insecure channel. */
+int ssl_iostream_get_channel_binding(struct ssl_iostream *ssl_io,
+				     const char *type, const buffer_t **data_r,
+				     const char **error_r);
 
 const char *ssl_iostream_get_last_error(struct ssl_iostream *ssl_io);
 

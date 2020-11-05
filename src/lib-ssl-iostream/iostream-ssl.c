@@ -425,3 +425,22 @@ void ssl_iostream_context_set_application_protocols(struct ssl_iostream_context 
 {
 	ssl_vfuncs->set_application_protocols(ssl_ctx, names);
 }
+
+int ssl_iostream_get_channel_binding(struct ssl_iostream *ssl_io,
+				     const char *type, const buffer_t **data_r,
+				     const char **error_r)
+{
+	*data_r = NULL;
+	*error_r = NULL;
+
+	if (ssl_io == NULL) {
+		*error_r = "Channel binding not available for insecure channel";
+		return -1;
+	}
+	if (ssl_vfuncs->get_channel_binding == NULL) {
+		*error_r = "Channel binding not supported";
+		return -1;
+	}
+
+	return ssl_vfuncs->get_channel_binding(ssl_io, type, data_r, error_r);
+}
