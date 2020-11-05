@@ -258,6 +258,13 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	db->oauth2_set.use_grant_password = db->set.use_grant_password;
 	db->oauth2_set.scope = db->set.scope;
 
+	if (*db->set.active_attribute != '\0' &&
+	    *db->set.active_value == '\0')
+		i_fatal("oauth2: Cannot have empty active_value if active_attribute is set");
+	if (*db->set.active_attribute == '\0' &&
+	    *db->set.active_value != '\0')
+		i_fatal("oauth2: Cannot have empty active_attribute is active_value is set");
+
 	if (*db->set.introspection_mode == '\0' ||
 	    strcmp(db->set.introspection_mode, "auth") == 0) {
 		db->oauth2_set.introspection_mode = INTROSPECTION_MODE_GET_AUTH;
