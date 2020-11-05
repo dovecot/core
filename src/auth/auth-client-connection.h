@@ -3,6 +3,8 @@
 
 #include "login-interface.h"
 
+#define AUTH_CLIENT_MINOR_VERSION_CHANNEL_BINDING 3
+
 struct auth_client_connection {
 	struct connection conn;
 	struct auth *auth;
