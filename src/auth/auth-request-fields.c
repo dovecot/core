@@ -6,6 +6,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "str-sanitize.h"
+#include "base64.h"
 #include "auth-request.h"
 #include "userdb-template.h"
 
@@ -246,6 +247,32 @@ bool auth_request_import_auth(struct auth_request *request,
 	return TRUE;
 }
 
+static void
+auth_request_import_channel_binding(struct auth_request *request,
+				    const char *value)
+{
+	struct auth_request_fields *fields = &request->fields;
+
+	if (fields->channel_binding.type == NULL ||
+	    fields->channel_binding.data != NULL)
+		return;
+
+	size_t value_len = strlen(value);
+	fields->channel_binding.data = buffer_create_dynamic(
+		request->pool, MAX_BASE64_DECODED_SIZE(value_len));
+	(void)base64_decode(value, value_len,
+			    fields->channel_binding.data);
+}
+
+void auth_request_import_continue(struct auth_request *request,
+				  const char *key, const char *value)
+{
+	i_assert(value != NULL);
+
+	if (strcmp(key, "channel_binding") == 0)
+		auth_request_import_channel_binding(request, value);
+}
+
 bool auth_request_import(struct auth_request *request,
 			 const char *key, const char *value)
 {
@@ -290,6 +317,26 @@ bool auth_request_import(struct auth_request *request,
 		return FALSE;
 
 	return TRUE;
+}
+
+void auth_request_start_channel_binding(struct auth_request *request,
+					const char *type)
+{
+	i_assert(type != NULL);
+	request->fields.channel_binding.type = p_strdup(request->pool, type);
+	event_add_str(request->event, "channel_binding", type);
+}
+
+int auth_request_accept_channel_binding(struct auth_request *request,
+					buffer_t **data_r)
+{
+	if (request->fields.channel_binding.type == NULL ||
+	    request->fields.channel_binding.data == NULL)
+		return -1;
+	*data_r = request->fields.channel_binding.data;
+	request->fields.channel_binding.type = NULL;
+	request->fields.channel_binding.data = NULL;
+	return 0;
 }
 
 static int

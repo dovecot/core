@@ -79,6 +79,10 @@ struct auth_request_fields {
 	size_t delayed_credentials_size;
 
 	enum auth_request_conn_secured conn_secured;
+	struct {
+		const char *type;
+		buffer_t *data;
+	} channel_binding;
 
 	/* Authentication was successfully finished, including policy checks
 	   and such. There may still be some final delay or final SASL
@@ -272,6 +276,8 @@ bool auth_request_import_info(struct auth_request *request,
 			      const char *key, const char *value);
 bool auth_request_import_auth(struct auth_request *request,
 			      const char *key, const char *value);
+void auth_request_import_continue(struct auth_request *request,
+				  const char *key, const char *value);
 bool auth_request_import_master(struct auth_request *request,
 				const char *key, const char *value);
 
@@ -287,6 +293,11 @@ void auth_request_lookup_credentials(struct auth_request *request,
 				     lookup_credentials_callback_t *callback);
 void auth_request_lookup_user(struct auth_request *request,
 			      userdb_callback_t *callback);
+
+void auth_request_start_channel_binding(struct auth_request *request,
+					const char *type);
+int auth_request_accept_channel_binding(struct auth_request *request,
+					buffer_t **data_r);
 
 bool auth_request_set_username(struct auth_request *request,
 			       const char *username, const char **error_r);

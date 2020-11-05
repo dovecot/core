@@ -271,7 +271,19 @@ auth_request_handler_reply_continue_finish(struct auth_request *request,
 
 	str = t_str_new(64 + MAX_BASE64_ENCODED_SIZE(reply_size));
 	str_printfa(str, "CONT\t%u\t", request->id);
-	base64_encode(auth_reply, reply_size, str);
+	if (auth_reply == NULL) {
+		/* Send out-of-band challenge */
+		str_append_c(str, '#');
+	} else {
+		/* Send normal challenge */
+		base64_encode(auth_reply, reply_size, str);
+	}
+	if (request->fields.channel_binding.type != NULL &&
+	    handler->conn->conn.minor_version >=
+		AUTH_CLIENT_MINOR_VERSION_CHANNEL_BINDING) {
+		auth_str_add_keyvalue(str, "channel_binding",
+				      request->fields.channel_binding.type);
+	}
 
 	request->accept_cont_input = TRUE;
 	handler->callback(str_c(str), handler->conn);
@@ -702,6 +714,8 @@ int auth_request_handler_auth_continue(struct auth_request_handler *handler,
 				       const char *const *args)
 {
 	struct auth_request *request;
+	const char *name, *arg;
+	const char *data;
 	size_t data_len;
 	buffer_t *buf;
 	unsigned int id;
@@ -734,19 +748,37 @@ int auth_request_handler_auth_continue(struct auth_request_handler *handler,
 
 	request->accept_cont_input = FALSE;
 
-	data_len = strlen(args[1]);
-	buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(data_len));
-	if (base64_decode(args[1], data_len, buf) < 0) {
-		auth_request_handler_auth_fail_code(handler, request,
-			AUTH_CLIENT_FAIL_CODE_INVALID_BASE64,
-			"Invalid base64 data in continued response");
-		return 1;
+	data = args[1];
+	data_len = strlen(data);
+	if (data_len == 1 && *data == '#') {
+		/* Out-of-band response */
+		buf = NULL;
+	} else {
+		/* Normal SASL response */
+		buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(data_len));
+		if ((handler->conn->conn.minor_version <
+			AUTH_CLIENT_MINOR_VERSION_CHANNEL_BINDING &&
+		     args[2] != NULL) ||
+		    base64_decode(data, data_len, buf) < 0) {
+			auth_request_handler_auth_fail_code(handler, request,
+				AUTH_CLIENT_FAIL_CODE_INVALID_BASE64,
+				"Invalid base64 data in continued response");
+			return -1;
+		}
+	}
+
+	for (args += 2; *args != NULL; args++) {
+		t_split_key_value_eq(*args, &name, &arg);
+		auth_request_import_continue(request, name, arg);
 	}
 
 	/* handler is referenced until auth_request_handler_reply()
 	   is called. */
 	handler->refcount++;
-	auth_request_continue(request, buf->data, buf->used);
+	if (buf == NULL)
+		auth_request_continue(request, NULL, 0);
+	else
+		auth_request_continue(request, buf->data, buf->used);
 	return 1;
 }
 
