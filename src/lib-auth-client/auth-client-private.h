@@ -20,6 +20,10 @@ struct auth_client_request {
 	enum auth_request_status final_status;
 	const char *const *final_args;
 
+	buffer_t *cbinding_data;
+	auth_channel_binding_callback_t *cbinding_callback;
+	void *cbinding_context;
+
 	auth_request_callback_t *callback;
 	void *context;
 

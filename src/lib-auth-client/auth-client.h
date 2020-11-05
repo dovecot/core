@@ -72,6 +72,10 @@ typedef void auth_request_callback_t(struct auth_client_request *request,
 				     const char *data_base64,
 				     const char *const *args, void *context);
 
+typedef int auth_channel_binding_callback_t(const char *type, void *context,
+					    const buffer_t **data_r,
+					    const char **error_r);
+
 typedef void auth_connect_notify_callback_t(struct auth_client *client,
 					    bool connected, void *context);
 
@@ -108,6 +112,10 @@ struct auth_client_request *
 auth_client_request_new(struct auth_client *client,
 			const struct auth_request_info *request_info,
 			auth_request_callback_t *callback, void *context);
+/* Enable channel binding support for this request. */
+void auth_client_request_enable_channel_binding(
+	struct auth_client_request *request,
+	auth_channel_binding_callback_t *callback, void *context);
 /* Continue authentication. Call when
    reply->result == AUTH_CLIENT_REQUEST_CONTINUE */
 void auth_client_request_continue(struct auth_client_request *request,
