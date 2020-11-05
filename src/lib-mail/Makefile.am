@@ -104,6 +104,7 @@ test_programs = \
 	test-message-id \
 	test-message-parser \
 	test-message-part \
+	test-message-part-serialize \
 	test-message-search \
 	test-message-snippet \
 	test-ostream-dot \
@@ -230,6 +231,10 @@ test_rfc822_parser_DEPENDENCIES = $(test_deps)
 test_mail_user_hash_SOURCES = test-mail-user-hash.c
 test_mail_user_hash_LDADD = $(test_libs)
 test_mail_user_hash_DEPENDENCIES = $(test_deps)
+
+test_message_part_serialize_SOURCES = test-message-part-serialize.c
+test_message_part_serialize_LDADD = $(test_libs)
+test_message_part_serialize_DEPENDENCIES = $(test_deps)
 
 check-local:
 	for bin in $(test_programs); do \
