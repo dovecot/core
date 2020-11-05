@@ -1,6 +1,7 @@
 /* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
 #include "istream-private.h"
 #include "ostream-private.h"
 #include "iostream-openssl.h"
@@ -876,6 +877,115 @@ openssl_iostream_get_application_protocol(struct ssl_iostream *ssl_io)
 	return NULL;
 }
 
+static int
+openssl_iostream_get_cb_tls_exporter(struct ssl_iostream *ssl_io,
+				     const buffer_t **data_r,
+				     const char **error_r)
+{
+	/* RFC 9266, Section 4.2:
+
+	   When TLS renegotiation is enabled on a connection, the "tls-exporter"
+	   channel binding type is not defined for that connection, and
+	   implementations MUST NOT support it.
+	 */
+	if (SSL_version(ssl_io->ssl) < TLS1_3_VERSION &&
+	    HAS_NO_BITS(SSL_get_options(ssl_io->ssl),
+			SSL_OP_NO_RENEGOTIATION)) {
+		*error_r = t_strdup_printf(
+			"Channel binding type 'tls-exporter' not available: "
+			"TLS renegotiation is enabled for %s",
+			SSL_get_version(ssl_io->ssl));
+		return -1;
+	}
+
+	static const char literal[] = "EXPORTER-Channel-Binding";
+	static const size_t size = 32;
+	buffer_t *buf = t_buffer_create(size);
+	void *data = buffer_get_space_unsafe(buf, 0, size);
+
+	if (SSL_export_keying_material(ssl_io->ssl, data, size,
+				       literal, sizeof(literal) - 1,
+				       NULL, 0, 0) != 1) {
+		*error_r = t_strdup_printf(
+			"Failed to compose channel binding 'tls-exporter': %s",
+			openssl_iostream_error());
+		return -1;
+	}
+
+        *data_r = buf;
+	return 0;
+}
+
+static int
+openssl_iostream_get_cb_tls_unique(struct ssl_iostream *ssl_io,
+				   const buffer_t **data_r,
+				   const char **error_r)
+{
+	/* RFC 9266, Section 3:
+ 
+	   The specifications for Salted Challenge Response Authentication
+	   Mechanism (SCRAM) [RFC5802] [RFC7677] and Generic Security Service
+	   Application Program Interface (GSS-API) over Simple Authentication
+	   and Security Layer (SASL) [RFC5801] define "tls-unique" as the
+	   default channel binding to use over TLS.  As "tls-unique" is not
+	   defined for TLS 1.3 (and greater), this document updates [RFC5801],
+	   [RFC5802], and [RFC7677] to use "tls-exporter" as the default channel
+	   binding over TLS 1.3 (and greater).
+	 */
+	if (SSL_version(ssl_io->ssl) >= TLS1_3_VERSION) {
+		*error_r = t_strdup_printf(
+			"Channel binding type 'tls-unique' not defined: "
+			"TLS version is %s", SSL_get_version(ssl_io->ssl));
+		return -1;
+	}
+
+	static const size_t max_size = EVP_MAX_MD_SIZE;
+	buffer_t *buf = t_buffer_create(max_size);
+	void *data = buffer_get_space_unsafe(buf, 0, max_size);
+	size_t size;
+	bool peer_finished;
+
+	/* Roles are reversed when session reuse is in effect */
+	peer_finished = !ssl_io->ctx->client_ctx;
+	if (SSL_session_reused(ssl_io->ssl) != 0)
+		peer_finished = !peer_finished;
+	if (peer_finished)
+		size = SSL_get_peer_finished(ssl_io->ssl, data, max_size);
+	else
+		size = SSL_get_finished(ssl_io->ssl, data, max_size);
+		
+	buffer_set_used_size(buf, size);
+
+	*data_r = buf;
+	return 0;
+}
+
+static int
+openssl_iostream_get_channel_binding(struct ssl_iostream *ssl_io,
+				     const char *type, const buffer_t **data_r,
+				     const char **error_r)
+{
+	*error_r = NULL;
+	*data_r = NULL;
+
+	if (!ssl_io->handshaked) {
+		*error_r = "Channel binding not available before handshake";
+		return -1;
+	}
+
+	if (strcmp(type, SSL_CHANNEL_BIND_TYPE_TLS_UNIQUE) == 0) {
+		return openssl_iostream_get_cb_tls_unique(
+			ssl_io, data_r, error_r);
+	} else if (strcmp(type, SSL_CHANNEL_BIND_TYPE_TLS_EXPORTER) == 0) {
+		return openssl_iostream_get_cb_tls_exporter(
+			ssl_io, data_r, error_r);
+	}
+
+	*error_r = t_strdup_printf(
+		"Unsupported channel binding type '%s'", type);
+	return -1;
+}
+
 static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.global_init = openssl_iostream_global_init,
 	.context_init_client = openssl_iostream_context_init_client,
@@ -912,6 +1022,8 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 
 	.get_application_protocol = openssl_iostream_get_application_protocol,
 	.set_application_protocols = openssl_iostream_context_set_application_protocols,
+
+	.get_channel_binding = openssl_iostream_get_channel_binding,
 };
 
 void ssl_iostream_openssl_init(void)
