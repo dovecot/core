@@ -132,8 +132,9 @@ static void test_message_header_parser(void)
 		MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE;
 	enum message_header_parser_flags hdr_flags;
 	struct message_header_parser_ctx *parser;
-	struct message_size hdr_size;
+	struct message_size hdr_size, hdr_size2;
 	struct istream *input;
+	bool has_nuls;
 
 	test_begin("message header parser");
 	input = test_istream_create(test1_msg);
@@ -143,7 +144,14 @@ static void test_message_header_parser(void)
 		parser = message_parse_header_init(input, &hdr_size, hdr_flags);
 		test_message_header_parser_one(parser, hdr_flags);
 		message_parse_header_deinit(&parser);
+		i_stream_seek(input, 0);
+		message_get_header_size(input, &hdr_size2, &has_nuls);
 	}
+
+	test_assert(!has_nuls);
+	test_assert(hdr_size.physical_size == hdr_size2.physical_size);
+	test_assert(hdr_size.virtual_size == hdr_size2.virtual_size);
+	test_assert(hdr_size.lines == hdr_size2.lines);
 	test_assert(hdr_size.physical_size == strlen(test1_msg)-TEST1_MSG_BODY_LEN);
 	test_assert(hdr_size.virtual_size == strlen(test1_msg) - TEST1_MSG_BODY_LEN + 4);
 
@@ -199,13 +207,15 @@ static void test_message_header_parser_partial(void)
 static void
 test_message_header_parser_long_lines_str(const char *str,
 					  unsigned int buffer_size,
-					  struct message_size *size_r)
+					  struct message_size *size_r,
+					  struct message_size *size_2_r)
 {
 	struct message_header_parser_ctx *parser;
 	struct message_header_line *hdr;
 	struct istream *input;
 	unsigned int i;
 	size_t len = strlen(str);
+	bool has_nuls;
 
 	input = test_istream_create(str);
 	test_istream_set_max_buffer_size(input, buffer_size);
@@ -216,6 +226,12 @@ test_message_header_parser_long_lines_str(const char *str,
 		while (message_parse_header_next(parser, &hdr) > 0) ;
 	}
 	message_parse_header_deinit(&parser);
+	i_stream_seek(input, 0);
+	/* Buffer must be +1 for message_get_header_size as it's using
+	   i_stream_read_bytes which does not work with lower buffersize
+	   because it returns -2 (input buffer full) if 2 bytes are wanted. */
+	test_istream_set_max_buffer_size(input, buffer_size+1);
+	message_get_header_size(input, size_2_r, &has_nuls);
 	i_stream_unref(&input);
 }
 
@@ -223,21 +239,25 @@ static void test_message_header_parser_long_lines(void)
 {
 	static const char *lf_str = "1234567890: 345\n\n";
 	static const char *crlf_str = "1234567890: 345\r\n\r\n";
-	struct message_size hdr_size;
+	struct message_size hdr_size, hdr_size2;
 	size_t i, len;
 
 	test_begin("message header parser long lines");
 	len = strlen(lf_str);
 	for (i = 2; i < len; i++) {
-		test_message_header_parser_long_lines_str(lf_str, i, &hdr_size);
+		test_message_header_parser_long_lines_str(lf_str, i, &hdr_size, &hdr_size2);
 		test_assert(hdr_size.physical_size == len);
 		test_assert(hdr_size.virtual_size == len + 2);
+		test_assert(hdr_size.virtual_size == hdr_size2.virtual_size);
+		test_assert(hdr_size.physical_size == hdr_size2.physical_size);
 	}
 	len = strlen(crlf_str);
 	for (i = 3; i < len; i++) {
-		test_message_header_parser_long_lines_str(crlf_str, i, &hdr_size);
+		test_message_header_parser_long_lines_str(crlf_str, i, &hdr_size, &hdr_size2);
 		test_assert(hdr_size.physical_size == len);
 		test_assert(hdr_size.virtual_size == len);
+		test_assert(hdr_size.virtual_size == hdr_size2.virtual_size);
+		test_assert(hdr_size.physical_size == hdr_size2.physical_size);
 	}
 	test_end();
 }

@@ -5,6 +5,7 @@
 #include "istream.h"
 #include "message-parser.h"
 #include "message-part-data.h"
+#include "message-size.h"
 #include "test-common.h"
 
 static const char test_msg[] =
@@ -202,6 +203,33 @@ static void test_message_parser_stop_early(void)
 	test_end();
 }
 
+static void test_message_parser_get_sizes(struct istream *input,
+					  struct message_size *body_size_r,
+					  struct message_size *header_size_r,
+					  bool expect_has_nuls)
+{
+	bool has_nuls;
+	i_zero(body_size_r);
+	i_zero(header_size_r);
+
+	message_get_header_size(input, header_size_r, &has_nuls);
+	test_assert(has_nuls == expect_has_nuls);
+	message_get_body_size(input, body_size_r, &has_nuls);
+	test_assert(has_nuls == expect_has_nuls);
+}
+
+static void test_message_parser_assert_sizes(const struct message_part *part,
+					     const struct message_size *body_size,
+					     const struct message_size *header_size)
+{
+	test_assert(part->header_size.lines == header_size->lines);
+	test_assert(part->header_size.physical_size == header_size->physical_size);
+	test_assert(part->header_size.virtual_size == header_size->virtual_size);
+	test_assert(part->body_size.lines == body_size->lines);
+	test_assert(part->body_size.physical_size == body_size->physical_size);
+	test_assert(part->body_size.virtual_size == body_size->virtual_size);
+}
+
 static void test_message_parser_truncated_mime_headers(void)
 {
 static const char input_msg[] =
@@ -217,6 +245,7 @@ static const char input_msg[] =
 "--:foo--\n";
 	struct istream *input;
 	struct message_part *parts, *part;
+	struct message_size body_size, header_size;
 	pool_t pool;
 
 	test_begin("message parser truncated mime headers");
@@ -224,6 +253,9 @@ static const char input_msg[] =
 	input = test_istream_create(input_msg);
 
 	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
+
+	i_stream_seek(input, 0);
+	test_message_parser_get_sizes(input, &body_size, &header_size, FALSE);
 
 	test_assert((parts->flags & MESSAGE_PART_FLAG_MULTIPART) != 0);
 	test_assert(parts->children_count == 4);
@@ -233,6 +265,8 @@ static const char input_msg[] =
 	test_assert(parts->body_size.lines == 8);
 	test_assert(parts->body_size.physical_size == 112);
 	test_assert(parts->body_size.virtual_size == 112+7);
+	test_message_parser_assert_sizes(parts, &body_size, &header_size);
+
 	test_assert(parts->children->physical_pos == 55);
 	test_assert(parts->children->header_size.physical_size == 0);
 	test_assert(parts->children->body_size.physical_size == 0);
@@ -276,6 +310,7 @@ static const char input_msg[] =
 "--a\n\n";
 	struct istream *input;
 	struct message_part *parts;
+	struct message_size body_size, header_size;
 	pool_t pool;
 
 	test_begin("message parser truncated mime headers 2");
@@ -283,6 +318,9 @@ static const char input_msg[] =
 	input = test_istream_create(input_msg);
 
 	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
+
+	i_stream_seek(input, 0);
+	test_message_parser_get_sizes(input, &body_size, &header_size, FALSE);
 
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->children_count == 2);
@@ -292,6 +330,7 @@ static const char input_msg[] =
 	test_assert(parts->body_size.lines == 8);
 	test_assert(parts->body_size.physical_size == 86);
 	test_assert(parts->body_size.virtual_size == 86+8);
+	test_message_parser_assert_sizes(parts, &body_size, &header_size);
 
 	test_assert(parts->children->children_count == 0);
 	test_assert(parts->children->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
@@ -397,6 +436,7 @@ static const char input_msg[] =
 "body\n";
 	struct istream *input;
 	struct message_part *parts;
+	struct message_size body_size, header_size;
 	pool_t pool;
 
 	test_begin("message parser duplicate mime boundary");
@@ -404,6 +444,9 @@ static const char input_msg[] =
 	input = test_istream_create(input_msg);
 
 	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
+
+	i_stream_seek(input, 0);
+	test_message_parser_get_sizes(input, &body_size, &header_size, FALSE);
 
 	test_assert(parts->children_count == 2);
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
@@ -413,6 +456,8 @@ static const char input_msg[] =
 	test_assert(parts->body_size.lines == 7);
 	test_assert(parts->body_size.physical_size == 84);
 	test_assert(parts->body_size.virtual_size == 84+7);
+	test_message_parser_assert_sizes(parts, &body_size, &header_size);
+
 	test_assert(parts->children->children_count == 1);
 	test_assert(parts->children->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->children->physical_pos == 49);
@@ -452,6 +497,7 @@ static const char input_msg[] =
 "body\n";
 	struct istream *input;
 	struct message_part *parts;
+	struct message_size body_size, header_size;
 	pool_t pool;
 
 	test_begin("message parser garbage suffix mime boundary");
@@ -459,6 +505,9 @@ static const char input_msg[] =
 	input = test_istream_create(input_msg);
 
 	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
+
+	i_stream_seek(input, 0);
+	test_message_parser_get_sizes(input, &body_size, &header_size, FALSE);
 
 	test_assert(parts->children_count == 2);
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
@@ -468,6 +517,8 @@ static const char input_msg[] =
 	test_assert(parts->body_size.lines == 7);
 	test_assert(parts->body_size.physical_size == 86);
 	test_assert(parts->body_size.virtual_size == 86+7);
+	test_message_parser_assert_sizes(parts, &body_size, &header_size);
+
 	test_assert(parts->children->children_count == 1);
 	test_assert(parts->children->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->children->physical_pos == 50);
@@ -554,6 +605,8 @@ static const char input_msg[] =
 
 	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
 
+	i_stream_seek(input, 0);
+
 	test_assert(parts->children_count == 2);
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->header_size.lines == 2);
@@ -602,6 +655,7 @@ static const char input_msg[] =
 "--a--\n\n";
 	struct istream *input;
 	struct message_part *parts, *part;
+	struct message_size body_size, header_size;
 	pool_t pool;
 
 	test_begin("message parser continuing truncated mime boundary");
@@ -609,6 +663,9 @@ static const char input_msg[] =
 	input = test_istream_create(input_msg);
 
 	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
+
+	i_stream_seek(input, 0);
+	test_message_parser_get_sizes(input, &body_size, &header_size, FALSE);
 
 	part = parts;
 	test_assert(part->children_count == 3);
@@ -619,6 +676,7 @@ static const char input_msg[] =
 	test_assert(part->body_size.lines == 9);
 	test_assert(part->body_size.physical_size == 112);
 	test_assert(part->body_size.virtual_size == 112+9);
+	test_message_parser_assert_sizes(part, &body_size, &header_size);
 
 	part = parts->children;
 	test_assert(part->children_count == 0);
@@ -679,6 +737,7 @@ static const char input_msg[] =
 "body2\n";
 	struct istream *input;
 	struct message_part *parts;
+	struct message_size body_size, header_size;
 	pool_t pool;
 
 	test_begin("message parser continuing mime boundary reverse");
@@ -686,6 +745,9 @@ static const char input_msg[] =
 	input = test_istream_create(input_msg);
 
 	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
+
+	i_stream_seek(input, 0);
+	test_message_parser_get_sizes(input, &body_size, &header_size, FALSE);
 
 	test_assert(parts->children_count == 3);
 	test_assert(parts->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
@@ -695,6 +757,8 @@ static const char input_msg[] =
 	test_assert(parts->body_size.lines == 11);
 	test_assert(parts->body_size.physical_size == 121);
 	test_assert(parts->body_size.virtual_size == 121+11);
+	test_message_parser_assert_sizes(parts, &body_size, &header_size);
+
 	test_assert(parts->children->children_count == 1);
 	test_assert(parts->children->flags == (MESSAGE_PART_FLAG_MULTIPART | MESSAGE_PART_FLAG_IS_MIME));
 	test_assert(parts->children->physical_pos == 51);
@@ -790,6 +854,7 @@ static const char input_msg[] =
 "4444\n";
 	struct istream *input;
 	struct message_part *parts, *part;
+	struct message_size body_size, header_size;
 	pool_t pool;
 
 	test_begin("message parser long mime boundary");
@@ -797,6 +862,9 @@ static const char input_msg[] =
 	input = test_istream_create(input_msg);
 
 	test_assert(message_parse_stream(pool, input, &set_empty, FALSE, &parts) < 0);
+
+	i_stream_seek(input, 0);
+	test_message_parser_get_sizes(input, &body_size, &header_size, FALSE);
 
 	part = parts;
 	test_assert(part->children_count == 6);
@@ -807,6 +875,7 @@ static const char input_msg[] =
 	test_assert(part->body_size.lines == 22);
 	test_assert(part->body_size.physical_size == 871);
 	test_assert(part->body_size.virtual_size == 871+22);
+	test_message_parser_assert_sizes(part, &body_size, &header_size);
 
 	part = parts->children;
 	test_assert(part->children_count == 5);
@@ -871,6 +940,7 @@ static const char input_msg[] =
 	};
 	struct istream *input;
 	struct message_part *parts, *part;
+	struct message_size body_size, header_size;
 	pool_t pool;
 
 	test_begin("message parser mime part nested limit");
@@ -878,6 +948,9 @@ static const char input_msg[] =
 	input = test_istream_create(input_msg);
 
 	test_assert(message_parse_stream(pool, input, &parser_set, FALSE, &parts) < 0);
+
+	i_stream_seek(input, 0);
+	test_message_parser_get_sizes(input, &body_size, &header_size, FALSE);
 
 	part = parts;
 	test_assert(part->children_count == 2);
@@ -888,6 +961,7 @@ static const char input_msg[] =
 	test_assert(part->body_size.lines == 15);
 	test_assert(part->body_size.physical_size == 148);
 	test_assert(part->body_size.virtual_size == 148+15);
+	test_message_parser_assert_sizes(part, &body_size, &header_size);
 
 	part = parts->children;
 	test_assert(part->children_count == 0);
@@ -930,6 +1004,7 @@ static const char input_msg[] =
 	};
 	struct istream *input;
 	struct message_part *parts, *part;
+	struct message_size body_size, header_size;
 	pool_t pool;
 
 	test_begin("message parser mime part nested limit rfc822");
@@ -937,6 +1012,9 @@ static const char input_msg[] =
 	input = test_istream_create(input_msg);
 
 	test_assert(message_parse_stream(pool, input, &parser_set, FALSE, &parts) < 0);
+
+	i_stream_seek(input, 0);
+	test_message_parser_get_sizes(input, &body_size, &header_size, FALSE);
 
 	part = parts;
 	test_assert(part->children_count == 1);
@@ -947,6 +1025,7 @@ static const char input_msg[] =
 	test_assert(part->body_size.lines == 5);
 	test_assert(part->body_size.physical_size == 58);
 	test_assert(part->body_size.virtual_size == 58+5);
+	test_message_parser_assert_sizes(part, &body_size, &header_size);
 
 	part = parts->children;
 	test_assert(part->children_count == 0);
@@ -989,6 +1068,7 @@ static const char input_msg[] =
 	};
 	struct istream *input;
 	struct message_part *parts, *part;
+	struct message_size body_size, header_size;
 	pool_t pool;
 
 	test_begin("message parser mime part limit");
@@ -996,6 +1076,9 @@ static const char input_msg[] =
 	input = test_istream_create(input_msg);
 
 	test_assert(message_parse_stream(pool, input, &parser_set, FALSE, &parts) < 0);
+
+	i_stream_seek(input, 0);
+	test_message_parser_get_sizes(input, &body_size, &header_size, FALSE);
 
 	part = parts;
 	test_assert(part->children_count == 3);
@@ -1006,6 +1089,7 @@ static const char input_msg[] =
 	test_assert(part->body_size.lines == 15);
 	test_assert(part->body_size.physical_size == 148);
 	test_assert(part->body_size.virtual_size == 148+15);
+	test_message_parser_assert_sizes(part, &body_size, &header_size);
 
 	part = parts->children;
 	test_assert(part->children_count == 2);

@@ -106,6 +106,7 @@ test_programs = \
 	test-message-part \
 	test-message-part-serialize \
 	test-message-search \
+	test-message-size \
 	test-message-snippet \
 	test-ostream-dot \
 	test-qp-decoder \
@@ -195,6 +196,10 @@ test_message_part_DEPENDENCIES = $(test_deps)
 test_message_search_SOURCES = test-message-search.c
 test_message_search_LDADD = $(test_libs) ../lib-charset/libcharset.la
 test_message_search_DEPENDENCIES = $(test_deps) ../lib-charset/libcharset.la
+
+test_message_size_SOURCES = test-message-size.c
+test_message_size_LDADD = $(test_libs)
+test_message_size_DEPENDENCIES = $(test_deps)
 
 test_message_snippet_SOURCES = test-message-snippet.c
 test_message_snippet_LDADD = $(test_message_decoder_LDADD)
