@@ -42,8 +42,8 @@ imap_hibernate_handshake(int fd, const char *path, const char **error_r)
 	return -1;
 }
 
-void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
-			      const buffer_t *state, int fd_notify)
+static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
+				     const buffer_t *state, int fd_notify)
 {
 	struct mail_user *user = client->user;
 	struct stat peer_st;
