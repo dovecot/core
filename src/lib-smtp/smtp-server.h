@@ -628,6 +628,9 @@ void smtp_server_command_input_capture(
 	struct smtp_server_cmd_ctx *cmd,
 	smtp_server_cmd_input_callback_t *callback);
 
+void smtp_server_command_pipeline_block(struct smtp_server_cmd_ctx *cmd);
+void smtp_server_command_pipeline_unblock(struct smtp_server_cmd_ctx *cmd);
+
 /* EHLO */
 
 void smtp_server_cmd_ehlo(struct smtp_server_cmd_ctx *cmd, const char *params);

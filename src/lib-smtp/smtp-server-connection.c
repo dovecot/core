@@ -101,7 +101,7 @@ void smtp_server_connection_input_resume(struct smtp_server_connection *conn)
 		/* Is queued command still blocking input? */
 		cmd = conn->command_queue_head;
 		while (cmd != NULL) {
-			if (cmd->input_locked) {
+			if (cmd->input_locked || cmd->pipeline_blocked) {
 				cmd_locked = TRUE;
 				break;
 			}
