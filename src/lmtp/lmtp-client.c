@@ -197,6 +197,7 @@ struct client *client_create(int fd_in, int fd_out,
 	lmtp_set.rcpt_param_extensions = rcpt_param_extensions;
 	lmtp_set.rcpt_domain_optional = TRUE;
 	lmtp_set.max_client_idle_time_msecs = CLIENT_IDLE_TIMEOUT_MSECS;
+	lmtp_set.max_pipelined_commands = 5;
 	lmtp_set.rawlog_dir = client->lmtp_set->lmtp_rawlog_dir;
 	lmtp_set.event_parent = client->event;
 

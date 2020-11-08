@@ -28,6 +28,8 @@ int cmd_mail(void *conn_ctx,
 {
 	struct client *client = (struct client *)conn_ctx;
 
+	smtp_server_command_pipeline_block(cmd);
+
 	return client->v.cmd_mail(client, cmd, data);
 }
 
