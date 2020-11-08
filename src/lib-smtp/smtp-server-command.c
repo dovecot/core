@@ -324,6 +324,8 @@ bool smtp_server_command_unref(struct smtp_server_command **_cmd)
 		&cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY, TRUE))
 		i_unreached();
 
+	smtp_server_command_pipeline_unblock(&cmd->context);
+
 	smtp_server_reply_free(cmd);
 	event_unref(&cmd->context.event);
 	pool_unref(&cmd->context.pool);
@@ -355,6 +357,7 @@ void smtp_server_command_abort(struct smtp_server_command **_cmd)
 	}
 	smtp_server_reply_free(cmd);
 
+	smtp_server_command_pipeline_unblock(&cmd->context);
 	smtp_server_command_unref(_cmd);
 }
 
@@ -527,6 +530,9 @@ bool smtp_server_command_completed(struct smtp_server_command **_cmd)
 		return TRUE;
 
 	e_debug(cmd->context.event, "Completed");
+
+	if (cmd->pipeline_blocked)
+		smtp_server_command_pipeline_unblock(&cmd->context);
 
 	return smtp_server_command_call_hooks(
 		_cmd, SMTP_SERVER_COMMAND_HOOK_COMPLETED, TRUE);
@@ -791,9 +797,11 @@ void smtp_server_command_finished(struct smtp_server_command *cmd)
 		}
 		smtp_server_command_unref(&cmd);
 		return;
-	} else if (cmd->input_locked) {
-		smtp_server_command_input_unlock(&cmd->context);
 	}
+	if (cmd->input_locked)
+		smtp_server_command_input_unlock(&cmd->context);
+	if (cmd->pipeline_blocked)
+		smtp_server_command_pipeline_unblock(&cmd->context);
 
 	smtp_server_command_unref(&cmd);
 	smtp_server_connection_trigger_output(conn);
@@ -865,4 +873,29 @@ void smtp_server_command_input_capture(
 	smtp_server_connection_input_capture(conn, *callback, cmd);
 	command->input_locked = TRUE;
 	command->input_captured = TRUE;
+}
+
+void smtp_server_command_pipeline_block(struct smtp_server_cmd_ctx *cmd)
+{
+	struct smtp_server_command *command = cmd->cmd;
+	struct smtp_server_connection *conn = cmd->conn;
+
+	e_debug(cmd->event, "Pipeline blocked");
+
+	command->pipeline_blocked = TRUE;
+	smtp_server_connection_input_lock(conn);
+}
+
+void smtp_server_command_pipeline_unblock(struct smtp_server_cmd_ctx *cmd)
+{
+	struct smtp_server_command *command = cmd->cmd;
+	struct smtp_server_connection *conn = cmd->conn;
+
+	if (!command->pipeline_blocked)
+		return;
+
+	command->pipeline_blocked = FALSE;
+	smtp_server_connection_input_unlock(conn);
+
+	e_debug(cmd->event, "Pipeline unblocked");
 }
