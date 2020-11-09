@@ -141,6 +141,7 @@ static void test_message_decoder_multipart(void)
 
 	message_decoder_deinit(&decoder);
 	message_parser_deinit(&parser, &parts);
+	test_assert(istream->stream_errno == 0);
 	i_stream_unref(&istream);
 	test_end();
 }

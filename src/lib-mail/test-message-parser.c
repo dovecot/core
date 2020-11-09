@@ -57,6 +57,7 @@ static int message_parse_stream(pool_t pool, struct istream *input,
 			message_part_data_parse_from_header(pool, block.part,
 							    block.hdr);
 	message_parser_deinit(&parser, parts_r);
+	test_assert(input->stream_errno == 0);
 	return ret;
 }
 
@@ -118,6 +119,7 @@ static void test_message_parser_small_blocks(void)
 
 	test_assert(ret < 0);
 	message_parser_deinit(&parser, &parts);
+	test_assert(input->stream_errno == 0);
 	test_assert(strcmp(test_msg, str_c(output)) == 0);
 
 	/* parsing in small blocks */
@@ -135,6 +137,7 @@ static void test_message_parser_small_blocks(void)
 			    (ret < 0 && i > TEST_MSG_LEN*2));
 	}
 	message_parser_deinit(&parser, &parts2);
+	test_assert(input->stream_errno == 0);
 	test_assert(message_part_is_equal(parts, parts2));
 
 	/* parsing in small blocks from preparsed parts */
@@ -747,6 +750,7 @@ static void test_message_parser_no_eoh(void)
 		    block.hdr == NULL && block.size == 0);
 	test_assert(message_parser_parse_next_block(parser, &block) < 0);
 	message_parser_deinit(&parser, &parts);
+	test_assert(input->stream_errno == 0);
 
 	test_parsed_parts(input, parts);
 	i_stream_unref(&input);

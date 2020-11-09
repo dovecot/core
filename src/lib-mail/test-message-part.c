@@ -86,6 +86,7 @@ static void test_message_part_idx(void)
 	}
 	test_assert(ret < 0);
 	message_parser_deinit(&parser, &parts);
+	test_assert(input->stream_errno == 0);
 
 	part = message_part_by_idx(parts, 0);
 	test_assert(part == parts);
