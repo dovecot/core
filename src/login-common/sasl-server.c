@@ -32,13 +32,36 @@ struct anvil_request {
 };
 
 static bool
-sasl_server_filter_mech(struct client *client, struct auth_mech_desc *mech)
+sasl_server_filter_mech(struct client *client, struct auth_mech_desc *mech,
+			bool advertize)
 {
+	/* Allow plugins to filter and amend available mechanisms. */
 	if (client->v.sasl_filter_mech != NULL &&
 	    !client->v.sasl_filter_mech(client, mech))
 		return FALSE;
-	return ((mech->flags & MECH_SEC_ANONYMOUS) == 0 ||
-		login_binary->anonymous_login_acceptable);
+	/* Disable anonymous mechanisms unless the protocol explicitly
+	   allows anonymous login when configured. */
+	if ((mech->flags & MECH_SEC_ANONYMOUS) != 0 &&
+	    !login_binary->anonymous_login_acceptable)
+		return FALSE;
+	/* Don't advertize private mechanisms. */
+	if (advertize && (mech->flags & MECH_SEC_PRIVATE) != 0)
+		return FALSE;
+	/* Only advertize this mechanism if either:
+	   a) transport is secured
+	   b) auth mechanism isn't plaintext
+	   c) we allow insecure authentication
+
+	   We don't completely disable mechanisms for which none of these points
+	   apply, because we want to return a specific warning to the client
+	   when such a mechanism is used.
+	*/
+	if (advertize && !client->connection_secured &&
+	    !client->set->auth_allow_cleartext &&
+	    (mech->flags & MECH_SEC_PLAINTEXT) != 0)
+		return FALSE;
+
+	return TRUE;
 }
 
 const struct auth_mech_desc *
@@ -59,17 +82,10 @@ sasl_server_get_advertised_mechs(struct client *client, unsigned int *count_r)
 	for (i = j = 0; i < count; i++) {
 		struct auth_mech_desc fmech = mech[i];
 
-		if (!sasl_server_filter_mech(client, &fmech))
+		if (!sasl_server_filter_mech(client, &fmech, TRUE))
 			continue;
 
-		/* a) transport is secured
-		   b) auth mechanism isn't plaintext
-		   c) we allow insecure authentication
-		*/
-		if ((fmech.flags & MECH_SEC_PRIVATE) == 0 &&
-		    (client->connection_secured || client->set->auth_allow_cleartext ||
-		     (fmech.flags & MECH_SEC_PLAINTEXT) == 0))
-			ret_mech[j++] = fmech;
+		ret_mech[j++] = fmech;
 	}
 	*count_r = j;
 	return ret_mech;
@@ -86,7 +102,7 @@ sasl_server_find_available_mech(struct client *client, const char *name)
 		return NULL;
 
 	fmech = *mech;
-	if (!sasl_server_filter_mech(client, &fmech))
+	if (!sasl_server_filter_mech(client, &fmech, FALSE))
 		return NULL;
 	if (memcmp(&fmech, mech, sizeof(fmech)) != 0) {
 		struct auth_mech_desc *nmech = t_new(struct auth_mech_desc, 1);
