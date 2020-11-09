@@ -18,14 +18,15 @@ void buffer_create_from_data(buffer_t *buffer, void *data, size_t size);
 /* Create a non-modifiable buffer from given data. */
 void buffer_create_from_const_data(buffer_t *buffer,
 				   const void *data, size_t size);
-#if defined(__GNUC__) && (__GNUC__ * 100 + __GNUC_MINOR__) > 401
-#define buffer_create_from_data(b,d,s) ({				           \
-	(void)COMPILE_ERROR_IF_TRUE(__builtin_object_size((d),1) < ((s)>0?(s):1)); \
-	buffer_create_from_data((b), (d), (s)); })
-#define buffer_create_from_const_data(b,d,s) ({				           \
-	(void)COMPILE_ERROR_IF_TRUE(__builtin_object_size((d),1) < ((s)>0?(s):1)); \
-	buffer_create_from_const_data((b), (d), (s)); })
-#endif
+#define buffer_create_from_data(b,d,s) \
+	TYPE_CHECKS(void, \
+	COMPILE_ERROR_IF_TRUE(__builtin_object_size((d),1) < ((s)>0?(s):1)), \
+	buffer_create_from_data((b), (d), (s)))
+#define buffer_create_from_const_data(b,d,s) \
+	TYPE_CHECKS(void, \
+	COMPILE_ERROR_IF_TRUE(__builtin_object_size((d),1) < ((s)>0?(s):1)), \
+	buffer_create_from_const_data((b), (d), (s)))
+
 /* Creates a dynamically growing buffer. Whenever write would exceed the
    current size it's grown. */
 buffer_t *buffer_create_dynamic(pool_t pool, size_t init_size);

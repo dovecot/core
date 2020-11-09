@@ -165,9 +165,12 @@
 	COMPILE_ERROR_IF_TRUE( \
 		!__builtin_types_compatible_p(typeof(_a1), typeof(_b)) && \
 		!__builtin_types_compatible_p(typeof(_a2), typeof(_b)))
+#  define TYPE_CHECKS(return_type, checks, func) \
+	(FALSE ? (return_type)(checks) : (func))
 #else
 #  define COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(_a, _b) 0
 #  define COMPILE_ERROR_IF_TYPES2_NOT_COMPATIBLE(_a1, _a2, _b) 0
+#  define TYPE_CHECKS(return_type, checks, func) (func)
 #endif
 
 #if __GNUC__ > 2

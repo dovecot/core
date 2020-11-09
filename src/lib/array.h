@@ -192,8 +192,8 @@ array_append_i(struct array *array, const void *data, unsigned int count)
 }
 
 #define array_append(array, data, count) \
-	array_append_i(&(array)->arr + ARRAY_TYPE_CHECK(array, data), \
-		data, count)
+	TYPE_CHECKS(void, ARRAY_TYPE_CHECK(array, data), \
+	array_append_i(&(array)->arr, data, count))
 
 static inline void
 array_append_array_i(struct array *dest_array, const struct array *src_array)
@@ -202,8 +202,8 @@ array_append_array_i(struct array *dest_array, const struct array *src_array)
 	buffer_append_buf(dest_array->buffer, src_array->buffer, 0, SIZE_MAX);
 }
 #define array_append_array(dest_array, src_array) \
-	array_append_array_i(&(dest_array)->arr + ARRAY_TYPES_CHECK(dest_array, src_array), \
-			     &(src_array)->arr)
+	TYPE_CHECKS(void, ARRAY_TYPES_CHECK(dest_array, src_array), \
+	array_append_array_i(&(dest_array)->arr, &(src_array)->arr))
 
 static inline void
 array_insert_i(struct array *array, unsigned int idx,
@@ -214,8 +214,8 @@ array_insert_i(struct array *array, unsigned int idx,
 }
 
 #define array_insert(array, idx, data, count) \
-	array_insert_i(&(array)->arr + ARRAY_TYPE_CHECK(array, data), \
-		idx, data, count)
+	TYPE_CHECKS(void, ARRAY_TYPE_CHECK(array, data), \
+	array_insert_i(&(array)->arr, idx, data, count))
 
 static inline void
 array_delete_i(struct array *array, unsigned int idx, unsigned int count)
@@ -278,8 +278,8 @@ void *array_idx_get_space_i(struct array *array, unsigned int idx);
 
 void array_idx_set_i(struct array *array, unsigned int idx, const void *data);
 #define array_idx_set(array, idx, data) \
-	array_idx_set_i(&(array)->arr + ARRAY_TYPE_CHECK(array, data), \
-		idx, data)
+	TYPE_CHECKS(void, ARRAY_TYPE_CHECK(array, data), \
+	array_idx_set_i(&(array)->arr, idx, data))
 
 void array_idx_clear_i(struct array *array, unsigned int idx);
 #define array_idx_clear(array, idx) \
@@ -330,9 +330,9 @@ array_swap_i(struct array *array1, struct array *array2)
 	array2->buffer = buffer;
 	array2->element_size = elsize;
 }
-#define array_swap(array1, array2)					\
-	array_swap_i(&(array1)->arr + ARRAY_TYPES_CHECK(array1, array2), \
-		     &(array2)->arr)
+#define array_swap(array1, array2) \
+	TYPE_CHECKS(void, ARRAY_TYPES_CHECK(array1, array2), \
+	array_swap_i(&(array1)->arr, &(array2)->arr))
 
 bool array_cmp_i(const struct array *array1,
 		 const struct array *array2) ATTR_PURE;
@@ -343,13 +343,13 @@ bool array_cmp_i(const struct array *array1,
 bool array_equal_fn_i(const struct array *array1,
 		      const struct array *array2,
 		      int (*cmp)(const void*, const void *)) ATTR_PURE;
-#define array_equal_fn(array1, array2, cmp)				\
-	array_equal_fn_i(&(array1)->arr -					\
-		       ARRAY_TYPES_CHECK(array1, array2),		\
-		       &(array2)->arr -					\
-		       CALLBACK_TYPECHECK(cmp, int (*)(typeof(*(array1)->v), \
-						       typeof(*(array2)->v))), \
-		       (int (*)(const void *, const void *))cmp)
+#define array_equal_fn(array1, array2, cmp) \
+	TYPE_CHECKS(bool, \
+	ARRAY_TYPES_CHECK(array1, array2) || \
+	CALLBACK_TYPECHECK(cmp, int (*)(typeof(*(array1)->v), \
+					typeof(*(array2)->v))), \
+	array_equal_fn_i(&(array1)->arr, &(array2)->arr, \
+			 (int (*)(const void *, const void *))cmp))
 bool array_equal_fn_ctx_i(const struct array *array1,
 			  const struct array *array2,
 			  int (*cmp)(const void*, const void *, const void *),
@@ -358,15 +358,14 @@ bool array_equal_fn_ctx_i(const struct array *array1,
    context can't be void* as ``const typeof(context)'' won't compile,
    so ``const typeof(*context)*'' is required instead, and that requires a
    complete type. */
-#define array_equal_fn_ctx(array1, array2, cmp, ctx)			\
-	array_equal_fn_ctx_i(&(array1)->arr -				\
-			     ARRAY_TYPES_CHECK(array1, array2),		\
-			     &(array2)->arr -				\
-			     CALLBACK_TYPECHECK(cmp, int (*)(typeof(*(array1)->v), \
-							     typeof(*(array2)->v), \
-							     const typeof(*ctx)*)), \
-			     (int (*)(const void *, const void *, const void *))cmp, \
-			     ctx)
+#define array_equal_fn_ctx(array1, array2, cmp, ctx) \
+	TYPE_CHECKS(bool, \
+	ARRAY_TYPES_CHECK(array1, array2) || \
+	CALLBACK_TYPECHECK(cmp, int (*)(typeof(*(array1)->v), \
+					typeof(*(array2)->v), \
+					const typeof(*ctx)*)), \
+	array_equal_fn_ctx_i(&(array1)->arr, &(array2)->arr, \
+		(int (*)(const void *, const void *, const void *))cmp, ctx))
 
 void array_reverse_i(struct array *array);
 #define array_reverse(array) \
@@ -374,18 +373,19 @@ void array_reverse_i(struct array *array);
 
 void array_sort_i(struct array *array, int (*cmp)(const void *, const void *));
 #define array_sort(array, cmp) \
-	array_sort_i(&(array)->arr - \
-		CALLBACK_TYPECHECK(cmp, int (*)(typeof(*(array)->v), \
-						typeof(*(array)->v))), \
-		(int (*)(const void *, const void *))cmp)
+	TYPE_CHECKS(void, \
+	CALLBACK_TYPECHECK(cmp, int (*)(typeof(*(array)->v), \
+					typeof(*(array)->v))), \
+	array_sort_i(&(array)->arr, (int (*)(const void *, const void *))cmp))
 
 void *array_bsearch_i(struct array *array, const void *key,
 		      int (*cmp)(const void *, const void *));
 #define array_bsearch(array, key, cmp) \
-	ARRAY_TYPE_CAST_MODIFIABLE(array)array_bsearch_i(&(array)->arr - \
-		CALLBACK_TYPECHECK(cmp, int (*)(typeof(const typeof(*key) *), \
-						typeof(*(array)->v))), \
-		(const void *)key, (int (*)(const void *, const void *))cmp)
+	TYPE_CHECKS(void *, \
+	CALLBACK_TYPECHECK(cmp, int (*)(typeof(const typeof(*key) *), \
+					typeof(*(array)->v))), \
+	ARRAY_TYPE_CAST_MODIFIABLE(array)array_bsearch_i(&(array)->arr, \
+		(const void *)key, (int (*)(const void *, const void *))cmp))
 
 /* Returns pointer to first element for which cmp(key,elem)==0, or NULL */
 const void *array_lsearch_i(const struct array *array, const void *key,
@@ -395,13 +395,13 @@ static inline void *array_lsearch_modifiable_i(struct array *array, const void *
 {
 	return (void *)array_lsearch_i(array, key, cmp);
 }
-#define ARRAY_LSEARCH_CALL(modifiable, array, key, cmp)			\
-	array_lsearch##modifiable##i(					\
-		&(array)->arr -						\
-		CALLBACK_TYPECHECK(cmp, int (*)(typeof(const typeof(*key) *), \
-						typeof(*(array)->v))),	\
-		(const void *)key,					\
-		(int (*)(const void *, const void *))cmp)
+#define ARRAY_LSEARCH_CALL(modifiable, array, key, cmp) \
+	TYPE_CHECKS(void *, \
+	CALLBACK_TYPECHECK(cmp, int (*)(typeof(const typeof(*key) *), \
+					typeof(*(array)->v))), \
+	array_lsearch##modifiable##i( \
+		&(array)->arr, (const void *)key, \
+		(int (*)(const void *, const void *))cmp))
 #define array_lsearch(array, key, cmp)					\
 	ARRAY_TYPE_CAST_CONST(array)ARRAY_LSEARCH_CALL(_, array, key, cmp)
 #define array_lsearch_modifiable(array, key, cmp)			\
