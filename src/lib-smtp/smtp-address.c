@@ -762,7 +762,7 @@ void smtp_address_init(struct smtp_address *address,
 int smtp_address_init_from_msg(struct smtp_address *address,
 			       const struct message_address *msg_addr)
 {
-	const char *p;
+	const unsigned char *p;
 
 	i_zero(address);
 	if (msg_addr->mailbox == NULL || *msg_addr->mailbox == '\0')
@@ -771,7 +771,7 @@ int smtp_address_init_from_msg(struct smtp_address *address,
 	/* The message_address_parse() function allows UTF-8 codepoints in
 	   the localpart. For SMTP addresses that is not an option, so we
 	   need to check this upon conversion. */
-	for (p = msg_addr->mailbox; *p != '\0'; p++) {
+	for (p = (const unsigned char *)msg_addr->mailbox; *p != '\0'; p++) {
 		if (!smtp_char_is_qpair(*p))
 			return -1;
 	}
