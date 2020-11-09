@@ -144,7 +144,7 @@ struct smtp_server_connection {
 	struct smtp_server *server;
 	pool_t pool;
 	int refcount;
-	struct event *event;
+	struct event *event, *next_trans_event;
 
 	struct smtp_server_settings set;
 

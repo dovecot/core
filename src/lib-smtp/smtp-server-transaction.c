@@ -55,7 +55,12 @@ smtp_server_transaction_create(struct smtp_server_connection *conn,
 	smtp_params_mail_copy(pool, &trans->params, &mail_data->params);
 	trans->timestamp = mail_data->timestamp;
 
-	trans->event = event_create(conn->event);
+	if (conn->next_trans_event == NULL)
+		trans->event = event_create(conn->event);
+	else {
+		trans->event = conn->next_trans_event;
+		conn->next_trans_event = NULL;
+	}
 	smtp_server_transaction_update_event(trans);
 
 	struct event_passthrough *e =
