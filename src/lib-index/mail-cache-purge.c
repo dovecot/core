@@ -293,7 +293,8 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		ctx.new_msg = seq >= first_new_seq;
 		buffer_set_used_size(ctx.buffer, 0);
 
-		if (++ctx.field_seen_value == 0) {
+		ctx.field_seen_value = (ctx.field_seen_value + 1) % UINT8_MAX;
+		if (ctx.field_seen_value == 0) {
 			memset(buffer_get_modifiable_data(ctx.field_seen, NULL),
 			       0, buffer_get_size(ctx.field_seen));
 			ctx.field_seen_value++;
