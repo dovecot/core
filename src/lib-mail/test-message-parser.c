@@ -60,36 +60,6 @@ static int message_parse_stream(pool_t pool, struct istream *input,
 	return ret;
 }
 
-static bool msg_parts_cmp(struct message_part *p1, struct message_part *p2)
-{
-	while (p1 != NULL || p2 != NULL) {
-		if ((p1 != NULL) != (p2 != NULL))
-			return FALSE;
-		if ((p1->children != NULL) != (p2->children != NULL))
-			return FALSE;
-
-		if (p1->children != NULL) {
-			if (!msg_parts_cmp(p1->children, p2->children))
-				return FALSE;
-		}
-
-		if (p1->physical_pos != p2->physical_pos ||
-		    p1->header_size.physical_size != p2->header_size.physical_size ||
-		    p1->header_size.virtual_size != p2->header_size.virtual_size ||
-		    p1->header_size.lines != p2->header_size.lines ||
-		    p1->body_size.physical_size != p2->body_size.physical_size ||
-		    p1->body_size.virtual_size != p2->body_size.virtual_size ||
-		    p1->body_size.lines != p2->body_size.lines ||
-		    p1->children_count != p2->children_count ||
-		    p1->flags != p2->flags)
-			return FALSE;
-
-		p1 = p1->next;
-		p2 = p2->next;
-	}
-	return TRUE;
-}
-
 static void test_parsed_parts(struct istream *input, struct message_part *parts)
 {
 	const struct message_parser_settings parser_set = {
@@ -113,7 +83,7 @@ static void test_parsed_parts(struct istream *input, struct message_part *parts)
 		while (message_parser_parse_next_block(parser, &block) > 0) ;
 	}
 	test_assert(message_parser_deinit_from_parts(&parser, &parts2, &error) == 0);
-	test_assert(msg_parts_cmp(parts, parts2));
+	test_assert(message_part_is_equal(parts, parts2));
 }
 
 static void test_message_parser_small_blocks(void)
@@ -165,7 +135,7 @@ static void test_message_parser_small_blocks(void)
 			    (ret < 0 && i > TEST_MSG_LEN*2));
 	}
 	message_parser_deinit(&parser, &parts2);
-	test_assert(msg_parts_cmp(parts, parts2));
+	test_assert(message_part_is_equal(parts, parts2));
 
 	/* parsing in small blocks from preparsed parts */
 	i_stream_seek(input, 0);
@@ -187,7 +157,7 @@ static void test_message_parser_small_blocks(void)
 			    (ret < 0 && i/2 > end_of_headers_idx));
 	}
 	test_assert(message_parser_deinit_from_parts(&parser, &parts2, &error) == 0);
-	test_assert(msg_parts_cmp(parts, parts2));
+	test_assert(message_part_is_equal(parts, parts2));
 
 	i_stream_unref(&input);
 	pool_unref(&pool);
