@@ -69,7 +69,8 @@ get_scram_server_first(struct scram_auth_request *request,
 	snonce[sizeof(snonce)-1] = '\0';
 	request->snonce = p_strndup(request->pool, snonce, sizeof(snonce));
 
-	str = t_str_new(sizeof(snonce));
+	str = t_str_new(32 + strlen(request->cnonce) + sizeof(snonce) +
+			strlen(salt));
 	str_printfa(str, "r=%s%s,s=%s,i=%d", request->cnonce, request->snonce,
 		    salt, iter);
 	return str_c(str);
@@ -91,7 +92,7 @@ static const char *get_scram_server_final(struct scram_auth_request *request)
 	hmac_update(&ctx, auth_message, strlen(auth_message));
 	hmac_final(&ctx, server_signature);
 
-	str = t_str_new(MAX_BASE64_ENCODED_SIZE(sizeof(server_signature)));
+	str = t_str_new(2 + MAX_BASE64_ENCODED_SIZE(sizeof(server_signature)));
 	str_append(str, "v=");
 	base64_encode(server_signature, sizeof(server_signature), str);
 
@@ -334,7 +335,7 @@ parse_scram_client_final(struct scram_auth_request *request,
 	}
 
 	cbind_input = t_strconcat(request->gs2_cbind_flag, ",,", NULL);
-	str = t_str_new(MAX_BASE64_ENCODED_SIZE(strlen(cbind_input)));
+	str = t_str_new(2 + MAX_BASE64_ENCODED_SIZE(strlen(cbind_input)));
 	str_append(str, "c=");
 	base64_encode(cbind_input, strlen(cbind_input), str);
 
