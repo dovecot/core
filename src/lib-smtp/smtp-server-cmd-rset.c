@@ -39,7 +39,7 @@ void smtp_server_cmd_rset(struct smtp_server_cmd_ctx *cmd,
 		return;
 	}
 
-	smtp_server_command_input_lock(cmd);
+	smtp_server_command_pipeline_block(cmd);
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_COMPLETED,
 				     cmd_rset_completed, NULL);
 
