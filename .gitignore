@@ -6,6 +6,9 @@ Makefile.in
 *.la
 *.orig
 *.rej
+*.gcno
+*.gcda
+*.tmp
 .deps
 .libs
 .idea
