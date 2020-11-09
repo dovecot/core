@@ -223,7 +223,7 @@ fs_randomfail_file_init(struct fs_file *_file, const char *path,
 	struct randomfail_fs_file *file = RANDOMFAIL_FILE(_file);
 
 	file->file.path = i_strdup(path);
-	file->file.parent = fs_file_init_parent(_file, path, mode | flags);
+	file->file.parent = fs_file_init_parent(_file, path, mode, flags);
 }
 
 static void fs_randomfail_file_deinit(struct fs_file *_file)

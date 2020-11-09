@@ -152,13 +152,13 @@ fs_crypt_file_init(struct fs_file *_file, const char *path,
 	/* avoid unnecessarily creating two seekable streams */
 	flags &= ENUM_NEGATE(FS_OPEN_FLAG_SEEKABLE);
 
-	file->file.parent = fs_file_init_parent(_file, path, mode | flags);
+	file->file.parent = fs_file_init_parent(_file, path, mode, flags);
 	if (mode == FS_OPEN_MODE_READONLY &&
 	    (flags & FS_OPEN_FLAG_ASYNC) == 0) {
 		/* use async stream for super, so fs_read_stream() won't create
 		   another seekable stream needlessly */
 		file->super_read = fs_file_init_parent(_file, path,
-			mode | flags | FS_OPEN_FLAG_ASYNC |
+			mode, flags | FS_OPEN_FLAG_ASYNC |
 			FS_OPEN_FLAG_ASYNC_NOQUEUE);
 	} else {
 		file->super_read = file->file.parent;

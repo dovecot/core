@@ -1386,10 +1386,11 @@ uint64_t fs_stats_get_write_usecs(const struct fs_stats *stats)
 }
 
 struct fs_file *
-fs_file_init_parent(struct fs_file *parent, const char *path, int mode_flags)
+fs_file_init_parent(struct fs_file *parent, const char *path,
+		    enum fs_open_mode mode, enum fs_open_flags flags)
 {
 	return fs_file_init_with_event(parent->fs->parent, parent->event,
-				       path, mode_flags);
+				       path, (int)mode | (int)flags);
 }
 
 struct fs_iter *

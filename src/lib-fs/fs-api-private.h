@@ -198,7 +198,8 @@ int fs_default_copy(struct fs_file *src, struct fs_file *dest);
 void fs_file_timing_end(struct fs_file *file, enum fs_op op);
 
 struct fs_file *
-fs_file_init_parent(struct fs_file *parent, const char *path, int mode_flags);
+fs_file_init_parent(struct fs_file *parent, const char *path,
+		    enum fs_open_mode mode, enum fs_open_flags flags);
 struct fs_iter *
 fs_iter_init_parent(struct fs_iter *parent,
 		    const char *path, enum fs_iter_flags flags);
