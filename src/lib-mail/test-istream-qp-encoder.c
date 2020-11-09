@@ -5,6 +5,9 @@
 #include "istream-private.h"
 #include "istream-qp.h"
 
+#define WHITESPACE10 "   \t   \t \t"
+#define WHITESPACE70 WHITESPACE10 WHITESPACE10 WHITESPACE10 WHITESPACE10 WHITESPACE10 WHITESPACE10 WHITESPACE10
+
 static const struct {
 	const void *input;
 	const char *output;
@@ -63,6 +66,11 @@ static const struct {
 	  "chov=C3=A1n=C3=AD =C3=BAstavy a ku blahu v=C5=A1ech.",
 	  0
 	},
+	/* Test line breaking */
+	{ WHITESPACE70"1234567", WHITESPACE70"123=\r\n4567", 0 },
+	{ WHITESPACE70"      7", WHITESPACE70" =20=\r\n    7", 0 },
+	{ WHITESPACE70""WHITESPACE10"1", WHITESPACE70" =20=\r\n \t   \t \t1", 0 },
+
 };
 
 static void
@@ -101,7 +109,28 @@ encode_test(const char *qp_input, const char *output, int stream_errno,
 
 	test_assert(ret == -1);
 	test_assert(input->stream_errno == stream_errno);
-	test_assert(strcmp(str_c(str), output) == 0);
+	test_assert_strcmp(str_c(str), output);
+
+	if (stream_errno == 0) {
+		/* Test seeking on streams where the testcases do not
+		 * expect a specific errno already. */
+		uoff_t v_off = input->v_offset;
+		/* Seeking backwards */
+		i_stream_seek(input, 0);
+		test_assert(input->v_offset == 0);
+
+		/* Seeking forward */
+		i_stream_seek(input, v_off+1);
+		test_assert(input->stream_errno == ESPIPE);
+	}
+
+	i_stream_unref(&input);
+	/* Test closing stream gives expected results */
+	i_stream_seek(input_data, 0);
+	input = i_stream_create_qp_encoder(input_data, 0);
+	i_stream_close(input);
+	test_assert(input->closed);
+	test_assert(i_stream_read_more(input, &data, &size) == -1);
 
 	i_stream_unref(&input);
 	i_stream_unref(&input_data);
