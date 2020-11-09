@@ -39,7 +39,7 @@ struct scram_auth_request {
 	const char *snonce;
 
 	/* received: */
-	const char *gs2_cbind_flag;
+	const char *gs2_header;
 	const char *cnonce;
 	const char *client_first_message_bare;
 	const char *client_final_message_without_proof;
@@ -129,11 +129,11 @@ parse_scram_client_first(struct scram_auth_request *request,
 {
 	const char *login_username = NULL;
 	const char *data_cstr, *p;
-	const char *gs2_cbind_flag, *authzid;
+	const char *gs2_header, *gs2_cbind_flag, *authzid;
 	const char *cfm_bare, *username, *nonce;
 	const char *const *fields;
 
-	data_cstr = t_strndup(data, size);
+	data_cstr = gs2_header = t_strndup(data, size);
 
 	p = strchr(data_cstr, ',');
 	if (p == NULL) {
@@ -151,6 +151,7 @@ parse_scram_client_first(struct scram_auth_request *request,
 		return FALSE;
 	}
 	authzid = t_strdup_until(data_cstr, p);
+	gs2_header = t_strdup_until(gs2_header, p + 1);
 	cfm_bare = p + 1;
 
 	fields = t_strsplit(cfm_bare, ",");
@@ -189,8 +190,6 @@ parse_scram_client_first(struct scram_auth_request *request,
 		return FALSE;
 	case 'y':
 	case 'n':
-		request->gs2_cbind_flag =
-			p_strdup(request->pool, gs2_cbind_flag);
 		break;
 	default:
 		*error_r = "Invalid GS2 header";
@@ -242,6 +241,7 @@ parse_scram_client_first(struct scram_auth_request *request,
 		return FALSE;
 	}
 
+	request->gs2_header = p_strdup(request->pool, gs2_header);
 	request->client_first_message_bare = p_strdup(request->pool, cfm_bare);
 	return TRUE;
 }
@@ -334,7 +334,7 @@ parse_scram_client_final(struct scram_auth_request *request,
 		return FALSE;
 	}
 
-	cbind_input = t_strconcat(request->gs2_cbind_flag, ",,", NULL);
+	cbind_input = request->gs2_header;
 	str = t_str_new(2 + MAX_BASE64_ENCODED_SIZE(strlen(cbind_input)));
 	str_append(str, "c=");
 	base64_encode(cbind_input, strlen(cbind_input), str);
