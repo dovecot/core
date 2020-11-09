@@ -58,6 +58,20 @@ get_scram_server_first(struct scram_auth_request *request,
 	string_t *str;
 	size_t i;
 
+	/* RFC 5802, Section 7:
+
+	   server-first-message =
+	                     [reserved-mext ","] nonce "," salt ","
+	                     iteration-count ["," extensions]
+
+	   nonce           = "r=" c-nonce [s-nonce]
+
+	   salt            = "s=" base64
+
+	   iteration-count = "i=" posit-number
+	                     ;; A positive number.
+	 */
+
 	random_fill(snonce, sizeof(snonce)-1);
 
 	/* make sure snonce is printable and does not contain ',' */
@@ -84,6 +98,13 @@ static const char *get_scram_server_final(struct scram_auth_request *request)
 	unsigned char server_signature[hmethod->digest_size];
 	string_t *str;
 
+	/* RFC 5802, Section 3:
+
+	   AuthMessage     := client-first-message-bare + "," +
+	                      server-first-message + "," +
+	                      client-final-message-without-proof
+	   ServerSignature := HMAC(ServerKey, AuthMessage)
+	 */
 	auth_message = t_strconcat(request->client_first_message_bare, ",",
 			request->server_first_message, ",",
 			request->client_final_message_without_proof, NULL);
@@ -92,6 +113,15 @@ static const char *get_scram_server_final(struct scram_auth_request *request)
 	hmac_update(&ctx, auth_message, strlen(auth_message));
 	hmac_final(&ctx, server_signature);
 
+	/* RFC 5802, Section 7:
+
+	   server-final-message = (server-error / verifier)
+	                     ["," extensions]
+
+	   verifier        = "v=" base64
+	                     ;; base-64 encoded ServerSignature.
+
+	 */
 	str = t_str_new(2 + MAX_BASE64_ENCODED_SIZE(sizeof(server_signature)));
 	str_append(str, "v=");
 	base64_encode(server_signature, sizeof(server_signature), str);
@@ -102,6 +132,14 @@ static const char *get_scram_server_final(struct scram_auth_request *request)
 static const char *scram_unescape_username(const char *in)
 {
 	string_t *out;
+
+	/* RFC 5802, Section 5.1:
+
+	   The characters ',' or '=' in usernames are sent as '=2C' and '=3D'
+	   respectively.  If the server receives a username that contains '='
+	   not followed by either '2C' or '3D', then the server MUST fail the
+	   authentication.
+	 */
 
 	out = t_str_new(64);
 	for (; *in != '\0'; in++) {
@@ -135,6 +173,21 @@ parse_scram_client_first(struct scram_auth_request *request,
 
 	data_cstr = gs2_header = t_strndup(data, size);
 
+	/* RFC 5802, Section 7:
+
+	   client-first-message = gs2-header client-first-message-bare
+	   gs2-header      = gs2-cbind-flag "," [ authzid ] ","
+
+	   client-first-message-bare = [reserved-mext ","]
+	                     username "," nonce ["," extensions]
+
+	   extensions      = attr-val *("," attr-val)
+	                     ;; All extensions are optional,
+	                     ;; i.e., unrecognized attributes
+	                     ;; not defined in this document
+	                     ;; MUST be ignored.
+	   attr-val        = ALPHA "=" value
+	 */
 	p = strchr(data_cstr, ',');
 	if (p == NULL) {
 		*error_r = "Invalid initial client message: "
@@ -163,27 +216,8 @@ parse_scram_client_first(struct scram_auth_request *request,
 	username = fields[0];
 	nonce = fields[1];
 
-	/* Order of fields is fixed:
-
-	   client-first-message = gs2-header client-first-message-bare
-	   gs2-header      = gs2-cbind-flag "," [ authzid ] ","
-	   gs2-cbind-flag  = ("p=" cb-name) / "n" / "y"
-
-	   client-first-message-bare = [reserved-mext ","]
-                                       username "," nonce ["," extensions]
-	   reserved-mext   = "m=" 1*(value-char)
-
-	   username        = "n=" saslname
-	   nonce           = "r=" c-nonce [s-nonce]
-
-	   extensions      = attr-val *("," attr-val)
-			       ;; All extensions are optional,
-			       ;; i.e., unrecognized attributes
-			       ;; not defined in this document
-			       ;; MUST be ignored.
-	   attr-val        = ALPHA "=" value
-
-	   */
+	/* gs2-cbind-flag  = ("p=" cb-name) / "n" / "y"
+	 */
 	switch (gs2_cbind_flag[0]) {
 	case 'p':
 		*error_r = "Channel binding not supported";
@@ -196,6 +230,9 @@ parse_scram_client_first(struct scram_auth_request *request,
 		return FALSE;
 	}
 
+	/* authzid         = "a=" saslname
+	                     ;; Protocol specific.
+	 */
 	if (authzid[0] == '\0')
 		;
 	else if (authzid[0] == 'a' && authzid[1] == '=') {
@@ -210,10 +247,15 @@ parse_scram_client_first(struct scram_auth_request *request,
 		*error_r = "Invalid authzid field";
 		return FALSE;
 	}
+
+	/* reserved-mext   = "m=" 1*(value-char)
+	 */
 	if (username[0] == 'm') {
 		*error_r = "Mandatory extension(s) not supported";
 		return FALSE;
 	}
+	/* username        = "n=" saslname
+	 */
 	if (username[0] == 'n' && username[1] == '=') {
 		/* Unescape username */
 		username = scram_unescape_username(username + 2);
@@ -234,6 +276,7 @@ parse_scram_client_first(struct scram_auth_request *request,
 			return FALSE;
 	}
 
+	/* nonce           = "r=" c-nonce [s-nonce] */
 	if (nonce[0] == 'r' && nonce[1] == '=')
 		request->cnonce = p_strdup(request->pool, nonce+2);
 	else {
@@ -256,6 +299,13 @@ static bool verify_credentials(struct scram_auth_request *request)
 	unsigned char stored_key[hmethod->digest_size];
 	size_t i;
 
+	/* RFC 5802, Section 3:
+
+	   AuthMessage     := client-first-message-bare + "," +
+	                      server-first-message + "," +
+	                      client-final-message-without-proof
+	   ClientSignature := HMAC(StoredKey, AuthMessage)
+	 */
 	auth_message = t_strconcat(request->client_first_message_bare, ",",
 			request->server_first_message, ",",
 			request->client_final_message_without_proof, NULL);
@@ -264,10 +314,12 @@ static bool verify_credentials(struct scram_auth_request *request)
 	hmac_update(&ctx, auth_message, strlen(auth_message));
 	hmac_final(&ctx, client_signature);
 
+	/* ClientProof     := ClientKey XOR ClientSignature */
 	const unsigned char *proof_data = request->proof->data;
 	for (i = 0; i < sizeof(client_signature); i++)
 		client_key[i] = proof_data[i] ^ client_signature[i];
 
+	/* StoredKey       := H(ClientKey) */
 	hash_method_get_digest(hmethod, client_key, sizeof(client_key),
 			       stored_key);
 
@@ -327,6 +379,14 @@ parse_scram_client_final(struct scram_auth_request *request,
 	unsigned int field_count;
 	string_t *str;
 
+	/* RFC 5802, Section 7:
+
+	   client-final-message-without-proof =
+	                     channel-binding "," nonce [","
+	                     extensions]
+	   client-final-message =
+	                     client-final-message-without-proof "," proof
+	 */
 	fields = t_strsplit(t_strndup(data, size), ",");
 	field_count = str_array_length(fields);
 	if (field_count < 3) {
@@ -334,6 +394,15 @@ parse_scram_client_final(struct scram_auth_request *request,
 		return FALSE;
 	}
 
+	/* channel-binding = "c=" base64
+	                     ;; base64 encoding of cbind-input.
+
+	   cbind-data      = 1*OCTET
+	   cbind-input     = gs2-header [ cbind-data ]
+	                     ;; cbind-data MUST be present for
+	                     ;; gs2-cbind-flag of "p" and MUST be absent
+	                     ;; for "y" or "n".
+	 */
 	cbind_input = request->gs2_header;
 	str = t_str_new(2 + MAX_BASE64_ENCODED_SIZE(strlen(cbind_input)));
 	str_append(str, "c=");
@@ -344,12 +413,19 @@ parse_scram_client_final(struct scram_auth_request *request,
 		return FALSE;
 	}
 
+	/* nonce           = "r=" c-nonce [s-nonce]
+	                     ;; Second part provided by server.
+	   c-nonce         = printable
+	   s-nonce         = printable
+	 */
 	nonce_str = t_strconcat("r=", request->cnonce, request->snonce, NULL);
 	if (strcmp(fields[1], nonce_str) != 0) {
 		*error_r = "Wrong nonce";
 		return FALSE;
 	}
 
+	/* proof           = "p=" base64
+	 */
 	if (fields[field_count-1][0] == 'p') {
 		size_t len = strlen(&fields[field_count-1][2]);
 
