@@ -297,7 +297,8 @@ fts_tokenizer_generic_simple_next(struct fts_tokenizer *_tok,
 		}
 	}
 	/* word boundary not found yet */
-	tok_append_truncated(tok, data + start, i - start);
+	if (i > start)
+		tok_append_truncated(tok, data + start, i - start);
 	*skip_r = i;
 
 	/* return the last token */
@@ -757,7 +758,8 @@ fts_tokenizer_generic_tr29_next(struct fts_tokenizer *_tok,
 		}
 	}
 	i_assert(i >= start_pos && size >= start_pos);
-	tok_append_truncated(tok, data + start_pos, i - start_pos);
+	if (i > start_pos)
+		tok_append_truncated(tok, data + start_pos, i - start_pos);
 	*skip_r = i;
 
 	if (size == 0 && tok->token->used > 0) {
