@@ -97,10 +97,10 @@ static inline unsigned int module_get_context_id(struct module_context_id *id)
 }
 
 #define MODULE_CONTEXT_SET_FULL(obj, id_ctx, ctx, module_ctx) STMT_START { \
-	void *_module_tmp = ctx + \
-		COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(module_ctx, \
-			(**(obj)->module_contexts.v)) + \
-		OBJ_REGISTER_COMPATIBLE(obj, id_ctx); \
+	(void)COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(module_ctx, \
+			(**(obj)->module_contexts.v)); \
+	(void)OBJ_REGISTER_COMPATIBLE(obj, id_ctx); \
+	void *_module_tmp = ctx; \
 	array_idx_set_i(&(obj)->module_contexts.arr, \
 		module_get_context_id(&(id_ctx).id), &_module_tmp); \
 	} STMT_END
