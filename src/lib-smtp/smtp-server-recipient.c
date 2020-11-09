@@ -126,14 +126,6 @@ void smtp_server_recipient_destroy(struct smtp_server_recipient **_rcpt)
 	smtp_server_recipient_unref(_rcpt);
 }
 
-void smtp_server_recipient_initialize(struct smtp_server_recipient *rcpt)
-{
-	struct smtp_server_recipient_private *prcpt =
-		(struct smtp_server_recipient_private *)rcpt;
-
-	smtp_server_recipient_create_event(prcpt);
-}
-
 const struct smtp_address *
 smtp_server_recipient_get_original(struct smtp_server_recipient *rcpt)
 {
