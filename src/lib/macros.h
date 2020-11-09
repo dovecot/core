@@ -152,9 +152,9 @@
 
 #if (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ > 0)) && !defined(__cplusplus)
 #  define COMPILE_ERROR_IF_TRUE(condition) \
-	(sizeof(char[1 - 2 * ((condition) ? 1 : 0)]) - 1)
+	(sizeof(char[1 - 2 * ((condition) ? 1 : 0)]) > 0 ? FALSE : FALSE)
 #else
-#  define COMPILE_ERROR_IF_TRUE(condition) 0
+#  define COMPILE_ERROR_IF_TRUE(condition) FALSE
 #endif
 
 #ifdef HAVE_TYPE_CHECKS
