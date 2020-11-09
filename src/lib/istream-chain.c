@@ -181,9 +181,12 @@ static bool i_stream_chain_skip(struct chain_istream *cstream)
 		bytes_skipped -= cstream->prev_stream_left;
 		cstream->prev_stream_left = 0;
 	}
-	stream->pos -= bytes_skipped;
-	stream->skip -= bytes_skipped;
-	stream->buffer += bytes_skipped;
+	if (bytes_skipped > 0) {
+		i_assert(stream->buffer != NULL);
+		stream->pos -= bytes_skipped;
+		stream->skip -= bytes_skipped;
+		stream->buffer += bytes_skipped;
+	}
 	cstream->prev_skip = stream->skip;
 	if (link == NULL || link->eof) {
 		i_assert(bytes_skipped == 0);
