@@ -363,9 +363,7 @@ int lmtp_local_rcpt(struct client *client,
 		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
 		lmtp_local_rcpt_approved, llrcpt);
 
-	if (client->lmtp_set->lmtp_user_concurrency_limit == SET_UINT_UNLIMITED) {
-		(void)lmtp_local_rcpt_anvil_finish(llrcpt);
-	} else {
+	if (client->lmtp_set->lmtp_user_concurrency_limit != SET_UINT_UNLIMITED) {
 		/* NOTE: username may change as the result of the userdb
 		   lookup. Look up the new one via service_user. */
 		const struct mail_storage_service_input *input =
@@ -378,7 +376,8 @@ int lmtp_local_rcpt(struct client *client,
 			lmtp_local_rcpt_anvil_cb, llrcpt);
 		return 0;
 	}
-
+	if (!lmtp_local_rcpt_anvil_finish(llrcpt))
+		return -1;
 	return 1;
 }
 
