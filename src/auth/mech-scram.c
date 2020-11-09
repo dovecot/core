@@ -126,18 +126,40 @@ parse_scram_client_first(struct scram_auth_request *request,
 			 const unsigned char *data, size_t size,
 			 const char **error_r)
 {
-	const char *const *fields, *login_username = NULL;
-	const char *gs2_cbind_flag, *authzid, *username, *nonce;
+	const char *login_username = NULL;
+	const char *data_cstr, *p;
+	const char *gs2_cbind_flag, *authzid;
+	const char *cfm_bare, *username, *nonce;
+	const char *const *fields;
 
-	fields = t_strsplit(t_strndup(data, size), ",");
-	if (str_array_length(fields) < 4) {
-		*error_r = "Invalid initial client message";
+	data_cstr = t_strndup(data, size);
+
+	p = strchr(data_cstr, ',');
+	if (p == NULL) {
+		*error_r = "Invalid initial client message: "
+			"Missing first ',' in GS2 header";
 		return FALSE;
 	}
-	gs2_cbind_flag = fields[0];
-	authzid = fields[1];
-	username = fields[2];
-	nonce = fields[3];
+	gs2_cbind_flag = t_strdup_until(data_cstr, p);
+	data_cstr = p + 1;
+
+	p = strchr(data_cstr, ',');
+	if (p == NULL) {
+		*error_r = "Invalid initial client message: "
+			"Missing second ',' in GS2 header";
+		return FALSE;
+	}
+	authzid = t_strdup_until(data_cstr, p);
+	cfm_bare = p + 1;
+
+	fields = t_strsplit(cfm_bare, ",");
+	if (str_array_length(fields) < 2) {
+		*error_r = "Invalid initial client message: "
+			"Missing nonce field";
+		return FALSE;
+	}
+	username = fields[0];
+	nonce = fields[1];
 
 	/* Order of fields is fixed:
 
@@ -219,10 +241,7 @@ parse_scram_client_first(struct scram_auth_request *request,
 		return FALSE;
 	}
 
-	/* This works only without channel binding support,
-	   otherwise the GS2 header doesn't have a fixed length */
-	request->client_first_message_bare =
-		p_strndup(request->pool, data + 3, size - 3);
+	request->client_first_message_bare = p_strdup(request->pool, cfm_bare);
 	return TRUE;
 }
 
