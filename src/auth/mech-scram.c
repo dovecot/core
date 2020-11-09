@@ -1,4 +1,3 @@
-
 /*
  * SCRAM-SHA-1 SASL authentication, see RFC-5802
  *
@@ -51,8 +50,9 @@ struct scram_auth_request {
 	unsigned char *server_key;
 };
 
-static const char *get_scram_server_first(struct scram_auth_request *request,
-					  int iter, const char *salt)
+static const char *
+get_scram_server_first(struct scram_auth_request *request,
+		       int iter, const char *salt)
 {
 	unsigned char snonce[SCRAM_SERVER_NONCE_LEN+1];
 	string_t *str;
@@ -121,9 +121,10 @@ static const char *scram_unescape_username(const char *in)
 	return str_c(out);
 }
 
-static bool parse_scram_client_first(struct scram_auth_request *request,
-				     const unsigned char *data, size_t size,
-				     const char **error_r)
+static bool
+parse_scram_client_first(struct scram_auth_request *request,
+			 const unsigned char *data, size_t size,
+			 const char **error_r)
 {
 	const char *const *fields, *login_username = NULL;
 	const char *gs2_cbind_flag, *authzid, *username, *nonce;
@@ -253,12 +254,14 @@ static bool verify_credentials(struct scram_auth_request *request)
 	safe_memset(client_key, 0, sizeof(client_key));
 	safe_memset(client_signature, 0, sizeof(client_signature));
 
-	return mem_equals_timing_safe(stored_key, request->stored_key, sizeof(stored_key));
+	return mem_equals_timing_safe(stored_key, request->stored_key,
+				      sizeof(stored_key));
 }
 
-static void credentials_callback(enum passdb_result result,
-				 const unsigned char *credentials, size_t size,
-				 struct auth_request *auth_request)
+static void
+credentials_callback(enum passdb_result result,
+		     const unsigned char *credentials, size_t size,
+		     struct auth_request *auth_request)
 {
 	struct scram_auth_request *request =
 		(struct scram_auth_request *)auth_request;
@@ -294,9 +297,10 @@ static void credentials_callback(enum passdb_result result,
 	}
 }
 
-static bool parse_scram_client_final(struct scram_auth_request *request,
-				     const unsigned char *data, size_t size,
-				     const char **error_r)
+static bool
+parse_scram_client_final(struct scram_auth_request *request,
+			 const unsigned char *data, size_t size,
+			 const char **error_r)
 {
 	const struct hash_method *hmethod = request->hash_method;
 	const char **fields, *cbind_input, *nonce_str;
