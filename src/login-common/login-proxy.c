@@ -707,8 +707,6 @@ void login_proxy_detach(struct login_proxy *proxy)
 	proxy->client_input = client->input;
 	proxy->client_output = client->output;
 
-	i_stream_set_persistent_buffers(proxy->server_input, FALSE);
-	i_stream_set_persistent_buffers(client->input, FALSE);
 	o_stream_set_max_buffer_size(client->output, PROXY_MAX_OUTBUF_SIZE);
 	client->input = NULL;
 	client->output = NULL;
