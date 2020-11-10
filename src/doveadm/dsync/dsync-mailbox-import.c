@@ -734,7 +734,7 @@ static void newmail_link(struct dsync_mailbox_importer *importer,
 		}
 	} else {
 		if (remote_uid == 0) {
-			/* mail exists only locally. we don't want to request
+			/* mail exists locally. we don't want to request
 			   it, and we'll assume it has no duplicate
 			   instances. */
 			return;
@@ -878,7 +878,7 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 
 	array_push_back(&importer->newmails, &newmail);
 	newmail_link(importer, newmail,
-		     save_change == NULL ? 0 : save_change->uid);
+		     newmail->uid_in_local ? 0 : save_change->uid);
 	return remote_saved;
 }
 
