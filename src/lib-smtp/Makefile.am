@@ -111,6 +111,7 @@ test_libs = \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-settings/libsettings.la \
 	../lib-sasl/libsasl.la \
+	../lib-auth/libauth.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la \
 	$(MODULE_LIBS)
@@ -126,6 +127,7 @@ test_deps = \
 	../lib-ssl-iostream/libssl_iostream.la \
 	../lib-settings/libsettings.la \
 	../lib-sasl/libsasl.la \
+	../lib-auth/libauth.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
