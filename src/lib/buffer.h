@@ -96,6 +96,26 @@ void buffer_copy(buffer_t *dest, size_t dest_pos,
 void buffer_append_buf(buffer_t *dest, const buffer_t *src,
 		       size_t src_pos, size_t copy_size);
 
+/* Clone source buffer onto specified pool. Allocate extra_space extra space. */
+static inline buffer_t *
+buffer_clone(pool_t pool, const buffer_t *src, size_t extra_space)
+{
+	buffer_t *buf = buffer_create_dynamic(pool, src->used + extra_space);
+
+	buffer_append_buf(buf, src, 0, SIZE_MAX);
+	return buf;
+}
+/* Clone source buffer onto datastack. Allocate extra_space extra space. */
+static inline buffer_t *
+t_buffer_clone(const buffer_t *src, size_t extra_space)
+{
+	buffer_t *buf = buffer_create_dynamic(pool_datastack_create(),
+					      src->used + extra_space);
+
+	buffer_append_buf(buf, src, 0, SIZE_MAX);
+	return buf;
+}
+
 /* Returns pointer to specified position in buffer. WARNING: The returned
    address may become invalid if you add more data to buffer. */
 void *buffer_get_space_unsafe(buffer_t *buf, size_t pos, size_t size);
