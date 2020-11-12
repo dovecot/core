@@ -26,6 +26,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-imap-storage \
 	-I$(top_srcdir)/src/lib-http \
 	-I$(top_srcdir)/src/lib-dcrypt \
+	-I$(top_srcdir)/src/lib-sasl \
 	-I$(top_srcdir)/src/stats \
 	-DMODULEDIR=\""$(moduledir)"\" \
 	-DAUTH_MODULE_DIR=\""$(moduledir)/auth"\" \
