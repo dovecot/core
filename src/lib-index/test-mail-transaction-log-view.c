@@ -9,6 +9,32 @@
 static struct mail_transaction_log *log;
 static struct mail_transaction_log_view *view;
 
+static void
+test_transaction_log_file_add(uint32_t file_seq)
+{
+	struct mail_transaction_log_file **p, *file;
+
+	file = i_new(struct mail_transaction_log_file, 1);
+	file->hdr.file_seq = file_seq;
+	file->hdr.hdr_size = file->sync_offset = sizeof(file->hdr);
+	file->hdr.prev_file_seq = file_seq - 1;
+	file->hdr.prev_file_offset = (uint32_t)-1;
+	file->log = log;
+	file->fd = -1;
+	file->buffer = buffer_create_dynamic(default_pool, 256);
+	file->buffer_offset = file->hdr.hdr_size;
+
+	/* files must be sorted by file_seq */
+	for (p = &log->files; *p != NULL; p = &(*p)->next) {
+		if ((*p)->hdr.file_seq > file->hdr.file_seq) {
+			file->next = *p;
+			break;
+		}
+	}
+	*p = file;
+	log->head = file;
+}
+
 void mail_index_set_error(struct mail_index *index ATTR_UNUSED,
 			  const char *fmt ATTR_UNUSED, ...)
 {
@@ -62,32 +88,6 @@ void mail_transaction_update_modseq(const struct mail_transaction_header *hdr AT
 				    unsigned int version ATTR_UNUSED)
 {
 	*cur_modseq += 1;
-}
-
-static void
-test_transaction_log_file_add(uint32_t file_seq)
-{
-	struct mail_transaction_log_file **p, *file;
-
-	file = i_new(struct mail_transaction_log_file, 1);
-	file->hdr.file_seq = file_seq;
-	file->hdr.hdr_size = file->sync_offset = sizeof(file->hdr);
-	file->hdr.prev_file_seq = file_seq - 1;
-	file->hdr.prev_file_offset = (uint32_t)-1;
-	file->log = log;
-	file->fd = -1;
-	file->buffer = buffer_create_dynamic(default_pool, 256);
-	file->buffer_offset = file->hdr.hdr_size;
-
-	/* files must be sorted by file_seq */
-	for (p = &log->files; *p != NULL; p = &(*p)->next) {
-		if ((*p)->hdr.file_seq > file->hdr.file_seq) {
-			file->next = *p;
-			break;
-		}
-	}
-	*p = file;
-	log->head = file;
 }
 
 static bool view_is_file_refed(uint32_t file_seq)
