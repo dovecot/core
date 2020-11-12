@@ -503,6 +503,11 @@ static void test_event_filter_parser_generated(bool parens)
 	}
 }
 
+static void test_event_filter_parser_simple_invalid(void)
+{
+	testcase("simple invalid", "a=b=c", "", TRUE);
+}
+
 void test_event_filter_parser(void)
 {
 	test_event_filter_parser_table();
@@ -510,4 +515,5 @@ void test_event_filter_parser(void)
 	test_event_filter_parser_simple_nesting();
 	test_event_filter_parser_generated(FALSE);
 	test_event_filter_parser_generated(TRUE);
+	test_event_filter_parser_simple_invalid();
 }
