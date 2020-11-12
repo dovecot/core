@@ -134,7 +134,6 @@ int event_filter_parse(const char *str, struct event_filter *filter,
 		filter->named_queries_only = filter->named_queries_only && state.has_event_name;
 	} else if (ret != 0) {
 		/* error */
-		i_assert(state.output == NULL);
 		i_assert(state.error != NULL);
 
 		*error_r = state.error;
