@@ -9,6 +9,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "var-expand.h"
+#include "randgen.h"
 #include "dsasl-client.h"
 #include "settings-parser.h"
 #include "master-service.h"
@@ -49,6 +50,9 @@ struct authtest_input {
 	unsigned int auth_pid;
 	const char *auth_cookie;
 	struct timeout *to;
+
+	const char *cbind_type;
+	buffer_t *cbind_data;
 };
 
 static bool auth_want_log_debug(void)
@@ -233,6 +237,33 @@ auth_callback(struct auth_client_request *request,
 	io_loop_stop(current_ioloop);
 }
 
+static int
+auth_channel_bind_callback(const char *type, void *context,
+			   const buffer_t **data_r, const char **error_r)
+{
+	struct authtest_input *input = context;
+
+	if (input->cbind_type == NULL) {
+		static const size_t cbind_size = 64;
+		void *data;
+
+		input->cbind_type = p_strdup(input->pool, type);
+		input->cbind_data = buffer_create_dynamic(input->pool,
+							  cbind_size);
+		data = buffer_append_space_unsafe(input->cbind_data,
+						  cbind_size);
+		random_fill(data, cbind_size);
+	} else if (strcmp(input->cbind_type, type) != 0) {
+		*error_r = t_strdup_printf(
+			"Inconsistent channel binding type requested "
+			"(%s != %s)", type, input->cbind_type);
+		return -1;
+	}
+
+	*data_r = input->cbind_data;
+	return 0;
+}
+
 static void auth_connected(struct auth_client *client,
 			   bool connected, void *context)
 {
@@ -280,6 +311,9 @@ static void auth_connected(struct auth_client *client,
 
 	input->request = auth_client_request_new(client, &info,
 						 auth_callback, input);
+
+	auth_client_request_enable_channel_binding(
+		input->request, auth_channel_bind_callback, input);
 }
 
 static void cmd_auth_init_sasl_client(struct authtest_input *input)
@@ -305,6 +339,9 @@ static void cmd_auth_init_sasl_client(struct authtest_input *input)
 	sasl_set.password = input->password;
 
 	input->sasl_client = dsasl_client_new(input->sasl_mech, &sasl_set);
+	dsasl_client_enable_channel_binding(
+		input->sasl_client, SSL_IOSTREAM_PROTOCOL_VERSION_TLS1_3,
+		auth_channel_bind_callback, input);
 }
 
 static void cmd_auth_deinit_sasl_client(struct authtest_input *input)
