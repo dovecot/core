@@ -117,6 +117,9 @@ void t_buffer_alloc_last_full(void);
 /* If enabled, all the used memory is cleared after t_pop(). */
 void data_stack_set_clean_after_pop(bool enable);
 
+/* Returns the number of bytes currently used in data stack. */
+size_t data_stack_get_used_size(void);
+
 void data_stack_init(void);
 void data_stack_deinit(void);
 
