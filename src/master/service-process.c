@@ -17,6 +17,7 @@
 #include "restrict-access.h"
 #include "restrict-process-size.h"
 #include "eacces-error.h"
+#include "var-expand.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "dup2-array.h"
@@ -49,6 +50,19 @@ static void service_reopen_inet_listeners(struct service *service)
 		if (service_listener_listen(listeners[i]) < 0)
 			listeners[i]->fd = old_fd;
 	}
+}
+
+static int
+service_unix_pid_listener_get_path(struct service_listener *l, pid_t pid,
+				   string_t *path, const char **error_r)
+{
+	struct var_expand_table var_table[] = {
+		{ '\0', dec2str(pid), "pid" },
+		{ '\0', NULL, NULL },
+	};
+
+	str_truncate(path, 0);
+	return var_expand(path, l->set.fileset.set->path, var_table, error_r);
 }
 
 static void
@@ -106,6 +120,36 @@ service_dup_fds(struct service *service)
 			}
 			
 			dup2_append(&dups, listeners[i]->fd, fd++);
+
+			env_put(t_strdup_printf("SOCKET%d_SETTINGS",
+						socket_listener_count),
+				str_c(listener_settings));
+			socket_listener_count++;
+		}
+	}
+	if (array_is_created(&service->unix_pid_listeners)) {
+		struct service_listener *const *listenerp, *l;
+		string_t *path = t_str_new(128);
+		const char *error;
+		int ret;
+		pid_t pid = getpid();
+
+		array_foreach(&service->unix_pid_listeners, listenerp) {
+			l = *listenerp;
+			ret = service_unix_pid_listener_get_path(l, pid, path, &error);
+			if (ret > 0) {
+				ret = service_unix_listener_listen(l,
+					str_c(path), FALSE, &error);
+			}
+			if (ret <= 0) {
+				i_fatal("Failed to create per-PID unix_listener %s: %s",
+					l->name, error);
+			}
+
+			str_truncate(listener_settings, 0);
+			str_append_tabescaped(listener_settings, l->name);
+			str_append(listener_settings, "\tpid");
+			dup2_append(&dups, l->fd, fd++);
 
 			env_put(t_strdup_printf("SOCKET%d_SETTINGS",
 						socket_listener_count),
@@ -387,6 +431,19 @@ void service_process_destroy(struct service_process *process)
 {
 	struct service *service = process->service;
 	struct service_list *service_list = service->list;
+
+	if (array_is_created(&service->unix_pid_listeners)) {
+		struct service_listener *const *listenerp;
+		string_t *path = t_str_new(128);
+		const char *error;
+
+		array_foreach(&service->unix_pid_listeners, listenerp) {
+			str_truncate(path, 0);
+			if (service_unix_pid_listener_get_path(*listenerp,
+					process->pid, path, &error) > 0)
+				i_unlink_if_exists(str_c(path));
+		}
+	}
 
 	DLLIST_REMOVE(&service->processes, process);
 	hash_table_remove(service_pids, POINTER_CAST(process->pid));

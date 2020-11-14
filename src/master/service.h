@@ -58,6 +58,8 @@ struct service {
 
 	/* all listeners, even those that aren't currently listening */
 	ARRAY(struct service_listener *) listeners;
+	/* per-process unix_listeners */
+	ARRAY(struct service_listener *) unix_pid_listeners;
 	/* linked list of all processes belonging to this service */
 	struct service_process *processes;
 
