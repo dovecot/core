@@ -258,22 +258,6 @@ void master_auth_request_full(struct master_auth *auth,
 	*tag_r = req.tag;
 }
 
-void master_auth_request(struct master_auth *auth, int fd,
-			 const struct master_auth_request *request,
-			 const unsigned char *data,
-			 master_auth_callback_t *callback,
-			 void *context, unsigned int *tag_r)
-{
-	struct master_auth_request_params params;
-
-	i_zero(&params);
-	params.client_fd = fd;
-	params.request = *request;
-	params.data = data;
-
-	master_auth_request_full(auth, &params, callback, context, tag_r);
-}
-
 void master_auth_request_abort(struct master_auth *auth, unsigned int tag)
 {
         struct master_auth_connection *conn;

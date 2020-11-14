@@ -101,12 +101,6 @@ void master_auth_request_full(struct master_auth *auth,
 			      const struct master_auth_request_params *params,
 			      master_auth_callback_t *callback, void *context,
 			      unsigned int *tag_r);
-/* For backwards compatibility: */
-void master_auth_request(struct master_auth *auth, int fd,
-			 const struct master_auth_request *request,
-			 const unsigned char *data,
-			 master_auth_callback_t *callback,
-			 void *context, unsigned int *tag_r);
 void master_auth_request_abort(struct master_auth *auth, unsigned int tag);
 
 #endif
