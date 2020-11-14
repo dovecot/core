@@ -33,7 +33,7 @@ static unsigned int service_get_backlog(struct service *service)
 }
 
 static int
-service_file_chown(const struct service_listener *l)
+service_file_chown(const struct service_listener *l, const char **error_r)
 {
 	uid_t uid = l->set.fileset.uid;
 	uid_t gid = l->set.fileset.gid;
@@ -43,15 +43,16 @@ service_file_chown(const struct service_listener *l)
 		return 0;
 
 	if (chown(l->set.fileset.set->path, uid, gid) < 0) {
-		service_error(l->service, "chown(%s, %lld, %lld) failed: %m",
-			      l->set.fileset.set->path,
-			      (long long)uid, (long long)gid);
+		*error_r = t_strdup_printf("chown(%s, %lld, %lld) failed: %m",
+					   l->set.fileset.set->path,
+					   (long long)uid, (long long)gid);
 		return -1;
 	}
 	return 0;
 }
 
-static int service_unix_listener_listen(struct service_listener *l)
+static int
+service_unix_listener_listen(struct service_listener *l, const char **error_r)
 {
         struct service *service = l->service;
 	const struct file_listener_settings *set = l->set.fileset.set;
@@ -66,12 +67,14 @@ static int service_unix_listener_listen(struct service_listener *l)
 
 		if (errno == EISDIR || errno == ENOENT) {
 			/* looks like the path doesn't exist. */
+			*error_r = t_strdup_printf(
+				"net_listen_unix(%s) failed: %m", path);
 			return 0;
 		}
 
 		if (errno != EADDRINUSE) {
-			service_error(service, "net_listen_unix(%s) failed: %m",
-				      set->path);
+			*error_r = t_strdup_printf(
+				"net_listen_unix(%s) failed: %m", set->path);
 			return -1;
 		}
 
@@ -80,15 +83,15 @@ static int service_unix_listener_listen(struct service_listener *l)
 		fd = net_connect_unix(set->path);
 		if (fd != -1 || errno != ECONNREFUSED || i >= 3) {
 			i_close_fd(&fd);
-			service_error(service, "Socket already exists: %s",
-				      set->path);
+			*error_r = t_strdup_printf("Socket already exists: %s",
+						   set->path);
 			return 0;
 		}
 
 		/* delete and try again */
 		if (unlink(set->path) < 0 && errno != ENOENT) {
-			service_error(service, "unlink(%s) failed: %m",
-				      set->path);
+			*error_r = t_strdup_printf("unlink(%s) failed: %m",
+						   set->path);
 			return -1;
 		}
 	}
@@ -96,7 +99,7 @@ static int service_unix_listener_listen(struct service_listener *l)
 
 	i_assert(fd != -1);
 
-	if (service_file_chown(l) < 0) {
+	if (service_file_chown(l, error_r) < 0) {
 		i_close_fd(&fd);
 		return -1;
 	}
@@ -107,9 +110,9 @@ static int service_unix_listener_listen(struct service_listener *l)
 	return 1;
 }
 
-static int service_fifo_listener_listen(struct service_listener *l)
+static int
+service_fifo_listener_listen(struct service_listener *l, const char **error_r)
 {
-        struct service *service = l->service;
 	const struct file_listener_settings *set = l->set.fileset.set;
 	unsigned int i;
 	mode_t old_umask;
@@ -123,24 +126,24 @@ static int service_fifo_listener_listen(struct service_listener *l)
 		if (ret == 0)
 			break;
 		if (ret < 0 && (errno != EEXIST || i == 1)) {
-			service_error(service, "mkfifo(%s) failed: %m",
-				      set->path);
+			*error_r = t_strdup_printf("mkfifo(%s) failed: %m",
+						   set->path);
 			return -1;
 		}
 		if (unlink(set->path) < 0) {
-			service_error(service, "unlink(%s) failed: %m",
-				      set->path);
+			*error_r = t_strdup_printf("unlink(%s) failed: %m",
+						   set->path);
 			return -1;
 		}
 	}
-	if (service_file_chown(l) < 0)
+	if (service_file_chown(l, error_r) < 0)
 		return -1;
 
 	/* open as RDWR, so that even if the last writer closes,
 	   we won't get EOF errors */
 	fd = open(set->path, O_RDWR | O_NONBLOCK);
 	if (fd == -1) {
-		service_error(service, "open(%s) failed: %m", set->path);
+		*error_r = t_strdup_printf("open(%s) failed: %m", set->path);
 		return -1;
 	}
 
@@ -152,7 +155,8 @@ static int service_fifo_listener_listen(struct service_listener *l)
 
 #ifdef HAVE_LIBSYSTEMD
 static int
-systemd_listen_fd(const struct ip_addr *ip, in_port_t port, int *fd_r)
+systemd_listen_fd(const struct ip_addr *ip, in_port_t port, int *fd_r,
+		  const char **error_r)
 {
 	static int sd_fds = -1;
 	int fd, fd_max;
@@ -160,7 +164,8 @@ systemd_listen_fd(const struct ip_addr *ip, in_port_t port, int *fd_r)
 	if (sd_fds < 0) {
 		sd_fds = sd_listen_fds(0);
 		if (sd_fds < 0) {
-			i_error("sd_listen_fds() failed: %s", strerror(-sd_fds));
+			*error_r = t_strdup_printf("sd_listen_fds() failed: %s",
+						   strerror(-sd_fds));
 			return -1;
 		}
 	}
@@ -179,7 +184,8 @@ systemd_listen_fd(const struct ip_addr *ip, in_port_t port, int *fd_r)
 }
 #endif
 
-static int service_inet_listener_listen(struct service_listener *l)
+static int
+service_inet_listener_listen(struct service_listener *l, const char **error_r)
 {
         struct service *service = l->service;
 	enum net_listen_flags flags = 0;
@@ -188,7 +194,7 @@ static int service_inet_listener_listen(struct service_listener *l)
 	int fd;
 
 #ifdef HAVE_LIBSYSTEMD
-	if (systemd_listen_fd(&l->set.inetset.ip, port, &fd) < 0)
+	if (systemd_listen_fd(&l->set.inetset.ip, port, &fd, error_r) < 0)
 		return -1;
 
 	if (fd == -1)
@@ -199,8 +205,8 @@ static int service_inet_listener_listen(struct service_listener *l)
 		fd = net_listen_full(&l->set.inetset.ip, &port, &flags,
 				     service_get_backlog(service));
 		if (fd < 0) {
-			service_error(service, "listen(%s, %u) failed: %m",
-				      l->inet_address, set->port);
+			*error_r = t_strdup_printf("listen(%s, %u) failed: %m",
+						   l->inet_address, set->port);
 			return errno == EADDRINUSE ? 0 : -1;
 		}
 		l->reuse_port = (flags & NET_LISTEN_FLAG_REUSEPORT) != 0;
@@ -214,15 +220,25 @@ static int service_inet_listener_listen(struct service_listener *l)
 
 int service_listener_listen(struct service_listener *l)
 {
+	const char *error;
+	int ret;
+
 	switch (l->type) {
 	case SERVICE_LISTENER_UNIX:
-		return service_unix_listener_listen(l);
+		ret = service_unix_listener_listen(l, &error);
+		break;
 	case SERVICE_LISTENER_FIFO:
-		return service_fifo_listener_listen(l);
+		ret = service_fifo_listener_listen(l, &error);
+		break;
 	case SERVICE_LISTENER_INET:
-		return service_inet_listener_listen(l);
+		ret = service_inet_listener_listen(l, &error);
+		break;
+	default:
+		i_unreached();
 	}
-	i_unreached();
+	if (ret < 0)
+		service_error(l->service, "%s", error);
+	return ret;
 }
 
 static int service_listen(struct service *service)
