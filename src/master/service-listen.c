@@ -33,7 +33,8 @@ static unsigned int service_get_backlog(struct service *service)
 }
 
 static int
-service_file_chown(const struct service_listener *l, const char **error_r)
+service_file_chown(const struct service_listener *l, const char *path,
+		   const char **error_r)
 {
 	uid_t uid = l->set.fileset.uid;
 	uid_t gid = l->set.fileset.gid;
@@ -42,16 +43,15 @@ service_file_chown(const struct service_listener *l, const char **error_r)
 	    (gid == (gid_t)-1 || gid == master_gid))
 		return 0;
 
-	if (chown(l->set.fileset.set->path, uid, gid) < 0) {
+	if (chown(path, uid, gid) < 0) {
 		*error_r = t_strdup_printf("chown(%s, %lld, %lld) failed: %m",
-					   l->set.fileset.set->path,
-					   (long long)uid, (long long)gid);
+					   path, (long long)uid, (long long)gid);
 		return -1;
 	}
 	return 0;
 }
 
-int service_unix_listener_listen(struct service_listener *l,
+int service_unix_listener_listen(struct service_listener *l, const char *path,
 				 bool verify_addrinuse, const char **error_r)
 {
         struct service *service = l->service;
@@ -61,7 +61,7 @@ int service_unix_listener_listen(struct service_listener *l,
 
 	old_umask = umask((set->mode ^ 0777) & 0777);
 	for (i = 0;; i++) {
-		fd = net_listen_unix(set->path, service_get_backlog(service));
+		fd = net_listen_unix(path, service_get_backlog(service));
 		if (fd != -1)
 			break;
 
@@ -74,14 +74,14 @@ int service_unix_listener_listen(struct service_listener *l,
 
 		if (errno != EADDRINUSE) {
 			*error_r = t_strdup_printf(
-				"net_listen_unix(%s) failed: %m", set->path);
+				"net_listen_unix(%s) failed: %m", path);
 			return -1;
 		}
 
 		/* already in use - see if it really exists.
 		   after 3 times just fail here. */
 		if (verify_addrinuse)
-			fd = net_connect_unix(set->path);
+			fd = net_connect_unix(path);
 		else {
 			fd = -1;
 			errno = ECONNREFUSED;
@@ -89,14 +89,14 @@ int service_unix_listener_listen(struct service_listener *l,
 		if (fd != -1 || errno != ECONNREFUSED || i >= 3) {
 			i_close_fd(&fd);
 			*error_r = t_strdup_printf("Socket already exists: %s",
-						   set->path);
+						   path);
 			return 0;
 		}
 
 		/* delete and try again */
-		if (unlink(set->path) < 0 && errno != ENOENT) {
+		if (unlink(path) < 0 && errno != ENOENT) {
 			*error_r = t_strdup_printf("unlink(%s) failed: %m",
-						   set->path);
+						   path);
 			return -1;
 		}
 	}
@@ -104,7 +104,7 @@ int service_unix_listener_listen(struct service_listener *l,
 
 	i_assert(fd != -1);
 
-	if (service_file_chown(l, error_r) < 0) {
+	if (service_file_chown(l, path, error_r) < 0) {
 		i_close_fd(&fd);
 		return -1;
 	}
@@ -141,7 +141,7 @@ service_fifo_listener_listen(struct service_listener *l, const char **error_r)
 			return -1;
 		}
 	}
-	if (service_file_chown(l, error_r) < 0)
+	if (service_file_chown(l, set->path, error_r) < 0)
 		return -1;
 
 	/* open as RDWR, so that even if the last writer closes,
@@ -230,7 +230,8 @@ int service_listener_listen(struct service_listener *l)
 
 	switch (l->type) {
 	case SERVICE_LISTENER_UNIX:
-		ret = service_unix_listener_listen(l, TRUE, &error);
+		ret = service_unix_listener_listen(l, l->set.fileset.set->path,
+						   TRUE, &error);
 		break;
 	case SERVICE_LISTENER_FIFO:
 		ret = service_fifo_listener_listen(l, &error);
