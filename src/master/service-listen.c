@@ -51,8 +51,8 @@ service_file_chown(const struct service_listener *l, const char **error_r)
 	return 0;
 }
 
-static int
-service_unix_listener_listen(struct service_listener *l, const char **error_r)
+int service_unix_listener_listen(struct service_listener *l,
+				 const char **error_r)
 {
         struct service *service = l->service;
 	const struct file_listener_settings *set = l->set.fileset.set;
