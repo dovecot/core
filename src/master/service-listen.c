@@ -52,7 +52,7 @@ service_file_chown(const struct service_listener *l, const char **error_r)
 }
 
 int service_unix_listener_listen(struct service_listener *l,
-				 const char **error_r)
+				 bool verify_addrinuse, const char **error_r)
 {
         struct service *service = l->service;
 	const struct file_listener_settings *set = l->set.fileset.set;
@@ -80,7 +80,12 @@ int service_unix_listener_listen(struct service_listener *l,
 
 		/* already in use - see if it really exists.
 		   after 3 times just fail here. */
-		fd = net_connect_unix(set->path);
+		if (verify_addrinuse)
+			fd = net_connect_unix(set->path);
+		else {
+			fd = -1;
+			errno = ECONNREFUSED;
+		}
 		if (fd != -1 || errno != ECONNREFUSED || i >= 3) {
 			i_close_fd(&fd);
 			*error_r = t_strdup_printf("Socket already exists: %s",
@@ -225,7 +230,7 @@ int service_listener_listen(struct service_listener *l)
 
 	switch (l->type) {
 	case SERVICE_LISTENER_UNIX:
-		ret = service_unix_listener_listen(l, &error);
+		ret = service_unix_listener_listen(l, TRUE, &error);
 		break;
 	case SERVICE_LISTENER_FIFO:
 		ret = service_fifo_listener_listen(l, &error);
