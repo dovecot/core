@@ -296,14 +296,14 @@ void t_pop_last_unsafe(void)
 	current_block = current_frame_block->block[frame_pos];
 	block_canary_check(current_block);
 	if (clean_after_pop) {
-		size_t pos, used_size;
+		size_t start_pos, end_pos;
 
-		pos = current_block->size -
+		start_pos = current_block->size -
 			current_frame_block->block_space_left[frame_pos];
-		used_size = current_block->size - current_block->left_lowwater;
-		i_assert(used_size >= pos);
-		memset(STACK_BLOCK_DATA(current_block) + pos, CLEAR_CHR,
-		       used_size - pos);
+		end_pos = current_block->size - current_block->left_lowwater;
+		i_assert(end_pos >= start_pos);
+		memset(STACK_BLOCK_DATA(current_block) + start_pos, CLEAR_CHR,
+		       end_pos - start_pos);
 	}
 	current_block->left = current_frame_block->block_space_left[frame_pos];
 	current_block->left_lowwater = current_block->left;
