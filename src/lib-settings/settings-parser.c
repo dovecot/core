@@ -1193,9 +1193,13 @@ bool settings_check(const struct setting_parser_info *info, pool_t pool,
 	const ARRAY_TYPE(void_array) *val;
 	void *const *children;
 	unsigned int i, count;
+	bool valid;
 
 	if (info->check_func != NULL) {
-		if (!info->check_func(set, pool, error_r))
+		T_BEGIN {
+			valid = info->check_func(set, pool, error_r);
+		} T_END_PASS_STR_IF(!valid, error_r);
+		if (!valid)
 			return FALSE;
 	}
 
