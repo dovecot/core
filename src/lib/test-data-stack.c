@@ -138,11 +138,33 @@ static void test_ds_recursive(int count, int depth)
 	test_end();
 }
 
+static void test_ds_clean_after_pop(void)
+{
+	const unsigned int frames_count = 32*2 + 1;
+
+	test_begin("data-stack clean after pop");
+	data_stack_set_clean_after_pop(TRUE);
+	for (unsigned int frame = 0; frame < frames_count; frame++) {
+		t_push("");
+		for (unsigned int i = 0; i < 30; i++) {
+			size_t size = i_rand_limit(1024)+1;
+			memset(t_malloc_no0(size), 'X', size);
+		}
+	}
+	for (unsigned int frame = 0; frame < frames_count; frame++) {
+		t_pop_last_unsafe();
+		unsigned char *c = t_malloc_no0(1);
+		test_assert_idx(*c != 'X', frame);
+	}
+	test_end();
+}
+
 void test_data_stack(void)
 {
 	test_ds_buffers();
 	test_ds_realloc();
 	test_ds_recursive(20, 80);
+	test_ds_clean_after_pop();
 }
 
 enum fatal_test_state fatal_data_stack(unsigned int stage)
