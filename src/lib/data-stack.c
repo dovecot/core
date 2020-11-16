@@ -332,6 +332,21 @@ bool t_pop(data_stack_frame_t *id)
 	return TRUE;
 }
 
+bool t_pop_pass_str(data_stack_frame_t *id, const char **str)
+{
+	if (str == NULL || !data_stack_frame_contains(id, *str))
+		return t_pop(id);
+
+	/* FIXME: The string could be memmove()d to the beginning of the
+	   data stack frame and the previous frame's size extended past it.
+	   This would avoid the malloc. It's a bit complicated though. */
+	char *tmp_str = i_strdup(*str);
+	bool ret = t_pop(id);
+	*str = t_strdup(tmp_str);
+	i_free(tmp_str);
+	return ret;
+}
+
 static struct stack_block *mem_block_alloc(size_t min_size)
 {
 	struct stack_block *block;

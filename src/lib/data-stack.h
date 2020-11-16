@@ -54,6 +54,10 @@ data_stack_frame_t t_push_named(const char *format, ...) ATTR_HOT ATTR_FORMAT(1,
 /* Returns TRUE on success, FALSE if t_pop() call was leaked. The caller
    should panic. */
 bool t_pop(data_stack_frame_t *id) ATTR_HOT;
+/* Same as t_pop(), but move str out of the stack frame if it is inside.
+   This can be used to easily move e.g. error strings outside stack frames. */
+bool t_pop_pass_str(data_stack_frame_t *id, const char **str);
+
 /* Pop the last data stack frame. This shouldn't be called outside test code. */
 void t_pop_last_unsafe(void);
 
@@ -69,6 +73,33 @@ void t_pop_last_unsafe(void);
 			i_panic("Leaked t_pop() call"); \
 	} STMT_END; \
 	} STMT_END
+
+/* Usage:
+   const char *error;
+   T_BEGIN {
+     ...
+     if (ret < 0)
+       error = t_strdup_printf("foo() failed: %m");
+   } T_END_PASS_STR_IF(ret < 0, &error);
+   // error is still valid
+*/
+#define T_END_PASS_STR_IF(pass_condition, str) \
+	STMT_START { \
+		if (unlikely(!t_pop_pass_str(&_data_stack_cur_id, (pass_condition) ? (str) : NULL))) \
+			i_panic("Leaked t_pop() call"); \
+	} STMT_END; \
+	} STMT_END
+/*
+   Usage:
+   const char *result;
+   T_BEGIN {
+     ...
+     result = t_strdup_printf(...);
+   } T_END_PASS_STR(&result);
+   // result is still valid
+*/
+#define T_END_PASS_STR(str) \
+	T_END_PASS_STR_IF(TRUE, str)
 
 /* WARNING: Be careful when using these functions, it's too easy to
    accidentally save the returned value somewhere permanently.

@@ -159,12 +159,59 @@ static void test_ds_clean_after_pop(void)
 	test_end();
 }
 
+static void test_ds_pass_str(void)
+{
+	data_stack_frame_t frames[32*2 + 1]; /* BLOCK_FRAME_COUNT*2 + 1 */
+	const char *strings[N_ELEMENTS(frames)];
+
+	test_begin("data-stack pass string");
+	for (unsigned int frame = 0; frame < N_ELEMENTS(frames); frame++) {
+		frames[frame] = t_push("test");
+		if (frame % 10 == 5) {
+			/* increase block counts */
+			(void)t_malloc_no0(1024*30);
+			(void)t_malloc_no0(1024*30);
+		}
+		strings[frame] = t_strdup_printf("frame %d", frame);
+		for (unsigned int i = 0; i <= frame; i++) {
+			test_assert_idx(data_stack_frame_contains(&frames[frame], strings[i]) == (i == frame),
+					frame * 100 + i);
+		}
+	}
+
+	const char *last_str = strings[N_ELEMENTS(frames)-1];
+	for (unsigned int frame = N_ELEMENTS(frames); frame > 0; ) {
+		frame--;
+		test_assert(t_pop_pass_str(&frames[frame], &last_str));
+	}
+	test_assert_strcmp(last_str, "frame 64");
+
+	/* make sure the pass_condition works properly */
+	const char *error, *orig_error, *orig2_error;
+	T_BEGIN {
+		(void)t_strdup("qwertyuiop");
+		error = orig_error = t_strdup("123456");
+	} T_END_PASS_STR_IF(TRUE, &error);
+
+	orig2_error = orig_error;
+	T_BEGIN {
+		(void)t_strdup("abcdefghijklmnopqrstuvwxyz");
+	} T_END_PASS_STR_IF(FALSE, &orig2_error);
+	/* orig_error and orig2_error both point to freed data stack frame */
+	test_assert(orig_error == orig2_error);
+	/* the passed error is still valid though */
+	test_assert_strcmp(error, "123456");
+
+	test_end();
+}
+
 void test_data_stack(void)
 {
 	test_ds_buffers();
 	test_ds_realloc();
 	test_ds_recursive(20, 80);
 	test_ds_clean_after_pop();
+	test_ds_pass_str();
 }
 
 enum fatal_test_state fatal_data_stack(unsigned int stage)
