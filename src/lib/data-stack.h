@@ -157,6 +157,7 @@ size_t data_stack_get_alloc_size(void);
 size_t data_stack_get_used_size(void);
 
 void data_stack_init(void);
+void data_stack_deinit_event(void);
 void data_stack_deinit(void);
 
 #endif

@@ -160,6 +160,7 @@ void lib_deinit(void)
 	hostpid_deinit();
 	var_expand_extensions_deinit();
 	event_filter_deinit();
+	data_stack_deinit_event();
 	lib_event_deinit();
 	restrict_access_deinit();
 	i_close_fd(&dev_null_fd);

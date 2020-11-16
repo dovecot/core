@@ -3,6 +3,8 @@
 /* @UNSAFE: whole file */
 
 #include "lib.h"
+#include "backtrace-string.h"
+#include "str.h"
 #include "data-stack.h"
 
 
@@ -84,6 +86,9 @@ static struct stack_frame_block *current_frame_block;
 /* The latest block currently used for allocation. current_block->next is
    always NULL. */
 static struct stack_block *current_block;
+
+static struct event *event_datastack = NULL;
+static bool event_datastack_deinitialized = FALSE;
 
 static struct stack_block *last_buffer_block;
 static size_t last_buffer_size;
@@ -383,12 +388,56 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 	return block;
 }
 
+static void data_stack_send_grow_event(size_t last_alloc_size)
+{
+	if (event_datastack_deinitialized) {
+		/* already in the deinitialization code -
+		   don't send more events */
+		return;
+	}
+	if (event_datastack == NULL)
+		event_datastack = event_create(NULL);
+	event_set_name(event_datastack, "data_stack_grow");
+	if (!event_want_debug(event_datastack))
+		return;
+
+	const char *backtrace;
+	if (backtrace_get(&backtrace) == 0)
+		event_add_str(event_datastack, "backtrace", backtrace);
+	event_add_int(event_datastack, "alloc_size", data_stack_get_alloc_size());
+	event_add_int(event_datastack, "used_size", data_stack_get_used_size());
+	event_add_int(event_datastack, "last_alloc_size", last_alloc_size);
+	event_add_int(event_datastack, "last_block_size", current_block->size);
+#ifdef DEBUG
+	event_add_int(event_datastack, "frame_alloc_bytes",
+		      current_frame_block->alloc_bytes[frame_pos]);
+	event_add_int(event_datastack, "frame_alloc_count",
+		      current_frame_block->alloc_count[frame_pos]);
+#endif
+	event_add_str(event_datastack, "frame_marker",
+		      current_frame_block->marker[frame_pos]);
+
+	string_t *str = t_str_new(128);
+	str_printfa(str, "total_used=%zu, total_alloc=%zu, last_alloc_size=%zu",
+		    data_stack_get_used_size(),
+		    data_stack_get_alloc_size(),
+		    last_alloc_size);
+#ifdef DEBUG
+	str_printfa(str, ", frame_bytes=%llu, frame_alloc_count=%u",
+		    current_frame_block->alloc_bytes[frame_pos],
+		    current_frame_block->alloc_count[frame_pos]);
+#endif
+	e_debug(event_datastack, "Growing data stack by %zu for '%s' (%s)",
+		current_block->size, current_frame_block->marker[frame_pos],
+		str_c(str));
+}
+
 static void *t_malloc_real(size_t size, bool permanent)
 {
 	void *ret;
 	size_t alloc_size;
-#ifdef DEBUG
 	bool warn = FALSE;
+#ifdef DEBUG
 	int old_errno = errno;
 #endif
 
@@ -420,9 +469,7 @@ static void *t_malloc_real(size_t size, bool permanent)
 
 		/* current block is full, allocate a new one */
 		block = mem_block_alloc(alloc_size);
-#ifdef DEBUG
 		warn = TRUE;
-#endif
 
 		/* The newly allocated block will replace the current_block,
 		   i.e. current_block always points to the last element in
@@ -440,17 +487,12 @@ static void *t_malloc_real(size_t size, bool permanent)
 	if (permanent)
 		current_block->left -= alloc_size;
 
-#ifdef DEBUG
-	if (warn && getenv("DEBUG_SILENT") == NULL) {
-		/* warn after allocation, so if i_debug() wants to
+	if (warn) {
+		/* warn after allocation, so if e_debug() wants to
 		   allocate more memory we don't go to infinite loop */
-		i_debug("Growing data stack by %zu as "
-			  "'%s' reaches %llu bytes from %u allocations.",
-			  current_block->size,
-			  current_frame_block->marker[frame_pos],
-			  current_frame_block->alloc_bytes[frame_pos],
-			  current_frame_block->alloc_count[frame_pos]);
+		data_stack_send_grow_event(alloc_size);
 	}
+#ifdef DEBUG
 	memcpy(ret, &size, sizeof(size));
 	ret = PTR_OFFSET(ret, MEM_ALIGN(sizeof(size)));
 	/* make sure the sentry contains CLEAR_CHRs. it might not if we
@@ -687,6 +729,12 @@ void data_stack_init(void)
 	last_buffer_size = 0;
 
 	root_frame_id = t_push("data_stack_init");
+}
+
+void data_stack_deinit_event(void)
+{
+	event_unref(&event_datastack);
+	event_datastack_deinitialized = TRUE;
 }
 
 void data_stack_deinit(void)

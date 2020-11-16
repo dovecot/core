@@ -1,7 +1,69 @@
 /* Copyright (c) 2014-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
+#include "lib-event-private.h"
+#include "event-filter.h"
 #include "data-stack.h"
+
+static int ds_grow_event_count = 0;
+
+static bool
+test_ds_grow_event_callback(struct event *event,
+			    enum event_callback_type type,
+			    struct failure_context *ctx,
+			    const char *fmt ATTR_UNUSED,
+			    va_list args ATTR_UNUSED)
+{
+	const struct event_field *field;
+
+	if (type != EVENT_CALLBACK_TYPE_SEND)
+		return TRUE;
+
+	ds_grow_event_count++;
+	test_assert(ctx->type == LOG_TYPE_DEBUG);
+
+	field = event_find_field_nonrecursive(event, "alloc_size");
+	test_assert(field != NULL &&
+		    field->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX &&
+		    field->value.intmax >= 1024 * (5 + 100));
+	field = event_find_field_nonrecursive(event, "used_size");
+	test_assert(field != NULL &&
+		    field->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX &&
+		    field->value.intmax >= 1024 * (5 + 100));
+	field = event_find_field_nonrecursive(event, "last_alloc_size");
+	test_assert(field != NULL &&
+		    field->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX &&
+		    field->value.intmax >= 1024 * 100);
+	field = event_find_field_nonrecursive(event, "frame_marker");
+	test_assert(field != NULL &&
+		    field->value_type == EVENT_FIELD_VALUE_TYPE_STR &&
+		    strstr(field->value.str, "test-data-stack.c") != NULL);
+	return TRUE;
+}
+
+static void test_ds_grow_event(void)
+{
+	const char *error;
+
+	test_begin("data-stack grow event");
+	event_register_callback(test_ds_grow_event_callback);
+
+	i_assert(event_get_global_debug_log_filter() == NULL);
+	struct event_filter *filter = event_filter_create();
+	test_assert(event_filter_parse("event=data_stack_grow", filter, &error) == 0);
+	event_set_global_debug_log_filter(filter);
+	event_filter_unref(&filter);
+
+	T_BEGIN {
+		(void)t_malloc0(1024*5);
+		test_assert(ds_grow_event_count == 0);
+		(void)t_malloc0(1024*100);
+		test_assert(ds_grow_event_count == 1);
+	} T_END;
+	event_unset_global_debug_log_filter();
+	event_unregister_callback(test_ds_grow_event_callback);
+	test_end();
+}
 
 static void test_ds_get_bytes_available(void)
 {
@@ -235,6 +297,7 @@ static void test_ds_pass_str(void)
 
 void test_data_stack(void)
 {
+	test_ds_grow_event();
 	test_ds_get_bytes_available();
 	test_ds_buffers();
 	test_ds_realloc();
