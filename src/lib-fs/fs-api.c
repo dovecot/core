@@ -41,8 +41,7 @@ fs_alloc(const struct fs *fs_class, const char *args,
 	 const struct fs_settings *set, struct fs **fs_r, const char **error_r)
 {
 	struct fs *fs;
-	const char *temp_error;
-	char *error = NULL;
+	const char *error;
 	int ret;
 
 	fs = fs_class->v.alloc();
@@ -54,15 +53,13 @@ fs_alloc(const struct fs *fs_class, const char *args,
 	event_set_forced_debug(fs->event, fs->set.debug);
 
 	T_BEGIN {
-		if ((ret = fs_class->v.init(fs, args, set, &temp_error)) < 0)
-			error = i_strdup(temp_error);
-	} T_END;
+		ret = fs_class->v.init(fs, args, set, &error);
+	} T_END_PASS_STR_IF(ret < 0, &error);
 	if (ret < 0) {
 		/* a bit kludgy way to allow data stack frame usage in normal
 		   conditions but still be able to return error message from
 		   data stack. */
 		*error_r = t_strdup_printf("%s: %s", fs_class->name, error);
-		i_free(error);
 		fs_unref(&fs);
 		return -1;
 	}

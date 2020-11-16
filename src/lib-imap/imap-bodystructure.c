@@ -687,7 +687,6 @@ int imap_bodystructure_parse_full(const char *bodystructure,
 	struct istream *input;
 	struct imap_parser *parser;
 	const struct imap_arg *args;
-	char *error = NULL;
 	int ret;
 
 	i_assert(*parts == NULL || (*parts)->next == NULL);
@@ -708,14 +707,7 @@ int imap_bodystructure_parse_full(const char *bodystructure,
 		T_BEGIN {
 			ret = imap_bodystructure_parse_args
 				(args, pool, parts, error_r);
-			if (ret < 0)
-				error = i_strdup(*error_r);
-		} T_END;
-
-		if (ret < 0) {
-			*error_r = t_strdup(error);
-			i_free(error);
-		}
+		} T_END_PASS_STR_IF(ret < 0, error_r);
 	}
 
 	imap_parser_unref(&parser);

@@ -11,7 +11,6 @@ bool mail_user_hash(const char *username, const char *format,
 {
 	unsigned char md5[MD5_RESULTLEN];
 	unsigned int i, hash = 0;
-	char *error_dup = NULL;
 	int ret = 1;
 
 	if (strcmp(format, "%u") == 0) {
@@ -31,14 +30,11 @@ bool mail_user_hash(const char *username, const char *format,
 			{ '\0', NULL, NULL }
 		};
 		string_t *str = t_str_new(128);
-		const char *error;
 
-		ret = var_expand(str, format, tab, &error);
+		ret = var_expand(str, format, tab, error_r);
 		i_assert(ret >= 0);
-		if (ret == 0)
-			error_dup = i_strdup(error);
 		md5_get_digest(str_data(str), str_len(str), md5);
-	} T_END;
+	} T_END_PASS_STR_IF(ret == 0, error_r);
 	for (i = 0; i < sizeof(hash); i++)
 		hash = (hash << CHAR_BIT) | md5[i];
 	if (hash == 0) {
@@ -48,7 +44,5 @@ bool mail_user_hash(const char *username, const char *format,
 		hash = 1;
 	}
 	*hash_r = hash;
-	*error_r = t_strdup(error_dup);
-	i_free(error_dup);
 	return ret > 0;
 }

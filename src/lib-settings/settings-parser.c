@@ -1383,21 +1383,15 @@ int settings_var_expand_with_funcs(const struct setting_parser_info *info,
 				   const struct var_expand_func_table *func_table,
 				   void *func_context, const char **error_r)
 {
-	char *error_dup = NULL;
 	int ret;
 
 	T_BEGIN {
-		const char *error;
 		string_t *str = t_str_new(256);
 
 		ret = settings_var_expand_info(info, set, pool, table,
 					       func_table, func_context, str,
-					       &error);
-		if (ret <= 0)
-			error_dup = i_strdup(error);
-	} T_END;
-	*error_r = t_strdup(error_dup);
-	i_free(error_dup);
+					       error_r);
+	} T_END_PASS_STR_IF(ret <= 0, error_r);
 	return ret;
 }
 

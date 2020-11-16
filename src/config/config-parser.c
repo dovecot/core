@@ -362,8 +362,7 @@ config_filter_parser_check(struct config_parser_context *ctx,
 			   const struct config_module_parser *p,
 			   const char **error_r)
 {
-	const char *error;
-	char *error_dup = NULL;
+	const char *error = NULL;
 	bool ok;
 
 	for (; p->root != NULL; p++) {
@@ -375,13 +374,11 @@ config_filter_parser_check(struct config_parser_context *ctx,
 		settings_parse_var_skip(p->parser);
 		T_BEGIN {
 			ok = settings_parser_check(p->parser, ctx->pool, &error);
-			if (!ok)
-				error_dup = i_strdup(error);
-		} T_END;
+		} T_END_PASS_STR_IF(!ok, &error);
 		if (!ok) {
-			i_assert(error_dup != NULL);
-			*error_r = t_strdup(error_dup);
-			i_free(error_dup);
+			/* be sure to assert-crash early if error is missing */
+			i_assert(error != NULL);
+			*error_r = error;
 			return -1;
 		}
 	}

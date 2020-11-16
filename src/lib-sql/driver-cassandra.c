@@ -997,7 +997,6 @@ static int driver_cassandra_init_full_v(const struct sql_settings *set,
 					const char **error_r)
 {
 	struct cassandra_db *db;
-	char *error = NULL;
 	int ret;
 
 	db = i_new(struct cassandra_db, 1);
@@ -1008,17 +1007,11 @@ static int driver_cassandra_init_full_v(const struct sql_settings *set,
 	event_set_append_log_prefix(db->api.event, "cassandra: ");
 
 	T_BEGIN {
-		const char *tmp;
-		if ((ret = driver_cassandra_parse_connect_string(db,
-								 set->connect_string,
-								 &tmp)) < 0) {
-			error = i_strdup(tmp);
-		}
-	} T_END;
+		ret = driver_cassandra_parse_connect_string(db,
+			set->connect_string, error_r);
+	} T_END_PASS_STR_IF(ret < 0, error_r);
 
 	if (ret < 0) {
-		*error_r = t_strdup(error);
-		i_free(error);
 		driver_cassandra_free(&db);
 		return -1;
 	}

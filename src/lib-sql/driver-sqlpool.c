@@ -496,7 +496,6 @@ static void sqlpool_add_all_once(struct sqlpool_db *db)
 int driver_sqlpool_init_full(const struct sql_settings *set, const struct sql_db *driver,
 			     struct sql_db **db_r, const char **error_r)
 {
-	char *error;
 	struct sqlpool_db *db;
 	int ret;
 
@@ -511,15 +510,11 @@ int driver_sqlpool_init_full(const struct sql_settings *set, const struct sql_db
 	i_array_init(&db->hosts, 8);
 
 	T_BEGIN {
-		const char *tmp = NULL;
-		if ((ret = driver_sqlpool_parse_hosts(db, set->connect_string,
-						      &tmp)) < 0)
-			error = i_strdup(tmp);
-	} T_END;
+		ret = driver_sqlpool_parse_hosts(db, set->connect_string,
+						 error_r);
+	} T_END_PASS_STR_IF(ret < 0, error_r);
 
 	if (ret < 0) {
-		*error_r = t_strdup(error);
-		i_free(error);
 		driver_sqlpool_deinit(&db->api);
 		return ret;
 	}
