@@ -29,7 +29,11 @@
 struct stack_block {
 	struct stack_block *next;
 
-	size_t size, left, lowwater;
+	size_t size, left;
+	/* The lowest value that "left" has been in this block since it was
+	   last popped. This is used to keep track which parts of the block
+	   needs to be cleared if clean_after_pop is set. */
+	size_t left_lowwater;
 	/* NULL or a poison value, just in case something accesses
 	   the memory in front of an allocated area */
 	void *canary;
@@ -296,13 +300,13 @@ void t_pop_last_unsafe(void)
 
 		pos = current_block->size -
 			current_frame_block->block_space_left[frame_pos];
-		used_size = current_block->size - current_block->lowwater;
+		used_size = current_block->size - current_block->left_lowwater;
 		i_assert(used_size >= pos);
 		memset(STACK_BLOCK_DATA(current_block) + pos, CLEAR_CHR,
 		       used_size - pos);
 	}
 	current_block->left = current_frame_block->block_space_left[frame_pos];
-	current_block->lowwater = current_block->left;
+	current_block->left_lowwater = current_block->left;
 
 	if (current_block->next != NULL) {
 		/* free unused blocks */
@@ -367,7 +371,7 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 	}
 	block->size = alloc_size;
 	block->left = 0;
-	block->lowwater = block->size;
+	block->left_lowwater = block->size;
 	block->next = NULL;
 	block->canary = BLOCK_CANARY;
 
@@ -432,8 +436,8 @@ static void *t_malloc_real(size_t size, bool permanent)
 	/* enough space in current block, use it */
 	ret = data_stack_after_last_alloc(current_block);
 
-	if (current_block->left - alloc_size < current_block->lowwater)
-		current_block->lowwater = current_block->left - alloc_size;
+	if (current_block->left - alloc_size < current_block->left_lowwater)
+		current_block->left_lowwater = current_block->left - alloc_size;
 	if (permanent)
 		current_block->left -= alloc_size;
 
@@ -510,8 +514,8 @@ t_try_realloc(void *mem, size_t size)
 		if (current_block->left >= alloc_growth) {
 			/* just shrink the available size */
 			current_block->left -= alloc_growth;
-			if (current_block->left < current_block->lowwater)
-				current_block->lowwater = current_block->left;
+			if (current_block->left < current_block->left_lowwater)
+				current_block->left_lowwater = current_block->left;
 			current_frame_block->last_alloc_size[frame_pos] =
 				new_alloc_size;
 #ifdef DEBUG
