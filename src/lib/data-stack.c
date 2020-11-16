@@ -50,7 +50,10 @@ struct stack_frame_block {
 	struct stack_frame_block *prev;
 
 	struct stack_block *block[BLOCK_FRAME_COUNT];
-	size_t block_space_used[BLOCK_FRAME_COUNT];
+	/* Each frame initializes this to current_block->left, i.e. how much
+	   free space is left in the block. So the frame's start position in
+	   the block is (block.size - block_space_left) */
+	size_t block_space_left[BLOCK_FRAME_COUNT];
 	size_t last_alloc_size[BLOCK_FRAME_COUNT];
 	const char *marker[BLOCK_FRAME_COUNT];
 #ifdef DEBUG
@@ -167,7 +170,7 @@ data_stack_frame_t t_push(const char *marker)
 
 	/* mark our current position */
 	current_frame_block->block[frame_pos] = current_block;
-	current_frame_block->block_space_used[frame_pos] = current_block->left;
+	current_frame_block->block_space_left[frame_pos] = current_block->left;
 	current_frame_block->last_alloc_size[frame_pos] = 0;
 	current_frame_block->marker[frame_pos] = marker;
 #ifdef DEBUG
@@ -244,7 +247,7 @@ static void t_pop_verify(void)
 	size_t pos, max_pos, used_size;
 
 	block = current_frame_block->block[frame_pos];
-	pos = block->size - current_frame_block->block_space_used[frame_pos];
+	pos = block->size - current_frame_block->block_space_left[frame_pos];
 	while (block != NULL) {
 		block_canary_check(block);
 		used_size = block->size - block->left;
@@ -292,13 +295,13 @@ void t_pop_last_unsafe(void)
 		size_t pos, used_size;
 
 		pos = current_block->size -
-			current_frame_block->block_space_used[frame_pos];
+			current_frame_block->block_space_left[frame_pos];
 		used_size = current_block->size - current_block->lowwater;
 		i_assert(used_size >= pos);
 		memset(STACK_BLOCK_DATA(current_block) + pos, CLEAR_CHR,
 		       used_size - pos);
 	}
-	current_block->left = current_frame_block->block_space_used[frame_pos];
+	current_block->left = current_frame_block->block_space_left[frame_pos];
 	current_block->lowwater = current_block->left;
 
 	if (current_block->next != NULL) {
