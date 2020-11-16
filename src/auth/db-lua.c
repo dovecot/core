@@ -627,8 +627,8 @@ auth_lua_call_password_verify(struct dlua_script *script,
 		*error_r = t_strdup_printf("db-lua: %s(req, password) failed: %s",
 					   AUTH_LUA_PASSWORD_VERIFY,
 					   lua_tostring(script->L, -1));
-		i_assert(lua_gettop(script->L) == 0);
 		lua_pop(script->L, 1);
+		i_assert(lua_gettop(script->L) == 0);
 		return PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (!lua_isnumber(script->L, -2)) {
 		*error_r = t_strdup_printf("db-lua: %s invalid return value "
