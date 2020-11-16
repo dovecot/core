@@ -80,7 +80,6 @@ static data_stack_frame_t root_frame_id;
 
 static int frame_pos = BLOCK_FRAME_COUNT-1; /* in current_frame_block */
 static struct stack_frame_block *current_frame_block;
-static struct stack_frame_block *unused_frame_blocks;
 
 static struct stack_block *current_block; /* block now used for allocation */
 
@@ -153,17 +152,11 @@ data_stack_frame_t t_push(const char *marker)
 		}
 
 		frame_pos = 0;
-		if (unused_frame_blocks == NULL) {
-			/* allocate new block */
-			frame_block = calloc(sizeof(*frame_block), 1);
-			if (frame_block == NULL) {
-				i_fatal_status(FATAL_OUTOFMEM,
-					       "t_push(): Out of memory");
-			}
-		} else {
-			/* use existing unused frame_block */
-			frame_block = unused_frame_blocks;
-			unused_frame_blocks = unused_frame_blocks->prev;
+		/* allocate new block */
+		frame_block = calloc(sizeof(*frame_block), 1);
+		if (frame_block == NULL) {
+			i_fatal_status(FATAL_OUTOFMEM,
+				       "t_push(): Out of memory");
 		}
 
 		frame_block->prev = current_frame_block;
@@ -315,9 +308,7 @@ void t_pop_last_unsafe(void)
 
 		frame_block = current_frame_block;
 		current_frame_block = frame_block->prev;
-
-		frame_block->prev = unused_frame_blocks;
-		unused_frame_blocks = frame_block;
+		free(frame_block);
 	}
 	data_stack_frame_id--;
 }
@@ -613,7 +604,6 @@ void data_stack_init(void)
 	current_block->next = NULL;
 
 	current_frame_block = NULL;
-	unused_frame_blocks = NULL;
 	frame_pos = BLOCK_FRAME_COUNT-1;
 
 	last_buffer_block = NULL;
@@ -628,14 +618,6 @@ void data_stack_deinit(void)
 	    frame_pos != BLOCK_FRAME_COUNT-1)
 		i_panic("Missing t_pop() call");
 
-	while (unused_frame_blocks != NULL) {
-		struct stack_frame_block *frame_block = unused_frame_blocks;
-		unused_frame_blocks = unused_frame_blocks->prev;
-
-		free(frame_block);
-	}
-
 	free(current_block);
-	unused_frame_blocks = NULL;
 	current_block = NULL;
 }
