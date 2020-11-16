@@ -198,6 +198,98 @@ static void test_rfc822_parse_domain_literal(void)
 	test_end();
 }
 
+#undef TEST_STRING
+#define TEST_STRING(a) .input = (const unsigned char*)a, .input_len = sizeof(a)-1
+
+static void test_rfc822_parse_content_type(void)
+{
+	const struct {
+		const unsigned char *input;
+		size_t input_len;
+		int ret;
+		const char *output;
+	} test_cases[] = {
+		{ TEST_STRING(""), -1, "" },
+		{ TEST_STRING(";charset=us-ascii"), -1, "" },
+		{ TEST_STRING(" ;charset=us-ascii"), -1, "" },
+		{ TEST_STRING("/"), -1, "" },
+		{ TEST_STRING("/;charset=us-ascii"), -1, "" },
+		{ TEST_STRING("/ ;charset=us-ascii"), -1, "" },
+		{ TEST_STRING("text/"), -1, "" },
+		{ TEST_STRING("text/;charset=us-ascii"), -1, "" },
+		{ TEST_STRING("text/ ;charset=us-ascii"), -1, "" },
+		{ TEST_STRING("/plain"), -1, "" },
+		{ TEST_STRING("/plain;charset=us-ascii"), -1, "" },
+		{ TEST_STRING("/plain ;charset=us-ascii"), -1, "" },
+		{ TEST_STRING("text/plain"), 0, "text/plain" },
+		{ TEST_STRING("text/plain;charset=us-ascii"), 1, "text/plain" },
+		{ TEST_STRING("text/plain ;charset=us-ascii"), 1, "text/plain" },
+		{ TEST_STRING("text/plain/format"), -1, "" },
+		{ TEST_STRING("text/plain/format;charset=us-ascii"), -1, "" },
+		{ TEST_STRING("text/plain/format ;charset=us-ascii"), -1, "" },
+		{ TEST_STRING("\xe5\x90\xab\xe9\x87\x8f/\xe7\xa8\xae\xe9\xa1\x9e"),
+		  0, "\xe5\x90\xab\xe9\x87\x8f/\xe7\xa8\xae\xe9\xa1\x9e" },
+		{ TEST_STRING("\xe5\x90\xab\xe9\x87\x8f/\xe7\xa8\xae\xe9\xa1\x9e;charset=utf-8"),
+		  1, "\xe5\x90\xab\xe9\x87\x8f/\xe7\xa8\xae\xe9\xa1\x9e" },
+		{ TEST_STRING("\xe5\x90\xab\xe9\x87\x8f/\xe7\xa8\xae\xe9\xa1\x9e ;charset=utf-8"),
+		  1, "\xe5\x90\xab\xe9\x87\x8f/\xe7\xa8\xae\xe9\xa1\x9e" },
+		{ TEST_STRING("application/ld+json"), 0, "application/ld+json" },
+		{ TEST_STRING("application/ld+json;charset=us-ascii"),
+		  1, "application/ld+json" },
+		{ TEST_STRING("application/ld+json ;charset=us-ascii"),
+		  1, "application/ld+json" },
+		{ TEST_STRING("application/x-magic-cap-package-1.0"),
+		  0, "application/x-magic-cap-package-1.0" },
+		{ TEST_STRING("application/x-magic-cap-package-1.0;charset=us-ascii"),
+		  1, "application/x-magic-cap-package-1.0" },
+		{ TEST_STRING("application/x-magic-cap-package-1.0 ;charset=us-ascii"),
+		  1, "application/x-magic-cap-package-1.0" },
+		{ TEST_STRING("application/pro_eng"), 0, "application/pro_eng" },
+		{ TEST_STRING("application/pro_eng;charset=us-ascii"),
+		  1, "application/pro_eng" },
+		{ TEST_STRING("application/pro_eng ;charset=us-ascii"),
+		  1, "application/pro_eng" },
+		{ TEST_STRING("application/wordperfect6.1"),
+		  0, "application/wordperfect6.1" },
+		{ TEST_STRING("application/wordperfect6.1;charset=us-ascii"),
+		  1, "application/wordperfect6.1" },
+		{ TEST_STRING("application/wordperfect6.1 ;charset=us-ascii"),
+		  1, "application/wordperfect6.1" },
+		{ TEST_STRING("application/vnd.openxmlformats-officedocument.wordprocessingml.template"),
+		  0, "application/vnd.openxmlformats-officedocument.wordprocessingml.template" },
+		{ TEST_STRING("application/vnd.openxmlformats-officedocument.wordprocessingml.template;charset=us-ascii"),
+		  1, "application/vnd.openxmlformats-officedocument.wordprocessingml.template" },
+		{ TEST_STRING("application/vnd.openxmlformats-officedocument.wordprocessingml.template ;charset=us-asii"),
+		  1, "application/vnd.openxmlformats-officedocument.wordprocessingml.template" },
+		{ TEST_STRING("(hello) text (plain) / (world) plain (eod)"),
+		  0, "text/plain" },
+		{ TEST_STRING("(hello) text (plain) / (world) plain (eod);charset=us-ascii"),
+		  1, "text/plain" },
+		{ TEST_STRING("(hello) text (plain) / (world) plain (eod); charset=us-ascii"),
+		  1, "text/plain" },
+		{ TEST_STRING("message/rfc822\r\n"), 0, "message/rfc822" },
+		{ TEST_STRING(" \t\r message/rfc822 \t\r\n"),
+		  0, "message/rfc822" },
+		{ TEST_STRING(" \t\r message/rfc822 \t ;charset=us-ascii\r\n"),
+		  1, "message/rfc822" },
+		{ TEST_STRING(" \t\r message/rfc822 \t ; charset=us-ascii\r\n"),
+		  1, "message/rfc822" },
+		{ TEST_STRING("test\0/ty\0pe"), -1, "" },
+	};
+
+	for (size_t i = 0; i < N_ELEMENTS(test_cases); i++) T_BEGIN {
+		string_t *value = t_str_new(64);
+		struct rfc822_parser_context parser;
+
+		rfc822_parser_init(&parser, test_cases[i].input,
+				   test_cases[i].input_len, NULL);
+		test_assert_idx(rfc822_parse_content_type(&parser, value) ==
+				test_cases[i].ret, i);
+		test_assert_strcmp_idx(test_cases[i].output, str_c(value), i);
+		rfc822_parser_deinit(&parser);
+	} T_END;
+}
+
 static void test_rfc822_parse_content_param(void)
 {
 	const char *input =
@@ -237,6 +329,7 @@ int main(void)
 		test_rfc822_parse_quoted_string,
 		test_rfc822_parse_dot_atom,
 		test_rfc822_parse_domain_literal,
+		test_rfc822_parse_content_type,
 		test_rfc822_parse_content_param,
 		NULL
 	};

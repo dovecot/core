@@ -434,23 +434,39 @@ int rfc822_parse_domain(struct rfc822_parser_context *ctx, string_t *str)
 
 int rfc822_parse_content_type(struct rfc822_parser_context *ctx, string_t *str)
 {
+	size_t str_pos_0 = str->used;
 	if (rfc822_skip_lwsp(ctx) <= 0)
 		return -1;
 
-	/* get main type */
-	if (rfc822_parse_mime_token(ctx, str) <= 0)
+	/* get main type, require at least one byte */
+	if (rfc822_parse_mime_token(ctx, str) <= 0 ||
+	    str->used == str_pos_0)
 		return -1;
 
 	/* skip over "/" */
-	if (*ctx->data != '/')
+	if (*ctx->data != '/') {
+		str_truncate(str, str_pos_0);
 		return -1;
+	}
 	ctx->data++;
-	if (rfc822_skip_lwsp(ctx) <= 0)
+	if (rfc822_skip_lwsp(ctx) <= 0) {
+		str_truncate(str, str_pos_0);
 		return -1;
+	}
 	str_append_c(str, '/');
 
-	/* get subtype */
-	return rfc822_parse_mime_token(ctx, str);
+	size_t str_pos = str->used;
+	/* get subtype, require at least one byte,
+	   and check the next separator to avoid accepting
+	   invalid values. */
+	int ret;
+	if ((ret = rfc822_parse_mime_token(ctx, str)) < 0 ||
+	    str->used == str_pos ||
+	    (ctx->data != ctx->end && *ctx->data != ';')) {
+		str_truncate(str, str_pos_0);
+		return -1;
+	}
+	return ret;
 }
 
 int rfc822_parse_content_param(struct rfc822_parser_context *ctx,
