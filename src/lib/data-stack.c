@@ -83,7 +83,6 @@ static struct stack_frame_block *current_frame_block;
 static struct stack_frame_block *unused_frame_blocks;
 
 static struct stack_block *current_block; /* block now used for allocation */
-static struct stack_block *unused_block; /* largest unused block is kept here */
 
 static struct stack_block *last_buffer_block;
 static size_t last_buffer_size;
@@ -222,8 +221,7 @@ static void free_blocks(struct stack_block *block)
 {
 	struct stack_block *next;
 
-	/* free all the blocks, except if any of them is bigger than
-	   unused_block, replace it */
+	/* free all the blocks */
 	while (block != NULL) {
 		block_canary_check(block);
 		next = block->next;
@@ -231,13 +229,8 @@ static void free_blocks(struct stack_block *block)
 		if (clean_after_pop)
 			memset(STACK_BLOCK_DATA(block), CLEAR_CHR, block->size);
 
-		if (unused_block == NULL || block->size > unused_block->size) {
-			free(unused_block);
-			unused_block = block;
-		} else {
-			if (block != &outofmem_area.block)
-				free(block);
-		}
+		if (block != &outofmem_area.block)
+			free(block);
 
 		block = next;
 	}
@@ -416,16 +409,11 @@ static void *t_malloc_real(size_t size, bool permanent)
 	if (current_block->left < alloc_size) {
 		struct stack_block *block;
 
-		/* current block is full, see if we can use the unused_block */
-		if (unused_block != NULL && unused_block->size >= alloc_size) {
-			block = unused_block;
-			unused_block = NULL;
-		} else {
-			block = mem_block_alloc(alloc_size);
+		/* current block is full, allocate a new one */
+		block = mem_block_alloc(alloc_size);
 #ifdef DEBUG
-			warn = TRUE;
+		warn = TRUE;
 #endif
-		}
 
 		block->left = block->size;
 		block->next = NULL;
@@ -648,8 +636,6 @@ void data_stack_deinit(void)
 	}
 
 	free(current_block);
-	free(unused_block);
 	unused_frame_blocks = NULL;
 	current_block = NULL;
-	unused_block = NULL;
 }
