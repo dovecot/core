@@ -345,7 +345,9 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 	size_t prev_size, alloc_size;
 
 	prev_size = current_block == NULL ? 0 : current_block->size;
-	alloc_size = nearest_power(MALLOC_ADD(prev_size, min_size));
+	/* Use INITIAL_STACK_SIZE without growing it to nearest power. */
+	alloc_size = prev_size == 0 ? min_size :
+		nearest_power(MALLOC_ADD(prev_size, min_size));
 
 	/* nearest_power() returns 2^n values, so alloc_size can't be
 	   anywhere close to SIZE_MAX */
