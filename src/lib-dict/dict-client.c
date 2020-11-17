@@ -92,7 +92,7 @@ struct client_dict {
 };
 
 struct client_dict_iter_result {
-	const char *key, *value;
+	const char *key, *const *values;
 };
 
 struct client_dict_iterate_context {
@@ -105,7 +105,6 @@ struct client_dict_iterate_context {
 	pool_t results_pool;
 	ARRAY(struct client_dict_iter_result) results;
 	unsigned int result_idx;
-	const char *values[2];
 
 	bool cmd_sent;
 	bool seen_results;
@@ -1083,7 +1082,7 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd,
 	struct client_dict_iterate_context *ctx = cmd->iter;
 	struct client_dict *dict = cmd->dict;
 	struct client_dict_iter_result *result;
-	const char *iter_key = NULL, *iter_value = NULL;
+	const char *iter_key = NULL, *const *iter_values = NULL;
 
 	if (ctx->deinit) {
 		cmd->background = TRUE;
@@ -1103,7 +1102,7 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd,
 	case DICT_PROTOCOL_REPLY_OK:
 		/* key \t value */
 		iter_key = value;
-		iter_value = extra_args[0];
+		iter_values = extra_args;
 		extra_args++;
 		break;
 	case DICT_PROTOCOL_REPLY_FAIL:
@@ -1112,7 +1111,7 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd,
 	default:
 		break;
 	}
-	if (iter_value == NULL && error == NULL) {
+	if ((iter_values == NULL || iter_values[0] == NULL) && error == NULL) {
 		/* broken protocol */
 		error = t_strdup_printf("dict client (%s) sent broken iterate reply: %c%s",
 			dict->conn.conn.name, reply, value);
@@ -1137,7 +1136,7 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd,
 
 	result = array_append_space(&ctx->results);
 	result->key = p_strdup(ctx->results_pool, iter_key);
-	result->value = p_strdup(ctx->results_pool, iter_value);
+	result->values = p_strarray_dup(ctx->results_pool, iter_values);
 
 	client_dict_iter_api_callback(ctx, cmd, NULL);
 }
@@ -1200,8 +1199,7 @@ static bool client_dict_iterate(struct dict_iterate_context *_ctx,
 	results = array_get(&ctx->results, &count);
 	if (ctx->result_idx < count) {
 		*key_r = results[ctx->result_idx].key;
-		ctx->values[0] = results[ctx->result_idx].value;
-		*values_r = ctx->values;
+		*values_r = results[ctx->result_idx].values;
 		ctx->ctx.has_more = TRUE;
 		ctx->result_idx++;
 		ctx->seen_results = TRUE;

@@ -270,7 +270,7 @@ cmd_iterate_flush_finish(struct dict_connection_cmd *cmd, string_t *str)
 static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 {
 	string_t *str = t_str_new(256);
-	const char *key, *value;
+	const char *key, *const *values;
 
 	if (cmd->conn->destroyed) {
 		cmd_iterate_flush_finish(cmd, str);
@@ -280,7 +280,7 @@ static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 	if (!dict_connection_flush_if_full(cmd->conn))
 		return 0;
 
-	while (dict_iterate(cmd->iter, &key, &value)) {
+	while (dict_iterate_values(cmd->iter, &key, &values)) {
 		cmd->rows++;
 		str_truncate(str, 0);
 		if (cmd->async_reply_id != 0) {
@@ -290,8 +290,13 @@ static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 		str_append_c(str, DICT_PROTOCOL_REPLY_OK);
 		str_append_tabescaped(str, key);
 		str_append_c(str, '\t');
-		if ((cmd->iter_flags & DICT_ITERATE_FLAG_NO_VALUE) == 0)
-			str_append_tabescaped(str, value);
+		if ((cmd->iter_flags & DICT_ITERATE_FLAG_NO_VALUE) == 0) {
+			str_append_tabescaped(str, values[0]);
+			for (unsigned int i = 1; values[i] != NULL; i++) {
+				str_append_c(str, '\t');
+				str_append_tabescaped(str, values[i]);
+			}
+		}
 		str_append_c(str, '\n');
 		o_stream_nsend(cmd->conn->conn.output, str_data(str), str_len(str));
 
