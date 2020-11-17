@@ -124,10 +124,14 @@ void dict_iterate_set_limit(struct dict_iterate_context *ctx,
 			    uint64_t max_rows);
 /* If dict_iterate() returns FALSE, the iteration may be finished or if this
    is an async iteration it may be waiting for more data. If this function
-   returns TRUE, the dict callback is called again with more data. */
+   returns TRUE, the dict callback is called again with more data. If dict
+   supports multiple values, dict_iterate_values() can be used to return all
+   of them. dict_iterate() returns only the first value and ignores the rest. */
 bool dict_iterate_has_more(struct dict_iterate_context *ctx);
 bool dict_iterate(struct dict_iterate_context *ctx,
 		  const char **key_r, const char **value_r);
+bool dict_iterate_values(struct dict_iterate_context *ctx,
+			 const char **key_r, const char *const **values_r);
 /* Returns 0 = ok, -1 = iteration failed */
 int dict_iterate_deinit(struct dict_iterate_context **ctx, const char **error_r);
 
