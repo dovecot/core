@@ -47,7 +47,8 @@ dict_fail_iterate_init(struct dict *dict ATTR_UNUSED, const char *const *paths A
 }
 
 static bool dict_fail_iterate(struct dict_iterate_context *ctx ATTR_UNUSED,
-			      const char **key_r ATTR_UNUSED, const char **value_r ATTR_UNUSED)
+			      const char **key_r ATTR_UNUSED,
+			      const char *const **values_r ATTR_UNUSED)
 {
 	return FALSE;
 }

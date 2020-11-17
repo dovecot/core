@@ -21,7 +21,7 @@ struct dict_vfuncs {
 		(*iterate_init)(struct dict *dict, const char *const *paths,
 				enum dict_iterate_flags flags);
 	bool (*iterate)(struct dict_iterate_context *ctx,
-			const char **key_r, const char **value_r);
+			const char **key_r, const char *const **values_r);
 	int (*iterate_deinit)(struct dict_iterate_context *ctx,
 			      const char **error_r);
 

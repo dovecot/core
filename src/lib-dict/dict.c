@@ -382,6 +382,8 @@ dict_iterate_init_multiple(struct dict *dict, const char *const *paths,
 bool dict_iterate(struct dict_iterate_context *ctx,
 		  const char **key_r, const char **value_r)
 {
+	const char *const *values;
+
 	if (ctx->max_rows > 0 && ctx->row_count >= ctx->max_rows) {
 		e_debug(ctx->event, "Maximum row count (%"PRIu64") reached",
 			ctx->max_rows);
@@ -389,12 +391,15 @@ bool dict_iterate(struct dict_iterate_context *ctx,
 		ctx->has_more = FALSE;
 		return FALSE;
 	}
-	if (!ctx->dict->v.iterate(ctx, key_r, value_r))
+	if (!ctx->dict->v.iterate(ctx, key_r, &values))
 		return FALSE;
 	if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0) {
 		/* always return value as NULL to be consistent across
 		   drivers */
 		*value_r = NULL;
+	} else {
+		i_assert(values[0] != NULL);
+		*value_r = values[0];
 	}
 	ctx->row_count++;
 	return TRUE;

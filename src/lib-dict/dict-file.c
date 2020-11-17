@@ -46,6 +46,7 @@ struct file_dict_iterate_context {
 	struct file_dict_iterate_path *paths;
 
 	enum dict_iterate_flags flags;
+	const char *values[2];
 	const char *error;
 };
 
@@ -252,7 +253,7 @@ file_dict_iterate_find_path(struct file_dict_iterate_context *ctx,
 }
 
 static bool file_dict_iterate(struct dict_iterate_context *_ctx,
-			      const char **key_r, const char **value_r)
+			      const char **key_r, const char *const **values_r)
 {
 	struct file_dict_iterate_context *ctx =
 		(struct file_dict_iterate_context *)_ctx;
@@ -277,7 +278,8 @@ static bool file_dict_iterate(struct dict_iterate_context *_ctx,
 		}
 
 		*key_r = key;
-		*value_r = value;
+		ctx->values[0] = value;
+		*values_r = ctx->values;
 		return TRUE;
 	}
 	return FALSE;

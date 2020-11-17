@@ -105,6 +105,7 @@ struct client_dict_iterate_context {
 	pool_t results_pool;
 	ARRAY(struct client_dict_iter_result) results;
 	unsigned int result_idx;
+	const char *values[2];
 
 	bool cmd_sent;
 	bool seen_results;
@@ -1184,7 +1185,7 @@ client_dict_iterate_cmd_send(struct client_dict_iterate_context *ctx)
 }
 
 static bool client_dict_iterate(struct dict_iterate_context *_ctx,
-				const char **key_r, const char **value_r)
+				const char **key_r, const char *const **values_r)
 {
 	struct client_dict_iterate_context *ctx =
 		(struct client_dict_iterate_context *)_ctx;
@@ -1199,7 +1200,8 @@ static bool client_dict_iterate(struct dict_iterate_context *_ctx,
 	results = array_get(&ctx->results, &count);
 	if (ctx->result_idx < count) {
 		*key_r = results[ctx->result_idx].key;
-		*value_r = results[ctx->result_idx].value;
+		ctx->values[0] = results[ctx->result_idx].value;
+		*values_r = ctx->values;
 		ctx->ctx.has_more = TRUE;
 		ctx->result_idx++;
 		ctx->seen_results = TRUE;
@@ -1208,7 +1210,7 @@ static bool client_dict_iterate(struct dict_iterate_context *_ctx,
 	if (!ctx->cmd_sent) {
 		ctx->cmd_sent = TRUE;
 		client_dict_iterate_cmd_send(ctx);
-		return client_dict_iterate(_ctx, key_r, value_r);
+		return client_dict_iterate(_ctx, key_r, values_r);
 	}
 	ctx->ctx.has_more = !ctx->finished;
 	ctx->result_idx = 0;
@@ -1217,7 +1219,7 @@ static bool client_dict_iterate(struct dict_iterate_context *_ctx,
 
 	if ((ctx->flags & DICT_ITERATE_FLAG_ASYNC) == 0 && ctx->ctx.has_more) {
 		client_dict_wait(_ctx->dict);
-		return client_dict_iterate(_ctx, key_r, value_r);
+		return client_dict_iterate(_ctx, key_r, values_r);
 	}
 	return FALSE;
 }

@@ -21,6 +21,7 @@ struct fs_dict_iterate_context {
 	enum dict_iterate_flags flags;
 	pool_t value_pool;
 	struct fs_iter *fs_iter;
+	const char *values[2];
 	char *error;
 };
 
@@ -145,7 +146,7 @@ fs_dict_iterate_init(struct dict *_dict, const char *const *paths,
 }
 
 static bool fs_dict_iterate(struct dict_iterate_context *ctx,
-			    const char **key_r, const char **value_r)
+			    const char **key_r, const char *const **values_r)
 {
 	struct fs_dict_iterate_context *iter =
 		(struct fs_dict_iterate_context *)ctx;
@@ -166,23 +167,27 @@ static bool fs_dict_iterate(struct dict_iterate_context *ctx,
 			return FALSE;
 		path = fs_dict_get_full_key(dict, iter->paths[iter->path_idx]);
 		iter->fs_iter = fs_iter_init(dict->fs, path, 0);
-		return fs_dict_iterate(ctx, key_r, value_r);
+		return fs_dict_iterate(ctx, key_r, values_r);
 	}
 	path = t_strconcat(iter->paths[iter->path_idx], *key_r, NULL);
 	if ((iter->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0) {
+		iter->values[0] = NULL;
 		*key_r = path;
 		return TRUE;
 	}
 	p_clear(iter->value_pool);
-	if ((ret = fs_dict_lookup(ctx->dict, iter->value_pool, path, value_r, &error)) < 0) {
+	ret = fs_dict_lookup(ctx->dict, iter->value_pool, path,
+			     &iter->values[0], &error);
+	if (ret < 0) {
 		/* I/O error */
 		iter->error = i_strdup(error);
 		return FALSE;
 	} else if (ret == 0) {
 		/* file was just deleted, just skip to next one */
-		return fs_dict_iterate(ctx, key_r, value_r);
+		return fs_dict_iterate(ctx, key_r, values_r);
 	}
 	*key_r = path;
+	*values_r = iter->values;
 	return TRUE;
 }
 

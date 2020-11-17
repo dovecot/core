@@ -50,6 +50,7 @@ struct sql_dict_iterate_context {
 	bool synchronous_result;
 	bool iter_query_sent;
 	bool allow_null_map; /* allow next map to be NULL */
+	const char *values[2];
 	const char *error;
 };
 
@@ -781,7 +782,7 @@ sql_dict_iterate_init(struct dict *_dict, const char *const *paths,
 }
 
 static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
-			     const char **key_r, const char **value_r)
+			     const char **key_r, const char *const **values_r)
 {
 	struct sql_dict_iterate_context *ctx =
 		(struct sql_dict_iterate_context *)_ctx;
@@ -832,7 +833,7 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 		/* we have gotten *SOME* results, so can allow
 		   unmapped next key now. */
 		ctx->allow_null_map = TRUE;
-		return sql_dict_iterate(_ctx, key_r, value_r);
+		return sql_dict_iterate(_ctx, key_r, values_r);
 	}
 	if (ret < 0) {
 		ctx->error = p_strdup_printf(ctx->pool,
@@ -866,8 +867,9 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 
 	*key_r = str_c(ctx->key);
 	if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) == 0) {
-		*value_r = sql_dict_result_unescape_value(ctx->map,
+		ctx->values[0] = sql_dict_result_unescape_value(ctx->map,
 					pool_datastack_create(), ctx->result);
+		*values_r = ctx->values;
 	}
 	return TRUE;
 }
