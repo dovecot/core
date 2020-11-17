@@ -50,7 +50,6 @@ struct sql_dict_iterate_context {
 	bool synchronous_result;
 	bool iter_query_sent;
 	bool allow_null_map; /* allow next map to be NULL */
-	const char *values[2];
 	const char *error;
 };
 
@@ -867,9 +866,8 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 
 	*key_r = str_c(ctx->key);
 	if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) == 0) {
-		ctx->values[0] = sql_dict_result_unescape_value(ctx->map,
-					pool_datastack_create(), ctx->result);
-		*values_r = ctx->values;
+		*values_r = sql_dict_result_unescape_values(ctx->map,
+			pool_datastack_create(), ctx->result);
 	}
 	return TRUE;
 }
