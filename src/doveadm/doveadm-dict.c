@@ -212,7 +212,8 @@ static void cmd_dict_iter(struct doveadm_cmd_context *cctx)
 	struct dict *dict;
 	struct dict_iterate_context *iter;
 	enum dict_iterate_flags iter_flags = 0;
-	const char *prefix, *key, *value, *error;
+	const char *prefix, *key, *const *values, *error;
+	bool header_printed = FALSE;
 
 	if (cmd_dict_init_full(cctx, cmd_dict_iter, &iter_flags, &dict) < 0)
 		return;
@@ -225,10 +226,18 @@ static void cmd_dict_iter(struct doveadm_cmd_context *cctx)
 	(void)doveadm_cmd_param_str(cctx, "prefix", &prefix);
 
 	iter = dict_iterate_init(dict, prefix, iter_flags);
-	while (dict_iterate(iter, &key, &value)) {
+	while (dict_iterate_values(iter, &key, &values)) {
+		unsigned int values_count = str_array_length(values);
+		if (!header_printed) {
+			for (unsigned int i = 1; i < values_count; i++)
+				doveadm_print_header_simple("value");
+			header_printed = TRUE;
+		}
 		doveadm_print(key);
-		if ((iter_flags & DICT_ITERATE_FLAG_NO_VALUE) == 0)
-			doveadm_print(value);
+		if ((iter_flags & DICT_ITERATE_FLAG_NO_VALUE) == 0) {
+			for (unsigned int i = 0; i < values_count; i++)
+				doveadm_print(values[i]);
+		}
 	}
 	if (dict_iterate_deinit(&iter, &error) < 0) {
 		i_error("dict_iterate_deinit(%s) failed: %s", prefix, error);
