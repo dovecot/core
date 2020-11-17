@@ -171,7 +171,6 @@ static bool fs_dict_iterate(struct dict_iterate_context *ctx,
 	path = t_strconcat(iter->paths[iter->path_idx], *key_r, NULL);
 	if ((iter->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0) {
 		*key_r = path;
-		*value_r = NULL;
 		return TRUE;
 	}
 	p_clear(iter->value_pool);

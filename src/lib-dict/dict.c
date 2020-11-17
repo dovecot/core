@@ -370,6 +370,7 @@ dict_iterate_init_multiple(struct dict *dict, const char *const *paths,
 	   passed as parameter, e.g. it can be dict-fail when
 	   iteration is not supported. */
 	ctx->event = event_create(dict->event);
+	ctx->flags = flags;
 
 	event_add_str(ctx->event, "key", paths[0]);
 	event_set_name(ctx->event, "dict_iteration_started");
@@ -390,6 +391,11 @@ bool dict_iterate(struct dict_iterate_context *ctx,
 	}
 	if (!ctx->dict->v.iterate(ctx, key_r, value_r))
 		return FALSE;
+	if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0) {
+		/* always return value as NULL to be consistent across
+		   drivers */
+		*value_r = NULL;
+	}
 	ctx->row_count++;
 	return TRUE;
 }

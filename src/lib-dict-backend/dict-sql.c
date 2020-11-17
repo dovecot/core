@@ -865,9 +865,7 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 	}
 
 	*key_r = str_c(ctx->key);
-	if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0)
-		*value_r = "";
-	else {
+	if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) == 0) {
 		*value_r = sql_dict_result_unescape_value(ctx->map,
 					pool_datastack_create(), ctx->result);
 	}
