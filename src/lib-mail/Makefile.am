@@ -114,7 +114,7 @@ test_programs = \
 	test-rfc2231-parser \
 	test-rfc822-parser
 
-fuzz_programs = fuzz_message_parser
+fuzz_programs = fuzz-message_parser
 
 noinst_PROGRAMS = $(fuzz_programs) $(test_programs)
 nodist_EXTRA_fuzz_message_parser_SOURCES = force-cxx-linking.cxx
