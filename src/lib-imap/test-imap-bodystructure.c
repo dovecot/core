@@ -381,13 +381,14 @@ static const unsigned int normalize_tests_count = N_ELEMENTS(normalize_tests);
 
 static struct message_part *
 msg_parse(pool_t pool, const char *message, unsigned int max_nested_mime_parts,
-	  bool parse_bodystructure)
+	  unsigned int max_total_mime_parts, bool parse_bodystructure)
 {
 	const struct message_parser_settings parser_set = {
 		.hdr_flags = MESSAGE_HEADER_PARSER_FLAG_SKIP_INITIAL_LWSP |
 			MESSAGE_HEADER_PARSER_FLAG_DROP_CR,
 		.flags = MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK,
 		.max_nested_mime_parts = max_nested_mime_parts,
+		.max_total_mime_parts = max_total_mime_parts,
 	};
 	struct message_parser_ctx *parser;
 	struct istream *input;
@@ -421,7 +422,7 @@ static void test_imap_bodystructure_write(void)
 		pool_t pool = pool_alloconly_create("imap bodystructure write", 1024);
 
 		test_begin(t_strdup_printf("imap bodystructure write [%u]", i));
-		parts = msg_parse(pool, test->message, 0, TRUE);
+		parts = msg_parse(pool, test->message, 0, 0, TRUE);
 
 		imap_bodystructure_write(parts, str, TRUE);
 		test_assert(strcmp(str_c(str), test->bodystructure) == 0);
@@ -448,7 +449,7 @@ static void test_imap_bodystructure_parse(void)
 		pool_t pool = pool_alloconly_create("imap bodystructure parse", 1024);
 
 		test_begin(t_strdup_printf("imap bodystructure parser [%u]", i));
-		parts = msg_parse(pool, test->message, 0, FALSE);
+		parts = msg_parse(pool, test->message, 0, 0, FALSE);
 
 		test_assert(imap_body_parse_from_bodystructure(test->bodystructure,
 								     str, &error) == 0);
@@ -515,7 +516,7 @@ static void test_imap_bodystructure_normalize(void)
 		pool_t pool = pool_alloconly_create("imap bodystructure parse", 1024);
 
 		test_begin(t_strdup_printf("imap bodystructure normalize [%u]", i));
-		parts = msg_parse(pool, test->message, 0, FALSE);
+		parts = msg_parse(pool, test->message, 0, 0, FALSE);
 
 		ret = imap_bodystructure_parse(test->input,
 							   pool, parts, &error);
@@ -538,6 +539,7 @@ static const struct {
 	const char *input;
 	const char *bodystructure;
 	unsigned int max_depth;
+	unsigned int max_total;
 } truncation_tests[] = {
 	{
 		.input = "Content-Type: message/rfc822\n"
@@ -571,6 +573,23 @@ static const struct {
 		.bodystructure = "(\"application\" \"octet-stream\" (\"boundary\" \"2\") NIL NIL \"7bit\" 63 NIL NIL NIL NIL) \"mixed\" (\"boundary\" \"1\") NIL NIL NIL",
 		.max_depth = 2,
 	},
+	{
+		.input = "Content-Type: multipart/digest; boundary=1\n"
+			"\n"
+			"--1\n"
+			"\n"
+			"Subject: hdr1\n"
+			"\n"
+			"body1\n"
+			"--1\n"
+			"\n"
+			"Subject: hdr2\n"
+			"\n"
+			"body2\n",
+		.bodystructure = "(\"application\" \"octet-stream\" NIL NIL NIL \"7bit\" 55 NIL NIL NIL NIL) \"digest\" (\"boundary\" \"1\") NIL NIL NIL",
+		.max_total = 2,
+	},
+
 };
 
 static void test_imap_bodystructure_truncation(void)
@@ -590,6 +609,7 @@ static void test_imap_bodystructure_truncation(void)
 
 		parts = msg_parse(pool, truncation_tests[i].input,
 				  truncation_tests[i].max_depth,
+				  truncation_tests[i].max_total,
 				  TRUE);
 
 		/* write out BODYSTRUCTURE and serialize message_parts */

@@ -161,6 +161,14 @@ static bool part_is_truncated(const struct message_part *part)
 			   MESSAGE_PART_FLAG_MULTIPART. */
 			return TRUE;
 		}
+	} else {
+		/* No Content-Type */
+		if (part->parent != NULL &&
+		    (part->parent->flags & MESSAGE_PART_FLAG_MULTIPART_DIGEST) != 0) {
+			/* Parent is MESSAGE_PART_FLAG_MULTIPART_DIGEST
+			   (so this should have been message/rfc822). */
+			return TRUE;
+		}
 	}
 	return FALSE;
 }
@@ -195,6 +203,7 @@ static void part_write_body(const struct message_part *part,
 			str_append_c(str, ' ');
 			imap_append_string(str, data->content_subtype);
 		}
+		i_assert(text == ((part->flags & MESSAGE_PART_FLAG_TEXT) != 0));
 	}
 
 	/* ("content type param key" "value" ...) */
