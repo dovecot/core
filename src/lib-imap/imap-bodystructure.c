@@ -142,30 +142,41 @@ static void part_write_body_multipart(const struct message_part *part,
 	part_write_bodystructure_common(data, str);
 }
 
+static bool part_is_truncated(const struct message_part *part)
+{
+	const struct message_part_data *data = part->data;
+
+	i_assert((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) == 0);
+
+	if (data->content_type != NULL) {
+		if (strcasecmp(data->content_type, "message") == 0 &&
+		    strcasecmp(data->content_subtype, "rfc822") == 0) {
+			/* It's message/rfc822, but without
+			   MESSAGE_PART_FLAG_MESSAGE_RFC822. */
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 static void part_write_body(const struct message_part *part,
 			    string_t *str, bool extended)
 {
 	const struct message_part_data *data = part->data;
-	bool text, message_rfc822;
+	bool text;
 
 	i_assert(part->data != NULL);
 
-	if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0)
-		message_rfc822 = TRUE;
-	else if (data->content_type != NULL &&
-		 strcasecmp(data->content_type, "message") == 0 &&
-		 strcasecmp(data->content_subtype, "rfc822") == 0) {
-		/* It's message/rfc822, but without
-		   MESSAGE_PART_FLAG_MESSAGE_RFC822. That likely means maximum
-		   MIME part count was reached while parsing the mail. Write
-		   the missing child mail's ENVELOPE and BODY as empty dummy
-		   values. */
-		message_rfc822 = TRUE;
-	} else
-		message_rfc822 = FALSE;
-
-	if (message_rfc822) {
+	if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0) {
 		str_append(str, "\"message\" \"rfc822\"");
+		text = FALSE;
+	} else if (part_is_truncated(part)) {
+		/* Maximum MIME part count was reached while parsing the mail.
+		   Write this part out as application/octet-stream instead.
+		   We're not using text/plain, because it would require
+		   message-parser to use MESSAGE_PART_FLAG_TEXT for this part
+		   to avoid losing line count in message_part serialization. */
+		str_append(str, "\"application\" \"octet-stream\"");
 		text = FALSE;
 	} else {
 		/* "content type" "subtype" */
@@ -213,17 +224,6 @@ static void part_write_body(const struct message_part *part,
 		str_append(str, ") ");
 
 		part_write_bodystructure_siblings(part->children, str, extended);
-		str_printfa(str, " %u", part->body_size.lines);
-	} else if (message_rfc822) {
-		/* truncated MIME part - write out dummy values */
-		i_assert(part->children == NULL);
-
-		str_append(str, " (NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL) ");
-
-		if (!extended)
-			str_append(str, EMPTY_BODY);
-		else
-			str_append(str, EMPTY_BODYSTRUCTURE);
 		str_printfa(str, " %u", part->body_size.lines);
 	}
 
