@@ -83,7 +83,7 @@ void message_decoder_set_return_binary(struct message_decoder_context *ctx,
 	message_decode_body_init_charset(ctx, ctx->prev_part);
 }
 
-enum message_cte message_decoder_parse_cte(struct message_header_line *hdr)
+enum message_cte message_decoder_parse_cte(const struct message_header_line *hdr)
 {
 	struct rfc822_parser_context parser;
 	enum message_cte message_cte;
