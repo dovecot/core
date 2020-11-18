@@ -316,6 +316,14 @@ static void test_message_decoder_invalid_content_transfer_encoding(void)
 "Content-Type: text/plain; charset=UTF-8\n\n"
 "Move \xE2\x99\x9A to \xE2\x99\x9B's \xE2\x99\x9D\n\n"
 "--1\n"
+"Content-Transfer-Encoding: 7-bit\n"
+"Content-Type: text/plain; charset=UTF-8\n\n"
+"Move \xE2\x99\x9A to \xE2\x99\x9B's \xE2\x99\x9D\n\n"
+"--1\n"
+"Content-Transfer-Encoding: 8-bit\n"
+"Content-Type: text/plain; charset=UTF-8\n\n"
+"Move \xE2\x99\x9A to \xE2\x99\x9B's \xE2\x99\x9D\n\n"
+"--1\n"
 "Content-Transfer-Encoding:\n"
 "Content-Type: text/plain; charset=UTF-8\n\n"
 "Move =E2=99=9A to =E2=99=9B's =E2=99=9D\n\n"
@@ -358,7 +366,7 @@ static void test_message_decoder_invalid_content_transfer_encoding(void)
 	test_assert(istream->stream_errno == 0);
 
 	part = parts;
-	test_assert(part->children_count == 4);
+	test_assert(part->children_count == 6);
 	part = part->children;
 	test_assert_strcmp(part->data->content_type, "text");
 	test_assert_strcmp(part->data->content_subtype, "plain");
@@ -372,10 +380,49 @@ static void test_message_decoder_invalid_content_transfer_encoding(void)
 	part = part->next;
 	test_assert(part->data->content_transfer_encoding == NULL);
 	part = part->next;
-	test_assert(part->data->content_transfer_encoding == NULL);
+	test_assert_strcmp(part->data->content_transfer_encoding, "7-bit");
+	part = part->next;
+	test_assert_strcmp(part->data->content_transfer_encoding, "8-bit");
+	part = part->next;
 	test_assert(part->next == NULL);
 	i_stream_unref(&istream);
 	pool_unref(&pool);
+
+#define X10(a) a a a a a a a a a a
+
+#undef TEST_CASE
+#define TEST_CASE(value, result) \
+	{ \
+		.hdr = { \
+			.name = "Content-Transfer-Encoding", \
+			.name_len = 25, \
+			.full_value = (const unsigned char*)value, \
+			.full_value_len = sizeof(value)-1, \
+		}, \
+		.cte = result, \
+	}
+
+	const struct {
+		const struct message_header_line hdr;
+		enum message_cte cte;
+	} test_case[] = {
+		TEST_CASE("(binary comment) base64", MESSAGE_CTE_BASE64),
+		TEST_CASE("(\"binary\" ( (comment) test) ) base64", MESSAGE_CTE_BASE64),
+		TEST_CASE("base64 binary", MESSAGE_CTE_UNKNOWN),
+		TEST_CASE("base64\0binary", MESSAGE_CTE_UNKNOWN),
+		TEST_CASE("\0binary", MESSAGE_CTE_UNKNOWN),
+		TEST_CASE("( " X10(X10(X10(X10("a")))) " ) base64", MESSAGE_CTE_BASE64),
+		TEST_CASE("( " X10(X10(X10(X10("a")))) " ) base64 ( " X10(X10(X10(X10("a")))) ")", MESSAGE_CTE_BASE64),
+		TEST_CASE("( base64", MESSAGE_CTE_UNKNOWN),
+		TEST_CASE("base64 (", MESSAGE_CTE_BASE64),
+		TEST_CASE(X10(X10(X10(X10(" ")))) " base64", MESSAGE_CTE_BASE64),
+		TEST_CASE("base64 ; logging-type=\"foobar\"", MESSAGE_CTE_BASE64),
+	};
+
+	for (size_t i = 0; i < N_ELEMENTS(test_case); i++) {
+		test_assert_idx(message_decoder_parse_cte(&test_case[i].hdr) == test_case[i].cte, i);
+	}
+
 	test_end();
 }
 

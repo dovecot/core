@@ -93,7 +93,17 @@ enum message_cte message_decoder_parse_cte(const struct message_header_line *hdr
 	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
 
 	rfc822_skip_lwsp(&parser);
-	(void)rfc822_parse_mime_token(&parser, value);
+
+	/* Ensure we do not accidentically accept confused values like
+	   'base64 binary' or embedded NULs */
+	if (rfc822_parse_mime_token(&parser, value) == 1) {
+		rfc822_skip_lwsp(&parser);
+		/* RFC 2045 does not permit parameters for CTE,
+		   but in case someone uses them, we accept
+		   parameter separator ';' to be lenient. */
+		if (*parser.data != ';')
+			return MESSAGE_CTE_UNKNOWN;
+	}
 
 	message_cte = MESSAGE_CTE_UNKNOWN;
 	switch (str_len(value)) {
