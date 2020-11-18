@@ -556,6 +556,21 @@ static const struct {
 		.bodystructure = "\"message\" \"rfc822\" NIL NIL NIL \"7bit\" 159 (NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL) (\"application\" \"octet-stream\" NIL NIL NIL \"7bit\" 110 NIL NIL NIL NIL) 11 NIL NIL NIL NIL",
 		.max_depth = 2,
 	},
+	{
+		.input = "Content-Type: multipart/mixed; boundary=1\n"
+			"\n"
+			"--1\n"
+			"Content-Type: multipart/mixed; boundary=2\n"
+			"\n"
+			"--2\n"
+			"Content-Type: multipart/mixed; boundary=3\n"
+			"\n"
+			"--3\n"
+			"\n"
+			"body\n",
+		.bodystructure = "(\"application\" \"octet-stream\" (\"boundary\" \"2\") NIL NIL \"7bit\" 63 NIL NIL NIL NIL) \"mixed\" (\"boundary\" \"1\") NIL NIL NIL",
+		.max_depth = 2,
+	},
 };
 
 static void test_imap_bodystructure_truncation(void)

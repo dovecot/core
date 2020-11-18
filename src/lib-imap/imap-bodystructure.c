@@ -147,12 +147,18 @@ static bool part_is_truncated(const struct message_part *part)
 	const struct message_part_data *data = part->data;
 
 	i_assert((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) == 0);
+	i_assert((part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0);
 
 	if (data->content_type != NULL) {
 		if (strcasecmp(data->content_type, "message") == 0 &&
 		    strcasecmp(data->content_subtype, "rfc822") == 0) {
 			/* It's message/rfc822, but without
 			   MESSAGE_PART_FLAG_MESSAGE_RFC822. */
+			return TRUE;
+		}
+		if (strcasecmp(data->content_type, "multipart") == 0) {
+			/* It's multipart/, but without
+			   MESSAGE_PART_FLAG_MULTIPART. */
 			return TRUE;
 		}
 	}
