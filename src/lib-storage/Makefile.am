@@ -64,7 +64,8 @@ libstorage_la_SOURCES = \
 	mailbox-search-result.c \
 	mailbox-tree.c \
 	mailbox-uidvalidity.c \
-	mailbox-watch.c
+	mailbox-watch.c \
+	test-mail-storage-common.c
 
 headers = \
 	fail-mail-storage.h \
@@ -100,7 +101,8 @@ headers = \
 	mailbox-search-result-private.h \
 	mailbox-tree.h \
 	mailbox-uidvalidity.h \
-	mailbox-watch.h
+	mailbox-watch.h \
+	test-mail-storage-common.h
 
 shlibs = \
 	index/shared/libstorage_shared.la \
