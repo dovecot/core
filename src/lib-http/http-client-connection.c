@@ -960,7 +960,7 @@ http_client_connection_process_response(struct http_client_connection *conn,
 {
 	struct http_client_peer_shared *pshared = conn->ppool->peer;
 	struct http_client_request *req_ref;
-	bool aborted, early = FALSE;
+	bool aborted, early = FALSE, handled = FALSE;
 
 	if (req == NULL) {
 		/* Server sent response without any requests in the wait
@@ -1067,74 +1067,72 @@ http_client_connection_process_response(struct http_client_connection *conn,
 
 	conn->close_indicated = resp->connection_close;
 
-	if (!aborted) {
-		bool handled = FALSE;
+	if (aborted) {
+		/* Request is already aborted. */
+		return 1;
+	}
 
-		/* Response cannot be 2xx if request payload was not
-		   completely sent */
-		if (early && resp->status / 100 == 2) {
-			http_client_request_error(
-				&req, HTTP_CLIENT_REQUEST_ERROR_BAD_RESPONSE,
-				"Server responded with success response "
-				"before all payload was sent");
-			http_client_connection_close(&conn);
-			return -1;
-		}
+	/* Response cannot be 2xx if request payload was not
+	   completely sent */
+	if (early && resp->status / 100 == 2) {
+		http_client_request_error(
+			&req, HTTP_CLIENT_REQUEST_ERROR_BAD_RESPONSE,
+			"Server responded with success response "
+			"before all payload was sent");
+		http_client_connection_close(&conn);
+		return -1;
+	}
 
-		/* Don't redirect/retry if we're sending data in small blocks
-		   via http_client_request_send_payload() and we're not waiting
-		   for 100 continue */
-		if (!req->payload_wait ||
-		    (req->payload_sync && !req->payload_sync_continue)) {
-			/* Failed Expect: */
-			if (resp->status == 417 && req->payload_sync) {
-				/* Drop Expect: continue */
-				req->payload_sync = FALSE;
-				conn->output_locked = FALSE;
-				pshared->no_payload_sync = TRUE;
-				if (http_client_request_try_retry(req))
-					handled = TRUE;
-			/* Redirection */
-			} else if (req->client->set->auto_redirect &&
-				   resp->status / 100 == 3 &&
-				   resp->status != 304 &&
-				   resp->location != NULL) {
-				/* Redirect (possibly after delay) */
-				if (http_client_request_delay_from_response(
-					req, resp) >= 0) {
-					http_client_request_redirect(
-						req, resp->status,
-						resp->location);
-					handled = TRUE;
-				}
-			/* Service unavailable */
-			} else if (resp->status == 503) {
-				/* Automatically retry after delay if indicated
-				 */
-				if (resp->retry_after != (time_t)-1 &&
-				    http_client_request_delay_from_response(
-					req, resp) > 0 &&
-				    http_client_request_try_retry(req))
-					handled = TRUE;
-			/* Request timeout (by server) */
-			} else if (resp->status == 408) {
-				/* Automatically retry */
-				if (http_client_request_try_retry(req))
-					handled = TRUE;
-				/* Connection close is implicit, although server
-				   should indicate that explicitly */
-				conn->close_indicated = TRUE;
+	/* Don't redirect/retry if we're sending data in small blocks
+	   via http_client_request_send_payload() and we're not waiting
+	   for 100 continue */
+	if (!req->payload_wait ||
+	    (req->payload_sync && !req->payload_sync_continue)) {
+		/* Failed Expect: */
+		if (resp->status == 417 && req->payload_sync) {
+			/* Drop Expect: continue */
+			req->payload_sync = FALSE;
+			conn->output_locked = FALSE;
+			pshared->no_payload_sync = TRUE;
+			if (http_client_request_try_retry(req))
+				handled = TRUE;
+		/* Redirection */
+		} else if (req->client->set->auto_redirect &&
+			   resp->status / 100 == 3 &&
+			   resp->status != 304 &&
+			   resp->location != NULL) {
+			/* Redirect (possibly after delay) */
+			if (http_client_request_delay_from_response(
+				req, resp) >= 0) {
+				http_client_request_redirect(
+					req, resp->status, resp->location);
+				handled = TRUE;
 			}
-		}
-
-		if (!handled) {
-			/* Response for application */
-			if (!http_client_connection_return_response(
-				conn, req, resp))
-				return -1;
+		/* Service unavailable */
+		} else if (resp->status == 503) {
+			/* Automatically retry after delay if indicated
+			 */
+			if (resp->retry_after != (time_t)-1 &&
+			    http_client_request_delay_from_response(
+				req, resp) > 0 &&
+			    http_client_request_try_retry(req))
+				handled = TRUE;
+		/* Request timeout (by server) */
+		} else if (resp->status == 408) {
+			/* Automatically retry */
+			if (http_client_request_try_retry(req))
+				handled = TRUE;
+			/* Connection close is implicit, although server
+			   should indicate that explicitly */
+			conn->close_indicated = TRUE;
 		}
 	}
 
+	if (!handled) {
+		/* Response for application */
+		if (!http_client_connection_return_response(conn, req, resp))
+			return -1;
+	}
 	return 1;
 }
 
