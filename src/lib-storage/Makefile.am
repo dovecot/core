@@ -139,6 +139,7 @@ libdovecot_storage_la_LDFLAGS = -export-dynamic
 test_programs = \
 	test-mail-search-args-imap \
 	test-mail-search-args-simplify \
+	test-mail \
 	test-mail-storage \
 	test-mailbox-get
 
@@ -159,6 +160,10 @@ test_mail_search_args_simplify_DEPENDENCIES = libstorage.la $(LIBDOVECOT_DEPS)
 test_mailbox_get_SOURCES = test-mailbox-get.c
 test_mailbox_get_LDADD = mailbox-get.lo $(test_libs)
 test_mailbox_get_DEPENDENCIES = $(noinst_LTLIBRARIES) $(test_libs)
+
+test_mail_SOURCES = test-mail.c
+test_mail_LDADD = libstorage.la $(LIBDOVECOT)
+test_mail_DEPENDENCIES = libstorage.la $(LIBDOVECOT_DEPS)
 
 test_mail_storage_SOURCES = test-mail-storage.c
 test_mail_storage_LDADD = libstorage.la $(LIBDOVECOT)
