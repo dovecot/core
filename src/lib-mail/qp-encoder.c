@@ -7,14 +7,20 @@
 #include "qp-encoder.h"
 #include <ctype.h>
 
+enum qp_encoder_last_char {
+	QP_ENCODER_LAST_ANY = 0,
+	QP_ENCODER_LAST_CR,
+	QP_ENCODER_LAST_WHITE_SPACE,
+};
+
 struct qp_encoder {
 	const char *linebreak;
 	string_t *dest;
 	size_t line_len;
 	size_t max_len;
 	enum qp_encoder_flag flags;
+	enum qp_encoder_last_char last_char;
 	bool add_header_preamble:1;
-	bool cr_last:1;
 };
 
 struct qp_encoder *
@@ -106,29 +112,45 @@ void qp_encoder_more(struct qp_encoder *qp, const void *_src, size_t src_size)
 		   CRLF */
 		if (c == '\n' &&
 		    ((qp->flags & (QP_ENCODER_FLAG_BINARY_DATA|QP_ENCODER_FLAG_HEADER_FORMAT)) == 0 ||
-		      qp->cr_last)) {
+		      qp->last_char == QP_ENCODER_LAST_CR)) {
 			str_append_c(qp->dest, '\r');
 			str_append_c(qp->dest, '\n');
 			/* reset line length here */
 			qp->line_len = 0;
-			qp->cr_last = FALSE;
+			qp->last_char = QP_ENCODER_LAST_ANY;
 			continue;
-		} else if (qp->cr_last) {
+		} else if (qp->last_char == QP_ENCODER_LAST_CR) {
 			qp_encode_or_break(qp, '\r');
-			qp->cr_last = FALSE;
+			qp->last_char = QP_ENCODER_LAST_ANY;
 		}
-		if (c == '\r') {
-			qp->cr_last = TRUE;
-		} else {
+
+		if (c == ' ' || c == '\t')
+			qp->last_char = QP_ENCODER_LAST_WHITE_SPACE;
+		else if (c == '\r')
+			qp->last_char = QP_ENCODER_LAST_CR;
+		else
+			qp->last_char = QP_ENCODER_LAST_ANY;
+
+		if (c != '\r')
 			qp_encode_or_break(qp, c);
-		}
 	}
 }
 
 void qp_encoder_finish(struct qp_encoder *qp)
 {
-	if (qp->cr_last)
+	switch (qp->last_char) {
+	case QP_ENCODER_LAST_CR:
+		/* Last char was CR which was not yet encoded */
 		qp_encode_or_break(qp, '\r');
+		break;
+	case QP_ENCODER_LAST_WHITE_SPACE:
+		/* Last char was a white space, it must be followed by
+		 * a printable char. */
+		str_append_c(qp->dest, '=');
+		break;
+	default:
+		break;
+	}
 
 	if ((qp->flags & QP_ENCODER_FLAG_HEADER_FORMAT) != 0 &&
 	    !qp->add_header_preamble)
@@ -136,5 +158,5 @@ void qp_encoder_finish(struct qp_encoder *qp)
 	if ((qp->flags & QP_ENCODER_FLAG_HEADER_FORMAT) != 0)
 		qp->add_header_preamble = TRUE;
 	qp->line_len = 0;
-	qp->cr_last = FALSE;
+	qp->last_char = QP_ENCODER_LAST_ANY;
 }
