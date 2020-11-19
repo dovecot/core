@@ -415,6 +415,8 @@ oauth2_jwt_body_process(const struct oauth2_settings *set, const char *alg,
 	const char *azp = get_field(tree, "azp");
 	if (azp == NULL)
 		azp = "default";
+	else
+		azp = escape_identifier(azp);
 
 	if (oauth2_validate_signature(set, azp, alg, kid, blobs, error_r) < 0)
 		return -1;
