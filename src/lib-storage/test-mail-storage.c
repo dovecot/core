@@ -227,13 +227,17 @@ static void test_mail_storage_last_error_push_pop(void)
 	test_end();
 }
 
-static void test_mail_init(struct test_mail_storage_ctx *ctx)
+static struct test_mail_storage_ctx *test_mail_init(void)
 {
+	struct test_mail_storage_ctx *ctx;
 	const char *error;
 	char path_buf[4096];
 	unsigned char rand[4];
+	pool_t pool;
 
-	ctx->pool = pool_allocfree_create("test pool");
+	pool = pool_allocfree_create("test pool");
+	ctx = p_new(pool, struct test_mail_storage_ctx, 1);
+	ctx->pool = pool;
 
 	if (getcwd(path_buf, sizeof(path_buf)) == NULL)
 		i_fatal("getcwd() failed: %m");
@@ -252,12 +256,16 @@ static void test_mail_init(struct test_mail_storage_ctx *ctx)
 		MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS |
 		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
 		MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS);
+	return ctx;
 }
 
-static void test_mail_deinit(struct test_mail_storage_ctx *ctx)
+static void test_mail_deinit(struct test_mail_storage_ctx **_ctx)
 {
+	struct test_mail_storage_ctx *ctx = *_ctx;
 	const char *error;
 	mail_storage_service_deinit(&ctx->storage_service);
+
+	*_ctx = NULL;
 
 	if (chdir(ctx->mail_home) < 0)
 		i_fatal("chdir(%s) failed: %m", ctx->mail_home);
@@ -519,16 +527,14 @@ static void test_mailbox_verify_name(void)
 		{ "mdbox LAYOUT=FS", "mdbox", ":LAYOUT=FS" },
 		{ "mdbox LAYOUT=INDEX", "mdbox", ":LAYOUT=INDEX" },
 	};
-	struct test_mail_storage_ctx ctx;
-	i_zero(&ctx);
-	test_mail_init(&ctx);
+	struct test_mail_storage_ctx *ctx = test_mail_init();
 
 	for(unsigned int i = 0; i < N_ELEMENTS(test_cases); i++) T_BEGIN {
 		test_begin(t_strdup_printf("mailbox_verify_name (%s SEP=.)", test_cases[i].name));
-		test_mailbox_verify_name_driver_dot(test_cases[i].driver, test_cases[i].opts, &ctx);
+		test_mailbox_verify_name_driver_dot(test_cases[i].driver, test_cases[i].opts, ctx);
 		test_end();
 		test_begin(t_strdup_printf("mailbox_verify_name (%s SEP=/)", test_cases[i].name));
-		test_mailbox_verify_name_driver_slash(test_cases[i].driver, test_cases[i].opts, &ctx);
+		test_mailbox_verify_name_driver_slash(test_cases[i].driver, test_cases[i].opts, ctx);
 		test_end();
 	} T_END;
 
@@ -638,24 +644,22 @@ static void test_mailbox_list_maildir_init(struct test_mail_storage_ctx *ctx,
 
 static void test_mailbox_list_maildir(void)
 {
-	struct test_mail_storage_ctx ctx;
-	i_zero(&ctx);
-	test_mail_init(&ctx);
+	struct test_mail_storage_ctx *ctx = test_mail_init();
 
 	test_begin("mailbox_verify_name (maildir SEP=.)");
-	test_mailbox_list_maildir_init(&ctx, "", ".");
+	test_mailbox_list_maildir_init(ctx, "", ".");
 	test_end();
 
 	test_begin("mailbox_verify_name (maildir SEP=/)");
-	test_mailbox_list_maildir_init(&ctx, "", "/");
+	test_mailbox_list_maildir_init(ctx, "", "/");
 	test_end();
 
 	test_begin("mailbox_verify_name (maildir SEP=. LAYOUT=FS)");
-	test_mailbox_list_maildir_init(&ctx, "LAYOUT=FS", ".");
+	test_mailbox_list_maildir_init(ctx, "LAYOUT=FS", ".");
 	test_end();
 
 	test_begin("mailbox_verify_name (maildir SEP=/ LAYOUT=FS)");
-	test_mailbox_list_maildir_init(&ctx, "LAYOUT=FS", "/");
+	test_mailbox_list_maildir_init(ctx, "LAYOUT=FS", "/");
 	test_end();
 
 	test_mail_deinit(&ctx);
@@ -663,21 +667,20 @@ static void test_mailbox_list_maildir(void)
 
 static void test_mailbox_list_mbox(void)
 {
-	struct test_mail_storage_ctx ctx;
+	struct test_mail_storage_ctx *ctx;
 	struct mailbox_verify_test_cases test_case;
 	struct mail_namespace *ns;
 
-	i_zero(&ctx);
 	test_begin("mailbox_list_mbox");
 
-	test_mail_init(&ctx);
+	ctx = test_mail_init();
 
 	/* check that .lock cannot be used */
 	struct test_mail_storage_settings set = {
 		.driver = "mbox",
 		.hierarchy_sep = ".",
 	};
-	if (test_mail_init_user(&ctx, &set) < 0)
+	if (test_mail_init_user(ctx, &set) < 0)
 		i_unreached();
 
 	test_case.list_sep = '/';
@@ -685,10 +688,10 @@ static void test_mailbox_list_mbox(void)
 	test_case.box = "INBOX/.lock";
 	test_case.ret = -1;
 
-	ns = mail_namespace_find_inbox(ctx.user->namespaces);
+	ns = mail_namespace_find_inbox(ctx->user->namespaces);
 	test_mailbox_verify_name_one(&test_case, ns, 0);
 
-	test_mail_deinit_user(&ctx);
+	test_mail_deinit_user(ctx);
 	test_mail_deinit(&ctx);
 
 	test_end();
