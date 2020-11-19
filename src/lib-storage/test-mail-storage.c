@@ -4,8 +4,7 @@
 #include "ioloop.h"
 #include "mkdir-parents.h"
 #include "unlink-directory.h"
-#include "hex-binary.h"
-#include "randgen.h"
+#include "path-util.h"
 #include "test-common.h"
 #include "master-service.h"
 #include "mail-storage-service.h"
@@ -37,7 +36,7 @@ struct test_mail_storage_ctx {
 	struct mail_user *user;
 	struct mail_storage_service_user *service_user;
 	struct ioloop *ioloop;
-	const char *mail_home;
+	const char *home_root;
 };
 
 struct test_mail_storage_settings {
@@ -230,25 +229,21 @@ static void test_mail_storage_last_error_push_pop(void)
 static struct test_mail_storage_ctx *test_mail_init(void)
 {
 	struct test_mail_storage_ctx *ctx;
-	const char *error;
-	char path_buf[4096];
-	unsigned char rand[4];
+	const char *current_dir, *error;
 	pool_t pool;
 
 	pool = pool_allocfree_create("test pool");
 	ctx = p_new(pool, struct test_mail_storage_ctx, 1);
 	ctx->pool = pool;
 
-	if (getcwd(path_buf, sizeof(path_buf)) == NULL)
-		i_fatal("getcwd() failed: %m");
+	if (t_get_working_dir(&current_dir, &error) < 0)
+		i_fatal("Failed to get current directory: %s", error);
+	ctx->home_root = p_strdup_printf(ctx->pool, "%s/.test-home/",
+					 current_dir);
 
-	random_fill(rand, sizeof(rand));
-	ctx->mail_home = p_strdup_printf(ctx->pool, "%s/.test-dir%s/", path_buf,
-					 binary_to_hex(rand, sizeof(rand)));
-
-	if (unlink_directory(ctx->mail_home, UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0 &&
+	if (unlink_directory(ctx->home_root, UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0 &&
 	    errno != ENOENT)
-		i_warning("unlink_directory(%s) failed: %s", ctx->mail_home, error);
+		i_warning("unlink_directory(%s) failed: %s", ctx->home_root, error);
 
 	ctx->ioloop = io_loop_create();
 
@@ -267,14 +262,14 @@ static void test_mail_deinit(struct test_mail_storage_ctx **_ctx)
 
 	*_ctx = NULL;
 
-	if (chdir(ctx->mail_home) < 0)
-		i_fatal("chdir(%s) failed: %m", ctx->mail_home);
+	if (chdir(ctx->home_root) < 0)
+		i_fatal("chdir(%s) failed: %m", ctx->home_root);
 	if (chdir("..") < 0)
 		i_fatal("chdir(..) failed: %m");
 
-	if (unlink_directory(ctx->mail_home, UNLINK_DIRECTORY_FLAG_RMDIR,
+	if (unlink_directory(ctx->home_root, UNLINK_DIRECTORY_FLAG_RMDIR,
 			     &error) < 0)
-		i_error("unlink_directory(%s) failed: %s", ctx->mail_home, error);
+		i_error("unlink_directory(%s) failed: %s", ctx->home_root, error);
 
 	io_loop_destroy(&ctx->ioloop);
 
@@ -291,7 +286,7 @@ static int test_mail_init_user(struct test_mail_storage_ctx *ctx,
 	const char *error, *home;
 	ARRAY_TYPE(const_string) opts;
 
-	home = t_strdup_printf("%s%s", ctx->mail_home, username);
+	home = t_strdup_printf("%s%s", ctx->home_root, username);
 
 	const char *const default_input[] = {
 		t_strdup_printf("mail=%s:~/%s", set->driver,
