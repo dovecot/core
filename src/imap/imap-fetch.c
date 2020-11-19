@@ -243,7 +243,7 @@ get_expunges_fallback(struct mailbox *box,
 	search_args = mail_search_build_init();
 	search_args->args = p_new(search_args->pool, struct mail_search_arg, 1);
 	search_args->args->type = SEARCH_UIDSET;
-	i_array_init(&search_args->args->value.seqset, count);
+	p_array_init(&search_args->args->value.seqset, search_args->pool, count);
 	array_append_array(&search_args->args->value.seqset, uid_filter_arr);
 
 	trans = mailbox_transaction_begin(box, 0, "FETCH send VANISHED");
