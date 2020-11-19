@@ -278,8 +278,8 @@ static void test_mail_deinit(struct test_mail_storage_ctx **_ctx)
 	i_zero(ctx);
 }
 
-static int test_mail_init_user(struct test_mail_storage_ctx *ctx,
-			       const struct test_mail_storage_settings *set)
+static void test_mail_init_user(struct test_mail_storage_ctx *ctx,
+				const struct test_mail_storage_settings *set)
 {
 	const char *username = set->username != NULL ?
 		set->username : "testuser";
@@ -325,12 +325,9 @@ static int test_mail_init_user(struct test_mail_storage_ctx *ctx,
 	if (mail_storage_service_lookup_next(ctx->storage_service, &input,
 					     &ctx->service_user, &ctx->user,
 					     &error) < 0) {
-		 i_error("mail_storage_service_lookup_next(%s) failed: %s",
+		 i_fatal("mail_storage_service_lookup_next(%s) failed: %s",
 			 username, error);
-		 return -1;
 	}
-
-	return 0;
 }
 
 static void test_mail_deinit_user(struct test_mail_storage_ctx *ctx)
@@ -472,8 +469,7 @@ static void test_mailbox_verify_name_driver_slash(const char *driver,
 		.hierarchy_sep = "/",
 		.extra_input = ns2,
 	};
-	if (test_mail_init_user(ctx, &set) < 0)
-		return;
+	test_mail_init_user(ctx, &set);
 
 	test_mailbox_verify_name_continue(test_cases, N_ELEMENTS(test_cases), ctx);
 
@@ -496,8 +492,7 @@ static void test_mailbox_verify_name_driver_dot(const char *driver,
 		.hierarchy_sep = ".",
 		.extra_input = ns2,
 	};
-	if (test_mail_init_user(ctx, &set) < 0)
-		return;
+	test_mail_init_user(ctx, &set);
 
 	test_mailbox_verify_name_continue(test_cases, N_ELEMENTS(test_cases), ctx);
 
@@ -603,8 +598,7 @@ static void test_mailbox_list_maildir_init(struct test_mail_storage_ctx *ctx,
 		.hierarchy_sep = sep,
 		.extra_input = ns2,
 	};
-	if (test_mail_init_user(ctx, &set) < 0)
-		i_unreached();
+	test_mail_init_user(ctx, &set);
 	test_mailbox_list_maildir_continue(ctx);
 
 	struct mail_namespace *ns =
@@ -675,8 +669,7 @@ static void test_mailbox_list_mbox(void)
 		.driver = "mbox",
 		.hierarchy_sep = ".",
 	};
-	if (test_mail_init_user(ctx, &set) < 0)
-		i_unreached();
+	test_mail_init_user(ctx, &set);
 
 	test_case.list_sep = '/';
 	test_case.ns_sep = '.';
