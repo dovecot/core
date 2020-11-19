@@ -1092,7 +1092,7 @@ static const char *const input_msgs[] = {
 	pool_t pool;
 
 	for (size_t i = 0; i < N_ELEMENTS(input_msgs); i++) {
-		int variance = strlen(input_msgs[i]) - strlen(input_msgs[0]);
+		ssize_t variance = (ssize_t)strlen(input_msgs[i]) - (ssize_t)strlen(input_msgs[0]);
 		pool = pool_alloconly_create("message parser", 10240);
 		input = test_istream_create(input_msgs[i]);
 
