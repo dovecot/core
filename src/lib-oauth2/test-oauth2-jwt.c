@@ -227,13 +227,15 @@ create_jwt_token_fields_kid(const char *algo, const char *kid, time_t exp, time_
 }
 
 #define save_key(algo, key) save_key_to(algo, "default", (key))
-static void save_key_to(const char *algo, const char *name, const char *keydata)
+#define save_key_to(algo, name, key) save_key_azp_to(algo, "default", name, (key))
+static void save_key_azp_to(const char *algo, const char *azp,
+			    const char *name, const char *keydata)
 {
 	const char *error;
 	struct dict_transaction_context *ctx =
 		dict_transaction_begin(keys_dict);
 	algo = t_str_ucase(algo);
-	dict_set(ctx, t_strconcat(DICT_PATH_SHARED, "default/", algo, "/",
+	dict_set(ctx, t_strconcat(DICT_PATH_SHARED, azp, "/", algo, "/",
 				  name, NULL),
 		 keydata);
 	if (dict_transaction_commit(&ctx, &error) < 0)
@@ -308,18 +310,23 @@ static void test_jwt_hs_token(void)
 static void test_jwt_token_escape(void)
 {
 	struct test_case {
+		const char *azp;
 		const char *alg;
 		const char *kid;
+		const char *esc_azp;
 		const char *esc_kid;
 	} test_cases[] = {
-		{ "hs256", "", "default" },
-		{ "hs256", "test", "test" },
+		{ "", "hs256", "", "default", "default" },
+		{ "", "hs256", "test", "default", "test" },
+		{ "test", "hs256", "test", "test", "test" },
 		{
+			"http://test.unit/local%key",
 			"hs256",
 			"http://test.unit/local%key",
 			"http:%2f%2ftest%2eunit%2flocal%25key",
+			"http:%2f%2ftest%2eunit%2flocal%25key"
 		},
-		{ "hs256", "../", "%2e%2e%2f" },
+		{ "../", "hs256", "../", "%2e%2e%2f", "%2e%2e%2f" },
 	};
 	buffer_t *b64_key =
 		t_base64_encode(0, SIZE_MAX, hs_sign_key->data, hs_sign_key->used);
@@ -332,13 +339,18 @@ static void test_jwt_token_escape(void)
 		struct oauth2_field *field = array_append_space(&fields);
 		field->name = "sub";
 		field->value = "testuser";
+		if (*test_case->azp != '\0') {
+			field = array_append_space(&fields);
+			field->name = "azp";
+			field->value = test_case->azp;
+		}
 		if (*test_case->kid != '\0') {
 			field = array_append_space(&fields);
 			field->name = "kid";
 			field->value = test_case->kid;
 		}
-		save_key_to(test_case->alg, test_case->esc_kid,
-			    str_c(b64_key));
+		save_key_azp_to(test_case->alg, test_case->esc_azp, test_case->esc_kid,
+				str_c(b64_key));
 		buffer_t *token = create_jwt_token_fields_kid(test_case->alg,
 							      test_case->kid,
 							      time(NULL)+500,
