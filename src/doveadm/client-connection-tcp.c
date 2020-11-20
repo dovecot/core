@@ -80,7 +80,8 @@ doveadm_server_log_handler(const struct failure_context *ctx,
 
 		/* since we can get here from just about anywhere, make sure
 		   the log ostream uses the connection's ioloop. */
-		io_loop_set_current(conn->ioloop);
+		if (conn->ioloop != NULL)
+			io_loop_set_current(conn->ioloop);
 
 		c = doveadm_log_type_to_char(ctx->type);
 		corked = o_stream_is_corked(log_out);
