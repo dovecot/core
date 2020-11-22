@@ -123,10 +123,16 @@ openmetrics_export_metric_value(struct openmetrics_request *req, string_t *out,
 	str_append(out, req->metric->name);
 	switch (req->metric_type) {
 	case OPENMETRICS_METRIC_TYPE_COUNT:
-		str_append(out, "_total");
+		if (req->metric->group_by != NULL && str_len(req->labels) == 0)
+			str_append(out, "_count");
+		else
+			str_append(out, "_total");
 		break;
 	case OPENMETRICS_METRIC_TYPE_DURATION:
-		str_append(out, "_duration_seconds_total");
+		if (req->metric->group_by != NULL && str_len(req->labels) == 0)
+			str_append(out, "_duration_seconds_sum");
+		else
+			str_append(out, "_duration_seconds_total");
 		break;
 	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
 		i_unreached();
@@ -221,6 +227,13 @@ openmetrics_export_histogram(struct openmetrics_request *req, string_t *out,
 						    group_by->ranges[i].max,
 						    count);
 	}
+
+	/* There is either no data in histogram, which adding the optional
+	   sum and count metrics doesn't add any new information or
+	   these have already been exported for submetrics. */
+	if (count == 0)
+		return;
+
 	/* Sum */
 	str_append(out, "dovecot_");
 	str_append(out, metric->name);
@@ -565,8 +578,13 @@ openmetrics_export_continue(struct openmetrics_request *req, string_t *out)
 			str_truncate(req->labels, 0);
 		req->labels_pos = 0;
 
-		/* Start with count output for this metric. */
-		req->metric_type = OPENMETRICS_METRIC_TYPE_COUNT;
+		/* Start with count output for this metric if the type
+		   is not histogram. If the metric is of type histogram,
+		   start with quantiles. */
+		if (openmetrics_export_has_histogram(req))
+			req->metric_type = OPENMETRICS_METRIC_TYPE_HISTOGRAM;
+		else
+			req->metric_type = OPENMETRICS_METRIC_TYPE_COUNT;
 		req->state = OPENMETRICS_REQUEST_STATE_METRIC_HEADER;
 		/* Fall through */
 	case OPENMETRICS_REQUEST_STATE_METRIC_HEADER:
@@ -583,25 +601,15 @@ openmetrics_export_continue(struct openmetrics_request *req, string_t *out)
 		if (!openmetrics_export_sub_metrics(req, out))
 			break;
 		/* All sub-metrics written. */
-		if (req->metric_type == OPENMETRICS_METRIC_TYPE_HISTOGRAM ||
-		    req->has_submetric) {
-			/* If either:
-
-			   - we're writing a histogram metric, or
-			   - sub-metrics are present,
-
-			   then skip the top-level metric body.
-			 */
-			openmetrics_export_next(req);
-		} else {
-			/* Export values for top-level metric */
-			req->state = OPENMETRICS_REQUEST_STATE_METRIC_BODY;
-		}
+		req->state = OPENMETRICS_REQUEST_STATE_METRIC_BODY;
 		break;
 	case OPENMETRICS_REQUEST_STATE_METRIC_BODY:
 		/* Export the body of the current metric. */
 		str_truncate(req->labels, req->labels_pos);
-		openmetrics_export_metric_body(req, out);
+		if (req->metric_type == OPENMETRICS_METRIC_TYPE_HISTOGRAM)
+			openmetrics_export_histogram(req, out, req->metric);
+		else
+			openmetrics_export_metric_body(req, out);
 		openmetrics_export_next(req);
 		break;
 	case OPENMETRICS_REQUEST_STATE_FINISHED:
