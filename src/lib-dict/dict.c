@@ -386,7 +386,8 @@ bool dict_iterate(struct dict_iterate_context *ctx,
 
 	if (!dict_iterate_values(ctx, key_r, &values))
 		return FALSE;
-	*value_r = values[0];
+	if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) == 0)
+		*value_r = values[0];
 	return TRUE;
 }
 
