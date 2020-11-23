@@ -14,7 +14,7 @@
 #include "stats-metrics.h"
 #include "stats-service-private.h"
 
-#define OPENMETRICS_CONTENT_VERSION "0.0.4"
+#define OPENMETRICS_CONTENT_VERSION "0.0.1"
 
 #ifdef DOVECOT_REVISION
 #define OPENMETRICS_BUILD_INFO \
@@ -94,35 +94,39 @@ static bool openmetrics_check_name(const char *name)
 	return TRUE;
 }
 
-static void openmetrics_export_dovecot(string_t *out, int64_t timestamp)
+static void openmetrics_export_dovecot(string_t *out)
 {
 	i_assert(stats_startup_time <= ioloop_time);
-	str_append(out, "# HELP dovecot_stats_uptime_seconds "
-			"Dovecot stats service uptime\n");
-	str_append(out, "# TYPE dovecot_stats_uptime_seconds counter\n");
-	str_printfa(out, "dovecot_stats_uptime_seconds %"PRId64" %"PRId64"\n\n",
-		    (int64_t)(ioloop_time - stats_startup_time), timestamp);
+	str_append(out, "# HELP process_start_time_seconds "
+			"Timestamp of service start\n");
+	str_append(out, "# TYPE process_start_time_seconds gauge\n");
+	str_printfa(out, "process_start_time_seconds %"PRIu64"\n",
+		    stats_startup_time);
 
-	str_append(out, "# HELP dovecot_build_info "
+	str_append(out, "# HELP dovecot_build "
 			"Dovecot build information\n");
-	str_append(out, "# TYPE dovecot_build_info untyped\n");
-	str_printfa(out, "dovecot_build_info{"OPENMETRICS_BUILD_INFO"} "
-			 "1 %"PRId64"\n", timestamp);
+	str_append(out, "# TYPE dovecot_build info\n");
+	str_append(out, "dovecot_build_info{"OPENMETRICS_BUILD_INFO"} 1\n");
+}
+
+static void openmetrics_export_eof(string_t *out)
+{
+	str_append(out, "# EOF\n");
 }
 
 static void
 openmetrics_export_metric_value(struct openmetrics_request *req, string_t *out,
-				const struct metric *metric, int64_t timestamp)
+				const struct metric *metric)
 {
 	/* Metric name */
 	str_append(out, "dovecot_");
 	str_append(out, req->metric->name);
 	switch (req->metric_type) {
 	case OPENMETRICS_METRIC_TYPE_COUNT:
-		str_append(out, "_count");
+		str_append(out, "_total");
 		break;
 	case OPENMETRICS_METRIC_TYPE_DURATION:
-		str_append(out, "_duration_usecs_sum");
+		str_append(out, "_duration_seconds_total");
 		break;
 	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
 		i_unreached();
@@ -136,14 +140,13 @@ openmetrics_export_metric_value(struct openmetrics_request *req, string_t *out,
 	/* Value */
 	switch (req->metric_type) {
 	case OPENMETRICS_METRIC_TYPE_COUNT:
-		str_printfa(out, " %u %"PRId64"\n",
-			    stats_dist_get_count(metric->duration_stats),
-			    timestamp);
+		str_printfa(out, " %u\n",
+			    stats_dist_get_count(metric->duration_stats));
 		break;
 	case OPENMETRICS_METRIC_TYPE_DURATION:
-		str_printfa(out, " %"PRIu64" %"PRId64"\n",
-			    stats_dist_get_sum(metric->duration_stats),
-			    timestamp);
+		/* Convert from microseconds to seconds */
+		str_printfa(out, " %.6f\n",
+			    stats_dist_get_sum(metric->duration_stats)/1e6F);
 		break;
 	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
 		i_unreached();
@@ -175,13 +178,12 @@ openmetrics_find_histogram_bucket(const struct metric *metric,
 static void
 openmetrics_export_histogram_bucket(struct openmetrics_request *req,
 				    string_t *out, const struct metric *metric,
-				    intmax_t bucket_limit, int64_t count,
-				    int64_t timestamp)
+				    intmax_t bucket_limit, int64_t count)
 {
 	/* Metric name */
 	str_append(out, "dovecot_");
 	str_append(out, metric->name);
-	str_append(out, "_histogram_bucket");
+	str_append(out, "_bucket");
 	/* Labels */
 	str_append_c(out, '{');
 	if (str_len(req->labels) > 0) {
@@ -192,16 +194,16 @@ openmetrics_export_histogram_bucket(struct openmetrics_request *req,
 		str_append(out, "le=\"+Inf\"");
 	else
 		str_printfa(out, "le=\"%jd\"", bucket_limit);
-	str_printfa(out, "} %"PRIu64" %"PRId64"\n", count, timestamp);
+	str_printfa(out, "} %"PRIu64"\n", count);
 }
 
 static void
 openmetrics_export_histogram(struct openmetrics_request *req, string_t *out,
-			     const struct metric *metric, int64_t timestamp)
+			     const struct metric *metric)
 {
 	const struct stats_metric_settings_group_by *group_by =
 		metric->group_by;
-	int64_t sum = 0;
+	float sum = 0;
 	uint64_t count = 0;
 
 	/* Buckets */
@@ -217,30 +219,31 @@ openmetrics_export_histogram(struct openmetrics_request *req, string_t *out,
 
 		openmetrics_export_histogram_bucket(req, out, metric,
 						    group_by->ranges[i].max,
-						    count, timestamp);
+						    count);
 	}
 	/* Sum */
 	str_append(out, "dovecot_");
 	str_append(out, metric->name);
-	str_append(out, "_histogram_sum");
+	str_append(out, "_sum");
 	/* Labels */
 	if (str_len(req->labels) > 0) {
 		str_append_c(out, '{');
 		str_append_str(out, req->labels);
 		str_append_c(out, '}');
 	}
-	str_printfa(out, " %"PRIu64" %"PRId64"\n", sum, timestamp);
+	/* Convert from microseconds to seconds */
+	str_printfa(out, " %.6f\n", sum/1e6F);
 	/* Count */
 	str_append(out, "dovecot_");
 	str_append(out, metric->name);
-	str_append(out, "_histogram_count");
+	str_append(out, "_count");
 	/* Labels */
 	if (str_len(req->labels) > 0) {
 		str_append_c(out, '{');
 		str_append_str(out, req->labels);
 		str_append_c(out, '}');
 	}
-	str_printfa(out, " %"PRIu64" %"PRId64"\n", count, timestamp);
+	str_printfa(out, " %"PRIu64"\n", count);
 }
 
 static void
@@ -248,21 +251,18 @@ openmetrics_export_metric_header(struct openmetrics_request *req, string_t *out)
 {
 	const struct metric *metric = req->metric;
 
-	/* Empty line */
-	str_append_c(out, '\n');
-
 	/* Description */
 	str_append(out, "# HELP dovecot_");
 	str_append(out, metric->name);
 	switch (req->metric_type) {
 	case OPENMETRICS_METRIC_TYPE_COUNT:
-		str_append(out, "_count Total number");
+		str_append(out, " Total number of all events of this kind");
 		break;
 	case OPENMETRICS_METRIC_TYPE_DURATION:
-		str_append(out, "_duration_usecs_sum Duration");
+		str_append(out, "_duration_seconds Total duration of all events of this kind");
 		break;
 	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
-		str_append(out, "_histogram Histogram");
+		str_append(out, " Histogram");
 		break;
 	}
 	if (*metric->set->description != '\0') {
@@ -275,20 +275,20 @@ openmetrics_export_metric_header(struct openmetrics_request *req, string_t *out)
 	str_append(out, metric->name);
 	switch (req->metric_type) {
 	case OPENMETRICS_METRIC_TYPE_COUNT:
-		str_append(out, "_count counter\n");
+		str_append(out, " counter\n");
 		break;
 	case OPENMETRICS_METRIC_TYPE_DURATION:
-		str_append(out, "_duration_usecs_sum counter\n");
+		str_append(out, "_duration_seconds counter\n");
 		break;
 	case OPENMETRICS_METRIC_TYPE_HISTOGRAM:
-		str_append(out, "_histogram histogram\n");
+		str_append(out, " histogram\n");
 		break;
 	}
 }
 
 static void
 openmetrics_export_submetric(struct openmetrics_request *req, string_t *out,
-			     const struct metric *metric, int64_t timestamp)
+			     const struct metric *metric)
 {
 	/* This metric may be a submetric and therefore have a label
 	   associated with it. */
@@ -303,11 +303,11 @@ openmetrics_export_submetric(struct openmetrics_request *req, string_t *out,
 		    metric->group_by[0].func != STATS_METRIC_GROUPBY_QUANTIZED)
 			return;
 
-		openmetrics_export_histogram(req, out, metric, timestamp);
+		openmetrics_export_histogram(req, out, metric);
 		return;
 	}
 
-	openmetrics_export_metric_value(req, out, metric, timestamp);
+	openmetrics_export_metric_value(req, out, metric);
 
 	req->has_submetric = TRUE;
 }
@@ -429,8 +429,7 @@ openmetrics_export_sub_metric_current(struct openmetrics_request *req)
 }
 
 static bool
-openmetrics_export_sub_metrics(struct openmetrics_request *req, string_t *out,
-			       int64_t timestamp)
+openmetrics_export_sub_metrics(struct openmetrics_request *req, string_t *out)
 {
 	struct openmetrics_request_sub_metric *reqsm = NULL;
 
@@ -442,7 +441,7 @@ openmetrics_export_sub_metrics(struct openmetrics_request *req, string_t *out,
 		/* No valid sub-metrics to export */
 		return TRUE;
 	}
-	openmetrics_export_submetric(req, out, reqsm->metric, timestamp);
+	openmetrics_export_submetric(req, out, reqsm->metric);
 
 	/* Try do descend into sub-metrics tree for next sub-metric to export.
 	 */
@@ -463,10 +462,9 @@ openmetrics_export_sub_metrics(struct openmetrics_request *req, string_t *out,
 }
 
 static void
-openmetrics_export_metric_body(struct openmetrics_request *req, string_t *out,
-			       int64_t timestamp)
+openmetrics_export_metric_body(struct openmetrics_request *req, string_t *out)
 {
-	openmetrics_export_metric_value(req, out, req->metric, timestamp);
+	openmetrics_export_metric_value(req, out, req->metric);
 }
 
 static int
@@ -538,15 +536,14 @@ static void openmetrics_export_next(struct openmetrics_request *req)
 }
 
 static void
-openmetrics_export_continue(struct openmetrics_request *req, string_t *out,
-			    int64_t timestamp)
+openmetrics_export_continue(struct openmetrics_request *req, string_t *out)
 {
 	switch (req->state) {
 	case OPENMETRICS_REQUEST_STATE_INIT:
 		/* Export the Dovecot base metrics. */
 		i_assert(req->stats_iter == NULL);
 		req->stats_iter = stats_metrics_iterate_init(stats_metrics);
-		openmetrics_export_dovecot(out, timestamp);
+		openmetrics_export_dovecot(out);
 		req->state = OPENMETRICS_REQUEST_STATE_METRIC;
 		break;
 	case OPENMETRICS_REQUEST_STATE_METRIC:
@@ -583,7 +580,7 @@ openmetrics_export_continue(struct openmetrics_request *req, string_t *out,
 		/* Export the sub-metrics for the current metric. This will
 		   return for each sub-metric, so that the out string buffer
 		   stays small. */
-		if (!openmetrics_export_sub_metrics(req, out, timestamp))
+		if (!openmetrics_export_sub_metrics(req, out))
 			break;
 		/* All sub-metrics written. */
 		if (req->metric_type == OPENMETRICS_METRIC_TYPE_HISTOGRAM ||
@@ -604,7 +601,7 @@ openmetrics_export_continue(struct openmetrics_request *req, string_t *out,
 	case OPENMETRICS_REQUEST_STATE_METRIC_BODY:
 		/* Export the body of the current metric. */
 		str_truncate(req->labels, req->labels_pos);
-		openmetrics_export_metric_body(req, out, timestamp);
+		openmetrics_export_metric_body(req, out);
 		openmetrics_export_next(req);
 		break;
 	case OPENMETRICS_REQUEST_STATE_FINISHED:
@@ -629,7 +626,6 @@ static void openmetrics_request_deinit(struct openmetrics_request *req)
 
 static int openmetrics_export(struct openmetrics_request *req)
 {
-	int64_t timestamp;
 	string_t *out;
 	int ret;
 
@@ -650,11 +646,6 @@ static int openmetrics_export(struct openmetrics_request *req)
 		return 1;
 	}
 
-	/* Record timestamp for metrics export */
-	i_assert(ioloop_timeval.tv_usec < 1000000);
-	timestamp = ((int64_t)ioloop_timeval.tv_sec * 1000 +
-		     (int64_t)ioloop_timeval.tv_usec / 1000);
-
 	/* Export metrics into a string buffer and write that buffer to the
 	   output stream after each (sub-)metric, so that the string buffer
 	   stays small. The output stream buffer can grow bigger, but writing is
@@ -664,7 +655,7 @@ static int openmetrics_export(struct openmetrics_request *req)
 	for (;;) {
 		str_truncate(out, 0);
 
-		openmetrics_export_continue(req, out, timestamp);
+		openmetrics_export_continue(req, out);
 
 		ret = openmetrics_send_buffer(req, out);
 		if (ret < 0) {
@@ -682,6 +673,15 @@ static int openmetrics_export(struct openmetrics_request *req)
 			return ret;
 		}
 	}
+
+	/* Send EOF */
+	str_truncate(out, 0);
+	openmetrics_export_eof(out);
+        ret = openmetrics_send_buffer(req, out);
+        if (ret < 0) {
+            openmetrics_handle_write_error(req);
+            return -1;
+        }
 
 	/* Cleanup everything except the output stream */
 	openmetrics_request_deinit(req);
@@ -735,7 +735,7 @@ stats_service_openmetrics_request(void *context ATTR_UNUSED,
 	hsresp = http_server_response_create(hsreq, 200, "OK");
 	http_server_response_add_header(
 		hsresp, "Content-Type",
-		"text/plain; version="OPENMETRICS_CONTENT_VERSION"; "
+		"application/openmetrics-text; version="OPENMETRICS_CONTENT_VERSION"; "
 		"charset=utf-8");
 
 	req->output = http_server_response_get_payload_output(
