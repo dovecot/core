@@ -26,7 +26,7 @@ struct cdb_dict_iterate_context {
 
 	enum dict_iterate_flags flags;
 	buffer_t *buffer;
-	const char **paths;
+	const char **paths, *values[2];
 	unsigned cptr;
 	char *error;
 };
@@ -178,7 +178,7 @@ cdb_dict_next(struct cdb_dict_iterate_context *ctx, const char **key_r)
 }
 
 static bool cdb_dict_iterate(struct dict_iterate_context *_ctx,
-			     const char **key_r, const char **value_r)
+			     const char **key_r, const char *const **values_r)
 {
 	struct cdb_dict_iterate_context *ctx =
 		(struct cdb_dict_iterate_context *)_ctx;
@@ -225,7 +225,8 @@ static bool cdb_dict_iterate(struct dict_iterate_context *_ctx,
 	}
 
 	data[datalen] = '\0';
-	*value_r = data;
+	ctx->values[0] = data;
+	*values_r = ctx->values;
 
 	return TRUE;
 }
