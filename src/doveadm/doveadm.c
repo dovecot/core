@@ -364,6 +364,8 @@ int main(int argc, char *argv[])
 		quick_init = TRUE;
 	} else {
 		quick_init = FALSE;
+		if (doveadm_debug && getenv("LOG_STDERR_TIMESTAMP") == NULL)
+			i_set_failure_timestamp_format(master_service->set->log_timestamp);
 		master_service_init_stats_client(master_service, TRUE);
 		doveadm_print_ostream = o_stream_create_fd(STDOUT_FILENO, 0);
 		o_stream_set_no_error_handling(doveadm_print_ostream, TRUE);
