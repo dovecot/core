@@ -417,7 +417,7 @@ static void index_mail_init_parser(struct index_mail *mail)
 			index_mail_set_message_parts_corrupted(&mail->mail.mail, error);
 			data->parts = NULL;
 		}
-		if (data->parts == NULL) {
+		if (data->parts == NULL || data->parts != parts) {
 			/* The previous parsing didn't finish, so we're
 			   re-parsing the header. The new parts don't have data
 			   filled anymore. */
