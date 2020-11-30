@@ -1005,6 +1005,17 @@ imapc_connection_get_sasl_mech(struct imapc_connection *conn,
 	return -1;
 }
 
+static int
+imapc_connection_channel_bind_callback(const char *type, void *context,
+				       const buffer_t **data_r,
+				       const char **error_r)
+{
+	struct imapc_connection *conn = context;
+
+	return ssl_iostream_get_channel_binding(conn->ssl_iostream,
+						type, data_r, error_r);
+}
+
 static void imapc_connection_authenticate(struct imapc_connection *conn)
 {
 	const struct imapc_settings *set = conn->client->set;
@@ -1067,6 +1078,12 @@ static void imapc_connection_authenticate(struct imapc_connection *conn)
 	if (sasl_mech == NULL)
 		sasl_mech = &dsasl_client_mech_plain;
 	conn->sasl_client = dsasl_client_new(sasl_mech, &sasl_set);
+	if (conn->ssl_iostream != NULL) {
+		dsasl_client_enable_channel_binding(
+			conn->sasl_client,
+			ssl_iostream_get_protocol_version(conn->ssl_iostream),
+			imapc_connection_channel_bind_callback, conn);
+	}
 
 	cmd = imapc_connection_cmd(conn, imapc_connection_authenticate_cb, conn);
 	cmd->authenticate = TRUE;
