@@ -282,10 +282,23 @@ static void test_mail_random_fetch(struct mailbox *box, uint32_t seq)
 static void test_mail_random_access(void)
 {
 	struct test_mail_storage_ctx *ctx;
+	const char *const potential_never_cache_fields[] = {
+		"",
+		"flags",
+		"mime.parts",
+		"imap.body",
+		"imap.bodystructure",
+	};
+	unsigned int never_cache_field_idx =
+		i_rand_limit(N_ELEMENTS(potential_never_cache_fields));
+	const char *never_cache_fields =
+		potential_never_cache_fields[never_cache_field_idx];
 	struct test_mail_storage_settings set = {
 		.driver = "sdbox",
 		.extra_input = (const char *const[]) {
 			"mail_attachment_detection_options=add-flags",
+			t_strconcat("mail_never_cache_fields=",
+				    never_cache_fields, NULL),
 			NULL
 		},
 	};
@@ -294,6 +307,7 @@ static void test_mail_random_access(void)
 	test_begin("mail");
 	ctx = test_mail_storage_init();
 	test_mail_storage_init_user(ctx, &set);
+	e_debug(test_event, "mail_never_cache_fields=%s", never_cache_fields);
 	for (unsigned int i = 0; i < 20; i++) {
 		box = mailbox_alloc(ctx->user->namespaces->list, "INBOX", 0);
 		if (mailbox_open(box) < 0)
@@ -319,10 +333,71 @@ static void test_mail_random_access(void)
 	test_end();
 }
 
+static void test_attachment_flags_during_header_fetch(void)
+{
+	struct test_mail_storage_ctx *ctx;
+	struct test_mail_storage_settings set = {
+		.driver = "sdbox",
+		.extra_input = (const char *const[]) {
+			"mail_attachment_detection_options=add-flags",
+			"mail_never_cache_fields=mime.parts",
+			NULL
+		},
+	};
+
+	test_begin("mail attachment flags during header fetch");
+	ctx = test_mail_storage_init();
+	test_mail_storage_init_user(ctx, &set);
+
+	struct mailbox *box =
+		mailbox_alloc(ctx->user->namespaces->list, "INBOX", 0);
+	test_assert(mailbox_open(box) == 0);
+
+#define TEST_HDR_FROM "From: <test1@example.com>\r\n"
+	test_mail_save(box,
+		       TEST_HDR_FROM
+		       "\r\n"
+		       "test body\n");
+	/* Remove the $HasNoAttachment keyword */
+	test_mail_remove_keywords(box);
+
+	struct mailbox_transaction_context *trans =
+		mailbox_transaction_begin(box, 0, __func__);
+	struct mail *mail = mail_alloc(trans, 0, NULL);
+	mail_set_seq(mail, 1);
+
+	const char *from_headers[] = { "From", NULL };
+	struct mailbox_header_lookup_ctx *headers =
+		mailbox_header_lookup_init(box, from_headers);
+
+	struct istream *input;
+	const unsigned char *data;
+	size_t size;
+	test_assert(mail_get_header_stream(mail, headers, &input) == 0);
+	test_assert(i_stream_read_more(input, &data, &size) == 1);
+	/* TEST_HDR_FROM */
+	test_assert(size == strlen(TEST_HDR_FROM) &&
+		    memcmp(data, TEST_HDR_FROM, strlen(TEST_HDR_FROM)) == 0);
+	i_stream_skip(input, size);
+	test_assert(i_stream_read_more(input, &data, &size) == 1);
+	test_assert(size == 2 && memcmp(data, "\r\n", 2) == 0);
+	i_stream_skip(input, size);
+	test_assert(i_stream_read_more(input, &data, &size) == -1);
+
+	mailbox_header_lookup_unref(&headers);
+	mail_free(&mail);
+	test_assert(mailbox_transaction_commit(&trans) == 0);
+	mailbox_free(&box);
+	test_mail_storage_deinit_user(ctx);
+	test_mail_storage_deinit(&ctx);
+	test_end();
+}
+
 int main(int argc, char **argv)
 {
 	void (*const tests[])(void) = {
 		test_mail_random_access,
+		test_attachment_flags_during_header_fetch,
 		NULL
 	};
 	int ret;

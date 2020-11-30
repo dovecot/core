@@ -1412,11 +1412,18 @@ static int index_mail_parse_bodystructure(struct index_mail *mail,
 			/* we haven't parsed the header yet */
 			const char *reason =
 				index_mail_cache_reason(&mail->mail.mail, "bodystructure");
+			bool orig_bodystructure_header =
+				data->save_bodystructure_header;
+			bool orig_bodystructure_body =
+				data->save_bodystructure_body;
 			data->save_bodystructure_header = TRUE;
 			data->save_bodystructure_body = TRUE;
 			(void)get_cached_parts(mail);
 			if (index_mail_parse_headers(mail, NULL, reason) < 0) {
-				data->save_bodystructure_header = TRUE;
+				data->save_bodystructure_header =
+					orig_bodystructure_header;
+				data->save_bodystructure_body =
+					orig_bodystructure_body;
 				return -1;
 			}
 			i_assert(data->parser_ctx != NULL);
