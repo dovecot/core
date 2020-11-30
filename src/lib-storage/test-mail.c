@@ -393,11 +393,56 @@ static void test_attachment_flags_during_header_fetch(void)
 	test_end();
 }
 
+static void test_bodystructure_reparsing(void)
+{
+	struct test_mail_storage_ctx *ctx;
+	struct test_mail_storage_settings set = {
+		.driver = "sdbox",
+		.extra_input = (const char *const[]) {
+			"mail_attachment_detection_options=add-flags",
+			"mail_never_cache_fields=flags",
+			NULL
+		},
+	};
+	const char *value;
+
+	test_begin("mail bodystructure reparsing");
+	ctx = test_mail_storage_init();
+	test_mail_storage_init_user(ctx, &set);
+
+	struct mailbox *box =
+		mailbox_alloc(ctx->user->namespaces->list, "INBOX", 0);
+	test_assert(mailbox_open(box) == 0);
+
+	test_mail_save(box,
+		       "From: <test1@example.com>\r\n"
+		       "\r\n"
+		       "test body\n");
+
+	struct mailbox_transaction_context *trans =
+		mailbox_transaction_begin(box, 0, __func__);
+	struct mail *mail = mail_alloc(trans, MAIL_FETCH_IMAP_BODYSTRUCTURE, NULL);
+	mail_set_seq(mail, 1);
+
+	/* start parsing header */
+	test_assert(mail_get_first_header(mail, "From", &value) == 1);
+	/* fetching snippet triggers re-parsing the header */
+	test_assert(mail_get_special(mail, MAIL_FETCH_BODY_SNIPPET, &value) == 0);
+
+	mail_free(&mail);
+	test_assert(mailbox_transaction_commit(&trans) == 0);
+	mailbox_free(&box);
+	test_mail_storage_deinit_user(ctx);
+	test_mail_storage_deinit(&ctx);
+	test_end();
+}
+
 int main(int argc, char **argv)
 {
 	void (*const tests[])(void) = {
 		test_mail_random_access,
 		test_attachment_flags_during_header_fetch,
+		test_bodystructure_reparsing,
 		NULL
 	};
 	int ret;
