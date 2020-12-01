@@ -1234,11 +1234,11 @@ int http_client_request_send_more(struct http_client_request *req,
 	const char *error;
 	uoff_t offset;
 
-	i_assert(req->payload_input != NULL);
-	i_assert(req->payload_output != NULL);
-
 	if (req->payload_finished)
 		return http_client_request_finish_payload_out(req);
+
+	i_assert(req->payload_input != NULL);
+	i_assert(req->payload_output != NULL);
 
 	io_remove(&conn->io_req_payload);
 
