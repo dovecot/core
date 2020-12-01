@@ -8,6 +8,7 @@
 #include "doveadm-print.h"
 #include "doveadm-mail.h"
 #include "doveadm-mailbox-list-iter.h"
+#include "imap-metadata.h"
 
 struct metadata_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
@@ -17,6 +18,7 @@ struct metadata_cmd_context {
 	struct mail_attribute_value value;
 	bool empty_mailbox_name;
 	bool allow_empty_mailbox_name;
+	bool prepend_prefix;
 };
 
 static int
@@ -153,6 +155,9 @@ cmd_mailbox_metadata_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case 's':
 		ctx->allow_empty_mailbox_name = TRUE;
 		break;
+	case 'p':
+		ctx->prepend_prefix = TRUE;
+		break;
 	default:
 		return FALSE;
 	}
@@ -270,10 +275,24 @@ cmd_mailbox_metadata_list_run_iter(struct metadata_cmd_context *ctx,
 {
 	struct mailbox_attribute_iter *iter;
 	const char *key;
+	string_t *outp = t_str_new(64);
 
 	iter = mailbox_attribute_iter_init(box, type, ctx->key);
-	while ((key = mailbox_attribute_iter_next(iter)) != NULL)
-		doveadm_print(key);
+	while ((key = mailbox_attribute_iter_next(iter)) != NULL) {
+		if (ctx->prepend_prefix) {
+			if (type == MAIL_ATTRIBUTE_TYPE_PRIVATE)
+				str_append(outp, IMAP_METADATA_PRIVATE_PREFIX"/");
+			else if (type == MAIL_ATTRIBUTE_TYPE_SHARED)
+				str_append(outp, IMAP_METADATA_SHARED_PREFIX"/");
+			else
+				i_unreached();
+			str_append(outp, key);
+			doveadm_print(str_c(outp));
+			str_truncate(outp, 0);
+		} else {
+			doveadm_print(key);
+		}
+	}
 	if (mailbox_attribute_iter_deinit(&iter) < 0) {
 		i_error("Mailbox %s: Failed to iterate mailbox attributes: %s",
 			mailbox_get_vname(box),
@@ -382,10 +401,11 @@ DOVEADM_CMD_PARAMS_END
 struct doveadm_cmd_ver2 doveadm_cmd_mailbox_metadata_list_ver2 = {
 	.name = "mailbox metadata list",
 	.mail_cmd = cmd_mailbox_metadata_list_alloc,
-	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[-s] <mailbox> [<key prefix>]",
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[-s] [-p] <mailbox> [<key prefix>]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('s', "allow-empty-mailbox-name", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('p', "prepend-prefix", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "key-prefix", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
