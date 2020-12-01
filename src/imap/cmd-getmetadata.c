@@ -1,6 +1,7 @@
 /* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "imap-common.h"
+#include "mail-storage-private.h"
 #include "str.h"
 #include "istream.h"
 #include "istream-sized.h"
@@ -436,8 +437,16 @@ cmd_getmetadata_try_mailbox(struct imap_getmetadata_context *ctx,
 	ctx->box = mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_READONLY);
 	event_add_str(ctx->cmd->event, "mailbox", mailbox_get_vname(ctx->box));
 	mailbox_set_reason(ctx->box, "GETMETADATA");
-	if (mailbox_open(ctx->box) < 0)
+
+	enum mailbox_existence existence;
+	if (mailbox_exists(ctx->box, TRUE, &existence) < 0) {
 		return -1;
+	} else if (existence == MAILBOX_EXISTENCE_NONE) {
+		const char *err = t_strdup_printf(MAIL_ERRSTR_MAILBOX_NOT_FOUND,
+						  mailbox_get_vname(ctx->box));
+		mail_storage_set_error(ctx->box->storage, MAIL_ERROR_NOTFOUND, err);
+		return -1;
+	}
 
 	ctx->trans = imap_metadata_transaction_begin(ctx->box);
 	return cmd_getmetadata_start(ctx) ? 1 : 0;
