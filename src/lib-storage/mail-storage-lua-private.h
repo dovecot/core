@@ -13,6 +13,7 @@ struct lua_storage_keyvalue {
 ARRAY_DEFINE_TYPE(lua_storage_keyvalue, struct lua_storage_keyvalue);
 
 void lua_storage_mail_register(struct dlua_script *script);
+void lua_storage_mail_user_register(struct dlua_script *script);
 void lua_storage_mailbox_register(struct dlua_script *script);
 
 int lua_storage_cmp(struct dlua_script *script);

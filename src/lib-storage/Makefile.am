@@ -139,6 +139,7 @@ if HAVE_LUA
 pkglib_LTLIBRARIES += libdovecot-storage-lua.la
 libdovecot_storage_lua_la_SOURCES = \
 	mail-lua.c \
+	mail-user-lua.c \
 	mail-storage-lua.c \
 	mailbox-lua.c \
 	mailbox-attribute-lua.c
