@@ -10,6 +10,18 @@
 #include "doveadm-mailbox-list-iter.h"
 #include "imap-metadata.h"
 
+enum doveadm_metadata_op {
+	DOVEADM_METADATA_OP_SET = 0,
+	DOVEADM_METADATA_OP_GET,
+	DOVEADM_METADATA_OP_LIST,
+};
+
+const char *doveadm_metadata_op_names[] = {
+	"set attribute",
+	"get attribute",
+	"list attribute",
+};
+
 struct metadata_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 	const char *mailbox;
@@ -22,9 +34,9 @@ struct metadata_cmd_context {
 };
 
 static int
-cmd_mailbox_metadata_open_mailbox(struct metadata_cmd_context *mctx,
+cmd_mailbox_metadata_get_mailbox(struct metadata_cmd_context *mctx,
 				  struct mail_user *user,
-				  const char *op,
+				  enum doveadm_metadata_op op,
 				  struct mail_namespace **ns_r,
 				  struct mailbox **box_r)
 {
@@ -32,7 +44,8 @@ cmd_mailbox_metadata_open_mailbox(struct metadata_cmd_context *mctx,
 
 	if (mctx->empty_mailbox_name) {
 		if (!mctx->allow_empty_mailbox_name) {
-			i_error("Failed to %s: %s", op,
+			const char *op_str = doveadm_metadata_op_names[op];
+			i_error("Failed to %s: %s", op_str,
 				"mailbox name cannot be empty");
 			mctx->ctx.exit_code = EX_USAGE;
 			return -1;
@@ -55,9 +68,10 @@ cmd_mailbox_metadata_open_mailbox(struct metadata_cmd_context *mctx,
 	}
 	mailbox_set_reason(*box_r, mctx->ctx.cmd->name);
 
-	if (mailbox_open(*box_r) < 0) {
+	if (op == DOVEADM_METADATA_OP_SET &&
+	    mailbox_open(*box_r) < 0) {
 		i_error("Failed to open mailbox: %s",
-			mailbox_get_last_internal_error(*box_r, NULL));
+		        mailbox_get_last_internal_error(*box_r, NULL));
 		doveadm_mail_failed_mailbox(&mctx->ctx, *box_r);
 		mailbox_free(box_r);
 		return -1;
@@ -76,7 +90,7 @@ cmd_mailbox_metadata_set_run(struct doveadm_mail_cmd_context *_ctx,
 	struct mailbox_transaction_context *trans;
 	int ret;
 
-	ret = cmd_mailbox_metadata_open_mailbox(ctx, user, "set attribute",
+	ret = cmd_mailbox_metadata_get_mailbox(ctx, user, DOVEADM_METADATA_OP_SET,
 						&ns, &box);
 	if (ret != 0)
 		return ret;
@@ -211,7 +225,7 @@ cmd_mailbox_metadata_get_run(struct doveadm_mail_cmd_context *_ctx,
 	struct mail_attribute_value value;
 	int ret;
 
-	ret = cmd_mailbox_metadata_open_mailbox(ctx, user, "get attribute",
+	ret = cmd_mailbox_metadata_get_mailbox(ctx, user, DOVEADM_METADATA_OP_GET,
 						&ns, &box);
 	if (ret != 0)
 		return ret;
@@ -311,7 +325,7 @@ cmd_mailbox_metadata_list_run(struct doveadm_mail_cmd_context *_ctx,
 	struct mailbox *box;
 	int ret = 0;
 
-	ret = cmd_mailbox_metadata_open_mailbox(ctx, user, "list attributes",
+	ret = cmd_mailbox_metadata_get_mailbox(ctx, user, DOVEADM_METADATA_OP_LIST,
 						&ns, &box);
 	if (ret != 0)
 		return ret;
