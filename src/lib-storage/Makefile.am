@@ -138,6 +138,7 @@ libdovecot_storage_la_LDFLAGS = -export-dynamic
 if HAVE_LUA
 pkglib_LTLIBRARIES += libdovecot-storage-lua.la
 libdovecot_storage_lua_la_SOURCES = \
+	mail-lua.c \
 	mail-storage-lua.c
 libdovecot_storage_lua_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
@@ -152,7 +153,8 @@ libdovecot_storage_lua_la_DEPENDENCIES = \
 libdovecot_storage_lua_la_LDFLAGS = -export-dynamic
 
 headers += \
-	mail-storage-lua.h
+	mail-storage-lua.h \
+	mail-storage-lua-private.h
 endif
 
 test_programs = \
