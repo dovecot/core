@@ -140,7 +140,8 @@ pkglib_LTLIBRARIES += libdovecot-storage-lua.la
 libdovecot_storage_lua_la_SOURCES = \
 	mail-lua.c \
 	mail-storage-lua.c \
-	mailbox-lua.c
+	mailbox-lua.c \
+	mailbox-attribute-lua.c
 libdovecot_storage_lua_la_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	$(LUA_CFLAGS) \
