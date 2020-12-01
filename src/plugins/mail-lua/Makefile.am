@@ -13,16 +13,14 @@ module_LTLIBRARIES = \
 
 lib01_mail_lua_plugin_la_LDFLAGS = -module -avoid-version $(LUA_LIBS)
 lib01_mail_lua_plugin_la_LIBADD = \
-	../../lib-lua/libdovecot-lua.la \
+	../../lib-storage/libdovecot-storage-lua.la \
 	$(LIBDOVECOT)
 lib01_mail_lua_plugin_la_SOURCES = \
-	mail-lua-plugin.c \
-	mail-storage-lua.c
+	mail-lua-plugin.c
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = \
-	mail-lua-plugin.h \
-	mail-storage-lua.h
+	mail-lua-plugin.h
 
 test_programs =
 

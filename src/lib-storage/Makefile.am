@@ -135,6 +135,26 @@ libdovecot_storage_la_DEPENDENCIES = \
 	$(LIBDOVECOT_DEPS)
 libdovecot_storage_la_LDFLAGS = -export-dynamic
 
+if HAVE_LUA
+pkglib_LTLIBRARIES += libdovecot-storage-lua.la
+libdovecot_storage_lua_la_SOURCES = \
+	mail-storage-lua.c
+libdovecot_storage_lua_la_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	$(LUA_CFLAGS) \
+	-I$(top_srcdir)/src/lib-lua
+libdovecot_storage_lua_la_LIBADD = \
+	libdovecot-storage.la \
+	../lib-lua/libdovecot-lua.la
+libdovecot_storage_lua_la_DEPENDENCIES = \
+	libdovecot-storage.la \
+	../lib-lua/libdovecot-lua.la
+libdovecot_storage_lua_la_LDFLAGS = -export-dynamic
+
+headers += \
+	mail-storage-lua.h
+endif
+
 test_programs = \
 	test-mail-search-args-imap \
 	test-mail-search-args-simplify \
