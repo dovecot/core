@@ -45,6 +45,11 @@
 #define SHA256_F3(x) (ROTR(x,  7) ^ ROTR(x, 18) ^ SHFR(x,  3))
 #define SHA256_F4(x) (ROTR(x, 17) ^ ROTR(x, 19) ^ SHFR(x, 10))
 
+#define SHA384_F1(x) (ROTR(x, 28) ^ ROTR(x, 34) ^ ROTR(x, 39))
+#define SHA384_F2(x) (ROTR(x, 14) ^ ROTR(x, 18) ^ ROTR(x, 41))
+#define SHA384_F3(x) (ROTR(x,  1) ^ ROTR(x,  8) ^ SHFR(x,  7))
+#define SHA384_F4(x) (ROTR(x, 19) ^ ROTR(x, 61) ^ SHFR(x,  6))
+
 #define SHA512_F1(x) (ROTR(x, 28) ^ ROTR(x, 34) ^ ROTR(x, 39))
 #define SHA512_F2(x) (ROTR(x, 14) ^ ROTR(x, 18) ^ ROTR(x, 41))
 #define SHA512_F3(x) (ROTR(x,  1) ^ ROTR(x,  8) ^ SHFR(x,  7))
@@ -96,6 +101,12 @@
 	  + SHA256_F3(w[i - 15]) + w[i - 16]; \
 }
 
+#define SHA384_SCR(i)			 \
+{					    \
+    w[i] =  SHA512_F4(w[i -  2]) + w[i -  7]  \
+	  + SHA512_F3(w[i - 15]) + w[i - 16]; \
+}
+
 #define SHA512_SCR(i)			 \
 {					     \
     w[i] =  SHA512_F4(w[i -  2]) + w[i -  7]  \
@@ -105,6 +116,12 @@
 static const uint32_t sha256_h0[8] =
 	    {0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
 	     0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
+
+static const uint64_t sha384_h0[8] =
+	    {0xcbbb9d5dc1059ed8ULL, 0x629a292a367cd507ULL,
+	     0x9159015a3070dd17ULL, 0x152fecd8f70e5939ULL,
+	     0x67332667ffc00b31ULL, 0x8eb44a8768581511ULL,
+	     0xdb0c2e0d64f98fa7ULL, 0x47b5481dbefa4fa4ULL};
 
 static const uint64_t sha512_h0[8] =
 	    {0x6a09e667f3bcc908ULL, 0xbb67ae8584caa73bULL,
@@ -300,6 +317,134 @@ void sha256_get_digest(const void *data, size_t size,
 	sha256_result(&ctx, digest);
 }
 
+/* SHA-384 functions */
+
+static void ATTR_UNSIGNED_WRAPS
+sha384_transf(struct sha384_ctx *ctx, const unsigned char *data,
+	      size_t block_nb)
+{
+	uint64_t w[80];
+	uint64_t wv[8];
+	uint64_t t1, t2;
+	const unsigned char *sub_block;
+	int i, j;
+
+	for (i = 0; i < (int) block_nb; i++) {
+		sub_block = data + (i << 7);
+
+		for (j = 0; j < 16; j++) {
+			PACK64(&sub_block[j << 3], &w[j]);
+		}
+
+		for (j = 16; j < 80; j++) {
+			SHA384_SCR(j);
+		}
+
+		for (j = 0; j < 8; j++) {
+			wv[j] = ctx->h[j];
+		}
+
+		for (j = 0; j < 80; j++) {
+			/* sha384_k is same as sha512_k */
+			t1 = wv[7] + SHA384_F2(wv[4]) + CH(wv[4], wv[5], wv[6])
+				+ sha512_k[j] + w[j];
+			t2 = SHA384_F1(wv[0]) + MAJ(wv[0], wv[1], wv[2]);
+			wv[7] = wv[6];
+			wv[6] = wv[5];
+			wv[5] = wv[4];
+			wv[4] = wv[3] + t1;
+			wv[3] = wv[2];
+			wv[2] = wv[1];
+			wv[1] = wv[0];
+			wv[0] = t1 + t2;
+		}
+
+		for (j = 0; j < 8; j++) {
+			ctx->h[j] += wv[j];
+		}
+	}
+}
+
+void sha384_init(struct sha384_ctx *ctx)
+{
+	int i;
+
+	for (i = 0; i < 8; i++) {
+		ctx->h[i] = sha384_h0[i];
+	}
+
+	ctx->len = 0;
+	ctx->tot_len = 0;
+}
+
+void sha384_loop(struct sha384_ctx *ctx, const void *data,
+		 size_t len)
+{
+	const unsigned char *shifted_message;
+	size_t block_nb;
+	size_t new_len, rem_len, tmp_len;
+
+	tmp_len = SHA384_BLOCK_SIZE - ctx->len;
+	rem_len = len < tmp_len ? len : tmp_len;
+
+	memcpy(&ctx->block[ctx->len], data, rem_len);
+
+	if (ctx->len + len < SHA384_BLOCK_SIZE) {
+		ctx->len += len;
+		return;
+	}
+
+	new_len = len - rem_len;
+	block_nb = new_len / SHA384_BLOCK_SIZE;
+
+	shifted_message = CONST_PTR_OFFSET(data, rem_len);
+
+	sha384_transf(ctx, ctx->block, 1);
+	sha384_transf(ctx, shifted_message, block_nb);
+
+	rem_len = new_len % SHA384_BLOCK_SIZE;
+	memcpy(ctx->block, &shifted_message[block_nb << 7], rem_len);
+
+	ctx->len = rem_len;
+	ctx->tot_len += (block_nb + 1) << 7;
+}
+
+void sha384_result(struct sha384_ctx *ctx,
+		   unsigned char digest[STATIC_ARRAY SHA384_RESULTLEN])
+{
+	unsigned int block_nb;
+	unsigned int pm_len;
+	size_t len_b;
+	int i;
+
+	block_nb = 1 + ((SHA384_BLOCK_SIZE - 17)
+			< (ctx->len % SHA384_BLOCK_SIZE));
+
+	len_b = (ctx->tot_len + ctx->len) << 3;
+	pm_len = block_nb << 7;
+
+	memset(ctx->block + ctx->len, 0, pm_len - ctx->len);
+	ctx->block[ctx->len] = 0x80;
+	UNPACK32(len_b, ctx->block + pm_len - 4);
+
+	sha384_transf(ctx, ctx->block, block_nb);
+
+	for (i = 0 ; i < 6; i++) {
+		UNPACK64(ctx->h[i], &digest[i << 3]);
+	}
+}
+
+void sha384_get_digest(const void *data, size_t size,
+		       unsigned char digest[STATIC_ARRAY SHA384_RESULTLEN])
+{
+	struct sha384_ctx ctx;
+
+	sha384_init(&ctx);
+	sha384_loop(&ctx, data, size);
+	sha384_result(&ctx, digest);
+}
+
+
 /* SHA-512 functions */
 
 static void ATTR_UNSIGNED_WRAPS
@@ -449,6 +594,31 @@ const struct hash_method hash_method_sha256 = {
 	.init = hash_method_init_sha256,
 	.loop = hash_method_loop_sha256,
 	.result = hash_method_result_sha256,
+};
+
+static void hash_method_init_sha384(void *context)
+{
+	sha384_init(context);
+}
+static void hash_method_loop_sha384(void *context, const void *data, size_t size)
+{
+	sha384_loop(context, data, size);
+}
+
+static void hash_method_result_sha384(void *context, unsigned char *result_r)
+{
+	sha384_result(context, result_r);
+}
+
+const struct hash_method hash_method_sha384 = {
+	.name = "sha384",
+	.block_size = SHA384_BLOCK_SIZE,
+	.context_size = sizeof(struct sha384_ctx),
+	.digest_size = SHA384_RESULTLEN,
+
+	.init = hash_method_init_sha384,
+	.loop = hash_method_loop_sha384,
+	.result = hash_method_result_sha384,
 };
 
 static void hash_method_init_sha512(void *context)

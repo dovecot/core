@@ -89,6 +89,7 @@ const struct hash_method *hash_methods[] = {
 	&hash_method_md5,
 	&hash_method_sha1,
 	&hash_method_sha256,
+	&hash_method_sha384,
 	&hash_method_sha512,
 	&hash_method_sha3_256,
 	&hash_method_sha3_512,
