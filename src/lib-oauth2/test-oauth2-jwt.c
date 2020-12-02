@@ -469,11 +469,11 @@ static void test_jwt_dates(void)
 	test_jwt_token(str_c(tokenbuf));
 
 	str_truncate(tokenbuf, 0);
-        base64url_encode_str("{\"alg\":\"HS256\",\"typ\":\"JWT\"}", tokenbuf);
+	base64url_encode_str("{\"alg\":\"HS256\",\"typ\":\"JWT\"}", tokenbuf);
 	str_append_c(tokenbuf, '.');
 	base64url_encode_str(t_strdup_printf("{\"sub\":\"testuser\","
 					     "\"exp\":%"PRIdTIME_T","
-				             "\"nbf\":0,\"iat\":%"PRIdTIME_T"}",
+					     "\"nbf\":0,\"iat\":%"PRIdTIME_T"}",
 					     exp, iat),
 			     tokenbuf);
 	sign_jwt_token_hs256(tokenbuf, hs_sign_key);
