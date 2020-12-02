@@ -166,6 +166,7 @@ decode_test(const char *qp_input, const char *output, int stream_errno,
 			test_assert_strcmp(str_c(str), expected_output);
 		}
 		test_assert(input->eof);
+		i_stream_unref(&input_data_limited);
 	}
 
 	i_stream_unref(&input);
