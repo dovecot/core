@@ -5,6 +5,8 @@
 
 struct hash_method {
 	const char *name;
+	/* Block size for the algorithm */
+	unsigned int block_size;
 	/* Number of bytes that must be allocated for context */
 	unsigned int context_size;
 	/* Number of bytes that must be allocated for result()'s digest */

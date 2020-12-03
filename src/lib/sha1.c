@@ -278,6 +278,7 @@ static void hash_method_result_sha1(void *context, unsigned char *result_r)
 
 const struct hash_method hash_method_sha1 = {
 	.name = "sha1",
+	.block_size = 64, /* block size is 512 bits */
 	.context_size = sizeof(struct sha1_ctxt),
 	.digest_size = SHA1_RESULTLEN,
 

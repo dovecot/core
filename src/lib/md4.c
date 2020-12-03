@@ -290,6 +290,7 @@ static void hash_method_result_md4(void *context, unsigned char *result_r)
 
 const struct hash_method hash_method_md4 = {
 	.name = "md4",
+	.block_size = 64, /* block size is 512 bits */
 	.context_size = sizeof(struct md4_context),
 	.digest_size = MD4_RESULTLEN,
 

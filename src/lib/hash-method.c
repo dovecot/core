@@ -75,6 +75,7 @@ buffer_t *t_hash_data(const struct hash_method *meth,
 
 static const struct hash_method hash_method_size = {
 	.name = "size",
+	.block_size = 1,
 	.context_size = sizeof(uint64_t),
 	.digest_size = sizeof(uint64_t),
 

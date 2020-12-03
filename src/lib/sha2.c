@@ -442,6 +442,7 @@ static void hash_method_result_sha256(void *context, unsigned char *result_r)
 
 const struct hash_method hash_method_sha256 = {
 	.name = "sha256",
+	.block_size = SHA256_BLOCK_SIZE,
 	.context_size = sizeof(struct sha256_ctx),
 	.digest_size = SHA256_RESULTLEN,
 
@@ -466,6 +467,7 @@ static void hash_method_result_sha512(void *context, unsigned char *result_r)
 
 const struct hash_method hash_method_sha512 = {
 	.name = "sha512",
+	.block_size = SHA512_BLOCK_SIZE,
 	.context_size = sizeof(struct sha512_ctx),
 	.digest_size = SHA512_RESULTLEN,
 

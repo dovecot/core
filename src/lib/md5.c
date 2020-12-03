@@ -304,6 +304,7 @@ static void hash_method_result_md5(void *context, unsigned char *result_r)
 
 const struct hash_method hash_method_md5 = {
 	.name = "md5",
+	.block_size = 64, /* block size is 512 bits */
 	.context_size = sizeof(struct md5_context),
 	.digest_size = MD5_RESULTLEN,
 
