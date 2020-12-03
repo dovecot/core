@@ -243,14 +243,56 @@ static void sign_jwt_token_hs256(buffer_t *tokenbuf, buffer_t *key)
 			 sig->data, sig->used, tokenbuf);
 }
 
+static void sign_jwt_token_hs384(buffer_t *tokenbuf, buffer_t *key)
+{
+	i_assert(key != NULL);
+	buffer_t *sig = t_hmac_buffer(&hash_method_sha384, key->data, key->used,
+				      tokenbuf);
+	buffer_append(tokenbuf, ".", 1);
+	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, SIZE_MAX,
+			 sig->data, sig->used, tokenbuf);
+}
+
+static void sign_jwt_token_hs512(buffer_t *tokenbuf, buffer_t *key)
+{
+	i_assert(key != NULL);
+	buffer_t *sig = t_hmac_buffer(&hash_method_sha512, key->data, key->used,
+				      tokenbuf);
+	buffer_append(tokenbuf, ".", 1);
+	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, SIZE_MAX,
+			 sig->data, sig->used, tokenbuf);
+}
+
 static void test_jwt_hs_token(void)
 {
 	test_begin("JWT HMAC token");
 
+	buffer_t *sign_key_384 = t_buffer_create(384/8);
+	void *ptr = buffer_append_space_unsafe(sign_key_384, 384/8);
+	random_fill(ptr, 384/8);
+	buffer_t *b64_key = t_base64_encode(0, SIZE_MAX,
+					    sign_key_384->data,
+					    sign_key_384->used);
+	save_key_to("HS384", "default", str_c(b64_key));
+	buffer_t *sign_key_512 = t_buffer_create(512/8);
+	ptr = buffer_append_space_unsafe(sign_key_512, 512/8);
+	random_fill(ptr, 512/8);
+	b64_key = t_base64_encode(0, SIZE_MAX,
+				  sign_key_512->data,
+				  sign_key_512->used);
+	save_key_to("HS512", "default", str_c(b64_key));
 	/* make a token */
 	buffer_t *tokenbuf = create_jwt_token("HS256");
 	/* sign it */
 	sign_jwt_token_hs256(tokenbuf, hs_sign_key);
+	test_jwt_token(str_c(tokenbuf));
+
+	tokenbuf = create_jwt_token("HS384");
+	sign_jwt_token_hs384(tokenbuf, sign_key_384);
+	test_jwt_token(str_c(tokenbuf));
+
+	tokenbuf = create_jwt_token("HS512");
+	sign_jwt_token_hs512(tokenbuf, sign_key_512);
 	test_jwt_token(str_c(tokenbuf));
 
 	test_end();
