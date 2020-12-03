@@ -303,11 +303,11 @@ static void hash_method_result_md5(void *context, unsigned char *result_r)
 }
 
 const struct hash_method hash_method_md5 = {
-	"md5",
-	sizeof(struct md5_context),
-	MD5_RESULTLEN,
+	.name = "md5",
+	.context_size = sizeof(struct md5_context),
+	.digest_size = MD5_RESULTLEN,
 
-	hash_method_init_md5,
-	hash_method_loop_md5,
-	hash_method_result_md5
+	.init = hash_method_init_md5,
+	.loop = hash_method_loop_md5,
+	.result = hash_method_result_md5,
 };

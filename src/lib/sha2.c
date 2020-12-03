@@ -441,13 +441,13 @@ static void hash_method_result_sha256(void *context, unsigned char *result_r)
 }
 
 const struct hash_method hash_method_sha256 = {
-	"sha256",
-	sizeof(struct sha256_ctx),
-	SHA256_RESULTLEN,
+	.name = "sha256",
+	.context_size = sizeof(struct sha256_ctx),
+	.digest_size = SHA256_RESULTLEN,
 
-	hash_method_init_sha256,
-	hash_method_loop_sha256,
-	hash_method_result_sha256
+	.init = hash_method_init_sha256,
+	.loop = hash_method_loop_sha256,
+	.result = hash_method_result_sha256,
 };
 
 static void hash_method_init_sha512(void *context)
@@ -465,11 +465,11 @@ static void hash_method_result_sha512(void *context, unsigned char *result_r)
 }
 
 const struct hash_method hash_method_sha512 = {
-	"sha512",
-	sizeof(struct sha512_ctx),
-	SHA512_RESULTLEN,
+	.name = "sha512",
+	.context_size = sizeof(struct sha512_ctx),
+	.digest_size = SHA512_RESULTLEN,
 
-	hash_method_init_sha512,
-	hash_method_loop_sha512,
-	hash_method_result_sha512
+	.init = hash_method_init_sha512,
+	.loop = hash_method_loop_sha512,
+	.result = hash_method_result_sha512,
 };

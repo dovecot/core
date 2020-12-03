@@ -277,11 +277,11 @@ static void hash_method_result_sha1(void *context, unsigned char *result_r)
 }
 
 const struct hash_method hash_method_sha1 = {
-	"sha1",
-	sizeof(struct sha1_ctxt),
-	SHA1_RESULTLEN,
+	.name = "sha1",
+	.context_size = sizeof(struct sha1_ctxt),
+	.digest_size = SHA1_RESULTLEN,
 
-	hash_method_init_sha1,
-	hash_method_loop_sha1,
-	hash_method_result_sha1
+	.init = hash_method_init_sha1,
+	.loop = hash_method_loop_sha1,
+	.result = hash_method_result_sha1,
 };
