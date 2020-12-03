@@ -12,6 +12,18 @@ if LDAP_PLUGIN
 LDAP_LIB = libauthdb_ldap.la
 endif
 
+if HAVE_LUA
+LIBDOVECOT_LUA = ../lib-lua/libdovecot-lua.la
+if AUTH_LUA_PLUGIN
+LUA_LIB = libauthdb_lua.la
+AUTH_LUA_LIBS = # nothing, lua db is a plugin
+else
+LUA_LIB = # nothing, not building a plugin
+AUTH_LUA_LIBS = libauthdb_lua.la $(LIBDOVECOT_LUA)
+AUTH_LUA_LDADD = $(LUA_LIBS)
+endif
+endif
+
 auth_module_LTLIBRARIES = \
 	$(GSSAPI_LIB) \
 	$(LDAP_LIB) \
@@ -59,24 +71,16 @@ libpassword_la_SOURCES = \
 	password-scheme-sodium.c
 libpassword_la_CFLAGS = $(AM_CPPFLAGS) $(LIBSODIUM_CFLAGS)
 
-if HAVE_LUA
-if AUTH_LUA_PLUGIN
-LUA_LIB = libauthdb_lua.la
-else !AUTH_LUA_PLUGIN
-LIBDOVECOT_LUA = ../lib-lua/libdovecot-lua.la
-endif !AUTH_LUA_PLUGIN
-endif
-
 auth_libs = \
 	libauth.la \
 	libstats_auth.la \
 	libpassword.la \
 	../lib-otp/libotp.la \
-	$(LIBDOVECOT_LUA) \
+	$(AUTH_LUA_LIBS) \
 	$(LIBDOVECOT_SQL)
 
 auth_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
-auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS) $(BINARY_LDFLAGS)
+auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS) $(BINARY_LDFLAGS) $(AUTH_LUA_LDADD)
 auth_DEPENDENCIES = $(auth_libs) $(LIBDOVECOT_DEPS)
 auth_SOURCES = main.c
 
@@ -206,7 +210,7 @@ endif
 
 if AUTH_LUA_PLUGIN
 libauthdb_lua_la_LDFLAGS = -module -avoid-version
-libauthdb_lua_la_LIBADD = ../lib-lua/libdovecot-lua.la $(LUA_LIBS)
+libauthdb_lua_la_LIBADD = ../lib-lua/libdovecot-lua.la
 libauthdb_lua_la_CPPFLAGS = $(AM_CPPFLAGS) -DPLUGIN_BUILD
 libauthdb_lua_la_SOURCES = $(lua_sources)
 endif
@@ -280,14 +284,14 @@ test_auth_SOURCES = \
 	test-mock.c \
 	test-main.c
 
-test_auth_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS)
+test_auth_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
 test_auth_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 test_mech_SOURCES = \
 	test-mock.c \
 	test-mech.c
 
-test_mech_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS)
+test_mech_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
 test_mech_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 check-local:

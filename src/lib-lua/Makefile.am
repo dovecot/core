@@ -1,16 +1,17 @@
-noinst_LTLIBRARIES = libdovecot-lua.la
-
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
 	$(LUA_CFLAGS)
 
+pkglib_LTLIBRARIES = libdovecot-lua.la
 libdovecot_lua_la_SOURCES = \
 	dlua-script.c \
 	dlua-dovecot.c \
 	dlua-compat.c
+# Note: the only things this lib should depend on are libdovecot and lua.
 libdovecot_lua_la_DEPENDENCIES = ../lib-dovecot/libdovecot.la
 libdovecot_lua_la_LIBADD = ../lib-dovecot/libdovecot.la $(LUA_LIBS)
+libdovecot_lua_la_LDFLAGS = -export-dynamic
 
 headers = \
 	dlua-script.h \
@@ -30,7 +31,7 @@ test_libs =\
 test_lua_SOURCES = test-lua.c
 test_lua_CFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
 test_lua_LDFLAGS = $(BINARY_LDFLAGS)
-test_lua_LDADD = $(test_libs)
+test_lua_LDADD = $(test_libs) $(LUA_LIBS)
 test_lua_DEPENDENCIES = $(test_libs)
 
 check-local:
