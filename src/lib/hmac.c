@@ -18,16 +18,16 @@ void hmac_init(struct hmac_context *_ctx, const unsigned char *key,
 		size_t key_len, const struct hash_method *meth)
 {
 	struct hmac_context_priv *ctx = &_ctx->u.priv;
-	int i;
-	unsigned char k_ipad[64];
-	unsigned char k_opad[64];
+	unsigned int i;
+	unsigned char k_ipad[meth->block_size];
+	unsigned char k_opad[meth->block_size];
 	unsigned char hashedkey[meth->digest_size];
 
 	i_assert(meth->context_size <= HMAC_MAX_CONTEXT_SIZE);
 
 	ctx->hash = meth;
 
-	if (key_len > 64) {
+	if (key_len > meth->block_size) {
 		meth->init(ctx->ctx);
 		meth->loop(ctx->ctx, key, key_len);
 		meth->result(ctx->ctx, hashedkey);
@@ -36,21 +36,21 @@ void hmac_init(struct hmac_context *_ctx, const unsigned char *key,
 	}
 
 	memcpy(k_ipad, key, key_len);
-	memset(k_ipad + key_len, 0, 64 - key_len);
-	memcpy(k_opad, k_ipad, 64);
+	memset(k_ipad + key_len, 0, meth->block_size - key_len);
+	memcpy(k_opad, k_ipad, meth->block_size);
 
-	for (i = 0; i < 64; i++) {
+	for (i = 0; i < meth->block_size; i++) {
 		k_ipad[i] ^= 0x36;
 		k_opad[i] ^= 0x5c;
 	}
 
 	meth->init(ctx->ctx);
-	meth->loop(ctx->ctx, k_ipad, 64);
+	meth->loop(ctx->ctx, k_ipad, meth->block_size);
 	meth->init(ctx->ctxo);
-	meth->loop(ctx->ctxo, k_opad, 64);
+	meth->loop(ctx->ctxo, k_opad, meth->block_size);
 
-	safe_memset(k_ipad, 0, 64);
-	safe_memset(k_opad, 0, 64);
+	safe_memset(k_ipad, 0, meth->block_size);
+	safe_memset(k_opad, 0, meth->block_size);
 }
 
 void hmac_final(struct hmac_context *_ctx, unsigned char *digest)
