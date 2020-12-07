@@ -999,6 +999,8 @@ i_stream_create_decrypt_common(struct istream *input)
 {
 	struct decrypt_istream *dstream;
 
+	i_assert(input->real_stream->max_buffer_size > 0);
+
 	dstream = i_new(struct decrypt_istream, 1);
 	dstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	dstream->istream.read = i_stream_decrypt_read;
