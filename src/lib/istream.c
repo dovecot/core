@@ -1224,6 +1224,10 @@ struct istream *i_stream_create_error(int stream_errno)
 	stream->istream.seekable = TRUE;
 	stream->istream.eof = TRUE;
 	stream->istream.stream_errno = stream_errno;
+	/* Nothing can ever actually be read from this stream, but set a
+	   reasonable max_buffer_size anyway since some filter istreams don't
+	   behave properly otherwise. */
+	stream->max_buffer_size = IO_BLOCK_SIZE;
 	i_stream_create(stream, NULL, -1, 0);
 	i_stream_set_name(&stream->istream, "(error)");
 	return &stream->istream;
