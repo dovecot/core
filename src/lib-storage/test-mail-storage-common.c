@@ -57,8 +57,6 @@ void test_mail_storage_deinit(struct test_mail_storage_ctx **_ctx)
 	io_loop_destroy(&ctx->ioloop);
 
 	pool_unref(&ctx->pool);
-
-	i_zero(ctx);
 }
 
 void test_mail_storage_init_user(struct test_mail_storage_ctx *ctx,
