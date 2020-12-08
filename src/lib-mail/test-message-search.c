@@ -437,6 +437,7 @@ TEST_CASE_PLAIN_PREAMBLE
 				compare_search_result(tc, &decoded_block, i);
 			}
 		}
+		test_assert(ret == -1);
 		test_assert_idx(tc->expect_found == found, i);
 		message_parser_deinit(&pctx, &parts);
 		test_assert(is->stream_errno == 0);
