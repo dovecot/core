@@ -267,6 +267,7 @@ static void test_message_decoder_content_transfer_encoding(void)
 			str_append_data(str_out, output.data, output.size);
 	}
 
+	test_assert(ret == -1);
 	test_assert_strcmp(test_message_output, str_c(str_out));
 	message_decoder_deinit(&decoder);
 	message_parser_deinit(&parser, &parts);
@@ -360,6 +361,7 @@ static void test_message_decoder_invalid_content_transfer_encoding(void)
 			str_append_data(str_out, output.data, output.size);
 	}
 
+	test_assert(ret == -1);
 	test_assert_strcmp(test_message_output, str_c(str_out));
 	message_decoder_deinit(&decoder);
 	message_parser_deinit(&parser, &parts);
@@ -485,6 +487,7 @@ UNICODE_REPLACEMENT_CHAR_UTF8;
 			str_append_data(str_out, output.data, output.size);
 	}
 
+	test_assert(ret == -1);
 	test_assert_strcmp(test_message_output, str_c(str_out));
 	message_decoder_deinit(&decoder);
 	message_parser_deinit(&parser, &parts);
