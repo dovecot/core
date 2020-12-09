@@ -260,7 +260,7 @@ int index_storage_attribute_get(struct mailbox *box,
 			  &value_r->value, &error);
 	if (ret < 0) {
 		mailbox_set_critical(box,
-			"Failed to set attribute %s: %s", key, error);
+			"Failed to get attribute %s: %s", key, error);
 		return -1;
 	}
 	return ret;
