@@ -7,6 +7,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "imap-metadata.h"
+#include "mail-storage-private.h"
 
 #define METADATA_MAX_INMEM_SIZE (1024*128)
 
@@ -317,7 +318,15 @@ cmd_setmetadata_mailbox(struct imap_setmetadata_context *ctx,
 		ctx->box = mailbox_alloc(ns->list, mailbox,
 					 MAILBOX_FLAG_ATTRIBUTE_SESSION);
 		mailbox_set_reason(ctx->box, "SETMETADATA");
-		if (mailbox_open(ctx->box) < 0) {
+		enum mailbox_existence existence;
+		if (mailbox_exists(ctx->box, TRUE, &existence) < 0) {
+			client_send_box_error(cmd, ctx->box);
+			mailbox_free(&ctx->box);
+			return TRUE;
+		} else if (existence == MAILBOX_EXISTENCE_NONE) {
+			const char *err = t_strdup_printf(MAIL_ERRSTR_MAILBOX_NOT_FOUND,
+							  mailbox_get_vname(ctx->box));
+			mail_storage_set_error(ctx->box->storage, MAIL_ERROR_NOTFOUND, err);
 			client_send_box_error(cmd, ctx->box);
 			mailbox_free(&ctx->box);
 			return TRUE;
