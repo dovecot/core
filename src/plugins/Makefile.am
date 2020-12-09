@@ -21,7 +21,6 @@ endif
 SUBDIRS = \
 	acl \
 	imap-acl \
-	expire \
 	fts \
 	fts-squat \
 	last-login \
