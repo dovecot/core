@@ -889,7 +889,6 @@ src/util/Makefile
 src/plugins/Makefile
 src/plugins/acl/Makefile
 src/plugins/imap-acl/Makefile
-src/plugins/autocreate/Makefile
 src/plugins/expire/Makefile
 src/plugins/fs-compress/Makefile
 src/plugins/fts/Makefile

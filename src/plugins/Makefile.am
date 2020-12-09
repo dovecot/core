@@ -21,7 +21,6 @@ endif
 SUBDIRS = \
 	acl \
 	imap-acl \
-	autocreate \
 	expire \
 	fts \
 	fts-squat \
