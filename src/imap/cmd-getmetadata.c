@@ -163,18 +163,12 @@ cmd_getmetadata_handle_error_str(struct imap_getmetadata_context *ctx,
 }
 
 static bool
-cmd_getmetadata_handle_error(struct imap_getmetadata_context *ctx,
-			     bool entry_error)
+cmd_getmetadata_handle_error(struct imap_getmetadata_context *ctx)
 {
 	const char *error_string;
 	enum mail_error error;
 
 	error_string = imap_metadata_transaction_get_last_error(ctx->trans, &error);
-	if ((error == MAIL_ERROR_NOTFOUND || error == MAIL_ERROR_PERM) &&
-	    entry_error) {
-		/* don't treat this as an error */
-		return FALSE;
-	}
 	if (error == MAIL_ERROR_NOTPOSSIBLE && ctx->depth > 0) {
 		/* Using DEPTH to iterate children with imap_metadata=no.
 		   Don't return an error, since some of the entries could be
@@ -195,7 +189,7 @@ static void cmd_getmetadata_send_entry(struct imap_getmetadata_context *ctx,
 	string_t *str;
 
 	if (imap_metadata_get_stream(ctx->trans, entry, &value) < 0) {
-		if (cmd_getmetadata_handle_error(ctx, TRUE))
+		if (cmd_getmetadata_handle_error(ctx))
 			return;
 	}
 
@@ -294,7 +288,7 @@ cmd_getmetadata_send_entry_tree(struct imap_getmetadata_context *ctx,
 			if (subentry == NULL) {
 				/* iteration finished, get to the next entry */
 				if (imap_metadata_iter_deinit(&ctx->iter) < 0) {
-					if (!cmd_getmetadata_handle_error(ctx, FALSE))
+					if (!cmd_getmetadata_handle_error(ctx))
 						i_unreached();
 				}
 				return -1;
