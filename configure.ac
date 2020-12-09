@@ -910,7 +910,6 @@ src/plugins/quota/Makefile
 src/plugins/quota-clone/Makefile
 src/plugins/imap-quota/Makefile
 src/plugins/replication/Makefile
-src/plugins/snarf/Makefile
 src/plugins/old-stats/Makefile
 src/plugins/imap-old-stats/Makefile
 src/plugins/trash/Makefile

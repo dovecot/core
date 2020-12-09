@@ -39,7 +39,6 @@ SUBDIRS = \
 	imap-quota \
 	pop3-migration \
 	replication \
-	snarf \
 	old-stats \
 	imap-old-stats \
 	mail-crypt \
