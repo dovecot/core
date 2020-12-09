@@ -898,7 +898,6 @@ src/plugins/fts-squat/Makefile
 src/plugins/last-login/Makefile
 src/plugins/lazy-expunge/Makefile
 src/plugins/listescape/Makefile
-src/plugins/mail-filter/Makefile
 src/plugins/mail-log/Makefile
 src/plugins/mail-lua/Makefile
 src/plugins/mailbox-alias/Makefile

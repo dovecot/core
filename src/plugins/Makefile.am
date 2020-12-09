@@ -30,7 +30,6 @@ SUBDIRS = \
 	notify \
 	notify-status \
 	push-notification \
-	mail-filter \
 	mail-log \
 	$(MAIL_LUA) \
 	mailbox-alias \
