@@ -7,6 +7,7 @@
 #include "str.h"
 #include "hex-binary.h"
 #include "eacces-error.h"
+#include "ioloop.h"
 #include "dlua-script-private.h"
 
 #include <fcntl.h>
@@ -95,6 +96,15 @@ struct dlua_script *dlua_script_from_state(lua_State *L)
 	script = lua_touserdata(L, -1);
 	lua_pop(L, 1);
 	i_assert(script != NULL);
+
+	if (script->L != L) {
+		static bool warned;
+
+		if (!warned) {
+			i_warning("detected threading in lua script - not supported");
+			warned = TRUE; /* warn only once */
+		}
+	}
 
 	return script;
 }
