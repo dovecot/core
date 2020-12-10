@@ -85,6 +85,8 @@ struct dsync_cmd_context {
 	struct istream *input, *err_stream;
 	struct ostream *output;
 	size_t input_orig_bufsize, output_orig_bufsize;
+	const char *err_prefix;
+	struct failure_context failure_ctx;
 
 	struct ssl_iostream_context *ssl_ctx;
 	struct ssl_iostream *ssl_iostream;
@@ -109,6 +111,7 @@ struct dsync_cmd_context {
 	bool replicator_notify:1;
 	bool exited:1;
 	bool empty_hdr_workaround:1;
+	bool err_line_continues:1;
 };
 
 static bool legacy_dsync = FALSE;
@@ -131,15 +134,41 @@ static void remote_error_input(struct dsync_cmd_context *ctx)
 	switch (i_stream_read(ctx->err_stream)) {
 	case -2:
 		data = i_stream_get_data(ctx->err_stream, &size);
-		fprintf(stderr, "%.*s", (int)size, data);
+		if (ctx->err_prefix == NULL)
+			fprintf(stderr, "%.*s", (int)size, data);
+		else {
+			if (!ctx->err_line_continues) {
+				(void)doveadm_log_type_from_char(data[0],
+					&ctx->failure_ctx.type);
+				data++; size--;
+			}
+			i_log_type(&ctx->failure_ctx, "%s%.*s", ctx->err_prefix,
+				   (int)size, data);
+			ctx->err_line_continues = TRUE;
+		}
 		i_stream_skip(ctx->err_stream, size);
 		break;
 	case -1:
 		io_remove(&ctx->io_err);
 		break;
 	default:
-		while ((line = i_stream_next_line(ctx->err_stream)) != NULL)
-			fprintf(stderr, "%s\n", line);
+		while ((line = i_stream_next_line(ctx->err_stream)) != NULL) {
+			if (ctx->err_prefix == NULL) {
+				/* forward captured stderr lines */
+				fprintf(stderr, "%s\n", line);
+			} else {
+				/* Input from remote dsync. The first character
+				   should be the logging type. */
+				if (!ctx->err_line_continues) {
+					(void)doveadm_log_type_from_char(line[0],
+						&ctx->failure_ctx.type);
+					line++;
+				}
+				i_log_type(&ctx->failure_ctx, "%s%s",
+					   ctx->err_prefix, line);
+				ctx->err_line_continues = FALSE;
+			}
+		}
 		break;
 	}
 }
@@ -711,9 +740,9 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		mail_user_set_get_temp_prefix(temp_prefix, user->set);
 		ibc = cmd_dsync_ibc_stream_init(ctx, ctx->remote_name,
 						str_c(temp_prefix));
-		if (ctx->fd_err != -1) {
-			ctx->io_err = io_add(ctx->fd_err, IO_READ,
-					     remote_error_input, ctx);
+		if (ctx->err_stream != NULL) {
+			ctx->io_err = io_add_istream(ctx->err_stream,
+						     remote_error_input, ctx);
 		}
 	}
 
@@ -792,6 +821,8 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	dsync_ibc_deinit(&ibc);
 	if (ibc2 != NULL)
 		dsync_ibc_deinit(&ibc2);
+	if (ctx->run_type != DSYNC_RUN_TYPE_CMD)
+		dsync_errors_finish(ctx);
 	ssl_iostream_destroy(&ctx->ssl_iostream);
 	if (ctx->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&ctx->ssl_ctx);
@@ -812,12 +843,9 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	   stdin/stdout before wait() may cause the process to hang, but stderr
 	   shouldn't (at least with ssh) and we need stderr to be open to be
 	   able to print the final errors */
-	if (ctx->run_type == DSYNC_RUN_TYPE_CMD) {
+	if (ctx->run_type == DSYNC_RUN_TYPE_CMD)
 		cmd_dsync_wait_remote(ctx);
-		dsync_errors_finish(ctx);
-	} else {
-		i_assert(ctx->err_stream == NULL);
-	}
+	dsync_errors_finish(ctx);
 
 	if (ctx->child_wait != NULL)
 		child_wait_free(&ctx->child_wait);
@@ -834,7 +862,11 @@ static void dsync_connected_callback(const struct doveadm_server_reply *reply,
 	switch (reply->exit_code) {
 	case 0:
 		doveadm_client_extract(ctx->tcp_conn, &ctx->input,
-				       &ctx->output, &ctx->ssl_iostream);
+				       &ctx->err_stream, &ctx->output,
+				       &ctx->ssl_iostream);
+		ctx->err_prefix = p_strdup_printf(ctx->ctx.pool,
+			"dsync-remote(%s): ", ctx->ctx.cctx->username);
+
 		break;
 	case DOVEADM_CLIENT_EXIT_CODE_DISCONNECTED:
 		ctx->ctx.exit_code = EX_TEMPFAIL;
@@ -927,6 +959,7 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 	}
 	conn_set.username = ctx->ctx.set->doveadm_username;
 	conn_set.password = ctx->ctx.set->doveadm_password;
+	conn_set.log_passthrough = TRUE;
 
 	prev_ioloop = current_ioloop;
 	ioloop = io_loop_create();

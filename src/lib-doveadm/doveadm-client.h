@@ -92,6 +92,7 @@ void doveadm_client_cmd(struct doveadm_client *conn,
    waits for itself to be destroyed. */
 void doveadm_client_extract(struct doveadm_client *conn,
 			    struct istream **istream_r,
+			    struct istream **log_istream_r,
 			    struct ostream **ostream_r,
 			    struct ssl_iostream **ssl_iostream_r);
 

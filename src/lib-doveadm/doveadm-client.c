@@ -784,14 +784,17 @@ void doveadm_client_cmd(struct doveadm_client *conn,
 
 void doveadm_client_extract(struct doveadm_client *conn,
 			    struct istream **istream_r,
+			    struct istream **log_istream_r,
 			    struct ostream **ostream_r,
 			    struct ssl_iostream **ssl_iostream_r)
 {
 	*istream_r = conn->conn.input;
+	*log_istream_r = conn->log_input;
 	*ostream_r = conn->conn.output;
 	*ssl_iostream_r = conn->ssl_iostream;
 
 	conn->conn.input = NULL;
+	conn->log_input = NULL;
 	conn->conn.output = NULL;
 	conn->ssl_iostream = NULL;
 	io_remove(&conn->conn.io);
