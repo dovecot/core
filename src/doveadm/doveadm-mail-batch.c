@@ -55,7 +55,6 @@ cmd_batch_add(struct batch_cmd_context *batchctx,
 {
 	struct doveadm_mail_cmd_context *subctx;
 	const struct doveadm_cmd_ver2 *cmd_ver2;
-	struct doveadm_mail_cmd tmpcmd;
 	const struct doveadm_mail_cmd *cmd;
 	const char *getopt_args;
 	int c;
@@ -65,11 +64,12 @@ cmd_batch_add(struct batch_cmd_context *batchctx,
 	if (cmd_ver2 == NULL)
 		cmd = doveadm_mail_cmd_find_from_argv(argv[0], &argc, &argv);
 	else {
-		i_zero(&tmpcmd);
-		tmpcmd.usage_args = cmd_ver2->usage;
-		tmpcmd.name = cmd_ver2->name;
-		tmpcmd.alloc = cmd_ver2->mail_cmd;
-		cmd = &tmpcmd;
+		struct doveadm_mail_cmd *dyncmd =
+			p_new(batchctx->ctx.pool, struct doveadm_mail_cmd, 1);
+		dyncmd->usage_args = cmd_ver2->usage;
+		dyncmd->name = cmd_ver2->name;
+		dyncmd->alloc = cmd_ver2->mail_cmd;
+		cmd = dyncmd;
 	}
 
 	if (cmd == NULL)
