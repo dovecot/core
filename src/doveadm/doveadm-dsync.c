@@ -618,6 +618,20 @@ dsync_replicator_notify(struct dsync_cmd_context *ctx,
 		i_error("close(%s) failed: %m", path);
 }
 
+static void dsync_errors_finish(struct dsync_cmd_context *ctx)
+{
+	if (ctx->err_stream == NULL)
+		return;
+
+	remote_error_input(ctx);
+	bool remote_errors_logged = ctx->err_stream->v_offset > 0;
+	i_stream_destroy(&ctx->err_stream);
+	cmd_dsync_log_remote_status(ctx->exit_status, remote_errors_logged,
+				    ctx->remote_cmd_args);
+	io_remove(&ctx->io_err);
+	i_close_fd(&ctx->fd_err);
+}
+
 static int
 cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
@@ -630,7 +644,6 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	const char *const *strp;
 	enum dsync_brain_flags brain_flags;
 	enum mail_error mail_error = 0, mail_error2;
-	bool remote_errors_logged = FALSE;
 	bool cli = (cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
 	const char *changes_during_sync, *changes_during_sync2 = NULL;
 	bool remote_only_changes;
@@ -801,16 +814,10 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	   able to print the final errors */
 	if (ctx->run_type == DSYNC_RUN_TYPE_CMD) {
 		cmd_dsync_wait_remote(ctx);
-		remote_error_input(ctx);
-		remote_errors_logged = ctx->err_stream->v_offset > 0;
-		i_stream_destroy(&ctx->err_stream);
-		cmd_dsync_log_remote_status(ctx->exit_status, remote_errors_logged,
-					    ctx->remote_cmd_args);
+		dsync_errors_finish(ctx);
 	} else {
 		i_assert(ctx->err_stream == NULL);
 	}
-	io_remove(&ctx->io_err);
-	i_close_fd(&ctx->fd_err);
 
 	if (ctx->child_wait != NULL)
 		child_wait_free(&ctx->child_wait);
