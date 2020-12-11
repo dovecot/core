@@ -49,8 +49,7 @@ static void test_lua(void)
 	test_assert(dlua_script_create_string(luascript, &script, NULL, &error) == 0);
 	dlua_dovecot_register(script);
 
-	lua_pushcfunction(script->L, dlua_test_assert);
-	lua_setglobal(script->L, "test_assert");
+	lua_register(script->L, "test_assert", dlua_test_assert);
 
 	test_assert(dlua_script_init(script, &error) == 0);
 	test_assert(dlua_script_has_function(script, "lua_function"));
