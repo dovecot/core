@@ -163,16 +163,6 @@ static int dlua_run_script(struct dlua_script *script, const char **error_r)
 	return 0;
 }
 
-static struct dlua_script *
-dlua_script_find_previous_script(const char *filename)
-{
-	struct dlua_script *script;
-	for(script = dlua_scripts; script != NULL; script = script->next)
-		if (strcmp(script->filename, filename)==0)
-			return script;
-	return NULL;
-}
-
 static int
 dlua_script_create_finish(struct dlua_script *script, struct dlua_script **script_r,
 			  const char **error_r)
@@ -202,12 +192,6 @@ int dlua_script_create_string(const char *str, struct dlua_script **script_r,
 	sha1_get_digest(str, strlen(str), scripthash);
 	fn = binary_to_hex(scripthash, sizeof(scripthash));
 
-	if ((script = dlua_script_find_previous_script(fn)) != NULL) {
-		dlua_script_ref(script);
-		*script_r = script;
-		return 0;
-	}
-
 	script = dlua_create_script(fn, event_parent);
 	if ((err = luaL_loadstring(script->L, str)) != 0) {
 		*error_r = t_strdup_printf("lua_load(<string>) failed: %s",
@@ -224,12 +208,6 @@ int dlua_script_create_file(const char *file, struct dlua_script **script_r,
 {
 	struct dlua_script *script;
 	int err;
-
-	if ((script = dlua_script_find_previous_script(file)) != NULL) {
-		dlua_script_ref(script);
-		*script_r = script;
-		return 0;
-	}
 
 	/* lua reports file access errors poorly */
 	if (access(file, O_RDONLY) < 0) {
@@ -260,12 +238,6 @@ int dlua_script_create_stream(struct istream *is, struct dlua_script **script_r,
 	int err;
 
 	i_assert(filename != NULL && *filename != '\0');
-
-	if ((script = dlua_script_find_previous_script(filename)) != NULL) {
-		dlua_script_ref(script);
-		*script_r = script;
-		return 0;
-	}
 
 	script = dlua_create_script(filename, event_parent);
 	script->in = is;
