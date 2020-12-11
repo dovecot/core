@@ -109,21 +109,18 @@ struct dlua_script *dlua_script_from_state(lua_State *L)
 	return script;
 }
 
-int dlua_script_init(struct dlua_script *script, const char **error_r)
+static int dlua_call_init_function(struct dlua_script *script,
+				   const char **error_r)
 {
+	const char *func_name = LUA_SCRIPT_INIT_FN;
 	int ret = 0;
 
-	if (script->init)
-		return 0;
-	script->init = TRUE;
-
-	/* see if there is a symbol for init */
-	lua_getglobal(script->L, LUA_SCRIPT_INIT_FN);
+	lua_getglobal(script->L, func_name);
 
 	if (lua_isfunction(script->L, -1)) {
 		ret = lua_pcall(script->L, 0, 1, 0);
 		if (ret != 0) {
-			*error_r = t_strdup_printf("lua_pcall("LUA_SCRIPT_INIT_FN") failed: %s",
+			*error_r = t_strdup_printf("lua_pcall(%s) failed: %s", func_name,
 						   lua_tostring(script->L, -1));
 			ret = -1;
 		} else if (lua_isnumber(script->L, -1)) {
@@ -131,13 +128,41 @@ int dlua_script_init(struct dlua_script *script, const char **error_r)
 			if (ret != 0)
 				*error_r = "Script init failed";
 		} else {
-			*error_r = t_strdup_printf(LUA_SCRIPT_INIT_FN "() returned non-number");
+			*error_r = t_strdup_printf("%s() returned non-number", func_name);
 			ret = -1;
 		}
 	}
 
 	lua_pop(script->L, 1);
 	return ret;
+}
+
+static void dlua_call_deinit_function(struct dlua_script *script)
+{
+	const char *func_name = LUA_SCRIPT_DEINIT_FN;
+	int ret;
+
+	lua_getglobal(script->L, func_name);
+
+	if (lua_isfunction(script->L, -1)) {
+		ret = lua_pcall(script->L, 0, 0, 0);
+		if (ret != 0) {
+			i_warning("lua_pcall(%s) failed: %s", func_name,
+				  lua_tostring(script->L, -1));
+			lua_pop(script->L, 1);
+		}
+	} else {
+		lua_pop(script->L, 1);
+	}
+}
+
+int dlua_script_init(struct dlua_script *script, const char **error_r)
+{
+	if (script->init)
+		return 0;
+	script->init = TRUE;
+
+	return dlua_call_init_function(script, error_r);
 }
 
 static int dlua_atpanic(lua_State *L)
@@ -277,20 +302,8 @@ int dlua_script_create_stream(struct istream *is, struct dlua_script **script_r,
 
 static void dlua_script_destroy(struct dlua_script *script)
 {
-	/* courtesy call */
-	int ret;
-	/* see if there is a symbol for deinit */
-	lua_getglobal(script->L, LUA_SCRIPT_DEINIT_FN);
-	if (lua_isfunction(script->L, -1)) {
-		ret = lua_pcall(script->L, 0, 0, 0);
-		if (ret != 0) {
-			i_warning("lua_pcall("LUA_SCRIPT_DEINIT_FN") failed: %s",
-				  lua_tostring(script->L, -1));
-			lua_pop(script->L, 1);
-		}
-	} else {
-		lua_pop(script->L, 1);
-	}
+	dlua_call_deinit_function(script);
+
 	lua_close(script->L);
 	/* remove from list */
 	DLLIST_REMOVE(&dlua_scripts, script);
