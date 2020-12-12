@@ -1,3 +1,139 @@
+v2.3.13 2021-01-04	Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* CVE-2020-24386: Specially crafted command can cause IMAP hibernate to
+	  allow logged in user to access other people's emails and filesystem
+	  information.
+	* Metric filter and global event filter variable syntax changed to a
+	  SQL-like format. See https://doc.dovecot.org/configuration_manual/event_filter/
+	* auth: Added new aliases for %{variables}. Usage of the old ones is
+	  possible, but discouraged.
+	* auth: Removed RPA auth mechanism, SKEY auth mechanism, NTLM auth
+	  mechanism and related password schemes.
+	* auth: Removed passdb-sia, passdb-vpopmail and userdb-vpopmail.
+	* auth: Removed postfix postmap socket
+	+ auth: Added new fields for auth server events. These fields are now
+	  also available for all auth events. See
+	  https://doc.dovecot.org/admin_manual/list_of_events/#authentication-server
+	  for details.
+	+ imap-hibernate: Added imap_client_hibernated, imap_client_unhibernated
+	  and imap_client_unhibernate_retried events. See
+	  https://doc.dovecot.org/admin_manual/list_of_events/ for details.
+	+ lib-index: Added new mail_index_recreated event. See
+	  https://doc.dovecot.org/admin_manual/list_of_events/#mail-index-recreated
+	+ lib-sql: Support TLS options for cassandra driver. This requires
+	  cpp-driver v2.15 (or later) to work reliably.
+	+ lib-storage: Missing $HasAttachment / $HasNoAttachment flags are now
+	  added to existing mails if mail_attachment_detection_option=add-flags
+	  and it can be done inexpensively.
+	+ login proxy: Added login_proxy_max_reconnects setting (default 3) to
+	  control how many reconnections are attempted.
+	+ login proxy: imap/pop3/submission/managesieve proxying now supports
+	  reconnection retrying on more than just connect() failure. Any error
+	  except a non-temporary authentication failure will result in reconnect
+	  attempts.
+	- auth: Lua passdb/userdb leaks stack elements per call, eventually
+	  causing the stack to become too deep and crashing the auth or
+	  auth-worker process.
+	- auth: SASL authentication PLAIN mechanism could be used to trigger
+	  read buffer overflow. However, this doesn't seem to be exploitable in
+	  any way.
+	- auth: v2.3.11 regression: GSSAPI authentication fails because dovecot
+	  disallows NUL bytes for it.
+	- dict: Process used too much CPU when iterating keys, because each key
+	  used a separate write() syscall.
+	- doveadm-server: Crash could occur if logging was done outside command
+	  handling. For example http-client could have done debug logging
+	  afterwards, resulting in either segfault or
+	  Panic: file http-client.c: line 642 (http_client_context_close):
+	  assertion failed: (cctx->clients_list == NULL).
+	- doveadm-server: v2.3.11 regression: Trying to connect to doveadm server
+	  process via starttls assert-crashed if there were no ssl=yes listeners:
+	  Panic: file master-service-ssl.c: line 22 (master_service_ssl_init):
+	  assertion failed: (service->ssl_ctx_initialized).
+	- fts-solr: HTTP requests may have assert-crashed:
+	  Panic: file http-client-request.c: line 1232 (http_client_request_send_more):
+	  assertion failed: (req->payload_input != NULL)
+	- imap: IMAP NOTIFY could crash with a segmentation fault due to a bad
+	  configuration that causes errors. Sending the error responses to the
+	  client can cause the segmentation fault. This can for example happen
+	  when several namespaces use the same mail storage location.
+	- imap: IMAP NOTIFY used on a shared namespace that doesn't actually
+	  exist (e.g. public namespace for a nonexistent user) can crash with a panic:
+	  Panic: Leaked view for index /tmp/home/asdf/mdbox/dovecot.list.index: Opened in (null):0
+	- imap: IMAP session can crash with QRESYNC extension if many changes
+	  are done before asking for expunged mails since last sync.
+	- imap: Process might hang indefinitely if client disconnects after
+	  sending some long-running commands pipelined, for example FETCH+LOGOUT.
+	- lib-compress: Mitigate crashes when configuring a not compiled in
+	  compression. Errors with compression configuration now distinguish
+	  between not supported and unknown.
+	- lib-compression: Using xz/lzma compression in v2.3.11 could have
+	  written truncated output in some situations. This would result in
+	  "Broken pipe" read errors when trying to read it back.
+	- lib-compression: zstd compression could have crashed in some situations:
+	  Panic: file ostream.c: line 287 (o_stream_sendv_int): assertion failed: (!stream->blocking)
+	- lib-dict: dict client could have crashed in some rare situations when
+	  iterating keys.
+	- lib-http: Fix several assert-crashes in HTTP client.
+	- lib-index: v2.3.11 regression: When mails were expunged at the same
+	  time as lots of new content was being saved to the cache (e.g. cache
+	  file was lost and is being re-filled) a deadlock could occur with
+	  dovecot.index.cache / dovecot.index.log.
+	- lib-index: v2.3.11 regression: dovecot.index.cache file was being
+	  purged (rewritten) too often when it had a field that hadn't been
+	  accessed for over 1 month, but less than 2 months. Every cache file
+	  change caused a purging in this situation.
+	- lib-mail: MIME parts were not returned correctly by Dovecot MIME parser.
+	  Regression caused by fixing CVE-2020-12100.
+	- lib-mail: When max nested MIME parts were reached, IMAP BODYSTRUCTURE
+	  was written in a way that may have caused confusion for both IMAP
+	  clients and Dovecot itself when parsing it. The truncated part is now
+	  written out using application/octet-stream MIME type.
+	- lib-mail: v2.3.11 regression: Mail delivery / parsing crashed when the
+	  10000th MIME part was message/rfc822 (or if parent was multipart/digest):
+	  Panic: file message-parser.c: line 167 (message_part_append):
+	  assertion failed: (ctx->total_parts_count <= ctx->max_total_mime_parts).
+	- lib-oauth2: Dovecot incorrectly required oauth2 server introspection
+	  reply to contain username with invalid token.
+	- lib-ssl-iostream, lib-dcrypt: Fix building with OpenSSL that has
+	  deprecated APIs disabled.
+	- lib-storage: When mail's size is different from the cached one (in
+	  dovecot.index.cache or Maildir S=size in the filename), this is
+	  handled by logging "Cached message size smaller/larger than expected"
+	  error. However, in some situations this also ended up crashing with:
+	  Panic: file istream.c: line 315 (i_stream_read_memarea):
+	  assertion failed: (old_size <= _stream->pos - _stream->skip).
+	- lib-storage: v2.3 regression: Copying/moving mails was taking much more
+	  memory than before. This was mainly visible when copying/moving
+	  thousands of mails in a single transaction.
+	- lib-storage: v2.3.11 regression: Searching messages assert-crashed
+	  (without FTS): Panic: file message-parser.c: line 174 (message_part_finish):
+	  assertion failed: (ctx->nested_parts_count > 0).
+	- lib: Dovecot v2.3 moved signal handlers around in ioloops,
+	  causing more CPU usage than in v2.2.
+	- lib: Fixed JSON parsing: '\' escape sequence may have wrongly resulted
+	  in error if it happened to be at read boundary. Any NUL characters and
+	  '\u0000' will now result in parsing error instead of silently
+	  truncating the data.
+	- lmtp, submission: Server may hang if SSL client connection disconnects
+	  during the delivery. If this happened repeated, it could have ended
+	  up reaching process_limit and preventing any further lmtp/submission
+	  deliveries.
+	- lmtp: Proxy does not always properly log TLS connection problems as
+	  errors; in some cases, only a debug message is logged if enabled.
+	- lmtp: The LMTP service can hang when commands are pipelined. This can
+	  particularly occur when one command in the middle of the pipeline fails.
+	  One example of this occurs for proxied LMTP transactions in which the
+	  final DATA or BDAT command is pipelined after a failing RCPT command.
+	- login-proxy: The login_source_ips setting has no effect, and therefore
+	  the proxy source IPs are not cycled through as they should be.
+	- master: Process was using 100% CPU in some situations when a broken
+	  service was being throttled.
+	- pop3-login: POP3 login would fail with "Input buffer full" if the
+	  initial response for SASL was too long.
+	- stats: Crash would occur when generating openmetrics data for metrics
+	  using aggregating functions.
+
 v2.3.11.3 2020-07-29	Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	- pop3-login: Login didn't handle commands in multiple IP packets properly.
