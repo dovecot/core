@@ -118,6 +118,11 @@ worker_connection_input_line(struct worker_connection *conn, const char *line)
 {
 	void *const *contextp, *context;
 	int percentage;
+	/* return -1 -> error
+	           0 -> request completed (100%)
+	           1 -> request continues (<100%)
+	 */
+	int ret = 1;
 
 	if (aqueue_count(conn->request_queue) == 0) {
 		i_error("Input from worker without pending requests: %s", line);
@@ -138,10 +143,14 @@ worker_connection_input_line(struct worker_connection *conn, const char *line)
 		aqueue_delete_tail(conn->request_queue);
 		if (aqueue_count(conn->request_queue) == 0)
 			i_free_and_null(conn->request_username);
+		if (percentage < 0)
+			ret = -1;
+		else
+			ret = 0;
 	}
 
 	conn->callback(percentage, context);
-	return 0;
+	return ret;
 }
 
 static void worker_connection_input(struct worker_connection *conn)
@@ -179,7 +188,7 @@ static void worker_connection_input(struct worker_connection *conn)
 	}
 
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
-		if (worker_connection_input_line(conn, line) < 0) {
+		if (worker_connection_input_line(conn, line) <= 0) {
 			worker_connection_disconnect(conn);
 			break;
 		}

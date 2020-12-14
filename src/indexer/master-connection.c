@@ -22,6 +22,8 @@
 #define INDEXER_WORKER_HANDSHAKE "VERSION\tindexer-worker-master\t1\t0\n%u\n"
 #define INDEXER_MASTER_NAME "indexer-master-worker"
 
+struct master_connection *master_conn;
+
 struct master_connection {
 	struct mail_storage_service_ctx *storage_service;
 
@@ -264,7 +266,7 @@ static void master_connection_input(struct master_connection *conn)
 	int ret;
 
 	if (i_stream_read(conn->input) < 0) {
-		master_service_stop(master_service);
+		master_connection_destroy();
 		return;
 	}
 
@@ -276,7 +278,7 @@ static void master_connection_input(struct master_connection *conn)
 				INDEXER_PROTOCOL_MAJOR_VERSION)) {
 			i_error("Indexer master not compatible with this master "
 				"(mixed old and new binaries?)");
-			master_service_stop(master_service);
+			master_connection_destroy();
 			return;
 		}
 		conn->version_received = TRUE;
@@ -287,7 +289,7 @@ static void master_connection_input(struct master_connection *conn)
 			ret = master_connection_input_line(conn, line);
 		} T_END;
 		if (ret < 0) {
-			master_service_stop(master_service);
+			master_connection_destroy();
 			break;
 		}
 	}
@@ -311,11 +313,11 @@ master_connection_create(int fd, struct mail_storage_service_ctx *storage_servic
 	return conn;
 }
 
-void master_connection_destroy(struct master_connection **_conn)
+void master_connection_destroy(void)
 {
-	struct master_connection *conn = *_conn;
+	struct master_connection *conn = master_conn;
 
-	*_conn = NULL;
+	master_conn = NULL;
 
 	io_remove(&conn->io);
 	i_stream_destroy(&conn->input);
