@@ -4,6 +4,7 @@
 #include "array.h"
 #include "str.h"
 #include "imap-match.h"
+#include "wildcard-match.h"
 #include "mailbox-tree.h"
 #include "mail-namespace.h"
 #include "mailbox-list-iter-private.h"
@@ -577,6 +578,19 @@ void acl_mail_namespace_storage_added(struct mail_namespace *ns)
 	acl_storage_rights_ctx_init(&alist->rights, backend);
 }
 
+static bool acl_namespace_is_ignored(struct mailbox_list *list)
+{
+	const char *value =
+		mail_user_plugin_getenv(list->ns->user, "acl_ignore_namespace");
+	for (unsigned int i = 2; value != NULL; i++) {
+		if (wildcard_match(list->ns->prefix, value))
+			return TRUE;
+		value = mail_user_plugin_getenv(list->ns->user,
+			t_strdup_printf("acl_ignore_namespace%u", i));
+	}
+	return FALSE;
+}
+
 void acl_mailbox_list_created(struct mailbox_list *list)
 {
 	struct acl_user *auser = ACL_USER_CONTEXT(list->ns->user);
@@ -591,7 +605,7 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 		/* this namespace is empty. don't attempt to lookup ACLs,
 		   because they're not going to work anyway and we could
 		   crash doing it. */
-	} else {
+	} else if (!acl_namespace_is_ignored(list)) {
 		acl_mailbox_list_init_default(list);
 	}
 }
