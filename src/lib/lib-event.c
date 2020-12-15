@@ -1383,20 +1383,20 @@ static struct event *event_passthrough_event(void)
 }
 
 const struct event_passthrough event_passthrough_vfuncs = {
-	event_passthrough_set_append_log_prefix,
-	event_passthrough_replace_log_prefix,
-	event_passthrough_set_name,
-	event_passthrough_set_source,
-	event_passthrough_set_always_log_source,
-	event_passthrough_add_categories,
-	event_passthrough_add_category,
-	event_passthrough_add_fields,
-	event_passthrough_add_str,
-	event_passthrough_add_int,
-	event_passthrough_add_timeval,
-	event_passthrough_inc_int,
-	event_passthrough_clear_field,
-	event_passthrough_event,
+	.append_log_prefix = event_passthrough_set_append_log_prefix,
+	.replace_log_prefix = event_passthrough_replace_log_prefix,
+	.set_name = event_passthrough_set_name,
+	.set_source = event_passthrough_set_source,
+	.set_always_log_source = event_passthrough_set_always_log_source,
+	.add_categories = event_passthrough_add_categories,
+	.add_category = event_passthrough_add_category,
+	.add_fields = event_passthrough_add_fields,
+	.add_str = event_passthrough_add_str,
+	.add_int = event_passthrough_add_int,
+	.add_timeval = event_passthrough_add_timeval,
+	.inc_int = event_passthrough_inc_int,
+	.clear_field = event_passthrough_clear_field,
+	.event = event_passthrough_event,
 };
 
 void event_enable_user_cpu_usecs(struct event *event)
