@@ -473,6 +473,54 @@ event_has_category(struct event *event, struct event_filter_node *node,
 }
 
 static bool
+event_match_strlist_recursive(struct event *event,
+			      const struct event_field *wanted_field,
+			      bool use_strcmp, bool *seen)
+{
+	const char *wanted_value = wanted_field->value.str;
+	const struct event_field *field;
+	const char *value;
+	bool match;
+
+	if (event == NULL)
+		return FALSE;
+
+	field = event_find_field_nonrecursive(event, wanted_field->key);
+	if (field != NULL) {
+		i_assert(field->value_type == EVENT_FIELD_VALUE_TYPE_STRLIST);
+		array_foreach_elem(&field->value.strlist, value) {
+			*seen = TRUE;
+			match = use_strcmp ? strcmp(value, wanted_value) == 0 :
+				wildcard_match_icase(value, wanted_value);
+			if (match)
+				return TRUE;
+		}
+	}
+	return event_match_strlist_recursive(event->parent, wanted_field,
+					     use_strcmp, seen);
+}
+
+static bool
+event_match_strlist(struct event *event, const struct event_field *wanted_field,
+		    bool use_strcmp)
+{
+	bool seen = FALSE;
+
+	if (event_match_strlist_recursive(event, wanted_field,
+					  use_strcmp, &seen))
+		return TRUE;
+	if (event_match_strlist_recursive(event_get_global(),
+					  wanted_field, use_strcmp, &seen))
+		return TRUE;
+	if (wanted_field->value.str[0] == '\0' && !seen) {
+		/* strlist="" matches nonexistent strlist */
+		return TRUE;
+	}
+	return FALSE;
+
+}
+
+static bool
 event_match_field(struct event *event, const struct event_field *wanted_field,
 		  enum event_filter_node_op op, bool use_strcmp)
 {
@@ -535,6 +583,12 @@ event_match_field(struct event *event, const struct event_field *wanted_field,
 	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
 		/* there's no point to support matching exact timestamps */
 		return FALSE;
+	case EVENT_FIELD_VALUE_TYPE_STRLIST:
+		/* check if the value is (or is not) on the list,
+		   only string matching makes sense here. */
+		if (op != EVENT_FILTER_OP_CMP_EQ)
+			return FALSE;
+		return event_match_strlist(event, wanted_field, use_strcmp);
 	}
 	i_unreached();
 }

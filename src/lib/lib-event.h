@@ -29,6 +29,7 @@ enum event_field_value_type {
 	EVENT_FIELD_VALUE_TYPE_STR,
 	EVENT_FIELD_VALUE_TYPE_INTMAX,
 	EVENT_FIELD_VALUE_TYPE_TIMEVAL,
+	EVENT_FIELD_VALUE_TYPE_STRLIST,
 };
 
 struct event_field {
@@ -38,6 +39,7 @@ struct event_field {
 		const char *str;
 		intmax_t intmax;
 		struct timeval timeval;
+		ARRAY_TYPE(const_string) strlist;
 	} value;
 };
 
@@ -81,6 +83,12 @@ struct event_passthrough {
 
 	struct event_passthrough *
 		(*inc_int)(const char *key, intmax_t num);
+
+	struct event_passthrough *
+		(*strlist_append)(const char *key, const char *value);
+	struct event_passthrough *
+		(*strlist_replace)(const char *key, const char *const *value,
+				   unsigned int count);
 
 	struct event_passthrough *
 		(*clear_field)(const char *key);
@@ -284,6 +292,20 @@ event_inc_int(struct event *event, const char *key, intmax_t num);
 struct event *
 event_add_timeval(struct event *event, const char *key,
 		  const struct timeval *tv);
+/* Append new value to list. If the key is not a list, it will
+   be cleared first. NULL values are ignored. Duplicate values are ignored. */
+struct event *
+event_strlist_append(struct event *event, const char *key, const char *value);
+/* Replace value with this strlist. */
+struct event *
+event_strlist_replace(struct event *event, const char *key,
+		      const char *const *value, unsigned int count);
+/* Copy the string list from src and its parents to dest. This can be especially
+   useful to copy the current global events' reason_codes to a more permanent
+   (e.g. async) event that can exist after the global events are popped out. */
+struct event *
+event_strlist_copy_recursive(struct event *dest, const struct event *src,
+			     const char *key);
 /* Same as event_add_str/int(), but do it via event_field struct. The fields
    terminates with key=NULL. Returns the event parameter. */
 struct event *

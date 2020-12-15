@@ -20,6 +20,7 @@ enum event_code {
 	EVENT_CODE_FIELD_INTMAX		= 'I',
 	EVENT_CODE_FIELD_STR		= 'S',
 	EVENT_CODE_FIELD_TIMEVAL	= 'T',
+	EVENT_CODE_FIELD_STRLIST	= 'L',
 };
 
 /* Internal event category state.
@@ -153,6 +154,9 @@ void event_copy_categories(struct event *to, struct event *from)
 void event_copy_fields(struct event *to, struct event *from)
 {
 	const struct event_field *fld;
+	unsigned int count;
+	const char *const *values;
+
 	if (!array_is_created(&from->fields))
 		return;
 	array_foreach(&from->fields, fld) {
@@ -165,6 +169,11 @@ void event_copy_fields(struct event *to, struct event *from)
 			break;
 		case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
 			event_add_timeval(to, fld->key, &fld->value.timeval);
+			break;
+		case EVENT_FIELD_VALUE_TYPE_STRLIST:
+			values = array_get(&fld->value.strlist, &count);
+			for (unsigned int i = 0; i < count; i++)
+				event_strlist_append(to, fld->key, values[i]);
 			break;
 		default:
 			break;
@@ -829,6 +838,33 @@ event_find_field_recursive(const struct event *event, const char *key)
 	return NULL;
 }
 
+static void
+event_get_recursive_strlist(const struct event *event, pool_t pool,
+			    const char *key, ARRAY_TYPE(const_string) *dest)
+{
+	const struct event_field *field;
+	const char *str;
+
+	if (event == NULL)
+		return;
+
+	field = event_find_field_nonrecursive(event, key);
+	if (field != NULL) {
+		if (field->value_type != EVENT_FIELD_VALUE_TYPE_STRLIST) {
+			/* Value type unexpectedly changed. Stop recursing. */
+			return;
+		}
+		array_foreach_elem(&field->value.strlist, str) {
+			if (array_lsearch(dest, &str, i_strcmp_p) == NULL) {
+				if (pool != NULL)
+					str = p_strdup(pool, str);
+				array_push_back(dest, &str);
+			}
+		}
+	}
+	event_get_recursive_strlist(event->parent, pool, key, dest);
+}
+
 const char *
 event_find_field_recursive_str(const struct event *event, const char *key)
 {
@@ -847,6 +883,14 @@ event_find_field_recursive_str(const struct event *event, const char *key)
 		return t_strdup_printf("%"PRIdTIME_T".%u",
 			field->value.timeval.tv_sec,
 			(unsigned int)field->value.timeval.tv_usec);
+	case EVENT_FIELD_VALUE_TYPE_STRLIST: {
+		ARRAY_TYPE(const_string) list;
+		t_array_init(&list, 8);
+		/* This is a bit different, because it needs to be merging
+		   all of the parent events' lists together. */
+		event_get_recursive_strlist(event, NULL, key, &list);
+		return t_array_const_string_join(&list, ",");
+	}
 	}
 	i_unreached();
 }
@@ -882,6 +926,53 @@ event_add_str(struct event *event, const char *key, const char *value)
 	i_zero(&field->value);
 	field->value.str = p_strdup(event->pool, value);
 	return event;
+}
+
+struct event *
+event_strlist_append(struct event *event, const char *key, const char *value)
+{
+	struct event_field *field = event_get_field(event, key);
+
+	if (field->value_type != EVENT_FIELD_VALUE_TYPE_STRLIST)
+		i_zero(&field->value);
+	field->value_type = EVENT_FIELD_VALUE_TYPE_STRLIST;
+
+	if (!array_is_created(&field->value.strlist))
+		p_array_init(&field->value.strlist, event->pool, 1);
+
+	/* lets not add empty values there though */
+	if (value == NULL)
+		return event;
+
+	const char *str = p_strdup(event->pool, value);
+	if (array_lsearch(&field->value.strlist, &str, i_strcmp_p) == NULL)
+		array_push_back(&field->value.strlist, &str);
+	return event;
+}
+
+struct event *
+event_strlist_replace(struct event *event, const char *key,
+		      const char *const *values, unsigned int count)
+{
+	struct event_field *field = event_get_field(event, key);
+	i_zero(&field->value);
+	field->value_type = EVENT_FIELD_VALUE_TYPE_STRLIST;
+
+	for (unsigned int i = 0; i < count; i++)
+		event_strlist_append(event, key, values[i]);
+	return event;
+}
+
+struct event *
+event_strlist_copy_recursive(struct event *dest, const struct event *src,
+			     const char *key)
+{
+	event_strlist_append(dest, key, NULL);
+	struct event_field *field = event_get_field(dest, key);
+	i_assert(field != NULL);
+	event_get_recursive_strlist(src, dest->pool, key,
+				    &field->value.strlist);
+	return dest;
 }
 
 struct event *
@@ -1058,6 +1149,18 @@ event_export_field_value(string_t *dest, const struct event_field *field)
 			    field->value.timeval.tv_sec,
 			    (unsigned int)field->value.timeval.tv_usec);
 		break;
+	case EVENT_FIELD_VALUE_TYPE_STRLIST: {
+		unsigned int count;
+		const char *const *strlist =
+			array_get(&field->value.strlist, &count);
+		str_append_c(dest, EVENT_CODE_FIELD_STRLIST);
+		str_append_tabescaped(dest, field->key);
+		str_printfa(dest, "\t%u", count);
+		for (unsigned int i = 0; i < count; i++) {
+			str_append_c(dest, '\t');
+			str_append_tabescaped(dest, strlist[i]);
+		}
+	}
 	}
 }
 
@@ -1138,6 +1241,33 @@ static bool event_import_tv(const char *arg_secs, const char *arg_usecs,
 }
 
 static bool
+event_import_strlist(struct event *event, struct event_field *field,
+		     const char *const **_args, const char **error_r)
+{
+	const char *const *args = *_args;
+	unsigned int count, i;
+
+	field->value_type = EVENT_FIELD_VALUE_TYPE_STRLIST;
+	if (str_to_uint(args[0], &count) < 0) {
+		*error_r = t_strdup_printf("Field '%s' has invalid count: '%s'",
+					   field->key, args[0]);
+		return FALSE;
+	}
+	p_array_init(&field->value.strlist, event->pool, count);
+	for (i = 1; i <= count && args[i] != NULL; i++) {
+		const char *str = p_strdup(event->pool, args[i]);
+		array_push_back(&field->value.strlist, &str);
+	}
+	if (i < count) {
+		*error_r = t_strdup_printf("Field '%s' has too few values",
+					   field->key);
+		return FALSE;
+	}
+	*_args += count;
+	return TRUE;
+}
+
+static bool
 event_import_field(struct event *event, enum event_code code, const char *arg,
 		   const char *const **_args, const char **error_r)
 {
@@ -1182,6 +1312,10 @@ event_import_field(struct event *event, enum event_code code, const char *arg,
 			return FALSE;
 		}
 		args++;
+		break;
+	case EVENT_CODE_FIELD_STRLIST:
+		if (!event_import_strlist(event, field, &args, error_r))
+			return FALSE;
 		break;
 	default:
 		i_unreached();
@@ -1248,6 +1382,7 @@ event_import_arg(struct event *event, const char *const **_args,
 	}
 	case EVENT_CODE_FIELD_INTMAX:
 	case EVENT_CODE_FIELD_STR:
+	case EVENT_CODE_FIELD_STRLIST:
 	case EVENT_CODE_FIELD_TIMEVAL: {
 		args++;
 		if (!event_import_field(event, code, arg, &args, error_r))
@@ -1397,6 +1532,21 @@ event_passthrough_add_str(const char *key, const char *value)
 }
 
 static struct event_passthrough *
+event_passthrough_strlist_append(const char *key, const char *value)
+{
+        event_strlist_append(last_passthrough_event(), key, value);
+        return event_last_passthrough;
+}
+
+static struct event_passthrough *
+event_passthrough_strlist_replace(const char *key, const char *const *values,
+				  unsigned int count)
+{
+        event_strlist_replace(last_passthrough_event(), key, values, count);
+        return event_last_passthrough;
+}
+
+static struct event_passthrough *
 event_passthrough_add_int(const char *key, intmax_t num)
 {
 	event_add_int(last_passthrough_event(), key, num);
@@ -1444,6 +1594,8 @@ const struct event_passthrough event_passthrough_vfuncs = {
 	.add_int = event_passthrough_add_int,
 	.add_timeval = event_passthrough_add_timeval,
 	.inc_int = event_passthrough_inc_int,
+	.strlist_append = event_passthrough_strlist_append,
+	.strlist_replace = event_passthrough_strlist_replace,
 	.clear_field = event_passthrough_clear_field,
 	.event = event_passthrough_event,
 };

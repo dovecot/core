@@ -359,6 +359,8 @@ stats_metric_group_by_discrete(const struct event_field *field,
 		return TRUE;
 	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
 		return FALSE;
+	case EVENT_FIELD_VALUE_TYPE_STRLIST:
+		return FALSE;
 	}
 
 	i_unreached();
@@ -373,6 +375,7 @@ stats_metric_group_by_quantized(const struct event_field *field,
 	switch (field->value_type) {
 	case EVENT_FIELD_VALUE_TYPE_STR:
 	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
+	case EVENT_FIELD_VALUE_TYPE_STRLIST:
 		return FALSE;
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
 		break;
@@ -406,6 +409,7 @@ stats_metric_group_by_quantized_label(const struct event_field *field,
 	switch (field->value_type) {
 	case EVENT_FIELD_VALUE_TYPE_STR:
 	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
+	case EVENT_FIELD_VALUE_TYPE_STRLIST:
 		i_unreached();
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
 		break;
@@ -524,6 +528,7 @@ stats_metric_event_field(struct event *event, const char *fieldname,
 
 	switch (field->value_type) {
 	case EVENT_FIELD_VALUE_TYPE_STR:
+	case EVENT_FIELD_VALUE_TYPE_STRLIST:
 		break;
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
 		num = field->value.intmax;

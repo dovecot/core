@@ -57,6 +57,8 @@ static void append_field_value(string_t *dest, const struct event_field *field,
 		append_time(dest, &field->value.timeval,
 			    info->exporter->time_format);
 		break;
+	case EVENT_FIELD_VALUE_TYPE_STRLIST:
+		break;
 	}
 }
 

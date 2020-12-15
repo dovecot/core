@@ -180,10 +180,104 @@ static void test_event_filter_parent_category_match(void)
 	test_end();
 }
 
+static void test_event_filter_strlist(void)
+{
+	struct event_filter *filter;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+
+	test_begin("event filter: match string list");
+
+	struct event *e = event_create(NULL);
+
+	filter = event_filter_create();
+	/* should match empty list */
+	event_filter_parse("abc=\"\"", filter, NULL);
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	/* should still be empty */
+	event_strlist_append(e, "abc", NULL);
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+
+	/* should not match non-empty list */
+	event_strlist_append(e, "abc", "one");
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	event_filter_unref(&filter);
+
+	/* should match non-empty list that has value 'one' */
+	filter = event_filter_create();
+	event_strlist_append(e, "abc", "two");
+	event_filter_parse("abc=one", filter, NULL);
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	event_filter_unref(&filter);
+
+	/* should match non-empty list that has no value 'three' */
+	filter = event_filter_create();
+	event_filter_parse("abc=one AND NOT abc=three", filter, NULL);
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	event_filter_unref(&filter);
+
+	event_unref(&e);
+	test_end();
+}
+
+static void test_event_filter_strlist_recursive(void)
+{
+	struct event_filter *filter;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+
+	test_begin("event filter: match string list - recursive");
+
+	struct event *parent = event_create(NULL);
+	struct event *e = event_create(parent);
+
+	/* empty filter: parent is non-empty */
+	filter = event_filter_create();
+	event_filter_parse("list1=\"\"", filter, NULL);
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	event_strlist_append(parent, "list1", "foo");
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	event_filter_unref(&filter);
+
+	/* matching filter: matches parent */
+	filter = event_filter_create();
+	event_filter_parse("list2=parent", filter, NULL);
+	/* empty: */
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	/* set parent but no child: */
+	event_strlist_append(parent, "list2", "parent");
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	/* set child to non-matching: */
+	event_strlist_append(e, "list2", "child");
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	event_filter_unref(&filter);
+
+	/* matching filter: matches child */
+	filter = event_filter_create();
+	event_filter_parse("list3=child", filter, NULL);
+	/* empty: */
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	/* set child but no parent: */
+	event_strlist_append(e, "list3", "child");
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	/* set parent to non-matching: */
+	event_strlist_append(e, "list3", "parent");
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	event_filter_unref(&filter);
+
+	event_unref(&e);
+	event_unref(&parent);
+	test_end();
+}
+
 void test_event_filter(void)
 {
 	test_event_filter_override_parent_fields();
 	test_event_filter_clear_parent_fields();
 	test_event_filter_inc_int();
 	test_event_filter_parent_category_match();
+	test_event_filter_strlist();
+	test_event_filter_strlist_recursive();
 }
