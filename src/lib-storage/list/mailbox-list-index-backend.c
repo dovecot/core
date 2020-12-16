@@ -465,9 +465,14 @@ index_list_mailbox_update(struct mailbox *box,
 }
 
 static int
-index_list_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
+index_list_mailbox_exists(struct mailbox *box, bool auto_boxes,
 			  enum mailbox_existence *existence_r)
 {
+	if (auto_boxes && mailbox_is_autocreated(box)) {
+		*existence_r = MAILBOX_EXISTENCE_SELECT;
+		return 0;
+	}
+
 	struct index_mailbox_list *list =
 		(struct index_mailbox_list *)box->list;
 

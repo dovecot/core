@@ -519,9 +519,14 @@ const char *imapc_mailbox_get_remote_name(struct imapc_mailbox *mbox)
 }
 
 static int
-imapc_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
+imapc_mailbox_exists(struct mailbox *box, bool auto_boxes,
 		     enum mailbox_existence *existence_r)
 {
+	if (auto_boxes && mailbox_is_autocreated(box)) {
+		*existence_r = MAILBOX_EXISTENCE_SELECT;
+		return 0;
+	}
+
 	if (strcmp(box->list->name, MAILBOX_LIST_NAME_IMAPC) != 0) {
 		if (box->inbox_any)
 			*existence_r = MAILBOX_EXISTENCE_SELECT;

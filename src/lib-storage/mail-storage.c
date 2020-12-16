@@ -1388,11 +1388,6 @@ int mailbox_exists(struct mailbox *box, bool auto_boxes,
 		return 0;
 	}
 
-	if (auto_boxes && mailbox_is_autocreated(box)) {
-		*existence_r = MAILBOX_EXISTENCE_SELECT;
-		return 0;
-	}
-
 	if (box->v.exists(box, auto_boxes, existence_r) < 0)
 		return -1;
 
