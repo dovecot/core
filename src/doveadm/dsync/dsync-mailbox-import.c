@@ -877,8 +877,12 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 	newmail->change = save_change;
 
 	array_push_back(&importer->newmails, &newmail);
-	newmail_link(importer, newmail,
-		     newmail->uid_in_local ? 0 : save_change->uid);
+	if (newmail->uid_in_local)
+		newmail_link(importer, newmail, 0);
+	else {
+		i_assert(save_change != NULL);
+		newmail_link(importer, newmail, save_change->uid);
+	}
 	return remote_saved;
 }
 
