@@ -1010,9 +1010,7 @@ static int driver_cassandra_init_full_v(const struct sql_settings *set,
 		return -1;
 	}
 
-	const char *tmp;
-	if (db->init_ssl &&
-	    (ret = driver_cassandra_init_ssl(db, &tmp)) < 0) {
+	if (db->init_ssl && driver_cassandra_init_ssl(db, error_r) < 0) {
 		driver_cassandra_free(&db);
 		return -1;
 	}
