@@ -40,6 +40,7 @@ static void compare_search_result(const struct test_case *tc,
 		test_assert_idx(tc->expect_header == TRUE, i);
 		test_assert_strcmp_idx(tc->hdr_name, block->hdr->name, i);
 		test_assert_idx(block->hdr->full_value != NULL &&
+				tc->output.value != NULL &&
 				tc->output.value_len <= block->hdr->full_value_len &&
 				memcmp(tc->output.value, block->hdr->full_value,
 				       tc->output.value_len) == 0, i);
@@ -47,6 +48,7 @@ static void compare_search_result(const struct test_case *tc,
 		/* found body */
 		test_assert_idx(tc->expect_body == TRUE, i);
 		test_assert_idx(block->data != NULL &&
+				tc->output.value != NULL &&
 				tc->output.value_len <= block->size &&
 				memcmp(tc->output.value, block->data,
 				       tc->output.value_len) == 0, i);
