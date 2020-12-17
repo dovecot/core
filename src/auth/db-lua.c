@@ -367,36 +367,36 @@ static luaL_Reg auth_lua_dovecot_auth_methods[] = {
 	{ NULL, NULL }
 };
 
-static void auth_lua_dovecot_auth_register(struct dlua_script *script)
+static void auth_lua_dovecot_auth_register(lua_State *L)
 {
-	dlua_getdovecot(script->L);
+	dlua_getdovecot(L);
 	/* Create new table for holding values */
-	lua_newtable(script->L);
+	lua_newtable(L);
 
 	/* register constants */
-	dlua_setmembers(script->L, auth_lua_dovecot_auth_values, -1);
+	dlua_setmembers(L, auth_lua_dovecot_auth_values, -1);
 
 	/* push new metatable to stack */
-	luaL_newmetatable(script->L, AUTH_LUA_DOVECOT_AUTH);
+	luaL_newmetatable(L, AUTH_LUA_DOVECOT_AUTH);
 	/* this will register functions to the metatable itself */
-	luaL_setfuncs(script->L, auth_lua_dovecot_auth_methods, 0);
+	luaL_setfuncs(L, auth_lua_dovecot_auth_methods, 0);
 	/* point __index to self */
-	lua_pushvalue(script->L, -1);
-	lua_setfield(script->L, -1, "__index");
+	lua_pushvalue(L, -1);
+	lua_setfield(L, -1, "__index");
 	/* set table's metatable, pops stack */
-	lua_setmetatable(script->L, -2);
+	lua_setmetatable(L, -2);
 
 	/* put this as "dovecot.auth" */
-	lua_setfield(script->L, -2, "auth");
+	lua_setfield(L, -2, "auth");
 
 	/* pop dovecot */
-	lua_pop(script->L, 1);
+	lua_pop(L, 1);
 }
 
 int auth_lua_script_init(struct dlua_script *script, const char **error_r)
 {
 	dlua_dovecot_register(script);
-	auth_lua_dovecot_auth_register(script);
+	auth_lua_dovecot_auth_register(script->L);
 	auth_lua_auth_request_register(script->L);
 	return dlua_script_init(script, error_r);
 }
