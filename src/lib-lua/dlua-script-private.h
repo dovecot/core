@@ -93,7 +93,7 @@ struct dlua_script *dlua_script_from_state(lua_State *L);
 void dlua_dovecot_register(struct dlua_script *script);
 
 /* push 'dovecot' global on top of stack */
-void dlua_getdovecot(struct dlua_script *script);
+void dlua_getdovecot(lua_State *L);
 
 /* assign values to table on idx */
 void dlua_setmembers(lua_State *L, const struct dlua_table_values *values, int idx);

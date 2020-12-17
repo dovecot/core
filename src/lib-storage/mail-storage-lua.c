@@ -62,7 +62,7 @@ static luaL_Reg lua_storage_methods[] = {
 void dlua_register_mail_storage(struct dlua_script *script)
 {
 	/* get dlua_dovecot */
-	dlua_getdovecot(script);
+	dlua_getdovecot(script->L);
 
 	/* Create table for holding values */
 	lua_newtable(script->L);

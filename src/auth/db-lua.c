@@ -382,7 +382,7 @@ static luaL_Reg auth_lua_dovecot_auth_methods[] = {
 
 static void auth_lua_dovecot_auth_register(struct dlua_script *script)
 {
-	dlua_getdovecot(script);
+	dlua_getdovecot(script->L);
 	/* Create new table for holding values */
 	lua_newtable(script->L);
 
