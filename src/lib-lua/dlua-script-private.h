@@ -105,6 +105,6 @@ void dlua_push_event(lua_State *L, struct event *event);
 struct event *dlua_check_event(lua_State *L, int arg);
 
 /* dumps current stack as i_debug lines */
-void dlua_dump_stack(struct dlua_script *script);
+void dlua_dump_stack(lua_State *L);
 
 #endif
