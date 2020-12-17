@@ -262,20 +262,20 @@ dlua_check_event(struct dlua_script *script, int arg)
 	return *bp;
 }
 
-void dlua_push_event(struct dlua_script *script, struct event *event)
+void dlua_push_event(lua_State *L, struct event *event)
 {
-	luaL_checkstack(script->L, 3, "out of memory");
-	lua_createtable(script->L, 0, 1);
-	luaL_setmetatable(script->L, DLUA_EVENT);
+	luaL_checkstack(L, 3, "out of memory");
+	lua_createtable(L, 0, 1);
+	luaL_setmetatable(L, DLUA_EVENT);
 
 	/* we need to attach gc to userdata to support older lua*/
-	struct event **ptr = lua_newuserdata(script->L, sizeof(struct event*));
+	struct event **ptr = lua_newuserdata(L, sizeof(struct event*));
 	*ptr = event;
-	lua_createtable(script->L, 0, 1);
-	lua_pushcfunction(script->L, dlua_event_gc);
-	lua_setfield(script->L, -2, "__gc");
-	lua_setmetatable(script->L, -2);
-	lua_setfield(script->L, -2, "item");
+	lua_createtable(L, 0, 1);
+	lua_pushcfunction(L, dlua_event_gc);
+	lua_setfield(L, -2, "__gc");
+	lua_setmetatable(L, -2);
+	lua_setfield(L, -2, "item");
 }
 
 static int dlua_event_append_log_prefix(lua_State *L)
@@ -484,7 +484,7 @@ static int dlua_event_new(lua_State *L)
 		parent = dlua_check_event(script, 1);
 	dlua_get_file_line(L, 1, &file, &line);
 	event = event_create(parent, file, line);
-	dlua_push_event(script, event);
+	dlua_push_event(L, event);
 	return 1;
 }
 

@@ -238,7 +238,7 @@ static int auth_request_lua_event(lua_State *L)
 	struct auth_request *request = auth_lua_check_auth_request(script, 1);
 	struct event *event = event_create(authdb_event(request));
 
-	dlua_push_event(script, event);
+	dlua_push_event(L, event);
 	return 1;
 }
 

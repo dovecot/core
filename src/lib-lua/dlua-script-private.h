@@ -99,7 +99,7 @@ void dlua_getdovecot(lua_State *L);
 void dlua_setmembers(lua_State *L, const struct dlua_table_values *values, int idx);
 
 /* push event to top of stack */
-void dlua_push_event(struct dlua_script *script, struct event *event);
+void dlua_push_event(lua_State *L, struct event *event);
 
 /* get event from given stack position */
 struct event *dlua_check_event(struct dlua_script *script, int arg);
