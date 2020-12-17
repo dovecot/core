@@ -543,20 +543,20 @@ auth_lua_export_userdb_table(lua_State *L, struct auth_request *req,
 }
 
 static enum passdb_result
-auth_lua_export_passdb_table(struct dlua_script *script, struct auth_request *req,
+auth_lua_export_passdb_table(lua_State *L, struct auth_request *req,
 			     const char **scheme_r, const char **password_r,
 			     const char **error_r)
 {
-	enum passdb_result ret = lua_tointeger(script->L, -2);
+	enum passdb_result ret = lua_tointeger(L, -2);
 
 	if (ret != PASSDB_RESULT_OK) {
-		lua_pop(script->L, 2);
-		lua_gc(script->L, LUA_GCCOLLECT, 0);
+		lua_pop(L, 2);
+		lua_gc(L, LUA_GCCOLLECT, 0);
 		*error_r = "passb failed";
 		return ret;
 	}
 
-	auth_lua_export_table(script->L, req, scheme_r, password_r);
+	auth_lua_export_table(L, req, scheme_r, password_r);
 	return PASSDB_RESULT_OK;
 }
 
@@ -566,7 +566,7 @@ auth_lua_call_lookup_finish(struct dlua_script *script, struct auth_request *req
 			    const char **error_r)
 {
 	if (lua_istable(script->L, -1)) {
-		return auth_lua_export_passdb_table(script, req, scheme_r,
+		return auth_lua_export_passdb_table(script->L, req, scheme_r,
 						    password_r, error_r);
 	}
 
