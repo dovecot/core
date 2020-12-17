@@ -646,14 +646,16 @@ auth_lua_call_passdb_lookup(struct dlua_script *script,
 			    struct auth_request *req, const char **scheme_r,
 			    const char **password_r, const char **error_r)
 {
+	lua_State *L = script->L;
+
 	*scheme_r = *password_r = NULL;
-	if (auth_lua_call_lookup(script->L, AUTH_LUA_PASSDB_LOOKUP, req, error_r) < 0) {
-		lua_gc(script->L, LUA_GCCOLLECT, 0);
-		i_assert(lua_gettop(script->L) == 0);
+	if (auth_lua_call_lookup(L, AUTH_LUA_PASSDB_LOOKUP, req, error_r) < 0) {
+		lua_gc(L, LUA_GCCOLLECT, 0);
+		i_assert(lua_gettop(L) == 0);
 		return PASSDB_RESULT_INTERNAL_FAILURE;
 	}
 
-	return auth_lua_call_lookup_finish(script->L, req, scheme_r, password_r, error_r);
+	return auth_lua_call_lookup_finish(L, req, scheme_r, password_r, error_r);
 }
 
 
