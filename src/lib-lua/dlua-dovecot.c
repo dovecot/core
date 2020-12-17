@@ -49,15 +49,15 @@ dlua_check_event_passthrough(lua_State *L, int arg)
 	return (struct event_passthrough*)bp;
 }
 
-static void dlua_push_event_passthrough(struct dlua_script *script,
+static void dlua_push_event_passthrough(lua_State *L,
 					struct event_passthrough *event)
 {
-	luaL_checkstack(script->L, 3, "out of memory");
-	lua_createtable(script->L, 0, 1);
-	luaL_setmetatable(script->L, DLUA_EVENT_PASSTHROUGH);
+	luaL_checkstack(L, 3, "out of memory");
+	lua_createtable(L, 0, 1);
+	luaL_setmetatable(L, DLUA_EVENT_PASSTHROUGH);
 
-	lua_pushlightuserdata(script->L, event);
-	lua_setfield(script->L, -2, "item");
+	lua_pushlightuserdata(L, event);
+	lua_setfield(L, -2, "item");
 }
 
 static int dlua_event_pt_append_log_prefix(lua_State *L)
@@ -480,7 +480,7 @@ static int dlua_event_passthrough_event(lua_State *L)
 	dlua_get_file_line(L, 1, &file, &line);
 	struct event_passthrough *e =
 		event_create_passthrough(event, file, line);
-	dlua_push_event_passthrough(script, e);
+	dlua_push_event_passthrough(L, e);
 
 	return 1;
 }
