@@ -60,71 +60,66 @@ lua_check_storage_mail(lua_State *L, int arg)
 
 static int lua_storage_mail_tostring(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 1);
 	struct mail *mail = lua_check_storage_mail(L, 1);
 
 	const char *str =
 		t_strdup_printf("<%s:UID %u>", mailbox_get_vname(mail->box),
 				mail->uid);
-	lua_pushstring(script->L, str);
+	lua_pushstring(L, str);
 	return 1;
 }
 
 static int lua_storage_mail_eq(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
 	struct mail *mail = lua_check_storage_mail(L, 1);
 	struct mail *mail2 = lua_check_storage_mail(L, 2);
 
 	if (!DLUA_MAILBOX_EQUALS(mail->box, mail2->box))
-		lua_pushboolean(script->L, FALSE);
+		lua_pushboolean(L, FALSE);
 	else
-		lua_pushboolean(script->L, mail->uid != mail2->uid);
+		lua_pushboolean(L, mail->uid != mail2->uid);
 	return 1;
 }
 
 static int lua_storage_mail_lt(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
 	struct mail *mail = lua_check_storage_mail(L, 1);
 	struct mail *mail2 = lua_check_storage_mail(L, 2);
 
 	if (!DLUA_MAILBOX_EQUALS(mail->box, mail2->box))
-		return luaL_error(script->L,
+		return luaL_error(L,
 				  "For lt, Mail can only be compared within same mailbox");
 	else
-		lua_pushboolean(script->L, mail->uid < mail2->uid);
+		lua_pushboolean(L, mail->uid < mail2->uid);
 	return 1;
 }
 
 static int lua_storage_mail_le(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
 	struct mail *mail = lua_check_storage_mail(L, 1);
 	struct mail *mail2 = lua_check_storage_mail(L, 2);
 
 	if (!DLUA_MAILBOX_EQUALS(mail->box, mail2->box))
-		return luaL_error(script->L,
+		return luaL_error(L,
 				 "For le, mails can only be within same mailbox");
 	else
-		lua_pushboolean(script->L, mail->uid <= mail2->uid);
+		lua_pushboolean(L, mail->uid <= mail2->uid);
 
 	return 1;
 }
 
 static int lua_storage_mail_gc(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	(void)lua_check_storage_mail(L, 1);
 
 	/* reset value to NULL */
-	lua_pushliteral(script->L, "item");
-	lua_pushnil(script->L);
-	lua_rawset(script->L, 1);
+	lua_pushliteral(L, "item");
+	lua_pushnil(L);
+	lua_rawset(L, 1);
 
 	return 0;
 }
