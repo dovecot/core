@@ -147,8 +147,8 @@ static void dlua_call_deinit_function(struct dlua_script *script)
 	if (lua_isfunction(script->L, -1)) {
 		ret = lua_pcall(script->L, 0, 0, 0);
 		if (ret != 0) {
-			i_warning("lua_pcall(%s) failed: %s", func_name,
-				  lua_tostring(script->L, -1));
+			i_error("lua_pcall(%s) failed: %s", func_name,
+				lua_tostring(script->L, -1));
 			lua_pop(script->L, 1);
 		}
 	} else {
