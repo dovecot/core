@@ -593,12 +593,12 @@ enum passdb_result
 auth_lua_call_password_verify(struct dlua_script *script,
 			      struct auth_request *req, const char *password, const char **error_r)
 {
+	lua_State *L = script->L;
 	int err = 0;
-	i_assert(script != NULL);
 
-	lua_getglobal(script->L, AUTH_LUA_PASSWORD_VERIFY);
-	if (!lua_isfunction(script->L, -1)) {
-		lua_pop(script->L, 1);
+	lua_getglobal(L, AUTH_LUA_PASSWORD_VERIFY);
+	if (!lua_isfunction(L, -1)) {
+		lua_pop(L, 1);
 		*error_r = t_strdup_printf("%s is not a function", AUTH_LUA_PASSWORD_VERIFY);
 		return PASSDB_RESULT_INTERNAL_FAILURE;
 	}
@@ -606,38 +606,38 @@ auth_lua_call_password_verify(struct dlua_script *script,
 	e_debug(authdb_event(req), "Calling %s", AUTH_LUA_PASSWORD_VERIFY);
 
 	/* call with auth request, password as parameters */
-	auth_lua_push_auth_request(script->L, req);
-	lua_pushstring(script->L, password);
-	if (lua_pcall(script->L, 2, 2, 0) != 0) {
+	auth_lua_push_auth_request(L, req);
+	lua_pushstring(L, password);
+	if (lua_pcall(L, 2, 2, 0) != 0) {
 		*error_r = t_strdup_printf("db-lua: %s(req, password) failed: %s",
 					   AUTH_LUA_PASSWORD_VERIFY,
-					   lua_tostring(script->L, -1));
-		lua_pop(script->L, 1);
-		i_assert(lua_gettop(script->L) == 0);
+					   lua_tostring(L, -1));
+		lua_pop(L, 1);
+		i_assert(lua_gettop(L) == 0);
 		return PASSDB_RESULT_INTERNAL_FAILURE;
-	} else if (!lua_isnumber(script->L, -2)) {
+	} else if (!lua_isnumber(L, -2)) {
 		*error_r = t_strdup_printf("db-lua: %s invalid return value "
 					   "(expected number got %s)",
 					   AUTH_LUA_PASSWORD_VERIFY,
-					   luaL_typename(script->L, -2));
+					   luaL_typename(L, -2));
 		err = -1;
-	} else if (!lua_isstring(script->L, -1) && !lua_istable(script->L, -1)) {
+	} else if (!lua_isstring(L, -1) && !lua_istable(L, -1)) {
 		*error_r = t_strdup_printf("db-lua: %s invalid return value "
 					   "(expected string or table, got %s)",
 					   AUTH_LUA_PASSWORD_VERIFY,
-					   luaL_typename(script->L, -1));
+					   luaL_typename(L, -1));
 		err = -1;
 	}
 
 	if (err != 0) {
-		lua_pop(script->L, 2);
-		lua_gc(script->L, LUA_GCCOLLECT, 0);
-		i_assert(lua_gettop(script->L) == 0);
+		lua_pop(L, 2);
+		lua_gc(L, LUA_GCCOLLECT, 0);
+		i_assert(lua_gettop(L) == 0);
 		return PASSDB_RESULT_INTERNAL_FAILURE;
 	}
 
 
-	return auth_lua_call_lookup_finish(script->L, req, NULL, NULL, error_r);
+	return auth_lua_call_lookup_finish(L, req, NULL, NULL, error_r);
 }
 
 
