@@ -663,21 +663,22 @@ enum userdb_result
 auth_lua_call_userdb_lookup(struct dlua_script *script,
 			    struct auth_request *req, const char **error_r)
 {
-	if (auth_lua_call_lookup(script->L, AUTH_LUA_USERDB_LOOKUP, req, error_r) < 0) {
-		lua_gc(script->L, LUA_GCCOLLECT, 0);
-		i_assert(lua_gettop(script->L) == 0);
+	lua_State *L = script->L;
+
+	if (auth_lua_call_lookup(L, AUTH_LUA_USERDB_LOOKUP, req, error_r) < 0) {
+		lua_gc(L, LUA_GCCOLLECT, 0);
+		i_assert(lua_gettop(L) == 0);
 		return USERDB_RESULT_INTERNAL_FAILURE;
 	}
 
-	if (lua_istable(script->L, -1)) {
-		return auth_lua_export_userdb_table(script->L, req, error_r);
-	}
+	if (lua_istable(L, -1))
+		return auth_lua_export_userdb_table(L, req, error_r);
 
-	enum userdb_result ret = lua_tointeger(script->L, -2);
-	const char *str = t_strdup(lua_tostring(script->L, -1));
-	lua_pop(script->L, 2);
-	lua_gc(script->L, LUA_GCCOLLECT, 0);
-	i_assert(lua_gettop(script->L) == 0);
+	enum userdb_result ret = lua_tointeger(L, -2);
+	const char *str = t_strdup(lua_tostring(L, -1));
+	lua_pop(L, 2);
+	lua_gc(L, LUA_GCCOLLECT, 0);
+	i_assert(lua_gettop(L) == 0);
 
 	if (ret != USERDB_RESULT_OK) {
 		*error_r = str;
