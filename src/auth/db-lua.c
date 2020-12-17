@@ -327,24 +327,24 @@ auth_lua_check_auth_request(lua_State *L, int arg)
 	return (struct auth_request*)bp;
 }
 
-static void auth_lua_auth_request_register(struct dlua_script *script)
+static void auth_lua_auth_request_register(lua_State *L)
 {
-	luaL_newmetatable(script->L, AUTH_LUA_AUTH_REQUEST);
-	lua_pushcfunction(script->L, auth_request_lua_index);
-	lua_setfield(script->L, -2, "__index");
-	lua_pop(script->L, 1);
+	luaL_newmetatable(L, AUTH_LUA_AUTH_REQUEST);
+	lua_pushcfunction(L, auth_request_lua_index);
+	lua_setfield(L, -2, "__index");
+	lua_pop(L, 1);
 
 	/* register passdb */
-	luaL_newmetatable(script->L, "passdb_"AUTH_LUA_AUTH_REQUEST);
-	lua_pushcfunction(script->L, auth_request_lua_passdb);
-	lua_setfield(script->L, -2, "__index");
-	lua_pop(script->L, 1);
+	luaL_newmetatable(L, "passdb_"AUTH_LUA_AUTH_REQUEST);
+	lua_pushcfunction(L, auth_request_lua_passdb);
+	lua_setfield(L, -2, "__index");
+	lua_pop(L, 1);
 
 	/* register userdb */
-	luaL_newmetatable(script->L, "userdb_"AUTH_LUA_AUTH_REQUEST);
-	lua_pushcfunction(script->L, auth_request_lua_userdb);
-	lua_setfield(script->L, -2, "__index");
-	lua_pop(script->L, 1);
+	luaL_newmetatable(L, "userdb_"AUTH_LUA_AUTH_REQUEST);
+	lua_pushcfunction(L, auth_request_lua_userdb);
+	lua_setfield(L, -2, "__index");
+	lua_pop(L, 1);
 }
 
 static struct dlua_table_values auth_lua_dovecot_auth_values[] = {
@@ -397,7 +397,7 @@ int auth_lua_script_init(struct dlua_script *script, const char **error_r)
 {
 	dlua_dovecot_register(script);
 	auth_lua_dovecot_auth_register(script);
-	auth_lua_auth_request_register(script);
+	auth_lua_auth_request_register(script->L);
 	return dlua_script_init(script, error_r);
 }
 
