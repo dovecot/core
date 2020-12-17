@@ -14,13 +14,13 @@
 static void dlua_event_log(struct dlua_script *script, struct event *event,
 			   enum log_type log_type, const char *str);
 
-static void dlua_get_file_line(struct dlua_script *script, int arg,
-			       const char **file_r, unsigned int *line_r)
+static void dlua_get_file_line(lua_State *L, int arg, const char **file_r,
+			       unsigned int *line_r)
 {
 	const char *ptr;
 	lua_Debug ar;
-	lua_getstack(script->L, arg, &ar);
-	lua_getinfo(script->L, "Sl", &ar);
+	lua_getstack(L, arg, &ar);
+	lua_getinfo(L, "Sl", &ar);
 	/* basename would be better, but basename needs memory
 	   allocation, since it might modify the buffer contents,
 	   so we use this which is good enough */
@@ -477,7 +477,7 @@ static int dlua_event_passthrough_event(lua_State *L)
 	const char *file;
 	unsigned int line;
 
-	dlua_get_file_line(script, 1, &file, &line);
+	dlua_get_file_line(L, 1, &file, &line);
 	struct event_passthrough *e =
 		event_create_passthrough(event, file, line);
 	dlua_push_event_passthrough(script, e);
@@ -495,7 +495,7 @@ static int dlua_event_new(lua_State *L)
 
 	if (lua_gettop(script->L) == 1)
 		parent = dlua_check_event(script, 1);
-	dlua_get_file_line(script, 1, &file, &line);
+	dlua_get_file_line(L, 1, &file, &line);
 	event = event_create(parent, file, line);
 	dlua_push_event(script, event);
 	return 1;
@@ -648,7 +648,7 @@ static void dlua_event_log(struct dlua_script *script, struct event *event,
 	struct event_log_params parms;
 	i_zero(&parms);
 	parms.log_type = log_type;
-	dlua_get_file_line(script, 1, &parms.source_filename, &parms.source_linenum);
+	dlua_get_file_line(script->L, 1, &parms.source_filename, &parms.source_linenum);
 	if (log_type != LOG_TYPE_DEBUG ||
 	    event_want_level(event, LOG_TYPE_DEBUG, parms.source_filename,
 			     parms.source_linenum)) {
