@@ -342,32 +342,32 @@ bool dlua_script_has_function(struct dlua_script *script, const char *fn)
 	return ret;
 }
 
-void dlua_setmembers(struct dlua_script *script,
-		     const struct dlua_table_values *values, int idx)
+void dlua_setmembers(lua_State *L, const struct dlua_table_values *values,
+		     int idx)
 {
-	i_assert(script != NULL);
-	i_assert(lua_istable(script->L, idx));
+	i_assert(L != NULL);
+	i_assert(lua_istable(L, idx));
 	while(values->name != NULL) {
 		switch(values->type) {
 		case DLUA_TABLE_VALUE_STRING:
-			lua_pushstring(script->L, values->v.s);
+			lua_pushstring(L, values->v.s);
 			break;
 		case DLUA_TABLE_VALUE_INTEGER:
-			lua_pushnumber(script->L, values->v.i);
+			lua_pushnumber(L, values->v.i);
 			break;
 		case DLUA_TABLE_VALUE_DOUBLE:
-			lua_pushnumber(script->L, values->v.d);
+			lua_pushnumber(L, values->v.d);
 			break;
 		case DLUA_TABLE_VALUE_BOOLEAN:
-			lua_pushboolean(script->L, values->v.b);
+			lua_pushboolean(L, values->v.b);
 			break;
 		case DLUA_TABLE_VALUE_NULL:
-			lua_pushnil(script->L);
+			lua_pushnil(L);
 			break;
 		default:
 			i_unreached();
 		}
-		lua_setfield(script->L, idx-1, values->name);
+		lua_setfield(L, idx - 1, values->name);
 		values++;
 	}
 }

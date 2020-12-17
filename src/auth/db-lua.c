@@ -387,7 +387,7 @@ static void auth_lua_dovecot_auth_register(struct dlua_script *script)
 	lua_newtable(script->L);
 
 	/* register constants */
-	dlua_setmembers(script, auth_lua_dovecot_auth_values, -1);
+	dlua_setmembers(script->L, auth_lua_dovecot_auth_values, -1);
 
 	/* push new metatable to stack */
 	luaL_newmetatable(script->L, AUTH_LUA_DOVECOT_AUTH);
