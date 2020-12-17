@@ -26,7 +26,4 @@ void dlua_script_unref(struct dlua_script **_script);
 /* see if particular function is registered */
 bool dlua_script_has_function(struct dlua_script *script, const char *fn);
 
-/* dumps current stack as i_debug lines */
-void dlua_dump_stack(struct dlua_script *script);
-
 #endif
