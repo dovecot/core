@@ -11,7 +11,7 @@
 #define DLUA_EVENT_PASSTHROUGH "struct event_passthrough"
 #define DLUA_EVENT "struct event"
 
-static void dlua_event_log(struct dlua_script *script, struct event *event,
+static void dlua_event_log(lua_State *L, struct event *event,
 			   enum log_type log_type, const char *str);
 
 static void dlua_get_file_line(lua_State *L, int arg, const char **file_r,
@@ -187,7 +187,7 @@ static int dlua_event_pt_log_debug(lua_State *L)
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
-	dlua_event_log(script, event->event(), LOG_TYPE_DEBUG, str);
+	dlua_event_log(L, event->event(), LOG_TYPE_DEBUG, str);
 
 	lua_pushvalue(script->L, 1);
 
@@ -201,7 +201,7 @@ static int dlua_event_pt_log_info(lua_State *L)
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
-	dlua_event_log(script, event->event(), LOG_TYPE_INFO, str);
+	dlua_event_log(L, event->event(), LOG_TYPE_INFO, str);
 
 	lua_pushvalue(script->L, 1);
 
@@ -215,7 +215,7 @@ static int dlua_event_pt_log_warning(lua_State *L)
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
-	dlua_event_log(script, event->event(), LOG_TYPE_WARNING, str);
+	dlua_event_log(L, event->event(), LOG_TYPE_WARNING, str);
 
 	lua_pushvalue(script->L, 1);
 
@@ -229,7 +229,7 @@ static int dlua_event_pt_log_error(lua_State *L)
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
-	dlua_event_log(script, event->event(), LOG_TYPE_ERROR, str);
+	dlua_event_log(L, event->event(), LOG_TYPE_ERROR, str);
 
 	lua_pushvalue(script->L, 1);
 
@@ -418,7 +418,7 @@ static int dlua_event_log_debug(lua_State *L)
 	struct event *event = dlua_check_event(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
-	dlua_event_log(script, event, LOG_TYPE_DEBUG, str);
+	dlua_event_log(L, event, LOG_TYPE_DEBUG, str);
 
 	lua_pushvalue(script->L, 1);
 
@@ -432,7 +432,7 @@ static int dlua_event_log_info(lua_State *L)
 	struct event *event = dlua_check_event(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
-	dlua_event_log(script, event, LOG_TYPE_INFO, str);
+	dlua_event_log(L, event, LOG_TYPE_INFO, str);
 
 	lua_pushvalue(script->L, 1);
 
@@ -446,7 +446,7 @@ static int dlua_event_log_warning(lua_State *L)
 	struct event *event = dlua_check_event(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
-	dlua_event_log(script, event, LOG_TYPE_WARNING, str);
+	dlua_event_log(L, event, LOG_TYPE_WARNING, str);
 
 	lua_pushvalue(script->L, 1);
 
@@ -460,7 +460,7 @@ static int dlua_event_log_error(lua_State *L)
 	struct event *event = dlua_check_event(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
-	dlua_event_log(script, event, LOG_TYPE_ERROR, str);
+	dlua_event_log(L, event, LOG_TYPE_ERROR, str);
 
 	lua_pushvalue(script->L, 1);
 
@@ -642,13 +642,13 @@ void dlua_dovecot_register(struct dlua_script *script)
 }
 
 #undef event_want_level
-static void dlua_event_log(struct dlua_script *script, struct event *event,
+static void dlua_event_log(lua_State *L, struct event *event,
 			   enum log_type log_type, const char *str)
 {
 	struct event_log_params parms;
 	i_zero(&parms);
 	parms.log_type = log_type;
-	dlua_get_file_line(script->L, 1, &parms.source_filename, &parms.source_linenum);
+	dlua_get_file_line(L, 1, &parms.source_filename, &parms.source_linenum);
 	if (log_type != LOG_TYPE_DEBUG ||
 	    event_want_level(event, LOG_TYPE_DEBUG, parms.source_filename,
 			     parms.source_linenum)) {
