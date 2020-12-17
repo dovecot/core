@@ -693,6 +693,8 @@ struct userdb_iterate_context *
 auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_request *req,
 				  userdb_iter_callback_t *callback, void *context)
 {
+	lua_State *L = script->L;
+
 	pool_t pool = pool_alloconly_create(MEMPOOL_GROWING"lua userdb iterate", 128);
 	struct auth_lua_userdb_iterate_context *actx =
 		p_new(pool, struct auth_lua_userdb_iterate_context, 1);
@@ -702,31 +704,31 @@ auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_reques
 	actx->ctx.callback = callback;
 	actx->ctx.context = context;
 
-	lua_getglobal(script->L, AUTH_LUA_USERDB_ITERATE);
-	if (!lua_isfunction(script->L, -1)) {
+	lua_getglobal(L, AUTH_LUA_USERDB_ITERATE);
+	if (!lua_isfunction(L, -1)) {
 		actx->ctx.failed = TRUE;
 		return &actx->ctx;
 	}
 
 	e_debug(authdb_event(req), "Calling %s", AUTH_LUA_USERDB_ITERATE);
 
-	if (lua_pcall(script->L, 0, 1, 0) != 0) {
+	if (lua_pcall(L, 0, 1, 0) != 0) {
 		e_error(authdb_event(req),
 			"db-lua: " AUTH_LUA_USERDB_ITERATE " failed: %s",
-			lua_tostring(script->L, -1));
+			lua_tostring(L, -1));
 		actx->ctx.failed = TRUE;
-		lua_pop(script->L, 1);
-		i_assert(lua_gettop(script->L) == 0);
+		lua_pop(L, 1);
+		i_assert(lua_gettop(L) == 0);
 		return &actx->ctx;
 	}
 
-	if (!lua_istable(script->L, -1)) {
+	if (!lua_istable(L, -1)) {
 		e_error(authdb_event(req),
 			"db-lua: Cannot iterate, return value is not table");
 		actx->ctx.failed = TRUE;
-		lua_pop(script->L, 1);
-		lua_gc(script->L, LUA_GCCOLLECT, 0);
-		i_assert(lua_gettop(script->L) == 0);
+		lua_pop(L, 1);
+		lua_gc(L, LUA_GCCOLLECT, 0);
+		i_assert(lua_gettop(L) == 0);
 		return &actx->ctx;
 	}
 
@@ -736,24 +738,24 @@ auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_reques
 		table */
 
 	/* see lua_next documentation */
-	lua_pushnil(script->L);
-	while (lua_next(script->L, -2) != 0) {
+	lua_pushnil(L);
+	while (lua_next(L, -2) != 0) {
 		/* stack is now
 			value
 			key
 			table */
-		if (!lua_isstring(script->L, -1)) {
+		if (!lua_isstring(L, -1)) {
 			e_error(authdb_event(req),
 				"db-lua: Value is not string");
 			actx->ctx.failed = TRUE;
-			lua_pop(script->L, 3);
-			lua_gc(script->L, LUA_GCCOLLECT, 0);
-			i_assert(lua_gettop(script->L) == 0);
+			lua_pop(L, 3);
+			lua_gc(L, LUA_GCCOLLECT, 0);
+			i_assert(lua_gettop(L) == 0);
 			return &actx->ctx;
 		}
-		const char *str = p_strdup(pool, lua_tostring(script->L, -1));
+		const char *str = p_strdup(pool, lua_tostring(L, -1));
 		array_push_back(&actx->users, &str);
-		lua_pop(script->L, 1);
+		lua_pop(L, 1);
 		/* stack is now
 			key
 			table */
@@ -763,9 +765,9 @@ auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_reques
 		table
 	*/
 
-	lua_pop(script->L, 1);
-	lua_gc(script->L, LUA_GCCOLLECT, 0);
-	i_assert(lua_gettop(script->L) == 0);
+	lua_pop(L, 1);
+	lua_gc(L, LUA_GCCOLLECT, 0);
+	i_assert(lua_gettop(L) == 0);
 
 	return &actx->ctx;
 }
