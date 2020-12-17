@@ -63,7 +63,7 @@ static void dlua_push_event_passthrough(struct dlua_script *script,
 static int dlua_event_pt_append_log_prefix(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *prefix = luaL_checkstring(script->L, 2);
 
@@ -77,7 +77,7 @@ static int dlua_event_pt_append_log_prefix(lua_State *L)
 static int dlua_event_pt_replace_log_prefix(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *prefix = luaL_checkstring(script->L, 2);
 
@@ -91,7 +91,7 @@ static int dlua_event_pt_replace_log_prefix(lua_State *L)
 static int dlua_event_pt_set_name(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *name = luaL_checkstring(script->L, 2);
 
@@ -106,7 +106,7 @@ static int dlua_event_pt_set_name(lua_State *L)
 static int dlua_event_pt_set_always_log_source(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 1);
+	DLUA_REQUIRE_ARGS(L, 1);
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 
 	event->set_always_log_source();
@@ -119,7 +119,7 @@ static int dlua_event_pt_set_always_log_source(lua_State *L)
 static int dlua_event_pt_add_str(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 3);
+	DLUA_REQUIRE_ARGS(L, 3);
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *name = luaL_checkstring(script->L, 2);
 	const char *value = luaL_checkstring(script->L, 3);
@@ -134,7 +134,7 @@ static int dlua_event_pt_add_str(lua_State *L)
 static int dlua_event_pt_add_int(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 3);
+	DLUA_REQUIRE_ARGS(L, 3);
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *name = luaL_checkstring(script->L, 2);
 	lua_Integer value = luaL_checkinteger(script->L, 3);
@@ -149,7 +149,7 @@ static int dlua_event_pt_add_int(lua_State *L)
 static int dlua_event_pt_add_timeval(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 3);
+	DLUA_REQUIRE_ARGS(L, 3);
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *name = luaL_checkstring(script->L, 2);
 	/* this is time in seconds */
@@ -168,7 +168,7 @@ static int dlua_event_pt_add_timeval(lua_State *L)
 static int dlua_event_pt_inc_int(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 3);
+	DLUA_REQUIRE_ARGS(L, 3);
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *name = luaL_checkstring(script->L, 2);
 	lua_Integer value = luaL_checkinteger(script->L, 3);
@@ -183,7 +183,7 @@ static int dlua_event_pt_inc_int(lua_State *L)
 static int dlua_event_pt_log_debug(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
@@ -197,7 +197,7 @@ static int dlua_event_pt_log_debug(lua_State *L)
 static int dlua_event_pt_log_info(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
@@ -211,7 +211,7 @@ static int dlua_event_pt_log_info(lua_State *L)
 static int dlua_event_pt_log_warning(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
@@ -225,7 +225,7 @@ static int dlua_event_pt_log_warning(lua_State *L)
 static int dlua_event_pt_log_error(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	struct event_passthrough *event = dlua_check_event_passthrough(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
@@ -294,7 +294,7 @@ void dlua_push_event(struct dlua_script *script, struct event *event)
 static int dlua_event_append_log_prefix(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	struct event *event = dlua_check_event(script, 1);
 	const char *prefix = luaL_checkstring(script->L, 2);
 
@@ -308,7 +308,7 @@ static int dlua_event_append_log_prefix(lua_State *L)
 static int dlua_event_replace_log_prefix(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	struct event *event = dlua_check_event(script, 1);
 	const char *prefix = luaL_checkstring(script->L, 2);
 
@@ -322,7 +322,7 @@ static int dlua_event_replace_log_prefix(lua_State *L)
 static int dlua_event_set_name(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	struct event *event = dlua_check_event(script, 1);
 	const char *name = luaL_checkstring(script->L, 2);
 
@@ -337,7 +337,7 @@ static int dlua_event_set_name(lua_State *L)
 static int dlua_event_set_always_log_source(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 1);
+	DLUA_REQUIRE_ARGS(L, 1);
 	struct event *event = dlua_check_event(script, 1);
 
 	event_set_always_log_source(event);
@@ -350,7 +350,7 @@ static int dlua_event_set_always_log_source(lua_State *L)
 static int dlua_event_add_str(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 3);
+	DLUA_REQUIRE_ARGS(L, 3);
 	struct event *event = dlua_check_event(script, 1);
 	const char *name = luaL_checkstring(script->L, 2);
 	const char *value = luaL_checkstring(script->L, 3);
@@ -365,7 +365,7 @@ static int dlua_event_add_str(lua_State *L)
 static int dlua_event_add_int(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 3);
+	DLUA_REQUIRE_ARGS(L, 3);
 	struct event *event = dlua_check_event(script, 1);
 	const char *name = luaL_checkstring(script->L, 2);
 	lua_Integer value = luaL_checkinteger(script->L, 3);
@@ -380,7 +380,7 @@ static int dlua_event_add_int(lua_State *L)
 static int dlua_event_add_timeval(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 3);
+	DLUA_REQUIRE_ARGS(L, 3);
 	struct event *event = dlua_check_event(script, 1);
 	const char *name = luaL_checkstring(script->L, 2);
 	/* this is time in seconds */
@@ -399,7 +399,7 @@ static int dlua_event_add_timeval(lua_State *L)
 static int dlua_event_inc_int(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 3);
+	DLUA_REQUIRE_ARGS(L, 3);
 	struct event *event = dlua_check_event(script, 1);
 	const char *name = luaL_checkstring(script->L, 2);
 	lua_Integer value = luaL_checkinteger(script->L, 3);
@@ -414,7 +414,7 @@ static int dlua_event_inc_int(lua_State *L)
 static int dlua_event_log_debug(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	struct event *event = dlua_check_event(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
@@ -428,7 +428,7 @@ static int dlua_event_log_debug(lua_State *L)
 static int dlua_event_log_info(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	struct event *event = dlua_check_event(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
@@ -442,7 +442,7 @@ static int dlua_event_log_info(lua_State *L)
 static int dlua_event_log_warning(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	struct event *event = dlua_check_event(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
@@ -456,7 +456,7 @@ static int dlua_event_log_warning(lua_State *L)
 static int dlua_event_log_error(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	struct event *event = dlua_check_event(script, 1);
 	const char *str = luaL_checkstring(script->L, 2);
 
@@ -472,7 +472,7 @@ static int dlua_event_log_error(lua_State *L)
 static int dlua_event_passthrough_event(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 1);
+	DLUA_REQUIRE_ARGS(L, 1);
 	struct event *event = dlua_check_event(script, 1);
 	const char *file;
 	unsigned int line;
@@ -488,7 +488,7 @@ static int dlua_event_passthrough_event(lua_State *L)
 static int dlua_event_new(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS_IN(script, 0, 1);
+	DLUA_REQUIRE_ARGS_IN(L, 0, 1);
 	struct event *event, *parent = script->event;
 	const char *file;
 	unsigned int line;
@@ -535,7 +535,7 @@ static void dlua_event_register(struct dlua_script *script){
 static int dlua_i_debug(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 1);
+	DLUA_REQUIRE_ARGS(L, 1);
 	const char *msg = luaL_checkstring(script->L, 1);
 	i_debug("%s", msg);
 	return 0;
@@ -544,7 +544,7 @@ static int dlua_i_debug(lua_State *L)
 static int dlua_i_info(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 1);
+	DLUA_REQUIRE_ARGS(L, 1);
 	const char *msg = luaL_checkstring(script->L, 1);
 	i_info("%s", msg);
 	return 0;
@@ -553,7 +553,7 @@ static int dlua_i_info(lua_State *L)
 static int dlua_i_warning(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 1);
+	DLUA_REQUIRE_ARGS(L, 1);
 	const char *msg = luaL_checkstring(script->L, 1);
 	i_warning("%s", msg);
 	return 0;
@@ -562,7 +562,7 @@ static int dlua_i_warning(lua_State *L)
 static int dlua_i_error(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 1);
+	DLUA_REQUIRE_ARGS(L, 1);
 	const char *msg = luaL_checkstring(script->L, 1);
 	i_error("%s", msg);
 	return 0;
@@ -571,7 +571,7 @@ static int dlua_i_error(lua_State *L)
 static int dlua_has_flag(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	/* we rather deal with unsigned value here */
 	lua_Integer value = luaL_checkinteger(script->L, 1);
 	lua_Integer flag = luaL_checkinteger(script->L, 2);
@@ -583,7 +583,7 @@ static int dlua_has_flag(lua_State *L)
 static int dlua_set_flag(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	lua_Integer value = luaL_checkinteger(script->L, 1);
 	lua_Integer flag = luaL_checkinteger(script->L, 2);
 
@@ -594,7 +594,7 @@ static int dlua_set_flag(lua_State *L)
 static int dlua_clear_flag(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	lua_Integer value = luaL_checkinteger(script->L, 1);
 	lua_Integer flag = luaL_checkinteger(script->L, 2);
 

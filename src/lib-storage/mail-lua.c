@@ -61,7 +61,7 @@ lua_check_storage_mail(struct dlua_script *script, int arg)
 static int lua_storage_mail_tostring(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 1);
+	DLUA_REQUIRE_ARGS(L, 1);
 	struct mail *mail = lua_check_storage_mail(script, 1);
 
 	const char *str =
@@ -74,7 +74,7 @@ static int lua_storage_mail_tostring(lua_State *L)
 static int lua_storage_mail_eq(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	struct mail *mail = lua_check_storage_mail(script, 1);
 	struct mail *mail2 = lua_check_storage_mail(script, 2);
 
@@ -88,7 +88,7 @@ static int lua_storage_mail_eq(lua_State *L)
 static int lua_storage_mail_lt(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	struct mail *mail = lua_check_storage_mail(script, 1);
 	struct mail *mail2 = lua_check_storage_mail(script, 2);
 
@@ -103,7 +103,7 @@ static int lua_storage_mail_lt(lua_State *L)
 static int lua_storage_mail_le(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	DLUA_REQUIRE_ARGS(script, 2);
+	DLUA_REQUIRE_ARGS(L, 2);
 	struct mail *mail = lua_check_storage_mail(script, 1);
 	struct mail *mail2 = lua_check_storage_mail(script, 2);
 

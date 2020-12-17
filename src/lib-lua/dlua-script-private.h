@@ -35,18 +35,18 @@ void luaL_setmetatable (lua_State *L, const char *tname);
 #define DLUA_TABLE_NULL(n, s) { .name = (n), .type = DLUA_TABLE_VALUE_NULL }
 #define DLUA_TABLE_END { .name = NULL }
 
-#define DLUA_REQUIRE_ARGS_IN(s, x, y) \
+#define DLUA_REQUIRE_ARGS_IN(L, x, y) \
 	STMT_START { \
-		if (lua_gettop((s)->L) < (x) || lua_gettop((s)->L) > (y)) { \
-			return luaL_error((s)->L, "expected %d to %d arguments, got %d", \
-					  (x), (y), lua_gettop((s)->L)); \
+		if (lua_gettop(L) < (x) || lua_gettop(L) > (y)) { \
+			return luaL_error((L), "expected %d to %d arguments, got %d", \
+					  (x), (y), lua_gettop(L)); \
 		} \
 	} STMT_END
-#define DLUA_REQUIRE_ARGS(s, x) \
+#define DLUA_REQUIRE_ARGS(L, x) \
 	STMT_START { \
-		if (lua_gettop((s)->L) != (x)) { \
-			return luaL_error((s)->L, "expected %d arguments, got %d", \
-					  (x), lua_gettop((s)->L)); \
+		if (lua_gettop(L) != (x)) { \
+			return luaL_error((L), "expected %d arguments, got %d", \
+					  (x), lua_gettop(L)); \
 		} \
 	} STMT_END
 
