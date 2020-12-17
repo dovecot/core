@@ -247,18 +247,17 @@ static int dlua_event_gc(lua_State *L)
 	return 0;
 }
 
-struct event *
-dlua_check_event(struct dlua_script *script, int arg)
+struct event *dlua_check_event(lua_State *L, int arg)
 {
-	if (!lua_istable(script->L, arg)) {
-		(void)luaL_error(script->L, "Bad argument #%d, expected %s got %s",
+	if (!lua_istable(L, arg)) {
+		(void)luaL_error(L, "Bad argument #%d, expected %s got %s",
 				 arg, DLUA_EVENT,
-				 lua_typename(script->L, lua_type(script->L, arg)));
+				 lua_typename(L, lua_type(L, arg)));
 	}
-	lua_pushliteral(script->L, "item");
-	lua_rawget(script->L, arg);
-	struct event **bp = (void*)lua_touserdata(script->L, -1);
-	lua_pop(script->L, 1);
+	lua_pushliteral(L, "item");
+	lua_rawget(L, arg);
+	struct event **bp = (void*)lua_touserdata(L, -1);
+	lua_pop(L, 1);
 	return *bp;
 }
 
@@ -280,9 +279,8 @@ void dlua_push_event(lua_State *L, struct event *event)
 
 static int dlua_event_append_log_prefix(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
-	struct event *event = dlua_check_event(script, 1);
+	struct event *event = dlua_check_event(L, 1);
 	const char *prefix = luaL_checkstring(L, 2);
 
 	event_set_append_log_prefix(event, prefix);
@@ -294,9 +292,8 @@ static int dlua_event_append_log_prefix(lua_State *L)
 
 static int dlua_event_replace_log_prefix(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
-	struct event *event = dlua_check_event(script, 1);
+	struct event *event = dlua_check_event(L, 1);
 	const char *prefix = luaL_checkstring(L, 2);
 
 	event_replace_log_prefix(event, prefix);
@@ -308,9 +305,8 @@ static int dlua_event_replace_log_prefix(lua_State *L)
 
 static int dlua_event_set_name(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
-	struct event *event = dlua_check_event(script, 1);
+	struct event *event = dlua_check_event(L, 1);
 	const char *name = luaL_checkstring(L, 2);
 
 	event_set_name(event, name);
@@ -323,9 +319,8 @@ static int dlua_event_set_name(lua_State *L)
 
 static int dlua_event_set_always_log_source(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 1);
-	struct event *event = dlua_check_event(script, 1);
+	struct event *event = dlua_check_event(L, 1);
 
 	event_set_always_log_source(event);
 
@@ -336,9 +331,8 @@ static int dlua_event_set_always_log_source(lua_State *L)
 
 static int dlua_event_add_str(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 3);
-	struct event *event = dlua_check_event(script, 1);
+	struct event *event = dlua_check_event(L, 1);
 	const char *name = luaL_checkstring(L, 2);
 	const char *value = luaL_checkstring(L, 3);
 
@@ -351,9 +345,8 @@ static int dlua_event_add_str(lua_State *L)
 
 static int dlua_event_add_int(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 3);
-	struct event *event = dlua_check_event(script, 1);
+	struct event *event = dlua_check_event(L, 1);
 	const char *name = luaL_checkstring(L, 2);
 	lua_Integer value = luaL_checkinteger(L, 3);
 
@@ -366,9 +359,8 @@ static int dlua_event_add_int(lua_State *L)
 
 static int dlua_event_add_timeval(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 3);
-	struct event *event = dlua_check_event(script, 1);
+	struct event *event = dlua_check_event(L, 1);
 	const char *name = luaL_checkstring(L, 2);
 	/* this is time in seconds */
 	lua_Integer value = luaL_checkinteger(L, 3);
@@ -385,9 +377,8 @@ static int dlua_event_add_timeval(lua_State *L)
 
 static int dlua_event_inc_int(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 3);
-	struct event *event = dlua_check_event(script, 1);
+	struct event *event = dlua_check_event(L, 1);
 	const char *name = luaL_checkstring(L, 2);
 	lua_Integer value = luaL_checkinteger(L, 3);
 
@@ -400,9 +391,8 @@ static int dlua_event_inc_int(lua_State *L)
 
 static int dlua_event_log_debug(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
-	struct event *event = dlua_check_event(script, 1);
+	struct event *event = dlua_check_event(L, 1);
 	const char *str = luaL_checkstring(L, 2);
 
 	dlua_event_log(L, event, LOG_TYPE_DEBUG, str);
@@ -414,9 +404,8 @@ static int dlua_event_log_debug(lua_State *L)
 
 static int dlua_event_log_info(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
-	struct event *event = dlua_check_event(script, 1);
+	struct event *event = dlua_check_event(L, 1);
 	const char *str = luaL_checkstring(L, 2);
 
 	dlua_event_log(L, event, LOG_TYPE_INFO, str);
@@ -428,9 +417,8 @@ static int dlua_event_log_info(lua_State *L)
 
 static int dlua_event_log_warning(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
-	struct event *event = dlua_check_event(script, 1);
+	struct event *event = dlua_check_event(L, 1);
 	const char *str = luaL_checkstring(L, 2);
 
 	dlua_event_log(L, event, LOG_TYPE_WARNING, str);
@@ -442,9 +430,8 @@ static int dlua_event_log_warning(lua_State *L)
 
 static int dlua_event_log_error(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
-	struct event *event = dlua_check_event(script, 1);
+	struct event *event = dlua_check_event(L, 1);
 	const char *str = luaL_checkstring(L, 2);
 
 	dlua_event_log(L, event, LOG_TYPE_ERROR, str);
@@ -458,9 +445,8 @@ static int dlua_event_log_error(lua_State *L)
 #undef event_create
 static int dlua_event_passthrough_event(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 1);
-	struct event *event = dlua_check_event(script, 1);
+	struct event *event = dlua_check_event(L, 1);
 	const char *file;
 	unsigned int line;
 
@@ -481,7 +467,7 @@ static int dlua_event_new(lua_State *L)
 	unsigned int line;
 
 	if (lua_gettop(L) == 1)
-		parent = dlua_check_event(script, 1);
+		parent = dlua_check_event(L, 1);
 	dlua_get_file_line(L, 1, &file, &line);
 	event = event_create(parent, file, line);
 	dlua_push_event(L, event);

@@ -102,6 +102,6 @@ void dlua_setmembers(lua_State *L, const struct dlua_table_values *values, int i
 void dlua_push_event(lua_State *L, struct event *event);
 
 /* get event from given stack position */
-struct event *dlua_check_event(struct dlua_script *script, int arg);
+struct event *dlua_check_event(lua_State *L, int arg);
 
 #endif
