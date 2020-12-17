@@ -70,25 +70,24 @@ void dlua_push_mail_user(struct dlua_script *script, struct mail_user *user)
 }
 
 static struct mail_user *
-lua_check_storage_mail_user(struct dlua_script *script, int arg)
+lua_check_storage_mail_user(lua_State *L, int arg)
 {
-	if (!lua_istable(script->L, arg)) {
-		(void)luaL_error(script->L, "Bad argument #%d, expected %s got %s",
+	if (!lua_istable(L, arg)) {
+		(void)luaL_error(L, "Bad argument #%d, expected %s got %s",
 				 arg, LUA_STORAGE_MAIL_USER,
-				 lua_typename(script->L, lua_type(script->L, arg)));
+				 lua_typename(L, lua_type(L, arg)));
 	}
-	lua_pushliteral(script->L, "item");
-	lua_rawget(script->L, arg);
-	struct mail_user **bp = lua_touserdata(script->L, -1);
-	lua_pop(script->L, 1);
+	lua_pushliteral(L, "item");
+	lua_rawget(L, arg);
+	struct mail_user **bp = lua_touserdata(L, -1);
+	lua_pop(L, 1);
 	return *bp;
 }
 
 static int lua_storage_mail_user_tostring(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 1);
-	struct mail_user *user = lua_check_storage_mail_user(script, 1);
+	struct mail_user *user = lua_check_storage_mail_user(L, 1);
 
 	lua_pushstring(L, user->username);
 	return 1;
@@ -134,7 +133,7 @@ static int lua_storage_mail_user_var_expand(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
-	struct mail_user *user = lua_check_storage_mail_user(script, 1);
+	struct mail_user *user = lua_check_storage_mail_user(L, 1);
 	const char *error;
 	const char *format = luaL_checkstring(script->L, 2);
 	const struct var_expand_table *table = mail_user_var_expand_table(user);
@@ -152,7 +151,7 @@ static int lua_storage_mail_user_plugin_getenv(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
-	struct mail_user *user = lua_check_storage_mail_user(script, 1);
+	struct mail_user *user = lua_check_storage_mail_user(L, 1);
 	const char *set = lua_tostring(script->L, 2);
 	const char *val = mail_user_plugin_getenv(user, set);
 	lua_pushstring(script->L, val);
@@ -163,7 +162,7 @@ static int lua_storage_mail_user_mailbox_alloc(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS_IN(L, 2, 3);
-	struct mail_user *user = lua_check_storage_mail_user(script, 1);
+	struct mail_user *user = lua_check_storage_mail_user(L, 1);
 	const char *mboxname = luaL_checkstring(script->L, 2);
 	enum mailbox_flags flags = 0;
 	if (lua_gettop(script->L) >= 3)
@@ -207,7 +206,7 @@ static int lua_storage_mail_user_metadata_get(lua_State *L)
 	struct dlua_script *script = dlua_script_from_state(L);
 	if (lua_gettop(script->L) < 2)
 		return luaL_error(script->L, "expecting at least 1 parameter");
-	struct mail_user *user = lua_check_storage_mail_user(script, 1);
+	struct mail_user *user = lua_check_storage_mail_user(L, 1);
 
 	const char *value, *error;
 	size_t value_len;
@@ -301,7 +300,7 @@ static int lua_storage_mail_user_metadata_set(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 3);
-	struct mail_user *user = lua_check_storage_mail_user(script, 1);
+	struct mail_user *user = lua_check_storage_mail_user(L, 1);
 	const char *key = luaL_checkstring(script->L, 2);
 	const char *value;
 	size_t value_len;
@@ -316,7 +315,7 @@ static int lua_storage_mail_user_metadata_unset(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
-	struct mail_user *user = lua_check_storage_mail_user(script, 1);
+	struct mail_user *user = lua_check_storage_mail_user(L, 1);
 	const char *key = luaL_checkstring(script->L, 2);
 
 	return lua_storage_mail_user_set_metadata_unset(script, user, key, NULL, 0);
@@ -327,7 +326,7 @@ static int lua_storage_mail_user_metadata_list(lua_State *L)
 	struct dlua_script *script = dlua_script_from_state(L);
 	if (lua_gettop(script->L) < 2)
 		return luaL_error(script->L, "expecting at least 1 parameter");
-	struct mail_user *user = lua_check_storage_mail_user(script, 1);
+	struct mail_user *user = lua_check_storage_mail_user(L, 1);
 	const struct lua_storage_keyvalue *item;
 	const char *error;
 	ARRAY_TYPE(lua_storage_keyvalue) items;
