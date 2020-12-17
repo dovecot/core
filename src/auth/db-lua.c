@@ -35,7 +35,7 @@ struct auth_lua_userdb_iterate_context {
 };
 
 static struct auth_request *
-auth_lua_check_auth_request(struct dlua_script *script, int arg);
+auth_lua_check_auth_request(lua_State *L, int arg);
 
 static int
 auth_request_lua_do_var_expand(struct auth_request *req, const char *tpl,
@@ -52,8 +52,7 @@ auth_request_lua_do_var_expand(struct auth_request *req, const char *tpl,
 
 static int auth_request_lua_var_expand(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
-	struct auth_request *req = auth_lua_check_auth_request(script, 1);
+	struct auth_request *req = auth_lua_check_auth_request(L, 1);
 	const char *tpl = luaL_checkstring(L, 2);
 	const char *value, *error;
 
@@ -86,8 +85,7 @@ auth_request_template_build(struct auth_request *req, const char *str,
 
 static int auth_request_lua_response_from_template(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
-	struct auth_request *req = auth_lua_check_auth_request(script, 1);
+	struct auth_request *req = auth_lua_check_auth_request(L, 1);
 	const char *tplstr = luaL_checkstring(L, 2);
 	const char *error,*expanded;
 	unsigned int count,i;
@@ -123,8 +121,7 @@ static int auth_request_lua_response_from_template(lua_State *L)
 static int auth_request_lua_log_debug(lua_State *L)
 {
 	if (global_auth_settings->debug) {
-		struct dlua_script *script = dlua_script_from_state(L);
-		struct auth_request *request = auth_lua_check_auth_request(script, 1);
+		struct auth_request *request = auth_lua_check_auth_request(L, 1);
 		const char *msg = luaL_checkstring(L, 2);
 		e_debug(authdb_event(request), "db-lua: %s", msg);
 	}
@@ -133,8 +130,7 @@ static int auth_request_lua_log_debug(lua_State *L)
 
 static int auth_request_lua_log_info(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
-	struct auth_request *request = auth_lua_check_auth_request(script, 1);
+	struct auth_request *request = auth_lua_check_auth_request(L, 1);
 	const char *msg = luaL_checkstring(L, 2);
 	e_info(authdb_event(request), "db-lua: %s", msg);
 	return 0;
@@ -142,8 +138,7 @@ static int auth_request_lua_log_info(lua_State *L)
 
 static int auth_request_lua_log_warning(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
-	struct auth_request *request = auth_lua_check_auth_request(script, 1);
+	struct auth_request *request = auth_lua_check_auth_request(L, 1);
 	const char *msg = luaL_checkstring(L, 2);
 	e_warning(authdb_event(request), "db-lua: %s", msg);
 	return 0;
@@ -151,8 +146,7 @@ static int auth_request_lua_log_warning(lua_State *L)
 
 static int auth_request_lua_log_error(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
-	struct auth_request *request = auth_lua_check_auth_request(script, 1);
+	struct auth_request *request = auth_lua_check_auth_request(L, 1);
 	const char *msg = luaL_checkstring(L, 2);
 	e_error(authdb_event(request), "db-lua: %s", msg);
 	return 0;
@@ -160,9 +154,7 @@ static int auth_request_lua_log_error(lua_State *L)
 
 static int auth_request_lua_passdb(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
-
-	struct auth_request *request = auth_lua_check_auth_request(script, 1);
+	struct auth_request *request = auth_lua_check_auth_request(L, 1);
 	const char *key = luaL_checkstring(L, 2);
 	lua_pop(L, 1);
 
@@ -177,8 +169,7 @@ static int auth_request_lua_passdb(lua_State *L)
 
 static int auth_request_lua_userdb(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
-	struct auth_request *request = auth_lua_check_auth_request(script, 1);
+	struct auth_request *request = auth_lua_check_auth_request(L, 1);
 	const char *key = luaL_checkstring(L, 2);
 	lua_pop(L, 1);
 
@@ -194,7 +185,7 @@ static int auth_request_lua_userdb(lua_State *L)
 static int auth_request_lua_password_verify(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	struct auth_request *request = auth_lua_check_auth_request(script, 1);
+	struct auth_request *request = auth_lua_check_auth_request(L, 1);
 	const char *crypted_password = lua_tostring(L, 2);
 	const char *scheme;
 	const char *plain_password = lua_tostring(L, 3);
@@ -234,8 +225,7 @@ static int auth_request_lua_password_verify(lua_State *L)
 
 static int auth_request_lua_event(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
-	struct auth_request *request = auth_lua_check_auth_request(script, 1);
+	struct auth_request *request = auth_lua_check_auth_request(L, 1);
 	struct event *event = event_create(authdb_event(request));
 
 	dlua_push_event(L, event);
@@ -257,9 +247,7 @@ static const luaL_Reg auth_request_methods[] ={
 
 static int auth_request_lua_index(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
-
-	struct auth_request *req = auth_lua_check_auth_request(script, 1);
+	struct auth_request *req = auth_lua_check_auth_request(L, 1);
 	const char *key = luaL_checkstring(L, 2);
 	lua_pop(L, 1);
 
@@ -326,17 +314,17 @@ static void auth_lua_push_auth_request(struct dlua_script *script, struct auth_r
 }
 
 static struct auth_request *
-auth_lua_check_auth_request(struct dlua_script *script, int arg)
+auth_lua_check_auth_request(lua_State *L, int arg)
 {
-	if (!lua_istable(script->L, arg)) {
-		(void)luaL_error(script->L, "Bad argument #%d, expected %s got %s",
+	if (!lua_istable(L, arg)) {
+		(void)luaL_error(L, "Bad argument #%d, expected %s got %s",
 				 arg, "auth_request",
-				 lua_typename(script->L, lua_type(script->L, arg)));
+				 lua_typename(L, lua_type(L, arg)));
 	}
-	lua_pushstring(script->L, "item");
-	lua_rawget(script->L, arg);
-	void *bp = (void*)lua_touserdata(script->L, -1);
-	lua_pop(script->L, 1);
+	lua_pushstring(L, "item");
+	lua_rawget(L, arg);
+	void *bp = (void*)lua_touserdata(L, -1);
+	lua_pop(L, 1);
 	return (struct auth_request*)bp;
 }
 
