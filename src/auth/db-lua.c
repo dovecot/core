@@ -277,35 +277,35 @@ static int auth_request_lua_index(lua_State *L)
 	return 1;
 }
 
-static void auth_lua_push_auth_request(struct dlua_script *script, struct auth_request *req)
+static void auth_lua_push_auth_request(lua_State *L, struct auth_request *req)
 {
-	luaL_checkstack(script->L, 4, "out of memory");
+	luaL_checkstack(L, 4, "out of memory");
 	/* create a table for holding few things */
-	lua_createtable(script->L, 0, 3);
-	luaL_setmetatable(script->L, AUTH_LUA_AUTH_REQUEST);
+	lua_createtable(L, 0, 3);
+	luaL_setmetatable(L, AUTH_LUA_AUTH_REQUEST);
 
-	lua_pushlightuserdata(script->L, req);
-	lua_setfield(script->L, -2, "item");
+	lua_pushlightuserdata(L, req);
+	lua_setfield(L, -2, "item");
 
-	lua_newtable(script->L);
-	lua_pushlightuserdata(script->L, req);
-	lua_setfield(script->L, -2, "item");
-	luaL_setmetatable(script->L, "passdb_"AUTH_LUA_AUTH_REQUEST);
-	lua_setfield(script->L, -2, "passdb");
+	lua_newtable(L);
+	lua_pushlightuserdata(L, req);
+	lua_setfield(L, -2, "item");
+	luaL_setmetatable(L, "passdb_"AUTH_LUA_AUTH_REQUEST);
+	lua_setfield(L, -2, "passdb");
 
-	lua_newtable(script->L);
-	lua_pushlightuserdata(script->L, req);
-	lua_setfield(script->L, -2, "item");
-	luaL_setmetatable(script->L, "userdb_"AUTH_LUA_AUTH_REQUEST);
-	lua_setfield(script->L, -2, "userdb");
+	lua_newtable(L);
+	lua_pushlightuserdata(L, req);
+	lua_setfield(L, -2, "item");
+	luaL_setmetatable(L, "userdb_"AUTH_LUA_AUTH_REQUEST);
+	lua_setfield(L, -2, "userdb");
 
-	lua_pushboolean(script->L, req->fields.skip_password_check);
-	lua_setfield(script->L, -2, "skip_password_check");
+	lua_pushboolean(L, req->fields.skip_password_check);
+	lua_setfield(L, -2, "skip_password_check");
 
 #undef LUA_TABLE_SETBOOL
 #define LUA_TABLE_SETBOOL(field) \
-	lua_pushboolean(script->L, req->field); \
-	lua_setfield(script->L, -2, #field);
+	lua_pushboolean(L, req->field); \
+	lua_setfield(L, -2, #field);
 
 	LUA_TABLE_SETBOOL(passdbs_seen_user_unknown);
 	LUA_TABLE_SETBOOL(passdbs_seen_internal_failure);
@@ -419,7 +419,7 @@ static int auth_lua_call_lookup(struct dlua_script *script, const char *fn,
 	e_debug(authdb_event(req), "Calling %s", fn);
 
 	/* call with auth request as parameter */
-	auth_lua_push_auth_request(script, req);
+	auth_lua_push_auth_request(script->L, req);
 	if (lua_pcall(script->L, 1, 2, 0) != 0) {
 		*error_r = t_strdup_printf("db-lua: %s(req) failed: %s",
 					   fn, lua_tostring(script->L, -1));
@@ -608,7 +608,7 @@ auth_lua_call_password_verify(struct dlua_script *script,
 	e_debug(authdb_event(req), "Calling %s", AUTH_LUA_PASSWORD_VERIFY);
 
 	/* call with auth request, password as parameters */
-	auth_lua_push_auth_request(script, req);
+	auth_lua_push_auth_request(script->L, req);
 	lua_pushstring(script->L, password);
 	if (lua_pcall(script->L, 2, 2, 0) != 0) {
 		*error_r = t_strdup_printf("db-lua: %s(req, password) failed: %s",
