@@ -528,19 +528,19 @@ static void auth_lua_export_table(lua_State *L, struct auth_request *req,
 }
 
 static enum userdb_result
-auth_lua_export_userdb_table(struct dlua_script *script, struct auth_request *req,
+auth_lua_export_userdb_table(lua_State *L, struct auth_request *req,
 			     const char **error_r)
 {
-	enum userdb_result ret = lua_tointeger(script->L, -2);
+	enum userdb_result ret = lua_tointeger(L, -2);
 
 	if (ret != USERDB_RESULT_OK) {
-		lua_pop(script->L, 2);
-		lua_gc(script->L, LUA_GCCOLLECT, 0);
+		lua_pop(L, 2);
+		lua_gc(L, LUA_GCCOLLECT, 0);
 		*error_r = "userdb failed";
 		return ret;
 	}
 
-	auth_lua_export_table(script->L, req, NULL, NULL);
+	auth_lua_export_table(L, req, NULL, NULL);
 	return USERDB_RESULT_OK;
 }
 
@@ -670,7 +670,7 @@ auth_lua_call_userdb_lookup(struct dlua_script *script,
 	}
 
 	if (lua_istable(script->L, -1)) {
-		return auth_lua_export_userdb_table(script, req, error_r);
+		return auth_lua_export_userdb_table(script->L, req, error_r);
 	}
 
 	enum userdb_result ret = lua_tointeger(script->L, -2);
