@@ -184,7 +184,6 @@ static int auth_request_lua_userdb(lua_State *L)
 
 static int auth_request_lua_password_verify(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	struct auth_request *request = auth_lua_check_auth_request(L, 1);
 	const char *crypted_password = lua_tostring(L, 2);
 	const char *scheme;
@@ -217,8 +216,8 @@ static int auth_request_lua_password_verify(lua_State *L)
 				      scheme, raw_password, raw_password_size, &error);
 	}
 
-	lua_pushnumber(script->L, ret);
-	lua_pushstring(script->L, error);
+	lua_pushnumber(L, ret);
+	lua_pushstring(L, error);
 
 	return 2;
 }
