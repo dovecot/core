@@ -477,24 +477,24 @@ auth_lua_export_fields(struct auth_request *req,
 	}
 }
 
-static void auth_lua_export_table(struct dlua_script *script, struct auth_request *req,
+static void auth_lua_export_table(lua_State *L, struct auth_request *req,
 				 const char **scheme_r, const char **password_r)
 {
-	lua_pushvalue(script->L, -1);
-	lua_pushnil(script->L);
-	while (lua_next(script->L, -2) != 0) {
-		const char *key = t_strdup(lua_tostring(script->L, -2));
+	lua_pushvalue(L, -1);
+	lua_pushnil(L);
+	while (lua_next(L, -2) != 0) {
+		const char *key = t_strdup(lua_tostring(L, -2));
 		const char *value;
-		int type = lua_type(script->L, -1);
+		int type = lua_type(L, -1);
 		switch(type) {
 		case LUA_TNUMBER:
-			value = dec2str(lua_tointeger(script->L, -1));
+			value = dec2str(lua_tointeger(L, -1));
 			break;
 		case LUA_TBOOLEAN:
-			value = lua_toboolean(script->L, -1) ? "yes" : "no";
+			value = lua_toboolean(L, -1) ? "yes" : "no";
 			break;
 		case LUA_TSTRING:
-			value = t_strdup(lua_tostring(script->L, -1));
+			value = t_strdup(lua_tostring(L, -1));
 			break;
 		case LUA_TNIL:
 			value = "";
@@ -502,7 +502,7 @@ static void auth_lua_export_table(struct dlua_script *script, struct auth_reques
 		default:
 			e_warning(authdb_event(req),
 				  "db-lua: '%s' has invalid value type %s - ignoring",
-				  key, lua_typename(script->L, -1));
+				  key, lua_typename(L, -1));
 			value = "";
 		}
 
@@ -514,7 +514,7 @@ static void auth_lua_export_table(struct dlua_script *script, struct auth_reques
 		} else {
 			auth_request_set_field(req, key, value, STATIC_PASS_SCHEME);
 		}
-		lua_pop(script->L, 1);
+		lua_pop(L, 1);
 	}
 
 	/* stack has
@@ -522,9 +522,9 @@ static void auth_lua_export_table(struct dlua_script *script, struct auth_reques
 		table
 		passdb_result
 	*/
-	lua_pop(script->L, 3);
-	lua_gc(script->L, LUA_GCCOLLECT, 0);
-	i_assert(lua_gettop(script->L) == 0);
+	lua_pop(L, 3);
+	lua_gc(L, LUA_GCCOLLECT, 0);
+	i_assert(lua_gettop(L) == 0);
 }
 
 static enum userdb_result
@@ -540,7 +540,7 @@ auth_lua_export_userdb_table(struct dlua_script *script, struct auth_request *re
 		return ret;
 	}
 
-	auth_lua_export_table(script, req, NULL, NULL);
+	auth_lua_export_table(script->L, req, NULL, NULL);
 	return USERDB_RESULT_OK;
 }
 
@@ -558,7 +558,7 @@ auth_lua_export_passdb_table(struct dlua_script *script, struct auth_request *re
 		return ret;
 	}
 
-	auth_lua_export_table(script, req, scheme_r, password_r);
+	auth_lua_export_table(script->L, req, scheme_r, password_r);
 	return PASSDB_RESULT_OK;
 }
 
