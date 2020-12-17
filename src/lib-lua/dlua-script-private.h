@@ -86,6 +86,10 @@ struct dlua_table_values {
 
 extern struct event_category event_category_lua;
 
+/* assorted wrappers for lua_foo(), but operating on a struct dlua_script */
+void dlua_register(struct dlua_script *script, const char *name,
+		   lua_CFunction f);
+
 /* Get dlua_script from lua_State */
 struct dlua_script *dlua_script_from_state(lua_State *L);
 

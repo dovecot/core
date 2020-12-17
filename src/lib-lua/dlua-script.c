@@ -397,3 +397,10 @@ void dlua_dump_stack(lua_State *L)
 		i_debug("%s", str_c(line));
 	} T_END;
 }
+
+/* assorted wrappers */
+void dlua_register(struct dlua_script *script, const char *name,
+		   lua_CFunction f)
+{
+	lua_register(script->L, name, f);
+}
