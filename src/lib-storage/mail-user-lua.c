@@ -261,8 +261,7 @@ static int lua_storage_mail_user_metadata_get(lua_State *L)
 }
 
 static int
-lua_storage_mail_user_set_metadata_unset(struct dlua_script *script,
-					 struct mail_user *user,
+lua_storage_mail_user_set_metadata_unset(lua_State *L, struct mail_user *user,
 					 const char *key, const char *value,
 					 size_t value_len)
 {
@@ -270,8 +269,8 @@ lua_storage_mail_user_set_metadata_unset(struct dlua_script *script,
 
 	/* reformat key */
 	if ((key = lua_storage_mail_user_metadata_key(key)) == NULL) {
-		return luaL_error(script->L, "Invalid key prefix, must be "
-					     "/private/ or /shared/");
+		return luaL_error(L, "Invalid key prefix, must be "
+				     "/private/ or /shared/");
 	}
 
 	/* fetch INBOX, as user metadata is stored there */
@@ -281,15 +280,13 @@ lua_storage_mail_user_set_metadata_unset(struct dlua_script *script,
 	if (mailbox_open(mbox) < 0) {
 		error = mailbox_get_last_error(mbox, NULL);
 		mailbox_free(&mbox);
-		return luaL_error(script->L,
-				  "Cannot open INBOX: %s", error);
+		return luaL_error(L, "Cannot open INBOX: %s", error);
 	}
 
 	if (lua_storage_mailbox_attribute_set(mbox, key, value, value_len,
 					      &error) < 0) {
 		mailbox_free(&mbox);
-		return luaL_error(script->L,
-				  "Cannot get attribute: %s", error);
+		return luaL_error(L, "Cannot get attribute: %s", error);
 	}
 
 	mailbox_free(&mbox);
@@ -307,7 +304,7 @@ static int lua_storage_mail_user_metadata_set(lua_State *L)
 
 	value = lua_tolstring(script->L, 3, &value_len);
 
-	return lua_storage_mail_user_set_metadata_unset(script, user, key,
+	return lua_storage_mail_user_set_metadata_unset(L, user, key,
 							value, value_len);
 }
 
@@ -318,7 +315,7 @@ static int lua_storage_mail_user_metadata_unset(lua_State *L)
 	struct mail_user *user = lua_check_storage_mail_user(L, 1);
 	const char *key = luaL_checkstring(script->L, 2);
 
-	return lua_storage_mail_user_set_metadata_unset(script, user, key, NULL, 0);
+	return lua_storage_mail_user_set_metadata_unset(L, user, key, NULL, 0);
 }
 
 static int lua_storage_mail_user_metadata_list(lua_State *L)
