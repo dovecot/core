@@ -189,7 +189,6 @@ static void worker_connection_input(struct worker_connection *conn)
 
 	while ((line = i_stream_next_line(conn->input)) != NULL) {
 		if (worker_connection_input_line(conn, line) <= 0) {
-			worker_connection_disconnect(conn);
 			break;
 		}
 	}
