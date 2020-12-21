@@ -19,7 +19,10 @@ void i_stream_file_close(struct iostream_private *stream,
 	struct istream_private *_stream = (struct istream_private *)stream;
 
 	if (fstream->autoclose_fd && _stream->fd != -1) {
-		if (close(_stream->fd) < 0) {
+		/* Ignore ECONNRESET because we don't really care about it here,
+		   as we are closing the socket down in any case. There might be
+		   unsent data but nothing we can do about that. */
+		if (close(_stream->fd) < 0 && errno != ECONNRESET) {
 			i_error("file_istream.close(%s) failed: %m",
 				i_stream_get_name(&_stream->istream));
 		}
