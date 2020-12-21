@@ -32,8 +32,7 @@ struct worker_connection {
 	struct ostream *output;
 
 	char *request_username;
-	ARRAY(void *) request_contexts;
-	struct aqueue *request_queue;
+	struct indexer_request *request;
 
 	unsigned int process_limit;
 	bool version_received:1;
@@ -50,8 +49,6 @@ worker_connection_create(const char *socket_path,
 	conn->socket_path = i_strdup(socket_path);
 	conn->callback = callback;
 	conn->fd = -1;
-	i_array_init(&conn->request_contexts, 32);
-	conn->request_queue = aqueue_init(&conn->request_contexts.arr);
 	return conn;
 }
 
@@ -61,16 +58,12 @@ static void worker_connection_unref(struct worker_connection *conn)
 	if (--conn->refcount > 0)
 		return;
 
-	aqueue_deinit(&conn->request_queue);
-	array_free(&conn->request_contexts);
 	i_free(conn->socket_path);
 	i_free(conn);
 }
 
 static void worker_connection_disconnect(struct worker_connection *conn)
 {
-	unsigned int i, count = aqueue_count(conn->request_queue);
-
 	if (conn->fd != -1) {
 		io_remove(&conn->io);
 		i_stream_destroy(&conn->input);
@@ -81,24 +74,8 @@ static void worker_connection_disconnect(struct worker_connection *conn)
 		conn->fd = -1;
 	}
 
-	/* cancel any pending requests */
-	if (count > 0) {
-		i_error("Indexer worker disconnected, "
-			"discarding %u requests for %s",
-			count, conn->request_username);
-	}
-
 	/* conn->callback() can try to destroy us */
 	conn->refcount++;
-	for (i = 0; i < count; i++) {
-		void *const *contextp =
-			array_idx(&conn->request_contexts,
-				  aqueue_idx(conn->request_queue, 0));
-		void *context = *contextp;
-
-		aqueue_delete_tail(conn->request_queue);
-		conn->callback(-1, context);
-	}
 	i_free_and_null(conn->request_username);
 	worker_connection_unref(conn);
 }
@@ -116,7 +93,6 @@ void worker_connection_destroy(struct worker_connection **_conn)
 static int
 worker_connection_input_line(struct worker_connection *conn, const char *line)
 {
-	void *const *contextp, *context;
 	int percentage;
 	/* return -1 -> error
 	           0 -> request completed (100%)
@@ -124,32 +100,19 @@ worker_connection_input_line(struct worker_connection *conn, const char *line)
 	 */
 	int ret = 1;
 
-	if (aqueue_count(conn->request_queue) == 0) {
-		i_error("Input from worker without pending requests: %s", line);
-		return -1;
-	}
-
 	if (str_to_int(line, &percentage) < 0 ||
 	    percentage < -1 || percentage > 100) {
 		i_error("Invalid input from worker: %s", line);
 		return -1;
 	}
 
-	contextp = array_idx(&conn->request_contexts,
-			     aqueue_idx(conn->request_queue, 0));
-	context = *contextp;
-	if (percentage < 0 || percentage == 100) {
-		/* the request is finished */
-		aqueue_delete_tail(conn->request_queue);
-		if (aqueue_count(conn->request_queue) == 0)
-			i_free_and_null(conn->request_username);
-		if (percentage < 0)
-			ret = -1;
-		else
-			ret = 0;
-	}
+	/* is request finished */
+	if (percentage < 0)
+		ret = -1;
+	else if (percentage == 100)
+		ret = 0;
 
-	conn->callback(percentage, context);
+	conn->callback(percentage, conn);
 	return ret;
 }
 
@@ -227,7 +190,7 @@ bool worker_connection_get_process_limit(struct worker_connection *conn,
 }
 
 void worker_connection_request(struct worker_connection *conn,
-			       const struct indexer_request *request,
+			       struct indexer_request *request,
 			       void *context)
 {
 	i_assert(worker_connection_is_connected(conn));
@@ -241,7 +204,7 @@ void worker_connection_request(struct worker_connection *conn,
 				request->username) == 0);
 	}
 
-	aqueue_append(conn->request_queue, &context);
+	conn->request = request;
 
 	T_BEGIN {
 		string_t *str = t_str_new(128);
@@ -264,10 +227,16 @@ void worker_connection_request(struct worker_connection *conn,
 
 bool worker_connection_is_busy(struct worker_connection *conn)
 {
-	return aqueue_count(conn->request_queue) > 0;
+	return conn->request != NULL;
 }
 
 const char *worker_connection_get_username(struct worker_connection *conn)
 {
 	return conn->request_username;
+}
+
+struct indexer_request *
+worker_connection_get_request(struct worker_connection *conn)
+{
+	return conn->request;
 }

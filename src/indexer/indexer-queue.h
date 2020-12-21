@@ -58,6 +58,8 @@ void indexer_queue_request_remove(struct indexer_queue *queue);
 void indexer_queue_request_status(struct indexer_queue *queue,
 				  struct indexer_request *request,
 				  int percentage);
+/* Move the next request to the end of the queue. */
+void indexer_queue_move_head_to_tail(struct indexer_queue *queue);
 /* Start working on a request */
 void indexer_queue_request_work(struct indexer_request *request);
 /* Finish the request and free its memory. */

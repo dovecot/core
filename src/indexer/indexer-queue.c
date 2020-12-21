@@ -192,6 +192,14 @@ void indexer_queue_request_status(struct indexer_queue *queue,
 	indexer_queue_request_status_int(queue, request, percentage);
 }
 
+void indexer_queue_move_head_to_tail(struct indexer_queue *queue)
+{
+	struct indexer_request *request = queue->head;
+
+	indexer_queue_request_remove(queue);
+	DLLIST2_APPEND(&queue->head, &queue->tail, request);
+}
+
 void indexer_queue_request_work(struct indexer_request *request)
 {
 	request->working = TRUE;
