@@ -126,6 +126,7 @@ service_dup_fds(struct service *service)
 	case SERVICE_TYPE_UNKNOWN:
 	case SERVICE_TYPE_LOGIN:
 	case SERVICE_TYPE_STARTUP:
+	case SERVICE_TYPE_WORKER:
 		dup2_append(&dups, service_anvil_global->blocking_fd[1],
 			    MASTER_ANVIL_FD);
 		break;

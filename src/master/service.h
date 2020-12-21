@@ -105,6 +105,8 @@ struct service {
 	/* when process_limit is reached, wait for a while until we actually
 	   start dropping pending connections */
 	struct timeout *to_drop;
+	/* delayed process_limit reached warning with SERVICE_TYPE_WORKER */
+	struct timeout *to_drop_warning;
 
 	/* prefork processes up to process_min_avail if there's time */
 	struct timeout *to_prefork;

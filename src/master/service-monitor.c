@@ -23,6 +23,7 @@
 
 #define SERVICE_DROP_WARN_INTERVAL_SECS 1
 #define SERVICE_DROP_TIMEOUT_MSECS (10*1000)
+#define SERVICE_LOG_DROP_WARNING_DELAY_MSECS 500
 #define MAX_DIE_WAIT_MSECS 5000
 #define SERVICE_MAX_EXIT_FAILURES_IN_SEC 10
 #define SERVICE_PREFORK_MAX_AT_ONCE 10
@@ -91,6 +92,9 @@ static void service_status_less(struct service_process *process,
 				const struct master_status *status)
 {
 	struct service *service = process->service;
+
+	/* some process got more connections - remove the delayed warning */
+	timeout_remove(&service->to_drop_warning);
 
 	if (process->available_count == 0) {
 		/* process can accept more clients again */
@@ -268,7 +272,8 @@ static void service_drop_connections(struct service_listener *l)
 	struct service *service = l->service;
 	int fd;
 
-	service_log_drop_warning(service);
+	if (service->type != SERVICE_TYPE_WORKER)
+		service_log_drop_warning(service);
 
 	if (service->type == SERVICE_TYPE_LOGIN) {
 		/* reached process limit, notify processes that they
@@ -281,6 +286,12 @@ static void service_drop_connections(struct service_listener *l)
 		/* maybe this is a temporary peak, stop for a while and
 		   see if it goes away */
 		service_monitor_listen_pending(service);
+		if (service->to_drop_warning == NULL &&
+		    service->type == SERVICE_TYPE_WORKER) {
+			service->to_drop_warning =
+				timeout_add_short(SERVICE_LOG_DROP_WARNING_DELAY_MSECS,
+						  service_log_drop_warning, service);
+		}
 	} else {
 		/* this has been happening for a while now. just accept and
 		   close the connection, so it's clear that this is happening
@@ -384,6 +395,7 @@ static void service_monitor_listen_start_force(struct service *service)
 	service->listening = TRUE;
 	service->listen_pending = FALSE;
 	timeout_remove(&service->to_drop);
+	timeout_remove(&service->to_drop_warning);
 
 	array_foreach(&service->listeners, listeners) {
 		struct service_listener *l = *listeners;
@@ -415,6 +427,7 @@ void service_monitor_listen_stop(struct service *service)
 	service->listening = FALSE;
 	service->listen_pending = FALSE;
 	timeout_remove(&service->to_drop);
+	timeout_remove(&service->to_drop_warning);
 }
 
 static int service_login_create_notify_fd(struct service *service)
