@@ -190,6 +190,31 @@ static void service_status_input(struct service *service)
 		service_status_input_one(service, &status[i]);
 }
 
+static void service_log_drop_warning(struct service *service)
+{
+	const char *limit_name;
+	unsigned int limit;
+
+	if (service->last_drop_warning +
+	    SERVICE_DROP_WARN_INTERVAL_SECS <= ioloop_time) {
+		service->last_drop_warning = ioloop_time;
+		if (service->process_limit > 1) {
+			limit_name = "process_limit";
+			limit = service->process_limit;
+		} else if (service->set->service_count == 1) {
+			i_assert(service->client_limit == 1);
+			limit_name = "client_limit/service_count";
+			limit = 1;
+		} else {
+			limit_name = "client_limit";
+			limit = service->client_limit;
+		}
+		i_warning("service(%s): %s (%u) reached, "
+			  "client connections are being dropped",
+			  service->set->name, limit_name, limit);
+	}
+}
+
 static void service_monitor_throttle(struct service *service)
 {
 	if (service->to_throttle != NULL || service->list->destroying)
@@ -241,28 +266,9 @@ static void service_monitor_listen_pending(struct service *service)
 static void service_drop_connections(struct service_listener *l)
 {
 	struct service *service = l->service;
-	const char *limit_name;
-	unsigned int limit;
 	int fd;
 
-	if (service->last_drop_warning +
-	    SERVICE_DROP_WARN_INTERVAL_SECS <= ioloop_time) {
-		service->last_drop_warning = ioloop_time;
-		if (service->process_limit > 1) {
-			limit_name = "process_limit";
-			limit = service->process_limit;
-		} else if (service->set->service_count == 1) {
-			i_assert(service->client_limit == 1);
-			limit_name = "client_limit/service_count";
-			limit = 1;
-		} else {
-			limit_name = "client_limit";
-			limit = service->client_limit;
-		}
-		i_warning("service(%s): %s (%u) reached, "
-			  "client connections are being dropped",
-			  service->set->name, limit_name, limit);
-	}
+	service_log_drop_warning(service);
 
 	if (service->type == SERVICE_TYPE_LOGIN) {
 		/* reached process limit, notify processes that they
