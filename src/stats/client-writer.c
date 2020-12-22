@@ -206,7 +206,7 @@ writer_client_input_event_update(struct writer_client *client,
 		*error_r = "Event unexpectedly changed parent";
 		return FALSE;
 	}
-	return event_import_unescaped(stats_event->event, args, error_r);
+	return event_import_unescaped(stats_event->event, args+2, error_r);
 }
 
 static bool
