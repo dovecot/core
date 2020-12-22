@@ -589,7 +589,7 @@ static void test_parent_update_post_send(void)
 			"	stest-event-stats.c	%d"
 			"	l1	0	ctest2" "	Ib	2\n"
 			/* second e_info() */
-			"UPDATE	%"PRIu64"	0	1	0	0"
+			"UPDATE	%"PRIu64"	0	0	0"
 			"	stest-event-stats.c	%d	ctest1"
 			"	Ia	1000\n"
 			"BEGIN	%"PRIu64"	%"PRIu64"	1	0	0"

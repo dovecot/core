@@ -164,6 +164,7 @@ stats_event_write(struct event *event, const struct failure_context *ctx,
 {
 	struct event *merged_event;
 	struct event *parent_event;
+	bool update = FALSE;
 
 	merged_event = begin ? event_ref(event) : event_minimize(event);
 	parent_event = merged_event->parent;
@@ -176,16 +177,17 @@ stats_event_write(struct event *event, const struct failure_context *ctx,
 	}
 	if (begin) {
 		i_assert(event == merged_event);
-		const char *cmd = event->sent_to_stats_id == 0 ?
-			"BEGIN" : "UPDATE";
+		update = (event->sent_to_stats_id != 0);
+		const char *cmd = !update ? "BEGIN" : "UPDATE";
 		str_printfa(str, "%s\t%"PRIu64"\t", cmd, event->id);
 		event->sent_to_stats_id = event->change_id;
 	} else {
 		str_append(str, "EVENT\t");
 	}
-	str_printfa(str, "%"PRIu64"\t%u\t",
-		    parent_event == NULL ? 0 : parent_event->id,
-		    ctx->type);
+	str_printfa(str, "%"PRIu64"\t",
+		    parent_event == NULL ? 0 : parent_event->id);
+	if (!update)
+		str_printfa(str, "%u\t", ctx->type);
 	event_export(merged_event, str);
 	str_append_c(str, '\n');
 	event_unref(&merged_event);
