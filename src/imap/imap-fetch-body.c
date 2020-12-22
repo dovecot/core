@@ -26,6 +26,17 @@ struct imap_fetch_body_data {
 	bool binary_size:1;
 };
 
+struct imap_fetch_preview_data {
+	/* If TRUE, lazy modifier is specified. */
+	bool lazy:1;
+	/* Uses the pre-RFC 8970 standard (requires algorithm to be returned
+	 * as part of FETCH response). */
+	bool old_standard:1;
+	/* If TRUE, uses "PREVIEW" command; if FALSE, uses older "SNIPPET"
+	 * command. */
+	bool preview_cmd:1;
+};
+
 static void fetch_read_error(struct imap_fetch_context *ctx,
 			     const char **disconnect_reason_r)
 {
@@ -591,10 +602,9 @@ bool imap_fetch_rfc822_init(struct imap_fetch_init_context *ctx)
 
 static int ATTR_NULL(3)
 fetch_snippet(struct imap_fetch_context *ctx, struct mail *mail,
-	      void *context)
+	      struct imap_fetch_preview_data *preview)
 {
-	const bool lazy = context != NULL;
-	enum mail_lookup_abort temp_lookup_abort = lazy ? MAIL_LOOKUP_ABORT_NOT_IN_CACHE_START_CACHING : mail->lookup_abort;
+	enum mail_lookup_abort temp_lookup_abort = preview->lazy ? MAIL_LOOKUP_ABORT_NOT_IN_CACHE_START_CACHING : mail->lookup_abort;
 	enum mail_lookup_abort orig_lookup_abort = mail->lookup_abort;
 	const char *resp, *snippet;
 	int ret;
@@ -603,7 +613,7 @@ fetch_snippet(struct imap_fetch_context *ctx, struct mail *mail,
 	ret = mail_get_special(mail, MAIL_FETCH_BODY_SNIPPET, &snippet);
 	mail->lookup_abort = orig_lookup_abort;
 
-	resp = ctx->preview_command ? "PREVIEW" : "SNIPPET";
+	resp = preview->preview_cmd ? "PREVIEW" : "SNIPPET";
 
 	if (ret == 0) {
 		/* got it => nothing to do */
@@ -611,47 +621,57 @@ fetch_snippet(struct imap_fetch_context *ctx, struct mail *mail,
 	} else if (mailbox_get_last_mail_error(mail->box) != MAIL_ERROR_LOOKUP_ABORTED) {
 		/* actual error => bail */
 		return -1;
-	} else if (lazy) {
-		/* not in cache && lazy => give up */
-		str_append(ctx->state.cur_str, resp);
-		str_append(ctx->state.cur_str, " (FUZZY NIL)");
-		return 1;
 	} else {
 		/*
-		 * not in cache && !lazy => someone higher up set
-		 * MAIL_LOOKUP_ABORT_NOT_IN_CACHE and so even though we got
-		 * a non-lazy request we failed the cache lookup.
+		 * Two ways to get here:
+		 * - not in cache && lazy => give up
+		 * - not in cache && !lazy => someone higher up set
+		 *   MAIL_LOOKUP_ABORT_NOT_IN_CACHE and so even though we got
+		 *   a non-lazy request we failed the cache lookup.
 		 *
-		 * This is not an error, but since the scenario is
-		 * sufficiently convoluted this else branch serves to
-		 * document it.
+		 *   This is not an error, but since the scenario is
+		 *   sufficiently convoluted this else branch serves to
+		 *   document it.
+		 *
+		 * This path will return NIL as the preview response.
 		 */
-		str_append(ctx->state.cur_str, resp);
-		str_append(ctx->state.cur_str, " (FUZZY NIL)");
-		return 1;
 	}
 
 	str_append(ctx->state.cur_str, resp);
-	str_append(ctx->state.cur_str, " (FUZZY ");
-	imap_append_string(ctx->state.cur_str, snippet);
-	str_append(ctx->state.cur_str, ") ");
+	if (preview->old_standard)
+		str_append(ctx->state.cur_str, " (FUZZY ");
+	else
+		str_append(ctx->state.cur_str, " ");
+	if (ret == 0)
+		imap_append_string(ctx->state.cur_str, snippet);
+	else
+		str_append(ctx->state.cur_str, "NIL");
+	if (preview->old_standard)
+		str_append(ctx->state.cur_str, ")");
 
 	return 1;
 }
 
-bool imap_fetch_preview_init(struct imap_fetch_init_context *ctx)
-{
-	ctx->fetch_ctx->preview_command = TRUE;
-	return imap_fetch_snippet_init(ctx);
-}
-
-bool imap_fetch_snippet_init(struct imap_fetch_init_context *ctx)
+static bool fetch_preview_init(struct imap_fetch_init_context *ctx,
+			       bool preview_cmd)
 {
 	const struct imap_arg *list_args;
 	unsigned int list_count;
-	bool lazy;
+	struct imap_fetch_preview_data *preview;
 
-	lazy = FALSE;
+	preview = p_new(ctx->pool, struct imap_fetch_preview_data, 1);
+	preview->preview_cmd = preview_cmd;
+	/* We can tell we are using the "Old" (pre-RFC 8970) standard
+	 * if:
+	 * 1) SNIPPET command is used
+	 * 2) FUZZY algorithm is explicitly requested
+	 * The one usage we cannot catch is if PREVIEW command is used, and
+	 * no algorithm is specified - the pre-RFC standard requires that the
+	 * algorithm must be output as part of the response; the RFC standard
+	 * does not output the algorithm. There is unfortunately nothing we
+	 * can do about this, so we need to send the standards compliant
+	 * way. */
+	preview->old_standard = !preview_cmd;
 
 	if (imap_arg_get_list_full(&ctx->args[0], &list_args, &list_count)) {
 		unsigned int i;
@@ -660,18 +680,20 @@ bool imap_fetch_snippet_init(struct imap_fetch_init_context *ctx)
 			const char *str;
 
 			if (!imap_arg_get_atom(&list_args[i], &str)) {
-				ctx->error = "Invalid PREVIEW algorithm/modifier";
+				ctx->error = "Invalid PREVIEW modifier";
 				return FALSE;
 			}
 
-			if (strcasecmp(str, "LAZY") == 0 ||
-			    strcasecmp(str, "LAZY=FUZZY") == 0) {
-				lazy = TRUE;
+			if (strcasecmp(str, "LAZY") == 0) {
+				preview->lazy = TRUE;
+			} else if (strcasecmp(str, "LAZY=FUZZY") == 0) {
+				preview->lazy = TRUE;
+				preview->old_standard = TRUE;
 			} else if (strcasecmp(str, "FUZZY") == 0) {
-				/* nothing to do */
+				preview->old_standard = TRUE;
 			} else {
 				ctx->error = t_strdup_printf("'%s' is not a "
-							     "supported PREVIEW algorithm/modifier",
+							     "supported PREVIEW modifier",
 							     str);
 				return FALSE;
 			}
@@ -682,6 +704,16 @@ bool imap_fetch_snippet_init(struct imap_fetch_init_context *ctx)
 
 	ctx->fetch_ctx->fetch_data |= MAIL_FETCH_BODY_SNIPPET;
 	imap_fetch_add_handler(ctx, IMAP_FETCH_HANDLER_FLAG_BUFFERED,
-			       "NIL", fetch_snippet, (void *) lazy);
+			       "NIL", fetch_snippet, preview);
 	return TRUE;
+}
+
+bool imap_fetch_preview_init(struct imap_fetch_init_context *ctx)
+{
+	return fetch_preview_init(ctx, TRUE);
+}
+
+bool imap_fetch_snippet_init(struct imap_fetch_init_context *ctx)
+{
+	return fetch_preview_init(ctx, FALSE);
 }
