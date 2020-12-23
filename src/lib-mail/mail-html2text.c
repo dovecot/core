@@ -120,7 +120,7 @@ static bool html_entity_get_unichar(const char *name, unichar_t *chr_r)
 	unichar_t chr;
 
 	for (size_t i = 0; i < N_ELEMENTS(html_entities); i++) {
-		if (strcasecmp(html_entities[i].name, name) == 0) {
+		if (strcmp(html_entities[i].name, name) == 0) {
 			*chr_r = html_entities[i].chr;
 			return TRUE;
 		}
