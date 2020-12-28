@@ -122,6 +122,36 @@ static const struct {
           "</div><br =class=3D\"\"></body></html>=\n",
           100,
           ">quoted text is included" },
+       { "Content-Type: text/plain; charset=utf-8\n"
+         "\n"
+         "I think\n",
+         100,
+         "I think"
+       },
+       { "Content-Type: text/plain; charset=utf-8\n"
+         "\n"
+         "  Lorem Ipsum\n",
+         100,
+         "Lorem Ipsum"
+       },
+       { "Content-Type: text/plain; charset=utf-8\n"
+         "\n"
+         " I think\n",
+         100,
+         "I think"
+       },
+       { "Content-Type: text/plain; charset=utf-8\n"
+         "\n"
+         "   A cat\n",
+         100,
+         "A cat"
+       },
+       { "Content-Type: text/plain; charset=utf-8\n"
+         "\n"
+         " \n",
+         100,
+         ""
+       },
 };
 
 static void test_message_snippet(void)

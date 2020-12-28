@@ -54,7 +54,7 @@ static void snippet_add_content(struct snippet_context *ctx,
 	}
 	if (i_isspace(*data)) {
 		/* skip any leading whitespace */
-		if (str_len(target->snippet) > 1)
+		if (str_len(target->snippet) > 0)
 			ctx->add_whitespace = TRUE;
 		if (data[0] == '\n')
 			ctx->state = SNIPPET_STATE_NEWLINE;
