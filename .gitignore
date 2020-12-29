@@ -165,3 +165,7 @@ src/plugins/fts/xml2text
 src/plugins/quota/rquota_xdr.c
 src/plugins/quota/rquota.h
 src/plugins/quota/quota-status
+src/lib-imap/fuzz-imap-utf7
+src/lib-imap/fuzz-imap-bodystructure
+src/lib-mail/fuzz-message-parser
+src/lib-smtp/fuzz-smtp-server
