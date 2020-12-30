@@ -310,6 +310,9 @@ mail_user_var_expand_table(struct mail_user *user)
 		{ '\0', auth_username, "auth_username" },
 		{ '\0', auth_domain, "auth_domain" },
 		{ '\0', user->set->hostname, "hostname" },
+		/* aliases: */
+		{ '\0', local_ip, "local_ip" },
+		{ '\0', remote_ip, "remote_ip" },
 		/* NOTE: keep this synced with imap-hibernate's
 		   imap_client_var_expand_table() */
 		{ '\0', NULL, NULL }

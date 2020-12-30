@@ -432,6 +432,9 @@ get_var_expand_table(struct master_service *service,
 		{ '\0', auth_user, "auth_user" },
 		{ '\0', auth_username, "auth_username" },
 		{ '\0', auth_domain, "auth_domain" },
+		/* aliases: */
+		{ '\0', net_ip2addr(&input->local_ip), "local_ip" },
+		{ '\0', net_ip2addr(&input->remote_ip), "remote_ip" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
