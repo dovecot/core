@@ -752,6 +752,21 @@ static struct var_expand_table login_var_expand_empty_tab[] = {
 	{ '\0', NULL, "auth_domain" },
 	{ '\0', NULL, "listener" },
 	{ '\0', NULL, "local_name" },
+
+	/* aliases: */
+	{ '\0', NULL, "local_ip" },
+	{ '\0', NULL, "remote_ip" },
+	{ '\0', NULL, "local_port" },
+	{ '\0', NULL, "remote_port" },
+	{ '\0', NULL, "real_local_ip" },
+	{ '\0', NULL, "real_remote_ip" },
+	{ '\0', NULL, "real_local_port" },
+	{ '\0', NULL, "real_remote_port" },
+	{ '\0', NULL, "mechanism" },
+	{ '\0', NULL, "original_user" },
+	{ '\0', NULL, "original_username" },
+	{ '\0', NULL, "original_domain" },
+
 	{ '\0', NULL, NULL }
 };
 
@@ -781,13 +796,13 @@ get_var_expand_table(struct client *client)
 		get_var_expand_users(tab, client->virtual_user);
 	tab[3].value = login_binary->protocol;
 	tab[4].value = getenv("HOME");
-	tab[5].value = net_ip2addr(&client->local_ip);
-	tab[6].value = net_ip2addr(&client->ip);
+	tab[27].value = tab[5].value = net_ip2addr(&client->local_ip);
+	tab[28].value = tab[6].value = net_ip2addr(&client->ip);
 	tab[7].value = my_pid;
-	tab[8].value = client->auth_mech_name == NULL ? NULL :
+	tab[35].value = tab[8].value = client->auth_mech_name == NULL ? NULL :
 		str_sanitize(client->auth_mech_name, MAX_MECH_NAME);
-	tab[9].value = dec2str(client->local_port);
-	tab[10].value = dec2str(client->remote_port);
+	tab[29].value = tab[9].value = dec2str(client->local_port);
+	tab[30].value = tab[10].value = dec2str(client->remote_port);
 	if (!client->tls) {
 		tab[11].value = client->secured ? "secured" : NULL;
 		tab[12].value = "";
@@ -809,16 +824,16 @@ get_var_expand_table(struct client *client)
 	tab[13].value = client->mail_pid == 0 ? "" :
 		dec2str(client->mail_pid);
 	tab[14].value = client_get_session_id(client);
-	tab[15].value = net_ip2addr(&client->real_local_ip);
-	tab[16].value = net_ip2addr(&client->real_remote_ip);
-	tab[17].value = dec2str(client->real_local_port);
-	tab[18].value = dec2str(client->real_remote_port);
+	tab[31].value = tab[15].value = net_ip2addr(&client->real_local_ip);
+	tab[32].value = tab[16].value = net_ip2addr(&client->real_remote_ip);
+	tab[33].value = tab[17].value = dec2str(client->real_local_port);
+	tab[34].value = tab[18].value = dec2str(client->real_remote_port);
 	if (client->virtual_user_orig != NULL)
 		get_var_expand_users(tab+19, client->virtual_user_orig);
 	else {
-		tab[19].value = tab[0].value;
-		tab[20].value = tab[1].value;
-		tab[21].value = tab[2].value;
+		tab[36].value = tab[19].value = tab[0].value;
+		tab[37].value = tab[20].value = tab[1].value;
+		tab[38].value = tab[21].value = tab[2].value;
 	}
 	if (client->virtual_auth_user != NULL)
 		get_var_expand_users(tab+22, client->virtual_auth_user);

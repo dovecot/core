@@ -121,6 +121,9 @@ login_set_var_expand_table(const struct master_service_settings_input *input)
 		{ 'p', my_pid, "pid" },
 		{ 's', input->service, "service" },
 		{ '\0', input->local_name, "local_name" },
+		/* aliases */
+		{ '\0', net_ip2addr(&input->local_ip), "local_ip" },
+		{ '\0', net_ip2addr(&input->remote_ip), "remote_ip" },
 		/* NOTE: Make sure login_log_format_elements_split has all these
 		   variables (in client-common.c:get_var_expand_table()). */
 		{ '\0', NULL, NULL }
