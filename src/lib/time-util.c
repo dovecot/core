@@ -38,21 +38,23 @@ int timeval_cmp(const struct timeval *tv1, const struct timeval *tv2)
 int timeval_cmp_margin(const struct timeval *tv1, const struct timeval *tv2,
 	unsigned int usec_margin)
 {
-	long long usecs_diff;
+	long long secs_diff, usecs_diff;
 	int sec_margin, ret;
 
 	if (tv1->tv_sec < tv2->tv_sec) {
 		sec_margin = ((int)usec_margin / 1000000) + 1;
-		if ((tv2->tv_sec - tv1->tv_sec) > sec_margin)
+		secs_diff = (long long)tv2->tv_sec - (long long)tv1->tv_sec;
+		if (secs_diff > sec_margin)
 			return -1;
-		usecs_diff = (tv2->tv_sec - tv1->tv_sec) * 1000000LL +
+		usecs_diff = secs_diff * 1000000LL +
 			(tv2->tv_usec - tv1->tv_usec);
 		ret = -1;
 	} else if (tv1->tv_sec > tv2->tv_sec) {
 		sec_margin = ((int)usec_margin / 1000000) + 1;
-		if ((tv1->tv_sec - tv2->tv_sec) > sec_margin)
+		secs_diff = (long long)tv1->tv_sec - (long long)tv2->tv_sec;
+		if (secs_diff > sec_margin)
 			return 1;
-		usecs_diff = (tv1->tv_sec - tv2->tv_sec) * 1000000LL +
+		usecs_diff = secs_diff * 1000000LL +
 			(tv1->tv_usec - tv2->tv_usec);
 		ret = 1;
 	} else if (tv1->tv_usec < tv2->tv_usec) {
