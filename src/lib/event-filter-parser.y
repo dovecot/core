@@ -142,8 +142,8 @@ static struct event_filter_node *logic(struct event_filter_parser_state *state,
 %type <op> op
 %type <node> expr key_value
 
-%precedence NOT
 %left AND OR
+%right NOT
 
 %%
 filter : expr			{ state->output = $1; }
