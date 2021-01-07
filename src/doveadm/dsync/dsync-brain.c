@@ -841,6 +841,20 @@ const char *dsync_brain_get_unexpected_changes_reason(struct dsync_brain *brain,
 	return brain->changes_during_sync;
 }
 
+static bool dsync_brain_want_shared_namespace(const struct mail_namespace *ns,
+					      const struct mail_namespace *sync_ns)
+{
+	/* Include shared namespaces and all its
+	   children in the sync (e.g. "Shared/example.com"
+	   will be synced to "Shared/").
+	   This also allows "dsync -n Shared/example.com/"
+	   with "Shared/example.com/username/" style
+	   shared namespace config. */
+	return (ns->type == MAIL_NAMESPACE_TYPE_SHARED) &&
+	       (sync_ns->type == MAIL_NAMESPACE_TYPE_SHARED) &&
+	       str_begins(ns->prefix, sync_ns->prefix);
+}
+
 bool dsync_brain_want_namespace(struct dsync_brain *brain,
 				struct mail_namespace *ns)
 {
@@ -849,6 +863,8 @@ bool dsync_brain_want_namespace(struct dsync_brain *brain,
 	if (array_is_created(&brain->sync_namespaces)) {
 		array_foreach(&brain->sync_namespaces, nsp) {
 			if (ns == *nsp)
+				return TRUE;
+			if (dsync_brain_want_shared_namespace(ns, *nsp))
 				return TRUE;
 		}
 		return FALSE;
