@@ -305,8 +305,8 @@ void auth_request_fail(struct auth_request *request)
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	auth_request_refresh_last_access(request);
-	auth_request_handler_reply(request, AUTH_CLIENT_RESULT_FAILURE, "", 0);
 	auth_request_log_finished(request);
+	auth_request_handler_reply(request, AUTH_CLIENT_RESULT_FAILURE, "", 0);
 }
 
 void auth_request_internal_failure(struct auth_request *request)
