@@ -8,6 +8,8 @@ struct setting_parser_context;
 struct master_service;
 
 struct master_service_settings {
+	/* NOTE: log process won't see any new settings unless they're
+	   explicitly sent via environment variables by master process. */
 	const char *base_dir;
 	const char *state_dir;
 	const char *instance_name;
