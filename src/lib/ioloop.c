@@ -865,8 +865,9 @@ void io_loop_destroy(struct ioloop **_ioloop)
         i_assert(ioloop == current_ioloop);
 	if (array_is_created(&io_destroy_callbacks)) {
 		io_destroy_callback_t *callback;
-		array_foreach_elem(&io_destroy_callbacks, callback)
+		array_foreach_elem(&io_destroy_callbacks, callback) T_BEGIN {
 			callback(current_ioloop);
+		} T_END;
 	}
 
 	io_loop_set_current(current_ioloop->prev);
@@ -977,8 +978,9 @@ void io_loop_set_current(struct ioloop *ioloop)
 
 	current_ioloop = ioloop;
 	if (array_is_created(&io_switch_callbacks)) {
-		array_foreach_elem(&io_switch_callbacks, callback)
+		array_foreach_elem(&io_switch_callbacks, callback) T_BEGIN {
 			callback(prev_ioloop);
+		} T_END;
 	}
 }
 
