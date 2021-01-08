@@ -1181,8 +1181,9 @@ void io_loop_context_activate(struct ioloop_context *ctx)
 	io_loop_context_ref(ctx);
 	array_foreach_modifiable(&ctx->callbacks, cb) {
 		i_assert(!cb->activated);
-		if (cb->activate != NULL)
+		if (cb->activate != NULL) T_BEGIN {
 			cb->activate(cb->context);
+		} T_END;
 		cb->activated = TRUE;
 	}
 }
@@ -1198,8 +1199,9 @@ void io_loop_context_deactivate(struct ioloop_context *ctx)
 			/* we just added this callback. don't deactivate it
 			   before it gets first activated. */
 		} else {
-			if (cb->deactivate != NULL)
+			if (cb->deactivate != NULL) T_BEGIN {
 				cb->deactivate(cb->context);
+			} T_END;
 			cb->activated = FALSE;
 		}
 	}
