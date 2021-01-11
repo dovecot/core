@@ -41,7 +41,7 @@ static void stream_closed(struct file_ostream *fstream)
 		/* Ignore ECONNRESET because we don't really care about it here,
 		   as we are closing the socket down in any case. There might be
 		   unsent data but nothing we can do about that. */
-		if (close(fstream->fd) < 0 && errno != ECONNRESET) {
+		if (unlikely(close(fstream->fd) < 0 && errno != ECONNRESET)) {
 			i_error("file_ostream.close(%s) failed: %m",
 				o_stream_get_name(&fstream->ostream.ostream));
 		}
