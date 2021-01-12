@@ -39,25 +39,24 @@ void dlua_push_mailbox(lua_State *L, struct mailbox *box)
 }
 
 static struct mailbox *
-lua_check_storage_mailbox(struct dlua_script *script, int arg)
+lua_check_storage_mailbox(lua_State *L, int arg)
 {
-	if (!lua_istable(script->L, arg)) {
-		(void)luaL_error(script->L, "Bad argument #%d, expected %s got %s",
+	if (!lua_istable(L, arg)) {
+		(void)luaL_error(L, "Bad argument #%d, expected %s got %s",
 				 arg, LUA_STORAGE_MAILBOX,
-				 lua_typename(script->L, lua_type(script->L, arg)));
+				 lua_typename(L, lua_type(L, arg)));
 	}
-	lua_pushliteral(script->L, "item");
-	lua_rawget(script->L, arg);
-	struct mailbox **bp = lua_touserdata(script->L, -1);
-	lua_pop(script->L, 1);
+	lua_pushliteral(L, "item");
+	lua_rawget(L, arg);
+	struct mailbox **bp = lua_touserdata(L, -1);
+	lua_pop(L, 1);
 	return *bp;
 }
 
 static int lua_storage_mailbox_tostring(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 1);
-	struct mailbox *mbox = lua_check_storage_mailbox(script, 1);
+	struct mailbox *mbox = lua_check_storage_mailbox(L, 1);
 
 	lua_pushstring(L, mailbox_get_vname(mbox));
 	return 1;
@@ -69,8 +68,8 @@ static int lua_storage_mailbox_eq(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
-	struct mailbox *mbox = lua_check_storage_mailbox(script, 1);
-	struct mailbox *mbox2 = lua_check_storage_mailbox(script, 2);
+	struct mailbox *mbox = lua_check_storage_mailbox(L, 1);
+	struct mailbox *mbox2 = lua_check_storage_mailbox(L, 2);
 	lua_pushboolean(script->L, DLUA_MAILBOX_EQUALS(mbox, mbox2));
 	return 1;
 }
@@ -124,7 +123,7 @@ static int lua_storage_mailbox_open(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 1);
-	struct mailbox *mbox = lua_check_storage_mailbox(script, 1);
+	struct mailbox *mbox = lua_check_storage_mailbox(L, 1);
 
 	/* try to open the box */
 	if (mailbox_open(mbox) < 0) {
@@ -138,9 +137,8 @@ static int lua_storage_mailbox_open(lua_State *L)
 
 static int lua_storage_mailbox_close(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 1);
-	struct mailbox *mbox = lua_check_storage_mailbox(script, 1);
+	struct mailbox *mbox = lua_check_storage_mailbox(L, 1);
 
 	mailbox_close(mbox);
 
@@ -151,7 +149,7 @@ static int lua_storage_mailbox_sync(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS_IN(L, 1, 2);
-	struct mailbox *mbox = lua_check_storage_mailbox(script, 1);
+	struct mailbox *mbox = lua_check_storage_mailbox(L, 1);
 	enum mailbox_sync_flags flags = 0;
 
 	if (lua_gettop(script->L) >= 2)
@@ -171,7 +169,7 @@ static int lua_storage_mailbox_status(lua_State *L)
 	struct mailbox_status status;
 	const char *const *keyword;
 	struct dlua_script *script = dlua_script_from_state(L);
-	struct mailbox *mbox = lua_check_storage_mailbox(script, 1);
+	struct mailbox *mbox = lua_check_storage_mailbox(L, 1);
 	/* get items as list of parameters */
 	enum mailbox_status_items items = 0;
 
@@ -240,7 +238,7 @@ static int lua_storage_mailbox_metadata_get(lua_State *L)
 	struct dlua_script *script = dlua_script_from_state(L);
 	if (lua_gettop(script->L) < 2)
 		return luaL_error(script->L, "expecting at least 1 parameter");
-	struct mailbox *mbox = lua_check_storage_mailbox(script, 1);
+	struct mailbox *mbox = lua_check_storage_mailbox(L, 1);
 	const char *value, *error;
 	size_t value_len;
 	int ret, i, top = lua_gettop(script->L);
@@ -276,7 +274,7 @@ static int lua_storage_mailbox_metadata_set(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 3);
-	struct mailbox *mbox = lua_check_storage_mailbox(script, 1);
+	struct mailbox *mbox = lua_check_storage_mailbox(L, 1);
 	const char *key = luaL_checkstring(script->L, 2);
 	const char *value, *error;
 	size_t value_len;
@@ -294,7 +292,7 @@ static int lua_storage_mailbox_metadata_unset(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
-	struct mailbox *mbox = lua_check_storage_mailbox(script, 1);
+	struct mailbox *mbox = lua_check_storage_mailbox(L, 1);
 	const char *key = luaL_checkstring(script->L, 2);
 	const char *error;
 
@@ -310,7 +308,7 @@ static int lua_storage_mailbox_metadata_list(lua_State *L)
 	struct dlua_script *script = dlua_script_from_state(L);
 	if (lua_gettop(script->L) < 2)
 		return luaL_error(script->L, "expecting at least 1 parameter");
-	struct mailbox *mbox = lua_check_storage_mailbox(script, 1);
+	struct mailbox *mbox = lua_check_storage_mailbox(L, 1);
 	const struct lua_storage_keyvalue *item;
 	const char *error;
 	ARRAY_TYPE(lua_storage_keyvalue) items;
