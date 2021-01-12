@@ -10,7 +10,7 @@ struct mail;
 struct dlua_script;
 
 void dlua_register_mail_storage(struct dlua_script *script);
-void dlua_push_mail_user(struct dlua_script *script, struct mail_user *user);
+void dlua_push_mail_user(lua_State *L, struct mail_user *user);
 void dlua_push_mailbox(lua_State *L, struct mailbox *box);
 void dlua_push_mail(struct dlua_script *script, struct mail *mail);
 

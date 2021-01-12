@@ -208,7 +208,7 @@ push_notification_driver_lua_begin_txn(
 		user->username);
 
 	/* Push mail user as argument */
-	dlua_push_mail_user(ctx->script, user);
+	dlua_push_mail_user(ctx->script->L, user);
 	if (lua_pcall(ctx->script->L, 1, 1, 0) != 0) {
 		const char *error = lua_tostring(ctx->script->L, -1);
 		event_add_str(event, "error", error);

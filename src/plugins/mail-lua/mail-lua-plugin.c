@@ -37,7 +37,7 @@ static int mail_lua_call_hook(struct dlua_script *script,
 	if (user->mail_debug)
 		e_debug(user->event, "mail-lua: Calling %s(user)", hook);
 
-	dlua_push_mail_user(script, user);
+	dlua_push_mail_user(script->L, user);
 
 	if (lua_pcall(script->L, 1, 2, 0) != 0) {
 		*error_r = t_strdup_printf("%s(user) failed: %s",
