@@ -158,7 +158,6 @@ static int lua_storage_mail_user_plugin_getenv(lua_State *L)
 
 static int lua_storage_mail_user_mailbox_alloc(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS_IN(L, 2, 3);
 	struct mail_user *user = lua_check_storage_mail_user(L, 1);
 	const char *mboxname = luaL_checkstring(L, 2);
@@ -171,7 +170,7 @@ static int lua_storage_mail_user_mailbox_alloc(lua_State *L)
 				  mboxname);
 	}
 	struct mailbox *mbox = mailbox_alloc(ns->list, mboxname, flags);
-	dlua_push_mailbox(script, mbox);
+	dlua_push_mailbox(L, mbox);
 	return 1;
 }
 

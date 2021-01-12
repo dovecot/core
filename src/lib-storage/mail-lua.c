@@ -38,7 +38,7 @@ void dlua_push_mail(struct dlua_script *script, struct mail *mail)
 	LUA_TABLE_SETNUMBER(uid);
 	LUA_TABLE_SETBOOL(expunged);
 
-	dlua_push_mailbox(script, mail->box);
+	dlua_push_mailbox(script->L, mail->box);
 	lua_setfield(script->L, -2, "mailbox");
 
 }

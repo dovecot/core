@@ -5,8 +5,6 @@
 #include "istream.h"
 #include "array.h"
 #include "var-expand.h"
-#include "dlua-script.h"
-#include "dlua-script-private.h"
 #include "mail-storage.h"
 #include "mailbox-attribute.h"
 #include "mail-storage-lua.h"
@@ -17,27 +15,27 @@
 
 static int lua_storage_mailbox_gc(lua_State *L);
 
-void dlua_push_mailbox(struct dlua_script *script, struct mailbox *box)
+void dlua_push_mailbox(lua_State *L, struct mailbox *box)
 {
-	luaL_checkstack(script->L, 4, "out of memory");
+	luaL_checkstack(L, 4, "out of memory");
 	/* create a table for holding few things */
-	lua_createtable(script->L, 0, 0);
-	luaL_setmetatable(script->L, LUA_STORAGE_MAILBOX);
+	lua_createtable(L, 0, 0);
+	luaL_setmetatable(L, LUA_STORAGE_MAILBOX);
 
-	struct mailbox **ptr = lua_newuserdata(script->L, sizeof(struct mailbox*));
+	struct mailbox **ptr = lua_newuserdata(L, sizeof(struct mailbox*));
 	*ptr = box;
-	lua_createtable(script->L, 0, 1);
-	lua_pushcfunction(script->L, lua_storage_mailbox_gc);
-	lua_setfield(script->L, -2, "__gc");
-	lua_setmetatable(script->L, -2);
-	lua_setfield(script->L, -2, "item");
+	lua_createtable(L, 0, 1);
+	lua_pushcfunction(L, lua_storage_mailbox_gc);
+	lua_setfield(L, -2, "__gc");
+	lua_setmetatable(L, -2);
+	lua_setfield(L, -2, "item");
 
-	luaL_checkstack(script->L, 2, "out of memory");
-	lua_pushstring(script->L, mailbox_get_vname(box));
-	lua_setfield(script->L, -2, "vname");
+	luaL_checkstack(L, 2, "out of memory");
+	lua_pushstring(L, mailbox_get_vname(box));
+	lua_setfield(L, -2, "vname");
 
-	lua_pushstring(script->L, mailbox_get_name(box));
-	lua_setfield(script->L, -2, "name");
+	lua_pushstring(L, mailbox_get_name(box));
+	lua_setfield(L, -2, "name");
 }
 
 static struct mailbox *
