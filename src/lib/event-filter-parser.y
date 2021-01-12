@@ -74,7 +74,7 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 				file = p_strdup_until(state->pool, b, colon);
 			}
 		} else {
-			file = p_strdup_empty(state->pool, b);
+			file = p_strdup(state->pool, b);
 			line = 0;
 		}
 

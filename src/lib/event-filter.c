@@ -277,7 +277,7 @@ void event_filter_add(struct event_filter *filter,
 		node = p_new(filter->pool, struct event_filter_node, 1);
 		node->type = EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION;
 		node->op = EVENT_FILTER_OP_CMP_EQ;
-		node->str = p_strdup_empty(filter->pool, query->source_filename);
+		node->str = p_strdup(filter->pool, query->source_filename);
 		node->intmax = query->source_linenum;
 
 		add_node(filter->pool, &int_query->expr, node);
@@ -300,14 +300,14 @@ clone_expr(pool_t pool, struct event_filter_node *old)
 	new->op = old->op;
 	new->children[0] = clone_expr(pool, old->children[0]);
 	new->children[1] = clone_expr(pool, old->children[1]);
-	new->str = p_strdup_empty(pool, old->str);
+	new->str = p_strdup(pool, old->str);
 	new->intmax = old->intmax;
 	new->category.log_type = old->category.log_type;
-	new->category.name = p_strdup_empty(pool, old->category.name);
+	new->category.name = p_strdup(pool, old->category.name);
 	new->category.ptr = old->category.ptr;
-	new->field.key = p_strdup_empty(pool, old->field.key);
+	new->field.key = p_strdup(pool, old->field.key);
 	new->field.value_type = old->field.value_type;
-	new->field.value.str = p_strdup_empty(pool, old->field.value.str);
+	new->field.value.str = p_strdup(pool, old->field.value.str);
 	new->field.value.intmax = old->field.value.intmax;
 	new->field.value.timeval = old->field.value.timeval;
 
