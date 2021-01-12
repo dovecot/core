@@ -93,38 +93,35 @@ static int lua_storage_mail_user_tostring(lua_State *L)
 	return 1;
 }
 
-int lua_storage_cmp(struct dlua_script *script)
+int lua_storage_cmp(lua_State *L)
 {
 	const char *name_a, *name_b;
-	name_a = lua_tostring(script->L, 1);
-	name_b = lua_tostring(script->L, 2);
+	name_a = lua_tostring(L, 1);
+	name_b = lua_tostring(L, 2);
 
 	return strcmp(name_a, name_b);
 }
 
 static int lua_storage_mail_user_eq(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
-	bool res = lua_storage_cmp(script) == 0;
+	bool res = lua_storage_cmp(L) == 0;
 	lua_pushboolean(L, res);
 	return 1;
 }
 
 static int lua_storage_mail_user_lt(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
-	bool res = lua_storage_cmp(script) <= 0;
+	bool res = lua_storage_cmp(L) <= 0;
 	lua_pushboolean(L, res);
 	return 1;
 }
 
 static int lua_storage_mail_user_le(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
-	bool res = lua_storage_cmp(script) < 0;
+	bool res = lua_storage_cmp(L) < 0;
 	lua_pushboolean(L, res);
 	return 1;
 }

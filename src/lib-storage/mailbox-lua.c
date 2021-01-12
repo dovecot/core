@@ -79,7 +79,7 @@ static int lua_storage_mailbox_lt(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
-	bool res = lua_storage_cmp(script) <= 0;
+	bool res = lua_storage_cmp(L) <= 0;
 	lua_pushboolean(script->L, res);
 	return 1;
 }
@@ -88,7 +88,7 @@ static int lua_storage_mailbox_le(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
 	DLUA_REQUIRE_ARGS(L, 2);
-	bool res = lua_storage_cmp(script) < 0;
+	bool res = lua_storage_cmp(L) < 0;
 	lua_pushboolean(script->L, res);
 	return 1;
 }
