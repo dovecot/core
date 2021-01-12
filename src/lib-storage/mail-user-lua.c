@@ -173,8 +173,7 @@ static int lua_storage_mail_user_mailbox_alloc(lua_State *L)
 
 static int lua_storage_mail_user_unref(lua_State *L)
 {
-	struct dlua_script *script = dlua_script_from_state(L);
-	struct mail_user **ptr = lua_touserdata(script->L, 1);
+	struct mail_user **ptr = lua_touserdata(L, 1);
 	if (*ptr != NULL)
 		mail_user_unref(ptr);
 	*ptr = NULL;
