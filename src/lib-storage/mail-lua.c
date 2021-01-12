@@ -15,31 +15,31 @@
 
 #define LUA_STORAGE_MAIL "struct mail"
 
-void dlua_push_mail(struct dlua_script *script, struct mail *mail)
+void dlua_push_mail(lua_State *L, struct mail *mail)
 {
-	luaL_checkstack(script->L, 20, "out of memory");
+	luaL_checkstack(L, 20, "out of memory");
 	/* create a table for holding few things */
-	lua_createtable(script->L, 0, 20);
-	luaL_setmetatable(script->L, LUA_STORAGE_MAIL);
+	lua_createtable(L, 0, 20);
+	luaL_setmetatable(L, LUA_STORAGE_MAIL);
 
-	lua_pushlightuserdata(script->L, mail);
-	lua_setfield(script->L, -2, "item");
+	lua_pushlightuserdata(L, mail);
+	lua_setfield(L, -2, "item");
 
 #undef LUA_TABLE_SETNUMBER
 #define LUA_TABLE_SETNUMBER(field) \
-	lua_pushnumber(script->L, mail->field); \
-	lua_setfield(script->L, -2, #field);
+	lua_pushnumber(L, mail->field); \
+	lua_setfield(L, -2, #field);
 #undef LUA_TABLE_SETBOOL
 #define LUA_TABLE_SETBOOL(field) \
-	lua_pushboolean(script->L, mail->field); \
-	lua_setfield(script->L, -2, #field);
+	lua_pushboolean(L, mail->field); \
+	lua_setfield(L, -2, #field);
 
 	LUA_TABLE_SETNUMBER(seq);
 	LUA_TABLE_SETNUMBER(uid);
 	LUA_TABLE_SETBOOL(expunged);
 
-	dlua_push_mailbox(script->L, mail->box);
-	lua_setfield(script->L, -2, "mailbox");
+	dlua_push_mailbox(L, mail->box);
+	lua_setfield(L, -2, "mailbox");
 
 }
 
