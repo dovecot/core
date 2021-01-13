@@ -143,7 +143,7 @@ struct mailbox_list_settings {
 	const char *mailbox_dir_name;
 
 	/* Encode "bad" characters in mailbox names as <escape_char><hex> */
-	char escape_char;
+	char storage_name_escape_char;
 	/* If mailbox name can't be changed reversibly to UTF-8 and back,
 	   encode the problematic parts using <broken_char><hex> in the
 	   user-visible UTF-8 name. The broken_char itself also has to be

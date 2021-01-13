@@ -199,7 +199,7 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 		list->set.mailbox_dir_name =
 			p_strconcat(list->pool, set->mailbox_dir_name, "/", NULL);
 	}
-	list->set.escape_char = set->escape_char;
+	list->set.storage_name_escape_char = set->storage_name_escape_char;
 	list->set.broken_char = set->broken_char;
 	list->set.utf8 = set->utf8;
 
@@ -521,7 +521,8 @@ mailbox_list_escape_name(struct mailbox_list *list, const char *vname)
 	return mailbox_list_escape_name_params(vname, list->ns->prefix,
 				mail_namespace_get_sep(list->ns),
 				mailbox_list_get_hierarchy_sep(list),
-				list->set.escape_char, list->set.maildir_name);
+				list->set.storage_name_escape_char,
+				list->set.maildir_name);
 }
 
 static int
@@ -583,7 +584,7 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 	if (strcasecmp(storage_name, "INBOX") == 0 &&
 	    (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0)
 		storage_name = "INBOX";
-	else if (list->set.escape_char != '\0')
+	else if (list->set.storage_name_escape_char != '\0')
 		storage_name = mailbox_list_escape_name(list, vname);
 
 	if (prefix_len > 0 && (strcmp(storage_name, "INBOX") != 0 ||
@@ -620,7 +621,7 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 		storage_name = "INBOX";
 	}
 
-	if (list_sep != ns_sep && list->set.escape_char == '\0') {
+	if (list_sep != ns_sep && list->set.storage_name_escape_char == '\0') {
 		if (ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
 		    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
 			/* shared namespace root. the backend storage's
@@ -695,7 +696,7 @@ mailbox_list_unescape_name(struct mailbox_list *list, const char *src)
 	return mailbox_list_unescape_name_params(src, list->ns->prefix,
 				mail_namespace_get_sep(list->ns),
 				mailbox_list_get_hierarchy_sep(list),
-				list->set.escape_char);
+				list->set.storage_name_escape_char);
 }
 
 static void
@@ -777,7 +778,7 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 	}
 
 	prefix_len = strlen(list->ns->prefix);
-	if (list->set.escape_char != '\0') {
+	if (list->set.storage_name_escape_char != '\0') {
 		vname = mailbox_list_unescape_name(list, vname);
 		return prefix_len == 0 ? vname :
 			t_strconcat(list->ns->prefix, vname, NULL);

@@ -165,7 +165,7 @@ imapc_list_to_vname(struct imapc_mailbox_list *list, const char *imapc_name)
 	   so we need to use the remote IMAP separator. */
 	list_name = mailbox_list_escape_name_params(imapc_name, "", list->root_sep,
 		mailbox_list_get_hierarchy_sep(&list->list),
-		list->list.set.escape_char, "");
+		list->list.set.storage_name_escape_char, "");
 	/* list_name is now valid, so we can convert it to vname */
 	return mailbox_list_get_vname(&list->list, list_name);
 }
@@ -174,7 +174,7 @@ const char *imapc_list_to_remote(struct imapc_mailbox_list *list, const char *na
 {
 	return mailbox_list_unescape_name_params(name, "", list->root_sep,
 				mailbox_list_get_hierarchy_sep(&list->list),
-				list->list.set.escape_char);
+				list->list.set.storage_name_escape_char);
 }
 
 static struct mailbox_node *
@@ -393,7 +393,8 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 		mailbox_list_settings_init_defaults(&list_set);
 		list_set.layout = MAILBOX_LIST_NAME_MAILDIRPLUSPLUS;
 		list_set.root_dir = dir;
-		list_set.escape_char = IMAPC_LIST_ESCAPE_CHAR;
+		list_set.storage_name_escape_char =
+			IMAPC_LIST_STORAGE_NAME_ESCAPE_CHAR;
 		list_set.broken_char = IMAPC_LIST_BROKEN_CHAR;
 
 		if (mailbox_list_create(list_set.layout, list->list.ns,
