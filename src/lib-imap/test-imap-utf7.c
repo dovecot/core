@@ -85,26 +85,31 @@ static void test_imap_utf7_ucs4_cases(void)
 static const char mb64[64]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+,";
 static void test_imap_utf7_non_utf16(void)
 {
-	char csrc[1+4+1+1];
 	unsigned int i;
 
 	test_begin("imap mutf7 non-utf16");
 	for (i = 0; i <= 255; ++i) {
 		/* Invalid, code a single 8-bit octet */
-		csrc[2] = '&';
-		csrc[3] = mb64[i>>2];
-		csrc[4] = mb64[(i&3) << 4];
-		csrc[5] = '-';
-		csrc[6] = '\0';
-		test_assert_idx(!imap_utf7_is_valid(csrc+2), i);
+		const char csrc[] = {
+			'&',
+			mb64[i >> 2],
+			mb64[(i & 3) << 4],
+			'-',
+			'\0'
+		};
+		test_assert_idx(!imap_utf7_is_valid(csrc), i);
 	}
 	for (i = 0; i <= 255; ++i) {
 		/* Invalid, U+00E4 followed by a single octet */
-		csrc[0] = '&';
-		csrc[1] = mb64[                       (0x00 >> 2)];
-		csrc[2] = mb64[((0x00 & 0x03) << 4) | (0xe4 >> 4)];
-		csrc[3] = mb64[((0xe4 & 0x0f) << 2) | (   i >> 6)];
-		csrc[4] = mb64[     i & 0x3f                     ];
+		const char csrc[] = {
+			'&',
+			mb64[                       (0x00 >> 2)],
+			mb64[((0x00 & 0x03) << 4) | (0xe4 >> 4)],
+			mb64[((0xe4 & 0x0f) << 2) | (   i >> 6)],
+			mb64[     i & 0x3f                     ],
+			'-',
+			'\0'
+		};
 		test_assert_idx(!imap_utf7_is_valid(csrc), i);
 	}
 	test_end();
