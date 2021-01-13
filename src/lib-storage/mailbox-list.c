@@ -200,7 +200,7 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 			p_strconcat(list->pool, set->mailbox_dir_name, "/", NULL);
 	}
 	list->set.storage_name_escape_char = set->storage_name_escape_char;
-	list->set.broken_char = set->broken_char;
+	list->set.vname_escape_char = set->vname_escape_char;
 	list->set.utf8 = set->utf8;
 
 	if (list->v.init != NULL) {
@@ -365,7 +365,7 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 				*error_r = "BROKENCHAR value must be a single character";
 				return -1;
 			}
-			set_r->broken_char = value[0];
+			set_r->vname_escape_char = value[0];
 			continue;
 		} else if (strcmp(key, "ITERINDEX") == 0) {
 			set_r->iter_from_index_dir = TRUE;
@@ -531,12 +531,12 @@ mailbox_list_unescape_broken_chars(struct mailbox_list *list, char *name)
 	char *src, *dest;
 	unsigned char chr;
 
-	if ((src = strchr(name, list->set.broken_char)) == NULL)
+	if ((src = strchr(name, list->set.vname_escape_char)) == NULL)
 		return 0;
 	dest = src;
 
 	while (*src != '\0') {
-		if (*src == list->set.broken_char) {
+		if (*src == list->set.vname_escape_char) {
 			if (src[1] >= '0' && src[1] <= '9')
 				chr = (src[1]-'0') * 0x10;
 			else if (src[1] >= 'a' && src[1] <= 'f')
@@ -631,15 +631,15 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 		}
 
 		ret = mailbox_list_convert_sep(storage_name, ns_sep, list_sep);
-	} else if (list->set.broken_char == '\0' ||
-		   strchr(storage_name, list->set.broken_char) == NULL) {
+	} else if (list->set.vname_escape_char == '\0' ||
+		   strchr(storage_name, list->set.vname_escape_char) == NULL) {
 		/* no need to convert broken chars */
 		return storage_name;
 	} else {
 		ret = p_strdup(unsafe_data_stack_pool, storage_name);
 	}
 
-	if (list->set.broken_char != '\0') {
+	if (list->set.vname_escape_char != '\0') {
 		if (mailbox_list_unescape_broken_chars(list, ret) < 0) {
 			ret = mailbox_list_convert_sep(storage_name,
 						       ns_sep, list_sep);
@@ -705,13 +705,13 @@ mailbox_list_escape_broken_chars(struct mailbox_list *list, string_t *str)
 	unsigned int i;
 	char buf[3];
 
-	if (strchr(str_c(str), list->set.broken_char) == NULL)
+	if (strchr(str_c(str), list->set.vname_escape_char) == NULL)
 		return;
 
 	for (i = 0; i < str_len(str); i++) {
-		if (str_c(str)[i] == list->set.broken_char) {
+		if (str_c(str)[i] == list->set.vname_escape_char) {
 			i_snprintf(buf, sizeof(buf), "%02x",
-				   list->set.broken_char);
+				   list->set.vname_escape_char);
 			str_insert(str, i+1, buf);
 			i += 2;
 		}
@@ -725,7 +725,7 @@ mailbox_list_escape_broken_name(struct mailbox_list *list,
 	str_truncate(str, 0);
 	for (; *vname != '\0'; vname++) {
 		if (*vname == '&' || (unsigned char)*vname >= 0x80) {
-			str_printfa(str, "%c%02x", list->set.broken_char,
+			str_printfa(str, "%c%02x", list->set.vname_escape_char,
 				    (unsigned char)*vname);
 		} else {
 			str_append_c(str, *vname);
@@ -768,10 +768,10 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 		/* mUTF-7 -> UTF-8 conversion */
 		string_t *str = t_str_new(strlen(vname));
 		if (imap_utf7_to_utf8(vname, str) == 0) {
-			if (list->set.broken_char != '\0')
+			if (list->set.vname_escape_char != '\0')
 				mailbox_list_escape_broken_chars(list, str);
 			vname = str_c(str);
-		} else if (list->set.broken_char != '\0') {
+		} else if (list->set.vname_escape_char != '\0') {
 			mailbox_list_escape_broken_name(list, vname, str);
 			vname = str_c(str);
 		}

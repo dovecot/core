@@ -41,12 +41,13 @@
 
 #define DSYNC_COMMON_GETOPT_ARGS "+1a:dDEfg:I:l:m:n:NO:Pr:Rs:t:e:T:Ux:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
-/* The broken_char is mainly set to get a proper error message when trying to
-   convert a mailbox with a name that can't be used properly translated between
-   vname/storage_name and would otherwise be mixed up with a normal "mailbox
-   doesn't exist" error message. This could be any control character, since
-   none of them are allowed to be created in regular mailbox names. */
-#define DSYNC_LIST_BROKEN_CHAR '\003'
+/* The vname_escape_char is mainly set to get a proper error message when
+   trying to convert a mailbox with a name that can't be used properly
+   translated between vname/storage_name and would otherwise be mixed up with a
+   normal "mailbox doesn't exist" error message. This could be any control
+   character, since none of them are allowed to be created in regular mailbox
+   names. */
+#define DSYNC_LIST_VNAME_ESCAPE_CHAR '\003'
 
 #define DSYNC_DEFAULT_IO_STREAM_TIMEOUT_SECS (60*10)
 
@@ -327,8 +328,8 @@ static void doveadm_user_init_dsync(struct mail_user *user)
 
 	user->dsyncing = TRUE;
 	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
-		if (ns->list->set.broken_char == '\0')
-			ns->list->set.broken_char = DSYNC_LIST_BROKEN_CHAR;
+		if (ns->list->set.vname_escape_char == '\0')
+			ns->list->set.vname_escape_char = DSYNC_LIST_VNAME_ESCAPE_CHAR;
 	}
 }
 

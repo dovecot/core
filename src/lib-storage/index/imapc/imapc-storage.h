@@ -7,7 +7,7 @@
 
 #define IMAPC_STORAGE_NAME "imapc"
 #define IMAPC_LIST_STORAGE_NAME_ESCAPE_CHAR '%'
-#define IMAPC_LIST_BROKEN_CHAR '~'
+#define IMAPC_LIST_VNAME_ESCAPE_CHAR '~'
 
 struct imap_arg;
 struct imapc_untagged_reply;
