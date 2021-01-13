@@ -80,7 +80,7 @@ static int imap_hibernate_server(struct test_imap_client_hibernate *ctx)
 	if (ctx->has_mailbox) {
 		/* read mailbox notify fd */
 		i_stream_unix_set_read_fd(input);
-		if ((line = i_stream_read_next_line(input)) == NULL)
+		if (i_stream_read_next_line(input) == NULL)
 			i_fatal("read(imap-hibernate notify fd) failed: %s",
 				i_stream_get_error(input));
 
