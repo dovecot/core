@@ -243,7 +243,12 @@ static int mbase64_decode_to_utf8(string_t *dest, const char **_src)
 			return -1;
 	}
 
-	/* found ending '-' */
+	/* Found the ending '-'. Make sure it's not followed by unnecessary
+	   shift. Note that '&' is always escaped as "&-" so it's not an
+	   unnecessary shift. */
+	if (src[1] == '&' && src[2] != '-')
+		return -1;
+
 	*_src = src + 1;
 	return 0;
 }
@@ -274,10 +279,6 @@ int imap_utf7_to_utf8(const char *src, string_t *dest)
 			} else {
 				if (mbase64_decode_to_utf8(dest, &p) < 0)
 					return -1;
-				if (p[0] == '&' && p[1] != '-') {
-					/* &...-& */
-					return -1;
-				}
 			}
 		} else {
 			str_append_c(dest, *p++);
