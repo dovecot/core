@@ -2,8 +2,32 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str.h"
 #include "test-common.h"
 #include "mailbox-list-private.h"
+
+enum test_flags {
+	TEST_FLAG_NO_VNAME		= BIT(0),
+	TEST_FLAG_NO_STORAGE_NAME	= BIT(1),
+	TEST_FLAG_NO_MUTF7		= BIT(2),
+	TEST_FLAG_NO_UTF8		= BIT(3),
+};
+
+struct test_mailbox_list_name {
+	const char *vname;
+	const char *storage_name;
+	enum test_flags flags;
+	char *ns_prefix;
+	enum namespace_flags ns_flags;
+	char ns_sep;
+	char list_sep;
+	char vname_escape_char;
+	char storage_name_escape_char;
+	const char *maildir_name;
+};
+
+static char list_hierarchy_sep;
+static char ns_sep[2] = { '\0', '\0' };
 
 static void test_init_list(struct mailbox_list *list_r)
 {
@@ -228,11 +252,232 @@ static void test_mailbox_list_last_error_push_pop(void)
 	test_end();
 }
 
+static char
+test_mailbox_list_get_hierarchy_sep(struct mailbox_list *list ATTR_UNUSED)
+{
+	return list_hierarchy_sep;
+}
+
+static void
+test_maibox_list_name_init(struct mailbox_list *list,
+			   const struct test_mailbox_list_name *test,
+			   bool mutf7)
+{
+	list->ns->prefix = test->ns_prefix == NULL ? "" :
+		test->ns_prefix;
+	list->ns->prefix_len = strlen(list->ns->prefix);
+	list->ns->flags = test->ns_flags;
+	ns_sep[0] = test->ns_sep;
+	list_hierarchy_sep = test->list_sep;
+	list->set.utf8 = !mutf7;
+	list->set.vname_escape_char = test->vname_escape_char;
+	list->set.storage_name_escape_char =
+		test->storage_name_escape_char;
+	list->set.maildir_name = test->maildir_name == NULL ? "" :
+		test->maildir_name;
+}
+
+static void test_mailbox_list_get_names(void)
+{
+	const struct test_mailbox_list_name tests[] = {
+		{ .vname = "parent/child",
+		  .storage_name = "parent/child",
+		  .ns_sep = '/', .list_sep = '/' },
+		{ .vname = "parent/child",
+		  .storage_name = "parent.child",
+		  .ns_sep = '/', .list_sep = '.' },
+		{ .vname = "ns_prefix/parent/child",
+		  .storage_name = "parent.child",
+		  .ns_prefix = "ns_prefix/", .ns_sep = '/', .list_sep = '.' },
+		{ .vname = "ns/prefix/parent/child",
+		  .storage_name = "parent.child",
+		  .ns_prefix = "ns/prefix/", .ns_sep = '/', .list_sep = '.' },
+		{ .vname = "ns/prefix",
+		  .storage_name = "",
+		  .ns_prefix = "ns/prefix/", .ns_sep = '/', .list_sep = '.' },
+		{ .vname = "\xC3\xA4/\xC3\xB6",
+		  .storage_name = "&APY-",
+		  .flags = TEST_FLAG_NO_UTF8,
+		  .ns_prefix = "\xC3\xA4/", .ns_sep = '/', .list_sep = '.' },
+		{ .vname = "\xC3\xA4/\xC3\xB6&test",
+		  .storage_name = "\xC3\xB6&test",
+		  .flags = TEST_FLAG_NO_MUTF7,
+		  .ns_prefix = "\xC3\xA4/", .ns_sep = '/', .list_sep = '.' },
+
+		/* storage_name escaping: */
+		{ .vname = "~home",
+		  .storage_name = "%7ehome",
+		  .ns_sep = '/', .list_sep = '.',
+		  .storage_name_escape_char = '%' },
+		{ .vname = "es%cape%",
+		  .storage_name = "es%25cape%25",
+		  .ns_sep = '/', .list_sep = '.',
+		  .storage_name_escape_char = '%' },
+		{ .vname = "slash/",
+		  .storage_name = "slash%2f",
+		  .ns_sep = '^', .list_sep = '.',
+		  .storage_name_escape_char = '%' },
+		{ .vname = "list.separator",
+		  .storage_name = "list%2eseparator",
+		  .ns_sep = '/', .list_sep = '.',
+		  .storage_name_escape_char = '%' },
+		{ .vname = "Maildir",
+		  .storage_name = "%4daildir",
+		  .ns_sep = '^', .list_sep = '.',
+		  .storage_name_escape_char = '%',
+		  .maildir_name = "Maildir" },
+		{ .vname = "~Maildir",
+		  .storage_name = "%7eMaildir",
+		  .ns_sep = '^', .list_sep = '.',
+		  .storage_name_escape_char = '%',
+		  .maildir_name = "Maildir" },
+		{ .vname = "Maildir/suffix",
+		  .storage_name = "%4daildir%2fsuffix",
+		  .ns_sep = '^', .list_sep = '.',
+		  .storage_name_escape_char = '%',
+		  .maildir_name = "Maildir" },
+		{ .vname = "prefix/Maildir",
+		  .storage_name = "prefix%2f%4daildir",
+		  .ns_sep = '^', .list_sep = '.',
+		  .storage_name_escape_char = '%',
+		  .maildir_name = "Maildir" },
+		{ .vname = "sep/Maildir/sep",
+		  .storage_name = "sep.%4daildir.sep",
+		  .ns_sep = '/', .list_sep = '.',
+		  .storage_name_escape_char = '%',
+		  .maildir_name = "Maildir" },
+		{ .vname = "~/.%--Maildir",
+		  .storage_name = "%4daildir",
+		  .ns_prefix = "~/.%--",
+		  .ns_sep = '/', .list_sep = '.',
+		  .storage_name_escape_char = '%',
+		  .maildir_name = "Maildir" },
+		{ .vname = "%foo",
+		  .storage_name = "%foo",
+		  .flags = TEST_FLAG_NO_STORAGE_NAME,
+		  .ns_sep = '/', .list_sep = '.',
+		  .storage_name_escape_char = '%' },
+
+		/* vname escaping: */
+		{ .vname = "%7c|child",
+		  .storage_name = "|.child",
+		  .flags = TEST_FLAG_NO_VNAME,
+		  .ns_sep = '|', .list_sep = '.',
+		  .vname_escape_char = '%' },
+		{ .vname = "%7c|child.",
+		  .storage_name = "|.child+2e",
+		  .flags = TEST_FLAG_NO_VNAME,
+		  .ns_sep = '|', .list_sep = '.',
+		  .storage_name_escape_char = '+',
+		  .vname_escape_char = '%' },
+		{ .vname = "%2f/child",
+		  .storage_name = "/.child",
+		  .flags = TEST_FLAG_NO_VNAME,
+		  .ns_sep = '/', .list_sep = '.',
+		  .vname_escape_char = '%' },
+		{ .vname = "%2f/child.",
+		  .storage_name = "/.child+2e",
+		  .flags = TEST_FLAG_NO_VNAME,
+		  .ns_sep = '/', .list_sep = '.',
+		  .storage_name_escape_char = '+',
+		  .vname_escape_char = '%' },
+		{ .vname = "x%2666-y",
+		  .storage_name = "x&66-y",
+		  .flags = TEST_FLAG_NO_UTF8,
+		  .ns_sep = '/', .list_sep = '.',
+		  .vname_escape_char = '%' },
+		{ .vname = "p%26AOQ-iv%26AOQ- %26- y%26APY %ff m%26APY-h",
+		  .storage_name = "p&AOQ-iv&AOQ- &- y&APY \xff m&APY-h",
+		  .flags = TEST_FLAG_NO_UTF8,
+		  .ns_sep = '/', .list_sep = '.',
+		  .vname_escape_char = '%' },
+		{ .vname = "%foo",
+		  .storage_name = "%foo",
+		  .flags = TEST_FLAG_NO_VNAME,
+		  .ns_sep = '/', .list_sep = '.',
+		  .vname_escape_char = '%' },
+
+		/* INBOX: */
+		{ .vname = "inBox",
+		  .storage_name = "inBox",
+		  .ns_sep = '/', .list_sep = '.' },
+		{ .vname = "inBox",
+		  .storage_name = "INBOX",
+		  .flags = TEST_FLAG_NO_VNAME,
+		  .ns_flags = NAMESPACE_FLAG_INBOX_USER,
+		  .ns_sep = '/', .list_sep = '.' },
+		{ .vname = "inBox",
+		  .storage_name = "INBOX",
+		  .flags = TEST_FLAG_NO_VNAME,
+		  .ns_flags = NAMESPACE_FLAG_INBOX_USER,
+		  .ns_prefix = "prefix/", .ns_sep = '/', .list_sep = '.' },
+		{ .vname = "prefix/inBox",
+		  .storage_name = "inBox",
+		  .ns_flags = NAMESPACE_FLAG_INBOX_USER,
+		  .ns_prefix = "prefix/", .ns_sep = '/', .list_sep = '.' },
+
+		/* Problematic cases - not reversible: */
+		{ .vname = "parent.child",
+		  .storage_name = "parent.child",
+		  .flags = TEST_FLAG_NO_VNAME,
+		  .ns_sep = '/', .list_sep = '.' },
+		{ .vname = "prefix/INBOX",
+		  .storage_name = "INBOX",
+		  .flags = TEST_FLAG_NO_VNAME,
+		  .ns_flags = NAMESPACE_FLAG_INBOX_USER,
+		  .ns_prefix = "prefix/", .ns_sep = '/', .list_sep = '.' },
+		{ .vname = "invalid&mutf7",
+		  .storage_name = "invalid&mutf7",
+		  .flags = TEST_FLAG_NO_STORAGE_NAME,
+		  .ns_sep = '/', .list_sep = '.' },
+	};
+	struct mail_namespace_settings ns_set = {
+		.separator = ns_sep,
+	};
+	struct mail_namespace ns = {
+		.set = &ns_set,
+	};
+	struct mailbox_list list = {
+		.ns = &ns,
+		.v = {
+			.get_hierarchy_sep = test_mailbox_list_get_hierarchy_sep,
+		},
+	};
+
+	test_begin("mailbox list get names");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		if ((tests[i].flags & TEST_FLAG_NO_MUTF7) == 0) {
+			test_maibox_list_name_init(&list, &tests[i], TRUE);
+			if ((tests[i].flags & TEST_FLAG_NO_STORAGE_NAME) == 0) {
+				test_assert_strcmp_idx(mailbox_list_default_get_storage_name(&list, tests[i].vname),
+						       tests[i].storage_name, i);
+			}
+			if ((tests[i].flags & TEST_FLAG_NO_VNAME) == 0) {
+				test_assert_strcmp_idx(mailbox_list_default_get_vname(&list, tests[i].storage_name),
+						       tests[i].vname, i);
+			}
+		}
+		if ((tests[i].flags & TEST_FLAG_NO_UTF8) == 0) {
+			test_maibox_list_name_init(&list, &tests[i], FALSE);
+			if ((tests[i].flags & TEST_FLAG_NO_STORAGE_NAME) == 0) {
+				test_assert_strcmp_idx(mailbox_list_default_get_storage_name(&list, tests[i].vname),
+						       tests[i].storage_name, i);
+			}
+			if ((tests[i].flags & TEST_FLAG_NO_VNAME) == 0) {
+				test_assert_strcmp_idx(mailbox_list_default_get_vname(&list, tests[i].storage_name),
+						       tests[i].vname, i);
+			}
+		}
+	}
+	test_end();
+}
+
 int main(void)
 {
 	void (*const tests[])(void) = {
 		test_mailbox_list_errors,
 		test_mailbox_list_last_error_push_pop,
+		test_mailbox_list_get_names,
 		NULL
 	};
 	return test_run(tests);
