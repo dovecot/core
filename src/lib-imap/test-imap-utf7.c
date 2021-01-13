@@ -15,12 +15,12 @@ static void test_imap_utf7_by_example(void)
 		{ "&&x&&", "&-&-x&-&-" },
 		{ "~peter/mail/\xe5\x8f\xb0\xe5\x8c\x97/\xe6\x97\xa5\xe6\x9c\xac\xe8\xaa\x9e",
 		  "~peter/mail/&U,BTFw-/&ZeVnLIqe-" },
-		{ "tiet\xc3\xa4j\xc3\xa4", "tiet&AOQ-j&AOQ-" },
+		{ "tiet\xc3\xa4&j\xc3\xa4&", "tiet&AOQ-&-j&AOQ-&-" }, /* & is always encoded as &- */
 		{ "p\xe4\xe4", NULL },
 		{ NULL, "&" },
 		{ NULL, "&Jjo" },
 		{ NULL, "&Jjo!" },
-		{ NULL, "&U,BTFw-&ZeVnLIqe-" }
+		{ NULL, "&U,BTFw-&ZeVnLIqe-" } /* unnecessary shift */
 	};
 	string_t *dest;
 	unsigned int i;
