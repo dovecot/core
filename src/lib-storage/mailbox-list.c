@@ -527,18 +527,7 @@ mailbox_list_unescape_broken_chars(struct mailbox_list *list, char *name)
 
 	while (*src != '\0') {
 		if (*src == list->set.vname_escape_char) {
-			if (src[1] >= '0' && src[1] <= '9')
-				chr = (src[1]-'0') * 0x10;
-			else if (src[1] >= 'a' && src[1] <= 'f')
-				chr = (src[1]-'a' + 10) * 0x10;
-			else
-				return -1;
-
-			if (src[2] >= '0' && src[2] <= '9')
-				chr += src[2]-'0';
-			else if (src[2] >= 'a' && src[2] <= 'f')
-				chr += src[2]-'a' + 10;
-			else
+			if (imap_escaped_utf8_hex_to_char(src+1, &chr) < 0)
 				return -1;
 			*dest++ = chr;
 			src += 3;
