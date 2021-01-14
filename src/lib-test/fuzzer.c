@@ -29,7 +29,8 @@ void fuzzer_deinit(struct fuzzer_context *fuzz_ctx)
 	   if this fails. */
 	if (fuzz_ctx->fd > -1)
 		(void)close(fuzz_ctx->fd);
-	io_loop_destroy(&fuzz_ctx->ioloop);
+	if (fuzz_ctx->ioloop != NULL)
+		io_loop_destroy(&fuzz_ctx->ioloop);
 }
 
 static void pump_finished(enum iostream_pump_status status ATTR_UNUSED,
