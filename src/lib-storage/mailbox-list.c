@@ -538,7 +538,7 @@ mailbox_list_name_unescape(const char **_name, char escape_char)
 	*_name = str_c(str);
 }
 
-static void
+static bool
 mailbox_list_vname_prepare(struct mailbox_list *list, const char **_vname)
 {
 	struct mail_namespace *ns = list->ns;
@@ -550,9 +550,20 @@ mailbox_list_vname_prepare(struct mailbox_list *list, const char **_vname)
 		vname = "INBOX";
 	} else if (ns->prefix_len > 0) {
 		/* skip namespace prefix, except if this is INBOX */
-		if (strncmp(ns->prefix, vname, ns->prefix_len) == 0)
+		if (strncmp(ns->prefix, vname, ns->prefix_len) == 0) {
 			vname += ns->prefix_len;
-		else if (strncmp(ns->prefix, vname, ns->prefix_len-1) == 0 &&
+			if (strcmp(vname, "INBOX") == 0 &&
+			    (list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+			    list->set.storage_name_escape_char != '\0') {
+				/* prefix/INBOX - this is troublesome, because
+				   it ends up conflicting with the INBOX name.
+				   Handle this in a bit kludgy way by escaping
+				   the initial "I" character. */
+				*_vname = t_strdup_printf("%c49NBOX",
+					list->set.storage_name_escape_char);
+				return TRUE;
+			}
+		} else if (strncmp(ns->prefix, vname, ns->prefix_len-1) == 0 &&
 			 strlen(vname) == ns->prefix_len-1 &&
 			 ns->prefix[ns->prefix_len-1] == mail_namespace_get_sep(ns)) {
 			/* trying to access the namespace prefix itself */
@@ -569,6 +580,7 @@ mailbox_list_vname_prepare(struct mailbox_list *list, const char **_vname)
 		vname = "INBOX";
 	}
 	*_vname = vname;
+	return FALSE;
 }
 
 static const char *
@@ -606,7 +618,8 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 {
 	const char *prepared_name = vname;
 
-	mailbox_list_vname_prepare(list, &prepared_name);
+	if (mailbox_list_vname_prepare(list, &prepared_name))
+		return prepared_name;
 	if (list->ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
 	    (list->ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
 		/* Accessing shared namespace root. This is just the initial

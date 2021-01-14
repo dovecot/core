@@ -434,6 +434,11 @@ static void test_mailbox_list_get_names(void)
 		  .storage_name = "inBox",
 		  .ns_flags = NAMESPACE_FLAG_INBOX_USER,
 		  .ns_prefix = "prefix/", .ns_sep = '/', .list_sep = '.' },
+		{ .vname = "prefix/INBOX",
+		  .storage_name = "+49NBOX",
+		  .ns_flags = NAMESPACE_FLAG_INBOX_USER,
+		  .ns_prefix = "prefix/", .ns_sep = '/', .list_sep = '.',
+		  .storage_name_escape_char = '+' },
 
 		/* Problematic cases - not reversible: */
 		{ .vname = "parent.child",
