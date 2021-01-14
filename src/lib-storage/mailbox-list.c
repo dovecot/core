@@ -550,18 +550,6 @@ mailbox_list_unescape_broken_chars(struct mailbox_list *list, char *name)
 	return 0;
 }
 
-static char *mailbox_list_convert_sep(const char *storage_name, char src, char dest)
-{
-	char *ret, *p;
-
-	ret = p_strdup(unsafe_data_stack_pool, storage_name);
-	for (p = ret; *p != '\0'; p++) {
-		if (*p == src)
-			*p = dest;
-	}
-	return ret;
-}
-
 static void
 mailbox_list_vname_prepare(struct mailbox_list *list, const char **_vname)
 {
@@ -595,30 +583,18 @@ mailbox_list_vname_prepare(struct mailbox_list *list, const char **_vname)
 	*_vname = vname;
 }
 
-const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
-						  const char *vname)
+static const char *
+mailbox_list_default_get_storage_name_part(struct mailbox_list *list,
+					   const char *vname_part)
 {
-	struct mail_namespace *ns = list->ns;
-	const char *storage_name = vname;
+	const char *storage_name = vname_part;
 	string_t *str;
-	char list_sep, ns_sep, *ret;
+	char *ret;
 
-	mailbox_list_vname_prepare(list, &storage_name);
-	if (ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
-	    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
-		/* Accessing shared namespace root. This is just the initial
-		   lookup that ends up as parameter to
-		   shared_storage_get_namespace(). That then finds/creates the
-		   actual shared namespace, which gets used to generate the
-		   proper storage_name. So the only thing that's really
-		   necessary here is to just skip over the shared namespace
-		   prefix and leave the rest of the name untouched. */
-		return storage_name;
-	}
 	if (list->set.storage_name_escape_char != '\0') {
 		storage_name = mailbox_list_escape_name_params(storage_name,
-				ns->prefix,
-				mail_namespace_get_sep(list->ns),
+				list->ns->prefix,
+				'\0', /* no separator conversion */
 				mailbox_list_get_hierarchy_sep(list),
 				list->set.storage_name_escape_char,
 				list->set.maildir_name);
@@ -628,30 +604,47 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 		/* UTF-8 -> mUTF-7 conversion */
 		str = t_str_new(strlen(storage_name)*2);
 		if (imap_utf8_to_utf7(storage_name, str) < 0)
-			i_panic("Mailbox name not UTF-8: %s", vname);
+			i_panic("Mailbox name not UTF-8: %s", vname_part);
 		storage_name = str_c(str);
 	}
 
-	list_sep = mailbox_list_get_hierarchy_sep(list);
-	ns_sep = mail_namespace_get_sep(ns);
-
-	if (list_sep != ns_sep && list->set.storage_name_escape_char == '\0') {
-		ret = mailbox_list_convert_sep(storage_name, ns_sep, list_sep);
-	} else if (list->set.vname_escape_char == '\0' ||
-		   strchr(storage_name, list->set.vname_escape_char) == NULL) {
-		/* no need to convert broken chars */
-		return storage_name;
-	} else {
-		ret = p_strdup(unsafe_data_stack_pool, storage_name);
-	}
-
 	if (list->set.vname_escape_char != '\0') {
-		if (mailbox_list_unescape_broken_chars(list, ret) < 0) {
-			ret = mailbox_list_convert_sep(storage_name,
-						       ns_sep, list_sep);
-		}
+		ret = p_strdup(unsafe_data_stack_pool, storage_name);
+		(void)mailbox_list_unescape_broken_chars(list, ret);
+		storage_name = ret;
 	}
-	return ret;
+	return storage_name;
+}
+
+const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
+						  const char *vname)
+{
+	const char *prepared_name = vname;
+
+	mailbox_list_vname_prepare(list, &prepared_name);
+	if (list->ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
+	    (list->ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
+		/* Accessing shared namespace root. This is just the initial
+		   lookup that ends up as parameter to
+		   shared_storage_get_namespace(). That then finds/creates the
+		   actual shared namespace, which gets used to generate the
+		   proper storage_name. So the only thing that's really
+		   necessary here is to just skip over the shared namespace
+		   prefix and leave the rest of the name untouched. */
+		return prepared_name;
+	}
+
+	char list_sep = mailbox_list_get_hierarchy_sep(list);
+	char sep[] = { mail_namespace_get_sep(list->ns), '\0' };
+	const char *const *parts = t_strsplit(prepared_name, sep);
+	string_t *storage_name = t_str_new(128);
+	for (unsigned int i = 0; parts[i] != NULL; i++) {
+		if (i > 0)
+			str_append_c(storage_name, list_sep);
+		str_append(storage_name,
+			   mailbox_list_default_get_storage_name_part(list, parts[i]));
+	}
+	return str_c(storage_name);
 }
 
 const char *mailbox_list_get_storage_name(struct mailbox_list *list,
