@@ -515,16 +515,6 @@ mailbox_list_escape_name_params(const char *vname, const char *ns_prefix,
 	return str_c(escaped_name);
 }
 
-const char *
-mailbox_list_escape_name(struct mailbox_list *list, const char *vname)
-{
-	return mailbox_list_escape_name_params(vname, list->ns->prefix,
-				mail_namespace_get_sep(list->ns),
-				mailbox_list_get_hierarchy_sep(list),
-				list->set.storage_name_escape_char,
-				list->set.maildir_name);
-}
-
 static int
 mailbox_list_unescape_broken_chars(struct mailbox_list *list, char *name)
 {
@@ -584,8 +574,14 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 	if (strcasecmp(storage_name, "INBOX") == 0 &&
 	    (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0)
 		storage_name = "INBOX";
-	else if (list->set.storage_name_escape_char != '\0')
-		storage_name = mailbox_list_escape_name(list, vname);
+	else if (list->set.storage_name_escape_char != '\0') {
+		storage_name = mailbox_list_escape_name_params(vname,
+				ns->prefix,
+				mail_namespace_get_sep(list->ns),
+				mailbox_list_get_hierarchy_sep(list),
+				list->set.storage_name_escape_char,
+				list->set.maildir_name);
+	}
 
 	if (prefix_len > 0 && (strcmp(storage_name, "INBOX") != 0 ||
 			       (ns->flags & NAMESPACE_FLAG_INBOX_USER) == 0)) {
