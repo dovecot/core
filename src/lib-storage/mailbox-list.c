@@ -515,28 +515,27 @@ mailbox_list_escape_name_params(const char *vname, const char *ns_prefix,
 	return str_c(escaped_name);
 }
 
-static int
-mailbox_list_unescape_broken_chars(struct mailbox_list *list, char *name)
+static void
+mailbox_list_name_unescape(const char **_name, char escape_char)
 {
-	char *src, *dest;
+	const char *p, *name = *_name;
 	unsigned char chr;
 
-	if ((src = strchr(name, list->set.vname_escape_char)) == NULL)
-		return 0;
-	dest = src;
+	if ((p = strchr(name, escape_char)) == NULL)
+		return;
 
-	while (*src != '\0') {
-		if (*src == list->set.vname_escape_char) {
-			if (imap_escaped_utf8_hex_to_char(src+1, &chr) < 0)
-				return -1;
-			*dest++ = chr;
-			src += 3;
+	string_t *str = t_str_new(strlen(name)*2);
+	str_append_data(str, name, p - name);
+	while (*p != '\0') {
+		if (*p == escape_char &&
+		    imap_escaped_utf8_hex_to_char(p+1, &chr) == 0) {
+			str_append_c(str, chr);
+			p += 3;
 		} else {
-			*dest++ = *src++;
+			str_append_c(str, *p++);
 		}
 	}
-	*dest++ = '\0';
-	return 0;
+	*_name = str_c(str);
 }
 
 static void
@@ -578,7 +577,6 @@ mailbox_list_default_get_storage_name_part(struct mailbox_list *list,
 {
 	const char *storage_name = vname_part;
 	string_t *str;
-	char *ret;
 
 	if (list->set.storage_name_escape_char != '\0') {
 		storage_name = mailbox_list_escape_name_params(storage_name,
@@ -592,15 +590,14 @@ mailbox_list_default_get_storage_name_part(struct mailbox_list *list,
 	if (!list->set.utf8) {
 		/* UTF-8 -> mUTF-7 conversion */
 		str = t_str_new(strlen(storage_name)*2);
-		if (imap_utf8_to_utf7(storage_name, str) < 0)
+		if (imap_escaped_utf8_to_utf7(storage_name,
+					      list->set.vname_escape_char,
+					      str) < 0)
 			i_panic("Mailbox name not UTF-8: %s", vname_part);
 		storage_name = str_c(str);
-	}
-
-	if (list->set.vname_escape_char != '\0') {
-		ret = p_strdup(unsafe_data_stack_pool, storage_name);
-		(void)mailbox_list_unescape_broken_chars(list, ret);
-		storage_name = ret;
+	} else if (list->set.vname_escape_char != '\0') {
+		mailbox_list_name_unescape(&storage_name,
+					   list->set.vname_escape_char);
 	}
 	return storage_name;
 }
