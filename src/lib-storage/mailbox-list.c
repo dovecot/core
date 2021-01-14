@@ -725,6 +725,18 @@ mailbox_list_storage_name_prepare(struct mailbox_list *list,
 	return FALSE;
 }
 
+static void
+mailbox_list_name_escape(const char *vname, const char *escape_chars,
+			 string_t *dest)
+{
+	for (unsigned int i = 0; vname[i] != '\0'; i++) {
+		if (strchr(escape_chars, vname[i]) != NULL)
+			str_printfa(dest, "%c%02x", escape_chars[0], vname[i]);
+		else
+			str_append_c(dest, vname[i]);
+	}
+}
+
 static const char *
 mailbox_list_default_get_vname_part(struct mailbox_list *list,
 				    const char *storage_name_part)
@@ -748,6 +760,10 @@ mailbox_list_default_get_vname_part(struct mailbox_list *list,
 			   can't be accessible, so just return it as the
 			   original mUTF7 name. */
 		}
+	} else if (list->set.vname_escape_char != '\0') {
+		string_t *str = t_str_new(strlen(vname));
+		mailbox_list_name_escape(vname, escape_chars, str);
+		vname = str_c(str);
 	}
 
 	if (list->set.storage_name_escape_char != '\0') {
