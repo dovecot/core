@@ -604,6 +604,17 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 	char list_sep, ns_sep, *ret;
 
 	mailbox_list_vname_prepare(list, &storage_name);
+	if (ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
+	    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
+		/* Accessing shared namespace root. This is just the initial
+		   lookup that ends up as parameter to
+		   shared_storage_get_namespace(). That then finds/creates the
+		   actual shared namespace, which gets used to generate the
+		   proper storage_name. So the only thing that's really
+		   necessary here is to just skip over the shared namespace
+		   prefix and leave the rest of the name untouched. */
+		return storage_name;
+	}
 	if (list->set.storage_name_escape_char != '\0') {
 		storage_name = mailbox_list_escape_name_params(storage_name,
 				ns->prefix,
@@ -625,14 +636,6 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 	ns_sep = mail_namespace_get_sep(ns);
 
 	if (list_sep != ns_sep && list->set.storage_name_escape_char == '\0') {
-		if (ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
-		    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
-			/* shared namespace root. the backend storage's
-			   hierarchy separator isn't known yet, so do
-			   nothing. */
-			return storage_name;
-		}
-
 		ret = mailbox_list_convert_sep(storage_name, ns_sep, list_sep);
 	} else if (list->set.vname_escape_char == '\0' ||
 		   strchr(storage_name, list->set.vname_escape_char) == NULL) {
