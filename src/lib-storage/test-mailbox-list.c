@@ -357,6 +357,10 @@ static void test_mailbox_list_get_names(void)
 		  .flags = TEST_FLAG_NO_STORAGE_NAME,
 		  .ns_sep = '/', .list_sep = '.',
 		  .storage_name_escape_char = '%' },
+		{ .vname = "A/B.C%D",
+		  .storage_name = "A.B%2eC%25D",
+		  .storage_name_escape_char='%',
+		  .ns_sep = '/', .list_sep = '.' },
 
 		/* vname escaping: */
 		{ .vname = "%7c|child",
@@ -405,6 +409,10 @@ static void test_mailbox_list_get_names(void)
 		{ .vname = "%foo",
 		  .storage_name = "%foo",
 		  .flags = TEST_FLAG_NO_VNAME,
+		  .ns_sep = '/', .list_sep = '.',
+		  .vname_escape_char = '%' },
+		{ .vname = "A%2fB/C%25D",
+		  .storage_name = "A/B.C%D",
 		  .ns_sep = '/', .list_sep = '.',
 		  .vname_escape_char = '%' },
 

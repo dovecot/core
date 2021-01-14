@@ -142,12 +142,24 @@ struct mailbox_list_settings {
 	   this setting contains either "" or "dir/". */
 	const char *mailbox_dir_name;
 
-	/* Encode "bad" characters in mailbox names as <escape_char><hex> */
+	/* Used for escaping the mailbox name in storage (storage_name). If the
+	   UTF-8 vname has characters that can't reversibly (or safely) be
+	   converted to storage_name and back, encode the problematic parts
+	   using <storage_name_escape_char><hex>. The storage_name_escape_char
+	   itself also has to be encoded the same way. For example
+	   { vname="A/B.C%D", storage_name_escape_char='%', namespace_sep='/',
+	   storage_sep='.' } -> storage_name="A.B%2eC%25D". */
 	char storage_name_escape_char;
-	/* If mailbox name can't be changed reversibly to UTF-8 and back,
-	   encode the problematic parts using <escape_char><hex> in the
-	   user-visible UTF-8 name. The vname_escape_char itself also has to be
-	   encoded the same way. */
+	/* Used for escaping the user/client-visible UTF-8 vname. If the
+	   storage_name can't be converted reversibly to the vname and back,
+	   encode the problematic parts using <vname_escape_char><hex>. The
+	   vname_escape_char itself also has to be encoded the same way. For
+	   example { storage_name="A/B.C%D", vname_escape_char='%',
+	   namespace_sep='/', storage_sep='.' } -> vname="A%2fB/C%25D".
+
+	   Note that it's possible for escape_char and broken_char to be the
+	   same character. They're just used for different directions in
+	   conversion. */
 	char vname_escape_char;
 	/* Use UTF-8 mailbox names on filesystem instead of mUTF-7 */
 	bool utf8;
