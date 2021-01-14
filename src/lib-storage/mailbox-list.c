@@ -578,15 +578,6 @@ mailbox_list_default_get_storage_name_part(struct mailbox_list *list,
 	const char *storage_name = vname_part;
 	string_t *str;
 
-	if (list->set.storage_name_escape_char != '\0') {
-		storage_name = mailbox_list_escape_name_params(storage_name,
-				list->ns->prefix,
-				'\0', /* no separator conversion */
-				mailbox_list_get_hierarchy_sep(list),
-				list->set.storage_name_escape_char,
-				list->set.maildir_name);
-	}
-
 	if (!list->set.utf8) {
 		/* UTF-8 -> mUTF-7 conversion */
 		str = t_str_new(strlen(storage_name)*2);
@@ -598,6 +589,14 @@ mailbox_list_default_get_storage_name_part(struct mailbox_list *list,
 	} else if (list->set.vname_escape_char != '\0') {
 		mailbox_list_name_unescape(&storage_name,
 					   list->set.vname_escape_char);
+	}
+	if (list->set.storage_name_escape_char != '\0') {
+		storage_name = mailbox_list_escape_name_params(storage_name,
+				list->ns->prefix,
+				'\0', /* no separator conversion */
+				mailbox_list_get_hierarchy_sep(list),
+				list->set.storage_name_escape_char,
+				list->set.maildir_name);
 	}
 	return storage_name;
 }
@@ -734,6 +733,13 @@ mailbox_list_default_get_vname_part(struct mailbox_list *list,
 		'\0'
 	};
 
+	if (list->set.storage_name_escape_char != '\0') {
+		vname = mailbox_list_unescape_name_params(vname,
+				list->ns->prefix,
+				'\0', '\0', /* no separator conversion */
+				list->set.storage_name_escape_char);
+	}
+
 	if (!list->set.utf8) {
 		/* mUTF-7 -> UTF-8 conversion */
 		string_t *str = t_str_new(strlen(vname));
@@ -751,13 +757,6 @@ mailbox_list_default_get_vname_part(struct mailbox_list *list,
 		string_t *str = t_str_new(strlen(vname));
 		mailbox_list_name_escape(vname, escape_chars, str);
 		vname = str_c(str);
-	}
-
-	if (list->set.storage_name_escape_char != '\0') {
-		vname = mailbox_list_unescape_name_params(vname,
-				list->ns->prefix,
-				'\0', '\0', /* no separator conversion */
-				list->set.storage_name_escape_char);
 	}
 	return vname;
 }
