@@ -723,6 +723,42 @@ mailbox_list_escape_broken_name(struct mailbox_list *list,
 	}
 }
 
+static bool
+mailbox_list_storage_name_prepare(struct mailbox_list *list,
+				  const char **_storage_name)
+{
+	const char *name = *_storage_name;
+
+	if ((list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+	    strcmp(name, "INBOX") == 0 &&
+	    list->ns->user == list->ns->owner) {
+		/* user's INBOX - use as-is. NOTE: don't do case-insensitive
+		   comparison, otherwise we can't differentiate between INBOX
+		   and <ns prefix>/inBox. */
+		return TRUE;
+	}
+	if (strcmp(name, "INBOX") == 0 &&
+	    list->ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
+	    (list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
+	    !list->mail_set->mail_shared_explicit_inbox) {
+		/* convert to shared/$user, we don't really care about the
+		   INBOX suffix here. */
+		name = "";
+	}
+	if (name[0] == '\0') {
+		/* return namespace prefix without the separator */
+		if (list->ns->prefix_len == 0)
+			*_storage_name = list->ns->prefix;
+		else {
+			*_storage_name =
+				t_strndup(list->ns->prefix,
+					  list->ns->prefix_len - 1);
+		}
+		return TRUE;
+	}
+	return FALSE;
+}
+
 const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 					   const char *storage_name)
 {
@@ -730,31 +766,9 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 	const char *vname = storage_name;
 	char list_sep, ns_sep, *ret;
 
-	if ((list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
-	    strcmp(vname, "INBOX") == 0 &&
-	    list->ns->user == list->ns->owner) {
-		/* user's INBOX - use as-is. NOTE: don't do case-insensitive
-		   comparison, otherwise we can't differentiate between INBOX
-		   and <ns prefix>/inBox. */
-		return vname;
-	}
-	if (strcmp(vname, "INBOX") == 0 &&
-	    list->ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
-	    (list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
-	    !list->mail_set->mail_shared_explicit_inbox) {
-		/* convert to shared/$user, we don't really care about the
-		   INBOX suffix here. */
-		vname = "";
-	}
-	if (*vname == '\0') {
-		/* return namespace prefix without the separator */
-		if (list->ns->prefix_len == 0)
-			return list->ns->prefix;
-		else {
-			return t_strndup(list->ns->prefix,
-					 list->ns->prefix_len - 1);
-		}
-	} else if (!list->set.utf8) {
+	if (mailbox_list_storage_name_prepare(list, &storage_name))
+		return storage_name;
+	if (!list->set.utf8) {
 		/* mUTF-7 -> UTF-8 conversion */
 		string_t *str = t_str_new(strlen(vname));
 		if (imap_utf7_to_utf8(vname, str) == 0) {
