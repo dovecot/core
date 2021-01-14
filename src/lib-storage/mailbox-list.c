@@ -759,15 +759,12 @@ mailbox_list_storage_name_prepare(struct mailbox_list *list,
 	return FALSE;
 }
 
-const char *mailbox_list_default_get_vname(struct mailbox_list *list,
-					   const char *storage_name)
+static const char *
+mailbox_list_default_get_vname_part(struct mailbox_list *list,
+				    const char *storage_name_part)
 {
-	size_t i, prefix_len, name_len;
-	const char *vname = storage_name;
-	char list_sep, ns_sep, *ret;
+	const char *vname = storage_name_part;
 
-	if (mailbox_list_storage_name_prepare(list, &storage_name))
-		return storage_name;
 	if (!list->set.utf8) {
 		/* mUTF-7 -> UTF-8 conversion */
 		string_t *str = t_str_new(strlen(vname));
@@ -781,33 +778,33 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 		}
 	}
 
-	prefix_len = strlen(list->ns->prefix);
 	if (list->set.storage_name_escape_char != '\0') {
 		vname = mailbox_list_unescape_name_params(vname,
 				list->ns->prefix,
-				mail_namespace_get_sep(list->ns),
-				mailbox_list_get_hierarchy_sep(list),
+				'\0', '\0', /* no separator conversion */
 				list->set.storage_name_escape_char);
-		return prefix_len == 0 ? vname :
-			t_strconcat(list->ns->prefix, vname, NULL);
-	}
-
-	list_sep = mailbox_list_get_hierarchy_sep(list);
-	ns_sep = mail_namespace_get_sep(list->ns);
-
-	if (list_sep != ns_sep || prefix_len > 0) {
-		/* @UNSAFE */
-		name_len = strlen(vname);
-		ret = t_malloc_no0(MALLOC_ADD(prefix_len, name_len) + 1);
-		memcpy(ret, list->ns->prefix, prefix_len);
-		for (i = 0; i < name_len; i++) {
-			ret[i + prefix_len] =
-				vname[i] == list_sep ? ns_sep : vname[i];
-		}
-		ret[i + prefix_len] = '\0';
-		vname = ret;
 	}
 	return vname;
+}
+
+const char *mailbox_list_default_get_vname(struct mailbox_list *list,
+					   const char *storage_name)
+{
+	if (mailbox_list_storage_name_prepare(list, &storage_name))
+		return storage_name;
+
+	char ns_sep = mail_namespace_get_sep(list->ns);
+	char sep[] = { mailbox_list_get_hierarchy_sep(list), '\0' };
+	const char *const *parts = t_strsplit(storage_name, sep);
+	string_t *vname = t_str_new(128);
+	str_append(vname, list->ns->prefix);
+	for (unsigned int i = 0; parts[i] != NULL; i++) {
+		if (i > 0)
+			str_append_c(vname, ns_sep);
+		str_append(vname,
+			   mailbox_list_default_get_vname_part(list, parts[i]));
+	}
+	return str_c(vname);
 }
 
 const char *mailbox_list_get_vname(struct mailbox_list *list, const char *name)
