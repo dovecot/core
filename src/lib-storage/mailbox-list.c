@@ -562,41 +562,55 @@ static char *mailbox_list_convert_sep(const char *storage_name, char src, char d
 	return ret;
 }
 
+static void
+mailbox_list_vname_prepare(struct mailbox_list *list, const char **_vname)
+{
+	struct mail_namespace *ns = list->ns;
+	const char *vname = *_vname;
+
+	if (strcasecmp(vname, "INBOX") == 0 &&
+	    (list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+		/* INBOX is case sensitive. Normalize it into "INBOX". */
+		vname = "INBOX";
+	} else if (ns->prefix_len > 0) {
+		/* skip namespace prefix, except if this is INBOX */
+		if (strncmp(ns->prefix, vname, ns->prefix_len) == 0)
+			vname += ns->prefix_len;
+		else if (strncmp(ns->prefix, vname, ns->prefix_len-1) == 0 &&
+			 strlen(vname) == ns->prefix_len-1 &&
+			 ns->prefix[ns->prefix_len-1] == mail_namespace_get_sep(ns)) {
+			/* trying to access the namespace prefix itself */
+			vname = "";
+		} else {
+			/* we're converting a nonexistent mailbox name,
+			   such as a LIST pattern. */
+		}
+	}
+	if (*vname == '\0' && ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
+	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
+	    !list->mail_set->mail_shared_explicit_inbox) {
+		/* opening shared/$user. it's the same as INBOX. */
+		vname = "INBOX";
+	}
+	*_vname = vname;
+}
+
 const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 						  const char *vname)
 {
 	struct mail_namespace *ns = list->ns;
-	size_t prefix_len = strlen(ns->prefix);
 	const char *storage_name = vname;
 	string_t *str;
 	char list_sep, ns_sep, *ret;
 
-	if (strcasecmp(storage_name, "INBOX") == 0 &&
-	    (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0)
-		storage_name = "INBOX";
-	else if (list->set.storage_name_escape_char != '\0') {
-		storage_name = mailbox_list_escape_name_params(vname,
+	mailbox_list_vname_prepare(list, &storage_name);
+	if (list->set.storage_name_escape_char != '\0') {
+		storage_name = mailbox_list_escape_name_params(storage_name,
 				ns->prefix,
 				mail_namespace_get_sep(list->ns),
 				mailbox_list_get_hierarchy_sep(list),
 				list->set.storage_name_escape_char,
 				list->set.maildir_name);
-	}
-
-	if (prefix_len > 0 && (strcmp(storage_name, "INBOX") != 0 ||
-			       (ns->flags & NAMESPACE_FLAG_INBOX_USER) == 0)) {
-		/* skip namespace prefix, except if this is INBOX */
-		if (strncmp(ns->prefix, storage_name, prefix_len) == 0)
-			storage_name += prefix_len;
-		else if (strncmp(ns->prefix, storage_name, prefix_len-1) == 0 &&
-			 strlen(storage_name) == prefix_len-1 &&
-			 ns->prefix[prefix_len-1] == mail_namespace_get_sep(ns)) {
-			/* trying to access the namespace prefix itself */
-			storage_name = "";
-		} else {
-			/* we're converting a nonexistent mailbox name,
-			   such as a LIST pattern. */
-		}
 	}
 
 	if (!list->set.utf8) {
@@ -609,13 +623,6 @@ const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
 
 	list_sep = mailbox_list_get_hierarchy_sep(list);
 	ns_sep = mail_namespace_get_sep(ns);
-
-	if (*storage_name == '\0' && ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
-	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
-	    !list->mail_set->mail_shared_explicit_inbox) {
-		/* opening shared/$user. it's the same as INBOX. */
-		storage_name = "INBOX";
-	}
 
 	if (list_sep != ns_sep && list->set.storage_name_escape_char == '\0') {
 		if (ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
