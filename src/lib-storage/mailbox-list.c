@@ -730,6 +730,7 @@ mailbox_list_default_get_vname_part(struct mailbox_list *list,
 	const char *vname = storage_name_part;
 	char escape_chars[] = {
 		list->set.vname_escape_char,
+		mail_namespace_get_sep(list->ns),
 		'\0'
 	};
 
