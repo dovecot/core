@@ -386,7 +386,7 @@ static void test_mailbox_list_get_names(void)
 		  .flags = TEST_FLAG_NO_UTF8,
 		  .ns_sep = '/', .list_sep = '.',
 		  .vname_escape_char = '%' },
-		{ .vname = "p%26AOQ-iv%26AOQ- %26- y%26APY %ff m%26APY-h",
+		{ .vname = "p\xC3\xA4iv\xC3\xA4 & y%26APY %ff m\xC3\xB6h",
 		  .storage_name = "p&AOQ-iv&AOQ- &- y&APY \xff m&APY-h",
 		  .flags = TEST_FLAG_NO_UTF8,
 		  .ns_sep = '/', .list_sep = '.',

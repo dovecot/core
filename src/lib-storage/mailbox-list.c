@@ -689,40 +689,6 @@ mailbox_list_unescape_name_params(const char *src, const char *ns_prefix,
 	return str_c(dest);
 }
 
-static void
-mailbox_list_escape_broken_chars(struct mailbox_list *list, string_t *str)
-{
-	unsigned int i;
-	char buf[3];
-
-	if (strchr(str_c(str), list->set.vname_escape_char) == NULL)
-		return;
-
-	for (i = 0; i < str_len(str); i++) {
-		if (str_c(str)[i] == list->set.vname_escape_char) {
-			i_snprintf(buf, sizeof(buf), "%02x",
-				   list->set.vname_escape_char);
-			str_insert(str, i+1, buf);
-			i += 2;
-		}
-	}
-}
-
-static void
-mailbox_list_escape_broken_name(struct mailbox_list *list,
-				const char *vname, string_t *str)
-{
-	str_truncate(str, 0);
-	for (; *vname != '\0'; vname++) {
-		if (*vname == '&' || (unsigned char)*vname >= 0x80) {
-			str_printfa(str, "%c%02x", list->set.vname_escape_char,
-				    (unsigned char)*vname);
-		} else {
-			str_append_c(str, *vname);
-		}
-	}
-}
-
 static bool
 mailbox_list_storage_name_prepare(struct mailbox_list *list,
 				  const char **_storage_name)
@@ -764,17 +730,23 @@ mailbox_list_default_get_vname_part(struct mailbox_list *list,
 				    const char *storage_name_part)
 {
 	const char *vname = storage_name_part;
+	char escape_chars[] = {
+		list->set.vname_escape_char,
+		'\0'
+	};
 
 	if (!list->set.utf8) {
 		/* mUTF-7 -> UTF-8 conversion */
 		string_t *str = t_str_new(strlen(vname));
-		if (imap_utf7_to_utf8(vname, str) == 0) {
-			if (list->set.vname_escape_char != '\0')
-				mailbox_list_escape_broken_chars(list, str);
+		if (escape_chars[0] != '\0') {
+			imap_utf7_to_utf8_escaped(vname, escape_chars, str);
 			vname = str_c(str);
-		} else if (list->set.vname_escape_char != '\0') {
-			mailbox_list_escape_broken_name(list, vname, str);
+		} else if (imap_utf7_to_utf8(vname, str) == 0)
 			vname = str_c(str);
+		else {
+			/* Invalid mUTF7, but no escape character. This mailbox
+			   can't be accessible, so just return it as the
+			   original mUTF7 name. */
 		}
 	}
 
