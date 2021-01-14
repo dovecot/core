@@ -686,15 +686,6 @@ mailbox_list_unescape_name_params(const char *src, const char *ns_prefix,
 	return str_c(dest);
 }
 
-const char *
-mailbox_list_unescape_name(struct mailbox_list *list, const char *src)
-{
-	return mailbox_list_unescape_name_params(src, list->ns->prefix,
-				mail_namespace_get_sep(list->ns),
-				mailbox_list_get_hierarchy_sep(list),
-				list->set.storage_name_escape_char);
-}
-
 static void
 mailbox_list_escape_broken_chars(struct mailbox_list *list, string_t *str)
 {
@@ -775,7 +766,11 @@ const char *mailbox_list_default_get_vname(struct mailbox_list *list,
 
 	prefix_len = strlen(list->ns->prefix);
 	if (list->set.storage_name_escape_char != '\0') {
-		vname = mailbox_list_unescape_name(list, vname);
+		vname = mailbox_list_unescape_name_params(vname,
+				list->ns->prefix,
+				mail_namespace_get_sep(list->ns),
+				mailbox_list_get_hierarchy_sep(list),
+				list->set.storage_name_escape_char);
 		return prefix_len == 0 ? vname :
 			t_strconcat(list->ns->prefix, vname, NULL);
 	}
