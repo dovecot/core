@@ -77,7 +77,7 @@ raw_mailbox_alloc_common(struct mail_user *user, struct istream *input,
 
 	i_assert(strcmp(box->storage->name, RAW_STORAGE_NAME) == 0);
 	raw_box = RAW_MAILBOX(box);
-	raw_box->envelope_sender = envelope_sender;
+	raw_box->envelope_sender = p_strdup(box->pool, envelope_sender);
 	raw_box->mtime = received_time;
 	return 0;
 }
