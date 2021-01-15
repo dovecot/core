@@ -1,5 +1,33 @@
 /* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
 
+/*
+   There are various different mailbox names here. Here's an example assuming
+    - imapc_list_prefix = "prefix"
+    - remote imapc server separator = '/'
+    - mailbox_list separator = '^' (actually this is currently always the same
+      as remote separator, but this clarifies the example)
+    - namespace separator = ':'
+    - fs_list separator = '.'
+    - mailbox_list storage_name_escape_char = '+'
+    - mailbox_list vname_escape_char = '~'
+    - fs_list storage_name_escape_char = '%'
+
+   remote_name = "prefix/~foo/bar^baz+_%_."
+   storage_name = "prefix^~foo^bar+5ebaz+2b_%_."
+    - separator is changed from / to ^
+    - conflicting ^ separator in remote_name is escaped as +5e
+    - storage_name_escape character + is escaped as +2b
+   vname = "~7efoo:bar.baz+_%_."
+    - imapc_list_prefix is dropped
+    - vname_escape_character ~ is escaped into ~7e
+    - separator is changed from ^ to :
+    - storage_name_escape_characters are unescaped
+   fs_name = "prefix.~foo.bar^baz+_%25_%2e"
+    - this is generated from remote_name
+    - separator is changed from / to .
+    - storage_name_escape_character=% and fs_list separator . are escaped
+*/
+
 #include "lib.h"
 #include "ioloop.h"
 #include "str.h"
