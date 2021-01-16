@@ -512,10 +512,12 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 const char *imapc_mailbox_get_remote_name(struct imapc_mailbox *mbox)
 {
+	struct imapc_mailbox_list *list =
+		container_of(mbox->box.list, struct imapc_mailbox_list, list);
+
 	if (strcmp(mbox->box.list->name, MAILBOX_LIST_NAME_IMAPC) != 0)
 		return mbox->box.name;
-	return imapc_list_to_remote((struct imapc_mailbox_list *)mbox->box.list,
-				    mbox->box.name);
+	return imapc_list_storage_to_remote_name(list, mbox->box.name);
 }
 
 static int

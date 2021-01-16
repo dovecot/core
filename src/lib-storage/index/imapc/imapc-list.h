@@ -35,6 +35,7 @@ struct imapc_mailbox_list {
 int imapc_list_get_mailbox_flags(struct mailbox_list *list, const char *name,
 				 enum mailbox_info_flags *flags_r);
 int imapc_list_try_get_root_sep(struct imapc_mailbox_list *list, char *sep_r);
-const char *imapc_list_to_remote(struct imapc_mailbox_list *list, const char *name);
+const char *imapc_list_storage_to_remote_name(struct imapc_mailbox_list *list,
+					      const char *storage_name);
 
 #endif

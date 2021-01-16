@@ -170,7 +170,9 @@ imapc_list_to_vname(struct imapc_mailbox_list *list, const char *imapc_name)
 	return mailbox_list_get_vname(&list->list, list_name);
 }
 
-const char *imapc_list_to_remote(struct imapc_mailbox_list *list, const char *name)
+const char *
+imapc_list_storage_to_remote_name(struct imapc_mailbox_list *list,
+				  const char *name)
 {
 	return mailbox_list_unescape_name_params(name, "", list->root_sep,
 				mailbox_list_get_hierarchy_sep(&list->list),
@@ -830,7 +832,7 @@ static int imapc_list_set_subscribed(struct mailbox_list *_list,
 	cmd = imapc_list_simple_context_init(&ctx, list);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_sendf(cmd, set ? "SUBSCRIBE %s" : "UNSUBSCRIBE %s",
-			    imapc_list_to_remote(list, name));
+			    imapc_list_storage_to_remote_name(list, name));
 	imapc_simple_run(&ctx, &cmd);
 	return ctx.ret;
 }
@@ -864,7 +866,7 @@ imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
-	imapc_command_sendf(cmd, "DELETE %s", imapc_list_to_remote(list, name));
+	imapc_command_sendf(cmd, "DELETE %s", imapc_list_storage_to_remote_name(list, name));
 	imapc_simple_run(&ctx, &cmd);
 
 	if (fs_list != NULL && ctx.ret == 0) {
@@ -912,8 +914,8 @@ imapc_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
 	imapc_command_sendf(cmd, "RENAME %s %s",
-			    imapc_list_to_remote(list, oldname),
-			    imapc_list_to_remote(list, newname));
+			    imapc_list_storage_to_remote_name(list, oldname),
+			    imapc_list_storage_to_remote_name(list, newname));
 	imapc_simple_run(&ctx, &cmd);
 	if (ctx.ret == 0 && fs_list != NULL && oldlist == newlist) {
 		oldname = imapc_list_get_fs_name(list, oldname);
