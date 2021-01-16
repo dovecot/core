@@ -156,20 +156,24 @@ imap_list_flag_parse(const char *str, enum mailbox_info_flags *flag_r)
 }
 
 static const char *
-imapc_list_remote_to_vname(struct imapc_mailbox_list *list,
-			   const char *remote_name)
+imapc_list_remote_to_storage_name(struct imapc_mailbox_list *list,
+				  const char *remote_name)
 {
-	const char *storage_name;
-
 	/* typically mailbox_list_escape_name() is used to escape vname into
 	   a list name. but we want to convert remote IMAP name to a list name,
 	   so we need to use the remote IMAP separator. */
-	storage_name = mailbox_list_escape_name_params(remote_name, "",
+	return mailbox_list_escape_name_params(remote_name, "",
 		list->root_sep,
 		mailbox_list_get_hierarchy_sep(&list->list),
 		list->list.set.storage_name_escape_char, "");
-	/* list_name is now valid, so we can convert it to vname */
-	return mailbox_list_get_vname(&list->list, remote_name);
+}
+
+static const char *
+imapc_list_remote_to_vname(struct imapc_mailbox_list *list,
+			   const char *remote_name)
+{
+	return mailbox_list_get_vname(&list->list,
+		imapc_list_remote_to_storage_name(list, remote_name));
 }
 
 const char *
