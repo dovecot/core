@@ -157,25 +157,26 @@ imap_list_flag_parse(const char *str, enum mailbox_info_flags *flag_r)
 
 static const char *
 imapc_list_remote_to_vname(struct imapc_mailbox_list *list,
-			   const char *imapc_name)
+			   const char *remote_name)
 {
-	const char *list_name;
+	const char *storage_name;
 
 	/* typically mailbox_list_escape_name() is used to escape vname into
 	   a list name. but we want to convert remote IMAP name to a list name,
 	   so we need to use the remote IMAP separator. */
-	list_name = mailbox_list_escape_name_params(imapc_name, "", list->root_sep,
+	storage_name = mailbox_list_escape_name_params(remote_name, "",
+		list->root_sep,
 		mailbox_list_get_hierarchy_sep(&list->list),
 		list->list.set.storage_name_escape_char, "");
 	/* list_name is now valid, so we can convert it to vname */
-	return mailbox_list_get_vname(&list->list, list_name);
+	return mailbox_list_get_vname(&list->list, remote_name);
 }
 
 const char *
 imapc_list_storage_to_remote_name(struct imapc_mailbox_list *list,
-				  const char *name)
+				  const char *storage_name)
 {
-	return mailbox_list_unescape_name_params(name, "", list->root_sep,
+	return mailbox_list_unescape_name_params(storage_name, "", list->root_sep,
 				mailbox_list_get_hierarchy_sep(&list->list),
 				list->list.set.storage_name_escape_char);
 }
@@ -187,13 +188,13 @@ imapc_list_update_tree(struct imapc_mailbox_list *list,
 {
 	struct mailbox_node *node;
 	const struct imap_arg *flags;
-	const char *name, *flag;
+	const char *remote_name, *flag;
 	enum mailbox_info_flags info_flag, info_flags = 0;
 	bool created;
 
 	if (!imap_arg_get_list(&args[0], &flags) ||
 	    args[1].type == IMAP_ARG_EOL ||
-	    !imap_arg_get_astring(&args[2], &name))
+	    !imap_arg_get_astring(&args[2], &remote_name))
 		return NULL;
 
 	while (imap_arg_get_atom(flags, &flag)) {
@@ -203,7 +204,8 @@ imapc_list_update_tree(struct imapc_mailbox_list *list,
 	}
 
 	T_BEGIN {
-		const char *vname = imapc_list_remote_to_vname(list, name);
+		const char *vname =
+			imapc_list_remote_to_vname(list, remote_name);
 
 		if ((info_flags & MAILBOX_NONEXISTENT) != 0)
 			node = mailbox_tree_lookup(tree, vname);
@@ -220,14 +222,14 @@ static void imapc_untagged_list(const struct imapc_untagged_reply *reply,
 {
 	struct imapc_mailbox_list *list = client->_list;
 	const struct imap_arg *args = reply->args;
-	const char *sep, *name;
+	const char *sep, *remote_name;
 
 	if (list->root_sep == '\0') {
 		/* we haven't asked for the separator yet.
 		   lets see if this is the reply for its request. */
 		if (args[0].type == IMAP_ARG_EOL ||
 		    !imap_arg_get_nstring(&args[1], &sep) ||
-		    !imap_arg_get_astring(&args[2], &name))
+		    !imap_arg_get_astring(&args[2], &remote_name))
 			return;
 
 		/* we can't handle NIL separator yet */
@@ -412,17 +414,18 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 }
 
 static const char *
-imapc_list_storage_to_fs_name(struct imapc_mailbox_list *list, const char *name)
+imapc_list_storage_to_fs_name(struct imapc_mailbox_list *list,
+			      const char *storage_name)
 {
 	struct mailbox_list *fs_list = imapc_list_get_fs(list);
 	struct mail_namespace *ns = list->list.ns;
 	const char *vname;
 	char ns_sep = mail_namespace_get_sep(ns);
 
-	if (name == NULL)
+	if (storage_name == NULL)
 		return NULL;
 
-	vname = mailbox_list_get_vname(&list->list, name);
+	vname = mailbox_list_get_vname(&list->list, storage_name);
 	if (list->set->imapc_list_prefix[0] != '\0') {
 		/* put back the prefix, so it gets included in the filesystem. */
 		size_t vname_len = strlen(vname);
@@ -607,7 +610,7 @@ imapc_list_build_match_tree(struct imapc_mailbox_list_iterate_context *ctx)
 	struct mailbox_list_iter_update_context update_ctx;
 	struct mailbox_tree_iterate_context *iter;
 	struct mailbox_node *node;
-	const char *name;
+	const char *vname;
 
 	i_zero(&update_ctx);
 	update_ctx.iter_ctx = &ctx->ctx;
@@ -616,9 +619,9 @@ imapc_list_build_match_tree(struct imapc_mailbox_list_iterate_context *ctx)
 	update_ctx.match_parents = TRUE;
 
 	iter = mailbox_tree_iterate_init(list->mailboxes, NULL, 0);
-	while ((node = mailbox_tree_iterate_next(iter, &name)) != NULL) {
+	while ((node = mailbox_tree_iterate_next(iter, &vname)) != NULL) {
 		update_ctx.leaf_flags = node->flags;
-		mailbox_list_iter_update(&update_ctx, name);
+		mailbox_list_iter_update(&update_ctx, vname);
 	}
 	mailbox_tree_iterate_deinit(&iter);
 }
@@ -871,8 +874,8 @@ imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 	imapc_simple_run(&ctx, &cmd);
 
 	if (fs_list != NULL && ctx.ret == 0) {
-		name = imapc_list_storage_to_fs_name(list, name);
-		(void)fs_list->v.delete_mailbox(fs_list, name);
+		const char *fs_name = imapc_list_storage_to_fs_name(list, name);
+		(void)fs_list->v.delete_mailbox(fs_list, fs_name);
 	}
 	return ctx.ret;
 }
@@ -884,8 +887,8 @@ imapc_list_delete_dir(struct mailbox_list *_list, const char *name)
 	struct mailbox_list *fs_list = imapc_list_get_fs(list);
 
 	if (fs_list != NULL) {
-		name = imapc_list_storage_to_fs_name(list, name);
-		(void)mailbox_list_delete_dir(fs_list, name);
+		const char *fs_name = imapc_list_storage_to_fs_name(list, name);
+		(void)mailbox_list_delete_dir(fs_list, fs_name);
 	}
 	return 0;
 }
@@ -919,10 +922,12 @@ imapc_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 			    imapc_list_storage_to_remote_name(list, newname));
 	imapc_simple_run(&ctx, &cmd);
 	if (ctx.ret == 0 && fs_list != NULL && oldlist == newlist) {
-		oldname = imapc_list_storage_to_fs_name(list, oldname);
-		newname = imapc_list_storage_to_fs_name(list, newname);
-		(void)fs_list->v.rename_mailbox(fs_list, oldname,
-						fs_list, newname);
+		const char *old_fs_name =
+			imapc_list_storage_to_fs_name(list, oldname);
+		const char *new_fs_name =
+			imapc_list_storage_to_fs_name(list, newname);
+		(void)fs_list->v.rename_mailbox(fs_list, old_fs_name,
+						fs_list, new_fs_name);
 	}
 	return ctx.ret;
 }

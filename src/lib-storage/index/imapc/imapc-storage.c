@@ -834,22 +834,23 @@ imapc_mailbox_create(struct mailbox *box,
 	struct imapc_mailbox *mbox = IMAPC_MAILBOX(box);
 	struct imapc_command *cmd;
 	struct imapc_simple_context sctx;
-	const char *name = imapc_mailbox_get_remote_name(mbox);
+	const char *remote_name = imapc_mailbox_get_remote_name(mbox);
 
 	if (!directory)
 		;
 	else if (strcmp(box->list->name, MAILBOX_LIST_NAME_IMAPC) == 0) {
 		struct imapc_mailbox_list *imapc_list =
 			(struct imapc_mailbox_list *)box->list;
-		name = t_strdup_printf("%s%c", name, imapc_list->root_sep);
+		remote_name = t_strdup_printf("%s%c", remote_name,
+					      imapc_list->root_sep);
 	} else {
-		name = t_strdup_printf("%s%c", name,
+		remote_name = t_strdup_printf("%s%c", remote_name,
 			mailbox_list_get_hierarchy_sep(box->list));
 	}
 	imapc_simple_context_init(&sctx, mbox->storage->client);
 	cmd = imapc_client_cmd(mbox->storage->client->client,
 			       imapc_simple_callback, &sctx);
-	imapc_command_sendf(cmd, "CREATE %s", name);
+	imapc_command_sendf(cmd, "CREATE %s", remote_name);
 	imapc_simple_run(&sctx, &cmd);
 	return sctx.ret;
 }
@@ -872,20 +873,20 @@ static void imapc_untagged_status(const struct imapc_untagged_reply *reply,
 	struct imapc_storage *storage = client->_storage;
 	struct mailbox_status *status;
 	const struct imap_arg *list;
-	const char *name, *key, *value;
+	const char *remote_name, *key, *value;
 	uint32_t num;
 	unsigned int i;
 
-	if (!imap_arg_get_astring(&reply->args[0], &name) ||
+	if (!imap_arg_get_astring(&reply->args[0], &remote_name) ||
 	    !imap_arg_get_list(&reply->args[1], &list))
 		return;
 
 	if (storage->cur_status_box == NULL)
 		return;
-	if (strcmp(storage->cur_status_box->box.name, name) == 0) {
+	if (strcmp(storage->cur_status_box->box.name, remote_name) == 0) {
 		/* match */
 	} else if (strcasecmp(storage->cur_status_box->box.name, "INBOX") == 0 &&
-		   strcasecmp(name, "INBOX") == 0) {
+		   strcasecmp(remote_name, "INBOX") == 0) {
 		/* case-insensitive INBOX */
 	} else {
 		return;
@@ -1089,14 +1090,15 @@ static int imapc_mailbox_get_namespaces(struct imapc_mailbox *mbox)
 }
 
 static const struct imapc_namespace *
-imapc_namespace_find_mailbox(struct imapc_storage *storage, const char *name)
+imapc_namespace_find_mailbox(struct imapc_storage *storage,
+			     const char *remote_name)
 {
 	const struct imapc_namespace *ns, *best_ns = NULL;
 	size_t best_len = UINT_MAX, len;
 
 	array_foreach(&storage->remote_namespaces, ns) {
 		len = strlen(ns->prefix);
-		if (str_begins(name, ns->prefix)) {
+		if (str_begins(remote_name, ns->prefix)) {
 			if (best_len > len) {
 				best_ns = ns;
 				best_len = len;
