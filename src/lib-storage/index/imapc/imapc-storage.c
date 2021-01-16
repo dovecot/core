@@ -883,7 +883,10 @@ static void imapc_untagged_status(const struct imapc_untagged_reply *reply,
 
 	if (storage->cur_status_box == NULL)
 		return;
-	if (strcmp(storage->cur_status_box->box.name, remote_name) == 0) {
+
+	const char *cur_status_remote_name =
+		imapc_mailbox_get_remote_name(storage->cur_status_box);
+	if (strcmp(cur_status_remote_name, remote_name) == 0) {
 		/* match */
 	} else if (strcasecmp(storage->cur_status_box->box.name, "INBOX") == 0 &&
 		   strcasecmp(remote_name, "INBOX") == 0) {
@@ -1125,7 +1128,8 @@ static int imapc_mailbox_get_metadata(struct mailbox *box,
 		if (imapc_mailbox_get_namespaces(mbox) < 0)
 			return -1;
 
-		ns = imapc_namespace_find_mailbox(mbox->storage, box->name);
+		const char *remote_name = imapc_mailbox_get_remote_name(mbox);
+		ns = imapc_namespace_find_mailbox(mbox->storage, remote_name);
 		if (ns != NULL) {
 			metadata_r->backend_ns_prefix = ns->prefix;
 			metadata_r->backend_ns_type = ns->type;
