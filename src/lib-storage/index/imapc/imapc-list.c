@@ -412,7 +412,7 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 }
 
 static const char *
-imapc_list_get_fs_name(struct imapc_mailbox_list *list, const char *name)
+imapc_list_storage_to_fs_name(struct imapc_mailbox_list *list, const char *name)
 {
 	struct mailbox_list *fs_list = imapc_list_get_fs(list);
 	struct mail_namespace *ns = list->list.ns;
@@ -458,7 +458,7 @@ imapc_list_get_path(struct mailbox_list *_list, const char *name,
 	const char *fs_name;
 
 	if (fs_list != NULL) {
-		fs_name = imapc_list_get_fs_name(list, name);
+		fs_name = imapc_list_storage_to_fs_name(list, name);
 		return mailbox_list_get_path(fs_list, fs_name, type, path_r);
 	} else {
 		*path_r = NULL;
@@ -871,7 +871,7 @@ imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 	imapc_simple_run(&ctx, &cmd);
 
 	if (fs_list != NULL && ctx.ret == 0) {
-		name = imapc_list_get_fs_name(list, name);
+		name = imapc_list_storage_to_fs_name(list, name);
 		(void)fs_list->v.delete_mailbox(fs_list, name);
 	}
 	return ctx.ret;
@@ -884,7 +884,7 @@ imapc_list_delete_dir(struct mailbox_list *_list, const char *name)
 	struct mailbox_list *fs_list = imapc_list_get_fs(list);
 
 	if (fs_list != NULL) {
-		name = imapc_list_get_fs_name(list, name);
+		name = imapc_list_storage_to_fs_name(list, name);
 		(void)mailbox_list_delete_dir(fs_list, name);
 	}
 	return 0;
@@ -919,8 +919,8 @@ imapc_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 			    imapc_list_storage_to_remote_name(list, newname));
 	imapc_simple_run(&ctx, &cmd);
 	if (ctx.ret == 0 && fs_list != NULL && oldlist == newlist) {
-		oldname = imapc_list_get_fs_name(list, oldname);
-		newname = imapc_list_get_fs_name(list, newname);
+		oldname = imapc_list_storage_to_fs_name(list, oldname);
+		newname = imapc_list_storage_to_fs_name(list, newname);
 		(void)fs_list->v.rename_mailbox(fs_list, oldname,
 						fs_list, newname);
 	}
