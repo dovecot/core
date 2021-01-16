@@ -156,7 +156,8 @@ imap_list_flag_parse(const char *str, enum mailbox_info_flags *flag_r)
 }
 
 static const char *
-imapc_list_to_vname(struct imapc_mailbox_list *list, const char *imapc_name)
+imapc_list_remote_to_vname(struct imapc_mailbox_list *list,
+			   const char *imapc_name)
 {
 	const char *list_name;
 
@@ -202,7 +203,7 @@ imapc_list_update_tree(struct imapc_mailbox_list *list,
 	}
 
 	T_BEGIN {
-		const char *vname = imapc_list_to_vname(list, name);
+		const char *vname = imapc_list_remote_to_vname(list, name);
 
 		if ((info_flags & MAILBOX_NONEXISTENT) != 0)
 			node = mailbox_tree_lookup(tree, vname);
