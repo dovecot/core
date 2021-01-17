@@ -42,6 +42,8 @@ int imap_status_parse_items(struct client_command_context *cmd,
 			flags |= IMAP_STATUS_ITEM_HIGHESTMODSEQ;
 		else if (strcmp(item, "SIZE") == 0)
 			flags |= IMAP_STATUS_ITEM_SIZE;
+		else if (strcmp(item, "MAILBOXID") == 0)
+			flags |= IMAP_STATUS_ITEM_MAILBOXID;
 		else if (strcmp(item, "X-SIZE") == 0)
 			flags |= IMAP_STATUS_ITEM_X_SIZE;
 		else if (strcmp(item, "X-GUID") == 0)
@@ -82,7 +84,8 @@ int imap_status_get_result(struct client *client, struct mailbox *box,
 	if (HAS_ANY_BITS(items->flags, IMAP_STATUS_ITEM_SIZE |
 				       IMAP_STATUS_ITEM_X_SIZE))
 		metadata |= MAILBOX_METADATA_VIRTUAL_SIZE;
-	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_X_GUID))
+	if (HAS_ANY_BITS(items->flags, IMAP_STATUS_ITEM_X_GUID |
+				       IMAP_STATUS_ITEM_MAILBOXID))
 		metadata |= MAILBOX_METADATA_GUID;
 
 	ret = mailbox_get_status(box, status, &result_r->status);
@@ -155,6 +158,10 @@ int imap_status_send(struct client *client, const char *mailbox_mutf7,
 	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_SIZE)) {
 		str_printfa(str, "SIZE %"PRIu64" ",
 			    result->metadata.virtual_size);
+	}
+	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_MAILBOXID)) {
+		str_printfa(str, "MAILBOXID (%s) ",
+			    guid_128_to_string(result->metadata.guid));
 	}
 	if (HAS_ALL_BITS(items->flags, IMAP_STATUS_ITEM_X_SIZE)) {
 		str_printfa(str, "X-SIZE %"PRIu64" ",

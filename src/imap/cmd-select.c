@@ -276,6 +276,7 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 	struct client *client = ctx->cmd->client;
 	struct mailbox_status status;
 	enum mailbox_flags flags = 0;
+	struct mailbox_metadata metadata;
 	int ret = 0;
 
 	if (readonly)
@@ -330,6 +331,11 @@ select_open(struct imap_select_context *ctx, const char *mailbox, bool readonly)
 	client_send_line(client,
 			 t_strdup_printf("* OK [UIDNEXT %u] Predicted next UID",
 					 status.uidnext));
+
+	if (mailbox_get_metadata(ctx->box, MAILBOX_METADATA_GUID, &metadata) == 0)
+		client_send_line(client,
+				t_strdup_printf("* OK [MAILBOXID (%s)]",
+						guid_128_to_string(metadata.guid)));
 
 	client->nonpermanent_modseqs = status.nonpermanent_modseqs;
 	if (status.nonpermanent_modseqs) {

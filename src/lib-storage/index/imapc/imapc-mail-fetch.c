@@ -881,6 +881,7 @@ void imapc_mail_fetch_update(struct imapc_mail *mail,
 			}
 			match = TRUE;
 		} else if (strcasecmp(key, "X-GM-MSGID") == 0 ||
+			   strcasecmp(key, "EMAILID") == 0 ||
 			   strcasecmp(key, "X-GUID") == 0) {
 			if (imap_arg_get_astring(&args[i+1], &value)) {
 				mail->imail.data.guid =
