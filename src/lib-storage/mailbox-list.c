@@ -485,6 +485,8 @@ mailbox_list_escape_name_params(const char *vname, const char *ns_prefix,
 	string_t *escaped_name = t_str_new(64);
 	bool dirstart = TRUE;
 
+	i_assert(escape_char != '\0');
+
 	/* no escaping of namespace prefix */
 	if (str_begins(vname, ns_prefix)) {
 		str_append_data(escaped_name, vname, ns_prefix_len);
