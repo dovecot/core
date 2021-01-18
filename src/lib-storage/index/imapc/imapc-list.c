@@ -422,38 +422,33 @@ imapc_list_storage_to_fs_name(struct imapc_mailbox_list *list,
 			      const char *storage_name)
 {
 	struct mailbox_list *fs_list = imapc_list_get_fs(list);
-	struct mail_namespace *ns = list->list.ns;
-	const char *vname;
-	char ns_sep = mail_namespace_get_sep(ns);
+	const char *remote_name;
 
 	if (storage_name == NULL)
 		return NULL;
 
-	vname = mailbox_list_get_vname(&list->list, storage_name);
-	if (list->set->imapc_list_prefix[0] != '\0') {
-		/* put back the prefix, so it gets included in the filesystem. */
-		size_t vname_len = strlen(vname);
+	remote_name = imapc_list_storage_to_remote_name(list, storage_name);
+	return mailbox_list_escape_name_params(remote_name, "",
+			list->root_sep,
+			mailbox_list_get_hierarchy_sep(fs_list),
+			fs_list->set.storage_name_escape_char, "");
+}
 
-		if (ns->prefix_len > 0) {
-			/* skip over the namespace prefix */
-			i_assert(strncmp(vname, ns->prefix, ns->prefix_len-1) == 0);
-			if (vname_len == ns->prefix_len-1)
-				vname = "";
-			else {
-				i_assert(vname[ns->prefix_len-1] == ns_sep);
-				vname += ns->prefix_len;
-			}
-		}
-		if (vname[0] == '\0') {
-			vname = t_strconcat(ns->prefix,
-				list->set->imapc_list_prefix, NULL);
-		} else {
-			vname = t_strdup_printf("%s%s%c%s", ns->prefix,
-						list->set->imapc_list_prefix,
-						ns_sep, vname);
-		}
-	}
-	return mailbox_list_get_storage_name(fs_list, vname);
+static const char *
+imapc_list_fs_to_storage_name(struct imapc_mailbox_list *list,
+			      const char *fs_name)
+{
+	struct mailbox_list *fs_list = imapc_list_get_fs(list);
+	const char *remote_name;
+
+	if (fs_name == NULL)
+		return NULL;
+
+	remote_name = mailbox_list_unescape_name_params(fs_name, "",
+			list->root_sep,
+			mailbox_list_get_hierarchy_sep(fs_list),
+			fs_list->set.storage_name_escape_char);
+	return imapc_list_remote_to_storage_name(list, remote_name);
 }
 
 static int
@@ -510,9 +505,7 @@ static void imapc_list_delete_unused_indexes(struct imapc_mailbox_list *list)
 	struct mailbox_list *fs_list = imapc_list_get_fs(list);
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
-	const char *imapc_list_prefix = list->set->imapc_list_prefix;
-	size_t imapc_list_prefix_len = strlen(imapc_list_prefix);
-	const char *fs_name, *vname;
+	const char *fs_name, *storage_name, *vname;
 
 	if (fs_list == NULL)
 		return;
@@ -522,32 +515,13 @@ static void imapc_list_delete_unused_indexes(struct imapc_mailbox_list *list)
 				      MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) T_BEGIN {
-		vname = info->vname;
-		if (imapc_list_prefix_len > 0 &&
-		    strcasecmp(vname, "INBOX") != 0) {
-			/* skip over the namespace prefix */
-			i_assert(strncmp(vname, fs_list->ns->prefix,
-					 fs_list->ns->prefix_len) == 0);
-			vname += fs_list->ns->prefix_len;
-			/* skip over the imapc list prefix */
-			i_assert(strncmp(vname, imapc_list_prefix,
-					 imapc_list_prefix_len) == 0);
-			vname += imapc_list_prefix_len;
-			if (vname[0] != '\0') {
-				i_assert(vname[0] == mail_namespace_get_sep(fs_list->ns));
-				vname++;
-			}
-			/* put back the namespace prefix */
-			if (fs_list->ns->prefix_len > 0) {
-				vname = t_strconcat(fs_list->ns->prefix,
-						    vname, NULL);
-			}
-		}
-		if (mailbox_tree_lookup(list->mailboxes, vname) == NULL) {
-			fs_name = mailbox_list_get_storage_name(fs_list,
-								info->vname);
+		fs_name = mailbox_list_get_storage_name(fs_list, info->vname);
+		storage_name = imapc_list_fs_to_storage_name(list, fs_name);
+		vname = mailbox_list_get_vname(&list->list, storage_name);
+
+		/* list->mailboxes contains proper vnames. fs_vname  */
+		if (mailbox_tree_lookup(list->mailboxes, vname) == NULL)
 			(void)fs_list->v.delete_mailbox(fs_list, fs_name);
-		}
 	} T_END;
 	(void)mailbox_list_iter_deinit(&iter);
 }
