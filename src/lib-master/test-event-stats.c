@@ -612,6 +612,60 @@ static void test_parent_update_post_send(void)
 	test_end();
 }
 
+static void test_large_event_id(void)
+{
+	TST_BEGIN("large event id");
+	int line, line_log1, line_log2, line_log3;
+	struct event *a, *b;
+	uint64_t id;
+
+	a = make_event(NULL, &test_cats[0], &line, &id);
+	a->id += 1000000;
+	a->change_id++;
+	b = make_event(a, &test_cats[1], NULL, NULL);
+
+	ioloop_timeval.tv_sec++;
+	e_info(a, "emit");
+	line_log1 = __LINE__-1;
+	ioloop_timeval.tv_sec++;
+	e_info(b, "emit");
+	line_log2 = __LINE__-1;
+	event_add_int(a, "test1", 1);
+	e_info(b, "emit");
+	line_log3 = __LINE__-1;
+
+	test_assert(
+		compare_test_stats_to(
+			/* first e_info() */
+			"EVENT	%"PRIu64"	1	1	0"
+			"	stest-event-stats.c	%d"
+			"	l1	0	ctest1\n"
+			"BEGIN	%"PRIu64"	0	1	0	0"
+			"	stest-event-stats.c	%d"
+			"	l0	0	ctest1\n"
+			"EVENT	%"PRIu64"	1	1	0"
+			"	stest-event-stats.c	%d"
+			"	l1	0	ctest2\n"
+			"UPDATE	%"PRIu64"	0	1	0"
+			"	stest-event-stats.c	%d"
+			"	l1	0	ctest1	Itest1	1\n"
+			"EVENT	%"PRIu64"	1	1	0"
+			"	stest-event-stats.c	%d"
+			"	l1	0	ctest2\n",
+			0UL, line_log1,
+			a->id, line,
+			a->id, line_log2,
+			a->id, line,
+			a->id, line_log3
+		)
+	);
+
+	event_unref(&b);
+	event_unref(&a);
+
+	test_end();
+}
+
 static int run_tests(void)
 {
 	int ret;
@@ -624,6 +678,7 @@ static int run_tests(void)
 		test_skip_parents,
 		test_merge_events_skip_parents,
 		test_parent_update_post_send,
+		test_large_event_id,
 		NULL
 	};
 	struct ioloop *ioloop = io_loop_create();
