@@ -210,7 +210,7 @@ endif
 
 if AUTH_LUA_PLUGIN
 libauthdb_lua_la_LDFLAGS = -module -avoid-version
-libauthdb_lua_la_LIBADD = ../lib-lua/libdovecot-lua.la
+libauthdb_lua_la_LIBADD = $(LIBDOVECOT_LUA)
 libauthdb_lua_la_CPPFLAGS = $(AM_CPPFLAGS) -DPLUGIN_BUILD
 libauthdb_lua_la_SOURCES = $(lua_sources)
 endif
