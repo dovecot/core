@@ -20,6 +20,8 @@ static unsigned int failure_count;
 static unsigned int total_count;
 static unsigned int expected_errors;
 static char *expected_error_str, *expected_fatal_str;
+static test_fatal_callback_t *test_fatal_callback;
+static void *test_fatal_context;
 
 void test_begin(const char *name)
 {
@@ -229,6 +231,14 @@ void test_expect_fatal_string(const char *substr)
 	expected_fatal_str = i_strdup(substr);
 }
 
+#undef test_fatal_set_callback
+void test_fatal_set_callback(test_fatal_callback_t *callback, void *context)
+{
+	i_assert(test_fatal_callback == NULL);
+	test_fatal_callback = callback;
+	test_fatal_context = context;
+}
+
 static void ATTR_FORMAT(2, 0) ATTR_NORETURN
 test_fatal_handler(const struct failure_context *ctx,
 		   const char *format, va_list args)
@@ -243,6 +253,12 @@ test_fatal_handler(const struct failure_context *ctx,
 	va_end(args);
 
 	if (suppress) {
+		if (test_fatal_callback != NULL) {
+			test_fatal_callback(test_fatal_context);
+			test_fatal_callback = NULL;
+			test_fatal_context = NULL;
+		}
+
 		i_set_fatal_handler(test_fatal_handler);
 		longjmp(fatal_jmpbuf, 1);
 	} else {

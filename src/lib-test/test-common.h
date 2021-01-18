@@ -87,6 +87,8 @@ enum fatal_test_state {
    FATAL_TEST_FINISHED or FATAL_TEST_ABORT is returned. */
 typedef enum fatal_test_state test_fatal_func_t(unsigned int stage);
 
+typedef void test_fatal_callback_t(void *context);
+
 struct named_fatal {
 	const char *name;
 	test_fatal_func_t *func;
@@ -98,6 +100,14 @@ int test_run_named_with_fatals(const char *match, const struct named_test tests[
 
 /* Require the Fatal/Panic string to match this or the fatal test fails. */
 void test_expect_fatal_string(const char *substr);
+/* Call the specified callback when a fatal is being triggered. This is mainly
+   intended to allow freeing memory so valgrind won't complain about memory
+   leaks. */
+void test_fatal_set_callback(test_fatal_callback_t *callback, void *context);
+#define test_fatal_set_callback(callback, context) \
+	test_fatal_set_callback(1 ? (test_fatal_callback_t *)callback : \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
+		context)
 
 #define FATAL_DECL(x) enum fatal_test_state x(unsigned int);
 #define FATAL_NAMELESS(x) x, /* Were you to want to use the X trick but not name the tests */
