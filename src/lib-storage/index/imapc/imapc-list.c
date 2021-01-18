@@ -406,7 +406,6 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 		   name. */
 		list_set.storage_name_escape_char =
 			IMAPC_LIST_FS_NAME_ESCAPE_CHAR;
-		list_set.vname_escape_char = IMAPC_LIST_VNAME_ESCAPE_CHAR;
 
 		if (mailbox_list_create(list_set.layout, list->list.ns,
 					&list_set, MAILBOX_LIST_FLAG_SECONDARY,
