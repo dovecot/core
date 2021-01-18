@@ -6,7 +6,11 @@
 #include "imapc-client.h"
 
 #define IMAPC_STORAGE_NAME "imapc"
+/* storage_name separator */
 #define IMAPC_LIST_STORAGE_NAME_ESCAPE_CHAR '%'
+/* fs_name separator */
+#define IMAPC_LIST_FS_NAME_ESCAPE_CHAR '%'
+/* vname separator */
 #define IMAPC_LIST_VNAME_ESCAPE_CHAR '~'
 
 struct imap_arg;
