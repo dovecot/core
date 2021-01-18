@@ -336,6 +336,11 @@ void test_buffer(void)
 	test_buffer_replace();
 }
 
+static void fatal_buffer_free(buffer_t *buf)
+{
+	buffer_free(&buf);
+}
+
 enum fatal_test_state fatal_buffer(unsigned int stage)
 {
 	buffer_t *buf;
@@ -346,11 +351,13 @@ enum fatal_test_state fatal_buffer(unsigned int stage)
 		buf = buffer_create_dynamic_max(default_pool, 1, 5);
 		buffer_append(buf, "12345", 5);
 		test_expect_fatal_string("Buffer write out of range");
+		test_fatal_set_callback(fatal_buffer_free, buf);
 		buffer_append_c(buf, 'x');
 		return FATAL_TEST_FAILURE;
 	case 1:
 		buf = buffer_create_dynamic_max(default_pool, 1, 5);
 		test_expect_fatal_string("Buffer write out of range");
+		test_fatal_set_callback(fatal_buffer_free, buf);
 		buffer_append(buf, "123456", 6);
 		return FATAL_TEST_FAILURE;
 	default:
