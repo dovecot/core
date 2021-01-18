@@ -652,7 +652,7 @@ static void test_large_event_id(void)
 			"EVENT	%"PRIu64"	1	1	0"
 			"	stest-event-stats.c	%d"
 			"	l1	0	ctest2\n",
-			0UL, line_log1,
+			(uint64_t)0, line_log1,
 			a->id, line,
 			a->id, line_log2,
 			a->id, line,
