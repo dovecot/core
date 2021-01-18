@@ -164,6 +164,63 @@ static void test_settings_get_time(void)
 	test_end();
 }
 
+static void test_settings_get_size(void)
+{
+	test_begin("settings_get_size()");
+
+	static const struct {
+		const char *input;
+		uoff_t output;
+	} tests[] = {
+		{ "0", 0 },
+		{ "0000", 0 },
+		{ "1b", 1 },
+		{ "1B", 1 },
+		{ "1 b", 1 },
+		{ "1k", 1024 },
+		{ "1K", 1024 },
+		{ "1 k", 1024 },
+		{ "1m", 1024*1024 },
+		{ "1M", 1024*1024 },
+		{ "1 m", 1024*1024 },
+		{ "1g", 1024*1024*1024UL },
+		{ "1G", 1024*1024*1024UL },
+		{ "1 g", 1024*1024*1024UL },
+		{ "1t", 1024*1024*1024*1024UL },
+		{ "1T", 1024*1024*1024*1024UL },
+		{ "1 t", 1024*1024*1024*1024UL },
+	};
+
+	const char *size_errors[] = {
+		"-1",
+		"one",
+		"",
+		"340282366920938463463374607431768211456",
+		"2^32",
+		"2**32",
+		"1e10",
+		"1 byte",
+	};
+
+	size_t i;
+	uoff_t size;
+	const char *error;
+
+	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		error = NULL;
+		test_assert_idx(settings_get_size(tests[i].input, &size, &error) == 0, i);
+		test_assert_idx(size == tests[i].output, i);
+		test_assert(error == NULL);
+	}
+	for (i = 0; i < N_ELEMENTS(size_errors); i++) {
+		error = NULL;
+		test_assert_idx(settings_get_size(size_errors[i], &size, &error) < 0, i);
+		test_assert(error != NULL);
+	};
+
+	test_end();
+}
+
 static void test_settings_parser_get(void)
 {
 	struct test_settings {
@@ -275,6 +332,7 @@ int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_settings_get_time,
+		test_settings_get_size,
 		test_settings_parser_get,
 		NULL
 	};
