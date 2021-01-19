@@ -14,7 +14,7 @@
 #include "execv-const.h"
 #include "restrict-process-size.h"
 #include "master-instance.h"
-#include "master-service.h"
+#include "master-service-private.h"
 #include "master-service-settings.h"
 #include "askpass.h"
 #include "capabilities.h"
@@ -430,6 +430,7 @@ sig_log_reopen(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 	unsigned int uninitialized_count;
 	service_signal(services->log, SIGUSR1, &uninitialized_count);
 
+	master_service->log_initialized = FALSE;
 	master_service_init_log(master_service);
 	i_set_fatal_handler(master_fatal_callback);
 }
