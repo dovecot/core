@@ -119,13 +119,16 @@ struct mail_index_record_map {
 };
 
 #define MAIL_INDEX_MAP_HDR_OFFSET(map, hdr_offset) \
-	CONST_PTR_OFFSET((map)->hdr_base, hdr_offset)
+	CONST_PTR_OFFSET((map)->hdr_copy_buf->data, hdr_offset)
 struct mail_index_map {
 	struct mail_index *index;
 	int refcount;
 
+	/* Copy of the base header for convenience. Note that base_header_size
+	   may be smaller or larger than this struct. If it's smaller, the last
+	   fields in the struct are filled with zeroes. */
 	struct mail_index_header hdr;
-	const void *hdr_base;
+	/* Copy of the full header. */
 	buffer_t *hdr_copy_buf;
 
 	pool_t extension_pool;

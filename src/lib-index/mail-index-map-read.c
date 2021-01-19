@@ -100,7 +100,6 @@ static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
 	buffer_set_used_size(map->hdr_copy_buf, 0);
 	buffer_append(map->hdr_copy_buf, rec_map->mmap_base, hdr->header_size);
 
-	map->hdr_base = rec_map->mmap_base;
 	rec_map->records = PTR_OFFSET(rec_map->mmap_base, map->hdr.header_size);
 	return 1;
 }
@@ -244,7 +243,6 @@ mail_index_try_read_map(struct mail_index_map *map,
 	map->rec_map->records_count = records_count;
 
 	mail_index_map_copy_hdr(map, hdr);
-	map->hdr_base = map->hdr_copy_buf->data;
 	i_assert(map->hdr_copy_buf->used == map->hdr.header_size);
 	return 1;
 }

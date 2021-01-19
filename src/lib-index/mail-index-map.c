@@ -255,8 +255,9 @@ struct mail_index_map *mail_index_map_alloc(struct mail_index *index)
 
 	i_zero(&tmp_map);
 	mail_index_header_init(index, &tmp_map.hdr);
+	tmp_map.hdr_copy_buf = t_buffer_create(sizeof(tmp_map.hdr));
+	buffer_append(tmp_map.hdr_copy_buf, &tmp_map.hdr, sizeof(tmp_map.hdr));
 	tmp_map.index = index;
-	tmp_map.hdr_base = &tmp_map.hdr;
 
 	/* a bit kludgy way to do this, but it initializes everything
 	   nicely and correctly */
@@ -359,7 +360,6 @@ static void mail_index_map_copy_header(struct mail_index_map *dest,
 			     MAIL_INDEX_MAP_HDR_OFFSET(src, src->hdr.base_header_size),
 			     src->hdr.header_size - src->hdr.base_header_size);
 	}
-	dest->hdr_base = buffer_get_modifiable_data(dest->hdr_copy_buf, NULL);
 	i_assert(dest->hdr_copy_buf->used == dest->hdr.header_size);
 }
 

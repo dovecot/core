@@ -88,6 +88,7 @@ static void test_mail_index_write(void)
 	struct mail_index_record_map rec_map = {
 		.records_count = 0,
 	};
+	buffer_t hdr_copy;
 	struct mail_index_map map = {
 		.hdr = {
 			.indexid = TEST_INDEXID,
@@ -95,8 +96,10 @@ static void test_mail_index_write(void)
 			.log_file_tail_offset = 100,
 			.log_file_head_offset = LOG_FILE1_HEAD_OFFSET,
 		},
+		.hdr_copy_buf = &hdr_copy,
 		.rec_map = &rec_map,
 	};
+	buffer_create_from_data(&hdr_copy, &map.hdr, sizeof(&map.hdr));
 	struct mail_index index = {
 		.event = event_create(NULL),
 		.log = &log,

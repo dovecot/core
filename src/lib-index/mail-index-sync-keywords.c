@@ -189,7 +189,6 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 	}
 
 	buffer_copy(map->hdr_copy_buf, ext->hdr_offset, buf, 0, buf->used);
-	map->hdr_base = map->hdr_copy_buf->data;
 	i_assert(map->hdr_copy_buf->used == map->hdr.header_size);
 
 	if (mail_index_map_parse_keywords(map) < 0)

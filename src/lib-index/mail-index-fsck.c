@@ -248,7 +248,6 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 		diff = dest->used - ext_hdr->hdr_size;
 		buffer_copy(map->hdr_copy_buf, hdr_offset + diff,
 			    map->hdr_copy_buf, hdr_offset, SIZE_MAX);
-		map->hdr_base = map->hdr_copy_buf->data;
 		hdr->header_size += diff;
 		*offset_p += diff;
 
@@ -321,7 +320,6 @@ mail_index_fsck_extensions(struct mail_index *index, struct mail_index_map *map,
 		buffer_copy(map->hdr_copy_buf, offset,
 			    map->hdr_copy_buf, next_offset, SIZE_MAX);
 		buffer_set_used_size(map->hdr_copy_buf, hdr->header_size);
-		map->hdr_base = map->hdr_copy_buf->data;
 	}
 }
 

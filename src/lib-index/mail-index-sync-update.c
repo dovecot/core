@@ -493,7 +493,6 @@ static int sync_header_update(const struct mail_transaction_header_update *u,
 	}
 
 	buffer_write(map->hdr_copy_buf, u->offset, u + 1, u->size);
-	map->hdr_base = map->hdr_copy_buf->data;
 	i_assert(map->hdr_copy_buf->used == map->hdr.header_size);
 
 	/* @UNSAFE */
@@ -987,17 +986,6 @@ int mail_index_sync_map(struct mail_index_map **_map,
 	had_dirty = (map->hdr.flags & MAIL_INDEX_HDR_FLAG_HAVE_DIRTY) != 0;
 	if (had_dirty)
 		map->hdr.flags &= ENUM_NEGATE(MAIL_INDEX_HDR_FLAG_HAVE_DIRTY);
-
-	if (map->hdr_base != map->hdr_copy_buf->data) {
-		/* if syncing updates the header, it updates hdr_copy_buf
-		   and updates hdr_base to hdr_copy_buf. so the buffer must
-		   initially contain a valid header or we'll break it when
-		   writing it. */
-		buffer_set_used_size(map->hdr_copy_buf, 0);
-		buffer_append(map->hdr_copy_buf, map->hdr_base,
-			      map->hdr.header_size);
-		map->hdr_base = map->hdr_copy_buf->data;
-	}
 
 	mail_transaction_log_view_get_prev_pos(view->log_view,
 					       &prev_seq, &prev_offset);
