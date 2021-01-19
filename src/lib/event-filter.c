@@ -458,6 +458,17 @@ void event_filter_export(struct event_filter *filter, string_t *dest)
 	}
 }
 
+struct event_filter_node *
+event_filter_get_expr_for_testing(struct event_filter *filter,
+				  unsigned int *count_r)
+{
+	const struct event_filter_query_internal *queries;
+
+	queries = array_get(&filter->queries, count_r);
+
+	return (*count_r == 0) ? NULL : queries[0].expr;
+}
+
 static bool
 event_category_match(const struct event_category *category,
 		     const struct event_category *wanted_category)

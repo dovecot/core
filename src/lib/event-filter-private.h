@@ -100,5 +100,7 @@ event_filter_query_match_eval(struct event_filter_node *node,
 			      enum event_filter_log_type log_type);
 const char *
 event_filter_category_from_log_type(enum event_filter_log_type log_type);
+struct event_filter_node *
+event_filter_get_expr_for_testing(struct event_filter *filter, unsigned int *count_r);
 
 #endif
