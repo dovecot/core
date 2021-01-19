@@ -97,6 +97,8 @@ static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
 	}
 
 	mail_index_map_copy_hdr(map, hdr);
+	buffer_set_used_size(map->hdr_copy_buf, 0);
+	buffer_append(map->hdr_copy_buf, rec_map->mmap_base, hdr->header_size);
 
 	map->hdr_base = rec_map->mmap_base;
 	rec_map->records = PTR_OFFSET(rec_map->mmap_base, map->hdr.header_size);
