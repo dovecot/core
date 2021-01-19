@@ -122,7 +122,7 @@ int mail_index_map_ext_get_next(struct mail_index_map *map,
 	   - 64bit alignment padding
 	*/
 	name_offset = offset + sizeof(*ext_hdr);
-	ext_hdr = CONST_PTR_OFFSET(map->hdr_base, offset);
+	ext_hdr = MAIL_INDEX_MAP_HDR_OFFSET(map, offset);
 	if (offset + sizeof(*ext_hdr) >= map->hdr.header_size)
 		return -1;
 
@@ -130,7 +130,7 @@ int mail_index_map_ext_get_next(struct mail_index_map *map,
 	if (offset > map->hdr.header_size)
 		return -1;
 
-	*name_r = t_strndup(CONST_PTR_OFFSET(map->hdr_base, name_offset),
+	*name_r = t_strndup(MAIL_INDEX_MAP_HDR_OFFSET(map, name_offset),
 			    ext_hdr->name_size);
 	if (strcmp(*name_r, str_sanitize(*name_r, SIZE_MAX)) != 0) {
 		/* we allow only plain ASCII names, so this extension
@@ -356,8 +356,7 @@ static void mail_index_map_copy_header(struct mail_index_map *dest,
 		      I_MIN(sizeof(dest->hdr), src->hdr.base_header_size));
 	if (src != dest) {
 		buffer_write(dest->hdr_copy_buf, src->hdr.base_header_size,
-			     CONST_PTR_OFFSET(src->hdr_base,
-					      src->hdr.base_header_size),
+			     MAIL_INDEX_MAP_HDR_OFFSET(src, src->hdr.base_header_size),
 			     src->hdr.header_size - src->hdr.base_header_size);
 	}
 	dest->hdr_base = buffer_get_modifiable_data(dest->hdr_copy_buf, NULL);

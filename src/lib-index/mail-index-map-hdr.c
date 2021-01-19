@@ -80,7 +80,7 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 	   - const char names[] * keywords_count
 	*/
 	i_assert(ext->hdr_offset < map->hdr.header_size);
-	kw_hdr = CONST_PTR_OFFSET(map->hdr_base, ext->hdr_offset);
+	kw_hdr = MAIL_INDEX_MAP_HDR_OFFSET(map, ext->hdr_offset);
 	kw_rec = (const void *)(kw_hdr + 1);
 	name = (const char *)(kw_rec + kw_hdr->keywords_count);
 

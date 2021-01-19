@@ -401,7 +401,7 @@ static void view_get_header_ext(struct mail_index_view *view,
 	}
 
 	ext = array_idx(&map->extensions, idx);
-	*data_r = CONST_PTR_OFFSET(map->hdr_base, ext->hdr_offset);
+	*data_r = MAIL_INDEX_MAP_HDR_OFFSET(map, ext->hdr_offset);
 	*data_size_r = ext->hdr_size;
 }
 

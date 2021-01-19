@@ -45,7 +45,7 @@ keywords_get_header_buf(struct mail_index_map *map,
 	struct mail_index_keyword_header new_kw_hdr;
 	uint32_t offset;
 
-	kw_hdr = CONST_PTR_OFFSET(map->hdr_base, ext->hdr_offset);
+	kw_hdr = MAIL_INDEX_MAP_HDR_OFFSET(map, ext->hdr_offset);
 	kw_rec = (const void *)(kw_hdr + 1);
 	name = (const char *)(kw_rec + kw_hdr->keywords_count);
 

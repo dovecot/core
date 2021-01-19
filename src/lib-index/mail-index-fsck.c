@@ -157,7 +157,7 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 
 	hdr_offset = ext_offset +
 		mail_index_map_ext_hdr_offset(sizeof(MAIL_INDEX_EXT_KEYWORDS)-1);
-	kw_hdr = CONST_PTR_OFFSET(map->hdr_base, hdr_offset);
+	kw_hdr = MAIL_INDEX_MAP_HDR_OFFSET(map, hdr_offset);
 	keywords_count = kw_hdr->keywords_count;
 
 	kw_rec = (const void *)(kw_hdr + 1);

@@ -118,6 +118,8 @@ struct mail_index_record_map {
 	uint32_t last_appended_uid;
 };
 
+#define MAIL_INDEX_MAP_HDR_OFFSET(map, hdr_offset) \
+	CONST_PTR_OFFSET((map)->hdr_base, hdr_offset)
 struct mail_index_map {
 	struct mail_index *index;
 	int refcount;
