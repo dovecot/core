@@ -161,7 +161,7 @@ bool event_filter_category_to_log_type(const char *name,
 	return FALSE;
 }
 
-static const char *
+const char *
 event_filter_category_from_log_type(enum event_filter_log_type log_type)
 {
 	unsigned int i;
@@ -591,7 +591,7 @@ event_filter_query_match_cmp(struct event_filter_node *node,
 	i_unreached();
 }
 
-static bool
+bool
 event_filter_query_match_eval(struct event_filter_node *node,
 			      struct event *event, const char *source_filename,
 			      unsigned int source_linenum,
