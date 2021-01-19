@@ -71,7 +71,8 @@ where your syslogd writes its log files.
 .PP
 This command causes
 .B doveadm
-to reopen all log files, configured in the
+to send a SIGUSR1 signal to master process, which causes it to
+reopen all log files configured in the
 .IR log_path ,
 .I info_log_path
 and
@@ -80,7 +81,8 @@ settings.
 These settings are configured in
 .IR @pkgsysconfdir@/conf.d/10\-logging.conf .
 .br
-This is for example useful after manually rotating the log files.
+The master process also signals the log process to do the same.
+This is mainly useful after manually rotating the log files.
 .\"-------------------------------------
 .SS log test
 .B doveadm log test
