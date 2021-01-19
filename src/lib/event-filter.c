@@ -518,7 +518,7 @@ event_match_field(struct event *event, const struct event_field *wanted_field,
 	while ((field = event_find_field(event, wanted_field->key)) == NULL) {
 		event = event_get_parent(event);
 		if (event == NULL) {
-			/* "field=" matches nonexistent field */
+			/* field="" matches nonexistent field */
 			return wanted_field->value.str[0] == '\0';
 		}
 	}
@@ -529,7 +529,7 @@ event_match_field(struct event *event, const struct event_field *wanted_field,
 			return FALSE;
 		}
 		if (field->value.str[0] == '\0') {
-			/* field was removed, but it matches "field=" filter */
+			/* field was removed, but it matches field="" filter */
 			return wanted_field->value.str[0] == '\0';
 		}
 		return wildcard_match_icase(field->value.str, wanted_field->value.str);
