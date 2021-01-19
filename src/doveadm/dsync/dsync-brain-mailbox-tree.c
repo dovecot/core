@@ -85,6 +85,17 @@ void dsync_brain_send_mailbox_tree(struct dsync_brain *brain)
 	sep[0] = brain->hierarchy_sep; sep[1] = '\0';
 	while (dsync_mailbox_tree_iter_next(brain->local_tree_iter,
 					    &full_name, &node)) {
+		if (node->ns == NULL) {
+			/* This node was created when adding a namespace prefix
+			   to the tree that has multiple hierarchical names,
+			   but the parent names don't belong to any synced
+			   namespace. For example when syncing "-n Shared/user/"
+			   so "Shared/" is skipped. Or if there is e.g.
+			   "Public/files/" namespace prefix, but no "Public/"
+			   namespace at all. */
+			continue;
+		}
+
 		T_BEGIN {
 			const char *const *parts;
 
