@@ -3,7 +3,7 @@
 
 /* Add new environment variable. Wrapper to putenv(). Note that calls to this
    function allocates memory which isn't free'd until env_clean() is called. */
-void env_put(const char *env);
+void env_put(const char *name, const char *value);
 /* env_put() NULL-terminated array of name=value strings */
 void env_put_array(const char *const *envs);
 /* Remove a single environment. */

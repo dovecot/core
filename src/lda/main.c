@@ -505,7 +505,7 @@ int main(int argc, char *argv[])
 		} else if ((ret = i_getpwuid(process_euid, &pw)) > 0) {
 			user = t_strdup(pw.pw_name);
 			if (home == NULL)
-				env_put(t_strconcat("HOME=", pw.pw_dir, NULL));
+				env_put("HOME", pw.pw_dir);
 			user_source = "passwd lookup for process euid";
 		} else if (ret < 0) {
 			/* temporary failure */

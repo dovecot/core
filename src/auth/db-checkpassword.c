@@ -57,7 +57,7 @@ env_put_extra_fields(const ARRAY_TYPE(auth_field) *extra_fields)
 	array_foreach(extra_fields, field) {
 		key = t_str_ucase(field->key);
 		value = field->value != NULL ? field->value : "1";
-		env_put(t_strconcat(key, "=", value, NULL));
+		env_put(key, value);
 	}
 }
 
@@ -215,9 +215,9 @@ static void env_put_auth_vars(struct auth_request *request)
 		   checkpassword API. */
 		if (tab[i].long_key != NULL && tab[i].value != NULL &&
 		    strcasecmp(tab[i].long_key, "password") != 0) {
-			env_put(t_strdup_printf("AUTH_%s=%s",
-						t_str_ucase(tab[i].long_key),
-						tab[i].value));
+			env_put(t_strdup_printf("AUTH_%s",
+						t_str_ucase(tab[i].long_key)),
+				tab[i].value);
 		}
 	}
 }
@@ -229,37 +229,27 @@ static void checkpassword_setup_env(struct auth_request *request)
 	/* Besides passing the standard username and password in a
 	   pipe, also pass some other possibly interesting information
 	   via environment. Use UCSPI names for local/remote IPs. */
-	env_put("PROTO=TCP"); /* UCSPI */
-	env_put(t_strdup_printf("ORIG_UID=%s", dec2str(getuid())));
-	env_put(t_strconcat("SERVICE=", fields->service, NULL));
+	env_put("PROTO", "TCP"); /* UCSPI */
+	env_put("ORIG_UID", dec2str(getuid()));
+	env_put("SERVICE", fields->service);
 	if (fields->local_ip.family != 0) {
-		env_put(t_strconcat("TCPLOCALIP=",
-				    net_ip2addr(&fields->local_ip), NULL));
+		env_put("TCPLOCALIP", net_ip2addr(&fields->local_ip));
 		/* FIXME: for backwards compatibility only,
 		   remove some day */
-		env_put(t_strconcat("LOCAL_IP=",
-				    net_ip2addr(&fields->local_ip), NULL));
+		env_put("LOCAL_IP", net_ip2addr(&fields->local_ip));
 	}
 	if (fields->remote_ip.family != 0) {
-		env_put(t_strconcat("TCPREMOTEIP=",
-				    net_ip2addr(&fields->remote_ip), NULL));
+		env_put("TCPREMOTEIP", net_ip2addr(&fields->remote_ip));
 		/* FIXME: for backwards compatibility only,
 		   remove some day */
-		env_put(t_strconcat("REMOTE_IP=",
-				    net_ip2addr(&fields->remote_ip), NULL));
+		env_put("REMOTE_IP", net_ip2addr(&fields->remote_ip));
 	}
-	if (fields->local_port != 0) {
-		env_put(t_strdup_printf("TCPLOCALPORT=%u",
-					fields->local_port));
-	}
-	if (fields->remote_port != 0) {
-		env_put(t_strdup_printf("TCPREMOTEPORT=%u",
-					fields->remote_port));
-	}
-	if (fields->master_user != NULL) {
-		env_put(t_strconcat("MASTER_USER=",
-				    fields->master_user, NULL));
-	}
+	if (fields->local_port != 0)
+		env_put("TCPLOCALPORT", dec2str(fields->local_port));
+	if (fields->remote_port != 0)
+		env_put("TCPREMOTEPORT", dec2str(fields->remote_port));
+	if (fields->master_user != NULL)
+		env_put("MASTER_USER", fields->master_user);
 	if (!auth_fields_is_empty(fields->extra_fields)) {
 		const ARRAY_TYPE(auth_field) *extra_fields =
 			auth_fields_export(fields->extra_fields);
@@ -394,12 +384,11 @@ checkpassword_exec(struct db_checkpassword *db, struct auth_request *request,
 		   ignored by setting AUTHORIZED.  This needs a
 		   special checkpassword program which knows how to
 		   handle this. */
-		env_put("AUTHORIZED=1");
+		env_put("AUTHORIZED", "1");
 		if (request->wanted_credentials_scheme != NULL) {
 			/* passdb credentials lookup */
-			env_put("CREDENTIALS_LOOKUP=1");
-			env_put(t_strdup_printf("SCHEME=%s",
-					request->wanted_credentials_scheme));
+			env_put("CREDENTIALS_LOOKUP", "1");
+			env_put("SCHEME", request->wanted_credentials_scheme);
 		}
 	}
 	checkpassword_setup_env(request);

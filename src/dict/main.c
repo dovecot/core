@@ -106,8 +106,7 @@ static void main_init(void)
 
 	if (*dict_settings->dict_db_config != '\0') {
 		/* for berkeley db library */
-		env_put(t_strconcat("DB_CONFIG=", dict_settings->dict_db_config,
-				    NULL));
+		env_put("DB_CONFIG", dict_settings->dict_db_config);
 	}
 
 	i_zero(&mod_set);

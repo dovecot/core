@@ -675,7 +675,7 @@ static void config_request_putenv(const char *key, const char *value,
 				  void *context ATTR_UNUSED)
 {
 	T_BEGIN {
-		env_put(t_strconcat(t_str_ucase(key), "=", value, NULL));
+		env_put(t_str_ucase(key), value);
 	} T_END;
 }
 
@@ -1049,7 +1049,7 @@ int main(int argc, char *argv[])
 			master_service_env_clean();
 		}
 
-		env_put("DOVECONF_ENV=1");
+		env_put("DOVECONF_ENV", "1");
 		if (config_export_finish(&ctx) < 0)
 			i_fatal("Invalid configuration");
 		execvp(exec_args[0], exec_args);

@@ -107,8 +107,9 @@ service_dup_fds(struct service *service)
 			
 			dup2_append(&dups, listeners[i]->fd, fd++);
 
-			env_put(t_strdup_printf("SOCKET%d_SETTINGS=%s",
-				socket_listener_count, str_c(listener_settings)));
+			env_put(t_strdup_printf("SOCKET%d_SETTINGS",
+						socket_listener_count),
+				str_c(listener_settings));
 			socket_listener_count++;
 		}
 	}
@@ -150,7 +151,7 @@ service_dup_fds(struct service *service)
 		   to be lost. */
 		i_assert(service->log_fd[1] != -1);
 
-		env_put("LOG_SERVICE=1");
+		env_put("LOG_SERVICE", "1");
 		if (dup2(service->log_fd[1], STDERR_FILENO) < 0)
 			i_fatal("dup2(log fd) failed: %m");
 		i_set_failure_internal();
@@ -170,7 +171,7 @@ service_dup_fds(struct service *service)
 		i_fatal("service(%s): dup2s failed", service->set->name);
 
 	i_assert(fd == MASTER_LISTEN_FD_FIRST + (int)socket_listener_count);
-	env_put(t_strdup_printf("SOCKET_COUNT=%d", socket_listener_count));
+	env_put("SOCKET_COUNT", dec2str(socket_listener_count));
 }
 
 static void
@@ -212,26 +213,25 @@ static void service_process_setup_config_environment(struct service *service)
 
 	switch (service->type) {
 	case SERVICE_TYPE_CONFIG:
-		env_put(t_strconcat(MASTER_CONFIG_FILE_ENV"=",
-				    service->config_file_path, NULL));
+		env_put(MASTER_CONFIG_FILE_ENV, service->config_file_path);
 		break;
 	case SERVICE_TYPE_LOG:
 		/* give the log's configuration directly, so it won't depend
 		   on config process */
-		env_put("DOVECONF_ENV=1");
-		env_put(t_strconcat("LOG_PATH=", set->log_path, NULL));
-		env_put(t_strconcat("INFO_LOG_PATH=", set->info_log_path, NULL));
-		env_put(t_strconcat("DEBUG_LOG_PATH=", set->debug_log_path, NULL));
-		env_put(t_strconcat("LOG_TIMESTAMP=", set->log_timestamp, NULL));
-		env_put(t_strconcat("SYSLOG_FACILITY=", set->syslog_facility, NULL));
-		env_put(t_strconcat("INSTANCE_NAME=", set->instance_name, NULL));
+		env_put("DOVECONF_ENV", "1");
+		env_put("LOG_PATH", set->log_path);
+		env_put("INFO_LOG_PATH", set->info_log_path);
+		env_put("DEBUG_LOG_PATH", set->debug_log_path);
+		env_put("LOG_TIMESTAMP", set->log_timestamp);
+		env_put("SYSLOG_FACILITY", set->syslog_facility);
+		env_put("INSTANCE_NAME", set->instance_name);
 		if (set->verbose_proctitle)
-			env_put("VERBOSE_PROCTITLE=1");
-		env_put("SSL=no");
+			env_put("VERBOSE_PROCTITLE", "1");
+		env_put("SSL", "no");
 		break;
 	default:
-		env_put(t_strconcat(MASTER_CONFIG_FILE_ENV"=",
-			services_get_config_socket_path(service->list), NULL));
+		env_put(MASTER_CONFIG_FILE_ENV,
+			services_get_config_socket_path(service->list));
 		break;
 	}
 }
@@ -244,45 +244,39 @@ service_process_setup_environment(struct service *service, unsigned int uid,
 		service->list->service_set;
 	master_service_env_clean();
 
-	env_put(MASTER_IS_PARENT_ENV"=1");
+	env_put(MASTER_IS_PARENT_ENV, "1");
 	service_process_setup_config_environment(service);
-	env_put(t_strdup_printf(MASTER_SERVICE_ENV"=%s",
-				service->set->name));
-	env_put(t_strdup_printf(MASTER_CLIENT_LIMIT_ENV"=%u",
-				service->client_limit));
-	env_put(t_strdup_printf(MASTER_PROCESS_LIMIT_ENV"=%u",
-				service->process_limit));
-	env_put(t_strdup_printf(MASTER_PROCESS_MIN_AVAIL_ENV"=%u",
-				service->set->process_min_avail));
-	env_put(t_strdup_printf(MASTER_SERVICE_IDLE_KILL_ENV"=%u",
-				service->idle_kill));
+	env_put(MASTER_SERVICE_ENV, service->set->name);
+	env_put(MASTER_CLIENT_LIMIT_ENV, dec2str(service->client_limit));
+	env_put(MASTER_PROCESS_LIMIT_ENV, dec2str(service->process_limit));
+	env_put(MASTER_PROCESS_MIN_AVAIL_ENV,
+		dec2str(service->set->process_min_avail));
+	env_put(MASTER_SERVICE_IDLE_KILL_ENV, dec2str(service->idle_kill));
 	if (service->set->service_count != 0) {
-		env_put(t_strdup_printf(MASTER_SERVICE_COUNT_ENV"=%u",
-					service->set->service_count));
+		env_put(MASTER_SERVICE_COUNT_ENV,
+			dec2str(service->set->service_count));
 	}
-	env_put(t_strdup_printf(MASTER_UID_ENV"=%u", uid));
-	env_put(t_strdup_printf(MY_HOSTNAME_ENV"=%s", my_hostname));
-	env_put(t_strdup_printf(MY_HOSTDOMAIN_ENV"=%s", hostdomain));
+	env_put(MASTER_UID_ENV, dec2str(uid));
+	env_put(MY_HOSTNAME_ENV, my_hostname);
+	env_put(MY_HOSTDOMAIN_ENV, hostdomain);
 
 	if (!service->set->master_set->version_ignore)
-		env_put(MASTER_DOVECOT_VERSION_ENV"="PACKAGE_VERSION);
+		env_put(MASTER_DOVECOT_VERSION_ENV, PACKAGE_VERSION);
 
 	if (service_set->stats_writer_socket_path[0] != '\0') {
-		env_put(t_strdup_printf(DOVECOT_STATS_WRITER_SOCKET_PATH"=%s/%s",
-					service_set->base_dir,
+		env_put(DOVECOT_STATS_WRITER_SOCKET_PATH,
+			t_strdup_printf("%s/%s", service_set->base_dir,
 					service_set->stats_writer_socket_path));
 	}
 	if (ssl_manual_key_password != NULL && service->have_inet_listeners) {
 		/* manually given SSL password. give it only to services
 		   that have inet listeners. */
-		env_put(t_strconcat(MASTER_SSL_KEY_PASSWORD_ENV"=",
-				    ssl_manual_key_password, NULL));
+		env_put(MASTER_SSL_KEY_PASSWORD_ENV, ssl_manual_key_password);
 	}
 	if (service->type == SERVICE_TYPE_ANVIL &&
 	    service_anvil_global->restarted)
-		env_put("ANVIL_RESTARTED=1");
-	env_put(t_strconcat(DOVECOT_LOG_DEBUG_ENV"=",
-			    service_set->log_debug, NULL));
+		env_put("ANVIL_RESTARTED", "1");
+	env_put(DOVECOT_LOG_DEBUG_ENV, service_set->log_debug);
 }
 
 static void service_process_status_timeout(struct service_process *process)

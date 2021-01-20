@@ -1937,7 +1937,7 @@ struct ldap_connection *db_ldap_init(const char *config_path, bool userdb)
 				"settings not allowed (%s and %s)",
 				config_path, str, conn->set.ldaprc_path);
 		}
-		env_put(t_strconcat("LDAPRC=", conn->set.ldaprc_path, NULL));
+		env_put("LDAPRC", conn->set.ldaprc_path);
 	}
 
         if (deref2str(conn->set.deref, &conn->set.ldap_deref) < 0)

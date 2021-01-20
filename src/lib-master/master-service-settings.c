@@ -191,13 +191,13 @@ master_service_exec_config(struct master_service *service,
 		/* doveconf empties the environment before exec()ing us back
 		   if DOVECOT_PRESERVE_ENVS is set, so make sure it is. */
 		if (getenv(DOVECOT_PRESERVE_ENVS_ENV) == NULL)
-			env_put(DOVECOT_PRESERVE_ENVS_ENV"=");
+			env_put(DOVECOT_PRESERVE_ENVS_ENV, "");
 	} else {
 		/* make sure doveconf doesn't remove any environment */
 		env_remove(DOVECOT_PRESERVE_ENVS_ENV);
 	}
 	if (input->use_sysexits)
-		env_put("USE_SYSEXITS=1");
+		env_put("USE_SYSEXITS", "1");
 
 	/* @UNSAFE */
 	i = 0;

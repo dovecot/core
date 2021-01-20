@@ -73,7 +73,7 @@ static void test_var_expand_builtin(void)
 
 	tests[0].out = my_hostname;
 	tests[1].out = my_pid;
-	env_put("FOO=baR");
+	env_put("FOO", "baR");
 
 	test_begin("var_expand - builtin");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {

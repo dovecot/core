@@ -98,19 +98,19 @@ static void client_connected(struct master_service_connection *conn)
 	input.username = args[i++];
 	input.userdb_fields = args + i;
 
-	env_put(t_strconcat("LOCAL_IP=", net_ip2addr(&input.local_ip), NULL));
-	env_put(t_strconcat("IP=", net_ip2addr(&input.remote_ip), NULL));
-	env_put(t_strconcat("USER=", input.username, NULL));
+	env_put("LOCAL_IP", net_ip2addr(&input.local_ip));
+	env_put("IP", net_ip2addr(&input.remote_ip));
+	env_put("USER", input.username);
 
 	for (; args[i] != NULL; i++) {
 		value = strchr(args[i], '=');
 		if (value != NULL) {
-			key = t_str_ucase(t_strdup_until(args[i], value));
-			env_put(t_strconcat(key, value, NULL));
+			key = t_str_ucase(t_strdup_until(args[i], value++));
+			env_put(key, value);
 			str_printfa(keys, "%s ", key);
 		}
 	}
-	env_put(t_strconcat(ENV_USERDB_KEYS"=", str_c(keys), NULL));
+	env_put(ENV_USERDB_KEYS, str_c(keys));
 
 	master_service_init_log_with_prefix(master_service,
 		t_strdup_printf("script-login(%s): ", input.username));

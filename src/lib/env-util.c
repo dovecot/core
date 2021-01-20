@@ -15,21 +15,27 @@ struct env_backup {
 
 static pool_t env_pool = NULL;
 
-void env_put(const char *env)
+void env_put(const char *name, const char *value)
 {
+	i_assert(strchr(name, '=') == NULL);
+
 	if (env_pool == NULL) {
 		env_pool = pool_alloconly_create(MEMPOOL_GROWING"Environment",
 						 2048);
 	}
-	if (putenv(p_strdup(env_pool, env)) != 0)
-		i_fatal("putenv(%s) failed: %m", env);
+	if (putenv(p_strdup_printf(env_pool, "%s=%s", name, value)) != 0)
+		i_fatal("putenv(%s=%s) failed: %m", name, value);
 }
 
 void env_put_array(const char *const *envs)
 {
 	for (unsigned int i = 0; envs[i] != NULL; i++) {
-		i_assert(strchr(envs[i], '=') != NULL);
-		env_put(envs[i]);
+		const char *value = strchr(envs[i], '=');
+		i_assert(value != NULL);
+		T_BEGIN {
+			const char *name = t_strdup_until(envs[i], value++);
+			env_put(name, value);
+		} T_END;
 	}
 }
 
@@ -84,8 +90,8 @@ void env_clean(void)
 static void env_clean_except_real(const char *const preserve_envs[])
 {
 	ARRAY_TYPE(const_string) copy;
-	const char *value, *env;
-	unsigned int i;
+	const char *value, *const *envp;
+	unsigned int i, count;
 
 	t_array_init(&copy, 16);
 	for (i = 0; preserve_envs[i] != NULL; i++) {
@@ -93,18 +99,21 @@ static void env_clean_except_real(const char *const preserve_envs[])
 
 		value = getenv(key);
 		if (value != NULL) {
-			value = t_strconcat(key, "=", value, NULL);
+			key = t_strdup(key);
+			value = t_strdup(value);
+			array_push_back(&copy, &key);
 			array_push_back(&copy, &value);
 		}
 	}
 
 	/* Note that if the original environment was set with env_put(), the
 	   environment strings will be invalid after env_clean(). That's why
-	   we t_strconcat() them above. */
+	   we t_strdup() them above. */
 	env_clean();
 
-	array_foreach_elem(&copy, env)
-		env_put(env);
+	envp = array_get(&copy, &count);
+	for (i = 0; i < count; i += 2)
+		env_put(envp[i], envp[i+1]);
 }
 
 void env_clean_except(const char *const preserve_envs[])

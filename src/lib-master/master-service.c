@@ -724,15 +724,15 @@ static void master_service_import_environment_real(const char *import_environmen
 		if (value == NULL)
 			key = *envs;
 		else {
-			key = t_strdup_until(*envs, value);
-			env_put(*envs);
+			key = t_strdup_until(*envs, value++);
+			env_put(key, value);
 		}
 		array_push_back(&keys, &key);
 	}
 	array_append_zero(&keys);
 
 	value = t_strarray_join(array_front(&keys), " ");
-	env_put(t_strconcat(DOVECOT_PRESERVE_ENVS_ENV"=", value, NULL));
+	env_put(DOVECOT_PRESERVE_ENVS_ENV, value);
 }
 
 void master_service_import_environment(const char *import_environment)

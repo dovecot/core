@@ -173,7 +173,7 @@ static void cmd_help(int argc ATTR_UNUSED, char *argv[])
 	if (argv[1] == NULL)
 		usage_to(stdout, "");
 
-	env_put("MANPATH="MANDIR);
+	env_put("MANPATH", MANDIR);
 	man_argv[0] = "man";
 	man_argv[1] = t_strconcat("doveadm-", argv[1], NULL);
 	man_argv[2] = NULL;
@@ -186,8 +186,8 @@ static struct doveadm_cmd doveadm_cmd_help = {
 
 static void cmd_config(int argc ATTR_UNUSED, char *argv[])
 {
-	env_put(t_strconcat(MASTER_CONFIG_FILE_ENV"=",
-		master_service_get_config_path(master_service), NULL));
+	env_put(MASTER_CONFIG_FILE_ENV,
+		master_service_get_config_path(master_service));
 	argv[0] = BINDIR"/doveconf";
 	(void)execv(argv[0], argv);
 	i_fatal("execv(%s) failed: %m", argv[0]);
