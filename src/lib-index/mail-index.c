@@ -70,7 +70,6 @@ struct mail_index *mail_index_alloc(struct event *parent_event,
 	index->extension_pool =
 		pool_alloconly_create(MEMPOOL_GROWING"index extension", 1024);
 	p_array_init(&index->extensions, index->extension_pool, 5);
-	i_array_init(&index->sync_lost_handlers, 4);
 	i_array_init(&index->module_contexts,
 		     I_MIN(5, mail_index_module_register.id));
 
@@ -105,7 +104,6 @@ void mail_index_free(struct mail_index **_index)
 	pool_unref(&index->extension_pool);
 	pool_unref(&index->keywords_pool);
 
-	array_free(&index->sync_lost_handlers);
 	array_free(&index->keywords);
 	array_free(&index->module_contexts);
 
@@ -332,27 +330,6 @@ void mail_index_unregister_expunge_handler(struct mail_index *index,
 	i_assert(rext->expunge_handler != NULL);
 
 	rext->expunge_handler = NULL;
-}
-
-void mail_index_register_sync_lost_handler(struct mail_index *index,
-					   mail_index_sync_lost_handler_t *cb)
-{
-	array_push_back(&index->sync_lost_handlers, &cb);
-}
-
-void mail_index_unregister_sync_lost_handler(struct mail_index *index,
-					     mail_index_sync_lost_handler_t *cb)
-{
-	mail_index_sync_lost_handler_t *const *handlers;
-	unsigned int i, count;
-
-	handlers = array_get(&index->sync_lost_handlers, &count);
-	for (i = 0; i < count; i++) {
-		if (handlers[i] == cb) {
-			array_delete(&index->sync_lost_handlers, i, 1);
-			break;
-		}
-	}
 }
 
 bool mail_index_keyword_lookup(struct mail_index *index,

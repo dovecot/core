@@ -45,7 +45,6 @@ struct mail_index_sync_map_ctx;
 typedef int mail_index_expunge_handler_t(struct mail_index_sync_map_ctx *ctx,
 					 uint32_t seq, const void *data,
 					 void **sync_context, void *context);
-typedef void mail_index_sync_lost_handler_t(struct mail_index *index);
 
 #define MAIL_INDEX_HEADER_SIZE_ALIGN(size) \
 	(((size) + 7) & ~7U)
@@ -198,8 +197,6 @@ struct mail_index {
 	pool_t extension_pool;
 	ARRAY(struct mail_index_registered_ext) extensions;
 
-	ARRAY(mail_index_sync_lost_handler_t *) sync_lost_handlers;
-
 	char *filepath;
 	int fd;
 
@@ -269,10 +266,6 @@ void mail_index_register_expunge_handler(struct mail_index *index,
 					 void *context);
 void mail_index_unregister_expunge_handler(struct mail_index *index,
 					   uint32_t ext_id);
-void mail_index_register_sync_lost_handler(struct mail_index *index,
-					   mail_index_sync_lost_handler_t *cb);
-void mail_index_unregister_sync_lost_handler(struct mail_index *index,
-					mail_index_sync_lost_handler_t *cb);
 
 int mail_index_create_tmp_file(struct mail_index *index,
 			       const char *path_prefix, const char **path_r);
