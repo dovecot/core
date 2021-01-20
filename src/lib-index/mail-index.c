@@ -686,8 +686,8 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 		i_strdup("(in-memory index)") :
 		i_strconcat(index->dir, "/", index->prefix, NULL);
 
+	mail_index_reset_error(index);
 	index->readonly = FALSE;
-	index->nodiskspace = FALSE;
 	index->log_sync_locked = FALSE;
 	index->flags = flags;
 	index->readonly = (flags & MAIL_INDEX_OPEN_FLAG_READONLY) != 0;
