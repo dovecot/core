@@ -25,6 +25,14 @@ void env_put(const char *env)
 		i_fatal("putenv(%s) failed: %m", env);
 }
 
+void env_put_array(const char *const *envs)
+{
+	for (unsigned int i = 0; envs[i] != NULL; i++) {
+		i_assert(strchr(envs[i], '=') != NULL);
+		env_put(envs[i]);
+	}
+}
+
 void env_remove(const char *name)
 {
 #ifdef HAVE_UNSETENV
@@ -128,11 +136,8 @@ struct env_backup *env_backup_save(void)
 
 void env_backup_restore(struct env_backup *env)
 {
-	unsigned int i;
-
 	env_clean();
-	for (i = 0; env->strings[i] != NULL; i++)
-		env_put(env->strings[i]);
+	env_put_array(env->strings);
 }
 
 void env_backup_free(struct env_backup **_env)
