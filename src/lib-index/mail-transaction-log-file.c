@@ -331,7 +331,6 @@ mail_transaction_log_file_dotlock(struct mail_transaction_log_file *file)
 			     "Timeout (%us) while waiting for "
 			     "dotlock for transaction log file %s",
 			     dotlock_set.timeout, file->filepath);
-	file->log->index->index_lock_timeout = TRUE;
 	return -1;
 }
 
@@ -402,7 +401,6 @@ int mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 		"transaction log file %s%s",
 		lock_timeout_secs, file->filepath,
 		file_lock_find(file->fd, file->log->index->set.lock_method, F_WRLCK));
-	file->log->index->index_lock_timeout = TRUE;
 	return -1;
 }
 

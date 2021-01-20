@@ -234,7 +234,6 @@ struct mail_index {
 
 	char *error;
 	bool nodiskspace:1;
-	bool index_lock_timeout:1;
 
 	bool index_delete_requested:1; /* next sync sets it deleted */
 	bool index_deleted:1; /* no changes allowed anymore */
