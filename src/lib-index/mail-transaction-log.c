@@ -64,11 +64,16 @@ static void mail_transaction_log_2_unlink_old(struct mail_transaction_log *log)
 	}
 
 	if (log2_rotate_time != log->index->map->hdr.log2_rotate_time) {
-		/* Write this as part of the next sync's transaction. We're
+		/* Either the log2_rotate_time in header was missing, or we
+		   just deleted the .log.2 and need to set it as nonexistent.
+		   Either way we need to update the header.
+
+		   Write this as part of the next sync's transaction. We're
 		   here because we're already opening a sync lock, so it'll
 		   always happen. It's also required especially with mdbox map
 		   index, which doesn't like changes done outside syncing. */
-		log->index->pending_log2_rotate_time = log2_rotate_time;
+		log->index->hdr_log2_rotate_time_delayed_update =
+			log2_rotate_time;
 	}
 }
 

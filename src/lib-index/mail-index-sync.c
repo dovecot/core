@@ -905,13 +905,17 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 				&next_uid, sizeof(next_uid), FALSE);
 		}
 	}
-	if (index->pending_log2_rotate_time != 0) {
-		uint32_t log2_rotate_time = index->pending_log2_rotate_time;
+	if (index->hdr_log2_rotate_time_delayed_update != 0) {
+		/* We checked whether .log.2 should be deleted in this same
+		   sync. It resulted in wanting to change the log2_rotate_time
+		   in the header. Do it here as part of the other changes. */
+		uint32_t log2_rotate_time =
+			index->hdr_log2_rotate_time_delayed_update;
 
 		mail_index_update_header(ctx->ext_trans,
 			offsetof(struct mail_index_header, log2_rotate_time),
 			&log2_rotate_time, sizeof(log2_rotate_time), TRUE);
-		index->pending_log2_rotate_time = 0;
+		index->hdr_log2_rotate_time_delayed_update = 0;
 	}
 
 	ret2 = mail_index_transaction_commit(&ctx->ext_trans);

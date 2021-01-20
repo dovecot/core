@@ -188,7 +188,6 @@ struct mail_index {
 
 	struct mail_index_settings set;
 	struct mail_index_optimization_settings optimization_set;
-	uint32_t pending_log2_rotate_time;
 
 	pool_t extension_pool;
 	ARRAY(struct mail_index_registered_ext) extensions;
@@ -221,6 +220,9 @@ struct mail_index {
 
 	/* syncing will update this if non-NULL */
 	struct mail_index_transaction_commit_result *sync_commit_result;
+	/* Delayed log2_rotate_time update to mail_index_header. This is set
+	   and unset within the same sync. */
+	uint32_t hdr_log2_rotate_time_delayed_update;
 
 	pool_t keywords_pool;
 	ARRAY_TYPE(keywords) keywords;
