@@ -474,8 +474,6 @@ mail_index_sync_begin_to2(struct mail_index *index,
 		return -1;
 	}
 
-	ctx->view->index_sync_view = TRUE;
-
 	/* create the transaction after the view has been updated with
 	   external transactions and marked as sync view */
 	trans_flags = MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL;

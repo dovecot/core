@@ -76,8 +76,6 @@ struct mail_index_view {
 	struct mail_index_transaction *transactions_list;
 
 	bool inconsistent:1;
-	/* this view was created by mail_index_sync_begin() */
-	bool index_sync_view:1;
 	/* this view is being synced */
 	bool syncing:1;
 };
