@@ -172,6 +172,15 @@ struct mail_index_settings {
 	void *ext_hdr_init_data;
 };
 
+struct mail_index_error {
+	/* Human-readable error text */
+	char *text;
+
+	/* Error happened because there's no disk space, i.e. syscall failed
+	   with ENOSPC or EDQUOT. */
+	bool nodiskspace:1;
+};
+
 struct mail_index {
 	char *dir, *prefix;
 	struct event *event;
@@ -232,8 +241,9 @@ struct mail_index {
 	/* Module-specific contexts. */
 	ARRAY(union mail_index_module_context *) module_contexts;
 
-	char *error;
-	bool nodiskspace:1;
+	/* Last error returned by mail_index_get_error_message().
+	   Cleared by mail_index_reset_error(). */
+	struct mail_index_error last_error;
 
 	bool index_delete_requested:1; /* next sync sets it deleted */
 	bool index_deleted:1; /* no changes allowed anymore */

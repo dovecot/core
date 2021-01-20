@@ -113,7 +113,7 @@ void mail_index_free(struct mail_index **_index)
 	i_free(index->set.cache_dir);
 	i_free(index->set.ext_hdr_init_data);
 	i_free(index->set.gid_origin);
-	i_free(index->error);
+	i_free(index->last_error.text);
 	i_free(index->dir);
 	i_free(index->prefix);
 	i_free(index->need_recreate);
@@ -888,16 +888,16 @@ void mail_index_set_error(struct mail_index *index, const char *fmt, ...)
 {
 	va_list va;
 
-	i_free(index->error);
+	i_free(index->last_error.text);
 
 	if (fmt == NULL)
-		index->error = NULL;
+		index->last_error.text = NULL;
 	else {
 		va_start(va, fmt);
-		index->error = i_strdup_vprintf(fmt, va);
+		index->last_error.text = i_strdup_vprintf(fmt, va);
 		va_end(va);
 
-		e_error(index->event, "%s", index->error);
+		e_error(index->event, "%s", index->last_error.text);
 	}
 }
 
@@ -905,8 +905,8 @@ void mail_index_set_error_nolog(struct mail_index *index, const char *str)
 {
 	i_assert(str != NULL);
 
-	char *old_error = index->error;
-	index->error = i_strdup(str);
+	char *old_error = index->last_error.text;
+	index->last_error.text = i_strdup(str);
 	i_free(old_error);
 }
 
@@ -1089,7 +1089,7 @@ void mail_index_file_set_syscall_error(struct mail_index *index,
 	}
 
 	if (ENOSPACE(errno)) {
-		index->nodiskspace = TRUE;
+		index->last_error.nodiskspace = TRUE;
 		if ((index->flags & MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) == 0)
 			return;
 	}
@@ -1112,15 +1112,11 @@ void mail_index_file_set_syscall_error(struct mail_index *index,
 
 const char *mail_index_get_error_message(struct mail_index *index)
 {
-	return index->error;
+	return index->last_error.text;
 }
 
 void mail_index_reset_error(struct mail_index *index)
 {
-	if (index->error != NULL) {
-		i_free(index->error);
-		index->error = NULL;
-	}
-
-	index->nodiskspace = FALSE;
+	i_free(index->last_error.text);
+	i_zero(&index->last_error);
 }
