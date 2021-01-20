@@ -13,18 +13,12 @@ struct env_backup {
 	const char **strings;
 };
 
-static pool_t env_pool = NULL;
-
 void env_put(const char *name, const char *value)
 {
 	i_assert(strchr(name, '=') == NULL);
 
-	if (env_pool == NULL) {
-		env_pool = pool_alloconly_create(MEMPOOL_GROWING"Environment",
-						 2048);
-	}
-	if (putenv(p_strdup_printf(env_pool, "%s=%s", name, value)) != 0)
-		i_fatal("putenv(%s=%s) failed: %m", name, value);
+	if (setenv(name, value, 1) != 0)
+		i_fatal("setenv(%s, %s) failed: %m", name, value);
 }
 
 void env_put_array(const char *const *envs)
@@ -83,8 +77,6 @@ void env_clean(void)
 	*/
 	*environ_p = calloc(1, sizeof(**environ_p));
 #endif
-	if (env_pool != NULL)
-		p_clear(env_pool);
 }
 
 static void env_clean_except_real(const char *const preserve_envs[])
@@ -166,9 +158,4 @@ char ***env_get_environ_p(void)
 
 	return &environ;
 #endif
-}
-
-void env_deinit(void)
-{
-	pool_unref(&env_pool);
 }

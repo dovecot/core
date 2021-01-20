@@ -165,7 +165,6 @@ void lib_deinit(void)
 	restrict_access_deinit();
 	i_close_fd(&dev_null_fd);
 	data_stack_deinit();
-	env_deinit();
 	failures_deinit();
 	process_title_deinit();
 	random_deinit();
