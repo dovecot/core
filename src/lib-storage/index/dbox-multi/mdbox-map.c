@@ -221,7 +221,7 @@ int mdbox_map_refresh(struct mdbox_map *map)
 		mail_storage_set_index_error(MAP_STORAGE(map), map->index);
 		return -1;
 	}
-	if (mail_index_view_get_transaction_count(map->view) > 0) {
+	if (mail_index_view_have_transactions(map->view)) {
 		/* can't sync when there are transactions */
 		return 0;
 	}
