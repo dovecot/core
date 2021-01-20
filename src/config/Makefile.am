@@ -20,24 +20,27 @@ AM_CPPFLAGS = \
 	-DSYSCONFDIR=\""$(pkgsysconfdir)"\" \
 	$(BINARY_CFLAGS)
 
+noinst_LTLIBRARIES = libconfig.la
+
 config_LDADD = \
+	$(noinst_LTLIBRARIES) \
 	$(LIBDOVECOT) \
 	$(RAND_LIBS) \
 	$(BINARY_LDFLAGS) \
 	-lm
 
-config_DEPENDENCIES = $(LIBDOVECOT_DEPS)
+config_DEPENDENCIES = $(LIBDOVECOT_DEPS) $(noinst_LTLIBRARIES)
 
 doveconf_LDADD = \
+	$(noinst_LTLIBRARIES) \
 	$(LIBDOVECOT) \
 	$(RAND_LIBS) \
 	$(BINARY_LDFLAGS) \
 	-lm
 
-doveconf_DEPENDENCIES = $(LIBDOVECOT_DEPS)
+doveconf_DEPENDENCIES = $(LIBDOVECOT_DEPS) $(noinst_LTLIBRARIES)
 
 common = \
-	all-settings.c \
 	config-connection.c \
 	config-filter.c \
 	config-parser.c \
@@ -45,13 +48,15 @@ common = \
 	old-set-parser.c \
 	sysinfo-get.c
 
+libconfig_la_SOURCES = $(common)
+
 config_SOURCES = \
-	main.c \
-	$(common)
+	all-settings.c \
+	main.c
 
 doveconf_SOURCES = \
-	doveconf.c \
-	$(common)
+	all-settings.c \
+	doveconf.c
 
 noinst_HEADERS = \
 	all-settings.h \
