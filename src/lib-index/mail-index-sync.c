@@ -835,8 +835,8 @@ static bool mail_index_sync_want_index_write(struct mail_index *index, const cha
 {
 	uint32_t log_diff;
 
-	if (index->last_read_log_file_seq != 0 &&
-	    index->last_read_log_file_seq != index->map->hdr.log_file_seq) {
+	if (index->main_index_hdr_log_file_seq != 0 &&
+	    index->main_index_hdr_log_file_seq != index->map->hdr.log_file_seq) {
 		/* dovecot.index points to an old .log file. we were supposed
 		   to rewrite the dovecot.index when rotating the log, so
 		   we shouldn't usually get here. */
@@ -845,12 +845,12 @@ static bool mail_index_sync_want_index_write(struct mail_index *index, const cha
 	}
 
 	log_diff = index->map->hdr.log_file_tail_offset -
-		index->last_read_log_file_tail_offset;
+		index->main_index_hdr_log_file_tail_offset;
 	if (log_diff > index->optimization_set.index.rewrite_max_log_bytes) {
 		*reason_r = t_strdup_printf(
 			".log read %u..%u > rewrite_max_log_bytes %"PRIuUOFF_T,
 			index->map->hdr.log_file_tail_offset,
-			index->last_read_log_file_tail_offset,
+			index->main_index_hdr_log_file_tail_offset,
 			index->optimization_set.index.rewrite_max_log_bytes);
 		return TRUE;
 	}
@@ -859,7 +859,7 @@ static bool mail_index_sync_want_index_write(struct mail_index *index, const cha
 		*reason_r = t_strdup_printf(
 			".log read %u..%u > rewrite_min_log_bytes %"PRIuUOFF_T,
 			index->map->hdr.log_file_tail_offset,
-			index->last_read_log_file_tail_offset,
+			index->main_index_hdr_log_file_tail_offset,
 			index->optimization_set.index.rewrite_min_log_bytes);
 		return TRUE;
 	}

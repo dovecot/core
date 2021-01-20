@@ -186,11 +186,13 @@ struct mail_index {
 	uint32_t indexid;
 	unsigned int inconsistency_id;
 
-	/* last_read_log_file_* contains the seq/offsets we last read from
-	   the main index file's headers. these are used to figure out when
-	   the main index file should be updated. */
-	uint32_t last_read_log_file_seq;
-	uint32_t last_read_log_file_tail_offset;
+	/* These contain the log_file_seq and log_file_tail_offset that exists
+	   in dovecot.index file's header. These are used to figure out if it's
+	   time to rewrite the dovecot.index file. Note that these aren't
+	   available in index->map->hdr, because it gets updated when
+	   transaction log file is read. */
+	uint32_t main_index_hdr_log_file_seq;
+	uint32_t main_index_hdr_log_file_tail_offset;
 
 	/* log file which last updated index_deleted */
 	uint32_t index_delete_changed_file_seq;

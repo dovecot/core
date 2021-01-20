@@ -395,8 +395,8 @@ mail_index_map_latest_file(struct mail_index *index, const char **reason_r)
 	}
 	i_assert(new_map->rec_map->records != NULL);
 
-	index->last_read_log_file_seq = new_map->hdr.log_file_seq;
-	index->last_read_log_file_tail_offset =
+	index->main_index_hdr_log_file_seq = new_map->hdr.log_file_seq;
+	index->main_index_hdr_log_file_tail_offset =
 		new_map->hdr.log_file_tail_offset;
 
 	mail_index_unmap(&index->map);
