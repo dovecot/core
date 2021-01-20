@@ -90,7 +90,7 @@ static int mail_index_recreate(struct mail_index *index)
 	}
 	o_stream_destroy(&output);
 
-	if (ret == 0 && index->fsync_mode != FSYNC_MODE_NEVER) {
+	if (ret == 0 && index->set.fsync_mode != FSYNC_MODE_NEVER) {
 		if (fdatasync(fd) < 0) {
 			mail_index_file_set_syscall_error(index, path,
 							  "fdatasync()");

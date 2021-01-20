@@ -32,7 +32,7 @@ int mail_index_lock_fd(struct mail_index *index, const char *path, int fd,
 		return 1;
 	}
 
-	return file_wait_lock(fd, path, lock_type, index->lock_method,
+	return file_wait_lock(fd, path, lock_type, index->set.lock_method,
 			      timeout_secs, lock_r);
 }
 
@@ -45,8 +45,8 @@ void mail_index_flush_read_cache(struct mail_index *index, const char *path,
 	/* Assume flock() is emulated with fcntl(), because that's how most
 	   OSes work nowadays. */
 	if (locked &&
-	    (index->lock_method == FILE_LOCK_METHOD_FCNTL ||
-	     index->lock_method == FILE_LOCK_METHOD_FLOCK)) {
+	    (index->set.lock_method == FILE_LOCK_METHOD_FCNTL ||
+	     index->set.lock_method == FILE_LOCK_METHOD_FLOCK)) {
 		nfs_flush_read_cache_locked(path, fd);
 	} else {
 		nfs_flush_read_cache_unlocked(path, fd);

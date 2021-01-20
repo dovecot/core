@@ -1001,9 +1001,9 @@ static int mail_index_strmap_recreate(struct mail_index_strmap_view *view)
 
 	str = t_str_new(256);
 	str_append(str, strmap->path);
-	fd = safe_mkstemp_hostpid_group(str, view->view->index->mode,
-					view->view->index->gid,
-					view->view->index->gid_origin);
+	fd = safe_mkstemp_hostpid_group(str, view->view->index->set.mode,
+					view->view->index->set.gid,
+					view->view->index->set.gid_origin);
 	temp_path = str_c(str);
 
 	if (fd == -1) {
@@ -1043,13 +1043,13 @@ static int mail_index_strmap_lock(struct mail_index_strmap *strmap)
 
 	i_assert(strmap->fd != -1);
 
-	if (strmap->index->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
+	if (strmap->index->set.lock_method != FILE_LOCK_METHOD_DOTLOCK) {
 		i_assert(strmap->file_lock == NULL);
 
 		timeout_secs = I_MIN(MAIL_INDEX_STRMAP_TIMEOUT_SECS,
-				     strmap->index->max_lock_timeout_secs);
+				     strmap->index->set.max_lock_timeout_secs);
 		ret = file_wait_lock(strmap->fd, strmap->path, F_WRLCK,
-				     strmap->index->lock_method, timeout_secs,
+				     strmap->index->set.lock_method, timeout_secs,
 				     &strmap->file_lock);
 		if (ret <= 0) {
 			mail_index_strmap_set_syscall_error(strmap,

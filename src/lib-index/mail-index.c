@@ -74,10 +74,10 @@ struct mail_index *mail_index_alloc(struct event *parent_event,
 	i_array_init(&index->module_contexts,
 		     I_MIN(5, mail_index_module_register.id));
 
-	index->mode = 0600;
-	index->gid = (gid_t)-1;
-	index->lock_method = FILE_LOCK_METHOD_FCNTL;
-	index->max_lock_timeout_secs = UINT_MAX;
+	index->set.mode = 0600;
+	index->set.gid = (gid_t)-1;
+	index->set.lock_method = FILE_LOCK_METHOD_FCNTL;
+	index->set.max_lock_timeout_secs = UINT_MAX;
 	index->optimization_set = default_optimization_set;
 
 	index->keywords_ext_id =
@@ -110,9 +110,9 @@ void mail_index_free(struct mail_index **_index)
 	array_free(&index->module_contexts);
 
 	event_unref(&index->event);
-	i_free(index->cache_dir);
-	i_free(index->ext_hdr_init_data);
-	i_free(index->gid_origin);
+	i_free(index->set.cache_dir);
+	i_free(index->set.ext_hdr_init_data);
+	i_free(index->set.gid_origin);
 	i_free(index->error);
 	i_free(index->dir);
 	i_free(index->prefix);
@@ -122,16 +122,16 @@ void mail_index_free(struct mail_index **_index)
 
 void mail_index_set_cache_dir(struct mail_index *index, const char *dir)
 {
-	i_free(index->cache_dir);
-	index->cache_dir = i_strdup(dir);
+	i_free(index->set.cache_dir);
+	index->set.cache_dir = i_strdup(dir);
 }
 
 void mail_index_set_fsync_mode(struct mail_index *index,
 			       enum fsync_mode mode,
 			       enum mail_index_fsync_mask mask)
 {
-	index->fsync_mode = mode;
-	index->fsync_mask = mask;
+	index->set.fsync_mode = mode;
+	index->set.fsync_mask = mask;
 }
 
 bool mail_index_use_existing_permissions(struct mail_index *index)
@@ -147,43 +147,43 @@ bool mail_index_use_existing_permissions(struct mail_index *index)
 		return FALSE;
 	}
 
-	index->mode = st.st_mode & 0666;
+	index->set.mode = st.st_mode & 0666;
 	if (S_ISDIR(st.st_mode) && (st.st_mode & S_ISGID) != 0) {
 		/* directory's GID is used automatically for new files */
-		index->gid = (gid_t)-1;
+		index->set.gid = (gid_t)-1;
 	} else if ((st.st_mode & 0070) >> 3 == (st.st_mode & 0007)) {
 		/* group has same permissions as world, so don't bother
 		   changing it */
-		index->gid = (gid_t)-1;
+		index->set.gid = (gid_t)-1;
 	} else if (getegid() == st.st_gid) {
 		/* using our own gid, no need to change it */
-		index->gid = (gid_t)-1;
+		index->set.gid = (gid_t)-1;
 	} else {
-		index->gid = st.st_gid;
+		index->set.gid = st.st_gid;
 	}
 
-	i_free(index->gid_origin);
-	if (index->gid != (gid_t)-1)
-		index->gid_origin = i_strdup("preserved existing GID");
+	i_free(index->set.gid_origin);
+	if (index->set.gid != (gid_t)-1)
+		index->set.gid_origin = i_strdup("preserved existing GID");
 	return TRUE;
 }
 
 void mail_index_set_permissions(struct mail_index *index,
 				mode_t mode, gid_t gid, const char *gid_origin)
 {
-	index->mode = mode & 0666;
-	index->gid = gid;
+	index->set.mode = mode & 0666;
+	index->set.gid = gid;
 
-	i_free(index->gid_origin);
-	index->gid_origin = i_strdup(gid_origin);
+	i_free(index->set.gid_origin);
+	index->set.gid_origin = i_strdup(gid_origin);
 }
 
 void mail_index_set_lock_method(struct mail_index *index,
 				enum file_lock_method lock_method,
 				unsigned int max_timeout_secs)
 {
-	index->lock_method = lock_method;
-	index->max_lock_timeout_secs = max_timeout_secs;
+	index->set.lock_method = lock_method;
+	index->set.max_lock_timeout_secs = max_timeout_secs;
 }
 
 void mail_index_set_optimization_settings(struct mail_index *index,
@@ -234,16 +234,16 @@ void mail_index_set_ext_init_data(struct mail_index *index, uint32_t ext_id,
 {
 	const struct mail_index_registered_ext *rext;
 
-	i_assert(index->ext_hdr_init_data == NULL ||
-		 index->ext_hdr_init_id == ext_id);
+	i_assert(index->set.ext_hdr_init_data == NULL ||
+		 index->set.ext_hdr_init_id == ext_id);
 
 	rext = array_idx(&index->extensions, ext_id);
 	i_assert(rext->hdr_size == size);
 
-	index->ext_hdr_init_id = ext_id;
-	i_free(index->ext_hdr_init_data);
-	index->ext_hdr_init_data = i_malloc(size);
-	memcpy(index->ext_hdr_init_data, data, size);
+	index->set.ext_hdr_init_id = ext_id;
+	i_free(index->set.ext_hdr_init_data);
+	index->set.ext_hdr_init_data = i_malloc(size);
+	memcpy(index->set.ext_hdr_init_data, data, size);
 }
 
 uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
@@ -555,7 +555,7 @@ int mail_index_create_tmp_file(struct mail_index *index,
 
 	path = *path_r = t_strconcat(path_prefix, ".tmp", NULL);
 	old_mask = umask(0);
-	fd = open(path, O_RDWR|O_CREAT|O_EXCL, index->mode);
+	fd = open(path, O_RDWR|O_CREAT|O_EXCL, index->set.mode);
 	umask(old_mask);
 	if (fd == -1 && errno == EEXIST) {
 		/* stale temp file. unlink and recreate rather than overwriting,
@@ -563,7 +563,7 @@ int mail_index_create_tmp_file(struct mail_index *index,
 		if (i_unlink(path) < 0)
 			return -1;
 		old_mask = umask(0);
-		fd = open(path, O_RDWR|O_CREAT|O_EXCL, index->mode);
+		fd = open(path, O_RDWR|O_CREAT|O_EXCL, index->set.mode);
 		umask(old_mask);
 	}
 	if (fd == -1) {
@@ -579,8 +579,8 @@ static const char *mail_index_get_cache_path(struct mail_index *index)
 {
 	const char *dir;
 
-	if (index->cache_dir != NULL)
-		dir = index->cache_dir;
+	if (index->set.cache_dir != NULL)
+		dir = index->set.cache_dir;
 	else if (index->dir != NULL)
 		dir = index->dir;
 	else
@@ -698,7 +698,7 @@ int mail_index_open(struct mail_index *index, enum mail_index_open_flags flags)
 		event_unset_forced_debug(index->event);
 
 	if ((flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0 &&
-	    index->fsync_mode != FSYNC_MODE_ALWAYS)
+	    index->set.fsync_mode != FSYNC_MODE_ALWAYS)
 		i_fatal("nfs flush requires mail_fsync=always");
 	if ((flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0 &&
 	    (flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) == 0)
@@ -1013,13 +1013,13 @@ void mail_index_fchown(struct mail_index *index, int fd, const char *path)
 {
 	mode_t mode;
 
-	if (index->gid == (gid_t)-1) {
+	if (index->set.gid == (gid_t)-1) {
 		/* no gid changing */
 		return;
-	} else if (fchown(fd, (uid_t)-1, index->gid) == 0) {
+	} else if (fchown(fd, (uid_t)-1, index->set.gid) == 0) {
 		/* success */
 		return;
-	} if ((index->mode & 0060) >> 3 == (index->mode & 0006)) {
+	} if ((index->set.mode & 0060) >> 3 == (index->set.mode & 0006)) {
 		/* group and world permissions are the same, so group doesn't
 		   really matter. ignore silently. */
 		return;
@@ -1028,15 +1028,15 @@ void mail_index_fchown(struct mail_index *index, int fd, const char *path)
 		mail_index_file_set_syscall_error(index, path, "fchown()");
 	else {
 		mail_index_set_error(index, "%s",
-			eperm_error_get_chgrp("fchown", path, index->gid,
-					      index->gid_origin));
+			eperm_error_get_chgrp("fchown", path, index->set.gid,
+					      index->set.gid_origin));
 	}
 
 	/* continue, but change permissions so that only the common
 	   subset of group and world is used. this makes sure no one
 	   gets any extra permissions. */
-	mode = ((index->mode & 0060) >> 3) & (index->mode & 0006);
-	mode |= (mode << 3) | (index->mode & 0600);
+	mode = ((index->set.mode & 0060) >> 3) & (index->set.mode & 0006);
+	mode |= (mode << 3) | (index->set.mode & 0600);
 	if (fchmod(fd, mode) < 0)
 		mail_index_file_set_syscall_error(index, path, "fchmod()");
 }

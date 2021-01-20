@@ -583,7 +583,7 @@ mail_cache_open_or_create_path(struct mail_index *index, const char *path)
 	cache->dotlock_settings.nfs_flush =
 		(index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
 	cache->dotlock_settings.timeout =
-		I_MIN(MAIL_CACHE_LOCK_TIMEOUT, index->max_lock_timeout_secs);
+		I_MIN(MAIL_CACHE_LOCK_TIMEOUT, index->set.max_lock_timeout_secs);
 	cache->dotlock_settings.stale_timeout = MAIL_CACHE_LOCK_CHANGE_TIMEOUT;
 
 	if (!MAIL_INDEX_IS_IN_MEMORY(index) &&
@@ -646,9 +646,9 @@ static int mail_cache_lock_file(struct mail_cache *cache)
 	}
 
 	i_assert(cache->file_lock == NULL);
-	if (cache->index->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
+	if (cache->index->set.lock_method != FILE_LOCK_METHOD_DOTLOCK) {
 		timeout_secs = I_MIN(MAIL_CACHE_LOCK_TIMEOUT,
-				     cache->index->max_lock_timeout_secs);
+				     cache->index->set.max_lock_timeout_secs);
 
 		ret = mail_index_lock_fd(cache->index, cache->filepath,
 					 cache->fd, F_WRLCK,
@@ -890,7 +890,7 @@ void mail_cache_unlock(struct mail_cache *cache)
 	if (MAIL_CACHE_IS_UNUSABLE(cache)) {
 		/* we found it to be broken during the lock. just clean up. */
 		cache->hdr_modified = FALSE;
-	} else if (cache->index->fsync_mode == FSYNC_MODE_ALWAYS) {
+	} else if (cache->index->set.fsync_mode == FSYNC_MODE_ALWAYS) {
 		if (fdatasync(cache->fd) < 0)
 			mail_cache_set_syscall_error(cache, "fdatasync()");
 	}

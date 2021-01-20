@@ -711,7 +711,7 @@ mail_cache_header_fields_write(struct mail_cache *cache, const buffer_t *buffer)
 	if (mail_cache_append(cache, buffer->data, buffer->used, &offset) < 0)
 		return -1;
 
-	if (cache->index->fsync_mode == FSYNC_MODE_ALWAYS) {
+	if (cache->index->set.fsync_mode == FSYNC_MODE_ALWAYS) {
 		if (fdatasync(cache->fd) < 0) {
 			mail_cache_set_syscall_error(cache, "fdatasync()");
 			return -1;

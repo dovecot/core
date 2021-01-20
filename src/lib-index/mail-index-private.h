@@ -148,9 +148,32 @@ union mail_index_module_context {
 	struct mail_index_module_register *reg;
 };
 
+struct mail_index_settings {
+	/* Directory path for .cache file. Set via
+	   mail_index_set_cache_dir(). */
+	char *cache_dir;
+
+	/* fsyncing behavior. Set via mail_index_set_fsync_mode(). */
+	enum fsync_mode fsync_mode;
+	enum mail_index_fsync_mask fsync_mask;
+
+	/* Index file permissions. Set via mail_index_set_permissions(). */
+	mode_t mode;
+	gid_t gid;
+	char *gid_origin;
+
+	/* Lock settings. Set via mail_index_set_lock_method(). */
+	enum file_lock_method lock_method;
+	unsigned int max_lock_timeout_secs;
+
+	/* Initial extension added to newly created indexes. Set via
+	   mail_index_set_ext_init_data(). */
+	uint32_t ext_hdr_init_id;
+	void *ext_hdr_init_data;
+};
+
 struct mail_index {
 	char *dir, *prefix;
-	char *cache_dir;
 	struct event *event;
 
 	struct mail_cache *cache;
@@ -158,20 +181,13 @@ struct mail_index {
 
 	unsigned int open_count;
 	enum mail_index_open_flags flags;
-	enum fsync_mode fsync_mode;
-	enum mail_index_fsync_mask fsync_mask;
-	mode_t mode;
-	gid_t gid;
-	char *gid_origin;
 
+	struct mail_index_settings set;
 	struct mail_index_optimization_settings optimization_set;
 	uint32_t pending_log2_rotate_time;
 
 	pool_t extension_pool;
 	ARRAY(struct mail_index_registered_ext) extensions;
-
-	uint32_t ext_hdr_init_id;
-	void *ext_hdr_init_data;
 
 	ARRAY(mail_index_sync_lost_handler_t *) sync_lost_handlers;
 
@@ -203,9 +219,6 @@ struct mail_index {
 
 	/* syncing will update this if non-NULL */
 	struct mail_index_transaction_commit_result *sync_commit_result;
-
-	enum file_lock_method lock_method;
-	unsigned int max_lock_timeout_secs;
 
 	pool_t keywords_pool;
 	ARRAY_TYPE(keywords) keywords;

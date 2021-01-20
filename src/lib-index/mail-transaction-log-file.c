@@ -371,7 +371,7 @@ int mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 		return 0;
 	}
 
-	if (file->log->index->lock_method == FILE_LOCK_METHOD_DOTLOCK)
+	if (file->log->index->set.lock_method == FILE_LOCK_METHOD_DOTLOCK)
 		return mail_transaction_log_file_dotlock(file);
 
 	if (file->log->index->readonly) {
@@ -383,7 +383,7 @@ int mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 
 	i_assert(file->file_lock == NULL);
 	lock_timeout_secs = I_MIN(MAIL_TRANSACTION_LOG_LOCK_TIMEOUT,
-				  file->log->index->max_lock_timeout_secs);
+				  file->log->index->set.max_lock_timeout_secs);
 	ret = mail_index_lock_fd(file->log->index, file->filepath, file->fd,
 				 F_WRLCK, lock_timeout_secs,
 				 &file->file_lock);
@@ -401,7 +401,7 @@ int mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 		"Timeout (%us) while waiting for lock for "
 		"transaction log file %s%s",
 		lock_timeout_secs, file->filepath,
-		file_lock_find(file->fd, file->log->index->lock_method, F_WRLCK));
+		file_lock_find(file->fd, file->log->index->set.lock_method, F_WRLCK));
 	file->log->index->index_lock_timeout = TRUE;
 	return -1;
 }
@@ -426,7 +426,7 @@ void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file,
 			  file->filepath, lock_time, lock_reason);
 	}
 
-	if (file->log->index->lock_method == FILE_LOCK_METHOD_DOTLOCK) {
+	if (file->log->index->set.lock_method == FILE_LOCK_METHOD_DOTLOCK) {
 		(void)mail_transaction_log_file_undotlock(file);
 		return;
 	}
@@ -645,7 +645,7 @@ static void log_write_ext_hdr_init_data(struct mail_index *index, buffer_t *buf)
 	struct mail_transaction_ext_hdr_update *ext_hdr;
 	unsigned int hdr_offset;
 
-	rext = array_idx(&index->extensions, index->ext_hdr_init_id);
+	rext = array_idx(&index->extensions, index->set.ext_hdr_init_id);
 
 	/* introduce the extension */
 	hdr_offset = buf->used;
@@ -672,7 +672,7 @@ static void log_write_ext_hdr_init_data(struct mail_index *index, buffer_t *buf)
 
 	ext_hdr = buffer_append_space_unsafe(buf, sizeof(*ext_hdr));
 	ext_hdr->size = rext->hdr_size;
-	buffer_append(buf, index->ext_hdr_init_data, rext->hdr_size);
+	buffer_append(buf, index->set.ext_hdr_init_data, rext->hdr_size);
 
 	hdr = buffer_get_space_unsafe(buf, hdr_offset, sizeof(*hdr));
 	hdr->size = mail_index_uint32_to_offset(buf->used - hdr_offset);
@@ -771,14 +771,14 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 	writebuf = t_buffer_create(128);
 	buffer_append(writebuf, &file->hdr, sizeof(file->hdr));
 
-	if (index->ext_hdr_init_data != NULL && reset)
+	if (index->set.ext_hdr_init_data != NULL && reset)
 		log_write_ext_hdr_init_data(index, writebuf);
 	if (write_full(new_fd, writebuf->data, writebuf->used) < 0) {
 		log_file_set_syscall_error(file, "write_full()");
 		return -1;
 	}
 
-	if (file->log->index->fsync_mode == FSYNC_MODE_ALWAYS) {
+	if (file->log->index->set.fsync_mode == FSYNC_MODE_ALWAYS) {
 		/* the header isn't important, so don't bother calling
 		   fdatasync() unless it's required */
 		if (fdatasync(new_fd) < 0) {
@@ -870,7 +870,7 @@ int mail_transaction_log_file_create(struct mail_transaction_log_file *file,
 
 	/* With dotlocking we might already have path.lock created, so this
 	   filename has to be different. */
-	old_mask = umask(index->mode ^ 0666);
+	old_mask = umask(index->set.mode ^ 0666);
 	fd = file_dotlock_open(&new_dotlock_set, file->filepath, 0, &dotlock);
 	umask(old_mask);
 

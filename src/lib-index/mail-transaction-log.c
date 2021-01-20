@@ -320,7 +320,7 @@ int mail_transaction_log_rotate(struct mail_transaction_log *log, bool reset)
 			mail_index_set_error(log->index,
 				"Transaction log %s was recreated while we had it locked - "
 				"locking is broken (lock_method=%s)", path,
-				file_lock_method_to_str(log->index->lock_method));
+				file_lock_method_to_str(log->index->set.lock_method));
 			mail_transaction_log_file_free(&file);
 			return -1;
 		}
@@ -654,7 +654,7 @@ void mail_transaction_log_get_dotlock_set(struct mail_transaction_log *log,
 
 	i_zero(set_r);
 	set_r->timeout = I_MIN(MAIL_TRANSACTION_LOG_LOCK_TIMEOUT,
-			       index->max_lock_timeout_secs);
+			       index->set.max_lock_timeout_secs);
 	set_r->stale_timeout = MAIL_TRANSACTION_LOG_LOCK_CHANGE_TIMEOUT;
 	set_r->nfs_flush = (index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
 	set_r->use_excl_lock =

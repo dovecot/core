@@ -527,7 +527,7 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 	append_ctx->index_sync_transaction = t->sync_transaction;
 	append_ctx->tail_offset_changed = t->tail_offset_changed;
 	append_ctx->want_fsync =
-		(t->view->index->fsync_mask & change_mask) != 0 ||
+		(t->view->index->set.fsync_mask & change_mask) != 0 ||
 		(t->flags & MAIL_INDEX_TRANSACTION_FLAG_FSYNC) != 0;
 }
 

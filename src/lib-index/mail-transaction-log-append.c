@@ -89,8 +89,8 @@ static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
 		 file->max_tail_offset);
 
 	if ((ctx->want_fsync &&
-	     file->log->index->fsync_mode != FSYNC_MODE_NEVER) ||
-	    file->log->index->fsync_mode == FSYNC_MODE_ALWAYS) {
+	     file->log->index->set.fsync_mode != FSYNC_MODE_NEVER) ||
+	    file->log->index->set.fsync_mode == FSYNC_MODE_ALWAYS) {
 		if (fdatasync(file->fd) < 0) {
 			mail_index_file_set_syscall_error(ctx->log->index,
 							  file->filepath,
