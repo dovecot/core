@@ -795,15 +795,55 @@ config_require_key(struct config_parser_context *ctx, const char *key)
 	return FALSE;
 }
 
+static int config_write_keyvariable(struct config_parser_context *ctx,
+				    const char *key, const char *value,
+				    string_t *str)
+{
+	const void *var_name, *var_value, *p;
+	enum setting_type var_type;
+	bool dump, expand_parent;
+
+	/* expand_parent=TRUE for "key = $key stuff".
+	   we'll always expand it so that doveconf -n can give
+	   usable output */
+	p = strchr(value, ' ');
+	if (p == NULL)
+		var_name = value;
+	else
+		var_name = t_strdup_until(value, p);
+	expand_parent = strcmp(key, var_name) == 0;
+
+	if (!ctx->expand_values && !expand_parent) {
+		str_append_c(str, '$');
+		str_append(str, value);
+	} else {
+		var_value = config_get_value(ctx->cur_section, var_name,
+					     expand_parent, &var_type);
+		if (var_value == NULL) {
+			ctx->error = p_strconcat(ctx->pool,
+						 "Unknown variable: $",
+						 var_name, NULL);
+			return -1;
+		}
+		if (!config_export_type(str, var_value, NULL,
+					var_type, TRUE, &dump)) {
+			ctx->error = p_strconcat(ctx->pool,
+						 "Invalid variable: $",
+						 var_name, NULL);
+			return -1;
+		}
+		if (p != NULL)
+			str_append(str, p);
+	}
+	return 0;
+}
+
 static int config_write_value(struct config_parser_context *ctx,
 			      enum config_line_type type,
 			      const char *key, const char *value)
 {
 	string_t *str = ctx->str;
-	const void *var_name, *var_value, *p;
-	enum setting_type var_type;
 	const char *error, *path, *full_key;
-	bool dump, expand_parent;
 
 	switch (type) {
 	case CONFIG_LINE_TYPE_KEYVALUE:
@@ -828,38 +868,8 @@ static int config_write_value(struct config_parser_context *ctx,
 		}
 		break;
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
-		/* expand_parent=TRUE for "key = $key stuff".
-		   we'll always expand it so that doveconf -n can give
-		   usable output */
-		p = strchr(value, ' ');
-		if (p == NULL)
-			var_name = value;
-		else
-			var_name = t_strdup_until(value, p);
-		expand_parent = strcmp(key, var_name) == 0;
-
-		if (!ctx->expand_values && !expand_parent) {
-			str_append_c(str, '$');
-			str_append(str, value);
-		} else {
-			var_value = config_get_value(ctx->cur_section, var_name,
-						     expand_parent, &var_type);
-			if (var_value == NULL) {
-				ctx->error = p_strconcat(ctx->pool,
-							 "Unknown variable: $",
-							 var_name, NULL);
-				return -1;
-			}
-			if (!config_export_type(str, var_value, NULL,
-						var_type, TRUE, &dump)) {
-				ctx->error = p_strconcat(ctx->pool,
-							 "Invalid variable: $",
-							 var_name, NULL);
-				return -1;
-			}
-			if (p != NULL)
-				str_append(str, p);
-		}
+		if (config_write_keyvariable(ctx, key, value, str) < 0)
+			return -1;
 		break;
 	default:
 		i_unreached();
