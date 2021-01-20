@@ -101,21 +101,7 @@ struct mail_index *mail_index_view_get_index(struct mail_index_view *view)
 
 bool mail_index_view_have_transactions(struct mail_index_view *view)
 {
-	i_assert(view->transactions >= 0);
-
-	return view->transactions > 0;
-}
-
-void mail_index_view_transaction_ref(struct mail_index_view *view)
-{
-	view->transactions++;
-}
-
-void mail_index_view_transaction_unref(struct mail_index_view *view)
-{
-	i_assert(view->transactions > 0);
-
-	view->transactions--;
+	return view->transactions_list != NULL;
 }
 
 static void mail_index_view_ref_map(struct mail_index_view *view,
@@ -427,7 +413,7 @@ void mail_index_view_close(struct mail_index_view **_view)
 	if (--view->refcount > 0)
 		return;
 
-	i_assert(view->transactions == 0);
+	i_assert(view->transactions_list == NULL);
 
 	view->v.close(view);
 }

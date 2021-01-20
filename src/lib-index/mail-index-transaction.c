@@ -80,7 +80,6 @@ void mail_index_transaction_unref(struct mail_index_transaction **_t)
 
 	DLLIST_REMOVE(&t->view->transactions_list, t);
 	array_free(&t->module_contexts);
-	mail_index_view_transaction_unref(t->view);
 	if (t->latest_view != NULL)
 		mail_index_view_close(&t->latest_view);
 	mail_index_view_close(&t->view);
@@ -333,7 +332,6 @@ mail_index_transaction_begin(struct mail_index_view *view,
 	struct mail_index_transaction *t;
 
 	/* don't allow syncing view while there's ongoing transactions */
-	mail_index_view_transaction_ref(view);
  	mail_index_view_ref(view);
 
 	t = i_new(struct mail_index_transaction, 1);

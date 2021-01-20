@@ -553,7 +553,7 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 	int ret;
 
 	i_assert(!view->syncing);
-	i_assert(view->transactions == 0);
+	i_assert(view->transactions_list == NULL);
 
 	view->syncing = TRUE;
 

@@ -74,7 +74,6 @@ struct mail_index_view {
 	ARRAY(union mail_index_view_module_context *) module_contexts;
 
 	struct mail_index_transaction *transactions_list;
-	int transactions;
 
 	bool inconsistent:1;
 	/* this view was created by mail_index_sync_begin() */
