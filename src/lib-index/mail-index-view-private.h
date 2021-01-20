@@ -51,10 +51,15 @@ struct mail_index_view {
 	struct mail_index *index;
         struct mail_transaction_log_view *log_view;
 
+	/* Source location where the mail_index_view_open() call was done.
+	   This helps debugging especially if a view is leaked. */
 	const char *source_filename;
 	unsigned int source_linenum;
 
+	/* Set the view inconsistent if this doesn't match mail_index.indexid */
 	uint32_t indexid;
+	/* Set the view inconsistent if this doesn't match
+	   mail_index.inconsistency_id. */
 	unsigned int inconsistency_id;
 	uint64_t highest_modseq;
 
@@ -63,18 +68,25 @@ struct mail_index_view {
 	   valid until view is synchronized. */
 	ARRAY(struct mail_index_map *) map_refs;
 
-	/* expunge <= head */
+	/* expunge <= head. The expunge seq/offset points to the log file
+	   how far expunges have been synced. The head seq/offset points to
+	   how far non-expunges have been synced. They're usually the same,
+	   unless MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES has been used. */
 	uint32_t log_file_expunge_seq, log_file_head_seq;
 	uoff_t log_file_expunge_offset, log_file_head_offset;
 
-	/* Transaction log offsets which we don't want to return in view sync */
+	/* Transaction log areas which are returned as
+	   mail_index_view_sync_rec.hidden=TRUE. Used to implement
+	   MAIL_INDEX_TRANSACTION_FLAG_HIDE. */
 	ARRAY_TYPE(view_log_sync_area) syncs_hidden;
 
 	/* Module-specific contexts. */
 	ARRAY(union mail_index_view_module_context *) module_contexts;
 
+	/* Linked list of all transactions opened for the view. */
 	struct mail_index_transaction *transactions_list;
 
+	/* View is currently inconsistent. It can't be synced. */
 	bool inconsistent:1;
 	/* this view is being synced */
 	bool syncing:1;
