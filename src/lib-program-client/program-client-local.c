@@ -121,10 +121,8 @@ exec_child(const char *bin_path, const char *const *args,
 
 	env_clean();
 	if (array_is_created(envs)) {
-		const char *env;
-
-		array_foreach_elem(envs, env)
-			env_put(env);
+		array_append_zero(envs);
+		env_put_array(array_front(envs));
 	}
 
 	/* Execute */

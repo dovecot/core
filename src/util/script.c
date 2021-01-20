@@ -62,10 +62,8 @@ exec_child(struct master_service_connection *conn,
 	array_append_zero(&exec_args);
 
 	env_clean();
-	if (envs != NULL) {
-		for(; *envs != NULL; envs++)
-			env_put(*envs);
-        }
+	if (envs != NULL)
+		env_put_array(envs);
 
 	args = array_front(&exec_args);
 	execvp_const(args[0], args);
