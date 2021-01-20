@@ -177,31 +177,38 @@ struct mail_index_error {
 };
 
 struct mail_index {
-	char *dir, *prefix;
+	/* Directory path for the index, or NULL for in-memory indexes. */
+	char *dir;
+	/* Filename prefix for the index, e.g. "dovecot.index." */
+	char *prefix;
 	struct event *event;
+	enum mail_index_open_flags flags;
+	struct mail_index_settings set;
+	struct mail_index_optimization_settings optimization_set;
 
 	struct mail_cache *cache;
 	struct mail_transaction_log *log;
 
-	unsigned int open_count;
-	enum mail_index_open_flags flags;
-
-	struct mail_index_settings set;
-	struct mail_index_optimization_settings optimization_set;
-
-	pool_t extension_pool;
-	ARRAY(struct mail_index_registered_ext) extensions;
-
 	char *filepath;
 	int fd;
-
+	/* Linked list of currently opened views */
+	struct mail_index_view *views;
+	/* Latest map */
 	struct mail_index_map *map;
-	char *need_recreate;
 
-	time_t last_mmap_error_time;
-
+	/* ID number that permanently identifies the index. This is stored in
+	   the index files' headers. If the indexids suddenly changes, it means
+	   that the index has been completely recreated and needs to be
+	   reopened (e.g. the mailbox was deleted and recreated while it
+	   was open). */
 	uint32_t indexid;
+	/* Views initially use this same ID value. This ID is incremented
+	   whenever something unexpected happens to the index that prevents
+	   syncing existing views. When the view's inconsistency_id doesn't
+	   match this one, the view is marked as inconsistent. */
 	unsigned int inconsistency_id;
+	/* How many times this index has been opened with mail_index_open(). */
+	unsigned int open_count;
 
 	/* These contain the log_file_seq and log_file_tail_offset that exists
 	   in dovecot.index file's header. These are used to figure out if it's
@@ -224,14 +231,19 @@ struct mail_index {
 	   and unset within the same sync. */
 	uint32_t hdr_log2_rotate_time_delayed_update;
 
+	/* Registered extensions */
+	pool_t extension_pool;
+	ARRAY(struct mail_index_registered_ext) extensions;
+
+	/* All keywords that have ever been used in this index. Keywords are
+	   only added here, never removed. */
 	pool_t keywords_pool;
 	ARRAY_TYPE(keywords) keywords;
 	HASH_TABLE(char *, void *) keywords_hash; /* name -> unsigned int idx */
 
+	/* Registered extension IDs */
 	uint32_t keywords_ext_id;
 	uint32_t modseq_ext_id;
-
-	struct mail_index_view *views;
 
 	/* Module-specific contexts. */
 	ARRAY(union mail_index_module_context *) module_contexts;
@@ -239,18 +251,50 @@ struct mail_index {
 	/* Last error returned by mail_index_get_error_message().
 	   Cleared by mail_index_reset_error(). */
 	struct mail_index_error last_error;
+	/* Timestamp when mmap() failure was logged the last time. This is used
+	   to prevent logging the same error too rapidly. This could happen
+	   e.g. if mmap()ing a large cache file that exceeeds process's
+	   VSZ limit. */
+	time_t last_mmap_error_time;
+	/* If non-NULL, dovecot.index should be recreated as soon as possible.
+	   The reason for why the recreation is wanted is stored as human-
+	   readable text. */
+	char *need_recreate;
 
-	bool index_delete_requested:1; /* next sync sets it deleted */
-	bool index_deleted:1; /* no changes allowed anymore */
+	/* Mapping has noticed non-external MAIL_TRANSACTION_INDEX_DELETED
+	   record, i.e. a request to mark the index deleted. The next sync
+	   will finish the deletion by writing external
+	   MAIL_TRANSACTION_INDEX_DELETED record. */
+	bool index_delete_requested:1;
+	/* Mapping has noticed external MAIL_TRANSACTION_INDEX_DELETED record,
+	   or index was unexpectedly deleted under us. No more changes are
+	   allowed to the index, except undeletion. */
+	bool index_deleted:1;
+	/* .log is locked for syncing. This is the main exclusive lock for
+	   indexes. */
 	bool log_sync_locked:1;
+	/* Main index or .log couldn't be opened read-write */
 	bool readonly:1;
+	/* mail_index_map() is running */
 	bool mapping:1;
+	/* mail_index_sync_*() is running */
 	bool syncing:1;
+	/* Mapping has read more from .log than it preferred. Use
+	   mail_index_base_optimization_settings.rewrite_min_log_bytes the next
+	   time when checking if index needs a rewrite. */
 	bool index_min_write:1;
+	/* mail_index_modseq_enable() has been called. Track per-flag
+	   modseq numbers in memory (global modseqs are tracked anyway). */
 	bool modseqs_enabled:1;
+	/* mail_index_open() is creating new index files */
 	bool initial_create:1;
+	/* TRUE after mail_index_map() has succeeded */
 	bool initial_mapped:1;
+	/* The next mail_index_map() must reopen the main index, because the
+	   currently opened one is too old. */
 	bool reopen_main_index:1;
+	/* Index has been fsck'd, but mail_index_reset_fscked() hasn't been
+	   called yet. */
 	bool fscked:1;
 };
 
