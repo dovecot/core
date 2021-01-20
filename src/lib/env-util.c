@@ -35,29 +35,8 @@ void env_put_array(const char *const *envs)
 
 void env_remove(const char *name)
 {
-#ifdef HAVE_UNSETENV
-#ifdef UNSETENV_RET_INT
 	if (unsetenv(name) < 0)
 		i_fatal("unsetenv(%s) failed: %m", name);
-#else
-	unsetenv(name);
-#endif
-#else
-	extern char **environ;
-	size_t len;
-	char **envp;
-
-	len = strlen(name);
-	for (envp = environ; *envp != NULL; envp++) {
-		if (strncmp(name, *envp, len) == 0 &&
-		    (*envp)[len] == '=') {
-			do {
-				envp[0] = envp[1];
-			} while (*++envp != NULL);
-			break;
-		}
-	}
-#endif
 }
 
 void env_clean(void)
