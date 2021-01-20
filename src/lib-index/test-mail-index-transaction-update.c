@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "env-util.h"
 #include "test-common.h"
 #include "mail-index-private.h"
 #include "mail-index-transaction-private.h"
@@ -676,7 +677,7 @@ int main(void)
 		NULL
 	};
 	/* daylight saving time confuses things */
-	putenv("TZ=UTC");
+	env_put("TZ", "UTC");
 	tzset();
 	return test_run(test_functions);
 }
