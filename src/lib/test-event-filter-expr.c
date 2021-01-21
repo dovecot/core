@@ -52,6 +52,7 @@ static void do_test_expr(const char *filter_string, struct event *event,
 
 	check_expr(event, filter, log_type, expected);
 
+	event_filter_unref(&filter);
 	test_end();
 }
 
