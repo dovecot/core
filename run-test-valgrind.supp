@@ -5,17 +5,6 @@
    obj:*/bash
 }
 {
-   <liblzma>
-   Memcheck:Cond
-   obj:/lib/x86_64-linux-gnu/liblzma.so.5.*
-   obj:/lib/x86_64-linux-gnu/liblzma.so.5.*
-   obj:/lib/x86_64-linux-gnu/liblzma.so.5.*
-   obj:/lib/x86_64-linux-gnu/liblzma.so.5.*
-   obj:/lib/x86_64-linux-gnu/liblzma.so.5.*
-   fun:lzma_stream_encoder
-   fun:lzma_easy_encoder
-}
-{
    <openssl_centos6_i386_v1_0_1_compression_methods>
    Memcheck:Leak
    fun:malloc

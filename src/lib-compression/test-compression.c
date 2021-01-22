@@ -730,6 +730,7 @@ static void test_compression_int(bool autodetect)
 
 	for (i = 0; compression_handlers[i].name != NULL; i++) {
 		if (compression_handlers[i].create_istream != NULL &&
+		    compression_handlers[i].create_ostream != NULL &&
 		    (!autodetect ||
 		     compression_handlers[i].is_compressed != NULL)) T_BEGIN {
 			if (compression_handlers[i].is_compressed != NULL &&
