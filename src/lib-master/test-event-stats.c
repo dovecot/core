@@ -321,7 +321,7 @@ static void test_no_merging1(void)
 	test_assert(
 		compare_test_stats_to(
 			"EVENT	0	1	0	0"
-			"	stest-event-stats.c	%d"
+			"	s"__FILE__"	%d"
 			"	l0	0	ctest1	Skey1	str1\n", l));
 	test_end();
 }
@@ -345,7 +345,7 @@ static void test_no_merging2(void)
 	test_assert(
 		compare_test_stats_to(
 			"EVENT	%"PRIu64"	1	0	0"
-			"	stest-event-stats.c	%d"
+			"	s"__FILE__"	%d"
 			"	l0	0	ctest2\n"
 			"END	9\n", id, l));
 	test_end();
@@ -372,9 +372,9 @@ static void test_no_merging3(void)
 	test_assert(
 		compare_test_stats_to(
 			"BEGIN	%"PRIu64"	0	1	0	0"
-			"	stest-event-stats.c	%d	ctest1\n"
+			"	s"__FILE__"	%d	ctest1\n"
 			"EVENT	%"PRIu64"	1	1	0"
-			"	stest-event-stats.c	%d"
+			"	s"__FILE__"	%d"
 			"	l1	0	ctest2\n"
 			"END\t%"PRIu64"\n", idp, lp, idp, l, idp));
 	test_end();
@@ -402,7 +402,7 @@ static void test_merge_events1(void)
 	test_assert(
 		compare_test_stats_to(
 			"EVENT	0	1	0	0"
-			"	stest-event-stats.c	%d	l0	0"
+			"	s"__FILE__"	%d	l0	0"
 			"	ctest3	ctest2	ctest1	Tkey3"
 			"	10	0	Ikey2	20"
 			"	Skey1	str1\n", l));
@@ -437,7 +437,7 @@ static void test_merge_events2(void)
 	test_assert(
 		compare_test_stats_to(
 			"EVENT	%"PRIu64"	1	0	0"
-			"	stest-event-stats.c	%d	l0	0"
+			"	s"__FILE__"	%d	l0	0"
 			"	ctest3	ctest2	ctest1	Tkey3"
 			"	10	0	Ikey2	20"
 			"	Skey1	str1\n"
@@ -470,9 +470,9 @@ static void test_skip_parents(void)
 	test_assert(
 		compare_test_stats_to(
 			"BEGIN	%"PRIu64"	0	1	0	0"
-			"	stest-event-stats.c	%d	ctest1\n"
+			"	s"__FILE__"	%d	ctest1\n"
 			"EVENT	%"PRIu64"	1	3	0	"
-			"stest-event-stats.c	%d	l3	0"
+			"s"__FILE__"	%d	l3	0"
 			"	ctest2\nEND\t%"PRIu64"\n", id, lp, id, l, id));
 	test_end();
 }
@@ -512,9 +512,9 @@ static void test_merge_events_skip_parents(void)
 	test_assert(
 		compare_test_stats_to(
 			"BEGIN	%"PRIu64"	0	1	0	0"
-			"	stest-event-stats.c	%d	ctest1\n"
+			"	s"__FILE__"	%d	ctest1\n"
 			"EVENT	%"PRIu64"	1	3	0	"
-			"stest-event-stats.c	%d	l3	0	"
+			"s"__FILE__"	%d	l3	0	"
 			"ctest4	ctest5	Tkey3	10	0	Skey4"
 			"	str4\nEND\t%"PRIu64"\n", id, lp, id, l, id));
 	test_end();
@@ -583,20 +583,20 @@ static void test_parent_update_post_send(void)
 		compare_test_stats_to(
 			/* first e_info() */
 			"BEGIN	%"PRIu64"	0	1	0	0"
-			"	stest-event-stats.c	%d	ctest1"
+			"	s"__FILE__"	%d	ctest1"
 			"	Ia	1\n"
 			"EVENT	%"PRIu64"	1	1	0"
-			"	stest-event-stats.c	%d"
+			"	s"__FILE__"	%d"
 			"	l1	0	ctest2" "	Ib	2\n"
 			/* second e_info() */
 			"UPDATE	%"PRIu64"	0	0	0"
-			"	stest-event-stats.c	%d	ctest1"
+			"	s"__FILE__"	%d	ctest1"
 			"	Ia	1000\n"
 			"BEGIN	%"PRIu64"	%"PRIu64"	1	0	0"
-			"	stest-event-stats.c	%d"
+			"	s"__FILE__"	%d"
 			"	l0	0	ctest2	Ib	2\n"
 			"EVENT	%"PRIu64"	1	1	0"
-			"	stest-event-stats.c	%d"
+			"	s"__FILE__"	%d"
 			"	l1	0	ctest3"
 			"	Ic	3\n"
 			"END\t%"PRIu64"\n"
@@ -638,19 +638,19 @@ static void test_large_event_id(void)
 		compare_test_stats_to(
 			/* first e_info() */
 			"EVENT	%"PRIu64"	1	1	0"
-			"	stest-event-stats.c	%d"
+			"	s"__FILE__"	%d"
 			"	l1	0	ctest1\n"
 			"BEGIN	%"PRIu64"	0	1	0	0"
-			"	stest-event-stats.c	%d"
+			"	s"__FILE__"	%d"
 			"	l0	0	ctest1\n"
 			"EVENT	%"PRIu64"	1	1	0"
-			"	stest-event-stats.c	%d"
+			"	s"__FILE__"	%d"
 			"	l1	0	ctest2\n"
 			"UPDATE	%"PRIu64"	0	1	0"
-			"	stest-event-stats.c	%d"
+			"	s"__FILE__"	%d"
 			"	l1	0	ctest1	Itest1	1\n"
 			"EVENT	%"PRIu64"	1	1	0"
-			"	stest-event-stats.c	%d"
+			"	s"__FILE__"	%d"
 			"	l1	0	ctest2\n",
 			(uint64_t)0, line_log1,
 			a->id, line,
