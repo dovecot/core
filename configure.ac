@@ -172,7 +172,7 @@ AS_HELP_STRING([--with-bzlib], [Build with bzlib compression support (auto)]),
   want_bzlib=auto)
 
 AC_ARG_WITH(lzma,
-AS_HELP_STRING([--with-lzma], [Build with LZMA compression support (auto)]),
+AS_HELP_STRING([--with-lzma], [Build with LZMA decompression support (auto)]),
   TEST_WITH(lzma, $withval),
   want_lzma=auto)
 

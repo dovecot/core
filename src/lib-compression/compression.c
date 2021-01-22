@@ -19,7 +19,6 @@
 #endif
 #ifndef HAVE_LZMA
 #  define i_stream_create_lzma NULL
-#  define o_stream_create_lzma NULL
 #endif
 #ifndef HAVE_LZ4
 #  define i_stream_create_lz4 NULL
@@ -162,7 +161,7 @@ const struct compression_handler compression_handlers[] = {
 	{ "deflate", NULL, NULL,
 	  i_stream_create_deflate, o_stream_create_deflate },
 	{ "xz", ".xz", is_compressed_xz,
-	  i_stream_create_lzma, o_stream_create_lzma },
+	  i_stream_create_lzma, NULL },
 	{ "lz4", ".lz4", is_compressed_lz4,
 	  i_stream_create_lz4, o_stream_create_lz4 },
 	{ "zstd", ".zstd", is_compressed_zstd,
