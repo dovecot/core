@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 #
 # Copyright (c) 2019 Dovecot authors, see the included COPYING file */
 #
@@ -14,10 +14,11 @@
 
 TIMEOUT=10
 
-read -t ${TIMEOUT} -r input
+# prefer read with timeout (bash, busybox sh) or fall back to POSIX read (dash)
+read -t ${TIMEOUT} -r input 2>/dev/null || read -r input
 
 exit_code=$?
-cleaned_input=${input//[^a-zA-Z0-9]/}
+cleaned_input=$(echo $input | sed "s/[^a-zA-Z0-9]//g")
 
 if [ $exit_code -eq 0 ] && [ "$cleaned_input" = "PING" ];then
 	echo "PONG"
