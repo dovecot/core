@@ -7,20 +7,20 @@
 # 	executable = script -p /path/to/health-check.sh
 #
 # This simple example merely answers "PONG\n" if the input is "PING\n". It
-# stops waiting for input after $TIMEOUT which causes the process to die
+# stops waiting for input after $timeout which causes the process to die
 # which causes the script module to close the socket. Inputs and outputs
 # can be written to STDIN and STDOUT, they are duplicated file-descriptors
 # if called from the script service.
 
-TIMEOUT=10
+timeout=10
 
 # prefer read with timeout (bash, busybox sh) or fall back to POSIX read (dash)
-read -t ${TIMEOUT} -r input 2>/dev/null || read -r input
+read -t ${timeout} -r input 2>/dev/null || read -r input
 
 exit_code=$?
-cleaned_input=$(echo $input | sed "s/[^a-zA-Z0-9]//g")
+cleaned_input=$(echo ${input} | sed "s/[^a-zA-Z0-9]//g")
 
-if [ $exit_code -eq 0 ] && [ "$cleaned_input" = "PING" ];then
+if [ ${exit_code} -eq 0 ] && [ "${cleaned_input}" = "PING" ];then
 	echo "PONG"
 fi
 # always exit successful
