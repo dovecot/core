@@ -10,7 +10,7 @@
 [Unit]
 Description=Dovecot IMAP/POP3 email server
 Documentation=man:dovecot(1)
-Documentation=http://wiki2.dovecot.org/
+Documentation=https://wiki2.dovecot.org/
 After=local-fs.target network-online.target
 
 [Service]
