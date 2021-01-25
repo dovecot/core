@@ -306,7 +306,6 @@ int mail_index_map_check_header(struct mail_index_map *map,
 	case 1:
 		/* pre-v1.1.rc6: make sure the \Recent flags are gone */
 		mail_index_map_clear_recent_flags(map);
-		map->hdr.minor_version = MAIL_INDEX_MINOR_VERSION;
 		/* fall through */
 	case 2:
 		/* pre-v2.2 (although should have been done in v2.1 already):
@@ -315,6 +314,11 @@ int mail_index_map_check_header(struct mail_index_map *map,
 		map->hdr.log2_rotate_time = 0;
 		map->hdr.last_temp_file_scan = 0;
 	}
+	/* The old index format is now updated, set minor_version to latest
+	   value. However, if minor_version is larger than what we know of,
+	   keep it as it is to avoid breaking anything. */
+	if (map->hdr.minor_version < MAIL_INDEX_MINOR_VERSION)
+		map->hdr.minor_version = MAIL_INDEX_MINOR_VERSION;
 	if (hdr->first_recent_uid == 0) {
 		*error_r = "first_recent_uid=0";
 		return 0;
