@@ -53,7 +53,7 @@ ext_reset_update_atomic(struct mail_index_transaction *t,
 
 	array_idx_set(&t->ext_reset_ids, ext_id, &reset_id);
 
-	/* reseting existing data is optional */
+	/* resetting existing data is optional */
 	if (array_is_created(&t->ext_resets)) {
 		reset = array_idx_modifiable(&t->ext_resets, ext_id);
 		if (reset->new_reset_id == (uint32_t)-1)
