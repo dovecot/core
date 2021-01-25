@@ -62,13 +62,18 @@ enum mail_index_header_flag {
 };
 
 enum mail_index_mail_flags {
+	/* This flag used to contain MAIL_RECENT flag, but is always zero
+	   with the current index file format. */
+	MAIL_INDEX_MAIL_FLAG_UNUSED		= 0x20,
 	/* For private use by backend. Replacing flags doesn't change this. */
 	MAIL_INDEX_MAIL_FLAG_BACKEND		= 0x40,
 	/* Message flags haven't been written to backend. If
 	   MAIL_INDEX_OPEN_FLAG_NO_DIRTY is set, this is treated as a
 	   backend-specific flag with no special internal handling. */
 	MAIL_INDEX_MAIL_FLAG_DIRTY		= 0x80,
-	/* Force updating this message's modseq via a flag update record */
+
+	/* Force updating this message's modseq via a flag update record.
+	   Note that this flag isn't saved to disk. */
 	MAIL_INDEX_MAIL_FLAG_UPDATE_MODSEQ	= 0x100
 };
 
