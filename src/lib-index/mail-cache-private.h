@@ -17,30 +17,54 @@
 	((cache)->hdr == NULL)
 
 struct mail_cache_header {
-	/* version is increased only when you can't have backwards
-	   compatibility. */
+	/* Major version is increased only when you can't have backwards
+	   compatibility. If the field doesn't match MAIL_CACHE_MAJOR_VERSION,
+	   don't even try to read it. */
 	uint8_t major_version;
+	/* If this isn't the same as sizeof(uoff_t), the cache file can't be
+	   safely used with the current implementation. */
 	uint8_t compat_sizeof_uoff_t;
+	/* Minor version is increased when the file format changes in a
+	   backwards compatible way. */
 	uint8_t minor_version;
 	uint8_t unused;
 
+	/* Unique index file ID, which must match the main index's indexid.
+	   See mail_index_header.indexid. */
 	uint32_t indexid;
+	/* Cache file sequence. Increased on every purge. This must match the
+	   main index's reset_id for "cache" extension or the cache offsets
+	   aren't valid. When creating the first cache file, use the current
+	   UNIX timestamp as the file_seq. */
 	uint32_t file_seq;
 
+	/* Number of cache records that are linked inside the cache file,
+	   instead of being directly pointed from the main index. */
 	uint32_t continued_record_count;
 
-	/* NOTE: old versions used this for hole offset, so we can't fully
+	/* Number of messages cached in this file. This does not include
+	   the continuation records.
+
+	   NOTE: <=v2.1 used this for hole offset, so we can't fully
 	   rely on it */
 	uint32_t record_count;
+	/* Currently unused. */
 	uint32_t backwards_compat_used_file_size;
+	/* Number of already expunged messages that currently have cache
+	   content in this file. */
 	uint32_t deleted_record_count;
 
+	/* Offset to the first mail_cache_header_fields. */
 	uint32_t field_header_offset;
 };
 
 struct mail_cache_header_fields {
+	/* Offset to the updated version of this header. Use
+	   mail_index_offset_to_uint32() to decode it. */
 	uint32_t next_offset;
+	/* Full size of this header. */
 	uint32_t size;
+	/* Number of fields in this header. */
 	uint32_t fields_count;
 
 #if 0

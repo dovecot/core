@@ -22,10 +22,24 @@ enum mail_cache_decision_type {
 };
 
 enum mail_cache_field_type {
+	/* Fixed size cache field. The size is specified only in the cache
+	   field header, not separately for each record. */
 	MAIL_CACHE_FIELD_FIXED_SIZE,
+	/* Variable sized binary data. */
 	MAIL_CACHE_FIELD_VARIABLE_SIZE,
+	/* Variable sized string. There is no difference internally to how
+	   MAIL_CACHE_FIELD_VARIABLE_SIZE is handled, but it helps at least
+	   "doveadm dump" to know whether to hex-encode the output. */
 	MAIL_CACHE_FIELD_STRING,
+	/* A fixed size bitmask field. It's possible to add new bits by
+	   updating this field. All the added fields are ORed together. */
 	MAIL_CACHE_FIELD_BITMASK,
+	/* Variable sized message header. The data begins with a 0-terminated
+	   uint32_t line_numbers[]. The line number exists only for each
+	   header, header continuation lines in multiline headers don't get
+	   listed. After the line numbers comes the list of headers, including
+	   the "header-name: " prefix for each line, LFs and the TABs or spaces
+	   for continued lines. */
 	MAIL_CACHE_FIELD_HEADER,
 
 	MAIL_CACHE_FIELD_COUNT
