@@ -99,7 +99,6 @@ struct mail_index_registered_ext {
 	mail_index_expunge_handler_t *expunge_handler;
 
 	void *expunge_context;
-	bool expunge_handler_call_always:1;
 };
 
 struct mail_index_record_map {
@@ -259,9 +258,9 @@ struct mail_index {
 extern struct mail_index_module_register mail_index_module_register;
 extern struct event_category event_category_mail_index;
 
-/* Add/replace sync handler for specified extra record. */
+/* Add/replace expunge handler for specified extension. */
 void mail_index_register_expunge_handler(struct mail_index *index,
-					 uint32_t ext_id, bool call_always,
+					 uint32_t ext_id,
 					 mail_index_expunge_handler_t *callback,
 					 void *context);
 void mail_index_unregister_expunge_handler(struct mail_index *index,

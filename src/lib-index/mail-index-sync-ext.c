@@ -39,8 +39,7 @@ void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 		map_ext_id = idx_ext_id >= id_map_count ? (uint32_t)-1 :
 			id_map[idx_ext_id];
 		if (rext[idx_ext_id].expunge_handler == NULL ||
-		    (map_ext_id == (uint32_t)-1 &&
-		     !rext[idx_ext_id].expunge_handler_call_always))
+		    (map_ext_id == (uint32_t)-1))
 			continue;
 
 		eh.handler = rext[idx_ext_id].expunge_handler;
