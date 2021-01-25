@@ -43,12 +43,18 @@ enum mail_index_open_flags {
 };
 
 enum mail_index_header_compat_flags {
+	/* All fields in these index files are in little-endian format.
+	   If the current CPU endianess doesn't match this, the indexes can't
+	   be used. There is currently no support to translate endianess. */
 	MAIL_INDEX_COMPAT_LITTLE_ENDIAN		= 0x01
 };
 
 enum mail_index_header_flag {
-	/* Index file is corrupted, reopen or recreate it. */
+	/* mail_index_mark_corrupted() was just called by this process.
+	   Reopen or recreate it. This flag is never actually written to
+	   disk. */
 	MAIL_INDEX_HDR_FLAG_CORRUPTED		= 0x0001,
+	/* There are messages with MAIL_INDEX_MAIL_FLAG_DIRTY flag. */
 	MAIL_INDEX_HDR_FLAG_HAVE_DIRTY		= 0x0002,
 	/* Index has been fsck'd. The caller may want to resync the index
 	   to make sure it's valid and drop this flag. */
@@ -70,38 +76,69 @@ enum mail_index_mail_flags {
 	(MAIL_ANSWERED | MAIL_FLAGGED | MAIL_DELETED | MAIL_SEEN | MAIL_DRAFT)
 
 struct mail_index_header {
-	/* major version is increased only when you can't have backwards
-	   compatibility. minor version is increased when header size is
-	   increased to contain new non-critical fields. */
+	/* Major version is increased only when you can't have backwards
+	   compatibility. If the field doesn't match MAIL_INDEX_MAJOR_VERSION,
+	   don't even try to read it. */
 	uint8_t major_version;
+	/* Minor version is increased when the file format changes in a
+	   backwards compatible way. If the field is smaller than
+	   MAIL_INDEX_MINOR_VERSION, upgrade the file format and update the
+	   minor_version field as well. If minor_version is higher than
+	   MAIL_INDEX_MINOR_VERSION, leave it as it is. It likely means that a
+	   new Dovecot version is currently being upgraded to, but the file was
+	   still accessed by an old version. */
 	uint8_t minor_version;
 
+	/* sizeof(struct mail_index_header) when creating a new index. If the
+	   header is smaller, fill the missing fields with 0. If the header is
+	   larger, preserve the size and unknown fields. */
 	uint16_t base_header_size;
 	uint32_t header_size; /* base + extended header size */
+	/* sizeof(struct mail_index_record) + extensions */
 	uint32_t record_size;
 
 	uint8_t compat_flags; /* enum mail_index_header_compat_flags */
 	uint8_t unused[3];
 
+	/* Unique index file ID. Initialized with the current UNIX timestamp.
+	   This is used to make sure that the main index, transaction log and
+	   cache file are all part of the same index. */
 	uint32_t indexid;
-	uint32_t flags;
+	uint32_t flags; /* enum mail_index_header_flag */
 
+	/* IMAP UIDVALIDITY. Initially can be 0, but must be non-0 after the
+	   first mailbox sync. The UIDVALIDITY shouldn't normally change after
+	   the mailbox is created. */
 	uint32_t uid_validity;
+	/* UID for the next saved message (must not be lower than this). This
+	   value can only increase. */
 	uint32_t next_uid;
 
+	/* Number of messages in the index */
 	uint32_t messages_count;
 	uint32_t unused_old_recent_messages_count;
+	/* Number of messages with MAIL_SEEN flag */
 	uint32_t seen_messages_count;
+	/* Number of messages with MAIL_DELETED flag */
 	uint32_t deleted_messages_count;
 
+	/* The specified UID and all mails after it have MAIL_RECENT flag */
 	uint32_t first_recent_uid;
-	/* these UIDs may not exist and may not even be unseen/deleted */
+	/* There are no UIDs lower than this without MAIL_SEEN flag. There are
+	   no guarantees whether this UID has MAIL_SEEN flag, or whether the it
+	   even exists. Used to optimize finding the first unseen message. */
 	uint32_t first_unseen_uid_lowwater;
+	/* Similarly to above, used to optimize finding the first deleted
+	   message. */
 	uint32_t first_deleted_uid_lowwater;
 
+	/* The index is synced up to this log_file_seq and
+	   log_file_head_offset. However, non-external transaction records
+	   between tail_offset..head_offset haven't been synced to the
+	   mailbox yet. For example there may be pending expunges or flag
+	   changes, which will be synced on the next mail_index_sync_*()
+	   calls. */
 	uint32_t log_file_seq;
-	/* non-external records between tail..head haven't been committed to
-	   mailbox yet. */
 	uint32_t log_file_tail_offset;
 	uint32_t log_file_head_offset;
 
@@ -110,10 +147,21 @@ struct mail_index_header {
 	   optimize checking when it's time to unlink it without stat()ing it.
 	   0 = unknown, -1 = .log.2 doesn't exists. */
 	uint32_t log2_rotate_time;
+	/* Timestamp when the mailbox backend-specific code last checked
+	   whether there are old temporary files (left by crashes) that should
+	   be deleted. 0 = unknown. */
 	uint32_t last_temp_file_scan;
 
-	/* daily first UIDs that have been added to index. */
+	/* UNIX timestamp to the beginning of the day (in server's local
+	   timezone) when new messages were last added to the index file. */
 	uint32_t day_stamp;
+	/* These fields are updated when day_stamp < today. The [0..6] are
+	   first moved to [1..7], then [0] is set to the first appended UID. So
+	   they contain the first UID of the day for last 8 days when messages
+	   were appended.
+
+	   These are used by cache purging to decide when to drop
+	   MAIL_CACHE_DECISION_TEMP fields. */
 	uint32_t day_first_uid[8];
 };
 
@@ -501,7 +549,9 @@ void mail_index_unlock(struct mail_index *index, const char *long_lock_reason);
 /* Returns TRUE if index is currently exclusively locked. */
 bool mail_index_is_locked(struct mail_index *index);
 
-/* Mark index file corrupted. Invalidates all views. */
+/* Mark index file corrupted in memory and delete it from disk.
+   Invalidates all views. This should be called only for index files that can
+   safely be recreated without any data loss. */
 void mail_index_mark_corrupted(struct mail_index *index);
 /* Check and fix any found problems. Returns -1 if we couldn't lock for sync,
    0 if everything went ok. */
