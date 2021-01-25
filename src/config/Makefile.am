@@ -7,6 +7,7 @@ pkglibexec_PROGRAMS = config
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-settings \
@@ -76,3 +77,22 @@ all-settings.c: $(SETTING_FILES) $(top_srcdir)/src/config/settings-get.pl
 EXTRA_DIST = \
 	config-settings.c \
 	settings-get.pl
+
+test_programs = \
+	test-config-parser
+
+noinst_PROGRAMS = $(test_programs)
+
+test_libs = \
+	$(noinst_LTLIBRARIES) \
+	$(LIBDOVECOT)
+
+test_config_parser_CFLAGS = $(AM_CPPFLAGS)
+test_config_parser_SOURCES = test-config-parser.c
+test_config_parser_LDADD = $(test_libs)
+test_config_parser_DEPENDENCIES = $(LIBDOVECOT_DEPS) $(noinst_LTLIBRARIES)
+
+check-local:
+	for bin in $(test_programs); do \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	done
