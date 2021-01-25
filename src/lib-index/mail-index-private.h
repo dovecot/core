@@ -48,6 +48,7 @@ typedef int mail_index_expunge_handler_t(struct mail_index_sync_map_ctx *ctx,
 #define MAIL_INDEX_HEADER_SIZE_ALIGN(size) \
 	(((size) + 7) & ~7U)
 
+/* In-memory copy of struct mail_index_ext_header */
 struct mail_index_ext {
 	const char *name;
 	uint32_t index_idx; /* index ext_id */
@@ -61,14 +62,27 @@ struct mail_index_ext {
 };
 
 struct mail_index_ext_header {
-	uint32_t hdr_size; /* size of data[] */
+	/* Size of data[], i.e. the extension size in header */
+	uint32_t hdr_size;
+	/* If reset_id changes, all of the extension record data is
+	   invalidated. For example with cache files reset_id must match the
+	   cache header's file_seq or the cache offsets aren't valid. */
 	uint32_t reset_id;
+	/* Offset of this extension in struct mail_index_record. */
 	uint16_t record_offset;
+	/* Size of this extension in struct mail_index_record. */
 	uint16_t record_size;
+	/* Required alignment of this extension in struct mail_index_record.
+	   It's expected that record_offset is correctly aligned. This is used
+	   only when rearranging fields due to adding/removing other
+	   extensions. */
 	uint16_t record_align;
+	/* Size of name[], which contains the extension's unique name. */
 	uint16_t name_size;
-	/* unsigned char name[name_size] */
-	/* unsigned char data[hdr_size] (starting 64bit aligned) */
+	/* unsigned char name[name_size]; */
+	/* Extension header data, if any. This starts from the next 64-bit
+	   aligned offset after name[]. */
+	/* unsigned char data[hdr_size]; */
 };
 
 struct mail_index_keyword_header {

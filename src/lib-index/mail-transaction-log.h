@@ -132,11 +132,16 @@ enum {
 	MAIL_TRANSACTION_EXT_INTRO_FLAG_NO_SHRINK = 0x01
 };
 
+/* See struct mail_index_ext_header for more explanations of these fields. */
 struct mail_transaction_ext_intro {
-	/* old extension: set ext_id. don't set name.
-	   new extension: ext_id = (uint32_t)-1. give name. */
+	/* If extension is already known to exist in the index file,
+	   set ext_id, but use empty name. If this is a new extension, set
+	   name, but use ext_id=(uint32_t)-1. */
 	uint32_t ext_id;
 	uint32_t reset_id;
+	/* Size of the extension header. When growing the header size, it's
+	   initially filled with zeros. The header can be written to with
+	   ext-hdr-update records. */
 	uint32_t hdr_size;
 	uint16_t record_size;
 	uint16_t record_align;
