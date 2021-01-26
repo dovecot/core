@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "mail-namespace.h"
+#include "mailbox-list-private.h"
 #include "dsync-ibc.h"
 #include "dsync-mailbox-tree.h"
 #include "dsync-brain-private.h"
@@ -93,6 +94,18 @@ void dsync_brain_send_mailbox_tree(struct dsync_brain *brain)
 					dsync_mailbox_node_to_string(node));
 			}
 
+			/* Avoid sending out mailbox names with escape
+			   characters. Especially when dsync is used for
+			   migration, we don't want to end up having invalid
+			   mUTF7 mailbox names locally. Also, remote might not
+			   even be configured to use the same escape
+			   character. */
+			if (node->ns != NULL) {
+				i_assert(brain->alt_char != '\0');
+				full_name = t_str_replace(full_name,
+					node->ns->list->set.vname_escape_char,
+					brain->alt_char);
+			}
 			parts = t_strsplit(full_name, sep);
 			ret = dsync_ibc_send_mailbox_tree_node(brain->ibc,
 							       parts, node);
