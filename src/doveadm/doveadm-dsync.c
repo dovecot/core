@@ -41,13 +41,14 @@
 
 #define DSYNC_COMMON_GETOPT_ARGS "+1a:dDEfg:I:l:m:n:NO:Pr:Rs:t:e:T:Ux:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
-/* The vname_escape_char is mainly set to get a proper error message when
-   trying to convert a mailbox with a name that can't be used properly
-   translated between vname/storage_name and would otherwise be mixed up with a
-   normal "mailbox doesn't exist" error message. This could be any control
-   character, since none of them are allowed to be created in regular mailbox
-   names. */
-#define DSYNC_LIST_VNAME_ESCAPE_CHAR '\003'
+/* The default vname_escape_char to use unless overridden by BROKENCHAR
+   setting. Note that it's only used for internal dsync names, so it won't end
+   up in permanent storage names. The only requirement for it is that it's not
+   the same as the hierarchy separator. */
+#define DSYNC_LIST_VNAME_ESCAPE_CHAR '%'
+/* In case DSYNC_LIST_VNAME_ESCAPE_CHAR is the hierarchy separator,
+   use this instead. */
+#define DSYNC_LIST_VNAME_ALT_ESCAPE_CHAR '~'
 
 #define DSYNC_DEFAULT_IO_STREAM_TIMEOUT_SECS (60*10)
 
@@ -325,11 +326,16 @@ static bool mirror_get_remote_cmd(struct dsync_cmd_context *ctx,
 static void doveadm_user_init_dsync(struct mail_user *user)
 {
 	struct mail_namespace *ns;
+	char ns_sep = mail_namespaces_get_root_sep(user->namespaces);
 
 	user->dsyncing = TRUE;
 	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
-		if (ns->list->set.vname_escape_char == '\0')
-			ns->list->set.vname_escape_char = DSYNC_LIST_VNAME_ESCAPE_CHAR;
+		if (ns->list->set.vname_escape_char == '\0') {
+			ns->list->set.vname_escape_char =
+				ns_sep != DSYNC_LIST_VNAME_ESCAPE_CHAR ?
+				DSYNC_LIST_VNAME_ESCAPE_CHAR :
+				DSYNC_LIST_VNAME_ALT_ESCAPE_CHAR;
+		}
 	}
 }
 
