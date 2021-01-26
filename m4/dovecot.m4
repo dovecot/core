@@ -307,7 +307,7 @@ if test \$ret != 0; then
 fi
 exit \$ret
 _DC_EOF
-    RUN_TEST='$(SHELL) $(top_builddir)/run-test.sh $(top_srcdir)'
+    RUN_TEST='$(LIBTOOL) execute $(SHELL) $(top_builddir)/run-test.sh $(top_srcdir)'
   ], [
     RUN_TEST=''
   ])
