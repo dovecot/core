@@ -259,8 +259,9 @@ AC_DEFUN([DC_PLUGIN_DEPS],[
 ])
 
 AC_DEFUN([DC_DOVECOT_TEST_WRAPPER],[
-  AC_CHECK_PROG(VALGRIND, valgrind, yes, no)
-  AS_IF([test "$VALGRIND" = yes], [
+  AC_ARG_VAR([VALGRIND], [Path to valgrind])
+  AC_PATH_PROG(VALGRIND, valgrind, reject)
+  AS_IF([test "$VALGRIND" != reject], [
     cat > run-test.sh <<_DC_EOF
 #!/bin/sh
 top_srcdir=\$[1]
@@ -291,9 +292,9 @@ else
   trap "rm -f \$test_out" 0 1 2 3 15
   supp_path="\$top_srcdir/run-test-valgrind.supp"
   if test -r "\$supp_path"; then
-    valgrind -q \$trace_children --error-exitcode=213 --leak-check=full --gen-suppressions=all --suppressions="\$supp_path" --log-file=\$test_out \$noundef \$[*]
+    $VALGRIND -q \$trace_children --error-exitcode=213 --leak-check=full --gen-suppressions=all --suppressions="\$supp_path" --log-file=\$test_out \$noundef \$[*]
   else
-    valgrind -q \$trace_children --error-exitcode=213 --leak-check=full --gen-suppressions=all --log-file=\$test_out \$noundef \$[*]
+    $VALGRIND -q \$trace_children --error-exitcode=213 --leak-check=full --gen-suppressions=all --log-file=\$test_out \$noundef \$[*]
   fi
   ret=\$?
   if test -s \$test_out; then
