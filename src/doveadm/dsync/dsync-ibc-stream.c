@@ -79,7 +79,7 @@ static const struct {
 	  	"no_mail_sync no_mailbox_renames no_backup_overwrite purge_remote "
 		"no_notify sync_since_timestamp sync_max_size sync_flags sync_until_timestamp "
 		"virtual_all_box empty_hdr_workaround import_commit_msgs_interval "
-		"hashed_headers"
+		"hashed_headers alt_char"
 	},
 	{ .name = "mailbox_state",
 	  .chr = 'S',
@@ -726,6 +726,10 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 		dsync_serializer_encode_add(encoder, "sync_flags",
 					    set->sync_flags);
 	}
+	if (set->alt_char != '\0') {
+		dsync_serializer_encode_add(encoder, "alt_char",
+			t_strdup_printf("%c", set->alt_char));
+	}
 	if ((set->brain_flags & DSYNC_BRAIN_FLAG_SEND_MAIL_REQUESTS) != 0)
 		dsync_serializer_encode_add(encoder, "send_mail_requests", "");
 	if ((set->brain_flags & DSYNC_BRAIN_FLAG_BACKUP_SEND) != 0)
@@ -868,6 +872,8 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 	}
 	if (dsync_deserializer_decode_try(decoder, "sync_flags", &value))
 		set->sync_flags = p_strdup(pool, value);
+	if (dsync_deserializer_decode_try(decoder, "alt_char", &value))
+		set->alt_char = value[0];
 	if (dsync_deserializer_decode_try(decoder, "send_mail_requests", &value))
 		set->brain_flags |= DSYNC_BRAIN_FLAG_SEND_MAIL_REQUESTS;
 	if (dsync_deserializer_decode_try(decoder, "backup_send", &value))

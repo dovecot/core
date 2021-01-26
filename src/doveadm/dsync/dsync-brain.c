@@ -265,6 +265,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	ibc_set.sync_flags = set->sync_flag;
 	memcpy(ibc_set.sync_box_guid, set->sync_box_guid,
 	       sizeof(ibc_set.sync_box_guid));
+	ibc_set.alt_char = brain->alt_char;
 	ibc_set.sync_type = sync_type;
 	ibc_set.hdr_hash_v2 = TRUE;
 	ibc_set.lock_timeout = set->lock_timeout_secs;
@@ -289,12 +290,16 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 
 struct dsync_brain *
 dsync_brain_slave_init(struct mail_user *user, struct dsync_ibc *ibc,
-		       bool local, const char *process_title_prefix)
+		       bool local, const char *process_title_prefix,
+		       char default_alt_char)
 {
 	struct dsync_ibc_settings ibc_set;
 	struct dsync_brain *brain;
 
+	i_assert(default_alt_char != '\0');
+
 	brain = dsync_brain_common_init(user, ibc);
+	brain->alt_char = default_alt_char;
 	brain->process_title_prefix =
 		p_strdup(brain->pool, process_title_prefix);
 	brain->state = DSYNC_STATE_SLAVE_RECV_HANDSHAKE;
@@ -548,6 +553,8 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 	brain->sync_flag = p_strdup(brain->pool, ibc_set->sync_flags);
 	memcpy(brain->sync_box_guid, ibc_set->sync_box_guid,
 	       sizeof(brain->sync_box_guid));
+	if (ibc_set->alt_char != '\0')
+		brain->alt_char = ibc_set->alt_char;
 	i_assert(brain->sync_type == DSYNC_BRAIN_SYNC_TYPE_UNKNOWN);
 	brain->sync_type = ibc_set->sync_type;
 
