@@ -1195,6 +1195,10 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 		case EVENT_CODE_FIELD_INTMAX:
 		case EVENT_CODE_FIELD_STR:
 		case EVENT_CODE_FIELD_TIMEVAL: {
+			if (*arg == '\0') {
+				*error_r = "Field name is missing";
+				return FALSE;
+			}
 			struct event_field *field =
 				event_get_field(event, arg);
 			if (args[1] == NULL) {
