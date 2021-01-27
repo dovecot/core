@@ -275,7 +275,8 @@ ssize_t i_stream_read(struct istream *stream)
 		i_stream_snapshot_free(&_stream->prev_snapshot);
 #ifdef DEBUG
 	else if (!invalid) {
-		i_assert((_stream->pos - _stream->skip) == (prev_pos - prev_skip));
+		i_assert((_stream->pos - _stream->skip) == (prev_pos - prev_skip) ||
+			 prev_pos == prev_skip);
 		if (prev_pos - prev_skip <= 4)
 			i_assert(memcmp(prev_buf, prev_data + prev_skip, prev_pos - prev_skip) == 0);
 		else {
