@@ -85,6 +85,7 @@ struct smtp_server *smtp_server_init(const struct smtp_server_settings *set)
 	server->set.auth_optional = set->auth_optional;
 	server->set.rcpt_domain_optional = set->rcpt_domain_optional;
 	server->set.mail_path_allow_broken = set->mail_path_allow_broken;
+	server->set.no_greeting = set->no_greeting;
 	server->set.debug = set->debug;
 	server->set.no_state_in_reason = set->no_state_in_reason;
 

@@ -284,7 +284,9 @@ static void smtp_server_connection_ready(struct smtp_server_connection *conn)
 				    smtp_server_connection_output, conn);
 
 	o_stream_cork(conn->conn.output);
-	if (conn->authenticated) {
+	if (conn->set.no_greeting) {
+		/* Don't send greeting or login reply. */
+	} else if (conn->authenticated) {
 		/* RFC 4954, Section 4:
 		   Should the client successfully complete the exchange, the
 		   SMTP server issues a 235 reply. */
@@ -912,6 +914,8 @@ smtp_server_connection_alloc(struct smtp_server *server,
 		conn->set.rcpt_domain_optional =
 			conn->set.rcpt_domain_optional ||
 				set->rcpt_domain_optional;
+		conn->set.no_greeting =
+			conn->set.no_greeting || set->no_greeting;
 		conn->set.debug = conn->set.debug || set->debug;
 	}
 

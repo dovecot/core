@@ -394,6 +394,9 @@ struct smtp_server_settings {
 	bool rcpt_domain_optional:1;
 	/* Don't include "(state=%s)" in the disconnection reason string. */
 	bool no_state_in_reason:1;
+	/* Don't send a greeting or login success message to the client upon
+	   connection start. */
+	bool no_greeting:1;
 };
 
 struct smtp_server_stats {
