@@ -30,6 +30,8 @@ enum mail_auth_request_flags {
 	MAIL_AUTH_REQUEST_FLAG_CONN_SECURED = BIT(1),
 	/* Connection is secured using SSL specifically */
 	MAIL_AUTH_REQUEST_FLAG_CONN_SSL_SECURED = BIT(2),
+	/* This login is implicit; no command reply is expected */
+	MAIL_AUTH_REQUEST_FLAG_IMPLICIT = BIT(3),
 };
 
 /* Authentication request. File descriptor may be sent along with the
