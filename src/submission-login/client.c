@@ -264,6 +264,8 @@ static void submission_login_init(void)
 	   It's not very useful. */
 	smtp_server_set.no_state_in_reason = TRUE;
 	smtp_server = smtp_server_init(&smtp_server_set);
+	smtp_server_command_override(smtp_server, "MAIL", cmd_mail,
+				     SMTP_SERVER_CMD_FLAG_PREAUTH);
 }
 
 static void submission_login_deinit(void)

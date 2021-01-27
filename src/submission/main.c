@@ -140,12 +140,15 @@ extract_input_data_field(const unsigned char **data, size_t *data_len,
 
 static int
 client_create_from_input(const struct mail_storage_service_input *input,
+			 enum mail_auth_request_flags login_flags,
 			 int fd_in, int fd_out, const buffer_t *input_buf,
 			 const char **error_r)
 {
 	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
 	struct submission_settings *set;
+	bool no_greeting = HAS_ALL_BITS(login_flags,
+					MAIL_AUTH_REQUEST_FLAG_IMPLICIT);
 	const char *errstr;
 	const char *helo = NULL;
 	struct smtp_proxy_data proxy_data;
@@ -206,7 +209,8 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	}
 
 	(void)client_create(fd_in, fd_out, mail_user,
-			    user, set, helo, &proxy_data, data, data_len);
+			    user, set, helo, &proxy_data, data, data_len,
+			    no_greeting);
 	return 0;
 }
 
@@ -232,7 +236,7 @@ static void main_stdio_run(const char *username)
 	input_buf = input_base64 == NULL ? NULL :
 		t_base64_decode_str(input_base64);
 
-	if (client_create_from_input(&input, STDIN_FILENO, STDOUT_FILENO,
+	if (client_create_from_input(&input, 0, STDIN_FILENO, STDOUT_FILENO,
 				     input_buf, &error) < 0)
 		i_fatal("%s", error);
 }
@@ -262,7 +266,8 @@ login_client_connected(const struct master_login_client *login_client,
 
 	buffer_create_from_const_data(&input_buf, login_client->data,
 				      login_client->auth_req.data_size);
-	if (client_create_from_input(&input, login_client->fd, login_client->fd,
+	if (client_create_from_input(&input, flags,
+				     login_client->fd, login_client->fd,
 				     &input_buf, &error) < 0) {
 		int fd = login_client->fd;
 		i_error("%s", error);

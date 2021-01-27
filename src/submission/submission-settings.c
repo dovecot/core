@@ -161,12 +161,17 @@ struct submission_client_workaround_list {
 	enum submission_client_workarounds num;
 };
 
+/* These definitions need to be kept in sync with equivalent definitions present
+   in src/submission-login/submission-login-settings.c. Workarounds that are not
+   relevant to the submission service are defined as 0 here to prevent "Unknown
+   workaround" errors below. */
 static const struct submission_client_workaround_list
 submission_client_workaround_list[] = {
 	{ "whitespace-before-path",
 	  SUBMISSION_WORKAROUND_WHITESPACE_BEFORE_PATH },
 	{ "mailbox-for-path",
 	  SUBMISSION_WORKAROUND_MAILBOX_FOR_PATH },
+	{ "implicit-auth-external", 0 },
 	{ NULL, 0 }
 };
 
