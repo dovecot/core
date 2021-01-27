@@ -260,7 +260,14 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 					 out_size);
 	stream->pos += out_size;
 
-	i_stream_skip(stream->parent, size - zstream->zs.avail_in);
+	size_t bytes_consumed = size - zstream->zs.avail_in;
+	i_stream_skip(stream->parent, bytes_consumed);
+	if (i_stream_get_data_size(stream->parent) > 0 &&
+	    (bytes_consumed > 0 || out_size > 0)) {
+		/* Parent stream was only partially consumed. Set the stream's
+		   IO as pending to avoid hangs. */
+		i_stream_set_input_pending(&stream->istream, TRUE);
+	}
 
 	switch (ret) {
 	case Z_OK:

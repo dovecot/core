@@ -157,6 +157,10 @@ static ssize_t i_stream_zstd_read(struct istream_private *stream)
 			if (ret == 0)
 				return 0;
 			buffer_append(zstream->frame_buffer, data, size);
+			/* NOTE: All of the parent stream input is skipped
+			   over here. This is why there's no need to call
+			   i_stream_set_input_pending() here like with other
+			   compression istreams. */
 			i_stream_skip(stream->parent, size);
 			zstream->input.src = zstream->frame_buffer->data;
 			zstream->input.size = zstream->frame_buffer->used;

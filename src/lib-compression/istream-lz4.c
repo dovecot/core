@@ -177,6 +177,11 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 	/* if we already have max_buffer_size amount of data, fail here */
 	if (stream->pos - stream->skip >= i_stream_get_max_buffer_size(&stream->istream))
 		return -2;
+	if (i_stream_get_data_size(zstream->istream.parent) > 0) {
+		/* Parent stream was only partially consumed. Set the stream's
+		   IO as pending to avoid hangs. */
+		i_stream_set_input_pending(&zstream->istream.istream, TRUE);
+	}
 	/* allocate enough space for the old data and the new
 	   decompressed chunk. we don't know the original compressed size,
 	   so just allocate the max amount of memory. */
