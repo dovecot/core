@@ -278,26 +278,6 @@ smtp_server_command_is_complete(struct smtp_server_command *cmd)
 		!smtp_server_connection_pending_command_data(conn));
 }
 
-void smtp_server_cmd_ehlo(struct smtp_server_cmd_ctx *cmd, const char *params);
-void smtp_server_cmd_helo(struct smtp_server_cmd_ctx *cmd, const char *params);
-void smtp_server_cmd_xclient(struct smtp_server_cmd_ctx *cmd,
-			     const char *params);
-
-void smtp_server_cmd_starttls(struct smtp_server_cmd_ctx *cmd,
-			      const char *params);
-void smtp_server_cmd_auth(struct smtp_server_cmd_ctx *cmd, const char *params);
-
-void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd, const char *params);
-void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd, const char *params);
-void smtp_server_cmd_data(struct smtp_server_cmd_ctx *cmd, const char *params);
-void smtp_server_cmd_bdat(struct smtp_server_cmd_ctx *cmd, const char *params);
-void smtp_server_cmd_rset(struct smtp_server_cmd_ctx *cmd, const char *params);
-
-void smtp_server_cmd_noop(struct smtp_server_cmd_ctx *cmd, const char *params);
-void smtp_server_cmd_vrfy(struct smtp_server_cmd_ctx *cmd, const char *params);
-
-void smtp_server_cmd_quit(struct smtp_server_cmd_ctx *cmd, const char *params);
-
 /*
  * Connection
  */

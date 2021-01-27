@@ -627,11 +627,21 @@ void smtp_server_command_input_capture(
 
 /* EHLO */
 
+void smtp_server_cmd_ehlo(struct smtp_server_cmd_ctx *cmd, const char *params);
+void smtp_server_cmd_helo(struct smtp_server_cmd_ctx *cmd, const char *params);
+
 struct smtp_server_reply *
 smtp_server_cmd_ehlo_reply_create(struct smtp_server_cmd_ctx *cmd);
 void smtp_server_cmd_ehlo_reply_default(struct smtp_server_cmd_ctx *cmd);
 
+/* STARTTLS */
+
+void smtp_server_cmd_starttls(struct smtp_server_cmd_ctx *cmd,
+			      const char *params);
+
 /* AUTH */
+
+void smtp_server_cmd_auth(struct smtp_server_cmd_ctx *cmd, const char *params);
 
 void smtp_server_cmd_auth_send_challenge(struct smtp_server_cmd_ctx *cmd,
 					 const char *challenge);
@@ -641,28 +651,50 @@ void smtp_server_cmd_auth_success(struct smtp_server_cmd_ctx *cmd,
 
 /* MAIL */
 
+void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd, const char *params);
+
 void smtp_server_cmd_mail_reply_success(struct smtp_server_cmd_ctx *cmd);
 
 /* RCPT */
+
+void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd, const char *params);
 
 bool smtp_server_command_is_rcpt(struct smtp_server_cmd_ctx *cmd);
 void smtp_server_cmd_rcpt_reply_success(struct smtp_server_cmd_ctx *cmd);
 
 /* RSET */
 
+void smtp_server_cmd_rset(struct smtp_server_cmd_ctx *cmd, const char *params);
+
 void smtp_server_cmd_rset_reply_success(struct smtp_server_cmd_ctx *cmd);
 
 /* DATA */
+
+void smtp_server_cmd_data(struct smtp_server_cmd_ctx *cmd, const char *params);
+void smtp_server_cmd_bdat(struct smtp_server_cmd_ctx *cmd, const char *params);
 
 bool smtp_server_cmd_data_check_size(struct smtp_server_cmd_ctx *cmd);
 
 /* VRFY */
 
+void smtp_server_cmd_vrfy(struct smtp_server_cmd_ctx *cmd, const char *params);
+
 void smtp_server_cmd_vrfy_reply_default(struct smtp_server_cmd_ctx *cmd);
 
 /* NOOP */
 
+void smtp_server_cmd_noop(struct smtp_server_cmd_ctx *cmd, const char *params);
+
 void smtp_server_cmd_noop_reply_success(struct smtp_server_cmd_ctx *cmd);
+
+/* QUIT */
+
+void smtp_server_cmd_quit(struct smtp_server_cmd_ctx *cmd, const char *params);
+
+/* XCLIENT */
+
+void smtp_server_cmd_xclient(struct smtp_server_cmd_ctx *cmd,
+			     const char *params);
 
 /*
  * Reply
