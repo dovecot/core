@@ -8,6 +8,7 @@
 #include "ostream-zlib.h"
 #include "module-dir.h"
 #include "master-service.h"
+#include "compression.h"
 #include "doveadm-dump.h"
 
 #include <stdio.h>
@@ -87,16 +88,25 @@ struct client {
 	struct io *io_client, *io_server;
 	struct istream *input, *stdin_input;
 	struct ostream *output;
+	const struct compression_handler *handler;
+	char *algorithm;
 	bool compressed;
 	bool compress_waiting;
 };
 
-static bool client_input_is_compress_command(const char *line)
+static bool
+client_input_get_compress_algorithm(struct client *client, const char *line)
 {
 	/* skip tag */
 	while (*line != ' ' && *line != '\0')
 		line++;
-	return strcasecmp(line, " COMPRESS DEFLATE") == 0;
+	if (strncasecmp(line, " COMPRESS ", 10) != 0)
+		return FALSE;
+
+	if (compression_lookup_handler(t_str_lcase(line+10),
+				       &client->handler) <= 0)
+		i_fatal("Unsupported compression mechanism: %s", line+10);
+	return TRUE;
 }
 
 static bool client_input_uncompressed(struct client *client)
@@ -112,7 +122,7 @@ static bool client_input_uncompressed(struct client *client)
 	while ((line = i_stream_read_next_line(client->stdin_input)) != NULL) {
 		o_stream_nsend_str(client->output, line);
 		o_stream_nsend(client->output, "\n", 1);
-		if (client_input_is_compress_command(line))
+		if (client_input_get_compress_algorithm(client, line))
 			return TRUE;
 	}
 	return FALSE;
@@ -133,6 +143,10 @@ static void client_input(struct client *client)
 		if (i_stream_read_more(client->stdin_input, &data, &size) > 0) {
 			o_stream_nsend(client->output, data, size);
 			i_stream_skip(client->stdin_input, size);
+		}
+		if (o_stream_flush(client->output) < 0) {
+			i_fatal("write() failed: %s",
+				o_stream_get_error(client->output));
 		}
 	}
 	if (client->stdin_input->eof) {
@@ -189,8 +203,8 @@ static void server_input(struct client *client)
 		struct ostream *output;
 
 		i_info("<Compression started>");
-		input = i_stream_create_deflate(client->input);
-		output = o_stream_create_deflate(client->output, 6);
+		input = client->handler->create_istream(client->input);
+		output = client->handler->create_ostream(client->output, 6);
 		i_stream_unref(&client->input);
 		o_stream_unref(&client->output);
 		client->input = input;
