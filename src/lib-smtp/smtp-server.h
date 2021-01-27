@@ -589,13 +589,17 @@ void smtp_server_command_remove_hook(struct smtp_server_command *cmd,
 
 /* The core SMTP commands are pre-registered. Special connection callbacks are
    provided for the core SMTP commands. Only use this command registration API
-   when custom/extension SMTP commands are required.
+   when custom/extension SMTP commands are required. It is also possible to
+   completely override the default implementations.
  */
 void smtp_server_command_register(struct smtp_server *server, const char *name,
 				  smtp_server_cmd_start_func_t *func,
 				  enum smtp_server_command_flags);
 void smtp_server_command_unregister(struct smtp_server *server,
 				    const char *name);
+void smtp_server_command_override(struct smtp_server *server, const char *name,
+				  smtp_server_cmd_start_func_t *func,
+				  enum smtp_server_command_flags flags);
 
 void smtp_server_command_set_reply_count(struct smtp_server_command *cmd,
 					 unsigned int count);

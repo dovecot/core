@@ -26,8 +26,9 @@ void smtp_server_command_register(struct smtp_server *server, const char *name,
 	server->commands_unsorted = TRUE;
 }
 
-void smtp_server_command_unregister(struct smtp_server *server,
-				    const char *name)
+static bool ATTR_NOWARN_UNUSED_RESULT
+smtp_server_command_do_unregister(struct smtp_server *server,
+				  const char *name)
 {
 	const struct smtp_server_command_reg *cmd;
 	unsigned int i, count;
@@ -36,11 +37,27 @@ void smtp_server_command_unregister(struct smtp_server *server,
 	for (i = 0; i < count; i++) {
 		if (strcasecmp(cmd[i].name, name) == 0) {
 			array_delete(&server->commands_reg, i, 1);
-			return;
+			return TRUE;
 		}
 	}
 
+	return FALSE;
+}
+
+void smtp_server_command_unregister(struct smtp_server *server,
+				    const char *name)
+{
+	if (smtp_server_command_do_unregister(server, name))
+		return;
 	i_panic("smtp-server: Trying to unregister unknown command '%s'", name);
+}
+
+void smtp_server_command_override(struct smtp_server *server, const char *name,
+				  smtp_server_cmd_start_func_t *func,
+				  enum smtp_server_command_flags flags)
+{
+	smtp_server_command_do_unregister(server, name);
+	smtp_server_command_register(server, name, func, flags);
 }
 
 static int
