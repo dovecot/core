@@ -32,6 +32,24 @@ static void append_str_max_len(string_t *dest, const char *str,
 	str_append_c(dest, '"');
 }
 
+static void
+append_strlist(string_t *dest, const ARRAY_TYPE(const_string) *strlist,
+	       const struct metric_export_info *info)
+{
+	const char *value;
+	bool first = TRUE;
+
+	str_append_c(dest, '[');
+	array_foreach_elem(strlist, value) {
+		if (first)
+			first = FALSE;
+		else
+			str_append_c(dest, ',');
+		append_str_max_len(dest, value, info);
+	}
+	str_append_c(dest, ']');
+}
+
 static void append_int(string_t *dest, intmax_t val)
 {
 	str_printfa(dest, "%jd", val);
@@ -69,6 +87,7 @@ static void append_field_value(string_t *dest, const struct event_field *field,
 			    info->exporter->time_format);
 		break;
 	case EVENT_FIELD_VALUE_TYPE_STRLIST:
+		append_strlist(dest, &field->value.strlist, info);
 		break;
 	}
 }

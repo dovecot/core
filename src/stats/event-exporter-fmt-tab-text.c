@@ -9,6 +9,24 @@
 #include "strescape.h"
 #include "hostpid.h"
 
+static void append_strlist(string_t *dest, const ARRAY_TYPE(const_string) *strlist)
+{
+	string_t *str = t_str_new(64);
+	const char *value;
+	bool first = TRUE;
+
+	/* append the strings first escaped into a temporary string */
+	array_foreach_elem(strlist, value) {
+		if (first)
+			first = FALSE;
+		else
+			str_append_c(str, '\t');
+		str_append_tabescaped(str, value);
+	}
+	/* append the temporary string (double-)escaped as the value */
+	str_append_tabescaped(dest, str_c(str));
+}
+
 static void append_int(string_t *dest, intmax_t val)
 {
 	str_printfa(dest, "%jd", val);
@@ -58,6 +76,7 @@ static void append_field_value(string_t *dest, const struct event_field *field,
 			    info->exporter->time_format);
 		break;
 	case EVENT_FIELD_VALUE_TYPE_STRLIST:
+		append_strlist(dest, &field->value.strlist);
 		break;
 	}
 }
