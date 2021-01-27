@@ -884,6 +884,14 @@ int client_auth_begin_private(struct client *client, const char *mech_name,
 					init_resp);
 }
 
+int client_auth_begin_implicit(struct client *client, const char *mech_name,
+			       const char *init_resp)
+{
+	return client_auth_begin_common(client, mech_name,
+					SASL_SERVER_AUTH_FLAG_IMPLICIT,
+					init_resp);
+}
+
 bool client_check_plaintext_auth(struct client *client, bool pass_sent)
 {
 	bool ssl_required = (strcmp(client->ssl_set->ssl, "required") == 0);

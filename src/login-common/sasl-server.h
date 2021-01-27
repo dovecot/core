@@ -14,6 +14,9 @@ enum sasl_server_reply {
 enum sasl_server_auth_flags {
 	/* Allow the use of private mechanism */
 	SASL_SERVER_AUTH_FLAG_PRIVATE = BIT(0),
+	/* Signal to the post-login service that this is an implicit login,
+	   meaning that no command success reply is expected. */
+	SASL_SERVER_AUTH_FLAG_IMPLICIT = BIT(1),
 };
 
 typedef void sasl_server_callback_t(struct client *client,
