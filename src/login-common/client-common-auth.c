@@ -841,7 +841,8 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 
 static int
 client_auth_begin_common(struct client *client, const char *mech_name,
-			 bool private, const char *init_resp)
+			 enum sasl_server_auth_flags auth_flags,
+			 const char *init_resp)
 {
 	if (!client->secured && strcmp(client->ssl_set->ssl, "required") == 0) {
 		if (client->set->auth_verbose) {
@@ -858,7 +859,7 @@ client_auth_begin_common(struct client *client, const char *mech_name,
 	client_ref(client);
 	client->auth_initializing = TRUE;
 	sasl_server_auth_begin(client, login_binary->protocol, mech_name,
-			       private, init_resp, sasl_callback);
+			       auth_flags, init_resp, sasl_callback);
 	client->auth_initializing = FALSE;
 	if (!client->authenticating)
 		return 1;
@@ -872,13 +873,15 @@ client_auth_begin_common(struct client *client, const char *mech_name,
 int client_auth_begin(struct client *client, const char *mech_name,
 		      const char *init_resp)
 {
-	return client_auth_begin_common(client, mech_name, FALSE, init_resp);
+	return client_auth_begin_common(client, mech_name, 0, init_resp);
 }
 
 int client_auth_begin_private(struct client *client, const char *mech_name,
 			      const char *init_resp)
 {
-	return client_auth_begin_common(client, mech_name, TRUE, init_resp);
+	return client_auth_begin_common(client, mech_name,
+					SASL_SERVER_AUTH_FLAG_PRIVATE,
+					init_resp);
 }
 
 bool client_check_plaintext_auth(struct client *client, bool pass_sent)

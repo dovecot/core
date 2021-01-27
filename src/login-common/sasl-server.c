@@ -434,11 +434,13 @@ static bool get_cert_username(struct client *client, const char **username_r,
 
 void sasl_server_auth_begin(struct client *client,
 			    const char *service, const char *mech_name,
-			    bool private, const char *initial_resp_base64,
+			    enum sasl_server_auth_flags flags,
+			    const char *initial_resp_base64,
 			    sasl_server_callback_t *callback)
 {
 	struct auth_request_info info;
 	const struct auth_mech_desc *mech;
+	bool private = HAS_ALL_BITS(flags, SASL_SERVER_AUTH_FLAG_PRIVATE);
 	const char *error;
 
 	i_assert(auth_client_is_connected(auth_client));
@@ -451,6 +453,7 @@ void sasl_server_auth_begin(struct client *client,
 	i_free(client->auth_mech_name);
 	client->auth_mech_name = str_ucase(i_strdup(mech_name));
 	client->auth_anonymous = FALSE;
+	client->auth_flags = flags;
 	client->sasl_callback = callback;
 
 	mech = sasl_server_find_available_mech(client, mech_name);

@@ -200,6 +200,7 @@ struct client {
 	unsigned int proxy_ttl;
 
 	char *auth_mech_name;
+	enum sasl_server_auth_flags auth_flags;
 	struct auth_client_request *auth_request;
 	string_t *auth_response;
 	time_t auth_first_started, auth_finished;
@@ -346,6 +347,8 @@ int client_auth_begin(struct client *client, const char *mech_name,
 		      const char *init_resp);
 int client_auth_begin_private(struct client *client, const char *mech_name,
 			      const char *init_resp);
+int client_auth_begin_implicit(struct client *client, const char *mech_name,
+			       const char *init_resp);
 bool client_check_plaintext_auth(struct client *client, bool pass_sent);
 int client_auth_read_line(struct client *client);
 

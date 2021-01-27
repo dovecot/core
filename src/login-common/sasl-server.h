@@ -11,6 +11,11 @@ enum sasl_server_reply {
 	SASL_SERVER_REPLY_CONTINUE
 };
 
+enum sasl_server_auth_flags {
+	/* Allow the use of private mechanism */
+	SASL_SERVER_AUTH_FLAG_PRIVATE = BIT(0),
+};
+
 typedef void sasl_server_callback_t(struct client *client,
 				    enum sasl_server_reply reply,
 				    const char *data, const char *const *args);
@@ -22,7 +27,8 @@ sasl_server_find_available_mech(struct client *client, const char *name);
 
 void sasl_server_auth_begin(struct client *client,
 			    const char *service, const char *mech_name,
-			    bool private, const char *initial_resp_base64,
+			    enum sasl_server_auth_flags flags,
+			    const char *initial_resp_base64,
 			    sasl_server_callback_t *callback);
 void sasl_server_auth_failed(struct client *client, const char *reason,
 	const char *code) ATTR_NULL(3);
