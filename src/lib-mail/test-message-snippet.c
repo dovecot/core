@@ -111,47 +111,47 @@ static const struct {
 	  "Incomplete utf8 \xC3",
 	  100,
 	  "Incomplete utf8" },
-        { "Content-Transfer-Encoding: quoted-printable\n"
-          "Content-Type: text/html;\n"
-          "      charset=utf-8\n"
-          "\n"
-          "<html><head><meta http-equiv=3D\"Content-Type\" content=3D\"text/html =\n"
-          "charset=3Dutf-8\"></head><body style=3D\"word-wrap: break-word; =\n"
-          "-webkit-nbsp-mode: space; -webkit-line-break: after-white-space;\" =\n"
-          "class=3D\"\"><div><blockquote>quoted text is included</blockquote>\n"
-          "</div><br =class=3D\"\"></body></html>=\n",
-          100,
-          ">quoted text is included" },
-       { "Content-Type: text/plain; charset=utf-8\n"
-         "\n"
-         "I think\n",
-         100,
-         "I think"
-       },
-       { "Content-Type: text/plain; charset=utf-8\n"
-         "\n"
-         "  Lorem Ipsum\n",
-         100,
-         "Lorem Ipsum"
-       },
-       { "Content-Type: text/plain; charset=utf-8\n"
-         "\n"
-         " I think\n",
-         100,
-         "I think"
-       },
-       { "Content-Type: text/plain; charset=utf-8\n"
-         "\n"
-         "   A cat\n",
-         100,
-         "A cat"
-       },
-       { "Content-Type: text/plain; charset=utf-8\n"
-         "\n"
-         " \n",
-         100,
-         ""
-       },
+	{ "Content-Transfer-Encoding: quoted-printable\n"
+	  "Content-Type: text/html;\n"
+	  "      charset=utf-8\n"
+	  "\n"
+	  "<html><head><meta http-equiv=3D\"Content-Type\" content=3D\"text/html =\n"
+	  "charset=3Dutf-8\"></head><body style=3D\"word-wrap: break-word; =\n"
+	  "-webkit-nbsp-mode: space; -webkit-line-break: after-white-space;\" =\n"
+	  "class=3D\"\"><div><blockquote>quoted text is included</blockquote>\n"
+	  "</div><br =class=3D\"\"></body></html>=\n",
+	  100,
+	  ">quoted text is included" },
+	{ "Content-Type: text/plain; charset=utf-8\n"
+	 "\n"
+	 "I think\n",
+	 100,
+	 "I think"
+	},
+	{ "Content-Type: text/plain; charset=utf-8\n"
+	 "\n"
+	 "  Lorem Ipsum\n",
+	 100,
+	 "Lorem Ipsum"
+	},
+	{ "Content-Type: text/plain; charset=utf-8\n"
+	 "\n"
+	 " I think\n",
+	 100,
+	 "I think"
+	},
+	{ "Content-Type: text/plain; charset=utf-8\n"
+	 "\n"
+	 "   A cat\n",
+	 100,
+	 "A cat"
+	},
+	{ "Content-Type: text/plain; charset=utf-8\n"
+	 "\n"
+	 " \n",
+	 100,
+	 ""
+	},
 };
 
 static void test_message_snippet(void)
