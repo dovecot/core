@@ -170,8 +170,12 @@ int message_snippet_generate(struct istream *input,
 			if (ct == NULL)
 				/* text/plain */ ;
 			else if (mail_html2text_content_type_match(ct)) {
+				mail_html2text_deinit(&ctx.html2text);
 				ctx.html2text = mail_html2text_init(0);
-				ctx.plain_output = buffer_create_dynamic(pool, 1024);
+				if (ctx.plain_output == NULL) {
+					ctx.plain_output =
+						buffer_create_dynamic(pool, 1024);
+				}
 			} else if (strncasecmp(ct, "text/", 5) != 0)
 				break;
 			continue;
