@@ -166,6 +166,12 @@ int message_snippet_generate(struct istream *input,
 			if (block.hdr != NULL)
 				continue;
 
+			/* We already have a snippet, don't look for more in
+			   subsequent parts. */
+			if (ctx.snippet.snippet->used != 0 ||
+			    ctx.quoted_snippet.snippet->used != 0)
+				break;
+
 			skip_part = NULL;
 
 			/* end of headers - verify that we can use this
