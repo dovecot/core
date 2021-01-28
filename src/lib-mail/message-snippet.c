@@ -140,6 +140,7 @@ int message_snippet_generate(struct istream *input,
 	const struct message_parser_settings parser_set = { .flags = 0 };
 	struct message_parser_ctx *parser;
 	struct message_part *parts;
+	struct message_part *skip_part = NULL;
 	struct message_decoder_context *decoder;
 	struct message_block raw_block, block;
 	struct snippet_context ctx;
@@ -155,6 +156,8 @@ int message_snippet_generate(struct istream *input,
 	parser = message_parser_init(pool_datastack_create(), input, &parser_set);
 	decoder = message_decoder_init(NULL, 0);
 	while ((ret = message_parser_parse_next_block(parser, &raw_block)) > 0) {
+		if (raw_block.part == skip_part)
+			continue;
 		if (!message_decoder_decode_next_block(decoder, &raw_block, &block))
 			continue;
 		if (block.size == 0) {
@@ -162,6 +165,8 @@ int message_snippet_generate(struct istream *input,
 
 			if (block.hdr != NULL)
 				continue;
+
+			skip_part = NULL;
 
 			/* end of headers - verify that we can use this
 			   Content-Type. we get here only once, because we
@@ -177,10 +182,8 @@ int message_snippet_generate(struct istream *input,
 						buffer_create_dynamic(pool, 1024);
 				}
 			} else if (strncasecmp(ct, "text/", 5) != 0)
-				break;
-			continue;
-		}
-		if (!snippet_generate(&ctx, block.data, block.size))
+				skip_part = raw_block.part;
+		} else if (!snippet_generate(&ctx, block.data, block.size))
 			break;
 	}
 	i_assert(ret != 0);
