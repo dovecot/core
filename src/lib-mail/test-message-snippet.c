@@ -152,6 +152,133 @@ static const struct {
 	 100,
 	 ""
 	},
+	{ "MIME-Version: 1.0\n"
+	 "Content-Type: multipart/mixed; boundary=a\n"
+	 "\n--a\n"
+	 "Content-Transfer-Encoding: 7bit\n"
+	 "Content-Type: text/html; charset=utf-8\n\n"
+	 "<html><head></head><body><p>part one</p></body></head>\n"
+	 "\n--a\n"
+	 "Content-Transfer-Encoding: 7bit\n"
+	 "Content-Type: text/html; charset=utf-8\n\n"
+	 "<html><head></head><body><p>part two</p></body></head>\n"
+	 "\n--a--\n",
+	 100,
+	 "part one"
+	},
+	{ "MIME-Version: 1.0\n"
+	 "Content-Type: multipart/alternative; boundary=a\n"
+	 "\n--a\n"
+	 "Content-Transfer-Encoding: 7bit\n"
+	 "Content-Type: text/html; charset=utf-8\n\n"
+	 "<html><head></head><body><p>part one</p></body></head>\n"
+	 "\n--a\n"
+	 "Content-Transfer-Encoding: 7bit\n"
+	 "Content-Type: text/plain; charset=utf-8\n\n"
+	 "part two\n"
+	 "\n--a--\n",
+	 100,
+	 "part one"
+	},
+	{ "MIME-Version: 1.0\n"
+	  "Content-Type: multipart/mixed; boundary=a\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/html; charset=utf-8\n\n"
+	  "<html><head></head><body><div><p></p><!-- comment --></body></head>\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/html; charset=utf-8\n\n"
+	  "<html><head></head><body><p>part two</p></body></head>\n"
+	  "\n--a--\n",
+	  100,
+	  "part two"
+	},
+	{ "MIME-Version: 1.0\n"
+	  "Content-Type: multipart/alternative; boundary=a\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	 "Content-Type: text/plain; charset=utf-8\n\n"
+	  "> original text\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/plain; charset=utf-8\n\n"
+	  "part two\n"
+	  "\n--a--\n",
+	  100,
+	  ">original text"
+	},
+	{ "MIME-Version: 1.0\n"
+	  "Content-Type: multipart/alternative; boundary=a\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/plain; charset=utf-8\n\n"
+	  "top poster\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/plain; charset=utf-8\n\n"
+	  "> original text\n"
+	  "\n--a--\n",
+	  100,
+	  "top poster"
+	},
+	{ "MIME-Version: 1.0\n"
+	  "Content-Type: multipart/mixed; boundary=a\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/html; charset=utf-8\n\n"
+	  "<html><head></head><body><div><p></p><!-- comment --></body></head>\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/html; charset=utf-8\n\n"
+	  "<html><head></head><body><blockquote><!-- another --></blockquote>\n"
+	 "</body></head>\n"
+	  "\n--a--\n",
+	  100,
+	  ""
+	},
+	{ "MIME-Version: 1.0\n"
+	  "Content-Type: multipart/mixed; boundary=a\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/html; charset=utf-8\n\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/html; charset=utf-8\n\n"
+	  "</body></head>\n"
+	  "\n--a--\n",
+	  100,
+	  ""
+	},
+	{ "MIME-Version: 1.0\n"
+	  "Content-Type: multipart/mixed; boundary=a\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: base64\n"
+	  "Content-Type: application/octet-stream\n\n"
+	  "U2hvdWxkIG5vdCBiZSBpbiBzbmlwcGV0\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/html; charset=utf-8\n\n"
+	  "<html><head></head><body><p>Should be in snippet</p></body></html>\n"
+	  "\n--a--\n",
+	  100,
+	  "Should be in snippet"
+	},
+	{ "MIME-Version: 1.0\n"
+	  "Content-Type: multipart/mixed; boundary=a\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: base64\n"
+	  "Content-Type: application/octet-stream\n\n"
+	  "U2hvdWxkIG5vdCBiZSBpbiBzbmlwcGV0\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: base64\n"
+	  "Content-Type: TeXT/html; charset=utf-8\n\n"
+	  "PGh0bWw+PGhlYWQ+PC9oZWFkPjxib2R5PjxwPlNob3VsZCBiZSBpbiBzbmlwcGV0PC9wPjwvYm9k\n"
+	  "eT48L2h0bWw+\n"
+	  "\n--a--\n",
+	  100,
+	  "Should be in snippet"
+	},
 };
 
 static void test_message_snippet(void)
