@@ -42,7 +42,8 @@ struct mail_index_view_sync_ctx {
 
 static int
 view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges,
-			     bool *reset_r, bool *partial_sync_r)
+			     bool *reset_r, bool *partial_sync_r,
+			     const char **error_r)
 {
 	const struct mail_index_header *hdr = &view->index->map->hdr;
 	uint32_t start_seq, end_seq;
@@ -70,7 +71,7 @@ view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges,
 	if (end_seq < view->log_file_head_seq ||
 	    (end_seq == view->log_file_head_seq &&
 	     end_offset < view->log_file_head_offset)) {
-		mail_index_set_error(view->index,
+		*error_r = t_strdup_printf(
 			"%s log position went backwards "
 			"(%u,%"PRIuUOFF_T" < %u,%"PRIuUOFF_T")",
 			view->index->filepath, end_seq, end_offset,
@@ -85,7 +86,7 @@ view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges,
 						    end_seq, end_offset,
 						    reset_r, &reason);
 		if (ret <= 0) {
-			mail_index_set_error(view->index,
+			*error_r = t_strdup_printf(
 				"Failed to map view for %s: %s",
 				view->index->filepath, reason);
 			return ret;
@@ -548,6 +549,7 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 	struct mail_index_map *tmp_map;
 	unsigned int expunge_count = 0;
 	bool reset, partial_sync, sync_expunges, have_expunges;
+	const char *error;
 	int ret;
 
 	i_assert(!view->syncing);
@@ -580,13 +582,16 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 		return ctx;
 	}
 
-	ret = view_sync_set_log_view_range(view, sync_expunges, &reset, &partial_sync);
+	ret = view_sync_set_log_view_range(view, sync_expunges, &reset,
+					   &partial_sync, &error);
 	if (ret < 0) {
+		mail_index_set_error(view->index, "%s", error);
 		ctx->failed = TRUE;
 		return ctx;
 	}
 
 	if (ret == 0) {
+		mail_index_set_error(view->index, "%s", error);
 		ctx->log_was_lost = TRUE;
 		if (!sync_expunges)
 			i_array_init(&ctx->expunges, 64);
