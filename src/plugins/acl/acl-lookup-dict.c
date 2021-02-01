@@ -190,7 +190,6 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	path = t_str_new(256);
 	str_append(path, prefix);
 
-	dt = dict_transaction_begin(dict->dict);
 	old_ids = array_get(&old_ids_arr, &old_count);
 	new_ids = array_get(new_ids_arr, &new_count);
 	for (newi = oldi = 0; newi < new_count || oldi < old_count; ) {
@@ -203,6 +202,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			/* new identifier, add it */
 			str_truncate(path, prefix_len);
 			str_append(path, new_ids[newi]);
+			dt = dict_transaction_begin(dict->dict);
 			dict_set(dt, str_c(path), "1");
 			newi++;
 		} else if (!no_removes) {
@@ -211,13 +211,15 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			str_append(path, old_ids[oldi]);
 			str_append_c(path, '/');
 			str_append(path, username);
+			dt = dict_transaction_begin(dict->dict);
 			dict_unset(dt, str_c(path));
 			oldi++;
 		}
-	}
-	if (dict_transaction_commit(&dt, &error) < 0) {
-		i_error("acl: dict commit failed: %s", error);
-		return -1;
+		if (dt != NULL && dict_transaction_commit(&dt, &error) < 0) {
+			i_error("acl: dict commit failed: %s", error);
+			return -1;
+		}
+		i_assert(dt == NULL);
 	}
 	return 0;
 }
