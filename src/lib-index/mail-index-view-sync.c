@@ -52,10 +52,20 @@ view_sync_set_log_view_range(struct mail_index_view *view, bool sync_expunges,
 
 	*partial_sync_r = FALSE;
 
-	start_seq = view->log_file_expunge_seq;
-	start_offset = view->log_file_expunge_offset;
-	end_seq = hdr->log_file_seq;
-	end_offset = hdr->log_file_head_offset;
+	if (sync_expunges) {
+		/* Sync everything after the last expunge syncing position.
+		   We'll just skip over the non-expunge transaction records
+		   that have already been synced previously. */
+		start_seq = view->log_file_expunge_seq;
+		start_offset = view->log_file_expunge_offset;
+	} else {
+		/* Sync only new changes since the last view sync. */
+		start_seq = view->log_file_head_seq;
+		start_offset = view->log_file_head_offset;
+	}
+	/* Sync the view up to the (already refreshed) index map. */
+        end_seq = hdr->log_file_seq;
+        end_offset = hdr->log_file_head_offset;
 
 	if (end_seq < view->log_file_head_seq ||
 	    (end_seq == view->log_file_head_seq &&
@@ -485,12 +495,18 @@ view_sync_get_log_lost_changes(struct mail_index_view_sync_ctx *ctx,
 	old_map->hdr.log_file_tail_offset = 0;
 
 	if ((ctx->flags & MAIL_INDEX_VIEW_SYNC_FLAG_NOEXPUNGES) != 0) {
+		/* Expunges aren't wanted to be synced. Remember if we skipped
+		   over any expunges. If yes, we must not update
+		   log_file_expunge_seq/offset at the end of the view sync
+		   so that a later sync can finish the expunges. */
 		array_clear(&ctx->expunges);
 		ctx->skipped_expunges = *expunge_count_r > 0;
-	} else {
-		view->log_file_head_seq = new_map->hdr.log_file_seq;
-		view->log_file_head_offset = new_map->hdr.log_file_head_offset;
 	}
+	/* After the view sync is finished, update
+	   log_file_head_seq/offset, since we've synced everything
+	   (except maybe the expunges) up to this point. */
+	view->log_file_head_seq = new_map->hdr.log_file_seq;
+	view->log_file_head_offset = new_map->hdr.log_file_head_offset;
 	return 0;
 }
 
@@ -595,8 +611,16 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 			return ctx;
 		}
 		have_expunges = expunge_count > 0;
-	} else {
+	} else if (view->log_file_expunge_seq == view->log_file_head_seq &&
+		   view->log_file_expunge_offset == view->log_file_head_offset) {
+		/* Previous syncs haven't left any pending expunges. See if
+		   this sync will. */
 		have_expunges = view_sync_have_expunges(view);
+	} else {
+		/* Expunges weren't synced in the previous sync either.
+		   We already know there are missing expunges. */
+		ctx->skipped_expunges = TRUE;
+		have_expunges = TRUE;
 	}
 
 	ctx->finish_min_msg_count = reset ? 0 :
