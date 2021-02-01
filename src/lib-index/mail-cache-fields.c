@@ -437,7 +437,14 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 		cache->field_file_map[fidx] = i;
 		cache->file_field_map[i] = fidx;
 
-		/* update last_used if it's newer than ours */
+		/* Update last_used if it's newer than ours. Note that the
+		   last_used may have been overwritten while we were reading
+		   this cache header. In theory this can mean that the
+		   last_used field is only half-updated and contains garbage.
+		   This practically won't matter, since the worst that can
+		   happen is that we trigger a purge earlier than necessary.
+		   The purging re-reads the last_used while cache is locked and
+		   correctly figures out whether to drop the field. */
 		if ((time_t)last_used[i] > cache->fields[fidx].field.last_used)
 			cache->fields[fidx].field.last_used = last_used[i];
 

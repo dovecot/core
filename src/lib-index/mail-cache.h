@@ -46,13 +46,21 @@ enum mail_cache_field_type {
 };
 
 struct mail_cache_field {
+	/* Unique name for the cache field. The field name doesn't matter
+	   internally. */
 	const char *name;
+	/* Field index name. Used to optimize accessing the cache field. */
 	unsigned int idx;
 
+	/* Type of the field */
 	enum mail_cache_field_type type;
+	/* Size of the field, if it's a fixed size type. */
 	unsigned int field_size;
+	/* Current caching decision */
 	enum mail_cache_decision_type decision;
-	/* If higher than the current last_used field, update it */
+	/* Timestamp when the cache field was last intentionally read (e.g.
+	   by an IMAP client). Saving new mails doesn't update this field.
+	   This is used to track when an unaccessed field should be dropped. */
 	time_t last_used;
 };
 
