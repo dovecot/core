@@ -35,6 +35,7 @@ struct ns_list_iterate_context {
 	bool cur_ns_prefix_sent:1;
 	bool inbox_list:1;
 	bool inbox_listed:1;
+	bool inbox_seen:1;
 };
 
 static void mailbox_list_ns_iter_failed(struct ns_list_iterate_context *ctx);
@@ -572,7 +573,9 @@ mailbox_list_ns_iter_try_next(struct mailbox_list_iterate_context *_ctx,
 	bool has_children;
 
 	if (ctx->cur_ns == NULL) {
-		if (!ctx->inbox_listed && ctx->inbox_list && !_ctx->failed) {
+		if (!ctx->inbox_listed && ctx->inbox_list && !_ctx->failed &&
+		    ((_ctx->flags & MAILBOX_LIST_ITER_NO_AUTO_BOXES) == 0 ||
+		     ctx->inbox_seen)) {
 			/* send delayed INBOX reply */
 			ctx->inbox_listed = TRUE;
 			inbox_set_children_flags(ctx);
@@ -626,6 +629,7 @@ mailbox_list_ns_iter_try_next(struct mailbox_list_iterate_context *_ctx,
 			/* delay sending INBOX reply. we already saved its
 			   flags at init stage, except for \Noinferiors
 			   and subscription states */
+			ctx->inbox_seen = TRUE;
 			ctx->inbox_info.flags |=
 				(info->flags & (MAILBOX_NOINFERIORS |
 						MAILBOX_SUBSCRIBED |
