@@ -591,7 +591,8 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 	}
 
 	if (ret == 0) {
-		mail_index_set_error(view->index, "%s", error);
+		e_warning(view->index->event,
+			  "%s - generating missing logs", error);
 		ctx->log_was_lost = TRUE;
 		if (!sync_expunges)
 			i_array_init(&ctx->expunges, 64);
