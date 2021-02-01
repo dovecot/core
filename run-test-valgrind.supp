@@ -65,4 +65,20 @@
    fun:test_exit
    ...
 }
-
+{
+   <libunwind_fedora32_v1_3_1_backtrace_write>
+   Memcheck:Param
+   write(buf)
+   ...
+   obj:*libunwind*
+   ...
+   fun:backtrace_append
+   ...
+   ...
+}
+{
+   <libicu_fedora32_v65_1>
+   Memcheck:Cond
+   obj:*libicuuc*
+   ...
+}
