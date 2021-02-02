@@ -697,7 +697,7 @@ mail_transaction_log_file_create2(struct mail_transaction_log_file *file,
 		return -1;
 	}
 
-	if (file->log->nfs_flush) {
+	if ((index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0) {
 		/* although we check also mtime and file size below, it's done
 		   only to fix broken log files. we don't bother flushing
 		   attribute cache just for that. */
@@ -1653,7 +1653,8 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 	   that we really should have read more, flush the cache and try again.
 	   if file is locked, the attribute cache was already flushed when
 	   refreshing the log. */
-	if (file->log->nfs_flush && nfs_flush) {
+	if (nfs_flush &&
+	    (file->log->index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0) {
 		if (!file->locked)
 			nfs_flush_attr_cache_unlocked(file->filepath);
 		else
@@ -1675,7 +1676,8 @@ mail_transaction_log_file_read(struct mail_transaction_log_file *file,
 
 	if ((ret = mail_transaction_log_file_read_more(file, reason_r)) <= 0)
 		;
-	else if (file->log->nfs_flush && !nfs_flush &&
+	else if (!nfs_flush &&
+		 (file->log->index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0 &&
 		 mail_transaction_log_file_need_nfs_flush(file)) {
 		/* we didn't read enough data. flush and try again. */
 		return mail_transaction_log_file_read(file, start_offset, TRUE, reason_r);

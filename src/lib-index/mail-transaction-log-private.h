@@ -90,7 +90,6 @@ struct mail_transaction_log {
 	int dotlock_refcount;
 	struct dotlock *dotlock;
 
-	bool nfs_flush:1;
 	bool log_2_unlink_checked:1;
 };
 

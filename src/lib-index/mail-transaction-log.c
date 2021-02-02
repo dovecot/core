@@ -89,11 +89,6 @@ int mail_transaction_log_open(struct mail_transaction_log *log)
 				    MAIL_TRANSACTION_LOG_SUFFIX, NULL);
 	log->filepath2 = i_strconcat(log->filepath, ".2", NULL);
 
-	/* these settings aren't available at alloc() time, so we need to
-	   set them here: */
-	log->nfs_flush =
-		(log->index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
-
 	if (log->open_file != NULL)
 		mail_transaction_log_file_free(&log->open_file);
 
@@ -361,7 +356,8 @@ mail_transaction_log_refresh(struct mail_transaction_log *log, bool nfs_flush,
 		return 0;
 	}
 
-	if (nfs_flush && log->nfs_flush)
+	if (nfs_flush &&
+	    (log->index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0)
 		nfs_flush_file_handle_cache(log->filepath);
 	if (nfs_safe_stat(log->filepath, &st) < 0) {
 		if (errno != ENOENT) {
@@ -451,7 +447,8 @@ int mail_transaction_log_find_file(struct mail_transaction_log *log,
 			return -1;
 		}
 		if (file_seq > log->head->hdr.file_seq) {
-			if (!nfs_flush || !log->nfs_flush) {
+			if (!nfs_flush ||
+			    (log->index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) == 0) {
 				*reason_r = t_strdup_printf(
 					"Requested newer log than exists: %s", reason);
 				return 0;
