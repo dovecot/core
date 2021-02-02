@@ -309,15 +309,16 @@ mail_transaction_log_file_dotlock(struct mail_transaction_log_file *file)
 	struct dotlock_settings dotlock_set;
 	int ret;
 
-	if (file->log->dotlock_count > 0)
+	if (file->log->dotlock_refcount > 0)
 		ret = 1;
 	else {
+		i_assert(file->log->dotlock_refcount == 0);
 		mail_transaction_log_get_dotlock_set(file->log, &dotlock_set);
 		ret = file_dotlock_create(&dotlock_set, file->filepath, 0,
 					  &file->log->dotlock);
 	}
 	if (ret > 0) {
-		file->log->dotlock_count++;
+		file->log->dotlock_refcount++;
 		file->locked = TRUE;
 		file->lock_created = time(NULL);
 		return 0;
@@ -339,7 +340,8 @@ mail_transaction_log_file_undotlock(struct mail_transaction_log_file *file)
 {
 	int ret;
 
-	if (--file->log->dotlock_count > 0)
+	i_assert(file->log->dotlock_refcount >= 0);
+	if (--file->log->dotlock_refcount > 0)
 		return 0;
 
 	ret = file_dotlock_delete(&file->log->dotlock);

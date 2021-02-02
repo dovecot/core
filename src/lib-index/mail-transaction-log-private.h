@@ -87,7 +87,7 @@ struct mail_transaction_log {
 	   if _open() failed, it's left there for _create(). */
 	struct mail_transaction_log_file *open_file;
 
-	unsigned int dotlock_count;
+	int dotlock_refcount;
 	struct dotlock *dotlock;
 
 	bool nfs_flush:1;
