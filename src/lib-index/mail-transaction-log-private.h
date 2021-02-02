@@ -64,7 +64,7 @@ struct mail_transaction_log_file {
 	struct modseq_cache modseq_cache[LOG_FILE_MODSEQ_CACHE_SIZE];
 
 	struct file_lock *file_lock;
-	time_t lock_created;
+	time_t lock_create_time;
 
 	bool locked:1;
 	bool locked_sync_offset_updated:1;

@@ -319,7 +319,7 @@ mail_transaction_log_file_dotlock(struct mail_transaction_log_file *file)
 	if (ret > 0) {
 		file->log->dotlock_refcount++;
 		file->locked = TRUE;
-		file->lock_created = time(NULL);
+		file->lock_create_time = time(NULL);
 		return 0;
 	}
 	if (ret < 0) {
@@ -389,7 +389,7 @@ int mail_transaction_log_file_lock(struct mail_transaction_log_file *file)
 				 &file->file_lock);
 	if (ret > 0) {
 		file->locked = TRUE;
-		file->lock_created = time(NULL);
+		file->lock_create_time = time(NULL);
 		return 0;
 	}
 	if (ret < 0) {
@@ -419,7 +419,7 @@ void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file,
 	if (MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file))
 		return;
 
-	lock_time = time(NULL) - file->lock_created;
+	lock_time = time(NULL) - file->lock_create_time;
 	if (lock_time >= MAIL_TRANSACTION_LOG_LOCK_WARN_SECS && lock_reason != NULL) {
 		i_warning("Transaction log file %s was locked for %u seconds (%s)",
 			  file->filepath, lock_time, lock_reason);

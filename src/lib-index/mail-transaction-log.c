@@ -541,7 +541,7 @@ int mail_transaction_log_lock_head(struct mail_transaction_log *log,
 		if (ret == 0 && log->head == file) {
 			/* success */
 			i_assert(file != NULL);
-			lock_secs = file->lock_created - lock_wait_started;
+			lock_secs = file->lock_create_time - lock_wait_started;
 			break;
 		}
 
