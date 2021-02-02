@@ -9,7 +9,7 @@ struct dotlock_settings;
 /* Synchronization can take a while sometimes, especially when copying lots of
    mails. */
 #define MAIL_TRANSACTION_LOG_LOCK_TIMEOUT (3*60)
-#define MAIL_TRANSACTION_LOG_LOCK_CHANGE_TIMEOUT (3*60)
+#define MAIL_TRANSACTION_LOG_DOTLOCK_CHANGE_TIMEOUT (3*60)
 
 #define MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file) ((file)->fd == -1)
 
