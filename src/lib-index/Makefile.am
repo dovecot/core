@@ -40,6 +40,7 @@ libindex_la_SOURCES = \
         mail-transaction-log.c \
         mail-transaction-log-append.c \
         mail-transaction-log-file.c \
+        mail-transaction-log-modseq.c \
         mail-transaction-log-view.c \
         mailbox-log.c
 
