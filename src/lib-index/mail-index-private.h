@@ -356,12 +356,13 @@ int mail_index_map(struct mail_index *index,
 		   enum mail_index_sync_handler_type type);
 /* Unreference given mapping and unmap it if it's dropped to zero. */
 void mail_index_unmap(struct mail_index_map **map);
-
-/* Clone a map. The returned map is always in memory. */
+/* Clone a map. It still points to the original rec_map. */
 struct mail_index_map *mail_index_map_clone(const struct mail_index_map *map);
+/* Make sure the map has its own private rec_map, cloning it if necessary. */
 void mail_index_record_map_move_to_private(struct mail_index_map *map);
-/* Move a mmaped map to memory. */
+/* If map points to mmap()ed index, copy it to the memory. */
 void mail_index_map_move_to_memory(struct mail_index_map *map);
+
 void mail_index_fchown(struct mail_index *index, int fd, const char *path);
 
 bool mail_index_map_lookup_ext(struct mail_index_map *map, const char *name,

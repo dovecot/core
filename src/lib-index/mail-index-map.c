@@ -428,6 +428,8 @@ void mail_index_record_map_move_to_private(struct mail_index_map *map)
 	const struct mail_index_record *rec;
 
 	if (array_count(&map->rec_map->maps) > 1) {
+		/* Multiple references to the rec_map. Create a clone of the
+		   rec_map, which is in memory. */
 		new_map = mail_index_record_map_alloc(map);
 		mail_index_map_copy_records(new_map, map->rec_map,
 					    map->hdr.record_size);
@@ -440,6 +442,10 @@ void mail_index_record_map_move_to_private(struct mail_index_map *map)
 	}
 
 	if (new_map->records_count != map->hdr.messages_count) {
+		/* The rec_map has more messages than what map contains.
+		   These messages aren't necessary (and may confuse the caller),
+		   so truncate them away. */
+		i_assert(new_map->records_count > map->hdr.messages_count);
 		new_map->records_count = map->hdr.messages_count;
 		if (new_map->records_count == 0)
 			new_map->last_appended_uid = 0;
@@ -456,9 +462,14 @@ void mail_index_map_move_to_memory(struct mail_index_map *map)
 {
 	struct mail_index_record_map *new_map;
 
-	if (map->rec_map->mmap_base == NULL)
+	if (map->rec_map->mmap_base == NULL) {
+		/* rec_map is already in memory */
 		return;
+	}
 
+	/* Move the rec_map contents to memory. If this is the only map that
+	   refers to the rec_map, it can be directly replaced and the old
+	   content munmap()ed. Otherwise, create a new rec_map for this map. */
 	if (array_count(&map->rec_map->maps) == 1)
 		new_map = map->rec_map;
 	else {
