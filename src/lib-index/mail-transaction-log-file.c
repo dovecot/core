@@ -179,12 +179,12 @@ mail_transaction_log_file_skip_to_head(struct mail_transaction_log_file *file)
 		file->sync_highest_modseq = modseq_hdr->highest_modseq;
 	}
 	if (file->hdr.file_seq == log->index->map->hdr.log_file_seq) {
-		file->saved_tail_offset =
+		file->last_read_hdr_tail_offset =
 			log->index->map->hdr.log_file_tail_offset;
-		file->saved_tail_sync_offset = file->saved_tail_offset;
+		file->saved_tail_sync_offset = file->last_read_hdr_tail_offset;
 	}
-	if (file->saved_tail_offset > file->max_tail_offset)
-		file->max_tail_offset = file->saved_tail_offset;
+	if (file->last_read_hdr_tail_offset > file->max_tail_offset)
+		file->max_tail_offset = file->last_read_hdr_tail_offset;
 }
 
 static void
@@ -992,7 +992,7 @@ log_file_track_mailbox_sync_offset_hdr(struct mail_transaction_log_file *file,
 		       CONST_PTR_OFFSET(u + 1, offset_pos - u->offset),
 		       sizeof(tail_offset));
 
-		if (tail_offset < file->saved_tail_offset) {
+		if (tail_offset < file->last_read_hdr_tail_offset) {
 			/* ignore shrinking tail offsets */
 			return 1;
 		} else if (tail_offset > file->sync_offset + trans_size) {
@@ -1000,7 +1000,7 @@ log_file_track_mailbox_sync_offset_hdr(struct mail_transaction_log_file *file,
 				"log_file_tail_offset %u goes past sync offset %"PRIuUOFF_T,
 				tail_offset, file->sync_offset + trans_size);
 		} else {
-			file->saved_tail_offset = tail_offset;
+			file->last_read_hdr_tail_offset = tail_offset;
 			if (tail_offset > file->max_tail_offset)
 				file->max_tail_offset = tail_offset;
 			return 1;

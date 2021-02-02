@@ -418,7 +418,7 @@ void mail_transaction_log_set_mailbox_sync_pos(struct mail_transaction_log *log,
 					       uoff_t file_offset)
 {
 	i_assert(file_seq == log->head->hdr.file_seq);
-	i_assert(file_offset >= log->head->saved_tail_offset);
+	i_assert(file_offset >= log->head->last_read_hdr_tail_offset);
 
 	if (file_offset >= log->head->max_tail_offset)
 		log->head->max_tail_offset = file_offset;
