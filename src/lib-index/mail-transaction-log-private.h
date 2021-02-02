@@ -56,9 +56,6 @@ struct mail_transaction_log_file {
 	   max_tail_offset automatically by making it skip external transactions
 	   after the last saved offset (to avoid re-reading them needlessly). */
 	uoff_t last_read_hdr_tail_offset, max_tail_offset;
-	/* don't give warnings about last_read_hdr_tail_offset shrinking if
-	   sync_offset is less than this. */
-	uoff_t saved_tail_sync_offset;
 
 	/* if we've seen _INDEX_[UN9DELETED transaction in this file,
 	   this is the offset. otherwise UOFF_T_MAX */

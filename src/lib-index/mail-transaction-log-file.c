@@ -181,7 +181,6 @@ mail_transaction_log_file_skip_to_head(struct mail_transaction_log_file *file)
 	if (file->hdr.file_seq == log->index->map->hdr.log_file_seq) {
 		file->last_read_hdr_tail_offset =
 			log->index->map->hdr.log_file_tail_offset;
-		file->saved_tail_sync_offset = file->last_read_hdr_tail_offset;
 	}
 	if (file->last_read_hdr_tail_offset > file->max_tail_offset)
 		file->max_tail_offset = file->last_read_hdr_tail_offset;
