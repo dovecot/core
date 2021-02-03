@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "ostream.h"
 #include "restrict-access.h"
 #include "master-service.h"
 #include "mailbox-list-private.h"
@@ -73,7 +74,9 @@ static struct event_category event_category_mbox = {
 static MODULE_CONTEXT_DEFINE_INIT(mbox_mailbox_list_module,
 				  &mailbox_list_module_register);
 
-void mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
+static void
+mbox_set_syscall_error_str(struct mbox_mailbox *mbox, const char *function,
+			   const char *error)
 {
 	i_assert(function != NULL);
 
@@ -83,9 +86,30 @@ void mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
 	} else {
 		const char *toobig_error = errno != EFBIG ? "" :
 			" (process was started with ulimit -f limit)";
-		mailbox_set_critical(&mbox->box,
-			"%s failed with mbox: %m%s", function, toobig_error);
+		mailbox_set_critical(&mbox->box, "%s failed with mbox: %s%s",
+				     function, error, toobig_error);
 	}
+}
+
+void mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function)
+{
+	mbox_set_syscall_error_str(mbox, function, strerror(errno));
+}
+
+void mbox_istream_set_syscall_error(struct mbox_mailbox *mbox,
+				    struct istream *input,
+				    const char *function)
+{
+	errno = input->stream_errno;
+	mbox_set_syscall_error_str(mbox, function, i_stream_get_error(input));
+}
+
+void mbox_ostream_set_syscall_error(struct mbox_mailbox *mbox,
+				    struct ostream *output,
+				    const char *function)
+{
+	errno = output->stream_errno;
+	mbox_set_syscall_error_str(mbox, function, o_stream_get_error(output));
 }
 
 static int
