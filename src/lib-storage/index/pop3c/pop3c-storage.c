@@ -89,7 +89,7 @@ pop3c_client_create_from_set(struct mail_storage *storage,
 		client_set.ssl_mode = POP3C_CLIENT_SSL_MODE_STARTTLS;
 	else
 		client_set.ssl_mode = POP3C_CLIENT_SSL_MODE_NONE;
-	return pop3c_client_init(&client_set);
+	return pop3c_client_init(&client_set, storage->event);
 }
 
 static void

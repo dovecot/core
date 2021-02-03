@@ -56,6 +56,7 @@ struct pop3c_client_cmd {
 
 struct pop3c_client {
 	pool_t pool;
+	struct event *event;
 	struct pop3c_client_settings set;
 	struct ssl_iostream_context *ssl_ctx;
 	struct ip_addr ip;
@@ -90,7 +91,8 @@ static int pop3c_client_ssl_init(struct pop3c_client *client);
 static void pop3c_client_input(struct pop3c_client *client);
 
 struct pop3c_client *
-pop3c_client_init(const struct pop3c_client_settings *set)
+pop3c_client_init(const struct pop3c_client_settings *set,
+		  struct event *event_parent)
 {
 	struct pop3c_client *client;
 	const char *error;
@@ -99,6 +101,7 @@ pop3c_client_init(const struct pop3c_client_settings *set)
 	pool = pool_alloconly_create("pop3c client", 1024);
 	client = p_new(pool, struct pop3c_client, 1);
 	client->pool = pool;
+	client->event = event_create(event_parent);
 	client->fd = -1;
 	p_array_init(&client->commands, pool, 16);
 
@@ -210,6 +213,7 @@ void pop3c_client_deinit(struct pop3c_client **_client)
 	pop3c_client_disconnect(client);
 	if (client->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&client->ssl_ctx);
+	event_unref(&client->event);
 	pool_unref(&client->pool);
 }
 
