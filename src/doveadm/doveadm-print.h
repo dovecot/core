@@ -33,7 +33,8 @@ void doveadm_print(const char *value);
 void doveadm_print_num(uintmax_t value);
 /* Stream for same field continues until len=0 */
 void doveadm_print_stream(const void *value, size_t size);
-/* Print the whole input stream. Returns 0 if ok, -1 if stream read() failed */
+/* Print the whole input stream. Returns 0 if ok, -1 if stream read() failed.
+   The caller must log the error. */
 int doveadm_print_istream(struct istream *input);
 void doveadm_print_sticky(const char *key, const char *value);
 void doveadm_print_flush(void);
