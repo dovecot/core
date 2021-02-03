@@ -903,8 +903,8 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 		/* doesn't exist anymore, seek to end of file */
 		ret = i_stream_get_size(sync_ctx->file_input, TRUE, &size);
 		if (ret < 0) {
-			mbox_set_syscall_error(sync_ctx->mbox,
-					       "i_stream_get_size()");
+			mbox_istream_set_syscall_error(sync_ctx->mbox,
+				sync_ctx->file_input, "i_stream_get_size()");
 			return -1;
 		}
 		i_assert(ret != 0);
@@ -1321,7 +1321,8 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 
 	ret = i_stream_get_size(sync_ctx->file_input, TRUE, &file_size);
 	if (ret < 0) {
-		mbox_set_syscall_error(sync_ctx->mbox, "i_stream_get_size()");
+		mbox_istream_set_syscall_error(sync_ctx->mbox,
+			sync_ctx->file_input, "i_stream_get_size()");
 		return -1;
 	}
 	if (ret == 0) {
@@ -1471,7 +1472,8 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 	uint32_t first_recent_uid, seq, seq2;
 
 	if (i_stream_stat(sync_ctx->file_input, FALSE, &st) < 0) {
-		mbox_set_syscall_error(sync_ctx->mbox, "i_stream_stat()");
+		mbox_istream_set_syscall_error(sync_ctx->mbox,
+			sync_ctx->file_input, "i_stream_stat()");
 		return -1;
 	}
 
@@ -1499,8 +1501,8 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 			}
 
 			if (i_stream_stat(sync_ctx->file_input, FALSE, &st) < 0) {
-				mbox_set_syscall_error(sync_ctx->mbox,
-						       "i_stream_stat()");
+				mbox_istream_set_syscall_error(sync_ctx->mbox,
+					sync_ctx->file_input, "i_stream_stat()");
 				return -1;
 			}
 		}
@@ -1605,7 +1607,8 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 	int ret;
 
 	if (i_stream_stat(sync_ctx->file_input, FALSE, &st) < 0) {
-		mbox_set_syscall_error(sync_ctx->mbox, "i_stream_stat()");
+		mbox_istream_set_syscall_error(sync_ctx->mbox,
+			sync_ctx->file_input, "i_stream_stat()");
 		return -1;
 	}
 	sync_ctx->last_stat = *st;
@@ -1744,7 +1747,8 @@ int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty)
 				mailbox_set_deleted(&mbox->box);
 				return 0;
 			}
-			mbox_set_syscall_error(mbox, "i_stream_stat()");
+			mbox_istream_set_syscall_error(mbox,
+				mbox->mbox_file_stream, "i_stream_stat()");
 			return -1;
 		}
 	} else {
