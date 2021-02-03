@@ -591,8 +591,15 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 	}
 
 	if (ret == 0) {
-		e_warning(view->index->event,
-			  "%s - generating missing logs", error);
+		/* Log the warning only when all expunges have been synced
+		   by previous syncs. This way when there's a _FLAG_NOEXPUNGES
+		   sync, there's no second warning logged when the expunges
+		   finally are synced. */
+		if (view->log_file_expunge_seq == view->log_file_head_seq &&
+		    view->log_file_expunge_offset == view->log_file_head_offset) {
+			e_warning(view->index->event,
+				  "%s - generating missing logs", error);
+		}
 		ctx->log_was_lost = TRUE;
 		if (!sync_expunges)
 			i_array_init(&ctx->expunges, 64);
