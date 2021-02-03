@@ -189,6 +189,11 @@ lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *llrcpt)
 			smtp_address_encode(address), error);
 		ret = -1;
 	} else {
+		/* Set the log prefix for the user. The default log prefix is
+		   automatically restored later when user context gets
+		   deactivated. */
+		i_set_failure_prefix("%s",
+			mail_storage_service_user_get_log_prefix(llrcpt->service_user));
 		ns = mail_namespace_find_inbox(user->namespaces);
 		box = mailbox_alloc(ns->list, "INBOX", 0);
 		mailbox_set_reason(box, "over-quota check");
@@ -208,6 +213,7 @@ lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *llrcpt)
 		}
 		mailbox_free(&box);
 		mail_user_deinit(&user);
+		mail_storage_service_io_deactivate_user(llrcpt->service_user);
 	}
 
 	if (ret < 0 && !smtp_server_recipient_is_replied(rcpt)) {
@@ -437,7 +443,6 @@ lmtp_local_deliver(struct lmtp_local *local,
 	const struct var_expand_table *var_table;
 	void **sets;
 	const char *line, *error, *username;
-	string_t *str;
 	int ret;
 
 	input = mail_storage_service_user_get_input(service_user);
@@ -472,7 +477,6 @@ lmtp_local_deliver(struct lmtp_local *local,
 	lldctx.delivery_time_started = ioloop_timeval;
 
 	client_update_data_state(client, username);
-	i_set_failure_prefix("lmtp(%s, %s): ", my_pid, username);
 	if (mail_storage_service_next(storage_service, service_user,
 				      &rcpt_user, &error) < 0) {
 		e_error(rcpt->event, "Failed to initialize user: %s", error);
@@ -503,17 +507,10 @@ lmtp_local_deliver(struct lmtp_local *local,
 		return -1;
 	}
 
-	str = t_str_new(256);
-	if (var_expand_with_funcs(str, rcpt_user->set->mail_log_prefix,
-				  var_table, mail_user_var_expand_func_table,
-				  rcpt_user, &error) <= 0) {
-		e_error(rcpt->event, "Failed to expand mail_log_prefix=%s: %s",
-			rcpt_user->set->mail_log_prefix, error);
-		smtp_server_recipient_reply(rcpt, 451, "4.3.0",
-					    "Temporary internal error");
-		return -1;
-	}
-	i_set_failure_prefix("%s", str_c(str));
+	/* Set the log prefix for the user. The default log prefix is
+	   automatically restored later when user context gets deactivated. */
+	i_set_failure_prefix("%s",
+		mail_storage_service_user_get_log_prefix(service_user));
 
 	lldctx.rcpt_user = rcpt_user;
 	lldctx.smtp_set = smtp_set;
@@ -667,7 +664,6 @@ lmtp_local_deliver_to_rcpts(struct lmtp_local *local,
 		ret = lmtp_local_deliver(local, cmd,
 			trans, llrcpt, src_mail, session);
 		client_update_data_state(client, NULL);
-		i_set_failure_prefix("lmtp(%s): ", my_pid);
 
 		/* succeeded and mail_user is not saved in first_saved_mail */
 		if ((ret == 0 &&
@@ -677,16 +673,20 @@ lmtp_local_deliver_to_rcpts(struct lmtp_local *local,
 		    (ret != 0 && local->rcpt_user != NULL)) {
 			if (i == (count - 1))
 				mail_user_autoexpunge(local->rcpt_user);
+			mail_storage_service_io_deactivate_user(local->rcpt_user->_service_user);
 			mail_user_deinit(&local->rcpt_user);
 		} else if (ret == 0) {
 			/* use the first saved message to save it elsewhere too.
 			   this might allow hard linking the files.
 			   mail_user is saved in first_saved_mail,
 			   will be unreferenced later on */
+			mail_storage_service_io_deactivate_user(local->rcpt_user->_service_user);
 			local->rcpt_user = NULL;
 			src_mail = local->first_saved_mail;
 			first_uid = geteuid();
 			i_assert(first_uid != 0);
+		} else if (local->rcpt_user != NULL) {
+			mail_storage_service_io_deactivate_user(local->rcpt_user->_service_user);
 		}
 	}
 	return first_uid;
@@ -759,10 +759,12 @@ void lmtp_local_data(struct client *client,
 				i_fatal("seteuid() failed: %m");
 		}
 
+		mail_storage_service_io_activate_user(user->_service_user);
 		mail_free(&mail);
 		mailbox_transaction_rollback(&trans);
 		mailbox_free(&box);
 		mail_user_autoexpunge(user);
+		mail_storage_service_io_deactivate_user(user->_service_user);
 		mail_user_deinit(&user);
 	}
 
