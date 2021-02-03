@@ -77,6 +77,7 @@ tika_get_http_client_url(struct mail_user *user, struct http_url **http_url_r)
 		http_set.request_timeout_msecs = 60*1000;
 		http_set.ssl = &ssl_set;
 		http_set.debug = user->mail_debug;
+		http_set.event_parent = user->event;
 
 		/* FIXME: We should initialize a shared client instead. However,
 		          this is currently not possible due to an obscure bug

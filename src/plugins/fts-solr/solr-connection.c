@@ -106,6 +106,7 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 		http_set.ssl = ssl_client_set;
 		http_set.debug = solr_set->debug;
 		http_set.rawlog_dir = solr_set->rawlog_dir;
+		http_set.event_parent = conn->event;
 
 		/* FIXME: We should initialize a shared client instead. However,
 		          this is currently not possible due to an obscure bug

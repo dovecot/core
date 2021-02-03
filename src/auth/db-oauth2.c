@@ -243,6 +243,7 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	http_set.no_auto_redirect = FALSE;
 	http_set.no_auto_retry = TRUE;
 	http_set.debug = db->set.debug;
+	http_set.event_parent = auth_event;
 
 	db->client = http_client_init(&http_set);
 
