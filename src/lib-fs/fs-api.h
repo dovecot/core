@@ -148,7 +148,7 @@ struct fs_settings {
 
 	/* Parent event to use, unless overridden by
 	   fs_file_init_with_event() */
-	struct event *event;
+	struct event *event_parent;
 
 	/* Enable debugging */
 	bool debug;
