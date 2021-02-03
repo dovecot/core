@@ -6,6 +6,7 @@
 #include "llist.h"
 #include "istream.h"
 #include "ostream.h"
+#include "iostream.h"
 #include "iostream-ssl.h"
 #include "iostream-proxy.h"
 #include "iostream-rawlog.h"
@@ -354,6 +355,13 @@ void client_destroy(struct client *client, const char *reason)
 	login_refresh_proctitle();
 }
 
+void client_destroy_iostream_error(struct client *client)
+{
+	const char *reason =
+		io_stream_get_disconnect_reason(client->input, client->output);
+	client_destroy(client, reason);
+}
+
 void client_destroy_success(struct client *client, const char *reason)
 {
 	client->login_success = TRUE;
@@ -565,7 +573,7 @@ static int client_output_starttls(struct client *client)
 	int ret;
 
 	if ((ret = o_stream_flush(client->output)) < 0) {
-		client_destroy(client, "Disconnected");
+		client_destroy_iostream_error(client);
 		return 1;
 	}
 
@@ -1111,7 +1119,7 @@ bool client_read(struct client *client)
 		return FALSE;
 	case -1:
 		/* disconnected */
-		client_destroy(client, "Disconnected");
+		client_destroy_iostream_error(client);
 		return FALSE;
 	case 0:
 		/* nothing new read */

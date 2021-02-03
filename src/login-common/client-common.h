@@ -270,6 +270,7 @@ void client_init(struct client *client, void **other_sets);
 void client_disconnect(struct client *client, const char *reason,
 		       bool add_disconnected_prefix);
 void client_destroy(struct client *client, const char *reason);
+void client_destroy_iostream_error(struct client *client);
 /* Destroy the client after a successful login. Either the client fd was
    sent to the post-login process, or the connection will be proxied. */
 void client_destroy_success(struct client *client, const char *reason);
