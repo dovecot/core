@@ -15,6 +15,7 @@ struct imapc_client {
 	pool_t pool;
 	int refcount;
 
+	struct event *event;
 	struct imapc_client_settings set;
 	struct ssl_iostream_context *ssl_ctx;
 

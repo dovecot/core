@@ -357,7 +357,9 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	client = i_new(struct imapc_storage_client, 1);
 	client->refcount = 1;
 	i_array_init(&client->untagged_callbacks, 16);
-	client->client = imapc_client_init(&set);
+	/* FIXME: storage->event would be better, but we first get here when
+	   creating mailbox_list, and storage doesn't even exist yet. */
+	client->client = imapc_client_init(&set, ns->user->event);
 	imapc_client_register_untagged(client->client,
 				       imapc_storage_client_untagged_cb, client);
 

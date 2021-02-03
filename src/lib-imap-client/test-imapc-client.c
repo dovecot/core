@@ -240,7 +240,7 @@ test_run_client(const struct imapc_client_settings *client_set,
 	i_sleep_msecs(100); /* wait a little for server setup */
 
 	ioloop = io_loop_create();
-	imapc_client = imapc_client_init(client_set);
+	imapc_client = imapc_client_init(client_set, NULL);
 	client_test();
 	imapc_client_logout(imapc_client);
 	test_assert(array_count(&imapc_cmd_last_replies) == 0);

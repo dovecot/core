@@ -48,7 +48,8 @@ default_untagged_callback(const struct imapc_untagged_reply *reply ATTR_UNUSED,
 }
 
 struct imapc_client *
-imapc_client_init(const struct imapc_client_settings *set)
+imapc_client_init(const struct imapc_client_settings *set,
+		  struct event *event_parent)
 {
 	struct imapc_client *client;
 	const char *error;
@@ -61,6 +62,7 @@ imapc_client_init(const struct imapc_client_settings *set)
 	client = p_new(pool, struct imapc_client, 1);
 	client->pool = pool;
 	client->refcount = 1;
+	client->event = event_create(event_parent);
 
 	client->set.debug = set->debug;
 	client->set.host = p_strdup(pool, set->host);
@@ -131,6 +133,7 @@ void imapc_client_unref(struct imapc_client **_client)
 
 	if (client->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&client->ssl_ctx);
+	event_unref(&client->event);
 	pool_unref(&client->pool);
 }
 
