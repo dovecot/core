@@ -66,13 +66,17 @@ static void cmd_dump_imapzlib(int argc ATTR_UNUSED, char *argv[])
 			break;
 	}
 
-	input2 = i_stream_create_deflate(input, TRUE);
+	input2 = i_stream_create_deflate(input, FALSE);
 	i_stream_unref(&input);
 
 	while (i_stream_read_more(input2, &data, &size) != -1) {
 		if (fwrite(data, 1, size, stdout) != size)
 			break;
 		i_stream_skip(input2, size);
+	}
+	if (input2->stream_errno != 0) {
+		i_error("read(%s) failed: %s",
+			argv[1], i_stream_get_error(input));
 	}
 	i_stream_unref(&input2);
 	fflush(stdout);
