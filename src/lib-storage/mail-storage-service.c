@@ -997,8 +997,8 @@ mail_storage_service_init(struct master_service *service,
 		   may still be going to wrong location */
 		const char *configured_name =
 			master_service_get_configured_name(service);
-		ctx->default_log_prefix =
-			p_strconcat(pool, configured_name, ": ", NULL);
+		ctx->default_log_prefix = p_strdup_printf(pool,
+			"%s(%s): ", configured_name, my_pid);
 		master_service_init_log_with_prefix(service, ctx->default_log_prefix);
 	}
 	dict_drivers_register_builtin();
@@ -1269,7 +1269,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 			master_service_get_configured_name(ctx->service);
 		ctx->log_initialized = TRUE;
 		master_service_init_log_with_prefix(ctx->service,
-			t_strconcat(configured_name, ": ", NULL));
+			t_strdup_printf("%s(%s): ", configured_name, my_pid));
 		update_log_prefix = TRUE;
 	}
 	sets = master_service_settings_parser_get_others(master_service,
