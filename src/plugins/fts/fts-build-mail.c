@@ -298,8 +298,9 @@ fts_detect_language(struct fts_mail_build_context *ctx,
 	struct mail_user *user = ctx->update_ctx->backend->ns->user;
 	struct fts_language_list *lang_list = fts_user_get_language_list(user);
 	const struct fts_language *lang;
+	const char *error;
 
-	switch (fts_language_detect(lang_list, data, size, &lang)) {
+	switch (fts_language_detect(lang_list, data, size, &lang, &error)) {
 	case FTS_LANGUAGE_RESULT_SHORT:
 		/* save the input so far and try again later */
 		buffer_append(ctx->pending_input, data, size);
@@ -319,6 +320,7 @@ fts_detect_language(struct fts_mail_build_context *ctx,
 	case FTS_LANGUAGE_RESULT_ERROR:
 		/* internal language detection library failure
 		   (e.g. invalid config). don't index anything. */
+		i_error("Language detection library initialization failed: %s", error);
 		return -1;
 	default:
 		i_unreached();

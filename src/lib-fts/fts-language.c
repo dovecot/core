@@ -26,7 +26,7 @@ struct fts_language_list {
 	const char *textcat_config;
 	const char *textcat_datadir;
 	void *textcat_handle;
-	bool textcat_failed;
+	const char *textcat_failed;
 };
 
 pool_t fts_languages_pool;
@@ -224,7 +224,8 @@ static bool fts_language_match_lists(struct fts_language_list *list,
 #endif
 
 #ifdef HAVE_FTS_EXTTEXTCAT
-static int fts_language_textcat_init(struct fts_language_list *list)
+static int fts_language_textcat_init(struct fts_language_list *list,
+				     const char **error_r)
 {
 	const char *config_path;
 	const char *data_dir;
@@ -232,8 +233,10 @@ static int fts_language_textcat_init(struct fts_language_list *list)
 	if (list->textcat_handle != NULL)
 		return 0;
 
-	if (list->textcat_failed)
+	if (list->textcat_failed != NULL) {
+		*error_r = list->textcat_failed;
 		return -1;
+	}
 	    
 	config_path = list->textcat_config != NULL ? list->textcat_config :
 		TEXTCAT_DATADIR"/fpdb.conf";
@@ -241,9 +244,9 @@ static int fts_language_textcat_init(struct fts_language_list *list)
 		TEXTCAT_DATADIR"/";
 	list->textcat_handle = special_textcat_Init(config_path, data_dir);
 	if (list->textcat_handle == NULL) {
-		i_error("special_textcat_Init(%s, %s) failed",
+		*error_r = list->textcat_failed = p_strdup_printf(list->pool,
+			"special_textcat_Init(%s, %s) failed",
 			config_path, data_dir);
-		list->textcat_failed = TRUE;
 		return -1;
 	}
 	/* The textcat minimum document size could be set here. It
@@ -256,14 +259,15 @@ static enum fts_language_result
 fts_language_detect_textcat(struct fts_language_list *list ATTR_UNUSED,
 			    const unsigned char *text ATTR_UNUSED,
 			    size_t size ATTR_UNUSED,
-			    const struct fts_language **lang_r ATTR_UNUSED)
+			    const struct fts_language **lang_r ATTR_UNUSED,
+			    const char **error_r ATTR_UNUSED)
 {
 #ifdef HAVE_FTS_EXTTEXTCAT
 	candidate_t *candp; /* textcat candidate result array pointer */
 	int cnt;
 	bool match = FALSE;
 
-	if (fts_language_textcat_init(list) < 0)
+	if (fts_language_textcat_init(list, error_r) < 0)
 		return FTS_LANGUAGE_RESULT_ERROR;
 
 	candp = textcat_GetClassifyFullOutput(list->textcat_handle);
@@ -301,7 +305,8 @@ enum fts_language_result
 fts_language_detect(struct fts_language_list *list,
 		    const unsigned char *text ATTR_UNUSED,
 		    size_t size ATTR_UNUSED,
-                    const struct fts_language **lang_r)
+		    const struct fts_language **lang_r,
+		    const char **error_r)
 {
 	i_assert(array_count(&list->languages) > 0);
 
@@ -312,5 +317,5 @@ fts_language_detect(struct fts_language_list *list,
 		*lang_r = *langp;
 		return FTS_LANGUAGE_RESULT_OK;
 	}
-	return fts_language_detect_textcat(list, text, size, lang_r);
+	return fts_language_detect_textcat(list, text, size, lang_r, error_r);
 }
