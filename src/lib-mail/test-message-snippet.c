@@ -170,7 +170,7 @@ static void test_message_snippet(void)
 		test_istream_set_max_buffer_size(input,
 			I_MIN(45, strlen(tests[i].input)));
 		test_assert_idx(message_snippet_generate(input, tests[i].max_snippet_chars, str) == 0, i);
-		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
+		test_assert_strcmp_idx(tests[i].output, str_c(str), i);
 		i_stream_destroy(&input);
 	}
 	test_end();
@@ -186,7 +186,7 @@ static void test_message_snippet_nuls(void)
 
 	input = i_stream_create_from_data(input_text, sizeof(input_text)-1);
 	test_assert(message_snippet_generate(input, 5, str) == 0);
-	test_assert(strcmp(str_c(str), "fooba") == 0);
+	test_assert_strcmp(str_c(str), "fooba");
 	i_stream_destroy(&input);
 	test_end();
 }
