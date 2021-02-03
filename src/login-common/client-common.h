@@ -37,6 +37,10 @@ struct module;
 #define AUTH_MASTER_WAITING_MSG \
 	"Waiting for authentication master process to respond.."
 
+/* Client logged out without having successfully authenticated. */
+#define CLIENT_UNAUTHENTICATED_LOGOUT_MSG \
+	"Aborted login by logging out"
+
 struct master_service_connection;
 
 enum client_disconnect_reason {

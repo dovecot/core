@@ -169,7 +169,7 @@ static int cmd_logout(struct imap_client *client,
 	client_send_reply(&client->common, IMAP_CMD_REPLY_BYE, "Logging out");
 	client_send_reply(&client->common, IMAP_CMD_REPLY_OK,
 			  "Logout completed.");
-	client_destroy(&client->common, "Aborted login");
+	client_destroy(&client->common, CLIENT_UNAUTHENTICATED_LOGOUT_MSG);
 	return 1;
 }
 
