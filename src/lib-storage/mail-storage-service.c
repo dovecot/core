@@ -1504,6 +1504,9 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 		set_keyval(ctx, user, "mail_home", priv.home);
 	}
 
+	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0)
+		mail_storage_service_init_log(ctx, user, &priv);
+
 	/* create ioloop context regardless of logging. it's also used by
 	   stats plugin. */
 	if (user->ioloop_ctx == NULL) {
@@ -1513,8 +1516,6 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 				      mail_storage_service_io_deactivate_user_cb,
 				      user);
 	}
-	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0)
-		mail_storage_service_init_log(ctx, user, &priv);
 
 	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS) == 0) {
 		if (service_drop_privileges(user, &priv,
