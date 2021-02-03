@@ -263,7 +263,8 @@ client_alloc(int fd, pool_t pool,
 	     const struct login_settings *set,
 	     const struct master_service_ssl_settings *ssl_set);
 void client_init(struct client *client, void **other_sets);
-void client_disconnect(struct client *client, const char *reason);
+void client_disconnect(struct client *client, const char *reason,
+		       bool add_disconnected_prefix);
 void client_destroy(struct client *client, const char *reason);
 /* Destroy the client after a successful login. Either the client fd was
    sent to the post-login process, or the connection will be proxied. */

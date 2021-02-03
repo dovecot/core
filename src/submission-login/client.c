@@ -213,7 +213,8 @@ static void client_connection_disconnect(void *context, const char *reason)
 	struct submission_client *client = context;
 
 	client->pending_auth = NULL;
-	client_disconnect(&client->common, reason);
+	client_disconnect(&client->common, reason,
+			  !client->common.login_success);
 }
 
 static void client_connection_free(void *context)

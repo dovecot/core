@@ -60,8 +60,7 @@ bool client_handle_parser_error(struct imap_client *client,
 	case IMAP_PARSE_ERROR_LITERAL_TOO_BIG:
 		client_send_reply(&client->common,
 				  IMAP_CMD_REPLY_BYE, msg);
-		client_destroy(&client->common,
-			       t_strconcat("Disconnected: ", msg, NULL));
+		client_destroy(&client->common, msg);
 		return FALSE;
 	default:
 		break;
@@ -201,8 +200,7 @@ static bool client_invalid_command(struct imap_client *client)
 	if (++client->common.bad_counter >= CLIENT_MAX_BAD_COMMANDS) {
 		client_send_reply(&client->common, IMAP_CMD_REPLY_BYE,
 				  "Too many invalid IMAP commands.");
-		client_destroy(&client->common,
-			       "Disconnected: Too many invalid commands");
+		client_destroy(&client->common, "Too many invalid commands");
 		return FALSE;
 	}
 	client_send_reply(&client->common, IMAP_CMD_REPLY_BAD,

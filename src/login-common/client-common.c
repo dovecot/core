@@ -101,8 +101,7 @@ static void client_idle_disconnect_timeout(struct client *client)
 	} else if (client->auth_request != NULL) {
 		user_reason =
 			"Disconnected for inactivity during authentication.";
-		destroy_reason =
-			"Disconnected: Inactivity during authentication";
+		destroy_reason = "Inactivity during authentication";
 	} else if (client->login_proxy != NULL) {
 		secs = ioloop_time - client->created;
 		user_reason = "Timeout while finishing login.";
@@ -114,7 +113,7 @@ static void client_idle_disconnect_timeout(struct client *client)
 			"%s", destroy_reason);
 	} else {
 		user_reason = "Disconnected for inactivity.";
-		destroy_reason = "Disconnected: Inactivity";
+		destroy_reason = "Inactivity";
 	}
 	client_notify_disconnect(client, CLIENT_DISCONNECT_TIMEOUT, user_reason);
 	client_destroy(client, destroy_reason);
@@ -250,7 +249,8 @@ void client_init(struct client *client, void **other_sets)
 	login_refresh_proctitle();
 }
 
-void client_disconnect(struct client *client, const char *reason)
+void client_disconnect(struct client *client, const char *reason,
+		       bool add_disconnected_prefix)
 {
 	if (client->disconnected)
 		return;
@@ -267,7 +267,10 @@ void client_disconnect(struct client *client, const char *reason)
 		struct event *event = client->login_proxy == NULL ?
 			client->event :
 			login_proxy_get_event(client->login_proxy);
-		e_info(event, "%s", reason);
+		if (add_disconnected_prefix)
+			e_info(event, "Disconnected: %s", reason);
+		else
+			e_info(event, "%s", reason);
 	}
 
 	if (client->output != NULL)
@@ -305,7 +308,7 @@ void client_destroy(struct client *client, const char *reason)
 	   client_fd_proxies. */
 	DLLIST_REMOVE(&clients, client);
 
-	client_disconnect(client, reason);
+	client_disconnect(client, reason, !client->login_success);
 
 	pool_unref(&client->preproxy_pool);
 
@@ -441,7 +444,7 @@ void client_destroy_oldest(void)
 
 	client_notify_disconnect(client, CLIENT_DISCONNECT_RESOURCE_CONSTRAINT,
 				 "Connection queue full");
-	client_destroy(client, "Disconnected: Connection queue full");
+	client_destroy(client, "Connection queue full");
 }
 
 void clients_destroy_all_reason(const char *reason)
@@ -458,7 +461,7 @@ void clients_destroy_all_reason(const char *reason)
 
 void clients_destroy_all(void)
 {
-	clients_destroy_all_reason("Disconnected: Shutting down");
+	clients_destroy_all_reason("Shutting down");
 }
 
 static int client_sni_callback(const char *name, const char **error_r,
@@ -549,8 +552,7 @@ static void client_start_tls(struct client *client)
 		client_notify_disconnect(client,
 			CLIENT_DISCONNECT_INTERNAL_ERROR,
 			"TLS initialization failed.");
-		client_destroy(client,
-			"Disconnected: TLS initialization failed.");
+		client_destroy(client, "TLS initialization failed.");
 		return;
 	}
 	login_refresh_proctitle();
@@ -1105,7 +1107,7 @@ bool client_read(struct client *client)
 		client_notify_disconnect(client,
 			CLIENT_DISCONNECT_RESOURCE_CONSTRAINT,
 			"Input buffer full, aborting");
-		client_destroy(client, "Disconnected: Input buffer full");
+		client_destroy(client, "Input buffer full");
 		return FALSE;
 	case -1:
 		/* disconnected */

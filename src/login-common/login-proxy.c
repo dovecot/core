@@ -883,7 +883,8 @@ login_proxy_cmd_kick_full(struct ipc_cmd *cmd, const char *const *args,
 		next = proxy->next;
 
 		if (want_kick(proxy, args, key_idx)) {
-			client_destroy(proxy->client, KILLED_BY_ADMIN_REASON);
+			client_disconnect(proxy->client, KILLED_BY_ADMIN_REASON, FALSE);
+			client_destroy(proxy->client, NULL);
 			count++;
 		}
 	} T_END;
@@ -983,7 +984,8 @@ login_proxy_cmd_kick_director_hash(struct ipc_cmd *cmd, const char *const *args)
 		if (director_username_hash(proxy->client, &proxy_hash) &&
 		    proxy_hash == hash &&
 		    !net_ip_compare(&proxy->ip, &except_ip)) {
-			client_destroy(proxy->client, KILLED_BY_DIRECTOR_REASON);
+			client_disconnect(proxy->client, KILLED_BY_DIRECTOR_REASON, FALSE);
+			client_destroy(proxy->client, NULL);
 			count++;
 		}
 	}
