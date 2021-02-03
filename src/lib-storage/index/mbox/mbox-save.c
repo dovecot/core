@@ -58,10 +58,20 @@ struct mbox_save_context {
 
 #define MBOX_SAVECTX(s)		container_of(s, struct mbox_save_context, ctx)
 
-static void write_error(struct mbox_save_context *ctx)
+static void ostream_error(struct mbox_save_context *ctx, const char *func)
 {
-	mbox_set_syscall_error(ctx->mbox, "write()");
+	mbox_ostream_set_syscall_error(ctx->mbox, ctx->output, func);
 	ctx->failed = TRUE;
+}
+
+static void write_stream_error(struct mbox_save_context *ctx)
+{
+	ostream_error(ctx, "write()");
+}
+
+static void lseek_stream_error(struct mbox_save_context *ctx)
+{
+	ostream_error(ctx, "o_stream_seek()");
 }
 
 static int mbox_seek_to_end(struct mbox_save_context *ctx, uoff_t *offset)
@@ -99,7 +109,7 @@ static int mbox_seek_to_end(struct mbox_save_context *ctx, uoff_t *offset)
 
 	if (ch != '\n') {
 		if (write_full(fd, "\n", 1) < 0) {
-			write_error(ctx);
+			mbox_set_syscall_error(ctx->mbox, "write()");
 			return -1;
 		}
 		*offset += 1;
@@ -111,7 +121,7 @@ static int mbox_seek_to_end(struct mbox_save_context *ctx, uoff_t *offset)
 static int mbox_append_lf(struct mbox_save_context *ctx)
 {
 	if (o_stream_send(ctx->output, "\n", 1) < 0) {
-		write_error(ctx);
+		write_stream_error(ctx);
 		return -1;
 	}
 
@@ -144,7 +154,7 @@ static int write_from_line(struct mbox_save_context *ctx, time_t received_date,
 		line = mbox_from_create(from_envelope, received_date);
 
 		if ((ret = o_stream_send_str(ctx->output, line)) < 0)
-			write_error(ctx);
+			write_stream_error(ctx);
 	} T_END;
 	return ret;
 }
@@ -172,23 +182,23 @@ static int mbox_write_content_length(struct mbox_save_context *ctx)
 	/* flush manually here so that we don't confuse seek() errors with
 	   buffer flushing errors */
 	if (o_stream_flush(ctx->output) < 0) {
-		write_error(ctx);
+		write_stream_error(ctx);
 		return -1;
 	}
 	if (o_stream_seek(ctx->output, ctx->extra_hdr_offset +
 			  ctx->space_end_idx - len) < 0) {
-		mbox_set_syscall_error(ctx->mbox, "lseek()");
+		lseek_stream_error(ctx);
 		return -1;
 	}
 
 	if (o_stream_send(ctx->output, str, len) < 0 ||
 	    o_stream_flush(ctx->output) < 0) {
-		write_error(ctx);
+		write_stream_error(ctx);
 		return -1;
 	}
 
 	if (o_stream_seek(ctx->output, end_offset) < 0) {
-		mbox_set_syscall_error(ctx->mbox, "lseek()");
+		lseek_stream_error(ctx);
 		return -1;
 	}
 	return 0;
@@ -519,7 +529,7 @@ static int mbox_save_body_input(struct mbox_save_context *ctx)
 	data = i_stream_get_data(ctx->input, &size);
 	if (size > 0) {
 		if (o_stream_send(ctx->output, data, size) < 0) {
-			write_error(ctx);
+			write_stream_error(ctx);
 			return -1;
 		}
 		ctx->last_char = data[size-1];
@@ -554,7 +564,7 @@ static int mbox_save_finish_headers(struct mbox_save_context *ctx)
 	ctx->extra_hdr_offset = ctx->output->offset;
 	if (o_stream_send(ctx->output, str_data(ctx->headers),
 			  str_len(ctx->headers)) < 0) {
-		write_error(ctx);
+		write_stream_error(ctx);
 		return -1;
 	}
 	ctx->eoh_offset = ctx->output->offset;
@@ -590,7 +600,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 			/* found end of headers. write the rest of them
 			   (not including the finishing empty line) */
 			if (o_stream_send(ctx->output, data, i) < 0) {
-				write_error(ctx);
+				write_stream_error(ctx);
 				return -1;
 			}
 			ctx->last_char = '\n';
@@ -599,7 +609,7 @@ int mbox_save_continue(struct mail_save_context *_ctx)
 		}
 
 		if (o_stream_send(ctx->output, data, size) < 0) {
-			write_error(ctx);
+			write_stream_error(ctx);
 			return -1;
 		}
 		i_assert(size > 0);
@@ -660,7 +670,7 @@ int mbox_save_finish(struct mail_save_context *_ctx)
 	if (ctx->output != NULL) {
 		/* make sure everything is written */
 		if (o_stream_flush(ctx->output) < 0)
-			write_error(ctx);
+			write_stream_error(ctx);
 	}
 
 	ctx->finished = TRUE;
@@ -777,7 +787,7 @@ int mbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 	if (ctx->output != NULL) {
 		/* flush the final LF */
 		if (o_stream_flush(ctx->output) < 0)
-			write_error(ctx);
+			write_stream_error(ctx);
 	}
 	if (mbox->mbox_fd != -1 && !mbox->mbox_writeonly &&
 	    mbox->storage->storage.set->parsed_fsync_mode != FSYNC_MODE_NEVER) {
