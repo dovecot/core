@@ -730,7 +730,7 @@ void imap_client_create_finish(struct imap_client *client)
 	io_loop_context_add_callbacks(client->ioloop_ctx,
 				      imap_client_io_activate_user,
 				      imap_client_io_deactivate_user, client);
-	imap_client_io_activate_user(client);
+	io_loop_context_switch(client->ioloop_ctx);
 
 	if (client->state.idle_cmd) {
 		client->io = io_add(client->fd, IO_READ,

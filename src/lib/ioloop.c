@@ -727,7 +727,7 @@ void io_loop_run(struct ioloop *ioloop)
 		io_loop_initialize_handler(ioloop);
 
 	if (ioloop->cur_ctx != NULL)
-		io_loop_context_unref(&ioloop->cur_ctx);
+		io_loop_context_deactivate(ioloop->cur_ctx);
 
 	/* recursive io_loop_run() isn't allowed for the same ioloop.
 	   it can break backends. */
@@ -1025,14 +1025,6 @@ struct ioloop_context *io_loop_context_new(struct ioloop *ioloop)
 	ctx->refcount = 2;
 	ctx->ioloop = ioloop;
 	i_array_init(&ctx->callbacks, 4);
-
-	if (ioloop->cur_ctx != NULL) {
-		io_loop_context_deactivate(ioloop->cur_ctx);
-		/* deactivation may remove the cur_ctx */
-		if (ioloop->cur_ctx != NULL)
-			io_loop_context_unref(&ioloop->cur_ctx);
-	}
-	ioloop->cur_ctx = ctx;
 	return ctx;
 }
 
@@ -1148,6 +1140,19 @@ void io_loop_context_deactivate(struct ioloop_context *ctx)
 	ctx->ioloop->cur_ctx = NULL;
 	io_loop_context_remove_deleted_callbacks(ctx);
 	io_loop_context_unref(&ctx);
+}
+
+void io_loop_context_switch(struct ioloop_context *ctx)
+{
+	if (ctx->ioloop->cur_ctx != NULL) {
+		if (ctx->ioloop->cur_ctx == ctx)
+			return;
+		io_loop_context_deactivate(ctx->ioloop->cur_ctx);
+		/* deactivation may remove the cur_ctx */
+		if (ctx->ioloop->cur_ctx != NULL)
+			io_loop_context_unref(&ctx->ioloop->cur_ctx);
+	}
+	io_loop_context_activate(ctx);
 }
 
 struct ioloop_context *io_loop_get_current_context(struct ioloop *ioloop)

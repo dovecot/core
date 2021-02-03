@@ -1526,6 +1526,7 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 				      mail_storage_service_io_deactivate_user_cb,
 				      user);
 	}
+	io_loop_context_switch(user->ioloop_ctx);
 
 	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS) == 0) {
 		if (service_drop_privileges(user, &priv,
