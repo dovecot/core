@@ -296,13 +296,6 @@ fts_mailbox_search_next_nonblock(struct mail_search_context *ctx,
 {
 	struct fts_mailbox *fbox = FTS_CONTEXT_REQUIRE(ctx->transaction->box);
 	struct fts_search_context *fctx = FTS_CONTEXT(ctx);
-	struct fts_transaction_context *ft = FTS_CONTEXT_REQUIRE(ctx->transaction);
-
-	if (fctx == NULL && ft->failed) {
-		/* precaching already failed - stop now instead of potentially
-		   going through the same failure for all the mails */
-		return FALSE;
-	}
 
 	if (fctx != NULL && fctx->indexer_ctx != NULL) {
 		/* this command is still building the indexes */
@@ -405,9 +398,6 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 		pool_unref(&fctx->result_pool);
 		fts_scores_unref(&fctx->scores);
 		i_free(fctx);
-	} else {
-		if (ft->failed)
-			ret = -1;
 	}
 	if (fbox->module_ctx.super.search_deinit(ctx) < 0)
 		ret = -1;
@@ -496,19 +486,19 @@ static int fts_mail_precache_init(struct mail *_mail)
 	return 0;
 }
 
-static void fts_mail_index(struct mail *_mail)
+static int fts_mail_index(struct mail *_mail)
 {
 	struct fts_transaction_context *ft = FTS_CONTEXT_REQUIRE(_mail->transaction);
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT_REQUIRE(_mail->box->list);
 	struct mail_private *pmail = (struct mail_private *)_mail;
 
 	if (ft->failed)
-		return;
+		return -1;
 
 	if (!ft->precached) {
 		if (fts_mail_precache_init(_mail) < 0) {
 			ft->failed = TRUE;
-			return;
+			return -1;
 		}
 	}
 	if (pmail->vmail != NULL) {
@@ -520,16 +510,17 @@ static void fts_mail_index(struct mail *_mail)
 		fts_backend_update_set_mailbox(flist->update_ctx, _mail->box);
 		if (ft->next_index_seq > msgs_count) {
 			/* everything indexed already */
+			return 0;
 		} else if (fts_mail_precache_range(_mail->transaction,
 						   flist->update_ctx,
 						   ft->next_index_seq,
 						   msgs_count,
 						   &ft->precache_extra_count) < 0) {
-			ft->failed = TRUE;
+			return -1;
 		} else {
 			ft->next_index_seq = msgs_count+1;
+			return 0;
 		}
-		return;
 	}
 
 	if (ft->next_index_seq < _mail->seq) {
@@ -540,19 +531,18 @@ static void fts_mail_index(struct mail *_mail)
 					    flist->update_ctx,
 					    ft->next_index_seq,
 					    _mail->seq-1,
-					    &ft->precache_extra_count) < 0) {
-			ft->failed = TRUE;
-			return;
-		}
+					    &ft->precache_extra_count) < 0)
+			return -1;
 		ft->next_index_seq = _mail->seq;
 	}
 
 	if (ft->next_index_seq == _mail->seq) {
 		fts_backend_update_set_mailbox(flist->update_ctx, _mail->box);
 		if (fts_build_mail(flist->update_ctx, _mail) < 0)
-			ft->failed = TRUE;
+			return -1;
 		ft->next_index_seq = _mail->seq + 1;
 	}
+	return 0;
 }
 
 static int fts_mail_precache(struct mail *_mail)
@@ -560,6 +550,7 @@ static int fts_mail_precache(struct mail *_mail)
 	struct mail_private *mail = (struct mail_private *)_mail;
 	struct fts_mail *fmail = FTS_MAIL_CONTEXT(mail);
 	struct fts_transaction_context *ft = FTS_CONTEXT_REQUIRE(_mail->transaction);
+	int ret = 0;
 
 	fmail->module_ctx.super.precache(_mail);
 	if (fmail->virtual_mail) {
@@ -568,11 +559,11 @@ static int fts_mail_precache(struct mail *_mail)
 	} else if (!ft->indexing) T_BEGIN {
 		/* avoid recursing here from fts_mail_precache_range() */
 		ft->indexing = TRUE;
-		fts_mail_index(_mail);
+		ret = fts_mail_index(_mail);
 		i_assert(ft->indexing);
 		ft->indexing = FALSE;
 	} T_END;
-	return 0;
+	return ret;
 }
 
 void fts_mail_allocated(struct mail *_mail)
