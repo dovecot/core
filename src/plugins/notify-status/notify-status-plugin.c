@@ -54,6 +54,7 @@ static int notify_status_dict_init(struct mail_user *user, const char *uri,
 	struct dict_settings set = {
 		.username = user->username,
 		.base_dir = user->set->base_dir,
+		.event_parent = user->event,
 	};
 	(void)mail_user_get_home(user, &set.home_dir);
 	if (dict_init(uri, &set, dict_r, error_r) < 0) {

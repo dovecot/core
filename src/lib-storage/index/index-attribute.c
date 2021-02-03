@@ -65,6 +65,7 @@ index_storage_get_user_dict(struct mail_storage *err_storage,
 	i_zero(&dict_set);
 	dict_set.username = user->username;
 	dict_set.base_dir = user->set->base_dir;
+	dict_set.event_parent = user->event;
 	if (dict_init(attr_storage->set->mail_attribute_dict, &dict_set,
 		      &user->_attr_dict, &error) < 0) {
 		mail_storage_set_critical(err_storage,
@@ -133,6 +134,7 @@ index_storage_get_dict(struct mailbox *box, enum mail_attribute_type type_flags,
 	i_zero(&set);
 	set.username = storage->user->username;
 	set.base_dir = storage->user->set->base_dir;
+	set.event_parent = storage->user->event;
 	if (mail_user_get_home(storage->user, &set.home_dir) <= 0)
 		set.home_dir = NULL;
 	if (dict_init(storage->set->mail_attribute_dict, &set,

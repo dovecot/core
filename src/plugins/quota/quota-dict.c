@@ -73,6 +73,7 @@ static int dict_quota_init(struct quota_root *_root, const char *args,
 	i_zero(&set);
 	set.username = username;
 	set.base_dir = _root->quota->user->set->base_dir;
+	set.event_parent = _root->quota->user->event;
 	if (mail_user_get_home(_root->quota->user, &set.home_dir) <= 0)
 		set.home_dir = NULL;
 	if (dict_init(args, &set, &root->dict, &error) < 0) {
