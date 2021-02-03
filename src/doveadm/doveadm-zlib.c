@@ -105,7 +105,7 @@ static void client_input(struct client *client)
 		}
 		/* start compression */
 		i_info("<Compression started>");
-		input = i_stream_create_deflate(client->input, TRUE);
+		input = i_stream_create_deflate(client->input, FALSE);
 		output = o_stream_create_deflate(client->output, 6);
 		i_stream_unref(&client->input);
 		o_stream_unref(&client->output);
