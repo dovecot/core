@@ -680,7 +680,8 @@ void imap_client_destroy(struct imap_client **_client, const char *reason)
 	if (reason != NULL) {
 		/* the client input/output bytes don't count the DONE+IDLE by
 		   imap-hibernate, but that shouldn't matter much. */
-		e_info(client->event, "%s %s", reason, client->state.stats);
+		e_info(client->event, "Disconnected: %s %s",
+		       reason, client->state.stats);
 	}
 
 	if (client->state.anvil_sent) {
