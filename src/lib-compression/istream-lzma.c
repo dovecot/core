@@ -20,7 +20,6 @@ struct lzma_istream {
 	struct stat last_parent_statbuf;
 
 	bool hdr_read:1;
-	bool log_errors:1;
 	bool marked:1;
 	bool strm_closed:1;
 };
@@ -44,8 +43,6 @@ static void lzma_read_error(struct lzma_istream *zstream, const char *error)
 			    "lzma.read(%s): %s at %"PRIuUOFF_T,
 			    i_stream_get_name(&zstream->istream.istream), error,
 			    i_stream_get_absolute_offset(&zstream->istream.istream));
-	if (zstream->log_errors)
-		i_error("%s", zstream->istream.iostream.error);
 }
 
 static int lzma_handle_error(struct lzma_istream *zstream, lzma_ret lzma_err)
@@ -235,13 +232,12 @@ static void i_stream_lzma_sync(struct istream_private *stream)
 	i_stream_lzma_reset(zstream);
 }
 
-struct istream *i_stream_create_lzma(struct istream *input, bool log_errors)
+struct istream *i_stream_create_lzma(struct istream *input)
 {
 	struct lzma_istream *zstream;
 
 	zstream = i_new(struct lzma_istream, 1);
 	zstream->eof_offset = UOFF_T_MAX;
-	zstream->log_errors = log_errors;
 
 	i_stream_lzma_init(zstream);
 

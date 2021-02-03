@@ -21,7 +21,6 @@ struct zstd_ostream {
 	unsigned char *outbuf;
 
 	bool flushed:1;
-	bool log_errors:1;
 	bool closed:1;
 	bool finished:1;
 };
@@ -47,8 +46,6 @@ static void o_stream_zstd_write_error(struct zstd_ostream *zstream, size_t err)
 			    "zstd.write(%s): %s at %"PRIuUOFF_T,
 			    o_stream_get_name(&zstream->ostream.ostream), error,
 			    zstream->ostream.ostream.offset);
-	if (zstream->log_errors)
-		i_error("%s", zstream->ostream.iostream.error);
 }
 
 static ssize_t o_stream_zstd_send_outbuf(struct zstd_ostream *zstream)

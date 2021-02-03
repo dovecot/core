@@ -66,7 +66,7 @@ static void cmd_dump_imapzlib(int argc ATTR_UNUSED, char *argv[])
 			break;
 	}
 
-	input2 = i_stream_create_deflate(input, FALSE);
+	input2 = i_stream_create_deflate(input);
 	i_stream_unref(&input);
 
 	while (i_stream_read_more(input2, &data, &size) != -1) {
@@ -105,7 +105,7 @@ static void client_input(struct client *client)
 		}
 		/* start compression */
 		i_info("<Compression started>");
-		input = i_stream_create_deflate(client->input, FALSE);
+		input = i_stream_create_deflate(client->input);
 		output = o_stream_create_deflate(client->output, 6);
 		i_stream_unref(&client->input);
 		o_stream_unref(&client->output);

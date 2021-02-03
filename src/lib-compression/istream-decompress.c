@@ -111,7 +111,7 @@ static int i_stream_decompress_detect(struct decompress_istream *zstream)
 	}
 
 	zstream->decompressed_input =
-		handler->create_istream(zstream->compressed_input, FALSE);
+		handler->create_istream(zstream->compressed_input);
 	return 1;
 }
 

@@ -16,8 +16,7 @@ struct compression_handler {
 	const char *name;
 	const char *ext;
 	bool (*is_compressed)(struct istream *input);
-	struct istream *(*create_istream)(struct istream *input,
-					  bool log_errors);
+	struct istream *(*create_istream)(struct istream *input);
 	struct ostream *(*create_ostream)(struct ostream *output, int level);
 };
 

@@ -150,7 +150,7 @@ static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
 		}
 
 		input = *stream;
-		*stream = handler->create_istream(input, FALSE);
+		*stream = handler->create_istream(input);
 		i_stream_unref(&input);
 		/* dont cache the stream if _mail->uid is 0 */
 		*stream = zlib_mail_cache_open(zuser, _mail, *stream, (_mail->uid > 0));
@@ -280,7 +280,7 @@ static void zlib_mailbox_open_input(struct mailbox *box)
 		}
 		input = i_stream_create_fd_autoclose(&fd, MAX_INBUF_SIZE);
 		i_stream_set_name(input, box_path);
-		box->input = handler->create_istream(input, FALSE);
+		box->input = handler->create_istream(input);
 		i_stream_unref(&input);
 		box->flags |= MAILBOX_FLAG_READONLY;
 	}

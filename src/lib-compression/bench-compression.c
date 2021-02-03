@@ -63,7 +63,7 @@ static void bench_compression_speed(const struct compression_handler *handler,
 
 	is = i_stream_create_file("compressed.bin", 1024);
 	os = o_stream_create_file("decompressed.bin", 0, 0644, 0);
-	struct istream *is_decompressed = handler->create_istream(is, FALSE);
+	struct istream *is_decompressed = handler->create_istream(is);
 	i_stream_unref(&is);
 
 	ts_0 = i_nanoseconds();
