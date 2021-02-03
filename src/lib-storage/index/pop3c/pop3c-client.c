@@ -272,6 +272,7 @@ static int pop3c_client_dns_lookup(struct pop3c_client *client)
 		dns_set.dns_client_socket_path =
 			client->set.dns_client_socket_path;
 		dns_set.timeout_msecs = POP3C_DNS_LOOKUP_TIMEOUT_MSECS;
+		dns_set.event_parent = client->event;
 		if (dns_lookup(client->set.host, &dns_set,
 			       pop3c_dns_callback, client,
 			       &client->dns_lookup) < 0)

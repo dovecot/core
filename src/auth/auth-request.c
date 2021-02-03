@@ -2146,6 +2146,7 @@ static int auth_request_proxy_host_lookup(struct auth_request *request,
 	i_zero(&dns_set);
 	dns_set.dns_client_socket_path = AUTH_DNS_SOCKET_PATH;
 	dns_set.timeout_msecs = AUTH_DNS_DEFAULT_TIMEOUT_MSECS;
+	dns_set.event_parent = request->event;
 	value = auth_fields_find(request->fields.extra_fields, "proxy_timeout");
 	if (value != NULL) {
 		if (str_to_uint(value, &secs) < 0) {

@@ -490,6 +490,7 @@ program_client_net_connect_init(struct program_client *pclient)
 				pclient->set.dns_client_socket_path;
 			prclient->dns_set.timeout_msecs =
 				pclient->set.client_connect_timeout_msecs;
+			prclient->dns_set.event_parent = pclient->event;
 			dns_lookup(prclient->address, &prclient->dns_set,
 				   program_client_net_connect_resolved,
 				   prclient, &prclient->lookup);

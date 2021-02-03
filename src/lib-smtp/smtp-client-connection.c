@@ -1692,6 +1692,7 @@ smtp_client_connection_lookup_ip(struct smtp_client_connection *conn)
 		dns_set.dns_client_socket_path =
 			conn->set.dns_client_socket_path;
 		dns_set.timeout_msecs = conn->set.connect_timeout_msecs;
+		dns_set.event_parent = conn->event;
 		e_debug(conn->event, "Performing asynchronous DNS lookup");
 		(void)dns_lookup(conn->host, &dns_set,
 				 smtp_client_connection_dns_callback, conn,
