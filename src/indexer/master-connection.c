@@ -52,6 +52,16 @@ indexer_worker_refresh_proctitle(const char *username, const char *mailbox,
 	}
 }
 
+static const char *
+get_attempt_error(unsigned int counter, uint32_t first_uid, uint32_t last_uid)
+{
+	if (counter == 0)
+		return " (no mails indexed)";
+	return t_strdup_printf(
+		" (attempted to index %u messages between UIDs %u..%u)",
+		counter, first_uid, last_uid);
+}
+
 static int
 index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 {
@@ -102,9 +112,10 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 		last_uid = mail->uid;
 
 		if (mail_precache(mail) < 0) {
-			i_error("Mailbox %s: Precache for UID=%u failed: %s",
+			i_error("Mailbox %s: Precache for UID=%u failed: %s%s",
 				mailbox_get_vname(box), mail->uid,
-				mailbox_get_last_internal_error(box, NULL));
+				mailbox_get_last_internal_error(box, NULL),
+				get_attempt_error(counter, first_uid, last_uid));
 			ret = -1;
 			break;
 		}
@@ -124,23 +135,23 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 		}
 	}
 	if (mailbox_search_deinit(&ctx) < 0) {
-		i_error("Mailbox %s: Mail search failed: %s",
+		i_error("Mailbox %s: Mail search failed: %s%s",
 			mailbox_get_vname(box),
-			mailbox_get_last_internal_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL),
+			get_attempt_error(counter, first_uid, last_uid));
 		ret = -1;
 	}
-	const char *uids = first_uid == 0 ? "" :
-		t_strdup_printf(" (UIDs %u..%u)", first_uid, last_uid);
 	if (mailbox_transaction_commit(&trans) < 0) {
 		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error != MAIL_ERROR_NOTFOUND)
-			i_error("Mailbox %s: Transaction commit failed: %s"
-				" (attempted to index %u messages%s)",
-				mailbox_get_vname(box), errstr, counter, uids);
+			i_error("Mailbox %s: Transaction commit failed: %s%s",
+				mailbox_get_vname(box), errstr,
+				get_attempt_error(counter, first_uid, last_uid));
 		ret = -1;
 	} else {
 		i_info("Indexed %u messages in %s%s",
-		       counter, mailbox_get_vname(box), uids);
+		       counter, mailbox_get_vname(box), counter == 0 ? "" :
+		       t_strdup_printf(" (UIDs %u..%u)", first_uid, last_uid));
 	}
 	return ret;
 }
