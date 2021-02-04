@@ -45,7 +45,7 @@ static int backtrace_append_unwind(string_t *str)
 			continue;
 		} else {
 			str_append_max(str, proc_name, sizeof(proc_name));
-			str_printfa(str, "[0x%08lx]", pip.start_ip);
+			str_printfa(str, "[0x%08zx]", pip.start_ip);
 			success = TRUE;
 		}
 		str_append(str, " -> ");
