@@ -358,7 +358,8 @@ static void test_str_to_timeval(void)
 {
 	struct {
 		const char *str;
-		unsigned int tv_sec, tv_usec;
+		time_t tv_sec;
+		suseconds_t tv_usec;
 	} tests[] = {
 		{ "0", 0, 0 },
 		{ "0.0", 0, 0 },
