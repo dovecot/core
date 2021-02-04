@@ -510,7 +510,7 @@ mailbox_attribute_iter_init(struct mailbox *box,
 	/* copy relevant attributes */
 	array_foreach(&extra_attrs, attr) {
 		/* skip internal server attributes unless we're iterating inbox */
-		if (!box->inbox_any &&
+		if (!box->inbox_user &&
 		    strncmp(*attr, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
 			    strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER)) == 0)
 			continue;
