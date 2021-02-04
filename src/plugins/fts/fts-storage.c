@@ -555,7 +555,7 @@ static void fts_mail_index(struct mail *_mail)
 	}
 }
 
-static void fts_mail_precache(struct mail *_mail)
+static int fts_mail_precache(struct mail *_mail)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
 	struct fts_mail *fmail = FTS_MAIL_CONTEXT(mail);
@@ -572,6 +572,7 @@ static void fts_mail_precache(struct mail *_mail)
 		i_assert(ft->indexing);
 		ft->indexing = FALSE;
 	} T_END;
+	return 0;
 }
 
 void fts_mail_allocated(struct mail *_mail)

@@ -2387,7 +2387,7 @@ static void index_mail_parse(struct mail *mail, bool parse_body)
 	}
 }
 
-void index_mail_precache(struct mail *mail)
+int index_mail_precache(struct mail *mail)
 {
 	struct index_mail *imail = INDEX_MAIL(mail);
 	enum mail_fetch_field cache;
@@ -2399,7 +2399,7 @@ void index_mail_precache(struct mail *mail)
 					mail->seq)) {
 		/* already cached this mail (we should get here only if FTS
 		   plugin decreased the first precached seq) */
-		return;
+		return 0;
 	}
 
 	cache = imail->data.wanted_fields;
@@ -2419,6 +2419,7 @@ void index_mail_precache(struct mail *mail)
 		(void)mail_get_special(mail, MAIL_FETCH_POP3_ORDER, &str);
 	if ((cache & MAIL_FETCH_GUID) != 0)
 		(void)mail_get_special(mail, MAIL_FETCH_GUID, &str);
+	return 0;
 }
 
 static void

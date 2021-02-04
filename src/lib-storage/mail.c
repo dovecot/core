@@ -445,13 +445,15 @@ void mail_set_expunged(struct mail *mail)
 	mail->expunged = TRUE;
 }
 
-void mail_precache(struct mail *mail)
+int mail_precache(struct mail *mail)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	int ret;
 
 	T_BEGIN {
-		p->v.precache(mail);
+		ret = p->v.precache(mail);
 	} T_END;
+	return ret;
 }
 
 void mail_set_cache_corrupted(struct mail *mail,

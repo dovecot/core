@@ -477,7 +477,7 @@ struct mail_vfuncs {
 	bool (*set_uid)(struct mail *mail, uint32_t uid);
 	void (*set_uid_cache_updates)(struct mail *mail, bool set);
 	bool (*prefetch)(struct mail *mail);
-	void (*precache)(struct mail *mail);
+	int (*precache)(struct mail *mail);
 	void (*add_temp_wanted_fields)(struct mail *mail,
 				       enum mail_fetch_field fields,
 				       struct mailbox_header_lookup_ctx *headers);

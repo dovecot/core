@@ -57,8 +57,9 @@ static bool fail_mail_prefetch(struct mail *mail ATTR_UNUSED)
 	return TRUE;
 }
 
-static void fail_mail_precache(struct mail *mail ATTR_UNUSED)
+static int fail_mail_precache(struct mail *mail ATTR_UNUSED)
 {
+	return 0;
 }
 
 static void

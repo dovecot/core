@@ -253,16 +253,16 @@ static bool virtual_mail_prefetch(struct mail *mail)
 	return p->v.prefetch(backend_mail);
 }
 
-static void virtual_mail_precache(struct mail *mail)
+static int virtual_mail_precache(struct mail *mail)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 	struct mail *backend_mail;
 	struct mail_private *p;
 
 	if (backend_mail_get(vmail, &backend_mail) < 0)
-		return;
+		return -1;
 	p = (struct mail_private *)backend_mail;
-	p->v.precache(backend_mail);
+	return p->v.precache(backend_mail);
 }
 
 static void

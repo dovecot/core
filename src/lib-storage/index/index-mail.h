@@ -243,7 +243,7 @@ void index_mail_update_keywords(struct mail *mail, enum modify_type modify_type,
 void index_mail_update_modseq(struct mail *mail, uint64_t min_modseq);
 void index_mail_update_pvt_modseq(struct mail *mail, uint64_t min_pvt_modseq);
 void index_mail_expunge(struct mail *mail);
-void index_mail_precache(struct mail *mail);
+int index_mail_precache(struct mail *mail);
 void index_mail_set_cache_corrupted(struct mail *mail,
 				    enum mail_fetch_field field,
 				    const char *reason);

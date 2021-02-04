@@ -1000,7 +1000,7 @@ void mail_update_pop3_uidl(struct mail *mail, const char *uidl);
 void mail_expunge(struct mail *mail);
 
 /* Add missing fields to cache. */
-void mail_precache(struct mail *mail);
+int mail_precache(struct mail *mail);
 /* Mark a cached field corrupted and have it recalculated. */
 void mail_set_cache_corrupted(struct mail *mail,
 			      enum mail_fetch_field field,
