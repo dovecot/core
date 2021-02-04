@@ -61,7 +61,7 @@ struct fts_transaction_context {
 	bool indexing:1;
 	bool precached:1;
 	bool mails_saved:1;
-	bool failed:1;
+	const char *failure_reason;
 };
 
 struct fts_mail {
@@ -381,7 +381,7 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 	if (fctx != NULL) {
 		if (fctx->indexer_ctx != NULL) {
 			if (fts_indexer_deinit(&fctx->indexer_ctx) < 0)
-				ft->failed = TRUE;
+				ft->failure_reason = "FTS indexing failed";
 		}
 		if (fctx->indexing_timed_out)
 			ret = -1;
@@ -475,8 +475,10 @@ static int fts_mail_precache_init(struct mail *_mail)
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT_REQUIRE(_mail->box->list);
 	uint32_t last_seq;
 
-	if (fts_mailbox_get_last_cached_seq(_mail->box, &last_seq) < 0)
+	if (fts_mailbox_get_last_cached_seq(_mail->box, &last_seq) < 0) {
+		ft->failure_reason = "Failed to lookup last indexed FTS mail";
 		return -1;
+	}
 
 	ft->precached = TRUE;
 	ft->next_index_seq = last_seq + 1;
@@ -492,14 +494,12 @@ static int fts_mail_index(struct mail *_mail)
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT_REQUIRE(_mail->box->list);
 	struct mail_private *pmail = (struct mail_private *)_mail;
 
-	if (ft->failed)
+	if (ft->failure_reason != NULL)
 		return -1;
 
 	if (!ft->precached) {
-		if (fts_mail_precache_init(_mail) < 0) {
-			ft->failed = TRUE;
+		if (fts_mail_precache_init(_mail) < 0)
 			return -1;
-		}
 	}
 	if (pmail->vmail != NULL) {
 		/* Indexing via virtual mailbox: Index all the mails in this
@@ -606,10 +606,12 @@ static int fts_transaction_end(struct mailbox_transaction_context *t, const char
 {
 	struct fts_transaction_context *ft = FTS_CONTEXT_REQUIRE(t);
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT_REQUIRE(t->box->list);
-	int ret = ft->failed ? -1 : 0;
+	int ret = 0;
 
-	if (ft->failed)
-		*error_r = "transaction context";
+	if (ft->failure_reason != NULL) {
+		*error_r = t_strdup(ft->failure_reason);
+		ret = -1;
+	}
 
 	if (ft->precached) {
 		i_assert(flist->update_ctx_refcount > 0);
