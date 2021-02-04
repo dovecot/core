@@ -230,7 +230,7 @@ static void test_settings_parser_get(void)
 		unsigned int uint_oct;
 		unsigned int secs;
 		unsigned int msecs;
-		size_t size;
+		uoff_t size;
 		in_port_t port;
 		const char *str;
 		const char *expand_str;
