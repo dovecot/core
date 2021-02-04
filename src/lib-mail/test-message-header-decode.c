@@ -82,7 +82,7 @@ check_encode_decode_result(const unsigned char *inbuf, size_t inbuf_len,
 {
 	static const unsigned char *rep_char =
 		(const unsigned char *)UNICODE_REPLACEMENT_CHAR_UTF8;
-	static const unsigned int rep_char_len =
+	static const ptrdiff_t rep_char_len =
 		UNICODE_REPLACEMENT_CHAR_UTF8_LEN;
 	const unsigned char *outbuf = str_data(out);
 	size_t outbuf_len = str_len(out);
