@@ -37,14 +37,40 @@ int mailbox_guid_cache_find(struct mailbox_list *list,
 	return 0;
 }
 
-void mailbox_guid_cache_refresh(struct mailbox_list *list)
+static void mailbox_guid_cache_add_mailbox(struct mailbox_list *list,
+					   const struct mailbox_info *info)
 {
-	struct mailbox_list_iterate_context *ctx;
-	const struct mailbox_info *info;
 	struct mailbox *box;
 	struct mailbox_metadata metadata;
 	struct mailbox_guid_cache_rec *rec;
 	uint8_t *guid_p;
+
+	box = mailbox_alloc(list, info->vname, 0);
+	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
+				 &metadata) < 0) {
+		i_error("Couldn't get mailbox %s GUID: %s",
+			info->vname, mailbox_get_last_internal_error(box, NULL));
+		list->guid_cache_errors = TRUE;
+	} else if ((rec = hash_table_lookup(list->guid_cache,
+			(const uint8_t *)metadata.guid)) != NULL) {
+		i_warning("Mailbox %s has duplicate GUID with %s: %s",
+			  info->vname, rec->vname,
+			  guid_128_to_string(metadata.guid));
+	} else {
+		rec = p_new(list->guid_cache_pool,
+			    struct mailbox_guid_cache_rec, 1);
+		memcpy(rec->guid, metadata.guid, sizeof(rec->guid));
+		rec->vname = p_strdup(list->guid_cache_pool, info->vname);
+		guid_p = rec->guid;
+		hash_table_insert(list->guid_cache, guid_p, rec);
+	}
+	mailbox_free(&box);
+}
+
+void mailbox_guid_cache_refresh(struct mailbox_list *list)
+{
+	struct mailbox_list_iterate_context *ctx;
+	const struct mailbox_info *info;
 
 	if (!hash_table_is_created(list->guid_cache)) {
 		list->guid_cache_pool =
@@ -66,27 +92,7 @@ void mailbox_guid_cache_refresh(struct mailbox_list *list)
 		if ((info->flags &
 		     (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) != 0)
 			continue;
-
-		box = mailbox_alloc(list, info->vname, 0);
-		if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
-					 &metadata) < 0) {
-			i_error("Couldn't get mailbox %s GUID: %s",
-				info->vname, mailbox_get_last_internal_error(box, NULL));
-			list->guid_cache_errors = TRUE;
-		} else if ((rec = hash_table_lookup(list->guid_cache,
-				(const uint8_t *)metadata.guid)) != NULL) {
-			i_warning("Mailbox %s has duplicate GUID with %s: %s",
-				  info->vname, rec->vname,
-				  guid_128_to_string(metadata.guid));
-		} else {
-			rec = p_new(list->guid_cache_pool,
-				    struct mailbox_guid_cache_rec, 1);
-			memcpy(rec->guid, metadata.guid, sizeof(rec->guid));
-			rec->vname = p_strdup(list->guid_cache_pool, info->vname);
-			guid_p = rec->guid;
-			hash_table_insert(list->guid_cache, guid_p, rec);
-		}
-		mailbox_free(&box);
+		mailbox_guid_cache_add_mailbox(list, info);
 	}
 	if (mailbox_list_iter_deinit(&ctx) < 0)
 		list->guid_cache_errors = TRUE;
