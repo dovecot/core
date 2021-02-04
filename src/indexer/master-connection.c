@@ -101,7 +101,13 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 			first_uid = mail->uid;
 		last_uid = mail->uid;
 
-		mail_precache(mail);
+		if (mail_precache(mail) < 0) {
+			i_error("Mailbox %s: Precache for UID=%u failed: %s",
+				mailbox_get_vname(box), mail->uid,
+				mailbox_get_last_internal_error(box, NULL));
+			ret = -1;
+			break;
+		}
 		if (++counter % 100 == 0) {
 			percentage = counter*100 / max;
 			if (percentage != percentage_sent && percentage < 100) {

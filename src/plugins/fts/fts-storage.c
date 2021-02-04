@@ -469,7 +469,10 @@ fts_mail_precache_range(struct mailbox_transaction_context *trans,
 			ret = -1;
 			break;
 		}
-		mail_precache(mail);
+		if (mail_precache(mail) < 0) {
+			ret = -1;
+			break;
+		}
 		*extra_count += 1;
 	}
 	if (mailbox_search_deinit(&ctx) < 0)
