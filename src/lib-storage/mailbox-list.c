@@ -2041,7 +2041,8 @@ void mailbox_list_last_error_pop(struct mailbox_list *list)
 	array_delete(&list->error_stack, count-1, 1);
 }
 
-int mailbox_list_init_fs(struct mailbox_list *list, const char *driver,
+int mailbox_list_init_fs(struct mailbox_list *list, struct event *event_parent,
+			 const char *driver,
 			 const char *args, const char *root_dir,
 			 struct fs **fs_r, const char **error_r)
 {
@@ -2053,6 +2054,9 @@ int mailbox_list_init_fs(struct mailbox_list *list, const char *driver,
 	i_zero(&ssl_set);
 	i_zero(&fs_set);
 	mail_user_init_fs_settings(list->ns->user, &fs_set, &ssl_set);
+	/* fs_set.event_parent points to user->event by default */
+	if (event_parent != NULL)
+		fs_set.event_parent = event_parent;
 	fs_set.root_path = root_dir;
 	fs_set.temp_file_prefix = mailbox_list_get_global_temp_prefix(list);
 
