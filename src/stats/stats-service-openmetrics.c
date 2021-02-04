@@ -100,7 +100,7 @@ static void openmetrics_export_dovecot(string_t *out)
 	str_append(out, "# HELP process_start_time_seconds "
 			"Timestamp of service start\n");
 	str_append(out, "# TYPE process_start_time_seconds gauge\n");
-	str_printfa(out, "process_start_time_seconds %"PRIu64"\n",
+	str_printfa(out, "process_start_time_seconds %"PRIdTIME_T"\n",
 		    stats_startup_time);
 
 	str_append(out, "# HELP dovecot_build "
