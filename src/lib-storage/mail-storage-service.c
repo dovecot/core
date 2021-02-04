@@ -1347,7 +1347,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	/* Create an event that will be used as the default event for logging.
 	   This event won't be a parent to any other events - mail_user.event
 	   will be used for that. */
-	user->event = event_create(input->parent_event);
+	user->event = event_create(input->event_parent);
 	event_set_forced_debug(user->event,
 			       user->service_ctx->debug || (flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0);
 	event_add_fields(user->event, (const struct event_add_field []){

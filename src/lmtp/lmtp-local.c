@@ -326,7 +326,7 @@ int lmtp_local_rcpt(struct client *client, struct smtp_server_cmd_ctx *cmd,
 	input.forward_fields = lrcpt->forward_fields;
 
 	event_add_str(rcpt->event, "session", session_id);
-	input.parent_event = rcpt->event;
+	input.event_parent = rcpt->event;
 
 	ret = mail_storage_service_lookup(storage_service, &input,
 					  &service_user, &error);

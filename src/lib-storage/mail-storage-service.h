@@ -37,7 +37,7 @@ enum mail_storage_service_flags {
 };
 
 struct mail_storage_service_input {
-	struct event *parent_event;
+	struct event *event_parent;
 
 	const char *module;
 	const char *service;
