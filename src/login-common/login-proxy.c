@@ -316,7 +316,7 @@ static int login_proxy_connect(struct login_proxy *proxy)
 	}
 	if (proxy->host_immediate_failure_after_secs != 0 &&
 	    timeval_cmp(&rec->last_failure, &rec->last_success) > 0 &&
-	    rec->last_failure.tv_sec - rec->last_success.tv_sec >
+	    (unsigned int)(rec->last_failure.tv_sec - rec->last_success.tv_sec) >
 	    	proxy->host_immediate_failure_after_secs &&
 	    rec->num_waiting_connections > 1) {
 		/* the server is down. fail immediately */
