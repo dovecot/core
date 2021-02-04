@@ -94,6 +94,24 @@ void mailbox_guid_cache_refresh(struct mailbox_list *list)
 			continue;
 		mailbox_guid_cache_add_mailbox(list, info);
 	}
+	if ((list->ns->prefix_len > 0) && !mail_namespace_prefix_is_inbox(list->ns)) {
+		/* Also check if namespace prefix is a selectable mailbox
+		   and add it to cache. Does not need to include INBOX since
+		   it is added separately by mailbox_list_iter_init above. */
+		const char *ns_vname = t_strndup(list->ns->prefix,
+					         list->ns->prefix_len-1);
+		const struct mailbox_info ns_info = {
+			.vname = ns_vname,
+			.ns = list->ns,
+		};
+		struct mailbox *box = mailbox_alloc(list, ns_vname, 0);
+		enum mailbox_existence existence;
+		if (mailbox_exists(box, FALSE, &existence) == 0 &&
+		    existence == MAILBOX_EXISTENCE_SELECT)
+			mailbox_guid_cache_add_mailbox(list, &ns_info);
+		mailbox_free(&box);
+	}
+
 	if (mailbox_list_iter_deinit(&ctx) < 0)
 		list->guid_cache_errors = TRUE;
 }
