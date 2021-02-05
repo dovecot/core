@@ -174,6 +174,18 @@ int dlua_table_get_by_str(lua_State *L, int idx, int type, const char *field);
 int dlua_table_get_by_int(lua_State *L, int idx, int type, lua_Integer field);
 int dlua_table_get_by_thread(lua_State *L, int idx, int type);
 
+/* call a function in a script.
+
+  **NOTE**: This function works differently than lua_pcall:
+
+    return value:
+     -1 = error
+     0+ = number of result(s)
+
+*/
+int dlua_pcall(lua_State *L, const char *func_name, int nargs, int nresults,
+	       const char **error_r);
+
 /* dumps current stack as i_debug lines */
 void dlua_dump_stack(lua_State *L);
 

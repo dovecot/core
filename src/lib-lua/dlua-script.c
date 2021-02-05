@@ -109,6 +109,82 @@ struct dlua_script *dlua_script_from_state(lua_State *L)
 	return script;
 }
 
+int dlua_pcall(lua_State *L, const char *func_name, int nargs, int nresults,
+	       const char **error_r)
+{
+	/* record the stack position */
+	int ret = 0, debugh_idx, top = lua_gettop(L) - nargs;
+
+	lua_getglobal(L, func_name);
+
+	if (lua_isfunction(L, -1)) {
+		/* stack on entry
+			args
+			func <-- top
+		*/
+		/* move func name before arguments */
+		lua_insert(L, -(nargs + 1));
+		/* stack now
+			func
+			args <-- top
+		*/
+		lua_getglobal(L, "debug");
+		lua_getfield(L, -1, "traceback");
+		lua_replace(L, -2);
+		/* stack now
+			func
+			args
+			traceback <-- top
+		*/
+		/* move error handler before func name */
+		lua_insert(L, -(nargs + 2));
+		/* stack now
+			traceback
+			func
+			args <-- top
+		*/
+		/* record where traceback is so it's easy to get rid of even
+		   if LUA_MULTRET is used. */
+		debugh_idx = lua_gettop(L) - nargs - 1;
+		ret = lua_pcall(L, nargs, nresults, -(nargs + 2));
+		if (ret != LUA_OK) {
+			*error_r = t_strdup_printf("lua_pcall(%s, %d, %d) failed: %s",
+						   func_name, nargs, nresults,
+						   lua_tostring(L, -1));
+			/* Remove error and debug handler */
+			lua_pop(L, 2);
+			ret = -1;
+		} else {
+			/* remove debug handler from known location */
+			lua_remove(L, debugh_idx);
+			if (nresults == LUA_MULTRET)
+				nresults = lua_gettop(L) - top;
+			ret = nresults;
+		}
+	} else {
+		/* ensure stack is clean, remove function and arguments */
+		lua_pop(L, nargs + 1);
+		*error_r = t_strdup_printf("'%s' is not a function",
+					   func_name);
+		ret = -1;
+	}
+#ifdef DEBUG
+	if ((ret == -1 && lua_gettop(L) != top) ||
+	    (ret >= 0 &&
+	     lua_gettop(L) != top + ret)) {
+		i_debug("LUA STACK UNCLEAN BEGIN for %s", func_name);
+		dlua_dump_stack(L);
+		i_debug("LUA STACK UNCLEAN END");
+	}
+#endif
+	/* enforce that stack is clean after call */
+	if (ret == -1)
+		i_assert(lua_gettop(L) == top);
+	else
+		i_assert(ret >= 0 && lua_gettop(L) == top + ret);
+	return ret;
+}
+
 static int dlua_call_init_function(struct dlua_script *script,
 				   const char **error_r)
 {
