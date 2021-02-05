@@ -190,6 +190,8 @@ static struct dlua_script *dlua_create_script(const char *name,
 	script->event = event_create(event_parent);
 	event_add_category(script->event, &event_category_lua);
 
+	dlua_init_thread_table(script);
+
 	return script;
 }
 
@@ -304,7 +306,12 @@ static void dlua_script_destroy(struct dlua_script *script)
 {
 	dlua_call_deinit_function(script);
 
+	/* close all threads */
+	dlua_free_thread_table(script);
+
+	/* close base lua */
 	lua_close(script->L);
+
 	/* remove from list */
 	DLLIST_REMOVE(&dlua_scripts, script);
 

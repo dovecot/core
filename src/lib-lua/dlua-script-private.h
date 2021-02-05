@@ -39,7 +39,7 @@ struct dlua_script {
 	struct dlua_script *prev,*next;
 	pool_t pool;
 
-	lua_State *L;
+	lua_State *L; /* base lua context */
 
 	struct event *event;
 	const char *filename;
@@ -168,5 +168,15 @@ int dlua_table_get_by_thread(lua_State *L, int idx, int type);
 
 /* dumps current stack as i_debug lines */
 void dlua_dump_stack(lua_State *L);
+
+/* Create new thread and keep track of it. */
+lua_State *dlua_script_new_thread(struct dlua_script *script);
+
+/* Close thread. */
+void dlua_script_close_thread(struct dlua_script *script, lua_State **_L);
+
+/* initialize/free script's thread table */
+void dlua_init_thread_table(struct dlua_script *script);
+void dlua_free_thread_table(struct dlua_script *script);
 
 #endif
