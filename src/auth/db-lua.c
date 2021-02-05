@@ -406,25 +406,14 @@ static int auth_lua_call_lookup(lua_State *L, const char *fn,
 {
 	int err = 0;
 
-	/* call lua function passdb_lookup, it is expected to return fields */
-	lua_getglobal(L, fn);
-	if (!lua_isfunction(L, -1)) {
-		lua_pop(L, 1);
-		*error_r = t_strdup_printf("%s is not a function", fn);
-		return -1;
-	}
-
 	e_debug(authdb_event(req), "Calling %s", fn);
 
 	/* call with auth request as parameter */
 	auth_lua_push_auth_request(L, req);
-	if (lua_pcall(L, 1, 2, 0) != 0) {
-		*error_r = t_strdup_printf("db-lua: %s(req) failed: %s",
-					   fn, lua_tostring(L, -1));
-		lua_pop(L, 1);
-		i_assert(lua_gettop(L) == 0);
+	if (dlua_pcall(L, fn, 1, 2, error_r) < 0)
 		return -1;
-	} else if (!lua_isnumber(L, -2)) {
+
+	if (!lua_isnumber(L, -2)) {
 		*error_r = t_strdup_printf("db-lua: %s(req) invalid return value "
 					   "(expected number got %s)",
 					   fn, luaL_typename(L, -2));
@@ -596,26 +585,16 @@ auth_lua_call_password_verify(struct dlua_script *script,
 	lua_State *L = script->L;
 	int err = 0;
 
-	lua_getglobal(L, AUTH_LUA_PASSWORD_VERIFY);
-	if (!lua_isfunction(L, -1)) {
-		lua_pop(L, 1);
-		*error_r = t_strdup_printf("%s is not a function", AUTH_LUA_PASSWORD_VERIFY);
-		return PASSDB_RESULT_INTERNAL_FAILURE;
-	}
-
 	e_debug(authdb_event(req), "Calling %s", AUTH_LUA_PASSWORD_VERIFY);
 
 	/* call with auth request, password as parameters */
 	auth_lua_push_auth_request(L, req);
 	lua_pushstring(L, password);
-	if (lua_pcall(L, 2, 2, 0) != 0) {
-		*error_r = t_strdup_printf("db-lua: %s(req, password) failed: %s",
-					   AUTH_LUA_PASSWORD_VERIFY,
-					   lua_tostring(L, -1));
-		lua_pop(L, 1);
-		i_assert(lua_gettop(L) == 0);
+
+	if (dlua_pcall(L, AUTH_LUA_PASSWORD_VERIFY, 2, 2, error_r) < 0)
 		return PASSDB_RESULT_INTERNAL_FAILURE;
-	} else if (!lua_isnumber(L, -2)) {
+
+	if (!lua_isnumber(L, -2)) {
 		*error_r = t_strdup_printf("db-lua: %s invalid return value "
 					   "(expected number got %s)",
 					   AUTH_LUA_PASSWORD_VERIFY,
@@ -704,21 +683,19 @@ auth_lua_call_userdb_iterate_init(struct dlua_script *script, struct auth_reques
 	actx->ctx.callback = callback;
 	actx->ctx.context = context;
 
-	lua_getglobal(L, AUTH_LUA_USERDB_ITERATE);
-	if (!lua_isfunction(L, -1)) {
+	if (!dlua_script_has_function(script, AUTH_LUA_USERDB_ITERATE)) {
 		actx->ctx.failed = TRUE;
 		return &actx->ctx;
 	}
 
 	e_debug(authdb_event(req), "Calling %s", AUTH_LUA_USERDB_ITERATE);
 
-	if (lua_pcall(L, 0, 1, 0) != 0) {
+	const char *error;
+	if (dlua_pcall(L, AUTH_LUA_USERDB_ITERATE, 0, 1, &error) < 0) {
 		e_error(authdb_event(req),
 			"db-lua: " AUTH_LUA_USERDB_ITERATE " failed: %s",
-			lua_tostring(L, -1));
+			error);
 		actx->ctx.failed = TRUE;
-		lua_pop(L, 1);
-		i_assert(lua_gettop(L) == 0);
 		return &actx->ctx;
 	}
 
