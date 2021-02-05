@@ -51,6 +51,7 @@ static int mail_lua_call_hook(struct dlua_script *script,
 					   hook, errmsg);
 	}
 
+	lua_pop(script->L, 2);
 	(void)lua_gc(script->L, LUA_GCCOLLECT, 0);
 
 	return ret < 0 ? -1 : 1;
