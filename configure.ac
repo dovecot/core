@@ -663,6 +663,13 @@ LIBDOVECOT_DSYNC='$(top_builddir)/src/doveadm/dsync/libdovecot-dsync.la'
 LIBDOVECOT_SQL='$(top_builddir)/src/lib-sql/libsql.la'
 LIBDOVECOT_COMPRESS='$(top_builddir)/src/lib-compression/libcompression.la'
 LIBDOVECOT_LIBFTS='$(top_builddir)/src/lib-fts/libfts.la'
+
+if test $with_lua != no; then
+  LIBDOVECOT_LUA='$(top_builddir)/src/lib-lua/libdovecot-lua.la'
+else
+  LIBDOVECOT_LUA=''
+fi
+
 AC_SUBST(LIBDOVECOT)
 AC_SUBST(LIBDOVECOT_LA_LIBS)
 AC_SUBST(LIBDOVECOT_DEPS)
@@ -676,6 +683,8 @@ AC_SUBST(LIBDOVECOT_LDA)
 AC_SUBST(LIBDOVECOT_LDAP)
 AC_SUBST(LIBDOVECOT_LIBFTS)
 AC_SUBST(LIBDOVECOT_LIBFTS_DEPS)
+AC_SUBST(LIBDOVECOT_LUA)
+AC_SUBST(LIBDOVECOT_LUA_DEPS)
 
 dnl **
 dnl ** SQL drivers
