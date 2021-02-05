@@ -69,7 +69,7 @@ static bool is_compressed_xz(struct istream *input)
 
 	if (i_stream_read_bytes(input, &data, &size, 6) <= 0)
 		return FALSE;
-	return memcmp(data, "\xfd\x37\x7a\x58\x5a", 6) == 0;
+	return memcmp(data, "\xfd\x37\x7a\x58\x5a\x00", 6) == 0;
 }
 
 static bool is_compressed_lz4(struct istream *input)
