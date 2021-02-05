@@ -492,6 +492,8 @@ static const luaL_Reg event_methods[] ={
 };
 
 static void dlua_event_register(struct dlua_script *script){
+	i_assert(script != NULL);
+
 	luaL_newmetatable(script->L, DLUA_EVENT_PASSTHROUGH);
 	lua_pushvalue(script->L, -1);
 	lua_setfield(script->L, -2, "__index");
@@ -588,6 +590,8 @@ void dlua_getdovecot(lua_State *L)
 
 void dlua_dovecot_register(struct dlua_script *script)
 {
+	i_assert(script != NULL);
+
 	dlua_event_register(script);
 
 	/* Create table for holding values */
