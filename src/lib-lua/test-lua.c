@@ -198,8 +198,7 @@ static void test_lua(void)
 	test_assert(dlua_script_init(script, &error) == 0);
 	test_assert(dlua_script_has_function(script, "lua_function"));
 
-	lua_getglobal(script->L, "lua_test_flags");
-	test_assert(lua_pcall(script->L, 0, 0, 0) == 0);
+	test_assert(dlua_pcall(script->L, "lua_test_flags", 0, 0, &error) == 0);
 
 	lua_getglobal(script->L, "lua_test_get_table");
 	test_assert(lua_pcall(script->L, 0, 1, 0) == 0);

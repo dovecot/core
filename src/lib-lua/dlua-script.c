@@ -185,51 +185,14 @@ int dlua_pcall(lua_State *L, const char *func_name, int nargs, int nresults,
 	return ret;
 }
 
-static int dlua_call_init_function(struct dlua_script *script,
-				   const char **error_r)
-{
-	const char *func_name = LUA_SCRIPT_INIT_FN;
-	int ret = 0;
-
-	lua_getglobal(script->L, func_name);
-
-	if (lua_isfunction(script->L, -1)) {
-		ret = lua_pcall(script->L, 0, 1, 0);
-		if (ret != 0) {
-			*error_r = t_strdup_printf("lua_pcall(%s) failed: %s", func_name,
-						   lua_tostring(script->L, -1));
-			ret = -1;
-		} else if (lua_isnumber(script->L, -1)) {
-			ret = lua_tointeger(script->L, -1);
-			if (ret != 0)
-				*error_r = "Script init failed";
-		} else {
-			*error_r = t_strdup_printf("%s() returned non-number", func_name);
-			ret = -1;
-		}
-	}
-
-	lua_pop(script->L, 1);
-	return ret;
-}
-
 static void dlua_call_deinit_function(struct dlua_script *script)
 {
-	const char *func_name = LUA_SCRIPT_DEINIT_FN;
-	int ret;
-
-	lua_getglobal(script->L, func_name);
-
-	if (lua_isfunction(script->L, -1)) {
-		ret = lua_pcall(script->L, 0, 0, 0);
-		if (ret != 0) {
-			i_error("lua_pcall(%s) failed: %s", func_name,
-				lua_tostring(script->L, -1));
-			lua_pop(script->L, 1);
-		}
-	} else {
-		lua_pop(script->L, 1);
-	}
+	const char *error;
+	if (!dlua_script_has_function(script, LUA_SCRIPT_DEINIT_FN))
+		return;
+	if (dlua_pcall(script->L, LUA_SCRIPT_DEINIT_FN, 0, 0, &error) < 0)
+		e_error(script->event, LUA_SCRIPT_DEINIT_FN"() failed: %s",
+			error);
 }
 
 int dlua_script_init(struct dlua_script *script, const char **error_r)
@@ -238,7 +201,28 @@ int dlua_script_init(struct dlua_script *script, const char **error_r)
 		return 0;
 	script->init = TRUE;
 
-	return dlua_call_init_function(script, error_r);
+	/* lets not fail on missing function... */
+	if (!dlua_script_has_function(script, LUA_SCRIPT_INIT_FN))
+		return 0;
+
+	int ret = 0;
+
+	if (dlua_pcall(script->L, LUA_SCRIPT_INIT_FN, 0, 1, error_r) < 0)
+		return -1;
+
+	if (lua_isinteger(script->L, -1)) {
+		ret = lua_tointeger(script->L, -1);
+		if (ret != 0)
+			*error_r = "Script init failed";
+	} else {
+		*error_r = LUA_SCRIPT_INIT_FN"() returned non-number";
+		ret = -1;
+	}
+
+	lua_pop(script->L, 1);
+
+	i_assert(lua_gettop(script->L) == 0);
+	return ret;
 }
 
 static int dlua_atpanic(lua_State *L)
