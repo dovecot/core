@@ -43,7 +43,6 @@ void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 			continue;
 
 		eh.handler = rext[idx_ext_id].expunge_handler;
-		eh.context = rext[idx_ext_id].expunge_context;
 		eh.sync_context = &contexts[idx_ext_id];
 		eh.record_offset = map_ext_id == (uint32_t)-1 ? 0 :
 			ext[map_ext_id].record_offset;
@@ -62,10 +61,8 @@ mail_index_sync_deinit_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 		return;
 
 	array_foreach(&ctx->expunge_handlers, eh) {
-		if (eh->sync_context != NULL) {
-			eh->handler(ctx, 0, NULL, eh->sync_context,
-				    eh->context);
-		}
+		if (eh->sync_context != NULL)
+			eh->handler(ctx, NULL, eh->sync_context);
 	}
 	array_free(&ctx->expunge_handlers);
 }

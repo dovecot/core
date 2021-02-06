@@ -48,8 +48,7 @@ static void mail_cache_handler_deinit(struct mail_index_sync_map_ctx *sync_ctx,
 }
 
 int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
-			       uint32_t seq ATTR_UNUSED, const void *data,
-			       void **sync_context, void *context ATTR_UNUSED)
+			       const void *data, void **sync_context)
 {
 	struct mail_cache_sync_context *ctx = *sync_context;
 	const uint32_t *cache_offset = data;

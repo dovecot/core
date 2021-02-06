@@ -209,13 +209,8 @@ sync_expunge_call_handlers(struct mail_index_sync_map_ctx *ctx,
 	array_foreach(&ctx->expunge_handlers, eh) {
 		for (seq = seq1; seq <= seq2; seq++) {
 			rec = MAIL_INDEX_REC_AT_SEQ(ctx->view->map, seq);
-			/* FIXME: does expunge handler's return value matter?
-			   we probably shouldn't disallow expunges if the
-			   handler returns failure.. should it be just changed
-			   to return void? */
-			(void)eh->handler(ctx, seq,
-					  PTR_OFFSET(rec, eh->record_offset),
-					  eh->sync_context, eh->context);
+			eh->handler(ctx, PTR_OFFSET(rec, eh->record_offset),
+				    eh->sync_context);
 		}
 	}
 }

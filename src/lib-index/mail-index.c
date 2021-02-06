@@ -308,8 +308,7 @@ bool mail_index_ext_lookup(struct mail_index *index, const char *name,
 
 void mail_index_register_expunge_handler(struct mail_index *index,
 					 uint32_t ext_id,
-					 mail_index_expunge_handler_t *cb,
-					 void *context)
+					 mail_index_expunge_handler_t *cb)
 {
 	struct mail_index_registered_ext *rext;
 
@@ -317,7 +316,6 @@ void mail_index_register_expunge_handler(struct mail_index *index,
 	i_assert(rext->expunge_handler == NULL || rext->expunge_handler == cb);
 
 	rext->expunge_handler = cb;
-	rext->expunge_context = context;
 }
 
 void mail_index_unregister_expunge_handler(struct mail_index *index,

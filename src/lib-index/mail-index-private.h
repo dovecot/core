@@ -43,8 +43,7 @@ struct mail_index_sync_map_ctx;
 #define MAIL_INDEX_EXT_KEYWORDS "keywords"
 
 typedef int mail_index_expunge_handler_t(struct mail_index_sync_map_ctx *ctx,
-					 uint32_t seq, const void *data,
-					 void **sync_context, void *context);
+					 const void *data, void **sync_context);
 
 #define MAIL_INDEX_HEADER_SIZE_ALIGN(size) \
 	(((size) + 7) & ~7U)
@@ -97,8 +96,6 @@ struct mail_index_registered_ext {
 	uint16_t record_align;
 
 	mail_index_expunge_handler_t *expunge_handler;
-
-	void *expunge_context;
 };
 
 struct mail_index_record_map {
@@ -261,8 +258,7 @@ extern struct event_category event_category_mail_index;
 /* Add/replace expunge handler for specified extension. */
 void mail_index_register_expunge_handler(struct mail_index *index,
 					 uint32_t ext_id,
-					 mail_index_expunge_handler_t *callback,
-					 void *context);
+					 mail_index_expunge_handler_t *callback);
 void mail_index_unregister_expunge_handler(struct mail_index *index,
 					   uint32_t ext_id);
 

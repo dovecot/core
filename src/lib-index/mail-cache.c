@@ -596,7 +596,7 @@ mail_cache_open_or_create_path(struct mail_index *index, const char *path)
 		mail_index_ext_register(index, "cache", 0,
 					sizeof(uint32_t), sizeof(uint32_t));
 	mail_index_register_expunge_handler(index, cache->ext_id,
-					    mail_cache_expunge_handler, cache);
+					    mail_cache_expunge_handler);
 	return cache;
 }
 

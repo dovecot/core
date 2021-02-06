@@ -295,8 +295,7 @@ mail_cache_purge_drop_test(struct mail_cache_purge_drop_ctx *ctx,
 			   unsigned int field);
 
 int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
-			       uint32_t seq, const void *data,
-			       void **sync_context, void *context);
+			       const void *data, void **sync_context);
 
 void mail_cache_set_syscall_error(struct mail_cache *cache,
 				  const char *function);
