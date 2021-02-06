@@ -110,7 +110,7 @@ test_mail_index_modseq_LDADD = $(noinst_LTLIBRARIES) $(test_libs)
 test_mail_index_modseq_DEPENDENCIES = $(test_deps)
 
 test_mail_index_sync_ext_SOURCES = test-mail-index-sync-ext.c
-test_mail_index_sync_ext_LDADD = mail-index-sync-ext.lo $(test_libs)
+test_mail_index_sync_ext_LDADD = $(noinst_LTLIBRARIES) $(test_libs)
 test_mail_index_sync_ext_DEPENDENCIES = $(test_deps)
 
 test_mail_index_transaction_finish_SOURCES = test-mail-index-transaction-finish.c
