@@ -14,8 +14,13 @@
 
 timeout=10
 
-# prefer read with timeout (bash, busybox sh) or fall back to POSIX read (dash)
-read -t ${timeout} -r input 2>/dev/null || read -r input
+# timeout the read via trap for POSIX shell compatibility
+trap "exit 0" QUIT
+{
+	sleep $timeout
+	kill -3 $$ 2>/dev/null
+} &
+read -r input
 
 exit_code=$?
 cleaned_input=$(echo ${input} | sed "s/[^a-zA-Z0-9]//g")
