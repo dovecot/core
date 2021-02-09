@@ -115,6 +115,12 @@ void smtp_client_command_ref(struct smtp_client_command *cmd)
 void smtp_client_command_unref(struct smtp_client_command **_cmd)
 {
 	struct smtp_client_command *cmd = *_cmd;
+
+	*_cmd = NULL;
+
+	if (cmd == NULL)
+		return;
+
 	struct smtp_client_connection *conn = cmd->conn;
 
 	i_assert(cmd->refcount > 0);
