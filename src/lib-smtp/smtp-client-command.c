@@ -131,6 +131,7 @@ bool smtp_client_command_unref(struct smtp_client_command **_cmd)
 		conn->cmd_wait_list_count, conn->cmd_send_queue_count);
 
 	i_assert(cmd->state >= SMTP_CLIENT_COMMAND_STATE_FINISHED);
+	i_assert(cmd != conn->cmd_streaming);
 
 	i_stream_unref(&cmd->stream);
 	event_unref(&cmd->event);
@@ -744,13 +745,18 @@ static int smtp_client_command_do_send_more(struct smtp_client_connection *conn)
 		if (ret < 0)
 			return -1;
 		e_debug(cmd->event, "Blocked while sending payload");
-		conn->cmd_streaming = cmd;
+		if (conn->cmd_streaming != cmd) {
+			i_assert(conn->cmd_streaming == NULL);
+			conn->cmd_streaming = cmd;
+			smtp_client_command_ref(cmd);
+		}
 		return 0;
 	}
 
-	conn->cmd_streaming = NULL;
 	conn->sending_command = FALSE;
-	smtp_client_command_sent(cmd);
+	if (conn->cmd_streaming != cmd ||
+	    smtp_client_command_unref(&conn->cmd_streaming))
+		smtp_client_command_sent(cmd);
 	return 1;
 }
 

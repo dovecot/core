@@ -1880,7 +1880,7 @@ void smtp_client_connection_disconnect(struct smtp_client_connection *conn)
 			conn, SMTP_CLIENT_COMMAND_ERROR_ABORTED,
 			"Disconnected from server");
 	}
-	conn->cmd_streaming = NULL;
+	smtp_client_command_unref(&conn->cmd_streaming);
 }
 
 static struct smtp_client_connection *
