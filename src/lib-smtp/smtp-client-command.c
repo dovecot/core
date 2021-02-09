@@ -112,20 +112,20 @@ void smtp_client_command_ref(struct smtp_client_command *cmd)
 	cmd->refcount++;
 }
 
-void smtp_client_command_unref(struct smtp_client_command **_cmd)
+bool smtp_client_command_unref(struct smtp_client_command **_cmd)
 {
 	struct smtp_client_command *cmd = *_cmd;
 
 	*_cmd = NULL;
 
 	if (cmd == NULL)
-		return;
+		return FALSE;
 
 	struct smtp_client_connection *conn = cmd->conn;
 
 	i_assert(cmd->refcount > 0);
 	if (--cmd->refcount > 0)
-		return;
+		return TRUE;
 
 	e_debug(cmd->event, "Destroy (%u commands pending, %u commands queued)",
 		conn->cmd_wait_list_count, conn->cmd_send_queue_count);
@@ -135,7 +135,8 @@ void smtp_client_command_unref(struct smtp_client_command **_cmd)
 	i_stream_unref(&cmd->stream);
 	event_unref(&cmd->event);
 	pool_unref(&cmd->pool);
-	*_cmd = NULL;
+
+	return FALSE;
 }
 
 bool smtp_client_command_name_equals(struct smtp_client_command *cmd,

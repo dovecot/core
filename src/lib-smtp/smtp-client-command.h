@@ -55,7 +55,8 @@ smtp_client_command_plug(struct smtp_client_connection *conn,
 			 struct smtp_client_command *after);
 
 void smtp_client_command_ref(struct smtp_client_command *cmd);
-void smtp_client_command_unref(struct smtp_client_command **_cmd);
+bool smtp_client_command_unref(struct smtp_client_command **_cmd)
+			       ATTR_NOWARN_UNUSED_RESULT;
 
 bool smtp_client_command_name_equals(struct smtp_client_command *cmd,
 				     const char *name);
