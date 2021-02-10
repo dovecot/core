@@ -176,10 +176,10 @@ config_filter_parser_cmp_rev(struct config_filter_parser *const *p1,
 
 static bool str_array_contains(ARRAY_TYPE(const_string) *arr, const char *str)
 {
-	const char *const *p;
+	const char *p;
 
-	array_foreach(arr, p) {
-		if (strcmp(*p, str) == 0)
+	array_foreach_elem(arr, p) {
+		if (strcmp(p, str) == 0)
 			return TRUE;
 	}
 	return FALSE;

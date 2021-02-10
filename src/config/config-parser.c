@@ -233,11 +233,9 @@ static struct config_filter_parser *
 config_filter_parser_find(struct config_parser_context *ctx,
 			  const struct config_filter *filter)
 {
-	struct config_filter_parser *const *parsers;
+	struct config_filter_parser *parser;
 
-	array_foreach(&ctx->all_parsers, parsers) {
-		struct config_filter_parser *parser = *parsers;
-
+	array_foreach_elem(&ctx->all_parsers, parser) {
 		if (config_filters_equal(&parser->filter, filter))
 			return parser;
 	}

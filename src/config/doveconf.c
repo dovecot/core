@@ -487,8 +487,8 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 
 	/* flush output before writing errors */
 	o_stream_uncork(output);
-	array_foreach(&ctx->errors, strings) {
-		i_error("%s", *strings);
+	array_foreach_elem(&ctx->errors, str) {
+		i_error("%s", str);
 		ret = -1;
 	}
 	return ret;
@@ -615,7 +615,7 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 		bool hide_passwords)
 {
 	static struct config_dump_human_context *ctx;
-	const char *const *str;
+	const char *str;
 	size_t len;
 	bool dump_section = FALSE;
 
@@ -625,20 +625,20 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 		return -1;
 
 	len = strlen(setting_name_filter);
-	array_foreach(&ctx->strings, str) {
-		if (strncmp(*str, setting_name_filter, len) != 0)
+	array_foreach_elem(&ctx->strings, str) {
+		if (strncmp(str, setting_name_filter, len) != 0)
 			continue;
 
-		if ((*str)[len] == '=') {
+		if (str[len] == '=') {
 			if (hide_key)
-				printf("%s\n", *str + len+1);
+				printf("%s\n", str + len+1);
 			else {
 				printf("%s = %s\n", setting_name_filter,
-				       *str + len+1);
+				       str + len+1);
 			}
 			dump_section = FALSE;
 			break;
-		} else if ((*str)[len] == '/') {
+		} else if (str[len] == '/') {
 			dump_section = TRUE;
 		}
 	}
