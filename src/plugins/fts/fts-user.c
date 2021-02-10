@@ -234,13 +234,13 @@ struct fts_user_language *
 fts_user_language_find(struct mail_user *user,
 		       const struct fts_language *lang)
 {
-	struct fts_user_language *const *user_langp;
+	struct fts_user_language *user_lang;
 	struct fts_user *fuser = FTS_USER_CONTEXT(user);
 		
 	i_assert(fuser != NULL);
-	array_foreach(&fuser->languages, user_langp) {
-		if (strcmp((*user_langp)->lang->name, lang->name) == 0)
-			return *user_langp;
+	array_foreach_elem(&fuser->languages, user_lang) {
+		if (strcmp(user_lang->lang->name, lang->name) == 0)
+			return user_lang;
 	}
 	return NULL;
 }
@@ -267,10 +267,10 @@ static int fts_user_languages_fill_all(struct mail_user *user,
                                        struct fts_user *fuser,
                                        const char **error_r)
 {
-	const struct fts_language *const *langp;
+	const struct fts_language *lang;
 
-	array_foreach(fts_language_list_get_all(fuser->lang_list), langp) {
-		if (fts_user_language_create(user, fuser, *langp, error_r) < 0)
+	array_foreach_elem(fts_language_list_get_all(fuser->lang_list), lang) {
+		if (fts_user_language_create(user, fuser, lang, error_r) < 0)
 			return -1;
 	}
 	return 0;
@@ -348,13 +348,13 @@ static void fts_user_language_free(struct fts_user_language *user_lang)
 
 static void fts_user_free(struct fts_user *fuser)
 {
-	struct fts_user_language *const *user_langp;
+	struct fts_user_language *user_lang;
 
 	if (fuser->lang_list != NULL)
 		fts_language_list_deinit(&fuser->lang_list);
 
-	array_foreach(&fuser->languages, user_langp)
-		fts_user_language_free(*user_langp);
+	array_foreach_elem(&fuser->languages, user_lang)
+		fts_user_language_free(user_lang);
 }
 
 int fts_mail_user_init(struct mail_user *user, const char **error_r)

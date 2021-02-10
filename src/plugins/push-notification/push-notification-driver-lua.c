@@ -138,15 +138,15 @@ push_notification_driver_lua_init_events(
 	struct push_notification_driver_txn *dtxn)
 {
 	struct dlua_push_notification_context *ctx = dtxn->duser->context;
-	const struct push_notification_event *const *event;
+	const struct push_notification_event *event;
 	ctx->config_mn.flags = DLUA_DEFAULT_EVENTS;
 	ctx->config_ma.flags = DLUA_DEFAULT_EVENTS;
 	ctx->config_fc.store_old = TRUE;
 	bool found_one = FALSE;
 
 	/* Register *all* events that are present in Lua */
-	array_foreach(push_notification_get_events(), event) {
-		const char *name = (*event)->name;
+	array_foreach_elem(push_notification_get_events(), event) {
+		const char *name = event->name;
 		const char *fn = push_notification_driver_lua_to_fn(name);
 		if (!dlua_script_has_function(ctx->script, fn))
 			continue;
@@ -167,8 +167,8 @@ push_notification_driver_lua_init_events(
 		} else if (strcmp(name, "FlagsClear") == 0) {
 			push_notification_event_init(dtxn, name,
 						     &ctx->config_fc);
-		} else if ((*event)->init.default_config != NULL) {
-			void *config = (*event)->init.default_config();
+		} else if (event->init.default_config != NULL) {
+			void *config = event->init.default_config();
 			push_notification_event_init(dtxn, name, config);
 		} else {
 			push_notification_event_init(dtxn, name, NULL);
@@ -552,14 +552,14 @@ push_notification_driver_lua_process_mbox(
 	struct push_notification_driver_txn *dtxn,
 	struct push_notification_txn_mbox *mbox)
 {
-	struct push_notification_txn_event *const *event;
+	struct push_notification_txn_event *event;
 	struct dlua_push_notification_context *ctx = dtxn->duser->context;
 	struct dlua_push_notification_txn_context *tctx = dtxn->context;
 
 	if (array_is_created(&mbox->eventdata)) {
-		array_foreach(&mbox->eventdata, event) {
+		array_foreach_elem(&mbox->eventdata, event) {
 			push_notification_driver_lua_call(ctx, tctx,
-							  (*event), mbox, NULL);
+							  event, mbox, NULL);
 		}
 	}
 }
@@ -569,14 +569,14 @@ push_notification_driver_lua_process_msg(
 	struct push_notification_driver_txn *dtxn,
 	struct push_notification_txn_msg *msg)
 {
-	struct push_notification_txn_event *const *event;
+	struct push_notification_txn_event *event;
 	struct dlua_push_notification_context *ctx = dtxn->duser->context;
 	struct dlua_push_notification_txn_context *tctx = dtxn->context;
 
 	if (array_is_created(&msg->eventdata)) {
-		array_foreach(&msg->eventdata, event) {
+		array_foreach_elem(&msg->eventdata, event) {
 			push_notification_driver_lua_call(ctx, tctx,
-							  (*event), NULL, msg);
+							  event, NULL, msg);
 		}
 	}
 }

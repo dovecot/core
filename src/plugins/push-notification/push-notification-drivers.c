@@ -124,14 +124,14 @@ int push_notification_driver_init(
 
 void push_notification_driver_cleanup_all(void)
 {
-	const struct push_notification_driver *const *driver;
+	const struct push_notification_driver *driver;
 
 	/* Loop through driver list and perform global cleanup tasks. We may not
 	   have used all drivers in this plugin/worker, but the cleanup hooks
 	   are designed to ignore these unused drivers. */
-	array_foreach(&push_notification_drivers, driver) {
-		if ((*driver)->v.cleanup != NULL)
-			(*driver)->v.cleanup();
+	array_foreach_elem(&push_notification_drivers, driver) {
+		if (driver->v.cleanup != NULL)
+			driver->v.cleanup();
 	}
 }
 

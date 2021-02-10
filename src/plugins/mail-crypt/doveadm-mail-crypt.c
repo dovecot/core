@@ -188,7 +188,7 @@ static int mcp_update_shared_keys(struct doveadm_mail_cmd_context *ctx,
 		return -1;
 	}
 
-	const char *const *id;
+	const char *id;
 	bool found = FALSE;
 	string_t *uid = t_str_new(64);
 
@@ -198,10 +198,10 @@ static int mcp_update_shared_keys(struct doveadm_mail_cmd_context *ctx,
 	ret = 0;
 
 	/* then perform sharing */
-	array_foreach(&ids, id) {
-		if (strchr(*id, '/') != NULL) {
+	array_foreach_elem(&ids, id) {
+		if (strchr(id, '/') != NULL) {
 			str_truncate(uid, 0);
-			const char *hexuid = t_strcut(*id, '/');
+			const char *hexuid = t_strcut(id, '/');
 			hex_to_binary(hexuid, uid);
 			if (mcp_update_shared_key(t, user, str_c(uid), key,
 						  &error) < 0) {
@@ -575,16 +575,16 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 				mailbox_get_vname(box),
 				error);
 		} else {
-			const char *const *id;
+			const char *id;
 			const char *boxname = mailbox_get_vname(box);
 			if (value.value == NULL)
 				value.value = "<NO ACTIVE KEY>";
-			array_foreach(&ids, id) {
+			array_foreach_elem(&ids, id) {
 				struct generated_key key;
 				key.name = boxname;
-				key.id = *id;
+				key.id = id;
 				if (value.value != NULL)
-					key.active = strcmp(*id, value.value) == 0;
+					key.active = strcmp(id, value.value) == 0;
 				else
 					key.active = FALSE;
 				key.box = box;

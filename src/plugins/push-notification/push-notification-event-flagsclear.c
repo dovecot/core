@@ -27,7 +27,7 @@ push_notification_event_flagsclear_debug_msg(
 	struct push_notification_txn_event *event)
 {
 	struct push_notification_event_flagsclear_data *data = event->data;
-	const char *const *keyword;
+	const char *keyword;
 
 	if ((data->flags_clear & MAIL_ANSWERED) != 0)
 		i_debug("%s: Answered flag cleared", EVENT_NAME);
@@ -40,8 +40,8 @@ push_notification_event_flagsclear_debug_msg(
 	if ((data->flags_clear & MAIL_DRAFT) != 0)
 		i_debug("%s: Draft flag cleared", EVENT_NAME);
 
-	array_foreach(&data->keywords_clear, keyword)
-		i_debug("%s: Keyword clear [%s]", EVENT_NAME, *keyword);
+	array_foreach_elem(&data->keywords_clear, keyword)
+		i_debug("%s: Keyword clear [%s]", EVENT_NAME, keyword);
 }
 
 static struct push_notification_event_flagsclear_data *

@@ -91,7 +91,7 @@ static bool notify_status_mailbox_enabled(struct mailbox *box)
 {
 	struct mail_user *user = mail_storage_get_user(mailbox_get_storage(box));
 	struct notify_status_user *nuser = NOTIFY_STATUS_USER_CONTEXT(user);
-	struct imap_match_glob **glob;
+	struct imap_match_glob *glob;
 	/* not enabled */
 	if (nuser == NULL)
 		return FALSE;
@@ -100,8 +100,8 @@ static bool notify_status_mailbox_enabled(struct mailbox *box)
 	if (array_count(&nuser->patterns) == 0)
 		return TRUE;
 
-	array_foreach_modifiable(&nuser->patterns, glob) {
-		if ((imap_match(*glob, mailbox_get_vname(box)) & IMAP_MATCH_YES) != 0)
+	array_foreach_elem(&nuser->patterns, glob) {
+		if ((imap_match(glob, mailbox_get_vname(box)) & IMAP_MATCH_YES) != 0)
 			return TRUE;
 	}
 	return FALSE;

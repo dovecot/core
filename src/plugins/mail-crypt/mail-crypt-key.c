@@ -1115,12 +1115,11 @@ int mail_crypt_box_share_private_keys(struct mailbox_transaction_context *t,
 {
 	i_assert(dest_user == NULL || dest_pub_key != NULL);
 
-	struct dcrypt_private_key *const *priv_keyp, *priv_key;
+	struct dcrypt_private_key *priv_key;
 	buffer_t *key_id = t_str_new(MAIL_CRYPT_HASH_BUF_SIZE);
 	int ret = 0;
 
-	array_foreach(priv_keys, priv_keyp) {
-		priv_key = *priv_keyp;
+	array_foreach_elem(priv_keys, priv_key) {
 		ret = -1;
 		if (!dcrypt_key_id_private(priv_key, MAIL_CRYPT_KEY_ID_ALGORITHM,
 					   key_id, error_r) ||
