@@ -514,7 +514,7 @@ static void main_log_startup(char **protocols)
 
 static void master_set_process_limit(void)
 {
-	struct service *const *servicep;
+	struct service *service;
 	unsigned int process_limit = 0;
 	rlim_t nproc;
 
@@ -525,8 +525,8 @@ static void master_set_process_limit(void)
 	   guess: mail processes should probably be counted together for a
 	   common vmail user (unless system users are being used), but
 	   we can't really guess what the mail processes are. */
-	array_foreach(&services->services, servicep)
-		process_limit += (*servicep)->process_limit;
+	array_foreach_elem(&services->services, service)
+		process_limit += service->process_limit;
 
 	if (restrict_get_process_limit(&nproc) == 0 &&
 	    process_limit > nproc)

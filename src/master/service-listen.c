@@ -227,12 +227,10 @@ int service_listener_listen(struct service_listener *l)
 
 static int service_listen(struct service *service)
 {
-	struct service_listener *const *listeners;
+	struct service_listener *l;
 	int ret = 1, ret2 = 0;
 
-	array_foreach(&service->listeners, listeners) {
-		struct service_listener *l = *listeners;
-
+	array_foreach_elem(&service->listeners, l) {
 		if (l->fd != -1)
 			continue;
 
@@ -284,7 +282,7 @@ static int get_socket_info(int fd, sa_family_t *family_r, in_port_t *port_r)
 
 static int services_verify_systemd(struct service_list *service_list)
 {
-	struct service *const *services;
+	struct service *service;
 	static int sd_fds = -1;
 	int fd, fd_max;
 
@@ -304,11 +302,10 @@ static int services_verify_systemd(struct service_list *service_list)
 			sa_family_t family;
 			get_socket_info(fd, &family, &port);
 			
-			array_foreach(&service_list->services, services) {
-				struct service_listener *const *listeners;
+			array_foreach_elem(&service_list->services, service) {
+				struct service_listener *l;
 
-				array_foreach(&(*services)->listeners, listeners) {
-					struct service_listener *l = *listeners;
+				array_foreach_elem(&service->listeners, l) {
 					if (l->type != SERVICE_LISTENER_INET)
 						continue;
 					if (l->set.inetset.set->port == port &&
@@ -366,11 +363,11 @@ static int services_listen_master(struct service_list *service_list)
 
 int services_listen(struct service_list *service_list)
 {
-	struct service *const *services;
+	struct service *service;
 	int ret = 1, ret2;
 
-	array_foreach(&service_list->services, services) {
-		ret2 = service_listen(*services);
+	array_foreach_elem(&service_list->services, service) {
+		ret2 = service_listen(service);
 		if (ret2 < ret)
 			ret = ret2;
 	}

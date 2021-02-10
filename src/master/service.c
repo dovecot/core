@@ -362,11 +362,9 @@ service_create(pool_t pool, const struct service_settings *set,
 struct service *
 service_lookup(struct service_list *service_list, const char *name)
 {
-	struct service *const *services;
+	struct service *service;
 
-	array_foreach(&service_list->services, services) {
-		struct service *service = *services;
-
+	array_foreach_elem(&service_list->services, service) {
 		if (strcmp(service->set->name, name) == 0)
 			return service;
 	}
@@ -376,11 +374,9 @@ service_lookup(struct service_list *service_list, const char *name)
 struct service *
 service_lookup_type(struct service_list *service_list, enum service_type type)
 {
-	struct service *const *services;
+	struct service *service;
 
-	array_foreach(&service_list->services, services) {
-		struct service *service = *services;
-
+	array_foreach_elem(&service_list->services, service) {
 		if (service->type == type)
 			return service;
 	}
@@ -578,7 +574,7 @@ void service_login_notify(struct service *service, bool all_processes_full)
 
 static void services_kill_timeout(struct service_list *service_list)
 {
-	struct service *const *services, *log_service;
+	struct service *service, *log_service;
 	unsigned int service_uninitialized, uninitialized_count = 0;
 	unsigned int signal_count = 0;
 	int sig;
@@ -590,9 +586,7 @@ static void services_kill_timeout(struct service_list *service_list)
 	service_list->sigterm_sent = TRUE;
 
 	log_service = NULL;
-	array_foreach(&service_list->services, services) {
-		struct service *service = *services;
-
+	array_foreach_elem(&service_list->services, service) {
 		if (service->type == SERVICE_TYPE_LOG)
 			log_service = service;
 		else {
@@ -655,16 +649,16 @@ void service_list_ref(struct service_list *service_list)
 
 void service_list_unref(struct service_list *service_list)
 {
-	struct service *const *servicep;
-	struct service_listener *const *listenerp;
+	struct service *service;
+	struct service_listener *listener;
 
 	i_assert(service_list->refcount > 0);
 	if (--service_list->refcount > 0)
 		return;
 
-	array_foreach(&service_list->services, servicep) {
-		array_foreach(&(*servicep)->listeners, listenerp)
-			i_close_fd(&(*listenerp)->fd);
+	array_foreach_elem(&service_list->services, service) {
+		array_foreach_elem(&service->listeners, listener)
+			i_close_fd(&listener->fd);
 	}
 	i_close_fd(&service_list->master_fd);
 
@@ -691,18 +685,18 @@ static void service_throttle_timeout(struct service *service)
 
 static void service_drop_listener_connections(struct service *service)
 {
-	struct service_listener *const *listenerp;
+	struct service_listener *listener;
 	int fd;
 
-	array_foreach(&service->listeners, listenerp) {
-		switch ((*listenerp)->type) {
+	array_foreach_elem(&service->listeners, listener) {
+		switch (listener->type) {
 		case SERVICE_LISTENER_UNIX:
 		case SERVICE_LISTENER_INET:
-			if ((*listenerp)->fd == -1) {
+			if (listener->fd == -1) {
 				/* already stopped listening */
 				break;
 			}
-			while ((fd = net_accept((*listenerp)->fd,
+			while ((fd = net_accept(listener->fd,
 						NULL, NULL)) >= 0)
 				i_close_fd(&fd);
 			break;
@@ -728,11 +722,9 @@ void service_throttle(struct service *service, unsigned int msecs)
 void services_throttle_time_sensitives(struct service_list *list,
 				       unsigned int msecs)
 {
-	struct service *const *services;
+	struct service *service;
 
-	array_foreach(&list->services, services) {
-		struct service *service = *services;
-
+	array_foreach_elem(&list->services, service) {
 		if (service->type == SERVICE_TYPE_UNKNOWN)
 			service_throttle(service, msecs);
 	}

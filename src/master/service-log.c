@@ -71,7 +71,7 @@ service_process_write_log_bye(int fd, struct service_process *process)
 
 int services_log_init(struct service_list *service_list)
 {
-	struct service *const *services;
+	struct service *service;
 	const char *log_prefix;
 	buffer_t *handshake_buf;
 	ssize_t ret = 0;
@@ -91,9 +91,7 @@ int services_log_init(struct service_list *service_list)
 					    service_process_write_log_bye);
 
 	fd = MASTER_LISTEN_FD_FIRST + 1;
-	array_foreach(&service_list->services, services) {
-		struct service *service = *services;
-
+	array_foreach_elem(&service_list->services, service) {
 		if (service->type == SERVICE_TYPE_LOG)
 			continue;
 
@@ -153,16 +151,14 @@ void services_log_dup2(ARRAY_TYPE(dup2) *dups,
 		       struct service_list *service_list,
 		       unsigned int first_fd, unsigned int *fd_count)
 {
-	struct service *const *services;
+	struct service *service;
 	unsigned int n = 0;
 
 	/* master log fd is always the first one */
 	dup2_append(dups, service_list->master_log_fd[0], first_fd);
 	n++; *fd_count += 1;
 
-	array_foreach(&service_list->services, services) {
-		struct service *service = *services;
-
+	array_foreach_elem(&service_list->services, service) {
 		if (service->log_fd[1] == -1)
 			continue;
 

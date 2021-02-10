@@ -37,12 +37,12 @@ master_client_service_status_output(string_t *str,
 static int
 master_client_service_status(struct master_client *client)
 {
-	struct service *const *servicep;
+	struct service *service;
 	string_t *str = t_str_new(128);
 
-	array_foreach(&services->services, servicep) {
+	array_foreach_elem(&services->services, service) {
 		str_truncate(str, 0);
-		master_client_service_status_output(str, *servicep);
+		master_client_service_status_output(str, service);
 		o_stream_nsend(client->conn.output, str_data(str), str_len(str));
 	}
 	o_stream_nsend_str(client->conn.output, "\n");
@@ -65,14 +65,14 @@ static int
 master_client_process_status(struct master_client *client,
 			     const char *const *args)
 {
-	struct service *const *servicep;
+	struct service *service;
 	struct service_process *p;
 	string_t *str = t_str_new(128);
 
-	array_foreach(&services->services, servicep) {
-		if (args[0] != NULL && !str_array_find(args, (*servicep)->set->name))
+	array_foreach_elem(&services->services, service) {
+		if (args[0] != NULL && !str_array_find(args, service->set->name))
 			continue;
-		for (p = (*servicep)->processes; p != NULL; p = p->next) {
+		for (p = service->processes; p != NULL; p = p->next) {
 			str_truncate(str, 0);
 			master_client_process_output(str, p);
 			o_stream_nsend(client->conn.output,

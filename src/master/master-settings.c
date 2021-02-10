@@ -281,16 +281,14 @@ fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 			ARRAY_TYPE(const_string) *all_listeners,
 			const char **error_r)
 {
-	struct file_listener_settings *const *sets;
+	struct file_listener_settings *set;
 	size_t base_dir_len = strlen(master_set->base_dir);
 	enum service_user_default user_default;
 
 	if (!array_is_created(l))
 		return TRUE;
 
-	array_foreach(l, sets) {
-		struct file_listener_settings *set = *sets;
-
+	array_foreach_elem(l, set) {
 		if (set->path[0] == '\0') {
 			*error_r = "path must not be empty";
 			return FALSE;
@@ -316,15 +314,13 @@ fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 static void add_inet_listeners(ARRAY_TYPE(inet_listener_settings) *l,
 			       ARRAY_TYPE(const_string) *all_listeners)
 {
-	struct inet_listener_settings *const *sets;
+	struct inet_listener_settings *set;
 	const char *str;
 
 	if (!array_is_created(l))
 		return;
 
-	array_foreach(l, sets) {
-		struct inet_listener_settings *set = *sets;
-
+	array_foreach_elem(l, set) {
 		if (set->port != 0) {
 			str = t_strdup_printf("%u:%s", set->port, set->address);
 			array_push_back(all_listeners, &str);
@@ -372,11 +368,9 @@ static void service_set_login_dump_core(struct service_settings *set)
 static bool
 services_have_protocol(struct master_settings *set, const char *name)
 {
-	struct service_settings *const *services;
+	struct service_settings *service;
 
-	array_foreach(&set->services, services) {
-		struct service_settings *service = *services;
-
+	array_foreach_elem(&set->services, service) {
 		if (strcmp(service->protocol, name) == 0)
 			return TRUE;
 	}
@@ -388,11 +382,11 @@ static const struct service_settings *
 master_default_settings_get_service(const char *name)
 {
 	extern struct master_settings master_default_settings;
-	struct service_settings *const *setp;
+	struct service_settings *set;
 
-	array_foreach(&master_default_settings.services, setp) {
-		if (strcmp((*setp)->name, name) == 0)
-			return *setp;
+	array_foreach_elem(&master_default_settings.services, set) {
+		if (strcmp(set->name, name) == 0)
+			return set;
 	}
 	return NULL;
 }
@@ -401,12 +395,12 @@ master_default_settings_get_service(const char *name)
 static unsigned int
 service_get_client_limit(struct master_settings *set, const char *name)
 {
-	struct service_settings *const *servicep;
+	struct service_settings *service;
 
-	array_foreach(&set->services, servicep) {
-		if (strcmp((*servicep)->name, name) == 0) {
-			if ((*servicep)->client_limit != 0)
-				return (*servicep)->client_limit;
+	array_foreach_elem(&set->services, service) {
+		if (strcmp(service->name, name) == 0) {
+			if (service->client_limit != 0)
+				return service->client_limit;
 			else
 				return set->default_client_limit;
 		}
@@ -659,16 +653,14 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 static bool
 login_want_core_dumps(const struct master_settings *set, gid_t *gid_r)
 {
-	struct service_settings *const *services;
+	struct service_settings *service;
 	const char *error;
 	bool cores = FALSE;
 	uid_t uid;
 
 	*gid_r = (gid_t)-1;
 
-	array_foreach(&set->services, services) {
-		struct service_settings *service = *services;
-
+	array_foreach_elem(&set->services, service) {
 		if (service->parsed_type == SERVICE_TYPE_LOGIN) {
 			if (service->login_dump_core)
 				cores = TRUE;
@@ -684,17 +676,13 @@ static bool
 settings_have_auth_unix_listeners_in(const struct master_settings *set,
 				     const char *dir)
 {
-	struct service_settings *const *services;
-	struct file_listener_settings *const *uls;
+	struct service_settings *service;
+	struct file_listener_settings *u;
 	size_t dir_len = strlen(dir);
 
-	array_foreach(&set->services, services) {
-		struct service_settings *service = *services;
-
+	array_foreach_elem(&set->services, service) {
 		if (array_is_created(&service->unix_listeners)) {
-			array_foreach(&service->unix_listeners, uls) {
-				struct file_listener_settings *u = *uls;
-
+			array_foreach_elem(&service->unix_listeners, u) {
 				if (strncmp(u->path, dir, dir_len) == 0 &&
 				    u->path[dir_len] == '/')
 					return TRUE;
