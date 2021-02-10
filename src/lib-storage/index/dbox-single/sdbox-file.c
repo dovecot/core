@@ -124,13 +124,13 @@ static int sdbox_file_rename_attachments(struct sdbox_file *file)
 {
 	struct dbox_storage *storage = file->file.storage;
 	struct fs_file *src_file, *dest_file;
-	const char *const *pathp, *src, *dest;
+	const char *path, *src, *dest;
 	int ret = 0;
 
-	array_foreach(&file->attachment_paths, pathp) T_BEGIN {
-		src = t_strdup_printf("%s/%s", storage->attachment_dir, *pathp);
+	array_foreach_elem(&file->attachment_paths, path) T_BEGIN {
+		src = t_strdup_printf("%s/%s", storage->attachment_dir, path);
 		dest = t_strdup_printf("%s/%s", storage->attachment_dir,
-				sdbox_file_attachment_relpath(file, *pathp));
+				sdbox_file_attachment_relpath(file, path));
 		src_file = fs_file_init(storage->attachment_fs, src,
 					FS_OPEN_MODE_READONLY);
 		dest_file = fs_file_init(storage->attachment_fs, dest,
@@ -189,16 +189,16 @@ static int sdbox_file_unlink_aborted_save_attachments(struct sdbox_file *file)
 	struct dbox_storage *storage = file->file.storage;
 	struct fs *fs = storage->attachment_fs;
 	struct fs_file *fs_file;
-	const char *const *pathp, *path;
+	const char *path, *att_path;
 	int ret = 0;
 
-	array_foreach(&file->attachment_paths, pathp) T_BEGIN {
+	array_foreach_elem(&file->attachment_paths, att_path) T_BEGIN {
 		/* we don't know if we aborted before renaming this attachment,
 		   so try deleting both source and dest path. the source paths
 		   point to temporary files (not to source messages'
 		   attachment paths), so it's safe to delete them. */
 		path = t_strdup_printf("%s/%s", storage->attachment_dir,
-				       *pathp);
+				       att_path);
 		fs_file = fs_file_init(fs, path, FS_OPEN_MODE_READONLY);
 		if (fs_delete(fs_file) < 0 &&
 		    errno != ENOENT) {
@@ -209,7 +209,7 @@ static int sdbox_file_unlink_aborted_save_attachments(struct sdbox_file *file)
 		fs_file_deinit(&fs_file);
 
 		path = t_strdup_printf("%s/%s", storage->attachment_dir,
-				sdbox_file_attachment_relpath(file, *pathp));
+				sdbox_file_attachment_relpath(file, att_path));
 		fs_file = fs_file_init(fs, path, FS_OPEN_MODE_READONLY);
 		if (fs_delete(fs_file) < 0 &&
 		    errno != ENOENT) {

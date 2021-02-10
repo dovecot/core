@@ -790,7 +790,7 @@ bool mail_storage_set_error_from_errno(struct mail_storage *storage)
 const struct mailbox_settings *
 mailbox_settings_find(struct mail_namespace *ns, const char *vname)
 {
-	struct mailbox_settings *const *box_set;
+	struct mailbox_settings *box_set;
 
 	if (!array_is_created(&ns->set->mailboxes))
 		return NULL;
@@ -804,9 +804,9 @@ mailbox_settings_find(struct mail_namespace *ns, const char *vname)
 			vname = "";
 		}
 	}
-	array_foreach(&ns->set->mailboxes, box_set) {
-		if (strcmp((*box_set)->name, vname) == 0)
-			return *box_set;
+	array_foreach_elem(&ns->set->mailboxes, box_set) {
+		if (strcmp(box_set->name, vname) == 0)
+			return box_set;
 	}
 	return NULL;
 }

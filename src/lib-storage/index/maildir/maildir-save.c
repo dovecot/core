@@ -865,7 +865,7 @@ static int
 maildir_save_move_files_to_newcur(struct maildir_save_context *ctx)
 {
 	ARRAY(struct maildir_filename *) files;
-	struct maildir_filename *mf, *const *mfp, *prev_mf;
+	struct maildir_filename *mf, *prev_mf;
 	bool newdir, new_changed, cur_changed;
 	int ret;
 
@@ -879,8 +879,7 @@ maildir_save_move_files_to_newcur(struct maildir_save_context *ctx)
 
 	new_changed = cur_changed = FALSE;
 	prev_mf = NULL;
-	array_foreach(&files, mfp) {
-		mf = *mfp;
+	array_foreach_elem(&files, mf) {
 		T_BEGIN {
 			const char *dest;
 

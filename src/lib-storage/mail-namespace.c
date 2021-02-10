@@ -51,11 +51,11 @@ void mail_namespace_finish_list_init(struct mail_namespace *ns,
 
 static void mail_namespace_free(struct mail_namespace *ns)
 {
-	struct mail_storage **storagep;
+	struct mail_storage *storage;
 
 	if (array_is_created(&ns->all_storages)) {
-		array_foreach_modifiable(&ns->all_storages, storagep)
-			mail_storage_unref(storagep);
+		array_foreach_elem(&ns->all_storages, storage)
+			mail_storage_unref(&storage);
 		array_free(&ns->all_storages);
 	}
 	if (ns->list != NULL)
@@ -70,13 +70,13 @@ static void mail_namespace_free(struct mail_namespace *ns)
 static bool
 namespace_has_special_use_mailboxes(struct mail_namespace_settings *ns_set)
 {
-	struct mailbox_settings *const *box_set;
+	struct mailbox_settings *box_set;
 
 	if (!array_is_created(&ns_set->mailboxes))
 		return FALSE;
 
-	array_foreach(&ns_set->mailboxes, box_set) {
-		if ((*box_set)->special_use[0] != '\0')
+	array_foreach_elem(&ns_set->mailboxes, box_set) {
+		if (box_set->special_use[0] != '\0')
 			return TRUE;
 	}
 	return FALSE;
@@ -607,11 +607,11 @@ void mail_namespaces_set_storage_callbacks(struct mail_namespace *namespaces,
 					   void *context)
 {
 	struct mail_namespace *ns;
-	struct mail_storage *const *storagep;
+	struct mail_storage *storage;
 
 	for (ns = namespaces; ns != NULL; ns = ns->next) {
-		array_foreach(&ns->all_storages, storagep)
-			mail_storage_set_callbacks(*storagep, callbacks, context);
+		array_foreach_elem(&ns->all_storages, storage)
+			mail_storage_set_callbacks(storage, callbacks, context);
 	}
 }
 
@@ -849,7 +849,7 @@ mail_namespace_find_prefix_nosep(struct mail_namespace *namespaces,
 
 bool mail_namespace_is_shared_user_root(struct mail_namespace *ns)
 {
-	struct mail_storage *const *storagep;
+	struct mail_storage *storage;
 
 	if (ns->type != MAIL_NAMESPACE_TYPE_SHARED)
 		return FALSE;
@@ -858,8 +858,8 @@ bool mail_namespace_is_shared_user_root(struct mail_namespace *ns)
 		return FALSE;
 	}
 	/* if we have driver=shared storage, we're a real shared root */
-	array_foreach(&ns->all_storages, storagep) {
-		if (strcmp((*storagep)->name, MAIL_SHARED_STORAGE_NAME) == 0)
+	array_foreach_elem(&ns->all_storages, storage) {
+		if (strcmp(storage->name, MAIL_SHARED_STORAGE_NAME) == 0)
 			return TRUE;
 	}
 	return FALSE;

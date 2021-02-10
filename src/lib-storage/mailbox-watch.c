@@ -110,7 +110,7 @@ int mailbox_watch_extract_notify_fd(struct mailbox *box, const char **reason_r)
 {
 	struct ioloop *ioloop;
 	struct mailbox_notify_file *file;
-	struct io *io, *const *iop;
+	struct io *io;
 	ARRAY(struct io *) temp_ios;
 	int ret;
 	bool failed = FALSE;
@@ -145,10 +145,8 @@ int mailbox_watch_extract_notify_fd(struct mailbox *box, const char **reason_r)
 		if (ret == -1)
 			*reason_r = "Couldn't extra notify fd";
 	}
-	array_foreach(&temp_ios, iop) {
-		struct io *io = *iop;
+	array_foreach_elem(&temp_ios, io)
 		io_remove(&io);
-	}
 	io_loop_destroy(&ioloop);
 	return ret;
 }

@@ -614,16 +614,16 @@ static int
 list_handle_corruption_locked(struct mailbox_list *list,
 			      enum mail_storage_list_index_rebuild_reason reason)
 {
-	struct mail_storage *const *storagep;
+	struct mail_storage *storage;
 	const char *errstr;
 	enum mail_error error;
 
-	array_foreach(&list->ns->all_storages, storagep) {
-		if ((*storagep)->v.list_index_rebuild == NULL)
+	array_foreach_elem(&list->ns->all_storages, storage) {
+		if (storage->v.list_index_rebuild == NULL)
 			continue;
 
-		if ((*storagep)->v.list_index_rebuild(*storagep, reason) < 0) {
-			errstr = mail_storage_get_last_internal_error(*storagep, &error);
+		if (storage->v.list_index_rebuild(storage, reason) < 0) {
+			errstr = mail_storage_get_last_internal_error(storage, &error);
 			mailbox_list_set_error(list, error, errstr);
 			return -1;
 		} else {

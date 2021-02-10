@@ -1354,7 +1354,7 @@ search_arg_deinit(struct mail_search_arg *arg,
 int index_storage_search_deinit(struct mail_search_context *_ctx)
 {
         struct index_search_context *ctx = (struct index_search_context *)_ctx;
-	struct mail **mailp;
+	struct mail *mail;
 	int ret;
 
 	ret = ctx->failed ? -1 : 0;
@@ -1373,11 +1373,11 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 	array_free(&ctx->mail_ctx.results);
 	array_free(&ctx->mail_ctx.module_contexts);
 
-	array_foreach_modifiable(&ctx->mail_ctx.mails, mailp) {
-		struct index_mail *imail = INDEX_MAIL(*mailp);
+	array_foreach_elem(&ctx->mail_ctx.mails, mail) {
+		struct index_mail *imail = INDEX_MAIL(mail);
 
 		imail->mail.search_mail = FALSE;
-		mail_free(mailp);
+		mail_free(&mail);
 	}
 
 	if (ctx->failed)

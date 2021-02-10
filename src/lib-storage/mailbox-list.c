@@ -871,12 +871,12 @@ static int
 mailbox_list_get_storage_driver(struct mailbox_list *list, const char *driver,
 				struct mail_storage **storage_r)
 {
-	struct mail_storage *const *storagep;
+	struct mail_storage *storage;
 	const char *error, *data;
 
-	array_foreach(&list->ns->all_storages, storagep) {
-		if (strcmp((*storagep)->name, driver) == 0) {
-			*storage_r = *storagep;
+	array_foreach_elem(&list->ns->all_storages, storage) {
+		if (strcmp(storage->name, driver) == 0) {
+			*storage_r = storage;
 			return 0;
 		}
 	}

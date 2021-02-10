@@ -81,11 +81,11 @@ void mail_storage_hooks_remove(const struct mail_storage_hooks *hooks)
 
 void mail_storage_hooks_add_internal(const struct mail_storage_hooks *hooks)
 {
-	const struct mail_storage_hooks *const *existing_hooksp;
+	const struct mail_storage_hooks *existing_hooks;
 
 	/* make sure we don't add duplicate hooks */
-	array_foreach(&internal_hooks, existing_hooksp)
-		i_assert(*existing_hooksp != hooks);
+	array_foreach_elem(&internal_hooks, existing_hooks)
+		i_assert(existing_hooks != hooks);
 	array_push_back(&internal_hooks, &hooks);
 }
 
@@ -156,16 +156,16 @@ static void mail_user_add_plugin_hooks(struct mail_user *user)
 
 void hook_mail_user_created(struct mail_user *user)
 {
-	const struct mail_storage_hooks *const *hooks;
+	const struct mail_storage_hooks *hooks;
 	struct hook_build_context *ctx;
 
 	mail_user_add_plugin_hooks(user);
 
 	ctx = hook_build_init((void *)&user->v, sizeof(user->v));
 	user->vlast = &user->v;
-	array_foreach(&user->hooks, hooks) {
-		if ((*hooks)->mail_user_created != NULL) T_BEGIN {
-			(*hooks)->mail_user_created(user);
+	array_foreach_elem(&user->hooks, hooks) {
+		if (hooks->mail_user_created != NULL) T_BEGIN {
+			hooks->mail_user_created(user);
 			hook_build_update(ctx, user->vlast);
 		} T_END;
 	}
@@ -175,51 +175,51 @@ void hook_mail_user_created(struct mail_user *user)
 
 void hook_mail_namespace_storage_added(struct mail_namespace *ns)
 {
-	const struct mail_storage_hooks *const *hooks;
+	const struct mail_storage_hooks *hooks;
 
-	array_foreach(&ns->user->hooks, hooks) {
-		if ((*hooks)->mail_namespace_storage_added != NULL) T_BEGIN {
-			(*hooks)->mail_namespace_storage_added(ns);
+	array_foreach_elem(&ns->user->hooks, hooks) {
+		if (hooks->mail_namespace_storage_added != NULL) T_BEGIN {
+			hooks->mail_namespace_storage_added(ns);
 		} T_END;
 	}
 }
 
 void hook_mail_namespaces_created(struct mail_namespace *namespaces)
 {
-	const struct mail_storage_hooks *const *hooks;
+	const struct mail_storage_hooks *hooks;
 
-	array_foreach(&namespaces->user->hooks, hooks) {
+	array_foreach_elem(&namespaces->user->hooks, hooks) {
 		if (namespaces->user->error != NULL)
 			break;
-		if ((*hooks)->mail_namespaces_created != NULL) T_BEGIN {
-			(*hooks)->mail_namespaces_created(namespaces);
+		if (hooks->mail_namespaces_created != NULL) T_BEGIN {
+			hooks->mail_namespaces_created(namespaces);
 		} T_END;
 	}
 }
 
 void hook_mail_namespaces_added(struct mail_namespace *namespaces)
 {
-	const struct mail_storage_hooks *const *hooks;
+	const struct mail_storage_hooks *hooks;
 
-	array_foreach(&namespaces->user->hooks, hooks) {
+	array_foreach_elem(&namespaces->user->hooks, hooks) {
 		if (namespaces->user->error != NULL)
 			break;
-		if ((*hooks)->mail_namespaces_added != NULL) T_BEGIN {
-			(*hooks)->mail_namespaces_added(namespaces);
+		if (hooks->mail_namespaces_added != NULL) T_BEGIN {
+			hooks->mail_namespaces_added(namespaces);
 		} T_END;
 	}
 }
 
 void hook_mail_storage_created(struct mail_storage *storage)
 {
-	const struct mail_storage_hooks *const *hooks;
+	const struct mail_storage_hooks *hooks;
 	struct hook_build_context *ctx;
 
 	ctx = hook_build_init((void *)&storage->v, sizeof(storage->v));
 	storage->vlast = &storage->v;
-	array_foreach(&storage->user->hooks, hooks) {
-		if ((*hooks)->mail_storage_created != NULL) T_BEGIN {
-			(*hooks)->mail_storage_created(storage);
+	array_foreach_elem(&storage->user->hooks, hooks) {
+		if (hooks->mail_storage_created != NULL) T_BEGIN {
+			hooks->mail_storage_created(storage);
 			hook_build_update(ctx, storage->vlast);
 		} T_END;
 	}
@@ -229,14 +229,14 @@ void hook_mail_storage_created(struct mail_storage *storage)
 
 void hook_mailbox_list_created(struct mailbox_list *list)
 {
-	const struct mail_storage_hooks *const *hooks;
+	const struct mail_storage_hooks *hooks;
 	struct hook_build_context *ctx;
 
 	ctx = hook_build_init((void *)&list->v, sizeof(list->v));
 	list->vlast = &list->v;
-	array_foreach(&list->ns->user->hooks, hooks) {
-		if ((*hooks)->mailbox_list_created != NULL) T_BEGIN {
-			(*hooks)->mailbox_list_created(list);
+	array_foreach_elem(&list->ns->user->hooks, hooks) {
+		if (hooks->mailbox_list_created != NULL) T_BEGIN {
+			hooks->mailbox_list_created(list);
 			hook_build_update(ctx, list->vlast);
 		} T_END;
 	}
@@ -246,14 +246,14 @@ void hook_mailbox_list_created(struct mailbox_list *list)
 
 void hook_mailbox_allocated(struct mailbox *box)
 {
-	const struct mail_storage_hooks *const *hooks;
+	const struct mail_storage_hooks *hooks;
 	struct hook_build_context *ctx;
 
 	ctx = hook_build_init((void *)&box->v, sizeof(box->v));
 	box->vlast = &box->v;
-	array_foreach(&box->storage->user->hooks, hooks) {
-		if ((*hooks)->mailbox_allocated != NULL) T_BEGIN {
-			(*hooks)->mailbox_allocated(box);
+	array_foreach_elem(&box->storage->user->hooks, hooks) {
+		if (hooks->mailbox_allocated != NULL) T_BEGIN {
+			hooks->mailbox_allocated(box);
 			hook_build_update(ctx, box->vlast);
 		} T_END;
 	}
@@ -263,26 +263,26 @@ void hook_mailbox_allocated(struct mailbox *box)
 
 void hook_mailbox_opened(struct mailbox *box)
 {
-	const struct mail_storage_hooks *const *hooks;
+	const struct mail_storage_hooks *hooks;
 
-	array_foreach(&box->storage->user->hooks, hooks) {
-		if ((*hooks)->mailbox_opened != NULL) T_BEGIN {
-			(*hooks)->mailbox_opened(box);
+	array_foreach_elem(&box->storage->user->hooks, hooks) {
+		if (hooks->mailbox_opened != NULL) T_BEGIN {
+			hooks->mailbox_opened(box);
 		} T_END;
 	}
 }
 
 void hook_mail_allocated(struct mail *mail)
 {
-	const struct mail_storage_hooks *const *hooks;
+	const struct mail_storage_hooks *hooks;
 	struct mail_private *pmail = (struct mail_private *)mail;
 	struct hook_build_context *ctx;
 
 	ctx = hook_build_init((void *)&pmail->v, sizeof(pmail->v));
 	pmail->vlast = &pmail->v;
-	array_foreach(&mail->box->storage->user->hooks, hooks) {
-		if ((*hooks)->mail_allocated != NULL) T_BEGIN {
-			(*hooks)->mail_allocated(mail);
+	array_foreach_elem(&mail->box->storage->user->hooks, hooks) {
+		if (hooks->mail_allocated != NULL) T_BEGIN {
+			hooks->mail_allocated(mail);
 			hook_build_update(ctx, pmail->vlast);
 		} T_END;
 	}

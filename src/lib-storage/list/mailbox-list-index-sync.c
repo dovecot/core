@@ -154,8 +154,7 @@ mailbox_list_index_sync_names(struct mailbox_list_index_sync_context *ctx)
 	const void *ext_data;
 	size_t ext_size;
 	const char *name;
-	const uint32_t *id_p;
-	uint32_t prev_id = 0;
+	uint32_t id, prev_id = 0;
 
 	/* get all existing name IDs sorted */
 	t_array_init(&existing_name_ids, 64);
@@ -166,17 +165,17 @@ mailbox_list_index_sync_names(struct mailbox_list_index_sync_context *ctx)
 	buffer_append_zero(hdr_buf, sizeof(struct mailbox_list_index_header));
 
 	/* add existing names to header (with deduplication) */
-	array_foreach(&existing_name_ids, id_p) {
-		if (*id_p != prev_id) {
-			buffer_append(hdr_buf, id_p, sizeof(*id_p));
+	array_foreach_elem(&existing_name_ids, id) {
+		if (id != prev_id) {
+			buffer_append(hdr_buf, &id, sizeof(id));
 			name = hash_table_lookup(ilist->mailbox_names,
-						 POINTER_CAST(*id_p));
+						 POINTER_CAST(id));
 			i_assert(name != NULL);
 			buffer_append(hdr_buf, name, strlen(name) + 1);
-			prev_id = *id_p;
+			prev_id = id;
 		}
 	}
-	buffer_append_zero(hdr_buf, sizeof(*id_p));
+	buffer_append_zero(hdr_buf, sizeof(id));
 
 	/* make sure header size is ok in index and update it */
 	mail_index_get_header_ext(ctx->view, ilist->ext_id,
