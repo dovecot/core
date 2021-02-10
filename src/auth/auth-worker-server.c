@@ -268,14 +268,12 @@ static void auth_worker_destroy(struct auth_worker_connection **_conn,
 
 static struct auth_worker_connection *auth_worker_find_free(void)
 {
-	struct auth_worker_connection **conns;
+	struct auth_worker_connection *conn;
 
 	if (idle_count == 0)
 		return NULL;
 
-	array_foreach_modifiable(&connections, conns) {
-		struct auth_worker_connection *conn = *conns;
-
+	array_foreach_elem(&connections, conn) {
 		if (conn->request == NULL)
 			return conn;
 	}

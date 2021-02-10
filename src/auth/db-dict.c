@@ -377,11 +377,11 @@ static void db_dict_iter_find_used_keys(struct db_dict_value_iter *iter)
 
 static void db_dict_iter_find_used_objects(struct db_dict_value_iter *iter)
 {
-	const struct db_dict_key *const *keyp;
+	const struct db_dict_key *dict_key;
 	struct db_dict_iter_key *key;
 
-	array_foreach(iter->objects, keyp) {
-		key = db_dict_iter_find_key(iter, (*keyp)->name);
+	array_foreach_elem(iter->objects, dict_key) {
+		key = db_dict_iter_find_key(iter, dict_key->name);
 		i_assert(key != NULL); /* checked at init */
 		i_assert(key->key->parsed_format != DB_DICT_VALUE_FORMAT_VALUE);
 		key->used = TRUE;

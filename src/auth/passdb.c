@@ -15,11 +15,9 @@ static const struct passdb_module_interface passdb_iface_deinit = {
 
 static struct passdb_module_interface *passdb_interface_find(const char *name)
 {
-	struct passdb_module_interface *const *ifaces;
+	struct passdb_module_interface *iface;
 
-	array_foreach(&passdb_interfaces, ifaces) {
-		struct passdb_module_interface *iface = *ifaces;
-
+	array_foreach_elem(&passdb_interfaces, iface) {
 		if (strcmp(iface->name, name) == 0)
 			return iface;
 	}

@@ -373,7 +373,7 @@ void auths_preinit(const struct auth_settings *set, pool_t pool,
 {
 	struct master_service_settings_output set_output;
 	const struct auth_settings *service_set;
-	struct auth *auth, *const *authp;
+	struct auth *auth;
 	unsigned int i;
 	const char *not_service = NULL;
 	bool check_default = TRUE;
@@ -404,15 +404,15 @@ void auths_preinit(const struct auth_settings *set, pool_t pool,
 	if (not_service != NULL && str_array_find(services, not_service+1))
 		check_default = FALSE;
 
-	array_foreach(&auths, authp) {
-		if ((*authp)->service != NULL || check_default)
-			auth_mech_list_verify_passdb(*authp);
+	array_foreach_elem(&auths, auth) {
+		if (auth->service != NULL || check_default)
+			auth_mech_list_verify_passdb(auth);
 	}
 }
 
 void auths_init(void)
 {
-	struct auth *const *auth;
+	struct auth *auth;
 
 	/* sanity checks */
 	i_assert(auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_USER_IDX].key == 'u');
@@ -423,16 +423,16 @@ void auths_init(void)
 	i_assert(auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT-1].key != '\0' ||
 		 auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT-1].long_key != NULL);
 
-	array_foreach(&auths, auth)
-		auth_init(*auth);
+	array_foreach_elem(&auths, auth)
+		auth_init(auth);
 }
 
 void auths_deinit(void)
 {
-	struct auth *const *auth;
+	struct auth *auth;
 
-	array_foreach(&auths, auth)
-		auth_deinit(*auth);
+	array_foreach_elem(&auths, auth)
+		auth_deinit(auth);
 	event_unref(&auth_event);
 }
 

@@ -15,11 +15,9 @@ static const struct userdb_module_interface userdb_iface_deinit = {
 
 static struct userdb_module_interface *userdb_interface_find(const char *name)
 {
-	struct userdb_module_interface *const *ifaces;
+	struct userdb_module_interface *iface;
 
-	array_foreach(&userdb_interfaces, ifaces) {
-		struct userdb_module_interface *iface = *ifaces;
-
+	array_foreach_elem(&userdb_interfaces, iface) {
 		if (strcmp(iface->name, name) == 0)
 			return iface;
 	}
