@@ -48,23 +48,23 @@ void ipc_group_free(struct ipc_group **_group)
 
 struct ipc_group *ipc_group_lookup_listen_fd(int listen_fd)
 {
-	struct ipc_group *const *groupp;
+	struct ipc_group *group;
 
-	array_foreach(&ipc_groups, groupp) {
-		if ((*groupp)->listen_fd == listen_fd)
-			return *groupp;
+	array_foreach_elem(&ipc_groups, group) {
+		if (group->listen_fd == listen_fd)
+			return group;
 	}
 	return NULL;
 }
 
 struct ipc_group *ipc_group_lookup_name(const char *name)
 {
-	struct ipc_group *const *groupp;
+	struct ipc_group *group;
 
-	array_foreach(&ipc_groups, groupp) {
-		if ((*groupp)->name != NULL &&
-		    strcmp((*groupp)->name, name) == 0)
-			return *groupp;
+	array_foreach_elem(&ipc_groups, group) {
+		if (group->name != NULL &&
+		    strcmp(group->name, name) == 0)
+			return group;
 	}
 	return NULL;
 }

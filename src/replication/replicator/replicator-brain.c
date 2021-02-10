@@ -55,13 +55,13 @@ replicator_brain_init(struct replicator_queue *queue,
 void replicator_brain_deinit(struct replicator_brain **_brain)
 {
 	struct replicator_brain *brain = *_brain;
-	struct dsync_client **connp;
+	struct dsync_client *conn;
 
 	*_brain = NULL;
 
 	brain->deinitializing = TRUE;
-	array_foreach_modifiable(&brain->dsync_clients, connp)
-		dsync_client_deinit(connp);
+	array_foreach_elem(&brain->dsync_clients, conn)
+		dsync_client_deinit(&conn);
 	timeout_remove(&brain->to);
 	pool_unref(&brain->pool);
 }
@@ -87,11 +87,11 @@ replicator_brain_get_dsync_clients(struct replicator_brain *brain)
 static struct dsync_client *
 get_dsync_client(struct replicator_brain *brain)
 {
-	struct dsync_client *const *connp, *conn = NULL;
+	struct dsync_client *conn;
 
-	array_foreach(&brain->dsync_clients, connp) {
-		if (!dsync_client_is_busy(*connp))
-			return *connp;
+	array_foreach_elem(&brain->dsync_clients, conn) {
+		if (!dsync_client_is_busy(conn))
+			return conn;
 	}
 	if (array_count(&brain->dsync_clients) ==
 	    brain->set->replication_max_conns)

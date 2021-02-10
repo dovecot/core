@@ -9,11 +9,11 @@ static pool_t imap_login_commands_pool;
 
 struct imap_login_command *imap_login_command_lookup(const char *name)
 {
-	struct imap_login_command *const *cmdp;
+	struct imap_login_command *cmd;
 
-	array_foreach(&imap_login_commands, cmdp) {
-		if (strcasecmp((*cmdp)->name, name) == 0)
-			return *cmdp;
+	array_foreach_elem(&imap_login_commands, cmd) {
+		if (strcasecmp(cmd->name, name) == 0)
+			return cmd;
 	}
 	return NULL;
 }

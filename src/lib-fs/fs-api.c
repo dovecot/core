@@ -96,14 +96,14 @@ static void fs_classes_init(void)
 
 static const struct fs *fs_class_find(const char *driver)
 {
-	const struct fs *const *classp;
+	const struct fs *class;
 
 	if (!array_is_created(&fs_classes))
 		fs_classes_init();
 
-	array_foreach(&fs_classes, classp) {
-		if (strcmp((*classp)->name, driver) == 0)
-			return *classp;
+	array_foreach_elem(&fs_classes, class) {
+		if (strcmp(class->name, driver) == 0)
+			return class;
 	}
 	return NULL;
 }

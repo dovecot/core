@@ -217,7 +217,7 @@ static void client_abort(struct client *client, const char *reason)
 
 static void client_destroy(struct client *client)
 {
-	char **app;
+	char *app;
 
 	i_set_failure_prefix("imap-urlauth[%s](%s): ",
 			     my_pid, client->access_user);
@@ -257,8 +257,8 @@ static void client_destroy(struct client *client)
 		mail_storage_service_user_unref(&client->service_user);
 	i_free(client->access_user);
 	i_free(client->access_service);
-	array_foreach_modifiable(&client->access_apps, app)
-		i_free(*app);
+	array_foreach_elem(&client->access_apps, app)
+		i_free(app);
 	array_free(&client->access_apps);
 	i_free(client);
 

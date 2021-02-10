@@ -760,7 +760,7 @@ int master_service_set(struct master_service *service, const char *line)
 bool master_service_set_has_config_override(struct master_service *service,
 					    const char *key)
 {
-	const char *const *override, *key_root;
+	const char *override, *key_root;
 	bool ret;
 
 	if (!array_is_created(&service->config_overrides))
@@ -770,11 +770,11 @@ bool master_service_set_has_config_override(struct master_service *service,
 	if (key_root == NULL)
 		key_root = key;
 
-	array_foreach(&service->config_overrides, override) {
+	array_foreach_elem(&service->config_overrides, override) {
 		T_BEGIN {
 			const char *okey, *okey_root;
 
-			okey = t_strcut(*override, '=');
+			okey = t_strcut(override, '=');
 			okey_root = settings_parse_unalias(service->set_parser,
 							   okey);
 			if (okey_root == NULL)

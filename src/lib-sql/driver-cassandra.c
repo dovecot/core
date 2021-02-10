@@ -371,7 +371,7 @@ static void driver_cassandra_set_state(struct cassandra_db *db,
 
 static void driver_cassandra_close(struct cassandra_db *db, const char *error)
 {
-	struct cassandra_sql_prepared_statement *const *prep_stmtp;
+	struct cassandra_sql_prepared_statement *prep_stmt;
 	struct cassandra_result *const *resultp;
 
 	io_remove(&db->io_pipe);
@@ -381,10 +381,10 @@ static void driver_cassandra_close(struct cassandra_db *db, const char *error)
 	}
 	driver_cassandra_set_state(db, SQL_DB_STATE_DISCONNECTED);
 
-	array_foreach(&db->pending_prepares, prep_stmtp) {
-		(*prep_stmtp)->pending = FALSE;
-		(*prep_stmtp)->error = i_strdup(error);
-		prepare_finish_pending_statements(*prep_stmtp);
+	array_foreach_elem(&db->pending_prepares, prep_stmt) {
+		prep_stmt->pending = FALSE;
+		prep_stmt->error = i_strdup(error);
+		prepare_finish_pending_statements(prep_stmt);
 	}
 	array_clear(&db->pending_prepares);
 
@@ -2196,10 +2196,10 @@ static void prepare_finish_statement(struct cassandra_sql_statement *stmt)
 static void
 prepare_finish_pending_statements(struct cassandra_sql_prepared_statement *prep_stmt)
 {
-	struct cassandra_sql_statement *const *stmtp;
+	struct cassandra_sql_statement *stmt;
 
-	array_foreach(&prep_stmt->pending_statements, stmtp)
-		prepare_finish_statement(*stmtp);
+	array_foreach_elem(&prep_stmt->pending_statements, stmt)
+		prepare_finish_statement(stmt);
 	array_clear(&prep_stmt->pending_statements);
 }
 
@@ -2248,13 +2248,13 @@ static void prepare_start(struct cassandra_sql_prepared_statement *prep_stmt)
 
 static void driver_cassandra_prepare_pending(struct cassandra_db *db)
 {
-	struct cassandra_sql_prepared_statement *const *prep_stmtp;
+	struct cassandra_sql_prepared_statement *prep_stmt;
 
 	i_assert(SQL_DB_IS_READY(&db->api));
 
-	array_foreach(&db->pending_prepares, prep_stmtp) {
-		(*prep_stmtp)->pending = FALSE;
-		prepare_start(*prep_stmtp);
+	array_foreach_elem(&db->pending_prepares, prep_stmt) {
+		prep_stmt->pending = FALSE;
+		prepare_start(prep_stmt);
 	}
 	array_clear(&db->pending_prepares);
 }

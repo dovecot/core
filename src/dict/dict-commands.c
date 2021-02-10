@@ -684,12 +684,10 @@ int dict_command_input(struct dict_connection *conn, const char *line)
 
 static bool dict_connection_cmds_try_output_more(struct dict_connection *conn)
 {
-	struct dict_connection_cmd *const *cmdp, *cmd;
+	struct dict_connection_cmd *cmd;
 
 	/* only iterators may be returning a lot of data */
-	array_foreach(&conn->cmds, cmdp) {
-		cmd = *cmdp;
-
+	array_foreach_elem(&conn->cmds, cmd) {
 		if (cmd->iter == NULL) {
 			/* not an iterator */
 		} else if (cmd_iterate_flush(cmd) == 0) {

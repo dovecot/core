@@ -288,10 +288,10 @@ program_client_remote_connected(struct program_client_remote *prclient)
 	str = t_str_new(1024);
 	str_append(str, PROGRAM_CLIENT_VERSION_STRING);
 	if (array_is_created(&pclient->envs)) {
-		const char *const *env;
-		array_foreach(&pclient->envs, env) {
+		const char *env;
+		array_foreach_elem(&pclient->envs, env) {
 			str_append(str, "env_");
-			str_append_tabescaped(str, *env);
+			str_append_tabescaped(str, env);
 			str_append_c(str, '\n');
 		}
 	}

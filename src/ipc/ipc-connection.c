@@ -46,11 +46,11 @@ static void ipc_connection_cmd_free(struct ipc_connection_cmd **_cmd,
 static struct ipc_connection_cmd *
 ipc_connection_cmd_find(struct ipc_connection *conn, unsigned int tag)
 {
-	struct ipc_connection_cmd *const *cmdp;
+	struct ipc_connection_cmd *cmd;
 
-	array_foreach(&conn->cmds, cmdp) {
-		if ((*cmdp)->tag == tag)
-			return *cmdp;
+	array_foreach_elem(&conn->cmds, cmd) {
+		if (cmd->tag == tag)
+			return cmd;
 	}
 	return NULL;
 }

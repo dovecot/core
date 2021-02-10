@@ -1022,12 +1022,12 @@ static void
 login_proxy_cmd_list(struct ipc_cmd *cmd, const char *const *args ATTR_UNUSED)
 {
 	struct login_proxy *proxy;
-	char *const *fieldp;
+	char *field;
 	string_t *str = t_str_new(64);
 
 	str_append(str, "username\t");
-	array_foreach(&global_alt_usernames, fieldp) {
-		str_append_tabescaped(str, *fieldp);
+	array_foreach_elem(&global_alt_usernames, field) {
+		str_append_tabescaped(str, field);
 		str_append_c(str, '\t');
 	}
 	str_append(str, "service\tsrc-ip\tdest-ip\tdest-port");

@@ -421,7 +421,7 @@ static int
 driver_sqlpool_parse_hosts(struct sqlpool_db *db, const char *connect_string,
 			   const char **error_r)
 {
-	const char *const *args, *key, *value, *const *hostnamep;
+	const char *const *args, *key, *value, *hostname;
 	struct sqlpool_host *host;
 	ARRAY_TYPE(const_string) hostnames, connect_args;
 
@@ -467,10 +467,10 @@ driver_sqlpool_parse_hosts(struct sqlpool_db *db, const char *connect_string,
 		if (*connect_string == '\0')
 			connect_string = NULL;
 
-		array_foreach(&hostnames, hostnamep) {
+		array_foreach_elem(&hostnames, hostname) {
 			host = array_append_space(&db->hosts);
 			host->connect_string =
-				i_strconcat("host=", *hostnamep, " ",
+				i_strconcat("host=", hostname, " ",
 					    connect_string, NULL);
 		}
 	}

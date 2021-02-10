@@ -153,12 +153,12 @@ lmtp_proxy_connection_deinit(struct lmtp_proxy_connection *conn)
 void lmtp_proxy_deinit(struct lmtp_proxy **_proxy)
 {
 	struct lmtp_proxy *proxy = *_proxy;
-	struct lmtp_proxy_connection *const *conns;
+	struct lmtp_proxy_connection *conn;
 
 	*_proxy = NULL;
 
-	array_foreach(&proxy->connections, conns)
-		lmtp_proxy_connection_deinit(*conns);
+	array_foreach_elem(&proxy->connections, conn)
+		lmtp_proxy_connection_deinit(conn);
 
 	smtp_client_deinit(&proxy->lmtp_client);
 	i_stream_unref(&proxy->data_input);
@@ -230,15 +230,13 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	};
 	struct smtp_client_settings lmtp_set;
 	struct smtp_server_transaction *trans = proxy->trans;
-	struct lmtp_proxy_connection *const *conns, *conn;
+	struct lmtp_proxy_connection *conn;
 	enum smtp_client_connection_ssl_mode ssl_mode;
 	struct ssl_iostream_settings ssl_set;
 
 	i_assert(set->timeout_msecs > 0);
 
-	array_foreach(&proxy->connections, conns) {
-		conn = *conns;
-
+	array_foreach_elem(&proxy->connections, conn) {
 		if (conn->set.protocol == set->protocol &&
 		    conn->set.port == set->port &&
 		    strcmp(conn->set.host, set->host) == 0 &&
@@ -787,7 +785,7 @@ void lmtp_proxy_data(struct client *client,
 		     struct istream *data_input)
 {
 	struct lmtp_proxy *proxy = client->proxy;
-	struct lmtp_proxy_connection *const *conns;
+	struct lmtp_proxy_connection *conn;
 	uoff_t size;
 
 	i_assert(data_input->seekable);
@@ -805,9 +803,7 @@ void lmtp_proxy_data(struct client *client,
 	}
 
 	/* Create the data_input streams first */
-	array_foreach(&proxy->connections, conns) {
-		struct lmtp_proxy_connection *conn = *conns;
-
+	array_foreach_elem(&proxy->connections, conn) {
 		if (conn->finished) {
 			/* This connection had already failed */
 			continue;
@@ -824,9 +820,7 @@ void lmtp_proxy_data(struct client *client,
 	/* Now that all the streams are created, start reading them
 	   (reading them earlier could have caused the data_input parent's
 	   offset to change) */
-	array_foreach(&proxy->connections, conns) {
-		struct lmtp_proxy_connection *conn = *conns;
-
+	array_foreach_elem(&proxy->connections, conn) {
 		if (conn->finished) {
 			/* This connection had already failed */
 			continue;
