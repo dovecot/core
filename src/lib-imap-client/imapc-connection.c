@@ -322,7 +322,7 @@ void imapc_connection_abort_commands(struct imapc_connection *conn,
 				     struct imapc_client_mailbox *only_box,
 				     bool keep_retriable)
 {
-	struct imapc_command *const *cmdp, *cmd;
+	struct imapc_command *cmd;
 	ARRAY_TYPE(imapc_command) tmp_array;
 	struct imapc_command_reply reply;
 
@@ -353,9 +353,7 @@ void imapc_connection_abort_commands(struct imapc_connection *conn,
 		reply.text_without_resp = reply.text_full =
 			"Disconnected from server";
 	}
-	array_foreach(&tmp_array, cmdp) {
-		cmd = *cmdp;
-
+	array_foreach_elem(&tmp_array, cmd) {
 		if (cmd->sent && conn->state == IMAPC_CONNECTION_STATE_DONE) {
 			/* We're not disconnected, so the reply will still
 			   come. Remember that it needs to be ignored. */

@@ -171,7 +171,7 @@ void imapc_client_register_untagged(struct imapc_client *client,
 
 static void imapc_client_run_pre(struct imapc_client *client)
 {
-	struct imapc_client_connection *const *connp;
+	struct imapc_client_connection *conn;
 	struct ioloop *prev_ioloop = current_ioloop;
 
 	i_assert(client->ioloop == NULL);
@@ -179,10 +179,10 @@ static void imapc_client_run_pre(struct imapc_client *client)
 	client->ioloop = io_loop_create();
 	io_loop_set_running(client->ioloop);
 
-	array_foreach(&client->conns, connp) {
-		imapc_connection_ioloop_changed((*connp)->conn);
-		if (imapc_connection_get_state((*connp)->conn) == IMAPC_CONNECTION_STATE_DISCONNECTED)
-			imapc_connection_connect((*connp)->conn);
+	array_foreach_elem(&client->conns, conn) {
+		imapc_connection_ioloop_changed(conn->conn);
+		if (imapc_connection_get_state(conn->conn) == IMAPC_CONNECTION_STATE_DISCONNECTED)
+			imapc_connection_connect(conn->conn);
 	}
 
 	if (io_loop_is_running(client->ioloop))
@@ -192,12 +192,12 @@ static void imapc_client_run_pre(struct imapc_client *client)
 
 static void imapc_client_run_post(struct imapc_client *client)
 {
-	struct imapc_client_connection *const *connp;
+	struct imapc_client_connection *conn;
 	struct ioloop *ioloop = client->ioloop;
 
 	client->ioloop = NULL;
-	array_foreach(&client->conns, connp)
-		imapc_connection_ioloop_changed((*connp)->conn);
+	array_foreach_elem(&client->conns, conn)
+		imapc_connection_ioloop_changed(conn->conn);
 
 	io_loop_set_current(ioloop);
 	io_loop_destroy(&ioloop);
@@ -217,9 +217,9 @@ void imapc_client_stop(struct imapc_client *client)
 
 void imapc_client_try_stop(struct imapc_client *client)
 {
-	struct imapc_client_connection *const *connp;
-	array_foreach(&client->conns, connp)
-		if (imapc_connection_get_state((*connp)->conn) != IMAPC_CONNECTION_STATE_DISCONNECTED)
+	struct imapc_client_connection *conn;
+	array_foreach_elem(&client->conns, conn)
+		if (imapc_connection_get_state(conn->conn) != IMAPC_CONNECTION_STATE_DISCONNECTED)
 			return;
 	imapc_client_stop(client);
 }
@@ -339,18 +339,18 @@ imapc_client_logout_callback(const struct imapc_command_reply *reply ATTR_UNUSED
 void imapc_client_logout(struct imapc_client *client)
 {
 	struct imapc_logout_ctx ctx = { .client = client };
-	struct imapc_client_connection *const *connp;
+	struct imapc_client_connection *conn;
 	struct imapc_command *cmd;
 
 	client->logging_out = TRUE;
 
 	/* send LOGOUT to all connections */
-	array_foreach(&client->conns, connp) {
-		if (imapc_connection_get_state((*connp)->conn) == IMAPC_CONNECTION_STATE_DISCONNECTED)
+	array_foreach_elem(&client->conns, conn) {
+		if (imapc_connection_get_state(conn->conn) == IMAPC_CONNECTION_STATE_DISCONNECTED)
 			continue;
-		imapc_connection_set_no_reconnect((*connp)->conn);
+		imapc_connection_set_no_reconnect(conn->conn);
 		ctx.logout_count++;
-		cmd = imapc_connection_cmd((*connp)->conn,
+		cmd = imapc_connection_cmd(conn->conn,
 			imapc_client_logout_callback, &ctx);
 		imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_PRELOGIN |
 					IMAPC_COMMAND_FLAG_LOGOUT);
@@ -411,7 +411,7 @@ void imapc_client_mailbox_reconnect(struct imapc_client_mailbox *box,
 void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)
 {
 	struct imapc_client_mailbox *box = *_box;
-	struct imapc_client_connection *const *connp;
+	struct imapc_client_connection *conn;
 
 	box->closing = TRUE;
 
@@ -428,9 +428,9 @@ void imapc_client_mailbox_close(struct imapc_client_mailbox **_box)
 	   reference this box */
 	*_box = NULL;
 
-	array_foreach(&box->client->conns, connp) {
-		if ((*connp)->box == box) {
-			(*connp)->box = NULL;
+	array_foreach_elem(&box->client->conns, conn) {
+		if (conn->box == box) {
+			conn->box = NULL;
 			break;
 		}
 	}
@@ -500,13 +500,11 @@ static bool
 imapc_client_get_any_capabilities(struct imapc_client *client,
 				  enum imapc_capability *capabilities_r)
 {
-	struct imapc_client_connection *const *connp;
-	struct imapc_connection *conn = NULL;
+	struct imapc_client_connection *conn;
 
-	array_foreach(&client->conns, connp) {
-		conn = (*connp)->conn;
-		if (imapc_connection_get_state(conn) == IMAPC_CONNECTION_STATE_DONE) {
-			*capabilities_r = imapc_connection_get_capabilities(conn);
+	array_foreach_elem(&client->conns, conn) {
+		if (imapc_connection_get_state(conn->conn) == IMAPC_CONNECTION_STATE_DONE) {
+			*capabilities_r = imapc_connection_get_capabilities(conn->conn);
 			return TRUE;
 		}
 	}
