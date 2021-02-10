@@ -357,9 +357,9 @@ mail_index_transaction_begin(struct mail_index_view *view,
 	if (array_is_created(&hook_mail_index_transaction_created)) {
 	        struct hook_build_context *ctx =
 			hook_build_init((void *)&t->v, sizeof(t->v));
-		hook_mail_index_transaction_created_t *const *ptr;
-		array_foreach(&hook_mail_index_transaction_created, ptr) {
-			(*ptr)(t);
+		hook_mail_index_transaction_created_t *callback;
+		array_foreach_elem(&hook_mail_index_transaction_created, callback) {
+			callback(t);
 			hook_build_update(ctx, t->vlast);
 		}
 		t->vlast = NULL;
