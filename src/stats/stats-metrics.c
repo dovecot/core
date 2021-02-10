@@ -102,7 +102,7 @@ stats_metric_alloc(pool_t pool, const char *name,
 static void stats_metrics_add_set(struct stats_metrics *metrics,
 				  const struct stats_metric_settings *set)
 {
-	struct exporter *const *exporter;
+	struct exporter *exporter;
 	struct metric *metric;
 	const char *const *fields;
 	const char *const *tmp;
@@ -125,9 +125,9 @@ static void stats_metrics_add_set(struct stats_metrics *metrics,
 	if (set->exporter[0] == '\0')
 		return; /* not exported */
 
-	array_foreach(&metrics->exporters, exporter) {
-		if (strcmp(set->exporter, (*exporter)->name) == 0) {
-			metric->export_info.exporter = *exporter;
+	array_foreach_elem(&metrics->exporters, exporter) {
+		if (strcmp(set->exporter, exporter->name) == 0) {
+			metric->export_info.exporter = exporter;
 			break;
 		}
 	}
@@ -164,24 +164,24 @@ stats_metrics_add_from_settings(struct stats_metrics *metrics,
 	if (!array_is_created(&set->exporters)) {
 		p_array_init(&metrics->exporters, metrics->pool, 0);
 	} else {
-		struct stats_exporter_settings *const *exporter_setp;
+		struct stats_exporter_settings *exporter_set;
 
 		p_array_init(&metrics->exporters, metrics->pool,
 			     array_count(&set->exporters));
-		array_foreach(&set->exporters, exporter_setp)
-			stats_exporters_add_set(metrics, *exporter_setp);
+		array_foreach_elem(&set->exporters, exporter_set)
+			stats_exporters_add_set(metrics, exporter_set);
 	}
 
 	/* then add all the metrics */
 	if (!array_is_created(&set->metrics)) {
 		p_array_init(&metrics->metrics, metrics->pool, 0);
 	} else {
-		struct stats_metric_settings *const *metric_setp;
+		struct stats_metric_settings *metric_set;
 
 		p_array_init(&metrics->metrics, metrics->pool,
 			     array_count(&set->metrics));
-		array_foreach(&set->metrics, metric_setp) T_BEGIN {
-			stats_metrics_add_set(metrics, *metric_setp);
+		array_foreach_elem(&set->metrics, metric_set) T_BEGIN {
+			stats_metrics_add_set(metrics, metric_set);
 		} T_END;
 	}
 }
@@ -200,14 +200,14 @@ struct stats_metrics *stats_metrics_init(const struct stats_settings *set)
 
 static void stats_metric_free(struct metric *metric)
 {
-	struct metric *const *metricp;
+	struct metric *sub_metric;
 	stats_dist_deinit(&metric->duration_stats);
 	for (unsigned int i = 0; i < metric->fields_count; i++)
 		stats_dist_deinit(&metric->fields[i].stats);
 	if (!array_is_created(&metric->sub_metrics))
 		return;
-	array_foreach(&metric->sub_metrics, metricp)
-		stats_metric_free(*metricp);
+	array_foreach_elem(&metric->sub_metrics, sub_metric)
+		stats_metric_free(sub_metric);
 }
 
 static void stats_export_deinit(void)
@@ -220,36 +220,36 @@ static void stats_export_deinit(void)
 void stats_metrics_deinit(struct stats_metrics **_metrics)
 {
 	struct stats_metrics *metrics = *_metrics;
-	struct metric *const *metricp;
+	struct metric *metric;
 
 	*_metrics = NULL;
 
 	stats_export_deinit();
 
-	array_foreach(&metrics->metrics, metricp)
-		stats_metric_free(*metricp);
+	array_foreach_elem(&metrics->metrics, metric)
+		stats_metric_free(metric);
 	event_filter_unref(&metrics->filter);
 	pool_unref(&metrics->pool);
 }
 
 static void stats_metric_reset(struct metric *metric)
 {
-	struct metric *const *metricp;
+	struct metric *sub_metric;
 	stats_dist_reset(metric->duration_stats);
 	for (unsigned int i = 0; i < metric->fields_count; i++)
 		stats_dist_reset(metric->fields[i].stats);
 	if (!array_is_created(&metric->sub_metrics))
 		return;
-	array_foreach(&metric->sub_metrics, metricp)
-		stats_metric_reset(*metricp);
+	array_foreach_elem(&metric->sub_metrics, sub_metric)
+		stats_metric_reset(sub_metric);
 }
 
 void stats_metrics_reset(struct stats_metrics *metrics)
 {
-	struct metric *const *metricp;
+	struct metric *metric;
 
-	array_foreach(&metrics->metrics, metricp)
-		stats_metric_reset(*metricp);
+	array_foreach_elem(&metrics->metrics, metric)
+		stats_metric_reset(metric);
 }
 
 struct event_filter *
@@ -262,23 +262,23 @@ static struct metric *
 stats_metric_get_sub_metric(struct metric *metric,
 			    const struct metric_value *value)
 {
-	struct metric *const *sub_metrics;
+	struct metric *sub_metrics;
 
 	/* lookup sub-metric */
-	array_foreach (&metric->sub_metrics, sub_metrics) {
-		switch ((*sub_metrics)->group_value.type) {
+	array_foreach_elem(&metric->sub_metrics, sub_metrics) {
+		switch (sub_metrics->group_value.type) {
 		case METRIC_VALUE_TYPE_STR:
-			if (memcmp((*sub_metrics)->group_value.hash, value->hash,
+			if (memcmp(sub_metrics->group_value.hash, value->hash,
 				   SHA1_RESULTLEN) == 0)
-				return *sub_metrics;
+				return sub_metrics;
 			break;
 		case METRIC_VALUE_TYPE_INT:
-			if ((*sub_metrics)->group_value.intmax == value->intmax)
-				return *sub_metrics;
+			if (sub_metrics->group_value.intmax == value->intmax)
+				return sub_metrics;
 			break;
 		case METRIC_VALUE_TYPE_BUCKET_INDEX:
-			if ((*sub_metrics)->group_value.intmax == value->intmax)
-				return *sub_metrics;
+			if (sub_metrics->group_value.intmax == value->intmax)
+				return sub_metrics;
 			break;
 		}
 	}

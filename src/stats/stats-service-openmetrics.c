@@ -163,14 +163,12 @@ static const struct metric *
 openmetrics_find_histogram_bucket(const struct metric *metric,
 				 unsigned int index)
 {
-	struct metric *const *sub_metric_p;
+	struct metric *sub_metric;
 
 	if (!array_is_created(&metric->sub_metrics))
 		return NULL;
 
-	array_foreach(&metric->sub_metrics, sub_metric_p) {
-		struct metric *sub_metric = *sub_metric_p;
-
+	array_foreach_elem(&metric->sub_metrics, sub_metric) {
 		if (sub_metric->group_value.type !=
 		    METRIC_VALUE_TYPE_BUCKET_INDEX)
 			continue;
