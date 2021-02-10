@@ -77,7 +77,7 @@ static void
 submission_backend_fail_rcpts(struct submission_backend *backend)
 {
 	struct client *client = backend->client;
-	struct submission_recipient *const *rcptp;
+	struct submission_recipient *srcpt;
 	const char *enh_code = backend->fail_enh_code;
 	const char *reason = backend->fail_reason;
 
@@ -87,8 +87,7 @@ submission_backend_fail_rcpts(struct submission_backend *backend)
 	if (enh_code == NULL)
 		enh_code = "4.0.0";
 
-	array_foreach_modifiable(&client->rcpt_to, rcptp) {
-		struct submission_recipient *srcpt = *rcptp;
+	array_foreach_elem(&client->rcpt_to, srcpt) {
 		struct smtp_server_recipient *rcpt = srcpt->rcpt;
 
 		if (srcpt->backend != backend)
@@ -232,31 +231,26 @@ submission_backend_trans_free(struct submission_backend *backend,
 void submission_backends_trans_start(struct client *client,
 				     struct smtp_server_transaction *trans)
 {
-	struct submission_backend *const *bkp;
+	struct submission_backend *backend;
 
 	i_assert(client->state.backend != NULL);
 	submission_backend_trans_start(client->state.backend, trans);
 
-	array_foreach(&client->pending_backends, bkp) {
-		struct submission_backend *backend = *bkp;
-
+	array_foreach_elem(&client->pending_backends, backend)
 		submission_backend_trans_start(backend, trans);
-	}
 	array_clear(&client->pending_backends);
 }
 
 void submission_backends_trans_free(struct client *client,
 				     struct smtp_server_transaction *trans)
 {
-	struct submission_backend *const *bkp;
+	struct submission_backend *backend;
 
 	i_assert(client->state.backend != NULL ||
 		 array_count(&client->rcpt_backends) == 0);
 
-	array_foreach(&client->rcpt_backends, bkp) {
-		struct submission_backend *backend = *bkp;
+	array_foreach_elem(&client->rcpt_backends, backend)
 		submission_backend_trans_free(backend, trans);
-	}
 	array_clear(&client->pending_backends);
 	array_clear(&client->rcpt_backends);
 	client->state.backend = NULL;
@@ -306,11 +300,10 @@ static void
 submission_backend_add_pending(struct submission_backend *backend)
 {
 	struct client *client = backend->client;
+	struct submission_backend *pending_backend;
 
-	struct submission_backend *const *bkp;
-
-	array_foreach(&client->pending_backends, bkp) {
-		if (backend == *bkp)
+	array_foreach_elem(&client->pending_backends, pending_backend) {
+		if (backend == pending_backend)
 			return;
 	}
 
@@ -378,7 +371,7 @@ int submission_backends_cmd_data(struct client *client,
 				 struct smtp_server_transaction *trans,
 				 struct istream *data_input, uoff_t data_size)
 {
-	struct submission_backend *const *bkp;
+	struct submission_backend *backend;
 	int ret = 0;
 
 	i_assert(array_count(&client->rcpt_backends) > 0);
@@ -388,9 +381,7 @@ int submission_backends_cmd_data(struct client *client,
 	i_stream_seek(data_input, 0);
 
 	/* create the data_input streams first */
-	array_foreach_modifiable(&client->rcpt_backends, bkp) {
-		struct submission_backend *backend = *bkp;
-
+	array_foreach_elem(&client->rcpt_backends, backend) {
 		backend->data_input =
 			i_stream_create_sized(data_input, data_size);
 		backend->data_size = data_size;
@@ -399,9 +390,7 @@ int submission_backends_cmd_data(struct client *client,
 	/* now that all the streams are created, start reading them
 	   (reading them earlier could have caused the data_input parent's
 	   offset to change) */
-	array_foreach_modifiable(&client->rcpt_backends, bkp) {
-		struct submission_backend *backend = *bkp;
-
+	array_foreach_elem(&client->rcpt_backends, backend) {
 		ret = submission_backend_cmd_data(backend, cmd, trans);
 		if (ret < 0)
 			break;
