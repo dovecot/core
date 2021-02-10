@@ -67,12 +67,11 @@
 #endif
 
 /* usage: struct foo *foo; array_foreach(foo_arr, foo) { .. } */
-#if (defined(__STDC__) && __STDC_VERSION__ >= 199901L)
-#  define array_foreach(array, elem) \
+#define array_foreach(array, elem) \
 	for (const void *elem ## __foreach_end = \
 		(const char *)(elem = *(array)->v) + (array)->arr.buffer->used; \
 	     elem != elem ## __foreach_end; (elem)++)
-#  define array_foreach_modifiable(array, elem) \
+#define array_foreach_modifiable(array, elem) \
 	for (const void *elem ## _end = \
 		(const char *)(elem = ARRAY_TYPE_CAST_MODIFIABLE(array) \
 			buffer_get_modifiable_data((array)->arr.buffer, NULL)) + \
@@ -83,7 +82,7 @@
    array_foreach_elem(array, &myvar) { ... use myvar ... } // clearer, as more pass-by-referencey
    Latter is impossible if we want to use the variable name as the base for the other variable names
 */
-#  define array_foreach_elem(array, elem) \
+#define array_foreach_elem(array, elem) \
 	for (const void *_foreach_end = \
 		CONST_PTR_OFFSET(*(array)->v, (array)->arr.buffer->used), \
 	     *_foreach_ptr = CONST_PTR_OFFSET(*(array)->v, ARRAY_TYPE_CHECK(array, &elem) + \
@@ -94,17 +93,6 @@
 		;							\
 	     _foreach_ptr = CONST_PTR_OFFSET(_foreach_ptr, sizeof(elem)))
 
-#else
-#  define array_foreach(array, elem) \
-	for (elem = *(array)->v; \
-	     elem != CONST_PTR_OFFSET(*(array)->v, (array)->arr.buffer->used); \
-	     (elem)++)
-#  define array_foreach_modifiable(array, elem) \
-	for (elem = ARRAY_TYPE_CAST_MODIFIABLE(array) \
-			buffer_get_modifiable_data((array)->arr.buffer, NULL); \
-	     elem != CONST_PTR_OFFSET(*(array)->v, (array)->arr.buffer->used); \
-	     (elem)++)
-#endif
 
 #define array_ptr_to_idx(array, elem) \
 	((elem) - (array)->v[0])
