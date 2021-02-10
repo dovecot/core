@@ -39,11 +39,9 @@ static struct event_category event_category_dict = {
 
 static struct dict *dict_driver_lookup(const char *name)
 {
-	struct dict *const *dicts;
+	struct dict *dict;
 
-	array_foreach(&dict_drivers, dicts) {
-		struct dict *dict = *dicts;
-
+	array_foreach_elem(&dict_drivers, dict) {
 		if (strcmp(dict->name, name) == 0)
 			return dict;
 	}

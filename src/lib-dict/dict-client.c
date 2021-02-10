@@ -406,10 +406,10 @@ static void client_dict_timeout(struct client_dict *dict)
 
 static bool client_dict_have_nonbackground_cmds(struct client_dict *dict)
 {
-	struct client_dict_cmd *const *cmdp;
+	struct client_dict_cmd *cmd;
 
-	array_foreach(&dict->cmds, cmdp) {
-		if (!(*cmdp)->background)
+	array_foreach_elem(&dict->cmds, cmd) {
+		if (!cmd->background)
 			return TRUE;
 	}
 	return FALSE;
@@ -590,16 +590,16 @@ static void
 client_dict_abort_commands(struct client_dict *dict, const char *reason)
 {
 	ARRAY(struct client_dict_cmd *) cmds_copy;
-	struct client_dict_cmd *const *cmdp;
+	struct client_dict_cmd *cmd;
 
 	/* abort all commands */
 	t_array_init(&cmds_copy, array_count(&dict->cmds));
 	array_append_array(&cmds_copy, &dict->cmds);
 	array_clear(&dict->cmds);
 
-	array_foreach(&cmds_copy, cmdp) {
-		dict_cmd_callback_error(*cmdp, reason, TRUE);
-		client_dict_cmd_unref(*cmdp);
+	array_foreach_elem(&cmds_copy, cmd) {
+		dict_cmd_callback_error(cmd, reason, TRUE);
+		client_dict_cmd_unref(cmd);
 	}
 }
 
@@ -625,7 +625,7 @@ static int client_dict_reconnect(struct client_dict *dict, const char *reason,
 				 const char **error_r)
 {
 	ARRAY(struct client_dict_cmd *) retry_cmds;
-	struct client_dict_cmd *const *cmdp, *cmd;
+	struct client_dict_cmd *cmd, *const *cmdp;
 	const char *error;
 	int ret;
 
@@ -649,9 +649,9 @@ static int client_dict_reconnect(struct client_dict *dict, const char *reason,
 	if (client_dict_connect(dict, error_r) < 0) {
 		reason = t_strdup_printf("%s - reconnect failed: %s",
 					 reason, *error_r);
-		array_foreach(&retry_cmds, cmdp) {
-			dict_cmd_callback_error(*cmdp, reason, TRUE);
-			client_dict_cmd_unref(*cmdp);
+		array_foreach_elem(&retry_cmds, cmd) {
+			dict_cmd_callback_error(cmd, reason, TRUE);
+			client_dict_cmd_unref(cmd);
 		}
 		return -1;
 	}
@@ -660,8 +660,7 @@ static int client_dict_reconnect(struct client_dict *dict, const char *reason,
 	e_warning(dict->conn.conn.event, "%s - reconnected", reason);
 
 	ret = 0; error = "";
-	array_foreach(&retry_cmds, cmdp) {
-		cmd = *cmdp;
+	array_foreach_elem(&retry_cmds, cmd) {
 		cmd->reconnected = TRUE;
 		cmd->async_id = 0;
 		/* if it fails again, don't retry anymore */
