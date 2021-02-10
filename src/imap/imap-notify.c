@@ -273,12 +273,12 @@ imap_client_notify_selected(struct client *client)
 	if (!fetch_ctx->state.fetching)
 		return 1;
 
-	if ((ret = imap_fetch_more_no_lock_update(fetch_ctx)) <= 0)
-		return ret;
+	if ((ret = imap_fetch_more_no_lock_update(fetch_ctx)) == 0)
+		return 0;
 	/* finished the FETCH */
 	if (imap_fetch_end(fetch_ctx) < 0)
 		return -1;
-	return 1;
+	return ret;
 }
 
 static int imap_client_notify_more(struct client *client)
