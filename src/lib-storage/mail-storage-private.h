@@ -795,6 +795,9 @@ bool mail_has_attachment_keywords(struct mail *mail);
    and 1 if attachment was found. */
 int mail_set_attachment_keywords(struct mail *mail);
 
+/* Emit mail opened events */
+void mail_opened_event(struct mail *mail);
+
 void mailbox_set_deleted(struct mailbox *box);
 int mailbox_mark_index_deleted(struct mailbox *box, bool del);
 /* Easy wrapper for getting mailbox's MAILBOX_LIST_PATH_TYPE_MAILBOX.

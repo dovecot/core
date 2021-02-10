@@ -575,3 +575,17 @@ int mail_set_attachment_keywords(struct mail *mail)
 
 	return ret;
 }
+
+void mail_opened_event(struct mail *mail)
+{
+	struct mail_private *pmail =
+		container_of(mail, struct mail_private, mail);
+	struct event_passthrough *e = event_create_passthrough(mail->event)->
+		set_name("mail_opened")->
+		add_str("reason", pmail->get_stream_reason);
+	if (pmail->get_stream_reason != NULL)
+		e_debug(e->event(), "Opened mail because: %s",
+			pmail->get_stream_reason);
+	else
+		e_debug(e->event(), "Opened mail");
+}

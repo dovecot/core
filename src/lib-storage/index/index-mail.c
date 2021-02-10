@@ -1311,12 +1311,6 @@ int index_mail_init_stream(struct index_mail *mail,
 	bool has_nuls, body_size_from_stream = FALSE;
 	int ret;
 
-	if (mail->mail.get_stream_reason != NULL &&
-	    mail->mail.get_stream_reason[0] != '\0') {
-		e_debug(_mail->event,
-			"Opened mail because: %s",
-			mail->mail.get_stream_reason);
-	}
 	_mail->mail_stream_opened = TRUE;
 
 	if (!data->initialized_wrapper_stream &&
@@ -2536,9 +2530,10 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 	}
 }
 
-int index_mail_opened(struct mail *mail ATTR_UNUSED,
+int index_mail_opened(struct mail *mail,
 		      struct istream **stream ATTR_UNUSED)
 {
+	mail_opened_event(mail);
 	return 0;
 }
 
