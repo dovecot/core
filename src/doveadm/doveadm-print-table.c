@@ -182,13 +182,13 @@ static void doveadm_print_headers(void)
 
 static void doveadm_buffer_flush(void)
 {
-	const char *const *valuep;
+	const char *value;
 
 	doveadm_calc_header_length();
 	doveadm_print_headers();
 
-	array_foreach(&ctx->buffered_values, valuep)
-		doveadm_print_next(*valuep);
+	array_foreach_elem(&ctx->buffered_values, value)
+		doveadm_print_next(value);
 	array_clear(&ctx->buffered_values);
 }
 

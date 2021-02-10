@@ -111,10 +111,10 @@ static int who_parse_line(const char *line, struct who_line *line_r)
 
 static bool who_user_has_pid(struct who_user *user, pid_t pid)
 {
-	const pid_t *ex_pid;
+	pid_t ex_pid;
 
-	array_foreach(&user->pids, ex_pid) {
-		if (*ex_pid == pid)
+	array_foreach_elem(&user->pids, ex_pid) {
+		if (ex_pid == pid)
 			return TRUE;
 	}
 	return FALSE;
@@ -233,7 +233,7 @@ static bool who_user_filter_match(const struct who_user *user,
 static void who_print_user(const struct who_user *user)
 {
 	const struct ip_addr *ip;
-	const pid_t *pid;
+	pid_t pid;
 	string_t *str = t_str_new(256);
 
 	doveadm_print(user->username);
@@ -241,8 +241,8 @@ static void who_print_user(const struct who_user *user)
 	doveadm_print(user->service);
 
 	str_append_c(str, '(');
-	array_foreach(&user->pids, pid)
-		str_printfa(str, "%ld ", (long)*pid);
+	array_foreach_elem(&user->pids, pid)
+		str_printfa(str, "%ld ", (long)pid);
 	if (str_len(str) > 1)
 		str_truncate(str, str_len(str)-1);
 	str_append_c(str, ')');

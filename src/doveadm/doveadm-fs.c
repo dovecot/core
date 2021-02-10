@@ -331,7 +331,7 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 	struct fs_iter *iter;
 	ARRAY_TYPE(const_string) fnames;
 	struct fs_delete_ctx ctx;
-	const char *fname, *const *fnamep, *error;
+	const char *fname, *error;
 	int ret;
 
 	i_zero(&ctx);
@@ -356,9 +356,9 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 			path_prefix, error);
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
-	array_foreach(&fnames, fnamep) T_BEGIN {
+	array_foreach_elem(&fnames, fname) T_BEGIN {
 		cmd_fs_delete_dir_recursive(fs, async_count,
-			t_strdup_printf("%s%s", path_prefix, *fnamep));
+			t_strdup_printf("%s%s", path_prefix, fname));
 	} T_END;
 
 	/* delete files. again because we're doing this asynchronously finish
@@ -379,9 +379,9 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 
-	array_foreach(&fnames, fnamep) {
+	array_foreach_elem(&fnames, fname) {
 		T_BEGIN {
-			ret = doveadm_fs_delete_async_fname(&ctx, *fnamep);
+			ret = doveadm_fs_delete_async_fname(&ctx, fname);
 		} T_END;
 		if (ret < 0)
 			break;

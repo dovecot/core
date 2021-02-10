@@ -185,7 +185,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 {
 	struct dsync_ibc_settings ibc_set;
 	struct dsync_brain *brain;
-	struct mail_namespace *const *nsp;
+	struct mail_namespace *ns;
 	string_t *sync_ns_str = NULL;
 	const char *error;
 
@@ -202,10 +202,10 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 		sync_ns_str = t_str_new(128);
 		p_array_init(&brain->sync_namespaces, brain->pool,
 			     array_count(&set->sync_namespaces));
-		array_foreach(&set->sync_namespaces, nsp) {
-			str_append(sync_ns_str, (*nsp)->prefix);
+		array_foreach_elem(&set->sync_namespaces, ns) {
+			str_append(sync_ns_str, ns->prefix);
 			str_append_c(sync_ns_str, '\n');
-			array_push_back(&brain->sync_namespaces, nsp);
+			array_push_back(&brain->sync_namespaces, &ns);
 		}
 		str_delete(sync_ns_str, str_len(sync_ns_str)-1, 1);
 	}
@@ -858,13 +858,13 @@ static bool dsync_brain_want_shared_namespace(const struct mail_namespace *ns,
 bool dsync_brain_want_namespace(struct dsync_brain *brain,
 				struct mail_namespace *ns)
 {
-	struct mail_namespace *const *nsp;
+	struct mail_namespace *sync_ns;
 
 	if (array_is_created(&brain->sync_namespaces)) {
-		array_foreach(&brain->sync_namespaces, nsp) {
-			if (ns == *nsp)
+		array_foreach_elem(&brain->sync_namespaces, sync_ns) {
+			if (ns == sync_ns)
 				return TRUE;
-			if (dsync_brain_want_shared_namespace(ns, *nsp))
+			if (dsync_brain_want_shared_namespace(ns, sync_ns))
 				return TRUE;
 		}
 		return FALSE;

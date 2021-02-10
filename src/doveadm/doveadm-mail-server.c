@@ -66,21 +66,21 @@ doveadm_server_get(struct doveadm_mail_cmd_context *ctx, const char *name)
 static struct server_connection *
 doveadm_server_find_unused_conn(struct doveadm_server *server)
 {
-	struct server_connection *const *connp;
+	struct server_connection *conn;
 
-	array_foreach(&server->connections, connp) {
-		if (server_connection_is_idle(*connp))
-			return *connp;
+	array_foreach_elem(&server->connections, conn) {
+		if (server_connection_is_idle(conn))
+			return conn;
 	}
 	return NULL;
 }
 
 static bool doveadm_server_have_used_connections(struct doveadm_server *server)
 {
-	struct server_connection *const *connp;
+	struct server_connection *conn;
 
-	array_foreach(&server->connections, connp) {
-		if (!server_connection_is_idle(*connp))
+	array_foreach_elem(&server->connections, conn) {
+		if (!server_connection_is_idle(conn))
 			return TRUE;
 	}
 	return FALSE;

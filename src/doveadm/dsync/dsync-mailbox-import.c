@@ -1340,16 +1340,16 @@ static bool
 dsync_mail_change_have_keyword(const struct dsync_mail_change *change,
 			       const char *keyword)
 {
-	const char *const *strp;
+	const char *str;
 
 	if (!array_is_created(&change->keyword_changes))
 		return FALSE;
 
-	array_foreach(&change->keyword_changes, strp) {
-		switch ((*strp)[0]) {
+	array_foreach_elem(&change->keyword_changes, str) {
+		switch (str[0]) {
 		case KEYWORD_CHANGE_FINAL:
 		case KEYWORD_CHANGE_ADD_AND_FINAL:
-			if (strcasecmp((*strp)+1, keyword) == 0)
+			if (strcasecmp(str+1, keyword) == 0)
 				return TRUE;
 			break;
 		default:
@@ -1849,13 +1849,12 @@ importer_new_mail_final_uid_cmp(struct importer_new_mail *const *newmail1,
 static void
 dsync_mailbox_import_assign_new_uids(struct dsync_mailbox_importer *importer)
 {
-	struct importer_new_mail *newmail, *const *newmailp;
+	struct importer_new_mail *newmail;
 	uint32_t common_uid_next, new_uid;
 
 	common_uid_next = I_MAX(importer->local_uid_next,
 				importer->remote_uid_next);
-	array_foreach_modifiable(&importer->newmails, newmailp) {
-		newmail = *newmailp;
+	array_foreach_elem(&importer->newmails, newmail) {
 		if (newmail->skip) {
 			/* already assigned */
 			i_assert(newmail->final_uid != 0);
@@ -2231,7 +2230,7 @@ dsync_mailbox_import_handle_local_mails(struct dsync_mailbox_importer *importer)
 	struct hash_iterate_context *iter;
 	const char *key;
 	void *key2;
-	struct importer_new_mail *mail, *const *mailp;
+	struct importer_new_mail *mail;
 
 	if (importer->virtual_all_box != NULL &&
 	    hash_table_count(importer->import_guids) > 0) {
@@ -2257,8 +2256,7 @@ dsync_mailbox_import_handle_local_mails(struct dsync_mailbox_importer *importer)
 	}
 	hash_table_iterate_deinit(&iter);
 	if (!importer->mails_have_guids) {
-		array_foreach(&importer->newmails, mailp) {
-			mail = *mailp;
+		array_foreach_elem(&importer->newmails, mail) {
 			if (mail->uid_in_local)
 				(void)dsync_mailbox_import_handle_mail(importer, mail);
 		}

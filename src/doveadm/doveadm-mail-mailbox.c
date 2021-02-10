@@ -226,11 +226,10 @@ cmd_mailbox_create_run(struct doveadm_mail_cmd_context *_ctx,
 	struct create_cmd_context *ctx = (struct create_cmd_context *)_ctx;
 	struct mail_namespace *ns;
 	struct mailbox *box;
-	const char *const *namep;
+	const char *name;
 	int ret = 0;
 
-	array_foreach(&ctx->mailboxes, namep) {
-		const char *name = *namep;
+	array_foreach_elem(&ctx->mailboxes, name) {
 		size_t len;
 		bool directory = FALSE;
 
@@ -345,7 +344,7 @@ cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	struct mail_storage *storage;
-	const char *const *namep;
+	const char *name;
 	ARRAY_TYPE(const_string) recursive_mailboxes;
 	const ARRAY_TYPE(const_string) *mailboxes = &ctx->mailboxes;
 	enum mailbox_flags mailbox_flags = 0;
@@ -355,22 +354,20 @@ cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 		mailbox_flags |= MAILBOX_FLAG_DELETE_UNSAFE;
 	if (ctx->recursive) {
 		t_array_init(&recursive_mailboxes, 32);
-		array_foreach(&ctx->mailboxes, namep) {
+		array_foreach_elem(&ctx->mailboxes, name) {
 			if (get_child_mailboxes(user, &recursive_mailboxes,
-						*namep) < 0) {
+						name) < 0) {
 				doveadm_mail_failed_error(_ctx, MAIL_ERROR_TEMP);
 				ret = -1;
 			}
-			if ((*namep)[0] != '\0')
-				array_push_back(&recursive_mailboxes, namep);
+			if (name[0] != '\0')
+				array_push_back(&recursive_mailboxes, &name);
 		}
 		array_sort(&recursive_mailboxes, i_strcmp_reverse_p);
 		mailboxes = &recursive_mailboxes;
 	}
 
-	array_foreach(mailboxes, namep) {
-		const char *name = *namep;
-
+	array_foreach_elem(mailboxes, name) {
 		ns = mail_namespace_find(user->namespaces, name);
 		box = mailbox_alloc(ns->list, name, mailbox_flags);
 		mailbox_set_reason(box, _ctx->cmd->name);
@@ -524,12 +521,10 @@ cmd_mailbox_subscribe_run(struct doveadm_mail_cmd_context *_ctx,
 	struct mailbox_cmd_context *ctx = (struct mailbox_cmd_context *)_ctx;
 	struct mail_namespace *ns;
 	struct mailbox *box;
-	const char *const *namep;
+	const char *name;
 	int ret = 0;
 
-	array_foreach(&ctx->mailboxes, namep) {
-		const char *name = *namep;
-
+	array_foreach_elem(&ctx->mailboxes, name) {
 		ns = mail_namespace_find(user->namespaces, name);
 		box = mailbox_alloc(ns->list, name, 0);
 		mailbox_set_reason(box, _ctx->cmd->name);

@@ -16,12 +16,12 @@ static int cmd_batch_prerun(struct doveadm_mail_cmd_context *_ctx,
 			    const char **error_r)
 {
 	struct batch_cmd_context *ctx = (struct batch_cmd_context *)_ctx;
-	struct doveadm_mail_cmd_context *const *cmdp;
+	struct doveadm_mail_cmd_context *cmd;
 	int ret = 0;
 
-	array_foreach(&ctx->commands, cmdp) {
-		if ((*cmdp)->v.prerun != NULL &&
-		    (*cmdp)->v.prerun(*cmdp, service_user, error_r) < 0) {
+	array_foreach_elem(&ctx->commands, cmd) {
+		if (cmd->v.prerun != NULL &&
+		    cmd->v.prerun(cmd, service_user, error_r) < 0) {
 			ret = -1;
 			break;
 		}
@@ -33,18 +33,18 @@ static int cmd_batch_run(struct doveadm_mail_cmd_context *_ctx,
 			 struct mail_user *user)
 {
 	struct batch_cmd_context *ctx = (struct batch_cmd_context *)_ctx;
-	struct doveadm_mail_cmd_context *const *cmdp;
+	struct doveadm_mail_cmd_context *cmd;
 	int ret = 0;
 
-	array_foreach(&ctx->commands, cmdp) {
-		(*cmdp)->cur_mail_user = user;
-		if ((*cmdp)->v.run(*cmdp, user) < 0) {
-			i_assert((*cmdp)->exit_code != 0);
-			_ctx->exit_code = (*cmdp)->exit_code;
+	array_foreach_elem(&ctx->commands, cmd) {
+		cmd->cur_mail_user = user;
+		if (cmd->v.run(cmd, user) < 0) {
+			i_assert(cmd->exit_code != 0);
+			_ctx->exit_code = cmd->exit_code;
 			ret = -1;
 			break;
 		}
-		(*cmdp)->cur_mail_user = NULL;
+		cmd->cur_mail_user = NULL;
 	}
 	return ret;
 }
@@ -137,11 +137,11 @@ cmd_batch_init(struct doveadm_mail_cmd_context *_ctx,
 	       const char *const args[] ATTR_UNUSED)
 {
 	struct batch_cmd_context *ctx = (struct batch_cmd_context *)_ctx;
-	struct doveadm_mail_cmd_context *const *cmdp;
+	struct doveadm_mail_cmd_context *cmd;
 	struct batch_cmd_context *subctx;
 
-	array_foreach(&ctx->commands, cmdp) {
-		subctx = (struct batch_cmd_context *)*cmdp;
+	array_foreach_elem(&ctx->commands, cmd) {
+		subctx = (struct batch_cmd_context *)cmd;
 		subctx->ctx.storage_service = _ctx->storage_service;
 		if (subctx->ctx.v.init != NULL)
 			subctx->ctx.v.init(&subctx->ctx, subctx->ctx.args);
@@ -151,11 +151,11 @@ cmd_batch_init(struct doveadm_mail_cmd_context *_ctx,
 static void cmd_batch_deinit(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct batch_cmd_context *ctx = (struct batch_cmd_context *)_ctx;
-	struct doveadm_mail_cmd_context *const *cmdp;
+	struct doveadm_mail_cmd_context *cmd;
 
-	array_foreach(&ctx->commands, cmdp) {
-		if ((*cmdp)->v.deinit != NULL)
-			(*cmdp)->v.deinit(*cmdp);
+	array_foreach_elem(&ctx->commands, cmd) {
+		if (cmd->v.deinit != NULL)
+			cmd->v.deinit(cmd);
 	}
 }
 

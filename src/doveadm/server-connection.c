@@ -76,12 +76,12 @@ static int server_connection_init_ssl(struct server_connection *conn,
 
 static void server_set_print_pending(struct doveadm_server *server)
 {
-	struct doveadm_server *const *serverp;
+	struct doveadm_server *pending_server;
 
 	if (!array_is_created(&print_pending_servers))
 		i_array_init(&print_pending_servers, 16);
-	array_foreach(&print_pending_servers, serverp) {
-		if (*serverp == server)
+	array_foreach_elem(&print_pending_servers, pending_server) {
+		if (pending_server == server)
 			return;
 	}
 	array_push_back(&print_pending_servers, &server);
@@ -105,14 +105,14 @@ static void server_print_connection_released(struct doveadm_server *server)
 
 static void print_connection_released(void)
 {
-	struct doveadm_server *const *serverp;
+	struct doveadm_server *server;
 
 	printing_conn = NULL;
 	if (!array_is_created(&print_pending_servers))
 		return;
 
-	array_foreach(&print_pending_servers, serverp)
-		server_print_connection_released(*serverp);
+	array_foreach_elem(&print_pending_servers, server)
+		server_print_connection_released(server);
 	array_free(&print_pending_servers);
 }
 

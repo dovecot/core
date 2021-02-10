@@ -20,11 +20,11 @@ void doveadm_dump_register(const struct doveadm_cmd_dump *dump)
 static const struct doveadm_cmd_dump *
 dump_find_name(const char *name)
 {
-	const struct doveadm_cmd_dump *const *dumpp;
+	const struct doveadm_cmd_dump *dump;
 
-	array_foreach(&dumps, dumpp) {
-		if (strcmp((*dumpp)->name, name) == 0)
-			return *dumpp;
+	array_foreach_elem(&dumps, dump) {
+		if (strcmp(dump->name, name) == 0)
+			return dump;
 	}
 	return NULL;
 }
@@ -32,11 +32,11 @@ dump_find_name(const char *name)
 static const struct doveadm_cmd_dump *
 dump_find_test(const char *path)
 {
-	const struct doveadm_cmd_dump *const *dumpp;
+	const struct doveadm_cmd_dump *dump;
 
-	array_foreach(&dumps, dumpp) {
-		if ((*dumpp)->test != NULL && (*dumpp)->test(path))
-			return *dumpp;
+	array_foreach_elem(&dumps, dump) {
+		if (dump->test != NULL && dump->test(path))
+			return dump;
 	}
 	return NULL;
 }
