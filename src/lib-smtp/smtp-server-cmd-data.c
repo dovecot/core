@@ -152,13 +152,13 @@ cmd_data_replied_one(struct smtp_server_cmd_ctx *cmd,
 {
 	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_transaction *trans = conn->state.trans;
-	struct smtp_server_recipient **rcptp;
+	struct smtp_server_recipient *rcpt;
 
 	if (trans == NULL || !array_is_created(&trans->rcpt_to))
 		return;
 
-	array_foreach_modifiable(&trans->rcpt_to, rcptp)
-		smtp_server_recipient_data_replied(*rcptp);
+	array_foreach_elem(&trans->rcpt_to, rcpt)
+		smtp_server_recipient_data_replied(rcpt);
 }
 
 static void
