@@ -47,11 +47,11 @@ static bool stats_item_find(struct stats_item *item, unsigned int *idx_r)
 
 static struct stats_item *stats_item_find_by_name(const char *name)
 {
-	struct stats_item *const *itemp;
+	struct stats_item *item;
 
-	array_foreach(&stats_items, itemp) {
-		if (strcmp((*itemp)->v.short_name, name) == 0)
-			return *itemp;
+	array_foreach_elem(&stats_items, item) {
+		if (strcmp(item->v.short_name, name) == 0)
+			return item;
 	}
 	return NULL;
 }
@@ -94,23 +94,23 @@ void stats_copy(struct stats *dest, const struct stats *src)
 
 unsigned int stats_field_count(void)
 {
-	struct stats_item *const *itemp;
+	struct stats_item *item;
 	unsigned int count = 0;
 
-	array_foreach(&stats_items, itemp)
-		count += (*itemp)->v.field_count();
+	array_foreach_elem(&stats_items, item)
+		count += item->v.field_count();
 	return count;
 }
 
 const char *stats_field_name(unsigned int n)
 {
-	struct stats_item *const *itemp;
+	struct stats_item *item;
 	unsigned int i = 0, count;
 
-	array_foreach(&stats_items, itemp) {
-		count = (*itemp)->v.field_count();
+	array_foreach_elem(&stats_items, item) {
+		count = item->v.field_count();
 		if (i + count > n)
-			return (*itemp)->v.field_name(n - i);
+			return item->v.field_name(n - i);
 		i += count;
 	}
 	i_unreached();
@@ -119,15 +119,15 @@ const char *stats_field_name(unsigned int n)
 void stats_field_value(string_t *str, const struct stats *stats,
 		       unsigned int n)
 {
-	struct stats_item *const *itemp;
+	struct stats_item *item;
 	unsigned int i = 0, count;
 
-	array_foreach(&stats_items, itemp) {
-		count = (*itemp)->v.field_count();
+	array_foreach_elem(&stats_items, item) {
+		count = item->v.field_count();
 		if (i + count > n) {
-			const void *item_stats
-				= CONST_PTR_OFFSET(stats, (*itemp)->pos);
-			(*itemp)->v.field_value(str, item_stats, n - i);
+			const void *item_stats =
+				CONST_PTR_OFFSET(stats, item->pos);
+			item->v.field_value(str, item_stats, n - i);
 			return;
 		}
 		i += count;
@@ -138,14 +138,14 @@ void stats_field_value(string_t *str, const struct stats *stats,
 bool stats_diff(const struct stats *stats1, const struct stats *stats2,
 		struct stats *diff_stats_r, const char **error_r)
 {
-	struct stats_item *const *itemp;
+	struct stats_item *item;
 	bool ret = TRUE;
 
-	array_foreach(&stats_items, itemp) {
-		if (!(*itemp)->v.diff(CONST_PTR_OFFSET(stats1, (*itemp)->pos),
-				      CONST_PTR_OFFSET(stats2, (*itemp)->pos),
-				      PTR_OFFSET(diff_stats_r, (*itemp)->pos),
-				      error_r))
+	array_foreach_elem(&stats_items, item) {
+		if (!item->v.diff(CONST_PTR_OFFSET(stats1, item->pos),
+				  CONST_PTR_OFFSET(stats2, item->pos),
+				  PTR_OFFSET(diff_stats_r, item->pos),
+				  error_r))
 			ret = FALSE;
 	}
 	return ret;
@@ -153,21 +153,21 @@ bool stats_diff(const struct stats *stats1, const struct stats *stats2,
 
 void stats_add(struct stats *dest, const struct stats *src)
 {
-	struct stats_item *const *itemp;
+	struct stats_item *item;
 
-	array_foreach(&stats_items, itemp) {
-		(*itemp)->v.add(PTR_OFFSET(dest, (*itemp)->pos),
-				CONST_PTR_OFFSET(src, (*itemp)->pos));
+	array_foreach_elem(&stats_items, item) {
+		item->v.add(PTR_OFFSET(dest, item->pos),
+			    CONST_PTR_OFFSET(src, item->pos));
 	}
 }
 
 bool stats_have_changed(const struct stats *prev, const struct stats *cur)
 {
-	struct stats_item *const *itemp;
+	struct stats_item *item;
 
-	array_foreach(&stats_items, itemp) {
-		if ((*itemp)->v.have_changed(CONST_PTR_OFFSET(prev, (*itemp)->pos),
-					     CONST_PTR_OFFSET(cur, (*itemp)->pos)))
+	array_foreach_elem(&stats_items, item) {
+		if (item->v.have_changed(CONST_PTR_OFFSET(prev, item->pos),
+					 CONST_PTR_OFFSET(cur, item->pos)))
 			return TRUE;
 	}
 	return FALSE;
@@ -175,12 +175,12 @@ bool stats_have_changed(const struct stats *prev, const struct stats *cur)
 
 void stats_export(buffer_t *buf, const struct stats *stats)
 {
-	struct stats_item *const *itemp;
+	struct stats_item *item;
 
-	array_foreach(&stats_items, itemp) {
-		buffer_append(buf, (*itemp)->v.short_name,
-			      strlen((*itemp)->v.short_name)+1);
-		(*itemp)->v.export(buf, CONST_PTR_OFFSET(stats, (*itemp)->pos));
+	array_foreach_elem(&stats_items, item) {
+		buffer_append(buf, item->v.short_name,
+			      strlen(item->v.short_name)+1);
+		item->v.export(buf, CONST_PTR_OFFSET(stats, item->pos));
 	}
 }
 
