@@ -80,7 +80,7 @@ static void client_init_urlauth(struct client *client)
 
 static bool user_has_special_use_mailboxes(struct mail_user *user)
 {
-	struct mail_namespace_settings *const *ns_set;
+	struct mail_namespace_settings *ns_set;
 
 	/*
 	 * We have to iterate over namespace and mailbox *settings* since
@@ -93,15 +93,15 @@ static bool user_has_special_use_mailboxes(struct mail_user *user)
 	if (!array_is_created(&user->set->namespaces))
 		return FALSE;
 
-	array_foreach(&user->set->namespaces, ns_set) {
-		struct mailbox_settings *const *box_set;
+	array_foreach_elem(&user->set->namespaces, ns_set) {
+		struct mailbox_settings *box_set;
 
 		/* no mailboxes => no special use flags */
-		if (!array_is_created(&(*ns_set)->mailboxes))
+		if (!array_is_created(&ns_set->mailboxes))
 			continue;
 
-		array_foreach(&(*ns_set)->mailboxes, box_set) {
-			if ((*box_set)->special_use != NULL)
+		array_foreach_elem(&ns_set->mailboxes, box_set) {
+			if (box_set->special_use != NULL)
 				return TRUE;
 		}
 	}

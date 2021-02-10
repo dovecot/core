@@ -194,11 +194,11 @@ imap_state_export_mailbox_mails(buffer_t *dest, struct mailbox *box,
 static uint32_t
 mailbox_status_keywords_crc32(const struct mailbox_status *status)
 {
-	const char *const *strp;
+	const char *str;
 	uint32_t crc = 0;
 
-	array_foreach(status->keywords, strp)
-		crc = crc32_str(*strp);
+	array_foreach_elem(status->keywords, str)
+		crc = crc32_str(str);
 	return crc;
 }
 

@@ -190,7 +190,7 @@ bool imap_notify_match_mailbox(struct imap_notify_namespace *notify_ns,
 			       const char *vname)
 {
 	struct mailbox *box;
-	const char *const *namep;
+	const char *name;
 	size_t name_len;
 	char ns_sep;
 	bool ret;
@@ -204,23 +204,23 @@ bool imap_notify_match_mailbox(struct imap_notify_namespace *notify_ns,
 		return ret;
 	case IMAP_NOTIFY_TYPE_SUBTREE:
 		ns_sep = mail_namespace_get_sep(notify_ns->ns);
-		array_foreach(&notify_boxes->names, namep) {
-			name_len = strlen(*namep);
+		array_foreach_elem(&notify_boxes->names, name) {
+			name_len = strlen(name);
 			if (name_len == 0) {
 				/* everything under root. NOTIFY spec itself
 				   doesn't define this, but we use it for
 				   implementing "personal" */
 				return TRUE;
 			}
-			if (str_begins(vname, *namep) &&
+			if (str_begins(vname, name) &&
 			    (vname[name_len] == '\0' ||
 			     vname[name_len] == ns_sep))
 				return TRUE;
 		}
 		break;
 	case IMAP_NOTIFY_TYPE_MAILBOX:
-		array_foreach(&notify_boxes->names, namep) {
-			if (strcmp(*namep, vname) == 0)
+		array_foreach_elem(&notify_boxes->names, name) {
+			if (strcmp(name, vname) == 0)
 				return TRUE;
 		}
 		break;

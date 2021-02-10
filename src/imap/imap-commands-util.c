@@ -351,7 +351,7 @@ const char *const *
 client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,
 			 const ARRAY_TYPE(keyword_indexes) *src)
 {
-	const unsigned int *kw_indexes;
+	unsigned int kw_index;
 	const char *const *all_names;
 	unsigned int all_count;
 
@@ -360,9 +360,7 @@ client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,
 	/* convert indexes to names */
 	all_names = array_get(client->keywords.names, &all_count);
 	array_clear(dest);
-	array_foreach(src, kw_indexes) {
-		unsigned int kw_index = *kw_indexes;
-
+	array_foreach_elem(src, kw_index) {
 		i_assert(kw_index < all_count);
 		array_push_back(dest, &all_names[kw_index]);
 	}
