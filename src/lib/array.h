@@ -84,14 +84,15 @@
    Latter is impossible if we want to use the variable name as the base for the other variable names
 */
 #  define array_foreach_elem(array, elem) \
-	for (unsigned int _foreach_offset = ARRAY_TYPE_CHECK(array, &elem) + \
-				COMPILE_ERROR_IF_TRUE(sizeof(elem) > 16)\
+	for (const void *_foreach_end = \
+		CONST_PTR_OFFSET(*(array)->v, (array)->arr.buffer->used), \
+	     *_foreach_ptr = CONST_PTR_OFFSET(*(array)->v, ARRAY_TYPE_CHECK(array, &elem) + \
+		COMPILE_ERROR_IF_TRUE(sizeof(elem) > 16)) \
 		     ;							\
-	     (_foreach_offset < (array)->arr.buffer->used) &&		\
-	     (memcpy(&elem, CONST_PTR_OFFSET(*(array)->v, _foreach_offset), sizeof(elem)), TRUE) \
+	     (_foreach_ptr != _foreach_end &&		\
+	     (memcpy(&elem, _foreach_ptr, sizeof(elem)), TRUE)) \
 		;							\
-	     _foreach_offset += sizeof(elem)				\
-		)
+	     _foreach_ptr = CONST_PTR_OFFSET(_foreach_ptr, sizeof(elem)))
 
 #else
 #  define array_foreach(array, elem) \
