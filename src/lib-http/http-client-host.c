@@ -365,7 +365,7 @@ static void http_client_host_free_shared(struct http_client_host **_host)
 	struct http_client_host *host = *_host;
 	struct http_client *client = host->client;
 	struct http_client_host_shared *hshared = host->shared;
-	struct http_client_queue *const *queue_idx;
+	struct http_client_queue *queue;
 	ARRAY_TYPE(http_client_queue) queues;
 
 	*_host = NULL;
@@ -382,8 +382,8 @@ static void http_client_host_free_shared(struct http_client_host **_host)
 	array_copy(&queues.arr, 0, &host->queues.arr, 0,
 		   array_count(&host->queues));
 	array_clear(&host->queues);
-	array_foreach(&queues, queue_idx)
-		http_client_queue_free(*queue_idx);
+	array_foreach_elem(&queues, queue)
+		http_client_queue_free(queue);
 	array_free(&host->queues);
 
 	i_free(host);
@@ -402,12 +402,12 @@ void http_client_host_free(struct http_client_host **_host)
 static void http_client_host_lookup_done(struct http_client_host *host)
 {
 	struct http_client *client = host->client;
-	struct http_client_queue *const *queue_idx;
+	struct http_client_queue *queue;
 	unsigned int requests = 0;
 
 	/* Notify all queues */
-	array_foreach_modifiable(&host->queues, queue_idx)
-		requests += http_client_queue_host_lookup_done(*queue_idx);
+	array_foreach_elem(&host->queues, queue)
+		requests += http_client_queue_host_lookup_done(queue);
 
 	if (requests == 0 && client->waiting)
 		io_loop_stop(client->ioloop);
@@ -417,10 +417,10 @@ static void
 http_client_host_lookup_failure(struct http_client_host *host,
 				const char *error)
 {
-	struct http_client_queue *const *queue_idx;
+	struct http_client_queue *queue;
 
-	array_foreach_modifiable(&host->queues, queue_idx)
-		http_client_queue_host_lookup_failure(*queue_idx, error);
+	array_foreach_elem(&host->queues, queue)
+		http_client_queue_host_lookup_failure(queue, error);
 }
 
 void http_client_host_submit_request(struct http_client_host *host,
@@ -457,11 +457,11 @@ void http_client_host_submit_request(struct http_client_host *host,
 
 static bool http_client_host_is_idle(struct http_client_host *host)
 {
-	struct http_client_queue *const *queue_idx;
+	struct http_client_queue *queue;
 	unsigned int requests = 0;
 
-	array_foreach(&host->queues, queue_idx)
-		requests += http_client_queue_requests_active(*queue_idx);
+	array_foreach_elem(&host->queues, queue)
+		requests += http_client_queue_requests_active(queue);
 
 	return (requests == 0);
 }
@@ -493,8 +493,8 @@ bool http_client_host_get_ip_idx(struct http_client_host *host,
 
 void http_client_host_switch_ioloop(struct http_client_host *host)
 {
-	struct http_client_queue *const *queue_idx;
+	struct http_client_queue *queue;
 
-	array_foreach(&host->queues, queue_idx)
-		http_client_queue_switch_ioloop(*queue_idx);
+	array_foreach_elem(&host->queues, queue)
+		http_client_queue_switch_ioloop(queue);
 }

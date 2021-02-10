@@ -85,10 +85,10 @@ void http_server_response_request_free(struct http_server_response *resp)
 	str_free(&resp->headers);
 
 	if (array_is_created(&resp->perm_headers)) {
-		char **headers;
+		char *headers;
 
-		array_foreach_modifiable(&resp->perm_headers, headers)
-			i_free(*headers);
+		array_foreach_elem(&resp->perm_headers, headers)
+			i_free(headers);
 		array_free(&resp->perm_headers);
 	}
 }

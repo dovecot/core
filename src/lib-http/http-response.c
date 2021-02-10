@@ -22,12 +22,12 @@ http_response_init(struct http_response *resp,
 bool http_response_has_connection_option(const struct http_response *resp,
 	const char *option)
 {
-	const char *const *opt_idx;
+	const char *opt;
 
 	if (!array_is_created(&resp->connection_options))
 		return FALSE;
-	array_foreach(&resp->connection_options, opt_idx) {
-		if (strcasecmp(*opt_idx, option) == 0)
+	array_foreach_elem(&resp->connection_options, opt) {
+		if (strcasecmp(opt, option) == 0)
 			return TRUE;
 	}
 	return FALSE;

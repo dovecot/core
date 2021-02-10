@@ -138,7 +138,7 @@ void http_client_peer_pool_ref(struct http_client_peer_pool *ppool)
 void http_client_peer_pool_close(struct http_client_peer_pool **_ppool)
 {
 	struct http_client_peer_pool *ppool = *_ppool;
-	struct http_client_connection **conn;
+	struct http_client_connection *conn;
 	ARRAY_TYPE(http_client_connection) conns;
 
 	http_client_peer_pool_ref(ppool);
@@ -147,8 +147,8 @@ void http_client_peer_pool_close(struct http_client_peer_pool **_ppool)
 	t_array_init(&conns, array_count(&ppool->conns));
 	array_copy(&conns.arr, 0, &ppool->conns.arr, 0,
 		   array_count(&ppool->conns));
-	array_foreach_modifiable(&conns, conn)
-		http_client_connection_unref(conn);
+	array_foreach_elem(&conns, conn)
+		http_client_connection_unref(&conn);
 	i_assert(array_count(&ppool->idle_conns) == 0);
 	i_assert(array_count(&ppool->pending_conns) == 0);
 	i_assert(array_count(&ppool->conns) == 0);
@@ -620,10 +620,10 @@ void http_client_peer_ref(struct http_client_peer *peer)
 
 static void http_client_peer_disconnect(struct http_client_peer *peer)
 {
-	struct http_client_queue *const *queue;
+	struct http_client_queue *queue;
 	struct http_client *client = peer->client;
 	struct http_client_peer_shared *pshared = peer->shared;
-	struct http_client_connection **conn;
+	struct http_client_connection *conn;
 	ARRAY_TYPE(http_client_connection) conns;
 
 	if (peer->disconnected)
@@ -636,8 +636,8 @@ static void http_client_peer_disconnect(struct http_client_peer *peer)
 	t_array_init(&conns, array_count(&peer->conns));
 	array_copy(&conns.arr, 0, &peer->conns.arr, 0,
 		   array_count(&peer->conns));
-	array_foreach_modifiable(&conns, conn)
-		http_client_connection_lost_peer(*conn);
+	array_foreach_elem(&conns, conn)
+		http_client_connection_lost_peer(conn);
 	i_assert(array_count(&peer->conns) == 0);
 	array_clear(&peer->pending_conns);
 
@@ -652,8 +652,8 @@ static void http_client_peer_disconnect(struct http_client_peer *peer)
 	pshared->peers_count--;
 
 	/* Unlink all queues */
-	array_foreach(&peer->queues, queue)
-		http_client_queue_peer_disconnected(*queue, peer);
+	array_foreach_elem(&peer->queues, queue)
+		http_client_queue_peer_disconnected(queue, peer);
 	array_clear(&peer->queues);
 }
 
@@ -829,13 +829,13 @@ http_client_peer_connect(struct http_client_peer *peer, unsigned int count)
 
 bool http_client_peer_is_connected(struct http_client_peer *peer)
 {
-	struct http_client_connection *const *conn_idx;
+	struct http_client_connection *conn;
 
 	if (array_count(&peer->ppool->idle_conns) > 0)
 		return TRUE;
 
-	array_foreach(&peer->conns, conn_idx) {
-		if ((*conn_idx)->connected)
+	array_foreach_elem(&peer->conns, conn) {
+		if (conn->connected)
 			return TRUE;
 	}
 
@@ -845,7 +845,7 @@ bool http_client_peer_is_connected(struct http_client_peer *peer)
 static void
 http_client_peer_cancel(struct http_client_peer *peer)
 {
-	struct http_client_connection **conn;
+	struct http_client_connection *conn;
 	ARRAY_TYPE(http_client_connection) conns;
 
 	e_debug(peer->event, "Peer cancel");
@@ -854,9 +854,9 @@ http_client_peer_cancel(struct http_client_peer *peer)
 	t_array_init(&conns, array_count(&peer->conns));
 	array_copy(&conns.arr, 0, &peer->conns.arr, 0,
 		   array_count(&peer->conns));
-	array_foreach_modifiable(&conns, conn) {
-		if (!http_client_connection_is_active(*conn))
-			http_client_connection_close(conn);
+	array_foreach_elem(&conns, conn) {
+		if (!http_client_connection_is_active(conn))
+			http_client_connection_close(&conn);
 	}
 	i_assert(array_count(&peer->pending_conns) == 0);
 }
@@ -865,11 +865,11 @@ static unsigned int
 http_client_peer_requests_pending(struct http_client_peer *peer,
 				  unsigned int *num_urgent_r)
 {
-	struct http_client_queue *const *queue;
+	struct http_client_queue *queue;
 	unsigned int num_requests = 0, num_urgent = 0, requests, urgent;
 
-	array_foreach(&peer->queues, queue) {
-		requests = http_client_queue_requests_pending(*queue, &urgent);
+	array_foreach_elem(&peer->queues, queue) {
+		requests = http_client_queue_requests_pending(queue, &urgent);
 
 		num_requests += requests;
 		num_urgent += urgent;
@@ -880,7 +880,7 @@ http_client_peer_requests_pending(struct http_client_peer *peer,
 
 static void http_client_peer_check_idle(struct http_client_peer *peer)
 {
-	struct http_client_connection *const *conn_idx;
+	struct http_client_connection *conn;
 	unsigned int num_urgent = 0;
 
 	if (array_count(&peer->conns) == 0 &&
@@ -891,8 +891,8 @@ static void http_client_peer_check_idle(struct http_client_peer *peer)
 	}
 
 	/* Check all connections for idle status */
-	array_foreach(&peer->conns, conn_idx)
-		http_client_connection_check_idle(*conn_idx);
+	array_foreach_elem(&peer->conns, conn)
+		http_client_connection_check_idle(conn);
 }
 
 static void
@@ -1223,12 +1223,12 @@ void http_client_peer_unlink_queue(struct http_client_peer *peer,
 struct http_client_request *
 http_client_peer_claim_request(struct http_client_peer *peer, bool no_urgent)
 {
-	struct http_client_queue *const *queue_idx;
+	struct http_client_queue *queue;
 	struct http_client_request *req;
 
-	array_foreach(&peer->queues, queue_idx) {
+	array_foreach_elem(&peer->queues, queue) {
 		req = http_client_queue_claim_request(
-			*queue_idx, &peer->shared->addr, no_urgent);
+			queue, &peer->shared->addr, no_urgent);
 		if (req != NULL) {
 			req->peer = peer;
 			return req;
@@ -1241,7 +1241,7 @@ http_client_peer_claim_request(struct http_client_peer *peer, bool no_urgent)
 void http_client_peer_connection_success(struct http_client_peer *peer)
 {
 	struct http_client_peer_pool *ppool = peer->ppool;
-	struct http_client_queue *const *queue;
+	struct http_client_queue *queue;
 
 	e_debug(peer->event, "Successfully connected "
 		"(%u connections exist, %u pending)",
@@ -1249,8 +1249,8 @@ void http_client_peer_connection_success(struct http_client_peer *peer)
 
 	http_client_peer_pool_connection_success(ppool);
 
-	array_foreach(&peer->queues, queue)
-		http_client_queue_connection_success(*queue, peer);
+	array_foreach_elem(&peer->queues, queue)
+		http_client_queue_connection_success(queue, peer);
 
 	http_client_peer_trigger_request_handler(peer);
 }
@@ -1291,7 +1291,7 @@ static void
 http_client_peer_connection_failed_pool(struct http_client_peer *peer,
 					const char *reason)
 {
-	struct http_client_queue *const *queuep;
+	struct http_client_queue *queue;
 	ARRAY_TYPE(http_client_queue) queues;
 
 	e_debug(peer->event,
@@ -1310,8 +1310,8 @@ http_client_peer_connection_failed_pool(struct http_client_peer *peer,
 	/* Failed to make any connection. a second connect will probably also
 	   fail, so just try another IP for the hosts(s) or abort all requests
 	   if this was the only/last option. */
-	array_foreach(&queues, queuep)
-		http_client_queue_connection_failure(*queuep, peer, reason);
+	array_foreach_elem(&queues, queue)
+		http_client_queue_connection_failure(queue, peer, reason);
 }
 
 void http_client_peer_connection_lost(struct http_client_peer *peer,
@@ -1354,12 +1354,12 @@ void http_client_peer_connection_lost(struct http_client_peer *peer,
 unsigned int
 http_client_peer_active_connections(struct http_client_peer *peer)
 {
-	struct http_client_connection *const *conn_idx;
+	struct http_client_connection *conn;
 	unsigned int active = 0;
 
 	/* Find idle connections */
-	array_foreach(&peer->conns, conn_idx) {
-		if (http_client_connection_is_active(*conn_idx))
+	array_foreach_elem(&peer->conns, conn) {
+		if (http_client_connection_is_active(conn))
 			active++;
 	}
 

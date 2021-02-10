@@ -37,11 +37,9 @@ static struct http_client_queue *
 http_client_queue_find(struct http_client_host *host,
 		       const struct http_client_peer_addr *addr)
 {
-	struct http_client_queue *const *queue_idx;
+	struct http_client_queue *queue;
 
-	array_foreach_modifiable(&host->queues, queue_idx) {
-		struct http_client_queue *queue = *queue_idx;
-
+	array_foreach_elem(&host->queues, queue) {
 		if (http_client_peer_addr_cmp(&queue->addr, addr) == 0)
 			return queue;
 	}
@@ -117,7 +115,7 @@ http_client_queue_get(struct http_client_host *host,
 
 void http_client_queue_free(struct http_client_queue *queue)
 {
-	struct http_client_peer *const *peer_idx;
+	struct http_client_peer *peer;
 	ARRAY_TYPE(http_client_peer) peers;
 
 	e_debug(queue->event, "Destroy");
@@ -135,8 +133,8 @@ void http_client_queue_free(struct http_client_queue *queue)
 	t_array_init(&peers, array_count(&queue->pending_peers));
 	array_copy(&peers.arr, 0, &queue->pending_peers.arr, 0,
 		   array_count(&queue->pending_peers));
-	array_foreach(&peers, peer_idx)
-		http_client_peer_unlink_queue(*peer_idx, queue);
+	array_foreach_elem(&peers, peer)
+		http_client_peer_unlink_queue(peer, queue);
 	array_free(&queue->pending_peers);
 
 	/* Abort all requests */
@@ -167,16 +165,14 @@ http_client_queue_fail_full(struct http_client_queue *queue,
 			    unsigned int status, const char *error, bool all)
 {
 	ARRAY_TYPE(http_client_request) *req_arr, treqs;
-	struct http_client_request **req_idx;
+	struct http_client_request *req;
 	unsigned int retained = 0;
 
 	/* Abort requests */
 	req_arr = &queue->requests;
 	t_array_init(&treqs, array_count(req_arr));
 	array_copy(&treqs.arr, 0, &req_arr->arr, 0, array_count(req_arr));
-	array_foreach_modifiable(&treqs, req_idx) {
-		struct http_client_request *req = *req_idx;
-
+	array_foreach_elem(&treqs, req) {
 		i_assert(req->state >= HTTP_REQUEST_STATE_QUEUED);
 		if (!all &&
 			req->state != HTTP_REQUEST_STATE_QUEUED)
@@ -373,17 +369,17 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 	if (http_client_peer_is_connected(peer)) {
 		/* Drop any pending peers */
 		if (array_count(&queue->pending_peers) > 0) {
-			struct http_client_peer *const *peer_idx;
+			struct http_client_peer *pending_peer;
 
-			array_foreach(&queue->pending_peers, peer_idx) {
-				if (*peer_idx == peer) {
+			array_foreach_elem(&queue->pending_peers, pending_peer) {
+				if (pending_peer == peer) {
 					/* This can happen with shared clients
 					 */
 					continue;
 				}
 				i_assert(http_client_peer_addr_cmp(
-					&(*peer_idx)->shared->addr, addr) != 0);
-				http_client_peer_unlink_queue(*peer_idx, queue);
+					&pending_peer->shared->addr, addr) != 0);
+				http_client_peer_unlink_queue(pending_peer, queue);
 			}
 			array_clear(&queue->pending_peers);
 		}
@@ -392,17 +388,17 @@ http_client_queue_connection_attempt(struct http_client_queue *queue)
 		http_client_peer_trigger_request_handler(queue->cur_peer);
 
 	} else {
-		struct http_client_peer *const *peer_idx;
+		struct http_client_peer *pending_peer;
 		unsigned int msecs;
 		bool new_peer = TRUE;
 
 		/* Not already connected, wait for connections */
 
 		/* We may be waiting for this peer already */
-		array_foreach(&queue->pending_peers, peer_idx) {
+		array_foreach_elem(&queue->pending_peers, pending_peer) {
 			if (http_client_peer_addr_cmp(
-				&(*peer_idx)->shared->addr, addr) == 0) {
-				i_assert(*peer_idx == peer);
+				&pending_peer->shared->addr, addr) == 0) {
+				i_assert(pending_peer == peer);
 				new_peer = FALSE;
 				break;
 			}
@@ -483,23 +479,23 @@ void http_client_queue_connection_success(struct http_client_queue *queue,
 	   a connection is successfully created, so pending_peers array
 	   may be empty. */
 	if (array_count(&queue->pending_peers) > 0) {
-		struct http_client_peer *const *peer_idx;
+		struct http_client_peer *pending_peer;
 
-		array_foreach(&queue->pending_peers, peer_idx) {
-			if (*peer_idx == peer) {
+		array_foreach_elem(&queue->pending_peers, pending_peer) {
+			if (pending_peer == peer) {
 				/* Don't drop any connections to the
 				   successfully connected peer, even if some of
 				   the connections are pending. they may be
 				   intended for urgent requests. */
 				i_assert(queue->cur_peer == NULL);
-				queue->cur_peer = *peer_idx;
+				queue->cur_peer = pending_peer;
 				continue;
 			}
 			/* Unlink this queue from the peer; if this was the
 			   last/only queue, the peer will be freed, closing all
 			   connections.
 			 */
-			http_client_peer_unlink_queue(*peer_idx, queue);
+			http_client_peer_unlink_queue(pending_peer, queue);
 		}
 
 		array_clear(&queue->pending_peers);

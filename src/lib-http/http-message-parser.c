@@ -434,12 +434,12 @@ static int http_message_parse_eoh(struct http_message_parser *parser)
 	/* handle HTTP/1.0 persistence */
 	if (msg->version_major == 1 && msg->version_minor == 0 &&
 	    !msg->connection_close) {
-		const char *const *option;
+		const char *option;
 
 		msg->connection_close = TRUE;
 		if (array_is_created(&msg->connection_options)) {
-			array_foreach(&msg->connection_options, option) {
-				if (strcasecmp(*option, "Keep-Alive") == 0) {
+			array_foreach_elem(&msg->connection_options, option) {
+				if (strcasecmp(option, "Keep-Alive") == 0) {
 					msg->connection_close = FALSE;
 					break;
 				}

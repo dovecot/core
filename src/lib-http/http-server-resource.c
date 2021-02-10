@@ -163,7 +163,7 @@ http_server_resource_create(struct http_server *server, pool_t pool,
 void http_server_resource_free(struct http_server_resource **_res)
 {
 	struct http_server_resource *res = *_res;
-	struct http_server_location *const *locp;
+	struct http_server_location *loc;
 
 	if (res == NULL)
 		return;
@@ -177,8 +177,8 @@ void http_server_resource_free(struct http_server_resource **_res)
 		res->destroy_callback = NULL;
 	}
 
-	array_foreach(&res->locations, locp)
-		http_server_location_remove(res->server, *locp);
+	array_foreach_elem(&res->locations, loc)
+		http_server_location_remove(res->server, loc);
 
 	event_unref(&res->event);
 	pool_unref(&res->pool);
