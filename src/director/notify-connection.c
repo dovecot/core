@@ -49,15 +49,15 @@ static void notify_update_user(struct director *dir, struct mail_tag *tag,
 
 static void notify_connection_input(struct notify_connection *conn)
 {
-	struct mail_tag *const *tagp;
+	struct mail_tag *tag;
 	const char *line;
 	unsigned int hash;
 
 	while ((line = i_stream_read_next_line(conn->input)) != NULL) {
 		if (!director_get_username_hash(conn->dir, line, &hash))
 			continue;
-		array_foreach(mail_hosts_get_tags(conn->dir->mail_hosts), tagp)
-			notify_update_user(conn->dir, *tagp, line, hash);
+		array_foreach_elem(mail_hosts_get_tags(conn->dir->mail_hosts), tag)
+			notify_update_user(conn->dir, tag, line, hash);
 	}
 	if (conn->input->eof) {
 		if (conn->fifo)

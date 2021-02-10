@@ -42,11 +42,11 @@ static ARRAY(enum director_socket_type) listener_socket_types;
 
 static unsigned int director_total_users_count(void)
 {
-	struct mail_tag *const *tagp;
+	struct mail_tag *tag;
 	unsigned int count = 0;
 
-	array_foreach(mail_hosts_get_tags(director->mail_hosts), tagp)
-		count += user_directory_count((*tagp)->users);
+	array_foreach_elem(mail_hosts_get_tags(director->mail_hosts), tag)
+		count += user_directory_count(tag->users);
 	return count;
 }
 
@@ -232,7 +232,7 @@ static void client_connected(struct master_service_connection *conn)
 
 static void director_state_changed(struct director *dir)
 {
-	struct director_request *const *requestp;
+	struct director_request *request;
 	ARRAY(struct director_request *) new_requests;
 	bool ret;
 
@@ -241,12 +241,12 @@ static void director_state_changed(struct director *dir)
 
 	/* if there are any pending client requests, finish them now */
 	t_array_init(&new_requests, 8);
-	array_foreach(&dir->pending_requests, requestp) {
-		ret = director_request_continue(*requestp);
+	array_foreach_elem(&dir->pending_requests, request) {
+		ret = director_request_continue(request);
 		if (!ret) {
 			/* a) request for a user being killed
 			   b) user is weak */
-			array_push_back(&new_requests, requestp);
+			array_push_back(&new_requests, &request);
 		}
 	}
 	array_clear(&dir->pending_requests);

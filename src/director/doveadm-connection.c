@@ -100,16 +100,16 @@ static enum doveadm_director_cmd_ret
 doveadm_cmd_host_list(struct doveadm_connection *conn,
 		      const char *const *args ATTR_UNUSED)
 {
-	struct mail_host *const *hostp;
+	struct mail_host *host;
 	string_t *str = t_str_new(1024);
 
-	array_foreach(mail_hosts_get(conn->dir->mail_hosts), hostp) {
+	array_foreach_elem(mail_hosts_get(conn->dir->mail_hosts), host) {
 		str_printfa(str, "%s\t%u\t%u\t",
-			    (*hostp)->ip_str, (*hostp)->vhost_count,
-			    (*hostp)->user_count);
-		str_append_tabescaped(str, mail_host_get_tag(*hostp));
-		str_printfa(str, "\t%c\t%ld", (*hostp)->down ? 'D' : 'U',
-			    (long)(*hostp)->last_updown_change);
+			    host->ip_str, host->vhost_count,
+			    host->user_count);
+		str_append_tabescaped(str, mail_host_get_tag(host));
+		str_printfa(str, "\t%c\t%ld", host->down ? 'D' : 'U',
+			    (long)host->last_updown_change);
 		str_append_c(str, '\n');
 	}
 	str_append_c(str, '\n');
@@ -255,9 +255,9 @@ doveadm_cmd_director_list(struct doveadm_connection *conn,
 			  const char *const *args ATTR_UNUSED)
 {
 	struct director *dir = conn->dir;
-	struct director_host *const *hostp;
+	struct director_host *host;
 	string_t *str = t_str_new(1024);
-	struct director_connection *const *connp;
+	struct director_connection *dir_conn;
 	ARRAY(struct director_host *) hosts;
 
 	t_array_init(&hosts, array_count(&dir->dir_hosts));
@@ -265,23 +265,22 @@ doveadm_cmd_director_list(struct doveadm_connection *conn,
 	array_sort(&hosts, director_host_cmp_p);
 
 	/* first show incoming connections that have no known host yet */
-	array_foreach(&dir->connections, connp) {
-		if (director_connection_get_host(*connp) == NULL)
-			doveadm_director_connection_append(dir, *connp, NULL, str);
+	array_foreach_elem(&dir->connections, dir_conn) {
+		if (director_connection_get_host(dir_conn) == NULL)
+			doveadm_director_connection_append(dir, dir_conn, NULL, str);
 	}
 
 	/* show other connections and host without connections sorted by host */
-	array_foreach(&hosts, hostp) {
-		const struct director_host *host = *hostp;
+	array_foreach_elem(&hosts, host) {
 		bool have_connections = FALSE;
 
-		array_foreach(&dir->connections, connp) {
+		array_foreach_elem(&dir->connections, dir_conn) {
 			const struct director_host *conn_host =
-				director_connection_get_host(*connp);
+				director_connection_get_host(dir_conn);
 			if (conn_host != host)
 				continue;
 			have_connections = TRUE;
-			doveadm_director_connection_append(dir, *connp, host, str);
+			doveadm_director_connection_append(dir, dir_conn, host, str);
 		}
 		if (!have_connections)
 			doveadm_director_host_append(dir, host, str);
@@ -480,13 +479,13 @@ doveadm_cmd_host_remove(struct doveadm_connection *conn,
 static void
 doveadm_cmd_host_flush_all(struct doveadm_connection *conn)
 {
-	struct mail_host *const *hostp;
+	struct mail_host *host;
 	unsigned int total_user_count = 0;
 
-	array_foreach(mail_hosts_get(conn->dir->mail_hosts), hostp) {
-		total_user_count += (*hostp)->user_count;
+	array_foreach_elem(mail_hosts_get(conn->dir->mail_hosts), host) {
+		total_user_count += host->user_count;
 		director_flush_host(conn->dir, conn->dir->self_host,
-				    NULL, *hostp);
+				    NULL, host);
 	}
 	e_warning(conn->dir->event,
 		  "Flushed all backend hosts with %u users. This is an unsafe "

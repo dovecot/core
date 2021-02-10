@@ -108,12 +108,11 @@ struct director_host *
 director_host_lookup(struct director *dir, const struct ip_addr *ip,
 		     in_port_t port)
 {
-	struct director_host *const *hostp;
+	struct director_host *host;
 
-	array_foreach(&dir->dir_hosts, hostp) {
-		if (net_ip_compare(&(*hostp)->ip, ip) &&
-		    (*hostp)->port == port)
-			return *hostp;
+	array_foreach_elem(&dir->dir_hosts, host) {
+		if (net_ip_compare(&host->ip, ip) && host->port == port)
+			return host;
 	}
 	return NULL;
 }
@@ -121,11 +120,11 @@ director_host_lookup(struct director *dir, const struct ip_addr *ip,
 struct director_host *
 director_host_lookup_ip(struct director *dir, const struct ip_addr *ip)
 {
-	struct director_host *const *hostp;
+	struct director_host *host;
 
-	array_foreach(&dir->dir_hosts, hostp) {
-		if (net_ip_compare(&(*hostp)->ip, ip))
-			return *hostp;
+	array_foreach_elem(&dir->dir_hosts, host) {
+		if (net_ip_compare(&host->ip, ip))
+			return host;
 	}
 	return NULL;
 }

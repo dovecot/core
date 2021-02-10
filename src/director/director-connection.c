@@ -367,11 +367,9 @@ static bool director_connection_assign_left(struct director_connection *conn)
 
 static void director_assign_left(struct director *dir)
 {
-	struct director_connection *conn, *const *connp;
+	struct director_connection *conn;
 
-	array_foreach(&dir->connections, connp) {
-		conn = *connp;
-
+	array_foreach_elem(&dir->connections, conn) {
 		if (conn->in && conn->handshake_received &&
 		    conn->to_disconnect == NULL && conn != dir->left) {
 			/* either use this or disconnect it */
@@ -388,10 +386,10 @@ static void director_assign_left(struct director *dir)
 
 static bool director_has_outgoing_connections(struct director *dir)
 {
-	struct director_connection *const *connp;
+	struct director_connection *conn;
 
-	array_foreach(&dir->connections, connp) {
-		if (!(*connp)->in && (*connp)->to_disconnect == NULL)
+	array_foreach_elem(&dir->connections, conn) {
+		if (!conn->in && conn->to_disconnect == NULL)
 			return TRUE;
 	}
 	return FALSE;
@@ -399,20 +397,20 @@ static bool director_has_outgoing_connections(struct director *dir)
 
 static void director_send_delayed_syncs(struct director *dir)
 {
-	struct director_host *const *hostp;
+	struct director_host *host;
 
 	i_assert(dir->right != NULL);
 
 	e_debug(dir->right->event, "Sending delayed SYNCs");
-	array_foreach(&dir->dir_hosts, hostp) {
-		if ((*hostp)->delayed_sync_seq == 0)
+	array_foreach_elem(&dir->dir_hosts, host) {
+		if (host->delayed_sync_seq == 0)
 			continue;
 
-		director_sync_send(dir, *hostp, (*hostp)->delayed_sync_seq,
-				   (*hostp)->delayed_sync_minor_version,
-				   (*hostp)->delayed_sync_timestamp,
-				   (*hostp)->delayed_sync_hosts_hash);
-		(*hostp)->delayed_sync_seq = 0;
+		director_sync_send(dir, host, host->delayed_sync_seq,
+				   host->delayed_sync_minor_version,
+				   host->delayed_sync_timestamp,
+				   host->delayed_sync_hosts_hash);
+		host->delayed_sync_seq = 0;
 	}
 }
 
@@ -1840,11 +1838,9 @@ static bool director_cmd_connect(struct director_connection *conn,
 
 static void director_disconnect_wrong_lefts(struct director *dir)
 {
-	struct director_connection *const *connp, *conn;
+	struct director_connection *conn;
 
-	array_foreach(&dir->connections, connp) {
-		conn = *connp;
-
+	array_foreach_elem(&dir->connections, conn) {
 		if (conn->in && conn != dir->left && conn->me_received &&
 		    conn->to_disconnect == NULL &&
 		    director_host_cmp_to_self(dir->left->host, conn->host,
@@ -2136,16 +2132,16 @@ static void director_connection_input(struct director_connection *conn)
 
 static void director_connection_send_directors(struct director_connection *conn)
 {
-	struct director_host *const *hostp;
+	struct director_host *host;
 	string_t *str = t_str_new(64);
 
-	array_foreach(&conn->dir->dir_hosts, hostp) {
-		if ((*hostp)->removed)
+	array_foreach_elem(&conn->dir->dir_hosts, host) {
+		if (host->removed)
 			continue;
 
 		str_truncate(str, 0);
 		str_printfa(str, "DIRECTOR\t%s\t%u\n",
-			    (*hostp)->ip_str, (*hostp)->port);
+			    host->ip_str, host->port);
 		director_connection_send(conn, str_c(str));
 	}
 }
@@ -2153,7 +2149,7 @@ static void director_connection_send_directors(struct director_connection *conn)
 static void
 director_connection_send_hosts(struct director_connection *conn)
 {
-	struct mail_host *const *hostp;
+	struct mail_host *host;
 	bool send_updowns;
 	string_t *str = t_str_new(128);
 
@@ -2163,8 +2159,7 @@ director_connection_send_hosts(struct director_connection *conn)
 
 	str_printfa(str, "HOST-HAND-START\t%u\n",
 		    conn->dir->ring_handshaked ? 1 : 0);
-	array_foreach(mail_hosts_get(conn->dir->mail_hosts), hostp) {
-		struct mail_host *host = *hostp;
+	array_foreach_elem(mail_hosts_get(conn->dir->mail_hosts), host) {
 		const char *host_tag = mail_host_get_tag(host);
 
 		str_printfa(str, "HOST\t%s\t%u",
