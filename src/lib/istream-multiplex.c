@@ -35,34 +35,34 @@ static ssize_t i_stream_multiplex_ichannel_read(struct istream_private *stream);
 static struct multiplex_ichannel *
 get_channel(struct multiplex_istream *mstream, uint8_t cid)
 {
-	struct multiplex_ichannel **channelp;
+	struct multiplex_ichannel *channel;
 	i_assert(mstream != NULL);
-	array_foreach_modifiable(&mstream->channels, channelp) {
-		if (*channelp != NULL && (*channelp)->cid == cid)
-			return *channelp;
+	array_foreach_elem(&mstream->channels, channel) {
+		if (channel != NULL && channel->cid == cid)
+			return channel;
 	}
 	return NULL;
 }
 
 static void propagate_error(struct multiplex_istream *mstream, int stream_errno)
 {
-	struct multiplex_ichannel **channelp;
-	array_foreach_modifiable(&mstream->channels, channelp)
-		if (*channelp != NULL)
-			(*channelp)->istream.istream.stream_errno = stream_errno;
+	struct multiplex_ichannel *channel;
+	array_foreach_elem(&mstream->channels, channel)
+		if (channel != NULL)
+			channel->istream.istream.stream_errno = stream_errno;
 }
 
 static void propagate_eof(struct multiplex_istream *mstream)
 {
-	struct multiplex_ichannel **channelp;
-	array_foreach_modifiable(&mstream->channels, channelp) {
-		if (*channelp == NULL)
+	struct multiplex_ichannel *channel;
+	array_foreach_elem(&mstream->channels, channel) {
+		if (channel == NULL)
 			continue;
 
-		(*channelp)->istream.istream.eof = TRUE;
+		channel->istream.istream.eof = TRUE;
 		if (mstream->remain > 0) {
-			(*channelp)->istream.istream.stream_errno = EPIPE;
-			io_stream_set_error(&(*channelp)->istream.iostream,
+			channel->istream.istream.stream_errno = EPIPE;
+			io_stream_set_error(&channel->istream.iostream,
 				"Unexpected EOF - %u bytes remaining in packet",
 				mstream->remain);
 		}
@@ -202,14 +202,14 @@ i_stream_multiplex_ichannel_switch_ioloop_to(struct istream_private *stream,
 static void
 i_stream_multiplex_ichannel_close(struct iostream_private *stream, bool close_parent)
 {
-	struct multiplex_ichannel *const *channelp;
+	struct multiplex_ichannel *arr_channel;
 	struct multiplex_ichannel *channel =
 		container_of(stream, struct multiplex_ichannel,
 			     istream.iostream);
 	channel->closed = TRUE;
 	if (close_parent) {
-		array_foreach(&channel->mstream->channels, channelp)
-			if (*channelp != NULL && !(*channelp)->closed)
+		array_foreach_elem(&channel->mstream->channels, arr_channel)
+			if (arr_channel != NULL && !arr_channel->closed)
 				return;
 		i_stream_close(channel->mstream->parent);
 	}
@@ -217,10 +217,10 @@ i_stream_multiplex_ichannel_close(struct iostream_private *stream, bool close_pa
 
 static void i_stream_multiplex_try_destroy(struct multiplex_istream *mstream)
 {
-	struct multiplex_ichannel **channelp;
+	struct multiplex_ichannel *channel;
 	/* can't do anything until they are all closed */
-	array_foreach_modifiable(&mstream->channels, channelp)
-		if (*channelp != NULL)
+	array_foreach_elem(&mstream->channels, channel)
+		if (channel != NULL)
 			return;
 	i_stream_unref(&mstream->parent);
 	array_free(&mstream->channels);

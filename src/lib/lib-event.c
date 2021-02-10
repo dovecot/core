@@ -111,13 +111,13 @@ static bool
 event_call_callbacks(struct event *event, enum event_callback_type type,
 		     struct failure_context *ctx, const char *fmt, va_list args)
 {
-	event_callback_t *const *callbackp;
+	event_callback_t *callback;
 
-	array_foreach(&event_handlers, callbackp) {
+	array_foreach_elem(&event_handlers, callback) {
 		bool ret;
 
 		T_BEGIN {
-			ret = (*callbackp)(event, type, ctx, fmt, args);
+			ret = callback(event, type, ctx, fmt, args);
 		} T_END;
 		if (!ret) {
 			/* event sending was stopped */
@@ -646,11 +646,11 @@ void *event_get_ptr(const struct event *event, const char *key)
 
 struct event_category *event_category_find_registered(const char *name)
 {
-	struct event_category *const *catp;
+	struct event_category *cat;
 
-	array_foreach(&event_registered_categories_representative, catp) {
-		if (strcmp((*catp)->name, name) == 0)
-			return *catp;
+	array_foreach_elem(&event_registered_categories_representative, cat) {
+		if (strcmp(cat->name, name) == 0)
+			return cat;
 	}
 	return NULL;
 }
@@ -658,11 +658,11 @@ struct event_category *event_category_find_registered(const char *name)
 static struct event_internal_category *
 event_category_find_internal(const char *name)
 {
-	struct event_internal_category *const *internal;
+	struct event_internal_category *internal;
 
-	array_foreach(&event_registered_categories_internal, internal) {
-		if (strcmp((*internal)->name, name) == 0)
-			return *internal;
+	array_foreach_elem(&event_registered_categories_internal, internal) {
+		if (strcmp(internal->name, name) == 0)
+			return internal;
 	}
 
 	return NULL;
@@ -688,7 +688,7 @@ static struct event_category *
 event_category_register(struct event_category *category)
 {
 	struct event_internal_category *internal = category->internal;
-	event_category_callback_t *const *callbackp;
+	event_category_callback_t *callback;
 	bool allocated;
 
 	if (internal != NULL)
@@ -750,8 +750,8 @@ event_category_register(struct event_category *category)
 		return &internal->representative;
 	}
 
-	array_foreach(&event_category_callbacks, callbackp) T_BEGIN {
-		(*callbackp)(&internal->representative);
+	array_foreach_elem(&event_category_callbacks, callback) T_BEGIN {
+		callback(&internal->representative);
 	} T_END;
 
 	return &internal->representative;
@@ -762,13 +762,13 @@ event_find_category(const struct event *event,
 		    const struct event_category *category)
 {
 	struct event_internal_category *internal = category->internal;
-	struct event_category *const *categoryp;
+	struct event_category *cat;
 
 	/* make sure we're always looking for a representative */
 	i_assert(category == &internal->representative);
 
-	array_foreach(&event->categories, categoryp) {
-		if (*categoryp == category)
+	array_foreach_elem(&event->categories, cat) {
+		if (cat == category)
 			return TRUE;
 	}
 	return FALSE;
@@ -1091,11 +1091,11 @@ void event_export(const struct event *event, string_t *dest)
 	}
 
 	if (array_is_created(&event->categories)) {
-		struct event_category *const *catp;
-		array_foreach(&event->categories, catp) {
+		struct event_category *cat;
+		array_foreach_elem(&event->categories, cat) {
 			str_append_c(dest, '\t');
 			str_append_c(dest, EVENT_CODE_CATEGORY);
-			str_append_tabescaped(dest, (*catp)->name);
+			str_append_tabescaped(dest, cat->name);
 		}
 	}
 
@@ -1439,7 +1439,7 @@ void lib_event_init(void)
 
 void lib_event_deinit(void)
 {
-	struct event_internal_category **internal;
+	struct event_internal_category *internal;
 
 	event_unset_global_debug_log_filter();
 	event_unset_global_debug_send_filter();
@@ -1450,11 +1450,9 @@ void lib_event_deinit(void)
 			  event->source_filename, event->source_linenum);
 	}
 	/* categories cannot be unregistered, so just free them here */
-	array_foreach_modifiable(&event_registered_categories_internal, internal) {
-		struct event_internal_category *cur = *internal;
-
-		i_free(cur->name);
-		i_free(cur);
+	array_foreach_elem(&event_registered_categories_internal, internal) {
+		i_free(internal->name);
+		i_free(internal);
 	}
 	array_free(&event_handlers);
 	array_free(&event_category_callbacks);

@@ -521,11 +521,11 @@ static bool
 event_has_category_nonrecursive(struct event *event,
 				struct event_category *wanted_category)
 {
-	struct event_category *const *catp;
+	struct event_category *cat;
 
 	if (array_is_created(&event->categories)) {
-		array_foreach(&event->categories, catp) {
-			if (event_category_match(*catp, wanted_category))
+		array_foreach_elem(&event->categories, cat) {
+			if (event_category_match(cat, wanted_category))
 				return TRUE;
 		}
 	}

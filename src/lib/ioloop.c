@@ -562,15 +562,14 @@ io_loop_default_time_moved(const struct timeval *old_time,
 
 static void io_loop_timeouts_start_new(struct ioloop *ioloop)
 {
-	struct timeout *const *to_idx;
+	struct timeout *timeout;
 
 	if (array_count(&ioloop->timeouts_new) == 0)
 		return;
 	
 	io_loop_time_refresh();
 
-	array_foreach(&ioloop->timeouts_new, to_idx) {
-		struct timeout *timeout= *to_idx;
+	array_foreach_elem(&ioloop->timeouts_new, timeout) {
 		i_assert(timeout->next_run.tv_sec == 0 &&
 			timeout->next_run.tv_usec == 0);
 		i_assert(!timeout->one_shot);
@@ -833,7 +832,7 @@ struct ioloop *io_loop_create(void)
 void io_loop_destroy(struct ioloop **_ioloop)
 {
 	struct ioloop *ioloop = *_ioloop;
-	struct timeout *const *to_idx;
+	struct timeout *to;
 	struct priorityq_item *item;
 	bool leaks = FALSE;
 
@@ -842,9 +841,9 @@ void io_loop_destroy(struct ioloop **_ioloop)
 	/* ->prev won't work unless loops are destroyed in create order */
         i_assert(ioloop == current_ioloop);
 	if (array_is_created(&io_destroy_callbacks)) {
-		io_destroy_callback_t *const *callbackp;
-		array_foreach(&io_destroy_callbacks, callbackp)
-			(*callbackp)(current_ioloop);
+		io_destroy_callback_t *callback;
+		array_foreach_elem(&io_destroy_callbacks, callback)
+			callback(current_ioloop);
 	}
 
 	io_loop_set_current(current_ioloop->prev);
@@ -870,8 +869,7 @@ void io_loop_destroy(struct ioloop **_ioloop)
 	}
 	i_assert(ioloop->io_pending_count == 0);
 
-	array_foreach(&ioloop->timeouts_new, to_idx) {
-		struct timeout *to = *to_idx;
+	array_foreach_elem(&ioloop->timeouts_new, to) {
 		const char *error = t_strdup_printf(
 			"Timeout leak: %p (%s:%u)", (void *)to->callback,
 			to->source_filename,
@@ -948,7 +946,7 @@ static void io_destroy_callbacks_free(void)
 
 void io_loop_set_current(struct ioloop *ioloop)
 {
-	io_switch_callback_t *const *callbackp;
+	io_switch_callback_t *callback;
 	struct ioloop *prev_ioloop = current_ioloop;
 
 	if (ioloop == current_ioloop)
@@ -956,8 +954,8 @@ void io_loop_set_current(struct ioloop *ioloop)
 
 	current_ioloop = ioloop;
 	if (array_is_created(&io_switch_callbacks)) {
-		array_foreach(&io_switch_callbacks, callbackp)
-			(*callbackp)(prev_ioloop);
+		array_foreach_elem(&io_switch_callbacks, callback)
+			callback(prev_ioloop);
 	}
 }
 

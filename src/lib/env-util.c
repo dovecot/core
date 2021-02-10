@@ -76,7 +76,7 @@ void env_clean(void)
 static void env_clean_except_real(const char *const preserve_envs[])
 {
 	ARRAY_TYPE(const_string) copy;
-	const char *value, *const *envp;
+	const char *value, *env;
 	unsigned int i;
 
 	t_array_init(&copy, 16);
@@ -95,8 +95,8 @@ static void env_clean_except_real(const char *const preserve_envs[])
 	   we t_strconcat() them above. */
 	env_clean();
 
-	array_foreach(&copy, envp)
-		env_put(*envp);
+	array_foreach_elem(&copy, env)
+		env_put(env);
 }
 
 void env_clean_except(const char *const preserve_envs[])
