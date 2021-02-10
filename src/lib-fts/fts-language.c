@@ -88,11 +88,11 @@ void fts_language_register(const char *name)
 
 const struct fts_language *fts_language_find(const char *name)
 {
-	const struct fts_language *const *langp = NULL;
+	const struct fts_language *lang;
 
-	array_foreach(&fts_languages, langp) {
-		if (strcmp((*langp)->name, name) == 0)
-			return *langp;
+	array_foreach_elem(&fts_languages, lang) {
+		if (strcmp(lang->name, name) == 0)
+			return lang;
 	}
 	return NULL;
 }
@@ -150,11 +150,11 @@ void fts_language_list_deinit(struct fts_language_list **list)
 static const struct fts_language *
 fts_language_list_find(struct fts_language_list *list, const char *name)
 {
-	const struct fts_language *const *langp;
+	const struct fts_language *lang;
 
-	array_foreach(&list->languages, langp) {
-		if (strcmp((*langp)->name, name) == 0)
-			return *langp;
+	array_foreach_elem(&list->languages, lang) {
+		if (strcmp(lang->name, name) == 0)
+			return lang;
 	}
 	return NULL;
 }
