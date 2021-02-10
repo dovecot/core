@@ -66,7 +66,13 @@
 #  define ARRAY_TYPES_CHECK(array1, array2) 0
 #endif
 
-/* usage: struct foo *foo; array_foreach(foo_arr, foo) { .. } */
+/* Usage:
+   ARRAY(struct foo) foo_arr;
+   struct foo *foo;
+
+   array_foreach(&foo_arr, foo) {
+     ..
+   } */
 #define array_foreach(array, elem) \
 	for (const void *elem ## __foreach_end = \
 		(const char *)(elem = *(array)->v) + (array)->arr.buffer->used; \
@@ -77,11 +83,13 @@
 			buffer_get_modifiable_data((array)->arr.buffer, NULL)) + \
 			(array)->arr.buffer->used; \
 	     elem != elem ## _end; (elem)++)
-/* Bikeshed: which is better
-   array_foreach_elem(array, myvar) { ... use myvar ... }  // not clear myvar is modified
-   array_foreach_elem(array, &myvar) { ... use myvar ... } // clearer, as more pass-by-referencey
-   Latter is impossible if we want to use the variable name as the base for the other variable names
-*/
+/* Usage:
+   ARRAY(struct foo *) foo_ptrs_arr;
+   struct foo *foo;
+
+   array_foreach_elem(&foo_ptrs_arr, foo) {
+     ..
+   } */
 #define array_foreach_elem(array, elem) \
 	for (const void *_foreach_end = \
 		CONST_PTR_OFFSET(*(array)->v, (array)->arr.buffer->used), \
@@ -96,6 +104,9 @@
 
 #define array_ptr_to_idx(array, elem) \
 	((elem) - (array)->v[0])
+/* Return index of iterated element inside array_foreach() or
+   array_foreach_modifiable() loop. Note that this doesn't work inside
+   array_foreach_elem() loop. */
 #define array_foreach_idx(array, elem) \
 	array_ptr_to_idx(array, elem)
 
