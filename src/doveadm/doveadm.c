@@ -297,16 +297,14 @@ int main(int argc, char *argv[])
 	}
 	cmd_name = argv[optind];
 
-	doveadm_settings_init();
 	if (cmd_name != NULL && strcmp(cmd_name, "help") == 0 &&
 	    argv[optind+1] != NULL) {
 		/* "help cmd" doesn't need any configuration */
 		quick_init = TRUE;
-	} else {
-		doveadm_read_settings();
 	}
 	master_service_init_log(master_service);
 
+	doveadm_settings_init();
 	doveadm_cmds_init();
 	for (i = 0; i < N_ELEMENTS(doveadm_cmdline_commands); i++)
 		doveadm_register_cmd(doveadm_cmdline_commands[i]);
@@ -320,18 +318,29 @@ int main(int argc, char *argv[])
 		/* special case commands: even if there is something wrong
 		   with the config (e.g. mail_plugins), don't fail these
 		   commands */
+		if (strcmp(cmd_name, "help") != 0)
+			doveadm_read_settings();
 		quick_init = TRUE;
 	} else {
 		quick_init = FALSE;
-		if (doveadm_debug && getenv("LOG_STDERR_TIMESTAMP") == NULL)
-			i_set_failure_timestamp_format(master_service->set->log_timestamp);
-		master_service_init_stats_client(master_service, TRUE);
 		doveadm_print_ostream = o_stream_create_fd(STDOUT_FILENO, 0);
 		o_stream_set_no_error_handling(doveadm_print_ostream, TRUE);
 		o_stream_cork(doveadm_print_ostream);
 		doveadm_dump_init();
 		doveadm_mail_init();
 		dict_drivers_register_builtin();
+		doveadm_load_modules();
+
+		/* read settings only after loading doveadm plugins, which
+		   may modify what settings are read */
+		doveadm_read_settings();
+		if (doveadm_debug && getenv("LOG_STDERR_TIMESTAMP") == NULL)
+			i_set_failure_timestamp_format(master_service->set->log_timestamp);
+		master_service_init_stats_client(master_service, TRUE);
+		/* Load mail_plugins */
+		doveadm_mail_init_finish();
+		/* kludgy: Load the rest of the doveadm plugins after
+		   mail_plugins have been loaded. */
 		doveadm_load_modules();
 
 		if (cmd_name == NULL) {

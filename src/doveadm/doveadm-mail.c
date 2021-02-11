@@ -958,7 +958,6 @@ static struct doveadm_cmd_ver2 *mail_commands_ver2[] = {
 
 void doveadm_mail_init(void)
 {
-	struct module_dir_load_settings mod_set;
 	unsigned int i;
 
 	i_array_init(&doveadm_mail_cmds, 32);
@@ -967,6 +966,11 @@ void doveadm_mail_init(void)
 
 	for (i = 0; i < N_ELEMENTS(mail_commands_ver2); i++)
 		doveadm_cmd_register_ver2(mail_commands_ver2[i]);
+}
+
+void doveadm_mail_init_finish(void)
+{
+	struct module_dir_load_settings mod_set;
 
 	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;

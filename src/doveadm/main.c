@@ -72,11 +72,18 @@ static void main_init(void)
 	doveadm_cmds_init();
 	doveadm_register_auth_server_commands();
 	doveadm_dump_init();
+	doveadm_mail_init();
 	dict_drivers_register_builtin();
 	doveadm_load_modules();
-
+	/* read settings only after loading doveadm plugins, which
+	   may modify what settings are read */
 	doveadm_read_settings();
-	doveadm_mail_init();
+	/* Load mail_plugins */
+	doveadm_mail_init_finish();
+	/* kludgy: Load the rest of the doveadm plugins after
+	   mail_plugins have been loaded. */
+	doveadm_load_modules();
+
 	doveadm_server_init();
 	if (doveadm_verbose_proctitle)
 		process_title_set("[idling]");

@@ -126,6 +126,7 @@ void doveadm_mail_try_help_name(const char *cmd_name);
 bool doveadm_mail_has_subcommands(const char *cmd_name);
 
 void doveadm_mail_init(void);
+void doveadm_mail_init_finish(void);
 void doveadm_mail_deinit(void);
 
 const struct doveadm_mail_cmd *
