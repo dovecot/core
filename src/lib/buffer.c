@@ -294,9 +294,13 @@ void buffer_write_zero(buffer_t *_buf, size_t pos, size_t data_size)
 	memset(buf->w_buffer + pos, 0, data_size);
 }
 
-void buffer_append_zero(buffer_t *buf, size_t data_size)
+void buffer_append_zero(buffer_t *_buf, size_t data_size)
 {
-	buffer_write_zero(buf, buf->used, data_size);
+	struct real_buffer *buf = container_of(_buf, struct real_buffer, buf);
+
+	/* NOTE: When appending it's enough to check that the limits are
+	   valid, because the data is already guaranteed to be zero-filled. */
+	buffer_check_limits(buf, buf->used, data_size);
 }
 
 void buffer_insert_zero(buffer_t *_buf, size_t pos, size_t data_size)
