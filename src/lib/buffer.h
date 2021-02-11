@@ -7,7 +7,7 @@ struct buffer {
 			const void *data;
 			const size_t used;
 		};
-		void *priv[8];
+		void *priv[9];
 	};
 };
 

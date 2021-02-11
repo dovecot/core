@@ -14,7 +14,7 @@ struct real_buffer {
 			size_t used;
 			/* private: */
 			unsigned char *w_buffer;
-			size_t dirty, alloc, max_size;
+			size_t dirty, alloc, writable_size, max_size;
 
 			pool_t pool;
 
@@ -39,6 +39,7 @@ static void buffer_alloc(struct real_buffer *buf, size_t size)
 	else
 		buf->w_buffer = p_realloc(buf->pool, buf->w_buffer, buf->alloc, size);
 	buf->alloc = size;
+	buf->writable_size = size-1; /* -1 for str_c() NUL */
 
 	buf->r_buffer = buf->w_buffer;
 	buf->alloced = TRUE;
@@ -47,7 +48,6 @@ static void buffer_alloc(struct real_buffer *buf, size_t size)
 static inline void
 buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 {
-	unsigned int extra;
 	size_t new_size;
 
 	if (unlikely(buf->max_size - pos < data_size))
@@ -62,12 +62,11 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 		memset(buf->w_buffer + buf->used, 0, max - buf->used);
 	}
 
-	/* always keep +1 byte allocated available in case str_c() is called
-	   for this buffer. this is mainly for cases where the buffer is
-	   allocated from data stack, and str_c() is called in a separate stack
-	   frame. */
-	extra = buf->dynamic ? 1 : 0;
-	if (new_size + extra > buf->alloc) {
+	/* Use buf->writable_size instead of buf->alloc to always keep +1 byte
+	   available in case str_c() is called for this buffer. This is mainly
+	   for cases where the buffer is allocated from data stack, and str_c()
+	   is called in a separate stack frame. */
+	if (new_size > buf->writable_size) {
 		if (unlikely(!buf->dynamic)) {
 			i_panic("Buffer full (%zu > %zu, pool %s)",
 				pos + data_size, buf->alloc,
@@ -76,7 +75,7 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 		}
 
 		buffer_alloc(buf, pool_get_exp_grown_size(buf->pool, buf->alloc,
-							  new_size + extra));
+							  new_size + 1));
 	}
 #if 0
 	else if (new_size > buf->used && buf->alloced &&
@@ -110,7 +109,7 @@ void buffer_create_from_data(buffer_t *buffer, void *data, size_t size)
 
 	buf = container_of(buffer, struct real_buffer, buf);
 	i_zero(buf);
-	buf->alloc = buf->max_size = size;
+	buf->alloc = buf->writable_size = buf->max_size = size;
 	buf->r_buffer = buf->w_buffer = data;
 	/* clear the whole memory area. unnecessary usually, but if the
 	   buffer is used by e.g. str_c() it tries to access uninitialized
@@ -129,7 +128,7 @@ void buffer_create_from_const_data(buffer_t *buffer,
 	buf = container_of(buffer, struct real_buffer, buf);
 	i_zero(buf);
 
-	buf->used = buf->alloc = buf->max_size = size;
+	buf->used = buf->alloc = buf->writable_size = buf->max_size = size;
 	buf->r_buffer = data;
 	i_assert(buf->w_buffer == NULL);
 }
@@ -393,14 +392,11 @@ size_t buffer_get_writable_size(const buffer_t *_buf)
 	const struct real_buffer *buf =
 		container_of(_buf, const struct real_buffer, buf);
 
-	if (!buf->dynamic || buf->alloc == 0)
-		return buf->alloc;
-
-	/* we reserve +1 for str_c() NUL in buffer_check_limits(), so don't
-	   include that in our return value. otherwise the caller might
+	/* Use buf->writable_size instead of buf->alloc to reserve +1 for
+	   str_c() NUL in buffer_check_limits(). Otherwise the caller might
 	   increase the buffer's alloc size unnecessarily when it just wants
 	   to access the entire buffer. */
-	return buf->alloc-1;
+	return buf->writable_size;
 }
 
 size_t buffer_get_avail_size(const buffer_t *_buf)
