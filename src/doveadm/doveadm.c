@@ -121,7 +121,7 @@ usage_to(FILE *out, const char *prefix)
 	const struct doveadm_cmd *cmd;
 	string_t *str = t_str_new(1024);
 
-	fprintf(out, "usage: doveadm [-Dv] [-f <formatter>] ");
+	fprintf(out, "usage: doveadm [-Dsv] [-f <formatter>] ");
 	if (*prefix != '\0')
 		fprintf(out, "%s ", prefix);
 	fprintf(out, "<command> [<args>]\n");
@@ -317,7 +317,7 @@ int main(int argc, char *argv[])
 	/* "+" is GNU extension to stop at the first non-option.
 	   others just accept -+ option. */
 	master_service = master_service_init("doveadm", service_flags,
-					     &argc, &argv, "+Df:hv");
+					     &argc, &argv, "+Df:hsv");
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'D':
@@ -329,6 +329,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'h':
 			doveadm_print_hide_titles = TRUE;
+			break;
+		case 's':
+			service_flags |= MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR;
 			break;
 		case 'v':
 			doveadm_verbose = TRUE;

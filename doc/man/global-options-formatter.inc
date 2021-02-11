@@ -6,6 +6,9 @@ Global
 .B \-D
 Enables verbosity and debug messages.
 .TP
+.B \-s
+Don't log to stderr and use log destination from configuration instead.
+.TP
 .BI \-f\  formatter
 Specifies the
 .I formatter

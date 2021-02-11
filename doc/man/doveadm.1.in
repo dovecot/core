@@ -4,7 +4,7 @@
 doveadm \- Dovecot\(aqs administration utility
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
-.BR doveadm " [" \-Dv "] [" \-f
+.BR doveadm " [" \-Dsv "] [" \-f
 .IR formatter ]
 .IR command " [" command_options "] [" command_arguments ]
 .\"------------------------------------------------------------------------
