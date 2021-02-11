@@ -297,6 +297,7 @@ int main(int argc, char *argv[])
 	}
 	cmd_name = argv[optind];
 
+	doveadm_settings_init();
 	if (cmd_name != NULL && strcmp(cmd_name, "help") == 0 &&
 	    argv[optind+1] != NULL) {
 		/* "help cmd" doesn't need any configuration */

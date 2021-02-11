@@ -351,11 +351,15 @@ config_build_request(struct master_service *service, string_t *str,
 		     const struct master_service_settings_input *input)
 {
 	str_append(str, "REQ");
-	if (input->module != NULL) {
+	if (input->module != NULL)
 		str_printfa(str, "\tmodule=%s", input->module);
-		if (service->want_ssl_settings)
-			str_append(str, "\tmodule=ssl");
+	if (input->extra_modules != NULL) {
+		for (unsigned int i = 0; input->extra_modules[i] != NULL; i++)
+			str_printfa(str, "\tmodule=%s", input->extra_modules[i]);
 	}
+	if (service->want_ssl_settings &&
+	    (input->module != NULL || input->extra_modules != NULL))
+		str_append(str, "\tmodule=ssl");
 	if (input->service != NULL)
 		str_printfa(str, "\tservice=%s", input->service);
 	if (input->username != NULL)

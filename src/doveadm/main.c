@@ -68,6 +68,7 @@ static void main_init(void)
 {
 	doveadm_server = TRUE;
 
+	doveadm_settings_init();
 	doveadm_cmds_init();
 	doveadm_register_auth_server_commands();
 	doveadm_dump_init();
