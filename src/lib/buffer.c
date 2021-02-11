@@ -74,8 +74,15 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 				pool_get_name(buf->pool));
 		}
 
-		buffer_alloc(buf, pool_get_exp_grown_size(buf->pool, buf->alloc,
-							  new_size + 1));
+		size_t new_alloc_size =
+			pool_get_exp_grown_size(buf->pool, buf->alloc,
+						new_size + 1);
+		if (new_alloc_size > buf->max_size) {
+			/* limit to max_size, but do include +1 for
+			   str_c() NUL */
+			new_alloc_size = buf->max_size + 1;
+		}
+		buffer_alloc(buf, new_alloc_size);
 	}
 #if 0
 	else if (new_size > buf->used && buf->alloced &&

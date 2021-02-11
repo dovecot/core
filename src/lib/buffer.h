@@ -35,7 +35,8 @@ void buffer_create_from_const_data(buffer_t *buffer,
    current size it's grown. */
 buffer_t *buffer_create_dynamic(pool_t pool, size_t init_size);
 /* Create a dynamically growing buffer with a maximum size. Writes past the
-   maximum size will i_panic(). */
+   maximum size will i_panic(). Internally allow it to grow max_size+1 so
+   str_c() NUL can be used. */
 buffer_t *buffer_create_dynamic_max(pool_t pool, size_t init_size,
 				    size_t max_size);
 
