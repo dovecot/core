@@ -107,6 +107,18 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 	i_assert(buf->w_buffer != NULL);
 }
 
+static inline void
+buffer_check_append_limits(struct real_buffer *buf, size_t data_size)
+{
+	/* Fast path: See if data to be appended fits into allocated buffer.
+	   If it does, we don't even need to memset() the dirty buffer since
+	   it's going to be filled with the newly appended data. */
+	if (buf->writable_size - buf->used < data_size)
+		buffer_check_limits(buf, buf->used, data_size);
+	else
+		buf->used += data_size;
+}
+
 #undef buffer_create_from_data
 void buffer_create_from_data(buffer_t *buffer, void *data, size_t size)
 {
@@ -214,14 +226,24 @@ void buffer_write(buffer_t *_buf, size_t pos,
 		memcpy(buf->w_buffer + pos, data, data_size);
 }
 
-void buffer_append(buffer_t *buf, const void *data, size_t data_size)
+void buffer_append(buffer_t *_buf, const void *data, size_t data_size)
 {
-	buffer_write(buf, buf->used, data, data_size);
+	struct real_buffer *buf = container_of(_buf, struct real_buffer, buf);
+
+	if (data_size > 0) {
+		size_t pos = buf->used;
+		buffer_check_append_limits(buf, data_size);
+		memcpy(buf->w_buffer + pos, data, data_size);
+	}
 }
 
-void buffer_append_c(buffer_t *buf, unsigned char chr)
+void buffer_append_c(buffer_t *_buf, unsigned char chr)
 {
-	buffer_append(buf, &chr, 1);
+	struct real_buffer *buf = container_of(_buf, struct real_buffer, buf);
+	size_t pos = buf->used;
+
+	buffer_check_append_limits(buf, 1);
+	buf->w_buffer[pos] = chr;
 }
 
 void buffer_insert(buffer_t *_buf, size_t pos,
@@ -364,6 +386,8 @@ void *buffer_get_space_unsafe(buffer_t *_buf, size_t pos, size_t size)
 
 void *buffer_append_space_unsafe(buffer_t *buf, size_t size)
 {
+	/* NOTE: can't use buffer_check_append_limits() here because it doesn't
+	   guarantee that the buffer is zero-filled. */
 	return buffer_get_space_unsafe(buf, buf->used, size);
 }
 
