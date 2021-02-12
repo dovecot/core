@@ -216,10 +216,17 @@ master_service_exec_config(struct master_service *service,
 	if (input->module != NULL) {
 		strarr_push(&conf_argv, "-m");
 		strarr_push(&conf_argv, input->module);
-		if (service->want_ssl_settings) {
+	}
+	if (input->extra_modules != NULL) {
+		for (unsigned int i = 0; input->extra_modules[i] != NULL; i++) {
 			strarr_push(&conf_argv, "-m");
-			strarr_push(&conf_argv, "ssl");
+			strarr_push(&conf_argv, input->extra_modules[i]);
 		}
+	}
+	if (service->want_ssl_settings &&
+	    (input->module != NULL || input->extra_modules != NULL)) {
+		strarr_push(&conf_argv, "-m");
+		strarr_push(&conf_argv, "ssl");
 	}
 	if (input->parse_full_config)
 		strarr_push(&conf_argv, "-p");
