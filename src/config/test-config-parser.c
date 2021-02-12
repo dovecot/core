@@ -9,7 +9,7 @@
 #include "all-settings.h"
 #include "config-parser.h"
 
-#define TEST_CONFIG_FILE ".test_config"
+#define TEST_CONFIG_FILE ".test-config"
 
 static ARRAY_TYPE(service_settings) services = ARRAY_INIT;
 ARRAY_TYPE(service_settings) *default_services = &services;
