@@ -156,6 +156,7 @@ static void test_config_parser(void)
 
 	config_filter_deinit(&config_filter);
 	config_parser_deinit();
+	i_unlink_if_exists(TEST_CONFIG_FILE);
 	test_end();
 }
 
