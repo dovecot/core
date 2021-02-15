@@ -10,7 +10,6 @@
 #include "dict.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
-#include "master-service-ssl-settings.h"
 #include "settings-parser.h"
 #include "doveadm-print-private.h"
 #include "doveadm-dump.h"
@@ -31,10 +30,7 @@ const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {
 	NULL
 };
 
-bool doveadm_verbose_proctitle;
 int doveadm_exit_code = 0;
-
-static pool_t doveadm_settings_pool = NULL;
 
 static void failure_exit_callback(int *status)
 {
@@ -247,44 +243,6 @@ static bool doveadm_has_subcommands(const char *cmd_name)
 	return doveadm_mail_has_subcommands(cmd_name);
 }
 
-static void doveadm_read_settings(void)
-{
-	static const struct setting_parser_info *set_roots[] = {
-		&master_service_ssl_setting_parser_info,
-		&doveadm_setting_parser_info,
-		NULL
-	};
-	struct master_service_settings_input input;
-	struct master_service_settings_output output;
-	const struct doveadm_settings *set;
-	const char *error;
-
-	i_zero(&input);
-	input.roots = set_roots;
-	input.module = "doveadm";
-	input.service = "doveadm";
-	input.preserve_user = TRUE;
-	input.preserve_home = TRUE;
-	if (master_service_settings_read(master_service, &input,
-					 &output, &error) < 0)
-		i_fatal("Error reading configuration: %s", error);
-
-	doveadm_settings_pool = pool_alloconly_create("doveadm settings", 1024);
-	service_set = master_service_settings_get(master_service);
-	service_set = settings_dup(&master_service_setting_parser_info,
-				   service_set, doveadm_settings_pool);
-	doveadm_verbose_proctitle = service_set->verbose_proctitle;
-
-	set = master_service_settings_get_others(master_service)[1];
-	doveadm_settings = settings_dup(&doveadm_setting_parser_info, set,
-					doveadm_settings_pool);
-	doveadm_ssl_set = settings_dup(&master_service_ssl_setting_parser_info,
-				       master_service_ssl_settings_get(master_service),
-				       doveadm_settings_pool);
-	doveadm_settings_expand(doveadm_settings, doveadm_settings_pool);
-	doveadm_settings->parsed_features = set->parsed_features; /* copy this value by hand */
-}
-
 static struct doveadm_cmd *doveadm_cmdline_commands[] = {
 	&doveadm_cmd_help,
 	&doveadm_cmd_config,
@@ -417,7 +375,7 @@ int main(int argc, char *argv[])
 		o_stream_unref(&doveadm_print_ostream);
 	}
 	doveadm_cmds_deinit();
-	pool_unref(&doveadm_settings_pool);
+	doveadm_settings_deinit();
 	master_service_deinit(&master_service);
 	return doveadm_exit_code;
 }
