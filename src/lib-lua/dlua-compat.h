@@ -5,6 +5,10 @@
  * In general, make whatever Lua version we have behave more like Lua 5.3.
  */
 
+#if !defined(LUA_OK)
+#  define LUA_OK 0
+#endif
+
 /* functionality missing from <= 5.2 */
 #if LUA_VERSION_NUM <= 502
 #  define luaL_newmetatable(L, tn) \
