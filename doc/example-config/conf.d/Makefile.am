@@ -16,6 +16,7 @@ example_DATA = \
 	10-logging.conf \
 	10-mail.conf \
 	10-master.conf \
+	10-metrics.conf \
 	10-ssl.conf \
 	15-lda.conf \
 	15-mailboxes.conf \
