@@ -88,7 +88,7 @@ uninstall-hook:
 	rm $(DESTDIR)$(pkglibdir)/dovecot-config
 
 if HAVE_SYSTEMD
-CLEANFILES = $(systemdsystemunit_DATA)
+CLEANFILES = dovecot.service
 endif
 
 DISTCLEANFILES = \
