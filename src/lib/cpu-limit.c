@@ -68,7 +68,9 @@ cpu_limit_init(unsigned int cpu_limit_sec,
 	timeval_add(&climit->initial_usage, &rusage.ru_stime);
 
 	climit->limit = climit->old_limit;
-	climit->limit.rlim_cur = timeval_round(&climit->initial_usage);
+	/* rlimit is in seconds. Truncate initial_usage to seconds for the
+	   initial sanity check. */
+	climit->limit.rlim_cur = climit->initial_usage.tv_sec;
 
 	if (climit->limit.rlim_max != RLIM_INFINITY &&
 	    climit->limit.rlim_cur > climit->limit.rlim_max) {
@@ -77,6 +79,10 @@ cpu_limit_init(unsigned int cpu_limit_sec,
 			(long)climit->limit.rlim_max);
 	}
 	climit->limit.rlim_cur += cpu_limit_sec;
+	/* Add extra 1 second to the limit to try to avoid the limit from
+	   triggering too early (although it still can trigger a few ms too
+	   early). */
+	climit->limit.rlim_cur++;
 
 	if (climit->parent == NULL) {
 		lib_signals_set_handler(SIGXCPU, LIBSIG_FLAG_RESTART,
