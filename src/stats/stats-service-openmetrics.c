@@ -198,8 +198,10 @@ openmetrics_export_histogram_bucket(struct openmetrics_request *req,
 	}
 	if (bucket_limit == INTMAX_MAX)
 		str_append(out, "le=\"+Inf\"");
-	else
-		str_printfa(out, "le=\"%jd\"", bucket_limit);
+	else {
+		/* Convert from microseconds to seconds */
+		str_printfa(out, "le=\"%.6f\"", bucket_limit/1e6F);
+	}
 	str_printfa(out, "} %"PRIu64"\n", count);
 }
 
