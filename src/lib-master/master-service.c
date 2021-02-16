@@ -592,6 +592,7 @@ bool master_service_parse_option(struct master_service *service,
 		i_free(service->config_path);
 		service->config_path = i_strdup(arg);
 		service->config_path_changed_with_param = TRUE;
+		service->config_path_from_master = FALSE;
 		break;
 	case 'i':
 		if (!get_instance_config(arg, &path))
