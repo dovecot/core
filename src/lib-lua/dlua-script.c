@@ -210,7 +210,7 @@ int dlua_script_init(struct dlua_script *script, const char **error_r)
 	if (dlua_pcall(script->L, LUA_SCRIPT_INIT_FN, 0, 1, error_r) < 0)
 		return -1;
 
-	if (lua_isinteger(script->L, -1)) {
+	if (lua_isinteger(script->L, -1) == 1) {
 		ret = lua_tointeger(script->L, -1);
 		if (ret != 0)
 			*error_r = "Script init failed";
@@ -257,15 +257,30 @@ static struct dlua_script *dlua_create_script(const char *name,
 
 static int dlua_run_script(struct dlua_script *script, const char **error_r)
 {
-	int err = lua_pcall(script->L, 0, 0, 0);
-	if (err != 0) {
+	/* put the error handler before script being called */
+	lua_getglobal(script->L, "debug");
+	lua_getfield(script->L, -1, "traceback");
+	lua_replace(script->L, -2);
+	lua_insert(script->L, -2);
+
+	/* we don't want anything to be returned here */
+	/* stack before lua_pcall
+		debug.traceback
+		loaded script as function
+	*/
+	int err = lua_pcall(script->L, 0, 0, 1);
+	if (err != LUA_OK) {
 		*error_r = t_strdup_printf("lua_pcall(%s) failed: %s",
 					   script->filename,
 					   lua_tostring(script->L, -1));
-		lua_pop(script->L,1);
-		return -1;
+		/* pop error and debug handler */
+		lua_pop(script->L, 2);
+		err = -1;
+	} else {
+		/* pop debug handler */
+		lua_pop(script->L, 1);
 	}
-	return 0;
+	return err;
 }
 
 static int
@@ -287,6 +302,7 @@ dlua_script_create_finish(struct dlua_script *script, struct dlua_script **scrip
 
 	*script_r = script;
 
+	i_assert(lua_gettop(script->L) == 0);
 	return 0;
 }
 
@@ -303,14 +319,18 @@ int dlua_script_create_string(const char *str, struct dlua_script **script_r,
 	fn = binary_to_hex(scripthash, sizeof(scripthash));
 
 	script = dlua_create_script(fn, event_parent);
-	if ((err = luaL_loadstring(script->L, str)) != 0) {
+	err = luaL_loadstring(script->L, str);
+	switch (err) {
+	case LUA_OK:
+		return dlua_script_create_finish(script, script_r, error_r);
+	default:
 		*error_r = t_strdup_printf("lua_load(<string>) failed: %s",
-					   dlua_errstr(err));
-		dlua_script_unref(&script);
-		return -1;
+					   lua_tostring(script->L, -1));
+		lua_pop(script->L, 1);
+		break;
 	}
-
-	return dlua_script_create_finish(script, script_r, error_r);
+	dlua_script_unref(&script);
+	return -1;
 }
 
 int dlua_script_create_file(const char *file, struct dlua_script **script_r,
@@ -330,7 +350,7 @@ int dlua_script_create_file(const char *file, struct dlua_script **script_r,
 	}
 
 	script = dlua_create_script(file, event_parent);
-	if ((err = luaL_loadfile(script->L, file)) != 0) {
+	if ((err = luaL_loadfile(script->L, file)) != LUA_OK) {
 		*error_r = t_strdup_printf("lua_load(%s) failed: %s",
 					   file, dlua_errstr(err));
 		dlua_script_unref(&script);
@@ -352,7 +372,7 @@ int dlua_script_create_stream(struct istream *is, struct dlua_script **script_r,
 	script = dlua_create_script(filename, event_parent);
 	script->in = is;
 	script->filename = p_strdup(script->pool, filename);
-	if ((err = lua_load(script->L, dlua_reader, script, filename, 0)) < 0) {
+	if ((err = lua_load(script->L, dlua_reader, script, filename, 0)) != LUA_OK) {
 		*error_r = t_strdup_printf("lua_load(%s) failed: %s",
 					   filename, dlua_errstr(err));
 		dlua_script_unref(&script);
