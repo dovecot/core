@@ -44,10 +44,26 @@ void test_begin(const char *name);
 						      __FILE__, __LINE__, _temp_s1, _temp_s2, i); \
 	} STMT_END
 
+#define test_assert_cmp(_value1, _op, _value2) \
+	test_assert_cmp_idx(_value1, _op, _value2, LLONG_MIN)
+#define test_assert_cmp_idx(_value1, _op, _value2, _idx) STMT_START { \
+		intmax_t _temp_value1 = (_value1); \
+		intmax_t _temp_value2 = (_value2); \
+		if (!(_value1 _op _value2)) \
+			test_assert_failed_cmp_intmax_idx( \
+				#_value1 " " #_op " " #_value2, \
+				__FILE__, __LINE__, _temp_value1, _temp_value2, \
+				#_op, _idx); \
+	} STMT_END
+
 void test_assert_failed(const char *code, const char *file, unsigned int line);
 void test_assert_failed_idx(const char *code, const char *file, unsigned int line, long long i);
 void test_assert_failed_strcmp_idx(const char *code, const char *file, unsigned int line,
 				   const char * src, const char * dst, long long i);
+void test_assert_failed_cmp_intmax_idx(const char *code, const char *file,
+				       unsigned int line,
+				       intmax_t src, intmax_t dst,
+				       const char *op, long long i);
 bool test_has_failed(void);
 /* If you're testing nasty cases which you want to warn, surround the noisy op with these */
 void test_expect_errors(unsigned int expected);

@@ -73,6 +73,21 @@ void test_assert_failed_strcmp_idx(const char *code, const char *file, unsigned 
 	test_success = FALSE;
 }
 
+void test_assert_failed_cmp_intmax_idx(const char *code, const char *file,
+				       unsigned int line,
+				       intmax_t src, intmax_t dst,
+				       const char *op, long long i)
+{
+	printf("%s:%u: Assert", file, line);
+	if (i == LLONG_MIN)
+		printf(" failed: %s\n", code);
+	else
+		printf("(#%lld) failed: %s\n", i, code);
+	printf("        %jd %s %jd is not true\n", src, op, dst);
+	fflush(stdout);
+	test_success = FALSE;
+}
+
 #ifdef DEBUG
 #include "randgen.h"
 static void
