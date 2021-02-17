@@ -890,7 +890,7 @@ struct mailbox *mailbox_alloc_guid(struct mailbox_list *list,
 			/* successfully opened the correct mailbox */
 			return box;
 		}
-		i_error("mailbox_alloc_guid(%s): "
+		e_error(list->ns->user->event, "mailbox_alloc_guid(%s): "
 			"Couldn't verify mailbox GUID: %s",
 			guid_128_to_string(guid),
 			mailbox_get_last_internal_error(box, NULL));
@@ -2194,7 +2194,7 @@ int mailbox_sync_deinit(struct mailbox_sync_context **_ctx,
 		errormsg = mailbox_get_last_internal_error(box, &error);
 		if (error == MAIL_ERROR_NOTPOSSIBLE) {
 			box->storage->user->inbox_open_error_logged = TRUE;
-			i_error("Syncing INBOX failed: %s", errormsg);
+			e_error(box->event, "Syncing INBOX failed: %s", errormsg);
 		}
 	}
 	if (ret == 0)

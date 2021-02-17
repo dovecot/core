@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "hash.h"
-#include "mail-storage.h"
+#include "mail-storage-private.h"
 #include "mailbox-list-private.h"
 #include "mailbox-guid-cache.h"
 
@@ -48,12 +48,13 @@ static void mailbox_guid_cache_add_mailbox(struct mailbox_list *list,
 	box = mailbox_alloc(list, info->vname, 0);
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
 				 &metadata) < 0) {
-		i_error("Couldn't get mailbox %s GUID: %s",
-			info->vname, mailbox_get_last_internal_error(box, NULL));
+		e_error(box->event, "Couldn't get mailbox GUID: %s",
+			mailbox_get_last_internal_error(box, NULL));
 		list->guid_cache_errors = TRUE;
 	} else if ((rec = hash_table_lookup(list->guid_cache,
 			(const uint8_t *)metadata.guid)) != NULL) {
-		i_warning("Mailbox %s has duplicate GUID with %s: %s",
+		e_warning(list->ns->user->event,
+			  "Mailbox %s has duplicate GUID with %s: %s",
 			  info->vname, rec->vname,
 			  guid_128_to_string(metadata.guid));
 	} else {

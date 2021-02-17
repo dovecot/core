@@ -31,7 +31,7 @@ mailbox_autoexpunge_lock(struct mail_user *user, struct file_lock **lock)
 	ret = mail_user_lock_file_create(user, AUTOEXPUNGE_LOCK_FNAME,
 					 0, lock, &error);
 	if (ret < 0) {
-		i_error("autoexpunge: Couldn't create %s lock: %s",
+		e_error(user->event, "autoexpunge: Couldn't create %s lock: %s",
 			AUTOEXPUNGE_LOCK_FNAME, error);
 		/* do autoexpunging anyway */
 		return TRUE;
@@ -176,8 +176,7 @@ mailbox_autoexpunge_set(struct mail_namespace *ns, const char *vname,
 	mailbox_set_reason(box, "autoexpunge");
 	if (mailbox_autoexpunge(box, autoexpunge, autoexpunge_max_mails,
 				expunged_count) < 0) {
-		i_error("Failed to autoexpunge mailbox '%s': %s",
-			mailbox_get_vname(box),
+		e_error(box->event, "Failed to autoexpunge: %s",
 			mailbox_get_last_internal_error(box, NULL));
 	}
 	mailbox_free(&box);
@@ -203,7 +202,8 @@ mailbox_autoexpunge_wildcards(struct mail_namespace *ns,
 					expunged_count);
 	} T_END;
 	if (mailbox_list_iter_deinit(&iter) < 0) {
-		i_error("Failed to iterate autoexpunge mailboxes '%s': %s",
+		e_error(ns->user->event,
+			"Failed to iterate autoexpunge mailboxes '%s': %s",
 			iter_name, mailbox_list_get_last_internal_error(ns->list, NULL));
 	}
 }

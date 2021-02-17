@@ -182,7 +182,7 @@ static int set_line(struct mail_storage_service_ctx *ctx,
 			line = t_strdup_printf("%s=%s%s",
 					       key, *strp, append_value);
 		} else {
-			i_error("Ignoring %s userdb setting. "
+			e_error(user->event, "Ignoring %s userdb setting. "
 				"'+' can only be used for strings.", orig_key);
 		}
 	}
@@ -283,11 +283,13 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 #ifdef HAVE_SETPRIORITY
 			int n;
 			if (str_to_int(line + 5, &n) < 0) {
-				i_error("userdb returned invalid nice value %s",
+				e_error(user->event,
+					"userdb returned invalid nice value %s",
 					line + 5);
 			} else if (n != 0) {
 				if (setpriority(PRIO_PROCESS, 0, n) < 0)
-					i_error("setpriority(%d) failed: %m", n);
+					e_error(user->event,
+						"setpriority(%d) failed: %m", n);
 			}
 #endif
 		} else if (str_begins(line, "auth_mech=")) {
@@ -743,18 +745,20 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 
 		if (chdir_path[0] == '\0') {
 			if (chdir("/") < 0)
-				i_error("chdir(/) failed: %m");
+				e_error(user->event, "chdir(/) failed: %m");
 		} else if (chdir(chdir_path) < 0) {
 			if (errno == EACCES) {
-				i_error("%s", eacces_error_get("chdir",
+				e_error(user->event, "%s",
+					eacces_error_get("chdir",
 						t_strconcat(chdir_path, "/", NULL)));
 			} else if (errno != ENOENT)
-				i_error("chdir(%s) failed: %m", chdir_path);
+				e_error(user->event, "chdir(%s) failed: %m",
+					chdir_path);
 			else
 				e_debug(mail_user->event, "Home dir not found: %s", chdir_path);
 
 			if (chdir("/") < 0)
-				i_error("chdir(/) failed: %m");
+				e_error(user->event, "chdir(/) failed: %m");
 		}
 	}
 

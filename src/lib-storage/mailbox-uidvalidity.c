@@ -6,6 +6,7 @@
 #include "read-full.h"
 #include "write-full.h"
 #include "eacces-error.h"
+#include "mail-user.h"
 #include "mailbox-list.h"
 #include "mailbox-uidvalidity.h"
 
@@ -36,6 +37,7 @@ static uint32_t mailbox_uidvalidity_next_fallback(void)
 static void mailbox_uidvalidity_write(struct mailbox_list *list,
 				      const char *path, uint32_t uid_validity)
 {
+	struct mail_user *user = mailbox_list_get_user(list);
 	char buf[8+1];
 	int fd;
 	struct mailbox_permissions perm;
@@ -47,17 +49,19 @@ static void mailbox_uidvalidity_write(struct mailbox_list *list,
 	fd = open(path, O_RDWR | O_CREAT, 0666);
 	umask(old_mask);
 	if (fd == -1) {
-		i_error("open(%s) failed: %m", path);
+		e_error(user->event, "open(%s) failed: %m", path);
 		return;
 	}
 	if (perm.file_create_gid != (gid_t)-1 &&
 	    fchown(fd, (uid_t)-1, perm.file_create_gid) < 0) {
 		if (errno == EPERM) {
-			i_error("%s", eperm_error_get_chgrp("fchown", path,
+			e_error(user->event, "%s",
+				eperm_error_get_chgrp("fchown", path,
 						perm.file_create_gid,
 						perm.file_create_gid_origin));
 		} else {
-			i_error("fchown(%s, -1, %ld) failed: %m",
+			e_error(mailbox_list_get_user(list)->event,
+				"fchown(%s, -1, %ld) failed: %m",
 				path, (long)perm.file_create_gid);
 		}
 	}
@@ -65,14 +69,14 @@ static void mailbox_uidvalidity_write(struct mailbox_list *list,
 	if (i_snprintf(buf, sizeof(buf), "%08x", uid_validity) < 0)
 		i_unreached();
 	if (pwrite_full(fd, buf, strlen(buf), 0) < 0)
-		i_error("write(%s) failed: %m", path);
+		e_error(user->event, "write(%s) failed: %m", path);
 	if (close(fd) < 0)
-		i_error("close(%s) failed: %m", path);
+		e_error(user->event, "close(%s) failed: %m", path);
 }
 
 static int
-mailbox_uidvalidity_rename(const char *path, uint32_t *uid_validity,
-			   bool log_enoent)
+mailbox_uidvalidity_rename(struct mailbox_list *list, const char *path,
+			   uint32_t *uid_validity, bool log_enoent)
 {
 	string_t *src, *dest;
 	unsigned int i;
@@ -102,7 +106,8 @@ mailbox_uidvalidity_rename(const char *path, uint32_t *uid_validity,
 		/* possibly a race condition. try the next value. */
 	}
 	if (ret < 0 && (errno != ENOENT || log_enoent))
-		i_error("rename(%s, %s) failed: %m", str_c(src), str_c(dest));
+		e_error(mailbox_list_get_user(list)->event,
+			"rename(%s, %s) failed: %m", str_c(src), str_c(dest));
 	return ret;
 }
 
@@ -137,7 +142,8 @@ mailbox_uidvalidity_next_rescan(struct mailbox_list *list, const char *path)
 		d = opendir(dir);
 	}
 	if (d == NULL) {
-		i_error("opendir(%s) failed: %m", dir);
+		e_error(mailbox_list_get_user(list)->event,
+			"opendir(%s) failed: %m", dir);
 		return mailbox_uidvalidity_next_fallback();
 	}
 	prefix = t_strconcat(fname, ".", NULL);
@@ -158,7 +164,8 @@ mailbox_uidvalidity_next_rescan(struct mailbox_list *list, const char *path)
 		}
 	}
 	if (closedir(d) < 0)
-		i_error("closedir(%s) failed: %m", dir);
+		e_error(mailbox_list_get_user(list)->event,
+			"closedir(%s) failed: %m", dir);
 
 	if (max_value == 0) {
 		/* no uidvalidity files. create one. */
@@ -176,7 +183,8 @@ mailbox_uidvalidity_next_rescan(struct mailbox_list *list, const char *path)
 			   a duplicate file.. */
 		}
 		if (fd == -1) {
-			i_error("creat(%s) failed: %m", tmp);
+			e_error(mailbox_list_get_user(list)->event,
+				"creat(%s) failed: %m", tmp);
 			return cur_value;
 		}
 		i_close_fd(&fd);
@@ -190,7 +198,7 @@ mailbox_uidvalidity_next_rescan(struct mailbox_list *list, const char *path)
 	}
 
 	cur_value = max_value;
-	if (mailbox_uidvalidity_rename(path, &cur_value, TRUE) < 0)
+	if (mailbox_uidvalidity_rename(list, path, &cur_value, TRUE) < 0)
 		return mailbox_uidvalidity_next_fallback();
 	mailbox_uidvalidity_write(list, path, cur_value);
 	return cur_value;
@@ -198,6 +206,7 @@ mailbox_uidvalidity_next_rescan(struct mailbox_list *list, const char *path)
 
 uint32_t mailbox_uidvalidity_next(struct mailbox_list *list, const char *path)
 {
+	struct mail_user *user = mailbox_list_get_user(list);
 	char buf[8+1];
 	uint32_t cur_value;
 	int fd, ret;
@@ -205,12 +214,12 @@ uint32_t mailbox_uidvalidity_next(struct mailbox_list *list, const char *path)
 	fd = open(path, O_RDWR);
 	if (fd == -1) {
 		if (errno != ENOENT)
-			i_error("open(%s) failed: %m", path);
+			e_error(user->event, "open(%s) failed: %m", path);
 		return mailbox_uidvalidity_next_rescan(list, path);
 	}
 	ret = read_full(fd, buf, sizeof(buf)-1);
 	if (ret < 0) {
-		i_error("read(%s) failed: %m", path);
+		e_error(user->event, "read(%s) failed: %m", path);
 		i_close_fd(&fd);
 		return mailbox_uidvalidity_next_rescan(list, path);
 	}
@@ -223,7 +232,7 @@ uint32_t mailbox_uidvalidity_next(struct mailbox_list *list, const char *path)
 	}
 
 	/* we now have the current uidvalidity value that's hopefully correct */
-	if (mailbox_uidvalidity_rename(path, &cur_value, FALSE) < 0) {
+	if (mailbox_uidvalidity_rename(list, path, &cur_value, FALSE) < 0) {
 		i_close_fd(&fd);
 		return mailbox_uidvalidity_next_rescan(list, path);
 	}
@@ -233,8 +242,8 @@ uint32_t mailbox_uidvalidity_next(struct mailbox_list *list, const char *path)
 	if (i_snprintf(buf, sizeof(buf), "%08x", cur_value) < 0)
 		i_unreached();
 	if (pwrite_full(fd, buf, strlen(buf), 0) < 0)
-		i_error("write(%s) failed: %m", path);
+		e_error(user->event, "write(%s) failed: %m", path);
 	if (close(fd) < 0)
-		i_error("close(%s) failed: %m", path);
+		e_error(user->event, "close(%s) failed: %m", path);
 	return cur_value;
 }

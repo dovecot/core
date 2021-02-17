@@ -1833,7 +1833,8 @@ int mailbox_list_dirent_is_alias_symlink(struct mailbox_list *list,
 		} else if (!S_ISLNK(st.st_mode)) {
 			ret = 0;
 		} else if (t_readlink(path, &linkpath, &error) < 0) {
-			i_error("t_readlink(%s) failed: %s", path, error);
+			e_error(list->ns->user->event,
+				"t_readlink(%s) failed: %s", path, error);
 			ret = -1;
 		} else {
 			/* it's an alias only if it points to the same
@@ -1992,7 +1993,7 @@ void mailbox_list_set_critical(struct mailbox_list *list, const char *fmt, ...)
 	list->last_internal_error = i_strdup_vprintf(fmt, va);
 	va_end(va);
 	list->last_error_is_internal = TRUE;
-	i_error("%s", list->last_internal_error);
+	e_error(list->ns->user->event, "%s", list->last_internal_error);
 
 	/* free the old_error and old_internal_error only after the new error
 	   is generated, because they may be one of the parameters. */
