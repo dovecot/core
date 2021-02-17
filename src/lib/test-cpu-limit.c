@@ -75,8 +75,8 @@ static void test_cpu_limit_simple(void)
 	cpu_limit_deinit(&climit);
 	cpu = get_cpu_time();
 	diff_msecs = timeval_diff_msecs(&cpu, &usage);
-	test_assert(diff_msecs >= 2000-ALLOW_MSECS_BELOW);
-	test_assert(diff_msecs <= 2000+ALLOW_MSECS_ABOVE);
+	test_assert_cmp(diff_msecs, >=, 2000 - ALLOW_MSECS_BELOW);
+	test_assert_cmp(diff_msecs, <=, 2000 + ALLOW_MSECS_ABOVE);
 
 	lib_signals_deinit();
 	test_end();
@@ -107,15 +107,15 @@ static void test_cpu_limit_nested(void)
 		cpu_limit_deinit(&climit2);
 		cpu = get_cpu_time();
 		diff_msecs = timeval_diff_msecs(&cpu, &usage2);
-		test_assert(diff_msecs >= 1000-ALLOW_MSECS_BELOW);
-		test_assert(diff_msecs <= 1000+ALLOW_MSECS_ABOVE);
+		test_assert_cmp(diff_msecs, >=, 1000 - ALLOW_MSECS_BELOW);
+		test_assert_cmp(diff_msecs, <=, 1000 + ALLOW_MSECS_ABOVE);
 	}
 
 	cpu_limit_deinit(&climit1);
 	cpu = get_cpu_time();
 	diff_msecs = timeval_diff_msecs(&cpu, &usage1);
-	test_assert(diff_msecs >= 3000-ALLOW_MSECS_BELOW);
-	test_assert(diff_msecs <= 3000+ALLOW_MSECS_ABOVE);
+	test_assert_cmp(diff_msecs, >=, 3000 - ALLOW_MSECS_BELOW);
+	test_assert_cmp(diff_msecs, <=, 3000 + ALLOW_MSECS_ABOVE);
 
 	lib_signals_deinit();
 	test_end();
@@ -144,15 +144,15 @@ static void test_cpu_limit_nested(void)
 		cpu_limit_deinit(&climit2);
 		cpu = get_cpu_time();
 		diff_msecs = timeval_diff_msecs(&cpu, &usage2);
-		test_assert(diff_msecs >= 1000-ALLOW_MSECS_BELOW);
-		test_assert(diff_msecs <= 1000+ALLOW_MSECS_ABOVE);
+		test_assert_cmp(diff_msecs, >=, 1000 - ALLOW_MSECS_BELOW);
+		test_assert_cmp(diff_msecs, <=, 1000 + ALLOW_MSECS_ABOVE);
 	}
 
 	cpu_limit_deinit(&climit1);
 	cpu = get_cpu_time();
 	diff_msecs = timeval_diff_msecs(&cpu, &usage1);
-	test_assert(diff_msecs >= 3000-ALLOW_MSECS_BELOW);
-	test_assert(diff_msecs <= 3000+ALLOW_MSECS_ABOVE);
+	test_assert_cmp(diff_msecs, >=, 3000 - ALLOW_MSECS_BELOW);
+	test_assert_cmp(diff_msecs, <=, 3000 + ALLOW_MSECS_ABOVE);
 
 	i_unlink_if_exists(test_path);
 	lib_signals_deinit();
