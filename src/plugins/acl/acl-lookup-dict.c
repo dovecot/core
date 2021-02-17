@@ -151,7 +151,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 {
 	const char *username = dict->user->username;
 	struct dict_iterate_context *iter;
-	struct dict_transaction_context *dt;
+	struct dict_transaction_context *dt = NULL;
 	const char *prefix, *key, *value, *const *old_ids, *const *new_ids, *p;
 	const char *error;
 	ARRAY_TYPE(const_string) old_ids_arr;
