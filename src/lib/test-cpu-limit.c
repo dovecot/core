@@ -11,7 +11,7 @@
 
 /* The CPU limits aren't exact. Allow this much leniency in the time
    comparisons. */
-#define ALLOW_MSECS_BELOW 100
+#define ALLOW_MSECS_BELOW 500
 #define ALLOW_MSECS_ABOVE 1500
 
 static bool limit_exceeded1, limit_exceeded2;
