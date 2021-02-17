@@ -885,6 +885,13 @@ mail_storage_service_var_expand(struct mail_storage_service_ctx *ctx,
 		   func_table, user, error_r);
 }
 
+const char *
+mail_storage_service_user_get_log_prefix(struct mail_storage_service_user *user)
+{
+	i_assert(user->log_prefix != NULL);
+	return user->log_prefix;
+}
+
 static void
 mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
 			      struct mail_storage_service_user *user,
@@ -892,7 +899,6 @@ mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
 {
 	const char *error;
 
-	ctx->log_initialized = TRUE;
 	T_BEGIN {
 		string_t *str;
 
@@ -902,7 +908,10 @@ mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
 			user, &user->input, priv, &error);
 		user->log_prefix = p_strdup(user->pool, str_c(str));
 	} T_END;
+	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) != 0)
+		return;
 
+	ctx->log_initialized = TRUE;
 	master_service_init_log_with_prefix(ctx->service, user->log_prefix);
 	/* replace the whole log prefix with mail_log_prefix */
 	event_replace_log_prefix(user->event, user->log_prefix);
@@ -990,17 +999,17 @@ mail_storage_service_init(struct master_service *service,
 		       sizeof(*ctx->set_roots) * count);
 	}
 
+	/* note: we may not have read any settings yet, so this logging
+	   may still be going to wrong location */
+	const char *configured_name =
+		master_service_get_configured_name(service);
+	ctx->default_log_prefix =
+		p_strdup_printf(pool, "%s(%s): ", configured_name, my_pid);
+
 	/* do all the global initialization. delay initializing plugins until
 	   we drop privileges the first time. */
-	if ((flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0) {
-		/* note: we may not have read any settings yet, so this logging
-		   may still be going to wrong location */
-		const char *configured_name =
-			master_service_get_configured_name(service);
-		ctx->default_log_prefix = p_strdup_printf(pool,
-			"%s(%s): ", configured_name, my_pid);
+	if ((flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0)
 		master_service_init_log_with_prefix(service, ctx->default_log_prefix);
-	}
 	dict_drivers_register_builtin();
 	if (storage_service_global == NULL)
 		storage_service_global = ctx;
@@ -1265,11 +1274,9 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	    !ctx->log_initialized) {
 		/* initialize logging again, in case we only read the
 		   settings for the first above */
-		const char *configured_name =
-			master_service_get_configured_name(ctx->service);
 		ctx->log_initialized = TRUE;
 		master_service_init_log_with_prefix(ctx->service,
-			t_strdup_printf("%s(%s): ", configured_name, my_pid));
+						    ctx->default_log_prefix);
 		update_log_prefix = TRUE;
 	}
 	sets = master_service_settings_parser_get_others(master_service,
@@ -1504,8 +1511,7 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 		set_keyval(ctx, user, "mail_home", priv.home);
 	}
 
-	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0)
-		mail_storage_service_init_log(ctx, user, &priv);
+	mail_storage_service_init_log(ctx, user, &priv);
 
 	/* create ioloop context regardless of logging. it's also used by
 	   stats plugin. */
@@ -1795,4 +1801,10 @@ int mail_storage_service_user_set_setting(struct mail_storage_service_user *user
 	int ret = settings_parse_keyvalue(user->set_parser, key, value);
 	*error_r = settings_parser_get_error(user->set_parser);
 	return ret;
+}
+
+const char *
+mail_storage_service_get_log_prefix(struct mail_storage_service_ctx *ctx)
+{
+	return ctx->default_log_prefix;
 }
