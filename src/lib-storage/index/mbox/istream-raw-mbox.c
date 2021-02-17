@@ -474,7 +474,7 @@ static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 	time_t received_time;
 	char *sender;
 	int tz;
-	ssize_t ret;
+	ssize_t ret = 0;
 
 	/* minimal: "From x Thu Nov 29 22:33:52 2001" = 31 chars */
 	do {
