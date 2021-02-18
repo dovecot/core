@@ -48,7 +48,7 @@ struct program_client {
 
 	bool other_error;
 	enum program_client_error error;
-	enum program_client_exit_code exit_code;
+	enum program_client_exit_status exit_status;
 
 	int (*connect) (struct program_client * pclient);
 	int (*close_output) (struct program_client * pclient);

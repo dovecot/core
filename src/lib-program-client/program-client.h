@@ -6,10 +6,10 @@
 
 struct program_client;
 
-enum program_client_exit_code {
-	PROGRAM_CLIENT_EXIT_INTERNAL_FAILURE = -1,
-	PROGRAM_CLIENT_EXIT_FAILURE = 0,
-	PROGRAM_CLIENT_EXIT_SUCCESS = 1,
+enum program_client_exit_status {
+	PROGRAM_CLIENT_EXIT_STATUS_INTERNAL_FAILURE = -1,
+	PROGRAM_CLIENT_EXIT_STATUS_FAILURE = 0,
+	PROGRAM_CLIENT_EXIT_STATUS_SUCCESS = 1,
 };
 
 struct program_client_settings {

@@ -69,8 +69,8 @@ program_client_istream_parse_result(struct program_client_istream *scstream,
 			e_error(scstream->client->event,
 				"Missing LF in result code");
 		}
-		scstream->client->exit_code =
-			PROGRAM_CLIENT_EXIT_INTERNAL_FAILURE;
+		scstream->client->exit_status =
+			PROGRAM_CLIENT_EXIT_STATUS_INTERNAL_FAILURE;
 		return;
 	}
 
@@ -79,12 +79,14 @@ program_client_istream_parse_result(struct program_client_istream *scstream,
 	case '+':
 		e_debug(scstream->client->event,
 			"Received '+' result code from remote");
-		scstream->client->exit_code = PROGRAM_CLIENT_EXIT_SUCCESS;
+		scstream->client->exit_status =
+			PROGRAM_CLIENT_EXIT_STATUS_SUCCESS;
 		break;
 	case '-':
 		e_debug(scstream->client->event,
 			"Received '-' result code from remote");
-		scstream->client->exit_code = PROGRAM_CLIENT_EXIT_FAILURE;
+		scstream->client->exit_status =
+			PROGRAM_CLIENT_EXIT_STATUS_FAILURE;
 		break;
 	default:
 		if (rcode >= 0x20 && rcode < 0x7f) {
@@ -94,8 +96,8 @@ program_client_istream_parse_result(struct program_client_istream *scstream,
 			e_error(scstream->client->event,
 				"Unexpected result code 0x%02x", rcode);
 		}
-		scstream->client->exit_code =
-			PROGRAM_CLIENT_EXIT_INTERNAL_FAILURE;
+		scstream->client->exit_status =
+			PROGRAM_CLIENT_EXIT_STATUS_INTERNAL_FAILURE;
 	}
 }
 

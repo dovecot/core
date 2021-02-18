@@ -141,7 +141,7 @@ void program_client_disconnected(struct program_client *pclient)
 
 	program_client_callback(pclient,
 		(pclient->error != PROGRAM_CLIENT_ERROR_NONE ?
-			-1 : (int)pclient->exit_code),
+			-1 : (int)pclient->exit_status),
 		pclient->context);
 }
 
@@ -723,7 +723,7 @@ int program_client_run(struct program_client *pclient)
 	if (pclient->error != PROGRAM_CLIENT_ERROR_NONE)
 		return -1;
 
-	return (int)pclient->exit_code;
+	return (int)pclient->exit_status;
 }
 
 #undef program_client_run_async
@@ -734,7 +734,7 @@ void program_client_run_async(struct program_client *pclient,
 	i_assert(callback != NULL);
 
 	pclient->disconnected = FALSE;
-	pclient->exit_code = PROGRAM_CLIENT_EXIT_SUCCESS;
+	pclient->exit_status = PROGRAM_CLIENT_EXIT_STATUS_SUCCESS;
 	pclient->error = PROGRAM_CLIENT_ERROR_NONE;
 
 	pclient->callback = callback;

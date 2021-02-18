@@ -334,7 +334,7 @@ program_client_local_exited(struct program_client_local *plclient)
 	plclient->exited = TRUE;
 	plclient->pid = -1;
 	/* Evaluate child exit status */
-	pclient->exit_code = PROGRAM_CLIENT_EXIT_INTERNAL_FAILURE;
+	pclient->exit_status = PROGRAM_CLIENT_EXIT_STATUS_INTERNAL_FAILURE;
 
 	if (WIFEXITED(plclient->status)) {
 		/* Exited */
@@ -344,9 +344,11 @@ program_client_local_exited(struct program_client_local *plclient)
 			e_info(pclient->event,
 			       "Terminated with non-zero exit code %d",
 			       exit_code);
-			pclient->exit_code = PROGRAM_CLIENT_EXIT_FAILURE;
+			pclient->exit_status =
+				PROGRAM_CLIENT_EXIT_STATUS_FAILURE;
 		} else {
-			pclient->exit_code = PROGRAM_CLIENT_EXIT_SUCCESS;
+			pclient->exit_status =
+				PROGRAM_CLIENT_EXIT_STATUS_SUCCESS;
 		}
 	} else if (WIFSIGNALED(plclient->status)) {
 		/* Killed with a signal */
@@ -465,7 +467,7 @@ program_client_local_disconnect(struct program_client *pclient, bool force)
 	if (pid < 0) {
 		/* program never started */
 		e_debug(pclient->event, "Child process never started");
-		pclient->exit_code = PROGRAM_CLIENT_EXIT_FAILURE;
+		pclient->exit_status = PROGRAM_CLIENT_EXIT_STATUS_FAILURE;
 		program_client_local_exited(plclient);
 		return;
 	}
