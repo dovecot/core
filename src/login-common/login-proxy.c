@@ -238,7 +238,7 @@ static bool proxy_try_reconnect(struct login_proxy *proxy)
 		timeval_diff_msecs(&ioloop_timeval, &proxy->created);
 	if (since_started_msecs < 0)
 		return FALSE; /* time moved backwards */
-	left_msecs = proxy->connect_timeout_msecs - since_started_msecs;
+	left_msecs = (int)proxy->connect_timeout_msecs - since_started_msecs;
 	if (left_msecs <= PROXY_CONNECT_RETRY_MIN_MSECS)
 		return FALSE;
 
