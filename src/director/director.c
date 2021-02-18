@@ -788,7 +788,8 @@ void director_update_user_weak(struct director *dir, struct director_host *src,
 }
 
 static void
-director_flush_user_continue(int result, struct director_kill_context *ctx)
+director_flush_user_continue(enum program_client_exit_status result,
+			     struct director_kill_context *ctx)
 {
 	struct director *dir = ctx->dir;
 	ctx->callback_pending = FALSE;
@@ -796,7 +797,7 @@ director_flush_user_continue(int result, struct director_kill_context *ctx)
 	struct user *user = user_directory_lookup(ctx->tag->users,
 						  ctx->username_hash);
 
-	if (result == 0) {
+	if (result == PROGRAM_CLIENT_EXIT_STATUS_FAILURE) {
 		struct istream *is = iostream_temp_finish(&ctx->reply, SIZE_MAX);
 		char *data;
 		i_stream_set_return_partial_line(is, TRUE);
@@ -828,7 +829,8 @@ director_flush_user_continue(int result, struct director_kill_context *ctx)
 		/* ctx is freed later via user->kill_ctx */
 		e_debug(dir->event, "Flushing user %u finished, result=%d",
 			ctx->username_hash, result);
-		director_user_kill_finish_delayed(dir, user, result == 1);
+		director_user_kill_finish_delayed(dir, user,
+			result == PROGRAM_CLIENT_EXIT_STATUS_SUCCESS);
 	}
 }
 
@@ -898,7 +900,8 @@ director_flush_user(struct director *dir, struct user *user)
 			user->username_hash,
 			user->host->ip_str,
 			error);
-		director_flush_user_continue(0, ctx);
+		director_flush_user_continue(PROGRAM_CLIENT_EXIT_STATUS_FAILURE,
+					     ctx);
 		return;
 	}
 

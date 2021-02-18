@@ -316,9 +316,10 @@ static void test_program_teardown(void)
 	test_end();
 }
 
-static void test_program_async_callback(int result, int *ret)
+static void test_program_async_callback(enum program_client_exit_status result,
+					int *ret)
 {
-	*ret = result;
+	*ret = (int)result;
 	test_program_io_loop_stop();
 }
 

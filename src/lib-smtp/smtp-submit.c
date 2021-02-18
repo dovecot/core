@@ -366,14 +366,15 @@ smtp_submit_send_host(struct smtp_submit *subm)
 }
 
 static void
-smtp_submit_sendmail_callback(int status, struct smtp_submit *subm)
+smtp_submit_sendmail_callback(enum program_client_exit_status status,
+			      struct smtp_submit *subm)
 {
-	if (status < 0) {
+	if (status == PROGRAM_CLIENT_EXIT_STATUS_INTERNAL_FAILURE) {
 		smtp_submit_callback(subm, -1,
 			"Failed to execute sendmail");
 		return;
 	}
-	if (status == 0) {
+	if (status == PROGRAM_CLIENT_EXIT_STATUS_FAILURE) {
 		smtp_submit_callback(subm, -1,
 			"Sendmail program returned error");
 		return;
