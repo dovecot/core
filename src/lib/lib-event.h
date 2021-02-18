@@ -294,9 +294,10 @@ void event_get_create_time(const struct event *event, struct timeval *tv_r);
 /* Get the time when the event was last sent. Returns TRUE if time was
    returned, FALSE if event has never been sent. */
 bool event_get_last_send_time(const struct event *event, struct timeval *tv_r);
-/* Get the event duration field, calculated after event has been sent. */
+/* Get the event duration field in microseconds. This is calculated from
+   the event's last sent time. */
 void event_get_last_duration(const struct event *event,
-			     intmax_t *duration_msec_r);
+			     uintmax_t *duration_usecs_r);
 /* Returns field for a given key, or NULL if it doesn't exist. If the key
    isn't found from the event itself, find it from parent events. */
 const struct event_field *

@@ -940,13 +940,17 @@ bool event_get_last_send_time(const struct event *event, struct timeval *tv_r)
 	return tv_r->tv_sec != 0;
 }
 
-void event_get_last_duration(const struct event *event, intmax_t *duration_r)
+void event_get_last_duration(const struct event *event,
+			     uintmax_t *duration_usecs_r)
 {
 	if (event->tv_last_sent.tv_sec == 0) {
-		*duration_r = 0;
+		*duration_usecs_r = 0;
 		return;
 	}
-	*duration_r = timeval_diff_usecs(&event->tv_last_sent, &event->tv_created);
+	long long diff = timeval_diff_usecs(&event->tv_last_sent,
+					    &event->tv_created);
+	i_assert(diff >= 0);
+	*duration_usecs_r = diff;
 }
 
 const struct event_field *

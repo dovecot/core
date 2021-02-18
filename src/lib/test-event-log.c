@@ -2482,7 +2482,7 @@ static void test_event_log_message(void)
 
 static void test_event_duration()
 {
-	intmax_t duration;
+	uintmax_t duration;
 	test_begin("event duration");
 	struct event *e = event_create(NULL);
 	usleep(10);

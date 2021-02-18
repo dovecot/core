@@ -544,7 +544,7 @@ void stats_metrics_event(struct stats_metrics *metrics, struct event *event,
 {
 	struct event_filter_match_iter *iter;
 	struct metric *metric;
-	intmax_t duration;
+	uintmax_t duration;
 
 	/* Note: Adding the field here means that it will get exported
 	   below.  This is necessary to allow group-by functions to quantize
