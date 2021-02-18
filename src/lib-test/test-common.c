@@ -88,6 +88,21 @@ void test_assert_failed_cmp_intmax_idx(const char *code, const char *file,
 	test_success = FALSE;
 }
 
+void test_assert_failed_ucmp_intmax_idx(const char *code, const char *file,
+					unsigned int line,
+					uintmax_t src, uintmax_t dst,
+					const char *op, long long i)
+{
+	printf("%s:%u: Assert", file, line);
+	if (i == LLONG_MIN)
+		printf(" failed: %s\n", code);
+	else
+		printf("(#%lld) failed: %s\n", i, code);
+	printf("        %ju %s %ju is not true\n", src, op, dst);
+	fflush(stdout);
+	test_success = FALSE;
+}
+
 #ifdef DEBUG
 #include "randgen.h"
 static void
