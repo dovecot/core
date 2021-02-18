@@ -198,9 +198,12 @@ openmetrics_export_histogram_bucket(struct openmetrics_request *req,
 	}
 	if (bucket_limit == INTMAX_MAX)
 		str_append(out, "le=\"+Inf\"");
-	else {
+	else if (strcmp(metric->group_by->field,
+			STATS_EVENT_FIELD_NAME_DURATION) == 0) {
 		/* Convert from microseconds to seconds */
 		str_printfa(out, "le=\"%.6f\"", bucket_limit/1e6F);
+	} else {
+		str_printfa(out, "le=\"%jd\"", bucket_limit);
 	}
 	str_printfa(out, "} %"PRIu64"\n", count);
 }
@@ -246,8 +249,12 @@ openmetrics_export_histogram(struct openmetrics_request *req, string_t *out,
 		str_append_str(out, req->labels);
 		str_append_c(out, '}');
 	}
-	/* Convert from microseconds to seconds */
-	str_printfa(out, " %.6f\n", sum/1e6F);
+	if (strcmp(metric->group_by->field,
+		   STATS_EVENT_FIELD_NAME_DURATION) == 0) {
+		/* Convert from microseconds to seconds */
+		sum /= 1e6F;
+	}
+	str_printfa(out, " %.6f\n", sum);
 	/* Count */
 	str_append(out, "dovecot_");
 	str_append(out, metric->name);
