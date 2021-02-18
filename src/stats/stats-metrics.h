@@ -4,6 +4,8 @@
 #include "stats-settings.h"
 #include "sha1.h"
 
+#define STATS_EVENT_FIELD_NAME_DURATION "duration"
+
 struct metric;
 
 struct exporter {
