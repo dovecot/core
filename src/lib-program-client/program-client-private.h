@@ -11,12 +11,6 @@ enum program_client_error {
 	PROGRAM_CLIENT_ERROR_OTHER
 };
 
-enum program_client_exit_code {
-	PROGRAM_CLIENT_EXIT_INTERNAL_FAILURE = -1,
-	PROGRAM_CLIENT_EXIT_FAILURE = 0,
-	PROGRAM_CLIENT_EXIT_SUCCESS = 1,
-};
-
 struct program_client_extra_fd {
 	struct program_client *pclient;
 
