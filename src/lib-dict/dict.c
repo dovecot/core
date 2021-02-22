@@ -438,6 +438,10 @@ int dict_iterate_deinit(struct dict_iterate_context **_ctx,
 			const char **error_r)
 {
 	struct dict_iterate_context *ctx = *_ctx;
+
+	if (ctx == NULL)
+		return 0;
+
 	struct event *event = ctx->event;
 	int ret;
 	uint64_t rows;
