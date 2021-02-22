@@ -518,8 +518,7 @@ mailbox_list_escape_name_params(const char *vname, const char *ns_prefix,
 	return str_c(escaped_name);
 }
 
-static void
-mailbox_list_name_unescape(const char **_name, char escape_char)
+void mailbox_list_name_unescape(const char **_name, char escape_char)
 {
 	const char *p, *name = *_name;
 	unsigned char chr;
@@ -726,15 +725,14 @@ mailbox_list_storage_name_prepare(struct mailbox_list *list,
 	return FALSE;
 }
 
-static void
-mailbox_list_name_escape(const char *vname, const char *escape_chars,
-			 string_t *dest)
+void mailbox_list_name_escape(const char *name, const char *escape_chars,
+			      string_t *dest)
 {
-	for (unsigned int i = 0; vname[i] != '\0'; i++) {
-		if (strchr(escape_chars, vname[i]) != NULL)
-			str_printfa(dest, "%c%02x", escape_chars[0], vname[i]);
+	for (unsigned int i = 0; name[i] != '\0'; i++) {
+		if (strchr(escape_chars, name[i]) != NULL)
+			str_printfa(dest, "%c%02x", escape_chars[0], name[i]);
 		else
-			str_append_c(dest, vname[i]);
+			str_append_c(dest, name[i]);
 	}
 }
 

@@ -329,4 +329,9 @@ int mailbox_list_init_fs(struct mailbox_list *list, const char *driver,
    mailbox_list_init_fs(). */
 struct mailbox_list *mailbox_list_fs_get_list(struct fs *fs);
 
+/* Escape/Unescape mailbox name in place. */
+void mailbox_list_name_unescape(const char **name, char escape_char);
+void mailbox_list_name_escape(const char *name, const char *escape_chars,
+			      string_t *dest);
+
 #endif
