@@ -447,8 +447,10 @@ void imapc_connection_disconnect_full(struct imapc_connection *conn,
 	timeout_remove(&conn->to);
 	conn->reconnecting = reconnecting;
 
-	if (conn->state == IMAPC_CONNECTION_STATE_DISCONNECTED)
+	if (conn->state == IMAPC_CONNECTION_STATE_DISCONNECTED) {
+		i_assert(array_count(&conn->cmd_wait_list) == 0);
 		return;
+	}
 
 	if (conn->client->set.debug)
 		i_debug("imapc(%s): Disconnected", conn->name);
@@ -871,6 +873,7 @@ imapc_connection_auth_finish(struct imapc_connection *conn,
 
 	imapc_auth_ok(conn);
 
+	i_assert(array_count(&conn->cmd_wait_list) == 0);
 	timeout_remove(&conn->to);
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_DONE);
 	imapc_login_callback(conn, reply);
@@ -2028,6 +2031,8 @@ static void imapc_command_send_finished(struct imapc_connection *conn,
 					struct imapc_command *cmd)
 {
 	struct imapc_command *const *cmdp;
+
+	i_assert(conn->to != NULL);
 
 	if (cmd->idle)
 		conn->idle_plus_waiting = TRUE;
