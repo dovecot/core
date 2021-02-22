@@ -585,6 +585,10 @@ void dict_transaction_commit_async(struct dict_transaction_context **_ctx,
 void dict_transaction_rollback(struct dict_transaction_context **_ctx)
 {
 	struct dict_transaction_context *ctx = *_ctx;
+
+	if (ctx == NULL)
+		return;
+
 	struct event *event = ctx->event;
 
 	*_ctx = NULL;
