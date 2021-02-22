@@ -12,15 +12,16 @@ if LDAP_PLUGIN
 LDAP_LIB = libauthdb_ldap.la
 endif
 
+LUA_LIB =
+AUTH_LUA_LIBS =
+AUTH_LUA_LDADD =
+
 if HAVE_LUA
-LIBDOVECOT_LUA = ../lib-lua/libdovecot-lua.la
 if AUTH_LUA_PLUGIN
-LUA_LIB = libauthdb_lua.la
-AUTH_LUA_LIBS = # nothing, lua db is a plugin
+LUA_LIB += libauthdb_lua.la
 else
-LUA_LIB = # nothing, not building a plugin
-AUTH_LUA_LIBS = $(LIBDOVECOT_LUA)
-AUTH_LUA_LDADD = $(LUA_LIBS)
+AUTH_LUA_LIBS += $(LIBDOVECOT_LUA)
+AUTH_LUA_LDADD += $(LUA_LIBS)
 endif
 endif
 
