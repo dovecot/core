@@ -1584,6 +1584,7 @@ static void imapc_connection_input(struct imapc_connection *conn)
 	if (ret < 0 && conn->client->logging_out &&
 	    conn->disconnect_reason != NULL) {
 		/* expected disconnection */
+		imapc_connection_disconnect(conn);
 	} else if (ret < 0) {
 		/* disconnected or buffer full */
 		str = t_str_new(128);
