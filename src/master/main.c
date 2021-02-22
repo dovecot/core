@@ -28,6 +28,12 @@
 #include "dovecot-version.h"
 #ifdef HAVE_LIBSYSTEMD
 #  include <systemd/sd-daemon.h>
+#  define i_sd_notify(unset, message) (void)sd_notify((unset), (message))
+#  define i_sd_notifyf(unset, message, ...) \
+	(void)sd_notifyf((unset), (message), __VA_ARGS__)
+#else
+#  define i_sd_notify(unset, message)
+#  define i_sd_notifyf(unset, message, ...)
 #endif
 
 #include <stdio.h>
@@ -373,6 +379,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	struct service *service;
 	const char *error;
 
+	i_sd_notify(0, "RELOADING=1");
 	i_warning("SIGHUP received - reloading configuration");
 
 	/* see if hostname changed */
@@ -383,6 +390,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 		if (service_process_create(services->config) == NULL) {
 			i_error("Can't reload configuration because "
 				"we couldn't create a config process");
+			i_sd_notify(0, "READY=1");
 			return;
 		}
 	}
@@ -394,6 +402,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	if (master_service_settings_read(master_service, &input,
 					 &output, &error) < 0) {
 		i_error("Error reading configuration: %s", error);
+		i_sd_notify(0, "READY=1");
 		return;
 	}
 	sets = master_service_settings_get_others(master_service);
@@ -402,6 +411,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	if (services_create(set, &new_services, &error) < 0) {
 		/* new configuration is invalid, keep the old */
 		i_error("Config reload failed: %s", error);
+		i_sd_notify(0, "READY=1");
 		return;
 	}
 	new_services->config->config_file_path =
@@ -412,6 +422,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	services_monitor_stop(services, FALSE);
 	if (services_listen_using(new_services, services) < 0) {
 		services_monitor_start(services);
+		i_sd_notify(0, "READY=1");
 		return;
 	}
 
@@ -425,6 +436,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 
 	services = new_services;
         services_monitor_start(services);
+	i_sd_notify(0, "READY=1");
 }
 
 static void
@@ -453,7 +465,9 @@ static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
 	/* make sure new processes won't be created by the currently
 	   running ioloop. */
 	services->destroying = TRUE;
+	i_sd_notify(0, "STOPPING=1\nSTATUS=Dovecot stopping...");
 	master_service_stop(master_service);
+	i_sd_notify(0, "STATUS=Dovecot stopped");
 }
 
 static struct master_settings *master_settings_read(void)
@@ -548,9 +562,8 @@ static void main_init(const struct master_settings *set)
 	master_clients_init();
 
 	services_monitor_start(services);
-#ifdef HAVE_LIBSYSTEMD
-	sd_notify(0, "READY=1");
-#endif
+	i_sd_notifyf(0, "READY=1\nSTATUS=v" DOVECOT_VERSION_FULL " running\n"
+		   "MAINPID=%u", getpid());
 	startup_finished = TRUE;
 }
 
