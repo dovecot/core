@@ -49,10 +49,8 @@ static void dict_connection_cmd_free(struct dict_connection_cmd *cmd)
 {
 	const char *error;
 
-	if (cmd->iter != NULL) {
-		if (dict_iterate_deinit(&cmd->iter, &error) < 0)
-			e_error(cmd->event, "dict_iterate() failed: %s", error);
-	}
+	if (dict_iterate_deinit(&cmd->iter, &error) < 0)
+		e_error(cmd->event, "dict_iterate() failed: %s", error);
 	i_free(cmd->reply);
 	if (cmd->uncork_pending)
 		o_stream_uncork(cmd->conn->conn.output);
