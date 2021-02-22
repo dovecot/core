@@ -199,7 +199,8 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 		list->set.mailbox_dir_name =
 			p_strconcat(list->pool, set->mailbox_dir_name, "/", NULL);
 	}
-	list->set.storage_name_escape_char = set->storage_name_escape_char;
+	if (set->storage_name_escape_char != '\0')
+		list->set.storage_name_escape_char = set->storage_name_escape_char;
 	list->set.vname_escape_char = set->vname_escape_char;
 	list->set.utf8 = set->utf8;
 

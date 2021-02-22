@@ -12,6 +12,7 @@
 #include <stdio.h>
 
 #define GLOBAL_TEMP_PREFIX ".temp."
+#define MAILBOX_LIST_INDEX_DEFAULT_ESCAPE_CHAR '^'
 
 struct index_mailbox_list {
 	struct mailbox_list list;
@@ -37,6 +38,7 @@ static struct mailbox_list *index_list_alloc(void)
 	list = p_new(pool, struct index_mailbox_list, 1);
 	list->list = index_mailbox_list;
 	list->list.pool = pool;
+	list->list.set.storage_name_escape_char = MAILBOX_LIST_INDEX_DEFAULT_ESCAPE_CHAR;
 
 	list->temp_prefix = p_strconcat(pool, GLOBAL_TEMP_PREFIX,
 					my_hostname, ".", my_pid, ".", NULL);
