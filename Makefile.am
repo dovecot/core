@@ -57,7 +57,7 @@ dovecot-config: dovecot-config.in Makefile
 	-e "s|^\(dovecot_statedir\)=|\1=$(statedir)|" \
 	) > dovecot-config
 
-if HAVE_SYSTEMD
+if HAVE_LIBSYSTEMD
 %.service: %.service.in
 	$(AM_V_GEN)sed -e 's,@sbindir\@,$(sbindir),g' -e 's,@bindir\@,$(bindir),g' -e 's,@rundir\@,$(rundir),g' $< > $@
 
@@ -87,7 +87,7 @@ install-exec-hook:
 uninstall-hook:
 	rm $(DESTDIR)$(pkglibdir)/dovecot-config
 
-if HAVE_SYSTEMD
+if HAVE_LIBSYSTEMD
 CLEANFILES = dovecot.service
 endif
 

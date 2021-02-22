@@ -4,8 +4,8 @@
 #include "array.h"
 #include "ioloop.h"
 #include "net.h"
-#ifdef HAVE_SYSTEMD
-#include "sd-daemon.h"
+#ifdef HAVE_LIBSYSTEMD
+#  include <systemd/sd-daemon.h>
 #endif
 #include "service.h"
 #include "service-listen.h"
@@ -150,7 +150,7 @@ static int service_fifo_listener_listen(struct service_listener *l)
 	return 1;
 }
 
-#ifdef HAVE_SYSTEMD
+#ifdef HAVE_LIBSYSTEMD
 static int
 systemd_listen_fd(const struct ip_addr *ip, in_port_t port, int *fd_r)
 {
@@ -187,7 +187,7 @@ static int service_inet_listener_listen(struct service_listener *l)
 	in_port_t port = set->port;
 	int fd;
 
-#ifdef HAVE_SYSTEMD
+#ifdef HAVE_LIBSYSTEMD
 	if (systemd_listen_fd(&l->set.inetset.ip, port, &fd) < 0)
 		return -1;
 
@@ -243,7 +243,7 @@ static int service_listen(struct service *service)
 	return ret;
 }
 
-#ifdef HAVE_SYSTEMD
+#ifdef HAVE_LIBSYSTEMD
 static int get_socket_info(int fd, sa_family_t *family_r, in_port_t *port_r)
 {
 	union sockaddr_union {
@@ -381,7 +381,7 @@ int services_listen(struct service_list *service_list)
 			ret = ret2;
 	}
 
-#ifdef HAVE_SYSTEMD
+#ifdef HAVE_LIBSYSTEMD
 	if (ret > 0)
 		services_verify_systemd(service_list);
 #endif

@@ -61,7 +61,7 @@ static const struct setting_define master_service_setting_defines[] = {
 };
 
 /* <settings checks> */
-#ifdef HAVE_SYSTEMD
+#ifdef HAVE_LIBSYSTEMD
 #  define ENV_SYSTEMD " LISTEN_PID LISTEN_FDS NOTIFY_SOCKET"
 #else
 #  define ENV_SYSTEMD ""

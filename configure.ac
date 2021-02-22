@@ -239,19 +239,24 @@ AS_HELP_STRING([--with-statedir=DIR], [Permanent data directory (LOCALSTATEDIR/l
 )
 AC_SUBST(statedir)
 
-AC_ARG_WITH([systemdsystemunitdir],
-AS_HELP_STRING([--with-systemdsystemunitdir=DIR], [Directory for systemd service files (auto=detect)]), [
-	if test "$withval" = "auto"; then
-		systemdsystemunitdir=`$PKG_CONFIG --variable=systemdsystemunitdir systemd`
-	elif test "$withval" != "no"; then
-		systemdsystemunitdir=$withval
-	fi
-], [])
-if test "$systemdsystemunitdir" != ""; then
-        AC_SUBST(systemdsystemunitdir)
-        AC_DEFINE(HAVE_SYSTEMD,, [Define if you want to use systemd socket activation])
-fi
-AM_CONDITIONAL(HAVE_SYSTEMD, test "$systemdsystemunitdir" != "")
+AC_ARG_WITH([systemd],
+   AS_HELP_STRING([--with-systemd], [Build with systemd support (default=auto)]),
+   want_systemd="$withval"
+)
+
+AS_IF([test "$want_systemd" != "no"], [
+  PKG_CHECK_MODULES([SYSTEMD], [libsystemd], [
+    AC_DEFINE([HAVE_LIBSYSTEMD],[1], [Define to 1 if you have libsystemd])
+    systemdsystemunitdir=`$PKG_CONFIG --variable=systemdsystemunitdir systemd`
+  ], [AS_IF([test "$want_systemd" = "yes"], [
+       AC_MSG_ERROR([libsystemd not found])
+     ],
+     [want_systemd="no"])
+  ])
+])
+
+AC_SUBST(systemdsystemunitdir)
+AM_CONDITIONAL(HAVE_LIBSYSTEMD, [test "$want_systemd" != "no"])
 
 dovecot_moduledir="$libdir/dovecot"
 DC_DOVECOT_MODULEDIR
