@@ -102,6 +102,11 @@ int dict_lookup(struct dict *dict, pool_t pool,
 		const char *key, const char **value_r, const char **error_r);
 void dict_lookup_async(struct dict *dict, const char *key,
 		       dict_lookup_callback_t *callback, void *context);
+#define dict_lookup_async(dict, key, callback, context) \
+	dict_lookup_async(dict, key, (dict_lookup_callback_t *)(callback), \
+		1 ? (context) : \
+		CALLBACK_TYPECHECK(callback, \
+			void (*)(const struct dict_lookup_result *, typeof(context))))
 
 /* Iterate through all values in a path. flag indicates how iteration
    is carried out */

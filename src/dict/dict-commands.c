@@ -193,9 +193,9 @@ cmd_lookup_write_reply(struct dict_connection_cmd *cmd,
 }
 
 static void
-cmd_lookup_callback(const struct dict_lookup_result *result, void *context)
+cmd_lookup_callback(const struct dict_lookup_result *result,
+		    struct dict_connection_cmd *cmd)
 {
-	struct dict_connection_cmd *cmd = context;
 	string_t *str = t_str_new(128);
 
 	event_set_name(cmd->event, "dict_server_lookup_finished");

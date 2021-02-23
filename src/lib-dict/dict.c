@@ -311,6 +311,7 @@ int dict_lookup(struct dict *dict, pool_t pool, const char *key,
 	return ret;
 }
 
+#undef dict_lookup_async
 void dict_lookup_async(struct dict *dict, const char *key,
 		       dict_lookup_callback_t *callback, void *context)
 {

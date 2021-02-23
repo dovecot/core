@@ -79,10 +79,8 @@ struct doveadm_dict_ctx {
 };
 
 static void dict_lookup_callback(const struct dict_lookup_result *result,
-				 void *context)
+				 struct doveadm_dict_ctx *ctx)
 {
-	struct doveadm_dict_ctx *ctx = context;
-
 	ctx->ret = result->ret;
 	ctx->values = result->values == NULL ? NULL :
 		p_strarray_dup(ctx->pool, result->values);
