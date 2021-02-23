@@ -416,6 +416,7 @@ bool dict_iterate_values(struct dict_iterate_context *ctx,
 	return TRUE;
 }
 
+#undef dict_iterate_set_async_callback
 void dict_iterate_set_async_callback(struct dict_iterate_context *ctx,
 				     dict_iterate_callback_t *callback,
 				     void *context)

@@ -123,6 +123,10 @@ dict_iterate_init_multiple(struct dict *dict, const char *const *paths,
 void dict_iterate_set_async_callback(struct dict_iterate_context *ctx,
 				     dict_iterate_callback_t *callback,
 				     void *context);
+#define dict_iterate_set_async_callback(ctx, callback, context) \
+	dict_iterate_set_async_callback(ctx, (dict_iterate_callback_t *)(callback), \
+		1 ? (context) : \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
 /* Limit how many rows will be returned by the iteration (0 = unlimited).
    This allows backends to optimize the query (e.g. use LIMIT 1 with SQL). */
 void dict_iterate_set_limit(struct dict_iterate_context *ctx,

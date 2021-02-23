@@ -310,9 +310,8 @@ static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 	return 1;
 }
 
-static void cmd_iterate_callback(void *context)
+static void cmd_iterate_callback(struct dict_connection_cmd *cmd)
 {
-	struct dict_connection_cmd *cmd = context;
 	struct dict_connection *conn = cmd->conn;
 
 	dict_connection_ref(conn);
