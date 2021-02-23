@@ -961,6 +961,7 @@ void fs_write_set_hash(struct fs_file *file, const struct hash_method *method,
 	memcpy(file->write_digest, digest, method->digest_size);
 }
 
+#undef fs_file_set_async_callback
 void fs_file_set_async_callback(struct fs_file *file,
 				fs_file_async_callback_t *callback,
 				void *context)
@@ -1309,6 +1310,7 @@ const char *fs_iter_next(struct fs_iter *iter)
 	return ret;
 }
 
+#undef fs_iter_set_async_callback
 void fs_iter_set_async_callback(struct fs_iter *iter,
 				fs_file_async_callback_t *callback,
 				void *context)

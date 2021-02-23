@@ -28,7 +28,7 @@ void fs_wrapper_set_async_callback(struct fs_file *file,
 				   fs_file_async_callback_t *callback,
 				   void *context)
 {
-	fs_file_set_async_callback(file->parent, callback, context);
+	fs_file_set_async_callback(file->parent, *callback, context);
 }
 
 void fs_wrapper_wait_async(struct fs *fs)
