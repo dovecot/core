@@ -709,6 +709,12 @@ static void master_service_import_environment_real(const char *import_environmen
 	value = getenv(DOVECOT_PRESERVE_ENVS_ENV);
 	if (value != NULL)
 		array_push_back(&keys, &value);
+#ifdef HAVE_LIBSYSTEMD
+	/* Always import systemd variables, otherwise it is possible to break
+	   systemd startup in obscure ways. */
+	value = "NOTIFY_SOCKET LISTEN_FDS LISTEN_PID";
+	array_push_back(&keys, &value);
+#endif
 	/* add new environments */
 	envs = t_strsplit_spaces(import_environment, " ");
 	for (; *envs != NULL; envs++) {
