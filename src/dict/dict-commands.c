@@ -495,18 +495,14 @@ cmd_commit_finish(struct dict_connection_cmd *cmd,
 }
 
 static void cmd_commit_callback(const struct dict_commit_result *result,
-				void *context)
+				struct dict_connection_cmd *cmd)
 {
-	struct dict_connection_cmd *cmd = context;
-
 	cmd_commit_finish(cmd, result, FALSE);
 }
 
 static void cmd_commit_callback_async(const struct dict_commit_result *result,
-				      void *context)
+				      struct dict_connection_cmd *cmd)
 {
-	struct dict_connection_cmd *cmd = context;
-
 	cmd_commit_finish(cmd, result, TRUE);
 }
 

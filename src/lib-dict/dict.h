@@ -167,6 +167,11 @@ int dict_transaction_commit(struct dict_transaction_context **ctx,
 void dict_transaction_commit_async(struct dict_transaction_context **ctx,
 				   dict_transaction_commit_callback_t *callback,
 				   void *context) ATTR_NULL(2, 3);
+#define dict_transaction_commit_async(ctx, callback, context) \
+	dict_transaction_commit_async(ctx, (dict_transaction_commit_callback_t *)(callback), \
+		1 ? (context) : \
+		CALLBACK_TYPECHECK(callback, \
+			void (*)(const struct dict_commit_result *, typeof(context))))
 /* Same as dict_transaction_commit_async(), but don't call a callback. */
 void dict_transaction_commit_async_nocallback(
 	struct dict_transaction_context **ctx);

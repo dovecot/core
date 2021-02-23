@@ -192,10 +192,8 @@ static void dict_quota_recalc_timeout(struct dict_quota_root *root)
 }
 
 static void dict_quota_update_callback(const struct dict_commit_result *result,
-				       void *context)
+				       struct dict_quota_root *root)
 {
-	struct dict_quota_root *root = context;
-
 	if (result->ret == 0) {
 		/* row doesn't exist, need to recalculate it */
 		if (root->to_update == NULL)

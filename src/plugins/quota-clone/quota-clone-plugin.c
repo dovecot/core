@@ -38,10 +38,8 @@ struct quota_clone_user {
 
 static void
 quota_clone_dict_commit(const struct dict_commit_result *result,
-			void *context)
+			struct quota_clone_user *quser)
 {
-	struct quota_clone_user *quser = context;
-
 	switch (result->ret) {
 	case DICT_COMMIT_RET_OK:
 	case DICT_COMMIT_RET_NOTFOUND:

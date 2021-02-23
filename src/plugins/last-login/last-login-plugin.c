@@ -48,9 +48,8 @@ static void last_login_user_deinit(struct mail_user *user)
 
 static void
 last_login_dict_commit(const struct dict_commit_result *result,
-		       void *context)
+		       struct mail_user *user)
 {
-	struct mail_user *user = context;
 	struct last_login_user *luser = LAST_LOGIN_USER_CONTEXT(user);
 
 	switch(result->ret) {

@@ -561,6 +561,7 @@ int dict_transaction_commit(struct dict_transaction_context **_ctx,
 	return result.ret;
 }
 
+#undef dict_transaction_commit_async
 void dict_transaction_commit_async(struct dict_transaction_context **_ctx,
 				   dict_transaction_commit_callback_t *callback,
 				   void *context)
