@@ -133,7 +133,7 @@ dict_quota_count(struct dict_quota_root *root,
 	e_debug(root->root.backend.event, "Quota recalculated: "
 		"count=%"PRIu64" bytes=%"PRIu64, count, bytes);
 
-	dict_transaction_commit_async(&dt, NULL, NULL);
+	dict_transaction_commit_async_nocallback(&dt);
 	*value_r = want_bytes ? bytes : count;
 	return QUOTA_GET_RESULT_LIMITED;
 }

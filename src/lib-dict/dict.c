@@ -588,6 +588,12 @@ void dict_transaction_commit_async(struct dict_transaction_context **_ctx,
 	cctx->delayed_callback = FALSE;
 }
 
+void dict_transaction_commit_async_nocallback(
+	struct dict_transaction_context **ctx)
+{
+	dict_transaction_commit_async(ctx, NULL, NULL);
+}
+
 void dict_transaction_rollback(struct dict_transaction_context **_ctx)
 {
 	struct dict_transaction_context *ctx = *_ctx;

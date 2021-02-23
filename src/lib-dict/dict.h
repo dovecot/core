@@ -161,12 +161,15 @@ void dict_transaction_set_timestamp(struct dict_transaction_context *ctx,
 int dict_transaction_commit(struct dict_transaction_context **ctx,
 			    const char **error_r);
 /* Commit the transaction, but don't wait to see if it finishes successfully.
-   If callback isn't NULL, it's called eventually. If it's not called by the
-   time you want to deinitialize dict, call dict_flush() to wait for the
+   The callback is called when the transaction is finished. If it's not called
+   by the time you want to deinitialize dict, call dict_flush() to wait for the
    result. */
 void dict_transaction_commit_async(struct dict_transaction_context **ctx,
 				   dict_transaction_commit_callback_t *callback,
 				   void *context) ATTR_NULL(2, 3);
+/* Same as dict_transaction_commit_async(), but don't call a callback. */
+void dict_transaction_commit_async_nocallback(
+	struct dict_transaction_context **ctx);
 /* Rollback all changes made in transaction. */
 void dict_transaction_rollback(struct dict_transaction_context **ctx);
 
