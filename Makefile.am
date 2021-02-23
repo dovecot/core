@@ -19,6 +19,8 @@ EXTRA_DIST = \
 	INSTALL.md \
 	update-version.sh \
 	run-test-valgrind.supp \
+	dovecot.service.in \
+	dovecot.socket \
 	$(conf_DATA)
 
 noinst_DATA = dovecot-config
@@ -64,8 +66,6 @@ if HAVE_LIBSYSTEMD
 systemdsystemunit_DATA = \
         dovecot.socket \
         dovecot.service
-else
-EXTRA_DIST += dovecot.socket dovecot.service.in
 endif
 
 install-exec-hook:
