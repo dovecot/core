@@ -796,10 +796,18 @@ int message_parser_deinit_from_parts(struct message_parser_ctx **_ctx,
 
 	if (ctx->hdr_parser_ctx != NULL)
 		message_parse_header_deinit(&ctx->hdr_parser_ctx);
+	if (ctx->part != NULL) {
+		/* If the whole message has been parsed, the parts are
+		   usually finished in message_parser_parse_next_block().
+		   However, it's possible that the caller finishes reading
+		   through the istream without calling
+		   message_parser_parse_next_block() afterwards. In that case
+		   we still need to finish these parts. */
+		while (ctx->part->parent != NULL)
+			message_part_finish(ctx);
+	}
 	boundary_remove_until(ctx, NULL);
-	/* caller might have stopped the parsing early */
-	i_assert(ctx->nested_parts_count == 0 ||
-		 i_stream_have_bytes_left(ctx->input));
+	i_assert(ctx->nested_parts_count == 0);
 
 	i_stream_unref(&ctx->input);
 	array_free(&ctx->next_part_stack);
