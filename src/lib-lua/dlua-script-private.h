@@ -69,6 +69,8 @@ struct dlua_table_values {
 	} v;
 };
 
+typedef void dlua_pcall_yieldable_callback_t(lua_State *L, void *context, int status);
+
 extern struct event_category event_category_lua;
 
 /* assorted wrappers for lua_foo(), but operating on a struct dlua_script */
@@ -174,6 +176,44 @@ lua_State *dlua_script_new_thread(struct dlua_script *script);
 
 /* Close thread. */
 void dlua_script_close_thread(struct dlua_script *script, lua_State **_L);
+
+#ifdef DLUA_WITH_YIELDS
+/*
+ * Call a function with nargs in a way that supports yielding.
+ *
+ * When the specified function returns, the callback will be called with the
+ * supplied context pointer and a status integer indicating whether an error
+ * occurred (-1) or whether execution completed successfully (0+).  In the
+ * case of a successful completion, the status will indicate the number of
+ * results returned by the function.  On failure, the top of the stack
+ * contains the error object.
+ *
+ * Returns:
+ *  -1 = if function name refers to a non-function type
+ *   0 = function called, callback will be called in the future
+ */
+int dlua_pcall_yieldable(lua_State *L, const char *func_name, int nargs,
+			 void (*callback)(lua_State *, void *, int),
+			 void *context, const char **error_r);
+
+/*
+ * Resume yielded function execution.
+ *
+ * The nargs argument indicates how many items from the top of the stack
+ * should be "returned" by the yield.
+ *
+ * This function is to be called from other API callbacks to resume
+ * execution of the Lua script.  For example, if a Lua script invokes a
+ * function to perform I/O, the function would start the async I/O and yield
+ * from the script.  Eventually, the I/O completion callback executes, which
+ * would call dlua_pcall_yieldable_resume() to continue executing the Lua
+ * script with the supplied arguments.
+ *
+ * Note: The actual execution doesn't resume immediately.  Rather, it is
+ * scheduled to start in the near future via a timeout.
+ */
+void dlua_pcall_yieldable_resume(lua_State *L, int nargs);
+#endif
 
 /* initialize/free script's thread table */
 void dlua_init_thread_table(struct dlua_script *script);

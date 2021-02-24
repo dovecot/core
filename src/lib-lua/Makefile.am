@@ -8,6 +8,7 @@ libdovecot_lua_la_SOURCES = \
 	dlua-script.c \
 	dlua-dovecot.c \
 	dlua-compat.c \
+	dlua-resume.c \
 	dlua-table.c \
 	dlua-thread.c
 # Note: the only things this lib should depend on are libdovecot and lua.

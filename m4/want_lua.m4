@@ -52,6 +52,13 @@ AC_DEFUN([DOVECOT_WANT_LUA],[
    AC_CHECK_FUNCS([lua_tointegerx])
    AC_CHECK_FUNCS([lua_yieldk])
 
+   AS_IF([test "$ac_cv_func_lua_resume" = "yes" -a \
+               "$ac_cv_func_lua_yieldk" = "yes"],
+     AC_DEFINE([DLUA_WITH_YIELDS],,
+       [Lua scripts will be able to yield])
+     dlua_with_yields=yes
+   )
+
    CFLAGS="$old_CFLAGS"
    LIBS="$old_LIBS"
   )

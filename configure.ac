@@ -564,6 +564,7 @@ AS_IF([test "x$with_lua" = "xyes"],
       [userdb="$userdb lua (plugin)"; passdb="$passdb lua (plugin)"],
       [userdb="$userdb lua"; passdb="$passdb lua"],
   ), [])
+AM_CONDITIONAL([DLUA_WITH_YIELDS], [test "$dlua_with_yields" = "yes"])
 
 if test $have_modules = yes; then
   AC_DEFINE(HAVE_MODULES,, [Define if you have dynamic module support])
