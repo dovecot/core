@@ -305,6 +305,57 @@ static void test_lua(void)
 	test_end();
 }
 
+static void test_tls(void)
+{
+	const char *error = NULL;
+	struct dlua_script *script = NULL;
+	lua_State *L1, *L2;
+
+	test_begin("lua thread local storage");
+
+	test_assert(dlua_script_create_string("", &script, NULL, &error) == 0);
+	if (error != NULL)
+		i_fatal("dlua_script_init failed: %s", error);
+
+	L1 = dlua_script_new_thread(script);
+	L2 = dlua_script_new_thread(script);
+
+	dlua_tls_set_ptr(L1, "ptr", L1);
+	test_assert(dlua_tls_get_ptr(L1, "ptr") == L1);
+	test_assert(dlua_tls_get_ptr(L2, "ptr") == NULL);
+	test_assert(dlua_tls_get_int(L1, "int") == 0);
+	test_assert(dlua_tls_get_int(L2, "int") == 0);
+
+	dlua_tls_set_ptr(L2, "ptr", L2);
+	test_assert(dlua_tls_get_ptr(L1, "ptr") == L1);
+	test_assert(dlua_tls_get_ptr(L2, "ptr") == L2);
+	test_assert(dlua_tls_get_int(L1, "int") == 0);
+	test_assert(dlua_tls_get_int(L2, "int") == 0);
+
+	dlua_tls_set_int(L1, "int", 1);
+	dlua_tls_set_int(L2, "int", 2);
+	test_assert(dlua_tls_get_int(L1, "int") == 1);
+	test_assert(dlua_tls_get_int(L2, "int") == 2);
+
+	dlua_tls_clear(L1, "ptr");
+	test_assert(dlua_tls_get_ptr(L1, "ptr") == NULL);
+	test_assert(dlua_tls_get_ptr(L2, "ptr") == L2);
+	test_assert(dlua_tls_get_int(L1, "int") == 1);
+	test_assert(dlua_tls_get_int(L2, "int") == 2);
+
+	dlua_script_close_thread(script, &L1);
+
+	test_assert(dlua_tls_get_ptr(L2, "ptr") == L2);
+	test_assert(dlua_tls_get_int(L2, "int") == 2);
+
+	dlua_tls_clear(L2, "ptr");
+	dlua_script_close_thread(script, &L2);
+
+	dlua_script_unref(&script);
+
+	test_end();
+}
+
 /* check lua_tointegerx against top-of-stack item */
 static void check_tointegerx_compat(lua_State *L, int expected_isnum,
 				    int expected_isint,
@@ -414,6 +465,7 @@ static void test_compat_tointegerx_and_isinteger(void)
 int main(void) {
 	void (*tests[])(void) = {
 		test_lua,
+		test_tls,
 		test_compat_tointegerx_and_isinteger,
 		NULL
 	};

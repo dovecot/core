@@ -179,4 +179,13 @@ void dlua_script_close_thread(struct dlua_script *script, lua_State **_L);
 void dlua_init_thread_table(struct dlua_script *script);
 void dlua_free_thread_table(struct dlua_script *script);
 
+/* thread local storage (TLS) getters & setters */
+void dlua_tls_set_ptr(lua_State *L, const char *name, void *ptr);
+void *dlua_tls_get_ptr(lua_State *L, const char *name);
+void dlua_tls_set_int(lua_State *L, const char *name, lua_Integer i);
+lua_Integer dlua_tls_get_int(lua_State *L, const char *name);
+
+/* free a thread local storage (TLS) value */
+void dlua_tls_clear(lua_State *L, const char *name);
+
 #endif
