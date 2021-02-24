@@ -370,6 +370,18 @@ static int rename_dir(struct mailbox_list *oldlist, const char *oldname,
 	    mailbox_list_get_path(newlist, newname, type, &newpath) <= 0)
 		return 0;
 
+	if (oldlist->set.maildir_name[0] != '\0' &&
+	    oldlist->set.index_control_use_maildir_name) {
+		/* Paths end with "/maildir_name". However, renaming wants to
+		   rename the full mailbox hierarchy, not just a single
+		   mailbox. So we need to drop away the "/maildir_name"
+		   suffix. */
+		oldpath = path_get_parent_dir(oldpath);
+	}
+	if (newlist->set.maildir_name[0] != '\0' &&
+	    newlist->set.index_control_use_maildir_name)
+		newpath = path_get_parent_dir(newpath);
+
 	if (strcmp(oldpath, newpath) == 0)
 		return 0;
 
