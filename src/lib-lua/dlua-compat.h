@@ -40,6 +40,10 @@ void luaL_setmetatable (lua_State *L, const char *tname);
 int lua_isinteger(lua_State *L, int idx);
 #endif
 
+#ifndef HAVE_LUA_SETI
+void lua_seti(lua_State *L, int index, lua_Integer n);
+#endif
+
 #ifndef HAVE_LUA_TOINTEGERX
 /*
  * Lua 5.2 and 5.3 both have lua_tointegerx(), but their behavior is subtly

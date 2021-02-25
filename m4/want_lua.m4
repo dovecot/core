@@ -49,6 +49,7 @@ AC_DEFUN([DOVECOT_WANT_LUA],[
    AC_CHECK_FUNCS([luaL_setmetatable])
    AC_CHECK_FUNCS([lua_isinteger])
    AC_CHECK_FUNCS([lua_resume])
+   AC_CHECK_FUNCS([lua_seti])
    AC_CHECK_FUNCS([lua_tointegerx])
    AC_CHECK_FUNCS([lua_yieldk])
 

@@ -54,6 +54,23 @@ int lua_isinteger(lua_State *L, int idx)
 }
 #endif
 
+#ifndef HAVE_LUA_SETI
+void lua_seti(lua_State *L, int index, lua_Integer n)
+{
+	/* stack: value (top) */
+	lua_pushinteger(L, n);
+	/* stack: value, n (top) */
+	lua_insert(L, -2);
+	/* stack: n, value (top) */
+
+	/* adjust relative stack position */
+	if (index < 0)
+		index--;
+
+	lua_settable(L, index);
+}
+#endif
+
 #ifndef HAVE_LUA_TOINTEGERX
 #  if LUA_VERSION_NUM >= 502
 #    error "Lua 5.2+ should have lua_tointegerx()"
