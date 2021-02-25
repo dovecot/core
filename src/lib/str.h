@@ -32,7 +32,7 @@ void str_append_max(string_t *str, const char *cstr, size_t max_len);
 static inline void ATTR_DEPRECATED("Use str_append_max() or str_append_data() instead")
 str_append_n(string_t *str, const void *cstr, size_t max_len)
 {
-	str_append_max(str, cstr, max_len);
+	str_append_max(str, (const char *)cstr, max_len);
 }
 
 static inline void str_append(string_t *str, const char *cstr)
