@@ -76,7 +76,7 @@ struct sql_dict_transaction_context {
 	struct sql_dict_inc_row *inc_row;
 
 	struct sql_dict_prev *prev_inc;
-	struct sql_dict_prev *prev_set;
+	ARRAY(struct sql_dict_prev) prev_set;
 
 	dict_transaction_commit_callback_t *async_callback;
 	void *async_context;
@@ -910,7 +910,7 @@ sql_dict_transaction_init(struct dict *_dict)
 static void sql_dict_transaction_free(struct sql_dict_transaction_context *ctx)
 {
 	i_assert(ctx->prev_inc == NULL);
-	i_assert(ctx->prev_set == NULL);
+	i_assert(!array_is_created(&ctx->prev_set));
 
 	pool_unref(&ctx->inc_row_pool);
 	i_free(ctx->error);
@@ -973,7 +973,7 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 
 	if (ctx->prev_inc != NULL)
 		sql_dict_prev_inc_flush(ctx);
-	if (ctx->prev_set != NULL)
+	if (array_is_created(&ctx->prev_set))
 		sql_dict_prev_set_flush(ctx);
 
 	/* note that the above calls might still set ctx->error */
@@ -1161,42 +1161,45 @@ sql_dict_update_query(const struct dict_sql_build_query *build,
 	return 0;
 }
 
-static void sql_dict_set_real(struct dict_transaction_context *_ctx,
-			      const char *key, const char *value)
+static void sql_dict_set_real(struct dict_transaction_context *_ctx)
 {
 	struct sql_dict_transaction_context *ctx =
 		(struct sql_dict_transaction_context *)_ctx;
 	struct sql_dict *dict = (struct sql_dict *)_ctx->dict;
-	const struct dict_sql_map *map;
+	const struct sql_dict_prev *prev_sets;
+	unsigned int count;
 	struct sql_statement *stmt;
 	ARRAY_TYPE(const_string) values;
 	struct dict_sql_build_query build;
-	struct dict_sql_build_query_field field;
+	struct dict_sql_build_query_field *field;
 	const char *error;
 
 	if (ctx->error != NULL)
 		return;
 
-	map = sql_dict_find_map(dict, key, &values);
-	if (map == NULL) {
-		ctx->error = i_strdup_printf(
-			"dict-sql: Invalid/unmapped key: %s", key);
-		return;
-	}
+	prev_sets = array_get(&ctx->prev_set, &count);
+	i_assert(count > 0);
 
-	field.map = map;
-	field.value = value;
+	if (sql_dict_find_map(dict, prev_sets[0].key, &values) == NULL)
+		i_unreached(); /* this was already checked */
 
 	i_zero(&build);
 	build.dict = dict;
-	t_array_init(&build.fields, 1);
-	array_push_back(&build.fields, &field);
 	build.extra_values = &values;
-	build.key1 = key[0];
+	build.key1 = prev_sets[0].key[0];
+
+	t_array_init(&build.fields, count);
+	for (unsigned int i = 0; i < count; i++) {
+		i_assert(build.key1 == prev_sets[i].key[0]);
+		field = array_append_space(&build.fields);
+		field->map = prev_sets[i].map;
+		field->value = prev_sets[i].value.str;
+	}
 
 	if (sql_dict_set_query(ctx, &build, &stmt, &error) < 0) {
-		ctx->error = i_strdup_printf("dict-sql: Failed to set %s=%s: %s",
-					     key, value, error);
+		ctx->error = i_strdup_printf(
+			"dict-sql: Failed to set %u fields (first %s): %s",
+			count, prev_sets[0].key, error);
 	} else {
 		sql_update_stmt(ctx->sql_ctx, &stmt);
 	}
@@ -1219,7 +1222,7 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 
 	if (ctx->prev_inc != NULL)
 		sql_dict_prev_inc_flush(ctx);
-	if (ctx->prev_set != NULL)
+	if (array_is_created(&ctx->prev_set))
 		sql_dict_prev_set_flush(ctx);
 
 	map = sql_dict_find_map(dict, key, &values);
@@ -1304,13 +1307,16 @@ static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
 
 static void sql_dict_prev_set_flush(struct sql_dict_transaction_context *ctx)
 {
-	i_assert(ctx->prev_set != NULL);
+	struct sql_dict_prev *prev_set;
 
-	sql_dict_set_real(&ctx->ctx, ctx->prev_set->key,
-			  ctx->prev_set->value.str);
-	i_free(ctx->prev_set->value.str);
-	i_free(ctx->prev_set->key);
-	i_free(ctx->prev_set);
+	i_assert(array_is_created(&ctx->prev_set));
+
+	sql_dict_set_real(&ctx->ctx);
+	array_foreach_modifiable(&ctx->prev_set, prev_set) {
+		i_free(prev_set->value.str);
+		i_free(prev_set->key);
+	}
+	array_free(&ctx->prev_set);
 }
 
 static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx)
@@ -1381,53 +1387,21 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 		return;
 	}
 
-	if (ctx->prev_set != NULL &&
-	    !sql_dict_maps_are_mergeable(dict, ctx->prev_set,
+	if (array_is_created(&ctx->prev_set) &&
+	    !sql_dict_maps_are_mergeable(dict, array_front(&ctx->prev_set),
 					 map, key, &values)) {
 		/* couldn't merge to the previous set - flush it */
 		sql_dict_prev_set_flush(ctx);
 	}
 
-	if (ctx->prev_set == NULL) {
-		/* see if we can merge this increment SQL query with the
-		   next one */
-		ctx->prev_set = i_new(struct sql_dict_prev, 1);
-		ctx->prev_set->map = map;
-		ctx->prev_set->key = i_strdup(key);
-		ctx->prev_set->value.str = i_strdup(value);
-		return;
-	}
-
-	/* merge with prev_set */
-	{
-		struct dict_sql_build_query build;
-		struct dict_sql_build_query_field *field;
-		struct sql_statement *stmt;
-		const char *error;
-
-		i_zero(&build);
-		build.dict = dict;
-		t_array_init(&build.fields, 1);
-		build.extra_values = &values;
-		build.key1 = key[0];
-
-		field = array_append_space(&build.fields);
-		field->map = ctx->prev_set->map;
-		field->value = ctx->prev_set->value.str;
-		field = array_append_space(&build.fields);
-		field->map = map;
-		field->value = value;
-
-		if (sql_dict_set_query(ctx, &build, &stmt, &error) < 0) {
-			ctx->error = i_strdup_printf(
-				"dict-sql: Failed to set %s: %s", key, error);
-		} else {
-			sql_update_stmt(ctx->sql_ctx, &stmt);
-		}
-		i_free(ctx->prev_set->value.str);
-		i_free(ctx->prev_set->key);
-		i_free(ctx->prev_set);
-	}
+	if (!array_is_created(&ctx->prev_set))
+		i_array_init(&ctx->prev_set, 4);
+	/* Either this is the first set, or this can be merged with the
+	   previous set. */
+	struct sql_dict_prev *prev_set = array_append_space(&ctx->prev_set);
+	prev_set->map = map;
+	prev_set->key = i_strdup(key);
+	prev_set->value.str = i_strdup(value);
 }
 
 static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
@@ -1442,7 +1416,7 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 	if (ctx->error != NULL)
 		return;
 
-	if (ctx->prev_set != NULL)
+	if (array_is_created(&ctx->prev_set))
 		sql_dict_prev_set_flush(ctx);
 
 	map = sql_dict_find_map(dict, key, &values);

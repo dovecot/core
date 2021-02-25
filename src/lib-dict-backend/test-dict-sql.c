@@ -111,10 +111,11 @@ static void test_set(void)
 	const char *error;
 	struct test_driver_result res = {
 		.affected_rows = 1,
-		.nqueries = 2,
+		.nqueries = 3,
 		.queries = (const char *[]){
 			"INSERT INTO counters (value,class,name) VALUES (128,'global','counter') ON DUPLICATE KEY UPDATE value=128",
 			"INSERT INTO quota (bytes,count,username) VALUES (128,1,'testuser') ON DUPLICATE KEY UPDATE bytes=128,count=1",
+			"INSERT INTO quota (bytes,count,folders,username) VALUES (128,1,123,'testuser') ON DUPLICATE KEY UPDATE bytes=128,count=1,folders=123",
 			NULL},
 		.result = NULL,
 	};
@@ -125,15 +126,28 @@ static void test_set(void)
 
 	test_set_expected(dict, &res);
 
+	/* 1 field */
 	struct dict_transaction_context *ctx = dict_transaction_begin(dict);
 	dict_set(ctx, "shared/counters/global/counter", "128");
 	test_assert(dict_transaction_commit(&ctx, &error) == 1);
         if (error != NULL)
                 i_error("dict_transaction_commit failed: %s", error);
 	error = NULL;
+
+	/* 2 fields */
 	ctx = dict_transaction_begin(dict);
 	dict_set(ctx, "priv/quota/bytes", "128");
 	dict_set(ctx, "priv/quota/count", "1");
+	test_assert(dict_transaction_commit(&ctx, &error) == 1);
+        if (error != NULL)
+                i_error("dict_transaction_commit failed: %s", error);
+	error = NULL;
+
+	/* 3 fields */
+	ctx = dict_transaction_begin(dict);
+	dict_set(ctx, "priv/quota/bytes", "128");
+	dict_set(ctx, "priv/quota/count", "1");
+	dict_set(ctx, "priv/quota/folders", "123");
 	test_assert(dict_transaction_commit(&ctx, &error) == 1);
         if (error != NULL)
                 i_error("dict_transaction_commit failed: %s", error);
