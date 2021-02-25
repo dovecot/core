@@ -12,8 +12,13 @@ libdovecot_lua_la_SOURCES = \
 	dlua-table.c \
 	dlua-thread.c
 # Note: the only things this lib should depend on are libdovecot and lua.
-libdovecot_lua_la_DEPENDENCIES = ../lib-dovecot/libdovecot.la
-libdovecot_lua_la_LIBADD = ../lib-dovecot/libdovecot.la $(LUA_LIBS)
+libdovecot_lua_la_DEPENDENCIES = \
+	../lib-dovecot/libdovecot.la \
+	../lib-dict/libdict_lua.la
+libdovecot_lua_la_LIBADD = \
+	../lib-dovecot/libdovecot.la \
+	../lib-dict/libdict_lua.la \
+	$(LUA_LIBS)
 libdovecot_lua_la_LDFLAGS = -export-dynamic
 
 headers = \
