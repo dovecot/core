@@ -65,7 +65,7 @@ static void test_lookup_one(void)
 	test_set_expected(dict, &res);
 
 	test_assert(dict_lookup(dict, pool, "shared/dictmap/hello/world", &value, &error) == 1);
-	test_assert(value != NULL && strcmp(value, "one") == 0);
+	test_assert_strcmp(value, "one");
         if (error != NULL)
                 i_error("dict_lookup failed: %s", error);
 	test_teardown(&dict);
@@ -213,8 +213,8 @@ static void test_iterate(void)
 	size_t idx = 0;
 	while(dict_iterate(iter, &key, &value)) {
 		i_assert(idx < rset.rows);
-		test_assert_idx(strcmp(key, "shared/counters/global/counter") == 0 &&
-				strcmp(value, rset.row_data[idx][0]) == 0, idx);
+		test_assert_strcmp_idx(key, "shared/counters/global/counter", idx);
+		test_assert_strcmp_idx(value, rset.row_data[idx][0], idx);
 		idx++;
 	}
 
@@ -240,8 +240,8 @@ static void test_iterate(void)
 
 	while(dict_iterate(iter, &key, &value)) {
 		i_assert(idx < rset.rows);
-		test_assert_idx(strcmp(key, "shared/counters/global/counter") == 0 &&
-				strcmp(value, rset.row_data[idx][0]) == 0, idx);
+		test_assert_strcmp_idx(key, "shared/counters/global/counter", idx);
+		test_assert_strcmp_idx(value, rset.row_data[idx][0], idx);
 		idx++;
 	}
 
