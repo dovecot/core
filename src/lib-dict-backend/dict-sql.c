@@ -58,20 +58,25 @@ struct sql_dict_inc_row {
 	unsigned int rows;
 };
 
+struct sql_dict_prev {
+	const struct dict_sql_map *map;
+	char *key;
+	union {
+		char *str;
+		long long diff;
+	} value;
+};
+
 struct sql_dict_transaction_context {
 	struct dict_transaction_context ctx;
 
 	struct sql_transaction_context *sql_ctx;
 
-	const struct dict_sql_map *prev_inc_map;
-	char *prev_inc_key;
-	long long prev_inc_diff;
 	pool_t inc_row_pool;
 	struct sql_dict_inc_row *inc_row;
 
-	const struct dict_sql_map *prev_set_map;
-	char *prev_set_key;
-	char *prev_set_value;
+	struct sql_dict_prev *prev_inc;
+	struct sql_dict_prev *prev_set;
 
 	dict_transaction_commit_callback_t *async_callback;
 	void *async_context;
@@ -904,8 +909,10 @@ sql_dict_transaction_init(struct dict *_dict)
 
 static void sql_dict_transaction_free(struct sql_dict_transaction_context *ctx)
 {
+	i_assert(ctx->prev_inc == NULL);
+	i_assert(ctx->prev_set == NULL);
+
 	pool_unref(&ctx->inc_row_pool);
-	i_free(ctx->prev_inc_key);
 	i_free(ctx->error);
 	i_free(ctx);
 }
@@ -964,9 +971,9 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 	const char *error;
 	struct dict_commit_result result;
 
-	if (ctx->prev_inc_map != NULL)
+	if (ctx->prev_inc != NULL)
 		sql_dict_prev_inc_flush(ctx);
-	if (ctx->prev_set_map != NULL)
+	if (ctx->prev_set != NULL)
 		sql_dict_prev_set_flush(ctx);
 
 	/* note that the above calls might still set ctx->error */
@@ -1210,9 +1217,9 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 	if (ctx->error != NULL)
 		return;
 
-	if (ctx->prev_inc_map != NULL)
+	if (ctx->prev_inc != NULL)
 		sql_dict_prev_inc_flush(ctx);
-	if (ctx->prev_set_map != NULL)
+	if (ctx->prev_set != NULL)
 		sql_dict_prev_set_flush(ctx);
 
 	map = sql_dict_find_map(dict, key, &values);
@@ -1297,24 +1304,30 @@ static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
 
 static void sql_dict_prev_set_flush(struct sql_dict_transaction_context *ctx)
 {
-	sql_dict_set_real(&ctx->ctx, ctx->prev_set_key, ctx->prev_set_value);
-	i_free_and_null(ctx->prev_set_value);
-	i_free_and_null(ctx->prev_set_key);
-	ctx->prev_set_map = NULL;
+	i_assert(ctx->prev_set != NULL);
+
+	sql_dict_set_real(&ctx->ctx, ctx->prev_set->key,
+			  ctx->prev_set->value.str);
+	i_free(ctx->prev_set->value.str);
+	i_free(ctx->prev_set->key);
+	i_free(ctx->prev_set);
 }
 
 static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx)
 {
-	sql_dict_atomic_inc_real(ctx, ctx->prev_inc_key, ctx->prev_inc_diff);
-	i_free_and_null(ctx->prev_inc_key);
-	ctx->prev_inc_map = NULL;
+	i_assert(ctx->prev_inc != NULL);
+
+	sql_dict_atomic_inc_real(ctx, ctx->prev_inc->key,
+				 ctx->prev_inc->value.diff);
+	i_free(ctx->prev_inc->key);
+	i_free(ctx->prev_inc);
 }
 
 static bool
 sql_dict_maps_are_mergeable(struct sql_dict *dict,
-			    const struct dict_sql_map *map1,
+			    const struct sql_dict_prev *prev1,
 			    const struct dict_sql_map *map2,
-			    const char *map1_key, const char *map2_key,
+			    const char *map2_key,
 			    const ARRAY_TYPE(const_string) *map2_values)
 {
 	const struct dict_sql_map *map3;
@@ -1322,17 +1335,17 @@ sql_dict_maps_are_mergeable(struct sql_dict *dict,
 	const char *const *v1, *const *v2;
 	unsigned int i, count1, count2;
 
-	if (strcmp(map1->table, map2->table) != 0)
+	if (strcmp(prev1->map->table, map2->table) != 0)
 		return FALSE;
-	if (map1_key[0] != map2_key[0])
+	if (prev1->key[0] != map2_key[0])
 		return FALSE;
-	if (map1_key[0] == DICT_PATH_PRIVATE[0]) {
-		if (strcmp(map1->username_field, map2->username_field) != 0)
+	if (prev1->key[0] == DICT_PATH_PRIVATE[0]) {
+		if (strcmp(prev1->map->username_field, map2->username_field) != 0)
 			return FALSE;
 	}
 
-	map3 = sql_dict_find_map(dict, map1_key, &map1_values);
-	i_assert(map3 == map1);
+	map3 = sql_dict_find_map(dict, prev1->key, &map1_values);
+	i_assert(map3 == prev1->map);
 
 	v1 = array_get(&map1_values, &count1);
 	v2 = array_get(map2_values, &count2);
@@ -1358,7 +1371,7 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 	if (ctx->error != NULL)
 		return;
 
-	if (ctx->prev_inc_map != NULL)
+	if (ctx->prev_inc != NULL)
 		sql_dict_prev_inc_flush(ctx);
 
 	map = sql_dict_find_map(dict, key, &values);
@@ -1368,17 +1381,18 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 		return;
 	}
 
-	if (ctx->prev_set_map == NULL) {
+	if (ctx->prev_set == NULL) {
 		/* see if we can merge this increment SQL query with the
 		   next one */
-		ctx->prev_set_map = map;
-		ctx->prev_set_key = i_strdup(key);
-		ctx->prev_set_value = i_strdup(value);
+		ctx->prev_set = i_new(struct sql_dict_prev, 1);
+		ctx->prev_set->map = map;
+		ctx->prev_set->key = i_strdup(key);
+		ctx->prev_set->value.str = i_strdup(value);
 		return;
 	}
 
-	if (!sql_dict_maps_are_mergeable(dict, ctx->prev_set_map, map,
-					 ctx->prev_set_key, key, &values)) {
+	if (!sql_dict_maps_are_mergeable(dict, ctx->prev_set,
+					 map, key, &values)) {
 		sql_dict_prev_set_flush(ctx);
 		sql_dict_set_real(&ctx->ctx, key, value);
 	} else {
@@ -1394,8 +1408,8 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 		build.key1 = key[0];
 
 		field = array_append_space(&build.fields);
-		field->map = ctx->prev_set_map;
-		field->value = ctx->prev_set_value;
+		field->map = ctx->prev_set->map;
+		field->value = ctx->prev_set->value.str;
 		field = array_append_space(&build.fields);
 		field->map = map;
 		field->value = value;
@@ -1406,9 +1420,9 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 		} else {
 			sql_update_stmt(ctx->sql_ctx, &stmt);
 		}
-		i_free_and_null(ctx->prev_set_value);
-		i_free_and_null(ctx->prev_set_key);
-		ctx->prev_set_map = NULL;
+		i_free(ctx->prev_set->value.str);
+		i_free(ctx->prev_set->key);
+		i_free(ctx->prev_set);
 	}
 }
 
@@ -1424,7 +1438,7 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 	if (ctx->error != NULL)
 		return;
 
-	if (ctx->prev_set_map != NULL)
+	if (ctx->prev_set != NULL)
 		sql_dict_prev_set_flush(ctx);
 
 	map = sql_dict_find_map(dict, key, &values);
@@ -1434,17 +1448,18 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		return;
 	}
 
-	if (ctx->prev_inc_map == NULL) {
+	if (ctx->prev_inc == NULL) {
 		/* see if we can merge this increment SQL query with the
 		   next one */
-		ctx->prev_inc_map = map;
-		ctx->prev_inc_key = i_strdup(key);
-		ctx->prev_inc_diff = diff;
+		ctx->prev_inc = i_new(struct sql_dict_prev, 1);
+		ctx->prev_inc->map = map;
+		ctx->prev_inc->key = i_strdup(key);
+		ctx->prev_inc->value.diff = diff;
 		return;
 	}
 
-	if (!sql_dict_maps_are_mergeable(dict, ctx->prev_inc_map, map,
-					 ctx->prev_inc_key, key, &values)) {
+	if (!sql_dict_maps_are_mergeable(dict, ctx->prev_inc,
+					 map, key, &values)) {
 		sql_dict_prev_inc_flush(ctx);
 		sql_dict_atomic_inc_real(ctx, key, diff);
 	} else {
@@ -1461,7 +1476,7 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		build.key1 = key[0];
 
 		field = array_append_space(&build.fields);
-		field->map = ctx->prev_inc_map;
+		field->map = ctx->prev_inc->map;
 		field = array_append_space(&build.fields);
 		field->map = map;
 		/* field->value is unused */
@@ -1469,7 +1484,7 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		t_array_init(&params, 4);
 		param = array_append_space(&params);
 		param->value_type = DICT_SQL_TYPE_INT;
-		param->value_int64 = ctx->prev_inc_diff;
+		param->value_int64 = ctx->prev_inc->value.diff;
 
 		param = array_append_space(&params);
 		param->value_type = DICT_SQL_TYPE_INT;
@@ -1485,8 +1500,8 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 						 sql_dict_next_inc_row(ctx));
 		}
 
-		i_free_and_null(ctx->prev_inc_key);
-		ctx->prev_inc_map = NULL;
+		i_free(ctx->prev_inc->key);
+		i_free(ctx->prev_inc);
 	}
 }
 
