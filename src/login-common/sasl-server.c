@@ -221,6 +221,8 @@ anvil_lookup_callback(const char *reply, void *context)
 	unsigned int conn_count;
 	int ret;
 
+	client->anvil_query = NULL;
+
 	conn_count = 0;
 	if (reply != NULL && str_to_uint(reply, &conn_count) < 0)
 		i_fatal("Received invalid reply from anvil: %s", reply);
@@ -270,7 +272,8 @@ anvil_check_too_many_connections(struct client *client,
 	query = t_strconcat("LOOKUP\t", login_binary->protocol, "/",
 			    net_ip2addr(&client->ip), "/",
 			    str_tabescape(client->virtual_user), NULL);
-	anvil_client_query(anvil, query, anvil_lookup_callback, req);
+	client->anvil_query =
+		anvil_client_query(anvil, query, anvil_lookup_callback, req);
 }
 
 static bool

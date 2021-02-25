@@ -193,6 +193,7 @@ struct client {
 	time_t auth_first_started, auth_finished;
 	const char *sasl_final_resp;
 	const char *const *auth_passdb_args;
+	struct anvil_query *anvil_query;
 
 	unsigned int master_auth_id;
 	unsigned int master_tag;

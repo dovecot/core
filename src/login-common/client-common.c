@@ -24,6 +24,7 @@
 #include "master-service.h"
 #include "master-service-ssl-settings.h"
 #include "master-auth.h"
+#include "anvil-client.h"
 #include "auth-client.h"
 #include "dsasl-client.h"
 #include "login-proxy.h"
@@ -323,6 +324,8 @@ void client_destroy(struct client *client, const char *reason)
 	} else if (client->auth_request != NULL) {
 		i_assert(client->authenticating);
 		sasl_server_auth_abort(client);
+	} else if (client->anvil_query != NULL) {
+		anvil_client_query_abort(anvil, &client->anvil_query);
 	} else {
 		i_assert(!client->authenticating);
 	}
