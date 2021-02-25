@@ -76,10 +76,11 @@ static void test_atomic_inc(void)
 {
 	const char *error;
 	struct test_driver_result res = {
-		.nqueries = 2,
+		.nqueries = 3,
 		.queries = (const char *[]){
 			"UPDATE counters SET value=value+128 WHERE class = 'global' AND name = 'counter'",
 			"UPDATE quota SET bytes=bytes+128,count=count+1 WHERE username = 'testuser'",
+			"UPDATE quota SET bytes=bytes+128,count=count+1,folders=folders+123 WHERE username = 'testuser'",
 			NULL},
 		.result = NULL,
 	};
@@ -90,15 +91,28 @@ static void test_atomic_inc(void)
 
 	test_set_expected(dict, &res);
 
+	/* 1 field */
 	struct dict_transaction_context *ctx = dict_transaction_begin(dict);
 	dict_atomic_inc(ctx, "shared/counters/global/counter", 128);
 	test_assert(dict_transaction_commit(&ctx, &error) == 0);
         if (error != NULL)
                 i_error("dict_transaction_commit failed: %s", error);
 	error = NULL;
+
+	/* 2 fields */
 	ctx = dict_transaction_begin(dict);
 	dict_atomic_inc(ctx, "priv/quota/bytes", 128);
 	dict_atomic_inc(ctx, "priv/quota/count", 1);
+	test_assert(dict_transaction_commit(&ctx, &error) == 0);
+        if (error != NULL)
+		i_error("dict_transaction_commit failed: %s", error);
+	error = NULL;
+
+	/* 3 fields */
+	ctx = dict_transaction_begin(dict);
+	dict_atomic_inc(ctx, "priv/quota/bytes", 128);
+	dict_atomic_inc(ctx, "priv/quota/count", 1);
+	dict_atomic_inc(ctx, "priv/quota/folders", 123);
 	test_assert(dict_transaction_commit(&ctx, &error) == 0);
         if (error != NULL)
                 i_error("dict_transaction_commit failed: %s", error);

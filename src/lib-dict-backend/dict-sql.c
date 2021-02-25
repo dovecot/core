@@ -75,7 +75,7 @@ struct sql_dict_transaction_context {
 	pool_t inc_row_pool;
 	struct sql_dict_inc_row *inc_row;
 
-	struct sql_dict_prev *prev_inc;
+	ARRAY(struct sql_dict_prev) prev_inc;
 	ARRAY(struct sql_dict_prev) prev_set;
 
 	dict_transaction_commit_callback_t *async_callback;
@@ -909,7 +909,7 @@ sql_dict_transaction_init(struct dict *_dict)
 
 static void sql_dict_transaction_free(struct sql_dict_transaction_context *ctx)
 {
-	i_assert(ctx->prev_inc == NULL);
+	i_assert(!array_is_created(&ctx->prev_inc));
 	i_assert(!array_is_created(&ctx->prev_set));
 
 	pool_unref(&ctx->inc_row_pool);
@@ -971,7 +971,7 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 	const char *error;
 	struct dict_commit_result result;
 
-	if (ctx->prev_inc != NULL)
+	if (array_is_created(&ctx->prev_inc))
 		sql_dict_prev_inc_flush(ctx);
 	if (array_is_created(&ctx->prev_set))
 		sql_dict_prev_set_flush(ctx);
@@ -1220,7 +1220,7 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 	if (ctx->error != NULL)
 		return;
 
-	if (ctx->prev_inc != NULL)
+	if (array_is_created(&ctx->prev_inc))
 		sql_dict_prev_inc_flush(ctx);
 	if (array_is_created(&ctx->prev_set))
 		sql_dict_prev_set_flush(ctx);
@@ -1261,14 +1261,14 @@ sql_dict_next_inc_row(struct sql_dict_transaction_context *ctx)
 	return &row->rows;
 }
 
-static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
-				     const char *key, long long diff)
+static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx)
 {
 	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
-	const struct dict_sql_map *map;
+	const struct sql_dict_prev *prev_incs;
+	unsigned int count;
 	ARRAY_TYPE(const_string) values;
 	struct dict_sql_build_query build;
-	struct dict_sql_build_query_field field;
+	struct dict_sql_build_query_field *field;
 	ARRAY_TYPE(sql_dict_param) params;
 	struct sql_dict_param *param;
 	const char *query, *error;
@@ -1276,27 +1276,34 @@ static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
 	if (ctx->error != NULL)
 		return;
 
-	map = sql_dict_find_map(dict, key, &values);
-	i_assert(map != NULL);
+	prev_incs = array_get(&ctx->prev_inc, &count);
+	i_assert(count > 0);
 
-	field.map = map;
-	field.value = NULL; /* unused */
+	if (sql_dict_find_map(dict, prev_incs[0].key, &values) == NULL)
+		i_unreached(); /* this was already checked */
 
 	i_zero(&build);
 	build.dict = dict;
-	t_array_init(&build.fields, 1);
-	array_push_back(&build.fields, &field);
 	build.extra_values = &values;
-	build.key1 = key[0];
+	build.key1 = prev_incs[0].key[0];
 
-	t_array_init(&params, 4);
-	param = array_append_space(&params);
-	param->value_type = DICT_SQL_TYPE_INT;
-	param->value_int64 = diff;
+	t_array_init(&build.fields, count);
+	t_array_init(&params, count);
+	for (unsigned int i = 0; i < count; i++) {
+		i_assert(build.key1 == prev_incs[i].key[0]);
+		field = array_append_space(&build.fields);
+		field->map = prev_incs[i].map;
+		field->value = NULL; /* unused */
+
+		param = array_append_space(&params);
+		param->value_type = DICT_SQL_TYPE_INT;
+		param->value_int64 = prev_incs[i].value.diff;
+	}
 
 	if (sql_dict_update_query(&build, &query, &params, &error) < 0) {
 		ctx->error = i_strdup_printf(
-			"dict-sql: Failed to increase %s: %s", key, error);
+			"dict-sql: Failed to increase %u fields (first %s): %s",
+			count, prev_incs[0].key, error);
 	} else {
 		struct sql_statement *stmt =
 			sql_dict_transaction_stmt_init(ctx, query, &params);
@@ -1321,12 +1328,14 @@ static void sql_dict_prev_set_flush(struct sql_dict_transaction_context *ctx)
 
 static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx)
 {
-	i_assert(ctx->prev_inc != NULL);
+	struct sql_dict_prev *prev_inc;
 
-	sql_dict_atomic_inc_real(ctx, ctx->prev_inc->key,
-				 ctx->prev_inc->value.diff);
-	i_free(ctx->prev_inc->key);
-	i_free(ctx->prev_inc);
+	i_assert(array_is_created(&ctx->prev_inc));
+
+	sql_dict_atomic_inc_real(ctx);
+	array_foreach_modifiable(&ctx->prev_inc, prev_inc)
+		i_free(prev_inc->key);
+	array_free(&ctx->prev_inc);
 }
 
 static bool
@@ -1377,7 +1386,7 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 	if (ctx->error != NULL)
 		return;
 
-	if (ctx->prev_inc != NULL)
+	if (array_is_created(&ctx->prev_inc))
 		sql_dict_prev_inc_flush(ctx);
 
 	map = sql_dict_find_map(dict, key, &values);
@@ -1426,65 +1435,21 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		return;
 	}
 
-	if (ctx->prev_inc != NULL &&
-	    !sql_dict_maps_are_mergeable(dict, ctx->prev_inc,
+	if (array_is_created(&ctx->prev_inc) &&
+	    !sql_dict_maps_are_mergeable(dict, array_front(&ctx->prev_inc),
 					 map, key, &values)) {
 		/* couldn't merge to the previous inc - flush it */
 		sql_dict_prev_inc_flush(ctx);
 	}
 
-	if (ctx->prev_inc == NULL) {
-		/* see if we can merge this increment SQL query with the
-		   next one */
-		ctx->prev_inc = i_new(struct sql_dict_prev, 1);
-		ctx->prev_inc->map = map;
-		ctx->prev_inc->key = i_strdup(key);
-		ctx->prev_inc->value.diff = diff;
-		return;
-	}
-
-	/* merge with prev_inc */
-	{
-		struct dict_sql_build_query build;
-		struct dict_sql_build_query_field *field;
-		ARRAY_TYPE(sql_dict_param) params;
-		struct sql_dict_param *param;
-		const char *query, *error;
-
-		i_zero(&build);
-		build.dict = dict;
-		t_array_init(&build.fields, 1);
-		build.extra_values = &values;
-		build.key1 = key[0];
-
-		field = array_append_space(&build.fields);
-		field->map = ctx->prev_inc->map;
-		field = array_append_space(&build.fields);
-		field->map = map;
-		/* field->value is unused */
-
-		t_array_init(&params, 4);
-		param = array_append_space(&params);
-		param->value_type = DICT_SQL_TYPE_INT;
-		param->value_int64 = ctx->prev_inc->value.diff;
-
-		param = array_append_space(&params);
-		param->value_type = DICT_SQL_TYPE_INT;
-		param->value_int64 = diff;
-
-		if (sql_dict_update_query(&build, &query, &params, &error) < 0) {
-			ctx->error = i_strdup_printf(
-				"dict-sql: Failed to increase %s: %s", key, error);
-		} else {
-			struct sql_statement *stmt =
-				sql_dict_transaction_stmt_init(ctx, query, &params);
-			sql_update_stmt_get_rows(ctx->sql_ctx, &stmt,
-						 sql_dict_next_inc_row(ctx));
-		}
-
-		i_free(ctx->prev_inc->key);
-		i_free(ctx->prev_inc);
-	}
+	if (!array_is_created(&ctx->prev_inc))
+		i_array_init(&ctx->prev_inc, 4);
+	/* Either this is the first inc, or this can be merged with the
+	   previous inc. */
+	struct sql_dict_prev *prev_inc = array_append_space(&ctx->prev_inc);
+	prev_inc->map = map;
+	prev_inc->key = i_strdup(key);
+	prev_inc->value.diff = diff;
 }
 
 static struct dict sql_dict = {
