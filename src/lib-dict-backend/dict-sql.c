@@ -1381,6 +1381,13 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 		return;
 	}
 
+	if (ctx->prev_set != NULL &&
+	    !sql_dict_maps_are_mergeable(dict, ctx->prev_set,
+					 map, key, &values)) {
+		/* couldn't merge to the previous set - flush it */
+		sql_dict_prev_set_flush(ctx);
+	}
+
 	if (ctx->prev_set == NULL) {
 		/* see if we can merge this increment SQL query with the
 		   next one */
@@ -1391,11 +1398,8 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 		return;
 	}
 
-	if (!sql_dict_maps_are_mergeable(dict, ctx->prev_set,
-					 map, key, &values)) {
-		sql_dict_prev_set_flush(ctx);
-		sql_dict_set_real(&ctx->ctx, key, value);
-	} else {
+	/* merge with prev_set */
+	{
 		struct dict_sql_build_query build;
 		struct dict_sql_build_query_field *field;
 		struct sql_statement *stmt;
@@ -1448,6 +1452,13 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		return;
 	}
 
+	if (ctx->prev_inc != NULL &&
+	    !sql_dict_maps_are_mergeable(dict, ctx->prev_inc,
+					 map, key, &values)) {
+		/* couldn't merge to the previous inc - flush it */
+		sql_dict_prev_inc_flush(ctx);
+	}
+
 	if (ctx->prev_inc == NULL) {
 		/* see if we can merge this increment SQL query with the
 		   next one */
@@ -1458,11 +1469,8 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		return;
 	}
 
-	if (!sql_dict_maps_are_mergeable(dict, ctx->prev_inc,
-					 map, key, &values)) {
-		sql_dict_prev_inc_flush(ctx);
-		sql_dict_atomic_inc_real(ctx, key, diff);
-	} else {
+	/* merge with prev_inc */
+	{
 		struct dict_sql_build_query build;
 		struct dict_sql_build_query_field *field;
 		ARRAY_TYPE(sql_dict_param) params;
