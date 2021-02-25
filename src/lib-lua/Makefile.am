@@ -19,7 +19,8 @@ libdovecot_lua_la_LDFLAGS = -export-dynamic
 headers = \
 	dlua-compat.h \
 	dlua-script.h \
-	dlua-script-private.h
+	dlua-script-private.h \
+	dlua-wrapper.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
