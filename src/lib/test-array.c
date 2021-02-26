@@ -233,10 +233,6 @@ static void test_array_cmp(void)
 	test_end();
 }
 
-static int test_compare_string(const char *const *c1, const char *const *c2)
-{
-	return strcmp(*c1, *c2);
-}
 static void test_array_cmp_str(void)
 {
 #define NELEMS 5u
@@ -253,7 +249,7 @@ static void test_array_cmp_str(void)
 	}
 	array_append(&arr1, elemstrs, NELEMS);
 	test_assert(array_cmp(&arr1, &arr2) == TRUE); /* pointers shared, so identical */
-	test_assert(array_equal_fn(&arr1, &arr2, test_compare_string) == TRUE); /* therefore value same */
+	test_assert(array_equal_fn(&arr1, &arr2, i_strcmp_p) == TRUE); /* therefore value same */
 	for (i = 0; i < 2560; i++) {
 		unsigned int j = i_rand_limit(NELEMS);
 		const char *const *ostr_p = array_idx(&arr2, j);
@@ -269,13 +265,13 @@ static void test_array_cmp_str(void)
 			buf[rc+1] = '\0';
 		array_idx_set(&arr2, j, &bufp);
 		test_assert(array_cmp(&arr1, &arr2) == FALSE); /* pointers now differ */
-		test_assert_idx(array_equal_fn(&arr1, &arr2, test_compare_string)
+		test_assert_idx(array_equal_fn(&arr1, &arr2, i_strcmp_p)
 				== (strcmp(ostr, buf) == 0), i); /* sometimes still the same */
-		test_assert_idx(array_equal_fn(&arr1, &arr2, test_compare_string)
+		test_assert_idx(array_equal_fn(&arr1, &arr2, i_strcmp_p)
 				== (ochar == buf[rc]), i); /* ditto */
 		array_idx_set(&arr2, j, &ostr);
 		test_assert(array_cmp(&arr1, &arr2) == TRUE); /* pointers now same again */
-		test_assert_idx(array_equal_fn(&arr1, &arr2, test_compare_string) == TRUE, i); /* duh! */
+		test_assert_idx(array_equal_fn(&arr1, &arr2, i_strcmp_p) == TRUE, i); /* duh! */
 	}
 	/* length differences being detected are tested in other tests */
 	test_end();
