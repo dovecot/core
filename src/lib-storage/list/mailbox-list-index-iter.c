@@ -82,7 +82,12 @@ mailbox_list_index_update_info(struct mailbox_list_index_iterate_context *ctx)
 		str_append_c(ctx->path,
 			     mailbox_list_get_hierarchy_sep(ctx->ctx.list));
 	}
-	str_append(ctx->path, node->raw_name);
+	char escape_chars[] = {
+		ctx->ctx.list->set.storage_name_escape_char,
+		mailbox_list_get_hierarchy_sep(ctx->ctx.list),
+		'\0'
+	};
+	mailbox_list_name_escape(node->raw_name, escape_chars, ctx->path);
 
 	ctx->info.vname = mailbox_list_get_vname(ctx->ctx.list, str_c(ctx->path));
 	ctx->info.flags = node->children != NULL ?

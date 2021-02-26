@@ -114,9 +114,12 @@ int mailbox_list_index_index_open(struct mailbox_list *list)
 }
 
 struct mailbox_list_index_node *
-mailbox_list_index_node_find_sibling(struct mailbox_list_index_node *node,
+mailbox_list_index_node_find_sibling(const struct mailbox_list *list,
+				     struct mailbox_list_index_node *node,
 				     const char *name)
 {
+	mailbox_list_name_unescape(&name, list->set.storage_name_escape_char);
+
 	while (node != NULL) {
 		if (strcmp(node->raw_name, name) == 0)
 			return node;
@@ -135,12 +138,12 @@ mailbox_list_index_lookup_real(struct mailbox_list *list, const char *name)
 	char sep[2];
 
 	if (*name == '\0')
-		return mailbox_list_index_node_find_sibling(node, "");
+		return mailbox_list_index_node_find_sibling(list, node, "");
 
 	sep[0] = mailbox_list_get_hierarchy_sep(list); sep[1] = '\0';
 	path = t_strsplit(name, sep);
 	for (i = 0;; i++) {
-		node = mailbox_list_index_node_find_sibling(node, path[i]);
+		node = mailbox_list_index_node_find_sibling(list, node, path[i]);
 		if (node == NULL || path[i+1] == NULL)
 			break;
 		node = node->children;

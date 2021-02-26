@@ -61,6 +61,7 @@ mailbox_list_index_node_add(struct mailbox_list_index_sync_context *ctx,
 {
 	struct mailbox_list_index_node *node;
 	char *dup_name;
+	mailbox_list_name_unescape(&name, ctx->list->set.storage_name_escape_char);
 
 	node = p_new(ctx->ilist->mailbox_pool,
 		     struct mailbox_list_index_node, 1);
@@ -104,7 +105,7 @@ uint32_t mailbox_list_index_sync_name(struct mailbox_list_index_sync_context *ct
 	/* find the last node that exists in the path */
 	node = ctx->ilist->mailbox_tree; parent = NULL;
 	for (i = 0; path[i] != NULL; i++) {
-		node = mailbox_list_index_node_find_sibling(node, path[i]);
+		node = mailbox_list_index_node_find_sibling(ctx->list, node, path[i]);
 		if (node == NULL)
 			break;
 

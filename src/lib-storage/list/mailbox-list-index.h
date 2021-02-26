@@ -187,7 +187,8 @@ int mailbox_list_index_view_open(struct mailbox *box, bool require_refreshed,
 				 uint32_t *seq_r);
 
 struct mailbox_list_index_node *
-mailbox_list_index_node_find_sibling(struct mailbox_list_index_node *node,
+mailbox_list_index_node_find_sibling(const struct mailbox_list *list,
+				     struct mailbox_list_index_node *node,
 				     const char *name);
 void mailbox_list_index_reset(struct mailbox_list_index *ilist);
 int mailbox_list_index_parse(struct mailbox_list *list,
