@@ -350,11 +350,11 @@ sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 		     string_t *query, ARRAY_TYPE(sql_dict_param) *params,
 		     const char **error_r)
 {
-	const struct dict_sql_field *sql_fields;
+	const struct dict_sql_field *pattern_fields;
 	const char *const *values;
 	unsigned int i, count, count2, exact_count;
 
-	sql_fields = array_get(&map->sql_fields, &count);
+	pattern_fields = array_get(&map->pattern_fields, &count);
 	values = array_get(values_arr, &count2);
 	/* if we came here from iteration code there may be less values */
 	i_assert(count2 <= count);
@@ -370,8 +370,8 @@ sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 	for (i = 0; i < exact_count; i++) {
 		if (i > 0)
 			str_append(query, " AND");
-		str_printfa(query, " %s = ?", sql_fields[i].name);
-		if (sql_dict_field_get_value(map, &sql_fields[i], values[i], "",
+		str_printfa(query, " %s = ?", pattern_fields[i].name);
+		if (sql_dict_field_get_value(map, &pattern_fields[i], values[i], "",
 					     params, error_r) < 0)
 			return -1;
 	}
@@ -382,20 +382,21 @@ sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 		if (i > 0)
 			str_append(query, " AND");
 		if (i < count2) {
-			str_printfa(query, " %s LIKE ?", sql_fields[i].name);
-			if (sql_dict_field_get_value(map, &sql_fields[i],
+			str_printfa(query, " %s LIKE ?", pattern_fields[i].name);
+			if (sql_dict_field_get_value(map, &pattern_fields[i],
 						     values[i], "/%",
 						     params, error_r) < 0)
 				return -1;
-			str_printfa(query, " AND %s NOT LIKE ?", sql_fields[i].name);
-			if (sql_dict_field_get_value(map, &sql_fields[i],
+			str_printfa(query, " AND %s NOT LIKE ?", pattern_fields[i].name);
+			if (sql_dict_field_get_value(map, &pattern_fields[i],
 						     values[i], "/%/%",
 						     params, error_r) < 0)
 				return -1;
 		} else {
 			str_printfa(query, " %s LIKE '%%' AND "
 				    "%s NOT LIKE '%%/%%'",
-				    sql_fields[i].name, sql_fields[i].name);
+				    pattern_fields[i].name,
+				    pattern_fields[i].name);
 		}
 		break;
 	case SQL_DICT_RECURSE_FULL:
@@ -403,8 +404,8 @@ sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 			if (i > 0)
 				str_append(query, " AND");
 			str_printfa(query, " %s LIKE ",
-				    sql_fields[i].name);
-			if (sql_dict_field_get_value(map, &sql_fields[i],
+				    pattern_fields[i].name);
+			if (sql_dict_field_get_value(map, &pattern_fields[i],
 						     values[i], "/%",
 						     params, error_r) < 0)
 				return -1;
@@ -510,7 +511,7 @@ sql_dict_result_unescape_field(const struct dict_sql_map *map, pool_t pool,
 {
 	const struct dict_sql_field *sql_field;
 
-	sql_field = array_idx(&map->sql_fields, sql_field_idx);
+	sql_field = array_idx(&map->pattern_fields, sql_field_idx);
 	return sql_dict_result_unescape(sql_field->value_type, pool,
 					result, result_idx);
 }
@@ -616,7 +617,7 @@ sql_dict_iterate_find_next_map(struct sql_dict_iterate_context *ctx,
 		if (dict_sql_map_match(&maps[i], ctx->paths[ctx->path_idx],
 				       values, &pat_len, &path_len, TRUE, recurse) &&
 		    (recurse ||
-		     array_count(values)+1 >= array_count(&maps[i].sql_fields))) {
+		     array_count(values)+1 >= array_count(&maps[i].pattern_fields))) {
 			ctx->key_prefix_len = path_len;
 			ctx->pattern_prefix_len = pat_len;
 			ctx->next_map_idx = i + 1;
@@ -642,7 +643,7 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
 	const struct dict_sql_map *map;
 	ARRAY_TYPE(const_string) values;
-	const struct dict_sql_field *sql_fields;
+	const struct dict_sql_field *pattern_fields;
 	enum sql_recurse_type recurse_type;
 	unsigned int i, count;
 
@@ -667,7 +668,7 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 		str_printfa(query, "%s,", map->value_field);
 
 	/* get all missing fields */
-	sql_fields = array_get(&map->sql_fields, &count);
+	pattern_fields = array_get(&map->pattern_fields, &count);
 	i = array_count(&values);
 	if (i == count) {
 		/* we always want to know the last field since we're
@@ -677,7 +678,7 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 	}
 	ctx->sql_fields_start_idx = i;
 	for (; i < count; i++)
-		str_printfa(query, "%s,", sql_fields[i].name);
+		str_printfa(query, "%s,", pattern_fields[i].name);
 	str_truncate(query, str_len(query)-1);
 
 	str_printfa(query, " FROM %s", map->table);
@@ -699,7 +700,7 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 	if ((ctx->flags & DICT_ITERATE_FLAG_SORT_BY_KEY) != 0) {
 		str_append(query, " ORDER BY ");
 		for (i = 0; i < count; i++) {
-			str_printfa(query, "%s", sql_fields[i].name);
+			str_printfa(query, "%s", pattern_fields[i].name);
 			if (i < count-1)
 				str_append_c(query, ',');
 		}
@@ -1050,7 +1051,7 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 {
 	struct sql_dict *dict = build->dict;
 	const struct dict_sql_build_query_field *fields;
-	const struct dict_sql_field *sql_fields;
+	const struct dict_sql_field *pattern_fields;
 	ARRAY_TYPE(sql_dict_param) params;
 	const char *const *extra_values;
 	unsigned int i, field_count, count, count2;
@@ -1089,13 +1090,13 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 	}
 
 	/* add the other fields from the key */
-	sql_fields = array_get(&fields[0].map->sql_fields, &count);
+	pattern_fields = array_get(&fields[0].map->pattern_fields, &count);
 	extra_values = array_get(build->extra_values, &count2);
 	i_assert(count == count2);
 	for (i = 0; i < count; i++) {
-		str_printfa(prefix, ",%s", sql_fields[i].name);
+		str_printfa(prefix, ",%s", pattern_fields[i].name);
 		str_append(suffix, ",?");
-		if (sql_dict_field_get_value(fields[0].map, &sql_fields[i],
+		if (sql_dict_field_get_value(fields[0].map, &pattern_fields[i],
 					     extra_values[i], "",
 					     &params, error_r) < 0)
 			return -1;
