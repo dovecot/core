@@ -35,7 +35,7 @@ struct dict_sql_map {
 struct dict_sql_settings {
 	const char *connect;
 
-	unsigned int max_field_count;
+	unsigned int max_pattern_fields_count;
 	ARRAY(struct dict_sql_map) maps;
 };
 
