@@ -137,6 +137,8 @@ static void sql_dict_wait(struct dict *dict ATTR_UNUSED)
 	/* FIXME: lib-sql doesn't support this yet */
 }
 
+/* Try to match path to map->pattern. For example pattern="shared/x/$/$/y"
+   and path="shared/x/1/2/y", this is match and pattern_values=[1, 2]. */
 static bool
 dict_sql_map_match(const struct dict_sql_map *map, const char *path,
 		   ARRAY_TYPE(const_string) *pattern_values, size_t *pat_len_r,
@@ -976,6 +978,7 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 	const char *error;
 	struct dict_commit_result result;
 
+	/* flush any pending set/inc */
 	if (array_is_created(&ctx->prev_inc))
 		sql_dict_prev_inc_flush(ctx);
 	if (array_is_created(&ctx->prev_set))
@@ -1067,6 +1070,10 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 	t_array_init(&params, 4);
 	prefix = t_str_new(64);
 	suffix = t_str_new(256);
+	/* SQL table is guaranteed to be the same for all fields.
+	   Build all the SQL field names into prefix and '?' placeholders for
+	   each value into the suffix. The actual field values will be added
+	   into params[]. */
 	str_printfa(prefix, "INSERT INTO %s", fields[0].map->table);
 	str_append(prefix, " (");
 	str_append(suffix, ") VALUES (");
@@ -1093,7 +1100,7 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 		param->value_str = dict->username;
 	}
 
-	/* add the other fields from the key */
+	/* add the variable fields that were parsed from the path */
 	pattern_fields = array_get(&fields[0].map->pattern_fields, &count);
 	pattern_values = array_get(build->pattern_values, &count2);
 	i_assert(count == count2);
@@ -1113,6 +1120,9 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 		return 0;
 	}
 
+	/* If the row already exists, UPDATE it instead. The pattern_values
+	   don't need to be updated here, because they are expected to be part
+	   of the row's primary key. */
 	str_append(prefix, " ON DUPLICATE KEY UPDATE ");
 	for (i = 0; i < field_count; i++) {
 		const char *first_value_field =
@@ -1198,6 +1208,8 @@ static void sql_dict_prev_set_flush(struct sql_dict_transaction_context *ctx)
 	prev_sets = array_get(&ctx->prev_set, &count);
 	i_assert(count > 0);
 
+	/* Get the variable values from the dict path. We already verified that
+	   these are all exactly the same for everything in prev_sets. */
 	if (sql_dict_find_map(dict, prev_sets[0].key, &pattern_values) == NULL)
 		i_unreached(); /* this was already checked */
 
@@ -1206,6 +1218,11 @@ static void sql_dict_prev_set_flush(struct sql_dict_transaction_context *ctx)
 	build.pattern_values = &pattern_values;
 	build.add_username = (prev_sets[0].key[0] == DICT_PATH_PRIVATE[0]);
 
+	/* build.fields[] is used to get the map { value_field } for the
+	   SQL field names, as well as the values for them.
+
+	   Example: INSERT INTO ... (build.fields[0].map->value_field,
+	   ...[1], ...) VALUES (build.fields[0].value, ...[1], ...) */
 	t_array_init(&build.fields, count);
 	for (unsigned int i = 0; i < count; i++) {
 		i_assert(build.add_username ==
@@ -1240,6 +1257,8 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 	if (ctx->error != NULL)
 		return;
 
+	/* In theory we could unset one of the previous set/incs in this
+	   same transaction, so flush them first. */
 	if (array_is_created(&ctx->prev_inc))
 		sql_dict_prev_inc_flush(ctx);
 	if (array_is_created(&ctx->prev_set))
@@ -1313,6 +1332,8 @@ static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx)
 	prev_incs = array_get(&ctx->prev_inc, &count);
 	i_assert(count > 0);
 
+	/* Get the variable values from the dict path. We already verified that
+	   these are all exactly the same for everything in prev_incs. */
 	if (sql_dict_find_map(dict, prev_incs[0].key, &pattern_values) == NULL)
 		i_unreached(); /* this was already checked */
 
@@ -1321,6 +1342,13 @@ static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx)
 	build.pattern_values = &pattern_values;
 	build.add_username = (prev_incs[0].key[0] == DICT_PATH_PRIVATE[0]);
 
+	/* build.fields[] is an array of maps, which are used to get the
+	   map { value_field } for the SQL field names.
+
+	   params[] specifies the list of values to use for each field.
+
+	   Example: UPDATE .. SET build.fields[0].map->value_field =
+	   ...->value_field + params[0]->value_int64, ...[1]... */
 	t_array_init(&build.fields, count);
 	t_array_init(&params, count);
 	for (unsigned int i = 0; i < count; i++) {
@@ -1390,6 +1418,8 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 	if (ctx->error != NULL)
 		return;
 
+	/* In theory we could set the previous inc in this same transaction,
+	   so flush it first. */
 	if (array_is_created(&ctx->prev_inc))
 		sql_dict_prev_inc_flush(ctx);
 
@@ -1429,6 +1459,8 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 	if (ctx->error != NULL)
 		return;
 
+	/* In theory we could inc the previous set in this same transaction,
+	   so flush it first. */
 	if (array_is_created(&ctx->prev_set))
 		sql_dict_prev_set_flush(ctx);
 
