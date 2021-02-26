@@ -1349,31 +1349,24 @@ sql_dict_maps_are_mergeable(struct sql_dict *dict,
 {
 	const struct dict_sql_map *map3;
 	ARRAY_TYPE(const_string) map1_values;
-	const char *const *v1, *const *v2;
-	unsigned int i, count1, count2;
 
+	/* sql table names must equal */
 	if (strcmp(prev1->map->table, map2->table) != 0)
 		return FALSE;
+	/* private vs shared prefix must equal */
 	if (prev1->key[0] != map2_key[0])
 		return FALSE;
 	if (prev1->key[0] == DICT_PATH_PRIVATE[0]) {
+		/* for private keys, username must equal */
 		if (strcmp(prev1->map->username_field, map2->username_field) != 0)
 			return FALSE;
 	}
 
+	/* variable values in the paths must equal exactly */
 	map3 = sql_dict_find_map(dict, prev1->key, &map1_values);
 	i_assert(map3 == prev1->map);
 
-	v1 = array_get(&map1_values, &count1);
-	v2 = array_get(map2_values, &count2);
-	if (count1 != count2)
-		return FALSE;
-
-	for (i = 0; i < count1; i++) {
-		if (strcmp(v1[i], v2[i]) != 0)
-			return FALSE;
-	}
-	return TRUE;
+	return array_equal_fn(&map1_values, map2_values, i_strcmp_p);
 }
 
 static void sql_dict_set(struct dict_transaction_context *_ctx,
