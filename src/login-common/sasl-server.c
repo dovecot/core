@@ -196,6 +196,7 @@ static int master_send_request(struct anvil_request *anvil_request)
 	data = i_stream_get_data(client->input, &size);
 	buffer_append(buf, data, size);
 	req.data_size = buf->used;
+	i_stream_skip(client->input, size);
 
 	client->auth_finished = ioloop_time;
 
