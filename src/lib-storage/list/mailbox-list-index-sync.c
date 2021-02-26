@@ -68,7 +68,7 @@ mailbox_list_index_node_add(struct mailbox_list_index_sync_context *ctx,
 		MAILBOX_LIST_INDEX_FLAG_SYNC_EXISTS;
 	/* we don't bother doing name deduplication here, even though it would
 	   be possible. */
-	node->name = dup_name = p_strdup(ctx->ilist->mailbox_pool, name);
+	node->raw_name = dup_name = p_strdup(ctx->ilist->mailbox_pool, name);
 	node->name_id = ++ctx->ilist->highest_name_id;
 	node->uid = ctx->next_uid++;
 

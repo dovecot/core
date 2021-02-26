@@ -118,7 +118,7 @@ mailbox_list_index_node_find_sibling(struct mailbox_list_index_node *node,
 				     const char *name)
 {
 	while (node != NULL) {
-		if (strcmp(node->name, name) == 0)
+		if (strcmp(node->raw_name, name) == 0)
 			return node;
 		node = node->next;
 	}
@@ -172,7 +172,7 @@ void mailbox_list_index_node_get_path(const struct mailbox_list_index_node *node
 		mailbox_list_index_node_get_path(node->parent, sep, str);
 		str_append_c(str, sep);
 	}
-	str_append(str, node->name);
+	str_append(str, node->raw_name);
 }
 
 void mailbox_list_index_node_unlink(struct mailbox_list_index *ilist,
@@ -255,7 +255,7 @@ mailbox_list_index_generate_name(struct mailbox_list_index *ilist,
 	guid_128_generate(guid);
 	name = p_strdup_printf(ilist->mailbox_pool, "%s%s", prefix,
 			       guid_128_to_string(guid));
-	node->name = name;
+	node->raw_name = name;
 	node->flags |= MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME;
 
 	hash_table_insert(ilist->mailbox_names,
@@ -268,13 +268,13 @@ static int mailbox_list_index_node_cmp(const struct mailbox_list_index_node *n1,
 				       const struct mailbox_list_index_node *n2)
 {
 	return  n1->parent == n2->parent &&
-		strcmp(n1->name, n2->name) == 0 ? 0 : -1;
+		strcmp(n1->raw_name, n2->raw_name) == 0 ? 0 : -1;
 }
 
 static unsigned int
 mailbox_list_index_node_hash(const struct mailbox_list_index_node *node)
 {
-	return str_hash(node->name) ^
+	return str_hash(node->raw_name) ^
 		POINTER_CAST_TO(node->parent, unsigned int);
 }
 
@@ -333,9 +333,9 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 			node->name_id = ++ilist->highest_name_id;
 			node->corrupted_ext = TRUE;
 		}
-		node->name = hash_table_lookup(ilist->mailbox_names,
+		node->raw_name = hash_table_lookup(ilist->mailbox_names,
 					       POINTER_CAST(irec->name_id));
-		if (node->name == NULL) {
+		if (node->raw_name == NULL) {
 			*error_r = t_strdup_printf(
 				"name_id=%u not in index header", irec->name_id);
 			if (ilist->has_backing_store)
@@ -352,7 +352,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 			node->flags |= MAILBOX_LIST_INDEX_FLAG_NOSELECT;
 			*error_r = t_strdup_printf(
 				"mailbox '%s' (uid=%u) is missing GUID - "
-				"marking it non-selectable", node->name, node->uid);
+				"marking it non-selectable", node->raw_name, node->uid);
 			node->corrupted_flags = TRUE;
 		}
 		if (!ilist->has_backing_store && !guid_128_is_empty(irec->guid) &&
@@ -361,7 +361,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 			node->flags &= ENUM_NEGATE(MAILBOX_LIST_INDEX_FLAG_NONEXISTENT | MAILBOX_LIST_INDEX_FLAG_NOSELECT);
 			*error_r = t_strdup_printf(
 				"non-selectable mailbox '%s' (uid=%u) already has GUID - "
-				"marking it selectable", node->name, node->uid);
+				"marking it selectable", node->raw_name, node->uid);
 			node->corrupted_flags = TRUE;
 		}
 
@@ -398,7 +398,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 			} else if (node_has_parent(parent, node)) {
 				*error_r = t_strdup_printf(
 					"parent_uid=%u loops to node itself (%s)",
-					uid, node->name);
+					uid, node->raw_name);
 				if (ilist->has_backing_store)
 					break;
 				/* just place it under the root */
@@ -409,18 +409,18 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 				parent->children = node;
 				continue;
 			}
-		} else if (strcasecmp(node->name, "INBOX") == 0) {
+		} else if (strcasecmp(node->raw_name, "INBOX") == 0) {
 			ilist->rebuild_on_missing_inbox = FALSE;
 		}
 		if (hash_table_lookup(duplicate_hash, node) == NULL)
 			hash_table_insert(duplicate_hash, node, node);
 		else {
-			const char *old_name = node->name;
+			const char *old_name = node->raw_name;
 
 			if (ilist->has_backing_store) {
 				*error_r = t_strdup_printf(
 					"Duplicate mailbox '%s' in index",
-					node->name);
+					node->raw_name);
 				break;
 			}
 
@@ -429,10 +429,10 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 			node->corrupted_ext = TRUE;
 			node->name_id = ++ilist->highest_name_id;
 			mailbox_list_index_generate_name(ilist, node,
-				t_strconcat(node->name, "-duplicate-", NULL));
+				t_strconcat(node->raw_name, "-duplicate-", NULL));
 			*error_r = t_strdup_printf(
 				"Duplicate mailbox '%s' in index, renaming to %s",
-				old_name, node->name);
+				old_name, node->raw_name);
 		}
 		node->next = ilist->mailbox_tree;
 		ilist->mailbox_tree = node;

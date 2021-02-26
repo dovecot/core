@@ -82,7 +82,7 @@ mailbox_list_index_update_info(struct mailbox_list_index_iterate_context *ctx)
 		str_append_c(ctx->path,
 			     mailbox_list_get_hierarchy_sep(ctx->ctx.list));
 	}
-	str_append(ctx->path, node->name);
+	str_append(ctx->path, node->raw_name);
 
 	ctx->info.vname = mailbox_list_get_vname(ctx->ctx.list, str_c(ctx->path));
 	ctx->info.flags = node->children != NULL ?
@@ -133,7 +133,7 @@ mailbox_list_index_update_next(struct mailbox_list_index_iterate_context *ctx,
 	struct mailbox_list_index_node *node = ctx->next_node;
 
 	if (!ctx->prefix_inbox_list && ctx->ctx.list->ns->prefix_len > 0 &&
-	    strcmp(node->name, "INBOX") == 0 && node->parent == NULL &&
+	    strcmp(node->raw_name, "INBOX") == 0 && node->parent == NULL &&
 	    node->children != NULL) {
 		/* prefix/INBOX has children */
 		ctx->prefix_inbox_list = TRUE;
@@ -147,7 +147,7 @@ mailbox_list_index_update_next(struct mailbox_list_index_iterate_context *ctx,
 		while (node->next == NULL) {
 			node = node->parent;
 			if (node != NULL) {
-				ctx->parent_len -= strlen(node->name);
+				ctx->parent_len -= strlen(node->raw_name);
 				if (node->parent != NULL)
 					ctx->parent_len--;
 			}

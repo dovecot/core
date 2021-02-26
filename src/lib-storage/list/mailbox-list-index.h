@@ -93,7 +93,7 @@ struct mailbox_list_index_node {
 	bool corrupted_ext;
 	/* flags are corrupted on disk - need to update it */
 	bool corrupted_flags;
-	const char *name;
+	const char *raw_name;
 };
 
 struct mailbox_list_index {
