@@ -346,21 +346,20 @@ sql_dict_field_get_value(const struct dict_sql_map *map,
 static int
 sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 		     const ARRAY_TYPE(const_string) *values_arr,
-		     char key1, enum sql_recurse_type recurse_type,
+		     bool add_username, enum sql_recurse_type recurse_type,
 		     string_t *query, ARRAY_TYPE(sql_dict_param) *params,
 		     const char **error_r)
 {
 	const struct dict_sql_field *sql_fields;
 	const char *const *values;
 	unsigned int i, count, count2, exact_count;
-	bool priv = key1 == DICT_PATH_PRIVATE[0];
 
 	sql_fields = array_get(&map->sql_fields, &count);
 	values = array_get(values_arr, &count2);
 	/* if we came here from iteration code there may be less values */
 	i_assert(count2 <= count);
 
-	if (count2 == 0 && !priv) {
+	if (count2 == 0 && !add_username) {
 		/* we want everything */
 		return 0;
 	}
@@ -412,7 +411,7 @@ sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 		}
 		break;
 	}
-	if (priv) {
+	if (add_username) {
 		struct sql_dict_param *param = array_append_space(params);
 		if (count2 > 0)
 			str_append(query, " AND");
@@ -445,7 +444,8 @@ sql_lookup_get_query(struct sql_dict *dict, const char *key,
 	t_array_init(&params, 4);
 	str_printfa(query, "SELECT %s FROM %s",
 		    map->value_field, map->table);
-	if (sql_dict_where_build(dict, map, &values, key[0],
+	if (sql_dict_where_build(dict, map, &values,
+				 key[0] == DICT_PATH_PRIVATE[0],
 				 SQL_DICT_RECURSE_NONE, query,
 				 &params, &error) < 0) {
 		*error_r = t_strdup_printf(
@@ -691,8 +691,8 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 
 	ARRAY_TYPE(sql_dict_param) params;
 	t_array_init(&params, 4);
-	if (sql_dict_where_build(dict, map, &values,
-				 ctx->paths[ctx->path_idx][0],
+	bool add_username = (ctx->paths[ctx->path_idx][0] == DICT_PATH_PRIVATE[0]);
+	if (sql_dict_where_build(dict, map, &values, add_username,
 				 recurse_type, query, &params, error_r) < 0)
 		return -1;
 
@@ -1040,7 +1040,7 @@ struct dict_sql_build_query {
 
 	ARRAY(struct dict_sql_build_query_field) fields;
 	const ARRAY_TYPE(const_string) *extra_values;
-	char key1;
+	bool add_username;
 };
 
 static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
@@ -1080,7 +1080,7 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 				       "", &params, error_r) < 0)
 			return -1;
 	}
-	if (build->key1 == DICT_PATH_PRIVATE[0]) {
+	if (build->add_username) {
 		struct sql_dict_param *param = array_append_space(&params);
 		str_printfa(prefix, ",%s", fields[0].map->username_field);
 		str_append(suffix, ",?");
@@ -1154,8 +1154,8 @@ sql_dict_update_query(const struct dict_sql_build_query *build,
 	}
 
 	if (sql_dict_where_build(dict, fields[0].map, build->extra_values,
-				 build->key1, SQL_DICT_RECURSE_NONE, query,
-				 params, error_r) < 0)
+				 build->add_username, SQL_DICT_RECURSE_NONE,
+				 query, params, error_r) < 0)
 		return -1;
 	*query_r = str_c(query);
 	return 0;
@@ -1199,11 +1199,12 @@ static void sql_dict_prev_set_flush(struct sql_dict_transaction_context *ctx)
 	i_zero(&build);
 	build.dict = dict;
 	build.extra_values = &values;
-	build.key1 = prev_sets[0].key[0];
+	build.add_username = (prev_sets[0].key[0] == DICT_PATH_PRIVATE[0]);
 
 	t_array_init(&build.fields, count);
 	for (unsigned int i = 0; i < count; i++) {
-		i_assert(build.key1 == prev_sets[i].key[0]);
+		i_assert(build.add_username ==
+			 (prev_sets[i].key[0] == DICT_PATH_PRIVATE[0]));
 		field = array_append_space(&build.fields);
 		field->map = prev_sets[i].map;
 		field->value = prev_sets[i].value.str;
@@ -1247,7 +1248,8 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 
 	str_printfa(query, "DELETE FROM %s", map->table);
 	t_array_init(&params, 4);
-	if (sql_dict_where_build(dict, map, &values, key[0],
+	if (sql_dict_where_build(dict, map, &values,
+				 key[0] == DICT_PATH_PRIVATE[0],
 				 SQL_DICT_RECURSE_NONE, query,
 				 &params, &error) < 0) {
 		ctx->error = i_strdup_printf(
@@ -1312,12 +1314,13 @@ static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx)
 	i_zero(&build);
 	build.dict = dict;
 	build.extra_values = &values;
-	build.key1 = prev_incs[0].key[0];
+	build.add_username = (prev_incs[0].key[0] == DICT_PATH_PRIVATE[0]);
 
 	t_array_init(&build.fields, count);
 	t_array_init(&params, count);
 	for (unsigned int i = 0; i < count; i++) {
-		i_assert(build.key1 == prev_incs[i].key[0]);
+		i_assert(build.add_username ==
+			 (prev_incs[i].key[0] == DICT_PATH_PRIVATE[0]));
 		field = array_append_space(&build.fields);
 		field->map = prev_incs[i].map;
 		field->value = NULL; /* unused */
