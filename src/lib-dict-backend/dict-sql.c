@@ -1161,11 +1161,20 @@ sql_dict_update_query(const struct dict_sql_build_query *build,
 	return 0;
 }
 
-static void sql_dict_set_real(struct dict_transaction_context *_ctx)
+static void sql_dict_prev_set_free(struct sql_dict_transaction_context *ctx)
 {
-	struct sql_dict_transaction_context *ctx =
-		(struct sql_dict_transaction_context *)_ctx;
-	struct sql_dict *dict = (struct sql_dict *)_ctx->dict;
+	struct sql_dict_prev *prev_set;
+
+	array_foreach_modifiable(&ctx->prev_set, prev_set) {
+		i_free(prev_set->value.str);
+		i_free(prev_set->key);
+	}
+	array_free(&ctx->prev_set);
+}
+
+static void sql_dict_prev_set_flush(struct sql_dict_transaction_context *ctx)
+{
+	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
 	const struct sql_dict_prev *prev_sets;
 	unsigned int count;
 	struct sql_statement *stmt;
@@ -1174,8 +1183,12 @@ static void sql_dict_set_real(struct dict_transaction_context *_ctx)
 	struct dict_sql_build_query_field *field;
 	const char *error;
 
-	if (ctx->error != NULL)
+	i_assert(array_is_created(&ctx->prev_set));
+
+	if (ctx->error != NULL) {
+		sql_dict_prev_set_free(ctx);
 		return;
+	}
 
 	prev_sets = array_get(&ctx->prev_set, &count);
 	i_assert(count > 0);
@@ -1203,6 +1216,7 @@ static void sql_dict_set_real(struct dict_transaction_context *_ctx)
 	} else {
 		sql_update_stmt(ctx->sql_ctx, &stmt);
 	}
+	sql_dict_prev_set_free(ctx);
 }
 
 static void sql_dict_unset(struct dict_transaction_context *_ctx,
@@ -1261,7 +1275,16 @@ sql_dict_next_inc_row(struct sql_dict_transaction_context *ctx)
 	return &row->rows;
 }
 
-static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx)
+static void sql_dict_prev_inc_free(struct sql_dict_transaction_context *ctx)
+{
+	struct sql_dict_prev *prev_inc;
+
+	array_foreach_modifiable(&ctx->prev_inc, prev_inc)
+		i_free(prev_inc->key);
+	array_free(&ctx->prev_inc);
+}
+
+static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx)
 {
 	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
 	const struct sql_dict_prev *prev_incs;
@@ -1273,8 +1296,12 @@ static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx)
 	struct sql_dict_param *param;
 	const char *query, *error;
 
-	if (ctx->error != NULL)
+	i_assert(array_is_created(&ctx->prev_inc));
+
+	if (ctx->error != NULL) {
+		sql_dict_prev_inc_free(ctx);
 		return;
+	}
 
 	prev_incs = array_get(&ctx->prev_inc, &count);
 	i_assert(count > 0);
@@ -1310,32 +1337,7 @@ static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx)
 		sql_update_stmt_get_rows(ctx->sql_ctx, &stmt,
 					 sql_dict_next_inc_row(ctx));
 	}
-}
-
-static void sql_dict_prev_set_flush(struct sql_dict_transaction_context *ctx)
-{
-	struct sql_dict_prev *prev_set;
-
-	i_assert(array_is_created(&ctx->prev_set));
-
-	sql_dict_set_real(&ctx->ctx);
-	array_foreach_modifiable(&ctx->prev_set, prev_set) {
-		i_free(prev_set->value.str);
-		i_free(prev_set->key);
-	}
-	array_free(&ctx->prev_set);
-}
-
-static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx)
-{
-	struct sql_dict_prev *prev_inc;
-
-	i_assert(array_is_created(&ctx->prev_inc));
-
-	sql_dict_atomic_inc_real(ctx);
-	array_foreach_modifiable(&ctx->prev_inc, prev_inc)
-		i_free(prev_inc->key);
-	array_free(&ctx->prev_inc);
+	sql_dict_prev_inc_free(ctx);
 }
 
 static bool
