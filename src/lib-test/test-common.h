@@ -62,7 +62,7 @@ void test_begin(const char *name);
 		uintmax_t _temp_value1 = (_value1); \
 		uintmax_t _temp_value2 = (_value2); \
 		if (!(_value1 _op _value2)) \
-			test_assert_failedu_cmp_intmax_idx( \
+			test_assert_failed_ucmp_intmax_idx( \
 				#_value1 " " #_op " " #_value2, \
 				__FILE__, __LINE__, _temp_value1, _temp_value2, \
 				#_op, _idx); \
