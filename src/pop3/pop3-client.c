@@ -575,7 +575,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 			reason = io_stream_get_disconnect_reason(client->input,
 								 client->output);
 		}
-		i_info("%s %s", reason, client_stats(client));
+		i_info("Disconnected: %s %s", reason, client_stats(client));
 	}
 
 	if (client->cmd != NULL) {
