@@ -419,21 +419,19 @@ timeout_reset_timeval(struct timeout *timeout, struct timeval *tv_now)
 		return;
 
 	timeout_update_next(timeout, tv_now);
-	if (timeout->msecs <= 1) {
-		/* if we came here from io_loop_handle_timeouts(),
-		   next_run must be larger than tv_now or we could go to
-		   infinite loop. +1000 to get 1 ms further, another +1000 to
-		   account for timeout_update_next()'s truncation. */
-		timeout->next_run.tv_usec += 2000;
-		if (timeout->next_run.tv_usec >= 1000000) {
-			timeout->next_run.tv_sec++;
-			timeout->next_run.tv_usec -= 1000000;
-		}
+	/* If we came here from io_loop_handle_timeouts_real(), next_run must
+	   be larger than tv_now or it can go to infinite loop. This would
+	   mainly happen with 0 ms timeouts. Avoid this by making sure
+	   next_run is at least 1 us higher than tv_now.
+
+	   Note that some callers (like master process's process_min_avail
+	   preforking timeout) really do want the 0 ms timeout to trigger
+	   multiple times as rapidly as it can (but in separate ioloop runs).
+	   So don't increase it more than by 1 us. */
+	if (tv_now != NULL && timeval_cmp(&timeout->next_run, tv_now) <= 0) {
+		timeout->next_run = *tv_now;
+		timeval_add_usecs(&timeout->next_run, 1);
 	}
-	i_assert(tv_now == NULL ||
-		 timeout->next_run.tv_sec > tv_now->tv_sec ||
-		 (timeout->next_run.tv_sec == tv_now->tv_sec &&
-		  timeout->next_run.tv_usec > tv_now->tv_usec));
 	priorityq_remove(timeout->ioloop->timeouts, &timeout->item);
 	priorityq_add(timeout->ioloop->timeouts, &timeout->item);
 }
@@ -445,7 +443,7 @@ void timeout_reset(struct timeout *timeout)
 }
 
 static int timeout_get_wait_time(struct timeout *timeout, struct timeval *tv_r,
-				 struct timeval *tv_now)
+				 struct timeval *tv_now, bool in_timeout_loop)
 {
 	int ret;
 
@@ -468,6 +466,11 @@ static int timeout_get_wait_time(struct timeout *timeout, struct timeval *tv_r,
 		/* The timeout should have been called already */
 		tv_r->tv_sec = 0;
 		tv_r->tv_usec = 0;
+		return 0;
+	}
+	if (tv_r->tv_sec == 0 && tv_r->tv_usec == 1 && !in_timeout_loop) {
+		/* Possibly 0 ms timeout. Don't wait for a full millisecond
+		   for it to trigger. */
 		return 0;
 	}
 	if (tv_r->tv_sec > INT_MAX/1000-1)
@@ -509,7 +512,7 @@ static int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
 		tv_r->tv_usec = 0;
 	} else {
 		tv_now.tv_sec = 0;
-		msecs = timeout_get_wait_time(timeout, tv_r, &tv_now);
+		msecs = timeout_get_wait_time(timeout, tv_r, &tv_now, FALSE);
 	}
 	ioloop->next_max_time = tv_now;
 	timeval_add_msecs(&ioloop->next_max_time, msecs);
@@ -519,6 +522,7 @@ static int io_loop_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r)
 	   ioloop and after that we update ioloop_timeval immediately again. */
 	ioloop_timeval = tv_now;
 	ioloop_time = tv_now.tv_sec;
+	i_assert(msecs == 0 || timeout->msecs > 0 || timeout->one_shot);
 	return msecs;
 }
 
@@ -663,7 +667,7 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 
 		/* use tv_call to make sure we don't get to infinite loop in
 		   case callbacks update ioloop_timeval. */
-		if (timeout_get_wait_time(timeout, &tv, &tv_call) > 0)
+		if (timeout_get_wait_time(timeout, &tv, &tv_call, TRUE) > 0)
 			break;
 
 		if (timeout->one_shot) {
