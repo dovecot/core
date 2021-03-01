@@ -75,11 +75,14 @@ static void client_commit_timeout(struct client *client)
 static void client_idle_timeout(struct client *client)
 {
 	if (client->cmd != NULL) {
-		client_destroy(client,
-			"Disconnected for inactivity in reading our output");
+		client_destroy(client, t_strdup_printf(
+			"Client has not read server output for for %"PRIdTIME_T" secs",
+			ioloop_time - client->last_output));
 	} else {
 		client_send_line(client, "-ERR Disconnected for inactivity.");
-		client_destroy(client, "Disconnected for inactivity");
+		client_destroy(client, t_strdup_printf(
+			"Inactivity - no input for %"PRIdTIME_T" secs",
+			ioloop_time - client->last_input));
 	}
 }
 
