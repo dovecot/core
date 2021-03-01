@@ -56,7 +56,9 @@ static void client_idle_timeout(struct client *client)
 {
 	if (client->output_cmd_lock == NULL)
 		client_send_line(client, "* BYE Disconnected for inactivity.");
-	client_destroy(client, "Disconnected for inactivity");
+	client_destroy(client, t_strdup_printf(
+		"Inactivity - no input for %"PRIdTIME_T" secs",
+		ioloop_time - client->last_input));
 }
 
 static void client_init_urlauth(struct client *client)
@@ -1146,8 +1148,9 @@ static bool client_skip_line(struct client *client)
 
 static void client_idle_output_timeout(struct client *client)
 {
-	client_destroy(client,
-		       "Disconnected for inactivity in reading our output");
+	client_destroy(client, t_strdup_printf(
+		"Client has not read server output for for %"PRIdTIME_T" secs",
+		ioloop_time - client->last_output));
 }
 
 bool client_handle_unfinished_cmd(struct client_command_context *cmd)
