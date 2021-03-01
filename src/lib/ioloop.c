@@ -288,7 +288,9 @@ struct timeout *timeout_add_to(struct ioloop *ioloop, unsigned int msecs,
 		/* start this timeout in the next run cycle */
 		array_push_back(&timeout->ioloop->timeouts_new, &timeout);
 	} else {
-		/* trigger zero timeouts as soon as possible */
+		/* Trigger zero timeouts as soon as possible. When ioloop is
+		   running, refresh the timestamp to prevent infinite loops
+		   in case a timeout callback keeps recreating the 0-timeout. */
 		timeout_update_next(timeout, timeout->ioloop->running ?
 			    NULL : &ioloop_timeval);
 		priorityq_add(timeout->ioloop->timeouts, &timeout->item);
