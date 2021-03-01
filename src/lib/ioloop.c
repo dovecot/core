@@ -1022,7 +1022,7 @@ struct ioloop_context *io_loop_context_new(struct ioloop *ioloop)
 	struct ioloop_context *ctx;
 
 	ctx = i_new(struct ioloop_context, 1);
-	ctx->refcount = 2;
+	ctx->refcount = 1;
 	ctx->ioloop = ioloop;
 	i_array_init(&ctx->callbacks, 4);
 	return ctx;
