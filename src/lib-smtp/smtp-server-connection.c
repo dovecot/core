@@ -403,12 +403,6 @@ int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 	}
 	smtp_server_connection_input_resume(conn);
 
-	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
-		e_error(conn->event, "SSL handshake failed: %s",
-			ssl_iostream_get_last_error(conn->ssl_iostream));
-		return -1;
-	}
-
 	conn->ssl_secured = TRUE;
 	conn->set.capabilities &= ENUM_NEGATE(SMTP_CAPABILITY_STARTTLS);
 
