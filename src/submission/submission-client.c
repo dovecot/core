@@ -63,17 +63,6 @@ static void client_input_post(void *context)
 	submission_backends_client_input_post(client);
 }
 
-static const char *client_remote_id(struct client *client)
-{
-	const char *addr = NULL;
-
-	if (client->user->conn.remote_ip != NULL)
-		addr = net_ip2addr(client->user->conn.remote_ip);
-	if (addr == NULL)
-		addr = "local";
-	return addr;
-}
-
 static void client_parse_backend_capabilities(struct client *client)
 {
 	const struct submission_settings *set = client->set;
@@ -448,9 +437,7 @@ static void client_connection_disconnect(void *context, const char *reason)
 		log_reason = reason = "Connection closed";
 	else
 		log_reason = t_str_oneline(reason);
-	i_info("Disconnect from %s: %s %s",
-	       client_remote_id(client),
-	       log_reason, client_stats(client));
+	i_info("Disconnected: %s %s", log_reason, client_stats(client));
 }
 
 static void client_connection_free(void *context)
