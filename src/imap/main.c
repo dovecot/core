@@ -124,8 +124,8 @@ static void client_kill_idle(struct client *client)
 	if (client->output_cmd_lock != NULL)
 		return;
 
-	client_send_line(client, "* BYE Server shutting down.");
 	mail_storage_service_io_activate_user(client->service_user);
+	client_send_line(client, "* BYE Server shutting down.");
 	client_destroy(client, "Server shutting down.");
 }
 

@@ -1627,8 +1627,8 @@ void clients_init(void)
 void clients_destroy_all(void)
 {
 	while (imap_clients != NULL) {
-		client_send_line(imap_clients, "* BYE Server shutting down.");
 		mail_storage_service_io_activate_user(imap_clients->service_user);
+		client_send_line(imap_clients, "* BYE Server shutting down.");
 		client_destroy(imap_clients, "Server shutting down.");
 	}
 }
