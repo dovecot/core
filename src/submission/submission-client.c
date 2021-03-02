@@ -294,24 +294,25 @@ static void client_state_reset(struct client *client)
 	i_zero(&client->state);
 }
 
-void client_destroy(struct client *client, const char *prefix,
+void client_destroy(struct client **_client, const char *prefix,
 		    const char *reason)
 {
-	client->v.destroy(client, prefix, reason);
+	struct client *client = *_client;
+
+	*_client = NULL;
+
+	smtp_server_connection_terminate(&client->conn,
+		(prefix == NULL ? "4.0.0" : prefix), reason);
 }
 
 static void
-client_default_destroy(struct client *client, const char *prefix,
-		       const char *reason)
+client_default_destroy(struct client *client)
 {
+	i_assert(client->disconnected);
+
 	if (client->destroyed)
 		return;
 	client->destroyed = TRUE;
-
-	if (client->conn != NULL) {
-		smtp_server_connection_terminate(&client->conn,
-			(prefix == NULL ? "4.0.0" : prefix), reason);
-	}
 
 	submission_backends_destroy_all(client);
 	array_free(&client->pending_backends);
@@ -459,7 +460,7 @@ static void client_connection_free(void *context)
 {
 	struct client *client = context;
 
-	client_destroy(client, NULL, NULL);
+	client->v.destroy(client);
 }
 
 uoff_t client_get_max_mail_size(struct client *client)
@@ -512,9 +513,10 @@ void client_add_extra_capability(struct client *client, const char *capability,
 void clients_destroy_all(void)
 {
 	while (submission_clients != NULL) {
-		mail_storage_service_io_activate_user(submission_clients->service_user);
-		client_destroy(submission_clients,
-			"4.3.2", "Shutting down");
+		struct client *client = submission_clients;
+
+		mail_storage_service_io_activate_user(client->service_user);
+		client_destroy(&client, "4.3.2", "Shutting down");
 	}
 }
 

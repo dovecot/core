@@ -137,7 +137,7 @@ void submission_backend_fail(struct submission_backend *backend,
 
 	if (backend == client->backend_default) {
 		/* default backend: fail the whole client */
-		client_destroy(client, enh_code, reason);
+		client_destroy(&client, enh_code, reason);
 		return;
 	}
 

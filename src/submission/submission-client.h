@@ -28,8 +28,7 @@ struct client_extra_capability {
 };
 
 struct submission_client_vfuncs {
-	void (*destroy)(struct client *client, const char *prefix,
-			const char *reason);
+	void (*destroy)(struct client *client);
 
 	void (*trans_start)(struct client *client,
 			    struct smtp_server_transaction *trans);
@@ -142,7 +141,7 @@ struct client *client_create(int fd_in, int fd_out,
 			     const char *helo,
 			     const unsigned char *pdata,
 			     unsigned int pdata_len);
-void client_destroy(struct client *client, const char *prefix,
+void client_destroy(struct client **client, const char *prefix,
 		    const char *reason) ATTR_NULL(2, 3);
 
 typedef void (*client_input_callback_t)(struct client *context);
