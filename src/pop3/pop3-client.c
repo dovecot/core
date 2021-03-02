@@ -840,11 +840,11 @@ static int client_output(struct client *client)
 void clients_destroy_all(void)
 {
 	while (pop3_clients != NULL) {
+		mail_storage_service_io_activate_user(pop3_clients->service_user);
 		if (pop3_clients->cmd == NULL) {
 			client_send_line(pop3_clients,
 				"-ERR [SYS/TEMP] Server shutting down.");
 		}
-		mail_storage_service_io_activate_user(pop3_clients->service_user);
 		client_destroy(pop3_clients, "Server shutting down.");
 	}
 }
