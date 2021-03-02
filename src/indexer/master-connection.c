@@ -101,6 +101,11 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 					  "indexing");
 	search_args = mail_search_build_init();
 	mail_search_build_add_seqset(search_args, seq, status.messages);
+
+	struct event *index_event = event_create(box->event);
+	event_set_name(index_event, "indexer_worker_indexing_finished");
+	event_enable_user_cpu_usecs(index_event);
+
 	ctx = mailbox_search_init(trans, search_args, NULL,
 				  metadata.precache_fields, NULL);
 	mail_search_args_unref(&search_args);
@@ -141,18 +146,27 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 			get_attempt_error(counter, first_uid, last_uid));
 		ret = -1;
 	}
+	const char *uids = first_uid == 0 ? "" :
+		t_strdup_printf(" (UIDs %u..%u)", first_uid, last_uid);
+	event_add_int(index_event, "message_count", counter);
+	event_add_int(index_event, "first_uid", first_uid);
+	event_add_int(index_event, "last_uid", last_uid);
+
 	if (mailbox_transaction_commit(&trans) < 0) {
-		errstr = mailbox_get_last_internal_error(box, &error);
+		errstr = t_strdup_printf("Transaction commit failed: %s",
+					 mailbox_get_last_internal_error(box, &error));
+		event_add_str(index_event, "error", errstr);
+		const char *log_error = t_strdup_printf("%s (attempted to index %u messages%s)",
+							errstr, counter, uids);
 		if (error != MAIL_ERROR_NOTFOUND)
-			i_error("Mailbox %s: Transaction commit failed: %s%s",
-				mailbox_get_vname(box), errstr,
-				get_attempt_error(counter, first_uid, last_uid));
+			e_error(index_event, "%s", log_error);
+		else
+			e_debug(index_event, "%s", log_error);
 		ret = -1;
 	} else {
-		i_info("Indexed %u messages in %s%s",
-		       counter, mailbox_get_vname(box), counter == 0 ? "" :
-		       t_strdup_printf(" (UIDs %u..%u)", first_uid, last_uid));
+		e_debug(index_event, "Indexed %u messages%s", counter, uids);
 	}
+	event_unref(&index_event);
 	return ret;
 }
 
