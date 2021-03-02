@@ -264,8 +264,10 @@ client_default_destroy(struct client *client, const char *enh_code,
 		return;
 	client->destroyed = TRUE;
 
-	client_disconnect(client, enh_code, reason);
-
+	if (client->conn != NULL) {
+		smtp_server_connection_terminate(&client->conn,
+			(enh_code == NULL ? "4.0.0" : enh_code), reason);
+	}
 	clients_count--;
 	DLLIST_REMOVE(&clients, client);
 
@@ -278,26 +280,6 @@ client_default_destroy(struct client *client, const char *enh_code,
 	pool_unref(&client->pool);
 
 	master_service_client_connection_destroyed(master_service);
-}
-
-void client_disconnect(struct client *client, const char *enh_code,
-		       const char *reason)
-{
-	struct smtp_server_connection *conn = client->conn;
-
-	if (client->disconnected)
-		return;
-	client->disconnected = TRUE;
-
-	if (reason == NULL)
-		reason = "Connection closed";
-	e_info(client->event, "Disconnect from %s: %s",
-	       client_remote_id(client), reason);
-
-	if (conn != NULL) {
-		smtp_server_connection_terminate(
-			&conn, (enh_code == NULL ? "4.0.0" : enh_code), reason);
-	}
 }
 
 static void
@@ -375,7 +357,14 @@ static void client_connection_disconnect(void *context, const char *reason)
 {
 	struct client *client = (struct client *)context;
 
-	client_disconnect(client, NULL, reason);
+	if (client->disconnected)
+		return;
+	client->disconnected = TRUE;
+
+	if (reason == NULL)
+		reason = "Connection closed";
+	e_info(client->event, "Disconnect from %s: %s",
+	       client_remote_id(client), reason);
 }
 
 static void client_connection_free(void *context)
