@@ -1,4 +1,4 @@
-v2.3.14.rc1 2021-02-17  Aki Tuomi <aki.tuomi@open-xchange.com>
+V2.3.14 2021-03-04  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* Added new aliases for some variables. Usage of the old ones is possible,
 	  but discouraged. (These were partially added already to v2.3.13.)
@@ -51,6 +51,9 @@ v2.3.14.rc1 2021-02-17  Aki Tuomi <aki.tuomi@open-xchange.com>
 	  an incremental sync (-1), which could lead to mail loss when it's used
 	  for migration. This happens only when GUIDs aren't used (i.e.
 	  imapc without imapc_features=guid-forced).
+	- fts-tika: When tika server returns error, some mails cause Panic:
+	  file message-parser.c: line 802 (message_parser_deinit_from_parts):
+	  assertion failed: (ctx->nested_parts_count == 0 || i_stream_have_bytes_left(ctx->input))
 	- lib-imap: imapc parsing illegal BODYSTRUCTUREs with NILs could have
 	  resulted in crashes. This exposed that Dovecot was wrongly accepting
 	  atoms in "nstring" handling. Changed the IMAP parsing to be more
