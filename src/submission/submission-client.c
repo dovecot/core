@@ -308,7 +308,10 @@ client_default_destroy(struct client *client, const char *prefix,
 		return;
 	client->destroyed = TRUE;
 
-	client_disconnect(client, prefix, reason);
+	if (client->conn != NULL) {
+		smtp_server_connection_terminate(&client->conn,
+			(prefix == NULL ? "4.0.0" : prefix), reason);
+	}
 
 	submission_backends_destroy_all(client);
 	array_free(&client->pending_backends);
@@ -422,10 +425,9 @@ static const char *client_stats(struct client *client)
 	return str_c(str);
 }
 
-void client_disconnect(struct client *client, const char *enh_code,
-		       const char *reason)
+static void client_connection_disconnect(void *context, const char *reason)
 {
-	struct smtp_server_connection *conn;
+	struct client *client = context;
 	const char *log_reason;
 
 	if (client->disconnected)
@@ -451,26 +453,6 @@ void client_disconnect(struct client *client, const char *enh_code,
 	i_info("Disconnect from %s: %s %s",
 	       client_remote_id(client),
 	       log_reason, client_stats(client));
-
-	conn = client->conn;
-	client->conn = NULL;
-	if (conn != NULL) {
-		smtp_server_connection_terminate(&conn,
-			(enh_code == NULL ? "4.0.0" : enh_code), reason);
-	}
-}
-
-static void client_connection_disconnect(void *context, const char *reason)
-{
-	struct client *client = context;
-	struct smtp_server_connection *conn = client->conn;
-	const struct smtp_server_stats *stats;
-
-	if (conn != NULL) {
-		stats = smtp_server_connection_get_stats(conn);
-		client->stats = *stats;
-	}
-	client_disconnect(client, NULL, reason);
 }
 
 static void client_connection_free(void *context)

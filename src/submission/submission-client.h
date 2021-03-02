@@ -144,8 +144,6 @@ struct client *client_create(int fd_in, int fd_out,
 			     unsigned int pdata_len);
 void client_destroy(struct client *client, const char *prefix,
 		    const char *reason) ATTR_NULL(2, 3);
-void client_disconnect(struct client *client, const char *prefix,
-		       const char *reason);
 
 typedef void (*client_input_callback_t)(struct client *context);
 
