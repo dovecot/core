@@ -496,15 +496,13 @@ smtp_server_connection_handle_input(struct smtp_server_connection *conn)
 				e_debug(conn->event,
 					"Connection lost: Remote disconnected");
 
-				if (conn->command_queue_head == NULL) {
-					/* No pending commands; close */
+				if (conn->command_queue_head == NULL ||
+				    conn->command_queue_head->state <
+					SMTP_SERVER_COMMAND_STATE_SUBMITTED_REPLY) {
+					/* No pending commands or unfinished
+					   command; close */
 					smtp_server_connection_close(&conn,
 						"Remote closed connection");
-				} else if (conn->command_queue_head->state <
-					SMTP_SERVER_COMMAND_STATE_SUBMITTED_REPLY) {
-					/* Unfinished command; close */
-					smtp_server_connection_close(&conn,
-						"Remote closed connection unexpectedly");
 				} else {
 					/* A command is still processing;
 					   only drop input io for now */
@@ -1069,6 +1067,14 @@ smtp_server_connection_disconnect(struct smtp_server_connection *conn,
 		reason = smtp_server_connection_get_disconnect_reason(conn);
 	else
 		reason = t_str_oneline(reason);
+
+	cmd = conn->command_queue_head;
+	if (cmd != NULL && cmd->reg != NULL) {
+		/* Unfinished command - include it in the reason string */
+		reason = t_strdup_printf("%s (unfinished %s command)",
+			reason, cmd->reg->name);
+	}
+
 	e_debug(conn->event, "Disconnected: %s", reason);
 	conn->disconnect_reason = i_strdup(reason);
 
