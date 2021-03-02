@@ -94,6 +94,12 @@ const char *o_stream_get_name(struct ostream *stream);
 int o_stream_get_fd(struct ostream *stream);
 /* Returns error string for the previous error. */
 const char *o_stream_get_error(struct ostream *stream);
+/* Returns human-readable reason for why ostream was disconnected.
+   The output is either "Connection closed" for clean disconnections or
+   "Connection closed: <error>" for unclean disconnections. This is an
+   alternative to o_stream_get_error(), which is preferred to be used when
+   logging errors about client connections. */
+const char *o_stream_get_disconnect_reason(struct ostream *stream);
 
 /* Close this stream (but not its parents) and unreference it. */
 void o_stream_destroy(struct ostream **stream);

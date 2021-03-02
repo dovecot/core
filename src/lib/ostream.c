@@ -43,6 +43,11 @@ const char *o_stream_get_error(struct ostream *stream)
 	return strerror(stream->stream_errno);
 }
 
+const char *o_stream_get_disconnect_reason(struct ostream *stream)
+{
+	return io_stream_get_disconnect_reason(NULL, stream);
+}
+
 static void o_stream_close_full(struct ostream *stream, bool close_parents)
 {
 	/* Ideally o_stream_finish() would be called for all non-failed
