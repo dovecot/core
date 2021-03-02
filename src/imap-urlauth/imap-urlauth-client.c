@@ -328,13 +328,12 @@ void client_worker_input(struct client *client)
 
 void client_destroy(struct client *client, const char *reason)
 {
+	i_assert(reason != NULL || client->disconnected);
+
 	i_set_failure_prefix("%s: ", master_service_get_name(master_service));
 
-	if (!client->disconnected) {
-		if (reason == NULL)
-			reason = "Connection closed";
+	if (!client->disconnected)
 		i_info("Disconnected: %s", reason);
-	}
 
 	imap_urlauth_client_count--;
 	DLLIST_REMOVE(&imap_urlauth_clients, client);
