@@ -69,6 +69,8 @@ int client_create(const char *service, const char *username,
 	client->event = event_create(NULL);
 	event_set_forced_debug(client->event, set->mail_debug);
 	event_add_category(client->event, &event_category_urlauth);
+	event_set_append_log_prefix(client->event, t_strdup_printf(
+		"user %s: ", username));
 
 	if (client_worker_connect(client) < 0) {
 		event_unref(&client->event);
@@ -81,13 +83,13 @@ int client_create(const char *service, const char *username,
 	if (username != NULL) {
 		if (set->imap_urlauth_submit_user != NULL &&
 		    strcmp(set->imap_urlauth_submit_user, username) == 0) {
-			e_debug(client->event, "User %s has URLAUTH submit access", username);
+			e_debug(client->event, "User has URLAUTH submit access");
 			app = "submit+";
 			array_push_back(&client->access_apps, &app);
 		}
 		if (set->imap_urlauth_stream_user != NULL &&
 		    strcmp(set->imap_urlauth_stream_user, username) == 0) {
-			e_debug(client->event, "User %s has URLAUTH stream access", username);
+			e_debug(client->event, "User has URLAUTH stream access");
 			app = "stream";
 			array_push_back(&client->access_apps, &app);
 		}
