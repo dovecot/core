@@ -423,11 +423,6 @@ static int smtp_command_parse_finish_data(struct smtp_command_parser *parser)
 		switch (parser->data->stream_errno) {
 		case 0:
 			return 0;
-		case EIO:
-			smtp_command_parser_error(
-				parser, SMTP_COMMAND_PARSE_ERROR_BROKEN_COMMAND,
-				"Invalid command data");
-			break;
 		case EMSGSIZE:
 			smtp_command_parser_error(
 				parser,	SMTP_COMMAND_PARSE_ERROR_DATA_TOO_LARGE,
