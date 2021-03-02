@@ -250,24 +250,24 @@ void client_state_reset(struct client *client)
 	p_clear(client->state_pool);
 }
 
-void client_destroy(struct client *client, const char *enh_code,
+void client_destroy(struct client **_client, const char *enh_code,
 		    const char *reason)
 {
-	client->v.destroy(client, enh_code, reason);
+	struct client *client = *_client;
+
+	*_client = NULL;
+
+	smtp_server_connection_terminate(&client->conn,
+		(enh_code == NULL ? "4.0.0" : enh_code), reason);
 }
 
 static void
-client_default_destroy(struct client *client, const char *enh_code,
-		       const char *reason)
+client_default_destroy(struct client *client)
 {
 	if (client->destroyed)
 		return;
 	client->destroyed = TRUE;
 
-	if (client->conn != NULL) {
-		smtp_server_connection_terminate(&client->conn,
-			(enh_code == NULL ? "4.0.0" : enh_code), reason);
-	}
 	clients_count--;
 	DLLIST_REMOVE(&clients, client);
 
@@ -371,7 +371,7 @@ static void client_connection_free(void *context)
 {
 	struct client *client = (struct client *)context;
 
-	client_destroy(client, NULL, NULL);
+	client->v.destroy(client);
 }
 
 static bool client_connection_is_trusted(void *context)
@@ -401,7 +401,8 @@ static bool client_connection_is_trusted(void *context)
 void clients_destroy(void)
 {
 	while (clients != NULL) {
-		client_destroy(clients, "4.3.2", "Shutting down");
+		struct client *client = clients;
+		client_destroy(&client, "4.3.2", "Shutting down");
 	}
 }
 
