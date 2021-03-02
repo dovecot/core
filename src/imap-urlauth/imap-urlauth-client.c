@@ -71,6 +71,7 @@ int client_create(const char *service, const char *username,
 	event_add_category(client->event, &event_category_urlauth);
 
 	if (client_worker_connect(client) < 0) {
+		event_unref(&client->event);
 		i_free(client);
 		return -1;
 	}
