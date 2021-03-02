@@ -483,32 +483,22 @@ smtp_server_connection_handle_input(struct smtp_server_connection *conn)
 		}
 
 		if (ret < 0 && conn->conn.input->eof) {
-			int stream_errno = conn->conn.input->stream_errno;
-			if (stream_errno != 0 && stream_errno != EPIPE &&
-			    stream_errno != ECONNRESET) {
-				e_error(conn->event,
-					"Connection lost: read(%s) failed: %s",
-					i_stream_get_name(conn->conn.input),
-					i_stream_get_error(conn->conn.input));
-				smtp_server_connection_close(&conn,
-					"Read failure");
-			} else {
-				e_debug(conn->event,
-					"Connection lost: Remote disconnected");
+			const char *error =
+				i_stream_get_disconnect_reason(conn->conn.input);
+			e_debug(conn->event, "Remote closed connection: %s",
+				error);
 
-				if (conn->command_queue_head == NULL ||
-				    conn->command_queue_head->state <
-					SMTP_SERVER_COMMAND_STATE_SUBMITTED_REPLY) {
-					/* No pending commands or unfinished
-					   command; close */
-					smtp_server_connection_close(&conn,
-						"Remote closed connection");
-				} else {
-					/* A command is still processing;
-					   only drop input io for now */
-					conn->input_broken = TRUE;
-					smtp_server_connection_input_halt(conn);
-				}
+			if (conn->command_queue_head == NULL ||
+			    conn->command_queue_head->state <
+			    SMTP_SERVER_COMMAND_STATE_SUBMITTED_REPLY) {
+				/* No pending commands or unfinished
+				   command; close */
+				smtp_server_connection_close(&conn, error);
+			} else {
+				/* A command is still processing;
+				   only drop input io for now */
+				conn->input_broken = TRUE;
+				smtp_server_connection_input_halt(conn);
 			}
 			return;
 		}
@@ -544,8 +534,7 @@ smtp_server_connection_handle_input(struct smtp_server_connection *conn)
 					"Command data size exceeds absolute limit");
 				return;
 			case SMTP_COMMAND_PARSE_ERROR_BROKEN_STREAM:
-				smtp_server_connection_close(&conn,
-					"Command data ended prematurely");
+				smtp_server_connection_close(&conn, error);
 				return;
 			default:
 				i_unreached();
@@ -627,18 +616,8 @@ bool smtp_server_connection_pending_command_data(
 void smtp_server_connection_handle_output_error(
 	struct smtp_server_connection *conn)
 {
-	struct ostream *output = conn->conn.output;
-
-	if (output->stream_errno != EPIPE &&
-	    output->stream_errno != ECONNRESET) {
-		e_error(conn->event, "Connection lost: write(%s) failed: %s",
-			o_stream_get_name(output), o_stream_get_error(output));
-		smtp_server_connection_close(&conn, "Write failure");
-	} else {
-		e_debug(conn->event, "Connection lost: Remote disconnected");
-		smtp_server_connection_close(
-			&conn, "Remote closed connection unexpectedly");
-	}
+	smtp_server_connection_close(&conn,
+		o_stream_get_disconnect_reason(conn->conn.output));
 }
 
 static bool

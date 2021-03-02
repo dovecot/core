@@ -244,7 +244,7 @@ static void cmd_data_input_error(struct smtp_server_cmd_ctx *cmd)
 	struct smtp_server_command *command = cmd->cmd;
 	struct cmd_data_context *data_cmd = command->data;
 	struct istream *data_input = conn->state.data_input;
-	unsigned int stream_errno = data_input->stream_errno;
+	const char *error;
 
 	conn->state.data_failed = TRUE;
 
@@ -256,18 +256,9 @@ static void cmd_data_input_error(struct smtp_server_cmd_ctx *cmd)
 		return;
 	}
 
-	if (stream_errno != EPIPE && stream_errno != ECONNRESET) {
-		e_error(conn->event, "Connection lost during data transfer: "
-			"read(%s) failed: %s",
-			i_stream_get_name(data_input),
-			i_stream_get_error(data_input));
-		smtp_server_connection_close(&conn, "Read failure");
-	} else {
-		e_debug(conn->event, "Connection lost during data transfer: "
-			"Remote disconnected");
-		smtp_server_connection_close(&conn,
-			"Remote closed connection unexpectedly");
-	}
+	error = i_stream_get_disconnect_reason(data_input);
+	e_debug(conn->event, "Connection lost during data transfer: %s", error);
+	smtp_server_connection_close(&conn, error);
 }
 
 static int cmd_data_do_handle_input(struct smtp_server_cmd_ctx *cmd)
