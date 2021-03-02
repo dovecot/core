@@ -558,8 +558,8 @@ DOVECOT_WANT_CASSANDRA
 DOVECOT_SQL
 
 AM_CONDITIONAL([AUTH_LUA_PLUGIN], [test "x$with_lua_plugin" = "xyes"])
-AM_CONDITIONAL([HAVE_LUA], [test "x$with_luajit" = "xyes" || test "x$with_lua" = "xyes"])
-AS_IF([test "x$with_luajit" = "xyes" || test "x$with_lua" = "xyes"],
+AM_CONDITIONAL([HAVE_LUA], [test "x$with_lua" = "xyes"])
+AS_IF([test "x$with_lua" = "xyes"],
   AS_IF([test "x$with_lua_plugin" = "xyes"],
       [userdb="$userdb lua (plugin)"; passdb="$passdb lua (plugin)"],
       [userdb="$userdb lua"; passdb="$passdb lua"],
