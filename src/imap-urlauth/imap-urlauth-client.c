@@ -330,8 +330,6 @@ void client_destroy(struct client *client, const char *reason)
 {
 	i_assert(reason != NULL || client->disconnected);
 
-	i_set_failure_prefix("%s: ", master_service_get_name(master_service));
-
 	if (!client->disconnected)
 		i_info("Disconnected: %s", reason);
 
