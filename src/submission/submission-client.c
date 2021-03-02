@@ -393,26 +393,6 @@ client_connection_state_changed(void *context ATTR_UNUSED,
 		submission_refresh_proctitle();
 }
 
-static void client_connection_disconnect(void *context, const char *reason)
-{
-	struct client *client = context;
-	struct smtp_server_connection *conn = client->conn;
-	const struct smtp_server_stats *stats;
-
-	if (conn != NULL) {
-		stats = smtp_server_connection_get_stats(conn);
-		client->stats = *stats;
-	}
-	client_disconnect(client, NULL, reason);
-}
-
-static void client_connection_free(void *context)
-{
-	struct client *client = context;
-
-	client_destroy(client, NULL, NULL);
-}
-
 static const char *client_stats(struct client *client)
 {
 	const char *trans_id = (client->conn == NULL ? "" :
@@ -478,6 +458,26 @@ void client_disconnect(struct client *client, const char *enh_code,
 		smtp_server_connection_terminate(&conn,
 			(enh_code == NULL ? "4.0.0" : enh_code), reason);
 	}
+}
+
+static void client_connection_disconnect(void *context, const char *reason)
+{
+	struct client *client = context;
+	struct smtp_server_connection *conn = client->conn;
+	const struct smtp_server_stats *stats;
+
+	if (conn != NULL) {
+		stats = smtp_server_connection_get_stats(conn);
+		client->stats = *stats;
+	}
+	client_disconnect(client, NULL, reason);
+}
+
+static void client_connection_free(void *context)
+{
+	struct client *client = context;
+
+	client_destroy(client, NULL, NULL);
 }
 
 uoff_t client_get_max_mail_size(struct client *client)
