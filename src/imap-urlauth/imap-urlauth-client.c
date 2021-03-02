@@ -148,11 +148,12 @@ static int client_worker_connect(struct client *client)
 	client->fd_ctrl = net_connect_unix_with_retries(socket_path, 1000);
 	if (client->fd_ctrl < 0) {
 		if (errno == EACCES) {
-			i_error("imap-urlauth-client: %s",
+			e_error(client->event, "imap-urlauth-client: %s",
 				eacces_error_get("net_connect_unix",
 						 socket_path));
 		} else {
-			i_error("imap-urlauth-client: net_connect_unix(%s) failed: %m",
+			e_error(client->event, "imap-urlauth-client: "
+				"net_connect_unix(%s) failed: %m",
 				socket_path);
 		}
 		return -1;
@@ -169,10 +170,10 @@ static int client_worker_connect(struct client *client)
 
 	if (ret <= 0) {
 		if (ret < 0) {
-			i_error("fd_send(%s, %d) failed: %m",
+			e_error(client->event, "fd_send(%s, %d) failed: %m",
 				socket_path, client->fd_ctrl);
 		} else {
-			i_error("fd_send(%s, %d) failed to send byte",
+			e_error(client->event, "fd_send(%s, %d) failed to send byte",
 				socket_path, client->fd_ctrl);
 		}
 		client_worker_disconnect(client);
@@ -183,7 +184,8 @@ static int client_worker_connect(struct client *client)
 
 	/* send protocol version handshake */
 	if (o_stream_send_str(client->ctrl_output, handshake) < 0) {
-		i_error("Error sending handshake to imap-urlauth worker: %m");
+		e_error(client->event,
+			"Error sending handshake to imap-urlauth worker: %m");
 		client_worker_disconnect(client);
 		return -1;
 	}
@@ -331,7 +333,7 @@ void client_destroy(struct client *client, const char *reason)
 	i_assert(reason != NULL || client->disconnected);
 
 	if (!client->disconnected)
-		i_info("Disconnected: %s", reason);
+		e_info(client->event, "Disconnected: %s", reason);
 
 	imap_urlauth_client_count--;
 	DLLIST_REMOVE(&imap_urlauth_clients, client);
@@ -366,7 +368,7 @@ void client_disconnect(struct client *client, const char *reason)
 		return;
 
 	client->disconnected = TRUE;
-	i_info("Disconnected: %s", reason);
+	e_info(client->event, "Disconnected: %s", reason);
 
 	client->to_idle = timeout_add(0, client_destroy_timeout, client);
 }
