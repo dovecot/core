@@ -2867,12 +2867,12 @@ static void test_server_defaults(struct smtp_server_settings *smtp_set)
 
 /* client connection */
 
-static void server_connection_destroy(void *context)
+static void server_connection_free(void *context)
 {
 	struct server_connection *sconn = (struct server_connection *)context;
 
 	if (debug)
-		i_debug("Connection destroyed");
+		i_debug("Connection freed");
 
 	if (--server_pending == 0)
 		io_loop_stop(ioloop);
@@ -2898,7 +2898,7 @@ static void server_connection_accept(void *context ATTR_UNUSED)
 
 	sconn = i_new(struct server_connection, 1);
 
-	server_callbacks.conn_destroy = server_connection_destroy;
+	server_callbacks.conn_free = server_connection_free;
 
 	conn = smtp_server_connection_create(smtp_server, fd, fd,
 					     NULL, 0, FALSE, NULL,

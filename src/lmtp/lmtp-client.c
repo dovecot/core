@@ -379,7 +379,7 @@ static void client_connection_disconnect(void *context, const char *reason)
 	client_disconnect(client, NULL, reason);
 }
 
-static void client_connection_destroy(void *context)
+static void client_connection_free(void *context)
 {
 	struct client *client = (struct client *)context;
 
@@ -431,7 +431,7 @@ static const struct smtp_server_callbacks lmtp_callbacks = {
 	.conn_proxy_data_updated = client_connection_proxy_data_updated,
 
 	.conn_disconnect = client_connection_disconnect,
-	.conn_destroy = client_connection_destroy,
+	.conn_free = client_connection_free,
 
 	.conn_is_trusted = client_connection_is_trusted
 };

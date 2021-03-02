@@ -406,7 +406,7 @@ static void client_connection_disconnect(void *context, const char *reason)
 	client_disconnect(client, NULL, reason);
 }
 
-static void client_connection_destroy(void *context)
+static void client_connection_free(void *context)
 {
 	struct client *client = context;
 
@@ -561,7 +561,7 @@ static const struct smtp_server_callbacks smtp_callbacks = {
 	.conn_state_changed = client_connection_state_changed,
 
 	.conn_disconnect = client_connection_disconnect,
-	.conn_destroy = client_connection_destroy,
+	.conn_free = client_connection_free,
 };
 
 static const struct submission_client_vfuncs submission_client_vfuncs = {
