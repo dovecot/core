@@ -298,10 +298,11 @@ void client_destroy(struct client **_client, const char *prefix,
 		    const char *reason)
 {
 	struct client *client = *_client;
+	struct smtp_server_connection *conn = client->conn;
 
 	*_client = NULL;
 
-	smtp_server_connection_terminate(&client->conn,
+	smtp_server_connection_terminate(&conn,
 		(prefix == NULL ? "4.0.0" : prefix), reason);
 }
 
@@ -399,13 +400,15 @@ client_connection_state_changed(void *context ATTR_UNUSED,
 
 static const char *client_stats(struct client *client)
 {
-	const char *trans_id = (client->conn == NULL ? "" :
-		smtp_server_connection_get_transaction_id(client->conn));
+	const struct smtp_server_stats *stats =
+		smtp_server_connection_get_stats(client->conn);
+	const char *trans_id =
+		smtp_server_connection_get_transaction_id(client->conn);
 	const struct var_expand_table logout_tab[] = {
-		{ 'i', dec2str(client->stats.input), "input" },
-		{ 'o', dec2str(client->stats.output), "output" },
-		{ '\0', dec2str(client->stats.command_count), "command_count" },
-		{ '\0', dec2str(client->stats.reply_count), "reply_count" },
+		{ 'i', dec2str(stats->input), "input" },
+		{ 'o', dec2str(stats->output), "output" },
+		{ '\0', dec2str(stats->command_count), "command_count" },
+		{ '\0', dec2str(stats->reply_count), "reply_count" },
 		{ '\0', trans_id, "transaction_id" },
 		{ '\0', NULL, NULL }
 	};
@@ -440,12 +443,6 @@ static void client_connection_disconnect(void *context, const char *reason)
 
 	if (array_is_created(&client->rcpt_to))
 		array_clear(&client->rcpt_to);
-
-	if (client->conn != NULL) {
-		const struct smtp_server_stats *stats =
-			smtp_server_connection_get_stats(client->conn);
-		client->stats = *stats;
-	}
 
 	if (reason == NULL)
 		log_reason = reason = "Connection closed";

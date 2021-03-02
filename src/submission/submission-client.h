@@ -99,8 +99,6 @@ struct client {
 
 	struct timeout *to_quit;
 
-	struct smtp_server_stats stats;
-
 	enum smtp_capability backend_capabilities;
 	struct submission_backend *backend_default;
 	struct submission_backend_relay *backend_default_relay;
