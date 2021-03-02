@@ -33,7 +33,7 @@ imap_urlauth_client_auth_result(struct client *client,
 	if (result != CLIENT_AUTH_RESULT_SUCCESS) {
 		/* failed or otherwise invalid status */
 		client_send_raw(client, "FAILED\n");
-		client_destroy(client, "Disconnected: Authentication failed");
+		client_destroy(client, "Authentication failed");
 	} else {
 		/* authentication succeeded */
 	}
@@ -57,7 +57,7 @@ static void imap_urlauth_client_handle_input(struct client *client)
 				IMAP_URLAUTH_PROTOCOL_MAJOR_VERSION)) {
 			i_error("IMAP URLAUTH client not compatible with this server "
 				"(mixed old and new binaries?) %s", line);
-			client_destroy(client, "Disconnected: Version mismatch");
+			client_destroy(client, "Version mismatch");
 			return;
 		}
 		uauth_client->version_received = TRUE;
@@ -72,14 +72,14 @@ static void imap_urlauth_client_handle_input(struct client *client)
 	if (str_array_length(args) < AUTH_ARG_COUNT ||
 	    strcmp(args[0], "AUTH") != 0 || str_to_pid(args[2], &pid) < 0) {
 		i_error("IMAP URLAUTH client sent unexpected AUTH input: %s", line);
-		client_destroy(client, "Disconnected: Unexpected input");
+		client_destroy(client, "Unexpected input");
 		return;
 	}
 
 	/* only imap and submission have direct access to urlauth service */
 	if (strcmp(args[1], "imap") != 0 && strcmp(args[1], "submission") != 0) {
 		i_error("IMAP URLAUTH accessed from inappropriate service: %s", args[1]);
-		client_destroy(client, "Disconnected: Unexpected input");
+		client_destroy(client, "Unexpected input");
 		return;
 	}
 
@@ -89,7 +89,7 @@ static void imap_urlauth_client_handle_input(struct client *client)
 		i_error("IMAP URLAUTH client sent invalid session pid %ld in AUTH request: "
 			"it did not match peer credentials (pid=%ld, uid=%ld)",
 			(long)pid, (long)cred.pid, (long)cred.uid);
-		client_destroy(client, "Disconnected: Invalid AUTH request");
+		client_destroy(client, "Invalid AUTH request");
 		return;
 	}
 
