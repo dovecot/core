@@ -705,9 +705,11 @@ void smtp_server_command_finished(struct smtp_server_command *cmd)
 				"Server closed the connection: %s",
 				smtp_server_reply_get_one_line(reply)));
 
+		} else if (conn->set.auth_optional || conn->authenticated) {
+			smtp_server_connection_close(&conn, "Logged out");
 		} else {
 			smtp_server_connection_close(&conn,
-				"Client has quit the connection");
+				"Aborted login by logging out");
 		}
 		smtp_server_command_unref(&cmd);
 		return;
