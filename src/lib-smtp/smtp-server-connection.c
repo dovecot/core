@@ -1059,7 +1059,6 @@ smtp_server_connection_disconnect(struct smtp_server_connection *conn,
 	}
 
 	e_debug(conn->event, "Disconnected: %s", reason);
-	conn->disconnect_reason = i_strdup(reason);
 
 	/* Preserve statistics */
 	smtp_server_connection_update_stats(conn);
@@ -1122,7 +1121,6 @@ bool smtp_server_connection_unref(struct smtp_server_connection **_conn)
 
 	i_free(conn->helo_domain);
 	i_free(conn->username);
-	i_free(conn->disconnect_reason);
 	pool_unref(&conn->pool);
 	return FALSE;
 }
