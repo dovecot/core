@@ -38,7 +38,7 @@
 #define IS_STANDALONE() \
         (getenv(MASTER_IS_PARENT_ENV) == NULL)
 
-struct event_category event_category_urlauth = {
+static struct event_category event_category_urlauth = {
 	.name = "imap-urlauth",
 };
 
