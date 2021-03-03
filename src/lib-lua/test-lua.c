@@ -20,6 +20,114 @@ static int dlua_test_assert(lua_State *L)
 	return 0;
 }
 
+#define GENERATE_GETTERS(name, ctype)					\
+static void check_table_get_##name##_ok(struct dlua_script *script,	\
+					int idx, ctype expected_value,	\
+					const char *str_key,		\
+					lua_Integer int_key)		\
+{									\
+	ctype value;							\
+	int ret;							\
+									\
+	/* check string key */						\
+	ret = dlua_table_get_##name##_by_str(script->L, idx,		\
+					     str_key, &value);		\
+	test_assert(ret == 1);						\
+	test_assert(value == expected_value);				\
+									\
+	/* check int key */						\
+	ret = dlua_table_get_##name##_by_int(script->L, idx,		\
+					     int_key, &value);		\
+	test_assert(ret == 1);						\
+	test_assert(value == expected_value);				\
+}									\
+static void check_table_get_##name##_err(struct dlua_script *script,	\
+					 int idx, int expected_ret,	\
+					 const char *str_key,		\
+					 lua_Integer int_key)		\
+{									\
+	ctype value;							\
+	int ret;							\
+									\
+	/* check string key */						\
+	ret = dlua_table_get_##name##_by_str(script->L, idx,		\
+					     str_key, &value);		\
+	test_assert(ret == expected_ret);				\
+									\
+	/* check int key */						\
+	ret = dlua_table_get_##name##_by_int(script->L, idx,		\
+					     int_key, &value);		\
+	test_assert(ret == expected_ret);				\
+}
+
+GENERATE_GETTERS(luainteger, lua_Integer);
+GENERATE_GETTERS(int, int);
+GENERATE_GETTERS(intmax, intmax_t);
+GENERATE_GETTERS(uint, unsigned int);
+GENERATE_GETTERS(uintmax, uintmax_t);
+GENERATE_GETTERS(number, lua_Number);
+GENERATE_GETTERS(bool, bool);
+
+/* the string comparison requires us to open-code this */
+static void check_table_get_string_ok(struct dlua_script *script,
+				      int idx, const char *expected_value,
+				      const char *str_key,
+				      lua_Integer int_key)
+{
+	const char *value;
+	int ret;
+
+	/* check string key */
+	ret = dlua_table_get_string_by_str(script->L, idx,
+					   str_key, &value);
+	test_assert(ret == 1);
+	test_assert_strcmp(value, expected_value);
+
+	/* check int key */
+	ret = dlua_table_get_string_by_int(script->L, idx,
+					   int_key, &value);
+	test_assert(ret == 1);
+	test_assert_strcmp(value, expected_value);
+
+	/* TODO: check thread key, which is difficult */
+}
+
+/* the string comparison of the _ok function requires us to open-code this */
+static void check_table_get_string_err(struct dlua_script *script,
+				       int idx, int expected_ret,
+				       const char *str_key,
+				       lua_Integer int_key)
+{
+	const char *value;
+	int ret;
+
+	/* check string key */
+	ret = dlua_table_get_string_by_str(script->L, idx,
+					   str_key, &value);
+	test_assert(ret == expected_ret);
+
+	/* check int key */
+	ret = dlua_table_get_string_by_int(script->L, idx,
+					   int_key, &value);
+	test_assert(ret == expected_ret);
+
+	/* TODO: check thread key, which is difficult */
+}
+
+static void check_table_missing(struct dlua_script *script, int idx,
+				const char *str_key,
+				lua_Integer int_key)
+{
+	check_table_get_luainteger_err(script, idx, 0, str_key, int_key);
+	check_table_get_int_err(script, idx, 0, str_key, int_key);
+	check_table_get_intmax_err(script, idx, 0, str_key, int_key);
+	check_table_get_uint_err(script, idx, 0, str_key, int_key);
+	check_table_get_uintmax_err(script, idx, 0, str_key, int_key);
+	check_table_get_number_err(script, idx, 0, str_key, int_key);
+	check_table_get_bool_err(script, idx, 0, str_key, int_key);
+	check_table_get_string_err(script, idx, 0, str_key, int_key);
+}
+
 static void test_lua(void)
 {
 	static const char *luascript =
@@ -41,6 +149,37 @@ static void test_lua(void)
 "  flag = dovecot.clear_flag(flag, 4)\n"
 "  test_assert(\"has_flag(flag, 4) == false\", dovecot.has_flag(flag, 4) == false)\n"
 "  test_assert(\"has_flag(flag, 16) == true\", dovecot.has_flag(flag, 16) == true)\n"
+"end\n"
+"function lua_test_get_table()\n"
+"  t = {}\n"
+"  -- zero\n"
+"  t[\"zero\"] = 0\n"
+"  t[-2] = 0\n"
+"  -- small positive values\n"
+"  t[\"small-positive-int\"] = 1\n"
+"  t[-1] = 1\n"
+"  -- small negative values\n"
+"  t[\"small-negative-int\"] = -5\n"
+"  t[0] = -5\n"
+"  -- large positive float\n"
+"  t[\"large-positive-int\"] = 2^48\n"
+"  t[1] = 2^48\n"
+"  -- large negative float\n"
+"  t[\"large-negative-int\"] = -2^48\n"
+"  t[2] = -2^48\n"
+"  -- small float\n"
+"  t[\"small-float\"] = 1.525\n"
+"  t[3] = 1.525\n"
+"  -- bool: true\n"
+"  t[\"bool-true\"] = true\n"
+"  t[4] = true\n"
+"  -- bool: false\n"
+"  t[\"bool-false\"] = false\n"
+"  t[5] = false\n"
+"  -- string\n"
+"  t[\"str\"] = \"string\"\n"
+"  t[6] = \"string\"\n"
+"  return t\n"
 "end\n";
 
 	const char *error = NULL;
@@ -49,6 +188,9 @@ static void test_lua(void)
 	test_begin("lua script");
 
 	test_assert(dlua_script_create_string(luascript, &script, NULL, &error) == 0);
+	if (error != NULL)
+		i_fatal("dlua_script_init failed: %s", error);
+
 	dlua_dovecot_register(script);
 
 	dlua_register(script, "test_assert", dlua_test_assert);
@@ -58,6 +200,125 @@ static void test_lua(void)
 
 	lua_getglobal(script->L, "lua_test_flags");
 	test_assert(lua_pcall(script->L, 0, 0, 0) == 0);
+
+	lua_getglobal(script->L, "lua_test_get_table");
+	test_assert(lua_pcall(script->L, 0, 1, 0) == 0);
+
+	/*
+	 * Check table getters
+	 */
+
+	/* lua_Integer */
+	check_table_get_luainteger_ok(script, -1, 0, "zero", -2);
+	check_table_get_luainteger_ok(script, -1, 1, "small-positive-int", -1);
+	check_table_get_luainteger_ok(script, -1, -5, "small-negative-int", 0);
+	check_table_get_luainteger_ok(script, -1, 1ll<<48, "large-positive-int", 1);
+	check_table_get_luainteger_ok(script, -1, -(1ll<<48), "large-negative-int", 2);
+#if LUA_VERSION_NUM != 502
+	check_table_get_luainteger_err(script, -1, -1, "small-float", 3);
+#else
+	check_table_get_uintmax_ok(script, -1, 1, "small-float", 3);
+#endif
+	check_table_get_luainteger_err(script, -1, -1, "bool-true", 4);
+	check_table_get_luainteger_err(script, -1, -1, "bool-false", 5);
+	check_table_get_luainteger_err(script, -1, -1, "str", 6);
+
+	/* int */
+	check_table_get_int_ok(script, -1, 0, "zero", -2);
+	check_table_get_int_ok(script, -1, 1, "small-positive-int", -1);
+	check_table_get_int_ok(script, -1, -5, "small-negative-int", 0);
+	check_table_get_int_err(script, -1, -1, "large-positive-int", 1);
+	check_table_get_int_err(script, -1, -1, "large-negative-int", 2);
+#if LUA_VERSION_NUM != 502
+	check_table_get_int_err(script, -1, -1, "small-float", 3);
+#else
+	check_table_get_uintmax_ok(script, -1, 1, "small-float", 3);
+#endif
+	check_table_get_int_err(script, -1, -1, "bool-true", 4);
+	check_table_get_int_err(script, -1, -1, "bool-false", 5);
+	check_table_get_int_err(script, -1, -1, "str", 6);
+
+	/* intmax_t */
+	check_table_get_intmax_ok(script, -1, 0, "zero", -2);
+	check_table_get_intmax_ok(script, -1, 1, "small-positive-int", -1);
+	check_table_get_intmax_ok(script, -1, -5, "small-negative-int", 0);
+	check_table_get_intmax_ok(script, -1, 1ll<<48, "large-positive-int", 1);
+	check_table_get_intmax_ok(script, -1, -(1ll<<48), "large-negative-int", 2);
+#if LUA_VERSION_NUM != 502
+	check_table_get_intmax_err(script, -1, -1, "small-float", 3);
+#else
+	check_table_get_uintmax_ok(script, -1, 1, "small-float", 3);
+#endif
+	check_table_get_intmax_err(script, -1, -1, "bool-true", 4);
+	check_table_get_intmax_err(script, -1, -1, "bool-false", 5);
+	check_table_get_intmax_err(script, -1, -1, "str", 6);
+
+	/* unsigned int */
+	check_table_get_uint_ok(script, -1, 0, "zero", -2);
+	check_table_get_uint_ok(script, -1, 1, "small-positive-int", -1);
+	check_table_get_uint_err(script, -1, -1, "small-negative-int", 0);
+	check_table_get_uint_err(script, -1, -1, "large-positive-int", 1);
+	check_table_get_uint_err(script, -1, -1, "large-negative-int", 2);
+#if LUA_VERSION_NUM != 502
+	check_table_get_uint_err(script, -1, -1, "small-float", 3);
+#else
+	check_table_get_uintmax_ok(script, -1, 1, "small-float", 3);
+#endif
+	check_table_get_uint_err(script, -1, -1, "bool-true", 4);
+	check_table_get_uint_err(script, -1, -1, "bool-false", 5);
+	check_table_get_uint_err(script, -1, -1, "str", 6);
+
+	/* uintmax_t */
+	check_table_get_uintmax_ok(script, -1, 0, "zero", -2);
+	check_table_get_uintmax_ok(script, -1, 1, "small-positive-int", -1);
+	check_table_get_uintmax_err(script, -1, -1, "small-negative-int", 0);
+	check_table_get_uintmax_ok(script, -1, 1ll<<48, "large-positive-int", 1);
+	check_table_get_uintmax_err(script, -1, -1, "large-negative-int", 2);
+#if LUA_VERSION_NUM != 502
+	check_table_get_uintmax_err(script, -1, -1, "small-float", 3);
+#else
+	check_table_get_uintmax_ok(script, -1, 1, "small-float", 3);
+#endif
+	check_table_get_uintmax_err(script, -1, -1, "bool-true", 4);
+	check_table_get_uintmax_err(script, -1, -1, "bool-false", 5);
+	check_table_get_uintmax_err(script, -1, -1, "str", 6);
+
+	/* lua_Number */
+	check_table_get_number_ok(script, -1, 0, "zero", -2);
+	check_table_get_number_ok(script, -1, 1, "small-positive-int", -1);
+	check_table_get_number_ok(script, -1, -5, "small-negative-int", 0);
+	check_table_get_number_ok(script, -1, 1ll<<48, "large-positive-int", 1);
+	check_table_get_number_ok(script, -1, -(1ll<<48), "large-negative-int", 2);
+	check_table_get_number_ok(script, -1, 1.525, "small-float", 3);
+	check_table_get_number_err(script, -1, -1, "bool-true", 4);
+	check_table_get_number_err(script, -1, -1, "bool-false", 5);
+	check_table_get_number_err(script, -1, -1, "str", 6);
+
+	/* bool */
+	check_table_get_bool_err(script, -1, -1, "zero", -2);
+	check_table_get_bool_err(script, -1, -1, "small-positive-int", -1);
+	check_table_get_bool_err(script, -1, -1, "small-negative-int", 0);
+	check_table_get_bool_err(script, -1, -1, "large-positive-int", 1);
+	check_table_get_bool_err(script, -1, -1, "large-negative-int", 2);
+	check_table_get_bool_err(script, -1, -1, "small-float", 3);
+	check_table_get_bool_ok(script, -1, TRUE, "bool-true", 4);
+	check_table_get_bool_ok(script, -1, FALSE, "bool-false", 5);
+	check_table_get_bool_err(script, -1, -1, "str", 6);
+
+	/* const char * */
+	check_table_get_string_err(script, -1, -1, "zero", -2);
+	check_table_get_string_err(script, -1, -1, "small-positive-int", -1);
+	check_table_get_string_err(script, -1, -1, "small-negative-int", 0);
+	check_table_get_string_err(script, -1, -1, "large-positive-int", 1);
+	check_table_get_string_err(script, -1, -1, "large-negative-int", 2);
+	check_table_get_string_err(script, -1, -1, "small-float", 3);
+	check_table_get_string_err(script, -1, -1, "bool-true", 4);
+	check_table_get_string_err(script, -1, -1, "bool-false", 5);
+	check_table_get_string_ok(script, -1, "string", "str", 6);
+
+	check_table_missing(script, -1, "missing", -10);
+
+	lua_pop(script->L, 1);
 
 	dlua_script_unref(&script);
 

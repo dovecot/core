@@ -63,37 +63,45 @@ lua_Integer lua_tointegerx(lua_State *L, int idx, int *isnum_r)
 {
 	lua_Integer integer;
 	lua_Number number;
-	unsigned long ulong;
 	const char *str;
+
+	/*
+	 * Unfortunately, Lua 5.1 doesn't provide MIN/MAX value macros for
+	 * the lua_Integer type, so we hardcode the assumption that it is
+	 * the same size as ptrdiff_t.  This matches what Lua does by
+	 * default.
+	 *
+	 * If this compile-time assertion fails, don't forget to change the
+	 * PTRDIFF_{MIN,MAX} usage below as well.
+	 */
+	(void) COMPILE_ERROR_IF_TRUE(sizeof(lua_Integer) != sizeof(ptrdiff_t));
 
 	switch (lua_type(L, idx)) {
 	case LUA_TSTRING:
 		/* convert using str_to_long() */
 		str = lua_tostring(L, idx);
 
-		if (str_to_long(str, &integer) == 0) {
-			*isnum_r = 1;
-			return integer;
-		}
+		if (strncasecmp(str, "0x", 2) == 0) {
+			/* hex */
+			uintmax_t tmp;
 
-		/* skip over leading 0x */
-		if (strncasecmp(str, "0x", 2) != 0)
-			break; /* no leading 0x ==> not a hex number */
+			/* skip over leading 0x */
+			str += 2;
 
-		str += 2;
+			if (str_to_uintmax_hex(str, &tmp) < 0)
+				break;
 
-		if (str_to_ulong_hex(str, &ulong) == 0) {
-			bool ok;
+			*isnum_r = (tmp <= PTRDIFF_MAX) ? 1 : 0;
+			return tmp;
+		} else {
+			/* try decimal */
+			intmax_t tmp;
 
-			if (sizeof(lua_Integer) == sizeof(int32_t))
-				ok = ulong <= INT32_MAX;
-			else if (sizeof(lua_Integer) == sizeof(int64_t))
-				ok = ulong <= INT64_MAX;
-			else
-				i_panic("Don't know how to convert from lua_Integer to C99 type");
+			if (str_to_intmax(str, &tmp) < 0)
+				break;
 
-			*isnum_r = ok ? 1 : 0;
-			return ulong;
+			*isnum_r = ((tmp >= PTRDIFF_MIN) && (tmp <= PTRDIFF_MAX)) ? 1 : 0;
+			return tmp;
 		}
 
 		break;

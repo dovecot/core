@@ -7,7 +7,8 @@ pkglib_LTLIBRARIES = libdovecot-lua.la
 libdovecot_lua_la_SOURCES = \
 	dlua-script.c \
 	dlua-dovecot.c \
-	dlua-compat.c
+	dlua-compat.c \
+	dlua-table.c
 # Note: the only things this lib should depend on are libdovecot and lua.
 libdovecot_lua_la_DEPENDENCIES = ../lib-dovecot/libdovecot.la
 libdovecot_lua_la_LIBADD = ../lib-dovecot/libdovecot.la $(LUA_LIBS)

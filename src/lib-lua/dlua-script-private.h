@@ -93,6 +93,79 @@ void dlua_push_event(lua_State *L, struct event *event);
 /* get event from given stack position */
 struct event *dlua_check_event(lua_State *L, int arg);
 
+/*
+ * Returns field from a Lua table
+ *
+ * There are different variants of these that allow for different key types
+ * and different value types.  In general, the function name scheme is:
+ *
+ *	dlua_table_get_<return type>_by_<key type>
+ *
+ * The _by_{str,int} variants use the supplied field value as the table key.
+ *
+ * The _by_thread variants use the current thread's thread object as the
+ * table key.
+ *
+ * Returns:
+ *   -1 = incompatible value type
+ *    0 = nil or not found
+ *    1 = value found
+ */
+int dlua_table_get_luainteger_by_str(lua_State *L, int idx, const char *field, lua_Integer *value_r);
+int dlua_table_get_int_by_str(lua_State *L, int idx, const char *field, int *value_r);
+int dlua_table_get_intmax_by_str(lua_State *L, int idx, const char *field, intmax_t *value_r);
+int dlua_table_get_uint_by_str(lua_State *L, int idx, const char *field, unsigned int *value_r);
+int dlua_table_get_uintmax_by_str(lua_State *L, int idx, const char *field, uintmax_t *value_r);
+int dlua_table_get_number_by_str(lua_State *L, int idx, const char *field, lua_Number *value_r);
+int dlua_table_get_bool_by_str(lua_State *L, int idx, const char *field, bool *value_r);
+int dlua_table_get_string_by_str(lua_State *L, int idx, const char *field, const char **value_r);
+int dlua_table_get_data_by_str(lua_State *L, int idx, const char *field, const unsigned char **value_r, size_t *len_r);
+
+int dlua_table_get_luainteger_by_int(lua_State *L, int idx, lua_Integer field, lua_Integer *value_r);
+int dlua_table_get_int_by_int(lua_State *L, int idx, lua_Integer field, int *value_r);
+int dlua_table_get_intmax_by_int(lua_State *L, int idx, lua_Integer field, intmax_t *value_r);
+int dlua_table_get_uint_by_int(lua_State *L, int idx, lua_Integer field, unsigned int *value_r);
+int dlua_table_get_uintmax_by_int(lua_State *L, int idx, lua_Integer field, uintmax_t *value_r);
+int dlua_table_get_number_by_int(lua_State *L, int idx, lua_Integer field, lua_Number *value_r);
+int dlua_table_get_bool_by_int(lua_State *L, int idx, lua_Integer field, bool *value_r);
+int dlua_table_get_string_by_int(lua_State *L, int idx, lua_Integer field, const char **value_r);
+int dlua_table_get_data_by_int(lua_State *L, int idx, lua_Integer field, const unsigned char **value_r, size_t *len_r);
+
+int dlua_table_get_luainteger_by_thread(lua_State *L, int idx, lua_Integer *value_r);
+int dlua_table_get_int_by_thread(lua_State *L, int idx, int *value_r);
+int dlua_table_get_intmax_by_thread(lua_State *L, int idx, intmax_t *value_r);
+int dlua_table_get_uint_by_thread(lua_State *L, int idx, unsigned int *value_r);
+int dlua_table_get_uintmax_by_thread(lua_State *L, int idx, uintmax_t *value_r);
+int dlua_table_get_number_by_thread(lua_State *L, int idx, lua_Number *value_r);
+int dlua_table_get_bool_by_thread(lua_State *L, int idx, bool *value_r);
+int dlua_table_get_string_by_thread(lua_State *L, int idx, const char **value_r);
+int dlua_table_get_data_by_thread(lua_State *L, int idx, const unsigned char **value_r, size_t *len_r);
+
+/*
+ * Pushes onto the stack the value t[k], where t is the value at the given
+ * index and k is field argument.  Unlike lua_gettable(), this function
+ * checks the type of the retrieved value against the passed in type.
+ * [-1,+0..1,e]
+ *
+ * There are different variants of these that allow for different key types.
+ * In general, the function name scheme is:
+ *
+ *	dlua_table_get_by_<key type>
+ *
+ * The _by_{str,int} variants use the supplied field value as the table key.
+ *
+ * The _by_thread variants use the current thread's thread object as the
+ * table key.
+ *
+ * Returns:
+ *   -1 = incompatible value type (nothing is pushed)
+ *    0 = nil or not found (nothing is pushed)
+ *    1 = value found (retrieved value is pushed to the top of the stack)
+ */
+int dlua_table_get_by_str(lua_State *L, int idx, int type, const char *field);
+int dlua_table_get_by_int(lua_State *L, int idx, int type, lua_Integer field);
+int dlua_table_get_by_thread(lua_State *L, int idx, int type);
+
 /* dumps current stack as i_debug lines */
 void dlua_dump_stack(lua_State *L);
 
