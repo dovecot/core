@@ -39,6 +39,7 @@ AC_DEFUN([DOVECOT_WANT_LUA],[
    old_CFLAGS="$CFLAGS"
    CFLAGS="$CFLAGS $LUA_CFLAGS $LUA_LIBS"
 
+   AC_CHECK_FUNCS([lua_isinteger])
    AC_CHECK_FUNCS([lua_tointegerx])
 
    CFLAGS="$old_CFLAGS"
