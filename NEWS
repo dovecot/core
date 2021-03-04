@@ -8,6 +8,7 @@ V2.3.14 2021-03-04  Aki Tuomi <aki.tuomi@open-xchange.com>
 	  the cost of extra memory usage.
 	* Remove autocreate, expire, snarf and mail-filter plugins.
 	* Remove cydir storage driver.
+	* Remove XZ/LZMA write support. Read support will be removed in future release.
 	* doveadm -D: Add timestamps to debug output even when LOG_STDERR_TIMESTAMP
 	  environment variable is not set. Timestamp format is taken from
 	  log_timestamp setting.
