@@ -25,6 +25,27 @@ void luaL_setfuncs (lua_State *L, const luaL_Reg *l, int nup) {
 }
 #endif
 
+#ifndef HAVE_LUA_ISINTEGER
+#  if LUA_VERSION_NUM >= 503
+#    error "Lua 5.3+ should have lua_isinteger()"
+#  endif
+/*
+ * Lua 5.3 added lua_isinteger() which tells us whether or not the input is
+ * an integer.  In Lua 5.1 and 5.2, we have to emulate it.
+ */
+int lua_isinteger(lua_State *L, int idx)
+{
+	int isnum;
+
+	if (lua_type(L, idx) != LUA_TNUMBER)
+		return 0;
+
+	(void) lua_tointegerx(L, idx, &isnum);
+
+	return isnum;
+}
+#endif
+
 #ifndef HAVE_LUA_TOINTEGERX
 #  if LUA_VERSION_NUM >= 502
 #    error "Lua 5.2+ should have lua_tointegerx()"
