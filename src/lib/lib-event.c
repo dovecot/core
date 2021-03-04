@@ -66,6 +66,12 @@ static ARRAY(struct event_category *) event_registered_categories_representative
 static ARRAY(struct event *) global_event_stack;
 static uint64_t event_id_counter = 0;
 
+static void get_self_rusage(struct rusage *ru_r)
+{
+	if (getrusage(RUSAGE_SELF, ru_r) < 0)
+		i_fatal("getrusage() failed: %m");
+}
+
 static struct event *
 event_create_internal(struct event *parent, const char *source_filename,
 		      unsigned int source_linenum);
@@ -987,6 +993,16 @@ void event_vsend(struct event *event, struct failure_context *ctx,
 		 const char *fmt, va_list args)
 {
 	i_gettimeofday(&event->tv_last_sent);
+
+	/* Skip adding user_cpu_usecs if not enabled. */
+	if (event->ru_last.ru_utime.tv_sec != 0 ||
+	    event->ru_last.ru_utime.tv_usec != 0) {
+		struct rusage ru_current;
+		get_self_rusage(&ru_current);
+		long long udiff = timeval_diff_usecs(&ru_current.ru_utime,
+						     &event->ru_last.ru_utime);
+		event_add_int(event, "user_cpu_usecs", udiff > 0 ? udiff : 0);
+	}
 	if (event_call_callbacks(event, EVENT_CALLBACK_TYPE_SEND,
 				 ctx, fmt, args)) {
 		if (ctx->type != LOG_TYPE_DEBUG ||
@@ -1382,6 +1398,11 @@ const struct event_passthrough event_passthrough_vfuncs = {
 	event_passthrough_clear_field,
 	event_passthrough_event,
 };
+
+void event_enable_user_cpu_usecs(struct event *event)
+{
+	get_self_rusage(&event->ru_last);
+}
 
 void lib_event_init(void)
 {
