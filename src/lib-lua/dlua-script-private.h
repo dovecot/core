@@ -6,12 +6,6 @@
 #include "lauxlib.h"
 #include "dlua-compat.h"
 
-#if !defined(LUA_VERSION_NUM)
-#define lua_setfield(L, i, k)   (lua_pushstring(L, k), lua_settable(L, i))
-#define lua_getref(L, ref) lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
-#define luaL_unref(L, ref) luaL_unref(L, LUA_REGISTRYINDEX, ref);
-#endif
-
 #if !defined(LUA_VERSION_NUM) || LUA_VERSION_NUM < 502
 #define luaL_newmetatable(L, tn) \
 	(luaL_newmetatable(L, tn) ? (lua_pushstring(L, tn), lua_setfield(L, -2, "__name"), 1) : 0)
