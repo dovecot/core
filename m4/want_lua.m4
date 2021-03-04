@@ -35,5 +35,12 @@ AC_DEFUN([DOVECOT_WANT_LUA],[
     AS_IF([test "x$with_lua_plugin" != "xyes"],
      AC_DEFINE([BUILTIN_LUA],, [Lua support is builtin])
    )
+   dnl Check if various lua functions are present
+   old_CFLAGS="$CFLAGS"
+   CFLAGS="$CFLAGS $LUA_CFLAGS $LUA_LIBS"
+
+   AC_CHECK_FUNCS([lua_tointegerx])
+
+   CFLAGS="$old_CFLAGS"
   )
 ])
