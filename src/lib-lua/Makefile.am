@@ -14,6 +14,7 @@ libdovecot_lua_la_LIBADD = ../lib-dovecot/libdovecot.la $(LUA_LIBS)
 libdovecot_lua_la_LDFLAGS = -export-dynamic
 
 headers = \
+	dlua-compat.h \
 	dlua-script.h \
 	dlua-script-private.h
 

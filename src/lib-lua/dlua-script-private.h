@@ -4,6 +4,7 @@
 #include "dlua-script.h"
 #include "lualib.h"
 #include "lauxlib.h"
+#include "dlua-compat.h"
 
 #if !defined(LUA_VERSION_NUM)
 #define lua_setfield(L, i, k)   (lua_pushstring(L, k), lua_settable(L, i))

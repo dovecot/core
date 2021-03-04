@@ -3,6 +3,8 @@
 #include "test-lib.h"
 #include "dlua-script-private.h"
 
+#include <math.h>
+
 static int dlua_test_assert(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
@@ -62,9 +64,128 @@ static void test_lua(void)
 	test_end();
 }
 
+/* check lua_tointegerx against top-of-stack item */
+static void check_tointegerx_compat(lua_State *L, int expected_isnum,
+				    lua_Integer expected_value)
+{
+	lua_Integer value;
+	int isnum;
+
+	value = lua_tointegerx(L, -1, &isnum);
+	test_assert(isnum == expected_isnum);
+
+	if (isnum == 1)
+		test_assert(value == expected_value);
+
+	lua_pop(L, 1);
+}
+
+static void test_compat_tointegerx(void)
+{
+	static const struct {
+		const char *input;
+		lua_Integer output;
+		int isnum;
+	} str_tests[] = {
+		{ "-1", -1, 1 },
+		{ "0", 0, 1 },
+		{ "1", 1, 1 },
+		{ "-2147483648", -2147483648, 1 },
+		{ "2147483647", 2147483647, 1 },
+		{ "0x123", 0x123, 1 },
+		{ "0123", 123, 1 }, /* NB: lua doesn't use leading zero for octal */
+		{ "0xabcdef", 0xabcdef, 1 },
+		{ "0xabcdefg", 0, 0 },
+		{ "abc", 0, 0 },
+
+		/*
+		 * The following tests fail with Lua 5.2, but work on 5.1 &
+		 * 5.3.  (See lua_tointegerx() comment in dlua-compat.h.)
+		 *
+		 * We just hack around it and provide a different set of
+		 * expected test results for 5.2.
+		 */
+#if LUA_VERSION_NUM != 502
+		{ "1.525", 0, 0 },
+		{ "52.51", 0, 0 },
+#else
+		{ "52.51", 52, 1 },
+#endif
+	};
+	static const struct {
+		lua_Number input;
+		lua_Integer output;
+		int isnum;
+	} num_tests[] = {
+		{ -1, -1, 1 },
+		{ 0, 0, 1 },
+		{ 1, 1, 1 },
+		{ INT_MIN, INT_MIN, 1 },
+		{ INT_MAX, INT_MAX, 1 },
+
+		/*
+		 * The following tests fail with Lua 5.2, but work on 5.1 &
+		 * 5.3.  (See lua_tointegerx() comment in dlua-compat.h.)
+		 *
+		 * We just hack around it and provide a different set of
+		 * expected test results for 5.2.
+		 */
+#if LUA_VERSION_NUM != 502
+		{ 1.525, 0, 0 },
+		{ 52.51, 0, 0 },
+		{ NAN, 0, 0 },
+		{ +INFINITY, 0, 0},
+		{ -INFINITY, 0, 0},
+#else
+		{ 1.525, 1, 1 },
+		{ 52.51, 52, 1 },
+#endif
+	};
+	static const struct {
+		lua_Integer input;
+		lua_Integer output;
+	} int_tests[] = {
+		{ -1, -1 },
+		{ 0, 0 },
+		{ 1, 1 },
+		{ INT_MIN, INT_MIN },
+		{ INT_MAX, INT_MAX },
+	};
+	struct dlua_script *script;
+	const char *error;
+	size_t i;
+
+	test_begin("lua compat tostringx");
+
+	test_assert(dlua_script_create_string("", &script, NULL, &error) == 0);
+
+	for (i = 0; i < N_ELEMENTS(str_tests); i++) {
+		lua_pushstring(script->L, str_tests[i].input);
+		check_tointegerx_compat(script->L, str_tests[i].isnum,
+					str_tests[i].output);
+	}
+
+	for (i = 0; i < N_ELEMENTS(num_tests); i++) {
+		lua_pushnumber(script->L, num_tests[i].input);
+		check_tointegerx_compat(script->L, num_tests[i].isnum,
+					num_tests[i].output);
+	}
+
+	for (i = 0; i < N_ELEMENTS(int_tests); i++) {
+		lua_pushinteger(script->L, int_tests[i].input);
+		check_tointegerx_compat(script->L, 1,
+					int_tests[i].output);
+	}
+
+	dlua_script_unref(&script);
+
+	test_end();
+}
+
 int main(void) {
 	void (*tests[])(void) = {
 		test_lua,
+		test_compat_tointegerx,
 		NULL
 	};
 
