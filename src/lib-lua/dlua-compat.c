@@ -4,7 +4,7 @@
 #include "strnum.h"
 #include "dlua-script-private.h"
 
-#if !defined(LUA_VERSION_NUM) || LUA_VERSION_NUM < 502
+#ifndef HAVE_LUAL_SETFUNCS
 void luaL_setfuncs(lua_State *L, const luaL_Reg *l, int nup)
 {
 	luaL_checkstack(L, nup + 1, "too many upvalues");
@@ -18,7 +18,9 @@ void luaL_setfuncs(lua_State *L, const luaL_Reg *l, int nup)
 	}
 	lua_pop(L, nup);
 }
+#endif
 
+#ifndef HAVE_LUAL_SETMETATABLE
 void luaL_setmetatable(lua_State *L, const char *tname)
 {
 	luaL_checkstack(L, 1, "not enough stack slots");

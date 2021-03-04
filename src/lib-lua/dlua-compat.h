@@ -18,7 +18,13 @@
 #  define lua_load(L, r, s, fn, m) lua_load(L, r, s, fn)
 #  define luaL_newlibtable(L, l) (lua_createtable(L, 0, sizeof(l)/sizeof(*(l))-1))
 #  define luaL_newlib(L, l) (luaL_newlibtable(L, l), luaL_register(L, NULL, l))
+#endif
+
+#ifndef HAVE_LUAL_SETFUNCS
 void luaL_setfuncs (lua_State *L, const luaL_Reg *l, int nup);
+#endif
+
+#ifndef HAVE_LUAL_SETMETATABLE
 void luaL_setmetatable (lua_State *L, const char *tname);
 #endif
 
