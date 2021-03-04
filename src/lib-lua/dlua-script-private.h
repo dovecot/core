@@ -6,16 +6,6 @@
 #include "lauxlib.h"
 #include "dlua-compat.h"
 
-#if !defined(LUA_VERSION_NUM) || LUA_VERSION_NUM < 502
-#define luaL_newmetatable(L, tn) \
-	(luaL_newmetatable(L, tn) ? (lua_pushstring(L, tn), lua_setfield(L, -2, "__name"), 1) : 0)
-#define luaL_newlibtable(L, l) (lua_createtable(L, 0, sizeof(l)/sizeof(*(l))-1))
-#define luaL_newlib(L, l) (luaL_newlibtable(L, l), luaL_register(L, NULL, l))
-#define lua_load(L, r, s, fn, m) lua_load(L, r, s, fn)
-void luaL_setfuncs (lua_State *L, const luaL_Reg *l, int nup);
-void luaL_setmetatable (lua_State *L, const char *tname);
-#endif
-
 /* consistency helpers */
 #define lua_isstring(L, n) (lua_isstring(L, n) == 1)
 #define lua_isnumber(L, n) (lua_isnumber(L, n) == 1)

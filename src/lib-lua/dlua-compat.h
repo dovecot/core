@@ -5,6 +5,23 @@
  * In general, make whatever Lua version we have behave more like Lua 5.3.
  */
 
+/* functionality missing from <= 5.2 */
+#if LUA_VERSION_NUM <= 502
+#  define luaL_newmetatable(L, tn) \
+	((luaL_newmetatable(L, tn) != 0) ? \
+	 (lua_pushstring((L), (tn)), lua_setfield((L), -2, "__name"), 1) : \
+	 0)
+#endif
+
+/* functionality missing from <= 5.1 */
+#if LUA_VERSION_NUM <= 501
+#  define lua_load(L, r, s, fn, m) lua_load(L, r, s, fn)
+#  define luaL_newlibtable(L, l) (lua_createtable(L, 0, sizeof(l)/sizeof(*(l))-1))
+#  define luaL_newlib(L, l) (luaL_newlibtable(L, l), luaL_register(L, NULL, l))
+void luaL_setfuncs (lua_State *L, const luaL_Reg *l, int nup);
+void luaL_setmetatable (lua_State *L, const char *tname);
+#endif
+
 #ifndef HAVE_LUA_ISINTEGER
 /*
  * Lua 5.3 can actually keep track of intergers vs. numbers.  As a
