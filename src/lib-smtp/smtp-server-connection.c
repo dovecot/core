@@ -1074,6 +1074,10 @@ smtp_server_connection_disconnect(struct smtp_server_connection *conn,
 		reason = t_strdup_printf("%s (unfinished %s command)",
 			reason, cmd->reg->name);
 	}
+	if (!conn->set.no_state_in_reason) {
+		reason = t_strdup_printf("%s (state=%s)", reason,
+			smtp_server_state_names[conn->state.state]);
+	}
 
 	e_debug(conn->event, "Disconnected: %s", reason);
 	conn->disconnect_reason = i_strdup(reason);

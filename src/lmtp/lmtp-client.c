@@ -291,9 +291,8 @@ void client_disconnect(struct client *client, const char *enh_code,
 
 	if (reason == NULL)
 		reason = "Connection closed";
-	e_info(client->event, "Disconnect from %s: %s (state=%s)",
-	       client_remote_id(client), reason,
-			        smtp_server_state_names[client->state.state]);
+	e_info(client->event, "Disconnect from %s: %s",
+	       client_remote_id(client), reason);
 
 	if (conn != NULL) {
 		smtp_server_connection_terminate(

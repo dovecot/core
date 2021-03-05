@@ -396,6 +396,8 @@ struct smtp_server_settings {
 	/* The path provided to the RCPT command does not need to have the
 	   domain part. */
 	bool rcpt_domain_optional:1;
+	/* Don't include "(state=%s)" in the disconnection reason string. */
+	bool no_state_in_reason:1;
 };
 
 struct smtp_server_stats {

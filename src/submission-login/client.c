@@ -256,6 +256,9 @@ static void submission_login_init(void)
 	smtp_server_set.protocol = SMTP_PROTOCOL_SMTP;
 	smtp_server_set.max_pipelined_commands = 5;
 	smtp_server_set.max_bad_commands = CLIENT_MAX_BAD_COMMANDS;
+	/* Pre-auth state is always logged either as GREETING or READY.
+	   It's not very useful. */
+	smtp_server_set.no_state_in_reason = TRUE;
 	smtp_server = smtp_server_init(&smtp_server_set);
 }
 
