@@ -645,6 +645,7 @@ int fts_build_mail(struct fts_backend_update_context *update_ctx,
 				   between temporary errors and invalid
 				   document input. */
 				i_info("%s - ignoring", retriable_err_msg);
+				ret = 0;
 				break;
 			}
 		}
