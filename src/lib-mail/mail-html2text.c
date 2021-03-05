@@ -183,7 +183,7 @@ parse_data(struct mail_html2text *ht,
 	size_t i, ret;
 
 	for (i = 0; i < size; i++) {
-		char c = data[i];
+		unsigned char c = data[i];
 
 		switch (ht->state) {
 		case HTML_STATE_TEXT:
