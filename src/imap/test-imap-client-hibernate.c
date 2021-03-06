@@ -19,7 +19,7 @@
 
 #include <sys/stat.h>
 
-#define TEMP_DIRNAME ".test-imap-client-hibernate"
+#define TEMP_DIRNAME ".test-ich"
 
 #define EVILSTR "\t\r\n\001"
 
