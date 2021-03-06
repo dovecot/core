@@ -36,6 +36,8 @@ imap_hibernate_handshake(int fd, const char *path, const char **error_r)
 		buf[ret-1] = '\0';
 		if (version_string_verify(buf, "imap-hibernate", 1))
 			return 0;
+	} else {
+		buf[ret] = '\0';
 	}
 	*error_r = t_strdup_printf("%s sent invalid VERSION handshake: %s",
 				   path, buf);
