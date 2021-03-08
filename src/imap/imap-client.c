@@ -9,6 +9,7 @@
 #include "iostream.h"
 #include "iostream-rawlog.h"
 #include "istream.h"
+#include "istream-concat.h"
 #include "ostream.h"
 #include "time-util.h"
 #include "var-expand.h"
@@ -233,6 +234,24 @@ int client_create_finish(struct client *client, const char **error_r)
 
 	client->v.init(client);
 	return 0;
+}
+
+void client_add_istream_prefix(struct client *client,
+			       const unsigned char *data, size_t size)
+{
+	i_assert(client->io == NULL);
+
+	struct istream *inputs[] = {
+		i_stream_create_copy_from_data(data, size),
+		client->input,
+		NULL
+	};
+	client->input = i_stream_create_concat(inputs);
+	i_stream_copy_fd(client->input, inputs[1]);
+	i_stream_unref(&inputs[0]);
+	i_stream_unref(&inputs[1]);
+
+	i_stream_set_input_pending(client->input, TRUE);
 }
 
 static void client_default_init(struct client *client ATTR_UNUSED)

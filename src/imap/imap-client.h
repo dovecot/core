@@ -268,6 +268,8 @@ struct client *client_create(int fd_in, int fd_out,
 			     const struct smtp_submit_settings *smtp_set);
 /* Finish creating the client. Returns 0 if ok, -1 if there's an error. */
 int client_create_finish(struct client *client, const char **error_r);
+void client_add_istream_prefix(struct client *client,
+			       const unsigned char *data, size_t size);
 void client_destroy(struct client *client, const char *reason) ATTR_NULL(2);
 
 /* Disconnect client connection */

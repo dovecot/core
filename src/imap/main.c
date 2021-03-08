@@ -191,10 +191,10 @@ client_add_input_capability(struct client *client, const unsigned char *client_i
 
 	if (client_input_size > 0) {
 		client_parse_input(client_input, client_input_size, &input);
-		if (input.input_size > 0 &&
-		    !i_stream_add_data(client->input, input.input,
-				       input.input_size))
-			i_panic("Couldn't add client input to stream");
+		if (input.input_size > 0) {
+			client_add_istream_prefix(client, input.input,
+						  input.input_size);
+		}
 	} else {
 		/* IMAPLOGINTAG environment is compatible with mailfront */
 		i_zero(&input);
