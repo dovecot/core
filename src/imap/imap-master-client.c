@@ -281,6 +281,12 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	o_stream_nsend_str(conn->output, "+\n");
 	(void)o_stream_flush(conn->output);
 
+	if (master_input.client_input->used > 0) {
+		client_add_istream_prefix(imap_client,
+					  master_input.client_input->data,
+					  master_input.client_input->used);
+	}
+
 	if (client_create_finish(imap_client, &error) < 0) {
 		event_add_str(event, "error", error);
 		e_error(event, "imap-master: %s", error);
@@ -294,19 +300,6 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	o_stream_nsend(imap_client->output,
 		       master_input.client_output->data,
 		       master_input.client_output->used);
-	if (master_input.client_input->used > 0 &&
-	    !i_stream_add_data(imap_client->input,
-			       master_input.client_input->data,
-			       master_input.client_input->used)) {
-		error = t_strdup_printf(
-			"Couldn't add %zu bytes to client's input stream",
-			master_input.client_input->used);
-		event_add_str(event, "error", error);
-		e_error(event, "imap-master: %s", error);
-		event_unref(&event);
-		client_destroy(imap_client, "Client initialization failed");
-		return -1;
-	}
 
 	ret = imap_state_import_internal(imap_client, master_input.state->data,
 					 master_input.state->used, &error);
