@@ -124,6 +124,7 @@ struct client *client_create(int fd_in, int fd_out,
 			     struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct pop3_settings *set);
+void client_create_finish(struct client *client);
 int client_init_mailbox(struct client *client, const char **error_r);
 void client_destroy(struct client *client, const char *reason) ATTR_NULL(2);
 
