@@ -88,6 +88,16 @@ int i_stream_get_fd(struct istream *stream)
 	return _stream->fd;
 }
 
+void i_stream_copy_fd(struct istream *dest, struct istream *source)
+{
+	int fd = i_stream_get_fd(source);
+
+	i_assert(fd != -1);
+	i_assert(dest->real_stream->fd == -1);
+	dest->real_stream->fd = fd;
+	dest->readable_fd = source->readable_fd;
+}
+
 const char *i_stream_get_error(struct istream *stream)
 {
 	struct istream *s;

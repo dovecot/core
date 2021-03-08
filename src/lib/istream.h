@@ -97,6 +97,10 @@ void i_stream_remove_destroy_callback(struct istream *stream,
 
 /* Return file descriptor for stream, or -1 if none is available. */
 int i_stream_get_fd(struct istream *stream);
+/* Copy the file descriptor from source istream to destination istream.
+   The readable_fd is preserved. Assert-crashes if source doesn't have a
+   file descriptor. */
+void i_stream_copy_fd(struct istream *dest, struct istream *source);
 /* Returns error string for the last error. It also returns "EOF" in case there
    is no error, but eof is set. Otherwise it returns "<no error>". */
 const char *i_stream_get_error(struct istream *stream);
