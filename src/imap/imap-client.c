@@ -156,11 +156,6 @@ struct client *client_create(int fd_in, int fd_out,
 	client->notify_flag_changes = TRUE;
 	p_array_init(&client->enabled_features, client->pool, 8);
 
-	if (set->rawlog_dir[0] != '\0') {
-		(void)iostream_rawlog_create(set->rawlog_dir, &client->input,
-					     &client->output);
-	}
-
 	client->capability_string =
 		str_new(client->pool, sizeof(CAPABILITY_STRING)+64);
 
@@ -229,6 +224,11 @@ int client_create_finish(struct client *client, const char **error_r)
 		return -1;
 	mail_namespaces_set_storage_callbacks(client->user->namespaces,
 					      &mail_storage_callbacks, client);
+
+	if (client->set->rawlog_dir[0] != '\0') {
+		(void)iostream_rawlog_create(client->set->rawlog_dir,
+					     &client->input, &client->output);
+	}
 	client->io = io_add_istream(client->input, client_input, client);
 
 	client->v.init(client);
