@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "buffer.h"
 #include "istream.h"
+#include "istream-concat.h"
 #include "ostream.h"
 #include "path-util.h"
 #include "base64.h"
@@ -83,8 +84,16 @@ static void client_add_input(struct client *client, const buffer_t *buf)
 	struct ostream *output;
 
 	if (buf != NULL && buf->used > 0) {
-		if (!i_stream_add_data(client->input, buf->data, buf->used))
-			i_panic("Couldn't add client input to stream");
+		struct istream *inputs[] = {
+			i_stream_create_copy_from_data(buf->data, buf->used),
+			client->input,
+			NULL
+		};
+		client->input = i_stream_create_concat(inputs);
+		i_stream_copy_fd(client->input, inputs[1]);
+		i_stream_unref(&inputs[0]);
+		i_stream_unref(&inputs[1]);
+		i_stream_set_input_pending(client->input, TRUE);
 	}
 
 	output = client->output;
@@ -173,8 +182,7 @@ static int init_namespaces(struct client *client, bool already_logged_in)
 	return 0;
 }
 
-static void add_input(struct client *client,
-		      const buffer_t *input_buf)
+static void client_init_session(struct client *client)
 {
 	const char *error;
 
@@ -213,10 +221,7 @@ static void add_input(struct client *client,
 	if (client_init_mailbox(client, &error) < 0) {
 		i_error("%s", error);
 		client_destroy(client, error);
-		return;
 	}
-
-	client_add_input(client, input_buf);
 }
 
 static void main_stdio_run(const char *username)
@@ -245,7 +250,10 @@ static void main_stdio_run(const char *username)
 	if (client_create_from_input(&input, STDIN_FILENO, STDOUT_FILENO,
 				     &client, &error) < 0)
 		i_fatal("%s", error);
-	add_input(client, input_buf);
+	client_add_input(client, input_buf);
+	client_create_finish(client);
+
+	client_init_session(client);
 	/* client may be destroyed now */
 }
 
@@ -284,7 +292,10 @@ login_client_connected(const struct master_login_client *login_client,
 		master_service_client_connection_destroyed(master_service);
 		return;
 	}
-	add_input(client, &input_buf);
+	client_add_input(client, &input_buf);
+	client_create_finish(client);
+
+	client_init_session(client);
 	/* client may be destroyed now */
 }
 
