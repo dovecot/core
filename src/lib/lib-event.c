@@ -55,6 +55,10 @@ struct event_internal_category {
 	int refcount;
 };
 
+struct event_reason {
+	struct event *event;
+};
+
 extern const struct event_passthrough event_passthrough_vfuncs;
 
 static struct event *events = NULL;
@@ -522,6 +526,35 @@ struct event *event_pop_global(struct event *event)
 struct event *event_get_global(void)
 {
 	return current_global_event;
+}
+
+#undef event_reason_begin
+struct event_reason *
+event_reason_begin(const char *reason_code, const char *source_filename,
+		   unsigned int source_linenum)
+{
+	struct event_reason *reason;
+
+	reason = i_new(struct event_reason, 1);
+	reason->event = event_create(event_get_global(),
+				     source_filename, source_linenum);
+	event_strlist_append(reason->event, EVENT_REASON_CODE, reason_code);
+	event_push_global(reason->event);
+	return reason;
+}
+
+void event_reason_end(struct event_reason **_reason)
+{
+	struct event_reason *reason = *_reason;
+
+	if (reason == NULL)
+		return;
+	event_pop_global(reason->event);
+	/* This event was created only for global use. It shouldn't be
+	   permanently stored anywhere. This assert could help catch bugs. */
+	i_assert(reason->event->refcount == 1);
+	event_unref(&reason->event);
+	i_free(reason);
 }
 
 static struct event *

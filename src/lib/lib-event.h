@@ -4,6 +4,9 @@
 
 #include <sys/time.h>
 
+/* Field name for the reason_code string list. */
+#define EVENT_REASON_CODE "reason_code"
+
 struct event;
 struct event_log_params;
 
@@ -200,6 +203,16 @@ struct event *event_push_global(struct event *event);
 struct event *event_pop_global(struct event *event);
 /* Returns the current global event. */
 struct event *event_get_global(void);
+
+/* Shortcut to create and push a global event and set its reason_code field. */
+struct event_reason *
+event_reason_begin(const char *reason_code, const char *source_filename,
+		   unsigned int source_linenum);
+#define event_reason_begin(reason_code) \
+	event_reason_begin(reason_code, __FILE__, __LINE__)
+/* Finish the reason event. It pops the global event, which means it must be
+   at the top of the stack. */
+void event_reason_end(struct event_reason **reason);
 
 /* Set the appended log prefix string for this event. All the parent events'
    log prefixes will be concatenated together when logging. The log type
