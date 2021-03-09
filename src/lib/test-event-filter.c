@@ -61,6 +61,65 @@ static void test_event_filter_override_parent_fields(void)
 	test_end();
 }
 
+static void test_event_filter_override_global_fields(void)
+{
+	struct event_filter *filter;
+	const char *error;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+
+	test_begin("event filter: override global fields");
+
+	struct event *global = event_create(NULL);
+	event_add_str(global, "str", "global_str");
+	event_add_str(global, "global_str", "global_str");
+	event_add_int(global, "int1", 0);
+	event_add_int(global, "int2", 5);
+	event_add_int(global, "global_int", 6);
+	event_push_global(global);
+
+	struct event *local = event_create(NULL);
+	event_add_str(local, "str", "local_str");
+	event_add_str(local, "local_str", "local_str");
+	event_add_int(local, "int1", 6);
+	event_add_int(local, "int2", 0);
+	event_add_int(local, "local_int", 8);
+
+	/* global matches: test a mix of global/local fields */
+	filter = event_filter_create();
+	test_assert(event_filter_parse("str=global_str AND int1=0 AND int2=5", filter, &error) == 0);
+	test_assert(event_filter_match(filter, global, &failure_ctx));
+	test_assert(!event_filter_match(filter, local, &failure_ctx));
+	event_filter_unref(&filter);
+
+	/* global matches: test fields that exist only in global */
+	filter = event_filter_create();
+	test_assert(event_filter_parse("global_str=global_str AND global_int=6", filter, &error) == 0);
+	test_assert(event_filter_match(filter, global, &failure_ctx));
+	test_assert(event_filter_match(filter, local, &failure_ctx));
+	event_filter_unref(&filter);
+
+	/* local matches: test a mix of global/local fields */
+	filter = event_filter_create();
+	test_assert(event_filter_parse("str=local_str AND int1=6 AND int2=0", filter, &error) == 0);
+	test_assert(event_filter_match(filter, local, &failure_ctx));
+	test_assert(!event_filter_match(filter, global, &failure_ctx));
+	event_filter_unref(&filter);
+
+	/* local matches: test fields that exist only in local */
+	filter = event_filter_create();
+	test_assert(event_filter_parse("local_str=local_str AND local_int=8", filter, &error) == 0);
+	test_assert(event_filter_match(filter, local, &failure_ctx));
+	test_assert(!event_filter_match(filter, global, &failure_ctx));
+	event_filter_unref(&filter);
+
+	event_pop_global(global);
+	event_unref(&global);
+	event_unref(&local);
+	test_end();
+}
+
 static void test_event_filter_clear_parent_fields(void)
 {
 	struct event_filter *filter;
@@ -107,6 +166,57 @@ static void test_event_filter_clear_parent_fields(void)
 
 	event_unref(&parent);
 	event_unref(&child);
+	test_end();
+}
+
+static void test_event_filter_clear_global_fields(void)
+{
+	struct event_filter *filter;
+	const char *error;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+	const char *keys[] = { "str", "int" };
+
+	test_begin("event filter: clear global fields");
+
+	struct event *global = event_create(NULL);
+	event_add_str(global, "str", "global_str");
+	event_add_int(global, "int", 0);
+	event_push_global(global);
+
+	struct event *local = event_create(NULL);
+	event_field_clear(local, "str");
+	event_field_clear(local, "int");
+
+	for (unsigned int i = 0; i < N_ELEMENTS(keys); i++) {
+		/* match any value */
+		const char *query = t_strdup_printf("%s=*", keys[i]);
+		filter = event_filter_create();
+		test_assert(event_filter_parse(query, filter, &error) == 0);
+
+		test_assert_idx(event_filter_match(filter, global, &failure_ctx), i);
+		test_assert_idx(!event_filter_match(filter, local, &failure_ctx), i);
+		event_filter_unref(&filter);
+	}
+
+	/* match empty field */
+	filter = event_filter_create();
+	test_assert(event_filter_parse("str=\"\"", filter, &error) == 0);
+	test_assert(!event_filter_match(filter, global, &failure_ctx));
+	test_assert(event_filter_match(filter, local, &failure_ctx));
+	event_filter_unref(&filter);
+
+	/* match nonexistent field */
+	filter = event_filter_create();
+	test_assert(event_filter_parse("nonexistent=\"\"", filter, &error) == 0);
+	test_assert(event_filter_match(filter, global, &failure_ctx));
+	test_assert(event_filter_match(filter, local, &failure_ctx));
+	event_filter_unref(&filter);
+
+	event_pop_global(global);
+	event_unref(&global);
+	event_unref(&local);
 	test_end();
 }
 
@@ -272,12 +382,69 @@ static void test_event_filter_strlist_recursive(void)
 	test_end();
 }
 
+static void test_event_filter_strlist_global_events(void)
+{
+	struct event_filter *filter;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+
+	test_begin("event filter: match string list - global events");
+
+	struct event *global = event_create(NULL);
+	event_push_global(global);
+
+	struct event *e = event_create(NULL);
+
+	/* empty filter: global is non-empty */
+	filter = event_filter_create();
+	event_filter_parse("list1=\"\"", filter, NULL);
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	event_strlist_append(global, "list1", "foo");
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	event_filter_unref(&filter);
+
+	/* matching filter: matches global */
+	filter = event_filter_create();
+	event_filter_parse("list2=global", filter, NULL);
+	/* empty: */
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	/* set global but no local: */
+	event_strlist_append(global, "list2", "global");
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	/* set local to non-matching: */
+	event_strlist_append(e, "list2", "local");
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	event_filter_unref(&filter);
+
+	/* matching filter: matches local */
+	filter = event_filter_create();
+	event_filter_parse("list3=local", filter, NULL);
+	/* empty: */
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	/* set local but no global: */
+	event_strlist_append(e, "list3", "local");
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	/* set global to non-matching: */
+	event_strlist_append(e, "list3", "global");
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	event_filter_unref(&filter);
+
+	event_unref(&e);
+	event_pop_global(global);
+	event_unref(&global);
+	test_end();
+}
+
 void test_event_filter(void)
 {
 	test_event_filter_override_parent_fields();
+	test_event_filter_override_global_fields();
 	test_event_filter_clear_parent_fields();
+	test_event_filter_clear_global_fields();
 	test_event_filter_inc_int();
 	test_event_filter_parent_category_match();
 	test_event_filter_strlist();
 	test_event_filter_strlist_recursive();
+	test_event_filter_strlist_global_events();
 }

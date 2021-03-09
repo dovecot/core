@@ -241,8 +241,9 @@ struct event *event_flatten(struct event *src)
 {
 	struct event *dst;
 
-	/* If we don't have a parent, we have nothing to flatten. */
-	if (src->parent == NULL)
+	/* If we don't have a parent or a global event,
+	   we have nothing to flatten. */
+	if (src->parent == NULL && current_global_event == NULL)
 		return event_ref(src);
 
 	/* We have to flatten the event. */
@@ -251,6 +252,8 @@ struct event *event_flatten(struct event *src)
 				    src->source_linenum);
 	dst = event_set_name(dst, src->sending_name);
 
+	if (current_global_event != NULL)
+		event_flatten_recurse(dst, current_global_event, NULL);
 	event_flatten_recurse(dst, src, NULL);
 
 	dst->tv_created_ioloop = src->tv_created_ioloop;
@@ -837,6 +840,14 @@ event_find_field_recursive(const struct event *event, const char *key)
 			return field;
 		event = event->parent;
 	} while (event != NULL);
+
+	/* check also the global event and its parents */
+	event = event_get_global();
+	while (event != NULL) {
+		if ((field = event_find_field_nonrecursive(event, key)) != NULL)
+			return field;
+		event = event->parent;
+	}
 	return NULL;
 }
 
@@ -889,8 +900,11 @@ event_find_field_recursive_str(const struct event *event, const char *key)
 		ARRAY_TYPE(const_string) list;
 		t_array_init(&list, 8);
 		/* This is a bit different, because it needs to be merging
-		   all of the parent events' lists together. */
+		   all of the parent events' and global events' lists
+		   together. */
 		event_get_recursive_strlist(event, NULL, key, &list);
+		event_get_recursive_strlist(event_get_global(), NULL,
+					    key, &list);
 		return t_array_const_string_join(&list, ",");
 	}
 	}

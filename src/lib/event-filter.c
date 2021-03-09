@@ -469,6 +469,13 @@ event_has_category(struct event *event, struct event_filter_node *node,
 		/* try also the parent events */
 		event = event_get_parent(event);
 	}
+	/* check also the global event and its parents */
+	event = event_get_global();
+	while (event != NULL) {
+		if (event_has_category_nonrecursive(event, wanted_category))
+			return TRUE;
+		event = event_get_parent(event);
+	}
 	return FALSE;
 }
 

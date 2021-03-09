@@ -166,21 +166,32 @@ struct event *event_ref(struct event *event);
    freed. The current global event's refcount must not drop to 0. */
 void event_unref(struct event **event);
 
-/* Set the event to be the global default event used by i_error(), etc.
-   Returns the event parameter. The event must be explicitly popped before
-   it's freed.
+/* Set the event to be the global event and push it at the top of the global
+   event stack. Returns the event parameter. The event must be explicitly
+   popped before it's freed.
 
-   The global event stack is also an alternative nonpermanent hierarchy for
-   events. For example the global event can be "IMAP command SELECT", which
-   can be used for filtering events that happen while the SELECT command is
-   being executed. However, for the created struct mailbox the parent event
-   should be the mail_user, not the SELECT command. Otherwise everything else
-   that happens afterwards to the selected mailbox would also count towards
-   SELECT. This means that events shouldn't be using the current global event
-   as their parent event. */
+   The global event acts as the root event for all the events while they are
+   being emitted. The global events don't permanently affect the event
+   hierarchy. The global events are typically used to add extra fields to all
+   emitted events while some specific work is running.
+
+   For example the global event can be "IMAP command SELECT", which can be used
+   for filtering events that happen while the SELECT command is being executed.
+   However, for the created struct mailbox the parent event should be the
+   mail_user, not the SELECT command. (If the mailbox used SELECT command as
+   the parent event, then any future event emitted via the mailbox event would
+   show SELECT command as the parent, even after SELECT had already finished.)
+
+   The global event works the same as if all the events' roots were instead
+   pointing to the global event. Global events don't affect log prefixes.
+
+   The created global events should use event_get_global() as their parent
+   event. Only the last pushed global event is used. */
 struct event *event_push_global(struct event *event);
-/* Pop the global event. Assert-crash if the current global event isn't the
-   given event parameter. Returns the new global event. */
+/* Pop the current global event and set the global event to the next one at
+   the top of the stack. Assert-crash if the current global event isn't the
+   given event parameter. Returns the next (now activated) global event in the
+   stack, or NULL if the stack is now empty. */
 struct event *event_pop_global(struct event *event);
 /* Returns the current global event. */
 struct event *event_get_global(void);
@@ -332,10 +343,11 @@ void event_get_last_duration(const struct event *event,
 struct event_field *
 event_find_field_nonrecursive(const struct event *event, const char *key);
 /* Returns field for a given key, or NULL if it doesn't exist. If the key
-   isn't found from the event itself, find it from parent events. */
+   isn't found from the event itself, find it from parent events, including
+   from the global event. */
 const struct event_field *
 event_find_field_recursive(const struct event *event, const char *key);
-/* Returns the given key's value as string, or NULL if it doesn't exist.
+/* Same as event_find_field(), but return the value converted to a string.
    If the field isn't stored as a string, the result is allocated from
    data stack. */
 const char *
