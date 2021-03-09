@@ -435,7 +435,8 @@ cmd_getmetadata_try_mailbox(struct imap_getmetadata_context *ctx,
 			    struct mail_namespace *ns, const char *mailbox)
 {
 	ctx->box = mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_READONLY);
-	event_add_str(ctx->cmd->event, "mailbox", mailbox_get_vname(ctx->box));
+	event_add_str(ctx->cmd->global_event, "mailbox",
+		      mailbox_get_vname(ctx->box));
 	mailbox_set_reason(ctx->box, "GETMETADATA");
 
 	enum mailbox_existence existence;

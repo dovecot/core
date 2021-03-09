@@ -917,7 +917,8 @@ struct client_command_context *client_command_alloc(struct client *client)
 	cmd = p_new(client->command_pool, struct client_command_context, 1);
 	cmd->client = client;
 	cmd->pool = client->command_pool;
-	cmd->event = event_create(client->event);
+	cmd->global_event = event_create(client->event);
+	cmd->event = event_create(cmd->global_event);
 	cmd->stats.start_time = ioloop_timeval;
 	cmd->stats.last_run_timeval = ioloop_timeval;
 	cmd->stats.start_ioloop_wait_usecs =
@@ -1014,6 +1015,7 @@ void client_command_free(struct client_command_context **_cmd)
 	e_debug(cmd->event, "Command finished: %s %s", cmd->name,
 		cmd->human_args != NULL ? cmd->human_args : "");
 	event_unref(&cmd->event);
+	event_unref(&cmd->global_event);
 
 	if (cmd->parser != NULL) {
 		if (client->free_parser == NULL) {
@@ -1277,6 +1279,9 @@ static bool client_command_input(struct client_command_context *cmd)
 		cmd->func = command->func;
 		cmd->cmd_flags = command->flags;
 		/* valid command - overwrite the "unknown" string set earlier */
+		event_add_str(cmd->global_event, "cmd_name", command->name);
+		event_strlist_append(cmd->global_event, "reason_code",
+			event_reason_code_prefix("imap", "cmd_", command->name));
 		event_add_str(cmd->event, "cmd_name", command->name);
 		if (client_command_is_ambiguous(cmd)) {
 			/* do nothing until existing commands are finished */

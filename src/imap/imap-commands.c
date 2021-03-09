@@ -194,7 +194,7 @@ bool command_exec(struct client_command_context *cmd)
 	io_loop_time_refresh();
 	command_stats_start(cmd);
 
-	event_push_global(cmd->event);
+	event_push_global(cmd->global_event);
 	cmd->executing = TRUE;
 	array_foreach(&command_hooks, hook)
 		hook->pre(cmd);
@@ -202,7 +202,7 @@ bool command_exec(struct client_command_context *cmd)
 	array_foreach(&command_hooks, hook)
 		hook->post(cmd);
 	cmd->executing = FALSE;
-	event_pop_global(cmd->event);
+	event_pop_global(cmd->global_event);
 	if (cmd->state == CLIENT_COMMAND_STATE_DONE)
 		finished = TRUE;
 

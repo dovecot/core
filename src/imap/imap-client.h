@@ -79,6 +79,10 @@ struct client_command_context {
 	struct client_command_context *prev, *next;
 	struct client *client;
 	struct event *event;
+	/* global_event is pushed to the global event stack while the command
+	   is running. It has only the minimal fields that are actually wanted
+	   to be in all the events while it's being run. */
+	struct event *global_event;
 
 	pool_t pool;
 	/* IMAP command tag */

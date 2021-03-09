@@ -35,7 +35,7 @@ bool cmd_status(struct client_command_context *cmd)
 	if (ns == NULL)
 		return TRUE;
 
-	event_add_str(cmd->event, "mailbox", mailbox);
+	event_add_str(cmd->global_event, "mailbox", mailbox);
 	selected_mailbox = client->mailbox != NULL &&
 		mailbox_equals(client->mailbox, ns, mailbox);
 	if (imap_status_get(cmd, ns, mailbox, &items, &result) < 0) {

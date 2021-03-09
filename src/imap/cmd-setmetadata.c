@@ -339,7 +339,8 @@ cmd_setmetadata_mailbox(struct imap_setmetadata_context *ctx,
 			return TRUE;
 		}
 	}
-	event_add_str(ctx->cmd->event, "mailbox", mailbox_get_vname(ctx->box));
+	event_add_str(ctx->cmd->global_event, "mailbox",
+		      mailbox_get_vname(ctx->box));
 	ctx->trans = imap_metadata_transaction_begin(ctx->box);
 	return cmd_setmetadata_start(ctx);
 }
