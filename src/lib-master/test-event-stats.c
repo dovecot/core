@@ -157,7 +157,7 @@ static void stats_conn_input(struct connection *_conn)
 	int fd;
 	struct ostream *stats_data_out;
 	struct server_connection *conn = (struct server_connection *)_conn;
-	const char *handshake = "VERSION\tstats-server\t3\t0\n"
+	const char *handshake = "VERSION\tstats-server\t4\t0\n"
 		"FILTER\tcategory=test1 OR category=test2 OR category=test3 OR "
 		"category=test4 OR category=test5\n";
 	const char *line = NULL;
@@ -321,7 +321,7 @@ static void test_no_merging1(void)
 	event_unref(&single_ev);
 	test_assert(
 		compare_test_stats_to(
-			"EVENT	0	1	0	0"
+			"EVENT	0	0	1	0	0"
 			"	s"__FILE__"	%d"
 			"	l0	0	ctest1	Skey1	str1\n", l));
 	test_end();
@@ -345,7 +345,7 @@ static void test_no_merging2(void)
 	event_unref(&child_ev);
 	test_assert(
 		compare_test_stats_to(
-			"EVENT	%"PRIu64"	1	0	0"
+			"EVENT	0	%"PRIu64"	1	0	0"
 			"	s"__FILE__"	%d"
 			"	l0	0	ctest2\n"
 			"END	9\n", id, l));
@@ -374,7 +374,7 @@ static void test_no_merging3(void)
 		compare_test_stats_to(
 			"BEGIN	%"PRIu64"	0	1	0	0"
 			"	s"__FILE__"	%d	ctest1\n"
-			"EVENT	%"PRIu64"	1	1	0"
+			"EVENT	0	%"PRIu64"	1	1	0"
 			"	s"__FILE__"	%d"
 			"	l1	0	ctest2\n"
 			"END\t%"PRIu64"\n", idp, lp, idp, l, idp));
@@ -402,7 +402,7 @@ static void test_merge_events1(void)
 	event_unref(&merge_ev2);
 	test_assert(
 		compare_test_stats_to(
-			"EVENT	0	1	0	0"
+			"EVENT	0	0	1	0	0"
 			"	s"__FILE__"	%d	l0	0"
 			"	ctest3	ctest2	ctest1	Tkey3"
 			"	10	0	Ikey2	20"
@@ -437,7 +437,7 @@ static void test_merge_events2(void)
 	event_unref(&merge_ev2);
 	test_assert(
 		compare_test_stats_to(
-			"EVENT	%"PRIu64"	1	0	0"
+			"EVENT	0	%"PRIu64"	1	0	0"
 			"	s"__FILE__"	%d	l0	0"
 			"	ctest3	ctest2	ctest1	Tkey3"
 			"	10	0	Ikey2	20"
@@ -472,7 +472,7 @@ static void test_skip_parents(void)
 		compare_test_stats_to(
 			"BEGIN	%"PRIu64"	0	1	0	0"
 			"	s"__FILE__"	%d	ctest1\n"
-			"EVENT	%"PRIu64"	1	3	0	"
+			"EVENT	0	%"PRIu64"	1	3	0	"
 			"s"__FILE__"	%d	l3	0"
 			"	ctest2\nEND\t%"PRIu64"\n", id, lp, id, l, id));
 	test_end();
@@ -514,7 +514,7 @@ static void test_merge_events_skip_parents(void)
 		compare_test_stats_to(
 			"BEGIN	%"PRIu64"	0	1	0	0"
 			"	s"__FILE__"	%d	ctest1\n"
-			"EVENT	%"PRIu64"	1	3	0	"
+			"EVENT	0	%"PRIu64"	1	3	0	"
 			"s"__FILE__"	%d	l3	0	"
 			"ctest4	ctest5	Tkey3	10	0	Skey4"
 			"	str4\nEND\t%"PRIu64"\n", id, lp, id, l, id));
@@ -586,7 +586,7 @@ static void test_parent_update_post_send(void)
 			"BEGIN	%"PRIu64"	0	1	0	0"
 			"	s"__FILE__"	%d	ctest1"
 			"	Ia	1\n"
-			"EVENT	%"PRIu64"	1	1	0"
+			"EVENT	0	%"PRIu64"	1	1	0"
 			"	s"__FILE__"	%d"
 			"	l1	0	ctest2" "	Ib	2\n"
 			/* second e_info() */
@@ -596,7 +596,7 @@ static void test_parent_update_post_send(void)
 			"BEGIN	%"PRIu64"	%"PRIu64"	1	0	0"
 			"	s"__FILE__"	%d"
 			"	l0	0	ctest2	Ib	2\n"
-			"EVENT	%"PRIu64"	1	1	0"
+			"EVENT	0	%"PRIu64"	1	1	0"
 			"	s"__FILE__"	%d"
 			"	l1	0	ctest3"
 			"	Ic	3\n"
@@ -642,19 +642,19 @@ static void test_large_event_id(void)
 	test_assert(
 		compare_test_stats_to(
 			/* first e_info() */
-			"EVENT	%"PRIu64"	1	1	0"
+			"EVENT	0	%"PRIu64"	1	1	0"
 			"	s"__FILE__"	%d"
 			"	l1	0	ctest1\n"
 			"BEGIN	%"PRIu64"	0	1	0	0"
 			"	s"__FILE__"	%d"
 			"	l0	0	ctest1\n"
-			"EVENT	%"PRIu64"	1	1	0"
+			"EVENT	0	%"PRIu64"	1	1	0"
 			"	s"__FILE__"	%d"
 			"	l1	0	ctest2\n"
 			"UPDATE	%"PRIu64"	0	1	0"
 			"	s"__FILE__"	%d"
 			"	l1	0	ctest1	Itest1	1\n"
-			"EVENT	%"PRIu64"	1	1	0"
+			"EVENT	0	%"PRIu64"	1	1	0"
 			"	s"__FILE__"	%d"
 			"	l1	0	ctest2\n"
 			"END	%"PRIu64"\n",
@@ -667,6 +667,47 @@ static void test_large_event_id(void)
 		)
 	);
 
+	test_end();
+}
+
+static void test_global_event(void)
+{
+	TST_BEGIN("merge events global");
+	struct event *merge_ev1 = event_create(NULL);
+	event_add_category(merge_ev1, &test_cats[0]);
+	event_add_str(merge_ev1,test_fields[0].key, test_fields[0].value.str);
+	struct event *merge_ev2 = event_create(merge_ev1);
+	event_add_int(merge_ev2,test_fields[1].key, test_fields[1].value.intmax);
+
+	struct event *global_event = event_create(NULL);
+	int global_event_line = __LINE__ - 1;
+	uint64_t global_event_id = global_event->id;
+	event_add_str(global_event, "global", "value");
+	event_push_global(global_event);
+
+	struct timeval tv;
+	event_get_create_time(merge_ev1, &tv);
+
+	e_info(merge_ev2, "info message");
+	int log_line = __LINE__ - 1;
+
+	event_pop_global(global_event);
+	event_unref(&merge_ev1);
+	event_unref(&merge_ev2);
+	event_unref(&global_event);
+
+	test_assert(
+		compare_test_stats_to(
+			"BEGIN\t%"PRIu64"\t0\t1\t0\t0"
+			"\ts"__FILE__"\t%d"
+			"\tSglobal\tvalue\n"
+			"EVENT\t%"PRIu64"\t0\t1\t0\t0"
+			"\ts"__FILE__"\t%d\tl0\t0"
+			"\tctest1\tIkey2\t20\tSkey1\tstr1\n"
+			"END\t%"PRIu64"\n",
+			global_event_id, global_event_line,
+			global_event_id, log_line,
+			global_event_id));
 	test_end();
 }
 
@@ -683,6 +724,7 @@ static int run_tests(void)
 		test_merge_events_skip_parents,
 		test_parent_update_post_send,
 		test_large_event_id,
+		test_global_event,
 		NULL
 	};
 	struct ioloop *ioloop = io_loop_create();

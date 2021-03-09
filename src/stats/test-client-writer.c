@@ -38,7 +38,7 @@ static int test_writer_server_input_args(struct connection *conn,
 static struct connection_settings client_set = {
 	.service_name_in = "stats-server",
 	.service_name_out = "stats-client",
-	.major_version = 3,
+	.major_version = 4,
 	.minor_version = 0,
 
 	.input_max_size = SIZE_MAX,

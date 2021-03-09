@@ -127,7 +127,7 @@ static void stats_client_destroy(struct connection *conn)
 static const struct connection_settings stats_client_set = {
 	.service_name_in = "stats-server",
 	.service_name_out = "stats-client",
-	.major_version = 3,
+	.major_version = 4,
 	.minor_version = 0,
 
 	.input_max_size = SIZE_MAX,
@@ -141,8 +141,8 @@ static const struct connection_vfuncs stats_client_vfuncs = {
 };
 
 static void
-stats_event_write(struct event *event, const struct failure_context *ctx,
-		  string_t *str, bool begin)
+stats_event_write(struct event *event, struct event *global_event,
+		  const struct failure_context *ctx, string_t *str, bool begin)
 {
 	struct event *merged_event;
 	struct event *parent_event;
@@ -154,7 +154,7 @@ stats_event_write(struct event *event, const struct failure_context *ctx,
 	if (parent_event != NULL) {
 		if (parent_event->sent_to_stats_id !=
 		    parent_event->change_id)
-			stats_event_write(parent_event, ctx, str, TRUE);
+			stats_event_write(parent_event, NULL, ctx, str, TRUE);
 		i_assert(parent_event->sent_to_stats_id != 0);
 	}
 	if (begin) {
@@ -164,7 +164,8 @@ stats_event_write(struct event *event, const struct failure_context *ctx,
 		str_printfa(str, "%s\t%"PRIu64"\t", cmd, event->id);
 		event->sent_to_stats_id = event->change_id;
 	} else {
-		str_append(str, "EVENT\t");
+		str_printfa(str, "EVENT\t%"PRIu64"\t",
+			    global_event == NULL ? 0 : global_event->id);
 	}
 	str_printfa(str, "%"PRIu64"\t",
 		    parent_event == NULL ? 0 : parent_event->id);
@@ -187,9 +188,13 @@ stats_client_send_event(struct stats_client *client, struct event *event,
 		return;
 
 	/* Need to send the event for stats and/or export */
-
 	string_t *str = t_str_new(256);
-	stats_event_write(event, ctx, str, FALSE);
+
+	struct event *global_event = event_get_global();
+	if (global_event != NULL)
+		stats_event_write(global_event, NULL, ctx, str, TRUE);
+
+	stats_event_write(event, global_event, ctx, str, FALSE);
 	o_stream_nsend(client->conn.output, str_data(str), str_len(str));
 }
 

@@ -140,14 +140,35 @@ static bool
 writer_client_input_event(struct writer_client *client,
 			  const char *const *args, const char **error_r)
 {
-	struct event *event;
-	uint64_t parent_event_id;
+	struct event *event, *global_event = NULL;
+	uint64_t parent_event_id, global_event_id;
+	bool ret;
 
-	if (args[0] == NULL || str_to_uint64(args[0], &parent_event_id) < 0) {
+	if (args[1] == NULL || str_to_uint64(args[0], &global_event_id) < 0) {
+		*error_r = "Invalid global event ID";
+		return FALSE;
+	}
+	if (args[1] == NULL || str_to_uint64(args[1], &parent_event_id) < 0) {
 		*error_r = "Invalid parent ID";
 		return FALSE;
 	}
-	if (!writer_client_run_event(client, parent_event_id, args+1, &event, error_r))
+
+	if (global_event_id != 0) {
+		struct stats_event *stats_global_event =
+			writer_client_find_event(client, global_event_id);
+		if (stats_global_event == NULL) {
+			*error_r = "Unknown global event ID";
+			return FALSE;
+		}
+		global_event = stats_global_event->event;
+		event_push_global(global_event);
+	}
+
+	ret = writer_client_run_event(client, parent_event_id, args+2,
+				      &event, error_r);
+	if (global_event != NULL)
+		event_pop_global(global_event);
+	if (!ret)
 		return FALSE;
 	event_unref(&event);
 	return TRUE;
@@ -306,7 +327,7 @@ writer_client_input_args(struct connection *conn, const char *const *args)
 static struct connection_settings client_set = {
 	.service_name_in = "stats-client",
 	.service_name_out = "stats-server",
-	.major_version = 3,
+	.major_version = 4,
 	.minor_version = 0,
 
 	.input_max_size = 1024*128, /* "big enough" */
