@@ -246,6 +246,7 @@ void index_index_rebuild_deinit(struct index_rebuild_context **_ctx,
 					  (uint32_t)-1, "rebuilding index");
 	index_rebuild_header(ctx, cb);
 	index_rebuild_box_preserve_header(ctx, ctx->box->box_name_hdr_ext_id);
+	index_rebuild_box_preserve_header(ctx, ctx->box->box_last_rename_stamp_ext_id);
 	index_rebuild_box_preserve_header(ctx, ctx->box->pop3_uidl_hdr_ext_id);
 	if (ctx->backup_index != NULL) {
 		mail_index_view_close(&ctx->backup_view);
