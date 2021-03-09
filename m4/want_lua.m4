@@ -12,23 +12,27 @@ AC_DEFUN([DOVECOT_WANT_LUA],[
   ])
   AC_MSG_RESULT([$with_lua])
 
-  AS_IF([test "x$with_lua" != "xno"],
-    [for LUAPC in lua5.3 lua-5.3 lua53 lua5.2 lua-5.2 lua52 lua5.1 lua-5.1 lua51 lua; do
-       PKG_CHECK_MODULES([LUA], $LUAPC >= 5.1, [
-         AC_DEFINE([HAVE_LUA], [1], [Define to 1 if you have lua])
-         with_lua=yes
-       ], [LUAPC=""]) # otherwise pkg_check will fail
-       if test "x$LUA_LIBS" != "x"; then break; fi
-     done
+  AS_IF([test "x$with_lua" != "xno"], [
+    AS_IF([test -n "$LUA_CFLAGS" -o -n "$LUA_LIBS"], [
+      with_lua=yes
+    ], [
+      for LUAPC in lua5.3 lua-5.3 lua53 lua5.2 lua-5.2 lua52 lua5.1 lua-5.1 lua51 lua; do
+         PKG_CHECK_MODULES([LUA], $LUAPC >= 5.1 , [
+           with_lua=yes
+         ], [LUAPC=""]) # otherwise pkg_check will fail
+         if test "x$LUA_LIBS" != "x"; then break; fi
+       done
+    ])
   ])
 
   AS_IF([test "x$with_lua" = "xyes"], [
     AC_MSG_CHECKING([for chosen LUA])
-    AS_IF([test "x$LUAPC" = "x"], [
-        AC_MSG_ERROR([cannot find lua])
-      ],[
-        AC_MSG_RESULT([$LUAPC])
-      ])
+    AC_DEFINE([HAVE_LUA], [1], [Define to 1 if you have lua])
+    AS_IF([test "x$LUAPC" != "x"], [
+      AC_MSG_RESULT([$LUAPC])
+    ],[
+      AC_MSG_RESULT([specified via LUA_CFLAGS and LUA_LIBS])
+    ])
   ])
 
   AS_IF([test "x$with_lua" = "xyes"],
