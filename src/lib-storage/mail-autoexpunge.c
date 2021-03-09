@@ -65,8 +65,14 @@ mailbox_autoexpunge_batch(struct mailbox *box,
 	mail_index_get_header_ext(box->view, box->box_last_rename_stamp_ext_id,
 				  &data, &size);
 
-	if (size >= sizeof(uint32_t))
+	if (size >= sizeof(uint32_t)) {
 		last_rename_stamp = *(const uint32_t*)data;
+		if (last_rename_stamp > ioloop_time+60) {
+			/* Seems to be corrupted, or way too far into the
+			   future. Don't trust it. */
+			last_rename_stamp = 0;
+		}
+	}
 
 	t = mailbox_transaction_begin(box, 0, "autoexpunge");
 	mail = mail_alloc(t, 0, NULL);
