@@ -385,9 +385,11 @@ static int maildirsize_recalculate(struct maildir_quota_root *root,
 				   const char **error_r)
 {
 	struct mail_namespace *const *namespaces;
+	struct event_reason *reason;
 	unsigned int i, count;
 	int ret = 0;
 
+	reason = event_reason_begin("quota:recalculate");
 	maildirsize_recalculate_init(root);
 
 	/* count mails from all namespaces */
@@ -417,7 +419,9 @@ static int maildirsize_recalculate(struct maildir_quota_root *root,
 		}
 	}
 
-	return maildirsize_recalculate_finish(root, ret, error_r);
+	ret = maildirsize_recalculate_finish(root, ret, error_r);
+	event_reason_end(&reason);
+	return ret;
 }
 
 static bool

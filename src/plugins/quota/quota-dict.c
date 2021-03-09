@@ -109,11 +109,15 @@ dict_quota_count(struct dict_quota_root *root,
 		 const char **error_r)
 {
 	struct dict_transaction_context *dt;
+	struct event_reason *reason;
 	uint64_t bytes, count;
 	enum quota_get_result error_res;
 	const struct dict_op_settings *set;
 
-	if (quota_count(&root->root, &bytes, &count, &error_res, error_r) < 0)
+	reason = event_reason_begin("quota:recalculate");
+	int ret = quota_count(&root->root, &bytes, &count, &error_res, error_r);
+	event_reason_end(&reason);
+	if (ret < 0)
 		return error_res;
 
 	set = mail_user_get_dict_op_settings(root->root.quota->user);
