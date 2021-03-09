@@ -481,11 +481,25 @@ event_category_match(const struct event_category *category,
 }
 
 static bool
+event_has_category_nonrecursive(struct event *event,
+				struct event_category *wanted_category)
+{
+	struct event_category *const *catp;
+
+	if (array_is_created(&event->categories)) {
+		array_foreach(&event->categories, catp) {
+			if (event_category_match(*catp, wanted_category))
+				return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+static bool
 event_has_category(struct event *event, struct event_filter_node *node,
 		   enum event_filter_log_type log_type)
 {
 	struct event_category *wanted_category = node->category.ptr;
-	struct event_category *const *catp;
 
 	/* category is a log type */
 	if (node->category.name == NULL)
@@ -496,12 +510,8 @@ event_has_category(struct event *event, struct event_filter_node *node,
 		return FALSE;
 
 	while (event != NULL) {
-		if (array_is_created(&event->categories)) {
-			array_foreach(&event->categories, catp) {
-				if (event_category_match(*catp, wanted_category))
-					return TRUE;
-			}
-		}
+		if (event_has_category_nonrecursive(event, wanted_category))
+			return TRUE;
 		/* try also the parent events */
 		event = event_get_parent(event);
 	}
