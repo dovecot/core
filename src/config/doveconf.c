@@ -843,7 +843,8 @@ static void check_wrong_config(const char *config_path)
 	base_dir = get_setting("master", "base_dir");
 	symlink_path = t_strconcat(base_dir, "/"PACKAGE".conf", NULL);
 	if (t_readlink(symlink_path, &prev_path, &error) < 0) {
-		i_error("t_readlink(%s) failed: %s", symlink_path, error);
+		if (errno != ENOENT)
+			i_error("t_readlink(%s) failed: %s", symlink_path, error);
 		return;
 	}
 
