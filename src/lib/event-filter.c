@@ -525,13 +525,12 @@ event_match_field(struct event *event, const struct event_field *wanted_field,
 	const struct event_field *field;
 
 	/* wanted_field has the value in all available formats */
-	while ((field = event_find_field(event, wanted_field->key)) == NULL) {
-		event = event_get_parent(event);
-		if (event == NULL) {
-			/* field="" matches nonexistent field */
-			return wanted_field->value.str[0] == '\0';
-		}
+	field = event_find_field(event, wanted_field->key);
+	if (field == NULL) {
+		/* field="" matches nonexistent field */
+		return wanted_field->value.str[0] == '\0';
 	}
+
 	switch (field->value_type) {
 	case EVENT_FIELD_VALUE_TYPE_STR:
 		if (op != EVENT_FILTER_OP_CMP_EQ) {
