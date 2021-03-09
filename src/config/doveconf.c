@@ -886,7 +886,7 @@ int main(int argc, char *argv[])
 
 	i_zero(&filter);
 	master_service = master_service_init("config", master_service_flags,
-					     &argc, &argv, "adf:hHm:nNpPexS");
+					     &argc, &argv, "adf:hHm:nNpPexsS");
 	orig_config_path = t_strdup(master_service_get_config_path(master_service));
 
 	i_set_failure_prefix("doveconf: ");
@@ -926,6 +926,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'P':
 			hide_passwords = FALSE;
+			break;
+		case 's':
+			scope = CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN;
 			break;
 		case 'S':
 			simple_output = TRUE;
