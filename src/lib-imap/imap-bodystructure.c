@@ -288,6 +288,8 @@ imap_bodystructure_strlist_parse(const struct imap_arg *arg,
 	} else {
 		if (!imap_arg_get_list_full(arg, &list_args, &list_count))
 			return -1;
+		if (list_count == 0)
+			return -1;
 
 		list = p_new(pool, const char *, list_count+1);
 		for (i = 0; i < list_count; i++) {

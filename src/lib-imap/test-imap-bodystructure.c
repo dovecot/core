@@ -512,6 +512,9 @@ static void test_imap_bodystructure_parse_invalid(void)
 		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL (ATOM \"bar\") NIL", "Invalid content-language" },
 		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL (\"foo\" ATOM) NIL", "Invalid content-language" },
 		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL NIL ATOM", "Invalid content-location" },
+
+		/* empty content-language list */
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL ()", "Invalid content-language" },
 	};
 	struct message_part *parts;
 	const char *error;
