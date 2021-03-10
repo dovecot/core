@@ -319,6 +319,8 @@ imap_bodystructure_params_parse(const struct imap_arg *arg,
 		return -1;
 	if ((list_count % 2) != 0)
 		return -1;
+	if (list_count == 0)
+		return -1;
 
 	params_count = list_count/2;
 	params = p_new(pool, struct message_part_param, params_count+1);
