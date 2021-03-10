@@ -2503,6 +2503,7 @@ static void test_event_log_level(void)
 
 	struct event *event = event_create(NULL);
 	event_set_min_log_level(event, LOG_TYPE_WARNING);
+	errno = EACCES;
 	e_info(event, "Info event");
 	test_assert(test_output == NULL);
 	e_warning(event, "Warning event");
@@ -2511,6 +2512,7 @@ static void test_event_log_level(void)
 	i_set_info_handler(orig_info);
 	i_set_error_handler(orig_error);
 	i_free(test_output);
+	test_assert(errno == EACCES);
 	test_end();
 }
 
