@@ -302,8 +302,12 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 		       master_input.client_output->data,
 		       master_input.client_output->used);
 
+	struct event_reason *event_reason =
+		event_reason_begin("imap:unhibernate");
 	ret = imap_state_import_internal(imap_client, master_input.state->data,
 					 master_input.state->used, &error);
+	event_reason_end(&event_reason);
+
 	if (ret <= 0) {
 		error = t_strdup_printf("Failed to import client state: %s", error);
 		event_add_str(event, "error", error);
