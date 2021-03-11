@@ -16,6 +16,29 @@ static void test_p_strdup(void)
 	test_end();
 }
 
+static void test_p_strndup(void)
+{
+	struct {
+		const char *input;
+		const char *output;
+		size_t len;
+	} tests[] = {
+		{ "foo", "fo", 2 },
+		{ "foo", "foo", 3 },
+		{ "foo", "foo", 4 },
+		{ "foo", "foo", SIZE_MAX-1 },
+	};
+	test_begin("p_strndup()");
+
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		char *str = p_strndup(default_pool, tests[i].input,
+				      tests[i].len);
+		test_assert_strcmp_idx(str, tests[i].output, i);
+		p_free(default_pool, str);
+	}
+	test_end();
+}
+
 static void test_p_strdup_empty(void)
 {
 	test_begin("p_strdup_empty()");
@@ -475,6 +498,7 @@ test_str_match(void)
 void test_strfuncs(void)
 {
 	test_p_strdup();
+	test_p_strndup();
 	test_p_strdup_empty();
 	test_p_strdup_until();
 	test_p_strarray_dup();
@@ -491,4 +515,21 @@ void test_strfuncs(void)
 	test_str_equals_timing_almost_safe();
 	test_dec2str_buf();
 	test_str_match();
+}
+
+enum fatal_test_state fatal_strfuncs(unsigned int stage)
+{
+	switch (stage) {
+	case 0:
+		test_begin("fatal p_strndup()");
+		test_expect_fatal_string("(str != NULL)");
+		(void)p_strndup(default_pool, NULL, 100);
+		return FATAL_TEST_FAILURE;
+	case 1:
+		test_expect_fatal_string("(max_chars != SIZE_MAX)");
+		(void)p_strndup(default_pool, "foo", SIZE_MAX);
+		return FATAL_TEST_FAILURE;
+	}
+	test_end();
+	return FATAL_TEST_FINISHED;
 }

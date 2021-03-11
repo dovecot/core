@@ -87,19 +87,21 @@ char *p_strdup_until(pool_t pool, const void *start, const void *end)
 
 char *p_strndup(pool_t pool, const void *str, size_t max_chars)
 {
+	const char *p;
 	char *mem;
 	size_t len;
 
 	i_assert(str != NULL);
 	i_assert(max_chars != SIZE_MAX);
 
-	len = 0;
-	while (len < max_chars && ((const char *) str)[len] != '\0')
-		len++;
+	p = memchr(str, '\0', max_chars);
+	if (p == NULL)
+		len = max_chars;
+	else
+		len = p - (const char *)str;
 
 	mem = p_malloc(pool, len+1);
 	memcpy(mem, str, len);
-	mem[len] = '\0';
 	return mem;
 }
 
