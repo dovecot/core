@@ -104,6 +104,8 @@ struct ioloop_context {
 	int refcount;
 	struct ioloop *ioloop;
 	ARRAY(struct ioloop_context_callback) callbacks;
+	ARRAY(struct event *) global_event_stack;
+	struct event *root_global_event;
 };
 
 int io_loop_run_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r);

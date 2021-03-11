@@ -1071,6 +1071,7 @@ void io_loop_context_unref(struct ioloop_context **_ctx)
 	i_assert(ctx->ioloop->cur_ctx != ctx);
 
 	array_free(&ctx->callbacks);
+	array_free(&ctx->global_event_stack);
 	i_free(ctx);
 }
 
@@ -1127,6 +1128,48 @@ io_loop_context_remove_deleted_callbacks(struct ioloop_context *ctx)
 	}
 }
 
+static void io_loop_context_push_global_events(struct ioloop_context *ctx)
+{
+	struct event *const *events;
+	unsigned int i, count;
+
+	ctx->root_global_event = event_get_global();
+
+	if (!array_is_created(&ctx->global_event_stack))
+		return;
+
+	/* push the global events from stack in reverse order */
+	events = array_get(&ctx->global_event_stack, &count);
+	if (count == 0)
+		return;
+
+	/* Remember the oldest global event. We're going to pop until that
+	   event when deactivating the context. */
+	for (i = count; i > 0; i--)
+		event_push_global(events[i-1]);
+	array_clear(&ctx->global_event_stack);
+}
+
+static void io_loop_context_pop_global_events(struct ioloop_context *ctx)
+{
+	struct event *event;
+
+	/* ioloop context is always global, so we can't push one ioloop context
+	   on top of another one. We'll need to rewind the global event stack
+	   until we've reached the event that started this context. We'll push
+	   these global events back when the ioloop context is activated
+	   again. (We'll assert-crash if the root event is freed before these
+	   global events have been popped.) */
+	while ((event = event_get_global()) != ctx->root_global_event) {
+		i_assert(event != NULL);
+		if (!array_is_created(&ctx->global_event_stack))
+			i_array_init(&ctx->global_event_stack, 4);
+		array_push_back(&ctx->global_event_stack, &event);
+		event_pop_global(event);
+	}
+	ctx->root_global_event = NULL;
+}
+
 void io_loop_context_activate(struct ioloop_context *ctx)
 {
 	struct ioloop_context_callback *cb;
@@ -1134,6 +1177,7 @@ void io_loop_context_activate(struct ioloop_context *ctx)
 	i_assert(ctx->ioloop->cur_ctx == NULL);
 
 	ctx->ioloop->cur_ctx = ctx;
+	io_loop_context_push_global_events(ctx);
 	io_loop_context_ref(ctx);
 	array_foreach_modifiable(&ctx->callbacks, cb) {
 		i_assert(!cb->activated);
@@ -1160,6 +1204,7 @@ void io_loop_context_deactivate(struct ioloop_context *ctx)
 		}
 	}
 	ctx->ioloop->cur_ctx = NULL;
+	io_loop_context_pop_global_events(ctx);
 	io_loop_context_remove_deleted_callbacks(ctx);
 	io_loop_context_unref(&ctx);
 }

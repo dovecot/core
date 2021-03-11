@@ -325,6 +325,72 @@ static void test_ioloop_context(void)
 	test_end();
 }
 
+static void test_ioloop_context_events_run(struct event *root_event)
+{
+	struct ioloop *ioloop = io_loop_create();
+	struct ioloop_context *ctx1, *ctx2;
+
+	/* create context 1 */
+	ctx1 = io_loop_context_new(ioloop);
+	io_loop_context_switch(ctx1);
+	struct event *ctx1_event1 = event_create(NULL);
+	event_push_global(ctx1_event1);
+	struct event *ctx1_event2 = event_create(NULL);
+	event_push_global(ctx1_event2);
+	io_loop_context_deactivate(ctx1);
+
+	test_assert(event_get_global() == root_event);
+
+	/* create context 2 */
+	ctx2 = io_loop_context_new(ioloop);
+	io_loop_context_switch(ctx2);
+	struct event *ctx2_event1 = event_create(NULL);
+	event_push_global(ctx2_event1);
+	io_loop_context_deactivate(ctx2);
+
+	test_assert(event_get_global() == root_event);
+
+	/* test switching contexts */
+	io_loop_context_switch(ctx1);
+	test_assert(event_get_global() == ctx1_event2);
+	io_loop_context_switch(ctx2);
+	test_assert(event_get_global() == ctx2_event1);
+
+	/* test popping away events */
+	io_loop_context_switch(ctx1);
+	event_pop_global(ctx1_event2);
+	io_loop_context_switch(ctx2);
+	event_pop_global(ctx2_event1);
+	io_loop_context_switch(ctx1);
+	test_assert(event_get_global() == ctx1_event1);
+	io_loop_context_switch(ctx2);
+	test_assert(event_get_global() == root_event);
+
+	io_loop_context_deactivate(ctx2);
+	io_loop_context_unref(&ctx1);
+	io_loop_context_unref(&ctx2);
+	io_loop_destroy(&ioloop);
+
+	event_unref(&ctx1_event1);
+	event_unref(&ctx1_event2);
+	event_unref(&ctx2_event1);
+}
+
+static void test_ioloop_context_events(void)
+{
+	test_begin("ioloop context - no root event");
+	test_ioloop_context_events_run(NULL);
+	test_end();
+
+	test_begin("ioloop context - with root event");
+	struct event *root_event = event_create(NULL);
+	event_push_global(root_event);
+	test_ioloop_context_events_run(root_event);
+	event_pop_global(root_event);
+	event_unref(&root_event);
+	test_end();
+}
+
 void test_ioloop(void)
 {
 	test_ioloop_timeout();
@@ -334,4 +400,5 @@ void test_ioloop(void)
 	test_ioloop_pending_io();
 	test_ioloop_fd();
 	test_ioloop_context();
+	test_ioloop_context_events();
 }

@@ -185,6 +185,11 @@ void event_unref(struct event **event);
    The global event works the same as if all the events' roots were instead
    pointing to the global event. Global events don't affect log prefixes.
 
+   If ioloop contexts are used, the global events will automatically follow the
+   contexts. Any global events pushed while running in a context are popped
+   out when the context is deactivated, and pushed back when context is
+   activated again.
+
    The created global events should use event_get_global() as their parent
    event. Only the last pushed global event is used. */
 struct event *event_push_global(struct event *event);
