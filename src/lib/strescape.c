@@ -226,16 +226,10 @@ void str_append_tabunescaped(string_t *dest, const void *src, size_t src_size)
 	}
 }
 
-char *str_tabunescape(char *str)
+static char *str_tabunescape_from(char *str, char *src)
 {
 	/* @UNSAFE */
-	char *dest, *src, *p;
-
-	src = strchr(str, '\001');
-	if (src == NULL) {
-		/* no unescaping needed */
-		return str;
-	}
+	char *dest, *p;
 
 	dest = src;
 	for (;;) {
@@ -279,12 +273,26 @@ char *str_tabunescape(char *str)
 	return str;
 }
 
+char *str_tabunescape(char *str)
+{
+	char *src = strchr(str, '\001');
+	if (src == NULL) {
+		/* no unescaping needed */
+		return str;
+	}
+	return str_tabunescape_from(str, src);
+}
+
 const char *t_str_tabunescape(const char *str)
 {
-	if (strchr(str, '\001') == NULL)
+	const char *p;
+
+	p = strchr(str, '\001');
+	if (p == NULL)
 		return str;
-	else
-		return str_tabunescape(t_strdup_noconst(str));
+
+	char *dest = t_strdup_noconst(str);
+	return str_tabunescape_from(dest, dest + (p - str));
 }
 
 const char *const *t_strsplit_tabescaped_inplace(char *data)
