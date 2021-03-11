@@ -12,7 +12,7 @@
 /* The CPU limits aren't exact. Allow this much leniency in the time
    comparisons. */
 #define ALLOW_MSECS_BELOW 500
-#define ALLOW_MSECS_ABOVE 1500
+#define ALLOW_MSECS_ABOVE 3000
 
 static const char *const test_path = ".test.cpulimit";
 
