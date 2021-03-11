@@ -37,7 +37,9 @@ AC_DEFUN([DOVECOT_WANT_LUA],[
    )
    dnl Check if various lua functions are present
    old_CFLAGS="$CFLAGS"
-   CFLAGS="$CFLAGS $LUA_CFLAGS $LUA_LIBS"
+   CFLAGS="$CFLAGS $LUA_CFLAGS"
+   old_LIBS="$LIBS"
+   LIBS="$LIBS $LUA_LIBS"
 
    AC_CHECK_FUNCS([luaL_setfuncs])
    AC_CHECK_FUNCS([luaL_setmetatable])
@@ -45,5 +47,6 @@ AC_DEFUN([DOVECOT_WANT_LUA],[
    AC_CHECK_FUNCS([lua_tointegerx])
 
    CFLAGS="$old_CFLAGS"
+   LIBS="$old_LIBS"
   )
 ])
