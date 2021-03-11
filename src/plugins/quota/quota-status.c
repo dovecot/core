@@ -85,7 +85,6 @@ quota_check(struct mail_user *user, uoff_t mail_size, const char **error_r)
 
 	ns = mail_namespace_find_inbox(user->namespaces);
 	box = mailbox_alloc(ns->list, "INBOX", MAILBOX_FLAG_POST_SESSION);
-	mailbox_set_reason(box, "quota status");
 
 	ctx = quota_transaction_begin(box);
 	const char *internal_error;

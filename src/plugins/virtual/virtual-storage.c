@@ -193,9 +193,6 @@ static int virtual_backend_box_alloc(struct virtual_mailbox *mbox,
 	ns = mail_namespace_find(user->namespaces, mailbox);
 	bbox->box = mailbox_alloc(ns->list, mailbox, flags);
 	MODULE_CONTEXT_SET(bbox->box, virtual_storage_module, bbox);
-	mailbox_set_reason(bbox->box, mbox->box.reason == NULL ?
-		t_strdup_printf("virtual mailbox %s", mailbox_get_vname(&mbox->box)) :
-		t_strdup_printf("virtual mailbox %s: %s", mailbox_get_vname(&mbox->box), mbox->box.reason));
 
 	if (bbox == mbox->save_bbox) {
 		/* Assume that the save_bbox exists, whether or not it truly

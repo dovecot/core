@@ -196,7 +196,6 @@ lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *llrcpt)
 			mail_storage_service_user_get_log_prefix(llrcpt->service_user));
 		ns = mail_namespace_find_inbox(user->namespaces);
 		box = mailbox_alloc(ns->list, "INBOX", 0);
-		mailbox_set_reason(box, "over-quota check");
 		ret = mailbox_get_status(box, STATUS_CHECK_OVER_QUOTA, &status);
 		if (ret < 0) {
 			error = mailbox_get_last_error(box, &mail_error);
