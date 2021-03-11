@@ -61,8 +61,19 @@ static void index_list_deinit(struct mailbox_list *_list)
 
 static char index_list_get_hierarchy_sep(struct mailbox_list *list)
 {
-	return *list->ns->set->separator != '\0' ? *list->ns->set->separator :
-		MAILBOX_LIST_INDEX_HIERARCHY_SEP;
+	char sep = list->ns->set->separator[0];
+
+	if (sep == '\0')
+		sep = MAILBOX_LIST_INDEX_HIERARCHY_SEP;
+	if (sep == list->set.storage_name_escape_char) {
+		/* Separator conflicts with the escape character.
+		   Use something else. */
+		if (sep != MAILBOX_LIST_INDEX_HIERARCHY_SEP)
+			sep = MAILBOX_LIST_INDEX_HIERARCHY_SEP;
+		else
+			sep = MAILBOX_LIST_INDEX_HIERARCHY_ALT_SEP;
+	}
+	return sep;
 }
 
 static int
