@@ -372,7 +372,6 @@ virtual_config_metadata_match(const struct mailbox_info *info,
 		return 1;
 
 	box = mailbox_alloc(info->ns->list, info->vname, MAILBOX_FLAG_READONLY);
-	mailbox_set_reason(box, "virtual mailbox metadata match");
 	for (i = 0; i < count; i++) {
 		/* break on error or match */
 		if ((ret = virtual_config_box_metadata_match(box, boxes[i], error_r)) < 0 || ret > 0)
@@ -529,9 +528,12 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 
 	virtual_mailbox_get_list_patterns(&ctx);
 	if (ret == 0 && ctx.have_wildcards) {
+		struct event_reason *reason =
+			event_reason_begin("virtual:config_read");
 		ret = virtual_config_expand_wildcards(&ctx, &error);
 		if (ret < 0)
 			mailbox_set_critical(&mbox->box, "%s: %s", path, error);
+		event_reason_end(&reason);
 	}
 
 	if (ret == 0 && !ctx.have_mailbox_defines) {
