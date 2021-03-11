@@ -81,7 +81,6 @@ struct mail_storage_service_user {
 	enum mail_storage_service_flags flags;
 
 	struct event *event;
-	ARRAY(struct event *) event_stack;
 	struct ioloop_context *ioloop_ctx;
 	const char *log_prefix, *auth_mech, *auth_token, *auth_user;
 
@@ -796,17 +795,6 @@ void mail_storage_service_io_deactivate_user(struct mail_storage_service_user *u
 static void
 mail_storage_service_io_activate_user_cb(struct mail_storage_service_user *user)
 {
-	event_push_global(user->event);
-	if (array_is_created(&user->event_stack)) {
-		struct event *const *events;
-		unsigned int i, count;
-
-		/* push the global events from stack in reverse order */
-		events = array_get(&user->event_stack, &count);
-		for (i = count; i > 0; i--)
-			event_push_global(events[i-1]);
-		array_clear(&user->event_stack);
-	}
 	if (user->log_prefix != NULL)
 		i_set_failure_prefix("%s", user->log_prefix);
 }
@@ -814,22 +802,6 @@ mail_storage_service_io_activate_user_cb(struct mail_storage_service_user *user)
 static void
 mail_storage_service_io_deactivate_user_cb(struct mail_storage_service_user *user)
 {
-	struct event *event;
-
-	/* ioloop context is always global, so we can't push one ioloop context
-	   on top of another one. We'll need to rewind the global event stack
-	   until we've reached the event that started this context. We'll push
-	   these global events back when the user's context is activated
-	   again. (We'll assert-crash if the user is freed before these
-	   global events have been popped.) */
-	while ((event = event_get_global()) != user->event) {
-		i_assert(event != NULL);
-		if (!array_is_created(&user->event_stack))
-			i_array_init(&user->event_stack, 4);
-		array_push_back(&user->event_stack, &event);
-		event_pop_global(event);
-	}
-	event_pop_global(user->event);
 	if (user->log_prefix != NULL)
 		i_set_failure_prefix("%s", user->service_ctx->default_log_prefix);
 }
@@ -1658,10 +1630,6 @@ void mail_storage_service_user_unref(struct mail_storage_service_user **_user)
 		io_loop_context_unref(&user->ioloop_ctx);
 	}
 
-	if (array_is_created(&user->event_stack)) {
-		i_assert(array_count(&user->event_stack) == 0);
-		array_free(&user->event_stack);
-	}
 	settings_parser_deinit(&user->set_parser);
 	event_unref(&user->event);
 	pool_unref(&user->pool);
