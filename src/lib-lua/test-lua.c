@@ -214,11 +214,7 @@ static void test_lua(void)
 	check_table_get_luainteger_ok(script, -1, -5, "small-negative-int", 0);
 	check_table_get_luainteger_ok(script, -1, 1ll<<48, "large-positive-int", 1);
 	check_table_get_luainteger_ok(script, -1, -(1ll<<48), "large-negative-int", 2);
-#if LUA_VERSION_NUM != 502
 	check_table_get_luainteger_err(script, -1, -1, "small-float", 3);
-#else
-	check_table_get_uintmax_ok(script, -1, 1, "small-float", 3);
-#endif
 	check_table_get_luainteger_err(script, -1, -1, "bool-true", 4);
 	check_table_get_luainteger_err(script, -1, -1, "bool-false", 5);
 	check_table_get_luainteger_err(script, -1, -1, "str", 6);
@@ -229,11 +225,7 @@ static void test_lua(void)
 	check_table_get_int_ok(script, -1, -5, "small-negative-int", 0);
 	check_table_get_int_err(script, -1, -1, "large-positive-int", 1);
 	check_table_get_int_err(script, -1, -1, "large-negative-int", 2);
-#if LUA_VERSION_NUM != 502
 	check_table_get_int_err(script, -1, -1, "small-float", 3);
-#else
-	check_table_get_uintmax_ok(script, -1, 1, "small-float", 3);
-#endif
 	check_table_get_int_err(script, -1, -1, "bool-true", 4);
 	check_table_get_int_err(script, -1, -1, "bool-false", 5);
 	check_table_get_int_err(script, -1, -1, "str", 6);
@@ -244,11 +236,7 @@ static void test_lua(void)
 	check_table_get_intmax_ok(script, -1, -5, "small-negative-int", 0);
 	check_table_get_intmax_ok(script, -1, 1ll<<48, "large-positive-int", 1);
 	check_table_get_intmax_ok(script, -1, -(1ll<<48), "large-negative-int", 2);
-#if LUA_VERSION_NUM != 502
 	check_table_get_intmax_err(script, -1, -1, "small-float", 3);
-#else
-	check_table_get_uintmax_ok(script, -1, 1, "small-float", 3);
-#endif
 	check_table_get_intmax_err(script, -1, -1, "bool-true", 4);
 	check_table_get_intmax_err(script, -1, -1, "bool-false", 5);
 	check_table_get_intmax_err(script, -1, -1, "str", 6);
@@ -259,11 +247,7 @@ static void test_lua(void)
 	check_table_get_uint_err(script, -1, -1, "small-negative-int", 0);
 	check_table_get_uint_err(script, -1, -1, "large-positive-int", 1);
 	check_table_get_uint_err(script, -1, -1, "large-negative-int", 2);
-#if LUA_VERSION_NUM != 502
 	check_table_get_uint_err(script, -1, -1, "small-float", 3);
-#else
-	check_table_get_uintmax_ok(script, -1, 1, "small-float", 3);
-#endif
 	check_table_get_uint_err(script, -1, -1, "bool-true", 4);
 	check_table_get_uint_err(script, -1, -1, "bool-false", 5);
 	check_table_get_uint_err(script, -1, -1, "str", 6);
@@ -274,11 +258,7 @@ static void test_lua(void)
 	check_table_get_uintmax_err(script, -1, -1, "small-negative-int", 0);
 	check_table_get_uintmax_ok(script, -1, 1ll<<48, "large-positive-int", 1);
 	check_table_get_uintmax_err(script, -1, -1, "large-negative-int", 2);
-#if LUA_VERSION_NUM != 502
 	check_table_get_uintmax_err(script, -1, -1, "small-float", 3);
-#else
-	check_table_get_uintmax_ok(script, -1, 1, "small-float", 3);
-#endif
 	check_table_get_uintmax_err(script, -1, -1, "bool-true", 4);
 	check_table_get_uintmax_err(script, -1, -1, "bool-false", 5);
 	check_table_get_uintmax_err(script, -1, -1, "str", 6);
@@ -361,20 +341,8 @@ static void test_compat_tointegerx_and_isinteger(void)
 		{ "0xabcdef", 0xabcdef, 1 },
 		{ "0xabcdefg", 0, 0 },
 		{ "abc", 0, 0 },
-
-		/*
-		 * The following tests fail with Lua 5.2, but work on 5.1 &
-		 * 5.3.  (See lua_tointegerx() comment in dlua-compat.h.)
-		 *
-		 * We just hack around it and provide a different set of
-		 * expected test results for 5.2.
-		 */
-#if LUA_VERSION_NUM != 502
 		{ "1.525", 0, 0 },
 		{ "52.51", 0, 0 },
-#else
-		{ "52.51", 52, 1 },
-#endif
 	};
 	static const struct {
 		lua_Number input;
@@ -386,24 +354,11 @@ static void test_compat_tointegerx_and_isinteger(void)
 		{ 1, 1, 1 },
 		{ INT_MIN, INT_MIN, 1 },
 		{ INT_MAX, INT_MAX, 1 },
-
-		/*
-		 * The following tests fail with Lua 5.2, but work on 5.1 &
-		 * 5.3.  (See lua_tointegerx() comment in dlua-compat.h.)
-		 *
-		 * We just hack around it and provide a different set of
-		 * expected test results for 5.2.
-		 */
-#if LUA_VERSION_NUM != 502
 		{ 1.525, 0, 0 },
 		{ 52.51, 0, 0 },
 		{ NAN, 0, 0 },
 		{ +INFINITY, 0, 0},
 		{ -INFINITY, 0, 0},
-#else
-		{ 1.525, 1, 1 },
-		{ 52.51, 52, 1 },
-#endif
 	};
 	static const struct {
 		lua_Integer input;

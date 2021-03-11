@@ -16,8 +16,8 @@ AC_DEFUN([DOVECOT_WANT_LUA],[
     AS_IF([test -n "$LUA_CFLAGS" -o -n "$LUA_LIBS"], [
       with_lua=yes
     ], [
-      for LUAPC in lua5.3 lua-5.3 lua53 lua5.2 lua-5.2 lua52 lua5.1 lua-5.1 lua51 lua; do
-         PKG_CHECK_MODULES([LUA], $LUAPC >= 5.1 , [
+      for LUAPC in lua5.3 lua-5.3 lua53 lua5.1 lua-5.1 lua51 lua; do
+         PKG_CHECK_MODULES([LUA], [$LUAPC >= 5.1 $LUAPC != 5.2] , [
            with_lua=yes
          ], [LUAPC=""]) # otherwise pkg_check will fail
          if test "x$LUA_LIBS" != "x"; then break; fi
