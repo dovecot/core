@@ -218,7 +218,11 @@ static void client_init_session(struct client *client)
 			return; /* no need to propagate an error */
 	}
 
-	if (client_init_mailbox(client, &error) < 0) {
+	struct event_reason *reason = event_reason_begin("pop3:initialize");
+	int ret = client_init_mailbox(client, &error);
+	event_reason_end(&reason);
+
+	if (ret < 0) {
 		i_error("%s", error);
 		client_destroy(client, error);
 	}
