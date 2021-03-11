@@ -349,7 +349,6 @@ static struct mailbox *pop3_mailbox_alloc(struct mail_storage *storage)
 	i_assert(ns != NULL);
 	box = mailbox_alloc(ns->list, mstorage->pop3_box_vname,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_POP3_SESSION);
-	mailbox_set_reason(box, "pop3_migration");
 	return box;
 }
 
@@ -866,12 +865,20 @@ static int pop3_migration_uidl_sync(struct mailbox *box)
 static int pop3_migration_uidl_sync_if_needed(struct mailbox *box)
 {
 	struct pop3_migration_mailbox *mbox = POP3_MIGRATION_CONTEXT_REQUIRE(box);
+	int ret = 0;
 
 	if (mbox->uidl_synced)
 		return 0;
 
-	if (mbox->uidl_sync_failed ||
-	    pop3_migration_uidl_sync(box) < 0) {
+	if (mbox->uidl_sync_failed)
+		ret = -1;
+	else {
+		struct event_reason *reason =
+			event_reason_begin("pop3_migration:uidl_sync");
+		ret = pop3_migration_uidl_sync(box);
+		event_reason_end(&reason);
+	}
+	if (ret < 0) {
 		mbox->uidl_sync_failed = TRUE;
 		mail_storage_set_error(box->storage, MAIL_ERROR_TEMP,
 				       "POP3 UIDLs couldn't be synced");
