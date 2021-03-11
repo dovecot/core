@@ -229,46 +229,54 @@ void str_append_tabunescaped(string_t *dest, const void *src, size_t src_size)
 char *str_tabunescape(char *str)
 {
 	/* @UNSAFE */
-	char *dest, *start = str;
+	char *dest, *src, *p;
 
-	str = strchr(str, '\001');
-	if (str == NULL) {
+	src = strchr(str, '\001');
+	if (src == NULL) {
 		/* no unescaping needed */
-		return start;
+		return str;
 	}
 
-	for (dest = str; *str != '\0'; str++) {
-		if (*str != '\001')
-			*dest++ = *str;
-		else {
-			str++;
-			if (*str == '\0')
-				break;
-			switch (*str) {
-			case '0':
-				*dest++ = '\000';
-				break;
-			case '1':
-				*dest++ = '\001';
-				break;
-			case 't':
-				*dest++ = '\t';
-				break;
-			case 'r':
-				*dest++ = '\r';
-				break;
-			case 'n':
-				*dest++ = '\n';
-				break;
-			default:
-				*dest++ = *str;
-				break;
-			}
+	dest = src;
+	for (;;) {
+		switch (src[1]) {
+		case '\0':
+			/* truncated input */
+			*dest = '\0';
+			return str;
+		case '0':
+			*dest++ = '\000';
+			break;
+		case '1':
+			*dest++ = '\001';
+			break;
+		case 't':
+			*dest++ = '\t';
+			break;
+		case 'r':
+			*dest++ = '\r';
+			break;
+		case 'n':
+			*dest++ = '\n';
+			break;
+		default:
+			*dest++ = src[1];
+			break;
 		}
-	}
+		src += 2;
 
-	*dest = '\0';
-	return start;
+		p = strchr(src, '\001');
+		if (p == NULL) {
+			memmove(dest, src, strlen(src)+1);
+			break;
+		}
+
+		size_t copy_len = p - src;
+		memmove(dest, src, copy_len);
+		dest += copy_len;
+		src = p;
+	}
+	return str;
 }
 
 const char *t_str_tabunescape(const char *str)
