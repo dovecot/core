@@ -4,6 +4,10 @@
 #include "strnum.h"
 #include "dlua-script-private.h"
 
+#if LUA_VERSION_NUM == 502
+#  error "Lua 5.2 is not supported.  Use Lua 5.1 or 5.3 instead."
+#endif
+
 #ifndef HAVE_LUAL_SETFUNCS
 void luaL_setfuncs(lua_State *L, const luaL_Reg *l, int nup)
 {
