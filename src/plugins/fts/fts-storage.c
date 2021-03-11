@@ -557,10 +557,13 @@ static int fts_mail_precache(struct mail *_mail)
 			ft->highest_virtual_uid = _mail->uid;
 	} else if (!ft->indexing) T_BEGIN {
 		/* avoid recursing here from fts_mail_precache_range() */
+		struct event_reason *reason =
+			event_reason_begin("fts:index");
 		ft->indexing = TRUE;
 		ret = fts_mail_index(_mail);
 		i_assert(ft->indexing);
 		ft->indexing = FALSE;
+		event_reason_end(&reason);
 	} T_END;
 	return ret;
 }
@@ -612,6 +615,7 @@ static int fts_transaction_end(struct mailbox_transaction_context *t, const char
 		ret = -1;
 	}
 
+	struct event_reason *reason = event_reason_begin("fts:index");
 	if (ft->precached) {
 		i_assert(flist->update_ctx_refcount > 0);
 		if (--flist->update_ctx_refcount == 0) {
@@ -637,6 +641,7 @@ static int fts_transaction_end(struct mailbox_transaction_context *t, const char
 			       ft->precache_extra_count, t->box->vname);
 		}
 	}
+	event_reason_end(&reason);
 	i_free(ft);
 	return ret;
 }

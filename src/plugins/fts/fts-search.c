@@ -336,7 +336,7 @@ static void fts_search_merge_scores(struct fts_search_context *fctx)
 				      TRUE, &fctx->scores->score_map);
 }
 
-void fts_search_lookup(struct fts_search_context *fctx)
+static void fts_search_try_lookup(struct fts_search_context *fctx)
 {
 	uint32_t last_uid, seq1, seq2;
 
@@ -364,4 +364,11 @@ void fts_search_lookup(struct fts_search_context *fctx)
 
 	fts_search_deserialize(fctx->args->args, fctx->orig_matches);
 	fts_backend_lookup_done(fctx->backend);
+}
+
+void fts_search_lookup(struct fts_search_context *fctx)
+{
+	struct event_reason *reason = event_reason_begin("fts:lookup");
+	fts_search_try_lookup(fctx);
+	event_reason_end(&reason);
 }
