@@ -241,7 +241,6 @@ cmd_mailbox_create_run(struct doveadm_mail_cmd_context *_ctx,
 		}
 
 		box = mailbox_alloc(ns->list, name, 0);
-		mailbox_set_reason(box, _ctx->cmd->name);
 		if (mailbox_create(box, &ctx->update, directory) < 0) {
 			i_error("Can't create mailbox %s: %s", name,
 				mailbox_get_last_internal_error(box, NULL));
@@ -370,7 +369,6 @@ cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 	array_foreach_elem(mailboxes, name) {
 		ns = mail_namespace_find(user->namespaces, name);
 		box = mailbox_alloc(ns->list, name, mailbox_flags);
-		mailbox_set_reason(box, _ctx->cmd->name);
 		storage = mailbox_get_storage(box);
 		ret2 = ctx->require_empty ? mailbox_delete_empty(box) :
 			mailbox_delete(box);
@@ -463,8 +461,6 @@ cmd_mailbox_rename_run(struct doveadm_mail_cmd_context *_ctx,
 	newns = mail_namespace_find(user->namespaces, newname);
 	oldbox = mailbox_alloc(oldns->list, oldname, 0);
 	newbox = mailbox_alloc(newns->list, newname, 0);
-	mailbox_set_reason(oldbox, _ctx->cmd->name);
-	mailbox_set_reason(newbox, _ctx->cmd->name);
 	if (mailbox_rename(oldbox, newbox) < 0) {
 		i_error("Can't rename mailbox %s to %s: %s", oldname, newname,
 			mailbox_get_last_internal_error(oldbox, NULL));
@@ -527,7 +523,6 @@ cmd_mailbox_subscribe_run(struct doveadm_mail_cmd_context *_ctx,
 	array_foreach_elem(&ctx->mailboxes, name) {
 		ns = mail_namespace_find(user->namespaces, name);
 		box = mailbox_alloc(ns->list, name, 0);
-		mailbox_set_reason(box, _ctx->cmd->name);
 		if (mailbox_set_subscribed(box, ctx->ctx.subscriptions) < 0) {
 			i_error("Can't %s mailbox %s: %s", name,
 				ctx->ctx.subscriptions ? "subscribe to" :
@@ -655,7 +650,6 @@ int cmd_mailbox_update_run(struct doveadm_mail_cmd_context *_ctx,
 
 	ns = mail_namespace_find(user->namespaces, ctx->mailbox);
 	box = mailbox_alloc(ns->list, ctx->mailbox, 0);
-	mailbox_set_reason(box, _ctx->cmd->name);
 
 	if ((ret = mailbox_update(box, &(ctx->update))) != 0) {
 		i_error("Cannot update %s: %s",

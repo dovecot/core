@@ -66,7 +66,6 @@ cmd_mailbox_metadata_get_mailbox(struct metadata_cmd_context *mctx,
 		*box_r = mailbox_alloc((*ns_r)->list, mctx->mailbox,
 				       MAILBOX_FLAG_ATTRIBUTE_SESSION);
 	}
-	mailbox_set_reason(*box_r, mctx->ctx.cmd->name);
 
 	if (op == DOVEADM_METADATA_OP_SET &&
 	    mailbox_open(*box_r) < 0) {

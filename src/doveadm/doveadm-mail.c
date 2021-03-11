@@ -298,7 +298,6 @@ static int cmd_force_resync_box(struct doveadm_mail_cmd_context *_ctx,
 		flags |= MAILBOX_FLAG_FSCK;
 
 	box = mailbox_alloc(info->ns->list, info->vname, flags);
-	mailbox_set_reason(box, _ctx->cmd->name);
 	if (mailbox_open(box) < 0) {
 		i_error("Opening mailbox %s failed: %s", info->vname,
 			mailbox_get_last_internal_error(box, NULL));
