@@ -135,7 +135,35 @@ void str_append_tabescaped_n(string_t *dest, const unsigned char *src, size_t sr
 
 void str_append_tabescaped(string_t *dest, const char *src)
 {
-	str_append_tabescaped_n(dest, (const unsigned char*)src, strlen(src));
+	size_t pos, prev_pos = 0;
+	char esc[2] = { '\001', '\0' };
+
+	for (;;) {
+		pos = prev_pos + strcspn(src + prev_pos, "\001\t\r\n");
+		str_append_data(dest, src + prev_pos, pos - prev_pos);
+		prev_pos = pos + 1;
+
+		switch (src[pos]) {
+		case '\000':
+			/* end of src string reached */
+			return;
+		case '\001':
+			esc[1] = '1';
+			break;
+		case '\t':
+			esc[1] = 't';
+			break;
+		case '\r':
+			esc[1] = 'r';
+			break;
+		case '\n':
+			esc[1] = 'n';
+			break;
+		default:
+			i_unreached();
+		}
+		str_append_data(dest, esc, 2);
+	}
 }
 
 
