@@ -286,6 +286,8 @@ static int imap_client_notify_more(struct client *client)
 	struct imap_notify_namespace *notify_ns;
 	int ret = 1;
 
+	struct event_reason *reason = event_reason_begin("imap:notify_update");
+
 	/* send notifications for selected mailbox first. note that it may
 	   leave the client's output stream in the middle of a FETCH reply. */
 	if (client->notify_ctx->fetch_ctx != NULL) {
@@ -307,6 +309,7 @@ static int imap_client_notify_more(struct client *client)
 		client_send_line(client,
 			"* NO NOTIFY error, some events may have got lost");
 	}
+	event_reason_end(&reason);
 	return ret;
 }
 
@@ -352,9 +355,11 @@ void imap_client_notify_finished(struct client *client)
 
 static void notify_callback(struct imap_notify_namespace *notify_ns)
 {
+	struct event_reason *reason = event_reason_begin("imap:notify_update");
 	o_stream_cork(notify_ns->ctx->client->output);
 	imap_client_notify_ns(notify_ns);
 	o_stream_uncork(notify_ns->ctx->client->output);
+	event_reason_end(&reason);
 }
 
 static enum mailbox_list_notify_event
