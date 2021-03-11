@@ -29,7 +29,68 @@ static void test_event_strlist(void)
 	test_end();
 }
 
+static void test_lib_event_reason_code(void)
+{
+	test_begin("event reason codes");
+	test_assert_strcmp(event_reason_code("foo", "bar"), "foo:bar");
+	test_assert_strcmp(event_reason_code("foo", "B A-r"), "foo:b_a_r");
+	test_assert_strcmp(event_reason_code_prefix("foo", "x", "bar"), "foo:xbar");
+	test_assert_strcmp(event_reason_code_prefix("foo", "", "bar"), "foo:bar");
+	test_end();
+}
+
 void test_lib_event(void)
 {
 	test_event_strlist();
+	test_lib_event_reason_code();
+}
+
+enum fatal_test_state fatal_lib_event(unsigned int stage)
+{
+	switch (stage) {
+	case 0:
+		test_begin("event reason codes - asserts");
+		/* module: uppercase */
+		test_expect_fatal_string("Invalid module");
+		(void)event_reason_code("FOO", "bar");
+		return FATAL_TEST_FAILURE;
+	case 1:
+		/* module: space */
+		test_expect_fatal_string("Invalid module");
+		(void)event_reason_code("f oo", "bar");
+		return FATAL_TEST_FAILURE;
+	case 2:
+		/* module: - */
+		test_expect_fatal_string("Invalid module");
+		(void)event_reason_code("f-oo", "bar");
+		return FATAL_TEST_FAILURE;
+	case 3:
+		/* module: empty */
+		test_expect_fatal_string("module[0] != '\\0'");
+		(void)event_reason_code("", "bar");
+		return FATAL_TEST_FAILURE;
+	case 4:
+		/* name_prefix: uppercase */
+		test_expect_fatal_string("Invalid name_prefix");
+		(void)event_reason_code_prefix("module", "FOO", "bar");
+		return FATAL_TEST_FAILURE;
+	case 5:
+		/* name_prefix: space */
+		test_expect_fatal_string("Invalid name_prefix");
+		(void)event_reason_code_prefix("module", "f oo", "bar");
+		return FATAL_TEST_FAILURE;
+	case 6:
+		/* name_prefix: - */
+		test_expect_fatal_string("Invalid name_prefix");
+		(void)event_reason_code_prefix("module", "f-oo", "bar");
+		return FATAL_TEST_FAILURE;
+	case 7:
+		/* name: empty */
+		test_expect_fatal_string("(name[0] != '\\0')");
+		(void)event_reason_code("foo:", "");
+		return FATAL_TEST_FAILURE;
+	default:
+		test_end();
+		return FATAL_TEST_FINISHED;
+	}
 }

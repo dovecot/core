@@ -213,6 +213,21 @@ event_reason_begin(const char *reason_code, const char *source_filename,
 /* Finish the reason event. It pops the global event, which means it must be
    at the top of the stack. */
 void event_reason_end(struct event_reason **reason);
+/* Generate a reason code as <module>:<name>. This function does some
+   sanity checks and conversions to make sure the reason codes are reasonable:
+
+   - Assert-crash if module has space, '-', ':' or uppercase characters.
+   - Assert-crash if module is empty
+   - Convert name to lowercase.
+   - Replace all space and '-' in name with '_'.
+   - Assert-crash if name has ':'
+   - assert-crash if name is empty
+*/
+const char *event_reason_code(const char *module, const char *name);
+/* Same as event_reason_code(), but concatenate name_prefix and name.
+   The name_prefix must not contain spaces, '-', ':' or uppercase characters. */
+const char *event_reason_code_prefix(const char *module,
+				     const char *name_prefix, const char *name);
 
 /* Set the appended log prefix string for this event. All the parent events'
    log prefixes will be concatenated together when logging. The log type

@@ -10,6 +10,8 @@
 #include "strescape.h"
 #include "ioloop-private.h"
 
+#include <ctype.h>
+
 enum event_code {
 	EVENT_CODE_ALWAYS_LOG_SOURCE	= 'a',
 	EVENT_CODE_CATEGORY		= 'c',
@@ -555,6 +557,65 @@ void event_reason_end(struct event_reason **_reason)
 	i_assert(reason->event->refcount == 1);
 	event_unref(&reason->event);
 	i_free(reason);
+}
+
+const char *event_reason_code(const char *module, const char *name)
+{
+	return event_reason_code_prefix(module, "", name);
+}
+
+static bool event_reason_code_module_validate(const char *module)
+{
+	const char *p;
+
+	for (p = module; *p != '\0'; p++) {
+		if (*p == ' ' || *p == '-' || *p == ':')
+			return FALSE;
+		if (i_isupper(*p))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+const char *event_reason_code_prefix(const char *module,
+				     const char *name_prefix, const char *name)
+{
+	const char *p;
+
+	i_assert(module[0] != '\0');
+	i_assert(name[0] != '\0');
+
+	if (!event_reason_code_module_validate(module)) {
+		i_panic("event_reason_code_prefix(): "
+			"Invalid module '%s'", module);
+	}
+	if (!event_reason_code_module_validate(name_prefix)) {
+		i_panic("event_reason_code_prefix(): "
+			"Invalid name_prefix '%s'", name_prefix);
+	}
+
+	string_t *str = t_str_new(strlen(module) + 1 +
+				  strlen(name_prefix) + strlen(name));
+	str_append(str, module);
+	str_append_c(str, ':');
+	str_append(str, name_prefix);
+
+	for (p = name; *p != '\0'; p++) {
+		switch (*p) {
+		case ' ':
+		case '-':
+			str_append_c(str, '_');
+			break;
+		case ':':
+			i_panic("event_reason_code_prefix(): "
+				"name has ':' (%s, %s%s)",
+				module, name_prefix, name);
+		default:
+			str_append_c(str, i_tolower(*p));
+			break;
+		}
+	}
+	return str_c(str);
 }
 
 static struct event *
