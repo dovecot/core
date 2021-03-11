@@ -55,7 +55,6 @@ static int imap_notify_status(struct imap_notify_namespace *notify_ns,
 		items.flags |= IMAP_STATUS_ITEM_HIGHESTMODSEQ;
 
 	box = mailbox_alloc(notify_ns->ns->list, rec->vname, 0);
-	mailbox_set_reason(box, "NOTIFY STATUS");
 	if ((rec->events & MAILBOX_LIST_NOTIFY_UIDVALIDITY) != 0) {
 		items.flags |= IMAP_STATUS_ITEM_UIDVALIDITY |
 			IMAP_STATUS_ITEM_UIDNEXT | IMAP_STATUS_ITEM_MESSAGES |
@@ -198,7 +197,6 @@ bool imap_notify_match_mailbox(struct imap_notify_namespace *notify_ns,
 	switch (notify_boxes->type) {
 	case IMAP_NOTIFY_TYPE_SUBSCRIBED:
 		box = mailbox_alloc(notify_ns->ns->list, vname, 0);
-		mailbox_set_reason(box, "NOTIFY is subscribed");
 		ret = mailbox_is_subscribed(box);
 		mailbox_free(&box);
 		return ret;
