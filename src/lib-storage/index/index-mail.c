@@ -2057,8 +2057,10 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 	mail_index_lookup_uid(_mail->transaction->view, seq,
 			      &mail->mail.mail.uid);
 
-	if (_mail->event == NULL)
-		index_mail_init_event(_mail);
+	/* Recreate the mail event when changing mails. Even though the same
+	   mail struct is reused, they are practically different mails. */
+	event_unref(&_mail->event);
+	index_mail_init_event(_mail);
 	event_add_int(_mail->event, "seq", _mail->seq);
 	event_add_int(_mail->event, "uid", _mail->uid);
 	event_set_append_log_prefix(_mail->event, t_strdup_printf(
