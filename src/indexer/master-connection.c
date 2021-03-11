@@ -189,7 +189,6 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 
 	ns = mail_namespace_find(user->namespaces, mailbox);
 	box = mailbox_alloc(ns->list, mailbox, 0);
-	mailbox_set_reason(box, "indexing");
 	ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX, &path);
 	if (ret < 0) {
 		errstr = mailbox_get_last_internal_error(box, &error);
@@ -280,8 +279,11 @@ master_connection_input_args(struct connection *_conn, const char *const *args)
 		ret = -1;
 	} else {
 		indexer_worker_refresh_proctitle(user->username, args[1], 0, 0);
+		struct event_reason *reason =
+			event_reason_begin("indexer:index_mailbox");
 		ret = index_mailbox(conn, user, args[1],
 				    max_recent_msgs, args[4]);
+		event_reason_end(&reason);
 		/* refresh proctitle before a potentially long-running
 		   user unref */
 		indexer_worker_refresh_proctitle(user->username, "(deinit)", 0, 0);
