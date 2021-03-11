@@ -271,6 +271,42 @@ struct mailbox_verify_test_cases {
 	{ '\0', '\0', "", -1 },
 };
 
+struct mailbox_verify_test_cases layout_index_test_cases[] = {
+	{ '\0', '\0', "INBOX", 0 },
+	{ '/', '/', ".DUMPSTER", 0 },
+	{ '\0', '\0', "DUMPSTER", 0 },
+	{ '\0', '\0', "~DUMPSTER", 0 },
+	{ '\0', '\0', "^DUMPSTER", 0 },
+	{ '\0', '\0', "%DUMPSTER", 0 },
+	{ '/', '.', "INBOX/INBOX", 0 },
+	{ '/', '/', "INBOX/INBOX", 0 },
+	{ '.', '.', "INBOX/INBOX", 0 },
+	{ '.', '/', "INBOX/INBOX", -1 },
+	{ '/', '\0', "/etc/passwd", -1 },
+	{ '.', '\0', "/etc/passwd", 0 },
+	{ '.', '.', "foo.bar", 0 },
+	{ '/', '.', "foo.bar", -1 },
+	{ '.', '/', "foo.bar", 0 },
+	{ '/', '/', "foo.bar", 0 },
+	{ '/', '\0', "/foo", -1 },
+	{ '/', '\0', "foo/", -1 },
+	{ '/', '\0', "foo//bar", -1 },
+	{ '.', '/', "/foo", -1 },
+	{ '.', '/', "foo/", -1 },
+	{ '.', '/', "foo//bar", -1 },
+	{ '.', '.', ".foo", -1 },
+	{ '.', '.', "foo.", -1 },
+	{ '.', '.', "foo..bar", -1 },
+	{ '.', '/', ".foo", -1 },
+	{ '.', '/', "foo.", -1 },
+	{ '.', '/', "foo..bar", -1 },
+	{ '.', '/', "/", -1 },
+	{ '.', '.', ".", -1 },
+	{ '/', '\0', "/", -1 },
+	{ '\0', '/', "/", -1 },
+	{ '\0', '\0', "", -1 },
+};
+
 static void
 test_mailbox_verify_name_one(struct mailbox_verify_test_cases *test_case,
 			     struct mail_namespace *ns,
@@ -368,7 +404,10 @@ static void test_mailbox_verify_name_driver_slash(const char *driver,
 	};
 	test_mail_storage_init_user(ctx, &set);
 
-	test_mailbox_verify_name_continue(test_cases, N_ELEMENTS(test_cases), ctx);
+	if (strcmp(driver_opts, ":LAYOUT=INDEX") == 0)
+		test_mailbox_verify_name_continue(layout_index_test_cases, N_ELEMENTS(layout_index_test_cases), ctx);
+	else
+		test_mailbox_verify_name_continue(test_cases, N_ELEMENTS(test_cases), ctx);
 
 	test_mail_storage_deinit_user(ctx);
 }
@@ -391,7 +430,10 @@ static void test_mailbox_verify_name_driver_dot(const char *driver,
 	};
 	test_mail_storage_init_user(ctx, &set);
 
-	test_mailbox_verify_name_continue(test_cases, N_ELEMENTS(test_cases), ctx);
+	if (strcmp(driver_opts, ":LAYOUT=INDEX") == 0)
+		test_mailbox_verify_name_continue(layout_index_test_cases, N_ELEMENTS(layout_index_test_cases), ctx);
+	else
+		test_mailbox_verify_name_continue(test_cases, N_ELEMENTS(test_cases), ctx);
 
 	test_mail_storage_deinit_user(ctx);
 }
