@@ -184,6 +184,7 @@ static void stats_conn_input(struct connection *_conn)
 				o_stream_set_no_error_handling(stats_data_out, TRUE);
 				o_stream_unref(&stats_data_out);
 			}
+			i_sleep_msecs(100);
 		}
 		i_unlink(test_done);
 		signal_process(stats_ready);
