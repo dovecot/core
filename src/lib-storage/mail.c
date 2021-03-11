@@ -80,7 +80,10 @@ bool mail_prefetch(struct mail *mail)
 	bool ret;
 
 	T_BEGIN {
+		struct event_reason *reason =
+			event_reason_begin("mail:prefetch");
 		ret = p->v.prefetch(mail);
+		event_reason_end(&reason);
 	} T_END;
 	return ret;
 }
@@ -137,7 +140,10 @@ int mail_get_parts(struct mail *mail, struct message_part **parts_r)
 	int ret;
 
 	T_BEGIN {
+		struct event_reason *reason =
+			event_reason_begin("mail:mime_parts");
 		ret = p->v.get_parts(mail, parts_r);
+		event_reason_end(&reason);
 	} T_END;
 	return ret;
 }
@@ -148,7 +154,10 @@ int mail_get_date(struct mail *mail, time_t *date_r, int *timezone_r)
 	int ret;
 
 	T_BEGIN {
+		struct event_reason *reason =
+			event_reason_begin("mail:date");
 		ret = p->v.get_date(mail, date_r, timezone_r);
+		event_reason_end(&reason);
 	} T_END;
 	return ret;
 }
@@ -159,7 +168,10 @@ int mail_get_received_date(struct mail *mail, time_t *date_r)
 	int ret;
 
 	T_BEGIN {
+		struct event_reason *reason =
+			event_reason_begin("mail:received_date");
 		ret = p->v.get_received_date(mail, date_r);
+		event_reason_end(&reason);
 	} T_END;
 	return ret;
 }
@@ -170,7 +182,10 @@ int mail_get_save_date(struct mail *mail, time_t *date_r)
 	int ret;
 
 	T_BEGIN {
+		struct event_reason *reason =
+			event_reason_begin("mail:received_date");
 		ret = p->v.get_save_date(mail, date_r);
+		event_reason_end(&reason);
 	} T_END;
 	return ret;
 }
@@ -181,7 +196,10 @@ int mail_get_virtual_size(struct mail *mail, uoff_t *size_r)
 	int ret;
 
 	T_BEGIN {
+		struct event_reason *reason =
+			event_reason_begin("mail:virtual_size");
 		ret = p->v.get_virtual_size(mail, size_r);
+		event_reason_end(&reason);
 	} T_END;
 	return ret;
 }
@@ -192,7 +210,10 @@ int mail_get_physical_size(struct mail *mail, uoff_t *size_r)
 	int ret;
 
 	T_BEGIN {
+		struct event_reason *reason =
+			event_reason_begin("mail:physical_size");
 		ret = p->v.get_physical_size(mail, size_r);
+		event_reason_end(&reason);
 	} T_END;
 	return ret;
 }
@@ -358,8 +379,36 @@ int mail_get_special(struct mail *mail, enum mail_fetch_field field,
 		     const char **value_r)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	struct event_reason *reason = NULL;
+	const char *reason_code = NULL;
 
-	if (p->v.get_special(mail, field, value_r) < 0)
+	switch (field) {
+	case MAIL_FETCH_STORAGE_ID:
+		reason_code = "mail:storage_id";
+		break;
+	case MAIL_FETCH_UIDL_BACKEND:
+		reason_code = "mail:pop3_uidl";
+		break;
+	case MAIL_FETCH_GUID:
+		reason_code = "mail:guid";
+		break;
+	case MAIL_FETCH_POP3_ORDER:
+		reason_code = "mail:pop3_order";
+		break;
+	case MAIL_FETCH_REFCOUNT:
+		reason_code = "mail:refcount";
+		break;
+	case MAIL_FETCH_REFCOUNT_ID:
+		reason_code = "mail:refcount_id";
+		break;
+	default:
+		break;
+	}
+	if (reason_code != NULL)
+		reason = event_reason_begin(reason_code);
+	int ret = p->v.get_special(mail, field, value_r);
+	event_reason_end(&reason);
+	if (ret < 0)
 		return -1;
 	i_assert(*value_r != NULL);
 	return 0;
