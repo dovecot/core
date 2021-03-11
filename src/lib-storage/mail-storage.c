@@ -1091,13 +1091,6 @@ mailbox_alloc_for_user(struct mail_user *user, const char *mname,
 	return box;
 }
 
-void mailbox_set_reason(struct mailbox *box, const char *reason)
-{
-	i_assert(reason != NULL);
-
-	box->reason = p_strdup(box->pool, reason);
-}
-
 bool mailbox_is_autocreated(struct mailbox *box)
 {
 	if (box->inbox_user)
@@ -1462,14 +1455,9 @@ mailbox_open_full(struct mailbox *box, struct istream *input)
 	if (box->opened)
 		return 0;
 
-	if (box->reason != NULL) {
-		e_debug(box->event,
-			"Mailbox opened because: %s",
-			box->reason);
-	}
-
 	switch (box->open_error) {
 	case 0:
+		e_debug(box->event, "Mailbox opened");
 		break;
 	case MAIL_ERROR_NOTFOUND:
 		mail_storage_set_error(box->storage, MAIL_ERROR_NOTFOUND,

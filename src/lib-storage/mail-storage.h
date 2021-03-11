@@ -529,9 +529,6 @@ struct mailbox *
 mailbox_alloc_for_user(struct mail_user *user, const char *mname,
 		       enum mailbox_flags flags);
 
-/* Set a human-readable reason for why this mailbox is being accessed.
-   This is used for logging purposes. */
-void mailbox_set_reason(struct mailbox *box, const char *reason);
 /* Get mailbox existence state. If auto_boxes=FALSE, return
    MAILBOX_EXISTENCE_NONE for autocreated mailboxes that haven't been
    physically created yet */
