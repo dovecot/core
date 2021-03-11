@@ -103,33 +103,34 @@ int str_unescape_next(const char **str, const char **unescaped_r)
 
 void str_append_tabescaped_n(string_t *dest, const unsigned char *src, size_t src_size)
 {
+	size_t prev_pos = 0;
+	char esc[2] = { '\001', '\0' };
+
 	for (size_t i = 0; i < src_size; i++) {
 		switch (src[i]) {
 		case '\000':
-			str_append_c(dest, '\001');
-			str_append_c(dest, '0');
+			esc[1] = '0';
 			break;
 		case '\001':
-			str_append_c(dest, '\001');
-			str_append_c(dest, '1');
+			esc[1] = '1';
 			break;
 		case '\t':
-			str_append_c(dest, '\001');
-			str_append_c(dest, 't');
+			esc[1] = 't';
 			break;
 		case '\r':
-			str_append_c(dest, '\001');
-			str_append_c(dest, 'r');
+			esc[1] = 'r';
 			break;
 		case '\n':
-			str_append_c(dest, '\001');
-			str_append_c(dest, 'n');
+			esc[1] = 'n';
 			break;
 		default:
-			str_append_c(dest, src[i]);
-			break;
+			continue;
 		}
+		str_append_data(dest, src + prev_pos, i - prev_pos);
+		str_append_data(dest, esc, 2);
+		prev_pos = i + 1;
 	}
+	str_append_data(dest, src + prev_pos, src_size - prev_pos);
 }
 
 void str_append_tabescaped(string_t *dest, const char *src)
