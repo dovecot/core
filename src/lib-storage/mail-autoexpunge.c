@@ -179,7 +179,6 @@ mailbox_autoexpunge_set(struct mail_namespace *ns, const char *vname,
 	   any ACLs the user might normally have against expunging in
 	   the mailbox. */
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_IGNORE_ACLS);
-	mailbox_set_reason(box, "autoexpunge");
 	if (mailbox_autoexpunge(box, autoexpunge, autoexpunge_max_mails,
 				expunged_count) < 0) {
 		e_error(box->event, "Failed to autoexpunge: %s",
@@ -253,6 +252,8 @@ unsigned int mail_user_autoexpunge(struct mail_user *user)
 	struct file_lock *lock = NULL;
 	struct mail_namespace *ns;
 	unsigned int expunged_count = 0;
+	struct event_reason *reason =
+		event_reason_begin("storage:autoexpunge");
 
 	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
 		if (ns->alias_for == NULL) {
@@ -260,6 +261,7 @@ unsigned int mail_user_autoexpunge(struct mail_user *user)
 				break;
 		}
 	}
+	event_reason_end(&reason);
 	file_lock_free(&lock);
 	return expunged_count;
 }

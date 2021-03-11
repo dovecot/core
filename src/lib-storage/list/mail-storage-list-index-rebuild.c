@@ -184,7 +184,6 @@ mail_storage_list_index_find_indexed_mailbox(struct mail_storage_list_index_rebu
 		return 0;
 
 	box = mailbox_alloc(info->ns->list, info->vname, MAILBOX_FLAG_IGNORE_ACLS);
-	mailbox_set_reason(box, "mailbox list rebuild");
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
 		mail_storage_set_critical(rebuild_ns->ns->storage,
 			"List rebuild: Couldn't lookup mailbox %s GUID: %s",
@@ -301,7 +300,6 @@ mail_storage_list_index_try_create(struct mail_storage_list_index_rebuild_ctx *c
 	e_debug(box->event, "Mailbox GUID %s exists in storage, but not in list index",
 		guid_128_to_string(guid_p));
 
-	mailbox_set_reason(box, "mailbox list rebuild restore");
 	box->corrupted_mailbox_name = TRUE;
 	if (mailbox_exists(box, FALSE, &existence) < 0) {
 		mail_storage_set_critical(storage,
@@ -444,9 +442,12 @@ static int mail_storage_list_index_rebuild_int(struct mail_storage *storage)
 		   this avoids race conditions between other list rebuilds and also
 		   makes sure that other processes creating/deleting mailboxes can't
 		   cause confusion with race conditions. */
+		struct event_reason *reason =
+			event_reason_begin("storage:mailbox_list_rebuild");
 		if ((ret = mail_storage_list_index_rebuild_lock_lists(&ctx)) == 0)
 			ret = mail_storage_list_index_rebuild_ctx(&ctx);
 		mail_storage_list_index_rebuild_unlock_lists(&ctx);
+		event_reason_end(&reason);
 	} else
 		ret = 0;
 
