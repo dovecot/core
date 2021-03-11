@@ -622,6 +622,7 @@ static void test_large_event_id(void)
 
 	a = make_event(NULL, &test_cats[0], &line, &id);
 	a->id += 1000000;
+	id = a->id;
 	a->change_id++;
 	b = make_event(a, &test_cats[1], NULL, NULL);
 
@@ -634,6 +635,9 @@ static void test_large_event_id(void)
 	event_add_int(a, "test1", 1);
 	e_info(b, "emit");
 	line_log3 = __LINE__-1;
+
+	event_unref(&b);
+	event_unref(&a);
 
 	test_assert(
 		compare_test_stats_to(
@@ -652,17 +656,16 @@ static void test_large_event_id(void)
 			"	l1	0	ctest1	Itest1	1\n"
 			"EVENT	%"PRIu64"	1	1	0"
 			"	s"__FILE__"	%d"
-			"	l1	0	ctest2\n",
+			"	l1	0	ctest2\n"
+			"END	%"PRIu64"\n",
 			(uint64_t)0, line_log1,
-			a->id, line,
-			a->id, line_log2,
-			a->id, line,
-			a->id, line_log3
+			id, line,
+			id, line_log2,
+			id, line,
+			id, line_log3,
+			id
 		)
 	);
-
-	event_unref(&b);
-	event_unref(&a);
 
 	test_end();
 }
