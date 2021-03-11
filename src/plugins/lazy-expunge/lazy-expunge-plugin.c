@@ -128,7 +128,6 @@ mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
 
 	box = mailbox_alloc(list, name, MAILBOX_FLAG_NO_INDEX_FILES |
 			    MAILBOX_FLAG_SAVEONLY | MAILBOX_FLAG_IGNORE_ACLS);
-	mailbox_set_reason(box, "lazy_expunge");
 	if (mailbox_open(box) == 0) {
 		*error_r = NULL;
 		return box;
@@ -371,22 +370,32 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 		return;
 	}
 
-	if (lt->copy_only_last_instance) {
+	struct event_reason *reason =
+		event_reason_begin("lazy_expunge:expunge");
+	if (!lt->copy_only_last_instance)
+		ret = 1;
+	else {
 		/* we want to copy only the last instance of the mail to
 		   lazy_expunge namespace. other instances will be expunged
 		   immediately. */
 		if (moving)
 			ret = 0;
-		else if ((ret = lazy_expunge_mail_is_last_instance(_mail)) < 0) {
-			lazy_expunge_set_error(lt, _mail->box->storage);
-			return;
-		}
-		if (ret == 0) {
-			mmail->module_ctx.super.expunge(_mail);
-			return;
+		else {
+			ret = lazy_expunge_mail_is_last_instance(_mail);
+			if (ret < 0)
+				lazy_expunge_set_error(lt, _mail->box->storage);
 		}
 	}
-	lazy_expunge_mail_expunge_move(_mail);
+	if (ret > 0)
+		lazy_expunge_mail_expunge_move(_mail);
+	event_reason_end(&reason);
+
+	if (ret == 0) {
+		/* Not the last instance of the mail - expunge it normally.
+		   Since this is a normal expunge, do it without the
+		   reason_code. */
+		mmail->module_ctx.super.expunge(_mail);
+	}
 }
 
 static int lazy_expunge_copy(struct mail_save_context *ctx, struct mail *_mail)
