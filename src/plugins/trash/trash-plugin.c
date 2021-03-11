@@ -55,7 +55,6 @@ static int trash_clean_mailbox_open(struct trash_mailbox *trash)
 	struct mail_search_args *search_args;
 
 	trash->box = mailbox_alloc(trash->ns->list, trash->name, 0);
-	mailbox_set_reason(trash->box, "trash plugin");
 	if (mailbox_open(trash->box) < 0) {
 		mailbox_free(&trash->box);
 		return 0;
@@ -106,11 +105,14 @@ static int trash_try_clean_mails(struct quota_transaction_context *ctx,
 {
 	struct trash_user *tuser = TRASH_USER_CONTEXT_REQUIRE(ctx->quota->user);
 	struct trash_mailbox *trashes;
+	struct event_reason *reason;
 	unsigned int i, j, count, oldest_idx;
 	time_t oldest, received = 0;
 	uint64_t size, size_expunged = 0;
 	unsigned int expunged_count = 0;
 	int ret = 0;
+
+	reason = event_reason_begin("trash:clean");
 
 	trashes = array_get_modifiable(&tuser->trash_boxes, &count);
 	for (i = 0; i < count; ) {
@@ -176,6 +178,7 @@ err:
 
 		mailbox_free(&trash->box);
 	}
+	event_reason_end(&reason);
 
 	if (size_expunged < size_needed) {
 		e_debug(ctx->quota->user->event,
