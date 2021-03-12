@@ -8,7 +8,7 @@
 #define DBL_EQ(a, b) (fabs((a)-(b)) < 0.001)
 
 static void
-test_stats_dist_verify(const struct stats_dist *t, const int64_t *input,
+test_stats_dist_verify(struct stats_dist *t, const int64_t *input,
 		       unsigned int input_size)
 {
 	uint64_t min = INT_MAX, max = 0, sum = 0;
