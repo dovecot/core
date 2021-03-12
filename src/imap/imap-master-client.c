@@ -371,7 +371,8 @@ imap_master_client_input_line(struct connection *conn, const char *line)
 
 	pool = pool_alloconly_create("imap master client cmd", 1024);
 	args = p_strsplit_tabescaped(pool, line);
-	ret = imap_master_client_input_args(conn, (void *)args, fd_client, pool);
+	ret = imap_master_client_input_args(conn, (const void *)args,
+					    fd_client, pool);
 	pool_unref(&pool);
 	return ret;
 }

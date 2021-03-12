@@ -152,7 +152,7 @@ void ldap_connection_search_start(struct ldap_connection *conn,
 	if (input->attributes != NULL) {
 		ARRAY_TYPE(const_string) arr;
 		p_array_init(&arr, req->pool, 8);
-		for(const char **ptr = (const char**)input->attributes; *ptr != NULL; ptr++) {
+		for (const char *const *ptr = input->attributes; *ptr != NULL; ptr++) {
 			const char *tmp = p_strdup(req->pool, *ptr);
 			array_push_back(&arr, &tmp);
 		}

@@ -303,7 +303,7 @@ http_response_parse_retry_after(const char *hdrval, time_t resp_time,
 	}
 
 	return (http_date_parse
-		((unsigned char *)hdrval, strlen(hdrval), retry_after_r) ? 0 : -1);
+		((const unsigned char *)hdrval, strlen(hdrval), retry_after_r) ? 0 : -1);
 }
 
 uoff_t http_response_parser_get_last_offset(struct http_response_parser *parser)

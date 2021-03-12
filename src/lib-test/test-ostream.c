@@ -133,7 +133,8 @@ o_stream_test_flush_pending(struct ostream_private *stream, bool set)
 static size_t
 o_stream_test_get_buffer_used_size(const struct ostream_private *stream)
 {
-	struct test_ostream *tstream = (struct test_ostream *)stream;
+	const struct test_ostream *tstream =
+		(const struct test_ostream *)stream;
 
 	return tstream->internal_buf == NULL ? 0 :
 		tstream->internal_buf->used;

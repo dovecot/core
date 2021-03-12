@@ -354,7 +354,8 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 		record_size = (sizeof(*rec) + prev_intro.record_size + 3) & ~3U;
 		while (rec < end) {
 			printf(" - uid=%u: ", rec->uid);
-			if (prev_intro.record_size <= (char*)end - (char *)(rec+1))
+			size_t bytes_left = (const char *)end - (const char *)(rec + 1);
+			if (prev_intro.record_size <= bytes_left)
 				print_data(rec + 1, prev_intro.record_size);
 			else
 				printf("(record_size too large)");

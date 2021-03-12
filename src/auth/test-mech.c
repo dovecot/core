@@ -92,7 +92,7 @@ static void test_mechs_init(void)
 	process_start_time = time(NULL);
 
 	/* Copy default settings */
-	set = *(struct auth_settings *) auth_setting_parser_info.defaults;
+	set = *(const struct auth_settings *)auth_setting_parser_info.defaults;
 	global_auth_settings = &set;
 	global_auth_settings->base_dir = ".";
 	memset((&set)->username_chars_map, 1, sizeof((&set)->username_chars_map));

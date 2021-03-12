@@ -405,7 +405,7 @@ test_parse_path(const char *input, const struct message_address **addr_r)
 	if (input_len > 0)
 		input = input_dup = i_memdup(input, input_len);
 	ret = message_address_parse_path(pool_datastack_create(),
-					 (unsigned char *)input, input_len,
+					 (const unsigned char *)input, input_len,
 					 &addr);
 	if (input_len > 0)
 		i_free(input_dup);

@@ -84,7 +84,7 @@ static void test_array_foreach_elem_string(void)
 	t_array_init(&cblurbs, 32);
 	for (i = 0; i < 10; i++) {
 		cstring = t_strdup_printf("x%iy", i);
-		string = (char *)cstring;
+		string = t_strdup_noconst(cstring);
 		array_push_back(&blurbs, &string);
 		array_push_back(&cblurbs, &cstring);
 	}
