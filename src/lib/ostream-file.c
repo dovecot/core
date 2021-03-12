@@ -54,14 +54,16 @@ static void stream_closed(struct file_ostream *fstream)
 void o_stream_file_close(struct iostream_private *stream,
 				bool close_parent ATTR_UNUSED)
 {
-	struct file_ostream *fstream = (struct file_ostream *)stream;
+	struct file_ostream *fstream =
+		container_of(stream, struct file_ostream, ostream.iostream);
 
 	stream_closed(fstream);
 }
 
 static void o_stream_file_destroy(struct iostream_private *stream)
 {
-	struct file_ostream *fstream = (struct file_ostream *)stream;
+	struct file_ostream *fstream =
+		container_of(stream, struct file_ostream, ostream.iostream);
 
 	i_free(fstream->buffer);
 }
@@ -354,7 +356,8 @@ static void o_stream_tcp_flush_via_nodelay(struct file_ostream *fstream)
 
 static void o_stream_file_cork(struct ostream_private *stream, bool set)
 {
-	struct file_ostream *fstream = (struct file_ostream *)stream;
+	struct file_ostream *fstream =
+		container_of(stream, struct file_ostream, ostream);
 	struct iostream_private *iostream = &fstream->ostream.iostream;
 	int ret;
 
@@ -403,7 +406,8 @@ static void o_stream_file_cork(struct ostream_private *stream, bool set)
 
 static int o_stream_file_flush(struct ostream_private *stream)
 {
-	struct file_ostream *fstream = (struct file_ostream *) stream;
+	struct file_ostream *fstream =
+		container_of(stream, struct file_ostream, ostream);
 
 	return buffer_flush(fstream);
 }
@@ -411,7 +415,8 @@ static int o_stream_file_flush(struct ostream_private *stream)
 static void
 o_stream_file_flush_pending(struct ostream_private *stream, bool set)
 {
-	struct file_ostream *fstream = (struct file_ostream *) stream;
+	struct file_ostream *fstream =
+		container_of(stream, struct file_ostream, ostream);
 	struct iostream_private *iostream = &fstream->ostream.iostream;
 
 	fstream->flush_pending = set;
@@ -440,14 +445,15 @@ static size_t
 o_stream_file_get_buffer_used_size(const struct ostream_private *stream)
 {
 	const struct file_ostream *fstream =
-		(const struct file_ostream *)stream;
+		container_of(stream, const struct file_ostream, ostream);
 
 	return fstream->buffer_size - get_unused_space(fstream);
 }
 
 static int o_stream_file_seek(struct ostream_private *stream, uoff_t offset)
 {
-	struct file_ostream *fstream = (struct file_ostream *)stream;
+	struct file_ostream *fstream =
+		container_of(stream, struct file_ostream, ostream);
 
 	if (offset > OFF_T_MAX) {
 		stream->ostream.stream_errno = EINVAL;
@@ -588,7 +594,8 @@ ssize_t o_stream_file_sendv(struct ostream_private *stream,
 				   const struct const_iovec *iov,
 				   unsigned int iov_count)
 {
-	struct file_ostream *fstream = (struct file_ostream *)stream;
+	struct file_ostream *fstream =
+		container_of(stream, struct file_ostream, ostream);
 	size_t size, total_size, added, optimal_size;
 	unsigned int i;
 	ssize_t ret = 0;
@@ -682,7 +689,8 @@ static int
 o_stream_file_write_at(struct ostream_private *stream,
 		       const void *data, size_t size, uoff_t offset)
 {
-	struct file_ostream *fstream = (struct file_ostream *)stream;
+	struct file_ostream *fstream =
+		container_of(stream, struct file_ostream, ostream);
 	size_t used, pos, skip, left;
 
 	/* update buffer if the write overlaps it */
@@ -741,7 +749,8 @@ io_stream_sendfile(struct ostream_private *outstream,
 		   struct istream *instream, int in_fd,
 		   enum ostream_send_istream_result *res_r)
 {
-	struct file_ostream *foutstream = (struct file_ostream *)outstream;
+	struct file_ostream *foutstream =
+		container_of(outstream, struct file_ostream, ostream);
 	uoff_t in_size, offset, send_size, v_offset, abs_start_offset;
 	ssize_t ret;
 	bool sendfile_not_supported = FALSE;
@@ -837,7 +846,8 @@ static enum ostream_send_istream_result
 io_stream_copy_backwards(struct ostream_private *outstream,
 			 struct istream *instream, uoff_t in_size)
 {
-	struct file_ostream *foutstream = (struct file_ostream *)outstream;
+	struct file_ostream *foutstream =
+		container_of(outstream, struct file_ostream, ostream);
 	uoff_t in_start_offset, in_offset, in_limit, out_offset;
 	const unsigned char *data;
 	size_t buffer_size, size, read_size;
@@ -957,7 +967,8 @@ static enum ostream_send_istream_result
 o_stream_file_send_istream(struct ostream_private *outstream,
 			   struct istream *instream)
 {
-	struct file_ostream *foutstream = (struct file_ostream *)outstream;
+	struct file_ostream *foutstream =
+		container_of(outstream, struct file_ostream, ostream);
 	bool same_stream;
 	int in_fd;
 	enum ostream_send_istream_result res;
@@ -983,7 +994,8 @@ o_stream_file_send_istream(struct ostream_private *outstream,
 static void o_stream_file_switch_ioloop_to(struct ostream_private *stream,
 					   struct ioloop *ioloop)
 {
-	struct file_ostream *fstream = (struct file_ostream *)stream;
+	struct file_ostream *fstream =
+		container_of(stream, struct file_ostream, ostream);
 
 	if (fstream->io != NULL)
 		fstream->io = io_loop_move_io_to(ioloop, &fstream->io);

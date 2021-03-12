@@ -69,14 +69,18 @@ static void tee_streams_skip(struct tee_istream *tee)
 static void i_stream_tee_close(struct iostream_private *stream,
 			       bool close_parent ATTR_UNUSED)
 {
-	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
+	struct tee_child_istream *tstream =
+		container_of(stream, struct tee_child_istream,
+			     istream.iostream);
 
 	tee_streams_skip(tstream->tee);
 }
 
 static void i_stream_tee_destroy(struct iostream_private *stream)
 {
-	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
+	struct tee_child_istream *tstream =
+		container_of(stream, struct tee_child_istream,
+			     istream.iostream);
 	struct tee_istream *tee = tstream->tee;
 	struct tee_child_istream **p;
 
@@ -109,7 +113,9 @@ static void
 i_stream_tee_set_max_buffer_size(struct iostream_private *stream,
 				 size_t max_size)
 {
-	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
+	struct tee_child_istream *tstream =
+		container_of(stream, struct tee_child_istream,
+			     istream.iostream);
 
 	tstream->istream.max_buffer_size = max_size;
 	i_stream_set_max_buffer_size(tstream->tee->input, max_size);
@@ -117,7 +123,8 @@ i_stream_tee_set_max_buffer_size(struct iostream_private *stream,
 
 static ssize_t i_stream_tee_read(struct istream_private *stream)
 {
-	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
+	struct tee_child_istream *tstream =
+		container_of(stream, struct tee_child_istream, istream);
 	struct istream *input = tstream->tee->input;
 	const unsigned char *data;
 	size_t size;
@@ -175,7 +182,8 @@ static ssize_t i_stream_tee_read(struct istream_private *stream)
 static int
 i_stream_tee_stat(struct istream_private *stream, bool exact)
 {
-	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
+	struct tee_child_istream *tstream =
+		container_of(stream, struct tee_child_istream, istream);
 	const struct stat *st;
 
 	if (i_stream_stat(tstream->tee->input, exact, &st) < 0)
@@ -186,7 +194,8 @@ i_stream_tee_stat(struct istream_private *stream, bool exact)
 
 static void i_stream_tee_sync(struct istream_private *stream)
 {
-	struct tee_child_istream *tstream = (struct tee_child_istream *)stream;
+	struct tee_child_istream *tstream =
+		container_of(stream, struct tee_child_istream, istream);
 
 	tee_streams_skip(tstream->tee);
 	if (i_stream_get_data_size(tstream->tee->input) != 0) {
@@ -242,7 +251,8 @@ struct istream *tee_i_stream_create_child(struct tee_istream *tee)
 bool tee_i_stream_child_is_waiting(struct istream *input)
 {
 	struct tee_child_istream *tstream =
-		(struct tee_child_istream *)input->real_stream;
+		container_of(input->real_stream,
+			     struct tee_child_istream, istream);
 
 	return tstream->last_read_waiting;
 }

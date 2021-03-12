@@ -13,7 +13,8 @@ struct rawlog_ostream {
 static void o_stream_rawlog_close(struct iostream_private *stream,
 				  bool close_parent)
 {
-	struct rawlog_ostream *rstream = (struct rawlog_ostream *)stream;
+	struct rawlog_ostream *rstream =
+		container_of(stream, struct rawlog_ostream, ostream.iostream);
 
 	iostream_rawlog_close(&rstream->riostream);
 	if (close_parent)
@@ -24,7 +25,8 @@ static ssize_t
 o_stream_rawlog_sendv(struct ostream_private *stream,
 		      const struct const_iovec *iov, unsigned int iov_count)
 {
-	struct rawlog_ostream *rstream = (struct rawlog_ostream *)stream;
+	struct rawlog_ostream *rstream =
+		container_of(stream, struct rawlog_ostream, ostream);
 	unsigned int i;
 	ssize_t ret, bytes;
 

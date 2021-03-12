@@ -14,7 +14,9 @@ struct unix_istream {
 static void
 i_stream_unix_close(struct iostream_private *stream, bool close_parent)
 {
-	struct unix_istream *ustream = (struct unix_istream *)stream;
+	struct unix_istream *ustream =
+		container_of(stream, struct unix_istream,
+			     fstream.istream.iostream);
 
 	i_close_fd(&ustream->read_fd);
 	i_stream_file_close(stream, close_parent);
@@ -22,7 +24,8 @@ i_stream_unix_close(struct iostream_private *stream, bool close_parent)
 
 static ssize_t i_stream_unix_read(struct istream_private *stream)
 {
-	struct unix_istream *ustream = (struct unix_istream *)stream;
+	struct unix_istream *ustream =
+		container_of(stream, struct unix_istream, fstream.istream);
 	size_t size;
 	ssize_t ret;
 
@@ -82,7 +85,8 @@ struct istream *i_stream_create_unix(int fd, size_t max_buffer_size)
 void i_stream_unix_set_read_fd(struct istream *input)
 {
 	struct unix_istream *ustream =
-		(struct unix_istream *)input->real_stream;
+		container_of(input->real_stream, struct unix_istream,
+			     fstream.istream);
 
 	ustream->next_read_fd = TRUE;
 }
@@ -90,7 +94,8 @@ void i_stream_unix_set_read_fd(struct istream *input)
 void i_stream_unix_unset_read_fd(struct istream *input)
 {
 	struct unix_istream *ustream =
-		(struct unix_istream *)input->real_stream;
+		container_of(input->real_stream, struct unix_istream,
+			     fstream.istream);
 
 	ustream->next_read_fd = FALSE;
 }
@@ -98,7 +103,8 @@ void i_stream_unix_unset_read_fd(struct istream *input)
 int i_stream_unix_get_read_fd(struct istream *input)
 {
 	struct unix_istream *ustream =
-		(struct unix_istream *)input->real_stream;
+		container_of(input->real_stream, struct unix_istream,
+			     fstream.istream);
 	int fd;
 
 	fd = ustream->read_fd;

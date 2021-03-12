@@ -11,7 +11,8 @@ struct limit_istream {
 
 static void i_stream_limit_destroy(struct iostream_private *stream)
 {
-       struct limit_istream *lstream = (struct limit_istream *) stream;
+	struct limit_istream *lstream =
+		container_of(stream, struct limit_istream, istream.iostream);
        uoff_t v_offset;
 
        v_offset = lstream->istream.parent_start_offset +
@@ -25,7 +26,8 @@ static void i_stream_limit_destroy(struct iostream_private *stream)
 
 static ssize_t i_stream_limit_read(struct istream_private *stream)
 {
-	struct limit_istream *lstream = (struct limit_istream *) stream;
+	struct limit_istream *lstream =
+		container_of(stream, struct limit_istream, istream);
 	uoff_t left;
 	ssize_t ret;
 	size_t pos;
@@ -73,7 +75,8 @@ static ssize_t i_stream_limit_read(struct istream_private *stream)
 static int
 i_stream_limit_stat(struct istream_private *stream, bool exact)
 {
-	struct limit_istream *lstream = (struct limit_istream *) stream;
+	struct limit_istream *lstream =
+		container_of(stream, struct limit_istream, istream);
 	const struct stat *st;
 
 	if (i_stream_stat(stream->parent, exact, &st) < 0) {
@@ -90,7 +93,8 @@ i_stream_limit_stat(struct istream_private *stream, bool exact)
 static int i_stream_limit_get_size(struct istream_private *stream,
 				   bool exact, uoff_t *size_r)
 {
-	struct limit_istream *lstream = (struct limit_istream *) stream;
+	struct limit_istream *lstream =
+		container_of(stream, struct limit_istream, istream);
 	const struct stat *st;
 
 	if (lstream->v_size != UOFF_T_MAX) {

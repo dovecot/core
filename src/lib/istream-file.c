@@ -15,8 +15,10 @@
 void i_stream_file_close(struct iostream_private *stream,
 			 bool close_parent ATTR_UNUSED)
 {
-	struct file_istream *fstream = (struct file_istream *)stream;
-	struct istream_private *_stream = (struct istream_private *)stream;
+	struct istream_private *_stream =
+		container_of(stream, struct istream_private, iostream);
+	struct file_istream *fstream =
+		container_of(_stream, struct file_istream, istream);
 
 	if (fstream->autoclose_fd && _stream->fd != -1) {
 		/* Ignore ECONNRESET because we don't really care about it here,
@@ -46,7 +48,8 @@ static int i_stream_file_open(struct istream_private *stream)
 
 ssize_t i_stream_file_read(struct istream_private *stream)
 {
-	struct file_istream *fstream = (struct file_istream *) stream;
+	struct file_istream *fstream =
+		container_of(stream, struct file_istream, istream);
 	uoff_t offset;
 	size_t size;
 	ssize_t ret;
@@ -128,7 +131,8 @@ ssize_t i_stream_file_read(struct istream_private *stream)
 static void i_stream_file_seek(struct istream_private *stream, uoff_t v_offset,
 			       bool mark ATTR_UNUSED)
 {
-	struct file_istream *fstream = (struct file_istream *) stream;
+	struct file_istream *fstream =
+		container_of(stream, struct file_istream, istream);
 
 	if (!stream->istream.seekable) {
 		if (v_offset < stream->istream.v_offset)
@@ -155,7 +159,8 @@ static void i_stream_file_sync(struct istream_private *stream)
 static int
 i_stream_file_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 {
-	struct file_istream *fstream = (struct file_istream *) stream;
+	struct file_istream *fstream =
+		container_of(stream, struct file_istream, istream);
 	const char *name = i_stream_get_name(&stream->istream);
 
 	if (!fstream->file) {

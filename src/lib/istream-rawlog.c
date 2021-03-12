@@ -14,7 +14,8 @@ struct rawlog_istream {
 static void i_stream_rawlog_close(struct iostream_private *stream,
 				  bool close_parent)
 {
-	struct rawlog_istream *rstream = (struct rawlog_istream *)stream;
+	struct rawlog_istream *rstream =
+		container_of(stream, struct rawlog_istream, istream.iostream);
 
 	iostream_rawlog_close(&rstream->riostream);
 	if (close_parent)
@@ -23,7 +24,8 @@ static void i_stream_rawlog_close(struct iostream_private *stream,
 
 static void i_stream_rawlog_destroy(struct iostream_private *stream)
 {
-	struct rawlog_istream *rstream = (struct rawlog_istream *)stream;
+	struct rawlog_istream *rstream =
+		container_of(stream, struct rawlog_istream, istream.iostream);
        uoff_t v_offset;
 
        v_offset = rstream->istream.parent_start_offset +
@@ -37,7 +39,8 @@ static void i_stream_rawlog_destroy(struct iostream_private *stream)
 
 static ssize_t i_stream_rawlog_read(struct istream_private *stream)
 {
-	struct rawlog_istream *rstream = (struct rawlog_istream *)stream;
+	struct rawlog_istream *rstream =
+		container_of(stream, struct rawlog_istream, istream);
 	ssize_t ret;
 	size_t pos;
 

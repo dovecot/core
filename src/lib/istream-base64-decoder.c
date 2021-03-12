@@ -80,7 +80,7 @@ i_stream_base64_finish_decode(struct base64_decoder_istream *bstream)
 static ssize_t i_stream_base64_decoder_read(struct istream_private *stream)
 {
 	struct base64_decoder_istream *bstream =
-		(struct base64_decoder_istream *)stream;
+		container_of(stream, struct base64_decoder_istream, istream);
 	size_t pre_count, post_count;
 	int ret;
 
@@ -121,7 +121,7 @@ i_stream_base64_decoder_seek(struct istream_private *stream,
 			     uoff_t v_offset, bool mark)
 {
 	struct base64_decoder_istream *bstream =
-		(struct base64_decoder_istream *)stream;
+		container_of(stream, struct base64_decoder_istream, istream);
 
 	if (v_offset < stream->istream.v_offset) {
 		/* seeking backwards - go back to beginning and seek

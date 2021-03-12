@@ -13,7 +13,9 @@ struct unix_ostream {
 static void
 o_stream_unix_close(struct iostream_private *stream, bool close_parent)
 {
-	struct unix_ostream *ustream = (struct unix_ostream *)stream;
+	struct unix_ostream *ustream =
+		container_of(stream, struct unix_ostream,
+			     fstream.ostream.iostream);
 
 	i_close_fd(&ustream->write_fd);
 	o_stream_file_close(stream, close_parent);
@@ -23,7 +25,8 @@ static ssize_t o_stream_unix_writev(struct file_ostream *fstream,
 				   const struct const_iovec *iov,
 				   unsigned int iov_count)
 {
-	struct unix_ostream *ustream = (struct unix_ostream *)fstream;
+	struct unix_ostream *ustream =
+		container_of(fstream, struct unix_ostream, fstream);
 	size_t sent;
 	ssize_t ret;
 
@@ -80,7 +83,8 @@ struct ostream *o_stream_create_unix(int fd, size_t max_buffer_size)
 bool o_stream_unix_write_fd(struct ostream *output, int fd)
 {
 	struct unix_ostream *ustream =
-		(struct unix_ostream *)output->real_stream;
+		container_of(output->real_stream, struct unix_ostream,
+			     fstream.ostream);
 
 	i_assert(fd >= 0);
 
