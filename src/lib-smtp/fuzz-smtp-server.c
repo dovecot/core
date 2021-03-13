@@ -5,7 +5,7 @@
 #include "ioloop.h"
 #include "smtp-server.h"
 
-static void server_connection_destroy(void *context)
+static void server_connection_free(void *context)
 {
 	struct fuzzer_context *ctx = context;
 	io_loop_stop(ctx->ioloop);
@@ -26,7 +26,7 @@ FUZZ_BEGIN_FD
 		.auth_optional = TRUE,
 	};
 	struct smtp_server_callbacks server_callbacks = {
-		.conn_destroy = server_connection_destroy,
+		.conn_free = server_connection_free,
 	};
 	struct smtp_server *smtp_server = NULL;
 	struct timeout *to;
