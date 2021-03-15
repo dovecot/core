@@ -38,20 +38,18 @@ cpu_limit_handler(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 	}
 }
 
-unsigned int
-cpu_limit_get_usage_msecs(struct cpu_limit *climit, enum cpu_limit_type type)
+static unsigned int
+cpu_limit_get_usage_msecs_with(struct cpu_limit *climit,
+			       enum cpu_limit_type type,
+			       const struct rusage *rusage)
 {
-	struct rusage rusage;
 	struct timeval cpu_usage = { 0, 0 };
 	int usage_diff;
 
-	/* Query cpu usage so far */
-	if (getrusage(RUSAGE_SELF, &rusage) < 0)
-		i_fatal("getrusage() failed: %m");
 	if ((type & CPU_LIMIT_TYPE_USER) != 0)
-		timeval_add(&cpu_usage, &rusage.ru_utime);
+		timeval_add(&cpu_usage, &rusage->ru_utime);
 	if ((type & CPU_LIMIT_TYPE_SYSTEM) != 0)
-		timeval_add(&cpu_usage, &rusage.ru_stime);
+		timeval_add(&cpu_usage, &rusage->ru_stime);
 
 	struct timeval initial_total = { 0, 0 };
 	if ((type & CPU_LIMIT_TYPE_USER) != 0)
@@ -62,6 +60,18 @@ cpu_limit_get_usage_msecs(struct cpu_limit *climit, enum cpu_limit_type type)
 	i_assert(usage_diff >= 0);
 
 	return (unsigned int)usage_diff;
+}
+
+unsigned int
+cpu_limit_get_usage_msecs(struct cpu_limit *climit, enum cpu_limit_type type)
+{
+	struct rusage rusage;
+
+	/* Query cpu usage so far */
+	if (getrusage(RUSAGE_SELF, &rusage) < 0)
+		i_fatal("getrusage() failed: %m");
+
+	return cpu_limit_get_usage_msecs_with(climit, type, &rusage);
 }
 
 #undef cpu_limit_init
