@@ -106,8 +106,9 @@ static void test_cpu_limit_nested(void)
 
 		cpu_limit_deinit(&climit2);
 		cpu = get_cpu_time();
+		/* we may have looped only for a short time in case climit1
+		   was triggered during this loop. */
 		diff_msecs = timeval_diff_msecs(&cpu, &usage2);
-		test_assert_cmp(diff_msecs, >=, 1000 - ALLOW_MSECS_BELOW);
 		test_assert_cmp(diff_msecs, <=, 1000 + ALLOW_MSECS_ABOVE);
 	}
 
@@ -143,8 +144,9 @@ static void test_cpu_limit_nested(void)
 
 		cpu_limit_deinit(&climit2);
 		cpu = get_cpu_time();
+		/* we may have looped only for a short time in case climit1
+		   was triggered during this loop. */
 		diff_msecs = timeval_diff_msecs(&cpu, &usage2);
-		test_assert_cmp(diff_msecs, >=, 1000 - ALLOW_MSECS_BELOW);
 		test_assert_cmp(diff_msecs, <=, 1000 + ALLOW_MSECS_ABOVE);
 	}
 
