@@ -3,6 +3,12 @@
 
 struct cpu_limit;
 
+enum cpu_limit_type {
+	CPU_LIMIT_TYPE_USER	= BIT(0),
+	CPU_LIMIT_TYPE_SYSTEM	= BIT(1),
+};
+#define CPU_LIMIT_TYPE_ALL (CPU_LIMIT_TYPE_USER | CPU_LIMIT_TYPE_SYSTEM)
+
 typedef void cpu_limit_callback_t(void *context);
 
 /* Call the callback when the CPU time limit is exceeded. The callback is called
@@ -26,11 +32,13 @@ cpu_limit_init(unsigned int cpu_limit_sec,
 		(cpu_limit_callback_t *)callback, context)
 void cpu_limit_deinit(struct cpu_limit **_climit);
 
-unsigned int cpu_limit_get_usage_msecs(struct cpu_limit *climit);
+unsigned int cpu_limit_get_usage_msecs(struct cpu_limit *climit,
+				       enum cpu_limit_type type);
 
-static inline unsigned int cpu_limit_get_usage_secs(struct cpu_limit *climit)
+static inline unsigned int
+cpu_limit_get_usage_secs(struct cpu_limit *climit, enum cpu_limit_type type)
 {
-	return cpu_limit_get_usage_msecs(climit) / 1000;
+	return cpu_limit_get_usage_msecs(climit, type) / 1000;
 }
 
 #endif

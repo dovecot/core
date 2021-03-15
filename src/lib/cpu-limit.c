@@ -111,20 +111,26 @@ cpu_limit_init(unsigned int cpu_limit_sec,
 	return climit;
 }
 
-unsigned int cpu_limit_get_usage_msecs(struct cpu_limit *climit)
+unsigned int
+cpu_limit_get_usage_msecs(struct cpu_limit *climit, enum cpu_limit_type type)
 {
 	struct rusage rusage;
-	struct timeval cpu_usage;
+	struct timeval cpu_usage = { 0, 0 };
 	int usage_diff;
 
 	/* Query cpu usage so far */
 	if (getrusage(RUSAGE_SELF, &rusage) < 0)
 		i_fatal("getrusage() failed: %m");
-	cpu_usage = rusage.ru_utime;
-	timeval_add(&cpu_usage, &rusage.ru_stime);
+	if ((type & CPU_LIMIT_TYPE_USER) != 0)
+		timeval_add(&cpu_usage, &rusage.ru_utime);
+	if ((type & CPU_LIMIT_TYPE_SYSTEM) != 0)
+		timeval_add(&cpu_usage, &rusage.ru_stime);
 
-	struct timeval initial_total = climit->initial_usage.ru_utime;
-	timeval_add(&initial_total, &climit->initial_usage.ru_stime);
+	struct timeval initial_total = { 0, 0 };
+	if ((type & CPU_LIMIT_TYPE_USER) != 0)
+		timeval_add(&initial_total, &climit->initial_usage.ru_utime);
+	if ((type & CPU_LIMIT_TYPE_SYSTEM) != 0)
+		timeval_add(&initial_total, &climit->initial_usage.ru_stime);
 	usage_diff = timeval_diff_msecs(&cpu_usage, &initial_total);
 	i_assert(usage_diff >= 0);
 
