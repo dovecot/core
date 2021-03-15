@@ -210,6 +210,7 @@ static int passwd_iterate_deinit(struct userdb_iterate_context *_ctx)
 		cur_userdb_iter_to = timeout_add(0, passwd_iterate_next_timeout,
 						 NULL);
 	}
+        endpwent();
 	return ret;
 }
 
