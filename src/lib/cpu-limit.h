@@ -13,15 +13,31 @@ typedef void cpu_limit_callback_t(void *context);
 
 /* Call the callback when the CPU time limit is exceeded. The callback is called
    in signal handler context, so be careful. The limit is enforced until
-   cpu_limit_deinit() is called. CPU time limits can be nested, upon which the
-   outer time limit applies for all when it is shorter, while an inner limit
-   will trigger alone (along with its children) when it is shorter. So, if e.g.
-   both inner and outer limits are 5s, both will trigger at 5s. If the outer
-   limit is 5s and the inner one is 10s, both with trigger at 5s. If the outer
-   limit is 10s and the inner is 5, only the inner limit with trigger at 5s.
-   Once all limits created by this API are released, the original CPU resource
-   limits are restored (if any). This uses setrlimit() with RLIMIT_CPU
-   internally, which counts both user and system CPU time.
+   cpu_limit_deinit() is called. This uses setrlimit() with RLIMIT_CPU
+   internally, which counts both user and system CPU time. Once all limits
+   created by this API are released, the original CPU resource limits are
+   restored (if any).
+
+   CPU time limits can be nested, i.e. they are never independent. The outer
+   limits contain the bounded maximum limit for the inner limits. For example
+   the code execution flow might be:
+    - Set 30s CPU limit (outer limit)
+    - Use up 5s of CPU
+    - Set 40s CPU limit (inner limit)
+    - Infinite loop
+   The inner loop's limit won't even be reached here. After the inner loops
+   runs for 25 seconds, the outer loop's 30s limit is reached. This causes
+   both the inner and the other limit's callback to be called. It's expected
+   that the inner execution stops and returns back to the outer execution,
+   which notices that the outer execution has also reached the limit.
+
+   Another example where the inner limit is reached:
+    - Set 30s CPU limit (outer limit)
+    - Use up 5s of CPU
+    - Set 10s CPU limit (inner limit)
+    - Infinite loop
+   Here the inner 10s limit is reached, and the inner execution stops. The
+   outer execution could still run for another 15 seconds.
  */
 struct cpu_limit *
 cpu_limit_init(unsigned int cpu_limit_sec,
