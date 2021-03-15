@@ -13,7 +13,7 @@ static struct cpu_limit *volatile cpu_limit = NULL;
 struct cpu_limit {
 	struct cpu_limit *parent;
 
-	struct timeval initial_usage;
+	struct rusage initial_usage;
 	struct rlimit old_limit, limit;
 
 	void (*callback)(void *context);
@@ -64,13 +64,14 @@ cpu_limit_init(unsigned int cpu_limit_sec,
 	/* Query cpu usage so far */
 	if (getrusage(RUSAGE_SELF, &rusage) < 0)
 		i_fatal("getrusage() failed: %m");
-	climit->initial_usage = rusage.ru_utime;
-	timeval_add(&climit->initial_usage, &rusage.ru_stime);
+	climit->initial_usage = rusage;
 
 	climit->limit = climit->old_limit;
 	/* rlimit is in seconds. Truncate initial_usage to seconds for the
 	   initial sanity check. */
-	climit->limit.rlim_cur = climit->initial_usage.tv_sec;
+	struct timeval initial_total = climit->initial_usage.ru_utime;
+	timeval_add(&initial_total, &climit->initial_usage.ru_stime);
+	climit->limit.rlim_cur = initial_total.tv_sec;
 
 	if (climit->limit.rlim_max != RLIM_INFINITY &&
 	    climit->limit.rlim_cur > climit->limit.rlim_max) {
@@ -122,7 +123,9 @@ unsigned int cpu_limit_get_usage_msecs(struct cpu_limit *climit)
 	cpu_usage = rusage.ru_utime;
 	timeval_add(&cpu_usage, &rusage.ru_stime);
 
-	usage_diff = timeval_diff_msecs(&cpu_usage, &climit->initial_usage);
+	struct timeval initial_total = climit->initial_usage.ru_utime;
+	timeval_add(&initial_total, &climit->initial_usage.ru_stime);
+	usage_diff = timeval_diff_msecs(&cpu_usage, &initial_total);
 	i_assert(usage_diff >= 0);
 
 	return (unsigned int)usage_diff;
