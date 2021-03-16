@@ -1137,6 +1137,59 @@ static bool event_import_tv(const char *arg_secs, const char *arg_usecs,
 	return TRUE;
 }
 
+static bool
+event_import_field(struct event *event, enum event_code code, const char *arg,
+		   const char *const **_args, const char **error_r)
+{
+	const char *const *args = *_args;
+	const char *error;
+
+	if (*arg == '\0') {
+		*error_r = "Field name is missing";
+		return FALSE;
+	}
+	struct event_field *field = event_get_field(event, arg);
+	if (args[0] == NULL) {
+		*error_r = "Field value is missing";
+		return FALSE;
+	}
+	i_zero(&field->value);
+	switch (code) {
+	case EVENT_CODE_FIELD_INTMAX:
+		field->value_type = EVENT_FIELD_VALUE_TYPE_INTMAX;
+		if (str_to_intmax(*args, &field->value.intmax) < 0) {
+			*error_r = t_strdup_printf(
+				"Invalid field value '%s' number for '%s'",
+				*args, field->key);
+			return FALSE;
+		}
+		break;
+	case EVENT_CODE_FIELD_STR:
+		if (field->value_type == EVENT_FIELD_VALUE_TYPE_STR &&
+		    null_strcmp(field->value.str, *args) == 0) {
+			/* already identical value */
+			break;
+		}
+		field->value_type = EVENT_FIELD_VALUE_TYPE_STR;
+		field->value.str = p_strdup(event->pool, *args);
+		break;
+	case EVENT_CODE_FIELD_TIMEVAL:
+		field->value_type = EVENT_FIELD_VALUE_TYPE_TIMEVAL;
+		if (!event_import_tv(args[0], args[1],
+				     &field->value.timeval, &error)) {
+			*error_r = t_strdup_printf("Field '%s' value '%s': %s",
+						   field->key, args[1], error);
+			return FALSE;
+		}
+		args++;
+		break;
+	default:
+		i_unreached();
+	}
+	*_args = args;
+	return TRUE;
+}
+
 bool event_import_unescaped(struct event *event, const char *const *args,
 			    const char **error_r)
 {
@@ -1214,51 +1267,9 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 		case EVENT_CODE_FIELD_INTMAX:
 		case EVENT_CODE_FIELD_STR:
 		case EVENT_CODE_FIELD_TIMEVAL: {
-			if (*arg == '\0') {
-				*error_r = "Field name is missing";
-				return FALSE;
-			}
-			struct event_field *field =
-				event_get_field(event, arg);
-			if (args[1] == NULL) {
-				*error_r = "Field value is missing";
-				return FALSE;
-			}
 			args++;
-			i_zero(&field->value);
-			switch (code) {
-			case EVENT_CODE_FIELD_INTMAX:
-				field->value_type = EVENT_FIELD_VALUE_TYPE_INTMAX;
-				if (str_to_intmax(*args, &field->value.intmax) < 0) {
-					*error_r = t_strdup_printf(
-						"Invalid field value '%s' number for '%s'",
-						*args, field->key);
-					return FALSE;
-				}
-				break;
-			case EVENT_CODE_FIELD_STR:
-				if (field->value_type == EVENT_FIELD_VALUE_TYPE_STR &&
-				    null_strcmp(field->value.str, *args) == 0) {
-					/* already identical value */
-					break;
-				}
-				field->value_type = EVENT_FIELD_VALUE_TYPE_STR;
-				field->value.str = p_strdup(event->pool, *args);
-				break;
-			case EVENT_CODE_FIELD_TIMEVAL:
-				field->value_type = EVENT_FIELD_VALUE_TYPE_TIMEVAL;
-				if (!event_import_tv(args[0], args[1],
-						     &field->value.timeval, &error)) {
-					*error_r = t_strdup_printf(
-						"Field '%s' value '%s': %s",
-						field->key, args[1], error);
-					return FALSE;
-				}
-				args++;
-				break;
-			default:
-				i_unreached();
-			}
+			if (!event_import_field(event, code, arg, &args, error_r))
+				return FALSE;
 			break;
 		}
 		}
