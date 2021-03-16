@@ -1158,5 +1158,6 @@ void client_destroy_fd_proxies(void)
 
 void client_common_deinit(void)
 {
+	i_assert(destroyed_clients == NULL);
 	array_free(&module_hooks);
 }
