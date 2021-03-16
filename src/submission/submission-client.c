@@ -434,7 +434,7 @@ static void client_connection_disconnect(void *context, const char *reason)
 		array_clear(&client->rcpt_to);
 
 	if (reason == NULL)
-		log_reason = reason = "Connection closed";
+		log_reason = "Connection closed";
 	else
 		log_reason = t_str_oneline(reason);
 	i_info("Disconnected: %s %s", log_reason, client_stats(client));
