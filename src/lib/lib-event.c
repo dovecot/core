@@ -1190,6 +1190,75 @@ event_import_field(struct event *event, enum event_code code, const char *arg,
 	return TRUE;
 }
 
+
+static bool
+event_import_arg(struct event *event, const char *const **_args,
+		 const char **error_r)
+{
+	const char *const *args = *_args;
+	const char *error, *arg = *args;
+	enum event_code code = arg[0];
+
+	arg++;
+	switch (code) {
+	case EVENT_CODE_ALWAYS_LOG_SOURCE:
+		event->always_log_source = TRUE;
+		break;
+	case EVENT_CODE_CATEGORY: {
+		struct event_category *category =
+			event_category_find_registered(arg);
+		if (category == NULL) {
+			*error_r = t_strdup_printf(
+				"Unregistered category: '%s'", arg);
+			return FALSE;
+		}
+		if (!array_is_created(&event->categories))
+			p_array_init(&event->categories, event->pool, 4);
+		if (!event_find_category(event, category))
+			array_push_back(&event->categories, &category);
+		break;
+	}
+	case EVENT_CODE_TV_LAST_SENT:
+		if (!event_import_tv(arg, args[1], &event->tv_last_sent,
+				     &error)) {
+			*error_r = t_strdup_printf(
+				"Invalid tv_last_sent: %s", error);
+			return FALSE;
+		}
+		args++;
+		break;
+	case EVENT_CODE_SENDING_NAME:
+		i_free(event->sending_name);
+		event->sending_name = i_strdup(arg);
+		break;
+	case EVENT_CODE_SOURCE: {
+		unsigned int linenum;
+
+		if (args[1] == NULL) {
+			*error_r = "Source line number missing";
+			return FALSE;
+		}
+		if (str_to_uint(args[1], &linenum) < 0) {
+			*error_r = "Invalid Source line number";
+			return FALSE;
+		}
+		event_set_source(event, arg, linenum, FALSE);
+		args++;
+		break;
+	}
+	case EVENT_CODE_FIELD_INTMAX:
+	case EVENT_CODE_FIELD_STR:
+	case EVENT_CODE_FIELD_TIMEVAL: {
+		args++;
+		if (!event_import_field(event, code, arg, &args, error_r))
+			return FALSE;
+		break;
+	}
+	}
+	*_args = args;
+	return TRUE;
+}
+
 bool event_import_unescaped(struct event *event, const char *const *args,
 			    const char **error_r)
 {
@@ -1214,65 +1283,8 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 
 	/* optional fields: */
 	while (*args != NULL) {
-		const char *arg = *args;
-		enum event_code code = arg[0];
-
-		arg++;
-		switch (code) {
-		case EVENT_CODE_ALWAYS_LOG_SOURCE:
-			event->always_log_source = TRUE;
-			break;
-		case EVENT_CODE_CATEGORY: {
-			struct event_category *category =
-				event_category_find_registered(arg);
-			if (category == NULL) {
-				*error_r = t_strdup_printf("Unregistered category: '%s'", arg);
-				return FALSE;
-			}
-			if (!array_is_created(&event->categories))
-				p_array_init(&event->categories, event->pool, 4);
-			if (!event_find_category(event, category))
-				array_push_back(&event->categories, &category);
-			break;
-		}
-		case EVENT_CODE_TV_LAST_SENT:
-			if (!event_import_tv(arg, args[1], &event->tv_last_sent,
-					     &error)) {
-				*error_r = t_strdup_printf(
-					"Invalid tv_last_sent: %s", error);
-				return FALSE;
-			}
-			args++;
-			break;
-		case EVENT_CODE_SENDING_NAME:
-			i_free(event->sending_name);
-			event->sending_name = i_strdup(arg);
-			break;
-		case EVENT_CODE_SOURCE: {
-			unsigned int linenum;
-
-			if (args[1] == NULL) {
-				*error_r = "Source line number missing";
-				return FALSE;
-			}
-			if (str_to_uint(args[1], &linenum) < 0) {
-				*error_r = "Invalid Source line number";
-				return FALSE;
-			}
-			event_set_source(event, arg, linenum, FALSE);
-			args++;
-			break;
-		}
-
-		case EVENT_CODE_FIELD_INTMAX:
-		case EVENT_CODE_FIELD_STR:
-		case EVENT_CODE_FIELD_TIMEVAL: {
-			args++;
-			if (!event_import_field(event, code, arg, &args, error_r))
-				return FALSE;
-			break;
-		}
-		}
+		if (!event_import_arg(event, &args, error_r))
+			return FALSE;
 		args++;
 	}
 	return TRUE;
