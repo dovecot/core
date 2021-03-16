@@ -323,14 +323,14 @@ void client_destroy(struct client *client, const char *reason)
 		client->authenticating = FALSE;
 		master_auth_request_abort(master_auth, client->master_tag);
 		client->refcount--;
-	} else if (client->auth_request != NULL) {
+	} else if (client->auth_request != NULL ||
+		   client->anvil_query != NULL) {
 		i_assert(client->authenticating);
 		sasl_server_auth_abort(client);
-	} else if (client->anvil_query != NULL) {
-		anvil_client_query_abort(anvil, &client->anvil_query);
-	} else {
-		i_assert(!client->authenticating);
 	}
+	i_assert(!client->authenticating);
+	i_assert(client->auth_request == NULL);
+	i_assert(client->anvil_query == NULL);
 
 	timeout_remove(&client->to_disconnect);
 	timeout_remove(&client->to_auth_waiting);

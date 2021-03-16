@@ -552,5 +552,7 @@ void sasl_server_auth_failed(struct client *client, const char *reason,
 void sasl_server_auth_abort(struct client *client)
 {
 	client->auth_try_aborted = TRUE;
+	if (client->anvil_query != NULL)
+		anvil_client_query_abort(anvil, &client->anvil_query);
 	sasl_server_auth_cancel(client, NULL, NULL, SASL_SERVER_REPLY_AUTH_ABORTED);
 }
