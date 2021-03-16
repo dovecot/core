@@ -810,10 +810,14 @@ event_find_field_int(const struct event *event, const char *key)
 const struct event_field *
 event_find_field(const struct event *event, const char *key)
 {
-	const struct event_field *field = event_find_field_int(event, key);
-	if (field != NULL || event->parent == NULL)
-		return field;
-	return event_find_field(event->parent, key);
+	const struct event_field *field;
+
+	do {
+		if ((field = event_find_field_int(event, key)) != NULL)
+			return field;
+		event = event->parent;
+	} while (event != NULL);
+	return NULL;
 }
 
 const char *
