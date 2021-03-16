@@ -31,6 +31,7 @@
 #include "client-common.h"
 
 struct client *clients = NULL;
+struct client *destroyed_clients = NULL;
 static struct client *last_client = NULL;
 static unsigned int clients_count = 0;
 
@@ -309,6 +310,7 @@ void client_destroy(struct client *client, const char *reason)
 	/* remove from clients linked list before it's added to
 	   client_fd_proxies. */
 	DLLIST_REMOVE(&clients, client);
+	DLLIST_PREPEND(&destroyed_clients, client);
 
 	client_disconnect(client, reason, !client->login_success);
 
@@ -413,6 +415,7 @@ bool client_unref(struct client **_client)
 	i_close_fd(&client->fd);
 	event_unref(&client->event);
 
+	DLLIST_REMOVE(&destroyed_clients, client);
 	i_free(client->proxy_user);
 	i_free(client->proxy_master_user);
 	i_free(client->virtual_user);
