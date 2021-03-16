@@ -147,7 +147,8 @@ event_call_callbacks_noargs(struct event *event,
 void event_copy_categories(struct event *to, struct event *from)
 {
 	unsigned int cat_count;
-	struct event_category *const *categories = event_get_categories(from, &cat_count);
+	struct event_category *const *categories =
+		event_get_categories(from, &cat_count);
 	for (unsigned int i = 1; i <= cat_count; i++)
 		event_add_category(to, categories[cat_count-i]);
 }
@@ -342,8 +343,10 @@ struct event *event_minimize(struct event *event)
 	skip_bound = NULL;
 	for (; cur != NULL; cur = cur->parent) {
 		if (cur->sent_to_stats_id == 0 &&
-		    (!array_is_created(&cur->fields) || array_is_empty(&cur->fields)) &&
-		    (!array_is_created(&cur->categories) || array_is_empty(&cur->categories)))
+		    (!array_is_created(&cur->fields) ||
+		     array_is_empty(&cur->fields)) &&
+		    (!array_is_created(&cur->categories) ||
+		     array_is_empty(&cur->categories)))
 			continue;
 
 		skip_bound = cur;
@@ -413,7 +416,8 @@ event_create_passthrough(struct event *parent, const char *source_filename,
 	if (!parent->passthrough) {
 		if (event_last_passthrough != NULL) {
 			/* API is being used in a wrong or dangerous way */
-			i_panic("Can't create multiple passthrough events - finish the earlier with ->event()");
+			i_panic("Can't create multiple passthrough events - "
+				"finish the earlier with ->event()");
 		}
 		struct event *event =
 			event_create(parent, source_filename, source_linenum);
@@ -654,7 +658,8 @@ struct event_category *event_category_find_registered(const char *name)
 	return NULL;
 }
 
-static struct event_internal_category *event_category_find_internal(const char *name)
+static struct event_internal_category *
+event_category_find_internal(const char *name)
 {
 	struct event_internal_category *const *internal;
 
@@ -672,15 +677,18 @@ event_get_registered_categories(unsigned int *count_r)
 	return array_get(&event_registered_categories_representative, count_r);
 }
 
-static void event_category_add_to_array(struct event_internal_category *internal)
+static void
+event_category_add_to_array(struct event_internal_category *internal)
 {
 	struct event_category *representative = &internal->representative;
 
 	array_push_back(&event_registered_categories_internal, &internal);
-	array_push_back(&event_registered_categories_representative, &representative);
+	array_push_back(&event_registered_categories_representative,
+			&representative);
 }
 
-static struct event_category *event_category_register(struct event_category *category)
+static struct event_category *
+event_category_register(struct event_category *category)
 {
 	struct event_internal_category *internal = category->internal;
 	event_category_callback_t *const *callbackp;
@@ -722,7 +730,8 @@ static struct event_category *event_category_register(struct event_category *cat
 		if ((category->parent != NULL) &&
 		    (internal->parent != category->parent->internal)) {
 			/* case 4 */
-			struct event_internal_category *other = category->parent->internal;
+			struct event_internal_category *other =
+				category->parent->internal;
 
 			i_panic("event category parent mismatch detected: "
 				"category %p internal %p (%s), "
@@ -739,8 +748,10 @@ static struct event_category *event_category_register(struct event_category *cat
 
 	category->internal = internal;
 
-	if (!allocated)
-		return &internal->representative; /* not the first registration of this category */
+	if (!allocated) {
+		/* not the first registration of this category */
+		return &internal->representative;
+	}
 
 	array_foreach(&event_category_callbacks, callbackp) T_BEGIN {
 		(*callbackp)(&internal->representative);
@@ -836,8 +847,8 @@ event_find_field_recursive_str(const struct event *event, const char *key)
 		return dec2str(field->value.intmax);
 	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
 		return t_strdup_printf("%"PRIdTIME_T".%u",
-				       field->value.timeval.tv_sec,
-				       (unsigned int)field->value.timeval.tv_usec);
+			field->value.timeval.tv_sec,
+			(unsigned int)field->value.timeval.tv_usec);
 	}
 	i_unreached();
 }
@@ -921,10 +932,13 @@ event_add_fields(struct event *event,
 	for (unsigned int i = 0; fields[i].key != NULL; i++) {
 		if (fields[i].value != NULL)
 			event_add_str(event, fields[i].key, fields[i].value);
-		else if (fields[i].value_timeval.tv_sec != 0)
-			event_add_timeval(event, fields[i].key, &fields[i].value_timeval);
-		else
-			event_add_int(event, fields[i].key, fields[i].value_intmax);
+		else if (fields[i].value_timeval.tv_sec != 0) {
+			event_add_timeval(event, fields[i].key,
+					  &fields[i].value_timeval);
+		} else {
+			event_add_int(event, fields[i].key,
+				      fields[i].value_intmax);
+		}
 	}
 	return event;
 }
@@ -1099,7 +1113,8 @@ void event_export(const struct event *event, string_t *dest)
 
 bool event_import(struct event *event, const char *str, const char **error_r)
 {
-	return event_import_unescaped(event, t_strsplit_tabescaped(str), error_r);
+	return event_import_unescaped(event, t_strsplit_tabescaped(str),
+				      error_r);
 }
 
 static bool event_import_tv(const char *arg_secs, const char *arg_usecs,
@@ -1170,8 +1185,10 @@ bool event_import_unescaped(struct event *event, const char *const *args,
 			break;
 		}
 		case EVENT_CODE_TV_LAST_SENT:
-			if (!event_import_tv(arg, args[1], &event->tv_last_sent, &error)) {
-				*error_r = t_strdup_printf("Invalid tv_last_sent: %s", error);
+			if (!event_import_tv(arg, args[1], &event->tv_last_sent,
+					     &error)) {
+				*error_r = t_strdup_printf(
+					"Invalid tv_last_sent: %s", error);
 				return FALSE;
 			}
 			args++;
@@ -1263,8 +1280,9 @@ void event_unregister_callback(event_callback_t *callback)
 
 	array_foreach(&event_handlers, callbackp) {
 		if (*callbackp == callback) {
-			array_delete(&event_handlers,
-				     array_foreach_idx(&event_handlers, callbackp), 1);
+			unsigned int idx =
+				array_foreach_idx(&event_handlers, callbackp);
+			array_delete(&event_handlers, idx, 1);
 			return;
 		}
 	}
@@ -1282,8 +1300,10 @@ void event_category_unregister_callback(event_category_callback_t *callback)
 
 	array_foreach(&event_category_callbacks, callbackp) {
 		if (*callbackp == callback) {
-			array_delete(&event_category_callbacks,
-				     array_foreach_idx(&event_category_callbacks, callbackp), 1);
+			unsigned int idx =
+				array_foreach_idx(&event_category_callbacks,
+						  callbackp);
+			array_delete(&event_category_callbacks, idx, 1);
 			return;
 		}
 	}

@@ -94,10 +94,12 @@ typedef const char *
 event_log_message_callback_t(void *context, enum log_type log_type,
 			     const char *message);
 
-/* Returns TRUE if the event has all the categories that the "other" event has (and maybe more). */
+/* Returns TRUE if the event has all the categories that the "other" event has
+   (and maybe more). */
 bool event_has_all_categories(struct event *event, const struct event *other);
-/* Returns TRUE if the event has all the fields that the "other" event has (and maybe more).
-   Only the fields in the events themselves are checked. Parent events' fields are not checked. */
+/* Returns TRUE if the event has all the fields that the "other" event has
+   (and maybe more). Only the fields in the events themselves are checked.
+   Parent events' fields are not checked. */
 bool event_has_all_fields(struct event *event, const struct event *other);
 
 /* Returns the source event duplicated into a new event. Event pointers are
@@ -200,19 +202,20 @@ struct event *
 event_drop_parent_log_prefixes(struct event *event, unsigned int count);
 
 /* Sets event prefix callback, sets log_prefix empty */
-struct event *event_set_log_prefix_callback(struct event *event,
-					    bool replace,
-					    event_log_prefix_callback_t *callback,
-					    void *context);
+struct event *
+event_set_log_prefix_callback(struct event *event, bool replace,
+			      event_log_prefix_callback_t *callback,
+			      void *context);
 #define event_set_log_prefix_callback(event, replace, callback, context) \
 	event_set_log_prefix_callback(event, replace, \
 		(event_log_prefix_callback_t*)callback, TRUE ? context : \
 		CALLBACK_TYPECHECK(callback, const char *(*)(typeof(context))))
 
 /* Sets event message amendment callback */
-struct event *event_set_log_message_callback(struct event *event,
-					     event_log_message_callback_t *callback,
-					     void *context);
+struct event *
+event_set_log_message_callback(struct event *event,
+			       event_log_message_callback_t *callback,
+			       void *context);
 #define event_set_log_message_callback(event, callback, context) \
 	event_set_log_message_callback(event, \
 		(event_log_message_callback_t*)callback, TRUE ? context : \
