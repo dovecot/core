@@ -88,7 +88,7 @@ static void test_auth_request_fields_list(void)
 
 		if (test->event_field != NULL) {
 			const char *value =
-				event_find_field_str(request->event, test->event_field);
+				event_find_field_recursive_str(request->event, test->event_field);
 			test_assert_idx(null_strcmp(value, test->value) == 0, i);
 		}
 	}
@@ -126,15 +126,15 @@ static void test_auth_request_fields_secured(void)
 
 	test_assert(auth_request_import(request, "secured", ""));
 	test_assert(test_auth_request_export_cmp(request, "secured", ""));
-	test_assert(null_strcmp(event_find_field_str(request->event, "transport"), "trusted") == 0);
+	test_assert(null_strcmp(event_find_field_recursive_str(request->event, "transport"), "trusted") == 0);
 
 	test_assert(auth_request_import(request, "secured", "tls"));
 	test_assert(test_auth_request_export_cmp(request, "secured", "tls"));
-	test_assert(null_strcmp(event_find_field_str(request->event, "transport"), "TLS") == 0);
+	test_assert(null_strcmp(event_find_field_recursive_str(request->event, "transport"), "TLS") == 0);
 
 	test_assert(auth_request_import(request, "secured", "blah"));
 	test_assert(test_auth_request_export_cmp(request, "secured", ""));
-	test_assert(null_strcmp(event_find_field_str(request->event, "transport"), "trusted") == 0);
+	test_assert(null_strcmp(event_find_field_recursive_str(request->event, "transport"), "trusted") == 0);
 	test_auth_request_deinit(request);
 }
 

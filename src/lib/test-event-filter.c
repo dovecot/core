@@ -140,13 +140,13 @@ static void test_event_filter_inc_int(void)
 	filter = event_filter_create();
 	event_filter_add(filter, &query);
 
-	const struct event_field *f = event_find_field(root, "int");
+	const struct event_field *f = event_find_field_recursive(root, "int");
 	i_assert(f == NULL);
 	test_assert(!event_filter_match(filter, root, &failure_ctx));
 
 	event_inc_int(root, "int", 7);
 	test_assert(!event_filter_match(filter, root, &failure_ctx));
-	f = event_find_field(root, "int");
+	f = event_find_field_recursive(root, "int");
 	i_assert(f != NULL);
 	test_assert_strcmp(f->key, "int");
 	test_assert(f->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX);
@@ -154,7 +154,7 @@ static void test_event_filter_inc_int(void)
 
 	event_inc_int(root, "int", 7);
 	test_assert(event_filter_match(filter, root, &failure_ctx));
-	f = event_find_field(root, "int");
+	f = event_find_field_recursive(root, "int");
 	i_assert(f != NULL);
 	test_assert_strcmp(f->key, "int");
 	test_assert(f->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX);

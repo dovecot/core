@@ -132,7 +132,7 @@ static void tabtext_export_fields(string_t *dest, struct event *event,
 			const char *name = fields[i].field_key;
 			const struct event_field *field;
 
-			field = event_find_field(event, name);
+			field = event_find_field_recursive(event, name);
 			if (field == NULL)
 				continue; /* doesn't exist, skip it */
 

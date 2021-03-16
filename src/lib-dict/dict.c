@@ -219,7 +219,7 @@ void dict_post_api_callback(struct dict *dict)
 static void dict_lookup_finished(struct event *event, int ret, const char *error)
 {
 	i_assert(ret >= 0 || error != NULL);
-	const char *key = event_find_field_str(event, "key");
+	const char *key = event_find_field_recursive_str(event, "key");
 	if (ret < 0)
 		event_add_str(event, "error", error);
 	else if (ret == 0)

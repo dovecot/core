@@ -525,7 +525,7 @@ event_match_field(struct event *event, const struct event_field *wanted_field,
 	const struct event_field *field;
 
 	/* wanted_field has the value in all available formats */
-	field = event_find_field(event, wanted_field->key);
+	field = event_find_field_recursive(event, wanted_field->key);
 	if (field == NULL) {
 		/* field="" matches nonexistent field */
 		return wanted_field->value.str[0] == '\0';

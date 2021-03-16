@@ -41,8 +41,8 @@ static void do_test_expr(const char *filter_string, struct event *event,
 	test_begin(t_strdup_printf("%.*s log type + event {a=%s, b=%s} + filter '%s' (exp %s)",
 				   3, /* truncate the type name to avoid CI seeing 'warning' messages */
 				   event_filter_category_from_log_type(log_type),
-				   event_find_field_str(event, "a"),
-				   event_find_field_str(event, "b"),
+				   event_find_field_recursive_str(event, "a"),
+				   event_find_field_recursive_str(event, "b"),
 				   filter_string,
 				   expected ? "true" : "false"));
 

@@ -426,7 +426,8 @@ static void
 stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 {
 	const struct stats_metric_settings_group_by *group_by = &metric->group_by[0];
-	const struct event_field *field = event_find_field(event, group_by->field);
+	const struct event_field *field =
+		event_find_field_recursive(event, group_by->field);
 	struct metric *sub_metric;
 	struct metric_value value;
 
@@ -479,7 +480,8 @@ static void
 stats_metric_event_field(struct event *event, const char *fieldname,
 			 struct stats_dist *stats)
 {
-	const struct event_field *field = event_find_field(event, fieldname);
+	const struct event_field *field =
+		event_find_field_recursive(event, fieldname);
 	intmax_t num = 0;
 
 	if (field == NULL)

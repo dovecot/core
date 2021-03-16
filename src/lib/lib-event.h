@@ -301,12 +301,12 @@ void event_get_last_duration(const struct event *event,
 /* Returns field for a given key, or NULL if it doesn't exist. If the key
    isn't found from the event itself, find it from parent events. */
 const struct event_field *
-event_find_field(const struct event *event, const char *key);
+event_find_field_recursive(const struct event *event, const char *key);
 /* Returns the given key's value as string, or NULL if it doesn't exist.
    If the field isn't stored as a string, the result is allocated from
    data stack. */
 const char *
-event_find_field_str(const struct event *event, const char *key);
+event_find_field_recursive_str(const struct event *event, const char *key);
 /* Returns all key=value fields that the event has.
    Parent events' fields aren't returned. */
 const struct event_field *
