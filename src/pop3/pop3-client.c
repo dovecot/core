@@ -744,8 +744,13 @@ bool client_handle_input(struct client *client)
 			*args++ = '\0';
 
 		T_BEGIN {
+			const char *reason_code =
+				event_reason_code_prefix("pop3", "cmd_", line);
+			struct event_reason *reason =
+				event_reason_begin(reason_code);
 			ret = client_command_execute(client, line,
 						     args != NULL ? args : "");
+			event_reason_end(&reason);
 		} T_END;
 		if (ret >= 0) {
 			client->bad_counter = 0;
