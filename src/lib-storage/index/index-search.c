@@ -1402,12 +1402,16 @@ static int search_match_once(struct index_search_context *ctx)
 {
 	int ret;
 
+	/* Use search as the reason only while specifically matching the search
+	   parameters, not while prefetching wanted_fields. */
+	struct event_reason *reason = event_reason_begin("mailbox:search");
 	ret = mail_search_args_foreach(ctx->mail_ctx.args->args,
 				       search_cached_arg, ctx);
 	if (ret < 0)
 		ret = search_arg_match_text(ctx->mail_ctx.args->args, ctx);
 	if (ret < 0)
 		ret = index_search_mime_arg_match(ctx->mail_ctx.args->args, ctx);
+	event_reason_end(&reason);
 	return ret;
 }
 
