@@ -390,7 +390,9 @@ int index_mailbox_get_virtual_size(struct mailbox *box,
 	   anyway internally even though we won't be saving the result. */
 	(void)index_mailbox_vsize_update_wait_lock(update);
 
+	struct event_reason *reason = event_reason_begin("mailbox:vsize");
 	ret = index_mailbox_vsize_hdr_add_missing(update, TRUE);
+	event_reason_end(&reason);
 	metadata_r->virtual_size = update->vsize_hdr.vsize;
 	index_mailbox_vsize_update_deinit(&update);
 	return ret;
@@ -474,8 +476,12 @@ void index_mailbox_vsize_update_appends(struct mailbox *box)
 		   a remote STATUS (UIDNEXT) call. */
 		mailbox_get_open_status(update->box, STATUS_UIDNEXT, &status);
 		if (update->vsize_hdr.highest_uid + 1 != status.uidnext &&
-		    index_mailbox_vsize_update_try_lock(update))
+		    index_mailbox_vsize_update_try_lock(update)) {
+			struct event_reason *reason =
+				event_reason_begin("mailbox:vsize");
 			(void)index_mailbox_vsize_hdr_add_missing(update, FALSE);
+			event_reason_end(&reason);
+		}
 	}
 	index_mailbox_vsize_update_deinit(&update);
 }
