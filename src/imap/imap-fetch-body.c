@@ -251,6 +251,8 @@ body_header_fields_parse(struct imap_fetch_init_context *ctx,
 	const char *value;
 	size_t i;
 
+	ctx->fetch_ctx->fetch_header_fields = TRUE;
+
 	str = str_new(ctx->pool, 128);
 	str_append(str, prefix);
 	str_append(str, " (");

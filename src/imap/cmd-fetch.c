@@ -283,6 +283,46 @@ static bool cmd_fetch_continue(struct client_command_context *cmd)
 	return cmd_fetch_finish(ctx, cmd);
 }
 
+static void cmd_fetch_set_reason_codes(struct client_command_context *cmd,
+				       struct imap_fetch_context *ctx)
+{
+	/* Fetching body or header always causes the message to be opened.
+	   Use them as the primary reason. */
+	if ((ctx->fetch_data & MAIL_FETCH_STREAM_BODY) != 0) {
+		event_strlist_append(cmd->global_event, EVENT_REASON_CODE,
+				     "imap:fetch_body");
+		return;
+	}
+	if ((ctx->fetch_data & MAIL_FETCH_STREAM_HEADER) != 0) {
+		event_strlist_append(cmd->global_event, EVENT_REASON_CODE,
+				     "imap:fetch_header");
+		return;
+	}
+
+	/* The rest of these can come from cache. Since especially with
+	   prefetching we can't really know which one of them specifically
+	   triggered opening the mail, just use all of them as the reasons. */
+	if (ctx->fetch_header_fields ||
+	    HAS_ANY_BITS(ctx->fetch_data,
+			 MAIL_FETCH_IMAP_ENVELOPE |
+			 MAIL_FETCH_DATE)) {
+		event_strlist_append(cmd->global_event, EVENT_REASON_CODE,
+				     "imap:fetch_header_fields");
+	}
+	if (HAS_ANY_BITS(ctx->fetch_data,
+			 MAIL_FETCH_IMAP_BODY |
+			 MAIL_FETCH_IMAP_BODYSTRUCTURE)) {
+		event_strlist_append(cmd->global_event, EVENT_REASON_CODE,
+				     "imap:fetch_bodystructure");
+	}
+	if (HAS_ANY_BITS(ctx->fetch_data,
+			 MAIL_FETCH_PHYSICAL_SIZE |
+			 MAIL_FETCH_VIRTUAL_SIZE)) {
+		event_strlist_append(cmd->global_event, EVENT_REASON_CODE,
+				     "imap:fetch_size");
+	}
+}
+
 bool cmd_fetch(struct client_command_context *cmd)
 {
 	struct client *client = cmd->client;
@@ -335,6 +375,7 @@ bool cmd_fetch(struct client_command_context *cmd)
 		}
 	}
 
+	cmd_fetch_set_reason_codes(cmd, ctx);
 	imap_fetch_begin(ctx, client->mailbox, search_args);
 	mail_search_args_unref(&search_args);
 

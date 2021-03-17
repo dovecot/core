@@ -100,6 +100,8 @@ struct imap_fetch_context {
 	bool flags_have_handler:1;
 	bool flags_update_seen:1;
 	bool flags_show_only_seen_changes:1;
+	/* HEADER.FIELDS or HEADER.FIELDS.NOT is fetched */
+	bool fetch_header_fields:1;
 };
 
 void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
