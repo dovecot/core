@@ -286,7 +286,9 @@ void index_sort_list_finish(struct mail_search_sort_program *program)
 	static_node_cmp_context.reverse =
 		(program->sort_program[0] & MAIL_SORT_FLAG_REVERSE) != 0;
 
+	struct event_reason *reason = event_reason_begin("mailbox:sort");
 	program->sort_list_finish(program);
+	event_reason_end(&reason);
 }
 
 bool index_sort_list_next(struct mail_search_sort_program *program,
