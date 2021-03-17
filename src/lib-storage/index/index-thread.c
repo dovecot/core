@@ -548,6 +548,7 @@ int mail_thread_init(struct mailbox *box, struct mail_search_args *args,
 
 	i_assert(tbox->ctx == NULL);
 
+	struct event_reason *reason = event_reason_begin("mailbox:thread");
 	if (args != NULL)
 		mail_search_args_ref(args);
 	else {
@@ -576,6 +577,7 @@ int mail_thread_init(struct mailbox *box, struct mail_search_args *args,
 		if (ctx->corrupted)
 			mail_index_strmap_view_set_corrupted(tbox->strmap_view);
 	}
+	event_reason_end(&reason);
 	if (ret < 0) {
 		mail_thread_deinit(&ctx);
 		return -1;
