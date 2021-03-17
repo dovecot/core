@@ -293,18 +293,60 @@ static void lazy_expunge_set_error(struct lazy_expunge_transaction *lt,
 		i_strdup(mail_storage_get_last_internal_error(storage, NULL));
 }
 
-static void lazy_expunge_mail_expunge(struct mail *_mail)
+static void lazy_expunge_mail_expunge_move(struct mail *_mail)
 {
 	struct mail_namespace *ns = _mail->box->list->ns;
 	struct lazy_expunge_mail_user *luser =
 		LAZY_EXPUNGE_USER_CONTEXT_REQUIRE(ns->user);
 	struct mail_private *mail = (struct mail_private *)_mail;
-	struct lazy_expunge_mail *mmail = LAZY_EXPUNGE_MAIL_CONTEXT_REQUIRE(mail);
+	struct lazy_expunge_mail *mmail =
+		LAZY_EXPUNGE_MAIL_CONTEXT_REQUIRE(mail);
 	struct lazy_expunge_transaction *lt =
 		LAZY_EXPUNGE_CONTEXT_REQUIRE(_mail->transaction);
-	struct mail *real_mail;
 	struct mail_save_context *save_ctx;
 	const char *error;
+
+	if (lt->dest_box == NULL) {
+		lt->dest_box = mailbox_open_or_create(luser->lazy_ns->list,
+						      _mail->box, &error);
+		if (lt->dest_box == NULL) {
+			mail_set_critical(_mail,
+				"lazy_expunge: Couldn't open expunge mailbox: "
+				"%s", error);
+			lazy_expunge_set_error(lt, _mail->box->storage);
+			return;
+		}
+		if (mailbox_sync(lt->dest_box, 0) < 0) {
+			mail_set_critical(_mail,
+				"lazy_expunge: Couldn't sync expunge mailbox");
+			lazy_expunge_set_error(lt, lt->dest_box->storage);
+			mailbox_free(&lt->dest_box);
+			return;
+		}
+
+		lt->dest_trans = mailbox_transaction_begin(lt->dest_box,
+					  MAILBOX_TRANSACTION_FLAG_EXTERNAL,
+					  __func__);
+	}
+
+	save_ctx = mailbox_save_alloc(lt->dest_trans);
+	mailbox_save_copy_flags(save_ctx, _mail);
+	save_ctx->data.flags &= ENUM_NEGATE(MAIL_DELETED);
+
+	mmail->recursing = TRUE;
+	if (mailbox_move(&save_ctx, _mail) < 0 && !_mail->expunged)
+		lazy_expunge_set_error(lt, lt->dest_box->storage);
+	mmail->recursing = FALSE;
+}
+
+static void lazy_expunge_mail_expunge(struct mail *_mail)
+{
+	struct lazy_expunge_transaction *lt =
+		LAZY_EXPUNGE_CONTEXT_REQUIRE(_mail->transaction);
+	struct mail_private *mail = (struct mail_private *)_mail;
+	struct lazy_expunge_mail *mmail =
+		LAZY_EXPUNGE_MAIL_CONTEXT_REQUIRE(mail);
+	struct mail *real_mail;
 	bool moving = mmail->moving;
 	int ret;
 
@@ -344,38 +386,7 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 			return;
 		}
 	}
-
-	if (lt->dest_box == NULL) {
-		lt->dest_box = mailbox_open_or_create(luser->lazy_ns->list,
-						      _mail->box, &error);
-		if (lt->dest_box == NULL) {
-			mail_set_critical(_mail,
-				"lazy_expunge: Couldn't open expunge mailbox: "
-				"%s", error);
-			lazy_expunge_set_error(lt, _mail->box->storage);
-			return;
-		}
-		if (mailbox_sync(lt->dest_box, 0) < 0) {
-			mail_set_critical(_mail,
-				"lazy_expunge: Couldn't sync expunge mailbox");
-			lazy_expunge_set_error(lt, lt->dest_box->storage);
-			mailbox_free(&lt->dest_box);
-			return;
-		}
-
-		lt->dest_trans = mailbox_transaction_begin(lt->dest_box,
-					  MAILBOX_TRANSACTION_FLAG_EXTERNAL,
-					  __func__);
-	}
-
-	save_ctx = mailbox_save_alloc(lt->dest_trans);
-	mailbox_save_copy_flags(save_ctx, _mail);
-	save_ctx->data.flags &= ENUM_NEGATE(MAIL_DELETED);
-
-	mmail->recursing = TRUE;
-	if (mailbox_move(&save_ctx, _mail) < 0 && !_mail->expunged)
-		lazy_expunge_set_error(lt, lt->dest_box->storage);
-	mmail->recursing = FALSE;
+	lazy_expunge_mail_expunge_move(_mail);
 }
 
 static int lazy_expunge_copy(struct mail_save_context *ctx, struct mail *_mail)
