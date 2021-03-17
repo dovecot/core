@@ -1621,3 +1621,14 @@ void smtp_server_connection_switch_ioloop(struct smtp_server_connection *conn)
 		conn->to_idle = io_loop_move_timeout(&conn->to_idle);
 	connection_switch_ioloop(&conn->conn);
 }
+
+struct event_reason *
+smtp_server_connection_reason_begin(struct smtp_server_connection *conn,
+				    const char *name)
+{
+	if (conn->set.reason_code_module == NULL)
+		return NULL;
+	const char *reason_code =
+		event_reason_code(conn->set.reason_code_module, name);
+	return event_reason_begin(reason_code);
+}

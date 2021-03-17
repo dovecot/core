@@ -324,6 +324,8 @@ struct smtp_server_settings {
 	/* Enabled workarounds for client protocol deviations */
 	enum smtp_server_workarounds workarounds;
 
+	/* Module name for event reason codes. */
+	const char *reason_code_module;
 	/* Our hostname as presented to the client */
 	const char *hostname;
 	/* The message sent in the SMTP server greeting */

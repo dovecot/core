@@ -33,6 +33,8 @@ struct smtp_server *smtp_server_init(const struct smtp_server_settings *set)
 	server = p_new(pool, struct smtp_server, 1);
 	server->pool = pool;
 	server->set.protocol = set->protocol;
+	server->set.reason_code_module =
+		p_strdup(pool, set->reason_code_module);
 	server->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
 
 	if (set->ssl != NULL) {

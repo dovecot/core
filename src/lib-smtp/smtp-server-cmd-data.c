@@ -275,8 +275,11 @@ static int cmd_data_do_handle_input(struct smtp_server_cmd_ctx *cmd)
 
 	i_assert(callbacks != NULL &&
 		 callbacks->conn_cmd_data_continue != NULL);
+	struct event_reason *reason =
+		smtp_server_connection_reason_begin(conn, "cmd_data");
 	ret = callbacks->conn_cmd_data_continue(conn->context,
 		cmd, conn->state.trans);
+	event_reason_end(&reason);
 	if (ret >= 0) {
 		if (!smtp_server_cmd_data_check_size(cmd)) {
 			return -1;
@@ -396,8 +399,12 @@ cmd_data_next(struct smtp_server_cmd_ctx *cmd,
 		i_assert(callbacks != NULL &&
 			 callbacks->conn_cmd_data_begin != NULL);
 		i_assert(conn->state.data_input != NULL);
-		if (callbacks->conn_cmd_data_begin(conn->context,
-			cmd, conn->state.trans, conn->state.data_input) < 0) {
+		struct event_reason *reason =
+			smtp_server_connection_reason_begin(conn, "cmd_data");
+		int ret = callbacks->conn_cmd_data_begin(conn->context,
+			cmd, conn->state.trans, conn->state.data_input);
+		event_reason_end(&reason);
+		if (ret < 0) {
 			i_assert(smtp_server_command_is_replied(cmd_temp));
 			/* command failed */
 			smtp_server_command_unref(&cmd_temp);

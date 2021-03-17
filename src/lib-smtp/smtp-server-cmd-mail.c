@@ -189,7 +189,10 @@ void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd,
 	smtp_server_command_ref(command);
 	if (callbacks != NULL && callbacks->conn_cmd_mail != NULL) {
 		/* Specific implementation of MAIL command */
+		struct event_reason *reason =
+			smtp_server_connection_reason_begin(conn, "cmd_mail");
 		ret = callbacks->conn_cmd_mail(conn->context, cmd, mail_data);
+		event_reason_end(&reason);
 		if (ret <= 0) {
 			i_assert(ret == 0 ||
 				 smtp_server_command_is_replied(command));

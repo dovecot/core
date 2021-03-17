@@ -210,7 +210,11 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 
 	smtp_server_command_ref(command);
 	i_assert(callbacks != NULL && callbacks->conn_cmd_rcpt != NULL);
+
+	struct event_reason *reason =
+		smtp_server_connection_reason_begin(conn, "cmd_rcpt");
 	ret = callbacks->conn_cmd_rcpt(conn->context, cmd, rcpt);
+	event_reason_end(&reason);
 	if (ret <= 0) {
 		i_assert(ret == 0 || smtp_server_command_is_replied(command));
 		/* Command is waiting for external event or it failed */

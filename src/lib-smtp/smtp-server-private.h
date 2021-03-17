@@ -306,6 +306,10 @@ void smtp_server_connection_debug(struct smtp_server_connection *conn,
 
 struct connection_list *smtp_server_connection_list_init(void);
 
+struct event_reason *
+smtp_server_connection_reason_begin(struct smtp_server_connection *conn,
+				    const char *name);
+
 void smtp_server_connection_switch_ioloop(struct smtp_server_connection *conn);
 
 void smtp_server_connection_handle_output_error(
