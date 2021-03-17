@@ -380,6 +380,7 @@ int main(int argc, char *argv[])
 	smtp_server_set.protocol = SMTP_PROTOCOL_SMTP;
 	smtp_server_set.max_pipelined_commands = 5;
 	smtp_server_set.debug = submission_debug;
+	smtp_server_set.reason_code_module = "submission";
 	smtp_server = smtp_server_init(&smtp_server_set);
 	smtp_server_command_register(smtp_server, "BURL", cmd_burl, 0);
 
