@@ -106,14 +106,14 @@ static bool openssl_hostname_equals(const char *ssl_name, const char *host)
 {
 	const char *p;
 
-	if (strcmp(ssl_name, host) == 0)
+	if (strcasecmp(ssl_name, host) == 0)
 		return TRUE;
 
 	/* check for *.example.com wildcard */
 	if (ssl_name[0] != '*' || ssl_name[1] != '.')
 		return FALSE;
 	p = strchr(host, '.');
-	return p != NULL && strcmp(ssl_name+2, p+1) == 0;
+	return p != NULL && strcasecmp(ssl_name+2, p+1) == 0;
 }
 
 bool openssl_cert_match_name(SSL *ssl, const char *verify_name,
