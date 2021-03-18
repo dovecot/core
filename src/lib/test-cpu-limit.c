@@ -10,7 +10,8 @@
 #include <sys/resource.h>
 
 /* The CPU limits aren't exact. Allow this much leniency in the time
-   comparisons. */
+   comparisons. Note that system CPU usage can grow very large on loaded
+   systems, so we're not checking its upper limit at all. */
 #define ALLOW_MSECS_BELOW 500
 #define ALLOW_MSECS_ABOVE 3000
 
@@ -67,7 +68,8 @@ test_cpu_limit_simple(enum cpu_limit_type type, const char *type_str)
 	cpu = get_cpu_time(type);
 	diff_msecs = timeval_diff_msecs(&cpu, &usage);
 	test_assert_cmp(diff_msecs, >=, 2000 - ALLOW_MSECS_BELOW);
-	test_assert_cmp(diff_msecs, <=, 2000 + ALLOW_MSECS_ABOVE);
+	if ((type & CPU_LIMIT_TYPE_SYSTEM) == 0)
+		test_assert_cmp(diff_msecs, <=, 2000 + ALLOW_MSECS_ABOVE);
 
 	lib_signals_deinit();
 	test_end();
@@ -98,14 +100,16 @@ static void test_cpu_limit_nested(enum cpu_limit_type type, const char *type_str
 		/* we may have looped only for a short time in case climit1
 		   was triggered during this loop. */
 		diff_msecs = timeval_diff_msecs(&cpu, &usage2);
-		test_assert_cmp(diff_msecs, <=, 1000 + ALLOW_MSECS_ABOVE);
+		if ((type & CPU_LIMIT_TYPE_SYSTEM) == 0)
+			test_assert_cmp(diff_msecs, <=, 1000 + ALLOW_MSECS_ABOVE);
 	}
 
 	cpu_limit_deinit(&climit1);
 	cpu = get_cpu_time(type);
 	diff_msecs = timeval_diff_msecs(&cpu, &usage1);
 	test_assert_cmp(diff_msecs, >=, 3000 - ALLOW_MSECS_BELOW);
-	test_assert_cmp(diff_msecs, <=, 3000 + ALLOW_MSECS_ABOVE);
+	if ((type & CPU_LIMIT_TYPE_SYSTEM) == 0)
+		test_assert_cmp(diff_msecs, <=, 3000 + ALLOW_MSECS_ABOVE);
 
 	lib_signals_deinit();
 	test_end();
@@ -134,14 +138,16 @@ static void test_cpu_limit_nested(enum cpu_limit_type type, const char *type_str
 		/* we may have looped only for a short time in case climit1
 		   was triggered during this loop. */
 		diff_msecs = timeval_diff_msecs(&cpu, &usage2);
-		test_assert_cmp(diff_msecs, <=, 1000 + ALLOW_MSECS_ABOVE);
+		if ((type & CPU_LIMIT_TYPE_SYSTEM) == 0)
+			test_assert_cmp(diff_msecs, <=, 1000 + ALLOW_MSECS_ABOVE);
 	}
 
 	cpu_limit_deinit(&climit1);
 	cpu = get_cpu_time(type);
 	diff_msecs = timeval_diff_msecs(&cpu, &usage1);
 	test_assert_cmp(diff_msecs, >=, 3000 - ALLOW_MSECS_BELOW);
-	test_assert_cmp(diff_msecs, <=, 3000 + ALLOW_MSECS_ABOVE);
+	if ((type & CPU_LIMIT_TYPE_SYSTEM) == 0)
+		test_assert_cmp(diff_msecs, <=, 3000 + ALLOW_MSECS_ABOVE);
 
 	i_unlink_if_exists(test_path);
 	lib_signals_deinit();
