@@ -461,6 +461,22 @@ stats_metric_group_by_get_label(const struct event_field *field,
 	i_panic("unknown group-by function %d", group_by->func);
 }
 
+static const char *
+stats_metric_group_by_value_label(const struct event_field *field,
+				  const struct stats_metric_settings_group_by *group_by,
+				  const struct metric_value *value)
+{
+	switch (value->type) {
+	case METRIC_VALUE_TYPE_STR:
+		return field->value.str;
+	case METRIC_VALUE_TYPE_INT:
+		return dec2str(field->value.intmax);
+	case METRIC_VALUE_TYPE_BUCKET_INDEX:
+		return stats_metric_group_by_get_label(field, group_by, value);
+	}
+	i_unreached();
+}
+
 static void
 stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 {
@@ -483,22 +499,9 @@ stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 	sub_metric = stats_metric_get_sub_metric(metric, &value);
 
 	if (sub_metric == NULL) T_BEGIN {
-		const char *value_label = NULL;
-
-		switch (value.type) {
-		case METRIC_VALUE_TYPE_STR:
-			value_label = field->value.str;
-			break;
-		case METRIC_VALUE_TYPE_INT:
-			value_label = dec2str(field->value.intmax);
-			break;
-		case METRIC_VALUE_TYPE_BUCKET_INDEX:
-			value_label = stats_metric_group_by_get_label(field,
-								      group_by,
-								      &value);
-			break;
-		}
-
+		const char *value_label =
+			stats_metric_group_by_value_label(field, group_by,
+							  &value);
 		sub_metric = stats_metric_sub_metric_alloc(metric, value_label,
 							   pool);
 		if (metric->group_by_count > 1) {
