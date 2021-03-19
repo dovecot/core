@@ -526,6 +526,23 @@ stats_metric_group_by_field(struct metric *metric, struct event *event,
 }
 
 static void
+stats_event_get_strlist(struct event *event, const char *name,
+			ARRAY_TYPE(const_string) *strings)
+{
+	if (event == NULL)
+		return;
+
+	const struct event_field *field =
+		event_find_field_nonrecursive(event, name);
+	if (field != NULL) {
+		const char *str;
+		array_foreach_elem(&field->value.strlist, str)
+			array_push_back(strings, &str);
+	}
+	stats_event_get_strlist(event_get_parent(event), name, strings);
+}
+
+static void
 stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 {
 	const struct event_field *field =
@@ -535,7 +552,36 @@ stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 	if (field == NULL)
 		return;
 
-	stats_metric_group_by_field(metric, event, field, pool);
+	if (field->value_type != EVENT_FIELD_VALUE_TYPE_STRLIST)
+		stats_metric_group_by_field(metric, event, field, pool);
+	else {
+		/* Handle each string in strlist separately. The strlist needs
+		   to be combined from the event and its parents, as well as
+		   the global event and its parents. */
+		ARRAY_TYPE(const_string) strings;
+
+		t_array_init(&strings, 8);
+		stats_event_get_strlist(event, metric->group_by[0].field,
+					&strings);
+		stats_event_get_strlist(event_get_global(),
+					metric->group_by[0].field, &strings);
+
+		struct event_field str_field = {
+			.value_type = EVENT_FIELD_VALUE_TYPE_STR,
+		};
+		const char *str;
+
+		/* sort strings so duplicates can be easily skipped */
+		array_sort(&strings, i_strcmp_p);
+		array_foreach_elem(&strings, str) {
+			if (str_field.value.str == NULL ||
+			    strcmp(str_field.value.str, str) != 0) {
+				str_field.value.str = str;
+				stats_metric_group_by_field(metric, event,
+							    &str_field, pool);
+			}
+		}
+	}
 }
 
 static void
