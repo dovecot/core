@@ -477,45 +477,65 @@ stats_metric_group_by_value_label(const struct event_field *field,
 	i_unreached();
 }
 
+static struct metric *
+stats_metric_get_sub_metric(struct metric *metric,
+			    const struct event_field *field,
+			    const struct metric_value *value,
+			    pool_t pool)
+{
+	struct metric *sub_metric;
+
+	sub_metric = stats_metric_find_sub_metric(metric, value);
+	if (sub_metric != NULL)
+		return sub_metric;
+
+	T_BEGIN {
+		const char *value_label =
+			stats_metric_group_by_value_label(field,
+				&metric->group_by[0], value);
+		sub_metric = stats_metric_sub_metric_alloc(metric, value_label,
+							   pool);
+	} T_END;
+	if (metric->group_by_count > 1) {
+		sub_metric->group_by_count = metric->group_by_count - 1;
+		sub_metric->group_by = &metric->group_by[1];
+	}
+	sub_metric->group_value.type = value->type;
+	sub_metric->group_value.intmax = value->intmax;
+	memcpy(sub_metric->group_value.hash, value->hash, SHA1_RESULTLEN);
+	return sub_metric;
+}
+
+static void
+stats_metric_group_by_field(struct metric *metric, struct event *event,
+			    const struct event_field *field, pool_t pool)
+{
+	struct metric *sub_metric;
+	struct metric_value value;
+
+	if (!stats_metric_group_by_get_value(field, &metric->group_by[0], &value))
+		return;
+
+	if (!array_is_created(&metric->sub_metrics))
+		p_array_init(&metric->sub_metrics, pool, 8);
+	sub_metric = stats_metric_get_sub_metric(metric, field, &value, pool);
+
+	/* sub-metrics are recursive, so each sub-metric can have additional
+	   sub-metrics. */
+	stats_metric_event(sub_metric, event, pool);
+}
+
 static void
 stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 {
-	const struct stats_metric_settings_group_by *group_by = &metric->group_by[0];
 	const struct event_field *field =
-		event_find_field_recursive(event, group_by->field);
-	struct metric *sub_metric;
-	struct metric_value value;
+		event_find_field_recursive(event, metric->group_by[0].field);
 
 	/* ignore missing field */
 	if (field == NULL)
 		return;
 
-	if (!stats_metric_group_by_get_value(field, group_by, &value))
-		return;
-
-	if (!array_is_created(&metric->sub_metrics))
-		p_array_init(&metric->sub_metrics, pool, 8);
-
-	sub_metric = stats_metric_find_sub_metric(metric, &value);
-
-	if (sub_metric == NULL) T_BEGIN {
-		const char *value_label =
-			stats_metric_group_by_value_label(field, group_by,
-							  &value);
-		sub_metric = stats_metric_sub_metric_alloc(metric, value_label,
-							   pool);
-		if (metric->group_by_count > 1) {
-			sub_metric->group_by_count = metric->group_by_count - 1;
-			sub_metric->group_by = &metric->group_by[1];
-		}
-		sub_metric->group_value.type = value.type;
-		sub_metric->group_value.intmax = value.intmax;
-		memcpy(sub_metric->group_value.hash, value.hash, SHA1_RESULTLEN);
-	} T_END;
-
-	/* sub-metrics are recursive, so each sub-metric can have additional
-	   sub-metrics. */
-	stats_metric_event(sub_metric, event, pool);
+	stats_metric_group_by_field(metric, event, field, pool);
 }
 
 static void
