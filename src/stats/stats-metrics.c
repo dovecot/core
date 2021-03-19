@@ -299,8 +299,8 @@ stats_metrics_get_event_filter(struct stats_metrics *metrics)
 }
 
 static struct metric *
-stats_metric_get_sub_metric(struct metric *metric,
-			    const struct metric_value *value)
+stats_metric_find_sub_metric(struct metric *metric,
+			     const struct metric_value *value)
 {
 	struct metric *sub_metrics;
 
@@ -496,7 +496,7 @@ stats_metric_group_by(struct metric *metric, struct event *event, pool_t pool)
 	if (!array_is_created(&metric->sub_metrics))
 		p_array_init(&metric->sub_metrics, pool, 8);
 
-	sub_metric = stats_metric_get_sub_metric(metric, &value);
+	sub_metric = stats_metric_find_sub_metric(metric, &value);
 
 	if (sub_metric == NULL) T_BEGIN {
 		const char *value_label =
