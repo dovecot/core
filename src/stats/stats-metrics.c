@@ -343,19 +343,19 @@ stats_metric_sub_metric_alloc(struct metric *metric, const char *name, pool_t po
 
 static bool
 stats_metric_group_by_discrete(const struct event_field *field,
-			       struct metric_value *value)
+			       struct metric_value *value_r)
 {
 	switch (field->value_type) {
 	case EVENT_FIELD_VALUE_TYPE_STR:
-		value->type = METRIC_VALUE_TYPE_STR;
+		value_r->type = METRIC_VALUE_TYPE_STR;
 		/* use sha1 of value to avoid excessive memory usage in case the
 		   actual value is quite long */
 		sha1_get_digest(field->value.str, strlen(field->value.str),
-				value->hash);
+				value_r->hash);
 		return TRUE;
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
-		value->type = METRIC_VALUE_TYPE_INT;
-		value->intmax = field->value.intmax;
+		value_r->type = METRIC_VALUE_TYPE_INT;
+		value_r->intmax = field->value.intmax;
 		return TRUE;
 	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
 		return FALSE;
@@ -369,7 +369,7 @@ stats_metric_group_by_discrete(const struct event_field *field,
 /* convert the value to a bucket index */
 static bool
 stats_metric_group_by_quantized(const struct event_field *field,
-				struct metric_value *value,
+				struct metric_value *value_r,
 				const struct stats_metric_settings_group_by *group_by)
 {
 	switch (field->value_type) {
@@ -381,14 +381,14 @@ stats_metric_group_by_quantized(const struct event_field *field,
 		break;
 	}
 
-	value->type = METRIC_VALUE_TYPE_BUCKET_INDEX;
+	value_r->type = METRIC_VALUE_TYPE_BUCKET_INDEX;
 
 	for (unsigned int i = 0; i < group_by->num_ranges; i++) {
 		if ((field->value.intmax <= group_by->ranges[i].min) ||
 		    (field->value.intmax > group_by->ranges[i].max))
 			continue;
 
-		value->intmax = i;
+		value_r->intmax = i;
 		return TRUE;
 	}
 
@@ -429,15 +429,15 @@ stats_metric_group_by_quantized_label(const struct event_field *field,
 static bool
 stats_metric_group_by_get_value(const struct event_field *field,
 				const struct stats_metric_settings_group_by *group_by,
-				struct metric_value *value)
+				struct metric_value *value_r)
 {
 	switch (group_by->func) {
 	case STATS_METRIC_GROUPBY_DISCRETE:
-		if (!stats_metric_group_by_discrete(field, value))
+		if (!stats_metric_group_by_discrete(field, value_r))
 			return FALSE;
 		return TRUE;
 	case STATS_METRIC_GROUPBY_QUANTIZED:
-		if (!stats_metric_group_by_quantized(field, value, group_by))
+		if (!stats_metric_group_by_quantized(field, value_r, group_by))
 			return FALSE;
 		return TRUE;
 	}
