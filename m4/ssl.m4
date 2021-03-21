@@ -236,6 +236,15 @@ AC_DEFUN([DOVECOT_SSL], [
       AC_CHECK_LIB(ssl, EC_GROUP_order_bits, [
         AC_DEFINE(HAVE_EC_GROUP_order_bits,, [Build with EC_GROUP_order_bits support])
       ],, $SSL_LIBS)
+      AC_CHECK_LIB(ssl, X509_check_host, [
+        AC_DEFINE(HAVE_X509_CHECK_HOST,, [OpenSSL supports X509_check_host()])
+      ],, $SSL_LIBS)
+      AC_CHECK_LIB(ssl, X509_check_ip, [
+        AC_DEFINE(HAVE_X509_CHECK_IP,, [OpenSSL supports X509_check_ip()])
+      ],, $SSL_LIBS)
+      AC_CHECK_LIB(ssl, X509_check_ip_asc, [
+        AC_DEFINE(HAVE_X509_CHECK_IP_ASC,, [OpenSSL supports X509_check_ip_asc()])
+      ],, $SSL_LIBS)
       AC_CHECK_LIB(ssl, [EVP_PKEY_CTX_new_id], [have_evp_pkey_ctx_new_id="yes"],, $SSL_LIBS)
       AC_CHECK_LIB(ssl, [EC_KEY_new], [have_ec_key_new="yes"],, $SSL_LIBS)
       if test "$have_evp_pkey_ctx_new_id" = "yes" && test "$have_ec_key_new" = "yes"; then
