@@ -42,6 +42,7 @@ int openssl_min_protocol_to_options(const char *min_protocol, long *opt_r,
 	return 0;
 }
 
+#if !defined(HAVE_X509_CHECK_HOST) || !defined(HAVE_X509_CHECK_IP_ASC)
 static const char *asn1_string_to_c(ASN1_STRING *asn_str)
 {
 	const char *cstr;
@@ -115,23 +116,48 @@ static bool openssl_hostname_equals(const char *ssl_name, const char *host)
 	p = strchr(host, '.');
 	return p != NULL && strcasecmp(ssl_name+2, p+1) == 0;
 }
+#endif
 
 bool openssl_cert_match_name(SSL *ssl, const char *verify_name,
 			     const char **reason_r)
 {
 	X509 *cert;
-	STACK_OF(GENERAL_NAME) *gnames;
-	const GENERAL_NAME *gn;
-	struct ip_addr ip;
-	const char *dnsname;
-	bool dns_names = FALSE;
-	unsigned int i, count;
 	bool ret;
 
 	*reason_r = NULL;
 
 	cert = SSL_get_peer_certificate(ssl);
 	i_assert(cert != NULL);
+
+#if defined(HAVE_X509_CHECK_HOST) && defined(HAVE_X509_CHECK_IP_ASC)
+	char *peername;
+	int check_res;
+
+	/* First check DNS name agains CommonName or SubjectAltNames.
+	   If failed, check IP addresses. */
+	if ((check_res = X509_check_host(cert, verify_name, strlen(verify_name),
+					 X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS,
+					 &peername)) == 1) {
+		*reason_r = t_strdup_printf("Matched to %s", peername);
+		free(peername);
+		ret = TRUE;
+	} else if ((check_res = X509_check_ip_asc(cert, verify_name, 0)) == 1) {
+		*reason_r = t_strdup_printf("Matched to IP address %s", verify_name);
+		ret = TRUE;
+	} else if (check_res == 0) {
+		*reason_r = "did not match to any IP or DNS fields";
+		ret = FALSE;
+	} else {
+		*reason_r = "Malformed input";
+		ret = FALSE;
+	}
+#else
+	STACK_OF(GENERAL_NAME) *gnames;
+	const GENERAL_NAME *gn;
+	struct ip_addr ip;
+	const char *dnsname;
+	bool dns_names = FALSE;
+	unsigned int i, count;
 
 	/* verify against SubjectAltNames */
 	gnames = X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL);
@@ -197,6 +223,7 @@ bool openssl_cert_match_name(SSL *ssl, const char *verify_name,
 			ret = FALSE;
 		}
 	}
+#endif
 	X509_free(cert);
 	return ret;
 }
