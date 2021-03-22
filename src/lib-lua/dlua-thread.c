@@ -105,6 +105,9 @@ lua_State *dlua_script_new_thread(struct dlua_script *script)
 	/* threads-table[thread] = TLS-table */
 	lua_settable(script->L, -3);
 
+	/* pop threads table */
+	lua_pop(script->L, 1);
+
 	return thread;
 }
 
@@ -190,6 +193,9 @@ void dlua_script_close_thread(struct dlua_script *script, lua_State **_L)
 	 * the reference to the thread saving it from GC.
 	 */
 	lua_settable(*_L, -3);
+
+	/* pop threads table */
+	lua_pop(*_L, 1);
 
 	*_L = NULL;
 }
