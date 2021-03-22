@@ -810,6 +810,7 @@ static void client_dict_wait(struct dict *_dict)
 	if (array_count(&dict->cmds) == 0)
 		return;
 
+	i_assert(io_loop_is_empty(dict->dict.ioloop));
 	dict->dict.prev_ioloop = current_ioloop;
 	io_loop_set_current(dict->dict.ioloop);
 	dict_switch_ioloop(_dict);
@@ -820,6 +821,7 @@ static void client_dict_wait(struct dict *_dict)
 	dict->dict.prev_ioloop = NULL;
 
 	dict_switch_ioloop(_dict);
+	i_assert(io_loop_is_empty(dict->dict.ioloop));
 }
 
 static bool client_dict_switch_ioloop(struct dict *_dict)
