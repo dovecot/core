@@ -193,9 +193,12 @@ void dlua_script_close_thread(struct dlua_script *script, lua_State **_L);
  *   0 = function called, callback will be called in the future
  */
 int dlua_pcall_yieldable(lua_State *L, const char *func_name, int nargs,
-			 void (*callback)(lua_State *, void *, int),
+			 dlua_pcall_yieldable_callback_t *callback,
 			 void *context, const char **error_r);
-
+#define dlua_pcall_yieldable(L, func_name, nargs, callback, context, error_r) \
+	dlua_pcall_yieldable(L, func_name + \
+		CALLBACK_TYPECHECK(callback, void (*)(lua_State *, typeof(context), int)), \
+		nargs, (dlua_pcall_yieldable_callback_t *)callback, context, error_r)
 /*
  * Resume yielded function execution.
  *

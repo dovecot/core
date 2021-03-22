@@ -150,6 +150,7 @@ void dlua_pcall_yieldable_resume(lua_State *L, int nargs)
  *
  * Returns -1 on error or 0 on success.
  */
+#undef dlua_pcall_yieldable
 int dlua_pcall_yieldable(lua_State *L, const char *func_name, int nargs,
 			 dlua_pcall_yieldable_callback_t *callback,
 			 void *context, const char **error_r)
