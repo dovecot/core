@@ -17,9 +17,9 @@ static void copy_compressed_input_error(struct decompress_istream *zstream)
 
 	stream->istream.stream_errno = zstream->compressed_input->stream_errno;
 	stream->istream.eof = zstream->compressed_input->eof;
-	if (zstream->compressed_input->real_stream->iostream.error != NULL) {
+	if (zstream->compressed_input->stream_errno != 0) {
 		io_stream_set_error(&stream->iostream, "%s",
-			zstream->compressed_input->real_stream->iostream.error);
+			i_stream_get_error(&zstream->compressed_input->real_stream->istream));
 	}
 }
 
@@ -29,9 +29,9 @@ static void copy_decompressed_input_error(struct decompress_istream *zstream)
 
 	stream->istream.stream_errno = zstream->decompressed_input->stream_errno;
 	stream->istream.eof = zstream->decompressed_input->eof;
-	if (zstream->decompressed_input->real_stream->iostream.error != NULL) {
+	if (zstream->decompressed_input->stream_errno != 0) {
 		io_stream_set_error(&stream->iostream, "%s",
-			zstream->decompressed_input->real_stream->iostream.error);
+			i_stream_get_error(&zstream->decompressed_input->real_stream->istream));
 	}
 }
 
