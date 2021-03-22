@@ -10,11 +10,6 @@
 
 #include <unistd.h>
 
-#define timer_is_larger(tvp, uvp) \
-	((tvp)->tv_sec > (uvp)->tv_sec || \
-	 ((tvp)->tv_sec == (uvp)->tv_sec && \
-	  (tvp)->tv_usec > (uvp)->tv_usec))
-
 time_t ioloop_time = 0;
 struct timeval ioloop_timeval;
 struct ioloop *current_ioloop = NULL;
