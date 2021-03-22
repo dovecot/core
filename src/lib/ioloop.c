@@ -1229,6 +1229,13 @@ bool io_loop_have_immediate_timeouts(struct ioloop *ioloop)
 	return io_loop_get_wait_time(ioloop, &tv) == 0;
 }
 
+bool io_loop_is_empty(struct ioloop *ioloop)
+{
+	return ioloop->io_files == NULL &&
+		priorityq_count(ioloop->timeouts) == 0 &&
+		array_count(&ioloop->timeouts_new) == 0;
+}
+
 uint64_t io_loop_get_wait_usecs(struct ioloop *ioloop)
 {
 	return ioloop->ioloop_wait_usecs;

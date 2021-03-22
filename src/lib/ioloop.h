@@ -312,6 +312,8 @@ bool io_loop_have_ios(struct ioloop *ioloop);
 /* Returns TRUE if there is a pending timeout that is going to be run
    immediately. */
 bool io_loop_have_immediate_timeouts(struct ioloop *ioloop);
+/* Returns TRUE if there are no IOs or timeouts in the ioloop. */
+bool io_loop_is_empty(struct ioloop *ioloop);
 /* Returns number of microseconds spent on the ioloop waiting itself. */
 uint64_t io_loop_get_wait_usecs(struct ioloop *ioloop);
 /* Return all io conditions added for the given fd. This needs to scan through

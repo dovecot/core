@@ -101,9 +101,15 @@ static void test_ioloop_timeout(void)
 
 	/* add a timeout by moving it from another ioloop */
 	ioloop2 = io_loop_create();
+	test_assert(io_loop_is_empty(ioloop));
+	test_assert(io_loop_is_empty(ioloop2));
 	to2 = timeout_add(1000, timeout_callback, &tv_callback);
+	test_assert(io_loop_is_empty(ioloop));
+	test_assert(!io_loop_is_empty(ioloop2));
 	io_loop_set_current(ioloop);
 	to2 = io_loop_move_timeout(&to2);
+	test_assert(!io_loop_is_empty(ioloop));
+	test_assert(io_loop_is_empty(ioloop2));
 	io_loop_set_current(ioloop2);
 	io_loop_destroy(&ioloop2);
 
@@ -120,6 +126,7 @@ static void test_ioloop_timeout(void)
 	test_assert(timeval_diff_msecs(&tv_callback, &tv_start) >= 500);
 	timeout_remove(&to);
 	timeout_remove(&to2);
+	test_assert(io_loop_is_empty(ioloop));
 	io_loop_destroy(&ioloop);
 
 	test_end();
@@ -276,7 +283,9 @@ static void test_ioloop_pending_io(void)
 
 	struct istream *is = i_stream_create_from_data("data", 4);
 	struct ioloop *ioloop = io_loop_create();
+	test_assert(io_loop_is_empty(ioloop));
 	struct io *io = io_add_istream(is, io_callback_pending_io, NULL);
+	test_assert(!io_loop_is_empty(ioloop));
 	io_loop_set_current(ioloop);
 	io_set_pending(io);
 	io_loop_run(ioloop);
