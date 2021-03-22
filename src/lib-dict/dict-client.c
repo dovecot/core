@@ -956,7 +956,9 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd,
 			  cmd->query);
 	}
 
+	dict_pre_api_callback(&dict->dict);
 	cmd->api_callback.lookup(&result, cmd->api_callback.context);
+	dict_post_api_callback(&dict->dict);
 }
 
 static void
@@ -1330,7 +1332,9 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 	}
 	client_dict_transaction_free(&cmd->trans);
 
+	dict_pre_api_callback(&dict->dict);
 	cmd->api_callback.commit(&result, cmd->api_callback.context);
+	dict_post_api_callback(&dict->dict);
 }
 
 
