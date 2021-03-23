@@ -644,9 +644,9 @@ void smtp_server_cmd_bdat(struct smtp_server_cmd_ctx *cmd,
 		}
 	}
 
-	if (ret > 0 || size > 0) {
-		/* read/skip data even in case of error, as long as size is
-		   known */
+	if (ret > 0 || (size > 0 && !conn->disconnected)) {
+		/* Read/skip data even in case of error, as long as size is
+		   known and connection is still usable. */
 		input = smtp_command_parse_data_with_size(conn->smtp_parser,
 							  size);
 	}
