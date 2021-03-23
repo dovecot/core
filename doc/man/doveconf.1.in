@@ -130,7 +130,7 @@ Show also hidden settings. The hidden settings should not be changed normally.
 .TP
 .\"---------------------------------
 .TP
-.B \-P/
+.B \-P
 Show passwords and other sensitive values.
 .\"---------------------------------
 .TP
