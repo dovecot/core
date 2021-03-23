@@ -124,6 +124,10 @@ Show settings with non\-default values and explicitly set default values.
 Dump settings in simplified machine parsable/readable format.
 .\"---------------------------------
 .TP
+.B \-s
+Show also hidden settings. The hidden settings should not be changed normally.
+.\"---------------------------------
+.TP
 .\"---------------------------------
 .TP
 .B \-P/
