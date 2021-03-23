@@ -72,9 +72,6 @@ static int lua_dict_iterate_step(lua_State *L)
 	i_assert(nrefs % 2 == 0);
 
 	if (nrefs == 0) {
-		/* iteration is over - clean up */
-		pool_unref(&iter->pool);
-
 		if (iter->error_ref != 0) {
 			/* dict iteration generated an error - raise it now */
 			lua_rawgeti(L, LUA_REGISTRYINDEX, iter->error_ref);
