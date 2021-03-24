@@ -23,6 +23,81 @@
 #ifndef DLUA_WRAPPER_H
 #define DLUA_WRAPPER_H
 
+/*
+ * The following macro generates everything necessary to wrap a C structure
+ * and easily push it onto Lua stacks as well as check that a value on the
+ * stack is of this type.
+ *
+ * To generate the necessary API, simply use the macro in your .c file.  The
+ * arguments consist of:
+ *
+ *   <typename> = the name for the structure to use in generated symbols
+ *   <type> = the exposed structure's C type
+ *   <putref> = the function to remove a reference from the C structure,
+ *       called from the automatically generated __gc metamethod
+ *   <extra_fxns_arg> = a C array of luaL_Reg structs passed to luaL_setfuncs
+ *       to add Lua methods to the type
+ *
+ * For example, to expose struct timespec with a tostring method, one would
+ * use the following in a .c file:
+ *
+ *   // struct timespec isn't refcounted
+ *   static inline void timespec_putref(struct timespec *ts)
+ *   {
+ *   }
+ *
+ *   static int timespec_tostring(lua_State *L);
+ *
+ *   static const luaL_Reg timespec_fxns[] = {
+ *           { "__tostring", timespec_tostring },
+ *           { NULL, NULL },
+ *   };
+ *
+ *   DLUA_WRAP_C_DATA(timespec, struct timespec, timespec_putref, timespec_fxns)
+ *
+ *   static int timespec_tostring(lua_State *L)
+ *   {
+ *           struct timespec *ts;
+ *
+ *           ts = xlua_timespec_getptr(L, -1, NULL);
+ *
+ *           lua_pushfstring(L, "%d.%09ld", ts->tv_sec, ts->tv_nsec);
+ *
+ *           return 1;
+ *   }
+ *
+ *
+ * The two functions making up the exposed structure API are:
+ *
+ *   static void xlua_push<typename>(lua_State *, <type> *, bool);
+ *   static inline <type> *xlua_<typename>_getptr(lua_State *, int, bool *);
+ *
+ * The first pushes the supplied pointer onto the Lua stack, while the
+ * second returns the previously pushed C pointer (or generates a Lua error
+ * if there is a type mismatch).
+ *
+ * The push function tracks the passed in bool argument alongside the C
+ * pointer itself.  The getptr function fills in the bool pointer (if not
+ * NULL) with the pushed bool value.  While this bool isn't used directly by
+ * the generated code and therefore it can be used for anything, the
+ * intention is to allow the API consumers to mark certain pointers as
+ * "read-only" to prevent Lua scripts from attempting to mutate them.  This
+ * allows one to push const pointers while "notifying" the methods that
+ * mutation of any of the members is undefined behavior.
+ *
+ * Also note that the functions are static.  That is, they are intended to
+ * only be used in the file where they are generated since they are somewhat
+ * low-level functions.  If some public form of a push/get function is
+ * desired, it is up to the API consumer to write wrappers around these and
+ * expose them to the rest of the codebase.
+ *
+ * Revisiting the struct timespec example above, the generated API would
+ * be:
+ *
+ *   static void xlua_pushtimespec(lua_State *, struct timespec *, bool);
+ *   static inline struct timespec *xlua_timespec_getptr(lua_State *, int,
+ *                                                       bool *);
+ */
 #define DLUA_WRAP_C_DATA(typename, type, putref, extra_fxns_arg)	\
 struct lua_wrapper_##typename {						\
 	type *ptr;							\
