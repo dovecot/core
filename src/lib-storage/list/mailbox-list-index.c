@@ -410,7 +410,6 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 				node->parent = parent;
 				node->next = parent->children;
 				parent->children = node;
-				continue;
 			}
 		} else if (strcasecmp(node->raw_name, "INBOX") == 0) {
 			ilist->rebuild_on_missing_inbox = FALSE;
@@ -437,8 +436,10 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 				"Duplicate mailbox '%s' in index, renaming to %s",
 				old_name, node->raw_name);
 		}
-		node->next = ilist->mailbox_tree;
-		ilist->mailbox_tree = node;
+		if (node->parent == NULL) {
+			node->next = ilist->mailbox_tree;
+			ilist->mailbox_tree = node;
+		}
 	}
 	hash_table_destroy(&duplicate_hash);
 	return *error_r == NULL ? 0 : -1;
