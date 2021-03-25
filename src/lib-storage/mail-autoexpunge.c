@@ -59,7 +59,7 @@ mailbox_autoexpunge_batch(struct mailbox *box,
 	const void *data;
 	size_t size;
 	unsigned int count = 0;
-	bool done = FALSE;
+	bool done = FALSE, expunges_found = FALSE;
 	int ret = 0;
 
 	mail_index_get_header_ext(box->view, box->box_last_rename_stamp_ext_id,
@@ -100,6 +100,7 @@ mailbox_autoexpunge_batch(struct mailbox *box,
 			count++;
 		} else if (mailbox_get_last_mail_error(box) == MAIL_ERROR_EXPUNGED) {
 			/* already expunged */
+			expunges_found = TRUE;
 		} else {
 			/* failed */
 			ret = -1;
@@ -109,7 +110,7 @@ mailbox_autoexpunge_batch(struct mailbox *box,
 	mail_free(&mail);
 	if (mailbox_transaction_commit(&t) < 0)
 		ret = -1;
-	else if (count > 0) {
+	else if (count > 0 || expunges_found) {
 		if (mailbox_sync(box, 0) < 0)
 			ret = -1;
 		*expunged_count += count;
