@@ -78,7 +78,6 @@ mailbox_autoexpunge_batch(struct mailbox *box,
 	mail = mail_alloc(t, 0, NULL);
 
 	hdr = mail_index_get_header(box->view);
-	done = hdr->messages_count == 0;
 
 	for (seq = 1; seq <= I_MIN(hdr->messages_count, AUTOEXPUNGE_BATCH_SIZE); seq++) {
 		mail_set_seq(mail, seq);
@@ -118,7 +117,7 @@ mailbox_autoexpunge_batch(struct mailbox *box,
 
 	if (ret < 0)
 		return -1;
-	return done ? 0 : 1;
+	return (done || count == 0) ? 0 : 1;
 }
 
 static int
