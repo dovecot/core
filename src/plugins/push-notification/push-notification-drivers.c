@@ -104,14 +104,13 @@ int push_notification_driver_init(
 					(p == NULL) ? p : p + 1);
 			ret = driver->v.init(config, user, pool,
 					     &context, &error_r);
-
+			if (ret < 0)
+				i_error("%s: %s", driver_name, error_r);
 			hash_table_destroy(&config->config);
 		} T_END;
 
-		if (ret < 0) {
-			i_error("%s: %s", driver_name, error_r);
+		if (ret < 0)
 			return -1;
-		}
 	}
 
 	duser = p_new(pool, struct push_notification_driver_user, 1);
