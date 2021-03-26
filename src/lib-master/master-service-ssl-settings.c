@@ -29,6 +29,7 @@ static const struct setting_define master_service_ssl_setting_defines[] = {
 	DEF(STR, ssl_client_key),
 	DEF(STR, ssl_dh),
 	DEF(STR, ssl_cipher_list),
+	DEF(STR, ssl_cipher_suites),
 	DEF(STR, ssl_curve_list),
 	DEF(STR, ssl_min_protocol),
 	DEF(STR, ssl_cert_username_field),
@@ -62,6 +63,7 @@ static const struct master_service_ssl_settings master_service_ssl_default_setti
 	.ssl_client_key = "",
 	.ssl_dh = "",
 	.ssl_cipher_list = "ALL:!kRSA:!SRP:!kDHd:!DSS:!aNULL:!eNULL:!EXPORT:!DES:!3DES:!MD5:!PSK:!RC4:!ADH:!LOW@STRENGTH",
+	.ssl_cipher_suites = "", /* Use TLS library provided value */
 	.ssl_curve_list = "",
 	.ssl_min_protocol = "TLSv1",
 	.ssl_cert_username_field = "commonName",
@@ -177,6 +179,8 @@ void master_service_ssl_settings_to_iostream_set(
 	i_zero(set_r);
 	set_r->min_protocol = p_strdup(pool, ssl_set->ssl_min_protocol);
 	set_r->cipher_list = p_strdup(pool, ssl_set->ssl_cipher_list);
+	/* leave NULL if empty - let library decide */
+	set_r->ciphersuites = p_strdup_empty(pool, ssl_set->ssl_cipher_suites);
 	/* NOTE: It's a bit questionable whether ssl_ca should be used for
 	   clients. But at least for now it's needed for login-proxy. */
 	set_r->ca = p_strdup_empty(pool, ssl_set->ssl_ca);

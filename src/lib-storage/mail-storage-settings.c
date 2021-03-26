@@ -87,6 +87,7 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(STR, ssl_client_cert),
 	DEF(STR, ssl_client_key),
 	DEF(STR, ssl_cipher_list),
+	DEF(STR, ssl_cipher_suites),
 	DEF(STR, ssl_curve_list),
 	DEF(STR, ssl_min_protocol),
 	DEF(STR, ssl_crypto_device),
@@ -155,6 +156,7 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.ssl_client_cert = "",
 	.ssl_client_key = "",
 	.ssl_cipher_list = "ALL:!kRSA:!SRP:!kDHd:!DSS:!aNULL:!eNULL:!EXPORT:!DES:!3DES:!MD5:!PSK:!RC4:!ADH:!LOW@STRENGTH",
+	.ssl_cipher_suites = "", /* Use TLS library provided value */
 	.ssl_curve_list = "",
 	.ssl_min_protocol = "TLSv1",
 	.ssl_crypto_device = "",
@@ -824,6 +826,8 @@ void mail_storage_settings_init_ssl_client_settings(const struct mail_storage_se
 	if (*mail_set->ssl_client_key != '\0')
 		ssl_set_r->cert.key = mail_set->ssl_client_key;
 	ssl_set_r->cipher_list = mail_set->ssl_cipher_list;
+	if (*mail_set->ssl_cipher_suites != '\0')
+		ssl_set_r->ciphersuites = mail_set->ssl_cipher_suites;
 	ssl_set_r->curve_list = mail_set->ssl_curve_list;
 	ssl_set_r->min_protocol = mail_set->ssl_min_protocol;
 	ssl_set_r->crypto_device = mail_set->ssl_crypto_device;

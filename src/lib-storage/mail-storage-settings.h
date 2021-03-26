@@ -69,6 +69,7 @@ struct mail_storage_settings {
 	const char *ssl_client_cert;
 	const char *ssl_client_key;
 	const char *ssl_cipher_list;
+	const char *ssl_cipher_suites;
 	const char *ssl_curve_list;
 	const char *ssl_min_protocol;
 	const char *ssl_crypto_device;
