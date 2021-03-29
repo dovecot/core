@@ -86,10 +86,7 @@ static int maildir_expunge(struct maildir_mailbox *mbox, const char *path,
 	ctx->expunge_count++;
 
 	if (unlink(path) == 0) {
-		if (box->v.sync_notify != NULL) {
-			box->v.sync_notify(box, ctx->uid,
-					   MAILBOX_SYNC_TYPE_EXPUNGE);
-		}
+		mailbox_sync_notify(box, ctx->uid, MAILBOX_SYNC_TYPE_EXPUNGE);
 		return 1;
 	}
 	if (errno == ENOENT)
@@ -154,10 +151,7 @@ static int maildir_sync_flags(struct maildir_mailbox *mbox, const char *path,
 			return -1;
 		}
 	}
-	if (box->v.sync_notify != NULL) {
-		box->v.sync_notify(box, ctx->uid,
-				   index_sync_type_convert(sync_type));
-	}
+	mailbox_sync_notify(box, ctx->uid, index_sync_type_convert(sync_type));
 	return 1;
 }
 
@@ -643,8 +637,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 			ret = -1;
 	}
 
-	if (mbox->box.v.sync_notify != NULL)
-		mbox->box.v.sync_notify(&mbox->box, 0, 0);
+	mailbox_sync_notify(&mbox->box, 0, 0);
 	ctx->mbox->box.tmp_sync_view = NULL;
 
 	/* check cur/ mtime later. if we came here from saving messages they

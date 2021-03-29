@@ -148,8 +148,8 @@ static void dbox_sync_file_expunge(struct sdbox_sync_context *ctx,
 		ret = dbox_file_unlink(file);
 
 	/* do sync_notify only when the file was unlinked by us */
-	if (ret > 0 && box->v.sync_notify != NULL)
-		box->v.sync_notify(box, uid, MAILBOX_SYNC_TYPE_EXPUNGE);
+	if (ret > 0)
+		mailbox_sync_notify(box, uid, MAILBOX_SYNC_TYPE_EXPUNGE);
 	dbox_file_unref(&file);
 }
 
@@ -163,8 +163,7 @@ static void dbox_sync_expunge_files(struct sdbox_sync_context *ctx)
 	array_foreach(&ctx->expunged_uids, uidp) T_BEGIN {
 		dbox_sync_file_expunge(ctx, *uidp);
 	} T_END;
-	if (ctx->mbox->box.v.sync_notify != NULL)
-		ctx->mbox->box.v.sync_notify(&ctx->mbox->box, 0, 0);
+	mailbox_sync_notify(&ctx->mbox->box, 0, 0);
 	ctx->mbox->box.tmp_sync_view = NULL;
 }
 

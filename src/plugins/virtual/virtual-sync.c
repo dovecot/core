@@ -488,8 +488,7 @@ static void virtual_sync_index_finish(struct virtual_sync_context *ctx)
 		virtual_sync_ext_header_update(ctx);
 	}
 
-	if (box->v.sync_notify != NULL)
-		box->v.sync_notify(box, 0, 0);
+	mailbox_sync_notify(box, 0, 0);
 }
 
 static int virtual_sync_backend_box_init(struct virtual_backend_box *bbox)

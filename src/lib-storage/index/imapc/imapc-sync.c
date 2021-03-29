@@ -421,8 +421,7 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 	imapc_sync_uid_next(ctx);
 	imapc_sync_highestmodseq(ctx);
 
-	if (mbox->box.v.sync_notify != NULL)
-		mbox->box.v.sync_notify(&mbox->box, 0, 0);
+	mailbox_sync_notify(&mbox->box, 0, 0);
 
 	if (!ctx->failed) {
 		/* reset only after a successful sync */

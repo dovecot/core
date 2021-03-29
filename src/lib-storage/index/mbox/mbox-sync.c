@@ -406,8 +406,8 @@ static void mbox_sync_update_flags(struct mbox_sync_mail_context *mail_ctx,
 		mail->flags = flags | (mail->flags & MAIL_RECENT) |
 			MAIL_INDEX_MAIL_FLAG_DIRTY;
 	}
-	if (sync_type != 0 && box->v.sync_notify != NULL) {
-		box->v.sync_notify(box, mail_ctx->mail.uid,
+	if (sync_type != 0) {
+		mailbox_sync_notify(box, mail_ctx->mail.uid,
 				   index_sync_type_convert(sync_type));
 	}
 }
@@ -606,10 +606,8 @@ static void mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
 	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
 	struct mailbox *box = &sync_ctx->mbox->box;
 
-	if (box->v.sync_notify != NULL) {
-		box->v.sync_notify(box, mail_ctx->mail.uid,
-				   MAILBOX_SYNC_TYPE_EXPUNGE);
-	}
+	mailbox_sync_notify(box, mail_ctx->mail.uid,
+			   MAILBOX_SYNC_TYPE_EXPUNGE);
 	mail_index_expunge(sync_ctx->t, mail_ctx->mail.idx_seq);
 
 	mail_ctx->mail.expunged = TRUE;
@@ -2039,8 +2037,7 @@ int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 		}
 	}
 
-	if (mbox->box.v.sync_notify != NULL)
-		mbox->box.v.sync_notify(&mbox->box, 0, 0);
+	mailbox_sync_notify(&mbox->box, 0, 0);
 	return ret;
 }
 
