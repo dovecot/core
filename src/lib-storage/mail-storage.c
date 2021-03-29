@@ -3179,4 +3179,12 @@ void mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 {
 	if (box->v.sync_notify != NULL)
 		box->v.sync_notify(box, uid, sync_type);
+
+	/* Send an event for expunged mail. */
+	if (sync_type == MAILBOX_SYNC_TYPE_EXPUNGE) {
+		e_debug(event_create_passthrough(box->event)->
+			set_name("mail_expunged")->
+			add_int("uid", uid)->event(),
+			"UID %u: Mail expunged", uid);
+	}
 }
