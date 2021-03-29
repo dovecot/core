@@ -3173,3 +3173,10 @@ int mailbox_lock_file_create(struct mailbox *box, const char *lock_fname,
 	return mail_storage_lock_create(lock_path, &set,
 					box->storage->set, lock_r, error_r);
 }
+
+void mailbox_sync_notify(struct mailbox *box, uint32_t uid,
+			 enum mailbox_sync_type sync_type)
+{
+	if (box->v.sync_notify != NULL)
+		box->v.sync_notify(box, uid, sync_type);
+}

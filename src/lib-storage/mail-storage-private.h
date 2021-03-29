@@ -858,6 +858,10 @@ enum mail_index_open_flags
 mail_storage_settings_to_index_flags(const struct mail_storage_settings *set);
 void mailbox_save_context_deinit(struct mail_save_context *ctx);
 
+/* Notify that a sync should be done. */
+void mailbox_sync_notify(struct mailbox *box, uint32_t uid,
+			 enum mailbox_sync_type sync_type);
+
 /* for unit testing */
 int mailbox_verify_name(struct mailbox *box);
 
