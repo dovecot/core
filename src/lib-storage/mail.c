@@ -428,6 +428,7 @@ void mail_expunge(struct mail *mail)
 	T_BEGIN {
 		p->v.expunge(mail);
 	} T_END;
+	mail_expunge_requested_event(mail);
 }
 
 void mail_autoexpunge(struct mail *mail)
@@ -588,4 +589,13 @@ void mail_opened_event(struct mail *mail)
 			pmail->get_stream_reason);
 	else
 		e_debug(e->event(), "Opened mail");
+}
+
+void mail_expunge_requested_event(struct mail *mail)
+{
+	struct event_passthrough *e = event_create_passthrough(mail->event)->
+		set_name("mail_expunge_requested")->
+		add_int("uid", mail->uid)->
+		add_int("seq", mail->seq);
+	e_debug(e->event(), "Expunge requested");
 }
