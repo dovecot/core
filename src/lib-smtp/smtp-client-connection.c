@@ -912,6 +912,8 @@ smtp_client_connection_record_extra_capability(
 		conn, cap_name);
 	if (ccap_extra == NULL)
 		return;
+	if (smtp_client_connection_get_extra_capability(conn, cap_name) != NULL)
+		return;
 
 	if (!array_is_created(&conn->caps.extra))
 		p_array_init(&conn->caps.extra, pool, 4);
