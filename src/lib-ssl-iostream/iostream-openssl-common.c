@@ -141,7 +141,8 @@ bool openssl_cert_match_name(SSL *ssl, const char *verify_name,
 		*reason_r = t_strdup_printf("Matched to %s", peername);
 		free(peername);
 		ret = TRUE;
-	} else if ((check_res = X509_check_ip_asc(cert, verify_name, 0)) == 1) {
+	} else if (check_res == 0 &&
+		   (check_res = X509_check_ip_asc(cert, verify_name, 0)) == 1) {
 		*reason_r = t_strdup_printf("Matched to IP address %s", verify_name);
 		ret = TRUE;
 	} else if (check_res == 0) {
