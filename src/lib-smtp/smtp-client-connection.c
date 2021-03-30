@@ -893,7 +893,7 @@ smtp_client_connection_has_extra_capability(struct smtp_client_connection *conn,
 }
 
 static void
-smtp_client_connection_record_exta_capability(
+smtp_client_connection_record_extra_capability(
 	struct smtp_client_connection *conn, const char *cap_name,
 	const char *const *params)
 {
@@ -991,7 +991,7 @@ smtp_client_connection_handshake_cb(const struct smtp_reply *reply,
 				p_strarray_dup(conn->cap_pool, params);
 			break;
 		case SMTP_CAPABILITY_NONE:
-			smtp_client_connection_record_exta_capability(
+			smtp_client_connection_record_extra_capability(
 				conn, cap_name, params);
 			break;
 		default:
