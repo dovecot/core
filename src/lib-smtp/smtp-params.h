@@ -146,7 +146,8 @@ bool smtp_params_mail_drop_extra(struct smtp_params_mail *params,
 /* write */
 
 void smtp_params_mail_write(string_t *buffer, enum smtp_capability caps,
-			    const struct smtp_params_mail *params);
+			    const char *const *extra_params,
+			    const struct smtp_params_mail *params) ATTR_NULL(3);
 
 /* evaluate */
 
@@ -203,7 +204,8 @@ void smtp_params_rcpt_set_orcpt(struct smtp_params_rcpt *params, pool_t pool,
 /* write */
 
 void smtp_params_rcpt_write(string_t *buffer, enum smtp_capability caps,
-			    const struct smtp_params_rcpt *params);
+			    const char *const *extra_params,
+			    const struct smtp_params_rcpt *params) ATTR_NULL(3);
 
 /* evaluate */
 

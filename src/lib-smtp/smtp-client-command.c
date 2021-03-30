@@ -1142,8 +1142,16 @@ smtp_client_command_mail_submit(struct smtp_client_connection *conn,
 	}
 	if (params != NULL) {
 		size_t orig_len = str_len(cmd->data);
+		const char *const *extensions = NULL;
+
+		if (array_is_created(&conn->caps.mail_param_extensions)) {
+			extensions =
+				array_front(&conn->caps.mail_param_extensions);
+		}
+
 		str_append_c(cmd->data, ' ');
-		smtp_params_mail_write(cmd->data, conn->caps.standard, params);
+		smtp_params_mail_write(cmd->data, conn->caps.standard,
+				       extensions, params);
 		if (str_len(cmd->data) == orig_len + 1)
 			str_truncate(cmd->data, orig_len);
 	}
@@ -1171,8 +1179,16 @@ smtp_client_command_rcpt_submit_after(struct smtp_client_connection *conn,
 				   smtp_address_encode(to));
 	if (params != NULL) {
 		size_t orig_len = str_len(cmd->data);
+		const char *const *extensions = NULL;
+
+		if (array_is_created(&conn->caps.rcpt_param_extensions)) {
+			extensions =
+				array_front(&conn->caps.rcpt_param_extensions);
+		}
+
 		str_append_c(cmd->data, ' ');
-		smtp_params_rcpt_write(cmd->data, conn->caps.standard, params);
+		smtp_params_rcpt_write(cmd->data, conn->caps.standard,
+				       extensions, params);
 		if (str_len(cmd->data) == orig_len + 1)
 			str_truncate(cmd->data, orig_len);
 	}

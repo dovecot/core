@@ -415,7 +415,8 @@ static void test_smtp_mail_params_parse_valid(void)
 				test_smtp_mail_params_extensions(&test->params, &params);
 
 			encoded = t_str_new(256);
-			smtp_params_mail_write(encoded, test->caps, &params);
+			smtp_params_mail_write(encoded, test->caps,
+					       test->extensions, &params);
 
 			output = (test->output == NULL ? test->input : test->output);
 			test_out(t_strdup_printf("encode() = \"%s\"",
@@ -796,7 +797,8 @@ static void test_smtp_rcpt_params_parse_valid(void)
 				test_smtp_rcpt_params_extensions(&test->params, &params);
 
 			encoded = t_str_new(256);
-			smtp_params_rcpt_write(encoded, test->caps, &params);
+			smtp_params_rcpt_write(encoded, test->caps,
+					       test->extensions, &params);
 
 			output = (test->output == NULL ? test->input : test->output);
 			test_out(t_strdup_printf("encode() = \"%s\"",
