@@ -37,6 +37,10 @@ enum smtp_client_command_error {
 	SMTP_CLIENT_COMMAND_ERROR_TIMED_OUT
 };
 
+struct smtp_client_capability_extra {
+	const char *name;
+};
+
 struct smtp_client_settings {
 	struct ip_addr my_ip;
 	const char *my_hostname;

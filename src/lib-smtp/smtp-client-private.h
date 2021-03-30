@@ -174,7 +174,7 @@ struct smtp_client_connection {
 
 	struct smtp_client_settings set;
 	char *password;
-	ARRAY_TYPE(const_string) extra_capabilities;
+	ARRAY(struct smtp_client_capability_extra) extra_capabilities;
 
 	pool_t cap_pool;
 	struct {
