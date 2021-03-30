@@ -10,6 +10,7 @@ enum smtp_capability;
 
 struct smtp_reply;
 struct smtp_client;
+struct smtp_client_capability_extra;
 struct smtp_client_settings;
 struct smtp_client_command;
 
@@ -80,7 +81,8 @@ smtp_client_connection_get_capabilities(struct smtp_client_connection *conn);
 uoff_t smtp_client_connection_get_size_capability(
 	struct smtp_client_connection *conn);
 void smtp_client_connection_accept_extra_capability(
-	struct smtp_client_connection *conn, const char *cap_name);
+	struct smtp_client_connection *conn,
+	const struct smtp_client_capability_extra *cap);
 const struct smtp_capability_extra *
 smtp_client_connection_get_extra_capability(struct smtp_client_connection *conn,
 					    const char *name);
