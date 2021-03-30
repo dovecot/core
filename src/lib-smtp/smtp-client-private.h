@@ -183,6 +183,11 @@ struct smtp_client_connection {
 		const char **auth_mechanisms;
 		const char **xclient_args;
 		uoff_t size;
+
+		/* Lists of custom MAIL/RCPT parameters supported by peer. These
+		   arrays always end in NULL pointer once created. */
+		ARRAY_TYPE(const_string) mail_param_extensions;
+		ARRAY_TYPE(const_string) rcpt_param_extensions;
 	} caps;
 
 	struct smtp_reply_parser *reply_parser;
