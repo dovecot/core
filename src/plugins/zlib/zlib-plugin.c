@@ -14,8 +14,6 @@
 
 #include <fcntl.h>
 
-#define ZLIB_PLUGIN_DEFAULT_LEVEL 6
-
 #define ZLIB_CONTEXT(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, zlib_storage_module)
 #define ZLIB_MAIL_CONTEXT(obj) \
@@ -45,7 +43,7 @@ struct zlib_user {
 	struct zlib_mail_cache cache;
 
 	const struct compression_handler *save_handler;
-	unsigned int save_level;
+	int save_level;
 };
 
 const char *zlib_plugin_version = DOVECOT_ABI_VERSION;
@@ -357,14 +355,18 @@ static void zlib_mail_user_created(struct mail_user *user)
 	}
 	name = mail_user_plugin_getenv(user, "zlib_save_level");
 	if (name != NULL) {
-		if (str_to_uint(name, &zuser->save_level) < 0 ||
-		    zuser->save_level < 1 || zuser->save_level > 9) {
-			i_error("zlib_save_level: Level must be between 1..9");
-			zuser->save_level = 0;
+		if (str_to_int(name, &zuser->save_level) < 0 ||
+		    zuser->save_level < zuser->save_handler->get_min_level() ||
+		    zuser->save_level > zuser->save_handler->get_max_level()) {
+			i_error("zlib_save_level: Level must be between %d..%d",
+				zuser->save_handler->get_min_level(),
+				zuser->save_handler->get_max_level());
+			zuser->save_level =
+				zuser->save_handler->get_default_level();
 		}
+	} else if (zuser->save_handler != NULL) {
+		zuser->save_level = zuser->save_handler->get_default_level();
 	}
-	if (zuser->save_level == 0)
-		zuser->save_level = ZLIB_PLUGIN_DEFAULT_LEVEL;
 	MODULE_CONTEXT_SET(user, zlib_user_module, zuser);
 }
 
