@@ -123,7 +123,7 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 	if (cte == MESSAGE_CTE_UNKNOWN) {
 		mail_storage_set_error(ctx->mail->box->storage,
 				       MAIL_ERROR_CONVERSION,
-				       "Unknown Content-Transfer-Encoding.");
+				       "Unknown Content-Transfer-Encoding");
 		return -1;
 	}
 
