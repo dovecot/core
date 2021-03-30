@@ -154,18 +154,52 @@ int compression_lookup_handler_from_ext(const char *path,
 }
 
 const struct compression_handler compression_handlers[] = {
-	{ "gz", ".gz", is_compressed_zlib,
-	  i_stream_create_gz, o_stream_create_gz },
-	{ "bz2", ".bz2", is_compressed_bzlib,
-	  i_stream_create_bz2, o_stream_create_bz2 },
-	{ "deflate", NULL, NULL,
-	  i_stream_create_deflate, o_stream_create_deflate },
-	{ "xz", ".xz", is_compressed_xz,
-	  i_stream_create_lzma, NULL },
-	{ "lz4", ".lz4", is_compressed_lz4,
-	  i_stream_create_lz4, o_stream_create_lz4 },
-	{ "zstd", ".zstd", is_compressed_zstd,
-	  i_stream_create_zstd, o_stream_create_zstd },
-	{ "unsupported", NULL, NULL, NULL, NULL },
-	{ NULL, NULL, NULL, NULL, NULL }
+	{
+		.name = "gz",
+		.ext = ".gz",
+		.is_compressed = is_compressed_zlib,
+		.create_istream = i_stream_create_gz,
+		.create_ostream = o_stream_create_gz,
+	},
+	{
+		.name = "bz2",
+		.ext = ".bz2",
+		.is_compressed = is_compressed_bzlib,
+		.create_istream = i_stream_create_bz2,
+		.create_ostream = o_stream_create_bz2,
+	},
+	{
+		.name = "deflate",
+		.ext = NULL,
+		.is_compressed = NULL,
+		.create_istream = i_stream_create_deflate,
+		.create_ostream = o_stream_create_deflate,
+	},
+	{
+		.name = "xz",
+		.ext = ".xz",
+		.is_compressed = is_compressed_xz,
+		.create_istream = i_stream_create_lzma,
+		.create_ostream = NULL,
+	},
+	{
+		.name = "lz4",
+		.ext = ".lz4",
+		.is_compressed = is_compressed_lz4,
+		.create_istream = i_stream_create_lz4,
+		.create_ostream = o_stream_create_lz4,
+	},
+	{
+		.name = "zstd",
+		.ext = ".zstd",
+		.is_compressed = is_compressed_zstd,
+		.create_istream = i_stream_create_zstd,
+		.create_ostream = o_stream_create_zstd,
+	},
+	{
+		.name = "unsupported",
+	},
+	{
+		.name = NULL,
+	}
 };
