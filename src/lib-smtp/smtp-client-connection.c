@@ -79,12 +79,16 @@ void smtp_client_connection_accept_extra_capability(
 	struct smtp_client_connection *conn,
 	const struct smtp_client_capability_extra *cap)
 {
+	i_assert(smtp_client_connection_find_extra_capability(conn, cap->name)
+		 == NULL);
+	
+	if (!array_is_created(&conn->extra_capabilities))
+		p_array_init(&conn->extra_capabilities, conn->pool, 8);
+
 	struct smtp_client_capability_extra cap_new = {
 		.name = p_strdup(conn->pool, cap->name),
 	};
 
-	if (!array_is_created(&conn->extra_capabilities))
-		p_array_init(&conn->extra_capabilities, conn->pool, 8);
 	array_push_back(&conn->extra_capabilities, &cap_new);
 }
 
