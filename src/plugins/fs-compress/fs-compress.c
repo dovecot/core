@@ -13,7 +13,7 @@
 struct compress_fs {
 	struct fs fs;
 	const struct compression_handler *compress_handler;
-	unsigned int compress_level;
+	int compress_level;
 	bool try_plain;
 };
 
@@ -73,12 +73,6 @@ fs_compress_init(struct fs *_fs, const char *args,
 	}
 
 	level_str = t_strdup_until(args, p++);
-	if (str_to_uint(level_str, &fs->compress_level) < 0 ||
-	    fs->compress_level > 9) {
-		*error_r = t_strdup_printf(
-			"Invalid compression level parameter '%s'", level_str);
-		return -1;
-	}
 	args = p;
 	ret = compression_lookup_handler(compression_name, &fs->compress_handler);
 	if (ret <= 0) {
@@ -87,7 +81,16 @@ fs_compress_init(struct fs *_fs, const char *args,
 					   "not supported" : "unknown");
 		return -1;
 	}
-
+	if (str_to_int(level_str, &fs->compress_level) < 0 ||
+	    fs->compress_level < fs->compress_handler->get_min_level() ||
+	    fs->compress_level > fs->compress_handler->get_max_level()) {
+		 *error_r = t_strdup_printf(
+			"Invalid compression level parameter '%s': "
+			"Level must be between %d..%d", level_str,
+			fs->compress_handler->get_min_level(),
+			fs->compress_handler->get_max_level());
+		return -1;
+	}
 	parent_args = strchr(args, ':');
 	if (parent_args == NULL) {
 		parent_name = args;
