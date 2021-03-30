@@ -89,6 +89,15 @@ void smtp_client_connection_accept_extra_capability(
 		.name = p_strdup(conn->pool, cap->name),
 	};
 
+	if (cap->mail_param_extensions != NULL) {
+		cap_new.mail_param_extensions =
+			p_strarray_dup(conn->pool, cap->mail_param_extensions);
+	}
+	if (cap->rcpt_param_extensions != NULL) {
+		cap_new.rcpt_param_extensions =
+			p_strarray_dup(conn->pool, cap->rcpt_param_extensions);
+	}
+
 	array_push_back(&conn->extra_capabilities, &cap_new);
 }
 
@@ -900,6 +909,41 @@ smtp_client_connection_starttls(struct smtp_client_connection *conn)
 }
 
 static void
+smtp_client_connection_record_param_extensions(
+	struct smtp_client_connection *conn, ARRAY_TYPE(const_string) *arr,
+	const char *const *extensions)
+{
+	pool_t pool = conn->cap_pool;
+
+	if (extensions == NULL || *extensions == NULL)
+		return;
+
+	if (!array_is_created(arr))
+		p_array_init(arr, pool, 4);
+	else {
+		const char *const *end;
+
+		/* Drop end marker */
+		i_assert(array_count(arr) > 0);
+		end = array_back(arr);
+		i_assert(*end == NULL);
+		array_pop_back(arr);
+	}
+
+	const char *const *new_p;
+	for (new_p = extensions; *new_p != NULL; new_p++) {
+		/* Drop duplicates */
+		if (array_lsearch(arr, new_p, i_strcasecmp_p) != NULL)
+			continue;
+
+		array_push_back(arr, new_p);
+	}
+
+	/* Add new end marker */
+	array_append_zero(arr);
+}
+
+static void
 smtp_client_connection_record_extra_capability(
 	struct smtp_client_connection *conn, const char *cap_name,
 	const char *const *params)
@@ -923,6 +967,13 @@ smtp_client_connection_record_extra_capability(
 	cap_extra.params = p_strarray_dup(pool, params);
 
 	array_push_back(&conn->caps.extra, &cap_extra);
+
+	smtp_client_connection_record_param_extensions(
+		conn, &conn->caps.mail_param_extensions,
+		ccap_extra->mail_param_extensions);
+	smtp_client_connection_record_param_extensions(
+		conn, &conn->caps.rcpt_param_extensions,
+		ccap_extra->rcpt_param_extensions);
 }
 
 static void
