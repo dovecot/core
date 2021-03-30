@@ -346,13 +346,6 @@ cmd_burl_fetch_cb(struct imap_urlauth_fetch_reply *reply,
 
 	i_assert(last);
 
-	if (reply == NULL) {
-		/* fatal failure */
-		// FIXME: make this an internal error
-		smtp_server_reply(cmd, 554, "5.6.6",
-			"IMAP URLAUTH resolution failed");
-		return -1;
-	}
 	if (!reply->succeeded) {
 		/* URL fetch failed */
 		if (reply->error != NULL) {

@@ -197,12 +197,9 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 						&mpurl, &error_code, &error);
 	}
 	if (ret <= 0) {
-		if (ret == 0) {
-			errormsg = t_strdup_printf(
-				"Failed to fetch URLAUTH \"%s\": %s",
-				url, error);
-			e_debug(event, "%s", errormsg);
-		}
+		errormsg = t_strdup_printf("Failed to fetch URLAUTH \"%s\": %s",
+					   url, error);
+		e_debug(event, "%s", errormsg);
 		success = FALSE;
 	}
 
@@ -213,12 +210,10 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 	    (url_flags & IMAP_URLAUTH_FETCH_FLAG_BODYPARTSTRUCTURE) != 0) {
 		ret = imap_msgpart_url_get_bodypartstructure(mpurl, &bpstruct, &error);
 		if (ret <= 0) {
-			if (ret == 0) {
-				errormsg = t_strdup_printf(
-					"Failed to read URLAUTH \"%s\": %s",
-					url, error);
-				e_debug(event, "%s", errormsg);
-			}
+			errormsg = t_strdup_printf(
+				"Failed to read URLAUTH \"%s\": %s",
+				url, error);
+			e_debug(event, "%s", errormsg);
 			success = FALSE;
 		}
 	}
@@ -229,12 +224,10 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 			(url_flags & IMAP_URLAUTH_FETCH_FLAG_BINARY) != 0)) {
 		ret = imap_msgpart_url_read_part(mpurl, &mpresult, &error);
 		if (ret <= 0) {
-			if (ret == 0) {
-				errormsg = t_strdup_printf(
-					"Failed to read URLAUTH \"%s\": %s",
-					url, error);
-				e_debug(event, "%s", errormsg);
-			}
+			errormsg = t_strdup_printf(
+				"Failed to read URLAUTH \"%s\": %s",
+				url, error);
+			e_debug(event, "%s", errormsg);
 			success = FALSE;
 		}
 	}
@@ -255,14 +248,6 @@ imap_urlauth_fetch_local(struct imap_urlauth_fetch *ufetch, const char *url,
 	}
 
 	ufetch->pending_requests--;
-
-	if (!success && ret < 0) {
-		if (mpurl != NULL)
-			imap_msgpart_url_free(&mpurl);
-		(void)ufetch->callback(NULL, TRUE, ufetch->context);
-		imap_urlauth_fetch_fail(ufetch);
-		return;
-	}
 
 	i_zero(&reply);
 	reply.url = url;

@@ -259,11 +259,7 @@ cmd_urlfetch_url_callback(struct imap_urlauth_fetch_reply *reply,
 
 	if (!in_io_handler)
 		o_stream_cork(client->output);
-	if (reply == NULL) {
-		/* fatal failure */
-		ctx->failed = TRUE;
-		ret = -1;
-	} else if (reply->succeeded) {
+	if (reply->succeeded) {
 		/* URL fetch succeeded */
 		ret = cmd_urlfetch_url_success(cmd, reply);
 	} else {
