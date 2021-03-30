@@ -67,6 +67,10 @@ cmd_rcpt_handle_forward_fields(struct smtp_server_cmd_ctx *cmd,
 	if (ret == 0)
 		return 0;
 
+	/* Drop the parameter */
+	(void)smtp_params_rcpt_drop_extra(&rcpt->params,
+					  LMTP_RCPT_FORWARD_PARAMETER, NULL);
+
 	/* Check the real IP rather than the proxied client IP, since XCLIENT
 	   command will update that, thereby making it untrusted. Unlike the
 	   XCLIENT command, the RCPT forward parameter needs to be used after
