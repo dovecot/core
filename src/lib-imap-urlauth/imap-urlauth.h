@@ -37,16 +37,17 @@ int imap_urlauth_generate(struct imap_urlauth_context *uctx,
 
 bool imap_urlauth_check(struct imap_urlauth_context *uctx,
 			struct imap_url *url, bool ignore_unknown_access,
-			const char **error_r);
+			const char **client_error_r);
 
 int imap_urlauth_fetch_parsed(struct imap_urlauth_context *uctx,
 			      struct imap_url *url,
 			      struct imap_msgpart_url **mpurl_r,
 			      enum mail_error *error_code_r,
-			      const char **error_r);
+			      const char **client_error_r);
 int imap_urlauth_fetch(struct imap_urlauth_context *uctx,
 		       const char *urlauth, struct imap_msgpart_url **mpurl_r,
-		       enum mail_error *error_code_r, const char **error_r);
+		       enum mail_error *error_code_r,
+		       const char **client_error_r);
 
 int imap_urlauth_reset_mailbox_key(struct imap_urlauth_context *uctx,
 				   struct mailbox *box);

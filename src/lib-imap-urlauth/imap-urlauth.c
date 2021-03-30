@@ -153,12 +153,12 @@ access_applications_have_access(struct imap_urlauth_context *uctx,
 static bool
 imap_urlauth_check_access(struct imap_urlauth_context *uctx,
 			  struct imap_url *url, bool ignore_unknown,
-			  const char **error_r)
+			  const char **client_error_r)
 {
 	const char *userid;
 
 	if (url->uauth_access_application == NULL) {
-		*error_r = "URL is missing URLAUTH";
+		*client_error_r = "URL is missing URLAUTH";
 		return FALSE;
 	}
 
@@ -167,7 +167,7 @@ imap_urlauth_check_access(struct imap_urlauth_context *uctx,
 		if (strcasecmp(url->uauth_access_application, "user") == 0) {
 			/* user+<access_user> */
 			if (url->uauth_access_user == NULL) {
-				*error_r = "URLAUTH `user' access is missing userid";
+				*client_error_r = "URLAUTH `user' access is missing userid";
 				return FALSE;
 			}
 			if (!uctx->access_anonymous ||
@@ -190,12 +190,12 @@ imap_urlauth_check_access(struct imap_urlauth_context *uctx,
 		if (strcasecmp(url->uauth_access_application, "submit") != 0) {
 			userid = url->uauth_access_user == NULL ? "" :
 				t_strdup_printf("+%s", url->uauth_access_user);
-			*error_r = t_strdup_printf(
+			*client_error_r = t_strdup_printf(
 				"No '%s%s' access allowed for submission service",
 				url->uauth_access_application, userid);
 			return FALSE;
 		} else if (url->uauth_access_user == NULL) {
-			*error_r = "URLAUTH `submit' access is missing userid";
+			*client_error_r = "URLAUTH `submit' access is missing userid";
 			return FALSE;
 		} else if (!uctx->access_anonymous &&
 			strcasecmp(url->uauth_access_user, uctx->access_user) == 0) {
@@ -207,11 +207,11 @@ imap_urlauth_check_access(struct imap_urlauth_context *uctx,
 		t_strdup_printf("+%s", url->uauth_access_user);
 
 	if (uctx->access_anonymous) {
-		*error_r = t_strdup_printf(
+		*client_error_r = t_strdup_printf(
 			"No '%s%s' access allowed for anonymous user",
 			url->uauth_access_application, userid);
 	} else {
-		*error_r = t_strdup_printf(
+		*client_error_r = t_strdup_printf(
 			"No '%s%s' access allowed for user %s",
 			url->uauth_access_application, userid, uctx->access_user);
 	}
@@ -327,26 +327,27 @@ int imap_urlauth_generate(struct imap_urlauth_context *uctx,
 
 bool imap_urlauth_check(struct imap_urlauth_context *uctx,
 			struct imap_url *url, bool ignore_unknown_access,
-			const char **error_r)
+			const char **client_error_r)
 {
 	/* validate URL fields */
 	if (url->mailbox == NULL || url->uid == 0 ||
 	    url->search_program != NULL || url->uauth_rumpurl == NULL ||
 	    url->uauth_mechanism == NULL) {
-		*error_r = "Invalid URL: Must be a full URLAUTH URL";
+		*client_error_r = "Invalid URL: Must be a full URLAUTH URL";
 		return FALSE;
 	}
 
 	/* check presence of userid */
 	if (url->userid == NULL) {
-		*error_r = "Invalid URLAUTH: Missing user name";
+		*client_error_r = "Invalid URLAUTH: Missing user name";
 		return FALSE;
 	}
 
 	/* validate mechanism */
 	if (strcasecmp(url->uauth_mechanism, "INTERNAL") != 0) {
-		*error_r = t_strdup_printf("Unsupported URLAUTH mechanism: %s",
-					   url->uauth_mechanism);
+		*client_error_r = t_strdup_printf(
+			"Unsupported URLAUTH mechanism: %s",
+			url->uauth_mechanism);
 		return FALSE;
 	}
 
@@ -355,17 +356,17 @@ bool imap_urlauth_check(struct imap_urlauth_context *uctx,
 		time_t now = time(NULL);
 
 		if (now > url->uauth_expire) {
-			*error_r = t_strdup_printf("URLAUTH has expired");
+			*client_error_r = t_strdup_printf("URLAUTH has expired");
 			return FALSE;
 		}
 	}
 
 	/* validate access */
 	if (!imap_urlauth_check_access(uctx, url, ignore_unknown_access,
-				       error_r))
+				       client_error_r))
 		return FALSE;
 	/* validate host:port */
-	if (!imap_urlauth_check_hostport(uctx, url, error_r))
+	if (!imap_urlauth_check_hostport(uctx, url, client_error_r))
 		return FALSE;
 	return TRUE;
 }
@@ -374,7 +375,7 @@ int imap_urlauth_fetch_parsed(struct imap_urlauth_context *uctx,
 			      struct imap_url *url,
 			      struct imap_msgpart_url **mpurl_r,
 			      enum mail_error *error_code_r,
-			      const char **error_r)
+			      const char **client_error_r)
 {
 	struct mail_user *user = uctx->user;
 	struct imap_msgpart_url *mpurl;
@@ -384,33 +385,34 @@ int imap_urlauth_fetch_parsed(struct imap_urlauth_context *uctx,
 	int ret;
 
 	*mpurl_r = NULL;
-	*error_r = NULL;
+	*client_error_r = NULL;
 	*error_code_r = MAIL_ERROR_NONE;
 
 	/* check urlauth mechanism, access, userid and authority */
-	if (!imap_urlauth_check(uctx, url, FALSE, error_r)) {
+	if (!imap_urlauth_check(uctx, url, FALSE, client_error_r)) {
 		*error_code_r = MAIL_ERROR_PARAMS;
 		return 0;
 	}
 
 	/* validate target user */
 	if (user->anonymous || strcmp(url->userid, user->username) != 0) {
-		*error_r = t_strdup_printf("Not permitted to fetch URLAUTH for user %s",
-					   url->userid);
+		*client_error_r = t_strdup_printf(
+			"Not permitted to fetch URLAUTH for user %s",
+			url->userid);
 		*error_code_r = MAIL_ERROR_PARAMS;
 		return 0;
 	}
 
 	/* validate mailbox */
 	if (imap_msgpart_url_create(user, url, &mpurl, &error) < 0) {
-		*error_r = t_strdup_printf("Invalid URLAUTH: %s", error);
+		*client_error_r = t_strdup_printf("Invalid URLAUTH: %s", error);
 		*error_code_r = MAIL_ERROR_PARAMS;
 		return -1;
 	}
 
 	if ((ret = imap_msgpart_url_open_mailbox(mpurl, &box, error_code_r,
 						 &error)) < 0) {
-		*error_r = "Internal server error";
+		*client_error_r = "Internal server error";
 		imap_msgpart_url_free(&mpurl);
 		return -1;
 	}
@@ -425,14 +427,14 @@ int imap_urlauth_fetch_parsed(struct imap_urlauth_context *uctx,
 		(void)imap_urlauth_internal_verify(url->uauth_rumpurl,
 			mailbox_key, url->uauth_token, url->uauth_token_size);
 
-		*error_r = t_strdup_printf("Invalid URLAUTH: %s", error);
+		*client_error_r = t_strdup_printf("Invalid URLAUTH: %s", error);
 		imap_msgpart_url_free(&mpurl);
 		return 0;
 	}
 
 	/* obtain mailbox key */
 	ret = imap_urlauth_backend_get_mailbox_key(box, FALSE, mailbox_key,
-						   error_r, error_code_r);
+						   client_error_r, error_code_r);
 	if (ret < 0) {
 		imap_msgpart_url_free(&mpurl);
 		return -1;
@@ -442,7 +444,7 @@ int imap_urlauth_fetch_parsed(struct imap_urlauth_context *uctx,
 	    !imap_urlauth_internal_verify(url->uauth_rumpurl, mailbox_key,
 					  url->uauth_token,
 					  url->uauth_token_size)) {
-		*error_r = "URLAUTH verification failed";
+		*client_error_r = "URLAUTH verification failed";
 		*error_code_r = MAIL_ERROR_PERM;
 		imap_msgpart_url_free(&mpurl);
 		ret = 0;
@@ -457,7 +459,8 @@ int imap_urlauth_fetch_parsed(struct imap_urlauth_context *uctx,
 
 int imap_urlauth_fetch(struct imap_urlauth_context *uctx,
 		       const char *urlauth, struct imap_msgpart_url **mpurl_r,
-		       enum mail_error *error_code_r, const char **error_r)
+		       enum mail_error *error_code_r,
+		       const char **client_error_r)
 {
 	struct imap_url *url;
 	enum imap_url_parse_flags url_flags = IMAP_URL_PARSE_ALLOW_URLAUTH;
@@ -465,13 +468,13 @@ int imap_urlauth_fetch(struct imap_urlauth_context *uctx,
 
 	/* validate URL */
 	if (imap_url_parse(urlauth, NULL, url_flags, &url, &error) < 0) {
-		*error_r = t_strdup_printf("Invalid URLAUTH: %s", error);
+		*client_error_r = t_strdup_printf("Invalid URLAUTH: %s", error);
 		*error_code_r = MAIL_ERROR_PARAMS;
 		return 0;
 	}
 
 	return imap_urlauth_fetch_parsed(uctx, url, mpurl_r,
-					 error_code_r, error_r);
+					 error_code_r, client_error_r);
 }
 
 int imap_urlauth_reset_mailbox_key(struct imap_urlauth_context *uctx ATTR_UNUSED,
