@@ -27,7 +27,7 @@
 #endif
 
 struct stack_block {
-	struct stack_block *next;
+	struct stack_block *prev, *next;
 
 	size_t size, left;
 	/* The lowest value that "left" has been in this block since it was
@@ -81,7 +81,9 @@ static data_stack_frame_t root_frame_id;
 static int frame_pos = BLOCK_FRAME_COUNT-1; /* in current_frame_block */
 static struct stack_frame_block *current_frame_block;
 
-static struct stack_block *current_block; /* block now used for allocation */
+/* The latest block currently used for allocation. current_block->next is
+   always NULL. */
+static struct stack_block *current_block;
 
 static struct stack_block *last_buffer_block;
 static size_t last_buffer_size;
@@ -356,6 +358,7 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 	block->size = alloc_size;
 	block->left = block->size;
 	block->left_lowwater = block->size;
+	block->prev = NULL;
 	block->next = NULL;
 	block->canary = BLOCK_CANARY;
 
@@ -406,6 +409,10 @@ static void *t_malloc_real(size_t size, bool permanent)
 		warn = TRUE;
 #endif
 
+		/* The newly allocated block will replace the current_block,
+		   i.e. current_block always points to the last element in
+		   the linked list. */
+		block->prev = current_block;
 		current_block->next = block;
 		current_block = block;
 	}
@@ -578,7 +585,9 @@ size_t data_stack_get_used_size(void)
 	struct stack_block *block;
 	size_t size = 0;
 
-	for (block = current_block; block != NULL; block = block->next)
+	i_assert(current_block->next == NULL);
+
+	for (block = current_block; block != NULL; block = block->prev)
 		size += current_block->size - current_block->left;
 	return size;
 }
