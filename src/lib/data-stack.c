@@ -47,25 +47,20 @@ struct stack_block {
 #define STACK_BLOCK_DATA(block) \
 	(block->data + (SIZEOF_MEMBLOCK - sizeof(struct stack_block)))
 
-/* current_frame_block contains last t_push()ed frames. After that new
-   stack_frame_block is created and it's ->prev is set to
-   current_frame_block. */
-#define BLOCK_FRAME_COUNT 32
+struct stack_frame {
+	struct stack_frame *prev;
 
-struct stack_frame_block {
-	struct stack_frame_block *prev;
-
-	struct stack_block *block[BLOCK_FRAME_COUNT];
+	struct stack_block *block;
 	/* Each frame initializes this to current_block->left, i.e. how much
 	   free space is left in the block. So the frame's start position in
 	   the block is (block.size - block_space_left) */
-	size_t block_space_left[BLOCK_FRAME_COUNT];
-	size_t last_alloc_size[BLOCK_FRAME_COUNT];
-	const char *marker[BLOCK_FRAME_COUNT];
+	size_t block_space_left;
+	size_t last_alloc_size;
+	const char *marker;
 #ifdef DEBUG
 	/* Fairly arbitrary profiling data */
-	unsigned long long alloc_bytes[BLOCK_FRAME_COUNT];
-	unsigned int alloc_count[BLOCK_FRAME_COUNT];
+	unsigned long long alloc_bytes;
+	unsigned int alloc_count;
 #endif
 };
 
@@ -80,8 +75,7 @@ unsigned int data_stack_frame_id = 0;
 static bool data_stack_initialized = FALSE;
 static data_stack_frame_t root_frame_id;
 
-static int frame_pos = BLOCK_FRAME_COUNT-1; /* in current_frame_block */
-static struct stack_frame_block *current_frame_block;
+static struct stack_frame *current_frame;
 
 /* The latest block currently used for allocation. current_block->next is
    always NULL. */
@@ -144,49 +138,37 @@ static void data_stack_last_buffer_reset(bool preserve_data ATTR_UNUSED)
 
 data_stack_frame_t t_push(const char *marker)
 {
-	struct stack_frame_block *frame_block;
+	struct stack_frame *frame;
 
 	i_assert(marker != NULL);
 
-	frame_pos++;
-	if (frame_pos == BLOCK_FRAME_COUNT) {
-		/* frame block full */
-		if (unlikely(!data_stack_initialized)) {
-			/* kludgy, but allow this before initialization */
-			frame_pos = 0;
-			data_stack_init();
-			return t_push(marker);
-		}
-
-		frame_pos = 0;
-		/* allocate new block */
-		frame_block = calloc(sizeof(*frame_block), 1);
-		if (frame_block == NULL) {
-			i_fatal_status(FATAL_OUTOFMEM,
-				       "t_push(): Out of memory");
-		}
-
-		frame_block->prev = current_frame_block;
-		current_frame_block = frame_block;
+	if (unlikely(!data_stack_initialized)) {
+		/* kludgy, but allow this before initialization */
+		data_stack_init();
+		return t_push(marker);
 	}
+
+	/* allocate new block */
+	frame = calloc(sizeof(*frame), 1);
+	if (frame == NULL)
+		i_fatal_status(FATAL_OUTOFMEM, "t_push(): Out of memory");
+	frame->prev = current_frame;
+	current_frame = frame;
+
 	data_stack_last_buffer_reset(FALSE);
 
 	/* mark our current position */
-	current_frame_block->block[frame_pos] = current_block;
-	current_frame_block->block_space_left[frame_pos] = current_block->left;
-	current_frame_block->last_alloc_size[frame_pos] = 0;
-	current_frame_block->marker[frame_pos] = marker;
-#ifdef DEBUG
-	current_frame_block->alloc_bytes[frame_pos] = 0ULL;
-	current_frame_block->alloc_count[frame_pos] = 0;
-#endif
+	current_frame->block = current_block;
+	current_frame->block_space_left = current_block->left;
+	current_frame->last_alloc_size = 0;
+	current_frame->marker = marker;
 
 #ifndef STATIC_CHECKER
 	return data_stack_frame_id++;
 #else
-	struct data_stack_frame *frame = i_new(struct data_stack_frame, 1);
-	frame->id = data_stack_frame_id++;
-	return frame;
+	struct data_stack_frame *ds_frame = i_new(struct data_stack_frame, 1);
+	ds_frame->id = data_stack_frame_id++;
+	return ds_frame;
 #endif
 }
 
@@ -196,7 +178,7 @@ data_stack_frame_t t_push_named(const char *format, ...)
 #ifdef DEBUG
 	va_list args;
 	va_start(args, format);
-	current_frame_block->marker[frame_pos] = p_strdup_vprintf(unsafe_data_stack_pool, format, args);
+	current_frame->marker = p_strdup_vprintf(unsafe_data_stack_pool, format, args);
 	va_end(args);
 #else
 	(void)format; /* unused in non-DEBUG builds */
@@ -243,8 +225,8 @@ static void t_pop_verify(void)
 	unsigned char *p;
 	size_t pos, max_pos, used_size;
 
-	block = current_frame_block->block[frame_pos];
-	pos = block->size - current_frame_block->block_space_left[frame_pos];
+	block = current_frame->block;
+	pos = block->size - current_frame->block_space_left;
 	while (block != NULL) {
 		block_canary_check(block);
 		used_size = block->size - block->left;
@@ -253,14 +235,14 @@ static void t_pop_verify(void)
 			size_t requested_size = *(size_t *)(p + pos);
 			if (used_size - pos < requested_size)
 				i_panic("data stack[%s]: saved alloc size broken",
-					current_frame_block->marker[frame_pos]);
+					current_frame->marker);
 			max_pos = pos + ALLOC_SIZE(requested_size);
 			pos += MEM_ALIGN(sizeof(size_t)) + requested_size;
 
 			for (; pos < max_pos; pos++) {
 				if (p[pos] != CLEAR_CHR)
 					i_panic("data stack[%s]: buffer overflow",
-						current_frame_block->marker[frame_pos]);
+						current_frame->marker);
 			}
 		}
 
@@ -275,9 +257,9 @@ static void t_pop_verify(void)
 
 void t_pop_last_unsafe(void)
 {
-	struct stack_frame_block *frame_block;
+	struct stack_frame *frame;
 
-	if (unlikely(frame_pos < 0))
+	if (unlikely(current_frame == NULL))
 		i_panic("t_pop() called with empty stack");
 
 	data_stack_last_buffer_reset(FALSE);
@@ -286,19 +268,19 @@ void t_pop_last_unsafe(void)
 #endif
 
 	/* update the current block */
-	current_block = current_frame_block->block[frame_pos];
+	current_block = current_frame->block;
 	block_canary_check(current_block);
 	if (clean_after_pop) {
 		size_t start_pos, end_pos;
 
 		start_pos = current_block->size -
-			current_frame_block->block_space_left[frame_pos];
+			current_frame->block_space_left;
 		end_pos = current_block->size - current_block->left_lowwater;
 		i_assert(end_pos >= start_pos);
 		memset(STACK_BLOCK_DATA(current_block) + start_pos, CLEAR_CHR,
 		       end_pos - start_pos);
 	}
-	current_block->left = current_frame_block->block_space_left[frame_pos];
+	current_block->left = current_frame->block_space_left;
 	current_block->left_lowwater = current_block->left;
 
 	if (current_block->next != NULL) {
@@ -307,16 +289,10 @@ void t_pop_last_unsafe(void)
 		current_block->next = NULL;
 	}
 
-	if (frame_pos > 0)
-		frame_pos--;
-	else {
-		/* frame block is now unused, add it to unused list */
-		frame_pos = BLOCK_FRAME_COUNT-1;
+	frame = current_frame;
+	current_frame = frame->prev;
+	free(frame);
 
-		frame_block = current_frame_block;
-		current_frame_block = frame_block->prev;
-		free(frame_block);
-	}
 	data_stack_frame_id--;
 }
 
@@ -410,12 +386,11 @@ static void data_stack_send_grow_event(size_t last_alloc_size)
 	event_add_int(event_datastack, "last_block_size", current_block->size);
 #ifdef DEBUG
 	event_add_int(event_datastack, "frame_alloc_bytes",
-		      current_frame_block->alloc_bytes[frame_pos]);
+		      current_frame->alloc_bytes);
 	event_add_int(event_datastack, "frame_alloc_count",
-		      current_frame_block->alloc_count[frame_pos]);
+		      current_frame->alloc_count);
 #endif
-	event_add_str(event_datastack, "frame_marker",
-		      current_frame_block->marker[frame_pos]);
+	event_add_str(event_datastack, "frame_marker", current_frame->marker);
 
 	string_t *str = t_str_new(128);
 	str_printfa(str, "total_used=%zu, total_alloc=%zu, last_alloc_size=%zu",
@@ -424,11 +399,10 @@ static void data_stack_send_grow_event(size_t last_alloc_size)
 		    last_alloc_size);
 #ifdef DEBUG
 	str_printfa(str, ", frame_bytes=%llu, frame_alloc_count=%u",
-		    current_frame_block->alloc_bytes[frame_pos],
-		    current_frame_block->alloc_count[frame_pos]);
+		    current_frame->alloc_bytes, current_frame->alloc_count);
 #endif
 	e_debug(event_datastack, "Growing data stack by %zu for '%s' (%s)",
-		current_block->size, current_frame_block->marker[frame_pos],
+		current_block->size, current_frame->marker,
 		str_c(str));
 }
 
@@ -455,14 +429,14 @@ static void *t_malloc_real(size_t size, bool permanent)
 	alloc_size = ALLOC_SIZE(size);
 #ifdef DEBUG
 	if(permanent) {
-		current_frame_block->alloc_bytes[frame_pos] += alloc_size;
-		current_frame_block->alloc_count[frame_pos]++;
+		current_frame->alloc_bytes += alloc_size;
+		current_frame->alloc_count++;
 	}
 #endif
 	data_stack_last_buffer_reset(TRUE);
 
 	/* used for t_try_realloc() */
-	current_frame_block->last_alloc_size[frame_pos] = alloc_size;
+	current_frame->last_alloc_size = alloc_size;
 
 	if (current_block->left < alloc_size) {
 		struct stack_block *block;
@@ -530,7 +504,7 @@ t_try_realloc(void *mem, size_t size)
 		i_panic("Trying to allocate %zu bytes", size);
 	block_canary_check(current_block);
 
-	last_alloc_size = current_frame_block->last_alloc_size[frame_pos];
+	last_alloc_size = current_frame->last_alloc_size;
 
 	/* see if we're trying to grow the memory we allocated last */
 	after_last_alloc = data_stack_after_last_alloc(current_block);
@@ -557,12 +531,11 @@ t_try_realloc(void *mem, size_t size)
 			current_block->left -= alloc_growth;
 			if (current_block->left < current_block->left_lowwater)
 				current_block->left_lowwater = current_block->left;
-			current_frame_block->last_alloc_size[frame_pos] =
-				new_alloc_size;
+			current_frame->last_alloc_size = new_alloc_size;
 #ifdef DEBUG
 			/* All reallocs are permanent by definition
 			   However, they don't count as a new allocation */
-			current_frame_block->alloc_bytes[frame_pos] += alloc_growth;
+			current_frame->alloc_bytes += alloc_growth;
 			*(size_t *)PTR_OFFSET(mem, -(ptrdiff_t)MEM_ALIGN(sizeof(size_t))) = size;
 			memset(PTR_OFFSET(mem, size), CLEAR_CHR,
 			       new_alloc_size - size - MEM_ALIGN(sizeof(size_t)));
@@ -658,14 +631,13 @@ bool data_stack_frame_contains(data_stack_frame_t *id, const void *_ptr)
 	/* Too much effort to support more than the latest frame.
 	   It's the only thing that is currently needed anyway. */
 	i_assert(wanted_frame_id+1 == data_stack_frame_id);
-	block = current_frame_block->block[frame_pos];
+	block = current_frame->block;
 	i_assert(block != NULL);
 
 	/* See if it's in the frame's first block. Only the data after
 	   block_start_pos belong to this frame. */
 	block_data = STACK_BLOCK_DATA(block);
-	block_start_pos = block->size -
-		current_frame_block->block_space_left[frame_pos];
+	block_start_pos = block->size - current_frame->block_space_left;
 	block_used = block->size - block->left;
 	if (ptr >= block_data + block_start_pos &&
 	    ptr <= block_data + block_used)
@@ -721,9 +693,7 @@ void data_stack_init(void)
 	outofmem_area.block.canary = BLOCK_CANARY;
 
 	current_block = mem_block_alloc(INITIAL_STACK_SIZE);
-
-	current_frame_block = NULL;
-	frame_pos = BLOCK_FRAME_COUNT-1;
+	current_frame = NULL;
 
 	last_buffer_block = NULL;
 	last_buffer_size = 0;
@@ -740,7 +710,7 @@ void data_stack_deinit_event(void)
 void data_stack_deinit(void)
 {
 	if (!t_pop(&root_frame_id) ||
-	    frame_pos != BLOCK_FRAME_COUNT-1)
+	    current_frame != NULL)
 		i_panic("Missing t_pop() call");
 
 	free(current_block);
