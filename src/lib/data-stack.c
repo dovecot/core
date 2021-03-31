@@ -263,8 +263,16 @@ void t_pop_last_unsafe(void)
 	t_pop_verify();
 #endif
 
-	/* update the current block */
-	current_block = current_frame->block;
+	/* Usually the block doesn't change. If it doesn't, the next pointer
+	   must also be NULL. */
+	if (current_block != current_frame->block) {
+		current_block = current_frame->block;
+		if (current_block->next != NULL) {
+			/* free unused blocks */
+			free_blocks(current_block->next);
+			current_block->next = NULL;
+		}
+	}
 	block_canary_check(current_block);
 
 	/* current_frame points inside the stack frame that will be freed.
@@ -284,12 +292,6 @@ void t_pop_last_unsafe(void)
 #endif
 
 	current_block->left = block_space_left;
-
-	if (current_block->next != NULL) {
-		/* free unused blocks */
-		free_blocks(current_block->next);
-		current_block->next = NULL;
-	}
 
 	data_stack_frame_id--;
 }
