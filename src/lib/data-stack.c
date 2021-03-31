@@ -580,6 +580,49 @@ void data_stack_set_clean_after_pop(bool enable ATTR_UNUSED)
 #endif
 }
 
+bool data_stack_frame_contains(data_stack_frame_t *id, const void *_ptr)
+{
+	const unsigned char *block_data, *ptr = _ptr;
+	const struct stack_block *block;
+	unsigned int wanted_frame_id;
+	size_t block_start_pos, block_used;
+
+	/* first handle the fast path - NULL can never be within the frame */
+	if (ptr == NULL)
+		return FALSE;
+
+#ifndef STATIC_CHECKER
+	wanted_frame_id = *id;
+#else
+	wanted_frame_id = (*id)->id;
+#endif
+	/* Too much effort to support more than the latest frame.
+	   It's the only thing that is currently needed anyway. */
+	i_assert(wanted_frame_id+1 == data_stack_frame_id);
+	block = current_frame_block->block[frame_pos];
+	i_assert(block != NULL);
+
+	/* See if it's in the frame's first block. Only the data after
+	   block_start_pos belong to this frame. */
+	block_data = STACK_BLOCK_DATA(block);
+	block_start_pos = block->size -
+		current_frame_block->block_space_left[frame_pos];
+	block_used = block->size - block->left;
+	if (ptr >= block_data + block_start_pos &&
+	    ptr <= block_data + block_used)
+		return TRUE;
+
+	/* See if it's in the other blocks. All the data in them belong to
+	   this frame. */
+	for (block = block->next; block != NULL; block = block->next) {
+		block_data = STACK_BLOCK_DATA(block);
+		block_used = block->size - block->left;
+		if (ptr >= block_data && ptr < block_data + block_used)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 size_t data_stack_get_alloc_size(void)
 {
 	struct stack_block *block;
