@@ -3,6 +3,34 @@
 #include "test-lib.h"
 #include "data-stack.h"
 
+static void test_ds_get_bytes_available(void)
+{
+	test_begin("data-stack t_get_bytes_available()");
+	for (unsigned int i = 0; i < 32; i++) {
+		size_t orig_avail = t_get_bytes_available();
+		size_t avail1;
+		T_BEGIN {
+			if (i > 0)
+				t_malloc_no0(i);
+			avail1 = t_get_bytes_available();
+			t_malloc_no0(avail1);
+			test_assert_idx(t_get_bytes_available() == 0, i);
+			t_malloc_no0(1);
+			test_assert_idx(t_get_bytes_available() > 0, i);
+		} T_END;
+		T_BEGIN {
+			if (i > 0)
+				t_malloc_no0(i);
+			size_t avail2 = t_get_bytes_available();
+			test_assert_idx(avail1 == avail2, i);
+			t_malloc_no0(avail2 + 1);
+			test_assert_idx(t_get_bytes_available() > 0, i);
+		} T_END;
+		test_assert_idx(t_get_bytes_available() == orig_avail, i);
+	}
+	test_end();
+}
+
 static void test_ds_buffers(void)
 {
 	test_begin("data-stack buffer growth");
@@ -11,7 +39,7 @@ static void test_ds_buffers(void)
 		unsigned char *p;
 		size_t left = t_get_bytes_available();
 		while (left < 10000) {
-			t_malloc_no0(left); /* force a new block */
+			t_malloc_no0(left+1); /* force a new block */
 			left = t_get_bytes_available();
 		}
 		left -= 64; /* make room for the sentry if DEBUG */
@@ -70,7 +98,7 @@ static void test_ds_realloc()
 		unsigned char *p;
 		size_t left = t_get_bytes_available();
 		while (left < 10000) {
-			t_malloc_no0(left); /* force a new block */
+			t_malloc_no0(left+1); /* force a new block */
 			left = t_get_bytes_available();
 		}
 		left -= 64; /* make room for the sentry if DEBUG */
@@ -207,6 +235,7 @@ static void test_ds_pass_str(void)
 
 void test_data_stack(void)
 {
+	test_ds_get_bytes_available();
 	test_ds_buffers();
 	test_ds_realloc();
 	test_ds_recursive(20, 80);

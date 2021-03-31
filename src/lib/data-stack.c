@@ -534,15 +534,17 @@ t_try_realloc(void *mem, size_t size)
 
 size_t t_get_bytes_available(void)
 {
-#ifndef DEBUG
-	const unsigned int extra = MEM_ALIGN_SIZE-1;
-#else
-	const unsigned int extra = MEM_ALIGN_SIZE-1 + SENTRY_COUNT +
-		MEM_ALIGN(sizeof(size_t));
-#endif
 	block_canary_check(current_block);
-	return current_block->left < extra ? current_block->left :
-		current_block->left - extra;
+#ifndef DEBUG
+	const unsigned int min_extra = 0;
+#else
+	const unsigned int min_extra = SENTRY_COUNT + MEM_ALIGN(sizeof(size_t));
+#endif
+	if (current_block->left < min_extra)
+		return 0;
+	size_t size = current_block->left - min_extra;
+	i_assert(ALLOC_SIZE(size) == current_block->left);
+	return size;
 }
 
 void *t_buffer_get(size_t size)
