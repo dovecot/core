@@ -354,7 +354,7 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 			alloc_size + SIZEOF_MEMBLOCK);
 	}
 	block->size = alloc_size;
-	block->left = 0;
+	block->left = block->size;
 	block->left_lowwater = block->size;
 	block->next = NULL;
 	block->canary = BLOCK_CANARY;
@@ -406,7 +406,6 @@ static void *t_malloc_real(size_t size, bool permanent)
 		warn = TRUE;
 #endif
 
-		block->left = block->size;
 		block->next = NULL;
 		current_block->next = block;
 		current_block = block;
@@ -600,7 +599,6 @@ void data_stack_init(void)
 	outofmem_area.block.canary = BLOCK_CANARY;
 
 	current_block = mem_block_alloc(INITIAL_STACK_SIZE);
-	current_block->left = current_block->size;
 	current_block->next = NULL;
 
 	current_frame_block = NULL;
