@@ -406,7 +406,6 @@ static void *t_malloc_real(size_t size, bool permanent)
 		warn = TRUE;
 #endif
 
-		block->next = NULL;
 		current_block->next = block;
 		current_block = block;
 	}
@@ -599,7 +598,6 @@ void data_stack_init(void)
 	outofmem_area.block.canary = BLOCK_CANARY;
 
 	current_block = mem_block_alloc(INITIAL_STACK_SIZE);
-	current_block->next = NULL;
 
 	current_frame_block = NULL;
 	frame_pos = BLOCK_FRAME_COUNT-1;
