@@ -168,7 +168,9 @@ index_mail_alloc(struct mailbox_transaction_context *t,
 void index_mail_init(struct index_mail *mail,
 		     struct mailbox_transaction_context *_t,
 		     enum mail_fetch_field wanted_fields,
-		     struct mailbox_header_lookup_ctx *_wanted_headers);
+		     struct mailbox_header_lookup_ctx *_wanted_headers,
+		     struct pool *mail_pool,
+		     struct pool *data_pool);
 
 void index_mail_set_seq(struct mail *mail, uint32_t seq, bool saving);
 bool index_mail_set_uid(struct mail *mail, uint32_t uid);

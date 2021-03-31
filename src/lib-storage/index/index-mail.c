@@ -1688,9 +1688,8 @@ index_mail_alloc(struct mailbox_transaction_context *t,
 
 	pool = pool_alloconly_create("mail", 2048);
 	mail = p_new(pool, struct index_mail, 1);
-	mail->mail.pool = pool;
 
-	index_mail_init(mail, t, wanted_fields, wanted_headers);
+	index_mail_init(mail, t, wanted_fields, wanted_headers, pool, NULL);
 	return &mail->mail.mail;
 }
 
@@ -1703,8 +1702,11 @@ static void index_mail_init_event(struct mail *mail)
 void index_mail_init(struct index_mail *mail,
 		     struct mailbox_transaction_context *t,
 		     enum mail_fetch_field wanted_fields,
-		     struct mailbox_header_lookup_ctx *wanted_headers)
+		     struct mailbox_header_lookup_ctx *wanted_headers,
+		     struct pool *mail_pool,
+		     struct pool *data_pool)
 {
+	mail->mail.pool = mail_pool;
 	array_create(&mail->mail.module_contexts, mail->mail.pool,
 		     sizeof(void *), 5);
 
@@ -1713,7 +1715,10 @@ void index_mail_init(struct index_mail *mail,
 	mail->mail.mail.transaction = t;
 	index_mail_init_event(&mail->mail.mail);
 	t->mail_ref_count++;
-	mail->mail.data_pool = pool_alloconly_create("index_mail", 16384);
+	if (data_pool != NULL)
+		mail->mail.data_pool = data_pool;
+	else
+		mail->mail.data_pool = pool_alloconly_create("index_mail", 16384);
 	mail->ibox = INDEX_STORAGE_CONTEXT(t->box);
 	mail->mail.wanted_fields = wanted_fields;
 	if (wanted_headers != NULL) {
