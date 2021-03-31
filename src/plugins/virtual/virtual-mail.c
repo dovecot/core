@@ -35,27 +35,14 @@ virtual_mail_alloc(struct mailbox_transaction_context *t,
 {
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)t->box;
 	struct virtual_mail *vmail;
-	pool_t pool;
+	pool_t mail_pool, data_pool;
 
-	pool = pool_alloconly_create("vmail", 1024);
-	vmail = p_new(pool, struct virtual_mail, 1);
-	vmail->imail.mail.pool = pool;
-	vmail->imail.mail.data_pool =
-		pool_alloconly_create("virtual index_mail", 512);
+	mail_pool = pool_alloconly_create("vmail", 1024);
+	data_pool = pool_alloconly_create("virtual index_mail", 512);
+	vmail = p_new(mail_pool, struct virtual_mail, 1);
+	index_mail_init(&vmail->imail, t, wanted_fields, wanted_headers,
+			mail_pool, data_pool);
 	vmail->imail.mail.v = virtual_mail_vfuncs;
-	vmail->imail.mail.mail.box = t->box;
-	vmail->imail.mail.mail.transaction = t;
-	array_create(&vmail->imail.mail.module_contexts, pool,
-		     sizeof(void *), 5);
-
-	vmail->imail.ibox = INDEX_STORAGE_CONTEXT(t->box);
-
-	vmail->wanted_fields = wanted_fields;
-	if (wanted_headers != NULL) {
-		vmail->wanted_headers = wanted_headers;
-		mailbox_header_lookup_ref(wanted_headers);
-	}
-
 	i_array_init(&vmail->backend_mails, array_count(&mbox->backend_boxes));
 	return &vmail->imail.mail.mail;
 }
@@ -90,6 +77,7 @@ static void virtual_mail_free(struct mail *mail)
 	for (i = 0; i < count; i++)
 		mail_free(&mails[i]);
 	array_free(&vmail->backend_mails);
+	mail->transaction->mail_ref_count--;
 
 	mailbox_header_lookup_unref(&vmail->wanted_headers);
 	event_unref(&mail->event);
