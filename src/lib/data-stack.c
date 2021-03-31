@@ -580,6 +580,18 @@ void data_stack_set_clean_after_pop(bool enable ATTR_UNUSED)
 #endif
 }
 
+size_t data_stack_get_alloc_size(void)
+{
+	struct stack_block *block;
+	size_t size = 0;
+
+	i_assert(current_block->next == NULL);
+
+	for (block = current_block; block != NULL; block = block->prev)
+		size += current_block->size;
+	return size;
+}
+
 size_t data_stack_get_used_size(void)
 {
 	struct stack_block *block;
