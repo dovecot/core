@@ -429,17 +429,17 @@ int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
 	mail_cache_lookup_iter_init(view, seq, &iter);
 	field_def = &view->cache->fields[field_idx].field;
 	if (field_def->type == MAIL_CACHE_FIELD_BITMASK) {
-		return mail_cache_lookup_bitmask(&iter, field_idx,
-						 field_def->field_size,
-						 dest_buf);
-	}
-
-	/* return the first one that's found. if there are multiple
-	   they're all identical. */
-	while ((ret = mail_cache_lookup_iter_next(&iter, &field)) > 0) {
-		if (field.field_idx == field_idx) {
-			buffer_append(dest_buf, field.data, field.size);
-			break;
+		ret = mail_cache_lookup_bitmask(&iter, field_idx,
+						field_def->field_size,
+						dest_buf);
+	} else {
+		/* return the first one that's found. if there are multiple
+		   they're all identical. */
+		while ((ret = mail_cache_lookup_iter_next(&iter, &field)) > 0) {
+			if (field.field_idx == field_idx) {
+				buffer_append(dest_buf, field.data, field.size);
+				break;
+			}
 		}
 	}
 	return ret;
