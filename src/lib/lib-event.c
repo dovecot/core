@@ -601,7 +601,7 @@ struct event *event_set_always_log_source(struct event *event)
 struct event *event_set_min_log_level(struct event *event, enum log_type level)
 {
 	event->min_log_level = level;
-	event->debug_level_checked = FALSE;
+	event_recalculate_debug_level(event);
 	return event;
 }
 
@@ -789,7 +789,7 @@ event_add_categories(struct event *event,
 			array_push_back(&event->categories, &representative);
 	}
 	event_set_changed(event);
-	event->debug_level_checked = FALSE;
+	event_recalculate_debug_level(event);
 	return event;
 }
 

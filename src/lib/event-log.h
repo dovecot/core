@@ -33,6 +33,9 @@ struct event_log_params {
 	bool no_send:1;
 };
 
+/* Increased every time global event filters have changed. */
+extern unsigned int event_filter_replace_counter;
+
 void e_error(struct event *event,
 	     const char *source_filename, unsigned int source_linenum,
 	     const char *fmt, ...) ATTR_FORMAT(4, 5);
