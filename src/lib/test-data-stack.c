@@ -134,7 +134,10 @@ static void test_ds_buffers(void)
 	T_BEGIN {
 		size_t bigleft = t_get_bytes_available();
 		size_t i;
-		for (i = 1; i < bigleft-64; i += i_rand_limit(32)) T_BEGIN {
+		/* with DEBUG: the stack frame allocation takes 96 bytes
+		   and malloc takes extra 40 bytes + alignment, so don't let
+		   "i" be too high. */
+		for (i = 1; i < bigleft-96-40-16; i += i_rand_limit(32)) T_BEGIN {
 			unsigned char *p, *p2;
 			size_t left;
 			t_malloc_no0(i);
