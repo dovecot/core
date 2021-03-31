@@ -34,7 +34,7 @@ struct stack_block {
 	size_t size, left;
 	/* The lowest value that "left" has been in this block since it was
 	   last popped. This is used to keep track which parts of the block
-	   needs to be cleared if clean_after_pop is set. */
+	   needs to be cleared if DEBUG is used. */
 	size_t left_lowwater;
 	/* NULL or a poison value, just in case something accesses
 	   the memory in front of an allocated area */
@@ -86,11 +86,6 @@ static bool event_datastack_deinitialized = FALSE;
 
 static struct stack_block *last_buffer_block;
 static size_t last_buffer_size;
-#ifdef DEBUG
-static bool clean_after_pop = TRUE;
-#else
-static bool clean_after_pop = FALSE;
-#endif
 static bool outofmem = FALSE;
 
 static union {
@@ -206,8 +201,9 @@ static void free_blocks(struct stack_block *block)
 		block_canary_check(block);
 		next = block->next;
 
-		if (clean_after_pop)
-			memset(STACK_BLOCK_DATA(block), CLEAR_CHR, block->size);
+#ifdef DEBUG
+		memset(STACK_BLOCK_DATA(block), CLEAR_CHR, block->size);
+#endif
 
 		if (block != &outofmem_area.block)
 			free(block);
@@ -274,15 +270,16 @@ void t_pop_last_unsafe(void)
 	block_space_left = current_frame->block_space_left;
 	current_frame = current_frame->prev;
 
-	if (clean_after_pop) {
-		size_t start_pos, end_pos;
+#ifdef DEBUG
+	size_t start_pos, end_pos;
 
-		start_pos = current_block->size - block_space_left;
-		end_pos = current_block->size - current_block->left_lowwater;
-		i_assert(end_pos >= start_pos);
-		memset(STACK_BLOCK_DATA(current_block) + start_pos, CLEAR_CHR,
-		       end_pos - start_pos);
-	}
+	start_pos = current_block->size - block_space_left;
+	end_pos = current_block->size - current_block->left_lowwater;
+	i_assert(end_pos >= start_pos);
+	memset(STACK_BLOCK_DATA(current_block) + start_pos, CLEAR_CHR,
+	       end_pos - start_pos);
+#endif
+
 	current_block->left = block_space_left;
 	current_block->left_lowwater = current_block->left;
 
@@ -604,13 +601,6 @@ void t_buffer_alloc_last_full(void)
 {
 	if (last_buffer_block != NULL)
 		(void)t_malloc_real(last_buffer_size, TRUE);
-}
-
-void data_stack_set_clean_after_pop(bool enable ATTR_UNUSED)
-{
-#ifndef DEBUG
-	clean_after_pop = enable;
-#endif
 }
 
 bool data_stack_frame_contains(data_stack_frame_t *id, const void *_ptr)

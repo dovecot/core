@@ -145,8 +145,6 @@ void t_buffer_alloc(size_t size);
 /* Allocate the last t_buffer_get()ed data entirely. */
 void t_buffer_alloc_last_full(void);
 
-/* If enabled, all the used memory is cleared after t_pop(). */
-void data_stack_set_clean_after_pop(bool enable);
 /* Returns TRUE if ptr is allocated within the given data stack frame.
    Currently this assert-crashes if the data stack frame isn't the latest. */
 bool data_stack_frame_contains(data_stack_frame_t *id, const void *ptr);
