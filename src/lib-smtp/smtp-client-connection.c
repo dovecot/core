@@ -60,6 +60,21 @@ uoff_t smtp_client_connection_get_size_capability(
 	return conn->caps.size;
 }
 
+static const struct smtp_client_capability_extra *
+smtp_client_connection_find_extra_capability(
+	struct smtp_client_connection *conn, const char *cap_name)
+{
+	const struct smtp_client_capability_extra *cap;
+
+	if (!array_is_created(&conn->extra_capabilities))
+		return NULL;
+	array_foreach(&conn->extra_capabilities, cap) {
+		if (strcasecmp(cap->name, cap_name) == 0)
+			return cap;
+	}
+	return NULL;
+}
+
 void smtp_client_connection_accept_extra_capability(
 	struct smtp_client_connection *conn,
 	const struct smtp_client_capability_extra *cap)
@@ -878,21 +893,6 @@ smtp_client_connection_starttls(struct smtp_client_connection *conn)
 	}
 
 	return smtp_client_connection_authenticate(conn);
-}
-
-static const struct smtp_client_capability_extra *
-smtp_client_connection_find_extra_capability(
-	struct smtp_client_connection *conn, const char *cap_name)
-{
-	const struct smtp_client_capability_extra *cap;
-
-	if (!array_is_created(&conn->extra_capabilities))
-		return NULL;
-	array_foreach(&conn->extra_capabilities, cap) {
-		if (strcasecmp(cap->name, cap_name) == 0)
-			return cap;
-	}
-	return NULL;
 }
 
 static void
