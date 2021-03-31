@@ -251,7 +251,7 @@ master_service_init(const char *name, enum master_service_flags flags,
 	   before we get to ioloop. the corresponding t_pop() is in
 	   master_service_init_finish(). */
 	if ((flags & MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME) == 0)
-		datastack_frame_id = t_push(NULL);
+		datastack_frame_id = t_push("master_service_init");
 
 	/* ignore these signals as early as possible */
 	lib_signals_init();

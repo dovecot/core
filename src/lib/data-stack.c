@@ -134,6 +134,8 @@ data_stack_frame_t t_push(const char *marker)
 {
 	struct stack_frame_block *frame_block;
 
+	i_assert(marker != NULL);
+
 	frame_pos++;
 	if (frame_pos == BLOCK_FRAME_COUNT) {
 		/* frame block full */
@@ -184,7 +186,7 @@ data_stack_frame_t t_push(const char *marker)
 
 data_stack_frame_t t_push_named(const char *format, ...)
 {
-	data_stack_frame_t ret = t_push(NULL);
+	data_stack_frame_t ret = t_push(format);
 #ifdef DEBUG
 	va_list args;
 	va_start(args, format);
