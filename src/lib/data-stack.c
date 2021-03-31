@@ -32,10 +32,12 @@ struct stack_block {
 	struct stack_block *prev, *next;
 
 	size_t size, left;
+#ifdef DEBUG
 	/* The lowest value that "left" has been in this block since it was
 	   last popped. This is used to keep track which parts of the block
 	   needs to be cleared if DEBUG is used. */
 	size_t left_lowwater;
+#endif
 	/* NULL or a poison value, just in case something accesses
 	   the memory in front of an allocated area */
 	void *canary;
@@ -278,10 +280,10 @@ void t_pop_last_unsafe(void)
 	i_assert(end_pos >= start_pos);
 	memset(STACK_BLOCK_DATA(current_block) + start_pos, CLEAR_CHR,
 	       end_pos - start_pos);
+	current_block->left_lowwater = block_space_left;
 #endif
 
 	current_block->left = block_space_left;
-	current_block->left_lowwater = current_block->left;
 
 	if (current_block->next != NULL) {
 		/* free unused blocks */
@@ -349,12 +351,12 @@ static struct stack_block *mem_block_alloc(size_t min_size)
 	}
 	block->size = alloc_size;
 	block->left = block->size;
-	block->left_lowwater = block->size;
 	block->prev = NULL;
 	block->next = NULL;
 	block->canary = BLOCK_CANARY;
 
 #ifdef DEBUG
+	block->left_lowwater = block->size;
 	memset(STACK_BLOCK_DATA(block), CLEAR_CHR, alloc_size);
 #endif
 	return block;
@@ -454,8 +456,10 @@ static void *t_malloc_real(size_t size, bool permanent)
 	/* enough space in current block, use it */
 	ret = data_stack_after_last_alloc(current_block);
 
+#ifdef DEBUG
 	if (current_block->left - alloc_size < current_block->left_lowwater)
 		current_block->left_lowwater = current_block->left - alloc_size;
+#endif
 	if (permanent)
 		current_block->left -= alloc_size;
 
@@ -527,10 +531,10 @@ t_try_realloc(void *mem, size_t size)
 		if (current_block->left >= alloc_growth) {
 			/* just shrink the available size */
 			current_block->left -= alloc_growth;
-			if (current_block->left < current_block->left_lowwater)
-				current_block->left_lowwater = current_block->left;
 			current_frame->last_alloc_size = new_alloc_size;
 #ifdef DEBUG
+			if (current_block->left < current_block->left_lowwater)
+				current_block->left_lowwater = current_block->left;
 			/* All reallocs are permanent by definition
 			   However, they don't count as a new allocation */
 			current_frame->alloc_bytes += alloc_growth;
