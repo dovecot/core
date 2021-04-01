@@ -812,6 +812,7 @@ int imap_msgpart_bodypartstructure(struct mail *mail,
 {
 	struct message_part *all_parts, *part;
 	string_t *bpstruct;
+	const char *error;
 	int ret;
 
 	/* if we start parsing the body in here, make sure we also parse the
@@ -840,7 +841,13 @@ int imap_msgpart_bodypartstructure(struct mail *mail,
 
 	if (ret >= 0) {
 		bpstruct = t_str_new(256);
-		imap_bodystructure_write(part, bpstruct, TRUE);
+		if (imap_bodystructure_write(part, bpstruct, TRUE, &error) < 0) {
+			error = t_strdup_printf(
+				"Invalid message_part/BODYSTRUCTURE: %s", error);
+			mail_set_cache_corrupted(mail, MAIL_FETCH_MESSAGE_PARTS,
+						 error);
+			return -1;
+		}
 		*bpstruct_r = str_c(bpstruct);
 	}
 	return ret < 0 ? -1 : 1;
