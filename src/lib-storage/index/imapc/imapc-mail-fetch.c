@@ -8,6 +8,7 @@
 #include "istream-header-filter.h"
 #include "message-header-parser.h"
 #include "imap-arg.h"
+#include "imap-util.h"
 #include "imap-date.h"
 #include "imap-quote.h"
 #include "imap-bodystructure.h"
@@ -806,7 +807,16 @@ imapc_args_to_bodystructure(struct imapc_mail *mail,
 		ret = NULL;
 	} else {
 		string_t *str = t_str_new(128);
-		imap_bodystructure_write(parts, str, extended);
+		if (imap_bodystructure_write(parts, str, extended, &error) < 0) {
+			/* All the input to imap_bodystructure_write() came
+			   from imap_bodystructure_parse_args(). We should never
+			   get here. Instead, if something is wrong the
+			   parsing should have returned an error already. */
+			str_truncate(str, 0);
+			imap_write_args(str, args);
+			i_panic("Failed to write parsed BODYSTRUCTURE: %s "
+				"(original string: '%s')", error, str_c(str));
+		}
 		ret = p_strdup(mail->imail.mail.data_pool, str_c(str));
 	}
 	pool_unref(&pool);
