@@ -808,6 +808,21 @@ static void index_mail_body_parsed_cache_message_parts(struct index_mail *mail)
 	data->messageparts_saved_to_cache = TRUE;
 }
 
+static int
+index_mail_write_bodystructure(struct index_mail *mail, string_t *str,
+			       bool extended)
+{
+	const char *error;
+
+	if (imap_bodystructure_write(mail->data.parts, str, extended,
+				     &error) < 0) {
+		mail_set_cache_corrupted(&mail->mail.mail,
+			MAIL_FETCH_MESSAGE_PARTS, error);
+		return -1;
+	}
+	return 0;
+}
+
 static void
 index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 					   enum index_cache_field field)
@@ -856,12 +871,12 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 	}
 	if (cache_bodystructure) {
 		str = str_new(mail->mail.data_pool, 128);
-		imap_bodystructure_write(data->parts, str, TRUE);
-		data->bodystructure = str_c(str);
-
-		index_mail_cache_add(mail, MAIL_CACHE_IMAP_BODYSTRUCTURE,
-				     str_c(str), str_len(str));
-		bodystructure_cached = TRUE;
+		if (index_mail_write_bodystructure(mail, str, TRUE) == 0) {
+			data->bodystructure = str_c(str);
+			index_mail_cache_add(mail, MAIL_CACHE_IMAP_BODYSTRUCTURE,
+					     str_c(str), str_len(str));
+			bodystructure_cached = TRUE;
+		}
 	} else {
 		bodystructure_cached =
 			mail_cache_field_exists(_mail->transaction->cache_view,
@@ -888,11 +903,11 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 
 	if (cache_body) {
 		str = str_new(mail->mail.data_pool, 128);
-		imap_bodystructure_write(data->parts, str, FALSE);
-		data->body = str_c(str);
-
-		index_mail_cache_add(mail, MAIL_CACHE_IMAP_BODY,
-				     str_c(str), str_len(str));
+		if (index_mail_write_bodystructure(mail, str, FALSE) == 0) {
+			data->body = str_c(str);
+			index_mail_cache_add(mail, MAIL_CACHE_IMAP_BODY,
+					     str_c(str), str_len(str));
+		}
 	}
 }
 
@@ -1454,6 +1469,16 @@ static int index_mail_parse_bodystructure(struct index_mail *mail,
 	} else {
 		if (index_mail_parse_bodystructure_full(mail, field) < 0)
 			return -1;
+		if (data->parts == NULL) {
+			/* Corrupted mime.parts detected. Retry by parsing
+			   the mail. */
+			data->parsed_bodystructure = FALSE;
+			data->parsed_bodystructure_header = FALSE;
+			data->save_bodystructure_header = TRUE;
+			data->save_bodystructure_body = TRUE;
+			if (index_mail_parse_bodystructure_full(mail, field) < 0)
+				return -1;
+		}
 	}
 	i_assert(data->parts != NULL);
 
@@ -1463,14 +1488,16 @@ static int index_mail_parse_bodystructure(struct index_mail *mail,
 	case MAIL_CACHE_IMAP_BODY:
 		if (data->body == NULL) {
 			str = str_new(mail->mail.data_pool, 128);
-			imap_bodystructure_write(data->parts, str, FALSE);
+			if (index_mail_write_bodystructure(mail, str, FALSE) < 0)
+				return -1;
 			data->body = str_c(str);
 		}
 		break;
 	case MAIL_CACHE_IMAP_BODYSTRUCTURE:
 		if (data->bodystructure == NULL) {
 			str = str_new(mail->mail.data_pool, 128);
-			imap_bodystructure_write(data->parts, str, TRUE);
+			if (index_mail_write_bodystructure(mail, str, TRUE) < 0)
+				return -1;
 			data->bodystructure = str_c(str);
 		}
 		break;
