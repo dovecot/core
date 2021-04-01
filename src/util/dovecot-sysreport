@@ -41,6 +41,12 @@ while (( "$#" )); do
 
     -o|--core)
 
+      gdb=`which gdb`
+      if [ "$gdb" = "" ]; then
+        echo "gdb not found"
+        exit 1
+      fi
+
       if [[ "$#" -lt 2 ]] ; then
         echo "Usage: $0 $1 [<binary>] <core>"
         exit 1
@@ -69,12 +75,6 @@ while (( "$#" )); do
       shift
       if ! [ -s "$core" ]; then
         echo "$core not found or it is empty"
-        exit 1
-      fi
-
-      gdb=`which gdb`
-      if [ "$gdb" = "" ]; then
-        echo "gdb not found"
         exit 1
       fi
 
