@@ -733,6 +733,21 @@ static void socket_apply(struct config_parser_context *ctx)
 	i_zero(&ctx->old->socket_set);
 }
 
+static bool
+old_settings_handle_path(struct config_parser_context *ctx,
+			 const char *key, const char *value)
+{
+	if (strcmp(str_c(ctx->str), "plugin/0/") == 0) {
+		if (strcmp(key, "imap_zlib_compress_level") == 0) {
+			obsolete(ctx, "%s has been replaced by imap_compress_deflate_level", key);
+			config_apply_line(ctx, key,
+				t_strdup_printf("plugin/0/imap_compress_deflate_level=%s", value), NULL);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 bool old_settings_handle(struct config_parser_context *ctx,
 			 enum config_line_type type,
 			 const char *key, const char *value)
@@ -759,7 +774,7 @@ bool old_settings_handle(struct config_parser_context *ctx,
 
 			return old_settings_handle_root(ctx, key, value);
 		}
-		break;
+		return old_settings_handle_path(ctx, key, value);
 	case CONFIG_LINE_TYPE_SECTION_BEGIN:
 		if (ctx->old->auth_section > 0)
 			return old_auth_section(ctx, key, value);
