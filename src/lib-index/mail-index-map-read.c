@@ -445,8 +445,10 @@ mail_index_map_latest_sync(struct mail_index *index,
 				     "(reopen_reason: %s)",
 				     index->filepath, reason, map_reason,
 				     reopen_reason);
-		if (mail_index_fsck(index) < 0)
-			return -1;
+		if (!index->readonly) {
+			if (mail_index_fsck(index) < 0)
+				return -1;
+		}
 	}
 
 	ret = mail_index_map_latest_file(index, &reason);

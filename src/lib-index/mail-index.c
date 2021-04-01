@@ -507,7 +507,7 @@ mail_index_try_open(struct mail_index *index)
 		return 0;
 
 	ret = mail_index_map(index, MAIL_INDEX_SYNC_HANDLER_HEAD);
-	if (ret == 0) {
+	if (ret == 0 && !index->readonly) {
 		/* it's corrupted - recreate it */
 		if (index->fd != -1) {
 			if (close(index->fd) < 0)
@@ -596,7 +596,7 @@ static int mail_index_open_files(struct mail_index *index,
 	}
 	if (ret >= 0) {
 		ret = index->map != NULL ? 1 : mail_index_try_open(index);
-		if (ret == 0) {
+		if (ret == 0 && !index->readonly) {
 			/* corrupted */
 			mail_transaction_log_close(index->log);
 			ret = mail_transaction_log_create(index->log, TRUE);
