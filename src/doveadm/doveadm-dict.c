@@ -93,10 +93,14 @@ static void cmd_dict_get(struct doveadm_cmd_context *cctx)
 	struct dict *dict;
 	const char *key;
 
+	if (!doveadm_cmd_param_str(cctx, "key", &key)) {
+		i_error("dict-get: Missing key");
+		doveadm_exit_code = EX_USAGE;
+		return;
+	}
+
 	if (cmd_dict_init(cctx, cmd_dict_get, &dict) < 0)
 		return;
-
-	(void)doveadm_cmd_param_str(cctx, "key", &key);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	doveadm_print_header("value", "", DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
@@ -132,15 +136,15 @@ static void cmd_dict_set(struct doveadm_cmd_context *cctx)
 	const char *error;
 	const char *key, *value = "";
 
-	if (cmd_dict_init(cctx, cmd_dict_set, &dict) < 0)
-		return;
-
-	(void)doveadm_cmd_param_str(cctx, "key", &key);
-	if (!doveadm_cmd_param_str(cctx, "value", &value)) {
-		i_error("dict set: Missing value");
-		dict_deinit(&dict);
+	if (!doveadm_cmd_param_str(cctx, "key", &key) ||
+	    !doveadm_cmd_param_str(cctx, "value", &value)) {
+		i_error("dict set: Missing parameters");
+		doveadm_exit_code = EX_USAGE;
 		return;
 	}
+
+	if (cmd_dict_init(cctx, cmd_dict_set, &dict) < 0)
+		return;
 
 	trans = dict_transaction_begin(dict);
 	dict_set(trans, key, value);
@@ -158,10 +162,14 @@ static void cmd_dict_unset(struct doveadm_cmd_context *cctx)
 	const char *error;
 	const char *key;
 
+	if (!doveadm_cmd_param_str(cctx, "key", &key)) {
+		i_error("dict unset: Missing key");
+		doveadm_exit_code = EX_USAGE;
+		return;
+	}
+
 	if (cmd_dict_init(cctx, cmd_dict_unset, &dict) < 0)
 		return;
-
-	(void)doveadm_cmd_param_str(cctx, "key", &key);
 
 	trans = dict_transaction_begin(dict);
 	dict_unset(trans, key);
@@ -181,16 +189,15 @@ static void cmd_dict_inc(struct doveadm_cmd_context *cctx)
 	int64_t diff;
 	int ret;
 
-	if (cmd_dict_init(cctx, cmd_dict_inc, &dict) < 0)
-		return;
-
-	if (!doveadm_cmd_param_int64(cctx, "difference", &diff)) {
-		i_error("Missing difference");
+	if (!doveadm_cmd_param_str(cctx, "key", &key) ||
+	    !doveadm_cmd_param_int64(cctx, "difference", &diff)) {
+		i_error("dict-inc: Missing parameters");
 		doveadm_exit_code = EX_USAGE;
-		dict_deinit(&dict);
 		return;
 	}
-	(void)doveadm_cmd_param_str(cctx, "key", &key);
+
+	if (cmd_dict_init(cctx, cmd_dict_inc, &dict) < 0)
+		return;
 
 	trans = dict_transaction_begin(dict);
 	dict_atomic_inc(trans, key, diff);
@@ -213,6 +220,12 @@ static void cmd_dict_iter(struct doveadm_cmd_context *cctx)
 	const char *prefix, *key, *const *values, *error;
 	bool header_printed = FALSE;
 
+	if (!doveadm_cmd_param_str(cctx, "prefix", &prefix)) {
+		i_error("dict-iter: Missing prefix");
+		doveadm_exit_code = EX_USAGE;
+		return;
+	}
+
 	if (cmd_dict_init_full(cctx, cmd_dict_iter, &iter_flags, &dict) < 0)
 		return;
 
@@ -220,8 +233,6 @@ static void cmd_dict_iter(struct doveadm_cmd_context *cctx)
 	doveadm_print_header_simple("key");
 	if ((iter_flags & DICT_ITERATE_FLAG_NO_VALUE) == 0)
 		doveadm_print_header_simple("value");
-
-	(void)doveadm_cmd_param_str(cctx, "prefix", &prefix);
 
 	iter = dict_iterate_init(dict, prefix, iter_flags);
 	while (dict_iterate_values(iter, &key, &values)) {
