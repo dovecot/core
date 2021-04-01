@@ -288,7 +288,7 @@ static void test_timestamp(const char *ts, int idx)
 
 	/* %G - ISO 8601 year */
 	test_assert_idx(strlen(t[0]) == 4, idx);
-	unsigned v;
+	unsigned v = 0;
 	test_assert_idx(str_to_uint(t[0], &v) == 0, idx);
 	test_assert_idx(1000 <= v, idx);
 	test_assert_idx(v <= 3000, idx);
