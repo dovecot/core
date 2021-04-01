@@ -25,6 +25,30 @@ struct zstd_ostream {
 	bool finished:1;
 };
 
+int compression_get_min_level_zstd(void)
+{
+#if HAVE_DECL_ZSTD_MINCLEVEL == 1
+	return ZSTD_minCLevel();
+#else
+	return 1;
+#endif
+}
+
+int compression_get_default_level_zstd(void)
+{
+#ifdef ZSTD_CLEVEL_DEFAULT
+	return ZSTD_CLEVEL_DEFAULT;
+#else
+	/* This means default */
+	return 0;
+#endif
+}
+
+int compression_get_max_level_zstd(void)
+{
+	return ZSTD_maxCLevel();
+}
+
 static void o_stream_zstd_write_error(struct zstd_ostream *zstream, size_t err)
 {
 	ZSTD_ErrorCode errcode = zstd_version_errcode(ZSTD_getErrorCode(err));

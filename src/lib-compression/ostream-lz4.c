@@ -23,6 +23,23 @@ struct lz4_ostream {
 	unsigned int outbuf_offset, outbuf_used;
 };
 
+/* There is no actual compression level in LZ4, so for legacy
+   reasons we allow 1-9 to avoid breaking anyone's config. */
+int compression_get_min_level_lz4(void)
+{
+	return 1;
+}
+
+int compression_get_default_level_lz4(void)
+{
+	return 1;
+}
+
+int compression_get_max_level_lz4(void)
+{
+	return 9;
+}
+
 static void o_stream_lz4_close(struct iostream_private *stream,
 			       bool close_parent)
 {
