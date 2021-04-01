@@ -25,7 +25,7 @@ static struct file_listener_settings *imap_unix_listeners[] = {
 	&imap_unix_listeners_array[1]
 };
 static buffer_t imap_unix_listeners_buf = {
-	imap_unix_listeners, sizeof(imap_unix_listeners), { NULL, }
+	{ { imap_unix_listeners, sizeof(imap_unix_listeners) } }
 };
 /* </settings checks> */
 

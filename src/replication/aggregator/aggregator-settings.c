@@ -14,7 +14,7 @@ static struct file_listener_settings *aggregator_unix_listeners[] = {
 	&aggregator_unix_listeners_array[0]
 };
 static buffer_t aggregator_unix_listeners_buf = {
-	aggregator_unix_listeners, sizeof(aggregator_unix_listeners), { NULL, }
+	{ { aggregator_unix_listeners, sizeof(aggregator_unix_listeners) } }
 };
 
 static struct file_listener_settings aggregator_fifo_listeners_array[] = {
@@ -24,7 +24,7 @@ static struct file_listener_settings *aggregator_fifo_listeners[] = {
 	&aggregator_fifo_listeners_array[0]
 };
 static buffer_t aggregator_fifo_listeners_buf = {
-	aggregator_fifo_listeners, sizeof(aggregator_fifo_listeners), { NULL, }
+	{ { aggregator_fifo_listeners, sizeof(aggregator_fifo_listeners) } }
 };
 /* </settings checks> */
 

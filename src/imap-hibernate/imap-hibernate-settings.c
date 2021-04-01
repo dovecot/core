@@ -16,7 +16,7 @@ static struct file_listener_settings *imap_hibernate_unix_listeners[] = {
 	&imap_hibernate_unix_listeners_array[0]
 };
 static buffer_t imap_hibernate_unix_listeners_buf = {
-	imap_hibernate_unix_listeners, sizeof(imap_hibernate_unix_listeners), { NULL, }
+	{ { imap_hibernate_unix_listeners, sizeof(imap_hibernate_unix_listeners) } }
 };
 /* </settings checks> */
 

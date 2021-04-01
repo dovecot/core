@@ -15,7 +15,7 @@ static struct file_listener_settings *indexer_worker_unix_listeners[] = {
 	&indexer_worker_unix_listeners_array[0]
 };
 static buffer_t indexer_worker_unix_listeners_buf = {
-	indexer_worker_unix_listeners, sizeof(indexer_worker_unix_listeners), { NULL, }
+	{ { indexer_worker_unix_listeners, sizeof(indexer_worker_unix_listeners) } }
 };
 /* </settings checks> */
 

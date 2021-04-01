@@ -116,7 +116,7 @@ CL_NS_DEF2(analysis,snowball)
 	unsigned char utf8text[LUCENE_MAX_WORD_LEN*5+1];
 	unsigned int len = I_MIN(LUCENE_MAX_WORD_LEN, token->termLength());
 
-	buffer_t buf = { 0, 0, { 0, 0, 0, 0, 0 } };
+	buffer_t buf = { { 0, 0 } };
 	i_assert(sizeof(wchar_t) == sizeof(unichar_t));
 	buffer_create_from_data(&buf, utf8text, sizeof(utf8text));
 	uni_ucs4_to_utf8((const unichar_t *)token->termBuffer(), len, &buf);

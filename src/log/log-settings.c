@@ -15,8 +15,7 @@ static struct file_listener_settings *log_unix_listeners[] = {
 	&log_unix_listeners_array[0]
 };
 static buffer_t log_unix_listeners_buf = {
-	log_unix_listeners,
-	sizeof(log_unix_listeners), { NULL, }
+	{ { log_unix_listeners, sizeof(log_unix_listeners) } }
 };
 /* </settings checks> */
 

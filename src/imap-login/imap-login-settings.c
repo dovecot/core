@@ -19,7 +19,7 @@ static struct inet_listener_settings *imap_login_inet_listeners[] = {
 	&imap_login_inet_listeners_array[1]
 };
 static buffer_t imap_login_inet_listeners_buf = {
-	imap_login_inet_listeners, sizeof(imap_login_inet_listeners), { NULL, }
+	{ { imap_login_inet_listeners, sizeof(imap_login_inet_listeners) } }
 };
 /* </settings checks> */
 

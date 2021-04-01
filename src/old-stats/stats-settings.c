@@ -14,7 +14,7 @@ static struct file_listener_settings *old_stats_unix_listeners[] = {
 	&old_stats_unix_listeners_array[0]
 };
 static buffer_t old_stats_unix_listeners_buf = {
-	old_stats_unix_listeners, sizeof(old_stats_unix_listeners), { NULL, }
+	{ { old_stats_unix_listeners, sizeof(old_stats_unix_listeners) } }
 };
 static struct file_listener_settings old_stats_fifo_listeners_array[] = {
 	{ "old-stats-mail", 0600, "", "" },
@@ -25,8 +25,7 @@ static struct file_listener_settings *old_stats_fifo_listeners[] = {
 	&old_stats_fifo_listeners_array[1]
 };
 static buffer_t old_stats_fifo_listeners_buf = {
-	old_stats_fifo_listeners,
-	sizeof(old_stats_fifo_listeners), { NULL, }
+	{ { old_stats_fifo_listeners, sizeof(old_stats_fifo_listeners) } }
 };
 /* </settings checks> */
 

@@ -21,7 +21,7 @@ static struct file_listener_settings *pop3_unix_listeners[] = {
 	&pop3_unix_listeners_array[0]
 };
 static buffer_t pop3_unix_listeners_buf = {
-	pop3_unix_listeners, sizeof(pop3_unix_listeners), { NULL, }
+	{ { pop3_unix_listeners, sizeof(pop3_unix_listeners) } }
 };
 /* </settings checks> */
 

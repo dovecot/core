@@ -2,9 +2,13 @@
 #define BUFFER_H
 
 struct buffer {
-	const void *data;
-	const size_t used;
-	void *priv[6];
+	union {
+		struct {
+			const void *data;
+			const size_t used;
+		};
+		void *priv[8];
+	};
 };
 
 /* WARNING: Be careful with functions that return pointers to data.

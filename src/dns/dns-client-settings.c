@@ -17,7 +17,7 @@ static struct file_listener_settings *dns_client_unix_listeners[] = {
         &dns_client_unix_listeners_array[1],
 };
 static buffer_t dns_client_unix_listeners_buf = {
-	dns_client_unix_listeners, sizeof(dns_client_unix_listeners), { NULL, }
+	{ { dns_client_unix_listeners, sizeof(dns_client_unix_listeners) } }
 };
 /* </settings checks> */
 

@@ -19,7 +19,7 @@ static struct inet_listener_settings *pop3_login_inet_listeners[] = {
 	&pop3_login_inet_listeners_array[1]
 };
 static buffer_t pop3_login_inet_listeners_buf = {
-	pop3_login_inet_listeners, sizeof(pop3_login_inet_listeners), { NULL, }
+	{ { pop3_login_inet_listeners, sizeof(pop3_login_inet_listeners) } }
 };
 
 /* </settings checks> */

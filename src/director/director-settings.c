@@ -18,8 +18,7 @@ static struct file_listener_settings *director_unix_listeners[] = {
 	&director_unix_listeners_array[1]
 };
 static buffer_t director_unix_listeners_buf = {
-	director_unix_listeners,
-	sizeof(director_unix_listeners), { NULL, }
+	{ { director_unix_listeners, sizeof(director_unix_listeners) } }
 };
 static struct file_listener_settings director_fifo_listeners_array[] = {
 	{ "login/proxy-notify", 0, "", "" }
@@ -28,8 +27,7 @@ static struct file_listener_settings *director_fifo_listeners[] = {
 	&director_fifo_listeners_array[0]
 };
 static buffer_t director_fifo_listeners_buf = {
-	director_fifo_listeners,
-	sizeof(director_fifo_listeners), { NULL, }
+	{ { director_fifo_listeners, sizeof(director_fifo_listeners) } }
 };
 /* </settings checks> */
 

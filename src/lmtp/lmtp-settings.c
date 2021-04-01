@@ -24,7 +24,7 @@ static struct file_listener_settings *lmtp_unix_listeners[] = {
 	&lmtp_unix_listeners_array[0]
 };
 static buffer_t lmtp_unix_listeners_buf = {
-	lmtp_unix_listeners, sizeof(lmtp_unix_listeners), { NULL, }
+	{ { lmtp_unix_listeners, sizeof(lmtp_unix_listeners) } }
 };
 /* </settings checks> */
 

@@ -22,7 +22,7 @@ static struct file_listener_settings *submission_unix_listeners[] = {
 	&submission_unix_listeners_array[0]
 };
 static buffer_t submission_unix_listeners_buf = {
-	submission_unix_listeners, sizeof(submission_unix_listeners), { 0, }
+	{ { submission_unix_listeners, sizeof(submission_unix_listeners) } }
 };
 /* </settings checks> */
 

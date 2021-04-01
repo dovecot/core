@@ -14,7 +14,7 @@ static struct file_listener_settings *dict_unix_listeners[] = {
 	&dict_unix_listeners_array[0]
 };
 static buffer_t dict_unix_listeners_buf = {
-	dict_unix_listeners, sizeof(dict_unix_listeners), { NULL, }
+	{ { dict_unix_listeners, sizeof(dict_unix_listeners) } }
 };
 
 static struct file_listener_settings dict_async_unix_listeners_array[] = {
@@ -24,7 +24,7 @@ static struct file_listener_settings *dict_async_unix_listeners[] = {
 	&dict_async_unix_listeners_array[0]
 };
 static buffer_t dict_async_unix_listeners_buf = {
-	dict_async_unix_listeners, sizeof(dict_async_unix_listeners), { NULL, }
+	{ { dict_async_unix_listeners, sizeof(dict_async_unix_listeners) } }
 };
 /* </settings checks> */
 
