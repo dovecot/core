@@ -359,26 +359,30 @@ enum fatal_test_state fatal_array(unsigned int stage)
 	}
 	case 3: {
 		ARRAY(uint8_t) arr;
-		uint8_t value = 0;
+		/* Allocate value dynamically, so compiler won't know the
+		   allocated memory size and output a warning that it's too
+		   small for array_append(). */
+		uint8_t *value = t_malloc0(1);
 
 		t_array_init(&arr, 2);
-		array_push_back(&arr, &value);
+		array_push_back(&arr, value);
 		test_expect_fatal_string("Buffer write out of range");
 		/* this is supposed to assert-crash before it even attempts to
 		   access value */
-		array_append(&arr, &value, UINT_MAX);
+		array_append(&arr, value, UINT_MAX);
 		return FATAL_TEST_FAILURE;
 	}
 	case 4: {
 		ARRAY(uint32_t) arr;
-		uint32_t value = 0;
+		/* Allocate value dynamically (see above for reasoning). */
+		uint32_t *value = t_malloc0(1);
 
 		t_array_init(&arr, 2);
-		array_push_back(&arr, &value);
+		array_push_back(&arr, value);
 		test_expect_fatal_string("Buffer write out of range");
 		/* this is supposed to assert-crash before it even attempts to
 		   access value */
-		array_append(&arr, &value, UINT_MAX);
+		array_append(&arr, value, UINT_MAX);
 		return FATAL_TEST_FAILURE;
 	}
 	}
