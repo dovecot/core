@@ -7,7 +7,7 @@
 
 struct real_buffer {
 	/* public: */
-	const unsigned char *r_buffer;
+	const void *r_buffer;
 	size_t used;
 
 	/* private: */
@@ -325,10 +325,10 @@ void buffer_copy(buffer_t *_dest, size_t dest_pos,
 
 	if (src == dest) {
 		memmove(dest->w_buffer + dest_pos,
-			src->r_buffer + src_pos, copy_size);
+			CONST_PTR_OFFSET(src->r_buffer, src_pos), copy_size);
 	} else {
 		memcpy(dest->w_buffer + dest_pos,
-		       src->r_buffer + src_pos, copy_size);
+		       CONST_PTR_OFFSET(src->r_buffer, src_pos), copy_size);
 	}
 }
 
