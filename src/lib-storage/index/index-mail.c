@@ -2042,9 +2042,36 @@ void index_mail_update_access_parts_post(struct mail *_mail)
 	}
 }
 
+static bool index_mail_get_age_days(struct mail *mail, int *days_r)
+{
+	int age_days;
+	const struct mail_index_header *hdr =
+		mail_index_get_header(mail->transaction->view);
+	int n_days = N_ELEMENTS(hdr->day_first_uid);
+
+	for (age_days = 0; age_days < n_days; age_days++) {
+		if (mail->uid >= hdr->day_first_uid[age_days])
+			break;
+	}
+
+	if (age_days == n_days) {
+		/* mail is too old, cannot determine its age from
+		   day_first_uid[]. */
+		return FALSE;
+	}
+
+	if (hdr->day_stamp != 0) {
+		/* offset for hdr->day_stamp */
+		age_days += (ioloop_time - hdr->day_stamp) / (3600 * 24);
+	}
+	*days_r = age_days;
+	return TRUE;
+}
+
 void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 {
 	struct index_mail *mail = INDEX_MAIL(_mail);
+	int age_days;
 
 	if (mail->data.seq == seq) {
 		if (!saving)
@@ -2068,6 +2095,10 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 	index_mail_init_event(_mail);
 	event_add_int(_mail->event, "seq", _mail->seq);
 	event_add_int(_mail->event, "uid", _mail->uid);
+	/* Add mail age field to event. */
+	if (index_mail_get_age_days(_mail, &age_days))
+		event_add_int(_mail->event, "mail_age_days", age_days);
+
 	event_set_append_log_prefix(_mail->event, t_strdup_printf(
 		"%sUID %u: ", saving ? "saving " : "", _mail->uid));
 
