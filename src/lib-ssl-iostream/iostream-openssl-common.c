@@ -48,7 +48,7 @@ int openssl_min_protocol_to_options(const char *min_protocol, long *opt_r,
 {
 	unsigned i = 0;
 	for (; i < N_ELEMENTS(protocol_versions); i++) {
-		if (strcmp(protocol_versions[i].name, min_protocol) == 0)
+		if (strcasecmp(protocol_versions[i].name, min_protocol) == 0)
 			break;
 	}
 	if (i >= N_ELEMENTS(protocol_versions))
