@@ -645,10 +645,10 @@ transaction_send_query(struct mysql_transaction_context *ctx, const char *query,
 static int driver_mysql_try_commit_s(struct mysql_transaction_context *ctx)
 {
 	struct sql_transaction_context *_ctx = &ctx->ctx;
+	bool multi = _ctx->head != NULL && _ctx->head->next != NULL;
 
-	/* try to use a transaction in any case,
-	   even if it's not actually functional. */
-	if (transaction_send_query(ctx, "BEGIN", NULL) < 0) {
+	/* wrap in BEGIN/COMMIT only if transaction has mutiple statements. */
+	if (multi && transaction_send_query(ctx, "BEGIN", NULL) < 0) {
 		if (_ctx->db->state != SQL_DB_STATE_DISCONNECTED)
 			return -1;
 		/* we got disconnected, retry */
@@ -660,7 +660,7 @@ static int driver_mysql_try_commit_s(struct mysql_transaction_context *ctx)
 			return -1;
 		_ctx->head = _ctx->head->next;
 	}
-	if (transaction_send_query(ctx, "COMMIT", NULL) < 0)
+	if (multi && transaction_send_query(ctx, "COMMIT", NULL) < 0)
 		return -1;
 	return 1;
 }
