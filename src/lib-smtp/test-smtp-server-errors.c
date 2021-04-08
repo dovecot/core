@@ -993,7 +993,8 @@ static void test_bad_helo_client_input(struct client_connection *conn)
 	int ret;
 
 	for (;;) {
-		if (ctx->reply != 1) {
+		if (ctx->reply != 1 ||
+		    client_index == 0 || client_index == 2) {
 			ret = smtp_reply_parse_next(ctx->parser, FALSE, &reply,
 						    &error);
 		} else {
@@ -1012,10 +1013,10 @@ static void test_bad_helo_client_input(struct client_connection *conn)
 			break;
 		case 1: /* bad command reply */
 			switch (client_index) {
-			case 0:
+			case 0: case 1:
 				i_assert(reply->status == 501);
 				break;
-			case 1:
+			case 2: case 3:
 				i_assert(reply->status == 250);
 				break;
 			default:
@@ -1045,9 +1046,15 @@ static void test_bad_helo_client_connected(struct client_connection *conn)
 
 	switch (client_index) {
 	case 0:
-		o_stream_nsend_str(conn->conn.output, "EHLO\r\n");
+		o_stream_nsend_str(conn->conn.output, "HELO\r\n");
 		break;
 	case 1:
+		o_stream_nsend_str(conn->conn.output, "EHLO\r\n");
+		break;
+	case 2:
+		o_stream_nsend_str(conn->conn.output, "HELO frop\r\n");
+		break;
+	case 3:
 		o_stream_nsend_str(conn->conn.output, "EHLO frop\r\n");
 		break;
 	default:
@@ -1139,7 +1146,7 @@ static void test_bad_helo(void)
 	test_begin("bad HELO");
 	test_run_client_server(&smtp_server_set,
 			       test_server_bad_helo,
-			       test_client_bad_helo, 2);
+			       test_client_bad_helo, 4);
 	test_end();
 }
 
