@@ -973,26 +973,26 @@ static void test_big_data(void)
 }
 
 /*
- * Bad EHLO
+ * Bad HELO
  */
 
 /* client */
 
-static void test_bad_ehlo_connected(struct client_connection *conn)
+static void test_bad_helo_connected(struct client_connection *conn)
 {
 	o_stream_nsend_str(conn->conn.output,
 		"EHLO \r\n");
 }
 
-static void test_client_bad_ehlo(unsigned int index)
+static void test_client_bad_helo(unsigned int index)
 {
-	test_client_connected = test_bad_ehlo_connected;
+	test_client_connected = test_bad_helo_connected;
 	test_client_run(index);
 }
 
 /* server */
 
-struct _bad_ehlo {
+struct _bad_helo {
 	struct istream *payload_input;
 	struct io *io;
 
@@ -1000,7 +1000,7 @@ struct _bad_ehlo {
 };
 
 static void
-test_server_bad_ehlo_disconnect(void *context ATTR_UNUSED, const char *reason)
+test_server_bad_helo_disconnect(void *context ATTR_UNUSED, const char *reason)
 {
 	if (debug)
 		i_debug("Disconnect: %s", reason);
@@ -1008,7 +1008,7 @@ test_server_bad_ehlo_disconnect(void *context ATTR_UNUSED, const char *reason)
 }
 
 static int
-test_server_bad_ehlo_helo(void *conn_ctx ATTR_UNUSED,
+test_server_bad_helo_helo(void *conn_ctx ATTR_UNUSED,
 			  struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 			  struct smtp_server_cmd_helo *data ATTR_UNUSED)
 {
@@ -1017,7 +1017,7 @@ test_server_bad_ehlo_helo(void *conn_ctx ATTR_UNUSED,
 }
 
 static int
-test_server_bad_ehlo_rcpt(void *conn_ctx ATTR_UNUSED,
+test_server_bad_helo_rcpt(void *conn_ctx ATTR_UNUSED,
 			  struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 			  struct smtp_server_recipient *rcpt ATTR_UNUSED)
 {
@@ -1025,7 +1025,7 @@ test_server_bad_ehlo_rcpt(void *conn_ctx ATTR_UNUSED,
 }
 
 static int
-test_server_bad_ehlo_data_begin(
+test_server_bad_helo_data_begin(
 	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd,
 	struct smtp_server_transaction *trans ATTR_UNUSED,
 	struct istream *data_input ATTR_UNUSED)
@@ -1034,33 +1034,33 @@ test_server_bad_ehlo_data_begin(
 	return 1;
 }
 
-static void test_server_bad_ehlo(const struct smtp_server_settings *server_set)
+static void test_server_bad_helo(const struct smtp_server_settings *server_set)
 {
 	server_callbacks.conn_disconnect =
-		test_server_bad_ehlo_disconnect;
+		test_server_bad_helo_disconnect;
 
 	server_callbacks.conn_cmd_helo =
-		test_server_bad_ehlo_helo;
+		test_server_bad_helo_helo;
 	server_callbacks.conn_cmd_rcpt =
-		test_server_bad_ehlo_rcpt;
+		test_server_bad_helo_rcpt;
 	server_callbacks.conn_cmd_data_begin =
-		test_server_bad_ehlo_data_begin;
+		test_server_bad_helo_data_begin;
 	test_server_run(server_set);
 }
 
 /* test */
 
-static void test_bad_ehlo(void)
+static void test_bad_helo(void)
 {
 	struct smtp_server_settings smtp_server_set;
 
 	test_server_defaults(&smtp_server_set);
 	smtp_server_set.max_client_idle_time_msecs = 1000;
 
-	test_begin("bad EHLO");
+	test_begin("bad HELO");
 	test_run_client_server(&smtp_server_set,
-			       test_server_bad_ehlo,
-			       test_client_bad_ehlo, 1);
+			       test_server_bad_helo,
+			       test_client_bad_helo, 1);
 	test_end();
 }
 
@@ -2744,7 +2744,7 @@ static void (*const test_functions[])(void) = {
 	test_many_bad_commands,
 	test_long_command,
 	test_big_data,
-	test_bad_ehlo,
+	test_bad_helo,
 	test_bad_mail,
 	test_bad_rcpt,
 	test_bad_vrfy,
