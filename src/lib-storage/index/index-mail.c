@@ -1414,6 +1414,39 @@ int index_mail_init_stream(struct index_mail *mail,
 	return 0;
 }
 
+static int
+index_mail_parse_bodystructure_full(struct index_mail *mail,
+				    enum index_cache_field field)
+{
+	struct index_mail_data *data = &mail->data;
+
+	if ((data->save_bodystructure_header &&
+	     !data->parsed_bodystructure_header) ||
+	    !data->save_bodystructure_body ||
+	    field == MAIL_CACHE_BODY_SNIPPET) {
+		/* we haven't parsed the header yet */
+		const char *reason =
+			index_mail_cache_reason(&mail->mail.mail, "bodystructure");
+		bool orig_bodystructure_header =
+			data->save_bodystructure_header;
+		bool orig_bodystructure_body =
+			data->save_bodystructure_body;
+		data->save_bodystructure_header = TRUE;
+		data->save_bodystructure_body = TRUE;
+		(void)get_cached_parts(mail);
+		if (index_mail_parse_headers(mail, NULL, reason) < 0) {
+			data->save_bodystructure_header =
+				orig_bodystructure_header;
+			data->save_bodystructure_body =
+				orig_bodystructure_body;
+			return -1;
+		}
+		i_assert(data->parser_ctx != NULL);
+	}
+
+	return index_mail_parse_body(mail, field);
+}
+
 static int index_mail_parse_bodystructure(struct index_mail *mail,
 					  enum index_cache_field field)
 {
@@ -1425,31 +1458,7 @@ static int index_mail_parse_bodystructure(struct index_mail *mail,
 		   a string */
 		index_mail_body_parsed_cache_bodystructure(mail, field);
 	} else {
-		if ((data->save_bodystructure_header &&
-		     !data->parsed_bodystructure_header) ||
-		    !data->save_bodystructure_body ||
-		    field == MAIL_CACHE_BODY_SNIPPET) {
-			/* we haven't parsed the header yet */
-			const char *reason =
-				index_mail_cache_reason(&mail->mail.mail, "bodystructure");
-			bool orig_bodystructure_header =
-				data->save_bodystructure_header;
-			bool orig_bodystructure_body =
-				data->save_bodystructure_body;
-			data->save_bodystructure_header = TRUE;
-			data->save_bodystructure_body = TRUE;
-			(void)get_cached_parts(mail);
-			if (index_mail_parse_headers(mail, NULL, reason) < 0) {
-				data->save_bodystructure_header =
-					orig_bodystructure_header;
-				data->save_bodystructure_body =
-					orig_bodystructure_body;
-				return -1;
-			}
-			i_assert(data->parser_ctx != NULL);
-		}
-
-		if (index_mail_parse_body(mail, field) < 0)
+		if (index_mail_parse_bodystructure_full(mail, field) < 0)
 			return -1;
 	}
 	i_assert(data->parts != NULL);
