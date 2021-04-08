@@ -705,7 +705,7 @@ fts_backend_solr_lookup(struct fts_backend *_backend, struct mailbox *box,
 	int ret;
 
 	fts_solr_set_default_ns(backend);
-	mailbox_get_open_status(box, STATUS_UIDVALIDITY | STATUS_UIDNEXT,
+	mailbox_get_open_status(box, STATUS_UIDVALIDITY | STATUS_MESSAGES,
 				&status);
 
 	str = t_str_new(256);
