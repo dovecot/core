@@ -1011,7 +1011,16 @@ static void test_bad_helo_client_input(struct client_connection *conn)
 			i_assert(reply->status == 220);
 			break;
 		case 1: /* bad command reply */
-			i_assert(reply->status == 501);
+			switch (client_index) {
+			case 0:
+				i_assert(reply->status == 501);
+				break;
+			case 1:
+				i_assert(reply->status == 250);
+				break;
+			default:
+				i_unreached();
+			}
 			if (debug)
 				i_debug("REPLIED");
 			ctx->replied = TRUE;
@@ -1034,7 +1043,16 @@ static void test_bad_helo_client_connected(struct client_connection *conn)
 	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
 	conn->context = ctx;
 
-	o_stream_nsend_str(conn->conn.output, "EHLO\r\n");
+	switch (client_index) {
+	case 0:
+		o_stream_nsend_str(conn->conn.output, "EHLO\r\n");
+		break;
+	case 1:
+		o_stream_nsend_str(conn->conn.output, "EHLO frop\r\n");
+		break;
+	default:
+		i_unreached();
+	}
 }
 
 static void test_bad_helo_client_deinit(struct client_connection *conn)
@@ -1067,7 +1085,6 @@ test_server_bad_helo_disconnect(void *context ATTR_UNUSED, const char *reason)
 {
 	if (debug)
 		i_debug("Disconnect: %s", reason);
-	io_loop_stop(ioloop);
 }
 
 static int
@@ -1075,7 +1092,6 @@ test_server_bad_helo_helo(void *conn_ctx ATTR_UNUSED,
 			  struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 			  struct smtp_server_cmd_helo *data ATTR_UNUSED)
 {
-	test_assert(FALSE);
 	return 1;
 }
 
@@ -1123,7 +1139,7 @@ static void test_bad_helo(void)
 	test_begin("bad HELO");
 	test_run_client_server(&smtp_server_set,
 			       test_server_bad_helo,
-			       test_client_bad_helo, 1);
+			       test_client_bad_helo, 2);
 	test_end();
 }
 
