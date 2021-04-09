@@ -32,14 +32,14 @@ FUZZ_BEGIN_STR(const char *str)
 		/* The written bodystructure must be parseable *and*
 		   it must come out exactly the same again */
 		if (imap_bodystructure_parse(str_c(dest), pool, &parts, &error) != 0) {
-			i_fatal("Failed to reparse bodystructure '%s'",
+			i_panic("Failed to reparse bodystructure '%s'",
 				str_sanitize_binary(str_c(dest)));
 		} else {
 			const char *new_str = t_strdup(str_c(dest));
 			str_truncate(dest, 0);
 			imap_bodystructure_write(&parts, dest, TRUE);
 			if (strcmp(str_c(dest), new_str) != 0) {
-				i_fatal("Parsed bodystructure '%s' does not match '%s'",
+				i_panic("Parsed bodystructure '%s' does not match '%s'",
 					str_sanitize_binary(new_str),
 					str_sanitize_binary(str_c(dest)));
 			}
