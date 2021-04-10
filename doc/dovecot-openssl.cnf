@@ -1,5 +1,5 @@
 [ req ]
-default_bits = 1024
+default_bits = 2048
 encrypt_key = yes
 distinguished_name = req_dn
 x509_extensions = cert_type
