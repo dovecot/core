@@ -360,7 +360,7 @@ cmd_data_next(struct smtp_server_cmd_ctx *cmd,
 
 	if (data_cmd->chunk_last) {
 		/* This is the last chunk */
-		smtp_server_transaction_last_data(trans, cmd);
+		smtp_server_transaction_data_command(trans, cmd);
 
 		/* LMTP 'DATA' and 'BDAT LAST' commands need to send more than
 		   one reply per recipient */
@@ -470,7 +470,7 @@ cmd_data_start(struct smtp_server_cmd_ctx *cmd,
 
 	/* this is the one and only data command */
 	if (trans != NULL)
-		smtp_server_transaction_last_data(trans, cmd);
+		smtp_server_transaction_data_command(trans, cmd);
 
 	/* check whether we have had successful mail and rcpt commands */
 	if (!smtp_server_connection_data_check_state(cmd))
