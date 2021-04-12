@@ -354,14 +354,14 @@ cmd_data_next(struct smtp_server_cmd_ctx *cmd,
 
 	e_debug(cmd->event, "Command is next to be replied");
 
+	if (trans != NULL)
+		smtp_server_transaction_data_command(trans, cmd);
+
 	/* check whether we have had successful mail and rcpt commands */
 	if (!smtp_server_connection_data_check_state(cmd))
 		return;
 
 	if (data_cmd->chunk_last) {
-		/* This is the last chunk */
-		smtp_server_transaction_data_command(trans, cmd);
-
 		/* LMTP 'DATA' and 'BDAT LAST' commands need to send more than
 		   one reply per recipient */
 		if (HAS_ALL_BITS(trans->flags,
@@ -468,7 +468,6 @@ cmd_data_start(struct smtp_server_cmd_ctx *cmd,
 	i_assert(conn->state.pending_mail_cmds == 0 &&
 		conn->state.pending_rcpt_cmds == 0);
 
-	/* this is the one and only data command */
 	if (trans != NULL)
 		smtp_server_transaction_data_command(trans, cmd);
 
@@ -561,12 +560,16 @@ int smtp_server_connection_data_chunk_add(struct smtp_server_cmd_ctx *cmd,
 	bool client_input)
 {
 	struct smtp_server_connection *conn = cmd->conn;
+	struct smtp_server_transaction *trans = conn->state.trans;
 	const struct smtp_server_settings *set = &conn->set;
 	struct smtp_server_command *command = cmd->cmd;
 	struct cmd_data_context *data_cmd = command->data;
 	uoff_t new_size;
 
 	i_assert(data_cmd != NULL);
+
+	if (trans != NULL)
+		smtp_server_transaction_data_command(trans, cmd);
 
 	if (!smtp_server_connection_data_check_state(cmd))
 		return -1;

@@ -167,10 +167,6 @@ void smtp_server_transaction_data_command(struct smtp_server_transaction *trans,
 {
 	struct smtp_server_recipient *const *rcptp;
 
-	if (trans->cmd != NULL) {
-		i_assert(cmd == trans->cmd);
-		return;
-	}
 	trans->cmd = cmd;
 
 	if (!array_is_created(&trans->rcpt_to))

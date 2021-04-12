@@ -2497,6 +2497,93 @@ static void test_data_no_rcpt(void)
 }
 
 /*
+ * Bad pipelined DATA
+ */
+
+/* client */
+
+static void test_bad_pipelined_data_connected(struct client_connection *conn)
+{
+	o_stream_nsend_str(conn->conn.output,
+			   "MAIL FROM:<senderp@example.com>\r\n"
+			   "RCPT TO:<<recipient1@example.com>\r\n"
+			   "DATA\r\n"
+			   "FROP!\r\n"
+			   "DATA\r\n"
+			   "FROP!\r\n"
+			   ".\r\n"
+			   "QUIT\r\n");
+}
+
+static void test_client_bad_pipelined_data(unsigned int index)
+{
+	test_client_connected = test_bad_pipelined_data_connected;
+	test_client_run(index);
+}
+
+/* server */
+
+static void
+test_server_bad_pipelined_data_trans_free(
+	void *conn_ctx  ATTR_UNUSED,
+	struct smtp_server_transaction *trans ATTR_UNUSED)
+{
+	io_loop_stop(ioloop);
+}
+
+static int
+test_server_bad_pipelined_data_rcpt(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_recipient *rcpt ATTR_UNUSED)
+{
+	/* not supposed to get here */
+	i_assert(FALSE);
+	return 1;
+}
+
+static int
+test_server_bad_pipelined_data_data_begin(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_transaction *trans ATTR_UNUSED,
+	struct istream *data_input ATTR_UNUSED)
+{
+	/* not supposed to get here */
+	i_assert(FALSE);
+	return 1;
+}
+
+static void
+test_server_bad_pipelined_data(const struct smtp_server_settings *server_set)
+{
+	server_callbacks.conn_trans_free =
+		test_server_bad_pipelined_data_trans_free;
+	server_callbacks.conn_cmd_rcpt =
+		test_server_bad_pipelined_data_rcpt;
+	server_callbacks.conn_cmd_data_begin =
+		test_server_bad_pipelined_data_data_begin;
+	test_server_run(server_set);
+}
+
+/* test */
+
+static void test_bad_pipelined_data(void)
+{
+	struct smtp_server_settings smtp_server_set;
+
+	test_server_defaults(&smtp_server_set);
+	smtp_server_set.capabilities =
+		SMTP_CAPABILITY_BINARYMIME | SMTP_CAPABILITY_CHUNKING;
+	smtp_server_set.max_client_idle_time_msecs = 1000;
+	smtp_server_set.max_recipients = 10;
+
+	test_begin("Bad pipelined DATA");
+	test_run_client_server(&smtp_server_set,
+			       test_server_bad_pipelined_data,
+			       test_client_bad_pipelined_data, 1);
+	test_end();
+}
+
+/*
  * DATA with BINARYMIME
  */
 
@@ -2840,6 +2927,7 @@ static void (*const test_functions[])(void) = {
 	test_too_many_recipients,
 	test_data_no_mail,
 	test_data_no_rcpt,
+	test_bad_pipelined_data,
 	test_data_binarymime,
 	test_mail_broken_path,
 	NULL
