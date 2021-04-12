@@ -5,7 +5,7 @@ struct iostream_pump;
 struct ioloop;
 
 struct fuzzer_context {
-	int fd;
+	int fd, fd_pump;
 	struct iostream_pump *pump;
 	struct ioloop *ioloop;
 };

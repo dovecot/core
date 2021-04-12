@@ -29,6 +29,8 @@ void fuzzer_deinit(struct fuzzer_context *fuzz_ctx)
 	   if this fails. */
 	if (fuzz_ctx->fd > -1)
 		(void)close(fuzz_ctx->fd);
+	if (fuzz_ctx->fd_pump > -1)
+		(void)close(fuzz_ctx->fd_pump);
 	if (fuzz_ctx->ioloop != NULL)
 		io_loop_destroy(&fuzz_ctx->ioloop);
 }
@@ -52,7 +54,7 @@ static void pump_finished(enum iostream_pump_status status ATTR_UNUSED,
 		break;
 	};
 
-	if (shutdown(o_stream_get_fd(output), SHUT_RDWR) < 0)
+	if (shutdown(o_stream_get_fd(output), SHUT_WR) < 0)
 		i_fatal("shutdown() failed: %m");
 	iostream_pump_destroy(&fuzz_ctx->pump);
 }
@@ -68,8 +70,9 @@ int fuzzer_io_as_fd(struct fuzzer_context *fuzz_ctx,
 	net_set_nonblock(sfd[1], TRUE);
 
 	struct istream *input = i_stream_create_from_data(data, size);
-	struct ostream *output = o_stream_create_fd_autoclose(&sfd[0], IO_BLOCK_SIZE);
+	struct ostream *output = o_stream_create_fd(sfd[0], IO_BLOCK_SIZE);
 	fuzz_ctx->pump = iostream_pump_create(input, output);
+	fuzz_ctx->fd_pump = sfd[0];
 	fuzz_ctx->fd = sfd[1];
 	iostream_pump_set_completion_callback(fuzz_ctx->pump, pump_finished,
 					      fuzz_ctx);
