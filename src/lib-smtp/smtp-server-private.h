@@ -373,8 +373,8 @@ bool smtp_server_recipient_approved(struct smtp_server_recipient **_rcpt);
 void smtp_server_recipient_denied(struct smtp_server_recipient *rcpt,
 				  const struct smtp_server_reply *reply);
 
-void smtp_server_recipient_last_data(struct smtp_server_recipient *rcpt,
-				     struct smtp_server_cmd_ctx *cmd);
+void smtp_server_recipient_data_command(struct smtp_server_recipient *rcpt,
+					struct smtp_server_cmd_ctx *cmd);
 void smtp_server_recipient_data_replied(struct smtp_server_recipient *rcpt);
 
 void smtp_server_recipient_reset(struct smtp_server_recipient *rcpt);

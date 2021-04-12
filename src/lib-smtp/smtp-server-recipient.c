@@ -166,8 +166,8 @@ void smtp_server_recipient_denied(struct smtp_server_recipient *rcpt,
 	e_debug(e->event(), "Denied");
 }
 
-void smtp_server_recipient_last_data(struct smtp_server_recipient *rcpt,
-				     struct smtp_server_cmd_ctx *cmd)
+void smtp_server_recipient_data_command(struct smtp_server_recipient *rcpt,
+					struct smtp_server_cmd_ctx *cmd)
 {
 	i_assert(rcpt->cmd == NULL);
 	rcpt->cmd = cmd;
