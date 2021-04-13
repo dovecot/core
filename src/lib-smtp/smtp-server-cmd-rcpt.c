@@ -23,7 +23,8 @@ cmd_rcpt_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 	smtp_server_recipient_destroy(&data->rcpt);
 }
 
-static bool cmd_rcpt_check_state(struct smtp_server_cmd_ctx *cmd)
+static bool
+cmd_rcpt_check_state(struct smtp_server_cmd_ctx *cmd, bool next_to_reply)
 {
 	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_command *command = cmd->cmd;
@@ -34,7 +35,8 @@ static bool cmd_rcpt_check_state(struct smtp_server_cmd_ctx *cmd)
 	    !smtp_server_command_reply_is_forwarded(command))
 		return FALSE;
 
-	if (conn->state.pending_mail_cmds == 0 && trans == NULL) {
+	if (trans == NULL &&
+	    (conn->state.pending_mail_cmds == 0 || next_to_reply)) {
 		smtp_server_reply(cmd,
 			503, "5.5.0", "MAIL needed first");
 		return FALSE;
@@ -84,13 +86,11 @@ cmd_rcpt_recheck(struct smtp_server_cmd_ctx *cmd,
 {
 	struct smtp_server_connection *conn = cmd->conn;
 
-	i_assert(conn->state.pending_mail_cmds == 0);
-
 	/* All preceeding commands have finished and now the transaction state
 	   is clear. This provides the opportunity to re-check the transaction
 	   state and abort the pending proxied mail command if it is bound to
 	   fail */
-	if (!cmd_rcpt_check_state(cmd))
+	if (!cmd_rcpt_check_state(cmd, TRUE))
 		return;
 
 	/* Advance state */
@@ -123,7 +123,7 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 	 */
 
 	/* Check transaction state as far as possible */
-	if (!cmd_rcpt_check_state(cmd))
+	if (!cmd_rcpt_check_state(cmd, FALSE))
 		return;
 
 	/* ( "<Postmaster@" Domain ">" / "<Postmaster>" / Forward-path ) */

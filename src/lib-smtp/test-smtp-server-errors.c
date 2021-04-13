@@ -3034,6 +3034,136 @@ static void test_mail_broken_path(void)
 }
 
 /*
+ * Bad pipelined MAIL
+ */
+
+/* client */
+
+static void test_bad_pipelined_mail_connected(struct client_connection *conn)
+{
+	o_stream_nsend_str(conn->conn.output,
+			   "MAIL FROM:<user1@example.com>\r\n"
+			   "RCPT TO:<user2@example.com>\r\n"
+			   "RCPT TO:<user3@example.com>\r\n"
+			   "MAIL FROM:<user4@example.com>\r\n"
+			   "DATA\r\n"
+			   "FROP!\r\n"
+			   ".\r\n"
+			   "QUIT\r\n");
+}
+
+static void test_client_bad_pipelined_mail(unsigned int index)
+{
+	test_client_connected = test_bad_pipelined_mail_connected;
+	test_client_run(index);
+}
+
+/* server */
+
+struct _bad_pipelined_mail {
+	struct istream *payload_input;
+	struct io *io;
+};
+
+static void
+test_server_bad_pipelined_mail_trans_free(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_transaction *trans)
+{
+	struct _bad_pipelined_mail *ctx = trans->context;
+
+	i_free(ctx);
+	io_loop_stop(ioloop);
+}
+
+static int
+test_server_bad_pipelined_mail_rcpt(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_recipient *rcpt)
+{
+	if (debug) {
+		i_debug("RCPT TO:%s",
+			smtp_address_encode(rcpt->path));
+	}
+	return 1;
+}
+
+static int
+test_server_bad_pipelined_mail_data_begin(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_transaction *trans, struct istream *data_input)
+{
+	struct _bad_pipelined_mail *ctx;
+
+	if (debug)
+		i_debug("DATA");
+
+	ctx = i_new(struct _bad_pipelined_mail, 1);
+	trans->context = ctx;
+
+	ctx->payload_input = data_input;
+	return 0;
+}
+
+static int
+test_server_bad_pipelined_mail_data_continue(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd,
+	struct smtp_server_transaction *trans ATTR_UNUSED)
+{
+	struct _bad_pipelined_mail *ctx = trans->context;
+	size_t size;
+	ssize_t ret;
+
+	while ((ret = i_stream_read(ctx->payload_input)) > 0 || ret == -2) {
+		size = i_stream_get_data_size(ctx->payload_input);
+		i_stream_skip(ctx->payload_input, size);
+	}
+
+	if (ret == 0)
+		return 0;
+	if (ret < 0 && ctx->payload_input->stream_errno != 0) {
+		/* Client probably disconnected */
+		return -1;
+	}
+
+	smtp_server_reply_all(cmd, 250, "2.0.0", "Accepted");
+	return 1;
+}
+
+static void
+test_server_bad_pipelined_mail(const struct smtp_server_settings *server_set)
+{
+	server_callbacks.conn_trans_free =
+		test_server_bad_pipelined_mail_trans_free;
+	server_callbacks.conn_cmd_rcpt =
+		test_server_bad_pipelined_mail_rcpt;
+	server_callbacks.conn_cmd_data_begin =
+		test_server_bad_pipelined_mail_data_begin;
+	server_callbacks.conn_cmd_data_continue =
+		test_server_bad_pipelined_mail_data_continue;
+	test_server_run(server_set);
+}
+
+/* test */
+
+static void test_bad_pipelined_mail(void)
+{
+	struct smtp_server_settings smtp_server_set;
+
+	test_server_defaults(&smtp_server_set);
+	smtp_server_set.capabilities =
+		SMTP_CAPABILITY_BINARYMIME | SMTP_CAPABILITY_CHUNKING;
+	smtp_server_set.max_client_idle_time_msecs = 1000;
+	smtp_server_set.max_recipients = 10;
+	smtp_server_set.max_pipelined_commands = 16;
+
+	test_begin("Bad pipelined MAIL");
+	test_run_client_server(&smtp_server_set,
+			       test_server_bad_pipelined_mail,
+			       test_client_bad_pipelined_mail, 1);
+	test_end();
+}
+
+/*
  * All tests
  */
 
@@ -3059,6 +3189,7 @@ static void (*const test_functions[])(void) = {
 	test_bad_pipelined_data2,
 	test_data_binarymime,
 	test_mail_broken_path,
+	test_bad_pipelined_mail,
 	NULL
 };
 
