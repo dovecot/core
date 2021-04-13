@@ -216,7 +216,8 @@ o_stream_create_zstd(struct ostream *output, int level)
 	struct zstd_ostream *zstream;
 	size_t ret;
 
-	i_assert(level >= 1 && level <= ZSTD_maxCLevel());
+	i_assert(level >= compression_get_min_level_zstd() &&
+		 level <= compression_get_max_level_zstd());
 
 	zstd_version_check();
 
