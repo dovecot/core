@@ -117,5 +117,6 @@ struct stats_settings {
 };
 
 extern const struct setting_parser_info stats_setting_parser_info;
+extern const struct setting_parser_info stats_metric_setting_parser_info;
 
 #endif
