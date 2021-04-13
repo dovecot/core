@@ -350,6 +350,9 @@ cmd_data_next(struct smtp_server_cmd_ctx *cmd,
 
 	i_assert(data_cmd != NULL);
 	i_assert(trans != NULL);
+
+	/* DATA command stops the pipeline, so if it is next to reply, nothing
+	   else can be pending. */
 	i_assert(conn->state.pending_mail_cmds == 0 &&
 		conn->state.pending_rcpt_cmds == 0);
 
