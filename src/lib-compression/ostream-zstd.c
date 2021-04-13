@@ -39,8 +39,8 @@ int compression_get_default_level_zstd(void)
 #ifdef ZSTD_CLEVEL_DEFAULT
 	return ZSTD_CLEVEL_DEFAULT;
 #else
-	/* This means default */
-	return 0;
+	/* Documentation says 3 is default */
+	return 3;
 #endif
 }
 
