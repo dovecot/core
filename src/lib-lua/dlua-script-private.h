@@ -214,7 +214,7 @@ int dlua_pcall_yieldable(lua_State *L, const char *func_name, int nargs,
 			 dlua_pcall_yieldable_callback_t *callback,
 			 void *context, const char **error_r);
 #define dlua_pcall_yieldable(L, func_name, nargs, callback, context, error_r) \
-	dlua_pcall_yieldable(L, func_name + \
+	dlua_pcall_yieldable(L, TRUE ? func_name : \
 		CALLBACK_TYPECHECK(callback, void (*)(lua_State *, typeof(context), int)), \
 		nargs, (dlua_pcall_yieldable_callback_t *)callback, context, error_r)
 /*
