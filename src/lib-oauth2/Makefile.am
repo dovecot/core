@@ -59,6 +59,9 @@ test_oauth2_json_DEPENDENCIES = $(test_deps)
 
 test_oauth2_jwt_SOURCES = test-oauth2-jwt.c
 test_oauth2_jwt_LDADD = $(test_libs)
+if HAVE_WHOLE_ARCHIVE
+test_oauth2_jwt_LDFLAGS = -Wl,$(LD_WHOLE_ARCHIVE),../lib-ssl-iostream/.libs/libssl_iostream.a,$(LD_NO_WHOLE_ARCHIVE)
+endif
 test_oauth2_jwt_DEPENDENCIES = $(test_deps)
 
 check-local:
