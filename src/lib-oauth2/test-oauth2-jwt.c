@@ -181,16 +181,23 @@ append_key_value(string_t *dest, const char *key, const char *value, bool str)
 
 }
 
+#define create_jwt_token_fields(algo, exp, iat, nbf, fields) \
+	create_jwt_token_fields_kid(algo, "default", exp, iat, nbf, fields)
 static buffer_t *
-create_jwt_token_fields(const char *algo, time_t exp, time_t iat, time_t nbf,
-			ARRAY_TYPE(oauth2_field) *fields)
+create_jwt_token_fields_kid(const char *algo, const char *kid, time_t exp, time_t iat,
+			    time_t nbf, ARRAY_TYPE(oauth2_field) *fields)
 {
 	const struct oauth2_field *field;
 	buffer_t *tokenbuf = t_buffer_create(64);
-
-	base64url_encode_str(
-		t_strdup_printf("{\"alg\":\"%s\",\"typ\":\"JWT\"}", algo),
-		tokenbuf);
+	string_t *hdr = t_str_new(32);
+	str_printfa(hdr, "{\"alg\":\"%s\",\"typ\":\"JWT\"", algo);
+	if (kid != NULL && *kid != '\0') {
+		str_append(hdr, ",\"kid\":\"");
+		json_append_escaped(hdr, kid);
+		str_append_c(hdr, '"');
+	}
+	str_append(hdr, "}");
+	base64url_encode_str(str_c(hdr), tokenbuf);
 	buffer_append(tokenbuf, ".", 1);
 
 	string_t *bodybuf = t_str_new(64);
@@ -225,7 +232,7 @@ static void save_key_to(const char *algo, const char *name, const char *keydata)
 	const char *error;
 	struct dict_transaction_context *ctx =
 		dict_transaction_begin(keys_dict);
-
+	algo = t_str_ucase(algo);
 	dict_set(ctx, t_strconcat(DICT_PATH_SHARED, "default/", algo, "/",
 				  name, NULL),
 		 keydata);
@@ -296,6 +303,50 @@ static void test_jwt_hs_token(void)
 	test_jwt_token(str_c(tokenbuf));
 
 	test_end();
+}
+
+static void test_jwt_token_escape(void)
+{
+	struct test_case {
+		const char *alg;
+		const char *kid;
+		const char *esc_kid;
+	} test_cases[] = {
+		{ "hs256", "", "default" },
+		{ "hs256", "test", "test" },
+		{
+			"hs256",
+			"http://test.unit/local%key",
+			"http:%2f%2ftest%2eunit%2flocal%25key",
+		},
+		{ "hs256", "../", "%2e%2e%2f" },
+	};
+	buffer_t *b64_key =
+		t_base64_encode(0, SIZE_MAX, hs_sign_key->data, hs_sign_key->used);
+	ARRAY_TYPE(oauth2_field) fields;
+	t_array_init(&fields, 8);
+
+	for (size_t i = 0; i < N_ELEMENTS(test_cases); i++) {
+		const struct test_case *test_case = &test_cases[i];
+		array_clear(&fields);
+		struct oauth2_field *field = array_append_space(&fields);
+		field->name = "sub";
+		field->value = "testuser";
+		if (*test_case->kid != '\0') {
+			field = array_append_space(&fields);
+			field->name = "kid";
+			field->value = test_case->kid;
+		}
+		save_key_to(test_case->alg, test_case->esc_kid,
+			    str_c(b64_key));
+		buffer_t *token = create_jwt_token_fields_kid(test_case->alg,
+							      test_case->kid,
+							      time(NULL)+500,
+							      time(NULL)-500,
+							      0, &fields);
+		sign_jwt_token_hs256(token, hs_sign_key);
+		test_jwt_token(str_c(token));
+	}
 }
 
 static void test_jwt_broken_token(void)
@@ -754,6 +805,7 @@ int main(void)
 	static void (*test_functions[])(void) = {
 		test_do_init,
 		test_jwt_hs_token,
+		test_jwt_token_escape,
 		test_jwt_bad_valid_token,
 		test_jwt_broken_token,
 		test_jwt_dates,
