@@ -149,7 +149,7 @@ static void xlua_push##typename(lua_State *state, type *ptr, bool ro)	\
 	luaL_getmetatable(state, #type);				\
 	if (lua_type(state, -1) != LUA_TTABLE) {			\
 		/* initialize a new metatable */			\
-		luaL_Reg *extra_fxns = (extra_fxns_arg);		\
+		const luaL_Reg *extra_fxns = (extra_fxns_arg);		\
 		lua_CFunction index;					\
 									\
 		lua_pop(state, 1);					\
