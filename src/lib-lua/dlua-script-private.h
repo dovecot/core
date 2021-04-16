@@ -101,6 +101,10 @@ void dlua_push_event(lua_State *L, struct event *event);
 /* get event from given stack position */
 struct event *dlua_check_event(lua_State *L, int arg);
 
+/* improved lua_pushfstring, can handle full C format support */
+const char *dlua_pushvfstring(lua_State *L, const char *fmt, va_list argp) ATTR_FORMAT(2, 0);
+const char *dlua_pushfstring(lua_State *L, const char *fmt, ...) ATTR_FORMAT(2, 3);
+
 /*
  * Returns field from a Lua table
  *
