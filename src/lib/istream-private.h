@@ -38,7 +38,7 @@ struct istream_private {
 	unsigned char *w_buffer; /* may be NULL */
 
 	size_t buffer_size, max_buffer_size, init_buffer_size, data_limit;
-	size_t skip, pos, try_alloc_limit;
+	size_t skip, pos;
 	/* If seeking backwards within the buffer, the next read() will
 	   return again pos..high_pos */
 	size_t high_pos;

@@ -909,12 +909,9 @@ bool i_stream_try_alloc(struct istream_private *stream,
 	}
 
 	if (stream->data_limit == 0 ||
-	    (stream->buffer_size - stream->skip) < stream->data_limit) {
+	    (stream->buffer_size - stream->skip) < stream->data_limit)
 		*size_r = stream->buffer_size - stream->pos;
-		if (stream->try_alloc_limit > 0 &&
-		    *size_r > stream->try_alloc_limit)
-			*size_r = stream->try_alloc_limit;
-	} else {
+	else {
 		size_t buffered = (stream->pos - stream->skip);
 
 		if (buffered >= stream->data_limit)
