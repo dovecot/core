@@ -194,6 +194,7 @@ struct client {
 	const char *sasl_final_resp;
 	const char *const *auth_passdb_args;
 	struct anvil_query *anvil_query;
+	struct anvil_request *anvil_request;
 
 	unsigned int master_auth_id;
 	unsigned int master_tag;
