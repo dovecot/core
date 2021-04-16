@@ -31,14 +31,6 @@ struct test_endpoint {
 	struct test_endpoint *other;
 };
 
-static int bufsize_flush_callback(struct test_endpoint *ep)
-{
-	io_loop_stop(current_ioloop);
-	int ret = o_stream_flush(ep->output);
-	test_assert(ret >= 0);
-	return ret;
-}
-
 static int small_packets_flush_callback(struct test_endpoint *ep)
 {
 	int ret = o_stream_flush(ep->output);
@@ -69,6 +61,14 @@ static void handshake_input_callback(struct test_endpoint *ep)
 		ep->failed = TRUE;
 		io_loop_stop(current_ioloop);
 	}
+}
+
+static int bufsize_flush_callback(struct test_endpoint *ep)
+{
+	io_loop_stop(current_ioloop);
+	int ret = o_stream_flush(ep->output);
+	test_assert(ret >= 0);
+	return ret;
 }
 
 static void bufsize_input_callback(struct test_endpoint *ep)
