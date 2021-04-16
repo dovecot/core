@@ -372,6 +372,7 @@ static void test_iostream_ssl_get_buffer_avail_size(void)
 	ssl_iostream_test_settings_client(&set);
 	set.allow_invalid_cert = TRUE;
 	client = create_test_endpoint(fd[1], &set);
+	client->client = TRUE;
 
 	client->other = server;
 	server->other = client;
@@ -455,6 +456,7 @@ static void test_iostream_ssl_small_packets(void)
 	ssl_iostream_test_settings_client(&set);
 	set.allow_invalid_cert = TRUE;
 	client = create_test_endpoint(fd[1], &set);
+	client->client = TRUE;
 
 	test_assert(ssl_iostream_context_init_server(server->set, &server->ctx,
 		    &error) == 0);
