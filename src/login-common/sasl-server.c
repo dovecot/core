@@ -223,6 +223,7 @@ anvil_lookup_callback(const char *reply, void *context)
 	int ret;
 
 	client->anvil_query = NULL;
+	client->anvil_request = NULL;
 
 	conn_count = 0;
 	if (reply != NULL && str_to_uint(reply, &conn_count) < 0)
@@ -273,6 +274,7 @@ anvil_check_too_many_connections(struct client *client,
 	query = t_strconcat("LOOKUP\t", login_binary->protocol, "/",
 			    net_ip2addr(&client->ip), "/",
 			    str_tabescape(client->virtual_user), NULL);
+	client->anvil_request = req;
 	client->anvil_query =
 		anvil_client_query(anvil, query, anvil_lookup_callback, req);
 }
@@ -553,7 +555,9 @@ void sasl_server_auth_failed(struct client *client, const char *reason,
 void sasl_server_auth_abort(struct client *client)
 {
 	client->auth_try_aborted = TRUE;
-	if (client->anvil_query != NULL)
+	if (client->anvil_query != NULL) {
 		anvil_client_query_abort(anvil, &client->anvil_query);
+		i_free(client->anvil_request);
+	}
 	sasl_server_auth_cancel(client, NULL, NULL, SASL_SERVER_REPLY_AUTH_ABORTED);
 }
