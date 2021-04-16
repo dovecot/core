@@ -191,12 +191,7 @@ static void virtual_mail_set_seq(struct mail *mail, uint32_t seq, bool saving)
 			      mbox->virtual_ext_id, &data, NULL);
 	memcpy(&vmail->cur_vrec, data, sizeof(vmail->cur_vrec));
 
-	i_zero(&vmail->imail.data);
-	p_clear(vmail->imail.mail.data_pool);
-
-	vmail->imail.data.seq = seq;
-	mail->seq = seq;
-	mail_index_lookup_uid(mail->transaction->view, seq, &mail->uid);
+	index_mail_set_seq(mail, seq, saving);
 
 	vmail->cur_backend_mail = NULL;
 }
