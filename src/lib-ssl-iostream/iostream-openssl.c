@@ -443,7 +443,7 @@ static int openssl_iostream_bio_output(struct ssl_iostream *ssl_io)
 
 static ssize_t
 openssl_iostream_read_more(struct ssl_iostream *ssl_io,
-			   enum openssl_iostream_sync_type type,
+			   enum openssl_iostream_sync_type type, size_t wanted,
 			   const unsigned char **data_r, size_t *size_r)
 {
 	*data_r = i_stream_get_data(ssl_io->plain_input, size_r);
@@ -457,7 +457,8 @@ openssl_iostream_read_more(struct ssl_iostream *ssl_io,
 		return 0;
 	}
 
-	if (i_stream_read_more(ssl_io->plain_input, data_r, size_r) < 0)
+	if (i_stream_read_limited(ssl_io->plain_input, data_r, size_r,
+				  wanted) < 0)
 		return -1;
 	return 0;
 }
@@ -473,9 +474,8 @@ openssl_iostream_bio_input(struct ssl_iostream *ssl_io,
 
 	while ((bytes = BIO_ctrl_get_write_guarantee(ssl_io->bio_ext)) > 0) {
 		/* bytes contains how many bytes we can write to bio_ext */
-		ssl_io->plain_input->real_stream->try_alloc_limit = bytes;
-		ret = openssl_iostream_read_more(ssl_io, type, &data, &size);
-		ssl_io->plain_input->real_stream->try_alloc_limit = 0;
+		ret = openssl_iostream_read_more(ssl_io, type, bytes,
+						 &data, &size);
 		if (ret == -1 && size == 0 && !bytes_read) {
 			if (ssl_io->plain_input->stream_errno != 0) {
 				i_free(ssl_io->plain_stream_errstr);
