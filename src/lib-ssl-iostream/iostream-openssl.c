@@ -537,6 +537,8 @@ int openssl_iostream_bio_sync(struct ssl_iostream *ssl_io,
 {
 	int ret;
 
+	i_assert(type != OPENSSL_IOSTREAM_SYNC_TYPE_NONE);
+
 	ret = openssl_iostream_bio_output(ssl_io);
 	if (ret >= 0 && openssl_iostream_bio_input(ssl_io, type) > 0)
 		ret = 1;
@@ -565,7 +567,8 @@ int openssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 	err = SSL_get_error(ssl_io->ssl, ret);
 	switch (err) {
 	case SSL_ERROR_WANT_WRITE:
-		if (openssl_iostream_bio_sync(ssl_io, type) == 0) {
+		if (type != OPENSSL_IOSTREAM_SYNC_TYPE_NONE &&
+		    openssl_iostream_bio_sync(ssl_io, type) == 0) {
 			if (type != OPENSSL_IOSTREAM_SYNC_TYPE_WRITE)
 				i_panic("SSL ostream buffer size not unlimited");
 			return 0;
@@ -574,14 +577,19 @@ int openssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 			openssl_iostream_closed(ssl_io);
 			return -1;
 		}
+		if (type == OPENSSL_IOSTREAM_SYNC_TYPE_NONE)
+			return 0;
 		return 1;
 	case SSL_ERROR_WANT_READ:
 		ssl_io->want_read = TRUE;
-		(void)openssl_iostream_bio_sync(ssl_io, type);
+		if (type != OPENSSL_IOSTREAM_SYNC_TYPE_NONE)
+			(void)openssl_iostream_bio_sync(ssl_io, type);
 		if (ssl_io->closed) {
 			openssl_iostream_closed(ssl_io);
 			return -1;
 		}
+		if (type == OPENSSL_IOSTREAM_SYNC_TYPE_NONE)
+			return 0;
 		return ssl_io->want_read ? 0 : 1;
 	case SSL_ERROR_SYSCALL:
 		/* eat up the error queue */
