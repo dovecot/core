@@ -62,8 +62,13 @@ static void virtual_mail_close(struct mail *mail)
 	for (i = 0; i < count; i++) {
 		struct mail_private *p = (struct mail_private *)mails[i];
 
-		p->v.close(mails[i]);
+		if (vmail->imail.freeing)
+			mail_free(&mails[i]);
+		else
+			p->v.close(mails[i]);
 	}
+	if (vmail->imail.freeing)
+		array_free(&vmail->backend_mails);
 	index_mail_close(mail);
 }
 
@@ -73,10 +78,8 @@ static void virtual_mail_free(struct mail *mail)
 	struct mail **mails;
 	unsigned int i, count;
 
-	mails = array_get_modifiable(&vmail->backend_mails, &count);
-	for (i = 0; i < count; i++)
-		mail_free(&mails[i]);
-	array_free(&vmail->backend_mails);
+	vmail->imail.freeing = TRUE;
+	virtual_mail_close(mail);
 	mail->transaction->mail_ref_count--;
 
 	mailbox_header_lookup_unref(&vmail->wanted_headers);
