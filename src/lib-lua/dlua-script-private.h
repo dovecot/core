@@ -105,6 +105,9 @@ struct event *dlua_check_event(lua_State *L, int arg);
 const char *dlua_pushvfstring(lua_State *L, const char *fmt, va_list argp) ATTR_FORMAT(2, 0);
 const char *dlua_pushfstring(lua_State *L, const char *fmt, ...) ATTR_FORMAT(2, 3);
 
+/* improved luaL_error, can handle full C format support */
+int dluaL_error(lua_State *L, const char *fmt, ...) ATTR_FORMAT(2, 3);
+
 /*
  * Returns field from a Lua table
  *

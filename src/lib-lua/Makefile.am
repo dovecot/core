@@ -7,6 +7,7 @@ pkglib_LTLIBRARIES = libdovecot-lua.la
 libdovecot_lua_la_SOURCES = \
 	dlua-script.c \
 	dlua-pushstring.c \
+	dlua-error.c \
 	dlua-dovecot.c \
 	dlua-compat.c \
 	dlua-resume.c \
