@@ -74,21 +74,6 @@ static void virtual_mail_close(struct mail *mail)
 	index_mail_close(mail);
 }
 
-static void virtual_mail_free(struct mail *mail)
-{
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
-	struct mail **mails;
-	unsigned int i, count;
-
-	vmail->imail.freeing = TRUE;
-	virtual_mail_close(mail);
-	mail->transaction->mail_ref_count--;
-
-	event_unref(&mail->event);
-	pool_unref(&vmail->imail.mail.data_pool);
-	pool_unref(&vmail->imail.mail.pool);
-}
-
 static struct mail *
 backend_mail_find(struct virtual_mail *vmail, struct mailbox *box)
 {
@@ -560,7 +545,7 @@ virtual_mail_set_cache_corrupted(struct mail *mail,
 
 struct mail_vfuncs virtual_mail_vfuncs = {
 	virtual_mail_close,
-	virtual_mail_free,
+	index_mail_free,
 	virtual_mail_set_seq,
 	virtual_mail_set_uid,
 	virtual_mail_set_uid_cache_updates,
