@@ -31,13 +31,6 @@ struct test_endpoint {
 	struct test_endpoint *other;
 };
 
-static int small_packets_flush_callback(struct test_endpoint *ep)
-{
-	int ret = o_stream_flush(ep->output);
-	test_assert(ret >= 0);
-	return ret;
-}
-
 static void send_output(struct test_endpoint *ep)
 {
 	ssize_t amt = i_rand_limit(10)+1;
@@ -82,6 +75,13 @@ static void bufsize_input_callback(struct test_endpoint *ep)
 
 	test_assert(i_stream_read_bytes(ep->input, &data, &size, wanted) > -1);
 	i_stream_skip(ep->input, I_MIN(size, wanted));
+}
+
+static int small_packets_flush_callback(struct test_endpoint *ep)
+{
+	int ret = o_stream_flush(ep->output);
+	test_assert(ret >= 0);
+	return ret;
 }
 
 static void small_packets_input_callback(struct test_endpoint *ep)
