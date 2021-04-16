@@ -76,9 +76,9 @@ static const char *dlua_reader(lua_State *L, void *ctx, size_t *size_r)
 	i_stream_skip(script->in, script->last_read);
 	if (i_stream_read_more(script->in, &data, size_r) == -1 &&
 	    script->in->stream_errno != 0) {
-		luaL_error(L, t_strdup_printf("read(%s) failed: %s",
-					      script->filename,
-					      i_stream_get_error(script->in)));
+		luaL_error(L, "read(%s) failed: %s",
+			   script->filename,
+			   i_stream_get_error(script->in));
 		*size_r = 0;
 		return NULL;
 	}
