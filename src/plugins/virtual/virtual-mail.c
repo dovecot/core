@@ -40,8 +40,14 @@ virtual_mail_alloc(struct mailbox_transaction_context *t,
 	mail_pool = pool_alloconly_create("vmail", 1024);
 	data_pool = pool_alloconly_create("virtual index_mail", 512);
 	vmail = p_new(mail_pool, struct virtual_mail, 1);
-	index_mail_init(&vmail->imail, t, wanted_fields, wanted_headers,
-			mail_pool, data_pool);
+	vmail->wanted_fields = wanted_fields;
+	vmail->wanted_headers = wanted_headers;
+	if (vmail->wanted_headers != NULL)
+		mailbox_header_lookup_ref(vmail->wanted_headers);
+	/* Do not pass wanted_fields or wanted_headers to index_mail_init.
+	   It will just cause unwanted behaviour, as we only want these
+	   to be passed to backend mails. */
+	index_mail_init(&vmail->imail, t, 0, NULL, mail_pool, data_pool);
 	vmail->imail.mail.v = virtual_mail_vfuncs;
 	i_array_init(&vmail->backend_mails, array_count(&mbox->backend_boxes));
 	return &vmail->imail.mail.mail;
