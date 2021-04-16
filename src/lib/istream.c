@@ -794,6 +794,27 @@ int i_stream_read_data(struct istream *stream, const unsigned char **data_r,
 	return -1;
 }
 
+int i_stream_read_limited(struct istream *stream, const unsigned char **data_r,
+			  size_t *size_r, size_t limit)
+{
+	struct istream_private *_stream = stream->real_stream;
+	int ret;
+
+	*data_r = i_stream_get_data(stream, size_r);
+	if (*size_r >= limit) {
+		*size_r = limit;
+		return 1;
+	}
+
+	_stream->data_limit = limit;
+	ret = i_stream_read_more(stream, data_r, size_r);
+	_stream->data_limit = 0;
+
+	if (*size_r >= limit)
+		*size_r = limit;
+	return ret;
+}
+
 void i_stream_compress(struct istream_private *stream)
 {
 	i_assert(stream->memarea == NULL ||
@@ -887,10 +908,20 @@ bool i_stream_try_alloc(struct istream_private *stream,
 		}
 	}
 
-	*size_r = stream->buffer_size - stream->pos;
-	if (stream->try_alloc_limit > 0 &&
-	    *size_r > stream->try_alloc_limit)
-		*size_r = stream->try_alloc_limit;
+	if (stream->data_limit == 0 ||
+	    (stream->buffer_size - stream->skip) < stream->data_limit) {
+		*size_r = stream->buffer_size - stream->pos;
+		if (stream->try_alloc_limit > 0 &&
+		    *size_r > stream->try_alloc_limit)
+			*size_r = stream->try_alloc_limit;
+	} else {
+		size_t buffered = (stream->pos - stream->skip);
+
+		if (buffered >= stream->data_limit)
+			*size_r = 0;
+		else
+			*size_r = stream->data_limit - buffered;
+	}
 	return *size_r > 0;
 }
 

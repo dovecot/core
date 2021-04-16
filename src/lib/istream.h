@@ -228,6 +228,14 @@ i_stream_read_more(struct istream *stream, const unsigned char **data_r,
 	i_assert(ret != -2); /* stream must have space for at least 1 byte */
 	return ret;
 }
+/* Like i_stream_read_more(), but tries to avoid buffering more than the
+   indicated limit. Use this function to prevent growing the stream buffer
+   beyond what the application is willing to read immediately. Since this
+   function doesn't fully prevent buffering beyond the limit, the amount of data
+   actually buffered can exceed the limit. However, *size_r will allways be <=
+   limit to avoid confusion. */
+int i_stream_read_limited(struct istream *stream, const unsigned char **data_r,
+			  size_t *size_r, size_t limit);
 /* Return the timestamp when istream last successfully read something.
    The timestamp is 0 if nothing has ever been read. */
 void i_stream_get_last_read_time(struct istream *stream, struct timeval *tv_r);
