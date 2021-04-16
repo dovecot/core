@@ -67,8 +67,10 @@ static void virtual_mail_close(struct mail *mail)
 		else
 			p->v.close(mails[i]);
 	}
-	if (vmail->imail.freeing)
+	if (vmail->imail.freeing) {
 		array_free(&vmail->backend_mails);
+		mailbox_header_lookup_unref(&vmail->wanted_headers);
+	}
 	index_mail_close(mail);
 }
 
@@ -82,7 +84,6 @@ static void virtual_mail_free(struct mail *mail)
 	virtual_mail_close(mail);
 	mail->transaction->mail_ref_count--;
 
-	mailbox_header_lookup_unref(&vmail->wanted_headers);
 	event_unref(&mail->event);
 	pool_unref(&vmail->imail.mail.data_pool);
 	pool_unref(&vmail->imail.mail.pool);
