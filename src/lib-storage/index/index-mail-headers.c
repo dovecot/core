@@ -935,6 +935,7 @@ int index_mail_get_header_stream(struct mail *_mail,
 		/* we have to parse the header. */
 		const char *reason =
 			index_mail_cache_reason(_mail, "bodystructure");
+		mail->data.access_reason_code = "mail:header_fields";
 		if (index_mail_parse_headers(mail, headers, reason) < 0)
 			return -1;
 	}
@@ -972,6 +973,7 @@ int index_mail_get_header_stream(struct mail *_mail,
 			"%u/%u headers not cached (first=%s)",
 			not_found_count, headers->count, headers->name[first_not_found]));
 	}
+	mail->data.access_reason_code = "mail:header_fields";
 	if (mail_get_hdr_stream_because(_mail, NULL, reason, &input) < 0)
 		return -1;
 
