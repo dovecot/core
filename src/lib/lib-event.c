@@ -481,6 +481,8 @@ struct event *events_get_head(void)
 
 struct event *event_push_global(struct event *event)
 {
+	i_assert(event != NULL);
+
 	if (current_global_event != NULL) {
 		if (!array_is_created(&global_event_stack))
 			i_array_init(&global_event_stack, 4);
