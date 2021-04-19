@@ -171,6 +171,7 @@ static void cmd_import_init_source_user(struct import_cmd_context *ctx, struct m
 			 ctx->src_username :
 			 dest_user->username;
 
+	mail_storage_service_io_deactivate_user(ctx->ctx.cur_service_user);
 	input.flags_override_add = MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES |
 		MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS;
 	if (mail_storage_service_lookup_next(ctx->ctx.storage_service, &input,
@@ -180,7 +181,9 @@ static void cmd_import_init_source_user(struct import_cmd_context *ctx, struct m
 		i_fatal("Import namespace initialization failed: %s", error);
 
 	ctx->src_user = user;
+	mail_storage_service_io_deactivate_user(service_user);
 	mail_storage_service_user_unref(&service_user);
+	mail_storage_service_io_activate_user(ctx->ctx.cur_service_user);
 }
 
 static int
