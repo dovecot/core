@@ -107,6 +107,7 @@ const char *dlua_pushfstring(lua_State *L, const char *fmt, ...) ATTR_FORMAT(2, 
 
 /* improved luaL_error, can handle full C format support */
 int dluaL_error(lua_State *L, const char *fmt, ...) ATTR_FORMAT(2, 3);
+#define luaL_error(...) dluaL_error(__VA_ARGS__)
 
 /*
  * Returns field from a Lua table
