@@ -91,6 +91,7 @@ struct index_mail_data {
 	uint32_t cache_flags;
 	uint64_t modseq, pvt_modseq;
 	enum index_mail_access_part access_part;
+	const char *access_reason_code;
 	/* dont_cache_fields overrides cache_fields */
 	enum mail_fetch_field cache_fetch_fields, dont_cache_fetch_fields;
 	unsigned int dont_cache_field_idx;

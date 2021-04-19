@@ -1371,8 +1371,10 @@ int index_mail_init_stream(struct index_mail *mail,
 
 	bool want_attachment_kw =
 		index_mail_want_attachment_keywords_on_fetch(mail);
-	if (want_attachment_kw)
+	if (want_attachment_kw) {
 		data->access_part |= PARSE_HDR | PARSE_BODY;
+		data->access_reason_code = "mail:attachment_keywords";
+	}
 
 	if (hdr_size != NULL || body_size != NULL)
 		(void)get_cached_msgpart_sizes(mail);
@@ -1930,8 +1932,10 @@ static void check_envelope(struct index_mail *mail)
 						     "hdr.message-id");
 	if (cache_field_hdr == UINT_MAX ||
 	    mail_cache_field_exists(_mail->transaction->cache_view,
-				    _mail->seq, cache_field_hdr) <= 0)
+				    _mail->seq, cache_field_hdr) <= 0) {
+		mail->data.access_reason_code = "mail:imap_envelope";
 		mail->data.access_part |= PARSE_HDR;
+	}
 	mail->data.save_envelope = TRUE;
 }
 
@@ -1978,6 +1982,7 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 
 		if (mail_cache_field_exists(cache_view, _mail->seq,
 					    cache_field) <= 0) {
+			data->access_reason_code = "mail:mime_parts";
 			data->access_part |= PARSE_HDR | PARSE_BODY;
 			data->save_message_parts = TRUE;
 		}
@@ -2002,6 +2007,7 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 					    cache_field1) <= 0 &&
 		    mail_cache_field_exists(cache_view, _mail->seq,
 					    cache_field2) <= 0) {
+			data->access_reason_code = "mail:imap_bodystructure";
 			data->access_part |= PARSE_HDR | PARSE_BODY;
 			data->save_bodystructure_header = TRUE;
 			data->save_bodystructure_body = TRUE;
@@ -2017,6 +2023,7 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 
                 if (mail_cache_field_exists(cache_view, _mail->seq,
                                             cache_field) <= 0) {
+			data->access_reason_code = "mail:imap_bodystructure";
 			data->access_part |= PARSE_HDR | PARSE_BODY;
 			data->save_bodystructure_header = TRUE;
 			data->save_bodystructure_body = TRUE;
@@ -2031,6 +2038,7 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 
 		if (mail_cache_field_exists(cache_view, _mail->seq,
 					    cache_field) <= 0) {
+			data->access_reason_code = "mail:date";
 			data->access_part |= PARSE_HDR;
 			data->save_sent_date = TRUE;
 		}
@@ -2042,12 +2050,17 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 
 		if (mail_cache_field_exists(cache_view, _mail->seq,
 					    cache_field) <= 0) {
+			data->access_reason_code = "mail:snippet";
 			data->access_part |= PARSE_HDR | PARSE_BODY;
 			data->save_body_snippet = TRUE;
 		}
 	}
 	if ((data->wanted_fields & (MAIL_FETCH_STREAM_HEADER |
 				    MAIL_FETCH_STREAM_BODY)) != 0) {
+		/* Clear reason_code if set. The mail is going to be read
+		   in any case, so the previous reason for deciding to open
+		   the mail won't matter. */
+		data->access_reason_code = NULL;
 		if ((data->wanted_fields & MAIL_FETCH_STREAM_HEADER) != 0)
 			data->access_part |= READ_HDR;
 		if ((data->wanted_fields & MAIL_FETCH_STREAM_BODY) != 0)
@@ -2603,7 +2616,14 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 int index_mail_opened(struct mail *mail,
 		      struct istream **stream ATTR_UNUSED)
 {
+	struct index_mail *imail =
+		container_of(mail, struct index_mail, mail.mail);
+	struct event_reason *reason = NULL;
+
+	if (imail->data.access_reason_code != NULL)
+		reason = event_reason_begin(imail->data.access_reason_code);
 	mail_opened_event(mail);
+	event_reason_end(&reason);
 	return 0;
 }
 
