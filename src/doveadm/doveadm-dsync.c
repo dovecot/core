@@ -462,6 +462,9 @@ static void cmd_dsync_wait_remote(struct dsync_cmd_context *ctx)
 	io_loop_run(current_ioloop);
 	timeout_remove(&to);
 
+	/* io_loop_run() deactivates the context - put it back */
+	mail_storage_service_io_activate_user(ctx->ctx.cur_service_user);
+
 	if (!ctx->exited) {
 		i_error("Remote command process isn't dying, killing it");
 		if (kill(ctx->remote_pid, SIGKILL) < 0 && errno != ESRCH) {
@@ -704,6 +707,8 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		/* fall through */
 	case DSYNC_RUN_TYPE_STREAM:
 		cmd_dsync_run_remote(user);
+		/* io_loop_run() deactivates the context - put it back */
+		mail_storage_service_io_activate_user(ctx->ctx.cur_service_user);
 		break;
 	}
 
@@ -1239,6 +1244,8 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 				       doveadm_settings->dsync_alt_char[0]);
 
 	io_loop_run(current_ioloop);
+	/* io_loop_run() deactivates the context - put it back */
+	mail_storage_service_io_activate_user(ctx->ctx.cur_service_user);
 
 	if (ctx->replicator_notify) {
 		state_str = t_str_new(128);
