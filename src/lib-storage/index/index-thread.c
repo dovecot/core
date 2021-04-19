@@ -296,7 +296,7 @@ mail_thread_map_add_mail(struct mail_thread_context *ctx, struct mail *mail)
 static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 {
 	static const char *wanted_headers[] = {
-		HDR_MESSAGE_ID, HDR_IN_REPLY_TO, HDR_REFERENCES,
+		HDR_MESSAGE_ID, HDR_IN_REPLY_TO, HDR_REFERENCES, HDR_SUBJECT,
 		NULL
 	};
 	struct mail_thread_mailbox *tbox = MAIL_THREAD_CONTEXT_REQUIRE(ctx->box);
@@ -320,7 +320,8 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 	}
 
 	headers_ctx = mailbox_header_lookup_init(ctx->box, wanted_headers);
-	ctx->tmp_mail = mail_alloc(ctx->t, 0, headers_ctx);
+	ctx->tmp_mail = mail_alloc(ctx->t, MAIL_FETCH_DATE |
+				   MAIL_FETCH_RECEIVED_DATE, headers_ctx);
 
 	/* add all missing UIDs */
 	ctx->strmap_sync = mail_index_strmap_view_sync_init(tbox->strmap_view,
@@ -337,7 +338,9 @@ static int mail_thread_index_map_build(struct mail_thread_context *ctx)
 	search_args = mail_search_build_init();
 	mail_search_build_add_seqset(search_args, seq1, seq2);
 	search_ctx = mailbox_search_init(ctx->t, search_args, NULL,
-					 0, headers_ctx);
+					 MAIL_FETCH_DATE |
+					 MAIL_FETCH_RECEIVED_DATE,
+					 headers_ctx);
 	mailbox_header_lookup_unref(&headers_ctx);
 	mail_search_args_unref(&search_args);
 
