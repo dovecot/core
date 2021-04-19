@@ -73,6 +73,7 @@ int fuzzer_io_as_fd(struct fuzzer_context *fuzz_ctx,
 	struct ostream *output = o_stream_create_fd(sfd[0], IO_BLOCK_SIZE);
 	i_stream_set_name(input, "(fuzzer data)");
 	o_stream_set_name(output, "(fuzzer input to program)");
+	o_stream_set_no_error_handling(output, TRUE);
 
 	fuzz_ctx->pump = iostream_pump_create(input, output);
 	fuzz_ctx->fd_pump = sfd[0];
