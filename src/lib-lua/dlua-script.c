@@ -25,36 +25,6 @@ struct event_category event_category_lua = {
 
 static struct dlua_script *dlua_scripts = NULL;
 
-static const char *dlua_errstr(int err)
-{
-	switch(err) {
-#ifdef LUA_OK
-	case LUA_OK:
-		return "ok";
-#endif
-	case LUA_YIELD:
-		return "yield";
-	case LUA_ERRRUN:
-		return "runtime error";
-	case LUA_ERRSYNTAX:
-		return "syntax error";
-	case LUA_ERRMEM:
-		return "out of memory";
-#ifdef LUA_ERRGCMM
-	case LUA_ERRGCMM:
-		return "gc management error";
-#endif
-	case LUA_ERRERR:
-		return "error while handling error";
-#ifdef LUA_ERRFILE
-	case LUA_ERRFILE:
-		return "error loading file";
-#endif
-	default:
-		return "unknown error";
-	}
-}
-
 static void *dlua_alloc(void *ctx, void *ptr, size_t osize, size_t nsize)
 {
 	struct dlua_script *script =
@@ -301,7 +271,6 @@ int dlua_script_create_string(const char *str, struct dlua_script **script_r,
 			      struct event *event_parent, const char **error_r)
 {
 	struct dlua_script *script;
-	int err;
 	unsigned char scripthash[SHA1_RESULTLEN];
 	const char *fn;
 
@@ -310,16 +279,11 @@ int dlua_script_create_string(const char *str, struct dlua_script **script_r,
 	fn = binary_to_hex(scripthash, sizeof(scripthash));
 
 	script = dlua_create_script(fn, event_parent);
-	err = luaL_loadstring(script->L, str);
-	switch (err) {
-	case LUA_OK:
+	if (luaL_loadstring(script->L, str) == LUA_OK)
 		return dlua_script_create_finish(script, script_r, error_r);
-	default:
-		*error_r = t_strdup_printf("lua_load(<string>) failed: %s",
-					   lua_tostring(script->L, -1));
-		lua_pop(script->L, 1);
-		break;
-	}
+	*error_r = t_strdup_printf("lua_load(<string>) failed: %s",
+				   lua_tostring(script->L, -1));
+	lua_pop(script->L, 1);
 	dlua_script_unref(&script);
 	return -1;
 }
@@ -328,7 +292,6 @@ int dlua_script_create_file(const char *file, struct dlua_script **script_r,
 			    struct event *event_parent, const char **error_r)
 {
 	struct dlua_script *script;
-	int err;
 
 	/* lua reports file access errors poorly */
 	if (access(file, O_RDONLY) < 0) {
@@ -341,9 +304,9 @@ int dlua_script_create_file(const char *file, struct dlua_script **script_r,
 	}
 
 	script = dlua_create_script(file, event_parent);
-	if ((err = luaL_loadfile(script->L, file)) != LUA_OK) {
+	if (luaL_loadfile(script->L, file) != LUA_OK) {
 		*error_r = t_strdup_printf("lua_load(%s) failed: %s",
-					   file, dlua_errstr(err));
+					   file, lua_tostring(script->L, -1));
 		dlua_script_unref(&script);
 		return -1;
 	}
@@ -356,16 +319,15 @@ int dlua_script_create_stream(struct istream *is, struct dlua_script **script_r,
 {
 	struct dlua_script *script;
 	const char *filename = i_stream_get_name(is);
-	int err;
 
 	i_assert(filename != NULL && *filename != '\0');
 
 	script = dlua_create_script(filename, event_parent);
 	script->in = is;
 	script->filename = p_strdup(script->pool, filename);
-	if ((err = lua_load(script->L, dlua_reader, script, filename, 0)) != LUA_OK) {
+	if (lua_load(script->L, dlua_reader, script, filename, 0) != LUA_OK) {
 		*error_r = t_strdup_printf("lua_load(%s) failed: %s",
-					   filename, dlua_errstr(err));
+					   filename, lua_tostring(script->L, -1));
 		dlua_script_unref(&script);
 		return -1;
 	}
