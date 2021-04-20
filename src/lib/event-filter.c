@@ -266,6 +266,22 @@ event_filter_merge_with_context_internal(struct event_filter *dest,
 	} T_END;
 }
 
+bool event_filter_remove_queries_with_context(struct event_filter *filter,
+					      void *context)
+{
+	const struct event_filter_query_internal *int_query;
+	unsigned int idx;
+
+	array_foreach(&filter->queries, int_query) {
+		if (int_query->context == context) {
+			idx = array_foreach_idx(&filter->queries, int_query);
+			array_delete(&filter->queries, idx, 1);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 void event_filter_merge(struct event_filter *dest,
 			const struct event_filter *src)
 {

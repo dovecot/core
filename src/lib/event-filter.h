@@ -22,6 +22,11 @@ void event_filter_merge_with_context(struct event_filter *dest,
 				     const struct event_filter *src,
 				     void *new_context);
 
+/* Remove query with given context from filter.
+   Returns TRUE if query was removed, otherwise FALSE. */
+bool event_filter_remove_queries_with_context(struct event_filter *filter,
+					      void *context);
+
 /* Export the filter into a string.  The context pointers aren't exported. */
 void event_filter_export(struct event_filter *filter, string_t *dest);
 /* Add queries to the filter from the given string. The string is expected to
