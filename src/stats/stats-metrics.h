@@ -7,6 +7,7 @@
 #define STATS_EVENT_FIELD_NAME_DURATION "duration"
 
 struct metric;
+struct stats_metrics;
 
 struct exporter {
 	const char *name;
@@ -102,6 +103,13 @@ struct metric {
 
 	struct metric_export_info export_info;
 };
+
+bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
+			       struct stats_metric_settings *set,
+			       const char **error_r);
+
+bool stats_metrics_remove_dynamic(struct stats_metrics *metrics,
+				  const char *name);
 
 struct stats_metrics *stats_metrics_init(const struct stats_settings *set);
 void stats_metrics_deinit(struct stats_metrics **metrics);

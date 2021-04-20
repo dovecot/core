@@ -10,6 +10,7 @@
 #include "event-exporter.h"
 #include "stats-settings.h"
 #include "stats-metrics.h"
+#include "settings-parser.h"
 
 #include <ctype.h>
 
@@ -154,6 +155,27 @@ static void stats_metrics_add_set(struct stats_metrics *metrics,
 		else
 			i_warning("Ignoring unknown exporter include '%s'", *tmp);
 	}
+}
+
+bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
+			       struct stats_metric_settings *set,
+			       const char **error_r)
+{
+        if (!stats_metric_setting_parser_info.check_func(set, metrics->pool, error_r))
+		return FALSE;
+	stats_metrics_add_set(metrics, set);
+	return TRUE;
+}
+
+bool stats_metrics_remove_dynamic(struct stats_metrics *metrics,
+				  const char *name)
+{
+	struct metric *m;
+	array_foreach_elem(&metrics->metrics, m) {
+		if (strcmp(m->name, name) == 0)
+			return event_filter_remove_queries_with_context(metrics->filter, m);
+        }
+	return FALSE;
 }
 
 static void
