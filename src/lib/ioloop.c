@@ -1374,3 +1374,12 @@ uint64_t io_wait_timer_get_usecs(struct io_wait_timer *timer)
 {
 	return timer->usecs;
 }
+
+struct event *io_loop_get_active_global_root(void)
+{
+	if (current_ioloop == NULL)
+		return NULL;
+	if (current_ioloop->cur_ctx == NULL)
+		return NULL;
+	return current_ioloop->cur_ctx->root_global_event;
+}

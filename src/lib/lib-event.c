@@ -8,7 +8,7 @@
 #include "time-util.h"
 #include "str.h"
 #include "strescape.h"
-#include "ioloop.h"
+#include "ioloop-private.h"
 
 enum event_code {
 	EVENT_CODE_ALWAYS_LOG_SOURCE	= 'a',
@@ -499,6 +499,10 @@ struct event *event_pop_global(struct event *event)
 {
 	i_assert(event != NULL);
 	i_assert(event == current_global_event);
+	/* If the active context's root event is popped, we'll assert-crash
+	   later on when deactivating the context and the root event no longer
+	   exists. */
+	i_assert(event != io_loop_get_active_global_root());
 
 	if (!array_is_created(&global_event_stack) ||
 	    array_count(&global_event_stack) == 0)
