@@ -789,6 +789,7 @@ void smtp_client_transaction_fail(struct smtp_client_transaction *trans,
 void smtp_client_transaction_set_event(struct smtp_client_transaction *trans,
 				       struct event *event)
 {
+	i_assert(trans->conn != NULL);
 	event_unref(&trans->event);
 	trans->event = event_create(event);
 	event_set_forced_debug(trans->event, trans->conn->set.debug);
@@ -834,6 +835,7 @@ smtp_client_transaction_mail_cb(const struct smtp_reply *reply,
 	e_debug(trans->event, "Got MAIL reply: %s", smtp_reply_log(reply));
 
 	i_assert(mail != NULL);
+	i_assert(trans->conn != NULL);
 
 	if (success) {
 		if (trans->sender_accepted) {
@@ -938,6 +940,7 @@ void smtp_client_transaction_start(
 	struct smtp_client_transaction_mail *mail = trans->mail_head;
 
 	i_assert(trans->state == SMTP_CLIENT_TRANSACTION_STATE_NEW);
+	i_assert(trans->conn != NULL);
 
 	i_assert(mail != NULL);
 	event_add_str(trans->event, "mail_from",
@@ -992,6 +995,8 @@ smtp_client_transaction_rcpt_cb(const struct smtp_reply *reply,
 				struct smtp_client_transaction_rcpt *rcpt)
 {
 	struct smtp_client_transaction *trans = rcpt->trans;
+
+	i_assert(trans->conn != NULL);
 
 	e_debug(trans->event, "Got RCPT reply: %s", smtp_reply_log(reply));
 
@@ -1173,6 +1178,8 @@ smtp_client_transaction_send_data(struct smtp_client_transaction *trans)
 		}
 		i_assert(failure.status != 0);
 	} else {
+		i_assert(trans->conn != NULL);
+
 		trans->cmd_data = smtp_client_command_data_submit_after(
 			trans->conn, 0, trans->cmd_last, trans->data_input,
 			smtp_client_transaction_data_cb, trans);
@@ -1258,6 +1265,8 @@ smtp_client_transaction_send_reset(struct smtp_client_transaction *trans)
 		failure = *trans->failure;
 		i_assert(failure.status != 0);
 	} else {
+		i_assert(trans->conn != NULL);
+
 		trans->cmd_rset = smtp_client_command_rset_submit_after(
 			trans->conn, 0, trans->cmd_last,
 			smtp_client_transaction_rset_cb, trans);
@@ -1317,6 +1326,8 @@ smtp_client_transaction_do_submit_more(struct smtp_client_transaction *trans)
 		smtp_client_transaction_fail_reply(trans, trans->failure);
 		return;
 	}
+
+	i_assert(trans->conn != NULL);
 
 	/* Make sure transaction is started */
 	if (trans->state == SMTP_CLIENT_TRANSACTION_STATE_NEW) {
@@ -1437,6 +1448,8 @@ smtp_client_transaction_submit(struct smtp_client_transaction *trans,
 static void
 smtp_client_transaction_try_complete(struct smtp_client_transaction *trans)
 {
+	i_assert(trans->conn != NULL);
+
 	if (trans->rcpts_queue_count > 0) {
 		/* Not all RCPT replies have come in yet */
 		e_debug(trans->event,  "RCPT replies are still pending (%u/%u)",
@@ -1514,6 +1527,13 @@ void smtp_client_transaction_connection_result(
 	smtp_client_transaction_connection_ready(trans);
 }
 
+void smtp_client_transaction_connection_destroyed(
+	struct smtp_client_transaction *trans)
+{
+	i_assert(trans->failure != NULL);
+	smtp_client_connection_unref(&trans->conn);
+}
+
 const struct smtp_client_transaction_times *
 smtp_client_transaction_get_times(struct smtp_client_transaction *trans)
 {
@@ -1544,6 +1564,7 @@ smtp_client_transaction_get_state_destription(
 	case SMTP_CLIENT_TRANSACTION_STATE_NEW:
 		break;
 	case SMTP_CLIENT_TRANSACTION_STATE_PENDING:
+		i_assert(trans->conn != NULL);
 		conn_state = smtp_client_connection_get_state(trans->conn);
 		switch (conn_state) {
 		case SMTP_CLIENT_CONNECTION_STATE_CONNECTING:

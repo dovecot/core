@@ -196,6 +196,19 @@ smtp_client_connection_transactions_fail(
 }
 
 static void
+smtp_client_connection_transactions_drop(struct smtp_client_connection *conn)
+{
+	struct smtp_client_transaction *trans;
+
+	trans = conn->transactions_head;
+	while (trans != NULL) {
+		struct smtp_client_transaction *trans_next = trans->next;
+		smtp_client_transaction_connection_destroyed(trans);
+		trans = trans_next;
+	}
+}
+
+static void
 smtp_client_connection_login_callback(struct smtp_client_connection *conn,
 				      const struct smtp_reply *reply)
 {
@@ -2209,6 +2222,7 @@ void smtp_client_connection_unref(struct smtp_client_connection **_conn)
 	smtp_client_connection_commands_fail(
 		conn, SMTP_CLIENT_COMMAND_ERROR_ABORTED,
 		"Connection destroy");
+	smtp_client_connection_transactions_drop(conn);
 
 	connection_deinit(&conn->conn);
 

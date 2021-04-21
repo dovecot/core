@@ -290,6 +290,9 @@ void smtp_client_commands_fail_delayed(struct smtp_client_connection *conn);
 void smtp_client_transaction_connection_result(
 	struct smtp_client_transaction *trans,
 	const struct smtp_reply *reply);
+void smtp_client_transaction_connection_destroyed(
+	struct smtp_client_transaction *trans);
+
 void smtp_client_transaction_switch_ioloop(
 	struct smtp_client_transaction *trans);
 
