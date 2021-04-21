@@ -1,3 +1,120 @@
+v2.3.15 2021-05-27  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* CVE-2021-29157: Dovecot does not correctly escape kid and azp fields in
+	  JWT tokens. This may be used to supply attacker controlled keys to
+	  validate tokens, if attacker has local access.
+	* Disconnection log messages are now more standardized across services.
+	  They also always now start with "Disconnected" prefix.
+	* Dovecot now depends on libsystemd for systemd integration.
+	* Removed support for Lua 5.2. Use version 5.1 or 5.3 instead.
+	* config: Some settings are now marked as "hidden". It's discouraged to
+	  change these settings. They will no longer be visible in doveconf
+	  output, except if they have been changed or if doveconf -s parameter
+	  is used. See https://doc.dovecot.org/settings/advanced/ for details.
+	* imap-compress: Compression level is now algorithm specific.
+	  See https://doc.dovecot.org/settings/plugin/compress-plugin/
+	* indexer-worker: Convert "Indexed" info logs to an event named
+	  "indexer_worker_indexing_finished". See
+	  https://doc.dovecot.org/admin_manual/list_of_events/#indexer-worker-indexing-finished
+	+ Add TSLv1.3 support to min_protocols.
+	+ Allow configuring ssl_cipher_suites. (for TLSv1.3+)
+	+ acl: Add acl_ignore_namespace setting which allows to entirely ignore
+	  ACLs for the listed namespaces.
+	+ imap: Support official RFC8970 preview/snippet syntax. Old methods of
+	  retrieving preview information via IMAP commands ("SNIPPET and PREVIEW
+	  with explicit algorithm selection") have been deprecated.
+	+ imapc: Support INDEXPVT for imapc storage to enable private
+	  message flags for cluster wide shared mailboxes.
+	+ lib-storage: Add new events: mail_opened, mail_expunge_requested,
+	  mail_expunged, mail_cache_lookup_finished. See
+	  https://doc.dovecot.org/admin_manual/list_of_events/#mail
+	+ zlib, imap-compression, fs-compress: Support compression levels that
+	  the algorithm supports. Before, we would allow hardcoded value between
+	  1 to 9 and would default to 6. Now we allow using per-algorithm value
+	  range and default to whatever default the algorithm specifies.
+	- *-login: Commands pipelined together with and just after the authenticate
+	  command cause these commands to be executed twice. This applies to all
+	  protocols that involve user login, which currently comprises of imap,
+	  pop3, submisision and managesieve.
+	- *-login: Processes are supposed to disconnect the oldest non-logged in
+	  connection when process_limit was reached. This didn't actually happen
+	  with the default "high-security mode" (with service_count=1) where each
+	  connection is handled by a separate process.
+	- *-login: When login process reaches client/process limits, oldest
+	  client connections are disconnected. If one of these was still doing
+	  anvil lookup, this caused a crash. This could happen only if the login
+	  process limits were very low or if the server was overloaded.
+	- Fixed building with link time optimizations (-flto).
+	- auth: Userdb iteration with passwd driver does not always return all
+	  users with some nss drivers.
+	- dsync: Shared INBOX not synced when "mail_shared_explicit_inbox" was
+	  disabled. If a user has a shared mailbox which is another user's INBOX,
+	  dsync didn't include the mailbox in syncing unless explicit naming is
+	  enabled with "mail_shared_explicit_inbox" set to "yes".
+	- dsync: Shared namespaces were not synced with "-n" flag.
+	- dsync: Syncing shared INBOX failed if mail_attribute_dict was not set.
+	  If a user has a shared mailbox that is another user's INBOX, dsync
+	  failed to export the mailbox if mail attributes are disabled.
+	- fts-solr, fts-tika: Using both Solr FTS and Tika may have caused HTTP
+	  requests to assert-crash: Panic: file http-client-request.c: line 1232
+	  (http_client_request_send_more): assertion failed: (req->payload_input != NULL)
+	- fts-tika: 5xx errors returned by Tika server as indexing failures.
+	  However, Tika can return 5xx for some attachments every time.
+	  So the 5xx error should be retried once, but treated as success if it
+	  happens on the retry as well. v2.3 regression.
+	- fts-tika: v2.3.11 regression: Indexing messages with fts-tika may have
+	  resulted in Panic: file message-parser.c: line 802 (message_parser_deinit_from_parts):
+	  assertion failed: (ctx->nested_parts_count == 0 || i_stream_have_bytes_left(ctx->input))
+	- imap: IMAP BINARY FETCH crashes at least on empty base64 body:
+	  Panic: file index-mail-binary.c: line 358 (blocks_count_lines):
+	  assertion failed: (block_count == 0 || block_idx+1 == block_count)
+	- imap: If IMAP client using the NOTIFY command was disconnected while
+	  sending FETCH notifications to the client, imap could crash with
+	  Panic: Trying to close mailbox INBOX with open transactions.
+	- imap: Using IMAP COMPRESS extension can cause IMAP connection to hang
+	  when IMAP commands are >8 kB long.
+	- imapc: If remote server sent BYE but didn't immediately disconnect, it
+	  could cause infinite busy-loop.
+	- lib-index: Corrupted cache record size in dovecot.index.cache file
+	  could have caused a crash (segfault) when accessing it.
+	- lib-oauth2: JWT token time validation now works correctly with
+	  32-bit systems.
+	- lib-ssl-iostream: Checking hostnames against an SSL certificate was
+	  case-sensitive.
+	- lib-storage: Corrupted mime.parts in dovecot.index.cache may have
+	  resulted in Panic: file imap-bodystructure.c: line 206 (part_write_body):
+	  assertion failed: (text == ((part->flags & MESSAGE_PART_FLAG_TEXT) != 0))
+	- lib-storage: Index rebuilding (e.g. via doveadm force-resync) didn't
+	  preserve the "hdr-pop3-uidl" header. Because of this, the next pop3
+	  session could have accessed all of the emails' metadata to read their
+	  POP3 UIDL (opening dbox files).
+	- listescape: When using the listescape plugin and a shared namespace
+	  the plugin didn't work properly anymore resulting in errors like:
+	  "Invalid mailbox name: Name must not have '/' character."
+	- lmtp: Connection crashes if connection gets disconnected due to
+	  multiple bad commands and the last bad command is BDAT.
+	- lmtp: The Dovecot-specific LMTP parameter XRCPTFORWARD was blindly
+	  forwarded by LMTP proxy without checking that the backend has support.
+	  This caused a command parameter error from the backend if it was
+	  running an older Dovecot release. This could only occur in more complex
+	  setups where the message was proxied twice; when the proxy generated
+	  the XRCPTFORWARD parameter itself the problem did not occur, so this
+	  only happened when it was forwarded.
+	- lmtp: The LMTP proxy crashes with a panic when the remote server
+	  replies with an error while the mail is still being forwarded through
+	  a DATA/BDAT command.
+	- lmtp: Username may have been missing from lmtp log line prefixes when
+	  it was performing autoexpunging.
+	- master: Dovecot would incorrectly fail with haproxy 2.0.14 service
+	  checks.
+	- master: Systemd service: Dovecot announces readiness for accepting
+	  connections earlier than it should. The following environment variables
+	  are now imported automatically and can be omitted from
+	  import_environment setting: NOTIFY_SOCKET LISTEN_FDS LISTEN_PID.
+	- master: service { process_min_avail } was launching processes too
+	  slowly when master was forking a lot of processes.
+	- util: Make the health-check.sh example script POSIX shell compatible.
+
 v2.3.14 2021-03-04  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* Added new aliases for some variables. Usage of the old ones is possible,
