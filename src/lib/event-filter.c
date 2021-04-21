@@ -103,6 +103,30 @@ void event_filter_unref(struct event_filter **_filter)
 	}
 }
 
+/*
+ * Look for an existing query with the same context pointer and return it.
+ *
+ * If not found, allocate a new internal query and return it.
+ */
+static struct event_filter_query_internal *
+event_filter_get_or_alloc_internal_query(struct event_filter *filter,
+					 void *context)
+{
+	struct event_filter_query_internal *query;
+
+	array_foreach_modifiable(&filter->queries, query) {
+		if (query->context == context)
+			return query;
+	}
+
+	/* no matching context, allocate a new query */
+	query = array_append_space(&filter->queries);
+	query->context = context;
+	query->expr = NULL;
+
+	return query;
+}
+
 static void add_node(pool_t pool, struct event_filter_node **root,
 		     struct event_filter_node *new,
 		     enum event_filter_node_op op)
@@ -256,10 +280,7 @@ void event_filter_add(struct event_filter *filter,
 		      const struct event_filter_query *query)
 {
 	struct event_filter_query_internal *int_query;
-
-	int_query = array_append_space(&filter->queries);
-	int_query->context = query->context;
-	int_query->expr = NULL;
+	struct event_filter_node *expr = NULL;
 
 	if (query->name != NULL) {
 		struct event_filter_node *node;
@@ -269,9 +290,7 @@ void event_filter_add(struct event_filter *filter,
 		node->op = EVENT_FILTER_OP_CMP_EQ;
 		node->str = p_strdup(filter->pool, query->name);
 
-		add_node(filter->pool, &int_query->expr, node, EVENT_FILTER_OP_AND);
-	} else {
-		filter->named_queries_only = FALSE;
+		add_node(filter->pool, &expr, node, EVENT_FILTER_OP_AND);
 	}
 
 	if ((query->source_filename != NULL) && (query->source_filename[0] != '\0')) {
@@ -283,11 +302,22 @@ void event_filter_add(struct event_filter *filter,
 		node->str = p_strdup(filter->pool, query->source_filename);
 		node->intmax = query->source_linenum;
 
-		add_node(filter->pool, &int_query->expr, node, EVENT_FILTER_OP_AND);
+		add_node(filter->pool, &expr, node, EVENT_FILTER_OP_AND);
 	}
 
-	event_filter_add_categories(filter->pool, &int_query->expr, query->categories);
-	event_filter_add_fields(filter->pool, &int_query->expr, query->fields);
+	event_filter_add_categories(filter->pool, &expr, query->categories);
+	event_filter_add_fields(filter->pool, &expr, query->fields);
+
+	if (expr == NULL)
+		return; /* completely empty query - ignore it */
+
+	int_query = event_filter_get_or_alloc_internal_query(filter, query->context);
+
+	if (query->name == NULL)
+		filter->named_queries_only = FALSE;
+
+	/* OR the new expression with existing query */
+	add_node(filter->pool, &int_query->expr, expr, EVENT_FILTER_OP_OR);
 }
 
 static struct event_filter_node *
