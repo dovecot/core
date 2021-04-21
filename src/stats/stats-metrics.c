@@ -15,9 +15,7 @@
 
 struct stats_metrics {
 	pool_t pool;
-	struct event_filter *stats_filter; /* stats-only */
-	struct event_filter *export_filter; /* export-only */
-	struct event_filter *combined_filter; /* stats & export */
+	struct event_filter *filter; /* stats & export */
 	ARRAY(struct exporter *) exporters;
 	ARRAY(struct metric *) metrics;
 };
@@ -114,11 +112,10 @@ static void stats_metrics_add_set(struct stats_metrics *metrics,
 
 	array_push_back(&metrics->metrics, &metric);
 
-	event_filter_merge_with_context(metrics->stats_filter, set->parsed_filter, metric);
-	event_filter_merge_with_context(metrics->combined_filter, set->parsed_filter, metric);
+	event_filter_merge_with_context(metrics->filter, set->parsed_filter, metric);
 
 	/*
-	 * Done with statistics setup, now onto exporter setup
+	 * Metrics may also be exported - make sure exporter info is set
 	 */
 
 	if (set->exporter[0] == '\0')
@@ -153,8 +150,6 @@ static void stats_metrics_add_set(struct stats_metrics *metrics,
 		else
 			i_warning("Ignoring unknown exporter include '%s'", *tmp);
 	}
-
-	event_filter_merge_with_context(metrics->export_filter, set->parsed_filter, metric);
 }
 
 static void
@@ -194,9 +189,7 @@ struct stats_metrics *stats_metrics_init(const struct stats_settings *set)
 
 	metrics = p_new(pool, struct stats_metrics, 1);
 	metrics->pool = pool;
-	metrics->stats_filter = event_filter_create();
-	metrics->export_filter = event_filter_create();
-	metrics->combined_filter = event_filter_create();
+	metrics->filter = event_filter_create();
 	stats_metrics_add_from_settings(metrics, set);
 	return metrics;
 }
@@ -231,9 +224,7 @@ void stats_metrics_deinit(struct stats_metrics **_metrics)
 
 	array_foreach(&metrics->metrics, metricp)
 		stats_metric_free(*metricp);
-	event_filter_unref(&metrics->stats_filter);
-	event_filter_unref(&metrics->export_filter);
-	event_filter_unref(&metrics->combined_filter);
+	event_filter_unref(&metrics->filter);
 	pool_unref(&metrics->pool);
 }
 
@@ -260,7 +251,7 @@ void stats_metrics_reset(struct stats_metrics *metrics)
 struct event_filter *
 stats_metrics_get_event_filter(struct stats_metrics *metrics)
 {
-	return metrics->combined_filter;
+	return metrics->filter;
 }
 
 static struct metric *
@@ -554,17 +545,15 @@ void stats_metrics_event(struct stats_metrics *metrics, struct event *event,
 	event_get_last_duration(event, &duration);
 	event_add_int(event, STATS_EVENT_FIELD_NAME_DURATION, duration);
 
-	/* process stats */
-	iter = event_filter_match_iter_init(metrics->stats_filter, event, ctx);
+	/* process stats & exports */
+	iter = event_filter_match_iter_init(metrics->filter, event, ctx);
 	while ((metric = event_filter_match_iter_next(iter)) != NULL) T_BEGIN {
+		/* every metric is fed into stats */
 		stats_metric_event(metric, event, metrics->pool);
-	} T_END;
-	event_filter_match_iter_deinit(&iter);
 
-	/* process exports */
-	iter = event_filter_match_iter_init(metrics->export_filter, event, ctx);
-	while ((metric = event_filter_match_iter_next(iter)) != NULL) T_BEGIN {
-		stats_export_event(metric, event);
+		/* some metrics are exported */
+		if (metric->export_info.exporter != NULL)
+			stats_export_event(metric, event);
 	} T_END;
 	event_filter_match_iter_deinit(&iter);
 }
