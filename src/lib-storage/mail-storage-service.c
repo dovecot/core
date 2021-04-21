@@ -1517,6 +1517,7 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 					    FALSE, &error) < 0) {
 			*error_r = t_strdup_printf(
 				"Couldn't drop privileges: %s", error);
+			mail_storage_service_io_deactivate_user(user);
 			return -1;
 		}
 		if (!temp_priv_drop ||
@@ -1530,8 +1531,10 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 
 	if (mail_storage_service_init_post(ctx, user, &priv,
 					   session_id_suffix,
-					   mail_user_r, error_r) < 0)
+					   mail_user_r, error_r) < 0) {
+		mail_storage_service_io_deactivate_user(user);
 		return -2;
+	}
 	return 0;
 }
 
