@@ -1,4 +1,4 @@
-V2.3.14 2021-03-04  Aki Tuomi <aki.tuomi@open-xchange.com>
+v2.3.14 2021-03-04  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* Added new aliases for some variables. Usage of the old ones is possible,
 	  but discouraged. (These were partially added already to v2.3.13.)
