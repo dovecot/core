@@ -103,6 +103,28 @@ void event_filter_unref(struct event_filter **_filter)
 	}
 }
 
+static void add_node(pool_t pool, struct event_filter_node **root,
+		     struct event_filter_node *new,
+		     enum event_filter_node_op op)
+{
+	struct event_filter_node *parent;
+
+	i_assert((op == EVENT_FILTER_OP_AND) || (op == EVENT_FILTER_OP_OR));
+
+	if (*root == NULL) {
+		*root = new;
+		return;
+	}
+
+	parent = p_new(pool, struct event_filter_node, 1);
+	parent->type = EVENT_FILTER_NODE_TYPE_LOGIC;
+	parent->op = op;
+	parent->children[0] = *root;
+	parent->children[1] = new;
+
+	*root = parent;
+}
+
 int event_filter_parse(const char *str, struct event_filter *filter,
 		       const char **error_r)
 {
@@ -171,28 +193,6 @@ event_filter_category_from_log_type(enum event_filter_log_type log_type)
 			return event_filter_log_type_map[i].name;
 	}
 	i_unreached();
-}
-
-static void add_node(pool_t pool, struct event_filter_node **root,
-		     struct event_filter_node *new,
-		     enum event_filter_node_op op)
-{
-	struct event_filter_node *parent;
-
-	i_assert((op == EVENT_FILTER_OP_AND) || (op == EVENT_FILTER_OP_OR));
-
-	if (*root == NULL) {
-		*root = new;
-		return;
-	}
-
-	parent = p_new(pool, struct event_filter_node, 1);
-	parent->type = EVENT_FILTER_NODE_TYPE_LOGIC;
-	parent->op = op;
-	parent->children[0] = *root;
-	parent->children[1] = new;
-
-	*root = parent;
 }
 
 static void
