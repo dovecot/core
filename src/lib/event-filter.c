@@ -173,9 +173,10 @@ int event_filter_parse(const char *str, struct event_filter *filter,
 		/* success - non-NULL expression */
 		i_assert(state.error == NULL);
 
-		int_query = array_append_space(&filter->queries);
-		int_query->context = NULL;
-		int_query->expr = state.output;
+		int_query = event_filter_get_or_alloc_internal_query(filter, NULL);
+
+		add_node(filter->pool, &int_query->expr, state.output,
+			 EVENT_FILTER_OP_OR);
 
 		filter->named_queries_only = filter->named_queries_only && state.has_event_name;
 	} else if (ret != 0) {
