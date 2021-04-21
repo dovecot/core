@@ -355,11 +355,14 @@ event_filter_merge_with_context_internal(struct event_filter *dest,
 	const struct event_filter_query_internal *int_query;
 
 	array_foreach(&src->queries, int_query) T_BEGIN {
+		void *context = with_context ? new_context : int_query->context;
 		struct event_filter_query_internal *new;
 
-		new = array_append_space(&dest->queries);
-		new->expr = clone_expr(dest->pool, int_query->expr);
-		new->context = with_context ? new_context : int_query->context;
+		new = event_filter_get_or_alloc_internal_query(dest, context);
+
+		add_node(dest->pool, &new->expr,
+			 clone_expr(dest->pool, int_query->expr),
+			 EVENT_FILTER_OP_OR);
 	} T_END;
 }
 
