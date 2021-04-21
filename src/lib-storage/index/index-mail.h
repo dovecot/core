@@ -125,6 +125,7 @@ struct index_mail_data {
 	bool header_parsed:1;
 	bool no_caching:1;
 	bool forced_no_caching:1;
+	bool istream_error_logged:1;
 	bool destroying_stream:1;
 	bool initialized_wrapper_stream:1;
 	bool destroy_callback_set:1;
