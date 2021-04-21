@@ -174,9 +174,12 @@ event_filter_category_from_log_type(enum event_filter_log_type log_type)
 }
 
 static void add_node(pool_t pool, struct event_filter_node **root,
-		     struct event_filter_node *new)
+		     struct event_filter_node *new,
+		     enum event_filter_node_op op)
 {
 	struct event_filter_node *parent;
+
+	i_assert((op == EVENT_FILTER_OP_AND) || (op == EVENT_FILTER_OP_OR));
 
 	if (*root == NULL) {
 		*root = new;
@@ -185,7 +188,7 @@ static void add_node(pool_t pool, struct event_filter_node **root,
 
 	parent = p_new(pool, struct event_filter_node, 1);
 	parent->type = EVENT_FILTER_NODE_TYPE_LOGIC;
-	parent->op = EVENT_FILTER_OP_AND;
+	parent->op = op;
 	parent->children[0] = *root;
 	parent->children[1] = new;
 
@@ -214,7 +217,7 @@ event_filter_add_categories(pool_t pool,
 			node->category.ptr = event_category_find_registered(categories[i]);
 		}
 
-		add_node(pool, root, node);
+		add_node(pool, root, node, EVENT_FILTER_OP_AND);
 	}
 }
 
@@ -245,7 +248,7 @@ event_filter_add_fields(pool_t pool,
 			node->field.value.intmax = INT_MIN;
 		}
 
-		add_node(pool, root, node);
+		add_node(pool, root, node, EVENT_FILTER_OP_AND);
 	}
 }
 
@@ -266,7 +269,7 @@ void event_filter_add(struct event_filter *filter,
 		node->op = EVENT_FILTER_OP_CMP_EQ;
 		node->str = p_strdup(filter->pool, query->name);
 
-		add_node(filter->pool, &int_query->expr, node);
+		add_node(filter->pool, &int_query->expr, node, EVENT_FILTER_OP_AND);
 	} else {
 		filter->named_queries_only = FALSE;
 	}
@@ -280,7 +283,7 @@ void event_filter_add(struct event_filter *filter,
 		node->str = p_strdup(filter->pool, query->source_filename);
 		node->intmax = query->source_linenum;
 
-		add_node(filter->pool, &int_query->expr, node);
+		add_node(filter->pool, &int_query->expr, node, EVENT_FILTER_OP_AND);
 	}
 
 	event_filter_add_categories(filter->pool, &int_query->expr, query->categories);
