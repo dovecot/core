@@ -194,7 +194,7 @@ static void add_node(pool_t pool, struct event_filter_node **root,
 
 static void
 event_filter_add_categories(pool_t pool,
-			    struct event_filter_query_internal *int_query,
+			    struct event_filter_node **root,
 			    const char *const *categories)
 {
 	unsigned int categories_count = str_array_length(categories);
@@ -214,13 +214,13 @@ event_filter_add_categories(pool_t pool,
 			node->category.ptr = event_category_find_registered(categories[i]);
 		}
 
-		add_node(pool, &int_query->expr, node);
+		add_node(pool, root, node);
 	}
 }
 
 static void
 event_filter_add_fields(pool_t pool,
-			struct event_filter_query_internal *int_query,
+			struct event_filter_node **root,
 			const struct event_filter_field *fields)
 {
 	unsigned int i;
@@ -245,7 +245,7 @@ event_filter_add_fields(pool_t pool,
 			node->field.value.intmax = INT_MIN;
 		}
 
-		add_node(pool, &int_query->expr, node);
+		add_node(pool, root, node);
 	}
 }
 
@@ -283,8 +283,8 @@ void event_filter_add(struct event_filter *filter,
 		add_node(filter->pool, &int_query->expr, node);
 	}
 
-	event_filter_add_categories(filter->pool, int_query, query->categories);
-	event_filter_add_fields(filter->pool, int_query, query->fields);
+	event_filter_add_categories(filter->pool, &int_query->expr, query->categories);
+	event_filter_add_fields(filter->pool, &int_query->expr, query->fields);
 }
 
 static struct event_filter_node *
