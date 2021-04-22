@@ -81,7 +81,7 @@ void smtp_client_connection_accept_extra_capability(
 {
 	i_assert(smtp_client_connection_find_extra_capability(conn, cap->name)
 		 == NULL);
-	
+
 	if (!array_is_created(&conn->extra_capabilities))
 		p_array_init(&conn->extra_capabilities, conn->pool, 8);
 
@@ -487,7 +487,7 @@ smtp_client_connection_xclient_add(struct smtp_client_connection *conn,
 	if (prev_offset == offset ||
 	    str_len(str) <= SMTP_CLIENT_BASE_LINE_LENGTH_LIMIT)
 		return;
-		
+
 	/* preserve field we just added */
 	new_field = t_strdup(str_c(str) + prev_offset);
 
@@ -736,7 +736,7 @@ smtp_client_connection_get_sasl_mech(struct smtp_client_connection *conn,
 		set->sasl_mechanisms[0] == '\0') {
 		*mech_r = &dsasl_client_mech_plain;
 		return 0;
-	}		
+	}
 
 	/* find one of the specified SASL mechanisms */
 	mechanisms = t_strsplit_spaces(set->sasl_mechanisms, ", ");
@@ -1595,7 +1595,8 @@ smtp_client_connection_connect_timeout(struct smtp_client_connection *conn)
 }
 
 static void
-smtp_client_connection_delayed_connect_error(struct smtp_client_connection *conn)
+smtp_client_connection_delayed_connect_error(
+	struct smtp_client_connection *conn)
 {
 	e_debug(conn->event, "Delayed connect error");
 
