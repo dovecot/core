@@ -1334,7 +1334,6 @@ static void smtp_client_connection_destroy(struct connection *_conn)
 		break;
 	case CONNECTION_DISCONNECT_DEINIT:
 		e_debug(conn->event, "Connection deinit");
-		smtp_client_connection_commands_abort(conn);
 		smtp_client_connection_close(&conn);
 		break;
 	case CONNECTION_DISCONNECT_CONNECT_TIMEOUT:
@@ -2206,6 +2205,7 @@ void smtp_client_connection_close(struct smtp_client_connection **_conn)
 	conn->closed = TRUE;
 
 	smtp_client_connection_transactions_abort(conn);
+	smtp_client_connection_commands_abort(conn);
 	smtp_client_connection_disconnect(conn);
 
 	/* could have been created while already disconnected */
