@@ -12,6 +12,7 @@
 #include <stdio.h>
 
 #define GLOBAL_TEMP_PREFIX ".temp."
+#define MAILBOX_LIST_INDEX_DEFAULT_ESCAPE_CHAR '^'
 
 struct index_mailbox_list {
 	struct mailbox_list list;
@@ -37,6 +38,7 @@ static struct mailbox_list *index_list_alloc(void)
 	list = p_new(pool, struct index_mailbox_list, 1);
 	list->list = index_mailbox_list;
 	list->list.pool = pool;
+	list->list.set.storage_name_escape_char = MAILBOX_LIST_INDEX_DEFAULT_ESCAPE_CHAR;
 
 	list->temp_prefix = p_strconcat(pool, GLOBAL_TEMP_PREFIX,
 					my_hostname, ".", my_pid, ".", NULL);
@@ -61,8 +63,19 @@ static void index_list_deinit(struct mailbox_list *_list)
 
 static char index_list_get_hierarchy_sep(struct mailbox_list *list)
 {
-	return *list->ns->set->separator != '\0' ? *list->ns->set->separator :
-		MAILBOX_LIST_INDEX_HIERARCHY_SEP;
+	char sep = list->ns->set->separator[0];
+
+	if (sep == '\0')
+		sep = MAILBOX_LIST_INDEX_HIERARCHY_SEP;
+	if (sep == list->set.storage_name_escape_char) {
+		/* Separator conflicts with the escape character.
+		   Use something else. */
+		if (sep != MAILBOX_LIST_INDEX_HIERARCHY_SEP)
+			sep = MAILBOX_LIST_INDEX_HIERARCHY_SEP;
+		else
+			sep = MAILBOX_LIST_INDEX_HIERARCHY_ALT_SEP;
+	}
+	return sep;
 }
 
 static int
@@ -465,9 +478,14 @@ index_list_mailbox_update(struct mailbox *box,
 }
 
 static int
-index_list_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
+index_list_mailbox_exists(struct mailbox *box, bool auto_boxes,
 			  enum mailbox_existence *existence_r)
 {
+	if (auto_boxes && mailbox_is_autocreated(box)) {
+		*existence_r = MAILBOX_EXISTENCE_SELECT;
+		return 0;
+	}
+
 	struct index_mailbox_list *list =
 		(struct index_mailbox_list *)box->list;
 

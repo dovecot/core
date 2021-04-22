@@ -126,6 +126,7 @@ service_dup_fds(struct service *service)
 	case SERVICE_TYPE_UNKNOWN:
 	case SERVICE_TYPE_LOGIN:
 	case SERVICE_TYPE_STARTUP:
+	case SERVICE_TYPE_WORKER:
 		dup2_append(&dups, service_anvil_global->blocking_fd[1],
 			    MASTER_ANVIL_FD);
 		break;
@@ -223,6 +224,7 @@ static void service_process_setup_config_environment(struct service *service)
 		env_put(t_strconcat("DEBUG_LOG_PATH=", set->debug_log_path, NULL));
 		env_put(t_strconcat("LOG_TIMESTAMP=", set->log_timestamp, NULL));
 		env_put(t_strconcat("SYSLOG_FACILITY=", set->syslog_facility, NULL));
+		env_put(t_strconcat("INSTANCE_NAME=", set->instance_name, NULL));
 		if (set->verbose_proctitle)
 			env_put("VERBOSE_PROCTITLE=1");
 		env_put("SSL=no");

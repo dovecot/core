@@ -8,7 +8,6 @@
 #include "master-service-settings.h"
 #include "master-connection.h"
 
-static struct master_connection *master_conn;
 static struct mail_storage_service_ctx *storage_service;
 
 static void client_connected(struct master_service_connection *conn)
@@ -77,7 +76,7 @@ int main(int argc, char *argv[])
 	master_service_run(master_service, client_connected);
 
 	if (master_conn != NULL)
-		master_connection_destroy(&master_conn);
+		master_connection_destroy();
 	mail_storage_service_deinit(&storage_service);
 	master_service_deinit(&master_service);
         return 0;

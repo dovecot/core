@@ -100,9 +100,11 @@ int i_stream_get_fd(struct istream *stream);
 /* Returns error string for the last error. It also returns "EOF" in case there
    is no error, but eof is set. Otherwise it returns "<no error>". */
 const char *i_stream_get_error(struct istream *stream);
-/* Returns human-readable reason for why istream was disconnected. This can be
-   called to log the error when i_stream_read() returns -1. If there's an error
-   the output is identical to i_stream_get_error(). */
+/* Returns human-readable reason for why istream was disconnected.
+   The output is either "Connection closed" for clean disconnections or
+   "Connection closed: <error>" for unclean disconnections. This is an
+   alternative to i_stream_get_error(), which is preferred to be used when
+   logging errors about client connections. */
 const char *i_stream_get_disconnect_reason(struct istream *stream);
 
 /* Mark the stream and all of its parent streams closed. Any reads after this

@@ -27,6 +27,21 @@ struct zlib_ostream {
 	bool flushed:1;
 };
 
+int compression_get_min_level_gz(void)
+{
+	return Z_NO_COMPRESSION;
+}
+
+int compression_get_default_level_gz(void)
+{
+	return Z_DEFAULT_COMPRESSION;
+}
+
+int compression_get_max_level_gz(void)
+{
+	return Z_BEST_COMPRESSION;
+}
+
 static void o_stream_zlib_close(struct iostream_private *stream,
 				bool close_parent)
 {
@@ -323,7 +338,8 @@ o_stream_create_zlib(struct ostream *output, int level, bool gz)
 	struct zlib_ostream *zstream;
 	int ret;
 
-	i_assert(level >= 1 && level <= 9);
+	/* accepted range is 0..9 and -1 is default compression */
+	i_assert(level >= -1 && level <= 9);
 
 	zstream = i_new(struct zlib_ostream, 1);
 	zstream->ostream.sendv = o_stream_zlib_sendv;

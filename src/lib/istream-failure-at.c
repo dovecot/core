@@ -14,7 +14,8 @@ struct failure_at_istream {
 static void i_stream_failure_at_destroy(struct iostream_private *stream)
 {
 	struct failure_at_istream *fstream =
-		(struct failure_at_istream *)stream;
+		container_of(stream, struct failure_at_istream,
+			     istream.iostream);
 
 	i_free(fstream->error_string);
 }
@@ -22,7 +23,8 @@ static void i_stream_failure_at_destroy(struct iostream_private *stream)
 static ssize_t
 i_stream_failure_at_read(struct istream_private *stream)
 {
-	struct failure_at_istream *fstream = (struct failure_at_istream *)stream;
+	struct failure_at_istream *fstream =
+		container_of(stream, struct failure_at_istream, istream);
 	uoff_t new_offset;
 	ssize_t ret;
 

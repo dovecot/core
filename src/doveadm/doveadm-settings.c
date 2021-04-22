@@ -21,7 +21,7 @@ static struct file_listener_settings *doveadm_unix_listeners[] = {
 	&doveadm_unix_listeners_array[0]
 };
 static buffer_t doveadm_unix_listeners_buf = {
-	doveadm_unix_listeners, sizeof(doveadm_unix_listeners), { NULL, }
+	{ { doveadm_unix_listeners, sizeof(doveadm_unix_listeners) } }
 };
 /* </settings checks> */
 
@@ -53,34 +53,35 @@ struct service_settings doveadm_service_settings = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct doveadm_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct doveadm_settings)
 
 static const struct setting_define doveadm_setting_defines[] = {
-	DEF(SET_STR, base_dir),
-	DEF(SET_STR, libexec_dir),
-	DEF(SET_STR, mail_plugins),
-	DEF(SET_STR, mail_plugin_dir),
-	DEF(SET_STR_VARS, mail_temp_dir),
-	DEF(SET_BOOL, auth_debug),
-	DEF(SET_STR, auth_socket_path),
-	DEF(SET_STR, doveadm_socket_path),
-	DEF(SET_UINT, doveadm_worker_count),
-	DEF(SET_IN_PORT, doveadm_port),
-	{ SET_ALIAS, "doveadm_proxy_port", 0, NULL },
-	DEF(SET_ENUM, doveadm_ssl),
-	DEF(SET_STR, doveadm_username),
-	DEF(SET_STR, doveadm_password),
-	DEF(SET_STR, doveadm_allowed_commands),
-	DEF(SET_STR, dsync_alt_char),
-	DEF(SET_STR, dsync_remote_cmd),
-	DEF(SET_STR, director_username_hash),
-	DEF(SET_STR, doveadm_api_key),
-	DEF(SET_STR, dsync_features),
-	DEF(SET_UINT, dsync_commit_msgs_interval),
-	DEF(SET_STR, doveadm_http_rawlog_dir),
-	DEF(SET_STR, dsync_hashed_headers),
+	DEF(STR, base_dir),
+	DEF(STR, libexec_dir),
+	DEF(STR, mail_plugins),
+	DEF(STR, mail_plugin_dir),
+	DEF(STR_VARS, mail_temp_dir),
+	DEF(BOOL, auth_debug),
+	DEF(STR, auth_socket_path),
+	DEF(STR, doveadm_socket_path),
+	DEF(UINT, doveadm_worker_count),
+	DEF(IN_PORT, doveadm_port),
+	{ .type = SET_ALIAS, .key = "doveadm_proxy_port" },
+	DEF(ENUM, doveadm_ssl),
+	DEF(STR, doveadm_username),
+	DEF(STR, doveadm_password),
+	DEF(STR, doveadm_allowed_commands),
+	DEF(STR, dsync_alt_char),
+	DEF(STR, dsync_remote_cmd),
+	DEF(STR, director_username_hash),
+	DEF(STR, doveadm_api_key),
+	DEF(STR, dsync_features),
+	DEF(UINT, dsync_commit_msgs_interval),
+	DEF(STR, doveadm_http_rawlog_dir),
+	DEF(STR, dsync_hashed_headers),
 
-	{ SET_STRLIST, "plugin", offsetof(struct doveadm_settings, plugin_envs), NULL },
+	{ .type = SET_STRLIST, .key = "plugin",
+	  .offset = offsetof(struct doveadm_settings, plugin_envs) },
 
 	SETTING_DEFINE_LIST_END
 };

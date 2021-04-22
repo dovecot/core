@@ -18,7 +18,6 @@ struct bzlib_istream {
 	struct stat last_parent_statbuf;
 
 	bool hdr_read:1;
-	bool log_errors:1;
 	bool marked:1;
 	bool zs_closed:1;
 };
@@ -42,8 +41,6 @@ static void bzlib_read_error(struct bzlib_istream *zstream, const char *error)
 			    "bzlib.read(%s): %s at %"PRIuUOFF_T,
 			    i_stream_get_name(&zstream->istream.istream), error,
 			    i_stream_get_absolute_offset(&zstream->istream.istream));
-	if (zstream->log_errors)
-		i_error("%s", zstream->istream.iostream.error);
 }
 
 static ssize_t i_stream_bzlib_read(struct istream_private *stream)
@@ -209,13 +206,12 @@ static void i_stream_bzlib_sync(struct istream_private *stream)
 	i_stream_bzlib_reset(zstream);
 }
 
-struct istream *i_stream_create_bz2(struct istream *input, bool log_errors)
+struct istream *i_stream_create_bz2(struct istream *input)
 {
 	struct bzlib_istream *zstream;
 
 	zstream = i_new(struct bzlib_istream, 1);
 	zstream->eof_offset = UOFF_T_MAX;
-	zstream->log_errors = log_errors;
 
 	i_stream_bzlib_init(zstream);
 

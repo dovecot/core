@@ -1980,6 +1980,11 @@ test_early_data_reply_input_line(struct server_connection *conn ATTR_UNUSED,
 				"452 4.3.1 Mail system full\r\n");
 		}
 	}
+	if ((uintptr_t)conn->context > 5) {
+		o_stream_nsend_str(conn->conn.output,
+				   "250 2.0.0 OK\r\n");
+		return 1;
+	}
 	conn->context = (void*)(((uintptr_t)conn->context) + 1);
 	return 1;
 }
@@ -2102,12 +2107,27 @@ test_client_early_data_reply_data_cb(const struct smtp_reply *reply,
 }
 
 static void
-test_client_early_data_reply_finished(struct _early_data_reply_peer *pctx)
+test_client_early_data_reply_noop_cb(const struct smtp_reply *reply,
+				     struct _early_data_reply_peer *pctx)
 {
 	struct _early_data_reply *ctx = pctx->context;
 
-	if (debug)
-		i_debug("FINISHED[%u]", pctx->index);
+	if (debug) {
+		i_debug("NOOP REPLY[%u]: %s",
+			pctx->index, smtp_reply_log(reply));
+	}
+
+	switch (pctx->index) {
+	case 0:
+		test_assert(reply->status ==
+			    SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY);
+		break;
+	case 1:
+	case 2:
+		test_assert(smtp_reply_is_success(reply));
+		break;
+	}
+
 	if (--ctx->count == 0) {
 		i_free(ctx);
 		io_loop_stop(ioloop);
@@ -2118,14 +2138,28 @@ test_client_early_data_reply_finished(struct _early_data_reply_peer *pctx)
 	pctx->trans = NULL;
 	timeout_remove(&pctx->to);
 	o_stream_destroy(&pctx->output);
+	smtp_client_connection_unref(&pctx->conn);
 	i_free(pctx);
+}
+
+static void
+test_client_early_data_reply_finished(struct _early_data_reply_peer *pctx)
+{
+	if (debug)
+		i_debug("FINISHED[%u]", pctx->index);
+
+	/* Send NOOP command to check that connection is still viable.
+	 */
+	smtp_client_command_noop_submit(
+		pctx->conn, 0,
+		test_client_early_data_reply_noop_cb, pctx);
 }
 
 static void
 test_client_early_data_reply_submit1(struct _early_data_reply_peer *pctx)
 {
 	if (debug)
-		i_debug("FINISH DATA WITH DOT[%u]", pctx->index);
+		i_debug("FINISH DATA[%u]", pctx->index);
 
 	timeout_remove(&pctx->to);
 
@@ -2188,8 +2222,6 @@ test_client_early_data_reply_submit(struct _early_data_reply *ctx,
 	smtp_client_transaction_send(
 		pctx->trans, input, test_client_early_data_reply_data_cb, pctx);
 	i_stream_unref(&input);
-
-	smtp_client_connection_unref(&conn);
 
 	o_stream_nsend(pctx->output, message, strlen(message));
 }

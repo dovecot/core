@@ -535,7 +535,8 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	list = t_strsplit_tabescaped(args);
 	if (list[0] == NULL || list[1] == NULL ||
 	    str_to_uint(list[0], &id) < 0 || id == 0) {
-		i_error("BUG: Authentication client %u "
+		e_error(handler->conn->event,
+			"BUG: Authentication client %u "
 			"sent broken AUTH request", handler->client_pid);
 		return FALSE;
 	}
@@ -544,7 +545,8 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		mech = &mech_dovecot_token;
 		if (strcmp(list[1], mech->mech_name) != 0) {
 			/* unsupported mechanism */
-			i_error("BUG: Authentication client %u requested invalid "
+			e_error(handler->conn->event,
+				"BUG: Authentication client %u requested invalid "
 				"authentication mechanism %s (DOVECOT-TOKEN required)",
 				handler->client_pid, str_sanitize(list[1], MAX_MECH_NAME_LEN));
 			return FALSE;
@@ -554,7 +556,8 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		mech = mech_register_find(auth_default->reg, list[1]);
 		if (mech == NULL) {
 			/* unsupported mechanism */
-			i_error("BUG: Authentication client %u requested unsupported "
+			e_error(handler->conn->event,
+				"BUG: Authentication client %u requested unsupported "
 				"authentication mechanism %s", handler->client_pid,
 				str_sanitize(list[1], MAX_MECH_NAME_LEN));
 			return FALSE;
@@ -591,7 +594,8 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	}
 
 	if (*list != NULL) {
-		i_error("BUG: Authentication client %u "
+		e_error(handler->conn->event,
+			"BUG: Authentication client %u "
 			"sent AUTH parameters after 'resp'",
 			handler->client_pid);
 		auth_request_unref(&request);
@@ -599,14 +603,16 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	}
 
 	if (request->fields.service == NULL) {
-		i_error("BUG: Authentication client %u "
+		e_error(handler->conn->event,
+			"BUG: Authentication client %u "
 			"didn't specify service in request",
 			handler->client_pid);
 		auth_request_unref(&request);
 		return FALSE;
 	}
 	if (hash_table_lookup(handler->requests, POINTER_CAST(id)) != NULL) {
-		i_error("BUG: Authentication client %u "
+		e_error(handler->conn->event,
+			"BUG: Authentication client %u "
 			"sent a duplicate ID %u", handler->client_pid, id);
 		auth_request_unref(&request);
 		return FALSE;
@@ -694,7 +700,8 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 
 	data = strchr(args, '\t');
 	if (data == NULL || str_to_uint(t_strdup_until(args, data), &id) < 0) {
-		i_error("BUG: Authentication client sent broken CONT request");
+		e_error(handler->conn->event,
+			"BUG: Authentication client sent broken CONT request");
 		return FALSE;
 	}
 	data++;
@@ -834,7 +841,7 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 
 	request = hash_table_lookup(handler->requests, POINTER_CAST(client_id));
 	if (request == NULL) {
-		auth_master_log_error(master, "Master request %u.%u not found",
+		e_error(master->event, "Master request %u.%u not found",
 			handler->client_pid, client_id);
 		return auth_master_request_failed(handler, master, id);
 	}
@@ -860,7 +867,7 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 	if (request->session_pid != (pid_t)-1 &&
 	    net_getunixcred(master->fd, &cred) == 0 &&
 	    cred.pid != (pid_t)-1 && request->session_pid != cred.pid) {
-		auth_master_log_error(master,
+		e_error(master->event,
 			"Session pid %ld provided by master for request %u.%u "
 			"did not match peer credentials (pid=%ld, uid=%ld)",
 			(long)request->session_pid,
@@ -871,7 +878,7 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 
 	if (request->state != AUTH_REQUEST_STATE_FINISHED ||
 	    !request->fields.successful) {
-		auth_master_log_error(master,
+		e_error(master->event,
 			"Master requested unfinished authentication request "
 			"%u.%u", handler->client_pid, client_id);
 		handler->master_callback(t_strdup_printf("FAIL\t%u", id),

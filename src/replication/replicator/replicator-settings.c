@@ -16,7 +16,7 @@ static struct file_listener_settings *replicator_unix_listeners[] = {
 	&replicator_unix_listeners_array[1]
 };
 static buffer_t replicator_unix_listeners_buf = {
-	replicator_unix_listeners, sizeof(replicator_unix_listeners), { NULL, }
+	{ { replicator_unix_listeners, sizeof(replicator_unix_listeners) } }
 };
 /* </settings checks> */
 
@@ -50,15 +50,15 @@ struct service_settings replicator_service_settings = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct replicator_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct replicator_settings)
 
 static const struct setting_define replicator_setting_defines[] = {
-	DEF(SET_STR, auth_socket_path),
-	DEF(SET_STR, doveadm_socket_path),
-	DEF(SET_STR, replication_dsync_parameters),
+	DEF(STR, auth_socket_path),
+	DEF(STR, doveadm_socket_path),
+	DEF(STR, replication_dsync_parameters),
 
-	DEF(SET_TIME, replication_full_sync_interval),
-	DEF(SET_UINT, replication_max_conns),
+	DEF(TIME, replication_full_sync_interval),
+	DEF(UINT, replication_max_conns),
 
 	SETTING_DEFINE_LIST_END
 };

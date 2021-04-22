@@ -5,17 +5,6 @@
    obj:*/bash
 }
 {
-   <liblzma>
-   Memcheck:Cond
-   obj:/lib/x86_64-linux-gnu/liblzma.so.5.*
-   obj:/lib/x86_64-linux-gnu/liblzma.so.5.*
-   obj:/lib/x86_64-linux-gnu/liblzma.so.5.*
-   obj:/lib/x86_64-linux-gnu/liblzma.so.5.*
-   obj:/lib/x86_64-linux-gnu/liblzma.so.5.*
-   fun:lzma_stream_encoder
-   fun:lzma_easy_encoder
-}
-{
    <openssl_centos6_i386_v1_0_1_compression_methods>
    Memcheck:Leak
    fun:malloc
@@ -60,9 +49,9 @@
    Memcheck:Param
    msync(start)
    ...
-   obj:/usr/lib/x86_64-linux-gnu/libunwind-x86_64.so.8.0.1
-   fun:_Ux86_64_step
-   fun:backtrace_append_unwind
+   obj:*libunwind*
+   ...
+   fun:backtrace_append
    ...
 }
 {
@@ -76,4 +65,20 @@
    fun:test_exit
    ...
 }
-
+{
+   <libunwind_fedora32_v1_3_1_backtrace_write>
+   Memcheck:Param
+   write(buf)
+   ...
+   obj:*libunwind*
+   ...
+   fun:backtrace_append
+   ...
+   ...
+}
+{
+   <libicu_fedora32_v65_1>
+   Memcheck:Cond
+   obj:*libicuuc*
+   ...
+}

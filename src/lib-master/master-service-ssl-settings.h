@@ -18,6 +18,7 @@ struct master_service_ssl_settings {
 	const char *ssl_client_key;
 	const char *ssl_dh;
 	const char *ssl_cipher_list;
+	const char *ssl_cipher_suites;
 	const char *ssl_curve_list;
 	const char *ssl_min_protocol;
 	const char *ssl_cert_username_field;

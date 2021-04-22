@@ -161,7 +161,7 @@ bool event_filter_category_to_log_type(const char *name,
 	return FALSE;
 }
 
-static const char *
+const char *
 event_filter_category_from_log_type(enum event_filter_log_type log_type)
 {
 	unsigned int i;
@@ -277,7 +277,7 @@ void event_filter_add(struct event_filter *filter,
 		node = p_new(filter->pool, struct event_filter_node, 1);
 		node->type = EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION;
 		node->op = EVENT_FILTER_OP_CMP_EQ;
-		node->str = p_strdup_empty(filter->pool, query->source_filename);
+		node->str = p_strdup(filter->pool, query->source_filename);
 		node->intmax = query->source_linenum;
 
 		add_node(filter->pool, &int_query->expr, node);
@@ -300,14 +300,14 @@ clone_expr(pool_t pool, struct event_filter_node *old)
 	new->op = old->op;
 	new->children[0] = clone_expr(pool, old->children[0]);
 	new->children[1] = clone_expr(pool, old->children[1]);
-	new->str = p_strdup_empty(pool, old->str);
+	new->str = p_strdup(pool, old->str);
 	new->intmax = old->intmax;
 	new->category.log_type = old->category.log_type;
-	new->category.name = p_strdup_empty(pool, old->category.name);
+	new->category.name = p_strdup(pool, old->category.name);
 	new->category.ptr = old->category.ptr;
-	new->field.key = p_strdup_empty(pool, old->field.key);
+	new->field.key = p_strdup(pool, old->field.key);
 	new->field.value_type = old->field.value_type;
-	new->field.value.str = p_strdup_empty(pool, old->field.value.str);
+	new->field.value.str = p_strdup(pool, old->field.value.str);
 	new->field.value.intmax = old->field.value.intmax;
 	new->field.value.timeval = old->field.value.timeval;
 
@@ -458,6 +458,17 @@ void event_filter_export(struct event_filter *filter, string_t *dest)
 	}
 }
 
+struct event_filter_node *
+event_filter_get_expr_for_testing(struct event_filter *filter,
+				  unsigned int *count_r)
+{
+	const struct event_filter_query_internal *queries;
+
+	queries = array_get(&filter->queries, count_r);
+
+	return (*count_r == 0) ? NULL : queries[0].expr;
+}
+
 static bool
 event_category_match(const struct event_category *category,
 		     const struct event_category *wanted_category)
@@ -507,7 +518,7 @@ event_match_field(struct event *event, const struct event_field *wanted_field,
 	while ((field = event_find_field(event, wanted_field->key)) == NULL) {
 		event = event_get_parent(event);
 		if (event == NULL) {
-			/* "field=" matches nonexistent field */
+			/* field="" matches nonexistent field */
 			return wanted_field->value.str[0] == '\0';
 		}
 	}
@@ -518,7 +529,7 @@ event_match_field(struct event *event, const struct event_field *wanted_field,
 			return FALSE;
 		}
 		if (field->value.str[0] == '\0') {
-			/* field was removed, but it matches "field=" filter */
+			/* field was removed, but it matches field="" filter */
 			return wanted_field->value.str[0] == '\0';
 		}
 		return wildcard_match_icase(field->value.str, wanted_field->value.str);
@@ -591,7 +602,7 @@ event_filter_query_match_cmp(struct event_filter_node *node,
 	i_unreached();
 }
 
-static bool
+bool
 event_filter_query_match_eval(struct event_filter_node *node,
 			      struct event *event, const char *source_filename,
 			      unsigned int source_linenum,

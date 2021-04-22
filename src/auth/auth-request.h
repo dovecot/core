@@ -373,7 +373,7 @@ void auth_request_userdb_lookup_end(struct auth_request *request,
 /* Fetches the current authdb event, this is done because
    some lookups can recurse into new lookups, requiring new event,
    which will be returned here. */
-static inline struct event *authdb_event(struct auth_request *request)
+static inline struct event *authdb_event(const struct auth_request *request)
 {
 	if (array_count(&request->authdb_event) == 0)
 		return request->event;

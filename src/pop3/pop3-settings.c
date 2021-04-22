@@ -21,7 +21,7 @@ static struct file_listener_settings *pop3_unix_listeners[] = {
 	&pop3_unix_listeners_array[0]
 };
 static buffer_t pop3_unix_listeners_buf = {
-	pop3_unix_listeners, sizeof(pop3_unix_listeners), { NULL, }
+	{ { pop3_unix_listeners, sizeof(pop3_unix_listeners) } }
 };
 /* </settings checks> */
 
@@ -54,25 +54,27 @@ struct service_settings pop3_service_settings = {
 #undef DEF
 #undef DEFLIST
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct pop3_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct pop3_settings)
 #define DEFLIST(field, name, defines) \
-	{ SET_DEFLIST, name, offsetof(struct pop3_settings, field), defines }
+	{ .type = SET_DEFLIST, .key = name, \
+	  .offset = offsetof(struct pop3_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define pop3_setting_defines[] = {
-	DEF(SET_BOOL, verbose_proctitle),
-	DEF(SET_STR_VARS, rawlog_dir),
+	DEF(BOOL, verbose_proctitle),
+	DEF(STR_VARS, rawlog_dir),
 
-	DEF(SET_BOOL, pop3_no_flag_updates),
-	DEF(SET_BOOL, pop3_enable_last),
-	DEF(SET_BOOL, pop3_reuse_xuidl),
-	DEF(SET_BOOL, pop3_save_uidl),
-	DEF(SET_BOOL, pop3_lock_session),
-	DEF(SET_BOOL, pop3_fast_size_lookups),
-	DEF(SET_STR, pop3_client_workarounds),
-	DEF(SET_STR, pop3_logout_format),
-	DEF(SET_ENUM, pop3_uidl_duplicates),
-	DEF(SET_STR, pop3_deleted_flag),
-	DEF(SET_ENUM, pop3_delete_type),
+	DEF(BOOL, pop3_no_flag_updates),
+	DEF(BOOL, pop3_enable_last),
+	DEF(BOOL, pop3_reuse_xuidl),
+	DEF(BOOL, pop3_save_uidl),
+	DEF(BOOL, pop3_lock_session),
+	DEF(BOOL, pop3_fast_size_lookups),
+	DEF(STR, pop3_client_workarounds),
+	DEF(STR, pop3_logout_format),
+	DEF(ENUM, pop3_uidl_duplicates),
+	DEF(STR, pop3_deleted_flag),
+	DEF(ENUM, pop3_delete_type),
 
 	SETTING_DEFINE_LIST_END
 };

@@ -176,7 +176,8 @@ i_stream_multiplex_read(struct multiplex_istream *mstream,
 
 static ssize_t i_stream_multiplex_ichannel_read(struct istream_private *stream)
 {
-	struct multiplex_ichannel *channel = (struct multiplex_ichannel*)stream;
+	struct multiplex_ichannel *channel =
+		container_of(stream, struct multiplex_ichannel, istream);
 	/* if previous multiplex read dumped data for us
 	   actually serve it here. */
 	if (channel->pending_pos > 0) {
@@ -192,7 +193,8 @@ static void
 i_stream_multiplex_ichannel_switch_ioloop_to(struct istream_private *stream,
 					     struct ioloop *ioloop)
 {
-	struct multiplex_ichannel *channel = (struct multiplex_ichannel*)stream;
+	struct multiplex_ichannel *channel =
+		container_of(stream, struct multiplex_ichannel, istream);
 
 	i_stream_switch_ioloop_to(channel->mstream->parent, ioloop);
 }
@@ -201,7 +203,9 @@ static void
 i_stream_multiplex_ichannel_close(struct iostream_private *stream, bool close_parent)
 {
 	struct multiplex_ichannel *const *channelp;
-	struct multiplex_ichannel *channel = (struct multiplex_ichannel*)stream;
+	struct multiplex_ichannel *channel =
+		container_of(stream, struct multiplex_ichannel,
+			     istream.iostream);
 	channel->closed = TRUE;
 	if (close_parent) {
 		array_foreach(&channel->mstream->channels, channelp)
@@ -226,7 +230,9 @@ static void i_stream_multiplex_try_destroy(struct multiplex_istream *mstream)
 static void i_stream_multiplex_ichannel_destroy(struct iostream_private *stream)
 {
 	struct multiplex_ichannel **channelp;
-	struct multiplex_ichannel *channel = (struct multiplex_ichannel*)stream;
+	struct multiplex_ichannel *channel =
+		container_of(stream, struct multiplex_ichannel,
+			     istream.iostream);
 	i_stream_multiplex_ichannel_close(stream, TRUE);
 	i_stream_free_buffer(&channel->istream);
 	array_foreach_modifiable(&channel->mstream->channels, channelp) {
@@ -262,7 +268,8 @@ i_stream_add_channel_real(struct multiplex_istream *mstream, uint8_t cid)
 struct istream *i_stream_multiplex_add_channel(struct istream *stream, uint8_t cid)
 {
 	struct multiplex_ichannel *chan =
-		(struct multiplex_ichannel *)stream->real_stream;
+		container_of(stream->real_stream,
+			     struct multiplex_ichannel, istream);
 	i_assert(get_channel(chan->mstream, cid) == NULL);
 
 	return i_stream_add_channel_real(chan->mstream, cid);
@@ -285,6 +292,7 @@ struct istream *i_stream_create_multiplex(struct istream *parent, size_t bufsize
 uint8_t i_stream_multiplex_get_channel_id(struct istream *stream)
 {
 	struct multiplex_ichannel *channel =
-		(struct multiplex_ichannel *)stream->real_stream;
+		container_of(stream->real_stream,
+			     struct multiplex_ichannel, istream);
 	return channel->cid;
 }

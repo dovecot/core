@@ -183,7 +183,7 @@ static void test_str_to_uintmax_oct(void)
 	test_begin("str_to_uintmax_oct in range");
 	while (i < sizeof(uintmax_t)*CHAR_BIT) {
 		uintmax_t value_back;
-		const char *endp;
+		const char *endp = NULL;
 
 		value = (value << 1) + 1;
 		if (value >= 64)

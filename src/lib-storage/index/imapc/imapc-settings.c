@@ -9,32 +9,32 @@
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct imapc_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct imapc_settings)
 
 static bool imapc_settings_check(void *_set, pool_t pool, const char **error_r);
 
 static const struct setting_define imapc_setting_defines[] = {
-	DEF(SET_STR, imapc_host),
-	DEF(SET_IN_PORT, imapc_port),
+	DEF(STR, imapc_host),
+	DEF(IN_PORT, imapc_port),
 
-	DEF(SET_STR_VARS, imapc_user),
-	DEF(SET_STR_VARS, imapc_master_user),
-	DEF(SET_STR, imapc_password),
-	DEF(SET_STR, imapc_sasl_mechanisms),
+	DEF(STR_VARS, imapc_user),
+	DEF(STR_VARS, imapc_master_user),
+	DEF(STR, imapc_password),
+	DEF(STR, imapc_sasl_mechanisms),
 
-	DEF(SET_ENUM, imapc_ssl),
-	DEF(SET_BOOL, imapc_ssl_verify),
+	DEF(ENUM, imapc_ssl),
+	DEF(BOOL, imapc_ssl_verify),
 
-	DEF(SET_STR, imapc_features),
-	DEF(SET_STR, imapc_rawlog_dir),
-	DEF(SET_STR, imapc_list_prefix),
-	DEF(SET_TIME, imapc_cmd_timeout),
-	DEF(SET_TIME, imapc_max_idle_time),
-	DEF(SET_UINT, imapc_connection_retry_count),
-	DEF(SET_TIME_MSECS, imapc_connection_retry_interval),
-	DEF(SET_SIZE, imapc_max_line_length),
+	DEF(STR, imapc_features),
+	DEF(STR, imapc_rawlog_dir),
+	DEF(STR, imapc_list_prefix),
+	DEF(TIME, imapc_cmd_timeout),
+	DEF(TIME, imapc_max_idle_time),
+	DEF(UINT, imapc_connection_retry_count),
+	DEF(TIME_MSECS, imapc_connection_retry_interval),
+	DEF(SIZE, imapc_max_line_length),
 
-	DEF(SET_STR, pop3_deleted_flag),
+	DEF(STR, pop3_deleted_flag),
 
 	SETTING_DEFINE_LIST_END
 };

@@ -135,6 +135,7 @@ static void submission_client_notify_auth_ready(struct client *client)
 	struct submission_client *subm_client =
 		container_of(client, struct submission_client, common);
 
+	client->banner_sent = TRUE;
 	smtp_server_connection_start(subm_client->conn);
 }
 
@@ -213,10 +214,11 @@ static void client_connection_disconnect(void *context, const char *reason)
 	struct submission_client *client = context;
 
 	client->pending_auth = NULL;
-	client_disconnect(&client->common, reason);
+	client_disconnect(&client->common, reason,
+			  !client->common.login_success);
 }
 
-static void client_connection_destroy(void *context)
+static void client_connection_free(void *context)
 {
 	struct submission_client *client = context;
 
@@ -256,6 +258,9 @@ static void submission_login_init(void)
 	smtp_server_set.protocol = SMTP_PROTOCOL_SMTP;
 	smtp_server_set.max_pipelined_commands = 5;
 	smtp_server_set.max_bad_commands = CLIENT_MAX_BAD_COMMANDS;
+	/* Pre-auth state is always logged either as GREETING or READY.
+	   It's not very useful. */
+	smtp_server_set.no_state_in_reason = TRUE;
 	smtp_server = smtp_server_init(&smtp_server_set);
 }
 
@@ -277,7 +282,7 @@ static const struct smtp_server_callbacks smtp_callbacks = {
 	.conn_cmd_xclient = client_connection_cmd_xclient,
 
 	.conn_disconnect = client_connection_disconnect,
-	.conn_destroy = client_connection_destroy,
+	.conn_free = client_connection_free,
 
 	.conn_is_trusted = client_connection_is_trusted
 };

@@ -49,10 +49,8 @@ static void dict_connection_cmd_free(struct dict_connection_cmd *cmd)
 {
 	const char *error;
 
-	if (cmd->iter != NULL) {
-		if (dict_iterate_deinit(&cmd->iter, &error) < 0)
-			e_error(cmd->event, "dict_iterate() failed: %s", error);
-	}
+	if (dict_iterate_deinit(&cmd->iter, &error) < 0)
+		e_error(cmd->event, "dict_iterate() failed: %s", error);
 	i_free(cmd->reply);
 	if (cmd->uncork_pending)
 		o_stream_uncork(cmd->conn->conn.output);
@@ -195,9 +193,9 @@ cmd_lookup_write_reply(struct dict_connection_cmd *cmd,
 }
 
 static void
-cmd_lookup_callback(const struct dict_lookup_result *result, void *context)
+cmd_lookup_callback(const struct dict_lookup_result *result,
+		    struct dict_connection_cmd *cmd)
 {
-	struct dict_connection_cmd *cmd = context;
 	string_t *str = t_str_new(128);
 
 	event_set_name(cmd->event, "dict_server_lookup_finished");
@@ -312,9 +310,8 @@ static int cmd_iterate_flush(struct dict_connection_cmd *cmd)
 	return 1;
 }
 
-static void cmd_iterate_callback(void *context)
+static void cmd_iterate_callback(struct dict_connection_cmd *cmd)
 {
-	struct dict_connection_cmd *cmd = context;
 	struct dict_connection *conn = cmd->conn;
 
 	dict_connection_ref(conn);
@@ -498,18 +495,14 @@ cmd_commit_finish(struct dict_connection_cmd *cmd,
 }
 
 static void cmd_commit_callback(const struct dict_commit_result *result,
-				void *context)
+				struct dict_connection_cmd *cmd)
 {
-	struct dict_connection_cmd *cmd = context;
-
 	cmd_commit_finish(cmd, result, FALSE);
 }
 
 static void cmd_commit_callback_async(const struct dict_commit_result *result,
-				      void *context)
+				      struct dict_connection_cmd *cmd)
 {
-	struct dict_connection_cmd *cmd = context;
-
 	cmd_commit_finish(cmd, result, TRUE);
 }
 

@@ -146,7 +146,7 @@ static void client_handle_request(struct quota_client *client)
 	}
 
 	i_zero(&input);
-	input.parent_event = client->event;
+	input.event_parent = client->event;
 	smtp_address_detail_parse_temp(quota_status_settings->recipient_delimiter,
 				       rcpt, &input.username, &delim,
 				       &detail);

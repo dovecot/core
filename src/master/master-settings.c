@@ -26,13 +26,13 @@ extern const struct setting_parser_info service_setting_parser_info;
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct file_listener_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct file_listener_settings)
 
 static const struct setting_define file_listener_setting_defines[] = {
-	DEF(SET_STR, path),
-	DEF(SET_UINT_OCT, mode),
-	DEF(SET_STR, user),
-	DEF(SET_STR, group),
+	DEF(STR, path),
+	DEF(UINT_OCT, mode),
+	DEF(STR, user),
+	DEF(STR, group),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -57,15 +57,15 @@ static const struct setting_parser_info file_listener_setting_parser_info = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct inet_listener_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct inet_listener_settings)
 
 static const struct setting_define inet_listener_setting_defines[] = {
-	DEF(SET_STR, name),
-	DEF(SET_STR, address),
-	DEF(SET_IN_PORT, port),
-	DEF(SET_BOOL, ssl),
-	DEF(SET_BOOL, reuse_port),
-	DEF(SET_BOOL, haproxy),
+	DEF(STR, name),
+	DEF(STR, address),
+	DEF(IN_PORT, port),
+	DEF(BOOL, ssl),
+	DEF(BOOL, reuse_port),
+	DEF(BOOL, haproxy),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -91,34 +91,33 @@ static const struct setting_parser_info inet_listener_setting_parser_info = {
 };
 
 #undef DEF
-#undef DEFLIST
 #undef DEFLIST_UNIQUE
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct service_settings, name), NULL }
-#define DEFLIST(field, name, defines) \
-	{ SET_DEFLIST, name, offsetof(struct service_settings, field), defines }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct service_settings)
 #define DEFLIST_UNIQUE(field, name, defines) \
-	{ SET_DEFLIST_UNIQUE, name, offsetof(struct service_settings, field), defines }
+	{ .type = SET_DEFLIST_UNIQUE, .key = name, \
+	  .offset = offsetof(struct service_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define service_setting_defines[] = {
-	DEF(SET_STR, name),
-	DEF(SET_STR, protocol),
-	DEF(SET_STR, type),
-	DEF(SET_STR, executable),
-	DEF(SET_STR, user),
-	DEF(SET_STR, group),
-	DEF(SET_STR, privileged_group),
-	DEF(SET_STR, extra_groups),
-	DEF(SET_STR, chroot),
+	DEF(STR, name),
+	DEF(STR, protocol),
+	DEF(STR, type),
+	DEF(STR, executable),
+	DEF(STR, user),
+	DEF(STR, group),
+	DEF(STR, privileged_group),
+	DEF(STR, extra_groups),
+	DEF(STR, chroot),
 
-	DEF(SET_BOOL, drop_priv_before_exec),
+	DEF(BOOL, drop_priv_before_exec),
 
-	DEF(SET_UINT, process_min_avail),
-	DEF(SET_UINT, process_limit),
-	DEF(SET_UINT, client_limit),
-	DEF(SET_UINT, service_count),
-	DEF(SET_TIME, idle_kill),
-	DEF(SET_SIZE, vsz_limit),
+	DEF(UINT, process_min_avail),
+	DEF(UINT, process_limit),
+	DEF(UINT, client_limit),
+	DEF(UINT, service_count),
+	DEF(TIME, idle_kill),
+	DEF(SIZE, vsz_limit),
 
 	DEFLIST_UNIQUE(unix_listeners, "unix_listener",
 		       &file_listener_setting_parser_info),
@@ -169,32 +168,34 @@ const struct setting_parser_info service_setting_parser_info = {
 #undef DEF
 #undef DEFLIST_UNIQUE
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct master_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct master_settings)
 #define DEFLIST_UNIQUE(field, name, defines) \
-	{ SET_DEFLIST_UNIQUE, name, offsetof(struct master_settings, field), defines }
+	{ .type = SET_DEFLIST_UNIQUE, .key = name, \
+	  .offset = offsetof(struct master_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define master_setting_defines[] = {
-	DEF(SET_STR, base_dir),
-	DEF(SET_STR, state_dir),
-	DEF(SET_STR, libexec_dir),
-	DEF(SET_STR, instance_name),
-	DEF(SET_STR, protocols),
-	DEF(SET_STR, listen),
-	DEF(SET_ENUM, ssl),
-	DEF(SET_STR, default_internal_user),
-	DEF(SET_STR, default_internal_group),
-	DEF(SET_STR, default_login_user),
-	DEF(SET_UINT, default_process_limit),
-	DEF(SET_UINT, default_client_limit),
-	DEF(SET_TIME, default_idle_kill),
-	DEF(SET_SIZE, default_vsz_limit),
+	DEF(STR, base_dir),
+	DEF(STR, state_dir),
+	DEF(STR, libexec_dir),
+	DEF(STR, instance_name),
+	DEF(STR, protocols),
+	DEF(STR, listen),
+	DEF(ENUM, ssl),
+	DEF(STR, default_internal_user),
+	DEF(STR, default_internal_group),
+	DEF(STR, default_login_user),
+	DEF(UINT, default_process_limit),
+	DEF(UINT, default_client_limit),
+	DEF(TIME, default_idle_kill),
+	DEF(SIZE, default_vsz_limit),
 
-	DEF(SET_BOOL, version_ignore),
+	DEF(BOOL, version_ignore),
 
-	DEF(SET_UINT, first_valid_uid),
-	DEF(SET_UINT, last_valid_uid),
-	DEF(SET_UINT, first_valid_gid),
-	DEF(SET_UINT, last_valid_gid),
+	DEF(UINT, first_valid_uid),
+	DEF(UINT, last_valid_uid),
+	DEF(UINT, first_valid_gid),
+	DEF(UINT, last_valid_gid),
 
 	DEFLIST_UNIQUE(services, "service", &service_setting_parser_info),
 
@@ -346,6 +347,8 @@ static bool master_settings_parse_type(struct service_settings *set,
 		set->parsed_type = SERVICE_TYPE_LOGIN;
 	else if (strcmp(set->type, "startup") == 0)
 		set->parsed_type = SERVICE_TYPE_STARTUP;
+	else if (strcmp(set->type, "worker") == 0)
+		set->parsed_type = SERVICE_TYPE_WORKER;
 	else {
 		*error_r = t_strconcat("Unknown service type: ",
 				       set->type, NULL);

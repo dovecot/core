@@ -28,7 +28,7 @@ static void test_fts_language_detect_finnish(void)
 	test_begin("fts language detect Finnish");
 	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
 	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
-	test_assert(fts_language_detect(lp, finnish, sizeof(finnish)-1, &lang_r)
+	test_assert(fts_language_detect(lp, finnish, sizeof(finnish)-1, &lang_r, &error)
 	            == FTS_LANGUAGE_RESULT_OK);
 	test_assert(strcmp(lang_r->name, "fi") == 0);
 	fts_language_list_deinit(&lp);
@@ -55,7 +55,7 @@ static void test_fts_language_detect_english(void)
 	test_begin("fts language detect English");
 	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
 	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
-	test_assert(fts_language_detect(lp, english, sizeof(english)-1, &lang_r)
+	test_assert(fts_language_detect(lp, english, sizeof(english)-1, &lang_r, &error)
 	            == FTS_LANGUAGE_RESULT_OK);
 	test_assert(strcmp(lang_r->name, "en") == 0);
 	fts_language_list_deinit(&lp);
@@ -90,7 +90,7 @@ static void test_fts_language_detect_french(void)
 	test_begin("fts language detect French");
 	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
 	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
-	test_assert(fts_language_detect(lp, french, sizeof(french)-1, &lang_r)
+	test_assert(fts_language_detect(lp, french, sizeof(french)-1, &lang_r, &error)
 	            == FTS_LANGUAGE_RESULT_OK);
 	test_assert(strcmp(lang_r->name, "fr") == 0);
 	fts_language_list_deinit(&lp);
@@ -127,7 +127,7 @@ static void test_fts_language_detect_german(void)
 	test_begin("fts language detect German");
 	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
 	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
-	test_assert(fts_language_detect(lp, german, sizeof(german)-1, &lang_r)
+	test_assert(fts_language_detect(lp, german, sizeof(german)-1, &lang_r, &error)
 	            == FTS_LANGUAGE_RESULT_OK);
 	test_assert(strcmp(lang_r->name, "de") == 0);
 	fts_language_list_deinit(&lp);
@@ -153,7 +153,7 @@ static void test_fts_language_detect_swedish(void)
 	test_begin("fts language detect Swedish");
 	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
 	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
-	test_assert(fts_language_detect(lp, swedish, sizeof(swedish)-1, &lang_r)
+	test_assert(fts_language_detect(lp, swedish, sizeof(swedish)-1, &lang_r, &error)
 	            == FTS_LANGUAGE_RESULT_OK);
 	test_assert(strcmp(lang_r->name, "sv") == 0);
 	fts_language_list_deinit(&lp);
@@ -177,7 +177,7 @@ static void test_fts_language_detect_bokmal(void)
 	test_begin("fts language detect Bokmal as Norwegian");
 	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
 	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
-	test_assert(fts_language_detect(lp, bokmal, sizeof(bokmal)-1, &lang_r)
+	test_assert(fts_language_detect(lp, bokmal, sizeof(bokmal)-1, &lang_r, &error)
 	            == FTS_LANGUAGE_RESULT_OK);
 	test_assert(strcmp(lang_r->name, "no") == 0);
 	fts_language_list_deinit(&lp);
@@ -201,7 +201,7 @@ static void test_fts_language_detect_nynorsk(void)
 	test_begin("fts language detect Nynorsk as Norwegian");
 	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
 	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
-	test_assert(fts_language_detect(lp, nynorsk, sizeof(nynorsk)-1, &lang_r)
+	test_assert(fts_language_detect(lp, nynorsk, sizeof(nynorsk)-1, &lang_r, &error)
 	            == FTS_LANGUAGE_RESULT_OK);
 	test_assert(strcmp(lang_r->name, "no") == 0);
 	fts_language_list_deinit(&lp);
@@ -226,7 +226,7 @@ static void test_fts_language_detect_finnish_as_english(void)
 	test_begin("fts language detect Finnish as English");
 	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
 	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
-	test_assert(fts_language_detect(lp, finnish, sizeof(finnish)-1, &lang_r)
+	test_assert(fts_language_detect(lp, finnish, sizeof(finnish)-1, &lang_r, &error)
 	            == FTS_LANGUAGE_RESULT_OK);
 	test_assert(strcmp(lang_r->name, "en") == 0);
 	fts_language_list_deinit(&lp);
@@ -253,7 +253,7 @@ static void test_fts_language_detect_na(void)
 	test_begin("fts language detect not available");
 	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
 	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
-	test_assert(fts_language_detect(lp, english, sizeof(english)-1, &lang_r)
+	test_assert(fts_language_detect(lp, english, sizeof(english)-1, &lang_r, &error)
 	            == FTS_LANGUAGE_RESULT_UNKNOWN);
 	fts_language_list_deinit(&lp);
 	test_end();
@@ -273,7 +273,7 @@ static void test_fts_language_detect_unknown(void)
 	test_begin("fts language detect unknown");
 	test_assert(fts_language_list_init(settings, &lp, &error) == 0);
 	test_assert(fts_language_list_add_names(lp, names, &unknown) == TRUE);
-	test_assert(fts_language_detect(lp, klingon, sizeof(klingon), &lang_r)
+	test_assert(fts_language_detect(lp, klingon, sizeof(klingon), &lang_r, &error)
 	            == FTS_LANGUAGE_RESULT_UNKNOWN);
 	fts_language_list_deinit(&lp);
 	test_end();

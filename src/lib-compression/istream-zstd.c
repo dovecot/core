@@ -41,7 +41,6 @@ struct zstd_istream {
 	buffer_t *data_buffer;
 
 	bool hdr_read:1;
-	bool log_errors:1;
 	bool marked:1;
 	bool zs_closed:1;
 	/* is there data remaining */
@@ -114,8 +113,6 @@ static void i_stream_zstd_read_error(struct zstd_istream *zstream, size_t err)
 			    "zstd.read(%s): %s at %"PRIuUOFF_T,
 			    i_stream_get_name(&zstream->istream.istream), error,
 			    i_stream_get_absolute_offset(&zstream->istream.istream));
-	if (zstream->log_errors)
-		i_error("%s", zstream->istream.iostream.error);
 }
 
 static ssize_t i_stream_zstd_read(struct istream_private *stream)
@@ -160,6 +157,10 @@ static ssize_t i_stream_zstd_read(struct istream_private *stream)
 			if (ret == 0)
 				return 0;
 			buffer_append(zstream->frame_buffer, data, size);
+			/* NOTE: All of the parent stream input is skipped
+			   over here. This is why there's no need to call
+			   i_stream_set_input_pending() here like with other
+			   compression istreams. */
 			i_stream_skip(stream->parent, size);
 			zstream->input.src = zstream->frame_buffer->data;
 			zstream->input.size = zstream->frame_buffer->used;
@@ -239,14 +240,13 @@ static void i_stream_zstd_sync(struct istream_private *stream)
 }
 
 struct istream *
-i_stream_create_zstd(struct istream *input, bool log_errors)
+i_stream_create_zstd(struct istream *input)
 {
 	struct zstd_istream *zstream;
 
 	zstd_version_check();
 
 	zstream = i_new(struct zstd_istream, 1);
-	zstream->log_errors = log_errors;
 
 	i_stream_zstd_init(zstream);
 

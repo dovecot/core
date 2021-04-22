@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "mail-namespace.h"
+#include "mailbox-list-private.h"
 #include "dsync-ibc.h"
 #include "dsync-mailbox-tree.h"
 #include "dsync-brain-private.h"
@@ -84,6 +85,17 @@ void dsync_brain_send_mailbox_tree(struct dsync_brain *brain)
 	sep[0] = brain->hierarchy_sep; sep[1] = '\0';
 	while (dsync_mailbox_tree_iter_next(brain->local_tree_iter,
 					    &full_name, &node)) {
+		if (node->ns == NULL) {
+			/* This node was created when adding a namespace prefix
+			   to the tree that has multiple hierarchical names,
+			   but the parent names don't belong to any synced
+			   namespace. For example when syncing "-n Shared/user/"
+			   so "Shared/" is skipped. Or if there is e.g.
+			   "Public/files/" namespace prefix, but no "Public/"
+			   namespace at all. */
+			continue;
+		}
+
 		T_BEGIN {
 			const char *const *parts;
 
@@ -93,6 +105,18 @@ void dsync_brain_send_mailbox_tree(struct dsync_brain *brain)
 					dsync_mailbox_node_to_string(node));
 			}
 
+			/* Avoid sending out mailbox names with escape
+			   characters. Especially when dsync is used for
+			   migration, we don't want to end up having invalid
+			   mUTF7 mailbox names locally. Also, remote might not
+			   even be configured to use the same escape
+			   character. */
+			if (node->ns != NULL) {
+				i_assert(brain->alt_char != '\0');
+				full_name = t_str_replace(full_name,
+					node->ns->list->set.vname_escape_char,
+					brain->alt_char);
+			}
 			parts = t_strsplit(full_name, sep);
 			ret = dsync_ibc_send_mailbox_tree_node(brain->ibc,
 							       parts, node);

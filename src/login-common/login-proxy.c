@@ -238,7 +238,7 @@ static bool proxy_try_reconnect(struct login_proxy *proxy)
 		timeval_diff_msecs(&ioloop_timeval, &proxy->created);
 	if (since_started_msecs < 0)
 		return FALSE; /* time moved backwards */
-	left_msecs = proxy->connect_timeout_msecs - since_started_msecs;
+	left_msecs = (int)proxy->connect_timeout_msecs - since_started_msecs;
 	if (left_msecs <= PROXY_CONNECT_RETRY_MIN_MSECS)
 		return FALSE;
 
@@ -316,7 +316,7 @@ static int login_proxy_connect(struct login_proxy *proxy)
 	}
 	if (proxy->host_immediate_failure_after_secs != 0 &&
 	    timeval_cmp(&rec->last_failure, &rec->last_success) > 0 &&
-	    rec->last_failure.tv_sec - rec->last_success.tv_sec >
+	    (unsigned int)(rec->last_failure.tv_sec - rec->last_success.tv_sec) >
 	    	proxy->host_immediate_failure_after_secs &&
 	    rec->num_waiting_connections > 1) {
 		/* the server is down. fail immediately */
@@ -883,7 +883,8 @@ login_proxy_cmd_kick_full(struct ipc_cmd *cmd, const char *const *args,
 		next = proxy->next;
 
 		if (want_kick(proxy, args, key_idx)) {
-			client_destroy(proxy->client, KILLED_BY_ADMIN_REASON);
+			client_disconnect(proxy->client, KILLED_BY_ADMIN_REASON, FALSE);
+			client_destroy(proxy->client, NULL);
 			count++;
 		}
 	} T_END;
@@ -983,7 +984,8 @@ login_proxy_cmd_kick_director_hash(struct ipc_cmd *cmd, const char *const *args)
 		if (director_username_hash(proxy->client, &proxy_hash) &&
 		    proxy_hash == hash &&
 		    !net_ip_compare(&proxy->ip, &except_ip)) {
-			client_destroy(proxy->client, KILLED_BY_DIRECTOR_REASON);
+			client_disconnect(proxy->client, KILLED_BY_DIRECTOR_REASON, FALSE);
+			client_destroy(proxy->client, NULL);
 			count++;
 		}
 	}

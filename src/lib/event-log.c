@@ -300,7 +300,6 @@ event_logv_params(struct event *event, const struct event_log_params *params,
 		.type = params->log_type,
 	};
 	bool abort_after_event = FALSE;
-	int old_errno = errno;
 
 	i_assert(!params->no_send || params->base_str_out != NULL);
 
@@ -344,7 +343,6 @@ event_logv_params(struct event *event, const struct event_log_params *params,
 	}
 	if (abort_after_event)
 		abort();
-	errno = old_errno;
 }
 
 void event_logv(struct event *event, const struct event_log_params *params,
@@ -352,6 +350,7 @@ void event_logv(struct event *event, const struct event_log_params *params,
 {
 	const char *orig_source_filename = event->source_filename;
 	unsigned int orig_source_linenum = event->source_linenum;
+	int old_errno = errno;
 
 	if (params->source_filename != NULL) {
 		event_set_source(event, params->source_filename,
@@ -367,6 +366,7 @@ void event_logv(struct event *event, const struct event_log_params *params,
 	event_set_source(event, orig_source_filename,
 			 orig_source_linenum, TRUE);
 	event_unref(&event);
+	errno = old_errno;
 }
 
 struct event *event_set_forced_debug(struct event *event, bool force)

@@ -22,7 +22,8 @@ static struct inet_listener_settings *submission_login_inet_listeners[] = {
 	&submission_login_inet_listeners_array[0]
 };
 static buffer_t submission_login_inet_listeners_buf = {
-	submission_login_inet_listeners, sizeof(submission_login_inet_listeners), { 0, }
+	{ { submission_login_inet_listeners,
+	    sizeof(submission_login_inet_listeners) } }
 };
 
 /* </settings checks> */
@@ -54,13 +55,13 @@ struct service_settings submission_login_service_settings = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct submission_login_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct submission_login_settings)
 
 static const struct setting_define submission_login_setting_defines[] = {
-	DEF(SET_STR, hostname),
+	DEF(STR, hostname),
 
-	DEF(SET_SIZE, submission_max_mail_size),
-	DEF(SET_STR, submission_backend_capabilities),
+	DEF(SIZE, submission_max_mail_size),
+	DEF(STR, submission_backend_capabilities),
 
 	SETTING_DEFINE_LIST_END
 };

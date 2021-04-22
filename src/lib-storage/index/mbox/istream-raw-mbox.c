@@ -24,6 +24,16 @@ struct raw_mbox_istream {
 	bool header_missing_eoh:1;
 };
 
+static void mbox_istream_log_read_error(struct raw_mbox_istream *rstream)
+{
+	if (rstream->istream.parent->stream_errno != 0) {
+		/* Log e.g. compression istream error */
+		i_error("Failed to read mbox file %s: %s",
+			i_stream_get_name(&rstream->istream.istream),
+			i_stream_get_error(rstream->istream.parent));
+	}
+}
+
 static void i_stream_raw_mbox_destroy(struct iostream_private *stream)
 {
 	struct raw_mbox_istream *rstream = (struct raw_mbox_istream *)stream;
@@ -201,6 +211,8 @@ static ssize_t i_stream_raw_mbox_read(struct istream_private *stream)
 	stream->istream.stream_errno = stream->parent->stream_errno;
 
 	if (ret < 0) {
+		if (ret == -1)
+			mbox_istream_log_read_error(rstream);
 		if (ret == -2) {
 			if (stream->skip == stream->pos) {
 				/* From_-line is longer than our input buffer.
@@ -462,13 +474,16 @@ static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 	time_t received_time;
 	char *sender;
 	int tz;
+	ssize_t ret = 0;
 
 	/* minimal: "From x Thu Nov 29 22:33:52 2001" = 31 chars */
 	do {
 		data = i_stream_get_data(rstream->istream.parent, &size);
 		if (size >= 31)
 			break;
-	} while (i_stream_read_memarea(rstream->istream.parent) > 0);
+	} while ((ret = i_stream_read_memarea(rstream->istream.parent)) > 0);
+	if (ret == -1)
+		mbox_istream_log_read_error(rstream);
 
 	if ((size == 1 && data[0] == '\n') ||
 	    (size == 2 && data[0] == '\r' && data[1] == '\n')) {
@@ -487,9 +502,13 @@ static int istream_raw_mbox_is_valid_from(struct raw_mbox_istream *rstream)
 	}
 
 	while (memchr(data, '\n', size) == NULL) {
-		if (i_stream_read_bytes(rstream->istream.parent,
-					&data, &size, size+1) < 0)
+		ret = i_stream_read_bytes(rstream->istream.parent,
+					  &data, &size, size+1);
+		if (ret < 0) {
+			if (ret == -1)
+				mbox_istream_log_read_error(rstream);
 			break;
+		}
 	}
 
 	if (mbox_from_parse(data, size, &received_time, &tz, &sender) < 0)

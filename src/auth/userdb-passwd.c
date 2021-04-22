@@ -44,7 +44,7 @@ passwd_check_warnings(struct auth_request *auth_request,
 
 	msecs = timeval_diff_msecs(&end_tv, start_tv);
 	if (msecs >= PASSWD_SLOW_WARN_MSECS) {
-		i_warning("passwd: Lookup for %s took %u secs",
+		e_warning(authdb_event(auth_request), "Lookup for %s took %u secs",
 			  auth_request->fields.user, msecs/1000);
 		return;
 	}
@@ -66,7 +66,8 @@ passwd_check_warnings(struct auth_request *auth_request,
 		/* start from beginning */
 		module->slow_count = module->fast_count = 0;
 	} else {
-		i_warning("passwd: %u%% of last %u lookups took over "
+		e_warning(authdb_event(auth_request),
+			  "%u%% of last %u lookups took over "
 			  "%u milliseconds, "
 			  "you may want to set blocking=yes for userdb",
 			  percentage, PASSDB_SLOW_MASTER_WARN_COUNT_INTERVAL,
@@ -182,7 +183,8 @@ static void passwd_iterate_next(struct userdb_iterate_context *_ctx)
 		errno = 0;
 	}
 	if (errno != 0) {
-		i_error("getpwent() failed: %m");
+		e_error(authdb_event(_ctx->auth_request),
+			"getpwent() failed: %m");
 		_ctx->failed = TRUE;
 	}
 	_ctx->callback(NULL, _ctx->context);
@@ -208,6 +210,7 @@ static int passwd_iterate_deinit(struct userdb_iterate_context *_ctx)
 		cur_userdb_iter_to = timeout_add(0, passwd_iterate_next_timeout,
 						 NULL);
 	}
+        endpwent();
 	return ret;
 }
 

@@ -36,7 +36,8 @@ struct seekable_istream {
 static void i_stream_seekable_close(struct iostream_private *stream,
 				    bool close_parent ATTR_UNUSED)
 {
-	struct seekable_istream *sstream = (struct seekable_istream *)stream;
+	struct seekable_istream *sstream =
+		container_of(stream, struct seekable_istream, istream.iostream);
 
 	sstream->fd = -1;
 	i_stream_close(sstream->fd_input);
@@ -52,7 +53,8 @@ static void unref_streams(struct seekable_istream *sstream)
 
 static void i_stream_seekable_destroy(struct iostream_private *stream)
 {
-	struct seekable_istream *sstream = (struct seekable_istream *)stream;
+	struct seekable_istream *sstream =
+		container_of(stream, struct seekable_istream, istream.iostream);
 
 	i_stream_free_buffer(&sstream->istream);
 	i_stream_unref(&sstream->fd_input);
@@ -68,7 +70,8 @@ static void
 i_stream_seekable_set_max_buffer_size(struct iostream_private *stream,
 				      size_t max_size)
 {
-	struct seekable_istream *sstream = (struct seekable_istream *)stream;
+	struct seekable_istream *sstream =
+		container_of(stream, struct seekable_istream, istream.iostream);
 	unsigned int i;
 
 	sstream->istream.max_buffer_size = max_size;
@@ -256,7 +259,8 @@ static int i_stream_seekable_write_failed(struct seekable_istream *sstream)
 
 static ssize_t i_stream_seekable_read(struct istream_private *stream)
 {
-	struct seekable_istream *sstream = (struct seekable_istream *)stream;
+	struct seekable_istream *sstream =
+		container_of(stream, struct seekable_istream, istream);
 	const unsigned char *data;
 	size_t size, pos;
 	ssize_t ret;
@@ -330,7 +334,8 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 static int
 i_stream_seekable_stat(struct istream_private *stream, bool exact)
 {
-	struct seekable_istream *sstream = (struct seekable_istream *)stream;
+	struct seekable_istream *sstream =
+		container_of(stream, struct seekable_istream, istream);
 	const struct stat *st;
 	uoff_t old_offset, len;
 	ssize_t ret;
@@ -395,7 +400,8 @@ static struct istream_snapshot *
 i_stream_seekable_snapshot(struct istream_private *stream,
 			   struct istream_snapshot *prev_snapshot)
 {
-	struct seekable_istream *sstream = (struct seekable_istream *)stream;
+	struct seekable_istream *sstream =
+		container_of(stream, struct seekable_istream, istream);
 
 	if (sstream->fd == -1) {
 		/* still in memory */
@@ -534,7 +540,8 @@ i_stream_create_seekable_path(struct istream *input[],
 	stream = i_stream_create_seekable(input, max_buffer_size,
 					  seekable_fd_callback,
 					  i_strdup(temp_path_prefix));
-	sstream = (struct seekable_istream *)stream->real_stream;
+	sstream = container_of(stream->real_stream,
+			       struct seekable_istream, istream);
 	sstream->free_context = TRUE;
 	return stream;
 }

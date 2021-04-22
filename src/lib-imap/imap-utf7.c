@@ -55,25 +55,50 @@ mbase64_encode(string_t *dest, const unsigned char *in, size_t len)
 	str_append_c(dest, '-');
 }
 
-static const char *imap_utf8_first_encode_char(const char *str)
+static const char *
+imap_utf8_first_encode_char(const char *str, char escape_char)
 {
 	const char *p;
 
 	for (p = str; *p != '\0'; p++) {
-		if (*p == '&' || *p < 0x20 || *p >= 0x7f)
+		if (*p == '&' || *p < 0x20 || *p >= 0x7f || *p == escape_char)
 			return p;
 	}
 	return NULL;
 }
 
-int imap_utf8_to_utf7(const char *src, string_t *dest)
+int imap_escaped_utf8_hex_to_char(const char *str, unsigned char *chr_r)
+{
+	unsigned int i = 0;
+	unsigned char c = 0;
+
+	/* NOTE: Only lowercase hex characters are allowed so the output is
+	   reversible. */
+	for (;;) {
+		if (str[i] >= '0' && str[i] <= '9')
+			c += str[i] - '0';
+		else if (str[i] >= 'a' && str[i] <= 'f')
+			c += str[i] - 'a' + 10;
+		else
+			return -1;
+		if (++i == 2)
+			break;
+		c *= 0x10;
+	}
+	*chr_r = c;
+	return 0;
+}
+
+static int
+imap_utf8_to_utf7_int(const char *src, char escape_char, string_t *dest)
 {
 	const char *p;
 	unichar_t chr;
 	uint8_t *utf16, *u;
 	uint16_t u16;
+	unsigned char c;
 
-	p = imap_utf8_first_encode_char(src);
+	p = imap_utf8_first_encode_char(src, escape_char);
 	if (p == NULL) {
 		/* no characters that need to be encoded */
 		str_append(dest, src);
@@ -84,6 +109,12 @@ int imap_utf8_to_utf7(const char *src, string_t *dest)
 	str_append_data(dest, src, p-src);
 	utf16 = t_malloc0(MALLOC_MULTIPLY(strlen(p), 2));
 	while (*p != '\0') {
+		if (*p == escape_char &&
+		    imap_escaped_utf8_hex_to_char(p+1, &c) == 0) {
+			str_append_c(dest, c);
+			p += 3;
+			continue;
+		}
 		if (*p == '&') {
 			str_append(dest, "&-");
 			p++;
@@ -118,12 +149,24 @@ int imap_utf8_to_utf7(const char *src, string_t *dest)
 	return 0;
 }
 
+int imap_utf8_to_utf7(const char *src, string_t *dest)
+{
+	return imap_utf8_to_utf7_int(src, '\0', dest);
+}
+
+int imap_escaped_utf8_to_utf7(const char *src, char escape_char, string_t *dest)
+{
+	i_assert(escape_char != '&');
+
+	return imap_utf8_to_utf7_int(src, escape_char, dest);
+}
+
 int t_imap_utf8_to_utf7(const char *src, const char **dest_r)
 {
 	string_t *str;
 	int ret;
 
-	if (imap_utf8_first_encode_char(src) == NULL) {
+	if (imap_utf8_first_encode_char(src, '\0') == NULL) {
 		*dest_r = src;
 		return 0;
 	}
@@ -243,19 +286,28 @@ static int mbase64_decode_to_utf8(string_t *dest, const char **_src)
 			return -1;
 	}
 
-	/* found ending '-' */
+	/* Found the ending '-'. Make sure it's not followed by unnecessary
+	   shift. Note that '&' is always escaped as "&-" so it's not an
+	   unnecessary shift. */
+	if (src[1] == '&' && src[2] != '-')
+		return -1;
+
 	*_src = src + 1;
 	return 0;
 }
 
-int imap_utf7_to_utf8(const char *src, string_t *dest)
+static int
+imap_utf7_to_utf8_int(const char *src, const char *escape_chars, string_t *dest)
 {
 	const char *p;
 
 	for (p = src; *p != '\0'; p++) {
-		if (*p < 0x20 || *p >= 0x7f)
-			return -1;
-		if (*p == '&')
+		if (*p < 0x20 || *p >= 0x7f) {
+			if (escape_chars[0] == '\0')
+				return -1;
+			break;
+		}
+		if (*p == '&' || strchr(escape_chars, *p) != NULL)
 			break;
 	}
 	if (*p == '\0') {
@@ -267,16 +319,22 @@ int imap_utf7_to_utf8(const char *src, string_t *dest)
 	/* at least one encoded character */
 	str_append_data(dest, src, p-src);
 	while (*p != '\0') {
-		if (*p == '&') {
+		if (strchr(escape_chars, *p) != NULL ||
+		    *p < 0x20 || *p >= 0x7f) {
+			str_printfa(dest, "%c%02x", escape_chars[0],
+				    (unsigned char)*p);
+			p++;
+		} else if (*p == '&') {
 			if (*++p == '-') {
 				str_append_c(dest, '&');
 				p++;
 			} else {
-				if (mbase64_decode_to_utf8(dest, &p) < 0)
-					return -1;
-				if (p[0] == '&' && p[1] != '-') {
-					/* &...-& */
-					return -1;
+				size_t orig_size = str_len(dest);
+				if (mbase64_decode_to_utf8(dest, &p) < 0) {
+					if (escape_chars[0] == '\0')
+						return -1;
+					str_truncate(dest, orig_size);
+					str_printfa(dest, "%c26", escape_chars[0]);
 				}
 			}
 		} else {
@@ -284,6 +342,20 @@ int imap_utf7_to_utf8(const char *src, string_t *dest)
 		}
 	}
 	return 0;
+}
+
+int imap_utf7_to_utf8(const char *src, string_t *dest)
+{
+	return imap_utf7_to_utf8_int(src, "", dest);
+}
+
+void imap_utf7_to_utf8_escaped(const char *src, const char *escape_chars,
+			       string_t *dest)
+{
+	i_assert(escape_chars[0] != '&');
+
+	if (imap_utf7_to_utf8_int(src, escape_chars, dest) < 0)
+		i_unreached();
 }
 
 bool imap_utf7_is_valid(const char *src)

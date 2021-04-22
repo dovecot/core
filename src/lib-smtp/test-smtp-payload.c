@@ -377,7 +377,7 @@ test_server_conn_cmd_data_continue(void *conn_ctx ATTR_UNUSED,
 
 /* client connection */
 
-static void test_server_connection_destroy(void *context);
+static void test_server_connection_free(void *context);
 
 static const struct smtp_server_callbacks server_callbacks =
 {
@@ -387,7 +387,7 @@ static const struct smtp_server_callbacks server_callbacks =
 
 	.conn_trans_free = test_server_conn_trans_free,
 
-	.conn_destroy = test_server_connection_destroy,
+	.conn_free = test_server_connection_free,
 };
 
 static void client_init(int fd)
@@ -424,7 +424,7 @@ static void client_deinit(struct client **_client)
 	pool_unref(&client->pool);
 }
 
-static void test_server_connection_destroy(void *context)
+static void test_server_connection_free(void *context)
 {
 	struct client *client = context;
 

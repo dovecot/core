@@ -4,8 +4,8 @@
 #include "array.h"
 #include "ioloop.h"
 #include "net.h"
-#ifdef HAVE_SYSTEMD
-#include "sd-daemon.h"
+#ifdef HAVE_LIBSYSTEMD
+#  include <systemd/sd-daemon.h>
 #endif
 #include "service.h"
 #include "service-listen.h"
@@ -150,7 +150,7 @@ static int service_fifo_listener_listen(struct service_listener *l)
 	return 1;
 }
 
-#ifdef HAVE_SYSTEMD
+#ifdef HAVE_LIBSYSTEMD
 static int
 systemd_listen_fd(const struct ip_addr *ip, in_port_t port, int *fd_r)
 {
@@ -167,7 +167,7 @@ systemd_listen_fd(const struct ip_addr *ip, in_port_t port, int *fd_r)
 
 	fd_max = SD_LISTEN_FDS_START + sd_fds - 1;
 	for (fd = SD_LISTEN_FDS_START; fd <= fd_max; fd++) {
-		if (sd_is_socket_inet(fd, ip->family, SOCK_STREAM, 1, port)) {
+		if (sd_is_socket_inet(fd, ip->family, SOCK_STREAM, 1, port) > 0) {
 			*fd_r = fd;
 			return 0;
 		}
@@ -187,7 +187,7 @@ static int service_inet_listener_listen(struct service_listener *l)
 	in_port_t port = set->port;
 	int fd;
 
-#ifdef HAVE_SYSTEMD
+#ifdef HAVE_LIBSYSTEMD
 	if (systemd_listen_fd(&l->set.inetset.ip, port, &fd) < 0)
 		return -1;
 
@@ -243,8 +243,8 @@ static int service_listen(struct service *service)
 	return ret;
 }
 
-#ifdef HAVE_SYSTEMD
-static int get_socket_info(int fd, unsigned int *family, in_port_t *port)
+#ifdef HAVE_LIBSYSTEMD
+static int get_socket_info(int fd, sa_family_t *family_r, in_port_t *port_r)
 {
 	union sockaddr_union {
 		struct sockaddr sa;
@@ -253,9 +253,10 @@ static int get_socket_info(int fd, unsigned int *family, in_port_t *port)
 	} sockaddr;
 	socklen_t l;
 
-	// FIXME(Stephan): why -1?
-	if (port) *port = -1;
-	if (family) *family = -1;
+	if (port_r != NULL)
+		*port_r = 0;
+	if (family_r != NULL)
+		*family_r = AF_UNSPEC;
 
 	i_zero(&sockaddr);
 	l = sizeof(sockaddr);
@@ -263,18 +264,19 @@ static int get_socket_info(int fd, unsigned int *family, in_port_t *port)
 	if (getsockname(fd, &sockaddr.sa, &l) < 0)
 	      return -errno;
 
-	if (family) *family = sockaddr.sa.sa_family;
-	if (port) {
+	if (family_r != NULL)
+		*family_r = sockaddr.sa.sa_family;
+	if (port_r != NULL) {
 		if (sockaddr.sa.sa_family == AF_INET) {
 			if (l < sizeof(struct sockaddr_in))
 				return -EINVAL;
 
-			*port = ntohs(sockaddr.in4.sin_port);
+			*port_r = ntohs(sockaddr.in4.sin_port);
 		} else {
 			if (l < sizeof(struct sockaddr_in6))
 				return -EINVAL;
 
-			*port = ntohs(sockaddr.in6.sin6_port);
+			*port_r = ntohs(sockaddr.in6.sin6_port);
 		}
 	}
 	return 0;
@@ -297,9 +299,9 @@ static int services_verify_systemd(struct service_list *service_list)
 	fd_max = SD_LISTEN_FDS_START + sd_fds - 1;
 	for (fd = SD_LISTEN_FDS_START; fd <= fd_max; fd++) {
 		if (sd_is_socket_inet(fd, 0, SOCK_STREAM, 1, 0) > 0) {
-			int found = FALSE;
+			bool found = FALSE;
 			in_port_t port;
-			unsigned int family;
+			sa_family_t family;
 			get_socket_info(fd, &family, &port);
 			
 			array_foreach(&service_list->services, services) {
@@ -315,14 +317,19 @@ static int services_verify_systemd(struct service_list *service_list)
 						break;
 					}
 				}
-				if (found) break;
+				if (found)
+					break;
 			}
 			if (!found) {
-				i_error("systemd listens on port %d, but it's not configured in Dovecot. Closing.",port);
-				if (shutdown(fd, SHUT_RDWR) < 0 && errno != ENOTCONN)
-					i_error("shutdown() failed: %m");
+				i_error("systemd listens on port %d, "
+					"but it's not configured in Dovecot. "
+					"Closing.", port);
+				if (shutdown(fd, SHUT_RDWR) < 0 &&
+				    errno != ENOTCONN)
+					i_error("shutdown(%d) failed: %m", fd);
 				if (dup2(dev_null_fd, fd) < 0)
-					i_error("dup2() failed: %m");
+					i_error("dup2(%d, %d) failed: %m",
+						dev_null_fd, fd);
 			}
 		}
 	}
@@ -374,7 +381,7 @@ int services_listen(struct service_list *service_list)
 			ret = ret2;
 	}
 
-#ifdef HAVE_SYSTEMD
+#ifdef HAVE_LIBSYSTEMD
 	if (ret > 0)
 		services_verify_systemd(service_list);
 #endif

@@ -50,6 +50,45 @@ static const char *get_uint(const char *value, unsigned int *result)
 	return NULL;
 }
 
+#define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
+
+static const char *expand_environment_vars(const char *value)
+{
+	const char *pvalue = value, *p;
+
+	/* Fast path when there are no candidates */
+	if ((pvalue = strchr(pvalue, '$')) == NULL)
+		return value;
+
+	string_t *expanded_value = t_str_new(strlen(value));
+	str_append_data(expanded_value, value, pvalue - value);
+
+	while (pvalue != NULL && (p = strchr(pvalue, '$')) != NULL) {
+		const char *var_end;
+		str_append_data(expanded_value, pvalue, p - pvalue);
+		if ((p == value || IS_WHITE(p[-1])) &&
+		    str_begins(p, "$ENV:")) {
+			const char *var_name, *envval;
+			var_end = strchr(p, ' ');
+			if (var_end == NULL)
+				var_name = p + 5;
+			else
+				var_name = t_strdup_until(p + 5, var_end);
+			if ((envval = getenv(var_name)) != NULL)
+				str_append(expanded_value, envval);
+		} else {
+			str_append_c(expanded_value, '$');
+			var_end = p + 1;
+		}
+		pvalue = var_end;
+	}
+
+	if (pvalue != NULL)
+		str_append(expanded_value, pvalue);
+
+	return str_c(expanded_value);
+}
+
 const char *
 parse_setting_from_defs(pool_t pool, const struct setting_def *defs, void *base,
 			const char *key, const char *value)
@@ -165,8 +204,6 @@ settings_include(const char *pattern, struct input_stack **inputp,
 #endif
 }
 
-#define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
-
 bool settings_read_i(const char *path, const char *section,
 		     settings_callback_t *callback,
 		     settings_section_callback_t *sect_callback, void *context,
@@ -259,6 +296,7 @@ prevfile:
 			line = str_c_modifiable(full_line);
 		}
 
+		bool quoted = FALSE;
 		/* a) key = value
 		   b) section_type [section_name] {
 		   c) } */
@@ -288,7 +326,13 @@ prevfile:
 			     (*line == '\'' && line[len-1] == '\''))) {
 				line[len-1] = '\0';
 				line = str_unescape(line+1);
+				quoted = TRUE;
 			}
+
+			/* @UNSAFE: Cast to modifiable datastack value,
+			   but it will not be actually modified after this. */
+			if (!quoted)
+		                line = (char *)expand_environment_vars(line);
 
 			errormsg = skip > 0 ? NULL :
 				callback(key, line, context);

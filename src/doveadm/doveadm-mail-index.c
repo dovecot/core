@@ -76,7 +76,13 @@ static int cmd_index_box_precache(struct doveadm_mail_cmd_context *dctx,
 
 	max = status.messages - seq + 1;
 	while (mailbox_search_next(ctx, &mail)) {
-		mail_precache(mail);
+		if (mail_precache(mail) < 0) {
+			i_error("Mailbox %s: Precache for UID=%u failed: %s",
+				mailbox_get_vname(box), mail->uid,
+				mailbox_get_last_internal_error(box, NULL));
+			ret = -1;
+			break;
+		}
 		if (doveadm_verbose && ++counter % 100 == 0) {
 			printf("\r%u/%u", counter, max);
 			fflush(stdout);

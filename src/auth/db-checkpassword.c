@@ -279,7 +279,8 @@ checkpassword_get_cmd(struct auth_request *request, const char *args,
 
 	str = t_str_new(256);
 	if (auth_request_var_expand(str, args, request, NULL, &error) <= 0) {
-		i_error("Failed to expand checkpassword_path=%s: %s",
+		e_error(authdb_event(request),
+			"Failed to expand checkpassword_path=%s: %s",
 			args, error);
 	}
 
@@ -368,7 +369,7 @@ static void checkpassword_child_output(struct chkpw_auth_request *request)
 	io_remove(&request->io_out);
 
 	if (close(request->fd_out) < 0)
-		i_error("checkpassword: close() failed: %m");
+		e_error(authdb_event(request->request), "close() failed: %m");
 	request->fd_out = -1;
 }
 

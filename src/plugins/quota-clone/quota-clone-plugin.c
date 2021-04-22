@@ -38,10 +38,8 @@ struct quota_clone_user {
 
 static void
 quota_clone_dict_commit(const struct dict_commit_result *result,
-			void *context)
+			struct quota_clone_user *quser)
 {
-	struct quota_clone_user *quser = context;
-
 	switch (result->ret) {
 	case DICT_COMMIT_RET_OK:
 	case DICT_COMMIT_RET_NOTFOUND:
@@ -276,6 +274,7 @@ static void quota_clone_mail_user_created(struct mail_user *user)
 	i_zero(&dict_set);
 	dict_set.username = user->username;
 	dict_set.base_dir = user->set->base_dir;
+	dict_set.event_parent = user->event;
 	(void)mail_user_get_home(user, &dict_set.home_dir);
 	if (dict_init(uri, &dict_set, &dict, &error) < 0) {
 		i_error("quota_clone_dict: Failed to initialize '%s': %s",

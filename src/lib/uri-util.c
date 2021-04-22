@@ -1177,7 +1177,7 @@ int uri_check(const char *uri, enum uri_parse_flags flags,
 	const char **error_r)
 {
 	return uri_check_data
-		((unsigned char *)uri, strlen(uri), flags, error_r);
+		((const unsigned char *)uri, strlen(uri), flags, error_r);
 }
 
 /*

@@ -28,7 +28,8 @@ static void i_stream_unref_try_inputs(struct try_istream *tstream)
 static void i_stream_try_close(struct iostream_private *stream,
 			       bool close_parent)
 {
-	struct try_istream *tstream = (struct try_istream *)stream;
+	struct try_istream *tstream =
+		container_of(stream, struct try_istream, istream.iostream);
 
 	if (close_parent) {
 		if (tstream->istream.parent != NULL)
@@ -113,7 +114,8 @@ static int i_stream_try_detect(struct try_istream *tstream)
 static ssize_t
 i_stream_try_read(struct istream_private *stream)
 {
-	struct try_istream *tstream = (struct try_istream *)stream;
+	struct try_istream *tstream =
+		container_of(stream, struct try_istream, istream);
 	int ret;
 
 	if (stream->parent == NULL) {

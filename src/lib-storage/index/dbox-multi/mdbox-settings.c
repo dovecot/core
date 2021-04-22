@@ -9,12 +9,12 @@
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct mdbox_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct mdbox_settings)
 
 static const struct setting_define mdbox_setting_defines[] = {
-	DEF(SET_BOOL, mdbox_preallocate_space),
-	DEF(SET_SIZE, mdbox_rotate_size),
-	DEF(SET_TIME, mdbox_rotate_interval),
+	DEF(BOOL, mdbox_preallocate_space),
+	DEF(SIZE, mdbox_rotate_size),
+	DEF(TIME, mdbox_rotate_interval),
 
 	SETTING_DEFINE_LIST_END
 };

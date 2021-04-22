@@ -94,6 +94,13 @@ struct master_service_connection {
 typedef void
 master_service_connection_callback_t(struct master_service_connection *conn);
 
+/* If kill==TRUE, the callback should kill one of the existing connections
+   (likely the oldest). If kill==FALSE, it's just a request to check what is
+   the creation timestamp for the connection to be killed. Returns TRUE if
+   a connection was/could be killed, FALSE if not. */
+typedef bool
+master_service_avail_overflow_callback_t(bool kill, struct timeval *created_r);
+
 extern struct master_service *master_service;
 
 const char *master_service_getopt_string(void);
@@ -157,10 +164,9 @@ void master_service_set_die_callback(struct master_service *service,
 void master_service_set_idle_die_callback(struct master_service *service,
 					  bool (*callback)(void));
 /* Call the given callback when there are no available connections and master
-   has indicated that it can't create any more processes to handle requests.
-   The callback could decide to kill one of the existing connections. */
+   has indicated that it can't create any more processes to handle requests. */
 void master_service_set_avail_overflow_callback(struct master_service *service,
-						void (*callback)(void));
+	master_service_avail_overflow_callback_t *callback);
 
 /* Set maximum number of clients we can handle. Default is given by master. */
 void master_service_set_client_limit(struct master_service *service,

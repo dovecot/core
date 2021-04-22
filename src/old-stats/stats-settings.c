@@ -14,7 +14,7 @@ static struct file_listener_settings *old_stats_unix_listeners[] = {
 	&old_stats_unix_listeners_array[0]
 };
 static buffer_t old_stats_unix_listeners_buf = {
-	old_stats_unix_listeners, sizeof(old_stats_unix_listeners), { NULL, }
+	{ { old_stats_unix_listeners, sizeof(old_stats_unix_listeners) } }
 };
 static struct file_listener_settings old_stats_fifo_listeners_array[] = {
 	{ "old-stats-mail", 0600, "", "" },
@@ -25,8 +25,7 @@ static struct file_listener_settings *old_stats_fifo_listeners[] = {
 	&old_stats_fifo_listeners_array[1]
 };
 static buffer_t old_stats_fifo_listeners_buf = {
-	old_stats_fifo_listeners,
-	sizeof(old_stats_fifo_listeners), { NULL, }
+	{ { old_stats_fifo_listeners, sizeof(old_stats_fifo_listeners) } }
 };
 /* </settings checks> */
 
@@ -62,18 +61,18 @@ struct service_settings old_stats_service_settings = {
 /* we're kind of kludging here to avoid "stats_" prefix in the struct fields */
 #undef DEF
 #define DEF(type, name) \
-	{ type, "old_stats_"#name, offsetof(struct old_stats_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type("old_stats_"#name, name, struct old_stats_settings)
 
 static const struct setting_define old_stats_setting_defines[] = {
-	DEF(SET_SIZE, memory_limit),
-	DEF(SET_TIME, command_min_time),
-	DEF(SET_TIME, session_min_time),
-	DEF(SET_TIME, user_min_time),
-	DEF(SET_TIME, domain_min_time),
-	DEF(SET_TIME, ip_min_time),
-	DEF(SET_STR, carbon_server),
-	DEF(SET_TIME, carbon_interval),
-	DEF(SET_STR, carbon_name),
+	DEF(SIZE, memory_limit),
+	DEF(TIME, command_min_time),
+	DEF(TIME, session_min_time),
+	DEF(TIME, user_min_time),
+	DEF(TIME, domain_min_time),
+	DEF(TIME, ip_min_time),
+	DEF(STR, carbon_server),
+	DEF(TIME, carbon_interval),
+	DEF(STR, carbon_name),
 	SETTING_DEFINE_LIST_END
 };
 

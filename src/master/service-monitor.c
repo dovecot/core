@@ -23,6 +23,7 @@
 
 #define SERVICE_DROP_WARN_INTERVAL_SECS 1
 #define SERVICE_DROP_TIMEOUT_MSECS (10*1000)
+#define SERVICE_LOG_DROP_WARNING_DELAY_MSECS 500
 #define MAX_DIE_WAIT_MSECS 5000
 #define SERVICE_MAX_EXIT_FAILURES_IN_SEC 10
 #define SERVICE_PREFORK_MAX_AT_ONCE 10
@@ -91,6 +92,9 @@ static void service_status_less(struct service_process *process,
 				const struct master_status *status)
 {
 	struct service *service = process->service;
+
+	/* some process got more connections - remove the delayed warning */
+	timeout_remove(&service->to_drop_warning);
 
 	if (process->available_count == 0) {
 		/* process can accept more clients again */
@@ -190,6 +194,31 @@ static void service_status_input(struct service *service)
 		service_status_input_one(service, &status[i]);
 }
 
+static void service_log_drop_warning(struct service *service)
+{
+	const char *limit_name;
+	unsigned int limit;
+
+	if (service->last_drop_warning +
+	    SERVICE_DROP_WARN_INTERVAL_SECS <= ioloop_time) {
+		service->last_drop_warning = ioloop_time;
+		if (service->process_limit > 1) {
+			limit_name = "process_limit";
+			limit = service->process_limit;
+		} else if (service->set->service_count == 1) {
+			i_assert(service->client_limit == 1);
+			limit_name = "client_limit/service_count";
+			limit = 1;
+		} else {
+			limit_name = "client_limit";
+			limit = service->client_limit;
+		}
+		i_warning("service(%s): %s (%u) reached, "
+			  "client connections are being dropped",
+			  service->set->name, limit_name, limit);
+	}
+}
+
 static void service_monitor_throttle(struct service *service)
 {
 	if (service->to_throttle != NULL || service->list->destroying)
@@ -241,28 +270,10 @@ static void service_monitor_listen_pending(struct service *service)
 static void service_drop_connections(struct service_listener *l)
 {
 	struct service *service = l->service;
-	const char *limit_name;
-	unsigned int limit;
 	int fd;
 
-	if (service->last_drop_warning +
-	    SERVICE_DROP_WARN_INTERVAL_SECS <= ioloop_time) {
-		service->last_drop_warning = ioloop_time;
-		if (service->process_limit > 1) {
-			limit_name = "process_limit";
-			limit = service->process_limit;
-		} else if (service->set->service_count == 1) {
-			i_assert(service->client_limit == 1);
-			limit_name = "client_limit/service_count";
-			limit = 1;
-		} else {
-			limit_name = "client_limit";
-			limit = service->client_limit;
-		}
-		i_warning("service(%s): %s (%u) reached, "
-			  "client connections are being dropped",
-			  service->set->name, limit_name, limit);
-	}
+	if (service->type != SERVICE_TYPE_WORKER)
+		service_log_drop_warning(service);
 
 	if (service->type == SERVICE_TYPE_LOGIN) {
 		/* reached process limit, notify processes that they
@@ -275,6 +286,12 @@ static void service_drop_connections(struct service_listener *l)
 		/* maybe this is a temporary peak, stop for a while and
 		   see if it goes away */
 		service_monitor_listen_pending(service);
+		if (service->to_drop_warning == NULL &&
+		    service->type == SERVICE_TYPE_WORKER) {
+			service->to_drop_warning =
+				timeout_add_short(SERVICE_LOG_DROP_WARNING_DELAY_MSECS,
+						  service_log_drop_warning, service);
+		}
 	} else {
 		/* this has been happening for a while now. just accept and
 		   close the connection, so it's clear that this is happening
@@ -378,6 +395,7 @@ static void service_monitor_listen_start_force(struct service *service)
 	service->listening = TRUE;
 	service->listen_pending = FALSE;
 	timeout_remove(&service->to_drop);
+	timeout_remove(&service->to_drop_warning);
 
 	array_foreach(&service->listeners, listeners) {
 		struct service_listener *l = *listeners;
@@ -409,6 +427,7 @@ void service_monitor_listen_stop(struct service *service)
 	service->listening = FALSE;
 	service->listen_pending = FALSE;
 	timeout_remove(&service->to_drop);
+	timeout_remove(&service->to_drop_warning);
 }
 
 static int service_login_create_notify_fd(struct service *service)

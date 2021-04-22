@@ -735,7 +735,8 @@ static void
 wrapper_ostream_close(struct iostream_private *stream,
 		      bool close_parent ATTR_UNUSED)
 {
-	struct wrapper_ostream *wostream = (struct wrapper_ostream *)stream;
+	struct wrapper_ostream *wostream =
+		container_of(stream, struct wrapper_ostream, ostream.iostream);
 
 	timeout_remove(&wostream->to_event);
 	wrapper_ostream_output_close(wostream);
@@ -745,7 +746,8 @@ wrapper_ostream_close(struct iostream_private *stream,
 
 static void wrapper_ostream_destroy(struct iostream_private *stream)
 {
-	struct wrapper_ostream *wostream = (struct wrapper_ostream *)stream;
+	struct wrapper_ostream *wostream =
+		container_of(stream, struct wrapper_ostream, ostream.iostream);
 
 	timeout_remove(&wostream->to_event);
 	i_free(wostream->pending_error);
@@ -763,7 +765,8 @@ static void wrapper_ostream_destroy(struct iostream_private *stream)
 
 static void wrapper_ostream_cork(struct ostream_private *stream, bool set)
 {
-	struct wrapper_ostream *wostream = (struct wrapper_ostream *)stream;
+	struct wrapper_ostream *wostream =
+		container_of(stream, struct wrapper_ostream, ostream);
 	int ret;
 
 	if (stream->ostream.closed || wostream->pending_errno != 0)
@@ -801,7 +804,8 @@ static ssize_t
 wrapper_ostream_sendv(struct ostream_private *stream,
 		      const struct const_iovec *iov, unsigned int iov_count)
 {
-	struct wrapper_ostream *wostream = (struct wrapper_ostream *)stream;
+	struct wrapper_ostream *wostream =
+		container_of(stream, struct wrapper_ostream, ostream);
 	bool must_uncork = FALSE;
 	ssize_t sret;
 
@@ -842,7 +846,8 @@ wrapper_ostream_sendv(struct ostream_private *stream,
 
 static int wrapper_ostream_flush(struct ostream_private *stream)
 {
-	struct wrapper_ostream *wostream = (struct wrapper_ostream *)stream;
+	struct wrapper_ostream *wostream =
+		container_of(stream, struct wrapper_ostream, ostream);
 	struct ostream *ostream = &stream->ostream;
 	bool must_uncork = FALSE;
 	int ret;
@@ -953,7 +958,8 @@ wrapper_ostream_set_flush_callback(struct ostream_private *stream,
 				   stream_flush_callback_t *callback,
 				   void *context)
 {
-	struct wrapper_ostream *wostream = (struct wrapper_ostream *)stream;
+	struct wrapper_ostream *wostream =
+		container_of(stream, struct wrapper_ostream, ostream);
 
 	stream->callback = callback;
 	stream->context = context;
@@ -973,7 +979,8 @@ wrapper_ostream_set_flush_callback(struct ostream_private *stream,
 static void
 wrapper_ostream_flush_pending(struct ostream_private *stream, bool set)
 {
-	struct wrapper_ostream *wostream = (struct wrapper_ostream *)stream;
+	struct wrapper_ostream *wostream =
+		container_of(stream, struct wrapper_ostream, ostream);
 
 	wostream->flush_pending = set;
 	if (!set)
@@ -991,7 +998,8 @@ wrapper_ostream_flush_pending(struct ostream_private *stream, bool set)
 static size_t
 wrapper_ostream_get_buffer_used_size(const struct ostream_private *stream)
 {
-	struct wrapper_ostream *wostream = (struct wrapper_ostream *)stream;
+	const struct wrapper_ostream *wostream =
+		container_of(stream, const struct wrapper_ostream, ostream);
 	size_t size = 0;
 
 	if (wostream->buffer != NULL)
@@ -1004,7 +1012,8 @@ wrapper_ostream_get_buffer_used_size(const struct ostream_private *stream)
 static size_t
 wrapper_ostream_get_buffer_avail_size(const struct ostream_private *stream)
 {
-	struct wrapper_ostream *wostream = (struct wrapper_ostream *)stream;
+	const struct wrapper_ostream *wostream =
+		container_of(stream, const struct wrapper_ostream, ostream);
 	size_t size = 0;
 
 	if (wostream->ostream.max_buffer_size == SIZE_MAX)
@@ -1027,7 +1036,8 @@ static void
 wrapper_ostream_switch_ioloop_to(struct ostream_private *stream,
 				 struct ioloop *ioloop)
 {
-	struct wrapper_ostream *wostream = (struct wrapper_ostream *)stream;
+	struct wrapper_ostream *wostream =
+		container_of(stream, struct wrapper_ostream, ostream);
 
 	if (wostream->flush_ioloop != ioloop &&
 	    wostream->switch_ioloop_to != NULL)

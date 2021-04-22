@@ -208,4 +208,14 @@ mail_namespace_is_inbox_noinferiors(struct mail_namespace *ns)
 		strncmp(ns->prefix, "INBOX", ns->prefix_len-1) != 0;
 }
 
+/* Returns TRUE if namespace prefix is INBOX. */
+static inline bool
+mail_namespace_prefix_is_inbox(struct mail_namespace *ns)
+{
+	return (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+	       (ns->prefix_len == 6) &&
+	       (strncasecmp(ns->prefix, "INBOX", 5) == 0) &&
+	       (ns->prefix[5] == mail_namespace_get_sep(ns));
+}
+
 #endif

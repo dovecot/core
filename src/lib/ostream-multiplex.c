@@ -145,7 +145,8 @@ static int o_stream_multiplex_flush(struct multiplex_ostream *mstream)
 static int o_stream_multiplex_ochannel_flush(struct ostream_private *stream)
 {
 	ssize_t ret;
-	struct multiplex_ochannel *channel = (struct multiplex_ochannel *)stream;
+	struct multiplex_ochannel *channel =
+		container_of(stream, struct multiplex_ochannel, ostream);
 	struct multiplex_ostream *mstream = channel->mstream;
 
 	/* flush parent stream always, so there is room for more. */
@@ -165,7 +166,8 @@ static int o_stream_multiplex_ochannel_flush(struct ostream_private *stream)
 
 static void o_stream_multiplex_ochannel_cork(struct ostream_private *stream, bool set)
 {
-	struct multiplex_ochannel *channel = (struct multiplex_ochannel*)stream;
+	struct multiplex_ochannel *channel =
+		container_of(stream, struct multiplex_ochannel, ostream);
 	if (channel->corked != set && !set) {
 		/* flush */
 		(void)o_stream_multiplex_ochannel_flush(stream);
@@ -177,7 +179,8 @@ static ssize_t
 o_stream_multiplex_ochannel_sendv(struct ostream_private *stream,
 				 const struct const_iovec *iov, unsigned int iov_count)
 {
-	struct multiplex_ochannel *channel = (struct multiplex_ochannel*)stream;
+	struct multiplex_ochannel *channel =
+		container_of(stream, struct multiplex_ochannel, ostream);
 	size_t total = 0, avail = o_stream_get_buffer_avail_size(&stream->ostream);
 	size_t optimal_size = I_MIN(IO_BLOCK_SIZE, avail);
 
@@ -227,7 +230,7 @@ static size_t
 o_stream_multiplex_ochannel_get_buffer_used_size(const struct ostream_private *stream)
 {
 	const struct multiplex_ochannel *channel =
-		(const struct multiplex_ochannel*)stream;
+		container_of(stream, const struct multiplex_ochannel, ostream);
 
 	return channel->buf->used +
 		o_stream_get_buffer_used_size(channel->mstream->parent);
@@ -237,7 +240,7 @@ static size_t
 o_stream_multiplex_ochannel_get_buffer_avail_size(const struct ostream_private *stream)
 {
 	const struct multiplex_ochannel *channel =
-		(const struct multiplex_ochannel*)stream;
+		container_of(stream, const struct multiplex_ochannel, ostream);
 	size_t max_avail = I_MIN(channel->mstream->bufsize,
 				 o_stream_get_buffer_avail_size(stream->parent));
 
@@ -250,7 +253,8 @@ static void
 o_stream_multiplex_ochannel_close(struct iostream_private *stream, bool close_parent)
 {
 	struct multiplex_ochannel *const *channelp;
-	struct multiplex_ochannel *channel = (struct multiplex_ochannel*)stream;
+	struct multiplex_ochannel *channel =
+		container_of(stream, struct multiplex_ochannel, ostream.iostream);
 
 	channel->closed = TRUE;
 	if (close_parent) {
@@ -282,7 +286,8 @@ static void o_stream_multiplex_try_destroy(struct multiplex_ostream *mstream)
 static void o_stream_multiplex_ochannel_destroy(struct iostream_private *stream)
 {
 	struct multiplex_ochannel **channelp;
-	struct multiplex_ochannel *channel = (struct multiplex_ochannel*)stream;
+	struct multiplex_ochannel *channel =
+		container_of(stream, struct multiplex_ochannel, ostream.iostream);
 	o_stream_unref(&channel->ostream.parent);
 	if (channel->buf != NULL)
 		buffer_free(&channel->buf);
@@ -329,7 +334,8 @@ o_stream_add_channel_real(struct multiplex_ostream *mstream, uint8_t cid)
 struct ostream *o_stream_multiplex_add_channel(struct ostream *stream, uint8_t cid)
 {
 	struct multiplex_ochannel *chan =
-		(struct multiplex_ochannel *)stream->real_stream;
+		container_of(stream->real_stream, struct multiplex_ochannel,
+			     ostream);
 	i_assert(get_channel(chan->mstream, cid) == NULL);
 
 	return o_stream_add_channel_real(chan->mstream, cid);
@@ -354,6 +360,7 @@ struct ostream *o_stream_create_multiplex(struct ostream *parent, size_t bufsize
 uint8_t o_stream_multiplex_get_channel_id(struct ostream *stream)
 {
 	struct multiplex_ochannel *channel =
-		(struct multiplex_ochannel *)stream->real_stream;
+		container_of(stream->real_stream, struct multiplex_ochannel,
+			     ostream);
 	return channel->cid;
 }

@@ -429,7 +429,7 @@ memcached_ascii_dict_init(struct dict *driver, const char *uri,
 		return -1;
 	}
 
-	dict->conn.conn.event_parent = dict->dict.event;
+	dict->conn.conn.event_parent = set->event_parent;
 	connection_init_client_ip(memcached_ascii_connections, &dict->conn.conn,
 				  NULL, &dict->ip, dict->port);
 	event_set_append_log_prefix(dict->conn.conn.event, "memcached: ");

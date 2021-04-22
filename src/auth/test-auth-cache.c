@@ -6,7 +6,8 @@
 #include "auth-cache.h"
 #include "test-common.h"
 
-const struct var_expand_table auth_request_var_expand_static_tab[] = {
+const struct var_expand_table
+auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT + 1] = {
 	/* these 3 must be in this order */
 	{ 'u', NULL, "user" },
 	{ 'n', NULL, "username" },

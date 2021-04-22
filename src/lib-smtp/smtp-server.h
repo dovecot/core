@@ -302,8 +302,12 @@ struct smtp_server_callbacks {
 	/* Connection */
 	int (*conn_start_tls)(void *conn_ctx,
 		struct istream **input, struct ostream **output);
+	/* Connection is disconnected. This is always called before
+	   conn_free(). */
 	void (*conn_disconnect)(void *context, const char *reason);
-	void (*conn_destroy)(void *context);
+	/* The last reference to connection is dropped, causing the connection
+	   to be freed. */
+	void (*conn_free)(void *context);
 
 	/* Security */
 	bool (*conn_is_trusted)(void *context);
@@ -392,6 +396,8 @@ struct smtp_server_settings {
 	/* The path provided to the RCPT command does not need to have the
 	   domain part. */
 	bool rcpt_domain_optional:1;
+	/* Don't include "(state=%s)" in the disconnection reason string. */
+	bool no_state_in_reason:1;
 };
 
 struct smtp_server_stats {

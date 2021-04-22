@@ -24,7 +24,7 @@ static struct file_listener_settings *lmtp_unix_listeners[] = {
 	&lmtp_unix_listeners_array[0]
 };
 static buffer_t lmtp_unix_listeners_buf = {
-	lmtp_unix_listeners, sizeof(lmtp_unix_listeners), { NULL, }
+	{ { lmtp_unix_listeners, sizeof(lmtp_unix_listeners) } }
 };
 /* </settings checks> */
 
@@ -56,25 +56,25 @@ struct service_settings lmtp_service_settings = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct lmtp_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct lmtp_settings)
 
 static const struct setting_define lmtp_setting_defines[] = {
-	DEF(SET_BOOL, lmtp_proxy),
-	DEF(SET_BOOL, lmtp_save_to_detail_mailbox),
-	DEF(SET_BOOL, lmtp_rcpt_check_quota),
-	DEF(SET_BOOL, lmtp_add_received_header),
-	DEF(SET_UINT, lmtp_user_concurrency_limit),
-	DEF(SET_ENUM, lmtp_hdr_delivery_address),
-	DEF(SET_STR_VARS, lmtp_rawlog_dir),
-	DEF(SET_STR_VARS, lmtp_proxy_rawlog_dir),
+	DEF(BOOL, lmtp_proxy),
+	DEF(BOOL, lmtp_save_to_detail_mailbox),
+	DEF(BOOL, lmtp_rcpt_check_quota),
+	DEF(BOOL, lmtp_add_received_header),
+	DEF(UINT, lmtp_user_concurrency_limit),
+	DEF(ENUM, lmtp_hdr_delivery_address),
+	DEF(STR_VARS, lmtp_rawlog_dir),
+	DEF(STR_VARS, lmtp_proxy_rawlog_dir),
 
-	DEF(SET_STR, lmtp_client_workarounds),
+	DEF(STR, lmtp_client_workarounds),
 
-	DEF(SET_STR_VARS, login_greeting),
-	DEF(SET_STR, login_trusted_networks),
+	DEF(STR_VARS, login_greeting),
+	DEF(STR, login_trusted_networks),
 
-	DEF(SET_STR, mail_plugins),
-	DEF(SET_STR, mail_plugin_dir),
+	DEF(STR, mail_plugins),
+	DEF(STR, mail_plugin_dir),
 
 	SETTING_DEFINE_LIST_END
 };

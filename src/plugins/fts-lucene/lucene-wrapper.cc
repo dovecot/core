@@ -215,7 +215,7 @@ void lucene_utf8_n_to_tchar(const unsigned char *src, size_t srcsize,
 			    wchar_t *dest, size_t destsize)
 {
 	ARRAY_TYPE(unichars) dest_arr;
-	buffer_t buf = { 0, 0, { 0, 0, 0, 0, 0 } };
+	buffer_t buf = { { 0, 0 } };
 
 	i_assert(sizeof(wchar_t) == sizeof(unichar_t));
 
@@ -656,7 +656,7 @@ int lucene_index_build_deinit(struct lucene_index *index)
 static int
 wcharguid_to_guid(guid_128_t dest, const wchar_t *src)
 {
-	buffer_t buf = { 0, 0, { 0, 0, 0, 0, 0 } };
+	buffer_t buf = { { 0, 0 } };
 	char src_chars[GUID_128_SIZE*2 + 1];
 	unsigned int i;
 
@@ -926,7 +926,7 @@ int lucene_index_rescan(struct lucene_index *index)
 static void guid128_to_wguid(const guid_128_t guid,
 			     wchar_t wguid_hex[MAILBOX_GUID_HEX_LENGTH + 1])
 {
-	buffer_t buf = { 0, 0, { 0, 0, 0, 0, 0 } };
+	buffer_t buf = { { 0, 0 } };
 	unsigned char guid_hex[MAILBOX_GUID_HEX_LENGTH];
 	unsigned int i;
 

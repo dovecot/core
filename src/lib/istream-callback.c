@@ -16,14 +16,16 @@ struct callback_istream {
 
 static void i_stream_callback_destroy(struct iostream_private *stream)
 {
-	struct callback_istream *cstream = (struct callback_istream *)stream;
+	struct callback_istream *cstream =
+		container_of(stream, struct callback_istream, istream.iostream);
 
 	buffer_free(&cstream->buf);
 }
 
 static ssize_t i_stream_callback_read(struct istream_private *stream)
 {
-	struct callback_istream *cstream = (struct callback_istream *)stream;
+	struct callback_istream *cstream =
+		container_of(stream, struct callback_istream, istream);
 	size_t pos;
 
 	if (cstream->callback == NULL) {
@@ -88,7 +90,8 @@ void i_stream_callback_append(struct istream *input,
 			      const void *data, size_t size)
 {
 	struct callback_istream *cstream =
-		(struct callback_istream *)input->real_stream;
+		container_of(input->real_stream,
+			     struct callback_istream, istream);
 
 	buffer_append(cstream->buf, data, size);
 }
@@ -101,7 +104,8 @@ void i_stream_callback_append_str(struct istream *input, const char *str)
 buffer_t *i_stream_callback_get_buffer(struct istream *input)
 {
 	struct callback_istream *cstream =
-		(struct callback_istream *)input->real_stream;
+		container_of(input->real_stream,
+			     struct callback_istream, istream);
 
 	return cstream->buf;
 }

@@ -36,6 +36,8 @@ imap_hibernate_handshake(int fd, const char *path, const char **error_r)
 		buf[ret-1] = '\0';
 		if (version_string_verify(buf, "imap-hibernate", 1))
 			return 0;
+	} else {
+		buf[ret] = '\0';
 	}
 	*error_r = t_strdup_printf("%s sent invalid VERSION handshake: %s",
 				   path, buf);
@@ -97,8 +99,10 @@ static void imap_hibernate_write_cmd(struct client *client, string_t *cmd,
 		str_append(cmd, "\tmailbox=");
 		str_append_tabescaped(cmd, mailbox_get_vname(client->mailbox));
 	}
-	if (tag != NULL)
-		str_printfa(cmd, "\ttag=%s", tag);
+	if (tag != NULL) {
+		str_append(cmd, "\ttag=");
+		str_append_tabescaped(cmd, tag);
+	}
 	str_append(cmd, "\tstats=");
 	str_append_tabescaped(cmd, client_stats(client));
 	if (client->command_queue != NULL &&
@@ -174,7 +178,8 @@ imap_hibernate_process_send(struct client *client, const buffer_t *state,
 			   "/"IMAP_HIBERNATE_SOCKET_NAME, NULL);
 	fd = net_connect_unix_with_retries(path, 1000);
 	if (fd == -1) {
-		e_error(client->event, "net_connect_unix(%s) failed: %m", path);
+		*error_r = t_strdup_printf(
+			"net_connect_unix(%s) failed: %m", path);
 		return -1;
 	}
 	net_set_nonblock(fd, FALSE);
@@ -200,19 +205,23 @@ imap_hibernate_process_send(struct client *client, const buffer_t *state,
 	return 0;
 }
 
-bool imap_client_hibernate(struct client **_client)
+bool imap_client_hibernate(struct client **_client, const char **reason_r)
 {
 	struct client *client = *_client;
 	buffer_t *state;
 	const char *error;
 	int ret, fd_notify = -1, fd_hibernate = -1;
 
+	*reason_r = NULL;
+
 	if (client->fd_in != client->fd_out) {
 		/* we won't try to hibernate stdio clients */
+		*reason_r = "stdio clients can't be hibernated";
 		return FALSE;
 	}
 	if (o_stream_get_buffer_used_size(client->output) > 0) {
 		/* wait until we've sent the pending output to client */
+		*reason_r = "output pending to client";
 		return FALSE;
 	}
 
@@ -230,12 +239,14 @@ bool imap_client_hibernate(struct client **_client)
 			"Couldn't export state: %s (mailbox=%s)", error,
 			client->mailbox == NULL ? "" :
 			mailbox_get_vname(client->mailbox));
+		*reason_r = error;
 	} else if (ret == 0) {
 		e->add_str("error", error);
 		e_debug(e->event(), "Couldn't hibernate imap client: "
 			"Couldn't export state: %s (mailbox=%s)", error,
 			client->mailbox == NULL ? "" :
 			mailbox_get_vname(client->mailbox));
+		*reason_r = error;
 	}
 	if (ret > 0 && client->mailbox != NULL) {
 		fd_notify = mailbox_watch_extract_notify_fd(client->mailbox,
@@ -245,6 +256,7 @@ bool imap_client_hibernate(struct client **_client)
 			e_debug(e->event(), "Couldn't hibernate imap client: "
 				"Couldn't extract notifications fd: %s",
 				error);
+			*reason_r = error;
 			ret = -1;
 		}
 	}
@@ -254,6 +266,7 @@ bool imap_client_hibernate(struct client **_client)
 			e->add_str("error", error);
 			e_error(e->event(),
 				"Couldn't hibernate imap client: %s", error);
+			*reason_r = error;
 			ret = -1;
 		}
 	}

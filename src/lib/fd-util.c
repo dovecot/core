@@ -151,7 +151,10 @@ void i_close_fd_path(int *fd, const char *path, const char *arg,
 	}
 
 	saved_errno = errno;
-	if (unlikely(close(*fd) < 0))
+	/* Ignore ECONNRESET because we don't really care about it here,
+	   as we are closing the socket down in any case. There might be
+	   unsent data but nothing we can do about that. */
+	if (unlikely(close(*fd) < 0 && errno != ECONNRESET))
 		i_error("%s: close(%s%s%s) @ %s:%d failed (fd=%d): %m",
 			func, arg,
 			(path == NULL) ? "" : " = ",

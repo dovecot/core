@@ -669,8 +669,8 @@ config_parse_line(struct config_parser_context *ctx,
 			*value_r = line + 1;
 			return CONFIG_LINE_TYPE_KEYFILE;
 		}
-		if (*line == '$') {
-			*value_r = line + 1;
+		if (*line != '\'' && *line != '"' && strchr(line, '$') != NULL) {
+			*value_r = line;
 			return CONFIG_LINE_TYPE_KEYVARIABLE;
 		}
 
@@ -795,15 +795,81 @@ config_require_key(struct config_parser_context *ctx, const char *key)
 	return FALSE;
 }
 
+static int config_write_keyvariable(struct config_parser_context *ctx,
+				    const char *key, const char *value,
+				    string_t *str)
+{
+	const char *var_end, *p_start = value;
+	bool dump;
+	while (value != NULL) {
+		const char *var_name;
+		bool expand_parent;
+		var_end = strchr(value, ' ');
+
+		/* expand_parent=TRUE for "key = $key stuff".
+		   we'll always expand it so that doveconf -n can give
+		   usable output */
+		if (var_end == NULL)
+			var_name = value;
+		else
+			var_name = t_strdup_until(value, var_end);
+		expand_parent = strcmp(key, var_name +
+				       (*var_name == '$' ? 1 : 0)) == 0;
+
+		if (!str_begins(var_name, "$") ||
+		    (value > p_start && !IS_WHITE(value[-1]))) {
+			str_append(str, var_name);
+		} else if (!ctx->expand_values && !expand_parent) {
+			str_append(str, var_name);
+		} else if (str_begins(var_name, "$ENV:")) {
+			/* use environment variable */
+			const char *envval = getenv(var_name+5);
+			if (envval != NULL)
+				str_append(str, envval);
+		} else {
+			const char *var_value;
+			enum setting_type var_type;
+
+			i_assert(var_name[0] == '$');
+			var_name++;
+
+			var_value = config_get_value(ctx->cur_section, var_name,
+						     expand_parent, &var_type);
+			if (var_value == NULL) {
+				ctx->error = p_strconcat(ctx->pool,
+							 "Unknown variable: $",
+							 var_name, NULL);
+				return -1;
+			}
+			if (!config_export_type(str, var_value, NULL,
+						var_type, TRUE, &dump)) {
+				ctx->error = p_strconcat(ctx->pool,
+							 "Invalid variable: $",
+							 var_name, NULL);
+				return -1;
+			}
+		}
+
+		if (var_end == NULL)
+			break;
+
+		str_append_c(str, ' ');
+
+		/* find next token */
+		while (*var_end != '\0' && IS_WHITE(*var_end)) var_end++;
+		value = var_end;
+		while (*var_end != '\0' && !IS_WHITE(*var_end)) var_end++;
+	}
+
+	return 0;
+}
+
 static int config_write_value(struct config_parser_context *ctx,
 			      enum config_line_type type,
 			      const char *key, const char *value)
 {
 	string_t *str = ctx->str;
-	const void *var_name, *var_value, *p;
-	enum setting_type var_type;
 	const char *error, *path, *full_key;
-	bool dump, expand_parent;
 
 	switch (type) {
 	case CONFIG_LINE_TYPE_KEYVALUE:
@@ -828,38 +894,8 @@ static int config_write_value(struct config_parser_context *ctx,
 		}
 		break;
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
-		/* expand_parent=TRUE for "key = $key stuff".
-		   we'll always expand it so that doveconf -n can give
-		   usable output */
-		p = strchr(value, ' ');
-		if (p == NULL)
-			var_name = value;
-		else
-			var_name = t_strdup_until(value, p);
-		expand_parent = strcmp(key, var_name) == 0;
-
-		if (!ctx->expand_values && !expand_parent) {
-			str_append_c(str, '$');
-			str_append(str, value);
-		} else {
-			var_value = config_get_value(ctx->cur_section, var_name,
-						     expand_parent, &var_type);
-			if (var_value == NULL) {
-				ctx->error = p_strconcat(ctx->pool,
-							 "Unknown variable: $",
-							 var_name, NULL);
-				return -1;
-			}
-			if (!config_export_type(str, var_value, NULL,
-						var_type, TRUE, &dump)) {
-				ctx->error = p_strconcat(ctx->pool,
-							 "Invalid variable: $",
-							 var_name, NULL);
-				return -1;
-			}
-			if (p != NULL)
-				str_append(str, p);
-		}
+		if (config_write_keyvariable(ctx, key, value, str) < 0)
+			return -1;
 		break;
 	default:
 		i_unreached();

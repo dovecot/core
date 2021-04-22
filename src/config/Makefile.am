@@ -7,6 +7,7 @@ pkglibexec_PROGRAMS = config
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-settings \
@@ -20,24 +21,27 @@ AM_CPPFLAGS = \
 	-DSYSCONFDIR=\""$(pkgsysconfdir)"\" \
 	$(BINARY_CFLAGS)
 
+noinst_LTLIBRARIES = libconfig.la
+
 config_LDADD = \
+	$(noinst_LTLIBRARIES) \
 	$(LIBDOVECOT) \
 	$(RAND_LIBS) \
 	$(BINARY_LDFLAGS) \
 	-lm
 
-config_DEPENDENCIES = $(LIBDOVECOT_DEPS)
+config_DEPENDENCIES = $(LIBDOVECOT_DEPS) $(noinst_LTLIBRARIES)
 
 doveconf_LDADD = \
+	$(noinst_LTLIBRARIES) \
 	$(LIBDOVECOT) \
 	$(RAND_LIBS) \
 	$(BINARY_LDFLAGS) \
 	-lm
 
-doveconf_DEPENDENCIES = $(LIBDOVECOT_DEPS)
+doveconf_DEPENDENCIES = $(LIBDOVECOT_DEPS) $(noinst_LTLIBRARIES)
 
 common = \
-	all-settings.c \
 	config-connection.c \
 	config-filter.c \
 	config-parser.c \
@@ -45,13 +49,15 @@ common = \
 	old-set-parser.c \
 	sysinfo-get.c
 
+libconfig_la_SOURCES = $(common)
+
 config_SOURCES = \
-	main.c \
-	$(common)
+	all-settings.c \
+	main.c
 
 doveconf_SOURCES = \
-	doveconf.c \
-	$(common)
+	all-settings.c \
+	doveconf.c
 
 noinst_HEADERS = \
 	all-settings.h \
@@ -71,3 +77,22 @@ all-settings.c: $(SETTING_FILES) $(top_srcdir)/src/config/settings-get.pl
 EXTRA_DIST = \
 	config-settings.c \
 	settings-get.pl
+
+test_programs = \
+	test-config-parser
+
+noinst_PROGRAMS = $(test_programs)
+
+test_libs = \
+	$(noinst_LTLIBRARIES) \
+	$(LIBDOVECOT)
+
+test_config_parser_CFLAGS = $(AM_CPPFLAGS)
+test_config_parser_SOURCES = test-config-parser.c
+test_config_parser_LDADD = $(test_libs)
+test_config_parser_DEPENDENCIES = $(LIBDOVECOT_DEPS) $(noinst_LTLIBRARIES)
+
+check-local:
+	for bin in $(test_programs); do \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	done

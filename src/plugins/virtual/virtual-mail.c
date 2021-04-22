@@ -35,27 +35,20 @@ virtual_mail_alloc(struct mailbox_transaction_context *t,
 {
 	struct virtual_mailbox *mbox = (struct virtual_mailbox *)t->box;
 	struct virtual_mail *vmail;
-	pool_t pool;
+	pool_t mail_pool, data_pool;
 
-	pool = pool_alloconly_create("vmail", 1024);
-	vmail = p_new(pool, struct virtual_mail, 1);
-	vmail->imail.mail.pool = pool;
-	vmail->imail.mail.data_pool =
-		pool_alloconly_create("virtual index_mail", 512);
-	vmail->imail.mail.v = virtual_mail_vfuncs;
-	vmail->imail.mail.mail.box = t->box;
-	vmail->imail.mail.mail.transaction = t;
-	array_create(&vmail->imail.mail.module_contexts, pool,
-		     sizeof(void *), 5);
-
-	vmail->imail.ibox = INDEX_STORAGE_CONTEXT(t->box);
-
+	mail_pool = pool_alloconly_create("vmail", 1024);
+	data_pool = pool_alloconly_create("virtual index_mail", 512);
+	vmail = p_new(mail_pool, struct virtual_mail, 1);
 	vmail->wanted_fields = wanted_fields;
-	if (wanted_headers != NULL) {
-		vmail->wanted_headers = wanted_headers;
-		mailbox_header_lookup_ref(wanted_headers);
-	}
-
+	vmail->wanted_headers = wanted_headers;
+	if (vmail->wanted_headers != NULL)
+		mailbox_header_lookup_ref(vmail->wanted_headers);
+	/* Do not pass wanted_fields or wanted_headers to index_mail_init.
+	   It will just cause unwanted behaviour, as we only want these
+	   to be passed to backend mails. */
+	index_mail_init(&vmail->imail, t, 0, NULL, mail_pool, data_pool);
+	vmail->imail.mail.v = virtual_mail_vfuncs;
 	i_array_init(&vmail->backend_mails, array_count(&mbox->backend_boxes));
 	return &vmail->imail.mail.mail;
 }
@@ -75,26 +68,16 @@ static void virtual_mail_close(struct mail *mail)
 	for (i = 0; i < count; i++) {
 		struct mail_private *p = (struct mail_private *)mails[i];
 
-		p->v.close(mails[i]);
+		if (vmail->imail.freeing)
+			mail_free(&mails[i]);
+		else
+			p->v.close(mails[i]);
+	}
+	if (vmail->imail.freeing) {
+		array_free(&vmail->backend_mails);
+		mailbox_header_lookup_unref(&vmail->wanted_headers);
 	}
 	index_mail_close(mail);
-}
-
-static void virtual_mail_free(struct mail *mail)
-{
-	struct virtual_mail *vmail = (struct virtual_mail *)mail;
-	struct mail **mails;
-	unsigned int i, count;
-
-	mails = array_get_modifiable(&vmail->backend_mails, &count);
-	for (i = 0; i < count; i++)
-		mail_free(&mails[i]);
-	array_free(&vmail->backend_mails);
-
-	mailbox_header_lookup_unref(&vmail->wanted_headers);
-	event_unref(&mail->event);
-	pool_unref(&vmail->imail.mail.data_pool);
-	pool_unref(&vmail->imail.mail.pool);
 }
 
 static struct mail *
@@ -208,12 +191,7 @@ static void virtual_mail_set_seq(struct mail *mail, uint32_t seq, bool saving)
 			      mbox->virtual_ext_id, &data, NULL);
 	memcpy(&vmail->cur_vrec, data, sizeof(vmail->cur_vrec));
 
-	i_zero(&vmail->imail.data);
-	p_clear(vmail->imail.mail.data_pool);
-
-	vmail->imail.data.seq = seq;
-	mail->seq = seq;
-	mail_index_lookup_uid(mail->transaction->view, seq, &mail->uid);
+	index_mail_set_seq(mail, seq, saving);
 
 	vmail->cur_backend_mail = NULL;
 }
@@ -253,16 +231,16 @@ static bool virtual_mail_prefetch(struct mail *mail)
 	return p->v.prefetch(backend_mail);
 }
 
-static void virtual_mail_precache(struct mail *mail)
+static int virtual_mail_precache(struct mail *mail)
 {
 	struct virtual_mail *vmail = (struct virtual_mail *)mail;
 	struct mail *backend_mail;
 	struct mail_private *p;
 
 	if (backend_mail_get(vmail, &backend_mail) < 0)
-		return;
+		return -1;
 	p = (struct mail_private *)backend_mail;
-	p->v.precache(backend_mail);
+	return p->v.precache(backend_mail);
 }
 
 static void
@@ -568,7 +546,7 @@ virtual_mail_set_cache_corrupted(struct mail *mail,
 
 struct mail_vfuncs virtual_mail_vfuncs = {
 	virtual_mail_close,
-	virtual_mail_free,
+	index_mail_free,
 	virtual_mail_set_seq,
 	virtual_mail_set_uid,
 	virtual_mail_set_uid_cache_updates,

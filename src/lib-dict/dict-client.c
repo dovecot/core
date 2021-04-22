@@ -748,6 +748,7 @@ client_dict_init(struct dict *driver, const char *uri,
 	dict = i_new(struct client_dict, 1);
 	dict->dict = *driver;
 	dict->conn.dict = dict;
+	dict->conn.conn.event_parent = set->event_parent;
 	dict->value_type = set->value_type;
 	dict->username = i_strdup(set->username);
 	dict->idle_msecs = idle_msecs;
@@ -984,10 +985,8 @@ struct client_dict_sync_lookup {
 };
 
 static void client_dict_lookup_callback(const struct dict_lookup_result *result,
-					void *context)
+					struct client_dict_sync_lookup *lookup)
 {
-	struct client_dict_sync_lookup *lookup = context;
-
 	lookup->ret = result->ret;
 	if (result->ret == -1)
 		lookup->error = i_strdup(result->error);

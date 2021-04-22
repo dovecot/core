@@ -645,7 +645,9 @@ bool mail_cache_need_purge(struct mail_cache *cache, const char **reason_r)
 	}
 
 	i_assert(cache->need_purge_reason != NULL);
-	*reason_r = cache->need_purge_reason;
+	/* t_strdup() the reason in case it gets freed (or replaced)
+	   before it's used */
+	*reason_r = t_strdup(cache->need_purge_reason);
 	return TRUE;
 }
 

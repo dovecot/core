@@ -160,10 +160,8 @@ bool dict_connection_unref(struct dict_connection *conn)
 	/* we should have only transactions that haven't been committed or
 	   rollbacked yet. close those before dict is deinitialized. */
 	if (array_is_created(&conn->transactions)) {
-		array_foreach_modifiable(&conn->transactions, transaction) {
-			if (transaction->ctx != NULL)
-				dict_transaction_rollback(&transaction->ctx);
-		}
+		array_foreach_modifiable(&conn->transactions, transaction)
+			dict_transaction_rollback(&transaction->ctx);
 	}
 
 	if (conn->dict != NULL)

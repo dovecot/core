@@ -41,7 +41,8 @@ static bool user_callback(const char *reply, void *context)
 		}
 	} else {
 		result = USERDB_RESULT_INTERNAL_FAILURE;
-		i_error("BUG: auth-worker sent invalid user reply");
+		e_error(authdb_event(request),
+			"BUG: auth-worker sent invalid user reply");
 		args = "";
 	}
 

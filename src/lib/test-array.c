@@ -84,7 +84,7 @@ static void test_array_foreach_elem_string(void)
 	t_array_init(&cblurbs, 32);
 	for (i = 0; i < 10; i++) {
 		cstring = t_strdup_printf("x%iy", i);
-		string = (char *)cstring;
+		string = t_strdup_noconst(cstring);
 		array_push_back(&blurbs, &string);
 		array_push_back(&cblurbs, &cstring);
 	}
@@ -233,10 +233,6 @@ static void test_array_cmp(void)
 	test_end();
 }
 
-static int test_compare_string(const char *const *c1, const char *const *c2)
-{
-	return strcmp(*c1, *c2);
-}
 static void test_array_cmp_str(void)
 {
 #define NELEMS 5u
@@ -253,7 +249,7 @@ static void test_array_cmp_str(void)
 	}
 	array_append(&arr1, elemstrs, NELEMS);
 	test_assert(array_cmp(&arr1, &arr2) == TRUE); /* pointers shared, so identical */
-	test_assert(array_equal_fn(&arr1, &arr2, test_compare_string) == TRUE); /* therefore value same */
+	test_assert(array_equal_fn(&arr1, &arr2, i_strcmp_p) == TRUE); /* therefore value same */
 	for (i = 0; i < 2560; i++) {
 		unsigned int j = i_rand_limit(NELEMS);
 		const char *const *ostr_p = array_idx(&arr2, j);
@@ -269,13 +265,13 @@ static void test_array_cmp_str(void)
 			buf[rc+1] = '\0';
 		array_idx_set(&arr2, j, &bufp);
 		test_assert(array_cmp(&arr1, &arr2) == FALSE); /* pointers now differ */
-		test_assert_idx(array_equal_fn(&arr1, &arr2, test_compare_string)
+		test_assert_idx(array_equal_fn(&arr1, &arr2, i_strcmp_p)
 				== (strcmp(ostr, buf) == 0), i); /* sometimes still the same */
-		test_assert_idx(array_equal_fn(&arr1, &arr2, test_compare_string)
+		test_assert_idx(array_equal_fn(&arr1, &arr2, i_strcmp_p)
 				== (ochar == buf[rc]), i); /* ditto */
 		array_idx_set(&arr2, j, &ostr);
 		test_assert(array_cmp(&arr1, &arr2) == TRUE); /* pointers now same again */
-		test_assert_idx(array_equal_fn(&arr1, &arr2, test_compare_string) == TRUE, i); /* duh! */
+		test_assert_idx(array_equal_fn(&arr1, &arr2, i_strcmp_p) == TRUE, i); /* duh! */
 	}
 	/* length differences being detected are tested in other tests */
 	test_end();
@@ -359,6 +355,34 @@ enum fatal_test_state fatal_array(unsigned int stage)
 		/* can't copy different array sizes */
 		test_expect_fatal_string("(array_copy): assertion failed: (dest->element_size == src->element_size)");
 		array_copy(&ad.arr, 1, &as.arr, 0, 4);
+		return FATAL_TEST_FAILURE;
+	}
+	case 3: {
+		ARRAY(uint8_t) arr;
+		/* Allocate value dynamically, so compiler won't know the
+		   allocated memory size and output a warning that it's too
+		   small for array_append(). */
+		uint8_t *value = t_malloc0(1);
+
+		t_array_init(&arr, 2);
+		array_push_back(&arr, value);
+		test_expect_fatal_string("Buffer write out of range");
+		/* this is supposed to assert-crash before it even attempts to
+		   access value */
+		array_append(&arr, value, UINT_MAX);
+		return FATAL_TEST_FAILURE;
+	}
+	case 4: {
+		ARRAY(uint32_t) arr;
+		/* Allocate value dynamically (see above for reasoning). */
+		uint32_t *value = t_malloc0(1);
+
+		t_array_init(&arr, 2);
+		array_push_back(&arr, value);
+		test_expect_fatal_string("Buffer write out of range");
+		/* this is supposed to assert-crash before it even attempts to
+		   access value */
+		array_append(&arr, value, UINT_MAX);
 		return FATAL_TEST_FAILURE;
 	}
 	}

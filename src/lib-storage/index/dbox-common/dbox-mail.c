@@ -22,9 +22,8 @@ dbox_mail_alloc(struct mailbox_transaction_context *t,
 
 	pool = pool_alloconly_create("mail", 2048);
 	mail = p_new(pool, struct dbox_mail, 1);
-	mail->imail.mail.pool = pool;
 
-	index_mail_init(&mail->imail, t, wanted_fields, wanted_headers);
+	index_mail_init(&mail->imail, t, wanted_fields, wanted_headers, pool, NULL);
 	return &mail->imail.mail.mail;
 }
 

@@ -12,19 +12,21 @@ static bool smtp_submit_settings_check(void *_set, pool_t pool, const char **err
 #undef DEF
 #undef DEFLIST
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct smtp_submit_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct smtp_submit_settings)
 #define DEFLIST(field, name, defines) \
-	{ SET_DEFLIST, name, offsetof(struct smtp_submit_settings, field), defines }
+	{ .type = SET_DEFLIST, .key = name, \
+	  .offset = offsetof(struct smtp_submit_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define smtp_submit_setting_defines[] = {
-	DEF(SET_STR, hostname),
-	DEF(SET_BOOL, mail_debug),
+	DEF(STR, hostname),
+	DEF(BOOL, mail_debug),
 
-	DEF(SET_STR_VARS, submission_host),
-	DEF(SET_STR_VARS, sendmail_path),
-	DEF(SET_TIME, submission_timeout),
+	DEF(STR_VARS, submission_host),
+	DEF(STR_VARS, sendmail_path),
+	DEF(TIME, submission_timeout),
 
-	DEF(SET_ENUM, submission_ssl),
+	DEF(ENUM, submission_ssl),
 
 	SETTING_DEFINE_LIST_END
 };

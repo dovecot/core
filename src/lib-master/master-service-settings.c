@@ -31,38 +31,38 @@
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct master_service_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct master_service_settings)
 
 static bool
 master_service_settings_check(void *_set, pool_t pool, const char **error_r);
 
 static const struct setting_define master_service_setting_defines[] = {
-	DEF(SET_STR, base_dir),
-	DEF(SET_STR, state_dir),
-	DEF(SET_STR, instance_name),
-	DEF(SET_STR, log_path),
-	DEF(SET_STR, info_log_path),
-	DEF(SET_STR, debug_log_path),
-	DEF(SET_STR, log_timestamp),
-	DEF(SET_STR, log_debug),
-	DEF(SET_STR, log_core_filter),
-	DEF(SET_STR, syslog_facility),
-	DEF(SET_STR, import_environment),
-	DEF(SET_STR, stats_writer_socket_path),
-	DEF(SET_SIZE, config_cache_size),
-	DEF(SET_BOOL, version_ignore),
-	DEF(SET_BOOL, shutdown_clients),
-	DEF(SET_BOOL, verbose_proctitle),
+	DEF(STR, base_dir),
+	DEF(STR, state_dir),
+	DEF(STR, instance_name),
+	DEF(STR, log_path),
+	DEF(STR, info_log_path),
+	DEF(STR, debug_log_path),
+	DEF(STR, log_timestamp),
+	DEF(STR, log_debug),
+	DEF(STR, log_core_filter),
+	DEF(STR, syslog_facility),
+	DEF(STR, import_environment),
+	DEF(STR, stats_writer_socket_path),
+	DEF(SIZE, config_cache_size),
+	DEF(BOOL, version_ignore),
+	DEF(BOOL, shutdown_clients),
+	DEF(BOOL, verbose_proctitle),
 
-	DEF(SET_STR, haproxy_trusted_networks),
-	DEF(SET_TIME, haproxy_timeout),
+	DEF(STR, haproxy_trusted_networks),
+	DEF(TIME, haproxy_timeout),
 
 	SETTING_DEFINE_LIST_END
 };
 
 /* <settings checks> */
-#ifdef HAVE_SYSTEMD
-#  define ENV_SYSTEMD " LISTEN_PID LISTEN_FDS"
+#ifdef HAVE_LIBSYSTEMD
+#  define ENV_SYSTEMD " LISTEN_PID LISTEN_FDS NOTIFY_SOCKET"
 #else
 #  define ENV_SYSTEMD ""
 #endif
@@ -232,23 +232,47 @@ master_service_exec_config(struct master_service *service,
 }
 
 static void
-config_exec_fallback(struct master_service *service,
-		     const struct master_service_settings_input *input)
+config_error_update_path_source(struct master_service *service,
+				const struct master_service_settings_input *input,
+				const char **error)
 {
-	const char *path;
+	if (input->config_path == NULL && service->config_path_from_master) {
+		*error = t_strdup_printf("%s (path is from %s environment)",
+					 *error, MASTER_CONFIG_FILE_ENV);
+	}
+}
+
+static void
+config_exec_fallback(struct master_service *service,
+		     const struct master_service_settings_input *input,
+		     const char **error)
+{
+	const char *path, *stat_error;
 	struct stat st;
 	int saved_errno = errno;
 
-	if (input->never_exec)
+	if (input->never_exec) {
+		*error = t_strdup_printf(
+			"%s - doveconf execution fallback is disabled", *error);
 		return;
+	}
 
 	path = input->config_path != NULL ? input->config_path :
 		master_service_get_config_path(service);
-	if (stat(path, &st) == 0 &&
-	    !S_ISSOCK(st.st_mode) && !S_ISFIFO(st.st_mode)) {
+	if (stat(path, &st) < 0)
+		stat_error = t_strdup_printf("stat(%s) failed: %m", path);
+	else if (S_ISSOCK(st.st_mode))
+		stat_error = t_strdup_printf("%s is a UNIX socket", path);
+	else if (S_ISFIFO(st.st_mode))
+		stat_error = t_strdup_printf("%s is a FIFO", path);
+	else {
 		/* it's a file, not a socket/pipe */
 		master_service_exec_config(service, input);
 	}
+	*error = t_strdup_printf(
+		"%s - Also failed to read config by executing doveconf: %s",
+		*error, stat_error);
+	config_error_update_path_source(service, input, error);
 	errno = saved_errno;
 }
 
@@ -291,6 +315,7 @@ master_service_open_config(struct master_service *service,
 	if (stat(path, &st) < 0) {
 		*error_r = errno == EACCES ? eacces_error_get("stat", path) :
 			t_strdup_printf("stat(%s) failed: %m", path);
+		config_error_update_path_source(service, input, error_r);
 		return -1;
 	}
 
@@ -304,7 +329,7 @@ master_service_open_config(struct master_service *service,
 	if (fd < 0) {
 		*error_r = t_strdup_printf("net_connect_unix(%s) failed: %m",
 					   path);
-		config_exec_fallback(service, input);
+		config_exec_fallback(service, input, error_r);
 		return -1;
 	}
 	net_set_nonblock(fd, FALSE);
@@ -547,7 +572,7 @@ int master_service_settings_read(struct master_service *service,
 				break;
 			i_close_fd(&fd);
 			if (!retry) {
-				config_exec_fallback(service, input);
+				config_exec_fallback(service, input, error_r);
 				return -1;
 			}
 			/* config process died, retry connecting */
@@ -613,7 +638,7 @@ int master_service_settings_read(struct master_service *service,
 					"Timeout reading config from %s", path);
 			}
 			i_close_fd(&fd);
-			config_exec_fallback(service, input);
+			config_exec_fallback(service, input, error_r);
 			settings_parser_deinit(&parser);
 			return -1;
 		}

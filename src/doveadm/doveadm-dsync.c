@@ -41,12 +41,14 @@
 
 #define DSYNC_COMMON_GETOPT_ARGS "+1a:dDEfg:I:l:m:n:NO:Pr:Rs:t:e:T:Ux:"
 #define DSYNC_REMOTE_CMD_EXIT_WAIT_SECS 30
-/* The broken_char is mainly set to get a proper error message when trying to
-   convert a mailbox with a name that can't be used properly translated between
-   vname/storage_name and would otherwise be mixed up with a normal "mailbox
-   doesn't exist" error message. This could be any control character, since
-   none of them are allowed to be created in regular mailbox names. */
-#define DSYNC_LIST_BROKEN_CHAR '\003'
+/* The default vname_escape_char to use unless overridden by BROKENCHAR
+   setting. Note that it's only used for internal dsync names, so it won't end
+   up in permanent storage names. The only requirement for it is that it's not
+   the same as the hierarchy separator. */
+#define DSYNC_LIST_VNAME_ESCAPE_CHAR '%'
+/* In case DSYNC_LIST_VNAME_ESCAPE_CHAR is the hierarchy separator,
+   use this instead. */
+#define DSYNC_LIST_VNAME_ALT_ESCAPE_CHAR '~'
 
 #define DSYNC_DEFAULT_IO_STREAM_TIMEOUT_SECS (60*10)
 
@@ -324,11 +326,16 @@ static bool mirror_get_remote_cmd(struct dsync_cmd_context *ctx,
 static void doveadm_user_init_dsync(struct mail_user *user)
 {
 	struct mail_namespace *ns;
+	char ns_sep = mail_namespaces_get_root_sep(user->namespaces);
 
 	user->dsyncing = TRUE;
 	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
-		if (ns->list->set.broken_char == '\0')
-			ns->list->set.broken_char = DSYNC_LIST_BROKEN_CHAR;
+		if (ns->list->set.vname_escape_char == '\0') {
+			ns->list->set.vname_escape_char =
+				ns_sep != DSYNC_LIST_VNAME_ESCAPE_CHAR ?
+				DSYNC_LIST_VNAME_ESCAPE_CHAR :
+				DSYNC_LIST_VNAME_ALT_ESCAPE_CHAR;
+		}
 	}
 }
 
@@ -405,7 +412,8 @@ cmd_dsync_run_local(struct dsync_cmd_context *ctx, struct mail_user *user,
 		return -1;
 	}
 
-	brain2 = dsync_brain_slave_init(user2, ibc2, TRUE, "");
+	brain2 = dsync_brain_slave_init(user2, ibc2, TRUE, "",
+					doveadm_settings->dsync_alt_char[0]);
 	mail_user_unref(&user2);
 
 	brain1_running = brain2_running = TRUE;
@@ -1220,7 +1228,8 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 	mail_user_set_get_temp_prefix(temp_prefix, user->set);
 
 	ibc = cmd_dsync_ibc_stream_init(ctx, name, str_c(temp_prefix));
-	brain = dsync_brain_slave_init(user, ibc, FALSE, process_title_prefix);
+	brain = dsync_brain_slave_init(user, ibc, FALSE, process_title_prefix,
+				       doveadm_settings->dsync_alt_char[0]);
 
 	io_loop_run(current_ioloop);
 

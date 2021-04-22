@@ -1,6 +1,6 @@
 /* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
-#include "lib.h"
+#include "auth-common.h"
 #include "array.h"
 #include "str.h"
 #include "var-expand.h"
@@ -243,6 +243,7 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	http_set.no_auto_redirect = FALSE;
 	http_set.no_auto_retry = TRUE;
 	http_set.debug = db->set.debug;
+	http_set.event_parent = auth_event;
 
 	db->client = http_client_init(&http_set);
 
@@ -287,6 +288,7 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 			.username = "",
 			.base_dir = global_auth_settings->base_dir,
 			.value_type = DICT_DATA_TYPE_STRING,
+			.event_parent = auth_event,
 		};
 		if (dict_init(db->set.local_validation_key_dict, &dict_set,
 			      &db->oauth2_set.key_dict, &error) < 0)

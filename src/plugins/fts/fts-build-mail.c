@@ -278,13 +278,18 @@ fts_build_add_tokens_with_filter(struct fts_mail_build_context *ctx,
 		ret = ret2 = fts_tokenizer_next(tokenizer, data, size, &token, &error);
 		if (ret2 > 0 && filter != NULL)
 			ret2 = fts_filter_filter(filter, &token, &error);
-		if (ret2 < 0)
-			i_error("fts: Couldn't create indexable tokens: %s", error);
+		if (ret2 < 0) {
+			mail_set_critical(ctx->mail,
+				"fts: Couldn't create indexable tokens: %s",
+				error);
+		}
 		if (ret2 > 0) {
 			if (fts_backend_update_build_more(ctx->update_ctx,
 							  (const void *)token,
-							  strlen(token)) < 0)
+							  strlen(token)) < 0) {
+				mail_storage_set_internal_error(ctx->mail->box->storage);
 				ret = -1;
+			}
 		}
 	} T_END;
 	return ret;
@@ -298,8 +303,9 @@ fts_detect_language(struct fts_mail_build_context *ctx,
 	struct mail_user *user = ctx->update_ctx->backend->ns->user;
 	struct fts_language_list *lang_list = fts_user_get_language_list(user);
 	const struct fts_language *lang;
+	const char *error;
 
-	switch (fts_language_detect(lang_list, data, size, &lang)) {
+	switch (fts_language_detect(lang_list, data, size, &lang, &error)) {
 	case FTS_LANGUAGE_RESULT_SHORT:
 		/* save the input so far and try again later */
 		buffer_append(ctx->pending_input, data, size);
@@ -319,6 +325,9 @@ fts_detect_language(struct fts_mail_build_context *ctx,
 	case FTS_LANGUAGE_RESULT_ERROR:
 		/* internal language detection library failure
 		   (e.g. invalid config). don't index anything. */
+		mail_set_critical(ctx->mail,
+			"Language detection library initialization failed: %s",
+			error);
 		return -1;
 	default:
 		i_unreached();
@@ -384,8 +393,10 @@ fts_build_full_words(struct fts_mail_build_context *ctx,
 		/* we have a full word, index it */
 		if (fts_backend_update_build_more(ctx->update_ctx,
 						  ctx->word_buf->data,
-						  ctx->word_buf->used) < 0)
+						  ctx->word_buf->used) < 0) {
+			mail_storage_set_internal_error(ctx->mail->box->storage);
 			return -1;
+		}
 		buffer_set_used_size(ctx->word_buf, 0);
 	}
 
@@ -399,8 +410,10 @@ fts_build_full_words(struct fts_mail_build_context *ctx,
 		}
 	}
 
-	if (fts_backend_update_build_more(ctx->update_ctx, data, i) < 0)
+	if (fts_backend_update_build_more(ctx->update_ctx, data, i) < 0) {
+		mail_storage_set_internal_error(ctx->mail->box->storage);
 		return -1;
+	}
 
 	if (i < size) {
 		if (ctx->word_buf == NULL) {
@@ -422,7 +435,11 @@ static int fts_build_data(struct fts_mail_build_context *ctx,
 		    FTS_BACKEND_FLAG_BUILD_FULL_WORDS) != 0) {
 		return fts_build_full_words(ctx, data, size, last);
 	} else {
-		return fts_backend_update_build_more(ctx->update_ctx, data, size);
+		if (fts_backend_update_build_more(ctx->update_ctx, data, size) < 0) {
+			mail_storage_set_internal_error(ctx->mail->box->storage);
+			return -1;
+		}
+		return 0;
 	}
 }
 
@@ -466,7 +483,11 @@ static int fts_body_parser_finish(struct fts_mail_build_context *ctx,
 		*retriable_err_msg_r = retriable_error;
 		return -1;
 	}
-	return deinit_ret < 0 ? -1 : 0;
+	if (deinit_ret < 0) {
+		mail_storage_set_internal_error(ctx->mail->box->storage);
+		return -1;
+	}
+	return 0;
 }
 
 static int
@@ -493,8 +514,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 	if (mail_get_stream_because(mail, NULL, NULL, "fts indexing", &input) < 0) {
 		if (mail->expunged)
 			return 0;
-		i_error("Failed to read mailbox %s mail UID=%u stream: %s",
-			mailbox_get_vname(mail->box), mail->uid,
+		mail_set_critical(mail, "Failed to read stream: %s",
 			mailbox_get_last_internal_error(mail->box, NULL));
 		return -1;
 	}
@@ -516,7 +536,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 			if (input->stream_errno == 0)
 				ret = 0;
 			else {
-				i_error("read(%s) failed: %s",
+				mail_set_critical(mail, "read(%s) failed: %s",
 					i_stream_get_name(input),
 					i_stream_get_error(input));
 			}
@@ -625,6 +645,7 @@ int fts_build_mail(struct fts_backend_update_context *update_ctx,
 				   between temporary errors and invalid
 				   document input. */
 				i_info("%s - ignoring", retriable_err_msg);
+				ret = 0;
 				break;
 			}
 		}

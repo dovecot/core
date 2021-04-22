@@ -1,5 +1,33 @@
 /* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
 
+/*
+   There are various different mailbox names here. Here's an example assuming
+    - imapc_list_prefix = "prefix"
+    - remote imapc server separator = '/'
+    - mailbox_list separator = '^' (actually this is currently always the same
+      as remote separator, but this clarifies the example)
+    - namespace separator = ':'
+    - fs_list separator = '.'
+    - mailbox_list storage_name_escape_char = '+'
+    - mailbox_list vname_escape_char = '~'
+    - fs_list storage_name_escape_char = '%'
+
+   remote_name = "prefix/~foo/bar^baz+_%_."
+   storage_name = "prefix^~foo^bar+5ebaz+2b_%_."
+    - separator is changed from / to ^
+    - conflicting ^ separator in remote_name is escaped as +5e
+    - storage_name_escape character + is escaped as +2b
+   vname = "~7efoo:bar.baz+_%_."
+    - imapc_list_prefix is dropped
+    - vname_escape_character ~ is escaped into ~7e
+    - separator is changed from ^ to :
+    - storage_name_escape_characters are unescaped
+   fs_name = "prefix.~foo.bar^baz+_%25_%2e"
+    - this is generated from remote_name
+    - separator is changed from / to .
+    - storage_name_escape_character=% and fs_list separator . are escaped
+*/
+
 #include "lib.h"
 #include "ioloop.h"
 #include "str.h"
@@ -156,25 +184,33 @@ imap_list_flag_parse(const char *str, enum mailbox_info_flags *flag_r)
 }
 
 static const char *
-imapc_list_to_vname(struct imapc_mailbox_list *list, const char *imapc_name)
+imapc_list_remote_to_storage_name(struct imapc_mailbox_list *list,
+				  const char *remote_name)
 {
-	const char *list_name;
-
 	/* typically mailbox_list_escape_name() is used to escape vname into
 	   a list name. but we want to convert remote IMAP name to a list name,
 	   so we need to use the remote IMAP separator. */
-	list_name = mailbox_list_escape_name_params(imapc_name, "", list->root_sep,
+	return mailbox_list_escape_name_params(remote_name, "",
+		list->root_sep,
 		mailbox_list_get_hierarchy_sep(&list->list),
-		list->list.set.escape_char, "");
-	/* list_name is now valid, so we can convert it to vname */
-	return mailbox_list_get_vname(&list->list, list_name);
+		list->list.set.storage_name_escape_char, "");
 }
 
-const char *imapc_list_to_remote(struct imapc_mailbox_list *list, const char *name)
+static const char *
+imapc_list_remote_to_vname(struct imapc_mailbox_list *list,
+			   const char *remote_name)
 {
-	return mailbox_list_unescape_name_params(name, "", list->root_sep,
+	return mailbox_list_get_vname(&list->list,
+		imapc_list_remote_to_storage_name(list, remote_name));
+}
+
+const char *
+imapc_list_storage_to_remote_name(struct imapc_mailbox_list *list,
+				  const char *storage_name)
+{
+	return mailbox_list_unescape_name_params(storage_name, "", list->root_sep,
 				mailbox_list_get_hierarchy_sep(&list->list),
-				list->list.set.escape_char);
+				list->list.set.storage_name_escape_char);
 }
 
 static struct mailbox_node *
@@ -184,13 +220,13 @@ imapc_list_update_tree(struct imapc_mailbox_list *list,
 {
 	struct mailbox_node *node;
 	const struct imap_arg *flags;
-	const char *name, *flag;
+	const char *remote_name, *flag;
 	enum mailbox_info_flags info_flag, info_flags = 0;
 	bool created;
 
 	if (!imap_arg_get_list(&args[0], &flags) ||
 	    args[1].type == IMAP_ARG_EOL ||
-	    !imap_arg_get_astring(&args[2], &name))
+	    !imap_arg_get_astring(&args[2], &remote_name))
 		return NULL;
 
 	while (imap_arg_get_atom(flags, &flag)) {
@@ -200,7 +236,8 @@ imapc_list_update_tree(struct imapc_mailbox_list *list,
 	}
 
 	T_BEGIN {
-		const char *vname = imapc_list_to_vname(list, name);
+		const char *vname =
+			imapc_list_remote_to_vname(list, remote_name);
 
 		if ((info_flags & MAILBOX_NONEXISTENT) != 0)
 			node = mailbox_tree_lookup(tree, vname);
@@ -217,14 +254,14 @@ static void imapc_untagged_list(const struct imapc_untagged_reply *reply,
 {
 	struct imapc_mailbox_list *list = client->_list;
 	const struct imap_arg *args = reply->args;
-	const char *sep, *name;
+	const char *sep, *remote_name;
 
 	if (list->root_sep == '\0') {
 		/* we haven't asked for the separator yet.
 		   lets see if this is the reply for its request. */
 		if (args[0].type == IMAP_ARG_EOL ||
 		    !imap_arg_get_nstring(&args[1], &sep) ||
-		    !imap_arg_get_astring(&args[2], &name))
+		    !imap_arg_get_astring(&args[2], &remote_name))
 			return;
 
 		/* we can't handle NIL separator yet */
@@ -393,8 +430,11 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 		mailbox_list_settings_init_defaults(&list_set);
 		list_set.layout = MAILBOX_LIST_NAME_MAILDIRPLUSPLUS;
 		list_set.root_dir = dir;
-		list_set.escape_char = IMAPC_LIST_ESCAPE_CHAR;
-		list_set.broken_char = IMAPC_LIST_BROKEN_CHAR;
+		list_set.index_pvt_dir = p_strdup_empty(list->list.pool, list->list.set.index_pvt_dir);
+		/* Filesystem needs to be able to store any kind of a mailbox
+		   name. */
+		list_set.storage_name_escape_char =
+			IMAPC_LIST_FS_NAME_ESCAPE_CHAR;
 
 		if (mailbox_list_create(list_set.layout, list->list.ns,
 					&list_set, MAILBOX_LIST_FLAG_SECONDARY,
@@ -408,41 +448,37 @@ static struct mailbox_list *imapc_list_get_fs(struct imapc_mailbox_list *list)
 }
 
 static const char *
-imapc_list_get_fs_name(struct imapc_mailbox_list *list, const char *name)
+imapc_list_storage_to_fs_name(struct imapc_mailbox_list *list,
+			      const char *storage_name)
 {
 	struct mailbox_list *fs_list = imapc_list_get_fs(list);
-	struct mail_namespace *ns = list->list.ns;
-	const char *vname;
-	char ns_sep = mail_namespace_get_sep(ns);
+	const char *remote_name;
 
-	if (name == NULL)
+	if (storage_name == NULL)
 		return NULL;
 
-	vname = mailbox_list_get_vname(&list->list, name);
-	if (list->set->imapc_list_prefix[0] != '\0') {
-		/* put back the prefix, so it gets included in the filesystem. */
-		size_t vname_len = strlen(vname);
+	remote_name = imapc_list_storage_to_remote_name(list, storage_name);
+	return mailbox_list_escape_name_params(remote_name, "",
+			list->root_sep,
+			mailbox_list_get_hierarchy_sep(fs_list),
+			fs_list->set.storage_name_escape_char, "");
+}
 
-		if (ns->prefix_len > 0) {
-			/* skip over the namespace prefix */
-			i_assert(strncmp(vname, ns->prefix, ns->prefix_len-1) == 0);
-			if (vname_len == ns->prefix_len-1)
-				vname = "";
-			else {
-				i_assert(vname[ns->prefix_len-1] == ns_sep);
-				vname += ns->prefix_len;
-			}
-		}
-		if (vname[0] == '\0') {
-			vname = t_strconcat(ns->prefix,
-				list->set->imapc_list_prefix, NULL);
-		} else {
-			vname = t_strdup_printf("%s%s%c%s", ns->prefix,
-						list->set->imapc_list_prefix,
-						ns_sep, vname);
-		}
-	}
-	return mailbox_list_get_storage_name(fs_list, vname);
+static const char *
+imapc_list_fs_to_storage_name(struct imapc_mailbox_list *list,
+			      const char *fs_name)
+{
+	struct mailbox_list *fs_list = imapc_list_get_fs(list);
+	const char *remote_name;
+
+	if (fs_name == NULL)
+		return NULL;
+
+	remote_name = mailbox_list_unescape_name_params(fs_name, "",
+			list->root_sep,
+			mailbox_list_get_hierarchy_sep(fs_list),
+			fs_list->set.storage_name_escape_char);
+	return imapc_list_remote_to_storage_name(list, remote_name);
 }
 
 static int
@@ -454,7 +490,7 @@ imapc_list_get_path(struct mailbox_list *_list, const char *name,
 	const char *fs_name;
 
 	if (fs_list != NULL) {
-		fs_name = imapc_list_get_fs_name(list, name);
+		fs_name = imapc_list_storage_to_fs_name(list, name);
 		return mailbox_list_get_path(fs_list, fs_name, type, path_r);
 	} else {
 		*path_r = NULL;
@@ -499,9 +535,7 @@ static void imapc_list_delete_unused_indexes(struct imapc_mailbox_list *list)
 	struct mailbox_list *fs_list = imapc_list_get_fs(list);
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
-	const char *imapc_list_prefix = list->set->imapc_list_prefix;
-	size_t imapc_list_prefix_len = strlen(imapc_list_prefix);
-	const char *fs_name, *vname;
+	const char *fs_name, *storage_name, *vname;
 
 	if (fs_list == NULL)
 		return;
@@ -511,32 +545,13 @@ static void imapc_list_delete_unused_indexes(struct imapc_mailbox_list *list)
 				      MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) T_BEGIN {
-		vname = info->vname;
-		if (imapc_list_prefix_len > 0 &&
-		    strcasecmp(vname, "INBOX") != 0) {
-			/* skip over the namespace prefix */
-			i_assert(strncmp(vname, fs_list->ns->prefix,
-					 fs_list->ns->prefix_len) == 0);
-			vname += fs_list->ns->prefix_len;
-			/* skip over the imapc list prefix */
-			i_assert(strncmp(vname, imapc_list_prefix,
-					 imapc_list_prefix_len) == 0);
-			vname += imapc_list_prefix_len;
-			if (vname[0] != '\0') {
-				i_assert(vname[0] == mail_namespace_get_sep(fs_list->ns));
-				vname++;
-			}
-			/* put back the namespace prefix */
-			if (fs_list->ns->prefix_len > 0) {
-				vname = t_strconcat(fs_list->ns->prefix,
-						    vname, NULL);
-			}
-		}
-		if (mailbox_tree_lookup(list->mailboxes, vname) == NULL) {
-			fs_name = mailbox_list_get_storage_name(fs_list,
-								info->vname);
+		fs_name = mailbox_list_get_storage_name(fs_list, info->vname);
+		storage_name = imapc_list_fs_to_storage_name(list, fs_name);
+		vname = mailbox_list_get_vname(&list->list, storage_name);
+
+		/* list->mailboxes contains proper vnames. fs_vname  */
+		if (mailbox_tree_lookup(list->mailboxes, vname) == NULL)
 			(void)fs_list->v.delete_mailbox(fs_list, fs_name);
-		}
 	} T_END;
 	(void)mailbox_list_iter_deinit(&iter);
 }
@@ -603,7 +618,7 @@ imapc_list_build_match_tree(struct imapc_mailbox_list_iterate_context *ctx)
 	struct mailbox_list_iter_update_context update_ctx;
 	struct mailbox_tree_iterate_context *iter;
 	struct mailbox_node *node;
-	const char *name;
+	const char *vname;
 
 	i_zero(&update_ctx);
 	update_ctx.iter_ctx = &ctx->ctx;
@@ -612,9 +627,9 @@ imapc_list_build_match_tree(struct imapc_mailbox_list_iterate_context *ctx)
 	update_ctx.match_parents = TRUE;
 
 	iter = mailbox_tree_iterate_init(list->mailboxes, NULL, 0);
-	while ((node = mailbox_tree_iterate_next(iter, &name)) != NULL) {
+	while ((node = mailbox_tree_iterate_next(iter, &vname)) != NULL) {
 		update_ctx.leaf_flags = node->flags;
-		mailbox_list_iter_update(&update_ctx, name);
+		mailbox_list_iter_update(&update_ctx, vname);
 	}
 	mailbox_tree_iterate_deinit(&iter);
 }
@@ -829,7 +844,7 @@ static int imapc_list_set_subscribed(struct mailbox_list *_list,
 	cmd = imapc_list_simple_context_init(&ctx, list);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
 	imapc_command_sendf(cmd, set ? "SUBSCRIBE %s" : "UNSUBSCRIBE %s",
-			    imapc_list_to_remote(list, name));
+			    imapc_list_storage_to_remote_name(list, name));
 	imapc_simple_run(&ctx, &cmd);
 	return ctx.ret;
 }
@@ -863,12 +878,12 @@ imapc_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
 	imapc_command_set_flags(cmd, IMAPC_COMMAND_FLAG_RETRIABLE);
-	imapc_command_sendf(cmd, "DELETE %s", imapc_list_to_remote(list, name));
+	imapc_command_sendf(cmd, "DELETE %s", imapc_list_storage_to_remote_name(list, name));
 	imapc_simple_run(&ctx, &cmd);
 
 	if (fs_list != NULL && ctx.ret == 0) {
-		name = imapc_list_get_fs_name(list, name);
-		(void)fs_list->v.delete_mailbox(fs_list, name);
+		const char *fs_name = imapc_list_storage_to_fs_name(list, name);
+		(void)fs_list->v.delete_mailbox(fs_list, fs_name);
 	}
 	return ctx.ret;
 }
@@ -880,8 +895,8 @@ imapc_list_delete_dir(struct mailbox_list *_list, const char *name)
 	struct mailbox_list *fs_list = imapc_list_get_fs(list);
 
 	if (fs_list != NULL) {
-		name = imapc_list_get_fs_name(list, name);
-		(void)mailbox_list_delete_dir(fs_list, name);
+		const char *fs_name = imapc_list_storage_to_fs_name(list, name);
+		(void)mailbox_list_delete_dir(fs_list, fs_name);
 	}
 	return 0;
 }
@@ -911,14 +926,16 @@ imapc_list_rename_mailbox(struct mailbox_list *oldlist, const char *oldname,
 
 	cmd = imapc_list_simple_context_init(&ctx, list);
 	imapc_command_sendf(cmd, "RENAME %s %s",
-			    imapc_list_to_remote(list, oldname),
-			    imapc_list_to_remote(list, newname));
+			    imapc_list_storage_to_remote_name(list, oldname),
+			    imapc_list_storage_to_remote_name(list, newname));
 	imapc_simple_run(&ctx, &cmd);
 	if (ctx.ret == 0 && fs_list != NULL && oldlist == newlist) {
-		oldname = imapc_list_get_fs_name(list, oldname);
-		newname = imapc_list_get_fs_name(list, newname);
-		(void)fs_list->v.rename_mailbox(fs_list, oldname,
-						fs_list, newname);
+		const char *old_fs_name =
+			imapc_list_storage_to_fs_name(list, oldname);
+		const char *new_fs_name =
+			imapc_list_storage_to_fs_name(list, newname);
+		(void)fs_list->v.rename_mailbox(fs_list, old_fs_name,
+						fs_list, new_fs_name);
 	}
 	return ctx.ret;
 }

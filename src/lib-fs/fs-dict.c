@@ -74,6 +74,7 @@ fs_dict_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 	i_zero(&dict_set);
 	dict_set.username = set->username;
 	dict_set.base_dir = set->base_dir;
+	dict_set.event_parent = set->event_parent;
 
 	if (dict_init(p, &dict_set, &fs->dict, &error) < 0) {
 		*error_r = t_strdup_printf("dict_init(%s) failed: %s",

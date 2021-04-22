@@ -89,7 +89,7 @@ pop3c_client_create_from_set(struct mail_storage *storage,
 		client_set.ssl_mode = POP3C_CLIENT_SSL_MODE_STARTTLS;
 	else
 		client_set.ssl_mode = POP3C_CLIENT_SSL_MODE_NONE;
-	return pop3c_client_init(&client_set);
+	return pop3c_client_init(&client_set, storage->event);
 }
 
 static void
@@ -127,10 +127,10 @@ pop3c_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 }
 
 static int
-pop3c_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
+pop3c_mailbox_exists(struct mailbox *box, bool auto_boxes,
 		     enum mailbox_existence *existence_r)
 {
-	if (box->inbox_any)
+	if ((auto_boxes && mailbox_is_autocreated(box)) || box->inbox_any)
 		*existence_r = MAILBOX_EXISTENCE_SELECT;
 	else
 		*existence_r = MAILBOX_EXISTENCE_NONE;

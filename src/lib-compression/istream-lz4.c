@@ -18,7 +18,6 @@ struct lz4_istream {
 	buffer_t *chunk_buf;
 	uint32_t chunk_size, chunk_left, max_uncompressed_chunk_size;
 
-	bool log_errors:1;
 	bool marked:1;
 	bool header_read:1;
 };
@@ -39,8 +38,6 @@ static void lz4_read_error(struct lz4_istream *zstream, const char *error)
 			    "lz4.read(%s): %s at %"PRIuUOFF_T,
 			    i_stream_get_name(&zstream->istream.istream), error,
 			    i_stream_get_absolute_offset(&zstream->istream.istream));
-	if (zstream->log_errors)
-		i_error("%s", zstream->istream.iostream.error);
 }
 
 static int i_stream_lz4_read_header(struct lz4_istream *zstream)
@@ -180,6 +177,11 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 	/* if we already have max_buffer_size amount of data, fail here */
 	if (stream->pos - stream->skip >= i_stream_get_max_buffer_size(&stream->istream))
 		return -2;
+	if (i_stream_get_data_size(zstream->istream.parent) > 0) {
+		/* Parent stream was only partially consumed. Set the stream's
+		   IO as pending to avoid hangs. */
+		i_stream_set_input_pending(&zstream->istream.istream, TRUE);
+	}
 	/* allocate enough space for the old data and the new
 	   decompressed chunk. we don't know the original compressed size,
 	   so just allocate the max amount of memory. */
@@ -253,12 +255,11 @@ static void i_stream_lz4_sync(struct istream_private *stream)
 	i_stream_lz4_reset(zstream);
 }
 
-struct istream *i_stream_create_lz4(struct istream *input, bool log_errors)
+struct istream *i_stream_create_lz4(struct istream *input)
 {
 	struct lz4_istream *zstream;
 
 	zstream = i_new(struct lz4_istream, 1);
-	zstream->log_errors = log_errors;
 
 	zstream->istream.iostream.close = i_stream_lz4_close;
 	zstream->istream.max_buffer_size = input->real_stream->max_buffer_size;

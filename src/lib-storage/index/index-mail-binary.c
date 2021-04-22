@@ -339,13 +339,14 @@ blocks_count_lines(struct binary_ctx *ctx, struct istream *full_input)
 		i_stream_skip(full_input, skip);
 		cur_block_offset += skip;
 
-		if (cur_block->input->eof) {
+		if (i_stream_read_eof(cur_block->input)) {
 			/* go to the next block */
-			if (++block_idx == block_count) {
+			if (block_idx+1 == block_count) {
 				i_assert(i_stream_read_eof(full_input));
 				ret = -1;
 				break;
 			}
+			block_idx++;
 			cur_block++;
 			cur_block_offset = 0;
 		}

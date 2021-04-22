@@ -50,7 +50,7 @@ fs_alloc(const struct fs *fs_class, const char *args,
 	fs->set.debug = set->debug;
 	fs->set.enable_timing = set->enable_timing;
 	i_array_init(&fs->module_contexts, 5);
-	fs->event = fs_create_event(fs, set->event);
+	fs->event = fs_create_event(fs, set->event_parent);
 	event_set_forced_debug(fs->event, fs->set.debug);
 
 	T_BEGIN {
@@ -961,6 +961,7 @@ void fs_write_set_hash(struct fs_file *file, const struct hash_method *method,
 	memcpy(file->write_digest, digest, method->digest_size);
 }
 
+#undef fs_file_set_async_callback
 void fs_file_set_async_callback(struct fs_file *file,
 				fs_file_async_callback_t *callback,
 				void *context)
@@ -1309,6 +1310,7 @@ const char *fs_iter_next(struct fs_iter *iter)
 	return ret;
 }
 
+#undef fs_iter_set_async_callback
 void fs_iter_set_async_callback(struct fs_iter *iter,
 				fs_file_async_callback_t *callback,
 				void *context)

@@ -65,7 +65,7 @@ static void test_lookup_one(void)
 	test_set_expected(dict, &res);
 
 	test_assert(dict_lookup(dict, pool, "shared/dictmap/hello/world", &value, &error) == 1);
-	test_assert(value != NULL && strcmp(value, "one") == 0);
+	test_assert_strcmp(value, "one");
         if (error != NULL)
                 i_error("dict_lookup failed: %s", error);
 	test_teardown(&dict);
@@ -76,10 +76,11 @@ static void test_atomic_inc(void)
 {
 	const char *error;
 	struct test_driver_result res = {
-		.nqueries = 2,
+		.nqueries = 3,
 		.queries = (const char *[]){
 			"UPDATE counters SET value=value+128 WHERE class = 'global' AND name = 'counter'",
 			"UPDATE quota SET bytes=bytes+128,count=count+1 WHERE username = 'testuser'",
+			"UPDATE quota SET bytes=bytes+128,count=count+1,folders=folders+123 WHERE username = 'testuser'",
 			NULL},
 		.result = NULL,
 	};
@@ -90,15 +91,28 @@ static void test_atomic_inc(void)
 
 	test_set_expected(dict, &res);
 
+	/* 1 field */
 	struct dict_transaction_context *ctx = dict_transaction_begin(dict);
 	dict_atomic_inc(ctx, "shared/counters/global/counter", 128);
 	test_assert(dict_transaction_commit(&ctx, &error) == 0);
         if (error != NULL)
                 i_error("dict_transaction_commit failed: %s", error);
 	error = NULL;
+
+	/* 2 fields */
 	ctx = dict_transaction_begin(dict);
 	dict_atomic_inc(ctx, "priv/quota/bytes", 128);
 	dict_atomic_inc(ctx, "priv/quota/count", 1);
+	test_assert(dict_transaction_commit(&ctx, &error) == 0);
+        if (error != NULL)
+		i_error("dict_transaction_commit failed: %s", error);
+	error = NULL;
+
+	/* 3 fields */
+	ctx = dict_transaction_begin(dict);
+	dict_atomic_inc(ctx, "priv/quota/bytes", 128);
+	dict_atomic_inc(ctx, "priv/quota/count", 1);
+	dict_atomic_inc(ctx, "priv/quota/folders", 123);
 	test_assert(dict_transaction_commit(&ctx, &error) == 0);
         if (error != NULL)
                 i_error("dict_transaction_commit failed: %s", error);
@@ -111,10 +125,11 @@ static void test_set(void)
 	const char *error;
 	struct test_driver_result res = {
 		.affected_rows = 1,
-		.nqueries = 2,
+		.nqueries = 3,
 		.queries = (const char *[]){
 			"INSERT INTO counters (value,class,name) VALUES (128,'global','counter') ON DUPLICATE KEY UPDATE value=128",
 			"INSERT INTO quota (bytes,count,username) VALUES (128,1,'testuser') ON DUPLICATE KEY UPDATE bytes=128,count=1",
+			"INSERT INTO quota (bytes,count,folders,username) VALUES (128,1,123,'testuser') ON DUPLICATE KEY UPDATE bytes=128,count=1,folders=123",
 			NULL},
 		.result = NULL,
 	};
@@ -125,15 +140,28 @@ static void test_set(void)
 
 	test_set_expected(dict, &res);
 
+	/* 1 field */
 	struct dict_transaction_context *ctx = dict_transaction_begin(dict);
 	dict_set(ctx, "shared/counters/global/counter", "128");
 	test_assert(dict_transaction_commit(&ctx, &error) == 1);
         if (error != NULL)
                 i_error("dict_transaction_commit failed: %s", error);
 	error = NULL;
+
+	/* 2 fields */
 	ctx = dict_transaction_begin(dict);
 	dict_set(ctx, "priv/quota/bytes", "128");
 	dict_set(ctx, "priv/quota/count", "1");
+	test_assert(dict_transaction_commit(&ctx, &error) == 1);
+        if (error != NULL)
+                i_error("dict_transaction_commit failed: %s", error);
+	error = NULL;
+
+	/* 3 fields */
+	ctx = dict_transaction_begin(dict);
+	dict_set(ctx, "priv/quota/bytes", "128");
+	dict_set(ctx, "priv/quota/count", "1");
+	dict_set(ctx, "priv/quota/folders", "123");
 	test_assert(dict_transaction_commit(&ctx, &error) == 1);
         if (error != NULL)
                 i_error("dict_transaction_commit failed: %s", error);
@@ -213,8 +241,8 @@ static void test_iterate(void)
 	size_t idx = 0;
 	while(dict_iterate(iter, &key, &value)) {
 		i_assert(idx < rset.rows);
-		test_assert_idx(strcmp(key, "shared/counters/global/counter") == 0 &&
-				strcmp(value, rset.row_data[idx][0]) == 0, idx);
+		test_assert_strcmp_idx(key, "shared/counters/global/counter", idx);
+		test_assert_strcmp_idx(value, rset.row_data[idx][0], idx);
 		idx++;
 	}
 
@@ -240,8 +268,8 @@ static void test_iterate(void)
 
 	while(dict_iterate(iter, &key, &value)) {
 		i_assert(idx < rset.rows);
-		test_assert_idx(strcmp(key, "shared/counters/global/counter") == 0 &&
-				strcmp(value, rset.row_data[idx][0]) == 0, idx);
+		test_assert_strcmp_idx(key, "shared/counters/global/counter", idx);
+		test_assert_strcmp_idx(value, rset.row_data[idx][0], idx);
 		idx++;
 	}
 

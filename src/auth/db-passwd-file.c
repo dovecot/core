@@ -36,8 +36,7 @@ passwd_file_add(struct passwd_file *pw, const char *username,
 	size_t len;
 
 	if (hash_table_lookup(pw->users, username) != NULL) {
-		i_error("passwd-file %s: User %s exists more than once",
-			pw->path, username);
+		e_error(pw->event, "User %s exists more than once", username);
 		return;
 	}
 
@@ -60,9 +59,8 @@ passwd_file_add(struct passwd_file *pw, const char *username,
 			pu->password = p_strconcat(pw->pool, "{DIGEST-MD5}",
 						   pass, NULL);
 			if (strlen(pu->password) != 32 + 12) {
-				i_error("passwd-file %s: User %s "
-					"has invalid password",
-					pw->path, username);
+				e_error(pw->event, "User %s "
+					"has invalid password", username);
 				return;
 			}
 		} else {
@@ -83,8 +81,8 @@ passwd_file_add(struct passwd_file *pw, const char *username,
 	} else {
 		pu->uid = userdb_parse_uid(NULL, *args);
 		if (pu->uid == 0 || pu->uid == (uid_t)-1) {
-			i_error("passwd-file %s: User %s has invalid UID '%s'",
-				pw->path, username, *args);
+			e_error(pw->event, "User %s has invalid UID '%s'",
+				username, *args);
 			return;
 		}
 		args++;
@@ -92,8 +90,8 @@ passwd_file_add(struct passwd_file *pw, const char *username,
 
 	if (*args == NULL) {
 		if (pw->db->userdb_warn_missing) {
-			i_error("passwd-file %s: User %s is missing "
-				"userdb info", pw->path, username);
+			e_error(pw->event, "User %s is missing userdb info",
+				username);
 		}
 		/* don't allow userdb lookups */
 		pu->uid = 0;
@@ -103,8 +101,8 @@ passwd_file_add(struct passwd_file *pw, const char *username,
 	else {
 		pu->gid = userdb_parse_gid(NULL, *args);
 		if (pu->gid == 0 || pu->gid == (gid_t)-1) {
-			i_error("passwd-file %s: User %s has invalid GID '%s'",
-				pw->path, username, *args);
+			e_error(pw->event, "User %s has invalid GID '%s'",
+				username, *args);
 			return;
 		}
 		args++;
@@ -157,6 +155,9 @@ passwd_file_new(struct db_passwd_file *db, const char *expanded_path)
 	pw->db = db;
 	pw->path = i_strdup(expanded_path);
 	pw->fd = -1;
+	pw->event = event_create(db->event);
+	event_set_append_log_prefix(pw->event,
+		t_strdup_printf("passwd-file %s:", pw->path));
 
 	if (hash_table_is_created(db->files))
 		hash_table_insert(db->files, pw->path, pw);
@@ -223,11 +224,11 @@ static int passwd_file_open(struct passwd_file *pw, bool startup,
 
 	if ((time_secs > PARSE_TIME_STARTUP_WARN_SECS && startup) ||
 	    (time_secs > PARSE_TIME_RELOAD_WARN_SECS && !startup)) {
-		i_warning("passwd-file %s: Reading %u users took %u secs",
-			  pw->path, hash_table_count(pw->users), time_secs);
-	} else if (pw->db->debug) {
-		i_debug("passwd-file %s: Read %u users in %u secs",
-			pw->path, hash_table_count(pw->users), time_secs);
+		e_warning(pw->event, "Reading %u users took %u secs",
+			  hash_table_count(pw->users), time_secs);
+	} else {
+		e_debug(pw->event, "Read %u users in %u secs",
+			hash_table_count(pw->users), time_secs);
 	}
 	return 0;
 }
@@ -246,6 +247,7 @@ static void passwd_file_free(struct passwd_file *pw)
 		hash_table_remove(pw->db->files, pw->path);
 
 	passwd_file_close(pw);
+	event_unref(&pw->event);
 	i_free(pw->path);
 	i_free(pw);
 }
@@ -334,7 +336,8 @@ db_passwd_file_init(const char *path, bool userdb, bool debug)
 	db->refcount = 1;
 	if (userdb)
 		db_passwd_file_set_userdb(db);
-	db->debug = debug;
+	db->event = event_create(auth_event);
+	event_set_forced_debug(db->event, debug);
 
 	for (p = path; *p != '\0'; p++) {
 		if (*p == '%' && p[1] != '\0') {
@@ -378,7 +381,7 @@ void db_passwd_file_parse(struct db_passwd_file *db)
 	if (db->default_file != NULL && db->default_file->stamp == 0) {
 		/* no variables, open the file immediately */
 		if (passwd_file_open(db->default_file, TRUE, &error) < 0)
-			i_error("passwd-file: %s", error);
+			e_error(db->default_file->event, "%s", error);
 	}
 }
 
@@ -411,6 +414,7 @@ void db_passwd_file_unref(struct db_passwd_file **_db)
 		hash_table_iterate_deinit(&iter);
 		hash_table_destroy(&db->files);
 	}
+	event_unref(&db->event);
 	i_free(db->path);
 	i_free(db);
 }

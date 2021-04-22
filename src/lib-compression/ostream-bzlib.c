@@ -20,6 +20,52 @@ struct bzlib_ostream {
 	bool flushed:1;
 };
 
+/* in bzlib, level is actually block size. From bzlib manual:
+
+   The block size affects both the compression ratio achieved,
+   and the amount of memory needed for compression and decompression.
+
+   BlockSize 1 through BlockSize 9 specify the block size to be 100,000 bytes
+   through 900,000 bytes respectively. The default is to use the maximum block
+   size.
+
+   Larger block sizes give rapidly diminishing marginal returns.
+   Most of the compression comes from the first two or three hundred k of
+   block size, a fact worth bearing in mind when using bzip2 on small machines.
+   It is also important to appreciate that the decompression memory
+   requirement is set at compression time by the choice of block size.
+
+   * In general, try and use the largest block size memory constraints
+     allow, since that maximises the compression achieved.
+   * Compression and decompression speed are virtually unaffected by block
+     size.
+
+   Another significant point applies to files which fit in a single block -
+   that means most files you'd encounter using a large block size. The
+   amount of real memory touched is proportional to the size of the file,
+   since the file is smaller than a block. For example, compressing a file
+   20,000 bytes long with the flag BlockSize 9 will cause the compressor to
+   allocate around 7600k of memory, but only touch 400k + 20000 * 8 = 560 kbytes
+   of it. Similarly, the decompressor will allocate 3700k but only
+   touch 100k + 20000 * 4 = 180 kbytes.
+*/
+
+int compression_get_min_level_bz2(void)
+{
+	return 1;
+}
+
+int compression_get_default_level_bz2(void)
+{
+	/* default is maximum level */
+	return 9;
+}
+
+int compression_get_max_level_bz2(void)
+{
+	return 9;
+}
+
 static void o_stream_bzlib_close(struct iostream_private *stream,
 				 bool close_parent)
 {

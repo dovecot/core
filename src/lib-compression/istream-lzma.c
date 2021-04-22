@@ -20,7 +20,6 @@ struct lzma_istream {
 	struct stat last_parent_statbuf;
 
 	bool hdr_read:1;
-	bool log_errors:1;
 	bool marked:1;
 	bool strm_closed:1;
 };
@@ -44,8 +43,6 @@ static void lzma_read_error(struct lzma_istream *zstream, const char *error)
 			    "lzma.read(%s): %s at %"PRIuUOFF_T,
 			    i_stream_get_name(&zstream->istream.istream), error,
 			    i_stream_get_absolute_offset(&zstream->istream.istream));
-	if (zstream->log_errors)
-		i_error("%s", zstream->istream.iostream.error);
 }
 
 static int lzma_handle_error(struct lzma_istream *zstream, lzma_ret lzma_err)
@@ -150,7 +147,14 @@ static ssize_t i_stream_lzma_read(struct istream_private *stream)
 	out_size -= zstream->strm.avail_out;
 	stream->pos += out_size;
 
-	i_stream_skip(stream->parent, size - zstream->strm.avail_in);
+	size_t bytes_consumed = size - zstream->strm.avail_in;
+	i_stream_skip(stream->parent, bytes_consumed);
+	if (i_stream_get_data_size(stream->parent) > 0 &&
+	    (bytes_consumed > 0 || out_size > 0)) {
+		/* Parent stream was only partially consumed. Set the stream's
+		   IO as pending to avoid hangs. */
+		i_stream_set_input_pending(&stream->istream, TRUE);
+	}
 
 	if (lzma_handle_error(zstream, ret) < 0) {
 		return -1;
@@ -235,13 +239,12 @@ static void i_stream_lzma_sync(struct istream_private *stream)
 	i_stream_lzma_reset(zstream);
 }
 
-struct istream *i_stream_create_lzma(struct istream *input, bool log_errors)
+struct istream *i_stream_create_lzma(struct istream *input)
 {
 	struct lzma_istream *zstream;
 
 	zstream = i_new(struct lzma_istream, 1);
 	zstream->eof_offset = UOFF_T_MAX;
-	zstream->log_errors = log_errors;
 
 	i_stream_lzma_init(zstream);
 

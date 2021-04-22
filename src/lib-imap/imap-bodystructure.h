@@ -7,9 +7,11 @@ struct imap_arg;
 
 /* Write a BODY/BODYSTRUCTURE from given message_part. The message_part->data
    field must be set. part->body_size.virtual_size and .lines are also used
-   for writing it. */
-void imap_bodystructure_write(const struct message_part *part,
-			      string_t *dest, bool extended);
+   for writing it. Returns 0 on success, -1 if parts don't internally match
+   (e.g. broken cached mime.parts mixed with parsed message). */
+int imap_bodystructure_write(const struct message_part *part,
+			     string_t *dest, bool extended,
+			     const char **error_r);
 
 /* Parse BODYSTRUCTURE and save the contents to message_part->data for each
    message tree node. If the parts argument points to NULL, the message_part

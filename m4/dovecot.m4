@@ -6,7 +6,7 @@ dnl This file is free software; the authors give
 dnl unlimited permission to copy and/or distribute it, with or without
 dnl modifications, as long as this notice is preserved.
 
-# serial 32
+# serial 33
 
 dnl
 dnl Check for support for D_FORTIFY_SOURCE=2
@@ -259,8 +259,9 @@ AC_DEFUN([DC_PLUGIN_DEPS],[
 ])
 
 AC_DEFUN([DC_DOVECOT_TEST_WRAPPER],[
-  AC_CHECK_PROG(VALGRIND, valgrind, yes, no)
-  AS_IF([test "$VALGRIND" = yes], [
+  AC_ARG_VAR([VALGRIND], [Path to valgrind])
+  AC_PATH_PROG(VALGRIND, valgrind, reject)
+  AS_IF([test "$VALGRIND" != reject], [
     cat > run-test.sh <<_DC_EOF
 #!/bin/sh
 top_srcdir=\$[1]
@@ -291,9 +292,9 @@ else
   trap "rm -f \$test_out" 0 1 2 3 15
   supp_path="\$top_srcdir/run-test-valgrind.supp"
   if test -r "\$supp_path"; then
-    valgrind -q \$trace_children --error-exitcode=213 --leak-check=full --gen-suppressions=all --suppressions="\$supp_path" --log-file=\$test_out \$noundef \$[*]
+    $VALGRIND -q \$trace_children --error-exitcode=213 --leak-check=full --gen-suppressions=all --suppressions="\$supp_path" --log-file=\$test_out \$noundef \$[*]
   else
-    valgrind -q \$trace_children --error-exitcode=213 --leak-check=full --gen-suppressions=all --log-file=\$test_out \$noundef \$[*]
+    $VALGRIND -q \$trace_children --error-exitcode=213 --leak-check=full --gen-suppressions=all --log-file=\$test_out \$noundef \$[*]
   fi
   ret=\$?
   if test -s \$test_out; then
@@ -306,7 +307,7 @@ if test \$ret != 0; then
 fi
 exit \$ret
 _DC_EOF
-    RUN_TEST='$(SHELL) $(top_builddir)/run-test.sh $(top_srcdir)'
+    RUN_TEST='$(LIBTOOL) execute $(SHELL) $(top_builddir)/run-test.sh $(top_srcdir)'
   ], [
     RUN_TEST=''
   ])
@@ -333,6 +334,27 @@ AC_DEFUN([DC_DOVECOT_HARDENING],[
 	AC_CC_RETPOLINE
 	AC_LD_RELRO
 	DOVECOT_WANT_UBSAN
+])
+
+AC_DEFUN([DC_DOVECOT_FUZZER],[
+        AC_ARG_WITH(fuzzer,
+        AS_HELP_STRING([--with-fuzzer=clang], [Build with clang fuzzer (default: no)]),
+                with_fuzzer=$withval,
+                with_fuzzer=no)
+	AS_IF([test x$with_fuzzer = xclang], [
+		CFLAGS="$CFLAGS -fsanitize=fuzzer-no-link"
+		# use $LIB_FUZZING_ENGINE for linking if it exists
+		FUZZER_LDFLAGS=${LIB_FUZZING_ENGINE--fsanitize=fuzzer}
+		# May need to use CXXLINK for linking, which wants sources to
+		# be compiled with -fPIE
+		FUZZER_CPPFLAGS='$(AM_CPPFLAGS) -fPIE -DPIE'
+	], [test x$with_fuzzer != xno], [
+		AC_MSG_ERROR([Unknown fuzzer $with_fuzzer])
+	])
+	AC_SUBST([FUZZER_CPPFLAGS])
+	AC_SUBST([FUZZER_LDFLAGS])
+	AM_CONDITIONAL([USE_FUZZER], [test "x$with_fuzzer" != "xno"])
+
 ])
 
 AC_DEFUN([DC_DOVECOT],[
@@ -409,6 +431,7 @@ AC_DEFUN([DC_DOVECOT],[
 	AX_SUBST_L([LIBDOVECOT_INCLUDE], [LIBDOVECOT_LDA_INCLUDE], [LIBDOVECOT_AUTH_INCLUDE], [LIBDOVECOT_DOVEADM_INCLUDE], [LIBDOVECOT_SERVICE_INCLUDE], [LIBDOVECOT_STORAGE_INCLUDE], [LIBDOVECOT_LOGIN_INCLUDE], [LIBDOVECOT_SQL_INCLUDE])
 	AX_SUBST_L([LIBDOVECOT_IMAP_LOGIN_INCLUDE], [LIBDOVECOT_CONFIG_INCLUDE], [LIBDOVECOT_IMAP_INCLUDE], [LIBDOVECOT_POP3_INCLUDE], [LIBDOVECOT_SUBMISSION_INCLUDE], [LIBDOVECOT_LMTP_INCLUDE], [LIBDOVECOT_DSYNC_INCLUDE], [LIBDOVECOT_IMAPC_INCLUDE], [LIBDOVECOT_FTS_INCLUDE])
 	AX_SUBST_L([LIBDOVECOT_NOTIFY_INCLUDE], [LIBDOVECOT_PUSH_NOTIFICATION_INCLUDE], [LIBDOVECOT_ACL_INCLUDE], [LIBDOVECOT_LIBFTS_INCLUDE])
+	AX_SUBST_L([DOVECOT_LUA_LIBS], [DOVECOT_LUA_CFLAGS], [LIBDOVECOT_LUA], [LIBDOVECOT_LUA_DEPS])
 
 	AM_CONDITIONAL(DOVECOT_INSTALLED, test "$DOVECOT_INSTALLED" = "yes")
 

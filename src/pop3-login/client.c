@@ -33,7 +33,7 @@ static bool cmd_stls(struct pop3_client *client)
 static bool cmd_quit(struct pop3_client *client)
 {
 	client_send_reply(&client->common, POP3_CMD_REPLY_OK, "Logging out");
-	client_destroy(&client->common, "Aborted login");
+	client_destroy(&client->common, CLIENT_UNAUTHENTICATED_LOGOUT_MSG);
 	return TRUE;
 }
 

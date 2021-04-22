@@ -75,11 +75,14 @@ static void client_commit_timeout(struct client *client)
 static void client_idle_timeout(struct client *client)
 {
 	if (client->cmd != NULL) {
-		client_destroy(client,
-			"Disconnected for inactivity in reading our output");
+		client_destroy(client, t_strdup_printf(
+			"Client has not read server output for for %"PRIdTIME_T" secs",
+			ioloop_time - client->last_output));
 	} else {
 		client_send_line(client, "-ERR Disconnected for inactivity.");
-		client_destroy(client, "Disconnected for inactivity");
+		client_destroy(client, t_strdup_printf(
+			"Inactivity - no input for %"PRIdTIME_T" secs",
+			ioloop_time - client->last_input));
 	}
 }
 
@@ -575,7 +578,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 			reason = io_stream_get_disconnect_reason(client->input,
 								 client->output);
 		}
-		i_info("%s %s", reason, client_stats(client));
+		i_info("Disconnected: %s %s", reason, client_stats(client));
 	}
 
 	if (client->cmd != NULL) {
@@ -840,11 +843,11 @@ static int client_output(struct client *client)
 void clients_destroy_all(void)
 {
 	while (pop3_clients != NULL) {
+		mail_storage_service_io_activate_user(pop3_clients->service_user);
 		if (pop3_clients->cmd == NULL) {
 			client_send_line(pop3_clients,
 				"-ERR [SYS/TEMP] Server shutting down.");
 		}
-		mail_storage_service_io_activate_user(pop3_clients->service_user);
 		client_destroy(pop3_clients, "Server shutting down.");
 	}
 }

@@ -173,8 +173,6 @@ struct smtp_server_connection {
 	unsigned int command_queue_count;
 	unsigned int bad_counter;
 
-	char *disconnect_reason;
-
 	struct smtp_server_state_data state;
 
 	struct smtp_server_stats stats;

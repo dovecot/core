@@ -294,9 +294,10 @@ void event_get_create_time(const struct event *event, struct timeval *tv_r);
 /* Get the time when the event was last sent. Returns TRUE if time was
    returned, FALSE if event has never been sent. */
 bool event_get_last_send_time(const struct event *event, struct timeval *tv_r);
-/* Get the event duration field, calculated after event has been sent. */
+/* Get the event duration field in microseconds. This is calculated from
+   the event's last sent time. */
 void event_get_last_duration(const struct event *event,
-			     intmax_t *duration_msec_r);
+			     uintmax_t *duration_usecs_r);
 /* Returns field for a given key, or NULL if it doesn't exist. If the key
    isn't found from the event itself, find it from parent events. */
 const struct event_field *
@@ -331,6 +332,12 @@ bool event_import_unescaped(struct event *event, const char *const *args,
    Most importantly this frees any passthrough events. Typically this shouldn't
    need to be called. */
 void event_send_abort(struct event *event);
+
+/* Enable "user_cpu_usecs" event field to event by getting current resource
+   usage which will be used in consequent event_send() to calculate
+   cpu time. This function can be called multiple times to update the current
+   resource usage. */
+void event_enable_user_cpu_usecs(struct event *event);
 
 void lib_event_init(void);
 void lib_event_deinit(void);

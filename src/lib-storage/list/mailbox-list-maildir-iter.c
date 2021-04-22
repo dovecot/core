@@ -309,7 +309,8 @@ maildir_fill_readdir_entry(struct maildir_list_iterate_context *ctx,
 		(void)imap_utf8_to_utf7(str_c(destvname), dest);
 
 		if (rename(src, str_c(dest)) < 0 && errno != ENOENT)
-			i_error("rename(%s, %s) failed: %m", src, str_c(dest));
+			e_error(ctx->ctx.list->ns->user->event,
+				"rename(%s, %s) failed: %m", src, str_c(dest));
 		/* just skip this in this iteration, we'll see it on the
 		   next list */
 		return 0;

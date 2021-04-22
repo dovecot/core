@@ -288,7 +288,7 @@ static void test_timestamp(const char *ts, int idx)
 
 	/* %G - ISO 8601 year */
 	test_assert_idx(strlen(t[0]) == 4, idx);
-	unsigned v;
+	unsigned v = 0;
 	test_assert_idx(str_to_uint(t[0], &v) == 0, idx);
 	test_assert_idx(1000 <= v, idx);
 	test_assert_idx(v <= 3000, idx);
@@ -358,7 +358,8 @@ static void test_str_to_timeval(void)
 {
 	struct {
 		const char *str;
-		unsigned int tv_sec, tv_usec;
+		time_t tv_sec;
+		suseconds_t tv_usec;
 	} tests[] = {
 		{ "0", 0, 0 },
 		{ "0.0", 0, 0 },

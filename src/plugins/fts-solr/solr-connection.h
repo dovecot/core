@@ -8,6 +8,7 @@ struct fts_solr_settings;
 
 int solr_connection_init(const struct fts_solr_settings *solr_set,
 			 const struct ssl_iostream_settings *ssl_client_set,
+			 struct event *event_parent,
 			 struct solr_connection **conn_r,
 			 const char **error_r);
 void solr_connection_deinit(struct solr_connection **conn);

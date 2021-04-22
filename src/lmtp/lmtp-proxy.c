@@ -222,6 +222,12 @@ static struct lmtp_proxy_connection *
 lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 			  const struct lmtp_proxy_rcpt_settings *set)
 {
+	static const char *rcpt_param_extensions[] =
+		{ LMTP_RCPT_FORWARD_PARAMETER, NULL };
+	static const struct smtp_client_capability_extra cap_rcpt_forward = {
+		.name = LMTP_RCPT_FORWARD_CAPABILITY,
+		.rcpt_param_extensions = rcpt_param_extensions,
+	};
 	struct smtp_client_settings lmtp_set;
 	struct smtp_server_transaction *trans = proxy->trans;
 	struct lmtp_proxy_connection *const *conns, *conn;
@@ -274,8 +280,8 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 			conn->set.host, conn->set.port,
 			ssl_mode, &lmtp_set);
 	}
-	smtp_client_connection_accept_extra_capability(
-		conn->lmtp_conn, LMTP_RCPT_FORWARD_CAPABILITY);
+	smtp_client_connection_accept_extra_capability(conn->lmtp_conn,
+						       &cap_rcpt_forward);
 	smtp_client_connection_connect(conn->lmtp_conn, NULL, NULL);
 
 	conn->lmtp_trans = smtp_client_transaction_create(

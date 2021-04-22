@@ -62,10 +62,11 @@ fts_language_list_get_first(struct fts_language_list *list);
 
 /* If text was detected to be one of the languages in the list,
    returns FTS_LANGUAGE_RESULT_OK and (a pointer to) the language (in
-   the list). */
+   the list). error_r is set for FTS_LANGUAGE_RESULT_ERROR. */
 enum fts_language_result
 fts_language_detect(struct fts_language_list *list,
 		    const unsigned char *text, size_t size,
-                    const struct fts_language **lang_r);
+		    const struct fts_language **lang_r,
+		    const char **error_r);
 
 #endif

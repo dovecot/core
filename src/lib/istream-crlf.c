@@ -38,7 +38,8 @@ static int i_stream_crlf_read_common(struct crlf_istream *cstream)
 
 static ssize_t i_stream_crlf_read_crlf(struct istream_private *stream)
 {
-	struct crlf_istream *cstream = (struct crlf_istream *)stream;
+	struct crlf_istream *cstream =
+		container_of(stream, struct crlf_istream, istream);
 	const unsigned char *data, *ptr, *src, *src_end;
 	unsigned char *dest, *dest_end;
 	size_t size, copy_len;
@@ -115,7 +116,8 @@ static ssize_t i_stream_crlf_read_crlf(struct istream_private *stream)
 
 static ssize_t i_stream_crlf_read_lf(struct istream_private *stream)
 {
-	struct crlf_istream *cstream = (struct crlf_istream *)stream;
+	struct crlf_istream *cstream =
+		container_of(stream, struct crlf_istream, istream);
 	const unsigned char *data, *p;
 	size_t i, dest, size, max;
 	ssize_t ret;

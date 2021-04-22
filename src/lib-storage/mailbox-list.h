@@ -142,13 +142,25 @@ struct mailbox_list_settings {
 	   this setting contains either "" or "dir/". */
 	const char *mailbox_dir_name;
 
-	/* Encode "bad" characters in mailbox names as <escape_char><hex> */
-	char escape_char;
-	/* If mailbox name can't be changed reversibly to UTF-8 and back,
-	   encode the problematic parts using <broken_char><hex> in the
-	   user-visible UTF-8 name. The broken_char itself also has to be
-	   encoded the same way. */
-	char broken_char;
+	/* Used for escaping the mailbox name in storage (storage_name). If the
+	   UTF-8 vname has characters that can't reversibly (or safely) be
+	   converted to storage_name and back, encode the problematic parts
+	   using <storage_name_escape_char><hex>. The storage_name_escape_char
+	   itself also has to be encoded the same way. For example
+	   { vname="A/B.C%D", storage_name_escape_char='%', namespace_sep='/',
+	   storage_sep='.' } -> storage_name="A.B%2eC%25D". */
+	char storage_name_escape_char;
+	/* Used for escaping the user/client-visible UTF-8 vname. If the
+	   storage_name can't be converted reversibly to the vname and back,
+	   encode the problematic parts using <vname_escape_char><hex>. The
+	   vname_escape_char itself also has to be encoded the same way. For
+	   example { storage_name="A/B.C%D", vname_escape_char='%',
+	   namespace_sep='/', storage_sep='.' } -> vname="A%2fB/C%25D".
+
+	   Note that it's possible for escape_char and broken_char to be the
+	   same character. They're just used for different directions in
+	   conversion. */
+	char vname_escape_char;
 	/* Use UTF-8 mailbox names on filesystem instead of mUTF-7 */
 	bool utf8;
 	/* Don't check/create the alt-dir symlink. */
@@ -309,12 +321,19 @@ mailbox_list_get_last_internal_error(struct mailbox_list *list,
 void mailbox_list_last_error_push(struct mailbox_list *list);
 void mailbox_list_last_error_pop(struct mailbox_list *list);
 
-/* Create a fs based on the settings in the given mailbox_list. */
-int mailbox_list_init_fs(struct mailbox_list *list, const char *driver,
+/* Create a fs based on the settings in the given mailbox_list. If event_parent
+   is NULL, use user->event as the parent. */
+int mailbox_list_init_fs(struct mailbox_list *list, struct event *event_parent,
+			 const char *driver,
 			 const char *args, const char *root_dir,
 			 struct fs **fs_r, const char **error_r);
 /* Return mailbox_list that was used to create the fs via
    mailbox_list_init_fs(). */
 struct mailbox_list *mailbox_list_fs_get_list(struct fs *fs);
+
+/* Escape/Unescape mailbox name in place. */
+void mailbox_list_name_unescape(const char **name, char escape_char);
+void mailbox_list_name_escape(const char *name, const char *escape_chars,
+			      string_t *dest);
 
 #endif

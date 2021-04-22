@@ -17,7 +17,7 @@ static struct file_listener_settings *anvil_unix_listeners[] = {
 	&anvil_unix_listeners_array[1]
 };
 static buffer_t anvil_unix_listeners_buf = {
-	anvil_unix_listeners, sizeof(anvil_unix_listeners), { NULL, }
+	{ { anvil_unix_listeners, sizeof(anvil_unix_listeners) } }
 };
 /* </settings checks> */
 

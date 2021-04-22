@@ -22,10 +22,10 @@ struct test_service_settings {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct test_service_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct test_service_settings)
 
 static const struct setting_define test_setting_defines[] = {
-	DEF(SET_STR, foo),
+	DEF(STR, foo),
 	SETTING_DEFINE_LIST_END
 };
 

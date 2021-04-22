@@ -38,6 +38,8 @@ struct mail_duplicate_record_header {
 
 struct mail_duplicate_file {
 	pool_t pool;
+	struct mail_duplicate_db *db;
+
 	HASH_TABLE(struct mail_duplicate *, struct mail_duplicate *) hash;
 	const char *path;
 
@@ -47,6 +49,7 @@ struct mail_duplicate_file {
 };
 
 struct mail_duplicate_db {
+	struct mail_user *user;
 	char *path;
 	struct dotlock_settings dotlock_set;
 	struct mail_duplicate_file *file;
@@ -117,13 +120,15 @@ mail_duplicate_read_records(struct mail_duplicate_file *file,
 		if (hdr.id_size == 0 || hdr.user_size == 0 ||
 		    hdr.id_size > DUPLICATE_BUFSIZE ||
 		    hdr.user_size > DUPLICATE_BUFSIZE) {
-			i_error("broken mail_duplicate file %s", file->path);
+			e_error(file->db->user->event,
+				"broken mail_duplicate file %s", file->path);
 			return -1;
 		}
 
 		if (i_stream_read_bytes(input, &data, &size,
 					hdr.id_size + hdr.user_size) <= 0) {
-			i_error("unexpected end of file in %s", file->path);
+			e_error(file->db->user->event,
+				"unexpected end of file in %s", file->path);
 			return -1;
 		}
 
@@ -167,7 +172,8 @@ static int mail_duplicate_read(struct mail_duplicate_file *file)
 	if (fd == -1) {
 		if (errno == ENOENT)
 			return 0;
-		i_error("open(%s) failed: %m", file->path);
+		e_error(file->db->user->event,
+			"open(%s) failed: %m", file->path);
 		return -1;
 	}
 
@@ -190,7 +196,8 @@ static int mail_duplicate_read(struct mail_duplicate_file *file)
 
 	i_stream_unref(&input);
 	if (close(fd) < 0)
-		i_error("close(%s) failed: %m", file->path);
+		e_error(file->db->user->event,
+			"close(%s) failed: %m", file->path);
 	return 0;
 }
 
@@ -206,15 +213,18 @@ mail_duplicate_file_new(struct mail_duplicate_db *db)
 
 	file = p_new(pool, struct mail_duplicate_file, 1);
 	file->pool = pool;
+	file->db = db;
 	file->path = p_strdup(pool, db->path);
 	file->new_fd = file_dotlock_open(&db->dotlock_set, file->path, 0,
 					 &file->dotlock);
 	if (file->new_fd != -1)
 		;
-	else if (errno != EAGAIN)
-		i_error("file_dotlock_open(%s) failed: %m", file->path);
-	else {
-		i_error("Creating lock file for %s timed out in %u secs",
+	else if (errno != EAGAIN) {
+		e_error(db->user->event,
+			"file_dotlock_open(%s) failed: %m", file->path);
+	} else {
+		e_error(db->user->event,
+			"Creating lock file for %s timed out in %u secs",
 			file->path, db->dotlock_set.timeout);
 	}
 	hash_table_create(&file->hash, pool, 0, mail_duplicate_hash, mail_duplicate_cmp);
@@ -321,16 +331,16 @@ void mail_duplicate_db_flush(struct mail_duplicate_db *db)
 	hash_table_iterate_deinit(&iter);
 
 	if (o_stream_finish(output) < 0) {
-		i_error("write(%s) failed: %s", file->path,
-			o_stream_get_error(output));
-		o_stream_unref(&output);
+		e_error(db->user->event, "write(%s) failed: %s", file->path,
+			o_stream_get_error(output));		o_stream_unref(&output);
 		mail_duplicate_file_free(&db->file);
 		return;
 	}
 	o_stream_unref(&output);
 
 	if (file_dotlock_replace(&file->dotlock, 0) < 0)
-		i_error("file_dotlock_replace(%s) failed: %m", file->path);
+		e_error(db->user->event, "file_dotlock_replace(%s) failed: %m",
+			file->path);
 	mail_duplicate_file_free(&db->file);
 }
 
@@ -342,11 +352,12 @@ mail_duplicate_db_init(struct mail_user *user, const char *name)
 	const char *home = NULL;
 
 	if (mail_user_get_home(user, &home) <= 0) {
-		i_error("User %s doesn't have home dir set, "
+		e_error(user->event, "User %s doesn't have home dir set, "
 			"disabling duplicate database", user->username);
 	}
 
 	db = i_new(struct mail_duplicate_db, 1);
+	db->user = user;
 	db->path = home == NULL ? NULL :
 		i_strconcat(home, "/.dovecot.", name, NULL);
 	db->dotlock_set = default_mail_duplicate_dotlock_set;

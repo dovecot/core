@@ -39,6 +39,9 @@ params_write(const struct message_part_param *params,
 
 	seen_charset = FALSE;
 	for (i = 0; i < params_count; i++) {
+		i_assert(params[i].name != NULL);
+		i_assert(params[i].value != NULL);
+
 		if (i > 0)
 			str_append_c(str, ' ');
 		if (default_charset &&
@@ -57,15 +60,18 @@ params_write(const struct message_part_param *params,
 	str_append_c(str, ')');
 }
 
-static void
+static int
 part_write_bodystructure_siblings(const struct message_part *part,
-				  string_t *dest, bool extended)
+				  string_t *dest, bool extended,
+				  const char **error_r)
 {
 	for (; part != NULL; part = part->next) {
 		str_append_c(dest, '(');
-		imap_bodystructure_write(part, dest, extended);
+		if (imap_bodystructure_write(part, dest, extended, error_r) < 0)
+			return -1;
 		str_append_c(dest, ')');
 	}
+	return 0;
 }
 
 static void
@@ -108,16 +114,19 @@ part_write_bodystructure_common(const struct message_part_data *data,
 	imap_append_nstring_nolf(str, data->content_location);
 }
 
-static void part_write_body_multipart(const struct message_part *part,
-				      string_t *str, bool extended)
+static int part_write_body_multipart(const struct message_part *part,
+				     string_t *str, bool extended,
+				     const char **error_r)
 {
 	const struct message_part_data *data = part->data;
 
 	i_assert(part->data != NULL);
 
-	if (part->children != NULL)
-		part_write_bodystructure_siblings(part->children, str, extended);
-	else {
+	if (part->children != NULL) {
+		if (part_write_bodystructure_siblings(part->children, str,
+						      extended, error_r) < 0)
+			return -1;
+	} else {
 		/* no parts in multipart message,
 		   that's not allowed. write a single
 		   0-length text/plain structure */
@@ -131,7 +140,7 @@ static void part_write_body_multipart(const struct message_part *part,
 	imap_append_string(str, data->content_subtype);
 
 	if (!extended)
-		return;
+		return 0;
 
 	/* BODYSTRUCTURE data */
 
@@ -140,10 +149,42 @@ static void part_write_body_multipart(const struct message_part *part,
 		data->content_type_params_count, str, FALSE);
 
 	part_write_bodystructure_common(data, str);
+	return 0;
 }
 
-static void part_write_body(const struct message_part *part,
-			    string_t *str, bool extended)
+static bool part_is_truncated(const struct message_part *part)
+{
+	const struct message_part_data *data = part->data;
+
+	i_assert((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) == 0);
+	i_assert((part->flags & MESSAGE_PART_FLAG_MULTIPART) == 0);
+
+	if (data->content_type != NULL) {
+		if (strcasecmp(data->content_type, "message") == 0 &&
+		    strcasecmp(data->content_subtype, "rfc822") == 0) {
+			/* It's message/rfc822, but without
+			   MESSAGE_PART_FLAG_MESSAGE_RFC822. */
+			return TRUE;
+		}
+		if (strcasecmp(data->content_type, "multipart") == 0) {
+			/* It's multipart/, but without
+			   MESSAGE_PART_FLAG_MULTIPART. */
+			return TRUE;
+		}
+	} else {
+		/* No Content-Type */
+		if (part->parent != NULL &&
+		    (part->parent->flags & MESSAGE_PART_FLAG_MULTIPART_DIGEST) != 0) {
+			/* Parent is MESSAGE_PART_FLAG_MULTIPART_DIGEST
+			   (so this should have been message/rfc822). */
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+static int part_write_body(const struct message_part *part,
+			   string_t *str, bool extended, const char **error_r)
 {
 	const struct message_part_data *data = part->data;
 	bool text;
@@ -152,6 +193,14 @@ static void part_write_body(const struct message_part *part,
 
 	if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0) {
 		str_append(str, "\"message\" \"rfc822\"");
+		text = FALSE;
+	} else if (part_is_truncated(part)) {
+		/* Maximum MIME part count was reached while parsing the mail.
+		   Write this part out as application/octet-stream instead.
+		   We're not using text/plain, because it would require
+		   message-parser to use MESSAGE_PART_FLAG_TEXT for this part
+		   to avoid losing line count in message_part serialization. */
+		str_append(str, "\"application\" \"octet-stream\"");
 		text = FALSE;
 	} else {
 		/* "content type" "subtype" */
@@ -163,6 +212,11 @@ static void part_write_body(const struct message_part *part,
 			imap_append_string(str, data->content_type);
 			str_append_c(str, ' ');
 			imap_append_string(str, data->content_subtype);
+		}
+		bool part_is_text = (part->flags & MESSAGE_PART_FLAG_TEXT) != 0;
+		if (text != part_is_text) {
+			*error_r = "text flag mismatch";
+			return -1;
 		}
 	}
 
@@ -198,12 +252,14 @@ static void part_write_body(const struct message_part *part,
 		imap_envelope_write(child_data->envelope, str);
 		str_append(str, ") ");
 
-		part_write_bodystructure_siblings(part->children, str, extended);
+		if (part_write_bodystructure_siblings(part->children, str,
+						      extended, error_r) < 0)
+			return -1;
 		str_printfa(str, " %u", part->body_size.lines);
 	}
 
 	if (!extended)
-		return;
+		return 0;
 
 	/* BODYSTRUCTURE data */
 
@@ -212,15 +268,17 @@ static void part_write_body(const struct message_part *part,
 	str_append_c(str, ' ');
 	imap_append_nstring_nolf(str, data->content_md5);
 	part_write_bodystructure_common(data, str);
+	return 0;
 }
 
-void imap_bodystructure_write(const struct message_part *part,
-			      string_t *dest, bool extended)
+int imap_bodystructure_write(const struct message_part *part,
+			     string_t *dest, bool extended,
+			     const char **error_r)
 {
 	if ((part->flags & MESSAGE_PART_FLAG_MULTIPART) != 0)
-		part_write_body_multipart(part, dest, extended);
+		return part_write_body_multipart(part, dest, extended, error_r);
 	else
-		part_write_body(part, dest, extended);
+		return part_write_body(part, dest, extended, error_r);
 }
 
 /*
@@ -245,10 +303,12 @@ imap_bodystructure_strlist_parse(const struct imap_arg *arg,
 	} else {
 		if (!imap_arg_get_list_full(arg, &list_args, &list_count))
 			return -1;
+		if (list_count == 0)
+			return -1;
 
 		list = p_new(pool, const char *, list_count+1);
 		for (i = 0; i < list_count; i++) {
-			if (!imap_arg_get_nstring(&list_args[i], &item))
+			if (!imap_arg_get_string(&list_args[i], &item))
 				return -1;
 			list[i] = p_strdup(pool, item);
 		}
@@ -274,15 +334,17 @@ imap_bodystructure_params_parse(const struct imap_arg *arg,
 		return -1;
 	if ((list_count % 2) != 0)
 		return -1;
+	if (list_count == 0)
+		return -1;
 
 	params_count = list_count/2;
 	params = p_new(pool, struct message_part_param, params_count+1);
 	for (i = 0; i < params_count; i++) {
 		const char *name, *value;
 
-		if (!imap_arg_get_nstring(&list_args[i*2+0], &name))
+		if (!imap_arg_get_string(&list_args[i*2+0], &name))
 			return -1;
-		if (!imap_arg_get_nstring(&list_args[i*2+1], &value))
+		if (!imap_arg_get_string(&list_args[i*2+1], &value))
 			return -1;
 		params[i].name = p_strdup(pool, name);
 		params[i].value = p_strdup(pool, value);
@@ -308,7 +370,7 @@ imap_bodystructure_parse_args_common(struct message_part *part,
 		*error_r = "Invalid content-disposition list";
 		return -1;
 	} else {
-		if (!imap_arg_get_nstring
+		if (!imap_arg_get_string
 			(list_args++, &data->content_disposition)) {
 			*error_r = "Invalid content-disposition";
 			return -1;
@@ -450,7 +512,7 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 
 	if (multipart) {
 		data->content_type = "multipart";
-		if (!imap_arg_get_nstring(args++, &data->content_subtype)) {
+		if (!imap_arg_get_string(args++, &data->content_subtype)) {
 			*error_r = "Invalid multipart content-type";
 			return -1;
 		}
@@ -468,8 +530,8 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 	}
 
 	/* "content type" "subtype" */
-	if (!imap_arg_get_astring(&args[0], &content_type) ||
-	    !imap_arg_get_astring(&args[1], &subtype)) {
+	if (!imap_arg_get_string(&args[0], &content_type) ||
+	    !imap_arg_get_string(&args[1], &subtype)) {
 		*error_r = "Invalid content-type";
 		return -1;
 	}
@@ -523,7 +585,7 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 		*error_r = "Invalid content-description";
 		return -1;
 	}
-	if (!imap_arg_get_nstring(args++, &data->content_transfer_encoding)) {
+	if (!imap_arg_get_string(args++, &data->content_transfer_encoding)) {
 		*error_r = "Invalid content-transfer-encoding";
 		return -1;
 	}
@@ -686,9 +748,6 @@ static bool str_append_nstring(string_t *str, const struct imap_arg *arg)
 	case IMAP_ARG_NIL:
 		str_append(str, "NIL");
 		break;
-	case IMAP_ARG_ATOM:
-		str_append(str, cstr);
-		break;
 	case IMAP_ARG_STRING:
 		str_append_c(str, '"');
 		/* NOTE: we're parsing with no-unescape flag,
@@ -775,8 +834,8 @@ static int imap_parse_bodystructure_args(const struct imap_arg *args,
 	}
 
 	/* "content type" "subtype" */
-	if (!imap_arg_get_astring(&args[0], &content_type) ||
-	    !imap_arg_get_astring(&args[1], &subtype)) {
+	if (!imap_arg_get_string(&args[0], &content_type) ||
+	    !imap_arg_get_string(&args[1], &subtype)) {
 		*error_r = "Invalid content-type";
 		return -1;
 	}
@@ -822,7 +881,7 @@ static int imap_parse_bodystructure_args(const struct imap_arg *args,
 	args++;
 
 	/* "content id" "content description" "transfer encoding" size */
-	for (i = 0; i < 4; i++, args++) {
+	for (i = 0; i < 3; i++, args++) {
 		str_append_c(str, ' ');
 
 		if (!str_append_nstring(str, args)) {
@@ -830,6 +889,12 @@ static int imap_parse_bodystructure_args(const struct imap_arg *args,
 			return -1;
 		}
 	}
+	if (!imap_arg_get_atom(args, &value)) {
+		*error_r = "atom expected for size";
+		return -1;
+	}
+	str_printfa(str, " %s", value);
+	args++;
 
 	if (text) {
 		/* text/xxx - text lines */

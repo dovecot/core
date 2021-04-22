@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "write-full.h"
 #include "test-common.h"
 #include "test-mail-cache.h"
 
@@ -712,6 +713,38 @@ static void test_mail_cache_in_memory(void)
 	test_end();
 }
 
+static void test_mail_cache_size_corruption(void)
+{
+	struct test_mail_cache_ctx ctx;
+	struct mail_cache_view *cache_view;
+	struct mail_cache_lookup_iterate_ctx iter;
+	struct mail_cache_iterate_field field;
+
+	test_begin("mail cache size corruption");
+
+	test_mail_cache_init(test_mail_index_init(), &ctx);
+	test_mail_cache_add_mail(&ctx, ctx.cache_field.idx, "12345678");
+	cache_view = mail_cache_view_open(ctx.cache, ctx.view);
+
+	/* lookup the added cache field */
+	mail_cache_lookup_iter_init(cache_view, 1, &iter);
+	test_assert(iter.offset > 0);
+
+	uoff_t size_offset = iter.offset +
+		offsetof(struct mail_cache_record, size);
+	uint32_t new_size = 0x10000000;
+	test_assert(pwrite_full(ctx.cache->fd, &new_size, sizeof(new_size),
+				size_offset) == 0);
+	test_expect_error_string("record points outside file");
+	test_assert(mail_cache_lookup_iter_next(&iter, &field) == -1);
+	test_expect_no_more_errors();
+
+	mail_cache_view_close(&cache_view);
+	test_mail_cache_deinit(&ctx);
+	test_mail_index_delete();
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -724,6 +757,7 @@ int main(void)
 		test_mail_cache_lookup_decisions,
 		test_mail_cache_lookup_decisions2,
 		test_mail_cache_in_memory,
+		test_mail_cache_size_corruption,
 		NULL
 	};
 	return test_run(test_functions);

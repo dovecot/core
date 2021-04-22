@@ -141,7 +141,39 @@
 #  define ATTR_DEPRECATED(str)
 #endif
 
-/* Macros to provide type safety for callback functions' context parameters */
+/* Macros to provide type safety for callback functions' context parameters.
+   This is used like:
+
+   // safe-api.h file:
+   typedef void safe_callback_t(struct foo *foo);
+
+   void safe_run(safe_callback_t *callback, void *context);
+   #define safe_run((safe_callback_t *)callback, \
+       TRUE ? context : CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
+
+   // safe-api.c file:
+   #undef safe_run
+   void safe_run(safe_callback_t *callback, void *context)
+   {
+       callback(context);
+   }
+
+   // in caller code:
+   static void callback(struct foo *foo);
+   struct foo *foo = ...;
+   safe_run(callback, foo);
+
+   The first step is to create the callback function in a normal way. Type
+   safety is added to it by creating a macro that overrides the function and
+   checks the callback type safety using CALLBACK_TYPECHECK().
+
+   The CALLBACK_TYPECHECK() macro works by giving a compiling failure if the
+   provided callback function isn't compatible with the specified function
+   type parameter. The function type parameter must use typeof(context) in
+   place of the "void *context" parameter, but otherwise use exactly the same
+   function type as what the callback is. The macro then casts the given
+   callback function into the type with "void *context".
+*/
 #ifdef HAVE_TYPE_CHECKS
 #  define CALLBACK_TYPECHECK(callback, type) \
 	(COMPILE_ERROR_IF_TRUE(!__builtin_types_compatible_p( \

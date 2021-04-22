@@ -125,6 +125,99 @@ static void test_ioloop_timeout(void)
 	test_end();
 }
 
+static void zero_timeout_callback(unsigned int *counter)
+{
+	*counter += 1;
+}
+
+static void test_ioloop_zero_timeout(void)
+{
+	struct ioloop *ioloop;
+	struct timeout *to;
+	struct io *io;
+	unsigned int counter = 0;
+	int fd[2];
+
+	test_begin("ioloop zero timeout");
+
+	if (pipe(fd) < 0)
+		i_fatal("pipe() failed: %m");
+	switch (fork()) {
+	case (pid_t)-1:
+		i_fatal("fork() failed: %m");
+	case 0:
+		sleep(1);
+		char c = 0;
+		if (write(fd[1], &c, 1) < 0)
+			i_fatal("write(pipe) failed: %m");
+		test_exit(0);
+	default:
+		break;
+	}
+
+	ioloop = io_loop_create();
+	to = timeout_add_short(0, zero_timeout_callback, &counter);
+	io = io_add(fd[0], IO_READ, io_loop_stop, ioloop);
+
+	io_loop_run(ioloop);
+	test_assert_ucmp(counter, >, 1000);
+
+	timeout_remove(&to);
+	io_remove(&io);
+	io_loop_destroy(&ioloop);
+	test_end();
+}
+
+struct zero_timeout_recreate_ctx {
+	struct timeout *to;
+	unsigned int counter;
+};
+
+static void
+zero_timeout_recreate_callback(struct zero_timeout_recreate_ctx *ctx)
+{
+	timeout_remove(&ctx->to);
+	ctx->to = timeout_add_short(0, zero_timeout_recreate_callback, ctx);
+	ctx->counter++;
+}
+
+static void test_ioloop_zero_timeout_recreate(void)
+{
+	struct ioloop *ioloop;
+	struct io *io;
+	struct zero_timeout_recreate_ctx ctx = { .counter = 0 };
+	int fd[2];
+
+	test_begin("ioloop zero timeout recreate");
+
+	if (pipe(fd) < 0)
+		i_fatal("pipe() failed: %m");
+	switch (fork()) {
+	case (pid_t)-1:
+		i_fatal("fork() failed: %m");
+	case 0:
+		sleep(1);
+		char c = 0;
+		if (write(fd[1], &c, 1) < 0)
+			i_fatal("write(pipe) failed: %m");
+		test_exit(0);
+	default:
+		break;
+	}
+
+	ioloop = io_loop_create();
+	ctx.to = timeout_add_short(0, zero_timeout_recreate_callback, &ctx);
+	io = io_add(fd[0], IO_READ, io_loop_stop, ioloop);
+
+	io_loop_run(ioloop);
+	test_assert_ucmp(ctx.counter, >, 1000);
+
+	timeout_remove(&ctx.to);
+	io_remove(&io);
+	io_loop_destroy(&ioloop);
+	test_end();
+}
+
 static void io_callback(void *context ATTR_UNUSED)
 {
 }
@@ -197,6 +290,8 @@ static void test_ioloop_pending_io(void)
 void test_ioloop(void)
 {
 	test_ioloop_timeout();
+	test_ioloop_zero_timeout();
+	test_ioloop_zero_timeout_recreate();
 	test_ioloop_find_fd_conditions();
 	test_ioloop_pending_io();
 	test_ioloop_fd();

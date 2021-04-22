@@ -21,7 +21,7 @@ struct worker_pool {
 	indexer_status_callback_t *callback;
 
 	unsigned int connection_count;
-	struct worker_connection_list *busy_list, *idle_list;
+	struct worker_connection_list *busy_list;
 };
 
 static void
@@ -52,13 +52,6 @@ void worker_pool_deinit(struct worker_pool **_pool)
 		worker_connection_list_free(pool, list);
 	}
 
-	while (pool->idle_list != NULL) {
-		struct worker_connection_list *list = pool->idle_list;
-
-		DLLIST_REMOVE(&pool->idle_list, list);
-		worker_connection_list_free(pool, list);
-	}
-
 	i_free(pool->socket_path);
 	i_free(pool);
 }
@@ -68,24 +61,19 @@ bool worker_pool_have_busy_connections(struct worker_pool *pool)
 	return pool->busy_list != NULL;
 }
 
-static int worker_pool_add_connection(struct worker_pool *pool)
+static int worker_pool_add_connection(struct worker_pool *pool,
+				      struct worker_connection **conn_r)
 {
 	struct worker_connection *conn;
-	struct worker_connection_list *list;
 
+	pool->connection_count++;
 	conn = worker_connection_create(pool->socket_path, pool->callback);
 	if (worker_connection_connect(conn) < 0) {
 		worker_connection_destroy(&conn);
 		return -1;
 	}
 
-	i_assert(pool->idle_list == NULL);
-
-	list = i_new(struct worker_connection_list, 1);
-	list->conn = conn;
-	list->last_use = ioloop_time;
-	pool->idle_list = list;
-	pool->connection_count++;
+	*conn_r = conn;
 	return 0;
 }
 
@@ -105,8 +93,6 @@ static unsigned int worker_pool_find_max_connections(struct worker_pool *pool)
 	struct worker_connection_list *list;
 	unsigned int limit;
 
-	i_assert(pool->idle_list == NULL);
-
 	if (pool->busy_list == NULL)
 		return 1;
 
@@ -125,42 +111,17 @@ bool worker_pool_get_connection(struct worker_pool *pool,
 	struct worker_connection_list *list;
 	unsigned int max_connections;
 
-	while (pool->idle_list != NULL &&
-	       !worker_connection_is_connected(pool->idle_list->conn)) {
-		list = pool->idle_list;
-		DLLIST_REMOVE(&pool->idle_list, list);
-		worker_connection_list_free(pool, list);
-	}
-
-	if (pool->idle_list == NULL) {
-		max_connections = worker_pool_find_max_connections(pool);
-		if (pool->connection_count >= max_connections)
-			return FALSE;
-		if (worker_pool_add_connection(pool) < 0)
-			return FALSE;
-		i_assert(pool->idle_list != NULL);
-	}
-	list = pool->idle_list;
-	DLLIST_REMOVE(&pool->idle_list, list);
+	max_connections = worker_pool_find_max_connections(pool);
+	if (pool->connection_count >= max_connections)
+		return FALSE;
+	if (worker_pool_add_connection(pool, conn_r) < 0)
+		return FALSE;
+	list = i_new(struct worker_connection_list, 1);
+	list->conn = *conn_r;
+	list->last_use = ioloop_time;
 	DLLIST_PREPEND(&pool->busy_list, list);
 
-	*conn_r = list->conn;
 	return TRUE;
-}
-
-static void worker_pool_kill_idle_connections(struct worker_pool *pool)
-{
-	struct worker_connection_list *list, *next;
-	time_t kill_timestamp;
-
-	kill_timestamp = ioloop_time - MAX_WORKER_IDLE_SECS;
-	for (list = pool->idle_list; list != NULL; list = next) {
-		next = list->next;
-		if (list->last_use < kill_timestamp) {
-			DLLIST_REMOVE(&pool->idle_list, list);
-			worker_connection_list_free(pool, list);
-		}
-	}
 }
 
 void worker_pool_release_connection(struct worker_pool *pool,
@@ -168,11 +129,7 @@ void worker_pool_release_connection(struct worker_pool *pool,
 {
 	struct worker_connection_list *list;
 
-	if (worker_connection_is_busy(conn)) {
-		/* not finished with all queued requests yet */
-		return;
-	}
-
+	pool->connection_count--;
 	for (list = pool->busy_list; list != NULL; list = list->next) {
 		if (list->conn == conn)
 			break;
@@ -181,14 +138,7 @@ void worker_pool_release_connection(struct worker_pool *pool,
 
 	DLLIST_REMOVE(&pool->busy_list, list);
 
-	if (!worker_connection_is_connected(conn))
-		worker_connection_list_free(pool, list);
-	else {
-		DLLIST_PREPEND(&pool->idle_list, list);
-		list->last_use = ioloop_time;
-
-		worker_pool_kill_idle_connections(pool);
-	}
+	worker_connection_destroy(&conn);
 }
 
 struct worker_connection *

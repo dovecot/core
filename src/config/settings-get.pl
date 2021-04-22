@@ -140,7 +140,7 @@ for (my $i = 0; $i < scalar(@services); $i++) {
 }
 print "};\n";
 print "buffer_t config_all_services_buf = {\n";
-print "\tconfig_all_services, sizeof(config_all_services), { NULL, }\n";
+print "\t{ { config_all_services, sizeof(config_all_services) } }\n";
 print "};\n";
 
 print "const struct setting_parser_info *all_default_roots[] = {\n";

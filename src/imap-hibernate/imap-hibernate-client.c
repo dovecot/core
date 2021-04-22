@@ -224,7 +224,8 @@ imap_hibernate_client_input_line(struct connection *conn, const char *line)
 
 		pool = pool_alloconly_create("client cmd", 1024);
 		args = p_strsplit_tabescaped(pool, line);
-		ret = imap_hibernate_client_input_args(conn, (void *)args, fd, pool);
+		ret = imap_hibernate_client_input_args(conn, (const void *)args,
+						       fd, pool);
 		if (ret >= 0 && client->debug)
 			e_debug(conn->event, "Create client with input: %s", line);
 		pool_unref(&pool);

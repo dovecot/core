@@ -126,7 +126,9 @@ array_create_i(struct array *array, pool_t pool,
 {
 	buffer_t *buffer;
 
-        buffer = buffer_create_dynamic(pool, init_count * element_size);
+	buffer = buffer_create_dynamic_max(pool, init_count * element_size,
+		SIZE_MAX / element_size < UINT_MAX ? SIZE_MAX :
+		UINT_MAX * element_size);
 	array_create_from_buffer_i(array, buffer, element_size);
 }
 #define array_create(array, pool, element_size, init_count) \

@@ -199,8 +199,9 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 		list->set.mailbox_dir_name =
 			p_strconcat(list->pool, set->mailbox_dir_name, "/", NULL);
 	}
-	list->set.escape_char = set->escape_char;
-	list->set.broken_char = set->broken_char;
+	if (set->storage_name_escape_char != '\0')
+		list->set.storage_name_escape_char = set->storage_name_escape_char;
+	list->set.vname_escape_char = set->vname_escape_char;
 	list->set.utf8 = set->utf8;
 
 	if (list->v.init != NULL) {
@@ -365,7 +366,7 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 				*error_r = "BROKENCHAR value must be a single character";
 				return -1;
 			}
-			set_r->broken_char = value[0];
+			set_r->vname_escape_char = value[0];
 			continue;
 		} else if (strcmp(key, "ITERINDEX") == 0) {
 			set_r->iter_from_index_dir = TRUE;
@@ -485,6 +486,8 @@ mailbox_list_escape_name_params(const char *vname, const char *ns_prefix,
 	string_t *escaped_name = t_str_new(64);
 	bool dirstart = TRUE;
 
+	i_assert(escape_char != '\0');
+
 	/* no escaping of namespace prefix */
 	if (str_begins(vname, ns_prefix)) {
 		str_append_data(escaped_name, vname, ns_prefix_len);
@@ -515,136 +518,138 @@ mailbox_list_escape_name_params(const char *vname, const char *ns_prefix,
 	return str_c(escaped_name);
 }
 
-const char *
-mailbox_list_escape_name(struct mailbox_list *list, const char *vname)
+void mailbox_list_name_unescape(const char **_name, char escape_char)
 {
-	return mailbox_list_escape_name_params(vname, list->ns->prefix,
-				mail_namespace_get_sep(list->ns),
-				mailbox_list_get_hierarchy_sep(list),
-				list->set.escape_char, list->set.maildir_name);
-}
-
-static int
-mailbox_list_unescape_broken_chars(struct mailbox_list *list, char *name)
-{
-	char *src, *dest;
+	const char *p, *name = *_name;
 	unsigned char chr;
 
-	if ((src = strchr(name, list->set.broken_char)) == NULL)
-		return 0;
-	dest = src;
+	if ((p = strchr(name, escape_char)) == NULL)
+		return;
 
-	while (*src != '\0') {
-		if (*src == list->set.broken_char) {
-			if (src[1] >= '0' && src[1] <= '9')
-				chr = (src[1]-'0') * 0x10;
-			else if (src[1] >= 'a' && src[1] <= 'f')
-				chr = (src[1]-'a' + 10) * 0x10;
-			else
-				return -1;
-
-			if (src[2] >= '0' && src[2] <= '9')
-				chr += src[2]-'0';
-			else if (src[2] >= 'a' && src[2] <= 'f')
-				chr += src[2]-'a' + 10;
-			else
-				return -1;
-			*dest++ = chr;
-			src += 3;
+	string_t *str = t_str_new(strlen(name)*2);
+	str_append_data(str, name, p - name);
+	while (*p != '\0') {
+		if (*p == escape_char &&
+		    imap_escaped_utf8_hex_to_char(p+1, &chr) == 0) {
+			str_append_c(str, chr);
+			p += 3;
 		} else {
-			*dest++ = *src++;
+			str_append_c(str, *p++);
 		}
 	}
-	*dest++ = '\0';
-	return 0;
+	*_name = str_c(str);
 }
 
-static char *mailbox_list_convert_sep(const char *storage_name, char src, char dest)
-{
-	char *ret, *p;
-
-	ret = p_strdup(unsafe_data_stack_pool, storage_name);
-	for (p = ret; *p != '\0'; p++) {
-		if (*p == src)
-			*p = dest;
-	}
-	return ret;
-}
-
-const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
-						  const char *vname)
+static bool
+mailbox_list_vname_prepare(struct mailbox_list *list, const char **_vname)
 {
 	struct mail_namespace *ns = list->ns;
-	size_t prefix_len = strlen(ns->prefix);
-	const char *storage_name = vname;
-	string_t *str;
-	char list_sep, ns_sep, *ret;
+	const char *vname = *_vname;
 
-	if (strcasecmp(storage_name, "INBOX") == 0 &&
-	    (ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0)
-		storage_name = "INBOX";
-	else if (list->set.escape_char != '\0')
-		storage_name = mailbox_list_escape_name(list, vname);
-
-	if (prefix_len > 0 && (strcmp(storage_name, "INBOX") != 0 ||
-			       (ns->flags & NAMESPACE_FLAG_INBOX_USER) == 0)) {
+	if (strcasecmp(vname, "INBOX") == 0 &&
+	    (list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0) {
+		/* INBOX is case sensitive. Normalize it into "INBOX". */
+		vname = "INBOX";
+	} else if (ns->prefix_len > 0) {
 		/* skip namespace prefix, except if this is INBOX */
-		if (strncmp(ns->prefix, storage_name, prefix_len) == 0)
-			storage_name += prefix_len;
-		else if (strncmp(ns->prefix, storage_name, prefix_len-1) == 0 &&
-			 strlen(storage_name) == prefix_len-1 &&
-			 ns->prefix[prefix_len-1] == mail_namespace_get_sep(ns)) {
+		if (strncmp(ns->prefix, vname, ns->prefix_len) == 0) {
+			vname += ns->prefix_len;
+			if (strcmp(vname, "INBOX") == 0 &&
+			    (list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+			    list->set.storage_name_escape_char != '\0') {
+				/* prefix/INBOX - this is troublesome, because
+				   it ends up conflicting with the INBOX name.
+				   Handle this in a bit kludgy way by escaping
+				   the initial "I" character. */
+				*_vname = t_strdup_printf("%c49NBOX",
+					list->set.storage_name_escape_char);
+				return TRUE;
+			}
+		} else if (strncmp(ns->prefix, vname, ns->prefix_len-1) == 0 &&
+			 strlen(vname) == ns->prefix_len-1 &&
+			 ns->prefix[ns->prefix_len-1] == mail_namespace_get_sep(ns)) {
 			/* trying to access the namespace prefix itself */
-			storage_name = "";
+			vname = "";
 		} else {
 			/* we're converting a nonexistent mailbox name,
 			   such as a LIST pattern. */
 		}
 	}
+	if (*vname == '\0' && ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
+	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
+	    !list->mail_set->mail_shared_explicit_inbox) {
+		/* opening shared/$user. it's the same as INBOX. */
+		vname = "INBOX";
+	}
+	*_vname = vname;
+	return FALSE;
+}
+
+static const char *
+mailbox_list_default_get_storage_name_part(struct mailbox_list *list,
+					   const char *vname_part)
+{
+	const char *storage_name = vname_part;
+	string_t *str;
 
 	if (!list->set.utf8) {
 		/* UTF-8 -> mUTF-7 conversion */
 		str = t_str_new(strlen(storage_name)*2);
-		if (imap_utf8_to_utf7(storage_name, str) < 0)
-			i_panic("Mailbox name not UTF-8: %s", vname);
+		if (imap_escaped_utf8_to_utf7(storage_name,
+					      list->set.vname_escape_char,
+					      str) < 0)
+			i_panic("Mailbox name not UTF-8: %s", vname_part);
 		storage_name = str_c(str);
+	} else if (list->set.vname_escape_char != '\0') {
+		mailbox_list_name_unescape(&storage_name,
+					   list->set.vname_escape_char);
+	}
+	if (list->set.storage_name_escape_char != '\0') {
+		storage_name = mailbox_list_escape_name_params(storage_name,
+				list->ns->prefix,
+				'\0', /* no separator conversion */
+				mailbox_list_get_hierarchy_sep(list),
+				list->set.storage_name_escape_char,
+				list->set.maildir_name);
+	}
+	return storage_name;
+}
+
+const char *mailbox_list_default_get_storage_name(struct mailbox_list *list,
+						  const char *vname)
+{
+	const char *prepared_name = vname;
+	const char list_sep = mailbox_list_get_hierarchy_sep(list);
+	const char ns_sep = mail_namespace_get_sep(list->ns);
+
+	if (mailbox_list_vname_prepare(list, &prepared_name))
+		return prepared_name;
+	if (list->ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
+	    (list->ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0 &&
+	    list_sep != ns_sep &&
+	    list->set.storage_name_escape_char == '\0') {
+		/* Accessing shared namespace root. This is just the initial
+		   lookup that ends up as parameter to
+		   shared_storage_get_namespace(). That then finds/creates the
+		   actual shared namespace, which gets used to generate the
+		   proper storage_name. So the only thing that's really
+		   necessary here is to just skip over the shared namespace
+		   prefix and leave the rest of the name untouched. The only
+		   exception is if there is a storage_name_escape_char set, in
+		   this case the storage name must be handled. */
+		return prepared_name;
 	}
 
-	list_sep = mailbox_list_get_hierarchy_sep(list);
-	ns_sep = mail_namespace_get_sep(ns);
-
-	if (*storage_name == '\0' && ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
-	    (ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
-	    !list->mail_set->mail_shared_explicit_inbox) {
-		/* opening shared/$user. it's the same as INBOX. */
-		storage_name = "INBOX";
+	const char sep[] = { ns_sep, '\0' };
+	const char *const *parts = t_strsplit(prepared_name, sep);
+	string_t *storage_name = t_str_new(128);
+	for (unsigned int i = 0; parts[i] != NULL; i++) {
+		if (i > 0)
+			str_append_c(storage_name, list_sep);
+		str_append(storage_name,
+			   mailbox_list_default_get_storage_name_part(list, parts[i]));
 	}
-
-	if (list_sep != ns_sep && list->set.escape_char == '\0') {
-		if (ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
-		    (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
-			/* shared namespace root. the backend storage's
-			   hierarchy separator isn't known yet, so do
-			   nothing. */
-			return storage_name;
-		}
-
-		ret = mailbox_list_convert_sep(storage_name, ns_sep, list_sep);
-	} else if (list->set.broken_char == '\0' ||
-		   strchr(storage_name, list->set.broken_char) == NULL) {
-		/* no need to convert broken chars */
-		return storage_name;
-	} else {
-		ret = p_strdup(unsafe_data_stack_pool, storage_name);
-	}
-
-	if (list->set.broken_char != '\0') {
-		if (mailbox_list_unescape_broken_chars(list, ret) < 0) {
-			ret = mailbox_list_convert_sep(storage_name,
-						       ns_sep, list_sep);
-		}
-	}
-	return ret;
+	return str_c(storage_name);
 }
 
 const char *mailbox_list_get_storage_name(struct mailbox_list *list,
@@ -689,116 +694,110 @@ mailbox_list_unescape_name_params(const char *src, const char *ns_prefix,
 	return str_c(dest);
 }
 
-const char *
-mailbox_list_unescape_name(struct mailbox_list *list, const char *src)
+static bool
+mailbox_list_storage_name_prepare(struct mailbox_list *list,
+				  const char **_storage_name)
 {
-	return mailbox_list_unescape_name_params(src, list->ns->prefix,
-				mail_namespace_get_sep(list->ns),
-				mailbox_list_get_hierarchy_sep(list),
-				list->set.escape_char);
-}
-
-static void
-mailbox_list_escape_broken_chars(struct mailbox_list *list, string_t *str)
-{
-	unsigned int i;
-	char buf[3];
-
-	if (strchr(str_c(str), list->set.broken_char) == NULL)
-		return;
-
-	for (i = 0; i < str_len(str); i++) {
-		if (str_c(str)[i] == list->set.broken_char) {
-			i_snprintf(buf, sizeof(buf), "%02x",
-				   list->set.broken_char);
-			str_insert(str, i+1, buf);
-			i += 2;
-		}
-	}
-}
-
-static void
-mailbox_list_escape_broken_name(struct mailbox_list *list,
-				const char *vname, string_t *str)
-{
-	str_truncate(str, 0);
-	for (; *vname != '\0'; vname++) {
-		if (*vname == '&' || (unsigned char)*vname >= 0x80) {
-			str_printfa(str, "%c%02x", list->set.broken_char,
-				    (unsigned char)*vname);
-		} else {
-			str_append_c(str, *vname);
-		}
-	}
-}
-
-const char *mailbox_list_default_get_vname(struct mailbox_list *list,
-					   const char *storage_name)
-{
-	size_t i, prefix_len, name_len;
-	const char *vname = storage_name;
-	char list_sep, ns_sep, *ret;
+	const char *name = *_storage_name;
 
 	if ((list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
-	    strcmp(vname, "INBOX") == 0 &&
+	    strcmp(name, "INBOX") == 0 &&
 	    list->ns->user == list->ns->owner) {
 		/* user's INBOX - use as-is. NOTE: don't do case-insensitive
 		   comparison, otherwise we can't differentiate between INBOX
 		   and <ns prefix>/inBox. */
-		return vname;
+		return TRUE;
 	}
-	if (strcmp(vname, "INBOX") == 0 &&
+	if (strcmp(name, "INBOX") == 0 &&
 	    list->ns->type == MAIL_NAMESPACE_TYPE_SHARED &&
 	    (list->ns->flags & NAMESPACE_FLAG_INBOX_ANY) != 0 &&
 	    !list->mail_set->mail_shared_explicit_inbox) {
 		/* convert to shared/$user, we don't really care about the
 		   INBOX suffix here. */
-		vname = "";
+		name = "";
 	}
-	if (*vname == '\0') {
+	if (name[0] == '\0') {
 		/* return namespace prefix without the separator */
 		if (list->ns->prefix_len == 0)
-			return list->ns->prefix;
+			*_storage_name = list->ns->prefix;
 		else {
-			return t_strndup(list->ns->prefix,
-					 list->ns->prefix_len - 1);
+			*_storage_name =
+				t_strndup(list->ns->prefix,
+					  list->ns->prefix_len - 1);
 		}
-	} else if (!list->set.utf8) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+void mailbox_list_name_escape(const char *name, const char *escape_chars,
+			      string_t *dest)
+{
+	for (unsigned int i = 0; name[i] != '\0'; i++) {
+		if (strchr(escape_chars, name[i]) != NULL)
+			str_printfa(dest, "%c%02x", escape_chars[0], name[i]);
+		else
+			str_append_c(dest, name[i]);
+	}
+}
+
+static const char *
+mailbox_list_default_get_vname_part(struct mailbox_list *list,
+				    const char *storage_name_part)
+{
+	const char *vname = storage_name_part;
+	char escape_chars[] = {
+		list->set.vname_escape_char,
+		mail_namespace_get_sep(list->ns),
+		'\0'
+	};
+
+	if (list->set.storage_name_escape_char != '\0') {
+		vname = mailbox_list_unescape_name_params(vname,
+				list->ns->prefix,
+				'\0', '\0', /* no separator conversion */
+				list->set.storage_name_escape_char);
+	}
+
+	if (!list->set.utf8) {
 		/* mUTF-7 -> UTF-8 conversion */
 		string_t *str = t_str_new(strlen(vname));
-		if (imap_utf7_to_utf8(vname, str) == 0) {
-			if (list->set.broken_char != '\0')
-				mailbox_list_escape_broken_chars(list, str);
+		if (escape_chars[0] != '\0') {
+			imap_utf7_to_utf8_escaped(vname, escape_chars, str);
 			vname = str_c(str);
-		} else if (list->set.broken_char != '\0') {
-			mailbox_list_escape_broken_name(list, vname, str);
+		} else if (imap_utf7_to_utf8(vname, str) == 0)
 			vname = str_c(str);
+		else {
+			/* Invalid mUTF7, but no escape character. This mailbox
+			   can't be accessible, so just return it as the
+			   original mUTF7 name. */
 		}
-	}
-
-	prefix_len = strlen(list->ns->prefix);
-	if (list->set.escape_char != '\0') {
-		vname = mailbox_list_unescape_name(list, vname);
-		return prefix_len == 0 ? vname :
-			t_strconcat(list->ns->prefix, vname, NULL);
-	}
-
-	list_sep = mailbox_list_get_hierarchy_sep(list);
-	ns_sep = mail_namespace_get_sep(list->ns);
-
-	if (list_sep != ns_sep || prefix_len > 0) {
-		/* @UNSAFE */
-		name_len = strlen(vname);
-		ret = t_malloc_no0(MALLOC_ADD(prefix_len, name_len) + 1);
-		memcpy(ret, list->ns->prefix, prefix_len);
-		for (i = 0; i < name_len; i++) {
-			ret[i + prefix_len] =
-				vname[i] == list_sep ? ns_sep : vname[i];
-		}
-		ret[i + prefix_len] = '\0';
-		vname = ret;
+	} else if (list->set.vname_escape_char != '\0') {
+		string_t *str = t_str_new(strlen(vname));
+		mailbox_list_name_escape(vname, escape_chars, str);
+		vname = str_c(str);
 	}
 	return vname;
+}
+
+const char *mailbox_list_default_get_vname(struct mailbox_list *list,
+					   const char *storage_name)
+{
+	if (mailbox_list_storage_name_prepare(list, &storage_name))
+		return storage_name;
+
+	char ns_sep = mail_namespace_get_sep(list->ns);
+	char sep[] = { mailbox_list_get_hierarchy_sep(list), '\0' };
+	const char *const *parts = t_strsplit(storage_name, sep);
+	string_t *vname = t_str_new(128);
+	str_append(vname, list->ns->prefix);
+	for (unsigned int i = 0; parts[i] != NULL; i++) {
+		if (i > 0)
+			str_append_c(vname, ns_sep);
+		str_append(vname,
+			   mailbox_list_default_get_vname_part(list, parts[i]));
+	}
+	return str_c(vname);
 }
 
 const char *mailbox_list_get_vname(struct mailbox_list *list, const char *name)
@@ -1838,7 +1837,8 @@ int mailbox_list_dirent_is_alias_symlink(struct mailbox_list *list,
 		} else if (!S_ISLNK(st.st_mode)) {
 			ret = 0;
 		} else if (t_readlink(path, &linkpath, &error) < 0) {
-			i_error("t_readlink(%s) failed: %s", path, error);
+			e_error(list->ns->user->event,
+				"t_readlink(%s) failed: %s", path, error);
 			ret = -1;
 		} else {
 			/* it's an alias only if it points to the same
@@ -1908,11 +1908,23 @@ bool mailbox_list_try_get_absolute_path(struct mailbox_list *list,
 const char *mailbox_list_get_last_error(struct mailbox_list *list,
 					enum mail_error *error_r)
 {
+	if (list->error == MAIL_ERROR_NONE) {
+		if (error_r != NULL)
+			*error_r = MAIL_ERROR_TEMP;
+		return list->error_string != NULL ? list->error_string :
+			"BUG: Unknown internal list error";
+	}
+
+	if (list->error_string == NULL) {
+		/* This shouldn't happen.. */
+		list->error_string =
+			i_strdup_printf("BUG: Unknown 0x%x list error",
+					list->error);
+	}
+
 	if (error_r != NULL)
 		*error_r = list->error;
-
-	return list->error_string != NULL ? list->error_string :
-		"Unknown internal list error";
+	return list->error_string;
 }
 
 enum mail_error mailbox_list_get_last_mail_error(struct mailbox_list *list)
@@ -1944,8 +1956,10 @@ void mailbox_list_clear_error(struct mailbox_list *list)
 void mailbox_list_set_error(struct mailbox_list *list,
 			    enum mail_error error, const char *string)
 {
-	i_free(list->error_string);
-	list->error_string = i_strdup(string);
+	if (list->error_string != string) {
+		i_free(list->error_string);
+		list->error_string = i_strdup(string);
+	}
 
 	list->last_error_is_internal = FALSE;
 	list->error = error;
@@ -1959,23 +1973,36 @@ void mailbox_list_set_internal_error(struct mailbox_list *list)
 	i_free(list->error_string);
 	list->error_string = i_strdup(str);
 	list->error = MAIL_ERROR_TEMP;
+
+	/* this function doesn't set last_internal_error, so
+	   last_error_is_internal can't be TRUE. */
+	list->last_error_is_internal = FALSE;
+	i_free(list->last_internal_error);
 }
 
 void mailbox_list_set_critical(struct mailbox_list *list, const char *fmt, ...)
 {
+	char *old_error = list->error_string;
+	char *old_internal_error = list->last_internal_error;
 	va_list va;
 
-	i_free(list->last_internal_error);
-	va_start(va, fmt);
-	list->last_internal_error = i_strdup_vprintf(fmt, va);
-	va_end(va);
-	list->last_error_is_internal = TRUE;
-	i_error("%s", list->last_internal_error);
-
+	list->error_string = NULL;
+	list->last_internal_error = NULL;
 	/* critical errors may contain sensitive data, so let user
 	   see only "Internal error" with a timestamp to make it
 	   easier to look from log files the actual error message. */
 	mailbox_list_set_internal_error(list);
+
+	va_start(va, fmt);
+	list->last_internal_error = i_strdup_vprintf(fmt, va);
+	va_end(va);
+	list->last_error_is_internal = TRUE;
+	e_error(list->ns->user->event, "%s", list->last_internal_error);
+
+	/* free the old_error and old_internal_error only after the new error
+	   is generated, because they may be one of the parameters. */
+	i_free(old_error);
+	i_free(old_internal_error);
 }
 
 bool mailbox_list_set_error_from_errno(struct mailbox_list *list)
@@ -2019,7 +2046,8 @@ void mailbox_list_last_error_pop(struct mailbox_list *list)
 	array_delete(&list->error_stack, count-1, 1);
 }
 
-int mailbox_list_init_fs(struct mailbox_list *list, const char *driver,
+int mailbox_list_init_fs(struct mailbox_list *list, struct event *event_parent,
+			 const char *driver,
 			 const char *args, const char *root_dir,
 			 struct fs **fs_r, const char **error_r)
 {
@@ -2031,6 +2059,9 @@ int mailbox_list_init_fs(struct mailbox_list *list, const char *driver,
 	i_zero(&ssl_set);
 	i_zero(&fs_set);
 	mail_user_init_fs_settings(list->ns->user, &fs_set, &ssl_set);
+	/* fs_set.event_parent points to user->event by default */
+	if (event_parent != NULL)
+		fs_set.event_parent = event_parent;
 	fs_set.root_path = root_dir;
 	fs_set.temp_file_prefix = mailbox_list_get_global_temp_prefix(list);
 

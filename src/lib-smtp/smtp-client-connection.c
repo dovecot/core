@@ -60,14 +60,45 @@ uoff_t smtp_client_connection_get_size_capability(
 	return conn->caps.size;
 }
 
-void smtp_client_connection_accept_extra_capability(
+static const struct smtp_client_capability_extra *
+smtp_client_connection_find_extra_capability(
 	struct smtp_client_connection *conn, const char *cap_name)
 {
-	cap_name = p_strdup(conn->pool, cap_name);
+	const struct smtp_client_capability_extra *cap;
 
 	if (!array_is_created(&conn->extra_capabilities))
+		return NULL;
+	array_foreach(&conn->extra_capabilities, cap) {
+		if (strcasecmp(cap->name, cap_name) == 0)
+			return cap;
+	}
+	return NULL;
+}
+
+void smtp_client_connection_accept_extra_capability(
+	struct smtp_client_connection *conn,
+	const struct smtp_client_capability_extra *cap)
+{
+	i_assert(smtp_client_connection_find_extra_capability(conn, cap->name)
+		 == NULL);
+	
+	if (!array_is_created(&conn->extra_capabilities))
 		p_array_init(&conn->extra_capabilities, conn->pool, 8);
-	array_push_back(&conn->extra_capabilities, &cap_name);
+
+	struct smtp_client_capability_extra cap_new = {
+		.name = p_strdup(conn->pool, cap->name),
+	};
+
+	if (cap->mail_param_extensions != NULL) {
+		cap_new.mail_param_extensions =
+			p_strarray_dup(conn->pool, cap->mail_param_extensions);
+	}
+	if (cap->rcpt_param_extensions != NULL) {
+		cap_new.rcpt_param_extensions =
+			p_strarray_dup(conn->pool, cap->rcpt_param_extensions);
+	}
+
+	array_push_back(&conn->extra_capabilities, &cap_new);
 }
 
 const struct smtp_capability_extra *
@@ -877,40 +908,72 @@ smtp_client_connection_starttls(struct smtp_client_connection *conn)
 	return smtp_client_connection_authenticate(conn);
 }
 
-static bool
-smtp_client_connection_has_extra_capability(struct smtp_client_connection *conn,
-					   const char *cap_name)
+static void
+smtp_client_connection_record_param_extensions(
+	struct smtp_client_connection *conn, ARRAY_TYPE(const_string) *arr,
+	const char *const *extensions)
 {
-	const char *const *cap_idx;
+	pool_t pool = conn->cap_pool;
 
-	if (!array_is_created(&conn->extra_capabilities))
-		return FALSE;
-	array_foreach(&conn->extra_capabilities, cap_idx) {
-		if (strcasecmp(*cap_idx, cap_name) == 0)
-			return TRUE;
+	if (extensions == NULL || *extensions == NULL)
+		return;
+
+	if (!array_is_created(arr))
+		p_array_init(arr, pool, 4);
+	else {
+		const char *const *end;
+
+		/* Drop end marker */
+		i_assert(array_count(arr) > 0);
+		end = array_back(arr);
+		i_assert(*end == NULL);
+		array_pop_back(arr);
 	}
-	return FALSE;
+
+	const char *const *new_p;
+	for (new_p = extensions; *new_p != NULL; new_p++) {
+		/* Drop duplicates */
+		if (array_lsearch(arr, new_p, i_strcasecmp_p) != NULL)
+			continue;
+
+		array_push_back(arr, new_p);
+	}
+
+	/* Add new end marker */
+	array_append_zero(arr);
 }
 
 static void
-smtp_client_connection_record_exta_capability(
+smtp_client_connection_record_extra_capability(
 	struct smtp_client_connection *conn, const char *cap_name,
 	const char *const *params)
 {
+	const struct smtp_client_capability_extra *ccap_extra;
 	struct smtp_capability_extra cap_extra;
 	pool_t pool = conn->cap_pool;
 
-	if (!smtp_client_connection_has_extra_capability(conn, cap_name))
+	ccap_extra = smtp_client_connection_find_extra_capability(
+		conn, cap_name);
+	if (ccap_extra == NULL)
+		return;
+	if (smtp_client_connection_get_extra_capability(conn, cap_name) != NULL)
 		return;
 
 	if (!array_is_created(&conn->caps.extra))
 		p_array_init(&conn->caps.extra, pool, 4);
 
 	i_zero(&cap_extra);
-	cap_extra.name = p_strdup(pool, cap_name);
+	cap_extra.name = p_strdup(pool, ccap_extra->name);
 	cap_extra.params = p_strarray_dup(pool, params);
 
 	array_push_back(&conn->caps.extra, &cap_extra);
+
+	smtp_client_connection_record_param_extensions(
+		conn, &conn->caps.mail_param_extensions,
+		ccap_extra->mail_param_extensions);
+	smtp_client_connection_record_param_extensions(
+		conn, &conn->caps.rcpt_param_extensions,
+		ccap_extra->rcpt_param_extensions);
 }
 
 static void
@@ -991,7 +1054,7 @@ smtp_client_connection_handshake_cb(const struct smtp_reply *reply,
 				p_strarray_dup(conn->cap_pool, params);
 			break;
 		case SMTP_CAPABILITY_NONE:
-			smtp_client_connection_record_exta_capability(
+			smtp_client_connection_record_extra_capability(
 				conn, cap_name, params);
 			break;
 		default:
@@ -1692,6 +1755,7 @@ smtp_client_connection_lookup_ip(struct smtp_client_connection *conn)
 		dns_set.dns_client_socket_path =
 			conn->set.dns_client_socket_path;
 		dns_set.timeout_msecs = conn->set.connect_timeout_msecs;
+		dns_set.event_parent = conn->event;
 		e_debug(conn->event, "Performing asynchronous DNS lookup");
 		(void)dns_lookup(conn->host, &dns_set,
 				 smtp_client_connection_dns_callback, conn,
@@ -1880,7 +1944,7 @@ void smtp_client_connection_disconnect(struct smtp_client_connection *conn)
 			conn, SMTP_CLIENT_COMMAND_ERROR_ABORTED,
 			"Disconnected from server");
 	}
-	conn->cmd_streaming = NULL;
+	smtp_client_command_unref(&conn->cmd_streaming);
 }
 
 static struct smtp_client_connection *
@@ -1968,8 +2032,11 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 		p_array_init(&conn->extra_capabilities, pool,
 			     str_array_length(set->extra_capabilities) + 8);
 		for (extp = set->extra_capabilities; *extp != NULL; extp++) {
-			const char *ext = p_strdup(pool, *extp);
-			array_push_back(&conn->extra_capabilities, &ext);
+			struct smtp_client_capability_extra cap = {
+				.name = p_strdup(pool, *extp),
+			};
+
+			array_push_back(&conn->extra_capabilities, &cap);
 		}
 	}
 

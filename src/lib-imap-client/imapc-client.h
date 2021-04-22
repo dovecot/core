@@ -180,7 +180,8 @@ typedef void imapc_state_change_callback_t(void *context,
 					   const char *error);
 
 struct imapc_client *
-imapc_client_init(const struct imapc_client_settings *set);
+imapc_client_init(const struct imapc_client_settings *set,
+		  struct event *event_parent);
 void imapc_client_disconnect(struct imapc_client *client);
 void imapc_client_deinit(struct imapc_client **client);
 

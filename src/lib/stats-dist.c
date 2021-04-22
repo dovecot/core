@@ -108,12 +108,12 @@ static void stats_dist_ensure_sorted(struct stats_dist *stats)
 	stats->sorted = TRUE;
 }
 
-uint64_t stats_dist_get_median(const struct stats_dist *stats)
+uint64_t stats_dist_get_median(struct stats_dist *stats)
 {
 	if (stats->count == 0)
 		return 0;
 	/* cast-away const - reading requires sorting */
-	stats_dist_ensure_sorted((struct stats_dist *)stats);
+	stats_dist_ensure_sorted(stats);
 	unsigned int count = (stats->count < stats->sample_count)
 		? stats->count
 		: stats->sample_count;
@@ -161,12 +161,11 @@ static unsigned int stats_dist_get_index(unsigned int range, double fraction)
 	return idx;
 }
 
-uint64_t stats_dist_get_percentile(const struct stats_dist *stats, double fraction)
+uint64_t stats_dist_get_percentile(struct stats_dist *stats, double fraction)
 {
 	if (stats->count == 0)
 		return 0;
-	/* cast-away const - reading requires sorting */
-	stats_dist_ensure_sorted((struct stats_dist *)stats);
+	stats_dist_ensure_sorted(stats);
 	unsigned int count = (stats->count < stats->sample_count)
 		? stats->count
 		: stats->sample_count;

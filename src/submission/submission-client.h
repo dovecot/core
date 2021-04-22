@@ -28,8 +28,7 @@ struct client_extra_capability {
 };
 
 struct submission_client_vfuncs {
-	void (*destroy)(struct client *client, const char *prefix,
-			const char *reason);
+	void (*destroy)(struct client *client);
 
 	void (*trans_start)(struct client *client,
 			    struct smtp_server_transaction *trans);
@@ -100,8 +99,6 @@ struct client {
 
 	struct timeout *to_quit;
 
-	struct smtp_server_stats stats;
-
 	enum smtp_capability backend_capabilities;
 	struct submission_backend *backend_default;
 	struct submission_backend_relay *backend_default_relay;
@@ -142,10 +139,8 @@ struct client *client_create(int fd_in, int fd_out,
 			     const char *helo,
 			     const unsigned char *pdata,
 			     unsigned int pdata_len);
-void client_destroy(struct client *client, const char *prefix,
+void client_destroy(struct client **client, const char *prefix,
 		    const char *reason) ATTR_NULL(2, 3);
-void client_disconnect(struct client *client, const char *prefix,
-		       const char *reason);
 
 typedef void (*client_input_callback_t)(struct client *context);
 

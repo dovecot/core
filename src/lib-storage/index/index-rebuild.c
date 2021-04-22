@@ -174,22 +174,20 @@ index_rebuild_header(struct index_rebuild_context *ctx,
 }
 
 static void
-index_rebuild_box_name_header(struct index_rebuild_context *ctx)
+index_rebuild_box_preserve_header(struct index_rebuild_context *ctx,
+				  uint32_t ext_id)
 {
-	const void *name_hdr;
-	size_t name_hdr_size;
+	const void *hdr;
+	size_t hdr_size;
 
-	mail_index_get_header_ext(ctx->view, ctx->box->box_name_hdr_ext_id,
-				  &name_hdr, &name_hdr_size);
-	if (name_hdr_size == 0 && ctx->backup_view != NULL) {
-		mail_index_get_header_ext(ctx->backup_view,
-					  ctx->box->box_name_hdr_ext_id,
-					  &name_hdr, &name_hdr_size);
+	mail_index_get_header_ext(ctx->view, ext_id, &hdr, &hdr_size);
+	if (hdr_size == 0 && ctx->backup_view != NULL) {
+		mail_index_get_header_ext(ctx->backup_view, ext_id,
+					  &hdr, &hdr_size);
 	}
-	if (name_hdr_size == 0)
+	if (hdr_size == 0)
 		return;
-	mail_index_update_header_ext(ctx->trans, ctx->box->box_name_hdr_ext_id,
-				     0, name_hdr, name_hdr_size);
+	mail_index_update_header_ext(ctx->trans, ext_id, 0, hdr, hdr_size);
 }
 
 struct index_rebuild_context *
@@ -247,7 +245,9 @@ void index_index_rebuild_deinit(struct index_rebuild_context **_ctx,
 	(void)mail_cache_purge_with_trans(ctx->box->cache, ctx->trans,
 					  (uint32_t)-1, "rebuilding index");
 	index_rebuild_header(ctx, cb);
-	index_rebuild_box_name_header(ctx);
+	index_rebuild_box_preserve_header(ctx, ctx->box->box_name_hdr_ext_id);
+	index_rebuild_box_preserve_header(ctx, ctx->box->box_last_rename_stamp_ext_id);
+	index_rebuild_box_preserve_header(ctx, ctx->box->pop3_uidl_hdr_ext_id);
 	if (ctx->backup_index != NULL) {
 		mail_index_view_close(&ctx->backup_view);
 		mail_index_close(ctx->backup_index);

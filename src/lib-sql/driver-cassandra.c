@@ -259,6 +259,24 @@ static void driver_cassandra_result_send_query(struct cassandra_result *result);
 static void driver_cassandra_send_queries(struct cassandra_db *db);
 static void result_finish(struct cassandra_result *result);
 
+static void log_one_line(const CassLogMessage *message,
+			 enum log_type log_type, const char *log_level_str,
+			 const char *text, size_t text_len)
+{
+	/* NOTE: We may not be in the main thread. We can't use the
+	   standard Dovecot functions that may use data stack. That's why
+	   we can't use i_log_type() in here, but have to re-implement the
+	   internal logging protocol. Otherwise preserve Cassandra's own
+	   logging format. */
+	fprintf(stderr, "\001%c%s %u.%03u %s(%s:%d:%s): %.*s\n",
+		log_type+1, my_pid,
+		(unsigned int)(message->time_ms / 1000),
+		(unsigned int)(message->time_ms % 1000),
+		log_level_str,
+		message->file, message->line, message->function,
+		(int)text_len, text);
+}
+
 static void
 driver_cassandra_log_handler(const CassLogMessage* message,
 			     void *data ATTR_UNUSED)
@@ -290,18 +308,13 @@ driver_cassandra_log_handler(const CassLogMessage* message,
 		break;
 	}
 
-	/* NOTE: We may not be in the main thread. We can't use the
-	   standard Dovecot functions that may use data stack. That's why
-	   we can't use i_log_type() in here, but have to re-implement the
-	   internal logging protocol. Otherwise preserve Cassandra's own
-	   logging format. */
-	fprintf(stderr, "\001%c%s %u.%03u %s(%s:%d:%s): %s\n",
-		log_type+1, my_pid,
-		(unsigned int)(message->time_ms / 1000),
-		(unsigned int)(message->time_ms % 1000),
-		log_level_str,
-		message->file, message->line, message->function,
-		message->message);
+	/* Log message may contain LFs, so log each line separately. */
+	const char *p, *line = message->message;
+	while ((p = strchr(line, '\n')) != NULL) {
+		log_one_line(message, log_type, log_level_str, line, p - line);
+		line = p+1;
+	}
+	log_one_line(message, log_type, log_level_str, line, strlen(line));
 }
 
 static void driver_cassandra_init_log(void)
@@ -1010,9 +1023,7 @@ static int driver_cassandra_init_full_v(const struct sql_settings *set,
 		return -1;
 	}
 
-	const char *tmp;
-	if (db->init_ssl &&
-	    (ret = driver_cassandra_init_ssl(db, &tmp)) < 0) {
+	if (db->init_ssl && driver_cassandra_init_ssl(db, error_r) < 0) {
 		driver_cassandra_free(&db);
 		return -1;
 	}

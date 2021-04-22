@@ -167,7 +167,7 @@ static const struct connection_vfuncs memcached_conn_vfuncs = {
 
 static int
 memcached_dict_init(struct dict *driver, const char *uri,
-		    const struct dict_settings *set ATTR_UNUSED,
+		    const struct dict_settings *set,
 		    struct dict **dict_r, const char **error_r)
 {
 	struct memcached_dict *dict;
@@ -222,7 +222,7 @@ memcached_dict_init(struct dict *driver, const char *uri,
 		return -1;
 	}
 
-	dict->conn.conn.event_parent = dict->dict.event;
+	dict->conn.conn.event_parent = set->event_parent;
 
 	connection_init_client_ip(memcached_connections, &dict->conn.conn,
 				  NULL, &dict->ip, dict->port);

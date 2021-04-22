@@ -6,18 +6,22 @@
 #include "buffer.h"
 
 struct real_buffer {
-	/* public: */
-	const unsigned char *r_buffer;
-	size_t used;
+	union {
+		struct buffer buf;
+		struct {
+			/* public: */
+			const void *r_buffer;
+			size_t used;
+			/* private: */
+			unsigned char *w_buffer;
+			size_t dirty, alloc, max_size;
 
-	/* private: */
-	unsigned char *w_buffer;
-	size_t dirty, alloc;
+			pool_t pool;
 
-	pool_t pool;
-
-	bool alloced:1;
-	bool dynamic:1;
+			bool alloced:1;
+			bool dynamic:1;
+		};
+	};
 };
 typedef int buffer_check_sizes[COMPILE_ERROR_IF_TRUE(sizeof(struct real_buffer) > sizeof(buffer_t)) ?1:1];
 
@@ -46,7 +50,7 @@ buffer_check_limits(struct real_buffer *buf, size_t pos, size_t data_size)
 	unsigned int extra;
 	size_t new_size;
 
-	if (unlikely(SIZE_MAX - pos < data_size))
+	if (unlikely(buf->max_size - pos < data_size))
 		i_panic("Buffer write out of range (%zu + %zu)", pos, data_size);
 
 	new_size = pos + data_size;
@@ -106,7 +110,7 @@ void buffer_create_from_data(buffer_t *buffer, void *data, size_t size)
 
 	buf = (struct real_buffer *)buffer;
 	i_zero(buf);
-	buf->alloc = size;
+	buf->alloc = buf->max_size = size;
 	buf->r_buffer = buf->w_buffer = data;
 	/* clear the whole memory area. unnecessary usually, but if the
 	   buffer is used by e.g. str_c() it tries to access uninitialized
@@ -125,12 +129,18 @@ void buffer_create_from_const_data(buffer_t *buffer,
 	buf = (struct real_buffer *)buffer;
 	i_zero(buf);
 
-	buf->used = buf->alloc = size;
+	buf->used = buf->alloc = buf->max_size = size;
 	buf->r_buffer = data;
 	i_assert(buf->w_buffer == NULL);
 }
 
 buffer_t *buffer_create_dynamic(pool_t pool, size_t init_size)
+{
+	return buffer_create_dynamic_max(pool, init_size, SIZE_MAX);
+}
+
+buffer_t *buffer_create_dynamic_max(pool_t pool, size_t init_size,
+				    size_t max_size)
 {
 	struct real_buffer *buf;
 
@@ -146,6 +156,7 @@ buffer_t *buffer_create_dynamic(pool_t pool, size_t init_size)
 	buf = p_new(pool, struct real_buffer, 1);
 	buf->pool = pool;
 	buf->dynamic = TRUE;
+	buf->max_size = max_size;
 	/* buffer_alloc() reserves +1 for str_c() NIL, so add +1 here to
 	   init_size so we can actually write that much to the buffer without
 	   realloc */
@@ -318,10 +329,10 @@ void buffer_copy(buffer_t *_dest, size_t dest_pos,
 
 	if (src == dest) {
 		memmove(dest->w_buffer + dest_pos,
-			src->r_buffer + src_pos, copy_size);
+			CONST_PTR_OFFSET(src->r_buffer, src_pos), copy_size);
 	} else {
 		memcpy(dest->w_buffer + dest_pos,
-		       src->r_buffer + src_pos, copy_size);
+		       CONST_PTR_OFFSET(src->r_buffer, src_pos), copy_size);
 	}
 }
 

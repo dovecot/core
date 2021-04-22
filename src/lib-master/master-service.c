@@ -12,6 +12,7 @@
 #include "env-util.h"
 #include "home-expand.h"
 #include "process-title.h"
+#include "time-util.h"
 #include "restrict-access.h"
 #include "settings-parser.h"
 #include "syslog-util.h"
@@ -52,6 +53,7 @@ static struct event_category master_service_category = {
 static char *master_service_category_name;
 
 static void master_service_io_listeners_close(struct master_service *service);
+static int master_service_get_login_state(enum master_login_state *state_r);
 static void master_service_refresh_login_state(struct master_service *service);
 static void
 master_status_send(struct master_service *service, bool important_update);
@@ -592,6 +594,7 @@ bool master_service_parse_option(struct master_service *service,
 		i_free(service->config_path);
 		service->config_path = i_strdup(arg);
 		service->config_path_changed_with_param = TRUE;
+		service->config_path_from_master = FALSE;
 		break;
 	case 'i':
 		if (!get_instance_config(arg, &path))
@@ -708,6 +711,12 @@ static void master_service_import_environment_real(const char *import_environmen
 	value = getenv(DOVECOT_PRESERVE_ENVS_ENV);
 	if (value != NULL)
 		array_push_back(&keys, &value);
+#ifdef HAVE_LIBSYSTEMD
+	/* Always import systemd variables, otherwise it is possible to break
+	   systemd startup in obscure ways. */
+	value = "NOTIFY_SOCKET LISTEN_FDS LISTEN_PID";
+	array_push_back(&keys, &value);
+#endif
 	/* add new environments */
 	envs = t_strsplit_spaces(import_environment, " ");
 	for (; *envs != NULL; envs++) {
@@ -821,7 +830,7 @@ const char *master_service_get_socket_name(struct master_service *service,
 }
 
 void master_service_set_avail_overflow_callback(struct master_service *service,
-						void (*callback)(void))
+	master_service_avail_overflow_callback_t *callback)
 {
 	service->avail_overflow_callback = callback;
 }
@@ -963,12 +972,20 @@ void master_service_client_connection_handled(struct master_service *service,
 	if (!master_service_want_listener(service)) {
 		i_assert(service->listeners != NULL);
 		master_service_io_listeners_remove(service);
-		if (service->service_count_left == 1) {
+		if (service->service_count_left == 1 &&
+		   service->avail_overflow_callback == NULL) {
 			/* we're not going to accept any more connections after
 			   this. go ahead and close the connection early. don't
 			   do this before calling callback, because it may want
 			   to access the listen_fd (e.g. to check socket
-			   permissions). */
+			   permissions).
+
+			   Don't do this if overflow callback is set, because
+			   otherwise it's never called with service_count=1.
+			   Actually this isn't important anymore to do with
+			   any service, since nowadays master can request the
+			   listeners to be closed via SIGQUIT. Still, closing
+			   the fd when possible saves a little bit of memory. */
 			master_service_io_listeners_close(service);
 		}
 	}
@@ -1053,15 +1070,26 @@ static void master_service_set_login_state(struct master_service *service,
 	i_error("Invalid master login state: %d", state);
 }
 
-static void master_service_refresh_login_state(struct master_service *service)
+static int master_service_get_login_state(enum master_login_state *state_r)
 {
-	int ret;
+	off_t ret;
 
 	ret = lseek(MASTER_LOGIN_NOTIFY_FD, 0, SEEK_CUR);
-	if (ret < 0)
+	if (ret < 0) {
 		i_error("lseek(login notify fd) failed: %m");
-	else
-		master_service_set_login_state(service, ret);
+		return -1;
+	}
+	*state_r = ret == MASTER_LOGIN_STATE_FULL ?
+		MASTER_LOGIN_STATE_FULL : MASTER_LOGIN_STATE_NONFULL;
+	return 0;
+}
+
+static void master_service_refresh_login_state(struct master_service *service)
+{
+	enum master_login_state state;
+
+	if (master_service_get_login_state(&state) == 0)
+		master_service_set_login_state(service, state);
 }
 
 void master_service_close_config_fd(struct master_service *service)
@@ -1088,6 +1116,7 @@ static void master_service_deinit_real(struct master_service **_service)
 	if (service->stats_client != NULL)
 		stats_client_deinit(&service->stats_client);
 	master_service_close_config_fd(service);
+	timeout_remove(&service->to_overflow_call);
 	timeout_remove(&service->to_die);
 	timeout_remove(&service->to_overflow_state);
 	timeout_remove(&service->to_status);
@@ -1144,22 +1173,115 @@ void master_service_deinit_forked(struct master_service **_service)
 	master_service_free(service);
 }
 
+static void master_service_overflow(struct master_service *service)
+{
+	enum master_login_state state;
+	struct timeval created;
+
+	timeout_remove(&service->to_overflow_call);
+
+	if (master_service_get_login_state(&state) < 0 ||
+	    state != MASTER_LOGIN_STATE_FULL) {
+		/* service is no longer full (or we couldn't check if it is) */
+		return;
+	}
+
+	if (!service->avail_overflow_callback(TRUE, &created)) {
+		/* can't kill the client anymore after all */
+		return;
+	}
+	if (service->master_status.available_count == 0) {
+		/* Client was destroyed, but service_count is now 0.
+		   The servive was already stopped, so the process will
+		   shutdown and a new process can handle the waiting client
+		   connection. */
+		i_assert(service->service_count_left == 0);
+		i_assert(!io_loop_is_running(service->ioloop));
+		return;
+	}
+	master_service_io_listeners_add(service);
+
+	/* The connection is soon accepted by the listener IO callback.
+	   Note that this often results in killing two connections, because
+	   after the first process has accepted the new client the service is
+	   full again. The second process sees this and kills another client.
+	   After this the other processes see that the service is no longer
+	   full and kill no more clients. */
+}
+
+static unsigned int
+master_service_overflow_timeout_msecs(const struct timeval *created)
+{
+	/* Returns a value between 0..max_wait. The oldest clients return the
+	   lowest wait so they get killed before newer clients. For simplicity
+	   this code treats all clients older than 10 seconds the same. */
+	const unsigned int max_wait = 100;
+	const int max_since = 10*1000;
+	int created_since = timeval_diff_msecs(&ioloop_timeval, created);
+	unsigned int msecs;
+
+	created_since = I_MAX(created_since, 0);
+	created_since = I_MIN(created_since, max_since);
+
+	msecs = created_since * max_wait / max_since;
+	i_assert(msecs <= max_wait);
+	msecs = max_wait - msecs;
+
+	/* Add some extra randomness, so even if all clients have exactly the
+	   same creation time they won't all be killed. */
+	return msecs + i_rand_limit(10);
+}
+
+static bool master_service_full(struct master_service *service)
+{
+	struct timeval created;
+
+	/* This process can't handle any more connections. */
+	if (!service->call_avail_overflow ||
+	    service->avail_overflow_callback == NULL)
+		return TRUE;
+
+	/* Master has notified us that all processes are full, and
+	   we have the ability to kill old connections. */
+	if (service->total_available_count > 1) {
+		/* This process can still create multiple concurrent
+		   clients if we just kill some of the existing ones.
+		   Do it immediately. */
+		return !service->avail_overflow_callback(TRUE, &created);
+	}
+
+	/* This process can't create more than a single client. Most likely
+	   running with service_count=1. Check the overflow again after a short
+	   delay before killing anything. This way only some of the connections
+	   get killed instead of all of them. The delay is based on the
+	   connection age with a bit of randomness, so the oldest connections
+	   should die first, but even if all the connections have time same
+	   timestamp they still don't all die at once. */
+	if (!service->avail_overflow_callback(FALSE, &created)) {
+		/* can't kill any clients */
+		return TRUE;
+	}
+	i_assert(service->to_overflow_call == NULL);
+	service->to_overflow_call =
+		timeout_add(master_service_overflow_timeout_msecs(&created),
+			    master_service_overflow, service);
+	return TRUE;
+}
+
 static void master_service_listen(struct master_service_listener *l)
 {
 	struct master_service *service = l->service;
 	struct master_service_connection conn;
 
 	if (service->master_status.available_count == 0) {
-		/* we are full. stop listening for now, unless overflow
-		   callback destroys one of the existing connections */
-		if (service->call_avail_overflow &&
-		    service->avail_overflow_callback != NULL)
-			service->avail_overflow_callback();
-
-		if (service->master_status.available_count == 0) {
+		if (master_service_full(service)) {
+			/* Stop the listener until a client has disconnected or
+			   overflow callback has killed one. */
 			master_service_io_listeners_remove(service);
 			return;
 		}
+		/* we can accept another client */
+		i_assert(service->master_status.available_count > 0);
 	}
 
 	i_zero(&conn);
@@ -1216,6 +1338,10 @@ void master_service_io_listeners_add(struct master_service *service)
 {
 	unsigned int i;
 
+	/* If there's a pending overflow call, remove it now since new
+	   clients just became available. */
+	timeout_remove(&service->to_overflow_call);
+
 	if (service->stopping)
 		return;
 
@@ -1268,10 +1394,20 @@ static void master_service_io_listeners_close(struct master_service *service)
 
 static bool master_status_update_is_important(struct master_service *service)
 {
-	if (service->master_status.available_count == 0)
+	if (service->master_status.available_count == 0) {
+		/* client_limit reached for this process */
 		return TRUE;
-	if (!service->initial_status_sent)
+	}
+	if (service->last_sent_status_avail_count == 0) {
+		/* This process can now handle more clients. This is important
+		   to know for master if all the existing processes have
+		   avail_count=0 so it doesn't unnecessarily create more
+		   processes. */
 		return TRUE;
+	}
+	/* The previous check should have triggered also for the initial
+	   status notification. */
+	i_assert(service->initial_status_sent);
 	return FALSE;
 }
 

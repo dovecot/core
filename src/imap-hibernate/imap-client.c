@@ -520,6 +520,9 @@ imap_client_get_var_expand_table(struct imap_client *client)
 		{ '\0', auth_user, "auth_user" },
 		{ '\0', auth_username, "auth_username" },
 		{ '\0', auth_domain, "auth_domain" },
+		/* aliases: */
+		{ '\0', local_ip, "local_ip" },
+		{ '\0', remote_ip, "remote_ip" },
 		/* NOTE: keep this synced with lib-storage's
 		   mail_user_var_expand_table() */
 		{ '\0', NULL, NULL }
@@ -677,7 +680,8 @@ void imap_client_destroy(struct imap_client **_client, const char *reason)
 	if (reason != NULL) {
 		/* the client input/output bytes don't count the DONE+IDLE by
 		   imap-hibernate, but that shouldn't matter much. */
-		e_info(client->event, "%s %s", reason, client->state.stats);
+		e_info(client->event, "Disconnected: %s %s",
+		       reason, client->state.stats);
 	}
 
 	if (client->state.anvil_sent) {
@@ -727,7 +731,7 @@ void imap_client_create_finish(struct imap_client *client)
 	io_loop_context_add_callbacks(client->ioloop_ctx,
 				      imap_client_io_activate_user,
 				      imap_client_io_deactivate_user, client);
-	imap_client_io_activate_user(client);
+	io_loop_context_switch(client->ioloop_ctx);
 
 	if (client->state.idle_cmd) {
 		client->io = io_add(client->fd, IO_READ,

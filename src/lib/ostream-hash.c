@@ -15,7 +15,8 @@ static ssize_t
 o_stream_hash_sendv(struct ostream_private *stream,
 		    const struct const_iovec *iov, unsigned int iov_count)
 {
-	struct hash_ostream *hstream = (struct hash_ostream *)stream;
+	struct hash_ostream *hstream =
+		container_of(stream, struct hash_ostream, ostream);
 	unsigned int i;
 	size_t bytes_left, block_len;
 	ssize_t ret;

@@ -305,8 +305,8 @@ void auth_request_fail(struct auth_request *request)
 
 	auth_request_set_state(request, AUTH_REQUEST_STATE_FINISHED);
 	auth_request_refresh_last_access(request);
-	auth_request_handler_reply(request, AUTH_CLIENT_RESULT_FAILURE, "", 0);
 	auth_request_log_finished(request);
+	auth_request_handler_reply(request, AUTH_CLIENT_RESULT_FAILURE, "", 0);
 }
 
 void auth_request_internal_failure(struct auth_request *request)
@@ -1976,7 +1976,8 @@ void auth_request_set_userdb_field(struct auth_request *request,
 		/* FIXME: the system_user is for backwards compatibility */
 		static bool warned = FALSE;
 		if (!warned) {
-			i_warning("userdb: Replace system_user with system_groups_user");
+			e_warning(authdb_event(request),
+				  "Replace system_user with system_groups_user");
 			warned = TRUE;
 		}
 		name = "system_groups_user";
@@ -2145,6 +2146,7 @@ static int auth_request_proxy_host_lookup(struct auth_request *request,
 	i_zero(&dns_set);
 	dns_set.dns_client_socket_path = AUTH_DNS_SOCKET_PATH;
 	dns_set.timeout_msecs = AUTH_DNS_DEFAULT_TIMEOUT_MSECS;
+	dns_set.event_parent = request->event;
 	value = auth_fields_find(request->fields.extra_fields, "proxy_timeout");
 	if (value != NULL) {
 		if (str_to_uint(value, &secs) < 0) {

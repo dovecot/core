@@ -477,7 +477,7 @@ struct mail_vfuncs {
 	bool (*set_uid)(struct mail *mail, uint32_t uid);
 	void (*set_uid_cache_updates)(struct mail *mail, bool set);
 	bool (*prefetch)(struct mail *mail);
-	void (*precache)(struct mail *mail);
+	int (*precache)(struct mail *mail);
 	void (*add_temp_wanted_fields)(struct mail *mail,
 				       enum mail_fetch_field fields,
 				       struct mailbox_header_lookup_ctx *headers);
@@ -795,6 +795,12 @@ bool mail_has_attachment_keywords(struct mail *mail);
    and 1 if attachment was found. */
 int mail_set_attachment_keywords(struct mail *mail);
 
+/* Emit mail opened events */
+void mail_opened_event(struct mail *mail);
+
+/* Emit mail expunge_requested event */
+void mail_expunge_requested_event(struct mail *mail);
+
 void mailbox_set_deleted(struct mailbox *box);
 int mailbox_mark_index_deleted(struct mailbox *box, bool del);
 /* Easy wrapper for getting mailbox's MAILBOX_LIST_PATH_TYPE_MAILBOX.
@@ -851,6 +857,10 @@ void mail_storage_free_binary_cache(struct mail_storage *storage);
 enum mail_index_open_flags
 mail_storage_settings_to_index_flags(const struct mail_storage_settings *set);
 void mailbox_save_context_deinit(struct mail_save_context *ctx);
+
+/* Notify that a sync should be done. */
+void mailbox_sync_notify(struct mailbox *box, uint32_t uid,
+			 enum mailbox_sync_type sync_type);
 
 /* for unit testing */
 int mailbox_verify_name(struct mailbox *box);

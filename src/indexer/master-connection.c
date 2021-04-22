@@ -22,6 +22,8 @@
 #define INDEXER_WORKER_HANDSHAKE "VERSION\tindexer-worker-master\t1\t0\n%u\n"
 #define INDEXER_MASTER_NAME "indexer-master-worker"
 
+struct master_connection *master_conn;
+
 struct master_connection {
 	struct mail_storage_service_ctx *storage_service;
 
@@ -48,6 +50,16 @@ indexer_worker_refresh_proctitle(const char *username, const char *mailbox,
 		process_title_set(t_strdup_printf("[%s %s - %u/%u]",
 						  username, mailbox, seq1, seq2));
 	}
+}
+
+static const char *
+get_attempt_error(unsigned int counter, uint32_t first_uid, uint32_t last_uid)
+{
+	if (counter == 0)
+		return " (no mails indexed)";
+	return t_strdup_printf(
+		" (attempted to index %u messages between UIDs %u..%u)",
+		counter, first_uid, last_uid);
 }
 
 static int
@@ -89,6 +101,11 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 					  "indexing");
 	search_args = mail_search_build_init();
 	mail_search_build_add_seqset(search_args, seq, status.messages);
+
+	struct event *index_event = event_create(box->event);
+	event_set_name(index_event, "indexer_worker_indexing_finished");
+	event_enable_user_cpu_usecs(index_event);
+
 	ctx = mailbox_search_init(trans, search_args, NULL,
 				  metadata.precache_fields, NULL);
 	mail_search_args_unref(&search_args);
@@ -99,7 +116,14 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 			first_uid = mail->uid;
 		last_uid = mail->uid;
 
-		mail_precache(mail);
+		if (mail_precache(mail) < 0) {
+			i_error("Mailbox %s: Precache for UID=%u failed: %s%s",
+				mailbox_get_vname(box), mail->uid,
+				mailbox_get_last_internal_error(box, NULL),
+				get_attempt_error(counter, first_uid, last_uid));
+			ret = -1;
+			break;
+		}
 		if (++counter % 100 == 0) {
 			percentage = counter*100 / max;
 			if (percentage != percentage_sent && percentage < 100) {
@@ -116,24 +140,33 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 		}
 	}
 	if (mailbox_search_deinit(&ctx) < 0) {
-		i_error("Mailbox %s: Mail search failed: %s",
+		i_error("Mailbox %s: Mail search failed: %s%s",
 			mailbox_get_vname(box),
-			mailbox_get_last_internal_error(box, NULL));
+			mailbox_get_last_internal_error(box, NULL),
+			get_attempt_error(counter, first_uid, last_uid));
 		ret = -1;
 	}
 	const char *uids = first_uid == 0 ? "" :
 		t_strdup_printf(" (UIDs %u..%u)", first_uid, last_uid);
+	event_add_int(index_event, "message_count", counter);
+	event_add_int(index_event, "first_uid", first_uid);
+	event_add_int(index_event, "last_uid", last_uid);
+
 	if (mailbox_transaction_commit(&trans) < 0) {
-		errstr = mailbox_get_last_internal_error(box, &error);
+		errstr = t_strdup_printf("Transaction commit failed: %s",
+					 mailbox_get_last_internal_error(box, &error));
+		event_add_str(index_event, "error", errstr);
+		const char *log_error = t_strdup_printf("%s (attempted to index %u messages%s)",
+							errstr, counter, uids);
 		if (error != MAIL_ERROR_NOTFOUND)
-			i_error("Mailbox %s: Transaction commit failed: %s"
-				" (attempted to index %u messages%s)",
-				mailbox_get_vname(box), errstr, counter, uids);
+			e_error(index_event, "%s", log_error);
+		else
+			e_debug(index_event, "%s", log_error);
 		ret = -1;
 	} else {
-		i_info("Indexed %u messages in %s%s",
-		       counter, mailbox_get_vname(box), uids);
+		e_debug(index_event, "Indexed %u messages%s", counter, uids);
 	}
+	event_unref(&index_event);
 	return ret;
 }
 
@@ -264,7 +297,7 @@ static void master_connection_input(struct master_connection *conn)
 	int ret;
 
 	if (i_stream_read(conn->input) < 0) {
-		master_service_stop(master_service);
+		master_connection_destroy();
 		return;
 	}
 
@@ -276,7 +309,7 @@ static void master_connection_input(struct master_connection *conn)
 				INDEXER_PROTOCOL_MAJOR_VERSION)) {
 			i_error("Indexer master not compatible with this master "
 				"(mixed old and new binaries?)");
-			master_service_stop(master_service);
+			master_connection_destroy();
 			return;
 		}
 		conn->version_received = TRUE;
@@ -287,7 +320,7 @@ static void master_connection_input(struct master_connection *conn)
 			ret = master_connection_input_line(conn, line);
 		} T_END;
 		if (ret < 0) {
-			master_service_stop(master_service);
+			master_connection_destroy();
 			break;
 		}
 	}
@@ -311,11 +344,11 @@ master_connection_create(int fd, struct mail_storage_service_ctx *storage_servic
 	return conn;
 }
 
-void master_connection_destroy(struct master_connection **_conn)
+void master_connection_destroy(void)
 {
-	struct master_connection *conn = *_conn;
+	struct master_connection *conn = master_conn;
 
-	*_conn = NULL;
+	master_conn = NULL;
 
 	io_remove(&conn->io);
 	i_stream_destroy(&conn->input);

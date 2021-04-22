@@ -403,12 +403,6 @@ int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 	}
 	smtp_server_connection_input_resume(conn);
 
-	if (ssl_iostream_handshake(conn->ssl_iostream) < 0) {
-		e_error(conn->event, "SSL handshake failed: %s",
-			ssl_iostream_get_last_error(conn->ssl_iostream));
-		return -1;
-	}
-
 	conn->ssl_secured = TRUE;
 	conn->set.capabilities &= ENUM_NEGATE(SMTP_CAPABILITY_STARTTLS);
 
@@ -483,34 +477,22 @@ smtp_server_connection_handle_input(struct smtp_server_connection *conn)
 		}
 
 		if (ret < 0 && conn->conn.input->eof) {
-			int stream_errno = conn->conn.input->stream_errno;
-			if (stream_errno != 0 && stream_errno != EPIPE &&
-			    stream_errno != ECONNRESET) {
-				e_error(conn->event,
-					"Connection lost: read(%s) failed: %s",
-					i_stream_get_name(conn->conn.input),
-					i_stream_get_error(conn->conn.input));
-				smtp_server_connection_close(&conn,
-					"Read failure");
-			} else {
-				e_debug(conn->event,
-					"Connection lost: Remote disconnected");
+			const char *error =
+				i_stream_get_disconnect_reason(conn->conn.input);
+			e_debug(conn->event, "Remote closed connection: %s",
+				error);
 
-				if (conn->command_queue_head == NULL) {
-					/* No pending commands; close */
-					smtp_server_connection_close(&conn,
-						"Remote closed connection");
-				} else if (conn->command_queue_head->state <
-					SMTP_SERVER_COMMAND_STATE_SUBMITTED_REPLY) {
-					/* Unfinished command; close */
-					smtp_server_connection_close(&conn,
-						"Remote closed connection unexpectedly");
-				} else {
-					/* A command is still processing;
-					   only drop input io for now */
-					conn->input_broken = TRUE;
-					smtp_server_connection_input_halt(conn);
-				}
+			if (conn->command_queue_head == NULL ||
+			    conn->command_queue_head->state <
+			    SMTP_SERVER_COMMAND_STATE_SUBMITTED_REPLY) {
+				/* No pending commands or unfinished
+				   command; close */
+				smtp_server_connection_close(&conn, error);
+			} else {
+				/* A command is still processing;
+				   only drop input io for now */
+				conn->input_broken = TRUE;
+				smtp_server_connection_input_halt(conn);
 			}
 			return;
 		}
@@ -546,8 +528,7 @@ smtp_server_connection_handle_input(struct smtp_server_connection *conn)
 					"Command data size exceeds absolute limit");
 				return;
 			case SMTP_COMMAND_PARSE_ERROR_BROKEN_STREAM:
-				smtp_server_connection_close(&conn,
-					"Command data ended prematurely");
+				smtp_server_connection_close(&conn, error);
 				return;
 			default:
 				i_unreached();
@@ -629,18 +610,8 @@ bool smtp_server_connection_pending_command_data(
 void smtp_server_connection_handle_output_error(
 	struct smtp_server_connection *conn)
 {
-	struct ostream *output = conn->conn.output;
-
-	if (output->stream_errno != EPIPE &&
-	    output->stream_errno != ECONNRESET) {
-		e_error(conn->event, "Connection lost: write(%s) failed: %s",
-			o_stream_get_name(output), o_stream_get_error(output));
-		smtp_server_connection_close(&conn, "Write failure");
-	} else {
-		e_debug(conn->event, "Connection lost: Remote disconnected");
-		smtp_server_connection_close(
-			&conn, "Remote closed connection unexpectedly");
-	}
+	smtp_server_connection_close(&conn,
+		o_stream_get_disconnect_reason(conn->conn.output));
 }
 
 static bool
@@ -1069,8 +1040,19 @@ smtp_server_connection_disconnect(struct smtp_server_connection *conn,
 		reason = smtp_server_connection_get_disconnect_reason(conn);
 	else
 		reason = t_str_oneline(reason);
+
+	cmd = conn->command_queue_head;
+	if (cmd != NULL && cmd->reg != NULL) {
+		/* Unfinished command - include it in the reason string */
+		reason = t_strdup_printf("%s (unfinished %s command)",
+			reason, cmd->reg->name);
+	}
+	if (!conn->set.no_state_in_reason) {
+		reason = t_strdup_printf("%s (state=%s)", reason,
+			smtp_server_state_names[conn->state.state]);
+	}
+
 	e_debug(conn->event, "Disconnected: %s", reason);
-	conn->disconnect_reason = i_strdup(reason);
 
 	/* Preserve statistics */
 	smtp_server_connection_update_stats(conn);
@@ -1126,14 +1108,13 @@ bool smtp_server_connection_unref(struct smtp_server_connection **_conn)
 
 	e_debug(conn->event, "Connection destroy");
 
-	if (conn->callbacks != NULL && conn->callbacks->conn_destroy != NULL)
-		conn->callbacks->conn_destroy(conn->context);
+	if (conn->callbacks != NULL && conn->callbacks->conn_free != NULL)
+		conn->callbacks->conn_free(conn->context);
 
 	connection_deinit(&conn->conn);
 
 	i_free(conn->helo_domain);
 	i_free(conn->username);
-	i_free(conn->disconnect_reason);
 	pool_unref(&conn->pool);
 	return FALSE;
 }

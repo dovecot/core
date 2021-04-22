@@ -7,8 +7,10 @@
 struct master_service_settings_output;
 
 enum config_dump_scope {
-	/* Dump all settings */
-	CONFIG_DUMP_SCOPE_ALL,
+	/* Dump all settings, including hidden settings */
+	CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN,
+	/* Dump all non-hidden settings */
+	CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN,
 	/* Dump all that have explicitly been set */
 	CONFIG_DUMP_SCOPE_SET,
 	/* Dump only settings that differ from defaults */

@@ -125,7 +125,7 @@ int dbox_storage_create(struct mail_storage *_storage,
 					    set->mail_attachment_dir);
 		storage->attachment_dir = p_strdup(_storage->pool, dir);
 
-		if (mailbox_list_init_fs(ns->list, name, args,
+		if (mailbox_list_init_fs(ns->list, _storage->event, name, args,
 					 storage->attachment_dir,
 					 &storage->attachment_fs, &error) < 0) {
 			*error_r = t_strdup_printf("mail_attachment_fs: %s",

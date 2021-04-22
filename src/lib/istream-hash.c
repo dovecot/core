@@ -16,7 +16,8 @@ struct hash_istream {
 static ssize_t
 i_stream_hash_read(struct istream_private *stream)
 {
-	struct hash_istream *hstream = (struct hash_istream *)stream;
+	struct hash_istream *hstream =
+		container_of(stream, struct hash_istream, istream);
 	const unsigned char *data;
 	size_t size;
 	uoff_t skip;
@@ -50,7 +51,8 @@ static void
 i_stream_hash_seek(struct istream_private *stream,
 		   uoff_t v_offset, bool mark ATTR_UNUSED)
 {
-	struct hash_istream *hstream = (struct hash_istream *)stream;
+	struct hash_istream *hstream =
+		container_of(stream, struct hash_istream, istream);
 
 	if (hstream->hash_context != NULL) {
 		io_stream_set_error(&stream->iostream,

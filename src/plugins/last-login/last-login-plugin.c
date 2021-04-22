@@ -48,9 +48,8 @@ static void last_login_user_deinit(struct mail_user *user)
 
 static void
 last_login_dict_commit(const struct dict_commit_result *result,
-		       void *context)
+		       struct mail_user *user)
 {
-	struct mail_user *user = context;
 	struct last_login_user *luser = LAST_LOGIN_USER_CONTEXT(user);
 
 	switch(result->ret) {
@@ -97,6 +96,7 @@ static void last_login_mail_user_created(struct mail_user *user)
 	i_zero(&set);
 	set.username = user->username;
 	set.base_dir = user->set->base_dir;
+	set.event_parent = user->event;
 	if (mail_user_get_home(user, &set.home_dir) <= 0)
 		set.home_dir = NULL;
 	if (dict_init(dict_value, &set, &dict, &error) < 0) {

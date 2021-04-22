@@ -286,7 +286,7 @@ void client_proxy_finish_destroy_client(struct client *client)
 		   In most places we don't have to check for this explicitly,
 		   but login_proxy_detach() attempts to get and use the
 		   istream's fd, which is now -1. */
-		client_destroy(client, "Disconnected");
+		client_destroy_iostream_error(client);
 		return;
 	}
 
@@ -345,7 +345,7 @@ static void proxy_input(struct client *client)
 		return;
 	case -1:
 		line = i_stream_next_line(input);
-		duration = ioloop_time - client->created;
+		duration = ioloop_time - client->created.tv_sec;
 		const char *reason = t_strdup_printf(
 			"Disconnected by server: %s "
 			"(state=%s, duration=%us)%s",
@@ -654,7 +654,7 @@ int client_auth_read_line(struct client *client)
 	size_t i, size, len;
 
 	if (i_stream_read_more(client->input, &data, &size) == -1) {
-		client_destroy(client, "Disconnected");
+		client_destroy_iostream_error(client);
 		return -1;
 	}
 

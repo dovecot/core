@@ -30,19 +30,26 @@ static const char *get_field(const struct json_tree *tree, const char *key)
 	return json_tree_get_value_str(value_node);
 }
 
-static int
-get_time_field(const struct json_tree *tree, const char *key, long *value_r)
+static int get_time_field(const struct json_tree *tree, const char *key,
+			  int64_t *value_r)
 {
+	time_t tvalue;
 	const char *value = get_field(tree, key);
 	int tz_offset ATTR_UNUSED;
 	if (value == NULL)
 		return 0;
-	if ((str_to_long(value, value_r) < 0 &&
-	     !iso8601_date_parse((const unsigned char*)value, strlen(value),
-				 value_r, &tz_offset)) ||
-	    *value_r < 0)
-		 return -1;
-	return 1;
+	if (str_to_int64(value, value_r) == 0) {
+		if (*value_r < 0)
+			return -1;
+		return 1;
+	} else if (iso8601_date_parse((const unsigned char*)value, strlen(value),
+				      &tvalue, &tz_offset)) {
+		if (tvalue < 0)
+			return -1;
+		*value_r = tvalue;
+		return 1;
+	}
+	return -1;
 }
 
 static int
@@ -311,9 +318,9 @@ oauth2_jwt_body_process(const struct oauth2_settings *set, const char *alg,
 	const char *sub = get_field(tree, "sub");
 
 	int ret;
-	long t0 = time(NULL);
+	int64_t t0 = time(NULL);
 	/* default IAT and NBF to now */
-	long iat, nbf, exp;
+	int64_t iat, nbf, exp;
 	int tz_offset ATTR_UNUSED;
 
 	if (sub == NULL) {

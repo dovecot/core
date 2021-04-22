@@ -405,6 +405,7 @@ mail_cache_map_full(struct mail_cache *cache, size_t offset, size_t size,
 	struct stat st;
 	const void *data;
 	ssize_t ret;
+	size_t orig_size = size;
 
 	*corrupted_r = FALSE;
 
@@ -426,7 +427,7 @@ mail_cache_map_full(struct mail_cache *cache, size_t offset, size_t size,
 			*data_r = NULL;
 			return 0;
 		}
-		if (offset + size > (uoff_t)st.st_size)
+		if (size > (uoff_t)st.st_size - offset)
 			size = st.st_size - offset;
 	}
 
@@ -465,6 +466,10 @@ mail_cache_map_full(struct mail_cache *cache, size_t offset, size_t size,
 		/* already mapped */
 		i_assert(cache->mmap_base != NULL);
 		*data_r = CONST_PTR_OFFSET(cache->mmap_base, offset);
+		if (orig_size > cache->mmap_length - offset) {
+			/* requested offset/size points outside file */
+			return 0;
+		}
 		return 1;
 	}
 
@@ -500,7 +505,7 @@ mail_cache_map_full(struct mail_cache *cache, size_t offset, size_t size,
 	}
 	*data_r = offset > cache->mmap_length ? NULL :
 		CONST_PTR_OFFSET(cache->mmap_base, offset);
-	return mail_cache_map_finish(cache, offset, size,
+	return mail_cache_map_finish(cache, offset, orig_size,
 				     cache->mmap_base, FALSE, corrupted_r);
 }
 

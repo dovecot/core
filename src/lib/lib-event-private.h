@@ -1,6 +1,8 @@
 #ifndef LIB_EVENT_PRIVATE_H
 #define LIB_EVENT_PRIVATE_H
 
+#include <sys/resource.h>
+
 struct event_pointer {
 	const char *key;
 	void *value;
@@ -45,6 +47,7 @@ struct event {
 	struct timeval tv_created_ioloop;
 	struct timeval tv_created;
 	struct timeval tv_last_sent;
+	struct rusage ru_last;
 
 	const char *source_filename;
 	unsigned int source_linenum;

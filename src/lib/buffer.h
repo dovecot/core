@@ -2,9 +2,13 @@
 #define BUFFER_H
 
 struct buffer {
-	const void *data;
-	const size_t used;
-	void *priv[5];
+	union {
+		struct {
+			const void *data;
+			const size_t used;
+		};
+		void *priv[8];
+	};
 };
 
 /* WARNING: Be careful with functions that return pointers to data.
@@ -30,6 +34,10 @@ void buffer_create_from_const_data(buffer_t *buffer,
 /* Creates a dynamically growing buffer. Whenever write would exceed the
    current size it's grown. */
 buffer_t *buffer_create_dynamic(pool_t pool, size_t init_size);
+/* Create a dynamically growing buffer with a maximum size. Writes past the
+   maximum size will i_panic(). */
+buffer_t *buffer_create_dynamic_max(pool_t pool, size_t init_size,
+				    size_t max_size);
 
 #define t_buffer_create(init_size) \
 	buffer_create_dynamic(pool_datastack_create(), (init_size))

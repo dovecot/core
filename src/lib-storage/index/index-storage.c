@@ -169,10 +169,14 @@ index_mailbox_alloc_index(struct mailbox *box, struct mail_index **index_r)
 	return 0;
 }
 
-int index_storage_mailbox_exists(struct mailbox *box,
-				 bool auto_boxes ATTR_UNUSED,
+int index_storage_mailbox_exists(struct mailbox *box, bool auto_boxes,
 				 enum mailbox_existence *existence_r)
 {
+	if (auto_boxes && mailbox_is_autocreated(box)) {
+		*existence_r = MAILBOX_EXISTENCE_SELECT;
+		return 0;
+	}
+
 	return index_storage_mailbox_exists_full(box, NULL, existence_r);
 }
 

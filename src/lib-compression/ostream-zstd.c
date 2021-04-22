@@ -21,10 +21,33 @@ struct zstd_ostream {
 	unsigned char *outbuf;
 
 	bool flushed:1;
-	bool log_errors:1;
 	bool closed:1;
 	bool finished:1;
 };
+
+int compression_get_min_level_zstd(void)
+{
+#if HAVE_DECL_ZSTD_MINCLEVEL == 1
+	return ZSTD_minCLevel();
+#else
+	return 1;
+#endif
+}
+
+int compression_get_default_level_zstd(void)
+{
+#ifdef ZSTD_CLEVEL_DEFAULT
+	return ZSTD_CLEVEL_DEFAULT;
+#else
+	/* Documentation says 3 is default */
+	return 3;
+#endif
+}
+
+int compression_get_max_level_zstd(void)
+{
+	return ZSTD_maxCLevel();
+}
 
 static void o_stream_zstd_write_error(struct zstd_ostream *zstream, size_t err)
 {
@@ -47,8 +70,6 @@ static void o_stream_zstd_write_error(struct zstd_ostream *zstream, size_t err)
 			    "zstd.write(%s): %s at %"PRIuUOFF_T,
 			    o_stream_get_name(&zstream->ostream.ostream), error,
 			    zstream->ostream.ostream.offset);
-	if (zstream->log_errors)
-		i_error("%s", zstream->ostream.iostream.error);
 }
 
 static ssize_t o_stream_zstd_send_outbuf(struct zstd_ostream *zstream)
@@ -195,7 +216,8 @@ o_stream_create_zstd(struct ostream *output, int level)
 	struct zstd_ostream *zstream;
 	size_t ret;
 
-	i_assert(level >= 1 && level <= ZSTD_maxCLevel());
+	i_assert(level >= compression_get_min_level_zstd() &&
+		 level <= compression_get_max_level_zstd());
 
 	zstd_version_check();
 

@@ -47,7 +47,7 @@ static void test_compression_handler_detect(const struct compression_handler *ha
 	i_stream_seek(test_input, 0);
 	test_assert(handler != NULL);
 	if (handler != NULL) {
-		input = handler->create_istream(test_input, TRUE);
+		input = handler->create_istream(test_input);
 		i_stream_unref(&test_input);
 
 		test_assert(i_stream_read_more(input, &data, &size) > 0);
@@ -98,7 +98,7 @@ test_compression_handler_short(const struct compression_handler *handler,
 
 	/* read data at once */
 	test_input = test_istream_create_data(buffer->data, buffer->used);
-	input = !autodetect ? handler->create_istream(test_input, TRUE) :
+	input = !autodetect ? handler->create_istream(test_input) :
 		i_stream_create_decompress(test_input, 0);
 	i_stream_unref(&test_input);
 
@@ -137,7 +137,7 @@ test_compression_handler_empty(const struct compression_handler *handler,
 
 	/* read the input */
 	test_input = test_istream_create_data(buffer->data, buffer->used);
-	input = !autodetect ? handler->create_istream(test_input, TRUE) :
+	input = !autodetect ? handler->create_istream(test_input) :
 		i_stream_create_decompress(test_input, 0);
 	i_stream_unref(&test_input);
 
@@ -184,7 +184,7 @@ test_compression_handler_seek(const struct compression_handler *handler,
 	o_stream_unref(&output);
 
 	test_input = test_istream_create_data(buffer->data, buffer->used);
-	input = !autodetect ? handler->create_istream(test_input, TRUE) :
+	input = !autodetect ? handler->create_istream(test_input) :
 		i_stream_create_decompress(test_input, 0);
 	i_stream_unref(&test_input);
 
@@ -248,7 +248,7 @@ test_compression_handler_reset(const struct compression_handler *handler,
 	o_stream_unref(&output);
 
 	test_input = test_istream_create_data(buffer->data, buffer->used);
-	input = !autodetect ? handler->create_istream(test_input, TRUE) :
+	input = !autodetect ? handler->create_istream(test_input) :
 		i_stream_create_decompress(test_input, 0);
 	i_stream_unref(&test_input);
 
@@ -342,7 +342,7 @@ test_compression_handler(const struct compression_handler *handler,
 
 	/* read and uncompress the data */
 	file_input = i_stream_create_fd(fd, IO_BLOCK_SIZE);
-	input = !autodetect ? handler->create_istream(file_input, TRUE) :
+	input = !autodetect ? handler->create_istream(file_input) :
 		i_stream_create_decompress(file_input, 0);
 
 	test_assert(i_stream_get_size(input, FALSE, &stream_size) == 1);
@@ -418,7 +418,7 @@ test_compression_handler_partial_parent_write(const struct compression_handler *
 
 	struct istream *is = test_istream_create_data(compressed_data->data, compressed_data->used);
 	struct istream *is_decompressed =
-		!autodetect ? handler->create_istream(is, TRUE) :
+		!autodetect ? handler->create_istream(is) :
 		i_stream_create_decompress(is, 0);
 	i_stream_unref(&is);
 
@@ -532,7 +532,7 @@ test_compression_handler_random_io(const struct compression_handler *handler,
 		i_stream_set_name(input1, "[compressed-data]");
 
 		/* Create decompressor stream */
-		input2 = !autodetect ? handler->create_istream(input1, TRUE) :
+		input2 = !autodetect ? handler->create_istream(input1) :
 			i_stream_create_decompress(input1, 0);
 		i_stream_set_name(input2, "[decompressor]");
 
@@ -630,7 +630,7 @@ test_compression_handler_large_random_io(const struct compression_handler *handl
 
 	/* verify that reading the input works */
 
-	dec_input = !autodetect ? handler->create_istream(input, TRUE) :
+	dec_input = !autodetect ? handler->create_istream(input) :
 		i_stream_create_decompress(input, 0);
 
 	while ((ret = i_stream_read_more(dec_input, &data, &size)) > 0) {
@@ -657,7 +657,7 @@ test_compression_handler_errors(const struct compression_handler *handler,
 	/* test that zero stream reading errors out */
 	struct istream *is = test_istream_create("");
 	struct istream *input =
-		!autodetect ? handler->create_istream(is, FALSE) :
+		!autodetect ? handler->create_istream(is) :
 		i_stream_create_decompress(is, 0);
 	i_stream_unref(&is);
 	test_assert(i_stream_read(input) == -1 && input->eof);
@@ -668,7 +668,7 @@ test_compression_handler_errors(const struct compression_handler *handler,
 				 "dedededeededdedededededededede"
 				 "dedededededededededededededede");
 	is->blocking = TRUE;
-	input = !autodetect ? handler->create_istream(is, FALSE) :
+	input = !autodetect ? handler->create_istream(is) :
 		i_stream_create_decompress(is, 0);
 	i_stream_unref(&is);
 	test_assert(i_stream_read(input) == -1 && input->eof);
@@ -691,7 +691,7 @@ test_compression_handler_errors(const struct compression_handler *handler,
 
 	/* truncate buffer */
 	is = test_istream_create_data(odata->data, odata->used - sizeof(buf)*2 - 1);
-	input = !autodetect ? handler->create_istream(is, FALSE) :
+	input = !autodetect ? handler->create_istream(is) :
 		i_stream_create_decompress(is, 0);
 	i_stream_unref(&is);
 
@@ -709,7 +709,7 @@ test_compression_handler_errors(const struct compression_handler *handler,
 		   that should not match any handlers' header */
 		for (size_t i = 0; i < 32; i++) {
 			is = test_istream_create_data("dededededededededededededededede", i);
-			input = !autodetect ? handler->create_istream(is, FALSE) :
+			input = !autodetect ? handler->create_istream(is) :
 				i_stream_create_decompress(is, 0);
 			i_stream_unref(&is);
 			while (i_stream_read_more(input, &data, &size) >= 0) {
@@ -730,6 +730,7 @@ static void test_compression_int(bool autodetect)
 
 	for (i = 0; compression_handlers[i].name != NULL; i++) {
 		if (compression_handlers[i].create_istream != NULL &&
+		    compression_handlers[i].create_ostream != NULL &&
 		    (!autodetect ||
 		     compression_handlers[i].is_compressed != NULL)) T_BEGIN {
 			if (compression_handlers[i].is_compressed != NULL &&
@@ -822,7 +823,7 @@ static void test_gz(const char *str1, const char *str2, bool autodetect)
 	size_t size;
 	test_input = test_istream_create_data(buf->data, buf->used);
 	test_istream_set_allow_eof(test_input, FALSE);
-	input = !autodetect ? gz->create_istream(test_input, TRUE) :
+	input = !autodetect ? gz->create_istream(test_input) :
 		i_stream_create_decompress(test_input, 0);
 	for (size_t i = 0; i <= buf->used; i++) {
 		test_istream_set_size(test_input, i);
@@ -883,7 +884,7 @@ static void test_gz_header_int(bool autodetect)
 		file_input = test_istream_create_data(input_strings[i],
 						      strlen(input_strings[i]));
 		file_input->blocking = TRUE;
-		input = !autodetect ? gz->create_istream(file_input, FALSE) :
+		input = !autodetect ? gz->create_istream(file_input) :
 			i_stream_create_decompress(file_input, 0);
 		test_assert_idx(i_stream_read(input) == -1, i);
 		test_assert_idx(input->stream_errno == EINVAL, i);
@@ -922,7 +923,7 @@ static void test_gz_large_header_int(bool autodetect)
 		test_istream_set_size(file_input, i);
 		test_istream_set_max_buffer_size(file_input, i);
 
-		input = !autodetect ? gz->create_istream(file_input, FALSE) :
+		input = !autodetect ? gz->create_istream(file_input) :
 			i_stream_create_decompress(file_input, 0);
 		test_assert_idx(i_stream_read(input) == 0, i);
 		test_assert_idx(i_stream_read(input) == -1 &&
@@ -933,7 +934,7 @@ static void test_gz_large_header_int(bool autodetect)
 
 	/* max buffer size is exactly the gz header */
 	file_input = test_istream_create_data(gz_input, sizeof(gz_input));
-	input = !autodetect ? gz->create_istream(file_input, TRUE) :
+	input = !autodetect ? gz->create_istream(file_input) :
 		i_stream_create_decompress(file_input, 0);
 	test_istream_set_size(file_input, i);
 	test_istream_set_allow_eof(file_input, FALSE);
@@ -966,7 +967,7 @@ static void test_uncompress_file(const char *path)
 		i_fatal("Support not compiled in for %s", handler->name);
 
 	file_input = i_stream_create_file(path, IO_BLOCK_SIZE);
-	input = handler->create_istream(file_input, TRUE);
+	input = handler->create_istream(file_input);
 	while (i_stream_read_more(input, &data, &size) > 0) {
 		if (write(STDOUT_FILENO, data, size) < 0)
 			break;
@@ -1022,7 +1023,7 @@ static void test_compress_file(const char *in_path, const char *out_path)
 	/* verify that we can read the compressed file */
 	sha1_init(&sha1);
 	file_input = i_stream_create_fd(fd_out, IO_BLOCK_SIZE);
-	input = handler->create_istream(file_input, TRUE);
+	input = handler->create_istream(file_input);
 	while (i_stream_read_more(input, &data, &size) > 0) {
 		sha1_loop(&sha1, data, size);
 		i_stream_skip(input, size);

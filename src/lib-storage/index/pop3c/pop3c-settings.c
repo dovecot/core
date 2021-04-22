@@ -9,23 +9,23 @@
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct pop3c_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct pop3c_settings)
 
 static const struct setting_define pop3c_setting_defines[] = {
-	DEF(SET_STR, pop3c_host),
-	DEF(SET_IN_PORT, pop3c_port),
+	DEF(STR, pop3c_host),
+	DEF(IN_PORT, pop3c_port),
 
-	DEF(SET_STR_VARS, pop3c_user),
-	DEF(SET_STR_VARS, pop3c_master_user),
-	DEF(SET_STR, pop3c_password),
+	DEF(STR_VARS, pop3c_user),
+	DEF(STR_VARS, pop3c_master_user),
+	DEF(STR, pop3c_password),
 
-	DEF(SET_ENUM, pop3c_ssl),
-	DEF(SET_BOOL, pop3c_ssl_verify),
+	DEF(ENUM, pop3c_ssl),
+	DEF(BOOL, pop3c_ssl_verify),
 
-	DEF(SET_STR, pop3c_rawlog_dir),
-	DEF(SET_BOOL, pop3c_quick_received_date),
+	DEF(STR, pop3c_rawlog_dir),
+	DEF(BOOL, pop3c_quick_received_date),
 
-	DEF(SET_STR, pop3c_features),
+	DEF(STR, pop3c_features),
 
 	SETTING_DEFINE_LIST_END
 };

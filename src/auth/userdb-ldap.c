@@ -179,7 +179,7 @@ static void userdb_ldap_iterate_callback(struct ldap_connection *conn,
 						res, TRUE);
 	while (db_ldap_result_iterate_next(ldap_iter, &name, &values)) {
 		if (strcmp(name, "user") != 0) {
-			i_warning("ldap: iterate: "
+			e_warning(authdb_event(request->auth_request), "iterate: "
 				  "Ignoring field not named 'user': %s", name);
 			continue;
 		}

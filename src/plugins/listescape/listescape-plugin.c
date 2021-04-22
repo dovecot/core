@@ -13,9 +13,10 @@ static void listescape_mailbox_list_created(struct mailbox_list *list)
 {
 	const char *env;
 
-	if (list->set.escape_char == '\0') {
+	if (list->set.storage_name_escape_char == '\0') {
 		env = mail_user_plugin_getenv(list->ns->user, "listescape_char");
-		list->set.escape_char = env != NULL && *env != '\0' ?
+		list->set.storage_name_escape_char =
+			env != NULL && *env != '\0' ?
 			env[0] : DEFAULT_ESCAPE_CHAR;
 	}
 }

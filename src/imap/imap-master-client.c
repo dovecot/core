@@ -218,7 +218,7 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	struct client *imap_client;
 	struct mail_storage_service_input input;
 	struct imap_master_input master_input;
-	const char *error, *reason;
+	const char *error = NULL, *reason;
 	int ret;
 
 	if (imap_master_client_parse_input(args, pool, &input, &master_input,
@@ -371,7 +371,8 @@ imap_master_client_input_line(struct connection *conn, const char *line)
 
 	pool = pool_alloconly_create("imap master client cmd", 1024);
 	args = p_strsplit_tabescaped(pool, line);
-	ret = imap_master_client_input_args(conn, (void *)args, fd_client, pool);
+	ret = imap_master_client_input_args(conn, (const void *)args,
+					    fd_client, pool);
 	pool_unref(&pool);
 	return ret;
 }

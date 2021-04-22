@@ -176,15 +176,19 @@ void smtp_param_write(string_t *out, const struct smtp_param *param)
 }
 
 static void
-smtp_params_write(string_t *buffer, const ARRAY_TYPE(smtp_param) *params)
+smtp_params_write(string_t *buffer, const char *const *param_keywords,
+		  const ARRAY_TYPE(smtp_param) *params) ATTR_NULL(2)
 {
 	const struct smtp_param *param;
 
+	if (param_keywords == NULL || *param_keywords == NULL)
+		return;
 	if (!array_is_created(params))
 		return;
 
 	array_foreach(params, param) {
-		smtp_param_write(buffer, param);
+		if (str_array_icase_find(param_keywords, param->keyword))
+			smtp_param_write(buffer, param);
 		str_append_c(buffer, ' ');
 	}
 }
@@ -723,6 +727,7 @@ smtp_params_mail_write_size(string_t *buffer, enum smtp_capability caps,
 }
 
 void smtp_params_mail_write(string_t *buffer, enum smtp_capability caps,
+			    const char *const *extra_params,
 			    const struct smtp_params_mail *params)
 {
 	size_t init_len = str_len(buffer);
@@ -733,7 +738,7 @@ void smtp_params_mail_write(string_t *buffer, enum smtp_capability caps,
 	smtp_params_mail_write_ret(buffer, caps, params);
 	smtp_params_mail_write_size(buffer, caps, params);
 
-	smtp_params_write(buffer, &params->extra_params);
+	smtp_params_write(buffer, extra_params, &params->extra_params);
 
 	if (str_len(buffer) > init_len)
 		str_truncate(buffer, str_len(buffer)-1);
@@ -1251,6 +1256,7 @@ smtp_params_rcpt_write_orcpt(string_t *buffer, enum smtp_capability caps,
 }
 
 void smtp_params_rcpt_write(string_t *buffer, enum smtp_capability caps,
+			    const char *const *extra_params,
 			    const struct smtp_params_rcpt *params)
 {
 	size_t init_len = str_len(buffer);
@@ -1258,7 +1264,7 @@ void smtp_params_rcpt_write(string_t *buffer, enum smtp_capability caps,
 	smtp_params_rcpt_write_notify(buffer, caps, params);
 	smtp_params_rcpt_write_orcpt(buffer, caps, params);
 
-	smtp_params_write(buffer, &params->extra_params);
+	smtp_params_write(buffer, extra_params, &params->extra_params);
 
 	if (str_len(buffer) > init_len)
 		str_truncate(buffer, str_len(buffer)-1);

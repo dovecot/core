@@ -31,7 +31,6 @@ struct zlib_istream {
 	struct stat last_parent_statbuf;
 
 	bool gz:1;
-	bool log_errors:1;
 	bool marked:1;
 	bool header_read:1;
 	bool trailer_read:1;
@@ -60,8 +59,6 @@ static void zlib_read_error(struct zlib_istream *zstream, const char *error)
 			    "zlib.read(%s): %s at %"PRIuUOFF_T,
 			    i_stream_get_name(&zstream->istream.istream), error,
 			    i_stream_get_absolute_offset(&zstream->istream.istream));
-	if (zstream->log_errors)
-		i_error("%s", zstream->istream.iostream.error);
 }
 
 static int i_stream_zlib_read_header(struct istream_private *stream)
@@ -263,7 +260,14 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 					 out_size);
 	stream->pos += out_size;
 
-	i_stream_skip(stream->parent, size - zstream->zs.avail_in);
+	size_t bytes_consumed = size - zstream->zs.avail_in;
+	i_stream_skip(stream->parent, bytes_consumed);
+	if (i_stream_get_data_size(stream->parent) > 0 &&
+	    (bytes_consumed > 0 || out_size > 0)) {
+		/* Parent stream was only partially consumed. Set the stream's
+		   IO as pending to avoid hangs. */
+		i_stream_set_input_pending(&stream->istream, TRUE);
+	}
 
 	switch (ret) {
 	case Z_OK:
@@ -379,14 +383,13 @@ static void i_stream_zlib_sync(struct istream_private *stream)
 }
 
 static struct istream *
-i_stream_create_zlib(struct istream *input, bool gz, bool log_errors)
+i_stream_create_zlib(struct istream *input, bool gz)
 {
 	struct zlib_istream *zstream;
 
 	zstream = i_new(struct zlib_istream, 1);
 	zstream->eof_offset = UOFF_T_MAX;
 	zstream->gz = gz;
-	zstream->log_errors = log_errors;
 
 	i_stream_zlib_init(zstream);
 
@@ -404,13 +407,13 @@ i_stream_create_zlib(struct istream *input, bool gz, bool log_errors)
 			       i_stream_get_fd(input), 0);
 }
 
-struct istream *i_stream_create_gz(struct istream *input, bool log_errors)
+struct istream *i_stream_create_gz(struct istream *input)
 {
-	return i_stream_create_zlib(input, TRUE, log_errors);
+	return i_stream_create_zlib(input, TRUE);
 }
 
-struct istream *i_stream_create_deflate(struct istream *input, bool log_errors)
+struct istream *i_stream_create_deflate(struct istream *input)
 {
-	return i_stream_create_zlib(input, FALSE, log_errors);
+	return i_stream_create_zlib(input, FALSE);
 }
 #endif

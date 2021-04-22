@@ -42,12 +42,12 @@ static int search_update_fetch_more(const struct imap_search_update *update)
 {
 	int ret;
 
-	if ((ret = imap_fetch_more_no_lock_update(update->fetch_ctx)) <= 0)
-		return ret;
+	if ((ret = imap_fetch_more_no_lock_update(update->fetch_ctx)) == 0)
+		return 0;
 	/* finished the FETCH */
 	if (imap_fetch_end(update->fetch_ctx) < 0)
 		return -1;
-	return 1;
+	return ret;
 }
 
 static int

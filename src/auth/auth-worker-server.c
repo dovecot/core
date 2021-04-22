@@ -40,6 +40,7 @@ struct auth_worker_request {
 struct auth_worker_connection {
 	int fd;
 
+	struct event *event;
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
@@ -94,7 +95,8 @@ static bool auth_worker_request_send(struct auth_worker_connection *conn,
 	i_assert(conn->to != NULL);
 
 	if (age_secs >= AUTH_WORKER_ABORT_SECS) {
-		i_error("Aborting auth request that was queued for %d secs, "
+		e_error(conn->event,
+			"Aborting auth request that was queued for %d secs, "
 			"%d left in queue",
 			age_secs, aqueue_count(worker_request_queue));
 		request->callback(t_strdup_printf(
@@ -106,10 +108,10 @@ static bool auth_worker_request_send(struct auth_worker_connection *conn,
 	    ioloop_time - auth_worker_last_warn >
 	    AUTH_WORKER_DELAY_WARN_MIN_INTERVAL_SECS) {
 		auth_worker_last_warn = ioloop_time;
-		i_warning("auth workers: Auth request was queued for %d "
-			  "seconds, %d left in queue "
-			  "(see auth_worker_max_count)",
-			  age_secs, aqueue_count(worker_request_queue));
+		e_error(conn->event, "Auth request was queued for %d "
+			"seconds, %d left in queue "
+			"(see auth_worker_max_count)",
+			age_secs, aqueue_count(worker_request_queue));
 	}
 
 	request->id = ++conn->id_counter;
@@ -173,20 +175,26 @@ static void auth_worker_send_handshake(struct auth_worker_connection *conn)
 static struct auth_worker_connection *auth_worker_create(void)
 {
 	struct auth_worker_connection *conn;
+	struct event *event;
 	int fd;
 
 	if (array_count(&connections) >= auth_workers_throttle_count)
 		return NULL;
 
+	event = event_create(auth_event);
+	event_set_append_log_prefix(event, "auth-worker: ");
+
 	fd = net_connect_unix_with_retries(worker_socket_path, 5000);
 	if (fd == -1) {
 		if (errno == EACCES) {
-			i_error("%s", eacces_error_get("net_connect_unix",
-						       worker_socket_path));
+			e_error(event, "%s",
+				eacces_error_get("net_connect_unix",
+						 worker_socket_path));
 		} else {
-			i_error("net_connect_unix(%s) failed: %m",
+			e_error(event, "net_connect_unix(%s) failed: %m",
 				worker_socket_path);
 		}
+		event_unref(&event);
 		return NULL;
 	}
 
@@ -198,6 +206,7 @@ static struct auth_worker_connection *auth_worker_create(void)
 	conn->io = io_add(fd, IO_READ, worker_input, conn);
 	conn->to = timeout_add(AUTH_WORKER_MAX_IDLE_SECS * 1000,
 			       auth_worker_idle_timeout, conn);
+	conn->event = event;
 	auth_worker_send_handshake(conn);
 
 	idle_count++;
@@ -232,7 +241,7 @@ static void auth_worker_destroy(struct auth_worker_connection **_conn,
 		idle_count--;
 
 	if (conn->request != NULL) {
-		i_error("auth worker: Aborted %s request for %s: %s",
+		e_error(conn->event, "Aborted %s request for %s: %s",
 			t_strcut(conn->request->data, '\t'),
 			conn->request->username, reason);
 		conn->request->callback(t_strdup_printf(
@@ -246,7 +255,8 @@ static void auth_worker_destroy(struct auth_worker_connection **_conn,
 	timeout_remove(&conn->to);
 
 	if (close(conn->fd) < 0)
-		i_error("close(auth worker) failed: %m");
+		e_error(conn->event, "close() failed: %m");
+	event_unref(&conn->event);
 	i_free(conn);
 
 	if (idle_count == 0 && restart) {
@@ -366,7 +376,8 @@ static void worker_input(struct auth_worker_connection *conn)
 		return;
 	case -2:
 		/* buffer full */
-		i_error("BUG: Auth worker sent us more than %d bytes",
+		e_error(conn->event,
+			"BUG: Auth worker sent us more than %d bytes",
 			(int)AUTH_WORKER_MAX_LINE_LENGTH);
 		auth_worker_destroy(&conn, "Worker is buggy", TRUE);
 		return;
@@ -402,10 +413,12 @@ static void worker_input(struct auth_worker_connection *conn)
 				break;
 		} else {
 			if (conn->request != NULL) {
-				i_error("BUG: Worker sent reply with id %u, "
+				e_error(conn->event,
+					"BUG: Worker sent reply with id %u, "
 					"expected %u", id, conn->request->id);
 			} else {
-				i_error("BUG: Worker sent reply with id %u, "
+				e_error(conn->event,
+					"BUG: Worker sent reply with id %u, "
 					"none was expected", id);
 			}
 			auth_worker_destroy(&conn, "Worker is buggy", TRUE);

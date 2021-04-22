@@ -406,8 +406,8 @@ static void mbox_sync_update_flags(struct mbox_sync_mail_context *mail_ctx,
 		mail->flags = flags | (mail->flags & MAIL_RECENT) |
 			MAIL_INDEX_MAIL_FLAG_DIRTY;
 	}
-	if (sync_type != 0 && box->v.sync_notify != NULL) {
-		box->v.sync_notify(box, mail_ctx->mail.uid,
+	if (sync_type != 0) {
+		mailbox_sync_notify(box, mail_ctx->mail.uid,
 				   index_sync_type_convert(sync_type));
 	}
 }
@@ -606,10 +606,8 @@ static void mbox_sync_handle_expunge(struct mbox_sync_mail_context *mail_ctx)
 	struct mbox_sync_context *sync_ctx = mail_ctx->sync_ctx;
 	struct mailbox *box = &sync_ctx->mbox->box;
 
-	if (box->v.sync_notify != NULL) {
-		box->v.sync_notify(box, mail_ctx->mail.uid,
-				   MAILBOX_SYNC_TYPE_EXPUNGE);
-	}
+	mailbox_sync_notify(box, mail_ctx->mail.uid,
+			   MAILBOX_SYNC_TYPE_EXPUNGE);
 	mail_index_expunge(sync_ctx->t, mail_ctx->mail.idx_seq);
 
 	mail_ctx->mail.expunged = TRUE;
@@ -903,8 +901,8 @@ mbox_sync_seek_to_uid(struct mbox_sync_context *sync_ctx, uint32_t uid)
 		/* doesn't exist anymore, seek to end of file */
 		ret = i_stream_get_size(sync_ctx->file_input, TRUE, &size);
 		if (ret < 0) {
-			mbox_set_syscall_error(sync_ctx->mbox,
-					       "i_stream_get_size()");
+			mbox_istream_set_syscall_error(sync_ctx->mbox,
+				sync_ctx->file_input, "i_stream_get_size()");
 			return -1;
 		}
 		i_assert(ret != 0);
@@ -1321,7 +1319,8 @@ static int mbox_sync_handle_eof_updates(struct mbox_sync_context *sync_ctx,
 
 	ret = i_stream_get_size(sync_ctx->file_input, TRUE, &file_size);
 	if (ret < 0) {
-		mbox_set_syscall_error(sync_ctx->mbox, "i_stream_get_size()");
+		mbox_istream_set_syscall_error(sync_ctx->mbox,
+			sync_ctx->file_input, "i_stream_get_size()");
 		return -1;
 	}
 	if (ret == 0) {
@@ -1471,7 +1470,8 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 	uint32_t first_recent_uid, seq, seq2;
 
 	if (i_stream_stat(sync_ctx->file_input, FALSE, &st) < 0) {
-		mbox_set_syscall_error(sync_ctx->mbox, "i_stream_stat()");
+		mbox_istream_set_syscall_error(sync_ctx->mbox,
+			sync_ctx->file_input, "i_stream_stat()");
 		return -1;
 	}
 
@@ -1499,8 +1499,8 @@ static int mbox_sync_update_index_header(struct mbox_sync_context *sync_ctx)
 			}
 
 			if (i_stream_stat(sync_ctx->file_input, FALSE, &st) < 0) {
-				mbox_set_syscall_error(sync_ctx->mbox,
-						       "i_stream_stat()");
+				mbox_istream_set_syscall_error(sync_ctx->mbox,
+					sync_ctx->file_input, "i_stream_stat()");
 				return -1;
 			}
 		}
@@ -1605,7 +1605,8 @@ static int mbox_sync_do(struct mbox_sync_context *sync_ctx,
 	int ret;
 
 	if (i_stream_stat(sync_ctx->file_input, FALSE, &st) < 0) {
-		mbox_set_syscall_error(sync_ctx->mbox, "i_stream_stat()");
+		mbox_istream_set_syscall_error(sync_ctx->mbox,
+			sync_ctx->file_input, "i_stream_stat()");
 		return -1;
 	}
 	sync_ctx->last_stat = *st;
@@ -1744,7 +1745,8 @@ int mbox_sync_has_changed(struct mbox_mailbox *mbox, bool leave_dirty)
 				mailbox_set_deleted(&mbox->box);
 				return 0;
 			}
-			mbox_set_syscall_error(mbox, "i_stream_stat()");
+			mbox_istream_set_syscall_error(mbox,
+				mbox->mbox_file_stream, "i_stream_stat()");
 			return -1;
 		}
 	} else {
@@ -2035,8 +2037,7 @@ int mbox_sync(struct mbox_mailbox *mbox, enum mbox_sync_flags flags)
 		}
 	}
 
-	if (mbox->box.v.sync_notify != NULL)
-		mbox->box.v.sync_notify(&mbox->box, 0, 0);
+	mailbox_sync_notify(&mbox->box, 0, 0);
 	return ret;
 }
 

@@ -279,7 +279,7 @@ dsync_ibc_pipe_recv_mailbox_tree_node(struct dsync_ibc *ibc,
 	if (item == NULL)
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 
-	*name_r = (void *)item->u.node.name;
+	*name_r = (const void *)item->u.node.name;
 	item->u.node.name = NULL;
 
 	*node_r = &item->u.node;

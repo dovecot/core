@@ -69,6 +69,22 @@ timeval_sub_msecs(struct timeval *tv, unsigned int msecs)
 	}
 }
 
+static inline void timeval_add(struct timeval *tv, const struct timeval *val)
+{
+	i_assert(val->tv_usec < 1000000);
+	tv->tv_sec += val->tv_sec;
+	tv->tv_usec += val->tv_usec;
+	if (tv->tv_usec >= 1000000) {
+		tv->tv_sec++;
+		tv->tv_usec -= 1000000;
+	}
+}
+
+static inline time_t timeval_round(struct timeval *tv)
+{
+	return (tv->tv_usec < 500000 ? tv->tv_sec : tv->tv_sec + 1);
+}
+
 /* Convert t to local time and return timestamp on that day at 00:00:00. */
 time_t time_to_local_day_start(time_t t);
 

@@ -23,7 +23,8 @@ struct dict_sql_map {
 	const char *value_type;
 	bool value_hexblob;
 
-	ARRAY(struct dict_sql_field) sql_fields;
+	/* SQL field names, one for each $ variable in the pattern */
+	ARRAY(struct dict_sql_field) pattern_fields;
 
 	/* generated: */
 	unsigned int values_count;
@@ -34,7 +35,7 @@ struct dict_sql_map {
 struct dict_sql_settings {
 	const char *connect;
 
-	unsigned int max_field_count;
+	unsigned int max_pattern_fields_count;
 	ARRAY(struct dict_sql_map) maps;
 };
 

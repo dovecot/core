@@ -73,6 +73,7 @@ static int dict_quota_init(struct quota_root *_root, const char *args,
 	i_zero(&set);
 	set.username = username;
 	set.base_dir = _root->quota->user->set->base_dir;
+	set.event_parent = _root->quota->user->event;
 	if (mail_user_get_home(_root->quota->user, &set.home_dir) <= 0)
 		set.home_dir = NULL;
 	if (dict_init(args, &set, &root->dict, &error) < 0) {
@@ -133,7 +134,7 @@ dict_quota_count(struct dict_quota_root *root,
 	e_debug(root->root.backend.event, "Quota recalculated: "
 		"count=%"PRIu64" bytes=%"PRIu64, count, bytes);
 
-	dict_transaction_commit_async(&dt, NULL, NULL);
+	dict_transaction_commit_async_nocallback(&dt);
 	*value_r = want_bytes ? bytes : count;
 	return QUOTA_GET_RESULT_LIMITED;
 }
@@ -192,10 +193,8 @@ static void dict_quota_recalc_timeout(struct dict_quota_root *root)
 }
 
 static void dict_quota_update_callback(const struct dict_commit_result *result,
-				       void *context)
+				       struct dict_quota_root *root)
 {
-	struct dict_quota_root *root = context;
-
 	if (result->ret == 0) {
 		/* row doesn't exist, need to recalculate it */
 		if (root->to_update == NULL)

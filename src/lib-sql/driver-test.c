@@ -254,7 +254,7 @@ static void driver_test_exec(struct sql_db *_db, const char *query)
 /*	i_debug("DUMMY EXECUTE: %s", query);
 	i_debug("DUMMY EXPECT : %s", result->queries[result->cur]); */
 
-	test_assert(strcmp(result->queries[result->cur], query)==0);
+	test_assert_strcmp(result->queries[result->cur], query);
 
 	if (strcmp(result->queries[result->cur], query) != 0) {
 		db->error = "Invalid query";

@@ -110,6 +110,7 @@ struct db_sql_connection *db_sql_init(const char *config_path, bool userdb)
 	i_zero(&set);
 	set.driver = conn->set.driver;
 	set.connect_string = conn->set.connect;
+	set.event_parent = auth_event;
 	if (sql_init_full(&set, &conn->db, &error) < 0) {
 		i_fatal("sql: %s", error);
 	}

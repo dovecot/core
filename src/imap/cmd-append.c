@@ -58,7 +58,8 @@ get_disconnect_reason(struct cmd_append_context *ctx, uoff_t lit_offset)
 	string_t *str = t_str_new(128);
 	unsigned int secs = ioloop_time - ctx->started;
 
-	str_printfa(str, "Disconnected in APPEND (%u msgs, %u secs",
+	str_printfa(str, "%s (While APPENDing: %u msgs, %u secs",
+		    i_stream_get_disconnect_reason(ctx->input),
 		    ctx->count, secs);
 	if (ctx->literal_size > 0) {
 		str_printfa(str, ", %"PRIuUOFF_T"/%"PRIuUOFF_T" bytes",

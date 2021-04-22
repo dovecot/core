@@ -843,7 +843,8 @@ static void check_wrong_config(const char *config_path)
 	base_dir = get_setting("master", "base_dir");
 	symlink_path = t_strconcat(base_dir, "/"PACKAGE".conf", NULL);
 	if (t_readlink(symlink_path, &prev_path, &error) < 0) {
-		i_error("t_readlink(%s) failed: %s", symlink_path, error);
+		if (errno != ENOENT)
+			i_error("t_readlink(%s) failed: %s", symlink_path, error);
 		return;
 	}
 
@@ -866,7 +867,7 @@ int main(int argc, char *argv[])
 		MASTER_SERVICE_FLAG_DONT_SEND_STATS |
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME;
-	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL;
+	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN;
 	const char *orig_config_path, *config_path, *module;
 	ARRAY(const char *) module_names;
 	struct config_filter filter;
@@ -886,7 +887,7 @@ int main(int argc, char *argv[])
 
 	i_zero(&filter);
 	master_service = master_service_init("config", master_service_flags,
-					     &argc, &argv, "adf:hHm:nNpPexS");
+					     &argc, &argv, "adf:hHm:nNpPexsS");
 	orig_config_path = t_strdup(master_service_get_config_path(master_service));
 
 	i_set_failure_prefix("doveconf: ");
@@ -927,6 +928,9 @@ int main(int argc, char *argv[])
 		case 'P':
 			hide_passwords = FALSE;
 			break;
+		case 's':
+			scope = CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN;
+			break;
 		case 'S':
 			simple_output = TRUE;
 			break;
@@ -956,6 +960,8 @@ int main(int argc, char *argv[])
 	} else if (argv[optind] != NULL) {
 		/* print only a single config setting */
 		setting_name_filters = argv+optind;
+		if (scope == CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN)
+			scope = CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN;
 	} else if (!simple_output) {
 		/* print the config file path before parsing it, so in case
 		   of errors it's still shown */
@@ -1019,7 +1025,7 @@ int main(int argc, char *argv[])
 		printf("# Hostname: %s\n", my_hostdomain());
 		if (!config_path_specified)
 			check_wrong_config(config_path);
-		if (scope == CONFIG_DUMP_SCOPE_ALL)
+		if (scope == CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN)
 			printf("# NOTE: Send doveconf -n output instead when asking for help.\n");
 		fflush(stdout);
 		ret2 = config_dump_human(&filter, wanted_modules, scope, NULL, hide_passwords);

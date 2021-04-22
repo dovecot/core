@@ -59,7 +59,7 @@ static void worker_send_request(struct worker_connection *conn,
 static void queue_try_send_more(struct indexer_queue *queue)
 {
 	struct worker_connection *conn;
-	struct indexer_request *request;
+	struct indexer_request *request, *first_moved_request = NULL;
 
 	timeout_remove(&to_send_more);
 
@@ -67,14 +67,25 @@ static void queue_try_send_more(struct indexer_queue *queue)
 		conn = worker_pool_find_username_connection(worker_pool,
 							    request->username);
 		if (conn != NULL) {
-			/* there is already a worker handling this user.
-			   it must be the one doing the indexing. use the same
-			   connection for sending this next request. */
-		} else {
-			/* try to find an empty worker */
-			if (!worker_pool_get_connection(worker_pool, &conn))
+			/* There is already a connection handling a request
+			 * for this user. Move the request to the back of the
+			 * queue and handle requests from other users.
+			 * Terminate if we went through all requests. */
+			if (request == first_moved_request) {
+				/* all requests are waiting for existing users
+				   to finish. */
 				break;
+			}
+			if (first_moved_request == NULL)
+				first_moved_request = request;
+			indexer_queue_move_head_to_tail(queue);
+			continue;
 		}
+
+		/* create a new connection to a worker */
+		if (!worker_pool_get_connection(worker_pool, &conn))
+			break;
+
 		indexer_queue_request_remove(queue);
 		worker_send_request(conn, request);
 	}
@@ -87,19 +98,19 @@ static void queue_listen_callback(struct indexer_queue *queue)
 
 static void worker_status_callback(int percentage, void *context)
 {
-	struct worker_request *request = context;
+	struct worker_connection *conn = context;
+	struct indexer_request *request = worker_connection_get_request(conn);
 
 	if (percentage >= 0 && percentage < 100) {
-		indexer_queue_request_status(queue, request->request,
+		indexer_queue_request_status(queue, request,
 					     percentage);
 		return;
 	}
 
-	indexer_queue_request_finish(queue, &request->request,
+	indexer_queue_request_finish(queue, &request,
 				     percentage == 100);
 	if (worker_pool != NULL) /* not in deinit */
-		worker_pool_release_connection(worker_pool, request->conn);
-	i_free(request);
+		worker_pool_release_connection(worker_pool, conn);
 
 	/* if this was the last request for the connection, we can send more
 	   through it. delay it a bit, since we may be coming here from

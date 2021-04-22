@@ -364,7 +364,8 @@ void imapc_connection_abort_commands(struct imapc_connection *conn,
 		cmd->callback(&reply, cmd->context);
 		imapc_command_free(cmd);
 	}
-	timeout_remove(&conn->to);
+	if (array_count(&conn->cmd_wait_list) == 0)
+		timeout_remove(&conn->to);
 }
 
 static void
@@ -446,8 +447,10 @@ void imapc_connection_disconnect_full(struct imapc_connection *conn,
 	timeout_remove(&conn->to);
 	conn->reconnecting = reconnecting;
 
-	if (conn->state == IMAPC_CONNECTION_STATE_DISCONNECTED)
+	if (conn->state == IMAPC_CONNECTION_STATE_DISCONNECTED) {
+		i_assert(array_count(&conn->cmd_wait_list) == 0);
 		return;
+	}
 
 	if (conn->client->set.debug)
 		i_debug("imapc(%s): Disconnected", conn->name);
@@ -870,6 +873,7 @@ imapc_connection_auth_finish(struct imapc_connection *conn,
 
 	imapc_auth_ok(conn);
 
+	i_assert(array_count(&conn->cmd_wait_list) == 0);
 	timeout_remove(&conn->to);
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_DONE);
 	imapc_login_callback(conn, reply);
@@ -1584,6 +1588,7 @@ static void imapc_connection_input(struct imapc_connection *conn)
 	if (ret < 0 && conn->client->logging_out &&
 	    conn->disconnect_reason != NULL) {
 		/* expected disconnection */
+		imapc_connection_disconnect(conn);
 	} else if (ret < 0) {
 		/* disconnected or buffer full */
 		str = t_str_new(128);
@@ -1888,6 +1893,7 @@ void imapc_connection_connect(struct imapc_connection *conn)
 	dns_set.dns_client_socket_path =
 		conn->client->set.dns_client_socket_path;
 	dns_set.timeout_msecs = conn->client->set.connect_timeout_msecs;
+	dns_set.event_parent = conn->client->event;
 
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_CONNECTING);
 	if (conn->ips_count > 0) {
@@ -2026,6 +2032,8 @@ static void imapc_command_send_finished(struct imapc_connection *conn,
 					struct imapc_command *cmd)
 {
 	struct imapc_command *const *cmdp;
+
+	i_assert(conn->to != NULL);
 
 	if (cmd->idle)
 		conn->idle_plus_waiting = TRUE;

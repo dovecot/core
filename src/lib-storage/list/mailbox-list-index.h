@@ -30,6 +30,7 @@
 #include <sys/time.h>
 
 #define MAILBOX_LIST_INDEX_HIERARCHY_SEP '~'
+#define MAILBOX_LIST_INDEX_HIERARCHY_ALT_SEP '^'
 
 #define INDEX_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, mailbox_list_index_module)
@@ -92,7 +93,7 @@ struct mailbox_list_index_node {
 	bool corrupted_ext;
 	/* flags are corrupted on disk - need to update it */
 	bool corrupted_flags;
-	const char *name;
+	const char *raw_name;
 };
 
 struct mailbox_list_index {
@@ -186,7 +187,8 @@ int mailbox_list_index_view_open(struct mailbox *box, bool require_refreshed,
 				 uint32_t *seq_r);
 
 struct mailbox_list_index_node *
-mailbox_list_index_node_find_sibling(struct mailbox_list_index_node *node,
+mailbox_list_index_node_find_sibling(const struct mailbox_list *list,
+				     struct mailbox_list_index_node *node,
 				     const char *name);
 void mailbox_list_index_reset(struct mailbox_list_index *ilist);
 int mailbox_list_index_parse(struct mailbox_list *list,

@@ -182,7 +182,7 @@ static int set_line(struct mail_storage_service_ctx *ctx,
 			line = t_strdup_printf("%s=%s%s",
 					       key, *strp, append_value);
 		} else {
-			i_error("Ignoring %s userdb setting. "
+			e_error(user->event, "Ignoring %s userdb setting. "
 				"'+' can only be used for strings.", orig_key);
 		}
 	}
@@ -283,11 +283,13 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 #ifdef HAVE_SETPRIORITY
 			int n;
 			if (str_to_int(line + 5, &n) < 0) {
-				i_error("userdb returned invalid nice value %s",
+				e_error(user->event,
+					"userdb returned invalid nice value %s",
 					line + 5);
 			} else if (n != 0) {
 				if (setpriority(PRIO_PROCESS, 0, n) < 0)
-					i_error("setpriority(%d) failed: %m", n);
+					e_error(user->event,
+						"setpriority(%d) failed: %m", n);
 			}
 #endif
 		} else if (str_begins(line, "auth_mech=")) {
@@ -432,6 +434,9 @@ get_var_expand_table(struct master_service *service,
 		{ '\0', auth_user, "auth_user" },
 		{ '\0', auth_username, "auth_username" },
 		{ '\0', auth_domain, "auth_domain" },
+		/* aliases: */
+		{ '\0', net_ip2addr(&input->local_ip), "local_ip" },
+		{ '\0', net_ip2addr(&input->remote_ip), "remote_ip" },
 		{ '\0', NULL, NULL }
 	};
 	struct var_expand_table *tab;
@@ -740,18 +745,20 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 
 		if (chdir_path[0] == '\0') {
 			if (chdir("/") < 0)
-				i_error("chdir(/) failed: %m");
+				e_error(user->event, "chdir(/) failed: %m");
 		} else if (chdir(chdir_path) < 0) {
 			if (errno == EACCES) {
-				i_error("%s", eacces_error_get("chdir",
+				e_error(user->event, "%s",
+					eacces_error_get("chdir",
 						t_strconcat(chdir_path, "/", NULL)));
 			} else if (errno != ENOENT)
-				i_error("chdir(%s) failed: %m", chdir_path);
+				e_error(user->event, "chdir(%s) failed: %m",
+					chdir_path);
 			else
 				e_debug(mail_user->event, "Home dir not found: %s", chdir_path);
 
 			if (chdir("/") < 0)
-				i_error("chdir(/) failed: %m");
+				e_error(user->event, "chdir(/) failed: %m");
 		}
 	}
 
@@ -882,6 +889,13 @@ mail_storage_service_var_expand(struct mail_storage_service_ctx *ctx,
 		   func_table, user, error_r);
 }
 
+const char *
+mail_storage_service_user_get_log_prefix(struct mail_storage_service_user *user)
+{
+	i_assert(user->log_prefix != NULL);
+	return user->log_prefix;
+}
+
 static void
 mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
 			      struct mail_storage_service_user *user,
@@ -889,7 +903,6 @@ mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
 {
 	const char *error;
 
-	ctx->log_initialized = TRUE;
 	T_BEGIN {
 		string_t *str;
 
@@ -899,7 +912,10 @@ mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
 			user, &user->input, priv, &error);
 		user->log_prefix = p_strdup(user->pool, str_c(str));
 	} T_END;
+	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) != 0)
+		return;
 
+	ctx->log_initialized = TRUE;
 	master_service_init_log_with_prefix(ctx->service, user->log_prefix);
 	/* replace the whole log prefix with mail_log_prefix */
 	event_replace_log_prefix(user->event, user->log_prefix);
@@ -987,17 +1003,17 @@ mail_storage_service_init(struct master_service *service,
 		       sizeof(*ctx->set_roots) * count);
 	}
 
+	/* note: we may not have read any settings yet, so this logging
+	   may still be going to wrong location */
+	const char *configured_name =
+		master_service_get_configured_name(service);
+	ctx->default_log_prefix =
+		p_strdup_printf(pool, "%s(%s): ", configured_name, my_pid);
+
 	/* do all the global initialization. delay initializing plugins until
 	   we drop privileges the first time. */
-	if ((flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0) {
-		/* note: we may not have read any settings yet, so this logging
-		   may still be going to wrong location */
-		const char *configured_name =
-			master_service_get_configured_name(service);
-		ctx->default_log_prefix =
-			p_strconcat(pool, configured_name, ": ", NULL);
+	if ((flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0)
 		master_service_init_log_with_prefix(service, ctx->default_log_prefix);
-	}
 	dict_drivers_register_builtin();
 	if (storage_service_global == NULL)
 		storage_service_global = ctx;
@@ -1262,11 +1278,9 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	    !ctx->log_initialized) {
 		/* initialize logging again, in case we only read the
 		   settings for the first above */
-		const char *configured_name =
-			master_service_get_configured_name(ctx->service);
 		ctx->log_initialized = TRUE;
 		master_service_init_log_with_prefix(ctx->service,
-			t_strconcat(configured_name, ": ", NULL));
+						    ctx->default_log_prefix);
 		update_log_prefix = TRUE;
 	}
 	sets = master_service_settings_parser_get_others(master_service,
@@ -1333,7 +1347,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	/* Create an event that will be used as the default event for logging.
 	   This event won't be a parent to any other events - mail_user.event
 	   will be used for that. */
-	user->event = event_create(input->parent_event);
+	user->event = event_create(input->event_parent);
 	event_set_forced_debug(user->event,
 			       user->service_ctx->debug || (flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0);
 	event_add_fields(user->event, (const struct event_add_field []){
@@ -1501,6 +1515,8 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 		set_keyval(ctx, user, "mail_home", priv.home);
 	}
 
+	mail_storage_service_init_log(ctx, user, &priv);
+
 	/* create ioloop context regardless of logging. it's also used by
 	   stats plugin. */
 	if (user->ioloop_ctx == NULL) {
@@ -1510,8 +1526,7 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 				      mail_storage_service_io_deactivate_user_cb,
 				      user);
 	}
-	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) == 0)
-		mail_storage_service_init_log(ctx, user, &priv);
+	io_loop_context_switch(user->ioloop_ctx);
 
 	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS) == 0) {
 		if (service_drop_privileges(user, &priv,
@@ -1791,4 +1806,10 @@ int mail_storage_service_user_set_setting(struct mail_storage_service_user *user
 	int ret = settings_parse_keyvalue(user->set_parser, key, value);
 	*error_r = settings_parser_get_error(user->set_parser);
 	return ret;
+}
+
+const char *
+mail_storage_service_get_log_prefix(struct mail_storage_service_ctx *ctx)
+{
+	return ctx->default_log_prefix;
 }

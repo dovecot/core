@@ -311,6 +311,7 @@ int dict_lookup(struct dict *dict, pool_t pool, const char *key,
 	return ret;
 }
 
+#undef dict_lookup_async
 void dict_lookup_async(struct dict *dict, const char *key,
 		       dict_lookup_callback_t *callback, void *context)
 {
@@ -415,6 +416,7 @@ bool dict_iterate_values(struct dict_iterate_context *ctx,
 	return TRUE;
 }
 
+#undef dict_iterate_set_async_callback
 void dict_iterate_set_async_callback(struct dict_iterate_context *ctx,
 				     dict_iterate_callback_t *callback,
 				     void *context)
@@ -438,6 +440,10 @@ int dict_iterate_deinit(struct dict_iterate_context **_ctx,
 			const char **error_r)
 {
 	struct dict_iterate_context *ctx = *_ctx;
+
+	if (ctx == NULL)
+		return 0;
+
 	struct event *event = ctx->event;
 	int ret;
 	uint64_t rows;
@@ -555,6 +561,7 @@ int dict_transaction_commit(struct dict_transaction_context **_ctx,
 	return result.ret;
 }
 
+#undef dict_transaction_commit_async
 void dict_transaction_commit_async(struct dict_transaction_context **_ctx,
 				   dict_transaction_commit_callback_t *callback,
 				   void *context)
@@ -582,9 +589,19 @@ void dict_transaction_commit_async(struct dict_transaction_context **_ctx,
 	cctx->delayed_callback = FALSE;
 }
 
+void dict_transaction_commit_async_nocallback(
+	struct dict_transaction_context **ctx)
+{
+	dict_transaction_commit_async(ctx, NULL, NULL);
+}
+
 void dict_transaction_rollback(struct dict_transaction_context **_ctx)
 {
 	struct dict_transaction_context *ctx = *_ctx;
+
+	if (ctx == NULL)
+		return;
+
 	struct event *event = ctx->event;
 
 	*_ctx = NULL;

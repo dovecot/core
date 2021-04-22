@@ -8,6 +8,19 @@
 #include "doveadm-print.h"
 #include "doveadm-mail.h"
 #include "doveadm-mailbox-list-iter.h"
+#include "imap-metadata.h"
+
+enum doveadm_metadata_op {
+	DOVEADM_METADATA_OP_SET = 0,
+	DOVEADM_METADATA_OP_GET,
+	DOVEADM_METADATA_OP_LIST,
+};
+
+const char *doveadm_metadata_op_names[] = {
+	"set attribute",
+	"get attribute",
+	"list attribute",
+};
 
 struct metadata_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
@@ -17,12 +30,13 @@ struct metadata_cmd_context {
 	struct mail_attribute_value value;
 	bool empty_mailbox_name;
 	bool allow_empty_mailbox_name;
+	bool prepend_prefix;
 };
 
 static int
-cmd_mailbox_metadata_open_mailbox(struct metadata_cmd_context *mctx,
+cmd_mailbox_metadata_get_mailbox(struct metadata_cmd_context *mctx,
 				  struct mail_user *user,
-				  const char *op,
+				  enum doveadm_metadata_op op,
 				  struct mail_namespace **ns_r,
 				  struct mailbox **box_r)
 {
@@ -30,7 +44,8 @@ cmd_mailbox_metadata_open_mailbox(struct metadata_cmd_context *mctx,
 
 	if (mctx->empty_mailbox_name) {
 		if (!mctx->allow_empty_mailbox_name) {
-			i_error("Failed to %s: %s", op,
+			const char *op_str = doveadm_metadata_op_names[op];
+			i_error("Failed to %s: %s", op_str,
 				"mailbox name cannot be empty");
 			mctx->ctx.exit_code = EX_USAGE;
 			return -1;
@@ -53,9 +68,10 @@ cmd_mailbox_metadata_open_mailbox(struct metadata_cmd_context *mctx,
 	}
 	mailbox_set_reason(*box_r, mctx->ctx.cmd->name);
 
-	if (mailbox_open(*box_r) < 0) {
+	if (op == DOVEADM_METADATA_OP_SET &&
+	    mailbox_open(*box_r) < 0) {
 		i_error("Failed to open mailbox: %s",
-			mailbox_get_last_internal_error(*box_r, NULL));
+		        mailbox_get_last_internal_error(*box_r, NULL));
 		doveadm_mail_failed_mailbox(&mctx->ctx, *box_r);
 		mailbox_free(box_r);
 		return -1;
@@ -74,7 +90,7 @@ cmd_mailbox_metadata_set_run(struct doveadm_mail_cmd_context *_ctx,
 	struct mailbox_transaction_context *trans;
 	int ret;
 
-	ret = cmd_mailbox_metadata_open_mailbox(ctx, user, "set attribute",
+	ret = cmd_mailbox_metadata_get_mailbox(ctx, user, DOVEADM_METADATA_OP_SET,
 						&ns, &box);
 	if (ret != 0)
 		return ret;
@@ -153,6 +169,9 @@ cmd_mailbox_metadata_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case 's':
 		ctx->allow_empty_mailbox_name = TRUE;
 		break;
+	case 'p':
+		ctx->prepend_prefix = TRUE;
+		break;
 	default:
 		return FALSE;
 	}
@@ -206,7 +225,7 @@ cmd_mailbox_metadata_get_run(struct doveadm_mail_cmd_context *_ctx,
 	struct mail_attribute_value value;
 	int ret;
 
-	ret = cmd_mailbox_metadata_open_mailbox(ctx, user, "get attribute",
+	ret = cmd_mailbox_metadata_get_mailbox(ctx, user, DOVEADM_METADATA_OP_GET,
 						&ns, &box);
 	if (ret != 0)
 		return ret;
@@ -270,10 +289,24 @@ cmd_mailbox_metadata_list_run_iter(struct metadata_cmd_context *ctx,
 {
 	struct mailbox_attribute_iter *iter;
 	const char *key;
+	string_t *outp = t_str_new(64);
 
 	iter = mailbox_attribute_iter_init(box, type, ctx->key);
-	while ((key = mailbox_attribute_iter_next(iter)) != NULL)
-		doveadm_print(key);
+	while ((key = mailbox_attribute_iter_next(iter)) != NULL) {
+		if (ctx->prepend_prefix) {
+			if (type == MAIL_ATTRIBUTE_TYPE_PRIVATE)
+				str_append(outp, IMAP_METADATA_PRIVATE_PREFIX"/");
+			else if (type == MAIL_ATTRIBUTE_TYPE_SHARED)
+				str_append(outp, IMAP_METADATA_SHARED_PREFIX"/");
+			else
+				i_unreached();
+			str_append(outp, key);
+			doveadm_print(str_c(outp));
+			str_truncate(outp, 0);
+		} else {
+			doveadm_print(key);
+		}
+	}
 	if (mailbox_attribute_iter_deinit(&iter) < 0) {
 		i_error("Mailbox %s: Failed to iterate mailbox attributes: %s",
 			mailbox_get_vname(box),
@@ -292,7 +325,7 @@ cmd_mailbox_metadata_list_run(struct doveadm_mail_cmd_context *_ctx,
 	struct mailbox *box;
 	int ret = 0;
 
-	ret = cmd_mailbox_metadata_open_mailbox(ctx, user, "list attributes",
+	ret = cmd_mailbox_metadata_get_mailbox(ctx, user, DOVEADM_METADATA_OP_LIST,
 						&ns, &box);
 	if (ret != 0)
 		return ret;
@@ -382,10 +415,11 @@ DOVEADM_CMD_PARAMS_END
 struct doveadm_cmd_ver2 doveadm_cmd_mailbox_metadata_list_ver2 = {
 	.name = "mailbox metadata list",
 	.mail_cmd = cmd_mailbox_metadata_list_alloc,
-	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[-s] <mailbox> [<key prefix>]",
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"[-s] [-p] <mailbox> [<key prefix>]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('s', "allow-empty-mailbox-name", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('p', "prepend-prefix", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "key-prefix", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END

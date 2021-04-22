@@ -1,11 +1,7 @@
 pkglibexecdir = $(libexecdir)/dovecot
 
 sbin_PROGRAMS = dovecot
-
-if HAVE_SYSTEMD
-SYSTEMD_SOURCES = sd-daemon.c
-endif
-
+systemd_lib =
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -20,6 +16,7 @@ AM_CPPFLAGS = \
 	$(BINARY_CFLAGS)
 
 dovecot_LDADD = \
+	$(SYSTEMD_LIBS) \
 	$(LIBCAP) \
 	$(LIBDOVECOT) \
 	$(BINARY_LDFLAGS)
@@ -38,8 +35,7 @@ dovecot_SOURCES = \
 	service-monitor.c \
 	service-process.c \
 	service-process-notify.c \
-	service.c \
-	$(SYSTEMD_SOURCES)
+	service.c
 
 noinst_HEADERS = \
 	capabilities.h \
@@ -47,7 +43,6 @@ noinst_HEADERS = \
 	dup2-array.h \
 	master-client.h \
 	master-settings.h \
-	sd-daemon.h \
 	service-anvil.h \
 	service-listen.h \
 	service-log.h \

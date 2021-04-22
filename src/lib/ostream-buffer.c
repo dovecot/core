@@ -12,7 +12,8 @@ struct buffer_ostream {
 
 static int o_stream_buffer_seek(struct ostream_private *stream, uoff_t offset)
 {
-	struct buffer_ostream *bstream = (struct buffer_ostream *)stream;
+	struct buffer_ostream *bstream =
+		container_of(stream, struct buffer_ostream, ostream);
 
 	bstream->seeked = TRUE;
 	stream->ostream.offset = offset;
@@ -23,7 +24,8 @@ static int
 o_stream_buffer_write_at(struct ostream_private *stream,
 			 const void *data, size_t size, uoff_t offset)
 {
-	struct buffer_ostream *bstream = (struct buffer_ostream *)stream;
+	struct buffer_ostream *bstream =
+		container_of(stream, struct buffer_ostream, ostream);
 
 	buffer_write(bstream->buf, offset, data, size);
 	return 0;
@@ -33,7 +35,8 @@ static ssize_t
 o_stream_buffer_sendv(struct ostream_private *stream,
 		      const struct const_iovec *iov, unsigned int iov_count)
 {
-	struct buffer_ostream *bstream = (struct buffer_ostream *)stream;
+	struct buffer_ostream *bstream =
+		container_of(stream, struct buffer_ostream, ostream);
 	size_t left, n, offset;
 	ssize_t ret = 0;
 	unsigned int i;
@@ -56,7 +59,8 @@ o_stream_buffer_sendv(struct ostream_private *stream,
 static size_t
 o_stream_buffer_get_buffer_used_size(const struct ostream_private *stream)
 {
-	struct buffer_ostream *bstream = (struct buffer_ostream *)stream;
+	const struct buffer_ostream *bstream =
+		container_of(stream, const struct buffer_ostream, ostream);
 
 	return bstream->buf->used;
 }
