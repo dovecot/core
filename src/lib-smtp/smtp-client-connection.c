@@ -183,6 +183,19 @@ smtp_client_connection_transactions_fail_reply(
 }
 
 static void
+smtp_client_connection_transactions_fail(
+	struct smtp_client_connection *conn,
+	unsigned int status, const char *error)
+{
+	struct smtp_reply reply;
+
+	smtp_reply_init(&reply, status, error);
+	reply.enhanced_code.x = 9;
+
+	smtp_client_connection_transactions_fail_reply(conn, &reply);
+}
+
+static void
 smtp_client_connection_login_callback(struct smtp_client_connection *conn,
 				      const struct smtp_reply *reply)
 {
@@ -1959,6 +1972,9 @@ void smtp_client_connection_disconnect(struct smtp_client_connection *conn)
 		smtp_client_connection_login_fail(
 			conn, SMTP_CLIENT_COMMAND_ERROR_ABORTED,
 			"Disconnected from server");
+		smtp_client_connection_transactions_fail(
+			conn,  SMTP_CLIENT_COMMAND_ERROR_ABORTED,
+			"Disconnected from server");
 		smtp_client_connection_commands_fail(
 			conn, SMTP_CLIENT_COMMAND_ERROR_ABORTED,
 			"Disconnected from server");
@@ -2186,6 +2202,9 @@ void smtp_client_connection_unref(struct smtp_client_connection **_conn)
 
 	smtp_client_connection_login_fail(
 		conn, SMTP_CLIENT_COMMAND_ERROR_ABORTED,
+		"Connection destroy");
+	smtp_client_connection_transactions_fail(
+		conn,  SMTP_CLIENT_COMMAND_ERROR_ABORTED,
 		"Connection destroy");
 	smtp_client_connection_commands_fail(
 		conn, SMTP_CLIENT_COMMAND_ERROR_ABORTED,
