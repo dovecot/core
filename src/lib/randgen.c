@@ -61,6 +61,17 @@ static int init_refcount = 0;
 static int urandom_fd = -1;
 
 #if defined(USE_GETRANDOM) || defined(USE_RANDOM_DEV)
+/* Use a small buffer when reading randomness. This is mainly to make small
+   random reads more efficient, such as i_rand*(). When reading larger amount
+   of randomness this buffer is bypassed.
+
+   There doesn't seem to be a big difference in Linux system CPU usage when
+   buffer size is above 16 bytes. Double it just to be safe. Avoid it being
+   too large anyway so we don't unnecessarily waste CPU and memory. */
+#define RANDOM_READ_BUFFER_SIZE 32
+static unsigned char random_next[RANDOM_READ_BUFFER_SIZE];
+static size_t random_next_size = 0;
+
 static void random_open_urandom(void)
 {
 	urandom_fd = open(DEV_URANDOM_PATH, O_RDONLY);
@@ -75,7 +86,7 @@ static void random_open_urandom(void)
 	fd_close_on_exec(urandom_fd, TRUE);
 }
 
-static inline int random_read(char *buf, size_t size)
+static inline int random_read(unsigned char *buf, size_t size)
 {
 	ssize_t ret = 0;
 # if defined(USE_GETRANDOM)
@@ -132,9 +143,29 @@ void random_fill(void *buf, size_t size)
 	ssize_t ret;
 
 	for (pos = 0; pos < size; ) {
-		ret = random_read(PTR_OFFSET(buf, pos), size - pos);
-		if (ret > -1)
-			pos += ret;
+		if (size >= sizeof(random_next) && random_next_size == 0) {
+			/* Asking for lots of randomness. Read directly to the
+			   destination buffer. */
+			ret = random_read(PTR_OFFSET(buf, pos), size - pos);
+			if (ret > -1)
+				pos += ret;
+		} else {
+			/* Asking for a little randomness. Read via a larger
+			   buffer to reduce the number of syscalls. */
+			if (random_next_size > 0)
+				ret = random_next_size;
+			else
+				ret = random_read(random_next,
+						  sizeof(random_next));
+			if (ret > 0) {
+				size_t used = I_MIN(size - pos, (size_t)ret);
+				memcpy(PTR_OFFSET(buf, pos), random_next, used);
+				random_next_size = ret - used;
+				memmove(random_next, random_next + used,
+					random_next_size);
+				pos += used;
+			}
+		}
 	}
 #endif /* defined(USE_ARC4RANDOM) */
 }
