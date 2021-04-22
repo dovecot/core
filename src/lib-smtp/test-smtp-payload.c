@@ -576,6 +576,8 @@ static void
 test_client_transaction_finish(struct test_client_transaction *tctrans)
 {
 	tctrans->conn->trans = NULL;
+	if (io_loop_is_running(current_ioloop))
+		test_client_finished(tctrans->files_idx);
 	test_client_transaction_destroy(tctrans);
 }
 
@@ -661,8 +663,6 @@ test_client_transaction_data(const struct smtp_reply *reply,
 			"SMTP transaction for %s failed: %s",
 			path, smtp_reply_log(reply));
 	}
-
-	test_client_finished(tctrans->files_idx);
 }
 
 static void test_client_continue(void *dummy ATTR_UNUSED)
