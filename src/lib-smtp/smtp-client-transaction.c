@@ -1244,24 +1244,36 @@ smtp_client_transaction_rset_cb(const struct smtp_reply *reply,
 static void
 smtp_client_transaction_send_reset(struct smtp_client_transaction *trans)
 {
+	struct smtp_reply failure;
+
 	i_assert(trans->reset);
 
 	e_debug(trans->event, "Sending reset");
 
 	timeout_remove(&trans->to_send);
 
-	trans->cmd_rset = smtp_client_command_rset_submit_after(
-		trans->conn, 0, trans->cmd_last,
-		smtp_client_transaction_rset_cb, trans);
+	i_zero(&failure);
+	if (trans->failure != NULL) {
+		smtp_client_transaction_fail_reply(trans, trans->failure);
+		failure = *trans->failure;
+		i_assert(failure.status != 0);
+	} else {
+		trans->cmd_rset = smtp_client_command_rset_submit_after(
+			trans->conn, 0, trans->cmd_last,
+			smtp_client_transaction_rset_cb, trans);
 
-	if (trans->cmd_last != NULL)
-		smtp_client_command_unlock(trans->cmd_last);
+		if (trans->cmd_last != NULL)
+			smtp_client_command_unlock(trans->cmd_last);
 
-	smtp_client_transaction_try_complete(trans);
+		smtp_client_transaction_try_complete(trans);
+	}
 
 	if (trans->cmd_plug != NULL)
 		smtp_client_command_abort(&trans->cmd_plug);
 	trans->cmd_last = NULL;
+
+	if (failure.status != 0)
+		smtp_client_transaction_finish(trans, &failure);
 }
 
 #undef smtp_client_transaction_reset
