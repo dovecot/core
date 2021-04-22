@@ -156,6 +156,19 @@ smtp_client_connection_commands_fail(struct smtp_client_connection *conn,
 }
 
 static void
+smtp_client_connection_transactions_abort(struct smtp_client_connection *conn)
+{
+	struct smtp_client_transaction *trans;
+
+	trans = conn->transactions_head;
+	while (trans != NULL) {
+		struct smtp_client_transaction *trans_next = trans->next;
+		smtp_client_transaction_abort(trans);
+		trans = trans_next;
+	}
+}
+
+static void
 smtp_client_connection_login_callback(struct smtp_client_connection *conn,
 				      const struct smtp_reply *reply)
 {
@@ -2192,6 +2205,7 @@ void smtp_client_connection_close(struct smtp_client_connection **_conn)
 		return;
 	conn->closed = TRUE;
 
+	smtp_client_connection_transactions_abort(conn);
 	smtp_client_connection_disconnect(conn);
 
 	/* could have been created while already disconnected */
