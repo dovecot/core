@@ -44,6 +44,9 @@ void test_assert_failed(const char *code, const char *file, unsigned int line)
 	printf("%s:%u: Assert failed: %s\n", file, line, code);
 	fflush(stdout);
 	test_success = FALSE;
+#ifdef STATIC_CHECKER
+	i_unreached();
+#endif
 }
 
 void test_assert_failed_idx(const char *code, const char *file, unsigned int line, long long i)
@@ -51,6 +54,9 @@ void test_assert_failed_idx(const char *code, const char *file, unsigned int lin
 	printf("%s:%u: Assert(#%lld) failed: %s\n", file, line, i, code);
 	fflush(stdout);
 	test_success = FALSE;
+#ifdef STATIC_CHECKER
+	i_unreached();
+#endif
 }
 
 void test_assert_failed_strcmp_idx(const char *code, const char *file, unsigned int line,
@@ -71,6 +77,9 @@ void test_assert_failed_strcmp_idx(const char *code, const char *file, unsigned 
 		printf("NULL\n");
 	fflush(stdout);
 	test_success = FALSE;
+#ifdef STATIC_CHECKER
+	i_unreached();
+#endif
 }
 
 void test_assert_failed_cmp_intmax_idx(const char *code, const char *file,
@@ -86,6 +95,9 @@ void test_assert_failed_cmp_intmax_idx(const char *code, const char *file,
 	printf("        %jd %s %jd is not true\n", src, op, dst);
 	fflush(stdout);
 	test_success = FALSE;
+#ifdef STATIC_CHECKER
+	i_unreached();
+#endif
 }
 
 void test_assert_failed_ucmp_intmax_idx(const char *code, const char *file,
@@ -101,6 +113,9 @@ void test_assert_failed_ucmp_intmax_idx(const char *code, const char *file,
 	printf("        %ju %s %ju is not true\n", src, op, dst);
 	fflush(stdout);
 	test_success = FALSE;
+#ifdef STATIC_CHECKER
+	i_unreached();
+#endif
 }
 
 #ifdef DEBUG

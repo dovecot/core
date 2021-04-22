@@ -68,18 +68,29 @@ void test_begin(const char *name);
 				#_op, _idx); \
 	} STMT_END
 
-void test_assert_failed(const char *code, const char *file, unsigned int line);
-void test_assert_failed_idx(const char *code, const char *file, unsigned int line, long long i);
+#ifdef STATIC_CHECKER
+#  define ATTR_STATIC_CHECKER_NORETURN ATTR_NORETURN
+#else
+#  define ATTR_STATIC_CHECKER_NORETURN
+#endif
+
+void test_assert_failed(const char *code, const char *file, unsigned int line)
+	ATTR_STATIC_CHECKER_NORETURN;
+void test_assert_failed_idx(const char *code, const char *file, unsigned int line, long long i)
+	ATTR_STATIC_CHECKER_NORETURN;
 void test_assert_failed_strcmp_idx(const char *code, const char *file, unsigned int line,
-				   const char * src, const char * dst, long long i);
+				   const char * src, const char * dst, long long i)
+	ATTR_STATIC_CHECKER_NORETURN;
 void test_assert_failed_cmp_intmax_idx(const char *code, const char *file,
 				       unsigned int line,
 				       intmax_t src, intmax_t dst,
-				       const char *op, long long i);
+				       const char *op, long long i)
+	ATTR_STATIC_CHECKER_NORETURN;
 void test_assert_failed_ucmp_intmax_idx(const char *code, const char *file,
 					unsigned int line,
 					uintmax_t src, uintmax_t dst,
-					const char *op, long long i);
+					const char *op, long long i)
+	ATTR_STATIC_CHECKER_NORETURN;
 bool test_has_failed(void);
 /* If you're testing nasty cases which you want to warn, surround the noisy op with these */
 void test_expect_errors(unsigned int expected);
