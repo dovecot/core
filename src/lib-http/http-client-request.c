@@ -119,6 +119,8 @@ http_client_request_new(struct http_client *client, const char *method,
 	req->context = context;
 	req->date = (time_t)-1;
 	req->event = event_create(client->event);
+	event_strlist_copy_recursive(req->event, event_get_global(),
+				     EVENT_REASON_CODE);
 
 	/* Default to client-wide settings: */
 	req->max_attempts = client->set.max_attempts;
@@ -242,6 +244,8 @@ void http_client_request_set_event(struct http_client_request *req,
 	event_unref(&req->event);
 	req->event = event_create(event);
 	event_set_forced_debug(req->event, req->client->set.debug);
+	event_strlist_copy_recursive(req->event, event_get_global(),
+				     EVENT_REASON_CODE);
 	http_client_request_update_event(req);
 }
 
