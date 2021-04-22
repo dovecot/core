@@ -10,6 +10,7 @@ print "   by make. (This file is distributed in the tarball only because some\n"
 print "   systems might not have Perl installed.) */\n";
 print '#include "lib.h"'."\n";
 print '#include "array.h"'."\n";
+print '#include "str.h"'."\n";
 print '#include "ipwd.h"'."\n";
 print '#include "var-expand.h"'."\n";
 print '#include "file-lock.h"'."\n";

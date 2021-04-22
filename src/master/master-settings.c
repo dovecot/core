@@ -425,6 +425,8 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	struct passwd pw;
 	unsigned int i, j, count, client_limit, process_limit;
 	unsigned int max_auth_client_processes, max_anvil_client_processes;
+	string_t *max_auth_client_processes_reason = t_str_new(64);
+	string_t *max_anvil_client_processes_reason = t_str_new(64);
 	size_t len;
 #ifdef CONFIG_BINARY
 	const struct service_settings *default_service;
@@ -580,12 +582,20 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 			   imap-hibernate doesn't do any auth lookups. */
 			if ((service->service_count != 1 ||
 			     strcmp(service->type, "login") == 0) &&
-			    strcmp(service->name, "imap-hibernate") != 0)
+			    strcmp(service->name, "imap-hibernate") != 0) {
+				str_printfa(max_auth_client_processes_reason,
+					    " + service %s { process_limit=%u }",
+					    service->name, process_limit);
 				max_auth_client_processes += process_limit;
+			}
 		}
 		if (strcmp(service->type, "login") == 0 ||
-		    strcmp(service->name, "auth") == 0)
+		    strcmp(service->name, "auth") == 0) {
 			max_anvil_client_processes += process_limit;
+			str_printfa(max_anvil_client_processes_reason,
+				    " + service %s { process_limit=%u }",
+				    service->name, process_limit);
+		}
 
 		if (!fix_file_listener_paths(&service->unix_listeners, pool,
 					     set, &all_listeners, error_r)) {
@@ -605,17 +615,22 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	client_limit = service_get_client_limit(set, "auth");
 	if (client_limit < max_auth_client_processes && !warned_auth) {
 		warned_auth = TRUE;
+		str_delete(max_auth_client_processes_reason, 0, 3);
 		i_warning("service auth { client_limit=%u } is lower than "
-			  "required under max. load (%u)",
-			  client_limit, max_auth_client_processes);
+			  "required under max. load (%u). "
+			  "Counted for protocol services with service_count != 1: %s",
+			  client_limit, max_auth_client_processes,
+			  str_c(max_auth_client_processes_reason));
 	}
 
 	client_limit = service_get_client_limit(set, "anvil");
 	if (client_limit < max_anvil_client_processes && !warned_anvil) {
 		warned_anvil = TRUE;
+		str_delete(max_anvil_client_processes_reason, 0, 3);
 		i_warning("service anvil { client_limit=%u } is lower than "
-			  "required under max. load (%u)",
-			  client_limit, max_anvil_client_processes);
+			  "required under max. load (%u). Counted with: %s",
+			  client_limit, max_anvil_client_processes,
+			  str_c(max_anvil_client_processes_reason));
 	}
 #ifndef CONFIG_BINARY
 	if (restrict_get_fd_limit(&fd_limit) == 0 &&
