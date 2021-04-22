@@ -169,6 +169,20 @@ smtp_client_connection_transactions_abort(struct smtp_client_connection *conn)
 }
 
 static void
+smtp_client_connection_transactions_fail_reply(
+	struct smtp_client_connection *conn, const struct smtp_reply *reply)
+{
+	struct smtp_client_transaction *trans;
+
+	trans = conn->transactions_head;
+	while (trans != NULL) {
+		struct smtp_client_transaction *trans_next = trans->next;
+		smtp_client_transaction_connection_result(trans, reply);
+		trans = trans_next;
+	}
+}
+
+static void
 smtp_client_connection_login_callback(struct smtp_client_connection *conn,
 				      const struct smtp_reply *reply)
 {
@@ -312,8 +326,6 @@ static void
 smtp_client_connection_fail_reply(struct smtp_client_connection *conn,
 				  const struct smtp_reply *reply)
 {
-	struct smtp_client_transaction *trans;
-
 	e_debug(conn->event, "Connection failed: %s", smtp_reply_log(reply));
 
 	smtp_client_connection_ref(conn);
@@ -322,13 +334,7 @@ smtp_client_connection_fail_reply(struct smtp_client_connection *conn,
 	smtp_client_connection_disconnect(conn);
 	smtp_client_connection_login_callback(conn, reply);
 
-	trans = conn->transactions_head;
-	while (trans != NULL) {
-		struct smtp_client_transaction *trans_next = trans->next;
-		smtp_client_transaction_connection_result(trans, reply);
-		trans = trans_next;
-	}
-
+	smtp_client_connection_transactions_fail_reply(conn, reply);
 	smtp_client_connection_commands_fail_reply(conn, reply);
 
 	conn->failing = FALSE;
