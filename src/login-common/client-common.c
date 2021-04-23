@@ -289,8 +289,9 @@ void client_disconnect(struct client *client, const char *reason,
 		/* Login was successful. We may now be proxying the connection,
 		   so don't disconnect the client until client_unref(). */
 		if (client->iostream_fd_proxy != NULL) {
+			i_assert(!client->fd_proxying);
 			client->fd_proxying = TRUE;
-			i_assert(client->prev == NULL && client->next == NULL);
+			DLLIST_REMOVE(&destroyed_clients, client);
 			DLLIST_PREPEND(&client_fd_proxies, client);
 			client_fd_proxies_count++;
 		}
@@ -307,8 +308,9 @@ void client_destroy(struct client *client, const char *reason)
 
 	if (last_client == client)
 		last_client = client->prev;
-	/* remove from clients linked list before it's added to
-	   client_fd_proxies. */
+	/* move to destroyed_clients linked list before it's potentially
+	   added to client_fd_proxies. */
+	i_assert(!client->fd_proxying);
 	DLLIST_REMOVE(&clients, client);
 	DLLIST_PREPEND(&destroyed_clients, client);
 
@@ -409,13 +411,14 @@ bool client_unref(struct client **_client)
 		DLLIST_REMOVE(&client_fd_proxies, client);
 		i_assert(client_fd_proxies_count > 0);
 		client_fd_proxies_count--;
+	} else {
+		DLLIST_REMOVE(&destroyed_clients, client);
 	}
 	i_stream_unref(&client->input);
 	o_stream_unref(&client->output);
 	i_close_fd(&client->fd);
 	event_unref(&client->event);
 
-	DLLIST_REMOVE(&destroyed_clients, client);
 	i_free(client->proxy_user);
 	i_free(client->proxy_master_user);
 	i_free(client->virtual_user);
