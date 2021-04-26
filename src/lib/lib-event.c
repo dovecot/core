@@ -97,9 +97,6 @@ static bool
 event_find_category(const struct event *event,
 		    const struct event_category *category);
 
-static struct event_field *
-event_find_field(const struct event *event, const char *key);
-
 static void event_set_changed(struct event *event)
 {
 	event->change_id++;
@@ -195,7 +192,7 @@ bool event_has_all_fields(struct event *event, const struct event *other)
 	if (!array_is_created(&other->fields))
 		return TRUE;
 	array_foreach_modifiable(&other->fields, fld) {
-		if (event_find_field(event, fld->key) == NULL)
+		if (event_find_field_nonrecursive(event, fld->key) == NULL)
 			return FALSE;
 	}
 	return TRUE;
@@ -803,8 +800,8 @@ event_add_category(struct event *event, struct event_category *category)
 	return event_add_categories(event, categories);
 }
 
-static struct event_field *
-event_find_field(const struct event *event, const char *key)
+struct event_field *
+event_find_field_nonrecursive(const struct event *event, const char *key)
 {
 	struct event_field *field;
 
@@ -824,7 +821,7 @@ event_find_field_recursive(const struct event *event, const char *key)
 	const struct event_field *field;
 
 	do {
-		if ((field = event_find_field(event, key)) != NULL)
+		if ((field = event_find_field_nonrecursive(event, key)) != NULL)
 			return field;
 		event = event->parent;
 	} while (event != NULL);
@@ -858,7 +855,7 @@ event_get_field(struct event *event, const char *key)
 {
 	struct event_field *field;
 
-	field = event_find_field(event, key);
+	field = event_find_field_nonrecursive(event, key);
 	if (field == NULL) {
 		if (!array_is_created(&event->fields))
 			p_array_init(&event->fields, event->pool, 8);
@@ -903,7 +900,7 @@ event_inc_int(struct event *event, const char *key, intmax_t num)
 {
 	struct event_field *field;
 
-	field = event_find_field(event, key);
+	field = event_find_field_nonrecursive(event, key);
 	if (field == NULL || field->value_type != EVENT_FIELD_VALUE_TYPE_INTMAX)
 		return event_add_int(event, key, num);
 

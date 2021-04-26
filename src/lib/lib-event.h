@@ -301,6 +301,9 @@ bool event_get_last_send_time(const struct event *event, struct timeval *tv_r);
    the event's last sent time. */
 void event_get_last_duration(const struct event *event,
 			     uintmax_t *duration_usecs_r);
+/* Returns field for a given key, or NULL if it doesn't exist. */
+struct event_field *
+event_find_field_nonrecursive(const struct event *event, const char *key);
 /* Returns field for a given key, or NULL if it doesn't exist. If the key
    isn't found from the event itself, find it from parent events. */
 const struct event_field *
