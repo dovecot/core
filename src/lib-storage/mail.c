@@ -49,21 +49,29 @@ void mail_set_seq(struct mail *mail, uint32_t seq)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	p->v.set_seq(mail, seq, FALSE);
+	T_BEGIN {
+		p->v.set_seq(mail, seq, FALSE);
+	} T_END;
 }
 
 void mail_set_seq_saving(struct mail *mail, uint32_t seq)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	p->v.set_seq(mail, seq, TRUE);
+	T_BEGIN {
+		p->v.set_seq(mail, seq, TRUE);
+	} T_END;
 }
 
 bool mail_set_uid(struct mail *mail, uint32_t uid)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	bool ret;
 
-	return p->v.set_uid(mail, uid);
+	T_BEGIN {
+		ret = p->v.set_uid(mail, uid);
+	} T_END;
+	return ret;
 }
 
 bool mail_prefetch(struct mail *mail)
