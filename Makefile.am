@@ -61,7 +61,10 @@ dovecot-config: dovecot-config.in Makefile
 
 if HAVE_LIBSYSTEMD
 %.service: %.service.in
-	$(AM_V_GEN)sed -e 's,@sbindir\@,$(sbindir),g' -e 's,@bindir\@,$(bindir),g' -e 's,@rundir\@,$(rundir),g' $< > $@
+	$(AM_V_GEN)sed -e 's,@sbindir\@,$(sbindir),g' \
+	-e 's,@bindir\@,$(bindir),g' \
+	-e 's,@rundir\@,$(rundir),g' \
+	$< > $@
 
 systemdsystemunit_DATA = \
         dovecot.socket \
