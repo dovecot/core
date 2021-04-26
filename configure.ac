@@ -244,10 +244,13 @@ AC_ARG_WITH([systemd],
    want_systemd="$withval"
 )
 
+systemdservicetype='simple'
+
 AS_IF([test "$want_systemd" != "no"], [
   PKG_CHECK_MODULES([SYSTEMD], [libsystemd], [
     AC_DEFINE([HAVE_LIBSYSTEMD],[1], [Define to 1 if you have libsystemd])
     systemdsystemunitdir=`$PKG_CONFIG --variable=systemdsystemunitdir systemd`
+    systemdservicetype='notify'
   ], [AS_IF([test "$want_systemd" = "yes"], [
        AC_MSG_ERROR([libsystemd not found])
      ],
@@ -256,6 +259,7 @@ AS_IF([test "$want_systemd" != "no"], [
 ])
 
 AC_SUBST(systemdsystemunitdir)
+AC_SUBST(systemdservicetype)
 AM_CONDITIONAL(HAVE_LIBSYSTEMD, [test "$want_systemd" != "no"])
 
 dovecot_moduledir="$libdir/dovecot"

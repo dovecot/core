@@ -64,6 +64,7 @@ if HAVE_LIBSYSTEMD
 	$(AM_V_GEN)sed -e 's,@sbindir\@,$(sbindir),g' \
 	-e 's,@bindir\@,$(bindir),g' \
 	-e 's,@rundir\@,$(rundir),g' \
+	-e 's,@systemdservicetype\@,$(systemdservicetype),g' \
 	$< > $@
 
 systemdsystemunit_DATA = \

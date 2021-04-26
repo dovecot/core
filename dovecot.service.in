@@ -14,7 +14,7 @@ Documentation=https://doc.dovecot.org/
 After=local-fs.target network-online.target
 
 [Service]
-Type=notify
+Type=@systemdservicetype@
 ExecStart=@sbindir@/dovecot -F
 ExecReload=@bindir@/doveadm reload
 ExecStop=@bindir@/doveadm stop
