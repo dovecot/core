@@ -467,7 +467,6 @@ static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
 	services->destroying = TRUE;
 	i_sd_notify(0, "STOPPING=1\nSTATUS=Dovecot stopping...");
 	master_service_stop(master_service);
-	i_sd_notify(0, "STATUS=Dovecot stopped");
 }
 
 static struct master_settings *master_settings_read(void)
@@ -593,6 +592,8 @@ static void main_deinit(void)
 
 	service_anvil_global_deinit();
 	service_pids_deinit();
+	/* notify systemd that we are done */
+	i_sd_notify(0, "STATUS=Dovecot stopped");
 }
 
 static const char *get_full_config_path(struct service_list *list)
