@@ -2463,8 +2463,12 @@ static void test_event_log_message(void)
 		}
 		event = parent;
 
-		if (test->result_str_out != NULL)
-			params.base_str_out = t_str_new(256);
+		if (test->result_str_out != NULL) {
+			/* Use small value so buffer size grows. This way the
+			   unit test fails if anyone attempts to add data-stack
+			   frame to event_log(). */
+			params.base_str_out = t_str_new(1);
+		}
 		event_log(event, &params, "TEXT");
 
 		test_assert_strcmp(test->result, test_output);

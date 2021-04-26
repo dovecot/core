@@ -24,7 +24,9 @@ void e_error(struct event *event,
 	va_list args;
 
 	va_start(args, fmt);
-	event_logv(event, &params, fmt, args);
+	T_BEGIN {
+		event_logv(event, &params, fmt, args);
+	} T_END;
 	va_end(args);
 }
 
@@ -41,7 +43,9 @@ void e_warning(struct event *event,
 	va_list args;
 
 	va_start(args, fmt);
-	event_logv(event, &params, fmt, args);
+	T_BEGIN {
+		event_logv(event, &params, fmt, args);
+	} T_END;
 	va_end(args);
 }
 
@@ -58,7 +62,9 @@ void e_info(struct event *event,
 	va_list args;
 
 	va_start(args, fmt);
-	event_logv(event, &params, fmt, args);
+	T_BEGIN {
+		event_logv(event, &params, fmt, args);
+	} T_END;
 	va_end(args);
 }
 
@@ -75,7 +81,9 @@ void e_debug(struct event *event,
 	va_list args;
 
 	va_start(args, fmt);
-	event_logv(event, &params, fmt, args);
+	T_BEGIN {
+		event_logv(event, &params, fmt, args);
+	} T_END;
 	va_end(args);
 }
 
@@ -92,7 +100,9 @@ void e_log(struct event *event, enum log_type level,
 	va_list args;
 
 	va_start(args, fmt);
-	event_logv(event, &params, fmt, args);
+	T_BEGIN {
+		event_logv(event, &params, fmt, args);
+	} T_END;
 	va_end(args);
 }
 
