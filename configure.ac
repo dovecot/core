@@ -956,7 +956,6 @@ echo "I/O notifys .... : $have_notify"
 echo "SSL ............ : $have_ssl"
 echo "GSSAPI ......... : $have_gssapi"
 echo "passdbs ........ :$passdb"
-echo "CFLAGS ......... : $CFLAGS"
 if test "$not_passdb" != ""; then
   echo "                 :$not_passdb"
 fi
@@ -964,6 +963,7 @@ echo "userdbs ........ :$userdb"
 if test "$not_userdb" != ""; then
   echo "                 :$not_userdb"
 fi
+echo "CFLAGS ......... : $CFLAGS"
 echo "SQL drivers .... :$sql_drivers"
 if test "$not_sql_drivers" != ""; then
   echo "                 :$not_sql_drivers"
