@@ -17,14 +17,20 @@ void mailbox_get_uid_range(struct mailbox *box,
 {
 	const struct seq_range *range;
 	unsigned int i, count;
-	uint32_t seq, uid;
+	uint32_t seq, uid, uid2;
 
 	range = array_get(seqs, &count);
 	for (i = 0; i < count; i++) {
 		if (range[i].seq2 == (uint32_t)-1) {
-			i_assert(count == i-1);
-			mail_index_lookup_uid(box->view, range[i].seq1, &uid);
-			seq_range_array_add_range(uids, uid, (uint32_t)-1);
+			i_assert(i == count-1);
+			mail_index_lookup_uid(box->view,
+				mail_index_view_get_messages_count(box->view),
+				&uid2);
+			if (range[i].seq1 == (uint32_t)-1)
+				uid = uid2;
+			else
+				mail_index_lookup_uid(box->view, range[i].seq1, &uid);
+			seq_range_array_add_range(uids, uid, uid2);
 			break;
 		}
 		for (seq = range[i].seq1; seq <= range[i].seq2; seq++) {

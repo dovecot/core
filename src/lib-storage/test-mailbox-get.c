@@ -11,6 +11,11 @@ static guid_128_t mail_guids[N_ELEMENTS(expunge_uids)];
 static unsigned int expunge_idx;
 static unsigned int nonexternal_idx;
 
+uint32_t mail_index_view_get_messages_count(struct mail_index_view *view ATTR_UNUSED)
+{
+	return 0;
+}
+
 void mail_index_lookup_uid(struct mail_index_view *view ATTR_UNUSED,
 			   uint32_t seq, uint32_t *uid_r)
 {
