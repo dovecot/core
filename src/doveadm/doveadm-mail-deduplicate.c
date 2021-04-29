@@ -21,7 +21,6 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 	struct deduplicate_cmd_context *ctx =
 		(struct deduplicate_cmd_context *)_ctx;
 	struct doveadm_mail_iter *iter;
-	struct mailbox *box;
 	struct mail *mail;
 	enum mail_error error;
 	pool_t pool;
@@ -67,20 +66,11 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 		}
 	}
 
-	if (doveadm_mail_iter_deinit_keep_box(&iter, &box) < 0)
+	if (doveadm_mail_iter_deinit_sync(&iter) < 0)
 		ret = -1;
 
 	hash_table_destroy(&hash);
 	pool_unref(&pool);
-
-	if (mailbox_sync(box, 0) < 0) {
-		i_error("Syncing mailbox '%s' failed: %s",
-			mailbox_get_vname(box),
-			mailbox_get_last_internal_error(box, NULL));
-		doveadm_mail_failed_mailbox(_ctx, box);
-		ret = -1;
-	}
-	mailbox_free(&box);
 	return ret;
 }
 
