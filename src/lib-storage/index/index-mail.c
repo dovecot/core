@@ -2150,6 +2150,11 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 		mail_set_expunged(&mail->mail.mail);
 		return;
 	}
+	/* Allow callers to easily find out if this mail was already expunged
+	   by another session. It's possible that it could still be
+	   successfully accessed. */
+	if (mail_index_is_expunged(_mail->transaction->view, seq))
+		mail_set_expunged(&mail->mail.mail);
 
 	if (!mail->mail.search_mail) {
 		index_mail_update_access_parts_pre(_mail);
