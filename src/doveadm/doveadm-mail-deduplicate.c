@@ -8,62 +8,10 @@
 #include "doveadm-mail-iter.h"
 #include "doveadm-mail.h"
 
-struct uidlist {
-	struct uidlist *next;
-	uint32_t uid;
-};
-
 struct deduplicate_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 	bool by_msgid;
 };
-
-static int cmd_deduplicate_uidlist(struct doveadm_mail_cmd_context *_ctx,
-				   struct mailbox *box, struct uidlist *uidlist)
-{
-	struct mailbox_transaction_context *trans;
-	struct mail_search_context *search_ctx;
-	struct mail_search_args *search_args;
-	struct mail_search_arg *arg;
-	struct mail *mail;
-	ARRAY_TYPE(seq_range) uids;
-	int ret = 0;
-
-	/* the uidlist is reversed with oldest mails at the end.
-	   we'll delete everything but the oldest mail. */
-	if (uidlist->next == NULL)
-		return 0;
-
-	t_array_init(&uids, 8);
-	for (; uidlist->next != NULL; uidlist = uidlist->next)
-		seq_range_array_add(&uids, uidlist->uid);
-
-	search_args = mail_search_build_init();
-	arg = mail_search_build_add(search_args, SEARCH_UIDSET);
-	arg->value.seqset = uids;
-
-	trans = mailbox_transaction_begin(box, _ctx->transaction_flags, __func__);
-	search_ctx = mailbox_search_init(trans, search_args, NULL, 0, NULL);
-	mail_search_args_unref(&search_args);
-
-	while (mailbox_search_next(search_ctx, &mail))
-		mail_expunge(mail);
-	if (mailbox_search_deinit(&search_ctx) < 0) {
-		i_error("Searching mailbox '%s' failed: %s",
-			mailbox_get_vname(box),
-			mailbox_get_last_internal_error(box, NULL));
-		doveadm_mail_failed_mailbox(_ctx, box);
-		ret = -1;
-	}
-	if (mailbox_transaction_commit(&trans) < 0) {
-		i_error("Committing mailbox '%s' transaction failed: %s",
-			mailbox_get_vname(box),
-			mailbox_get_last_internal_error(box, NULL));
-		doveadm_mail_failed_mailbox(_ctx, box);
-		ret = -1;
-	}
-	return ret;
-}
 
 static int
 cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
@@ -77,9 +25,8 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 	struct mail *mail;
 	enum mail_error error;
 	pool_t pool;
-	HASH_TABLE(const char *, struct uidlist *) hash;
+	HASH_TABLE(const char *, void *) hash;
 	const char *key, *errstr;
-	struct uidlist *value;
 	int ret = 0;
 
 	if (doveadm_mail_iter_init(_ctx, info, search_args, 0, NULL, 0,
@@ -113,34 +60,15 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 			}
 		}
 		if (key != NULL && *key != '\0') {
-			value = p_new(pool, struct uidlist, 1);
-			value->uid = mail->uid;
-			value->next = hash_table_lookup(hash, key);
-
-			if (value->next == NULL) {
-				key = p_strdup(pool, key);
-				hash_table_insert(hash, key, value);
-			} else {
-				hash_table_update(hash, key, value);
-			}
+			if (hash_table_lookup(hash, key) != NULL)
+				mail_expunge(mail);
+			else
+				hash_table_insert(hash, key, POINTER_CAST(1));
 		}
 	}
 
 	if (doveadm_mail_iter_deinit_keep_box(&iter, &box) < 0)
 		ret = -1;
-
-	if (ret == 0) {
-		struct hash_iterate_context *iter;
-
-		iter = hash_table_iterate_init(hash);
-		while (hash_table_iterate(iter, hash, &key, &value)) {
-			T_BEGIN {
-				if (cmd_deduplicate_uidlist(_ctx, box, value) < 0)
-					ret = -1;
-			} T_END;
-		}
-		hash_table_iterate_deinit(&iter);
-	}
 
 	hash_table_destroy(&hash);
 	pool_unref(&pool);
