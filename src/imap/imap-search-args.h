@@ -30,8 +30,9 @@ void imap_search_add_changed_since(struct mail_search_args *search_args,
 
 /* Iterate search_args in batches of messages. The search_args itself is
    modified each time imap_search_seqset_iter_next() is called. Note that
-   search_args is expected to come from imap_search_get_anyset(), i.e. it
-   must contain only SEARCH_SEQSET or SEARCH_ALL arg. */
+   search_args is expected to come from imap_search_get_anyset(), so it should
+   have a single parameter containing SEARCH_ALL, SEARCH_SEQSET or
+   SEARCH_UIDSET. */
 struct imap_search_seqset_iter *
 imap_search_seqset_iter_init(struct mail_search_args *search_args,
 			     uint32_t messages_count, unsigned int batch_size);
