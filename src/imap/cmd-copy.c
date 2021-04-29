@@ -2,6 +2,7 @@
 
 #include "imap-common.h"
 #include "str.h"
+#include "istream.h"
 #include "ostream.h"
 #include "imap-resp-code.h"
 #include "imap-util.h"
@@ -30,22 +31,25 @@ struct cmd_copy_context {
 	enum mail_error mail_error;
 };
 
-static void client_send_sendalive_if_needed(struct client *client)
+static int client_send_sendalive_if_needed(struct client *client)
 {
 	time_t now, last_io;
+	int ret = 0;
 
 	if (o_stream_get_buffer_used_size(client->output) != 0)
-		return;
+		return 0;
 
 	now = time(NULL);
 	last_io = I_MAX(client->last_input, client->last_output);
 	if (now - last_io > MAIL_STORAGE_STAYALIVE_SECS) {
 		o_stream_nsend_str(client->output, "* OK Hang in there..\r\n");
 		/* make sure it doesn't get stuck on the corked stream */
-		o_stream_uncork(client->output);
+		if (o_stream_uncork_flush(client->output) < 0)
+			ret = -1;
 		o_stream_cork(client->output);
 		client->last_output = now;
 	}
+	return ret;
 }
 
 static void copy_update_trashed(struct client *client, struct mailbox *box,
@@ -59,6 +63,22 @@ static void copy_update_trashed(struct client *client, struct mailbox *box,
 	    str_array_icase_find(t_strsplit_spaces(set->special_use, " "),
 				 "\\Trash"))
 		client->trashed_count += count;
+}
+
+static bool client_is_disconnected(struct client *client)
+{
+	if (client->fd_in == STDIN_FILENO) {
+		/* Skip this check for stdio clients. It's often used in
+		   testing where the test expects that all commands will be
+		   run even though stdin already has reached EOF. */
+		return FALSE;
+	}
+	ssize_t bytes = i_stream_read(client->input);
+	if (bytes == -1)
+		return TRUE;
+	if (bytes != 0)
+		i_stream_set_input_pending(client->input, TRUE);
+	return FALSE;
 }
 
 static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
@@ -114,8 +134,22 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 			break;
 		}
 
-		if ((++copy_ctx->copy_count % COPY_CHECK_INTERVAL) == 0)
-			client_send_sendalive_if_needed(client);
+		if ((++copy_ctx->copy_count % COPY_CHECK_INTERVAL) == 0) {
+			/* If we're COPYing (not MOVEing), check if client has
+			   already disconnected. If yes, abort the COPY to
+			   avoid client duplicating the COPY again later.
+			   We can detect this as long as the client doesn't
+			   fill the input buffer full. */
+			if (client_send_sendalive_if_needed(client) < 0 ||
+			    (!copy_ctx->move &&
+			     client_is_disconnected(client))) {
+				/* Client disconnected. Use the same failure
+				   code path as if some messages were
+				   expunged. */
+				ret = 0;
+				break;
+			}
+		}
 
 		save_ctx = mailbox_save_alloc(t);
 		mailbox_save_copy_flags(save_ctx, mail);
@@ -143,6 +177,11 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 			mailbox_get_last_error(copy_ctx->srcbox, &copy_ctx->mail_error);
 		ret = -1;
 	}
+
+	/* Do a final check before committing COPY to see if the client has
+	   already disconnected. */
+	if (!copy_ctx->move && client_is_disconnected(client))
+		ret = 0;
 
 	if (ret <= 0)
 		mailbox_transaction_rollback(&t);
