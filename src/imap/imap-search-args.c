@@ -266,9 +266,9 @@ imap_search_seqset_iter_init(struct mail_search_args *search_args,
 	iter->batch_size = batch_size;
 	mail_search_args_ref(iter->search_args);
 
-	/* Assume that the search query is always a seqset or SEARCH_ALL. */
 	switch (search_args->args->type) {
 	case SEARCH_SEQSET:
+	case SEARCH_UIDSET:
 		break;
 	case SEARCH_ALL:
 		if (search_args->args->match_not) {
@@ -287,7 +287,8 @@ imap_search_seqset_iter_init(struct mail_search_args *search_args,
 			search_args->args->type);
 	}
 
-	i_assert(search_args->args->type == SEARCH_SEQSET);
+	i_assert(search_args->args->type == SEARCH_SEQSET ||
+		 search_args->args->type == SEARCH_UIDSET);
 
 	i_array_init(&iter->seqset_left,
 		     array_count(&search_args->args->value.seqset));
