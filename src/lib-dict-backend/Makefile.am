@@ -19,7 +19,6 @@ ldap_sources = \
 	dict-ldap-settings.c
 
 libdict_backend_la_SOURCES = \
-	dict-db.c \
 	dict-cdb.c \
 	dict-sql.c \
 	dict-sql-settings.c \
