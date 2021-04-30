@@ -464,6 +464,7 @@ event_filter_export_query_expr(const struct event_filter_query_internal *query,
 		} else
 			str_append(dest, event_filter_category_from_log_type(node->category.log_type));
 		break;
+	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT:
 	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD:
 		str_append_c(dest, '"');
 		event_filter_append_escaped(dest, node->field.key);
@@ -560,7 +561,7 @@ event_has_category(struct event *event, struct event_filter_node *node,
 
 static bool
 event_match_field(struct event *event, const struct event_field *wanted_field,
-		  enum event_filter_node_op op)
+		  enum event_filter_node_op op, bool use_strcmp)
 {
 	const struct event_field *field;
 
@@ -581,7 +582,10 @@ event_match_field(struct event *event, const struct event_field *wanted_field,
 			/* field was removed, but it matches field="" filter */
 			return wanted_field->value.str[0] == '\0';
 		}
-		return wildcard_match_icase(field->value.str, wanted_field->value.str);
+		if (use_strcmp)
+			return strcasecmp(field->value.str, wanted_field->value.str) == 0;
+		else
+			return wildcard_match_icase(field->value.str, wanted_field->value.str);
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
 		if (wanted_field->value.intmax > INT_MIN) {
 			/* compare against an integer */
@@ -610,7 +614,10 @@ event_match_field(struct event *event, const struct event_field *wanted_field,
 			}
 			char tmp[MAX_INT_STRLEN];
 			i_snprintf(tmp, sizeof(tmp), "%jd", field->value.intmax);
-			return wildcard_match_icase(tmp, wanted_field->value.str);
+			if (use_strcmp)
+				return strcasecmp(field->value.str, wanted_field->value.str) == 0;
+			else
+				return wildcard_match_icase(tmp, wanted_field->value.str);
 		}
 	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
 		/* there's no point to support matching exact timestamps */
@@ -647,8 +654,12 @@ event_filter_query_match_cmp(struct event_filter_node *node,
 				 strcmp(event->source_filename, node->str) != 0);
 		case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:
 			return event_has_category(event, node, log_type);
+		case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT:
+			return event_match_field(event, &node->field, node->op,
+						 TRUE);
 		case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD:
-			return event_match_field(event, &node->field, node->op);
+			return event_match_field(event, &node->field, node->op,
+						 FALSE);
 	}
 
 	i_unreached();
@@ -815,6 +826,7 @@ event_filter_query_update_category(struct event_filter_query_internal *query,
 	case EVENT_FILTER_NODE_TYPE_EVENT_NAME_EXACT:
 	case EVENT_FILTER_NODE_TYPE_EVENT_NAME_WILDCARD:
 	case EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION:
+	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT:
 	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD:
 		break;
 	case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:

@@ -102,8 +102,12 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 			   Either we have a string, or a number with wildcards */
 			node->field.value.intmax = INT_MIN;
 		}
+
+		if (wildcard_is_literal(node->field.value.str))
+			node->type = EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT;
 		break;
 	case EVENT_FILTER_NODE_TYPE_EVENT_NAME_EXACT:
+	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT:
 		i_unreached();
 	}
 
