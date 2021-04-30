@@ -287,7 +287,7 @@ void event_filter_add(struct event_filter *filter,
 		struct event_filter_node *node;
 
 		node = p_new(filter->pool, struct event_filter_node, 1);
-		node->type = EVENT_FILTER_NODE_TYPE_EVENT_NAME;
+		node->type = EVENT_FILTER_NODE_TYPE_EVENT_NAME_WILDCARD;
 		node->op = EVENT_FILTER_OP_CMP_EQ;
 		node->str = p_strdup(filter->pool, query->name);
 
@@ -435,7 +435,7 @@ event_filter_export_query_expr(const struct event_filter_query_internal *query,
 		}
 		str_append_c(dest, ')');
 		break;
-	case EVENT_FILTER_NODE_TYPE_EVENT_NAME:
+	case EVENT_FILTER_NODE_TYPE_EVENT_NAME_WILDCARD:
 		str_append(dest, "event");
 		str_append(dest, event_filter_export_query_expr_op(node->op));
 		str_append_c(dest, '"');
@@ -631,7 +631,7 @@ event_filter_query_match_cmp(struct event_filter_node *node,
 	switch (node->type) {
 		case EVENT_FILTER_NODE_TYPE_LOGIC:
 			i_unreached();
-		case EVENT_FILTER_NODE_TYPE_EVENT_NAME:
+		case EVENT_FILTER_NODE_TYPE_EVENT_NAME_WILDCARD:
 			return (event->sending_name != NULL) &&
 			       wildcard_match(event->sending_name, node->str);
 		case EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION:
@@ -806,7 +806,7 @@ event_filter_query_update_category(struct event_filter_query_internal *query,
 		event_filter_query_update_category(query, node->children[0], category, add);
 		event_filter_query_update_category(query, node->children[1], category, add);
 		break;
-	case EVENT_FILTER_NODE_TYPE_EVENT_NAME:
+	case EVENT_FILTER_NODE_TYPE_EVENT_NAME_WILDCARD:
 	case EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION:
 	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD:
 		break;

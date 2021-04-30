@@ -20,7 +20,7 @@ enum event_filter_node_type {
 	EVENT_FILTER_NODE_TYPE_LOGIC = 1, /* children */
 
 	/* leaf nodes */
-	EVENT_FILTER_NODE_TYPE_EVENT_NAME, /* str */
+	EVENT_FILTER_NODE_TYPE_EVENT_NAME_WILDCARD, /* str */
 	EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION, /* str + int */
 	EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY, /* cat */
 	EVENT_FILTER_NODE_TYPE_EVENT_FIELD, /* field */

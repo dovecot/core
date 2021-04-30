@@ -34,7 +34,7 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 	enum event_filter_node_type type;
 
 	if (strcmp(a, "event") == 0)
-		type = EVENT_FILTER_NODE_TYPE_EVENT_NAME;
+		type = EVENT_FILTER_NODE_TYPE_EVENT_NAME_WILDCARD;
 	else if (strcmp(a, "category") == 0)
 		type = EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY;
 	else if (strcmp(a, "source_location") == 0)
@@ -56,7 +56,7 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 	switch (type) {
 	case EVENT_FILTER_NODE_TYPE_LOGIC:
 		i_unreached();
-	case EVENT_FILTER_NODE_TYPE_EVENT_NAME:
+	case EVENT_FILTER_NODE_TYPE_EVENT_NAME_WILDCARD:
 		node->str = p_strdup(state->pool, b);
 		state->has_event_name = TRUE;
 		break;
