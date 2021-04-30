@@ -41,10 +41,10 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 	else if (strcmp(a, "source_location") == 0)
 		type = EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION;
 	else
-		type = EVENT_FILTER_NODE_TYPE_EVENT_FIELD;
+		type = EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD;
 
 	/* only fields support comparators other than EQ */
-	if ((type != EVENT_FILTER_NODE_TYPE_EVENT_FIELD) &&
+	if ((type != EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD) &&
 	    (op != EVENT_FILTER_OP_CMP_EQ)) {
 		state->error = "Only fields support inequality comparisons";
 		return NULL;
@@ -91,7 +91,7 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 			node->category.ptr = event_category_find_registered(b);
 		}
 		break;
-	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD:
+	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD:
 		node->field.key = p_strdup(state->pool, a);
 		node->field.value.str = p_strdup(state->pool, b);
 

@@ -260,7 +260,7 @@ event_filter_add_fields(pool_t pool,
 		struct event_filter_node *node;
 
 		node = p_new(pool, struct event_filter_node, 1);
-		node->type = EVENT_FILTER_NODE_TYPE_EVENT_FIELD;
+		node->type = EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD;
 		node->op = EVENT_FILTER_OP_CMP_EQ;
 		node->field.key = p_strdup(pool, fields[i].key);
 		node->field.value.str = p_strdup(pool, fields[i].value);
@@ -464,7 +464,7 @@ event_filter_export_query_expr(const struct event_filter_query_internal *query,
 		} else
 			str_append(dest, event_filter_category_from_log_type(node->category.log_type));
 		break;
-	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD:
+	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD:
 		str_append_c(dest, '"');
 		event_filter_append_escaped(dest, node->field.key);
 		str_append_c(dest, '"');
@@ -647,7 +647,7 @@ event_filter_query_match_cmp(struct event_filter_node *node,
 				 strcmp(event->source_filename, node->str) != 0);
 		case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:
 			return event_has_category(event, node, log_type);
-		case EVENT_FILTER_NODE_TYPE_EVENT_FIELD:
+		case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD:
 			return event_match_field(event, &node->field, node->op);
 	}
 
@@ -815,7 +815,7 @@ event_filter_query_update_category(struct event_filter_query_internal *query,
 	case EVENT_FILTER_NODE_TYPE_EVENT_NAME_EXACT:
 	case EVENT_FILTER_NODE_TYPE_EVENT_NAME_WILDCARD:
 	case EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION:
-	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD:
+	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD:
 		break;
 	case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:
 		if (node->category.name == NULL)
