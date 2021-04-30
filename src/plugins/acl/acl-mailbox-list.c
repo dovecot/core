@@ -64,6 +64,9 @@ int acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,
 	struct acl_object *aclobj;
 	int ret, ret2;
 
+	if (alist->ignore_acls)
+		return 1;
+
 	aclobj = !parent ?
 		acl_object_init_from_name(backend, name) :
 		acl_object_init_from_parent(backend, name);
@@ -555,6 +558,8 @@ static void acl_mailbox_list_init_default(struct mailbox_list *list)
 	v->iter_init = acl_mailbox_list_iter_init;
 	v->iter_next = acl_mailbox_list_iter_next;
 	v->iter_deinit = acl_mailbox_list_iter_deinit;
+	if (acl_namespace_is_ignored(list))
+		alist->ignore_acls = TRUE;
 
 	MODULE_CONTEXT_SET(list, acl_mailbox_list_module, alist);
 }
@@ -605,7 +610,7 @@ void acl_mailbox_list_created(struct mailbox_list *list)
 		/* this namespace is empty. don't attempt to lookup ACLs,
 		   because they're not going to work anyway and we could
 		   crash doing it. */
-	} else if (!acl_namespace_is_ignored(list)) {
+	} else {
 		acl_mailbox_list_init_default(list);
 	}
 }

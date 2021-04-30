@@ -611,7 +611,7 @@ void acl_mailbox_allocated(struct mailbox *box)
 		return;
 	}
 
-	if (mail_namespace_is_shared_user_root(box->list->ns)) {
+	if (mail_namespace_is_shared_user_root(box->list->ns) || alist->ignore_acls) {
 		/* this is the root shared namespace, which itself doesn't
 		   have any existing mailboxes. */
 		ignore_acls = TRUE;

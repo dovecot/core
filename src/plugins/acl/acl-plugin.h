@@ -39,6 +39,7 @@ struct acl_mailbox_list {
 	struct acl_storage_rights_context rights;
 
 	time_t last_shared_add_check;
+	bool ignore_acls;
 };
 
 struct acl_mailbox {
