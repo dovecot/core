@@ -6,4 +6,10 @@ bool wildcard_match(const char *data, const char *mask);
 /* Like wildcard_match(), but match ASCII characters case-insensitively. */
 bool wildcard_match_icase(const char *data, const char *mask);
 
+/* Returns TRUE if mask does *not* contain any '*' or '?' wildcards. */
+static inline bool wildcard_is_literal(const char *mask)
+{
+	return strpbrk(mask, "*?") == NULL;
+}
+
 #endif
