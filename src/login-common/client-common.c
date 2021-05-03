@@ -233,6 +233,7 @@ void client_init(struct client *client, void **other_sets)
 {
 	if (last_client == NULL)
 		last_client = client;
+	client->list_type = CLIENT_LIST_TYPE_ACTIVE;
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
 
@@ -291,7 +292,9 @@ void client_disconnect(struct client *client, const char *reason,
 		if (client->iostream_fd_proxy != NULL) {
 			i_assert(!client->fd_proxying);
 			client->fd_proxying = TRUE;
+			i_assert(client->list_type == CLIENT_LIST_TYPE_DESTROYED);
 			DLLIST_REMOVE(&destroyed_clients, client);
+			client->list_type = CLIENT_LIST_TYPE_FD_PROXY;
 			DLLIST_PREPEND(&client_fd_proxies, client);
 			client_fd_proxies_count++;
 		}
@@ -311,7 +314,9 @@ void client_destroy(struct client *client, const char *reason)
 	/* move to destroyed_clients linked list before it's potentially
 	   added to client_fd_proxies. */
 	i_assert(!client->fd_proxying);
+	i_assert(client->list_type == CLIENT_LIST_TYPE_ACTIVE);
 	DLLIST_REMOVE(&clients, client);
+	client->list_type = CLIENT_LIST_TYPE_DESTROYED;
 	DLLIST_PREPEND(&destroyed_clients, client);
 
 	client_disconnect(client, reason, !client->login_success);
@@ -408,12 +413,15 @@ bool client_unref(struct client **_client)
 	ssl_iostream_destroy(&client->ssl_iostream);
 	iostream_proxy_unref(&client->iostream_fd_proxy);
 	if (client->fd_proxying) {
+		i_assert(client->list_type == CLIENT_LIST_TYPE_FD_PROXY);
 		DLLIST_REMOVE(&client_fd_proxies, client);
 		i_assert(client_fd_proxies_count > 0);
 		client_fd_proxies_count--;
 	} else {
+		i_assert(client->list_type == CLIENT_LIST_TYPE_DESTROYED);
 		DLLIST_REMOVE(&destroyed_clients, client);
 	}
+	client->list_type = CLIENT_LIST_TYPE_NONE;
 	i_stream_unref(&client->input);
 	o_stream_unref(&client->output);
 	i_close_fd(&client->fd);

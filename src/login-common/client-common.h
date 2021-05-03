@@ -81,6 +81,18 @@ enum client_auth_result {
 	CLIENT_AUTH_RESULT_ANONYMOUS_DENIED
 };
 
+enum client_list_type {
+	CLIENT_LIST_TYPE_NONE = 0,
+	/* clients (disconnected=FALSE, fd_proxying=FALSE, destroyed=FALSE) */
+	CLIENT_LIST_TYPE_ACTIVE,
+	/* destroyed_clients (destroyed=TRUE, fd_proxying=FALSE). Either the
+	   client will soon be freed or it's only referenced via
+	   "login_proxies". */
+	CLIENT_LIST_TYPE_DESTROYED,
+	/* client_fd_proxies (fd_proxying=TRUE) */
+	CLIENT_LIST_TYPE_FD_PROXY,
+};
+
 struct client_auth_reply {
 	const char *master_user, *reason;
 	enum client_auth_fail_code fail_code;
@@ -139,11 +151,9 @@ struct client_vfuncs {
 };
 
 struct client {
-	/* If disconnected=FALSE, the client is in "clients" list.
-	   If fd_proxying=TRUE, the client is in "client_fd_proxies" list.
-	   Otherwise, either the client will soon be freed or it's only
-	   referenced via "login_proxies" which doesn't use these pointers. */
 	struct client *prev, *next;
+	/* Specifies which linked list the client is in */
+	enum client_list_type list_type;
 
 	pool_t pool;
 	/* this pool gets free'd once proxying starts */
