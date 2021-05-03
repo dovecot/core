@@ -128,7 +128,9 @@ static ssize_t program_client_istream_read(struct istream_private *stream)
 				/* Input buffer full */
 				return -2;
 			}
-			if (ret == 0 || (ret < 0 && !stream->parent->eof))
+			if (ret < 0 && stream->istream.stream_errno != 0)
+				break;
+			if (ret == 0)
 				break;
 
 			if (stream->parent->eof) {
