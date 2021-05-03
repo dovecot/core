@@ -53,19 +53,41 @@ program_client_istream_parse_result(struct program_client_istream *scstream,
 
 	if (stream->buffer == NULL || pos < 2 ||
 	    stream->buffer[pos - 1] != '\n') {
+		if (pos == 0) {
+			e_error(scstream->client->event,
+				"No result code received from remote");
+		} else if (pos < 2) {
+			e_error(scstream->client->event,
+				"Received too short result code from remote");
+		} else {
+			e_error(scstream->client->event,
+				"Missing LF in result code");
+		}
 		scstream->client->exit_code =
 			PROGRAM_CLIENT_EXIT_INTERNAL_FAILURE;
 		return;
 	}
 
-	switch (stream->buffer[pos - 2]) {
+	unsigned char rcode = stream->buffer[pos - 2];
+	switch (rcode) {
 	case '+':
+		e_debug(scstream->client->event,
+			"Received '+' result code from remote");
 		scstream->client->exit_code = PROGRAM_CLIENT_EXIT_SUCCESS;
 		break;
 	case '-':
+		e_debug(scstream->client->event,
+			"Received '-' result code from remote");
 		scstream->client->exit_code = PROGRAM_CLIENT_EXIT_FAILURE;
 		break;
 	default:
+		if (rcode >= 0x20 && rcode < 0x7f) {
+			e_error(scstream->client->event,
+				"Unexpected result code '%c'", rcode);
+		} else {
+			e_error(scstream->client->event,
+				"Unexpected result code 0x%02x", rcode);
+		}
 		scstream->client->exit_code =
 			PROGRAM_CLIENT_EXIT_INTERNAL_FAILURE;
 	}
