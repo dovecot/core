@@ -328,6 +328,9 @@ static void test_jwt_token_escape(void)
 		},
 		{ "../", "hs256", "../", "%2e%2e%2f", "%2e%2e%2f" },
 	};
+
+	test_begin("JWT token escaping");
+
 	buffer_t *b64_key =
 		t_base64_encode(0, SIZE_MAX, hs_sign_key->data, hs_sign_key->used);
 	ARRAY_TYPE(oauth2_field) fields;
@@ -359,6 +362,8 @@ static void test_jwt_token_escape(void)
 		sign_jwt_token_hs256(token, hs_sign_key);
 		test_jwt_token(str_c(token));
 	}
+
+	test_end();
 }
 
 static void test_jwt_broken_token(void)
