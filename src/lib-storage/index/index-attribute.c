@@ -203,7 +203,7 @@ index_storage_attribute_get_dict_trans(struct mailbox_transaction_context *t,
 	if (index_storage_get_dict(t->box, type_flags, &dict, mailbox_prefix_r) < 0)
 		return -1;
 	i_assert(*dtransp == NULL);
-	*dtransp = *dtrans_r = dict_transaction_begin(dict);
+	*dtransp = *dtrans_r = dict_transaction_begin(dict, NULL);
 	return 0;
 }
 

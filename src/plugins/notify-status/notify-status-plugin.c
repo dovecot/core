@@ -177,7 +177,7 @@ static void notify_update_mailbox_status(struct mailbox *box)
 			i_error("notify-status: var_expand(%s) failed: %s",
 				nuser->value_template, error);
 		} else {
-			t = dict_transaction_begin(nuser->dict);
+			t = dict_transaction_begin(nuser->dict, NULL);
 			dict_set(t, key, str_c(dest));
 			dict_transaction_commit_async(&t, notify_update_callback, NULL) ;
 		}
@@ -198,7 +198,7 @@ static void notify_remove_mailbox_status(struct mailbox *box)
 	const char *key =
 		t_strdup_printf(NOTIFY_STATUS_KEY, mailbox_get_vname(box));
 
-	t = dict_transaction_begin(nuser->dict);
+	t = dict_transaction_begin(nuser->dict, NULL);
 	dict_unset(t, key);
 	dict_transaction_commit_async(&t, notify_update_callback, NULL) ;
 }

@@ -146,7 +146,7 @@ static void cmd_dict_set(struct doveadm_cmd_context *cctx)
 	if (cmd_dict_init(cctx, cmd_dict_set, &dict) < 0)
 		return;
 
-	trans = dict_transaction_begin(dict);
+	trans = dict_transaction_begin(dict, NULL);
 	dict_set(trans, key, value);
 	if (dict_transaction_commit(&trans, &error) <= 0) {
 		i_error("dict_transaction_commit() failed: %s", error);
@@ -171,7 +171,7 @@ static void cmd_dict_unset(struct doveadm_cmd_context *cctx)
 	if (cmd_dict_init(cctx, cmd_dict_unset, &dict) < 0)
 		return;
 
-	trans = dict_transaction_begin(dict);
+	trans = dict_transaction_begin(dict, NULL);
 	dict_unset(trans, key);
 	if (dict_transaction_commit(&trans, &error) <= 0) {
 		i_error("dict_transaction_commit() failed: %s", error);
@@ -199,7 +199,7 @@ static void cmd_dict_inc(struct doveadm_cmd_context *cctx)
 	if (cmd_dict_init(cctx, cmd_dict_inc, &dict) < 0)
 		return;
 
-	trans = dict_transaction_begin(dict);
+	trans = dict_transaction_begin(dict, NULL);
 	dict_atomic_inc(trans, key, diff);
 	ret = dict_transaction_commit(&trans, &error);
 	if (ret < 0) {

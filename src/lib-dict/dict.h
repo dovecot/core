@@ -151,7 +151,8 @@ bool dict_iterate_values(struct dict_iterate_context *ctx,
 int dict_iterate_deinit(struct dict_iterate_context **ctx, const char **error_r);
 
 /* Start a new dictionary transaction. */
-struct dict_transaction_context *dict_transaction_begin(struct dict *dict);
+struct dict_transaction_context *
+dict_transaction_begin(struct dict *dict, const struct dict_op_settings *set);
 /* Don't log a warning if the transaction commit took a long time.
    This is needed if there are no guarantees that an asynchronous commit will
    finish up anytime soon. Mainly useful for transactions which aren't

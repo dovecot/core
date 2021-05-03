@@ -471,7 +471,8 @@ int dict_iterate_deinit(struct dict_iterate_context **_ctx,
 	return ret;
 }
 
-struct dict_transaction_context *dict_transaction_begin(struct dict *dict)
+struct dict_transaction_context *
+dict_transaction_begin(struct dict *dict, const struct dict_op_settings *set ATTR_UNUSED)
 {
 	struct dict_transaction_context *ctx;
 	guid_128_t guid;

@@ -233,7 +233,7 @@ static void save_key_azp_to(const char *algo, const char *azp,
 {
 	const char *error;
 	struct dict_transaction_context *ctx =
-		dict_transaction_begin(keys_dict);
+		dict_transaction_begin(keys_dict, NULL);
 	algo = t_str_ucase(algo);
 	dict_set(ctx, t_strconcat(DICT_PATH_SHARED, azp, "/", algo, "/",
 				  name, NULL),

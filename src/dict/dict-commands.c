@@ -422,7 +422,7 @@ static int cmd_begin(struct dict_connection_cmd *cmd, const char *line)
 	trans = array_append_space(&cmd->conn->transactions);
 	trans->id = id;
 	trans->conn = cmd->conn;
-	trans->ctx = dict_transaction_begin(cmd->conn->dict);
+	trans->ctx = dict_transaction_begin(cmd->conn->dict, NULL);
 	return 0;
 }
 

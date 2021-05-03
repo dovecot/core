@@ -9,7 +9,7 @@ static void test_dict_set_get(struct dict *dict, const char *key,
 			     const char *value)
 {
 	const char *got_value, *error;
-	struct dict_transaction_context *t = dict_transaction_begin(dict);
+	struct dict_transaction_context *t = dict_transaction_begin(dict, NULL);
 	dict_set(t, key, value);
 	if (dict_transaction_commit(&t, &error) < 0)
 		i_fatal("dict_transaction_commit(%s) failed: %s", key, error);

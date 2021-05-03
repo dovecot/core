@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
 			struct dict_transaction_context *trans;
 
 			pending++;
-			trans = dict_transaction_begin(dict);
+			trans = dict_transaction_begin(dict, NULL);
 			dict_set(trans, key, value);
 			dict_transaction_commit_async(&trans, commit_callback, NULL);
 			break;
@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
 			struct dict_transaction_context *trans;
 
 			pending++;
-			trans = dict_transaction_begin(dict);
+			trans = dict_transaction_begin(dict, NULL);
 			dict_unset(trans, key);
 			dict_transaction_commit_async(&trans, commit_callback, NULL);
 			break;

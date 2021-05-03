@@ -185,7 +185,7 @@ int lua_dict_transaction_begin(lua_State *L)
 	pool = pool_alloconly_create("lua dict txn", 128);
 	txn = p_new(pool, struct lua_dict_txn, 1);
 	txn->pool = pool;
-	txn->txn = dict_transaction_begin(dict);
+	txn->txn = dict_transaction_begin(dict, NULL);
 	txn->state = STATE_OPEN;
 	txn->L = L;
 

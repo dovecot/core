@@ -203,7 +203,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			/* new identifier, add it */
 			str_truncate(path, prefix_len);
 			str_append(path, new_ids[newi]);
-			dt = dict_transaction_begin(dict->dict);
+			dt = dict_transaction_begin(dict->dict, NULL);
 			dict_set(dt, str_c(path), "1");
 			newi++;
 		} else if (!no_removes) {
@@ -212,7 +212,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			str_append(path, old_ids[oldi]);
 			str_append_c(path, '/');
 			str_append(path, username);
-			dt = dict_transaction_begin(dict->dict);
+			dt = dict_transaction_begin(dict->dict, NULL);
 			dict_unset(dt, str_c(path));
 			oldi++;
 		}

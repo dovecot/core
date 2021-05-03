@@ -118,7 +118,7 @@ dict_quota_count(struct dict_quota_root *root,
 	if (quota_count(&root->root, &bytes, &count, &error_res, error_r) < 0)
 		return error_res;
 
-	dt = dict_transaction_begin(root->dict);
+	dt = dict_transaction_begin(root->dict, NULL);
 	/* these unsets are mainly necessary for pgsql, because its
 	   trigger otherwise increases quota without deleting it.
 	   but some people with other databases want to store the
@@ -220,7 +220,7 @@ dict_quota_update(struct quota_root *_root,
 		    <= QUOTA_GET_RESULT_INTERNAL_ERROR)
 			return -1;
 	} else {
-		dt = dict_transaction_begin(root->dict);
+		dt = dict_transaction_begin(root->dict, NULL);
 		if (ctx->bytes_used != 0) {
 			dict_atomic_inc(dt, DICT_QUOTA_CURRENT_BYTES_PATH,
 					ctx->bytes_used);

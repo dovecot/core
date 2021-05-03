@@ -122,7 +122,7 @@ static void last_login_mail_user_created(struct mail_user *user)
 
 	precision = mail_user_plugin_getenv(user, "last_login_precision");
 
-	trans = dict_transaction_begin(dict);
+	trans = dict_transaction_begin(dict, NULL);
 	if (precision == NULL || strcmp(precision, "s") == 0)
 		dict_set(trans, key_name, dec2str(ioloop_time));
 	else if (strcmp(precision, "ms") == 0) {

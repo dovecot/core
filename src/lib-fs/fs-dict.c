@@ -222,7 +222,7 @@ static int fs_dict_write_stream_finish(struct fs_file *_file, bool success)
 		return -1;
 
 	fs_dict_write_rename_if_needed(file);
-	trans = dict_transaction_begin(fs->dict);
+	trans = dict_transaction_begin(fs->dict, NULL);
 	switch (fs->encoding) {
 	case FS_DICT_VALUE_ENCODING_RAW:
 		dict_set(trans, file->key, str_c(file->write_buffer));
@@ -270,7 +270,7 @@ static int fs_dict_delete(struct fs_file *_file)
 	struct dict_transaction_context *trans;
 	const char *error;
 
-	trans = dict_transaction_begin(fs->dict);
+	trans = dict_transaction_begin(fs->dict, NULL);
 	dict_unset(trans, file->key);
 	if (dict_transaction_commit(&trans, &error) < 0) {
 		fs_set_error(_file->event, EIO,

@@ -868,7 +868,7 @@ int quota_set_resource(struct quota_root *root, const char *name,
 		}
 	}
 
-	trans = dict_transaction_begin(root->limit_set_dict);
+	trans = dict_transaction_begin(root->limit_set_dict, NULL);
 	key = t_strdup_printf(QUOTA_LIMIT_SET_PATH"%s", key);
 	dict_set(trans, key, dec2str(value));
 	if (dict_transaction_commit(&trans, &error) < 0) {
