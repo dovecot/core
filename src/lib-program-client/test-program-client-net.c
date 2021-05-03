@@ -102,10 +102,11 @@ test_program_input_handle(struct test_client *client, const char *line)
 
 	switch(client->state) {
 	case CLIENT_STATE_INIT:
-		test_assert((cmp=strncmp(line, "VERSION\tscript\t", 15)) == 0);
-		if (cmp == 0) {
+		cmp = strncmp(line, "VERSION\tscript\t", 15);
+		test_assert(cmp == 0);
+		if (cmp == 0)
 			client->state = CLIENT_STATE_VERSION;
-		} else
+		else
 			return -1;
 		break;
 	case CLIENT_STATE_VERSION:
@@ -134,7 +135,8 @@ test_program_input_handle(struct test_client *client, const char *line)
 		}
 		if (client->is_body == NULL)
 			client->is_body = i_stream_create_dot(client->in, FALSE);
-		switch(o_stream_send_istream(client->os_body, client->is_body)) {
+		switch (o_stream_send_istream(client->os_body,
+					      client->is_body)) {
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 			i_panic("Cannot write to ostream-temp: %s",
 				o_stream_get_error(client->os_body));
@@ -145,8 +147,8 @@ test_program_input_handle(struct test_client *client, const char *line)
 		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
 			break;
 		case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
-			client->body =
-				iostream_temp_finish(&client->os_body, SIZE_MAX);
+			client->body = iostream_temp_finish(&client->os_body,
+							    SIZE_MAX);
 			i_stream_unref(&client->is_body);
 			client->state = CLIENT_STATE_FINISH;
 			return 0;
@@ -176,7 +178,7 @@ static void test_program_run(struct test_client *client)
 		test_assert(count > 0);
 		if (count > 0) {
 			if (strcmp(args[0], "test_program_success") == 0) {
-				/* return hello world */
+				/* Return hello world */
 				i_assert(count >= 3);
 				o_stream_nsend_str(client->out,
 					t_strdup_printf("%s %s\r\n.\n+\n",
@@ -213,7 +215,8 @@ static void test_program_input(struct test_client *client)
 				ret = 0;
 				break;
 			}
-			if ((ret=test_program_input_handle(client, line)) < 0) {
+			ret = test_program_input_handle(client, line);
+			if (ret < 0) {
 				i_warning("Client sent invalid line: %s", line);
 				break;
 			}
@@ -231,8 +234,8 @@ static void test_program_input(struct test_client *client)
 		i_warning("Client prematurely disconnected");
 
 	io_remove(&client->io);
-	/* incur slight delay to check if the connection gets
-	   prematurely closed */
+	/* Incur slight delay to check if the connection gets prematurely
+	   closed. */
 	test_globals.to = timeout_add_short(100, test_program_run, client);
 }
 
@@ -270,7 +273,7 @@ static void test_program_setup(void)
 	test_globals.ioloop = io_loop_create();
 	io_loop_set_current(test_globals.ioloop);
 
-	/* create listener */
+	/* Create listener */
 	test_globals.port = 0;
 	test_assert(net_addr2ip("127.0.0.1", &ip) == 0);
 
