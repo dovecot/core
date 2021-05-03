@@ -108,7 +108,7 @@ static void cmd_dict_get(struct doveadm_cmd_context *cctx)
 	i_zero(&ctx);
 	ctx.pool = pool_alloconly_create("doveadm dict lookup", 512);
 	ctx.ret = -2;
-	dict_lookup_async(dict, key, dict_lookup_callback, &ctx);
+	dict_lookup_async(dict, NULL, key, dict_lookup_callback, &ctx);
 	while (ctx.ret == -2)
 		dict_wait(dict);
 	if (ctx.ret < 0) {

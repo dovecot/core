@@ -160,7 +160,7 @@ dict_quota_get_resource(struct quota_root *_root,
 	const char *key, *value, *error;
 	key = want_bytes ? DICT_QUOTA_CURRENT_BYTES_PATH :
 		DICT_QUOTA_CURRENT_COUNT_PATH;
-	ret = dict_lookup(root->dict, unsafe_data_stack_pool,
+	ret = dict_lookup(root->dict, NULL, unsafe_data_stack_pool,
 			  key, &value, &error);
 	if (ret < 0) {
 		*error_r = t_strdup_printf(

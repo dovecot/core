@@ -157,7 +157,7 @@ static int fs_dict_lookup(struct dict_fs_file *file)
 	if (file->value != NULL)
 		return 0;
 
-	ret = dict_lookup(fs->dict, file->pool, file->key, &file->value, &error);
+	ret = dict_lookup(fs->dict, NULL, file->pool, file->key, &file->value, &error);
 	if (ret > 0)
 		return 0;
 	else if (ret < 0) {

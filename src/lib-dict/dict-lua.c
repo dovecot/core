@@ -77,7 +77,7 @@ static int lua_dict_lookup(lua_State *L)
 	dict = xlua_dict_getptr(L, 1, NULL);
 	key = luaL_checkstring(L, 2);
 
-	dict_lookup_async(dict, key, lua_dict_lookup_callback, L);
+	dict_lookup_async(dict, NULL, key, lua_dict_lookup_callback, L);
 
 	return lua_dict_async_continue(L,
 		lua_yieldk(L, 0, 0, lua_dict_async_continue), 0);

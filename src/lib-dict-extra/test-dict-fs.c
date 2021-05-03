@@ -13,7 +13,7 @@ static void test_dict_set_get(struct dict *dict, const char *key,
 	dict_set(t, key, value);
 	if (dict_transaction_commit(&t, &error) < 0)
 		i_fatal("dict_transaction_commit(%s) failed: %s", key, error);
-	if (dict_lookup(dict, pool_datastack_create(), key, &got_value,
+	if (dict_lookup(dict, NULL, pool_datastack_create(), key, &got_value,
 			&error) < 0)
 		i_fatal("dict_lookup(%s) failed: %s", key, error);
 	test_assert_strcmp(got_value, value);

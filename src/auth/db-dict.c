@@ -415,7 +415,7 @@ static int db_dict_iter_lookup_key_values(struct db_dict_value_iter *iter)
 
 		str_truncate(path, strlen(DICT_PATH_SHARED));
 		str_append(path, key->key->key);
-		ret = dict_lookup(iter->conn->dict, iter->pool,
+		ret = dict_lookup(iter->conn->dict, NULL, iter->pool,
 				  str_c(path), &key->value, &error);
 		if (ret > 0) {
 			e_debug(authdb_event(iter->auth_request),

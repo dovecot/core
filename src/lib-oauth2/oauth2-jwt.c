@@ -98,7 +98,7 @@ oauth2_lookup_hmac_key(const struct oauth2_settings *set, const char *azp,
 	/* do a synchronous dict lookup */
 	lookup_key = t_strconcat(DICT_PATH_SHARED, azp, "/", alg, "/", key_id,
 				 NULL);
-	if ((ret = dict_lookup(set->key_dict, pool_datastack_create(),
+	if ((ret = dict_lookup(set->key_dict, NULL, pool_datastack_create(),
 			       lookup_key, &base64_key, error_r)) < 0) {
 		return -1;
 	} else if (ret == 0) {
@@ -178,7 +178,7 @@ oauth2_lookup_pubkey(const struct oauth2_settings *set, const char *azp,
 	/* do a synchronous dict lookup */
 	lookup_key = t_strconcat(DICT_PATH_SHARED, azp, "/", alg, "/", key_id,
 				 NULL);
-	if ((ret = dict_lookup(set->key_dict, pool_datastack_create(),
+	if ((ret = dict_lookup(set->key_dict, NULL, pool_datastack_create(),
 			       lookup_key, &key_str, error_r)) < 0) {
 		return -1;
 	} else if (ret == 0) {

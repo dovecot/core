@@ -64,7 +64,7 @@ static void test_lookup_one(void)
 
 	test_set_expected(dict, &res);
 
-	test_assert(dict_lookup(dict, pool, "shared/dictmap/hello/world", &value, &error) == 1);
+	test_assert(dict_lookup(dict, NULL, pool, "shared/dictmap/hello/world", &value, &error) == 1);
 	test_assert_strcmp(value, "one");
         if (error != NULL)
                 i_error("dict_lookup failed: %s", error);

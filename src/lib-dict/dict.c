@@ -294,7 +294,8 @@ static void dict_commit_callback(const struct dict_commit_result *result,
 	}
 }
 
-int dict_lookup(struct dict *dict, pool_t pool, const char *key,
+int dict_lookup(struct dict *dict, const struct dict_op_settings *set ATTR_UNUSED,
+		pool_t pool, const char *key,
 		const char **value_r, const char **error_r)
 {
 	struct event *event = event_create(dict->event);
@@ -310,15 +311,16 @@ int dict_lookup(struct dict *dict, pool_t pool, const char *key,
 }
 
 #undef dict_lookup_async
-void dict_lookup_async(struct dict *dict, const char *key,
-		       dict_lookup_callback_t *callback, void *context)
+void dict_lookup_async(struct dict *dict, const struct dict_op_settings *set ATTR_UNUSED,
+		       const char *key, dict_lookup_callback_t *callback,
+		       void *context)
 {
 	if (dict->v.lookup_async == NULL) {
 		struct dict_lookup_result result;
 
 		i_zero(&result);
 		/* event is going to be sent by dict_lookup */
-		result.ret = dict_lookup(dict, pool_datastack_create(),
+		result.ret = dict_lookup(dict, NULL, pool_datastack_create(),
 					 key, &result.value, &result.error);
 		const char *const values[] = { result.value, NULL };
 		result.values = values;

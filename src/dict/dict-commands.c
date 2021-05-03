@@ -224,7 +224,7 @@ static int cmd_lookup(struct dict_connection_cmd *cmd, const char *line)
 	/* <key> */
 	dict_connection_cmd_async(cmd);
 	event_add_str(cmd->event, "key", line);
-	dict_lookup_async(cmd->conn->dict, line, cmd_lookup_callback, cmd);
+	dict_lookup_async(cmd->conn->dict, NULL, line, cmd_lookup_callback, cmd);
 	return 1;
 }
 

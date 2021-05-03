@@ -40,6 +40,12 @@ struct dict_settings {
 	struct event *event_parent;
 };
 
+struct dict_op_settings {
+	const char *username;
+	/* home directory for the user, if known */
+	const char *home_dir;
+};
+
 struct dict_lookup_result {
 	int ret;
 
@@ -97,12 +103,13 @@ bool dict_switch_ioloop(struct dict *dict) ATTR_NOWARN_UNUSED_RESULT;
 
 /* Lookup value for key. Set it to NULL if it's not found.
    Returns 1 if found, 0 if not found and -1 if lookup failed. */
-int dict_lookup(struct dict *dict, pool_t pool,
+int dict_lookup(struct dict *dict, const struct dict_op_settings *set, pool_t pool,
 		const char *key, const char **value_r, const char **error_r);
-void dict_lookup_async(struct dict *dict, const char *key,
-		       dict_lookup_callback_t *callback, void *context);
-#define dict_lookup_async(dict, key, callback, context) \
-	dict_lookup_async(dict, key, (dict_lookup_callback_t *)(callback), \
+void dict_lookup_async(struct dict *dict, const struct dict_op_settings *set,
+		       const char *key, dict_lookup_callback_t *callback,
+		       void *context);
+#define dict_lookup_async(dict, set, key, callback, context) \
+	dict_lookup_async(dict, set, key, (dict_lookup_callback_t *)(callback), \
 		1 ? (context) : \
 		CALLBACK_TYPECHECK(callback, \
 			void (*)(const struct dict_lookup_result *, typeof(context))))

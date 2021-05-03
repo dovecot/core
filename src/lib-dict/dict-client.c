@@ -1006,7 +1006,7 @@ static int client_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	i_zero(&lookup);
 	lookup.ret = -2;
 
-	dict_lookup_async(_dict, key, client_dict_lookup_callback, &lookup);
+	dict_lookup_async(_dict, NULL, key, client_dict_lookup_callback, &lookup);
 	if (lookup.ret == -2)
 		client_dict_wait(_dict);
 

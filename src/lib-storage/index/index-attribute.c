@@ -257,7 +257,7 @@ int index_storage_attribute_get(struct mailbox *box,
 	if (index_storage_get_dict(box, type_flags, &dict, &mailbox_prefix) < 0)
 		return -1;
 
-	ret = dict_lookup(dict, pool_datastack_create(),
+	ret = dict_lookup(dict, NULL, pool_datastack_create(),
 			  key_get_prefixed(type_flags, mailbox_prefix, key),
 			  &value_r->value, &error);
 	if (ret < 0) {

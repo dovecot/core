@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 		switch (i_rand_limit(4)) {
 		case 0:
 			pending++;
-			dict_lookup_async(dict, key, lookup_callback, NULL);
+			dict_lookup_async(dict, NULL, key, lookup_callback, NULL);
 			break;
 		case 1: {
 			struct dict_transaction_context *trans;
