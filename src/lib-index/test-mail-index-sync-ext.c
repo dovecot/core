@@ -72,6 +72,7 @@ static void test_mail_index_sync_ext_atomic_inc(void)
 	u.diff = 0;
 	test_assert(mail_index_sync_ext_atomic_inc(&ctx, &u) == -1);
 
+	i_free(ctx.view->index->need_recreate);
 	test_end();
 }
 
