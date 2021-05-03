@@ -164,9 +164,16 @@ test_program_input_handle(struct test_client *client, const char *line)
 	return 0;
 }
 
+static void test_program_end(struct test_client *client)
+{
+	timeout_remove(&test_globals.to);
+	test_program_client_destroy(&client);
+}
+
 static void test_program_run(struct test_client *client)
 {
 	const char *const *args;
+	bool disconnect_later = FALSE;
 	unsigned int count;
 
 	struct ostream *os;
@@ -195,8 +202,18 @@ static void test_program_run(struct test_client *client)
 			}
 		} else
 			o_stream_nsend_str(client->out, ".\n-\n");
+		if (count >= 3 && strcmp(args[1], "slow_disconnect") == 0)
+			disconnect_later = TRUE;
 	}
-	test_program_client_destroy(&client);
+
+	test_assert(o_stream_flush(client->out) > 0);
+
+	if (!disconnect_later)
+		test_program_client_destroy(&client);
+	else {
+		test_globals.to = timeout_add_short(
+			500, test_program_end, client);
+	}
 }
 
 static void test_program_input(struct test_client *client)
@@ -341,16 +358,10 @@ static void test_program_success(void)
 	test_end();
 }
 
-static void test_program_io(void)
+static void test_program_io_common(const char *const *args)
 {
 	struct program_client *pc;
 	int ret = -2;
-
-	const char *const args[] = {
-		"test_program_io", NULL
-	};
-
-	test_begin("test_program_io (async)");
 
 	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
 				       &pc_set, FALSE);
@@ -377,6 +388,25 @@ static void test_program_io(void)
 	buffer_free(&output);
 
 	i_assert(test_globals.client == NULL);
+}
+
+static void test_program_io(void)
+{
+	const char *args[3] = {
+		"test_program_io", NULL, NULL
+	};
+
+	test_begin("test_program_io (async)");
+
+	test_program_io_common(args);
+
+	test_end();
+
+	args[1] = "slow_disconnect";
+
+	test_begin("test_program_io (async, slow disconnect)");
+
+	test_program_io_common(args);
 
 	test_end();
 }
