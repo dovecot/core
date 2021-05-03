@@ -83,10 +83,11 @@ test_program_input_handle(struct test_client *client, const char *line)
 
 	switch(client->state) {
 	case CLIENT_STATE_INIT:
-		test_assert((cmp=strncmp(line, "VERSION\tscript\t", 15)) == 0);
-		if (cmp == 0) {
+		cmp = strncmp(line, "VERSION\tscript\t", 15);
+		test_assert(cmp == 0);
+		if (cmp == 0)
 			client->state = CLIENT_STATE_VERSION;
-		} else
+		else
 			return -1;
 		break;
 	case CLIENT_STATE_VERSION:
@@ -113,7 +114,7 @@ test_program_input_handle(struct test_client *client, const char *line)
 			client->os_body = iostream_temp_create_named(
 				".dovecot.test.", 0, "test_program_input body");
 		}
-		switch(o_stream_send_istream(client->os_body, client->in)) {
+		switch (o_stream_send_istream(client->os_body, client->in)) {
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 			i_panic("Cannot write to ostream-temp: %s",
 				o_stream_get_error(client->os_body));
@@ -125,8 +126,8 @@ test_program_input_handle(struct test_client *client, const char *line)
 			i_debug("waiting for input");
 			break;
 		case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
-			client->body =
-				iostream_temp_finish(&client->os_body, SIZE_MAX);
+			client->body = iostream_temp_finish(&client->os_body,
+							    SIZE_MAX);
 			return 1;
 		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 			i_panic("Cannot write to ostream-temp");
@@ -145,15 +146,15 @@ static void test_program_run(struct test_client *client)
 
 	args = array_get(&client->args, &count);
 	test_assert(count > 0);
-	if (strcmp(args[0], "test_program_success")==0) {
-		/* return hello world */
+	if (strcmp(args[0], "test_program_success") == 0) {
+		/* Return hello world */
 		test_assert(count >= 3);
 		o_stream_nsend_str(client->out, t_strdup_printf("%s %s\n+\n",
 				   args[1], args[2]));
-	} else if (strcmp(args[0], "test_program_io")==0) {
+	} else if (strcmp(args[0], "test_program_io") == 0) {
 		o_stream_nsend_istream(client->out, client->body);
 		o_stream_nsend_str(client->out, "+\n");
-	} else if (strcmp(args[0], "test_program_failure")==0) {
+	} else if (strcmp(args[0], "test_program_failure") == 0) {
 		o_stream_nsend_str(client->out, "-\n");
 	}
 	test_program_client_destroy(&client);
@@ -175,7 +176,8 @@ static void test_program_input(struct test_client *client)
 				ret = 0;
 				break;
 			}
-			if ((ret=test_program_input_handle(client, line)) < 0) {
+			ret = test_program_input_handle(client, line);
+			if (ret < 0) {
 				i_warning("Client sent invalid line: %s", line);
 				break;
 			}
@@ -193,8 +195,8 @@ static void test_program_input(struct test_client *client)
 		i_warning("Client prematurely disconnected");
 
 	io_remove(&client->io);
-	/* incur slight delay to check if the connection gets
-	   prematurely closed */
+	/* Incur slight delay to check if the connection gets prematurely
+	   closed. */
 	test_globals.to = timeout_add_short(100, test_program_run, client);
 }
 
@@ -228,7 +230,7 @@ static void test_program_setup(void)
 	test_globals.ioloop = io_loop_create();
 	io_loop_set_current(test_globals.ioloop);
 
-	/* create listener */
+	/* Create listener */
 	test_globals.listen_fd = net_listen_unix_unlink_stale(TEST_SOCKET, 100);
 	if (test_globals.listen_fd < 0)
 		i_fatal("Cannot create unix listener: %m");
