@@ -35,6 +35,8 @@ struct program_client_istream {
 	struct stat statbuf;
 
 	struct program_client *client;
+
+	bool parsed_result:1;
 };
 
 static void program_client_istream_destroy(struct iostream_private *stream)
@@ -50,6 +52,10 @@ program_client_istream_parse_result(struct program_client_istream *scstream,
 				    size_t pos)
 {
 	struct istream_private *stream = &scstream->istream;
+
+	if (scstream->parsed_result)
+		return;
+	scstream->parsed_result = TRUE;
 
 	if (stream->buffer == NULL || pos < 2 ||
 	    stream->buffer[pos - 1] != '\n') {
@@ -105,6 +111,11 @@ static ssize_t program_client_istream_read(struct istream_private *stream)
 
 	stream->buffer = i_stream_get_data(stream->parent, &pos);
 
+	if (stream->parent->eof) {
+		/* Check return code at EOF */
+		program_client_istream_parse_result(scstream, pos);
+	}
+
 	reserved = 0;
 	if (stream->buffer != NULL && pos >= 1) {
 		/* Retain/hide potential return code at end of buffer */
@@ -113,6 +124,7 @@ static ssize_t program_client_istream_read(struct istream_private *stream)
 	}
 
 	if (stream->parent->eof) {
+		i_assert(scstream->parsed_result);
 		if (pos == 0)
 			i_stream_skip(stream->parent, reserved);
 		stream->istream.eof = TRUE;
@@ -130,8 +142,6 @@ static ssize_t program_client_istream_read(struct istream_private *stream)
 			}
 			if (ret < 0 && stream->istream.stream_errno != 0)
 				break;
-			if (ret == 0)
-				break;
 
 			if (stream->parent->eof) {
 				/* Check return code at EOF */
@@ -139,24 +149,32 @@ static ssize_t program_client_istream_read(struct istream_private *stream)
 					scstream, pos);
 			}
 
+			ssize_t reserve_mod = 0;
 			if (stream->buffer != NULL && pos >= 1) {
 				/* Retain/hide potential return code at end of
 				   buffer */
 				size_t old_reserved = reserved;
-				ssize_t reserve_mod;
 
 				reserved = (stream->buffer[pos - 1] == '\n' &&
 					    pos > 1 ? 2 : 1);
 				reserve_mod = reserved - old_reserved;
 				pos -= reserved;
-
-				if (ret >= reserve_mod)
-					ret -= reserve_mod;
+			}
+			if (ret == 0) {
+				/* Parent already blocked, but we had to update
+				   pos first, to make sure reserved bytes are
+				   not visible to application. */
+				break;
+			}
+			if (ret >= reserve_mod) {
+				/* Subtract additional reserved bytes */
+				ret -= reserve_mod;
 			}
 
 			if (ret <= 0 && stream->parent->eof) {
 				/* Parent EOF and not more data to return;
 				   EOF here as well */
+				i_assert(scstream->parsed_result);
 				if (pos == 0)
 					i_stream_skip(stream->parent, reserved);
 				stream->istream.eof = TRUE;
