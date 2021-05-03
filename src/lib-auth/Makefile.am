@@ -25,8 +25,7 @@ pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
 	test-auth-client \
-	test-auth-master \
-	test-auth-master2
+	test-auth-master
 
 noinst_PROGRAMS = $(test_programs)
 
@@ -50,10 +49,6 @@ test_auth_master_DEPENDENCIES = $(test_deps)
 test_auth_client_SOURCES = test-auth-client.c
 test_auth_client_LDADD = $(test_libs)
 test_auth_client_DEPENDENCIES = $(test_deps)
-
-test_auth_master2_SOURCES = test-auth-master2.c
-test_auth_master2_LDADD = $(test_libs)
-test_auth_master2_DEPENDENCIES = $(test_deps)
 
 check-local:
 	for bin in $(test_programs); do \
