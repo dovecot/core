@@ -235,7 +235,7 @@ static void test_iterate(void)
 	test_set_expected(dict, &res);
 
 	struct dict_iterate_context *iter =
-		dict_iterate_init(dict, "shared/counters/global/counter",
+		dict_iterate_init(dict, NULL, "shared/counters/global/counter",
 				  DICT_ITERATE_FLAG_EXACT_KEY);
 
 	size_t idx = 0;
@@ -262,7 +262,7 @@ static void test_iterate(void)
 
 	test_set_expected(dict, &res);
 
-	iter = dict_iterate_init(dict, "shared/counters/global/", 0);
+	iter = dict_iterate_init(dict, NULL, "shared/counters/global/", 0);
 
 	idx = 0;
 

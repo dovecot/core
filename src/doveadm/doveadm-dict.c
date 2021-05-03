@@ -234,7 +234,7 @@ static void cmd_dict_iter(struct doveadm_cmd_context *cctx)
 	if ((iter_flags & DICT_ITERATE_FLAG_NO_VALUE) == 0)
 		doveadm_print_header_simple("value");
 
-	iter = dict_iterate_init(dict, prefix, iter_flags);
+	iter = dict_iterate_init(dict, NULL, prefix, iter_flags);
 	while (dict_iterate_values(iter, &key, &values)) {
 		unsigned int values_count = str_array_length(values);
 		if (!header_printed) {

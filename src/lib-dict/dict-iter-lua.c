@@ -169,7 +169,7 @@ int lua_dict_iterate(lua_State *L)
 	pool = pool_alloconly_create("lua dict iter", 128);
 	iter = p_new(pool, struct lua_dict_iter, 1);
 	iter->pool = pool;
-	iter->iter = dict_iterate_init(dict, path, flags |
+	iter->iter = dict_iterate_init(dict, NULL, path, flags |
 				      DICT_ITERATE_FLAG_ASYNC);
 	p_array_init(&iter->refs, iter->pool, 32);
 	iter->L = L;

@@ -117,8 +117,8 @@ void dict_lookup_async(struct dict *dict, const struct dict_op_settings *set,
 /* Iterate through all values in a path. flag indicates how iteration
    is carried out */
 struct dict_iterate_context *
-dict_iterate_init(struct dict *dict, const char *path, 
-		  enum dict_iterate_flags flags);
+dict_iterate_init(struct dict *dict, const struct dict_op_settings *set,
+		  const char *path, enum dict_iterate_flags flags);
 struct dict_iterate_context *
 dict_iterate_init_multiple(struct dict *dict, const char *const *paths,
 			   enum dict_iterate_flags flags);

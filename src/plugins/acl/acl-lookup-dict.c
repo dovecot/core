@@ -169,7 +169,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	t_array_init(&old_ids_arr, 128);
 	prefix = DICT_PATH_SHARED DICT_SHARED_BOXES_PATH;
 	prefix_len = strlen(prefix);
-	iter = dict_iterate_init(dict->dict, prefix, DICT_ITERATE_FLAG_RECURSE);
+	iter = dict_iterate_init(dict->dict, NULL, prefix, DICT_ITERATE_FLAG_RECURSE);
 	while (dict_iterate(iter, &key, &value)) {
 		/* prefix/$type/$dest/$source */
 		key += prefix_len;
@@ -282,7 +282,7 @@ static void acl_lookup_dict_iterate_read(struct acl_lookup_dict_iter *iter)
 	   the dict, which opens another iteration. */
 	p_clear(iter->iter_value_pool);
 	array_clear(&iter->iter_values);
-	dict_iter = dict_iterate_init(iter->dict->dict, prefix,
+	dict_iter = dict_iterate_init(iter->dict->dict, NULL, prefix,
 				      DICT_ITERATE_FLAG_RECURSE);
 	while (dict_iterate(dict_iter, &key, &value)) {
 		i_assert(prefix_len < strlen(key));

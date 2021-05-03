@@ -286,7 +286,7 @@ index_storage_attribute_iter_init(struct mailbox *box,
 		iter->prefix = i_strdup(key_get_prefixed(type_flags, mailbox_prefix,
 							 prefix));
 		iter->prefix_len = strlen(iter->prefix);
-		iter->diter = dict_iterate_init(dict, iter->prefix,
+		iter->diter = dict_iterate_init(dict, NULL, iter->prefix,
 						DICT_ITERATE_FLAG_RECURSE |
 						DICT_ITERATE_FLAG_NO_VALUE);
 	}

@@ -340,8 +340,8 @@ void dict_lookup_async(struct dict *dict, const struct dict_op_settings *set ATT
 }
 
 struct dict_iterate_context *
-dict_iterate_init(struct dict *dict, const char *path, 
-		  enum dict_iterate_flags flags)
+dict_iterate_init(struct dict *dict, const struct dict_op_settings *set ATTR_UNUSED,
+		  const char *path, enum dict_iterate_flags flags)
 {
 	const char *paths[2];
 

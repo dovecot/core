@@ -296,7 +296,7 @@ fs_dict_iter_init(struct fs_iter *_iter, const char *path,
 	if (fs->path_prefix != NULL)
 		path = t_strconcat(fs->path_prefix, path, NULL);
 
-	iter->dict_iter = dict_iterate_init(fs->dict, path, 0);
+	iter->dict_iter = dict_iterate_init(fs->dict, NULL, path, 0);
 }
 
 static const char *fs_dict_iter_next(struct fs_iter *_iter)
