@@ -467,6 +467,7 @@ program_client_local_disconnect(struct program_client *pclient, bool force)
 
 	if (pid < 0) {
 		/* program never started */
+		e_debug(pclient->event, "Child process never started");
 		pclient->exit_code = PROGRAM_CLIENT_EXIT_FAILURE;
 		program_client_local_exited(plclient);
 		return;
