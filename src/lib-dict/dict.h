@@ -32,7 +32,6 @@ enum dict_data_type {
 };
 
 struct dict_settings {
-	enum dict_data_type value_type;
 	const char *username;
 	const char *base_dir;
 	/* home directory for the user, if known */

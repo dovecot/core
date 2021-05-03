@@ -750,7 +750,6 @@ client_dict_init(struct dict *driver, const char *uri,
 	dict->dict = *driver;
 	dict->conn.dict = dict;
 	dict->conn.conn.event_parent = set->event_parent;
-	dict->value_type = set->value_type;
 	dict->username = i_strdup(set->username);
 	dict->idle_msecs = idle_msecs;
 	dict->warn_slow_msecs = warn_slow_msecs;

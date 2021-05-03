@@ -782,7 +782,6 @@ static void test_do_init(void)
 	};
 	struct dict_settings dict_set = {
 		.username = "testuser",
-		.value_type = DICT_DATA_TYPE_STRING,
 		.base_dir = ".",
 	};
 
