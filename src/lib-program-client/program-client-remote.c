@@ -20,7 +20,8 @@
 #define PROGRAM_CLIENT_VERSION_MAJOR "4"
 #define PROGRAM_CLIENT_VERSION_MINOR "0"
 
-#define PROGRAM_CLIENT_VERSION_STRING "VERSION\tscript\t" \
+#define PROGRAM_CLIENT_VERSION_STRING \
+	"VERSION\tscript\t" \
 		PROGRAM_CLIENT_VERSION_MAJOR "\t" \
 		PROGRAM_CLIENT_VERSION_MINOR "\n"
 
@@ -36,18 +37,17 @@ struct program_client_istream {
 	struct program_client *client;
 };
 
-static void
-program_client_istream_destroy(struct iostream_private *stream)
+static void program_client_istream_destroy(struct iostream_private *stream)
 {
 	struct program_client_istream *scstream =
-		(struct program_client_istream *) stream;
+		(struct program_client_istream *)stream;
 
 	i_stream_unref(&scstream->istream.parent);
 }
 
 static void
 program_client_istream_parse_result(struct program_client_istream *scstream,
-	size_t pos)
+				    size_t pos)
 {
 	struct istream_private *stream = &scstream->istream;
 
@@ -71,11 +71,10 @@ program_client_istream_parse_result(struct program_client_istream *scstream,
 	}
 }
 
-static ssize_t
-program_client_istream_read(struct istream_private *stream)
+static ssize_t program_client_istream_read(struct istream_private *stream)
 {
 	struct program_client_istream *scstream =
-		(struct program_client_istream *) stream;
+		(struct program_client_istream *)stream;
 	size_t pos, reserved;
 	ssize_t ret = 0;
 
@@ -86,7 +85,7 @@ program_client_istream_read(struct istream_private *stream)
 
 	reserved = 0;
 	if (stream->buffer != NULL && pos >= 1) {
-		/* retain/hide potential return code at end of buffer */
+		/* Retain/hide potential return code at end of buffer */
 		reserved = (stream->buffer[pos - 1] == '\n' && pos > 1 ? 2 : 1);
 		pos -= reserved;
 	}
@@ -96,25 +95,28 @@ program_client_istream_read(struct istream_private *stream)
 			i_stream_skip(stream->parent, reserved);
 		stream->istream.eof = TRUE;
 		ret = -1;
-	} else
+	} else {
 		do {
 			ret = i_stream_read_memarea(stream->parent);
 			stream->istream.stream_errno =
 				stream->parent->stream_errno;
 			stream->buffer =
 				i_stream_get_data(stream->parent, &pos);
-			if (ret == -2)
-				return -2;	/* input buffer full */
+			if (ret == -2) {
+				/* Input buffer full */
+				return -2;
+			}
 			if (ret == 0 || (ret < 0 && !stream->parent->eof))
 				break;
 
 			if (stream->parent->eof) {
 				/* Check return code at EOF */
-				program_client_istream_parse_result(scstream, pos);
+				program_client_istream_parse_result(
+					scstream, pos);
 			}
 
 			if (stream->buffer != NULL && pos >= 1) {
-				/* retain/hide potential return code at end of
+				/* Retain/hide potential return code at end of
 				   buffer */
 				size_t old_reserved = reserved;
 				ssize_t reserve_mod;
@@ -124,9 +126,8 @@ program_client_istream_read(struct istream_private *stream)
 				reserve_mod = reserved - old_reserved;
 				pos -= reserved;
 
-				if (ret >= reserve_mod) {
+				if (ret >= reserve_mod)
 					ret -= reserve_mod;
-				}
 			}
 
 			if (ret <= 0 && stream->parent->eof) {
@@ -138,6 +139,7 @@ program_client_istream_read(struct istream_private *stream)
 				ret = -1;
 			}
 		} while (ret == 0);
+	}
 
 	stream->pos = pos;
 
@@ -156,7 +158,7 @@ static int
 program_client_istream_stat(struct istream_private *stream, bool exact)
 {
 	struct program_client_istream *scstream =
-		(struct program_client_istream *) stream;
+		(struct program_client_istream *)stream;
 	const struct stat *st;
 	int ret;
 
@@ -235,6 +237,7 @@ program_client_remote_connected(struct program_client_remote *prclient)
 
 	if (!prclient->noreply) {
 		struct istream *is = pclient->raw_program_input;
+
 		pclient->raw_program_input =
 			program_client_istream_create(pclient, is);
 		i_stream_unref(&is);
@@ -275,8 +278,7 @@ program_client_remote_connected(struct program_client_remote *prclient)
 	program_client_connected(pclient);
 }
 
-static int
-program_client_unix_connect(struct program_client *pclient);
+static int program_client_unix_connect(struct program_client *pclient);
 
 static void
 program_client_unix_reconnect(struct program_client_remote *prclient)
@@ -284,8 +286,7 @@ program_client_unix_reconnect(struct program_client_remote *prclient)
 	(void)program_client_unix_connect(&prclient->client);
 }
 
-static int
-program_client_unix_connect(struct program_client *pclient)
+static int program_client_unix_connect(struct program_client *pclient)
 {
 	struct program_client_remote *prclient =
 		(struct program_client_remote *)pclient;
@@ -303,8 +304,8 @@ program_client_unix_connect(struct program_client *pclient)
 						 prclient->address));
 			return -1;
 		case EAGAIN:
-			prclient->to_retry = timeout_add_short(100,
-				program_client_unix_reconnect, prclient);
+			prclient->to_retry = timeout_add_short(
+				100, program_client_unix_reconnect, prclient);
 			return 0;
 		default:
 			e_error(pclient->event,
@@ -334,27 +335,28 @@ program_client_net_connect_timeout(struct program_client_remote *prclient)
 		"Timeout in %u milliseconds", prclient->address,
 		pclient->set.client_connect_timeout_msecs);
 
-	/* set error to timeout here */
+	/* Set error to timeout here */
 	pclient->error = PROGRAM_CLIENT_ERROR_CONNECT_TIMEOUT;
 	i_close_fd(&pclient->fd_out);
 	pclient->fd_in = pclient->fd_out = -1;
 	program_client_net_connect_again(prclient);
 }
 
-/* see if connect succeeded or not, if it did, then proceed
-   normally, otherwise try reconnect to next address */
-static void
-program_client_net_connected(struct program_client_remote *prclient)
+/* See if connect succeeded or not, if it did, then proceed normally, otherwise
+   try reconnect to next address.
+ */
+static void program_client_net_connected(struct program_client_remote *prclient)
 {
 	struct program_client *pclient = &prclient->client;
 
 	io_remove(&pclient->io);
 
-	if ((errno = net_geterror(pclient->fd_out)) != 0) {
+	errno = net_geterror(pclient->fd_out);
+	if (errno != 0) {
 		e_error(pclient->event, "connect(%s) failed: %m",
 			prclient->address);
 
-		/* disconnect and try again */
+		/* Disconnect and try again */
 		i_close_fd(&pclient->fd_out);
 		pclient->fd_in = pclient->fd_out = -1;
 		program_client_net_connect_again(prclient);
@@ -371,7 +373,6 @@ program_client_net_connect_real(struct program_client_remote *prclient)
 	const char *address, *label;
 
 	timeout_remove(&pclient->to);
-
 	timeout_remove(&prclient->to_retry);
 
 	i_assert(prclient->ips_count > 0);
@@ -384,14 +385,14 @@ program_client_net_connect_real(struct program_client_remote *prclient)
 	e_debug(pclient->event, "Trying to connect (timeout %u msecs)",
 		pclient->set.client_connect_timeout_msecs);
 
-	/* try to connect */
+	/* Try to connect */
 	int fd;
 	if ((fd = net_connect_ip(prclient->ips, prclient->port,
 				 (prclient->ips->family == AF_INET ?
 				  &net_ip4_any : &net_ip6_any))) < 0) {
 		e_error(pclient->event, "connect(%s) failed: %m", address);
-		prclient->to_retry = timeout_add_short(0,
-			program_client_net_connect_again, prclient);
+		prclient->to_retry = timeout_add_short(
+			0, program_client_net_connect_again, prclient);
 		return;
 	}
 
@@ -422,9 +423,8 @@ program_client_net_connect_again(struct program_client_remote *prclient)
 				"No IP addresses left to try");
 		}
 		program_client_fail(pclient,
-				    error != PROGRAM_CLIENT_ERROR_NONE ?
-						error :
-						PROGRAM_CLIENT_ERROR_OTHER);
+				    (error != PROGRAM_CLIENT_ERROR_NONE ?
+				     error : PROGRAM_CLIENT_ERROR_OTHER));
 		return;
 	};
 
@@ -448,34 +448,34 @@ program_client_net_connect_resolved(const struct dns_lookup_result *result,
 	e_debug(pclient->event, "DNS lookup successful; got %d IPs",
 		result->ips_count);
 
-	/* reduce timeout */
+	/* Reduce timeout */
 	if (pclient->set.client_connect_timeout_msecs > 0) {
-		if (pclient->set.client_connect_timeout_msecs <= result->msecs) {
-			/* we ran out of time */
-			program_client_fail(pclient,
-				PROGRAM_CLIENT_ERROR_CONNECT_TIMEOUT);
+		if (pclient->set.client_connect_timeout_msecs <=
+		    result->msecs) {
+			/* We ran out of time */
+			program_client_fail(
+				pclient, PROGRAM_CLIENT_ERROR_CONNECT_TIMEOUT);
 			return;
 		}
 		pclient->set.client_connect_timeout_msecs -= result->msecs;
 	}
 
-	/* then connect */
+	/* Then connect */
 	prclient->ips_count = result->ips_count;
 	prclient->ips_left = prclient->ips_count;
 	prclient->ips = p_memdup(pclient->pool, result->ips,
-	       sizeof(struct ip_addr)*result->ips_count);
+				 sizeof(struct ip_addr)*result->ips_count);
 	program_client_net_connect_real(prclient);
 }
 
-static int
-program_client_net_connect_init(struct program_client *pclient)
+static int program_client_net_connect_init(struct program_client *pclient)
 {
 	struct program_client_remote *prclient =
 		(struct program_client_remote *)pclient;
 	struct ip_addr ip;
 
 	if (prclient->ips != NULL) {
-		/* nothing to do */
+		/* Nothing to do */
 	} else if (net_addr2ip(prclient->address, &ip) == 0) {
 		prclient->resolved = TRUE;
 		prclient->ips = p_new(pclient->pool, struct ip_addr, 1);
@@ -499,9 +499,11 @@ program_client_net_connect_init(struct program_client *pclient)
 			struct ip_addr *ips;
 			unsigned int ips_count;
 			int err;
-			/* guess we do it here then.. */
-			if ((err = net_gethostbyname(prclient->address,
-					      &ips, &ips_count)) != 0) {
+
+			/* Guess we do it here then.. */
+			err = net_gethostbyname(prclient->address,
+						&ips, &ips_count);
+			if (err != 0) {
 				e_error(pclient->event,
 					"Cannot resolve `%s': %s",
 					prclient->address,
@@ -519,13 +521,12 @@ program_client_net_connect_init(struct program_client *pclient)
 	}
 
 	prclient->ips_left = prclient->ips_count;
-	prclient->to_retry = timeout_add_short(0,
-		program_client_net_connect_real, prclient);
+	prclient->to_retry = timeout_add_short(
+		0, program_client_net_connect_real, prclient);
 	return 0;
 }
 
-static int
-program_client_remote_close_output(struct program_client *pclient)
+static int program_client_remote_close_output(struct program_client *pclient)
 {
 	int fd_out = pclient->fd_out, fd_in = pclient->fd_in;
 
@@ -655,4 +656,3 @@ program_client_net_create_ips(const struct ip_addr *ips, size_t ips_count,
 	prclient->noreply = noreply;
 	return &prclient->client;
 }
-
