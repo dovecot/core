@@ -57,7 +57,7 @@ static int lua_dict_iterate_step(lua_State *L)
 
 	DLUA_REQUIRE_ARGS(L, 2);
 
-	iter = xlua_dict_iter_getptr(L, -2, NULL);
+	iter = xlua_dict_iter_getptr(L, 1, NULL);
 
 	lua_dict_iterate_more(iter);
 
@@ -156,9 +156,9 @@ int lua_dict_iterate(lua_State *L)
 
 	DLUA_REQUIRE_ARGS(L, 3);
 
-	dict = dlua_check_dict(L, -3);
-	path = luaL_checkstring(L, -2);
-	flags = luaL_checkinteger(L, -1);
+	dict = dlua_check_dict(L, 1);
+	path = luaL_checkstring(L, 2);
+	flags = luaL_checkinteger(L, 3);
 
 	/* set up iteration */
 	pool = pool_alloconly_create("lua dict iter", 128);

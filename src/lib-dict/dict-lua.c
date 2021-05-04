@@ -74,8 +74,8 @@ static int lua_dict_lookup(lua_State *L)
 
 	DLUA_REQUIRE_ARGS(L, 2);
 
-	dict = xlua_dict_getptr(L, -2, NULL);
-	key = luaL_checkstring(L, -1);
+	dict = xlua_dict_getptr(L, 1, NULL);
+	key = luaL_checkstring(L, 2);
 
 	dict_lookup_async(dict, key, lua_dict_lookup_callback, L);
 
