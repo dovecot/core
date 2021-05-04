@@ -98,8 +98,10 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 				      MAILBOX_TRANSACTION_FLAG_EXTERNAL |
 				      MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS,
 				      cmd_reason);
-
-	src_trans = mailbox_transaction_begin(copy_ctx->srcbox, 0, cmd_reason);
+	/* Refresh source index so expunged mails will be noticed */
+	src_trans = mailbox_transaction_begin(copy_ctx->srcbox,
+					      MAILBOX_TRANSACTION_FLAG_REFRESH,
+					      cmd_reason);
 	search_ctx = mailbox_search_init(src_trans, search_args,
 					 NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
