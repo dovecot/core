@@ -70,7 +70,7 @@ static int lua_dict_transaction_rollback(lua_State *L)
 
 	DLUA_REQUIRE_ARGS(L, 1);
 
-	txn = xlua_dict_txn_getptr(L, -1, NULL);
+	txn = xlua_dict_txn_getptr(L, 1, NULL);
 	sanity_check_txn(L, txn);
 
 	txn->state = STATE_ABORTED;
@@ -128,7 +128,7 @@ static int lua_dict_transaction_commit(lua_State *L)
 
 	DLUA_REQUIRE_ARGS(L, 1);
 
-	txn = xlua_dict_txn_getptr(L, -1, NULL);
+	txn = xlua_dict_txn_getptr(L, 1, NULL);
 	sanity_check_txn(L, txn);
 
 	txn->state = STATE_COMMITTED;
@@ -154,9 +154,9 @@ static int lua_dict_set(lua_State *L)
 
 	DLUA_REQUIRE_ARGS(L, 3);
 
-	txn = xlua_dict_txn_getptr(L, -3, NULL);
-	key = luaL_checkstring(L, -2);
-	value = luaL_checkstring(L, -1);
+	txn = xlua_dict_txn_getptr(L, 1, NULL);
+	key = luaL_checkstring(L, 2);
+	value = luaL_checkstring(L, 3);
 
 	dict_set(txn->txn, key, value);
 
@@ -180,7 +180,7 @@ int lua_dict_transaction_begin(lua_State *L)
 
 	DLUA_REQUIRE_ARGS(L, 1);
 
-	dict = dlua_check_dict(L, -1);
+	dict = dlua_check_dict(L, 1);
 
 	pool = pool_alloconly_create("lua dict txn", 128);
 	txn = p_new(pool, struct lua_dict_txn, 1);
