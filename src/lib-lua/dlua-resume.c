@@ -112,6 +112,7 @@ static void dlua_pcall_yieldable_continue(lua_State *L)
 	nargs = dlua_tls_get_int(L, RESUME_NARGS);
 	to = dlua_tls_get_ptr(L, RESUME_TIMEOUT);
 
+	i_assert(to != NULL);
 	timeout_remove(&to);
 
 	dlua_tls_clear(L, RESUME_TIMEOUT);
@@ -137,6 +138,9 @@ static void dlua_pcall_yieldable_continue(lua_State *L)
 void dlua_pcall_yieldable_resume(lua_State *L, int nargs)
 {
 	struct timeout *to;
+
+	to = dlua_tls_get_ptr(L, RESUME_TIMEOUT);
+	i_assert(to == NULL);
 
 	to = timeout_add_short(0, dlua_pcall_yieldable_continue, L);
 
