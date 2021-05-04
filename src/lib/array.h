@@ -256,6 +256,16 @@ array_idx_i(const struct array *array, unsigned int idx)
 
 #define array_idx(array, idx) \
 	ARRAY_TYPE_CAST_CONST(array)array_idx_i(&(array)->arr, idx)
+/* Using *array_idx() will fail if the compiler doesn't support typeof().
+   The same can be done with array_idx_elem() for arrays that have pointers. */
+#ifdef HAVE_TYPEOF
+#  define array_idx_elem(array, idx) \
+	(TRUE ? *array_idx(array, idx) : \
+		COMPILE_ERROR_IF_TRUE(sizeof(**(array)->v) != sizeof(void *)))
+#else
+#  define array_idx_elem(array, idx) \
+	(*(void **)array_idx_i(&(array)->arr, idx))
+#endif
 
 static inline void *
 array_get_modifiable_i(struct array *array, unsigned int *count_r)

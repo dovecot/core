@@ -8,6 +8,36 @@ struct foo {
 	unsigned int a, b, c;
 };
 
+static void test_array_elem(void)
+{
+	ARRAY(struct foo *) foos;
+	struct foo *nfoo;
+	unsigned int i;
+
+	test_begin("array elem");
+	t_array_init(&foos, 32);
+
+	for (i = 1; i <= 3; i++) {
+		nfoo = t_new(struct foo, 1);
+		nfoo->a = i;
+		array_push_back(&foos, &nfoo);
+	}
+
+	struct foo *const *foo_p = array_idx(&foos, 1);
+	unsigned int idx = 1;
+	struct foo *foo = array_idx_elem(&foos, idx++);
+	/* make sure idx isn't expanded multiple times in the macro */
+	test_assert(idx == 2);
+	test_assert(*foo_p == foo);
+
+	i = 1;
+	array_foreach_elem(&foos, foo) {
+		test_assert(foo->a == i);
+		i++;
+	}
+	test_end();
+}
+
 static void test_array_count(void)
 {
 	ARRAY(struct foo) foos;
@@ -264,6 +294,7 @@ test_array_free(void)
 
 void test_array(void)
 {
+	test_array_elem();
 	test_array_count();
 	test_array_foreach();
 	test_array_foreach_elem_string();
