@@ -145,7 +145,7 @@ static void test_program_run(struct test_client *client)
 	timeout_remove(&test_globals.to);
 
 	args = array_get(&client->args, &count);
-	test_assert(count > 0);
+	test_assert(count >= 2);
 	if (strcmp(args[0], "test_program_success") == 0) {
 		/* Return hello world */
 		test_assert(count >= 3);
