@@ -380,6 +380,7 @@ test_lib_SOURCES = \
 	test-crc32.c \
 	test-cpu-limit.c \
 	test-data-stack.c \
+	test-env-util.c \
 	test-event-category-register.c \
 	test-event-filter.c \
 	test-event-filter-expr.c \
