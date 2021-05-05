@@ -81,6 +81,7 @@ void lib_atexit_priority(lib_atexit_callback_t *callback, int priority);
 /* Manually run the atexit callbacks. lib_deinit() also does this if not
    explicitly called. */
 void lib_atexit_run(void);
+#define lib_exit(status) exit(status)
 
 void lib_init(void);
 bool lib_is_initialized(void);

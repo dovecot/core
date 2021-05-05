@@ -81,7 +81,7 @@ static void cmd_pw(int argc, char *argv[])
 		for (i = 0; i < count; i++)
 			printf("%s ", schemes[i]->name);
 		printf("\n");
-		exit(0);
+		lib_exit(0);
 	}
 
 	if (argc != optind)
@@ -100,7 +100,7 @@ static void cmd_pw(int argc, char *argv[])
 		if (strcmp(plaintext, check) != 0) {
 			i_error("Passwords don't match!");
 			if (--lives == 0)
-				exit(1);
+				lib_exit(1);
 			plaintext = NULL;
 		}
 	}

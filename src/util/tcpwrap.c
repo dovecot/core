@@ -40,7 +40,7 @@ static void tcpwrap_client_handle(struct tcpwrap_client *client, int check_fd,
 		(void)write_full(client->fd, "0\n", 2);
 	else
 		(void)write_full(client->fd, "1\n", 2);
-	exit(0);
+	lib_exit(0);
 }
 
 static void tcpwrap_client_input(struct tcpwrap_client *client)

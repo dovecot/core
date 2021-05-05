@@ -72,7 +72,7 @@ test_subprocess_child(int (*func)(void *context), void *context,
 
 	if (!continue_test) {
 		lib_deinit();
-		exit(ret);
+		lib_exit(ret);
 	}
 	test_exit((test_has_failed() ? 1 : 0));
 }

@@ -96,7 +96,7 @@ static void print_usage(const char *prog)
 {
 	fprintf(stderr, "Usage: %s block_size count level\n", prog);
 	fprintf(stderr, "Runs with 1000 8k blocks using level 6 if nothing given\n");
-	exit(1);
+	lib_exit(1);
 }
 
 int main(int argc, const char *argv[])

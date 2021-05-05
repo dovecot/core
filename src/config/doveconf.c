@@ -826,13 +826,13 @@ static void hostname_verify_format(const char *arg)
 	hash_table_destroy(&hosts);
 
 	if (duplicates)
-		exit(EX_CONFIG);
+		lib_exit(EX_CONFIG);
 	else {
 		host2 = t_strdup(str_c(host));
 		hostname_format_write(host, &fmt, 0);
 		printf("No duplicate host hashes in %s .. %s\n",
 		       str_c(host), host2);
-		exit(0);
+		lib_exit(0);
 	}
 }
 

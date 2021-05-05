@@ -857,7 +857,7 @@ void doveadm_mail_help(const struct doveadm_mail_cmd *cmd)
 {
 	fprintf(stderr, "doveadm %s "DOVEADM_CMD_MAIL_USAGE_PREFIX" %s\n",
 		cmd->name, cmd->usage_args == NULL ? "" : cmd->usage_args);
-	exit(EX_USAGE);
+	lib_exit(EX_USAGE);
 }
 
 void doveadm_mail_try_help_name(const char *cmd_name)

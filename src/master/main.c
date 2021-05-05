@@ -819,7 +819,7 @@ int main(int argc, char *argv[])
 			if (!master_service_parse_option(master_service,
 							 c, optarg)) {
 				print_help();
-				exit(FATAL_DEFAULT);
+				lib_exit(FATAL_DEFAULT);
 			}
 			break;
 		}

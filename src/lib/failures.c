@@ -310,7 +310,7 @@ void failure_exit(int status)
 		recursed = TRUE;
 		failure_exit_callback(&status);
 	}
-	exit(status);
+	lib_exit(status);
 }
 
 static void log_timestamp_add(const struct failure_context *ctx, string_t *str)

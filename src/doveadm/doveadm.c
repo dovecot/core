@@ -134,7 +134,7 @@ usage_to(FILE *out, const char *prefix)
 	doveadm_mail_usage(str);
 	doveadm_usage_compress_lines(out, str_c(str), prefix);
 
-	exit(EX_USAGE);
+	lib_exit(EX_USAGE);
 }
 
 void usage(void)
@@ -146,7 +146,7 @@ static void ATTR_NORETURN
 help_to(const struct doveadm_cmd *cmd, FILE *out)
 {
 	fprintf(out, "doveadm %s %s\n", cmd->name, cmd->short_usage);
-	exit(EX_USAGE);
+	lib_exit(EX_USAGE);
 }
 
 void help(const struct doveadm_cmd *cmd)
@@ -158,7 +158,7 @@ static void ATTR_NORETURN
 help_to_ver2(const struct doveadm_cmd_ver2 *cmd, FILE *out)
 {
 	fprintf(out, "doveadm %s %s\n", cmd->name, cmd->usage);
-	exit(EX_USAGE);
+	lib_exit(EX_USAGE);
 }
 
 void help_ver2(const struct doveadm_cmd_ver2 *cmd)

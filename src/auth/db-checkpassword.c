@@ -374,7 +374,7 @@ checkpassword_exec(struct db_checkpassword *db, struct auth_request *request,
 	if (dup2(fd_out, 3) < 0 || dup2(fd_in, 4) < 0) {
 		e_error(authdb_event(request),
 			"dup2() failed: %m");
-		exit(111);
+		lib_exit(111);
 	}
 
 	if (!authenticate) {
