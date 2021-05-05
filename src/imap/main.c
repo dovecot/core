@@ -208,19 +208,19 @@ client_add_input_capability(struct client *client, const unsigned char *client_i
 	if (input.tag == NULL) {
 		client_send_line(client, t_strconcat(
 			"* PREAUTH [CAPABILITY ",
-			str_c(client->capability_string), "] "
+			client_get_capability(client), "] "
 			"Logged in as ", client->user->username, NULL));
 	} else if (input.send_untagged_capability) {
 		/* client doesn't seem to understand tagged capabilities. send
 		   untagged instead and hope that it works. */
 		client_send_line(client, t_strconcat("* CAPABILITY ",
-			str_c(client->capability_string), NULL));
+			client_get_capability(client), NULL));
 		client_send_line(client,
 				 t_strconcat(input.tag, " OK Logged in", NULL));
 	} else {
 		client_send_line(client, t_strconcat(
 			input.tag, " OK [CAPABILITY ",
-			str_c(client->capability_string), "] Logged in", NULL));
+			client_get_capability(client), "] Logged in", NULL));
 	}
 	o_stream_uncork(output);
 	o_stream_unref(&output);
@@ -307,6 +307,8 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 			       event, mail_user, user, imap_set, smtp_set);
 	client->userdb_fields = input->userdb_fields == NULL ? NULL :
 		p_strarray_dup(client->pool, input->userdb_fields);
+	client->secured = input->conn_secured;
+	client->ssl_secured = input->conn_ssl_secured;
 	event_unref(&event);
 	*client_r = client;
 	return 0;

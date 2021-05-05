@@ -56,6 +56,7 @@ struct imap_client {
 
 	const struct imap_login_settings *set;
 	struct imap_parser *parser;
+	struct imap_capability_list *capability_list;
 	char *proxy_backend_capability;
 
 	const char *cmd_tag, *cmd_name;
