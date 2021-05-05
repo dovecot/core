@@ -661,6 +661,9 @@ void master_service_init_finish(struct master_service *service)
 	i_assert(!service->init_finished);
 	service->init_finished = TRUE;
 
+	/* From now on we'll abort() if exit() is called unexpectedly. */
+	lib_set_clean_exit(FALSE);
+
 	/* set default signal handlers */
 	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0)
 		sigint_flags |= LIBSIG_FLAG_RESTART;

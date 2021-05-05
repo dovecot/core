@@ -885,6 +885,7 @@ int main(int argc, char *argv[])
 	pidfile_path =
 		i_strconcat(set->base_dir, "/"MASTER_PID_FILE_NAME, NULL);
 
+	lib_set_clean_exit(TRUE);
 	master_service_init_log(master_service);
 	startup_early_errors_flush();
 	i_get_failure_handlers(&orig_fatal_callback, &orig_error_callback,

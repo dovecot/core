@@ -516,6 +516,7 @@ void i_panic(const char *format, ...)
 	struct failure_context ctx;
 	va_list args;
 
+	lib_set_clean_exit(TRUE);
 	i_zero(&ctx);
 	ctx.type = LOG_TYPE_PANIC;
 
@@ -530,6 +531,7 @@ void i_fatal(const char *format, ...)
 	struct failure_context ctx;
 	va_list args;
 
+	lib_set_clean_exit(TRUE);
 	i_zero(&ctx);
 	ctx.type = LOG_TYPE_FATAL;
 	ctx.exit_status = FATAL_DEFAULT;
@@ -545,6 +547,7 @@ void i_fatal_status(int status, const char *format, ...)
 	struct failure_context ctx;
 	va_list args;
 
+	lib_set_clean_exit(TRUE);
 	i_zero(&ctx);
 	ctx.type = LOG_TYPE_FATAL;
 	ctx.exit_status = status;

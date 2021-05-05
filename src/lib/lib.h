@@ -81,7 +81,11 @@ void lib_atexit_priority(lib_atexit_callback_t *callback, int priority);
 /* Manually run the atexit callbacks. lib_deinit() also does this if not
    explicitly called. */
 void lib_atexit_run(void);
-#define lib_exit(status) exit(status)
+/* Unless this or lib_deinit() is called, any unexpected exit() will result
+   in abort(). This can be helpful in catching unexpected exits. */
+void lib_set_clean_exit(bool set);
+/* Same as lib_set_clean_exit(TRUE) followed by exit(status). */
+void lib_exit(int status) ATTR_NORETURN;
 
 void lib_init(void);
 bool lib_is_initialized(void);
