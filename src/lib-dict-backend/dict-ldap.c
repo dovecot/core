@@ -342,7 +342,13 @@ ldap_dict_lookup_callback(struct ldap_result *result, struct dict_ldap_op *op)
 		}
 		ldap_search_iterator_deinit(&iter);
 	}
+	if (op->dict->dict.prev_ioloop != NULL)
+		io_loop_set_current(op->dict->dict.prev_ioloop);
 	op->callback(&op->res, op->callback_ctx);
+	if (op->dict->dict.prev_ioloop != NULL) {
+		io_loop_set_current(op->dict->dict.ioloop);
+		io_loop_stop(op->dict->dict.ioloop);
+	}
 	pool_unref(&pool);
 }
 
