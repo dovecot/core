@@ -686,11 +686,9 @@ mailbox_list_index_notify_subscribe(struct mailbox_list_notify_index *inotify,
 				    unsigned int idx)
 {
 	struct mailbox_list_notify_rec *rec = &inotify->notify_rec;
-	const char *const *vnamep;
 
 	i_zero(rec);
-	vnamep = array_idx(&inotify->new_subscriptions, idx);
-	rec->vname = *vnamep;
+	rec->vname = array_idx_elem(&inotify->new_subscriptions, idx);
 	rec->storage_name = mailbox_list_get_storage_name(inotify->notify.list,
 							  rec->vname);
 	rec->events = MAILBOX_LIST_NOTIFY_SUBSCRIBE;
@@ -702,11 +700,9 @@ mailbox_list_index_notify_unsubscribe(struct mailbox_list_notify_index *inotify,
 				      unsigned int idx)
 {
 	struct mailbox_list_notify_rec *rec = &inotify->notify_rec;
-	const char *const *vnamep;
 
 	i_zero(rec);
-	vnamep = array_idx(&inotify->new_unsubscriptions, idx);
-	rec->vname = *vnamep;
+	rec->vname = array_idx_elem(&inotify->new_unsubscriptions, idx);
 	rec->storage_name = mailbox_list_get_storage_name(inotify->notify.list,
 							  rec->vname);
 	rec->events = MAILBOX_LIST_NOTIFY_UNSUBSCRIBE;

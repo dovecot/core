@@ -57,7 +57,7 @@ virtual_copy_keywords(struct mailbox *src_box,
 {
 	struct mailbox_status status;
 	ARRAY_TYPE(keywords) kw_strings;
-	const char *const *kwp;
+	const char *kw;
 	unsigned int i;
 
 	if (src_keywords == NULL || src_keywords->count == 0)
@@ -67,8 +67,8 @@ virtual_copy_keywords(struct mailbox *src_box,
 	mailbox_get_open_status(src_box, STATUS_KEYWORDS, &status);
 
 	for (i = 0; i < src_keywords->count; i++) {
-		kwp = array_idx(status.keywords, src_keywords->idx[i]);
-		array_push_back(&kw_strings, kwp);
+		kw = array_idx_elem(status.keywords, src_keywords->idx[i]);
+		array_push_back(&kw_strings, &kw);
 	}
 	array_append_zero(&kw_strings);
 	return mailbox_keywords_create_valid(dest_box,

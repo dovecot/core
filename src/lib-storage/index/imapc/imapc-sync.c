@@ -227,7 +227,7 @@ static void
 imapc_sync_index_keyword(struct imapc_sync_context *ctx,
 			 const struct mail_index_sync_rec *sync_rec)
 {
-	const char *const *kw_p;
+	const char *kw_str;
 	enum modify_type modify_type;
 
 	switch (sync_rec->type) {
@@ -241,9 +241,9 @@ imapc_sync_index_keyword(struct imapc_sync_context *ctx,
 		i_unreached();
 	}
 
-	kw_p = array_idx(ctx->keywords, sync_rec->keyword_idx);
+	kw_str = array_idx_elem(ctx->keywords, sync_rec->keyword_idx);
 	imapc_sync_store(ctx, modify_type, sync_rec->uid1,
-			 sync_rec->uid2, *kw_p);
+			 sync_rec->uid2, kw_str);
 }
 
 static void imapc_sync_expunge_finish(struct imapc_sync_context *ctx)

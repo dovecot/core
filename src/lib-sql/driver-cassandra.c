@@ -1851,10 +1851,8 @@ driver_cassandra_result_get_field_value(struct sql_result *_result,
 					unsigned int idx)
 {
 	struct cassandra_result *result = (struct cassandra_result *)_result;
-	const char *const *strp;
 
-	strp = array_idx(&result->fields, idx);
-	return *strp;
+	return array_idx_elem(&result->fields, idx);
 }
 
 static const unsigned char *
@@ -1863,13 +1861,13 @@ driver_cassandra_result_get_field_value_binary(struct sql_result *_result ATTR_U
 					       size_t *size_r ATTR_UNUSED)
 {
 	struct cassandra_result *result = (struct cassandra_result *)_result;
-	const char *const *strp;
+	const char *str;
 	const size_t *sizep;
 
-	strp = array_idx(&result->fields, idx);
+	str = array_idx_elem(&result->fields, idx);
 	sizep = array_idx(&result->field_sizes, idx);
 	*size_r = *sizep;
-	return (const void *)*strp;
+	return (const void *)str;
 }
 
 static const char *

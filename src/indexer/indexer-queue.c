@@ -174,12 +174,12 @@ static void indexer_queue_request_status_int(struct indexer_queue *queue,
 					     struct indexer_request *request,
 					     int percentage)
 {
-	void *const *contextp;
+	void *context;
 	unsigned int i;
 
 	for (i = 0; i < request->working_context_idx; i++) {
-		contextp = array_idx(&request->contexts, i);
-		queue->callback(percentage, *contextp);
+		context = array_idx_elem(&request->contexts, i);
+		queue->callback(percentage, context);
 	}
 }
 

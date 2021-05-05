@@ -52,13 +52,11 @@ static bool
 dsync_mailbox_tree_bfs_iter_next(struct dsync_mailbox_tree_bfs_iter *iter,
 				 struct dsync_mailbox_node **node_r)
 {
-	struct dsync_mailbox_node *const *nodep;
-
 	if (iter->cur == NULL) {
 		if (aqueue_count(iter->queue) == 0)
 			return FALSE;
-		nodep = array_idx(&iter->queue_arr, aqueue_idx(iter->queue, 0));
-		iter->cur = *nodep;
+		iter->cur = array_idx_elem(&iter->queue_arr,
+					   aqueue_idx(iter->queue, 0));
 		aqueue_delete_tail(iter->queue);
 	}
 	*node_r = iter->cur;

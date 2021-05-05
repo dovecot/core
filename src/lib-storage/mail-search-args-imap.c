@@ -111,7 +111,7 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 	case SEARCH_KEYWORDS: {
 		const struct mail_keywords *kw = arg->initialized.keywords;
 		const ARRAY_TYPE(keywords) *names_arr;
-		const char *const *namep;
+		const char *name;
 		unsigned int i;
 
 		if (kw == NULL || kw->count == 0) {
@@ -125,10 +125,10 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 		if (kw->count > 1)
 			str_append_c(dest, '(');
 		for (i = 0; i < kw->count; i++) {
-			namep = array_idx(names_arr, kw->idx[i]);
+			name = array_idx_elem(names_arr, kw->idx[i]);
 			if (i > 0)
 				str_append_c(dest, ' ');
-			str_printfa(dest, "KEYWORD %s", *namep);
+			str_printfa(dest, "KEYWORD %s", name);
 		}
 		if (kw->count > 1)
 			str_append_c(dest, ')');

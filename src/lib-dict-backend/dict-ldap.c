@@ -212,11 +212,11 @@ ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
 
 	for(size_t i = 0; i < array_count(values) && i < array_count(&map->ldap_attributes); i++) {
 		struct var_expand_table entry;
-		const char *const *valuep = array_idx(values, i);
-		const char *const *long_keyp = array_idx(&map->ldap_attributes, i);
+		const char *value = array_idx_elem(values, i);
+		const char *long_key = array_idx_elem(&map->ldap_attributes, i);
 
-		entry.value = ldap_escape(*valuep);
-		entry.long_key = *long_keyp;
+		entry.value = ldap_escape(value);
+		entry.long_key = long_key;
 		array_push_back(&exp, &entry);
 	}
 

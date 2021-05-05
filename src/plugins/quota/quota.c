@@ -93,9 +93,9 @@ void quota_backend_register(const struct quota_backend *backend)
 void quota_backend_unregister(const struct quota_backend *backend)
 {
 	for(unsigned int i = 0; i < array_count(&quota_backends); i++) {
-		const struct quota_backend *const *be =
-			array_idx(&quota_backends, i);
-		if (strcmp((*be)->name, backend->name) == 0) {
+		const struct quota_backend *be =
+			array_idx_elem(&quota_backends, i);
+		if (strcmp(be->name, backend->name) == 0) {
 			array_delete(&quota_backends, i, 1);
 			return;
 		}

@@ -33,15 +33,12 @@ push_notification_event_find(const char *name, unsigned int *idx_r)
 static const struct push_notification_event *
 push_notification_event_find_class(const char *driver)
 {
-	const struct push_notification_event *const *class_p;
 	unsigned int idx;
 
 	if (!push_notification_event_find(driver, &idx))
 		return NULL;
 
-	class_p = array_idx(&push_notification_events, idx);
-
-	return *class_p;
+	return array_idx_elem(&push_notification_events, idx);
 }
 
 void push_notification_event_init(struct push_notification_driver_txn *dtxn,

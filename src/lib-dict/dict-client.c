@@ -625,23 +625,23 @@ static int client_dict_reconnect(struct client_dict *dict, const char *reason,
 				 const char **error_r)
 {
 	ARRAY(struct client_dict_cmd *) retry_cmds;
-	struct client_dict_cmd *cmd, *const *cmdp;
+	struct client_dict_cmd *cmd;
 	const char *error;
 	int ret;
 
 	t_array_init(&retry_cmds, array_count(&dict->cmds));
 	for (unsigned int i = 0; i < array_count(&dict->cmds); ) {
-		cmdp = array_idx(&dict->cmds, i);
-		if (!(*cmdp)->retry_errors) {
+		cmd = array_idx_elem(&dict->cmds, i);
+		if (!cmd->retry_errors) {
 			i++;
-		} else if ((*cmdp)->iter != NULL &&
-			   (*cmdp)->iter->seen_results) {
+		} else if (cmd->iter != NULL &&
+			   cmd->iter->seen_results) {
 			/* don't retry iteration that already returned
 			   something to the caller. otherwise we'd return
 			   duplicates. */
 			i++;
 		} else {
-			array_push_back(&retry_cmds, cmdp);
+			array_push_back(&retry_cmds, &cmd);
 			array_delete(&dict->cmds, i, 1);
 		}
 	}

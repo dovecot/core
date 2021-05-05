@@ -1532,8 +1532,8 @@ struct user *director_iterate_users_next(struct director_user_iter *iter)
 		tags = mail_hosts_get_tags(iter->dir->mail_hosts);
 		if (iter->tag_idx >= array_count(tags))
 			return NULL;
-		struct mail_tag *const *tagp = array_idx(tags, iter->tag_idx);
-		iter->user_iter = user_directory_iter_init((*tagp)->users,
+		struct mail_tag *tag = array_idx_elem(tags, iter->tag_idx);
+		iter->user_iter = user_directory_iter_init(tag->users,
 			iter->iter_until_current_tail);
 	}
 	user = user_directory_iter_next(iter->user_iter);

@@ -354,7 +354,7 @@ static int db_ldap_request_search(struct ldap_connection *conn,
 
 static bool db_ldap_request_queue_next(struct ldap_connection *conn)
 {
-	struct ldap_request *const *requestp, *request;
+	struct ldap_request *request;
 	int ret = -1;
 
 	/* connecting may call db_ldap_connect_finish(), which gets us back
@@ -371,10 +371,9 @@ static bool db_ldap_request_queue_next(struct ldap_connection *conn)
 		return FALSE;
 	}
 
-	requestp = array_idx(&conn->request_array,
-			     aqueue_idx(conn->request_queue,
-					conn->pending_count));
-	request = *requestp;
+	request = array_idx_elem(&conn->request_array,
+				 aqueue_idx(conn->request_queue,
+					    conn->pending_count));
 
 	if (conn->pending_count > 0 &&
 	    request->type == LDAP_REQUEST_TYPE_BIND) {
@@ -428,7 +427,7 @@ static bool db_ldap_request_queue_next(struct ldap_connection *conn)
 static void
 db_ldap_check_hanging(struct ldap_connection *conn, struct ldap_request *request)
 {
-	struct ldap_request *const *first_requestp;
+	struct ldap_request *first_request;
 	unsigned int count;
 	time_t secs_diff;
 
@@ -436,9 +435,9 @@ db_ldap_check_hanging(struct ldap_connection *conn, struct ldap_request *request
 	if (count == 0)
 		return;
 
-	first_requestp = array_idx(&conn->request_array,
-				   aqueue_idx(conn->request_queue, 0));
-	secs_diff = ioloop_time - (*first_requestp)->create_time;
+	first_request = array_idx_elem(&conn->request_array,
+				       aqueue_idx(conn->request_queue, 0));
+	secs_diff = ioloop_time - first_request->create_time;
 	if (secs_diff > DB_LDAP_REQUEST_LOST_TIMEOUT_SECS) {
 		e_error(authdb_event(request->auth_request),
 			"Connection appears to be hanging, reconnecting");
@@ -502,13 +501,12 @@ static void db_ldap_abort_requests(struct ldap_connection *conn,
 				   unsigned int timeout_secs,
 				   bool error, const char *reason)
 {
-	struct ldap_request *const *requestp, *request;
+	struct ldap_request *request;
 	time_t diff;
 
 	while (aqueue_count(conn->request_queue) > 0 && max_count > 0) {
-		requestp = array_idx(&conn->request_array,
-				     aqueue_idx(conn->request_queue, 0));
-		request = *requestp;
+		request = array_idx_elem(&conn->request_array,
+					 aqueue_idx(conn->request_queue, 0));
 
 		diff = ioloop_time - request->create_time;
 		if (diff < (time_t)timeout_secs)

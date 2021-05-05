@@ -27,9 +27,9 @@ void mail_index_transaction_hook_unregister(hook_mail_index_transaction_created_
 
 	i_assert(array_is_created(&hook_mail_index_transaction_created));
 	for(idx = 0; idx < array_count(&hook_mail_index_transaction_created); idx++) {
-		hook_mail_index_transaction_created_t *const *hook_ptr =
-			array_idx(&hook_mail_index_transaction_created, idx);
-		if (*hook_ptr == hook) {
+		hook_mail_index_transaction_created_t *arr_hook =
+			array_idx_elem(&hook_mail_index_transaction_created, idx);
+		if (arr_hook == hook) {
 			array_delete(&hook_mail_index_transaction_created, idx, 1);
 			found = TRUE;
 			break;

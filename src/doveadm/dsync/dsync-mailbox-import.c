@@ -1047,15 +1047,15 @@ static void keywords_append(ARRAY_TYPE(const_string) *dest,
 			    const ARRAY_TYPE(const_string) *keywords,
 			    uint32_t bits, unsigned int start_idx)
 {
-	const char *const *namep;
+	const char *name;
 	unsigned int i;
 
 	for (i = 0; i < 32; i++) {
 		if ((bits & (1U << i)) == 0)
 			continue;
 
-		namep = array_idx(keywords, start_idx+i);
-		array_push_back(dest, namep);
+		name = array_idx_elem(keywords, start_idx+i);
+		array_push_back(dest, &name);
 	}
 }
 

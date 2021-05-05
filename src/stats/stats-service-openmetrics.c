@@ -335,13 +335,10 @@ openmetrics_export_submetric(struct openmetrics_request *req, string_t *out,
 static const struct metric *
 openmetrics_export_sub_metric_get(struct openmetrics_request_sub_metric *reqsm)
 {
-	struct metric *const *sub_metric;
-
 	if (reqsm->sub_index >= array_count(&reqsm->metric->sub_metrics))
 		return NULL;
 
-	sub_metric = array_idx(&reqsm->metric->sub_metrics, reqsm->sub_index);
-	return *sub_metric;
+	return array_idx_elem(&reqsm->metric->sub_metrics, reqsm->sub_index);
 }
 
 static const struct metric *

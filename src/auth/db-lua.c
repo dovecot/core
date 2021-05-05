@@ -759,8 +759,8 @@ void auth_lua_userdb_iterate_next(struct userdb_iterate_context *ctx)
 		return;
 	}
 
-	const char *const *user = array_idx(&actx->users, actx->idx++);
-	ctx->callback(*user, ctx->context);
+	const char *user = array_idx_elem(&actx->users, actx->idx++);
+	ctx->callback(user, ctx->context);
 }
 
 int auth_lua_userdb_iterate_deinit(struct userdb_iterate_context *ctx)

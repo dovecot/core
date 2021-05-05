@@ -97,14 +97,12 @@ void mailbox_list_unregister(const struct mailbox_list *list)
 const struct mailbox_list *
 mailbox_list_find_class(const char *driver)
 {
-	const struct mailbox_list *const *class_p;
 	unsigned int idx;
 
 	if (!mailbox_list_driver_find(driver, &idx))
 		return NULL;
 
-	class_p = array_idx(&mailbox_list_drivers, idx);
-	return *class_p;
+	return array_idx_elem(&mailbox_list_drivers, idx);
 }
 
 int mailbox_list_create(const char *driver, struct mail_namespace *ns,

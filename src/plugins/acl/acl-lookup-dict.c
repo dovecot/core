@@ -266,15 +266,15 @@ int acl_lookup_dict_rebuild(struct acl_lookup_dict *dict)
 static void acl_lookup_dict_iterate_read(struct acl_lookup_dict_iter *iter)
 {
 	struct dict_iterate_context *dict_iter;
-	const char *const *idp, *prefix, *key, *value, *error;
+	const char *id, *prefix, *key, *value, *error;
 	size_t prefix_len;
 
-	idp = array_idx(&iter->iter_ids, iter->iter_idx);
+	id = array_idx_elem(&iter->iter_ids, iter->iter_idx);
 	iter->iter_idx++;
 	iter->iter_value_idx = 0;
 
 	prefix = t_strconcat(DICT_PATH_SHARED DICT_SHARED_BOXES_PATH,
-			     *idp, "/", NULL);
+			     id, "/", NULL);
 	prefix_len = strlen(prefix);
 
 	/* read all of it to memory. at least currently dict-proxy can support

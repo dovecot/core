@@ -35,12 +35,8 @@ http_server_location_add(struct http_server *server, pool_t pool,
 	loc = &qloc;
 
 	if (array_bsearch_insert_pos(&server->locations, &loc,
-				     http_server_location_cmp, &insert_idx)) {
-		struct http_server_location *const *loc_p;
-
-		loc_p = array_idx(&server->locations, insert_idx);
-		return *loc_p;
-	}
+				     http_server_location_cmp, &insert_idx))
+		return array_idx_elem(&server->locations, insert_idx);
 
 	loc = p_new(pool, struct http_server_location, 1);
 	loc->path = p_strdup(pool, path);
@@ -54,7 +50,6 @@ http_server_location_find(struct http_server *server, const char *path,
 			  const char **sub_path_r)
 {
 	struct http_server_location qloc, *loc;
-	struct http_server_location *const *loc_p;
 	size_t loc_len;
 	unsigned int insert_idx;
 
@@ -68,17 +63,15 @@ http_server_location_find(struct http_server *server, const char *path,
 	if (array_bsearch_insert_pos(&server->locations, &loc,
 				     http_server_location_cmp, &insert_idx)) {
 		/* Exact match */
-		loc_p = array_idx(&server->locations, insert_idx);
+		*loc_r = array_idx_elem(&server->locations, insert_idx);
 		*sub_path_r = "";
-		*loc_r = *loc_p;
 		return 1;
 	}
 	if (insert_idx == 0) {
 		/* Not found at all */
 		return -1;
 	}
-	loc_p = array_idx(&server->locations, insert_idx-1);
-	loc = *loc_p;
+	loc = array_idx_elem(&server->locations, insert_idx-1);
 
 	loc_len = strlen(loc->path);
 	if (!str_begins(path, loc->path)) {

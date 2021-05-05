@@ -198,15 +198,15 @@ static void
 imapc_append_keywords(string_t *str, struct mail_keywords *kw)
 {
 	const ARRAY_TYPE(keywords) *kw_arr;
-	const char *const *kw_p;
+	const char *kw_str;
 	unsigned int i;
 
 	kw_arr = mail_index_get_keywords(kw->index);
 	for (i = 0; i < kw->count; i++) {
-		kw_p = array_idx(kw_arr, kw->idx[i]);
+		kw_str = array_idx_elem(kw_arr, kw->idx[i]);
 		if (str_len(str) > 1)
 			str_append_c(str, ' ');
-		str_append(str, *kw_p);
+		str_append(str, kw_str);
 	}
 }
 

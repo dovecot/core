@@ -155,8 +155,7 @@ mailbox_internal_attributes_add_prefixes(ARRAY_TYPE(const_string) *attrs,
 		return;
 	new_count = array_count(attrs);
 	for (unsigned int i = old_count; i < new_count; i++) {
-		const char *const *old_keyp = array_idx(attrs, i);
-		const char *old_key = *old_keyp;
+		const char *old_key = array_idx_elem(attrs, i);
 		const char *prefixed_key;
 
 		if (old_key[0] == '\0')

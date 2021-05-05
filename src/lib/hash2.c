@@ -79,7 +79,7 @@ void hash2_clear(struct hash2_table *hash)
 static void hash2_resize(struct hash2_table *hash, bool grow)
 {
 	ARRAY_TYPE(hash2_value) old_hash_table;
-	struct hash2_value *const *old_hash, *value, **valuep, *next;
+	struct hash2_value *old_hash, *value, **valuep, *next;
 	unsigned int next_size, old_count, i, idx;
 	float nodes_per_list;
 
@@ -97,8 +97,8 @@ static void hash2_resize(struct hash2_table *hash, bool grow)
 
 	old_count = array_count(&old_hash_table);
 	for (i = 0; i < old_count; i++) {
-		old_hash = array_idx(&old_hash_table, i);
-		for (value = *old_hash; value != NULL; value = next) {
+		old_hash = array_idx_elem(&old_hash_table, i);
+		for (value = old_hash; value != NULL; value = next) {
 			next = value->next;
 
 			idx = value->key_hash % hash->hash_table_size;
@@ -113,12 +113,11 @@ static void hash2_resize(struct hash2_table *hash, bool grow)
 void *hash2_lookup(const struct hash2_table *hash, const void *key)
 {
 	unsigned int key_hash = hash->key_hash_cb(key);
-	struct hash2_value *const *valuep;
 	struct hash2_value *value;
 	void *user_value;
 
-	valuep = array_idx(&hash->hash_table, key_hash % hash->hash_table_size);
-	value = *valuep;
+	value = array_idx_elem(&hash->hash_table,
+			       key_hash % hash->hash_table_size);
 	while (value != NULL) {
 		if (value->key_hash == key_hash) {
 			user_value = value + 1;
@@ -134,13 +133,13 @@ void *hash2_lookup(const struct hash2_table *hash, const void *key)
 void *hash2_iterate(const struct hash2_table *hash,
 		    unsigned int key_hash, struct hash2_iter *iter)
 {
-	struct hash2_value *const *valuep;
+	struct hash2_value *value;
 
 	if (iter->value == NULL) {
 		iter->key_hash = key_hash;
-		valuep = array_idx(&hash->hash_table,
-				   key_hash % hash->hash_table_size);
-		iter->next_value = *valuep;
+		value = array_idx_elem(&hash->hash_table,
+				       key_hash % hash->hash_table_size);
+		iter->next_value = value;
 	}
 	while (iter->next_value != NULL) {
 		if (iter->next_value->key_hash == key_hash) {
