@@ -148,6 +148,12 @@ acl_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	abox->skip_acl_checks = TRUE;
 	ret = abox->module_ctx.super.create_box(box, update, directory);
 	abox->skip_acl_checks = FALSE;
+	/* update local acl object, otherwise with LAYOUT=INDEX, we end up
+	   without local path to acl file, and copying fails. */
+	struct acl_backend *acl_be = abox->aclobj->backend;
+	acl_object_deinit(&abox->aclobj);
+	abox->aclobj = acl_object_init_from_name(acl_be, box->name);
+
 	if (ret == 0)
 		acl_mailbox_copy_acls_from_parent(box);
 	return ret;
