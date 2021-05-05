@@ -251,6 +251,7 @@ static void memcached_ascii_conn_input(struct connection *_conn)
 static int memcached_ascii_input_wait(struct memcached_ascii_dict *dict,
 				      const char **error_r)
 {
+	i_assert(io_loop_is_empty(dict->dict.ioloop));
 	dict->dict.prev_ioloop = current_ioloop;
 	io_loop_set_current(dict->dict.ioloop);
 	if (dict->to != NULL)
@@ -264,6 +265,7 @@ static int memcached_ascii_input_wait(struct memcached_ascii_dict *dict,
 	if (dict->to != NULL)
 		dict->to = io_loop_move_timeout(&dict->to);
 	connection_switch_ioloop(&dict->conn.conn);
+	i_assert(io_loop_is_empty(dict->dict.ioloop));
 
 	if (dict->conn.conn.fd_in == -1) {
 		*error_r = "memcached_ascii: Communication failure";
