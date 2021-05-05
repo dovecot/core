@@ -18,6 +18,9 @@ struct exporter {
 	 */
 	enum event_exporter_time_fmt time_format;
 
+	/* Max length for string field values */
+	size_t format_max_field_len;
+
 	/* function to serialize the event */
 	void (*format)(const struct metric *, struct event *, buffer_t *);
 

@@ -13,6 +13,8 @@
 
 #include <ctype.h>
 
+#define LOG_EXPORTER_LONG_FIELD_TRUNCATE_LEN 1000
+
 struct stats_metrics {
 	pool_t pool;
 	struct event_filter *filter; /* stats & export */
@@ -65,6 +67,8 @@ static void stats_exporters_add_set(struct stats_metrics *metrics,
 		exporter->transport = event_export_transport_http_post;
 	} else if (strcmp(set->transport, "log") == 0) {
 		exporter->transport = event_export_transport_log;
+		exporter->format_max_field_len =
+			LOG_EXPORTER_LONG_FIELD_TRUNCATE_LEN;
 	} else {
 		i_unreached();
 	}

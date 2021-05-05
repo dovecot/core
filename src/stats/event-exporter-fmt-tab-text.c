@@ -29,12 +29,26 @@ static void append_time(string_t *dest, const struct timeval *time,
 	}
 }
 
+static void append_field_str(string_t *dest, const char *str,
+			     const struct metric_export_info *info)
+{
+	if (info->exporter->format_max_field_len == 0)
+		str_append_tabescaped(dest, str);
+	else {
+		size_t len = strlen(str);
+		str_append_tabescaped_n(dest, (const unsigned char *)str,
+			I_MIN(len, info->exporter->format_max_field_len));
+		if (len > info->exporter->format_max_field_len)
+			str_append(dest, "...");
+	}
+}
+
 static void append_field_value(string_t *dest, const struct event_field *field,
 			       const struct metric_export_info *info)
 {
 	switch (field->value_type) {
 	case EVENT_FIELD_VALUE_TYPE_STR:
-		str_append_tabescaped(dest, field->value.str);
+		append_field_str(dest, field->value.str, info);
 		break;
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
 		append_int(dest, field->value.intmax);
