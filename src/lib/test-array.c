@@ -49,28 +49,6 @@ static void test_array_foreach(void)
 	}
 	test_end();
 }
-static void test_array_foreach_elem_struct(void)
-{
-	ARRAY(struct foo) foos;
-	struct foo foo;
-	unsigned int i;
-
-	test_begin("array foreach_elem struct");
-	t_array_init(&foos, 32);
-	for (i = 0; i < 10; i++) {
-		foo.a = foo.b = foo.c = i;
-		array_push_back(&foos, &foo);
-	}
-
-	i = 0;
-	array_foreach_elem(&foos, foo) {
-		test_assert_idx(foo.a == i, i);
-		test_assert_idx(foo.b == i, i);
-		test_assert_idx(foo.c == i, i);
-		i++;
-	}
-	test_end();
-}
 static void test_array_foreach_elem_string(void)
 {
 	ARRAY(char *) blurbs;
@@ -310,7 +288,6 @@ void test_array(void)
 {
 	test_array_count();
 	test_array_foreach();
-	test_array_foreach_elem_struct();
 	test_array_foreach_elem_string();
 	test_array_reverse();
 	test_array_cmp();

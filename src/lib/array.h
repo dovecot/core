@@ -87,7 +87,7 @@
 	for (const void *_foreach_end = \
 		CONST_PTR_OFFSET(*(array)->v, (array)->arr.buffer->used), \
 	     *_foreach_ptr = CONST_PTR_OFFSET(*(array)->v, ARRAY_TYPE_CHECK(array, &elem) + \
-		COMPILE_ERROR_IF_TRUE(sizeof(elem) > 16)) \
+		COMPILE_ERROR_IF_TRUE(sizeof(elem) > sizeof(void *))) \
 		     ;							\
 	     (_foreach_ptr != _foreach_end &&		\
 	     (memcpy(&elem, _foreach_ptr, sizeof(elem)), TRUE)) \
