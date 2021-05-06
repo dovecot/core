@@ -35,7 +35,8 @@ void worker_pool_deinit(struct worker_pool **_pool)
 
 	*_pool = NULL;
 
-	connection_list_deinit(&pool->connection_list);
+	if (pool->connection_list != NULL)
+		connection_list_deinit(&pool->connection_list);
 
 	i_free(pool->connection_list);
 	i_free(pool->socket_path);
