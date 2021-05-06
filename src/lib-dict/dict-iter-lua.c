@@ -14,6 +14,7 @@ struct lua_dict_iter {
 	int error_ref;
 
 	lua_State *L;
+	bool yielded:1;
 };
 
 static void lua_dict_iter_unref(struct lua_dict_iter *iter)
@@ -58,6 +59,7 @@ static int lua_dict_iterate_step(lua_State *L)
 	DLUA_REQUIRE_ARGS(L, 2);
 
 	iter = xlua_dict_iter_getptr(L, 1, NULL);
+	iter->yielded = FALSE;
 
 	lua_dict_iterate_more(iter);
 
@@ -132,6 +134,9 @@ static void lua_dict_iterate_more(struct lua_dict_iter *iter)
 /* dict iter callback */
 static void lua_dict_iterate_callback(struct lua_dict_iter *iter)
 {
+	if (iter->yielded)
+		return;
+	iter->yielded = TRUE;
 	dlua_pcall_yieldable_resume(iter->L, 1);
 }
 
