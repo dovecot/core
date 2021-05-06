@@ -12,13 +12,13 @@ static struct mail_storage_service_ctx *storage_service;
 
 static void client_connected(struct master_service_connection *conn)
 {
-	if (master_conn != NULL) {
-		i_error("indexer-worker must be configured with client_limit=1");
-		return;
-	}
-
 	master_service_client_connection_accept(conn);
-	master_conn = master_connection_create(conn->fd, storage_service);
+
+	if (!master_connection_create(conn, storage_service)) {
+		i_error("indexer-worker must be configured with client_limit=1");
+		i_close_fd(&conn->fd);
+		master_service_client_connection_destroyed(master_service);
+	}
 }
 
 static void drop_privileges(void)
@@ -75,8 +75,7 @@ int main(int argc, char *argv[])
 
 	master_service_run(master_service, client_connected);
 
-	if (master_conn != NULL)
-		master_connection_destroy();
+	master_connections_destroy();
 	mail_storage_service_deinit(&storage_service);
 	master_service_deinit(&master_service);
         return 0;
