@@ -12,7 +12,7 @@
 #include "worker-connection.h"
 
 struct worker_request {
-	struct worker_connection *conn;
+	struct connection *conn;
 	struct indexer_request *request;
 };
 
@@ -43,7 +43,7 @@ static void client_connected(struct master_service_connection *conn)
 	(void)indexer_client_create(conn->fd, queue);
 }
 
-static void worker_send_request(struct worker_connection *conn,
+static void worker_send_request(struct connection *conn,
 				struct indexer_request *request)
 {
 	struct worker_request *wrequest;
@@ -58,7 +58,7 @@ static void worker_send_request(struct worker_connection *conn,
 
 static void queue_try_send_more(struct indexer_queue *queue)
 {
-	struct worker_connection *conn;
+	struct connection *conn;
 	struct indexer_request *request, *first_moved_request = NULL;
 
 	timeout_remove(&to_send_more);
@@ -98,7 +98,7 @@ static void queue_listen_callback(struct indexer_queue *queue)
 
 static void worker_status_callback(int percentage, void *context)
 {
-	struct worker_connection *conn = context;
+	struct connection *conn = context;
 	struct indexer_request *request = worker_connection_get_request(conn);
 
 	if (percentage >= 0 && percentage < 100) {

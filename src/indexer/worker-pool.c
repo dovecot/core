@@ -12,7 +12,7 @@
 struct worker_connection_list {
 	struct worker_connection_list *prev, *next;
 
-	struct worker_connection *conn;
+	struct connection *conn;
 	time_t last_use;
 };
 
@@ -62,9 +62,9 @@ bool worker_pool_have_busy_connections(struct worker_pool *pool)
 }
 
 static int worker_pool_add_connection(struct worker_pool *pool,
-				      struct worker_connection **conn_r)
+				      struct connection **conn_r)
 {
-	struct worker_connection *conn;
+	struct connection *conn;
 
 	pool->connection_count++;
 	conn = worker_connection_create(pool->socket_path, pool->callback);
@@ -106,7 +106,7 @@ static unsigned int worker_pool_find_max_connections(struct worker_pool *pool)
 }
 
 bool worker_pool_get_connection(struct worker_pool *pool,
-				struct worker_connection **conn_r)
+				struct connection **conn_r)
 {
 	struct worker_connection_list *list;
 	unsigned int max_connections;
@@ -125,7 +125,7 @@ bool worker_pool_get_connection(struct worker_pool *pool,
 }
 
 void worker_pool_release_connection(struct worker_pool *pool,
-				    struct worker_connection *conn)
+				    struct connection *conn)
 {
 	struct worker_connection_list *list;
 
@@ -141,7 +141,7 @@ void worker_pool_release_connection(struct worker_pool *pool,
 	worker_connection_destroy(&conn);
 }
 
-struct worker_connection *
+struct connection *
 worker_pool_find_username_connection(struct worker_pool *pool,
 				     const char *username)
 {
