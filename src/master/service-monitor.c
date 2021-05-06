@@ -88,8 +88,28 @@ static void service_status_more(struct service_process *process,
 	service_monitor_listen_start(service);
 }
 
-static void service_status_less(struct service_process *process,
-				const struct master_status *status)
+static void service_check_idle(struct service_process *process)
+{
+	struct service *service = process->service;
+
+	if (process->available_count != service->client_limit)
+		return;
+	process->idle_start = ioloop_time;
+	if (service->process_avail > service->set->process_min_avail &&
+	    process->to_idle == NULL &&
+	    service->idle_kill != UINT_MAX) {
+		/* we have more processes than we really need.
+		   add a bit of randomness so that we don't send the
+		   signal to all of them at once */
+		process->to_idle =
+			timeout_add((service->idle_kill * 1000) +
+				    i_rand_limit(100) * 10,
+				    service_process_kill_idle,
+				    process);
+	}
+}
+
+static void service_status_less(struct service_process *process)
 {
 	struct service *service = process->service;
 
@@ -101,21 +121,6 @@ static void service_status_less(struct service_process *process,
 		if (service->process_avail++ == 0)
 			service_monitor_listen_stop(service);
 		i_assert(service->process_avail <= service->process_count);
-	}
-	if (status->available_count == service->client_limit) {
-		process->idle_start = ioloop_time;
-		if (service->process_avail > service->set->process_min_avail &&
-		    process->to_idle == NULL &&
-		    service->idle_kill != UINT_MAX) {
-			/* we have more processes than we really need.
-			   add a bit of randomness so that we don't send the
-			   signal to all of them at once */
-			process->to_idle =
-				timeout_add((service->idle_kill * 1000) +
-					    i_rand_limit(100) * 10,
-					    service_process_kill_idle,
-					    process);
-		}
 	}
 	if (service->type == SERVICE_TYPE_LOGIN)
 		service_login_notify(service, FALSE);
@@ -152,17 +157,17 @@ service_status_input_one(struct service *service,
 	/* first status notification */
 	timeout_remove(&process->to_status);
 
-	if (process->available_count == status->available_count)
-		return;
-
-	if (process->available_count > status->available_count) {
-		/* process started servicing some more clients */
-		service_status_more(process, status);
-	} else {
-		/* process finished servicing some clients */
-		service_status_less(process, status);
+	if (process->available_count != status->available_count) {
+		if (process->available_count > status->available_count) {
+			/* process started servicing some more clients */
+			service_status_more(process, status);
+		} else {
+			/* process finished servicing some clients */
+			service_status_less(process);
+		}
+		process->available_count = status->available_count;
 	}
-	process->available_count = status->available_count;
+	service_check_idle(process);
 }
 
 static void service_status_input(struct service *service)
