@@ -6,6 +6,7 @@
 #include "connection.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "llist.h"
 #include "ostream.h"
 #include "str.h"
 #include "strescape.h"
@@ -245,7 +246,8 @@ worker_connection_get_request(struct connection *conn)
 
 struct connection *
 worker_connection_create(const char *socket_path,
-			 indexer_status_callback_t *callback)
+			 indexer_status_callback_t *callback,
+			 struct connection_list *list)
 {
 	struct worker_connection *conn;
 
@@ -254,5 +256,6 @@ worker_connection_create(const char *socket_path,
 	conn->conn.base_name = i_strdup(socket_path);
 	conn->callback = callback;
 	conn->conn.fd_in = -1;
+	DLLIST_PREPEND(&list->connections, &conn->conn);
 	return &conn->conn;
 }
