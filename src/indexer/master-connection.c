@@ -23,6 +23,10 @@
 #define INDEXER_MASTER_NAME "indexer-master-worker"
 #define INDEXER_WORKER_NAME "indexer-worker-master"
 
+static struct event_category event_category_indexer_worker = {
+	.name = "indexer-worker",
+};
+
 struct master_connection {
 	struct connection conn;
 	struct mail_storage_service_ctx *storage_service;
@@ -75,18 +79,18 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 	char percentage_str[2+1+1];
 	unsigned int counter = 0, max, percentage, percentage_sent = 0;
 	int ret = 0;
+	struct event *index_event = event_create(box->event);
+	event_add_category(index_event, &event_category_indexer_worker);
 
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_PRECACHE_FIELDS,
 				 &metadata) < 0) {
-		i_error("Mailbox %s: Precache-fields lookup failed: %s",
-			mailbox_get_vname(box),
+		e_error(index_event, "Precache-fields lookup failed: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		return -1;
 	}
 	if (mailbox_get_status(box, STATUS_MESSAGES | STATUS_LAST_CACHED_SEQ,
 			       &status) < 0) {
-		i_error("Mailbox %s: Status lookup failed: %s",
-			mailbox_get_vname(box),
+		e_error(index_event, "Status lookup failed: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		return -1;
 	}
@@ -97,8 +101,6 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 	search_args = mail_search_build_init();
 	mail_search_build_add_seqset(search_args, seq, status.messages);
 
-	struct event *index_event = event_create(box->event);
-	event_set_name(index_event, "indexer_worker_indexing_finished");
 	event_enable_user_cpu_usecs(index_event);
 
 	ctx = mailbox_search_init(trans, search_args, NULL,
@@ -110,10 +112,11 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 		if (first_uid == 0)
 			first_uid = mail->uid;
 		last_uid = mail->uid;
+		e_debug(index_event, "Indexing UID=%u", mail->uid);
 
 		if (mail_precache(mail) < 0) {
-			i_error("Mailbox %s: Precache for UID=%u failed: %s%s",
-				mailbox_get_vname(box), mail->uid,
+			e_error(index_event, "Precache for UID=%u failed: %s%s",
+				mail->uid,
 				mailbox_get_last_internal_error(box, NULL),
 				get_attempt_error(counter, first_uid, last_uid));
 			ret = -1;
@@ -135,8 +138,7 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 		}
 	}
 	if (mailbox_search_deinit(&ctx) < 0) {
-		i_error("Mailbox %s: Mail search failed: %s%s",
-			mailbox_get_vname(box),
+		e_error(index_event, "Mail search failed: %s%s",
 			mailbox_get_last_internal_error(box, NULL),
 			get_attempt_error(counter, first_uid, last_uid));
 		ret = -1;
@@ -147,19 +149,24 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 	event_add_int(index_event, "first_uid", first_uid);
 	event_add_int(index_event, "last_uid", last_uid);
 
+#define FINISHED_EVENT_NAME "indexer_worker_indexing_finished"
 	if (mailbox_transaction_commit(&trans) < 0) {
+		struct event_passthrough *e = event_create_passthrough(index_event)->
+			set_name(FINISHED_EVENT_NAME);
 		errstr = t_strdup_printf("Transaction commit failed: %s",
 					 mailbox_get_last_internal_error(box, &error));
-		event_add_str(index_event, "error", errstr);
+		e->add_str("error", errstr);
 		const char *log_error = t_strdup_printf("%s (attempted to index %u messages%s)",
 							errstr, counter, uids);
 		if (error != MAIL_ERROR_NOTFOUND)
-			e_error(index_event, "%s", log_error);
+			e_error(e->event(), "%s", log_error);
 		else
-			e_debug(index_event, "%s", log_error);
+			e_debug(e->event(), "%s", log_error);
 		ret = -1;
 	} else {
-		e_debug(index_event, "Indexed %u messages%s", counter, uids);
+		struct event_passthrough *e = event_create_passthrough(index_event)->
+			set_name(FINISHED_EVENT_NAME);
+		e_debug(e->event(), "Indexed %u messages%s", counter, uids);
 	}
 	event_unref(&index_event);
 	return ret;
@@ -185,13 +192,12 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 	if (ret < 0) {
 		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error != MAIL_ERROR_NOTFOUND)
-			i_error("Getting path to mailbox %s failed: %s",
-				mailbox, errstr);
+			e_error(box->event, "Getting path failed: %s", errstr);
 		mailbox_free(&box);
 		return -1;
 	}
 	if (ret == 0) {
-		i_info("Indexes disabled for mailbox %s, skipping", mailbox);
+		e_info(box->event, "Indexes disabled, skipping");
 		mailbox_free(&box);
 		return 0;
 	}
@@ -204,8 +210,8 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 		if (mailbox_open(box) < 0) {
 			errstr = mailbox_get_last_internal_error(box, &error);
 			if (error != MAIL_ERROR_NOTFOUND)
-				i_error("Opening mailbox %s failed: %s",
-					mailbox, errstr);
+				e_error(box->event, "Opening failed: %s",
+					errstr);
 			ret = -1;
 		} else {
 			mailbox_get_open_status(box, STATUS_RECENT, &status);
@@ -222,11 +228,9 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 	if (mailbox_sync(box, sync_flags) < 0) {
 		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error != MAIL_ERROR_NOTFOUND) {
-			i_error("Syncing mailbox %s failed: %s",
-				mailbox, errstr);
+			e_error(box->event, "Syncing failed: %s", errstr);
 		} else {
-			e_debug(user->event, "Syncing mailbox %s failed: %s",
-				mailbox, errstr);
+			e_debug(box->event, "Syncing failed: %s", errstr);
 		}
 		ret = -1;
 	} else if (strchr(what, 'i') != NULL) {
@@ -252,7 +256,7 @@ master_connection_input_args(struct connection *_conn, const char *const *args)
 	/* <username> <mailbox> <session ID> <max_recent_msgs> [i][o] */
 	if (str_array_length(args) != 5 ||
 	    str_to_uint(args[3], &max_recent_msgs) < 0 || args[4][0] == '\0') {
-		i_error("Invalid input from master: %s",
+		e_error(conn->conn.event, "Invalid input from master: %s",
 			t_strarray_join(args, "\t"));
 		return -1;
 	}
@@ -270,7 +274,7 @@ master_connection_input_args(struct connection *_conn, const char *const *args)
 
 	if (mail_storage_service_lookup_next(conn->storage_service, &input,
 					     &service_user, &user, &error) <= 0) {
-		i_error("User %s lookup failed: %s", args[0], error);
+		e_error(conn->conn.event, "User %s lookup failed: %s", args[0], error);
 		ret = -1;
 	} else {
 		indexer_worker_refresh_proctitle(user->username, args[1], 0, 0);
@@ -341,9 +345,12 @@ master_connection_create(struct master_service_connection *master,
 
 	conn = i_new(struct master_connection, 1);
 	conn->storage_service = storage_service;
+	conn->conn.event_parent = event_create(NULL);
+	event_add_category(conn->conn.event_parent, &event_category_indexer_worker);
 	connection_init_server(master_connection_list, &conn->conn,
 			       master->name, master->fd, master->fd);
 
+	event_unref(&conn->conn.event_parent);
 	return TRUE;
 }
 
