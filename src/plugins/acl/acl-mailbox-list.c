@@ -524,6 +524,19 @@ static void acl_storage_rights_ctx_init(struct acl_storage_rights_context *ctx,
 	}
 }
 
+static bool acl_namespace_is_ignored(struct mailbox_list *list)
+{
+	const char *value =
+		mail_user_plugin_getenv(list->ns->user, "acl_ignore_namespace");
+	for (unsigned int i = 2; value != NULL; i++) {
+		if (wildcard_match(list->ns->prefix, value))
+			return TRUE;
+		value = mail_user_plugin_getenv(list->ns->user,
+			t_strdup_printf("acl_ignore_namespace%u", i));
+	}
+	return FALSE;
+}
+
 static void acl_mailbox_list_init_default(struct mailbox_list *list)
 {
 	struct mailbox_list_vfuncs *v = list->vlast;
@@ -576,19 +589,6 @@ void acl_mail_namespace_storage_added(struct mail_namespace *ns)
 	if (backend == NULL)
 		i_fatal("ACL backend initialization failed");
 	acl_storage_rights_ctx_init(&alist->rights, backend);
-}
-
-static bool acl_namespace_is_ignored(struct mailbox_list *list)
-{
-	const char *value =
-		mail_user_plugin_getenv(list->ns->user, "acl_ignore_namespace");
-	for (unsigned int i = 2; value != NULL; i++) {
-		if (wildcard_match(list->ns->prefix, value))
-			return TRUE;
-		value = mail_user_plugin_getenv(list->ns->user,
-			t_strdup_printf("acl_ignore_namespace%u", i));
-	}
-	return FALSE;
 }
 
 void acl_mailbox_list_created(struct mailbox_list *list)
