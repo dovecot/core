@@ -40,7 +40,7 @@ static bool idle_die(void)
 static void client_connected(struct master_service_connection *conn)
 {
 	master_service_client_connection_accept(conn);
-	(void)indexer_client_create(conn->fd, queue);
+	indexer_client_create(conn, queue);
 }
 
 static void worker_send_request(struct connection *conn,

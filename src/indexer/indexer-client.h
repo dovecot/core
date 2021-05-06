@@ -3,8 +3,8 @@
 
 struct indexer_queue;
 
-struct indexer_client *
-indexer_client_create(int fd, struct indexer_queue *queue);
+void indexer_client_create(struct master_service_connection *conn,
+			   struct indexer_queue *queue);
 void indexer_client_status_callback(int percentage, void *context);
 
 unsigned int indexer_clients_get_count(void);

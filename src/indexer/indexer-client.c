@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "connection.h"
-#include "llist.h"
 #include "istream.h"
 #include "ostream.h"
 #include "strescape.h"
@@ -19,7 +18,6 @@
 
 struct indexer_client {
 	struct connection conn;
-	struct indexer_client *prev, *next;
 
 	int refcount;
 	struct indexer_queue *queue;
@@ -30,24 +28,9 @@ struct indexer_client_request {
 	unsigned int tag;
 };
 
-static struct indexer_client *clients = NULL;
-static unsigned int clients_count = 0;
-
-static void indexer_client_destroy(struct indexer_client *client);
+static void indexer_client_destroy(struct connection *conn);
 static void indexer_client_ref(struct indexer_client *client);
 static void indexer_client_unref(struct indexer_client *client);
-
-static const char *const*
-indexer_client_next_line(struct indexer_client *client)
-{
-	const char *line;
-
-	line = i_stream_next_line(client->conn.input);
-	if (line == NULL)
-		return NULL;
-
-	return t_strsplit_tabescaped(line);
-}
 
 static int
 indexer_client_request_queue(struct indexer_client *client, bool append,
@@ -137,48 +120,27 @@ indexer_client_request(struct indexer_client *client,
 	}
 }
 
-static void indexer_client_input(struct indexer_client *client)
+static int
+indexer_client_input_args(struct connection *conn, const char *const *args)
 {
-	const char *line, *const *args, *error;
+	struct indexer_client *client =
+		container_of(conn, struct indexer_client, conn);
+	const char *error;
 
-	switch (i_stream_read(client->conn.input)) {
-	case -2:
-		i_error("BUG: Client connection sent too much data");
-		indexer_client_destroy(client);
-		return;
-	case -1:
-		indexer_client_destroy(client);
-		return;
+	if (indexer_client_request(client, args, &error) < 0) {
+		i_error("Client input error: %s", error);
+		return -1;
 	}
-
-	if (!client->conn.version_received) {
-		if ((line = i_stream_next_line(client->conn.input)) == NULL)
-			return;
-
-		if (!version_string_verify(line, "indexer",
-				INDEXER_CLIENT_PROTOCOL_MAJOR_VERSION)) {
-			i_error("Client not compatible with this server "
-				"(mixed old and new binaries?)");
-			indexer_client_destroy(client);
-			return;
-		}
-		client->conn.version_received = TRUE;
-	}
-
-	while ((args = indexer_client_next_line(client)) != NULL) {
-		if (args[0] != NULL) {
-			if (indexer_client_request(client, args, &error) < 0) {
-				i_error("Client input error: %s", error);
-				indexer_client_destroy(client);
-				break;
-			}
-		}
-	}
+	return 1;
 }
 
 void indexer_client_status_callback(int percentage, void *context)
 {
 	struct indexer_client_request *ctx = context;
+
+	/* we are in deinit already, or the client has disconnected */
+	if (ctx->client == NULL)
+		return;
 
 	T_BEGIN {
 		o_stream_nsend_str(ctx->client->conn.output,
@@ -190,44 +152,49 @@ void indexer_client_status_callback(int percentage, void *context)
 	}
 }
 
-struct indexer_client *
-indexer_client_create(int fd, struct indexer_queue *queue)
+static struct connection_list *indexer_client_list = NULL;
+
+static const struct connection_vfuncs indexer_client_vfuncs = {
+	.destroy = indexer_client_destroy,
+	.input_args = indexer_client_input_args,
+};
+
+static const struct connection_settings indexer_client_set = {
+	.service_name_in = "indexer",
+	.service_name_out = "indexer",
+	.major_version = INDEXER_CLIENT_PROTOCOL_MAJOR_VERSION,
+	.minor_version = INDEXER_CLIENT_PROTOCOL_MINOR_VERSION,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = IO_BLOCK_SIZE,
+};
+
+
+void indexer_client_create(struct master_service_connection *conn,
+			   struct indexer_queue *queue)
 {
 	struct indexer_client *client;
+
+	if (indexer_client_list == NULL) {
+		indexer_client_list =
+			connection_list_init(&indexer_client_set,
+					     &indexer_client_vfuncs);
+	}
 
 	client = i_new(struct indexer_client, 1);
 	client->refcount = 1;
 	client->queue = queue;
-	client->conn.fd_in = fd;
-	client->conn.input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
-	client->conn.output = o_stream_create_fd(fd, SIZE_MAX);
-	o_stream_set_no_error_handling(client->conn.output, TRUE);
-	client->conn.io = io_add(fd, IO_READ, indexer_client_input, client);
-
-	DLLIST_PREPEND(&clients, client);
-	clients_count++;
+	connection_init_server(indexer_client_list, &client->conn,
+			       conn->name, conn->fd, conn->fd);
 	indexer_refresh_proctitle();
-	return client;
 }
 
-static void indexer_client_destroy(struct indexer_client *client)
+static void indexer_client_destroy(struct connection *conn)
 {
-	if (client->conn.disconnected)
-		return;
-	client->conn.disconnected = TRUE;
-
-	DLLIST_REMOVE(&clients, client);
-
-	io_remove(&client->conn.io);
-	i_stream_close(client->conn.input);
-	o_stream_close(client->conn.output);
-	if (close(client->conn.fd_in) < 0)
-		i_error("close(client) failed: %m");
-	client->conn.fd_in = -1;
-	indexer_client_unref(client);
-
-	clients_count--;
+	struct indexer_client *client =
+		container_of(conn, struct indexer_client, conn);
+	connection_deinit(&client->conn);
 	master_service_client_connection_destroyed(master_service);
+	indexer_client_unref(client);
 	indexer_refresh_proctitle();
 }
 
@@ -244,18 +211,17 @@ static void indexer_client_unref(struct indexer_client *client)
 
 	if (--client->refcount > 0)
 		return;
-	i_stream_destroy(&client->conn.input);
-	o_stream_destroy(&client->conn.output);
 	i_free(client);
 }
 
 unsigned int indexer_clients_get_count(void)
 {
-	return clients_count;
+	if (indexer_client_list == NULL)
+		return 0;
+	return indexer_client_list->connections_count;
 }
 
 void indexer_clients_destroy_all(void)
 {
-	while (clients != NULL)
-		indexer_client_destroy(clients);
+	connection_list_deinit(&indexer_client_list);
 }
