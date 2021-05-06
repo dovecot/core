@@ -45,6 +45,7 @@ worker_connection_create(const char *socket_path,
 	struct worker_connection *conn;
 
 	conn = i_new(struct worker_connection, 1);
+
 	conn->refcount = 1;
 	conn->socket_path = i_strdup(socket_path);
 	conn->callback = callback;
@@ -95,9 +96,9 @@ worker_connection_input_line(struct worker_connection *conn, const char *line)
 {
 	int percentage;
 	/* return -1 -> error
-	           0 -> request completed (100%)
-	           1 -> request continues (<100%)
-	 */
+		   0 -> request completed (100%)
+		   1 -> request continues (<100%)
+	*/
 	int ret = 1;
 
 	if (str_to_int(line, &percentage) < 0 ||
