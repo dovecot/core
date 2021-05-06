@@ -38,21 +38,6 @@ struct worker_connection {
 	bool version_received:1;
 };
 
-struct worker_connection *
-worker_connection_create(const char *socket_path,
-			 indexer_status_callback_t *callback)
-{
-	struct worker_connection *conn;
-
-	conn = i_new(struct worker_connection, 1);
-
-	conn->refcount = 1;
-	conn->socket_path = i_strdup(socket_path);
-	conn->callback = callback;
-	conn->fd = -1;
-	return conn;
-}
-
 static void worker_connection_unref(struct worker_connection *conn)
 {
 	i_assert(conn->refcount > 0);
@@ -240,4 +225,19 @@ struct indexer_request *
 worker_connection_get_request(struct worker_connection *conn)
 {
 	return conn->request;
+}
+
+struct worker_connection *
+worker_connection_create(const char *socket_path,
+			 indexer_status_callback_t *callback)
+{
+	struct worker_connection *conn;
+
+	conn = i_new(struct worker_connection, 1);
+
+	conn->refcount = 1;
+	conn->socket_path = i_strdup(socket_path);
+	conn->callback = callback;
+	conn->fd = -1;
+	return conn;
 }
