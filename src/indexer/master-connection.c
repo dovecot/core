@@ -1,6 +1,7 @@
 /* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "connection.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "write-full.h"
@@ -25,12 +26,8 @@
 struct master_connection *master_conn;
 
 struct master_connection {
+	struct connection conn;
 	struct mail_storage_service_ctx *storage_service;
-
-	int fd;
-	struct io *io;
-	struct istream *input;
-	struct ostream *output;
 
 	bool version_received:1;
 };
@@ -132,7 +129,7 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 					       sizeof(percentage_str), "%u\n",
 					       percentage) < 0)
 					i_unreached();
-				(void)write_full(conn->fd, percentage_str,
+				(void)write_full(conn->conn.fd_in, percentage_str,
 						 strlen(percentage_str));
 			}
 			indexer_worker_refresh_proctitle(username, box_vname,
@@ -288,7 +285,7 @@ master_connection_input_line(struct master_connection *conn, const char *line)
 	}
 
 	str = ret < 0 ? "-1\n" : "100\n";
-	return write_full(conn->fd, str, strlen(str));
+	return write_full(conn->conn.fd_in, str, strlen(str));
 }
 
 static void master_connection_input(struct master_connection *conn)
@@ -296,13 +293,13 @@ static void master_connection_input(struct master_connection *conn)
 	const char *line;
 	int ret;
 
-	if (i_stream_read(conn->input) < 0) {
+	if (i_stream_read(conn->conn.input) < 0) {
 		master_connection_destroy();
 		return;
 	}
 
-	if (!conn->version_received) {
-		if ((line = i_stream_next_line(conn->input)) == NULL)
+	if (!conn->conn.version_received) {
+		if ((line = i_stream_next_line(conn->conn.input)) == NULL)
 			return;
 
 		if (!version_string_verify(line, INDEXER_MASTER_NAME,
@@ -312,10 +309,10 @@ static void master_connection_input(struct master_connection *conn)
 			master_connection_destroy();
 			return;
 		}
-		conn->version_received = TRUE;
+		conn->conn.version_received = TRUE;
 	}
 
-	while ((line = i_stream_next_line(conn->input)) != NULL) {
+	while ((line = i_stream_next_line(conn->conn.input)) != NULL) {
 		T_BEGIN {
 			ret = master_connection_input_line(conn, line);
 		} T_END;
@@ -334,13 +331,13 @@ master_connection_create(int fd, struct mail_storage_service_ctx *storage_servic
 
 	conn = i_new(struct master_connection, 1);
 	conn->storage_service = storage_service;
-	conn->fd = fd;
-	conn->io = io_add(conn->fd, IO_READ, master_connection_input, conn);
-	conn->input = i_stream_create_fd(conn->fd, SIZE_MAX);
+	conn->conn.fd_in = fd;
+	conn->conn.io = io_add(conn->conn.fd_in, IO_READ, master_connection_input, conn);
+	conn->conn.input = i_stream_create_fd(conn->conn.fd_in, SIZE_MAX);
 
 	handshake = t_strdup_printf(INDEXER_WORKER_HANDSHAKE,
 		master_service_get_process_limit(master_service));
-	(void)write_full(conn->fd, handshake, strlen(handshake));
+	(void)write_full(conn->conn.fd_in, handshake, strlen(handshake));
 	return conn;
 }
 
@@ -350,10 +347,10 @@ void master_connection_destroy(void)
 
 	master_conn = NULL;
 
-	io_remove(&conn->io);
-	i_stream_destroy(&conn->input);
+	io_remove(&conn->conn.io);
+	i_stream_destroy(&conn->conn.input);
 
-	if (close(conn->fd) < 0)
+	if (close(conn->conn.fd_in) < 0)
 		i_error("close(master conn) failed: %m");
 	i_free(conn);
 
