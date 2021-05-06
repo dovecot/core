@@ -13,7 +13,6 @@ struct worker_connection_list {
 	struct worker_connection_list *prev, *next;
 
 	struct connection *conn;
-	time_t last_use;
 };
 
 struct worker_pool {
@@ -118,7 +117,6 @@ bool worker_pool_get_connection(struct worker_pool *pool,
 		return FALSE;
 	list = i_new(struct worker_connection_list, 1);
 	list->conn = *conn_r;
-	list->last_use = ioloop_time;
 	DLLIST_PREPEND(&pool->busy_list, list);
 
 	return TRUE;
