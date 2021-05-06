@@ -12,6 +12,7 @@
 /* DATA/BDAT/B... commands */
 
 struct cmd_data_context {
+	struct istream *main_input;
 	struct istream *chunk_input;
 	uoff_t chunk_size;
 
@@ -135,8 +136,9 @@ cmd_data_destroy(struct smtp_server_cmd_ctx *cmd,
 
 	i_assert(data_cmd != NULL);
 
-	if (data_cmd->chunk_last ||
-		!smtp_server_command_replied_success(command)) {
+	if (data_cmd->main_input == conn->state.data_input &&
+	    (data_cmd->chunk_last ||
+	     !smtp_server_command_replied_success(command))) {
 		/* clean up */
 		i_stream_destroy(&conn->state.data_input);
 		i_stream_destroy(&conn->state.data_chain_input);
@@ -392,6 +394,7 @@ cmd_data_next(struct smtp_server_cmd_ctx *cmd,
 		smtp_server_command_ref(cmd_temp);
 		i_assert(callbacks != NULL &&
 			 callbacks->conn_cmd_data_begin != NULL);
+		i_assert(conn->state.data_input != NULL);
 		if (callbacks->conn_cmd_data_begin(conn->context,
 			cmd, conn->state.trans, conn->state.data_input) < 0) {
 			i_assert(smtp_server_command_is_replied(cmd_temp));
@@ -427,9 +430,11 @@ cmd_data_start_input(struct smtp_server_cmd_ctx *cmd,
 	i_assert(data_cmd != NULL);
 
 	if (input != NULL) {
+		i_assert(conn->state.data_input == NULL);
 		conn->state.data_input = input;
 		i_stream_ref(input);
 	}
+	data_cmd->main_input = conn->state.data_input;
 
 	if (data_cmd->client_input)
 		smtp_server_command_input_lock(cmd);
