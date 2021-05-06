@@ -45,7 +45,11 @@ void worker_pool_deinit(struct worker_pool **_pool)
 
 bool worker_pool_have_busy_connections(struct worker_pool *pool)
 {
-	return pool->connection_list->connections_count > 0;
+	struct connection *list;
+	for (list = pool->connection_list->connections; list != NULL; list = list->next)
+		if (worker_connection_is_busy(list))
+			return TRUE;
+	return FALSE;
 }
 
 static int worker_pool_add_connection(struct worker_pool *pool,

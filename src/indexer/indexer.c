@@ -66,7 +66,7 @@ static void queue_try_send_more(struct indexer_queue *queue)
 	while ((request = indexer_queue_request_peek(queue)) != NULL) {
 		conn = worker_pool_find_username_connection(worker_pool,
 							    request->username);
-		if (conn != NULL) {
+		if (conn != NULL && worker_connection_is_busy(conn)) {
 			/* There is already a connection handling a request
 			 * for this user. Move the request to the back of the
 			 * queue and handle requests from other users.
@@ -80,12 +80,11 @@ static void queue_try_send_more(struct indexer_queue *queue)
 				first_moved_request = request;
 			indexer_queue_move_head_to_tail(queue);
 			continue;
+		} else if (conn == NULL) {
+			/* create a new connection to a worker */
+			if (!worker_pool_get_connection(worker_pool, &conn))
+				break;
 		}
-
-		/* create a new connection to a worker */
-		if (!worker_pool_get_connection(worker_pool, &conn))
-			break;
-
 		indexer_queue_request_remove(queue);
 		worker_send_request(conn, request);
 	}
