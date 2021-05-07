@@ -518,8 +518,12 @@ static int mail_parse_parts(struct mail *mail, struct message_part **parts_r)
 	struct mail_private *pmail = (struct mail_private*)mail;
 
 	/* need to get bodystructure first */
-	if (mail_get_special(mail, MAIL_FETCH_IMAP_BODYSTRUCTURE, &structure) < 0)
+	if (mail_get_special(mail, MAIL_FETCH_IMAP_BODYSTRUCTURE,
+			     &structure) < 0) {
+		/* Don't bother logging an error. See
+		   mail_set_attachment_keywords(). */
 		return -1;
+	}
 	if (imap_bodystructure_parse_full(structure, pmail->data_pool, parts_r,
 					  &error) < 0) {
 		mail_set_critical(mail, "imap_bodystructure_parse() failed: %s",
@@ -554,9 +558,10 @@ int mail_set_attachment_keywords(struct mail *mail)
 	/* walk all parts and see if there is an attachment */
 	struct message_part *parts;
 	if (mail_get_parts(mail, &parts) < 0) {
-		mail_set_critical(mail, "Failed to add attachment keywords: "
-				  "mail_get_parts() failed: %s",
-				  mail_storage_get_last_internal_error(mail->box->storage, NULL));
+		/* Callers don't really care about the exact error, and
+		   critical errors were already logged. Most importantly we
+		   don't want to log MAIL_ERROR_LOOKUP_ABORTED since that is
+		   an expected error. */
 		ret = -1;
 	} else if (parts->data == NULL &&
 		   mail_parse_parts(mail, &parts) < 0) {
