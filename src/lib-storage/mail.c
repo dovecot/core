@@ -526,8 +526,8 @@ static int mail_parse_parts(struct mail *mail, struct message_part **parts_r)
 	}
 	if (imap_bodystructure_parse_full(structure, pmail->data_pool, parts_r,
 					  &error) < 0) {
-		mail_set_critical(mail, "imap_bodystructure_parse() failed: %s",
-				  error);
+		mail_set_cache_corrupted(mail, MAIL_FETCH_IMAP_BODYSTRUCTURE,
+					 error);
 		return -1;
 	}
 	return 0;
