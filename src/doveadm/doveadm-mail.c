@@ -675,7 +675,7 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 		doveadm_exit_code = ctx->exit_code;
 }
 
-static void doveadm_mail_cmd_free(struct doveadm_mail_cmd_context *ctx)
+void doveadm_mail_cmd_free(struct doveadm_mail_cmd_context *ctx)
 {
 	i_stream_unref(&ctx->users_list_input);
 	i_stream_unref(&ctx->cmd_input);

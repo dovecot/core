@@ -124,6 +124,7 @@ void doveadm_mail_deinit(void);
 struct doveadm_mail_cmd_context *
 doveadm_mail_cmd_init(const struct doveadm_mail_cmd *cmd,
 		      const struct doveadm_settings *set);
+void doveadm_mail_cmd_free(struct doveadm_mail_cmd_context *ctx);
 int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 			     const char **error_r);
 int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
