@@ -11,6 +11,7 @@
 #define lua_isnumber(L, n) (lua_isnumber((L), (n)) == 1)
 #define lua_toboolean(L, n) (lua_toboolean((L), (n)) == 1)
 #define lua_pushboolean(L, b) lua_pushboolean((L), (b) ? 1 : 0)
+#define lua_isinteger(L, n) (lua_isinteger((L), (n)) == 1)
 
 #define DLUA_TABLE_STRING(n, val) { .name = (n),\
 				    .type = DLUA_TABLE_VALUE_STRING, .v.s = (val) }

@@ -357,7 +357,7 @@ static void test_tls(void)
 
 /* check lua_tointegerx against top-of-stack item */
 static void check_tointegerx_compat(lua_State *L, int expected_isnum,
-				    int expected_isint,
+				    bool expected_isint,
 				    lua_Integer expected_value)
 {
 	lua_Integer value;
@@ -430,18 +430,18 @@ static void test_compat_tointegerx_and_isinteger(void)
 
 	for (i = 0; i < N_ELEMENTS(str_tests); i++) {
 		lua_pushstring(script->L, str_tests[i].input);
-		check_tointegerx_compat(script->L, str_tests[i].isnum, 0,
+		check_tointegerx_compat(script->L, str_tests[i].isnum, FALSE,
 					str_tests[i].output);
 	}
 
 	for (i = 0; i < N_ELEMENTS(num_tests); i++) {
-		int isint;
+		bool isint;
 
 		/* See lua_isinteger() comment in dlua-compat.h */
 #if LUA_VERSION_NUM == 503
-		isint = 0;
+		isint = FALSE;
 #else
-		isint = num_tests[i].isnum;
+		isint = (num_tests[i].isnum == 1);
 #endif
 
 		lua_pushnumber(script->L, num_tests[i].input);
@@ -452,7 +452,7 @@ static void test_compat_tointegerx_and_isinteger(void)
 
 	for (i = 0; i < N_ELEMENTS(int_tests); i++) {
 		lua_pushinteger(script->L, int_tests[i].input);
-		check_tointegerx_compat(script->L, 1, 1,
+		check_tointegerx_compat(script->L, 1, TRUE,
 					int_tests[i].output);
 	}
 
