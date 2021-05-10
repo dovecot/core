@@ -63,28 +63,13 @@ stats_client_handshake(struct stats_client *client, const char *const *args)
 	client->handshake_received_at_least_once = TRUE;
 	if (client->ioloop != NULL)
 		io_loop_stop(client->ioloop);
-	if (filter == NULL) {
-		/* stats process wants nothing to be sent to it */
-		return 1;
-	}
 
-	if (client->filter != NULL) {
-		/* Filter is already set. It becomes a bit complicated to
-		   change it. Since it's most likely exactly the same filter
-		   anyway, just keep the old one. */
-		event_filter_unref(&filter);
-		return 1;
-	}
+	if (filter == NULL)
+		filter = event_filter_create();
 
+	event_filter_unref(&client->filter);
 	client->filter = filter;
-	if (event_get_global_debug_send_filter() != NULL) {
-		/* merge into the global debug send filter */
-		event_filter_merge(event_get_global_debug_send_filter(),
-				   client->filter);
-	} else {
-		/* no global filter yet - use this */
-		event_set_global_debug_send_filter(client->filter);
-	}
+	event_set_global_debug_send_filter(client->filter);
 	return 1;
 }
 
@@ -93,12 +78,8 @@ stats_client_input_args(struct connection *conn, const char *const *args)
 {
 	struct stats_client *client = (struct stats_client *)conn;
 
-	if (!client->handshaked)
-		return stats_client_handshake(client, args);
+	return stats_client_handshake(client, args);
 
-	i_error("stats: Received unexpected input: %s",
-		t_strarray_join(args, "\t"));
-	return 0;
 }
 
 static void stats_client_reconnect(struct stats_client *client)
