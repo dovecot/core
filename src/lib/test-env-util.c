@@ -39,10 +39,12 @@ void test_env_util(void)
 	test_assert(getenv("b") == NULL);
 	test_assert_strcmp(getenv("c"), "1");
 	test_assert(getenv("d") == NULL);
-	test_assert(strcmp((*env)[0], "a=1") == 0 ||
-		    strcmp((*env)[0], "c=1") == 0);
-	test_assert(strcmp((*env)[1], "a=1") == 0 ||
-		    strcmp((*env)[1], "c=1") == 0);
+	test_assert(*env != NULL &&
+		    (null_strcmp((*env)[0], "a=1") == 0 ||
+		     null_strcmp((*env)[0], "c=1") == 0));
+	test_assert(*env != NULL &&
+		    (null_strcmp((*env)[1], "a=1") == 0 ||
+		     null_strcmp((*env)[1], "c=1") == 0));
 
 	/* test env_remove() */
 	env_remove("a");
