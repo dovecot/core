@@ -228,6 +228,7 @@ static int auth_request_lua_event(lua_State *L)
 	struct event *event = event_create(authdb_event(request));
 
 	dlua_push_event(L, event);
+	event_unref(&event);
 	return 1;
 }
 

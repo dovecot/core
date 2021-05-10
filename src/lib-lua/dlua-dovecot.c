@@ -270,6 +270,7 @@ void dlua_push_event(lua_State *L, struct event *event)
 	/* we need to attach gc to userdata to support older lua*/
 	struct event **ptr = lua_newuserdata(L, sizeof(struct event*));
 	*ptr = event;
+	event_ref(event);
 	lua_createtable(L, 0, 1);
 	lua_pushcfunction(L, dlua_event_gc);
 	lua_setfield(L, -2, "__gc");
@@ -471,6 +472,7 @@ static int dlua_event_new(lua_State *L)
 	dlua_get_file_line(L, 1, &file, &line);
 	event = event_create(parent, file, line);
 	dlua_push_event(L, event);
+	event_unref(&event);
 	return 1;
 }
 
