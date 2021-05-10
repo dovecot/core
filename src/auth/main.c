@@ -247,6 +247,10 @@ static void main_init(void)
 		/* workers have only a single connection from the master
 		   auth process */
 		master_service_set_client_limit(master_service, 1);
+		auth_worker_set_max_service_count(
+			master_service_get_service_count(master_service));
+		/* make sure this process cycles if auth connection drops */
+		master_service_set_service_count(master_service, 1);
 	} else {
 		/* caching is handled only by the main auth process */
 		passdb_cache_init(global_auth_settings);

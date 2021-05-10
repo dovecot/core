@@ -24,6 +24,9 @@
 #define CLIENT_STATE_IDLE "idling"
 #define CLIENT_STATE_STOP "waiting for shutdown"
 
+static unsigned int auth_worker_max_service_count = 0;
+static unsigned int auth_worker_service_count = 0;
+
 struct auth_worker_client {
 	struct connection conn;
 	int refcount;
@@ -55,6 +58,11 @@ static bool auth_worker_client_error = FALSE;
 static int auth_worker_output(struct auth_worker_client *client);
 static void auth_worker_client_destroy(struct connection *conn);
 static void auth_worker_client_unref(struct auth_worker_client **_client);
+
+void auth_worker_set_max_service_count(unsigned int count)
+{
+	auth_worker_max_service_count = count;
+}
 
 static struct auth_worker_client *auth_worker_get_client(void)
 {
@@ -790,6 +798,13 @@ auth_worker_client_input_args(struct connection *conn, const char *const *args)
 	client->cmd_start = ioloop_time;
 	client->refcount++;
 	e_debug(cmd->event, "Handling %s request", args[1]);
+
+	/* Check if we have reached service_count */
+	if (auth_worker_max_service_count > 0) {
+		auth_worker_service_count++;
+		if (auth_worker_service_count >= auth_worker_max_service_count)
+			worker_restart_request = TRUE;
+	}
 
 	auth_worker_refresh_proctitle(args[1]);
 	if (strcmp(args[1], "PASSV") == 0)
