@@ -70,6 +70,20 @@ static void oauth2_verify_callback(enum passdb_result result,
 			json_append_escaped(error, error_fields[i+1]);
 			str_append_c(error, '"');
 		}
+		/* FIXME: HORRIBLE HACK - REMOVE ME!!!
+		   It is because the mech has not been implemented properly
+		   that we need to pass the config url in this strange way.
+
+		   This **must** be removed from here and db-oauth2 once the
+		   validation result et al is handled here.
+		*/
+		if (request->openid_config_url != NULL) {
+			if (str_len(error) > 0)
+				str_append_c(error, ',');
+			str_printfa(error, "\"openid-configuration\":\"");
+			json_append_escaped(error, request->openid_config_url);
+			str_append_c(error, '"');
+		}
 		str_append_c(error, '}');
 		auth_request_handler_reply_continue(request, str_data(error),
 						    str_len(error));

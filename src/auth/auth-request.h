@@ -118,6 +118,9 @@ struct auth_request {
 	struct auth_request_handler *handler;
         struct auth_master_connection *master;
 
+	/* FIXME: Remove this once mech-oauth2 correctly does the processing */
+	const char *openid_config_url;
+
 	unsigned int connect_uid;
 	unsigned int client_pid;
 	unsigned int id;
