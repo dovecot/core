@@ -737,6 +737,7 @@ client_auth_handle_reply(struct client *client,
 			reason = "Logged in, but you should use this server instead.";
 
 		if (reply->nologin) {
+			client->auth_nologin_referral = TRUE;
 			client_auth_result(client,
 				CLIENT_AUTH_RESULT_REFERRAL_NOLOGIN,
 				reply, reason);

@@ -1077,6 +1077,8 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 	if (client->auth_process_comm_fail)
 		return "(auth process communication failure)";
 
+	if (client->auth_nologin_referral)
+		return "(auth referral)";
 	if (client->proxy_auth_failed)
 		return "(proxy dest auth failed)";
 	if (client->auth_successes > 0) {
