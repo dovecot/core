@@ -326,7 +326,7 @@ test_compression_handler(const struct compression_handler *handler,
 		if (i_rand_limit(3) == 0)
 			buf[i] = i_rand_limit(4);
 		else
-			buf[i] = i % UCHAR_MAX;
+			buf[i] = i & UCHAR_MAX;
 	}
 	for (i = 0; i < 1024*128 / sizeof(buf); i++) {
 		sha1_loop(&sha1, buf, sizeof(buf));
