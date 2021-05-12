@@ -41,6 +41,7 @@ void luaL_setmetatable(lua_State *L, const char *tname)
  * Lua 5.3 added lua_isinteger() which tells us whether or not the input is
  * an integer.  In Lua 5.1 and 5.2, we have to emulate it.
  */
+#undef lua_isinteger
 int lua_isinteger(lua_State *L, int idx)
 {
 	int isnum;
