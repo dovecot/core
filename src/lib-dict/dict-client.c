@@ -580,7 +580,9 @@ static int client_dict_connect(struct client_dict *dict, const char **error_r)
 				DICT_PROTOCOL_CMD_HELLO,
 				DICT_CLIENT_PROTOCOL_MAJOR_VERSION,
 				DICT_CLIENT_PROTOCOL_MINOR_VERSION,
-				dict->value_type, dict->username, dict->uri);
+				dict->value_type,
+				str_tabescape(dict->username),
+				str_tabescape(dict->uri));
 	o_stream_nsend_str(dict->conn.conn.output, query);
 	client_dict_add_timeout(dict);
 	return 0;
