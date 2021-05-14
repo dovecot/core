@@ -110,6 +110,10 @@ acl_mailbox_try_list_fast(struct mailbox_list_iterate_context *_ctx)
 		return;
 	}
 
+	/* If ACLs are ignored for this namespace don't try fast listing. */
+	if (alist->ignore_acls)
+		return;
+
 	/* if this namespace's default rights contain LOOKUP, we'll need to
 	   go through all mailboxes in any case. */
 	idxp = alist->rights.acl_storage_right_idx + ACL_STORAGE_RIGHT_LOOKUP;
