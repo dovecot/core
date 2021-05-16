@@ -31,7 +31,7 @@
 #include <unistd.h>
 #include <dirent.h>
 
-#define CLIENT_PROGRESS_TIMEOUT     30
+#define CLIENT_PROGRESS_TIMEOUT     60
 #define SERVER_KILL_TIMEOUT_SECS    20
 #define MAX_PARALLEL_PENDING        200
 
