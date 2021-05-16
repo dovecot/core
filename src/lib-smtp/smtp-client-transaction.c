@@ -983,7 +983,7 @@ void smtp_client_transaction_start_empty(
 	i_assert(trans->mail_head == NULL);
 
 	(void)smtp_client_transaction_mail_new(trans, mail_from, mail_params);
-	
+
 	smtp_client_transaction_start(trans, mail_callback, context);
 }
 
