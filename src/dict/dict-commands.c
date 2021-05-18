@@ -221,10 +221,21 @@ cmd_lookup_callback(const struct dict_lookup_result *result,
 
 static int cmd_lookup(struct dict_connection_cmd *cmd, const char *line)
 {
-	/* <key> */
+	const char *const *args;
+	const char *username;
+
+	args = t_strsplit_tabescaped(line);
+
+	if (str_array_length(args) < 1) {
+		e_error(cmd->event, "LOOKUP: broken input");
+		return -1;
+	}
+	username = args[1];
+
+	/* <key> [<username>] */
 	dict_connection_cmd_async(cmd);
-	event_add_str(cmd->event, "key", line);
-	dict_lookup_async(cmd->conn->dict, NULL, line, cmd_lookup_callback, cmd);
+	event_add_str(cmd->event, "key", args[0]);
+	dict_lookup_async(cmd->conn->dict, NULL, args[0], cmd_lookup_callback, cmd);
 	return 1;
 }
 
@@ -343,6 +354,7 @@ static void cmd_iterate_callback(struct dict_connection_cmd *cmd)
 static int cmd_iterate(struct dict_connection_cmd *cmd, const char *line)
 {
 	const char *const *args;
+	const char *username;
 	unsigned int flags;
 	uint64_t max_rows;
 
@@ -354,8 +366,9 @@ static int cmd_iterate(struct dict_connection_cmd *cmd, const char *line)
 		return -1;
 	}
 	dict_connection_cmd_async(cmd);
+	username = args[3];
 
-	/* <flags> <max_rows> <path> */
+	/* <flags> <max_rows> <path> [<username>] */
 	flags |= DICT_ITERATE_FLAG_ASYNC;
 	event_add_str(cmd->event, "key", args[2]);
 	cmd->iter = dict_iterate_init(cmd->conn->dict, NULL, args[2], flags);
@@ -403,11 +416,22 @@ dict_connection_transaction_array_remove(struct dict_connection *conn,
 
 static int cmd_begin(struct dict_connection_cmd *cmd, const char *line)
 {
+	const char *const *args;
 	struct dict_connection_transaction *trans;
 	unsigned int id;
+	const char *username;
 
-	if (str_to_uint(line, &id) < 0) {
-		e_error(cmd->event, "Invalid transaction ID %s", line);
+	args = t_strsplit_tabescaped(line);
+
+	if (str_array_length(args) < 1) {
+		e_error(cmd->event, "BEGIN: broken input");
+		return -1;
+	}
+	username = args[1];
+
+	/* <id> [<username>] */
+	if (str_to_uint(args[0], &id) < 0) {
+		e_error(cmd->event, "Invalid transaction ID %s", args[0]);
 		return -1;
 	}
 	if (dict_connection_transaction_lookup(cmd->conn, id) != NULL) {
@@ -418,7 +442,6 @@ static int cmd_begin(struct dict_connection_cmd *cmd, const char *line)
 	if (!array_is_created(&cmd->conn->transactions))
 		i_array_init(&cmd->conn->transactions, 4);
 
-	/* <id> */
 	trans = array_append_space(&cmd->conn->transactions);
 	trans->id = id;
 	trans->conn = cmd->conn;
