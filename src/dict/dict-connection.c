@@ -87,6 +87,8 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 			conn->name);
 		return -1;
 	}
+	event_set_append_log_prefix(conn->conn.event,
+				    t_strdup_printf("%s: ", conn->name));
 	event_add_str(conn->conn.event, "dict_name", conn->name);
 	uri = strlist[i+1];
 
