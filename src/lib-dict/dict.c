@@ -730,3 +730,17 @@ const char *dict_unescape_string(const char *str)
 	}
 	return str_c(ret);
 }
+
+void dict_op_settings_dup(const struct dict_op_settings *source,
+			  struct dict_op_settings_private *dest_r)
+{
+	i_zero(dest_r);
+	dest_r->username = i_strdup(source->username);
+	dest_r->home_dir = i_strdup(source->home_dir);
+}
+
+void dict_op_settings_private_free(struct dict_op_settings_private *set)
+{
+	i_free(set->username);
+	i_free(set->home_dir);
+}

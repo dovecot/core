@@ -49,6 +49,11 @@ struct dict_vfuncs {
 
 struct dict_commit_callback_ctx;
 
+struct dict_op_settings_private {
+	char *username;
+	char *home_dir;
+};
+
 struct dict {
 	const char *name;
 
@@ -103,5 +108,11 @@ extern struct dict_transaction_context dict_transaction_unsupported;
 
 void dict_pre_api_callback(struct dict *dict);
 void dict_post_api_callback(struct dict *dict);
+
+/* Duplicate an object of type dict_op_settings. Used for initializing/freeing
+   iterator and transaction contexts. */
+void dict_op_settings_dup(const struct dict_op_settings *source,
+			  struct dict_op_settings_private *dest_r);
+void dict_op_settings_private_free(struct dict_op_settings_private *set);
 
 #endif
