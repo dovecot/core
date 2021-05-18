@@ -167,7 +167,10 @@ void sql_unref(struct sql_db **_db)
 
 enum sql_db_flags sql_get_flags(struct sql_db *db)
 {
-	return db->flags;
+	if (db->v.get_flags != NULL)
+		return db->v.get_flags(db);
+	else
+		return db->flags;
 }
 
 int sql_connect(struct sql_db *db)
