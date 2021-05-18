@@ -1113,7 +1113,24 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 
 	str_append_str(prefix, suffix);
 	str_append_c(prefix, ')');
-	if ((sql_get_flags(dict->db) & SQL_DB_FLAG_ON_DUPLICATE_KEY) == 0) {
+
+	enum sql_db_flags flags = sql_get_flags(dict->db);
+	if ((flags & SQL_DB_FLAG_ON_DUPLICATE_KEY) != 0)
+		str_append(prefix, " ON DUPLICATE KEY UPDATE ");
+	else if ((flags & SQL_DB_FLAG_ON_CONFLICT_DO) != 0) {
+		str_append(prefix, " ON CONFLICT (");
+		for (i = 0; i < count; i++) {
+			if (i > 0)
+				str_append_c(prefix, ',');
+			str_append(prefix, pattern_fields[i].name);
+		}
+		if (build->add_username) {
+			if (count > 0)
+				str_append_c(prefix, ',');
+			str_append(prefix, fields[0].map->username_field);
+		}
+		str_append(prefix, ") DO UPDATE SET ");
+	} else {
 		*stmt_r = sql_dict_transaction_stmt_init(ctx, str_c(prefix), &params);
 		return 0;
 	}
@@ -1121,7 +1138,6 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 	/* If the row already exists, UPDATE it instead. The pattern_values
 	   don't need to be updated here, because they are expected to be part
 	   of the row's primary key. */
-	str_append(prefix, " ON DUPLICATE KEY UPDATE ");
 	for (i = 0; i < field_count; i++) {
 		const char *first_value_field =
 			t_strcut(fields[i].map->value_field, ',');
