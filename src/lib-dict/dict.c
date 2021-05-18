@@ -155,10 +155,8 @@ void dict_deinit(struct dict **_dict)
 
 	*_dict = NULL;
 
-	i_assert(dict->iter_count == 0);
-	i_assert(dict->transaction_count == 0);
+	i_assert(!dict_have_async_operations(dict));
 	i_assert(dict->transactions == NULL);
-	i_assert(dict->commits == NULL);
 	dict_unref(&dict);
 }
 
@@ -173,6 +171,13 @@ void dict_wait(struct dict *dict)
 		next = commit->next;
 		dict_commit_async_timeout(commit);
 	}
+}
+
+bool dict_have_async_operations(struct dict *dict)
+{
+	return dict->iter_count != 0 ||
+		dict->transaction_count != 0 ||
+		dict->commits != NULL;
 }
 
 bool dict_switch_ioloop(struct dict *dict)

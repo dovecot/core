@@ -93,6 +93,8 @@ int dict_init(const char *uri, const struct dict_settings *set,
 void dict_deinit(struct dict **dict);
 /* Wait for all pending asynchronous operations to finish. */
 void dict_wait(struct dict *dict);
+/* Returns TRUE if there are any pending async operations. */
+bool dict_have_async_operations(struct dict *dict);
 /* Switch the dict to the current ioloop. This can be used to do dict_wait()
    among other IO work. Returns TRUE if there is actually some work that can
    be waited on. */
