@@ -763,7 +763,8 @@ driver_mysql_escape_blob(struct sql_db *_db ATTR_UNUSED,
 
 const struct sql_db driver_mysql_db = {
 	.name = "mysql",
-	.flags = SQL_DB_FLAG_BLOCKING | SQL_DB_FLAG_POOLED,
+	.flags = SQL_DB_FLAG_BLOCKING | SQL_DB_FLAG_POOLED |
+		 SQL_DB_FLAG_ON_DUPLICATE_KEY,
 
 	.v = {
 		.init_full = driver_mysql_init_full_v,
