@@ -417,6 +417,25 @@ driver_sqlpool_get_sync_connection(struct sqlpool_db *db,
 	return FALSE;
 }
 
+static enum sql_db_flags driver_sqlpool_get_flags(struct sql_db *_db)
+{
+	struct sqlpool_db *db = (struct sqlpool_db *)_db;
+	const struct sqlpool_connection *conn, *last_conn = NULL;
+
+	/* try to use a connected db */
+	array_foreach(&db->all_connections, conn) {
+		if (SQL_DB_IS_READY(conn->db))
+			return sql_get_flags(conn->db);
+		last_conn = conn;
+	}
+	/* fallback to the last db, if there is any */
+	if (last_conn != NULL)
+		return sql_get_flags(last_conn->db);
+	/* Just use the default flags. The flags shouldn't be worth having
+	   to create a connection. */
+	return _db->flags;
+}
+
 static int
 driver_sqlpool_parse_hosts(struct sqlpool_db *db, const char *connect_string,
 			   const char **error_r)
@@ -870,6 +889,7 @@ struct sql_db driver_sqlpool_db = {
 	"",
 
 	.v = {
+		.get_flags = driver_sqlpool_get_flags,
 		.deinit = driver_sqlpool_deinit,
 		.connect = driver_sqlpool_connect,
 		.disconnect = driver_sqlpool_disconnect,
