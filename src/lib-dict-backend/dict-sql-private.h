@@ -8,8 +8,6 @@ struct sql_dict {
 	struct sql_db *db;
 	const char *username;
 	const struct dict_sql_settings *set;
-
-	bool has_on_duplicate_key:1;
 };
 
 #endif

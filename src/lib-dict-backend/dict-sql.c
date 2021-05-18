@@ -112,8 +112,6 @@ sql_dict_init(struct dict *driver, const char *uri,
 	sql_set.driver = driver->name;
 	sql_set.connect_string = dict->set->connect;
 	sql_set.event_parent = set->event_parent;
-	/* currently pgsql and sqlite don't support "ON DUPLICATE KEY" */
-	dict->has_on_duplicate_key = strcmp(driver->name, "mysql") == 0;
 
 	if (sql_db_cache_new(dict_sql_db_cache, &sql_set, &dict->db, error_r) < 0) {
 		pool_unref(&pool);
@@ -1115,7 +1113,7 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 
 	str_append_str(prefix, suffix);
 	str_append_c(prefix, ')');
-	if (!dict->has_on_duplicate_key) {
+	if ((sql_get_flags(dict->db) & SQL_DB_FLAG_ON_DUPLICATE_KEY) == 0) {
 		*stmt_r = sql_dict_transaction_stmt_init(ctx, str_c(prefix), &params);
 		return 0;
 	}
