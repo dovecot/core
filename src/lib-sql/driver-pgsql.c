@@ -194,6 +194,10 @@ static void connect_callback(struct pgsql_db *db)
 	if (io_dir == 0) {
 		db->connect_state = "connected";
 		timeout_remove(&db->to_connect);
+		if (PQserverVersion(db->pg) >= 90500) {
+			/* v9.5+ */
+			db->api.flags |= SQL_DB_FLAG_ON_CONFLICT_DO;
+		}
 		driver_pgsql_set_state(db, SQL_DB_STATE_IDLE);
 		if (db->ioloop != NULL) {
 			/* driver_pgsql_sync_init() waiting for connection to

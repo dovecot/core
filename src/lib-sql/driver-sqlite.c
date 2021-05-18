@@ -481,7 +481,11 @@ driver_sqlite_escape_blob(struct sql_db *_db ATTR_UNUSED,
 
 const struct sql_db driver_sqlite_db = {
 	.name = "sqlite",
-	.flags = SQL_DB_FLAG_BLOCKING,
+	.flags =
+#if SQLITE_VERSION_NUMBER >= 3024000
+		SQL_DB_FLAG_ON_CONFLICT_DO |
+#endif
+		SQL_DB_FLAG_BLOCKING,
 
 	.v = {
 		.init_full = driver_sqlite_init_full_v,
