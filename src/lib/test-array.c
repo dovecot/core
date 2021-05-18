@@ -12,10 +12,17 @@ static void test_array_elem(void)
 {
 	ARRAY(struct foo *) foos;
 	struct foo *nfoo;
+	struct foo *foo;
+	struct foo local_foo;
 	unsigned int i;
 
 	test_begin("array elem");
 	t_array_init(&foos, 32);
+
+	foo = &local_foo;
+	array_foreach_elem(&foos, foo)
+		test_assert(FALSE);
+	test_assert(foo == &local_foo);
 
 	for (i = 1; i <= 3; i++) {
 		nfoo = t_new(struct foo, 1);
@@ -25,7 +32,7 @@ static void test_array_elem(void)
 
 	struct foo *const *foo_p = array_idx(&foos, 1);
 	unsigned int idx = 1;
-	struct foo *foo = array_idx_elem(&foos, idx++);
+	foo = array_idx_elem(&foos, idx++);
 	/* make sure idx isn't expanded multiple times in the macro */
 	test_assert(idx == 2);
 	test_assert(*foo_p == foo);
@@ -35,6 +42,7 @@ static void test_array_elem(void)
 		test_assert(foo->a == i);
 		i++;
 	}
+	test_assert(foo->a == i-1);
 	test_end();
 }
 
@@ -77,6 +85,8 @@ static void test_array_foreach(void)
 		test_assert(foo->b == i);
 		test_assert(foo->c == i);
 	}
+	/* points past the last element */
+	test_assert(foo == array_idx(&foos, i)+1);
 	test_end();
 }
 static void test_array_foreach_elem_string(void)
