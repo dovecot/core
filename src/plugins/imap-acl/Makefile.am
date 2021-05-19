@@ -7,7 +7,9 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage/index \
 	-I$(top_srcdir)/src/lib-storage/index/imapc \
 	-I$(top_srcdir)/src/imap \
-	-I$(top_srcdir)/src/plugins/acl
+	-I$(top_srcdir)/src/plugins/acl \
+	-I$(top_srcdir)/src/lib-imap-client \
+	-I$(top_srcdir)/src/lib-ssl-iostream
 
 imap_moduledir = $(moduledir)
 
