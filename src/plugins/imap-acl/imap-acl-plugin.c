@@ -69,6 +69,7 @@ static imap_client_created_func_t *next_hook_client_created;
 
 enum imap_acl_cmd {
 	IMAP_ACL_CMD_MYRIGHTS = 0,
+	IMAP_ACL_CMD_GETACL,
 };
 
 const char *imapc_acl_cmd_names[] = {
@@ -366,6 +367,43 @@ imapc_acl_myrights_untagged_cb(const struct imapc_untagged_reply *reply,
 	ctx->expected_box = NULL;
 }
 
+static void
+imapc_acl_getacl_untagged_cb(const struct imapc_untagged_reply *reply,
+			     struct imapc_storage_client *client)
+{
+	struct imap_acl_storage *iacl_storage =
+		IMAP_ACL_CONTEXT_REQUIRE(&client->_storage->storage);
+	struct imapc_acl_context *ctx = iacl_storage->iacl_ctx;
+	const char *key, *value;
+	unsigned int i;
+
+	if (!imap_arg_get_astring(&reply->args[0], &value) ||
+	    ctx->expected_box == NULL)
+		return;
+
+	/* Untagged reply was not meant for this mailbox */
+	if (!imapc_mailbox_name_equals(ctx->expected_box, value))
+		return;
+
+	/* Parse key:value pairs of user:right and append them
+	   to the prepared reply. */
+	for (i = 1; reply->args[i].type != IMAP_ARG_EOL; i += 2) {
+		if (imap_arg_get_astring(&reply->args[i], &key) &&
+		    imap_arg_get_astring(&reply->args[i+1], &value)) {
+			str_append(iacl_storage->iacl_ctx->reply, key);
+			str_append_c(iacl_storage->iacl_ctx->reply, ' ');
+			str_append(iacl_storage->iacl_ctx->reply, value);
+			str_append_c(iacl_storage->iacl_ctx->reply, ' ');
+		}  else {
+			/* Rights could not been parsed clear prepared reply. */
+			str_truncate(ctx->reply, 0);
+			break;
+		}
+	}
+	/* Just handle one untagged reply. */
+	ctx->expected_box = NULL;
+}
+
 static struct imapc_acl_context *
 imap_acl_cmd_context_alloc(struct imapc_mailbox *mbox)
 {
@@ -417,6 +455,16 @@ imapc_acl_prepare_cmd(string_t *reply_r, const char *mailbox,
 		str_append_c(reply_r, ' ');
 
 		str_append(proxy_cmd_str, "MYRIGHTS ");
+		/* Strip namespace prefix. */
+		imap_append_astring(proxy_cmd_str, mailbox+prefix_len);
+		break;
+	case IMAP_ACL_CMD_GETACL:
+		/* Prepare client untagged reply. */
+		str_append(reply_r, "* ACL ");
+		imap_append_astring(reply_r, mailbox);
+		str_append_c(reply_r, ' ');
+
+		str_append(proxy_cmd_str, "GETACL ");
 		/* Strip namespace prefix. */
 		imap_append_astring(proxy_cmd_str, mailbox+prefix_len);
 		break;
@@ -474,6 +522,8 @@ static bool imap_acl_proxy_cmd(struct mailbox *box,
 	iacl_ctx = imap_acl_cmd_context_register(mbox, proxy_cmd);
 
 	/* Register callbacks for untagged replies */
+	imapc_storage_client_register_untagged(mbox->storage->client, "ACL",
+					       imapc_acl_getacl_untagged_cb);
 	imapc_storage_client_register_untagged(mbox->storage->client, "MYRIGHTS",
 					       imapc_acl_myrights_untagged_cb);
 
@@ -494,6 +544,11 @@ static bool imap_acl_proxy_cmd(struct mailbox *box,
 		/* Command was OK on remote backend, send untagged reply from
 		   ctx.str and tagged reply. */
 		switch (iacl_ctx->proxy_cmd) {
+		case IMAP_ACL_CMD_GETACL:
+			imapc_acl_send_client_reply(iacl_ctx,
+						    orig_cmd,
+						    "OK Getacl complete.");
+			break;
 		case IMAP_ACL_CMD_MYRIGHTS:
 			imapc_acl_send_client_reply(iacl_ctx,
 						    orig_cmd,
@@ -506,6 +561,7 @@ static bool imap_acl_proxy_cmd(struct mailbox *box,
 
 	/* Unregister callbacks for untagged replies */
 	imapc_storage_client_unregister_untagged(mbox->storage->client, "MYRIGHTS");
+	imapc_storage_client_unregister_untagged(mbox->storage->client, "ACL");
 	return TRUE;
 }
 
@@ -553,7 +609,10 @@ static bool cmd_getacl(struct client_command_context *cmd)
 
 	box = mailbox_alloc(ns->list, mailbox,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
-	imap_acl_cmd_getacl(box, ns, orig_mailbox, cmd);
+	/* If the location is remote and imapc_feature acl is enabled, proxy the
+	   command to the configured imapc location. */
+	if (!imap_acl_proxy_cmd(box, orig_mailbox, NULL, ns->prefix_len, cmd, IMAP_ACL_CMD_GETACL))
+		imap_acl_cmd_getacl(box, ns, orig_mailbox, cmd);
 	mailbox_free(&box);
 	return TRUE;
 }
