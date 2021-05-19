@@ -71,6 +71,7 @@ enum imap_acl_cmd {
 	IMAP_ACL_CMD_MYRIGHTS = 0,
 	IMAP_ACL_CMD_GETACL,
 	IMAP_ACL_CMD_SETACL,
+	IMAP_ACL_CMD_DELETEACL,
 };
 
 const char *imapc_acl_cmd_names[] = {
@@ -477,6 +478,14 @@ imapc_acl_prepare_cmd(string_t *reply_r, const char *mailbox,
 		str_append_c(proxy_cmd_str, ' ');
 		str_append(proxy_cmd_str, cmd_args);
 		break;
+	case IMAP_ACL_CMD_DELETEACL:
+		/* No contents in untagged replies for DELETEACL */
+		str_append(proxy_cmd_str, "DELETEACL ");
+		/* Strip namespace prefix. */
+		imap_append_astring(proxy_cmd_str, mailbox+prefix_len);
+		str_append_c(proxy_cmd_str, ' ');
+		str_append(proxy_cmd_str, cmd_args);
+		break;
 	default:
 		i_unreached();
 	}
@@ -553,6 +562,9 @@ static bool imap_acl_proxy_cmd(struct mailbox *box,
 		/* Command was OK on remote backend, send untagged reply from
 		   ctx.str and tagged reply. */
 		switch (iacl_ctx->proxy_cmd) {
+		case IMAP_ACL_CMD_DELETEACL:
+			client_send_tagline(orig_cmd, "OK Deleteacl complete.");
+			break;
 		case IMAP_ACL_CMD_GETACL:
 			imapc_acl_send_client_reply(iacl_ctx,
 						    orig_cmd,
@@ -1034,6 +1046,7 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 	struct mailbox *box;
 	struct mail_namespace *ns;
 	const char *mailbox, *orig_mailbox, *identifier;
+	string_t *proxy_cmd_args = t_str_new(64);
 
 	if (!client_read_string_args(cmd, 2, &mailbox, &identifier))
 		return FALSE;
@@ -1048,10 +1061,17 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 	if (ns == NULL)
 		return TRUE;
 
+	/* Escaped identifer for proxy_cmd_args */
+	imap_append_astring(proxy_cmd_args, identifier);
+
 	box = mailbox_alloc(ns->list, mailbox,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
 
-	imap_acl_cmd_deleteacl(box, orig_mailbox, identifier, cmd);
+	/* If the location is remote and imapc_feature acl is enabled, proxy the
+	   command to the configured imapc location. */
+	if (!imap_acl_proxy_cmd(box, orig_mailbox, str_c(proxy_cmd_args),
+				ns->prefix_len, cmd, IMAP_ACL_CMD_DELETEACL))
+		imap_acl_cmd_deleteacl(box, orig_mailbox, identifier, cmd);
 	mailbox_free(&box);
 	return TRUE;
 }
