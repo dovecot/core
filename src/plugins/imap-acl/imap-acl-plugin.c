@@ -70,6 +70,7 @@ static imap_client_created_func_t *next_hook_client_created;
 enum imap_acl_cmd {
 	IMAP_ACL_CMD_MYRIGHTS = 0,
 	IMAP_ACL_CMD_GETACL,
+	IMAP_ACL_CMD_SETACL,
 };
 
 const char *imapc_acl_cmd_names[] = {
@@ -468,6 +469,14 @@ imapc_acl_prepare_cmd(string_t *reply_r, const char *mailbox,
 		/* Strip namespace prefix. */
 		imap_append_astring(proxy_cmd_str, mailbox+prefix_len);
 		break;
+	case IMAP_ACL_CMD_SETACL:
+		/* No contents in untagged replies for SETACL */
+		str_append(proxy_cmd_str, "SETACL ");
+		/* Strip namespace prefix. */
+		imap_append_astring(proxy_cmd_str, mailbox+prefix_len);
+		str_append_c(proxy_cmd_str, ' ');
+		str_append(proxy_cmd_str, cmd_args);
+		break;
 	default:
 		i_unreached();
 	}
@@ -553,6 +562,9 @@ static bool imap_acl_proxy_cmd(struct mailbox *box,
 			imapc_acl_send_client_reply(iacl_ctx,
 						    orig_cmd,
 						    "OK Myrights complete.");
+			break;
+		case IMAP_ACL_CMD_SETACL:
+			client_send_tagline(orig_cmd, "OK Setacl complete.");
 			break;
 		default:
 			i_unreached();
@@ -955,6 +967,7 @@ static bool cmd_setacl(struct client_command_context *cmd)
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	const char *mailbox, *orig_mailbox, *identifier, *rights;
+	string_t *proxy_cmd_args = t_str_new(64);
 
 	if (!client_read_string_args(cmd, 3, &mailbox, &identifier, &rights))
 		return FALSE;
@@ -965,13 +978,23 @@ static bool cmd_setacl(struct client_command_context *cmd)
 		return TRUE;
 	}
 
+	/* Keep original identifer for proxy_cmd_args */
+	imap_append_astring(proxy_cmd_args, identifier);
+	str_append_c(proxy_cmd_args, ' ');
+	/* Append original rights for proxy_cmd_args */
+	imap_append_astring(proxy_cmd_args, rights);
+
 	ns = client_find_namespace(cmd, &mailbox);
 	if (ns == NULL)
 		return TRUE;
 
 	box = mailbox_alloc(ns->list, mailbox,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
-	imap_acl_cmd_setacl(box, ns, orig_mailbox, identifier, rights, cmd);
+	/* If the location is remote and imapc_feature acl is enabled, proxy the
+	   command to the configured imapc location. */
+	if (!imap_acl_proxy_cmd(box, orig_mailbox, str_c(proxy_cmd_args),
+				ns->prefix_len, cmd, IMAP_ACL_CMD_SETACL))
+		imap_acl_cmd_setacl(box, ns, orig_mailbox, identifier, rights, cmd);
 	mailbox_free(&box);
 	return TRUE;
 }
