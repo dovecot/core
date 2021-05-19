@@ -430,7 +430,7 @@ static void imap_sync_vanished(struct imap_sync_context *ctx)
 		start_uid = 0; prev_uid = 0;
 		for (seq = seqs[i].seq1; seq <= seqs[i].seq2; seq++) {
 			mail_set_seq(ctx->mail, seq);
-			if (prev_uid != ctx->mail->uid - 1) {
+			if (prev_uid == 0 || prev_uid + 1 != ctx->mail->uid) {
 				if (start_uid != 0) {
 					if (!comma)
 						comma = TRUE;
