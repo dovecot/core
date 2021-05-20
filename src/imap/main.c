@@ -349,9 +349,9 @@ static void main_stdio_run(const char *username)
 				 &request);
 	}
 
-	client_send_login_reply(client, &request);
 	if (client_create_finish(client, &error) < 0)
 		i_fatal("%s", error);
+	client_send_login_reply(client, &request);
 	client_add_input_finalize(client);
 	/* client may be destroyed now */
 }
@@ -401,8 +401,10 @@ login_client_connected(const struct master_login_client *login_client,
 			 login_client->auth_req.data_size, &request);
 
 	/* finish initializing the user (see comment in main()) */
-	client_send_login_reply(client, &request);
 	if (client_create_finish(client, &error) < 0) {
+		/* Even though client initialization failed, send the login
+		   OK reply so client doesn't think that the login failed. */
+		client_send_login_reply(client, &request);
 		if (write_full(login_client->fd, MSG_BYE_INTERNAL_ERROR,
 			       strlen(MSG_BYE_INTERNAL_ERROR)) < 0)
 			if (errno != EAGAIN && errno != EPIPE)
@@ -413,6 +415,7 @@ login_client_connected(const struct master_login_client *login_client,
 		client_destroy(client, error);
 		return;
 	}
+	client_send_login_reply(client, &request);
 
 	client_add_input_finalize(client);
 	/* client may be destroyed now */
