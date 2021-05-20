@@ -183,44 +183,48 @@ client_parse_imap_login_request(const unsigned char *data, size_t len,
 }
 
 static void
-client_add_input_capability(struct client *client, const unsigned char *client_input,
-			    size_t client_input_size)
+client_add_input(struct client *client, const unsigned char *client_input,
+		 size_t client_input_size, struct imap_login_request *request_r)
 {
-	struct ostream *output;
-	struct imap_login_request request;
-
 	if (client_input_size > 0) {
 		client_parse_imap_login_request(client_input, client_input_size,
-						&request);
-		if (request.input_size > 0) {
-			client_add_istream_prefix(client, request.input,
-						  request.input_size);
+						request_r);
+		if (request_r->input_size > 0) {
+			client_add_istream_prefix(client, request_r->input,
+						  request_r->input_size);
 		}
 	} else {
 		/* IMAPLOGINTAG environment is compatible with mailfront */
-		i_zero(&request);
-		request.tag = getenv("IMAPLOGINTAG");
+		i_zero(request_r);
+		request_r->tag = getenv("IMAPLOGINTAG");
 	}
+}
+
+static void
+client_send_login_reply(struct client *client,
+			const struct imap_login_request *request)
+{
+	struct ostream *output;
 
 	/* cork/uncork around the OK reply to minimize latency */
 	output = client->output;
 	o_stream_ref(output);
 	o_stream_cork(output);
-	if (request.tag == NULL) {
+	if (request->tag == NULL) {
 		client_send_line(client, t_strconcat(
 			"* PREAUTH [CAPABILITY ",
 			str_c(client->capability_string), "] "
 			"Logged in as ", client->user->username, NULL));
-	} else if (request.send_untagged_capability) {
+	} else if (request->send_untagged_capability) {
 		/* client doesn't seem to understand tagged capabilities. send
 		   untagged instead and hope that it works. */
 		client_send_line(client, t_strconcat("* CAPABILITY ",
 			str_c(client->capability_string), NULL));
 		client_send_line(client,
-				 t_strconcat(request.tag, " OK Logged in", NULL));
+				 t_strconcat(request->tag, " OK Logged in", NULL));
 	} else {
 		client_send_line(client, t_strconcat(
-			request.tag, " OK [CAPABILITY ",
+			request->tag, " OK [CAPABILITY ",
 			str_c(client->capability_string), "] Logged in", NULL));
 	}
 	o_stream_uncork(output);
@@ -317,6 +321,7 @@ static void main_stdio_run(const char *username)
 {
 	struct client *client;
 	struct mail_storage_service_input input;
+	struct imap_login_request request;
 	const char *value, *error, *input_base64;
 
 	i_zero(&input);
@@ -337,12 +342,14 @@ static void main_stdio_run(const char *username)
 
 	input_base64 = getenv("CLIENT_INPUT");
 	if (input_base64 == NULL)
-		client_add_input_capability(client, NULL, 0);
+		client_add_input(client, NULL, 0, &request);
 	else {
 		const buffer_t *input_buf = t_base64_decode_str(input_base64);
-		client_add_input_capability(client, input_buf->data, input_buf->used);
+		client_add_input(client, input_buf->data, input_buf->used,
+				 &request);
 	}
 
+	client_send_login_reply(client, &request);
 	if (client_create_finish(client, &error) < 0)
 		i_fatal("%s", error);
 	client_add_input_finalize(client);
@@ -356,6 +363,7 @@ login_client_connected(const struct master_login_client *login_client,
 #define MSG_BYE_INTERNAL_ERROR "* BYE "MAIL_ERRSTR_CRITICAL_MSG"\r\n"
 	struct mail_storage_service_input input;
 	struct client *client;
+	struct imap_login_request request;
 	enum mail_auth_request_flags flags = login_client->auth_req.flags;
 	const char *error;
 
@@ -389,10 +397,11 @@ login_client_connected(const struct master_login_client *login_client,
 	}
 	if ((flags & MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION) != 0)
 		client->tls_compression = TRUE;
-	client_add_input_capability(client, login_client->data,
-			 login_client->auth_req.data_size);
+	client_add_input(client, login_client->data,
+			 login_client->auth_req.data_size, &request);
 
 	/* finish initializing the user (see comment in main()) */
+	client_send_login_reply(client, &request);
 	if (client_create_finish(client, &error) < 0) {
 		if (write_full(login_client->fd, MSG_BYE_INTERNAL_ERROR,
 			       strlen(MSG_BYE_INTERNAL_ERROR)) < 0)
