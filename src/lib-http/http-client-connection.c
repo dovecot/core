@@ -922,32 +922,6 @@ http_client_connection_return_response(struct http_client_connection *conn,
 	return FALSE;
 }
 
-static const char *
-http_client_request_add_event_headers(struct http_client_request *req,
-				      const struct http_response *response)
-{
-	if (req->event_headers == NULL)
-		return "";
-
-	string_t *str = t_str_new(128);
-	for (unsigned int i = 0; req->event_headers[i] != NULL; i++) {
-		const char *hdr_name = req->event_headers[i];
-		const char *value =
-			http_response_header_get(response, hdr_name);
-
-		if (value == NULL)
-			continue;
-
-		str_append(str, str_len(str) == 0 ? " (" : ", ");
-		event_add_str(req->event,
-			      t_strconcat("http_hdr_", hdr_name, NULL), value);
-		str_printfa(str, "%s:%s", hdr_name, value);
-	}
-	if (str_len(str) > 0)
-		str_append_c(str, ')');
-	return str_c(str);
-}
-
 static bool
 http_client_connection_handle_response(struct http_client_connection *conn,
 				       struct http_client_request *req,
@@ -1011,6 +985,7 @@ http_client_connection_process_response(struct http_client_connection *conn,
 {
 	struct http_client_request *req_ref;
 	bool aborted, early = FALSE;
+	int ret;
 
 	if (req == NULL) {
 		/* Server sent response without any requests in the wait
@@ -1039,38 +1014,10 @@ http_client_connection_process_response(struct http_client_connection *conn,
 	/* Got some response; cancel response timeout */
 	timeout_remove(&conn->to_response);
 
-	if (resp->status / 100 == 1) {
-		return http_client_request_1xx_response(req, resp);
-	} else if ((!req->payload_sync || req->payload_sync_continue) &&
-		   !req->payload_finished &&
-		   req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT) {
-		/* Got early response from server while we're still sending
-		   request payload. we cannot recover from this reliably, so we
-		   stop sending payload and close the connection once the
-		   response is processed */
-		e_debug(conn->event,
-			"Got early input from server; "
-			"request payload not completely sent "
-			"(will close connection)");
-		o_stream_unset_flush_callback(conn->conn.output);
-		conn->output_broken = early = TRUE;
-	}
-
-	const char *suffix =
-		http_client_request_add_event_headers(req, resp);
-	e_debug(conn->event,
-		"Got %u response for request %s: %s%s "
-		"(took %lld ms + %lld ms in queue)",
-		resp->status, http_client_request_label(req),
-		resp->reason, suffix,
-		timeval_diff_msecs(&req->response_time, &req->sent_time),
-		timeval_diff_msecs(&req->sent_time, &req->submit_time));
-
-	/* Make sure connection output is unlocked if 100-continue failed */
-	if (req->payload_sync && !req->payload_sync_continue) {
-		e_debug(conn->event, "Unlocked output");
-		conn->output_locked = FALSE;
-	}
+	/* Perform response pre-checks */
+	ret = http_client_request_check_response(req, resp, &early);
+	if (ret <= 0)
+		return ret;
 
 	/* Remove request from queue */
 	array_pop_front(&conn->request_wait_list);
