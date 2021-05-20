@@ -63,13 +63,42 @@ const char *imap_acl_plugin_version = DOVECOT_ABI_VERSION;
 static struct module *imap_acl_module;
 static imap_client_created_func_t *next_hook_client_created;
 
+static int
+acl_mailbox_open_allocated_as_admin(struct client_command_context *cmd,
+				    struct mailbox *box, const char *name)
+{
+	enum mailbox_existence existence = MAILBOX_EXISTENCE_NONE;
+	int ret;
+
+	if (ACL_USER_CONTEXT(cmd->client->user) == NULL) {
+		client_send_command_error(cmd, "ACLs disabled.");
+		return 0;
+	}
+
+	if (mailbox_exists(box, TRUE, &existence) == 0 &&
+	    existence == MAILBOX_EXISTENCE_SELECT) {
+		ret = acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_ADMIN);
+		if (ret > 0)
+			return ret;
+	}
+
+	/* mailbox doesn't exist / not an administrator. */
+	if (existence != MAILBOX_EXISTENCE_SELECT ||
+	    acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_LOOKUP) <= 0) {
+		client_send_tagline(cmd, t_strdup_printf(
+			"NO ["IMAP_RESP_CODE_NONEXISTENT"] "
+			MAIL_ERRSTR_MAILBOX_NOT_FOUND, name));
+	} else {
+		client_send_tagline(cmd, "NO "ERROR_NOT_ADMIN);
+	}
+	return 0;
+}
+
 static struct mailbox *
 acl_mailbox_open_as_admin(struct client_command_context *cmd, const char *name)
 {
 	struct mail_namespace *ns;
 	struct mailbox *box;
-	enum mailbox_existence existence = MAILBOX_EXISTENCE_NONE;
-	int ret;
 
 	if (ACL_USER_CONTEXT(cmd->client->user) == NULL) {
 		client_send_command_error(cmd, "ACLs disabled.");
@@ -84,24 +113,11 @@ acl_mailbox_open_as_admin(struct client_command_context *cmd, const char *name)
 	   if mailbox isn't selectable but is listable. */
 	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_READONLY |
 			    MAILBOX_FLAG_IGNORE_ACLS);
-	if (mailbox_exists(box, TRUE, &existence) == 0 &&
-	    existence == MAILBOX_EXISTENCE_SELECT) {
-		ret = acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_ADMIN);
-		if (ret > 0)
-			return box;
+	if (acl_mailbox_open_allocated_as_admin(cmd, box, name) <= 0) {
+		mailbox_free(&box);
+		return NULL;
 	}
-
-	/* mailbox doesn't exist / not an administrator. */
-	if (existence != MAILBOX_EXISTENCE_SELECT ||
-	    acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_LOOKUP) <= 0) {
-		client_send_tagline(cmd, t_strdup_printf(
-			"NO ["IMAP_RESP_CODE_NONEXISTENT"] "
-			MAIL_ERRSTR_MAILBOX_NOT_FOUND, name));
-	} else {
-		client_send_tagline(cmd, "NO "ERROR_NOT_ADMIN);
-	}
-	mailbox_free(&box);
-	return NULL;
+	return box;
 }
 
 static const struct imap_acl_letter_map *
