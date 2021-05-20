@@ -58,6 +58,7 @@ struct auth_passdb_settings mock_passdb_set = {
 	.deny = FALSE,
 	.pass = FALSE,
 	.master = FALSE,
+	.master_proxy = TRUE,
 	.auth_verbose = "default"
 };
 
@@ -87,6 +88,7 @@ void passdb_mock_mod_init(void)
 		.deny = FALSE,
 		.pass = FALSE,
 		.master = FALSE,
+	    .master_proxy = TRUE,
 		.auth_verbose = "default"
 	};
 	mock_passdb_mod = passdb_preinit(mock_pool, &set);
