@@ -88,7 +88,7 @@ void passdb_mock_mod_init(void)
 		.deny = FALSE,
 		.pass = FALSE,
 		.master = FALSE,
-	    .master_proxy = TRUE,
+		.master = TRUE,
 		.auth_verbose = "default"
 	};
 	mock_passdb_mod = passdb_preinit(mock_pool, &set);

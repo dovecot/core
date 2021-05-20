@@ -205,7 +205,7 @@ auth_str_append_extra_fields(struct auth_request *request, string_t *dest)
 		}
 		if (fields->master_user != NULL &&
 		    !auth_fields_exists(fields->extra_fields, "master") &&
-            request->passdb->set->master_proxy) {
+		    request->passdb->set->master_proxy) {
 			/* the master username needs to be forwarded */
 			auth_str_add_keyvalue(dest, "master",
 					      fields->master_user);
