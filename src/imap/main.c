@@ -201,28 +201,32 @@ client_add_input(struct client *client, const unsigned char *client_input,
 }
 
 static void
-client_send_login_reply(struct client *client,
+client_send_login_reply(struct ostream *output, const char *capability_string,
+			const char *preauth_username,
 			const struct imap_login_request *request)
 {
-	struct ostream *output;
 	string_t *reply = t_str_new(256);
 
 	/* cork/uncork around the OK reply to minimize latency */
-	output = client->output;
 	o_stream_cork(output);
 	if (request->tag == NULL) {
 		str_printfa(reply, "* PREAUTH [CAPABILITY %s] Logged in as %s\r\n",
-			    str_c(client->capability_string),
-			    client->user->username);
+			    capability_string, preauth_username);
+	} else if (capability_string == NULL) {
+		/* Client initialization failed. There's no need to send
+		   capabilities. Just send the tagged OK so the client knows
+		   the login itself succeeded, followed by a BYE. */
+		str_printfa(reply, "%s OK Logged in, but initialization failed.\r\n",
+			    request->tag);
+		str_append(reply, "* BYE "MAIL_ERRSTR_CRITICAL_MSG"\r\n");
 	} else if (request->send_untagged_capability) {
 		/* client doesn't seem to understand tagged capabilities. send
 		   untagged instead and hope that it works. */
-		str_printfa(reply, "* CAPABILITY %s\r\n",
-			    str_c(client->capability_string));
+		str_printfa(reply, "* CAPABILITY %s\r\n", capability_string);
 		str_printfa(reply, "%s OK Logged in\r\n", request->tag);
 	} else {
 		str_printfa(reply, "%s OK [CAPABILITY %s] Logged in\r\n",
-			    request->tag, str_c(client->capability_string));
+			    request->tag, capability_string);
 	}
 	o_stream_nsend(output, str_data(reply), str_len(reply));
 	if (o_stream_uncork_flush(output) < 0 &&
@@ -350,7 +354,9 @@ static void main_stdio_run(const char *username)
 
 	if (client_create_finish(client, &error) < 0)
 		i_fatal("%s", error);
-	client_send_login_reply(client, &request);
+	client_send_login_reply(client->output,
+				str_c(client->capability_string),
+				client->user->username, &request);
 	client_add_input_finalize(client);
 	/* client may be destroyed now */
 }
@@ -359,7 +365,6 @@ static void
 login_client_connected(const struct master_login_client *login_client,
 		       const char *username, const char *const *extra_fields)
 {
-#define MSG_BYE_INTERNAL_ERROR "* BYE "MAIL_ERRSTR_CRITICAL_MSG"\r\n"
 	struct mail_storage_service_input input;
 	struct client *client;
 	struct imap_login_request request;
@@ -383,14 +388,12 @@ login_client_connected(const struct master_login_client *login_client,
 	if (client_create_from_input(&input, login_client->fd, login_client->fd,
 				     &client, &error) < 0) {
 		int fd = login_client->fd;
+		struct ostream *output =
+			o_stream_create_fd_autoclose(&fd, IO_BLOCK_SIZE);
+		client_send_login_reply(output, NULL, NULL, &request);
+		o_stream_destroy(&output);
 
-		if (write(fd, MSG_BYE_INTERNAL_ERROR,
-			  strlen(MSG_BYE_INTERNAL_ERROR)) < 0) {
-			if (errno != EAGAIN && errno != EPIPE)
-				i_error("write(client) failed: %m");
-		}
 		i_error("%s", error);
-		i_close_fd(&fd);
 		master_service_client_connection_destroyed(master_service);
 		return;
 	}
@@ -403,18 +406,14 @@ login_client_connected(const struct master_login_client *login_client,
 	if (client_create_finish(client, &error) < 0) {
 		/* Even though client initialization failed, send the login
 		   OK reply so client doesn't think that the login failed. */
-		client_send_login_reply(client, &request);
-		if (write_full(login_client->fd, MSG_BYE_INTERNAL_ERROR,
-			       strlen(MSG_BYE_INTERNAL_ERROR)) < 0)
-			if (errno != EAGAIN && errno != EPIPE)
-				e_error(client->event,
-					"write_full(client) failed: %m");
-
+		client_send_login_reply(client->output, NULL, NULL, &request);
 		e_error(client->event, "%s", error);
 		client_destroy(client, error);
 		return;
 	}
-	client_send_login_reply(client, &request);
+	client_send_login_reply(client->output,
+				str_c(client->capability_string),
+				NULL, &request);
 
 	client_add_input_finalize(client);
 	/* client may be destroyed now */
