@@ -474,6 +474,22 @@ void imapc_storage_client_register_untagged(struct imapc_storage_client *client,
 	cb->callback = callback;
 }
 
+void imapc_storage_client_unregister_untagged(struct imapc_storage_client *client,
+					      const char *name)
+{
+	struct imapc_storage_event_callback *cb;
+	unsigned int idx;
+	array_foreach_modifiable(&client->untagged_callbacks, cb) {
+		if (strcmp(cb->name, name) == 0) {
+			 idx = array_foreach_idx(&client->untagged_callbacks, cb);
+			 i_free(cb->name);
+			 array_delete(&client->untagged_callbacks, idx, 1);
+			 return;
+		}
+	}
+	i_unreached();
+}
+
 static void
 imapc_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 				struct mailbox_list_settings *set)
