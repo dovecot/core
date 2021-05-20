@@ -151,7 +151,7 @@ static void imap_die(void)
 	}
 }
 
-struct client_input {
+struct imap_login_request {
 	const char *tag;
 
 	const unsigned char *input;
@@ -160,8 +160,8 @@ struct client_input {
 };
 
 static void
-client_parse_input(const unsigned char *data, size_t len,
-		   struct client_input *input_r)
+client_parse_imap_login_request(const unsigned char *data, size_t len,
+				struct imap_login_request *input_r)
 {
 	size_t taglen;
 
@@ -187,39 +187,40 @@ client_add_input_capability(struct client *client, const unsigned char *client_i
 			    size_t client_input_size)
 {
 	struct ostream *output;
-	struct client_input input;
+	struct imap_login_request request;
 
 	if (client_input_size > 0) {
-		client_parse_input(client_input, client_input_size, &input);
-		if (input.input_size > 0) {
-			client_add_istream_prefix(client, input.input,
-						  input.input_size);
+		client_parse_imap_login_request(client_input, client_input_size,
+						&request);
+		if (request.input_size > 0) {
+			client_add_istream_prefix(client, request.input,
+						  request.input_size);
 		}
 	} else {
 		/* IMAPLOGINTAG environment is compatible with mailfront */
-		i_zero(&input);
-		input.tag = getenv("IMAPLOGINTAG");
+		i_zero(&request);
+		request.tag = getenv("IMAPLOGINTAG");
 	}
 
 	/* cork/uncork around the OK reply to minimize latency */
 	output = client->output;
 	o_stream_ref(output);
 	o_stream_cork(output);
-	if (input.tag == NULL) {
+	if (request.tag == NULL) {
 		client_send_line(client, t_strconcat(
 			"* PREAUTH [CAPABILITY ",
 			str_c(client->capability_string), "] "
 			"Logged in as ", client->user->username, NULL));
-	} else if (input.send_untagged_capability) {
+	} else if (request.send_untagged_capability) {
 		/* client doesn't seem to understand tagged capabilities. send
 		   untagged instead and hope that it works. */
 		client_send_line(client, t_strconcat("* CAPABILITY ",
 			str_c(client->capability_string), NULL));
 		client_send_line(client,
-				 t_strconcat(input.tag, " OK Logged in", NULL));
+				 t_strconcat(request.tag, " OK Logged in", NULL));
 	} else {
 		client_send_line(client, t_strconcat(
-			input.tag, " OK [CAPABILITY ",
+			request.tag, " OK [CAPABILITY ",
 			str_c(client->capability_string), "] Logged in", NULL));
 	}
 	o_stream_uncork(output);
@@ -411,12 +412,13 @@ login_client_connected(const struct master_login_client *login_client,
 static void login_client_failed(const struct master_login_client *client,
 				const char *errormsg)
 {
-	struct client_input input;
+	struct imap_login_request request;
 	const char *msg;
 
-	client_parse_input(client->data, client->auth_req.data_size, &input);
+	client_parse_imap_login_request(client->data,
+					client->auth_req.data_size, &request);
 	msg = t_strdup_printf("%s NO ["IMAP_RESP_CODE_UNAVAILABLE"] %s\r\n",
-			      input.tag, errormsg);
+			      request.tag, errormsg);
 	if (write(client->fd, msg, strlen(msg)) < 0) {
 		/* ignored */
 	}
