@@ -51,6 +51,16 @@ static const char *values_single[] = {
 	"foo",
 	"foo.c",
 	"foo.c:123",
+
+	/* wildcards */
+	"*foo",
+	"f*o",
+	"foo*",
+	"*",
+	"?foo",
+	"f?o",
+	"foo?",
+	"?",
 };
 
 /* values that need to be quoted */
@@ -75,6 +85,10 @@ static const char *values_multi[] = {
 	"\xc3\xa4\xc3\xa1\xc4\x8d\xc4\x8f\xc4\x9b\xc5\x88\xc3\xb6\xc5\x99\xc3\xbc\xc3\xba\xc5\xaf",
 	/* utf-8: ascii + combining char */
 	"r\xcc\x8c",
+
+	/* wildcards */
+	"foo * bar",
+	"foo ? bar",
 };
 
 /* boolean operators used as values get lowercased unless they are quoted */
