@@ -153,6 +153,8 @@ void dict_deinit(struct dict **_dict)
 {
 	struct dict *dict = *_dict;
 
+	if (dict == NULL)
+		return;
 	*_dict = NULL;
 
 	i_assert(!dict_have_async_operations(dict));
