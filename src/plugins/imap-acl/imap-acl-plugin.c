@@ -706,19 +706,24 @@ static bool cmd_myrights(struct client_command_context *cmd)
 static bool cmd_listrights(struct client_command_context *cmd)
 {
 	struct mailbox *box;
-	const char *mailbox, *identifier;
+	struct mail_namespace *ns;
+	const char *mailbox, *orig_mailbox, *identifier;
 	string_t *str;
 
 	if (!client_read_string_args(cmd, 2, &mailbox, &identifier))
 		return FALSE;
+	orig_mailbox = mailbox;
 
-	box = acl_mailbox_open_as_admin(cmd, mailbox);
-	if (box == NULL)
+	ns = client_find_namespace(cmd, &mailbox);
+	if (ns == NULL)
 		return TRUE;
+
+	box = mailbox_alloc(ns->list, mailbox,
+                           MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
 
 	str = t_str_new(128);
 	str_append(str, "* LISTRIGHTS ");
-	imap_append_astring(str, mailbox);
+	imap_append_astring(str, orig_mailbox);
 	str_append_c(str, ' ');
 	imap_append_astring(str, identifier);
 	str_append_c(str, ' ');
