@@ -1623,6 +1623,7 @@ http_client_request_1xx_response(struct http_client_request *req,
 			return -1;
 		}
 
+		i_assert(conn->output_locked);
 		if (conn->conn.output != NULL)
 			o_stream_set_flush_pending(conn->conn.output, TRUE);
 		return -1;
@@ -1665,7 +1666,8 @@ int http_client_request_check_response(struct http_client_request *req,
 		timeval_diff_msecs(&req->sent_time, &req->submit_time));
 
 	/* Make sure connection output is unlocked if 100-continue failed */
-	if (req->payload_sync && !req->payload_sync_continue) {
+	if (req->payload_sync && !req->payload_sync_continue &&
+	    array_count(&conn->request_wait_list) == 1) {
 		e_debug(req->event, "Unlocked output");
 		conn->output_locked = FALSE;
 	}
