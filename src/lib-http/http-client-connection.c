@@ -1009,7 +1009,6 @@ http_client_connection_process_response(struct http_client_connection *conn,
 					struct http_client_request *req,
 					struct http_response *resp)
 {
-	struct http_client_peer_shared *pshared = conn->ppool->peer;
 	struct http_client_request *req_ref;
 	bool aborted, early = FALSE;
 
@@ -1040,42 +1039,8 @@ http_client_connection_process_response(struct http_client_connection *conn,
 	/* Got some response; cancel response timeout */
 	timeout_remove(&conn->to_response);
 
-	/* RFC 7231, Section 6.2:
-
-	   A client MUST be able to parse one or more 1xx responses received
-	   prior to a final response, even if the client does not expect one.
-	   A user agent MAY ignore unexpected 1xx responses.
-	 */
-	if (req->payload_sync && resp->status == 100) {
-		if (req->payload_sync_continue) {
-			e_debug(conn->event,
-				"Got 100-continue response after timeout");
-			return 0;
-		}
-
-		pshared->no_payload_sync = FALSE;
-		pshared->seen_100_response = TRUE;
-		req->payload_sync_continue = TRUE;
-
-		e_debug(conn->event,
-			"Got expected 100-continue response");
-
-		if (req->state == HTTP_REQUEST_STATE_ABORTED) {
-			e_debug(conn->event,
-				"Request aborted before sending payload was complete.");
-			http_client_connection_close(&conn);
-			return -1;
-		}
-
-		if (conn->conn.output != NULL)
-			o_stream_set_flush_pending(conn->conn.output, TRUE);
-		return -1;
-	} else if (resp->status / 100 == 1) {
-		/* Ignore other 1xx for now */
-		e_debug(conn->event,
-			"Got unexpected %u response; ignoring",
-			resp->status);
-		return 0;
+	if (resp->status / 100 == 1) {
+		return http_client_request_1xx_response(req, resp);
 	} else if ((!req->payload_sync || req->payload_sync_continue) &&
 		   !req->payload_finished &&
 		   req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT) {
