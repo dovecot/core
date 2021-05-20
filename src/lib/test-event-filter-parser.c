@@ -128,6 +128,9 @@ static struct test {
 } tests[] = {
 	GOOD("", ""),
 
+	/* unquoted tokens can be only [a-zA-Z0-9:.*?_-]+ */
+	BAD("abc=r\xcc\x8c", "event filter: syntax error"),
+
 	/* check that spaces and extra parens don't break anything */
 #define CHECK_REAL(sp1, key, sp2, sp3, value, sp4) \
 	GOOD(sp1 key sp2 "=" sp3 value sp4, \
