@@ -205,30 +205,29 @@ client_send_login_reply(struct client *client,
 			const struct imap_login_request *request)
 {
 	struct ostream *output;
+	string_t *reply = t_str_new(256);
 
 	/* cork/uncork around the OK reply to minimize latency */
 	output = client->output;
-	o_stream_ref(output);
 	o_stream_cork(output);
 	if (request->tag == NULL) {
-		client_send_line(client, t_strconcat(
-			"* PREAUTH [CAPABILITY ",
-			str_c(client->capability_string), "] "
-			"Logged in as ", client->user->username, NULL));
+		str_printfa(reply, "* PREAUTH [CAPABILITY %s] Logged in as %s\r\n",
+			    str_c(client->capability_string),
+			    client->user->username);
 	} else if (request->send_untagged_capability) {
 		/* client doesn't seem to understand tagged capabilities. send
 		   untagged instead and hope that it works. */
-		client_send_line(client, t_strconcat("* CAPABILITY ",
-			str_c(client->capability_string), NULL));
-		client_send_line(client,
-				 t_strconcat(request->tag, " OK Logged in", NULL));
+		str_printfa(reply, "* CAPABILITY %s\r\n",
+			    str_c(client->capability_string));
+		str_printfa(reply, "%s OK Logged in\r\n", request->tag);
 	} else {
-		client_send_line(client, t_strconcat(
-			request->tag, " OK [CAPABILITY ",
-			str_c(client->capability_string), "] Logged in", NULL));
+		str_printfa(reply, "%s OK [CAPABILITY %s] Logged in\r\n",
+			    request->tag, str_c(client->capability_string));
 	}
-	o_stream_uncork(output);
-	o_stream_unref(&output);
+	o_stream_nsend(output, str_data(reply), str_len(reply));
+	if (o_stream_uncork_flush(output) < 0 &&
+	    output->stream_errno != EPIPE)
+		i_error("write(client) failed: %s", o_stream_get_error(output));
 }
 
 static void
