@@ -7,6 +7,8 @@
 #include "imap-commands.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
+#include "mail-storage-private.h"
+#include "module-context.h"
 #include "acl-api.h"
 #include "acl-storage.h"
 #include "acl-plugin.h"
@@ -22,6 +24,11 @@
 #define IMAP_ACL_GROUP_PREFIX "$"
 #define IMAP_ACL_GROUP_OVERRIDE_PREFIX "!$"
 #define IMAP_ACL_GLOBAL_PREFIX "#"
+
+#define IMAP_ACL_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, imap_acl_storage_module)
+#define IMAP_ACL_CONTEXT_REQUIRE(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, imap_acl_storage_module)
 
 struct imap_acl_letter_map {
 	char letter;
@@ -42,6 +49,14 @@ static const struct imap_acl_letter_map imap_acl_letter_map[] = {
 	{ 'a', MAIL_ACL_ADMIN },
 	{ '\0', NULL }
 };
+
+struct imap_acl_storage {
+	union mail_storage_module_context module_ctx;
+	struct imapc_acl_context *iacl_ctx;
+};
+
+struct imap_acl_storage_module imap_acl_storage_module =
+	MODULE_CONTEXT_INIT(&mail_storage_module_register);
 
 const char *imap_acl_plugin_version = DOVECOT_ABI_VERSION;
 
