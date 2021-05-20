@@ -87,8 +87,8 @@ struct imapc_acl_context {
 };
 
 static int
-acl_mailbox_open_allocated_as_admin(struct client_command_context *cmd,
-				    struct mailbox *box, const char *name)
+acl_mailbox_open_as_admin(struct client_command_context *cmd,
+			  struct mailbox *box, const char *name)
 {
 	enum mailbox_existence existence = MAILBOX_EXISTENCE_NONE;
 	int ret;
@@ -115,32 +115,6 @@ acl_mailbox_open_allocated_as_admin(struct client_command_context *cmd,
 		client_send_tagline(cmd, "NO "ERROR_NOT_ADMIN);
 	}
 	return 0;
-}
-
-static struct mailbox *
-acl_mailbox_open_as_admin(struct client_command_context *cmd, const char *name)
-{
-	struct mail_namespace *ns;
-	struct mailbox *box;
-
-	if (ACL_USER_CONTEXT(cmd->client->user) == NULL) {
-		client_send_command_error(cmd, "ACLs disabled.");
-		return NULL;
-	}
-
-	ns = client_find_namespace(cmd, &name);
-	if (ns == NULL)
-		return NULL;
-
-	/* Force opening the mailbox so that we can give a nicer error message
-	   if mailbox isn't selectable but is listable. */
-	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_READONLY |
-			    MAILBOX_FLAG_IGNORE_ACLS);
-	if (acl_mailbox_open_allocated_as_admin(cmd, box, name) <= 0) {
-		mailbox_free(&box);
-		return NULL;
-	}
-	return box;
 }
 
 static const struct imap_acl_letter_map *
@@ -597,7 +571,7 @@ static void imap_acl_cmd_getacl(struct mailbox *box, struct mail_namespace *ns,
 	string_t *str;
 	int ret;
 
-	if (acl_mailbox_open_allocated_as_admin(cmd, box, mailbox) <= 0)
+	if (acl_mailbox_open_as_admin(cmd, box, mailbox) <= 0)
 		return;
 
 	backend = acl_mailbox_list_get_backend(ns->list);
@@ -945,7 +919,7 @@ static void imap_acl_cmd_setacl(struct mailbox *box, struct mail_namespace *ns,
 	}
 	r = &update.rights;
 
-	if (acl_mailbox_open_allocated_as_admin(cmd, box, mailbox) <= 0)
+	if (acl_mailbox_open_as_admin(cmd, box, mailbox) <= 0)
 		return;
 
 	backend = acl_mailbox_list_get_backend(ns->list);
@@ -1037,7 +1011,7 @@ static void imap_acl_cmd_deleteacl(struct mailbox *box, const char *mailbox,
 		return;
 	}
 
-	if (acl_mailbox_open_allocated_as_admin(cmd, box, mailbox) <= 0)
+	if (acl_mailbox_open_as_admin(cmd, box, mailbox) <= 0)
 		return;
 
 	if (cmd_acl_mailbox_update(box, &update, &client_error) < 0)
