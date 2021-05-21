@@ -219,19 +219,21 @@ struct client *client_create(int fd_in, int fd_out,
 	return client;
 }
 
+void client_create_finish_io(struct client *client)
+{
+	if (client->set->rawlog_dir[0] != '\0') {
+		(void)iostream_rawlog_create(client->set->rawlog_dir,
+					     &client->input, &client->output);
+	}
+	client->io = io_add_istream(client->input, client_input, client);
+}
+
 int client_create_finish(struct client *client, const char **error_r)
 {
 	if (mail_namespaces_init(client->user, error_r) < 0)
 		return -1;
 	mail_namespaces_set_storage_callbacks(client->user->namespaces,
 					      &mail_storage_callbacks, client);
-
-	if (client->set->rawlog_dir[0] != '\0') {
-		(void)iostream_rawlog_create(client->set->rawlog_dir,
-					     &client->input, &client->output);
-	}
-	client->io = io_add_istream(client->input, client_input, client);
-
 	client->v.init(client);
 	return 0;
 }

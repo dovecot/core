@@ -266,6 +266,7 @@ struct client *client_create(int fd_in, int fd_out,
 			     struct mail_storage_service_user *service_user,
 			     const struct imap_settings *set,
 			     const struct smtp_submit_settings *smtp_set);
+void client_create_finish_io(struct client *client);
 /* Finish creating the client. Returns 0 if ok, -1 if there's an error. */
 int client_create_finish(struct client *client, const char **error_r);
 void client_add_istream_prefix(struct client *client,

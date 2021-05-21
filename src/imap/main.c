@@ -352,11 +352,12 @@ static void main_stdio_run(const char *username)
 				 &request);
 	}
 
-	if (client_create_finish(client, &error) < 0)
-		i_fatal("%s", error);
+	client_create_finish_io(client);
 	client_send_login_reply(client->output,
 				str_c(client->capability_string),
 				client->user->username, &request);
+	if (client_create_finish(client, &error) < 0)
+		i_fatal("%s", error);
 	client_add_input_finalize(client);
 	/* client may be destroyed now */
 }
@@ -365,6 +366,7 @@ static void
 login_client_connected(const struct master_login_client *login_client,
 		       const char *username, const char *const *extra_fields)
 {
+#define MSG_BYE_INTERNAL_ERROR "* BYE "MAIL_ERRSTR_CRITICAL_MSG"\r\n"
 	struct mail_storage_service_input input;
 	struct client *client;
 	struct imap_login_request request;
@@ -390,6 +392,7 @@ login_client_connected(const struct master_login_client *login_client,
 		int fd = login_client->fd;
 		struct ostream *output =
 			o_stream_create_fd_autoclose(&fd, IO_BLOCK_SIZE);
+		i_zero(&request);
 		client_send_login_reply(output, NULL, NULL, &request);
 		o_stream_destroy(&output);
 
@@ -402,18 +405,27 @@ login_client_connected(const struct master_login_client *login_client,
 	client_add_input(client, login_client->data,
 			 login_client->auth_req.data_size, &request);
 
-	/* finish initializing the user (see comment in main()) */
+	/* The order here is important:
+	   1. Finish setting up rawlog, so all input/output is written there.
+	   2. Send tagged reply to login before any potentially long-running
+	      work (during which client could disconnect due to timeout).
+	   3. Finish initializing user, which can potentially take a long time.
+	*/
+	client_create_finish_io(client);
+	client_send_login_reply(client->output,
+				str_c(client->capability_string),
+				NULL, &request);
 	if (client_create_finish(client, &error) < 0) {
-		/* Even though client initialization failed, send the login
-		   OK reply so client doesn't think that the login failed. */
-		client_send_login_reply(client->output, NULL, NULL, &request);
+		if (write_full(login_client->fd, MSG_BYE_INTERNAL_ERROR,
+			       strlen(MSG_BYE_INTERNAL_ERROR)) < 0)
+			if (errno != EAGAIN && errno != EPIPE)
+				e_error(client->event,
+					"write_full(client) failed: %m");
+
 		e_error(client->event, "%s", error);
 		client_destroy(client, error);
 		return;
 	}
-	client_send_login_reply(client->output,
-				str_c(client->capability_string),
-				NULL, &request);
 
 	client_add_input_finalize(client);
 	/* client may be destroyed now */

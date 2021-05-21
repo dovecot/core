@@ -287,6 +287,7 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 					  master_input.client_input->used);
 	}
 
+	client_create_finish_io(imap_client);
 	if (client_create_finish(imap_client, &error) < 0) {
 		event_add_str(event, "error", error);
 		e_error(event, "imap-master: %s", error);
