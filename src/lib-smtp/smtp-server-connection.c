@@ -440,7 +440,7 @@ smtp_server_connection_handle_input(struct smtp_server_connection *conn)
 
 	/* Parse commands */
 	ret = 1;
-	while (!conn->closing && ret != 0) {
+	while (!conn->closing && !conn->input_locked && ret != 0) {
 		while ((ret = smtp_command_parse_next(
 			conn->smtp_parser, &cmd_name, &cmd_params,
 			&error_code, &error)) > 0) {
@@ -464,6 +464,10 @@ smtp_server_connection_handle_input(struct smtp_server_connection *conn)
 
 			if (conn->disconnected)
 				return;
+			/* Last command locked the input; stop trying to read
+			   more. */
+			if (conn->input_locked)
+				break;
 			/* Client indicated it will close after this command;
 			   stop trying to read more. */
 			if (conn->closing)
