@@ -416,9 +416,40 @@ imap_acl_cmd_context_register(struct imapc_mailbox *mbox, enum imap_acl_cmd prox
 	return iacl_storage->iacl_ctx;
 }
 
+static const char *imap_acl_get_mailbox_name(const struct mail_namespace *ns,
+					     const char *mailbox)
+{
+	/* Strip namespace prefix from mailbox name or append "INBOX" if
+	   mailbox is "" and mailbox is in shared namespace. */
+
+	if (ns->prefix_len == 0)
+		return mailbox;
+
+	i_assert(ns->prefix_len >= 1);
+
+	if ((mailbox[ns->prefix_len-1] == '\0' ||
+	     mailbox[ns->prefix_len] == '\0') &&
+	    strncmp(mailbox, ns->prefix, ns->prefix_len-1) == 0 &&
+	    ns->type == MAIL_NAMESPACE_TYPE_SHARED) {
+		/* Given mailbox name does not contain an actual mailbox name
+		   but just the namespace prefix so default to "INBOX". */
+		return "INBOX";
+	}
+
+	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
+	    strcasecmp(mailbox, "INBOX") == 0) {
+		/* For user INBOX always use INBOX and ignore namespace
+		   prefix. */
+		return "INBOX";
+	}
+
+	i_assert(strncmp(mailbox, ns->prefix, ns->prefix_len-1) == 0);
+	return mailbox+ns->prefix_len;
+}
+
 static const char *
 imapc_acl_prepare_cmd(string_t *reply_r, const char *mailbox,
-		      unsigned int prefix_len, const char *cmd_args,
+		      const struct mail_namespace *ns, const char *cmd_args,
 		      const enum imap_acl_cmd proxy_cmd)
 {
 	string_t *proxy_cmd_str = t_str_new(128);
@@ -432,7 +463,8 @@ imapc_acl_prepare_cmd(string_t *reply_r, const char *mailbox,
 
 		str_append(proxy_cmd_str, "MYRIGHTS ");
 		/* Strip namespace prefix. */
-		imap_append_astring(proxy_cmd_str, mailbox+prefix_len);
+		imap_append_astring(proxy_cmd_str,
+				    imap_acl_get_mailbox_name(ns, mailbox));
 		break;
 	case IMAP_ACL_CMD_GETACL:
 		/* Prepare client untagged reply. */
@@ -441,22 +473,24 @@ imapc_acl_prepare_cmd(string_t *reply_r, const char *mailbox,
 		str_append_c(reply_r, ' ');
 
 		str_append(proxy_cmd_str, "GETACL ");
-		/* Strip namespace prefix. */
-		imap_append_astring(proxy_cmd_str, mailbox+prefix_len);
+		imap_append_astring(proxy_cmd_str,
+				    imap_acl_get_mailbox_name(ns, mailbox));
 		break;
 	case IMAP_ACL_CMD_SETACL:
 		/* No contents in untagged replies for SETACL */
 		str_append(proxy_cmd_str, "SETACL ");
-		/* Strip namespace prefix. */
-		imap_append_astring(proxy_cmd_str, mailbox+prefix_len);
+		imap_append_astring(proxy_cmd_str,
+				    imap_acl_get_mailbox_name(ns, mailbox));
+
 		str_append_c(proxy_cmd_str, ' ');
 		str_append(proxy_cmd_str, cmd_args);
 		break;
 	case IMAP_ACL_CMD_DELETEACL:
 		/* No contents in untagged replies for DELETEACL */
 		str_append(proxy_cmd_str, "DELETEACL ");
-		/* Strip namespace prefix. */
-		imap_append_astring(proxy_cmd_str, mailbox+prefix_len);
+		imap_append_astring(proxy_cmd_str,
+				    imap_acl_get_mailbox_name(ns, mailbox));
+
 		str_append_c(proxy_cmd_str, ' ');
 		str_append(proxy_cmd_str, cmd_args);
 		break;
@@ -490,7 +524,7 @@ static void imapc_acl_send_client_reply(struct imapc_acl_context *iacl_ctx,
 static bool imap_acl_proxy_cmd(struct mailbox *box,
 			       const char *mailbox,
 			       const char *cmd_args,
-			       unsigned int prefix_len,
+			       const struct mail_namespace *ns,
 			       struct client_command_context *orig_cmd,
 			       const enum imap_acl_cmd proxy_cmd)
 {
@@ -523,7 +557,7 @@ static bool imap_acl_proxy_cmd(struct mailbox *box,
 
 	/* Prepare untagged replies and return proxy_cmd */
 	proxy_cmd_str = imapc_acl_prepare_cmd(iacl_ctx->reply, mailbox,
-					      prefix_len, cmd_args, proxy_cmd);
+					      ns, cmd_args, proxy_cmd);
 
 	imapc_command_send(imapc_cmd, proxy_cmd_str);
 	imapc_simple_run(&ctx, &imapc_cmd);
@@ -609,7 +643,7 @@ static bool cmd_getacl(struct client_command_context *cmd)
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
 	/* If the location is remote and imapc_feature acl is enabled, proxy the
 	   command to the configured imapc location. */
-	if (!imap_acl_proxy_cmd(box, orig_mailbox, NULL, ns->prefix_len, cmd, IMAP_ACL_CMD_GETACL))
+	if (!imap_acl_proxy_cmd(box, orig_mailbox, NULL, ns, cmd, IMAP_ACL_CMD_GETACL))
 		imap_acl_cmd_getacl(box, ns, orig_mailbox, cmd);
 	mailbox_free(&box);
 	return TRUE;
@@ -670,7 +704,7 @@ static bool cmd_myrights(struct client_command_context *cmd)
 
 	/* If the location is remote and imapc_feature acl is enabled, proxy the
 	   command to the configured imapc location. */
-	if (!imap_acl_proxy_cmd(box, orig_mailbox, NULL, ns->prefix_len,
+	if (!imap_acl_proxy_cmd(box, orig_mailbox, NULL, ns,
 				cmd, IMAP_ACL_CMD_MYRIGHTS))
 		imap_acl_cmd_myrights(box, orig_mailbox, cmd);
 	mailbox_free(&box);
@@ -984,7 +1018,7 @@ static bool cmd_setacl(struct client_command_context *cmd)
 	/* If the location is remote and imapc_feature acl is enabled, proxy the
 	   command to the configured imapc location. */
 	if (!imap_acl_proxy_cmd(box, orig_mailbox, str_c(proxy_cmd_args),
-				ns->prefix_len, cmd, IMAP_ACL_CMD_SETACL))
+				ns, cmd, IMAP_ACL_CMD_SETACL))
 		imap_acl_cmd_setacl(box, ns, orig_mailbox, identifier, rights, cmd);
 	mailbox_free(&box);
 	return TRUE;
@@ -1049,7 +1083,7 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 	/* If the location is remote and imapc_feature acl is enabled, proxy the
 	   command to the configured imapc location. */
 	if (!imap_acl_proxy_cmd(box, orig_mailbox, str_c(proxy_cmd_args),
-				ns->prefix_len, cmd, IMAP_ACL_CMD_DELETEACL))
+				ns, cmd, IMAP_ACL_CMD_DELETEACL))
 		imap_acl_cmd_deleteacl(box, orig_mailbox, identifier, cmd);
 	mailbox_free(&box);
 	return TRUE;
