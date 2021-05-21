@@ -173,8 +173,10 @@ int dlua_script_init(struct dlua_script *script, const char **error_r)
 
 	if (lua_isinteger(script->L, -1)) {
 		ret = lua_tointeger(script->L, -1);
-		if (ret != 0)
+		if (ret != 0) {
 			*error_r = "Script init failed";
+			ret = -1;
+		}
 	} else {
 		*error_r = LUA_SCRIPT_INIT_FN"() returned non-number";
 		ret = -1;
