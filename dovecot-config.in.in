@@ -48,6 +48,7 @@ LIBDOVECOT_NOTIFY_INCLUDE="-I$(incdir)/src/plugins/notify"
 LIBDOVECOT_PUSH_NOTIFICATION_INCLUDE="-I$(incdir)/src/plugins/push-notification"
 LIBDOVECOT_ACL_INCLUDE="-I$(incdir)/src/plugins/acl"
 LIBDOVECOT_LIBFTS_INCLUDE="-I$(incdir)/src/lib-fts"
+LIBDOVECOT_LUA_INCLUDE="-I$(incdir)/src/lib-lua"
 
 dovecot_pkgincludedir=
 dovecot_pkglibdir=
