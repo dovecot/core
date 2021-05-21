@@ -986,17 +986,35 @@ static void test_client_progress_timeout(void *context ATTR_UNUSED)
 	io_loop_stop(current_ioloop);
 }
 
-static void
-test_client_create_clients(const struct http_client_settings *client_set)
+static void test_client_init(void)
 {
-	struct http_client_context *http_context = NULL;
-	unsigned int i;
-
+	i_assert(to_client_progress == NULL);
 	if (!small_socket_buffers) {
 		to_client_progress = timeout_add(
 			CLIENT_PROGRESS_TIMEOUT*1000,
 			test_client_progress_timeout, NULL);
 	}
+}
+
+static void test_client_deinit(void)
+{
+	unsigned int i;
+
+	for (i = 0; i < tset.parallel_clients; i++)
+		http_client_deinit(&http_clients[i]);
+	i_free(http_clients);
+
+	tset.parallel_clients = 1;
+
+	timeout_remove(&to_continue);
+	timeout_remove(&to_client_progress);
+}
+
+static void
+test_client_create_clients(const struct http_client_settings *client_set)
+{
+	struct http_client_context *http_context = NULL;
+	unsigned int i;
 
 	if (!tset.parallel_clients_global)
 		http_context = http_client_context_create(client_set);
@@ -1699,22 +1717,6 @@ static void test_client_echo(const struct http_client_settings *client_set)
 	to_continue = timeout_add_short(0, test_client_echo_continue, NULL);
 }
 
-/* cleanup */
-
-static void test_client_deinit(void)
-{
-	unsigned int i;
-
-	for (i = 0; i < tset.parallel_clients; i++)
-		http_client_deinit(&http_clients[i]);
-	i_free(http_clients);
-
-	tset.parallel_clients = 1;
-
-	timeout_remove(&to_continue);
-	timeout_remove(&to_client_progress);
-}
-
 /*
  * Tests
  */
@@ -1776,6 +1778,7 @@ test_run_client(
 	ioloop_nested = NULL;
 	ioloop_nested_depth = 0;
 	ioloop = io_loop_create();
+	test_client_init();
 	client_init(client_set);
 	io_loop_run(ioloop);
 	test_client_deinit();
