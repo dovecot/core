@@ -211,10 +211,12 @@ static struct dlua_script *dlua_create_script(const char *name,
 	lua_atpanic(script->L, dlua_atpanic);
 	luaL_openlibs(script->L);
 	script->event = event_create(event_parent);
+	event_add_str(script->event, "script", script->filename);
 	event_add_category(script->event, &event_category_lua);
 
 	dlua_init_thread_table(script);
 
+	DLLIST_PREPEND(&dlua_scripts, script);
 	return script;
 }
 
@@ -259,9 +261,6 @@ dlua_script_create_finish(struct dlua_script *script, struct dlua_script **scrip
 		dlua_script_unref(&script);
 		return -1;
 	}
-
-	event_add_str(script->event, "script", script->filename);
-	DLLIST_PREPEND(&dlua_scripts, script);
 
 	*script_r = script;
 
