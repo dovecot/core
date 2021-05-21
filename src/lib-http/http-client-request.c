@@ -1781,6 +1781,8 @@ void http_client_request_error(struct http_client_request **_req,
 
 	*_req = NULL;
 
+	if (req->state >= HTTP_REQUEST_STATE_ABORTED)
+		return;
 	i_assert(req->delayed_error_status == 0);
 	i_assert(req->state < HTTP_REQUEST_STATE_FINISHED);
 
