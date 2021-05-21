@@ -930,9 +930,11 @@ static void test_client_request_destroy(struct test_client_request *tcreq)
 	test_client_request_unref(&tcreq);
 }
 
-static void test_client_switch_ioloop(void)
+static void test_client_switch_ioloop(struct ioloop *prev_ioloop ATTR_UNUSED)
 {
 	struct test_client_request *tcreq;
+
+	e_debug(client_event, "switch ioloop");
 
 	if (to_continue != NULL)
 		to_continue = io_loop_move_timeout(&to_continue);
@@ -964,6 +966,8 @@ static void test_client_init(void)
 			CLIENT_PROGRESS_TIMEOUT*1000,
 			test_client_progress_timeout, NULL);
 	}
+
+	io_loop_add_switch_callback(test_client_switch_ioloop);
 }
 
 static void test_client_deinit(void)
@@ -976,6 +980,7 @@ static void test_client_deinit(void)
 
 	tset.parallel_clients = 1;
 
+	io_loop_remove_switch_callback(test_client_switch_ioloop);
 	timeout_remove(&to_continue);
 	timeout_remove(&to_client_progress);
 
@@ -1623,14 +1628,12 @@ static void test_client_echo_continue(void *context ATTR_UNUSED)
 		ioloop_nested = io_loop_create();
 		for (i = 0; i < tset.parallel_clients; i++)
 			http_client_switch_ioloop(http_clients[i]);
-		test_client_switch_ioloop();
 
 		io_loop_run(ioloop_nested);
 
 		io_loop_set_current(prev_ioloop);
 		for (i = 0; i < tset.parallel_clients; i++)
 			http_client_switch_ioloop(http_clients[i]);
-		test_client_switch_ioloop();
 		io_loop_set_current(ioloop_nested);
 		io_loop_destroy(&ioloop_nested);
 		ioloop_nested = NULL;
