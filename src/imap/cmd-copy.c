@@ -244,6 +244,7 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 		return ret < 0;
 	if (search_args->args->type == SEARCH_ALL) {
 		i_assert(search_args->args->match_not);
+		mail_search_args_unref(&search_args);
 		return cmd_sync(cmd, sync_flags, imap_flags,
 				"OK No messages found.");
 	}
