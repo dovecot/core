@@ -19,6 +19,8 @@ static ARRAY(io_switch_callback_t *) io_switch_callbacks = ARRAY_INIT;
 static ARRAY(io_destroy_callback_t *) io_destroy_callbacks = ARRAY_INIT;
 static bool panic_on_leak = FALSE, panic_on_leak_set = FALSE;
 
+static time_t data_stack_last_free_unused = 0;
+
 static void io_loop_initialize_handler(struct ioloop *ioloop)
 {
 	unsigned int initial_fd_count;
@@ -694,6 +696,17 @@ void io_loop_handle_timeouts(struct ioloop *ioloop)
 	T_BEGIN {
 		io_loop_handle_timeouts_real(ioloop);
 	} T_END;
+
+	/* Free the unused memory in data stack once per second. This way if
+	   the data stack has grown excessively large temporarily, it won't
+	   permanently waste memory. And if the data stack grows back to the
+	   same large size, re-allocating it once per second doesn't cause
+	   performance problems. */
+	if (data_stack_last_free_unused != ioloop_time) {
+		if (data_stack_last_free_unused != 0)
+			data_stack_free_unused();
+		data_stack_last_free_unused = ioloop_time;
+	}
 }
 
 void io_loop_call_io(struct io *io)
