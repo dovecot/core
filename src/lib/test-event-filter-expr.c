@@ -13,7 +13,8 @@
 #define SOURCE_FILENAME "blah.c"
 #define SOURCE_LINE 123
 
-static void check_expr(struct event *event,
+static void check_expr(const char *test_name,
+		       struct event *event,
 		       struct event_filter *filter,
 		       enum event_filter_log_type log_type,
 		       bool expected)
@@ -24,36 +25,39 @@ static void check_expr(struct event *event,
 
 	/* get at the expr inside the filter */
 	expr = event_filter_get_expr_for_testing(filter, &num_queries);
-	test_assert(num_queries == 1); /* should have only one query */
+	test_out_quiet(t_strdup_printf("%s:num_queries==1", test_name),
+		       num_queries == 1); /* should have only one query */
 
 	got = event_filter_query_match_eval(expr, event,
 					    SOURCE_FILENAME, SOURCE_LINE,
 					    log_type);
-	test_assert(got == expected);
+	test_out_quiet(t_strdup_printf("%s:got=expected", test_name),
+		       got == expected);
 }
 
 static void do_test_expr(const char *filter_string, struct event *event,
 			 enum event_filter_log_type log_type,
 			 bool expected)
 {
-	const char *error;
+	const char *test_name, *error;
 
-	test_begin(t_strdup_printf("%.*s log type + event {a=%s, b=%s} + filter '%s' (exp %s)",
-				   3, /* truncate the type name to avoid CI seeing 'warning' messages */
-				   event_filter_category_from_log_type(log_type),
-				   event_find_field_recursive_str(event, "a"),
-				   event_find_field_recursive_str(event, "b"),
-				   filter_string,
-				   expected ? "true" : "false"));
+	test_name = t_strdup_printf(
+		"%.*s log type + event {a=%s, b=%s} + filter '%s' (exp %s)",
+		3, /* truncate the type name to avoid CI seeing 'warning' messages */
+		event_filter_category_from_log_type(log_type),
+		event_find_field_recursive_str(event, "a"),
+		event_find_field_recursive_str(event, "b"),
+		filter_string,
+		expected ? "true" : "false");
 
 	/* set up the filter expression */
 	struct event_filter *filter = event_filter_create();
-	test_assert(event_filter_parse(filter_string, filter, &error) == 0);
+	test_out_quiet(t_strdup_printf("%s:event_filter_parse()", test_name),
+		       event_filter_parse(filter_string, filter, &error) == 0);
 
-	check_expr(event, filter, log_type, expected);
+	check_expr(test_name, event, filter, log_type, expected);
 
 	event_filter_unref(&filter);
-	test_end();
 }
 
 static void test_unary_expr(struct event *event,
@@ -239,6 +243,8 @@ void test_event_filter_expr(void)
 	};
 	unsigned int i;
 
+	test_begin("event filter expressions");
 	for (i = 0; i < N_ELEMENTS(log_types); i++)
 		test_event_filter_expr_fields(log_types[i]);
+	test_end();
 }

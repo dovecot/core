@@ -223,12 +223,11 @@ static void testcase(const char *name, const char *input, const char *exp,
 	const char *error;
 	int ret;
 
-	test_begin(t_strdup_printf("event filter parser: %s", name));
-
 	filter = event_filter_create();
 	ret = event_filter_parse(input, filter, &error);
 
-	test_assert((ret != 0) == fails);
+	test_out_quiet(name != NULL ? name : "filter parser",
+		       (ret != 0) == fails);
 
 	if (ret == 0) {
 		string_t *tmp = t_str_new(128);
@@ -243,20 +242,19 @@ static void testcase(const char *name, const char *input, const char *exp,
 	}
 
 	event_filter_unref(&filter);
-
-	test_end();
 }
 
 static void test_event_filter_parser_table(void)
 {
 	unsigned int i;
 
+	test_begin("event filter parser: table");
 	for (i = 0; i < N_ELEMENTS(tests); i++) T_BEGIN {
-		testcase("table",
-			 tests[i].input,
+		testcase(NULL, tests[i].input,
 			 tests[i].output,
 			 tests[i].fails);
 	} T_END;
+	test_end();
 }
 
 static void test_event_filter_parser_categories(void)
@@ -266,6 +264,7 @@ static void test_event_filter_parser_categories(void)
 	};
 	unsigned int i;
 
+	test_begin("event filter parser: log type category");
 	for (i = 0; i < N_ELEMENTS(cat_names); i++) T_BEGIN {
 		string_t *str = t_str_new(128);
 
@@ -273,8 +272,9 @@ static void test_event_filter_parser_categories(void)
 		str_append(str, cat_names[i]);
 		str_append(str, ")");
 
-		testcase("log type category", str_c(str), str_c(str), FALSE);
+		testcase(NULL, str_c(str), str_c(str), FALSE);
 	} T_END;
+	test_end();
 }
 
 static void
@@ -309,7 +309,7 @@ test_event_filter_parser_simple_nesting_helper(bool not1, bool not2,
 			      expr2,
 			      not2 ? ")" : "");
 
-	testcase("simple nesting", in, exp, FALSE);
+	testcase(NULL, in, exp, FALSE);
 }
 
 static void test_event_filter_parser_simple_nesting(void)
@@ -325,6 +325,7 @@ static void test_event_filter_parser_simple_nesting(void)
 	unsigned int loc;
 	unsigned int not;
 
+	test_begin("event filter parser: simple nesting");
 	for (i = 0; i < N_ELEMENTS(whitespace); i++) {
 		for (not = 0; not < 4; not++) {
 			const bool not1 = (not & 0x2) != 0;
@@ -349,6 +350,7 @@ static void test_event_filter_parser_simple_nesting(void)
 			} T_END;
 		}
 	}
+	test_end();
 }
 
 /*
@@ -435,6 +437,8 @@ static void test_event_filter_parser_generated(bool parens)
 {
 	unsigned int w, v;
 
+	test_begin(t_strdup_printf("event filter parser: parser generated parens=%s",
+				   parens ? "yes" : "no"));
 	/* check that non-field keys work */
 	for (w = 0; w < N_ELEMENTS(what_special); w++) {
 		for (v = 0; v < N_ELEMENTS(values_single); v++)
@@ -518,11 +522,14 @@ static void test_event_filter_parser_generated(bool parens)
 						    QUOTE_MUST);
 		}
 	}
+	test_end();
 }
 
 static void test_event_filter_parser_simple_invalid(void)
 {
-	testcase("simple invalid", "a=b=c", "", TRUE);
+	test_begin("event filter parser: simple invalid");
+	testcase(NULL, "a=b=c", "", TRUE);
+	test_end();
 }
 
 void test_event_filter_parser(void)
