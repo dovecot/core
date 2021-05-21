@@ -3,7 +3,7 @@
 
 struct dlua_script;
 
-/* Parse and load a lua script. */
+/* Parse and load a lua script, without actually running it. */
 int dlua_script_create_string(const char *str, struct dlua_script **script_r,
 			      struct event *event_parent, const char **error_r);
 int dlua_script_create_file(const char *file, struct dlua_script **script_r,

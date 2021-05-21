@@ -25,6 +25,9 @@ struct event_category event_category_lua = {
 
 static struct dlua_script *dlua_scripts = NULL;
 
+static int
+dlua_script_create_finish(struct dlua_script *script, const char **error_r);
+
 static void *dlua_alloc(void *ctx, void *ptr, size_t osize, size_t nsize)
 {
 	struct dlua_script *script =
@@ -162,6 +165,9 @@ int dlua_script_init(struct dlua_script *script, const char **error_r)
 		return 0;
 	script->init = TRUE;
 
+	if (dlua_script_create_finish(script, error_r) < 0)
+		return -1;
+
 	/* lets not fail on missing function... */
 	if (!dlua_script_has_function(script, LUA_SCRIPT_INIT_FN))
 		return 0;
@@ -249,21 +255,15 @@ static int dlua_run_script(struct dlua_script *script, const char **error_r)
 }
 
 static int
-dlua_script_create_finish(struct dlua_script *script, struct dlua_script **script_r,
-			  const char **error_r)
+dlua_script_create_finish(struct dlua_script *script, const char **error_r)
 {
 	/* store pointer as light data to registry before calling the script */
 	lua_pushstring(script->L, LUA_SCRIPT_REGISTRY_KEY);
 	lua_pushlightuserdata(script->L, script);
 	lua_settable(script->L, LUA_REGISTRYINDEX);
 
-	if (dlua_run_script(script, error_r) < 0) {
-		dlua_script_unref(&script);
+	if (dlua_run_script(script, error_r) < 0)
 		return -1;
-	}
-
-	*script_r = script;
-
 	i_assert(lua_gettop(script->L) == 0);
 	return 0;
 }
@@ -280,8 +280,10 @@ int dlua_script_create_string(const char *str, struct dlua_script **script_r,
 	fn = binary_to_hex(scripthash, sizeof(scripthash));
 
 	script = dlua_create_script(fn, event_parent);
-	if (luaL_loadstring(script->L, str) == LUA_OK)
-		return dlua_script_create_finish(script, script_r, error_r);
+	if (luaL_loadstring(script->L, str) == LUA_OK) {
+		*script_r = script;
+		return 0;
+	}
 	*error_r = t_strdup_printf("lua_load(<string>) failed: %s",
 				   lua_tostring(script->L, -1));
 	lua_pop(script->L, 1);
@@ -312,7 +314,8 @@ int dlua_script_create_file(const char *file, struct dlua_script **script_r,
 		return -1;
 	}
 
-	return dlua_script_create_finish(script, script_r, error_r);
+	*script_r = script;
+	return 0;
 }
 
 int dlua_script_create_stream(struct istream *is, struct dlua_script **script_r,
@@ -333,7 +336,8 @@ int dlua_script_create_stream(struct istream *is, struct dlua_script **script_r,
 		return -1;
 	}
 
-	return dlua_script_create_finish(script, script_r, error_r);
+	*script_r = script;
+	return 0;
 }
 
 static void dlua_script_destroy(struct dlua_script *script)
