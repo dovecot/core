@@ -54,6 +54,9 @@ static void test_ds_grow_event(void)
 	event_set_global_debug_log_filter(filter);
 	event_filter_unref(&filter);
 
+	/* make sure the test won't fail due to earlier data stack
+	   allocations. */
+	data_stack_free_unused();
 	T_BEGIN {
 		(void)t_malloc0(1024*5);
 		test_assert(ds_grow_event_count == 0);

@@ -154,6 +154,10 @@ size_t data_stack_get_alloc_size(void);
 /* Returns the number of bytes currently used in data stack. */
 size_t data_stack_get_used_size(void);
 
+/* Free all the memory that is currently unused (i.e. reserved for growing
+   data stack quickly). */
+void data_stack_free_unused(void);
+
 void data_stack_init(void);
 void data_stack_deinit_event(void);
 void data_stack_deinit(void);
