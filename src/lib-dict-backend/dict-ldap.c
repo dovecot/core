@@ -36,7 +36,6 @@ struct ldap_dict {
 	struct dict_ldap_settings *set;
 
 	const char *uri;
-	const char *username;
 	const char *base_dn;
 	enum ldap_scope scope;
 
@@ -233,14 +232,13 @@ ldap_dict_build_query(const struct dict_op_settings *set,
 
 static
 int ldap_dict_init(struct dict *dict_driver, const char *uri,
-		   const struct dict_settings *set,
+		   const struct dict_settings *set ATTR_UNUSED,
 		   struct dict **dict_r, const char **error_r)
 {
 	pool_t pool = pool_alloconly_create("ldap dict", 2048);
 	struct ldap_dict *dict = p_new(pool, struct ldap_dict, 1);
 	dict->pool = pool;
 	dict->dict = *dict_driver;
-	dict->username = p_strdup(pool, set->username);
 	dict->uri = p_strdup(pool, uri);
 	dict->set = dict_ldap_settings_read(pool, uri, error_r);
 
