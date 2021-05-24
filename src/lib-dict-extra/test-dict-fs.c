@@ -38,7 +38,6 @@ static void test_dict_fs_set_get(void)
 	const char *error;
 	struct dict *dict;
 	struct dict_settings set = {
-		.username = "testuser",
 		.base_dir = ".",
 	};
 	if (dict_init("fs:posix:prefix=.test-dict/", &set, &dict, &error) < 0)

@@ -16,7 +16,6 @@ struct dict_connection {
 	struct dict_server *server;
 	int refcount;
 
-	char *username;
 	char *name;
 	struct dict *dict;
 	enum dict_data_type value_type;

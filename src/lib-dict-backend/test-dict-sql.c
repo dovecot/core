@@ -17,7 +17,6 @@ static void test_setup(struct dict **dict_r)
 {
 	const char *error = NULL;
 	struct dict_settings set = {
-		.username = "testuser",
 		.base_dir = "."
 	};
 	struct dict *dict = NULL;

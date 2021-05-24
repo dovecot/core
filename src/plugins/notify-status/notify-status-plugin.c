@@ -52,7 +52,6 @@ static int notify_status_dict_init(struct mail_user *user, const char *uri,
 				   struct dict **dict_r, const char **error_r)
 {
 	struct dict_settings set = {
-		.username = user->username,
 		.base_dir = user->set->base_dir,
 		.event_parent = user->event,
 	};

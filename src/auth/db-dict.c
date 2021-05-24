@@ -309,7 +309,6 @@ struct dict_connection *db_dict_init(const char *config_path)
 		i_fatal("dict %s: Empty uri setting", config_path);
 
 	i_zero(&dict_set);
-	dict_set.username = "";
 	dict_set.base_dir = global_auth_settings->base_dir;
 	dict_set.event_parent = auth_event;
 	if (dict_init(conn->set.uri, &dict_set, &conn->dict, &error) < 0)

@@ -54,7 +54,6 @@ cmd_dict_init_full(struct doveadm_cmd_context *cctx,
 
 	dict_drivers_register_builtin();
 	i_zero(&dict_set);
-	dict_set.username = username;
 	dict_set.base_dir = doveadm_settings->base_dir;
 	if (dict_init(dict_uri, &dict_set, &dict, &error) < 0) {
 		i_error("dict_init(%s) failed: %s", dict_uri, error);

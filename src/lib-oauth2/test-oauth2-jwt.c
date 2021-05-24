@@ -784,7 +784,6 @@ static void test_do_init(void)
 		.module_dir = "../lib-dcrypt/.libs",
 	};
 	struct dict_settings dict_set = {
-		.username = "testuser",
 		.base_dir = ".",
 	};
 

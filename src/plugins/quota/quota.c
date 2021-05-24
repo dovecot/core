@@ -855,7 +855,6 @@ int quota_set_resource(struct quota_root *root, const char *name,
 		struct dict_settings set;
 
 		i_zero(&set);
-		set.username = root->quota->user->username;
 		set.base_dir = root->quota->user->set->base_dir;
 		set.event_parent = root->quota->user->event;
 		if (mail_user_get_home(root->quota->user, &set.home_dir) <= 0)

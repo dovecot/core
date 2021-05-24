@@ -51,7 +51,6 @@ int main(int argc, char *argv[])
 	i_zero(&set);
 	i_zero(&opset);
 	set.base_dir = "/var/run/dovecot";
-	set.username = "testuser";
 	opset.username = "testuser";
 
 	if (dict_init(uri, &set, &dict, &error) < 0)

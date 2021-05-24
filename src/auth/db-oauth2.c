@@ -294,7 +294,6 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 
 	if (db->oauth2_set.introspection_mode == INTROSPECTION_MODE_LOCAL) {
 		struct dict_settings dict_set = {
-			.username = "",
 			.base_dir = global_auth_settings->base_dir,
 			.event_parent = auth_event,
 		};

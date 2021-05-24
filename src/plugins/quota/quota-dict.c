@@ -71,7 +71,6 @@ static int dict_quota_init(struct quota_root *_root, const char *args,
 	/* FIXME: we should use 64bit integer as datatype instead but before
 	   it can actually be used don't bother */
 	i_zero(&set);
-	set.username = username;
 	set.base_dir = _root->quota->user->set->base_dir;
 	set.event_parent = _root->quota->user->event;
 	if (mail_user_get_home(_root->quota->user, &set.home_dir) <= 0)
