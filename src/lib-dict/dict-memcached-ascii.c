@@ -52,7 +52,7 @@ struct dict_memcached_ascii_commit_ctx {
 struct memcached_ascii_dict {
 	struct dict dict;
 	struct ip_addr ip;
-	char *username, *key_prefix;
+	char *key_prefix;
 	in_port_t port;
 	unsigned int timeout_msecs;
 
@@ -439,12 +439,6 @@ memcached_ascii_dict_init(struct dict *driver, const char *uri,
 	dict->conn.reply_str = str_new(default_pool, 256);
 	dict->conn.dict = dict;
 
-	if (strchr(set->username, DICT_USERNAME_SEPARATOR) == NULL)
-		dict->username = i_strdup(set->username);
-	else {
-		/* escape the username */
-		dict->username = i_strdup(memcached_ascii_escape_username(set->username));
-	}
 	i_array_init(&dict->input_states, 4);
 	i_array_init(&dict->replies, 4);
 
@@ -475,7 +469,6 @@ static void memcached_ascii_dict_deinit(struct dict *_dict)
 	array_free(&dict->replies);
 	array_free(&dict->input_states);
 	i_free(dict->key_prefix);
-	i_free(dict->username);
 	i_free(dict);
 
 	if (memcached_ascii_connections->connections == NULL)
