@@ -58,10 +58,9 @@ static void oauth2_verify_callback(enum passdb_result result,
 		if (request->mech_password != NULL)
 			request->mech_password = NULL;
 		string_t *error = t_str_new(64);
-		unsigned int nfields = str_array_length(error_fields);
-		i_assert(nfields % 2 == 0);
 		str_append_c(error, '{');
-		for (unsigned int i = 0; i < nfields; i += 2) {
+		for (unsigned int i = 0; error_fields[i] != NULL; i += 2) {
+			i_assert(error_fields[i+1] != NULL);
 			if (i > 0)
 				str_append_c(error, ',');
 			str_append_c(error, '"');
