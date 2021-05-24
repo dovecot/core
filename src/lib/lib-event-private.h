@@ -37,7 +37,10 @@ struct event {
 	event_log_message_callback_t *log_message_callback;
 	void *log_message_callback_context;
 	ARRAY(struct event_pointer) pointers;
+	/* If the event's log level is at least this high, log it. If it's
+	   lower, check for debug log filters etc. */
 	enum log_type min_log_level;
+
 	bool log_prefix_from_system_pool:1;
 	bool log_prefix_replace:1;
 	bool passthrough:1;

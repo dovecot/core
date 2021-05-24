@@ -239,7 +239,12 @@ event_set_source(struct event *event, const char *filename,
    it allow quickly finding which of the otherwise identical syscalls in the
    code generated the error. */
 struct event *event_set_always_log_source(struct event *event);
-/* Set minimum log level for the event */
+/* Set minimum normal log level for the event. By default events with INFO
+   level and higher are logged. This can be used to easily hide even the INFO
+   log lines unless some verbose-setting is enabled.
+
+   Note that this functionality is mostly independent of debug logging.
+   Don't use this to enable debug log - use event_set_forced_debug() instead. */
 struct event *event_set_min_log_level(struct event *event, enum log_type level);
 enum log_type event_get_min_log_level(const struct event *event);
 

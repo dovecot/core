@@ -255,27 +255,37 @@ bool event_want_log_level(struct event *event, enum log_type level,
 {
 	struct failure_context ctx = { .type = LOG_TYPE_DEBUG };
 
-	if (event->min_log_level <= level)
+	if (level >= event->min_log_level) {
+		/* Always log when level is at least this high */
 		return TRUE;
+	}
 
-	if (event->debug_level_checked_filter_counter == event_filter_replace_counter)
+	if (event->debug_level_checked_filter_counter == event_filter_replace_counter) {
+		/* Log filters haven't changed since we last checked this, so
+		   we can rely on the last cached value. FIXME: this doesn't
+		   work correctly if event changes and the change affects
+		   whether the filters would match. */
 		return event->sending_debug_log;
+	}
 	event->debug_level_checked_filter_counter =
 		event_filter_replace_counter;
 
-	if (event->forced_debug)
+	if (event->forced_debug) {
+		/* Debugging is forced for this event (and its children) */
 		event->sending_debug_log = TRUE;
-
-	else if (global_debug_log_filter != NULL &&
-		 event_filter_match_source(global_debug_log_filter, event,
-					   source_filename, source_linenum, &ctx))
+	} else if (global_debug_log_filter != NULL &&
+		   event_filter_match_source(global_debug_log_filter, event,
+					     source_filename, source_linenum, &ctx)) {
+		/* log_debug filter matched */
 		event->sending_debug_log = TRUE;
-	else if (global_core_log_filter != NULL &&
-		 event_filter_match_source(global_core_log_filter, event,
-					   source_filename, source_linenum, &ctx))
+	} else if (global_core_log_filter != NULL &&
+		   event_filter_match_source(global_core_log_filter, event,
+					     source_filename, source_linenum, &ctx)) {
+		/* log_core_filter matched */
 		event->sending_debug_log = TRUE;
-	else
+	} else {
 		event->sending_debug_log = FALSE;
+	}
 	return event->sending_debug_log;
 }
 
