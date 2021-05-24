@@ -72,7 +72,7 @@ struct client_dict {
 	struct dict dict;
 	struct dict_client_connection conn;
 
-	char *uri, *username;
+	char *uri;
 	enum dict_data_type value_type;
 	unsigned warn_slow_msecs;
 
@@ -585,7 +585,7 @@ static int client_dict_connect(struct client_dict *dict, const char **error_r)
 				DICT_CLIENT_PROTOCOL_MAJOR_VERSION,
 				DICT_CLIENT_PROTOCOL_MINOR_VERSION,
 				dict->value_type,
-				str_tabescape(dict->username),
+				"",
 				str_tabescape(dict->uri));
 	o_stream_nsend_str(dict->conn.conn.output, query);
 	client_dict_add_timeout(dict);
@@ -754,7 +754,6 @@ client_dict_init(struct dict *driver, const char *uri,
 	dict->dict = *driver;
 	dict->conn.dict = dict;
 	dict->conn.conn.event_parent = set->event_parent;
-	dict->username = i_strdup(set->username);
 	dict->idle_msecs = idle_msecs;
 	dict->warn_slow_msecs = warn_slow_msecs;
 	i_array_init(&dict->cmds, 32);
@@ -799,7 +798,6 @@ static void client_dict_deinit(struct dict *_dict)
 
 	array_free(&dict->cmds);
 	i_free(dict->last_connect_error);
-	i_free(dict->username);
 	i_free(dict->uri);
 	i_free(dict);
 
