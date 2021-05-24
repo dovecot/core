@@ -102,7 +102,6 @@ sql_dict_init(struct dict *driver, const char *uri,
 	dict = p_new(pool, struct sql_dict, 1);
 	dict->pool = pool;
 	dict->dict = *driver;
-	dict->username = p_strdup(pool, set->username);
 	dict->set = dict_sql_settings_read(uri, error_r);
 	if (dict->set == NULL) {
 		pool_unref(&pool);

@@ -6,7 +6,6 @@ struct sql_dict {
 
 	pool_t pool;
 	struct sql_db *db;
-	const char *username;
 	const struct dict_sql_settings *set;
 };
 
