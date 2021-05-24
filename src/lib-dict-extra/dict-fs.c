@@ -11,7 +11,6 @@
 struct fs_dict {
 	struct dict dict;
 	struct fs *fs;
-	char *username;
 };
 
 struct fs_dict_iterate_context {
@@ -52,7 +51,6 @@ fs_dict_init(struct dict *driver, const char *uri,
 	dict = i_new(struct fs_dict, 1);
 	dict->dict = *driver;
 	dict->fs = fs;
-	dict->username = i_strdup(set->username);
 
 	*dict_r = &dict->dict;
 	return 0;
@@ -63,7 +61,6 @@ static void fs_dict_deinit(struct dict *_dict)
 	struct fs_dict *dict = (struct fs_dict *)_dict;
 
 	fs_deinit(&dict->fs);
-	i_free(dict->username);
 	i_free(dict);
 }
 
