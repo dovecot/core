@@ -47,7 +47,7 @@ struct redis_dict_reply {
 
 struct redis_dict {
 	struct dict dict;
-	char *username, *password, *key_prefix, *expire_value;
+	char *password, *key_prefix, *expire_value;
 	unsigned int timeout_msecs, db_id;
 
 	struct redis_connection conn;
@@ -440,12 +440,6 @@ redis_dict_init(struct dict *driver, const char *uri,
 
 	i_array_init(&dict->input_states, 4);
 	i_array_init(&dict->replies, 4);
-	if (strchr(set->username, DICT_USERNAME_SEPARATOR) == NULL)
-		dict->username = i_strdup(set->username);
-	else {
-		/* escape the username */
-		dict->username = i_strdup(redis_escape_username(set->username));
-	}
 
 	*dict_r = &dict->dict;
 	return 0;
@@ -466,7 +460,6 @@ static void redis_dict_deinit(struct dict *_dict)
 	i_free(dict->expire_value);
 	i_free(dict->key_prefix);
 	i_free(dict->password);
-	i_free(dict->username);
 	i_free(dict);
 
 	if (redis_connections->connections == NULL)
