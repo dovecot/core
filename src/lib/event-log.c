@@ -284,11 +284,7 @@ bool event_want_level(struct event *event, enum log_type level,
 		      const char *source_filename,
 		      unsigned int source_linenum)
 {
-	(void)event_want_log_level(event, level, source_filename, source_linenum);
-	if (event->sending_debug_log)
-		return TRUE;
-
-	if (event->min_log_level <= level)
+	if (event_want_log_level(event, level, source_filename, source_linenum))
 		return TRUE;
 
 	/* see if debug send filtering matches */
