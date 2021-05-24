@@ -1,3 +1,17 @@
+v2.3.14.1 2021-06-21  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* CVE-2021-29157: Dovecot does not correctly escape kid and azp fields in
+	  JWT tokens. This may be used to supply attacker controlled keys to
+	  validate tokens, if attacker has local access.
+	* CVE-2021-33515: On-path attacker could have injected plaintext commands
+	  before STARTTLS negotiation that would be executed after STARTTLS
+	  finished with the client.
+	- lib-index: Corrupted mime.parts in dovecot.index.cache may have
+	  resulted in Panic: file imap-bodystructure.c: line 206 (part_write_body):
+	  assertion failed: (text == ((part->flags & MESSAGE_PART_FLAG_TEXT) != 0))
+	- imap: SETMETADATA could not be used to unset metadata values.
+	  Instead NIL was handled as a "NIL" string. v2.3.14 regression.
+
 V2.3.14 2021-03-04  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* Added new aliases for some variables. Usage of the old ones is possible,
