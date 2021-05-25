@@ -457,6 +457,23 @@ imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
 	return 0;
 }
 
+bool imapc_mailbox_name_equals(struct imapc_mailbox *mbox,
+			       const char *remote_name)
+{
+	const char *imapc_remote_name =
+		imapc_mailbox_get_remote_name(mbox);
+
+	if (strcmp(imapc_remote_name, remote_name) == 0) {
+		/* match */
+		return TRUE;
+	} else if (strcasecmp(mbox->box.name, "INBOX") == 0 &&
+		   strcasecmp(remote_name, "INBOX") == 0) {
+		/* case-insensitive INBOX */
+		return TRUE;
+	}
+	return FALSE;
+}
+
 static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 				 struct imapc_mailbox *mbox)
 {
