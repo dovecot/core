@@ -917,18 +917,12 @@ static bool cmd_setacl(struct client_command_context *cmd)
 	return TRUE;
 }
 
-static bool cmd_deleteacl(struct client_command_context *cmd)
+static void imap_acl_cmd_deleteacl(struct mailbox *box, const char *mailbox,
+				   const char *identifier,
+				   struct client_command_context *cmd)
 {
-	struct mailbox *box;
 	struct acl_rights_update update;
-	const char *mailbox, *identifier, *client_error;
-
-	if (!client_read_string_args(cmd, 2, &mailbox, &identifier))
-		return FALSE;
-	if (*identifier == '\0') {
-		client_send_command_error(cmd, "Invalid arguments.");
-		return TRUE;
-	}
+	const char *client_error;
 
 	i_zero(&update);
 	if (*identifier != '-')
@@ -941,17 +935,41 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 	if (imap_acl_identifier_parse(cmd, identifier, &update.rights,
 				      FALSE, &client_error) < 0) {
 		client_send_command_error(cmd, client_error);
-		return TRUE;
+		return;
 	}
 
-	box = acl_mailbox_open_as_admin(cmd, mailbox);
-	if (box == NULL)
-		return TRUE;
+	if (acl_mailbox_open_allocated_as_admin(cmd, box, mailbox) <= 0)
+		return;
 
 	if (cmd_acl_mailbox_update(box, &update, &client_error) < 0)
 		client_send_tagline(cmd, t_strdup_printf("NO %s", client_error));
 	else
 		client_send_tagline(cmd, "OK Deleteacl complete.");
+}
+
+static bool cmd_deleteacl(struct client_command_context *cmd)
+{
+	struct mailbox *box;
+	struct mail_namespace *ns;
+	const char *mailbox, *orig_mailbox, *identifier;
+
+	if (!client_read_string_args(cmd, 2, &mailbox, &identifier))
+		return FALSE;
+	orig_mailbox = mailbox;
+
+	if (*identifier == '\0') {
+		client_send_command_error(cmd, "Invalid arguments.");
+		return TRUE;
+	}
+
+	ns = client_find_namespace(cmd, &mailbox);
+	if (ns == NULL)
+		return TRUE;
+
+	box = mailbox_alloc(ns->list, mailbox,
+			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
+
+	imap_acl_cmd_deleteacl(box, orig_mailbox, identifier, cmd);
 	mailbox_free(&box);
 	return TRUE;
 }
