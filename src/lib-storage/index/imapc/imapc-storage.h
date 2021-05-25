@@ -188,6 +188,7 @@ void imap_mailbox_select_finish(struct imapc_mailbox *mbox);
 
 bool imapc_mailbox_has_modseqs(struct imapc_mailbox *mbox);
 bool imapc_resp_text_code_parse(const char *str, enum mail_error *error_r);
+bool imapc_mail_error_to_resp_text_code(enum mail_error error, const char **str_r);
 void imapc_copy_error_from_reply(struct imapc_storage *storage,
 				 enum mail_error default_error,
 				 const struct imapc_command_reply *reply);

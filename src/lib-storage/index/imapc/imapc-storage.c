@@ -79,6 +79,19 @@ bool imapc_resp_text_code_parse(const char *str, enum mail_error *error_r)
 	return FALSE;
 }
 
+bool imapc_mail_error_to_resp_text_code(enum mail_error error, const char **str_r)
+{
+	unsigned int i;
+
+	for (i = 0; i < N_ELEMENTS(imapc_resp_code_map); i++) {
+		if (imapc_resp_code_map[i].error == error) {
+			*str_r = imapc_resp_code_map[i].code;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 bool imapc_mailbox_has_modseqs(struct imapc_mailbox *mbox)
 {
 	return (mbox->capabilities & (IMAPC_CAPABILITY_CONDSTORE |
