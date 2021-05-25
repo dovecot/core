@@ -814,24 +814,17 @@ cmd_acl_mailbox_update(struct mailbox *box,
 	return ret;
 }
 
-static bool cmd_setacl(struct client_command_context *cmd)
+static void imap_acl_cmd_setacl(struct mailbox *box, struct mail_namespace *ns,
+				const char *mailbox, const char *identifier,
+				const char *rights,
+				struct client_command_context *cmd)
 {
-	struct mail_namespace *ns;
-	struct mailbox *box;
 	struct acl_backend *backend;
 	struct acl_object *aclobj;
 	struct acl_rights_update update;
 	struct acl_rights *r;
-	const char *mailbox, *identifier, *rights, *client_error;
+	const char *client_error;
 	bool negative = FALSE;
-
-	if (!client_read_string_args(cmd, 3, &mailbox, &identifier, &rights))
-		return FALSE;
-
-	if (*identifier == '\0') {
-		client_send_command_error(cmd, "Invalid arguments.");
-		return TRUE;
-	}
 
 	i_zero(&update);
 	if (*identifier == '-') {
@@ -856,25 +849,22 @@ static bool cmd_setacl(struct client_command_context *cmd)
 	if (imap_acl_identifier_parse(cmd, identifier, &update.rights,
 				      TRUE, &client_error) < 0) {
 		client_send_command_error(cmd, client_error);
-		return TRUE;
+		return;
 	}
 	if (imap_acl_letters_parse(rights, &update.rights.rights, &client_error) < 0) {
 		client_send_command_error(cmd, client_error);
-		return TRUE;
+		return;
 	}
 	r = &update.rights;
 
-	box = acl_mailbox_open_as_admin(cmd, mailbox);
-	if (box == NULL)
-		return TRUE;
+	if (acl_mailbox_open_allocated_as_admin(cmd, box, mailbox) <= 0)
+		return;
 
-	ns = mailbox_get_namespace(box);
 	backend = acl_mailbox_list_get_backend(ns->list);
 	if (ns->type == MAIL_NAMESPACE_TYPE_PUBLIC &&
 	    r->id_type == ACL_ID_OWNER) {
 		client_send_tagline(cmd, "NO Public namespaces have no owner");
-		mailbox_free(&box);
-		return TRUE;
+		return;
 	}
 
 	aclobj = acl_mailbox_get_aclobj(box);
@@ -899,6 +889,30 @@ static bool cmd_setacl(struct client_command_context *cmd)
 		client_send_tagline(cmd, t_strdup_printf("NO %s", client_error));
 	else
 		client_send_tagline(cmd, "OK Setacl complete.");
+}
+
+static bool cmd_setacl(struct client_command_context *cmd)
+{
+	struct mail_namespace *ns;
+	struct mailbox *box;
+	const char *mailbox, *orig_mailbox, *identifier, *rights;
+
+	if (!client_read_string_args(cmd, 3, &mailbox, &identifier, &rights))
+		return FALSE;
+	orig_mailbox = mailbox;
+
+	if (*identifier == '\0') {
+		client_send_command_error(cmd, "Invalid arguments.");
+		return TRUE;
+	}
+
+	ns = client_find_namespace(cmd, &mailbox);
+	if (ns == NULL)
+		return TRUE;
+
+	box = mailbox_alloc(ns->list, mailbox,
+			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
+	imap_acl_cmd_setacl(box, ns, orig_mailbox, identifier, rights, cmd);
 	mailbox_free(&box);
 	return TRUE;
 }
