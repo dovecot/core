@@ -200,6 +200,8 @@ void imapc_simple_callback(const struct imapc_command_reply *reply,
 			   void *context);
 int imapc_mailbox_commit_delayed_trans(struct imapc_mailbox *mbox,
 				       bool force, bool *changes_r);
+bool imapc_mailbox_name_equals(struct imapc_mailbox *mbox,
+			       const char *remote_name);
 void imapc_mailbox_noop(struct imapc_mailbox *mbox);
 void imapc_mailbox_set_corrupted(struct imapc_mailbox *mbox,
 				 const char *reason, ...) ATTR_FORMAT(2, 3);

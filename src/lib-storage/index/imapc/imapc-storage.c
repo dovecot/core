@@ -919,16 +919,9 @@ static void imapc_untagged_status(const struct imapc_untagged_reply *reply,
 	if (storage->cur_status_box == NULL)
 		return;
 
-	const char *cur_status_remote_name =
-		imapc_mailbox_get_remote_name(storage->cur_status_box);
-	if (strcmp(cur_status_remote_name, remote_name) == 0) {
-		/* match */
-	} else if (strcasecmp(storage->cur_status_box->box.name, "INBOX") == 0 &&
-		   strcasecmp(remote_name, "INBOX") == 0) {
-		/* case-insensitive INBOX */
-	} else {
+	if (!imapc_mailbox_name_equals(storage->cur_status_box,
+				       remote_name))
 		return;
-	}
 
 	status = storage->cur_status;
 	for (i = 0; list[i].type != IMAP_ARG_EOL; i += 2) {
