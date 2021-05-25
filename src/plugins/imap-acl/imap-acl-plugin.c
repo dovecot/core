@@ -509,28 +509,23 @@ static bool imap_acl_proxy_cmd(struct mailbox *box,
 	return TRUE;
 }
 
-static bool cmd_getacl(struct client_command_context *cmd)
+static void imap_acl_cmd_getacl(struct mailbox *box, struct mail_namespace *ns,
+				const char *mailbox,
+				struct client_command_context *cmd)
 {
 	struct acl_backend *backend;
-	struct mail_namespace *ns;
-	struct mailbox *box;
-	const char *mailbox;
 	string_t *str;
 	int ret;
 
-	if (!client_read_string_args(cmd, 1, &mailbox))
-		return FALSE;
+	if (acl_mailbox_open_allocated_as_admin(cmd, box, mailbox) <= 0)
+		return;
 
-	box = acl_mailbox_open_as_admin(cmd, mailbox);
-	if (box == NULL)
-		return TRUE;
+	backend = acl_mailbox_list_get_backend(ns->list);
 
 	str = t_str_new(128);
 	str_append(str, "* ACL ");
 	imap_append_astring(str, mailbox);
 
-	ns = mailbox_get_namespace(box);
-	backend = acl_mailbox_list_get_backend(ns->list);
 	ret = imap_acl_write_aclobj(str, backend,
 				    acl_mailbox_get_aclobj(box), TRUE,
 				    ns->type == MAIL_NAMESPACE_TYPE_PRIVATE);
@@ -540,6 +535,25 @@ static bool cmd_getacl(struct client_command_context *cmd)
 	} else {
 		client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
 	}
+}
+
+static bool cmd_getacl(struct client_command_context *cmd)
+{
+	struct mail_namespace *ns;
+	struct mailbox *box;
+	const char *mailbox, *orig_mailbox;
+
+	if (!client_read_string_args(cmd, 1, &mailbox))
+		return FALSE;
+	orig_mailbox = mailbox;
+
+	ns = client_find_namespace(cmd, &mailbox);
+	if (ns == NULL)
+		return TRUE;
+
+	box = mailbox_alloc(ns->list, mailbox,
+			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
+	imap_acl_cmd_getacl(box, ns, orig_mailbox, cmd);
 	mailbox_free(&box);
 	return TRUE;
 }
