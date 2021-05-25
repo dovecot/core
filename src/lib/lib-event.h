@@ -342,7 +342,11 @@ void event_send_abort(struct event *event);
 /* Enable "user_cpu_usecs" event field to event by getting current resource
    usage which will be used in consequent event_send() to calculate
    cpu time. This function can be called multiple times to update the current
-   resource usage. */
+   resource usage.
+
+   The "user_cpu_usecs" field is automatically inherited by passthrough events,
+   but not full events.
+*/
 void event_enable_user_cpu_usecs(struct event *event);
 
 void lib_event_init(void);

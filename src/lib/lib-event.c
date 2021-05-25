@@ -423,6 +423,7 @@ event_create_passthrough(struct event *parent, const char *source_filename,
 		   Use the parent's creation timestamp. */
 		event->tv_created_ioloop = parent->tv_created_ioloop;
 		event->tv_created = parent->tv_created;
+		memcpy(&event->ru_last, &parent->ru_last, sizeof(parent->ru_last));
 		event_last_passthrough = &event->event_passthrough;
 	} else {
 		event_last_passthrough = &parent->event_passthrough;
