@@ -21,7 +21,11 @@ enum message_part_flags {
 	MESSAGE_PART_FLAG_HAS_NULS		= 0x20,
 
 	/* Mime-Version header exists. */
-	MESSAGE_PART_FLAG_IS_MIME		= 0x40
+	MESSAGE_PART_FLAG_IS_MIME		= 0x40,
+	/* Message parsing was aborted because there were too many MIME parts.
+	   This MIME part points to a blob which wasn't actually parsed to
+	   see if it would contain further MIME parts. */
+	MESSAGE_PART_FLAG_OVERFLOW		= 0x80,
 };
 
 struct message_part {

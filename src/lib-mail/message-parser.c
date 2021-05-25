@@ -253,6 +253,7 @@ boundary_line_find(struct message_parser_ctx *ctx,
 	if (ctx->total_parts_count >= ctx->max_total_mime_parts) {
 		/* can't add any more MIME parts. just stop trying to find
 		   more boundaries. */
+		ctx->part->flags |= MESSAGE_PART_FLAG_OVERFLOW;
 		return -1;
 	}
 
@@ -597,6 +598,7 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 			parse_next_body_multipart_init(ctx);
 			ctx->multipart = TRUE;
 		} else {
+			part->flags |= MESSAGE_PART_FLAG_OVERFLOW;
 			part->flags &= ENUM_NEGATE(MESSAGE_PART_FLAG_MULTIPART);
 		}
 	}
@@ -702,11 +704,19 @@ static int parse_next_header(struct message_parser_ctx *ctx,
 		i_assert(ctx->last_boundary == NULL);
 		ctx->multipart = FALSE;
 		ctx->parse_next_block = parse_next_body_to_boundary;
-	} else if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) != 0 &&
-		   !parse_too_many_nested_mime_parts(ctx) &&
+	} else if ((part->flags & MESSAGE_PART_FLAG_MESSAGE_RFC822) == 0) {
+		/* Not message/rfc822 */
+		if (ctx->boundaries != NULL)
+			ctx->parse_next_block = parse_next_body_to_boundary;
+		else
+			ctx->parse_next_block = parse_next_body_to_eof;
+	} else if (!parse_too_many_nested_mime_parts(ctx) &&
 		   ctx->total_parts_count < ctx->max_total_mime_parts) {
+		/* message/rfc822 - not reached MIME part limits yet */
 		ctx->parse_next_block = parse_next_body_message_rfc822_init;
 	} else {
+		/* message/rfc822 - already reached MIME part limits */
+		part->flags |= MESSAGE_PART_FLAG_OVERFLOW;
 		part->flags &= ENUM_NEGATE(MESSAGE_PART_FLAG_MESSAGE_RFC822);
 		if (ctx->boundaries != NULL)
 			ctx->parse_next_block = parse_next_body_to_boundary;

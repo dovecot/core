@@ -965,7 +965,8 @@ static const char input_msg[] =
 
 	part = parts->children;
 	test_assert(part->children_count == 0);
-	test_assert(part->flags == MESSAGE_PART_FLAG_IS_MIME);
+	test_assert(part->flags == (MESSAGE_PART_FLAG_IS_MIME |
+				    MESSAGE_PART_FLAG_OVERFLOW));
 	test_assert(part->header_size.lines == 2);
 	test_assert(part->header_size.physical_size == 45);
 	test_assert(part->header_size.virtual_size == 45+2);
@@ -1029,7 +1030,8 @@ static const char input_msg[] =
 
 	part = parts->children;
 	test_assert(part->children_count == 0);
-	test_assert(part->flags == MESSAGE_PART_FLAG_IS_MIME);
+	test_assert(part->flags == (MESSAGE_PART_FLAG_IS_MIME |
+				    MESSAGE_PART_FLAG_OVERFLOW));
 	test_assert(part->header_size.lines == 2);
 	test_assert(part->header_size.physical_size == 30);
 	test_assert(part->header_size.virtual_size == 30+2);
@@ -1113,7 +1115,9 @@ static const char input_msg[] =
 
 	part = parts->children->children->next;
 	test_assert(part->children_count == 0);
-	test_assert(part->flags == (MESSAGE_PART_FLAG_TEXT | MESSAGE_PART_FLAG_IS_MIME));
+	test_assert(part->flags == (MESSAGE_PART_FLAG_TEXT |
+				    MESSAGE_PART_FLAG_IS_MIME |
+				    MESSAGE_PART_FLAG_OVERFLOW));
 	test_assert(part->header_size.lines == 2);
 	test_assert(part->header_size.physical_size == 26);
 	test_assert(part->header_size.virtual_size == 26+2);
@@ -1194,7 +1198,8 @@ static const char input_msg[] =
 
 	part = parts->children->children;
 	test_assert(part->children_count == 0);
-	test_assert(part->flags == MESSAGE_PART_FLAG_IS_MIME);
+	test_assert(part->flags == (MESSAGE_PART_FLAG_IS_MIME |
+				    MESSAGE_PART_FLAG_OVERFLOW));
 	test_assert(part->header_size.lines == 2);
 	test_assert(part->header_size.physical_size == 30);
 	test_assert(part->header_size.virtual_size == 30+2);
@@ -1277,7 +1282,9 @@ static const char *const input_msgs[] = {
 		part = part->children;
 
 		test_assert_idx(part->children_count == 0, i);
-		test_assert_idx(part->flags == 72, i);
+		test_assert_idx(part->flags == (MESSAGE_PART_FLAG_TEXT |
+						MESSAGE_PART_FLAG_IS_MIME |
+						MESSAGE_PART_FLAG_OVERFLOW), i);
 		test_assert_idx(part->header_size.lines == 2, i);
 		test_assert_idx(part->header_size.physical_size == 26, i);
 		test_assert_idx(part->header_size.virtual_size == 28, i);
