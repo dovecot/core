@@ -5,6 +5,7 @@
 #include "imap-quote.h"
 #include "imap-resp-code.h"
 #include "imap-commands.h"
+#include "imapc-storage.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
 #include "mail-storage-private.h"
@@ -299,6 +300,21 @@ imap_acl_write_aclobj(string_t *dest, struct acl_backend *backend,
 		}
 	}
 	return ret;
+}
+
+static const char *
+imapc_acl_get_mailbox_error(struct imapc_mailbox *mbox)
+{
+	enum mail_error err;
+	const char *error = mailbox_get_last_error(&mbox->box, &err);
+	const char *resp_code;
+	string_t *str = t_str_new(128);
+
+	if (imapc_mail_error_to_resp_text_code(err, &resp_code))
+		str_printfa(str, "[%s] ", resp_code);
+	str_append(str, error);
+
+	return str_c(str);
 }
 
 static bool cmd_getacl(struct client_command_context *cmd)
