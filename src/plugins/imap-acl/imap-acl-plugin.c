@@ -336,13 +336,42 @@ static bool cmd_getacl(struct client_command_context *cmd)
 	return TRUE;
 }
 
+static void imap_acl_cmd_myrights(struct mailbox *box, const char *mailbox,
+                                  struct client_command_context *cmd)
+{
+       const char *const *rights;
+       string_t *str = t_str_new(128);
+
+       if (acl_object_get_my_rights(acl_mailbox_get_aclobj(box),
+                                    pool_datastack_create(), &rights) < 0) {
+               client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
+               return;
+       }
+
+       /* Post right alone doesn't give permissions to see if the mailbox
+          exists or not. Only mail deliveries care about that. */
+       if (*rights == NULL ||
+           (strcmp(*rights, MAIL_ACL_POST) == 0 && rights[1] == NULL)) {
+               client_send_tagline(cmd, t_strdup_printf(
+                                       "NO ["IMAP_RESP_CODE_NONEXISTENT"] "
+                                       MAIL_ERRSTR_MAILBOX_NOT_FOUND, mailbox));
+               return;
+       }
+
+       str_append(str, "* MYRIGHTS ");
+       imap_append_astring(str, mailbox);
+       str_append_c(str, ' ');
+       imap_acl_write_rights_list(str, rights);
+
+       client_send_line(cmd->client, str_c(str));
+       client_send_tagline(cmd, "OK Myrights completed.");
+}
+
 static bool cmd_myrights(struct client_command_context *cmd)
 {
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	const char *mailbox, *orig_mailbox;
-	const char *const *rights;
-	string_t *str;
 
 	if (!client_read_string_args(cmd, 1, &mailbox))
 		return FALSE;
@@ -359,31 +388,8 @@ static bool cmd_myrights(struct client_command_context *cmd)
 
 	box = mailbox_alloc(ns->list, mailbox,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
-	if (acl_object_get_my_rights(acl_mailbox_get_aclobj(box),
-				     pool_datastack_create(), &rights) < 0) {
-		client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
-		mailbox_free(&box);
-		return TRUE;
-	}
-	/* Post right alone doesn't give permissions to see if the mailbox
-	   exists or not. Only mail deliveries care about that. */
-	if (*rights == NULL ||
-	    (strcmp(*rights, MAIL_ACL_POST) == 0 && rights[1] == NULL)) {
-		client_send_tagline(cmd, t_strdup_printf(
-			"NO ["IMAP_RESP_CODE_NONEXISTENT"] "
-			MAIL_ERRSTR_MAILBOX_NOT_FOUND, mailbox));
-		mailbox_free(&box);
-		return TRUE;
-	}
 
-	str = t_str_new(128);
-	str_append(str, "* MYRIGHTS ");
-	imap_append_astring(str, orig_mailbox);
-	str_append_c(str,' ');
-	imap_acl_write_rights_list(str, rights);
-
-	client_send_line(cmd->client, str_c(str));
-	client_send_tagline(cmd, "OK Myrights completed.");
+	imap_acl_cmd_myrights(box, orig_mailbox, cmd);
 	mailbox_free(&box);
 	return TRUE;
 }
