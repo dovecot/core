@@ -343,23 +343,14 @@ struct dict_iterate_context *
 dict_iterate_init(struct dict *dict, const struct dict_op_settings *set ATTR_UNUSED,
 		  const char *path, enum dict_iterate_flags flags)
 {
+	struct dict_iterate_context *ctx;
 	const char *paths[2];
+
+	i_assert(path != NULL);
+	i_assert(dict_key_prefix_is_valid(path));
 
 	paths[0] = path;
 	paths[1] = NULL;
-	return dict_iterate_init_multiple(dict, paths, flags);
-}
-
-struct dict_iterate_context *
-dict_iterate_init_multiple(struct dict *dict, const char *const *paths,
-			   enum dict_iterate_flags flags)
-{
-	struct dict_iterate_context *ctx;
-	unsigned int i;
-
-	i_assert(paths[0] != NULL);
-	for (i = 0; paths[i] != NULL; i++)
-		i_assert(dict_key_prefix_is_valid(paths[i]));
 
 	if (dict->v.iterate_init == NULL) {
 		/* not supported by backend */

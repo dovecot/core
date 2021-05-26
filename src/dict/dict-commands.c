@@ -358,7 +358,7 @@ static int cmd_iterate(struct dict_connection_cmd *cmd, const char *line)
 	/* <flags> <max_rows> <path> */
 	flags |= DICT_ITERATE_FLAG_ASYNC;
 	event_add_str(cmd->event, "key", args[2]);
-	cmd->iter = dict_iterate_init_multiple(cmd->conn->dict, args+2, flags);
+	cmd->iter = dict_iterate_init(cmd->conn->dict, NULL, args[2], flags);
 	cmd->iter_flags = flags;
 	if (max_rows > 0)
 		dict_iterate_set_limit(cmd->iter, max_rows);

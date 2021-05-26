@@ -119,9 +119,6 @@ void dict_lookup_async(struct dict *dict, const struct dict_op_settings *set,
 struct dict_iterate_context *
 dict_iterate_init(struct dict *dict, const struct dict_op_settings *set,
 		  const char *path, enum dict_iterate_flags flags);
-struct dict_iterate_context *
-dict_iterate_init_multiple(struct dict *dict, const char *const *paths,
-			   enum dict_iterate_flags flags);
 /* Set async callback. Note that if dict_iterate_init() already did all the
    work, this callback may never be called. So after dict_iterate_init() you
    should call dict_iterate() in any case to see if all the results are
