@@ -43,7 +43,7 @@ struct file_dict_iterate_context {
 	pool_t pool;
 
 	struct hash_iterate_context *iter;
-	struct file_dict_iterate_path *paths;
+	struct file_dict_iterate_path *path;
 
 	enum dict_iterate_flags flags;
 	const char *values[2];
@@ -210,12 +210,11 @@ static int file_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 }
 
 static struct dict_iterate_context *
-file_dict_iterate_init(struct dict *_dict, const char *const *paths,
+file_dict_iterate_init(struct dict *_dict, const char *path,
 		       enum dict_iterate_flags flags)
 {
         struct file_dict_iterate_context *ctx;
 	struct file_dict *dict = (struct file_dict *)_dict;
-	unsigned int i, path_count;
 	const char *error;
 	pool_t pool;
 
@@ -224,12 +223,9 @@ file_dict_iterate_init(struct dict *_dict, const char *const *paths,
 	ctx->ctx.dict = _dict;
 	ctx->pool = pool;
 
-	for (path_count = 0; paths[path_count] != NULL; path_count++) ;
-	ctx->paths = p_new(pool, struct file_dict_iterate_path, path_count + 1);
-	for (i = 0; i < path_count; i++) {
-		ctx->paths[i].path = p_strdup(pool, paths[i]);
-		ctx->paths[i].len = strlen(paths[i]);
-	}
+	ctx->path = p_new(pool, struct file_dict_iterate_path, 1);
+	ctx->path->path = p_strdup(pool, path);
+	ctx->path->len = strlen(path);
 	ctx->flags = flags;
 
 	if (file_dict_refresh(dict, &error) < 0)
@@ -239,32 +235,28 @@ file_dict_iterate_init(struct dict *_dict, const char *const *paths,
 	return &ctx->ctx;
 }
 
-static const struct file_dict_iterate_path *
-file_dict_iterate_find_path(struct file_dict_iterate_context *ctx,
-			    const char *key)
+static bool
+file_dict_iterate_key_matches(struct file_dict_iterate_context *ctx,
+			      const char *key)
 {
-	unsigned int i;
-
-	for (i = 0; ctx->paths[i].path != NULL; i++) {
-		if (strncmp(ctx->paths[i].path, key, ctx->paths[i].len) == 0)
-			return &ctx->paths[i];
-	}
-	return NULL;
+	if (strncmp(ctx->path->path, key, ctx->path->len) == 0)
+		return TRUE;
+	return FALSE;
 }
+
 
 static bool file_dict_iterate(struct dict_iterate_context *_ctx,
 			      const char **key_r, const char *const **values_r)
 {
 	struct file_dict_iterate_context *ctx =
 		(struct file_dict_iterate_context *)_ctx;
-	const struct file_dict_iterate_path *path;
+	const struct file_dict_iterate_path *path = ctx->path;
 	char *key, *value;
 
 	while (hash_table_iterate(ctx->iter,
 				  ((struct file_dict *)_ctx->dict)->hash,
 				  &key, &value)) {
-		path = file_dict_iterate_find_path(ctx, key);
-		if (path == NULL)
+		if (!file_dict_iterate_key_matches(ctx, key))
 			continue;
 
 		if ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0) {

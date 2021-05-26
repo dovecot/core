@@ -39,13 +39,13 @@ struct sql_dict_iterate_context {
 	pool_t pool;
 
 	enum dict_iterate_flags flags;
-	const char **paths;
+	const char *path;
 
 	struct sql_result *result;
 	string_t *key;
 	const struct dict_sql_map *map;
 	size_t key_prefix_len, pattern_prefix_len;
-	unsigned int path_idx, sql_fields_start_idx, next_map_idx;
+	unsigned int sql_fields_start_idx, next_map_idx;
 	bool destroyed;
 	bool synchronous_result;
 	bool iter_query_sent;
@@ -617,7 +617,7 @@ sql_dict_iterate_find_next_map(struct sql_dict_iterate_context *ctx,
 	t_array_init(pattern_values, dict->set->max_pattern_fields_count);
 	maps = array_get(&dict->set->maps, &count);
 	for (i = ctx->next_map_idx; i < count; i++) {
-		if (dict_sql_map_match(&maps[i], ctx->paths[ctx->path_idx],
+		if (dict_sql_map_match(&maps[i], ctx->path,
 				       pattern_values, &pat_len, &path_len,
 				       TRUE, recurse) &&
 		    (recurse ||
@@ -627,15 +627,10 @@ sql_dict_iterate_find_next_map(struct sql_dict_iterate_context *ctx,
 			ctx->next_map_idx = i + 1;
 
 			str_truncate(ctx->key, 0);
-			str_append(ctx->key, ctx->paths[ctx->path_idx]);
+			str_append(ctx->key, ctx->path);
 			return &maps[i];
 		}
 	}
-
-	/* try the next path, if there is any */
-	ctx->path_idx++;
-	if (ctx->paths[ctx->path_idx] != NULL)
-		return sql_dict_iterate_find_next_map(ctx, pattern_values);
 	return NULL;
 }
 
@@ -696,7 +691,7 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 
 	ARRAY_TYPE(sql_dict_param) params;
 	t_array_init(&params, 4);
-	bool add_username = (ctx->paths[ctx->path_idx][0] == DICT_PATH_PRIVATE[0]);
+	bool add_username = (ctx->path[0] == DICT_PATH_PRIVATE[0]);
 	if (sql_dict_where_build(dict, map, &pattern_values, add_username,
 				 recurse_type, query, &params, error_r) < 0)
 		return -1;
@@ -740,7 +735,6 @@ static int sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 {
 	struct sql_statement *stmt;
 	const char *error;
-	unsigned int path_idx = ctx->path_idx;
 	int ret;
 
 	ret = sql_dict_iterate_build_next_query(ctx, &stmt, &error);
@@ -751,7 +745,7 @@ static int sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 		/* failed */
 		ctx->error = p_strdup_printf(ctx->pool,
 			"sql dict iterate failed for %s: %s",
-			ctx->paths[path_idx], error);
+			ctx->path, error);
 		return -1;
 	}
 
@@ -768,11 +762,10 @@ static int sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 }
 
 static struct dict_iterate_context *
-sql_dict_iterate_init(struct dict *_dict, const char *const *paths,
+sql_dict_iterate_init(struct dict *_dict, const char *path,
 		      enum dict_iterate_flags flags)
 {
 	struct sql_dict_iterate_context *ctx;
-	unsigned int i, path_count;
 	pool_t pool;
 
 	pool = pool_alloconly_create("sql dict iterate", 512);
@@ -781,10 +774,7 @@ sql_dict_iterate_init(struct dict *_dict, const char *const *paths,
 	ctx->pool = pool;
 	ctx->flags = flags;
 
-	for (path_count = 0; paths[path_count] != NULL; path_count++) ;
-	ctx->paths = p_new(pool, const char *, path_count + 1);
-	for (i = 0; i < path_count; i++)
-		ctx->paths[i] = p_strdup(pool, paths[i]);
+	ctx->path = p_strdup(pool, path);
 
 	ctx->key = str_new(pool, 256);
 	return &ctx->ctx;

@@ -26,7 +26,8 @@ struct cdb_dict_iterate_context {
 
 	enum dict_iterate_flags flags;
 	buffer_t *buffer;
-	const char **paths, *values[2];
+	const char *values[2];
+	char *path;
 	unsigned cptr;
 	char *error;
 };
@@ -128,7 +129,7 @@ cdb_dict_lookup(struct dict *_dict, pool_t pool,
 }
 
 static struct dict_iterate_context *
-cdb_dict_iterate_init(struct dict *_dict, const char *const *paths,
+cdb_dict_iterate_init(struct dict *_dict, const char *path,
 		      enum dict_iterate_flags flags)
 {
 	struct cdb_dict_iterate_context *ctx =
@@ -136,7 +137,7 @@ cdb_dict_iterate_init(struct dict *_dict, const char *const *paths,
 	struct cdb_dict *dict = (struct cdb_dict *)_dict;
 
 	ctx->ctx.dict = &dict->dict;
-	ctx->paths = p_strarray_dup(default_pool, paths);
+	ctx->path = i_strdup(path);
 	ctx->flags = flags;
 	ctx->buffer = buffer_create_dynamic(default_pool, 256);
 
@@ -183,7 +184,7 @@ static bool cdb_dict_iterate(struct dict_iterate_context *_ctx,
 	struct cdb_dict_iterate_context *ctx =
 		(struct cdb_dict_iterate_context *)_ctx;
 	struct cdb_dict *dict = (struct cdb_dict *)_ctx->dict;
-	const char *key, **ptr;
+	const char *key;
 	bool match = FALSE;
 	char *data;
 	unsigned datalen;
@@ -192,18 +193,15 @@ static bool cdb_dict_iterate(struct dict_iterate_context *_ctx,
 		return FALSE;
 
 	while(!match && cdb_dict_next(ctx, &key)) {
-		/* if it matches any of the paths */
-		for(ptr = ctx->paths; *ptr != NULL; ptr++) {
-			if (((ctx->flags & DICT_ITERATE_FLAG_EXACT_KEY) != 0 &&
-			     strcmp(key, *ptr) == 0) ||
-			    ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0 &&
-			     str_begins(key, *ptr)) ||
-			    ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) == 0 &&
-			     str_begins(key, *ptr) &&
-			     strchr(key + strlen(*ptr), '/') == NULL)) {
-				match = TRUE;
-				break;
-			}
+		if (((ctx->flags & DICT_ITERATE_FLAG_EXACT_KEY) != 0 &&
+		     strcmp(key, ctx->path) == 0) ||
+		    ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0 &&
+		     str_begins(key, ctx->path)) ||
+		    ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) == 0 &&
+		     str_begins(key, ctx->path) &&
+		     strchr(key + strlen(ctx->path), '/') == NULL)) {
+			match = TRUE;
+			break;
 		}
 	}
 
@@ -244,7 +242,7 @@ static int cdb_dict_iterate_deinit(struct dict_iterate_context *_ctx,
 
 	buffer_free(&ctx->buffer);
 	i_free(ctx->error);
-	i_free(ctx->paths);
+	i_free(ctx->path);
 	i_free(ctx);
 
 	return ret;

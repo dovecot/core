@@ -344,19 +344,15 @@ dict_iterate_init(struct dict *dict, const struct dict_op_settings *set ATTR_UNU
 		  const char *path, enum dict_iterate_flags flags)
 {
 	struct dict_iterate_context *ctx;
-	const char *paths[2];
 
 	i_assert(path != NULL);
 	i_assert(dict_key_prefix_is_valid(path));
-
-	paths[0] = path;
-	paths[1] = NULL;
 
 	if (dict->v.iterate_init == NULL) {
 		/* not supported by backend */
 		ctx = &dict_iter_unsupported;
 	} else {
-		ctx = dict->v.iterate_init(dict, paths, flags);
+		ctx = dict->v.iterate_init(dict, path, flags);
 	}
 	/* the dict in context can differ from the dict
 	   passed as parameter, e.g. it can be dict-fail when
@@ -364,9 +360,9 @@ dict_iterate_init(struct dict *dict, const struct dict_op_settings *set ATTR_UNU
 	ctx->event = event_create(dict->event);
 	ctx->flags = flags;
 
-	event_add_str(ctx->event, "key", paths[0]);
+	event_add_str(ctx->event, "key", path);
 	event_set_name(ctx->event, "dict_iteration_started");
-	e_debug(ctx->event, "Iterating prefix %s", paths[0]);
+	e_debug(ctx->event, "Iterating prefix %s", path);
 	ctx->dict->iter_count++;
 	return ctx;
 }

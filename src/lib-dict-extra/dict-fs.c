@@ -16,8 +16,7 @@ struct fs_dict {
 
 struct fs_dict_iterate_context {
 	struct dict_iterate_context ctx;
-	const char **paths;
-	unsigned int path_idx;
+	char *path;
 	enum dict_iterate_flags flags;
 	pool_t value_pool;
 	struct fs_iter *fs_iter;
@@ -152,7 +151,7 @@ static int fs_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 }
 
 static struct dict_iterate_context *
-fs_dict_iterate_init(struct dict *_dict, const char *const *paths,
+fs_dict_iterate_init(struct dict *_dict, const char *path,
 		     enum dict_iterate_flags flags)
 {
 	struct fs_dict *dict = (struct fs_dict *)_dict;
@@ -166,11 +165,11 @@ fs_dict_iterate_init(struct dict *_dict, const char *const *paths,
 
 	iter = i_new(struct fs_dict_iterate_context, 1);
 	iter->ctx.dict = _dict;
-	iter->paths = p_strarray_dup(default_pool, paths);
+	iter->path = i_strdup(path);
 	iter->flags = flags;
 	iter->value_pool = pool_alloconly_create("iterate value pool", 128);
 	iter->fs_iter = fs_iter_init(dict->fs,
-				     fs_dict_get_full_key(dict, paths[0]), 0);
+				     fs_dict_get_full_key(dict, path), 0);
 	return &iter->ctx;
 }
 
@@ -192,13 +191,13 @@ static bool fs_dict_iterate(struct dict_iterate_context *ctx,
 			iter->error = i_strdup(error);
 			return FALSE;
 		}
-		if (iter->paths[++iter->path_idx] == NULL)
+		if (iter->path == NULL)
 			return FALSE;
-		path = fs_dict_get_full_key(dict, iter->paths[iter->path_idx]);
+		path = fs_dict_get_full_key(dict, iter->path);
 		iter->fs_iter = fs_iter_init(dict->fs, path, 0);
 		return fs_dict_iterate(ctx, key_r, values_r);
 	}
-	path = t_strconcat(iter->paths[iter->path_idx], *key_r, NULL);
+	path = t_strconcat(iter->path, *key_r, NULL);
 	if ((iter->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0) {
 		iter->values[0] = NULL;
 		*key_r = path;
@@ -235,7 +234,7 @@ static int fs_dict_iterate_deinit(struct dict_iterate_context *ctx,
 	*error_r = t_strdup(iter->error);
 
 	pool_unref(&iter->value_pool);
-	i_free(iter->paths);
+	i_free(iter->path);
 	i_free(iter->error);
 	i_free(iter);
 	return ret;

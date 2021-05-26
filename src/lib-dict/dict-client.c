@@ -98,7 +98,7 @@ struct client_dict_iter_result {
 struct client_dict_iterate_context {
 	struct dict_iterate_context ctx;
 	char *error;
-	const char **paths;
+	char *path;
 	enum dict_iterate_flags flags;
 	int refcount;
 
@@ -1145,7 +1145,7 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd,
 }
 
 static struct dict_iterate_context *
-client_dict_iterate_init(struct dict *_dict, const char *const *paths,
+client_dict_iterate_init(struct dict *_dict, const char *path,
 			 enum dict_iterate_flags flags)
 {
         struct client_dict_iterate_context *ctx;
@@ -1154,7 +1154,7 @@ client_dict_iterate_init(struct dict *_dict, const char *const *paths,
 	ctx->ctx.dict = _dict;
 	ctx->results_pool = pool_alloconly_create("client dict iteration", 512);
 	ctx->flags = flags;
-	ctx->paths = p_strarray_dup(system_pool, paths);
+	ctx->path = i_strdup(path);
 	ctx->refcount = 1;
 	i_array_init(&ctx->results, 64);
 	return &ctx->ctx;
@@ -1165,17 +1165,14 @@ client_dict_iterate_cmd_send(struct client_dict_iterate_context *ctx)
 {
 	struct client_dict *dict = (struct client_dict *)ctx->ctx.dict;
 	struct client_dict_cmd *cmd;
-	unsigned int i;
 	string_t *query = t_str_new(256);
 
 	/* we can't do this query in _iterate_init(), because
 	   _set_limit() hasn't been called yet at that point. */
 	str_printfa(query, "%c%d\t%"PRIu64, DICT_PROTOCOL_CMD_ITERATE,
 		    ctx->flags, ctx->ctx.max_rows);
-	for (i = 0; ctx->paths[i] != NULL; i++) {
-		str_append_c(query, '\t');
-		str_append(query, str_tabescape(ctx->paths[i]));
-	}
+	str_append_c(query, '\t');
+	str_append_tabescaped(query, ctx->path);
 
 	cmd = client_dict_cmd_init(dict, str_c(query));
 	cmd->iter = ctx;
@@ -1239,7 +1236,7 @@ static int client_dict_iterate_deinit(struct dict_iterate_context *_ctx,
 	*error_r = t_strdup(ctx->error);
 	array_free(&ctx->results);
 	pool_unref(&ctx->results_pool);
-	i_free(ctx->paths);
+	i_free(ctx->path);
 	client_dict_iterate_unref(ctx);
 
 	client_dict_add_timeout(dict);

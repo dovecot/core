@@ -40,7 +40,7 @@ static int dict_fail_lookup(struct dict *dict ATTR_UNUSED, pool_t pool ATTR_UNUS
 }
 
 static struct dict_iterate_context *
-dict_fail_iterate_init(struct dict *dict ATTR_UNUSED, const char *const *paths ATTR_UNUSED,
+dict_fail_iterate_init(struct dict *dict ATTR_UNUSED, const char *path ATTR_UNUSED,
 		       enum dict_iterate_flags flags ATTR_UNUSED)
 {
 	return &dict_iter_unsupported;
