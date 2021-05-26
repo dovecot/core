@@ -187,10 +187,16 @@ bool dict_switch_ioloop(struct dict *dict)
 	return ret;
 }
 
-static bool dict_key_prefix_is_valid(const char *key)
+static bool dict_key_prefix_is_valid(const char *key, const char *username)
 {
-	return str_begins(key, DICT_PATH_SHARED) ||
-		str_begins(key, DICT_PATH_PRIVATE);
+	if (str_begins(key, DICT_PATH_SHARED))
+		return TRUE;
+	if (str_begins(key, DICT_PATH_PRIVATE)) {
+		i_assert(username != NULL && username[0] != '\0');
+		return TRUE;
+	}
+	return FALSE;
+
 }
 
 void dict_pre_api_callback(struct dict *dict)
@@ -307,7 +313,7 @@ int dict_lookup(struct dict *dict, const struct dict_op_settings *set,
 {
 	struct event *event = dict_event_create(dict, set);
 	int ret;
-	i_assert(dict_key_prefix_is_valid(key));
+	i_assert(dict_key_prefix_is_valid(key, set->username));
 
 	e_debug(event, "Looking up '%s'", key);
 	event_add_str(event, "key", key);
@@ -353,7 +359,7 @@ dict_iterate_init(struct dict *dict, const struct dict_op_settings *set,
 	struct dict_iterate_context *ctx;
 
 	i_assert(path != NULL);
-	i_assert(dict_key_prefix_is_valid(path));
+	i_assert(dict_key_prefix_is_valid(path, set->username));
 
 	if (dict->v.iterate_init == NULL) {
 		/* not supported by backend */
@@ -619,7 +625,7 @@ void dict_transaction_rollback(struct dict_transaction_context **_ctx)
 void dict_set(struct dict_transaction_context *ctx,
 	      const char *key, const char *value)
 {
-	i_assert(dict_key_prefix_is_valid(key));
+	i_assert(dict_key_prefix_is_valid(key, ctx->set.username));
 	struct event_passthrough *e = event_create_passthrough(ctx->event)->
 		set_name("dict_set_key")->
 		add_str("key", key);
@@ -635,7 +641,7 @@ void dict_set(struct dict_transaction_context *ctx,
 void dict_unset(struct dict_transaction_context *ctx,
 		const char *key)
 {
-	i_assert(dict_key_prefix_is_valid(key));
+	i_assert(dict_key_prefix_is_valid(key, ctx->set.username));
 	struct event_passthrough *e = event_create_passthrough(ctx->event)->
 		set_name("dict_unset_key")->
 		add_str("key", key);
@@ -651,7 +657,7 @@ void dict_unset(struct dict_transaction_context *ctx,
 void dict_atomic_inc(struct dict_transaction_context *ctx,
 		     const char *key, long long diff)
 {
-	i_assert(dict_key_prefix_is_valid(key));
+	i_assert(dict_key_prefix_is_valid(key, ctx->set.username));
 	struct event_passthrough *e = event_create_passthrough(ctx->event)->
 		set_name("dict_increment_key")->
 		add_str("key", key);
