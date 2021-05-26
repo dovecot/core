@@ -63,7 +63,7 @@ static int imapc_mailbox_run_status(struct mailbox *box,
 				    enum mailbox_status_items items,
 				    struct mailbox_status *status_r);
 
-bool imap_resp_text_code_parse(const char *str, enum mail_error *error_r)
+bool imapc_resp_text_code_parse(const char *str, enum mail_error *error_r)
 {
 	unsigned int i;
 
@@ -105,7 +105,7 @@ void imapc_copy_error_from_reply(struct imapc_storage *storage,
 {
 	enum mail_error error;
 
-	if (imap_resp_text_code_parse(reply->resp_text_key, &error)) {
+	if (imapc_resp_text_code_parse(reply->resp_text_key, &error)) {
 		mail_storage_set_error(&storage->storage, error,
 				       reply->text_without_resp);
 	} else {

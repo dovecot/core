@@ -136,7 +136,7 @@ imapc_list_copy_error_from_reply(struct imapc_mailbox_list *list,
 {
 	enum mail_error error;
 
-	if (imap_resp_text_code_parse(reply->resp_text_key, &error)) {
+	if (imapc_resp_text_code_parse(reply->resp_text_key, &error)) {
 		mailbox_list_set_error(&list->list, error,
 				       reply->text_without_resp);
 	} else {
