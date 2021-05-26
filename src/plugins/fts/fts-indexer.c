@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "connection.h"
 #include "net.h"
 #include "istream.h"
 #include "write-full.h"
@@ -20,15 +21,14 @@
 #define INDEXER_HANDSHAKE "VERSION\tindexer\t1\t0\n"
 
 struct fts_indexer_context {
+	struct connection conn;
+
 	struct mailbox *box;
 
 	struct timeval search_start_time, last_notify;
 	unsigned int percentage;
 	unsigned int timeout_secs;
-
-	char *path;
-	int fd;
-	struct istream *input;
+	struct connection_list *connections;
 
 	bool notified:1;
 	bool failed:1;
@@ -124,9 +124,9 @@ int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
 	/* connect to indexer and request immediate indexing of the mailbox */
 	ctx = i_new(struct fts_indexer_context, 1);
 	ctx->box = box;
-	ctx->path = i_strdup(path);
-	ctx->fd = fd;
-	ctx->input = i_stream_create_fd(fd, 128);
+	ctx->conn.label = i_strdup(path);
+	ctx->conn.fd_in = fd;
+	ctx->conn.input = i_stream_create_fd(fd, 128);
 	ctx->search_start_time = ioloop_timeval;
 
 	value = mail_user_plugin_getenv(box->storage->user, "fts_index_timeout");
@@ -147,16 +147,16 @@ int fts_indexer_deinit(struct fts_indexer_context **_ctx)
 
 	*_ctx = NULL;
 
-	i_stream_destroy(&ctx->input);
-	if (close(ctx->fd) < 0)
-		i_error("close(%s) failed: %m", ctx->path);
+	i_stream_destroy(&ctx->conn.input);
+	if (close(ctx->conn.fd_in) < 0)
+		i_error("close(%s) failed: %m", ctx->conn.label);
 	if (ctx->notified) {
 		/* we notified at least once */
 		ctx->box->storage->callbacks.
 			notify_ok(ctx->box, "Mailbox indexing finished",
 				  ctx->box->storage->callback_context);
 	}
-	i_free(ctx->path);
+	i_free(ctx->conn.label);
 	i_free(ctx);
 	return ret;
 }
@@ -166,7 +166,7 @@ static int fts_indexer_input(struct fts_indexer_context *ctx)
 	const char *line;
 	int percentage;
 
-	while ((line = i_stream_read_next_line(ctx->input)) != NULL) {
+	while ((line = i_stream_read_next_line(ctx->conn.input)) != NULL) {
 		/* initial reply: <tag> \t OK
 		   following: <tag> \t <percentage> */
 		if (!str_begins(line, "1\t")) {
@@ -192,13 +192,13 @@ static int fts_indexer_input(struct fts_indexer_context *ctx)
 			return 1;
 		}
 	}
-	if (ctx->input->stream_errno != 0) {
+	if (ctx->conn.input->stream_errno != 0) {
 		i_error("indexer read(%s) failed: %s",
-			i_stream_get_name(ctx->input),
-			i_stream_get_error(ctx->input));
+			i_stream_get_name(ctx->conn.input),
+			i_stream_get_error(ctx->conn.input));
 		return -1;
 	}
-	if (ctx->input->eof) {
+	if (ctx->conn.input->eof) {
 		i_error("indexer disconnected unexpectedly");
 		return -1;
 	}
@@ -218,7 +218,7 @@ static int fts_indexer_more_int(struct fts_indexer_context *ctx)
 	/* wait for a while for the reply. FIXME: once search API supports
 	   asynchronous waits, get rid of this wait and use the mail IO loop */
 	ioloop = io_loop_create();
-	io = io_add(ctx->fd, IO_READ, io_loop_stop, ioloop);
+	io = io_add(ctx->conn.fd_in, IO_READ, io_loop_stop, ioloop);
 	to = timeout_add_short(INDEXER_WAIT_MSECS, io_loop_stop, ioloop);
 	io_loop_run(ioloop);
 	io_remove(&io);
