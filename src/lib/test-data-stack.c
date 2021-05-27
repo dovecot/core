@@ -221,8 +221,9 @@ static void test_ds_recurse(int depth, int number, size_t size)
 	test_assert_idx(t_pop(&t_id), depth);
 }
 
-static void test_ds_recursive(int count, int depth)
+static void test_ds_recursive(void)
 {
+	int count = 20, depth = 80;
 	int i;
 
 	test_begin("data-stack recursive");
@@ -282,12 +283,21 @@ static void test_ds_pass_str(void)
 
 void test_data_stack(void)
 {
-	test_ds_grow_event();
-	test_ds_get_bytes_available();
-	test_ds_buffers();
-	test_ds_realloc();
-	test_ds_recursive(20, 80);
-	test_ds_pass_str();
+	void (*tests[])(void) = {
+		test_ds_grow_event,
+		test_ds_get_bytes_available,
+		test_ds_buffers,
+		test_ds_realloc,
+		test_ds_recursive,
+		test_ds_pass_str,
+	};
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		ds_grow_event_count = 0;
+		data_stack_free_unused();
+		T_BEGIN {
+			tests[i]();
+		} T_END;
+	}
 }
 
 enum fatal_test_state fatal_data_stack(unsigned int stage)
