@@ -24,6 +24,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-http \
 	-I$(top_srcdir)/src/lib-dcrypt \
 	-I$(top_srcdir)/src/auth \
+	-I$(top_srcdir)/src/stats \
 	-DMODULEDIR=\""$(moduledir)"\" \
 	-DAUTH_MODULE_DIR=\""$(moduledir)/auth"\" \
 	-DDOVEADM_MODULEDIR=\""$(doveadm_moduledir)"\" \

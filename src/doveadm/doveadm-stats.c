@@ -9,6 +9,7 @@
 #include "master-service.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
+#include "stats-settings.h"
 
 #include <math.h>
 
@@ -40,8 +41,11 @@ struct stats_cmd_vfuncs {
 };
 
 static int build_stats_dump_cmd(struct stats_cmd_context *ctx, const char **error_r);
+static int build_stats_add_cmd(struct stats_cmd_context *ctx, const char **error_r);
+static int build_stats_remove_cmd(struct stats_cmd_context *ctx, const char **error_r);
 
 static void stats_dump_process_response(struct stats_cmd_context *ctx);
+static void stats_modify_process_response(struct stats_cmd_context *ctx);
 
 static void stats_send_cmd(struct stats_cmd_context *ctx);
 
@@ -50,6 +54,15 @@ static struct stats_cmd_vfuncs dump_vfuncs = {
 	.process_response = stats_dump_process_response
 };
 
+static struct stats_cmd_vfuncs add_vfuncs = {
+	.build_cmd = build_stats_add_cmd,
+	.process_response = stats_modify_process_response
+};
+
+static struct stats_cmd_vfuncs remove_vfuncs = {
+	.build_cmd = build_stats_remove_cmd,
+	.process_response = stats_modify_process_response
+};
 
 static string_t *init_stats_cmd(void)
 {
@@ -196,9 +209,92 @@ static void stats_dump_process_response(struct stats_cmd_context *ctx)
 		handle_disconnection(ctx);
 }
 
+static int build_stats_add_cmd(struct stats_cmd_context *ctx,
+			       const char **error_r)
+{
+	unsigned int i;
+	const char *parameter;
+	struct {
+		const char *name;
+		const char *default_val;
+	} params[] = {
+		{ "name", "" },
+		{ "description", "" },
+		{ "fields", "" },
+		{ "group_by", "" },
+		{ "filter", "" },
+		{ "exporter", "" },
+		/* Default exporter-include is to be modified
+		   together with stats-settings */
+		{ "exporter-include",
+		  STATS_METRIC_SETTINGS_DEFAULT_EXPORTER_INCLUDE },
+	};
+
+	ctx->cmd = init_stats_cmd();
+	str_append(ctx->cmd, "METRICS-ADD");
+
+	for (i = 0; i < N_ELEMENTS(params); i++) {
+		if (!doveadm_cmd_param_str(ctx->cctx, params[i].name, &parameter))
+			parameter = params[i].default_val;
+		if (parameter[0] == '\0' &&
+		    (strcmp(params[i].name, "name") == 0 ||
+		     strcmp(params[i].name, "filter") == 0)) {
+			*error_r =
+				t_strdup_printf("stats add: missing %s parameter",
+						params[i].name);
+			return -1;
+		}
+		str_append_c(ctx->cmd, '\t');
+		str_append_tabescaped(ctx->cmd, parameter);
+	}
+
+	str_append_c(ctx->cmd, '\n');
+	return 0;
+}
+
+static void stats_modify_process_response(struct stats_cmd_context *ctx)
+{
+	const char *line = i_stream_read_next_line(ctx->input);
+	if (line == NULL) {
+		handle_disconnection(ctx);
+		return;
+	}
+	if (line[0] == '-')
+		i_error("%s", ++line);
+	else if (line[0] != '+')
+		i_error("Invalid response: %s", line);
+}
+
+static int build_stats_remove_cmd(struct stats_cmd_context *ctx,
+				  const char **error_r)
+{
+	const char *name;
+
+	ctx->cmd = init_stats_cmd();
+	str_append(ctx->cmd, "METRICS-REMOVE\t");
+
+	if (!doveadm_cmd_param_str(ctx->cctx, "name", &name)) {
+		*error_r = "stats remove: missing name parameter";
+		return -1;
+	}
+	str_append_tabescaped(ctx->cmd, name);
+	str_append_c(ctx->cmd, '\n');
+	return 0;
+}
+
 static void doveadm_cmd_stats_dump(struct doveadm_cmd_context *cctx)
 {
 	stats_exec_cmd(cctx, &dump_vfuncs);
+}
+
+static void doveadm_cmd_stats_add(struct doveadm_cmd_context *cctx)
+{
+	stats_exec_cmd(cctx, &add_vfuncs);
+}
+
+static void doveadm_cmd_stats_remove(struct doveadm_cmd_context *cctx)
+{
+	stats_exec_cmd(cctx, &remove_vfuncs);
 }
 
 struct doveadm_cmd_ver2 doveadm_cmd_stats_dump_ver2 = {
@@ -209,5 +305,29 @@ DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('s', "socket-path", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('r', "reset", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('f', "fields", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAMS_END
+};
+
+struct doveadm_cmd_ver2 doveadm_cmd_stats_add_ver2 = {
+	.cmd = doveadm_cmd_stats_add,
+	.name = "stats add",
+	.usage = "[--description <string>] [--exporter <name> [--exporter-include <fields>]] [--fields <fields>] [--group_by <fields>] <name> <filter>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('\0', "name", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "filter", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "exporter", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "exporter-include", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "description", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "fields", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "group-by", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAMS_END
+};
+
+struct doveadm_cmd_ver2 doveadm_cmd_stats_remove_ver2 = {
+	.cmd = doveadm_cmd_stats_remove,
+	.name = "stats remove",
+	.usage = "<name>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('\0', "name", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
