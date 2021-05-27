@@ -2,11 +2,17 @@
 
 #include "lib.h"
 #include "array.h"
+#include "memarea.h"
 #include "sort.h"
 #include "message-parser.h"
 #include "istream-private.h"
 #include "istream-header-filter.h"
 
+struct header_filter_istream_snapshot {
+	struct istream_snapshot snapshot;
+	struct header_filter_istream *mstream;
+	buffer_t *hdr_buf;
+};
 
 struct header_filter_istream {
 	struct istream_private istream;
@@ -44,6 +50,7 @@ struct header_filter_istream {
 	bool eoh_not_matched:1;
 	bool callbacks_called:1;
 	bool prev_matched:1;
+	bool snapshot_pending:1;
 };
 
 header_filter_callback *null_header_filter_callback = NULL;
@@ -59,6 +66,8 @@ static void i_stream_header_filter_destroy(struct iostream_private *stream)
 		message_parse_header_deinit(&mstream->hdr_ctx);
 	if (array_is_created(&mstream->match_change_lines))
 		array_free(&mstream->match_change_lines);
+	if (!mstream->snapshot_pending)
+		buffer_free(&mstream->hdr_buf);
 	pool_unref(&mstream->pool);
 }
 
@@ -152,6 +161,22 @@ static ssize_t hdr_stream_update_pos(struct header_filter_istream *mstream)
 	return ret;
 }
 
+static void hdr_buf_realloc_if_needed(struct header_filter_istream *mstream)
+{
+	if (!mstream->snapshot_pending)
+		return;
+
+	/* hdr_buf exists in a snapshot. Leave it be and create a copy of it
+	   that we modify. */
+	buffer_t *old_buf = mstream->hdr_buf;
+	mstream->hdr_buf = buffer_create_dynamic(default_pool,
+						 I_MAX(1024, old_buf->used));
+	buffer_append(mstream->hdr_buf, old_buf->data, old_buf->used);
+	mstream->snapshot_pending = FALSE;
+
+	mstream->istream.buffer = mstream->hdr_buf->data;
+}
+
 static ssize_t read_header(struct header_filter_istream *mstream)
 {
 	struct message_header_line *hdr;
@@ -167,6 +192,7 @@ static ssize_t read_header(struct header_filter_istream *mstream)
 	}
 
 	/* remove skipped data from hdr_buf */
+	hdr_buf_realloc_if_needed(mstream);
 	buffer_copy(mstream->hdr_buf, 0,
 		    mstream->hdr_buf, mstream->istream.skip, SIZE_MAX);
 
@@ -415,6 +441,7 @@ handle_end_body_with_lf(struct header_filter_istream *mstream, ssize_t ret)
 		i_assert(!mstream->last_lf_added);
 		i_assert(size == 0 || data[size-1] != '\n');
 
+		hdr_buf_realloc_if_needed(mstream);
 		buffer_set_used_size(mstream->hdr_buf, 0);
 		buffer_append(mstream->hdr_buf, data, size);
 		if (mstream->crlf)
@@ -509,6 +536,7 @@ static int skip_header(struct header_filter_istream *mstream)
 static void
 stream_reset_to(struct header_filter_istream *mstream, uoff_t v_offset)
 {
+	hdr_buf_realloc_if_needed(mstream);
 	mstream->istream.istream.v_offset = v_offset;
 	mstream->istream.skip = mstream->istream.pos = 0;
 	mstream->istream.buffer = NULL;
@@ -618,6 +646,44 @@ i_stream_header_filter_stat(struct istream_private *stream, bool exact)
 	return 0;
 }
 
+static void
+i_stream_header_filter_snapshot_free(struct istream_snapshot *_snapshot)
+{
+	struct header_filter_istream_snapshot *snapshot =
+		container_of(_snapshot, struct header_filter_istream_snapshot, snapshot);
+
+	if (snapshot->mstream->hdr_buf != snapshot->hdr_buf)
+		buffer_free(&snapshot->hdr_buf);
+	else {
+		i_assert(snapshot->mstream->snapshot_pending);
+		snapshot->mstream->snapshot_pending = FALSE;
+	}
+	i_free(snapshot);
+}
+
+static struct istream_snapshot *
+i_stream_header_filter_snapshot(struct istream_private *stream,
+				struct istream_snapshot *prev_snapshot)
+{
+	struct header_filter_istream *mstream =
+		(struct header_filter_istream *)stream;
+	struct header_filter_istream_snapshot *snapshot;
+
+	if (stream->buffer != mstream->hdr_buf->data) {
+		/* reading body */
+		return i_stream_default_snapshot(stream, prev_snapshot);
+	}
+
+	/* snapshot the header buffer */
+	snapshot = i_new(struct header_filter_istream_snapshot, 1);
+	snapshot->mstream = mstream;
+	snapshot->hdr_buf = mstream->hdr_buf;
+	snapshot->snapshot.free = i_stream_header_filter_snapshot_free;
+	snapshot->snapshot.prev_snapshot = prev_snapshot;
+	mstream->snapshot_pending = TRUE;
+	return &snapshot->snapshot;
+}
+
 #undef i_stream_create_header_filter
 struct istream *
 i_stream_create_header_filter(struct istream *input,
@@ -634,7 +700,7 @@ i_stream_create_header_filter(struct istream *input,
 
 	mstream = i_new(struct header_filter_istream, 1);
 	mstream->pool = pool_alloconly_create(MEMPOOL_GROWING
-					      "header filter stream", 4096);
+					      "header filter stream", 256);
 	mstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 
 	mstream->headers = headers_count == 0 ? NULL :
@@ -650,7 +716,7 @@ i_stream_create_header_filter(struct istream *input,
 		mstream->headers[j++] = p_strdup(mstream->pool, headers[i]);
 	}
 	mstream->headers_count = j;
-	mstream->hdr_buf = buffer_create_dynamic(mstream->pool, 1024);
+	mstream->hdr_buf = buffer_create_dynamic(default_pool, 1024);
 
 	mstream->callback = callback;
 	mstream->context = context;
@@ -673,6 +739,7 @@ i_stream_create_header_filter(struct istream *input,
 	mstream->istream.seek = i_stream_header_filter_seek;
 	mstream->istream.sync = i_stream_header_filter_sync;
 	mstream->istream.stat = i_stream_header_filter_stat;
+	mstream->istream.snapshot = i_stream_header_filter_snapshot;
 
 	mstream->istream.istream.readable_fd = FALSE;
 	mstream->istream.istream.blocking = input->blocking;
@@ -684,6 +751,7 @@ i_stream_create_header_filter(struct istream *input,
 void i_stream_header_filter_add(struct header_filter_istream *input,
 				const void *data, size_t size)
 {
+	hdr_buf_realloc_if_needed(input);
 	buffer_append(input->hdr_buf, data, size);
 	input->headers_edited = TRUE;
 }
