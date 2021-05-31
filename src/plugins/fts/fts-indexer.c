@@ -142,22 +142,22 @@ fts_indexer_input_args(struct connection *conn, const char *const *args)
 		container_of(conn, struct fts_indexer_context, conn);
 	int percentage;
 	if (args[1] == NULL) {
-		i_error("indexer sent invalid reply");
+		e_error(conn->event, "indexer sent invalid reply");
 		return -1;
 	}
 	if (strcmp(args[0], "1") != 0) {
-		i_error("indexer sent invalid reply");
+		e_error(conn->event, "indexer sent invalid reply");
 		return -1;
 	}
 	if (strcmp(args[1], "OK") == 0)
 		return 1;
 	if (str_to_int(args[1], &percentage) < 0) {
-		i_error("indexer sent invalid progress: %s", args[1]);
+		e_error(conn->event, "indexer sent invalid progress: %s", args[1]);
 		ctx->failed = TRUE;
 		return -1;
 	}
 	if (percentage < 0) {
-		i_error("indexer failed to index mailbox %s", ctx->box->vname);
+		e_error(ctx->box->event, "indexer failed to index mailbox");
 		ctx->failed = TRUE;
 		return -1;
 	}
@@ -228,7 +228,9 @@ int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
 	value = mail_user_plugin_getenv(box->storage->user, "fts_index_timeout");
 	if (value != NULL) {
 		if (settings_get_time(value, &timeout_secs, &error) < 0)
-			i_error("Invalid fts_index_timeout setting: %s", error);
+			e_error(box->storage->user->event,
+				"Invalid fts_index_timeout setting: %s",
+				error);
 		return -1;
 	}
 
