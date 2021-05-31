@@ -89,57 +89,6 @@ static void fts_indexer_notify(struct fts_indexer_context *ctx)
 	} T_END;
 }
 
-int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
-		     struct fts_indexer_context **ctx_r)
-{
-	struct fts_indexer_context *ctx;
-	struct mailbox_status status;
-	uint32_t last_uid, seq1, seq2;
-	const char *path, *cmd, *value, *error;
-	int fd;
-
-	if (fts_backend_get_last_uid(backend, box, &last_uid) < 0)
-		return -1;
-
-	mailbox_get_open_status(box, STATUS_UIDNEXT, &status);
-	if (status.uidnext == last_uid+1) {
-		/* everything is already indexed */
-		return 0;
-	}
-
-	mailbox_get_seq_range(box, last_uid+1, (uint32_t)-1, &seq1, &seq2);
-	if (seq1 == 0) {
-		/* no new messages (last messages in mailbox were expunged) */
-		return 0;
-	}
-
-	cmd = t_strdup_printf("PREPEND\t1\t%s\t%s\t0\t%s\n",
-			      str_tabescape(box->storage->user->username),
-			      str_tabescape(box->vname),
-			      str_tabescape(box->storage->user->session_id));
-	fd = fts_indexer_cmd(box->storage->user, cmd, &path);
-	if (fd == -1)
-		return -1;
-
-	/* connect to indexer and request immediate indexing of the mailbox */
-	ctx = i_new(struct fts_indexer_context, 1);
-	ctx->box = box;
-	ctx->conn.label = i_strdup(path);
-	ctx->conn.fd_in = fd;
-	ctx->conn.input = i_stream_create_fd(fd, 128);
-	ctx->search_start_time = ioloop_timeval;
-
-	value = mail_user_plugin_getenv(box->storage->user, "fts_index_timeout");
-	if (value != NULL) {
-		if (settings_get_time(value, &ctx->timeout_secs, &error) < 0)
-			i_error("Invalid fts_index_timeout setting: %s", error);
-	}
-
-
-	*ctx_r = ctx;
-	return 1;
-}
-
 int fts_indexer_deinit(struct fts_indexer_context **_ctx)
 {
 	struct fts_indexer_context *ctx = *_ctx;
@@ -251,4 +200,54 @@ int fts_indexer_more(struct fts_indexer_context *ctx)
 	if (ret == 0)
 		fts_indexer_notify(ctx);
 	return ret;
+}
+
+int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
+		     struct fts_indexer_context **ctx_r)
+{
+	struct fts_indexer_context *ctx;
+	struct mailbox_status status;
+	uint32_t last_uid, seq1, seq2;
+	const char *path, *cmd, *value, *error;
+	int fd;
+
+	if (fts_backend_get_last_uid(backend, box, &last_uid) < 0)
+		return -1;
+
+	mailbox_get_open_status(box, STATUS_UIDNEXT, &status);
+	if (status.uidnext == last_uid+1) {
+		/* everything is already indexed */
+		return 0;
+	}
+
+	mailbox_get_seq_range(box, last_uid+1, (uint32_t)-1, &seq1, &seq2);
+	if (seq1 == 0) {
+		/* no new messages (last messages in mailbox were expunged) */
+		return 0;
+	}
+
+	cmd = t_strdup_printf("PREPEND\t1\t%s\t%s\t0\t%s\n",
+			      str_tabescape(box->storage->user->username),
+			      str_tabescape(box->vname),
+			      str_tabescape(box->storage->user->session_id));
+	fd = fts_indexer_cmd(box->storage->user, cmd, &path);
+	if (fd == -1)
+		return -1;
+
+	/* connect to indexer and request immediate indexing of the mailbox */
+	ctx = i_new(struct fts_indexer_context, 1);
+	ctx->box = box;
+	ctx->conn.label = i_strdup(path);
+	ctx->conn.fd_in = fd;
+	ctx->conn.input = i_stream_create_fd(fd, 128);
+	ctx->search_start_time = ioloop_timeval;
+
+	value = mail_user_plugin_getenv(box->storage->user, "fts_index_timeout");
+	if (value != NULL) {
+		if (settings_get_time(value, &ctx->timeout_secs, &error) < 0)
+			i_error("Invalid fts_index_timeout setting: %s", error);
+	}
+
+	*ctx_r = ctx;
+	return 1;
 }
