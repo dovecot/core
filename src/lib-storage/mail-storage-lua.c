@@ -85,4 +85,7 @@ void dlua_register_mail_storage(struct dlua_script *script)
 	lua_storage_mail_user_register(script);
 	lua_storage_mailbox_register(script);
 	lua_storage_mail_register(script);
+
+	/* pop dlua_dovecot from stack */
+	lua_pop(script->L, 1);
 }
