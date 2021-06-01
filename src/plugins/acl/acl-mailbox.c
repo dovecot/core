@@ -84,7 +84,8 @@ static void acl_mailbox_free(struct mailbox *box)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
 
-	acl_object_deinit(&abox->aclobj);
+	if (abox->aclobj != NULL)
+		acl_object_deinit(&abox->aclobj);
 	abox->module_ctx.super.free(box);
 }
 
@@ -622,8 +623,11 @@ void acl_mailbox_allocated(struct mailbox *box)
 	box->vlast = &abox->module_ctx.super;
 	/* aclobj can be used for setting ACLs, even when mailbox is opened
 	   with IGNORE_ACLS flag */
-	abox->aclobj = acl_object_init_from_name(alist->rights.backend,
+	if (alist->rights.backend != NULL)
+		abox->aclobj = acl_object_init_from_name(alist->rights.backend,
 						 mailbox_get_name(box));
+	else
+		i_assert(ignore_acls);
 
 	v->free = acl_mailbox_free;
 	if (!ignore_acls) {
