@@ -963,7 +963,8 @@ test_run_scenarios(
 	smtp_server_set.protocol = protocol;
 	smtp_server_set.capabilities = capabilities;
 	smtp_server_set.hostname = "localhost";
-	smtp_server_set.max_client_idle_time_msecs = 10*000;
+	smtp_server_set.max_client_idle_time_msecs =
+		CLIENT_PROGRESS_TIMEOUT*1000;
 	smtp_server_set.max_pipelined_commands = 1;
 	smtp_server_set.auth_optional = TRUE;
 	smtp_server_set.ssl = &ssl_server_set;
@@ -973,6 +974,8 @@ test_run_scenarios(
 	i_zero(&smtp_client_set);
 	smtp_client_set.my_hostname = "localhost";
 	smtp_client_set.temp_path_prefix = "/tmp";
+	smtp_client_set.command_timeout_msecs = CLIENT_PROGRESS_TIMEOUT*1000;
+	smtp_client_set.connect_timeout_msecs = CLIENT_PROGRESS_TIMEOUT*1000;
 	smtp_client_set.ssl = &ssl_client_set;
 	smtp_client_set.debug = debug;
 
