@@ -41,6 +41,11 @@ int acl_mailbox_right_lookup(struct mailbox *box, unsigned int right_idx)
 
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT_REQUIRE(box->list);
 
+	/* If acls are ignored for this namespace do not check if
+	   there are rights. */
+	if (alist->ignore_acls)
+		return 1;
+
 	ret = acl_object_have_right(abox->aclobj,
 			alist->rights.acl_storage_right_idx[right_idx]);
 	if (ret > 0)
