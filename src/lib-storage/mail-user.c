@@ -781,6 +781,18 @@ int mail_user_home_mkdir(struct mail_user *user)
 	return 0;
 }
 
+const struct dict_op_settings *
+mail_user_get_dict_op_settings(struct mail_user *user)
+{
+	if (user->dict_op_set == NULL) {
+		user->dict_op_set = p_new(user->pool, struct dict_op_settings, 1);
+		user->dict_op_set->username = p_strdup(user->pool, user->username);
+		if (mail_user_get_home(user, &user->dict_op_set->home_dir) <= 0)
+			user->dict_op_set->home_dir = NULL;
+	}
+	return user->dict_op_set;
+}
+
 static const struct var_expand_func_table mail_user_var_expand_func_table_arr[] = {
 	{ "userdb", mail_user_var_expand_func_userdb },
 	{ NULL, NULL }

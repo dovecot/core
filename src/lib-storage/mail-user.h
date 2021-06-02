@@ -10,6 +10,7 @@ struct stats;
 struct fs_settings;
 struct ssl_iostream_settings;
 struct mail_user;
+struct dict_op_settings;
 
 struct mail_user_vfuncs {
 	void (*deinit)(struct mail_user *user);
@@ -62,6 +63,7 @@ struct mail_user {
 	struct mail_user_settings *set;
 	struct mail_namespace *namespaces;
 	struct mail_storage *storages;
+	struct dict_op_settings *dict_op_set;
 	ARRAY(const struct mail_storage_hooks *) hooks;
 
 	normalizer_func_t *default_normalizer;
@@ -217,6 +219,12 @@ void mail_user_stats_fill(struct mail_user *user, struct stats *stats);
    after the caller tries to create a file to the home directory, but it fails
    with ENOENT. This way it avoids unnecessary disk IO to the home. */
 int mail_user_home_mkdir(struct mail_user *user);
+
+/* Return dict_op_settings for the user. The returned settings are valid until
+   the user is freed. */
+const struct dict_op_settings *
+mail_user_get_dict_op_settings(struct mail_user *user);
+
 
 /* Obtain the postmaster address to be used for this user as an RFC 5322 (IMF)
    address. Returns false if the configured postmaster address is invalid in
