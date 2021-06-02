@@ -275,7 +275,6 @@ static void quota_clone_mail_user_created(struct mail_user *user)
 	i_zero(&dict_set);
 	dict_set.base_dir = user->set->base_dir;
 	dict_set.event_parent = user->event;
-	(void)mail_user_get_home(user, &dict_set.home_dir);
 	if (dict_init(uri, &dict_set, &dict, &error) < 0) {
 		i_error("quota_clone_dict: Failed to initialize '%s': %s",
 			uri, error);

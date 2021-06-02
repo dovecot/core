@@ -133,8 +133,6 @@ index_storage_get_dict(struct mailbox *box, enum mail_attribute_type type_flags,
 	i_zero(&set);
 	set.base_dir = storage->user->set->base_dir;
 	set.event_parent = storage->user->event;
-	if (mail_user_get_home(storage->user, &set.home_dir) <= 0)
-		set.home_dir = NULL;
 	if (dict_init(storage->set->mail_attribute_dict, &set,
 		      &storage->_shared_attr_dict, &error) < 0) {
 		mail_storage_set_critical(storage,

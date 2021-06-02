@@ -33,8 +33,6 @@ enum dict_data_type {
 
 struct dict_settings {
 	const char *base_dir;
-	/* home directory for the user, if known */
-	const char *home_dir;
 	/* set to parent event, if exists */
 	struct event *event_parent;
 };

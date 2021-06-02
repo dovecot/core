@@ -54,7 +54,7 @@ static struct dotlock_settings file_dict_dotlock_settings = {
 
 static int
 file_dict_init(struct dict *driver, const char *uri,
-	       const struct dict_settings *set,
+	       const struct dict_settings *set ATTR_UNUSED,
 	       struct dict **dict_r, const char **error_r)
 {
 	struct file_dict *dict;
@@ -79,8 +79,6 @@ file_dict_init(struct dict *driver, const char *uri,
 			return -1;
 		}
 	}
-	dict->path = set->home_dir == NULL ? i_strdup(path) :
-		i_strdup(home_expand_tilde(path, set->home_dir));
 	dict->dict = *driver;
 	dict->hash_pool = pool_alloconly_create("file dict", 1024);
 	hash_table_create(&dict->hash, dict->hash_pool, 0, str_hash, strcmp);
