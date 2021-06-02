@@ -87,6 +87,11 @@ static void queue_resume_callback(lua_State *L, int status)
 			/* traceback succeeded, remove original error */
 			lua_remove(L, -2);
 		}
+		/* After traceback has analyzed the stack, drop everything but
+		   the error. */
+		while (lua_gettop(L) > 1)
+			lua_remove(L, -2);
+		i_assert(lua_gettop(L) == 1);
 	}
 
 	/*
@@ -164,6 +169,7 @@ int dlua_pcall_yieldable(lua_State *L, const char *func_name, int nargs,
 	int nresults;
 
 	i_assert(lua_status(L) == LUA_OK);
+	i_assert(lua_gettop(L) == nargs);
 
 	lua_getglobal(L, func_name);
 
