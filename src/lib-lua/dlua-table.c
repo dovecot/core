@@ -37,8 +37,10 @@ static inline int adj(int idx, int delta)
 static int dlua_table_get(lua_State *L, int idx, int type)
 {
 	/* can only work with tables */
-	if (!lua_istable(L, idx))
+	if (!lua_istable(L, idx)) {
+		lua_pop(L, 1);
 		return -1;
+	}
 
 	lua_gettable(L, idx);
 
