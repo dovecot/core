@@ -118,7 +118,10 @@ userdb_dict_iterate_init(struct auth_request *auth_request,
 	ctx->key_prefix = p_strdup(auth_request->pool, str_c(path));
 	ctx->key_prefix_len = strlen(ctx->key_prefix);
 
-	ctx->iter = dict_iterate_init(module->conn->dict, NULL, ctx->key_prefix, 0);
+	struct dict_op_settings set = {
+		.username = auth_request->fields.user,
+	};
+	ctx->iter = dict_iterate_init(module->conn->dict, &set, ctx->key_prefix, 0);
 	e_debug(authdb_event(auth_request),
 		"iterate: prefix=%s", ctx->key_prefix);
 	return &ctx->ctx;
