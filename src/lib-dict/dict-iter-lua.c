@@ -141,35 +141,43 @@ static void lua_dict_iterate_callback(struct lua_dict_iter *iter)
 }
 
 /*
- * Iterate a dict at key [-3,+2,e]
+ * Iterate a dict at key [-(3|4),+2,e]
  *
  * Args:
  *   1) userdata: sturct dict *dict
  *   2) string: key
  *   3) integer: flags
+ *   4*) string: username
  *
  * Returns:
  *   Returns a iteration step function and dict iter userdata.
+ *   Username will be NULL if not provided in args.
  */
 int lua_dict_iterate(lua_State *L)
 {
 	enum dict_iterate_flags flags;
 	struct lua_dict_iter *iter;
 	struct dict *dict;
-	const char *path;
+	const char *path, *username = NULL;
 	pool_t pool;
 
-	DLUA_REQUIRE_ARGS(L, 3);
+	DLUA_REQUIRE_ARGS_IN(L, 3, 4);
 
 	dict = dlua_check_dict(L, 1);
 	path = luaL_checkstring(L, 2);
 	flags = luaL_checkinteger(L, 3);
+	if (lua_gettop(L) >= 4)
+		username = luaL_checkstring(L, 4);
+
+	struct dict_op_settings set = {
+		.username = username,
+	};
 
 	/* set up iteration */
 	pool = pool_alloconly_create("lua dict iter", 128);
 	iter = p_new(pool, struct lua_dict_iter, 1);
 	iter->pool = pool;
-	iter->iter = dict_iterate_init(dict, NULL, path, flags |
+	iter->iter = dict_iterate_init(dict, &set, path, flags |
 				      DICT_ITERATE_FLAG_ASYNC);
 	p_array_init(&iter->refs, iter->pool, 32);
 	iter->L = L;

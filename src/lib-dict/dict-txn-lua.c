@@ -164,28 +164,37 @@ static int lua_dict_set(lua_State *L)
 }
 
 /*
- * Start a dict transaction [-1,+1,e]
+ * Start a dict transaction [-(1|2),+1,e]
  *
  * Args:
  *   1) userdata: struct dict *
+ *   2*) string: username
  *
  * Returns:
  *   Returns a new transaction object.
+ *   Username will be NULL if not provided in args.
  */
 int lua_dict_transaction_begin(lua_State *L)
 {
 	struct lua_dict_txn *txn;
 	struct dict *dict;
+	const char *username = NULL;
 	pool_t pool;
 
-	DLUA_REQUIRE_ARGS(L, 1);
+	DLUA_REQUIRE_ARGS_IN(L, 1, 2);
 
 	dict = dlua_check_dict(L, 1);
+	if (lua_gettop(L) >= 2)
+		username = luaL_checkstring(L, 2);
 
 	pool = pool_alloconly_create("lua dict txn", 128);
 	txn = p_new(pool, struct lua_dict_txn, 1);
 	txn->pool = pool;
-	txn->txn = dict_transaction_begin(dict, NULL);
+
+	struct dict_op_settings set = {
+		.username = username,
+	};
+	txn->txn = dict_transaction_begin(dict, &set);
 	txn->state = STATE_OPEN;
 	txn->L = L;
 

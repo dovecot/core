@@ -57,27 +57,34 @@ static void lua_dict_lookup_callback(const struct dict_lookup_result *result,
 }
 
 /*
- * Lookup a key in dict [-2,+1,e]
+ * Lookup a key in dict [-(2|3),+1,e]
  *
  * Args:
  *   1) userdata: struct dict *dict
  *   2) string: key
+ *   3*) string: username
  *
  * Returns:
  *   If key is found, returns a table with values.  If key is not found,
  *   returns nil.
+ *   Username will be NULL if not provided in args.
  */
 static int lua_dict_lookup(lua_State *L)
 {
 	struct dict *dict;
-	const char *key;
+	const char *key, *username = NULL;
 
-	DLUA_REQUIRE_ARGS(L, 2);
+	DLUA_REQUIRE_ARGS_IN(L, 2, 3);
 
 	dict = xlua_dict_getptr(L, 1, NULL);
 	key = luaL_checkstring(L, 2);
+	if (lua_gettop(L) >= 3)
+		username = luaL_checkstring(L, 3);
 
-	dict_lookup_async(dict, NULL, key, lua_dict_lookup_callback, L);
+	struct dict_op_settings set = {
+		.username = username,
+	};
+	dict_lookup_async(dict, &set, key, lua_dict_lookup_callback, L);
 
 	return lua_dict_async_continue(L,
 		lua_yieldk(L, 0, 0, lua_dict_async_continue), 0);
