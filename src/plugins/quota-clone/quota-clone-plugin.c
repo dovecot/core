@@ -116,7 +116,8 @@ static bool quota_clone_flush_real(struct mail_user *user)
 	   the special case of lookup changing from
 	   RESULT_LIMITED/RESULT_UNLIMITED to RESULT_UNKNOWN_RESOURCE, which
 	   leaves the old value unchanged. */
-	trans = dict_transaction_begin(quser->dict, NULL);
+	const struct dict_op_settings *set = mail_user_get_dict_op_settings(user);
+	trans = dict_transaction_begin(quser->dict, set);
 	if (bytes_res == QUOTA_GET_RESULT_LIMITED ||
 	    bytes_res == QUOTA_GET_RESULT_UNLIMITED) {
 		dict_set(trans, DICT_QUOTA_CLONE_BYTES_PATH,
