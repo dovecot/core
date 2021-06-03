@@ -236,6 +236,7 @@ static int cmd_lookup(struct dict_connection_cmd *cmd, const char *line)
 	/* <key> [<username>] */
 	dict_connection_cmd_async(cmd);
 	event_add_str(cmd->event, "key", args[0]);
+	event_add_str(cmd->event, "user", username);
 	const struct dict_op_settings set = {
 		.username = username,
 	};
@@ -379,6 +380,7 @@ static int cmd_iterate(struct dict_connection_cmd *cmd, const char *line)
 	/* <flags> <max_rows> <path> [<username>] */
 	flags |= DICT_ITERATE_FLAG_ASYNC;
 	event_add_str(cmd->event, "key", args[2]);
+	event_add_str(cmd->event, "user", username);
 	cmd->iter = dict_iterate_init(cmd->conn->dict, &set, args[2], flags);
 	cmd->iter_flags = flags;
 	if (max_rows > 0)
@@ -548,6 +550,7 @@ cmd_commit(struct dict_connection_cmd *cmd, const char *line)
 	if (dict_connection_transaction_lookup_parse(cmd->conn, line, &trans) < 0)
 		return -1;
 	cmd->trans_id = trans->id;
+	event_add_str(cmd->event, "user", trans->ctx->set.username);
 
 	dict_connection_cmd_async(cmd);
 	dict_transaction_commit_async(&trans->ctx, cmd_commit_callback, cmd);
@@ -562,6 +565,7 @@ cmd_commit_async(struct dict_connection_cmd *cmd, const char *line)
 	if (dict_connection_transaction_lookup_parse(cmd->conn, line, &trans) < 0)
 		return -1;
 	cmd->trans_id = trans->id;
+	event_add_str(cmd->event, "user", trans->ctx->set.username);
 
 	dict_connection_cmd_async(cmd);
 	dict_transaction_commit_async(&trans->ctx, cmd_commit_callback_async, cmd);
@@ -575,6 +579,7 @@ static int cmd_rollback(struct dict_connection_cmd *cmd, const char *line)
 	if (dict_connection_transaction_lookup_parse(cmd->conn, line, &trans) < 0)
 		return -1;
 
+	event_add_str(cmd->event, "user", trans->ctx->set.username);
 	dict_transaction_rollback(&trans->ctx);
 	dict_connection_transaction_array_remove(cmd->conn, trans->id);
 	return 0;
@@ -594,6 +599,7 @@ static int cmd_set(struct dict_connection_cmd *cmd, const char *line)
 
 	if (dict_connection_transaction_lookup_parse(cmd->conn, args[0], &trans) < 0)
 		return -1;
+	event_add_str(cmd->event, "user", trans->ctx->set.username);
         dict_set(trans->ctx, args[1], args[2]);
 	return 0;
 }
