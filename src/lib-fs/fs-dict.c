@@ -157,7 +157,10 @@ static int fs_dict_lookup(struct dict_fs_file *file)
 	if (file->value != NULL)
 		return 0;
 
-	ret = dict_lookup(fs->dict, NULL, file->pool, file->key, &file->value, &error);
+	struct dict_op_settings set = {
+		.username = file->file.fs->username,
+	};
+	ret = dict_lookup(fs->dict, &set, file->pool, file->key, &file->value, &error);
 	if (ret > 0)
 		return 0;
 	else if (ret < 0) {
@@ -221,8 +224,11 @@ static int fs_dict_write_stream_finish(struct fs_file *_file, bool success)
 	if (!success)
 		return -1;
 
+	struct dict_op_settings set = {
+		.username = _file->fs->username,
+	};
 	fs_dict_write_rename_if_needed(file);
-	trans = dict_transaction_begin(fs->dict, NULL);
+	trans = dict_transaction_begin(fs->dict, &set);
 	switch (fs->encoding) {
 	case FS_DICT_VALUE_ENCODING_RAW:
 		dict_set(trans, file->key, str_c(file->write_buffer));
@@ -270,7 +276,10 @@ static int fs_dict_delete(struct fs_file *_file)
 	struct dict_transaction_context *trans;
 	const char *error;
 
-	trans = dict_transaction_begin(fs->dict, NULL);
+	struct dict_op_settings set = {
+		.username = fs->fs.username,
+	};
+	trans = dict_transaction_begin(fs->dict, &set);
 	dict_unset(trans, file->key);
 	if (dict_transaction_commit(&trans, &error) < 0) {
 		fs_set_error(_file->event, EIO,
@@ -296,7 +305,10 @@ fs_dict_iter_init(struct fs_iter *_iter, const char *path,
 	if (fs->path_prefix != NULL)
 		path = t_strconcat(fs->path_prefix, path, NULL);
 
-	iter->dict_iter = dict_iterate_init(fs->dict, NULL, path, 0);
+	struct dict_op_settings set = {
+		.username = iter->iter.fs->username,
+	};
+	iter->dict_iter = dict_iterate_init(fs->dict, &set, path, 0);
 }
 
 static const char *fs_dict_iter_next(struct fs_iter *_iter)
