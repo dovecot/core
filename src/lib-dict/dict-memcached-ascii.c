@@ -501,14 +501,21 @@ static int memcached_ascii_connect(struct memcached_ascii_dict *dict,
 
 static const char *
 memcached_ascii_dict_get_full_key(struct memcached_ascii_dict *dict,
-				  const char *key)
+				  const char *username, const char *key)
 {
 	if (str_begins(key, DICT_PATH_SHARED))
 		key += strlen(DICT_PATH_SHARED);
 	else if (str_begins(key, DICT_PATH_PRIVATE)) {
-		key = t_strdup_printf("%s%c%s", dict->username,
-				      DICT_USERNAME_SEPARATOR,
-				      key + strlen(DICT_PATH_PRIVATE));
+		if (strchr(username, DICT_USERNAME_SEPARATOR) == NULL) {
+			key = t_strdup_printf("%s%c%s", username,
+					      DICT_USERNAME_SEPARATOR,
+					      key + strlen(DICT_PATH_PRIVATE));
+		} else {
+			/* escape the username */
+			key = t_strdup_printf("%s%c%s", memcached_ascii_escape_username(username),
+					      DICT_USERNAME_SEPARATOR,
+					      key + strlen(DICT_PATH_PRIVATE));
+		}
 	} else {
 		i_unreached();
 	}
@@ -519,7 +526,7 @@ memcached_ascii_dict_get_full_key(struct memcached_ascii_dict *dict,
 
 static int
 memcached_ascii_dict_lookup(struct dict *_dict,
-			    const struct dict_op_settings *set ATTR_UNUSED,
+			    const struct dict_op_settings *set,
 			    pool_t pool, const char *key, const char **value_r,
 			    const char **error_r)
 {
@@ -530,7 +537,7 @@ memcached_ascii_dict_lookup(struct dict *_dict,
 	if (memcached_ascii_connect(dict, error_r) < 0)
 		return -1;
 
-	key = memcached_ascii_dict_get_full_key(dict, key);
+	key = memcached_ascii_dict_get_full_key(dict, set->username, key);
 	o_stream_nsend_str(dict->conn.conn.output,
 			   t_strdup_printf("get %s\r\n", key));
 	array_push_back(&dict->input_states, &state);
@@ -559,13 +566,14 @@ memcached_ascii_transaction_init(struct dict *_dict)
 
 static void
 memcached_send_change(struct dict_memcached_ascii_commit_ctx *ctx,
-		      const struct dict_op_settings_private *set ATTR_UNUSED,
+		      const struct dict_op_settings_private *set,
 		      const struct dict_transaction_memory_change *change)
 {
 	enum memcached_ascii_input_state state;
 	const char *key, *value;
 
-	key = memcached_ascii_dict_get_full_key(ctx->dict, change->key);
+	key = memcached_ascii_dict_get_full_key(ctx->dict, set->username,
+						change->key);
 
 	str_truncate(ctx->str, 0);
 	switch (change->type) {
