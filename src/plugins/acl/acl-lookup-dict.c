@@ -160,6 +160,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	string_t *path;
 	size_t prefix_len;
 	int ret;
+	const struct dict_op_settings *set = mail_user_get_dict_op_settings(dict->user);
 
 	/* get all existing identifiers for the user. we might be able to
 	   sync identifiers also for other users whose shared namespaces we
@@ -169,7 +170,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	t_array_init(&old_ids_arr, 128);
 	prefix = DICT_PATH_SHARED DICT_SHARED_BOXES_PATH;
 	prefix_len = strlen(prefix);
-	iter = dict_iterate_init(dict->dict, NULL, prefix, DICT_ITERATE_FLAG_RECURSE);
+	iter = dict_iterate_init(dict->dict, set, prefix, DICT_ITERATE_FLAG_RECURSE);
 	while (dict_iterate(iter, &key, &value)) {
 		/* prefix/$type/$dest/$source */
 		key += prefix_len;
@@ -203,7 +204,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			/* new identifier, add it */
 			str_truncate(path, prefix_len);
 			str_append(path, new_ids[newi]);
-			dt = dict_transaction_begin(dict->dict, NULL);
+			dt = dict_transaction_begin(dict->dict, set);
 			dict_set(dt, str_c(path), "1");
 			newi++;
 		} else if (!no_removes) {
@@ -212,7 +213,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			str_append(path, old_ids[oldi]);
 			str_append_c(path, '/');
 			str_append(path, username);
-			dt = dict_transaction_begin(dict->dict, NULL);
+			dt = dict_transaction_begin(dict->dict, set);
 			dict_unset(dt, str_c(path));
 			oldi++;
 		}
@@ -282,7 +283,8 @@ static void acl_lookup_dict_iterate_read(struct acl_lookup_dict_iter *iter)
 	   the dict, which opens another iteration. */
 	p_clear(iter->iter_value_pool);
 	array_clear(&iter->iter_values);
-	dict_iter = dict_iterate_init(iter->dict->dict, NULL, prefix,
+	const struct dict_op_settings *set = mail_user_get_dict_op_settings(iter->dict->user);
+	dict_iter = dict_iterate_init(iter->dict->dict, set, prefix,
 				      DICT_ITERATE_FLAG_RECURSE);
 	while (dict_iterate(dict_iter, &key, &value)) {
 		i_assert(prefix_len < strlen(key));
