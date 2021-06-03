@@ -9,6 +9,10 @@
 #include "dict-sql-private.h"
 #include "driver-test.h"
 
+struct dict_op_settings dict_op_settings = {
+	.username = "testuser",
+};
+
 static void test_setup(struct dict **dict_r)
 {
 	const char *error = NULL;
@@ -56,6 +60,9 @@ static void test_lookup_one(void)
 		.queries = (const char *[]){"SELECT value FROM table WHERE a = 'hello' AND b = 'world'", NULL},
 		.result = &rset,
 	};
+	const struct dict_op_settings set = {
+		.username = "testuser",
+	};
 	struct dict *dict;
 	pool_t pool = pool_datastack_create();
 
@@ -64,7 +71,7 @@ static void test_lookup_one(void)
 
 	test_set_expected(dict, &res);
 
-	test_assert(dict_lookup(dict, NULL, pool, "shared/dictmap/hello/world", &value, &error) == 1);
+	test_assert(dict_lookup(dict, &set, pool, "shared/dictmap/hello/world", &value, &error) == 1);
 	test_assert_strcmp(value, "one");
         if (error != NULL)
                 i_error("dict_lookup failed: %s", error);
@@ -84,6 +91,9 @@ static void test_atomic_inc(void)
 			NULL},
 		.result = NULL,
 	};
+	struct dict_op_settings set = {
+		.username = "testuser",
+	};
 	struct dict *dict;
 
 	test_begin("dict atomic inc");
@@ -92,7 +102,7 @@ static void test_atomic_inc(void)
 	test_set_expected(dict, &res);
 
 	/* 1 field */
-	struct dict_transaction_context *ctx = dict_transaction_begin(dict, NULL);
+	struct dict_transaction_context *ctx = dict_transaction_begin(dict, &set);
 	dict_atomic_inc(ctx, "shared/counters/global/counter", 128);
 	test_assert(dict_transaction_commit(&ctx, &error) == 0);
         if (error != NULL)
@@ -100,7 +110,7 @@ static void test_atomic_inc(void)
 	error = NULL;
 
 	/* 2 fields */
-	ctx = dict_transaction_begin(dict, NULL);
+	ctx = dict_transaction_begin(dict, &set);
 	dict_atomic_inc(ctx, "priv/quota/bytes", 128);
 	dict_atomic_inc(ctx, "priv/quota/count", 1);
 	test_assert(dict_transaction_commit(&ctx, &error) == 0);
@@ -109,7 +119,7 @@ static void test_atomic_inc(void)
 	error = NULL;
 
 	/* 3 fields */
-	ctx = dict_transaction_begin(dict, NULL);
+	ctx = dict_transaction_begin(dict, &set);
 	dict_atomic_inc(ctx, "priv/quota/bytes", 128);
 	dict_atomic_inc(ctx, "priv/quota/count", 1);
 	dict_atomic_inc(ctx, "priv/quota/folders", 123);
@@ -141,7 +151,7 @@ static void test_set(void)
 	test_set_expected(dict, &res);
 
 	/* 1 field */
-	struct dict_transaction_context *ctx = dict_transaction_begin(dict, NULL);
+	struct dict_transaction_context *ctx = dict_transaction_begin(dict, &dict_op_settings);
 	dict_set(ctx, "shared/counters/global/counter", "128");
 	test_assert(dict_transaction_commit(&ctx, &error) == 1);
         if (error != NULL)
@@ -149,7 +159,7 @@ static void test_set(void)
 	error = NULL;
 
 	/* 2 fields */
-	ctx = dict_transaction_begin(dict, NULL);
+	ctx = dict_transaction_begin(dict, &dict_op_settings);
 	dict_set(ctx, "priv/quota/bytes", "128");
 	dict_set(ctx, "priv/quota/count", "1");
 	test_assert(dict_transaction_commit(&ctx, &error) == 1);
@@ -158,7 +168,7 @@ static void test_set(void)
 	error = NULL;
 
 	/* 3 fields */
-	ctx = dict_transaction_begin(dict, NULL);
+	ctx = dict_transaction_begin(dict, &dict_op_settings);
 	dict_set(ctx, "priv/quota/bytes", "128");
 	dict_set(ctx, "priv/quota/count", "1");
 	dict_set(ctx, "priv/quota/folders", "123");
@@ -189,13 +199,13 @@ static void test_unset(void)
 
 	test_set_expected(dict, &res);
 
-	struct dict_transaction_context *ctx = dict_transaction_begin(dict, NULL);
+	struct dict_transaction_context *ctx = dict_transaction_begin(dict, &dict_op_settings);
 	dict_unset(ctx, "shared/counters/global/counter");
 	test_assert(dict_transaction_commit(&ctx, &error) == 1);
 	if (error != NULL)
                 i_error("dict_transaction_commit failed: %s", error);
 	error = NULL;
-	ctx = dict_transaction_begin(dict, NULL);
+	ctx = dict_transaction_begin(dict, &dict_op_settings);
 	dict_unset(ctx, "priv/quota/bytes");
 	dict_unset(ctx, "priv/quota/count");
 	test_assert(dict_transaction_commit(&ctx, &error) == 1);
@@ -235,7 +245,7 @@ static void test_iterate(void)
 	test_set_expected(dict, &res);
 
 	struct dict_iterate_context *iter =
-		dict_iterate_init(dict, NULL, "shared/counters/global/counter",
+		dict_iterate_init(dict, &dict_op_settings, "shared/counters/global/counter",
 				  DICT_ITERATE_FLAG_EXACT_KEY);
 
 	size_t idx = 0;
@@ -262,7 +272,7 @@ static void test_iterate(void)
 
 	test_set_expected(dict, &res);
 
-	iter = dict_iterate_init(dict, NULL, "shared/counters/global/", 0);
+	iter = dict_iterate_init(dict, &dict_op_settings, "shared/counters/global/", 0);
 
 	idx = 0;
 
