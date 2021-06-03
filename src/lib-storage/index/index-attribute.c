@@ -203,7 +203,10 @@ index_storage_attribute_get_dict_trans(struct mailbox_transaction_context *t,
 	if (index_storage_get_dict(t->box, type_flags, &dict, mailbox_prefix_r) < 0)
 		return -1;
 	i_assert(*dtransp == NULL);
-	*dtransp = *dtrans_r = dict_transaction_begin(dict, NULL);
+
+	struct mail_user *user = mailbox_list_get_user(t->box->list);
+	const struct dict_op_settings *set = mail_user_get_dict_op_settings(user);
+	*dtransp = *dtrans_r = dict_transaction_begin(dict, set);
 	return 0;
 }
 
@@ -257,7 +260,9 @@ int index_storage_attribute_get(struct mailbox *box,
 	if (index_storage_get_dict(box, type_flags, &dict, &mailbox_prefix) < 0)
 		return -1;
 
-	ret = dict_lookup(dict, NULL, pool_datastack_create(),
+	struct mail_user *user = mailbox_list_get_user(box->list);
+	const struct dict_op_settings *set = mail_user_get_dict_op_settings(user);
+	ret = dict_lookup(dict, set, pool_datastack_create(),
 			  key_get_prefixed(type_flags, mailbox_prefix, key),
 			  &value_r->value, &error);
 	if (ret < 0) {
@@ -286,7 +291,9 @@ index_storage_attribute_iter_init(struct mailbox *box,
 		iter->prefix = i_strdup(key_get_prefixed(type_flags, mailbox_prefix,
 							 prefix));
 		iter->prefix_len = strlen(iter->prefix);
-		iter->diter = dict_iterate_init(dict, NULL, iter->prefix,
+		struct mail_user *user = mailbox_list_get_user(box->list);
+		const struct dict_op_settings *set = mail_user_get_dict_op_settings(user);
+		iter->diter = dict_iterate_init(dict, set, iter->prefix,
 						DICT_ITERATE_FLAG_RECURSE |
 						DICT_ITERATE_FLAG_NO_VALUE);
 	}
