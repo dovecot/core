@@ -51,8 +51,9 @@ struct ldap_dict {
 };
 
 static
-void ldap_dict_lookup_async(struct dict *dict, const char *key,
-			     dict_lookup_callback_t *callback, void *context);
+void ldap_dict_lookup_async(struct dict *dict,
+			    const struct dict_op_settings *set, const char *key,
+			    dict_lookup_callback_t *callback, void *context);
 
 
 static bool
@@ -190,7 +191,8 @@ static const char *ldap_escape(const char *str)
 }
 
 static bool
-ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
+ldap_dict_build_query(const struct dict_op_settings *set,
+		      const struct dict_ldap_map *map,
                       ARRAY_TYPE(const_string) *values, bool priv,
                       string_t *query_r, const char **error_r)
 {
@@ -200,7 +202,7 @@ ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
 
 	t_array_init(&exp, 8);
 	entry.key = '\0';
-	entry.value = ldap_escape(dict->username);
+	entry.value = ldap_escape(set->username);
 	entry.long_key = "username";
 	array_push_back(&exp, &entry);
 
@@ -353,12 +355,13 @@ ldap_dict_lookup_callback(struct ldap_result *result, struct dict_ldap_op *op)
 }
 
 static int
-ldap_dict_lookup(struct dict *dict, pool_t pool, const char *key,
+ldap_dict_lookup(struct dict *dict, const struct dict_op_settings *set,
+		 pool_t pool, const char *key,
 		 const char **value_r, const char **error_r)
 {
 	struct dict_lookup_result res;
 
-	ldap_dict_lookup_async(dict, key, ldap_dict_lookup_done, &res);
+	ldap_dict_lookup_async(dict, set, key, ldap_dict_lookup_done, &res);
 
 	ldap_dict_wait(dict);
 	if (res.ret < 0) {
@@ -415,8 +418,10 @@ void ldap_dict_atomic_inc(struct dict_transaction_context *ctx,
 */
 
 static
-void ldap_dict_lookup_async(struct dict *dict, const char *key,
-			     dict_lookup_callback_t *callback, void *context)
+void ldap_dict_lookup_async(struct dict *dict,
+			    const struct dict_op_settings *set,
+			    const char *key,
+			    dict_lookup_callback_t *callback, void *context)
 {
 	struct ldap_search_input input;
 	struct ldap_dict *ctx = (struct ldap_dict*)dict;
@@ -445,7 +450,7 @@ void ldap_dict_lookup_async(struct dict *dict, const char *key,
 		i_zero(&input);
 		input.base_dn = map->base_dn;
 		input.scope = map->scope_val;
-		if (!ldap_dict_build_query(ctx, map, &values, strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE))==0, query, &error)) {
+		if (!ldap_dict_build_query(set, map, &values, strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE))==0, query, &error)) {
 			op->res.error = error;
 			callback(&op->res, context);
 			pool_unref(&oppool);

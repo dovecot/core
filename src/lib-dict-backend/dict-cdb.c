@@ -84,7 +84,9 @@ static void cdb_dict_deinit(struct dict *_dict)
 }
 
 static int
-cdb_dict_lookup(struct dict *_dict, pool_t pool,
+cdb_dict_lookup(struct dict *_dict,
+		const struct dict_op_settings *set ATTR_UNUSED,
+		pool_t pool,
 	        const char *key, const char **value_r,
 	        const char **error_r)
 {
@@ -129,8 +131,9 @@ cdb_dict_lookup(struct dict *_dict, pool_t pool,
 }
 
 static struct dict_iterate_context *
-cdb_dict_iterate_init(struct dict *_dict, const char *path,
-		      enum dict_iterate_flags flags)
+cdb_dict_iterate_init(struct dict *_dict,
+		      const struct dict_op_settings *set ATTR_UNUSED,
+		      const char *path, enum dict_iterate_flags flags)
 {
 	struct cdb_dict_iterate_context *ctx =
 		i_new(struct cdb_dict_iterate_context, 1);

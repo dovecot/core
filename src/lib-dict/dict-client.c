@@ -343,7 +343,8 @@ client_dict_cmd_send(struct client_dict *dict, struct client_dict_cmd **_cmd,
 }
 
 static bool
-client_dict_transaction_send_begin(struct client_dict_transaction_context *ctx)
+client_dict_transaction_send_begin(struct client_dict_transaction_context *ctx,
+				   const struct dict_op_settings_private *set ATTR_UNUSED)
 {
 	struct client_dict *dict = (struct client_dict *)ctx->ctx.dict;
 	struct client_dict_cmd *cmd;
@@ -370,6 +371,7 @@ client_dict_send_transaction_query(struct client_dict_transaction_context *ctx,
 				   const char *query)
 {
 	struct client_dict *dict = (struct client_dict *)ctx->ctx.dict;
+	const struct dict_op_settings_private *set = &ctx->ctx.set;
 	struct client_dict_cmd *cmd;
 	const char *error;
 
@@ -377,7 +379,7 @@ client_dict_send_transaction_query(struct client_dict_transaction_context *ctx,
 		return;
 
 	if (!ctx->sent_begin) {
-		if (!client_dict_transaction_send_begin(ctx))
+		if (!client_dict_transaction_send_begin(ctx, set))
 			return;
 	}
 
@@ -964,8 +966,9 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd,
 }
 
 static void
-client_dict_lookup_async(struct dict *_dict, const char *key,
-			 dict_lookup_callback_t *callback, void *context)
+client_dict_lookup_async(struct dict *_dict, const struct dict_op_settings *set ATTR_UNUSED,
+			 const char *key, dict_lookup_callback_t *callback,
+			 void *context)
 {
 	struct client_dict *dict = (struct client_dict *)_dict;
 	struct client_dict_cmd *cmd;
@@ -998,7 +1001,9 @@ static void client_dict_lookup_callback(const struct dict_lookup_result *result,
 		lookup->value = i_strdup(result->value);
 }
 
-static int client_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
+static int client_dict_lookup(struct dict *_dict,
+			      const struct dict_op_settings *set,
+			      pool_t pool, const char *key,
 			      const char **value_r, const char **error_r)
 {
 	struct client_dict_sync_lookup lookup;
@@ -1006,7 +1011,7 @@ static int client_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	i_zero(&lookup);
 	lookup.ret = -2;
 
-	dict_lookup_async(_dict, NULL, key, client_dict_lookup_callback, &lookup);
+	dict_lookup_async(_dict, set, key, client_dict_lookup_callback, &lookup);
 	if (lookup.ret == -2)
 		client_dict_wait(_dict);
 
@@ -1145,8 +1150,9 @@ client_dict_iter_async_callback(struct client_dict_cmd *cmd,
 }
 
 static struct dict_iterate_context *
-client_dict_iterate_init(struct dict *_dict, const char *path,
-			 enum dict_iterate_flags flags)
+client_dict_iterate_init(struct dict *_dict,
+			 const struct dict_op_settings *set ATTR_UNUSED,
+			 const char *path, enum dict_iterate_flags flags)
 {
         struct client_dict_iterate_context *ctx;
 

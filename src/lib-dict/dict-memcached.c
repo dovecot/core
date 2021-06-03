@@ -273,8 +273,9 @@ static void memcached_add_header(buffer_t *buf, unsigned int key_len)
 }
 
 static int
-memcached_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
-		      const char **value_r, const char **error_r)
+memcached_dict_lookup(struct dict *_dict, const struct dict_op_settings *set ATTR_UNUSED,
+		      pool_t pool, const char *key, const char **value_r,
+		      const char **error_r)
 {
 	struct memcached_dict *dict = (struct memcached_dict *)_dict;
 	struct ioloop *prev_ioloop = current_ioloop;

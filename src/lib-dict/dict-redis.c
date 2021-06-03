@@ -537,7 +537,9 @@ static void redis_dict_select_db(struct redis_dict *dict)
 	redis_input_state_add(dict, REDIS_INPUT_STATE_SELECT);
 }
 
-static int redis_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
+static int redis_dict_lookup(struct dict *_dict,
+			     const struct dict_op_settings *set ATTR_UNUSED,
+			     pool_t pool, const char *key,
 			     const char **value_r, const char **error_r)
 {
 	struct redis_dict *dict = (struct redis_dict *)_dict;

@@ -15,6 +15,7 @@ struct dict_commit_callback_ctx {
 	struct dict *dict;
 	struct event *event;
 	dict_transaction_commit_callback_t *callback;
+	struct dict_op_settings_private set;
 	struct timeout *to;
 	void *context;
 	struct dict_commit_result result;
@@ -274,6 +275,7 @@ dict_commit_async_timeout(struct dict_commit_callback_ctx *ctx)
 	dict_post_api_callback(ctx->dict);
 
 	dict_transaction_finished(ctx->event, ctx->result.ret, FALSE, ctx->result.error);
+	dict_op_settings_private_free(&ctx->set);
 	event_unref(&ctx->event);
 	dict_unref(&ctx->dict);
 	pool_unref(&ctx->pool);
@@ -294,7 +296,7 @@ static void dict_commit_callback(const struct dict_commit_result *result,
 	}
 }
 
-int dict_lookup(struct dict *dict, const struct dict_op_settings *set ATTR_UNUSED,
+int dict_lookup(struct dict *dict, const struct dict_op_settings *set,
 		pool_t pool, const char *key,
 		const char **value_r, const char **error_r)
 {
@@ -304,14 +306,14 @@ int dict_lookup(struct dict *dict, const struct dict_op_settings *set ATTR_UNUSE
 
 	e_debug(event, "Looking up '%s'", key);
 	event_add_str(event, "key", key);
-	ret = dict->v.lookup(dict, pool, key, value_r, error_r);
+	ret = dict->v.lookup(dict, set, pool, key, value_r, error_r);
 	dict_lookup_finished(event, ret, *error_r);
 	event_unref(&event);
 	return ret;
 }
 
 #undef dict_lookup_async
-void dict_lookup_async(struct dict *dict, const struct dict_op_settings *set ATTR_UNUSED,
+void dict_lookup_async(struct dict *dict, const struct dict_op_settings *set,
 		       const char *key, dict_lookup_callback_t *callback,
 		       void *context)
 {
@@ -320,7 +322,7 @@ void dict_lookup_async(struct dict *dict, const struct dict_op_settings *set ATT
 
 		i_zero(&result);
 		/* event is going to be sent by dict_lookup */
-		result.ret = dict_lookup(dict, NULL, pool_datastack_create(),
+		result.ret = dict_lookup(dict, set, pool_datastack_create(),
 					 key, &result.value, &result.error);
 		const char *const values[] = { result.value, NULL };
 		result.values = values;
@@ -336,11 +338,11 @@ void dict_lookup_async(struct dict *dict, const struct dict_op_settings *set ATT
 	lctx->event = event_create(dict->event);
 	event_add_str(lctx->event, "key", key);
 	e_debug(lctx->event, "Looking up (async) '%s'", key);
-	dict->v.lookup_async(dict, key, dict_lookup_callback, lctx);
+	dict->v.lookup_async(dict, set, key, dict_lookup_callback, lctx);
 }
 
 struct dict_iterate_context *
-dict_iterate_init(struct dict *dict, const struct dict_op_settings *set ATTR_UNUSED,
+dict_iterate_init(struct dict *dict, const struct dict_op_settings *set,
 		  const char *path, enum dict_iterate_flags flags)
 {
 	struct dict_iterate_context *ctx;
@@ -352,13 +354,14 @@ dict_iterate_init(struct dict *dict, const struct dict_op_settings *set ATTR_UNU
 		/* not supported by backend */
 		ctx = &dict_iter_unsupported;
 	} else {
-		ctx = dict->v.iterate_init(dict, path, flags);
+		ctx = dict->v.iterate_init(dict, set, path, flags);
 	}
 	/* the dict in context can differ from the dict
 	   passed as parameter, e.g. it can be dict-fail when
 	   iteration is not supported. */
 	ctx->event = event_create(dict->event);
 	ctx->flags = flags;
+	dict_op_settings_dup(set, &ctx->set);
 
 	event_add_str(ctx->event, "key", path);
 	event_set_name(ctx->event, "dict_iteration_started");
@@ -440,7 +443,9 @@ int dict_iterate_deinit(struct dict_iterate_context **_ctx,
 
 	*_ctx = NULL;
 	rows = ctx->row_count;
+	struct dict_op_settings_private set_copy = ctx->set;
 	ret = ctx->dict->v.iterate_deinit(ctx, error_r);
+	dict_op_settings_private_free(&set_copy);
 
 	event_add_int(event, "rows", rows);
 	event_set_name(event, "dict_iteration_finished");
@@ -459,7 +464,7 @@ int dict_iterate_deinit(struct dict_iterate_context **_ctx,
 }
 
 struct dict_transaction_context *
-dict_transaction_begin(struct dict *dict, const struct dict_op_settings *set ATTR_UNUSED)
+dict_transaction_begin(struct dict *dict, const struct dict_op_settings *set)
 {
 	struct dict_transaction_context *ctx;
 	guid_128_t guid;
@@ -473,6 +478,7 @@ dict_transaction_begin(struct dict *dict, const struct dict_op_settings *set ATT
 	ctx->dict->transaction_count++;
 	DLLIST_PREPEND(&ctx->dict->transactions, ctx);
 	ctx->event = event_create(dict->event);
+	dict_op_settings_dup(set, &ctx->set);
 	guid_128_generate(guid);
 	event_add_str(ctx->event, "txid", guid_128_to_string(guid));
 	event_set_name(ctx->event, "dict_transaction_started");
@@ -542,6 +548,7 @@ int dict_transaction_commit(struct dict_transaction_context **_ctx,
 	cctx->callback = dict_transaction_commit_sync_callback;
 	cctx->context = &result;
 	cctx->event = ctx->event;
+	cctx->set = ctx->set;
 
 	ctx->dict->v.transaction_commit(ctx, FALSE, dict_commit_callback, cctx);
 	*error_r = t_strdup(result.error);
@@ -572,6 +579,7 @@ void dict_transaction_commit_async(struct dict_transaction_context **_ctx,
 	cctx->callback = callback;
 	cctx->context = context;
 	cctx->event = ctx->event;
+	cctx->set = ctx->set;
 	cctx->delayed_callback = TRUE;
 	ctx->dict->v.transaction_commit(ctx, TRUE, dict_commit_callback, cctx);
 	cctx->delayed_callback = FALSE;
@@ -596,8 +604,10 @@ void dict_transaction_rollback(struct dict_transaction_context **_ctx)
 	i_assert(ctx->dict->transaction_count > 0);
 	ctx->dict->transaction_count--;
 	DLLIST_REMOVE(&ctx->dict->transactions, ctx);
+	struct dict_op_settings_private set_copy = ctx->set;
 	ctx->dict->v.transaction_rollback(ctx);
 	dict_transaction_finished(event, DICT_COMMIT_RET_OK, TRUE, NULL);
+	dict_op_settings_private_free(&set_copy);
 	event_unref(&event);
 }
 

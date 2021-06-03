@@ -108,7 +108,8 @@ static const char *fs_dict_get_full_key(struct fs_dict *dict, const char *key)
 	}
 }
 
-static int fs_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
+static int fs_dict_lookup(struct dict *_dict, const struct dict_op_settings *set ATTR_UNUSED,
+			  pool_t pool, const char *key,
 			  const char **value_r, const char **error_r)
 {
 	struct fs_dict *dict = (struct fs_dict *)_dict;
@@ -151,8 +152,8 @@ static int fs_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 }
 
 static struct dict_iterate_context *
-fs_dict_iterate_init(struct dict *_dict, const char *path,
-		     enum dict_iterate_flags flags)
+fs_dict_iterate_init(struct dict *_dict, const struct dict_op_settings *set ATTR_UNUSED,
+		     const char *path, enum dict_iterate_flags flags)
 {
 	struct fs_dict *dict = (struct fs_dict *)_dict;
 	struct fs_dict_iterate_context *iter;
@@ -204,7 +205,10 @@ static bool fs_dict_iterate(struct dict_iterate_context *ctx,
 		return TRUE;
 	}
 	p_clear(iter->value_pool);
-	ret = fs_dict_lookup(ctx->dict, iter->value_pool, path,
+	struct dict_op_settings set = {
+		.username = ctx->set.username,
+	};
+	ret = fs_dict_lookup(ctx->dict, &set, iter->value_pool, path,
 			     &iter->values[0], &error);
 	if (ret < 0) {
 		/* I/O error */

@@ -13,12 +13,14 @@ struct dict_vfuncs {
 	void (*deinit)(struct dict *dict);
 	void (*wait)(struct dict *dict);
 
-	int (*lookup)(struct dict *dict, pool_t pool,
-		      const char *key, const char **value_r,
+	int (*lookup)(struct dict *dict, const struct dict_op_settings *set,
+		      pool_t pool, const char *key, const char **value_r,
 		      const char **error_r);
 
 	struct dict_iterate_context *
-		(*iterate_init)(struct dict *dict, const char *path,
+		(*iterate_init)(struct dict *dict,
+				const struct dict_op_settings *set,
+				const char *path,
 				enum dict_iterate_flags flags);
 	bool (*iterate)(struct dict_iterate_context *ctx,
 			const char **key_r, const char *const **values_r);
@@ -40,8 +42,9 @@ struct dict_vfuncs {
 	void (*atomic_inc)(struct dict_transaction_context *ctx,
 			   const char *key, long long diff);
 
-	void (*lookup_async)(struct dict *dict, const char *key,
-			     dict_lookup_callback_t *callback, void *context);
+	void (*lookup_async)(struct dict *dict, const struct dict_op_settings *set,
+			     const char *key, dict_lookup_callback_t *callback,
+			     void *context);
 	bool (*switch_ioloop)(struct dict *dict);
 	void (*set_timestamp)(struct dict_transaction_context *ctx,
 			      const struct timespec *ts);
@@ -70,6 +73,7 @@ struct dict {
 struct dict_iterate_context {
 	struct dict *dict;
 	struct event *event;
+	struct dict_op_settings_private set;
 	enum dict_iterate_flags flags;
 
 	dict_iterate_callback_t *async_callback;
@@ -82,6 +86,7 @@ struct dict_iterate_context {
 
 struct dict_transaction_context {
 	struct dict *dict;
+	struct dict_op_settings_private set;
 	struct dict_transaction_context *prev, *next;
 
 	struct event *event;

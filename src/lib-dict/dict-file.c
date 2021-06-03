@@ -193,7 +193,9 @@ static int file_dict_refresh(struct file_dict *dict, const char **error_r)
 	return 0;
 }
 
-static int file_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
+static int file_dict_lookup(struct dict *_dict,
+			    const struct dict_op_settings *set ATTR_UNUSED,
+			    pool_t pool, const char *key,
 			    const char **value_r, const char **error_r)
 {
 	struct file_dict *dict = (struct file_dict *)_dict;
@@ -206,8 +208,9 @@ static int file_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 }
 
 static struct dict_iterate_context *
-file_dict_iterate_init(struct dict *_dict, const char *path,
-		       enum dict_iterate_flags flags)
+file_dict_iterate_init(struct dict *_dict,
+		       const struct dict_op_settings *set ATTR_UNUSED,
+		       const char *path, enum dict_iterate_flags flags)
 {
         struct file_dict_iterate_context *ctx;
 	struct file_dict *dict = (struct file_dict *)_dict;
