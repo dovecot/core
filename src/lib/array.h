@@ -72,7 +72,13 @@
 
    array_foreach(&foo_arr, foo) {
      ..
-   } */
+   }
+
+   Note that deleting an element while iterating will cause the iteration to
+   skip over the next element. So deleting a single element and breaking out
+   of the loop is fine, but continuing the loop is likely a bug. Use
+   array_foreach_reverse() instead when deleting multiple elements.
+*/
 #define array_foreach(array, elem) \
 	for (const void *elem ## __foreach_end = \
 		(const char *)(elem = *(array)->v) + (array)->arr.buffer->used; \
@@ -83,6 +89,17 @@
 			buffer_get_modifiable_data((array)->arr.buffer, NULL)) + \
 			(array)->arr.buffer->used; \
 	     elem != elem ## _end; (elem)++)
+
+/* Iterate the array in reverse order. */
+#define array_foreach_reverse(array, elem) \
+	for (elem = CONST_PTR_OFFSET(*(array)->v, (array)->arr.buffer->used); \
+	     (const char *)(elem--) > (const char *)*(array)->v; )
+#define array_foreach_reverse_modifiable(array, elem) \
+	for (elem = ARRAY_TYPE_CAST_MODIFIABLE(array) \
+		((char *)buffer_get_modifiable_data((array)->arr.buffer, NULL) + \
+		 (array)->arr.buffer->used); \
+	     (const char *)(elem--) > (const char *)*(array)->v; )
+
 /* Usage:
    ARRAY(struct foo *) foo_ptrs_arr;
    struct foo *foo;

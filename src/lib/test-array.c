@@ -89,6 +89,56 @@ static void test_array_foreach(void)
 	test_assert(foo == array_idx(&foos, i)+1);
 	test_end();
 }
+
+static void test_array_foreach_reverse(void)
+{
+	ARRAY(unsigned int) arr;
+	const unsigned int *i_p;
+	unsigned int i, i2, *imod_p;
+
+	test_begin("array foreach reverse");
+	t_array_init(&arr, 32);
+
+	/* first test that array_foreach() + array_delete() doesn't really
+	   work as we might hope.. */
+	for (i = 1; i <= 5; i++)
+		array_push_back(&arr, &i);
+	array_foreach(&arr, i_p) {
+		i = array_foreach_idx(&arr, i_p);
+		array_delete(&arr, i, 1);
+	}
+	test_assert(array_count(&arr) == 2);
+
+	/* but using array_foreach_reverse() + array_delete() does work: */
+	array_clear(&arr);
+	i2 = 5;
+	for (i = 1; i <= i2; i++)
+		array_push_back(&arr, &i);
+	array_foreach_reverse(&arr, i_p) {
+		i = array_foreach_idx(&arr, i_p);
+		test_assert(*i_p == i2);
+		test_assert(*i_p == i + 1);
+		array_delete(&arr, i, 1);
+		i2--;
+	}
+	test_assert(array_count(&arr) == 0);
+
+	/* also array_foreach_reverse_modifiable() + array_delete() works: */
+	i2 = 5;
+	for (i = 1; i <= i2; i++)
+		array_push_back(&arr, &i);
+	array_foreach_reverse_modifiable(&arr, imod_p) {
+		i = array_foreach_idx(&arr, imod_p);
+		test_assert(*imod_p == i2);
+		test_assert(*imod_p == i + 1);
+		array_delete(&arr, i, 1);
+		i2--;
+	}
+	test_assert(array_count(&arr) == 0);
+
+	test_end();
+}
+
 static void test_array_foreach_elem_string(void)
 {
 	ARRAY(char *) blurbs;
@@ -307,6 +357,7 @@ void test_array(void)
 	test_array_elem();
 	test_array_count();
 	test_array_foreach();
+	test_array_foreach_reverse();
 	test_array_foreach_elem_string();
 	test_array_reverse();
 	test_array_cmp();
