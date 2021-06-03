@@ -7,6 +7,7 @@
 #include "strescape.h"
 #include "stats-dist.h"
 #include "time-util.h"
+#include "dict-private.h"
 #include "dict-client.h"
 #include "dict-settings.h"
 #include "dict-connection.h"
@@ -235,7 +236,10 @@ static int cmd_lookup(struct dict_connection_cmd *cmd, const char *line)
 	/* <key> [<username>] */
 	dict_connection_cmd_async(cmd);
 	event_add_str(cmd->event, "key", args[0]);
-	dict_lookup_async(cmd->conn->dict, NULL, args[0], cmd_lookup_callback, cmd);
+	const struct dict_op_settings set = {
+		.username = username,
+	};
+	dict_lookup_async(cmd->conn->dict, &set, args[0], cmd_lookup_callback, cmd);
 	return 1;
 }
 
@@ -368,10 +372,14 @@ static int cmd_iterate(struct dict_connection_cmd *cmd, const char *line)
 	dict_connection_cmd_async(cmd);
 	username = args[3];
 
+	const struct dict_op_settings set = {
+		.username = username,
+	};
+
 	/* <flags> <max_rows> <path> [<username>] */
 	flags |= DICT_ITERATE_FLAG_ASYNC;
 	event_add_str(cmd->event, "key", args[2]);
-	cmd->iter = dict_iterate_init(cmd->conn->dict, NULL, args[2], flags);
+	cmd->iter = dict_iterate_init(cmd->conn->dict, &set, args[2], flags);
 	cmd->iter_flags = flags;
 	if (max_rows > 0)
 		dict_iterate_set_limit(cmd->iter, max_rows);
@@ -442,10 +450,13 @@ static int cmd_begin(struct dict_connection_cmd *cmd, const char *line)
 	if (!array_is_created(&cmd->conn->transactions))
 		i_array_init(&cmd->conn->transactions, 4);
 
+	struct dict_op_settings set = {
+		.username = username,
+	};
 	trans = array_append_space(&cmd->conn->transactions);
 	trans->id = id;
 	trans->conn = cmd->conn;
-	trans->ctx = dict_transaction_begin(cmd->conn->dict, NULL);
+	trans->ctx = dict_transaction_begin(cmd->conn->dict, &set);
 	return 0;
 }
 
