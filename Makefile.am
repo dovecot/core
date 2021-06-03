@@ -104,7 +104,7 @@ DISTCLEANFILES = \
 distcheck-hook:
 	if which scan-build > /dev/null; then \
 	  cd $(distdir)/_build; \
-	  scan-build -o scan-reports ../configure --with-ldap=auto --with-pgsql=auto --with-mysql=auto --with-sqlite=auto --with-solr=auto --with-gssapi=auto --with-libwrap=auto; \
+	  scan-build -o scan-reports ../configure --with-ldap=auto --with-pgsql=auto --with-mysql=auto --with-sqlite=auto --with-solr=auto --with-cassandra=auto --with-lua=auto --with-gssapi=auto --with-libwrap=auto --enable-static-checker; \
 	  rm -rf scan-reports; \
 	  scan-build -o scan-reports make 2>&1 || exit 1; \
 	  if ! rmdir scan-reports 2>/dev/null; then \
