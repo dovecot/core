@@ -734,6 +734,7 @@ doc/example-config/conf.d/Makefile
 src/Makefile
 src/lib/Makefile
 src/lib-sql/Makefile
+src/lib-auth/Makefile
 src/lib-auth-client/Makefile
 src/lib-charset/Makefile
 src/lib-compression/Makefile
