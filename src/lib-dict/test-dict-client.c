@@ -33,6 +33,7 @@ int main(int argc, char *argv[])
 	const char *prefix, *uri;
 	struct dict *dict;
 	struct dict_settings set;
+	struct dict_op_settings opset;
 	struct ioloop *ioloop;
 	const char *error;
 	unsigned int i;
@@ -48,8 +49,10 @@ int main(int argc, char *argv[])
 	uri = argv[2];
 
 	i_zero(&set);
+	i_zero(&opset);
 	set.base_dir = "/var/run/dovecot";
 	set.username = "testuser";
+	opset.username = "testuser";
 
 	if (dict_init(uri, &set, &dict, &error) < 0)
 		i_fatal("dict_init(%s) failed: %s", argv[1], error);
@@ -67,7 +70,7 @@ int main(int argc, char *argv[])
 			struct dict_transaction_context *trans;
 
 			pending++;
-			trans = dict_transaction_begin(dict, NULL);
+			trans = dict_transaction_begin(dict, &opset);
 			dict_set(trans, key, value);
 			dict_transaction_commit_async(&trans, commit_callback, NULL);
 			break;
@@ -76,7 +79,7 @@ int main(int argc, char *argv[])
 			struct dict_transaction_context *trans;
 
 			pending++;
-			trans = dict_transaction_begin(dict, NULL);
+			trans = dict_transaction_begin(dict, &opset);
 			dict_unset(trans, key);
 			dict_transaction_commit_async(&trans, commit_callback, NULL);
 			break;
@@ -85,7 +88,7 @@ int main(int argc, char *argv[])
 			struct dict_iterate_context *iter;
 			const char *k, *v;
 
-			iter = dict_iterate_init(dict, NULL, prefix, DICT_ITERATE_FLAG_EXACT_KEY);
+			iter = dict_iterate_init(dict, &opset, prefix, DICT_ITERATE_FLAG_EXACT_KEY);
 			while (dict_iterate(iter, &k, &v)) ;
 			if (dict_iterate_deinit(&iter, &error) < 0)
 				i_error("iter failed: %s", error);
