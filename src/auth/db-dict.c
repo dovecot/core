@@ -409,13 +409,17 @@ static int db_dict_iter_lookup_key_values(struct db_dict_value_iter *iter)
 	path = t_str_new(128);
 	str_append(path, DICT_PATH_SHARED);
 
+	struct dict_op_settings set = {
+		.username = iter->auth_request->fields.user,
+	};
+
 	array_foreach_modifiable(&iter->keys, key) {
 		if (!key->used)
 			continue;
 
 		str_truncate(path, strlen(DICT_PATH_SHARED));
 		str_append(path, key->key->key);
-		ret = dict_lookup(iter->conn->dict, NULL, iter->pool,
+		ret = dict_lookup(iter->conn->dict, &set, iter->pool,
 				  str_c(path), &key->value, &error);
 		if (ret > 0) {
 			e_debug(authdb_event(iter->auth_request),
