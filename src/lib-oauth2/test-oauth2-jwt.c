@@ -232,8 +232,11 @@ static void save_key_azp_to(const char *algo, const char *azp,
 			    const char *name, const char *keydata)
 {
 	const char *error;
+	struct dict_op_settings set = {
+		.username = "testuser",
+	};
 	struct dict_transaction_context *ctx =
-		dict_transaction_begin(keys_dict, NULL);
+		dict_transaction_begin(keys_dict, &set);
 	algo = t_str_ucase(algo);
 	dict_set(ctx, t_strconcat(DICT_PATH_SHARED, azp, "/", algo, "/",
 				  name, NULL),
