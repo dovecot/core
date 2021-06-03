@@ -296,11 +296,20 @@ static void dict_commit_callback(const struct dict_commit_result *result,
 	}
 }
 
+static struct event *
+dict_event_create(struct dict *dict, const struct dict_op_settings *set)
+{
+	struct event *event = event_create(dict->event);
+	if (set->username != NULL)
+		event_add_str(event, "user", set->username);
+	return event;
+}
+
 int dict_lookup(struct dict *dict, const struct dict_op_settings *set,
 		pool_t pool, const char *key,
 		const char **value_r, const char **error_r)
 {
-	struct event *event = event_create(dict->event);
+	struct event *event = dict_event_create(dict, set);
 	int ret;
 	i_assert(dict_key_prefix_is_valid(key));
 
@@ -335,7 +344,7 @@ void dict_lookup_async(struct dict *dict, const struct dict_op_settings *set,
 	dict_ref(lctx->dict);
 	lctx->callback = callback;
 	lctx->context = context;
-	lctx->event = event_create(dict->event);
+	lctx->event = dict_event_create(dict, set);
 	event_add_str(lctx->event, "key", key);
 	e_debug(lctx->event, "Looking up (async) '%s'", key);
 	dict->v.lookup_async(dict, set, key, dict_lookup_callback, lctx);
@@ -359,7 +368,7 @@ dict_iterate_init(struct dict *dict, const struct dict_op_settings *set,
 	/* the dict in context can differ from the dict
 	   passed as parameter, e.g. it can be dict-fail when
 	   iteration is not supported. */
-	ctx->event = event_create(dict->event);
+	ctx->event = dict_event_create(dict, set);
 	ctx->flags = flags;
 	dict_op_settings_dup(set, &ctx->set);
 
@@ -477,7 +486,7 @@ dict_transaction_begin(struct dict *dict, const struct dict_op_settings *set)
 	   transactions are not supported. */
 	ctx->dict->transaction_count++;
 	DLLIST_PREPEND(&ctx->dict->transactions, ctx);
-	ctx->event = event_create(dict->event);
+	ctx->event = dict_event_create(dict, set);
 	dict_op_settings_dup(set, &ctx->set);
 	guid_128_generate(guid);
 	event_add_str(ctx->event, "txid", guid_128_to_string(guid));
