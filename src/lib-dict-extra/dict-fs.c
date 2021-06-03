@@ -95,20 +95,20 @@ static const char *fs_dict_escape_key(const char *key)
 	return str_c(new_key);
 }
 
-static const char *fs_dict_get_full_key(struct fs_dict *dict, const char *key)
+static const char *fs_dict_get_full_key(const char *username, const char *key)
 {
 	key = fs_dict_escape_key(key);
 	if (str_begins(key, DICT_PATH_SHARED))
 		return key + strlen(DICT_PATH_SHARED);
 	else if (str_begins(key, DICT_PATH_PRIVATE)) {
-		return t_strdup_printf("%s/%s", dict->username,
+		return t_strdup_printf("%s/%s", username,
 				       key + strlen(DICT_PATH_PRIVATE));
 	} else {
 		i_unreached();
 	}
 }
 
-static int fs_dict_lookup(struct dict *_dict, const struct dict_op_settings *set ATTR_UNUSED,
+static int fs_dict_lookup(struct dict *_dict, const struct dict_op_settings *set,
 			  pool_t pool, const char *key,
 			  const char **value_r, const char **error_r)
 {
@@ -121,7 +121,7 @@ static int fs_dict_lookup(struct dict *_dict, const struct dict_op_settings *set
 	string_t *str;
 	int ret;
 
-	path = fs_dict_get_full_key(dict, key);
+	path = fs_dict_get_full_key(set->username, key);
 	file = fs_file_init(dict->fs, path, FS_OPEN_MODE_READONLY);
 	input = fs_read_stream(file, IO_BLOCK_SIZE);
 	(void)i_stream_read(input);
@@ -152,7 +152,7 @@ static int fs_dict_lookup(struct dict *_dict, const struct dict_op_settings *set
 }
 
 static struct dict_iterate_context *
-fs_dict_iterate_init(struct dict *_dict, const struct dict_op_settings *set ATTR_UNUSED,
+fs_dict_iterate_init(struct dict *_dict, const struct dict_op_settings *set,
 		     const char *path, enum dict_iterate_flags flags)
 {
 	struct fs_dict *dict = (struct fs_dict *)_dict;
@@ -170,7 +170,7 @@ fs_dict_iterate_init(struct dict *_dict, const struct dict_op_settings *set ATTR
 	iter->flags = flags;
 	iter->value_pool = pool_alloconly_create("iterate value pool", 128);
 	iter->fs_iter = fs_iter_init(dict->fs,
-				     fs_dict_get_full_key(dict, path), 0);
+				     fs_dict_get_full_key(set->username, path), 0);
 	return &iter->ctx;
 }
 
@@ -194,7 +194,7 @@ static bool fs_dict_iterate(struct dict_iterate_context *ctx,
 		}
 		if (iter->path == NULL)
 			return FALSE;
-		path = fs_dict_get_full_key(dict, iter->path);
+		path = fs_dict_get_full_key(ctx->set.username, iter->path);
 		iter->fs_iter = fs_iter_init(dict->fs, path, 0);
 		return fs_dict_iterate(ctx, key_r, values_r);
 	}
@@ -266,7 +266,7 @@ static int fs_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	int ret = 0;
 
 	array_foreach(&ctx->changes, change) {
-		key = fs_dict_get_full_key(dict, change->key);
+		key = fs_dict_get_full_key(ctx->ctx.set.username, change->key);
 		switch (change->type) {
 		case DICT_CHANGE_TYPE_SET:
 			file = fs_file_init(dict->fs, key,
