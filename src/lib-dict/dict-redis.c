@@ -490,12 +490,17 @@ static void redis_dict_lookup_timeout(struct redis_dict *dict)
 }
 
 static const char *
-redis_dict_get_full_key(struct redis_dict *dict, const char *key)
+redis_dict_get_full_key(struct redis_dict *dict, const char *username,
+			const char *key)
 {
+	const char *username_sp = strchr(username, DICT_USERNAME_SEPARATOR);
+
 	if (str_begins(key, DICT_PATH_SHARED))
 		key += strlen(DICT_PATH_SHARED);
 	else if (str_begins(key, DICT_PATH_PRIVATE)) {
-		key = t_strdup_printf("%s%c%s", dict->username,
+		key = t_strdup_printf("%s%c%s",
+				      username_sp == NULL ? username :
+						redis_escape_username(username),
 				      DICT_USERNAME_SEPARATOR,
 				      key + strlen(DICT_PATH_PRIVATE));
 	} else {
@@ -538,7 +543,7 @@ static void redis_dict_select_db(struct redis_dict *dict)
 }
 
 static int redis_dict_lookup(struct dict *_dict,
-			     const struct dict_op_settings *set ATTR_UNUSED,
+			     const struct dict_op_settings *set,
 			     pool_t pool, const char *key,
 			     const char **value_r, const char **error_r)
 {
@@ -546,7 +551,7 @@ static int redis_dict_lookup(struct dict *_dict,
 	struct timeout *to;
 	const char *cmd;
 
-	key = redis_dict_get_full_key(dict, key);
+	key = redis_dict_get_full_key(dict, set->username, key);
 
 	dict->conn.value_received = FALSE;
 	dict->conn.value_not_found = FALSE;
@@ -745,12 +750,13 @@ static void redis_set(struct dict_transaction_context *_ctx,
 	struct redis_dict_transaction_context *ctx =
 		(struct redis_dict_transaction_context *)_ctx;
 	struct redis_dict *dict = (struct redis_dict *)_ctx->dict;
+	const struct dict_op_settings_private *set = &_ctx->set;
 	string_t *cmd;
 
 	if (redis_check_transaction(ctx) < 0)
 		return;
 
-	key = redis_dict_get_full_key(dict, key);
+	key = redis_dict_get_full_key(dict, set->username, key);
 	cmd = t_str_new(128);
 	str_printfa(cmd, "*3\r\n$3\r\nSET\r\n$%u\r\n%s\r\n$%u\r\n%s\r\n",
 		    (unsigned int)strlen(key), key,
@@ -770,12 +776,13 @@ static void redis_unset(struct dict_transaction_context *_ctx,
 	struct redis_dict_transaction_context *ctx =
 		(struct redis_dict_transaction_context *)_ctx;
 	struct redis_dict *dict = (struct redis_dict *)_ctx->dict;
+	const struct dict_op_settings_private *set = &_ctx->set;
 	const char *cmd;
 
 	if (redis_check_transaction(ctx) < 0)
 		return;
 
-	key = redis_dict_get_full_key(dict, key);
+	key = redis_dict_get_full_key(dict, set->username, key);
 	cmd = t_strdup_printf("*2\r\n$3\r\nDEL\r\n$%u\r\n%s\r\n",
 			      (unsigned int)strlen(key), key);
 	if (o_stream_send_str(dict->conn.conn.output, cmd) < 0) {
@@ -792,13 +799,14 @@ static void redis_atomic_inc(struct dict_transaction_context *_ctx,
 	struct redis_dict_transaction_context *ctx =
 		(struct redis_dict_transaction_context *)_ctx;
 	struct redis_dict *dict = (struct redis_dict *)_ctx->dict;
+	const struct dict_op_settings_private *set = &_ctx->set;
 	const char *diffstr;
 	string_t *cmd;
 
 	if (redis_check_transaction(ctx) < 0)
 		return;
 
-	key = redis_dict_get_full_key(dict, key);
+	key = redis_dict_get_full_key(dict, set->username, key);
 	diffstr = t_strdup_printf("%lld", diff);
 	cmd = t_str_new(128);
 	str_printfa(cmd, "*3\r\n$6\r\nINCRBY\r\n$%u\r\n%s\r\n$%u\r\n%s\r\n",
