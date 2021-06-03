@@ -26,7 +26,6 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-imap-storage \
 	-I$(top_srcdir)/src/lib-http \
 	-I$(top_srcdir)/src/lib-dcrypt \
-	-I$(top_srcdir)/src/auth \
 	-I$(top_srcdir)/src/stats \
 	-DMODULEDIR=\""$(moduledir)"\" \
 	-DAUTH_MODULE_DIR=\""$(moduledir)/auth"\" \
@@ -39,7 +38,6 @@ AM_CPPFLAGS = \
 	$(BINARY_CFLAGS)
 
 cmd_pw_libs = \
-	../auth/libpassword.la \
 	../lib-auth/libauth.la \
 	../lib-otp/libotp.la
 

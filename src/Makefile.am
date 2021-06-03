@@ -9,6 +9,7 @@ LIBDOVECOT_SUBDIRS = \
 	lib-test \
 	lib \
 	lib-settings \
+	lib-otp \
 	lib-auth \
 	lib-auth-client \
 	lib-dns \
@@ -43,7 +44,6 @@ SUBDIRS = \
 	lib-index \
 	lib-storage \
 	lib-sql \
-	lib-otp \
 	lib-lda \
 	lib-dict-backend \
 	anvil \
