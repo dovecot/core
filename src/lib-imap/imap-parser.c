@@ -305,7 +305,7 @@ static bool is_valid_atom_char(struct imap_parser *parser, char chr)
 
 	if (IS_ATOM_PARSER_INPUT((unsigned char)chr))
 		error_msg = "Invalid characters in atom";
-	else if ((chr & 0x80) != 0)
+	else if ((((unsigned char)chr) & 0x80) != 0)
 		error_msg = "8bit data in atom";
 	else
 		return TRUE;
