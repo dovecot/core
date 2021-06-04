@@ -171,6 +171,13 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 
 	high_offset = stream->istream.v_offset + (stream->pos - stream->skip);
 	if (zstream->eof_offset == high_offset) {
+		/* zlib library returned EOF. */
+		if (!zstream->gz) {
+			/* deflate - ignore if there's still more data */
+			stream->istream.eof = TRUE;
+			return -1;
+		}
+		/* gz format - read the trailer */
 		if (!zstream->trailer_read) {
 			do {
 				ret = i_stream_zlib_read_trailer(zstream);
@@ -178,10 +185,15 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 			if (ret <= 0)
 				return ret;
 		}
-		if (!zstream->gz || i_stream_read_eof(stream->parent)) {
+		/* See if there's another concatenated gz stream. */
+		if (i_stream_read_eof(stream->parent)) {
+			/* EOF or error */
+			stream->istream.stream_errno =
+				stream->parent->stream_errno;
 			stream->istream.eof = TRUE;
 			return -1;
 		}
+		/* Multiple gz streams concatenated together */
 		zstream->starting_concated_output = TRUE;
 	}
 	if (zstream->starting_concated_output) {
