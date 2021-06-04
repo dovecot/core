@@ -146,10 +146,11 @@ static ssize_t i_stream_zstd_read(struct istream_private *stream)
 				stream->istream.stream_errno =
 					stream->parent->stream_errno;
 				stream->istream.eof = stream->parent->eof;
-				if (!zstream->hdr_read)
+				if (stream->istream.stream_errno != 0)
+					;
+				else if (!zstream->hdr_read)
 					stream->istream.stream_errno = EINVAL;
-				else if (zstream->remain &&
-				    stream->istream.stream_errno == 0)
+				else if (zstream->remain)
 					/* truncated data */
 					stream->istream.stream_errno = EPIPE;
 				return ret;
