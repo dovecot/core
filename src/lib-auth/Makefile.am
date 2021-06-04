@@ -10,6 +10,7 @@ libauth_la_SOURCES = \
 	crypt-blowfish.c \
 	mycrypt.c \
 	auth-scram.c \
+	auth-scram-client.c \
 	auth-scram-server.c \
 	password-scheme.c \
 	password-scheme-crypt.c \
@@ -29,6 +30,7 @@ libauth_la_DEPENDENCIES = \
 headers = \
 	mycrypt.h \
 	auth-scram.h \
+	auth-scram-client.h \
 	auth-scram-server.h \
 	password-scheme.h
 
