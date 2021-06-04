@@ -159,7 +159,8 @@ mail_user_var_expand_table(struct mail_user *user);
 void mail_user_set_home(struct mail_user *user, const char *home);
 /* Get the home directory for the user. Returns 1 if home directory looked up
    successfully, 0 if there is no home directory (either user doesn't exist or
-   has no home directory) or -1 if lookup failed. */
+   has no home directory) or -1 if lookup failed. The returned home string
+   is valid until the user is freed. */
 int mail_user_get_home(struct mail_user *user, const char **home_r);
 /* Appends path + file prefix for creating a temporary file.
    The file prefix doesn't contain any uniqueness. */
