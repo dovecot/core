@@ -438,7 +438,7 @@ static bool imap_parser_read_literal(struct imap_parser *parser,
 				     const unsigned char *data,
 				     size_t data_size)
 {
-	size_t i, prev_size;
+	size_t i;
 
 	/* expecting digits + "}" */
 	for (i = parser->cur_pos; i < data_size; i++) {
@@ -465,15 +465,16 @@ static bool imap_parser_read_literal(struct imap_parser *parser,
 			return FALSE;
 		}
 
-		prev_size = parser->literal_size;
-		parser->literal_size = parser->literal_size*10 + (data[i]-'0');
-
-		if (parser->literal_size < prev_size) {
-			/* wrapped around, abort. */
-			parser->error = IMAP_PARSE_ERROR_LITERAL_TOO_BIG;
-			parser->error_msg = "Literal size too large";
-			return FALSE;
+		if (parser->literal_size >= ((uoff_t)-1 / 10)) {
+			if (parser->literal_size > ((uoff_t)-1 / 10) ||
+			    (uoff_t)(data[i] - '0') > ((uoff_t)-1 % 10)) {
+				parser->error = IMAP_PARSE_ERROR_LITERAL_TOO_BIG;
+				parser->error_msg = "Literal size too large";
+				return FALSE;
+			}
 		}
+		parser->literal_size = parser->literal_size * 10 +
+			(data[i] - '0');
 	}
 
 	parser->cur_pos = i;
