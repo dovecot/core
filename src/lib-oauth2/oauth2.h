@@ -50,6 +50,8 @@ struct oauth2_settings {
 	bool send_auth_headers;
 	/* Should use grant password mechanism for authentication */
 	bool use_grant_password;
+	/* JWT tokens: If "typ" is missing from header, assume it is a JWT */
+	bool assume_jwt;
 };
 
 

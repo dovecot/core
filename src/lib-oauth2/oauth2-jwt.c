@@ -285,14 +285,20 @@ oauth2_jwt_copy_fields(ARRAY_TYPE(oauth2_field) *fields, struct json_tree *tree)
 }
 
 static int
-oauth2_jwt_header_process(struct json_tree *tree, const char **alg_r,
+oauth2_jwt_header_process(const struct oauth2_settings *set,
+			  struct json_tree *tree, const char **alg_r,
 			  const char **kid_r, const char **error_r)
 {
 	const char *typ = get_field(tree, "typ");
 	const char *alg = get_field(tree, "alg");
 	const char *kid = get_field(tree, "kid");
 
-	if (null_strcmp(typ, "JWT") != 0) {
+	if (typ != NULL) {
+		if (strcmp(typ, "JWT") != 0) {
+			*error_r = "Malformed 'typ' field";
+			return -1;
+		}
+	} else if (!set->assume_jwt) {
 		*error_r = "Cannot find 'typ' field";
 		return -1;
 	}
@@ -423,7 +429,7 @@ int oauth2_try_parse_jwt(const struct oauth2_settings *set,
 		return -1;
 
 	const char *alg, *kid;
-	ret = oauth2_jwt_header_process(header_tree, &alg, &kid, error_r);
+	ret = oauth2_jwt_header_process(set, header_tree, &alg, &kid, error_r);
 	json_tree_deinit(&header_tree);
 	if (ret < 0)
 		return -1;

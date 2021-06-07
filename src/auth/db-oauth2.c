@@ -85,6 +85,8 @@ struct passdb_oauth2_settings {
 	/* Should we send service and local/remote endpoints as X-Dovecot-Auth headers */
 	bool send_auth_headers;
 	bool use_grant_password;
+	/* JWT tokens: If "typ" is missing from header, assume it is a JWT */
+	bool assume_jwt;
 };
 
 struct db_oauth2 {
@@ -136,6 +138,7 @@ static struct setting_def setting_defs[] = {
 	DEF_INT(max_pipelined_requests),
 	DEF_BOOL(send_auth_headers),
 	DEF_BOOL(use_grant_password),
+	DEF_BOOL(assume_jwt),
 
 	DEF_STR(tls_ca_cert_file),
 	DEF_STR(tls_ca_cert_dir),
@@ -181,6 +184,7 @@ static struct passdb_oauth2_settings default_oauth2_settings = {
 	.tls_allow_invalid_cert = FALSE,
 	.send_auth_headers = FALSE,
 	.use_grant_password = FALSE,
+	.assume_jwt = FALSE,
 	.debug = FALSE,
 };
 
@@ -266,6 +270,7 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	db->oauth2_set.timeout_msecs = db->set.timeout_msecs;
 	db->oauth2_set.send_auth_headers = db->set.send_auth_headers;
 	db->oauth2_set.use_grant_password = db->set.use_grant_password;
+	db->oauth2_set.assume_jwt = db->set.assume_jwt;
 	db->oauth2_set.scope = db->set.scope;
 
 	if (*db->set.active_attribute != '\0' &&
