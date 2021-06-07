@@ -394,8 +394,7 @@ oauth2_jwt_body_process(const struct oauth2_settings *set, const char *alg,
 	}
 
 	/* ensure token dates are not conflicting */
-	if (nbf < iat ||
-	    exp < iat ||
+	if (exp < iat ||
 	    exp < nbf) {
 		*error_r = "Token time values are conflicting";
 		return -1;
