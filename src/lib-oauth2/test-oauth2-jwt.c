@@ -323,10 +323,10 @@ static void test_jwt_token_escape(void)
 			"http://test.unit/local%key",
 			"hs256",
 			"http://test.unit/local%key",
-			"http:%2f%2ftest%2eunit%2flocal%25key",
-			"http:%2f%2ftest%2eunit%2flocal%25key"
+			"http:%2f%2ftest.unit%2flocal%25key",
+			"http:%2f%2ftest.unit%2flocal%25key"
 		},
-		{ "../", "hs256", "../", "%2e%2e%2f", "%2e%2e%2f" },
+		{ "../", "hs256", "../", "..%2f", "..%2f" },
 	};
 
 	test_begin("JWT token escaping");
@@ -645,7 +645,7 @@ static void test_jwt_kid_escape(void)
 	 random_fill(ptr, 32);
 	 buffer_t *b64_key = t_base64_encode(0, SIZE_MAX,
 					     secret->data, secret->used);
-	 save_key_to("HS256", "hello%2eworld%2f%25", str_c(b64_key));
+	 save_key_to("HS256", "hello.world%2f%25", str_c(b64_key));
 	/* make a token */
 	buffer_t *tokenbuf = create_jwt_token_kid("HS256", "hello.world/%");
 	/* sign it */

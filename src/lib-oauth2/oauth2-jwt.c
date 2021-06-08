@@ -52,10 +52,10 @@ static int get_time_field(const struct json_tree *tree, const char *key,
 	return -1;
 }
 
-/* Escapes '.', '/' and '%' in identifier to %hex */
+/* Escapes '/' and '%' in identifier to %hex */
 static const char *escape_identifier(const char *identifier)
 {
-	size_t pos = strcspn(identifier, "./%");
+	size_t pos = strcspn(identifier, "/%");
 	/* nothing to escape */
 	if (identifier[pos] == '\0')
 		return identifier;
@@ -66,9 +66,6 @@ static const char *escape_identifier(const char *identifier)
 
 	for (size_t i = pos; i < len; i++) {
 	        switch (identifier[i]) {
-	        case '.':
-	                str_append(new_id, "%2e");
-	                break;
 	        case '/':
 	                str_append(new_id, "%2f");
 	                break;
