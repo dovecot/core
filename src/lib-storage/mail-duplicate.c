@@ -36,7 +36,7 @@ struct mail_duplicate_record_header {
 	uint32_t user_size;
 };
 
-struct mail_duplicate_file {
+struct mail_duplicate_transaction {
 	pool_t pool;
 	struct mail_duplicate_db *db;
 
@@ -52,7 +52,8 @@ struct mail_duplicate_db {
 	struct mail_user *user;
 	char *path;
 	struct dotlock_settings dotlock_set;
-	struct mail_duplicate_file *file;
+
+	unsigned int transaction_count;
 };
 
 static const struct dotlock_settings default_mail_duplicate_dotlock_set = {
@@ -88,7 +89,7 @@ static unsigned int mail_duplicate_hash(const struct mail_duplicate *d)
 }
 
 static int
-mail_duplicate_read_records(struct mail_duplicate_file *file,
+mail_duplicate_read_records(struct mail_duplicate_transaction *trans,
 			    struct istream *input,
 			    unsigned int record_size)
 {
@@ -120,15 +121,15 @@ mail_duplicate_read_records(struct mail_duplicate_file *file,
 		if (hdr.id_size == 0 || hdr.user_size == 0 ||
 		    hdr.id_size > DUPLICATE_BUFSIZE ||
 		    hdr.user_size > DUPLICATE_BUFSIZE) {
-			e_error(file->db->user->event,
-				"broken mail_duplicate file %s", file->path);
+			e_error(trans->db->user->event,
+				"broken mail_duplicate file %s", trans->path);
 			return -1;
 		}
 
 		if (i_stream_read_bytes(input, &data, &size,
 					hdr.id_size + hdr.user_size) <= 0) {
-			e_error(file->db->user->event,
-				"unexpected end of file in %s", file->path);
+			e_error(trans->db->user->event,
+				"unexpected end of file in %s", trans->path);
 			return -1;
 		}
 
@@ -137,29 +138,29 @@ mail_duplicate_read_records(struct mail_duplicate_file *file,
 			struct mail_duplicate *d;
 			void *new_id;
 
-			new_id = p_malloc(file->pool, hdr.id_size);
+			new_id = p_malloc(trans->pool, hdr.id_size);
 			memcpy(new_id, data, hdr.id_size);
 
-			d = p_new(file->pool, struct mail_duplicate, 1);
+			d = p_new(trans->pool, struct mail_duplicate, 1);
 			d->id = new_id;
 			d->id_size = hdr.id_size;
-			d->user = p_strndup(file->pool,
+			d->user = p_strndup(trans->pool,
 					    data + hdr.id_size, hdr.user_size);
 			d->time = hdr.stamp;
-			hash_table_update(file->hash, d, d);
+			hash_table_update(trans->hash, d, d);
 		} else {
                         change_count++;
 		}
 		i_stream_skip(input, hdr.id_size + hdr.user_size);
 	}
 
-	if (hash_table_count(file->hash) *
+	if (hash_table_count(trans->hash) *
 	    COMPRESS_PERCENTAGE / 100 > change_count)
-		file->changed = TRUE;
+		trans->changed = TRUE;
 	return 0;
 }
 
-static int mail_duplicate_read(struct mail_duplicate_file *file)
+static int mail_duplicate_read(struct mail_duplicate_transaction *trans)
 {
 	struct istream *input;
 	struct mail_duplicate_file_header hdr;
@@ -168,12 +169,12 @@ static int mail_duplicate_read(struct mail_duplicate_file *file)
 	int fd;
 	unsigned int record_size = 0;
 
-	fd = open(file->path, O_RDONLY);
+	fd = open(trans->path, O_RDONLY);
 	if (fd == -1) {
 		if (errno == ENOENT)
 			return 0;
-		e_error(file->db->user->event,
-			"open(%s) failed: %m", file->path);
+		e_error(trans->db->user->event,
+			"open(%s) failed: %m", trans->path);
 		return -1;
 	}
 
@@ -191,139 +192,152 @@ static int mail_duplicate_read(struct mail_duplicate_file *file)
 	}
 
 	if (record_size == 0 ||
-	    mail_duplicate_read_records(file, input, record_size) < 0)
-		i_unlink_if_exists(file->path);
+	    mail_duplicate_read_records(trans, input, record_size) < 0)
+		i_unlink_if_exists(trans->path);
 
 	i_stream_unref(&input);
 	if (close(fd) < 0) {
-		e_error(file->db->user->event,
-			"close(%s) failed: %m", file->path);
+		e_error(trans->db->user->event,
+			"close(%s) failed: %m", trans->path);
 	}
 	return 0;
 }
 
-static struct mail_duplicate_file *
-mail_duplicate_file_new(struct mail_duplicate_db *db)
+struct mail_duplicate_transaction *
+mail_duplicate_transaction_begin(struct mail_duplicate_db *db)
 {
-	struct mail_duplicate_file *file;
+	struct mail_duplicate_transaction *trans;
 	pool_t pool;
 
-	i_assert(db->path != NULL);
+	db->transaction_count++;
 
 	pool = pool_alloconly_create("mail_duplicates", 10240);
 
-	file = p_new(pool, struct mail_duplicate_file, 1);
-	file->pool = pool;
-	file->db = db;
-	file->path = p_strdup(pool, db->path);
-	file->new_fd = file_dotlock_open(&db->dotlock_set, file->path, 0,
-					 &file->dotlock);
-	if (file->new_fd != -1)
+	trans = p_new(pool, struct mail_duplicate_transaction, 1);
+	trans->pool = pool;
+	trans->db = db
+;
+	if (db->path == NULL) {
+		/* Duplicate database disabled; return dummy transaction */
+		return trans;
+	}
+
+	trans->path = p_strdup(pool, db->path);
+	trans->new_fd = file_dotlock_open(&db->dotlock_set, trans->path, 0,
+					 &trans->dotlock);
+	if (trans->new_fd != -1)
 		;
 	else if (errno != EAGAIN) {
 		e_error(db->user->event,
-			"file_dotlock_open(%s) failed: %m", file->path);
+			"file_dotlock_open(%s) failed: %m", trans->path);
 	} else {
 		e_error(db->user->event,
 			"Creating lock file for %s timed out in %u secs",
-			file->path, db->dotlock_set.timeout);
+			trans->path, db->dotlock_set.timeout);
 	}
-	hash_table_create(&file->hash, pool, 0, mail_duplicate_hash, mail_duplicate_cmp);
+	hash_table_create(&trans->hash, pool, 0,
+			  mail_duplicate_hash, mail_duplicate_cmp);
 
-	(void)mail_duplicate_read(file);
-	return file;
+	(void)mail_duplicate_read(trans);
+	return trans;
 }
 
-static void mail_duplicate_file_free(struct mail_duplicate_file **_file)
+static void
+mail_duplicate_transaction_free(struct mail_duplicate_transaction **_trans)
 {
-	struct mail_duplicate_file *file = *_file;
+	struct mail_duplicate_transaction *trans = *_trans;
 
-	*_file = NULL;
-	if (file->dotlock != NULL)
-		file_dotlock_delete(&file->dotlock);
+	if (trans == NULL)
+		return;
+	*_trans = NULL;
 
-	hash_table_destroy(&file->hash);
-	pool_unref(&file->pool);
+	i_assert(trans->db->transaction_count > 0);
+	trans->db->transaction_count--;
+
+	if (trans->dotlock != NULL)
+		file_dotlock_delete(&trans->dotlock);
+
+	hash_table_destroy(&trans->hash);
+	pool_unref(&trans->pool);
 }
 
 enum mail_duplicate_check_result
-mail_duplicate_check(struct mail_duplicate_db *db,
+mail_duplicate_check(struct mail_duplicate_transaction *trans,
 		     const void *id, size_t id_size, const char *user)
 {
 	struct mail_duplicate d;
 
-	if (db->file == NULL) {
-		if (db->path == NULL) {
-			/* mail_duplicate database disabled */
-			return FALSE;
-		}
-		db->file = mail_duplicate_file_new(db);
+	if (trans->path == NULL) {
+		/* Duplicate database disabled */
+		return MAIL_DUPLICATE_CHECK_RESULT_NOT_FOUND;
 	}
 
 	d.id = id;
 	d.id_size = id_size;
 	d.user = user;
 
-	return (hash_table_lookup(db->file->hash, &d) != NULL ?
-		MAIL_DUPLICATE_CHECK_RESULT_EXISTS :
-		MAIL_DUPLICATE_CHECK_RESULT_NOT_FOUND);
+	if (hash_table_lookup(trans->hash, &d) != NULL)
+		return MAIL_DUPLICATE_CHECK_RESULT_EXISTS;
+
+	return MAIL_DUPLICATE_CHECK_RESULT_NOT_FOUND;
 }
 
-void mail_duplicate_mark(struct mail_duplicate_db *db,
+void mail_duplicate_mark(struct mail_duplicate_transaction *trans,
 			 const void *id, size_t id_size,
 			 const char *user, time_t timestamp)
 {
 	struct mail_duplicate *d;
 	void *new_id;
 
-	if (db->file == NULL) {
-		if (db->path == NULL) {
-			/* mail_duplicate database disabled */
-			return;
-		}
-		db->file = mail_duplicate_file_new(db);
+	if (trans->path == NULL) {
+		/* Duplicate database disabled */
+		return;
 	}
 
-	new_id = p_malloc(db->file->pool, id_size);
+	new_id = p_malloc(trans->pool, id_size);
 	memcpy(new_id, id, id_size);
 
-	d = p_new(db->file->pool, struct mail_duplicate, 1);
+	d = p_new(trans->pool, struct mail_duplicate, 1);
 	d->id = new_id;
 	d->id_size = id_size;
-	d->user = p_strdup(db->file->pool, user);
+	d->user = p_strdup(trans->pool, user);
 	d->time = timestamp;
 
-	db->file->changed = TRUE;
-	hash_table_update(db->file->hash, d, d);
+	trans->changed = TRUE;
+	hash_table_update(trans->hash, d, d);
 }
 
-void mail_duplicate_db_flush(struct mail_duplicate_db *db)
+void mail_duplicate_transaction_commit(
+	struct mail_duplicate_transaction **_trans)
 {
-	struct mail_duplicate_file *file = db->file;
+	struct mail_duplicate_transaction *trans = *_trans;
 	struct mail_duplicate_file_header hdr;
 	struct mail_duplicate_record_header rec;
 	struct ostream *output;
         struct hash_iterate_context *iter;
 	struct mail_duplicate *d;
 
-	if (file == NULL)
+	if (trans == NULL)
 		return;
-	if (!file->changed || file->new_fd == -1) {
-		/* unlock the mail_duplicate database */
-		mail_duplicate_file_free(&db->file);
+	*_trans = NULL;
+
+	if (!trans->changed || trans->new_fd == -1) {
+		mail_duplicate_transaction_free(&trans);
 		return;
 	}
+
+	i_assert(trans->path != NULL);
 
 	i_zero(&hdr);
 	hdr.version = DUPLICATE_VERSION;
 
-	output = o_stream_create_fd_file(file->new_fd, 0, FALSE);
+	output = o_stream_create_fd_file(trans->new_fd, 0, FALSE);
 	o_stream_cork(output);
 	o_stream_nsend(output, &hdr, sizeof(hdr));
 
 	i_zero(&rec);
-	iter = hash_table_iterate_init(file->hash);
-	while (hash_table_iterate(iter, file->hash, &d, &d)) {
+	iter = hash_table_iterate_init(trans->hash);
+	while (hash_table_iterate(iter, trans->hash, &d, &d)) {
 		rec.stamp = d->time;
 		rec.id_size = d->id_size;
 		rec.user_size = strlen(d->user);
@@ -335,17 +349,25 @@ void mail_duplicate_db_flush(struct mail_duplicate_db *db)
 	hash_table_iterate_deinit(&iter);
 
 	if (o_stream_finish(output) < 0) {
-		e_error(db->user->event, "write(%s) failed: %s", file->path,
-			o_stream_get_error(output));		o_stream_unref(&output);
-		mail_duplicate_file_free(&db->file);
+		e_error(trans->db->user->event, "write(%s) failed: %s",
+			trans->path, o_stream_get_error(output));
+		o_stream_unref(&output);
+		mail_duplicate_transaction_free(&trans);
 		return;
 	}
 	o_stream_unref(&output);
 
-	if (file_dotlock_replace(&file->dotlock, 0) < 0)
-		e_error(db->user->event, "file_dotlock_replace(%s) failed: %m",
-			file->path);
-	mail_duplicate_file_free(&db->file);
+	if (file_dotlock_replace(&trans->dotlock, 0) < 0) {
+		e_error(trans->db->user->event,
+			"file_dotlock_replace(%s) failed: %m", trans->path);
+	}
+	mail_duplicate_transaction_free(&trans);
+}
+
+void mail_duplicate_transaction_rollback(
+	struct mail_duplicate_transaction **_trans)
+{
+	mail_duplicate_transaction_free(_trans);
 }
 
 struct mail_duplicate_db *
@@ -377,10 +399,9 @@ void mail_duplicate_db_deinit(struct mail_duplicate_db **_db)
 	struct mail_duplicate_db *db = *_db;
 
 	*_db = NULL;
-	if (db->file != NULL) {
-		mail_duplicate_db_flush(db);
-		i_assert(db->file == NULL);
-	}
+
+	i_assert(db->transaction_count == 0);
+
 	i_free(db->path);
 	i_free(db);
 }
