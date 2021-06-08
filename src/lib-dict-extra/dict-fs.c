@@ -68,8 +68,37 @@ static void fs_dict_deinit(struct dict *_dict)
 	i_free(dict);
 }
 
+/* Remove unsafe paths */
+static const char *fs_dict_escape_key(const char *key)
+{
+	const char *ptr;
+	string_t *new_key = NULL;
+	/* we take the slow path always if we see potential
+	   need for escaping */
+	while ((ptr = strstr(key, "/.")) != NULL) {
+		/* move to the first dot */
+		const char *ptr2 = ptr + 1;
+		/* find position of non-dot */
+		while (*ptr2 == '.') ptr2++;
+		if (new_key == NULL)
+			new_key = t_str_new(strlen(key));
+		str_append_data(new_key, key, ptr - key);
+		/* if ptr2 is / or end of string, escape */
+		if (*ptr2 == '/' || *ptr2 == '\0')
+			str_append(new_key, "/...");
+		else
+			str_append(new_key, "/.");
+		key = ptr + 2;
+	}
+	if (new_key == NULL)
+		return key;
+	str_append(new_key, key);
+	return str_c(new_key);
+}
+
 static const char *fs_dict_get_full_key(struct fs_dict *dict, const char *key)
 {
+	key = fs_dict_escape_key(key);
 	if (str_begins(key, DICT_PATH_SHARED))
 		return key + strlen(DICT_PATH_SHARED);
 	else if (str_begins(key, DICT_PATH_PRIVATE)) {
