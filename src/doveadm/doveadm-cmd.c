@@ -510,15 +510,13 @@ bool doveadm_cmd_try_run_ver2(const char *cmd_name,
 	return TRUE;
 }
 
-int doveadm_cmd_run_ver2(int argc, const char *const argv[],
-			 struct doveadm_cmd_context *cctx)
+static int
+doveadm_cmd_process_options(int argc, const char *const argv[],
+			    struct doveadm_cmd_context *cctx, pool_t pool,
+			    ARRAY_TYPE(doveadm_cmd_param_arr_t) *pargv)
 {
 	struct doveadm_cmd_param *param;
-	ARRAY_TYPE(doveadm_cmd_param_arr_t) pargv;
 	ARRAY_TYPE(getopt_option_array) opts;
-	unsigned int pargc;
-	int c, li;
-	pool_t pool = pool_datastack_create();
 	string_t *optbuf = str_new(pool, 64);
 
 	p_array_init(&opts, pool, 4);
@@ -526,30 +524,30 @@ int doveadm_cmd_run_ver2(int argc, const char *const argv[],
 	// build parameters
 	doveadm_build_options(cctx->cmd->parameters, optbuf, &opts);
 
-	p_array_init(&pargv, pool, 20);
-
+	unsigned int pargc;
 	for (pargc = 0; cctx->cmd->parameters[pargc].name != NULL; pargc++) {
-		param = array_append_space(&pargv);
+		param = array_append_space(pargv);
 		memcpy(param, &cctx->cmd->parameters[pargc],
 		       sizeof(struct doveadm_cmd_param));
 		param->value_set = FALSE;
 	}
 	i_assert(pargc == array_count(&opts)-1); /* opts is NULL-terminated */
 
+	int c, li;
 	while ((c = getopt_long(argc, (char *const *)argv, str_c(optbuf),
 				array_front(&opts), &li)) > -1) {
 		switch (c) {
 		case 0:
-			for (unsigned int i = 0; i < array_count(&pargv); i++) {
+			for (unsigned int i = 0; i < array_count(pargv); i++) {
 				const struct option *opt = array_idx(&opts, li);
-				param = array_idx_modifiable(&pargv, i);
+				param = array_idx_modifiable(pargv, i);
 				if (opt->name == param->name)
 					doveadm_fill_param(param, optarg, pool);
 			}
 			break;
 		case '?':
 		case ':':
-			doveadm_cmd_params_clean(&pargv);
+			doveadm_cmd_params_clean(pargv);
 			return -1;
 		default:
 			// hunt the option
@@ -557,11 +555,24 @@ int doveadm_cmd_run_ver2(int argc, const char *const argv[],
 				const struct option *longopt =
 					array_idx(&opts, i);
 				if (longopt->val == c)
-					doveadm_fill_param(array_idx_modifiable(&pargv, i),
+					doveadm_fill_param(array_idx_modifiable(pargv, i),
 							   optarg, pool);
 			}
 		}
 	}
+	return 0;
+}
+
+int doveadm_cmd_run_ver2(int argc, const char *const argv[],
+			 struct doveadm_cmd_context *cctx)
+{
+	ARRAY_TYPE(doveadm_cmd_param_arr_t) pargv;
+	unsigned int pargc;
+	pool_t pool = pool_datastack_create();
+
+	p_array_init(&pargv, pool, 20);
+	if (doveadm_cmd_process_options(argc, argv, cctx, pool, &pargv) < 0)
+		return -1;
 
 	/* process positional arguments */
 	for (; optind < argc; optind++) {
