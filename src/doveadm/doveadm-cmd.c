@@ -533,6 +533,12 @@ doveadm_cmd_process_options(int argc, const char *const argv[],
 	}
 	i_assert(pargc == array_count(&opts)-1); /* opts is NULL-terminated */
 
+	if ((cctx->cmd->flags & CMD_FLAG_NO_OPTIONS) != 0) {
+		/* process -parameters as if they were regular parameters */
+		optind = 1;
+		return 0;
+	}
+
 	int c, li;
 	while ((c = getopt_long(argc, (char *const *)argv, str_c(optbuf),
 				array_front(&opts), &li)) > -1) {
