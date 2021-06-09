@@ -90,8 +90,6 @@ extern ARRAY_TYPE(doveadm_cmd) doveadm_cmds;
 ARRAY_DEFINE_TYPE(doveadm_cmd_ver2, struct doveadm_cmd_ver2);
 extern ARRAY_TYPE(doveadm_cmd_ver2) doveadm_cmds_ver2;
 
-extern struct doveadm_cmd doveadm_cmd_dump;
-
 void doveadm_register_cmd(const struct doveadm_cmd *cmd);
 
 const struct doveadm_cmd *
@@ -144,6 +142,7 @@ bool doveadm_cmd_param_istream(const struct doveadm_cmd_context *cctx,
 void doveadm_cmd_params_clean(ARRAY_TYPE(doveadm_cmd_param_arr_t) *pargv);
 void doveadm_cmd_params_null_terminate_arrays(ARRAY_TYPE(doveadm_cmd_param_arr_t) *pargv);
 
+extern struct doveadm_cmd_ver2 doveadm_cmd_dump;
 extern struct doveadm_cmd_ver2 doveadm_cmd_service_stop_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_service_status_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_process_status_ver2;
