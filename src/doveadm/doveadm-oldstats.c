@@ -493,7 +493,7 @@ static void stats_top(const char *path, const char *sort_type)
 	i_close_fd(&ctx.fd);
 }
 
-static void stats_reset(const char *path, const char **items ATTR_UNUSED)
+static void stats_reset(const char *path)
 {
 	const char **ptr ATTR_UNUSED;
 	int fd,ret;
@@ -539,60 +539,36 @@ static void stats_reset(const char *path, const char **items ATTR_UNUSED)
 	i_close_fd(&fd);
 }
 
-static void cmd_stats_top(int argc, char *argv[])
+static void cmd_stats_top(struct doveadm_cmd_context *cctx)
 {
 	const char *path, *sort_type;
-	int c;
+	bool b;
 
-	path = t_strconcat(doveadm_settings->base_dir, "/old-stats", NULL);
-
-	while ((c = getopt(argc, argv, "bs:")) > 0) {
-		switch (c) {
-		case 'b':
-			disk_input_field = "read_bytes";
-			disk_output_field = "write_bytes";
-			break;
-		case 's':
-			path = optarg;
-			break;
-		default:
-			help_ver2(&doveadm_cmd_oldstats_top_ver2);
-		}
+	if (!doveadm_cmd_param_str(cctx, "socket-path", &path)) {
+		path = t_strconcat(doveadm_settings->base_dir,
+				   "/old-stats", NULL);
 	}
-	argv += optind - 1;
-	if (argv[1] == NULL)
+	if (!doveadm_cmd_param_bool(cctx, "show-disk-io", &b) && b) {
+		disk_input_field = "read_bytes";
+		disk_output_field = "write_bytes";
+	}
+	if (!doveadm_cmd_param_str(cctx, "sort-field", &sort_type))
 		sort_type = "disk";
-	else if (argv[2] != NULL)
-		help_ver2(&doveadm_cmd_oldstats_top_ver2);
-	else
-		sort_type = argv[1];
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	stats_top(path, sort_type);
 }
 
-static void cmd_stats_reset(int argc, char *argv[])
+static void cmd_stats_reset(struct doveadm_cmd_context *cctx)
 {
 	const char *path;
-	int c;
 
-	path = t_strconcat(doveadm_settings->base_dir, "/old-stats", NULL);
-	while((c = getopt(argc, argv, "s:")) > 0) {
-		switch (c) {
-		case 's':
-			path = optarg;
-			break;
-		default:
-			help_ver2(&doveadm_cmd_oldstats_reset_ver2);
-		}
+	if (!doveadm_cmd_param_str(cctx, "socket-path", &path)) {
+		path = t_strconcat(doveadm_settings->base_dir,
+				   "/old-stats", NULL);
 	}
-	argv += optind - 1;
-	/* items is now argv */
-/*	if (optind >= argc) {
-		i_fatal("missing item(s) to reset");
-	}
-*/
-	stats_reset(path, (const char**)argv);
+
+	stats_reset(path);
 }
 
 struct doveadm_cmd_ver2 doveadm_cmd_oldstats_dump_ver2 = {
@@ -607,19 +583,19 @@ DOVEADM_CMD_PARAMS_END
 };
 
 struct doveadm_cmd_ver2 doveadm_cmd_oldstats_top_ver2 = {
-	.old_cmd = cmd_stats_top,
+	.cmd = cmd_stats_top,
 	.name = "oldstats top",
 	.usage = "[-s <stats socket path>] [-b] [<sort field>]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('s', "socket-path", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('b', "show-disk-io", CMD_PARAM_BOOL, 0)
-DOVEADM_CMD_PARAM('\0', "field", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "sort-field", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
 
 
 struct doveadm_cmd_ver2 doveadm_cmd_oldstats_reset_ver2 = {
-	.old_cmd = cmd_stats_reset,
+	.cmd = cmd_stats_reset,
 	.name = "oldstats reset",
 	.usage = "[-s <stats socket path>]",
 DOVEADM_CMD_PARAMS_START
