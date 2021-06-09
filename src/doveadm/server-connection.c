@@ -426,14 +426,27 @@ static void
 server_connection_input_cmd_error(struct server_connection *conn,
 				  const char *line)
 {
+	const char *code, *args = strchr(line, ' ');
+	if (args != NULL)
+		code = t_strdup_until(line, args++);
+	else {
+		code = line;
+		args = "";
+	}
 	struct doveadm_server_reply reply = {
-		.exit_code = doveadm_str_to_exit_code(line),
+		.exit_code = doveadm_str_to_exit_code(code),
 		.error = line,
 	};
-	if (reply.exit_code == DOVEADM_EX_UNKNOWN &&
-	    str_to_int(line, &reply.exit_code) < 0) {
-		/* old doveadm-server */
-		reply.exit_code = EX_TEMPFAIL;
+	switch (reply.exit_code) {
+	case DOVEADM_EX_REFERRAL:
+		reply.error = args;
+		break;
+	case DOVEADM_EX_UNKNOWN:
+		if (str_to_int(line, &reply.exit_code) < 0) {
+			/* old doveadm-server */
+			reply.exit_code = EX_TEMPFAIL;
+		}
+		break;
 	}
 	server_connection_callback(conn, &reply);
 }

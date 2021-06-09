@@ -157,9 +157,16 @@ static void doveadm_server_restore_logs(void)
 }
 
 static void
-doveadm_cmd_server_post(struct client_connection_tcp *conn, const char *cmd_name)
+doveadm_cmd_server_post(struct client_connection_tcp *conn,
+			struct doveadm_cmd_context *cctx)
 {
 	const char *str = NULL;
+
+	if (cctx->referral != NULL) {
+		o_stream_nsend_str(conn->output, t_strdup_printf(
+			"\n-REFERRAL %s\n", cctx->referral));
+		return;
+	}
 
 	if (doveadm_exit_code == 0) {
 		o_stream_nsend(conn->output, "\n+\n", 3);
@@ -174,7 +181,7 @@ doveadm_cmd_server_post(struct client_connection_tcp *conn, const char *cmd_name
 	} else {
 		o_stream_nsend_str(conn->output, "\n-\n");
 		i_error("BUG: Command '%s' returned unknown error code %d",
-			cmd_name, doveadm_exit_code);
+			cctx->cmd->name, doveadm_exit_code);
 	}
 }
 
@@ -186,7 +193,7 @@ doveadm_cmd_server_run_ver2(struct client_connection_tcp *conn,
 	i_getopt_reset();
 	if (doveadm_cmdline_run(argc, argv, cctx) < 0)
 		doveadm_exit_code = EX_USAGE;
-	doveadm_cmd_server_post(conn, cctx->cmd->name);
+	doveadm_cmd_server_post(conn, cctx);
 }
 
 static int doveadm_cmd_handle(struct client_connection_tcp *conn,

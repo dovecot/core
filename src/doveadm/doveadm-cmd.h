@@ -81,6 +81,10 @@ struct doveadm_cmd_context {
 	enum doveadm_client_type conn_type;
 	struct istream *input;
 	struct ostream *output;
+
+	/* non-NULL if doveadm-server should return referral to another
+	   server instead. */
+	const char *referral;
 };
 
 ARRAY_DEFINE_TYPE(doveadm_cmd_ver2, struct doveadm_cmd_ver2);
