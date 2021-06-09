@@ -233,28 +233,38 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 		proxy_host = NULL; proxy_hostip = NULL; proxying = FALSE;
 		proxy_port = ctx->set->doveadm_port;
 		for (i = 0; fields[i] != NULL; i++) {
-			if (str_begins(fields[i], "proxy") &&
-			    (fields[i][5] == '\0' || fields[i][5] == '='))
+			const char *p, *key, *value;
+
+			p = strchr(fields[i], '=');
+			if (p == NULL) {
+				key = fields[i];
+				value = "";
+			} else {
+				key = t_strdup_until(fields[i], p);
+				value = p + 1;
+			}
+
+			if (strcmp(key, "proxy") == 0)
 				proxying = TRUE;
-			else if (str_begins(fields[i], "host="))
-				proxy_host = fields[i]+5;
-			else if (str_begins(fields[i], "hostip="))
-				proxy_hostip = fields[i]+7;
-			else if (str_begins(fields[i], "user="))
-				*user_r = t_strdup(fields[i]+5);
-			else if (str_begins(fields[i], "destuser="))
-				*user_r = t_strdup(fields[i]+9);
-			else if (str_begins(fields[i], "port=")) {
-				if (net_str2port(fields[i]+5, &proxy_port) < 0)
+			else if (strcmp(key, "host") == 0)
+				proxy_host = value;
+			else if (strcmp(key, "hostip") == 0)
+				proxy_hostip = value;
+			else if (strcmp(key, "user") == 0)
+				*user_r = t_strdup(value);
+			else if (strcmp(key, "destuser") == 0)
+				*user_r = t_strdup(value);
+			else if (strcmp(key, "port") == 0) {
+				if (net_str2port(value, &proxy_port) < 0)
 					proxy_port = 0;
-	                } else if (str_begins(fields[i], "ssl=")) {
+	                } else if (strcmp(key, "ssl") == 0) {
 	                        *ssl_flags_r |= PROXY_SSL_FLAG_YES;
-	                        if (strcmp(fields[i]+4, "any-cert") == 0)
+	                        if (strcmp(value, "any-cert") == 0)
 	                               *ssl_flags_r |= PROXY_SSL_FLAG_ANY_CERT;
-	                } else if (str_begins(fields[i], "starttls=")) {
+	                } else if (strcmp(key, "starttls") == 0) {
 	                        *ssl_flags_r |= PROXY_SSL_FLAG_YES |
 	                                PROXY_SSL_FLAG_STARTTLS;
-	                        if (strcmp(fields[i]+9, "any-cert") == 0)
+	                        if (strcmp(value, "any-cert") == 0)
 	                                *ssl_flags_r |= PROXY_SSL_FLAG_ANY_CERT;
 			}
 		}
