@@ -12,11 +12,8 @@
 #include <unistd.h>
 #include <getopt.h>
 
-static struct doveadm_cmd *doveadm_commands[] = {
-	&doveadm_cmd_mailbox_mutf7,
-};
-
 static struct doveadm_cmd_ver2 *doveadm_commands_ver2[] = {
+	&doveadm_cmd_mailbox_mutf7,
 	&doveadm_cmd_service_stop_ver2,
 	&doveadm_cmd_service_status_ver2,
 	&doveadm_cmd_sis_deduplicate,
@@ -205,9 +202,6 @@ void doveadm_cmds_init(void)
 
 	i_array_init(&doveadm_cmds, 32);
 	i_array_init(&doveadm_cmds_ver2, 2);
-
-	for (i = 0; i < N_ELEMENTS(doveadm_commands); i++)
-		doveadm_register_cmd(doveadm_commands[i]);
 
 	for (i = 0; i < N_ELEMENTS(doveadm_commands_ver2); i++)
 		doveadm_cmd_register_ver2(doveadm_commands_ver2[i]);
