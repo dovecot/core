@@ -44,7 +44,6 @@ static const struct exit_code_str {
 	{ DOVEADM_EX_NOTFOUND, "NOTFOUND" }
 };
 
-ARRAY_TYPE(doveadm_cmd) doveadm_cmds;
 ARRAY_TYPE(doveadm_cmd_ver2) doveadm_cmds_ver2;
 ARRAY_DEFINE_TYPE(getopt_option_array, struct option);
 
@@ -66,11 +65,6 @@ int doveadm_str_to_exit_code(const char *reason)
 			return ptr->code;
 	}
 	return DOVEADM_EX_UNKNOWN;
-}
-
-void doveadm_register_cmd(const struct doveadm_cmd *cmd)
-{
-	array_push_back(&doveadm_cmds, cmd);
 }
 
 void doveadm_cmd_register_ver2(struct doveadm_cmd_ver2 *cmd)
@@ -141,69 +135,10 @@ doveadm_cmd_find_with_args_ver2(const char *cmd_name, int *argc,
 	return NULL;
 }
 
-static bool
-doveadm_cmd_find_multi_word(const char *cmdname, int *_argc,
-			    const char *const *_argv[])
-{
-	int argc = *_argc;
-	const char *const *argv = *_argv;
-	size_t len;
-
-	if (argc < 2)
-		return FALSE;
-
-	len = strlen(argv[1]);
-	if (!str_begins(cmdname, argv[1]))
-		return FALSE;
-
-	argc--; argv++;
-	if (cmdname[len] == ' ') {
-		/* more args */
-		if (!doveadm_cmd_find_multi_word(cmdname + len + 1,
-						 &argc, &argv))
-			return FALSE;
-	} else {
-		if (cmdname[len] != '\0')
-			return FALSE;
-	}
-
-	*_argc = argc;
-	*_argv = argv;
-	return TRUE;
-}
-
-const struct doveadm_cmd *
-doveadm_cmd_find_with_args(const char *cmd_name, int *argc,
-			   const char *const *argv[])
-{
-	const struct doveadm_cmd *cmd;
-	size_t cmd_name_len;
-
-	i_assert(*argc > 0);
-
-	cmd_name_len = strlen(cmd_name);
-	array_foreach(&doveadm_cmds, cmd) {
-		if (strcmp(cmd->name, cmd_name) == 0)
-			return cmd;
-
-		/* see if it matches a multi-word command */
-		if (strncmp(cmd->name, cmd_name, cmd_name_len) == 0 &&
-		    cmd->name[cmd_name_len] == ' ') {
-			const char *subcmd_name = cmd->name + cmd_name_len + 1;
-
-			if (doveadm_cmd_find_multi_word(subcmd_name,
-							argc, argv))
-				return cmd;
-		}
-	}
-	return NULL;
-}
-
 void doveadm_cmds_init(void)
 {
 	unsigned int i;
 
-	i_array_init(&doveadm_cmds, 32);
 	i_array_init(&doveadm_cmds_ver2, 2);
 
 	for (i = 0; i < N_ELEMENTS(doveadm_commands_ver2); i++)
@@ -220,7 +155,6 @@ void doveadm_cmds_init(void)
 
 void doveadm_cmds_deinit(void)
 {
-	array_free(&doveadm_cmds);
 	array_free(&doveadm_cmds_ver2);
 }
 

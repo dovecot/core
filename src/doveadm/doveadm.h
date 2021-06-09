@@ -25,7 +25,6 @@ extern bool doveadm_verbose_proctitle;
 extern int doveadm_exit_code;
 
 void usage(void) ATTR_NORETURN;
-void help(const struct doveadm_cmd *cmd) ATTR_NORETURN;
 void help_ver2(const struct doveadm_cmd_ver2 *cmd) ATTR_NORETURN;
 void doveadm_master_send_signal(int signo);
 

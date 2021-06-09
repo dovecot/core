@@ -189,16 +189,6 @@ doveadm_cmd_server_run_ver2(struct client_connection_tcp *conn,
 	doveadm_cmd_server_post(conn, cctx->cmd->name);
 }
 
-static void
-doveadm_cmd_server_run(struct client_connection_tcp *conn,
-		       int argc, const char *const argv[],
-		       const struct doveadm_cmd *cmd)
-{
-	i_getopt_reset();
-	cmd->cmd(argc, (char **)argv);
-	doveadm_cmd_server_post(conn, cmd->name);
-}
-
 static int
 doveadm_mail_cmd_server_parse(const struct doveadm_mail_cmd *cmd,
 			      const struct doveadm_settings *set,
@@ -318,7 +308,6 @@ static int doveadm_cmd_handle(struct client_connection_tcp *conn,
 			      struct doveadm_cmd_context *cctx)
 {
 	struct ioloop *prev_ioloop = current_ioloop;
-	const struct doveadm_cmd *cmd = NULL;
 	const struct doveadm_mail_cmd *mail_cmd;
 	struct doveadm_mail_cmd_context *mctx = NULL;
 	const struct doveadm_cmd_ver2 *cmd_ver2;
@@ -326,11 +315,8 @@ static int doveadm_cmd_handle(struct client_connection_tcp *conn,
 	if ((cmd_ver2 = doveadm_cmd_find_with_args_ver2(cmd_name, &argc, &argv)) == NULL) {
 		mail_cmd = doveadm_mail_cmd_find(cmd_name);
 		if (mail_cmd == NULL) {
-			cmd = doveadm_cmd_find_with_args(cmd_name, &argc, &argv);
-			if (cmd == NULL) {
-				i_error("doveadm: Client sent unknown command: %s", cmd_name);
-				return -1;
-			}
+			i_error("doveadm: Client sent unknown command: %s", cmd_name);
+			return -1;
 		} else {
 			if (doveadm_mail_cmd_server_parse(mail_cmd, conn->conn.set,
 							  argc, argv,
@@ -351,8 +337,6 @@ static int doveadm_cmd_handle(struct client_connection_tcp *conn,
 
 	if (cmd_ver2 != NULL)
 		doveadm_cmd_server_run_ver2(conn, argc, argv, cctx);
-	else if (cmd != NULL)
-		doveadm_cmd_server_run(conn, argc, argv, cmd);
 	else {
 		i_assert(mctx != NULL);
 		doveadm_mail_cmd_server_run(conn, mctx);

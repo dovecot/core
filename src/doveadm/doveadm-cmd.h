@@ -59,12 +59,6 @@ ARRAY_DEFINE_TYPE(doveadm_cmd_param_arr_t, struct doveadm_cmd_param);
 
 typedef void doveadm_command_ver2_t(struct doveadm_cmd_context *cctx);
 
-struct doveadm_cmd {
-	doveadm_command_t *cmd;
-	const char *name;
-	const char *short_usage;
-};
-
 struct doveadm_cmd_ver2 {
 	doveadm_command_ver2_t *cmd;
 	struct doveadm_mail_cmd_context *(*mail_cmd)(void);
@@ -89,17 +83,8 @@ struct doveadm_cmd_context {
 	struct ostream *output;
 };
 
-ARRAY_DEFINE_TYPE(doveadm_cmd, struct doveadm_cmd);
-extern ARRAY_TYPE(doveadm_cmd) doveadm_cmds;
-
 ARRAY_DEFINE_TYPE(doveadm_cmd_ver2, struct doveadm_cmd_ver2);
 extern ARRAY_TYPE(doveadm_cmd_ver2) doveadm_cmds_ver2;
-
-void doveadm_register_cmd(const struct doveadm_cmd *cmd);
-
-const struct doveadm_cmd *
-doveadm_cmd_find_with_args(const char *cmd_name, int *argc,
-			   const char *const *argv[]);
 
 void doveadm_register_auth_commands(void);
 void doveadm_register_auth_server_commands(void);

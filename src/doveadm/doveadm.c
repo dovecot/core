@@ -114,7 +114,6 @@ static void ATTR_NORETURN
 usage_to(FILE *out, const char *prefix)
 {
 	const struct doveadm_cmd_ver2 *cmd2;
-	const struct doveadm_cmd *cmd;
 	string_t *str = t_str_new(1024);
 
 	fprintf(out, "usage: doveadm [-Dv] [-f <formatter>] ");
@@ -122,8 +121,6 @@ usage_to(FILE *out, const char *prefix)
 		fprintf(out, "%s ", prefix);
 	fprintf(out, "<command> [<args>]\n");
 
-	array_foreach(&doveadm_cmds, cmd)
-		str_printfa(str, "%s\t%s\n", cmd->name, cmd->short_usage);
 	array_foreach(&doveadm_cmds_ver2, cmd2)
 		str_printfa(str, "%s\t%s\n", cmd2->name, cmd2->usage);
 
@@ -136,18 +133,6 @@ usage_to(FILE *out, const char *prefix)
 void usage(void)
 {
 	usage_to(stderr, "");
-}
-
-static void ATTR_NORETURN
-help_to(const struct doveadm_cmd *cmd, FILE *out)
-{
-	fprintf(out, "doveadm %s %s\n", cmd->name, cmd->short_usage);
-	lib_exit(EX_USAGE);
-}
-
-void help(const struct doveadm_cmd *cmd)
-{
-	help_to(cmd, stdout);
 }
 
 static void ATTR_NORETURN
@@ -242,29 +227,11 @@ static void cmd_exec(struct doveadm_cmd_context *cctx)
 	execv_const(argv[0], argv);
 }
 
-static bool doveadm_try_run(const char *cmd_name, int argc,
-			    const char *const argv[])
-{
-	const struct doveadm_cmd *cmd;
-
-	cmd = doveadm_cmd_find_with_args(cmd_name, &argc, &argv);
-	if (cmd == NULL)
-		return FALSE;
-	cmd->cmd(argc, (char **)argv);
-	return TRUE;
-}
-
 static bool doveadm_has_subcommands(const char *cmd_name)
 {
 	const struct doveadm_cmd_ver2 *cmd2;
-	const struct doveadm_cmd *cmd;
 	size_t len = strlen(cmd_name);
 
-	array_foreach(&doveadm_cmds, cmd) {
-		if (strncmp(cmd->name, cmd_name, len) == 0 &&
-		    cmd->name[len] == ' ')
-			return TRUE;
-	}
 	array_foreach(&doveadm_cmds_ver2, cmd2) {
 		if (strncmp(cmd2->name, cmd_name, len) == 0 &&
 		    cmd2->name[len] == ' ')
@@ -394,7 +361,6 @@ int main(int argc, char *argv[])
 	cctx.username = getenv("USER");
 
 	if (!doveadm_cmd_try_run_ver2(cmd_name, argc, (const char**)argv, &cctx) &&
-	    !doveadm_try_run(cmd_name, argc, (const char **)argv) &&
 	    !doveadm_mail_try_run(cmd_name, argc, argv)) {
 		if (doveadm_has_subcommands(cmd_name))
 			usage_to(stdout, cmd_name);
