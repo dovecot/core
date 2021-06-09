@@ -78,8 +78,6 @@ void doveadm_cmd_register_ver2(struct doveadm_cmd_ver2 *cmd)
 	if (cmd->cmd == NULL) {
 		if (cmd->mail_cmd != NULL)
 			cmd->cmd = doveadm_cmd_ver2_to_mail_cmd_wrapper;
-		else if (cmd->old_cmd != NULL)
-			cmd->cmd = doveadm_cmd_ver2_to_cmd_wrapper;
 		else i_unreached();
 	}
 	array_push_back(&doveadm_cmds_ver2, cmd);
@@ -352,85 +350,6 @@ void doveadm_cmd_params_null_terminate_arrays(
 			array_pop_back(&param->value.v_array);
 		}
 	}
-}
-
-static void
-doveadm_cmd_params_to_argv(const char *name, int pargc,
-			   const struct doveadm_cmd_param *params,
-			   ARRAY_TYPE(const_string) *argv)
-{
-	ARRAY_TYPE(const_string) pargv;
-	const char *const *cptr;
-	bool array_add_opt;
-	int i;
-
-	i_assert(array_count(argv) == 0);
-	array_push_back(argv, &name);
-	t_array_init(&pargv, 8);
-
-	for (i = 0; i < pargc; i++) {
-		const char *optarg = NULL;
-		ARRAY_TYPE(const_string) *target = argv;
-		if ((params[i].flags & CMD_PARAM_FLAG_POSITIONAL) != 0)
-			target = &pargv;
-		/* istreams are special */
-		i_assert(params[i].type != CMD_PARAM_ISTREAM);
-		if (params[i].value_set) {
-			array_add_opt = FALSE;
-			if (params[i].short_opt != '\0') {
-				if (params[i].type == CMD_PARAM_ARRAY)
-					array_add_opt = TRUE;
-				else {
-					optarg = t_strdup_printf("-%c",
-						params[i].short_opt);
-					array_push_back(argv, &optarg);
-				}
-			}
-			/* CMD_PARAM_BOOL is implicitly handled above */
-			if (params[i].type == CMD_PARAM_STR) {
-				array_push_back(target,
-						&params[i].value.v_string);
-			} else if (params[i].type == CMD_PARAM_INT64) {
-				const char *tmp = t_strdup_printf("%lld",
-					(long long)params[i].value.v_int64);
-				array_push_back(target, &tmp);
-			} else if (params[i].type == CMD_PARAM_IP) {
-				const char *tmp =
-					net_ip2addr(&params[i].value.v_ip);
-				array_push_back(target, &tmp);
-			} else if (params[i].type == CMD_PARAM_ARRAY) {
-				array_foreach(&params[i].value.v_array, cptr) {
-					if (array_add_opt)
-						array_push_back(argv, &optarg);
-					array_push_back(target, cptr);
-				}
-			}
-		}
-	}
-
-	if (array_count(&pargv) > 0) {
-		const char *dashdash = "--";
-		array_push_back(argv, &dashdash);
-		array_append_array(argv, &pargv);
-	}
-	array_append_zero(argv);
-}
-
-void
-doveadm_cmd_ver2_to_cmd_wrapper(struct doveadm_cmd_context *cctx)
-{
-	unsigned int pargc;
-	const char **pargv;
-
-	i_assert(cctx->cmd->old_cmd != NULL);
-
-	ARRAY_TYPE(const_string) nargv;
-	t_array_init(&nargv, 8);
-	doveadm_cmd_params_to_argv(cctx->cmd->name,
-				   cctx->argc, cctx->argv, &nargv);
-	pargv = array_get_modifiable(&nargv, &pargc);
-	i_getopt_reset();
-	cctx->cmd->old_cmd(pargc-1, (char **)pargv);
 }
 
 static void

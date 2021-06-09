@@ -67,7 +67,6 @@ struct doveadm_cmd {
 
 struct doveadm_cmd_ver2 {
 	doveadm_command_ver2_t *cmd;
-	doveadm_command_t *old_cmd;
 	struct doveadm_mail_cmd_context *(*mail_cmd)(void);
 	const char *name;
 	const char *usage;
@@ -116,7 +115,6 @@ void doveadm_register_fs_commands(void);
 void doveadm_cmds_init(void);
 void doveadm_cmds_deinit(void);
 
-void doveadm_cmd_ver2_to_cmd_wrapper(struct doveadm_cmd_context *cctx);
 void doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx);
 
 void doveadm_cmd_register_ver2(struct doveadm_cmd_ver2 *cmd);
