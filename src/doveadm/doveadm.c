@@ -162,22 +162,27 @@ void help_ver2(const struct doveadm_cmd_ver2 *cmd)
 	help_to_ver2(cmd, stdout);
 }
 
-static void cmd_help(int argc ATTR_UNUSED, char *argv[])
+static void cmd_help(struct doveadm_cmd_context *cctx)
 {
-	const char *man_argv[3];
+	const char *cmd, *man_argv[3];
 
-	if (argv[1] == NULL)
+	if (!doveadm_cmd_param_str(cctx, "cmd", &cmd))
 		usage_to(stdout, "");
 
 	env_put("MANPATH", MANDIR);
 	man_argv[0] = "man";
-	man_argv[1] = t_strconcat("doveadm-", argv[1], NULL);
+	man_argv[1] = t_strconcat("doveadm-", cmd, NULL);
 	man_argv[2] = NULL;
 	execvp_const(man_argv[0], man_argv);
 }
 
-static struct doveadm_cmd doveadm_cmd_help = {
-	cmd_help, "help", "<cmd>"
+static struct doveadm_cmd_ver2 doveadm_cmd_help = {
+	.name = "help",
+	.cmd = cmd_help,
+	.usage = "[<cmd>]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('\0', "cmd", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };
 
 static void cmd_config(int argc ATTR_UNUSED, char *argv[])
@@ -244,13 +249,13 @@ static bool doveadm_has_subcommands(const char *cmd_name)
 }
 
 static struct doveadm_cmd *doveadm_cmdline_commands[] = {
-	&doveadm_cmd_help,
 	&doveadm_cmd_config,
 	&doveadm_cmd_exec,
 };
 
 static struct doveadm_cmd_ver2 *doveadm_cmdline_commands_ver2[] = {
 	&doveadm_cmd_dump,
+	&doveadm_cmd_help,
 	&doveadm_cmd_oldstats_top_ver2,
 	&doveadm_cmd_pw,
 	&doveadm_cmd_zlibconnect,
