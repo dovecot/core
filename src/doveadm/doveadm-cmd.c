@@ -90,7 +90,7 @@ const struct doveadm_cmd_ver2 *doveadm_cmd_find_ver2(const char *cmd_name)
 	const struct doveadm_cmd_ver2 *cmd;
 
 	array_foreach(&doveadm_cmds_ver2, cmd) {
-		if (strcmp(cmd_name, cmd->name)==0)
+		if (strcmp(cmd_name, cmd->name) == 0)
 			return cmd;
 	}
 	return NULL;
@@ -104,8 +104,9 @@ doveadm_cmd_find_with_args_ver2(const char *cmd_name, int *argc,
 	const struct doveadm_cmd_ver2 *cmd;
 	const char *cptr;
 
-	for(i=0;i<*argc;i++) {
-		if (strcmp((*argv)[i],cmd_name)==0) break;
+	for (i = 0; i < *argc; i++) {
+		if (strcmp((*argv)[i], cmd_name) == 0)
+			break;
 	}
 
 	i_assert(i != *argc);
@@ -114,16 +115,20 @@ doveadm_cmd_find_with_args_ver2(const char *cmd_name, int *argc,
 		cptr = cmd->name;
 		/* cannot reuse i here because this needs be
 		   done more than once */
-		for (k=0; *cptr != '\0' && i+k < *argc; k++) {
-			size_t alen = strlen((*argv)[i+k]);
+		for (k = 0; *cptr != '\0' && i + k < *argc; k++) {
+			size_t alen = strlen((*argv)[i + k]);
 			/* make sure we don't overstep */
-			if (strlen(cptr) < alen) break;
+			if (strlen(cptr) < alen)
+				break;
 			/* did not match */
-			if (strncmp(cptr, (*argv)[i+k], alen) != 0) break;
+			if (strncmp(cptr, (*argv)[i+k], alen) != 0)
+				break;
 			/* do not accept abbreviations */
-			if (cptr[alen] != ' ' && cptr[alen] != '\0') break;
+			if (cptr[alen] != ' ' && cptr[alen] != '\0')
+				break;
 			cptr += alen;
-			if (*cptr != '\0') cptr++; /* consume space */
+			if (*cptr != '\0')
+				cptr++; /* consume space */
 		}
 		/* name was fully consumed */
 		if (*cptr == '\0') {
@@ -221,14 +226,15 @@ void doveadm_cmds_deinit(void)
 	array_free(&doveadm_cmds_ver2);
 }
 
-static const struct doveadm_cmd_param*
+static const struct doveadm_cmd_param *
 doveadm_cmd_param_get(const struct doveadm_cmd_context *cctx,
 		      const char *name)
 {
 	i_assert(cctx != NULL);
 	i_assert(cctx->argv != NULL);
 	for(int i = 0; i < cctx->argc; i++) {
-		if (strcmp(cctx->argv[i].name, name) == 0 && cctx->argv[i].value_set)
+		if (strcmp(cctx->argv[i].name, name) == 0 &&
+		    cctx->argv[i].value_set)
 			return &cctx->argv[i];
 	}
 	return NULL;
@@ -238,7 +244,8 @@ bool doveadm_cmd_param_bool(const struct doveadm_cmd_context *cctx,
 			    const char *name, bool *value_r)
 {
 	const struct doveadm_cmd_param *param;
-	if ((param = doveadm_cmd_param_get(cctx, name))==NULL) return FALSE;
+	if ((param = doveadm_cmd_param_get(cctx, name)) == NULL)
+		return FALSE;
 
 	if (param->type == CMD_PARAM_BOOL) {
 		*value_r = param->value.v_bool;
@@ -251,7 +258,8 @@ bool doveadm_cmd_param_int64(const struct doveadm_cmd_context *cctx,
 			     const char *name, int64_t *value_r)
 {
 	const struct doveadm_cmd_param *param;
-	if ((param = doveadm_cmd_param_get(cctx, name))==NULL) return FALSE;
+	if ((param = doveadm_cmd_param_get(cctx, name)) == NULL)
+		return FALSE;
 
 	if (param->type == CMD_PARAM_INT64) {
 		*value_r = param->value.v_int64;
@@ -264,7 +272,8 @@ bool doveadm_cmd_param_str(const struct doveadm_cmd_context *cctx,
 			   const char *name, const char **value_r)
 {
 	const struct doveadm_cmd_param *param;
-	if ((param = doveadm_cmd_param_get(cctx, name))==NULL) return FALSE;
+	if ((param = doveadm_cmd_param_get(cctx, name)) == NULL)
+		return FALSE;
 
 	if (param->type == CMD_PARAM_STR) {
 		*value_r = param->value.v_string;
@@ -277,7 +286,8 @@ bool doveadm_cmd_param_ip(const struct doveadm_cmd_context *cctx,
 			  const char *name, struct ip_addr *value_r)
 {
 	const struct doveadm_cmd_param *param;
-	if ((param = doveadm_cmd_param_get(cctx, name))==NULL) return FALSE;
+	if ((param = doveadm_cmd_param_get(cctx, name)) == NULL)
+		return FALSE;
 
 	if (param->type == CMD_PARAM_IP) {
 		memcpy(value_r, &param->value.v_ip, sizeof(struct ip_addr));
@@ -292,7 +302,8 @@ bool doveadm_cmd_param_array(const struct doveadm_cmd_context *cctx,
 	const struct doveadm_cmd_param *param;
 	unsigned int count;
 
-	if ((param = doveadm_cmd_param_get(cctx, name))==NULL) return FALSE;
+	if ((param = doveadm_cmd_param_get(cctx, name)) == NULL)
+		return FALSE;
 	if (param->type == CMD_PARAM_ARRAY) {
 		*value_r = array_get(&param->value.v_array, &count);
 		/* doveadm_cmd_params_null_terminate_arrays() should have been
@@ -307,7 +318,8 @@ bool doveadm_cmd_param_istream(const struct doveadm_cmd_context *cctx,
 			       const char *name, struct istream **value_r)
 {
 	const struct doveadm_cmd_param *param;
-	if ((param = doveadm_cmd_param_get(cctx, name))==NULL) return FALSE;
+	if ((param = doveadm_cmd_param_get(cctx, name)) == NULL)
+		return FALSE;
 
 	if (param->type == CMD_PARAM_ISTREAM) {
 		*value_r = param->value.v_istream;
@@ -328,7 +340,8 @@ void doveadm_cmd_params_clean(ARRAY_TYPE(doveadm_cmd_param_arr_t) *pargv)
 	array_clear(pargv);
 }
 
-void doveadm_cmd_params_null_terminate_arrays(ARRAY_TYPE(doveadm_cmd_param_arr_t) *pargv)
+void doveadm_cmd_params_null_terminate_arrays(
+	ARRAY_TYPE(doveadm_cmd_param_arr_t) *pargv)
 {
 	struct doveadm_cmd_param *param;
 
@@ -342,19 +355,20 @@ void doveadm_cmd_params_null_terminate_arrays(ARRAY_TYPE(doveadm_cmd_param_arr_t
 }
 
 static void
-doveadm_cmd_params_to_argv(const char *name, int pargc, const struct doveadm_cmd_param* params,
-	ARRAY_TYPE(const_string) *argv)
+doveadm_cmd_params_to_argv(const char *name, int pargc,
+			   const struct doveadm_cmd_param *params,
+			   ARRAY_TYPE(const_string) *argv)
 {
+	ARRAY_TYPE(const_string) pargv;
+	const char *const *cptr;
 	bool array_add_opt;
 	int i;
-	const char * const * cptr;
+
 	i_assert(array_count(argv) == 0);
 	array_push_back(argv, &name);
-
-	ARRAY_TYPE(const_string) pargv;
 	t_array_init(&pargv, 8);
 
-	for(i=0;i<pargc;i++) {
+	for (i = 0; i < pargc; i++) {
 		const char *optarg = NULL;
 		ARRAY_TYPE(const_string) *target = argv;
 		if ((params[i].flags & CMD_PARAM_FLAG_POSITIONAL) != 0)
@@ -364,10 +378,11 @@ doveadm_cmd_params_to_argv(const char *name, int pargc, const struct doveadm_cmd
 		if (params[i].value_set) {
 			array_add_opt = FALSE;
 			if (params[i].short_opt != '\0') {
-				if (params[i].type == CMD_PARAM_ARRAY) {
+				if (params[i].type == CMD_PARAM_ARRAY)
 					array_add_opt = TRUE;
-				} else {
-					optarg = t_strdup_printf("-%c", params[i].short_opt);
+				else {
+					optarg = t_strdup_printf("-%c",
+						params[i].short_opt);
 					array_push_back(argv, &optarg);
 				}
 			}
@@ -380,7 +395,8 @@ doveadm_cmd_params_to_argv(const char *name, int pargc, const struct doveadm_cmd
 					(long long)params[i].value.v_int64);
 				array_push_back(target, &tmp);
 			} else if (params[i].type == CMD_PARAM_IP) {
-				const char *tmp = net_ip2addr(&params[i].value.v_ip);
+				const char *tmp =
+					net_ip2addr(&params[i].value.v_ip);
 				array_push_back(target, &tmp);
 			} else if (params[i].type == CMD_PARAM_ARRAY) {
 				array_foreach(&params[i].value.v_array, cptr) {
@@ -410,18 +426,19 @@ doveadm_cmd_ver2_to_cmd_wrapper(struct doveadm_cmd_context *cctx)
 
 	ARRAY_TYPE(const_string) nargv;
 	t_array_init(&nargv, 8);
-	doveadm_cmd_params_to_argv(cctx->cmd->name, cctx->argc, cctx->argv, &nargv);
+	doveadm_cmd_params_to_argv(cctx->cmd->name,
+				   cctx->argc, cctx->argv, &nargv);
 	pargv = array_get_modifiable(&nargv, &pargc);
 	i_getopt_reset();
-	cctx->cmd->old_cmd(pargc-1, (char**)pargv);
+	cctx->cmd->old_cmd(pargc-1, (char **)pargv);
 }
 
 static void
 doveadm_build_options(const struct doveadm_cmd_param par[],
-		string_t *shortopts,
-		ARRAY_TYPE(getopt_option_array) *longopts)
+		      string_t *shortopts,
+		      ARRAY_TYPE(getopt_option_array) *longopts)
 {
-	for(size_t i=0; par[i].name != NULL; i++) {
+	for (size_t i = 0; par[i].name != NULL; i++) {
 		struct option longopt;
 
 		i_zero(&longopt);
@@ -439,22 +456,22 @@ doveadm_build_options(const struct doveadm_cmd_param par[],
 	array_append_zero(longopts);
 }
 
-static void doveadm_fill_param(struct doveadm_cmd_param *param,
-	const char *value, pool_t pool)
+static void
+doveadm_fill_param(struct doveadm_cmd_param *param,
+		   const char *value, pool_t pool)
 {
 	param->value_set = TRUE;
-	switch(param->type) {
+	switch (param->type) {
 	case CMD_PARAM_BOOL:
-		param->value.v_bool = TRUE; break;
+		param->value.v_bool = TRUE;
+		break;
 	case CMD_PARAM_INT64:
-		if (str_to_int64(value, &param->value.v_int64) != 0) {
+		if (str_to_int64(value, &param->value.v_int64) != 0)
 			param->value_set = FALSE;
-		}
 		break;
 	case CMD_PARAM_IP:
-		if (net_addr2ip(value, &param->value.v_ip) != 0) {
+		if (net_addr2ip(value, &param->value.v_ip) != 0)
 			param->value_set = FALSE;
-		}
 		break;
 	case CMD_PARAM_STR:
 		param->value.v_string = p_strdup(pool, value);
@@ -467,12 +484,12 @@ static void doveadm_fill_param(struct doveadm_cmd_param *param,
 		break;
 	case CMD_PARAM_ISTREAM: {
 		struct istream *is;
-		if (strcmp(value,"-") == 0) {
+		if (strcmp(value,"-") == 0)
 			is = i_stream_create_fd(STDIN_FILENO, IO_BLOCK_SIZE);
-		} else {
+		else
 			is = i_stream_create_file(value, IO_BLOCK_SIZE);
-		}
 		param->value.v_istream = is;
+		break;
 	}
 	}
 }
@@ -500,7 +517,7 @@ int doveadm_cmd_run_ver2(int argc, const char *const argv[],
 	ARRAY_TYPE(doveadm_cmd_param_arr_t) pargv;
 	ARRAY_TYPE(getopt_option_array) opts;
 	unsigned int pargc;
-	int c,li;
+	int c, li;
 	pool_t pool = pool_datastack_create();
 	string_t *optbuf = str_new(pool, 64);
 
@@ -511,19 +528,21 @@ int doveadm_cmd_run_ver2(int argc, const char *const argv[],
 
 	p_array_init(&pargv, pool, 20);
 
-	for(pargc=0;cctx->cmd->parameters[pargc].name != NULL;pargc++) {
+	for (pargc = 0; cctx->cmd->parameters[pargc].name != NULL; pargc++) {
 		param = array_append_space(&pargv);
-		memcpy(param, &cctx->cmd->parameters[pargc], sizeof(struct doveadm_cmd_param));
+		memcpy(param, &cctx->cmd->parameters[pargc],
+		       sizeof(struct doveadm_cmd_param));
 		param->value_set = FALSE;
 	}
 	i_assert(pargc == array_count(&opts)-1); /* opts is NULL-terminated */
 
-	while((c = getopt_long(argc, (char*const*)argv, str_c(optbuf), array_front(&opts), &li)) > -1) {
-		switch(c) {
+	while ((c = getopt_long(argc, (char *const *)argv, str_c(optbuf),
+				array_front(&opts), &li)) > -1) {
+		switch (c) {
 		case 0:
-			for(unsigned int i = 0; i < array_count(&pargv); i++) {
-				const struct option *opt = array_idx(&opts,li);
-				param = array_idx_modifiable(&pargv,i);
+			for (unsigned int i = 0; i < array_count(&pargv); i++) {
+				const struct option *opt = array_idx(&opts, li);
+				param = array_idx_modifiable(&pargv, i);
 				if (opt->name == param->name)
 					doveadm_fill_param(param, optarg, pool);
 			}
@@ -534,21 +553,24 @@ int doveadm_cmd_run_ver2(int argc, const char *const argv[],
 			return -1;
 		default:
 			// hunt the option
-			for(unsigned int i = 0; i < pargc; i++) {
-				const struct option *longopt = array_idx(&opts,i);
+			for (unsigned int i = 0; i < pargc; i++) {
+				const struct option *longopt =
+					array_idx(&opts, i);
 				if (longopt->val == c)
-					doveadm_fill_param(array_idx_modifiable(&pargv,i), optarg, pool);
+					doveadm_fill_param(array_idx_modifiable(&pargv, i),
+							   optarg, pool);
 			}
 		}
 	}
 
 	/* process positional arguments */
-	for(;optind<argc;optind++) {
+	for (; optind < argc; optind++) {
 		struct doveadm_cmd_param *ptr;
 		bool found = FALSE;
 		array_foreach_modifiable(&pargv, ptr) {
 			if ((ptr->flags & CMD_PARAM_FLAG_POSITIONAL) != 0 &&
-			    (ptr->value_set == FALSE || ptr->type == CMD_PARAM_ARRAY)) {
+			    (ptr->value_set == FALSE ||
+			     ptr->type == CMD_PARAM_ARRAY)) {
 				doveadm_fill_param(ptr, argv[optind], pool);
 				found = TRUE;
 				break;
@@ -556,7 +578,7 @@ int doveadm_cmd_run_ver2(int argc, const char *const argv[],
 		}
 		if (!found) {
 			i_error("Extraneous arguments found: %s",
-				t_strarray_join(argv+optind, " "));
+				t_strarray_join(argv + optind, " "));
 			doveadm_cmd_params_clean(&pargv);
 			return -1;
 		}
