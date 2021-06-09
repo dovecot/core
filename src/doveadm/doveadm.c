@@ -185,17 +185,31 @@ DOVEADM_CMD_PARAM('\0', "cmd", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
 
-static void cmd_config(int argc ATTR_UNUSED, char *argv[])
+static void cmd_config(struct doveadm_cmd_context *cctx)
 {
+	const char *const *args, **argv;
+
+	if (!doveadm_cmd_param_array(cctx, "args", &args))
+		args = NULL;
+
 	env_put(MASTER_CONFIG_FILE_ENV,
 		master_service_get_config_path(master_service));
+
+	unsigned int len = str_array_length(args);
+	argv = t_new(const char *, len + 2);
 	argv[0] = BINDIR"/doveconf";
-	(void)execv(argv[0], argv);
-	i_fatal("execv(%s) failed: %m", argv[0]);
+	memcpy(argv+1, args, len * sizeof(args[0]));
+	execv_const(argv[0], argv);
 }
 
-static struct doveadm_cmd doveadm_cmd_config = {
-	cmd_config, "config", "[doveconf parameters]"
+static struct doveadm_cmd_ver2 doveadm_cmd_config = {
+	.name = "config",
+	.cmd = cmd_config,
+	.usage = "[doveconf parameters]",
+	.flags = CMD_FLAG_NO_OPTIONS,
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('\0', "args", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };
 
 static void cmd_exec(struct doveadm_cmd_context *cctx);
@@ -259,11 +273,8 @@ static bool doveadm_has_subcommands(const char *cmd_name)
 	return doveadm_mail_has_subcommands(cmd_name);
 }
 
-static struct doveadm_cmd *doveadm_cmdline_commands[] = {
-	&doveadm_cmd_config,
-};
-
 static struct doveadm_cmd_ver2 *doveadm_cmdline_commands_ver2[] = {
+	&doveadm_cmd_config,
 	&doveadm_cmd_dump,
 	&doveadm_cmd_exec,
 	&doveadm_cmd_help,
@@ -326,8 +337,6 @@ int main(int argc, char *argv[])
 
 	doveadm_settings_init();
 	doveadm_cmds_init();
-	for (i = 0; i < N_ELEMENTS(doveadm_cmdline_commands); i++)
-		doveadm_register_cmd(doveadm_cmdline_commands[i]);
 	for (i = 0; i < N_ELEMENTS(doveadm_cmdline_commands_ver2); i++)
 		doveadm_cmd_register_ver2(doveadm_cmdline_commands_ver2[i]);
 	doveadm_register_auth_commands();
