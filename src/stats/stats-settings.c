@@ -118,7 +118,7 @@ static const struct stats_metric_settings stats_metric_default_settings = {
 	.filter = "",
 	.exporter = "",
 	.group_by = "",
-	.exporter_include = "name hostname timestamps categories fields",
+	.exporter_include = STATS_METRIC_SETTINGS_DEFAULT_EXPORTER_INCLUDE,
 	.description = "",
 };
 

@@ -1,6 +1,9 @@
 #ifndef STATS_SETTINGS_H
 #define STATS_SETTINGS_H
 
+#define STATS_METRIC_SETTINGS_DEFAULT_EXPORTER_INCLUDE \
+	"name hostname timestamps categories fields"
+
 /* <settings checks> */
 /*
  * We allow a selection of a timestamp format.
