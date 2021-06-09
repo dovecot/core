@@ -19,34 +19,21 @@ struct proxy_context {
 
 extern struct doveadm_cmd_ver2 doveadm_cmd_proxy[];
 
-static void proxy_cmd_help(doveadm_command_t *cmd) ATTR_NORETURN;
+static void proxy_cmd_help(struct doveadm_cmd_context *cctx) ATTR_NORETURN;
 
 static struct proxy_context *
-cmd_proxy_init(int argc, char *argv[], const char *getopt_args,
-	       doveadm_command_t *cmd)
+cmd_proxy_init(struct doveadm_cmd_context *cctx)
 {
 	struct proxy_context *ctx;
 	const char *socket_path;
-	int c;
 
 	ctx = t_new(struct proxy_context, 1);
-	socket_path = t_strconcat(doveadm_settings->base_dir, "/ipc", NULL);
-
-	while ((c = getopt(argc, argv, getopt_args)) > 0) {
-		switch (c) {
-		case 'a':
-			socket_path = optarg;
-			break;
-		case 'f':
-			ctx->username_field = optarg;
-			break;
-		case 'h':
-			ctx->kick_hosts = optarg;
-			break;
-		default:
-			proxy_cmd_help(cmd);
-		}
+	if (!doveadm_cmd_param_str(cctx, "socket-path", &socket_path)) {
+		socket_path = t_strconcat(doveadm_settings->base_dir,
+					  "/ipc", NULL);
 	}
+	(void)doveadm_cmd_param_str(cctx, "passdb-field", &ctx->username_field);
+	(void)doveadm_cmd_param_str(cctx, "host", &ctx->kick_hosts);
 	ctx->ipc = ipc_client_init(socket_path);
 	return ctx;
 }
@@ -109,12 +96,12 @@ static void cmd_proxy_list_callback(enum ipc_client_cmd_state state,
 	io_loop_stop(current_ioloop);
 }
 
-static void cmd_proxy_list(int argc, char *argv[])
+static void cmd_proxy_list(struct doveadm_cmd_context *cctx)
 {
 	struct proxy_context *ctx;
 	bool seen_header = FALSE;
 
-	ctx = cmd_proxy_init(argc, argv, "a:", cmd_proxy_list);
+	ctx = cmd_proxy_init(cctx);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 
@@ -145,15 +132,16 @@ static void cmd_proxy_kick_callback(enum ipc_client_cmd_state state,
 	io_loop_stop(current_ioloop);
 }
 
-static void cmd_proxy_kick(int argc, char *argv[])
+static void cmd_proxy_kick(struct doveadm_cmd_context *cctx)
 {
 	struct proxy_context *ctx;
+	const char *const *users = NULL;
 	string_t *cmd;
 
-	ctx = cmd_proxy_init(argc, argv, "a:f:h:", cmd_proxy_kick);
-
-	if (argv[optind] == NULL && ctx->kick_hosts == NULL) {
-		proxy_cmd_help(cmd_proxy_kick);
+	ctx = cmd_proxy_init(cctx);
+	(void)doveadm_cmd_param_array(cctx, "user", &users);
+	if (users == NULL && ctx->kick_hosts == NULL) {
+		proxy_cmd_help(cctx);
 		return;
 	}
 
@@ -173,9 +161,11 @@ static void cmd_proxy_kick(int argc, char *argv[])
 		str_append(cmd, "KICK-ALT\t");
 		str_append_tabescaped(cmd, ctx->username_field);
 	}
-	for (; argv[optind] != NULL; optind++) {
-		str_append_c(cmd, '\t');
-		str_append_tabescaped(cmd, argv[optind]);
+	if (users != NULL) {
+		for (unsigned int i = 0; users[i] != NULL; i++) {
+			str_append_c(cmd, '\t');
+			str_append_tabescaped(cmd, users[i]);
+		}
 	}
 	ipc_client_cmd(ctx->ipc, str_c(cmd), cmd_proxy_kick_callback, NULL);
 	io_loop_run(current_ioloop);
@@ -186,7 +176,7 @@ struct doveadm_cmd_ver2 doveadm_cmd_proxy[] = {
 {
 	.name = "proxy list",
 	.usage = "[-a <ipc socket path>]",
-	.old_cmd = cmd_proxy_list,
+	.cmd = cmd_proxy_list,
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAMS_END
@@ -194,7 +184,7 @@ DOVEADM_CMD_PARAMS_END
 {
 	.name = "proxy kick",
 	.usage = "[-a <ipc socket path>] [-f <passdb field>] [-h <host> [...] | <user> [...]]",
-	.old_cmd = cmd_proxy_kick,
+	.cmd = cmd_proxy_kick,
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('f', "passdb-field", CMD_PARAM_STR, 0)
@@ -204,12 +194,12 @@ DOVEADM_CMD_PARAMS_END
 }
 };
 
-static void proxy_cmd_help(doveadm_command_t *cmd)
+static void proxy_cmd_help(struct doveadm_cmd_context *cctx)
 {
 	unsigned int i;
 
 	for (i = 0; i < N_ELEMENTS(doveadm_cmd_proxy); i++) {
-		if (doveadm_cmd_proxy[i].old_cmd == cmd)
+		if (doveadm_cmd_proxy[i].cmd == cctx->cmd->cmd)
 			help_ver2(&doveadm_cmd_proxy[i]);
 	}
 	i_unreached();
