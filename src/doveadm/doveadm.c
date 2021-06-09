@@ -198,23 +198,34 @@ static struct doveadm_cmd doveadm_cmd_config = {
 	cmd_config, "config", "[doveconf parameters]"
 };
 
-static void cmd_exec(int argc ATTR_UNUSED, char *argv[]);
-static struct doveadm_cmd doveadm_cmd_exec = {
-	cmd_exec, "exec", "<binary> [binary parameters]"
+static void cmd_exec(struct doveadm_cmd_context *cctx);
+static struct doveadm_cmd_ver2 doveadm_cmd_exec = {
+	.name = "exec",
+	.cmd = cmd_exec,
+	.usage = "<binary> [binary parameters]",
+	.flags = CMD_FLAG_NO_OPTIONS,
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('\0', "binary", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "args", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };
 
-static void cmd_exec(int argc ATTR_UNUSED, char *argv[])
+static void cmd_exec(struct doveadm_cmd_context *cctx)
 {
-	const char *path, *binary = argv[1];
+	const char *path, *binary, *const *args, **argv;
 
-	if (binary == NULL)
-		help(&doveadm_cmd_exec);
+	if (!doveadm_cmd_param_str(cctx, "binary", &binary))
+		help_ver2(&doveadm_cmd_exec);
+	if (!doveadm_cmd_param_array(cctx, "args", &args))
+		args = NULL;
 
 	path = t_strdup_printf("%s/%s", doveadm_settings->libexec_dir, binary);
-	argv++;
-	argv[0] = t_strdup_noconst(path);
-	(void)execv(argv[0], argv);
-	i_fatal("execv(%s) failed: %m", argv[0]);
+
+	unsigned int len = str_array_length(args);
+	argv = t_new(const char *, len + 2);
+	argv[0] = path;
+	memcpy(argv+1, args, len * sizeof(args[0]));
+	execv_const(argv[0], argv);
 }
 
 static bool doveadm_try_run(const char *cmd_name, int argc,
@@ -250,11 +261,11 @@ static bool doveadm_has_subcommands(const char *cmd_name)
 
 static struct doveadm_cmd *doveadm_cmdline_commands[] = {
 	&doveadm_cmd_config,
-	&doveadm_cmd_exec,
 };
 
 static struct doveadm_cmd_ver2 *doveadm_cmdline_commands_ver2[] = {
 	&doveadm_cmd_dump,
+	&doveadm_cmd_exec,
 	&doveadm_cmd_help,
 	&doveadm_cmd_oldstats_top_ver2,
 	&doveadm_cmd_pw,
