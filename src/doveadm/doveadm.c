@@ -249,11 +249,11 @@ static struct doveadm_cmd *doveadm_cmdline_commands[] = {
 	&doveadm_cmd_exec,
 	&doveadm_cmd_dump,
 	&doveadm_cmd_pw,
-	&doveadm_cmd_zlibconnect
 };
 
 static struct doveadm_cmd_ver2 *doveadm_cmdline_commands_ver2[] = {
 	&doveadm_cmd_oldstats_top_ver2,
+	&doveadm_cmd_zlibconnect,
 };
 
 int main(int argc, char *argv[])
