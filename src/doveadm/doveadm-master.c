@@ -81,12 +81,12 @@ void doveadm_master_send_signal(int signo)
 	}
 }
 
-static void cmd_stop(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
+static void cmd_stop(struct doveadm_cmd_context *cctx ATTR_UNUSED)
 {
 	doveadm_master_send_signal(SIGTERM);
 }
 
-static void cmd_reload(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
+static void cmd_reload(struct doveadm_cmd_context *cctx ATTR_UNUSED)
 {
 	doveadm_master_send_signal(SIGHUP);
 }
@@ -254,7 +254,7 @@ static void cmd_process_status(struct doveadm_cmd_context *cctx)
 }
 
 struct doveadm_cmd_ver2 doveadm_cmd_stop_ver2 = {
-	.old_cmd = cmd_stop,
+	.cmd = cmd_stop,
 	.name = "stop",
 	.usage = "",
 DOVEADM_CMD_PARAMS_START
@@ -262,7 +262,7 @@ DOVEADM_CMD_PARAMS_END
 };
 
 struct doveadm_cmd_ver2 doveadm_cmd_reload_ver2 = {
-        .old_cmd = cmd_reload,
+        .cmd = cmd_reload,
         .name = "reload",
         .usage = "",
 DOVEADM_CMD_PARAMS_START
