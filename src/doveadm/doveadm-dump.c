@@ -76,14 +76,15 @@ static void cmd_dump(int argc, char *argv[])
 		if (type == NULL)
 			printf("Detected file type: %s\n", dump->name);
 	}
-	dump->cmd(argc, argv);
+	dump->cmd(argv[1], (const char *const *)argv+2);
 }
 
 struct doveadm_cmd doveadm_cmd_dump = {
-	cmd_dump, "dump", "[-t <type>] <path>"
+	cmd_dump, "dump", "[-t <type>] <path> [<type-specific args>]"
 };
 
-static void cmd_dump_multiplex(int argc ATTR_UNUSED, char *argv[])
+static void
+cmd_dump_multiplex(const char *path, const char *const *args ATTR_UNUSED)
 {
 	const unsigned int channels_count = 256;
 	struct istream *file_input, *channels[channels_count];
@@ -91,7 +92,7 @@ static void cmd_dump_multiplex(int argc ATTR_UNUSED, char *argv[])
 	size_t size;
 	unsigned int i;
 
-	file_input = i_stream_create_file(argv[1], IO_BLOCK_SIZE);
+	file_input = i_stream_create_file(path, IO_BLOCK_SIZE);
 	/* A bit kludgy: istream-multiplex returns 0 if a wrong channel is
 	   being read from. This causes a panic with blocking istreams.
 	   Work around this by assuming that the file istream isn't blocking. */

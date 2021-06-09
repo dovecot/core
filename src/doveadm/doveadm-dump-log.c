@@ -518,14 +518,14 @@ static int dump_record(struct istream *input, uint64_t *modseq,
 	return 1;
 }
 
-static void cmd_dump_log(int argc ATTR_UNUSED, char *argv[])
+static void cmd_dump_log(const char *path, const char *const *args ATTR_UNUSED)
 {
 	struct istream *input;
 	uint64_t modseq;
 	unsigned int version;
 	int ret;
 
-	input = i_stream_create_file(argv[1], SIZE_MAX);
+	input = i_stream_create_file(path, SIZE_MAX);
 	dump_hdr(input, &modseq, &version);
 	do {
 		T_BEGIN {

@@ -764,20 +764,21 @@ static struct mail_index *path_open_index(const char *path)
 		return mail_index_alloc(NULL, ".", path);
 }
 
-static void cmd_dump_index(int argc ATTR_UNUSED, char *argv[])
+static void
+cmd_dump_index(const char *path, const char *const *args)
 {
 	struct mail_index *index;
 	struct mail_index_view *view;
 	struct mail_cache_view *cache_view;
 	unsigned int seq, uid = 0;
 
-	index = path_open_index(argv[1]);
+	index = path_open_index(path);
 	if (index == NULL ||
 	    mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY) <= 0)
-		i_fatal("Couldn't open index %s", argv[1]);
-	if (argv[2] != NULL) {
-		if (str_to_uint(argv[2], &uid) < 0)
-			i_fatal("Invalid uid number %s", argv[2]);
+		i_fatal("Couldn't open index %s", path);
+	if (args[0] != NULL) {
+		if (str_to_uint(args[0], &uid) < 0)
+			i_fatal("Invalid uid number %s", args[0]);
 	}
 
 	view = mail_index_view_open(index);

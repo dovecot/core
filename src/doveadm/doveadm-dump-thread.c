@@ -91,7 +91,8 @@ static int dump_block(const uint8_t *data, const uint8_t *end, uint32_t *uid)
 	return p - data;
 }
 
-static void cmd_dump_thread(int argc ATTR_UNUSED, char *argv[])
+static void
+cmd_dump_thread(const char *path, const char *const *args ATTR_UNUSED)
 {
 	unsigned int pos;
 	const void *map, *end;
@@ -99,12 +100,12 @@ static void cmd_dump_thread(int argc ATTR_UNUSED, char *argv[])
 	uint32_t uid;
 	int fd, ret;
 
-	fd = open(argv[1], O_RDONLY);
+	fd = open(path, O_RDONLY);
 	if (fd < 0)
-		i_fatal("open(%s) failed: %m", argv[1]);
+		i_fatal("open(%s) failed: %m", path);
 
 	if (fstat(fd, &st) < 0)
-		i_fatal("fstat(%s) failed: %m", argv[1]);
+		i_fatal("fstat(%s) failed: %m", path);
 	max_likely_index = (st.st_size / 8) * 2;
 
 	map = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);

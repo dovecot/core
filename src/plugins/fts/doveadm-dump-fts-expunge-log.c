@@ -73,14 +73,15 @@ static int dump_record(int fd, buffer_t *buf)
 	return 1;
 }
 
-static void cmd_dump_fts_expunge_log(int argc ATTR_UNUSED, char *argv[])
+static void
+cmd_dump_fts_expunge_log(const char *path, const char *const *args ATTR_UNUSED)
 {
 	buffer_t *buf;
 	int fd, ret;
 
-	fd = open(argv[1], O_RDONLY);
+	fd = open(path, O_RDONLY);
 	if (fd < 0)
-		i_fatal("open(%s) failed: %m", argv[1]);
+		i_fatal("open(%s) failed: %m", path);
 
 	buf = buffer_create_dynamic(default_pool, 1024);
 	do {

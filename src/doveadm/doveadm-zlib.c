@@ -42,7 +42,8 @@ static bool test_dump_imapzlib(const char *path)
 }
 
 #ifdef HAVE_ZLIB
-static void cmd_dump_imapzlib(int argc ATTR_UNUSED, char *argv[])
+static void
+cmd_dump_imapzlib(const char *path, const char *const *args ATTR_UNUSED)
 {
 	struct istream *input, *input2;
 	const unsigned char *data;
@@ -50,9 +51,9 @@ static void cmd_dump_imapzlib(int argc ATTR_UNUSED, char *argv[])
 	const char *line;
 	int fd;
 
-	fd = open(argv[1], O_RDONLY);
+	fd = open(path, O_RDONLY);
 	if (fd < 0)
-		i_fatal("open(%s) failed: %m", argv[1]);
+		i_fatal("open(%s) failed: %m", path);
 	input = i_stream_create_fd_autoclose(&fd, 1024*32);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		/* skip tag */
@@ -75,10 +76,8 @@ static void cmd_dump_imapzlib(int argc ATTR_UNUSED, char *argv[])
 			break;
 		i_stream_skip(input2, size);
 	}
-	if (input2->stream_errno != 0) {
-		i_error("read(%s) failed: %s",
-			argv[1], i_stream_get_error(input));
-	}
+	if (input2->stream_errno != 0)
+		i_error("read(%s) failed: %s", path, i_stream_get_error(input));
 	i_stream_unref(&input2);
 	fflush(stdout);
 }
@@ -268,7 +267,9 @@ static void cmd_zlibconnect(struct doveadm_cmd_context *cctx)
 		i_fatal("close() failed: %m");
 }
 #else
-static void cmd_dump_imapzlib(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
+static void
+cmd_dump_imapzlib(const char *path ATTR_UNUSED,
+		  const char *const *args ATTR_UNUSED)
 {
 	i_fatal("Dovecot compiled without zlib support");
 }

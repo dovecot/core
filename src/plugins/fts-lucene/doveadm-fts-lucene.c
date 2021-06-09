@@ -13,7 +13,8 @@ const char *doveadm_fts_lucene_plugin_version = DOVECOT_ABI_VERSION;
 void doveadm_fts_lucene_plugin_init(struct module *module);
 void doveadm_fts_lucene_plugin_deinit(void);
 
-static void cmd_dump_fts_lucene(int argc ATTR_UNUSED, char *argv[])
+static void
+cmd_dump_fts_lucene(const char *path, const char *const *args ATTR_UNUSED)
 {
 	struct lucene_index *index;
 	struct lucene_index_iter *iter;
@@ -22,7 +23,7 @@ static void cmd_dump_fts_lucene(int argc ATTR_UNUSED, char *argv[])
 	bool first = TRUE;
 
 	i_zero(&prev_guid);
-	index = lucene_index_init(argv[1], NULL, NULL);
+	index = lucene_index_init(path, NULL, NULL);
 	iter = lucene_index_iter_init(index);
 	while ((rec = lucene_index_iter_next(iter)) != NULL) {
 		if (memcmp(prev_guid, rec->mailbox_guid,

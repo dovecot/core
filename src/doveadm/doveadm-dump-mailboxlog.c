@@ -57,13 +57,14 @@ static int dump_record(int fd)
 	return 1;
 }
 
-static void cmd_dump_mailboxlog(int argc ATTR_UNUSED, char *argv[])
+static void
+cmd_dump_mailboxlog(const char *path, const char *const *args ATTR_UNUSED)
 {
 	int fd, ret;
 
-	fd = open(argv[1], O_RDONLY);
+	fd = open(path, O_RDONLY);
 	if (fd < 0)
-		i_fatal("open(%s) failed: %m", argv[1]);
+		i_fatal("open(%s) failed: %m", path);
 
 	do {
 		T_BEGIN {
