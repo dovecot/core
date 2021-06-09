@@ -326,15 +326,14 @@ static void cmd_auth_cache_flush(struct doveadm_cmd_context *cctx)
 {
 	const char *master_socket_path;
 	struct auth_master_connection *conn;
-	const char *const *users;
+	const char *const *users = NULL;
 	unsigned int count;
 
 	if (!doveadm_cmd_param_str(cctx, "socket-path", &master_socket_path)) {
 		master_socket_path = t_strconcat(doveadm_settings->base_dir,
 						 "/auth-master", NULL);
 	}
-	if (!doveadm_cmd_param_array(cctx, "user", &users))
-		auth_cmd_help(cctx);
+	(void)doveadm_cmd_param_array(cctx, "user", &users);
 
 	conn = doveadm_get_auth_master_conn(master_socket_path);
 	if (auth_master_cache_flush(conn, users, &count) < 0) {
