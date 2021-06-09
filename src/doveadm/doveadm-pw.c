@@ -17,14 +17,14 @@
 
 static struct module *modules = NULL;
 
-static void cmd_pw(int argc, char *argv[])
+static void cmd_pw(struct doveadm_cmd_context *cctx)
 {
 	const char *hash = NULL;
 	const char *scheme = NULL;
 	const char *plaintext = NULL;
 	const char *test_hash = NULL;
 	bool list_schemes = FALSE, reverse_verify = FALSE;
-	int c;
+	int64_t rounds_int64;
 	struct module_dir_load_settings mod_set;
 	struct password_generate_params gen_params;
 	i_zero(&gen_params);
@@ -40,36 +40,18 @@ static void cmd_pw(int argc, char *argv[])
 	modules = module_dir_load_missing(modules, AUTH_MODULE_DIR, NULL, &mod_set);
 	module_dir_init(modules);
 
-	while ((c = getopt(argc, argv, "lp:r:s:t:u:V")) > 0) {
-		switch (c) {
-		case 'l':
-			list_schemes = 1;
-			break;
-		case 'p':
-			plaintext = optarg;
-			break;
-		case 'r':
-			if (str_to_uint(optarg, &gen_params.rounds) < 0)
-				i_fatal("Invalid number of rounds: %s", optarg);
-			break;
-		case 's':
-			scheme = optarg;
-			break;
-		case 't':
-			test_hash = optarg;
-			reverse_verify = TRUE;
-			break;
-		case 'u':
-			gen_params.user = optarg;
-			break;
-		case 'V':
-			reverse_verify = TRUE;
-			break;
-		case '?':
-		default:
-			help(&doveadm_cmd_pw);
-		}
+	(void)doveadm_cmd_param_bool(cctx, "list", &list_schemes);
+	(void)doveadm_cmd_param_str(cctx, "plaintext", &plaintext);
+	if (doveadm_cmd_param_int64(cctx, "rounds", &rounds_int64)) {
+		if (rounds_int64 > UINT_MAX)
+			i_fatal("Invalid number of rounds: %"PRId64, rounds_int64);
+		gen_params.rounds = rounds_int64;
 	}
+	(void)doveadm_cmd_param_str(cctx, "scheme", &scheme);
+	if (doveadm_cmd_param_str(cctx, "test-hash", &test_hash))
+		reverse_verify = TRUE;
+	(void)doveadm_cmd_param_str(cctx, "user", &gen_params.user);
+	(void)doveadm_cmd_param_bool(cctx, "reverse-verify", &reverse_verify);
 
 	if (list_schemes) {
 		ARRAY_TYPE(password_scheme_p) arr;
@@ -83,9 +65,6 @@ static void cmd_pw(int argc, char *argv[])
 		printf("\n");
 		lib_exit(0);
 	}
-
-	if (argc != optind)
-		help(&doveadm_cmd_pw);
 
 	scheme = scheme == NULL ? DEFAULT_SCHEME : t_str_ucase(scheme);
 
@@ -138,7 +117,17 @@ static void cmd_pw(int argc, char *argv[])
 	password_schemes_deinit();
 }
 
-struct doveadm_cmd doveadm_cmd_pw = {
-	cmd_pw, "pw",
-	"[-l] [-p plaintext] [-r rounds] [-s scheme] [-t hash] [-u user] [-V]"
+struct doveadm_cmd_ver2 doveadm_cmd_pw = {
+	.name = "pw",
+	.cmd = cmd_pw,
+	.usage = "[-l] [-p plaintext] [-r rounds] [-s scheme] [-t hash] [-u user] [-V]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('l', "list", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('p', "plaintext", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('r', "rounds", CMD_PARAM_INT64, 0)
+DOVEADM_CMD_PARAM('s', "scheme", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('t', "test-hash", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('V', "reverse-verify", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAMS_END
 };
