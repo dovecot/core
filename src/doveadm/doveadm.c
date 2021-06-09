@@ -252,6 +252,10 @@ static struct doveadm_cmd *doveadm_cmdline_commands[] = {
 	&doveadm_cmd_zlibconnect
 };
 
+static struct doveadm_cmd_ver2 *doveadm_cmdline_commands_ver2[] = {
+	&doveadm_cmd_oldstats_top_ver2,
+};
+
 int main(int argc, char *argv[])
 {
 	enum master_service_flags service_flags =
@@ -308,8 +312,9 @@ int main(int argc, char *argv[])
 	doveadm_cmds_init();
 	for (i = 0; i < N_ELEMENTS(doveadm_cmdline_commands); i++)
 		doveadm_register_cmd(doveadm_cmdline_commands[i]);
+	for (i = 0; i < N_ELEMENTS(doveadm_cmdline_commands_ver2); i++)
+		doveadm_cmd_register_ver2(doveadm_cmdline_commands_ver2[i]);
 	doveadm_register_auth_commands();
-	doveadm_cmd_register_ver2(&doveadm_cmd_oldstats_top_ver2);
 
 	if (cmd_name != NULL && (quick_init ||
 				 strcmp(cmd_name, "config") == 0 ||
