@@ -390,7 +390,7 @@ lmtp_proxy_rcpt_destroy(struct smtp_server_recipient *rcpt ATTR_UNUSED,
 	array_free(&lprcpt->redirect_path);
 }
 
-static bool
+static int
 lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_recipient *lprcpt,
 			     struct lmtp_proxy_rcpt_settings *set,
 			     const char *const *args, const char **address)
@@ -419,26 +419,26 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_recipient *lprcpt,
 			if (net_addr2ip(value, &set->hostip) < 0) {
 				e_error(rcpt->event,
 					"proxy: Invalid hostip %s", value);
-				return FALSE;
+				return -1;
 			}
 		} else if (strcmp(key, "source_ip") == 0) {
 			if (net_addr2ip(value, &set->source_ip) < 0) {
 				e_error(rcpt->event,
 					"proxy: Invalid source_ip %s", value);
-				return FALSE;
+				return -1;
 			}
 		} else if (strcmp(key, "port") == 0) {
 			if (net_str2port(value, &set->port) < 0) {
 				e_error(rcpt->event,
 					"proxy: Invalid port number %s", value);
-				return FALSE;
+				return -1;
 			}
 			port_set = TRUE;
 		} else if (strcmp(key, "proxy_timeout") == 0) {
 			if (str_to_uint(value, &set->timeout_msecs) < 0) {
 				e_error(rcpt->event,"proxy: "
 					"Invalid proxy_timeout value %s", value);
-				return FALSE;
+				return -1;
 			}
 			set->timeout_msecs *= 1000;
 		} else if (strcmp(key, "proxy_not_trusted") == 0) {
@@ -457,7 +457,7 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_recipient *lprcpt,
 			} else {
 				e_error(rcpt->event,
 					"proxy: Unknown protocol %s", value);
-				return FALSE;
+				return -1;
 			}
 		} else if (strcmp(key, "ssl") == 0) {
 			set->ssl_flags |= PROXY_SSL_FLAG_YES;
@@ -478,9 +478,9 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_recipient *lprcpt,
 	}
 	if (proxying && set->host == NULL) {
 		e_error(rcpt->event, "proxy: host not given");
-		return FALSE;
+		return -1;
 	}
-	return proxying;
+	return proxying ? 1 : 0;
 }
 
 static void
@@ -736,7 +736,7 @@ lmtp_proxy_rcpt_redirect_relookup(struct lmtp_proxy_recipient *lprcpt,
 		return;
 	}
 
-	if (!lmtp_proxy_rcpt_parse_fields(lprcpt, set, fields, &username)) {
+	if (lmtp_proxy_rcpt_parse_fields(lprcpt, set, fields, &username) <= 0) {
 		smtp_server_recipient_reply(
 			rcpt, 451, "4.3.0",
 			"Redirect lookup yielded invalid result");
@@ -966,7 +966,15 @@ int lmtp_proxy_rcpt(struct client *client,
 	set.protocol = SMTP_PROTOCOL_LMTP;
 	set.timeout_msecs = LMTP_PROXY_DEFAULT_TIMEOUT_MSECS;
 
-	if (!lmtp_proxy_rcpt_parse_fields(lprcpt, &set, fields, &username)) {
+	ret = lmtp_proxy_rcpt_parse_fields(lprcpt, &set, fields, &username);
+	if (ret < 0) {
+		smtp_server_recipient_reply(
+			rcpt, 550, "5.3.5",
+			"Internal user lookup failure");
+		pool_unref(&auth_pool);
+		return -1;
+	}
+	if (ret == 0) {
 		/* Not proxying this user */
 		ret = lmtp_proxy_rcpt_handle_not_proxied(lprcpt, &set, username);
 		pool_unref(&auth_pool);
