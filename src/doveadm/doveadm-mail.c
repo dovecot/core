@@ -1001,29 +1001,31 @@ static int doveadm_cmd_parse_arg(struct doveadm_mail_cmd_context *mctx,
 {
 	const char *short_opt_str =
 		p_strdup_printf(mctx->pool, "-%c", arg->short_opt);
+	const char *arg_value = NULL;
 
 	switch (arg->type) {
 	case CMD_PARAM_BOOL:
-		optarg = NULL;
 		break;
 	case CMD_PARAM_INT64:
-		optarg = (char *)dec2str(arg->value.v_int64);
+		arg_value = dec2str(arg->value.v_int64);
 		break;
 	case CMD_PARAM_IP:
-		optarg = (char *)net_ip2addr(&arg->value.v_ip);
+		arg_value = net_ip2addr(&arg->value.v_ip);
 		break;
 	case CMD_PARAM_STR:
-		optarg = (char *)arg->value.v_string;
+		arg_value = arg->value.v_string;
 		break;
 	default:
 		i_panic("Cannot convert parameter %s to short opt", arg->name);
 	}
+
+	optarg = (char *)arg_value;
 	if (!mctx->v.parse_arg(mctx, arg->short_opt))
 		return -1;
 
 	array_push_back(full_args, &short_opt_str);
-	if (arg->type == CMD_PARAM_STR)
-		array_push_back(full_args, &arg->value.v_string);
+	if (arg_value != NULL)
+		array_push_back(full_args, &arg_value);
 	return 0;
 }
 
