@@ -124,7 +124,6 @@ usage_to(FILE *out, const char *prefix)
 	array_foreach(&doveadm_cmds_ver2, cmd2)
 		str_printfa(str, "%s\t%s\n", cmd2->name, cmd2->usage);
 
-	doveadm_mail_usage(str);
 	doveadm_usage_compress_lines(out, str_c(str), prefix);
 
 	lib_exit(EX_USAGE);
@@ -237,7 +236,7 @@ static bool doveadm_has_subcommands(const char *cmd_name)
 		    cmd2->name[len] == ' ')
 			return TRUE;
 	}
-	return doveadm_mail_has_subcommands(cmd_name);
+	return FALSE;
 }
 
 static struct doveadm_cmd_ver2 *doveadm_cmdline_commands_ver2[] = {
@@ -360,8 +359,7 @@ int main(int argc, char *argv[])
 	   the env pointer */
 	cctx.username = getenv("USER");
 
-	if (!doveadm_cmd_try_run_ver2(cmd_name, argc, (const char**)argv, &cctx) &&
-	    !doveadm_mail_try_run(cmd_name, argc, argv)) {
+	if (!doveadm_cmd_try_run_ver2(cmd_name, argc, (const char**)argv, &cctx)) {
 		if (doveadm_has_subcommands(cmd_name))
 			usage_to(stdout, cmd_name);
 		if (doveadm_has_unloaded_plugin(cmd_name)) {

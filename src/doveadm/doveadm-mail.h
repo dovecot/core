@@ -105,9 +105,7 @@ struct doveadm_mail_cmd {
 	const char *name;
 	const char *usage_args;
 };
-ARRAY_DEFINE_TYPE(doveadm_mail_cmd, struct doveadm_mail_cmd);
 
-extern ARRAY_TYPE(doveadm_mail_cmd) doveadm_mail_cmds;
 extern void (*hook_doveadm_mail_init)(struct doveadm_mail_cmd_context *ctx);
 extern struct doveadm_mail_cmd_module_register doveadm_mail_cmd_module_register;
 extern char doveadm_mail_cmd_hide;
@@ -115,23 +113,14 @@ extern char doveadm_mail_cmd_hide;
 bool doveadm_is_killed(void);
 int doveadm_killed_signo(void);
 
-bool doveadm_mail_try_run(const char *cmd_name, int argc, char *argv[]);
-void doveadm_mail_register_cmd(const struct doveadm_mail_cmd *cmd);
-const struct doveadm_mail_cmd *doveadm_mail_cmd_find(const char *cmd_name);
-
-void doveadm_mail_usage(string_t *out);
 void doveadm_mail_help(const struct doveadm_mail_cmd *cmd) ATTR_NORETURN;
 void doveadm_mail_help_name(const char *cmd_name) ATTR_NORETURN;
 void doveadm_mail_try_help_name(const char *cmd_name);
-bool doveadm_mail_has_subcommands(const char *cmd_name);
 
 void doveadm_mail_init(void);
 void doveadm_mail_init_finish(void);
 void doveadm_mail_deinit(void);
 
-const struct doveadm_mail_cmd *
-doveadm_mail_cmd_find_from_argv(const char *cmd_name, int *argc,
-				const char *const **argv);
 struct doveadm_mail_cmd_context *
 doveadm_mail_cmd_init(const struct doveadm_mail_cmd *cmd,
 		      const struct doveadm_settings *set);

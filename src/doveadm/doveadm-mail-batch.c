@@ -60,20 +60,15 @@ cmd_batch_add(struct batch_cmd_context *batchctx,
 	int c;
 
 	cmd_ver2 = doveadm_cmd_find_with_args_ver2(argv[0], &argc, &argv);
-
 	if (cmd_ver2 == NULL)
-		cmd = doveadm_mail_cmd_find_from_argv(argv[0], &argc, &argv);
-	else {
-		struct doveadm_mail_cmd *dyncmd =
-			p_new(batchctx->ctx.pool, struct doveadm_mail_cmd, 1);
-		dyncmd->usage_args = cmd_ver2->usage;
-		dyncmd->name = cmd_ver2->name;
-		dyncmd->alloc = cmd_ver2->mail_cmd;
-		cmd = dyncmd;
-	}
-
-	if (cmd == NULL)
 		i_fatal_status(EX_USAGE, "doveadm batch: '%s' mail command doesn't exist", argv[0]);
+
+	struct doveadm_mail_cmd *dyncmd =
+		p_new(batchctx->ctx.pool, struct doveadm_mail_cmd, 1);
+	dyncmd->usage_args = cmd_ver2->usage;
+	dyncmd->name = cmd_ver2->name;
+	dyncmd->alloc = cmd_ver2->mail_cmd;
+	cmd = dyncmd;
 
 	subctx = doveadm_mail_cmd_init(cmd, doveadm_settings);
 	subctx->full_args = argv + 1;
