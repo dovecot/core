@@ -995,6 +995,38 @@ void doveadm_mail_deinit(void)
 	array_free(&doveadm_mail_cmds);
 }
 
+static int doveadm_cmd_parse_arg(struct doveadm_mail_cmd_context *mctx,
+				 const struct doveadm_cmd_param *arg,
+				 ARRAY_TYPE(const_string) *full_args)
+{
+	const char *short_opt_str =
+		p_strdup_printf(mctx->pool, "-%c", arg->short_opt);
+
+	switch (arg->type) {
+	case CMD_PARAM_BOOL:
+		optarg = NULL;
+		break;
+	case CMD_PARAM_INT64:
+		optarg = (char *)dec2str(arg->value.v_int64);
+		break;
+	case CMD_PARAM_IP:
+		optarg = (char *)net_ip2addr(&arg->value.v_ip);
+		break;
+	case CMD_PARAM_STR:
+		optarg = (char *)arg->value.v_string;
+		break;
+	default:
+		i_panic("Cannot convert parameter %s to short opt", arg->name);
+	}
+	if (!mctx->v.parse_arg(mctx, arg->short_opt))
+		return -1;
+
+	array_push_back(full_args, &short_opt_str);
+	if (arg->type == CMD_PARAM_STR)
+		array_push_back(full_args, &arg->value.v_string);
+	return 0;
+}
+
 void
 doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 {
@@ -1093,37 +1125,11 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 		/* Keep all named special parameters above this line */
 
 		} else if (mctx->v.parse_arg != NULL && arg->short_opt != '\0') {
-			const char *short_opt_str = p_strdup_printf(
-				mctx->pool, "-%c", arg->short_opt);
-
-			switch(arg->type) {
-			case CMD_PARAM_BOOL:
-				optarg = NULL;
-				break;
-			case CMD_PARAM_INT64:
-				optarg = (char*)dec2str(arg->value.v_int64);
-				break;
-			case CMD_PARAM_IP:
-				optarg = (char*)net_ip2addr(&arg->value.v_ip);
-				break;
-			case CMD_PARAM_STR:
-				optarg = (char*)arg->value.v_string;
-				break;
-			default:
-				i_panic("Cannot convert parameter %s to short opt",
-					arg->name);
-			}
-			if (!mctx->v.parse_arg(mctx, arg->short_opt)) {
+			if (doveadm_cmd_parse_arg(mctx, arg, &full_args) < 0) {
 				i_error("Invalid parameter %c", arg->short_opt);
 				doveadm_mail_cmd_free(mctx);
 				doveadm_exit_code = EX_USAGE;
-				return;
 			}
-
-			array_push_back(&full_args, &short_opt_str);
-			if (arg->type == CMD_PARAM_STR)
-				array_push_back(&full_args,
-						&arg->value.v_string);
 		} else if ((arg->flags & CMD_PARAM_FLAG_POSITIONAL) != 0) {
 			/* feed this into pargv */
 			if (arg->type == CMD_PARAM_ARRAY)
