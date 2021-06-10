@@ -173,6 +173,14 @@ static struct doveadm_mail_cmd_context *cmd_batch_alloc(void)
 	return &ctx->ctx;
 }
 
-struct doveadm_mail_cmd cmd_batch = {
-	cmd_batch_alloc, "batch", "<sep> <cmd1> [<sep> <cmd2> [..]]"
+struct doveadm_cmd_ver2 doveadm_cmd_batch = {
+	.name = "batch",
+	.mail_cmd = cmd_batch_alloc,
+	.usage = "<sep> <cmd1> [<sep> <cmd2> [..]]",
+	.flags = CMD_FLAG_NO_UNORDERED_OPTIONS,
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "separator", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "args", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };

@@ -915,13 +915,13 @@ DOVEADM_CMD_PARAMS_END
 
 
 static struct doveadm_mail_cmd *mail_commands[] = {
-	&cmd_batch,
 	&cmd_dsync_backup,
 	&cmd_dsync_mirror,
 	&cmd_dsync_server
 };
 
 static struct doveadm_cmd_ver2 *mail_commands_ver2[] = {
+	&doveadm_cmd_batch,
 	&doveadm_cmd_mailbox_metadata_set_ver2,
 	&doveadm_cmd_mailbox_metadata_unset_ver2,
 	&doveadm_cmd_mailbox_metadata_get_ver2,

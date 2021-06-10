@@ -170,8 +170,7 @@ void doveadm_mail_failed_mailbox(struct doveadm_mail_cmd_context *ctx,
 void doveadm_mail_failed_list(struct doveadm_mail_cmd_context *ctx,
 			      struct mailbox_list *list);
 
-extern struct doveadm_mail_cmd cmd_batch;
-
+extern struct doveadm_cmd_ver2 doveadm_cmd_batch;
 extern struct doveadm_cmd_ver2 doveadm_cmd_mailbox_metadata_set_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_mailbox_metadata_unset_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_mailbox_metadata_get_ver2;
