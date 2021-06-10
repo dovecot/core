@@ -1015,6 +1015,18 @@ static int doveadm_cmd_parse_arg(struct doveadm_mail_cmd_context *mctx,
 	case CMD_PARAM_STR:
 		arg_value = arg->value.v_string;
 		break;
+	case CMD_PARAM_ARRAY: {
+		const char *str;
+
+		array_foreach_elem(&arg->value.v_array, str) {
+			optarg = (char *)str;
+			if (!mctx->v.parse_arg(mctx, arg->short_opt))
+				return -1;
+			array_push_back(full_args, &short_opt_str);
+			array_push_back(full_args, &str);
+		}
+		return 0;
+	}
 	default:
 		i_panic("Cannot convert parameter %s to short opt", arg->name);
 	}
