@@ -522,6 +522,8 @@ doveadm_cmd_process_options(int argc, const char *const argv[],
 	p_array_init(&opts, pool, 4);
 
 	// build parameters
+	if ((cctx->cmd->flags & CMD_FLAG_NO_UNORDERED_OPTIONS) != 0)
+		str_append_c(optbuf, '+');
 	doveadm_build_options(cctx->cmd->parameters, optbuf, &opts);
 
 	unsigned int pargc;

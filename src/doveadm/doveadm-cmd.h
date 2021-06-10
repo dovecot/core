@@ -34,6 +34,10 @@ typedef enum {
 	CMD_FLAG_NO_PRINT		= 0x2,
 	/* Don't parse any -options for the command. */
 	CMD_FLAG_NO_OPTIONS		= 0x4,
+	/* Prevent GNU getopt() from finding options after the first
+	   non-option is seen (e.g. "-1 arg -2" would parse -1 but not -2
+	   as option). */
+	CMD_FLAG_NO_UNORDERED_OPTIONS	= 0x8,
 } doveadm_cmd_flag_t;
 
 struct doveadm_cmd_param {
