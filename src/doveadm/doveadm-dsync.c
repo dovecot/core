@@ -219,11 +219,16 @@ mirror_get_remote_cmd_line(const char *const *argv,
 	if (legacy_dsync) {
 		/* we're executing dsync */
 		p = "server";
+	} else if (i > 0 && strcmp(argv[i-1], "dsync-server") == 0) {
+		/* Caller already specified dsync-server in parameters.
+		   This is a common misconfiguration, so just allow it. */
+		p = NULL;
 	} else {
 		/* we're executing doveadm */
 		p = "dsync-server";
 	}
-	array_push_back(&cmd_args, &p);
+	if (p != NULL)
+		array_push_back(&cmd_args, &p);
 	array_append_zero(&cmd_args);
 	*cmd_args_r = array_front(&cmd_args);
 }
@@ -1298,16 +1303,56 @@ static struct doveadm_mail_cmd_context *cmd_dsync_server_alloc(void)
 	return &ctx->ctx;
 }
 
-struct doveadm_mail_cmd cmd_dsync_mirror = {
-	cmd_dsync_alloc, "sync",
-	"[-1fPRU] [-l <secs>] [-r <rawlog path>] [-m <mailbox>] [-g <mailbox_guid>] [-n <namespace> | -N] [-x <exclude>] [-s <state>] [-t <start date>] -d|<dest>"
+#define DSYNC_COMMON_PARAMS \
+DOVEADM_CMD_MAIL_COMMON \
+DOVEADM_CMD_PARAM('f', "full-sync", CMD_PARAM_BOOL, 0) \
+DOVEADM_CMD_PARAM('P', "purge-remote", CMD_PARAM_BOOL, 0) \
+DOVEADM_CMD_PARAM('R', "reverse-sync", CMD_PARAM_BOOL, 0) \
+DOVEADM_CMD_PARAM('U', "replicator-notify", CMD_PARAM_BOOL, 0) \
+DOVEADM_CMD_PARAM('l', "lock-timeout", CMD_PARAM_INT64, 0) \
+DOVEADM_CMD_PARAM('r', "rawlog", CMD_PARAM_STR, 0) \
+DOVEADM_CMD_PARAM('m', "mailbox", CMD_PARAM_STR, 0) \
+DOVEADM_CMD_PARAM('g', "mailbox-guid", CMD_PARAM_STR, 0) \
+DOVEADM_CMD_PARAM('n', "namespace", CMD_PARAM_ARRAY, 0) \
+DOVEADM_CMD_PARAM('N', "all-namespaces", CMD_PARAM_BOOL, 0) \
+DOVEADM_CMD_PARAM('x', "exclude-mailbox", CMD_PARAM_ARRAY, 0) \
+DOVEADM_CMD_PARAM('s', "state", CMD_PARAM_STR, 0) \
+DOVEADM_CMD_PARAM('t', "sync-since-time", CMD_PARAM_STR, 0) \
+DOVEADM_CMD_PARAM('d', "default-destination", CMD_PARAM_BOOL, 0) \
+DOVEADM_CMD_PARAM('\0', "destination", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+
+struct doveadm_cmd_ver2 doveadm_cmd_dsync_mirror = {
+	.mail_cmd = cmd_dsync_alloc,
+	.name = "sync",
+	.usage = "[-1fPRU] [-l <secs>] [-r <rawlog path>] [-m <mailbox>] [-g <mailbox_guid>] [-n <namespace> | -N] [-x <exclude>] [-s <state>] [-t <start date>] -d|<dest>",
+	.flags = CMD_FLAG_NO_UNORDERED_OPTIONS,
+DOVEADM_CMD_PARAMS_START
+DSYNC_COMMON_PARAMS
+DOVEADM_CMD_PARAM('1', "oneway-sync", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAMS_END
 };
-struct doveadm_mail_cmd cmd_dsync_backup = {
-	cmd_dsync_backup_alloc, "backup",
-	"[-fPRU] [-l <secs>] [-r <rawlog path>] [-m <mailbox>] [-g <mailbox_guid>] [-n <namespace> | -N] [-x <exclude>] [-s <state>] [-t <start date>] -d|<dest>"
+struct doveadm_cmd_ver2 doveadm_cmd_dsync_backup = {
+	.mail_cmd = cmd_dsync_backup_alloc,
+	.name = "backup",
+	.usage = "[-fPRU] [-l <secs>] [-r <rawlog path>] [-m <mailbox>] [-g <mailbox_guid>] [-n <namespace> | -N] [-x <exclude>] [-s <state>] [-t <start date>] -d|<dest>",
+	.flags = CMD_FLAG_NO_UNORDERED_OPTIONS,
+DOVEADM_CMD_PARAMS_START
+DSYNC_COMMON_PARAMS
+DOVEADM_CMD_PARAMS_END
 };
-struct doveadm_mail_cmd cmd_dsync_server = {
-	cmd_dsync_server_alloc, "dsync-server", &doveadm_mail_cmd_hide
+struct doveadm_cmd_ver2 doveadm_cmd_dsync_server = {
+	.mail_cmd = cmd_dsync_server_alloc,
+	.name = "dsync-server",
+	.usage = "[-E] [-r <rawlog path>] [-T <timeout secs>] [-U]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('E', "legacy-dsync", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('r', "rawlog", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('T', "timeout", CMD_PARAM_INT64, 0)
+DOVEADM_CMD_PARAM('U', "replicator-notify", CMD_PARAM_BOOL, 0)
+/* previously dsync-server could have been added twice to the parameters */
+DOVEADM_CMD_PARAM('\0', "ignore-arg", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };
 
 void doveadm_dsync_main(int *_argc, char **_argv[])
