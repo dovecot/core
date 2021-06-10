@@ -358,7 +358,7 @@ int main(int argc, char *argv[])
 	   the env pointer */
 	cctx.username = getenv("USER");
 
-	if (!doveadm_cmd_try_run_ver2(cmd_name, argc, (const char**)argv, &cctx)) {
+	if (!doveadm_cmdline_try_run(cmd_name, argc, (const char**)argv, &cctx)) {
 		if (doveadm_has_subcommands(cmd_name))
 			usage_prefix(cmd_name);
 		if (doveadm_has_unloaded_plugin(cmd_name)) {

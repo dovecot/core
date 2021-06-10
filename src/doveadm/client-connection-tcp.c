@@ -184,7 +184,7 @@ doveadm_cmd_server_run_ver2(struct client_connection_tcp *conn,
 			    struct doveadm_cmd_context *cctx)
 {
 	i_getopt_reset();
-	if (doveadm_cmd_run_ver2(argc, argv, cctx) < 0)
+	if (doveadm_cmdline_run(argc, argv, cctx) < 0)
 		doveadm_exit_code = EX_USAGE;
 	doveadm_cmd_server_post(conn, cctx->cmd->name);
 }
@@ -197,7 +197,7 @@ static int doveadm_cmd_handle(struct client_connection_tcp *conn,
 	struct ioloop *prev_ioloop = current_ioloop;
 	const struct doveadm_cmd_ver2 *cmd_ver2;
 
-	if ((cmd_ver2 = doveadm_cmd_find_with_args_ver2(cmd_name, &argc, &argv)) == NULL) {
+	if ((cmd_ver2 = doveadm_cmdline_find_with_args(cmd_name, &argc, &argv)) == NULL) {
 		i_error("doveadm: Client sent unknown command: %s", cmd_name);
 		return -1;
 	}

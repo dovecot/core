@@ -91,8 +91,8 @@ const struct doveadm_cmd_ver2 *doveadm_cmd_find_ver2(const char *cmd_name)
 }
 
 const struct doveadm_cmd_ver2 *
-doveadm_cmd_find_with_args_ver2(const char *cmd_name, int *argc,
-				const char *const *argv[])
+doveadm_cmdline_find_with_args(const char *cmd_name, int *argc,
+			       const char *const *argv[])
 {
 	int i, k;
 	const struct doveadm_cmd_ver2 *cmd;
@@ -349,18 +349,18 @@ doveadm_fill_param(struct doveadm_cmd_param *param,
 	}
 }
 
-bool doveadm_cmd_try_run_ver2(const char *cmd_name,
-			      int argc, const char *const argv[],
-			      struct doveadm_cmd_context *cctx)
+bool doveadm_cmdline_try_run(const char *cmd_name,
+			     int argc, const char *const argv[],
+			     struct doveadm_cmd_context *cctx)
 {
 	const struct doveadm_cmd_ver2 *cmd;
 
-	cmd = doveadm_cmd_find_with_args_ver2(cmd_name, &argc, &argv);
+	cmd = doveadm_cmdline_find_with_args(cmd_name, &argc, &argv);
 	if (cmd == NULL)
 		return FALSE;
 
 	cctx->cmd = cmd;
-	if (doveadm_cmd_run_ver2(argc, argv, cctx) < 0)
+	if (doveadm_cmdline_run(argc, argv, cctx) < 0)
 		doveadm_exit_code = EX_USAGE;
 	return TRUE;
 }
@@ -426,8 +426,8 @@ doveadm_cmd_process_options(int argc, const char *const argv[],
 	return 0;
 }
 
-int doveadm_cmd_run_ver2(int argc, const char *const argv[],
-			 struct doveadm_cmd_context *cctx)
+int doveadm_cmdline_run(int argc, const char *const argv[],
+			struct doveadm_cmd_context *cctx)
 {
 	ARRAY_TYPE(doveadm_cmd_param_arr_t) pargv;
 	unsigned int pargc;
