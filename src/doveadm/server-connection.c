@@ -29,6 +29,9 @@
 
 #define MAX_INBUF_SIZE (1024*32)
 
+#define DOVEADM_PROTO_MINOR_MIN_MULTIPLEX 1
+#define DOVEADM_PROTO_MINOR_MIN_STARTTLS 2
+
 enum server_reply_state {
 	SERVER_REPLY_STATE_DONE = 0,
 	SERVER_REPLY_STATE_PRINT,
@@ -379,7 +382,7 @@ static void server_connection_input(struct server_connection *conn)
 			}
 			conn->version_received = TRUE;
 		} else if (strcmp(line, "+") == 0) {
-			if (conn->minor > 0)
+			if (conn->minor >= DOVEADM_PROTO_MINOR_MIN_MULTIPLEX)
 				server_connection_start_multiplex(conn);
 			server_connection_authenticated(conn);
 		} else if (strcmp(line, "-") == 0) {
@@ -392,7 +395,7 @@ static void server_connection_input(struct server_connection *conn)
 			if (!conn->ssl_done &&
 			    (conn->server->ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) != 0) {
 				io_remove(&conn->io);
-				if (conn->minor < 2) {
+				if (conn->minor < DOVEADM_PROTO_MINOR_MIN_STARTTLS) {
 					i_error("doveadm STARTTLS failed: Server does not support it");
 					server_connection_destroy(&conn);
 					return;
