@@ -36,8 +36,7 @@ static bool internal_failure = FALSE;
 static void doveadm_mail_server_handle(struct server_connection *conn,
 				       const char *username);
 
-static struct doveadm_server *
-doveadm_server_get(struct doveadm_mail_cmd_context *ctx, const char *name)
+static struct doveadm_server *doveadm_server_get(const char *name)
 {
 	struct doveadm_server *server;
 	const char *p;
@@ -56,7 +55,7 @@ doveadm_server_get(struct doveadm_mail_cmd_context *ctx, const char *name)
 			p_strdup_until(server_pool, server->name, p);
 
 		p_array_init(&server->connections, server_pool,
-			     ctx->set->doveadm_worker_count);
+			     doveadm_settings->doveadm_worker_count);
 		p_array_init(&server->queue, server_pool,
 			     DOVEADM_SERVER_QUEUE_MAX);
 		hash_table_insert(servers, dup_name, server);
@@ -326,7 +325,7 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	   so undo any sticks we might have added already */
 	doveadm_print_unstick_headers();
 
-	server = doveadm_server_get(ctx, host);
+	server = doveadm_server_get(host);
 	server->ip = hostip;
 	server->ssl_flags = ssl_flags;
 	server->port = port;
