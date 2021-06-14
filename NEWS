@@ -1,8 +1,11 @@
-v2.3.15 2021-05-27  Aki Tuomi <aki.tuomi@open-xchange.com>
+v2.3.15 2021-06-21  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* CVE-2021-29157: Dovecot does not correctly escape kid and azp fields in
 	  JWT tokens. This may be used to supply attacker controlled keys to
 	  validate tokens, if attacker has local access.
+	* CVE-2021-33515: On-path attacker could have injected plaintext commands
+	  before STARTTLS negotiation that would be executed after STARTTLS
+	  finished with the client.
 	* Disconnection log messages are now more standardized across services.
 	  They also always now start with "Disconnected" prefix.
 	* Dovecot now depends on libsystemd for systemd integration.
@@ -65,6 +68,8 @@ v2.3.15 2021-05-27  Aki Tuomi <aki.tuomi@open-xchange.com>
 	- fts-tika: v2.3.11 regression: Indexing messages with fts-tika may have
 	  resulted in Panic: file message-parser.c: line 802 (message_parser_deinit_from_parts):
 	  assertion failed: (ctx->nested_parts_count == 0 || i_stream_have_bytes_left(ctx->input))
+	- imap: SETMETADATA could not be used to unset metadata values.
+	  Instead NIL was handled as a "NIL" string. v2.3.14 regression.
 	- imap: IMAP BINARY FETCH crashes at least on empty base64 body:
 	  Panic: file index-mail-binary.c: line 358 (blocks_count_lines):
 	  assertion failed: (block_count == 0 || block_idx+1 == block_count)
