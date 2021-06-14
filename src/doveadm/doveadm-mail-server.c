@@ -25,9 +25,18 @@
 #define DOVEADM_MAIL_SERVER_FAILED() \
 	(internal_failure || master_service_is_killed(master_service))
 
+struct doveadm_proxy_redirect {
+	struct ip_addr ip;
+	in_port_t port;
+};
+
 struct doveadm_mail_server_cmd {
 	struct server_connection *conn;
 	char *username;
+
+	int proxy_ttl;
+	ARRAY(struct doveadm_proxy_redirect) redirect_path;
+
 	char *cmdline;
 	struct istream *input;
 };
@@ -101,9 +110,33 @@ static void doveadm_mail_server_cmd_free(struct doveadm_mail_server_cmd **_cmd)
 		return;
 
 	i_stream_unref(&cmd->input);
+	array_free(&cmd->redirect_path);
 	i_free(cmd->cmdline);
 	i_free(cmd->username);
 	i_free(cmd);
+}
+
+static bool
+doveadm_proxy_cmd_have_connected(struct doveadm_mail_server_cmd *servercmd,
+				 const struct ip_addr *ip, in_port_t port)
+{
+	const struct doveadm_proxy_redirect *redirect;
+	struct ip_addr conn_ip;
+	in_port_t conn_port;
+
+	server_connection_get_dest(servercmd->conn, &conn_ip, &conn_port);
+	i_assert(conn_ip.family != 0);
+
+	if (net_ip_compare(&conn_ip, ip) && conn_port == port)
+		return TRUE;
+	if (!array_is_created(&servercmd->redirect_path))
+		return FALSE;
+
+	array_foreach(&servercmd->redirect_path, redirect) {
+		if (net_ip_compare(&redirect->ip, ip) && redirect->port == port)
+			return TRUE;
+	}
+	return FALSE;
 }
 
 static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
@@ -111,6 +144,7 @@ static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
 {
 	struct doveadm_server *orig_server, *new_server;
 	struct server_connection *conn;
+	struct doveadm_proxy_redirect *redirect;
 	struct ip_addr ip;
 	in_port_t port;
 	const char *destuser, *host, *error;
@@ -122,6 +156,23 @@ static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
 			orig_server->name, destination);
 		return -1;
 	}
+
+	if (doveadm_proxy_cmd_have_connected(servercmd, &ip,
+					     orig_server->port)) {
+		i_error("%s: Proxying loops - already connected to %s:%u",
+			orig_server->name, net_ip2addr(&ip), orig_server->port);
+		return -1;
+	}
+
+	i_assert(servercmd->proxy_ttl > 0);
+	servercmd->proxy_ttl--;
+
+	/* Add current ip/port to redirect path */
+	if (!array_is_created(&servercmd->redirect_path))
+		i_array_init(&servercmd->redirect_path, 2);
+	redirect = array_append_space(&servercmd->redirect_path);
+	redirect->ip = ip;
+	redirect->port = orig_server->port;
 
 	new_server = doveadm_server_get(destination);
 	new_server->ip = ip;
@@ -140,7 +191,8 @@ static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
 	servercmd->conn = conn;
 	if (servercmd->input != NULL)
 		i_stream_seek(servercmd->input, 0);
-	server_connection_cmd(conn, servercmd->cmdline, servercmd->input,
+	server_connection_cmd(conn, servercmd->proxy_ttl,
+			      servercmd->cmdline, servercmd->input,
 			      doveadm_cmd_callback, servercmd);
 	return 0;
 }
@@ -226,11 +278,13 @@ static void doveadm_mail_server_handle(struct server_connection *conn,
 	servercmd = i_new(struct doveadm_mail_server_cmd, 1);
 	servercmd->conn = conn;
 	servercmd->username = i_strdup(username);
+	servercmd->proxy_ttl = cmd_ctx->proxy_ttl;
 	servercmd->cmdline = i_strdup(str_c(cmd));
 	servercmd->input = cmd_ctx->cmd_input;
 	if (servercmd->input != NULL)
 		i_stream_ref(servercmd->input);
-	server_connection_cmd(conn, str_c(cmd), cmd_ctx->cmd_input,
+	server_connection_cmd(conn, cmd_ctx->proxy_ttl,
+			      str_c(cmd), cmd_ctx->cmd_input,
 			      doveadm_cmd_callback, servercmd);
 }
 
@@ -402,6 +456,10 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	    (ctx->set->doveadm_worker_count == 0 || doveadm_server)) {
 		/* run it ourself */
 		return 0;
+	}
+	if (ctx->proxy_ttl <= 1) {
+		*error_r = "TTL reached zero - proxies appear to be looping?";
+		return -1;
 	}
 	if (referral != NULL) {
 		ctx->cctx->referral = referral;

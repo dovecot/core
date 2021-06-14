@@ -31,6 +31,7 @@
 
 #define DOVEADM_PROTO_MINOR_MIN_MULTIPLEX 1
 #define DOVEADM_PROTO_MINOR_MIN_STARTTLS 2
+#define DOVEADM_PROTO_MINOR_MIN_PROXY_TTL 3
 
 enum server_reply_state {
 	SERVER_REPLY_STATE_DONE = 0,
@@ -57,6 +58,7 @@ struct server_connection {
 	struct istream *cmd_input;
 	struct ostream *cmd_output;
 	const char *delayed_cmd;
+	int delayed_cmd_proxy_ttl;
 	server_cmd_callback_t *callback;
 	void *context;
 
@@ -267,11 +269,44 @@ server_handle_input(struct server_connection *conn,
 	i_stream_skip(conn->input, size);
 }
 
+static void
+server_connection_send_cmd(struct server_connection *conn,
+			   const char *cmdline, int proxy_ttl)
+{
+	i_assert(conn->authenticated);
+	i_assert(proxy_ttl >= 1);
+
+	if (conn->minor < DOVEADM_PROTO_MINOR_MIN_PROXY_TTL) {
+		o_stream_nsend_str(conn->output, cmdline);
+		return;
+	}
+
+	/* <flags> <username> <command> [<args>] -
+	   Insert --proxy-ttl as the first arg. */
+	const char *p = strchr(cmdline, '\t');
+	i_assert(p != NULL);
+	p = strchr(p+1, '\t');
+	i_assert(p != NULL);
+	p = strchr(p+1, '\t');
+	i_assert(p != NULL);
+	size_t prefix_len = p - cmdline;
+
+	const char *proxy_ttl_str = t_strdup_printf(
+		"\t--proxy-ttl\t%d", proxy_ttl);
+	struct const_iovec iov[] = {
+		{ cmdline, prefix_len },
+		{ proxy_ttl_str, strlen(proxy_ttl_str) },
+		{ cmdline + prefix_len, strlen(cmdline + prefix_len) },
+	};
+	o_stream_nsendv(conn->output, iov, N_ELEMENTS(iov));
+}
+
 static void server_connection_authenticated(struct server_connection *conn)
 {
 	conn->authenticated = TRUE;
 	if (conn->delayed_cmd != NULL) {
-		o_stream_nsend_str(conn->output, conn->delayed_cmd);
+		server_connection_send_cmd(conn, conn->delayed_cmd,
+					   conn->delayed_cmd_proxy_ttl);
 		conn->delayed_cmd = NULL;
 		server_connection_send_cmd_input(conn);
 	}
@@ -680,11 +715,21 @@ server_connection_get_server(struct server_connection *conn)
 	return conn->server;
 }
 
-void server_connection_cmd(struct server_connection *conn, const char *line,
-			   struct istream *cmd_input,
+void server_connection_get_dest(struct server_connection *conn,
+				struct ip_addr *ip_r, in_port_t *port_r)
+{
+	if (net_getpeername(conn->fd, ip_r, port_r) < 0) {
+		i_zero(ip_r);
+		*port_r = 0;
+	}
+}
+
+void server_connection_cmd(struct server_connection *conn, int proxy_ttl,
+			   const char *line, struct istream *cmd_input,
 			   server_cmd_callback_t *callback, void *context)
 {
 	i_assert(conn->delayed_cmd == NULL);
+	i_assert(proxy_ttl >= 1);
 
 	conn->state = SERVER_REPLY_STATE_PRINT;
 	if (cmd_input != NULL) {
@@ -692,10 +737,11 @@ void server_connection_cmd(struct server_connection *conn, const char *line,
 		i_stream_ref(cmd_input);
 		conn->cmd_input = cmd_input;
 	}
-	if (!conn->authenticated)
+	if (!conn->authenticated) {
+		conn->delayed_cmd_proxy_ttl = proxy_ttl;
 		conn->delayed_cmd = p_strdup(conn->pool, line);
-	else {
-		o_stream_nsend_str(conn->output, line);
+	} else {
+		server_connection_send_cmd(conn, line, proxy_ttl);
 		server_connection_send_cmd_input(conn);
 	}
 	conn->callback = callback;

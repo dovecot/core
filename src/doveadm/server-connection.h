@@ -24,8 +24,11 @@ void server_connection_destroy(struct server_connection **conn);
 struct doveadm_server *
 server_connection_get_server(struct server_connection *conn);
 
-void server_connection_cmd(struct server_connection *conn, const char *line,
-			   struct istream *cmd_input,
+void server_connection_get_dest(struct server_connection *conn,
+				struct ip_addr *ip_r, in_port_t *port_r);
+
+void server_connection_cmd(struct server_connection *conn, int proxy_ttl,
+			   const char *line, struct istream *cmd_input,
 			   server_cmd_callback_t *callback, void *context);
 /* Returns TRUE if no command is being processed */
 bool server_connection_is_idle(struct server_connection *conn);

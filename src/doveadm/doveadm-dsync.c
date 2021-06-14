@@ -883,7 +883,8 @@ static void dsync_server_run_command(struct dsync_cmd_context *ctx,
 	str_append_c(cmd, '\n');
 
 	ctx->tcp_conn = conn;
-	server_connection_cmd(conn, str_c(cmd), NULL,
+	/* dsync command can't be proxied currently, so use TTL 1 */
+	server_connection_cmd(conn, 1, str_c(cmd), NULL,
 			      dsync_connected_callback, ctx);
 	io_loop_run(current_ioloop);
 	ctx->tcp_conn = NULL;

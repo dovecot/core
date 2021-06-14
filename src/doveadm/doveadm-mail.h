@@ -77,6 +77,7 @@ struct doveadm_mail_cmd_context {
 	/* search args aren't set for all mail commands */
 	struct mail_search_args *search_args;
 	struct istream *users_list_input;
+	int proxy_ttl;
 
 	struct mail_storage_service_user *cur_service_user;
 	struct mail_user *cur_mail_user;
@@ -198,7 +199,8 @@ DOVEADM_CMD_PARAM('A', "all-users", CMD_PARAM_BOOL, 0) \
 DOVEADM_CMD_PARAM('S', "socket-path", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('\0', "trans-flags", CMD_PARAM_INT64, 0) \
-DOVEADM_CMD_PARAM('F', "user-file", CMD_PARAM_ISTREAM, 0)
+DOVEADM_CMD_PARAM('F', "user-file", CMD_PARAM_ISTREAM, 0) \
+DOVEADM_CMD_PARAM('\0', "proxy-ttl", CMD_PARAM_INT64, 0)
 
 #define DOVEADM_CMD_MAIL_USAGE_PREFIX \
 	"[-u <user>|-A] [-S <socket_path>] "

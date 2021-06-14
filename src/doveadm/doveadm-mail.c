@@ -30,6 +30,8 @@
 
 #include <stdio.h>
 
+/* See LOGIN_PROXY_TTL */
+#define DOVEADM_PROXY_TTL 5
 #define DOVEADM_MAIL_CMD_INPUT_TIMEOUT_MSECS (5*60*1000)
 
 struct force_resync_cmd_context {
@@ -602,6 +604,7 @@ doveadm_mail_cmd_init(const struct doveadm_mail_cmd *cmd,
 	ctx = cmd->alloc();
 	ctx->set = set;
 	ctx->cmd = cmd;
+	ctx->proxy_ttl = DOVEADM_PROXY_TTL;
 	if (ctx->v.init == NULL)
 		ctx->v.init = doveadm_mail_cmd_init_noop;
 	if (ctx->v.get_next_user == NULL)
@@ -950,6 +953,9 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 			/* This parameter allows to set additional
 			 * mailbox transaction flags. */
 			mctx->transaction_flags = arg->value.v_int64;
+		} else if (strcmp(arg->name, "proxy-ttl") == 0) {
+			/* if this becomes <= 1, stop attempting to proxy */
+			mctx->proxy_ttl = arg->value.v_int64;
 
 		/* Keep all named special parameters above this line */
 
