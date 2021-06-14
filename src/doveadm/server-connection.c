@@ -182,12 +182,14 @@ static int server_connection_output(struct server_connection *conn)
 
 static void
 server_connection_callback(struct server_connection *conn,
-			   int exit_code, const char *error)
+			   const struct doveadm_server_reply *reply)
 {
 	server_cmd_callback_t *callback = conn->callback;
 
+	i_assert(reply->exit_code == 0 || reply->error != NULL);
+
 	conn->callback = NULL;
-	callback(exit_code, error, conn->context);
+	callback(reply, conn->context);
 }
 
 static void stream_data(string_t *str, const unsigned char *data, size_t size)
@@ -425,7 +427,6 @@ static bool server_connection_input_one(struct server_connection *conn)
 	const unsigned char *data;
 	size_t size;
 	const char *line;
-	int exit_code;
 
 	/* check logs - NOTE: must be before i_stream_get_data() since checking
 	   for logs may add data to our channel. */
@@ -450,17 +451,24 @@ static bool server_connection_input_one(struct server_connection *conn)
 		line = i_stream_next_line(conn->input);
 		if (line == NULL)
 			return FALSE;
-		if (line[0] == '+')
-			server_connection_callback(conn, 0, "");
-		else if (line[0] == '-') {
+
+		if (line[0] == '+') {
+			struct doveadm_server_reply reply = {
+				.exit_code = 0,
+			};
+			server_connection_callback(conn, &reply);
+		} else if (line[0] == '-') {
 			line++;
-			exit_code = doveadm_str_to_exit_code(line);
-			if (exit_code == DOVEADM_EX_UNKNOWN &&
-			    str_to_int(line, &exit_code) < 0) {
+			struct doveadm_server_reply reply = {
+				.exit_code = doveadm_str_to_exit_code(line),
+				.error = line,
+			};
+			if (reply.exit_code == DOVEADM_EX_UNKNOWN &&
+			    str_to_int(line, &reply.exit_code) < 0) {
 				/* old doveadm-server */
-				exit_code = EX_TEMPFAIL;
+				reply.exit_code = EX_TEMPFAIL;
 			}
-			server_connection_callback(conn, exit_code, line);
+			server_connection_callback(conn, &reply);
 		} else {
 			i_error("doveadm server sent broken input "
 				"(expected cmd reply): %s", line);
@@ -619,8 +627,11 @@ void server_connection_destroy(struct server_connection **_conn)
 			error = conn->input->stream_errno == 0 ? "EOF" :
 				strerror(conn->input->stream_errno);
 		}
-		server_connection_callback(conn, SERVER_EXIT_CODE_DISCONNECTED,
-					   error);
+		struct doveadm_server_reply reply = {
+			.exit_code = SERVER_EXIT_CODE_DISCONNECTED,
+			.error = error,
+		};
+		server_connection_callback(conn, &reply);
 	}
 	if (printing_conn == conn)
 		print_connection_released();

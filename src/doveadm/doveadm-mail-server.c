@@ -87,7 +87,7 @@ static bool doveadm_server_have_used_connections(struct doveadm_server *server)
 	return FALSE;
 }
 
-static void doveadm_cmd_callback(int exit_code, const char *error,
+static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 				 void *context)
 {
 	struct doveadm_mail_server_cmd *servercmd = context;
@@ -98,12 +98,13 @@ static void doveadm_cmd_callback(int exit_code, const char *error,
 	i_free(servercmd->username);
 	i_free(servercmd);
 
-	switch (exit_code) {
+	switch (reply->exit_code) {
 	case 0:
 		break;
 	case SERVER_EXIT_CODE_DISCONNECTED:
 		i_error("%s: Command %s failed for %s: %s",
-			server->name, cmd_ctx->cmd->name, username, error);
+			server->name, cmd_ctx->cmd->name, username,
+			reply->error);
 		internal_failure = TRUE;
 		io_loop_stop(current_ioloop);
 		return;
@@ -113,8 +114,8 @@ static void doveadm_cmd_callback(int exit_code, const char *error,
 			cmd_ctx->exit_code = EX_NOUSER;
 		break;
 	default:
-		if (cmd_ctx->exit_code == 0 || exit_code == EX_TEMPFAIL)
-			cmd_ctx->exit_code = exit_code;
+		if (cmd_ctx->exit_code == 0 || reply->exit_code == EX_TEMPFAIL)
+			cmd_ctx->exit_code = reply->exit_code;
 		break;
 	}
 
