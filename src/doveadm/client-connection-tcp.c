@@ -360,7 +360,10 @@ static int doveadm_cmd_handle(struct client_connection_tcp *conn,
 	/* clear all headers */
 	doveadm_print_deinit();
 	doveadm_print_init(DOVEADM_PRINT_TYPE_SERVER);
-	return doveadm_exit_code == 0 ? 0 : -1;
+
+	/* We already sent the success/failure reply to the client. Return 0
+	   so caller never adds another failure reply. */
+	return 0;
 }
 
 static bool client_handle_command(struct client_connection_tcp *conn,
