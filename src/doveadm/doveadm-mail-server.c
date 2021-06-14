@@ -86,6 +86,18 @@ static bool doveadm_server_have_used_connections(struct doveadm_server *server)
 	return FALSE;
 }
 
+static void doveadm_mail_server_cmd_free(struct doveadm_mail_server_cmd **_cmd)
+{
+	struct doveadm_mail_server_cmd *cmd = *_cmd;
+
+	*_cmd = NULL;
+	if (cmd == NULL)
+		return;
+
+	i_free(cmd->username);
+	i_free(cmd);
+}
+
 static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 				 void *context)
 {
@@ -94,8 +106,7 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 		server_connection_get_server(servercmd->conn);
 	const char *username = t_strdup(servercmd->username);
 
-	i_free(servercmd->username);
-	i_free(servercmd);
+	doveadm_mail_server_cmd_free(&servercmd);
 
 	switch (reply->exit_code) {
 	case 0:
