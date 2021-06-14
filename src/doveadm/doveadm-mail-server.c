@@ -104,22 +104,21 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 	struct doveadm_mail_server_cmd *servercmd = context;
 	struct doveadm_server *server =
 		server_connection_get_server(servercmd->conn);
-	const char *username = t_strdup(servercmd->username);
-
-	doveadm_mail_server_cmd_free(&servercmd);
 
 	switch (reply->exit_code) {
 	case 0:
 		break;
 	case SERVER_EXIT_CODE_DISCONNECTED:
 		i_error("%s: Command %s failed for %s: %s",
-			server->name, cmd_ctx->cmd->name, username,
+			server->name, cmd_ctx->cmd->name, servercmd->username,
 			reply->error);
 		internal_failure = TRUE;
 		io_loop_stop(current_ioloop);
+		doveadm_mail_server_cmd_free(&servercmd);
 		return;
 	case EX_NOUSER:
-		i_error("%s: No such user: %s", server->name, username);
+		i_error("%s: No such user: %s", server->name,
+			servercmd->username);
 		if (cmd_ctx->exit_code == 0)
 			cmd_ctx->exit_code = EX_NOUSER;
 		break;
@@ -128,6 +127,7 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 			cmd_ctx->exit_code = reply->exit_code;
 		break;
 	}
+	doveadm_mail_server_cmd_free(&servercmd);
 
 	if (array_count(&server->queue) > 0) {
 		struct server_connection *conn;
