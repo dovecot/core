@@ -422,6 +422,22 @@ static void server_connection_input(struct server_connection *conn)
 	while (server_connection_input_one(conn)) ;
 }
 
+static void
+server_connection_input_cmd_error(struct server_connection *conn,
+				  const char *line)
+{
+	struct doveadm_server_reply reply = {
+		.exit_code = doveadm_str_to_exit_code(line),
+		.error = line,
+	};
+	if (reply.exit_code == DOVEADM_EX_UNKNOWN &&
+	    str_to_int(line, &reply.exit_code) < 0) {
+		/* old doveadm-server */
+		reply.exit_code = EX_TEMPFAIL;
+	}
+	server_connection_callback(conn, &reply);
+}
+
 static bool server_connection_input_one(struct server_connection *conn)
 {
 	const unsigned char *data;
@@ -458,17 +474,7 @@ static bool server_connection_input_one(struct server_connection *conn)
 			};
 			server_connection_callback(conn, &reply);
 		} else if (line[0] == '-') {
-			line++;
-			struct doveadm_server_reply reply = {
-				.exit_code = doveadm_str_to_exit_code(line),
-				.error = line,
-			};
-			if (reply.exit_code == DOVEADM_EX_UNKNOWN &&
-			    str_to_int(line, &reply.exit_code) < 0) {
-				/* old doveadm-server */
-				reply.exit_code = EX_TEMPFAIL;
-			}
-			server_connection_callback(conn, &reply);
+			server_connection_input_cmd_error(conn, line+1);
 		} else {
 			i_error("doveadm server sent broken input "
 				"(expected cmd reply): %s", line);
