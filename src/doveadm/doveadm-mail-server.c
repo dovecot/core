@@ -6,8 +6,10 @@
 #include "str.h"
 #include "strescape.h"
 #include "ioloop.h"
+#include "istream.h"
 #include "master-service.h"
 #include "iostream-ssl.h"
+#include "auth-proxy.h"
 #include "auth-master.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
@@ -26,6 +28,8 @@
 struct doveadm_mail_server_cmd {
 	struct server_connection *conn;
 	char *username;
+	char *cmdline;
+	struct istream *input;
 };
 
 static HASH_TABLE(char *, struct doveadm_server *) servers;
@@ -33,6 +37,8 @@ static pool_t server_pool;
 static struct doveadm_mail_cmd_context *cmd_ctx;
 static bool internal_failure = FALSE;
 
+static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
+				 void *context);
 static void doveadm_mail_server_handle(struct server_connection *conn,
 				       const char *username);
 
@@ -94,8 +100,49 @@ static void doveadm_mail_server_cmd_free(struct doveadm_mail_server_cmd **_cmd)
 	if (cmd == NULL)
 		return;
 
+	i_stream_unref(&cmd->input);
+	i_free(cmd->cmdline);
 	i_free(cmd->username);
 	i_free(cmd);
+}
+
+static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
+				const char *destination)
+{
+	struct doveadm_server *orig_server, *new_server;
+	struct server_connection *conn;
+	struct ip_addr ip;
+	in_port_t port;
+	const char *destuser, *host, *error;
+
+	orig_server = server_connection_get_server(servercmd->conn);
+	if (!auth_proxy_parse_redirect(destination, &destuser,
+				       &host, &ip, &port)) {
+		i_error("%s: Invalid redirect destination: %s",
+			orig_server->name, destination);
+		return -1;
+	}
+
+	new_server = doveadm_server_get(destination);
+	new_server->ip = ip;
+	new_server->ssl_flags = orig_server->ssl_flags;
+	new_server->port = port != 0 ? port : orig_server->port;
+
+	conn = doveadm_server_find_unused_conn(new_server);
+	if (conn == NULL) {
+		if (server_connection_create(new_server, &conn, &error) < 0) {
+			i_error("%s: Failed to create redirect connection: %s",
+				new_server->name, error);
+			return -1;
+		}
+	}
+
+	servercmd->conn = conn;
+	if (servercmd->input != NULL)
+		i_stream_seek(servercmd->input, 0);
+	server_connection_cmd(conn, servercmd->cmdline, servercmd->input,
+			      doveadm_cmd_callback, servercmd);
+	return 0;
 }
 
 static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
@@ -122,6 +169,13 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 		if (cmd_ctx->exit_code == 0)
 			cmd_ctx->exit_code = EX_NOUSER;
 		break;
+	case DOVEADM_EX_REFERRAL:
+		if (doveadm_cmd_redirect(servercmd, reply->error) < 0) {
+			internal_failure = TRUE;
+			io_loop_stop(current_ioloop);
+			doveadm_mail_server_cmd_free(&servercmd);
+		}
+		return;
 	default:
 		if (cmd_ctx->exit_code == 0 || reply->exit_code == EX_TEMPFAIL)
 			cmd_ctx->exit_code = reply->exit_code;
@@ -172,6 +226,10 @@ static void doveadm_mail_server_handle(struct server_connection *conn,
 	servercmd = i_new(struct doveadm_mail_server_cmd, 1);
 	servercmd->conn = conn;
 	servercmd->username = i_strdup(username);
+	servercmd->cmdline = i_strdup(str_c(cmd));
+	servercmd->input = cmd_ctx->cmd_input;
+	if (servercmd->input != NULL)
+		i_stream_ref(servercmd->input);
 	server_connection_cmd(conn, str_c(cmd), cmd_ctx->cmd_input,
 			      doveadm_cmd_callback, servercmd);
 }

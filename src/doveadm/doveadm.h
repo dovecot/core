@@ -12,6 +12,7 @@
 #define DOVEADM_EX_UNKNOWN -1
 
 #define DOVEADM_EX_NOREPLICATE 1001
+#define DOVEADM_EX_REFERRAL 1002
 
 enum doveadm_client_type {
 	DOVEADM_CONNECTION_TYPE_CLI = 0,

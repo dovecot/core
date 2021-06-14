@@ -644,7 +644,7 @@ void server_connection_destroy(struct server_connection **_conn)
 
 	i_stream_destroy(&conn->input);
 	o_stream_destroy(&conn->output);
-	i_stream_destroy(&conn->cmd_input);
+	i_stream_unref(&conn->cmd_input);
 	/* close cmd_output after its parent, so the "." isn't sent */
 	o_stream_destroy(&conn->cmd_output);
 	ssl_iostream_destroy(&conn->ssl_iostream);

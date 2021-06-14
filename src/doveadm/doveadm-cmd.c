@@ -43,6 +43,7 @@ static const struct exit_code_str {
 	{ EX_PROTOCOL, "PROTOCOL" },
 	{ EX_DATAERR, "DATAERR" },
 	{ DOVEADM_EX_NOREPLICATE, "NOREPLICATE" },
+	{ DOVEADM_EX_REFERRAL, "REFERRAL" },
 	{ DOVEADM_EX_NOTFOUND, "NOTFOUND" }
 };
 
