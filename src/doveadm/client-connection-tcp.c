@@ -83,6 +83,10 @@ doveadm_server_log_handler(const struct failure_context *ctx,
 		if (conn->ioloop != NULL)
 			io_loop_set_current(conn->ioloop);
 
+		const char *log_prefix =
+			ctx->log_prefix != NULL ? ctx->log_prefix :
+			i_get_failure_prefix();
+		size_t log_prefix_len = strlen(log_prefix);
 		c = doveadm_log_type_to_char(ctx->type);
 		corked = o_stream_is_corked(log_out);
 
@@ -98,6 +102,7 @@ doveadm_server_log_handler(const struct failure_context *ctx,
 				(size_t)(ptr - str);
 
 			o_stream_nsend(log_out, &c, 1);
+			o_stream_nsend(log_out, log_prefix, log_prefix_len);
 			o_stream_nsend(log_out, str, len);
 			o_stream_nsend(log_out, "\n", 1);
 
