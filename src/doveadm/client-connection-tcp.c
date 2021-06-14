@@ -70,7 +70,7 @@ doveadm_server_log_handler(const struct failure_context *ctx,
 		struct ioloop *prev_ioloop = current_ioloop;
 		struct ostream *log_out = conn->log_out;
 		char c;
-		const char *ptr, *start;
+		const char *ptr;
 		bool corked;
 		va_list va;
 
@@ -87,22 +87,23 @@ doveadm_server_log_handler(const struct failure_context *ctx,
 		corked = o_stream_is_corked(log_out);
 
 		va_copy(va, args);
-		string_t *str = t_str_new(128);
-		str_vprintfa(str, format, va);
+		const char *str = t_strdup_vprintf(format, va);
 		va_end(va);
 
-		start = str_c(str);
 		if (!corked)
 			o_stream_cork(log_out);
-		while((ptr = strchr(start, '\n'))!=NULL) {
+		for (ptr = str;; ) {
+			ptr = strchr(str, '\n');
+			size_t len = ptr == NULL ? strlen(str) :
+				(size_t)(ptr - str);
+
 			o_stream_nsend(log_out, &c, 1);
-			o_stream_nsend(log_out, start, ptr-start+1);
-			str_delete(str, 0, ptr-start+1);
-		}
-		if (str->used > 0) {
-			o_stream_nsend(log_out, &c, 1);
-			o_stream_nsend(log_out, str->data, str->used);
+			o_stream_nsend(log_out, str, len);
 			o_stream_nsend(log_out, "\n", 1);
+
+			if (ptr == NULL)
+				break;
+			str = ptr+1;
 		}
 		o_stream_uncork(log_out);
 		if (corked)
