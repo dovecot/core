@@ -247,7 +247,11 @@ enum mail_index_view_sync_flags {
 	/* Make sure view isn't inconsistent after syncing. This also means
 	   that you don't care about view_sync_next()'s output, so it won't
 	   return anything. */
-	MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT	= 0x02
+	MAIL_INDEX_VIEW_SYNC_FLAG_FIX_INCONSISTENT	= 0x02,
+	/* Indicate that this is a secondary view, this can be used to indicate
+	   that inconsistencies can be expected and if found should be fixed
+	   by fully syncing. */
+	MAIL_INDEX_VIEW_SYNC_FLAG_2ND_INDEX		= 0x04,
 };
 
 struct mail_index_sync_rec {
