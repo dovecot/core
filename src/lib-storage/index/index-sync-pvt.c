@@ -303,6 +303,9 @@ int index_mailbox_sync_pvt_view(struct index_mailbox_sync_pvt_context *ctx,
 	if (index_mailbox_sync_pvt_index(ctx, NULL, 0) < 0)
 		return -1;
 
+	/* Indicate to view syncing that this is a secondary index view */
+	ctx->flags |= MAIL_INDEX_VIEW_SYNC_FLAG_2ND_INDEX;
+
 	/* sync the private view */
 	view_sync_ctx = mail_index_view_sync_begin(ctx->box->view_pvt, ctx->flags);
 	while (mail_index_view_sync_next(view_sync_ctx, &sync_rec)) {
