@@ -638,7 +638,18 @@ mail_index_view_sync_begin(struct mail_index_view *view,
 
 	ctx->finish_min_msg_count = reset ? 0 :
 		view->map->hdr.messages_count - expunge_count;
-	if (reset) {
+	if (!reset)
+		;
+	else if ((flags & MAIL_INDEX_VIEW_SYNC_FLAG_2ND_INDEX) != 0 &&
+		 view->map->hdr.messages_count == 0) {
+			/* The secondary index is still empty, so it may have
+			   just been created for the first time. This is
+			   expected, so it shouldn't cause the view to become
+			   inconsistent. */
+			if (mail_index_view_sync_init_fix(ctx) < 0)
+				ctx->failed = TRUE;
+			return ctx;
+	} else {
 		view->inconsistent = TRUE;
 		mail_index_set_error(view->index,
 				     "%s reset, view is now inconsistent",
