@@ -238,28 +238,21 @@ doveadm_proxy_cmd_have_connected(struct doveadm_mail_server_cmd *servercmd,
 	return FALSE;
 }
 
-static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
-				const char *destination)
+static int
+doveadm_cmd_redirect_finish(struct doveadm_mail_server_cmd *servercmd,
+			    const struct ip_addr *ip, in_port_t port,
+			    enum auth_proxy_ssl_flags ssl_flags,
+			    const char **error_r)
 {
-	struct doveadm_server *orig_server, *new_server;
+	struct doveadm_server *new_server;
 	struct server_connection *conn;
 	struct doveadm_proxy_redirect *redirect;
-	struct ip_addr ip;
-	in_port_t port;
-	const char *destuser, *host, *error;
+	const char *server_name, *error;
 
-	orig_server = server_connection_get_server(servercmd->conn);
-	if (!auth_proxy_parse_redirect(destination, &destuser,
-				       &host, &ip, &port)) {
-		i_error("%s: Invalid redirect destination: %s",
-			orig_server->name, destination);
-		return -1;
-	}
-
-	if (doveadm_proxy_cmd_have_connected(servercmd, &ip,
-					     orig_server->port)) {
-		i_error("%s: Proxying loops - already connected to %s:%u",
-			orig_server->name, net_ip2addr(&ip), orig_server->port);
+	if (doveadm_proxy_cmd_have_connected(servercmd, ip, port)) {
+		*error_r = t_strdup_printf(
+			"Proxying loops - already connected to %s:%u",
+			net_ip2addr(ip), port);
 		return -1;
 	}
 
@@ -270,18 +263,20 @@ static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
 	if (!array_is_created(&servercmd->redirect_path))
 		i_array_init(&servercmd->redirect_path, 2);
 	redirect = array_append_space(&servercmd->redirect_path);
-	redirect->ip = ip;
-	redirect->port = orig_server->port;
+	redirect->ip = *ip;
+	redirect->port = port;
 
-	new_server = doveadm_server_get(destination);
-	new_server->ip = ip;
-	new_server->ssl_flags = orig_server->ssl_flags;
-	new_server->port = port != 0 ? port : orig_server->port;
+	server_name = t_strdup_printf("%s:%u", net_ip2addr(ip), port);
+	new_server = doveadm_server_get(server_name);
+	new_server->ip = *ip;
+	new_server->ssl_flags = ssl_flags;
+	new_server->port = port;
 
 	conn = doveadm_server_find_unused_conn(new_server);
 	if (conn == NULL) {
 		if (server_connection_create(new_server, &conn, &error) < 0) {
-			i_error("%s: Failed to create redirect connection: %s",
+			*error_r = t_strdup_printf(
+				"Failed to create redirect connection to %s: %s",
 				new_server->name, error);
 			return -1;
 		}
@@ -293,6 +288,35 @@ static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
 	server_connection_cmd(conn, servercmd->proxy_ttl,
 			      servercmd->cmdline, servercmd->input,
 			      doveadm_cmd_callback, servercmd);
+	return 0;
+}
+
+static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
+				const char *destination)
+{
+	struct doveadm_server *orig_server;
+	struct ip_addr ip;
+	in_port_t port;
+	const char *destuser, *host, *error;
+	int ret;
+
+	orig_server = server_connection_get_server(servercmd->conn);
+	if (!auth_proxy_parse_redirect(destination, &destuser,
+				       &host, &ip, &port)) {
+		i_error("%s: Invalid redirect destination: %s",
+			orig_server->name, destination);
+		return -1;
+	}
+	if (port == 0)
+		port = orig_server->port;
+
+	ret = doveadm_cmd_redirect_finish(servercmd, &ip, port,
+					  orig_server->ssl_flags,
+					  &error);
+	if (ret < 0) {
+		i_error("%s: %s", orig_server->name, error);
+		return -1;
+	}
 	return 0;
 }
 
