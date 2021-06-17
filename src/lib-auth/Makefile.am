@@ -3,19 +3,22 @@ noinst_LTLIBRARIES = libauth.la
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-master \
+	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-test
 
 libauth_la_SOURCES = \
 	auth-client.c \
 	auth-client-request.c \
 	auth-client-connection.c \
-	auth-master.c
+	auth-master.c \
+	auth-proxy.c
 
 headers = \
 	auth-client.h \
 	auth-client-interface.h \
 	auth-client-private.h \
-	auth-master.h
+	auth-master.h \
+	auth-proxy.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
@@ -27,12 +30,14 @@ noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
 	$(noinst_LTLIBRARIES) \
+	../lib-settings/libsettings.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la \
 	$(MODULE_LIBS)
 
 test_deps = \
 	$(noinst_LTLIBRARIES) \
+	../lib-settings/libsettings.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
