@@ -130,7 +130,6 @@ void doveadm_mail_cmd_free(struct doveadm_mail_cmd_context *ctx);
 int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 			     const char **error_r);
 int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
-			     const struct mail_storage_service_input *input,
 			     const char **error_r);
 void doveadm_mail_server_flush(void);
 

@@ -424,16 +424,16 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 		i_set_failure_prefix("doveadm(%s): ", cctx->username);
 	else
 		i_set_failure_prefix("doveadm(%s,%s): ", ip, cctx->username);
-	doveadm_cctx_to_storage_service_input(cctx, &input);
 	if (ctx->cmd_input != NULL)
 		i_stream_seek(ctx->cmd_input, 0);
 
 	/* see if we want to execute this command via (another)
 	   doveadm server */
-	ret = doveadm_mail_server_user(ctx, &input, error_r);
+	ret = doveadm_mail_server_user(ctx, error_r);
 	if (ret != 0)
 		return ret;
 
+	doveadm_cctx_to_storage_service_input(cctx, &input);
 	ret = mail_storage_service_lookup(ctx->storage_service, &input,
 					  &ctx->cur_service_user, &error);
 	if (ret <= 0) {

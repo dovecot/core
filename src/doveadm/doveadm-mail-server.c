@@ -301,7 +301,6 @@ static void doveadm_server_flush_one(struct doveadm_server *server)
 
 static int
 doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
-				  const struct mail_storage_service_input *input,
 				  const char **user_r, const char **host_r,
 				  struct ip_addr *hostip_r, in_port_t *port_r,
 				  enum auth_proxy_ssl_flags *ssl_flags_r,
@@ -317,7 +316,7 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 	struct auth_proxy_settings proxy_set;
 	int ret;
 
-	*user_r = input->username;
+	*user_r = ctx->cctx->username;
 	*host_r = ctx->set->doveadm_socket_path;
 	*port_r = ctx->set->doveadm_port;
 	*referral_r = NULL;
@@ -334,19 +333,22 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 	}
 
 	/* make sure we have an auth connection */
-	mail_storage_service_init_settings(ctx->storage_service, input);
+	struct mail_storage_service_input input = {
+		.service = master_service_get_name(master_service),
+	};
+	mail_storage_service_init_settings(ctx->storage_service, &input);
 
 	i_zero(&info);
 	info.service = master_service_get_name(master_service);
-	info.local_ip = input->local_ip;
-	info.remote_ip = input->remote_ip;
-	info.local_port = input->local_port;
-	info.remote_port = input->remote_port;
+	info.local_ip = ctx->cctx->local_ip;
+	info.remote_ip = ctx->cctx->remote_ip;
+	info.local_port = ctx->cctx->local_port;
+	info.remote_port = ctx->cctx->remote_port;
 
 	pool = pool_alloconly_create("auth lookup", 1024);
 	auth_conn = mail_storage_service_get_auth_conn(ctx->storage_service);
 	auth_socket_path = auth_master_get_socket_path(auth_conn);
-	ret = auth_master_pass_lookup(auth_conn, input->username, &info,
+	ret = auth_master_pass_lookup(auth_conn, ctx->cctx->username, &info,
 				      pool, &fields);
 	if (ret < 0) {
 		*error_r = fields[0] != NULL ?
@@ -432,7 +434,6 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 }
 
 int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
-			     const struct mail_storage_service_input *input,
 			     const char **error_r)
 {
 	struct doveadm_server *server;
@@ -448,7 +449,7 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	cmd_ctx = ctx;
 
 	i_zero(&hostip);
-	ret = doveadm_mail_server_user_get_host(ctx, input, &user, &host, &hostip,
+	ret = doveadm_mail_server_user_get_host(ctx, &user, &host, &hostip,
 						&port, &ssl_flags, &referral, error_r);
 	if (ret < 0)
 		return ret;
