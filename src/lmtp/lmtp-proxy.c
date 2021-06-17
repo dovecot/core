@@ -558,7 +558,7 @@ lmtp_proxy_rcpt_parse_redirect(const struct smtp_reply *proxy_reply,
 			       const char **host_r, struct ip_addr *ip_r,
 			       in_port_t *port_r)
 {
-	const char *target, *p, *pend;
+	const char *target, *pend;
 
 	if (proxy_reply->text_lines == NULL)
 		return -1;
@@ -573,18 +573,8 @@ lmtp_proxy_rcpt_parse_redirect(const struct smtp_reply *proxy_reply,
 	if (pend != NULL)
 		target = t_strdup_until(target, pend);
 
-	p = strrchr(target, '@');
-	if (p == NULL)
-		*destuser_r = NULL;
-	else {
-		*destuser_r = t_strdup_until(target, p);
-		target = p+1;
-	}
-	if (net_str2hostport(target, 0, host_r, port_r) < 0)
-		return -1;
-	if (net_addr2ip(*host_r, ip_r) < 0)
-		return -1;
-	return 0;
+	return auth_proxy_parse_redirect(target, destuser_r, host_r,
+					 ip_r, port_r) ? 0 : -1;
 }
 
 static void
