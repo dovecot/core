@@ -68,8 +68,9 @@ static void proxy_write_id(struct imap_client *client, string_t *str)
 
 static int proxy_write_starttls(struct imap_client *client, string_t *str)
 {
-	enum login_proxy_ssl_flags ssl_flags = login_proxy_get_ssl_flags(client->common.login_proxy);
-	if ((ssl_flags & PROXY_SSL_FLAG_STARTTLS) != 0) {
+	enum auth_proxy_ssl_flags ssl_flags =
+		login_proxy_get_ssl_flags(client->common.login_proxy);
+	if ((ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) != 0) {
 		if (client->proxy_backend_capability != NULL &&
 		    !str_array_icase_find(t_strsplit(client->proxy_backend_capability, " "), "STARTTLS")) {
 			login_proxy_failed(client->common.login_proxy,

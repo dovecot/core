@@ -32,10 +32,10 @@ submission_proxy_success_reply_sent(
 static int
 proxy_send_starttls(struct submission_client *client, struct ostream *output)
 {
-	enum login_proxy_ssl_flags ssl_flags;
+	enum auth_proxy_ssl_flags ssl_flags;
 
 	ssl_flags = login_proxy_get_ssl_flags(client->common.login_proxy);
-	if ((ssl_flags & PROXY_SSL_FLAG_STARTTLS) == 0)
+	if ((ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) == 0)
 		return 0;
 
 	if ((client->proxy_capability & SMTP_CAPABILITY_STARTTLS) == 0) {

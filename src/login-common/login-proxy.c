@@ -74,7 +74,7 @@ struct login_proxy {
 	unsigned int notify_refresh_secs;
 	unsigned int host_immediate_failure_after_secs;
 	unsigned int reconnect_count;
-	enum login_proxy_ssl_flags ssl_flags;
+	enum auth_proxy_ssl_flags ssl_flags;
 	char *rawlog_dir;
 
 	login_proxy_input_callback_t *input_callback;
@@ -335,8 +335,8 @@ static void proxy_wait_connect(struct login_proxy *proxy)
 	io_remove(&proxy->server_io);
 	proxy_plain_connected(proxy);
 
-	if ((proxy->ssl_flags & PROXY_SSL_FLAG_YES) != 0 &&
-	    (proxy->ssl_flags & PROXY_SSL_FLAG_STARTTLS) == 0) {
+	if ((proxy->ssl_flags & AUTH_PROXY_SSL_FLAG_YES) != 0 &&
+	    (proxy->ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) == 0) {
 		if (login_proxy_starttls(proxy) < 0) {
 			/* proxy is already destroyed */
 		}
@@ -805,7 +805,7 @@ in_port_t login_proxy_get_port(const struct login_proxy *proxy)
 	return proxy->port;
 }
 
-enum login_proxy_ssl_flags
+enum auth_proxy_ssl_flags
 login_proxy_get_ssl_flags(const struct login_proxy *proxy)
 {
 	return proxy->ssl_flags;
@@ -913,7 +913,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 
 	master_service_ssl_client_settings_to_iostream_set(
 		proxy->client->ssl_set, pool_datastack_create(), &ssl_set);
-	if ((proxy->ssl_flags & PROXY_SSL_FLAG_ANY_CERT) != 0)
+	if ((proxy->ssl_flags & AUTH_PROXY_SSL_FLAG_ANY_CERT) != 0)
 		ssl_set.allow_invalid_cert = TRUE;
 	/* NOTE: We're explicitly disabling ssl_client_ca_* settings for now
 	   at least. The main problem is that we're chrooted, so we can't read

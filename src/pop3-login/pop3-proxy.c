@@ -145,7 +145,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 {
 	struct pop3_client *pop3_client = (struct pop3_client *)client;
 	struct ostream *output;
-	enum login_proxy_ssl_flags ssl_flags;
+	enum auth_proxy_ssl_flags ssl_flags;
 
 	i_assert(!client->destroyed);
 
@@ -165,7 +165,7 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 			str_begins(line+3, " [XCLIENT]");
 
 		ssl_flags = login_proxy_get_ssl_flags(client->login_proxy);
-		if ((ssl_flags & PROXY_SSL_FLAG_STARTTLS) == 0) {
+		if ((ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) == 0) {
 			if (proxy_send_login(pop3_client, output) < 0)
 				return -1;
 		} else {

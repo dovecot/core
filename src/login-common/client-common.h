@@ -94,28 +94,17 @@ enum client_list_type {
 };
 
 struct client_auth_reply {
-	const char *master_user, *reason;
+	const char *reason;
 	enum client_auth_fail_code fail_code;
 	ARRAY_TYPE(const_string) alt_usernames;
 
-	/* for proxying */
-	const char *host;
-	struct ip_addr source_ip, host_ip;
-	const char *destuser, *password, *proxy_mech;
-	in_port_t port;
-	unsigned int proxy_timeout_msecs;
+	struct auth_proxy_settings proxy;
 	unsigned int proxy_refresh_secs;
 	unsigned int proxy_host_immediate_failure_after_secs;
-	enum login_proxy_ssl_flags ssl_flags;
 
 	/* all the key=value fields returned by passdb */
 	const char *const *all_fields;
 
-	bool proxy:1;
-	bool proxy_noauth:1;
-	bool proxy_nopipelining:1;
-	bool proxy_not_trusted:1;
-	bool proxy_redirect_reauth:1;
 	bool nologin:1;
 };
 

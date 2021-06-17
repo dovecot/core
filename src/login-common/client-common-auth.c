@@ -135,6 +135,7 @@ static bool client_auth_parse_args(const struct client *client, bool success,
 				   struct client_auth_reply *reply_r)
 {
 	const char *key, *value, *p, *error;
+	int ret;
 
 	i_zero(reply_r);
 	t_array_init(&reply_r->alt_usernames, 4);
@@ -150,55 +151,22 @@ static bool client_auth_parse_args(const struct client *client, bool success,
 			key = t_strdup_until(*args, p);
 			value = p + 1;
 		}
+		ret = auth_proxy_settings_parse(&reply_r->proxy, NULL,
+						key, value, &error);
+		if (ret < 0) {
+			e_error(client->event, "Auth service returned invalid "
+				"%s value '%s': %s", key, value, error);
+			return FALSE;
+		}
+		if (ret > 0)
+			continue;
+
 		if (strcmp(key, "nologin") == 0) {
 			reply_r->nologin = TRUE;
 			reply_r->fail_code = CLIENT_AUTH_FAIL_CODE_LOGIN_DISABLED;
-		} else if (strcmp(key, "proxy") == 0)
-			reply_r->proxy = TRUE;
-		else if (strcmp(key, "reason") == 0)
+		} else if (strcmp(key, "reason") == 0)
 			reply_r->reason = value;
-		else if (strcmp(key, "host") == 0)
-			reply_r->host = value;
-		else if (strcmp(key, "hostip") == 0) {
-			if (value[0] != '\0' &&
-			    net_addr2ip(value, &reply_r->host_ip) < 0) {
-				e_error(client->event,
-					"Auth service returned invalid "
-					"hostip %s", value);
-				return FALSE;
-			}
-		} else if (strcmp(key, "source_ip") == 0) {
-			if (value[0] != '\0' &&
-			    net_addr2ip(value, &reply_r->source_ip) < 0) {
-				e_error(client->event,
-					"Auth service returned invalid "
-					"source_ip %s", value);
-				return FALSE;
-			}
-		} else if (strcmp(key, "port") == 0) {
-			if (net_str2port(value, &reply_r->port) < 0) {
-				e_error(client->event,
-					"Auth service returned invalid "
-					"port number: %s", value);
-				return FALSE;
-			}
-		} else if (strcmp(key, "destuser") == 0)
-			reply_r->destuser = value;
-		else if (strcmp(key, "pass") == 0)
-			reply_r->password = value;
-		else if (strcmp(key, "proxy_timeout") == 0) {
-			/* backwards compatibility: plain number is seconds */
-			if (str_to_uint(value, &reply_r->proxy_timeout_msecs) == 0)
-				reply_r->proxy_timeout_msecs *= 1000;
-			else if (settings_get_time_msecs(value,
-				&reply_r->proxy_timeout_msecs, &error) < 0) {
-				e_error(client->event,
-					"Auth service returned invalid "
-					"proxy_timeout value '%s': %s",
-					value, error);
-				return FALSE;
-			}
-		} else if (strcmp(key, "proxy_host_immediate_failure_after") == 0) {
+		else if (strcmp(key, "proxy_host_immediate_failure_after") == 0) {
 			if (settings_get_time(value,
 				&reply_r->proxy_host_immediate_failure_after_secs,
 				&error) < 0) {
@@ -215,31 +183,6 @@ static bool client_auth_parse_args(const struct client *client, bool success,
 					"proxy_refresh value: %s", value);
 				return FALSE;
 			}
-		} else if (strcmp(key, "proxy_mech") == 0)
-			reply_r->proxy_mech = value;
-		else if (strcmp(key, "proxy_noauth") == 0)
-			reply_r->proxy_noauth = TRUE;
-		else if (strcmp(key, "proxy_nopipelining") == 0)
-			reply_r->proxy_nopipelining = TRUE;
-		else if (strcmp(key, "proxy_not_trusted") == 0)
-			reply_r->proxy_not_trusted = TRUE;
-		else if (strcmp(key, "proxy_redirect_reauth") == 0)
-			reply_r->proxy_redirect_reauth = TRUE;
-		else if (strcmp(key, "master") == 0) {
-			/* ignore empty master field */
-			if (*value != '\0')
-				reply_r->master_user = value;
-		} else if (strcmp(key, "ssl") == 0) {
-			reply_r->ssl_flags |= PROXY_SSL_FLAG_YES;
-			if (strcmp(value, "any-cert") == 0)
-				reply_r->ssl_flags |= PROXY_SSL_FLAG_ANY_CERT;
-			if (reply_r->port == 0)
-				reply_r->port = login_binary->default_ssl_port;
-		} else if (strcmp(key, "starttls") == 0) {
-			reply_r->ssl_flags |= PROXY_SSL_FLAG_YES |
-				PROXY_SSL_FLAG_STARTTLS;
-			if (strcmp(value, "any-cert") == 0)
-				reply_r->ssl_flags |= PROXY_SSL_FLAG_ANY_CERT;
 		} else if (strcmp(key, "code") == 0) {
 			if (reply_r->fail_code != CLIENT_AUTH_FAIL_CODE_NONE) {
 				/* code already assigned */
@@ -259,27 +202,34 @@ static bool client_auth_parse_args(const struct client *client, bool success,
 		} else
 			e_debug(event_auth, "Ignoring unknown passdb extra field: %s", key);
 	}
-	if (reply_r->port == 0)
-		reply_r->port = login_binary->default_port;
+	if (reply_r->proxy.port == 0) {
+		if ((reply_r->proxy.ssl_flags & AUTH_PROXY_SSL_FLAG_YES) != 0 &&
+		    (reply_r->proxy.ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) == 0)
+			reply_r->proxy.port = login_binary->default_ssl_port;
+		else
+			reply_r->proxy.port = login_binary->default_port;
+	}
 
-	if (reply_r->destuser == NULL)
-		reply_r->destuser = client->virtual_user;
+	if (reply_r->proxy.username == NULL)
+		reply_r->proxy.username = client->virtual_user;
 
-	if (reply_r->proxy) {
-		if (reply_r->password == NULL) {
+	if (reply_r->proxy.proxy) {
+		if (reply_r->proxy.password == NULL) {
 			e_error(client->event, "proxy: pass field is missing");
 			return FALSE;
 		}
-		if (reply_r->host == NULL || reply_r->host[0] == '\0') {
+		if (reply_r->proxy.host == NULL ||
+		    reply_r->proxy.host[0] == '\0') {
 			e_error(client->event, "proxy: host field not given");
 			return FALSE;
 		}
 
-		if (reply_r->host_ip.family == 0 &&
-		    net_addr2ip(reply_r->host, &reply_r->host_ip) < 0) {
+		if (reply_r->proxy.host_ip.family == 0 &&
+		    net_addr2ip(reply_r->proxy.host,
+				&reply_r->proxy.host_ip) < 0) {
 			e_error(client->event,
 				"proxy: host %s is not an IP (auth should have changed it)",
-				reply_r->host);
+				reply_r->proxy.host);
 			return FALSE;
 		}
 	}
@@ -446,12 +396,13 @@ proxy_redirect_reauth_callback(struct auth_client_request *request,
 			break;
 		}
 
-		if (!reply.proxy) {
+		if (!reply.proxy.proxy) {
 			error = "Redirect authentication is missing proxy field";
 			break;
 		}
 		login_proxy_redirect_finish(client->login_proxy,
-					    &reply.host_ip, reply.port);
+					    &reply.proxy.host_ip,
+					    reply.proxy.port);
 		return;
 	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
 		error = "Internal authentication failure";
@@ -592,24 +543,24 @@ proxy_check_start(struct client *client, struct event *event,
 		  const struct client_auth_reply *reply,
 		  const struct dsasl_client_mech **sasl_mech_r)
 {
-	i_assert(reply->password != NULL);
-	i_assert(reply->host != NULL && reply->host[0] != '\0');
-	i_assert(reply->host_ip.family != 0);
+	i_assert(reply->proxy.password != NULL);
+	i_assert(reply->proxy.host != NULL && reply->proxy.host[0] != '\0');
+	i_assert(reply->proxy.host_ip.family != 0);
 
-	if (reply->proxy_mech != NULL) {
-		*sasl_mech_r = dsasl_client_mech_find(reply->proxy_mech);
+	if (reply->proxy.sasl_mechanism != NULL) {
+		*sasl_mech_r = dsasl_client_mech_find(reply->proxy.sasl_mechanism);
 		if (*sasl_mech_r == NULL) {
 			e_error(event, "Unsupported SASL mechanism %s",
-				reply->proxy_mech);
+				reply->proxy.sasl_mechanism);
 			return FALSE;
 		}
-	} else if (reply->master_user != NULL) {
+	} else if (reply->proxy.master_user != NULL) {
 		/* have to use PLAIN authentication with master user logins */
 		*sasl_mech_r = &dsasl_client_mech_plain;
 	}
 
-	if (login_proxy_is_ourself(client, reply->host, reply->port,
-				   reply->destuser)) {
+	if (login_proxy_is_ourself(client, reply->proxy.host, reply->proxy.port,
+				   reply->proxy.username)) {
 		e_error(event, "Proxying loops to itself");
 		return FALSE;
 	}
@@ -623,7 +574,7 @@ static int proxy_start(struct client *client,
 	const struct dsasl_client_mech *sasl_mech = NULL;
 	struct event *event;
 
-	i_assert(reply->destuser != NULL);
+	i_assert(reply->proxy.username != NULL);
 	i_assert(client->refcount > 1);
 	i_assert(!client->destroyed);
 	i_assert(client->proxy_sasl_client == NULL);
@@ -643,34 +594,34 @@ static int proxy_start(struct client *client,
 	}
 
 	i_zero(&proxy_set);
-	proxy_set.host = reply->host;
-	proxy_set.ip = reply->host_ip;
-	if (reply->source_ip.family != 0) {
-		proxy_set.source_ip = reply->source_ip;
+	proxy_set.host = reply->proxy.host;
+	proxy_set.ip = reply->proxy.host_ip;
+	if (reply->proxy.source_ip.family != 0) {
+		proxy_set.source_ip = reply->proxy.source_ip;
 	} else if (login_source_ips_count > 0) {
 		/* select the next source IP with round robin. */
 		proxy_set.source_ip = login_source_ips[login_source_ips_idx];
 		login_source_ips_idx =
 			(login_source_ips_idx + 1) % login_source_ips_count;
 	}
-	proxy_set.port = reply->port;
-	proxy_set.connect_timeout_msecs = reply->proxy_timeout_msecs;
+	proxy_set.port = reply->proxy.port;
+	proxy_set.connect_timeout_msecs = reply->proxy.timeout_msecs;
 	if (proxy_set.connect_timeout_msecs == 0)
 		proxy_set.connect_timeout_msecs = client->set->login_proxy_timeout;
 	proxy_set.notify_refresh_secs = reply->proxy_refresh_secs;
-	proxy_set.ssl_flags = reply->ssl_flags;
+	proxy_set.ssl_flags = reply->proxy.ssl_flags;
 	proxy_set.host_immediate_failure_after_secs =
 		reply->proxy_host_immediate_failure_after_secs;
 	proxy_set.rawlog_dir = client->set->login_proxy_rawlog_dir;
 
 	client->proxy_mech = sasl_mech;
-	client->proxy_user = i_strdup(reply->destuser);
-	client->proxy_master_user = i_strdup(reply->master_user);
-	client->proxy_password = i_strdup(reply->password);
-	client->proxy_noauth = reply->proxy_noauth;
-	client->proxy_nopipelining = reply->proxy_nopipelining;
-	client->proxy_not_trusted = reply->proxy_not_trusted;
-	client->proxy_redirect_reauth = reply->proxy_redirect_reauth;
+	client->proxy_user = i_strdup(reply->proxy.username);
+	client->proxy_master_user = i_strdup(reply->proxy.master_user);
+	client->proxy_password = i_strdup(reply->proxy.password);
+	client->proxy_nopipelining = reply->proxy.nopipelining;
+	client->proxy_noauth = reply->proxy.noauth;
+	client->proxy_not_trusted = reply->proxy.remote_not_trusted;
+	client->proxy_redirect_reauth = reply->proxy.redirect_reauth;
 
 	if (login_proxy_new(client, event, &proxy_set, proxy_input,
 			    client->v.proxy_failed, proxy_redirect) < 0) {
@@ -707,7 +658,7 @@ client_auth_handle_reply(struct client *client,
 		client->alt_usernames = alt;
 	}
 
-	if (reply->proxy) {
+	if (reply->proxy.proxy) {
 		/* we want to proxy the connection to another server.
 		   don't do this unless authentication succeeded. with
 		   master user proxying we can get FAIL with proxy still set.
@@ -726,7 +677,7 @@ client_auth_handle_reply(struct client *client,
 		return TRUE;
 	}
 
-	if (reply->host != NULL) {
+	if (reply->proxy.host != NULL) {
 		const char *reason;
 
 		if (reply->reason != NULL)

@@ -2,6 +2,7 @@
 #define LOGIN_PROXY_H
 
 #include "net.h"
+#include "auth-proxy.h"
 
 /* Max. number of embedded proxying connections until proxying fails.
    This is intended to avoid an accidental configuration where two proxies
@@ -15,15 +16,6 @@
 
 struct client;
 struct login_proxy;
-
-enum login_proxy_ssl_flags {
-	/* Use SSL/TLS enabled */
-	PROXY_SSL_FLAG_YES	= 0x01,
-	/* Don't do SSL handshake immediately after connected */
-	PROXY_SSL_FLAG_STARTTLS	= 0x02,
-	/* Don't require that the received certificate is valid */
-	PROXY_SSL_FLAG_ANY_CERT	= 0x04
-};
 
 enum login_proxy_failure_type {
 	/* connect() failed or remote disconnected us. */
@@ -59,7 +51,7 @@ struct login_proxy_settings {
 	   every n seconds */
 	unsigned int notify_refresh_secs;
 	unsigned int host_immediate_failure_after_secs;
-	enum login_proxy_ssl_flags ssl_flags;
+	enum auth_proxy_ssl_flags ssl_flags;
 	const char *rawlog_dir;
 };
 
@@ -121,7 +113,7 @@ const char *login_proxy_get_source_host(const struct login_proxy *proxy) ATTR_PU
 const char *login_proxy_get_host(const struct login_proxy *proxy) ATTR_PURE;
 const char *login_proxy_get_ip_str(const struct login_proxy *proxy) ATTR_PURE;
 in_port_t login_proxy_get_port(const struct login_proxy *proxy) ATTR_PURE;
-enum login_proxy_ssl_flags
+enum auth_proxy_ssl_flags
 login_proxy_get_ssl_flags(const struct login_proxy *proxy) ATTR_PURE;
 unsigned int
 login_proxy_get_connect_timeout_msecs(const struct login_proxy *proxy) ATTR_PURE;
