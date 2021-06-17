@@ -143,6 +143,78 @@ doveadm_cmd_pass_lookup(struct doveadm_mail_cmd_context *ctx, pool_t pool,
 				       pool, fields_r);
 }
 
+static int
+doveadm_cmd_pass_reply_parse(struct doveadm_mail_cmd_context *ctx,
+			     const char *auth_socket_path,
+			     const char *const *fields,
+			     struct auth_proxy_settings *proxy_set,
+			     bool *nologin_r, const char **error_r)
+{
+	const char *orig_user = proxy_set->username;
+	const char *error;
+	int ret;
+
+	proxy_set->username = NULL;
+	proxy_set->host = NULL;
+
+	*nologin_r = FALSE;
+	for (unsigned int i = 0; fields[i] != NULL; i++) {
+		const char *p, *key, *value;
+
+		p = strchr(fields[i], '=');
+		if (p == NULL) {
+			key = fields[i];
+			value = "";
+		} else {
+			key = t_strdup_until(fields[i], p);
+			value = p + 1;
+		}
+
+		ret = auth_proxy_settings_parse(proxy_set,
+			unsafe_data_stack_pool, key, value, &error);
+		if (ret < 0) {
+			*error_r = t_strdup_printf(
+				"%s: Invalid %s value '%s': %s",
+				auth_socket_path, key, value, error);
+			return -1;
+		}
+		if (ret > 0)
+			continue;
+
+		if (strcmp(key, "nologin") == 0)
+			*nologin_r = TRUE;
+		else if (strcmp(key, "user") == 0) {
+			if (proxy_set->username == NULL)
+				proxy_set->username = t_strdup(value);
+		}
+	}
+	if (proxy_set->username == NULL)
+		proxy_set->username = orig_user;
+	if (!proxy_set->proxy)
+		return 0;
+
+	if (proxy_set->host == NULL) {
+		*error_r = t_strdup_printf(
+			"%s: Proxy is missing destination host",
+			auth_socket_path);
+		if (strstr(auth_socket_path, "/auth-userdb") != NULL) {
+			*error_r = t_strdup_printf(
+				"%s (maybe set auth_socket_path=director-userdb)",
+				*error_r);
+		}
+		return -1;
+	}
+	if (proxy_set->ssl_flags != 0)
+		;
+	else if (strcmp(ctx->set->doveadm_ssl, "ssl") == 0)
+		proxy_set->ssl_flags |= AUTH_PROXY_SSL_FLAG_YES;
+	else if (strcmp(ctx->set->doveadm_ssl, "starttls") == 0) {
+		proxy_set->ssl_flags |= AUTH_PROXY_SSL_FLAG_YES |
+			AUTH_PROXY_SSL_FLAG_STARTTLS;
+	}
+	return 0;
+}
+
 static bool
 doveadm_proxy_cmd_have_connected(struct doveadm_mail_server_cmd *servercmd,
 				 const struct ip_addr *ip, in_port_t port)
@@ -333,8 +405,7 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 				  const char **error_r)
 {
 	pool_t pool;
-	const char *auth_socket_path, *const *fields, *error;
-	unsigned int i;
+	const char *auth_socket_path, *const *fields;
 	bool nologin;
 	int ret;
 
@@ -371,79 +442,26 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 	} else {
 		const char *orig_host = proxy_set_r->host;
 
-		nologin = FALSE;
-		proxy_set_r->username = NULL;
-		proxy_set_r->host = NULL;
-		for (i = 0; fields[i] != NULL; i++) {
-			const char *p, *key, *value;
-
-			p = strchr(fields[i], '=');
-			if (p == NULL) {
-				key = fields[i];
-				value = "";
-			} else {
-				key = t_strdup_until(fields[i], p);
-				value = p + 1;
-			}
-
-			ret = auth_proxy_settings_parse(proxy_set_r,
-				unsafe_data_stack_pool, key, value, &error);
-			if (ret < 0) {
-				*error_r = t_strdup_printf(
-					"%s: Invalid %s value '%s': %s",
-					auth_socket_path, key, value, error);
-				break;
-			}
-			if (ret > 0)
-				continue;
-
-			if (strcmp(key, "nologin") == 0)
-				nologin = TRUE;
-			else if (strcmp(key, "user") == 0) {
-				if (proxy_set_r->username == NULL)
-					proxy_set_r->username = t_strdup(value);
-			}
-		}
-		if (proxy_set_r->username == NULL)
-			proxy_set_r->username = ctx->cctx->username;
-
-		if (ret < 0)
-			;
-		else if (!proxy_set_r->proxy) {
-			if (!nologin) {
-				proxy_set_r->host = orig_host;
-				ret = 0;
-			} else if (proxy_set_r->host == NULL) {
-				/* Allow accessing nologin users via doveadm
-				   protocol, since it's only admins that access
-				   them. */
-				proxy_set_r->host = orig_host;
-				ret = 0;
-			} else {
-				/* Referral */
-				*referral_r = t_strdup_printf("%s@%s",
-					proxy_set_r->username,
-					proxy_set_r->host);
-				ret = 1;
-			}
-		} else if (proxy_set_r->host == NULL) {
-			*error_r = t_strdup_printf("%s: Proxy is missing destination host",
-						   auth_socket_path);
-			if (strstr(auth_socket_path, "/auth-userdb") != NULL) {
-				*error_r = t_strdup_printf(
-					"%s (maybe set auth_socket_path=director-userdb)",
-					*error_r);
-			}
+		if (doveadm_cmd_pass_reply_parse(ctx, auth_socket_path, fields,
+						 proxy_set_r, &nologin,
+						 error_r) < 0)
 			ret = -1;
+		else if (proxy_set_r->proxy)
+			ret = 1;
+		else if (!nologin) {
+			proxy_set_r->host = orig_host;
+			ret = 0;
+		} else if (proxy_set_r->host == NULL) {
+			/* Allow accessing nologin users via doveadm
+			   protocol, since it's only admins that access
+			   them. */
+			proxy_set_r->host = orig_host;
+			ret = 0;
 		} else {
-			if (proxy_set_r->ssl_flags != 0)
-				;
-			else if (strcmp(ctx->set->doveadm_ssl, "ssl") == 0)
-				proxy_set_r->ssl_flags |= AUTH_PROXY_SSL_FLAG_YES;
-			else if (strcmp(ctx->set->doveadm_ssl, "starttls") == 0) {
-				proxy_set_r->ssl_flags |= AUTH_PROXY_SSL_FLAG_YES |
-					AUTH_PROXY_SSL_FLAG_STARTTLS;
-			}
+			/* Referral */
+			*referral_r = t_strdup_printf("%s@%s",
+				proxy_set_r->username, proxy_set_r->host);
+			ret = 1;
 		}
 	}
 	pool_unref(&pool);
