@@ -116,6 +116,33 @@ static void doveadm_mail_server_cmd_free(struct doveadm_mail_server_cmd **_cmd)
 	i_free(cmd);
 }
 
+static int
+doveadm_cmd_pass_lookup(struct doveadm_mail_cmd_context *ctx, pool_t pool,
+			const char *const **fields_r,
+			const char **auth_socket_path_r)
+{
+	struct auth_master_connection *auth_conn;
+	struct auth_user_info info;
+
+	/* make sure we have an auth connection */
+	struct mail_storage_service_input input = {
+		.service = master_service_get_name(master_service),
+	};
+	mail_storage_service_init_settings(ctx->storage_service, &input);
+
+	i_zero(&info);
+	info.service = master_service_get_name(master_service);
+	info.local_ip = ctx->cctx->local_ip;
+	info.remote_ip = ctx->cctx->remote_ip;
+	info.local_port = ctx->cctx->local_port;
+	info.remote_port = ctx->cctx->remote_port;
+
+	auth_conn = mail_storage_service_get_auth_conn(ctx->storage_service);
+	*auth_socket_path_r = auth_master_get_socket_path(auth_conn);
+	return auth_master_pass_lookup(auth_conn, ctx->cctx->username, &info,
+				       pool, fields_r);
+}
+
 static bool
 doveadm_proxy_cmd_have_connected(struct doveadm_mail_server_cmd *servercmd,
 				 const struct ip_addr *ip, in_port_t port)
@@ -307,8 +334,6 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 				  const char **referral_r,
 				  const char **error_r)
 {
-	struct auth_master_connection *auth_conn;
-	struct auth_user_info info;
 	pool_t pool;
 	const char *auth_socket_path, *const *fields, *error;
 	unsigned int i;
@@ -332,24 +357,8 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 			AUTH_PROXY_SSL_FLAG_STARTTLS;
 	}
 
-	/* make sure we have an auth connection */
-	struct mail_storage_service_input input = {
-		.service = master_service_get_name(master_service),
-	};
-	mail_storage_service_init_settings(ctx->storage_service, &input);
-
-	i_zero(&info);
-	info.service = master_service_get_name(master_service);
-	info.local_ip = ctx->cctx->local_ip;
-	info.remote_ip = ctx->cctx->remote_ip;
-	info.local_port = ctx->cctx->local_port;
-	info.remote_port = ctx->cctx->remote_port;
-
 	pool = pool_alloconly_create("auth lookup", 1024);
-	auth_conn = mail_storage_service_get_auth_conn(ctx->storage_service);
-	auth_socket_path = auth_master_get_socket_path(auth_conn);
-	ret = auth_master_pass_lookup(auth_conn, ctx->cctx->username, &info,
-				      pool, &fields);
+	ret = doveadm_cmd_pass_lookup(ctx, pool, &fields, &auth_socket_path);
 	if (ret < 0) {
 		*error_r = fields[0] != NULL ?
 			t_strdup(fields[0]) : "passdb lookup failed";
