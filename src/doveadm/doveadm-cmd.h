@@ -85,6 +85,7 @@ struct doveadm_cmd_context {
 	/* non-NULL if doveadm-server should return referral to another
 	   server instead. */
 	const char *referral;
+	bool proxy_redirect_reauth;
 };
 
 ARRAY_DEFINE_TYPE(doveadm_cmd_ver2, struct doveadm_cmd_ver2);

@@ -117,7 +117,8 @@ static void doveadm_mail_server_cmd_free(struct doveadm_mail_server_cmd **_cmd)
 }
 
 static int
-doveadm_cmd_pass_lookup(struct doveadm_mail_cmd_context *ctx, pool_t pool,
+doveadm_cmd_pass_lookup(struct doveadm_mail_cmd_context *ctx,
+			const char *const *extra_fields, pool_t pool,
 			const char *const **fields_r,
 			const char **auth_socket_path_r)
 {
@@ -136,6 +137,12 @@ doveadm_cmd_pass_lookup(struct doveadm_mail_cmd_context *ctx, pool_t pool,
 	info.remote_ip = ctx->cctx->remote_ip;
 	info.local_port = ctx->cctx->local_port;
 	info.remote_port = ctx->cctx->remote_port;
+
+	if (extra_fields != NULL) {
+		unsigned int count = str_array_length(extra_fields);
+		t_array_init(&info.extra_fields, count);
+		array_append(&info.extra_fields, extra_fields, count);
+	}
 
 	auth_conn = mail_storage_service_get_auth_conn(ctx->storage_service);
 	*auth_socket_path_r = auth_master_get_socket_path(auth_conn);
@@ -204,6 +211,14 @@ doveadm_cmd_pass_reply_parse(struct doveadm_mail_cmd_context *ctx,
 		}
 		return -1;
 	}
+	if (proxy_set->host_ip.family == 0 &&
+	    net_addr2ip(proxy_set->host, &proxy_set->host_ip) < 0) {
+		*error_r = t_strdup_printf(
+			"%s: Proxy host is not a valid IP address: %s",
+			auth_socket_path, proxy_set->host);
+		return -1;
+	}
+
 	if (proxy_set->ssl_flags != 0)
 		;
 	else if (strcmp(ctx->set->doveadm_ssl, "ssl") == 0)
@@ -213,6 +228,26 @@ doveadm_cmd_pass_reply_parse(struct doveadm_mail_cmd_context *ctx,
 			AUTH_PROXY_SSL_FLAG_STARTTLS;
 	}
 	return 0;
+}
+
+static void
+doveadm_proxy_cmd_get_redirect_path(struct doveadm_mail_server_cmd *servercmd,
+				    string_t *str)
+{
+	const struct doveadm_proxy_redirect *redirect;
+	struct ip_addr ip;
+	in_port_t port;
+
+	server_connection_get_dest(servercmd->conn, &ip, &port);
+	i_assert(ip.family != 0);
+
+	str_printfa(str, "%s:%u", net_ip2addr(&ip), port);
+	if (!array_is_created(&servercmd->redirect_path))
+		return;
+	array_foreach(&servercmd->redirect_path, redirect) {
+		str_printfa(str, ",%s:%u",
+			    net_ip2addr(&redirect->ip), redirect->port);
+	}
 }
 
 static bool
@@ -248,6 +283,8 @@ doveadm_cmd_redirect_finish(struct doveadm_mail_server_cmd *servercmd,
 	struct server_connection *conn;
 	struct doveadm_proxy_redirect *redirect;
 	const char *server_name, *error;
+
+	i_assert(ip->family != 0);
 
 	if (doveadm_proxy_cmd_have_connected(servercmd, ip, port)) {
 		*error_r = t_strdup_printf(
@@ -291,6 +328,55 @@ doveadm_cmd_redirect_finish(struct doveadm_mail_server_cmd *servercmd,
 	return 0;
 }
 
+static int
+doveadm_cmd_redirect_relookup(struct doveadm_mail_server_cmd *servercmd,
+			      const struct ip_addr *ip, in_port_t port,
+			      const char *destuser, const char **error_r)
+{
+	struct auth_proxy_settings proxy_set;
+	const char *const *fields, *auth_socket_path;
+	pool_t auth_pool;
+	bool nologin;
+	int ret;
+
+	i_zero(&proxy_set);
+
+	string_t *hosts_attempted = t_str_new(64);
+	str_append(hosts_attempted, "proxy_redirect_host_attempts=");
+	doveadm_proxy_cmd_get_redirect_path(servercmd, hosts_attempted);
+	const char *const extra_fields[] = {
+		t_strdup_printf("proxy_redirect_host_next=%s:%u",
+				net_ip2addr(ip), port),
+		str_c(hosts_attempted),
+		destuser == NULL ? NULL :
+			t_strdup_printf("destuser=%s", str_tabescape(destuser)),
+		NULL
+	};
+
+	auth_pool = pool_alloconly_create("auth lookup", 1024);
+	ret = doveadm_cmd_pass_lookup(cmd_ctx, extra_fields, auth_pool, &fields,
+				      &auth_socket_path);
+	if (ret <= 0) {
+		if (ret == 0 || fields[0] == NULL)
+			*error_r = "Redirect lookup unexpectedly failed";
+		else {
+			*error_r = t_strdup_printf(
+				"Redirect lookup unexpectedly failed: %s",
+				fields[0]);
+		}
+		ret = -1;
+	} else if (doveadm_cmd_pass_reply_parse(cmd_ctx, auth_socket_path, fields,
+						&proxy_set, &nologin, error_r) < 0)
+		ret = -1;
+	else {
+		ret = doveadm_cmd_redirect_finish(servercmd, &proxy_set.host_ip,
+						  proxy_set.port,
+						  proxy_set.ssl_flags, error_r);
+	}
+	pool_unref(&auth_pool);
+	return ret;
+}
+
 static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
 				const char *destination)
 {
@@ -310,9 +396,14 @@ static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
 	if (port == 0)
 		port = orig_server->port;
 
-	ret = doveadm_cmd_redirect_finish(servercmd, &ip, port,
-					  orig_server->ssl_flags,
-					  &error);
+	if (cmd_ctx->cctx->proxy_redirect_reauth) {
+		ret = doveadm_cmd_redirect_relookup(servercmd, &ip, port,
+						    destuser, &error);
+	} else {
+		ret = doveadm_cmd_redirect_finish(servercmd, &ip, port,
+						  orig_server->ssl_flags,
+						  &error);
+	}
 	if (ret < 0) {
 		i_error("%s: %s", orig_server->name, error);
 		return -1;
@@ -453,7 +544,8 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 	}
 
 	pool = pool_alloconly_create("auth lookup", 1024);
-	ret = doveadm_cmd_pass_lookup(ctx, pool, &fields, &auth_socket_path);
+	ret = doveadm_cmd_pass_lookup(ctx, NULL, pool, &fields,
+				      &auth_socket_path);
 	if (ret < 0) {
 		*error_r = fields[0] != NULL ?
 			t_strdup(fields[0]) : "passdb lookup failed";
@@ -525,6 +617,8 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	i_assert(proxy_set.host != NULL);
 	i_assert(proxy_set.port != 0);
 	i_assert(proxy_set.username != NULL);
+
+	ctx->cctx->proxy_redirect_reauth = proxy_set.redirect_reauth;
 
 	/* server sends the sticky headers for each row as well,
 	   so undo any sticks we might have added already */
