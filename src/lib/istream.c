@@ -243,9 +243,13 @@ void i_stream_snapshot_free(struct istream_snapshot **_snapshot)
 	*_snapshot = NULL;
 
 	i_stream_snapshot_free(&snapshot->prev_snapshot);
-	if (snapshot->old_memarea != NULL)
-		memarea_unref(&snapshot->old_memarea);
-	i_free(snapshot);
+	if (snapshot->free != NULL)
+		snapshot->free(snapshot);
+	else {
+		if (snapshot->old_memarea != NULL)
+			memarea_unref(&snapshot->old_memarea);
+		i_free(snapshot);
+	}
 }
 
 static struct istream_snapshot *
