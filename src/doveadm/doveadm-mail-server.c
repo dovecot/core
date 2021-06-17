@@ -250,17 +250,17 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 				  const struct mail_storage_service_input *input,
 				  const char **user_r, const char **host_r,
 				  struct ip_addr *hostip_r, in_port_t *port_r,
-				  enum doveadm_proxy_ssl_flags *ssl_flags_r,
+				  enum auth_proxy_ssl_flags *ssl_flags_r,
 				  const char **referral_r,
 				  const char **error_r)
 {
 	struct auth_master_connection *auth_conn;
 	struct auth_user_info info;
 	pool_t pool;
-	const char *auth_socket_path, *proxy_host, *proxy_hostip, *const *fields;
+	const char *auth_socket_path, *const *fields, *error;
 	unsigned int i;
-	in_port_t proxy_port;
-	bool proxying, nologin;
+	bool nologin;
+	struct auth_proxy_settings proxy_set;
 	int ret;
 
 	*user_r = input->username;
@@ -271,10 +271,13 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 	if (ctx->set->doveadm_port == 0)
 		return 0;
 
+	i_zero(&proxy_set);
 	if (strcmp(ctx->set->doveadm_ssl, "ssl") == 0)
-		*ssl_flags_r |= PROXY_SSL_FLAG_YES;
-	else if (strcmp(ctx->set->doveadm_ssl, "starttls") == 0)
-		*ssl_flags_r |= PROXY_SSL_FLAG_YES | PROXY_SSL_FLAG_STARTTLS;
+		*ssl_flags_r |= AUTH_PROXY_SSL_FLAG_YES;
+	else if (strcmp(ctx->set->doveadm_ssl, "starttls") == 0) {
+		*ssl_flags_r |= AUTH_PROXY_SSL_FLAG_YES |
+			AUTH_PROXY_SSL_FLAG_STARTTLS;
+	}
 
 	/* make sure we have an auth connection */
 	mail_storage_service_init_settings(ctx->storage_service, input);
@@ -301,8 +304,7 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 		/* user not found from passdb. it could be in userdb though,
 		   so just continue with the default host */
 	} else {
-		proxy_host = NULL; proxy_hostip = NULL; proxying = FALSE;
-		proxy_port = ctx->set->doveadm_port; nologin = FALSE;
+		nologin = FALSE;
 		for (i = 0; fields[i] != NULL; i++) {
 			const char *p, *key, *value;
 
@@ -315,42 +317,30 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 				value = p + 1;
 			}
 
-			if (strcmp(key, "proxy") == 0)
-				proxying = TRUE;
-			else if (strcmp(key, "nologin") == 0)
+			ret = auth_proxy_settings_parse(&proxy_set, NULL, key,
+							value, &error);
+			if (ret < 0) {
+				*error_r = t_strdup_printf(
+					"%s: Invalid %s value '%s': %s",
+					auth_socket_path, key, value, error);
+				break;
+			}
+			if (ret > 0)
+				continue;
+
+			if (strcmp(key, "nologin") == 0)
 				nologin = TRUE;
-			else if (strcmp(key, "host") == 0)
-				proxy_host = value;
-			else if (strcmp(key, "hostip") == 0)
-				proxy_hostip = value;
 			else if (strcmp(key, "user") == 0)
 				*user_r = t_strdup(value);
-			else if (strcmp(key, "destuser") == 0)
-				*user_r = t_strdup(value);
-			else if (strcmp(key, "port") == 0) {
-				if (net_str2port(value, &proxy_port) < 0)
-					proxy_port = 0;
-	                } else if (strcmp(key, "ssl") == 0) {
-	                        *ssl_flags_r |= PROXY_SSL_FLAG_YES;
-	                        if (strcmp(value, "any-cert") == 0)
-	                               *ssl_flags_r |= PROXY_SSL_FLAG_ANY_CERT;
-	                } else if (strcmp(key, "starttls") == 0) {
-	                        *ssl_flags_r |= PROXY_SSL_FLAG_YES |
-	                                PROXY_SSL_FLAG_STARTTLS;
-	                        if (strcmp(value, "any-cert") == 0)
-	                                *ssl_flags_r |= PROXY_SSL_FLAG_ANY_CERT;
-			}
 		}
-		if (proxy_hostip != NULL &&
-		    net_addr2ip(proxy_hostip, hostip_r) < 0) {
-			*error_r = t_strdup_printf("%s Invalid hostip value '%s'",
-						   auth_socket_path, proxy_hostip);
-			ret = -1;
-		}
-		if (!proxying) {
+		if (proxy_set.port == 0)
+			proxy_set.port = ctx->set->doveadm_port;
+		if (ret < 0)
+			;
+		else if (!proxy_set.proxy) {
 			if (!nologin)
 				ret = 0;
-			else if (proxy_host == NULL) {
+			else if (proxy_set.host == NULL) {
 				/* Allow accessing nologin users via doveadm
 				   protocol, since it's only admins that access
 				   them. */
@@ -358,10 +348,12 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 			} else {
 				/* Referral */
 				*referral_r = t_strdup_printf("%s@%s",
-					*user_r, proxy_host);
+					proxy_set.username != NULL ?
+					proxy_set.username : *user_r,
+					proxy_set.host);
 				ret = 1;
 			}
-		} else if (proxy_host == NULL) {
+		} else if (proxy_set.host == NULL) {
 			*error_r = t_strdup_printf("%s: Proxy is missing destination host",
 						   auth_socket_path);
 			if (strstr(auth_socket_path, "/auth-userdb") != NULL) {
@@ -371,8 +363,14 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 			}
 			ret = -1;
 		} else {
-			*port_r = proxy_port;
-			*host_r = t_strdup_printf("%s:%u", proxy_host, proxy_port);
+			if (proxy_set.username != NULL)
+				*user_r = t_strdup(proxy_set.username);
+			if (proxy_set.ssl_flags != 0)
+				*ssl_flags_r = proxy_set.ssl_flags;
+			*port_r = proxy_set.port;
+			*host_r = t_strdup_printf("%s:%u", proxy_set.host,
+						  proxy_set.port);
+			*hostip_r = proxy_set.host_ip;
 		}
 	}
 	pool_unref(&pool);
@@ -387,7 +385,7 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	struct server_connection *conn;
 	const char *user, *host, *referral;
 	struct ip_addr hostip;
-	enum doveadm_proxy_ssl_flags ssl_flags = 0;
+	enum auth_proxy_ssl_flags ssl_flags = 0;
 	char *username_dup;
 	int ret;
 	in_port_t port;

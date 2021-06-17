@@ -390,7 +390,7 @@ static void server_connection_input(struct server_connection *conn)
 				return;
 			}
 			if (!conn->ssl_done &&
-			    (conn->server->ssl_flags & PROXY_SSL_FLAG_STARTTLS) != 0) {
+			    (conn->server->ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) != 0) {
 				io_remove(&conn->io);
 				if (conn->minor < 2) {
 					i_error("doveadm STARTTLS failed: Server does not support it");
@@ -546,7 +546,7 @@ static int server_connection_init_ssl(struct server_connection *conn,
 
 	doveadm_get_ssl_settings(&ssl_set, pool_datastack_create());
 
-	if ((conn->server->ssl_flags & PROXY_SSL_FLAG_ANY_CERT) != 0)
+	if ((conn->server->ssl_flags & AUTH_PROXY_SSL_FLAG_ANY_CERT) != 0)
 		ssl_set.allow_invalid_cert = TRUE;
 	if (ssl_set.allow_invalid_cert)
 		ssl_set.verbose_invalid_cert = TRUE;
@@ -608,7 +608,7 @@ int server_connection_create(struct doveadm_server *server,
 	array_push_back(&conn->server->connections, &conn);
 
 	if (server_connection_read_settings(conn, error_r) < 0 ||
-	    ((server->ssl_flags & PROXY_SSL_FLAG_STARTTLS) == 0 &&
+	    ((server->ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) == 0 &&
 	     server_connection_init_ssl(conn, error_r) < 0)) {
 		server_connection_destroy(&conn);
 		return -1;
