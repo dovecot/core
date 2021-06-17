@@ -59,4 +59,10 @@ int auth_proxy_settings_parse(struct auth_proxy_settings *set, pool_t pool,
 			      const char *key, const char *value,
 			      const char **error_r);
 
+/* Parse [user@]ip[:port] string. Note that host must currently always be IP. */
+bool auth_proxy_parse_redirect(const char *target,
+			       const char **destuser_r,
+			       const char **host_r, struct ip_addr *ip_r,
+			       in_port_t *port_r);
+
 #endif
