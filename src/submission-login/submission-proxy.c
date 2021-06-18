@@ -21,6 +21,28 @@ static const char *submission_proxy_state_names[SUBMISSION_PROXY_STATE_COUNT] = 
 	"banner", "ehlo", "starttls", "tls-ehlo", "xclient", "authenticate"
 };
 
+static int
+proxy_send_starttls(struct submission_client *client, struct ostream *output)
+{
+	enum login_proxy_ssl_flags ssl_flags;
+
+	ssl_flags = login_proxy_get_ssl_flags(client->common.login_proxy);
+	if ((ssl_flags & PROXY_SSL_FLAG_STARTTLS) == 0)
+		return 0;
+
+	if ((client->proxy_capability & SMTP_CAPABILITY_STARTTLS) == 0) {
+		login_proxy_failed(
+			client->common.login_proxy,
+			login_proxy_get_event(client->common.login_proxy),
+			LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG,
+			"STARTTLS not supported");
+		return -1;
+	}
+	o_stream_nsend_str(output, "STARTTLS\r\n");
+	client->proxy_state = SUBMISSION_PROXY_STARTTLS;
+	return 1;
+}
+
 static buffer_t *
 proxy_compose_xclient_forward(struct submission_client *client)
 {
@@ -235,10 +257,10 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 	struct smtp_server_cmd_ctx *cmd = subm_client->pending_auth;
 	struct smtp_server_command *command = cmd->cmd;
 	struct ostream *output;
-	enum login_proxy_ssl_flags ssl_flags;
 	bool last_line = FALSE, invalid_line = FALSE;
 	const char *text = NULL, *enh_code = NULL;
 	unsigned int status = 0;
+	int ret;
 
 	i_assert(!client->destroyed);
 	i_assert(cmd != NULL);
@@ -329,22 +351,9 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 			return 0;
 		}
 
-		ssl_flags = login_proxy_get_ssl_flags(client->login_proxy);
-		if ((ssl_flags & PROXY_SSL_FLAG_STARTTLS) == 0) {
-			if (proxy_send_login(subm_client, output) < 0)
-				return -1;
-		} else {
-			if ((subm_client->proxy_capability &
-			     SMTP_CAPABILITY_STARTTLS) == 0) {
-				login_proxy_failed(client->login_proxy,
-					login_proxy_get_event(client->login_proxy),
-					LOGIN_PROXY_FAILURE_TYPE_REMOTE_CONFIG,
-					"STARTTLS not supported");
-				return -1;
-			}
-			o_stream_nsend_str(output, "STARTTLS\r\n");
-			subm_client->proxy_state = SUBMISSION_PROXY_STARTTLS;
-		}
+		ret = proxy_send_starttls(subm_client, output);
+		if (ret < 0)
+			return -1;
 		return 0;
 	case SUBMISSION_PROXY_STARTTLS:
 		if (invalid_line || status != 220) {
