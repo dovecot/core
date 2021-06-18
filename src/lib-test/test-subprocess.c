@@ -5,6 +5,7 @@
 #include "hostpid.h"
 #include "array.h"
 #include "ioloop.h"
+#include "sleep.h"
 #include "test-common.h"
 #include "test-subprocess.h"
 
@@ -18,6 +19,7 @@ struct test_subprocess {
 
 volatile sig_atomic_t test_subprocess_is_child = 0;
 static bool test_subprocess_lib_init = FALSE;
+static volatile bool test_subprocess_notification_signal_received = FALSE;
 static struct event *test_subprocess_event = NULL;
 static ARRAY(struct test_subprocess *) test_subprocesses = ARRAY_INIT;
 static void (*test_subprocess_cleanup_callback)(void) = NULL;
@@ -297,6 +299,41 @@ void test_subprocess_set_cleanup_callback(void (*callback)(void))
 	test_subprocess_cleanup_callback = callback;
 }
 
+void test_subprocess_notify_signal_send(pid_t pid)
+{
+	if (kill(pid, SIGHUP) < 0)
+		i_fatal("kill(%ld, SIGHUP) failed: %m", (long)pid);
+}
+
+void test_subprocess_notify_signal_send_parent(void)
+{
+	test_subprocess_notify_signal_send(getppid());
+}
+
+void test_subprocess_notify_signal_reset(void)
+{
+	test_subprocess_notification_signal_received = FALSE;
+}
+
+void test_subprocess_notify_signal_wait(unsigned int timeout_msecs)
+{
+	unsigned int i, count = timeout_msecs / 10;
+
+	for (i = 0; i < count; i++) {
+		if (test_subprocess_notification_signal_received)
+			return;
+		i_sleep_msecs(10);
+	}
+	i_fatal("Didn't receive wait notification signal from server");
+}
+
+static void
+test_subprocess_notification_signal(const siginfo_t *si ATTR_UNUSED,
+				    void *context ATTR_UNUSED)
+{
+	test_subprocess_notification_signal_received = TRUE;
+}
+
 void test_subprocesses_init(bool debug)
 {
 	if (!lib_is_initialized()) {
@@ -313,6 +350,8 @@ void test_subprocesses_init(bool debug)
 	lib_signals_set_handler(SIGINT, 0, test_subprocess_terminate, NULL);
 	lib_signals_set_handler(SIGSEGV, 0, test_subprocess_terminate, NULL);
 	lib_signals_set_handler(SIGABRT, 0, test_subprocess_terminate, NULL);
+	lib_signals_set_handler(SIGHUP, LIBSIG_FLAG_RESTART,
+				test_subprocess_notification_signal, NULL);
 
 	i_array_init(&test_subprocesses, 8);
 
