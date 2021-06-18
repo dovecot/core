@@ -165,6 +165,24 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 }
 
 static int
+proxy_handle_ehlo_reply(struct submission_client *client,
+			struct ostream *output)
+{
+	int ret;
+
+	if (client->proxy_state == SUBMISSION_PROXY_TLS_EHLO) {
+		if (proxy_send_login(client, output) < 0)
+			return -1;
+		return 0;
+	}
+
+	ret = proxy_send_starttls(client, output);
+	if (ret < 0)
+		return -1;
+	return 0;
+}
+
+static int
 submission_proxy_continue_sasl_auth(struct client *client, struct ostream *output,
 				    const char *line)
 {
@@ -260,7 +278,6 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 	bool last_line = FALSE, invalid_line = FALSE;
 	const char *text = NULL, *enh_code = NULL;
 	unsigned int status = 0;
-	int ret;
 
 	i_assert(!client->destroyed);
 	i_assert(cmd != NULL);
@@ -345,16 +362,7 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 		if (!last_line)
 			return 0;
 
-		if (subm_client->proxy_state == SUBMISSION_PROXY_TLS_EHLO) {
-			if (proxy_send_login(subm_client, output) < 0)
-				return -1;
-			return 0;
-		}
-
-		ret = proxy_send_starttls(subm_client, output);
-		if (ret < 0)
-			return -1;
-		return 0;
+		return proxy_handle_ehlo_reply(subm_client, output);
 	case SUBMISSION_PROXY_STARTTLS:
 		if (invalid_line || status != 220) {
 			const char *reason = t_strdup_printf(
