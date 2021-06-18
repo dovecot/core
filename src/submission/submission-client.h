@@ -136,6 +136,7 @@ struct client *
 client_create(int fd_in, int fd_out, struct mail_user *user,
 	      struct mail_storage_service_user *service_user,
 	      const struct submission_settings *set, const char *helo,
+	      const struct smtp_proxy_data *proxy_data,
 	      const unsigned char *pdata, unsigned int pdata_len);
 void client_destroy(struct client **client, const char *prefix,
 		    const char *reason) ATTR_NULL(2, 3);

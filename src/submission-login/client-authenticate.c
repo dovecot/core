@@ -268,6 +268,7 @@ int cmd_auth(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	struct submission_client *subm_client = conn_ctx;
 	struct client *client = &subm_client->common;
 	struct smtp_server_helo_data *helo;
+	struct smtp_proxy_data proxy;
 
 	i_assert(subm_client->pending_auth == NULL);
 
@@ -279,6 +280,13 @@ int cmd_auth(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 		i_assert(helo->domain != NULL);
 		buffer_append(buf, helo->domain, strlen(helo->domain));
 	}
+	buffer_append_c(buf, '\0');
+
+	/* pass proxied ehlo parameter to post-login service upon successful
+	   login */
+	smtp_server_connection_get_proxy_data(subm_client->conn, &proxy);
+	if (proxy.helo != NULL)
+		buffer_append(buf, proxy.helo, strlen(proxy.helo));
 	buffer_append_c(buf, '\0');
 
 	i_free(client->master_data_prefix);

@@ -148,6 +148,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	struct submission_settings *set;
 	const char *errstr;
 	const char *helo = NULL;
+	struct smtp_proxy_data proxy_data;
 	const unsigned char *data;
 	size_t data_len;
 
@@ -188,11 +189,14 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	/* parse input data */
 	data = NULL;
 	data_len = 0;
+	i_zero(&proxy_data);
 	if (input_buf != NULL && input_buf->used > 0) {
 		data = input_buf->data;
 		data_len = input_buf->used;
 
-		if (extract_input_data_field(&data, &data_len, &helo)) {
+		if (extract_input_data_field(&data, &data_len, &helo) &&
+		    extract_input_data_field(&data, &data_len,
+					     &proxy_data.helo)) {
 			/* nothing to do */
 		}
 
@@ -202,7 +206,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	}
 
 	(void)client_create(fd_in, fd_out, mail_user,
-			    user, set, helo, data, data_len);
+			    user, set, helo, &proxy_data, data, data_len);
 	return 0;
 }
 

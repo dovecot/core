@@ -178,6 +178,7 @@ struct client *
 client_create(int fd_in, int fd_out, struct mail_user *user,
 	      struct mail_storage_service_user *service_user,
 	      const struct submission_settings *set, const char *helo,
+	      const struct smtp_proxy_data *proxy_data,
 	      const unsigned char *pdata, unsigned int pdata_len)
 {
 	enum submission_client_workarounds workarounds =
@@ -229,6 +230,7 @@ client_create(int fd_in, int fd_out, struct mail_user *user,
 	client->conn = smtp_server_connection_create(smtp_server,
 		fd_in, fd_out, user->conn.remote_ip, user->conn.remote_port,
 		FALSE, &smtp_set, &smtp_callbacks, client);
+	smtp_server_connection_set_proxy_data(client->conn, proxy_data);
 	smtp_server_connection_login(client->conn, client->user->username, helo,
 				     pdata, pdata_len, user->conn.ssl_secured);
 
