@@ -1205,12 +1205,12 @@ void smtp_server_connection_login(struct smtp_server_connection *conn,
 				  unsigned int pdata_len, bool ssl_secured)
 {
 	i_assert(!conn->started);
-	i_assert(conn->username == NULL);
-	i_assert(conn->helo_domain == NULL);
 
 	conn->set.capabilities &= ENUM_NEGATE(SMTP_CAPABILITY_STARTTLS);
+	i_free(conn->username);
 	conn->username = i_strdup(username);
 	if (helo != NULL && *helo != '\0') {
+		i_free(conn->helo_domain);
 		conn->helo_domain = i_strdup(helo);
 		conn->helo.domain = conn->helo_domain;
 		conn->helo.domain_valid = TRUE;
