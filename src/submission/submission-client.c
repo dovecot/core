@@ -174,12 +174,11 @@ static void client_init_urlauth(struct client *client)
 	client->urlauth_ctx = imap_urlauth_init(client->user, &config);
 }
 
-struct client *client_create(int fd_in, int fd_out,
-			     struct mail_user *user,
-			     struct mail_storage_service_user *service_user,
-			     const struct submission_settings *set,
-			     const char *helo,
-			     const unsigned char *pdata, unsigned int pdata_len)
+struct client *
+client_create(int fd_in, int fd_out, struct mail_user *user,
+	      struct mail_storage_service_user *service_user,
+	      const struct submission_settings *set, const char *helo,
+	      const unsigned char *pdata, unsigned int pdata_len)
 {
 	enum submission_client_workarounds workarounds =
 		set->parsed_workarounds;
@@ -230,9 +229,8 @@ struct client *client_create(int fd_in, int fd_out,
 	client->conn = smtp_server_connection_create(smtp_server,
 		fd_in, fd_out, user->conn.remote_ip, user->conn.remote_port,
 		FALSE, &smtp_set, &smtp_callbacks, client);
-	smtp_server_connection_login(client->conn,
-		client->user->username, helo,
-		pdata, pdata_len, user->conn.ssl_secured);
+	smtp_server_connection_login(client->conn, client->user->username, helo,
+				     pdata, pdata_len, user->conn.ssl_secured);
 
 	client_create_backend_default(client, set);
 
@@ -249,9 +247,10 @@ struct client *client_create(int fd_in, int fd_out,
 
 	ident = mail_user_get_anvil_userip_ident(client->user);
 	if (ident != NULL) {
-		master_service_anvil_send(master_service, t_strconcat(
-			"CONNECT\t", my_pid, "\tsubmission/",
-			ident, "\n", NULL));
+		master_service_anvil_send(
+			master_service, t_strconcat(
+				"CONNECT\t", my_pid, "\tsubmission/", ident,
+				"\n", NULL));
 		client->anvil_sent = TRUE;
 	}
 
@@ -291,8 +290,8 @@ void client_destroy(struct client **_client, const char *prefix,
 
 	*_client = NULL;
 
-	smtp_server_connection_terminate(&conn,
-		(prefix == NULL ? "4.0.0" : prefix), reason);
+	smtp_server_connection_terminate(
+		&conn, (prefix == NULL ? "4.0.0" : prefix), reason);
 }
 
 static void
@@ -313,10 +312,11 @@ client_default_destroy(struct client *client)
 	DLLIST_REMOVE(&submission_clients, client);
 
 	if (client->anvil_sent) {
-		master_service_anvil_send(master_service, t_strconcat(
-			"DISCONNECT\t", my_pid, "\tsubmission/",
-			mail_user_get_anvil_userip_ident(client->user),
-			"\n", NULL));
+		master_service_anvil_send(
+			master_service, t_strconcat(
+				"DISCONNECT\t", my_pid, "\tsubmission/",
+				mail_user_get_anvil_userip_ident(client->user),
+				"\n", NULL));
 	}
 
 	if (client->urlauth_ctx != NULL)
