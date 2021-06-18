@@ -268,20 +268,22 @@ int cmd_auth(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	struct submission_client *subm_client = conn_ctx;
 	struct client *client = &subm_client->common;
 	struct smtp_server_helo_data *helo;
-	const char *prefix = "";
 
 	i_assert(subm_client->pending_auth == NULL);
 
+	buffer_t *buf = buffer_create_dynamic(default_pool, 2048);
+
+	/* pass ehlo parameter to post-login service upon successful login */
 	helo = smtp_server_connection_get_helo_data(subm_client->conn);
 	if (helo->domain_valid) {
 		i_assert(helo->domain != NULL);
-		prefix = helo->domain;
+		buffer_append(buf, helo->domain, strlen(helo->domain));
 	}
+	buffer_append_c(buf, '\0');
 
-	/* pass ehlo parameter to post-login service upon successful login */
 	i_free(client->master_data_prefix);
-	client->master_data_prefix = (void *)i_strdup(prefix);
-	client->master_data_prefix_len = strlen(prefix) + 1;
+	client->master_data_prefix_len = buf->used;
+	client->master_data_prefix = buffer_free_without_data(&buf);
 
 	subm_client->pending_auth = cmd;
 
