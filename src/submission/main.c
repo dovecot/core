@@ -112,6 +112,32 @@ send_error(int fd_out, const char *hostname, const char *error_code,
 	}
 }
 
+static bool
+extract_input_data_field(const unsigned char **data, size_t *data_len,
+			 const char **value_r)
+{
+	size_t value_len = 0;
+
+	if (*data_len == 0)
+		return FALSE;
+
+	if (**data == '\0') {
+		value_len = 1;
+	} else {
+		*value_r = t_strndup(*data, *data_len);
+		value_len = strlen(*value_r) + 1;
+	}
+
+	if (value_len > *data_len) {
+		*data = &uchar_nul;
+		*data_len = 0;
+	} else {
+		*data = *data + value_len;
+		*data_len = *data_len - value_len;
+	}
+	return TRUE;
+}
+
 static int
 client_create_from_input(const struct mail_storage_service_input *input,
 			 int fd_in, int fd_out, const buffer_t *input_buf,
@@ -163,26 +189,16 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	data = NULL;
 	data_len = 0;
 	if (input_buf != NULL && input_buf->used > 0) {
-		size_t len = input_buf->used, helo_len = 0;
-
 		data = input_buf->data;
+		data_len = input_buf->used;
 
-		if (len > 0) {
-			if (*data == '\0') {
-				helo_len = 1;
-			} else {
-				helo = t_strndup(data, len);
-				helo_len = strlen(helo) + 1;
-			}
+		if (extract_input_data_field(&data, &data_len, &helo)) {
+			/* nothing to do */
 		}
 
 		/* NOTE: actually, pipelining the AUTH command is stricly
 		         speaking not allowed, but we support it anyway.
 		 */
-		if (len > helo_len) {
-			data = data + helo_len;
-			data_len = len - helo_len;
-		}
 	}
 
 	(void)client_create(fd_in, fd_out, mail_user,
