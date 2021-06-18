@@ -351,10 +351,6 @@ void smtp_server_connection_clear(struct smtp_server_connection *conn);
 struct smtp_server_transaction *
 smtp_server_connection_get_transaction(struct smtp_server_connection *conn);
 
-void smtp_server_connection_set_proxy_data(
-	struct smtp_server_connection *conn,
-	const struct smtp_proxy_data *proxy_data);
-
 /*
  * Recipient
  */

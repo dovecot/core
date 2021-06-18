@@ -499,8 +499,12 @@ const char *
 smtp_server_connection_get_protocol_name(struct smtp_server_connection *conn);
 struct smtp_server_helo_data *
 smtp_server_connection_get_helo_data(struct smtp_server_connection *conn);
+
 void smtp_server_connection_get_proxy_data(struct smtp_server_connection *conn,
 					   struct smtp_proxy_data *proxy_data);
+void smtp_server_connection_set_proxy_data(
+	struct smtp_server_connection *conn,
+	const struct smtp_proxy_data *proxy_data);
 
 void smtp_server_connection_set_capabilities(
 	struct smtp_server_connection *conn, enum smtp_capability capabilities);
