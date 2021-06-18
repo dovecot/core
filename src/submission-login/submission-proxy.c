@@ -38,6 +38,8 @@ proxy_compose_xclient_forward(struct submission_client *client)
 			str_append_tabescaped(str, (*arg)+8);
 		}
 	}
+	if (str_len(str) == 0)
+		return NULL;
 
 	return t_base64_encode(0, 0, str_data(str), str_len(str));
 }
