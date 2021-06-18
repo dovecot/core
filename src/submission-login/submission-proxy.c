@@ -18,7 +18,7 @@
 #include <ctype.h>
 
 static const char *submission_proxy_state_names[SUBMISSION_PROXY_STATE_COUNT] = {
-	"banner", "ehlo", "starttls", "tls-ehlo", "xclient", "authenticate"
+	"banner", "ehlo", "starttls", "tls-ehlo", "xclient", "xclient-ehlo", "authenticate"
 };
 
 static int
@@ -66,14 +66,14 @@ proxy_compose_xclient_forward(struct submission_client *client)
 	return t_base64_encode(0, 0, str_data(str), str_len(str));
 }
 
-static void
+static int
 proxy_send_xclient(struct submission_client *client, struct ostream *output)
 {
 	string_t *str;
 
 	if ((client->proxy_capability & SMTP_CAPABILITY_XCLIENT) == 0 ||
 	    client->common.proxy_not_trusted)
-		return;
+		return 0;
 
 	/* remote supports XCLIENT, send it */
 	str = t_str_new(128);
@@ -102,6 +102,7 @@ proxy_send_xclient(struct submission_client *client, struct ostream *output)
 	str_append(str, "\r\n");
 	o_stream_nsend(output, str_data(str), str_len(str));
 	client->proxy_state = SUBMISSION_PROXY_XCLIENT;
+	return 1;
 }
 
 static int
@@ -122,9 +123,6 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 			"Authentication support not advertised (TLS required?)");
 		return -1;
 	}
-
-	i_assert(client->common.proxy_ttl > 1);
-	proxy_send_xclient(client, output);
 
 	str = t_str_new(128);
 
@@ -159,8 +157,7 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 	str_append(str, "\r\n");
 	o_stream_nsend(output, str_data(str), str_len(str));
 
-	if (client->proxy_state != SUBMISSION_PROXY_XCLIENT)
-		client->proxy_state = SUBMISSION_PROXY_AUTHENTICATE;
+	client->proxy_state = SUBMISSION_PROXY_AUTHENTICATE;
 	return 0;
 }
 
@@ -170,16 +167,34 @@ proxy_handle_ehlo_reply(struct submission_client *client,
 {
 	int ret;
 
-	if (client->proxy_state == SUBMISSION_PROXY_TLS_EHLO) {
-		if (proxy_send_login(client, output) < 0)
+	switch (client->proxy_state) {
+	case SUBMISSION_PROXY_EHLO:
+		ret = proxy_send_starttls(client, output);
+		if (ret < 0)
 			return -1;
-		return 0;
+		if (ret != 0)
+			return 0;
+		/* Fall through */
+	case SUBMISSION_PROXY_TLS_EHLO:
+		ret = proxy_send_xclient(client, output);
+		if (ret < 0)
+			return -1;
+		if (ret != 0) {
+			client->proxy_capability = 0;
+			i_free_and_null(client->proxy_xclient);
+			o_stream_nsend_str(output, t_strdup_printf(
+					   "EHLO %s\r\n",
+					   client->set->hostname));
+			return 0;
+		}
+		break;
+	case SUBMISSION_PROXY_XCLIENT_EHLO:
+		break;
+	default:
+		i_unreached();
 	}
 
-	ret = proxy_send_starttls(client, output);
-	if (ret < 0)
-		return -1;
-	return 0;
+	return proxy_send_login(client, output);
 }
 
 static int
@@ -332,6 +347,7 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 		return 0;
 	case SUBMISSION_PROXY_EHLO:
 	case SUBMISSION_PROXY_TLS_EHLO:
+	case SUBMISSION_PROXY_XCLIENT_EHLO:
 		if (invalid_line || (status / 100) != 2) {
 			const char *reason = t_strdup_printf(
 				"Invalid EHLO line: %s",
@@ -397,7 +413,7 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 		}
 		if (!last_line)
 			return 0;
-		subm_client->proxy_state = SUBMISSION_PROXY_AUTHENTICATE;
+		subm_client->proxy_state = SUBMISSION_PROXY_XCLIENT_EHLO;
 		return 0;
 	case SUBMISSION_PROXY_AUTHENTICATE:
 		if (invalid_line)
