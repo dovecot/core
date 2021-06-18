@@ -132,13 +132,11 @@ extern struct submission_module_register submission_module_register;
 extern struct client *submission_clients;
 extern unsigned int submission_client_count;
 
-struct client *client_create(int fd_in, int fd_out,
-			     struct mail_user *user,
-			     struct mail_storage_service_user *service_user,
-			     const struct submission_settings *set,
-			     const char *helo,
-			     const unsigned char *pdata,
-			     unsigned int pdata_len);
+struct client *
+client_create(int fd_in, int fd_out, struct mail_user *user,
+	      struct mail_storage_service_user *service_user,
+	      const struct submission_settings *set, const char *helo,
+	      const unsigned char *pdata, unsigned int pdata_len);
 void client_destroy(struct client **client, const char *prefix,
 		    const char *reason) ATTR_NULL(2, 3);
 
