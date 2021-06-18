@@ -1117,6 +1117,7 @@ bool smtp_server_connection_unref(struct smtp_server_connection **_conn)
 
 	connection_deinit(&conn->conn);
 
+	i_free(conn->proxy_helo);
 	i_free(conn->helo_domain);
 	i_free(conn->username);
 	event_unref(&conn->next_trans_event);
@@ -1518,7 +1519,9 @@ void smtp_server_connection_get_proxy_data(struct smtp_server_connection *conn,
 	i_zero(proxy_data);
 	proxy_data->source_ip = conn->conn.remote_ip;
 	proxy_data->source_port = conn->conn.remote_port;
-	if (conn->helo.domain_valid)
+	if (conn->proxy_helo != NULL)
+		proxy_data->helo = conn->proxy_helo;
+	else if (conn->helo.domain_valid)
 		proxy_data->helo = conn->helo.domain;
 	proxy_data->login = conn->username;
 
@@ -1548,6 +1551,10 @@ void smtp_server_connection_set_proxy_data(
 		conn->helo_domain = i_strdup(proxy_data->helo);
 		conn->helo.domain = conn->helo_domain;
 		conn->helo.domain_valid = TRUE;
+		if (conn->helo.domain_valid) {
+			i_free(conn->proxy_helo);
+			conn->proxy_helo = i_strdup(proxy_data->helo);
+		}
 	}
 	if (proxy_data->login != NULL) {
 		i_free(conn->username);
