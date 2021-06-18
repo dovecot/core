@@ -1565,14 +1565,7 @@ void smtp_server_connection_set_proxy_data(
 	    conn->callbacks->conn_proxy_data_updated != NULL) {
 		struct smtp_proxy_data full_data;
 
-		i_zero(&full_data);
-		full_data.source_ip = conn->conn.remote_ip;
-		full_data.source_port = conn->conn.remote_port;
-		full_data.helo = conn->helo.domain;
-		full_data.login = conn->username;
-		full_data.proto = conn->proxy_proto;
-		full_data.ttl_plus_1 = conn->proxy_ttl_plus_1;
-		full_data.timeout_secs = conn->proxy_timeout_secs;
+		smtp_server_connection_get_proxy_data(conn, &full_data);
 
 		conn->callbacks->
 			conn_proxy_data_updated(conn->context, &full_data);
