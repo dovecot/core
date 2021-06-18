@@ -75,9 +75,38 @@ proxy_send_xclient(struct submission_client *client, struct ostream *output)
 	    client->common.proxy_not_trusted)
 		return 0;
 
+	struct smtp_proxy_data proxy_data;
+
+	smtp_server_connection_get_proxy_data(client->conn, &proxy_data);
+	i_assert(client->common.proxy_ttl > 1);
+
 	/* remote supports XCLIENT, send it */
 	str = t_str_new(128);
 	str_append(str, "XCLIENT");
+	if (str_array_icase_find(client->proxy_xclient, "HELO")) {
+		if (proxy_data.helo != NULL) {
+			str_append(str, " HELO=");
+			smtp_xtext_encode_cstr(str, proxy_data.helo);
+		} else {
+			str_append(str, " HELO=[UNAVAILABLE]");
+		}
+	}
+	if (str_array_icase_find(client->proxy_xclient, "PROTO")) {
+		switch (proxy_data.proto) {
+		case SMTP_PROXY_PROTOCOL_UNKNOWN:
+			str_append(str, " PROTO=[UNAVAILABLE]");
+			break;
+		case SMTP_PROXY_PROTOCOL_SMTP:
+			str_append(str, " PROTO=SMTP");
+			break;
+		case SMTP_PROXY_PROTOCOL_ESMTP:
+			str_append(str, " PROTO=ESMTP");
+			break;
+		case SMTP_PROXY_PROTOCOL_LMTP:
+			str_append(str, " PROTO=LMTP");
+			break;
+		}
+	}
 	if (str_array_icase_find(client->proxy_xclient, "TTL"))
 		str_printfa(str, " TTL=%u", client->common.proxy_ttl - 1);
 	if (str_array_icase_find(client->proxy_xclient, "PORT"))
