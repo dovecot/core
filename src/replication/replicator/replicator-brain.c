@@ -36,7 +36,10 @@ static void replicator_brain_queue_changed(void *context)
 {
 	struct replicator_brain *brain = context;
 
-	replicator_brain_fill(brain);
+	/* Delay a bit filling the replication. We could have gotten here
+	   before the replicator_user change was fully filled out. */
+	timeout_remove(&brain->to);
+	brain->to = timeout_add_short(0, replicator_brain_timeout, brain);
 }
 
 struct replicator_brain *
