@@ -23,6 +23,11 @@ static void sig_die(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 	io_loop_stop(ioloop);
 }
 
+static void release_timeout_cb(void *context ATTR_UNUSED)
+{
+	io_loop_stop(ioloop);
+}
+
 static int maildir_lock(const char *path, unsigned int timeout,
 			struct dotlock **dotlock_r)
 {
@@ -37,14 +42,16 @@ static int maildir_lock(const char *path, unsigned int timeout,
 int main(int argc, const char *argv[])
 {
 	struct dotlock *dotlock;
-	unsigned int timeout;
+	struct timeout *timeout;
+	unsigned acquire_timeout_s, release_timeout_s, release_timeout_ms;
 	pid_t pid;
 	int fd[2], ret;
 	char c;
 
-	if (argc != 3) {
-		fprintf(stderr, "Usage: maildirlock <path> <timeout>\n"
-			" - SIGTERM will release the lock.\n");
+	if (argc < 3 || argc > 4) {
+		fprintf(stderr, "Usage: maildirlock <path> <acquire-timeout> [<release-timeout>]\n"
+			" - if unspecified, release-timeout will be the same as acquire-timeout;\n"
+			"   SIGTERM will release the lock.\n");
 		return 1;
 	}
 	if (pipe(fd) != 0) {
@@ -86,18 +93,29 @@ int main(int argc, const char *argv[])
 	if (dup2(STDERR_FILENO, STDOUT_FILENO) < 0)
 		i_fatal("dup2() failed: %m");
 
-	if (str_to_uint(argv[2], &timeout) < 0)
-		i_fatal("Invalid timeout value: %s", argv[2]);
-	if (maildir_lock(argv[1], timeout, &dotlock) <= 0)
+	if (str_to_uint(argv[2], &acquire_timeout_s) < 0)
+		i_fatal("Invalid acquire_timeout value: %s", argv[2]);
+	if (argc == 4) {
+		if (str_to_uint(argv[3], &release_timeout_s) < 0)
+			i_fatal("Invalid release_timeout value: %s", argv[3]);
+	} else
+		release_timeout_s = acquire_timeout_s;
+	release_timeout_ms = release_timeout_s * 1000;
+	if (release_timeout_ms / 1000 != release_timeout_s)
+		i_fatal("release_timeout value too large");
+
+	if (maildir_lock(argv[1], acquire_timeout_s, &dotlock) <= 0)
 		return 1;
 
 	/* locked - send a byte */
 	if (write_full(fd[1], "", 1) < 0)
 		i_fatal("write(pipe) failed: %m");
 
+	timeout = timeout_add(release_timeout_ms, release_timeout_cb, NULL);
 	io_loop_run(ioloop);
 
 	file_dotlock_delete(&dotlock);
+	timeout_remove(&timeout);
 	lib_signals_deinit();
 
 	io_loop_destroy(&ioloop);
