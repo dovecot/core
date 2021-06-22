@@ -1,6 +1,5 @@
 noinst_LTLIBRARIES = \
-	libdict.la \
-	libdict_lua.la
+	libdict.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -26,13 +25,12 @@ headers = \
 	dict-private.h \
 	dict-transaction-memory.h
 
-if HAVE_LUA
-libdict_lua_la_SOURCES =
-
 # Internally, the dict methods yield via lua_yieldk() as implemented in Lua
 # 5.3 and newer.
 if DLUA_WITH_YIELDS
-libdict_lua_la_SOURCES += \
+noinst_LTLIBRARIES += libdict_lua.la
+
+libdict_lua_la_SOURCES = \
 	dict-lua.c \
 	dict-iter-lua.c \
 	dict-txn-lua.c
@@ -43,7 +41,6 @@ libdict_lua_la_CPPFLAGS = \
 libdict_lua_la_LIBADD =
 libdict_lua_la_DEPENDENCIES = \
 	libdict.la
-endif
 
 headers += \
 	dict-lua.h \
