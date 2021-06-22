@@ -648,6 +648,7 @@ fetch_snippet(struct imap_fetch_context *ctx, struct mail *mail,
 		str_append(ctx->state.cur_str, "NIL");
 	if (preview->old_standard)
 		str_append(ctx->state.cur_str, ")");
+	str_append_c(ctx->state.cur_str, ' ');
 
 	return 1;
 }
