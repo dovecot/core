@@ -124,6 +124,7 @@ static const struct setting_define auth_passdb_setting_defines[] = {
 	DEF(BOOL, deny),
 	DEF(BOOL, pass),
 	DEF(BOOL, master),
+	DEF(BOOL, master_proxy),
 	DEF(ENUM, auth_verbose),
 
 	SETTING_DEFINE_LIST_END
@@ -146,6 +147,7 @@ static const struct auth_passdb_settings auth_passdb_default_settings = {
 	.deny = FALSE,
 	.pass = FALSE,
 	.master = FALSE,
+	.master_proxy = TRUE,
 	.auth_verbose = "default:yes:no"
 };
 

@@ -20,6 +20,7 @@ struct auth_passdb_settings {
 	bool deny;
 	bool pass; /* deprecated, use result_success=continue instead */
 	bool master;
+	bool master_proxy;
 	const char *auth_verbose;
 };
 
