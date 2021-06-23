@@ -492,6 +492,7 @@ static int proxy_start(struct client *client,
 	proxy_set.ssl_flags = reply->ssl_flags;
 	proxy_set.host_immediate_failure_after_secs =
 		reply->proxy_host_immediate_failure_after_secs;
+	proxy_set.rawlog_dir = client->set->login_proxy_rawlog_dir;
 
 	/* Include destination ip:port also in the log prefix */
 	event_set_append_log_prefix(event, t_strdup_printf(

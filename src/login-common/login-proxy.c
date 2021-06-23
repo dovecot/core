@@ -6,6 +6,7 @@
 #include "ostream.h"
 #include "iostream.h"
 #include "iostream-proxy.h"
+#include "iostream-rawlog.h"
 #include "iostream-ssl.h"
 #include "llist.h"
 #include "array.h"
@@ -66,6 +67,7 @@ struct login_proxy {
 	unsigned int host_immediate_failure_after_secs;
 	unsigned int reconnect_count;
 	enum login_proxy_ssl_flags ssl_flags;
+	char *rawlog_dir;
 
 	login_proxy_input_callback_t *input_callback;
 	login_proxy_failure_callback_t *failure_callback;
@@ -161,6 +163,13 @@ static void proxy_plain_connected(struct login_proxy *proxy)
 
 	proxy->server_io =
 		io_add(proxy->server_fd, IO_READ, proxy_prelogin_input, proxy);
+
+	if (proxy->rawlog_dir != NULL) {
+		if (iostream_rawlog_create(proxy->rawlog_dir,
+					   &proxy->server_input,
+					   &proxy->server_output) < 0)
+			i_free(proxy->rawlog_dir);
+	}
 }
 
 static void proxy_fail_connect(struct login_proxy *proxy)
@@ -371,6 +380,8 @@ int login_proxy_new(struct client *client, struct event *event,
 	proxy->ssl_flags = set->ssl_flags;
 	proxy->state_rec = login_proxy_state_get(proxy_state, &proxy->ip,
 						 proxy->port);
+	proxy->rawlog_dir = i_strdup_empty(set->rawlog_dir);
+
 	client_ref(client);
 	event_ref(proxy->event);
 
@@ -430,6 +441,7 @@ static void login_proxy_free_final(struct login_proxy *proxy)
 	client_unref(&proxy->client);
 	event_unref(&proxy->event);
 	i_free(proxy->host);
+	i_free(proxy->rawlog_dir);
 	i_free(proxy);
 }
 

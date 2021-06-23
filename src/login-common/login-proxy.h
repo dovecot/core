@@ -57,6 +57,7 @@ struct login_proxy_settings {
 	unsigned int notify_refresh_secs;
 	unsigned int host_immediate_failure_after_secs;
 	enum login_proxy_ssl_flags ssl_flags;
+	const char *rawlog_dir;
 };
 
 /* Called when new input comes from proxy. */
