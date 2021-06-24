@@ -117,6 +117,7 @@ struct virtual_backend_box {
 	bool search_args_initialized:1;
 	bool deleted:1;
 	bool notify_changes_started:1; /* if the box was opened for notify_changes */
+	bool first_sync:1; /* if this is the first sync after bbox was (re-)created */
 };
 ARRAY_DEFINE_TYPE(virtual_backend_box, struct virtual_backend_box *);
 

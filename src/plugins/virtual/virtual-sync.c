@@ -1263,6 +1263,7 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 		if (status.uidvalidity != bbox->sync_uid_validity) {
 			/* UID validity changed since last sync (or this is
 			   the first sync), do a full search */
+			bbox->first_sync = TRUE;
 			ret = virtual_sync_backend_box_init(bbox);
 		} else {
 			/* build the initial search using the saved modseq. */
@@ -1328,7 +1329,7 @@ static void virtual_sync_backend_map_uids(struct virtual_sync_context *ctx)
 			}
 			bbox = virtual_backend_box_lookup(ctx->mbox,
 							  vrec->mailbox_id);
-			if (bbox == NULL) {
+			if (bbox == NULL || bbox->first_sync) {
 				/* the entire mailbox is lost */
 				mail_index_expunge(ctx->trans, vseq);
 				continue;
@@ -1385,6 +1386,8 @@ static void virtual_sync_new_backend_boxes(struct virtual_sync_context *ctx)
 	i_zero(&add_rec);
 	bboxes = array_get(&ctx->mbox->backend_boxes, &count);
 	for (i = 0; i < count; i++) {
+		bboxes[i]->first_sync = FALSE; /* this is the end of the sync */
+
 		if (bboxes[i]->sync_seen)
 			continue;
 
