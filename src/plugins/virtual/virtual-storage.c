@@ -275,6 +275,7 @@ virtual_mailbox_alloc(struct mail_storage *_storage, struct mailbox_list *list,
 
 	mbox->storage = storage;
 	mbox->virtual_ext_id = (uint32_t)-1;
+	mbox->virtual_ext2_id = (uint32_t)-1;
 	mbox->virtual_guid_ext_id = (uint32_t)-1;
 	return &mbox->box;
 }
@@ -508,6 +509,8 @@ static int virtual_mailbox_open(struct mailbox *box)
 		mail_index_ext_register(mbox->box.index, "virtual", 0,
 			sizeof(struct virtual_mail_index_record),
 			sizeof(uint32_t));
+	mbox->virtual_ext2_id =
+		mail_index_ext_register(mbox->box.index, "virtual2", 0, 0, 0);
 
 	mbox->virtual_guid_ext_id =
 		mail_index_ext_register(mbox->box.index, "virtual-guid", GUID_128_SIZE,
