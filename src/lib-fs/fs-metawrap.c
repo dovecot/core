@@ -396,15 +396,11 @@ static int fs_metawrap_write_stream_finish(struct fs_file *_file, bool success)
 	/* finish writing the temporary file */
 	if (file->temp_output->offset == 0) {
 		/* empty file - temp_output is already finished,
-		   so we can't write to it. */
-		string_t *str = t_str_new(128);
-
-		o_stream_destroy(&file->temp_output);
-		fs_metawrap_append_metadata(file, str);
-		input = i_stream_create_copy_from_data(str_data(str), str_len(str));
-	} else {
-		input = iostream_temp_finish(&file->temp_output, IO_BLOCK_SIZE);
+		   so we can't write to it. To make sure metadata is still
+		   appended/written to file use metadata_changed_since_write */
+		file->metadata_changed_since_write = TRUE;
 	}
+	input = iostream_temp_finish(&file->temp_output, IO_BLOCK_SIZE);
 	if (file->metadata_changed_since_write) {
 		/* we'll need to recreate the metadata. do this by creating a
 		   new istream combining the new metadata header and the
