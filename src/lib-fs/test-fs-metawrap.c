@@ -56,6 +56,7 @@ static void test_fs_metawrap_async(void)
 static void test_fs_metawrap_write_empty(void)
 {
 	struct fs *fs;
+	struct stat st;
 	const char *error;
 
 	test_begin("fs metawrap write empty file");
@@ -64,6 +65,7 @@ static void test_fs_metawrap_write_empty(void)
 	struct fs_file *file = fs_file_init(fs, "foo", FS_OPEN_MODE_REPLACE);
 	struct ostream *output = fs_write_stream(file);
 	test_assert(fs_write_stream_finish(file, &output) > 0);
+	test_assert(fs_stat(file, &st) == 0 && st.st_size == 0);
 	fs_file_deinit(&file);
 	fs_deinit(&fs);
 	test_end();
