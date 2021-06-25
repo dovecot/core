@@ -32,10 +32,12 @@ dict_SOURCES = \
 	dict-connection.c \
 	dict-commands.c \
 	dict-settings.c \
+	dict-init-cache.c \
 	main.c
 
 noinst_HEADERS = \
 	dict-connection.h \
 	dict-commands.h \
 	dict-settings.h \
+	dict-init-cache.h \
 	main.h
