@@ -159,7 +159,7 @@ static ssize_t program_client_istream_read(struct istream_private *stream)
 
 				reserved = (stream->buffer[pos - 1] == '\n' &&
 					    pos > 1 ? 2 : 1);
-				reserve_mod = reserved - old_reserved;
+				reserve_mod = (ssize_t)reserved - (ssize_t)old_reserved;
 				pos -= reserved;
 			}
 			if (ret == 0) {
@@ -168,7 +168,7 @@ static ssize_t program_client_istream_read(struct istream_private *stream)
 				   not visible to application. */
 				break;
 			}
-			if (ret >= reserve_mod) {
+			if (ret > 0 && ret >= reserve_mod) {
 				/* Subtract additional reserved bytes */
 				ret -= reserve_mod;
 			}
