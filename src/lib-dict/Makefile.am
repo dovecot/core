@@ -1,6 +1,5 @@
 noinst_LTLIBRARIES = \
-	libdict.la \
-	libdict_lua.la
+	libdict.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -27,6 +26,9 @@ headers = \
 	dict-transaction-memory.h
 
 if HAVE_LUA
+noinst_LTLIBRARIES += \
+	libdict_lua.la
+
 libdict_lua_la_SOURCES =
 
 # Internally, the dict methods yield via lua_yieldk() as implemented in Lua
