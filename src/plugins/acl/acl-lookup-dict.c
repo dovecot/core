@@ -104,6 +104,7 @@ acl_rights_is_same_user(const struct acl_rights *right, struct mail_user *user)
 static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 					       ARRAY_TYPE(const_string) *ids)
 {
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(ns->list);
 	struct acl_backend *backend;
 	struct acl_mailbox_list_context *ctx;
 	struct acl_object *aclobj;
@@ -114,7 +115,7 @@ static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 	int ret = 0;
 
 	if ((ns->flags & NAMESPACE_FLAG_NOACL) != 0 || ns->owner == NULL ||
-	    ACL_LIST_CONTEXT(ns->list) == NULL)
+	    alist == NULL || alist->ignore_acls)
 		return 0;
 
 	id = t_str_new(128);
