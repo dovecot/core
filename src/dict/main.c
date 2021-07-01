@@ -17,6 +17,7 @@
 #include "dict-commands.h"
 #include "dict-connection.h"
 #include "dict-settings.h"
+#include "dict-init-cache.h"
 #include "main.h"
 
 #include <math.h>
@@ -168,6 +169,8 @@ int main(int argc, char *argv[])
 	master_service_init_finish(master_service);
 	master_service_run(master_service, client_connected);
 
+	/* clean up cached dicts */
+	dict_init_cache_destroy_all();
 	main_deinit();
 	master_service_deinit(&master_service);
         return 0;

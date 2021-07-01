@@ -12,6 +12,7 @@
 #include "dict-settings.h"
 #include "dict-commands.h"
 #include "dict-connection.h"
+#include "dict-init-cache.h"
 
 #include <unistd.h>
 
@@ -95,7 +96,7 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 	i_zero(&dict_set);
 	dict_set.base_dir = dict_settings->base_dir;
 	dict_set.event_parent = conn->conn.event;
-	if (dict_init(uri, &dict_set, &conn->dict, &error) < 0) {
+	if (dict_init_cache_get(conn->name, uri, &dict_set, &conn->dict, &error) < 0) {
 		/* dictionary initialization failed */
 		e_error(conn->conn.event, "Failed to initialize dictionary '%s': %s",
 			conn->name, error);
@@ -162,7 +163,7 @@ bool dict_connection_unref(struct dict_connection *conn)
 	}
 
 	if (conn->dict != NULL)
-		dict_deinit(&conn->dict);
+		dict_init_cache_unref(&conn->dict);
 
 	if (array_is_created(&conn->transactions))
 		array_free(&conn->transactions);
