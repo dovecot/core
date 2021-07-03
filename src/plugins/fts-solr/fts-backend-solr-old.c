@@ -705,12 +705,12 @@ fts_backend_solr_lookup(struct fts_backend *_backend, struct mailbox *box,
 	int ret;
 
 	fts_solr_set_default_ns(backend);
-	mailbox_get_open_status(box, STATUS_UIDVALIDITY | STATUS_UIDNEXT,
+	mailbox_get_open_status(box, STATUS_UIDVALIDITY | STATUS_MESSAGES,
 				&status);
 
 	str = t_str_new(256);
 	str_printfa(str, "fl=uid,score&rows=%u&sort=uid+asc&q=%%7b!lucene+q.op%%3dAND%%7d",
-		    status.uidnext);
+		    status.messages);
 
 	if (!solr_add_definite_query_args(str, args, and_args)) {
 		/* can't search this query */

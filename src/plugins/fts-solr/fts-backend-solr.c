@@ -835,11 +835,11 @@ fts_backend_solr_lookup(struct fts_backend *_backend, struct mailbox *box,
 
 	if (fts_mailbox_get_guid(box, &box_guid) < 0)
 		return -1;
-	mailbox_get_open_status(box, STATUS_UIDNEXT, &status);
+	mailbox_get_open_status(box, STATUS_MESSAGES, &status);
 
 	str = t_str_new(256);
 	str_printfa(str, "wt=xml&fl=uid,score&rows=%u&sort=uid+asc&q=%%7b!lucene+q.op%%3dAND%%7d",
-		    status.uidnext);
+		    status.messages);
 	prefix_len = str_len(str);
 
 	if (solr_add_definite_query_args(str, args, and_args)) {
