@@ -31,6 +31,7 @@ struct submission_client {
 	unsigned int proxy_reply_status;
 	struct smtp_server_reply *proxy_reply;
 	const char **proxy_xclient;
+	unsigned int proxy_xclient_replies_expected;
 };
 
 #endif

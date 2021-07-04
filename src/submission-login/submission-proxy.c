@@ -66,6 +66,40 @@ proxy_compose_xclient_forward(struct submission_client *client)
 	return t_base64_encode(0, 0, str_data(str), str_len(str));
 }
 
+static void
+proxy_send_xclient_more_data(struct submission_client *client,
+			     struct ostream *output, string_t *buf,
+			     const char *field, const unsigned char *value,
+			     size_t value_size)
+{
+	static const size_t cmd_len = strlen("XCLIENT");
+	size_t prev_len = str_len(buf);
+
+	str_append_c(buf, ' ');
+	str_append(buf, field);
+	str_append_c(buf, '=');
+	smtp_xtext_encode(buf, value, value_size);
+
+	if (str_len(buf) > 512) {
+		if (prev_len <= cmd_len)
+			prev_len = str_len(buf);
+		o_stream_nsend(output, str_data(buf), prev_len);
+		o_stream_nsend(output, "\r\n", 2);
+		client->proxy_xclient_replies_expected++;
+		str_delete(buf, cmd_len, prev_len - cmd_len);
+	}
+}
+
+static void
+proxy_send_xclient_more(struct submission_client *client,
+			struct ostream *output, string_t *buf,
+			const char *field, const char *value)
+{
+	proxy_send_xclient_more_data(client, output, buf, field,
+				     (const unsigned char *)value,
+				     strlen(value));
+}
+
 static int
 proxy_send_xclient(struct submission_client *client, struct ostream *output)
 {
@@ -81,56 +115,67 @@ proxy_send_xclient(struct submission_client *client, struct ostream *output)
 	i_assert(client->common.proxy_ttl > 1);
 
 	/* remote supports XCLIENT, send it */
+	client->proxy_xclient_replies_expected = 0;
 	str = t_str_new(128);
 	str_append(str, "XCLIENT");
 	if (str_array_icase_find(client->proxy_xclient, "HELO")) {
 		if (proxy_data.helo != NULL) {
-			str_append(str, " HELO=");
-			smtp_xtext_encode_cstr(str, proxy_data.helo);
+			proxy_send_xclient_more(client, output, str, "HELO",
+						proxy_data.helo);
 		} else {
-			str_append(str, " HELO=[UNAVAILABLE]");
+			proxy_send_xclient_more(client, output, str, "HELO",
+						"[UNAVAILABLE]");
 		}
 	}
 	if (str_array_icase_find(client->proxy_xclient, "PROTO")) {
+		const char *proto = "[UNAVAILABLE]";
+
 		switch (proxy_data.proto) {
 		case SMTP_PROXY_PROTOCOL_UNKNOWN:
-			str_append(str, " PROTO=[UNAVAILABLE]");
 			break;
 		case SMTP_PROXY_PROTOCOL_SMTP:
-			str_append(str, " PROTO=SMTP");
+			proto = "SMTP";
 			break;
 		case SMTP_PROXY_PROTOCOL_ESMTP:
-			str_append(str, " PROTO=ESMTP");
+			proto = "ESMTP";
 			break;
 		case SMTP_PROXY_PROTOCOL_LMTP:
-			str_append(str, " PROTO=LMTP");
+			proto = "LMTP";
 			break;
 		}
+		proxy_send_xclient_more(client, output, str, "PROTO", proto);
 	}
-	if (str_array_icase_find(client->proxy_xclient, "TTL"))
-		str_printfa(str, " TTL=%u", client->common.proxy_ttl - 1);
-	if (str_array_icase_find(client->proxy_xclient, "PORT"))
-		str_printfa(str, " PORT=%u", client->common.remote_port);
+	if (str_array_icase_find(client->proxy_xclient, "TTL")) {
+		proxy_send_xclient_more(
+			client, output, str, "TTL",
+			t_strdup_printf("%u",client->common.proxy_ttl - 1));
+	}
+	if (str_array_icase_find(client->proxy_xclient, "PORT")) {
+		proxy_send_xclient_more(
+			client, output, str, "PORT",
+			t_strdup_printf("%u", client->common.remote_port));
+	}
 	if (str_array_icase_find(client->proxy_xclient, "ADDR")) {
-		str_append(str, " ADDR=");
-		str_append(str, net_ip2addr(&client->common.ip));
+		proxy_send_xclient_more(client, output, str, "ADDR",
+					net_ip2addr(&client->common.ip));
 	}
 	if (str_array_icase_find(client->proxy_xclient, "SESSION")) {
-		str_append(str, " SESSION=");
-		smtp_xtext_encode_cstr(
-			str, client_get_session_id(&client->common));
+		proxy_send_xclient_more(client, output, str, "SESSION",
+					client_get_session_id(&client->common));
 	}
 	if (str_array_icase_find(client->proxy_xclient, "FORWARD")) {
 		buffer_t *fwd = proxy_compose_xclient_forward(client);
 
 		if (fwd != NULL) {
-			str_append(str, " FORWARD=");
-			smtp_xtext_encode(str, fwd->data, fwd->used);
+			proxy_send_xclient_more_data(
+				client, output, str, "FORWARD",
+				fwd->data, fwd->used);
 		}
 	}
 	str_append(str, "\r\n");
 	o_stream_nsend(output, str_data(str), str_len(str));
 	client->proxy_state = SUBMISSION_PROXY_XCLIENT;
+	client->proxy_xclient_replies_expected++;
 	return 1;
 }
 
@@ -441,6 +486,9 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 			return -1;
 		}
 		if (!last_line)
+			return 0;
+		i_assert(subm_client->proxy_xclient_replies_expected > 0);
+		if (--subm_client->proxy_xclient_replies_expected > 0)
 			return 0;
 		subm_client->proxy_state = SUBMISSION_PROXY_XCLIENT_EHLO;
 		return 0;
