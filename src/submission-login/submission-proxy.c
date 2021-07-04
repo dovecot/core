@@ -153,6 +153,19 @@ proxy_send_xclient(struct submission_client *client, struct ostream *output)
 		}
 		proxy_send_xclient_more(client, output, str, "PROTO", proto);
 	}
+	if (client->common.proxy_noauth &&
+	    str_array_icase_find(client->proxy_xclient, "LOGIN")) {
+		if (proxy_data.login != NULL) {
+			proxy_send_xclient_more(client, output, str, "LOGIN",
+						proxy_data.login);
+		} else if (client->common.virtual_user != NULL) {
+			proxy_send_xclient_more(client, output, str, "LOGIN",
+						client->common.virtual_user);
+		} else {
+			proxy_send_xclient_more(client, output, str, "LOGIN",
+						"[UNAVAILABLE]");
+		}
+	}
 	if (str_array_icase_find(client->proxy_xclient, "TTL")) {
 		proxy_send_xclient_more(
 			client, output, str, "TTL",
@@ -247,6 +260,7 @@ static int
 proxy_handle_ehlo_reply(struct submission_client *client,
 			struct ostream *output)
 {
+	struct smtp_server_cmd_ctx *cmd = client->pending_auth;
 	int ret;
 
 	switch (client->proxy_state) {
@@ -274,6 +288,18 @@ proxy_handle_ehlo_reply(struct submission_client *client,
 		break;
 	default:
 		i_unreached();
+	}
+
+	if (client->common.proxy_noauth) {
+		smtp_server_connection_input_lock(cmd->conn);
+
+		smtp_server_command_add_hook(
+			cmd->cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY,
+			submission_proxy_success_reply_sent, client);
+		client->pending_auth = NULL;
+
+		smtp_server_reply(cmd, 235, "2.7.0", "Logged in.");
+		return 1;
 	}
 
 	return proxy_send_login(client, output);
