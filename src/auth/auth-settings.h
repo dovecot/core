@@ -74,6 +74,7 @@ struct auth_settings {
 	const char *verbose_passwords;
 	bool ssl_require_client_cert;
 	bool ssl_username_from_cert;
+	const char *external_default_username;
 	bool use_winbind;
 
 	unsigned int worker_max_count;

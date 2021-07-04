@@ -11,24 +11,32 @@ mech_external_auth_continue(struct auth_request *request,
 {
 	const char *authzid, *error;
 
+    bool set_default_username = FALSE;
+
 	authzid = t_strndup(data, data_size);
 	if (request->fields.user == NULL) {
-		e_info(request->mech_event,
-		       "username not known");
-		auth_request_fail(request);
-		return;
-	}
-
-	/* this call is done simply to put the username through translation
-	   settings */
-	if (!auth_request_set_username(request, "", &error)) {
-		e_info(request->mech_event,
-		       "Invalid username");
-		auth_request_fail(request);
-		return;
+	    if (*(request->set->external_default_username) != '\0') {
+	        auth_request_set_username_forced(request, request->set->external_default_username);
+	        set_default_username = TRUE;
+	    } else {
+            e_info(request->mech_event,
+                   "username not known");
+            auth_request_fail(request);
+            return;
+	    }
+	} else {
+        /* this call is done simply to put the username through translation
+           settings */
+        if (!auth_request_set_username(request, "", &error)) {
+            e_info(request->mech_event,
+                   "Invalid username");
+            auth_request_fail(request);
+            return;
+        }
 	}
 
 	if (*authzid != '\0' &&
+	    !set_default_username &&
 	    !auth_request_set_login_username(request, authzid, &error)) {
 		/* invalid login username */
 		e_info(request->mech_event,
