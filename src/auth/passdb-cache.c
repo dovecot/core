@@ -34,6 +34,8 @@ passdb_cache_lookup(struct auth_request *request, const char *key,
 	const char *value;
 	bool expired;
 
+	request->passdb_cache_result = AUTH_REQUEST_CACHE_MISS;
+
 	/* value = password \t ... */
 	value = auth_cache_lookup(passdb_cache, request, key, node_r,
 				  &expired, neg_expired_r);
@@ -44,6 +46,7 @@ passdb_cache_lookup(struct auth_request *request, const char *key,
 		return FALSE;
 	}
 	passdb_cache_log_hit(request, value);
+	request->passdb_cache_result = AUTH_REQUEST_CACHE_HIT;
 
 	*value_r = value;
 	return TRUE;

@@ -587,6 +587,21 @@ auth_request_want_skip_userdb(struct auth_request *request,
 	i_unreached();
 }
 
+static const char *
+auth_request_cache_result_to_str(enum auth_request_cache_result result)
+{
+	switch(result) {
+	case AUTH_REQUEST_CACHE_NONE:
+		return "none";
+	case AUTH_REQUEST_CACHE_HIT:
+		return "hit";
+	case AUTH_REQUEST_CACHE_MISS:
+		return "miss";
+	default:
+		i_unreached();
+	}
+}
+
 void auth_request_passdb_lookup_begin(struct auth_request *request)
 {
 	struct event *event;
@@ -594,6 +609,8 @@ void auth_request_passdb_lookup_begin(struct auth_request *request)
 
 	i_assert(request->passdb != NULL);
 	i_assert(!request->userdb_lookup);
+
+	request->passdb_cache_result = AUTH_REQUEST_CACHE_NONE;
 
 	name = (request->passdb->set->name[0] != '\0' ?
 		request->passdb->set->name :
@@ -628,6 +645,9 @@ void auth_request_passdb_lookup_end(struct auth_request *request,
 		event_create_passthrough(event)->
 		set_name("auth_passdb_request_finished")->
 		add_str("result", passdb_result_to_string(result));
+	if (request->passdb_cache_result != AUTH_REQUEST_CACHE_NONE &&
+	    request->set->cache_ttl != 0 && request->set->cache_size != 0)
+		e->add_str("cache", auth_request_cache_result_to_str(request->passdb_cache_result));
 	e_debug(e->event(), "Finished passdb lookup");
 	event_unref(&event);
 	array_pop_back(&request->authdb_event);
@@ -640,6 +660,8 @@ void auth_request_userdb_lookup_begin(struct auth_request *request)
 
 	i_assert(request->userdb != NULL);
 	i_assert(request->userdb_lookup);
+
+	request->userdb_cache_result = AUTH_REQUEST_CACHE_NONE;
 
 	name = (request->userdb->set->name[0] != '\0' ?
 		request->userdb->set->name :
@@ -674,6 +696,9 @@ void auth_request_userdb_lookup_end(struct auth_request *request,
 		event_create_passthrough(event)->
 		set_name("auth_userdb_request_finished")->
 		add_str("result", userdb_result_to_string(result));
+	if (request->userdb_cache_result != AUTH_REQUEST_CACHE_NONE &&
+	    request->set->cache_ttl != 0 && request->set->cache_size != 0)
+		e->add_str("cache", auth_request_cache_result_to_str(request->userdb_cache_result));
 	e_debug(e->event(), "Finished userdb lookup");
 	event_unref(&event);
 	array_pop_back(&request->authdb_event);
@@ -1232,11 +1257,14 @@ void auth_request_lookup_credentials_policy_continue(struct auth_request *reques
 		if (passdb_cache_lookup_credentials(request, cache_key,
 						    &cache_cred, &cache_scheme,
 						    &result, FALSE)) {
+			request->passdb_cache_result = AUTH_REQUEST_CACHE_HIT;
 			passdb_handle_credentials(
 				result, cache_cred, cache_scheme,
 				auth_request_lookup_credentials_finish,
 				request);
 			return;
+		} else {
+			request->passdb_cache_result = AUTH_REQUEST_CACHE_MISS;
 		}
 	}
 
@@ -1337,12 +1365,14 @@ static bool auth_request_lookup_user_cache(struct auth_request *request,
 	value = auth_cache_lookup(passdb_cache, request, key, &node,
 				  &expired, &neg_expired);
 	if (value == NULL || (expired && !use_expired)) {
+		request->userdb_cache_result = AUTH_REQUEST_CACHE_MISS;
 		e_debug(request->event,
 			value == NULL ? "%suserdb cache miss" :
 			"%suserdb cache expired",
 			auth_request_get_log_prefix_db(request));
 		return FALSE;
 	}
+	request->userdb_cache_result = AUTH_REQUEST_CACHE_HIT;
 	e_debug(request->event,
 		"%suserdb cache hit: %s",
 		auth_request_get_log_prefix_db(request), value);
@@ -1481,7 +1511,7 @@ void auth_request_userdb_callback(enum userdb_result result,
 	if (request->userdb_lookup_tempfailed) {
 		/* no caching */
 	} else if (result != USERDB_RESULT_INTERNAL_FAILURE) {
-		if (!request->userdb_result_from_cache)
+		if (request->userdb_cache_result != AUTH_REQUEST_CACHE_HIT)
 			auth_request_userdb_save_cache(request, result);
 	} else if (passdb_cache != NULL && userdb->cache_key != NULL) {
 		/* lookup failed. if we're looking here only because the
@@ -1509,7 +1539,7 @@ void auth_request_lookup_user(struct auth_request *request,
 	request->private_callback.userdb = callback;
 	request->user_changed_by_lookup = FALSE;
 	request->userdb_lookup = TRUE;
-	request->userdb_result_from_cache = FALSE;
+	request->userdb_cache_result = AUTH_REQUEST_CACHE_NONE;
 	if (request->fields.userdb_reply == NULL)
 		auth_request_init_userdb_reply(request, TRUE);
 	else {
@@ -1535,9 +1565,11 @@ void auth_request_lookup_user(struct auth_request *request,
 
 		if (auth_request_lookup_user_cache(request, cache_key,
 						   &result, FALSE)) {
-			request->userdb_result_from_cache = TRUE;
+			request->userdb_cache_result = AUTH_REQUEST_CACHE_HIT;
 			auth_request_userdb_callback(result, request);
 			return;
+		} else {
+			request->userdb_cache_result = AUTH_REQUEST_CACHE_MISS;
 		}
 	}
 

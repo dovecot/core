@@ -34,6 +34,12 @@ enum auth_request_secured {
 	AUTH_REQUEST_SECURED_TLS,
 };
 
+enum auth_request_cache_result {
+	AUTH_REQUEST_CACHE_NONE,
+	AUTH_REQUEST_CACHE_MISS,
+	AUTH_REQUEST_CACHE_HIT,
+};
+
 /* All auth request fields are exported to auth-worker process. */
 struct auth_request_fields {
         /* user contains the user who is being authenticated.
@@ -158,6 +164,9 @@ struct auth_request {
 
 	void *context;
 
+	enum auth_request_cache_result passdb_cache_result;
+	enum auth_request_cache_result userdb_cache_result;
+
 	/* this is a lookup on auth socket (not login socket).
 	   skip any proxying stuff if enabled. */
 	bool auth_only:1;
@@ -200,8 +209,6 @@ struct auth_request {
 	/* userdb_* fields have been set by the passdb lookup, userdb prefetch
 	   will work. */
 	bool userdb_prefetch_set:1;
-	/* userdb lookup's results are from cache */
-	bool userdb_result_from_cache:1;
 	bool stats_sent:1;
 	bool policy_refusal:1;
 	bool policy_processed:1;
