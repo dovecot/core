@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "connection.h"
+#include "write-full.h"
 #include "istream.h"
 #include "ostream.h"
 #include "strescape.h"
@@ -266,4 +267,30 @@ int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
 	io_loop_set_current(prev_ioloop);
 	*ctx_r = ctx;
 	return ctx->failed || ret < 0 ? -1 : 1;
+}
+
+#define INDEXER_HANDSHAKE "1\t0\tindexer\tindexer\n"
+
+int fts_indexer_cmd(struct mail_user *user, const char *cmd,
+	            const char **path_r)
+{
+	const char *path;
+	int fd;
+
+	path = t_strconcat(user->set->base_dir,
+	                   "/"INDEXER_SOCKET_NAME, NULL);
+	fd = net_connect_unix_with_retries(path, 1000);
+	if (fd == -1) {
+	        i_error("net_connect_unix(%s) failed: %m", path);
+	        return -1;
+	}
+
+	cmd = t_strconcat(INDEXER_HANDSHAKE, cmd, NULL);
+	if (write_full(fd, cmd, strlen(cmd)) < 0) {
+	        i_error("write(%s) failed: %m", path);
+	        i_close_fd(&fd);
+	        return -1;
+	}
+	*path_r = path;
+	return fd;
 }
