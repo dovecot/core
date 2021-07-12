@@ -16,7 +16,7 @@ libdovecot_lua_la_SOURCES = \
 
 LIBDICT_LUA=
 if DLUA_WITH_YIELDS
-LIBDICT_LUA=../lib-dict/libdict_lua.la
+LIBDICT_LUA += ../lib-dict/libdict_lua.la
 endif
 
 # Note: the only things this lib should depend on are libdovecot and lua.
