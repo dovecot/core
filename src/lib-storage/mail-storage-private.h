@@ -109,6 +109,8 @@ enum mail_storage_class_flags {
 	/* Storage deletes all files internally - mailbox list's
 	   delete_mailbox() shouldn't delete anything itself. */
 	MAIL_STORAGE_CLASS_FLAG_NO_LIST_DELETES	= 0x400,
+	/* Storage creates a secondary index */
+	MAIL_STORAGE_CLASS_FLAG_SECONDARY_INDEX	= 0x800,
 };
 
 struct mail_binary_cache {
