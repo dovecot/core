@@ -14,6 +14,10 @@ enum mail_duplicate_check_result {
 	MAIL_DUPLICATE_CHECK_RESULT_LOCK_TIMEOUT,
 	/* Too many locks held. */
 	MAIL_DUPLICATE_CHECK_RESULT_TOO_MANY_LOCKS,
+	/* Locking detected a deadlock. The caller should rollback the
+	   transaction to release all locks, do a short random sleep, retry
+	   and hope that the next attempt succeeds. */
+	MAIL_DUPLICATE_CHECK_RESULT_DEADLOCK,
 };
 
 #define MAIL_DUPLICATE_DEFAULT_KEEP (3600 * 24)

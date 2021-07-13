@@ -34,6 +34,7 @@ enum mail_duplicate_lock_result {
 	MAIL_DUPLICATE_LOCK_IO_ERROR,
 	MAIL_DUPLICATE_LOCK_TIMEOUT,
 	MAIL_DUPLICATE_LOCK_TOO_MANY,
+	MAIL_DUPLICATE_LOCK_DEADLOCK,
 };
 
 struct mail_duplicate_lock {
@@ -131,7 +132,10 @@ duplicate_lock_failed(struct mail_duplicate_transaction *trans,
 	i_assert(lock->fd == -1);
 	i_assert(lock->lock == NULL);
 
-	if (errno != EAGAIN) {
+	if (errno == EDEADLK) {
+		/* deadlock */
+		result = MAIL_DUPLICATE_LOCK_DEADLOCK;
+	} else if (errno != EAGAIN) {
 		/* not a lock timeout */
 		result = MAIL_DUPLICATE_LOCK_IO_ERROR;
 	} else {
@@ -541,6 +545,10 @@ mail_duplicate_check(struct mail_duplicate_transaction *trans,
 		e_debug(trans->event,
 			"Check ID: too many IDs locked");
 		return MAIL_DUPLICATE_CHECK_RESULT_TOO_MANY_LOCKS;
+	case MAIL_DUPLICATE_LOCK_DEADLOCK:
+		e_debug(trans->event,
+			"Check ID: deadlock detected while locking");
+		return MAIL_DUPLICATE_CHECK_RESULT_DEADLOCK;
 	}
 
 	mail_duplicate_update(trans);
