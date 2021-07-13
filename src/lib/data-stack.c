@@ -500,9 +500,17 @@ static void *t_malloc_real(size_t size, bool permanent)
 		current_block->left -= alloc_size;
 
 	if (warn) T_BEGIN {
+		/* sending event can cause errno changes. */
+#ifdef DEBUG
+		i_assert(errno == old_errno);
+#else
+		int old_errno = errno;
+#endif
 		/* warn after allocation, so if e_debug() wants to
 		   allocate more memory we don't go to infinite loop */
 		data_stack_send_grow_event(alloc_size);
+		/* reset errno back to what it was */
+		errno = old_errno;
 	} T_END;
 #ifdef DEBUG
 	memcpy(ret, &size, sizeof(size));
