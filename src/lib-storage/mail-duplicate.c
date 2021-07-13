@@ -246,8 +246,9 @@ static void mail_duplicate_file_free(struct mail_duplicate_file **_file)
 	pool_unref(&file->pool);
 }
 
-bool mail_duplicate_check(struct mail_duplicate_db *db,
-			  const void *id, size_t id_size, const char *user)
+enum mail_duplicate_check_result
+mail_duplicate_check(struct mail_duplicate_db *db,
+		     const void *id, size_t id_size, const char *user)
 {
 	struct mail_duplicate d;
 
@@ -263,7 +264,9 @@ bool mail_duplicate_check(struct mail_duplicate_db *db,
 	d.id_size = id_size;
 	d.user = user;
 
-	return hash_table_lookup(db->file->hash, &d) != NULL;
+	return (hash_table_lookup(db->file->hash, &d) != NULL ?
+		MAIL_DUPLICATE_CHECK_RESULT_EXISTS :
+		MAIL_DUPLICATE_CHECK_RESULT_NOT_FOUND);
 }
 
 void mail_duplicate_mark(struct mail_duplicate_db *db,

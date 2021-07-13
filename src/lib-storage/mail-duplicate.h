@@ -4,10 +4,18 @@
 struct mail_duplicate_db;
 struct mail_storage_settings;
 
+enum mail_duplicate_check_result {
+	/* The ID exists. The ID is not locked. */
+	MAIL_DUPLICATE_CHECK_RESULT_EXISTS,
+	/* The ID doesn't exist yet. The ID gets locked. */
+	MAIL_DUPLICATE_CHECK_RESULT_NOT_FOUND,
+};
+
 #define MAIL_DUPLICATE_DEFAULT_KEEP (3600 * 24)
 
-bool mail_duplicate_check(struct mail_duplicate_db *db,
-			  const void *id, size_t id_size, const char *user);
+enum mail_duplicate_check_result
+mail_duplicate_check(struct mail_duplicate_db *db,
+		     const void *id, size_t id_size, const char *user);
 void mail_duplicate_mark(struct mail_duplicate_db *db,
 			 const void *id, size_t id_size,
 			 const char *user, time_t timestamp);
