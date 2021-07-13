@@ -24,6 +24,8 @@ struct mail_duplicate {
 
 	const char *user;
 	time_t time;
+
+	bool marked:1;
 };
 
 struct mail_duplicate_file_header {
@@ -149,6 +151,7 @@ mail_duplicate_read_records(struct mail_duplicate_transaction *trans,
 			d->user = p_strndup(trans->pool,
 					    data + hdr.id_size, hdr.user_size);
 			d->time = hdr.stamp;
+			d->marked = TRUE;
 			hash_table_update(trans->hash, d, d);
 		} else {
                         change_count++;
@@ -274,11 +277,35 @@ mail_duplicate_transaction_free(struct mail_duplicate_transaction **_trans)
 	pool_unref(&trans->pool);
 }
 
+static struct mail_duplicate *
+mail_duplicate_get(struct mail_duplicate_transaction *trans,
+		   const void *id, size_t id_size, const char *user)
+{
+	struct mail_duplicate dup_q, *dup;
+
+	dup_q.id = id;
+	dup_q.id_size = id_size;
+	dup_q.user = user;
+
+	dup = hash_table_lookup(trans->hash, &dup_q);
+	if (dup == NULL) {
+		dup = p_new(trans->pool, struct mail_duplicate, 1);
+		dup->id = p_memdup(trans->pool, id, id_size);
+		dup->id_size = id_size;
+		dup->user = p_strdup(trans->pool, user);
+		dup->time = (time_t)-1;
+
+		hash_table_insert(trans->hash, dup, dup);
+	}
+
+	return dup;
+}
+
 enum mail_duplicate_check_result
 mail_duplicate_check(struct mail_duplicate_transaction *trans,
 		     const void *id, size_t id_size, const char *user)
 {
-	struct mail_duplicate d;
+	struct mail_duplicate *dup;
 
 	if (trans->path == NULL) {
 		/* Duplicate database disabled */
@@ -286,11 +313,8 @@ mail_duplicate_check(struct mail_duplicate_transaction *trans,
 		return MAIL_DUPLICATE_CHECK_RESULT_NOT_FOUND;
 	}
 
-	d.id = id;
-	d.id_size = id_size;
-	d.user = user;
-
-	if (hash_table_lookup(trans->hash, &d) != NULL) {
+	dup = mail_duplicate_get(trans, id, id_size, user);
+	if (dup->marked) {
 		e_debug(trans->event, "Check ID: found");
 		return MAIL_DUPLICATE_CHECK_RESULT_EXISTS;
 	}
@@ -303,8 +327,7 @@ void mail_duplicate_mark(struct mail_duplicate_transaction *trans,
 			 const void *id, size_t id_size,
 			 const char *user, time_t timestamp)
 {
-	struct mail_duplicate *d;
-	void *new_id;
+	struct mail_duplicate *dup;
 
 	if (trans->path == NULL) {
 		/* Duplicate database disabled */
@@ -314,17 +337,12 @@ void mail_duplicate_mark(struct mail_duplicate_transaction *trans,
 
 	e_debug(trans->event, "Mark ID");
 
-	new_id = p_malloc(trans->pool, id_size);
-	memcpy(new_id, id, id_size);
+	dup = mail_duplicate_get(trans, id, id_size, user);
 
-	d = p_new(trans->pool, struct mail_duplicate, 1);
-	d->id = new_id;
-	d->id_size = id_size;
-	d->user = p_strdup(trans->pool, user);
-	d->time = timestamp;
+	dup->time = timestamp;
+	dup->marked = TRUE;
 
 	trans->changed = TRUE;
-	hash_table_update(trans->hash, d, d);
 }
 
 void mail_duplicate_transaction_commit(
@@ -365,13 +383,15 @@ void mail_duplicate_transaction_commit(
 	i_zero(&rec);
 	iter = hash_table_iterate_init(trans->hash);
 	while (hash_table_iterate(iter, trans->hash, &d, &d)) {
-		rec.stamp = d->time;
-		rec.id_size = d->id_size;
-		rec.user_size = strlen(d->user);
+		if (d->marked) {
+			rec.stamp = d->time;
+			rec.id_size = d->id_size;
+			rec.user_size = strlen(d->user);
 
-		o_stream_nsend(output, &rec, sizeof(rec));
-		o_stream_nsend(output, d->id, rec.id_size);
-		o_stream_nsend(output, d->user, rec.user_size);
+			o_stream_nsend(output, &rec, sizeof(rec));
+			o_stream_nsend(output, d->id, rec.id_size);
+			o_stream_nsend(output, d->user, rec.user_size);
+		}
 	}
 	hash_table_iterate_deinit(&iter);
 
