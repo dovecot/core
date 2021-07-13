@@ -171,6 +171,8 @@ static int mail_duplicate_read(struct mail_duplicate_transaction *trans)
 	int fd;
 	unsigned int record_size = 0;
 
+	e_debug(trans->event, "Reading %s", trans->path);
+
 	fd = open(trans->path, O_RDONLY);
 	if (fd == -1) {
 		if (errno == ENOENT)
@@ -224,8 +226,11 @@ mail_duplicate_transaction_begin(struct mail_duplicate_db *db)
 
 	if (db->path == NULL) {
 		/* Duplicate database disabled; return dummy transaction */
+		e_debug(trans->event, "Transaction begin (dummy)");
 		return trans;
 	}
+
+	e_debug(trans->event, "Transaction begin; lock %s", db->path);
 
 	trans->path = p_strdup(pool, db->path);
 	trans->new_fd = file_dotlock_open(&db->dotlock_set, trans->path, 0,
@@ -256,6 +261,8 @@ mail_duplicate_transaction_free(struct mail_duplicate_transaction **_trans)
 		return;
 	*_trans = NULL;
 
+	e_debug(trans->event, "Transaction free");
+
 	i_assert(trans->db->transaction_count > 0);
 	trans->db->transaction_count--;
 
@@ -275,6 +282,7 @@ mail_duplicate_check(struct mail_duplicate_transaction *trans,
 
 	if (trans->path == NULL) {
 		/* Duplicate database disabled */
+		e_debug(trans->event, "Check ID (dummy)");
 		return MAIL_DUPLICATE_CHECK_RESULT_NOT_FOUND;
 	}
 
@@ -282,9 +290,12 @@ mail_duplicate_check(struct mail_duplicate_transaction *trans,
 	d.id_size = id_size;
 	d.user = user;
 
-	if (hash_table_lookup(trans->hash, &d) != NULL)
+	if (hash_table_lookup(trans->hash, &d) != NULL) {
+		e_debug(trans->event, "Check ID: found");
 		return MAIL_DUPLICATE_CHECK_RESULT_EXISTS;
+	}
 
+	e_debug(trans->event, "Check ID: not found");
 	return MAIL_DUPLICATE_CHECK_RESULT_NOT_FOUND;
 }
 
@@ -297,8 +308,11 @@ void mail_duplicate_mark(struct mail_duplicate_transaction *trans,
 
 	if (trans->path == NULL) {
 		/* Duplicate database disabled */
+		e_debug(trans->event, "Mark ID (dummy)");
 		return;
 	}
+
+	e_debug(trans->event, "Mark ID");
 
 	new_id = p_malloc(trans->pool, id_size);
 	memcpy(new_id, id, id_size);
@@ -327,12 +341,19 @@ void mail_duplicate_transaction_commit(
 		return;
 	*_trans = NULL;
 
-	if (!trans->changed || trans->new_fd == -1) {
+	if (trans->new_fd == -1) {
+		e_debug(trans->event, "Commit (dummy)");
+		mail_duplicate_transaction_free(&trans);
+		return;
+	}
+	if (!trans->changed) {
+		e_debug(trans->event, "Commit; no changes");
 		mail_duplicate_transaction_free(&trans);
 		return;
 	}
 
 	i_assert(trans->path != NULL);
+	e_debug(trans->event, "Commit; overwrite %s", trans->path);
 
 	i_zero(&hdr);
 	hdr.version = DUPLICATE_VERSION;
@@ -373,7 +394,15 @@ void mail_duplicate_transaction_commit(
 void mail_duplicate_transaction_rollback(
 	struct mail_duplicate_transaction **_trans)
 {
-	mail_duplicate_transaction_free(_trans);
+	struct mail_duplicate_transaction *trans = *_trans;
+
+	if (trans == NULL)
+		return;
+	*_trans = NULL;
+
+	e_debug(trans->event, "Rollback");
+
+	mail_duplicate_transaction_free(&trans);
 }
 
 struct mail_duplicate_db *
