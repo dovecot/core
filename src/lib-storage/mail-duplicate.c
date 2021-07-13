@@ -50,6 +50,7 @@ struct mail_duplicate_transaction {
 
 struct mail_duplicate_db {
 	struct mail_user *user;
+	struct event *event;
 	char *path;
 	struct dotlock_settings dotlock_set;
 
@@ -377,12 +378,16 @@ mail_duplicate_db_init(struct mail_user *user, const char *name)
 	const struct mail_storage_settings *mail_set;
 	const char *home = NULL;
 
+	db = i_new(struct mail_duplicate_db, 1);
+
+	db->event = event_create(user->event);
+	event_set_append_log_prefix(db->event, "duplicate db: ");
+
 	if (mail_user_get_home(user, &home) <= 0) {
 		e_error(user->event, "User %s doesn't have home dir set, "
 			"disabling duplicate database", user->username);
 	}
 
-	db = i_new(struct mail_duplicate_db, 1);
 	db->user = user;
 	db->path = home == NULL ? NULL :
 		i_strconcat(home, "/.dovecot.", name, NULL);
@@ -402,6 +407,7 @@ void mail_duplicate_db_deinit(struct mail_duplicate_db **_db)
 
 	i_assert(db->transaction_count == 0);
 
+	event_unref(&db->event);
 	i_free(db->path);
 	i_free(db);
 }
