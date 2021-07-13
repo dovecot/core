@@ -877,7 +877,8 @@ virtual_list_index_update_sync(struct mailbox *box ATTR_UNUSED,
 
 struct mail_storage virtual_storage = {
 	.name = VIRTUAL_STORAGE_NAME,
-	.class_flags = MAIL_STORAGE_CLASS_FLAG_NOQUOTA,
+	.class_flags = MAIL_STORAGE_CLASS_FLAG_NOQUOTA |
+		       MAIL_STORAGE_CLASS_FLAG_SECONDARY_INDEX,
 
 	.v = {
 		NULL,
