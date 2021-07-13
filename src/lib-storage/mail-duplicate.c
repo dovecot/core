@@ -388,6 +388,8 @@ mail_duplicate_db_init(struct mail_user *user, const char *name)
 	db->event = event_create(user->event);
 	event_set_append_log_prefix(db->event, "duplicate db: ");
 
+	e_debug(db->event, "Initialize");
+
 	if (mail_user_get_home(user, &home) <= 0) {
 		e_error(db->event, "User %s doesn't have home dir set, "
 			"disabling duplicate database", user->username);
@@ -409,6 +411,8 @@ void mail_duplicate_db_deinit(struct mail_duplicate_db **_db)
 	struct mail_duplicate_db *db = *_db;
 
 	*_db = NULL;
+
+	e_debug(db->event, "Cleanup");
 
 	i_assert(db->transaction_count == 0);
 
