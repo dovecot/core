@@ -168,6 +168,10 @@ data_stack_frame_t t_push(const char *marker)
 	current_frame->block_space_left = current_block->left;
 	current_frame->last_alloc_size = 0;
 	current_frame->marker = marker;
+#ifdef DEBUG
+	current_frame->alloc_bytes = 0;
+	current_frame->alloc_count = 0;
+#endif
 
 	t_buffer_alloc(sizeof(*frame));
 
