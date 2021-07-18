@@ -201,6 +201,8 @@ static void client_auth_parse_args(struct client *client, bool success,
 			}
 		} else if (strcmp(key, "proxy_mech") == 0)
 			reply_r->proxy_mech = value;
+		else if (strcmp(key, "proxy_noauth") == 0)
+			reply_r->proxy_noauth = TRUE;
 		else if (strcmp(key, "proxy_nopipelining") == 0)
 			reply_r->proxy_nopipelining = TRUE;
 		else if (strcmp(key, "proxy_not_trusted") == 0)
@@ -515,6 +517,7 @@ static int proxy_start(struct client *client,
 	client->proxy_user = i_strdup(reply->destuser);
 	client->proxy_master_user = i_strdup(reply->master_user);
 	client->proxy_password = i_strdup(reply->password);
+	client->proxy_noauth = reply->proxy_noauth;
 	client->proxy_nopipelining = reply->proxy_nopipelining;
 	client->proxy_not_trusted = reply->proxy_not_trusted;
 

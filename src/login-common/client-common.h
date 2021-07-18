@@ -110,6 +110,7 @@ struct client_auth_reply {
 	const char *const *all_fields;
 
 	bool proxy:1;
+	bool proxy_noauth:1;
 	bool proxy_nopipelining:1;
 	bool proxy_not_trusted:1;
 	bool nologin:1;
@@ -247,6 +248,7 @@ struct client {
 	bool auth_process_comm_fail:1;
 	bool auth_anonymous:1;
 	bool proxy_auth_failed:1;
+	bool proxy_noauth:1;
 	bool proxy_nopipelining:1;
 	bool proxy_not_trusted:1;
 	bool auth_waiting:1;
