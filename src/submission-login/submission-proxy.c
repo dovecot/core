@@ -21,6 +21,14 @@ static const char *submission_proxy_state_names[SUBMISSION_PROXY_STATE_COUNT] = 
 	"banner", "ehlo", "starttls", "tls-ehlo", "xclient", "xclient-ehlo", "authenticate"
 };
 
+static void
+submission_proxy_success_reply_sent(
+	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct submission_client *subm_client)
+{
+	client_proxy_finish_destroy_client(&subm_client->common);
+}
+
 static int
 proxy_send_starttls(struct submission_client *client, struct ostream *output)
 {
@@ -347,14 +355,6 @@ strip_enhanced_code(const char *text, const char **enh_code_r)
 	*enh_code_r = t_strdup_until(text, p);
 	p++;
 	return p;
-}
-
-static void
-submission_proxy_success_reply_sent(
-	struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
-	struct submission_client *subm_client)
-{
-	client_proxy_finish_destroy_client(&subm_client->common);
 }
 
 int submission_proxy_parse_line(struct client *client, const char *line)
