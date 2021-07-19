@@ -153,7 +153,6 @@ http_client_connection_server_close(struct http_client_connection **_conn)
 {
 	struct http_client_connection *conn = *_conn;
 	struct http_client_peer *peer = conn->peer;
-	struct http_client *client = peer->client;
 	struct http_client_request *req, **req_idx;
 
 	e_debug(conn->event, "Server explicitly closed connection");
@@ -169,8 +168,12 @@ http_client_connection_server_close(struct http_client_connection **_conn)
 	}
 	array_clear(&conn->request_wait_list);
 
-	if (client != NULL && client->waiting)
-		io_loop_stop(client->ioloop);
+	if (peer != NULL) {
+		struct http_client *client = peer->client;
+
+		if (client->waiting)
+			io_loop_stop(client->ioloop);
+	}
 
 	http_client_connection_close(_conn);
 }
