@@ -541,6 +541,7 @@ t_try_realloc(void *mem, size_t size)
 	if (unlikely(size == 0 || size > SSIZE_T_MAX))
 		i_panic("Trying to allocate %zu bytes", size);
 	block_canary_check(current_block);
+	data_stack_last_buffer_reset(TRUE);
 
 	last_alloc_size = current_frame->last_alloc_size;
 
