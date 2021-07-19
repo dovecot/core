@@ -68,6 +68,11 @@ static void i_stream_header_filter_destroy(struct iostream_private *stream)
 		array_free(&mstream->match_change_lines);
 	if (!mstream->snapshot_pending)
 		buffer_free(&mstream->hdr_buf);
+	else {
+		/* Clear hdr_buf to make sure
+		   i_stream_header_filter_snapshot_free() frees it. */
+		mstream->hdr_buf = NULL;
+	}
 	pool_unref(&mstream->pool);
 }
 
