@@ -113,6 +113,10 @@ static void data_stack_last_buffer_reset(bool preserve_data ATTR_UNUSED)
 #ifdef DEBUG
 		unsigned char *last_alloc_end, *p, *pend;
 
+		/* We assume that this function gets called before
+		   current_block changes. */
+		i_assert(last_buffer_block == current_block);
+
 		last_alloc_end = data_stack_after_last_alloc(current_block);
 		p = last_alloc_end + MEM_ALIGN(sizeof(size_t)) + last_buffer_size;
 		pend = last_alloc_end + ALLOC_SIZE(last_buffer_size);
@@ -125,6 +129,11 @@ static void data_stack_last_buffer_reset(bool preserve_data ATTR_UNUSED)
 		last_buffer_block = NULL;
 
 #ifdef DEBUG
+		/* NOTE: If the below panic triggers, it may also be due to an
+		   internal bug in data-stack (since this is rather complex). While
+		   debugging whether that is the case, it's a good idea to change the
+		   i_panic() to abort(). Otherwise the i_panic() changes the
+		   data-stack's internal state and complicates debugging. */
 		while (p < pend)
 			if (*p++ != CLEAR_CHR)
 				i_panic("t_buffer_get(): buffer overflow");
