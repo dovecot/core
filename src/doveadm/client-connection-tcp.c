@@ -96,7 +96,7 @@ doveadm_server_log_handler(const struct failure_context *ctx,
 
 		if (!corked)
 			o_stream_cork(log_out);
-		for (ptr = str;; ) {
+		for (;;) {
 			ptr = strchr(str, '\n');
 			size_t len = ptr == NULL ? strlen(str) :
 				(size_t)(ptr - str);
