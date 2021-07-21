@@ -182,7 +182,10 @@ static void cmd_config(struct doveadm_cmd_context *cctx)
 	unsigned int len = str_array_length(args);
 	argv = t_new(const char *, len + 2);
 	argv[0] = BINDIR"/doveconf";
-	memcpy(argv+1, args, len * sizeof(args[0]));
+	if (len > 0) {
+		i_assert(args != NULL);
+		memcpy(argv+1, args, len * sizeof(args[0]));
+	}
 	execv_const(argv[0], argv);
 }
 
@@ -222,7 +225,10 @@ static void cmd_exec(struct doveadm_cmd_context *cctx)
 	unsigned int len = str_array_length(args);
 	argv = t_new(const char *, len + 2);
 	argv[0] = path;
-	memcpy(argv+1, args, len * sizeof(args[0]));
+	if (len > 0) {
+		i_assert(args != NULL);
+		memcpy(argv+1, args, len * sizeof(args[0]));
+	}
 	execv_const(argv[0], argv);
 }
 
