@@ -86,7 +86,6 @@ void test_subprocess_fork(int (*func)(void *context), void *context,
 	struct test_subprocess *subprocess;
 
 	subprocess = i_new(struct test_subprocess, 1);
-	array_push_back(&test_subprocesses, &subprocess);
 
 	lib_signals_ioloop_detach();
 
@@ -100,6 +99,7 @@ void test_subprocess_fork(int (*func)(void *context), void *context,
 		i_unreached();
 	}
 
+	array_push_back(&test_subprocesses, &subprocess);
 	lib_signals_ioloop_attach();
 }
 
