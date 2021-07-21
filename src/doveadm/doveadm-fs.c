@@ -16,7 +16,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-static void fs_cmd_help(struct doveadm_cmd_context *cctx);
+static void fs_cmd_help(struct doveadm_cmd_context *cctx) ATTR_NORETURN;
 static void cmd_fs_delete(struct doveadm_cmd_context *cctx);
 
 static struct fs *
