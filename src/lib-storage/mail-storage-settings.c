@@ -8,6 +8,7 @@
 #include "hostpid.h"
 #include "settings-parser.h"
 #include "message-address.h"
+#include "message-header-parser.h"
 #include "smtp-address.h"
 #include "mail-index.h"
 #include "mail-user.h"
@@ -433,6 +434,25 @@ fix_base_path(struct mail_user_settings *set, pool_t pool, const char **str)
 }
 
 /* <settings checks> */
+static bool mail_cache_fields_parse(const char *key, const char *value,
+				    const char **error_r)
+{
+	const char *const *arr;
+
+	for (arr = t_strsplit_spaces(value, " ,"); *arr != NULL; arr++) {
+		const char *name = *arr;
+
+		if (strncasecmp(name, "hdr.", 4) == 0 &&
+		    !message_header_name_is_valid(name+4)) {
+			*error_r = t_strdup_printf(
+				"Invalid %s: %s is not a valid header name",
+				key, name);
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
 static bool mail_storage_settings_check(void *_set, pool_t pool,
 					const char **error_r)
 {
@@ -579,6 +599,15 @@ static bool mail_storage_settings_check(void *_set, pool_t pool,
 		set->parsed_mail_attachment_content_type_filter = array_front(&content_types);
 	}
 
+	if (!mail_cache_fields_parse("mail_cache_fields",
+				     set->mail_cache_fields, error_r))
+		return FALSE;
+	if (!mail_cache_fields_parse("mail_always_cache_fields",
+				     set->mail_always_cache_fields, error_r))
+		return FALSE;
+	if (!mail_cache_fields_parse("mail_never_cache_fields",
+				     set->mail_never_cache_fields, error_r))
+		return FALSE;
 	return TRUE;
 }
 

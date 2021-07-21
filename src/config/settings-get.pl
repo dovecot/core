@@ -20,6 +20,7 @@ print '#include "net.h"'."\n";
 print '#include "unichar.h"'."\n";
 print '#include "hash-method.h"'."\n";
 print '#include "settings-parser.h"'."\n";
+print '#include "message-header-parser.h"'."\n";
 print '#include "all-settings.h"'."\n";
 print '#include <stddef.h>'."\n";
 print '#include <unistd.h>'."\n";
