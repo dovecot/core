@@ -130,6 +130,7 @@ static void test_subprocess_verify_exit_status(int status)
 
 static void test_subprocess_kill_forced(struct test_subprocess *subp)
 {
+	i_assert(subp->pid > 0);
 	(void)kill(subp->pid, SIGKILL);
 	(void)waitpid(subp->pid, NULL, 0);
 }
