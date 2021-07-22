@@ -70,6 +70,7 @@ static int urandom_fd = -1;
    too large anyway so we don't unnecessarily waste CPU and memory. */
 #define RANDOM_READ_BUFFER_SIZE 32
 static unsigned char random_next[RANDOM_READ_BUFFER_SIZE];
+static size_t random_next_pos = 0;
 static size_t random_next_size = 0;
 
 static void random_open_urandom(void)
@@ -152,17 +153,19 @@ void random_fill(void *buf, size_t size)
 		} else {
 			/* Asking for a little randomness. Read via a larger
 			   buffer to reduce the number of syscalls. */
-			if (random_next_size > 0)
-				ret = random_next_size;
-			else
+			if (random_next_size > random_next_pos)
+				ret = random_next_size - random_next_pos;
+			else {
+				random_next_pos = 0;
 				ret = random_read(random_next,
 						  sizeof(random_next));
+				random_next_size = ret < 0 ? 0 : ret;
+			}
 			if (ret > 0) {
 				size_t used = I_MIN(size - pos, (size_t)ret);
-				memcpy(PTR_OFFSET(buf, pos), random_next, used);
-				random_next_size = ret - used;
-				memmove(random_next, random_next + used,
-					random_next_size);
+				memcpy(PTR_OFFSET(buf, pos),
+				       random_next + random_next_pos, used);
+				random_next_pos += used;
 				pos += used;
 			}
 		}
