@@ -579,7 +579,7 @@ transaction_flag_updates_have_non_internal(struct mail_index_transaction *t)
 	}
 
 	array_foreach(&t->updates, u) {
-		uint8_t changed_flags = u->add_flags | u->remove_flags;
+		uint16_t changed_flags = u->add_flags | u->remove_flags;
 
 		if ((changed_flags & ~internal_flags) != 0)
 			return TRUE;
