@@ -1056,7 +1056,6 @@ void mail_transaction_update_modseq(const struct mail_transaction_header *hdr,
 		return;
 	}
 
-	/* NOTE: keep in sync with mail_index_transaction_get_highest_modseq() */
 	switch (hdr->type & MAIL_TRANSACTION_TYPE_MASK) {
 	case MAIL_TRANSACTION_EXPUNGE | MAIL_TRANSACTION_EXPUNGE_PROT:
 	case MAIL_TRANSACTION_EXPUNGE_GUID | MAIL_TRANSACTION_EXPUNGE_PROT:
