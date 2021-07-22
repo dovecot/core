@@ -188,9 +188,6 @@ director_cmd_error(struct director_connection *conn, const char *fmt, ...)
 static void
 director_connection_append_stats(struct director_connection *conn, string_t *str)
 {
-	int input_msecs = timeval_diff_msecs(&ioloop_timeval, &conn->last_input);
-	int output_msecs = timeval_diff_msecs(&ioloop_timeval, &conn->last_output);
-	int connected_msecs = timeval_diff_msecs(&ioloop_timeval, &conn->connected_time);
 	struct rusage usage;
 
 	str_printfa(str, "bytes in=%"PRIuUOFF_T", bytes out=%"PRIuUOFF_T,
@@ -202,14 +199,20 @@ director_connection_append_stats(struct director_connection *conn, string_t *str
 			    conn->handshake_users_sent);
 	}
 	if (conn->last_input.tv_sec > 0) {
+		int input_msecs = timeval_diff_msecs(&ioloop_timeval,
+						     &conn->last_input);
 		str_printfa(str, ", last input %u.%03u s ago",
 			    input_msecs/1000, input_msecs%1000);
 	}
 	if (conn->last_output.tv_sec > 0) {
+		int output_msecs = timeval_diff_msecs(&ioloop_timeval,
+						      &conn->last_output);
 		str_printfa(str, ", last output %u.%03u s ago",
 			    output_msecs/1000, output_msecs%1000);
 	}
 	if (conn->connected) {
+		int connected_msecs = timeval_diff_msecs(&ioloop_timeval,
+							 &conn->connected_time);
 		str_printfa(str, ", connected %u.%03u s ago",
 			    connected_msecs/1000, connected_msecs%1000);
 	}
