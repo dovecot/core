@@ -360,6 +360,10 @@ static void proxy_input(struct client *client)
 	}
 
 	output = client->output;
+	/* The "line" variable is allocated from the istream, but the istream
+	   may be freed by proxy_parse_line(). Keep the istream referenced to
+	   make sure the line isn't freed too early. */
+	i_stream_ref(input);
 	o_stream_ref(output);
 	o_stream_cork(output);
 	while ((line = i_stream_next_line(input)) != NULL) {
@@ -368,6 +372,7 @@ static void proxy_input(struct client *client)
 	}
 	o_stream_uncork(output);
 	o_stream_unref(&output);
+	i_stream_unref(&input);
 }
 
 void client_common_proxy_failed(struct client *client,
