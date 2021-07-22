@@ -10,6 +10,7 @@
 #include "mail-storage-private.h"
 #include "mail-search-build.h"
 #include "mailbox-list-private.h"
+#include "mailbox-match-plugin.h"
 #include "mail-namespace.h"
 #include "lazy-expunge-plugin.h"
 
@@ -43,6 +44,7 @@ struct lazy_expunge_mail_user {
 	union mail_user_module_context module_ctx;
 
 	struct mail_namespace *lazy_ns;
+	struct mailbox_match_plugin *excludes;
 	const char *lazy_mailbox_vname;
 	const char *env;
 	bool copy_only_last_instance;
@@ -261,6 +263,10 @@ static bool lazy_expunge_is_internal_mailbox(struct mailbox *box)
 	if (luser->lazy_mailbox_vname != NULL &&
 	    strcmp(luser->lazy_mailbox_vname, box->vname) == 0) {
 		/* lazy-expunge mailbox */
+		return TRUE;
+	}
+	if (mailbox_match_plugin_exclude(luser->excludes, box)) {
+		/* Mailbox explicitly excluded by configuration */
 		return TRUE;
 	}
 	return FALSE;
@@ -580,6 +586,8 @@ static void lazy_expunge_user_deinit(struct mail_user *user)
 	/* mail_namespaces_created hook isn't necessarily ever called */
 	if (luser->lazy_ns != NULL)
 		mail_namespace_unref(&luser->lazy_ns);
+	mailbox_match_plugin_deinit(&luser->excludes);
+
 	luser->module_ctx.super.deinit(user);
 }
 
@@ -598,6 +606,7 @@ static void lazy_expunge_mail_user_created(struct mail_user *user)
 		luser->env = env;
 		luser->copy_only_last_instance =
 			mail_user_plugin_getenv_bool(user, "lazy_expunge_only_last_instance");
+		luser->excludes = mailbox_match_plugin_init(user, "lazy_expunge_exclude");
 
 		MODULE_CONTEXT_SET(user, lazy_expunge_mail_user_module, luser);
 	} else {
