@@ -105,7 +105,7 @@ static void openmetrics_export_dovecot(string_t *out)
 
 	str_append(out, "# HELP dovecot_build "
 			"Dovecot build information\n");
-	str_append(out, "# TYPE dovecot_build info\n");
+	str_append(out, "# TYPE dovecot_build untyped\n");
 	str_append(out, "dovecot_build_info{"OPENMETRICS_BUILD_INFO"} 1\n");
 }
 
