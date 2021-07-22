@@ -193,6 +193,7 @@ mail_index_transaction_commit_real(struct mail_index_transaction *t,
 	ret = mail_transaction_log_file_refresh(t, ctx);
 #ifdef DEBUG
 	uint64_t expected_highest_modseq =
+		log->head->sync_highest_modseq == 0 ? 0 :
 		mail_index_transaction_get_highest_modseq(t);
 #endif
 	if (ret > 0) T_BEGIN {
