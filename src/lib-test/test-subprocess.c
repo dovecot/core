@@ -284,7 +284,10 @@ test_subprocess_terminate(const siginfo_t *si, void *context ATTR_UNUSED)
 	test_subprocess_cleanup();
 
 	(void)signal(signo, SIG_DFL);
-	raise(signo);
+	if (signo == SIGTERM)
+		_exit(0);
+	else
+		raise(signo);
 }
 
 static void test_atexit(void)
