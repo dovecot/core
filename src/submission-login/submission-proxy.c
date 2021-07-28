@@ -80,7 +80,7 @@ proxy_send_xclient_more_data(struct submission_client *client,
 			     const char *field, const unsigned char *value,
 			     size_t value_size)
 {
-	static const size_t cmd_len = strlen("XCLIENT");
+	const size_t cmd_len = strlen("XCLIENT");
 	size_t prev_len = str_len(buf);
 
 	str_append_c(buf, ' ');
