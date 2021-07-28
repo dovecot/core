@@ -26,6 +26,12 @@ struct replicator_brain {
 
 static void replicator_brain_fill(struct replicator_brain *brain);
 
+static void replicator_brain_timeout(struct replicator_brain *brain)
+{
+	timeout_remove(&brain->to);
+	replicator_brain_fill(brain);
+}
+
 static void replicator_brain_queue_changed(void *context)
 {
 	struct replicator_brain *brain = context;
@@ -162,12 +168,6 @@ dsync_replicate(struct replicator_brain *brain, struct replicator_user *user)
 	dsync_client_sync(conn, user->username, user->state, full,
 			  dsync_callback, ctx);
 	return TRUE;
-}
-
-static void replicator_brain_timeout(struct replicator_brain *brain)
-{
-	timeout_remove(&brain->to);
-	replicator_brain_fill(brain);
 }
 
 static bool replicator_brain_fill_next(struct replicator_brain *brain)
