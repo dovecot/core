@@ -1344,8 +1344,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	sets = master_service_settings_parser_get_others(master_service,
 							 user->set_parser);
 	user->user_set = sets[0];
-	user->ssl_set = master_service_ssl_settings_get_from_parser(
-		master_service, user->set_parser);
+	user->ssl_set = master_service_ssl_settings_get_from_parser(user->set_parser);
 	user->gid_source = "mail_gid setting";
 	user->uid_source = "mail_uid setting";
 	/* Create an event that will be used as the default event for logging.

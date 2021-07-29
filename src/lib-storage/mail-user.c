@@ -18,6 +18,7 @@
 #include "fs-api.h"
 #include "auth-master.h"
 #include "master-service.h"
+#include "master-service-ssl-settings.h"
 #include "dict.h"
 #include "mail-storage-settings.h"
 #include "mail-storage-private.h"
@@ -692,10 +693,18 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 void mail_user_init_ssl_client_settings(struct mail_user *user,
 	struct ssl_iostream_settings *ssl_set_r)
 {
-	const struct mail_storage_settings *mail_set =
-		mail_user_set_get_storage_set(user);
+	if (user->_service_user == NULL) {
+		/* Internal test user that should never actually need any
+		   SSL settings. */
+		i_zero(ssl_set_r);
+		return;
+	}
 
-	mail_storage_settings_init_ssl_client_settings(mail_set, ssl_set_r);
+	const struct master_service_ssl_settings *ssl_set =
+		mail_storage_service_user_get_ssl_settings(user->_service_user);
+
+	master_service_ssl_client_settings_to_iostream_set(ssl_set,
+		pool_datastack_create(), ssl_set_r);
 }
 
 void mail_user_init_fs_settings(struct mail_user *user,
