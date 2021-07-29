@@ -704,11 +704,6 @@ void server_connection_cmd(struct server_connection *conn, int proxy_ttl,
 	conn->context = context;
 }
 
-bool server_connection_is_idle(struct server_connection *conn)
-{
-	return conn->callback == NULL;
-}
-
 void server_connection_extract(struct server_connection *conn,
 			       struct istream **istream_r,
 			       struct ostream **ostream_r,

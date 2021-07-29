@@ -84,27 +84,9 @@ static struct doveadm_server *doveadm_server_get(const char *name)
 	return server;
 }
 
-static struct server_connection *
-doveadm_server_find_unused_conn(struct doveadm_server *server)
-{
-	struct server_connection *conn;
-
-	array_foreach_elem(&server->connections, conn) {
-		if (server_connection_is_idle(conn))
-			return conn;
-	}
-	return NULL;
-}
-
 static bool doveadm_server_have_used_connections(struct doveadm_server *server)
 {
-	struct server_connection *conn;
-
-	array_foreach_elem(&server->connections, conn) {
-		if (!server_connection_is_idle(conn))
-			return TRUE;
-	}
-	return FALSE;
+	return array_count(&server->connections) > 0;
 }
 
 static void doveadm_mail_server_cmd_free(struct doveadm_mail_server_cmd **_cmd)
@@ -315,14 +297,11 @@ doveadm_cmd_redirect_finish(struct doveadm_mail_server_cmd *servercmd,
 	new_server->ssl_flags = ssl_flags;
 	new_server->port = port;
 
-	conn = doveadm_server_find_unused_conn(new_server);
-	if (conn == NULL) {
-		if (server_connection_create(new_server, &conn, &error) < 0) {
-			*error_r = t_strdup_printf(
-				"Failed to create redirect connection to %s: %s",
-				new_server->name, error);
-			return -1;
-		}
+	if (server_connection_create(new_server, &conn, &error) < 0) {
+		*error_r = t_strdup_printf(
+			"Failed to create redirect connection to %s: %s",
+			new_server->name, error);
+		return -1;
 	}
 
 	servercmd->conn = conn;
@@ -641,11 +620,8 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	server->ip = proxy_set.host_ip;
 	server->ssl_flags = proxy_set.ssl_flags;
 	server->port = proxy_set.port;
-	conn = doveadm_server_find_unused_conn(server);
-	if (conn != NULL)
-		doveadm_mail_server_handle(server, conn, proxy_set.username);
-	else if (array_count(&server->connections) <
-		 	I_MAX(ctx->set->doveadm_worker_count, 1)) {
+	if (array_count(&server->connections) <
+	    I_MAX(ctx->set->doveadm_worker_count, 1)) {
 		if (server_connection_create(server, &conn, error_r) < 0) {
 			internal_failure = TRUE;
 			return -1;
