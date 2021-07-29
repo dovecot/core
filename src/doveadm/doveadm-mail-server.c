@@ -544,6 +544,8 @@ static int doveadm_mail_server_request_queue_handle_next(const char **error_r)
 	request_copy = *request;
 	array_pop_front(&doveadm_server_request_queue);
 
+	doveadm_get_ssl_settings(&request_copy.set.ssl_set,
+				 pool_datastack_create());
 	if (server_connection_create(&request_copy.set, &conn, error_r) < 0) {
 		internal_failure = TRUE;
 		return -1;
@@ -709,6 +711,8 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	}
 
 	if (server_connections_count() <= limit) {
+		doveadm_get_ssl_settings(&conn_set.ssl_set,
+					 pool_datastack_create());
 		if (server_connection_create(&conn_set, &conn, error_r) < 0) {
 			internal_failure = TRUE;
 			return -1;

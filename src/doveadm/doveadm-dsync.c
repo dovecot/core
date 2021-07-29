@@ -851,21 +851,6 @@ static void dsync_connected_callback(const struct doveadm_server_reply *reply,
 	io_loop_stop(current_ioloop);
 }
 
-static int dsync_init_ssl_ctx(struct dsync_cmd_context *ctx,
-			      const struct master_service_ssl_settings *ssl_set,
-			      const char **error_r)
-{
-	struct ssl_iostream_settings ssl_ctx_set;
-
-	if (ctx->ssl_ctx != NULL)
-		return 0;
-
-	master_service_ssl_client_settings_to_iostream_set(ssl_set,
-		pool_datastack_create(), &ssl_ctx_set);
-	return ssl_iostream_client_context_cache_get(&ssl_ctx_set,
-						     &ctx->ssl_ctx, error_r);
-}
-
 static void dsync_server_run_command(struct dsync_cmd_context *ctx,
 				     struct server_connection *conn)
 {
@@ -916,7 +901,13 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 	}
 
 	if (ssl) {
-		if (dsync_init_ssl_ctx(ctx, ssl_set, &error) < 0) {
+		master_service_ssl_client_settings_to_iostream_set(ssl_set,
+			pool_datastack_create(), &conn_set.ssl_set);
+
+		if (ctx->ssl_ctx == NULL &&
+		    ssl_iostream_client_context_cache_get(&conn_set.ssl_set,
+							  &ctx->ssl_ctx,
+							  &error) < 0) {
 			*error_r = t_strdup_printf(
 				"Couldn't initialize SSL context: %s", error);
 			return -1;

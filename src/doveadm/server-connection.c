@@ -81,6 +81,7 @@ void doveadm_client_settings_dup(const struct doveadm_client_settings *src,
 	dest_r->password = p_strdup(pool, src->password);
 
 	dest_r->ssl_flags = src->ssl_flags;
+	dest_r->ssl_set = *ssl_iostream_settings_dup(pool, &src->ssl_set);
 	if (src->ssl_ctx != NULL) {
 		dest_r->ssl_ctx = src->ssl_ctx;
 		ssl_iostream_context_ref(dest_r->ssl_ctx);
@@ -514,13 +515,11 @@ static bool server_connection_input_one(struct server_connection *conn)
 static int server_connection_init_ssl(struct server_connection *conn,
 				      const char **error_r)
 {
-	struct ssl_iostream_settings ssl_set;
+	struct ssl_iostream_settings ssl_set = conn->set.ssl_set;
 	const char *error;
 
 	if (conn->set.ssl_flags == 0)
 		return 0;
-
-	doveadm_get_ssl_settings(&ssl_set, pool_datastack_create());
 
 	if ((conn->set.ssl_flags & AUTH_PROXY_SSL_FLAG_ANY_CERT) != 0)
 		ssl_set.allow_invalid_cert = TRUE;
