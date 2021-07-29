@@ -5,6 +5,7 @@
 #include "array.h"
 #include "execv-const.h"
 #include "child-wait.h"
+#include "connection.h"
 #include "istream.h"
 #include "ostream.h"
 #include "iostream-ssl.h"
@@ -918,7 +919,6 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 				    ctx->ctx.set->doveadm_username);
 	server->password = p_strdup(ctx->ctx.pool,
 				    ctx->ctx.set->doveadm_password);
-	p_array_init(&server->connections, ctx->ctx.pool, 1);
 	p_array_init(&server->queue, ctx->ctx.pool, 1);
 
 	prev_ioloop = current_ioloop;
@@ -941,8 +941,7 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 		dsync_server_run_command(ctx, conn);
 	}
 
-	if (array_count(&server->connections) > 0)
-		server_connection_destroy(&conn);
+	connection_list_deinit(&server->connections);
 
 	dsync_cmd_switch_ioloop_to(ctx, prev_ioloop);
 	io_loop_destroy(&ioloop);

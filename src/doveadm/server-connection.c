@@ -4,8 +4,6 @@
 #include "array.h"
 #include "base64.h"
 #include "connection.h"
-#include "ioloop.h"
-#include "net.h"
 #include "istream.h"
 #include "istream-multiplex.h"
 #include "ostream.h"
@@ -14,15 +12,11 @@
 #include "strescape.h"
 #include "iostream-ssl.h"
 #include "master-service.h"
-#include "master-service-settings.h"
-#include "settings-parser.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
 #include "doveadm-util.h"
 #include "doveadm-server.h"
 #include "server-connection.h"
-
-#include <unistd.h>
 
 #define DOVEADM_LOG_CHANNEL_ID 'L'
 
@@ -65,10 +59,10 @@ struct server_connection {
 static struct server_connection *printing_conn = NULL;
 static ARRAY(struct doveadm_server *) print_pending_servers = ARRAY_INIT;
 
-static void server_connection_input(struct server_connection *conn);
 static bool server_connection_input_one(struct server_connection *conn);
 static int server_connection_init_ssl(struct server_connection *conn,
 				      const char **error_r);
+static void server_connection_destroy(struct server_connection **_conn);
 
 static void server_set_print_pending(struct doveadm_server *server)
 {
@@ -85,18 +79,11 @@ static void server_set_print_pending(struct doveadm_server *server)
 
 static void server_print_connection_released(struct doveadm_server *server)
 {
-	struct server_connection *const *conns;
-	unsigned int i, count;
+	struct connection *conn;
 
-	conns = array_get(&server->connections, &count);
-	for (i = 0; i < count; i++) {
-		if (conns[i]->conn.io != NULL)
-			continue;
-
-		conns[i]->conn.io = io_add(conns[i]->conn.fd_in, IO_READ,
-					   server_connection_input, conns[i]);
-		io_set_pending(conns[i]->conn.io);
-	}
+	conn = server->connections->connections;
+	for (; conn != NULL; conn = conn->next)
+		connection_input_resume(conn);
 }
 
 static void print_connection_released(void)
@@ -335,10 +322,8 @@ static void server_log_disconnect_error(struct server_connection *conn)
 
 	error = conn->ssl_iostream == NULL ? NULL :
 		ssl_iostream_get_last_error(conn->ssl_iostream);
-	if (error == NULL) {
-		error = conn->conn.input->stream_errno == 0 ? "EOF" :
-			strerror(conn->conn.input->stream_errno);
-	}
+	if (error == NULL)
+		error = connection_disconnect_reason(&conn->conn);
 	i_error("doveadm server disconnected before handshake: %s", error);
 }
 
@@ -365,17 +350,20 @@ static void server_connection_start_multiplex(struct server_connection *conn)
 	struct istream *is = conn->conn.input;
 	conn->conn.input = i_stream_create_multiplex(is, MAX_INBUF_SIZE);
 	i_stream_unref(&is);
-	io_remove(&conn->conn.io);
-	conn->conn.io = io_add_istream(conn->conn.input,
-				       server_connection_input, conn);
+
 	conn->log_input = i_stream_multiplex_add_channel(conn->conn.input,
 							 DOVEADM_LOG_CHANNEL_ID);
 	conn->io_log = io_add_istream(conn->log_input, server_connection_print_log, conn);
 	i_stream_set_return_partial_line(conn->log_input, TRUE);
+
+	/* recreate IO using multiplex istream */
+	connection_streams_changed(&conn->conn);
 }
 
-static void server_connection_input(struct server_connection *conn)
+static void server_connection_input(struct connection *_conn)
 {
+	struct server_connection *conn =
+		container_of(_conn, struct server_connection, conn);
 	const char *line;
 	const char *error;
 
@@ -422,7 +410,7 @@ static void server_connection_input(struct server_connection *conn)
 			}
 			if (!conn->ssl_done &&
 			    (conn->server->ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) != 0) {
-				io_remove(&conn->conn.io);
+				connection_input_halt(&conn->conn);
 				if (conn->conn.minor_version < DOVEADM_PROTO_MINOR_MIN_STARTTLS) {
 					i_error("doveadm STARTTLS failed: Server does not support it");
 					server_connection_destroy(&conn);
@@ -436,8 +424,7 @@ static void server_connection_input(struct server_connection *conn)
 					return;
 				}
 				conn->ssl_done = TRUE;
-				conn->conn.io = io_add_istream(conn->conn.input,
-					server_connection_input, conn);
+				connection_input_resume(&conn->conn);
 			}
 			if (server_connection_authenticate(conn) < 0) {
 				server_connection_destroy(&conn);
@@ -555,6 +542,7 @@ static int server_connection_init_ssl(struct server_connection *conn,
 		return -1;
 	}
 
+	connection_input_halt(&conn->conn);
 	if (io_stream_create_ssl_client(conn->server->ssl_ctx,
 					conn->server->hostname, &ssl_set,
 					&conn->conn.input, &conn->conn.output,
@@ -569,8 +557,34 @@ static int server_connection_init_ssl(struct server_connection *conn,
 			ssl_iostream_get_last_error(conn->ssl_iostream));
 		return -1;
 	}
+	connection_input_resume(&conn->conn);
 	return 0;
 }
+
+static void server_connection_destroy_conn(struct connection *_conn)
+{
+	struct server_connection *conn =
+		container_of(_conn, struct server_connection, conn);
+	server_connection_destroy(&conn);
+}
+
+static const struct connection_vfuncs doveadm_client_vfuncs = {
+	.input = server_connection_input,
+	.destroy = server_connection_destroy_conn,
+};
+
+static struct connection_settings doveadm_client_set = {
+	/* Note: These service names are reversed compared to how they usually
+	   work. Too late to change now without breaking the protocol. */
+	.service_name_in = "doveadm-client",
+	.service_name_out = "doveadm-server",
+	.major_version = DOVEADM_SERVER_PROTOCOL_VERSION_MAJOR,
+	.minor_version = DOVEADM_SERVER_PROTOCOL_VERSION_MINOR,
+	.dont_send_version = TRUE, /* doesn't work with SSL */
+	.input_max_size = MAX_INBUF_SIZE,
+	.output_max_size = SIZE_MAX,
+	.client = TRUE,
+};
 
 int server_connection_create(struct doveadm_server *server,
 			     struct server_connection **conn_r,
@@ -583,6 +597,12 @@ int server_connection_create(struct doveadm_server *server,
 	i_assert(server->username != NULL);
 	i_assert(server->password != NULL);
 
+	if (server->connections == NULL) {
+		server->connections =
+			connection_list_init(&doveadm_client_set,
+					     &doveadm_client_vfuncs);
+	}
+
 	pool = pool_alloconly_create("doveadm server connection", 1024*16);
 	conn = p_new(pool, struct server_connection, 1);
 	conn->pool = pool;
@@ -592,29 +612,20 @@ int server_connection_create(struct doveadm_server *server,
 	} else {
 		target = server->name;
 	}
-	conn->conn.fd_in = doveadm_connect_with_default_port(target,
-		doveadm_settings->doveadm_port);
-	conn->conn.fd_out = conn->conn.fd_out;
+	int fd = doveadm_connect_with_default_port(target,
+			doveadm_settings->doveadm_port);
+	net_set_nonblock(fd, TRUE);
+	connection_init_client_fd(server->connections, &conn->conn,
+				  server->hostname, fd, fd);
 
-	net_set_nonblock(conn->conn.fd_in, TRUE);
-	conn->conn.input = i_stream_create_fd(conn->conn.fd_in, MAX_INBUF_SIZE);
-	conn->conn.output = o_stream_create_fd(conn->conn.fd_in, SIZE_MAX);
 	o_stream_set_flush_callback(conn->conn.output,
 				    server_connection_output, conn);
-	o_stream_set_no_error_handling(conn->conn.output, TRUE);
-
-	i_stream_set_name(conn->conn.input, server->name);
-	o_stream_set_name(conn->conn.output, server->name);
-
-	array_push_back(&conn->server->connections, &conn);
 
 	if (((server->ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) == 0 &&
 	     server_connection_init_ssl(conn, error_r) < 0)) {
 		server_connection_destroy(&conn);
 		return -1;
 	}
-	conn->conn.io = io_add_istream(conn->conn.input,
-				       server_connection_input, conn);
 
 	conn->state = SERVER_REPLY_STATE_DONE;
 	o_stream_nsend_str(conn->conn.output,
@@ -624,30 +635,18 @@ int server_connection_create(struct doveadm_server *server,
 	return 0;
 }
 
-void server_connection_destroy(struct server_connection **_conn)
+static void server_connection_destroy(struct server_connection **_conn)
 {
 	struct server_connection *conn = *_conn;
-	struct server_connection *const *conns;
 	const char *error;
-	unsigned int i, count;
 
 	*_conn = NULL;
-
-	conns = array_get(&conn->server->connections, &count);
-	for (i = 0; i < count; i++) {
-		if (conns[i] == conn) {
-			array_delete(&conn->server->connections, i, 1);
-			break;
-		}
-	}
 
 	if (conn->callback != NULL) {
 		error = conn->ssl_iostream == NULL ? NULL :
 			ssl_iostream_get_last_error(conn->ssl_iostream);
-		if (error == NULL) {
-			error = conn->conn.input->stream_errno == 0 ? "EOF" :
-				strerror(conn->conn.input->stream_errno);
-		}
+		if (error == NULL)
+			error = connection_disconnect_reason(&conn->conn);
 		struct doveadm_server_reply reply = {
 			.exit_code = SERVER_EXIT_CODE_DISCONNECTED,
 			.error = error,
@@ -657,19 +656,19 @@ void server_connection_destroy(struct server_connection **_conn)
 	if (printing_conn == conn)
 		print_connection_released();
 
-	i_stream_destroy(&conn->conn.input);
-	o_stream_destroy(&conn->conn.output);
-	i_stream_unref(&conn->cmd_input);
 	/* close cmd_output after its parent, so the "." isn't sent */
+	o_stream_close(conn->conn.output);
 	o_stream_destroy(&conn->cmd_output);
+
+	i_stream_unref(&conn->cmd_input);
 	ssl_iostream_destroy(&conn->ssl_iostream);
 	io_remove(&conn->io_log);
-	/* make sure all logs got consumed */
+	/* make sure all logs got consumed before closing the fd */
 	if (conn->log_input != NULL)
 		server_connection_print_log(conn);
 	i_stream_unref(&conn->log_input);
-	io_remove(&conn->conn.io);
-	i_close_fd(&conn->conn.fd_in);
+
+	connection_deinit(&conn->conn);
 	pool_unref(&conn->pool);
 }
 

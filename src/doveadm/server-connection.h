@@ -18,7 +18,6 @@ typedef void server_cmd_callback_t(const struct doveadm_server_reply *reply,
 int server_connection_create(struct doveadm_server *server,
 			     struct server_connection **conn_r,
 			     const char **error_r);
-void server_connection_destroy(struct server_connection **conn);
 
 void server_connection_get_dest(struct server_connection *conn,
 				struct ip_addr *ip_r, in_port_t *port_r);

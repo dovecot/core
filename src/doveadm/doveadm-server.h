@@ -22,7 +22,7 @@ struct doveadm_server {
 	enum auth_proxy_ssl_flags ssl_flags;
 	struct ssl_iostream_context *ssl_ctx;
 
-	ARRAY(struct server_connection *) connections;
+	struct connection_list *connections;
 	ARRAY_TYPE(string) queue;
 };
 

@@ -5,6 +5,7 @@
 #include "hash.h"
 #include "str.h"
 #include "strescape.h"
+#include "connection.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "master-service.h"
@@ -75,8 +76,6 @@ static struct doveadm_server *doveadm_server_get(const char *name)
 		server->hostname = p == NULL ? server->name :
 			p_strdup_until(server_pool, server->name, p);
 
-		p_array_init(&server->connections, server_pool,
-			     doveadm_settings->doveadm_worker_count);
 		p_array_init(&server->queue, server_pool,
 			     DOVEADM_SERVER_QUEUE_MAX);
 		hash_table_insert(servers, dup_name, server);
@@ -86,7 +85,8 @@ static struct doveadm_server *doveadm_server_get(const char *name)
 
 static bool doveadm_server_have_used_connections(struct doveadm_server *server)
 {
-	return array_count(&server->connections) > 0;
+	return server->connections != NULL &&
+		server->connections->connections != NULL;
 }
 
 static void doveadm_mail_server_cmd_free(struct doveadm_mail_server_cmd **_cmd)
@@ -620,8 +620,9 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	server->ip = proxy_set.host_ip;
 	server->ssl_flags = proxy_set.ssl_flags;
 	server->port = proxy_set.port;
-	if (array_count(&server->connections) <
-	    I_MAX(ctx->set->doveadm_worker_count, 1)) {
+	if (server->connections == NULL ||
+	    server->connections->connections_count <
+	    		I_MAX(ctx->set->doveadm_worker_count, 1)) {
 		if (server_connection_create(server, &conn, error_r) < 0) {
 			internal_failure = TRUE;
 			return -1;
@@ -666,13 +667,7 @@ static void doveadm_servers_destroy_all_connections(void)
 
 	iter = hash_table_iterate_init(servers);
 	while (hash_table_iterate(iter, servers, &key, &server)) {
-		while (array_count(&server->connections) > 0) {
-			struct server_connection *const *connp, *conn;
-
-			connp = array_front(&server->connections);
-			conn = *connp;
-			server_connection_destroy(&conn);
-		}
+		connection_list_deinit(&server->connections);
 		ssl_iostream_context_unref(&server->ssl_ctx);
 	}
 	hash_table_iterate_deinit(&iter);
