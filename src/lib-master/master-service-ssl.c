@@ -45,6 +45,7 @@ bool master_service_ssl_is_enabled(struct master_service *service)
 void master_service_ssl_ctx_init(struct master_service *service)
 {
 	const struct master_service_ssl_settings *set;
+	const struct master_service_ssl_server_settings *server_set;
 	struct ssl_iostream_settings ssl_set;
 	const char *error;
 
@@ -57,6 +58,7 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	i_assert(service->listeners != NULL || service->socket_count == 0);
 
 	set = master_service_ssl_settings_get(service);
+	server_set = master_service_ssl_server_settings_get(service);
 	if (strcmp(set->ssl, "no") == 0) {
 		/* SSL disabled, don't use it */
 		return;
@@ -67,15 +69,16 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	ssl_set.cipher_list = set->ssl_cipher_list;
 	ssl_set.curve_list = set->ssl_curve_list;
 	ssl_set.ca = set->ssl_ca;
-	ssl_set.cert.cert = set->ssl_cert;
-	ssl_set.cert.key = set->ssl_key;
-	ssl_set.dh = set->ssl_dh;
-	ssl_set.cert.key_password = set->ssl_key_password;
+	ssl_set.cert.cert = server_set->ssl_cert;
+	ssl_set.cert.key = server_set->ssl_key;
+	ssl_set.dh = server_set->ssl_dh;
+	ssl_set.cert.key_password = server_set->ssl_key_password;
 	ssl_set.cert_username_field = set->ssl_cert_username_field;
-	if (set->ssl_alt_cert != NULL && *set->ssl_alt_cert != '\0') {
-		ssl_set.alt_cert.cert = set->ssl_alt_cert;
-		ssl_set.alt_cert.key = set->ssl_alt_key;
-		ssl_set.alt_cert.key_password = set->ssl_key_password;
+	if (server_set->ssl_alt_cert != NULL &&
+	    *server_set->ssl_alt_cert != '\0') {
+		ssl_set.alt_cert.cert = server_set->ssl_alt_cert;
+		ssl_set.alt_cert.key = server_set->ssl_alt_key;
+		ssl_set.alt_cert.key_password = server_set->ssl_key_password;
 	}
 	ssl_set.crypto_device = set->ssl_crypto_device;
 	ssl_set.skip_crl_check = !set->ssl_require_crl;

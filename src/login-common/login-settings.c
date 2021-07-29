@@ -160,6 +160,7 @@ login_settings_read(pool_t pool,
 		    const struct ip_addr *remote_ip,
 		    const char *local_name,
 		    const struct master_service_ssl_settings **ssl_set_r,
+		    const struct master_service_ssl_server_settings **ssl_server_set_r,
 		    void ***other_settings_r)
 {
 	struct master_service_settings_input input;
@@ -212,6 +213,9 @@ login_settings_read(pool_t pool,
 	*ssl_set_r =
 		login_setting_dup(pool, &master_service_ssl_setting_parser_info,
 				  settings_parser_get_list(parser)[1]);
+	*ssl_server_set_r =
+		login_setting_dup(pool, &master_service_ssl_server_setting_parser_info,
+				  settings_parser_get_list(parser)[2]);
 	*other_settings_r = sets + 1;
 	return sets[0];
 }
