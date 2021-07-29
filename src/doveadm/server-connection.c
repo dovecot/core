@@ -117,13 +117,11 @@ static int server_connection_send_cmd_input_more(struct server_connection *conn)
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 		return 0;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
-		i_error("read(%s) failed: %s",
-			i_stream_get_name(conn->cmd_input),
+		e_error(conn->conn.event, "read() failed: %s",
 			i_stream_get_error(conn->cmd_input));
 		break;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
-		i_error("write(%s) failed: %s",
-			o_stream_get_name(conn->cmd_output),
+		e_error(conn->conn.event, "write() failed: %s",
 			o_stream_get_error(conn->cmd_output));
 		break;
 	}
@@ -131,8 +129,7 @@ static int server_connection_send_cmd_input_more(struct server_connection *conn)
 		if ((ret = o_stream_finish(conn->cmd_output)) == 0)
 			return 0;
 		else if (ret < 0) {
-			i_error("write(%s) failed: %s",
-				o_stream_get_name(conn->cmd_output),
+			e_error(conn->conn.event, "write() failed: %s",
 				o_stream_get_error(conn->cmd_output));
 		}
 	}
@@ -225,7 +222,8 @@ server_handle_input(struct server_connection *conn,
 	for (i = start = 0; i < size; i++) {
 		if (data[i] == '\n') {
 			if (i != start) {
-				i_error("doveadm server sent broken print input");
+				e_error(conn->conn.event,
+					"doveadm server sent broken print input");
 				server_connection_destroy(&conn);
 				return;
 			}
@@ -297,7 +295,7 @@ server_connection_authenticate(struct server_connection *conn)
 	string_t *cmd = t_str_new(128);
 
 	if (*conn->server->password == '\0') {
-		i_error("doveadm_password not set, "
+		e_error(conn->conn.event, "doveadm_password not set, "
 			"can't authenticate to remote server");
 		return -1;
 	}
@@ -324,7 +322,8 @@ static void server_log_disconnect_error(struct server_connection *conn)
 		ssl_iostream_get_last_error(conn->ssl_iostream);
 	if (error == NULL)
 		error = connection_disconnect_reason(&conn->conn);
-	i_error("doveadm server disconnected before handshake: %s", error);
+	e_error(conn->conn.event,
+		"doveadm server disconnected before handshake: %s", error);
 }
 
 static void server_connection_print_log(struct server_connection *conn)
@@ -338,7 +337,8 @@ static void server_connection_print_log(struct server_connection *conn)
 		if (*line == '\0') continue;
 
 		if (!doveadm_log_type_from_char(line[0], &ctx.type))
-			i_warning("Doveadm server sent invalid log type 0x%02x",
+			e_warning(conn->conn.event,
+				  "Doveadm server sent invalid log type 0x%02x",
 				  line[0]);
 		line++;
 		i_log_type(&ctx, "remote(%s): %s", conn->server->name, line);
@@ -391,7 +391,8 @@ static void server_connection_input(struct connection *_conn)
 			if (!version_string_verify_full(line, "doveadm-client",
 							DOVEADM_SERVER_PROTOCOL_VERSION_MAJOR,
 							&conn->conn.minor_version)) {
-				i_error("doveadm server not compatible with this client"
+				e_error(conn->conn.event,
+					"doveadm server not compatible with this client"
 					"(mixed old and new binaries?)");
 				server_connection_destroy(&conn);
 				return;
@@ -403,7 +404,8 @@ static void server_connection_input(struct connection *_conn)
 			server_connection_authenticated(conn);
 		} else if (strcmp(line, "-") == 0) {
 			if (conn->authenticate_sent) {
-				i_error("doveadm authentication failed (%s)",
+				e_error(conn->conn.event,
+					"doveadm authentication failed (%s)",
 					line+1);
 				server_connection_destroy(&conn);
 				return;
@@ -412,14 +414,16 @@ static void server_connection_input(struct connection *_conn)
 			    (conn->server->ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) != 0) {
 				connection_input_halt(&conn->conn);
 				if (conn->conn.minor_version < DOVEADM_PROTO_MINOR_MIN_STARTTLS) {
-					i_error("doveadm STARTTLS failed: Server does not support it");
+					e_error(conn->conn.event,
+						"doveadm STARTTLS failed: Server does not support it");
 					server_connection_destroy(&conn);
 					return;
 				}
 				/* send STARTTLS */
 				o_stream_nsend_str(conn->conn.output, "STARTTLS\n");
 				if (server_connection_init_ssl(conn, &error) < 0) {
-					i_error("doveadm STARTTLS failed: %s", error);
+					e_error(conn->conn.event,
+						"doveadm STARTTLS failed: %s", error);
 					server_connection_destroy(&conn);
 					return;
 				}
@@ -431,7 +435,8 @@ static void server_connection_input(struct connection *_conn)
 				return;
 			}
 		} else {
-			i_error("doveadm server sent invalid handshake: %s",
+			e_error(conn->conn.event,
+				"doveadm server sent invalid handshake: %s",
 				line);
 			server_connection_destroy(&conn);
 			return;
@@ -481,7 +486,8 @@ static bool server_connection_input_one(struct server_connection *conn)
 
 	switch (conn->state) {
 	case SERVER_REPLY_STATE_DONE:
-		i_error("doveadm server sent unexpected input");
+		e_error(conn->conn.event,
+			"doveadm server sent unexpected input");
 		server_connection_destroy(&conn);
 		return FALSE;
 	case SERVER_REPLY_STATE_PRINT:
@@ -502,7 +508,8 @@ static bool server_connection_input_one(struct server_connection *conn)
 		} else if (line[0] == '-') {
 			server_connection_input_cmd_error(conn, line+1);
 		} else {
-			i_error("doveadm server sent broken input "
+			e_error(conn->conn.event,
+				"doveadm server sent broken input "
 				"(expected cmd reply): %s", line);
 			server_connection_destroy(&conn);
 			return FALSE;
