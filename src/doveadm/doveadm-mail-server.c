@@ -26,6 +26,11 @@
 #define DOVEADM_MAIL_SERVER_FAILED() \
 	(internal_failure || master_service_is_killed(master_service))
 
+struct doveadm_server {
+	/* hostname:port or UNIX socket path. Used mainly for logging. */
+	const char *name;
+};
+
 struct doveadm_proxy_redirect {
 	struct ip_addr ip;
 	in_port_t port;
