@@ -300,7 +300,7 @@ static void virtual_sync_ext_header_rewrite(struct virtual_sync_context *ctx)
 	ext_hdr.highest_mailbox_id = ctx->mbox->highest_mailbox_id;
 	ext_hdr.search_args_crc32 = ctx->mbox->search_args_crc32;
 
-	buf = t_buffer_create(name_pos + 256);
+	buf = buffer_create_dynamic(default_pool, name_pos + 256);
 	buffer_append(buf, &ext_hdr, sizeof(ext_hdr));
 
 	for (i = 0; i < count; i++) {
@@ -339,6 +339,7 @@ static void virtual_sync_ext_header_rewrite(struct virtual_sync_context *ctx)
 	}
 	mail_index_update_header_ext(ctx->trans, ctx->mbox->virtual_ext_id,
 				     0, buf->data, name_pos);
+	buffer_free(&buf);
 }
 
 static void virtual_sync_ext_header_update(struct virtual_sync_context *ctx)
