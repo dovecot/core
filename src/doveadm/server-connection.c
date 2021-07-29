@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "array.h"
 #include "base64.h"
+#include "connection.h"
 #include "ioloop.h"
 #include "net.h"
 #include "istream.h"
@@ -38,18 +39,12 @@ enum server_reply_state {
 };
 
 struct server_connection {
+	struct connection conn;
 	struct doveadm_server *server;
 
 	pool_t pool;
-
-	int fd;
-	unsigned int minor;
-
-	struct io *io;
 	struct io *io_log;
-	struct istream *input;
 	struct istream *log_input;
-	struct ostream *output;
 	struct ssl_iostream *ssl_iostream;
 
 	struct istream *cmd_input;
@@ -61,7 +56,6 @@ struct server_connection {
 
 	enum server_reply_state state;
 
-	bool version_received:1;
 	bool authenticate_sent:1;
 	bool authenticated:1;
 	bool streaming:1;
@@ -96,12 +90,12 @@ static void server_print_connection_released(struct doveadm_server *server)
 
 	conns = array_get(&server->connections, &count);
 	for (i = 0; i < count; i++) {
-		if (conns[i]->io != NULL)
+		if (conns[i]->conn.io != NULL)
 			continue;
 
-		conns[i]->io = io_add(conns[i]->fd, IO_READ,
-				      server_connection_input, conns[i]);
-		io_set_pending(conns[i]->io);
+		conns[i]->conn.io = io_add(conns[i]->conn.fd_in, IO_READ,
+					   server_connection_input, conns[i]);
+		io_set_pending(conns[i]->conn.io);
 	}
 }
 
@@ -166,7 +160,7 @@ static void server_connection_send_cmd_input(struct server_connection *conn)
 	if (conn->cmd_input == NULL)
 		return;
 
-	conn->cmd_output = o_stream_create_dot(conn->output, TRUE);
+	conn->cmd_output = o_stream_create_dot(conn->conn.output, TRUE);
 	(void)server_connection_send_cmd_input_more(conn);
 }
 
@@ -174,7 +168,7 @@ static int server_connection_output(struct server_connection *conn)
 {
 	int ret;
 
-	ret = o_stream_flush(conn->output);
+	ret = o_stream_flush(conn->conn.output);
 	if (ret > 0 && conn->cmd_input != NULL && conn->delayed_cmd == NULL)
 		ret = server_connection_send_cmd_input_more(conn);
 	if (ret < 0)
@@ -231,7 +225,7 @@ server_handle_input(struct server_connection *conn,
 		/* someone else is printing. don't continue until it
 		   goes away */
 		server_set_print_pending(conn->server);
-		io_remove(&conn->io);
+		io_remove(&conn->conn.io);
 		return;
 	}
 
@@ -249,7 +243,7 @@ server_handle_input(struct server_connection *conn,
 				return;
 			}
 			conn->state = SERVER_REPLY_STATE_RET;
-			i_stream_skip(conn->input, i + 1);
+			i_stream_skip(conn->conn.input, i + 1);
 
 			print_connection_released();
 			return;
@@ -263,7 +257,7 @@ server_handle_input(struct server_connection *conn,
 		conn->streaming = TRUE;
 		stream_data(str, data + start, size - start);
 	}
-	i_stream_skip(conn->input, size);
+	i_stream_skip(conn->conn.input, size);
 }
 
 static void
@@ -273,8 +267,8 @@ server_connection_send_cmd(struct server_connection *conn,
 	i_assert(conn->authenticated);
 	i_assert(proxy_ttl >= 1);
 
-	if (conn->minor < DOVEADM_PROTO_MINOR_MIN_PROXY_TTL) {
-		o_stream_nsend_str(conn->output, cmdline);
+	if (conn->conn.minor_version < DOVEADM_PROTO_MINOR_MIN_PROXY_TTL) {
+		o_stream_nsend_str(conn->conn.output, cmdline);
 		return;
 	}
 
@@ -295,7 +289,7 @@ server_connection_send_cmd(struct server_connection *conn,
 		{ proxy_ttl_str, strlen(proxy_ttl_str) },
 		{ cmdline + prefix_len, strlen(cmdline + prefix_len) },
 	};
-	o_stream_nsendv(conn->output, iov, N_ELEMENTS(iov));
+	o_stream_nsendv(conn->conn.output, iov, N_ELEMENTS(iov));
 }
 
 static void server_connection_authenticated(struct server_connection *conn)
@@ -330,7 +324,7 @@ server_connection_authenticate(struct server_connection *conn)
 	base64_encode(plain->data, plain->used, cmd);
 	str_append_c(cmd, '\n');
 
-	o_stream_nsend(conn->output, cmd->data, cmd->used);
+	o_stream_nsend(conn->conn.output, cmd->data, cmd->used);
 	conn->authenticate_sent = TRUE;
 	return 0;
 }
@@ -342,8 +336,8 @@ static void server_log_disconnect_error(struct server_connection *conn)
 	error = conn->ssl_iostream == NULL ? NULL :
 		ssl_iostream_get_last_error(conn->ssl_iostream);
 	if (error == NULL) {
-		error = conn->input->stream_errno == 0 ? "EOF" :
-			strerror(conn->input->stream_errno);
+		error = conn->conn.input->stream_errno == 0 ? "EOF" :
+			strerror(conn->conn.input->stream_errno);
 	}
 	i_error("doveadm server disconnected before handshake: %s", error);
 }
@@ -368,12 +362,14 @@ static void server_connection_print_log(struct server_connection *conn)
 
 static void server_connection_start_multiplex(struct server_connection *conn)
 {
-	struct istream *is = conn->input;
-	conn->input = i_stream_create_multiplex(is, MAX_INBUF_SIZE);
+	struct istream *is = conn->conn.input;
+	conn->conn.input = i_stream_create_multiplex(is, MAX_INBUF_SIZE);
 	i_stream_unref(&is);
-	io_remove(&conn->io);
-	conn->io = io_add_istream(conn->input, server_connection_input, conn);
-	conn->log_input = i_stream_multiplex_add_channel(conn->input, DOVEADM_LOG_CHANNEL_ID);
+	io_remove(&conn->conn.io);
+	conn->conn.io = io_add_istream(conn->conn.input,
+				       server_connection_input, conn);
+	conn->log_input = i_stream_multiplex_add_channel(conn->conn.input,
+							 DOVEADM_LOG_CHANNEL_ID);
 	conn->io_log = io_add_istream(conn->log_input, server_connection_print_log, conn);
 	i_stream_set_return_partial_line(conn->log_input, TRUE);
 }
@@ -383,7 +379,7 @@ static void server_connection_input(struct server_connection *conn)
 	const char *line;
 	const char *error;
 
-	if (i_stream_read(conn->input) < 0) {
+	if (i_stream_read(conn->conn.input) < 0) {
 		/* disconnected */
 		server_log_disconnect_error(conn);
 		server_connection_destroy(&conn);
@@ -391,8 +387,8 @@ static void server_connection_input(struct server_connection *conn)
 	}
 
 	while (!conn->authenticated) {
-		if ((line = i_stream_next_line(conn->input)) == NULL) {
-			if (conn->input->eof) {
+		if ((line = i_stream_next_line(conn->conn.input)) == NULL) {
+			if (conn->conn.input->eof) {
 				/* we'll also get here if the line is too long */
 				server_log_disconnect_error(conn);
 				server_connection_destroy(&conn);
@@ -402,19 +398,19 @@ static void server_connection_input(struct server_connection *conn)
 		/* Allow VERSION before or after the "+" or "-" line,
 		   because v2.2.33 sent the version after and newer
 		   versions send before. */
-		if (!conn->version_received &&
+		if (!conn->conn.version_received &&
 		    str_begins(line, "VERSION\t")) {
 			if (!version_string_verify_full(line, "doveadm-client",
 							DOVEADM_SERVER_PROTOCOL_VERSION_MAJOR,
-							&conn->minor)) {
+							&conn->conn.minor_version)) {
 				i_error("doveadm server not compatible with this client"
 					"(mixed old and new binaries?)");
 				server_connection_destroy(&conn);
 				return;
 			}
-			conn->version_received = TRUE;
+			conn->conn.version_received = TRUE;
 		} else if (strcmp(line, "+") == 0) {
-			if (conn->minor >= DOVEADM_PROTO_MINOR_MIN_MULTIPLEX)
+			if (conn->conn.minor_version >= DOVEADM_PROTO_MINOR_MIN_MULTIPLEX)
 				server_connection_start_multiplex(conn);
 			server_connection_authenticated(conn);
 		} else if (strcmp(line, "-") == 0) {
@@ -426,21 +422,22 @@ static void server_connection_input(struct server_connection *conn)
 			}
 			if (!conn->ssl_done &&
 			    (conn->server->ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) != 0) {
-				io_remove(&conn->io);
-				if (conn->minor < DOVEADM_PROTO_MINOR_MIN_STARTTLS) {
+				io_remove(&conn->conn.io);
+				if (conn->conn.minor_version < DOVEADM_PROTO_MINOR_MIN_STARTTLS) {
 					i_error("doveadm STARTTLS failed: Server does not support it");
 					server_connection_destroy(&conn);
 					return;
 				}
 				/* send STARTTLS */
-				o_stream_nsend_str(conn->output, "STARTTLS\n");
+				o_stream_nsend_str(conn->conn.output, "STARTTLS\n");
 				if (server_connection_init_ssl(conn, &error) < 0) {
 					i_error("doveadm STARTTLS failed: %s", error);
 					server_connection_destroy(&conn);
 					return;
 				}
 				conn->ssl_done = TRUE;
-				conn->io = io_add_istream(conn->input, server_connection_input, conn);
+				conn->conn.io = io_add_istream(conn->conn.input,
+					server_connection_input, conn);
 			}
 			if (server_connection_authenticate(conn) < 0) {
 				server_connection_destroy(&conn);
@@ -491,7 +488,7 @@ static bool server_connection_input_one(struct server_connection *conn)
 	if (conn->log_input != NULL)
 		(void)server_connection_print_log(conn);
 
-	data = i_stream_get_data(conn->input, &size);
+	data = i_stream_get_data(conn->conn.input, &size);
 	if (size == 0)
 		return FALSE;
 
@@ -506,7 +503,7 @@ static bool server_connection_input_one(struct server_connection *conn)
 			return FALSE;
 		/* fall through */
 	case SERVER_REPLY_STATE_RET:
-		line = i_stream_next_line(conn->input);
+		line = i_stream_next_line(conn->conn.input);
 		if (line == NULL)
 			return FALSE;
 
@@ -560,7 +557,7 @@ static int server_connection_init_ssl(struct server_connection *conn,
 
 	if (io_stream_create_ssl_client(conn->server->ssl_ctx,
 					conn->server->hostname, &ssl_set,
-					&conn->input, &conn->output,
+					&conn->conn.input, &conn->conn.output,
 					&conn->ssl_iostream, &error) < 0) {
 		*error_r = t_strdup_printf(
 			"Couldn't initialize SSL client: %s", error);
@@ -595,16 +592,19 @@ int server_connection_create(struct doveadm_server *server,
 	} else {
 		target = server->name;
 	}
-	conn->fd = doveadm_connect_with_default_port(target,
-						     doveadm_settings->doveadm_port);
-	net_set_nonblock(conn->fd, TRUE);
-	conn->input = i_stream_create_fd(conn->fd, MAX_INBUF_SIZE);
-	conn->output = o_stream_create_fd(conn->fd, SIZE_MAX);
-	o_stream_set_flush_callback(conn->output, server_connection_output, conn);
-	o_stream_set_no_error_handling(conn->output, TRUE);
+	conn->conn.fd_in = doveadm_connect_with_default_port(target,
+		doveadm_settings->doveadm_port);
+	conn->conn.fd_out = conn->conn.fd_out;
 
-	i_stream_set_name(conn->input, server->name);
-	o_stream_set_name(conn->output, server->name);
+	net_set_nonblock(conn->conn.fd_in, TRUE);
+	conn->conn.input = i_stream_create_fd(conn->conn.fd_in, MAX_INBUF_SIZE);
+	conn->conn.output = o_stream_create_fd(conn->conn.fd_in, SIZE_MAX);
+	o_stream_set_flush_callback(conn->conn.output,
+				    server_connection_output, conn);
+	o_stream_set_no_error_handling(conn->conn.output, TRUE);
+
+	i_stream_set_name(conn->conn.input, server->name);
+	o_stream_set_name(conn->conn.output, server->name);
 
 	array_push_back(&conn->server->connections, &conn);
 
@@ -613,10 +613,12 @@ int server_connection_create(struct doveadm_server *server,
 		server_connection_destroy(&conn);
 		return -1;
 	}
-	conn->io = io_add_istream(conn->input, server_connection_input, conn);
+	conn->conn.io = io_add_istream(conn->conn.input,
+				       server_connection_input, conn);
 
 	conn->state = SERVER_REPLY_STATE_DONE;
-	o_stream_nsend_str(conn->output, DOVEADM_SERVER_PROTOCOL_VERSION_LINE"\n");
+	o_stream_nsend_str(conn->conn.output,
+			   DOVEADM_SERVER_PROTOCOL_VERSION_LINE"\n");
 
 	*conn_r = conn;
 	return 0;
@@ -643,8 +645,8 @@ void server_connection_destroy(struct server_connection **_conn)
 		error = conn->ssl_iostream == NULL ? NULL :
 			ssl_iostream_get_last_error(conn->ssl_iostream);
 		if (error == NULL) {
-			error = conn->input->stream_errno == 0 ? "EOF" :
-				strerror(conn->input->stream_errno);
+			error = conn->conn.input->stream_errno == 0 ? "EOF" :
+				strerror(conn->conn.input->stream_errno);
 		}
 		struct doveadm_server_reply reply = {
 			.exit_code = SERVER_EXIT_CODE_DISCONNECTED,
@@ -655,8 +657,8 @@ void server_connection_destroy(struct server_connection **_conn)
 	if (printing_conn == conn)
 		print_connection_released();
 
-	i_stream_destroy(&conn->input);
-	o_stream_destroy(&conn->output);
+	i_stream_destroy(&conn->conn.input);
+	o_stream_destroy(&conn->conn.output);
 	i_stream_unref(&conn->cmd_input);
 	/* close cmd_output after its parent, so the "." isn't sent */
 	o_stream_destroy(&conn->cmd_output);
@@ -666,15 +668,15 @@ void server_connection_destroy(struct server_connection **_conn)
 	if (conn->log_input != NULL)
 		server_connection_print_log(conn);
 	i_stream_unref(&conn->log_input);
-	io_remove(&conn->io);
-	i_close_fd(&conn->fd);
+	io_remove(&conn->conn.io);
+	i_close_fd(&conn->conn.fd_in);
 	pool_unref(&conn->pool);
 }
 
 void server_connection_get_dest(struct server_connection *conn,
 				struct ip_addr *ip_r, in_port_t *port_r)
 {
-	if (net_getpeername(conn->fd, ip_r, port_r) < 0) {
+	if (net_getpeername(conn->conn.fd_in, ip_r, port_r) < 0) {
 		i_zero(ip_r);
 		*port_r = 0;
 	}
@@ -709,13 +711,14 @@ void server_connection_extract(struct server_connection *conn,
 			       struct ostream **ostream_r,
 			       struct ssl_iostream **ssl_iostream_r)
 {
-	*istream_r = conn->input;
-	*ostream_r = conn->output;
+	*istream_r = conn->conn.input;
+	*ostream_r = conn->conn.output;
 	*ssl_iostream_r = conn->ssl_iostream;
 
-	conn->input = NULL;
-	conn->output = NULL;
+	conn->conn.input = NULL;
+	conn->conn.output = NULL;
 	conn->ssl_iostream = NULL;
-	io_remove(&conn->io);
-	conn->fd = -1;
+	io_remove(&conn->conn.io);
+	conn->conn.fd_in = -1;
+	conn->conn.fd_out = -1;
 }
