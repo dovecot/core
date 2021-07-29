@@ -15,8 +15,6 @@
 #include <sys/stat.h>
 #include <ctype.h>
 
-#define DOVEADM_TCP_CONNECT_TIMEOUT_SECS 30
-
 bool doveadm_verbose = FALSE, doveadm_debug = FALSE, doveadm_server = FALSE;
 static struct module *modules = NULL;
 

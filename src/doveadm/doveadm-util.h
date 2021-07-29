@@ -7,6 +7,7 @@
 #define DOVEADM_SERVER_PROTOCOL_VERSION_MINOR 3
 #define DOVEADM_SERVER_PROTOCOL_VERSION_LINE "VERSION\tdoveadm-server\t1\t3"
 #define DOVEADM_CLIENT_PROTOCOL_VERSION_LINE "VERSION\tdoveadm-client\t1\t3"
+#define DOVEADM_TCP_CONNECT_TIMEOUT_SECS 30
 
 extern bool doveadm_verbose, doveadm_debug, doveadm_server;
 

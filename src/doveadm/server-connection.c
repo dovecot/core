@@ -620,15 +620,16 @@ static struct connection_settings doveadm_client_set = {
 	.input_max_size = MAX_INBUF_SIZE,
 	.output_max_size = SIZE_MAX,
 	.client = TRUE,
+	.client_connect_timeout_msecs = DOVEADM_TCP_CONNECT_TIMEOUT_SECS,
 };
 
 int server_connection_create(struct doveadm_server *server,
 			     struct server_connection **conn_r,
-			     const char **error_r ATTR_UNUSED)
+			     const char **error_r)
 {
-	const char *target;
 	struct server_connection *conn;
 	pool_t pool;
+	int ret;
 
 	i_assert(server->username != NULL);
 	i_assert(server->password != NULL);
@@ -643,16 +644,36 @@ int server_connection_create(struct doveadm_server *server,
 	conn = p_new(pool, struct server_connection, 1);
 	conn->pool = pool;
 	conn->server = server;
-	if (server->ip.family != 0) {
-		(void)net_ipport2str(&server->ip, server->port, &target);
+	if (strchr(server->hostname, '/') != NULL) {
+		connection_init_client_unix(server->connections, &conn->conn,
+					    server->hostname);
+	} else if (server->ip.family != 0) {
+		connection_init_client_ip(server->connections, &conn->conn,
+					  server->hostname, &server->ip,
+					  server->port);
 	} else {
-		target = server->name;
+		struct ip_addr *ips;
+		unsigned int ips_count;
+
+		ret = net_gethostbyname(server->hostname, &ips, &ips_count);
+		if (ret != 0) {
+			*error_r = t_strdup_printf(
+				"Lookup of host %s failed: %s",
+				server->hostname, net_gethosterror(ret));
+			pool_unref(&pool);
+			return -1;
+		}
+		connection_init_client_ip(server->connections, &conn->conn,
+					  server->hostname, &ips[0],
+					  server->port);
 	}
-	int fd = doveadm_connect_with_default_port(target,
-			doveadm_settings->doveadm_port);
-	net_set_nonblock(fd, TRUE);
-	connection_init_client_fd(server->connections, &conn->conn,
-				  server->hostname, fd, fd);
+	if (connection_client_connect(&conn->conn) < 0) {
+		*error_r = t_strdup_printf(
+			"net_connect(%s) failed: %m", server->name);
+		connection_deinit(&conn->conn);
+		pool_unref(&pool);
+		return -1;
+	}
 	conn->state = SERVER_REPLY_STATE_DONE;
 
 	*conn_r = conn;
