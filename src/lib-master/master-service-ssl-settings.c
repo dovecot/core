@@ -195,7 +195,6 @@ master_service_ssl_settings_get(struct master_service *service)
 {
 	void **sets;
 
-	i_assert(service->want_ssl_settings);
 	sets = settings_parser_get_list(service->set_parser);
 	return sets[1];
 }
@@ -205,7 +204,7 @@ master_service_ssl_server_settings_get(struct master_service *service)
 {
 	void **sets;
 
-	i_assert(service->want_ssl_settings);
+	i_assert(service->want_ssl_server);
 	sets = settings_parser_get_list(service->set_parser);
 	return sets[2];
 }

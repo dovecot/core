@@ -304,12 +304,11 @@ master_service_init(const char *name, enum master_service_flags flags,
 	T_BEGIN {
 		master_service_init_socket_listeners(service);
 	} T_END;
-	service->want_ssl_settings = service->want_ssl_server ||
-		(service->flags & MASTER_SERVICE_FLAG_USE_SSL_SETTINGS) != 0;
 
 #ifdef HAVE_SSL
-	/* load SSL module if necessary */
-	if (service->want_ssl_settings) {
+	/* Load the SSL module if we already know it is necessary. It can also
+	   get loaded later on-demand. */
+	if (service->want_ssl_server) {
 		const char *error;
 		if (ssl_module_load(&error) < 0)
 			i_fatal("Cannot load SSL module: %s", error);
