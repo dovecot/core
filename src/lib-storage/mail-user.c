@@ -700,7 +700,7 @@ void mail_user_init_ssl_client_settings(struct mail_user *user,
 
 void mail_user_init_fs_settings(struct mail_user *user,
 				struct fs_settings *fs_set,
-				struct ssl_iostream_settings *ssl_set)
+				struct ssl_iostream_settings *ssl_set_r)
 {
 	fs_set->event_parent = user->event;
 	fs_set->username = user->username;
@@ -710,8 +710,8 @@ void mail_user_init_fs_settings(struct mail_user *user,
 	fs_set->debug = user->mail_debug;
 	fs_set->enable_timing = user->stats_enabled;
 
-	fs_set->ssl_client_set = ssl_set;
-	mail_user_init_ssl_client_settings(user, ssl_set);
+	fs_set->ssl_client_set = ssl_set_r;
+	mail_user_init_ssl_client_settings(user, ssl_set_r);
 }
 
 void mail_user_stats_fill(struct mail_user *user, struct stats *stats)

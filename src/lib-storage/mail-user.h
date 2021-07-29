@@ -209,7 +209,7 @@ void mail_user_init_ssl_client_settings(struct mail_user *user,
 /* Initialize fs_settings from mail_user settings. */
 void mail_user_init_fs_settings(struct mail_user *user,
 				struct fs_settings *fs_set,
-				struct ssl_iostream_settings *ssl_set);
+				struct ssl_iostream_settings *ssl_set_r);
 
 /* Fill statistics for user. By default there are no statistics, so stats
    plugin must be loaded to have anything filled. */
