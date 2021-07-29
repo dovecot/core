@@ -313,7 +313,6 @@ master_service_init(const char *name, enum master_service_flags flags,
 		const char *error;
 		if (ssl_module_load(&error) < 0)
 			i_fatal("Cannot load SSL module: %s", error);
-		service->ssl_module_loaded = TRUE;
 	}
 #endif
 
@@ -1527,10 +1526,4 @@ bool version_string_verify_full(const char *line, const char *service_name,
 		}
 	} T_END;
 	return ret;
-}
-
-bool master_service_is_ssl_module_loaded(struct master_service *service)
-{
-	/* if this is TRUE, then ssl module is loaded by init */
-	return service->ssl_module_loaded;
 }

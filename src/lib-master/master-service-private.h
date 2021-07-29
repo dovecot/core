@@ -87,7 +87,6 @@ struct master_service {
 	bool ssl_ctx_initialized:1;
 	bool config_path_from_master:1;
 	bool log_initialized:1;
-	bool ssl_module_loaded:1;
 	bool init_finished:1;
 };
 
