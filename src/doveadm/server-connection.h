@@ -20,10 +20,6 @@ int server_connection_create(struct doveadm_server *server,
 			     const char **error_r);
 void server_connection_destroy(struct server_connection **conn);
 
-/* Return the server given to create() */
-struct doveadm_server *
-server_connection_get_server(struct server_connection *conn);
-
 void server_connection_get_dest(struct server_connection *conn,
 				struct ip_addr *ip_r, in_port_t *port_r);
 

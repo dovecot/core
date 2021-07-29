@@ -671,12 +671,6 @@ void server_connection_destroy(struct server_connection **_conn)
 	pool_unref(&conn->pool);
 }
 
-struct doveadm_server *
-server_connection_get_server(struct server_connection *conn)
-{
-	return conn->server;
-}
-
 void server_connection_get_dest(struct server_connection *conn,
 				struct ip_addr *ip_r, in_port_t *port_r)
 {
