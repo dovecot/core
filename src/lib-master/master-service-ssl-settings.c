@@ -193,9 +193,15 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 const struct master_service_ssl_settings *
 master_service_ssl_settings_get(struct master_service *service)
 {
+	return master_service_ssl_settings_get_from_parser(service->set_parser);
+}
+
+const struct master_service_ssl_settings *
+master_service_ssl_settings_get_from_parser(struct setting_parser_context *set_parser)
+{
 	void **sets;
 
-	sets = settings_parser_get_list(service->set_parser);
+	sets = settings_parser_get_list(set_parser);
 	return sets[1];
 }
 
