@@ -37,6 +37,7 @@ struct server_connection {
 	struct doveadm_server *server;
 
 	pool_t pool;
+	struct timeout *to_destroy;
 	struct io *io_log;
 	struct istream *log_input;
 	struct ssl_iostream *ssl_iostream;
@@ -575,9 +576,37 @@ static void server_connection_destroy_conn(struct connection *_conn)
 	server_connection_destroy(&conn);
 }
 
+static void server_connection_connected(struct connection *_conn, bool success)
+{
+	struct server_connection *conn =
+		container_of(_conn, struct server_connection, conn);
+	const char *error;
+
+	if (!success)
+		return;
+
+	o_stream_set_flush_callback(conn->conn.output,
+				    server_connection_output, conn);
+
+	connection_input_halt(&conn->conn);
+	if (((conn->server->ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) == 0 &&
+	     server_connection_init_ssl(conn, &error) < 0)) {
+		e_error(conn->conn.event, "%s", error);
+		/* Can't safely destroy the connection here, so delay it */
+		conn->to_destroy = timeout_add_short(0,
+			server_connection_destroy_conn, &conn->conn);
+		return;
+	}
+	connection_input_resume(&conn->conn);
+
+	o_stream_nsend_str(conn->conn.output,
+			   DOVEADM_SERVER_PROTOCOL_VERSION_LINE"\n");
+}
+
 static const struct connection_vfuncs doveadm_client_vfuncs = {
 	.input = server_connection_input,
 	.destroy = server_connection_destroy_conn,
+	.client_connected = server_connection_connected,
 };
 
 static struct connection_settings doveadm_client_set = {
@@ -595,7 +624,7 @@ static struct connection_settings doveadm_client_set = {
 
 int server_connection_create(struct doveadm_server *server,
 			     struct server_connection **conn_r,
-			     const char **error_r)
+			     const char **error_r ATTR_UNUSED)
 {
 	const char *target;
 	struct server_connection *conn;
@@ -624,19 +653,7 @@ int server_connection_create(struct doveadm_server *server,
 	net_set_nonblock(fd, TRUE);
 	connection_init_client_fd(server->connections, &conn->conn,
 				  server->hostname, fd, fd);
-
-	o_stream_set_flush_callback(conn->conn.output,
-				    server_connection_output, conn);
-
-	if (((server->ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) == 0 &&
-	     server_connection_init_ssl(conn, error_r) < 0)) {
-		server_connection_destroy(&conn);
-		return -1;
-	}
-
 	conn->state = SERVER_REPLY_STATE_DONE;
-	o_stream_nsend_str(conn->conn.output,
-			   DOVEADM_SERVER_PROTOCOL_VERSION_LINE"\n");
 
 	*conn_r = conn;
 	return 0;
@@ -674,6 +691,7 @@ static void server_connection_destroy(struct server_connection **_conn)
 	if (conn->log_input != NULL)
 		server_connection_print_log(conn);
 	i_stream_unref(&conn->log_input);
+	timeout_remove(&conn->to_destroy);
 
 	connection_deinit(&conn->conn);
 	pool_unref(&conn->pool);
