@@ -15,12 +15,27 @@ struct doveadm_server_reply {
 typedef void server_cmd_callback_t(const struct doveadm_server_reply *reply,
 				   void *context);
 
+/* Called when a field needs to be printed. If finished=FALSE, the next
+   call will continue printing this same field. */
+typedef void server_connection_print_t(const unsigned char *data,
+				       size_t size, bool finished,
+				       void *context);
+
 int server_connection_create(struct doveadm_server *server,
 			     struct server_connection **conn_r,
 			     const char **error_r);
 
 void server_connection_get_dest(struct server_connection *conn,
 				struct ip_addr *ip_r, in_port_t *port_r);
+
+void server_connection_set_print(struct server_connection *conn,
+				 server_connection_print_t *callback,
+				 void *context);
+#define server_connection_set_print(conn, callback, context) \
+	server_connection_set_print(conn, \
+		(server_connection_print_t *)callback, \
+		TRUE ? context : CALLBACK_TYPECHECK(callback, \
+			void (*)(const unsigned char *, size_t, bool, typeof(context))))
 
 void server_connection_cmd(struct server_connection *conn, int proxy_ttl,
 			   const char *line, struct istream *cmd_input,

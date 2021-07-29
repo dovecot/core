@@ -9,11 +9,9 @@
 #include "ostream.h"
 #include "ostream-dot.h"
 #include "str.h"
-#include "strescape.h"
 #include "iostream-ssl.h"
 #include "master-service.h"
 #include "doveadm.h"
-#include "doveadm-print.h"
 #include "doveadm-util.h"
 #include "doveadm-server.h"
 #include "server-connection.h"
@@ -49,11 +47,13 @@ struct server_connection {
 	server_cmd_callback_t *callback;
 	void *context;
 
+	server_connection_print_t *print_callback;
+	void *print_context;
+
 	enum server_reply_state state;
 
 	bool authenticate_sent:1;
 	bool authenticated:1;
-	bool streaming:1;
 	bool ssl_done:1;
 };
 
@@ -158,33 +158,10 @@ server_connection_callback(struct server_connection *conn,
 	callback(reply, conn->context);
 }
 
-static void stream_data(string_t *str, const unsigned char *data, size_t size)
-{
-	str_truncate(str, 0);
-	str_append_tabunescaped(str, data, size);
-	doveadm_print_stream(str->data, str->used);
-}
-
-static void server_flush_field(struct server_connection *conn, string_t *str,
-			       const unsigned char *data, size_t size)
-{
-	if (conn->streaming) {
-		conn->streaming = FALSE;
-		if (size > 0)
-			stream_data(str, data, size);
-		doveadm_print_stream("", 0);
-	} else {
-		str_truncate(str, 0);
-		str_append_tabunescaped(str, data, size);
-		doveadm_print(str_c(str));
-	}
-}
-
 static void
 server_handle_input(struct server_connection *conn,
 		    const unsigned char *data, size_t size)
 {
-	string_t *str;
 	size_t i, start;
 
 	if (printing_conn == conn) {
@@ -204,7 +181,6 @@ server_handle_input(struct server_connection *conn,
 		size--;
 	}
 
-	str = t_str_new(128);
 	for (i = start = 0; i < size; i++) {
 		if (data[i] == '\n') {
 			if (i != start) {
@@ -220,14 +196,17 @@ server_handle_input(struct server_connection *conn,
 			return;
 		}
 		if (data[i] == '\t') {
-			server_flush_field(conn, str, data + start, i - start);
+			if (conn->print_callback != NULL) T_BEGIN {
+				conn->print_callback(data + start, i - start,
+						     TRUE, conn->print_context);
+			} T_END;
 			start = i + 1;
 		}
 	}
-	if (start != size) {
-		conn->streaming = TRUE;
-		stream_data(str, data + start, size - start);
-	}
+	if (start != size && conn->print_callback != NULL) T_BEGIN {
+		conn->print_callback(data + start, size - start, FALSE,
+				     conn->print_context);
+	} T_END;
 	i_stream_skip(conn->conn.input, size);
 }
 
@@ -663,6 +642,15 @@ int server_connection_create(struct doveadm_server *server,
 
 	*conn_r = conn;
 	return 0;
+}
+
+#undef server_connection_set_print
+void server_connection_set_print(struct server_connection *conn,
+				 server_connection_print_t *callback,
+				 void *context)
+{
+	conn->print_callback = callback;
+	conn->print_context = context;
 }
 
 static void server_connection_destroy(struct server_connection **_conn)

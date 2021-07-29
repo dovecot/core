@@ -41,6 +41,7 @@ struct doveadm_mail_server_cmd {
 
 	char *cmdline;
 	struct istream *input;
+	bool streaming;
 };
 
 static HASH_TABLE(char *, struct doveadm_server *) servers;
@@ -395,6 +396,29 @@ static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
 	return 0;
 }
 
+static void
+doveadm_cmd_print_callback(const unsigned char *data,
+			   size_t size, bool finished,
+			   struct doveadm_mail_server_cmd *servercmd)
+{
+	string_t *str = t_str_new(size);
+	if (!finished) {
+		servercmd->streaming = TRUE;
+		str_append_tabunescaped(str, data, size);
+		doveadm_print_stream(str->data, str->used);
+	} else if (servercmd->streaming) {
+		servercmd->streaming = FALSE;
+		if (size > 0) {
+			str_append_tabunescaped(str, data, size);
+			doveadm_print_stream(str->data, str->used);
+		}
+		doveadm_print_stream("", 0);
+	} else {
+		str_append_tabunescaped(str, data, size);
+		doveadm_print(str_c(str));
+	}
+}
+
 static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 				 void *context)
 {
@@ -479,6 +503,8 @@ static void doveadm_mail_server_handle(struct doveadm_server *server,
 	servercmd->input = cmd_ctx->cmd_input;
 	if (servercmd->input != NULL)
 		i_stream_ref(servercmd->input);
+	server_connection_set_print(conn, doveadm_cmd_print_callback,
+				    servercmd);
 	server_connection_cmd(conn, cmd_ctx->proxy_ttl,
 			      str_c(cmd), cmd_ctx->cmd_input,
 			      doveadm_cmd_callback, servercmd);
