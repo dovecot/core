@@ -58,46 +58,31 @@ struct server_connection {
 };
 
 static struct server_connection *printing_conn = NULL;
-static ARRAY(struct doveadm_server *) print_pending_servers = ARRAY_INIT;
+static ARRAY(struct server_connection *) print_pending_connections = ARRAY_INIT;
 
 static bool server_connection_input_one(struct server_connection *conn);
 static int server_connection_init_ssl(struct server_connection *conn,
 				      const char **error_r);
 static void server_connection_destroy(struct server_connection **_conn);
 
-static void server_set_print_pending(struct doveadm_server *server)
+static void server_set_print_pending(struct server_connection *conn)
 {
-	struct doveadm_server *pending_server;
-
-	if (!array_is_created(&print_pending_servers))
-		i_array_init(&print_pending_servers, 16);
-	array_foreach_elem(&print_pending_servers, pending_server) {
-		if (pending_server == server)
-			return;
-	}
-	array_push_back(&print_pending_servers, &server);
-}
-
-static void server_print_connection_released(struct doveadm_server *server)
-{
-	struct connection *conn;
-
-	conn = server->connections->connections;
-	for (; conn != NULL; conn = conn->next)
-		connection_input_resume(conn);
+	if (!array_is_created(&print_pending_connections))
+		i_array_init(&print_pending_connections, 16);
+	array_push_back(&print_pending_connections, &conn);
 }
 
 static void print_connection_released(void)
 {
-	struct doveadm_server *server;
+	struct server_connection *conn;
 
 	printing_conn = NULL;
-	if (!array_is_created(&print_pending_servers))
+	if (!array_is_created(&print_pending_connections))
 		return;
 
-	array_foreach_elem(&print_pending_servers, server)
-		server_print_connection_released(server);
-	array_free(&print_pending_servers);
+	array_foreach_elem(&print_pending_connections, conn)
+		connection_input_resume(&conn->conn);
+	array_free(&print_pending_connections);
 }
 
 static int server_connection_send_cmd_input_more(struct server_connection *conn)
@@ -209,7 +194,7 @@ server_handle_input(struct server_connection *conn,
 	} else {
 		/* someone else is printing. don't continue until it
 		   goes away */
-		server_set_print_pending(conn->server);
+		server_set_print_pending(conn);
 		io_remove(&conn->conn.io);
 		return;
 	}
