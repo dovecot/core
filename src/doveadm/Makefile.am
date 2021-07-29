@@ -135,7 +135,8 @@ common = \
 	doveadm-settings.c \
 	doveadm-util.c \
 	server-connection.c \
-	doveadm-print-formatted.c
+	doveadm-print-formatted.c \
+	doveadm-protocol.c
 
 doveadm_SOURCES = \
 	$(common) \
@@ -168,6 +169,7 @@ pkginc_lib_HEADERS = \
 	doveadm-mailbox-list-iter.h \
 	doveadm-print.h \
 	doveadm-print-private.h \
+	doveadm-protocol.h \
 	doveadm-settings.h \
 	doveadm-util.h
 

@@ -16,6 +16,7 @@
 #include "doveadm-util.h"
 #include "doveadm-mail.h"
 #include "doveadm-print.h"
+#include "doveadm-protocol.h"
 #include "client-connection-private.h"
 
 #include <unistd.h>
