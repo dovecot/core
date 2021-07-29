@@ -23,7 +23,6 @@
 #include "http-response.h"
 #include "http-url.h"
 #include "doveadm-util.h"
-#include "doveadm-server.h"
 #include "doveadm-mail.h"
 #include "doveadm-print.h"
 #include "doveadm-settings.h"

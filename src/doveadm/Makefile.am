@@ -175,7 +175,6 @@ noinst_HEADERS = \
 	client-connection.h \
 	client-connection-private.h \
 	server-connection.h \
-	doveadm-server.h \
 	doveadm-who.h
 
 install-exec-local:

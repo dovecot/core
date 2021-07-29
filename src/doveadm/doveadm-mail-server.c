@@ -17,7 +17,6 @@
 #include "server-connection.h"
 #include "doveadm-settings.h"
 #include "doveadm-print.h"
-#include "doveadm-server.h"
 #include "doveadm-mail.h"
 
 #define DOVEADM_SERVER_CONNECTIONS_MAX 4

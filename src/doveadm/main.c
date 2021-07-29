@@ -13,7 +13,6 @@
 #include "doveadm-dump.h"
 #include "doveadm-mail.h"
 #include "doveadm-print-private.h"
-#include "doveadm-server.h"
 #include "ostream.h"
 
 const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {

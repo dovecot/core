@@ -27,5 +27,6 @@ extern struct doveadm_print_vfuncs doveadm_print_table_vfuncs;
 extern struct doveadm_print_vfuncs doveadm_print_pager_vfuncs;
 extern struct doveadm_print_vfuncs doveadm_print_json_vfuncs;
 extern struct doveadm_print_vfuncs doveadm_print_formatted_vfuncs;
+extern struct doveadm_print_vfuncs doveadm_print_server_vfuncs;
 
 #endif

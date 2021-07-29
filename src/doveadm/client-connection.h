@@ -18,6 +18,8 @@ struct client_connection {
 	void (*free)(struct client_connection *conn);
 };
 
+extern struct client_connection *doveadm_client;
+
 struct client_connection *
 client_connection_tcp_create(int fd, int listen_fd, bool ssl);
 struct client_connection *

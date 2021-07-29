@@ -13,7 +13,6 @@
 #include "master-service.h"
 #include "doveadm.h"
 #include "doveadm-util.h"
-#include "doveadm-server.h"
 #include "server-connection.h"
 
 #define DOVEADM_LOG_CHANNEL_ID 'L'
