@@ -14,7 +14,7 @@
 #include "auth-master.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
-#include "server-connection.h"
+#include "doveadm-client.h"
 #include "doveadm-settings.h"
 #include "doveadm-print.h"
 #include "doveadm-mail.h"

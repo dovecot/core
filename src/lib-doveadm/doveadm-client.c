@@ -12,7 +12,7 @@
 #include "iostream-ssl.h"
 #include "master-service.h"
 #include "doveadm-protocol.h"
-#include "server-connection.h"
+#include "doveadm-client.h"
 
 #define DOVEADM_LOG_CHANNEL_ID 'L'
 

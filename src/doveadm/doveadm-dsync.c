@@ -29,7 +29,7 @@
 #include "doveadm-mail.h"
 #include "doveadm-print.h"
 #include "client-connection.h"
-#include "server-connection.h"
+#include "doveadm-client.h"
 #include "dsync/dsync-brain.h"
 #include "dsync/dsync-ibc.h"
 #include "doveadm-dsync.h"

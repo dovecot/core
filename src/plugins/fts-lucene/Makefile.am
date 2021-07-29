@@ -6,6 +6,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
 	-I$(top_srcdir)/src/plugins/fts \
+	-I$(top_srcdir)/src/lib-doveadm \
 	-I$(top_srcdir)/src/doveadm
 
 AM_CXXFLAGS = \

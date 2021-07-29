@@ -13,6 +13,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-compression \
 	-I$(top_srcdir)/src/lib-dict \
+	-I$(top_srcdir)/src/lib-doveadm \
 	-I$(top_srcdir)/src/lib-fs \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-master \
@@ -134,9 +135,7 @@ common = \
 	doveadm-print.c \
 	doveadm-settings.c \
 	doveadm-util.c \
-	server-connection.c \
-	doveadm-print-formatted.c \
-	doveadm-protocol.c
+	doveadm-print-formatted.c
 
 doveadm_SOURCES = \
 	$(common) \
@@ -169,14 +168,12 @@ pkginc_lib_HEADERS = \
 	doveadm-mailbox-list-iter.h \
 	doveadm-print.h \
 	doveadm-print-private.h \
-	doveadm-protocol.h \
 	doveadm-settings.h \
 	doveadm-util.h
 
 noinst_HEADERS = \
 	client-connection.h \
 	client-connection-private.h \
-	server-connection.h \
 	doveadm-who.h
 
 install-exec-local:

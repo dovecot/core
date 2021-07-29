@@ -617,6 +617,7 @@ dnl ** Shared libraries usage
 dnl **
 
 LIBDOVECOT_LA_LIBS='\
+	$(top_builddir)/src/lib-doveadm/libdoveadm.la \
 	$(top_builddir)/src/lib-dict-extra/libdict_extra.la \
 	$(top_builddir)/src/lib-oauth2/liboauth2.la \
 	$(top_builddir)/src/lib-smtp/libsmtp.la \
@@ -838,6 +839,7 @@ src/lib-dict/Makefile
 src/lib-dict-backend/Makefile
 src/lib-dict-extra/Makefile
 src/lib-dns/Makefile
+src/lib-doveadm/Makefile
 src/lib-fs/Makefile
 src/lib-fts/Makefile
 src/lib-http/Makefile

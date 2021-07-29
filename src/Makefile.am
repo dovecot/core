@@ -25,7 +25,8 @@ LIBDOVECOT_SUBDIRS = \
 	lib-smtp \
 	lib-imap \
 	lib-imap-storage \
-	lib-oauth2
+	lib-oauth2 \
+	lib-doveadm
 
 SUBDIRS = \
 	$(LIBDOVECOT_SUBDIRS) \

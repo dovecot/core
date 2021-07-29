@@ -1,5 +1,5 @@
-#ifndef SERVER_CONNECTION_H
-#define SERVER_CONNECTION_H
+#ifndef DOVEADM_CLIENT_H
+#define DOVEADM_CLIENT_H
 
 #include "auth-proxy.h"
 #include "iostream-ssl.h"
