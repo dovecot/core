@@ -55,7 +55,6 @@ static struct doveadm_mail_cmd_context *cmd_ctx;
 static bool internal_failure = FALSE;
 static ARRAY(struct doveadm_server_request) doveadm_server_request_queue;
 
-static struct doveadm_server *doveadm_server_find_used(void);
 static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 				 void *context);
 static void doveadm_mail_server_handle(struct doveadm_server *server,
@@ -96,12 +95,6 @@ static struct doveadm_server *doveadm_server_get(const char *name)
 		hash_table_insert(servers, dup_name, server);
 	}
 	return server;
-}
-
-static bool doveadm_server_have_used_connections(struct doveadm_server *server)
-{
-	return server->connections != NULL &&
-		server->connections->connections != NULL;
 }
 
 static void doveadm_mail_server_cmd_free(struct doveadm_mail_server_cmd **_cmd)
@@ -533,15 +526,6 @@ static void doveadm_mail_server_handle(struct doveadm_server *server,
 			      doveadm_cmd_callback, servercmd);
 }
 
-static void
-doveadm_server_flush_one(struct doveadm_server *server)
-{
-	do {
-		io_loop_run(current_ioloop);
-	} while (doveadm_server_have_used_connections(server) &&
-		 !DOVEADM_MAIL_SERVER_FAILED());
-}
-
 static int doveadm_mail_server_request_queue_handle_next(const char **error_r)
 {
 	struct doveadm_server_request *request, request_copy;
@@ -687,23 +671,28 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	server->ssl_flags = proxy_set.ssl_flags;
 	server->port = proxy_set.port;
 
-	if (array_count(&doveadm_server_request_queue) >= DOVEADM_SERVER_QUEUE_MAX) {
-		/* flush one request */
-		struct doveadm_server *pending_server =
-			doveadm_server_find_used();
-		i_assert(pending_server != NULL);
-		doveadm_server_flush_one(pending_server);
-		/* The flush may or may not have eaten a request from the
-		   queue. If not, there's room for one new connection. */
-		if (array_count(&doveadm_server_request_queue) >= DOVEADM_SERVER_QUEUE_MAX) {
+	unsigned int limit = I_MAX(ctx->set->doveadm_worker_count, 1);
+	/* Make sure there's space for the new request. Either by creating a
+	   new connection or in the queue. */
+	while (!DOVEADM_MAIL_SERVER_FAILED()) {
+		/* try to flush existing queue if there are available
+		   connections. */
+		if (server_connections_count() < limit &&
+		    array_count(&doveadm_server_request_queue) > 0) {
 			if (doveadm_mail_server_request_queue_handle_next(error_r) < 0)
 				return -1;
+			continue;
 		}
+		/* make sure there is space in the queue */
+		if (array_count(&doveadm_server_request_queue) <
+		    DOVEADM_SERVER_QUEUE_MAX)
+			break;
+
+		/* wait for an existing request to finish */
+		io_loop_run(current_ioloop);
 	}
 
-	if (server->connections == NULL ||
-	    server->connections->connections_count <
-	    		I_MAX(ctx->set->doveadm_worker_count, 1)) {
+	if (server_connections_count() <= limit) {
 		if (server_connection_create(server, &conn, error_r) < 0) {
 			internal_failure = TRUE;
 			return -1;
@@ -720,24 +709,6 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	return DOVEADM_MAIL_SERVER_FAILED() ? -1 : 1;
 }
 
-static struct doveadm_server *doveadm_server_find_used(void)
-{
-	struct hash_iterate_context *iter;
-	struct doveadm_server *ret = NULL;
-	char *key;
-	struct doveadm_server *server;
-
-	iter = hash_table_iterate_init(servers);
-	while (hash_table_iterate(iter, servers, &key, &server)) {
-		if (doveadm_server_have_used_connections(server)) {
-			ret = server;
-			break;
-		}
-	}
-	hash_table_iterate_deinit(&iter);
-	return ret;
-}
-
 static void doveadm_servers_destroy_all_connections(void)
 {
 	struct hash_iterate_context *iter;
@@ -745,16 +716,15 @@ static void doveadm_servers_destroy_all_connections(void)
 	struct doveadm_server *server;
 
 	iter = hash_table_iterate_init(servers);
-	while (hash_table_iterate(iter, servers, &key, &server)) {
-		connection_list_deinit(&server->connections);
+	while (hash_table_iterate(iter, servers, &key, &server))
 		ssl_iostream_context_unref(&server->ssl_ctx);
-	}
 	hash_table_iterate_deinit(&iter);
+
+	server_connections_destroy_all();
 }
 
 void doveadm_mail_server_flush(void)
 {
-	struct doveadm_server *server;
 	struct doveadm_server_request *request;
 	const char *error;
 
@@ -763,10 +733,13 @@ void doveadm_mail_server_flush(void)
 		return;
 	}
 
+	/* flush the queue */
+	unsigned int limit = I_MAX(doveadm_settings->doveadm_worker_count, 1);
 	while (!DOVEADM_MAIL_SERVER_FAILED()) {
-		server = doveadm_server_find_used();
-		if (server != NULL) {
-			doveadm_server_flush_one(server);
+		/* If there are too many connections, flush away one so queue
+		   can be eaten. */
+		if (server_connections_count() >= limit) {
+			io_loop_run(current_ioloop);
 			continue;
 		}
 
@@ -777,6 +750,10 @@ void doveadm_mail_server_flush(void)
 			break;
 		}
 	}
+	/* flush the final connections */
+	while (!DOVEADM_MAIL_SERVER_FAILED() &&
+	       server_connections_count() > 0)
+		io_loop_run(current_ioloop);
 
 	doveadm_servers_destroy_all_connections();
 	if (master_service_is_killed(master_service))

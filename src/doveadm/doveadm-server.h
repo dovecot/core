@@ -22,8 +22,6 @@ struct doveadm_server {
 	/* ssl related settings */
 	enum auth_proxy_ssl_flags ssl_flags;
 	struct ssl_iostream_context *ssl_ctx;
-
-	struct connection_list *connections;
 };
 
 #endif

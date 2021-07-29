@@ -947,7 +947,7 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 		dsync_server_run_command(ctx, conn);
 	}
 
-	connection_list_deinit(&server->connections);
+	server_connections_destroy_all();
 
 	dsync_cmd_switch_ioloop_to(ctx, prev_ioloop);
 	io_loop_destroy(&ioloop);

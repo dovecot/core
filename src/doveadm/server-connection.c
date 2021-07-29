@@ -57,6 +57,7 @@ struct server_connection {
 	bool ssl_done:1;
 };
 
+static struct connection_list *doveadm_clients = NULL;
 static struct server_connection *printing_conn = NULL;
 static ARRAY(struct server_connection *) print_pending_connections = ARRAY_INIT;
 
@@ -598,8 +599,8 @@ int server_connection_create(struct doveadm_server *server,
 	i_assert(server->username != NULL);
 	i_assert(server->password != NULL);
 
-	if (server->connections == NULL) {
-		server->connections =
+	if (doveadm_clients == NULL) {
+		doveadm_clients =
 			connection_list_init(&doveadm_client_set,
 					     &doveadm_client_vfuncs);
 	}
@@ -609,10 +610,10 @@ int server_connection_create(struct doveadm_server *server,
 	conn->pool = pool;
 	conn->server = server;
 	if (strchr(server->hostname, '/') != NULL) {
-		connection_init_client_unix(server->connections, &conn->conn,
+		connection_init_client_unix(doveadm_clients, &conn->conn,
 					    server->hostname);
 	} else if (server->ip.family != 0) {
-		connection_init_client_ip(server->connections, &conn->conn,
+		connection_init_client_ip(doveadm_clients, &conn->conn,
 					  server->hostname, &server->ip,
 					  server->port);
 	} else {
@@ -627,7 +628,7 @@ int server_connection_create(struct doveadm_server *server,
 			pool_unref(&pool);
 			return -1;
 		}
-		connection_init_client_ip(server->connections, &conn->conn,
+		connection_init_client_ip(doveadm_clients, &conn->conn,
 					  server->hostname, &ips[0],
 					  server->port);
 	}
@@ -739,4 +740,14 @@ void server_connection_extract(struct server_connection *conn,
 	io_remove(&conn->conn.io);
 	conn->conn.fd_in = -1;
 	conn->conn.fd_out = -1;
+}
+
+unsigned int server_connections_count(void)
+{
+	return doveadm_clients == NULL ? 0 : doveadm_clients->connections_count;
+}
+
+void server_connections_destroy_all(void)
+{
+	connection_list_deinit(&doveadm_clients);
 }

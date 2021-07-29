@@ -48,4 +48,7 @@ void server_connection_extract(struct server_connection *conn,
 			       struct ostream **ostream_r,
 			       struct ssl_iostream **ssl_iostream_r);
 
+unsigned int server_connections_count(void);
+void server_connections_destroy_all(void);
+
 #endif
