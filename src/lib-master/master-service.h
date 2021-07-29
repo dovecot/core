@@ -27,11 +27,6 @@ enum master_service_flags {
 	/* Show number of connections in process title
 	   (only if verbose_proctitle setting is enabled) */
 	MASTER_SERVICE_FLAG_UPDATE_PROCTITLE	= 0x100,
-	/* Always read SSL settings into memory, even if there are no ssl
-	   listeners or _HAVE_STARTTLS flag hasn't been set. This is mainly
-	   intended to be used when SSL client settings are wanted to be
-	   accessed via lib-master. */
-	MASTER_SERVICE_FLAG_USE_SSL_SETTINGS	= 0x200,
 	/* Don't initialize SSL context automatically. */
 	MASTER_SERVICE_FLAG_NO_SSL_INIT		= 0x400,
 	/* Don't create a data stack frame between master_service_init() and

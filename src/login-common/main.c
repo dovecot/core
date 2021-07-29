@@ -512,7 +512,6 @@ int login_binary_run(struct login_binary *binary,
 	enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN |
 		MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE |
-		MASTER_SERVICE_FLAG_USE_SSL_SETTINGS |
 		MASTER_SERVICE_FLAG_HAVE_STARTTLS |
 		MASTER_SERVICE_FLAG_NO_SSL_INIT;
 	pool_t set_pool;

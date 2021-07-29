@@ -90,7 +90,6 @@ int main(int argc, char *argv[])
 		NULL
 	};
 	const enum master_service_flags service_flags =
-		MASTER_SERVICE_FLAG_USE_SSL_SETTINGS |
 		MASTER_SERVICE_FLAG_NO_SSL_INIT |
 		MASTER_SERVICE_FLAG_DONT_SEND_STATS |
 		MASTER_SERVICE_FLAG_NO_IDLE_DIE |
