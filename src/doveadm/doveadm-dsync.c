@@ -90,7 +90,7 @@ struct dsync_cmd_context {
 	struct ssl_iostream *ssl_iostream;
 
 	enum dsync_run_type run_type;
-	struct server_connection *tcp_conn;
+	struct doveadm_client *tcp_conn;
 	const char *error;
 
 	unsigned int lock_timeout;
@@ -826,10 +826,10 @@ static void dsync_connected_callback(const struct doveadm_server_reply *reply,
 	ctx->ctx.exit_code = reply->exit_code;
 	switch (reply->exit_code) {
 	case 0:
-		server_connection_extract(ctx->tcp_conn, &ctx->input,
-					  &ctx->output, &ctx->ssl_iostream);
+		doveadm_client_extract(ctx->tcp_conn, &ctx->input,
+				       &ctx->output, &ctx->ssl_iostream);
 		break;
-	case SERVER_EXIT_CODE_DISCONNECTED:
+	case DOVEADM_CLIENT_EXIT_CODE_DISCONNECTED:
 		ctx->ctx.exit_code = EX_TEMPFAIL;
 		ctx->error = p_strdup_printf(ctx->ctx.pool,
 			"Disconnected from remote: %s", reply->error);
@@ -852,7 +852,7 @@ static void dsync_connected_callback(const struct doveadm_server_reply *reply,
 }
 
 static void dsync_server_run_command(struct dsync_cmd_context *ctx,
-				     struct server_connection *conn)
+				     struct doveadm_client *conn)
 {
 	struct doveadm_cmd_context *cctx = ctx->ctx.cctx;
 	/* <flags> <username> <command> [<args>] */
@@ -869,8 +869,8 @@ static void dsync_server_run_command(struct dsync_cmd_context *ctx,
 
 	ctx->tcp_conn = conn;
 	/* dsync command can't be proxied currently, so use TTL 1 */
-	server_connection_cmd(conn, 1, str_c(cmd), NULL,
-			      dsync_connected_callback, ctx);
+	doveadm_client_cmd(conn, 1, str_c(cmd), NULL,
+			   dsync_connected_callback, ctx);
 	io_loop_run(current_ioloop);
 	ctx->tcp_conn = NULL;
 }
@@ -881,7 +881,7 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 		  const char *target, bool ssl, const char **error_r)
 {
 	struct doveadm_client_settings conn_set;
-	struct server_connection *conn;
+	struct doveadm_client *conn;
 	struct ioloop *prev_ioloop, *ioloop;
 	const char *p, *error;
 
@@ -926,7 +926,7 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 		process_title_set(t_strdup_printf(
 			"[dsync - connecting to %s]", target));
 	}
-	if (server_connection_create(&conn_set, &conn, &error) < 0) {
+	if (doveadm_client_create(&conn_set, &conn, &error) < 0) {
 		ctx->error = p_strdup_printf(ctx->ctx.pool,
 			"Couldn't create server connection: %s", error);
 	} else {
@@ -938,7 +938,7 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 		dsync_server_run_command(ctx, conn);
 	}
 
-	server_connections_destroy_all();
+	doveadm_clients_destroy_all();
 
 	dsync_cmd_switch_ioloop_to(ctx, prev_ioloop);
 	io_loop_destroy(&ioloop);

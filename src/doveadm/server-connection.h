@@ -4,9 +4,9 @@
 #include "auth-proxy.h"
 #include "iostream-ssl.h"
 
-#define SERVER_EXIT_CODE_DISCONNECTED 1000
+#define DOVEADM_CLIENT_EXIT_CODE_DISCONNECTED 1000
 
-struct server_connection;
+struct doveadm_client;
 struct ssl_iostream;
 
 struct doveadm_server_reply {
@@ -14,14 +14,15 @@ struct doveadm_server_reply {
 	const char *error;
 };
 
-typedef void server_cmd_callback_t(const struct doveadm_server_reply *reply,
-				   void *context);
+typedef void
+doveadm_client_cmd_callback_t(const struct doveadm_server_reply *reply,
+			      void *context);
 
 /* Called when a field needs to be printed. If finished=FALSE, the next
    call will continue printing this same field. */
-typedef void server_connection_print_t(const unsigned char *data,
-				       size_t size, bool finished,
-				       void *context);
+typedef void doveadm_client_print_t(const unsigned char *data,
+				    size_t size, bool finished,
+				    void *context);
 
 struct doveadm_client_settings {
 	/* UNIX socket path to connect to, if non-NULL. */
@@ -51,36 +52,36 @@ void doveadm_client_settings_dup(const struct doveadm_client_settings *src,
 				 struct doveadm_client_settings *dest_r,
 				 pool_t pool);
 
-int server_connection_create(const struct doveadm_client_settings *set,
-			     struct server_connection **conn_r,
-			     const char **error_r);
+int doveadm_client_create(const struct doveadm_client_settings *set,
+			  struct doveadm_client **conn_r,
+			  const char **error_r);
 
-void server_connection_get_dest(struct server_connection *conn,
-				struct ip_addr *ip_r, in_port_t *port_r);
+void doveadm_client_get_dest(struct doveadm_client *conn,
+			     struct ip_addr *ip_r, in_port_t *port_r);
 const struct doveadm_client_settings *
-server_connection_get_settings(struct server_connection *conn);
+doveadm_client_get_settings(struct doveadm_client *conn);
 
-void server_connection_set_print(struct server_connection *conn,
-				 server_connection_print_t *callback,
-				 void *context);
-#define server_connection_set_print(conn, callback, context) \
-	server_connection_set_print(conn, \
-		(server_connection_print_t *)callback, \
+void doveadm_client_set_print(struct doveadm_client *conn,
+			      doveadm_client_print_t *callback,
+			      void *context);
+#define doveadm_client_set_print(conn, callback, context) \
+	doveadm_client_set_print(conn, \
+		(doveadm_client_print_t *)callback, \
 		TRUE ? context : CALLBACK_TYPECHECK(callback, \
 			void (*)(const unsigned char *, size_t, bool, typeof(context))))
 
-void server_connection_cmd(struct server_connection *conn, int proxy_ttl,
-			   const char *line, struct istream *cmd_input,
-			   server_cmd_callback_t *callback, void *context);
+void doveadm_client_cmd(struct doveadm_client *conn, int proxy_ttl,
+			const char *line, struct istream *cmd_input,
+			doveadm_client_cmd_callback_t *callback, void *context);
 
-/* Extract iostreams from connection. Afterwards the server_connection simply
+/* Extract iostreams from connection. Afterwards the doveadm_client simply
    waits for itself to be destroyed. */
-void server_connection_extract(struct server_connection *conn,
-			       struct istream **istream_r,
-			       struct ostream **ostream_r,
-			       struct ssl_iostream **ssl_iostream_r);
+void doveadm_client_extract(struct doveadm_client *conn,
+			    struct istream **istream_r,
+			    struct ostream **ostream_r,
+			    struct ssl_iostream **ssl_iostream_r);
 
-unsigned int server_connections_count(void);
-void server_connections_destroy_all(void);
+unsigned int doveadm_clients_count(void);
+void doveadm_clients_destroy_all(void);
 
 #endif
