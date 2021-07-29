@@ -7,13 +7,13 @@ extern struct client_connection *doveadm_client;
 extern struct doveadm_print_vfuncs doveadm_print_server_vfuncs;
 
 struct doveadm_server {
-	/* hostname:port or socket name for logging */
+	/* hostname:port or UNIX socket path. Used mainly for logging. */
 	const char *name;
-	/* hostname without port */
+	/* hostname without port, or UNIX socket path. */
 	const char *hostname;
-	/* host ip to use */
+	/* Host's IP to use, if known. Otherwise DNS lookup is done. */
 	struct ip_addr ip;
-	/* port to use */
+	/* Port to use for TCP connections. */
 	in_port_t port;
 
 	const char *username, *password;
