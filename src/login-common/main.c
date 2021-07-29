@@ -380,9 +380,8 @@ static void login_ssl_init(void)
 	if (strcmp(global_ssl_settings->ssl, "no") == 0)
 		return;
 
-	master_service_ssl_settings_to_iostream_set(global_ssl_settings,
-		pool_datastack_create(),
-		MASTER_SERVICE_SSL_SETTINGS_TYPE_SERVER, &ssl_set);
+	master_service_ssl_server_settings_to_iostream_set(global_ssl_settings,
+		pool_datastack_create(), &ssl_set);
 	if (io_stream_ssl_global_init(&ssl_set, &error) < 0)
 		i_fatal("Failed to initialize SSL library: %s", error);
 	login_ssl_initialized = TRUE;

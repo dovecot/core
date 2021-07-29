@@ -196,9 +196,8 @@ lmtp_proxy_connection_init_ssl(struct lmtp_proxy_connection *conn,
 		return;
 
 	master_ssl_set = master_service_ssl_settings_get(master_service);
-	master_service_ssl_settings_to_iostream_set(
-		master_ssl_set, pool_datastack_create(),
-		MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT, ssl_set_r);
+	master_service_ssl_client_settings_to_iostream_set(
+		master_ssl_set, pool_datastack_create(), ssl_set_r);
 	if ((conn->set.ssl_flags & PROXY_SSL_FLAG_ANY_CERT) != 0)
 		ssl_set_r->allow_invalid_cert = TRUE;
 

@@ -760,10 +760,8 @@ int login_proxy_starttls(struct login_proxy *proxy)
 	struct ssl_iostream_settings ssl_set;
 	const char *error;
 
-	master_service_ssl_settings_to_iostream_set(proxy->client->ssl_set,
-						    pool_datastack_create(),
-						    MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT,
-						    &ssl_set);
+	master_service_ssl_client_settings_to_iostream_set(
+		proxy->client->ssl_set, pool_datastack_create(), &ssl_set);
 	if ((proxy->ssl_flags & PROXY_SSL_FLAG_ANY_CERT) != 0)
 		ssl_set.allow_invalid_cert = TRUE;
 	/* NOTE: We're explicitly disabling ssl_client_ca_* settings for now

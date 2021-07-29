@@ -170,9 +170,8 @@ void auth_policy_init(void)
 	if (global_auth_settings->debug)
 		http_client_set.debug = 1;
 
-	master_service_ssl_settings_to_iostream_set(master_ssl_set, pool_datastack_create(),
-						    MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT,
-						    &ssl_set);
+	master_service_ssl_client_settings_to_iostream_set(master_ssl_set,
+		pool_datastack_create(), &ssl_set);
 	http_client_set.ssl = &ssl_set;
 	http_client_set.event_parent = auth_event;
 	http_client = http_client_init(&http_client_set);

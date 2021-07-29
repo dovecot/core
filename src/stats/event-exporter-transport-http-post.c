@@ -54,9 +54,8 @@ void event_export_transport_http_post(const struct exporter *exporter,
 		struct ssl_iostream_settings ssl_set;
 		i_zero(&ssl_set);
 		if (master_ssl_set != NULL) {
-			master_service_ssl_settings_to_iostream_set(master_ssl_set,
-				pool_datastack_create(),
-				MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT,
+			master_service_ssl_client_settings_to_iostream_set(
+				master_ssl_set, pool_datastack_create(),
 				&ssl_set);
 		}
 		const struct http_client_settings set = {

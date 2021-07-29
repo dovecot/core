@@ -516,9 +516,8 @@ static int client_sni_callback(const char *name, const char **error_r,
 					  &client->ip, name,
 					  &client->ssl_set, &other_sets);
 
-	master_service_ssl_settings_to_iostream_set(client->ssl_set,
-		pool_datastack_create(),
-		MASTER_SERVICE_SSL_SETTINGS_TYPE_SERVER, &ssl_set);
+	master_service_ssl_server_settings_to_iostream_set(client->ssl_set,
+		pool_datastack_create(), &ssl_set);
 	if (ssl_iostream_server_context_cache_get(&ssl_set, &ssl_ctx, &error) < 0) {
 		*error_r = t_strdup_printf(
 			"Failed to initialize SSL server context: %s", error);
@@ -542,9 +541,8 @@ int client_init_ssl(struct client *client)
 		return -1;
 	}
 
-	master_service_ssl_settings_to_iostream_set(client->ssl_set,
-		pool_datastack_create(),
-		MASTER_SERVICE_SSL_SETTINGS_TYPE_SERVER, &ssl_set);
+	master_service_ssl_server_settings_to_iostream_set(client->ssl_set,
+		pool_datastack_create(), &ssl_set);
 	/* If the client cert is invalid, we'll reply NO to the login
 	   command. */
 	ssl_set.allow_invalid_cert = TRUE;
