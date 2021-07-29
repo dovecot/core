@@ -21,7 +21,6 @@
 #include "doveadm-server.h"
 #include "server-connection.h"
 
-#include <sysexits.h>
 #include <unistd.h>
 
 #define DOVEADM_LOG_CHANNEL_ID 'L'
@@ -476,12 +475,6 @@ server_connection_input_cmd_error(struct server_connection *conn,
 	switch (reply.exit_code) {
 	case DOVEADM_EX_REFERRAL:
 		reply.error = args;
-		break;
-	case DOVEADM_EX_UNKNOWN:
-		if (str_to_int(line, &reply.exit_code) < 0) {
-			/* old doveadm-server */
-			reply.exit_code = EX_TEMPFAIL;
-		}
 		break;
 	}
 	server_connection_callback(conn, &reply);
