@@ -18,6 +18,7 @@
 #include "auth-master.h"
 #include "master-service-private.h"
 #include "master-service-settings.h"
+#include "master-service-ssl-settings.h"
 #include "master-service-settings-cache.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
@@ -87,6 +88,7 @@ struct mail_storage_service_user {
 	const char *system_groups_user, *uid_source, *gid_source;
 	const char *chdir_path;
 	const struct mail_user_settings *user_set;
+	const struct master_service_ssl_settings *ssl_set;
 	const struct setting_parser_info *user_info;
 	struct setting_parser_context *set_parser;
 
@@ -1342,6 +1344,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	sets = master_service_settings_parser_get_others(master_service,
 							 user->set_parser);
 	user->user_set = sets[0];
+	user->ssl_set = master_service_ssl_settings_get_from_parser(
+		master_service, user->set_parser);
 	user->gid_source = "mail_gid setting";
 	user->uid_source = "mail_uid setting";
 	/* Create an event that will be used as the default event for logging.
@@ -1774,6 +1778,12 @@ struct setting_parser_context *
 mail_storage_service_user_get_settings_parser(struct mail_storage_service_user *user)
 {
 	return user->set_parser;
+}
+
+const struct master_service_ssl_settings *
+mail_storage_service_user_get_ssl_settings(struct mail_storage_service_user *user)
+{
+	return user->ssl_set;
 }
 
 struct mail_storage_service_ctx *
