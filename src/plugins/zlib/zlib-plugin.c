@@ -355,7 +355,7 @@ static void zlib_mail_user_created(struct mail_user *user)
 	}
 	name = zuser->save_handler == NULL ? NULL :
 		mail_user_plugin_getenv(user, "zlib_save_level");
-	if (name != NULL) {
+	if (name != NULL && name[0] != '\0') {
 		if (str_to_int(name, &zuser->save_level) < 0 ||
 		    zuser->save_level < zuser->save_handler->get_min_level() ||
 		    zuser->save_level > zuser->save_handler->get_max_level()) {
