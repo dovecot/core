@@ -7,6 +7,7 @@
 #include "strescape.h"
 #include "ioloop.h"
 #include "master-service.h"
+#include "iostream-ssl.h"
 #include "auth-master.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
@@ -373,6 +374,7 @@ static void doveadm_servers_destroy_all_connections(void)
 			conn = *connp;
 			server_connection_destroy(&conn);
 		}
+		ssl_iostream_context_unref(&server->ssl_ctx);
 	}
 	hash_table_iterate_deinit(&iter);
 }
