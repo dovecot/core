@@ -1057,7 +1057,6 @@ submission_backend_relay_create(
 	submission_backend_init(&backend->backend, pool, client,
 				&backend_relay_vfuncs);
 
-	i_zero(&ssl_set);
 	mail_user_init_ssl_client_settings(user, &ssl_set);
 	if (set->ssl_verify)
 		ssl_set.verbose_invalid_cert = TRUE;

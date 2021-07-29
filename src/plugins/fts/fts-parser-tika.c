@@ -64,7 +64,6 @@ tika_get_http_client_url(struct mail_user *user, struct http_url **http_url_r)
 	}
 
 	if (tika_http_client == NULL) {
-		i_zero(&ssl_set);
 		mail_user_init_ssl_client_settings(user, &ssl_set);
 
 		i_zero(&http_set);

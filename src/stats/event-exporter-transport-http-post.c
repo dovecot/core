@@ -52,16 +52,16 @@ void event_export_transport_http_post(const struct exporter *exporter,
 		const struct master_service_ssl_settings *master_ssl_set =
 			master_service_ssl_settings_get(master_service);
 		struct ssl_iostream_settings ssl_set;
-		i_zero(&ssl_set);
+
+		struct http_client_settings set = {
+			.dns_client_socket_path = "dns-client",
+		};
 		if (master_ssl_set != NULL) {
 			master_service_ssl_client_settings_to_iostream_set(
 				master_ssl_set, pool_datastack_create(),
 				&ssl_set);
+			set.ssl = &ssl_set;
 		}
-		const struct http_client_settings set = {
-			.dns_client_socket_path = "dns-client",
-			.ssl = &ssl_set,
-		};
 		exporter_http_client = http_client_init(&set);
 	}
 

@@ -2054,7 +2054,6 @@ int mailbox_list_init_fs(struct mailbox_list *list, struct event *event_parent,
 	struct mailbox_list_fs_context *ctx;
 	struct fs *parent_fs;
 
-	i_zero(&ssl_set);
 	i_zero(&fs_set);
 	mail_user_init_fs_settings(list->ns->user, &fs_set, &ssl_set);
 	/* fs_set.event_parent points to user->event by default */

@@ -212,7 +212,6 @@ const struct master_service_ssl_settings *doveadm_ssl_set = NULL;
 
 void doveadm_get_ssl_settings(struct ssl_iostream_settings *set_r, pool_t pool)
 {
-	i_zero(set_r);
 	master_service_ssl_client_settings_to_iostream_set(doveadm_ssl_set,
 							   pool, set_r);
 }

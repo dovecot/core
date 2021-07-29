@@ -95,7 +95,6 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 
 	vtable = get_var_expand_table(mail, recipient, reason);
 
-	i_zero(&ssl_set);
 	mail_user_init_ssl_client_settings(user, &ssl_set);
 
 	i_zero(&smtp_input);
