@@ -690,12 +690,12 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 }
 
 void mail_user_init_ssl_client_settings(struct mail_user *user,
-				struct ssl_iostream_settings *ssl_set)
+	struct ssl_iostream_settings *ssl_set_r)
 {
 	const struct mail_storage_settings *mail_set =
 		mail_user_set_get_storage_set(user);
 
-	mail_storage_settings_init_ssl_client_settings(mail_set, ssl_set);
+	mail_storage_settings_init_ssl_client_settings(mail_set, ssl_set_r);
 }
 
 void mail_user_init_fs_settings(struct mail_user *user,
