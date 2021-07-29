@@ -148,7 +148,8 @@
    typedef void safe_callback_t(struct foo *foo);
 
    void safe_run(safe_callback_t *callback, void *context);
-   #define safe_run((safe_callback_t *)callback, \
+   #define safe_run(callback, context) \
+       safe_run((safe_callback_t *)callback, \
        TRUE ? context : CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
 
    // safe-api.c file:
