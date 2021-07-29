@@ -32,7 +32,8 @@ enum server_reply_state {
 
 struct server_connection {
 	struct connection conn;
-	struct doveadm_server *server;
+
+	struct doveadm_client_settings set;
 
 	pool_t pool;
 	struct timeout *to_destroy;
@@ -65,6 +66,27 @@ static bool server_connection_input_one(struct server_connection *conn);
 static int server_connection_init_ssl(struct server_connection *conn,
 				      const char **error_r);
 static void server_connection_destroy(struct server_connection **_conn);
+
+void doveadm_client_settings_dup(const struct doveadm_client_settings *src,
+				 struct doveadm_client_settings *dest_r,
+				 pool_t pool)
+{
+	i_zero(dest_r);
+
+	dest_r->socket_path = p_strdup(pool, src->socket_path);
+	dest_r->hostname = p_strdup(pool, src->hostname);
+	dest_r->ip = src->ip;
+	dest_r->port = src->port;
+
+	dest_r->username = p_strdup(pool, src->username);
+	dest_r->password = p_strdup(pool, src->password);
+
+	dest_r->ssl_flags = src->ssl_flags;
+	if (src->ssl_ctx != NULL) {
+		dest_r->ssl_ctx = src->ssl_ctx;
+		ssl_iostream_context_ref(dest_r->ssl_ctx);
+	}
+}
 
 static void server_set_print_pending(struct server_connection *conn)
 {
@@ -260,16 +282,16 @@ server_connection_authenticate(struct server_connection *conn)
 	string_t *plain = t_str_new(128);
 	string_t *cmd = t_str_new(128);
 
-	if (*conn->server->password == '\0') {
+	if (*conn->set.password == '\0') {
 		e_error(conn->conn.event, "doveadm_password not set, "
 			"can't authenticate to remote server");
 		return -1;
 	}
 
 	str_append_c(plain, '\0');
-	str_append(plain, conn->server->username);
+	str_append(plain, conn->set.username);
 	str_append_c(plain, '\0');
-	str_append(plain, conn->server->password);
+	str_append(plain, conn->set.password);
 
 	str_append(cmd, "PLAIN\t");
 	base64_encode(plain->data, plain->used, cmd);
@@ -307,7 +329,7 @@ static void server_connection_print_log(struct server_connection *conn)
 				"Doveadm server sent invalid log type 0x%02x",
 				line[0]);
 		line++;
-		i_log_type(&ctx, "remote(%s): %s", conn->server->name, line);
+		i_log_type(&ctx, "remote(%s): %s", conn->conn.name, line);
 	}
 }
 
@@ -377,7 +399,7 @@ static void server_connection_input(struct connection *_conn)
 				return;
 			}
 			if (!conn->ssl_done &&
-			    (conn->server->ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) != 0) {
+			    (conn->set.ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) != 0) {
 				connection_input_halt(&conn->conn);
 				if (conn->conn.minor_version < DOVEADM_PROTO_MINOR_MIN_STARTTLS) {
 					e_error(conn->conn.event,
@@ -496,28 +518,28 @@ static int server_connection_init_ssl(struct server_connection *conn,
 	struct ssl_iostream_settings ssl_set;
 	const char *error;
 
-	if (conn->server->ssl_flags == 0)
+	if (conn->set.ssl_flags == 0)
 		return 0;
 
 	doveadm_get_ssl_settings(&ssl_set, pool_datastack_create());
 
-	if ((conn->server->ssl_flags & AUTH_PROXY_SSL_FLAG_ANY_CERT) != 0)
+	if ((conn->set.ssl_flags & AUTH_PROXY_SSL_FLAG_ANY_CERT) != 0)
 		ssl_set.allow_invalid_cert = TRUE;
 	if (ssl_set.allow_invalid_cert)
 		ssl_set.verbose_invalid_cert = TRUE;
 
-	if (conn->server->ssl_ctx == NULL &&
-	    ssl_iostream_client_context_cache_get(&ssl_set,
-						  &conn->server->ssl_ctx,
+	if (conn->set.ssl_ctx == NULL &&
+	    ssl_iostream_client_context_cache_get(&ssl_set, &conn->set.ssl_ctx,
 						  &error) < 0) {
 		*error_r = t_strdup_printf(
 			"Couldn't initialize SSL client: %s", error);
 		return -1;
 	}
 
+	const char *hostname =
+		conn->set.hostname != NULL ? conn->set.hostname : "";
 	connection_input_halt(&conn->conn);
-	if (io_stream_create_ssl_client(conn->server->ssl_ctx,
-					conn->server->hostname, &ssl_set,
+	if (io_stream_create_ssl_client(conn->set.ssl_ctx, hostname, &ssl_set,
 					&conn->conn.input, &conn->conn.output,
 					&conn->ssl_iostream, &error) < 0) {
 		*error_r = t_strdup_printf(
@@ -554,7 +576,7 @@ static void server_connection_connected(struct connection *_conn, bool success)
 				    server_connection_output, conn);
 
 	connection_input_halt(&conn->conn);
-	if (((conn->server->ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) == 0 &&
+	if (((conn->set.ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) == 0 &&
 	     server_connection_init_ssl(conn, &error) < 0)) {
 		e_error(conn->conn.event, "%s", error);
 		/* Can't safely destroy the connection here, so delay it */
@@ -588,7 +610,7 @@ static struct connection_settings doveadm_client_set = {
 	.client_connect_timeout_msecs = DOVEADM_TCP_CONNECT_TIMEOUT_SECS,
 };
 
-int server_connection_create(struct doveadm_server *server,
+int server_connection_create(const struct doveadm_client_settings *set,
 			     struct server_connection **conn_r,
 			     const char **error_r)
 {
@@ -596,8 +618,8 @@ int server_connection_create(struct doveadm_server *server,
 	pool_t pool;
 	int ret;
 
-	i_assert(server->username != NULL);
-	i_assert(server->password != NULL);
+	i_assert(set->username != NULL);
+	i_assert(set->password != NULL);
 
 	if (doveadm_clients == NULL) {
 		doveadm_clients =
@@ -608,33 +630,32 @@ int server_connection_create(struct doveadm_server *server,
 	pool = pool_alloconly_create("doveadm server connection", 1024*16);
 	conn = p_new(pool, struct server_connection, 1);
 	conn->pool = pool;
-	conn->server = server;
-	if (strchr(server->hostname, '/') != NULL) {
+	doveadm_client_settings_dup(set, &conn->set, pool);
+
+	if (set->socket_path != NULL) {
 		connection_init_client_unix(doveadm_clients, &conn->conn,
-					    server->hostname);
-	} else if (server->ip.family != 0) {
+					    set->socket_path);
+	} else if (set->ip.family != 0) {
 		connection_init_client_ip(doveadm_clients, &conn->conn,
-					  server->hostname, &server->ip,
-					  server->port);
+					  set->hostname, &set->ip, set->port);
 	} else {
 		struct ip_addr *ips;
 		unsigned int ips_count;
 
-		ret = net_gethostbyname(server->hostname, &ips, &ips_count);
+		ret = net_gethostbyname(set->hostname, &ips, &ips_count);
 		if (ret != 0) {
 			*error_r = t_strdup_printf(
 				"Lookup of host %s failed: %s",
-				server->hostname, net_gethosterror(ret));
+				set->hostname, net_gethosterror(ret));
 			pool_unref(&pool);
 			return -1;
 		}
 		connection_init_client_ip(doveadm_clients, &conn->conn,
-					  server->hostname, &ips[0],
-					  server->port);
+					  set->hostname, &ips[0], set->port);
 	}
 	if (connection_client_connect(&conn->conn) < 0) {
 		*error_r = t_strdup_printf(
-			"net_connect(%s) failed: %m", server->name);
+			"net_connect(%s) failed: %m", conn->conn.name);
 		connection_deinit(&conn->conn);
 		pool_unref(&pool);
 		return -1;
@@ -689,6 +710,7 @@ static void server_connection_destroy(struct server_connection **_conn)
 	timeout_remove(&conn->to_destroy);
 
 	connection_deinit(&conn->conn);
+	ssl_iostream_context_unref(&conn->set.ssl_ctx);
 	pool_unref(&conn->pool);
 }
 
@@ -699,6 +721,12 @@ void server_connection_get_dest(struct server_connection *conn,
 		i_zero(ip_r);
 		*port_r = 0;
 	}
+}
+
+const struct doveadm_client_settings *
+server_connection_get_settings(struct server_connection *conn)
+{
+	return &conn->set;
 }
 
 void server_connection_cmd(struct server_connection *conn, int proxy_ttl,

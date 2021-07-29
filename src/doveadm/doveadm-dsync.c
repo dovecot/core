@@ -28,7 +28,6 @@
 #include "doveadm-settings.h"
 #include "doveadm-mail.h"
 #include "doveadm-print.h"
-#include "doveadm-server.h"
 #include "client-connection.h"
 #include "server-connection.h"
 #include "dsync/dsync-brain.h"
@@ -896,21 +895,24 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 		  const struct master_service_ssl_settings *ssl_set,
 		  const char *target, bool ssl, const char **error_r)
 {
-	struct doveadm_server *server;
+	struct doveadm_client_settings conn_set;
 	struct server_connection *conn;
 	struct ioloop *prev_ioloop, *ioloop;
 	const char *p, *error;
 
-	server = p_new(ctx->ctx.pool, struct doveadm_server, 1);
-	server->name = p_strdup(ctx->ctx.pool, target);
-	p = strrchr(server->name, ':');
-	server->hostname = p == NULL ? server->name :
-		p_strdup_until(ctx->ctx.pool, server->name, p);
-	if (p == NULL)
-		server->port = doveadm_settings->doveadm_port;
-	else if (net_str2port(p+1, &server->port) < 0) {
-		*error_r = t_strdup_printf("Invalid port number: %s", p+1);
-		return -1;
+	i_zero(&conn_set);
+	if (strchr(target, '/') != NULL)
+		conn_set.socket_path = target;
+	else {
+		p = strrchr(target, ':');
+		conn_set.hostname = p == NULL ? target :
+			p_strdup_until(ctx->ctx.pool, target, p);
+		if (p == NULL)
+			conn_set.port = doveadm_settings->doveadm_port;
+		else if (net_str2port(p+1, &conn_set.port) < 0) {
+			*error_r = t_strdup_printf("Invalid port number: %s", p+1);
+			return -1;
+		}
 	}
 
 	if (ssl) {
@@ -919,13 +921,11 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 				"Couldn't initialize SSL context: %s", error);
 			return -1;
 		}
-		server->ssl_flags = AUTH_PROXY_SSL_FLAG_YES;
-		server->ssl_ctx = ctx->ssl_ctx;
+		conn_set.ssl_flags = AUTH_PROXY_SSL_FLAG_YES;
+		conn_set.ssl_ctx = ctx->ssl_ctx;
 	}
-	server->username = p_strdup(ctx->ctx.pool,
-				    ctx->ctx.set->doveadm_username);
-	server->password = p_strdup(ctx->ctx.pool,
-				    ctx->ctx.set->doveadm_password);
+	conn_set.username = ctx->ctx.set->doveadm_username;
+	conn_set.password = ctx->ctx.set->doveadm_password;
 
 	prev_ioloop = current_ioloop;
 	ioloop = io_loop_create();
@@ -933,15 +933,15 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 
 	if (doveadm_verbose_proctitle) {
 		process_title_set(t_strdup_printf(
-			"[dsync - connecting to %s]", server->name));
+			"[dsync - connecting to %s]", target));
 	}
-	if (server_connection_create(server, &conn, &error) < 0) {
+	if (server_connection_create(&conn_set, &conn, &error) < 0) {
 		ctx->error = p_strdup_printf(ctx->ctx.pool,
 			"Couldn't create server connection: %s", error);
 	} else {
 		if (doveadm_verbose_proctitle) {
 			process_title_set(t_strdup_printf(
-				"[dsync - running dsync-server on %s]", server->name));
+				"[dsync - running dsync-server on %s]", target));
 		}
 
 		dsync_server_run_command(ctx, conn);

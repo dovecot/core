@@ -45,8 +45,10 @@ struct doveadm_mail_server_cmd {
 };
 
 struct doveadm_server_request {
+	pool_t pool;
 	struct doveadm_server *server;
-	char *username;
+	struct doveadm_client_settings set;
+	const char *username;
 };
 
 static HASH_TABLE(char *, struct doveadm_server *) servers;
@@ -63,13 +65,13 @@ static void doveadm_mail_server_handle(struct doveadm_server *server,
 
 static void doveadm_server_request_free(struct doveadm_server_request *request)
 {
-	i_free(request->username);
+	ssl_iostream_context_unref(&request->set.ssl_ctx);
+	pool_unref(&request->pool);
 }
 
 static struct doveadm_server *doveadm_server_get(const char *name)
 {
 	struct doveadm_server *server;
-	const char *p;
 	char *dup_name;
 
 	if (!hash_table_is_created(servers)) {
@@ -84,13 +86,6 @@ static struct doveadm_server *doveadm_server_get(const char *name)
 	if (server == NULL) {
 		server = p_new(server_pool, struct doveadm_server, 1);
 		server->name = dup_name = p_strdup(server_pool, name);
-		server->username = p_strdup(server_pool,
-					    doveadm_settings->doveadm_username);
-		server->password = p_strdup(server_pool,
-					    doveadm_settings->doveadm_password);
-		p = strrchr(server->name, ':');
-		server->hostname = p == NULL ? server->name :
-			p_strdup_until(server_pool, server->name, p);
 
 		hash_table_insert(servers, dup_name, server);
 	}
@@ -301,11 +296,18 @@ doveadm_cmd_redirect_finish(struct doveadm_mail_server_cmd *servercmd,
 
 	server_name = t_strdup_printf("%s:%u", net_ip2addr(ip), port);
 	new_server = doveadm_server_get(server_name);
-	new_server->ip = *ip;
-	new_server->ssl_flags = ssl_flags;
-	new_server->port = port;
 
-	if (server_connection_create(new_server, &conn, &error) < 0) {
+	struct doveadm_client_settings conn_set = {
+		.hostname = net_ip2addr(ip),
+		.ip = *ip,
+		.port = port,
+		.username = doveadm_settings->doveadm_username,
+		.password = doveadm_settings->doveadm_password,
+		.ssl_flags = ssl_flags,
+		.log_passthrough = TRUE,
+	};
+
+	if (server_connection_create(&conn_set, &conn, &error) < 0) {
 		*error_r = t_strdup_printf(
 			"Failed to create redirect connection to %s: %s",
 			new_server->name, error);
@@ -313,6 +315,7 @@ doveadm_cmd_redirect_finish(struct doveadm_mail_server_cmd *servercmd,
 	}
 
 	servercmd->conn = conn;
+	servercmd->server = new_server;
 	if (servercmd->input != NULL)
 		i_stream_seek(servercmd->input, 0);
 	server_connection_cmd(conn, servercmd->proxy_ttl,
@@ -374,6 +377,8 @@ static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
 				const char *destination)
 {
 	struct doveadm_server *orig_server = servercmd->server;
+	const struct doveadm_client_settings *client_set =
+		server_connection_get_settings(servercmd->conn);
 	struct ip_addr ip;
 	in_port_t port;
 	const char *destuser, *host, *error;
@@ -386,14 +391,14 @@ static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
 		return -1;
 	}
 	if (port == 0)
-		port = orig_server->port;
+		port = client_set->port;
 
 	if (cmd_ctx->cctx->proxy_redirect_reauth) {
 		ret = doveadm_cmd_redirect_relookup(servercmd, &ip, port,
 						    destuser, &error);
 	} else {
 		ret = doveadm_cmd_redirect_finish(servercmd, &ip, port,
-						  orig_server->ssl_flags,
+						  client_set->ssl_flags,
 						  &error);
 	}
 	if (ret < 0) {
@@ -535,7 +540,7 @@ static int doveadm_mail_server_request_queue_handle_next(const char **error_r)
 	request_copy = *request;
 	array_pop_front(&doveadm_server_request_queue);
 
-	if (server_connection_create(request_copy.server, &conn, error_r) < 0) {
+	if (server_connection_create(&request_copy.set, &conn, error_r) < 0) {
 		internal_failure = TRUE;
 		return -1;
 	}
@@ -664,12 +669,19 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	   so undo any sticks we might have added already */
 	doveadm_print_unstick_headers();
 
+	struct doveadm_client_settings conn_set = {
+		.socket_path = socket_path,
+		.hostname = proxy_set.host,
+		.ip = proxy_set.host_ip,
+		.port = proxy_set.port,
+		.username = ctx->set->doveadm_username,
+		.password = ctx->set->doveadm_password,
+		.ssl_flags = proxy_set.ssl_flags,
+	};
+
 	server_name = socket_path != NULL ? socket_path :
 		t_strdup_printf("%s:%u", proxy_set.host, proxy_set.port);
 	server = doveadm_server_get(server_name);
-	server->ip = proxy_set.host_ip;
-	server->ssl_flags = proxy_set.ssl_flags;
-	server->port = proxy_set.port;
 
 	unsigned int limit = I_MAX(ctx->set->doveadm_worker_count, 1);
 	/* Make sure there's space for the new request. Either by creating a
@@ -693,7 +705,7 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	}
 
 	if (server_connections_count() <= limit) {
-		if (server_connection_create(server, &conn, error_r) < 0) {
+		if (server_connection_create(&conn_set, &conn, error_r) < 0) {
 			internal_failure = TRUE;
 			return -1;
 		} else {
@@ -702,25 +714,13 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 		}
 	} else {
 		request = array_append_space(&doveadm_server_request_queue);
-		request->username = i_strdup(proxy_set.username);
+		request->pool = pool_alloconly_create("doveadm server request", 256);
 		request->server = server;
+		request->username = p_strdup(request->pool, proxy_set.username);
+		doveadm_client_settings_dup(&conn_set, &request->set, request->pool);
 	}
 	*error_r = "doveadm server failure";
 	return DOVEADM_MAIL_SERVER_FAILED() ? -1 : 1;
-}
-
-static void doveadm_servers_destroy_all_connections(void)
-{
-	struct hash_iterate_context *iter;
-	char *key;
-	struct doveadm_server *server;
-
-	iter = hash_table_iterate_init(servers);
-	while (hash_table_iterate(iter, servers, &key, &server))
-		ssl_iostream_context_unref(&server->ssl_ctx);
-	hash_table_iterate_deinit(&iter);
-
-	server_connections_destroy_all();
 }
 
 void doveadm_mail_server_flush(void)
@@ -755,7 +755,7 @@ void doveadm_mail_server_flush(void)
 	       server_connections_count() > 0)
 		io_loop_run(current_ioloop);
 
-	doveadm_servers_destroy_all_connections();
+	server_connections_destroy_all();
 	if (master_service_is_killed(master_service))
 		i_error("Aborted");
 	if (DOVEADM_MAIL_SERVER_FAILED())
