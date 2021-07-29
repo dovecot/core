@@ -419,8 +419,9 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 				 void *context)
 {
 	struct doveadm_mail_server_cmd *servercmd = context;
+	struct server_connection *conn = servercmd->conn;
 	struct doveadm_server *server =
-		server_connection_get_server(servercmd->conn);
+		server_connection_get_server(conn);
 
 	switch (reply->exit_code) {
 	case 0:
@@ -454,16 +455,12 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 	doveadm_mail_server_cmd_free(&servercmd);
 
 	if (array_count(&server->queue) > 0) {
-		struct server_connection *conn;
 		char *const *usernamep = array_front(&server->queue);
 		char *username = *usernamep;
 
-		conn = doveadm_server_find_unused_conn(server);
-		if (conn != NULL) {
-			array_pop_front(&server->queue);
-			doveadm_mail_server_handle(conn, username);
-			i_free(username);
-		}
+		array_pop_front(&server->queue);
+		doveadm_mail_server_handle(conn, username);
+		i_free(username);
 	}
 
 	io_loop_stop(current_ioloop);
