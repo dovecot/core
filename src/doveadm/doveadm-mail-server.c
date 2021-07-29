@@ -31,6 +31,7 @@ struct doveadm_proxy_redirect {
 };
 
 struct doveadm_mail_server_cmd {
+	struct doveadm_server *server;
 	struct server_connection *conn;
 	char *username;
 
@@ -48,7 +49,8 @@ static bool internal_failure = FALSE;
 
 static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 				 void *context);
-static void doveadm_mail_server_handle(struct server_connection *conn,
+static void doveadm_mail_server_handle(struct doveadm_server *server,
+				       struct server_connection *conn,
 				       const char *username);
 
 static struct doveadm_server *doveadm_server_get(const char *name)
@@ -384,13 +386,12 @@ doveadm_cmd_redirect_relookup(struct doveadm_mail_server_cmd *servercmd,
 static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
 				const char *destination)
 {
-	struct doveadm_server *orig_server;
+	struct doveadm_server *orig_server = servercmd->server;
 	struct ip_addr ip;
 	in_port_t port;
 	const char *destuser, *host, *error;
 	int ret;
 
-	orig_server = server_connection_get_server(servercmd->conn);
 	if (!auth_proxy_parse_redirect(destination, &destuser,
 				       &host, &ip, &port)) {
 		i_error("%s: Invalid redirect destination: %s",
@@ -420,8 +421,7 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 {
 	struct doveadm_mail_server_cmd *servercmd = context;
 	struct server_connection *conn = servercmd->conn;
-	struct doveadm_server *server =
-		server_connection_get_server(conn);
+	struct doveadm_server *server = servercmd->server;
 
 	switch (reply->exit_code) {
 	case 0:
@@ -459,14 +459,15 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 		char *username = *usernamep;
 
 		array_pop_front(&server->queue);
-		doveadm_mail_server_handle(conn, username);
+		doveadm_mail_server_handle(server, conn, username);
 		i_free(username);
 	}
 
 	io_loop_stop(current_ioloop);
 }
 
-static void doveadm_mail_server_handle(struct server_connection *conn,
+static void doveadm_mail_server_handle(struct doveadm_server *server,
+				       struct server_connection *conn,
 				       const char *username)
 {
 	struct doveadm_mail_server_cmd *servercmd;
@@ -492,6 +493,7 @@ static void doveadm_mail_server_handle(struct server_connection *conn,
 
 	servercmd = i_new(struct doveadm_mail_server_cmd, 1);
 	servercmd->conn = conn;
+	servercmd->server = server;
 	servercmd->username = i_strdup(username);
 	servercmd->proxy_ttl = cmd_ctx->proxy_ttl;
 	servercmd->cmdline = i_strdup(str_c(cmd));
@@ -641,14 +643,15 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	server->port = proxy_set.port;
 	conn = doveadm_server_find_unused_conn(server);
 	if (conn != NULL)
-		doveadm_mail_server_handle(conn, proxy_set.username);
+		doveadm_mail_server_handle(server, conn, proxy_set.username);
 	else if (array_count(&server->connections) <
 		 	I_MAX(ctx->set->doveadm_worker_count, 1)) {
 		if (server_connection_create(server, &conn, error_r) < 0) {
 			internal_failure = TRUE;
 			return -1;
 		} else {
-			doveadm_mail_server_handle(conn, proxy_set.username);
+			doveadm_mail_server_handle(server, conn,
+						   proxy_set.username);
 		}
 	} else {
 		if (array_count(&server->queue) >= DOVEADM_SERVER_QUEUE_MAX)
