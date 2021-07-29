@@ -16,6 +16,8 @@ struct doveadm_server {
 	/* port to use */
 	in_port_t port;
 
+	const char *username, *password;
+
 	/* ssl related settings */
 	enum auth_proxy_ssl_flags ssl_flags;
 	struct ssl_iostream_context *ssl_ctx;

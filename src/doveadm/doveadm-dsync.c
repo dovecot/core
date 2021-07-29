@@ -914,6 +914,10 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 		server->ssl_flags = AUTH_PROXY_SSL_FLAG_YES;
 		server->ssl_ctx = ctx->ssl_ctx;
 	}
+	server->username = p_strdup(ctx->ctx.pool,
+				    ctx->ctx.set->doveadm_username);
+	server->password = p_strdup(ctx->ctx.pool,
+				    ctx->ctx.set->doveadm_password);
 	p_array_init(&server->connections, ctx->ctx.pool, 1);
 	p_array_init(&server->queue, ctx->ctx.pool, 1);
 

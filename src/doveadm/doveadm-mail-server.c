@@ -65,6 +65,10 @@ static struct doveadm_server *doveadm_server_get(const char *name)
 	if (server == NULL) {
 		server = p_new(server_pool, struct doveadm_server, 1);
 		server->name = dup_name = p_strdup(server_pool, name);
+		server->username = p_strdup(server_pool,
+					    doveadm_settings->doveadm_username);
+		server->password = p_strdup(server_pool,
+					    doveadm_settings->doveadm_password);
 		p = strrchr(server->name, ':');
 		server->hostname = p == NULL ? server->name :
 			p_strdup_until(server_pool, server->name, p);

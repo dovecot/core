@@ -19,7 +19,6 @@
 #include "doveadm-print.h"
 #include "doveadm-util.h"
 #include "doveadm-server.h"
-#include "doveadm-settings.h"
 #include "server-connection.h"
 
 #include <sysexits.h>
@@ -43,7 +42,6 @@ struct server_connection {
 	struct doveadm_server *server;
 
 	pool_t pool;
-	struct doveadm_settings *set;
 
 	int fd;
 	unsigned int minor;
@@ -318,16 +316,16 @@ server_connection_authenticate(struct server_connection *conn)
 	string_t *plain = t_str_new(128);
 	string_t *cmd = t_str_new(128);
 
-	if (*conn->set->doveadm_password == '\0') {
+	if (*conn->server->password == '\0') {
 		i_error("doveadm_password not set, "
 			"can't authenticate to remote server");
 		return -1;
 	}
 
 	str_append_c(plain, '\0');
-	str_append(plain, conn->set->doveadm_username);
+	str_append(plain, conn->server->username);
 	str_append_c(plain, '\0');
-	str_append(plain, conn->set->doveadm_password);
+	str_append(plain, conn->server->password);
 
 	str_append(cmd, "PLAIN\t");
 	base64_encode(plain->data, plain->used, cmd);
@@ -542,37 +540,6 @@ static bool server_connection_input_one(struct server_connection *conn)
 	i_unreached();
 }
 
-static int server_connection_read_settings(struct server_connection *conn,
-					   const char **error_r)
-{
-	const struct setting_parser_info *set_roots[] = {
-		&doveadm_setting_parser_info,
-		NULL
-	};
-	struct master_service_settings_input input;
-	struct master_service_settings_output output;
-	const char *error;
-	in_port_t port;
-	void *set;
-
-	i_zero(&input);
-	input.roots = set_roots;
-	input.service = "doveadm";
-
-	(void)net_getsockname(conn->fd, &input.local_ip, &port);
-	(void)net_getpeername(conn->fd, &input.remote_ip, &port);
-
-	if (master_service_settings_read(master_service, &input,
-					 &output, &error) < 0) {
-		*error_r = t_strdup_printf(
-			"Error reading configuration: %s", error);
-		return -1;
-	}
-	set = master_service_settings_get_others(master_service)[0];
-	conn->set = settings_dup(&doveadm_setting_parser_info, set, conn->pool);
-	return 0;
-}
-
 static int server_connection_init_ssl(struct server_connection *conn,
 				      const char **error_r)
 {
@@ -623,6 +590,9 @@ int server_connection_create(struct doveadm_server *server,
 	struct server_connection *conn;
 	pool_t pool;
 
+	i_assert(server->username != NULL);
+	i_assert(server->password != NULL);
+
 	pool = pool_alloconly_create("doveadm server connection", 1024*16);
 	conn = p_new(pool, struct server_connection, 1);
 	conn->pool = pool;
@@ -645,8 +615,7 @@ int server_connection_create(struct doveadm_server *server,
 
 	array_push_back(&conn->server->connections, &conn);
 
-	if (server_connection_read_settings(conn, error_r) < 0 ||
-	    ((server->ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) == 0 &&
+	if (((server->ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) == 0 &&
 	     server_connection_init_ssl(conn, error_r) < 0)) {
 		server_connection_destroy(&conn);
 		return -1;
