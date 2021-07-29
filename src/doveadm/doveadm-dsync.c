@@ -906,6 +906,13 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 	p = strrchr(server->name, ':');
 	server->hostname = p == NULL ? server->name :
 		p_strdup_until(ctx->ctx.pool, server->name, p);
+	if (p == NULL)
+		server->port = doveadm_settings->doveadm_port;
+	else if (net_str2port(p+1, &server->port) < 0) {
+		*error_r = t_strdup_printf("Invalid port number: %s", p+1);
+		return -1;
+	}
+
 	if (ssl) {
 		if (dsync_init_ssl_ctx(ctx, ssl_set, &error) < 0) {
 			*error_r = t_strdup_printf(
