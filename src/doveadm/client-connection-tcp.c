@@ -234,6 +234,16 @@ static int doveadm_cmd_handle(struct client_connection_tcp *conn,
 	return 0;
 }
 
+static void client_connection_log_passthrough(struct client_connection_tcp *conn)
+{
+	conn->log_out = o_stream_multiplex_add_channel(conn->output,
+						       DOVEADM_LOG_CHANNEL_ID);
+	o_stream_set_no_error_handling(conn->log_out, TRUE);
+	o_stream_set_name(conn->log_out, t_strdup_printf("%s (log)",
+		o_stream_get_name(conn->output)));
+	doveadm_server_capture_logs();
+}
+
 static bool client_handle_command(struct client_connection_tcp *conn,
 				  const char *const *args)
 {
@@ -423,13 +433,7 @@ client_connection_tcp_input(struct client_connection_tcp *conn)
                         o_stream_set_name(conn->output, o_stream_get_name(os));
                         o_stream_set_no_error_handling(conn->output, TRUE);
                         o_stream_unref(&os);
-                        conn->log_out =
-                                o_stream_multiplex_add_channel(conn->output,
-                                                               DOVEADM_LOG_CHANNEL_ID);
-                        o_stream_set_no_error_handling(conn->log_out, TRUE);
-                        o_stream_set_name(conn->log_out, t_strdup_printf("%s (log)",
-                                          o_stream_get_name(conn->output)));
-                        doveadm_server_capture_logs();
+			client_connection_log_passthrough(conn);
                 }
 		doveadm_print_ostream = conn->output;
 	}
