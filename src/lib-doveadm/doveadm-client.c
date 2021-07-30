@@ -339,9 +339,12 @@ static void doveadm_client_start_multiplex(struct doveadm_client *conn)
 static void doveadm_client_authenticated(struct doveadm_client *conn)
 {
 	conn->authenticated = TRUE;
+
+	if (conn->conn.minor_version >= DOVEADM_PROTO_MINOR_MIN_MULTIPLEX)
+		doveadm_client_start_multiplex(conn);
+
 	if (conn->delayed_cmd != NULL) {
-		doveadm_client_send_cmd(conn, conn->delayed_cmd,
-					conn->delayed_cmd_proxy_ttl);
+		o_stream_nsend_str(conn->conn.output, conn->delayed_cmd);
 		conn->delayed_cmd = NULL;
 		doveadm_client_send_cmd_input(conn);
 	}
@@ -386,8 +389,6 @@ static void doveadm_client_input(struct connection *_conn)
 			}
 			conn->conn.version_received = TRUE;
 		} else if (strcmp(line, "+") == 0) {
-			if (conn->conn.minor_version >= DOVEADM_PROTO_MINOR_MIN_MULTIPLEX)
-				doveadm_client_start_multiplex(conn);
 			doveadm_client_authenticated(conn);
 		} else if (strcmp(line, "-") == 0) {
 			if (conn->authenticate_sent) {
