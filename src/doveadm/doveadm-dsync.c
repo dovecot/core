@@ -926,7 +926,6 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 				    ctx->ctx.set->doveadm_username);
 	server->password = p_strdup(ctx->ctx.pool,
 				    ctx->ctx.set->doveadm_password);
-	p_array_init(&server->queue, ctx->ctx.pool, 1);
 
 	prev_ioloop = current_ioloop;
 	ioloop = io_loop_create();

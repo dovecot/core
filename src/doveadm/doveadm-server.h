@@ -24,7 +24,6 @@ struct doveadm_server {
 	struct ssl_iostream_context *ssl_ctx;
 
 	struct connection_list *connections;
-	ARRAY_TYPE(string) queue;
 };
 
 #endif
