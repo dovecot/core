@@ -350,12 +350,46 @@ static void doveadm_client_authenticated(struct doveadm_client *conn)
 	}
 }
 
+static int
+doveadm_client_prepare_authentication(struct doveadm_client *conn,
+				      const char *line)
+{
+	const char *error;
+
+	if (conn->authenticate_sent) {
+		e_error(conn->conn.event, "doveadm authentication failed (%s)",
+			line+1);
+		return -1;
+	}
+	if (!conn->ssl_done &&
+	    (conn->set.ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) != 0) {
+		connection_input_halt(&conn->conn);
+		if (conn->conn.minor_version < DOVEADM_PROTO_MINOR_MIN_STARTTLS) {
+			e_error(conn->conn.event,
+				"doveadm STARTTLS failed: Server does not support it");
+			return -1;
+		}
+		/* send STARTTLS */
+		o_stream_nsend_str(conn->conn.output, "STARTTLS\n");
+		if (doveadm_client_init_ssl(conn, &error) < 0) {
+			e_error(conn->conn.event,
+				"doveadm STARTTLS failed: %s", error);
+			return -1;
+		}
+		conn->ssl_done = TRUE;
+		connection_input_resume(&conn->conn);
+	}
+
+	if (doveadm_client_authenticate(conn) < 0)
+		return -1;
+	return 0;
+}
+
 static void doveadm_client_input(struct connection *_conn)
 {
 	struct doveadm_client *conn =
 		container_of(_conn, struct doveadm_client, conn);
 	const char *line;
-	const char *error;
 
 	if (i_stream_read(conn->conn.input) < 0) {
 		/* disconnected */
@@ -391,34 +425,7 @@ static void doveadm_client_input(struct connection *_conn)
 		} else if (strcmp(line, "+") == 0) {
 			doveadm_client_authenticated(conn);
 		} else if (strcmp(line, "-") == 0) {
-			if (conn->authenticate_sent) {
-				e_error(conn->conn.event,
-					"doveadm authentication failed (%s)",
-					line+1);
-				doveadm_client_destroy(&conn);
-				return;
-			}
-			if (!conn->ssl_done &&
-			    (conn->set.ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) != 0) {
-				connection_input_halt(&conn->conn);
-				if (conn->conn.minor_version < DOVEADM_PROTO_MINOR_MIN_STARTTLS) {
-					e_error(conn->conn.event,
-						"doveadm STARTTLS failed: Server does not support it");
-					doveadm_client_destroy(&conn);
-					return;
-				}
-				/* send STARTTLS */
-				o_stream_nsend_str(conn->conn.output, "STARTTLS\n");
-				if (doveadm_client_init_ssl(conn, &error) < 0) {
-					e_error(conn->conn.event,
-						"doveadm STARTTLS failed: %s", error);
-					doveadm_client_destroy(&conn);
-					return;
-				}
-				conn->ssl_done = TRUE;
-				connection_input_resume(&conn->conn);
-			}
-			if (doveadm_client_authenticate(conn) < 0) {
+			if (doveadm_client_prepare_authentication(conn, line) < 0) {
 				doveadm_client_destroy(&conn);
 				return;
 			}
