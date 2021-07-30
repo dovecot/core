@@ -81,6 +81,8 @@ void doveadm_client_settings_dup(const struct doveadm_client_settings *src,
 		dest_r->ssl_ctx = src->ssl_ctx;
 		ssl_iostream_context_ref(dest_r->ssl_ctx);
 	}
+
+	dest_r->log_passthrough = src->log_passthrough;
 }
 
 static void doveadm_client_set_print_pending(struct doveadm_client *conn)
@@ -338,6 +340,10 @@ static void doveadm_client_authenticated(struct doveadm_client *conn)
 
 	if (conn->conn.minor_version >= DOVEADM_PROTOCOL_MIN_VERSION_MULTIPLEX)
 		doveadm_client_start_multiplex(conn);
+
+	if (conn->set.log_passthrough &&
+	    conn->conn.minor_version >= DOVEADM_PROTOCOL_MIN_VERSION_LOG_PASSTHROUGH)
+		o_stream_nsend_str(conn->conn.output, "\t\tOPTION\tlog-passthrough\n");
 
 	if (conn->delayed_cmd != NULL) {
 		o_stream_nsend_str(conn->conn.output, conn->delayed_cmd);

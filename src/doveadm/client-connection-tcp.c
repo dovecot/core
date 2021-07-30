@@ -26,6 +26,7 @@
 struct client_connection_tcp {
 	struct client_connection conn;
 
+	unsigned int minor_version;
 	int fd;
 	struct io *io;
 	struct istream *input;
@@ -38,7 +39,6 @@ struct client_connection_tcp {
 	bool preauthenticated:1;
 	bool authenticated:1;
 	bool io_setup:1;
-	bool use_multiplex:1;
 };
 
 static void
@@ -244,6 +244,20 @@ static void client_connection_log_passthrough(struct client_connection_tcp *conn
 	doveadm_server_capture_logs();
 }
 
+static void
+client_handle_options(struct client_connection_tcp *conn,
+		      const char *const *options)
+{
+	for (unsigned int i = 0; options[i] != NULL; i++) {
+		if (strcmp(options[i], "log-passthrough") == 0) {
+			if (conn->log_out == NULL)
+				client_connection_log_passthrough(conn);
+		} else {
+			/* unknown option - ignore */
+		}
+	}
+}
+
 static bool client_handle_command(struct client_connection_tcp *conn,
 				  const char *const *args)
 {
@@ -285,6 +299,11 @@ static bool client_handle_command(struct client_connection_tcp *conn,
 			i_error("doveadm client: Unknown flag: %c", *flags);
 			return FALSE;
 		}
+	}
+
+	if (strcmp(cmd_name, "OPTION") == 0) {
+		client_handle_options(conn, args+3);
+		return TRUE;
 	}
 
 	if (!doveadm_client_is_allowed_command(conn->conn.set, cmd_name)) {
@@ -387,7 +406,6 @@ client_connection_tcp_input(struct client_connection_tcp *conn)
 	const char *line;
 	bool ok = TRUE;
 	int ret;
-	unsigned int minor;
 
 	if (!conn->handshaked) {
 		if ((line = i_stream_read_next_line(conn->input)) == NULL) {
@@ -398,17 +416,17 @@ client_connection_tcp_input(struct client_connection_tcp *conn)
 			return;
 		}
 		if (!version_string_verify_full(line, "doveadm-server",
-				DOVEADM_SERVER_PROTOCOL_VERSION_MAJOR, &minor)) {
+				DOVEADM_SERVER_PROTOCOL_VERSION_MAJOR,
+				&conn->minor_version)) {
 			i_error("doveadm client not compatible with this server "
 				"(mixed old and new binaries?)");
 			client_connection_tcp_destroy(&conn);
 			return;
 		}
-		if (minor >= DOVEADM_PROTOCOL_MIN_VERSION_MULTIPLEX) {
+		if (conn->minor_version >= DOVEADM_PROTOCOL_MIN_VERSION_MULTIPLEX) {
 			/* send version reply */
 			o_stream_nsend_str(conn->output,
 					   DOVEADM_CLIENT_PROTOCOL_VERSION_LINE"\n");
-			conn->use_multiplex = TRUE;
 		}
 		client_connection_tcp_send_auth_handshake(conn);
 		conn->handshaked = TRUE;
@@ -427,12 +445,17 @@ client_connection_tcp_input(struct client_connection_tcp *conn)
 
 	if (!conn->io_setup) {
 		conn->io_setup = TRUE;
-                if (conn->use_multiplex) {
+		if (conn->minor_version >= DOVEADM_PROTOCOL_MIN_VERSION_MULTIPLEX) {
                         struct ostream *os = conn->output;
                         conn->output = o_stream_create_multiplex(os, SIZE_MAX);
                         o_stream_set_name(conn->output, o_stream_get_name(os));
                         o_stream_set_no_error_handling(conn->output, TRUE);
                         o_stream_unref(&os);
+		}
+		if (conn->minor_version >= DOVEADM_PROTOCOL_MIN_VERSION_MULTIPLEX &&
+		    conn->minor_version < DOVEADM_PROTOCOL_MIN_VERSION_LOG_PASSTHROUGH) {
+			/* Log passthrough supported by the client, but it's
+			   not explicitly requested. */
 			client_connection_log_passthrough(conn);
                 }
 		doveadm_print_ostream = conn->output;

@@ -44,6 +44,9 @@ struct doveadm_client_settings {
 	struct ssl_iostream_settings ssl_set;
 	/* SSL context, or NULL to create a new one. */
 	struct ssl_iostream_context *ssl_ctx;
+
+	/* Enable receiving logs from the server */
+	bool log_passthrough;
 };
 
 /* Duplicate doveadm client settings. Note that the ssl_ctx is referenced by

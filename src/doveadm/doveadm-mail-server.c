@@ -683,6 +683,7 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 		.username = ctx->set->doveadm_username,
 		.password = ctx->set->doveadm_password,
 		.ssl_flags = proxy_set.ssl_flags,
+		.log_passthrough = TRUE,
 	};
 
 	server_name = socket_path != NULL ? socket_path :
