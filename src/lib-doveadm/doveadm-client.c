@@ -18,10 +18,6 @@
 
 #define MAX_INBUF_SIZE (1024*32)
 
-#define DOVEADM_PROTO_MINOR_MIN_MULTIPLEX 1
-#define DOVEADM_PROTO_MINOR_MIN_STARTTLS 2
-#define DOVEADM_PROTO_MINOR_MIN_PROXY_TTL 3
-
 enum doveadm_client_reply_state {
 	DOVEADM_CLIENT_REPLY_STATE_DONE = 0,
 	DOVEADM_CLIENT_REPLY_STATE_PRINT,
@@ -239,7 +235,7 @@ doveadm_client_send_cmd(struct doveadm_client *conn,
 	i_assert(conn->authenticated);
 	i_assert(proxy_ttl >= 1);
 
-	if (conn->conn.minor_version < DOVEADM_PROTO_MINOR_MIN_PROXY_TTL) {
+	if (conn->conn.minor_version < DOVEADM_PROTOCOL_MIN_VERSION_PROXY_TTL) {
 		o_stream_nsend_str(conn->conn.output, cmdline);
 		return;
 	}
@@ -340,7 +336,7 @@ static void doveadm_client_authenticated(struct doveadm_client *conn)
 {
 	conn->authenticated = TRUE;
 
-	if (conn->conn.minor_version >= DOVEADM_PROTO_MINOR_MIN_MULTIPLEX)
+	if (conn->conn.minor_version >= DOVEADM_PROTOCOL_MIN_VERSION_MULTIPLEX)
 		doveadm_client_start_multiplex(conn);
 
 	if (conn->delayed_cmd != NULL) {
@@ -364,7 +360,7 @@ doveadm_client_prepare_authentication(struct doveadm_client *conn,
 	if (!conn->ssl_done &&
 	    (conn->set.ssl_flags & AUTH_PROXY_SSL_FLAG_STARTTLS) != 0) {
 		connection_input_halt(&conn->conn);
-		if (conn->conn.minor_version < DOVEADM_PROTO_MINOR_MIN_STARTTLS) {
+		if (conn->conn.minor_version < DOVEADM_PROTOCOL_MIN_VERSION_STARTTLS) {
 			e_error(conn->conn.event,
 				"doveadm STARTTLS failed: Server does not support it");
 			return -1;
