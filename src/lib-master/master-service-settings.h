@@ -49,6 +49,11 @@ struct master_service_settings_input {
 	const char *username;
 	struct ip_addr local_ip, remote_ip;
 	const char *local_name;
+
+	/* A bit of a memory saving kludge: Mail processes (especially imap)
+	   shouldn't read ssl_ca setting since it's likely not needed and it
+	   can use a lot of memory. */
+	bool no_ssl_ca;
 };
 
 struct master_service_settings_output {

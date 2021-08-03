@@ -34,6 +34,8 @@ enum mail_storage_service_flags {
 	MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS		= 0x400,
 	/* Don't create namespaces, only the user. */
 	MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES		= 0x800,
+	/* Disable reading ssl_ca setting to save memory. */
+	MAIL_STORAGE_SERVICE_FLAG_NO_SSL_CA		= 0x1000,
 };
 
 struct mail_storage_service_input {

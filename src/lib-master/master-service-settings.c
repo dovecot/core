@@ -363,6 +363,8 @@ config_build_request(struct master_service *service, string_t *str,
 		str_printfa(str, "\tmodule=%s",
 			    service->want_ssl_server ? "ssl-server" : "ssl");
 	}
+	if (input->no_ssl_ca)
+		str_append(str, "\texclude=ssl_ca\texclude=ssl_verify_client_cert");
 	if (input->service != NULL)
 		str_printfa(str, "\tservice=%s", input->service);
 	if (input->username != NULL)
