@@ -1,12 +1,10 @@
 /* Copyright (c) 2006-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "array.h"
 #include "net.h"
 #include "str.h"
 #include "strescape.h"
 #include "write-full.h"
-#include "wildcard-match.h"
 #include "mail-search-build.h"
 #include "mail-storage-private.h"
 #include "mailbox-list-private.h"
@@ -16,6 +14,7 @@
 #include "fts-build-mail.h"
 #include "fts-search-serialize.h"
 #include "fts-plugin.h"
+#include "fts-user.h"
 #include "fts-storage.h"
 
 
@@ -792,61 +791,6 @@ static int fts_copy(struct mail_save_context *ctx, struct mail *mail)
 	return 0;
 }
 
-static const char *const *fts_exclude_get_patterns(struct mail_user *user)
-{
-	ARRAY_TYPE(const_string) patterns;
-	const char *str;
-	char set_name[21 + MAX_INT_STRLEN];
-	unsigned int i;
-
-	str = mail_user_plugin_getenv(user, "fts_autoindex_exclude");
-	if (str == NULL)
-		return NULL;
-
-	t_array_init(&patterns, 16);
-	for (i = 2; str != NULL; i++) {
-		array_push_back(&patterns, &str);
-
-		if (i_snprintf(set_name, sizeof(set_name),
-			       "fts_autoindex_exclude%u", i) < 0)
-			i_unreached();
-		str = mail_user_plugin_getenv(user, set_name);
-	}
-	array_append_zero(&patterns);
-	return array_front(&patterns);
-}
-
-static bool fts_autoindex_exclude_match(struct mailbox *box)
-{
-	const char *const *exclude_list;
-	unsigned int i;
-	const struct mailbox_settings *set;
-	const char *const *special_use;
-	struct mail_user *user = box->storage->user;
-
-	exclude_list = fts_exclude_get_patterns(user);
-	if (exclude_list == NULL)
-		return FALSE;
-
-	set = mailbox_settings_find(mailbox_get_namespace(box),
-				    mailbox_get_vname(box));
-	special_use = set == NULL ? NULL :
-		t_strsplit_spaces(set->special_use, " ");
-	for (i = 0; exclude_list[i] != NULL; i++) {
-		if (exclude_list[i][0] == '\\') {
-			/* \Special-use flag */
-			if (special_use != NULL &&
-			    str_array_icase_find(special_use, exclude_list[i]))
-				return TRUE;
-		} else {
-			/* mailbox name with wildcards */
-			if (wildcard_match(box->name, exclude_list[i]))
-				return TRUE;
-		}
-	}
-	return FALSE;
-}
-
 void fts_mailbox_allocated(struct mailbox *box)
 {
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT(box->list);
@@ -859,7 +803,7 @@ void fts_mailbox_allocated(struct mailbox *box)
 	fbox = p_new(box->pool, struct fts_mailbox, 1);
 	fbox->module_ctx.super = *v;
 	box->vlast = &fbox->module_ctx.super;
-	fbox->fts_mailbox_excluded = fts_autoindex_exclude_match(box);
+	fbox->fts_mailbox_excluded = fts_user_autoindex_exclude(box);
 
 	v->get_status = fts_mailbox_get_status;
 	v->search_init = fts_mailbox_search_init;

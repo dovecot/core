@@ -3,6 +3,8 @@
 #include "lib.h"
 #include "module-context.h"
 #include "mail-user.h"
+#include "mail-storage-private.h"
+#include "mailbox-match-plugin.h"
 #include "fts-language.h"
 #include "fts-filter.h"
 #include "fts-tokenizer.h"
@@ -18,6 +20,8 @@ struct fts_user {
 	struct fts_language_list *lang_list;
 	struct fts_user_language *data_lang;
 	ARRAY_TYPE(fts_user_language) languages, data_languages;
+
+	struct mailbox_match_plugin *autoindex_exclude;
 };
 
 static MODULE_CONTEXT_DEFINE_INIT(fts_user_module,
@@ -336,6 +340,13 @@ struct fts_user_language *fts_user_get_data_lang(struct mail_user *user)
 	return fuser->data_lang;
 }
 
+bool fts_user_autoindex_exclude(struct mailbox *box)
+{
+	struct fts_user *fuser = FTS_USER_CONTEXT(box->storage->user);
+
+	return mailbox_match_plugin_exclude(fuser->autoindex_exclude, box);
+}
+
 static void fts_user_language_free(struct fts_user_language *user_lang)
 {
 	if (user_lang->filter != NULL)
@@ -357,6 +368,7 @@ static void fts_user_free(struct fts_user *fuser)
 		array_foreach_elem(&fuser->languages, user_lang)
 			fts_user_language_free(user_lang);
 	}
+	mailbox_match_plugin_deinit(&fuser->autoindex_exclude);
 }
 
 static int
@@ -392,6 +404,8 @@ int fts_mail_user_init(struct mail_user *user, bool initialize_libfts,
 			return -1;
 		}
 	}
+	fuser->autoindex_exclude =
+		mailbox_match_plugin_init(user, "fts_autoindex_exclude");
 
 	MODULE_CONTEXT_SET(user, fts_user_module, fuser);
 	return 0;
