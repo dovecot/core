@@ -42,7 +42,9 @@ bool config_export_type(string_t *str, const void *value,
 			enum setting_type type, bool dump_default,
 			bool *dump_r) ATTR_NULL(3);
 struct config_export_context *
-config_export_init(const char *const *modules, enum config_dump_scope scope,
+config_export_init(const char *const *modules,
+		   const char *const *exclude_settings,
+		   enum config_dump_scope scope,
 		   enum config_dump_flags flags,
 		   config_request_callback_t *callback, void *context)
 	ATTR_NULL(1, 5);

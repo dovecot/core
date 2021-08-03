@@ -154,7 +154,7 @@ config_dump_human_init(const char *const *modules, enum config_dump_scope scope,
 		flags |= CONFIG_DUMP_FLAG_CHECK_SETTINGS;
 	if (in_section)
 		flags |= CONFIG_DUMP_FLAG_IN_SECTION;
-	ctx->export_ctx = config_export_init(modules, scope, flags,
+	ctx->export_ctx = config_export_init(modules, NULL, scope, flags,
 					     config_request_get_strings, ctx);
 	return ctx;
 }
@@ -998,7 +998,7 @@ int main(int argc, char *argv[])
 	if (simple_output) {
 		struct config_export_context *ctx;
 
-		ctx = config_export_init(wanted_modules, scope,
+		ctx = config_export_init(wanted_modules, NULL, scope,
 					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
 					 config_request_simple_stdout,
 					 setting_name_filters);
@@ -1032,7 +1032,7 @@ int main(int argc, char *argv[])
 	} else {
 		struct config_export_context *ctx;
 
-		ctx = config_export_init(wanted_modules, CONFIG_DUMP_SCOPE_SET,
+		ctx = config_export_init(wanted_modules, NULL, CONFIG_DUMP_SCOPE_SET,
 					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
 					 config_request_putenv, NULL);
 		config_export_by_filter(ctx, &filter);

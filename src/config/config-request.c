@@ -23,6 +23,7 @@ struct config_export_context {
 	void *context;
 
 	const char *const *modules;
+	const char *const *exclude_settings;
 	enum config_dump_flags flags;
 	const struct config_module_parser *parsers;
 	struct config_module_parser *dup_parsers;
@@ -227,6 +228,10 @@ settings_export(struct config_export_context *ctx,
 	bool dump, dump_default = FALSE;
 
 	for (def = info->defines; def->key != NULL; def++) {
+		if (ctx->exclude_settings != NULL &&
+		    str_array_find(ctx->exclude_settings, def->key))
+			continue;
+
 		value = CONST_PTR_OFFSET(set, def->offset);
 		default_value = info->defaults == NULL ? NULL :
 			CONST_PTR_OFFSET(info->defaults, def->offset);
@@ -373,7 +378,9 @@ settings_export(struct config_export_context *ctx,
 }
 
 struct config_export_context *
-config_export_init(const char *const *modules, enum config_dump_scope scope,
+config_export_init(const char *const *modules,
+		   const char *const *exclude_settings,
+		   enum config_dump_scope scope,
 		   enum config_dump_flags flags,
 		   config_request_callback_t *callback, void *context)
 {
@@ -385,6 +392,8 @@ config_export_init(const char *const *modules, enum config_dump_scope scope,
 	ctx->pool = pool;
 
 	ctx->modules = modules == NULL ? NULL : p_strarray_dup(pool, modules);
+	ctx->exclude_settings = exclude_settings == NULL ? NULL :
+		p_strarray_dup(pool, exclude_settings);
 	ctx->flags = flags;
 	ctx->callback = callback;
 	ctx->context = context;
