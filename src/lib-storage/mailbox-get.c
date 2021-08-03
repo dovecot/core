@@ -109,7 +109,6 @@ mailbox_get_expunges_init(struct mailbox *box, uint64_t prev_modseq,
 							    box->view->log_file_head_seq,
 							    box->view->log_file_head_offset,
 							    &reset, &reason);
-			i_assert(ret != 0);
 		}
 		*modseq_too_old_r = TRUE;
 	}
