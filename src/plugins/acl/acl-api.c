@@ -460,7 +460,7 @@ int acl_rights_cmp(const struct acl_rights *r1, const struct acl_rights *r2)
 		return r1->global ? 1 : -1;
 	}
 
-	ret = r1->id_type - r2->id_type;
+	ret = (int)r1->id_type - (int)r2->id_type;
 	if (ret != 0)
 		return ret;
 
