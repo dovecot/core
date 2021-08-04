@@ -470,6 +470,7 @@ static int timeout_get_wait_time(struct timeout *timeout, struct timeval *tv_r,
 	if (tv_r->tv_sec == 0 && tv_r->tv_usec == 1 && !in_timeout_loop) {
 		/* Possibly 0 ms timeout. Don't wait for a full millisecond
 		   for it to trigger. */
+		tv_r->tv_usec = 0;
 		return 0;
 	}
 	if (tv_r->tv_sec > INT_MAX/1000-1)
