@@ -10,6 +10,15 @@
 
 #include <unistd.h>
 
+/* Dovecot attempts to detect also when time suddenly jumps forwards.
+   This is done by getting the minimum timeout wait in epoll() (or similar)
+   and then seeing if the current time after epoll() is past the timeout.
+   This can't be very exact, so likely the difference is always at least
+   1 microsecond. In high load situations it can be somewhat higher.
+   Dovecot generally doesn't have very important short timeouts, so to avoid
+   logging many warnings about this, use a rather high value. */
+#define IOLOOP_TIME_MOVED_FORWARDS_MIN_USECS (100000)
+
 time_t ioloop_time = 0;
 struct timeval ioloop_timeval;
 struct ioloop *current_ioloop = NULL;
@@ -647,7 +656,7 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 	} else {
 		diff_usecs = timeval_diff_usecs(&ioloop->next_max_time,
 						&ioloop_timeval);
-		if (unlikely(diff_usecs < 0)) {
+		if (unlikely(-diff_usecs >= IOLOOP_TIME_MOVED_FORWARDS_MIN_USECS)) {
 			io_loops_timeouts_update(-diff_usecs);
 			/* time moved forwards */
 			ioloop->time_moved_callback(&ioloop->next_max_time,
