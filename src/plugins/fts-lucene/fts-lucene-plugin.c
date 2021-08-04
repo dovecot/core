@@ -96,8 +96,7 @@ static void fts_lucene_mail_user_deinit(struct mail_user *user)
 {
 	struct fts_lucene_user *fuser = FTS_LUCENE_USER_CONTEXT_REQUIRE(user);
 
-	if (fuser->set.use_libfts)
-		fts_mail_user_deinit(user);
+	fts_mail_user_deinit(user);
 	fuser->module_ctx.super.deinit(user);
 }
 
@@ -116,11 +115,9 @@ static void fts_lucene_mail_user_created(struct mail_user *user)
 		/* invalid settings, disabling */
 		return;
 	}
-	if (fuser->set.use_libfts) {
-		if (fts_mail_user_init(user, &error) < 0) {
-			i_error("fts_lucene: %s", error);
-			return;
-		}
+	if (fts_mail_user_init(user, fuser->set.use_libfts, &error) < 0) {
+		i_error("fts_lucene: %s", error);
+		return;
 	}
 
 	fuser->module_ctx.super = *v;
