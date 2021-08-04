@@ -627,7 +627,7 @@ master_time_moved(const struct timeval *old_time,
 	msecs = (unsigned int)(diff/1000);
 
 	/* time moved backwards. disable launching new service processes
-	   until  */
+	   until the throttling timeout has reached. */
 	if (msecs > SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_MSECS)
 		msecs = SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_MSECS;
 	services_throttle_time_sensitives(services, msecs);
