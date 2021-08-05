@@ -378,6 +378,7 @@ static void service_monitor_prefork_timeout(struct service *service)
 static void service_monitor_start_extra_avail(struct service *service)
 {
 	if (service->process_avail >= service->set->process_min_avail ||
+	    service->process_count >= service->process_limit ||
 	    service->list->destroying)
 		return;
 
