@@ -2575,6 +2575,7 @@ static void test_bad_pipelined_data(void)
 		SMTP_CAPABILITY_BINARYMIME | SMTP_CAPABILITY_CHUNKING;
 	smtp_server_set.max_client_idle_time_msecs = 1000;
 	smtp_server_set.max_recipients = 10;
+	smtp_server_set.max_pipelined_commands = 16;
 
 	test_begin("Bad pipelined DATA");
 	test_run_client_server(&smtp_server_set,
