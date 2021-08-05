@@ -351,7 +351,7 @@ service_monitor_start_count(struct service *service, unsigned int limit)
 		/* we created some processes, they'll do the listening now */
 		service_monitor_listen_stop(service);
 	}
-	return i == count;
+	return i >= limit;
 }
 
 static void service_monitor_prefork_timeout(struct service *service)
@@ -365,8 +365,12 @@ static void service_monitor_prefork_timeout(struct service *service)
 	}
 	if (service->process_avail < service->set->process_min_avail) {
 		if (service_monitor_start_count(service, SERVICE_PREFORK_MAX_AT_ONCE) &&
-		    service->process_avail < service->set->process_min_avail)
+		    service->process_avail < service->set->process_min_avail) {
+			/* All SERVICE_PREFORK_MAX_AT_ONCE were created, but
+			   it still wasn't enough. Launch more in the next
+			   timeout. */
 			return;
+		}
 	}
 	timeout_remove(&service->to_prefork);
 }
