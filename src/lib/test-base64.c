@@ -80,7 +80,7 @@ static void test_base64_decode(void)
 			MAX_BASE64_DECODED_SIZE(strlen(tests[i].input));
 
 		buffer_create_from_data(&buf,
-					(max_decoded_size == 0 ? NULL :
+					(max_decoded_size == 0 ? "" :
 					 t_malloc0(max_decoded_size)),
 					max_decoded_size);
 		str = &buf;
@@ -204,7 +204,7 @@ static void test_base64url_decode(void)
 			MAX_BASE64_DECODED_SIZE(strlen(tests[i].input));
 
 		buffer_create_from_data(&buf,
-					(max_decoded_size == 0 ? NULL :
+					(max_decoded_size == 0 ? "" :
 					 t_malloc0(max_decoded_size)),
 					max_decoded_size);
 		str = &buf;
@@ -884,7 +884,7 @@ static void test_base64_decode_lowlevel(void)
 			MAX_BASE64_DECODED_SIZE(strlen(test->input));
 
 		buffer_create_from_data(&buf,
-					(max_decoded_size == 0 ? NULL :
+					(max_decoded_size == 0 ? "" :
 					 t_malloc0(max_decoded_size)),
 					max_decoded_size);
 		str = &buf;

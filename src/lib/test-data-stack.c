@@ -120,7 +120,7 @@ static void test_ds_grow_in_event(void)
 	i_set_debug_handler(test_ds_growing_debug);
 	buf = t_buffer_get(alloc1);
 	for (i = 0; i < alloc1; i++)
-		buf[i] = i;
+		buf[i] = i & 0xff;
 
 	test_assert(ds_grow_event_count == 0);
 	buf = t_buffer_reget(buf, 65536);

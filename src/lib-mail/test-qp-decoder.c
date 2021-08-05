@@ -163,7 +163,7 @@ static void test_qp_decoder(void)
 		str_truncate(str, 0);
 		ret = 0;
 		for (j = 0; input[j] != '\0'; j++) {
-			unsigned char c = input[j];
+			unsigned char c = (unsigned char)input[j];
 			if (qp_decoder_more(qp, &c, 1, &error_pos, &error) < 0)
 				ret = -1;
 		}

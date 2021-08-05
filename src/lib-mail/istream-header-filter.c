@@ -585,8 +585,8 @@ static void i_stream_header_filter_seek(struct istream_private *stream,
 		i_stream_header_filter_seek_to_header(mstream, v_offset);
 	} else {
 		/* body */
-		v_offset += mstream->header_size.physical_size -
-			mstream->header_size.virtual_size;
+		v_offset -= mstream->header_size.virtual_size;
+		v_offset += mstream->header_size.physical_size;
 		i_stream_seek(stream->parent,
 			      stream->parent_start_offset + v_offset);
 	}
