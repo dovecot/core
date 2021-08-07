@@ -567,6 +567,14 @@ void mail_user_set_get_temp_prefix(string_t *dest,
 	str_append_c(dest, '.');
 }
 
+const char *mail_user_get_volatile_dir(struct mail_user *user)
+{
+	struct mailbox_list *inbox_list =
+		mail_namespace_find_inbox(user->namespaces)->list;
+
+	return inbox_list->set.volatile_dir;
+}
+
 int mail_user_lock_file_create(struct mail_user *user, const char *lock_fname,
 			       unsigned int lock_secs,
 			       struct file_lock **lock_r, const char **error_r)
