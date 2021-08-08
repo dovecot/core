@@ -120,6 +120,8 @@ int dict_init(const char *uri, const struct dict_settings *set,
 	i_assert(*dict_r != NULL);
 	(*dict_r)->refcount++;
 	(*dict_r)->event = event;
+	e_debug(event_create_passthrough(event)->set_name("dict_created")->event(),
+		"dict created (uri=%s, base_dir=%s)", uri, set->base_dir);
 
 	return 0;
 }
@@ -141,6 +143,8 @@ static void dict_unref(struct dict **_dict)
 	i_assert(dict->refcount > 0);
 	if (--dict->refcount == 0) {
 		dict->v.deinit(dict);
+		e_debug(event_create_passthrough(event)->
+			set_name("dict_destroyed")->event(), "dict destroyed");
 		event_unref(&event);
 	}
 }
