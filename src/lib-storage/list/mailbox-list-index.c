@@ -305,6 +305,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 	const void *data;
 	bool expunged;
 	uint32_t seq, uid, count;
+	HASH_TABLE(uint8_t *, struct mailbox_list_index_node *) duplicate_guid;
 
 	*error_r = NULL;
 
@@ -314,6 +315,10 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 			  mailbox_list_index_node_hash,
 			  mailbox_list_index_node_cmp);
 	count = mail_index_view_get_messages_count(view);
+	if (!ilist->has_backing_store)
+		hash_table_create(&duplicate_guid, dup_pool, 0, guid_128_hash,
+				  guid_128_cmp);
+
 	for (seq = 1; seq <= count; seq++) {
 		node = p_new(ilist->mailbox_pool,
 			     struct mailbox_list_index_node, 1);
@@ -368,6 +373,24 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 				"non-selectable mailbox '%s' (uid=%u) already has GUID - "
 				"marking it selectable", node->raw_name, node->uid);
 			node->corrupted_flags = TRUE;
+		}
+
+		if (!ilist->has_backing_store && !guid_128_is_empty(irec->guid)) {
+			struct mailbox_list_index_node *dup_node;
+			uint8_t *guid_p = p_memdup(dup_pool, irec->guid,
+						   sizeof(guid_128_t));
+			if ((dup_node = hash_table_lookup(duplicate_guid, guid_p)) != NULL) {
+				*error_r = t_strdup_printf(
+						"duplicate GUID %s for mailbox '%s' and '%s'",
+						guid_128_to_string(guid_p),
+						node->raw_name,
+						dup_node->raw_name);
+				node->corrupted_ext = TRUE;
+				ilist->corrupted_names_or_parents = TRUE;
+				ilist->call_corruption_callback = TRUE;
+			} else {
+				hash_table_insert(duplicate_guid, guid_p, node);
+			}
 		}
 
 		hash_table_insert(ilist->mailbox_hash,
@@ -444,6 +467,8 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 		}
 	}
 	hash_table_destroy(&duplicate_hash);
+	if (!ilist->has_backing_store)
+		hash_table_destroy(&duplicate_guid);
 	pool_unref(&dup_pool);
 	return *error_r == NULL ? 0 : -1;
 }
