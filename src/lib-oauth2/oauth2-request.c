@@ -233,6 +233,13 @@ oauth2_request_start(const struct oauth2_settings *set,
 					       t_strdup_printf("Bearer %s",
 							       input->token));
 	}
+	if (add_auth_bearer &&
+		http_client_request_get_origin_url(req->req)->user == NULL &&
+		set->introspection_mode == INTROSPECTION_MODE_POST) {
+		http_client_request_set_auth_simple(req->req,
+			req->set->client_id,
+			req->set->client_secret);
+	}
 	http_client_request_set_timeout_msecs(req->req,
 					      req->set->timeout_msecs);
 	http_client_request_submit(req->req);
