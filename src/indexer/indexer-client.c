@@ -139,7 +139,7 @@ void indexer_client_status_callback(int percentage, void *context)
 	struct indexer_client_request *ctx = context;
 
 	/* we are in deinit already, or the client has disconnected */
-	if (ctx->client == NULL)
+	if (ctx->client->conn.output == NULL)
 		return;
 
 	T_BEGIN {
