@@ -324,8 +324,8 @@ int dbox_mailbox_create(struct mailbox *box,
 		return ret;
 	if (mailbox_open(box) < 0)
 		return -1;
-
-	if (mail_index_get_header(box->view)->uid_validity != 0) {
+	if (mail_index_get_header(box->view)->uid_validity != 0 &&
+	    !box->storage->rebuilding_list_index) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
 				       "Mailbox already exists");
 		return -1;

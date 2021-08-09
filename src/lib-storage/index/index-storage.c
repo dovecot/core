@@ -689,10 +689,12 @@ int index_storage_mailbox_create(struct mailbox *box, bool directory)
 				return -1;
 			if (existence != MAILBOX_EXISTENCE_SELECT)
 				return 1;
+		} else if (!box->storage->rebuilding_list_index) {
+			/* ignore existing location if we are recovering list index */
+			mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
+					       "Mailbox already exists");
+			return -1;
 		}
-		mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
-				       "Mailbox already exists");
-		return -1;
 	}
 
 	if (directory) {
