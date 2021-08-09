@@ -266,6 +266,7 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 int sdbox_sync_finish(struct sdbox_sync_context **_ctx, bool success)
 {
 	struct sdbox_sync_context *ctx = *_ctx;
+	struct mail_storage *storage = &ctx->mbox->storage->storage.storage;
 	int ret = success ? 0 : -1;
 
 	*_ctx = NULL;
@@ -283,6 +284,9 @@ int sdbox_sync_finish(struct sdbox_sync_context **_ctx, bool success)
 	} else {
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
+
+        if (storage->rebuild_list_index)
+		ret = mail_storage_list_index_rebuild_and_set_uncorrupted(storage);
 
 	index_storage_expunging_deinit(&ctx->mbox->box);
 	array_free(&ctx->expunged_uids);

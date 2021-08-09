@@ -319,6 +319,7 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 int mdbox_sync_finish(struct mdbox_sync_context **_ctx, bool success)
 {
 	struct mdbox_sync_context *ctx = *_ctx;
+	struct mail_storage *storage = &ctx->mbox->storage->storage.storage;
 	int ret = success ? 0 : -1;
 
 	*_ctx = NULL;
@@ -331,6 +332,9 @@ int mdbox_sync_finish(struct mdbox_sync_context **_ctx, bool success)
 	} else {
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
+
+	if (storage->rebuild_list_index)
+		ret = mail_storage_list_index_rebuild_and_set_uncorrupted(storage);
 
 	i_free(ctx);
 	return ret;

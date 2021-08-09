@@ -9,6 +9,7 @@
 #include "str-sanitize.h"
 #include "mkdir-parents.h"
 #include "dict.h"
+#include "fs-api.h"
 #include "message-header-parser.h"
 #include "mail-index-alloc-cache.h"
 #include "mail-index-private.h"
@@ -1127,6 +1128,7 @@ void index_storage_destroy(struct mail_storage *storage)
 		dict_wait(storage->_shared_attr_dict);
 		dict_deinit(&storage->_shared_attr_dict);
 	}
+	fs_unref(&storage->mailboxes_fs);
 }
 
 static void index_storage_expunging_init(struct mailbox *box)

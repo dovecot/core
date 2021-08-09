@@ -450,7 +450,7 @@ struct mail_storage sdbox_storage = {
 		sdbox_storage_autodetect,
 		sdbox_mailbox_alloc,
 		NULL,
-		NULL,
+		mail_storage_list_index_rebuild,
 	}
 };
 
@@ -469,7 +469,7 @@ struct mail_storage dbox_storage = {
 		sdbox_storage_autodetect,
 		sdbox_mailbox_alloc,
 		NULL,
-		NULL,
+		mail_storage_list_index_rebuild,
 	}
 };
 
