@@ -735,8 +735,14 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 			_ctx->exit_code = EX_USAGE;
 			return -1;
 		}
-		ctx->new_password =
-			p_strdup(_ctx->pool, t_askpass("New password: "));
+		const char *passw;
+		passw = t_askpass("New password: ");
+		if (strcmp(passw, t_askpass("Confirm new password: ")) != 0) {
+			doveadm_print("Passwords don't match, aborting");
+			_ctx->exit_code = EX_USAGE;
+			return -1;
+		}
+		ctx->new_password = p_strdup(_ctx->pool, passw);
 	}
 
 	if (ctx->clear_password &&
