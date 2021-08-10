@@ -1024,7 +1024,7 @@ DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('C', "clear-password", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('N', "ask-new-password", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('n', "new-password", CMD_PARAM_STR, 0)
-DOVEADM_CMD_PARAM('O', "ask-old-password", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('O', "ask-old-password", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('o', "old-password", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAMS_END
 };
