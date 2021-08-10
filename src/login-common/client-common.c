@@ -282,12 +282,21 @@ void client_disconnect(struct client *client, const char *reason,
 	if (client->output != NULL)
 		o_stream_uncork(client->output);
 	if (!client->login_success) {
+		bool unref = FALSE;
+
 		io_remove(&client->io);
 		ssl_iostream_destroy(&client->ssl_iostream);
-		iostream_proxy_unref(&client->iostream_fd_proxy);
+		if (client->iostream_fd_proxy != NULL) {
+			iostream_proxy_unref(&client->iostream_fd_proxy);
+			unref = TRUE;
+		}
 		i_stream_close(client->input);
 		o_stream_close(client->output);
 		i_close_fd(&client->fd);
+		if (unref) {
+			i_assert(client->refcount > 1);
+			client_unref(&client);
+		}
 	} else {
 		/* Login was successful. We may now be proxying the connection,
 		   so don't disconnect the client until client_unref(). */
