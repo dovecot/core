@@ -207,9 +207,11 @@ static void client_auth_parse_args(struct client *client, bool success,
 			reply_r->proxy_nopipelining = TRUE;
 		else if (strcmp(key, "proxy_not_trusted") == 0)
 			reply_r->proxy_not_trusted = TRUE;
-		else if (strcmp(key, "master") == 0)
-			reply_r->master_user = value;
-		else if (strcmp(key, "ssl") == 0) {
+		else if (strcmp(key, "master") == 0) {
+			/* ignore empty master field */
+			if (*value != '\0')
+				reply_r->master_user = value;
+		} else if (strcmp(key, "ssl") == 0) {
 			reply_r->ssl_flags |= PROXY_SSL_FLAG_YES;
 			if (strcmp(value, "any-cert") == 0)
 				reply_r->ssl_flags |= PROXY_SSL_FLAG_ANY_CERT;
