@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "llist.h"
+#include "mail-storage.h"
 #include "str.h"
 #include "str-sanitize.h"
 #include "sha1.h"
@@ -1821,7 +1822,7 @@ static void mailbox_close_reset_path(struct mailbox *box)
 	box->_index_path = NULL;
 }
 
-int mailbox_delete(struct mailbox *box)
+static int mailbox_delete_real(struct mailbox *box)
 {
 	bool list_locked;
 	int ret;
@@ -1863,6 +1864,15 @@ int mailbox_delete(struct mailbox *box)
 	/* if mailbox is reopened, its path may be different with
 	   LAYOUT=index */
 	mailbox_close_reset_path(box);
+	return ret;
+}
+
+int mailbox_delete(struct mailbox *box)
+{
+	int ret;
+	T_BEGIN {
+		ret = mailbox_delete_real(box);
+	} T_END;
 	return ret;
 }
 
