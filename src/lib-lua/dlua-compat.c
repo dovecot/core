@@ -146,3 +146,12 @@ lua_Integer lua_tointegerx(lua_State *L, int idx, int *isnum_r)
 	return 0;
 }
 #endif
+
+#if LUA_VERSION_NUM < 504
+#  undef lua_resume
+int lua_resume_compat(lua_State *L, lua_State *from, int nargs, int *nresults)
+{
+	*nresults = 1;
+	return lua_resume(L, from, nargs);
+}
+#endif

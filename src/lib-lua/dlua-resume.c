@@ -106,7 +106,7 @@ static void queue_resume_callback(lua_State *L, int status)
 static void dlua_pcall_yieldable_continue(lua_State *L)
 {
 	struct timeout *to;
-	int nargs;
+	int nargs, nresults;
 	int ret;
 
 	nargs = dlua_tls_get_int(L, RESUME_NARGS);
@@ -117,7 +117,7 @@ static void dlua_pcall_yieldable_continue(lua_State *L)
 	dlua_tls_clear(L, RESUME_TIMEOUT);
 	dlua_tls_clear(L, RESUME_NARGS);
 
-	ret = lua_resume(L, L, nargs);
+	ret = lua_resume(L, L, nargs, &nresults);
 	if (ret == LUA_YIELD) {
 		/*
 		 * thread yielded - nothing to do
@@ -157,6 +157,7 @@ int dlua_pcall_yieldable(lua_State *L, const char *func_name, int nargs,
 {
 	struct dlua_pcall_resume_state *state;
 	int ret;
+	int nresults;
 
 	i_assert(lua_status(L) == LUA_OK);
 
@@ -180,7 +181,7 @@ int dlua_pcall_yieldable(lua_State *L, const char *func_name, int nargs,
 	lua_insert(L, -(nargs + 1));
 
 	/* stack: func, args (top) */
-	ret = lua_resume(L, L, nargs);
+	ret = lua_resume(L, L, nargs, &nresults);
 	if (ret == LUA_YIELD) {
 		/*
 		 * thread yielded - nothing to do
