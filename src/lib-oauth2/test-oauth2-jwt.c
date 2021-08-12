@@ -475,6 +475,13 @@ static void test_jwt_bad_valid_token(void)
 			.key_values = { NULL },
 			.error = "Missing 'sub' field",
 		},
+		{ /* no expiration */
+			.key_values = {
+				"sub", "testuser",
+				NULL
+			},
+			.error = "Missing 'exp' field",
+		},
 		{ /* non-ISO date as iat */
 			.exp = now+500,
 			.iat = 0,
