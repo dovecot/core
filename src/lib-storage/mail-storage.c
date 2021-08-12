@@ -2796,7 +2796,12 @@ int mailbox_copy(struct mail_save_context **_ctx, struct mail *mail)
 	i_assert(!ctx->saving);
 	i_assert(!ctx->moving);
 
-	return mailbox_copy_int(_ctx, mail);
+	int ret;
+	T_BEGIN {
+		ret = mailbox_copy_int(_ctx, mail);
+	} T_END;
+
+	return ret;
 }
 
 int mailbox_move(struct mail_save_context **_ctx, struct mail *mail)
@@ -2808,8 +2813,10 @@ int mailbox_move(struct mail_save_context **_ctx, struct mail *mail)
 	i_assert(!ctx->moving);
 
 	ctx->moving = TRUE;
-	if ((ret = mailbox_copy_int(_ctx, mail)) == 0)
-		mail_expunge(mail);
+	T_BEGIN {
+		if ((ret = mailbox_copy_int(_ctx, mail)) == 0)
+			mail_expunge(mail);
+	} T_END;
 	ctx->moving = FALSE;
 	return ret;
 }
