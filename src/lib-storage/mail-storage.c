@@ -1980,7 +1980,7 @@ int mailbox_rename_check_children(struct mailbox *src, struct mailbox *dest)
 	return ret;
 }
 
-int mailbox_rename(struct mailbox *src, struct mailbox *dest)
+static int mailbox_rename_real(struct mailbox *src, struct mailbox *dest)
 {
 	const char *error = NULL;
 
@@ -2038,6 +2038,15 @@ int mailbox_rename(struct mailbox *src, struct mailbox *dest)
 	src->list->guid_cache_invalidated = TRUE;
 	dest->list->guid_cache_invalidated = TRUE;
 	return 0;
+}
+
+int mailbox_rename(struct mailbox *src, struct mailbox *dest)
+{
+	 int ret;
+	 T_BEGIN {
+		 ret = mailbox_rename_real(src, dest);
+	 } T_END;
+	 return ret;
 }
 
 int mailbox_set_subscribed(struct mailbox *box, bool set)
