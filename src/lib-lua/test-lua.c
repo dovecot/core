@@ -438,7 +438,7 @@ static void test_compat_tointegerx_and_isinteger(void)
 		bool isint;
 
 		/* See lua_isinteger() comment in dlua-compat.h */
-#if LUA_VERSION_NUM == 503
+#if LUA_VERSION_NUM >= 503
 		isint = FALSE;
 #else
 		isint = num_tests[i].isnum;
