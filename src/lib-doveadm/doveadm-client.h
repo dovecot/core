@@ -6,6 +6,9 @@
 
 #define DOVEADM_CLIENT_EXIT_CODE_DISCONNECTED 1000
 
+/* See LOGIN_PROXY_TTL for explanation. */
+#define DOVEADM_PROXY_TTL 5
+
 struct doveadm_client;
 struct ssl_iostream;
 

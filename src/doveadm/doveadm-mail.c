@@ -22,6 +22,7 @@
 #include "mail-search-parser.h"
 #include "mailbox-list-iter.h"
 #include "doveadm.h"
+#include "doveadm-client.h"
 #include "client-connection.h"
 #include "doveadm-settings.h"
 #include "doveadm-print.h"
@@ -30,8 +31,6 @@
 
 #include <stdio.h>
 
-/* See LOGIN_PROXY_TTL */
-#define DOVEADM_PROXY_TTL 5
 #define DOVEADM_MAIL_CMD_INPUT_TIMEOUT_MSECS (5*60*1000)
 
 struct force_resync_cmd_context {
