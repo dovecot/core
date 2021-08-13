@@ -394,7 +394,7 @@ client_connection_tcp_input(struct client_connection_tcp *conn)
 			client_connection_tcp_destroy(&conn);
 			return;
 		}
-		if (minor > 0) {
+		if (minor >= DOVEADM_PROTOCOL_MIN_VERSION_MULTIPLEX) {
 			/* send version reply */
 			o_stream_nsend_str(conn->output,
 					   DOVEADM_CLIENT_PROTOCOL_VERSION_LINE"\n");
