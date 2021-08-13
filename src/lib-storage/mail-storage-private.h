@@ -876,4 +876,8 @@ void mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 /* for unit testing */
 int mailbox_verify_name(struct mailbox *box);
 
+int mail_storage_list_index_rebuild_and_set_uncorrupted(struct mail_storage *storage);
+int mail_storage_list_index_rebuild(struct mail_storage *storage,
+				    enum mail_storage_list_index_rebuild_reason reason);
+
 #endif

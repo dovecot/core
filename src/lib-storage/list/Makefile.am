@@ -2,6 +2,7 @@ noinst_LTLIBRARIES = libstorage_list.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-fs \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-imap \
@@ -9,6 +10,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage/index
 
 libstorage_list_la_SOURCES = \
+	mail-storage-list-index-rebuild.c \
 	mailbox-list-delete.c \
 	mailbox-list-fs.c \
 	mailbox-list-fs-flags.c \
