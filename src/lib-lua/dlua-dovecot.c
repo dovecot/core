@@ -585,7 +585,7 @@ static luaL_Reg lua_dovecot_methods[] = {
 	{ NULL, NULL }
 };
 
-void dlua_getdovecot(lua_State *L)
+void dlua_get_dovecot(lua_State *L)
 {
 	lua_getglobal(L, LUA_SCRIPT_DOVECOT);
 }

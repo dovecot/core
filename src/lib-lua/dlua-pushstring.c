@@ -4,7 +4,7 @@
 #include "str.h"
 #include "dlua-script-private.h"
 
-const char *dlua_pushvfstring(lua_State *L, const char *fmt, va_list argp)
+const char *dlua_push_vfstring(lua_State *L, const char *fmt, va_list argp)
 {
 	const char *str;
 	T_BEGIN {
@@ -15,12 +15,12 @@ const char *dlua_pushvfstring(lua_State *L, const char *fmt, va_list argp)
 	return str;
 }
 
-const char *dlua_pushfstring(lua_State *L, const char *fmt, ...)
+const char *dlua_push_fstring(lua_State *L, const char *fmt, ...)
 {
 	const char *str;
 	va_list argp;
 	va_start(argp, fmt);
-	str = dlua_pushvfstring(L, fmt, argp);
+	str = dlua_push_vfstring(L, fmt, argp);
 	va_end(argp);
 	return str;
 }

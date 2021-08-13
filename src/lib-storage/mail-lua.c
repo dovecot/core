@@ -25,18 +25,18 @@ void dlua_push_mail(lua_State *L, struct mail *mail)
 	lua_pushlightuserdata(L, mail);
 	lua_setfield(L, -2, "item");
 
-#undef LUA_TABLE_SETNUMBER
-#define LUA_TABLE_SETNUMBER(field) \
+#undef LUA_TABLE_SET_NUMBER
+#define LUA_TABLE_SET_NUMBER(field) \
 	lua_pushnumber(L, mail->field); \
 	lua_setfield(L, -2, #field);
-#undef LUA_TABLE_SETBOOL
-#define LUA_TABLE_SETBOOL(field) \
+#undef LUA_TABLE_SET_BOOL
+#define LUA_TABLE_SET_BOOL(field) \
 	lua_pushboolean(L, mail->field); \
 	lua_setfield(L, -2, #field);
 
-	LUA_TABLE_SETNUMBER(seq);
-	LUA_TABLE_SETNUMBER(uid);
-	LUA_TABLE_SETBOOL(expunged);
+	LUA_TABLE_SET_NUMBER(seq);
+	LUA_TABLE_SET_NUMBER(uid);
+	LUA_TABLE_SET_BOOL(expunged);
 
 	dlua_push_mailbox(L, mail->box);
 	lua_setfield(L, -2, "mailbox");

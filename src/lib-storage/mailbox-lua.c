@@ -182,35 +182,35 @@ static int lua_storage_mailbox_status(lua_State *L)
 	lua_pushstring(L, mailbox_get_vname(mbox));
 	lua_setfield(L, -2, "mailbox");
 
-#undef LUA_TABLE_SETNUMBER
-#define LUA_TABLE_SETNUMBER(field) \
+#undef LUA_TABLE_SET_NUMBER
+#define LUA_TABLE_SET_NUMBER(field) \
 	lua_pushnumber(L, status.field); \
 	lua_setfield(L, -2, #field);
-#undef LUA_TABLE_SETBOOL
-#define LUA_TABLE_SETBOOL(field) \
+#undef LUA_TABLE_SET_BOOL
+#define LUA_TABLE_SET_BOOL(field) \
 	lua_pushboolean(L, status.field); \
 	lua_setfield(L, -2, #field);
 
-	LUA_TABLE_SETNUMBER(messages);
-	LUA_TABLE_SETNUMBER(recent);
-	LUA_TABLE_SETNUMBER(unseen);
-	LUA_TABLE_SETNUMBER(uidvalidity);
-	LUA_TABLE_SETNUMBER(uidnext);
-	LUA_TABLE_SETNUMBER(first_unseen_seq);
-	LUA_TABLE_SETNUMBER(first_recent_uid);
-	LUA_TABLE_SETNUMBER(highest_modseq);
-	LUA_TABLE_SETNUMBER(highest_pvt_modseq);
+	LUA_TABLE_SET_NUMBER(messages);
+	LUA_TABLE_SET_NUMBER(recent);
+	LUA_TABLE_SET_NUMBER(unseen);
+	LUA_TABLE_SET_NUMBER(uidvalidity);
+	LUA_TABLE_SET_NUMBER(uidnext);
+	LUA_TABLE_SET_NUMBER(first_unseen_seq);
+	LUA_TABLE_SET_NUMBER(first_recent_uid);
+	LUA_TABLE_SET_NUMBER(highest_modseq);
+	LUA_TABLE_SET_NUMBER(highest_pvt_modseq);
 
-	LUA_TABLE_SETNUMBER(permanent_flags);
-	LUA_TABLE_SETNUMBER(flags);
+	LUA_TABLE_SET_NUMBER(permanent_flags);
+	LUA_TABLE_SET_NUMBER(flags);
 
-	LUA_TABLE_SETBOOL(permanent_keywords);
-	LUA_TABLE_SETBOOL(allow_new_keywords);
-	LUA_TABLE_SETBOOL(nonpermanent_modseqs);
-	LUA_TABLE_SETBOOL(no_modseq_tracking);
-	LUA_TABLE_SETBOOL(have_guids);
-	LUA_TABLE_SETBOOL(have_save_guids);
-	LUA_TABLE_SETBOOL(have_only_guid128);
+	LUA_TABLE_SET_BOOL(permanent_keywords);
+	LUA_TABLE_SET_BOOL(allow_new_keywords);
+	LUA_TABLE_SET_BOOL(nonpermanent_modseqs);
+	LUA_TABLE_SET_BOOL(no_modseq_tracking);
+	LUA_TABLE_SET_BOOL(have_guids);
+	LUA_TABLE_SET_BOOL(have_save_guids);
+	LUA_TABLE_SET_BOOL(have_only_guid128);
 
 	if (status.keywords != NULL && array_is_created(status.keywords)) {
 		int i = 1;

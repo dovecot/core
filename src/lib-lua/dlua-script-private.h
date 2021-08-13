@@ -91,10 +91,10 @@ struct dlua_script *dlua_script_from_state(lua_State *L);
 void dlua_dovecot_register(struct dlua_script *script);
 
 /* push 'dovecot' global on top of stack */
-void dlua_getdovecot(lua_State *L);
+void dlua_get_dovecot(lua_State *L);
 
 /* assign values to table on idx */
-void dlua_setmembers(lua_State *L, const struct dlua_table_values *values, int idx);
+void dlua_set_members(lua_State *L, const struct dlua_table_values *values, int idx);
 
 /* push event to top of stack */
 void dlua_push_event(lua_State *L, struct event *event);
@@ -103,8 +103,8 @@ void dlua_push_event(lua_State *L, struct event *event);
 struct event *dlua_check_event(lua_State *L, int arg);
 
 /* improved lua_pushfstring, can handle full C format support */
-const char *dlua_pushvfstring(lua_State *L, const char *fmt, va_list argp) ATTR_FORMAT(2, 0);
-const char *dlua_pushfstring(lua_State *L, const char *fmt, ...) ATTR_FORMAT(2, 3);
+const char *dlua_push_vfstring(lua_State *L, const char *fmt, va_list argp) ATTR_FORMAT(2, 0);
+const char *dlua_push_fstring(lua_State *L, const char *fmt, ...) ATTR_FORMAT(2, 3);
 
 /* improved luaL_error, can handle full C format support */
 int dluaL_error(lua_State *L, const char *fmt, ...) ATTR_FORMAT(2, 3);

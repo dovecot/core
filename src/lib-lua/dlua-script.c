@@ -387,7 +387,7 @@ bool dlua_script_has_function(struct dlua_script *script, const char *fn)
 	return ret;
 }
 
-void dlua_setmembers(lua_State *L, const struct dlua_table_values *values,
+void dlua_set_members(lua_State *L, const struct dlua_table_values *values,
 		     int idx)
 {
 	i_assert(L != NULL);
