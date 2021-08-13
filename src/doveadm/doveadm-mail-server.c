@@ -516,6 +516,7 @@ static void doveadm_server_flush_one(struct doveadm_server *server)
 static int
 doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 				  struct auth_proxy_settings *proxy_set_r,
+				  const char **socket_path_r,
 				  const char **referral_r,
 				  const char **error_r)
 {
@@ -524,13 +525,19 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 	bool nologin;
 	int ret;
 
+	*socket_path_r = NULL;
 	i_zero(proxy_set_r);
 	proxy_set_r->username = ctx->cctx->username;
 	/* Note that doveadm_socket_path can come from --socket-path
 	   parameter. */
-	if (net_str2hostport(ctx->set->doveadm_socket_path,
-			     ctx->set->doveadm_port,
-			     &proxy_set_r->host, &proxy_set_r->port) < 0) {
+	if (strchr(ctx->set->doveadm_socket_path, '/') != NULL) {
+		*socket_path_r = ctx->set->doveadm_socket_path;
+		/* initialize the default port already, since socket_path may
+		   still change into host. */
+		proxy_set_r->port = ctx->set->doveadm_port;
+	} else if (net_str2hostport(ctx->set->doveadm_socket_path,
+				    ctx->set->doveadm_port,
+				    &proxy_set_r->host, &proxy_set_r->port) < 0) {
 		*error_r = t_strdup_printf("Invalid socket path '%s'",
 					   ctx->set->doveadm_socket_path);
 		return -1;
@@ -562,9 +569,10 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 						 proxy_set_r, &nologin,
 						 error_r) < 0)
 			ret = -1;
-		else if (proxy_set_r->proxy)
+		else if (proxy_set_r->proxy) {
+			*socket_path_r = NULL;
 			ret = 1;
-		else if (!nologin) {
+		} else if (!nologin) {
 			proxy_set_r->host = orig_host;
 			ret = 0;
 		} else if (proxy_set_r->host == NULL) {
@@ -590,14 +598,14 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	struct doveadm_server *server;
 	struct server_connection *conn;
 	struct auth_proxy_settings proxy_set;
-	const char *server_name, *referral;
+	const char *server_name, *socket_path, *referral;
 	char *username_dup;
 	int ret;
 
 	i_assert(cmd_ctx == ctx || cmd_ctx == NULL);
 	cmd_ctx = ctx;
 
-	ret = doveadm_mail_server_user_get_host(ctx, &proxy_set,
+	ret = doveadm_mail_server_user_get_host(ctx, &proxy_set, &socket_path,
 						&referral, error_r);
 	if (ret < 0)
 		return ret;
@@ -614,8 +622,8 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 		ctx->cctx->referral = referral;
 		return 1;
 	}
-	i_assert(proxy_set.host != NULL);
-	i_assert(proxy_set.port != 0);
+	i_assert(proxy_set.host != NULL || socket_path != NULL);
+	i_assert(proxy_set.port != 0 || socket_path != NULL);
 	i_assert(proxy_set.username != NULL);
 
 	ctx->cctx->proxy_redirect_reauth = proxy_set.redirect_reauth;
@@ -624,7 +632,8 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	   so undo any sticks we might have added already */
 	doveadm_print_unstick_headers();
 
-	server_name = t_strdup_printf("%s:%u", proxy_set.host, proxy_set.port);
+	server_name = socket_path != NULL ? socket_path :
+		t_strdup_printf("%s:%u", proxy_set.host, proxy_set.port);
 	server = doveadm_server_get(server_name);
 	server->ip = proxy_set.host_ip;
 	server->ssl_flags = proxy_set.ssl_flags;
