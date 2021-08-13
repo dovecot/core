@@ -417,6 +417,8 @@ int mail_storage_create_full(struct mail_namespace *ns, const char *driver,
 	}
 
 	storage = storage_class->v.alloc();
+	if (storage->lost_mailbox_prefix == NULL)
+		storage->lost_mailbox_prefix = MAIL_STORAGE_LOST_MAILBOX_PREFIX;
 	storage->refcount = 1;
 	storage->storage_class = storage_class;
 	storage->user = ns->user;

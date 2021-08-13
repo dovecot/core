@@ -12,6 +12,7 @@
 
 struct file_lock;
 struct file_create_settings;
+struct fs;
 
 /* Default prefix for indexes */
 #define MAIL_INDEX_PREFIX "dovecot.index"
@@ -22,6 +23,8 @@ struct file_create_settings;
 #define MAIL_READ_FULL_BLOCK_SIZE IO_BLOCK_SIZE
 
 #define MAIL_SHARED_STORAGE_NAME "shared"
+
+#define MAIL_STORAGE_LOST_MAILBOX_PREFIX "recovered-lost-folder-"
 
 enum mail_storage_list_index_rebuild_reason {
 	/* Mailbox list index was found to be corrupted. */
@@ -153,6 +156,9 @@ struct mail_storage {
 	 * uniqueness checking (via strcmp) and never used as a path. */
 	const char *unique_root_dir;
 
+	/* prefix for lost mailbox */
+	const char *lost_mailbox_prefix;
+
 	/* Last error set in mail_storage_set_critical(). */
 	char *last_internal_error;
 
@@ -176,12 +182,17 @@ struct mail_storage {
 	   attributes. */
 	struct dict *_shared_attr_dict;
 
+	/* optional fs-api object for accessing mailboxes */
+	struct fs *mailboxes_fs;
+
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY(union mail_storage_module_context *) module_contexts;
 
 	/* Failed to create shared attribute dict, don't try again */
 	bool shared_attr_dict_failed:1;
 	bool last_error_is_internal:1;
+	bool rebuilding_list_index:1;
+	bool rebuild_list_index:1;
 };
 
 struct mail_attachment_part {
