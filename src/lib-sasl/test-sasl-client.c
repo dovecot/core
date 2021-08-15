@@ -5,6 +5,7 @@
 #include "dsasl-client.h"
 
 static const struct dsasl_client_settings sasl_empty_set = {
+	.authid = NULL,
 };
 
 static const struct dsasl_client_settings sasl_no_password_set = {
