@@ -57,6 +57,7 @@ mech_oauthbearer_input(struct dsasl_client *_client,
 
 		/* deinitialize json parser */
 		int ret = json_parser_deinit(&parser, &error);
+		i_stream_unref(&is);
 
 		if (status != NULL)
 			client->status = p_strdup(_client->pool, status);
