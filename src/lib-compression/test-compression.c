@@ -9,6 +9,7 @@
 #include "randgen.h"
 #include "test-common.h"
 #include "compression.h"
+#include "iostream-lz4.h"
 
 #include "hex-binary.h"
 
@@ -952,6 +953,48 @@ static void test_gz_large_header(void)
 	test_gz_large_header_int(TRUE);
 }
 
+static void test_lz4_small_header(void)
+{
+	const struct compression_handler *lz4;
+	struct iostream_lz4_header lz4_input;
+	struct istream *file_input, *input;
+
+	if (compression_lookup_handler("lz4", &lz4) <= 0)
+		return; /* not compiled in or unkown */
+
+	test_begin("lz4 small header");
+
+	memcpy(lz4_input.magic, IOSTREAM_LZ4_MAGIC, IOSTREAM_LZ4_MAGIC_LEN);
+	lz4_input.max_uncompressed_chunk_size[0] = 0;
+	lz4_input.max_uncompressed_chunk_size[1] = 1;
+	lz4_input.max_uncompressed_chunk_size[2] = 0;
+	lz4_input.max_uncompressed_chunk_size[3] = 0;
+
+	/* truncated header */
+	file_input = i_stream_create_from_data(&lz4_input, sizeof(lz4_input)-1);
+	input = lz4->create_istream(file_input);
+	test_assert(i_stream_read(input) == -1 &&
+		    input->stream_errno == EINVAL);
+	i_stream_unref(&input);
+	i_stream_unref(&file_input);
+
+	/* partial initial header read */
+	file_input = test_istream_create_data(&lz4_input, sizeof(lz4_input));
+	file_input->blocking = TRUE;
+
+	test_istream_set_max_buffer_size(file_input, sizeof(lz4_input)-1);
+	(void)i_stream_read(file_input);
+	test_istream_set_max_buffer_size(file_input, sizeof(lz4_input));
+
+	input = lz4->create_istream(file_input);
+	test_assert(i_stream_read(input) == -1 &&
+		    input->stream_errno == 0);
+	i_stream_unref(&input);
+	i_stream_unref(&file_input);
+
+	test_end();
+}
+
 static void test_uncompress_file(const char *path)
 {
 	const struct compression_handler *handler;
@@ -1063,6 +1106,7 @@ int main(int argc, char *argv[])
 		test_gz_no_concat,
 		test_gz_header,
 		test_gz_large_header,
+		test_lz4_small_header,
 		test_compression_ext,
 		NULL
 	};

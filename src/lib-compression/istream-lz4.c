@@ -47,11 +47,12 @@ static int i_stream_lz4_read_header(struct lz4_istream *zstream)
 	size_t size;
 	int ret;
 
-	ret = i_stream_read_more(zstream->istream.parent, &data, &size);
+	ret = i_stream_read_bytes(zstream->istream.parent, &data,
+				  &size, sizeof(*hdr));
 	size = I_MIN(size, sizeof(*hdr));
 	buffer_append(zstream->chunk_buf, data, size);
 	i_stream_skip(zstream->istream.parent, size);
-	if (ret < 0) {
+	if (ret < 0 || (ret == 0 && zstream->istream.istream.eof)) {
 		i_assert(ret != -2);
 		if (zstream->istream.istream.stream_errno == 0) {
 			lz4_read_error(zstream, "missing header (not lz4 file?)");
@@ -61,10 +62,10 @@ static int i_stream_lz4_read_header(struct lz4_istream *zstream)
 				zstream->istream.parent->stream_errno;
 		return ret;
 	}
-	if (ret == 0 && !zstream->istream.istream.eof)
+	if (zstream->chunk_buf->used < sizeof(*hdr)) {
+		i_assert(!zstream->istream.istream.blocking);
 		return 0;
-	if (zstream->chunk_buf->used < sizeof(*hdr))
-		return 0;
+	}
 
 	hdr = zstream->chunk_buf->data;
 	if (ret == 0 || memcmp(hdr->magic, IOSTREAM_LZ4_MAGIC,
