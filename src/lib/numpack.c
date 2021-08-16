@@ -16,6 +16,7 @@ void numpack_encode(buffer_t *buf, uint64_t num)
 }
 
 int numpack_decode(const uint8_t **p, const uint8_t *end, uint64_t *num_r)
+	ATTR_UNSIGNED_WRAPS
 {
 	const uint8_t *c = *p;
 	uint64_t value = 0;

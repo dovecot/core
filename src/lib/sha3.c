@@ -69,7 +69,7 @@ static const unsigned keccakf_piln[24] = {
 /* generally called after SHA3_KECCAK_SPONGE_WORDS-ctx->capacityWords words
  * are XORed into the state s
  */
-static void
+static void ATTR_UNSIGNED_WRAPS
 keccakf(uint64_t s[25])
 {
 	int i, j, round;

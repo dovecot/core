@@ -437,7 +437,8 @@ static void BF_encode(char *dst, const BF_word *src, size_t size)
 	} while (sptr < end);
 }
 
-static void BF_swap(BF_word *x, int count)
+static void ATTR_UNSIGNED_WRAPS
+BF_swap(BF_word *x, int count)
 {
 	static int endianness_check = 1;
 	char *is_little_endian = (char *)&endianness_check;
@@ -534,7 +535,8 @@ static void BF_swap(BF_word *x, int count)
 		*(ptr - 1) = R; \
 	} while (ptr < &data.ctx.S[3][0xFF]);
 
-static void BF_set_key(const char *key, BF_key expanded, BF_key initial,
+static void ATTR_UNSIGNED_WRAPS
+BF_set_key(const char *key, BF_key expanded, BF_key initial,
     unsigned char flags)
 {
 	const char *ptr = key;
