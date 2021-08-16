@@ -52,6 +52,7 @@ static int i_stream_lz4_read_header(struct lz4_istream *zstream)
 	buffer_append(zstream->chunk_buf, data, size);
 	i_stream_skip(zstream->istream.parent, size);
 	if (ret < 0) {
+		i_assert(ret != -2);
 		if (zstream->istream.istream.stream_errno == 0) {
 			lz4_read_error(zstream, "missing header (not lz4 file?)");
 			zstream->istream.istream.stream_errno = EINVAL;
@@ -99,6 +100,7 @@ static int i_stream_lz4_read_chunk_header(struct lz4_istream *zstream)
 	buffer_append(zstream->chunk_buf, data, size);
 	i_stream_skip(stream->parent, size);
 	if (ret < 0) {
+		i_assert(ret != -2);
 		stream->istream.stream_errno = stream->parent->stream_errno;
 		if (stream->istream.stream_errno == 0) {
 			stream->istream.eof = TRUE;
