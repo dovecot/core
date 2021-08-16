@@ -7,24 +7,7 @@
 static void test_event_filter_override_parent_fields(void)
 {
 	struct event_filter *filter;
-	struct event_filter_field parent_query_fields[] = {
-		{ .key = "str", .value = "parent_str" },
-		{ .key = "int1", .value = "0" },
-		{ .key = "int2", .value = "5" },
-		{ .key = NULL, .value = NULL }
-	};
-	const struct event_filter_query parent_query = {
-		.fields = parent_query_fields,
-	};
-	struct event_filter_field child_query_fields[] = {
-		{ .key = "str", .value = "child_str" },
-		{ .key = "int1", .value = "6" },
-		{ .key = "int2", .value = "0" },
-		{ .key = NULL, .value = NULL }
-	};
-	const struct event_filter_query child_query = {
-		.fields = child_query_fields,
-	};
+	const char *error;
 	const struct failure_context failure_ctx = {
 		.type = LOG_TYPE_DEBUG
 	};
@@ -42,13 +25,13 @@ static void test_event_filter_override_parent_fields(void)
 	event_add_int(child, "int2", 0);
 
 	filter = event_filter_create();
-	event_filter_add(filter, &parent_query);
+	test_assert(event_filter_parse("str=parent_str AND int1=0 AND int2=5", filter, &error) == 0);
 	test_assert(event_filter_match(filter, parent, &failure_ctx));
 	test_assert(!event_filter_match(filter, child, &failure_ctx));
 	event_filter_unref(&filter);
 
 	filter = event_filter_create();
-	event_filter_add(filter, &child_query);
+	test_assert(event_filter_parse("str=child_str AND int1=6 AND int2=0", filter, &error) == 0);
 	test_assert(event_filter_match(filter, child, &failure_ctx));
 	test_assert(!event_filter_match(filter, parent, &failure_ctx));
 	event_filter_unref(&filter);
@@ -61,13 +44,7 @@ static void test_event_filter_override_parent_fields(void)
 static void test_event_filter_clear_parent_fields(void)
 {
 	struct event_filter *filter;
-	struct event_filter_field filter_fields[] = {
-		{ .key = "", .value = "*" },
-		{ .key = NULL, .value = NULL }
-	};
-	const struct event_filter_query query = {
-		.fields = filter_fields,
-	};
+	const char *error;
 	const struct failure_context failure_ctx = {
 		.type = LOG_TYPE_DEBUG
 	};
@@ -85,9 +62,9 @@ static void test_event_filter_clear_parent_fields(void)
 
 	for (unsigned int i = 0; i < N_ELEMENTS(keys); i++) {
 		/* match any value */
-		filter_fields[0].key = keys[i];
+		const char *query = t_strdup_printf("%s=*", keys[i]);
 		filter = event_filter_create();
-		event_filter_add(filter, &query);
+		test_assert(event_filter_parse(query, filter, &error) == 0);
 
 		test_assert_idx(event_filter_match(filter, parent, &failure_ctx), i);
 		test_assert_idx(!event_filter_match(filter, child, &failure_ctx), i);
@@ -95,21 +72,15 @@ static void test_event_filter_clear_parent_fields(void)
 	}
 
 	/* match empty field */
-	filter_fields[0].key = "str";
-	filter_fields[0].value = "";
 	filter = event_filter_create();
-	event_filter_add(filter, &query);
-
+	test_assert(event_filter_parse("str=\"\"", filter, &error) == 0);
 	test_assert(!event_filter_match(filter, parent, &failure_ctx));
 	test_assert(event_filter_match(filter, child, &failure_ctx));
 	event_filter_unref(&filter);
 
 	/* match nonexistent field */
-	filter_fields[0].key = "nonexistent";
-	filter_fields[0].value = "";
 	filter = event_filter_create();
-	event_filter_add(filter, &query);
-
+	test_assert(event_filter_parse("nonexistent=\"\"", filter, &error) == 0);
 	test_assert(event_filter_match(filter, parent, &failure_ctx));
 	test_assert(event_filter_match(filter, child, &failure_ctx));
 	event_filter_unref(&filter);
@@ -122,13 +93,7 @@ static void test_event_filter_clear_parent_fields(void)
 static void test_event_filter_inc_int(void)
 {
 	struct event_filter *filter;
-	struct event_filter_field filter_fields[] = {
-		{ .key = "int", .value = "14" },
-		{ .key = NULL, .value = NULL }
-	};
-	const struct event_filter_query query = {
-		.fields = filter_fields,
-	};
+	const char *error;
 	const struct failure_context failure_ctx = {
 		.type = LOG_TYPE_DEBUG
 	};
@@ -138,7 +103,7 @@ static void test_event_filter_inc_int(void)
 	struct event *root = event_create(NULL);
 
 	filter = event_filter_create();
-	event_filter_add(filter, &query);
+	test_assert(event_filter_parse("int=14", filter, &error) == 0);
 
 	const struct event_field *f = event_find_field_recursive(root, "int");
 	i_assert(f == NULL);
@@ -175,12 +140,9 @@ static void test_event_filter_parent_category_match(void)
 		.name = "child",
 	};
 	struct event_filter *filter;
+	const char *error;
 	const struct failure_context failure_ctx = {
 		.type = LOG_TYPE_DEBUG
-	};
-	const char *query_categories[] = { "parent", NULL };
-	struct event_filter_query query = {
-		.categories = query_categories,
 	};
 
 	test_begin("event filter: parent category match");
@@ -189,7 +151,7 @@ static void test_event_filter_parent_category_match(void)
 	event_add_category(e, &child_category);
 
 	filter = event_filter_create();
-	event_filter_add(filter, &query);
+	test_assert(event_filter_parse("category=parent", filter, &error) == 0);
 
 	test_assert(event_filter_match(filter, e, &failure_ctx));
 
