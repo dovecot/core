@@ -149,7 +149,7 @@ static ssize_t i_stream_lz4_read(struct istream_private *stream)
 
 	if (zstream->chunk_left == 0) {
 		while ((ret = i_stream_lz4_read_chunk_header(zstream)) == 0) {
-			if (ret == 0 && !stream->istream.blocking)
+			if (!stream->istream.blocking)
 				return 0;
 		}
 		if (ret < 0)
