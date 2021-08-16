@@ -264,17 +264,6 @@ doveadm_client_send_cmd(struct doveadm_client *conn,
 	o_stream_nsendv(conn->conn.output, iov, N_ELEMENTS(iov));
 }
 
-static void doveadm_client_authenticated(struct doveadm_client *conn)
-{
-	conn->authenticated = TRUE;
-	if (conn->delayed_cmd != NULL) {
-		doveadm_client_send_cmd(conn, conn->delayed_cmd,
-					conn->delayed_cmd_proxy_ttl);
-		conn->delayed_cmd = NULL;
-		doveadm_client_send_cmd_input(conn);
-	}
-}
-
 static int
 doveadm_client_authenticate(struct doveadm_client *conn)
 {
@@ -345,6 +334,17 @@ static void doveadm_client_start_multiplex(struct doveadm_client *conn)
 
 	/* recreate IO using multiplex istream */
 	connection_streams_changed(&conn->conn);
+}
+
+static void doveadm_client_authenticated(struct doveadm_client *conn)
+{
+	conn->authenticated = TRUE;
+	if (conn->delayed_cmd != NULL) {
+		doveadm_client_send_cmd(conn, conn->delayed_cmd,
+					conn->delayed_cmd_proxy_ttl);
+		conn->delayed_cmd = NULL;
+		doveadm_client_send_cmd_input(conn);
+	}
 }
 
 static void doveadm_client_input(struct connection *_conn)
