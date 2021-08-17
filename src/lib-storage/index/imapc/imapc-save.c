@@ -10,6 +10,7 @@
 #include "index-mail.h"
 #include "mail-copy.h"
 #include "mailbox-list-private.h"
+#include "imapc-msgmap.h"
 #include "imapc-storage.h"
 #include "imapc-sync.h"
 #include "imapc-mail.h"
@@ -403,14 +404,29 @@ int imapc_copy(struct mail_save_context *_ctx, struct mail *mail)
 {
 	struct imapc_save_context *ctx = IMAPC_SAVECTX(_ctx);
 	struct mailbox_transaction_context *_t = _ctx->transaction;
-	struct imapc_mailbox *src_mbox = IMAPC_MAILBOX(mail->box);
+	struct imapc_mailbox *src_mbox;
+	struct imapc_msgmap *src_msgmap;
 	struct imapc_command *cmd;
 	struct imapc_save_cmd_context sctx;
+	uint32_t rseq;
 
 	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
 	if (_t->box->storage == mail->box->storage) {
+		src_mbox = IMAPC_MAILBOX(mail->box);
 		/* same server, we can use COPY for the mail */
+		src_msgmap =
+			imapc_client_mailbox_get_msgmap(src_mbox->client_box);
+		if (mail->expunged ||
+		    !imapc_msgmap_uid_to_rseq(src_msgmap, mail->uid, &rseq)) {
+			mail_storage_set_error(mail->box->storage,
+					       MAIL_ERROR_EXPUNGED,
+					       "Some of the requested messages no longer exist.");
+			ctx->finished = TRUE;
+			index_save_context_free(_ctx);
+			return -1;
+		}
+		/* Mail has not been expunged and can be copied. */
 		sctx.ret = -2;
 		sctx.ctx = ctx;
 		cmd = imapc_client_mailbox_cmd(src_mbox->client_box,
