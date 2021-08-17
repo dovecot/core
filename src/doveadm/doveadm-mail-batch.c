@@ -149,8 +149,8 @@ static void cmd_batch_deinit(struct doveadm_mail_cmd_context *_ctx)
 	struct doveadm_mail_cmd_context *cmd;
 
 	array_foreach_elem(&ctx->commands, cmd) {
-		if (cmd->v.deinit != NULL)
-			cmd->v.deinit(cmd);
+		doveadm_mail_cmd_deinit(cmd);
+		doveadm_mail_cmd_free(cmd);
 	}
 }
 
