@@ -800,6 +800,7 @@ void doveadm_mail_init_finish(void)
 void doveadm_mail_deinit(void)
 {
 	mail_storage_deinit();
+	module_dir_unload(&mail_storage_service_modules);
 }
 
 static int doveadm_cmd_parse_arg(struct doveadm_mail_cmd_context *mctx,
