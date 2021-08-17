@@ -1095,9 +1095,9 @@ int fs_get_nlinks(struct fs_file *file, nlink_t *nlinks_r)
 int fs_default_copy(struct fs_file *src, struct fs_file *dest)
 {
 	int tmp_errno;
-	/* we're going to be counting this as read+write, so remove the
-	   copy_count we just added */
-	dest->fs->stats.copy_count--;
+	/* we're going to be counting this as read+write, so don't update
+	   copy_count */
+	dest->copy_counted = TRUE;
 
 	if (dest->copy_src != NULL) {
 		i_assert(src == NULL || src == dest->copy_src);
@@ -1163,7 +1163,10 @@ int fs_copy(struct fs_file *src, struct fs_file *dest)
 	} T_END;
 	if (!(ret < 0 && errno == EAGAIN)) {
 		fs_file_timing_end(dest, FS_OP_COPY);
-		dest->fs->stats.copy_count++;
+		if (dest->copy_counted)
+			dest->copy_counted = FALSE;
+		else
+			dest->fs->stats.copy_count++;
 		dest->metadata_changed = FALSE;
 	}
 	return ret;
@@ -1178,7 +1181,10 @@ int fs_copy_finish_async(struct fs_file *dest)
 	} T_END;
 	if (!(ret < 0 && errno == EAGAIN)) {
 		fs_file_timing_end(dest, FS_OP_COPY);
-		dest->fs->stats.copy_count++;
+		if (dest->copy_counted)
+			dest->copy_counted = FALSE;
+		else
+			dest->fs->stats.copy_count++;
 		dest->metadata_changed = FALSE;
 	}
 	return ret;

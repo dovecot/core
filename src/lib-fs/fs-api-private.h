@@ -141,6 +141,7 @@ struct fs_file {
 	bool read_or_prefetch_counted:1;
 	bool lookup_metadata_counted:1;
 	bool stat_counted:1;
+	bool copy_counted:1;
 	bool istream_open:1;
 	bool last_error_changed:1;
 };
