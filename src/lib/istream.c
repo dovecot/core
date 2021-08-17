@@ -57,9 +57,17 @@ void i_stream_unref(struct istream **stream)
 
 	_stream = (*stream)->real_stream;
 
-	if (!io_stream_unref(&_stream->iostream)) {
-		str_free(&_stream->line_str);
+	if (_stream->iostream.refcount > 1) {
+		if (!io_stream_unref(&_stream->iostream))
+			i_unreached();
+	} else {
+		/* The snapshot may contain pointers to the parent istreams.
+		   Free it before io_stream_unref() frees the parents. */
 		i_stream_snapshot_free(&_stream->prev_snapshot);
+
+		if (io_stream_unref(&_stream->iostream))
+			i_unreached();
+		str_free(&_stream->line_str);
 		i_stream_unref(&_stream->parent);
 		io_stream_free(&_stream->iostream);
 	}
