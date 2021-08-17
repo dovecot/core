@@ -662,10 +662,8 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
 		doveadm_mail_all_users(ctx, wildcard_user);
 	}
-	if (ctx->search_args != NULL)
-		mail_search_args_unref(&ctx->search_args);
 	doveadm_mail_server_flush();
-	ctx->v.deinit(ctx);
+	doveadm_mail_cmd_deinit(ctx);
 	doveadm_print_flush();
 
 	/* service deinit unloads mail plugins, so do it late */
@@ -673,6 +671,13 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 
 	if (ctx->exit_code != 0)
 		doveadm_exit_code = ctx->exit_code;
+}
+
+void doveadm_mail_cmd_deinit(struct doveadm_mail_cmd_context *ctx)
+{
+	ctx->v.deinit(ctx);
+	if (ctx->search_args != NULL)
+		mail_search_args_unref(&ctx->search_args);
 }
 
 void doveadm_mail_cmd_free(struct doveadm_mail_cmd_context *ctx)
