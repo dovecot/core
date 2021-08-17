@@ -63,7 +63,9 @@ static void cmd_pw(struct doveadm_cmd_context *cctx)
 		for (i = 0; i < count; i++)
 			printf("%s ", schemes[i]->name);
 		printf("\n");
-		lib_exit(0);
+		module_dir_unload(&modules);
+		password_schemes_deinit();
+		return;
 	}
 
 	scheme = scheme == NULL ? DEFAULT_SCHEME : t_str_ucase(scheme);
