@@ -56,7 +56,7 @@ void lua_seti(lua_State *L, int index, lua_Integer n);
 lua_Integer lua_tointegerx(lua_State *L, int idx, int *isnum_r);
 #endif
 
-#if LUA_VERSION_NUM < 504
+#if LUA_VERSION_NUM > 501 && LUA_VERSION_NUM < 504
 /*
  * lua_resume() compatibility function. Lua 5.4 expects an extra "nresults"
  * argeument.
