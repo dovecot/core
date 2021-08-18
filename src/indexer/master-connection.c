@@ -86,12 +86,14 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 				 &metadata) < 0) {
 		e_error(index_event, "Precache-fields lookup failed: %s",
 			mailbox_get_last_internal_error(box, NULL));
+		event_unref(&index_event);
 		return -1;
 	}
 	if (mailbox_get_status(box, STATUS_MESSAGES | STATUS_LAST_CACHED_SEQ,
 			       &status) < 0) {
 		e_error(index_event, "Status lookup failed: %s",
 			mailbox_get_last_internal_error(box, NULL));
+		event_unref(&index_event);
 		return -1;
 	}
 	seq = status.last_cached_seq + 1;
