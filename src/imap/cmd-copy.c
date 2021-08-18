@@ -309,6 +309,7 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 			mail_search_args_unref(&search_args);
 			client_send_box_error(cmd, copy_ctx.srcbox);
 			mailbox_free(&copy_ctx.srcbox);
+			mailbox_free(&destbox);
 			return TRUE;
 		}
 	}
