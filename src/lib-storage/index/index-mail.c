@@ -1367,9 +1367,13 @@ int index_mail_init_stream(struct index_mail *mail,
 	if (hdr_size != NULL || body_size != NULL)
 		(void)get_cached_msgpart_sizes(mail);
 
-	if (hdr_size != NULL || body_size != NULL || want_attachment_kw) {
+	bool want_body_parsing = want_attachment_kw ||
+		(body_size != NULL && !data->body_size_set &&
+		 (data->access_part & PARSE_BODY) != 0);
+
+	if (hdr_size != NULL || body_size != NULL || want_body_parsing) {
 		i_stream_seek(data->stream, 0);
-		if (!data->hdr_size_set || want_attachment_kw) {
+		if (!data->hdr_size_set || want_body_parsing) {
 			if ((data->access_part & (PARSE_HDR | PARSE_BODY)) != 0) {
 				(void)get_cached_parts(mail);
 				if (index_mail_parse_headers_internal(mail, NULL) < 0)
@@ -1389,10 +1393,10 @@ int index_mail_init_stream(struct index_mail *mail,
 			*hdr_size = data->hdr_size;
 	}
 
-	if (body_size != NULL || want_attachment_kw) {
+	if (body_size != NULL || want_body_parsing) {
 		if (!data->body_size_set && body_size != NULL)
 			index_mail_get_cached_body_size(mail);
-		if (!data->body_size_set || want_attachment_kw) {
+		if (!data->body_size_set || want_body_parsing) {
 			i_stream_seek(data->stream,
 				      data->hdr_size.physical_size);
 			if ((data->access_part & PARSE_BODY) != 0) {
