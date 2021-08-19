@@ -308,7 +308,9 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 
 	*error_r = NULL;
 
-	hash_table_create(&duplicate_hash, default_pool, 0,
+	pool_t dup_pool =
+		pool_alloconly_create(MEMPOOL_GROWING"duplicate pool", 2048);
+	hash_table_create(&duplicate_hash, dup_pool, 0,
 			  mailbox_list_index_node_hash,
 			  mailbox_list_index_node_cmp);
 	count = mail_index_view_get_messages_count(view);
@@ -442,6 +444,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 		}
 	}
 	hash_table_destroy(&duplicate_hash);
+	pool_unref(&dup_pool);
 	return *error_r == NULL ? 0 : -1;
 }
 
