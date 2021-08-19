@@ -22,6 +22,8 @@ static const struct message_parser_settings msg_parser_set = {
 	.flags = MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK,
 };
 
+static void index_mail_filter_stream_destroy(struct index_mail *mail);
+
 static int header_line_cmp(const struct index_mail_line *l1,
 			   const struct index_mail_line *l2)
 {
@@ -30,6 +32,11 @@ static int header_line_cmp(const struct index_mail_line *l1,
 	diff = (int)l1->field_idx - (int)l2->field_idx;
 	return diff != 0 ? diff :
 		(int)l1->line_num - (int)l2->line_num;
+}
+
+static void index_mail_parse_header_deinit(struct index_mail *mail)
+{
+	mail->data.header_parser_initialized = FALSE;
 }
 
 static void index_mail_parse_header_finish(struct index_mail *mail)
@@ -134,7 +141,7 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 	}
 
 	mail->data.dont_cache_field_idx = UINT_MAX;
-	mail->data.header_parser_initialized = FALSE;
+	index_mail_parse_header_deinit(mail);
 }
 
 static unsigned int
@@ -195,6 +202,7 @@ void index_mail_parse_header_init(struct index_mail *mail,
 	const uint8_t *match;
 	unsigned int i, field_idx, match_count;
 
+	index_mail_filter_stream_destroy(mail);
 	i_assert(!mail->data.header_parser_initialized);
 
 	mail->header_seq = data->seq;
@@ -425,6 +433,8 @@ static void index_mail_init_parser(struct index_mail *mail)
 		}
 	}
 
+	/* make sure parsing starts from the beginning of the stream */
+	i_stream_seek(mail->data.stream, 0);
 	if (data->parts == NULL) {
 		data->parser_input = data->stream;
 		data->parser_ctx = message_parser_init(mail->mail.data_pool,
@@ -900,6 +910,11 @@ static void index_mail_filter_stream_destroy(struct index_mail *mail)
 	   header_parser_initialized=FALSE so we don't assert on it. */
 	while (i_stream_read_more(mail->data.filter_stream, &data, &size) > 0)
 		i_stream_skip(mail->data.filter_stream, size);
+	if (mail->data.header_parser_initialized) {
+		/* istream failed while reading the header */
+		i_assert(mail->data.filter_stream->stream_errno != 0);
+		index_mail_parse_header_deinit(mail);
+	}
 	i_stream_destroy(&mail->data.filter_stream);
 }
 
