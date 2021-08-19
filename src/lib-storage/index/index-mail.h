@@ -198,6 +198,7 @@ int index_mail_parse_headers(struct index_mail *mail,
 			     struct mailbox_header_lookup_ctx *headers,
 			     const char *reason)
 	ATTR_NULL(2);
+void index_mail_parse_header_deinit(struct index_mail *mail);
 /* Same as index_mail_parse_headers(), but assume that the stream is
    already opened. */
 int index_mail_parse_headers_internal(struct index_mail *mail,

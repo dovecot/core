@@ -1195,8 +1195,15 @@ index_mail_parse_body_finish(struct index_mail *mail,
 		mail->data.parsed_bodystructure = FALSE;
 		if (mail->data.save_bodystructure_body)
 			mail->data.save_bodystructure_header = TRUE;
+		if (mail->data.header_parser_initialized)
+			index_mail_parse_header_deinit(mail);
 		return -1;
 	}
+	if (mail->data.header_parser_initialized) {
+		i_assert(!success);
+		index_mail_parse_header_deinit(mail);
+	}
+
 	if (mail->data.save_bodystructure_body) {
 		mail->data.parsed_bodystructure = TRUE;
 		mail->data.save_bodystructure_header = FALSE;
@@ -2329,6 +2336,7 @@ void index_mail_cache_parse_deinit(struct mail *_mail, time_t received_date,
 
 		if (mail->data.parser_ctx == NULL) {
 			/* we didn't even start cache parsing */
+			i_assert(!mail->data.header_parser_initialized);
 			return;
 		}
 	}

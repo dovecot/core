@@ -34,7 +34,7 @@ static int header_line_cmp(const struct index_mail_line *l1,
 		(int)l1->line_num - (int)l2->line_num;
 }
 
-static void index_mail_parse_header_deinit(struct index_mail *mail)
+void index_mail_parse_header_deinit(struct index_mail *mail)
 {
 	mail->data.header_parser_initialized = FALSE;
 }
@@ -473,8 +473,11 @@ int index_mail_parse_headers_internal(struct index_mail *mail,
 				     msg_parser_set.hdr_flags,
 				     index_mail_parse_header_cb, mail);
 	}
-	if (index_mail_stream_check_failure(mail) < 0)
+	if (index_mail_stream_check_failure(mail) < 0) {
+		index_mail_parse_header_deinit(mail);
 		return -1;
+	}
+	i_assert(!mail->data.header_parser_initialized);
 	data->hdr_size_set = TRUE;
 	data->access_part &= ENUM_NEGATE(PARSE_HDR);
 	return 0;
