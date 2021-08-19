@@ -887,6 +887,22 @@ header_cache_callback(struct header_filter_istream *input ATTR_UNUSED,
 	index_mail_parse_header(NULL, hdr, mail);
 }
 
+static void index_mail_filter_stream_destroy(struct index_mail *mail)
+{
+	if (mail->data.filter_stream == NULL)
+		return;
+
+	const unsigned char *data;
+	size_t size;
+
+	/* read through the previous filter_stream. this makes sure that the
+	   fields are added to cache, and most importantly it resets
+	   header_parser_initialized=FALSE so we don't assert on it. */
+	while (i_stream_read_more(mail->data.filter_stream, &data, &size) > 0)
+		i_stream_skip(mail->data.filter_stream, size);
+	i_stream_destroy(&mail->data.filter_stream);
+}
+
 int index_mail_get_header_stream(struct mail *_mail,
 				 struct mailbox_header_lookup_ctx *headers,
 				 struct istream **stream_r)
@@ -895,18 +911,7 @@ int index_mail_get_header_stream(struct mail *_mail,
 	struct istream *input;
 	string_t *dest;
 
-	if (mail->data.filter_stream != NULL) {
-		const unsigned char *data;
-		size_t size;
-
-		/* read through the previous filter_stream. this makes sure
-		   that the fields are added to cache, and most importantly it
-		   resets header_parser_initialized=FALSE so we don't assert
-		   on it. */
-		while (i_stream_read_more(mail->data.filter_stream, &data, &size) > 0)
-			i_stream_skip(mail->data.filter_stream, size);
-		i_stream_destroy(&mail->data.filter_stream);
-	}
+	index_mail_filter_stream_destroy(mail);
 
 	if (mail->data.save_bodystructure_header) {
 		/* we have to parse the header. */
