@@ -352,12 +352,10 @@ cmd_data_next(struct smtp_server_cmd_ctx *cmd,
 	i_assert(trans != NULL);
 	i_assert(conn->state.pending_mail_cmds == 0 &&
 		conn->state.pending_rcpt_cmds == 0);
-	i_assert(trans != NULL);
 
 	e_debug(cmd->event, "Command is next to be replied");
 
-	if (trans != NULL)
-		smtp_server_transaction_data_command(trans, cmd);
+	smtp_server_transaction_data_command(trans, cmd);
 
 	/* check whether we have had successful mail and rcpt commands */
 	if (!smtp_server_connection_data_check_state(cmd))
