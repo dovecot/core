@@ -368,6 +368,11 @@ sql_dict_where_build(const char *username, const struct dict_sql_map *map,
 	str_append(query, " WHERE");
 	exact_count = count == count2 && recurse_type != SQL_DICT_RECURSE_NONE ?
 		count2-1 : count2;
+	if (exact_count != array_count(values_arr)) {
+		*error_r = t_strdup_printf("Key continues past the matched pattern %s", map->pattern);
+		return -1;
+	}
+
 	for (i = 0; i < exact_count; i++) {
 		if (i > 0)
 			str_append(query, " AND");
