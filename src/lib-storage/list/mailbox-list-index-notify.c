@@ -211,6 +211,7 @@ notify_lookup_guid(struct mailbox_list_notify_index *inotify,
 	struct mailbox_list_index *ilist =
 		INDEX_LIST_CONTEXT_REQUIRE(inotify->notify.list);
 	struct mailbox_list_index_node *index_node;
+	const char *reason;
 	uint32_t seq;
 
 	if (!mail_index_lookup_seq(view, uid, &seq))
@@ -231,7 +232,7 @@ notify_lookup_guid(struct mailbox_list_notify_index *inotify,
 	i_zero(status_r);
 	memset(guid_r, 0, GUID_128_SIZE);
 	(void)mailbox_list_index_status(inotify->notify.list, view, seq,
-					items, status_r, guid_r, NULL);
+					items, status_r, guid_r, NULL, &reason);
 	return index_node;
 }
 

@@ -123,7 +123,7 @@ index_list_get_path(struct mailbox_list *_list, const char *name,
 	struct mailbox_list_index_node *node;
 	struct mailbox_status status;
 	guid_128_t mailbox_guid;
-	const char *root_dir;
+	const char *root_dir, *reason;
 	uint32_t seq;
 	int ret;
 
@@ -189,7 +189,8 @@ index_list_get_path(struct mailbox_list *_list, const char *name,
 				       T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
 		ret = -1;
 	} else if (!mailbox_list_index_status(_list, view, seq, 0,
-					      &status, mailbox_guid, NULL) ||
+					      &status, mailbox_guid,
+					      NULL, &reason) ||
 		   guid_128_is_empty(mailbox_guid)) {
 		mailbox_list_set_error(_list, MAIL_ERROR_NOTFOUND,
 				       T_MAIL_ERR_MAILBOX_NOT_FOUND(name));
