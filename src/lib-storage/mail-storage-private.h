@@ -261,10 +261,12 @@ struct mailbox_vfuncs {
 
 	/* Lookup sync extension record and figure out if it mailbox has
 	   changed since. Returns 1 = yes, 0 = no, -1 = error. if quick==TRUE,
-	   return 1 if it's too costly to find out exactly. */
+	   return 1 if it's too costly to find out exactly. The reason_r is
+	   set if 1 is returned. */
 	int (*list_index_has_changed)(struct mailbox *box,
 				      struct mail_index_view *list_view,
-				      uint32_t seq, bool quick);
+				      uint32_t seq, bool quick,
+				      const char **reason_r);
 	/* Update the sync extension record. */
 	void (*list_index_update_sync)(struct mailbox *box,
 				       struct mail_index_transaction *trans,

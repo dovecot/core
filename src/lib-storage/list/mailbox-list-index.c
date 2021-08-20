@@ -775,8 +775,9 @@ int mailbox_list_index_view_open(struct mailbox *box, bool require_refreshed,
 		ret = 0;
 	} else {
 		ret = box->v.list_index_has_changed == NULL ? 0 :
-			box->v.list_index_has_changed(box, view, seq, FALSE);
-		reason = "Mailbox has changed";
+			box->v.list_index_has_changed(box, view, seq, FALSE,
+						      &reason);
+		i_assert(ret <= 0 || reason != NULL);
 	}
 
 	if (ret != 0) {

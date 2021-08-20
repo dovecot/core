@@ -432,7 +432,7 @@ index_list_get_ext_id(struct mailbox *box, struct mail_index_view *view)
 enum index_storage_list_change
 index_storage_list_index_has_changed_full(struct mailbox *box,
 					  struct mail_index_view *list_view,
-					  uint32_t seq)
+					  uint32_t seq, const char **reason_r)
 {
 	const struct index_storage_list_index_record *rec;
 	const void *data;
@@ -442,15 +442,28 @@ index_storage_list_index_has_changed_full(struct mailbox *box,
 	bool expunged;
 	int ret;
 
-	if (mail_index_is_in_memory(mail_index_view_get_index(list_view)))
+	*reason_r = NULL;
+
+	if (mail_index_is_in_memory(mail_index_view_get_index(list_view))) {
+		*reason_r = "List index is in memory";
 		return INDEX_STORAGE_LIST_CHANGE_INMEMORY;
+	}
 
 	ext_id = index_list_get_ext_id(box, list_view);
 	mail_index_lookup_ext(list_view, seq, ext_id, &data, &expunged);
 	rec = data;
 
-	if (rec == NULL || expunged || rec->size == 0 || rec->mtime == 0) {
-		/* doesn't exist / not synced */
+	if (rec == NULL) {
+		*reason_r = "Storage record is missing";
+		return INDEX_STORAGE_LIST_CHANGE_NORECORD;
+	} else if (expunged) {
+		*reason_r = "Storage record is expunged";
+		return INDEX_STORAGE_LIST_CHANGE_NORECORD;
+	} else if (rec->size == 0) {
+		*reason_r = "Storage record size=0";
+		return INDEX_STORAGE_LIST_CHANGE_NORECORD;
+	} else if (rec->mtime == 0) {
+		*reason_r = "Storage record mtime=0";
 		return INDEX_STORAGE_LIST_CHANGE_NORECORD;
 	}
 	if (box->storage->set->mailbox_list_index_very_dirty_syncs)
@@ -463,23 +476,35 @@ index_storage_list_index_has_changed_full(struct mailbox *box,
 
 	path = t_strconcat(dir, "/", box->index_prefix, ".log", NULL);
 	if (stat(path, &st) < 0) {
-		if (errno == ENOENT)
+		if (errno == ENOENT) {
+			*reason_r = t_strdup_printf("%s not found", path);
 			return INDEX_STORAGE_LIST_CHANGE_NOT_IN_FS;
+		}
 		mailbox_set_critical(box, "stat(%s) failed: %m", path);
 		return INDEX_STORAGE_LIST_CHANGE_ERROR;
 	}
-	if (rec->size != (st.st_size & 0xffffffffU))
+	uint32_t new_size = st.st_size & 0xffffffffU;
+	if (rec->size != new_size) {
+		*reason_r = t_strdup_printf("Storage size changed %u != %u",
+					    rec->size, new_size);
 		return INDEX_STORAGE_LIST_CHANGE_SIZE_CHANGED;
-	if (rec->mtime != (st.st_mtime & 0xffffffffU))
+	}
+	uint32_t new_mtime = st.st_mtime & 0xffffffffU;
+	if (rec->mtime != new_mtime) {
+		*reason_r = t_strdup_printf("Storage mtime changed %u != %u",
+					    rec->mtime, new_mtime);
 		return INDEX_STORAGE_LIST_CHANGE_MTIME_CHANGED;
+	}
 	return INDEX_STORAGE_LIST_CHANGE_NONE;
 }
 
 int index_storage_list_index_has_changed(struct mailbox *box,
 					 struct mail_index_view *list_view,
-					 uint32_t seq, bool quick ATTR_UNUSED)
+					 uint32_t seq, bool quick ATTR_UNUSED,
+					 const char **reason_r)
 {
-	switch (index_storage_list_index_has_changed_full(box, list_view, seq)) {
+	switch (index_storage_list_index_has_changed_full(box, list_view, seq,
+							  reason_r)) {
 	case INDEX_STORAGE_LIST_CHANGE_ERROR:
 		return -1;
 	case INDEX_STORAGE_LIST_CHANGE_NONE:

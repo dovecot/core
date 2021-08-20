@@ -813,7 +813,8 @@ void mailbox_list_index_status_set_info_flags(struct mailbox *box, uint32_t uid,
 		ret = 1;
 	} else {
 		ret = box->v.list_index_has_changed == NULL ? 0 :
-			box->v.list_index_has_changed(box, view, seq, TRUE);
+			box->v.list_index_has_changed(box, view, seq, TRUE,
+						      &reason);
 	}
 
 	if (ret != 0) {

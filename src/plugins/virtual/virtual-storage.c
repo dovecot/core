@@ -857,11 +857,13 @@ static bool virtual_is_inconsistent(struct mailbox *box)
 static int
 virtual_list_index_has_changed(struct mailbox *box ATTR_UNUSED,
 			       struct mail_index_view *list_view ATTR_UNUSED,
-			       uint32_t seq ATTR_UNUSED, bool quick ATTR_UNUSED)
+			       uint32_t seq ATTR_UNUSED, bool quick ATTR_UNUSED,
+			       const char **reason_r)
 {
 	/* we don't have any quick and easy optimizations for tracking
 	   virtual folders. ideally we'd completely disable mailbox list
 	   indexes for them, but this is the easiest way to do it for now. */
+	*reason_r = "Virtual indexes always change";
 	return 1;
 }
 
