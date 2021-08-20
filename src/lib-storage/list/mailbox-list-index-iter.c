@@ -215,7 +215,9 @@ mailbox_list_index_iter_next(struct mailbox_list_iterate_context *_ctx)
 
 	/* listing mailboxes from index */
 	while (ctx->next_node != NULL) {
-		mailbox_list_index_update_info(ctx);
+		T_BEGIN {
+			mailbox_list_index_update_info(ctx);
+		} T_END;
 		match = imap_match(_ctx->glob, ctx->info.vname);
 
 		follow_children = (match & (IMAP_MATCH_YES |

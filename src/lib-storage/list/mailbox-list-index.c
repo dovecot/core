@@ -773,11 +773,11 @@ int mailbox_list_index_view_open(struct mailbox *box, bool require_refreshed,
 	} else if (!require_refreshed) {
 		/* this operation doesn't need the index to be up-to-date */
 		ret = 0;
-	} else T_BEGIN {
+	} else {
 		ret = box->v.list_index_has_changed == NULL ? 0 :
 			box->v.list_index_has_changed(box, view, seq, FALSE);
 		reason = "Mailbox has changed";
-	} T_END;
+	}
 
 	if (ret != 0) {
 		/* error / mailbox has changed. we'll need to sync it. */

@@ -811,10 +811,10 @@ void mailbox_list_index_status_set_info_flags(struct mailbox *box, uint32_t uid,
 	if (!mail_index_lookup_seq(view, uid, &seq)) {
 		/* our in-memory tree is out of sync */
 		ret = 1;
-	} else T_BEGIN {
+	} else {
 		ret = box->v.list_index_has_changed == NULL ? 0 :
 			box->v.list_index_has_changed(box, view, seq, TRUE);
-	} T_END;
+	}
 
 	if (ret != 0) {
 		/* error / not up to date. don't waste time with it. */
