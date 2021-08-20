@@ -733,6 +733,7 @@ int mailbox_list_index_view_open(struct mailbox *box, bool require_refreshed,
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
 	struct mailbox_list_index_node *node;
 	struct mail_index_view *view;
+	const char *reason = NULL;
 	uint32_t seq;
 	int ret;
 
@@ -754,6 +755,8 @@ int mailbox_list_index_view_open(struct mailbox *box, bool require_refreshed,
 	node = mailbox_list_index_lookup(box->list, box->name);
 	if (node == NULL) {
 		/* mailbox not found */
+		e_debug(box->event, "Couldn't open mailbox in list index: "
+			"Mailbox not found");
 		return 0;
 	}
 
@@ -761,24 +764,32 @@ int mailbox_list_index_view_open(struct mailbox *box, bool require_refreshed,
 	if (mailbox_list_index_need_refresh(ilist, view)) {
 		/* mailbox_list_index_refresh_later() was called.
 		   Can't trust the index's contents. */
+		reason = "Refresh-flag set";
 		ret = 1;
 	} else if (!mail_index_lookup_seq(view, node->uid, &seq)) {
 		/* our in-memory tree is out of sync */
 		ret = 1;
+		reason = "Mailbox no longer exists in index";
 	} else if (!require_refreshed) {
 		/* this operation doesn't need the index to be up-to-date */
 		ret = 0;
 	} else T_BEGIN {
 		ret = box->v.list_index_has_changed == NULL ? 0 :
 			box->v.list_index_has_changed(box, view, seq, FALSE);
+		reason = "Mailbox has changed";
 	} T_END;
 
 	if (ret != 0) {
 		/* error / mailbox has changed. we'll need to sync it. */
 		if (ret < 0)
 			mailbox_list_index_refresh_later(box->list);
-		else
+		else {
+			i_assert(reason != NULL);
+			e_debug(box->event,
+				"Couldn't open mailbox in list index: %s",
+				reason);
 			ilist->index_last_check_changed = TRUE;
+		}
 		mail_index_view_close(&view);
 		return ret < 0 ? -1 : 0;
 	}
