@@ -167,6 +167,18 @@ index_list_get_status(struct mailbox *box, enum mailbox_status_items items,
 	return ibox->module_ctx.super.get_status(box, items, status_r);
 }
 
+/* Opportunistic function to see ïf we can extract guid from mailbox path */
+static bool index_list_get_guid_from_path(struct mailbox *box, guid_128_t guid_r)
+{
+	const char *path;
+	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX, &path) <= 0)
+		return FALSE;
+	const char *ptr = strrchr(path, '/');
+	if (ptr == NULL)
+		return FALSE;
+	return guid_128_from_string(ptr + 1, guid_r) == 0;
+}
+
 static int
 index_list_get_cached_guid(struct mailbox *box, guid_128_t guid_r)
 {
@@ -175,6 +187,11 @@ index_list_get_cached_guid(struct mailbox *box, guid_128_t guid_r)
 	struct mail_index_view *view;
 	uint32_t seq;
 	int ret;
+
+	/* If using INDEX layout, try determine GUID from mailbox path */
+	if (!ilist->has_backing_store &&
+	    index_list_get_guid_from_path(box, guid_r))
+		return 1;
 
 	if (ilist->syncing) {
 		/* syncing wants to know the GUID for a new mailbox. */
