@@ -95,7 +95,6 @@ void dbox_file_unref(struct dbox_file **_file)
 static int dbox_file_parse_header(struct dbox_file *file, const char *line)
 {
 	const char *const *tmp, *value;
-	unsigned int pos;
 	enum dbox_header_key key;
 
 	file->file_version = *line - '0';
@@ -105,7 +104,6 @@ static int dbox_file_parse_header(struct dbox_file *file, const char *line)
 		return -1;
 	}
 	line += 2;
-	pos = 2;
 
 	file->msg_header_size = 0;
 
@@ -131,7 +129,6 @@ static int dbox_file_parse_header(struct dbox_file *file, const char *line)
 			file->create_time = (time_t)time;
 			break;
 		}
-		pos += strlen(value) + 2;
 	}
 
 	if (file->msg_header_size == 0) {
