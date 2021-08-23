@@ -16,22 +16,42 @@ static void test_event_filter_override_parent_fields(void)
 
 	struct event *parent = event_create(NULL);
 	event_add_str(parent, "str", "parent_str");
+	event_add_str(parent, "parent_str", "parent_str");
 	event_add_int(parent, "int1", 0);
 	event_add_int(parent, "int2", 5);
+	event_add_int(parent, "parent_int", 6);
 
 	struct event *child = event_create(parent);
 	event_add_str(child, "str", "child_str");
+	event_add_str(child, "child_str", "child_str");
 	event_add_int(child, "int1", 6);
 	event_add_int(child, "int2", 0);
+	event_add_int(child, "child_int", 8);
 
+	/* parent matches: test a mix of parent/child fields */
 	filter = event_filter_create();
 	test_assert(event_filter_parse("str=parent_str AND int1=0 AND int2=5", filter, &error) == 0);
 	test_assert(event_filter_match(filter, parent, &failure_ctx));
 	test_assert(!event_filter_match(filter, child, &failure_ctx));
 	event_filter_unref(&filter);
 
+	/* parent matches: test fields that exist only in parent */
+	filter = event_filter_create();
+	test_assert(event_filter_parse("parent_str=parent_str AND parent_int=6", filter, &error) == 0);
+	test_assert(event_filter_match(filter, parent, &failure_ctx));
+	test_assert(event_filter_match(filter, child, &failure_ctx));
+	event_filter_unref(&filter);
+
+	/* child matches: test a mix of parent/child fields */
 	filter = event_filter_create();
 	test_assert(event_filter_parse("str=child_str AND int1=6 AND int2=0", filter, &error) == 0);
+	test_assert(event_filter_match(filter, child, &failure_ctx));
+	test_assert(!event_filter_match(filter, parent, &failure_ctx));
+	event_filter_unref(&filter);
+
+	/* child matches: test fields that exist only in child */
+	filter = event_filter_create();
+	test_assert(event_filter_parse("child_str=child_str AND child_int=8", filter, &error) == 0);
 	test_assert(event_filter_match(filter, child, &failure_ctx));
 	test_assert(!event_filter_match(filter, parent, &failure_ctx));
 	event_filter_unref(&filter);
