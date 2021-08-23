@@ -86,7 +86,6 @@ i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 
 	const unsigned char *digest_pos = NULL, *key_digest_pos = NULL,
 		*key_ct_pos = NULL;
-	size_t pos = sizeof(IOSTREAM_CRYPT_MAGIC);
 	size_t digest_len = 0, key_ct_len = 0, key_digest_size = 0;
 
 	buffer_t ephemeral_key;
@@ -111,7 +110,6 @@ i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 			break;
 		data += 2;
 		mlen -= 2;
-		pos += 2;
 
 		switch(i++) {
 		case 0:
@@ -134,7 +132,6 @@ i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 			key_ct_len = len;
 			break;
 		}
-		pos += len;
 		data += len;
 		mlen -= len;
 	}
