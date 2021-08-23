@@ -41,7 +41,7 @@
 #define POINTER_CAST(i) \
 	((void *) (((uintptr_t)NULL) + (i)))
 #define POINTER_CAST_TO(p, type) \
-	((type) ((const char *) (p) - (const char *) NULL))
+	((type)(uintptr_t)(p))
 
 /* Define VA_COPY() to do the right thing for copying va_list variables.
    config.h may have already defined VA_COPY as va_copy or __va_copy. */
