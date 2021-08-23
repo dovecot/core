@@ -19,7 +19,7 @@ static void test_event_filter_override_parent_fields(void)
 	event_add_int(parent, "int1", 0);
 	event_add_int(parent, "int2", 5);
 
-	struct event *child = event_create(NULL);
+	struct event *child = event_create(parent);
 	event_add_str(child, "str", "child_str");
 	event_add_int(child, "int1", 6);
 	event_add_int(child, "int2", 0);
@@ -56,7 +56,7 @@ static void test_event_filter_clear_parent_fields(void)
 	event_add_str(parent, "str", "parent_str");
 	event_add_int(parent, "int", 0);
 
-	struct event *child = event_create(NULL);
+	struct event *child = event_create(parent);
 	event_field_clear(child, "str");
 	event_field_clear(child, "int");
 
