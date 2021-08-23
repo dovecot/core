@@ -903,6 +903,7 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 	io_loop_destroy(&ioloop);
 
 	if (ctx->error != NULL) {
+		ssl_iostream_context_unref(&ctx->ssl_ctx);
 		*error_r = ctx->error;
 		ctx->error = NULL;
 		return -1;
