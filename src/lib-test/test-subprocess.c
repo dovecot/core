@@ -89,15 +89,18 @@ void test_subprocess_fork(int (*func)(void *context), void *context,
 
 	lib_signals_ioloop_detach();
 
+	/* avoid races: fork the child process with test_subprocess_is_child
+	   set to 1 in case it immediately receives a signal. */
+	test_subprocess_is_child = 1;
 	if ((subprocess->pid = fork()) == (pid_t)-1)
 		i_fatal("test: sub-process: fork() failed: %m");
 	if (subprocess->pid == 0) {
-		test_subprocess_is_child = 1;
 		test_subprocess_free_all();
 
 		test_subprocess_child(func, context, continue_test);
 		i_unreached();
 	}
+	test_subprocess_is_child = 0;
 
 	array_push_back(&test_subprocesses, &subprocess);
 	lib_signals_ioloop_attach();
