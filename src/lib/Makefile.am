@@ -423,6 +423,7 @@ test_lib_SOURCES = \
 	test-lib-signals.c \
 	test-llist.c \
 	test-log-throttle.c \
+	test-macros.c \
 	test-malloc-overflow.c \
 	test-memarea.c \
 	test-mempool.c \
