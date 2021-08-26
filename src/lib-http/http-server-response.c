@@ -329,6 +329,8 @@ void http_server_response_request_finished(struct http_server_response *resp)
 
 	if (resp->payload_stream != NULL)
 		http_server_ostream_response_finished(resp->payload_stream);
+
+	event_add_int(resp->request->event, "status_code", resp->status);
 }
 
 int http_server_response_finish_payload_out(struct http_server_response *resp)

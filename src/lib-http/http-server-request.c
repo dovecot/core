@@ -50,6 +50,7 @@ void http_server_request_update_event(struct http_server_request *req)
 		event_add_str(req->event, "method", req->req.method);
 	if (req->req.target_raw != NULL)
 		event_add_str(req->event, "target", req->req.target_raw);
+	event_add_int(req->event, "request_id", req->id);
 	event_set_append_log_prefix(
 		req->event, t_strdup_printf("request %s: ",
 			str_sanitize(http_server_request_label(req), 256)));
