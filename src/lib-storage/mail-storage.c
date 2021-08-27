@@ -9,6 +9,8 @@
 #include "sha1.h"
 #include "unichar.h"
 #include "hex-binary.h"
+#include "fs-api.h"
+#include "iostream-ssl.h"
 #include "file-dotlock.h"
 #include "file-create-locked.h"
 #include "istream.h"
@@ -437,6 +439,25 @@ int mail_storage_create_full(struct mail_namespace *ns, const char *driver,
 		return -1;
 	}
 
+	/* If storage supports list index rebuild,
+	   provide default mailboxes_fs unless storage
+	   wants to use its own. */
+	if (storage->v.list_index_rebuild != NULL &&
+	    storage->mailboxes_fs == NULL) {
+		struct fs_settings fs_set;
+		struct ssl_iostream_settings ssl_set;
+		const char *error;
+		i_zero(&fs_set);
+
+		mail_user_init_fs_settings(storage->user, &fs_set, &ssl_set);
+		if (fs_init("posix", "", &fs_set, &storage->mailboxes_fs,
+			    &error) < 0) {
+			*error_r = t_strdup_printf("fs_init(posix) failed: %s", error);
+			storage->v.destroy(storage);
+			return -1;
+		}
+	}
+
 	T_BEGIN {
 		hook_mail_storage_created(storage);
 	} T_END;
@@ -487,6 +508,7 @@ void mail_storage_unref(struct mail_storage **_storage)
 		i_assert(array_count(&storage->error_stack) == 0);
 		array_free(&storage->error_stack);
 	}
+	fs_unref(&storage->mailboxes_fs);
 	event_unref(&storage->event);
 
 	*_storage = NULL;
