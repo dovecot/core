@@ -244,7 +244,6 @@ mail_storage_list_mailbox_create(struct mailbox *box,
 	if (mailbox_get_last_mail_error(box) == MAIL_ERROR_NOTFOUND) {
 		/* if this is because mailbox was marked as deleted,
 		   undelete it and retry. */
-		e_debug(box->event, "Attempting to undelete mailbox");
 		if (mailbox_mark_index_deleted(box, FALSE) < 0)
 			return -1;
 		if (mailbox_create(box, update, FALSE) == 0)

@@ -1771,6 +1771,9 @@ int mailbox_mark_index_deleted(struct mailbox *box, bool del)
 	enum mailbox_flags old_flag;
 	int ret;
 
+	e_debug(box->event, "Attempting to %s mailbox", del ?
+		"delete" : "undelete");
+
 	if (box->marked_deleted && del) {
 		/* we already marked it deleted. this allows plugins to
 		   "lock" the deletion earlier. */
