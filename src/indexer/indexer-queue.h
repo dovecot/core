@@ -3,6 +3,8 @@
 
 #include "indexer.h"
 
+typedef void indexer_queue_callback_t(int status, void *context);
+
 struct indexer_request {
 	struct indexer_request *prev, *next;
 
@@ -30,7 +32,7 @@ struct indexer_request {
 	ARRAY(void *) contexts;
 };
 
-struct indexer_queue *indexer_queue_init(indexer_status_callback_t *callback);
+struct indexer_queue *indexer_queue_init(indexer_queue_callback_t *callback);
 void indexer_queue_deinit(struct indexer_queue **queue);
 
 /* The callback is called whenever a new request is added to the queue. */

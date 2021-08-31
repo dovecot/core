@@ -7,7 +7,7 @@
 #include "indexer-queue.h"
 
 struct indexer_queue {
-	indexer_status_callback_t *callback;
+	indexer_queue_callback_t *callback;
 	void (*listen_callback)(struct indexer_queue *);
 
 	/* username+mailbox -> indexer_request */
@@ -29,7 +29,7 @@ static int indexer_request_cmp(const struct indexer_request *r1,
 }
 
 struct indexer_queue *
-indexer_queue_init(indexer_status_callback_t *callback)
+indexer_queue_init(indexer_queue_callback_t *callback)
 {
 	struct indexer_queue *queue;
 	
