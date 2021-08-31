@@ -10,7 +10,7 @@ struct connection *
 worker_connection_create(const char *socket_path,
 			 indexer_status_callback_t *callback,
 			 struct connection_list *list);
-void worker_connection_unref(struct connection **_conn);
+void worker_connection_destroy(struct connection *conn);
 
 struct connection_list *worker_connection_list_create(void);
 

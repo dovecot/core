@@ -60,7 +60,7 @@ static int worker_pool_add_connection(struct worker_pool *pool,
 	conn = worker_connection_create(pool->socket_path, pool->callback,
 					pool->connection_list);
 	if (connection_client_connect(conn) < 0) {
-		worker_connection_unref(&conn);
+		worker_connection_destroy(conn);
 		return -1;
 	}
 
@@ -97,12 +97,6 @@ bool worker_pool_get_connection(struct worker_pool *pool,
 		return FALSE;
 
 	return TRUE;
-}
-
-void worker_pool_release_connection(struct worker_pool *pool ATTR_UNUSED,
-				    struct connection *conn)
-{
-	worker_connection_unref(&conn);
 }
 
 struct connection *

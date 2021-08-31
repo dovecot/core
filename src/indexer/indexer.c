@@ -108,8 +108,6 @@ static void worker_status_callback(int percentage, void *context)
 
 	indexer_queue_request_finish(queue, &request,
 				     percentage == 100);
-	if (worker_pool != NULL) /* not in deinit */
-		worker_pool_release_connection(worker_pool, conn);
 
 	/* if this was the last request for the connection, we can send more
 	   through it. delay it a bit, since we may be coming here from

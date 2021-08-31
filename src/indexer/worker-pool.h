@@ -13,8 +13,6 @@ bool worker_pool_have_busy_connections(struct worker_pool *pool);
 
 bool worker_pool_get_connection(struct worker_pool *pool,
 				struct connection **conn_r);
-void worker_pool_release_connection(struct worker_pool *pool,
-				    struct connection *conn);
 
 struct connection *
 worker_pool_find_username_connection(struct worker_pool *pool,

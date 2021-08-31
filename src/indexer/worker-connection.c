@@ -25,8 +25,6 @@
 struct worker_connection {
 	struct connection conn;
 
-	int refcount;
-
 	indexer_status_callback_t *callback;
 
 	char *request_username;
@@ -44,7 +42,7 @@ static void worker_connection_call_callback(struct worker_connection *worker,
 		worker->request = NULL;
 }
 
-static void worker_connection_destroy(struct connection *conn)
+void worker_connection_destroy(struct connection *conn)
 {
 	struct worker_connection *worker =
 		container_of(conn, struct worker_connection, conn);
@@ -52,18 +50,6 @@ static void worker_connection_destroy(struct connection *conn)
 	worker->request = NULL;
 	i_free_and_null(worker->request_username);
 	connection_deinit(conn);
-}
-
-void worker_connection_unref(struct connection **_conn)
-{
-	struct connection *conn = *_conn;
-	struct worker_connection *worker =
-		container_of(conn, struct worker_connection, conn);
-
-	i_assert(worker->refcount > 0);
-	if (--worker->refcount > 0)
-		return;
-	worker_connection_destroy(conn);
 	i_free(conn);
 }
 
@@ -220,7 +206,6 @@ worker_connection_create(const char *socket_path,
 	struct worker_connection *conn;
 
 	conn = i_new(struct worker_connection, 1);
-	conn->refcount = 1;
 	conn->callback = callback;
 	connection_init_client_unix(list, &conn->conn, socket_path);
 
