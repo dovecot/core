@@ -37,7 +37,7 @@ static void worker_connection_call_callback(struct worker_connection *worker,
 					    int percentage)
 {
 	if (worker->request != NULL)
-		worker->callback(percentage, &worker->conn);
+		worker->callback(percentage, worker->request);
 	if (percentage < 0 || percentage == 100)
 		worker->request = NULL;
 }
@@ -166,14 +166,6 @@ const char *worker_connection_get_username(struct connection *conn)
 	struct worker_connection *worker =
 		container_of(conn, struct worker_connection, conn);
 	return worker->request_username;
-}
-
-struct indexer_request *
-worker_connection_get_request(struct connection *conn)
-{
-	struct worker_connection *worker =
-		container_of(conn, struct worker_connection, conn);
-	return worker->request;
 }
 
 static const struct connection_vfuncs worker_connection_vfuncs = {

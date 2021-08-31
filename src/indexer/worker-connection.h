@@ -35,7 +35,4 @@ bool worker_connection_is_busy(struct connection *conn);
    or NULL if there are none. */
 const char *worker_connection_get_username(struct connection *conn);
 
-struct indexer_request *
-worker_connection_get_request(struct connection *conn);
-
 #endif

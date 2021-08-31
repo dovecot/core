@@ -95,11 +95,9 @@ static void queue_listen_callback(struct indexer_queue *queue)
 	queue_try_send_more(queue);
 }
 
-static void worker_status_callback(int percentage, void *context)
+static void
+worker_status_callback(int percentage, struct indexer_request *request)
 {
-	struct connection *conn = context;
-	struct indexer_request *request = worker_connection_get_request(conn);
-
 	if (percentage >= 0 && percentage < 100) {
 		indexer_queue_request_status(queue, request,
 					     percentage);
