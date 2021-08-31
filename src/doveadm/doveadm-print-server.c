@@ -9,6 +9,8 @@
 #include "doveadm-print-private.h"
 #include "client-connection.h"
 
+#define DOVEADM_PRINT_FLUSH_TIMEOUT_SECS 60
+
 struct doveadm_print_server_context {
 	unsigned int header_idx, header_count;
 
@@ -61,11 +63,47 @@ doveadm_print_server_print_stream(const unsigned char *value, size_t size)
 		doveadm_print_server_flush();
 }
 
+static int flush_callback(struct doveadm_print_server_context *ctx ATTR_UNUSED)
+{
+
+	int ret;
+	/* Keep flushing until everything is sent */
+	if ((ret = o_stream_flush(doveadm_print_ostream)) != 0)
+		io_loop_stop(current_ioloop);
+	return ret;
+}
+
+static void handle_flush_timeout(struct doveadm_print_server_context *ctx ATTR_UNUSED)
+{
+	io_loop_stop(current_ioloop);
+	o_stream_close(doveadm_print_ostream);
+	i_error("write(%s) failed: Timed out after %u seconds",
+		o_stream_get_name(doveadm_print_ostream),
+		DOVEADM_PRINT_FLUSH_TIMEOUT_SECS);
+}
+
 static void doveadm_print_server_flush(void)
 {
 	o_stream_nsend(doveadm_print_ostream,
 		       str_data(ctx.str), str_len(ctx.str));
 	str_truncate(ctx.str, 0);
+
+	if (o_stream_get_buffer_used_size(doveadm_print_ostream) < IO_BLOCK_SIZE)
+		return;
+	/* Wait until buffer is flushed to avoid it growing too large */
+	struct ioloop *prev_loop = current_ioloop;
+	struct ioloop *loop = io_loop_create();
+	/* Ensure we don't get stuck here forever */
+	struct timeout *to =
+		timeout_add(DOVEADM_PRINT_FLUSH_TIMEOUT_SECS*1000, handle_flush_timeout, &ctx);
+	o_stream_switch_ioloop_to(doveadm_print_ostream, loop);
+	o_stream_set_flush_callback(doveadm_print_ostream, flush_callback, &ctx);
+	io_loop_run(loop);
+	timeout_remove(&to);
+	o_stream_unset_flush_callback(doveadm_print_ostream);
+	o_stream_switch_ioloop_to(doveadm_print_ostream, prev_loop);
+	io_loop_set_current(prev_loop);
+	io_loop_destroy(&loop);
 }
 
 struct doveadm_print_vfuncs doveadm_print_server_vfuncs = {
