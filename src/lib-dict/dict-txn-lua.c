@@ -22,11 +22,13 @@ struct lua_dict_txn {
 static int lua_dict_transaction_rollback(lua_State *L);
 static int lua_dict_transaction_commit(lua_State *L);
 static int lua_dict_set(lua_State *L);
+static int lua_dict_unset(lua_State *L);
 
 static luaL_Reg lua_dict_txn_methods[] = {
 	{ "rollback", lua_dict_transaction_rollback },
 	{ "commit", lua_dict_transaction_commit },
 	{ "set", lua_dict_set },
+	{ "unset", lua_dict_unset },
 	{ NULL, NULL },
 };
 
@@ -159,6 +161,28 @@ static int lua_dict_set(lua_State *L)
 	value = luaL_checkstring(L, 3);
 
 	dict_set(txn->txn, key, value);
+
+	return 0;
+}
+
+/*
+ * Unset key [-2,+0,e]
+ *
+ * Args:
+ *   1) userdata: struct lua_dict_txn *
+ *   2) string: key
+ */
+static int lua_dict_unset(lua_State *L)
+{
+	struct lua_dict_txn *txn;
+	const char *key;
+
+	DLUA_REQUIRE_ARGS(L, 2);
+
+	txn = xlua_dict_txn_getptr(L, 1, NULL);
+	key = luaL_checkstring(L, 2);
+
+	dict_unset(txn->txn, key);
 
 	return 0;
 }
