@@ -9,6 +9,9 @@
 #include "message-size.h"
 #include "message-header-parser.h"
 
+/* RFC 5322 2.1.1 and 2.2 */
+#define MESSAGE_HEADER_NAME_MAX_LEN 1000
+
 struct message_header_parser_ctx {
 	struct message_header_line line;
 
@@ -309,21 +312,34 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		while (colon_pos > 0 && IS_LWSP(msg[colon_pos-1]))
 			colon_pos--;
 
-		str_truncate(ctx->name, 0);
-		/* use buffer_append() so the name won't be truncated if there
-		   are NULs. */
-		buffer_append(ctx->name, msg, colon_pos);
-		str_append_c(ctx->name, '\0');
+		/* Treat overlong header names as if the full header line was
+		   a value. Callers can usually handle large values better than
+		   large names. */
+		if (colon_pos > MESSAGE_HEADER_NAME_MAX_LEN) {
+			line->name = "";
+			line->name_len = 0;
+			line->middle = uchar_empty_ptr;
+			line->middle_len = 0;
+			line->value = msg;
+			line->value_len = size;
+			line->full_value_offset = line->name_offset;
+		} else {
+			str_truncate(ctx->name, 0);
+			/* use buffer_append() so the name won't be truncated if there
+			   are NULs. */
+			buffer_append(ctx->name, msg, colon_pos);
+			str_append_c(ctx->name, '\0');
 
-		/* keep middle stored also in ctx->name so it's available
-		   with use_full_value */
-		line->middle = msg + colon_pos;
-		line->middle_len = (size_t)(line->value - line->middle);
-		str_append_data(ctx->name, line->middle, line->middle_len);
+			/* keep middle stored also in ctx->name so it's available
+			   with use_full_value */
+			line->middle = msg + colon_pos;
+			line->middle_len = (size_t)(line->value - line->middle);
+			str_append_data(ctx->name, line->middle, line->middle_len);
 
-		line->name = str_c(ctx->name);
-		line->name_len = colon_pos;
-		line->middle = str_data(ctx->name) + line->name_len + 1;
+			line->name = str_c(ctx->name);
+			line->name_len = colon_pos;
+			line->middle = str_data(ctx->name) + line->name_len + 1;
+		}
 	}
 
 	if (!line->continued) {

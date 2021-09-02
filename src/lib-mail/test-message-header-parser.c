@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "strfuncs.h"
 #include "unichar.h"
 #include "istream.h"
 #include "message-size.h"
@@ -245,6 +246,13 @@ static void test_message_header_parser_long_lines(void)
 {
 	static const char *lf_str = NAME10": 345\n\n";
 	static const char *crlf_str = NAME10": 345\r\n\r\n";
+	static const char *lf_str_vl = NAME1000": Is a long header name\n\n";
+	static const char *crlf_str_vl = NAME1000": Is a long header name\r\n\r\n";
+	static const char *lf_str_ol = NAME1000 \
+		NAME100 ": Is a overlong header name\n\n";
+	static const char *crlf_str_ol = NAME1000 \
+		NAME100 ": Is a overlong header name\r\n\r\n";
+
 	struct message_size hdr_size, hdr_size2;
 	size_t i, len;
 
@@ -265,6 +273,82 @@ static void test_message_header_parser_long_lines(void)
 		test_assert(hdr_size.virtual_size == hdr_size2.virtual_size);
 		test_assert(hdr_size.physical_size == hdr_size2.physical_size);
 	}
+
+	/* increment these faster, otherwise the test is very slow */
+	len = strlen(lf_str_vl);
+	for (i = 3; i < len; i *= 2) {
+		 test_message_header_parser_long_lines_str(lf_str_vl, i, &hdr_size, &hdr_size2);
+		 test_assert(hdr_size.physical_size == len);
+		 test_assert(hdr_size.virtual_size == len + 2);
+		 test_assert(hdr_size.virtual_size == hdr_size2.virtual_size);
+		 test_assert(hdr_size.physical_size == hdr_size2.physical_size);
+	}
+	len = strlen(crlf_str_vl);
+	for (i = 3; i < len; i *= 2) {
+		test_message_header_parser_long_lines_str(crlf_str_vl, i, &hdr_size, &hdr_size2);
+		test_assert(hdr_size.physical_size == len);
+		test_assert(hdr_size.virtual_size == len);
+		test_assert(hdr_size.virtual_size == hdr_size2.virtual_size);
+		test_assert(hdr_size.physical_size == hdr_size2.physical_size);
+	}
+
+	/* test that parsing overlength lines work so that name & middle are
+	   empty. */
+
+	struct message_header_line *hdr;
+	struct message_header_parser_ctx *ctx;
+	struct istream *input;
+
+	input = test_istream_create(lf_str_ol);
+	ctx = message_parse_header_init(input, NULL, 0);
+
+	test_assert(message_parse_header_next(ctx, &hdr) > 0 &&
+		    *hdr->name == '\0' && hdr->middle == uchar_empty_ptr &&
+		    hdr->name_len == 0 && hdr->middle_len == 0 &&
+		    hdr->value != NULL && hdr->value_len > 0);
+	test_assert(message_parse_header_next(ctx, &hdr) > 0 &&
+		    hdr->eoh);
+	message_parse_header_deinit(&ctx);
+	i_stream_unref(&input);
+
+	input = test_istream_create(crlf_str_ol);
+	ctx = message_parse_header_init(input, NULL, 0);
+	test_assert(message_parse_header_next(ctx, &hdr) > 0 &&
+		    *hdr->name == '\0' && hdr->middle == uchar_empty_ptr &&
+		    hdr->name_len == 0 && hdr->middle_len == 0 &&
+		    hdr->value != NULL && hdr->value_len > 0);
+	test_assert(message_parse_header_next(ctx, &hdr) > 0 &&
+		    hdr->eoh);
+	message_parse_header_deinit(&ctx);
+	i_stream_unref(&input);
+
+	/* test offset parsing */
+	static const char *data = "h1" NAME1000 NAME100 \
+				   ": value1\r\n" \
+				   "h2" NAME1000 NAME100 \
+				   ": value2\r\n" \
+				   "h3" NAME1000 NAME100 \
+				   ": value3\r\n\r\n";
+	input = test_istream_create(data);
+	ctx = message_parse_header_init(input, NULL, 0);
+	test_assert(message_parse_header_next(ctx, &hdr) > 0 &&
+		    hdr->full_value[0] == 'h' &&
+		    hdr->full_value[1] == '1' &&
+		    hdr->full_value_offset == 0);
+	test_assert(message_parse_header_next(ctx, &hdr) > 0 &&
+		    hdr->full_value[0] == 'h' &&
+		    hdr->full_value[1] == '2' &&
+		    hdr->full_value_offset == 1112);
+	test_assert(message_parse_header_next(ctx, &hdr) > 0 &&
+		    hdr->full_value[0] == 'h' &&
+		    hdr->full_value[1] == '3' &&
+		    hdr->full_value_offset == 2224);
+	test_assert(message_parse_header_next(ctx, &hdr) > 0 &&
+		    hdr->eoh);
+
+	message_parse_header_deinit(&ctx);
+	i_stream_unref(&input);
+
 	test_end();
 }
 
@@ -340,6 +424,35 @@ static void test_message_header_parser_nul(void)
 	test_end();
 }
 
+static void test_message_header_parser_extra_crlf_in_name(void)
+{
+	static const unsigned char str[] = "X-Header\r\n  Name: Header Value\n\n";
+	struct message_header_parser_ctx *parser;
+	struct message_header_line *hdr;
+	struct istream *input;
+	test_begin("message header parser CRLF in header name");
+
+	input = test_istream_create_data(str, sizeof(str)-1);
+	parser = message_parse_header_init(input, NULL, 0);
+	hdr = NULL;
+	test_assert(message_parse_header_next(parser, &hdr) > 0 &&
+		    *hdr->name == '\0' && hdr->middle == uchar_empty_ptr &&
+		    hdr->name_len == 0 && hdr->middle_len == 0 &&
+		    hdr->value != NULL && hdr->value_len > 0);
+	test_assert(message_parse_header_next(parser, &hdr) > 0 &&
+		    *hdr->name == '\0' && hdr->middle == uchar_empty_ptr &&
+		    hdr->name_len == 0 && hdr->middle_len == 0 &&
+		    hdr->value != NULL && hdr->value_len > 0 &&
+		    hdr->continued);
+	test_assert(message_parse_header_next(parser, &hdr) > 0 &&
+		    hdr->eoh);
+
+	message_parse_header_deinit(&parser);
+	i_stream_unref(&input);
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -349,6 +462,7 @@ int main(void)
 		test_message_header_parser_extra_cr_in_eoh,
 		test_message_header_parser_no_eoh,
 		test_message_header_parser_nul,
+		test_message_header_parser_extra_crlf_in_name,
 		NULL
 	};
 	return test_run(test_functions);
