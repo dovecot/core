@@ -282,8 +282,10 @@ static void test_message_header_parser_extra_cr_in_eoh(void)
 	test_assert(message_parse_header_next(parser, &hdr) > 0 &&
 		    strcmp(hdr->name, "a") == 0);
 	test_assert(message_parse_header_next(parser, &hdr) > 0 &&
-		    strcmp(hdr->name, "\r") == 0 && hdr->middle_len == 0 &&
-		    hdr->value_len == 0 && !hdr->eoh);
+		    *hdr->value == '\r' && hdr->value_len == 1 &&
+		    hdr->full_value_offset == 4 &&
+		    hdr->middle_len == 0 &&
+		    hdr->name_len == 0 && !hdr->eoh);
 	test_assert(message_parse_header_next(parser, &hdr) < 0);
 	message_parse_header_deinit(&parser);
 	test_assert(input->stream_errno == 0);

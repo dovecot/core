@@ -4,6 +4,7 @@
 #include "buffer.h"
 #include "istream.h"
 #include "str.h"
+#include "strfuncs.h"
 #include "unichar.h"
 #include "message-size.h"
 #include "message-header-parser.h"
@@ -262,16 +263,15 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		line->value = msg;
 		line->value_len = size;
 	} else if (colon_pos == UINT_MAX) {
-		/* missing ':', assume the whole line is name */
-		line->value = NULL;
-		line->value_len = 0;
+		/* missing ':', assume the whole line is value */
+		line->value = msg;
+		line->value_len = size;
+		line->full_value_offset = line->name_offset;
 
-		str_truncate(ctx->name, 0);
-		buffer_append(ctx->name, msg, size);
-		line->name = str_c(ctx->name);
-		line->name_len = str_len(ctx->name);
+		line->name = "";
+		line->name_len = 0;
 
-		line->middle = NULL;
+		line->middle = uchar_empty_ptr;
 		line->middle_len = 0;
 	} else {
 		size_t pos;
