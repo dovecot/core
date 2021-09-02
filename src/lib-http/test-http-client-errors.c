@@ -18,6 +18,7 @@
 #include "http-client.h"
 
 #include <unistd.h>
+#include <sys/signal.h>
 
 #define CLIENT_PROGRESS_TIMEOUT     10
 #define SERVER_KILL_TIMEOUT_SECS    20
@@ -377,7 +378,7 @@ test_server_connection_refused(unsigned int index ATTR_UNUSED)
 {
 	i_close_fd(&fd_listen);
 
-	test_subprocess_notify_signal_send_parent();
+	test_subprocess_notify_signal_send_parent(SIGUSR1);
 }
 
 /* client */
@@ -418,7 +419,7 @@ test_client_connection_refused(const struct http_client_settings *client_set)
 	struct _connection_refused *ctx;
 
 	/* wait for the server side to close the socket */
-	test_subprocess_notify_signal_wait(10000);
+	test_subprocess_notify_signal_wait(SIGUSR1, 10000);
 
 	ctx = i_new(struct _connection_refused, 1);
 	ctx->count = 2;
@@ -3838,7 +3839,7 @@ test_run_client_server(const struct http_client_settings *client_set,
 {
 	unsigned int i;
 
-	test_subprocess_notify_signal_reset();
+	test_subprocess_notify_signal_reset(SIGHUP);
 	test_server_init = NULL;
 	test_server_deinit = NULL;
 	test_server_input = NULL;
