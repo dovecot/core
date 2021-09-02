@@ -235,10 +235,16 @@ test_message_header_parser_long_lines_str(const char *str,
 	i_stream_unref(&input);
 }
 
+#define NAME10 "1234567890"
+#define NAME100 NAME10 NAME10 NAME10 NAME10 NAME10 \
+		NAME10 NAME10 NAME10 NAME10 NAME10
+#define NAME1000 NAME100 NAME100 NAME100 NAME100 NAME100 \
+		 NAME100 NAME100 NAME100 NAME100 NAME100
+
 static void test_message_header_parser_long_lines(void)
 {
-	static const char *lf_str = "1234567890: 345\n\n";
-	static const char *crlf_str = "1234567890: 345\r\n\r\n";
+	static const char *lf_str = NAME10": 345\n\n";
+	static const char *crlf_str = NAME10": 345\r\n\r\n";
 	struct message_size hdr_size, hdr_size2;
 	size_t i, len;
 
