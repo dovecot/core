@@ -572,6 +572,52 @@ static int dlua_clear_flag(lua_State *L)
 	return 1;
 }
 
+static int dlua_script_strict_index(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 2);
+	const char *name = luaL_checkstring(L, 2);
+	return luaL_error(L, "attempt to write to read undeclared global variable %s",
+			  name);
+}
+
+static int dlua_script_strict_newindex(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 3);
+	if (lua_type(L, 3) == LUA_TFUNCTION) {
+		/* allow defining global functions */
+		lua_rawset(L, 1);
+	} else {
+		const char *name = luaL_checkstring(L, 2);
+		return luaL_error(L, "attempt to write to undeclared global variable %s",
+				  name);
+	}
+	return 0;
+}
+
+static luaL_Reg env_strict_metamethods[] = {
+	{ "__index", dlua_script_strict_index },
+	{ "__newindex", dlua_script_strict_newindex },
+	{ NULL, NULL }
+};
+
+static int dlua_restrict_global_variables(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 1);
+
+	if (lua_toboolean(L, 1)) {
+		/* disable defining global variables */
+		lua_getglobal(L, "_G");
+		lua_newtable(L);
+		luaL_setfuncs(L, env_strict_metamethods, 0);
+	} else {
+		/* revert restrictions */
+		lua_getglobal(L, "_G");
+		lua_newtable(L);
+	}
+	lua_setmetatable(L, -2);
+	lua_pop(L, 1);
+	return 0;
+}
 
 static luaL_Reg lua_dovecot_methods[] = {
 	{ "i_debug", dlua_i_debug },
@@ -582,6 +628,7 @@ static luaL_Reg lua_dovecot_methods[] = {
 	{ "has_flag", dlua_has_flag },
 	{ "set_flag", dlua_set_flag },
 	{ "clear_flag", dlua_clear_flag },
+	{ "restrict_global_variables", dlua_restrict_global_variables },
 	{ NULL, NULL }
 };
 
