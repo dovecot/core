@@ -152,13 +152,6 @@ void worker_connection_request(struct connection *conn,
 	} T_END;
 }
 
-bool worker_connection_is_busy(struct connection *conn)
-{
-	struct worker_connection *worker =
-		container_of(conn, struct worker_connection, conn);
-	return worker->request != NULL;
-}
-
 const char *worker_connection_get_username(struct connection *conn)
 {
 	struct worker_connection *worker =

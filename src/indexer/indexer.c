@@ -33,7 +33,7 @@ void indexer_refresh_proctitle(void)
 static bool idle_die(void)
 {
 	return indexer_queue_is_empty(queue) &&
-		!worker_pool_have_busy_connections(worker_pool);
+		!worker_pool_have_connections(worker_pool);
 }
 
 static void client_connected(struct master_service_connection *conn)
@@ -63,7 +63,7 @@ static void queue_try_send_more(struct indexer_queue *queue)
 	while ((request = indexer_queue_request_peek(queue)) != NULL) {
 		conn = worker_pool_find_username_connection(worker_pool,
 							    request->username);
-		if (conn != NULL && worker_connection_is_busy(conn)) {
+		if (conn != NULL) {
 			/* There is already a connection handling a request
 			 * for this user. Move the request to the back of the
 			 * queue and handle requests from other users.
@@ -77,7 +77,7 @@ static void queue_try_send_more(struct indexer_queue *queue)
 				first_moved_request = request;
 			indexer_queue_move_head_to_tail(queue);
 			continue;
-		} else if (conn == NULL) {
+		} else {
 			/* create a new connection to a worker */
 			if (!worker_pool_get_connection(worker_pool, &conn))
 				break;

@@ -11,7 +11,7 @@ worker_pool_init(const char *socket_path, indexer_status_callback_t *callback,
 		 worker_available_callback_t *avail_callback);
 void worker_pool_deinit(struct worker_pool **pool);
 
-bool worker_pool_have_busy_connections(struct worker_pool *pool);
+bool worker_pool_have_connections(struct worker_pool *pool);
 
 bool worker_pool_get_connection(struct worker_pool *pool,
 				struct connection **conn_r);

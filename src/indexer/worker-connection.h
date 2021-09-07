@@ -30,8 +30,6 @@ unsigned int worker_connections_get_process_limit(void);
 void worker_connection_request(struct connection *conn,
 			       struct indexer_request *request,
 			       void *context);
-/* Returns TRUE if a request is being handled. */
-bool worker_connection_is_busy(struct connection *conn);
 /* Returns username of the currently pending requests,
    or NULL if there are none. */
 const char *worker_connection_get_username(struct connection *conn);
