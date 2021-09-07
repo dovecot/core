@@ -381,9 +381,11 @@ void dlua_script_unref(struct dlua_script **_script)
 bool dlua_script_has_function(struct dlua_script *script, const char *fn)
 {
 	i_assert(script != NULL);
-	lua_getglobal(script->L, fn);
+	lua_getglobal(script->L, "_G");
+	lua_pushstring(script->L, fn);
+	lua_rawget(script->L, -2);
 	bool ret = lua_isfunction(script->L, -1);
-	lua_pop(script->L, 1);
+	lua_pop(script->L, 2);
 	return ret;
 }
 
