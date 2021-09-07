@@ -68,29 +68,12 @@ static int worker_pool_add_connection(struct worker_pool *pool,
 	return 0;
 }
 
-static unsigned int worker_pool_find_max_connections(struct worker_pool *pool)
-{
-	struct connection *list;
-	unsigned int limit;
-
-	if (pool->connection_list->connections == NULL)
-		return 1;
-
-	for (list = pool->connection_list->connections; list != NULL; list = list->next) {
-		if (worker_connection_get_process_limit(list, &limit))
-			return limit;
-	}
-	/* we have at least one connection that has already been created,
-	   but without having handshaked yet. wait until it's finished. */
-	return 0;
-}
-
 bool worker_pool_get_connection(struct worker_pool *pool,
 				struct connection **conn_r)
 {
 	unsigned int max_connections;
 
-	max_connections = worker_pool_find_max_connections(pool);
+	max_connections = I_MAX(1, worker_connections_get_process_limit());
 	if (pool->connection_list->connections_count >= max_connections)
 		return FALSE;
 	if (worker_pool_add_connection(pool, conn_r) < 0)

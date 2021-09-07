@@ -29,9 +29,9 @@ struct worker_connection {
 
 	char *request_username;
 	struct indexer_request *request;
-
-	unsigned int process_limit;
 };
+
+static unsigned int worker_last_process_limit = 0;
 
 static void worker_connection_call_callback(struct worker_connection *worker,
 					    int percentage)
@@ -56,8 +56,7 @@ void worker_connection_destroy(struct connection *conn)
 static int
 worker_connection_handshake_args(struct connection *conn, const char *const *args)
 {
-	struct worker_connection *worker =
-		container_of(conn, struct worker_connection, conn);
+	unsigned int process_limit;
 	int ret;
 	if (!conn->version_received) {
 		if ((ret = connection_handshake_args_default(conn, args)) < 1)
@@ -65,13 +64,13 @@ worker_connection_handshake_args(struct connection *conn, const char *const *arg
 		/* we are not done yet */
 		return 0;
 	}
-	i_assert(worker->process_limit == 0);
-	if (str_to_uint(args[0], &worker->process_limit) < 0 ||
-	    worker->process_limit == 0) {
+	if (str_to_uint(args[0], &process_limit) < 0 ||
+	    process_limit == 0) {
 		e_error(conn->event, "Worker sent invalid process limit '%s'",
 			args[0]);
 		return -1;
 	}
+	worker_last_process_limit = process_limit;
 	return 1;
 }
 
@@ -102,17 +101,9 @@ bool worker_connection_is_connected(struct connection *conn)
 	return !conn->disconnected;
 }
 
-bool worker_connection_get_process_limit(struct connection *conn,
-					 unsigned int *limit_r)
+unsigned int worker_connections_get_process_limit(void)
 {
-	struct worker_connection *worker =
-		container_of(conn, struct worker_connection, conn);
-
-	if (worker->process_limit == 0)
-		return FALSE;
-
-	*limit_r = worker->process_limit;
-	return TRUE;
+	return worker_last_process_limit;
 }
 
 void worker_connection_request(struct connection *conn,

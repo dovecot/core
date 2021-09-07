@@ -17,11 +17,9 @@ struct connection_list *worker_connection_list_create(void);
 /* Returns TRUE if worker is connected to (not necessarily handshaked yet) */
 bool worker_connection_is_connected(struct connection *conn);
 
-/* After initial handshake the worker process tells how many of its kind
-   can be at maximum. This returns the value, of FALSE if handshake isn't
-   finished yet. */
-bool worker_connection_get_process_limit(struct connection *conn,
-					 unsigned int *limit_r);
+/* Returns the last process_limit returned by a worker connection handshake.
+   If no handshakes have been received yet, returns 0. */
+unsigned int worker_connections_get_process_limit(void);
 
 /* Send a new indexing request for username+mailbox. The status callback is
    called as necessary with the given context. Requests can be queued, but
