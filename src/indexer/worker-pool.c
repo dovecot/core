@@ -13,18 +13,21 @@
 struct worker_pool {
 	char *socket_path;
 	indexer_status_callback_t *callback;
+	worker_available_callback_t *avail_callback;
 
 	struct connection_list *connection_list;
 };
 
 struct worker_pool *
-worker_pool_init(const char *socket_path, indexer_status_callback_t *callback)
+worker_pool_init(const char *socket_path, indexer_status_callback_t *callback,
+		 worker_available_callback_t *avail_callback)
 {
 	struct worker_pool *pool;
 
 	pool = i_new(struct worker_pool, 1);
 	pool->socket_path = i_strdup(socket_path);
 	pool->callback = callback;
+	pool->avail_callback = avail_callback;
 	pool->connection_list = worker_connection_list_create();
 	return pool;
 }
@@ -58,6 +61,7 @@ static int worker_pool_add_connection(struct worker_pool *pool,
 	struct connection *conn;
 
 	conn = worker_connection_create(pool->socket_path, pool->callback,
+					pool->avail_callback,
 					pool->connection_list);
 	if (connection_client_connect(conn) < 0) {
 		worker_connection_destroy(conn);

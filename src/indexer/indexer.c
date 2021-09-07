@@ -19,7 +19,6 @@ struct worker_request {
 static const struct master_service_settings *set;
 static struct indexer_queue *queue;
 static struct worker_pool *worker_pool;
-static struct timeout *to_send_more;
 
 void indexer_refresh_proctitle(void)
 {
@@ -60,8 +59,6 @@ static void queue_try_send_more(struct indexer_queue *queue)
 {
 	struct connection *conn;
 	struct indexer_request *request, *first_moved_request = NULL;
-
-	timeout_remove(&to_send_more);
 
 	while ((request = indexer_queue_request_peek(queue)) != NULL) {
 		conn = worker_pool_find_username_connection(worker_pool,
@@ -106,12 +103,12 @@ worker_status_callback(int percentage, struct indexer_request *request)
 
 	indexer_queue_request_finish(queue, &request,
 				     percentage == 100);
+}
 
-	/* if this was the last request for the connection, we can send more
-	   through it. delay it a bit, since we may be coming here from
-	   worker_connection_disconnect() and we want to finish it up. */
-	if (to_send_more == NULL)
-		to_send_more = timeout_add_short(0, queue_try_send_more, queue);
+static void worker_avail_callback(void)
+{
+	/* A new worker became available. Try to shrink the queue. */
+	queue_try_send_more(queue);
 }
 
 int main(int argc, char *argv[])
@@ -135,7 +132,8 @@ int main(int argc, char *argv[])
 	queue = indexer_queue_init(indexer_client_status_callback);
 	indexer_queue_set_listen_callback(queue, queue_listen_callback);
 	worker_pool = worker_pool_init("indexer-worker",
-				       worker_status_callback);
+				       worker_status_callback,
+				       worker_avail_callback);
 	master_service_init_finish(master_service);
 
 	master_service_run(master_service, client_connected);
@@ -144,7 +142,6 @@ int main(int argc, char *argv[])
 	indexer_clients_destroy_all();
 	worker_pool_deinit(&worker_pool);
 	indexer_queue_deinit(&queue);
-	timeout_remove(&to_send_more);
 
 	master_service_deinit(&master_service);
         return 0;

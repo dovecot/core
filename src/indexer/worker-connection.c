@@ -26,6 +26,7 @@ struct worker_connection {
 	struct connection conn;
 
 	indexer_status_callback_t *callback;
+	worker_available_callback_t *avail_callback;
 
 	char *request_username;
 	struct indexer_request *request;
@@ -50,6 +51,8 @@ void worker_connection_destroy(struct connection *conn)
 	worker->request = NULL;
 	i_free_and_null(worker->request_username);
 	connection_deinit(conn);
+
+	worker->avail_callback();
 	i_free(conn);
 }
 
@@ -188,12 +191,14 @@ struct connection_list *worker_connection_list_create(void)
 struct connection *
 worker_connection_create(const char *socket_path,
 			 indexer_status_callback_t *callback,
+			 worker_available_callback_t *avail_callback,
 			 struct connection_list *list)
 {
 	struct worker_connection *conn;
 
 	conn = i_new(struct worker_connection, 1);
 	conn->callback = callback;
+	conn->avail_callback = avail_callback;
 	connection_init_client_unix(list, &conn->conn, socket_path);
 
 	return &conn->conn;

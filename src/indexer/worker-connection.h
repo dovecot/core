@@ -6,9 +6,12 @@
 struct indexer_request;
 struct connection_list;
 
+typedef void worker_available_callback_t(void);
+
 struct connection *
 worker_connection_create(const char *socket_path,
 			 indexer_status_callback_t *callback,
+			 worker_available_callback_t *avail_callback,
 			 struct connection_list *list);
 void worker_connection_destroy(struct connection *conn);
 
