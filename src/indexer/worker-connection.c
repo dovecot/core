@@ -92,6 +92,10 @@ worker_connection_input_args(struct connection *conn, const char *const *args)
 		ret = -1;
 
 	worker_connection_call_callback(worker, percentage);
+	if (worker->request == NULL) {
+		/* disconnect after each request */
+		ret = -1;
+	}
 
 	return ret;
 }
