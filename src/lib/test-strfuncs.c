@@ -495,6 +495,109 @@ test_str_match(void)
 	test_end();
 }
 
+static void test_memspn(void)
+{
+#undef TEST_CASE
+/* we substract 1 to ensure we don't include the final \0 byte */
+#define TEST_CASE(a, b, r) { \
+	.input = (const unsigned char*)((a)), .input_len = sizeof((a))-1, \
+	.accept = (const unsigned char*)((b)), .accept_len = sizeof((b))-1, \
+	.result = r, \
+}
+
+	static struct {
+		const unsigned char *input;
+		size_t input_len;
+		const unsigned char *accept;
+		size_t accept_len;
+		size_t result;
+	} tests[] = {
+		TEST_CASE("", "", 0),
+		TEST_CASE("", "123456789", 0),
+		TEST_CASE("123456789", "", 0),
+		TEST_CASE("hello, world", "helo", 5),
+		TEST_CASE("hello, uuuuu", "helo", 5),
+		TEST_CASE("\0\0\0\0\0hello", "\0", 5),
+		TEST_CASE("\r\r\r\r", "\r", 4),
+		TEST_CASE("aaa", "a", 3),
+		TEST_CASE("bbb", "a", 0),
+		/* null safety test */
+		{
+			.input = NULL, .accept = NULL,
+			.input_len = 0, .accept_len = 0,
+			.result = 0,
+		}
+	};
+
+	test_begin("i_memspn");
+
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		size_t a = i_memspn(tests[i].input, tests[i].input_len,
+				    tests[i].accept, tests[i].accept_len);
+		test_assert_ucmp_idx(a, ==, tests[i].result, i);
+		if (tests[i].input == NULL)
+			continue;
+		a = i_memspn(tests[i].input, strlen((const char*)tests[i].input),
+			     tests[i].accept, strlen((const char*)tests[i].accept));
+		size_t b = strspn((const char*)tests[i].input,
+				  (const char*)tests[i].accept);
+		test_assert_ucmp_idx(a, ==, b, i);
+	}
+
+	test_end();
+}
+
+static void test_memcspn(void)
+{
+#undef TEST_CASE
+/* we substract 1 to ensure we don't include the final \0 byte */
+#define TEST_CASE(a, b, r) { \
+	.input = (const unsigned char*)((a)), .input_len = sizeof((a))-1, \
+	.reject = (const unsigned char*)((b)), .reject_len = sizeof((b))-1, \
+	.result = r, \
+}
+
+	static struct {
+		const unsigned char *input;
+		size_t input_len;
+		const unsigned char *reject;
+		size_t reject_len;
+		size_t result;
+	} tests[] = {
+		TEST_CASE("", "", 0),
+		TEST_CASE("hello", "", 5),
+		TEST_CASE("uuuuu, hello", "helo", 7),
+		TEST_CASE("\0\0\0\0\0\0hello", "u", 11),
+		TEST_CASE("this\0is\0test", "\0", 4),
+		TEST_CASE("hello, world\r", "\r", 12),
+		TEST_CASE("aaa", "a", 0),
+		TEST_CASE("bbb", "a", 3),
+		/* null safety test */
+		{
+			.input = NULL, .reject = NULL,
+			.input_len = 0, .reject_len = 0,
+			.result = 0,
+		}
+	};
+
+	test_begin("i_memcspn");
+
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		size_t a = i_memcspn(tests[i].input, tests[i].input_len,
+				     tests[i].reject, tests[i].reject_len);
+		test_assert_ucmp_idx(a, ==, tests[i].result, i);
+		if (tests[i].input == NULL)
+			continue;
+		a = i_memcspn(tests[i].input, strlen((const char*)tests[i].input),
+			      tests[i].reject, strlen((const char*)tests[i].reject));
+		size_t b = strcspn((const char*)tests[i].input,
+				   (const char*)tests[i].reject);
+		test_assert_ucmp_idx(a, ==, b, i);
+	}
+
+	test_end();
+}
+
 void test_strfuncs(void)
 {
 	test_p_strdup();
@@ -515,6 +618,8 @@ void test_strfuncs(void)
 	test_str_equals_timing_almost_safe();
 	test_dec2str_buf();
 	test_str_match();
+	test_memspn();
+	test_memcspn();
 }
 
 enum fatal_test_state fatal_strfuncs(unsigned int stage)

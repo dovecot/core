@@ -633,6 +633,46 @@ str_match(const char *p1, const char *p2)
 	return i;
 }
 
+size_t i_memspn(const void *data, size_t data_len,
+		const void *accept, size_t accept_len)
+{
+	const unsigned char *start = data;
+	i_assert(data != NULL || data_len == 0);
+	i_assert(accept != NULL || accept_len == 0);
+	size_t pos = 0;
+	/* nothing to accept */
+	if (accept_len == 0)
+		return 0;
+	for (; pos < data_len; pos++) {
+		if (memchr(accept, start[pos], accept_len) == NULL)
+			break;
+	}
+	return pos;
+}
+
+size_t i_memcspn(const void *data, size_t data_len,
+		 const void *reject, size_t reject_len)
+{
+	const unsigned char *start = data;
+	const unsigned char *r = reject;
+	const unsigned char *ptr = CONST_PTR_OFFSET(data, data_len);
+	i_assert(data != NULL || data_len == 0);
+	i_assert(reject != NULL || reject_len == 0);
+	/* nothing to reject */
+	if (reject_len == 0 || data_len == 0)
+		return data_len;
+	/* Doing repeated memchr's over the data is faster than
+	   going over it once byte by byte, as long as reject
+	   is reasonably short. */
+	for (size_t i = 0; i < reject_len; i++) {
+		const unsigned char *kand =
+			memchr(start, r[i], data_len);
+		if (kand != NULL && kand < ptr)
+			ptr = kand;
+	}
+	return ptr - start;
+}
+
 static char **
 split_str_slow(pool_t pool, const char *data, const char *separators, bool spaces)
 {

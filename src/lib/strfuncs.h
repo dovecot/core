@@ -97,6 +97,21 @@ static inline ATTR_PURE bool str_begins(const char *haystack, const char *needle
 # define str_begins(h, n) (__builtin_constant_p(n) ? strncmp((h), (n), strlen(n))==0 : (str_begins)((h), (n)))
 #endif
 
+/* Get length of a prefix segment.
+
+  Calculates the length (in bytes) of the initial segment of s which consists
+  entirely of bytes in accept.
+*/
+size_t i_memspn(const void *data, size_t data_len,
+		const void *accept, size_t accept_len);
+/* Get length of a prefix segment.
+
+  Calculates the length of the initial segment of s which consists entirely of
+  bytes not in reject.
+*/
+size_t i_memcspn(const void *data, size_t data_len,
+		 const void *reject, size_t reject_len);
+
 static inline char *i_strchr_to_next(const char *str, char chr)
 {
 	char *tmp = (char *)strchr(str, chr);
