@@ -154,23 +154,22 @@ static int build_stats_dump_cmd(struct stats_cmd_context *ctx,
 	fields = t_strsplit_spaces(fields_raw, ", ");
 	data->fields = fields;
 	data->field_count = str_array_length(fields);
-	enum doveadm_dump_field_type field_types[data->field_count];
+	data->field_types =
+		t_malloc0(sizeof(enum doveadm_dump_field_type) * data->field_count);
 	ctx->data = data;
 	ctx->cmd = init_stats_cmd();
 	str_append(ctx->cmd, reset ? "DUMP-RESET" : "DUMP");
-	i_zero(&field_types);
 	unsigned int i;
 	for (i = 0; i < data->field_count; i++) {
 		str_append_c(ctx->cmd, '\t');
 		if (strcmp(fields[i], "stddev") == 0) {
-			field_types[i] = DOVEADM_DUMP_FIELD_TYPE_STDDEV;
+			data->field_types[i] = DOVEADM_DUMP_FIELD_TYPE_STDDEV;
 			str_append(ctx->cmd, "variance");
 		} else {
 			str_append_tabescaped(ctx->cmd, fields[i]);
 		}
 	}
 	str_append_c(ctx->cmd, '\n');
-	data->field_types = field_types;
 	return 0;
 }
 
