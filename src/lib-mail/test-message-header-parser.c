@@ -17,6 +17,7 @@ static const char *test1_msg =
 	"h3: \r\n"
 	"\tv3\n"
 	"\tw3\r\n"
+	"h4: \r\n"
 	"\n"
 	" body";
 
@@ -117,7 +118,16 @@ test_message_header_parser_one(struct message_header_parser_ctx *parser,
 	}
 
 	test_assert(message_parse_header_next(parser, &hdr) > 0);
-	test_assert(hdr->name_offset == 32 && hdr->full_value_offset == 32);
+	test_assert(hdr->name_offset == 32 && hdr->full_value_offset == 36);
+	test_assert(hdr->name_len == 2 && strcmp(hdr->name, "h4") == 0);
+	test_assert(hdr->middle_len == 2 && memcmp(hdr->middle, ": ", 2) == 0);
+	test_assert(hdr->value_len == 0 && memcmp(hdr->value, "", 0) == 0);
+	test_assert(!hdr->continues && !hdr->continued && !hdr->eoh &&
+		    !hdr->no_newline && hdr->crlf_newline);
+	test_assert(hdr->full_value_len == 0 && hdr->full_value != NULL);
+
+	test_assert(message_parse_header_next(parser, &hdr) > 0);
+	test_assert(hdr->name_offset == 38 && hdr->full_value_offset == 38);
 	test_assert(hdr->name_len == 0 && hdr->middle_len == 0 && hdr->value_len == 0);
 	test_assert(!hdr->continues && !hdr->continued && hdr->eoh &&
 		    !hdr->no_newline && !hdr->crlf_newline);
