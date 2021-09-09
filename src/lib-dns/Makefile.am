@@ -13,6 +13,7 @@ headers = \
 	dns-util.h
 
 test_programs = \
+	test-dns-lookup \
 	test-dns-util
 
 noinst_PROGRAMS = $(test_programs)
@@ -24,6 +25,9 @@ test_libs = \
 
 test_dns_util_SOURCES = test-dns-util.c
 test_dns_util_LDADD = $(test_libs)
+
+test_dns_lookup_SOURCES = test-dns-lookup.c
+test_dns_lookup_LDADD = $(test_libs)
 
 check-local:
 	for bin in $(test_programs); do \
