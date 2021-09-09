@@ -22,7 +22,7 @@ test_libs = \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
-test_dns_util_SOURCE = test-dns-util.c
+test_dns_util_SOURCES = test-dns-util.c
 test_dns_util_LDADD = $(test_libs)
 
 check-local:
