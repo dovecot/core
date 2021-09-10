@@ -313,9 +313,10 @@ void dns_client_deinit(struct dns_client **_client)
 	struct connection_list *clist = client->clist;
 	*_client = NULL;
 
-	i_assert(client->head == NULL);
-
 	dns_client_disconnect(client, "deinit");
+
+	/* dns_client_disconnect() is supposed to clear out all queries */
+	i_assert(client->head == NULL);
 	connection_list_deinit(&clist);
 	i_free(client->path);
 	i_free(client);
