@@ -90,7 +90,7 @@ static void dns_client_disconnect(struct dns_client *client, const char *error)
 	struct dns_lookup_result result;
 
 	if (!client->connected)
-	        return;
+		return;
 	timeout_remove(&client->to_idle);
 
 	connection_disconnect(&client->conn);
