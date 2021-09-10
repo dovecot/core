@@ -72,21 +72,23 @@ void dns_client_deinit(struct dns_client **client);
 /* Connect immediately to the dns-lookup socket. */
 int dns_client_connect(struct dns_client *client, const char **error_r);
 int dns_client_lookup(struct dns_client *client, const char *host,
+		      struct event *event,
 		      dns_lookup_callback_t *callback, void *context,
 		      struct dns_lookup **lookup_r) ATTR_NULL(4);
-#define dns_client_lookup(client, host, callback, context, lookup_r) \
+#define dns_client_lookup(client, host, event, callback, context, lookup_r) \
 	dns_client_lookup(client, host - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct dns_lookup_result *, typeof(context))), \
-		(dns_lookup_callback_t *)callback, context, lookup_r)
+		event, (dns_lookup_callback_t *)callback, context, lookup_r)
 int dns_client_lookup_ptr(struct dns_client *client, const struct ip_addr *ip,
+			  struct event *event,
 			  dns_lookup_callback_t *callback, void *context,
 			  struct dns_lookup **lookup_r) ATTR_NULL(4);
-#define dns_client_lookup_ptr(client, host, callback, context, lookup_r) \
-	dns_client_lookup_ptr(client, host - \
+#define dns_client_lookup_ptr(client, ip, event, callback, context, lookup_r) \
+	dns_client_lookup_ptr(client, ip - \
 		CALLBACK_TYPECHECK(callback, void (*)( \
 			const struct dns_lookup_result *, typeof(context))), \
-		(dns_lookup_callback_t *)callback, context, lookup_r)
+		event, (dns_lookup_callback_t *)callback, context, lookup_r)
 
 /* Returns true if the DNS client has any pending queries */
 bool dns_client_has_pending_queries(struct dns_client *client);

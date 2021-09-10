@@ -161,7 +161,7 @@ static void dns_client_cache_entry_refresh(struct dns_client *client,
 			i_unreached();
 		ctx = i_new(struct dns_cache_lookup, 1);
 		ctx->key = i_strdup(entry->cache_key);
-		if (dns_client_lookup_ptr(client, &ip,
+		if (dns_client_lookup_ptr(client, &ip, client->conn.event,
 					  dns_client_cache_callback,
 					  ctx, &lookup) < 0) {
 			e_debug(client->conn.event,
@@ -177,6 +177,7 @@ static void dns_client_cache_entry_refresh(struct dns_client *client,
 		ctx = i_new(struct dns_cache_lookup, 1);
 		ctx->key = i_strdup(entry->cache_key);
 		if (dns_client_lookup(client, entry->cache_key + 1,
+				      client->conn.event,
 				      dns_client_cache_callback,
 				      ctx, &lookup) < 0) {
 			e_debug(client->conn.event,
@@ -426,7 +427,8 @@ int dns_lookup(const char *host, const struct dns_lookup_settings *set,
 	client = dns_client_init(set);
 	event_add_category(client->conn.event, &event_category_dns);
 	client->deinit_client_at_free = TRUE;
-	return dns_client_lookup(client, host, callback, context, lookup_r);
+	return dns_client_lookup(client, host, client->conn.event, callback,
+				 context, lookup_r);
 }
 
 int dns_lookup_ptr(const struct ip_addr *ip,
@@ -440,7 +442,8 @@ int dns_lookup_ptr(const struct ip_addr *ip,
 	client = dns_client_init(set);
 	event_add_category(client->conn.event, &event_category_dns);
 	client->deinit_client_at_free = TRUE;
-	return dns_client_lookup_ptr(client, ip, callback, context, lookup_r);
+	return dns_client_lookup_ptr(client, ip, client->conn.event,
+				     callback, context, lookup_r);
 }
 
 static void dns_client_idle_timeout(struct dns_client *client)
@@ -589,6 +592,7 @@ dns_client_send_request(struct dns_client *client, const char *cmd,
 static int
 dns_client_lookup_common(struct dns_client *client,
 			 const char *cmd, const char *param, bool ptr_lookup,
+			 struct event *event,
 			 dns_lookup_callback_t *callback, void *context,
 			 struct dns_lookup **lookup_r)
 {
@@ -609,7 +613,8 @@ dns_client_lookup_common(struct dns_client *client,
 	lookup->context = context;
 	lookup->ptr_lookup = ptr_lookup;
 	lookup->result.ret = EAI_FAIL;
-	lookup->event = event_create(client->conn.event);
+	lookup->event = event_create(event);
+	event_add_category(lookup->event, &event_category_dns);
 	lookup->cache_key = p_strdup_printf(lookup->pool, "%c%s",
 				      ptr_lookup ? 'I' : 'N', param);
 	event_set_append_log_prefix(lookup->event, t_strconcat("dns(", param, "): ", NULL));
@@ -649,19 +654,21 @@ dns_client_lookup_common(struct dns_client *client,
 }
 
 int dns_client_lookup(struct dns_client *client, const char *host,
+		      struct event *event,
 		      dns_lookup_callback_t *callback, void *context,
 		      struct dns_lookup **lookup_r)
 {
-	return dns_client_lookup_common(client, "IP", host, FALSE,
+	return dns_client_lookup_common(client, "IP", host, FALSE, event,
 					callback, context, lookup_r);
 }
 
 int dns_client_lookup_ptr(struct dns_client *client, const struct ip_addr *ip,
+			  struct event *event,
 			  dns_lookup_callback_t *callback, void *context,
 			  struct dns_lookup **lookup_r)
 {
 	return dns_client_lookup_common(client, "NAME", net_ip2addr(ip), TRUE,
-					callback, context, lookup_r);
+					event, callback, context, lookup_r);
 }
 
 void dns_client_switch_ioloop(struct dns_client *client)

@@ -257,6 +257,7 @@ static void test_dns_lookup_cached(void)
 	struct test_expect_result ctx;
 	struct dns_lookup *lookup;
 	struct timeout *to;
+	struct event *event = event_create(NULL);
 
 	test_begin("dns lookup (cached)");
 	create_dns_server(&test_server);
@@ -265,6 +266,7 @@ static void test_dns_lookup_cached(void)
 		.ioloop = test_server.loop,
 		.timeout_msecs = 1000,
 		.cache_ttl_secs = 4,
+		.event_parent = event,
 	};
 
 
@@ -275,11 +277,11 @@ static void test_dns_lookup_cached(void)
 	ctx.ret = 0;
 
 	/* should cause only one lookup */
-	test_assert(dns_client_lookup(client, "localhost", test_callback_ips,
-				      &ctx, &lookup) == 0);
+	test_assert(dns_client_lookup(client, "localhost", event,
+				      test_callback_ips, &ctx, &lookup) == 0);
 	io_loop_run(current_ioloop);
-	test_assert(dns_client_lookup(client, "localhost", test_callback_ips,
-				      &ctx, &lookup) == 0);
+	test_assert(dns_client_lookup(client, "localhost", event,
+				      test_callback_ips, &ctx, &lookup) == 0);
 	io_loop_run(current_ioloop);
 	test_assert_cmp(test_server.lookup_counter, ==, 1);
 
@@ -288,8 +290,8 @@ static void test_dns_lookup_cached(void)
 	timeout_remove(&to);
 
 	/* entry should get refreshed */
-	test_assert(dns_client_lookup(client, "localhost", test_callback_ips,
-				      &ctx, &lookup) == 0);
+	test_assert(dns_client_lookup(client, "localhost", event,
+				      test_callback_ips, &ctx, &lookup) == 0);
 	io_loop_run(current_ioloop);
 	while (dns_client_has_pending_queries(client)) {
 		io_loop_handler_run(current_ioloop);
@@ -302,8 +304,8 @@ static void test_dns_lookup_cached(void)
 	io_loop_run(current_ioloop);
 	timeout_remove(&to);
 
-	test_assert(dns_client_lookup(client, "localhost", test_callback_ips,
-				      &ctx, &lookup) == 0);
+	test_assert(dns_client_lookup(client, "localhost", event,
+				      test_callback_ips, &ctx, &lookup) == 0);
 	io_loop_run(current_ioloop);
 
 	test_assert_cmp(test_server.lookup_counter, ==, 3);
@@ -311,18 +313,19 @@ static void test_dns_lookup_cached(void)
 	/* Ensure failures do not get cached */
 	ctx.result = NULL;
 	ctx.ret = -1;
-	test_assert(dns_client_lookup(client, "failhost", test_callback_ips,
-				      &ctx, &lookup) == 0);
+	test_assert(dns_client_lookup(client, "failhost", event,
+				      test_callback_ips, &ctx, &lookup) == 0);
 	io_loop_run(current_ioloop);
 	test_assert_cmp(test_server.lookup_counter, ==, 4);
 
-	test_assert(dns_client_lookup(client, "failhost", test_callback_ips,
-				      &ctx, &lookup) == 0);
+	test_assert(dns_client_lookup(client, "failhost", event,
+				      test_callback_ips, &ctx, &lookup) == 0);
 	io_loop_run(current_ioloop);
 	test_assert_cmp(test_server.lookup_counter, ==, 5);
 
 	dns_client_deinit(&client);
 	destroy_dns_server(&test_server);
+	event_unref(&event);
 
 	test_end();
 }

@@ -1834,6 +1834,7 @@ smtp_client_connection_lookup_ip(struct smtp_client_connection *conn)
 		e_debug(conn->event, "Performing asynchronous DNS lookup");
 		(void)dns_client_lookup(
 			conn->set.dns_client, conn->host,
+			conn->event,
 			smtp_client_connection_dns_callback, conn,
 			&conn->dns_lookup);
 	} else if (conn->set.dns_client_socket_path != NULL) {

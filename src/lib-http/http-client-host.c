@@ -149,6 +149,7 @@ http_client_host_shared_lookup(struct http_client_host_shared *hshared)
 	if (cctx->dns_client != NULL) {
 		e_debug(hshared->event, "Performing asynchronous DNS lookup");
 		(void)dns_client_lookup(cctx->dns_client, hshared->name,
+					hshared->event,
 					http_client_host_shared_dns_callback,
 					hshared, &hshared->dns_lookup);
 	} else if (cctx->dns_client_socket_path != NULL) {
