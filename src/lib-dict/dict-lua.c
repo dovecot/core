@@ -27,11 +27,11 @@ static int lua_dict_async_continue(lua_State *L,
 				   lua_KContext ctx ATTR_UNUSED)
 {
 	/*
-	 * lua_dict_*_callback() already pushed the result table or error
+	 * lua_dict_*_callback() already pushed the result table/nil or error
 	 * string.  We simply need to return/error out.
 	 */
 
-	if (lua_istable(L, -1))
+	if (lua_istable(L, -1) || lua_isnil(L, -1))
 		return 1;
 	else
 		return lua_error(L);
@@ -42,6 +42,8 @@ static void lua_dict_lookup_callback(const struct dict_lookup_result *result,
 {
 	if (result->ret < 0) {
 		lua_pushstring(L, result->error);
+	} else if (result->ret == 0) {
+		lua_pushnil(L);
 	} else {
 		unsigned int i;
 
