@@ -85,6 +85,9 @@ int dns_client_lookup_ptr(struct dns_client *client, const struct ip_addr *ip,
 			const struct dns_lookup_result *, typeof(context))), \
 		(dns_lookup_callback_t *)callback, context, lookup_r)
 
+/* Returns true if the DNS client has any pending queries */
+bool dns_client_has_pending_queries(struct dns_client *client);
+
 void dns_client_switch_ioloop(struct dns_client *client);
 
 #endif

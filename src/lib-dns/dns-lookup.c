@@ -436,3 +436,8 @@ void dns_client_switch_ioloop(struct dns_client *client)
 	for (lookup = client->head; lookup != NULL; lookup = lookup->next)
 		dns_lookup_switch_ioloop_real(lookup);
 }
+
+bool dns_client_has_pending_queries(struct dns_client *client)
+{
+	return client->head != NULL;
+}
