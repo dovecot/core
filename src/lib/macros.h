@@ -298,5 +298,11 @@
 #endif
 
 /* negate enumeration flags in a way that avoids implicit conversion */
-#define ENUM_NEGATE(x) \
+#ifndef STATIC_CHECKER
+#  define ENUM_NEGATE(x) \
 	((unsigned int)(~(x)) + COMPILE_ERROR_IF_TRUE(sizeof((x)) > sizeof(int) || (x) < 0 || (x) > INT_MAX))
+#else
+/* clang scan-build keeps complaining about x > 2147483647 case, so disable the
+   sizeof check. */
+#  define ENUM_NEGATE(x) ((unsigned int)(~(x)))
+#endif
