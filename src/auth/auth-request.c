@@ -33,8 +33,6 @@
 #include <sys/stat.h>
 
 #define AUTH_SUBSYS_PROXY "proxy"
-#define AUTH_DNS_SOCKET_PATH "dns-client"
-#define AUTH_DNS_DEFAULT_TIMEOUT_MSECS (1000*10)
 #define AUTH_DNS_WARN_MSECS 500
 #define AUTH_REQUEST_MAX_DELAY_SECS (60*5)
 #define CACHED_PASSWORD_SCHEME "SHA1"
@@ -2137,23 +2135,17 @@ static int auth_request_proxy_host_lookup(struct auth_request *request,
 					  const char *host,
 					  auth_request_proxy_cb_t *callback)
 {
+	struct auth *auth = auth_default_service();
 	struct auth_request_proxy_dns_lookup_ctx *ctx;
-	struct dns_lookup_settings dns_set;
 	const char *value;
 	unsigned int secs;
 
 	/* need to do dns lookup for the host */
-	i_zero(&dns_set);
-	dns_set.dns_client_socket_path = AUTH_DNS_SOCKET_PATH;
-	dns_set.timeout_msecs = AUTH_DNS_DEFAULT_TIMEOUT_MSECS;
-	dns_set.event_parent = request->event;
 	value = auth_fields_find(request->fields.extra_fields, "proxy_timeout");
 	if (value != NULL) {
 		if (str_to_uint(value, &secs) < 0) {
 			auth_request_log_error(request, AUTH_SUBSYS_PROXY,
 				"Invalid proxy_timeout value: %s", value);
-		} else {
-			dns_set.timeout_msecs = secs*1000;
 		}
 	}
 
@@ -2162,8 +2154,9 @@ static int auth_request_proxy_host_lookup(struct auth_request *request,
 	auth_request_ref(request);
 	request->dns_lookup_ctx = ctx;
 
-	if (dns_lookup(host, &dns_set, auth_request_proxy_dns_callback, ctx,
-			&ctx->dns_lookup) < 0) {
+	if (dns_client_lookup(auth->dns_client, host, request->event,
+			      auth_request_proxy_dns_callback, ctx,
+			      &ctx->dns_lookup) < 0) {
 		/* failed early */
 		return -1;
 	}

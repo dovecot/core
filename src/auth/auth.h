@@ -74,6 +74,8 @@ struct auth {
 	struct auth_passdb *masterdbs;
 	struct auth_passdb *passdbs;
 	struct auth_userdb *userdbs;
+
+	struct dns_client *dns_client;
 };
 
 extern struct auth_penalty *auth_penalty;

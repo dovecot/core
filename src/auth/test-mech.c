@@ -3,6 +3,7 @@
 #include "test-auth.h"
 #include "auth.h"
 #include "str.h"
+#include "ioloop.h"
 #include "auth-common.h"
 #include "auth-request.h"
 #include "auth-request-handler-private.h"
@@ -408,5 +409,9 @@ int main(void)
 		NULL
 	};
 
-	return test_run(test_functions);
+	struct ioloop *ioloop = io_loop_create();
+	io_loop_set_current(ioloop);
+	int ret = test_run(test_functions);
+	io_loop_destroy(&ioloop);
+	return ret;
 }
