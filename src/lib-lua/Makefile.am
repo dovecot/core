@@ -1,6 +1,7 @@
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
+	-I$(top_srcdir)/src/lib-dict \
 	$(LUA_CFLAGS)
 
 pkglib_LTLIBRARIES = libdovecot-lua.la
@@ -38,7 +39,7 @@ headers = \
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
-test_programs = test-lua
+test_programs = test-lua test-dict-lua
 
 noinst_PROGRAMS = $(test_programs)
 
@@ -51,6 +52,10 @@ test_lua_CFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
 test_lua_LDFLAGS = $(BINARY_LDFLAGS)
 test_lua_LDADD = $(test_libs) $(LUA_LIBS)
 test_lua_DEPENDENCIES = $(test_libs)
+
+test_dict_lua_SOURCES = test-dict-lua.c
+test_dict_lua_LDADD = $(test_libs) $(LUA_LIBS)
+test_dict_lua_DEPENDENCIES = $(test_libs)
 
 check-local:
 	for bin in $(test_programs); do \
