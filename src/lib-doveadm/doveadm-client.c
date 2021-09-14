@@ -346,7 +346,8 @@ static void doveadm_client_authenticated(struct doveadm_client *conn)
 		o_stream_nsend_str(conn->conn.output, "\t\tOPTION\tlog-passthrough\n");
 
 	if (conn->delayed_cmd != NULL) {
-		o_stream_nsend_str(conn->conn.output, conn->delayed_cmd);
+		doveadm_client_send_cmd(conn, conn->delayed_cmd,
+					conn->delayed_cmd_proxy_ttl);
 		conn->delayed_cmd = NULL;
 		doveadm_client_send_cmd_input(conn);
 	}
