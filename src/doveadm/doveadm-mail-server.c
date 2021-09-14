@@ -192,6 +192,18 @@ doveadm_cmd_pass_reply_parse(struct doveadm_mail_cmd_context *ctx,
 	}
 	if (proxy_set->username == NULL)
 		proxy_set->username = orig_user;
+
+	/* These ssl_flags can also be used by doveadm CLI client when
+	   connecting to doveadm-server (i.e. without proxy=y) */
+	if (proxy_set->ssl_flags != 0)
+		;
+	else if (strcmp(ctx->set->doveadm_ssl, "ssl") == 0)
+		proxy_set->ssl_flags |= AUTH_PROXY_SSL_FLAG_YES;
+	else if (strcmp(ctx->set->doveadm_ssl, "starttls") == 0) {
+		proxy_set->ssl_flags |= AUTH_PROXY_SSL_FLAG_YES |
+			AUTH_PROXY_SSL_FLAG_STARTTLS;
+	}
+
 	if (!proxy_set->proxy)
 		return 0;
 
@@ -212,15 +224,6 @@ doveadm_cmd_pass_reply_parse(struct doveadm_mail_cmd_context *ctx,
 			"%s: Proxy host is not a valid IP address: %s",
 			auth_socket_path, proxy_set->host);
 		return -1;
-	}
-
-	if (proxy_set->ssl_flags != 0)
-		;
-	else if (strcmp(ctx->set->doveadm_ssl, "ssl") == 0)
-		proxy_set->ssl_flags |= AUTH_PROXY_SSL_FLAG_YES;
-	else if (strcmp(ctx->set->doveadm_ssl, "starttls") == 0) {
-		proxy_set->ssl_flags |= AUTH_PROXY_SSL_FLAG_YES |
-			AUTH_PROXY_SSL_FLAG_STARTTLS;
 	}
 	return 0;
 }
