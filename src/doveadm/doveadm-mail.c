@@ -395,9 +395,11 @@ static struct doveadm_mail_cmd_context *cmd_force_resync_alloc(void)
 }
 
 static void
-doveadm_cctx_to_storage_service_input(const struct doveadm_cmd_context *cctx,
-					struct mail_storage_service_input *input_r)
+doveadm_mail_ctx_to_storage_service_input(struct doveadm_mail_cmd_context *ctx,
+					  struct mail_storage_service_input *input_r)
 {
+	const struct doveadm_cmd_context *cctx = ctx->cctx;
+
 	i_zero(input_r);
 	input_r->service = "doveadm";
 	input_r->remote_ip = cctx->remote_ip;
@@ -432,7 +434,7 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 	if (ret != 0)
 		return ret;
 
-	doveadm_cctx_to_storage_service_input(cctx, &input);
+	doveadm_mail_ctx_to_storage_service_input(ctx, &input);
 	ret = mail_storage_service_lookup(ctx->storage_service, &input,
 					  &ctx->cur_service_user, &error);
 	if (ret <= 0) {
@@ -486,7 +488,7 @@ int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 
 	i_assert(cctx->username != NULL);
 
-	doveadm_cctx_to_storage_service_input(cctx, &ctx->storage_service_input);
+	doveadm_mail_ctx_to_storage_service_input(ctx, &ctx->storage_service_input);
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
 							 ctx->service_flags);
 	ctx->v.init(ctx, ctx->args);
@@ -510,7 +512,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 
 	ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 
-	doveadm_cctx_to_storage_service_input(cctx, &ctx->storage_service_input);
+	doveadm_mail_ctx_to_storage_service_input(ctx, &ctx->storage_service_input);
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
 							 ctx->service_flags);
         lib_signals_set_handler(SIGINT, 0, sig_die, NULL);
