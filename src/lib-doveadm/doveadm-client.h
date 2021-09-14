@@ -52,6 +52,11 @@ struct doveadm_client_settings {
 	bool log_passthrough;
 };
 
+struct doveadm_client_cmd_settings {
+	/* TTL for proxying */
+	int proxy_ttl;
+};
+
 /* Duplicate doveadm client settings. Note that the ssl_ctx is referenced by
    this call, so it must be unreferenced later. */
 void doveadm_client_settings_dup(const struct doveadm_client_settings *src,
@@ -76,7 +81,8 @@ void doveadm_client_set_print(struct doveadm_client *conn,
 		TRUE ? context : CALLBACK_TYPECHECK(callback, \
 			void (*)(const unsigned char *, size_t, bool, typeof(context))))
 
-void doveadm_client_cmd(struct doveadm_client *conn, int proxy_ttl,
+void doveadm_client_cmd(struct doveadm_client *conn,
+			const struct doveadm_client_cmd_settings *set,
 			const char *line, struct istream *cmd_input,
 			doveadm_client_cmd_callback_t *callback, void *context);
 

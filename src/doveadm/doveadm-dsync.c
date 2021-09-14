@@ -868,8 +868,11 @@ static void dsync_server_run_command(struct dsync_cmd_context *ctx,
 	str_append_c(cmd, '\n');
 
 	ctx->tcp_conn = conn;
-	/* dsync command can't be proxied currently, so use TTL 1 */
-	doveadm_client_cmd(conn, 1, str_c(cmd), NULL,
+	struct doveadm_client_cmd_settings cmd_set = {
+		/* dsync command can't be proxied currently, so use TTL 1 */
+		.proxy_ttl = 1,
+	};
+	doveadm_client_cmd(conn, &cmd_set, str_c(cmd), NULL,
 			   dsync_connected_callback, ctx);
 	io_loop_run(current_ioloop);
 	ctx->tcp_conn = NULL;

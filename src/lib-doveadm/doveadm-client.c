@@ -38,7 +38,7 @@ struct doveadm_client {
 	struct istream *cmd_input;
 	struct ostream *cmd_output;
 	const char *delayed_cmd;
-	int delayed_cmd_proxy_ttl;
+	struct doveadm_client_cmd_settings delayed_set;
 	doveadm_client_cmd_callback_t *callback;
 	void *context;
 
@@ -232,10 +232,11 @@ doveadm_client_handle_input(struct doveadm_client *conn,
 
 static void
 doveadm_client_send_cmd(struct doveadm_client *conn,
-			const char *cmdline, int proxy_ttl)
+			const char *cmdline,
+			const struct doveadm_client_cmd_settings *set)
 {
 	i_assert(conn->authenticated);
-	i_assert(proxy_ttl >= 1);
+	i_assert(set->proxy_ttl >= 1);
 
 	if (conn->conn.minor_version < DOVEADM_PROTOCOL_MIN_VERSION_EXTRA_FIELDS) {
 		o_stream_nsend_str(conn->conn.output, cmdline);
@@ -248,7 +249,7 @@ doveadm_client_send_cmd(struct doveadm_client *conn,
 	size_t prefix_len = p - cmdline;
 
 	const char *proxy_ttl_str = t_strdup_printf(
-		"x\tproxy-ttl=%d", proxy_ttl);
+		"x\tproxy-ttl=%d", set->proxy_ttl);
 	struct const_iovec iov[] = {
 		{ cmdline, prefix_len },
 		{ proxy_ttl_str, strlen(proxy_ttl_str) },
@@ -342,7 +343,7 @@ static void doveadm_client_authenticated(struct doveadm_client *conn)
 
 	if (conn->delayed_cmd != NULL) {
 		doveadm_client_send_cmd(conn, conn->delayed_cmd,
-					conn->delayed_cmd_proxy_ttl);
+					&conn->delayed_set);
 		conn->delayed_cmd = NULL;
 		doveadm_client_send_cmd_input(conn);
 	}
@@ -731,12 +732,21 @@ doveadm_client_get_settings(struct doveadm_client *conn)
 	return &conn->set;
 }
 
-void doveadm_client_cmd(struct doveadm_client *conn, int proxy_ttl,
+static void
+doveadm_client_cmd_settings_dup(const struct doveadm_client_cmd_settings *src,
+				struct doveadm_client_cmd_settings *dest_r)
+{
+	i_zero(dest_r);
+	dest_r->proxy_ttl = src->proxy_ttl;
+}
+
+void doveadm_client_cmd(struct doveadm_client *conn,
+			const struct doveadm_client_cmd_settings *set,
 			const char *line, struct istream *cmd_input,
 			doveadm_client_cmd_callback_t *callback, void *context)
 {
 	i_assert(conn->delayed_cmd == NULL);
-	i_assert(proxy_ttl >= 1);
+	i_assert(set->proxy_ttl >= 1);
 
 	conn->state = DOVEADM_CLIENT_REPLY_STATE_PRINT;
 	if (cmd_input != NULL) {
@@ -745,10 +755,10 @@ void doveadm_client_cmd(struct doveadm_client *conn, int proxy_ttl,
 		conn->cmd_input = cmd_input;
 	}
 	if (!conn->authenticated) {
-		conn->delayed_cmd_proxy_ttl = proxy_ttl;
+		doveadm_client_cmd_settings_dup(set, &conn->delayed_set);
 		conn->delayed_cmd = p_strdup(conn->pool, line);
 	} else {
-		doveadm_client_send_cmd(conn, line, proxy_ttl);
+		doveadm_client_send_cmd(conn, line, set);
 		doveadm_client_send_cmd_input(conn);
 	}
 	conn->callback = callback;

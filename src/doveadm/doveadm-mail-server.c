@@ -324,8 +324,11 @@ doveadm_cmd_redirect_finish(struct doveadm_mail_server_cmd *servercmd,
 	servercmd->server = new_server;
 	if (servercmd->input != NULL)
 		i_stream_seek(servercmd->input, 0);
-	doveadm_client_cmd(conn, cmd_ctx->proxy_ttl,
-			   servercmd->cmdline, servercmd->input,
+
+	struct doveadm_client_cmd_settings cmd_set = {
+		.proxy_ttl = cmd_ctx->proxy_ttl,
+	};
+	doveadm_client_cmd(conn, &cmd_set, servercmd->cmdline, servercmd->input,
 			   doveadm_cmd_callback, servercmd);
 	return 0;
 }
@@ -531,8 +534,10 @@ static void doveadm_mail_server_handle(struct doveadm_server *server,
 		i_stream_ref(servercmd->input);
 	doveadm_client_set_print(conn, doveadm_cmd_print_callback,
 				 servercmd);
-	doveadm_client_cmd(conn, cmd_ctx->proxy_ttl,
-			   str_c(cmd), cmd_ctx->cmd_input,
+	struct doveadm_client_cmd_settings cmd_set = {
+		.proxy_ttl = cmd_ctx->proxy_ttl,
+	};
+	doveadm_client_cmd(conn, &cmd_set, str_c(cmd), cmd_ctx->cmd_input,
 			   doveadm_cmd_callback, servercmd);
 }
 
