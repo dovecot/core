@@ -233,13 +233,9 @@
 		#expr);			}STMT_END
 #endif
 
-/* Convenience macros to test the versions of dovecot. */
-#if defined DOVECOT_VERSION_MAJOR && defined DOVECOT_VERSION_MINOR
-#  define DOVECOT_PREREQ(maj, min) \
-          ((DOVECOT_VERSION_MAJOR << 16) + DOVECOT_VERSION_MINOR >= ((maj) << 16) + (min))
-#else
-#  define DOVECOT_PREREQ(maj, min) 0
-#endif
+/* Convenience macro to test the versions of dovecot. */
+#define DOVECOT_PREREQ(maj, min) \
+	((DOVECOT_VERSION_MAJOR << 16) + DOVECOT_VERSION_MINOR >= ((maj) << 16) + (min))
 
 #ifdef __cplusplus
 #  undef STATIC_ARRAY
