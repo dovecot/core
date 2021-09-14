@@ -234,8 +234,10 @@
 #endif
 
 /* Convenience macro to test the versions of dovecot. */
-#define DOVECOT_PREREQ(maj, min) \
-	((DOVECOT_VERSION_MAJOR << 16) + DOVECOT_VERSION_MINOR >= ((maj) << 16) + (min))
+#define DOVECOT_PREREQ(maj, min, micro) \
+	((DOVECOT_VERSION_MAJOR << 24) + \
+	 (DOVECOT_VERSION_MINOR << 16) + \
+	 DOVECOT_VERSION_MICRO >= ((maj) << 24) + ((min) << 16) + (micro))
 
 #ifdef __cplusplus
 #  undef STATIC_ARRAY
