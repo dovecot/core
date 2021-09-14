@@ -8,6 +8,7 @@
 #include "istream-dot.h"
 #include "istream-seekable.h"
 #include "str.h"
+#include "strescape.h"
 #include "unichar.h"
 #include "module-dir.h"
 #include "wildcard-match.h"
@@ -257,6 +258,24 @@ void doveadm_mail_get_input(struct doveadm_mail_cmd_context *ctx)
 	doveadm_mail_cmd_input_read(ctx);
 }
 
+const char *
+doveadm_mail_get_forward_fields(struct doveadm_mail_cmd_context *ctx)
+{
+	const char *field;
+	string_t *str;
+
+	if (!array_is_created(&ctx->proxy_forward_fields))
+		return NULL;
+
+	str = t_str_new(128);
+	array_foreach_elem(&ctx->proxy_forward_fields, field) {
+		if (str_len(str) > 0)
+			str_append_c(str, '\t');
+		str_append_tabescaped(str, field);
+	}
+	return str_c(str);
+}
+
 struct mailbox *
 doveadm_mailbox_find(struct mail_user *user, const char *mailbox)
 {
@@ -407,6 +426,7 @@ doveadm_mail_ctx_to_storage_service_input(struct doveadm_mail_cmd_context *ctx,
 	input_r->local_ip = cctx->local_ip;
 	input_r->local_port = cctx->local_port;
 	input_r->username = cctx->username;
+	input_r->forward_fields = doveadm_mail_get_forward_fields(ctx);
 }
 
 static int

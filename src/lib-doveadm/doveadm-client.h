@@ -55,6 +55,8 @@ struct doveadm_client_settings {
 struct doveadm_client_cmd_settings {
 	/* TTL for proxying */
 	int proxy_ttl;
+	/* forward_* fields sent to auth */
+	const char *const *forward_fields;
 };
 
 /* Duplicate doveadm client settings. Note that the ssl_ctx is referenced by

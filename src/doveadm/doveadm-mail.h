@@ -78,6 +78,7 @@ struct doveadm_mail_cmd_context {
 	struct mail_search_args *search_args;
 	struct istream *users_list_input;
 	int proxy_ttl;
+	ARRAY_TYPE(const_string) proxy_forward_fields;
 
 	struct mail_storage_service_user *cur_service_user;
 	struct mail_user *cur_mail_user;
@@ -136,6 +137,8 @@ void doveadm_mail_server_flush(void);
 /* Request input stream to be read (from stdin). This must be called from
    the command's init() function. */
 void doveadm_mail_get_input(struct doveadm_mail_cmd_context *ctx);
+const char *
+doveadm_mail_get_forward_fields(struct doveadm_mail_cmd_context *ctx);
 
 struct mailbox *
 doveadm_mailbox_find(struct mail_user *user, const char *mailbox);

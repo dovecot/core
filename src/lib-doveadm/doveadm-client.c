@@ -9,6 +9,7 @@
 #include "ostream.h"
 #include "ostream-dot.h"
 #include "str.h"
+#include "strescape.h"
 #include "iostream-ssl.h"
 #include "master-service.h"
 #include "doveadm-protocol.h"
@@ -235,6 +236,8 @@ doveadm_client_send_cmd(struct doveadm_client *conn,
 			const char *cmdline,
 			const struct doveadm_client_cmd_settings *set)
 {
+	unsigned int i;
+
 	i_assert(conn->authenticated);
 	i_assert(set->proxy_ttl >= 1);
 
@@ -248,11 +251,21 @@ doveadm_client_send_cmd(struct doveadm_client *conn,
 	i_assert(p != NULL);
 	size_t prefix_len = p - cmdline;
 
-	const char *proxy_ttl_str = t_strdup_printf(
-		"x\tproxy-ttl=%d", set->proxy_ttl);
+	string_t *extra_fields = t_str_new(128);
+	str_printfa(extra_fields, "proxy-ttl=%d", set->proxy_ttl);
+	if (set->forward_fields != NULL) {
+		for (i = 0; set->forward_fields[i] != NULL; i++) {
+			str_append(extra_fields, "\tforward=");
+			str_append_tabescaped(extra_fields,
+					      set->forward_fields[i]);
+		}
+	}
+	const char *extra_fields_escaped = str_tabescape(str_c(extra_fields));
+
 	struct const_iovec iov[] = {
 		{ cmdline, prefix_len },
-		{ proxy_ttl_str, strlen(proxy_ttl_str) },
+		{ "x\t", 2 },
+		{ extra_fields_escaped, strlen(extra_fields_escaped) },
 		{ cmdline + prefix_len, strlen(cmdline + prefix_len) },
 	};
 	o_stream_nsendv(conn->conn.output, iov, N_ELEMENTS(iov));
@@ -733,11 +746,14 @@ doveadm_client_get_settings(struct doveadm_client *conn)
 }
 
 static void
-doveadm_client_cmd_settings_dup(const struct doveadm_client_cmd_settings *src,
+doveadm_client_cmd_settings_dup(pool_t pool,
+				const struct doveadm_client_cmd_settings *src,
 				struct doveadm_client_cmd_settings *dest_r)
 {
 	i_zero(dest_r);
 	dest_r->proxy_ttl = src->proxy_ttl;
+	dest_r->forward_fields = src->forward_fields == NULL ? NULL :
+		p_strarray_dup(pool, src->forward_fields);
 }
 
 void doveadm_client_cmd(struct doveadm_client *conn,
@@ -755,7 +771,8 @@ void doveadm_client_cmd(struct doveadm_client *conn,
 		conn->cmd_input = cmd_input;
 	}
 	if (!conn->authenticated) {
-		doveadm_client_cmd_settings_dup(set, &conn->delayed_set);
+		doveadm_client_cmd_settings_dup(conn->pool, set,
+						&conn->delayed_set);
 		conn->delayed_cmd = p_strdup(conn->pool, line);
 	} else {
 		doveadm_client_send_cmd(conn, line, set);

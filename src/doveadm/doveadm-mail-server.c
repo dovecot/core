@@ -137,6 +137,7 @@ doveadm_cmd_pass_lookup(struct doveadm_mail_cmd_context *ctx,
 		t_array_init(&info.extra_fields, count);
 		array_append(&info.extra_fields, extra_fields, count);
 	}
+	info.forward_fields = doveadm_mail_get_forward_fields(ctx);
 
 	auth_conn = mail_storage_service_get_auth_conn(ctx->storage_service);
 	*auth_socket_path_r = auth_master_get_socket_path(auth_conn);
@@ -157,6 +158,9 @@ doveadm_cmd_pass_reply_parse(struct doveadm_mail_cmd_context *ctx,
 
 	proxy_set->username = NULL;
 	proxy_set->host = NULL;
+
+	if (array_is_created(&ctx->proxy_forward_fields))
+		array_clear(&ctx->proxy_forward_fields);
 
 	*nologin_r = FALSE;
 	for (unsigned int i = 0; fields[i] != NULL; i++) {
@@ -187,6 +191,14 @@ doveadm_cmd_pass_reply_parse(struct doveadm_mail_cmd_context *ctx,
 		else if (strcmp(key, "user") == 0) {
 			if (proxy_set->username == NULL)
 				proxy_set->username = t_strdup(value);
+		} else if (str_begins(key, "forward_")) {
+			if (!array_is_created(&ctx->proxy_forward_fields)) {
+				p_array_init(&ctx->proxy_forward_fields,
+					     ctx->pool, 8);
+			}
+			value = p_strdup_printf(ctx->pool, "%s=%s",
+						key + 8, value);
+			array_push_back(&ctx->proxy_forward_fields, &value);
 		}
 	}
 	if (proxy_set->username == NULL)
@@ -328,6 +340,12 @@ doveadm_cmd_redirect_finish(struct doveadm_mail_server_cmd *servercmd,
 	struct doveadm_client_cmd_settings cmd_set = {
 		.proxy_ttl = cmd_ctx->proxy_ttl,
 	};
+	if (array_is_created(&cmd_ctx->proxy_forward_fields)) {
+		array_append_zero(&cmd_ctx->proxy_forward_fields);
+		cmd_set.forward_fields =
+			array_front(&cmd_ctx->proxy_forward_fields);
+		array_pop_back(&cmd_ctx->proxy_forward_fields);
+	}
 	doveadm_client_cmd(conn, &cmd_set, servercmd->cmdline, servercmd->input,
 			   doveadm_cmd_callback, servercmd);
 	return 0;
@@ -537,6 +555,12 @@ static void doveadm_mail_server_handle(struct doveadm_server *server,
 	struct doveadm_client_cmd_settings cmd_set = {
 		.proxy_ttl = cmd_ctx->proxy_ttl,
 	};
+	if (array_is_created(&cmd_ctx->proxy_forward_fields)) {
+		array_append_zero(&cmd_ctx->proxy_forward_fields);
+		cmd_set.forward_fields =
+			array_front(&cmd_ctx->proxy_forward_fields);
+		array_pop_back(&cmd_ctx->proxy_forward_fields);
+	}
 	doveadm_client_cmd(conn, &cmd_set, str_c(cmd), cmd_ctx->cmd_input,
 			   doveadm_cmd_callback, servercmd);
 }
@@ -659,6 +683,13 @@ doveadm_mail_cmd_extra_fields_parse(struct doveadm_mail_cmd_context *ctx)
 			if (str_to_int(value, &ctx->proxy_ttl) < 0 ||
 			    ctx->proxy_ttl <= 0)
 				i_error("Invalid proxy-ttl value: %s", value);
+		} else if (strcmp(key, "forward") == 0) {
+			if (!array_is_created(&ctx->proxy_forward_fields)) {
+				p_array_init(&ctx->proxy_forward_fields,
+					     ctx->pool, 8);
+			}
+			value = p_strdup(ctx->pool, value);
+			array_push_back(&ctx->proxy_forward_fields, &value);
 		}
 	}
 }
