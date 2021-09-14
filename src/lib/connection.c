@@ -489,8 +489,6 @@ static void connection_client_connected(struct connection *conn, bool success)
 	connection_update_properties(conn);
 
 	conn->connect_finished = ioloop_timeval;
-	event_add_timeval(conn->event, "connect_finished_time",
-			  &ioloop_timeval);
 
 	struct event_passthrough *e = event_create_passthrough(conn->event)->
 		set_name("server_connection_connected");
