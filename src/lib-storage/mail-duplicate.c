@@ -68,6 +68,7 @@ struct mail_duplicate_record_header {
 struct mail_duplicate_transaction {
 	pool_t pool;
 	struct mail_duplicate_db *db;
+	ino_t db_ino;
 	struct event *event;
 
 	HASH_TABLE(struct mail_duplicate *, struct mail_duplicate *) hash;
@@ -333,6 +334,7 @@ static int mail_duplicate_read_db_file(struct mail_duplicate_transaction *trans)
 	const unsigned char *data;
 	size_t size;
 	int fd;
+	struct stat st;
 	unsigned int record_size = 0;
 
 	e_debug(trans->event, "Reading %s", trans->path);
@@ -345,6 +347,13 @@ static int mail_duplicate_read_db_file(struct mail_duplicate_transaction *trans)
 			"open(%s) failed: %m", trans->path);
 		return -1;
 	}
+
+	if (fstat(fd, &st) < 0) {
+		e_error(trans->event,
+			"stat(%s) failed: %m", trans->path);
+		return -1;
+	}
+	trans->db_ino = st.st_ino;
 
 	/* <timestamp> <id_size> <user_size> <id> <user> */
 	input = i_stream_create_fd(fd, DUPLICATE_BUFSIZE);
@@ -395,6 +404,27 @@ static void mail_duplicate_read(struct mail_duplicate_transaction *trans)
 	(void)mail_duplicate_read_db_file(trans);
 
 	file_dotlock_delete(&dotlock);
+}
+
+static void mail_duplicate_update(struct mail_duplicate_transaction *trans)
+{
+	struct stat st;
+
+	if (stat(trans->path, &st) < 0) {
+		if (errno == ENOENT) {
+			e_debug(trans->event, "DB file not created yet");
+		} else {
+			e_error(trans->event,
+				"stat(%s) failed: %m", trans->path);
+		}
+	} else if (trans->db_ino == st.st_ino) {
+		e_debug(trans->event, "DB file not changed");
+	} else {
+		e_debug(trans->event, "DB file changed: "
+			"Updating duplicate records from DB file");
+
+		mail_duplicate_read(trans);
+	}
 }
 
 struct mail_duplicate_transaction *
@@ -513,6 +543,7 @@ mail_duplicate_check(struct mail_duplicate_transaction *trans,
 		return MAIL_DUPLICATE_CHECK_RESULT_TOO_MANY_LOCKS;
 	}
 
+	mail_duplicate_update(trans);
 	if (dup->marked) {
 		e_debug(trans->event, "Check ID: found");
 		return MAIL_DUPLICATE_CHECK_RESULT_EXISTS;
