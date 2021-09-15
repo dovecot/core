@@ -77,6 +77,8 @@ struct doveadm_cmd_context {
 	const char *username;
 	struct ip_addr local_ip, remote_ip;
 	in_port_t local_port, remote_port;
+	/* extra fields (e.g. forward_*) sent via doveadm protocol */
+	const char *const *extra_fields;
 
 	enum doveadm_client_type conn_type;
 	struct istream *input;

@@ -279,9 +279,7 @@ static bool client_handle_command(struct client_connection_tcp *conn,
 	cctx.remote_port = conn->conn.remote_port;
 	doveadm_exit_code = 0;
 
-	flags = args[0];
-	cctx.username = args[1];
-	cmd_name = args[2];
+	flags = args[0]; args++; argc--;
 
 	doveadm_debug = FALSE;
 	doveadm_verbose = FALSE;
@@ -295,14 +293,20 @@ static bool client_handle_command(struct client_connection_tcp *conn,
 		case 'v':
 			doveadm_verbose = TRUE;
 			break;
+		case 'x':
+			cctx.extra_fields = t_strsplit_tabescaped(args[0]);
+			args++; argc--;
+			break;
 		default:
 			i_error("doveadm client: Unknown flag: %c", *flags);
 			return FALSE;
 		}
 	}
+	cctx.username = args[0]; args++; argc--;
+	cmd_name = args[0];
 
 	if (strcmp(cmd_name, "OPTION") == 0) {
-		client_handle_options(conn, args+3);
+		client_handle_options(conn, args+1);
 		return TRUE;
 	}
 
@@ -317,7 +321,7 @@ static bool client_handle_command(struct client_connection_tcp *conn,
 	/* Disable IO while running a command. This is required for commands
 	   that do IO themselves (e.g. dsync-server). */
 	io_remove(&conn->io);
-	if (doveadm_cmd_handle(conn, cmd_name, argc-2, args+2, &cctx) < 0)
+	if (doveadm_cmd_handle(conn, cmd_name, argc, args, &cctx) < 0)
 		o_stream_nsend(conn->output, "\n-\n", 3);
 	o_stream_uncork(conn->output);
 	conn->io = io_add_istream(conn->input, client_connection_tcp_input, conn);

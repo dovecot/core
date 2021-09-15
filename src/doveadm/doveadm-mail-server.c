@@ -636,6 +636,28 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 	return ret;
 }
 
+static void
+doveadm_mail_cmd_extra_fields_parse(struct doveadm_mail_cmd_context *ctx)
+{
+	const char *key, *value;
+
+	if (ctx->cctx->extra_fields == NULL)
+		return;
+	for (unsigned int i = 0; ctx->cctx->extra_fields[i] != NULL; i++) {
+		key = ctx->cctx->extra_fields[i];
+		value = strchr(key, '=');
+		if (value != NULL)
+			key = t_strdup_until(key, value++);
+		else
+			value = "";
+		if (strcmp(key, "proxy-ttl") == 0) {
+			if (str_to_int(value, &ctx->proxy_ttl) < 0 ||
+			    ctx->proxy_ttl <= 0)
+				i_error("Invalid proxy-ttl value: %s", value);
+		}
+	}
+}
+
 int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 			     const char **error_r)
 {
@@ -649,6 +671,7 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	i_assert(cmd_ctx == ctx || cmd_ctx == NULL);
 	cmd_ctx = ctx;
 
+	doveadm_mail_cmd_extra_fields_parse(ctx);
 	ret = doveadm_mail_server_user_get_host(ctx, &proxy_set, &socket_path,
 						&referral, error_r);
 	if (ret < 0)

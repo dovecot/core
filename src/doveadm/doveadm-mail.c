@@ -952,9 +952,6 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 			/* This parameter allows to set additional
 			 * mailbox transaction flags. */
 			mctx->transaction_flags = arg->value.v_int64;
-		} else if (strcmp(arg->name, "proxy-ttl") == 0) {
-			/* if this becomes <= 1, stop attempting to proxy */
-			mctx->proxy_ttl = arg->value.v_int64;
 
 		/* Keep all named special parameters above this line */
 

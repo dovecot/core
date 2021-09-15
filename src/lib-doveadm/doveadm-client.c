@@ -237,23 +237,18 @@ doveadm_client_send_cmd(struct doveadm_client *conn,
 	i_assert(conn->authenticated);
 	i_assert(proxy_ttl >= 1);
 
-	if (conn->conn.minor_version < DOVEADM_PROTOCOL_MIN_VERSION_PROXY_TTL) {
+	if (conn->conn.minor_version < DOVEADM_PROTOCOL_MIN_VERSION_EXTRA_FIELDS) {
 		o_stream_nsend_str(conn->conn.output, cmdline);
 		return;
 	}
 
-	/* <flags> <username> <command> [<args>] -
-	   Insert --proxy-ttl as the first arg. */
+	/* <flags + x> <extra fields> <username> <command> [<args>] */
 	const char *p = strchr(cmdline, '\t');
-	i_assert(p != NULL);
-	p = strchr(p+1, '\t');
-	i_assert(p != NULL);
-	p = strchr(p+1, '\t');
 	i_assert(p != NULL);
 	size_t prefix_len = p - cmdline;
 
 	const char *proxy_ttl_str = t_strdup_printf(
-		"\t--proxy-ttl\t%d", proxy_ttl);
+		"x\tproxy-ttl=%d", proxy_ttl);
 	struct const_iovec iov[] = {
 		{ cmdline, prefix_len },
 		{ proxy_ttl_str, strlen(proxy_ttl_str) },
