@@ -1253,7 +1253,8 @@ static bool imapc_is_inconsistent(struct mailbox *box)
 struct mail_storage imapc_storage = {
 	.name = IMAPC_STORAGE_NAME,
 	.class_flags = MAIL_STORAGE_CLASS_FLAG_NO_ROOT |
-		       MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT,
+		       MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT |
+		       MAIL_STORAGE_CLASS_FLAG_SECONDARY_INDEX,
 	.event_category = &event_category_imapc,
 
 	.v = {
