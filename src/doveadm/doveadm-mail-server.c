@@ -40,7 +40,6 @@ struct doveadm_mail_server_cmd {
 	struct doveadm_client *conn;
 	char *username;
 
-	int proxy_ttl;
 	ARRAY(struct doveadm_proxy_redirect) redirect_path;
 
 	char *cmdline;
@@ -291,8 +290,8 @@ doveadm_cmd_redirect_finish(struct doveadm_mail_server_cmd *servercmd,
 		return -1;
 	}
 
-	i_assert(servercmd->proxy_ttl > 0);
-	servercmd->proxy_ttl--;
+	i_assert(cmd_ctx->proxy_ttl > 0);
+	cmd_ctx->proxy_ttl--;
 
 	/* Add current ip/port to redirect path */
 	if (!array_is_created(&servercmd->redirect_path))
@@ -325,7 +324,7 @@ doveadm_cmd_redirect_finish(struct doveadm_mail_server_cmd *servercmd,
 	servercmd->server = new_server;
 	if (servercmd->input != NULL)
 		i_stream_seek(servercmd->input, 0);
-	doveadm_client_cmd(conn, servercmd->proxy_ttl,
+	doveadm_client_cmd(conn, cmd_ctx->proxy_ttl,
 			   servercmd->cmdline, servercmd->input,
 			   doveadm_cmd_callback, servercmd);
 	return 0;
@@ -526,7 +525,6 @@ static void doveadm_mail_server_handle(struct doveadm_server *server,
 	servercmd->conn = conn;
 	servercmd->server = server;
 	servercmd->username = i_strdup(username);
-	servercmd->proxy_ttl = cmd_ctx->proxy_ttl;
 	servercmd->cmdline = i_strdup(str_c(cmd));
 	servercmd->input = cmd_ctx->cmd_input;
 	if (servercmd->input != NULL)
