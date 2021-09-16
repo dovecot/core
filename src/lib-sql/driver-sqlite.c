@@ -48,11 +48,13 @@ static struct event_category event_category_sqlite = {
 static int driver_sqlite_connect(struct sql_db *_db)
 {
  	struct sqlite_db *db = (struct sqlite_db *)_db;
+	/* this is default for sqlite_open */
+	int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
 
 	if (db->connected)
 		return 1;
 
-	db->rc = sqlite3_open(db->dbfile, &db->sqlite);
+	db->rc = sqlite3_open_v2(db->dbfile, &db->sqlite, flags, NULL);
 
 	if (db->rc == SQLITE_OK) {
 		db->connected = TRUE;
