@@ -23,6 +23,7 @@ struct sqlite_db {
 	sqlite3 *sqlite;
 	bool connected:1;
 	bool use_wal:1;
+	bool use_ro:1;
 	int rc;
 };
 
@@ -51,10 +52,15 @@ static int driver_sqlite_connect(struct sql_db *_db)
 {
  	struct sqlite_db *db = (struct sqlite_db *)_db;
 	/* this is default for sqlite_open */
-	int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
+	int flags;
 
 	if (db->connected)
 		return 1;
+	if (db->use_ro)
+		flags = SQLITE_OPEN_READONLY;
+	else
+		flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
+
 	if (db->use_wal)
 		flags |= SQLITE_OPEN_WAL;
 
@@ -87,6 +93,7 @@ static int driver_sqlite_parse_connect_string(struct sqlite_db *db,
 {
 	const char *const *params = t_strsplit_spaces(connect_string, " ");
 	const char *file = NULL;
+	bool val;
 
 	if (str_array_length(params) < 1) {
 		*error_r = "Empty connect_string";
@@ -105,6 +112,12 @@ static int driver_sqlite_parse_connect_string(struct sqlite_db *db,
 							   "use either 'delete' or 'wal'", mode);
 				return -1;
 			}
+		} else if (str_begins(*params, "readonly=")) {
+			 if (settings_get_bool((*params)+9, &val, error_r) < 0) {
+				*error_r = t_strdup_printf("readonly: %s", *error_r);
+				return -1;
+			}
+			db->use_ro = val;
 		} else if (strchr(*params, '=') != NULL) {
 			*error_r = t_strdup_printf("Unsupported parameter '%s'", *params);
 			return -1;
