@@ -224,8 +224,7 @@ acl_backend_vfile_has_acl(struct acl_backend *_backend, const char *name)
 	struct acl_backend_vfile_validity *old_validity, new_validity;
 	struct mailbox_list *list;
 	struct mail_storage *storage;
-	const char *path, *local_path, *global_path, *dir, *vname = "";
-	const char *error;
+	const char *path, *global_path, *vname = "";
 	int ret;
 
 	old_validity = acl_cache_get_validity(_backend->cache, name);
@@ -234,9 +233,10 @@ acl_backend_vfile_has_acl(struct acl_backend *_backend, const char *name)
 	else
 		i_zero(&new_validity);
 
-	/* See if the mailbox exists. If we wanted recursive lookups we could
-	   skip this, but at least for now we assume that if an existing
-	   mailbox has no ACL it's equivalent to default ACLs. */
+	/* The caller wants to stop whenever a parent mailbox exists, even if
+	   it has no ACL file. Also, if a mailbox doesn't exist then it can't
+	   have a local ACL file. First check if there's a matching global ACL.
+	   If not, check if the mailbox exists. */
 	vname = *name == '\0' ? "" :
 		mailbox_list_get_vname(_backend->list, name);
 	list = _backend->list;
@@ -265,17 +265,6 @@ acl_backend_vfile_has_acl(struct acl_backend *_backend, const char *name)
 	if (ret == 0) {
 		ret = acl_backend_vfile_exists(backend, path,
 					       &new_validity.mailbox_validity);
-	}
-
-	if (ret == 0 &&
-	    (*name == '\0' ||
-	     mailbox_list_is_valid_name(_backend->list, name, &error))) {
-		dir = acl_backend_vfile_get_local_dir(_backend, name, vname);
-		if (dir != NULL) {
-			local_path = t_strconcat(dir, "/", name, NULL);
-			ret = acl_backend_vfile_exists(backend, local_path,
-						       &new_validity.local_validity);
-		}
 	}
 
 	acl_cache_set_validity(_backend->cache, name, &new_validity);
