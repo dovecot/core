@@ -222,9 +222,7 @@ acl_backend_vfile_has_acl(struct acl_backend *_backend, const char *name)
 	struct acl_backend_vfile *backend =
 		(struct acl_backend_vfile *)_backend;
 	struct acl_backend_vfile_validity *old_validity, new_validity;
-	struct mailbox_list *list;
-	struct mail_storage *storage;
-	const char *path, *global_path, *vname = "";
+	const char *global_path, *vname;
 	int ret;
 
 	old_validity = acl_cache_get_validity(_backend->cache, name);
@@ -239,21 +237,16 @@ acl_backend_vfile_has_acl(struct acl_backend *_backend, const char *name)
 	   If not, check if the mailbox exists. */
 	vname = *name == '\0' ? "" :
 		mailbox_list_get_vname(_backend->list, name);
-	list = _backend->list;
-	if (mailbox_list_get_storage(&list, vname, &storage) < 0)
-		ret = -1;
-	else if (mailbox_list_get_path(_backend->list, name,
-			mail_storage_get_acl_list_path_type(storage),
-			&path) <= 0)
-		ret = -1;
-	else {
+	struct mailbox *box =
+		mailbox_alloc(_backend->list, vname,
+			      MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
+	if (backend->global_path == NULL) {
+		/* global ACLs disabled */
 		ret = 0;
-	}
-
-	if (ret == 0 && backend->global_path != NULL) {
+	} else {
 		if (_backend->global_file != NULL) {
 			ret = acl_global_file_refresh(_backend->global_file);
-			if (ret == 0 && acl_global_file_have_any(_backend->global_file, vname))
+			if (ret == 0 && acl_global_file_have_any(_backend->global_file, box->vname))
 				ret = 1;
 		} else {
 			global_path = t_strconcat(backend->global_path, "/", name, NULL);
@@ -262,12 +255,26 @@ acl_backend_vfile_has_acl(struct acl_backend *_backend, const char *name)
 		}
 	}
 
-	if (ret == 0) {
-		ret = acl_backend_vfile_exists(backend, path,
-					       &new_validity.mailbox_validity);
+	if (ret != 0) {
+		/* error / global ACL found */
+	} else if (mailbox_open(box) == 0) {
+		/* mailbox exists */
+		ret = 1;
+	} else {
+		enum mail_error error;
+		const char *errstr =
+			mailbox_get_last_internal_error(box, &error);
+		if (error == MAIL_ERROR_NOTFOUND)
+			ret = 0;
+		else {
+			e_error(box->event, "acl: Failed to open mailbox: %s",
+				errstr);
+			ret = -1;
+		}
 	}
 
 	acl_cache_set_validity(_backend->cache, name, &new_validity);
+	mailbox_free(&box);
 	return ret > 0;
 }
 

@@ -20,7 +20,6 @@ struct acl_vfile_validity {
 
 struct acl_backend_vfile_validity {
 	struct acl_vfile_validity global_validity, local_validity;
-	struct acl_vfile_validity mailbox_validity;
 };
 
 struct acl_object_vfile {
