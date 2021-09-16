@@ -299,8 +299,8 @@ setting_define_find(const struct setting_parser_info *info, const char *key)
 	return NULL;
 }
 
-static int
-get_bool(struct setting_parser_context *ctx, const char *value, bool *result_r)
+int settings_get_bool(const char *value, bool *result_r,
+		      const char **error_r)
 {
 	/* FIXME: eventually we'd want to support only yes/no */
 	if (strcasecmp(value, "yes") == 0 ||
@@ -309,12 +309,21 @@ get_bool(struct setting_parser_context *ctx, const char *value, bool *result_r)
 	else if (strcasecmp(value, "no") == 0)
 		*result_r = FALSE;
 	else {
-		ctx->error = p_strdup_printf(ctx->parser_pool,
-			"Invalid boolean value: %s (use yes or no)", value);
+		*error_r = t_strdup_printf("Invalid boolean value: %s (use yes or no)",
+					   value);
 		return -1;
 	}
 
 	return 0;
+}
+
+static int
+get_bool(struct setting_parser_context *ctx, const char *value, bool *result_r)
+{
+	int ret;
+	if ((ret = settings_get_bool(value, result_r, &ctx->error)) < 0)
+		ctx->error = p_strdup(ctx->parser_pool, ctx->error);
+	return ret;
 }
 
 static int
