@@ -21,6 +21,8 @@ struct fts_search_level {
 	ARRAY_TYPE(fts_score_map) score_map;
 };
 
+HASH_TABLE_DEFINE_TYPE(virtual_last_indexed, const char *, void *);
+
 struct fts_search_context {
 	union mail_search_module_context module_ctx;
 
@@ -36,6 +38,8 @@ struct fts_search_context {
 	buffer_t *orig_matches;
 
 	uint32_t first_unindexed_seq;
+	uint32_t next_unindexed_seq;
+	HASH_TABLE_TYPE(virtual_last_indexed) last_indexed_virtual_uids;
 
 	/* final scores, combined from all levels */
 	struct fts_scores *scores;
@@ -45,6 +49,7 @@ struct fts_search_context {
 	bool virtual_mailbox:1;
 	bool fts_lookup_success:1;
 	bool indexing_timed_out:1;
+	bool virtual_seen_unindexed_gaps:1;
 };
 
 /* Figure out if we want to use full text search indexes and update
