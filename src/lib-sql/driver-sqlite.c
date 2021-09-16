@@ -7,6 +7,7 @@
 #include "hex-binary.h"
 #include "sql-api-private.h"
 #include "strfuncs.h"
+#include "settings-parser.h"
 
 #ifdef BUILD_SQLITE
 #include <sqlite3.h>
@@ -21,6 +22,7 @@ struct sqlite_db {
 	const char *dbfile;
 	sqlite3 *sqlite;
 	bool connected:1;
+	bool use_wal:1;
 	int rc;
 };
 
@@ -53,6 +55,8 @@ static int driver_sqlite_connect(struct sql_db *_db)
 
 	if (db->connected)
 		return 1;
+	if (db->use_wal)
+		flags |= SQLITE_OPEN_WAL;
 
 	db->rc = sqlite3_open_v2(db->dbfile, &db->sqlite, flags, NULL);
 
@@ -90,7 +94,18 @@ static int driver_sqlite_parse_connect_string(struct sqlite_db *db,
 	}
 
 	for (; *params != NULL; params++) {
-		if (strchr(*params, '=') != NULL) {
+		if (str_begins(*params, "journal_mode=")) {
+			const char *mode = (*params)+13;
+			if (strcmp(mode, "delete") == 0)
+				db->use_wal = FALSE;
+			else if (strcmp(mode, "wal") == 0)
+				db->use_wal = TRUE;
+			else {
+				*error_r = t_strdup_printf("journal_mode: Unsupported mode '%s', "
+							   "use either 'delete' or 'wal'", mode);
+				return -1;
+			}
+		} else if (strchr(*params, '=') != NULL) {
 			*error_r = t_strdup_printf("Unsupported parameter '%s'", *params);
 			return -1;
 		} else if (file == NULL) {
