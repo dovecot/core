@@ -122,9 +122,7 @@ acl_backend_vfile_get_local_dir(struct acl_backend *backend,
 		return NULL;
 	i_assert(list == ns->list);
 
-	type = mail_storage_is_mailbox_file(storage) ||
-		(storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) != 0 ?
-		MAILBOX_LIST_PATH_TYPE_CONTROL : MAILBOX_LIST_PATH_TYPE_MAILBOX;
+	type = mail_storage_get_acl_list_path_type(storage);
 	if (name == NULL) {
 		if (!mailbox_list_get_root_path(list, type, &dir))
 			return NULL;
@@ -224,6 +222,8 @@ acl_backend_vfile_has_acl(struct acl_backend *_backend, const char *name)
 	struct acl_backend_vfile *backend =
 		(struct acl_backend_vfile *)_backend;
 	struct acl_backend_vfile_validity *old_validity, new_validity;
+	struct mailbox_list *list;
+	struct mail_storage *storage;
 	const char *path, *local_path, *global_path, *dir, *vname = "";
 	const char *error;
 	int ret;
@@ -237,8 +237,14 @@ acl_backend_vfile_has_acl(struct acl_backend *_backend, const char *name)
 	/* See if the mailbox exists. If we wanted recursive lookups we could
 	   skip this, but at least for now we assume that if an existing
 	   mailbox has no ACL it's equivalent to default ACLs. */
-	if (mailbox_list_get_path(_backend->list, name,
-				  MAILBOX_LIST_PATH_TYPE_MAILBOX, &path) <= 0)
+	vname = *name == '\0' ? "" :
+		mailbox_list_get_vname(_backend->list, name);
+	list = _backend->list;
+	if (mailbox_list_get_storage(&list, vname, &storage) < 0)
+		ret = -1;
+	else if (mailbox_list_get_path(_backend->list, name,
+			mail_storage_get_acl_list_path_type(storage),
+			&path) <= 0)
 		ret = -1;
 	else {
 		ret = acl_backend_vfile_exists(backend, path,
@@ -248,8 +254,6 @@ acl_backend_vfile_has_acl(struct acl_backend *_backend, const char *name)
 	if (ret == 0 &&
 	    (*name == '\0' ||
 	     mailbox_list_is_valid_name(_backend->list, name, &error))) {
-		vname = *name == '\0' ? "" :
-			mailbox_list_get_vname(_backend->list, name);
 		dir = acl_backend_vfile_get_local_dir(_backend, name, vname);
 		if (dir != NULL) {
 			local_path = t_strconcat(dir, "/", name, NULL);

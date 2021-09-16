@@ -2,6 +2,7 @@
 #define ACL_BACKEND_VFILE_H
 
 #include "acl-api-private.h"
+#include "mail-storage-private.h"
 
 #define ACL_FILENAME "dovecot-acl"
 #define ACLLIST_FILENAME "dovecot-acl-list"
@@ -70,5 +71,19 @@ int acl_backend_vfile_nonowner_lookups_rebuild(struct acl_backend *backend);
 
 int acl_backend_vfile_object_get_mtime(struct acl_object *aclobj,
 				       time_t *mtime_r);
+
+static inline enum mailbox_list_path_type
+mail_storage_get_acl_list_path_type(struct mail_storage *storage)
+{
+	if (mail_storage_is_mailbox_file(storage)) {
+		/* mailbox is a directory (e.g. mbox) */
+		return MAILBOX_LIST_PATH_TYPE_CONTROL;
+	}
+	if ((storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) != 0) {
+		/* there is no local mailbox directory */
+		return MAILBOX_LIST_PATH_TYPE_CONTROL;
+	}
+	return MAILBOX_LIST_PATH_TYPE_MAILBOX;
+}
 
 #endif
