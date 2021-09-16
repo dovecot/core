@@ -74,8 +74,16 @@ static void driver_sqlite_disconnect(struct sql_db *_db)
 	db->sqlite = NULL;
 }
 
+static int driver_sqlite_parse_connect_string(struct sqlite_db *db,
+					      const char *connect_string,
+					      const char **error_r ATTR_UNUSED)
+{
+	db->dbfile = p_strdup(db->pool, connect_string);
+	return 0;
+}
+
 static int driver_sqlite_init_full_v(const struct sql_settings *set, struct sql_db **db_r,
-				     const char **error_r ATTR_UNUSED)
+				     const char **error_r)
 {
 	struct sqlite_db *db;
 	pool_t pool;
@@ -84,7 +92,10 @@ static int driver_sqlite_init_full_v(const struct sql_settings *set, struct sql_
 	db = p_new(pool, struct sqlite_db, 1);
 	db->pool = pool;
 	db->api = driver_sqlite_db;
-	db->dbfile = p_strdup(db->pool, set->connect_string);
+	if (driver_sqlite_parse_connect_string(db, set->connect_string, error_r) < 0) {
+		pool_unref(&db->pool);
+		return -1;
+	}
 	db->connected = FALSE;
 	db->api.event = event_create(set->event_parent);
 	event_add_category(db->api.event, &event_category_sqlite);
