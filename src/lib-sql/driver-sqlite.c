@@ -6,6 +6,7 @@
 #include "str.h"
 #include "hex-binary.h"
 #include "sql-api-private.h"
+#include "strfuncs.h"
 
 #ifdef BUILD_SQLITE
 #include <sqlite3.h>
@@ -76,9 +77,29 @@ static void driver_sqlite_disconnect(struct sql_db *_db)
 
 static int driver_sqlite_parse_connect_string(struct sqlite_db *db,
 					      const char *connect_string,
-					      const char **error_r ATTR_UNUSED)
+					      const char **error_r)
 {
-	db->dbfile = p_strdup(db->pool, connect_string);
+	const char *const *params = t_strsplit_spaces(connect_string, " ");
+	const char *file = NULL;
+
+	if (str_array_length(params) < 1) {
+		*error_r = "Empty connect_string";
+		return -1;
+	}
+
+	for (; *params != NULL; params++) {
+		if (strchr(*params, '=') != NULL) {
+			*error_r = t_strdup_printf("Unsupported parameter '%s'", *params);
+			return -1;
+		} else if (file == NULL) {
+			file = *params;
+		} else {
+			*error_r = "Multiple filenames provided";
+			return -1;
+		}
+	}
+
+	db->dbfile = p_strdup(db->pool, file);
 	return 0;
 }
 
