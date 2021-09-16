@@ -1210,6 +1210,37 @@ static int virtual_sync_backend_box_sync(struct virtual_sync_context *ctx,
 	return 0;
 }
 
+static bool
+virtual_bbox_mailbox_equals(struct virtual_backend_box *bbox,
+			    const struct mailbox_status *status,
+			    struct mailbox_metadata *metadata,
+			    const char **reason_r)
+{
+	if (!guid_128_equals(bbox->sync_guid, metadata->guid)) {
+		*reason_r = t_strdup_printf("GUID changed: %s -> %s",
+					    guid_128_to_string(bbox->sync_guid),
+					    guid_128_to_string(metadata->guid));
+		return FALSE;
+	}
+	if (bbox->sync_uid_validity != status->uidvalidity) {
+		*reason_r = t_strdup_printf("UIDVALIDITY changed: %u -> %u",
+			bbox->sync_uid_validity, status->uidvalidity);
+		return FALSE;
+	}
+	if (bbox->sync_next_uid != status->uidnext) {
+		*reason_r = t_strdup_printf("UIDNEXT changed: %u -> %u",
+			bbox->sync_next_uid, status->uidnext);
+		return FALSE;
+	}
+	if (bbox->sync_highest_modseq != status->highest_modseq) {
+		*reason_r = t_strdup_printf("HIGHESTMODSEQ changed: "
+			"%"PRIu64" -> %"PRIu64,
+			bbox->sync_highest_modseq, status->highest_modseq);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 static void virtual_sync_backend_ext_header(struct virtual_sync_context *ctx,
 					    struct virtual_backend_box *bbox)
 {
@@ -1222,6 +1253,7 @@ static void virtual_sync_backend_ext_header(struct virtual_sync_context *ctx,
 	unsigned int mailbox_offset, ext2_offset;
 	uint64_t wanted_ondisk_highest_modseq;
 	struct mailbox_metadata metadata;
+	const char *reason;
 
 	mailbox_get_open_status(bbox->box, STATUS_UIDVALIDITY |
 				STATUS_HIGHESTMODSEQ, &status);
@@ -1234,10 +1266,7 @@ static void virtual_sync_backend_ext_header(struct virtual_sync_context *ctx,
 				 &metadata) < 0)
 		i_unreached();
 
-	if (bbox->sync_uid_validity == status.uidvalidity &&
-	    bbox->sync_next_uid == status.uidnext &&
-	    bbox->sync_highest_modseq == status.highest_modseq &&
-	    guid_128_equals(bbox->sync_guid, metadata.guid) &&
+	if (virtual_bbox_mailbox_equals(bbox, &status, &metadata, &reason) &&
 	    bbox->ondisk_highest_modseq == wanted_ondisk_highest_modseq)
 		return;
 
@@ -1318,6 +1347,7 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 {
 	enum mailbox_sync_flags sync_flags;
 	struct mailbox_status status;
+	const char *reason;
 	int ret;
 
 	if (bbox->deleted)
@@ -1366,10 +1396,7 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 			guid_128_copy(bbox->sync_guid, metadata.guid);
 			ctx->mbox->ext_header_rewrite = TRUE;
 		}
-		if (status.uidvalidity == bbox->sync_uid_validity &&
-		    status.uidnext == bbox->sync_next_uid &&
-		    status.highest_modseq == bbox->sync_highest_modseq &&
-		    guid_128_equals(metadata.guid, bbox->sync_guid)) {
+		if (virtual_bbox_mailbox_equals(bbox, &status, &metadata, &reason)) {
 			/* mailbox hasn't changed since we last opened it,
 			   skip it for now.
 
@@ -1379,6 +1406,8 @@ static int virtual_sync_backend_box(struct virtual_sync_context *ctx,
 				virtual_sync_backend_handle_old_vmsgs(ctx, bbox, NULL);
 			return 0;
 		}
+		e_debug(ctx->mbox->box.event, "Backend mailbox %s changed: %s",
+			bbox->box->vname, reason);
 		if (!bbox->box->opened) {
 			/* first time we're opening the index */
 			if ((ret = virtual_try_open_and_sync_backend_box(ctx, bbox, sync_flags)) <= 0)
