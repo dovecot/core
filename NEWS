@@ -1,3 +1,50 @@
+v2.3.16 2021-08-06  Timo Sirainen <timo.sirainen@open-xchange.com>
+
+	* Any unexpected exit() will now result in a core dump. This can
+	  especially help notice problems when a Lua script causes exit(0).
+	* auth-worker process is now restarted when the number of auth
+	  requests reaches service auth-worker { service_count }. The default
+	  is still unlimited.
+
+	+ Event improvements: Added data_stack_grow event and http-client
+	  category. See https://doc.dovecot.org/admin_manual/list_of_events/
+	+ oauth2: Support RFC 7628 openid-configuration element. This allows
+	  clients to support OAUTH2 for any server, not just a few hardcoded
+	  servers like they do now. See openid_configuration_url setting in
+	  dovecot-oauth2.conf.ext.
+	+ mysql: Single statements are no longer enclosed with BEGIN/COMMIT.
+	+ dovecot-sysreport --core supports multiple core files now and does
+	  not require specifying the binary path.
+	+ imapc: When imap_acl plugin is loaded and imapc_features=acl is used,
+	  IMAP ACL commands are proxied to the remote server. See
+	  https://doc.dovecot.org/configuration_manual/mail_location/imapc/
+	+ dict-sql now supports the "UPSERT" syntax for SQLite and PostgreSQL.
+	+ imap: If IMAP client disconnects during a COPY command, the copying
+	  is aborted, and changes are reverted. This may help to avoid many
+	  email duplicates if client disconnects during COPY and retries it
+	  after reconnecting.
+	- master process was using 100% CPU if service attempted to create more
+	  processes due to process_min_avail, but process_limit was already
+	  reached. v2.3.15 regression.
+	- Using attachment detection flags wrongly logged unnecessary "Failed
+	  to add attachment keywords" errors. v2.3.13 regression.
+	- IMAP QRESYNC: Expunging UID 1 mail resulted in broken VANISHED
+	  response, which could have confused IMAP clients. v2.3.13 regression.
+	- imap: STORE didn't send untagged replies for \Seen changes for
+	  (shared) mailboxes using INDEXPVT. v2.3.10 regression.
+	- rawlog_dir setting would not log input that was pipelined after
+	  authentication command.
+	- Fixed potential infinite looping with autoexpunging.
+	- Log event exporter: Truncate long fields to 1000 bytes
+	- LAYOUT=index: ACL inheritance didn't work when creating mailboxes
+	- Event filters: Unquoted '?' wildcard caused a crash at startup
+	- fs-metawrap: Fix to handling zero sized files
+	- imap-hibernate: Fixed potential crash at deinit.
+	- acl: dovecot-acl-list files were written for acl_ignore_namespaces
+	- program-client (used by Sieve extprograms, director_flush_socket)
+	  may have missed status response from UNIX and network sockets,
+	  resulting in unexpected failures.
+
 v2.3.15 2021-06-21  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* CVE-2021-29157: Dovecot does not correctly escape kid and azp fields in
