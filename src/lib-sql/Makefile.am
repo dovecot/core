@@ -1,4 +1,4 @@
-noinst_LTLIBRARIES = libsql.la libdriver_test.la
+noinst_LTLIBRARIES = libdriver_test.la libsql.la
 
 SQL_DRIVER_PLUGINS =
 
@@ -36,6 +36,7 @@ sql_drivers = @sql_drivers@
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-settings \
 	$(SQL_CFLAGS)
 
@@ -141,3 +142,29 @@ install-exec-local:
 	  done; \
 	done
 endif
+
+test_libs = \
+	$(noinst_LTLIBRARIES) \
+	../lib-settings/libsettings.la \
+	../lib-test/libtest.la \
+	../lib/liblib.la
+
+check_PROGRAMS = test-sql
+
+test_sql_SOURCES = test-sql.c
+test_sql_LDADD =  $(test_libs)
+test_sql_DEPENDENCIES = $(test_libs)
+
+if BUILD_SQLITE
+check_PROGRAMS += test-sql-sqlite
+test_sql_sqlite_SOURCES = test-sql-sqlite.c
+test_sql_sqlite_LDADD = $(SQLITE_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
+test_sql_sqlite_DEPENDENCIES = $(SQLITE_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
+endif
+
+noinst_PROGRAMS = $(check_PROGRAMS)
+
+check-local:
+	for bin in $(check_PROGRAMS); do \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	done
