@@ -26,6 +26,7 @@ struct mail_duplicate {
 	time_t time;
 
 	bool marked:1;
+	bool changed:1;
 };
 
 struct mail_duplicate_file_header {
@@ -137,24 +138,35 @@ mail_duplicate_read_records(struct mail_duplicate_transaction *trans,
 			return -1;
 		}
 
-		if ((time_t)hdr.stamp >= ioloop_time) {
-			/* still valid, save it */
-			struct mail_duplicate *d;
-			void *new_id;
+		struct mail_duplicate dup_q, *dup;
 
-			new_id = p_malloc(trans->pool, hdr.id_size);
-			memcpy(new_id, data, hdr.id_size);
+		dup_q.id = data;
+		dup_q.id_size = hdr.id_size;
+		dup_q.user = t_strndup(data + hdr.id_size, hdr.user_size);
 
-			d = p_new(trans->pool, struct mail_duplicate, 1);
-			d->id = new_id;
-			d->id_size = hdr.id_size;
-			d->user = p_strndup(trans->pool,
-					    data + hdr.id_size, hdr.user_size);
-			d->time = hdr.stamp;
-			d->marked = TRUE;
-			hash_table_update(trans->hash, d, d);
-		} else {
+		dup = hash_table_lookup(trans->hash, &dup_q);
+		if ((time_t)hdr.stamp < ioloop_time) {
                         change_count++;
+			if (dup != NULL && !dup->changed)
+				dup->marked = FALSE;
+		} else {
+			if (dup == NULL) {
+				void *new_id;
+
+				new_id = p_malloc(trans->pool, hdr.id_size);
+				memcpy(new_id, data, hdr.id_size);
+
+				dup = p_new(trans->pool,
+					    struct mail_duplicate, 1);
+				dup->id = new_id;
+				dup->id_size = hdr.id_size;
+				dup->user = p_strdup(trans->pool, dup_q.user);
+				hash_table_update(trans->hash, dup, dup);
+			}
+			if (!dup->changed) {
+				dup->marked = TRUE;
+				dup->time = hdr.stamp;
+			}
 		}
 		i_stream_skip(input, hdr.id_size + hdr.user_size);
 	}
@@ -198,9 +210,12 @@ static int mail_duplicate_read(struct mail_duplicate_transaction *trans)
 		}
 	}
 
-	if (record_size == 0 ||
-	    mail_duplicate_read_records(trans, input, record_size) < 0)
+	if (record_size == 0)
 		i_unlink_if_exists(trans->path);
+	else T_BEGIN {
+		if (mail_duplicate_read_records(trans, input, record_size) < 0)
+			i_unlink_if_exists(trans->path);
+	} T_END;
 
 	i_stream_unref(&input);
 	if (close(fd) < 0) {
@@ -341,6 +356,7 @@ void mail_duplicate_mark(struct mail_duplicate_transaction *trans,
 
 	dup->time = timestamp;
 	dup->marked = TRUE;
+	dup->changed = TRUE;
 
 	trans->changed = TRUE;
 }
