@@ -172,13 +172,11 @@ const char *str_tabescape(const char *str)
 	string_t *tmp;
 	const char *p;
 
-	for (p = str; *p != '\0'; p++) {
-		if (*p <= '\r') {
-			tmp = t_str_new(128);
-			str_append_data(tmp, str, p-str);
-			str_append_tabescaped(tmp, p);
-			return str_c(tmp);
-		}
+	if ((p = strpbrk(str, "\001\t\r\n")) != NULL) {
+		tmp = t_str_new(128);
+		str_append_data(tmp, str, p-str);
+		str_append_tabescaped(tmp, p);
+		return str_c(tmp);
 	}
 	return str;
 }
