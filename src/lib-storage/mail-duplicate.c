@@ -195,9 +195,10 @@ static int mail_duplicate_read(struct mail_duplicate_file *file)
 		i_unlink_if_exists(file->path);
 
 	i_stream_unref(&input);
-	if (close(fd) < 0)
+	if (close(fd) < 0) {
 		e_error(file->db->user->event,
 			"close(%s) failed: %m", file->path);
+	}
 	return 0;
 }
 
