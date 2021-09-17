@@ -326,7 +326,7 @@ mail_duplicate_read_records(struct mail_duplicate_transaction *trans,
 	return 0;
 }
 
-static int mail_duplicate_read(struct mail_duplicate_transaction *trans)
+static int mail_duplicate_read_db_file(struct mail_duplicate_transaction *trans)
 {
 	struct istream *input;
 	struct mail_duplicate_file_header hdr;
@@ -374,12 +374,33 @@ static int mail_duplicate_read(struct mail_duplicate_transaction *trans)
 	return 0;
 }
 
+static void mail_duplicate_read(struct mail_duplicate_transaction *trans)
+{
+	struct mail_duplicate_db *db = trans->db;
+	int new_fd;
+	struct dotlock *dotlock;
+
+	new_fd = file_dotlock_open(&db->dotlock_set, trans->path, 0, &dotlock);
+	if (new_fd != -1)
+		;
+	else if (errno != EAGAIN) {
+		e_error(trans->event,
+			"file_dotlock_open(%s) failed: %m", trans->path);
+	} else {
+		e_error(trans->event,
+			"Creating lock file for %s timed out in %u secs",
+			trans->path, db->dotlock_set.timeout);
+	}
+
+	(void)mail_duplicate_read_db_file(trans);
+
+	file_dotlock_delete(&dotlock);
+}
+
 struct mail_duplicate_transaction *
 mail_duplicate_transaction_begin(struct mail_duplicate_db *db)
 {
 	struct mail_duplicate_transaction *trans;
-	int new_fd;
-	struct dotlock *dotlock;
 	pool_t pool;
 
 	db->transaction_count++;
@@ -402,23 +423,10 @@ mail_duplicate_transaction_begin(struct mail_duplicate_db *db)
 	e_debug(trans->event, "Transaction begin; lock %s", db->path);
 
 	trans->path = p_strdup(pool, db->path);
-	new_fd = file_dotlock_open(&db->dotlock_set, trans->path, 0, &dotlock);
-	if (new_fd != -1)
-		;
-	else if (errno != EAGAIN) {
-		e_error(trans->event,
-			"file_dotlock_open(%s) failed: %m", trans->path);
-	} else {
-		e_error(trans->event,
-			"Creating lock file for %s timed out in %u secs",
-			trans->path, db->dotlock_set.timeout);
-	}
 	hash_table_create(&trans->hash, pool, 0,
 			  mail_duplicate_hash, mail_duplicate_cmp);
 
-	(void)mail_duplicate_read(trans);
-
-	file_dotlock_delete(&dotlock);
+	mail_duplicate_read(trans);
 
 	return trans;
 }
