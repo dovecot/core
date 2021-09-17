@@ -295,17 +295,19 @@ const char *t_str_tabunescape(const char *str)
 	return str_tabunescape_from(dest, dest + (p - str));
 }
 
-const char *const *t_strsplit_tabescaped_inplace(char *data)
+static char **p_strsplit_tabescaped_inplace(pool_t pool, char *data)
 {
 	/* @UNSAFE */
 	char **array;
 	unsigned int count, new_alloc_count, alloc_count;
 
 	if (*data == '\0')
-		return t_new(const char *, 1);
+		return p_new(pool, char *, 1);
 
 	alloc_count = 32;
-	array = t_malloc_no0(sizeof(char *) * alloc_count);
+	array = pool == unsafe_data_stack_pool ?
+		t_malloc_no0(sizeof(char *) * alloc_count) :
+		p_malloc(pool, sizeof(char *) * alloc_count);
 
 	array[0] = data; count = 1;
 	char *need_unescape = NULL;
@@ -319,7 +321,7 @@ const char *const *t_strsplit_tabescaped_inplace(char *data)
 		}
 		if (count+1 >= alloc_count) {
 			new_alloc_count = nearest_power(alloc_count+1);
-			array = p_realloc(unsafe_data_stack_pool, array,
+			array = p_realloc(pool, array,
 					  sizeof(char *) * alloc_count,
 					  sizeof(char *) *
 					  new_alloc_count);
@@ -337,18 +339,19 @@ const char *const *t_strsplit_tabescaped_inplace(char *data)
 	i_assert(count < alloc_count);
 	array[count] = NULL;
 
-	return (const char *const *)array;
+	return array;
+}
+
+const char *const *t_strsplit_tabescaped_inplace(char *data)
+{
+	char *const *escaped =
+		p_strsplit_tabescaped_inplace(unsafe_data_stack_pool, data);
+	return (const char *const *)escaped;
 }
 
 char **p_strsplit_tabescaped(pool_t pool, const char *str)
 {
-	char **args;
-	unsigned int i;
-
-	args = p_strsplit(pool, str, "\t");
-	for (i = 0; args[i] != NULL; i++)
-		args[i] = str_tabunescape(args[i]);
-	return args;
+	return p_strsplit_tabescaped_inplace(pool, p_strdup(pool, str));
 }
 
 const char *const *t_strsplit_tabescaped(const char *str)
