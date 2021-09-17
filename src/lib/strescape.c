@@ -308,11 +308,12 @@ const char *const *t_strsplit_tabescaped_inplace(char *data)
 	array = t_malloc_no0(sizeof(char *) * alloc_count);
 
 	array[0] = data; count = 1;
-	bool need_unescape = FALSE;
+	char *need_unescape = NULL;
 	while ((data = strpbrk(data, "\t\001")) != NULL) {
 		/* separator or escape char found */
 		if (*data == '\001') {
-			need_unescape = TRUE;
+			if (need_unescape == NULL)
+				need_unescape = data;
 			data++;
 			continue;
 		}
@@ -325,14 +326,14 @@ const char *const *t_strsplit_tabescaped_inplace(char *data)
 			alloc_count = new_alloc_count;
 		}
 		*data++ = '\0';
-		if (need_unescape) {
-			str_tabunescape(array[count-1]);
-			need_unescape = FALSE;
+		if (need_unescape != NULL) {
+			str_tabunescape_from(array[count-1], need_unescape);
+			need_unescape = NULL;
 		}
 		array[count++] = data;
 	}
-	if (need_unescape)
-		str_tabunescape(array[count-1]);
+	if (need_unescape != NULL)
+		str_tabunescape_from(array[count-1], need_unescape);
 	i_assert(count < alloc_count);
 	array[count] = NULL;
 
