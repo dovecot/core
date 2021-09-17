@@ -15,9 +15,12 @@ libdovecot_lua_la_SOURCES = \
 	dlua-table.c \
 	dlua-thread.c
 
+test_programs = test-lua
+
 LIBDICT_LUA=
 if DLUA_WITH_YIELDS
 LIBDICT_LUA += ../lib-dict/libdict_lua.la
+test_programs += test-dict-lua
 endif
 
 # Note: the only things this lib should depend on are libdovecot and lua.
@@ -38,8 +41,6 @@ headers = \
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
-
-test_programs = test-lua test-dict-lua
 
 noinst_PROGRAMS = $(test_programs)
 
