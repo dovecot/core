@@ -231,24 +231,46 @@ char *p_strconcat(pool_t pool, const char *str1, ...)
         return ret;
 }
 
+static void *t_memdup(const void *data, size_t size)
+{
+	void *mem = t_malloc_no0(size);
+	memcpy(mem, data, size);
+	return mem;
+}
+
 const char *t_strdup(const char *str)
 {
-	return p_strdup(unsafe_data_stack_pool, str);
+	return t_strdup_noconst(str);
 }
 
 char *t_strdup_noconst(const char *str)
 {
-	return p_strdup(unsafe_data_stack_pool, str);
+	if (str == NULL)
+		return NULL;
+	return t_memdup(str, strlen(str) + 1);
 }
 
 const char *t_strdup_empty(const char *str)
 {
-	return p_strdup_empty(unsafe_data_stack_pool, str);
+	if (str == NULL || *str == '\0')
+		return NULL;
+
+	return t_strdup(str);
 }
 
 const char *t_strdup_until(const void *start, const void *end)
 {
-	return p_strdup_until(unsafe_data_stack_pool, start, end);
+	char *mem;
+	size_t size;
+
+	i_assert((const char *) start <= (const char *) end);
+
+	size = (size_t)((const char *)end - (const char *)start);
+
+	mem = t_malloc_no0(size + 1);
+	memcpy(mem, start, size);
+	mem[size] = '\0';
+	return mem;
 }
 
 const char *t_strndup(const void *str, size_t max_chars)
