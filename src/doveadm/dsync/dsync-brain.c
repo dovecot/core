@@ -402,7 +402,9 @@ dsync_brain_lock(struct dsync_brain *brain, const char *remote_hostname)
 {
 	const struct file_create_settings lock_set = {
 		.lock_timeout_secs = brain->lock_timeout,
-		.lock_method = FILE_LOCK_METHOD_FCNTL,
+		.lock_settings = {
+			.lock_method = FILE_LOCK_METHOD_FCNTL,
+		},
 	};
 	const char *home, *error, *local_hostname = my_hostdomain();
 	bool created;

@@ -43,7 +43,9 @@ static void test_file_create_locked_basic(void)
 {
 	struct file_create_settings set = {
 		.lock_timeout_secs = 0,
-		.lock_method = FILE_LOCK_METHOD_FCNTL,
+		.lock_settings = {
+			.lock_method = FILE_LOCK_METHOD_FCNTL,
+		},
 	};
 	const char *path = ".test-file-create-locked";
 	struct file_lock *lock;
@@ -92,7 +94,9 @@ static void test_file_create_locked_mkdir(void)
 {
 	struct file_create_settings set = {
 		.lock_timeout_secs = 0,
-		.lock_method = FILE_LOCK_METHOD_FCNTL,
+		.lock_settings = {
+			.lock_method = FILE_LOCK_METHOD_FCNTL,
+		},
 	};
 	const char *path;
 	struct file_lock *lock;

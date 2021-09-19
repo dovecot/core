@@ -3195,19 +3195,20 @@ int mail_storage_lock_create(const char *lock_path,
 			     const struct mail_storage_settings *mail_set,
 			     struct file_lock **lock_r, const char **error_r)
 {
+	struct file_create_settings lock_set_new = *lock_set;
 	bool created;
 
-	if (lock_set->lock_method == FILE_LOCK_METHOD_DOTLOCK)
+	if (lock_set->lock_settings.lock_method == FILE_LOCK_METHOD_DOTLOCK)
 		return mail_storage_dotlock_create(lock_path, lock_set, mail_set, lock_r, error_r);
 
-	if (file_create_locked(lock_path, lock_set, lock_r,
+	lock_set_new.lock_settings.close_on_free = TRUE;
+	lock_set_new.lock_settings.unlink_on_free = TRUE;
+	if (file_create_locked(lock_path, &lock_set_new, lock_r,
 			       &created, error_r) == -1) {
 		*error_r = t_strdup_printf("file_create_locked(%s) failed: %s",
 					   lock_path, *error_r);
 		return errno == EAGAIN ? 0 : -1;
 	}
-	file_lock_set_close_on_free(*lock_r, TRUE);
-	file_lock_set_unlink_on_free(*lock_r, TRUE);
 	return 1;
 }
 
@@ -3223,7 +3224,7 @@ int mailbox_lock_file_create(struct mailbox *box, const char *lock_fname,
 	i_zero(&set);
 	set.lock_timeout_secs =
 		mail_storage_get_lock_timeout(box->storage, lock_secs);
-	set.lock_method = box->storage->set->parsed_lock_method;
+	set.lock_settings.lock_method = box->storage->set->parsed_lock_method;
 	set.mode = perm->file_create_mode;
 	set.gid = perm->file_create_gid;
 	set.gid_origin = perm->file_create_gid_origin;

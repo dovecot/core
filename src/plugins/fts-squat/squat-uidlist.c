@@ -609,9 +609,11 @@ static int squat_uidlist_lock(struct squat_uidlist *uidlist)
 		i_assert(uidlist->dotlock == NULL);
 
 		if (uidlist->trie->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
+			struct file_lock_settings lock_set = {
+				.lock_method = uidlist->trie->lock_method,
+			};
 			ret = file_wait_lock(uidlist->fd, uidlist->path,
-					     F_WRLCK,
-					     uidlist->trie->lock_method,
+					     F_WRLCK, &lock_set,
 					     SQUAT_TRIE_LOCK_TIMEOUT,
 					     &uidlist->file_lock, &error);
 			if (ret < 0) {

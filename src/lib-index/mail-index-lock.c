@@ -35,8 +35,11 @@ int mail_index_lock_fd(struct mail_index *index, const char *path, int fd,
 		return 1;
 	}
 
-	ret = file_wait_lock(fd, path, lock_type, index->set.lock_method,
-			     timeout_secs, lock_r, &error);
+	struct file_lock_settings lock_set = {
+		.lock_method = index->set.lock_method,
+	};
+	ret = file_wait_lock(fd, path, lock_type, &lock_set, timeout_secs,
+			     lock_r, &error);
 	if (ret < 0)
 		e_error(index->event, "%s", error);
 	return ret;

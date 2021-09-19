@@ -520,10 +520,12 @@ file_dict_lock(struct file_dict *dict, struct file_lock **lock_r,
 	}
 
 	*lock_r = NULL;
+	struct file_lock_settings lock_set = {
+		.lock_method = dict->lock_method,
+	};
 	do {
 		file_lock_free(lock_r);
-		if (file_wait_lock(dict->fd, dict->path, F_WRLCK,
-				   dict->lock_method,
+		if (file_wait_lock(dict->fd, dict->path, F_WRLCK, &lock_set,
 				   file_dict_dotlock_settings.timeout,
 				   lock_r, &error) <= 0) {
 			*error_r = t_strdup_printf(

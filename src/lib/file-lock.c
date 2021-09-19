@@ -13,15 +13,14 @@
 #endif
 
 struct file_lock {
+	struct file_lock_settings set;
+
 	int fd;
 	char *path;
 	struct dotlock *dotlock;
 
 	struct timeval locked_time;
 	int lock_type;
-	enum file_lock_method lock_method;
-	bool unlink_on_free;
-	bool close_on_free;
 };
 
 static struct timeval lock_wait_start;
@@ -57,11 +56,10 @@ const char *file_lock_method_to_str(enum file_lock_method method)
 }
 
 int file_try_lock(int fd, const char *path, int lock_type,
-		  enum file_lock_method lock_method,
+		  const struct file_lock_settings *set,
 		  struct file_lock **lock_r, const char **error_r)
 {
-	return file_wait_lock(fd, path, lock_type, lock_method, 0,
-			      lock_r, error_r);
+	return file_wait_lock(fd, path, lock_type, set, 0, lock_r, error_r);
 }
 
 static const char *
@@ -161,7 +159,7 @@ static bool err_is_lock_timeout(time_t started, unsigned int timeout_secs)
 }
 
 static int file_lock_do(int fd, const char *path, int lock_type,
-			enum file_lock_method lock_method,
+			const struct file_lock_settings *set,
 			unsigned int timeout_secs, const char **error_r)
 {
 	const char *lock_type_str;
@@ -178,7 +176,7 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 	lock_type_str = lock_type == F_UNLCK ? "unlock" :
 		(lock_type == F_RDLCK ? "read-lock" : "write-lock");
 
-	switch (lock_method) {
+	switch (set->lock_method) {
 	case FILE_LOCK_METHOD_FCNTL: {
 #ifndef HAVE_FCNTL
 		*error_r = t_strdup_printf(
@@ -216,13 +214,17 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 				"fcntl(%s, %s, F_SETLKW) locking failed: "
 				"Timed out after %u seconds%s",
 				path, lock_type_str, timeout_secs,
-				file_lock_find(fd, lock_method, lock_type));
+				file_lock_find(fd, set->lock_method,
+					       lock_type));
 			return 0;
 		}
 		*error_r = t_strdup_printf("fcntl(%s, %s, %s) locking failed: %m",
 			path, lock_type_str, timeout_secs == 0 ? "F_SETLK" : "F_SETLKW");
-		if (errno == EDEADLK)
-			i_panic("%s%s", *error_r, file_lock_find(fd, lock_method, lock_type));
+		if (errno == EDEADLK) {
+			i_panic("%s%s", *error_r,
+				file_lock_find(fd, set->lock_method,
+					       lock_type));
+		}
 		return -1;
 #endif
 	}
@@ -267,13 +269,17 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 			*error_r = t_strdup_printf("flock(%s, %s) failed: "
 				"Timed out after %u seconds%s",
 				path, lock_type_str, timeout_secs,
-				file_lock_find(fd, lock_method, lock_type));
+				file_lock_find(fd, set->lock_method,
+					       lock_type));
 			return 0;
 		}
 		*error_r = t_strdup_printf("flock(%s, %s) failed: %m",
 					   path, lock_type_str);
-		if (errno == EDEADLK)
-			i_panic("%s%s", *error_r, file_lock_find(fd, lock_method, lock_type));
+		if (errno == EDEADLK) {
+			i_panic("%s%s", *error_r,
+				file_lock_find(fd, set->lock_method,
+					       lock_type));
+		}
 		return -1;
 #endif
 	}
@@ -286,21 +292,22 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 }
 
 int file_wait_lock(int fd, const char *path, int lock_type,
-		   enum file_lock_method lock_method, unsigned int timeout_secs,
+		   const struct file_lock_settings *set,
+		   unsigned int timeout_secs,
 		   struct file_lock **lock_r, const char **error_r)
 {
 	struct file_lock *lock;
 	int ret;
 
-	ret = file_lock_do(fd, path, lock_type, lock_method, timeout_secs, error_r);
+	ret = file_lock_do(fd, path, lock_type, set, timeout_secs, error_r);
 	if (ret <= 0)
 		return ret;
 
 	lock = i_new(struct file_lock, 1);
+	lock->set = *set;
 	lock->fd = fd;
 	lock->path = i_strdup(path);
 	lock->lock_type = lock_type;
-	lock->lock_method = lock_method;
 	i_gettimeofday(&lock->locked_time);
 	*lock_r = lock;
 	return 1;
@@ -311,8 +318,8 @@ int file_lock_try_update(struct file_lock *lock, int lock_type)
 	const char *error;
 	int ret;
 
-	ret = file_lock_do(lock->fd, lock->path, lock_type,
-			   lock->lock_method, 0, &error);
+	ret = file_lock_do(lock->fd, lock->path, lock_type, &lock->set, 0,
+			   &error);
 	if (ret <= 0)
 		return ret;
 	file_lock_log_warning_if_slow(lock);
@@ -322,12 +329,12 @@ int file_lock_try_update(struct file_lock *lock, int lock_type)
 
 void file_lock_set_unlink_on_free(struct file_lock *lock, bool set)
 {
-	lock->unlink_on_free = set;
+	lock->set.unlink_on_free = set;
 }
 
 void file_lock_set_close_on_free(struct file_lock *lock, bool set)
 {
-	lock->close_on_free = set;
+	lock->set.close_on_free = set;
 }
 
 struct file_lock *file_lock_from_dotlock(struct dotlock **dotlock)
@@ -335,10 +342,10 @@ struct file_lock *file_lock_from_dotlock(struct dotlock **dotlock)
 	struct file_lock *lock;
 
 	lock = i_new(struct file_lock, 1);
+	lock->set.lock_method = FILE_LOCK_METHOD_DOTLOCK;
 	lock->fd = -1;
 	lock->path = i_strdup(file_dotlock_get_lock_path(*dotlock));
 	lock->lock_type = F_WRLCK;
-	lock->lock_method = FILE_LOCK_METHOD_DOTLOCK;
 	i_gettimeofday(&lock->locked_time);
 	lock->dotlock = *dotlock;
 
@@ -350,8 +357,8 @@ static void file_unlock_real(struct file_lock *lock)
 {
 	const char *error;
 
-	if (file_lock_do(lock->fd, lock->path, F_UNLCK,
-			 lock->lock_method, 0, &error) == 0) {
+	if (file_lock_do(lock->fd, lock->path, F_UNLCK, &lock->set, 0,
+			 &error) == 0) {
 		/* this shouldn't happen */
 		i_error("file_unlock(%s) failed: %m", lock->path);
 	}
@@ -366,7 +373,7 @@ void file_unlock(struct file_lock **_lock)
 	/* unlocking is unnecessary when the file is unlinked. or alternatively
 	   the unlink() must be done before unlocking, because otherwise it
 	   could be deleting the new lock. */
-	i_assert(!lock->unlink_on_free);
+	i_assert(!lock->set.unlink_on_free);
 
 	if (lock->dotlock == NULL)
 		file_unlock_real(lock);
@@ -376,12 +383,16 @@ void file_unlock(struct file_lock **_lock)
 static void file_try_unlink_locked(struct file_lock *lock)
 {
 	struct file_lock *temp_lock = NULL;
+	struct file_lock_settings temp_set = lock->set;
 	struct stat st1, st2;
 	const char *error;
 	int ret;
 
+	temp_set.close_on_free = FALSE;
+	temp_set.unlink_on_free = FALSE;
+
 	file_unlock_real(lock);
-	ret = file_try_lock(lock->fd, lock->path, F_WRLCK, lock->lock_method,
+	ret = file_try_lock(lock->fd, lock->path, F_WRLCK, &temp_set,
 			    &temp_lock, &error);
 	if (ret < 0) {
 		i_error("file_lock_free(): Unexpectedly failed to retry locking %s: %s",
@@ -415,9 +426,9 @@ void file_lock_free(struct file_lock **_lock)
 
 	if (lock->dotlock != NULL)
 		file_dotlock_delete(&lock->dotlock);
-	if (lock->unlink_on_free)
+	if (lock->set.unlink_on_free)
 		file_try_unlink_locked(lock);
-	if (lock->close_on_free)
+	if (lock->set.close_on_free)
 		i_close_fd(&lock->fd);
 
 	file_lock_log_warning_if_slow(lock);

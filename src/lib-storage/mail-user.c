@@ -590,7 +590,9 @@ int mail_user_lock_file_create(struct mail_user *user, const char *lock_fname,
 		mail_user_set_get_storage_set(user);
 	struct file_create_settings lock_set = {
 		.lock_timeout_secs = lock_secs,
-		.lock_method = mail_set->parsed_lock_method,
+		.lock_settings = {
+			.lock_method = mail_set->parsed_lock_method,
+		},
 	};
 	struct mailbox_list *inbox_list =
 		mail_namespace_find_inbox(user->namespaces)->list;
