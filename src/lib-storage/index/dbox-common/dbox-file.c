@@ -313,8 +313,8 @@ int dbox_file_try_lock(struct dbox_file *file)
 	i_assert(file->fd != -1);
 
 #ifdef DBOX_FILE_LOCK_METHOD_FLOCK
-	ret = file_try_lock_error(file->fd, file->cur_path, F_WRLCK,
-				  FILE_LOCK_METHOD_FLOCK, &file->lock, &error);
+	ret = file_try_lock(file->fd, file->cur_path, F_WRLCK,
+			    FILE_LOCK_METHOD_FLOCK, &file->lock, &error);
 	if (ret < 0) {
 		mail_storage_set_critical(&file->storage->storage,
 			"file_try_lock(%s) failed: %s", file->cur_path, error);

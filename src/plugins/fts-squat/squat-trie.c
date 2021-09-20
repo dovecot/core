@@ -292,10 +292,10 @@ static int squat_trie_lock(struct squat_trie *trie, int lock_type,
 
 	for (;;) {
 		if (trie->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
-			ret = file_wait_lock_error(trie->fd, trie->path,
-						   lock_type, trie->lock_method,
-						   SQUAT_TRIE_LOCK_TIMEOUT,
-						   file_lock_r, &error);
+			ret = file_wait_lock(trie->fd, trie->path,
+					     lock_type, trie->lock_method,
+					     SQUAT_TRIE_LOCK_TIMEOUT,
+					     file_lock_r, &error);
 			if (ret < 0) {
 				i_error("squat trie %s: %s",
 					trie->path, error);
@@ -1629,10 +1629,10 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 			return -1;
 
 		if (trie->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
-			ret = file_wait_lock_error(fd, path, F_WRLCK,
-						   trie->lock_method,
-						   SQUAT_TRIE_LOCK_TIMEOUT,
-						   &file_lock, &error);
+			ret = file_wait_lock(fd, path, F_WRLCK,
+					     trie->lock_method,
+					     SQUAT_TRIE_LOCK_TIMEOUT,
+					     &file_lock, &error);
 			if (ret <= 0) {
 				i_error("file_wait_lock(%s) failed: %s",
 					path, error);

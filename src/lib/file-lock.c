@@ -56,12 +56,12 @@ const char *file_lock_method_to_str(enum file_lock_method method)
 	i_unreached();
 }
 
-int file_try_lock_error(int fd, const char *path, int lock_type,
-			enum file_lock_method lock_method,
-			struct file_lock **lock_r, const char **error_r)
+int file_try_lock(int fd, const char *path, int lock_type,
+		  enum file_lock_method lock_method,
+		  struct file_lock **lock_r, const char **error_r)
 {
-	return file_wait_lock_error(fd, path, lock_type, lock_method, 0,
-				    lock_r, error_r);
+	return file_wait_lock(fd, path, lock_type, lock_method, 0,
+			      lock_r, error_r);
 }
 
 static const char *
@@ -285,10 +285,9 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 	return 1;
 }
 
-int file_wait_lock_error(int fd, const char *path, int lock_type,
-			 enum file_lock_method lock_method,
-			 unsigned int timeout_secs,
-			 struct file_lock **lock_r, const char **error_r)
+int file_wait_lock(int fd, const char *path, int lock_type,
+		   enum file_lock_method lock_method, unsigned int timeout_secs,
+		   struct file_lock **lock_r, const char **error_r)
 {
 	struct file_lock *lock;
 	int ret;
@@ -382,8 +381,8 @@ static void file_try_unlink_locked(struct file_lock *lock)
 	int ret;
 
 	file_unlock_real(lock);
-	ret = file_try_lock_error(lock->fd, lock->path, F_WRLCK,
-				  lock->lock_method, &temp_lock, &error);
+	ret = file_try_lock(lock->fd, lock->path, F_WRLCK, lock->lock_method,
+			    &temp_lock, &error);
 	if (ret < 0) {
 		i_error("file_lock_free(): Unexpectedly failed to retry locking %s: %s",
 			lock->path, error);

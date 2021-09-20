@@ -702,15 +702,13 @@ fs_posix_lock(struct fs_file *_file, unsigned int secs, struct fs_lock **lock_r)
 			     file->full_path);
 #else
 		if (secs == 0) {
-			ret = file_try_lock_error(file->fd, file->full_path,
-						  F_WRLCK,
-						  FILE_LOCK_METHOD_FLOCK,
-						  &fs_lock.file_lock, &error);
+			ret = file_try_lock(file->fd, file->full_path, F_WRLCK,
+					    FILE_LOCK_METHOD_FLOCK,
+					    &fs_lock.file_lock, &error);
 		} else {
-			ret = file_wait_lock_error(file->fd, file->full_path,
-						   F_WRLCK,
-						   FILE_LOCK_METHOD_FLOCK, secs,
-						   &fs_lock.file_lock, &error);
+			ret = file_wait_lock(file->fd, file->full_path, F_WRLCK,
+					     FILE_LOCK_METHOD_FLOCK, secs,
+					     &fs_lock.file_lock, &error);
 		}
 		if (ret < 0) {
 			fs_set_error_errno(_file->event, "flock(%s) failed: %s",
