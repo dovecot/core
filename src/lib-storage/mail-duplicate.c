@@ -2,10 +2,15 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "hex-binary.h"
+#include "mkdir-parents.h"
 #include "istream.h"
 #include "ostream.h"
+#include "time-util.h"
 #include "home-expand.h"
+#include "file-create-locked.h"
 #include "file-dotlock.h"
+#include "md5.h"
 #include "hash.h"
 #include "mail-user.h"
 #include "mail-storage-settings.h"
@@ -18,12 +23,33 @@
 #define DUPLICATE_BUFSIZE 4096
 #define DUPLICATE_VERSION 2
 
+#define DUPLICATE_LOCK_FNAME_PREFIX "duplicate.lock."
+
+#define DUPLICATE_LOCK_TIMEOUT_SECS 65
+#define DUPLICATE_LOCK_WARN_SECS 4
+#define DUPLICATE_LOCK_MAX_LOCKS 100
+
+enum mail_duplicate_lock_result {
+	MAIL_DUPLICATE_LOCK_OK,
+	MAIL_DUPLICATE_LOCK_IO_ERROR,
+	MAIL_DUPLICATE_LOCK_TIMEOUT,
+	MAIL_DUPLICATE_LOCK_TOO_MANY,
+};
+
+struct mail_duplicate_lock {
+	int fd;
+	char *path;
+	struct file_lock *lock;
+	struct timeval start_time;
+};
+
 struct mail_duplicate {
 	const void *id;
 	unsigned int id_size;
 
 	const char *user;
 	time_t time;
+	struct mail_duplicate_lock lock;
 
 	bool marked:1;
 	bool changed:1;
@@ -46,9 +72,8 @@ struct mail_duplicate_transaction {
 
 	HASH_TABLE(struct mail_duplicate *, struct mail_duplicate *) hash;
 	const char *path;
+	unsigned int id_lock_count;
 
-	int new_fd;
-	struct dotlock *dotlock;
 	bool changed:1;
 };
 
@@ -56,6 +81,7 @@ struct mail_duplicate_db {
 	struct mail_user *user;
 	struct event *event;
 	char *path;
+	char *lock_dir;
 	struct dotlock_settings dotlock_set;
 
 	unsigned int transaction_count;
@@ -91,6 +117,129 @@ static unsigned int mail_duplicate_hash(const struct mail_duplicate *d)
 	}
 
 	return h ^ strcase_hash(d->user);
+}
+
+static enum mail_duplicate_lock_result
+duplicate_lock_failed(struct mail_duplicate_transaction *trans,
+		      struct mail_duplicate *dup, const char *error)
+{
+	struct mail_duplicate_lock *lock = &dup->lock;
+	enum mail_duplicate_lock_result result;
+	int diff;
+
+	i_assert(lock->fd == -1);
+	i_assert(lock->lock == NULL);
+
+	if (errno != EAGAIN) {
+		/* not a lock timeout */
+		result = MAIL_DUPLICATE_LOCK_IO_ERROR;
+	} else {
+		diff = timeval_diff_msecs(&ioloop_timeval,
+					  &lock->start_time);
+		error = t_strdup_printf("Lock timeout in %d.%03d secs",
+					diff/1000, diff%1000);
+		result = MAIL_DUPLICATE_LOCK_TIMEOUT;
+	}
+
+	e_error(trans->event, "Failed to lock %s: %s", lock->path, error);
+	i_free_and_null(lock->path);
+	i_zero(lock);
+	return result;
+}
+
+static bool mail_duplicate_is_locked(struct mail_duplicate *dup)
+{
+	struct mail_duplicate_lock *lock = &dup->lock;
+
+	return (lock->lock != NULL);
+}
+
+static enum mail_duplicate_lock_result
+mail_duplicate_lock(struct mail_duplicate_transaction *trans,
+		    struct mail_duplicate *dup)
+{
+	struct file_create_settings lock_set = {
+		.lock_timeout_secs = DUPLICATE_LOCK_TIMEOUT_SECS,
+		.lock_settings = {
+			.lock_method = FILE_LOCK_METHOD_FCNTL,
+			.allow_deadlock = TRUE,
+		},
+	};
+	struct mail_duplicate_db *db = trans->db;
+	struct mail_duplicate_lock *lock = &dup->lock;
+	const char *error;
+	unsigned char id_md5[MD5_RESULTLEN];
+	bool created;
+	int diff;
+
+	if (mail_duplicate_is_locked(dup)) {
+		e_debug(trans->event, "Duplicate ID already locked");
+		return MAIL_DUPLICATE_LOCK_OK;
+	}
+	if (trans->id_lock_count >= DUPLICATE_LOCK_MAX_LOCKS) {
+		e_debug(trans->event, "Too many duplicate IDs locked");
+		return MAIL_DUPLICATE_LOCK_TOO_MANY;
+	}
+
+	i_assert(db->lock_dir != NULL);
+
+	lock->start_time = ioloop_timeval;
+	md5_get_digest(dup->id, dup->id_size, id_md5);
+	lock->path = i_strdup_printf("%s/"DUPLICATE_LOCK_FNAME_PREFIX"%s",
+				     db->lock_dir,
+				     binary_to_hex(id_md5, sizeof(id_md5)));
+
+	e_debug(trans->event, "Lock duplicate ID (path=%s)", lock->path);
+
+	lock->fd = file_create_locked(lock->path, &lock_set, &lock->lock,
+				      &created, &error);
+	if (lock->fd == -1 && errno == ENOENT) {
+		/* parent directory missing - create it */
+		if (mkdir_parents(db->lock_dir, 0700) < 0 && errno != EEXIST) {
+			error = t_strdup_printf(
+				"mkdir_parents(%s) failed: %m", db->lock_dir);
+		} else {
+			lock->fd = file_create_locked(lock->path,
+						      &lock_set, &lock->lock,
+						      &created, &error);
+		}
+	}
+	if (lock->fd == -1)
+		return duplicate_lock_failed(trans, dup, error);
+
+	diff = timeval_diff_msecs(&ioloop_timeval, &lock->start_time);
+	if (diff >= (DUPLICATE_LOCK_WARN_SECS * 1000)) {
+		e_warning(trans->event, "Locking %s took %d.%03d secs",
+			  lock->path, diff/1000, diff%1000);
+	}
+
+	i_assert(mail_duplicate_is_locked(dup));
+	trans->id_lock_count++;
+	return MAIL_DUPLICATE_LOCK_OK;
+}
+
+static void
+mail_duplicate_unlock(struct mail_duplicate_transaction *trans,
+		      struct mail_duplicate *dup)
+{
+	int orig_errno = errno;
+
+	if (dup->lock.path != NULL) {
+		struct mail_duplicate_lock *lock = &dup->lock;
+
+		e_debug(trans->event, "Unlock duplicate ID (path=%s)",
+			lock->path);
+		i_unlink(lock->path);
+		file_lock_free(&lock->lock);
+		i_close_fd(&lock->fd);
+		i_free_and_null(lock->path);
+		i_zero(lock);
+
+		i_assert(trans->id_lock_count > 0);
+		trans->id_lock_count--;
+	}
+
+	errno = orig_errno;
 }
 
 static int
@@ -229,6 +378,8 @@ struct mail_duplicate_transaction *
 mail_duplicate_transaction_begin(struct mail_duplicate_db *db)
 {
 	struct mail_duplicate_transaction *trans;
+	int new_fd;
+	struct dotlock *dotlock;
 	pool_t pool;
 
 	db->transaction_count++;
@@ -251,9 +402,8 @@ mail_duplicate_transaction_begin(struct mail_duplicate_db *db)
 	e_debug(trans->event, "Transaction begin; lock %s", db->path);
 
 	trans->path = p_strdup(pool, db->path);
-	trans->new_fd = file_dotlock_open(&db->dotlock_set, trans->path, 0,
-					 &trans->dotlock);
-	if (trans->new_fd != -1)
+	new_fd = file_dotlock_open(&db->dotlock_set, trans->path, 0, &dotlock);
+	if (new_fd != -1)
 		;
 	else if (errno != EAGAIN) {
 		e_error(trans->event,
@@ -267,6 +417,9 @@ mail_duplicate_transaction_begin(struct mail_duplicate_db *db)
 			  mail_duplicate_hash, mail_duplicate_cmp);
 
 	(void)mail_duplicate_read(trans);
+
+	file_dotlock_delete(&dotlock);
+
 	return trans;
 }
 
@@ -274,6 +427,8 @@ static void
 mail_duplicate_transaction_free(struct mail_duplicate_transaction **_trans)
 {
 	struct mail_duplicate_transaction *trans = *_trans;
+	struct hash_iterate_context *iter;
+	struct mail_duplicate *d;
 
 	if (trans == NULL)
 		return;
@@ -284,8 +439,11 @@ mail_duplicate_transaction_free(struct mail_duplicate_transaction **_trans)
 	i_assert(trans->db->transaction_count > 0);
 	trans->db->transaction_count--;
 
-	if (trans->dotlock != NULL)
-		file_dotlock_delete(&trans->dotlock);
+	iter = hash_table_iterate_init(trans->hash);
+	while (hash_table_iterate(iter, trans->hash, &d, &d))
+		mail_duplicate_unlock(trans, d);
+	hash_table_iterate_deinit(&iter);
+	i_assert(trans->id_lock_count == 0);
 
 	hash_table_destroy(&trans->hash);
 	event_unref(&trans->event);
@@ -329,6 +487,24 @@ mail_duplicate_check(struct mail_duplicate_transaction *trans,
 	}
 
 	dup = mail_duplicate_get(trans, id, id_size, user);
+
+	switch (mail_duplicate_lock(trans, dup)) {
+	case MAIL_DUPLICATE_LOCK_OK:
+		break;
+	case MAIL_DUPLICATE_LOCK_IO_ERROR:
+		e_debug(trans->event,
+			"Check ID: I/O error occurred while locking");
+		return MAIL_DUPLICATE_CHECK_RESULT_IO_ERROR;
+	case MAIL_DUPLICATE_LOCK_TIMEOUT:
+		e_debug(trans->event,
+			"Check ID: lock timed out");
+		return MAIL_DUPLICATE_CHECK_RESULT_LOCK_TIMEOUT;
+	case MAIL_DUPLICATE_LOCK_TOO_MANY:
+		e_debug(trans->event,
+			"Check ID: too many IDs locked");
+		return MAIL_DUPLICATE_CHECK_RESULT_TOO_MANY_LOCKS;
+	}
+
 	if (dup->marked) {
 		e_debug(trans->event, "Check ID: found");
 		return MAIL_DUPLICATE_CHECK_RESULT_EXISTS;
@@ -354,6 +530,9 @@ void mail_duplicate_mark(struct mail_duplicate_transaction *trans,
 
 	dup = mail_duplicate_get(trans, id, id_size, user);
 
+	/* Must already be checked and locked */
+	i_assert(mail_duplicate_is_locked(dup));
+
 	dup->time = timestamp;
 	dup->marked = TRUE;
 	dup->changed = TRUE;
@@ -370,12 +549,14 @@ void mail_duplicate_transaction_commit(
 	struct ostream *output;
         struct hash_iterate_context *iter;
 	struct mail_duplicate *d;
+	int new_fd;
+	struct dotlock *dotlock;
 
 	if (trans == NULL)
 		return;
 	*_trans = NULL;
 
-	if (trans->new_fd == -1) {
+	if (trans->path == NULL) {
 		e_debug(trans->event, "Commit (dummy)");
 		mail_duplicate_transaction_free(&trans);
 		return;
@@ -386,13 +567,32 @@ void mail_duplicate_transaction_commit(
 		return;
 	}
 
+	struct mail_duplicate_db *db = trans->db;
+
 	i_assert(trans->path != NULL);
 	e_debug(trans->event, "Commit; overwrite %s", trans->path);
+
+	new_fd = file_dotlock_open(&db->dotlock_set, trans->path, 0, &dotlock);
+	if (new_fd != -1)
+		;
+	else if (errno != EAGAIN) {
+		e_error(trans->event,
+			"file_dotlock_open(%s) failed: %m",
+			trans->path);
+		mail_duplicate_transaction_free(&trans);
+		return;
+	} else {
+		e_error(trans->event,
+			"Creating lock file for %s timed out in %u secs",
+			trans->path, db->dotlock_set.timeout);
+		mail_duplicate_transaction_free(&trans);
+		return;
+	}
 
 	i_zero(&hdr);
 	hdr.version = DUPLICATE_VERSION;
 
-	output = o_stream_create_fd_file(trans->new_fd, 0, FALSE);
+	output = o_stream_create_fd_file(new_fd, 0, FALSE);
 	o_stream_cork(output);
 	o_stream_nsend(output, &hdr, sizeof(hdr));
 
@@ -420,10 +620,16 @@ void mail_duplicate_transaction_commit(
 	}
 	o_stream_unref(&output);
 
-	if (file_dotlock_replace(&trans->dotlock, 0) < 0) {
+	if (file_dotlock_replace(&dotlock, 0) < 0) {
 		e_error(trans->event,
 			"file_dotlock_replace(%s) failed: %m", trans->path);
 	}
+
+	iter = hash_table_iterate_init(trans->hash);
+	while (hash_table_iterate(iter, trans->hash, &d, &d))
+		mail_duplicate_unlock(trans, d);
+	hash_table_iterate_deinit(&iter);
+
 	mail_duplicate_transaction_free(&trans);
 }
 
@@ -436,7 +642,10 @@ void mail_duplicate_transaction_rollback(
 		return;
 	*_trans = NULL;
 
-	e_debug(trans->event, "Rollback");
+	if (trans->path == NULL)
+		e_debug(trans->event, "Rollback (dummy)");
+	else
+		e_debug(trans->event, "Rollback");
 
 	mail_duplicate_transaction_free(&trans);
 }
@@ -447,6 +656,7 @@ mail_duplicate_db_init(struct mail_user *user, const char *name)
 	struct mail_duplicate_db *db;
 	const struct mail_storage_settings *mail_set;
 	const char *home = NULL;
+	const char *lock_dir;
 
 	db = i_new(struct mail_duplicate_db, 1);
 
@@ -465,9 +675,16 @@ mail_duplicate_db_init(struct mail_user *user, const char *name)
 		i_strconcat(home, "/.dovecot.", name, NULL);
 	db->dotlock_set = default_mail_duplicate_dotlock_set;
 
+	lock_dir = mail_user_get_volatile_dir(user);
+	if (lock_dir == NULL)
+		lock_dir = home;
+	db->lock_dir = i_strconcat(lock_dir, "/.dovecot.", name, ".locks",
+				   NULL);
+
 	mail_set = mail_user_set_get_storage_set(user);
 	db->dotlock_set.use_excl_lock = mail_set->dotlock_use_excl;
 	db->dotlock_set.nfs_flush = mail_set->mail_nfs_storage;
+
 	return db;
 }
 
@@ -483,5 +700,6 @@ void mail_duplicate_db_deinit(struct mail_duplicate_db **_db)
 
 	event_unref(&db->event);
 	i_free(db->path);
+	i_free(db->lock_dir);
 	i_free(db);
 }
