@@ -56,13 +56,6 @@ const char *file_lock_method_to_str(enum file_lock_method method)
 	i_unreached();
 }
 
-int file_try_lock(int fd, const char *path, int lock_type,
-		  enum file_lock_method lock_method,
-		  struct file_lock **lock_r)
-{
-	return file_wait_lock(fd, path, lock_type, lock_method, 0, lock_r);
-}
-
 int file_try_lock_error(int fd, const char *path, int lock_type,
 			enum file_lock_method lock_method,
 			struct file_lock **lock_r, const char **error_r)
@@ -290,21 +283,6 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 	}
 
 	return 1;
-}
-
-int file_wait_lock(int fd, const char *path, int lock_type,
-		   enum file_lock_method lock_method,
-		   unsigned int timeout_secs,
-		   struct file_lock **lock_r)
-{
-	const char *error;
-	int ret;
-
-	ret = file_wait_lock_error(fd, path, lock_type, lock_method,
-				   timeout_secs, lock_r, &error);
-	if (ret < 0)
-		i_error("%s", error);
-	return ret;
 }
 
 int file_wait_lock_error(int fd, const char *path, int lock_type,

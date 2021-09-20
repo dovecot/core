@@ -23,22 +23,11 @@ const char *file_lock_method_to_str(enum file_lock_method method);
 
 /* Lock the file. Returns 1 if successful, 0 if file is already locked,
    or -1 if error. lock_type is F_WRLCK or F_RDLCK. */
-int file_try_lock(int fd, const char *path, int lock_type,
-		  enum file_lock_method lock_method,
-		  struct file_lock **lock_r);
-/* Like file_try_lock(), but return the error message as a string instead
-   of logging it. Also when returning 0 an error message is returned. */
 int file_try_lock_error(int fd, const char *path, int lock_type,
 			enum file_lock_method lock_method,
 			struct file_lock **lock_r, const char **error_r);
 /* Like lock_try_lock(), but return 0 only after having tried to lock for
    timeout_secs. */
-int file_wait_lock(int fd, const char *path, int lock_type,
-		   enum file_lock_method lock_method,
-		   unsigned int timeout_secs,
-		   struct file_lock **lock_r);
-/* Like file_wait_lock(), but return the error message as a string instead
-   of logging it. Also when returning 0 an error message is returned. */
 int file_wait_lock_error(int fd, const char *path, int lock_type,
 			 enum file_lock_method lock_method,
 			 unsigned int timeout_secs,
