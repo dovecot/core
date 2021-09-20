@@ -522,12 +522,13 @@ file_dict_lock(struct file_dict *dict, struct file_lock **lock_r,
 	*lock_r = NULL;
 	do {
 		file_lock_free(lock_r);
-		if (file_wait_lock(dict->fd, dict->path, F_WRLCK,
-				   dict->lock_method,
-				   file_dict_dotlock_settings.timeout,
-				   lock_r) <= 0) {
+		if (file_wait_lock_error(dict->fd, dict->path, F_WRLCK,
+					 dict->lock_method,
+					 file_dict_dotlock_settings.timeout,
+					 lock_r, &error) <= 0) {
 			*error_r = t_strdup_printf(
-				"file_wait_lock(%s) failed: %m", dict->path);
+				"file_wait_lock(%s) failed: %s",
+				dict->path, error);
 			return -1;
 		}
 		/* check again if we need to reopen the file because it was

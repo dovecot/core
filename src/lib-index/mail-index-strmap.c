@@ -1039,6 +1039,7 @@ static int mail_index_strmap_recreate(struct mail_index_strmap_view *view)
 static int mail_index_strmap_lock(struct mail_index_strmap *strmap)
 {
 	unsigned int timeout_secs;
+	const char *error;
 	int ret;
 
 	i_assert(strmap->fd != -1);
@@ -1048,12 +1049,14 @@ static int mail_index_strmap_lock(struct mail_index_strmap *strmap)
 
 		timeout_secs = I_MIN(MAIL_INDEX_STRMAP_TIMEOUT_SECS,
 				     strmap->index->set.max_lock_timeout_secs);
-		ret = file_wait_lock(strmap->fd, strmap->path, F_WRLCK,
-				     strmap->index->set.lock_method, timeout_secs,
-				     &strmap->file_lock);
+		ret = file_wait_lock_error(strmap->fd, strmap->path, F_WRLCK,
+					   strmap->index->set.lock_method,
+					   timeout_secs, &strmap->file_lock,
+					   &error);
 		if (ret <= 0) {
-			mail_index_strmap_set_syscall_error(strmap,
-							    "file_wait_lock()");
+			mail_index_set_error(strmap->index,
+				"file_wait_lock() failed with strmap index file %s: %s",
+				strmap->path, error);
 		}
 	} else {
 		i_assert(strmap->dotlock == NULL);

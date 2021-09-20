@@ -282,6 +282,7 @@ static int squat_trie_lock(struct squat_trie *trie, int lock_type,
 			   struct file_lock **file_lock_r,
 			   struct dotlock **dotlock_r)
 {
+	const char *error;
 	int ret;
 
 	i_assert(trie->fd != -1);
@@ -291,10 +292,14 @@ static int squat_trie_lock(struct squat_trie *trie, int lock_type,
 
 	for (;;) {
 		if (trie->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
-			ret = file_wait_lock(trie->fd, trie->path, lock_type,
-					     trie->lock_method,
-					     SQUAT_TRIE_LOCK_TIMEOUT,
-					     file_lock_r);
+			ret = file_wait_lock_error(trie->fd, trie->path,
+						   lock_type, trie->lock_method,
+						   SQUAT_TRIE_LOCK_TIMEOUT,
+						   file_lock_r, &error);
+			if (ret < 0) {
+				i_error("squat trie %s: %s",
+					trie->path, error);
+			}
 		} else {
 			ret = file_dotlock_create(&trie->dotlock_set,
 						  trie->path, 0, dotlock_r);
@@ -1610,7 +1615,7 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 	struct squat_trie *trie = ctx->trie;
 	struct file_lock *file_lock = NULL;
 	struct ostream *output;
-	const char *path;
+	const char *path, *error;
 	int fd = -1, ret = 0;
 
 	if ((trie->hdr.used_file_size > sizeof(trie->hdr) &&
@@ -1624,15 +1629,13 @@ static int squat_trie_write(struct squat_trie_build_context *ctx)
 			return -1;
 
 		if (trie->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
-			ret = file_wait_lock(fd, path, F_WRLCK,
-					     trie->lock_method,
-					     SQUAT_TRIE_LOCK_TIMEOUT,
-					     &file_lock);
+			ret = file_wait_lock_error(fd, path, F_WRLCK,
+						   trie->lock_method,
+						   SQUAT_TRIE_LOCK_TIMEOUT,
+						   &file_lock, &error);
 			if (ret <= 0) {
-				if (ret == 0) {
-					i_error("file_wait_lock(%s) failed: %m",
-						path);
-				}
+				i_error("file_wait_lock(%s) failed: %s",
+					path, error);
 				i_close_fd(&fd);
 				return -1;
 			}
