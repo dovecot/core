@@ -25,6 +25,9 @@ struct file_lock_settings {
 	   processes are already waiting on the lock. This can be useful for
 	   files that are only created to exist as lock files. */
 	bool close_on_free:1;
+	/* Do not panic when the kernel returns EDEADLK while acquiring the
+	   lock. */
+	bool allow_deadlock:1;
 };
 
 /* Parse lock method from given string. Returns TRUE if ok,
