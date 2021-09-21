@@ -170,15 +170,62 @@ mail_storage_list_remove_duplicate(struct mail_storage_list_index_rebuild_ctx *c
 }
 
 static int
+mail_storage_list_index_find_indexed_mailbox(struct mail_storage_list_index_rebuild_ctx *ctx,
+					     struct mail_storage_list_index_rebuild_ns *rebuild_ns,
+					     const struct mailbox_info *info)
+{
+	struct mail_storage_list_index_rebuild_mailbox *rebuild_box;
+	struct mailbox *box;
+	struct mailbox_metadata metadata;
+	const uint8_t *guid_p;
+	int ret = 0;
+
+	if ((info->flags & (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) != 0)
+		return 0;
+
+	box = mailbox_alloc(info->ns->list, info->vname, MAILBOX_FLAG_IGNORE_ACLS);
+	mailbox_set_reason(box, "mailbox list rebuild");
+	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
+		mail_storage_set_critical(rebuild_ns->ns->storage,
+			"List rebuild: Couldn't lookup mailbox %s GUID: %s",
+			info->vname, mailbox_get_last_internal_error(box, NULL));
+		ret = -1;
+	} else {
+		guid_p = metadata.guid;
+		rebuild_box = hash_table_lookup(ctx->mailboxes, guid_p);
+		if (rebuild_box == NULL) {
+			/* indexed but doesn't exist in storage. shouldn't
+			   happen normally, but it'll be created when it gets
+			   accessed. */
+			e_debug(box->event,
+				"Mailbox GUID %s exists in list index, but not in storage",
+				guid_128_to_string(guid_p));
+		} else if (rebuild_box->index_name == NULL) {
+			rebuild_box->index_name =
+				p_strdup(ctx->pool, box->name);
+			e_debug(box->event,
+				"Mailbox GUID %s exists in list index and in storage",
+				guid_128_to_string(guid_p));
+		} else {
+			/* duplicate GUIDs in index. in theory this could be
+			   possible because of mailbox aliases, but we don't
+			   support that for now. especially dsync doesn't like
+			   duplicates. */
+			if (mail_storage_list_remove_duplicate(ctx, rebuild_ns,
+							       box, rebuild_box) < 0)
+				ret = -1;
+		}
+	}
+	mailbox_free(&box);
+	return ret;
+}
+
+static int
 mail_storage_list_index_find_indexed_mailboxes(struct mail_storage_list_index_rebuild_ctx *ctx,
 					       struct mail_storage_list_index_rebuild_ns *rebuild_ns)
 {
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;
-	struct mail_storage_list_index_rebuild_mailbox *rebuild_box;
-	struct mailbox *box;
-	struct mailbox_metadata metadata;
-	const uint8_t *guid_p;
 	int ret = 0;
 
 	iter = mailbox_list_iter_init(rebuild_ns->ns->list, "*",
@@ -186,43 +233,7 @@ mail_storage_list_index_find_indexed_mailboxes(struct mail_storage_list_index_re
 				      MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 				      MAILBOX_LIST_ITER_SKIP_ALIASES);
 	while (ret == 0 && (info = mailbox_list_iter_next(iter)) != NULL) {
-		if ((info->flags & (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) != 0)
-			continue;
-		box = mailbox_alloc(info->ns->list, info->vname, MAILBOX_FLAG_IGNORE_ACLS);
-		mailbox_set_reason(box, "mailbox list rebuild");
-		if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
-					 &metadata) < 0) {
-			mail_storage_set_critical(rebuild_ns->ns->storage,
-				"List rebuild: Couldn't lookup mailbox %s GUID: %s",
-				info->vname, mailbox_get_last_internal_error(box, NULL));
-			ret = -1;
-		} else {
-			guid_p = metadata.guid;
-			rebuild_box = hash_table_lookup(ctx->mailboxes, guid_p);
-			if (rebuild_box == NULL) {
-				/* indexed but doesn't exist in storage.
-				   shouldn't happen normally, but it'll be
-				   created when it gets accessed. */
-				e_debug(box->event,
-					"Mailbox GUID %s exists in list index, but not in storage",
-					guid_128_to_string(guid_p));
-			} else if (rebuild_box->index_name == NULL) {
-				rebuild_box->index_name =
-					p_strdup(ctx->pool, box->name);
-				e_debug(box->event,
-					"Mailbox GUID %s exists in list index and in storage",
-					guid_128_to_string(guid_p));
-			} else {
-				/* duplicate GUIDs in index. in theory this
-				   could be possible because of mailbox
-				   aliases, but we don't support that for now.
-				   especially dsync doesn't like duplicates. */
-				if (mail_storage_list_remove_duplicate(ctx, rebuild_ns,
-							       box, rebuild_box) < 0)
-					ret = -1;
-			}
-		}
-		mailbox_free(&box);
+		ret = mail_storage_list_index_find_indexed_mailbox(ctx, rebuild_ns, info);
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0) {
 		mail_storage_set_critical(rebuild_ns->ns->storage,
