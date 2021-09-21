@@ -232,9 +232,9 @@ mail_storage_list_index_find_indexed_mailboxes(struct mail_storage_list_index_re
 				      MAILBOX_LIST_ITER_RAW_LIST |
 				      MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 				      MAILBOX_LIST_ITER_SKIP_ALIASES);
-	while (ret == 0 && (info = mailbox_list_iter_next(iter)) != NULL) {
+	while (ret == 0 && (info = mailbox_list_iter_next(iter)) != NULL) T_BEGIN {
 		ret = mail_storage_list_index_find_indexed_mailbox(ctx, rebuild_ns, info);
-	}
+	} T_END;
 	if (mailbox_list_iter_deinit(&iter) < 0) {
 		mail_storage_set_critical(rebuild_ns->ns->storage,
 			"List rebuild: Failed to iterate mailboxes: %s",
@@ -345,7 +345,9 @@ mail_storage_list_index_create(struct mail_storage_list_index_rebuild_ctx *ctx,
 	int i, ret = 0;
 
 	for (i = 0; i < 100; i++) {
-		ret = mail_storage_list_index_try_create(ctx, guid_p, i > 0);
+		T_BEGIN {
+			ret = mail_storage_list_index_try_create(ctx, guid_p, i > 0);
+		} T_END;
 		if (ret != 0)
 			return ret;
 	}
