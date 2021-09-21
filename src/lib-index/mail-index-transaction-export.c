@@ -206,7 +206,7 @@ log_append_ext_hdr_update(struct mail_index_export_context *ctx,
 	data = hdr->data;
 	mask = hdr->mask;
 
-	buf = t_buffer_create(256);
+	buf = buffer_create_dynamic(default_pool, 256);
 	for (offset = 0; offset <= hdr->alloc_size; offset++) {
 		if (offset < hdr->alloc_size && mask[offset] != 0) {
 			if (!started) {
@@ -233,6 +233,7 @@ log_append_ext_hdr_update(struct mail_index_export_context *ctx,
 		buffer_append_zero(buf, 4 - buf->used % 4);
 	log_append_buffer(ctx, buf, use_32 ? MAIL_TRANSACTION_EXT_HDR_UPDATE32 :
 			  MAIL_TRANSACTION_EXT_HDR_UPDATE);
+	buffer_free(&buf);
 }
 
 static void
