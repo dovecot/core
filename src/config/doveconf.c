@@ -77,8 +77,8 @@ config_request_get_strings(const char *key, const char *value,
 	case CONFIG_KEY_UNIQUE_KEY:
 		p = strrchr(key, '/');
 		i_assert(p != NULL);
-		value = p_strdup_printf(ctx->pool, "%s/"UNIQUE_KEY_SUFFIX"%s=%s",
-					t_strdup_until(key, p), p + 1, value);
+		value = p_strdup_printf(ctx->pool, "%.*s/"UNIQUE_KEY_SUFFIX"%s=%s",
+					(int)(p - key), key, p + 1, value);
 		break;
 	case CONFIG_KEY_ERROR:
 		value = p_strdup(ctx->pool, value);
