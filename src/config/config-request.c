@@ -207,9 +207,9 @@ setting_export_section_name(string_t *str, const struct setting_define *def,
 	if (*name == NULL || **name == '\0') {
 		/* no name, this one isn't unique. use the index. */
 		str_printfa(str, "%u", idx);
-	} else {
+	} else T_BEGIN {
 		str_append(str, settings_section_escape(*name));
-	}
+	} T_END;
 }
 
 static void
