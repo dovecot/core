@@ -575,7 +575,9 @@ void module_dir_deinit(struct module *modules)
 		for (i = 0; i < count; i++) {
 			module = rev[i];
 
-			module->deinit();
+			T_BEGIN {
+				module->deinit();
+			} T_END;
 			module->initialized = FALSE;
 		}
 	} T_END;
