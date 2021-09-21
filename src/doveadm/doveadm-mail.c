@@ -458,9 +458,11 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 		return ret;
 	}
 
-	if (ctx->v.run(ctx, ctx->cur_mail_user) < 0) {
-		i_assert(ctx->exit_code != 0);
-	}
+	T_BEGIN {
+		if (ctx->v.run(ctx, ctx->cur_mail_user) < 0) {
+			i_assert(ctx->exit_code != 0);
+		}
+	} T_END;
 	mail_user_deinit(&ctx->cur_mail_user);
 	mail_storage_service_user_unref(&ctx->cur_service_user);
 	return 1;
