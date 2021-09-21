@@ -945,8 +945,12 @@ str_contains_special_use(const char *str, const char *special_use)
 	if (*special_use != '\\')
 		return FALSE;
 
-	uses = t_strsplit_spaces(str, " ");
-	return str_array_icase_find(uses, special_use);
+	bool ret;
+	T_BEGIN {
+		uses = t_strsplit_spaces(str, " ");
+		ret = str_array_icase_find(uses, special_use);
+	} T_END;
+	return ret;
 }
 
 static int
