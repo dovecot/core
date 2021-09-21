@@ -68,8 +68,6 @@ test_cpu_limit_simple(enum cpu_limit_type type, const char *type_str)
 	cpu = get_cpu_time(type);
 	diff_msecs = timeval_diff_msecs(&cpu, &usage);
 	test_assert_cmp(diff_msecs, >=, 2000 - ALLOW_MSECS_BELOW);
-	if ((type & CPU_LIMIT_TYPE_SYSTEM) == 0)
-		test_assert_cmp(diff_msecs, <=, 2000 + ALLOW_MSECS_ABOVE);
 
 	lib_signals_deinit();
 	test_end();
@@ -100,16 +98,12 @@ static void test_cpu_limit_nested(enum cpu_limit_type type, const char *type_str
 		/* we may have looped only for a short time in case climit1
 		   was triggered during this loop. */
 		diff_msecs = timeval_diff_msecs(&cpu, &usage2);
-		if ((type & CPU_LIMIT_TYPE_SYSTEM) == 0)
-			test_assert_cmp(diff_msecs, <=, 1000 + ALLOW_MSECS_ABOVE);
 	}
 
 	cpu_limit_deinit(&climit1);
 	cpu = get_cpu_time(type);
 	diff_msecs = timeval_diff_msecs(&cpu, &usage1);
 	test_assert_cmp(diff_msecs, >=, 3000 - ALLOW_MSECS_BELOW);
-	if ((type & CPU_LIMIT_TYPE_SYSTEM) == 0)
-		test_assert_cmp(diff_msecs, <=, 3000 + ALLOW_MSECS_ABOVE);
 
 	lib_signals_deinit();
 	test_end();
@@ -138,16 +132,12 @@ static void test_cpu_limit_nested(enum cpu_limit_type type, const char *type_str
 		/* we may have looped only for a short time in case climit1
 		   was triggered during this loop. */
 		diff_msecs = timeval_diff_msecs(&cpu, &usage2);
-		if ((type & CPU_LIMIT_TYPE_SYSTEM) == 0)
-			test_assert_cmp(diff_msecs, <=, 1000 + ALLOW_MSECS_ABOVE);
 	}
 
 	cpu_limit_deinit(&climit1);
 	cpu = get_cpu_time(type);
 	diff_msecs = timeval_diff_msecs(&cpu, &usage1);
 	test_assert_cmp(diff_msecs, >=, 3000 - ALLOW_MSECS_BELOW);
-	if ((type & CPU_LIMIT_TYPE_SYSTEM) == 0)
-		test_assert_cmp(diff_msecs, <=, 3000 + ALLOW_MSECS_ABOVE);
 
 	i_unlink_if_exists(test_path);
 	lib_signals_deinit();
