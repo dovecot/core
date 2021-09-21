@@ -199,12 +199,8 @@ acllist_append(struct acl_backend_vfile *backend, struct ostream *output,
 		acllist.name = p_strdup(backend->acllist_pool, name);
 		array_push_back(&backend->acllist, &acllist);
 
-		T_BEGIN {
-			const char *line;
-			line = t_strdup_printf("%s %s\n",
-					       dec2str(acllist.mtime), name);
-			o_stream_nsend_str(output, line);
-		} T_END;
+		o_stream_nsend_str(output, t_strdup_printf(
+			"%s %s\n", dec2str(acllist.mtime), name));
 	}
 	acl_object_deinit(&aclobj);
 	return ret < 0 ? -1 : 0;
@@ -273,12 +269,9 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 	iter = mailbox_list_iter_init(list, "*",
 				      MAILBOX_LIST_ITER_RAW_LIST |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
-	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		if (acllist_append(backend, output, info->vname) < 0) {
-			ret = -1;
-			break;
-		}
-	}
+	while (ret == 0 && (info = mailbox_list_iter_next(iter)) != NULL) T_BEGIN {
+		ret = acllist_append(backend, output, info->vname);
+	} T_END;
 
 	if (o_stream_finish(output) < 0) {
 		i_error("write(%s) failed: %s", str_c(path),
