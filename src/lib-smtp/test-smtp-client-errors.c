@@ -2138,7 +2138,13 @@ test_client_early_data_reply_noop_cb(const struct smtp_reply *reply,
 
 	pctx->trans = NULL;
 	timeout_remove(&pctx->to);
-	o_stream_destroy(&pctx->output);
+	if (pctx->output != NULL) {
+		if (o_stream_finish(pctx->output) < 0) {
+			i_error("Failed to finish output: %s",
+				o_stream_get_error(pctx->output));
+		}
+		o_stream_destroy(&pctx->output);
+	}
 	smtp_client_connection_unref(&pctx->conn);
 	i_free(pctx);
 }
