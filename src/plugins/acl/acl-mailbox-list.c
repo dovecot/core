@@ -221,7 +221,16 @@ acl_mailbox_list_iter_next_info(struct mailbox_list_iterate_context *_ctx)
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT_REQUIRE(_ctx->list);
 	const struct mailbox_info *info;
 
-	while ((info = alist->module_ctx.super.iter_next(_ctx)) != NULL) {
+	for (;;) {
+		/* Normally the data stack frame is in mailbox_list_iter_next(),
+		   but we're bypassing it here by calling super.iter_next()
+		   directly. */
+		T_BEGIN {
+			info = alist->module_ctx.super.iter_next(_ctx);
+		} T_END;
+		if (info == NULL)
+			break;
+
 		/* if we've a list of mailboxes with LOOKUP rights, skip the
 		   mailboxes not in the list (since we know they can't be
 		   visible to us). */
