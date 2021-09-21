@@ -93,7 +93,9 @@ void mailbox_guid_cache_refresh(struct mailbox_list *list)
 		if ((info->flags &
 		     (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) != 0)
 			continue;
-		mailbox_guid_cache_add_mailbox(list, info);
+		T_BEGIN {
+			mailbox_guid_cache_add_mailbox(list, info);
+		} T_END;
 	}
 	if ((list->ns->prefix_len > 0) && !mail_namespace_prefix_is_inbox(list->ns)) {
 		/* Also check if namespace prefix is a selectable mailbox
