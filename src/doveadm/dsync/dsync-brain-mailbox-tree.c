@@ -318,6 +318,7 @@ static void dsync_brain_mailbox_trees_sync(struct dsync_brain *brain)
 		(brain->debug ? DSYNC_MAILBOX_TREES_SYNC_FLAG_DEBUG : 0) |
 		(brain->master_brain ? DSYNC_MAILBOX_TREES_SYNC_FLAG_MASTER_BRAIN : 0) |
 		(brain->no_mailbox_renames ? DSYNC_MAILBOX_TREES_SYNC_FLAG_NO_RENAMES : 0);
+	int ret;
 
 	if (brain->no_backup_overwrite)
 		sync_type = DSYNC_MAILBOX_TREES_SYNC_TYPE_TWOWAY;
@@ -332,8 +333,11 @@ static void dsync_brain_mailbox_trees_sync(struct dsync_brain *brain)
 					    brain->remote_mailbox_tree,
 					    sync_type, sync_flags);
 	while ((change = dsync_mailbox_trees_sync_next(ctx)) != NULL) {
-		if (dsync_brain_mailbox_tree_sync_change(brain, change,
-							 &brain->mail_error) < 0) {
+		T_BEGIN {
+			ret = dsync_brain_mailbox_tree_sync_change(
+				brain, change, &brain->mail_error);
+		} T_END;
+		if (ret < 0) {
 			brain->failed = TRUE;
 			break;
 		}
@@ -372,14 +376,18 @@ bool dsync_brain_recv_mailbox_tree(struct dsync_brain *brain)
 	struct dsync_mailbox_node *dup_node1, *dup_node2;
 	const char *const *parts;
 	enum dsync_ibc_recv_ret ret;
+	int ret2;
 	char sep[2];
 	bool changed = FALSE;
 
 	sep[0] = brain->hierarchy_sep; sep[1] = '\0';
 	while ((ret = dsync_ibc_recv_mailbox_tree_node(brain->ibc, &parts,
 						       &remote_node)) > 0) {
-		if (dsync_brain_recv_mailbox_tree_add(brain, parts,
-						      remote_node, sep) < 0) {
+		T_BEGIN {
+			ret2 = dsync_brain_recv_mailbox_tree_add(
+					brain, parts, remote_node, sep);
+		} T_END;
+		if (ret2 < 0) {
 			i_error("Couldn't find namespace for mailbox %s",
 				t_strarray_join(parts, sep));
 			brain->failed = TRUE;
