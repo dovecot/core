@@ -218,8 +218,10 @@ void mail_user_unref(struct mail_user **_user)
 
 	/* call deinit() and deinit_pre() with refcount=1, otherwise we may
 	   assert-crash in mail_user_ref() that is called by some handlers. */
-	user->v.deinit_pre(user);
-	user->v.deinit(user);
+	T_BEGIN {
+		user->v.deinit_pre(user);
+		user->v.deinit(user);
+	} T_END;
 	event_unref(&user->event);
 	i_assert(user->refcount == 1);
 	pool_unref(&user->pool);
