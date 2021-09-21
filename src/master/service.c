@@ -430,8 +430,10 @@ services_create_real(const struct master_settings *set, pool_t pool,
 	for (i = 0; i < count; i++) {
 		if (!service_want(service_settings[i]))
 			continue;
-		service = service_create(pool, service_settings[i],
-					 service_list, &error);
+		T_BEGIN {
+			service = service_create(pool, service_settings[i],
+						 service_list, &error);
+		} T_END_PASS_STR_IF(service == NULL, &error);
 		if (service == NULL) {
 			*error_r = t_strdup_printf("service(%s) %s",
 				service_settings[i]->name, error);
