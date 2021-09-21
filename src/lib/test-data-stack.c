@@ -68,6 +68,26 @@ static void test_ds_grow_event(void)
 	test_end();
 }
 
+static void test_ds_get_used_size(void)
+{
+	test_begin("data-stack data_stack_get_used_size()");
+	size_t size1 = data_stack_get_used_size();
+	(void)t_malloc0(500);
+	size_t size2 = data_stack_get_used_size();
+	test_assert(size1 + 500 <= size2);
+
+	T_BEGIN {
+		(void)t_malloc0(300);
+		size_t sub_size1 = data_stack_get_used_size();
+		T_BEGIN {
+			(void)t_malloc0(300);
+		} T_END;
+		test_assert_cmp(sub_size1, ==, data_stack_get_used_size());
+	} T_END;
+	test_assert_cmp(size2, ==, data_stack_get_used_size());
+	test_end();
+}
+
 static void test_ds_get_bytes_available(void)
 {
 	test_begin("data-stack t_get_bytes_available()");
@@ -267,11 +287,13 @@ static void test_ds_recursive(void)
 	int i;
 
 	test_begin("data-stack recursive");
+	size_t init_size = data_stack_get_used_size();
 	for(i = 0; i < count; i++) T_BEGIN {
 			int number=i_rand_limit(100)+50;
 			int size=i_rand_limit(100)+50;
 			test_ds_recurse(depth, number, size);
 		} T_END;
+	test_assert_cmp(init_size, ==, data_stack_get_used_size());
 	test_end();
 }
 
@@ -325,6 +347,7 @@ void test_data_stack(void)
 {
 	void (*tests[])(void) = {
 		test_ds_grow_event,
+		test_ds_get_used_size,
 		test_ds_get_bytes_available,
 		test_ds_grow_in_event,
 		test_ds_buffers,
