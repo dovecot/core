@@ -157,11 +157,11 @@ mailbox_list_index_sync_names(struct mailbox_list_index_sync_context *ctx)
 	uint32_t id, prev_id = 0;
 
 	/* get all existing name IDs sorted */
-	t_array_init(&existing_name_ids, 64);
+	i_array_init(&existing_name_ids, 64);
 	get_existing_name_ids(&existing_name_ids, ilist->mailbox_tree);
 	array_sort(&existing_name_ids, uint32_cmp);
 
-	hdr_buf = t_buffer_create(1024);
+	hdr_buf = buffer_create_dynamic(default_pool, 1024);
 	buffer_append_zero(hdr_buf, sizeof(struct mailbox_list_index_header));
 
 	/* add existing names to header (with deduplication) */
@@ -188,6 +188,8 @@ mailbox_list_index_sync_names(struct mailbox_list_index_sync_context *ctx)
 	}
 	mail_index_update_header_ext(ctx->trans, ilist->ext_id,
 				     0, hdr_buf->data, hdr_buf->used);
+	buffer_free(&hdr_buf);
+	array_free(&existing_name_ids);
 }
 
 static void
