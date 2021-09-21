@@ -1233,7 +1233,7 @@ mailbox_verify_name_prefix(struct mail_namespace *ns, const char **vnamep,
 	return TRUE;
 }
 
-int mailbox_verify_name(struct mailbox *box)
+static int mailbox_verify_name_int(struct mailbox *box)
 {
 	struct mail_namespace *ns = box->list->ns;
 	const char *error, *vname = box->vname;
@@ -1289,7 +1289,16 @@ int mailbox_verify_name(struct mailbox *box)
 	return 0;
 }
 
-static int mailbox_verify_existing_name(struct mailbox *box)
+int mailbox_verify_name(struct mailbox *box)
+{
+	int ret;
+	T_BEGIN {
+		ret = mailbox_verify_name_int(box);
+	} T_END;
+	return ret;
+}
+
+static int mailbox_verify_existing_name_int(struct mailbox *box)
 {
 	const char *path;
 
@@ -1315,6 +1324,15 @@ static int mailbox_verify_existing_name(struct mailbox *box)
 			return -1;
 	}
 	return 0;
+}
+
+static int mailbox_verify_existing_name(struct mailbox *box)
+{
+	int ret;
+	T_BEGIN {
+		ret = mailbox_verify_existing_name_int(box);
+	} T_END;
+	return ret;
 }
 
 static bool mailbox_name_has_control_chars(const char *name)
