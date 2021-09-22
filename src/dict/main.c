@@ -129,12 +129,14 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
-	/* FIXME: we're not able to do a clean deinit currently without
-	   larger changes. */
-	lib_exit(0);
 	timeout_remove(&to_proctitle);
 
+	/* wait for all dict operations to finish */
+	dict_init_cache_wait_all();
+	/* connections should no longer have any extra refcounts */
 	dict_connections_destroy_all();
+	dict_init_cache_destroy_all();
+
 	dict_drivers_unregister_all();
 	dict_commands_deinit();
 
@@ -170,7 +172,6 @@ int main(int argc, char *argv[])
 	master_service_run(master_service, client_connected);
 
 	/* clean up cached dicts */
-	dict_init_cache_destroy_all();
 	main_deinit();
 	master_service_deinit(&master_service);
         return 0;
