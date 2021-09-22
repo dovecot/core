@@ -310,6 +310,7 @@ int mdbox_transaction_save_commit_pre(struct mail_save_context *_ctx)
 		mdbox_transaction_save_rollback(_ctx);
 		return -1;
 	}
+	i_assert(ctx->sync_ctx != NULL);
 
 	/* assign map UIDs for newly saved messages after we've successfully
 	   acquired all the locks. the transaction is now very unlikely to
