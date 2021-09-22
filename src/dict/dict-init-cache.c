@@ -148,6 +148,14 @@ void dict_init_cache_unref(struct dict **_dict)
 	}
 }
 
+void dict_init_cache_wait_all(void)
+{
+	struct dict_init_cache_list *listp;
+
+	for (listp = dicts; listp != NULL; listp = listp->next)
+		dict_wait(listp->dict);
+}
+
 void dict_init_cache_destroy_all(void)
 {
 	timeout_remove(&to_dict);
