@@ -1753,14 +1753,17 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		return -1;
 	}
 	box->creating = TRUE;
-	ret = box->v.create_box(box, update, directory);
+	T_BEGIN {
+		ret = box->v.create_box(box, update, directory);
+	} T_END;
 	box->creating = FALSE;
 	mailbox_list_unlock(box->list);
 
 	if (ret == 0) {
 		box->list->guid_cache_updated = TRUE;
-		if (!box->inbox_any)
+		if (!box->inbox_any) T_BEGIN {
 			mailbox_copy_cache_decisions_from_inbox(box);
+		} T_END;
 	} else if (box->opened) {
 		/* Creation failed after (partially) opening the mailbox.
 		   It may not be in a valid state, so close it. */
