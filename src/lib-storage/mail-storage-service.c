@@ -671,6 +671,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	const char *home = priv->home;
 	struct mail_user_connection_data conn_data;
 	struct mail_user *mail_user;
+	int ret;
 
 	i_zero(&conn_data);
 	conn_data.local_ip = &user->input.local_ip;
@@ -764,7 +765,10 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 		}
 	}
 
-	if (mail_user_init(mail_user, error_r) < 0) {
+	T_BEGIN {
+		ret = mail_user_init(mail_user, error_r);
+	} T_END_PASS_STR_IF(ret < 0, error_r);
+	if (ret < 0) {
 		mail_user_unref(&mail_user);
 		return -1;
 	}
@@ -1444,8 +1448,10 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 		update_log_prefix = FALSE;
 	}
 
-	ret = mail_storage_service_lookup_real(ctx, input, update_log_prefix,
-					       user_r, error_r);
+	T_BEGIN {
+		ret = mail_storage_service_lookup_real(ctx, input,
+				update_log_prefix, user_r, error_r);
+	} T_END_PASS_STR_IF(ret < 0, error_r);
 	i_set_failure_prefix("%s", old_log_prefix);
 	i_free(old_log_prefix);
 	return ret;
@@ -1581,9 +1587,11 @@ int mail_storage_service_next_with_session_suffix(struct mail_storage_service_ct
 	mail_storage_service_set_log_prefix(ctx, user->user_set, user,
 					    &user->input, NULL);
 	i_set_failure_prefix("%s", old_log_prefix);
-	ret = mail_storage_service_next_real(ctx, user,
-					     session_id_suffix,
-					     mail_user_r, error_r);
+	T_BEGIN {
+		ret = mail_storage_service_next_real(ctx, user,
+						     session_id_suffix,
+						     mail_user_r, error_r);
+	} T_END_PASS_STR_IF(ret < 0, error_r);
 	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT) != 0)
 		i_set_failure_prefix("%s", old_log_prefix);
 	i_free(old_log_prefix);
