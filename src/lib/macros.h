@@ -188,7 +188,8 @@ static inline const char *container_of_ptr(const void *ptr, size_t offset)
 #  define CALLBACK_TYPECHECK(callback, type) 0
 #endif
 
-#if (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ > 0)) && !defined(__cplusplus)
+#if (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ > 0)) && \
+	!defined(__cplusplus) && !defined(STATIC_CHECKER)
 #  define COMPILE_ERROR_IF_TRUE(condition) \
 	(sizeof(char[1 - 2 * ((condition) ? 1 : 0)]) > 0 ? FALSE : FALSE)
 #else
