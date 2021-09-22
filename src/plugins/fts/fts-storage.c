@@ -391,8 +391,8 @@ static int fts_mailbox_search_deinit(struct mail_search_context *ctx)
 		}
 		if (fctx->indexing_timed_out)
 			ret = -1;
-		if (!fctx->fts_lookup_success &&
-		    fctx->enforced != FTS_ENFORCED_NO) {
+		else if (!fctx->fts_lookup_success &&
+			 fctx->enforced != FTS_ENFORCED_NO) {
 			/* FTS lookup failed and we didn't want to fallback to
 			   opening all the mails and searching manually */
 			mail_storage_set_internal_error(ctx->transaction->box->storage);

@@ -94,7 +94,10 @@ int fts_indexer_more(struct fts_indexer_context *ctx)
 	int ret;
 
 	if ((ret = fts_indexer_more_int(ctx)) < 0) {
-		mail_storage_set_internal_error(ctx->box->storage);
+		/* If failed is already set, the code has had a chance to
+		 * set an internal error already, i.e. MAIL_ERROR_INUSE. */
+		if (!ctx->failed)
+			mail_storage_set_internal_error(ctx->box->storage);
 		ctx->failed = TRUE;
 		return -1;
 	}
