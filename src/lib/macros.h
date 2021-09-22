@@ -27,7 +27,7 @@
 	((const void *) (((uintptr_t) (ptr)) + ((size_t) (offset))))
 
 #define container_of(ptr, type, name) \
-	(type *)((uintptr_t)(ptr) - (uintptr_t)offsetof(type, name) + \
+	(type *)((char *)(ptr) - offsetof(type, name) + \
 		 COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(ptr, &((type *) 0)->name))
 
 /* Don't use simply MIN/MAX, as they're often defined elsewhere in include
