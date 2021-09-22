@@ -22,6 +22,7 @@
 
 const char *const smtp_client_transaction_state_names[] = {
 	"new",
+	"pending",
 	"mail_from",
 	"rcpt_to",
 	"data",
