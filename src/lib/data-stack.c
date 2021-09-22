@@ -405,12 +405,6 @@ static void data_stack_send_grow_event(size_t last_alloc_size)
 	if (event_datastack == NULL)
 		event_datastack = event_create(NULL);
 	event_set_name(event_datastack, "data_stack_grow");
-	if (!event_want_debug(event_datastack))
-		return;
-
-	const char *backtrace;
-	if (backtrace_get(&backtrace) == 0)
-		event_add_str(event_datastack, "backtrace", backtrace);
 	event_add_int(event_datastack, "alloc_size", data_stack_get_alloc_size());
 	event_add_int(event_datastack, "used_size", data_stack_get_used_size());
 	event_add_int(event_datastack, "last_alloc_size", last_alloc_size);
@@ -422,6 +416,20 @@ static void data_stack_send_grow_event(size_t last_alloc_size)
 		      current_frame->alloc_count);
 #endif
 	event_add_str(event_datastack, "frame_marker", current_frame->marker);
+
+	/* It's possible that the data stack gets grown and shrunk rapidly.
+	   Try to avoid doing expensive work if the event isn't even used for
+	   anything. Note that at this point all the event fields must be
+	   set already that might potentially be used by the filters. */
+	if (!event_want_debug(event_datastack))
+		return;
+
+	/* Getting backtrace is potentially inefficient, so do it after
+	   checking if the event is wanted. Note that this prevents using the
+	   backtrace field in event field comparisons. */
+	const char *backtrace;
+	if (backtrace_get(&backtrace) == 0)
+		event_add_str(event_datastack, "backtrace", backtrace);
 
 	string_t *str = t_str_new(128);
 	str_printfa(str, "total_used=%zu, total_alloc=%zu, last_alloc_size=%zu",
