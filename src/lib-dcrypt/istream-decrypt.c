@@ -6,6 +6,7 @@
 #include "safe-memset.h"
 #include "hash-method.h"
 #include "sha2.h"
+#include "memarea.h"
 #include "dcrypt.h"
 #include "istream.h"
 #include "istream-decrypt.h"
@@ -17,6 +18,12 @@
 #include <arpa/inet.h>
 
 #define ISTREAM_DECRYPT_READ_FIRST 15
+
+struct decrypt_istream_snapshot {
+	struct istream_snapshot snapshot;
+	struct decrypt_istream *dstream;
+	buffer_t *buf;
+};
 
 struct decrypt_istream {
 	struct istream_private istream;
@@ -30,6 +37,7 @@ struct decrypt_istream {
 	bool initialized;
 	bool finalized;
 	bool use_mac;
+	bool snapshot_pending;
 
 	uoff_t ftr, pos;
 	enum io_stream_encrypt_flags flags;
@@ -735,6 +743,23 @@ i_stream_decrypt_read_header(struct decrypt_istream *stream,
 	return hdr_len;
 }
 
+static void
+i_stream_decrypt_realloc_buf_if_needed(struct decrypt_istream *dstream)
+{
+       if (!dstream->snapshot_pending)
+               return;
+
+       /* buf exists in a snapshot. Leave it be and create a copy of it
+          that we modify. */
+       buffer_t *old_buf = dstream->buf;
+       dstream->buf = buffer_create_dynamic(default_pool,
+					    I_MAX(512, old_buf->used));
+       buffer_append(dstream->buf, old_buf->data, old_buf->used);
+       dstream->snapshot_pending = FALSE;
+
+       dstream->istream.buffer = dstream->buf->data;
+}
+
 static ssize_t
 i_stream_decrypt_read(struct istream_private *stream)
 {
@@ -750,6 +775,7 @@ i_stream_decrypt_read(struct istream_private *stream)
 	if (stream->istream.stream_errno != 0)
 		return -1;
 
+	i_stream_decrypt_realloc_buf_if_needed(dstream);
 	for (;;) {
 		/* remove skipped data from buffer */
 		if (stream->skip > 0) {
@@ -954,6 +980,8 @@ i_stream_decrypt_seek(struct istream_private *stream, uoff_t v_offset,
 	struct decrypt_istream *dstream =
 		(struct decrypt_istream *)stream;
 
+	i_stream_decrypt_realloc_buf_if_needed(dstream);
+
 	if (i_stream_nonseekable_try_seek(stream, v_offset))
 		return;
 
@@ -973,12 +1001,58 @@ static void i_stream_decrypt_close(struct iostream_private *stream,
 		i_stream_close(dstream->istream.parent);
 }
 
+static void
+i_stream_decrypt_snapshot_free(struct istream_snapshot *_snapshot)
+{
+	struct decrypt_istream_snapshot *snapshot =
+		container_of(_snapshot, struct decrypt_istream_snapshot,
+			     snapshot);
+
+       if (snapshot->dstream->buf != snapshot->buf)
+               buffer_free(&snapshot->buf);
+       else {
+               i_assert(snapshot->dstream->snapshot_pending);
+               snapshot->dstream->snapshot_pending = FALSE;
+       }
+       i_free(snapshot);
+}
+
+static struct istream_snapshot *
+i_stream_decrypt_snapshot(struct istream_private *stream,
+			  struct istream_snapshot *prev_snapshot)
+{
+	struct decrypt_istream *dstream =
+		(struct decrypt_istream *)stream;
+	struct decrypt_istream_snapshot *snapshot;
+
+	if (stream->buffer != dstream->buf->data) {
+		/* reading body */
+		return i_stream_default_snapshot(stream, prev_snapshot);
+	}
+
+	/* snapshot the header buffer */
+	snapshot = i_new(struct decrypt_istream_snapshot, 1);
+	snapshot->dstream = dstream;
+	snapshot->buf = dstream->buf;
+	snapshot->snapshot.free = i_stream_decrypt_snapshot_free;
+	snapshot->snapshot.prev_snapshot = prev_snapshot;
+	dstream->snapshot_pending = TRUE;
+	return &snapshot->snapshot;
+}
+
 static void i_stream_decrypt_destroy(struct iostream_private *stream)
 {
 	struct decrypt_istream *dstream =
 		(struct decrypt_istream *)stream;
 
-	buffer_free(&dstream->buf);
+	if (!dstream->snapshot_pending)
+		buffer_free(&dstream->buf);
+	else {
+		/* Clear buf to make sure i_stream_decrypt_snapshot_free()
+		   frees it. */
+		dstream->buf = NULL;
+	}
+
 	if (dstream->iv != NULL)
 		i_free_and_null(dstream->iv);
 	if (dstream->ctx_sym != NULL)
@@ -1001,6 +1075,7 @@ i_stream_create_decrypt_common(struct istream *input)
 	dstream = i_new(struct decrypt_istream, 1);
 	dstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	dstream->istream.read = i_stream_decrypt_read;
+	dstream->istream.snapshot = i_stream_decrypt_snapshot;
 	if (input->seekable)
 		dstream->istream.seek = i_stream_decrypt_seek;
 	dstream->istream.iostream.close = i_stream_decrypt_close;
