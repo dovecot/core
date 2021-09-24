@@ -19,11 +19,11 @@ struct zlib_ostream {
 	unsigned char gz_header[10];
 	unsigned char outbuf[CHUNK_SIZE];
 	unsigned int outbuf_offset, outbuf_used;
+	unsigned int header_bytes_left;
 
 	uint32_t crc, bytes32;
 
 	bool gz:1;
-	bool header_sent:1;
 	bool flushed:1;
 };
 
@@ -57,16 +57,21 @@ static void o_stream_zlib_close(struct iostream_private *stream,
 
 static int o_stream_zlib_send_gz_header(struct zlib_ostream *zstream)
 {
+	size_t header_send_offset =
+		sizeof(zstream->gz_header) - zstream->header_bytes_left;
 	ssize_t ret;
 
-	ret = o_stream_send(zstream->ostream.parent, zstream->gz_header,
-			    sizeof(zstream->gz_header));
-	if ((size_t)ret != sizeof(zstream->gz_header)) {
+	i_assert(zstream->header_bytes_left <= sizeof(zstream->gz_header));
+	ret = o_stream_send(zstream->ostream.parent,
+			    zstream->gz_header + header_send_offset,
+			    zstream->header_bytes_left);
+	if (ret < 0) {
 		o_stream_copy_error_from_parent(&zstream->ostream);
 		return -1;
 	}
-	zstream->header_sent = TRUE;
-	return 0;
+	i_assert(ret <= zstream->header_bytes_left);
+	zstream->header_bytes_left -= ret;
+	return zstream->header_bytes_left == 0 ? 1 : 0;
 }
 
 static int o_stream_zlib_lsb_uint32(struct ostream *output, uint32_t num)
@@ -135,8 +140,8 @@ o_stream_zlib_send_chunk(struct zlib_ostream *zstream,
 	flush = zstream->ostream.corked || zstream->gz ?
 		Z_NO_FLUSH : Z_SYNC_FLUSH;
 
-	if (!zstream->header_sent) {
-		if (o_stream_zlib_send_gz_header(zstream) < 0)
+	if (zstream->header_bytes_left > 0) {
+		if ((ret = o_stream_zlib_send_gz_header(zstream)) <= 0)
 			return -1;
 	}
 
@@ -199,9 +204,9 @@ o_stream_zlib_send_flush(struct zlib_ostream *zstream, bool final)
 
 	if ((ret = o_stream_flush_parent_if_needed(&zstream->ostream)) <= 0)
 		return ret;
-	if (!zstream->header_sent) {
-		if (o_stream_zlib_send_gz_header(zstream) < 0)
-			return -1;
+	if (zstream->header_bytes_left > 0) {
+		if ((ret = o_stream_zlib_send_gz_header(zstream)) <= 0)
+			return ret;
 	}
 
 	if ((ret = o_stream_zlib_send_outbuf(zstream)) <= 0)
@@ -351,8 +356,8 @@ o_stream_create_zlib(struct ostream *output, int level, bool gz)
 	zstream->ostream.iostream.close = o_stream_zlib_close;
 	zstream->crc = 0;
 	zstream->gz = gz;
-	if (!gz)
-		zstream->header_sent = TRUE;
+	if (gz)
+		zstream->header_bytes_left = sizeof(zstream->gz_header);
 
 	o_stream_zlib_init_gz_header(zstream, level, strategy);
 	ret = deflateInit2(&zstream->zs, level, Z_DEFLATED, -15, 8, strategy);
