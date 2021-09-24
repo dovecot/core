@@ -41,6 +41,7 @@ struct mail_index_sync_map_ctx;
 	 (u)->modseq_inc_flag == 0)
 
 #define MAIL_INDEX_EXT_KEYWORDS "keywords"
+#define MAIL_INDEX_EXT_NAME_MAX_LENGTH 64
 
 typedef int mail_index_expunge_handler_t(struct mail_index_sync_map_ctx *ctx,
 					 const void *data, void **sync_context);
@@ -367,6 +368,7 @@ void mail_index_fchown(struct mail_index *index, int fd, const char *path);
 
 bool mail_index_map_lookup_ext(struct mail_index_map *map, const char *name,
 			       uint32_t *idx_r);
+bool mail_index_ext_name_is_valid(const char *name);
 uint32_t
 mail_index_map_register_ext(struct mail_index_map *map,
 			    const char *name, uint32_t ext_offset,

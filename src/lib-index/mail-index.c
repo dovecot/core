@@ -24,6 +24,7 @@
 #include <stddef.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <ctype.h>
 
 struct mail_index_module_register mail_index_module_register = { 0 };
 
@@ -244,6 +245,19 @@ void mail_index_set_ext_init_data(struct mail_index *index, uint32_t ext_id,
 	memcpy(index->set.ext_hdr_init_data, data, size);
 }
 
+bool mail_index_ext_name_is_valid(const char *name)
+{
+	size_t i;
+
+	for (i = 0; name[i] != '\0'; i++) {
+		if (!i_isalnum(name[i]) && name[i] != '-' && name[i] != '_' &&
+		    name[i] != ' ')
+			return FALSE;
+
+	}
+	return i == 0 || i < MAIL_INDEX_EXT_NAME_MAX_LENGTH;
+}
+
 uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 				 uint32_t default_hdr_size,
 				 uint16_t default_record_size,
@@ -252,7 +266,7 @@ uint32_t mail_index_ext_register(struct mail_index *index, const char *name,
 	struct mail_index_registered_ext rext;
 	uint32_t ext_id;
 
-	if (*name == '\0' || strcmp(name, str_sanitize(name, SIZE_MAX)) != 0)
+	if (!mail_index_ext_name_is_valid(name))
 		i_panic("mail_index_ext_register(%s): Invalid name", name);
 
 	if (default_record_size != 0 && default_record_align == 0) {
