@@ -144,14 +144,15 @@ static int o_stream_ssl_flush_buffer(struct ssl_ostream *sstream)
 static int o_stream_ssl_flush(struct ostream_private *stream)
 {
 	struct ssl_ostream *sstream = (struct ssl_ostream *)stream;
-	struct ostream *plain_output = sstream->ssl_io->plain_output;
+	struct ssl_iostream *ssl_io = sstream->ssl_io;
+	struct ostream *plain_output = ssl_io->plain_output;
 	int ret;
 
-	if ((ret = openssl_iostream_more(sstream->ssl_io,
+	if ((ret = openssl_iostream_more(ssl_io,
 				OPENSSL_IOSTREAM_SYNC_TYPE_HANDSHAKE)) < 0) {
 		/* handshake failed */
 		io_stream_set_error(&stream->iostream, "%s",
-				    sstream->ssl_io->last_error);
+				    ssl_io->last_error);
 		stream->ostream.stream_errno = errno;
 	} else if (ret > 0 && sstream->buffer != NULL &&
 		   sstream->buffer->used > 0) {
@@ -159,10 +160,10 @@ static int o_stream_ssl_flush(struct ostream_private *stream)
 		ret = o_stream_ssl_flush_buffer(sstream);
 	}
 
-	if (ret == 0 && sstream->ssl_io->want_read) {
+	if (ret == 0 && ssl_io->want_read) {
 		/* we need to read more data until we can continue. */
 		o_stream_set_flush_pending(plain_output, FALSE);
-		sstream->ssl_io->ostream_flush_waiting_input = TRUE;
+		ssl_io->ostream_flush_waiting_input = TRUE;
 		ret = 1;
 	}
 
