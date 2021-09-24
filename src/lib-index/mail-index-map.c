@@ -208,8 +208,8 @@ int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
 		*error_r = "Invalid field values";
 		return -1;
 	}
-	if (*name == '\0') {
-		*error_r = "Broken name";
+	if (!mail_index_ext_name_is_valid(name)) {
+		*error_r = "Invalid name";
 		return -1;
 	}
 
