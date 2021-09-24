@@ -71,10 +71,6 @@ mail_index_sync_deinit_expunge_handlers(struct mail_index_sync_map_ctx *ctx);
 void mail_index_sync_init_handlers(struct mail_index_sync_map_ctx *ctx);
 void mail_index_sync_deinit_handlers(struct mail_index_sync_map_ctx *ctx);
 
-void mail_index_sync_ext_init(struct mail_index_sync_map_ctx *ctx,
-			      const char *name, bool fix_size,
-			      uint32_t *ext_map_idx_r);
-
 int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 			      const struct mail_transaction_ext_intro *u);
 int mail_index_sync_ext_reset(struct mail_index_sync_map_ctx *ctx,

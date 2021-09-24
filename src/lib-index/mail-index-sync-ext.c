@@ -406,41 +406,6 @@ mail_index_sync_ext_init_new(struct mail_index_sync_map_ctx *ctx,
 	*ext_map_idx_r = ext_map_idx;
 }
 
-void mail_index_sync_ext_init(struct mail_index_sync_map_ctx *ctx,
-			      const char *name, bool fix_size,
-			      uint32_t *ext_map_idx_r)
-{
-	struct mail_index_map *map = ctx->view->map;
-	const struct mail_index_registered_ext *rext;
-	struct mail_index_ext_header ext_hdr;
-	struct mail_transaction_ext_intro u;
-	uint32_t ext_id;
-
-	if (!mail_index_ext_lookup(ctx->view->index, name, &ext_id))
-		i_unreached();
-	rext = array_idx(&ctx->view->index->extensions, ext_id);
-
-	if (mail_index_map_lookup_ext(map, name, ext_map_idx_r)) {
-		if (!fix_size)
-			return;
-
-		/* make sure it's the expected size */
-		i_zero(&u);
-		u.hdr_size = rext->hdr_size;
-		u.record_size = rext->record_size;
-		u.record_align = rext->record_align;
-		sync_ext_resize(&u, *ext_map_idx_r, ctx, FALSE);
-	} else {
-		i_zero(&ext_hdr);
-		ext_hdr.name_size = strlen(name);
-		ext_hdr.hdr_size = rext->hdr_size;
-		ext_hdr.record_size = rext->record_size;
-		ext_hdr.record_align = rext->record_align;
-		mail_index_sync_ext_init_new(ctx, name, &ext_hdr,
-					     ext_map_idx_r);
-	}
-}
-
 int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 			      const struct mail_transaction_ext_intro *u)
 {
