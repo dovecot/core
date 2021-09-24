@@ -407,7 +407,8 @@ static void mail_duplicate_read(struct mail_duplicate_transaction *trans)
 
 	(void)mail_duplicate_read_db_file(trans);
 
-	file_dotlock_delete(&dotlock);
+	if (dotlock != NULL)
+		file_dotlock_delete(&dotlock);
 }
 
 static void mail_duplicate_update(struct mail_duplicate_transaction *trans)
