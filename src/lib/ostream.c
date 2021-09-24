@@ -571,6 +571,8 @@ void o_stream_copy_error_from_parent(struct ostream_private *_stream)
 	struct ostream *src = _stream->parent;
 	struct ostream *dest = &_stream->ostream;
 
+	i_assert(src->stream_errno != 0);
+
 	dest->stream_errno = src->stream_errno;
 	dest->overflow = src->overflow;
 	if (src->closed)
