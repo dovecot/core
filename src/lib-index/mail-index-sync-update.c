@@ -874,6 +874,9 @@ void mail_index_map_check(struct mail_index_map *map)
 	unsigned int del = 0, seen = 0;
 	uint32_t seq, prev_uid = 0;
 
+	if (getenv("DEBUG_IGNORE_INDEX_CORRUPTION") != NULL)
+		return;
+
 	i_assert(hdr->messages_count <= map->rec_map->records_count);
 	for (seq = 1; seq <= hdr->messages_count; seq++) {
 		const struct mail_index_record *rec;
