@@ -71,6 +71,8 @@ mail_index_map_register_ext(struct mail_index_map *map,
 	struct mail_index_ext *ext;
 	uint32_t idx, ext_map_idx, empty_idx = (uint32_t)-1;
 
+	i_assert(mail_index_ext_name_is_valid(name));
+
 	if (!array_is_created(&map->extensions)) {
                 mail_index_map_init_extbufs(map, 5);
 		idx = 0;

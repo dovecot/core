@@ -364,6 +364,8 @@ mail_index_sync_ext_init_new(struct mail_index_sync_map_ctx *ctx,
 	buffer_t *hdr_buf;
 	uint32_t ext_map_idx;
 
+	i_assert(mail_index_ext_name_is_valid(name));
+
 	/* be sure to get a unique mapping before we modify the extensions,
 	   otherwise other map users will see the new extension but not the
 	   data records that sync_ext_reorder() adds. */
