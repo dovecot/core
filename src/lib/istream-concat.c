@@ -335,7 +335,7 @@ struct istream *i_stream_create_concat(struct istream *input[])
 {
 	struct concat_istream *cstream;
 	unsigned int count;
-	size_t max_buffer_size = I_STREAM_MIN_SIZE;
+	size_t max_buffer_size = 0;
 	bool blocking = TRUE, seekable = TRUE;
 
 	/* if any of the streams isn't blocking or seekable, set ourself also
@@ -343,7 +343,8 @@ struct istream *i_stream_create_concat(struct istream *input[])
 	for (count = 0; input[count] != NULL; count++) {
 		size_t cur_max = i_stream_get_max_buffer_size(input[count]);
 
-		if (cur_max > max_buffer_size)
+		i_assert(cur_max != 0);
+		if (cur_max != SIZE_MAX && cur_max > max_buffer_size)
 			max_buffer_size = cur_max;
 		if (!input[count]->blocking)
 			blocking = FALSE;
@@ -352,6 +353,10 @@ struct istream *i_stream_create_concat(struct istream *input[])
 		i_stream_ref(input[count]);
 	}
 	i_assert(count != 0);
+	if (max_buffer_size == 0)
+		max_buffer_size = SIZE_MAX;
+	if (max_buffer_size < I_STREAM_MIN_SIZE)
+		max_buffer_size = I_STREAM_MIN_SIZE;
 
 	cstream = i_new(struct concat_istream, 1);
 	cstream->input_count = count;
