@@ -146,16 +146,30 @@ static int o_stream_ssl_flush(struct ostream_private *stream)
 	struct ssl_ostream *sstream = (struct ssl_ostream *)stream;
 	struct ssl_iostream *ssl_io = sstream->ssl_io;
 	struct ostream *plain_output = ssl_io->plain_output;
-	int ret;
+	int ret = 1;
 
-	if ((ret = openssl_iostream_more(ssl_io,
-				OPENSSL_IOSTREAM_SYNC_TYPE_HANDSHAKE)) < 0) {
-		/* handshake failed */
-		io_stream_set_error(&stream->iostream, "%s",
-				    ssl_io->last_error);
-		stream->ostream.stream_errno = errno;
-	} else if (ret > 0 && sstream->buffer != NULL &&
-		   sstream->buffer->used > 0) {
+	if (!ssl_io->handshaked) {
+		if ((ret = ssl_iostream_handshake(ssl_io)) < 0) {
+			/* handshake failed */
+			i_assert(errno != 0);
+			io_stream_set_error(&stream->iostream,
+					    "%s", ssl_io->last_error);
+			stream->ostream.stream_errno = errno;
+			return ret;
+		}
+	}
+	if (ret > 0 &&
+	    openssl_iostream_bio_sync(
+		ssl_io, OPENSSL_IOSTREAM_SYNC_TYPE_HANDSHAKE) < 0) {
+		i_assert(ssl_io->plain_stream_errno != 0 &&
+			 ssl_io->plain_stream_errstr != NULL);
+		io_stream_set_error(&stream->iostream,
+				    "%s", ssl_io->plain_stream_errstr);
+		stream->ostream.stream_errno = ssl_io->plain_stream_errno;
+		return -1;
+	}
+
+	if (ret > 0 && sstream->buffer != NULL && sstream->buffer->used > 0) {
 		/* we can try to send some of our buffered data */
 		ret = o_stream_ssl_flush_buffer(sstream);
 	}

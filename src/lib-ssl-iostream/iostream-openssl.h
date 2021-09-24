@@ -104,11 +104,6 @@ int openssl_min_protocol_to_options(const char *min_protocol, long *opt_r,
    occurred. */
 int openssl_iostream_bio_sync(struct ssl_iostream *ssl_io,
 			      enum openssl_iostream_sync_type type);
-/* Call when there's more data available in plain_input/plain_output.
-   Returns 1 if it's ok to continue with SSL_read/SSL_write, 0 if not
-   (still handshaking), -1 if error occurred. */
-int openssl_iostream_more(struct ssl_iostream *ssl_io,
-			  enum openssl_iostream_sync_type type);
 
 /* Returns 1 if the operation should be retried (we read/wrote more data),
    0 if the operation should retried later once more data has been

@@ -372,7 +372,10 @@ void openssl_iostream_shutdown(struct ssl_iostream *ssl_io)
 		   the error queue */
 		openssl_iostream_clear_errors();
 	}
-	(void)openssl_iostream_more(ssl_io, OPENSSL_IOSTREAM_SYNC_TYPE_WRITE);
+	if (ssl_io->handshaked) {
+		(void)openssl_iostream_bio_sync(ssl_io,
+			OPENSSL_IOSTREAM_SYNC_TYPE_WRITE);
+	}
 	(void)o_stream_flush(ssl_io->plain_output);
 	/* close the plain i/o streams, because their fd may be closed soon,
 	   but we may still keep this ssl-iostream referenced until later. */
@@ -538,20 +541,6 @@ int openssl_iostream_bio_sync(struct ssl_iostream *ssl_io,
 	if (ret >= 0 && openssl_iostream_bio_input(ssl_io, type) > 0)
 		ret = 1;
 	return ret;
-}
-
-int openssl_iostream_more(struct ssl_iostream *ssl_io,
-			  enum openssl_iostream_sync_type type)
-{
-	int ret;
-
-	if (!ssl_io->handshaked) {
-		if ((ret = ssl_iostream_handshake(ssl_io)) <= 0)
-			return ret;
-	}
-	if (openssl_iostream_bio_sync(ssl_io, type) < 0)
-		return -1;
-	return 1;
 }
 
 static void openssl_iostream_closed(struct ssl_iostream *ssl_io)

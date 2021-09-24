@@ -43,17 +43,26 @@ static ssize_t i_stream_ssl_read_real(struct istream_private *stream)
 		return -1;
 	}
 
-	ret = openssl_iostream_more(ssl_io,
-		OPENSSL_IOSTREAM_SYNC_TYPE_HANDSHAKE);
-	if (ret <= 0) {
-		if (ret < 0) {
-			/* handshake failed */
-			i_assert(errno != 0);
-			io_stream_set_error(&stream->iostream,
-					    "%s", ssl_io->last_error);
-			stream->istream.stream_errno = errno;
+	if (!ssl_io->handshaked) {
+		if ((ret = ssl_iostream_handshake(ssl_io)) <= 0) {
+			if (ret < 0) {
+				/* handshake failed */
+				i_assert(errno != 0);
+				io_stream_set_error(&stream->iostream,
+						    "%s", ssl_io->last_error);
+				stream->istream.stream_errno = errno;
+			}
+			return ret;
 		}
-		return ret;
+	}
+	if (openssl_iostream_bio_sync(ssl_io,
+			OPENSSL_IOSTREAM_SYNC_TYPE_HANDSHAKE) < 0) {
+		i_assert(ssl_io->plain_stream_errno != 0 &&
+			 ssl_io->plain_stream_errstr != NULL);
+		io_stream_set_error(&stream->iostream,
+				    "%s", ssl_io->plain_stream_errstr);
+		stream->istream.stream_errno = ssl_io->plain_stream_errno;
+		return -1;
 	}
 	if (!i_stream_try_alloc(stream, 1, &size))
 		return -2;
