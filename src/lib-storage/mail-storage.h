@@ -959,7 +959,8 @@ int mail_get_hdr_stream_because(struct mail *mail,
 /* Returns the message part's body decoded to 8bit binary. If the
    Content-Transfer-Encoding isn't supported, returns -1 and sets error to
    MAIL_ERROR_CONVERSION. If the part refers to a multipart, all of its
-   children are returned decoded. */
+   children are returned decoded. Note that the returned stream must be
+   unreferenced, unlike mail_get_*stream*() which automatically free it. */
 int mail_get_binary_stream(struct mail *mail, const struct message_part *part,
 			   bool include_hdr, uoff_t *size_r,
 			   bool *binary_r, struct istream **stream_r);
