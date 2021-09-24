@@ -331,26 +331,15 @@ mail_duplicate_read_records(struct mail_duplicate_transaction *trans,
 	return 0;
 }
 
-static int mail_duplicate_read_db_file(struct mail_duplicate_transaction *trans)
+static int
+mail_duplicate_read_db_from_fd(struct mail_duplicate_transaction *trans, int fd)
 {
 	struct istream *input;
 	struct mail_duplicate_file_header hdr;
 	const unsigned char *data;
 	size_t size;
-	int fd;
 	struct stat st;
 	unsigned int record_size = 0;
-
-	e_debug(trans->event, "Reading %s", trans->path);
-
-	fd = open(trans->path, O_RDONLY);
-	if (fd == -1) {
-		if (errno == ENOENT)
-			return 0;
-		e_error(trans->event,
-			"open(%s) failed: %m", trans->path);
-		return -1;
-	}
 
 	if (fstat(fd, &st) < 0) {
 		e_error(trans->event,
@@ -380,11 +369,31 @@ static int mail_duplicate_read_db_file(struct mail_duplicate_transaction *trans)
 	} T_END;
 
 	i_stream_unref(&input);
+	return 0;
+}
+
+static int mail_duplicate_read_db_file(struct mail_duplicate_transaction *trans)
+{
+	int fd, ret;
+
+	e_debug(trans->event, "Reading %s", trans->path);
+
+	fd = open(trans->path, O_RDONLY);
+	if (fd == -1) {
+		if (errno == ENOENT)
+			return 0;
+		e_error(trans->event,
+			"open(%s) failed: %m", trans->path);
+		return -1;
+	}
+
+	ret = mail_duplicate_read_db_from_fd(trans, fd);
+
 	if (close(fd) < 0) {
 		e_error(trans->event,
 			"close(%s) failed: %m", trans->path);
 	}
-	return 0;
+	return ret;
 }
 
 static void mail_duplicate_read(struct mail_duplicate_transaction *trans)
