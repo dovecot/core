@@ -87,7 +87,8 @@ o_stream_dot_sendv(struct ostream_private *stream,
 	if ((ret=o_stream_flush(stream->parent)) <= 0) {
 		/* error / we still couldn't flush existing data to
 		   parent stream. */
-		o_stream_copy_error_from_parent(stream);
+		if (ret < 0)
+			o_stream_copy_error_from_parent(stream);
 		return ret;
 	}
 
