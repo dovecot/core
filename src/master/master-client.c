@@ -161,6 +161,7 @@ void master_client_connected(struct service_list *service_list)
 			i_error("net_accept() failed: %m");
 		return;
 	}
+	fd_close_on_exec(fd, TRUE);
 	client = i_new(struct master_client, 1);
 	connection_init_server(master_connections, &client->conn,
 			       "master-client", fd, fd);
