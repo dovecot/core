@@ -72,6 +72,8 @@ http_server_request_new(struct http_server_connection *conn)
 	req->server = conn->server;
 	req->id = ++id_counter;
 	req->event = event_create(conn->event);
+	req->input_start_offset = conn->conn.input->v_offset;
+	req->output_start_offset = conn->conn.output->offset;
 	http_server_request_update_event(req);
 
 	http_server_connection_add_request(conn, req);
@@ -327,6 +329,18 @@ http_server_request_default_handler(struct http_server_request *req)
 	return;
 }
 
+void http_server_request_received(struct http_server_request *req)
+{
+	http_server_request_update_event(req);
+	struct event_passthrough *e = event_create_passthrough(req->event)->
+		set_name("http_server_request_started");
+	e_debug(e->event(), "Received new request %s "
+		"(%u requests pending; %u maximum)",
+		http_server_request_label(req),
+		req->conn->request_queue_count,
+		req->conn->server->set.max_pipelined_requests);
+}
+
 void http_server_request_callback(struct http_server_request *req)
 {
 	struct http_server_connection *conn = req->conn;
@@ -404,8 +418,6 @@ void http_server_request_finished(struct http_server_request *req)
 	http_server_tunnel_callback_t tunnel_callback = resp->tunnel_callback;
 	void *tunnel_context = resp->tunnel_context;
 
-	e_debug(req->event, "Finished");
-
 	i_assert(req->state < HTTP_SERVER_REQUEST_STATE_FINISHED);
 	req->state = HTTP_SERVER_REQUEST_STATE_FINISHED;
 
@@ -414,6 +426,16 @@ void http_server_request_finished(struct http_server_request *req)
 
 	if (req->response != NULL)
 		http_server_response_request_finished(req->response);
+
+	uoff_t bytes_in = req->conn->conn.input->v_offset -
+			  req->input_start_offset;
+	uoff_t bytes_out = req->conn->conn.output->offset -
+			   req->output_start_offset;
+	struct event_passthrough *e = event_create_passthrough(req->event)->
+		set_name("http_server_request_finished")->
+		add_int("bytes_in", bytes_in)->
+		add_int("bytes_out", bytes_out);
+	e_debug(e->event(), "Finished request");
 
 	if (tunnel_callback == NULL) {
 		if (req->connection_close) {

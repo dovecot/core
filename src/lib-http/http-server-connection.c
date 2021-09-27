@@ -591,12 +591,7 @@ static void http_server_connection_input(struct connection *_conn)
 			conn->http_parser, req->pool, &req->req,
 			&error_code, &error)) > 0) {
 			conn->stats.request_count++;
-			http_server_request_update_event(req);
-			e_debug(conn->event, "Received new request %s "
-				"(%u requests pending; %u maximum)",
-				http_server_request_label(req),
-				conn->request_queue_count,
-				conn->server->set.max_pipelined_requests);
+			http_server_request_received(req);
 
 			http_server_request_immune_ref(req);
 			T_BEGIN {

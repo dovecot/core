@@ -100,6 +100,7 @@ struct http_server_request {
 	unsigned int id;
 	int callback_refcount;
 	struct event *event;
+	uoff_t input_start_offset, output_start_offset;
 
 	enum http_server_request_state state;
 
@@ -265,6 +266,7 @@ void http_server_request_immune_unref(struct http_server_request **_req);
 
 bool http_server_request_is_complete(struct http_server_request *req);
 
+void http_server_request_received(struct http_server_request *req);
 void http_server_request_callback(struct http_server_request *req);
 
 void http_server_request_halt_payload(struct http_server_request *req);
