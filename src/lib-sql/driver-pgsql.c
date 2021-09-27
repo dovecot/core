@@ -1226,7 +1226,7 @@ driver_pgsql_escape_blob(struct sql_db *_db ATTR_UNUSED,
 {
 	string_t *str = t_str_new(128);
 
-	str_append(str, "E'\\x");
+	str_append(str, "E'\\\\x");
 	binary_to_hex_append(str, data, size);
 	str_append_c(str, '\'');
 	return str_c(str);
