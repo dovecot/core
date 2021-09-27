@@ -80,6 +80,8 @@ struct dns_client {
 	bool deinit_client_at_free:1;
 };
 
+static void dns_client_cache_clean(struct dns_client *client);
+
 /* cache code */
 static int dns_client_cache_entry_cmp(const void *p1, const void *p2)
 {
@@ -103,6 +105,13 @@ static void dns_client_cache_entry(struct dns_client *client,
 {
 	if (client->cache_ttl_secs == 0)
 		return;
+
+	/* start cache cleanup since put something there */
+	if (client->to_cache_clean == NULL)
+		client->to_cache_clean =
+			timeout_add((client->cache_ttl_secs/2)*1000,
+				     dns_client_cache_clean, client);
+
 	struct dns_client_cache_entry *entry =
 		hash_table_lookup(client->cache_table, lookup->cache_key);
 	if (lookup->result.ret < 0) {
@@ -243,6 +252,10 @@ static void dns_client_cache_clean(struct dns_client *client)
 			break;
 		}
 	}
+
+	/* stop cleaning cache if it becomes empty */
+	if (priorityq_count(client->cache_queue) == 0)
+		timeout_remove(&client->to_cache_clean);
 }
 
 static void dns_client_cache_init(struct dns_client *client, unsigned int ttl_secs)
@@ -251,8 +264,6 @@ static void dns_client_cache_init(struct dns_client *client, unsigned int ttl_se
 	hash_table_create(&client->cache_table, default_pool, 0, strfastcase_hash,
 			  strcmp);
 	client->cache_queue = priorityq_init(dns_client_cache_entry_cmp, 0);
-	client->to_cache_clean = timeout_add((client->cache_ttl_secs/2)*1000,
-					       dns_client_cache_clean, client);
 }
 
 static void dns_client_cache_deinit(struct dns_client *client)
