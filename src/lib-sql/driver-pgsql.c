@@ -1239,6 +1239,30 @@ driver_pgsql_escape_blob(struct sql_db *_db ATTR_UNUSED,
 	return str_c(str);
 }
 
+static bool driver_pgsql_have_work(struct pgsql_db *db)
+{
+	return db->next_callback != NULL || db->pending_results != NULL;
+}
+
+static void driver_pgsql_wait(struct sql_db *_db)
+{
+	struct pgsql_db *db = (struct pgsql_db *)_db;
+
+	if (!driver_pgsql_have_work(db))
+		return;
+
+	struct ioloop *prev_ioloop = current_ioloop;
+	db->ioloop = io_loop_create();
+	db->io = io_loop_move_io(&db->io);
+	while (driver_pgsql_have_work(db))
+		io_loop_run(db->ioloop);
+
+	io_loop_set_current(prev_ioloop);
+	db->io = io_loop_move_io(&db->io);
+	io_loop_set_current(db->ioloop);
+	io_loop_destroy(&db->ioloop);
+}
+
 const struct sql_db driver_pgsql_db = {
 	.name = "pgsql",
 	.flags = SQL_DB_FLAG_POOLED,
@@ -1252,6 +1276,7 @@ const struct sql_db driver_pgsql_db = {
 		.exec = driver_pgsql_exec,
 		.query = driver_pgsql_query,
 		.query_s = driver_pgsql_query_s,
+		.wait = driver_pgsql_wait,
 
 		.transaction_begin = driver_pgsql_transaction_begin,
 		.transaction_commit = driver_pgsql_transaction_commit,
