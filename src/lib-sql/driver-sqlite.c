@@ -50,7 +50,7 @@ static struct event_category event_category_sqlite = {
 
 static int driver_sqlite_connect(struct sql_db *_db)
 {
- 	struct sqlite_db *db = (struct sqlite_db *)_db;
+	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
 	/* this is default for sqlite_open */
 	int flags;
 
@@ -81,7 +81,7 @@ static int driver_sqlite_connect(struct sql_db *_db)
 
 static void driver_sqlite_disconnect(struct sql_db *_db)
 {
- 	struct sqlite_db *db = (struct sqlite_db *)_db;
+	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
 
 	sqlite3_close(db->sqlite);
 	db->sqlite = NULL;
@@ -158,7 +158,7 @@ static int driver_sqlite_init_full_v(const struct sql_settings *set, struct sql_
 
 static void driver_sqlite_deinit_v(struct sql_db *_db)
 {
-	struct sqlite_db *db = (struct sqlite_db *)_db;
+	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
 
 	_db->no_reconnect = TRUE;
 	sql_db_set_state(&db->api, SQL_DB_STATE_DISCONNECTED);
@@ -202,7 +202,7 @@ driver_sqlite_escape_string(struct sql_db *_db ATTR_UNUSED,
 
 static void driver_sqlite_result_log(const struct sql_result *result, const char *query)
 {
-	struct sqlite_db *db = (struct sqlite_db *)result->db;
+	struct sqlite_db *db = container_of(result->db, struct sqlite_db, api);
 	bool success = db->connected && db->rc == SQLITE_OK;
 	int duration;
 	const char *suffix = "";
@@ -226,7 +226,7 @@ static void driver_sqlite_result_log(const struct sql_result *result, const char
 
 static void driver_sqlite_exec(struct sql_db *_db, const char *query)
 {
-	struct sqlite_db *db = (struct sqlite_db *)_db;
+	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
 	struct sql_result result;
 
 	i_zero(&result);
@@ -261,7 +261,7 @@ static void driver_sqlite_query(struct sql_db *db, const char *query,
 static struct sql_result *
 driver_sqlite_query_s(struct sql_db *_db, const char *query)
 {
-	struct sqlite_db *db = (struct sqlite_db *)_db;
+	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
 	struct sqlite_result *result;
 	struct event *event;
 
@@ -299,8 +299,10 @@ driver_sqlite_query_s(struct sql_db *_db, const char *query)
 
 static void driver_sqlite_result_free(struct sql_result *_result)
 {
-	struct sqlite_result *result = (struct sqlite_result *)_result;
-	struct sqlite_db *db = (struct sqlite_db *)	result->api.db;
+	struct sqlite_result *result =
+		container_of(_result, struct sqlite_result, api);
+	struct sqlite_db *db =
+		container_of(result->api.db, struct sqlite_db, api);
 	int rc;
 
 	if (_result->callback)
@@ -319,7 +321,8 @@ static void driver_sqlite_result_free(struct sql_result *_result)
 
 static int driver_sqlite_result_next_row(struct sql_result *_result)
 {
-	struct sqlite_result *result = (struct sqlite_result *)_result;
+	struct sqlite_result *result =
+		container_of(_result, struct sqlite_result, api);
 
 	switch (sqlite3_step(result->stmt)) {
 	case SQLITE_ROW:
@@ -334,7 +337,8 @@ static int driver_sqlite_result_next_row(struct sql_result *_result)
 static unsigned int
 driver_sqlite_result_get_fields_count(struct sql_result *_result)
 {
-	struct sqlite_result *result = (struct sqlite_result *)_result;
+	struct sqlite_result *result =
+		container_of(_result, struct sqlite_result, api);
 
 	return result->cols;
 }
@@ -343,7 +347,8 @@ static const char *
 driver_sqlite_result_get_field_name(struct sql_result *_result,
 				    unsigned int idx)
 {
-	struct sqlite_result *result = (struct sqlite_result *)_result;
+	struct sqlite_result *result =
+		container_of(_result, struct sqlite_result, api);
 
 	return sqlite3_column_name(result->stmt, idx);
 }
@@ -351,7 +356,8 @@ driver_sqlite_result_get_field_name(struct sql_result *_result,
 static int driver_sqlite_result_find_field(struct sql_result *_result,
 					   const char *field_name)
 {
-	struct sqlite_result *result = (struct sqlite_result *)_result;
+	struct sqlite_result *result =
+		container_of(_result, struct sqlite_result, api);
 	unsigned int i;
 
 	for (i = 0; i < result->cols; ++i) {
@@ -368,7 +374,8 @@ static const char *
 driver_sqlite_result_get_field_value(struct sql_result *_result,
 				     unsigned int idx)
 {
-	struct sqlite_result *result = (struct sqlite_result *)_result;
+	struct sqlite_result *result =
+		container_of(_result, struct sqlite_result, api);
 
 	return (const char*)sqlite3_column_text(result->stmt, idx);
 }
@@ -377,7 +384,8 @@ static const unsigned char *
 driver_sqlite_result_get_field_value_binary(struct sql_result *_result,
 					    unsigned int idx, size_t *size_r)
 {
-	struct sqlite_result *result = (struct sqlite_result *)_result;
+	struct sqlite_result *result =
+		container_of(_result, struct sqlite_result, api);
 
 	*size_r = sqlite3_column_bytes(result->stmt, idx);
 	return sqlite3_column_blob(result->stmt, idx);
@@ -398,7 +406,8 @@ driver_sqlite_result_find_field_value(struct sql_result *result,
 static const char *const *
 driver_sqlite_result_get_values(struct sql_result *_result)
 {
-	struct sqlite_result *result = (struct sqlite_result *)_result;
+	struct sqlite_result *result =
+		container_of(_result, struct sqlite_result, api);
 	unsigned int i;
 
 	for (i = 0; i < result->cols; ++i) {
@@ -411,8 +420,10 @@ driver_sqlite_result_get_values(struct sql_result *_result)
 
 static const char *driver_sqlite_result_get_error(struct sql_result *_result)
 {
-	struct sqlite_result *result = (struct sqlite_result *)_result;
-	struct sqlite_db *db = (struct sqlite_db *)result->api.db;
+	struct sqlite_result *result =
+		container_of(_result, struct sqlite_result, api);
+	struct sqlite_db *db =
+		container_of(result->api.db, struct sqlite_db, api);
 
 	if (db->connected)
 		return sqlite3_errmsg(db->sqlite);
@@ -424,7 +435,7 @@ static struct sql_transaction_context *
 driver_sqlite_transaction_begin(struct sql_db *_db)
 {
 	struct sqlite_transaction_context *ctx;
-	struct sqlite_db *db = (struct sqlite_db *)_db;
+	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
 
 	ctx = i_new(struct sqlite_transaction_context, 1);
 	ctx->ctx.db = _db;
@@ -441,7 +452,7 @@ static void
 driver_sqlite_transaction_rollback(struct sql_transaction_context *_ctx)
 {
 	struct sqlite_transaction_context *ctx =
-		(struct sqlite_transaction_context *)_ctx;
+		container_of(_ctx, struct sqlite_transaction_context, ctx);
 
 	if (!ctx->failed) {
 		e_debug(sql_transaction_finished_event(_ctx)->
@@ -458,8 +469,8 @@ driver_sqlite_transaction_commit(struct sql_transaction_context *_ctx,
 				 sql_commit_callback_t *callback, void *context)
 {
 	struct sqlite_transaction_context *ctx =
-		(struct sqlite_transaction_context *)_ctx;
-	struct sqlite_db *db = (struct sqlite_db *)ctx->ctx.db;
+		container_of(_ctx, struct sqlite_transaction_context, ctx);
+	struct sqlite_db *db = container_of(_ctx->db, struct sqlite_db, api);
 	struct sql_commit_result commit_result;
 
 	if (!ctx->failed) {
@@ -496,8 +507,8 @@ driver_sqlite_transaction_commit_s(struct sql_transaction_context *_ctx,
 				   const char **error_r)
 {
 	struct sqlite_transaction_context *ctx =
-		(struct sqlite_transaction_context *)_ctx;
-	struct sqlite_db *db = (struct sqlite_db *) ctx->ctx.db;
+		container_of(_ctx, struct sqlite_transaction_context, ctx);
+	struct sqlite_db *db = container_of(_ctx->db, struct sqlite_db, api);
 
 	if (ctx->failed) {
 		/* also does i_free(ctx) */
@@ -526,8 +537,8 @@ driver_sqlite_update(struct sql_transaction_context *_ctx, const char *query,
 		     unsigned int *affected_rows)
 {
 	struct sqlite_transaction_context *ctx =
-		(struct sqlite_transaction_context *)_ctx;
-	struct sqlite_db *db = (struct sqlite_db *)ctx->ctx.db;
+		container_of(_ctx, struct sqlite_transaction_context, ctx);
+	struct sqlite_db *db = container_of(_ctx->db, struct sqlite_db, api);
 
 	if (ctx->failed)
 		return;
