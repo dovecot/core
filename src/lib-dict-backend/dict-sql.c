@@ -129,9 +129,10 @@ static void sql_dict_deinit(struct dict *_dict)
 	pool_unref(&dict->pool);
 }
 
-static void sql_dict_wait(struct dict *dict ATTR_UNUSED)
+static void sql_dict_wait(struct dict *_dict)
 {
-	/* FIXME: lib-sql doesn't support this yet */
+	struct sql_dict *dict = (struct sql_dict *)_dict;
+	sql_wait(dict->db);
 }
 
 /* Try to match path to map->pattern. For example pattern="shared/x/$/$/y"
