@@ -816,7 +816,7 @@ driver_pgsql_result_get_field_value_binary(struct sql_result *_result,
 	if (!array_is_created(&result->binary_values))
 		i_array_init(&result->binary_values, idx + 1);
 
-	binary_value = array_idx_modifiable(&result->binary_values, idx);
+	binary_value = array_idx_get_space(&result->binary_values, idx);
 	if (binary_value->value == NULL) {
 		binary_value->value =
 			PQunescapeBytea((const unsigned char *)value,
