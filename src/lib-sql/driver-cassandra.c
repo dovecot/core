@@ -2479,6 +2479,32 @@ driver_cassandra_update_stmt(struct sql_transaction_context *_ctx,
 	}
 }
 
+static bool driver_cassandra_have_work(struct cassandra_db *db)
+{
+	return array_not_empty(&db->pending_prepares) ||
+		array_not_empty(&db->callbacks) ||
+		array_not_empty(&db->results);
+}
+
+static void driver_cassandra_wait(struct sql_db *_db)
+{
+	struct cassandra_db *db = (struct cassandra_db *)_db;
+
+	if (!driver_cassandra_have_work(db))
+		return;
+
+	struct ioloop *prev_ioloop = current_ioloop;
+	db->ioloop = io_loop_create();
+	db->io_pipe = io_loop_move_io(&db->io_pipe);
+	while (driver_cassandra_have_work(db))
+		io_loop_run(db->ioloop);
+
+	io_loop_set_current(prev_ioloop);
+	db->io_pipe = io_loop_move_io(&db->io_pipe);
+	io_loop_set_current(db->ioloop);
+	io_loop_destroy(&db->ioloop);
+}
+
 const struct sql_db driver_cassandra_db = {
 	.name = "cassandra",
 	.flags = SQL_DB_FLAG_PREP_STATEMENTS,
@@ -2492,6 +2518,7 @@ const struct sql_db driver_cassandra_db = {
 		.exec = driver_cassandra_exec,
 		.query = driver_cassandra_query,
 		.query_s = driver_cassandra_query_s,
+		.wait = driver_cassandra_wait,
 
 		.transaction_begin = driver_cassandra_transaction_begin,
 		.transaction_commit = driver_cassandra_transaction_commit,
