@@ -26,9 +26,15 @@
 #define CONST_PTR_OFFSET(ptr, offset) \
 	((const void *) (((uintptr_t) (ptr)) + ((size_t) (offset))))
 
+static inline const char *container_of_ptr(const void *ptr, size_t offset)
+{
+	if (ptr == NULL)
+		return NULL;
+	return (const char *)ptr - offset;
+}
 #define container_of(ptr, type, name) \
-	(type *)((char *)(ptr) - offsetof(type, name) + \
-		 COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(ptr, &((type *) 0)->name))
+	(type *)(container_of_ptr(ptr, offsetof(type, name) + \
+		 COMPILE_ERROR_IF_TYPES_NOT_COMPATIBLE(ptr, &((type *) 0)->name)))
 
 /* Don't use simply MIN/MAX, as they're often defined elsewhere in include
    files that are included after this file generating tons of warnings. */
