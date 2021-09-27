@@ -68,14 +68,22 @@ static inline bool wrapper_ostream_is_filled(struct wrapper_ostream *wostream)
 
 /* Handle error in the underlying output stream (the parent). */
 static void
-wrapper_ostream_handle_parent_error(struct wrapper_ostream *wostream)
+wrapper_ostream_copy_parent_error(struct wrapper_ostream *wostream)
 {
 	i_assert(wostream->output != NULL);
+	i_assert(wostream->output->stream_errno != 0);
 
 	wostream->ostream.ostream.stream_errno =
 		wostream->output->stream_errno;
 	wostream->ostream.ostream.overflow =
 		wostream->output->overflow;
+}
+
+static void
+wrapper_ostream_handle_parent_error(struct wrapper_ostream *wostream)
+{
+	wrapper_ostream_copy_parent_error(wostream);
+
 	if (wostream->output->closed)
 		o_stream_close(&wostream->ostream.ostream);
 
@@ -244,11 +252,16 @@ static int wrapper_ostream_finish(struct wrapper_ostream *wostream)
 
 	/* Finished sending payload; now also finish the underlying output. */
 	ret = wrapper_ostream_output_finish(wostream);
-	if (ret <= 0)
+	if (ret == 0)
 		return ret;
-
-	if (wrapper_ostream_handle_pending_error(wostream) < 0)
+	if (ret < 0 && wostream->ostream.ostream.stream_errno != 0) {
+		wrapper_ostream_copy_parent_error(wostream);
 		return -1;
+	}
+	if (wrapper_ostream_handle_pending_error(wostream) < 0 || ret < 0) {
+		i_assert(wostream->ostream.ostream.stream_errno != 0);
+		return -1;
+	}
 	wrapper_ostream_output_close(wostream);
 	return 1;
 }
@@ -933,6 +946,7 @@ static int wrapper_ostream_flush(struct ostream_private *stream)
 	if (wostream->output_closed) {
 		i_assert(ret < 0 || ostream->stream_errno == 0 ||
 			 ostream->closed);
+		i_assert(ret >= 0 || ostream->stream_errno != 0);
 		o_stream_unref(&ostream);
 		return (ret >= 0 ? 1 : -1);
 	}
@@ -948,8 +962,9 @@ static int wrapper_ostream_flush(struct ostream_private *stream)
 	} else {
 		o_stream_uncork(wostream->output);
 	}
-	o_stream_unref(&ostream);
 
+	i_assert(ret >= 0 || ostream->stream_errno != 0);
+	o_stream_unref(&ostream);
 	return ret;
 }
 
