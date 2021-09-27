@@ -814,6 +814,13 @@ struct event_passthrough *sql_transaction_finished_event(struct sql_transaction_
 		set_name(SQL_TRANSACTION_FINISHED);
 }
 
+void sql_wait(struct sql_db *db)
+{
+	if (db->v.wait != NULL)
+		db->v.wait(db);
+}
+
+
 struct sql_result sql_not_connected_result = {
 	.v = {
 		sql_result_not_connected_free,
