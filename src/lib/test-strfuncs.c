@@ -26,7 +26,7 @@ static void test_p_strndup(void)
 		{ "foo", "fo", 2 },
 		{ "foo", "foo", 3 },
 		{ "foo", "foo", 4 },
-		{ "foo", "foo", SIZE_MAX-1 },
+		{ "foo\0more", "foo", 8 },
 	};
 	test_begin("p_strndup()");
 
