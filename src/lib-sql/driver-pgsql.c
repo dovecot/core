@@ -7,6 +7,7 @@
 #include "str.h"
 #include "time-util.h"
 #include "sql-api-private.h"
+#include "llist.h"
 
 #ifdef BUILD_PGSQL
 #include <libpq-fe.h>
@@ -25,6 +26,7 @@ struct pgsql_db {
 	struct timeout *to_connect;
 	enum io_condition io_dir;
 
+	struct pgsql_result *pending_results;
 	struct pgsql_result *cur_result;
 	struct ioloop *ioloop, *orig_ioloop;
 	struct sql_result *sync_result;
@@ -45,6 +47,9 @@ struct pgsql_binary_value {
 
 struct pgsql_result {
 	struct sql_result api;
+
+	struct pgsql_result *prev, *next;
+
 	PGresult *pgres;
 	struct timeout *to;
 
@@ -411,6 +416,7 @@ static void result_finish(struct pgsql_result *result)
 
 	i_assert(db->io == NULL);
 	timeout_remove(&result->to);
+	DLLIST_REMOVE(&db->pending_results, result);
 
 	/* if connection to server was lost, we don't yet see that the
 	   connection is bad. we only see the fatal error, so assume it also
@@ -522,6 +528,7 @@ static void do_query(struct pgsql_result *result, const char *query)
 
 	driver_pgsql_set_state(db, SQL_DB_STATE_BUSY);
 	db->cur_result = result;
+	DLLIST_PREPEND(&db->pending_results, result);
 	result->to = timeout_add(SQL_QUERY_TIMEOUT_SECS * 1000,
 				 query_timeout, result);
 	result->query = i_strdup(query);
