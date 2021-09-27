@@ -243,4 +243,7 @@ void sql_update_stmt_get_rows(struct sql_transaction_context *ctx,
 			      struct sql_statement **stmt,
 			      unsigned int *affected_rows);
 
+/* Wait for SQL query results. */
+void sql_wait(struct sql_db *db);
+
 #endif
