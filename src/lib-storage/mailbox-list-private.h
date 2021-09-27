@@ -144,6 +144,7 @@ struct mailbox_list {
 	bool index_root_dir_created:1;
 	bool list_index_root_dir_created:1;
 	bool guid_cache_updated:1;
+	bool disable_rebuild_on_corruption:1;
 	bool guid_cache_invalidated:1;
 	bool last_error_is_internal:1;
 };

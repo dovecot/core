@@ -676,6 +676,9 @@ int mailbox_list_index_handle_corruption(struct mailbox_list *list)
 	else
 		return 0;
 
+	if (list->disable_rebuild_on_corruption)
+		return 0;
+
 	/* make sure we don't recurse */
 	if (ilist->handling_corruption)
 		return 0;
