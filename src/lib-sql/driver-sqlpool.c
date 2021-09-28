@@ -885,6 +885,15 @@ driver_sqlpool_escape_blob(struct sql_db *_db,
 	return sql_escape_blob(conns[0].db, data, size);
 }
 
+static void driver_sqlpool_wait(struct sql_db *_db)
+{
+	struct sqlpool_db *db = (struct sqlpool_db *)_db;
+	const struct sqlpool_connection *conn;
+
+	array_foreach(&db->all_connections, conn)
+		sql_wait(conn->db);
+}
+
 struct sql_db driver_sqlpool_db = {
 	"",
 
@@ -897,6 +906,7 @@ struct sql_db driver_sqlpool_db = {
 		.exec = driver_sqlpool_exec,
 		.query = driver_sqlpool_query,
 		.query_s = driver_sqlpool_query_s,
+		.wait = driver_sqlpool_wait,
 
 		.transaction_begin = driver_sqlpool_transaction_begin,
 		.transaction_commit = driver_sqlpool_transaction_commit,
