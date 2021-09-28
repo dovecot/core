@@ -362,7 +362,8 @@ bool mail_cache_track_loops(struct mail_cache_loop_track *loop_track,
 /* Iterate through a message's cached fields. */
 void mail_cache_lookup_iter_init(struct mail_cache_view *view, uint32_t seq,
 				 struct mail_cache_lookup_iterate_ctx *ctx_r);
-/* Returns 1 if field was returned, 0 if end of fields, or -1 if error */
+/* Returns 1 if field was returned, 0 if end of fields, or -1 if error.
+   Note that this may trigger re-reading and reallocating cache fields. */
 int mail_cache_lookup_iter_next(struct mail_cache_lookup_iterate_ctx *ctx,
 				struct mail_cache_iterate_field *field_r);
 const struct mail_cache_record *
