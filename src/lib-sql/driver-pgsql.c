@@ -292,6 +292,25 @@ static void driver_pgsql_free(struct pgsql_db **_db)
 	i_free(db);
 }
 
+static enum sql_db_flags driver_pgsql_get_flags(struct sql_db *db)
+{
+	switch (db->state) {
+	case SQL_DB_STATE_DISCONNECTED:
+		if (sql_connect(db) < 0)
+			break;
+		/* fall through */
+	case SQL_DB_STATE_CONNECTING:
+		/* Wait for connection to finish, so we can get the flags
+		   reliably. */
+		sql_wait(db);
+		break;
+	case SQL_DB_STATE_IDLE:
+	case SQL_DB_STATE_BUSY:
+		break;
+	}
+	return db->flags;
+}
+
 static int driver_pgsql_init_full_v(const struct sql_settings *set,
 				    struct sql_db **db_r, const char **error_r ATTR_UNUSED)
 {
@@ -1241,7 +1260,8 @@ driver_pgsql_escape_blob(struct sql_db *_db ATTR_UNUSED,
 
 static bool driver_pgsql_have_work(struct pgsql_db *db)
 {
-	return db->next_callback != NULL || db->pending_results != NULL;
+	return db->next_callback != NULL || db->pending_results != NULL ||
+		db->api.state == SQL_DB_STATE_CONNECTING;
 }
 
 static void driver_pgsql_wait(struct sql_db *_db)
@@ -1268,6 +1288,7 @@ const struct sql_db driver_pgsql_db = {
 	.flags = SQL_DB_FLAG_POOLED,
 
 	.v = {
+		.get_flags = driver_pgsql_get_flags,
 		.init_full = driver_pgsql_init_full_v,
 		.deinit = driver_pgsql_deinit_v,
 		.connect = driver_pgsql_connect,
