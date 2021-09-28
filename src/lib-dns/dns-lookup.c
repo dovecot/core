@@ -623,8 +623,12 @@ dns_client_lookup_common(struct dns_client *client,
 	lookup->context = context;
 	lookup->ptr_lookup = ptr_lookup;
 	lookup->result.ret = EAI_FAIL;
-	lookup->event = event_create(event);
-	event_add_category(lookup->event, &event_category_dns);
+	if (event == NULL)
+		lookup->event = event_create(client->conn.event);
+	else {
+		lookup->event = event_create(event);
+		event_add_category(lookup->event, &event_category_dns);
+	}
 	lookup->cache_key = p_strdup_printf(lookup->pool, "%c%s",
 				      ptr_lookup ? 'I' : 'N', param);
 	event_set_append_log_prefix(lookup->event, t_strconcat("dns(", param, "): ", NULL));
