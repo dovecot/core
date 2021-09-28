@@ -157,13 +157,31 @@ static void stats_metrics_add_set(struct stats_metrics *metrics,
 	}
 }
 
+static struct stats_metric_settings *
+stats_metric_settings_dup(pool_t pool, const struct stats_metric_settings *src)
+{
+	struct stats_metric_settings *set = p_new(pool, struct stats_metric_settings, 1);
+
+	set->metric_name = p_strdup(pool, src->metric_name);
+	set->description = p_strdup(pool, src->description);
+	set->fields = p_strdup(pool, src->fields);
+	set->group_by = p_strdup(pool, src->group_by);
+	set->filter = p_strdup(pool, src->filter);
+	set->exporter = p_strdup(pool, src->exporter);
+	set->exporter_include = p_strdup(pool, src->exporter_include);
+
+	return set;
+}
+
 bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
 			       struct stats_metric_settings *set,
 			       const char **error_r)
 {
-        if (!stats_metric_setting_parser_info.check_func(set, metrics->pool, error_r))
+	struct stats_metric_settings *_set =
+		stats_metric_settings_dup(metrics->pool, set);
+        if (!stats_metric_setting_parser_info.check_func(_set, metrics->pool, error_r))
 		return FALSE;
-	stats_metrics_add_set(metrics, set);
+	stats_metrics_add_set(metrics, _set);
 	return TRUE;
 }
 
