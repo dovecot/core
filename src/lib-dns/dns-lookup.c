@@ -436,7 +436,6 @@ int dns_lookup(const char *host, const struct dns_lookup_settings *set,
 
 	i_assert(set->cache_ttl_secs == 0);
 	client = dns_client_init(set);
-	event_add_category(client->conn.event, &event_category_dns);
 	client->deinit_client_at_free = TRUE;
 	return dns_client_lookup(client, host, client->conn.event, callback,
 				 context, lookup_r);
@@ -451,7 +450,6 @@ int dns_lookup_ptr(const struct ip_addr *ip,
 
 	i_assert(set->cache_ttl_secs == 0);
 	client = dns_client_init(set);
-	event_add_category(client->conn.event, &event_category_dns);
 	client->deinit_client_at_free = TRUE;
 	return dns_client_lookup_ptr(client, ip, client->conn.event,
 				     callback, context, lookup_r);
@@ -544,6 +542,7 @@ struct dns_client *dns_client_init(const struct dns_lookup_settings *set)
 	if (set->cache_ttl_secs > 0)
 		dns_client_cache_init(client, set->cache_ttl_secs);
 	connection_init_client_unix(client->clist, &client->conn, client->path);
+	event_add_category(client->conn.event, &event_category_dns);
 	return client;
 }
 
