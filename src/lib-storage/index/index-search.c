@@ -659,6 +659,9 @@ static void search_header_unmatch(struct mail_search_arg *arg,
 static void search_header(struct message_header_line *hdr,
 			  struct search_header_context *ctx)
 {
+	if (ctx->parse_headers)
+		index_mail_parse_header(NULL, hdr, ctx->imail);
+
 	if (hdr == NULL) {
 		/* end of headers, mark all unknown SEARCH_HEADERs unmatched */
 		(void)mail_search_args_foreach(ctx->args, search_header_unmatch,
@@ -668,9 +671,6 @@ static void search_header(struct message_header_line *hdr,
 
 	if (hdr->eoh)
 		return;
-
-	if (ctx->parse_headers)
-		index_mail_parse_header(NULL, hdr, ctx->imail);
 
 	if (ctx->custom_header || strcasecmp(hdr->name, "Date") == 0) {
 		ctx->hdr = hdr;
