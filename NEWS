@@ -1,3 +1,104 @@
+v2.3.17 2021-10-28  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* Dovecot now logs a warning if time seems to jump forward at least
+	  100 milliseconds.
+	* dict: Lines logged by the dict process now contain the dict name as
+	  the prefix.
+	* lib-index: mail_cache_fields, mail_always_cache_fields and
+	  mail_never_cache_fields now verifies that the listed header names are
+	  valid. Especially the UTF8 "–" character has sometimes been wrongly
+	  used instead of the ASCII "-".
+	+ *-login: Added login_proxy_rawlog_dir setting to capture
+	  rawlogs between proxy and backend.
+	+ dict: The server process now keeps the last 10 idle dict backends
+	  cached for maximum of 30 seconds. Practically this acts as a
+	  connection pool for dict-redis and dict-ldap. Note that this doesn't
+	  affect dict-sql, because it already had its own internal cache.
+	+ doveadm: New stats add/remove commands added to support changing the
+	  metrics configuration on runtime.
+	+ lazy_expunge: Added lazy_expunge_exclude settings to disable
+	  lazy_expunge for specific folders. \Special-use flags can be used as
+	  folder names.
+	+ lib-lua: Added a new helper function dovecot.restrict_global_variables()
+	  to disable or enable defining new global variables.
+	- LAYOUT=index List index rebuild was missing.
+	- LAYOUT=index: Duplicate GUIDs were not detected.
+	- acl: When using acl_ignore_namespace Dovecot attempted to access or
+	  create dovecot-acl-list even when the namespace should have been
+	  ignored. For virtual namespaces this could have yielded errors about
+	  "Read-only file system" or "Permission denied".
+	- auth: Setting the "master" passdb field to empty value would
+	  cause proxying to fail with an authentication error.
+	  Now an empty "master" field is ignored.
+	- doveadm-server: Duplicate error lines were sent for failed commands.
+	  This didn't normally cause visible problems, except when using
+	  wildcards in usernames or -A parameter to go through multiple users.
+	- doveadm-server: Logs written by doveadm-server were often missing log
+	  prefixes, especially mail_log_prefix for mail commands. Logs sent to
+	  doveadm TCP client were also missing log prefixes.
+	- doveadm: v2.3 regression: batch command always crashes.
+	- doveadm: v2.3.11 regression: Commands failed if ssl_cert or
+	  ssl_key files weren't readable by the user running doveadm, even
+	  though doveadm didn't actually use these settings
+	- imap-hibernate: Process may crash at deinit:
+	  Panic: file ioloop.c: line 928 (io_loop_destroy): assertion failed:
+	  (ioloop->cur_ctx == NULL).
+	- imap: Using imap_fetch_failure=no-after can cause assert-crash
+	  with some IMAP commands if reading the mail fails (e.g. wrong cached
+	  mail size). Fixes:
+	  Panic: file index-mail-headers.c: line 198 (index_mail_parse_header_init):
+	  assertion failed: (!mail->data.header_parser_initialized)
+	- imap: v2.3.10 regression: When using INDEXPVT to enable private
+	  \Seen flags (for shared or public namespaces) the STORE command did
+	  not send untagged replies for the \Seen flag changes.
+	- imap: v2.3.15 regression: If PREVIEW/SNIPPET is not the final FETCH
+	  option in the command, the IMAP FETCH response is broken.
+	- imap: v2.3.15 regression: MOVE command leaks mailbox if it can't be
+	  opened and crashes at deinit:
+	  Panic: file mail-user.c: line 229 (mail_user_deinit): assertion failed:
+	  ((*user)->refcount == 1).
+	- imapc: Copying nonexistent mail via imapc could have crashed. Fixes:
+	  Panic: file mail-storage.c: line 2385 (mailbox_transaction_commit_get_changes):
+	  assertion failed: (ret < 0 || seq_range_count(&changes_r->saved_uids) == save_count ||
+	  array_count(&changes_r->saved_uids) == 0).
+	- indexer: v2.3.15 regression: Process crashes if indexer-client
+	  disconnects while it's waiting for command reply. This happened for
+	  example if IMAP SEARCH triggered long fts indexing and the IMAP
+	  client disconnected while waiting for the reply.
+	- indexer: v2.3.15 regression: Process may have crashed in some situations.
+	- indexer: v2.3.15 regression: indexer-worker processes may not have
+	  reached the process_limit in some situations, possibly even using just
+	  one indexer-worker process even though there were many indexing
+	  requests queued.
+	- lib-compression: Reading lz4 compressed mdbox mails may crash. Fixes:
+	  Panic: file istream.c: line 345 (i_stream_read_memarea):
+	  assertion failed: (!stream->blocking).
+	- lib-compression: bench-compress crashes due to xz being read-only.
+	- lib-lua: Fix linking libdict_lua for non-GNU linkers when Lua support
+	  is disabled.
+	- lib-mail: There was no limit on how large an email header name could be.
+	  Processable header names are now limited to 1000 bytes.
+	- lib-oauth2: Dovecot disallowed JWT tokens if their validity time was
+	  older than token creation time (nbf < iat).
+	- lib-storage: Reduce memory footprint of certain storage operations.
+	- lib-storage: When listing mailboxes with storage name escape
+	  characters (^ or .) as part of the mailbox name, the listing could
+	  show corrupted mailbox names. Due to an issue in handling escaped
+	  parent folders, the listing of other mailbox names would become
+	  corrupted by prepending parts of the previously listed mailboxes
+	  parent folder as prefix to the actual mailbox names. The corruption
+	  can occur when using LAYOUT=INDEX and maildir or obox, or when using
+	  the listescape plugin.
+	- mail-crypt: Fix "-O" argument for "doveadm mailbox cryptokey password"
+	  command to be a boolean, and not expect a string.
+	- submission-login: Add support for not authenticating to next hop in
+	  submission proxying.
+	- submission-login: EHLO was not sent again after XCLIENT when doing
+	  submission proxying.
+	- virtual: Mailboxes do not correctly detect underlying mailboxes
+	  getting re-created even though they have a different UIDVALIDITY or
+	  GUID.
+
 v2.3.16 2021-08-06  Timo Sirainen <timo.sirainen@open-xchange.com>
 
 	* Any unexpected exit() will now result in a core dump. This can
