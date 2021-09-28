@@ -48,7 +48,7 @@ void worker_connection_destroy(struct connection *conn)
 	struct worker_connection *worker =
 		container_of(conn, struct worker_connection, conn);
 
-	worker->request = NULL;
+	worker_connection_call_callback(worker, -1);
 	i_free_and_null(worker->request_username);
 	connection_deinit(conn);
 
