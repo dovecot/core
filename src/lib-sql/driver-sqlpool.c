@@ -417,23 +417,37 @@ driver_sqlpool_get_sync_connection(struct sqlpool_db *db,
 	return FALSE;
 }
 
+static bool
+driver_sqlpool_get_connected_flags(struct sqlpool_db *db,
+				   enum sql_db_flags *flags_r)
+{
+	const struct sqlpool_connection *conn;
+
+	array_foreach(&db->all_connections, conn) {
+		if (conn->db->state > SQL_DB_STATE_CONNECTING) {
+			*flags_r = sql_get_flags(conn->db);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 static enum sql_db_flags driver_sqlpool_get_flags(struct sql_db *_db)
 {
 	struct sqlpool_db *db = (struct sqlpool_db *)_db;
-	const struct sqlpool_connection *conn, *last_conn = NULL;
+	const struct sqlpool_connection *conn;
+	enum sql_db_flags flags;
 
 	/* try to use a connected db */
-	array_foreach(&db->all_connections, conn) {
-		if (SQL_DB_IS_READY(conn->db))
-			return sql_get_flags(conn->db);
-		last_conn = conn;
+	if (driver_sqlpool_get_connected_flags(db, &flags))
+		return flags;
+
+	if (!driver_sqlpool_get_sync_connection(db, &conn)) {
+		/* Failed to connect to database. Just use the first
+		   connection. */
+		conn = array_idx(&db->all_connections, 0);
 	}
-	/* fallback to the last db, if there is any */
-	if (last_conn != NULL)
-		return sql_get_flags(last_conn->db);
-	/* Just use the default flags. The flags shouldn't be worth having
-	   to create a connection. */
-	return _db->flags;
+	return sql_get_flags(conn->db);
 }
 
 static int
