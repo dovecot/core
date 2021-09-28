@@ -428,7 +428,6 @@ mail_cache_lookup_bitmask(struct mail_cache_lookup_iterate_ctx *iter,
 int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
 			    uint32_t seq, unsigned int field_idx)
 {
-	const struct mail_cache_field *field_def;
 	struct mail_cache_lookup_iterate_ctx iter;
 	struct mail_cache_iterate_field field;
 	int ret;
@@ -443,12 +442,12 @@ int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
 
 	/* the field should exist */
 	mail_cache_lookup_iter_init(view, seq, &iter);
-	field_def = &view->cache->fields[field_idx].field;
-	event_add_str(lookup_event, "field", field_def->name);
-	if (field_def->type == MAIL_CACHE_FIELD_BITMASK) {
+	event_add_str(lookup_event, "field",
+		      view->cache->fields[field_idx].field.name);
+	if (view->cache->fields[field_idx].field.type == MAIL_CACHE_FIELD_BITMASK) {
 		ret = mail_cache_lookup_bitmask(&iter, field_idx,
-						field_def->field_size,
-						dest_buf);
+			view->cache->fields[field_idx].field.field_size,
+			dest_buf);
 	} else {
 		/* return the first one that's found. if there are multiple
 		   they're all identical. */
@@ -459,7 +458,10 @@ int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
 			}
 		}
 	}
-	e_debug(lookup_event, "Looked up field %s from mail cache", field_def->name);
+	/* NOTE: view->cache->fields may have been reallocated by
+	   mail_cache_lookup_*(). */
+	e_debug(lookup_event, "Looked up field %s from mail cache",
+		view->cache->fields[field_idx].field.name);
 	event_unref(&lookup_event);
 	return ret;
 }
