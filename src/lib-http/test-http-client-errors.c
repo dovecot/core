@@ -1608,7 +1608,7 @@ test_client_early_success(const struct http_client_settings *client_set)
 				"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n");
 		}
 
-		chain_input = i_stream_create_chain(&chain);
+		chain_input = i_stream_create_chain(&chain, IO_BLOCK_SIZE);
 
 		input = i_stream_create_copy_from_data(str_data(payload),
 						       str_len(payload));

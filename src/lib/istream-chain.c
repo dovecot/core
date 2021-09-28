@@ -29,7 +29,6 @@ struct chain_istream {
 	   the beginning of the current link's stream. */
 	size_t prev_stream_left;
 	size_t prev_skip;
-	bool have_explicit_max_buffer_size;
 	
 	struct istream_chain chain;
 };
@@ -51,17 +50,8 @@ i_stream_chain_append_internal(struct istream_chain *chain,
 		i_stream_ref(stream);	
 
 	if (chain->head == NULL && stream != NULL) {
-		struct chain_istream *cstream = chain->stream;
-
-		if (cstream->have_explicit_max_buffer_size) {
-			i_stream_set_max_buffer_size(stream,
-				chain->stream->istream.max_buffer_size);
-		} else {
-			size_t max_size = i_stream_get_max_buffer_size(stream);
-
-			if (cstream->istream.max_buffer_size < max_size)
-				cstream->istream.max_buffer_size = max_size;
-		}
+		i_stream_set_max_buffer_size(stream,
+			chain->stream->istream.max_buffer_size);
 	}
 	DLLIST2_APPEND(&chain->head, &chain->tail, link);
 	/* if io_add_istream() has been added to this chain stream, notify
@@ -88,7 +78,6 @@ i_stream_chain_set_max_buffer_size(struct iostream_private *stream,
 		container_of(stream, struct chain_istream, istream.iostream);
 	struct istream_chain_link *link = cstream->chain.head;
 
-	cstream->have_explicit_max_buffer_size = TRUE;
 	cstream->istream.max_buffer_size = max_size;
 	while (link != NULL) {
 		if (link->stream != NULL)
@@ -334,12 +323,14 @@ i_stream_chain_snapshot(struct istream_private *stream,
 	return snapshot;
 }
 
-struct istream *i_stream_create_chain(struct istream_chain **chain_r)
+struct istream *i_stream_create_chain(struct istream_chain **chain_r,
+				      size_t max_buffer_size)
 {
 	struct chain_istream *cstream;
 
 	cstream = i_new(struct chain_istream, 1);
 	cstream->chain.stream = cstream;
+	cstream->istream.max_buffer_size = max_buffer_size;
 
 	cstream->istream.iostream.close = i_stream_chain_close;
 	cstream->istream.iostream.destroy = i_stream_chain_destroy;

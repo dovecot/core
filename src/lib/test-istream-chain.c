@@ -16,7 +16,7 @@ static void test_istream_chain_basic(void)
 	test_input = test_istream_create("stream1");
 	test_input2 = test_istream_create("STREAM2");
 
-	input = i_stream_create_chain(&chain);
+	input = i_stream_create_chain(&chain, IO_BLOCK_SIZE);
 	/* no input */
 	test_assert(i_stream_read(input) == 0);
 	/* stream1 input */
@@ -63,7 +63,7 @@ static void test_istream_chain_early_end(void)
 	test_istream_set_size(test_input, 3);
 	test_istream_set_allow_eof(test_input, FALSE);
 
-	input = i_stream_create_chain(&chain);
+	input = i_stream_create_chain(&chain, IO_BLOCK_SIZE);
 	i_stream_chain_append(chain, test_input);
 	test_assert(i_stream_read(input) == 3);
 	test_istream_set_size(test_input, 5);
@@ -96,7 +96,7 @@ static void test_istream_chain_accumulate(void)
 	test_istreams[3] = test_istream_create("z1y2x3w4v5u6t7s8r9q0p.o,n");
 	test_istreams[4] = test_istream_create("aAbBcCdDeEfFgGhHiIjJ");
 
-	input = i_stream_create_chain(&chain);
+	input = i_stream_create_chain(&chain, IO_BLOCK_SIZE);
 	/* no input */
 	test_assert(i_stream_read(input) == 0);
 

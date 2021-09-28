@@ -9,7 +9,8 @@ struct istream_chain;
    NULL. Streams that were finished to EOF are unreferenced. The chain stream
    is obviously not seekable and it has no determinable size. The chain_r
    argument returns a pointer to the chain object. */
-struct istream *i_stream_create_chain(struct istream_chain **chain_r);
+struct istream *i_stream_create_chain(struct istream_chain **chain_r,
+				      size_t max_buffer_size);
 
 /* Append an input stream to the chain. */
 void i_stream_chain_append(struct istream_chain *chain, struct istream *stream);

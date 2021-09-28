@@ -564,7 +564,8 @@ void smtp_server_connection_data_chunk_init(struct smtp_server_cmd_ctx *cmd)
 		i_assert(data_cmd->chunk_first);
 		i_assert(conn->state.data_chain_input == NULL);
 		conn->state.data_chain_input =
-			i_stream_create_chain(&conn->state.data_chain);
+			i_stream_create_chain(&conn->state.data_chain,
+					      IO_BLOCK_SIZE);
 	}
 }
 
