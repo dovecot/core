@@ -42,12 +42,11 @@ static int cmd_batch_run(struct doveadm_mail_cmd_context *_ctx,
 			event_reason_code_prefix("doveadm", "cmd_",
 						 cmd->cmd->name);
 		struct event_reason *reason = event_reason_begin(reason_code);
-		int ret = cmd->v.run(cmd, user);
+		ret = cmd->v.run(cmd, user);
 		event_reason_end(&reason);
 		if (ret < 0) {
 			i_assert(cmd->exit_code != 0);
 			_ctx->exit_code = cmd->exit_code;
-			ret = -1;
 			break;
 		}
 		cmd->cur_mail_user = NULL;
