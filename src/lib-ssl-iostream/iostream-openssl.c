@@ -424,8 +424,8 @@ static int openssl_iostream_bio_output_real(struct ssl_iostream *ssl_io)
 		   fully succeed or completely fail due to some error. */
 		sent = o_stream_send(ssl_io->plain_output, buffer, bytes);
 		if (sent < 0) {
-			result = -1;
-			break;
+			o_stream_uncork(ssl_io->plain_output);
+			return -1;
 		}
 		i_assert(sent == (ssize_t)bytes);
 		result = 1;
