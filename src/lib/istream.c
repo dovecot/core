@@ -890,6 +890,7 @@ bool i_stream_try_alloc(struct istream_private *stream,
 			size_t wanted_size, size_t *size_r)
 {
 	i_assert(wanted_size > 0);
+	i_assert(stream->buffer_size >= stream->pos);
 
 	if (wanted_size > stream->buffer_size - stream->pos) {
 		if (stream->skip > 0) {
@@ -919,6 +920,7 @@ bool i_stream_try_alloc(struct istream_private *stream,
 		else
 			*size_r = stream->data_limit - buffered;
 	}
+	i_assert(stream->w_buffer != NULL || *size_r == 0);
 	return *size_r > 0;
 }
 
