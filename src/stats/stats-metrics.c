@@ -173,10 +173,26 @@ stats_metric_settings_dup(pool_t pool, const struct stats_metric_settings *src)
 	return set;
 }
 
+static struct metric *
+stats_metrics_find(struct stats_metrics *metrics, const char *name)
+{
+	struct metric *m;
+	array_foreach_elem(&metrics->metrics, m) {
+		if (strcmp(m->name, name) == 0)
+			return m;
+	}
+	return NULL;
+}
+
 bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
 			       struct stats_metric_settings *set,
 			       const char **error_r)
 {
+	if (stats_metrics_find(metrics, set->metric_name) != NULL) {
+		*error_r = "Metric already exists";
+		return FALSE;
+	}
+
 	struct stats_metric_settings *_set =
 		stats_metric_settings_dup(metrics->pool, set);
         if (!stats_metric_setting_parser_info.check_func(_set, metrics->pool, error_r))
@@ -188,11 +204,9 @@ bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
 bool stats_metrics_remove_dynamic(struct stats_metrics *metrics,
 				  const char *name)
 {
-	struct metric *m;
-	array_foreach_elem(&metrics->metrics, m) {
-		if (strcmp(m->name, name) == 0)
-			return event_filter_remove_queries_with_context(metrics->filter, m);
-        }
+	struct metric *m = stats_metrics_find(metrics, name);
+	if (m != NULL)
+		return event_filter_remove_queries_with_context(metrics->filter, m);
 	return FALSE;
 }
 
