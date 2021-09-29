@@ -177,6 +177,7 @@ reader_client_input_metrics_add(struct reader_client *client,
 		o_stream_nsend(client->conn.output, "+", 1);
 	} else {
 		o_stream_nsend(client->conn.output, "-", 1);
+		o_stream_nsend_str(client->conn.output, "METRICS-ADD: ");
 		o_stream_nsend_str(client->conn.output, error);
 	}
 	o_stream_nsend(client->conn.output, "\n", 1);
