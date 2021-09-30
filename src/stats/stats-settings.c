@@ -20,10 +20,12 @@ static bool stats_settings_check(void *_set, pool_t pool, const char **error_r);
 static struct file_listener_settings stats_unix_listeners_array[] = {
 	{ "stats-reader", 0600, "", "" },
 	{ "stats-writer", 0660, "", "$default_internal_group" },
+	{ "login/stats-writer", 0600, "$default_login_user", "" },
 };
 static struct file_listener_settings *stats_unix_listeners[] = {
 	&stats_unix_listeners_array[0],
 	&stats_unix_listeners_array[1],
+	&stats_unix_listeners_array[2],
 };
 static buffer_t stats_unix_listeners_buf = {
 	{ { stats_unix_listeners, sizeof(stats_unix_listeners) } }
