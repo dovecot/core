@@ -263,7 +263,14 @@ service_process_setup_environment(struct service *service, unsigned int uid,
 	if (!service->set->master_set->version_ignore)
 		env_put(MASTER_DOVECOT_VERSION_ENV, PACKAGE_VERSION);
 
-	if (service_set->stats_writer_socket_path[0] != '\0') {
+	if (service_set->stats_writer_socket_path[0] == '\0')
+		; /* stats-writer socket disabled */
+	else if (service->set->chroot[0] != '\0') {
+		/* In a chroot - expect stats-writer socket to be in the
+		   current directory. */
+		env_put(DOVECOT_STATS_WRITER_SOCKET_PATH,
+			service_set->stats_writer_socket_path);
+	} else {
 		env_put(DOVECOT_STATS_WRITER_SOCKET_PATH,
 			t_strdup_printf("%s/%s", service_set->base_dir,
 					service_set->stats_writer_socket_path));
