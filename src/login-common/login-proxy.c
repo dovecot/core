@@ -306,6 +306,11 @@ static int login_proxy_connect(struct login_proxy *proxy)
 {
 	struct login_proxy_record *rec = proxy->state_rec;
 
+	struct event_passthrough *e = event_create_passthrough(proxy->event)->
+		set_name("proxy_session_started");
+	e_debug(e->event(), "Connecting to <%s>",
+	       login_proxy_get_ip_str(proxy->client->login_proxy));
+
 	/* this needs to be done early, since login_proxy_free() shrinks
 	   num_waiting_connections. */
 	proxy->num_waiting_connections_updated = FALSE;
@@ -531,6 +536,9 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 	/* we'll disconnect server side in any case. */
 	login_proxy_disconnect(proxy);
 
+	struct event_passthrough *e = event_create_passthrough(proxy->event)->
+		set_name("proxy_session_finished");
+
 	if (proxy->detached) {
 		/* detached proxy */
 		i_assert(reason != NULL || proxy->client->destroyed);
@@ -540,17 +548,22 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 			delay_ms = login_proxy_delay_disconnect(proxy);
 
 		if (delay_ms == 0)
-			e_info(proxy->event, "%s", reason);
+			e_info(e->event(), "%s", reason);
 		else {
-			e_info(proxy->event, "%s - disconnecting client in %ums",
+			e_info(e->add_int("delay_ms", delay_ms)->event(),
+			       "%s - disconnecting client in %ums",
 			       reason, delay_ms);
 		}
-
 		i_assert(detached_login_proxies_count > 0);
 		detached_login_proxies_count--;
 	} else {
 		i_assert(proxy->client_input == NULL);
 		i_assert(proxy->client_output == NULL);
+		if (reason != NULL)
+			e_debug(e->event(), "%s", reason);
+		else
+			e_debug(e->event(), "Failed to connect to %s",
+				login_proxy_get_ip_str(proxy));
 
 		DLLIST_REMOVE(&login_proxies_pending, proxy);
 	}
@@ -579,6 +592,7 @@ bool login_proxy_failed(struct login_proxy *proxy, struct event *event,
 {
 	const char *log_prefix;
 	bool try_reconnect = TRUE;
+	event_add_str(event, "error", reason);
 
 	switch (type) {
 	case LOGIN_PROXY_FAILURE_TYPE_INTERNAL:
