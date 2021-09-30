@@ -463,7 +463,7 @@ static void test_connection_refused(void)
 			       test_server_connection_refused, 1, NULL);
 	test_end();
 
-	http_client_set.max_connect_attempts = 4;
+	http_client_set.max_connect_attempts = 3;
 
 	test_begin("connection refused backoff");
 	test_subprocess_notify_signal_reset(SIGUSR1);
@@ -564,7 +564,7 @@ static void test_connection_lost_prematurely(void)
 	struct http_client_settings http_client_set;
 
 	test_client_defaults(&http_client_set);
-	http_client_set.max_connect_attempts = 4;
+	http_client_set.max_connect_attempts = 3;
 	http_client_set.max_attempts = 3;
 
 	test_begin("connection lost prematurely");
