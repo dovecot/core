@@ -174,12 +174,15 @@ stats_metric_settings_dup(pool_t pool, const struct stats_metric_settings *src)
 }
 
 static struct metric *
-stats_metrics_find(struct stats_metrics *metrics, const char *name)
+stats_metrics_find(struct stats_metrics *metrics,
+		   const char *name, unsigned int *idx_r)
 {
-	struct metric *m;
-	array_foreach_elem(&metrics->metrics, m) {
-		if (strcmp(m->name, name) == 0)
-			return m;
+	struct metric *const *m;
+	array_foreach(&metrics->metrics, m) {
+		if (strcmp((*m)->name, name) == 0) {
+			*idx_r = array_foreach_idx(&metrics->metrics, m);
+			return *m;
+		}
 	}
 	return NULL;
 }
@@ -188,7 +191,8 @@ bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
 			       struct stats_metric_settings *set,
 			       const char **error_r)
 {
-	if (stats_metrics_find(metrics, set->metric_name) != NULL) {
+	unsigned int existing_idx ATTR_UNUSED;
+	if (stats_metrics_find(metrics, set->metric_name, &existing_idx) != NULL) {
 		*error_r = "Metric already exists";
 		return FALSE;
 	}
@@ -204,9 +208,12 @@ bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
 bool stats_metrics_remove_dynamic(struct stats_metrics *metrics,
 				  const char *name)
 {
-	struct metric *m = stats_metrics_find(metrics, name);
-	if (m != NULL)
+	unsigned int m_idx;
+	struct metric *m = stats_metrics_find(metrics, name, &m_idx);
+	if (m != NULL) {
+		array_delete(&metrics->metrics, m_idx, 1);
 		return event_filter_remove_queries_with_context(metrics->filter, m);
+	}
 	return FALSE;
 }
 
