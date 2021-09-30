@@ -104,6 +104,7 @@ void login_proxy_append_success_log_info(struct login_proxy *proxy,
 struct event *login_proxy_get_event(struct login_proxy *proxy);
 const char *login_proxy_get_source_host(const struct login_proxy *proxy) ATTR_PURE;
 const char *login_proxy_get_host(const struct login_proxy *proxy) ATTR_PURE;
+const char *login_proxy_get_ip_str(const struct login_proxy *proxy) ATTR_PURE;
 in_port_t login_proxy_get_port(const struct login_proxy *proxy) ATTR_PURE;
 enum login_proxy_ssl_flags
 login_proxy_get_ssl_flags(const struct login_proxy *proxy) ATTR_PURE;

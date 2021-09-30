@@ -655,6 +655,11 @@ const char *login_proxy_get_host(const struct login_proxy *proxy)
 	return proxy->host;
 }
 
+const char *login_proxy_get_ip_str(const struct login_proxy *proxy)
+{
+	return net_ip2addr(&proxy->ip);
+}
+
 in_port_t login_proxy_get_port(const struct login_proxy *proxy)
 {
 	return proxy->port;
