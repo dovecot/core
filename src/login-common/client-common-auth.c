@@ -296,8 +296,13 @@ void client_proxy_finish_destroy_client(struct client *client)
 
 	/* Include hostname in the log message in case it's different from the
 	   IP address in the prefix. */
-	str_printfa(str, "Started proxying to %s",
-		    login_proxy_get_host(client->login_proxy));
+	const char *ip_str = login_proxy_get_ip_str(client->login_proxy);
+	const char *host = login_proxy_get_host(client->login_proxy);
+	str_printfa(str, "Started proxying to <%s>",
+		    login_proxy_get_ip_str(client->login_proxy));
+	if (strcmp(ip_str, host) != 0)
+		str_printfa(str, " (<%s>)", host);
+
 	client_proxy_append_conn_info(str, client);
 
 	login_proxy_append_success_log_info(client->login_proxy, str);
