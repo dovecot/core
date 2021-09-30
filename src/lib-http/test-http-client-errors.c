@@ -457,6 +457,7 @@ static void test_connection_refused(void)
 	test_client_defaults(&http_client_set);
 
 	test_begin("connection refused");
+	test_subprocess_notify_signal_reset(SIGUSR1);
 	test_run_client_server(&http_client_set,
 			       test_client_connection_refused,
 			       test_server_connection_refused, 1, NULL);
@@ -465,6 +466,7 @@ static void test_connection_refused(void)
 	http_client_set.max_connect_attempts = 4;
 
 	test_begin("connection refused backoff");
+	test_subprocess_notify_signal_reset(SIGUSR1);
 	test_run_client_server(&http_client_set,
 			       test_client_connection_refused,
 			       test_server_connection_refused, 1, NULL);
