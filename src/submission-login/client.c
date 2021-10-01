@@ -93,7 +93,7 @@ static void submission_client_create(struct client *client,
 				     void **other_sets)
 {
 	static const char *const xclient_extensions[] =
-		{ "SESSION", "FORWARD", NULL };
+		{ "FORWARD", NULL };
 	struct submission_client *subm_client =
 		container_of(client, struct submission_client, common);
 	struct smtp_server_settings smtp_set;
@@ -181,6 +181,10 @@ client_connection_cmd_xclient(void *context,
 		client->common.remote_port = data->source_port;
 	if (data->ttl_plus_1 > 0)
 		client->common.proxy_ttl = data->ttl_plus_1 - 1;
+	if (data->session != NULL) {
+		client->common.session_id =
+			p_strdup(client->common.pool, data->session);
+	}
 
 	for (i = 0; i < data->extra_fields_count; i++) {
 		const char *name = data->extra_fields[i].name;
@@ -200,11 +204,6 @@ client_connection_cmd_xclient(void *context,
 						"Invalid FORWARD parameter");
 				}
 			}
-		} else if (strcasecmp(name, "SESSION") == 0) {
-			if (client->common.session_id != NULL)
-				continue;
-			client->common.session_id =
-				p_strdup(client->common.pool, value);
 		}
 	}
 }
