@@ -625,6 +625,13 @@ void smtp_client_connection_send_xclient(struct smtp_client_connection *conn)
 						   "LOGIN", xclient->login);
 	}
 
+	/* SESSION */
+	if (xclient->session != NULL &&
+	    str_array_icase_find(xclient_args, "SESSION")) {
+		smtp_client_connection_xclient_add(conn, str, offset,
+						   "SESSION", xclient->session);
+	}
+
 	/* TTL */
 	if (xclient->ttl_plus_1 > 0 &&
 	    str_array_icase_find(xclient_args, "TTL")) {
