@@ -614,7 +614,8 @@ int mailbox_list_index_refresh(struct mailbox_list *list)
 
 	if (ilist->syncing)
 		return 0;
-	if (ilist->last_refresh_timeval.tv_usec == ioloop_timeval.tv_usec &&
+	if (ilist->opened &&
+	    ilist->last_refresh_timeval.tv_usec == ioloop_timeval.tv_usec &&
 	    ilist->last_refresh_timeval.tv_sec == ioloop_timeval.tv_sec) {
 		/* we haven't been to ioloop since last refresh, skip checking
 		   it. when we're accessing many mailboxes at once (e.g.
