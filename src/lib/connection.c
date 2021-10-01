@@ -383,7 +383,7 @@ void connection_update_event(struct connection *conn)
 		event_add_int(conn->event, "remote_uid", conn->remote_uid);
 }
 
-static void connection_update_properties(struct connection *conn)
+void connection_update_properties(struct connection *conn)
 {
 	int fd = (conn->fd_in < 0 ? conn->fd_out : conn->fd_in);
 	struct net_unix_cred cred;

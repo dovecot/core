@@ -216,6 +216,9 @@ void connection_input_resume(struct connection *conn);
 /* Update event fields and log prefix based on connection properties. */
 void connection_update_event(struct connection *conn);
 
+/* Update connection properties and labels */
+void connection_update_properties(struct connection *conn);
+
 /* This needs to be called if the input/output streams are changed */
 void connection_streams_changed(struct connection *conn);
 
