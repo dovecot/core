@@ -2172,6 +2172,7 @@ static void prepare_finish_statement(struct cassandra_sql_statement *stmt)
 			stmt->result->error = i_strdup(stmt->prep->error);
 			result_finish(stmt->result);
 		}
+		pool_unref(&stmt->stmt.pool);
 		return;
 	}
 	stmt->cass_stmt = cass_prepared_bind(stmt->prep->prepared);
