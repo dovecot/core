@@ -520,7 +520,8 @@ void hash_table_copy(struct hash_table *dest, struct hash_table *src)
 }
 
 /* a char* hash function from ASU -- from glib */
-unsigned int str_hash(const char *p)
+unsigned int ATTR_NO_SANITIZE_INTEGER
+str_hash(const char *p)
 {
         const unsigned char *s = (const unsigned char *)p;
 	unsigned int g, h = 0;
