@@ -257,6 +257,12 @@ static void connection_update_property_label(struct connection *conn)
 					conn->remote_port);
 	}
 
+	i_assert(label != NULL || conn->property_label == NULL);
+	if (conn->property_label != NULL &&
+	    strcmp(conn->property_label, label) != 0) {
+		e_debug(conn->event, "Updated peer address to %s", label);
+	}
+
 	i_free(conn->property_label);
 	conn->property_label = i_strdup(label);
 }
