@@ -303,12 +303,8 @@ int lmtp_local_rcpt(struct client *client, struct smtp_server_cmd_ctx *cmd,
 	/* Use a unique session_id for each mail delivery. This is especially
 	   important for stats process to not see duplicate sessions. */
 	client->state.session_id_seq++;
-	if (client->state.session_id_seq == 1)
-		session_id = trans->id;
-	else {
-		session_id = t_strdup_printf("%s:%u",
-			trans->id, client->state.session_id_seq);
-	}
+	session_id = t_strdup_printf("%s:%u",
+				     trans->id, client->state.session_id_seq);
 
 	i_zero(&input);
 	input.module = input.service = "lmtp";
