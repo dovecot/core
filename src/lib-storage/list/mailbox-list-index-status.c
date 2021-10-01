@@ -633,7 +633,10 @@ static int index_list_update_mailbox(struct mailbox *box)
 
 	/* refresh the mailbox list index once. we can't do this again after
 	   locking, because it could trigger list syncing. */
-	(void)mailbox_list_index_refresh(box->list);
+	if (mailbox_list_index_refresh(box->list) < 0) {
+		mailbox_list_index_refresh_later(box->list);
+		return 0;
+	}
 
 	/* first do a quick check while unlocked to see if anything changes */
 	list_view = mail_index_view_open(ilist->index);
