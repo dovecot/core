@@ -4,6 +4,8 @@
 #include "llist.h"
 #include "array.h"
 #include "str.h"
+#include "guid.h"
+#include "base64.h"
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
@@ -781,6 +783,30 @@ smtp_server_connection_event_create(struct smtp_server *server,
 	return conn_event;
 }
 
+static void
+smtp_server_connection_update_event(struct smtp_server_connection *conn)
+{
+	event_add_str(conn->event, "connection_id", conn->session_id);
+	event_add_str(conn->event, "session", conn->session_id);
+}
+
+static void
+smtp_server_connection_init_session(struct smtp_server_connection *conn)
+{
+	guid_128_t guid;
+	string_t *session_id;
+
+	session_id = t_str_new(30);
+	guid_128_generate(guid);
+	base64_encode(guid, sizeof(guid), session_id);
+
+	/* drop trailing "==" */
+	i_assert(str_c(session_id)[str_len(session_id)-2] == '=');
+	str_truncate(session_id, str_len(session_id)-2);
+
+	conn->session_id = i_strdup(str_c(session_id));
+}
+
 static struct smtp_server_connection * ATTR_NULL(5, 6)
 smtp_server_connection_alloc(struct smtp_server *server,
 			     const struct smtp_server_settings *set,
@@ -933,6 +959,8 @@ smtp_server_connection_alloc(struct smtp_server *server,
 			set->socket_recv_buffer_size);
 	}
 
+	smtp_server_connection_init_session(conn);
+
 	return conn;
 }
 
@@ -953,6 +981,7 @@ smtp_server_connection_create(
 	connection_init_server_ip(server->conn_list, &conn->conn, NULL,
 				  fd_in, fd_out, remote_ip, remote_port);
 	conn->event = conn->conn.event;
+	smtp_server_connection_update_event(conn);
 	event_unref(&conn_event);
 
 	conn->ssl_start = ssl_start;
@@ -996,6 +1025,7 @@ smtp_server_connection_create_from_streams(
 				     input, output);
 	conn->created_from_streams = TRUE;
 	conn->event = conn->conn.event;
+	smtp_server_connection_update_event(conn);
 	event_unref(&conn_event);
 
 	/* Halt input until started */
@@ -1120,6 +1150,7 @@ bool smtp_server_connection_unref(struct smtp_server_connection **_conn)
 	i_free(conn->proxy_helo);
 	i_free(conn->helo_domain);
 	i_free(conn->username);
+	i_free(conn->session_id);
 	event_unref(&conn->next_trans_event);
 	pool_unref(&conn->pool);
 	return FALSE;
@@ -1524,6 +1555,7 @@ void smtp_server_connection_get_proxy_data(struct smtp_server_connection *conn,
 	else if (conn->helo.domain_valid)
 		proxy_data->helo = conn->helo.domain;
 	proxy_data->login = conn->username;
+	proxy_data->session = conn->session_id;
 
 	if (conn->proxy_proto != SMTP_PROXY_PROTOCOL_UNKNOWN)
 		proxy_data->proto = conn->proxy_proto;
@@ -1562,11 +1594,21 @@ void smtp_server_connection_set_proxy_data(
 	}
 	if (proxy_data->proto != SMTP_PROXY_PROTOCOL_UNKNOWN)
 		conn->proxy_proto = proxy_data->proto;
+	if (proxy_data->session != NULL &&
+	    strcmp(proxy_data->session, conn->session_id) != 0) {
+		e_debug(conn->event, "Updated session ID from %s to %s",
+		        conn->session_id, proxy_data->session);
+		i_free(conn->session_id);
+		conn->session_id = i_strdup(proxy_data->session);
+	}
 
 	if (proxy_data->ttl_plus_1 > 0)
 		conn->proxy_ttl_plus_1 = proxy_data->ttl_plus_1;
 	if (conn->proxy_timeout_secs > 0)
 		conn->proxy_timeout_secs = proxy_data->timeout_secs;
+
+	connection_update_properties(&conn->conn);
+	smtp_server_connection_update_event(conn);
 
 	if (conn->callbacks != NULL &&
 	    conn->callbacks->conn_proxy_data_updated != NULL) {

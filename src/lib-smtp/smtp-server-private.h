@@ -163,6 +163,8 @@ struct smtp_server_connection {
 	struct smtp_server_helo_data helo, *pending_helo;
 	char *helo_domain, *username;
 
+	char *session_id;
+
 	struct timeout *to_idle;
 	struct istream *raw_input;
 	struct ostream *raw_output;
