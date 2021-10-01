@@ -498,12 +498,12 @@ static int virtual_mailbox_open(struct mailbox *box)
 		ret = virtual_mailboxes_open(mbox, box->flags);
 		array_pop_back(&mbox->storage->open_stack);
 	}
+	if (ret == 0)
+		ret = index_storage_mailbox_open(box, FALSE);
 	if (ret < 0) {
 		virtual_mailbox_close_internal(mbox);
 		return -1;
 	}
-	if (index_storage_mailbox_open(box, FALSE) < 0)
-		return -1;
 
 	mbox->virtual_ext_id =
 		mail_index_ext_register(mbox->box.index, "virtual", 0,
