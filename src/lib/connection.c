@@ -232,8 +232,7 @@ void connection_input_resume(struct connection *conn)
 	connection_input_resume_full(conn, TRUE);
 }
 
-static void
-connection_update_property_label(struct connection *conn)
+static void connection_update_property_label(struct connection *conn)
 {
 	const char *label;
 
@@ -262,8 +261,7 @@ connection_update_property_label(struct connection *conn)
 	conn->property_label = i_strdup(label);
 }
 
-static void
-connection_update_label(struct connection *conn)
+static void connection_update_label(struct connection *conn)
 {
 	bool unix_socket = conn->unix_socket ||
 		(conn->remote_ip.family == 0 && conn->remote_uid != (uid_t)-1);
@@ -385,8 +383,7 @@ void connection_update_event(struct connection *conn)
 		event_add_int(conn->event, "remote_uid", conn->remote_uid);
 }
 
-static void
-connection_update_properties(struct connection *conn)
+static void connection_update_properties(struct connection *conn)
 {
 	int fd = (conn->fd_in < 0 ? conn->fd_out : conn->fd_in);
 	struct net_unix_cred cred;
