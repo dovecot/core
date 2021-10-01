@@ -164,6 +164,7 @@ struct smtp_server_connection {
 	char *helo_domain, *username;
 
 	char *session_id;
+	unsigned int transaction_seq;
 
 	struct timeout *to_idle;
 	struct istream *raw_input;
