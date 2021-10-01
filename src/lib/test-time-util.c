@@ -393,6 +393,38 @@ static void test_str_to_timeval(void)
 	test_end();
 }
 
+static void test_timeval_from_usecs(void)
+{
+	test_begin("timeval_from_usecs");
+	struct timeval tv0, tv1;
+
+	i_zero(&tv1);
+	timeval_from_usecs(&tv0, 0);
+	test_assert(timeval_cmp(&tv0, &tv1) == 0);
+
+	tv1.tv_sec = 1;
+	tv1.tv_usec = 0;
+	timeval_from_usecs(&tv0, 1000000);
+	test_assert(timeval_cmp(&tv0, &tv1) == 0);
+
+	tv1.tv_sec = 1;
+	tv1.tv_usec = 1;
+	timeval_from_usecs(&tv0, 1000001);
+	test_assert(timeval_cmp(&tv0, &tv1) == 0);
+
+	tv1.tv_sec = 1;
+	tv1.tv_usec = 999999;
+	timeval_from_usecs(&tv0, 1999999);
+	test_assert(timeval_cmp(&tv0, &tv1) == 0);
+
+	tv1.tv_sec = 0;
+	tv1.tv_usec = 999999;
+	timeval_from_usecs(&tv0, 999999);
+	test_assert(timeval_cmp(&tv0, &tv1) == 0);
+
+	test_end();
+}
+
 void test_time_util(void)
 {
 	test_timeval_cmp();
@@ -403,4 +435,5 @@ void test_time_util(void)
 	test_strftime_fixed();
 	test_micro_nanoseconds();
 	test_str_to_timeval();
+	test_timeval_from_usecs();
 }

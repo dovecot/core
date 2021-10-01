@@ -24,6 +24,14 @@ long long timeval_diff_usecs(const struct timeval *tv1,
 			     const struct timeval *tv2);
 
 static inline void
+timeval_from_usecs(struct timeval *tv_r, unsigned long long usecs)
+{
+	i_assert(usecs != ULLONG_MAX);
+	tv_r->tv_sec = usecs / 1000000;
+	tv_r->tv_usec = usecs % 1000000;
+}
+
+static inline void
 timeval_add_usecs(struct timeval *tv, long long usecs)
 {
 	i_assert(usecs >= 0);
