@@ -88,6 +88,8 @@ struct smtp_proxy_data {
 	in_port_t source_port;
 	/* HELO, LOGIN */
 	const char *helo, *login;
+	/* SESSION */
+	const char *session;
 
 	/* TTL: send as this -1, so the default 0 means "don't send it" */
 	unsigned int ttl_plus_1;
