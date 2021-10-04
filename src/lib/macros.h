@@ -239,8 +239,6 @@ static inline const char *container_of_ptr(const void *ptr, size_t offset)
 		__func__,					\
 		#expr);			}STMT_END
 
-#endif
-
 #define i_unreached() \
 	i_panic("file %s: line %d: unreached", __FILE__, __LINE__)
 
@@ -312,4 +310,6 @@ static inline const char *container_of_ptr(const void *ptr, size_t offset)
 /* clang scan-build keeps complaining about x > 2147483647 case, so disable the
    sizeof check. */
 #  define ENUM_NEGATE(x) ((unsigned int)(~(x)))
+#endif
+
 #endif
