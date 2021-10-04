@@ -57,12 +57,13 @@ struct mail_save_context *
 sdbox_save_alloc(struct mailbox_transaction_context *t)
 {
 	struct sdbox_mailbox *mbox = SDBOX_MAILBOX(t->box);
-	struct sdbox_save_context *ctx = SDBOX_SAVECTX(t->save_ctx);
+	struct sdbox_save_context *ctx;
 
 	i_assert((t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
-	if (ctx != NULL) {
+	if (t->save_ctx != NULL) {
 		/* use the existing allocated structure */
+		ctx = SDBOX_SAVECTX(t->save_ctx);
 		ctx->cur_file = NULL;
 		ctx->ctx.failed = FALSE;
 		ctx->ctx.finished = FALSE;
