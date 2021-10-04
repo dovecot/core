@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "llist.h"
+#include "memarea.h"
 #include "istream-private.h"
 #include "istream-chain.h"
 
@@ -153,6 +154,9 @@ static void i_stream_chain_read_next(struct chain_istream *cstream)
 	}
 
 	if (data_size > 0) {
+		if (cstream->istream.memarea != NULL &&
+		    memarea_get_refcount(cstream->istream.memarea) > 1)
+			i_stream_memarea_detach(&cstream->istream);
 		memcpy(i_stream_alloc(&cstream->istream, data_size),
 		       data, data_size);
 		cstream->istream.pos += data_size;
@@ -319,6 +323,5 @@ struct istream *i_stream_create_chain(struct istream_chain **chain_r)
 	cstream->istream.istream.seekable = FALSE;
 
 	*chain_r = &cstream->chain;
-	return i_stream_create(&cstream->istream, NULL, -1,
-			       ISTREAM_CREATE_FLAG_NOOP_SNAPSHOT);
+	return i_stream_create(&cstream->istream, NULL, -1, 0);
 }

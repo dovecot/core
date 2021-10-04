@@ -112,7 +112,17 @@ static void test_istream_chain_accumulate(void)
 
 	/* second stream */
 	i_stream_chain_append(chain, test_input2);
+	test_istream_set_size(test_input2, 0);
+	test_assert(i_stream_read_data(input, &data, &size, 10) == 0);
+	test_assert(size == 8);
+	test_istream_set_size(test_input2, 10);
 	test_assert(i_stream_read_data(input, &data, &size, 10) == 1);
+	test_assert(size == 18);
+	test_istream_set_allow_eof(test_input2, FALSE);
+	test_assert(i_stream_read(input) == 0);
+	test_istream_set_size(test_input2, 25);
+	test_istream_set_allow_eof(test_input2, TRUE);
+	test_assert(i_stream_read_data(input, &data, &size, 30) == 1);
 	test_assert(size == 33);
 	test_assert(memcmp(data, "mnopqrst"
 		"ABCDEFGHIJKLMNOPQRSTUVWXY", 33) == 0);
@@ -122,10 +132,14 @@ static void test_istream_chain_accumulate(void)
 
 	/* third stream */
 	i_stream_chain_append(chain, test_input3);
+	test_istream_set_size(test_input3, 0);
+	test_assert(i_stream_read(input) == 0);
+	test_istream_set_size(test_input3, 30);
 	test_assert(i_stream_read_data(input, &data, &size, 25) == 1);
 	test_assert(size == 51);
 	test_assert(memcmp(data, "EFGHIJKLMNOPQRSTUVWXY"
 		"!\"#$%&'()*+,-./01234567890:;<=", 51) == 0);
+	test_assert(i_stream_read(input) == 0);
 
 	/* partially skip */
 	i_stream_skip(input, 12);
