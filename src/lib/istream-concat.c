@@ -169,7 +169,10 @@ static ssize_t i_stream_concat_read(struct istream_private *stream)
 	else {
 		/* need to read more - NOTE: Can't use i_stream_read_memarea()
 		   here, because our stream->buffer may point to the parent
-		   istream. */
+		   istream. Implementing explicit snapshot function to avoid
+		   this isn't easy for seekable concat-istreams, because due to
+		   seeking it's not necessarily the cur_input that needs to be
+		   snapshotted. */
 		i_assert(cur_data_pos == data_size);
 		ret = i_stream_read(cstream->cur_input);
 		if (ret == -2 || ret == 0)
