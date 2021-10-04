@@ -184,10 +184,9 @@ buffer_t *buffer_create_dynamic_max(pool_t pool, size_t init_size,
 
 void buffer_free(buffer_t **_buf)
 {
-	struct real_buffer *buf = container_of(*_buf, struct real_buffer, buf);
-
-	if (buf == NULL)
+	if (*_buf == NULL)
 		return;
+	struct real_buffer *buf = container_of(*_buf, struct real_buffer, buf);
 
 	*_buf = NULL;
 	if (buf->alloced)
