@@ -90,9 +90,13 @@ int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_recipient *rcpt)
 {
 	struct client *client = (struct client *)conn_ctx;
+	struct smtp_server_transaction *trans;
 	struct lmtp_recipient *lrcpt;
 
-	lrcpt = lmtp_recipient_create(client, rcpt);
+	trans = smtp_server_connection_get_transaction(rcpt->conn);
+	i_assert(trans != NULL); /* MAIL command is synchronous */
+
+	lrcpt = lmtp_recipient_create(client, trans, rcpt);
 
 	if (cmd_rcpt_handle_forward_fields(cmd, lrcpt) < 0)
 		return -1;

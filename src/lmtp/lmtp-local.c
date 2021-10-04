@@ -27,7 +27,6 @@
 
 struct lmtp_local_recipient {
 	struct lmtp_recipient *rcpt;
-	char *session_id;
 
 	char *detail;
 
@@ -284,27 +283,17 @@ lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
 	}
 }
 
-int lmtp_local_rcpt(struct client *client, struct smtp_server_cmd_ctx *cmd,
+int lmtp_local_rcpt(struct client *client,
+		    struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 		    struct lmtp_recipient *lrcpt, const char *username,
 		    const char *detail)
 {
-	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
-	struct smtp_server_transaction *trans;
 	struct lmtp_local_recipient *llrcpt;
 	struct mail_storage_service_input input;
 	struct mail_storage_service_user *service_user;
-	const char *session_id, *error = NULL;
+	const char *error = NULL;
 	int ret = 0;
-
-	trans = smtp_server_connection_get_transaction(conn);
-	i_assert(trans != NULL); /* MAIL command is synchronous */
-
-	/* Use a unique session_id for each mail delivery. This is especially
-	   important for stats process to not see duplicate sessions. */
-	client->state.session_id_seq++;
-	session_id = t_strdup_printf("%s:%u",
-				     trans->id, client->state.session_id_seq);
 
 	i_zero(&input);
 	input.module = input.service = "lmtp";
@@ -313,14 +302,12 @@ int lmtp_local_rcpt(struct client *client, struct smtp_server_cmd_ctx *cmd,
 	input.remote_ip = client->remote_ip;
 	input.local_port = client->local_port;
 	input.remote_port = client->remote_port;
-	input.session_id = session_id;
+	input.session_id = lrcpt->session_id;
 	input.conn_ssl_secured =
 		smtp_server_connection_is_ssl_secured(client->conn);
 	input.conn_secured = input.conn_ssl_secured ||
 		smtp_server_connection_is_trusted(client->conn);
 	input.forward_fields = lrcpt->forward_fields;
-
-	event_add_str(rcpt->event, "session", session_id);
 	input.event_parent = rcpt->event;
 
 	ret = mail_storage_service_lookup(storage_service, &input,
@@ -346,7 +333,6 @@ int lmtp_local_rcpt(struct client *client, struct smtp_server_cmd_ctx *cmd,
 	llrcpt->rcpt = lrcpt;
 	llrcpt->detail = p_strdup(rcpt->pool, detail);
 	llrcpt->service_user = service_user;
-	llrcpt->session_id = p_strdup(rcpt->pool, session_id);
 
 	lrcpt->type = LMTP_RECIPIENT_TYPE_LOCAL;
 	lrcpt->backend_context = llrcpt;
@@ -463,7 +449,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 	}
 
 	i_zero(&lldctx);
-	lldctx.session_id = llrcpt->session_id;
+	lldctx.session_id = lrcpt->session_id;
 	lldctx.src_mail = src_mail;
 	lldctx.session = session;
 

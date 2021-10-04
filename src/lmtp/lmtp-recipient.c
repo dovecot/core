@@ -1,6 +1,6 @@
 /* Copyright (c) 2018 Dovecot authors, see the included COPYING file */
 
-#include "lib.h"
+#include "lmtp-common.h"
 #include "array.h"
 #include "smtp-server.h"
 #include "lmtp-recipient.h"
@@ -10,6 +10,7 @@ lmtp_recipient_module_register = { 0 };
 
 struct lmtp_recipient *
 lmtp_recipient_create(struct client *client,
+		      struct smtp_server_transaction *trans,
 		      struct smtp_server_recipient *rcpt)
 {
 	struct lmtp_recipient *lrcpt;
@@ -21,6 +22,14 @@ lmtp_recipient_create(struct client *client,
 	rcpt->context = lrcpt;
 
 	p_array_init(&lrcpt->module_contexts, rcpt->pool, 5);
+
+	/* Use a unique session_id for each mail delivery. This is especially
+	   important for stats process to not see duplicate sessions. */
+	client->state.session_id_seq++;
+	lrcpt->session_id = p_strdup_printf(rcpt->pool, "%s:%u", trans->id,
+					    client->state.session_id_seq);
+
+	event_add_str(rcpt->event, "session", lrcpt->session_id);
 
 	return lrcpt;
 }
