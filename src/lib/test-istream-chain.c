@@ -91,11 +91,11 @@ static void test_istream_chain_accumulate(void)
 
 	test_begin("istream chain accumulate");
 
-	test_input = test_istream_create("aaaaaaaaaaaaaaaaaaaa");
-	test_input2 = test_istream_create("bbbbbbbbbbbbbbbbbbbbbbbbb");
-	test_input3 = test_istream_create("cccccccccccccccccccccccccccccc");
-	test_input4 = test_istream_create("ddddddddddddddddddddddddd");
-	test_input5 = test_istream_create("eeeeeeeeeeeeeeeeeeee");
+	test_input = test_istream_create("abcdefghijklmnopqrst");
+	test_input2 = test_istream_create("ABCDEFGHIJKLMNOPQRSTUVWXY");
+	test_input3 = test_istream_create("!\"#$%&'()*+,-./01234567890:;<=");
+	test_input4 = test_istream_create("z1y2x3w4v5u6t7s8r9q0p.o,n");
+	test_input5 = test_istream_create("aAbBcCdDeEfFgGhHiIjJ");
 
 	input = i_stream_create_chain(&chain);
 	/* no input */
@@ -105,7 +105,7 @@ static void test_istream_chain_accumulate(void)
 	i_stream_chain_append(chain, test_input);
 	test_assert(i_stream_read_data(input, &data, &size, 0) == 1);
 	test_assert(size == 20);
-	test_assert(memcmp(data, "aaaaaaaaaaaaaaaaaaaa", 20) == 0);
+	test_assert(memcmp(data, "abcdefghijklmnopqrst", 20) == 0);
 
 	/* partially skip */
 	i_stream_skip(input, 12);
@@ -114,8 +114,8 @@ static void test_istream_chain_accumulate(void)
 	i_stream_chain_append(chain, test_input2);
 	test_assert(i_stream_read_data(input, &data, &size, 10) == 1);
 	test_assert(size == 33);
-	test_assert(memcmp(data, "aaaaaaaa"
-		"bbbbbbbbbbbbbbbbbbbbbbbbb", 33) == 0);
+	test_assert(memcmp(data, "mnopqrst"
+		"ABCDEFGHIJKLMNOPQRSTUVWXY", 33) == 0);
 
 	/* partially skip */
 	i_stream_skip(input, 12);
@@ -124,8 +124,8 @@ static void test_istream_chain_accumulate(void)
 	i_stream_chain_append(chain, test_input3);
 	test_assert(i_stream_read_data(input, &data, &size, 25) == 1);
 	test_assert(size == 51);
-	test_assert(memcmp(data, "bbbbbbbbbbbbbbbbbbbbb"
-		"cccccccccccccccccccccccccccccc", 51) == 0);
+	test_assert(memcmp(data, "EFGHIJKLMNOPQRSTUVWXY"
+		"!\"#$%&'()*+,-./01234567890:;<=", 51) == 0);
 
 	/* partially skip */
 	i_stream_skip(input, 12);
@@ -134,9 +134,9 @@ static void test_istream_chain_accumulate(void)
 	i_stream_chain_append(chain, test_input4);
 	test_assert(i_stream_read_data(input, &data, &size, 40) == 1);
 	test_assert(size == 64);
-	test_assert(memcmp(data, "bbbbbbbbb"
-		"cccccccccccccccccccccccccccccc"
-		"ddddddddddddddddddddddddd", 64) == 0);
+	test_assert(memcmp(data, "QRSTUVWXY"
+		"!\"#$%&'()*+,-./01234567890:;<="
+		"z1y2x3w4v5u6t7s8r9q0p.o,n", 64) == 0);
 
 	/* partially skip */
 	i_stream_skip(input, 6);
@@ -145,10 +145,10 @@ static void test_istream_chain_accumulate(void)
 	i_stream_chain_append(chain, test_input5);
 	test_assert(i_stream_read_data(input, &data, &size, 60) == 1);
 	test_assert(size == 78);
-	test_assert(memcmp(data, "bbb"
-		"cccccccccccccccccccccccccccccc"
-		"ddddddddddddddddddddddddd"
-		"eeeeeeeeeeeeeeeeeeee", 78) == 0);
+	test_assert(memcmp(data, "WXY"
+		"!\"#$%&'()*+,-./01234567890:;<="
+		"z1y2x3w4v5u6t7s8r9q0p.o,n"
+		"aAbBcCdDeEfFgGhHiIjJ", 78) == 0);
 
 	/* EOF */
 	i_stream_chain_append_eof(chain);
@@ -156,10 +156,10 @@ static void test_istream_chain_accumulate(void)
 	test_assert(input->eof && input->stream_errno == 0);
 	test_assert(i_stream_read_data(input, &data, &size, 78) == -1);
 	test_assert(size == 78);
-	test_assert(memcmp(data, "bbb"
-		"cccccccccccccccccccccccccccccc"
-		"ddddddddddddddddddddddddd"
-		"eeeeeeeeeeeeeeeeeeee", 78) == 0);
+	test_assert(memcmp(data, "WXY"
+		"!\"#$%&'()*+,-./01234567890:;<="
+		"z1y2x3w4v5u6t7s8r9q0p.o,n"
+		"aAbBcCdDeEfFgGhHiIjJ", 78) == 0);
 
 	/* skip rest */
 	i_stream_skip(input, 78);
