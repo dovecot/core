@@ -87,6 +87,7 @@ event_category_find_internal(const char *name);
 
 static struct event *last_passthrough_event(void)
 {
+	i_assert(event_last_passthrough != NULL);
 	return container_of(event_last_passthrough,
 			    struct event, event_passthrough);
 }
@@ -472,8 +473,10 @@ void event_unref(struct event **_event)
 
 	event_call_callbacks_noargs(event, EVENT_CALLBACK_TYPE_FREE);
 
-	if (last_passthrough_event() == event)
-		event_last_passthrough = NULL;
+	if (event_last_passthrough != NULL) {
+		if (last_passthrough_event() == event)
+			event_last_passthrough = NULL;
+	}
 	if (event->log_prefix_from_system_pool)
 		i_free(event->log_prefix);
 	i_free(event->sending_name);
