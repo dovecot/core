@@ -101,6 +101,10 @@ bool ATTR_NOWARN_UNUSED_RESULT
 i_stream_try_alloc_avoid_compress(struct istream_private *stream,
 				  size_t wanted_size, size_t *size_r);
 void *i_stream_alloc(struct istream_private *stream, size_t size);
+/* Detach istream from its current memarea. This unreferences the memarea and
+   resets the w_buffer to empty. This can be used to make sure i_stream_*alloc()
+   won't return a pointer to memory referenced to in a snapshot. */
+void i_stream_memarea_detach(struct istream_private *stream);
 /* Free memory allocated by i_stream_*alloc() */
 void i_stream_free_buffer(struct istream_private *stream);
 ssize_t i_stream_read_copy_from_parent(struct istream *istream);

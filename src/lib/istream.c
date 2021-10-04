@@ -956,6 +956,18 @@ void *i_stream_alloc(struct istream_private *stream, size_t size)
 	return stream->w_buffer + stream->pos;
 }
 
+void i_stream_memarea_detach(struct istream_private *stream)
+{
+	if (stream->memarea != NULL) {
+		/* Don't overwrite data in a snapshot. Allocate a new
+		   buffer instead. */
+		memarea_unref(&stream->memarea);
+		stream->buffer_size = 0;
+		stream->buffer = NULL;
+		stream->w_buffer = NULL;
+	}
+}
+
 bool i_stream_add_data(struct istream *_stream, const unsigned char *data,
 		       size_t size)
 {
