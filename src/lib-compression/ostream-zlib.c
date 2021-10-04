@@ -142,7 +142,7 @@ o_stream_zlib_send_chunk(struct zlib_ostream *zstream,
 
 	if (zstream->header_bytes_left > 0) {
 		if ((ret = o_stream_zlib_send_gz_header(zstream)) <= 0)
-			return -1;
+			return ret;
 	}
 
 	zs->next_in = (void *)data;
