@@ -718,7 +718,8 @@ lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
 		   struct lmtp_proxy_recipient *lprcpt)
 {
 	struct lmtp_proxy_connection *conn = lprcpt->conn;
-	struct smtp_server_recipient *rcpt = lprcpt->rcpt->rcpt;
+	struct lmtp_recipient *lrcpt = lprcpt->rcpt;
+	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
 	struct lmtp_proxy *proxy = conn->proxy;
 	struct smtp_server_transaction *trans = proxy->trans;
 	struct smtp_address *address = lprcpt->address;
@@ -748,7 +749,7 @@ lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
 		e_info(rcpt->event, "%s", str_c(msg));
 
 		/* Substitute our own success message */
-		smtp_reply_printf(&reply, 250, "%s Saved", trans->id);
+		smtp_reply_printf(&reply, 250, "%s Saved", lrcpt->session_id);
 		/* Do let the enhanced code through */
 		if (!smtp_reply_has_enhanced_code(proxy_reply))
 			reply.enhanced_code = SMTP_REPLY_ENH_CODE(2, 0, 0);
