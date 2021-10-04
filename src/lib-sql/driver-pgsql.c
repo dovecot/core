@@ -288,6 +288,7 @@ static void driver_pgsql_free(struct pgsql_db **_db)
 	event_unref(&db->api.event);
 	i_free(db->connect_string);
 	i_free(db->host);
+	i_free(db->error);
 	array_free(&db->api.module_contexts);
 	i_free(db);
 }
