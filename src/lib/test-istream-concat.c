@@ -44,6 +44,7 @@ static void test_istream_concat_one(unsigned int buffer_size)
 		for (j = 0; j < size; j++) {
 			test_assert((char)data[j] == input_string[(input->v_offset + j) % STREAM_BYTES]);
 		}
+		test_assert(i_stream_read(input) <= 0);
 	}
 	test_assert(i_stream_read(input) == -1);
 	i_stream_skip(input, i_stream_get_data_size(input));
@@ -161,6 +162,72 @@ static void test_istream_concat_early_end(void)
 	test_end();
 }
 
+static void test_istream_concat_snapshot(void)
+{
+	struct istream *input;
+	const unsigned char *data;
+	size_t size;
+
+	test_begin("istream concat snapshot");
+
+	struct istream *test_istreams[] = {
+		test_istream_create("abcdefghijklmnopqrst"),
+		test_istream_create("ABCDEFGHIJKLMNOPQRSTUVWXY"),
+		test_istream_create("!\"#$%&'()*+,-./01234567890:;<="),
+		NULL
+	};
+
+	input = i_stream_create_concat(test_istreams);
+	test_istream_set_size(test_istreams[0], 20);
+	test_istream_set_size(test_istreams[1], 0);
+	test_istream_set_size(test_istreams[2], 0);
+
+	/* first stream */
+	test_istream_set_allow_eof(test_istreams[0], FALSE);
+	test_assert(i_stream_read_data(input, &data, &size, 0) == 1);
+	test_assert(size == 20);
+	test_assert(memcmp(data, "abcdefghijklmnopqrst", 20) == 0);
+
+	/* partially skip */
+	i_stream_skip(input, 12);
+
+	/* second stream */
+	test_assert(i_stream_read_data(input, &data, &size, 10) == 0);
+	test_assert(size == 8);
+	test_istream_set_allow_eof(test_istreams[0], TRUE);
+	test_istream_set_size(test_istreams[0], 0);
+	test_assert(i_stream_read_data(input, &data, &size, 10) == 0);
+	test_assert(size == 8);
+	test_istream_set_size(test_istreams[1], 10);
+	test_assert(i_stream_read_data(input, &data, &size, 10) == 1);
+	test_assert(size == 18);
+	test_istream_set_allow_eof(test_istreams[1], FALSE);
+	test_assert(i_stream_read(input) == 0);
+	test_istream_set_size(test_istreams[1], 25);
+	test_istream_set_allow_eof(test_istreams[1], TRUE);
+	test_assert(i_stream_read_data(input, &data, &size, 30) == 1);
+	test_assert(size == 33);
+	test_assert(memcmp(data, "mnopqrst"
+		"ABCDEFGHIJKLMNOPQRSTUVWXY", 33) == 0);
+
+	/* partially skip */
+	i_stream_skip(input, 12);
+
+	/* third stream */
+	test_istream_set_size(test_istreams[2], 0);
+	test_assert(i_stream_read(input) == 0);
+	test_istream_set_size(test_istreams[2], 30);
+	test_assert(i_stream_read_data(input, &data, &size, 25) == 1);
+	test_assert(size == 51);
+	test_assert(memcmp(data, "EFGHIJKLMNOPQRSTUVWXY"
+		"!\"#$%&'()*+,-./01234567890:;<=", 51) == 0);
+
+	i_stream_unref(&input);
+	for (unsigned int i = 0; test_istreams[i] != NULL; i++)
+		i_stream_unref(&test_istreams[i]);
+	test_end();
+}
+
 void test_istream_concat(void)
 {
 	unsigned int i;
@@ -180,4 +247,5 @@ void test_istream_concat(void)
 
 	test_istream_concat_seek_end();
 	test_istream_concat_early_end();
+	test_istream_concat_snapshot();
 }
