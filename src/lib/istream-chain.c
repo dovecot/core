@@ -304,6 +304,39 @@ static void i_stream_chain_close(struct iostream_private *stream,
 	}
 }
 
+static struct istream_snapshot *
+i_stream_chain_snapshot(struct istream_private *stream,
+			struct istream_snapshot *prev_snapshot)
+{
+	if (stream->buffer == stream->w_buffer) {
+		/* Two or more istreams have been combined. Snapshot the
+		   w_buffer's contents that contains their data. */
+		i_assert(stream->memarea != NULL);
+		return i_stream_default_snapshot(stream, prev_snapshot);
+	}
+	/* Individual istreams are being read. Snapshot the istream directly. */
+	struct chain_istream *cstream =
+		container_of(stream, struct chain_istream, istream);
+	struct istream_chain_link *link = cstream->chain.head;
+	if (link == NULL || link->stream == NULL)
+		return prev_snapshot;
+
+	struct istream_private *_link_stream = link->stream->real_stream;
+	struct istream_snapshot *snapshot = i_new(struct istream_snapshot, 1);
+	snapshot->prev_snapshot =
+		_link_stream->snapshot(_link_stream, prev_snapshot);
+	if (snapshot->prev_snapshot == prev_snapshot) {
+		/* The link stream didn't implement snapshotting in any way.
+		   This could cause trouble if the link stream is freed while
+		   it's still referred to in this snapshot. Fix this by
+		   referencing the link istream. Normally avoid doing this,
+		   since the extra references can cause unexpected problems. */
+		snapshot->istream = link->stream;
+		i_stream_ref(snapshot->istream);
+	}
+	return snapshot;
+}
+
 struct istream *i_stream_create_chain(struct istream_chain **chain_r)
 {
 	struct chain_istream *cstream;
@@ -317,6 +350,7 @@ struct istream *i_stream_create_chain(struct istream_chain **chain_r)
 		i_stream_chain_set_max_buffer_size;
 
 	cstream->istream.read = i_stream_chain_read;
+	cstream->istream.snapshot = i_stream_chain_snapshot;
 
 	cstream->istream.istream.readable_fd = FALSE;
 	cstream->istream.istream.blocking = FALSE;

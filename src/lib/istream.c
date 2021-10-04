@@ -256,6 +256,7 @@ void i_stream_snapshot_free(struct istream_snapshot **_snapshot)
 	else {
 		if (snapshot->old_memarea != NULL)
 			memarea_unref(&snapshot->old_memarea);
+		i_stream_unref(&snapshot->istream);
 		i_free(snapshot);
 	}
 }

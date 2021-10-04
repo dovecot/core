@@ -73,6 +73,7 @@ struct istream_private {
 struct istream_snapshot {
 	struct istream_snapshot *prev_snapshot;
 	struct memarea *old_memarea;
+	struct istream *istream;
 	void (*free)(struct istream_snapshot *snapshot);
 };
 
