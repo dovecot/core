@@ -178,6 +178,11 @@ static void test_istream_concat_snapshot(void)
 	};
 
 	input = i_stream_create_concat(test_istreams);
+	for (unsigned int i = 0; test_istreams[i] != NULL; i++) {
+		struct istream *tmp_istream = test_istreams[i];
+		i_stream_unref(&tmp_istream);
+	}
+
 	test_istream_set_size(test_istreams[0], 20);
 	test_istream_set_size(test_istreams[1], 0);
 	test_istream_set_size(test_istreams[2], 0);
@@ -223,8 +228,6 @@ static void test_istream_concat_snapshot(void)
 		"!\"#$%&'()*+,-./01234567890:;<=", 51) == 0);
 
 	i_stream_unref(&input);
-	for (unsigned int i = 0; test_istreams[i] != NULL; i++)
-		i_stream_unref(&test_istreams[i]);
 	test_end();
 }
 
