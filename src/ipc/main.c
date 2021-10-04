@@ -40,6 +40,11 @@ static void ipc_die(void)
 int main(int argc, char *argv[])
 {
 	const enum master_service_flags service_flags =
+		/* This process likely won't need to send any stats. It's also
+		   problematic because it's chrooted to empty directory, so it
+		   can't reconnect to stats if it gets disconnected. So at
+		   least for now disable connecting to stats entirely. */
+		MASTER_SERVICE_FLAG_DONT_SEND_STATS |
 		MASTER_SERVICE_FLAG_UPDATE_PROCTITLE;
 	const char *error;
 
