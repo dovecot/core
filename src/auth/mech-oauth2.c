@@ -6,7 +6,7 @@
 #include "mech.h"
 #include "passdb.h"
 #include "oauth2.h"
-#include "json-parser.h"
+#include "json-ostream.h"
 #include <ctype.h>
 
 struct oauth2_auth_request {
@@ -79,17 +79,16 @@ static void oauth2_verify_callback(enum passdb_result result,
 		/* we could get new token after this */
 		if (request->mech_password != NULL)
 			request->mech_password = NULL;
+
 		string_t *error = t_str_new(64);
-		str_append_c(error, '{');
+		struct json_ostream *joutput =
+			json_ostream_create_str(error, 0);
+
+		json_ostream_ndescend_object(joutput, NULL);
 		for (unsigned int i = 0; error_fields[i] != NULL; i += 2) {
 			i_assert(error_fields[i+1] != NULL);
-			if (i > 0)
-				str_append_c(error, ',');
-			str_append_c(error, '"');
-			json_append_escaped(error, error_fields[i]);
-			str_append(error, "\":\"");
-			json_append_escaped(error, error_fields[i+1]);
-			str_append_c(error, '"');
+			json_ostream_nwrite_string(joutput, error_fields[i],
+						    error_fields[i+1]);
 		}
 		/* FIXME: HORRIBLE HACK - REMOVE ME!!!
 		   It is because the mech has not been implemented properly
@@ -99,13 +98,12 @@ static void oauth2_verify_callback(enum passdb_result result,
 		   validation result et al is handled here.
 		*/
 		if (oauth2_find_oidc_url(request, &oidc_url)) {
-			if (str_len(error) > 0)
-				str_append_c(error, ',');
-			str_printfa(error, "\"openid-configuration\":\"");
-			json_append_escaped(error, oidc_url);
-			str_append_c(error, '"');
+			json_ostream_nwrite_string(
+				joutput, "openid-configuration", oidc_url);
 		}
-		str_append_c(error, '}');
+		json_ostream_nascend_object(joutput);
+		json_ostream_nfinish_destroy(&joutput);
+
 		auth_request_fail_with_reply(request, str_data(error), str_len(error));
 		break;
 	}
