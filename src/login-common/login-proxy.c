@@ -345,6 +345,11 @@ static int login_proxy_connect(struct login_proxy *proxy)
 		/* trying to reconnect later */
 		return 0;
 	}
+
+	in_port_t source_port;
+	if (net_getsockname(proxy->server_fd, NULL, &source_port) == 0)
+		event_add_int(proxy->event, "source_port", source_port);
+
 	proxy->server_io = io_add(proxy->server_fd, IO_WRITE,
 				  proxy_wait_connect, proxy);
 	if (proxy->connect_timeout_msecs != 0) {
