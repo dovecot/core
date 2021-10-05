@@ -382,6 +382,15 @@ int login_proxy_new(struct client *client, struct event *event,
 						 proxy->port);
 	proxy->rawlog_dir = i_strdup_empty(set->rawlog_dir);
 
+	/* add event fields */
+	event_add_str(proxy->event, "source_ip",
+		      login_proxy_get_source_host(proxy));
+	event_add_str(proxy->event, "dest_ip", net_ip2addr(&proxy->ip));
+	event_add_int(proxy->event, "dest_port",
+		      login_proxy_get_port(proxy));
+	event_add_str(event, "dest_host", set->host);
+	event_add_str(event, "master_user", client->proxy_master_user);
+
 	client_ref(client);
 	event_ref(proxy->event);
 
