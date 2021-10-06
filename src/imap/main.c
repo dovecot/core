@@ -375,12 +375,15 @@ login_client_connected(const struct master_login_client *login_client,
 	if ((flags & MAIL_AUTH_REQUEST_FLAG_CONN_SSL_SECURED) != 0)
 		input.conn_ssl_secured = TRUE;
 
+	client_parse_imap_login_request(login_client->data,
+					login_client->auth_req.data_size,
+					&request);
+
 	if (client_create_from_input(&input, login_client->fd, login_client->fd,
 				     &client, &error) < 0) {
 		int fd = login_client->fd;
 		struct ostream *output =
 			o_stream_create_fd_autoclose(&fd, IO_BLOCK_SIZE);
-		i_zero(&request);
 		client_send_login_reply(output, NULL, NULL, &request);
 		o_stream_destroy(&output);
 
@@ -390,9 +393,6 @@ login_client_connected(const struct master_login_client *login_client,
 	}
 	if ((flags & MAIL_AUTH_REQUEST_FLAG_TLS_COMPRESSION) != 0)
 		client->tls_compression = TRUE;
-	client_parse_imap_login_request(login_client->data,
-					login_client->auth_req.data_size,
-					&request);
 	if (request.input_size > 0) {
 		client_add_istream_prefix(client, request.input,
 					  request.input_size);
