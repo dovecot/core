@@ -415,6 +415,8 @@ master_login_auth_callback(const char *const *auth_args, const char *errormsg,
 	struct master_auth_reply reply;
 	const char *postlogin_socket_path;
 
+	i_assert(errormsg != NULL || auth_args != NULL);
+	
 	i_zero(&reply);
 	reply.tag = client->auth_req.tag;
 	reply.status = errormsg == NULL ? MASTER_AUTH_STATUS_OK :
