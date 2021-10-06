@@ -5,6 +5,7 @@
 #include "client-common.h"
 #include "auth-client.h"
 #include "smtp-server.h"
+#include "smtp-dovecot.h"
 
 enum submission_proxy_state {
 	SUBMISSION_PROXY_BANNER = 0,
