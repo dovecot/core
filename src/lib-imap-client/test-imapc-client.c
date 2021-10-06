@@ -54,7 +54,7 @@ static struct imapc_client_settings test_imapc_default_settings = {
 	.temp_path_prefix = ".test-tmp/",
 	.rawlog_dir = "",
 
-	.connect_timeout_msecs = 500,
+	.connect_timeout_msecs = 5000,
 	.connect_retry_count = 3,
 	.connect_retry_interval_msecs = 10,
 
@@ -342,6 +342,7 @@ static void test_imapc_banner_hangs_server(void)
 static void test_imapc_banner_hangs(void)
 {
 	struct imapc_client_settings set = test_imapc_default_settings;
+	set.connect_timeout_msecs = 500;
 
 	test_begin("imapc banner hangs");
 	test_run_client_server(&set, test_imapc_banner_hangs_client,
@@ -389,6 +390,7 @@ static void test_imapc_login_hangs_server(void)
 static void test_imapc_login_hangs(void)
 {
 	struct imapc_client_settings set = test_imapc_default_settings;
+	set.connect_timeout_msecs = 500;
 
 	test_begin("imapc login hangs");
 	test_run_client_server(&set, test_imapc_login_hangs_client,
@@ -626,6 +628,7 @@ static void test_imapc_reconnect_resend_cmds_failed_server(void)
 static void test_imapc_reconnect_resend_commands_failed(void)
 {
 	struct imapc_client_settings set = test_imapc_default_settings;
+	set.connect_timeout_msecs = 500;
 
 	test_begin("imapc reconnect resend commands failed");
 	test_run_client_server(&set,
