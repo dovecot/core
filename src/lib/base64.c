@@ -38,6 +38,7 @@ uoff_t base64_get_full_encoded_size(struct base64_encoder *enc, uoff_t src_size)
 
 	if (out_size > enc->max_line_len) {
 		/* newline between each full line */
+		i_assert(enc->max_line_len > 0);
 		newlines = (out_size / enc->max_line_len) - 1;
 		/* an extra newline to separate the partial last line from the
 		   previous full line */
@@ -123,6 +124,7 @@ size_t base64_encode_get_size(struct base64_encoder *enc, size_t src_size)
 		size_t line_part, lines;
 
 		/* Calculate how many line endings must be added */
+		i_assert(enc->max_line_len > 0);
 		lines = out_size / enc->max_line_len;
 		line_part = out_size % enc->max_line_len;
 		if (enc->cur_line_len > (enc->max_line_len - line_part))
@@ -152,6 +154,7 @@ size_t base64_encode_get_full_space(struct base64_encoder *enc,
 
 		/* Calculate how many line endings must be added if all space
 		   were used. */
+		i_assert(enc->max_line_len < SIZE_MAX-2);
 		max_line_space = enc->max_line_len + (crlf ? 2 : 1);
 		lines = dst_space / max_line_space;
 
