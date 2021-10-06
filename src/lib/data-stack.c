@@ -714,7 +714,7 @@ size_t data_stack_get_alloc_size(void)
 	i_assert(current_block->next == NULL);
 
 	for (block = current_block; block != NULL; block = block->prev)
-		size += current_block->size;
+		size += block->size;
 	return size;
 }
 
@@ -726,7 +726,7 @@ size_t data_stack_get_used_size(void)
 	i_assert(current_block->next == NULL);
 
 	for (block = current_block; block != NULL; block = block->prev)
-		size += current_block->size - current_block->left;
+		size += block->size - block->left;
 	return size;
 }
 
