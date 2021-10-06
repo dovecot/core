@@ -438,6 +438,13 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 	} else if (strncasecmp(line, "* ID ", 5) == 0) {
 		/* Reply to ID command we sent, ignore it */
 		return 0;
+	} else if (str_begins(line, "* BYE ")) {
+		/* Login unexpectedly failed (due to some internal error).
+		   Don't forward the BYE to the client, since we're not going
+		   to disconnect it. It could be a possibility to convert these
+		   to NO replies, but they're likely not going to provide
+		   anything useful. */
+		return 0;
 	} else if (str_begins(line, "* ")) {
 		/* untagged reply. just forward it. */
 		client_send_raw(client, t_strconcat(line, "\r\n", NULL));
