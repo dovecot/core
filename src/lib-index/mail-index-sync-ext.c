@@ -17,7 +17,7 @@ void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 	void **contexts;
 	struct mail_index_expunge_handler eh;
 	unsigned int ext_count, id_map_count;
-	unsigned int rext_count, context_count;
+	unsigned int rext_count, context_count, count;
 	uint32_t idx_ext_id, map_ext_id;
 
 	if (!array_is_created(&ctx->view->map->extensions))
@@ -35,17 +35,17 @@ void mail_index_sync_init_expunge_handlers(struct mail_index_sync_map_ctx *ctx)
 	contexts = array_get_modifiable(&ctx->extra_contexts, &context_count);
 
 	i_assert(context_count >= rext_count);
-	for (idx_ext_id = 0; idx_ext_id < rext_count; idx_ext_id++) {
-		map_ext_id = idx_ext_id >= id_map_count ? (uint32_t)-1 :
-			id_map[idx_ext_id];
-		if (rext[idx_ext_id].expunge_handler == NULL ||
-		    (map_ext_id == (uint32_t)-1))
+	count = I_MIN(rext_count, id_map_count);
+	for (idx_ext_id = 0; idx_ext_id < count; idx_ext_id++) {
+		if (rext[idx_ext_id].expunge_handler == NULL)
+			continue;
+		map_ext_id = id_map[idx_ext_id];
+		if (map_ext_id == (uint32_t)-1)
 			continue;
 
 		eh.handler = rext[idx_ext_id].expunge_handler;
 		eh.sync_context = &contexts[idx_ext_id];
-		eh.record_offset = map_ext_id == (uint32_t)-1 ? 0 :
-			ext[map_ext_id].record_offset;
+		eh.record_offset = ext[map_ext_id].record_offset;
 		array_push_back(&ctx->expunge_handlers, &eh);
 	}
 	ctx->expunge_handlers_set = TRUE;
