@@ -290,7 +290,7 @@ static void test_settings_parser_get(void)
 		i_error("settings_parse_stream failed: %s",
 			settings_parser_get_error(ctx));
 	i_stream_unref(&is);
-	settings_parser_check(ctx, pool, NULL);
+	test_assert(settings_parser_check(ctx, pool, NULL));
 
 	/* check what we got */
 	struct test_settings *settings = settings_parser_get(ctx);
