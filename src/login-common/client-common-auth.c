@@ -508,13 +508,6 @@ static int proxy_start(struct client *client,
 		"proxy(%s,%s:%u): ", client->virtual_user,
 		net_ip2addr(&proxy_set.ip), proxy_set.port));
 
-	if (login_proxy_new(client, event, &proxy_set, proxy_input,
-			    client->v.proxy_failed) < 0) {
-		event_unref(&event);
-		return -1;
-	}
-	event_unref(&event);
-
 	client->proxy_mech = sasl_mech;
 	client->proxy_user = i_strdup(reply->destuser);
 	client->proxy_master_user = i_strdup(reply->master_user);
@@ -522,6 +515,13 @@ static int proxy_start(struct client *client,
 	client->proxy_noauth = reply->proxy_noauth;
 	client->proxy_nopipelining = reply->proxy_nopipelining;
 	client->proxy_not_trusted = reply->proxy_not_trusted;
+
+	if (login_proxy_new(client, event, &proxy_set, proxy_input,
+			    client->v.proxy_failed) < 0) {
+		event_unref(&event);
+		return -1;
+	}
+	event_unref(&event);
 
 	/* disable input until authentication is finished */
 	io_remove(&client->io);
