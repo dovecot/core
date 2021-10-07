@@ -983,3 +983,9 @@ void failures_deinit(void)
 	i_free_and_null(log_stamp_format);
 	i_free_and_null(log_stamp_format_suffix);
 }
+
+#undef i_unreached
+void i_unreached(const char *source_filename, int source_linenum)
+{
+	i_panic("file %s: line %d: unreached", source_filename, source_linenum);
+}

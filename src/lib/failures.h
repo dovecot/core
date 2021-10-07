@@ -63,6 +63,10 @@ void i_log_typev(const struct failure_context *ctx, const char *format,
 		 va_list args) ATTR_FORMAT(2, 0);
 
 void i_panic(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_NORETURN ATTR_COLD;
+void i_unreached(const char *source_filename, int source_linenum)
+	ATTR_NORETURN ATTR_COLD;
+#define i_unreached() \
+	i_unreached(__FILE__, __LINE__)
 void i_fatal(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_NORETURN ATTR_COLD;
 void i_error(const char *format, ...) ATTR_FORMAT(1, 2) ATTR_COLD;
 void i_warning(const char *format, ...) ATTR_FORMAT(1, 2);
