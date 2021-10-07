@@ -1261,10 +1261,13 @@ static void virtual_sync_backend_ext_header(struct virtual_sync_context *ctx,
 		array_count(&bbox->sync_pending_removes) > 0 ? 0 :
 		status.highest_modseq;
 
-	/* The caller already did this successfully, so we simply assert */
 	if (mailbox_get_metadata(bbox->box, MAILBOX_METADATA_GUID,
-				 &metadata) < 0)
-		i_unreached();
+				 &metadata) < 0) {
+		/* Either a temporary failure or the mailbox was already
+		   deleted. Either way, it doesn't really matter at this point.
+		   We'll just leave the error handling until the next sync. */
+		return;
+	}
 
 	if (virtual_bbox_mailbox_equals(bbox, &status, &metadata, &reason) &&
 	    bbox->ondisk_highest_modseq == wanted_ondisk_highest_modseq)
