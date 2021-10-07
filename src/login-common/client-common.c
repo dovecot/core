@@ -224,6 +224,7 @@ client_alloc(int fd, pool_t pool,
 	event_add_int(client->event, "local_port", conn->local_port);
 	event_add_str(client->event, "remote_ip", net_ip2addr(&conn->remote_ip));
 	event_add_int(client->event, "remote_port", conn->remote_port);
+	event_add_str(client->event, "service", login_binary->protocol);
 	event_set_log_message_callback(client->event, client_log_msg_callback,
 				       client);
 
