@@ -350,11 +350,12 @@ db_passwd_file_init(const char *path, bool userdb, bool debug)
 
 	if (percents && !db->vars) {
 		/* just extra escaped % chars. remove them. */
-		struct var_expand_table empty_table[1];
+		struct var_expand_table empty_table[1] = {
+			{ .key = '\0' },
+		};
 		string_t *dest;
 		const char *error;
 
-		empty_table[0].key = '\0';
 		dest = t_str_new(256);
 		if (var_expand(dest, path, empty_table, &error) <= 0)
 			i_unreached();
