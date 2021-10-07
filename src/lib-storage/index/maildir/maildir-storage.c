@@ -582,7 +582,8 @@ static void maildir_mailbox_close(struct mailbox *box)
 		mail_index_view_close(&mbox->flags_view);
 	if (mbox->keywords != NULL)
 		maildir_keywords_deinit(&mbox->keywords);
-	maildir_uidlist_deinit(&mbox->uidlist);
+	if (mbox->uidlist != NULL)
+		maildir_uidlist_deinit(&mbox->uidlist);
 	index_storage_mailbox_close(box);
 }
 
