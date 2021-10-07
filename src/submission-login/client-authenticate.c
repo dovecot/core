@@ -110,6 +110,16 @@ void submission_client_auth_result(struct client *client,
 		if (client->login_proxy != NULL)
 			subm_client->pending_auth = cmd;
 		break;
+	case CLIENT_AUTH_RESULT_REFERRAL_NOLOGIN: {
+		const struct smtp_proxy_redirect predir = {
+			.username = reply->proxy.username,
+			.host = reply->proxy.host,
+			.port = reply->proxy.port,
+		};
+		smtp_server_reply_redirect(cmd, login_binary->default_port,
+					   &predir);
+		break;
+	}
 	case CLIENT_AUTH_RESULT_TEMPFAIL:
 		/* RFC4954, Section 6:
 
