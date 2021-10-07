@@ -454,6 +454,12 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 			return -1; /* not a supported command */
 		}
 
+		if (i > size) {
+			i_error("haproxy(v2): Client disconnected: "
+				"Invalid header size (size=%zu, tlv offset=%zu)",
+				size, i);
+			return -1; /* not a supported command */
+		}
 		if (master_service_haproxy_parse_tlv(hpconn, rbuf+i, size-i, &error) < 0) {
 			i_error("haproxy(v2): Client disconnected: "
 				"Invalid TLV: %s (cmd=%02x, rip=%s)",
