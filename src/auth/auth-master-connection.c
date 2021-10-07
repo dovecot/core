@@ -608,7 +608,8 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 	if (auth_request->fields.user == NULL)
 		auth_request_set_username_forced(auth_request, "");
 	if (auth_request->fields.service == NULL) {
-		auth_request_import(auth_request, "service", "");
+		if (!auth_request_import(auth_request, "service", ""))
+			i_unreached();
 		i_assert(auth_request->fields.service != NULL);
 	}
 
