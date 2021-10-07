@@ -332,6 +332,7 @@ void dict_lookup_async(struct dict *dict, const struct dict_op_settings *set,
 		       const char *key, dict_lookup_callback_t *callback,
 		       void *context)
 {
+	i_assert(dict_key_prefix_is_valid(key, set->username));
 	if (dict->v.lookup_async == NULL) {
 		struct dict_lookup_result result;
 
