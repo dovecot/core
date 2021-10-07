@@ -613,9 +613,9 @@ size_t t_get_bytes_available(void)
 	const unsigned int min_extra = 0;
 #else
 	const unsigned int min_extra = SENTRY_COUNT + MEM_ALIGN(sizeof(size_t));
-#endif
 	if (current_block->left < min_extra)
 		return 0;
+#endif
 	size_t size = current_block->left - min_extra;
 	i_assert(ALLOC_SIZE(size) == current_block->left);
 	return size;
