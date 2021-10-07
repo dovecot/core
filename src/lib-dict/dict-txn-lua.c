@@ -17,6 +17,7 @@ struct lua_dict_txn {
 	} state;
 
 	lua_State *L;
+	const char *username;
 };
 
 static int lua_dict_transaction_rollback(lua_State *L);
@@ -161,6 +162,7 @@ static int lua_dict_set(lua_State *L)
 	txn = xlua_dict_txn_getptr(L, 1, NULL);
 	key = luaL_checkstring(L, 2);
 	value = luaL_checkstring(L, 3);
+	lua_dict_check_key_prefix(L, key, txn->username);
 
 	dict_set(txn->txn, key, value);
 
@@ -183,6 +185,7 @@ static int lua_dict_unset(lua_State *L)
 
 	txn = xlua_dict_txn_getptr(L, 1, NULL);
 	key = luaL_checkstring(L, 2);
+	lua_dict_check_key_prefix(L, key, txn->username);
 
 	dict_unset(txn->txn, key);
 
@@ -223,6 +226,7 @@ int lua_dict_transaction_begin(lua_State *L)
 	txn->txn = dict_transaction_begin(dict, &set);
 	txn->state = STATE_OPEN;
 	txn->L = L;
+	txn->username = p_strdup(txn->pool, username);
 
 	xlua_pushdict_txn(L, txn, FALSE);
 

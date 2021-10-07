@@ -58,6 +58,19 @@ static void lua_dict_lookup_callback(const struct dict_lookup_result *result,
 	dlua_pcall_yieldable_resume(L, 1);
 }
 
+void lua_dict_check_key_prefix(lua_State *L, const char *key,
+			       const char *username)
+{
+	if (str_begins(key, DICT_PATH_SHARED))
+		;
+	else if (str_begins(key, DICT_PATH_PRIVATE)) {
+		if (username == NULL || username[0] == '\0')
+			luaL_error(L, DICT_PATH_PRIVATE" dict key prefix requires username");
+	} else {
+		luaL_error(L, "Invalid dict key prefix");
+	}
+}
+
 /*
  * Lookup a key in dict [-(2|3),+1,e]
  *
@@ -82,6 +95,7 @@ static int lua_dict_lookup(lua_State *L)
 	key = luaL_checkstring(L, 2);
 	if (lua_gettop(L) >= 3)
 		username = luaL_checkstring(L, 3);
+	lua_dict_check_key_prefix(L, key, username);
 
 	struct dict_op_settings set = {
 		.username = username,

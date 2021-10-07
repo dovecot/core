@@ -168,6 +168,7 @@ int lua_dict_iterate(lua_State *L)
 	flags = luaL_checkinteger(L, 3);
 	if (lua_gettop(L) >= 4)
 		username = luaL_checkstring(L, 4);
+	lua_dict_check_key_prefix(L, path, username);
 
 	struct dict_op_settings set = {
 		.username = username,
