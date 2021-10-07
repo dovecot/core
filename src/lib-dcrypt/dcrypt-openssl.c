@@ -1021,7 +1021,6 @@ dcrypt_openssl_decrypt_point_password_v1(const char *data_hex,
 					 const char **error_r)
 {
 	buffer_t *salt, *data, *password, *key;
-	struct dcrypt_context_symmetric *dctx;
 
 	data = t_buffer_create(128);
 	salt = t_buffer_create(16);
@@ -1035,10 +1034,8 @@ dcrypt_openssl_decrypt_point_password_v1(const char *data_hex,
 	/* aes-256-ctr uses 32 byte key, and v1 uses all-zero IV */
 	if (!dcrypt_openssl_pbkdf2(password->data, password->used,
 				   salt->data, salt->used,
-				   "sha256", 16, key, 32, error_r)) {
-		dcrypt_ctx_sym_destroy(&dctx);
+				   "sha256", 16, key, 32, error_r))
 		return FALSE;
-	}
 
 	return dcrypt_openssl_decrypt_point_v1(data, key, point_r, error_r);
 }
