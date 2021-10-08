@@ -14,6 +14,7 @@
 #include "smtp-client.h"
 #include "smtp-client-connection.h"
 #include "smtp-client-transaction.h"
+#include "smtp-dovecot.h"
 #include "auth-proxy.h"
 #include "auth-master.h"
 #include "master-service-ssl-settings.h"
@@ -757,7 +758,7 @@ lmtp_proxy_rcpt_cb(const struct smtp_reply *proxy_reply,
 		return;
 
 	if (smtp_reply_code_equals(proxy_reply, 550,
-				   LMTP_RCPT_PROXY_REDIRECT_ENH_CODE)) {
+				   SMTP_PROXY_REDIRECT_ENH_CODE)) {
 		lmtp_proxy_rcpt_redirect(lprcpt, proxy_reply);
 		return;
 	}
@@ -861,7 +862,7 @@ lmtp_proxy_rcpt_handle_not_proxied(struct lmtp_proxy_recipient *lprcpt,
 		str_printfa(referral, "%s@", destuser);
 	str_printfa(referral, "%s:%u", set->set.host, set->set.port);
 	smtp_server_recipient_reply(
-		rcpt, 550, LMTP_RCPT_PROXY_REDIRECT_ENH_CODE_STR,
+		rcpt, 550, SMTP_PROXY_REDIRECT_ENH_CODE_STR,
 		"%s Referral", str_c(referral));
 	return -1;
 }

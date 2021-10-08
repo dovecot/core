@@ -14,9 +14,6 @@
 #define LMTP_RCPT_FORWARD_CAPABILITY "XRCPTFORWARD"
 #define LMTP_RCPT_FORWARD_PARAMETER  "XRCPTFORWARD"
 
-#define LMTP_RCPT_PROXY_REDIRECT_ENH_CODE SMTP_REPLY_ENH_CODE(5, 2, 900)
-#define LMTP_RCPT_PROXY_REDIRECT_ENH_CODE_STR "5.2.900"
-
 typedef void lmtp_client_created_func_t(struct client **client);
 
 extern lmtp_client_created_func_t *hook_client_created;

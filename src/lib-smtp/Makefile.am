@@ -66,7 +66,8 @@ headers = \
 	smtp-server-private.h \
 	smtp-server.h \
 	smtp-submit-settings.h \
-	smtp-submit.h
+	smtp-submit.h \
+	smtp-dovecot.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
