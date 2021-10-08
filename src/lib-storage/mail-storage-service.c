@@ -1384,6 +1384,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		(void)settings_parse_line(user->set_parser, "mail_plugins=");
 	}
 
+	if (ret < 0)
+		mail_storage_service_user_unref(&user);
 	*user_r = user;
 	return ret;
 }
