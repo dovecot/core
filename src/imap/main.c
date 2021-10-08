@@ -193,10 +193,6 @@ client_add_input(struct client *client, const unsigned char *client_input,
 			client_add_istream_prefix(client, request_r->input,
 						  request_r->input_size);
 		}
-	} else {
-		/* IMAPLOGINTAG environment is compatible with mailfront */
-		i_zero(request_r);
-		request_r->tag = getenv("IMAPLOGINTAG");
 	}
 }
 
@@ -344,9 +340,11 @@ static void main_stdio_run(const char *username)
 		i_fatal("%s", error);
 
 	input_base64 = getenv("CLIENT_INPUT");
-	if (input_base64 == NULL)
-		client_add_input(client, NULL, 0, &request);
-	else {
+	if (input_base64 == NULL) {
+		/* IMAPLOGINTAG environment is compatible with mailfront */
+		i_zero(&request);
+		request.tag = getenv("IMAPLOGINTAG");
+	} else {
 		const buffer_t *input_buf = t_base64_decode_str(input_base64);
 		client_add_input(client, input_buf->data, input_buf->used,
 				 &request);
