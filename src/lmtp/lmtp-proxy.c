@@ -559,23 +559,10 @@ lmtp_proxy_rcpt_parse_redirect(const struct smtp_reply *proxy_reply,
 			       const char **host_r, struct ip_addr *ip_r,
 			       in_port_t *port_r)
 {
-	const char *target, *pend;
-
 	if (proxy_reply->text_lines == NULL)
 		return -1;
-	target = *proxy_reply->text_lines;
-	pend = strchr(target, ' ');
-	if (*target == '<') {
-		if (pend == NULL)
-			return -1;
-		target = pend + 1;
-		pend = strchr(target, ' ');
-	}
-	if (pend != NULL)
-		target = t_strdup_until(target, pend);
-
-	return auth_proxy_parse_redirect(target, destuser_r, host_r,
-					 ip_r, port_r) ? 0 : -1;
+	return smtp_proxy_redirect_parse(*proxy_reply->text_lines, destuser_r,
+					 host_r, ip_r, port_r);
 }
 
 static void
@@ -757,8 +744,7 @@ lmtp_proxy_rcpt_cb(const struct smtp_reply *proxy_reply,
 	if (!lmtp_proxy_handle_reply(lprcpt, proxy_reply, &reply))
 		return;
 
-	if (smtp_reply_code_equals(proxy_reply, 550,
-				   SMTP_PROXY_REDIRECT_ENH_CODE)) {
+	if (smtp_reply_is_proxy_redirect(proxy_reply)) {
 		lmtp_proxy_rcpt_redirect(lprcpt, proxy_reply);
 		return;
 	}
@@ -857,13 +843,12 @@ lmtp_proxy_rcpt_handle_not_proxied(struct lmtp_proxy_recipient *lprcpt,
 		return -1;
 	}
 
-	string_t *referral = t_str_new(128);
-	if (destuser != NULL)
-		str_printfa(referral, "%s@", destuser);
-	str_printfa(referral, "%s:%u", set->set.host, set->set.port);
-	smtp_server_recipient_reply(
-		rcpt, 550, SMTP_PROXY_REDIRECT_ENH_CODE_STR,
-		"%s Referral", str_c(referral));
+	const struct smtp_proxy_redirect predir = {
+		.username = destuser,
+		.host = set->set.host,
+		.port = set->set.port,
+	};
+	smtp_server_recipient_reply_redirect(rcpt, 0, &predir);
 	return -1;
 }
 

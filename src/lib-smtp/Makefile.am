@@ -6,6 +6,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-sasl \
+	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-program-client \
@@ -46,7 +47,8 @@ libsmtp_la_SOURCES = \
 	smtp-server-connection.c \
 	smtp-server.c \
 	smtp-submit-settings.c \
-	smtp-submit.c
+	smtp-submit.c \
+	smtp-dovecot.c
 
 headers = \
 	smtp-parser.h \
