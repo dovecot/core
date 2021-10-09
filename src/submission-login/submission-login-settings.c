@@ -14,6 +14,17 @@ static bool
 submission_login_settings_check(void *_set, pool_t pool, const char **error_r);
 
 /* <settings checks> */
+static struct file_listener_settings submission_login_unix_listeners_array[] = {
+	{ "srv.submission-login/%{pid}", 0600, "", "" },
+};
+static struct file_listener_settings *submission_login_unix_listeners[] = {
+	&submission_login_unix_listeners_array[0],
+};
+static buffer_t submission_login_unix_listeners_buf = {
+	{ { submission_login_unix_listeners,
+	    sizeof(submission_login_unix_listeners) } }
+};
+
 static struct inet_listener_settings submission_login_inet_listeners_array[] = {
 	{ .name = "submission", .address = "", .port = 587  },
 	{ .name = "submissions", .address = "", .port = 465, .ssl = TRUE }
@@ -47,7 +58,8 @@ struct service_settings submission_login_service_settings = {
 	.idle_kill = 0,
 	.vsz_limit = UOFF_T_MAX,
 
-	.unix_listeners = ARRAY_INIT,
+	.unix_listeners = { { &submission_login_unix_listeners_buf,
+			      sizeof(submission_login_unix_listeners[0]) } },
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = { { &submission_login_inet_listeners_buf,
 			      sizeof(submission_login_inet_listeners[0]) } }

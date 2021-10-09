@@ -10,6 +10,16 @@
 #include <stddef.h>
 
 /* <settings checks> */
+static struct file_listener_settings imap_login_unix_listeners_array[] = {
+	{ "srv.imap-login/%{pid}", 0600, "", "" },
+};
+static struct file_listener_settings *imap_login_unix_listeners[] = {
+	&imap_login_unix_listeners_array[0],
+};
+static buffer_t imap_login_unix_listeners_buf = {
+	{ { imap_login_unix_listeners, sizeof(imap_login_unix_listeners) } }
+};
+
 static struct inet_listener_settings imap_login_inet_listeners_array[] = {
 	{ .name = "imap", .address = "", .port = 143 },
 	{ .name = "imaps", .address = "", .port = 993, .ssl = TRUE }
@@ -43,7 +53,8 @@ struct service_settings imap_login_service_settings = {
 	.idle_kill = 0,
 	.vsz_limit = UOFF_T_MAX,
 
-	.unix_listeners = ARRAY_INIT,
+	.unix_listeners = { { &imap_login_unix_listeners_buf,
+			      sizeof(imap_login_unix_listeners[0]) } },
 	.fifo_listeners = ARRAY_INIT,
 	.inet_listeners = { { &imap_login_inet_listeners_buf,
 			      sizeof(imap_login_inet_listeners[0]) } }
