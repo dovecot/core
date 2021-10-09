@@ -15,6 +15,7 @@
 #include "iostream-ssl.h"
 #include "client-common.h"
 #include "access-lookup.h"
+#include "master-admin-client.h"
 #include "anvil-client.h"
 #include "auth-client.h"
 #include "dsasl-client.h"
@@ -253,6 +254,16 @@ static void client_input_error(struct login_access_lookup *lookup)
 	}
 }
 
+static unsigned int
+master_admin_cmd_kick_user(const char *user, const guid_128_t conn_guid)
+{
+	return login_proxy_kick_user_connection(user, conn_guid);
+}
+
+static const struct master_admin_client_callback admin_callbacks = {
+	.cmd_kick_user = master_admin_cmd_kick_user,
+};
+
 static void client_connected(struct master_service_connection *conn)
 {
 	const char *access_sockets =
@@ -260,6 +271,7 @@ static void client_connected(struct master_service_connection *conn)
 	struct login_access_lookup *lookup;
 
 	master_service_client_connection_accept(conn);
+
 	if (conn->remote_ip.family != 0) {
 		/* log the connection's IP address in case we crash. it's of
 		   course possible that another earlier client causes the
@@ -400,6 +412,7 @@ static void main_preinit(void)
 	login_ssl_init();
 	dsasl_clients_init();
 	client_common_init();
+	master_admin_clients_init(&admin_callbacks);
 
 	/* set the number of fds we want to use. it may get increased or
 	   decreased. leave a couple of extra fds for auth sockets and such.
