@@ -776,6 +776,129 @@ mkdir_login_dir(const struct master_settings *set, const char *login_dir)
 	}
 }
 
+static void mkdir_listener(const struct file_listener_settings *set,
+			   const char *dir, unsigned int mode)
+{
+	const char *error;
+	uid_t uid;
+	gid_t gid;
+
+	/* Use the specified permissions for the parent directory, but only
+	   if the directory doesn't already exist. It's likely not important
+	   enough to change permissions for an existing directory and it might
+	   cause problems if the permissions are intentionally different. */
+	if (get_uidgid(set->user, &uid, &gid, &error) < 0 ||
+	    get_gid(set->group, &gid, &error) < 0)
+		i_fatal("%s (for creating directory %s)", error, dir);
+	else if (mkdir(dir, mode) == 0) {
+		if (chown(dir, uid, gid) < 0)
+			i_fatal("chown(%s) failed: %m", dir);
+	} else if (errno != EEXIST) {
+		i_fatal("mkdir(%s) failed: %m", dir);
+	}
+}
+
+static int
+file_listener_settings_cmp_path(struct file_listener_settings *const *f1,
+				struct file_listener_settings *const *f2)
+{
+	return strcmp((*f1)->path, (*f2)->path);
+}
+
+static void
+subdir_add(ARRAY_TYPE(file_listener_settings) *subdir_listeners,
+	   struct file_listener_settings *f, const char *base_prefix)
+{
+	if (!str_begins(f->path, base_prefix)) {
+		/* not under base_dir */
+		return;
+	}
+
+	const char *rel_path = f->path + strlen(base_prefix);
+	if (strchr(rel_path, '/') == NULL) {
+		/* not under a subdirectory */
+		return;
+	}
+
+	if (str_begins(rel_path, "login/") ||
+	    str_begins(rel_path, "token-login/")) {
+		/* these are handled specially */
+		return;
+	}
+	array_push_back(subdir_listeners, &f);
+}
+
+static void mkdir_listener_subdirs(const struct master_settings *set)
+{
+	struct service_settings *service;
+	ARRAY_TYPE(file_listener_settings) subdir_listeners;
+	struct file_listener_settings *f, *const *files;
+	unsigned int i, count, files_mode, dir_mode;
+	const char *p1, *p2, *last_group, *base_prefix;
+	size_t dir1_len, dir2_len;
+
+	/* First gather all unix/fifo listeners that have directories under
+	   base_dir. */
+	t_array_init(&subdir_listeners, 16);
+	base_prefix = t_strconcat(set->base_dir, "/", NULL);
+	array_foreach_elem(&set->services, service) {
+		if (!service_is_enabled(set, service))
+			continue;
+
+		if (array_is_created(&service->unix_listeners)) {
+			array_foreach_elem(&service->unix_listeners, f)
+				subdir_add(&subdir_listeners, f, base_prefix);
+		}
+		if (array_is_created(&service->fifo_listeners)) {
+			array_foreach_elem(&service->fifo_listeners, f)
+				subdir_add(&subdir_listeners, f, base_prefix);
+		}
+	}
+	/* Sort the listeners by path, so the listeners with same directories
+	   are next to each others. */
+	array_sort(&subdir_listeners, file_listener_settings_cmp_path);
+	files = array_get(&subdir_listeners, &count);
+	files_mode = 0; last_group = NULL;
+	for (i = 0; i < count; i++) {
+		p1 = strrchr(files[i]->path, '/');
+		i_assert(p1 != NULL);
+		dir1_len = p1 - files[i]->path;
+		/* Create the directory permissions based on the union of its
+		   file listeners permissions. */
+		files_mode |= files[i]->mode;
+		if ((files[i]->mode & 0070) != 0)
+			last_group = files[i]->group;
+
+		if (i+1 < count) {
+			/* Delay creating the directory if the next listener
+			   has the same directory. */
+			p2 = strrchr(files[i+1]->path, '/');
+			i_assert(p2 != NULL);
+			dir2_len = p2 - files[i+1]->path;
+			if (dir1_len == dir2_len &&
+			    memcmp(files[i]->path, files[i+1]->path, dir1_len) == 0) {
+				/* If the user or group differs, add more
+				   permission bits to the mode. */
+				if (strcmp(files[i]->user, files[i+1]->user) != 0)
+					files_mode |= 0006;
+				if (last_group != NULL &&
+				    (files[i+1]->mode & 0070) != 0 &&
+				    strcmp(files[i]->group, last_group) != 0)
+					files_mode |= 0006;
+				continue;
+			}
+		}
+		/* keep the owner permissions +rwx, but group and other
+		   permissions only as +rx. */
+		dir_mode = 0700;
+		if ((files_mode & 0070) != 0) dir_mode |= 0050;
+		if ((files_mode & 0007) != 0) dir_mode |= 0005;
+		mkdir_listener(files[i], t_strndup(files[i]->path, dir1_len),
+			       dir_mode);
+		files_mode = 0; last_group = NULL;
+	}
+}
+
 void master_settings_do_fixes(const struct master_settings *set)
 {
 	const char *empty_dir;
@@ -803,6 +926,7 @@ void master_settings_do_fixes(const struct master_settings *set)
 
 	mkdir_login_dir(set, t_strconcat(set->base_dir, "/login", NULL));
 	mkdir_login_dir(set, t_strconcat(set->base_dir, "/token-login", NULL));
+	mkdir_listener_subdirs(set);
 
 	empty_dir = t_strconcat(set->base_dir, "/empty", NULL);
 	if (safe_mkdir(empty_dir, 0755, master_uid, getegid()) == 0) {
