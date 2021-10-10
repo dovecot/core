@@ -888,7 +888,6 @@ src/dict/Makefile
 src/director/Makefile
 src/dns/Makefile
 src/indexer/Makefile
-src/ipc/Makefile
 src/imap/Makefile
 src/imap-hibernate/Makefile
 src/imap-login/Makefile

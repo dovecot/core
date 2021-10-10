@@ -50,7 +50,6 @@ SUBDIRS = \
 	dict \
 	dns \
 	indexer \
-	ipc \
 	master \
 	login-common \
 	imap-hibernate \

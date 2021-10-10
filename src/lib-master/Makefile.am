@@ -16,8 +16,6 @@ AM_CPPFLAGS = \
 
 libmaster_la_SOURCES = \
 	anvil-client.c \
-	ipc-client.c \
-	ipc-server.c \
 	master-admin-client.c \
 	master-auth.c \
 	master-instance.c \
@@ -34,8 +32,6 @@ libmaster_la_SOURCES = \
 
 headers = \
 	anvil-client.h \
-	ipc-client.h \
-	ipc-server.h \
 	master-admin-client.h \
 	master-auth.h \
 	master-instance.h \
