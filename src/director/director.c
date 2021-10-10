@@ -6,7 +6,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "log-throttle.h"
-#include "ipc-client.h"
+#include "anvil-client.h"
 #include "program-client.h"
 #include "var-expand.h"
 #include "istream.h"
@@ -19,7 +19,7 @@
 #include "director-connection.h"
 #include "director.h"
 
-#define DIRECTOR_IPC_PROXY_PATH "ipc"
+#define DIRECTOR_ANVIL_SOCKET_PATH "anvil"
 #define DIRECTOR_DNS_SOCKET_PATH "dns-client"
 #define DIRECTOR_RECONNECT_RETRY_SECS 60
 #define DIRECTOR_RECONNECT_TIMEOUT_MSECS (30*1000)
@@ -933,8 +933,8 @@ static void director_user_move_free(struct user *user)
 	e_debug(dir->event, "User %u move finished at state=%s", user->username_hash,
 		user_kill_state_names[kill_ctx->kill_state]);
 
-	if (kill_ctx->ipc_cmd != NULL)
-		ipc_client_cmd_abort(dir->ipc_proxy, &kill_ctx->ipc_cmd);
+	if (kill_ctx->anvil_cmd != NULL)
+		anvil_client_query_abort(dir->anvil, &kill_ctx->anvil_cmd);
 	timeout_remove(&kill_ctx->to_move);
 	i_free(kill_ctx->socket_path);
 	i_free(kill_ctx);
@@ -1006,34 +1006,25 @@ static void director_user_kill_fail_throttled(unsigned int new_events_count,
 	i_error("Failed to kill %u users' connections", new_events_count);
 }
 
-static void director_kill_user_callback(enum ipc_client_cmd_state state,
-					const char *data, void *context)
+static void director_kill_user_callback(const char *reply, void *context)
 {
 	struct director_kill_context *ctx = context;
 	struct user *user;
 
 	/* don't try to abort the IPC command anymore */
-	ctx->ipc_cmd = NULL;
+	ctx->anvil_cmd = NULL;
 
 	/* this is an asynchronous notification about user being killed.
 	   there are no guarantees about what might have happened to the user
 	   in the mean time. */
-	switch (state) {
-	case IPC_CLIENT_CMD_STATE_REPLY:
-		/* shouldn't get here. the command reply isn't finished yet. */
-		e_error(ctx->dir->event,
-			"login process sent unexpected reply to kick: %s", data);
-		return;
-	case IPC_CLIENT_CMD_STATE_OK:
-		break;
-	case IPC_CLIENT_CMD_STATE_ERROR:
+	if (reply == NULL || !str_is_numeric(reply, '\0')) {
 		if (log_throttle_accept(user_kill_fail_throttle)) {
 			e_error(ctx->dir->event,
 				"Failed to kill user %u connections: %s",
-				ctx->username_hash, data);
+				ctx->username_hash, reply != NULL ? reply :
+				"Internal error");
 		}
 		/* we can't really do anything but continue anyway */
-		break;
 	}
 
 	i_assert(ctx->dir->users_kicking_count > 0);
@@ -1115,11 +1106,12 @@ void director_kill_user(struct director *dir, struct director_host *src,
 	ctx->kill_state = USER_KILL_STATE_KILLING;
 
 	if ((old_host != NULL && old_host != user->host) || forced_kick) {
-		cmd = t_strdup_printf("proxy\t*\tKICK-DIRECTOR-HASH\t%u",
+		cmd = t_strdup_printf("KICK-ALT-USER\t"
+				      DIRECTOR_ALT_USER_FIELD_NAME"\t%u",
 				      user->username_hash);
 		dir->users_kicking_count++;
-		ctx->ipc_cmd = ipc_client_cmd(dir->ipc_proxy, cmd,
-					      director_kill_user_callback, ctx);
+		ctx->anvil_cmd = anvil_client_query(dir->anvil, cmd,
+			director_kill_user_callback, ctx);
 	} else {
 		/* a) we didn't even know about the user before now.
 		   don't bother performing a local kick, since it wouldn't
@@ -1198,16 +1190,9 @@ void director_move_user(struct director *dir, struct director_host *src,
 }
 
 static void
-director_kick_user_callback(enum ipc_client_cmd_state state,
-			    const char *data, void *context)
+director_kick_user_callback(const char *reply ATTR_UNUSED, void *context)
 {
 	struct director *dir = context;
-
-	if (state == IPC_CLIENT_CMD_STATE_REPLY) {
-		/* shouldn't get here. the command reply isn't finished yet. */
-		e_error(dir->event, "login process sent unexpected reply to kick: %s", data);
-		return;
-	}
 
 	i_assert(dir->users_kicking_count > 0);
 	dir->users_kicking_count--;
@@ -1220,11 +1205,11 @@ void director_kick_user(struct director *dir, struct director_host *src,
 {
 	string_t *cmd = t_str_new(64);
 
-	str_append(cmd, "proxy\t*\tKICK\t");
+	str_append(cmd, "KICK-USER\t");
 	str_append_tabescaped(cmd, username);
 	dir->users_kicking_count++;
-	ipc_client_cmd(dir->ipc_proxy, str_c(cmd),
-		       director_kick_user_callback, dir);
+	anvil_client_query(dir->anvil, str_c(cmd),
+			   director_kick_user_callback, dir);
 
 	if (orig_src == NULL) {
 		orig_src = dir->self_host;
@@ -1244,13 +1229,13 @@ void director_kick_user_alt(struct director *dir, struct director_host *src,
 {
 	string_t *cmd = t_str_new(64);
 
-	str_append(cmd, "proxy\t*\tKICK-ALT\t");
+	str_append(cmd, "KICK-ALT-USER\t");
 	str_append_tabescaped(cmd, field);
 	str_append_c(cmd, '\t');
 	str_append_tabescaped(cmd, value);
 	dir->users_kicking_count++;
-	ipc_client_cmd(dir->ipc_proxy, str_c(cmd),
-		       director_kick_user_callback, dir);
+	anvil_client_query(dir->anvil, str_c(cmd),
+			   director_kick_user_callback, dir);
 
 	if (orig_src == NULL) {
 		orig_src = dir->self_host;
@@ -1273,11 +1258,12 @@ void director_kick_user_hash(struct director *dir, struct director_host *src,
 {
 	const char *cmd;
 
-	cmd = t_strdup_printf("proxy\t*\tKICK-DIRECTOR-HASH\t%u\t%s",
+	cmd = t_strdup_printf("KICK-ALT-USER\t"
+			      DIRECTOR_ALT_USER_FIELD_NAME"\t%u\t%s",
 			      username_hash, net_ip2addr(except_ip));
 	dir->users_kicking_count++;
-	ipc_client_cmd(dir->ipc_proxy, cmd,
-		       director_kick_user_callback, dir);
+	anvil_client_query(dir->anvil, cmd,
+			   director_kick_user_callback, dir);
 
 	if (orig_src == NULL) {
 		orig_src = dir->self_host;
@@ -1467,7 +1453,9 @@ director_init(const struct director_settings *set,
 	dir->mail_hosts = mail_hosts_init(dir, set->director_user_expire,
 					  director_user_freed);
 
-	dir->ipc_proxy = ipc_client_init(DIRECTOR_IPC_PROXY_PATH);
+	dir->anvil = anvil_client_init(DIRECTOR_ANVIL_SOCKET_PATH, NULL, 0);
+	if (anvil_client_connect(dir->anvil, FALSE) < 0)
+		i_fatal("Couldn't connect to anvil");
 	dir->ring_min_version = DIRECTOR_VERSION_MINOR;
 	return dir;
 }
@@ -1489,7 +1477,7 @@ void director_deinit(struct director **_dir)
 	mail_hosts_deinit(&dir->mail_hosts);
 	mail_hosts_deinit(&dir->orig_config_hosts);
 
-	ipc_client_deinit(&dir->ipc_proxy);
+	anvil_client_deinit(&dir->anvil);
 	timeout_remove(&dir->to_reconnect);
 	timeout_remove(&dir->to_handshake_warning);
 	timeout_remove(&dir->to_request);
