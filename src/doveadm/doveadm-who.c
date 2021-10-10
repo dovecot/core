@@ -490,14 +490,22 @@ static void cmd_who(struct doveadm_cmd_context *cctx)
 	pool_unref(&ctx.pool);
 }
 
+#define DOVEADM_CMD_WHO_FIELDS \
+	.cmd = cmd_who, \
+	.usage = "[-a <anvil socket path>] [-1] [-f <passdb field>] [<user mask>] [<ip/bits>]", \
+DOVEADM_CMD_PARAMS_START \
+DOVEADM_CMD_PARAM('a',"socket-path", CMD_PARAM_STR, 0) \
+DOVEADM_CMD_PARAM('1',"separate-connections", CMD_PARAM_BOOL, 0) \
+DOVEADM_CMD_PARAM('f',"passdb-field", CMD_PARAM_STR, 0) \
+DOVEADM_CMD_PARAM('\0',"mask", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL) \
+DOVEADM_CMD_PARAMS_END
+
 struct doveadm_cmd_ver2 doveadm_cmd_who_ver2 = {
 	.name = "who",
-	.cmd = cmd_who,
-	.usage = "[-a <anvil socket path>] [-1] [-f <passdb field>] [<user mask>] [<ip/bits>]",
-DOVEADM_CMD_PARAMS_START
-DOVEADM_CMD_PARAM('a',"socket-path", CMD_PARAM_STR, 0)
-DOVEADM_CMD_PARAM('1',"separate-connections", CMD_PARAM_BOOL, 0)
-DOVEADM_CMD_PARAM('f',"passdb-field", CMD_PARAM_STR, 0)
-DOVEADM_CMD_PARAM('\0',"mask", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
-DOVEADM_CMD_PARAMS_END
+	DOVEADM_CMD_WHO_FIELDS
+};
+
+struct doveadm_cmd_ver2 doveadm_cmd_proxy_list_ver2 = {
+	.name = "proxy list",
+	DOVEADM_CMD_WHO_FIELDS
 };
