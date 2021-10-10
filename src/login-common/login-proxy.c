@@ -15,7 +15,6 @@
 #include "time-util.h"
 #include "master-service.h"
 #include "master-service-ssl-settings.h"
-#include "ipc-server.h"
 #include "mail-user-hash.h"
 #include "client-common.h"
 #include "login-proxy-state.h"
@@ -25,8 +24,6 @@
 #define MAX_PROXY_INPUT_SIZE 4096
 #define PROXY_MAX_OUTBUF_SIZE 1024
 #define LOGIN_PROXY_DIE_IDLE_SECS 2
-#define LOGIN_PROXY_IPC_PATH "ipc-proxy"
-#define LOGIN_PROXY_IPC_NAME "proxy"
 #define LOGIN_PROXY_KILL_PREFIX "Disconnected by proxy: "
 #define KILLED_BY_ADMIN_REASON "Kicked by admin"
 #define KILLED_BY_DIRECTOR_REASON "Kicked via director"
@@ -95,12 +92,10 @@ static struct login_proxy_state *proxy_state;
 static struct login_proxy *login_proxies = NULL;
 static struct login_proxy *login_proxies_pending = NULL;
 static struct login_proxy *login_proxies_disconnecting = NULL;
-static struct ipc_server *login_proxy_ipc_server;
 static unsigned int detached_login_proxies_count = 0;
 
 static int login_proxy_connect(struct login_proxy *proxy);
 static void login_proxy_disconnect(struct login_proxy *proxy);
-static void login_proxy_ipc_cmd(struct ipc_cmd *cmd, const char *line);
 static void login_proxy_free_final(struct login_proxy *proxy);
 
 static void ATTR_NULL(2)
@@ -943,13 +938,6 @@ void login_proxy_detach(struct login_proxy *proxy)
 					 TRUE, proxy->anvil_conn_guid))
 		proxy->anvil_connect_sent = TRUE;
 
-	if (login_proxy_ipc_server == NULL) {
-		login_proxy_ipc_server =
-			ipc_server_init(LOGIN_PROXY_IPC_PATH,
-					LOGIN_PROXY_IPC_NAME,
-					login_proxy_ipc_cmd);
-	}
-
 	DLLIST_REMOVE(&login_proxies_pending, proxy);
 	DLLIST_PREPEND(&login_proxies, proxy);
 	detached_login_proxies_count++;
@@ -1042,20 +1030,6 @@ void login_proxy_kill_idle(void)
 }
 
 static bool
-want_kick_host(struct login_proxy *proxy, const char *const *args,
-	       unsigned int key_idx ATTR_UNUSED)
-{
-	return str_array_find(args, proxy->host);
-}
-
-static bool
-want_kick_virtual_user(struct login_proxy *proxy, const char *const *args,
-		       unsigned int key_idx ATTR_UNUSED)
-{
-	return str_array_find(args, proxy->client->virtual_user);
-}
-
-static bool
 want_kick_user(struct login_proxy *proxy, const char *const *userp,
 	       unsigned int key_idx ATTR_UNUSED)
 {
@@ -1068,24 +1042,6 @@ want_kick_user_session(struct login_proxy *proxy, const char *const *args,
 {
 	return strcmp(proxy->client->virtual_user, args[0]) == 0 &&
 		guid_128_cmp(proxy->anvil_conn_guid, (const uint8_t *)args[1]) == 0;
-}
-
-static bool
-want_kick_alt_username(struct login_proxy *proxy, const char *const *args,
-		       unsigned int key_idx)
-{
-	unsigned int i;
-	struct client *client = proxy->client;
-
-	if (client->alt_usernames == NULL)
-		return FALSE;
-	for (i = 0; i < key_idx; i++) {
-		if (client->alt_usernames[i] == NULL)
-			return FALSE;
-	}
-	if (client->alt_usernames[i] == NULL)
-		return FALSE;
-	return str_array_find(args, client->alt_usernames[i]);
 }
 
 static unsigned int
@@ -1124,11 +1080,6 @@ login_proxy_kick(const char *const *args,
 	return count;
 }
 
-static unsigned int login_proxy_kick_user(const char *const *users)
-{
-	return login_proxy_kick(users, want_kick_virtual_user, 0);
-}
-
 unsigned int
 login_proxy_kick_user_connection(const char *user, const guid_128_t conn_guid)
 {
@@ -1139,186 +1090,6 @@ login_proxy_kick_user_connection(const char *user, const guid_128_t conn_guid)
 		user, (const char *)conn_guid
 	};
 	return login_proxy_kick(args, want_kick_user_session, 0);
-}
-
-static unsigned int login_proxy_kick_host(const char *const *hosts)
-{
-	return login_proxy_kick(hosts, want_kick_host, 0);
-}
-
-static unsigned int
-login_proxy_kick_alt(const char *field_name, const char *const *users)
-{
-	char *const *fields;
-	unsigned int i, count;
-
-	fields = array_get(&global_alt_usernames, &count);
-	for (i = 0; i < count; i++) {
-		if (strcmp(fields[i], field_name) == 0)
-			break;
-	}
-	if (i == count) {
-		/* field doesn't exist, but it's not an error necessarily */
-		return 0;
-	}
-
-	return login_proxy_kick(users, want_kick_alt_username, i);
-}
-
-static bool director_username_hash(struct client *client, unsigned int *hash_r)
-{
-	const char *error;
-
-	if (client->director_username_hash_cache != 0) {
-		/* already set */
-	} else if (!mail_user_hash(client->virtual_user,
-				   client->set->director_username_hash,
-				   &client->director_username_hash_cache,
-				   &error)) {
-		e_error(client->event,
-			"Failed to expand director_username_hash=%s: %s",
-			client->set->director_username_hash, error);
-		return FALSE;
-	}
-
-	*hash_r = client->director_username_hash_cache;
-	return TRUE;
-}
-
-static void
-login_proxy_cmd_kick_director_hash(struct ipc_cmd *cmd, const char *const *args)
-{
-	struct login_proxy *proxy, *next;
-	struct ip_addr except_ip;
-	unsigned int hash, proxy_hash, count = 0;
-
-	if (args[0] == NULL || str_to_uint(args[0], &hash) < 0) {
-		ipc_cmd_fail(&cmd, "Invalid parameters");
-		return;
-	}
-	/* optional except_ip parameter specifies that we're not killing the
-	   connections that are proxying to the except_ip backend */
-	except_ip.family = 0;
-	if (args[1] != NULL && args[1][0] != '\0' &&
-	    net_addr2ip(args[1], &except_ip) < 0) {
-		ipc_cmd_fail(&cmd, "Invalid except_ip parameter");
-		return;
-	}
-
-	for (proxy = login_proxies; proxy != NULL; proxy = next) {
-		next = proxy->next;
-
-		if (director_username_hash(proxy->client, &proxy_hash) &&
-		    proxy_hash == hash &&
-		    !net_ip_compare(&proxy->ip, &except_ip)) {
-			login_proxy_free_full(&proxy,
-				LOGIN_PROXY_KILL_PREFIX KILLED_BY_DIRECTOR_REASON,
-				KILLED_BY_DIRECTOR_REASON,
-				LOGIN_PROXY_SIDE_SELF,
-				LOGIN_PROXY_FREE_FLAG_DELAYED);
-			count++;
-		}
-	}
-	for (proxy = login_proxies_pending; proxy != NULL; proxy = next) {
-		next = proxy->next;
-
-		if (director_username_hash(proxy->client, &proxy_hash) &&
-		    proxy_hash == hash &&
-		    !net_ip_compare(&proxy->ip, &except_ip)) {
-			client_disconnect(proxy->client,
-				LOGIN_PROXY_KILL_PREFIX KILLED_BY_DIRECTOR_REASON,
-				FALSE);
-			client_destroy(proxy->client, NULL);
-			count++;
-		}
-	}
-	ipc_cmd_success_reply(&cmd, t_strdup_printf("%u", count));
-}
-
-static void
-login_proxy_cmd_list_reply(struct ipc_cmd *cmd, string_t *str,
-			   struct login_proxy *proxy)
-{
-	unsigned int i, alt_count = array_count(&global_alt_usernames);
-
-	str_truncate(str, 0);
-	str_append_tabescaped(str, proxy->client->virtual_user);
-	str_append_c(str, '\t');
-	i = 0;
-	if (proxy->client->alt_usernames != NULL) {
-		for (; proxy->client->alt_usernames[i] != NULL; i++) {
-			str_append_tabescaped(str, proxy->client->alt_usernames[i]);
-			str_append_c(str, '\t');
-		}
-		i_assert(i <= alt_count);
-	}
-	for (; i < alt_count; i++)
-		str_append_c(str, '\t');
-
-	str_printfa(str, "%s\t%s\t%s\t%u", login_binary->protocol,
-		    net_ip2addr(&proxy->client->ip),
-		    net_ip2addr(&proxy->ip), proxy->port);
-	ipc_cmd_send(cmd, str_c(str));
-}
-
-static void
-login_proxy_cmd_list(struct ipc_cmd *cmd, const char *const *args ATTR_UNUSED)
-{
-	struct login_proxy *proxy;
-	char *field;
-	string_t *str = t_str_new(64);
-
-	str_append(str, "username\t");
-	array_foreach_elem(&global_alt_usernames, field) {
-		str_append_tabescaped(str, field);
-		str_append_c(str, '\t');
-	}
-	str_append(str, "service\tsrc-ip\tdest-ip\tdest-port");
-
-	ipc_cmd_send(cmd, str_c(str));
-
-	for (proxy = login_proxies; proxy != NULL; proxy = proxy->next)
-		login_proxy_cmd_list_reply(cmd, str, proxy);
-	for (proxy = login_proxies_pending; proxy != NULL; proxy = proxy->next)
-		login_proxy_cmd_list_reply(cmd, str, proxy);
-	ipc_cmd_success(&cmd);
-}
-
-static void login_proxy_ipc_cmd(struct ipc_cmd *cmd, const char *line)
-{
-	const char *const *args = t_strsplit_tabescaped(line);
-	const char *name = args[0];
-	unsigned int count;
-
-	args++;
-	if (strcmp(name, "KICK") == 0) {
-		if (args[0] == NULL)
-			ipc_cmd_fail(&cmd, "Missing parameter");
-		else {
-			count = login_proxy_kick_user(args);
-			ipc_cmd_success_reply(&cmd, t_strdup_printf("%u", count));
-		}
-	} else if (strcmp(name, "KICK-ALT") == 0) {
-		if (args[0] == NULL || args[1] == NULL)
-			ipc_cmd_fail(&cmd, "Missing parameter");
-		else {
-			count = login_proxy_kick_alt(args[0], args+1);
-			ipc_cmd_success_reply(&cmd, t_strdup_printf("%u", count));
-		}
-	}
-	else if (strcmp(name, "KICK-DIRECTOR-HASH") == 0)
-		login_proxy_cmd_kick_director_hash(cmd, args);
-	else if (strcmp(name, "LIST-FULL") == 0)
-		login_proxy_cmd_list(cmd, args);
-	else if (strcmp(name, "KICK-HOST") == 0) {
-		if (args[0] == NULL)
-			ipc_cmd_fail(&cmd, "Missing parameter");
-		else {
-			count = login_proxy_kick_host(args);
-			ipc_cmd_success_reply(&cmd, t_strdup_printf("%u", count));
-		}
-	} else
-		ipc_cmd_fail(&cmd, "Unknown command");
 }
 
 unsigned int login_proxies_get_detached_count(void)
@@ -1351,7 +1122,5 @@ void login_proxy_deinit(void)
 
 	while (login_proxies_disconnecting != NULL)
 		login_proxy_free_final(login_proxies_disconnecting);
-	if (login_proxy_ipc_server != NULL)
-		ipc_server_deinit(&login_proxy_ipc_server);
 	login_proxy_state_deinit(&proxy_state);
 }
