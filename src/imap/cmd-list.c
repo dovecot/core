@@ -191,7 +191,7 @@ list_send_status(struct cmd_list_context *ctx, const char *name,
 		return;
 	}
 	if ((flags & MAILBOX_SUBSCRIBED) == 0 &&
-	    (flags & MAILBOX_CHILD_SUBSCRIBED) != 0) {
+	    (ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
 		/* listing subscriptions, but only child is subscribed */
 		return;
 	}
