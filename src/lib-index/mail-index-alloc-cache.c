@@ -81,8 +81,9 @@ mail_index_alloc_cache_list_free(struct mail_index_alloc_cache_list *list)
 }
 
 static struct mail_index_alloc_cache_list *
-mail_index_alloc_cache_find(const char *mailbox_path, const char *index_dir,
-			    const struct stat *index_st)
+mail_index_alloc_cache_find_and_expire(const char *mailbox_path,
+				       const char *index_dir,
+				       const struct stat *index_st)
 {
 	struct mail_index_alloc_cache_list **indexp, *rec, *match;
 	unsigned int destroy_count;
@@ -157,7 +158,8 @@ mail_index_alloc_cache_get(struct event *parent_event, const char *mailbox_path,
 		}
 	}
 
-	match = mail_index_alloc_cache_find(mailbox_path, index_dir, &st);
+	match = mail_index_alloc_cache_find_and_expire(mailbox_path,
+						       index_dir, &st);
 	if (match == NULL) {
 		struct mail_index *index =
 			mail_index_alloc(parent_event, index_dir, prefix);
@@ -167,6 +169,26 @@ mail_index_alloc_cache_get(struct event *parent_event, const char *mailbox_path,
 	}
 	i_assert(match->index != NULL);
 	return match->index;
+}
+
+struct mail_index *
+mail_index_alloc_cache_find(const char *index_dir)
+{
+	struct mail_index_alloc_cache_list *rec;
+	struct stat st;
+
+	if (stat(index_dir, &st) < 0) {
+		if (errno != ENOENT)
+			i_error("stat(%s) failed: %m", index_dir);
+		return NULL;
+	}
+
+	for (rec = indexes; rec != NULL; rec = rec->next) {
+		if (st.st_ino == rec->index_dir_ino &&
+		    CMP_DEV_T(st.st_dev, rec->index_dir_dev))
+			return rec->index;
+	}
+	return NULL;
 }
 
 static bool destroy_unrefed(unsigned int min_destroy_count)
