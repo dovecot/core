@@ -353,6 +353,7 @@ struct mailbox pop3c_mailbox = {
 		index_storage_search_deinit,
 		index_storage_search_next_nonblock,
 		index_storage_search_next_update_seq,
+		index_storage_search_next_match_mail,
 		pop3c_save_alloc,
 		pop3c_save_begin,
 		pop3c_save_continue,

@@ -312,6 +312,8 @@ struct mailbox_vfuncs {
 				     struct mail **mail_r, bool *tryagain_r);
 	/* Internal search function which updates ctx->seq */
 	bool (*search_next_update_seq)(struct mail_search_context *ctx);
+	int (*search_next_match_mail)(struct mail_search_context *ctx,
+				      struct mail *mail);
 
 	struct mail_save_context *
 		(*save_alloc)(struct mailbox_transaction_context *t);

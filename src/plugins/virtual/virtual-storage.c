@@ -927,6 +927,7 @@ struct mailbox virtual_mailbox = {
 		virtual_search_deinit,
 		virtual_search_next_nonblock,
 		virtual_search_next_update_seq,
+		index_storage_search_next_match_mail,
 		virtual_save_alloc,
 		virtual_save_begin,
 		virtual_save_continue,

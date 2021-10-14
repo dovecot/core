@@ -211,6 +211,13 @@ fail_mailbox_search_next_update_seq(struct mail_search_context *ctx ATTR_UNUSED)
 	return FALSE;
 }
 
+static int
+fail_mailbox_search_next_match_mail(struct mail_search_context *ctx ATTR_UNUSED,
+				    struct mail *mail ATTR_UNUSED)
+{
+	return -1;
+}
+
 static struct mail_save_context *
 fail_mailbox_save_alloc(struct mailbox_transaction_context *t)
 {
@@ -293,6 +300,7 @@ struct mailbox fail_mailbox = {
 		fail_mailbox_search_deinit,
 		fail_mailbox_search_next_nonblock,
 		fail_mailbox_search_next_update_seq,
+		fail_mailbox_search_next_match_mail,
 		fail_mailbox_save_alloc,
 		fail_mailbox_save_begin,
 		fail_mailbox_save_continue,

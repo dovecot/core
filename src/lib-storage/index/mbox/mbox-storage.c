@@ -896,6 +896,7 @@ struct mailbox mbox_mailbox = {
 		index_storage_search_deinit,
 		index_storage_search_next_nonblock,
 		index_storage_search_next_update_seq,
+		index_storage_search_next_match_mail,
 		mbox_save_alloc,
 		mbox_save_begin,
 		mbox_save_continue,

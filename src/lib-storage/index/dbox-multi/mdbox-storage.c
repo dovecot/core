@@ -505,6 +505,7 @@ struct mailbox mdbox_mailbox = {
 		index_storage_search_deinit,
 		index_storage_search_next_nonblock,
 		index_storage_search_next_update_seq,
+		index_storage_search_next_match_mail,
 		mdbox_save_alloc,
 		mdbox_save_begin,
 		dbox_save_continue,

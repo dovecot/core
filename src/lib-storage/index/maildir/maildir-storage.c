@@ -734,6 +734,7 @@ struct mailbox maildir_mailbox = {
 		index_storage_search_deinit,
 		index_storage_search_next_nonblock,
 		index_storage_search_next_update_seq,
+		index_storage_search_next_match_mail,
 		maildir_save_alloc,
 		maildir_save_begin,
 		maildir_save_continue,
