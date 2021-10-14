@@ -310,7 +310,24 @@ struct mailbox_vfuncs {
 	int (*search_deinit)(struct mail_search_context *ctx);
 	bool (*search_next_nonblock)(struct mail_search_context *ctx,
 				     struct mail **mail_r, bool *tryagain_r);
-	/* Internal search function which updates ctx->seq */
+	/* Internally used by the search to find the next mail that potentially
+	   matches the search query. The function performs "quick checks" on
+	   the search query that can be done without initializing the mail
+	   struct. For example it can filter out non-matching mails based on
+	   SEARCH_SEQSET and SEARCH_UIDSET. Once a potentially matching mail is
+	   found, ctx->seq is updated to it.
+
+	   Plugins can use this function to skip over any mails that can't
+	   match the search query. Plugins can also set
+	   mail_search_arg.[non]match_always=TRUE
+	   for search args that it already definitely knows will/won't match,
+	   which prevents the standard search from attempting to match them
+	   again.
+
+	   This is used by the FTS plugin to skip over non-matching mails and
+	   to initialize the [non]match_always=TRUE for the search args that
+	   were matched against the FTS indexes. This prevents the standard
+	   search from having to open any email bodies. */
 	bool (*search_next_update_seq)(struct mail_search_context *ctx);
 	int (*search_next_match_mail)(struct mail_search_context *ctx,
 				      struct mail *mail);
