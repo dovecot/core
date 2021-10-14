@@ -367,7 +367,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 			/* STARTTLS failed */
 			const char *reason = t_strdup_printf(
 				"STARTTLS failed: %s",
-				str_sanitize(line + 5, 160));
+				str_sanitize(line + 2, 160));
 			login_proxy_failed(client->login_proxy,
 				login_proxy_get_event(client->login_proxy),
 				LOGIN_PROXY_FAILURE_TYPE_REMOTE, reason);
