@@ -421,7 +421,7 @@ static bool mail_cache_fields_parse(const char *key, const char *value,
 		    !message_header_name_is_valid(name+4)) {
 			*error_r = t_strdup_printf(
 				"Invalid %s: %s is not a valid header name",
-				key, name);
+				key, name + 4);
 			return FALSE;
 		}
 	}
