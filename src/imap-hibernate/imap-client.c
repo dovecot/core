@@ -141,8 +141,10 @@ imap_client_parse_userdb_fields(struct imap_client *client,
 
 	field = t_strsplit_tabescaped(client->state.userdb_fields);
 	for (i = 0; field[i] != NULL; i++) {
-		if (str_begins(field[i], "auth_user="))
+		if (str_begins(field[i], "auth_user=")) {
 			*auth_user_r = field[i] + 10;
+			break;
+		}
 	}
 }
 
