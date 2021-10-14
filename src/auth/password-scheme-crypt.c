@@ -78,7 +78,7 @@ crypt_verify_blowfish(const char *plaintext, const struct password_generate_para
 	password = t_strndup(raw_password, size);
 
 	if (size < CRYPT_BLF_PREFIX_LEN ||
-	    !str_begins(password, "$2") ||
+	    password[0] != '$' || password[1] != '2' ||
 	    password[2] < 'a' || password[2] > 'z' ||
 	    password[3] != '$') {
 		*error_r = "Password is not blowfish password";
