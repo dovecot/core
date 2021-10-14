@@ -262,15 +262,12 @@ void submission_client_auth_send_challenge(struct client *client,
 	smtp_server_cmd_auth_send_challenge(cmd, data);
 }
 
-int cmd_auth(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
-	     struct smtp_server_cmd_auth *data)
+static void
+cmd_auth_set_master_data_prefix(struct submission_client *subm_client)
 {
-	struct submission_client *subm_client = conn_ctx;
 	struct client *client = &subm_client->common;
 	struct smtp_server_helo_data *helo;
 	struct smtp_proxy_data proxy;
-
-	i_assert(subm_client->pending_auth == NULL);
 
 	buffer_t *buf = buffer_create_dynamic(default_pool, 2048);
 
@@ -292,7 +289,17 @@ int cmd_auth(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	i_free(client->master_data_prefix);
 	client->master_data_prefix_len = buf->used;
 	client->master_data_prefix = buffer_free_without_data(&buf);
+}
 
+int cmd_auth(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
+	     struct smtp_server_cmd_auth *data)
+{
+	struct submission_client *subm_client = conn_ctx;
+	struct client *client = &subm_client->common;
+
+	cmd_auth_set_master_data_prefix(subm_client);
+
+	i_assert(subm_client->pending_auth == NULL);
 	subm_client->pending_auth = cmd;
 
 	(void)client_auth_begin(client, data->sasl_mech, data->initial_response);
