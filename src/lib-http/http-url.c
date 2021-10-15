@@ -464,9 +464,16 @@ int http_url_request_target_parse(const char *request_target,
 			return -1;
 		}
 
-		if (parser->cur != parser->end || auth.enc_userinfo != NULL) {
+		if (parser->cur != parser->end) {
+			*error_r = t_strdup_printf(
+				"Invalid Host header: "
+				"Contains invalid character %s",
+				uri_char_sanitize(*parser->cur));
+			return -1;
+		}
+		if (auth.enc_userinfo != NULL) {
 			*error_r = "Invalid Host header: "
-				   "Contains invalid character";
+				"Contains inappropriate 'userinfo@' part";
 			return -1;
 		}
 
