@@ -38,6 +38,13 @@ struct uri_parser {
 	bool allow_pct_nul:1;
 };
 
+static inline const char *uri_char_sanitize(unsigned char c)
+{
+	if (c >= 0x20 && c < 0x7F)
+		return t_strdup_printf("'%c'", c);
+	return t_strdup_printf("<0x%02x>", c);
+}
+
 /* Parse one instance of percent encoding. Returns 1 for success, 0 if none is
    present at the current parser position, and -1 in case of error. The decoded
    character is returned in ch_r upon success. */

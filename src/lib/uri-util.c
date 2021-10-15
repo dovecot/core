@@ -150,7 +150,8 @@ uri_parse_pct_encoded_data(struct uri_parser *parser,
 	if (value < 0) {
 		parser->error = p_strdup_printf(
 			parser->pool,
-			"Expecting hex digit after '%%', but found '%c'", **p);
+			"Expecting hex digit after '%%', but found %s",
+			uri_char_sanitize(**p));
 		return -1;
 	}
 
@@ -161,8 +162,8 @@ uri_parse_pct_encoded_data(struct uri_parser *parser,
 	if (value < 0) {
 		parser->error = p_strdup_printf(
 			parser->pool,
-			"Expecting hex digit after '%%%c', but found '%c'",
-			*((*p)-1), **p);
+			"Expecting hex digit after '%%%c', but found %s",
+			*((*p)-1), uri_char_sanitize(**p));
 		return -1;
 	}
 

@@ -231,7 +231,9 @@ static int imap_url_parse_iserver(struct imap_url_parser *url_parser)
 			for (p += 6; *p != '\0'; p++) {
 				if (*p == ';' || *p == ':') {
 					parser->error = t_strdup_printf(
-						"Stray '%c' in userinfo `%s'", *p, auth.enc_userinfo);
+						"Stray %s in userinfo `%s'",
+						uri_char_sanitize(*p),
+						auth.enc_userinfo);
 					return -1;
 				}
 			}
