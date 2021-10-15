@@ -876,7 +876,9 @@ int uri_parse_path_segment(struct uri_parser *parser, const char **segment_r)
 
 	if (parser->cur < parser->end && *parser->cur != '/' &&
 	    *parser->cur != '?' && *parser->cur != '#') {
-		parser->error = "Path component contains invalid character";
+		parser->error = p_strdup_printf(parser->pool,
+			"Path component contains invalid character %s",
+			uri_char_sanitize(*parser->cur));
 		return -1;
 	}
 
@@ -983,7 +985,9 @@ int uri_parse_path(struct uri_parser *parser,
 	}
 	if (parser->cur < parser->end &&
 	    *parser->cur != '?' && *parser->cur != '#') {
-		parser->error = "Path component contains invalid character";
+		parser->error = p_strdup_printf(parser->pool,
+			"Path component contains invalid character %s",
+			uri_char_sanitize(*parser->cur));
 		return -1;
 	}
 	return 1;
@@ -1022,7 +1026,9 @@ int uri_parse_query(struct uri_parser *parser, const char **query_r)
 	}
 
 	if (parser->cur < parser->end && *parser->cur != '#') {
-		parser->error = "Query component contains invalid character";
+		parser->error = p_strdup_printf(parser->pool,
+			"Query component contains invalid character %s",
+			uri_char_sanitize(*parser->cur));
 		return -1;
 	}
 
@@ -1065,7 +1071,9 @@ int uri_parse_fragment(struct uri_parser *parser, const char **fragment_r)
 	}
 
 	if (parser->cur < parser->end) {
-		parser->error = "Fragment component contains invalid character";
+		parser->error = p_strdup_printf(parser->pool,
+			"Fragment component contains invalid character %s",
+			uri_char_sanitize(*parser->cur));
 		return -1;
 	}
 
