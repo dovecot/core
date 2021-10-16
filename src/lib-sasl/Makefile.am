@@ -8,13 +8,16 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-json \
 	-I$(top_srcdir)/src/lib-ssl-iostream
 
+client_mechanisms = \
+	dsasl-client-mech-anonymous.c \
+	dsasl-client-mech-external.c \
+	dsasl-client-mech-login.c \
+	dsasl-client-mech-oauthbearer.c \
+	dsasl-client-mech-plain.c \
+	dsasl-client-mech-scram.c
+
 libsasl_la_SOURCES = \
-	mech-anonymous.c \
-	mech-external.c \
-	mech-login.c \
-	mech-plain.c \
-	mech-oauthbearer.c \
-	mech-scram.c \
+	$(client_mechanisms) \
 	dsasl-client.c
 libsasl_la_DEPENDENCIES = \
 	../lib-auth/libauth.la \
