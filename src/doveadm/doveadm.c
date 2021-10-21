@@ -111,39 +111,33 @@ doveadm_usage_compress_lines(FILE *out, const char *str, const char *prefix)
 }
 
 static void ATTR_NORETURN
-usage_to(FILE *out, const char *prefix)
+usage_prefix(const char *prefix)
 {
 	const struct doveadm_cmd_ver2 *cmd2;
 	string_t *str = t_str_new(1024);
 
-	fprintf(out, "usage: doveadm [-Dv] [-f <formatter>] ");
+	fprintf(stderr, "usage: doveadm [-Dv] [-f <formatter>] ");
 	if (*prefix != '\0')
-		fprintf(out, "%s ", prefix);
-	fprintf(out, "<command> [<args>]\n");
+		fprintf(stderr, "%s ", prefix);
+	fprintf(stderr, "<command> [<args>]\n");
 
 	array_foreach(&doveadm_cmds_ver2, cmd2)
 		str_printfa(str, "%s\t%s\n", cmd2->name, cmd2->usage);
 
-	doveadm_usage_compress_lines(out, str_c(str), prefix);
+	doveadm_usage_compress_lines(stderr, str_c(str), prefix);
 
 	lib_exit(EX_USAGE);
 }
 
 void usage(void)
 {
-	usage_to(stderr, "");
-}
-
-static void ATTR_NORETURN
-help_to_ver2(const struct doveadm_cmd_ver2 *cmd, FILE *out)
-{
-	fprintf(out, "doveadm %s %s\n", cmd->name, cmd->usage);
-	lib_exit(EX_USAGE);
+	usage_prefix("");
 }
 
 void help_ver2(const struct doveadm_cmd_ver2 *cmd)
 {
-	help_to_ver2(cmd, stdout);
+	fprintf(stderr, "doveadm %s %s\n", cmd->name, cmd->usage);
+	lib_exit(EX_USAGE);
 }
 
 static void cmd_help(struct doveadm_cmd_context *cctx)
@@ -151,7 +145,7 @@ static void cmd_help(struct doveadm_cmd_context *cctx)
 	const char *cmd, *man_argv[3];
 
 	if (!doveadm_cmd_param_str(cctx, "cmd", &cmd))
-		usage_to(stdout, "");
+		usage_prefix("");
 
 	env_put("MANPATH", MANDIR);
 	man_argv[0] = "man";
@@ -346,7 +340,7 @@ int main(int argc, char *argv[])
 
 		if (cmd_name == NULL) {
 			/* show usage after registering all plugins */
-			usage_to(stdout, "");
+			usage_prefix("");
 		}
 	}
 
@@ -366,7 +360,7 @@ int main(int argc, char *argv[])
 
 	if (!doveadm_cmd_try_run_ver2(cmd_name, argc, (const char**)argv, &cctx)) {
 		if (doveadm_has_subcommands(cmd_name))
-			usage_to(stdout, cmd_name);
+			usage_prefix(cmd_name);
 		if (doveadm_has_unloaded_plugin(cmd_name)) {
 			i_fatal("Unknown command '%s', but plugin %s exists. "
 				"Try to set mail_plugins=%s",
