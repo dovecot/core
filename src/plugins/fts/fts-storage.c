@@ -427,7 +427,7 @@ static int fts_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		i_assert(scores->uid == _mail->uid);
 		(void)i_snprintf(fmail->score, sizeof(fmail->score),
 				 "%f", scores->score);
-			
+
 		*value_r = fmail->score;
 		return 0;
 	}
