@@ -255,8 +255,8 @@ master_service_init(const char *name, enum master_service_flags flags,
 
 	/* ignore these signals as early as possible */
 	lib_signals_init();
-        lib_signals_ignore(SIGPIPE, TRUE);
-        lib_signals_ignore(SIGALRM, FALSE);
+	lib_signals_ignore(SIGPIPE, TRUE);
+	lib_signals_ignore(SIGALRM, FALSE);
 
 	if (getenv(MASTER_UID_ENV) == NULL)
 		flags |= MASTER_SERVICE_FLAG_STANDALONE;
