@@ -2,6 +2,9 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-dict \
+	-I$(top_srcdir)/src/lib-http \
+	-I$(top_srcdir)/src/lib-ssl-iostream \
+	-I$(top_srcdir)/src/lib-master \
 	$(LUA_CFLAGS)
 
 pkglib_LTLIBRARIES = libdovecot-lua.la
@@ -10,6 +13,7 @@ libdovecot_lua_la_SOURCES = \
 	dlua-pushstring.c \
 	dlua-error.c \
 	dlua-dovecot.c \
+	dlua-dovecot-http.c \
 	dlua-compat.c \
 	dlua-resume.c \
 	dlua-table.c \

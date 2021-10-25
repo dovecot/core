@@ -658,6 +658,9 @@ void dlua_dovecot_register(struct dlua_script *script)
 
 	/* register table as global */
 	lua_setglobal(script->L, LUA_SCRIPT_DOVECOT);
+
+	/* register http methods */
+	dlua_dovecot_http_register(script);
 }
 
 #undef event_want_level
