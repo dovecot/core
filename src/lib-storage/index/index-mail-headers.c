@@ -423,7 +423,7 @@ static void index_mail_init_parser(struct index_mail *mail)
 		data->parser_input = NULL;
 		if (message_parser_deinit_from_parts(&data->parser_ctx, &parts, &error) < 0) {
 			index_mail_set_message_parts_corrupted(&mail->mail.mail, error);
-			data->parts = NULL;
+			index_mail_parts_reset(mail);
 		}
 		if (data->parts == NULL || data->parts != parts) {
 			/* The previous parsing didn't finish, so we're
