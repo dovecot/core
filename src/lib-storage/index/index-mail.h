@@ -205,6 +205,7 @@ int index_mail_parse_headers_internal(struct index_mail *mail,
 				      struct mailbox_header_lookup_ctx *headers)
 	ATTR_NULL(2);
 int index_mail_headers_get_envelope(struct index_mail *mail);
+void index_mail_parts_reset(struct index_mail *mail);
 
 int index_mail_get_first_header(struct mail *_mail, const char *field,
 				bool decode_to_utf8, const char **value_r);

@@ -437,12 +437,53 @@ static void test_bodystructure_reparsing(void)
 	test_end();
 }
 
+static void test_bodystructure_corruption_reparsing(void)
+{
+	struct test_mail_storage_ctx *ctx;
+	struct test_mail_storage_settings set = {
+		.driver = "sdbox",
+	};
+	const char *value;
+
+	test_begin("bodystructure corruption reparsing");
+	ctx = test_mail_storage_init();
+	test_mail_storage_init_user(ctx, &set);
+
+	struct mailbox *box =
+		mailbox_alloc(ctx->user->namespaces->list, "INBOX", 0);
+	test_assert(mailbox_open(box) == 0);
+
+	test_mail_save(box,
+		       "From: <test1@example.com>\r\n"
+		       "\r\n"
+		       "test body\n");
+
+	struct mailbox_transaction_context *trans =
+		mailbox_transaction_begin(box, 0, __func__);
+	struct mail *mail = mail_alloc(trans, 0, NULL);
+	mail_set_seq(mail, 1);
+
+	test_assert(mail_get_special(mail, MAIL_FETCH_IMAP_BODY, &value) == 0);
+	test_expect_error_string("Mailbox INBOX: Deleting corrupted cache record uid=1: UID 1: Broken MIME parts in mailbox INBOX: test");
+	mail_set_cache_corrupted(mail, MAIL_FETCH_MESSAGE_PARTS, "test");
+	test_expect_no_more_errors();
+	test_assert(mail_get_special(mail, MAIL_FETCH_IMAP_BODYSTRUCTURE, &value) == 0);
+
+	mail_free(&mail);
+	test_assert(mailbox_transaction_commit(&trans) == 0);
+	mailbox_free(&box);
+	test_mail_storage_deinit_user(ctx);
+	test_mail_storage_deinit(&ctx);
+	test_end();
+}
+
 int main(int argc, char **argv)
 {
 	void (*const tests[])(void) = {
 		test_mail_random_access,
 		test_attachment_flags_during_header_fetch,
 		test_bodystructure_reparsing,
+		test_bodystructure_corruption_reparsing,
 		NULL
 	};
 	int ret;
