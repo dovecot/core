@@ -162,6 +162,12 @@ static bool get_cached_parts(struct index_mail *mail)
 
 	if (mail->data.parts != NULL)
 		return TRUE;
+	if (mail->data.parser_ctx != NULL) {
+		/* Message is already being parsed. Get the message parts by
+		   finishing its parsing, so there won't be any confusion about
+		   whether e.g. data->parsed_bodystructure=TRUE match data->parts  */
+		return FALSE;
+	}
 
 	T_BEGIN {
 		part = get_unserialized_parts(mail);
