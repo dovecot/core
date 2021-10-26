@@ -15,7 +15,7 @@
 	"Bar Baz <bar@example.org>" \
 	"Foo Bar (comment)foo.bar@host.example.org " \
 	"foo, foo@domain " \
-	"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.tld " \
+	"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@1bcdefghijklmnopqrstuvxy1.2bcdefghijklmnopqrstuvxy2.3bcdefghijklmnopqrstuvxy3.4bcdefghijklmnopqrstuvxy4.5bcdefghijklmnopqrstuvxy5.6bcdefghijklmnopqrstuvxy6.7bcdefghijklmnopqrstuvxy7.8bcdefghijklmnopqrstuvxy8.9bcdefghijklmnopqrstuvxy9.0bcdefghijklmnopqrstuvxy0.tld " \
 	"trailing, period@blue.com. " \
 	"multi-trialing, mul@trail.com..... " \
 	"m@s " \
@@ -319,7 +319,7 @@ static void test_fts_tokenizer_address_only(void)
 	static const char *const expected_output[] = {
 		"abc.dfg@example.com", "bar@example.org",
 		"foo.bar@host.example.org", "foo@domain",
-		"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstu",
+		"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@1bcdefghijklmnopqrstuvxy1.2bcdefghijklmnopqrstuvxy2.3bcdefghijklmnopqrstuvxy3.4bcdefghijklmnopqrstuvxy4.5bcdefghijklmnopqrstuvxy5.6bcdefghijklmnopqrstuvxy6.7bcdefghijklmnopqrstu",
 		"period@blue.com", /*trailing period '.' in email */
 		"mul@trail.com",
 		"m@s", /*one letter local-part and domain name */
@@ -344,7 +344,19 @@ static void test_fts_tokenizer_address_parent(const char *name, const char * con
 		"invalid", "invalid", "Abc", "Dfg", "abc", "dfg", "example", "com", "abc.dfg@example.com",
 		"Bar", "Baz", "bar", "example", "org", "bar@example.org",
 		"Foo", "Bar", "comment", "foo", "bar", "host", "example", "org", "foo.bar@host.example.org",
-		"foo", "foo", "domain", "foo@domain", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyzabcde",  "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz","tld", "abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstu",
+		"foo", "foo", "domain", "foo@domain",
+		"abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyzabcde",
+		"1bcdefghijklmnopqrstuvxy1",
+		"2bcdefghijklmnopqrstuvxy2",
+		"3bcdefghijklmnopqrstuvxy3",
+		"4bcdefghijklmnopqrstuvxy4",
+		"5bcdefghijklmnopqrstuvxy5",
+		"6bcdefghijklmnopqrstuvxy6",
+		"7bcdefghijklmnopqrstuvxy7",
+		"8bcdefghijklmnopqrstuvxy8",
+		"9bcdefghijklmnopqrstuvxy9",
+		"0bcdefghijklmnopqrstuvxy0", "tld",
+		"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@1bcdefghijklmnopqrstuvxy1.2bcdefghijklmnopqrstuvxy2.3bcdefghijklmnopqrstuvxy3.4bcdefghijklmnopqrstuvxy4.5bcdefghijklmnopqrstuvxy5.6bcdefghijklmnopqrstuvxy6.7bcdefghijklmnopqrstu",
 		"trailing", "period", "blue", "com", "period@blue.com",
 		"multi", "trialing", "mul", "trail", "com", "mul@trail.com",
 		"m", "s", "m@s",
@@ -382,7 +394,8 @@ static void test_fts_tokenizer_address_search(void)
 		"invalid", "invalid", "Abc", "Dfg", "abc.dfg@example.com",
 		"Bar", "Baz", "bar@example.org",
 		"Foo", "Bar", "comment", "foo.bar@host.example.org",
-		"foo", "foo@domain", "abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstu",
+		"foo", "foo@domain",
+		"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@1bcdefghijklmnopqrstuvxy1.2bcdefghijklmnopqrstuvxy2.3bcdefghijklmnopqrstuvxy3.4bcdefghijklmnopqrstuvxy4.5bcdefghijklmnopqrstuvxy5.6bcdefghijklmnopqrstuvxy6.7bcdefghijklmnopqrstu",
 		"trailing", "period@blue.com",
 		"multi", "trialing", "mul@trail.com",
 		"m@s",
