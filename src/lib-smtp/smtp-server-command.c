@@ -220,6 +220,11 @@ void smtp_server_command_execute(struct smtp_server_command *cmd,
 {
 	struct smtp_server_connection *conn = cmd->context.conn;
 
+	if (params != NULL) {
+		event_add_str(cmd->context.event, "cmd_args", params);
+		event_add_str(cmd->context.event, "cmd_human_args", params);
+	}
+
 	if (cmd->reg == NULL) {
 		/* RFC 5321, Section 4.2.4: Reply Code 502
 
