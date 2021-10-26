@@ -36,6 +36,14 @@ struct fts_tokenizer {
 	size_t prev_skip;
 	bool prev_reply_finished;
 	bool skip_parents; /* Return token as is, do not hand to parents. */
+	/* Instead of handing child tokens separately to parent tokenizer,
+	   treat the returned tokens as a continuous stream. The final token
+	   isn't returned until the child tokenizer also sees 0-sized data. */
+	bool stream_to_parents;
+	/* Parent stream still needs to be finalized, so any final pending
+	   tokens will be returned. This is used only with
+	   stream_to_parents=TRUE. */
+	bool finalize_parent_pending;
 };
 
 void fts_tokenizer_register(const struct fts_tokenizer *tok_class);

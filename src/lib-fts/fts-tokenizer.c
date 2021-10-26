@@ -193,6 +193,16 @@ int fts_tokenizer_next(struct fts_tokenizer *tok,
 		ret = fts_tokenizer_next_self(tok, data, size, token_r, error_r);
 		if (ret <= 0) {
 			/* error / more data needed */
+			if (ret == 0 && size == 0 &&
+			    tok->finalize_parent_pending) {
+				/* Tokenizer input is being finalized. The
+				   child tokenizer is done now, but the parent
+				   tokenizer still needs to be finalized. */
+				tok->finalize_parent_pending = FALSE;
+				tok->parent_state =
+					FTS_TOKENIZER_PARENT_STATE_FINALIZE;
+				return fts_tokenizer_next(tok, NULL, 0, token_r, error_r);
+			}
 			break;
 		}
 
@@ -222,9 +232,14 @@ int fts_tokenizer_next(struct fts_tokenizer *tok,
 	case FTS_TOKENIZER_PARENT_STATE_FINALIZE:
 		/* No more input is coming from the child tokenizer. Return the
 		   final token(s) from the parent tokenizer. */
-		ret = fts_tokenizer_next(tok->parent, NULL, 0, token_r, error_r);
-		if (ret != 0)
-			break;
+		if (!tok->stream_to_parents || size == 0) {
+			ret = fts_tokenizer_next(tok->parent, NULL, 0,
+						 token_r, error_r);
+			if (ret != 0)
+				break;
+		} else {
+			tok->finalize_parent_pending = TRUE;
+		}
 		/* We're finished handling the previous child token. See if
 		   there are more child tokens available with this same data
 		   input. */
