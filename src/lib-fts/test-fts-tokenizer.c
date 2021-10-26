@@ -319,7 +319,6 @@ static void test_fts_tokenizer_address_only(void)
 	static const char *const expected_output[] = {
 		"abc.dfg@example.com", "bar@example.org",
 		"foo.bar@host.example.org", "foo@domain",
-		"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@1bcdefghijklmnopqrstuvxy1.2bcdefghijklmnopqrstuvxy2.3bcdefghijklmnopqrstuvxy3.4bcdefghijklmnopqrstuvxy4.5bcdefghijklmnopqrstuvxy5.6bcdefghijklmnopqrstuvxy6.7bcdefghijklmnopqrstu",
 		"period@blue.com", /*trailing period '.' in email */
 		"mul@trail.com",
 		"m@s", /*one letter local-part and domain name */
@@ -341,10 +340,10 @@ static void test_fts_tokenizer_address_parent(const char *name, const char * con
 {
 	static const char input[] = TEST_INPUT_ADDRESS;
 	static const char *const expected_output[] = {
-		"invalid", "invalid", "Abc", "Dfg", "abc", "dfg", "example", "com", "abc.dfg@example.com",
-		"Bar", "Baz", "bar", "example", "org", "bar@example.org",
-		"Foo", "Bar", "comment", "foo", "bar", "host", "example", "org", "foo.bar@host.example.org",
-		"foo", "foo", "domain", "foo@domain",
+		"invalid", "invalid", "Abc", "Dfg", "abc", "dfg", "example", "abc.dfg@example.com", "com",
+		"Bar", "Baz", "bar", "example", "bar@example.org", "org",
+		"Foo", "Bar", "comment", "foo", "bar", "host", "example", "foo.bar@host.example.org", "org",
+		"foo", "foo", "foo@domain", "domain",
 		"abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyzabcde",
 		"1bcdefghijklmnopqrstuvxy1",
 		"2bcdefghijklmnopqrstuvxy2",
@@ -356,11 +355,10 @@ static void test_fts_tokenizer_address_parent(const char *name, const char * con
 		"8bcdefghijklmnopqrstuvxy8",
 		"9bcdefghijklmnopqrstuvxy9",
 		"0bcdefghijklmnopqrstuvxy0", "tld",
-		"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@1bcdefghijklmnopqrstuvxy1.2bcdefghijklmnopqrstuvxy2.3bcdefghijklmnopqrstuvxy3.4bcdefghijklmnopqrstuvxy4.5bcdefghijklmnopqrstuvxy5.6bcdefghijklmnopqrstuvxy6.7bcdefghijklmnopqrstu",
 		"trailing", "period", "blue", "com", "period@blue.com",
 		"multi", "trialing", "mul", "trail", "com", "mul@trail.com",
-		"m", "s", "m@s",
-		"hypen", "hypen", "hypen", "com", "hypen@hypen-hypen.com",
+		"m", "m@s", "s",
+		"hypen", "hypen", "hypen", "hypen@hypen-hypen.com", "com",
 		"hypen", "hypen", "hypen", "sick", "com", "hypen@hypen-hypen-sick.com",
 		NULL
 	};
@@ -395,7 +393,17 @@ static void test_fts_tokenizer_address_search(void)
 		"Bar", "Baz", "bar@example.org",
 		"Foo", "Bar", "comment", "foo.bar@host.example.org",
 		"foo", "foo@domain",
-		"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@1bcdefghijklmnopqrstuvxy1.2bcdefghijklmnopqrstuvxy2.3bcdefghijklmnopqrstuvxy3.4bcdefghijklmnopqrstuvxy4.5bcdefghijklmnopqrstuvxy5.6bcdefghijklmnopqrstuvxy6.7bcdefghijklmnopqrstu",
+		"abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyzabcde",
+		"1bcdefghijklmnopqrstuvxy1",
+		"2bcdefghijklmnopqrstuvxy2",
+		"3bcdefghijklmnopqrstuvxy3",
+		"4bcdefghijklmnopqrstuvxy4",
+		"5bcdefghijklmnopqrstuvxy5",
+		"6bcdefghijklmnopqrstuvxy6",
+		"7bcdefghijklmnopqrstuvxy7",
+		"8bcdefghijklmnopqrstuvxy8",
+		"9bcdefghijklmnopqrstuvxy9",
+		"0bcdefghijklmnopqrstuvxy0", "tld",
 		"trailing", "period@blue.com",
 		"multi", "trialing", "mul@trail.com",
 		"m@s",
