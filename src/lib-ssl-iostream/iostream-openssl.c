@@ -609,6 +609,7 @@ int openssl_iostream_handle_error(struct ssl_iostream *ssl_io, int ret,
 		} else {
 			/* Seen this at least with v1.1.0l SSL_accept() */
 			errstr = "OpenSSL BUG: errno=0";
+			errno = EINVAL;
 		}
 		errstr = t_strdup_printf("%s syscall failed: %s",
 					 func_name, errstr);
