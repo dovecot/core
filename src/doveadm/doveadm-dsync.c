@@ -1327,6 +1327,7 @@ DOVEADM_CMD_PARAM('N', "all-namespaces", CMD_PARAM_BOOL, 0) \
 DOVEADM_CMD_PARAM('x', "exclude-mailbox", CMD_PARAM_ARRAY, 0) \
 DOVEADM_CMD_PARAM('s', "state", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('t', "sync-since-time", CMD_PARAM_STR, 0) \
+DOVEADM_CMD_PARAM('T', "timeout", CMD_PARAM_INT64, 0) \
 DOVEADM_CMD_PARAM('d', "default-destination", CMD_PARAM_BOOL, 0) \
 DOVEADM_CMD_PARAM('\0', "destination", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 
