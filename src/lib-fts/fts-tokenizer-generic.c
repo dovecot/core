@@ -1,6 +1,7 @@
 /* Copyright (c) 2014-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "base64.h"
 #include "buffer.h"
 #include "str.h"
 #include "unichar.h"
@@ -11,6 +12,10 @@
 #include "fts-tokenizer-common.h"
 #include "word-boundary-data.c"
 #include "word-break-data.c"
+
+/* see comments below between is_base64() and skip_base64() */
+#define FTS_SKIP_BASE64_MIN_SEQUENCES 1
+#define FTS_SKIP_BASE64_MIN_CHARS 50
 
 #define FTS_DEFAULT_TOKEN_MAX_LENGTH 30
 #define FTS_WB5A_PREFIX_MAX_LENGTH 3 /* Including apostrophe */
@@ -244,6 +249,96 @@ static void tok_append_truncated(struct generic_fts_tokenizer *tok,
 	tok->untruncated_length += size;
 }
 
+inline static bool
+is_base64(const unsigned char ch)
+{
+	return base64_scheme.decmap[ch] != 0xff;
+}
+
+/* So far the following rule seems give good results in avoid indexing base64
+   as keywords. It also seems to run well against against base64 embedded
+   headers, like ARC-Seal, DKIM-Signature, X-SG-EID, X-SG-ID, including
+   encoded parts (e.g. =?us-ascii?Q?...?= sequences).
+
+   leader characters   : [ \t\r\n=:;?]*
+   matching characters : base64_scheme.decmap[ch] != 0xff
+   trailing characters : none or [ \t\r\n=:;?] (other characters cause
+                                                the run to be ignored)
+   minimum run length  : 50
+   minimum runs count  : 1
+
+   i.e. (single or multiple) 50-chars runs of characters in the base64 set
+        - excluded the trailing '=' - are recognized as base64 and ignored
+	in indexing. */
+
+#define allowed_base64_trailers allowed_base64_leaders
+static unsigned char allowed_base64_leaders[] = {
+	' ', '\t', '\r', '\n', '=', ';', ':', '?'
+};
+
+/* skip_base64() works doing lookahead on the data available in the tokenizer
+   buffer, .i.e. it is not able to see "what will come next" to perform more
+   extensive matches. This implies that a very long base64 sequence, which is
+   split halfway into two different chunks while feeding tokenizer, will be
+   matched separately as the trailing part of first buffer and as the leading
+   part of the second. Each of these two segments must fulfill the match
+   criteria on its own to be discarded. What we pay is we will fail to reject
+   small base64 chunks segments instead of rejecting the whole sequence.
+
+   When skip_base64() is invoked in fts_tokenizer_generic_XX_next(), we know
+   that we are not halfway the collection of a token.
+
+   As (after the previous token) the buffer will contain non-token characters
+   (i.e. token separators of some kind), we try to move forward among those
+   until we find a base64 character. If we don't find one, there's nothing we
+   can skip in the buffer and the skip phase terminates.
+
+   If we found a base64 character, we check that the previous one is in
+   allowed_base64_leaders[]; otherwise, the skip phase terminates.
+
+   Now we try to determine how long the base64 sequence is. If it is too short,
+   the skip phase terminates. It also terminates if there's a character
+   in the buffer after the sequence and this is not in
+   allowed_base64_trailers[].
+
+   At this point we know that we have:
+   - possibly a skipped sequence of non base64 characters ending with an
+     allowed leader character, followed by:
+   - a skipped sequence of base64 characters, possibly followed by an allowed
+     trailed character
+   we advance the start pointer to after the last skipped base64 character,
+   and scan again to see if we can skip further chunks in the same way. */
+
+static size_t
+skip_base64(const unsigned char *data, size_t size)
+{
+	if (data == NULL) {
+		i_assert(size == 0);
+		return 0;
+	}
+
+	const unsigned char *start, *end = data + size;
+	unsigned int matches = 0;
+	for (start = data; start < end; ) {
+		const unsigned char *first;
+		for (first = start; first < end && !is_base64(*first); first++);
+		if (first > start && memchr(allowed_base64_leaders, *(first - 1),
+					    N_ELEMENTS(allowed_base64_leaders)) == NULL)
+			break;
+
+		const unsigned char *past;
+		for (past = first; past < end && is_base64(*past); past++);
+		if (past - first < FTS_SKIP_BASE64_MIN_CHARS)
+			break;
+		if (past < end && memchr(allowed_base64_trailers, *past,
+					 N_ELEMENTS(allowed_base64_trailers)) == NULL)
+			break;
+		start = past;
+		matches++;
+	}
+	return matches < FTS_SKIP_BASE64_MIN_SEQUENCES ? 0 : start - data;
+}
+
 static int
 fts_tokenizer_generic_simple_next(struct fts_tokenizer *_tok,
                                   const unsigned char *data, size_t size,
@@ -252,13 +347,14 @@ fts_tokenizer_generic_simple_next(struct fts_tokenizer *_tok,
 {
 	struct generic_fts_tokenizer *tok =
 		container_of(_tok, struct generic_fts_tokenizer, tokenizer);
-	size_t i, start = 0;
+	size_t i, start;
 	int char_size;
 	unichar_t c;
 	bool apostrophe;
 	enum fts_break_type break_type;
 
-	for (i = 0; i < size; i += char_size) {
+	start = tok->token->used > 0 ? 0 : skip_base64(data, size);
+	for (i = start; i < size; i += char_size) {
 		char_size = uni_utf8_get_char_n(data + i, size - i, &c);
 		i_assert(char_size > 0);
 
@@ -709,11 +805,12 @@ fts_tokenizer_generic_tr29_next(struct fts_tokenizer *_tok,
 	struct generic_fts_tokenizer *tok =
 		container_of(_tok, struct generic_fts_tokenizer, tokenizer);
 	unichar_t c;
-	size_t i, char_start_i, start_pos = 0;
+	size_t i, char_start_i, start_pos;
 	enum letter_type lt;
 	int char_size;
 
-	for (i = 0; i < size; ) {
+	start_pos = tok->token->used > 0 ? 0 : skip_base64(data, size);
+	for (i = start_pos; i < size; ) {
 		char_start_i = i;
 		char_size = uni_utf8_get_char_n(data + i, size - i, &c);
 		i_assert(char_size > 0);

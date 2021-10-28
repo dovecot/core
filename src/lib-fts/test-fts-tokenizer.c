@@ -584,9 +584,88 @@ test_fts_tokenizer_explicit_prefix(void)
 	}
 }
 
+static void test_fts_tokenizer_skip_base64(void)
+{
+	/* The skip_base64 works on the data already available in the buffer
+	   of the tokenizer, it does not pull more data to see if a base64
+	   sequence long enough would match or not. This is why it does not
+	   use test_tokenizer_inputoutput that also tests with one-byte-at-once
+	   or random chunking, as those are known to fail with the current
+	   implementation */
+	struct fts_tokenizer *tok;
+	const char *error;
+	const char *token;
+
+	static const char *input =
+		",/dirtyleader/456789012345678901234567890123456789/\r\n"
+
+		" /cleanleader/456789012345678901234567890123456789/\r\n"
+		"\t/cleanleader/456789012345678901234567890123456789/\r\n"
+		"\r/cleanleader/456789012345678901234567890123456789/\r\n"
+		"\n/cleanleader/456789012345678901234567890123456789/\r\n"
+		"=/cleanleader/456789012345678901234567890123456789/\r\n"
+		";/cleanleader/456789012345678901234567890123456789/\r\n"
+		":/cleanleader/456789012345678901234567890123456789/\r\n"
+		";/cleanleader/456789012345678901234567890123456789/\r\n"
+
+		"/23456789012345678901234567890123456/dirtytrailer/,\r\n"
+
+		"/23456789012345678901234567890123456/cleantrailer/ \r\n"
+		"/23456789012345678901234567890123456/cleantrailer/\t\r\n"
+		"/23456789012345678901234567890123456/cleantrailer/\r\r\n"
+		"/23456789012345678901234567890123456/cleantrailer/\n\r\n"
+		"/23456789012345678901234567890123456/cleantrailer/=\r\n"
+		"/23456789012345678901234567890123456/cleantrailer/;\r\n"
+		"/23456789012345678901234567890123456/cleantrailer/:\r\n"
+		"/23456789012345678901234567890123456/cleantrailer/?\r\n"
+
+		"J1RrDrZSWxIAphKpYckeKNs10iTeiGMY0hNI32SMoSqCTgH96\r\n" // 49
+		"MziUaLMK6FAOQws3OIuX0tgvQcyhu06ILAWWB1nGPy/bSEAEYg\r\n" // 50
+		"ljWSJo8kxsm4/CiZBpwFfWkd64y+5ZytnKqgkQD87UbQ7FcpZgj\r\n" // 51
+		"pTXUOBszCfdAgfZpWpPiOEQSthPxN9XMaS7HnOTyXtRBPVt96vw=\r\n" // 51=
+		"MJmsWlDKXo7NCSt1wvazf9Xad18qOzpLJkVs/sxKsvLYyPD/zv=\r\n" // 50=
+		"CBLsZ5dUybAEWcDkQwytSL348U/2lvadma7lF4wdNOc8sjUL8=\r\n" // 49=
+
+		"4HWw7lJ15ZW3G1GtH9/NQbylcThN2IJo1kr83Fa2c9z2GFK1/NF+DpAkjbhDA3Al\r\n"
+
+		"alpha bravo charlie delta echo foxtrot golf hotel india\r\n"
+		"=juliet=kilo=lima=mike=november=oscar=papa=qebec=romeo=\r\n";
+
+	static const char *const expected_output[] = {
+		"dirtyleader", "456789012345678901234567890123",
+		"234567890123456789012345678901", "dirtytrailer",
+		"J1RrDrZSWxIAphKpYckeKNs10iTeiG", // 49
+		"CBLsZ5dUybAEWcDkQwytSL348U", "2lvadma7lF4wdNOc8sjUL8", // 49=
+		"alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india",
+		"juliet", "kilo", "lima", "mike", "november", "oscar", "papa", "qebec", "romeo",
+		NULL
+	};
+
+	test_begin("fts tokenizer skip base64");
+	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, tr29_settings, &tok, &error) == 0);
+
+	size_t index = 0;
+	while (fts_tokenizer_next(tok, (const unsigned char *) input, strlen(input), &token, &error) > 0) {
+		i_assert(index < N_ELEMENTS(expected_output));
+		test_assert_strcmp(token, expected_output[index]);
+		++index;
+	}
+	while (fts_tokenizer_next(tok, NULL, 0, &token, &error) > 0) {
+		i_assert(index < N_ELEMENTS(expected_output));
+		test_assert_strcmp(token, expected_output[index]);
+		++index;
+	}
+	i_assert(index < N_ELEMENTS(expected_output));
+	test_assert_idx(expected_output[index] == NULL, index);
+
+	fts_tokenizer_unref(&tok);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
+		test_fts_tokenizer_skip_base64,
 		test_fts_tokenizer_find,
 		test_fts_tokenizer_generic_only,
 		test_fts_tokenizer_generic_tr29_only,
