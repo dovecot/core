@@ -1,6 +1,7 @@
 /* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "buffer.h"
 #include "unichar.h"
 #include "istream.h"
 #include "istream-failure-at.h"
@@ -40,6 +41,7 @@ struct smtp_command_parser {
 	struct smtp_command_limits limits;
 
 	const unsigned char *cur, *end;
+	buffer_t *line_buffer;
 	struct istream *data;
 
 	struct smtp_command_parser_state_data state;
@@ -100,6 +102,7 @@ void smtp_command_parser_deinit(struct smtp_command_parser **_parser)
 	struct smtp_command_parser *parser = *_parser;
 
 	i_stream_unref(&parser->data);
+	buffer_free(&parser->line_buffer);
 	i_free(parser->state.cmd_name);
 	i_free(parser->state.cmd_params);
 	i_free(parser->error);
@@ -110,6 +113,7 @@ void smtp_command_parser_deinit(struct smtp_command_parser **_parser)
 
 static void smtp_command_parser_restart(struct smtp_command_parser *parser)
 {
+	buffer_free(&parser->line_buffer);
 	i_free(parser->state.cmd_name);
 	i_free(parser->state.cmd_params);
 
@@ -168,7 +172,18 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 	size_t max_size = (parser->auth_response ?
 			   parser->limits.max_auth_size :
 			   parser->limits.max_parameters_size);
+	size_t buf_size = (parser->line_buffer == NULL ?
+			   0 : parser->line_buffer->used);
 	int nch = 1;
+
+	i_assert(max_size == 0 || buf_size <= max_size);
+	if (max_size > 0 && buf_size == max_size) {
+		smtp_command_parser_error(
+			parser, SMTP_COMMAND_PARSE_ERROR_LINE_TOO_LONG,
+			"%s line is too long",
+			(parser->auth_response ? "AUTH response" : "Command"));
+		return -1;
+	}
 
 	/* We assume parameters to match textstr (HT, SP, Printable US-ASCII).
 	   For command parameters, we also accept valid UTF-8 characters.
@@ -195,7 +210,7 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 			break;
 		p += nch;
 	}
-	if (max_size > 0 && (size_t)(p - parser->cur) > max_size) {
+	if (max_size > 0 && (size_t)(p - parser->cur) > (max_size - buf_size)) {
 		smtp_command_parser_error(
 			parser, SMTP_COMMAND_PARSE_ERROR_LINE_TOO_LONG,
 			"%s line is too long",
@@ -203,8 +218,34 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 		return -1;
 	}
 	parser->state.poff = p - parser->cur;
-	if (p == parser->end || nch == 0)
+	if (p == parser->end || nch == 0) {
+		/* Parsed up to end of what is currently buffered in the input
+		   stream. */
+		unsigned int ch_size = (p == parser->end ?
+					0 : uni_utf8_char_bytes(*p));
+		size_t max_input = i_stream_get_max_buffer_size(parser->input);
+
+		/* Move parsed data to parser's line buffer if the input stream
+		   buffer is full. This can happen when the parser's limits
+		   exceed the input stream max buffer size. */
+		if ((parser->state.poff + ch_size) >= max_input) {
+			if (parser->line_buffer == NULL) {
+				buf_size = (max_input < SIZE_MAX / 2 ?
+					    max_input * 2 : SIZE_MAX);
+				buf_size = I_MAX(buf_size, 2048);
+				buf_size = I_MIN(buf_size, max_size);
+
+				parser->line_buffer = buffer_create_dynamic(
+					default_pool, buf_size);
+			}
+			buffer_append(parser->line_buffer, parser->cur,
+				      (p - parser->cur));
+
+			parser->cur = p;
+			parser->state.poff = 0;
+		}
 		return 0;
+	}
 
 	/* In the interest of improved interoperability, SMTP receivers SHOULD
 	   tolerate trailing white space before the terminating <CRLF>.
@@ -226,7 +267,16 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 		return -1;
 	}
 
-	parser->state.cmd_params = i_strdup_until(parser->cur, mp);
+	if (parser->line_buffer == NULL) {
+		/* Buffered only in input stream */
+		parser->state.cmd_params = i_strdup_until(parser->cur, mp);
+	} else {
+		/* Buffered also in the parser */
+		buffer_append(parser->line_buffer, parser->cur,
+			      (mp - parser->cur));
+		parser->state.cmd_params =
+			buffer_free_without_data(&parser->line_buffer);
+	}
 	parser->cur = p;
 	parser->state.poff = 0;
 	return 1;
@@ -366,15 +416,8 @@ static int smtp_command_parse(struct smtp_command_parser *parser)
 			return ret;
 		old_bytes = i_stream_get_data_size(parser->input);
 	}
+	i_assert(ret != -2);
 
-	if (ret == -2) {
-		/* Should not really happen */
-		smtp_command_parser_error(
-			parser, SMTP_COMMAND_PARSE_ERROR_LINE_TOO_LONG,
-			"%s line is too long",
-			(parser->auth_response ? "AUTH response" : "Command"));
-		return -1;
-	}
 	if (ret < 0) {
 		i_assert(parser->input->eof);
 		if (parser->input->stream_errno == 0) {

@@ -56,6 +56,7 @@ static bool debug = FALSE;
 static struct smtp_server *smtp_server = NULL;
 static struct io *io_listen;
 static int fd_listen = -1;
+static size_t server_io_buffer_size = 0;
 static struct smtp_server_callbacks server_callbacks;
 static unsigned int server_pending;
 
@@ -1111,6 +1112,30 @@ test_server_long_auth_line(const struct smtp_server_settings *server_set)
 	test_server_run(server_set);
 }
 
+static void
+test_server_long_auth_line_small_buf(
+	const struct smtp_server_settings *server_set)
+{
+	server_io_buffer_size = 1024;
+
+	server_callbacks.conn_disconnect =
+		test_server_long_auth_line_disconnect;
+
+	server_callbacks.conn_cmd_helo =
+		test_server_long_auth_line_helo;
+	server_callbacks.conn_cmd_auth =
+		test_server_long_auth_line_auth;
+	server_callbacks.conn_cmd_auth_continue =
+		test_server_long_auth_line_auth_continue;
+	server_callbacks.conn_cmd_rcpt =
+		test_server_long_auth_line_rcpt;
+	server_callbacks.conn_cmd_data_begin =
+		test_server_long_auth_line_data_begin;
+	server_callbacks.conn_cmd_data_continue =
+		test_server_long_auth_line_data_continue;
+	test_server_run(server_set);
+}
+
 /* test */
 
 static void test_long_auth_line(void)
@@ -1127,6 +1152,22 @@ static void test_long_auth_line(void)
 			       test_client_long_auth_line, 3);
 	test_end();
 }
+
+static void test_long_auth_line_small_buf(void)
+{
+	struct smtp_server_settings smtp_server_set;
+
+	test_server_defaults(&smtp_server_set);
+	smtp_server_set.capabilities = SMTP_CAPABILITY_AUTH;
+	smtp_server_set.max_client_idle_time_msecs = 1000;
+
+	test_begin("long auth line (small i/o buffers)");
+	test_run_client_server(&smtp_server_set,
+			       test_server_long_auth_line_small_buf,
+			       test_client_long_auth_line, 3);
+	test_end();
+}
+
 
 /*
  * Big data
@@ -3482,6 +3523,7 @@ static void (*const test_functions[])(void) = {
 	test_many_bad_commands,
 	test_long_command,
 	test_long_auth_line,
+	test_long_auth_line_small_buf,
 	test_big_data,
 	test_bad_helo,
 	test_bad_mail,
@@ -3638,13 +3680,31 @@ static void server_connection_accept(void *context ATTR_UNUSED)
 	if (debug)
 		i_debug("Accepted connection");
 
+	net_set_nonblock(fd, TRUE);
+
 	sconn = i_new(struct server_connection, 1);
 
 	server_callbacks.conn_free = server_connection_free;
 
-	conn = smtp_server_connection_create(smtp_server, fd, fd,
-					     NULL, 0, FALSE, NULL,
-					     &server_callbacks, sconn);
+	if (server_io_buffer_size == 0) {
+		conn = smtp_server_connection_create(smtp_server, fd, fd,
+						     NULL, 0, FALSE, NULL,
+						     &server_callbacks, sconn);
+	} else {
+		struct istream *input;
+		struct ostream *output;
+
+		input = i_stream_create_fd(fd, server_io_buffer_size);
+		output = o_stream_create_fd(fd, server_io_buffer_size);
+		o_stream_set_no_error_handling(output, TRUE);
+
+		conn = smtp_server_connection_create_from_streams(
+			smtp_server, input, output, NULL, 0, NULL,
+			&server_callbacks, sconn);
+
+		i_stream_unref(&input);
+		o_stream_unref(&output);
+	}
 	smtp_server_connection_start(conn);
 }
 
@@ -3749,6 +3809,8 @@ test_run_client_server(const struct smtp_server_settings *server_set,
 		       unsigned int client_tests_count)
 {
 	unsigned int i;
+
+	server_io_buffer_size = 0;
 
 	fd_listen = test_open_server_fd();
 
