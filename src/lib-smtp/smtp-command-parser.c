@@ -31,7 +31,7 @@ struct smtp_command_parser_state_data {
 	char *cmd_name;
 	char *cmd_params;
 
-	uoff_t poff;
+	size_t poff;
 };
 
 struct smtp_command_parser {
@@ -165,7 +165,7 @@ static int smtp_command_parse_identifier(struct smtp_command_parser *parser)
 static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 {
 	const unsigned char *p, *mp;
-	uoff_t max_size = (parser->auth_response ?
+	size_t max_size = (parser->auth_response ?
 			   parser->limits.max_auth_size :
 			   parser->limits.max_parameters_size);
 	int nch = 1;
@@ -195,7 +195,7 @@ static int smtp_command_parse_parameters(struct smtp_command_parser *parser)
 			break;
 		p += nch;
 	}
-	if (max_size > 0 && (uoff_t)(p - parser->cur) > max_size) {
+	if (max_size > 0 && (size_t)(p - parser->cur) > max_size) {
 		smtp_command_parser_error(
 			parser, SMTP_COMMAND_PARSE_ERROR_LINE_TOO_LONG,
 			"%s line is too long",
