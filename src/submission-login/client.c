@@ -112,6 +112,8 @@ static void submission_client_create(struct client *client,
 	smtp_set.tls_required = !client->secured &&
 		(strcmp(client->ssl_set->ssl, "required") == 0);
 	smtp_set.xclient_extensions = xclient_extensions;
+	smtp_set.command_limits.max_parameters_size = LOGIN_MAX_INBUF_SIZE;
+	smtp_set.command_limits.max_auth_size = LOGIN_MAX_AUTH_BUF_SIZE;
 	smtp_set.debug = client->set->auth_debug;
 
 	subm_client->conn = smtp_server_connection_create_from_streams(
