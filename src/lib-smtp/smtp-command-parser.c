@@ -526,10 +526,9 @@ smtp_command_parse_data_with_dot(struct smtp_command_parser *parser)
 	return parser->data;
 }
 
-int smtp_command_parse_auth_response(struct smtp_command_parser *parser,
-			    const char **line_r,
-			    enum smtp_command_parse_error *error_code_r,
-			    const char **error_r)
+int smtp_command_parse_auth_response(
+	struct smtp_command_parser *parser, const char **line_r,
+	enum smtp_command_parse_error *error_code_r, const char **error_r)
 {
 	int ret;
 
