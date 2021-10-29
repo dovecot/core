@@ -149,6 +149,23 @@ static void add_node(pool_t pool, struct event_filter_node **root,
 	*root = parent;
 }
 
+static bool filter_node_requires_event_name(struct event_filter_node *node)
+{
+	switch (node->op) {
+	case EVENT_FILTER_OP_NOT:
+		return filter_node_requires_event_name(node->children[0]);
+	case EVENT_FILTER_OP_AND:
+		return filter_node_requires_event_name(node->children[0]) ||
+			filter_node_requires_event_name(node->children[1]);
+	case EVENT_FILTER_OP_OR:
+		return filter_node_requires_event_name(node->children[0]) &&
+			filter_node_requires_event_name(node->children[1]);
+	default:
+		return node->type == EVENT_FILTER_NODE_TYPE_EVENT_NAME_WILDCARD ||
+			node->type == EVENT_FILTER_NODE_TYPE_EVENT_NAME_EXACT;
+	}
+}
+
 int event_filter_parse(const char *str, struct event_filter *filter,
 		       const char **error_r)
 {
@@ -178,7 +195,8 @@ int event_filter_parse(const char *str, struct event_filter *filter,
 		add_node(filter->pool, &int_query->expr, state.output,
 			 EVENT_FILTER_OP_OR);
 
-		filter->named_queries_only = filter->named_queries_only && state.has_event_name;
+		filter->named_queries_only = filter->named_queries_only &&
+			filter_node_requires_event_name(state.output);
 	} else if (ret != 0) {
 		/* error */
 		i_assert(state.error != NULL);

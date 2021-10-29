@@ -61,7 +61,6 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 		node->str = p_strdup(state->pool, b);
 		if (wildcard_is_literal(node->str))
 			node->type = EVENT_FILTER_NODE_TYPE_EVENT_NAME_EXACT;
-		state->has_event_name = TRUE;
 		break;
 	case EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION: {
 		const char *colon = strrchr(b, ':');
