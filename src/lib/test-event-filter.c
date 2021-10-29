@@ -2,7 +2,7 @@
 
 #include "test-lib.h"
 #include "ioloop.h"
-#include "event-filter.h"
+#include "event-filter-private.h"
 
 static void test_event_filter_override_parent_fields(void)
 {
@@ -436,6 +436,151 @@ static void test_event_filter_strlist_global_events(void)
 	test_end();
 }
 
+static void test_event_filter_named_and_str(void)
+{
+	struct event_filter *filter;
+	const char *error;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+
+	test_begin("event filter: event name and str");
+
+	filter = event_filter_create();
+	struct event *e_noname_nostr = event_create(NULL);
+	struct event *e_noname_str = event_create(NULL);
+	event_add_str(e_noname_str, "str", "str");
+	struct event *e_noname_wrongstr = event_create(NULL);
+	event_add_str(e_noname_wrongstr, "str", "wrong");
+	struct event *e_named_nostr = event_create(NULL);
+	event_set_name(e_named_nostr, "named");
+	struct event *e_named_str = event_create(NULL);
+	event_set_name(e_named_str, "named");
+	event_add_str(e_named_str, "str", "str");
+	struct event *e_named_wrongstr = event_create(NULL);
+	event_set_name(e_named_wrongstr, "named");
+	event_add_str(e_named_wrongstr, "str", "wrong");
+	struct event *e_wrongname_nostr = event_create(NULL);
+	event_set_name(e_wrongname_nostr, "wrong");
+	struct event *e_wrongname_str = event_create(NULL);
+	event_set_name(e_wrongname_str, "wrong");
+	event_add_str(e_wrongname_str, "str", "str");
+	struct event *e_wrongname_wrongstr = event_create(NULL);
+	event_set_name(e_wrongname_wrongstr, "wrong");
+	event_add_str(e_wrongname_wrongstr, "str", "wrong");
+
+	test_assert(event_filter_parse("event=named AND str=str", filter, &error) == 0);
+	test_assert(filter->named_queries_only);
+	test_assert(!event_filter_match(filter, e_noname_nostr, &failure_ctx));
+	test_assert(!event_filter_match(filter, e_noname_str, &failure_ctx));
+	test_assert(!event_filter_match(filter, e_noname_wrongstr, &failure_ctx));
+	test_assert(!event_filter_match(filter, e_named_nostr, &failure_ctx));
+	test_assert(event_filter_match(filter, e_named_str, &failure_ctx));
+	test_assert(!event_filter_match(filter, e_named_wrongstr, &failure_ctx));
+	test_assert(!event_filter_match(filter, e_wrongname_nostr, &failure_ctx));
+	test_assert(!event_filter_match(filter, e_wrongname_str, &failure_ctx));
+	test_assert(!event_filter_match(filter, e_wrongname_wrongstr, &failure_ctx));
+
+	event_filter_unref(&filter);
+	event_unref(&e_noname_nostr);
+	event_unref(&e_noname_str);
+	event_unref(&e_noname_wrongstr);
+	event_unref(&e_named_nostr);
+	event_unref(&e_named_str);
+	event_unref(&e_named_wrongstr);
+	event_unref(&e_wrongname_nostr);
+	event_unref(&e_wrongname_str);
+	event_unref(&e_wrongname_wrongstr);
+	test_end();
+}
+
+static void test_event_filter_named_or_str(void)
+{
+	struct event_filter *filter;
+	const char *error;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+
+	test_begin("event filter: event name or str");
+
+	filter = event_filter_create();
+	struct event *e_noname_nostr = event_create(NULL);
+	struct event *e_noname_str = event_create(NULL);
+	event_add_str(e_noname_str, "str", "str");
+	struct event *e_noname_wrongstr = event_create(NULL);
+	event_add_str(e_noname_wrongstr, "str", "wrong");
+	struct event *e_named_nostr = event_create(NULL);
+	event_set_name(e_named_nostr, "named");
+	struct event *e_named_str = event_create(NULL);
+	event_set_name(e_named_str, "named");
+	event_add_str(e_named_str, "str", "str");
+	struct event *e_named_wrongstr = event_create(NULL);
+	event_set_name(e_named_wrongstr, "named");
+	event_add_str(e_named_wrongstr, "str", "wrong");
+	struct event *e_wrongname_nostr = event_create(NULL);
+	event_set_name(e_wrongname_nostr, "wrong");
+	struct event *e_wrongname_str = event_create(NULL);
+	event_set_name(e_wrongname_str, "wrong");
+	event_add_str(e_wrongname_str, "str", "str");
+	struct event *e_wrongname_wrongstr = event_create(NULL);
+	event_set_name(e_wrongname_wrongstr, "wrong");
+	event_add_str(e_wrongname_wrongstr, "str", "wrong");
+
+	test_assert(event_filter_parse("event=named OR str=str", filter, &error) == 0);
+	test_assert(!filter->named_queries_only);
+
+	test_assert(!event_filter_match(filter, e_noname_nostr, &failure_ctx));
+	test_assert(event_filter_match(filter, e_noname_str, &failure_ctx));
+	test_assert(!event_filter_match(filter, e_noname_wrongstr, &failure_ctx));
+	test_assert(event_filter_match(filter, e_named_nostr, &failure_ctx));
+	test_assert(event_filter_match(filter, e_named_str, &failure_ctx));
+	test_assert(event_filter_match(filter, e_named_wrongstr, &failure_ctx));
+	test_assert(!event_filter_match(filter, e_wrongname_nostr, &failure_ctx));
+	test_assert(event_filter_match(filter, e_wrongname_str, &failure_ctx));
+	test_assert(!event_filter_match(filter, e_wrongname_wrongstr, &failure_ctx));
+
+	event_filter_unref(&filter);
+	event_unref(&e_noname_nostr);
+	event_unref(&e_noname_str);
+	event_unref(&e_noname_wrongstr);
+	event_unref(&e_named_nostr);
+	event_unref(&e_named_str);
+	event_unref(&e_named_wrongstr);
+	event_unref(&e_wrongname_nostr);
+	event_unref(&e_wrongname_str);
+	event_unref(&e_wrongname_wrongstr);
+	test_end();
+}
+
+static void test_event_filter_named_separate_from_str(void)
+{
+	struct event_filter *filter;
+	const char *error;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+
+	test_begin("event filter: event name separate from str");
+
+	filter = event_filter_create();
+	struct event *e_named = event_create(NULL);
+	event_set_name(e_named, "named");
+	struct event *e_noname = event_create(NULL);
+	event_add_str(e_noname, "str", "str");
+
+	test_assert(event_filter_parse("event=named", filter, &error) == 0);
+	test_assert(event_filter_parse("str=str", filter, &error) == 0);
+	test_assert(!filter->named_queries_only);
+	test_assert(event_filter_match(filter, e_named, &failure_ctx));
+	test_assert(event_filter_match(filter, e_noname, &failure_ctx));
+
+	event_filter_unref(&filter);
+	event_unref(&e_named);
+	event_unref(&e_noname);
+	test_end();
+}
+
 void test_event_filter(void)
 {
 	test_event_filter_override_parent_fields();
@@ -447,4 +592,7 @@ void test_event_filter(void)
 	test_event_filter_strlist();
 	test_event_filter_strlist_recursive();
 	test_event_filter_strlist_global_events();
+	test_event_filter_named_and_str();
+	test_event_filter_named_or_str();
+	test_event_filter_named_separate_from_str();
 }

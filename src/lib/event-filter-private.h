@@ -1,6 +1,8 @@
 #ifndef EVENT_FILTER_PRIVATE_H
 #define EVENT_FILTER_PRIVATE_H
 
+#include "event-filter.h"
+
 enum event_filter_node_op {
 	/* leaf nodes */
 	EVENT_FILTER_OP_CMP_EQ = 1,
@@ -13,6 +15,17 @@ enum event_filter_node_op {
 	EVENT_FILTER_OP_AND,
 	EVENT_FILTER_OP_OR,
 	EVENT_FILTER_OP_NOT,
+};
+
+struct event_filter {
+	struct event_filter *prev, *next;
+
+	pool_t pool;
+	int refcount;
+	ARRAY(struct event_filter_query_internal) queries;
+
+	bool fragment;
+	bool named_queries_only;
 };
 
 enum event_filter_node_type {

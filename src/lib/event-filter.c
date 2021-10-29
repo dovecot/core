@@ -39,17 +39,6 @@ struct event_filter_query_internal {
 	void *context;
 };
 
-struct event_filter {
-	struct event_filter *prev, *next;
-
-	pool_t pool;
-	int refcount;
-	ARRAY(struct event_filter_query_internal) queries;
-
-	bool fragment;
-	bool named_queries_only;
-};
-
 static struct event_filter *event_filters = NULL;
 
 static struct event_filter *event_filter_create_real(pool_t pool, bool fragment)
