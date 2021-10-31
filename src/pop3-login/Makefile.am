@@ -9,6 +9,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-sasl \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/login-common \
+	-I$(top_srcdir)/src/lib-pop3 \
 	$(BINARY_CFLAGS)
 
 pop3_login_LDADD = \

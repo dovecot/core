@@ -23,6 +23,7 @@ LIBDOVECOT_SUBDIRS = \
 	lib-mail \
 	lib-program-client \
 	lib-smtp \
+	lib-pop3 \
 	lib-imap \
 	lib-imap-storage \
 	lib-oauth2 \
