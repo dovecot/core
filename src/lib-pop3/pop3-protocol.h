@@ -1,0 +1,7 @@
+#ifndef POP3_PROTOCOL_H
+#define POP3_PROTOCOL_H
+
+#define POP3_DEFAULT_PORT 110
+#define POP3S_DEFAULT_PORT 995
+
+#endif
