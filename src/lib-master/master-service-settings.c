@@ -223,7 +223,8 @@ master_service_exec_config(struct master_service *service,
 			strarr_push(&conf_argv, input->extra_modules[i]);
 		}
 	}
-	if (input->module != NULL || input->extra_modules != NULL) {
+	if ((service->flags & MASTER_SERVICE_FLAG_DISABLE_SSL_SET) == 0 &&
+	    (input->module != NULL || input->extra_modules != NULL)) {
 		strarr_push(&conf_argv, "-m");
 		if (service->want_ssl_server)
 			strarr_push(&conf_argv, "ssl-server");
@@ -359,7 +360,8 @@ config_build_request(struct master_service *service, string_t *str,
 		for (unsigned int i = 0; input->extra_modules[i] != NULL; i++)
 			str_printfa(str, "\tmodule=%s", input->extra_modules[i]);
 	}
-	if (input->module != NULL || input->extra_modules != NULL) {
+	if ((service->flags & MASTER_SERVICE_FLAG_DISABLE_SSL_SET) == 0 &&
+	    (input->module != NULL || input->extra_modules != NULL)) {
 		str_printfa(str, "\tmodule=%s",
 			    service->want_ssl_server ? "ssl-server" : "ssl");
 	}
