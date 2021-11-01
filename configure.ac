@@ -154,6 +154,11 @@ AS_HELP_STRING([--with-solr], [Build with Solr full text search support]),
   TEST_WITH(solr, $withval),
   want_solr=no)
 
+AC_ARG_WITH(flatcurve,
+AS_HELP_STRING([--with-flatcurve], [Build with Flatcurve (Xapian) full text search support]),
+  TEST_WITH(flatcurve, $withval),
+  want_flatcurve=no)
+
 AC_ARG_WITH(sodium,
 AS_HELP_STRING([--with-sodium], [Build with libsodium support (enables argon2, default: auto)]),
   TEST_WITH(sodium, $withval),
@@ -741,6 +746,7 @@ fts=""
 not_fts=""
 
 DOVECOT_WANT_SOLR
+DOVECOT_WANT_FLATCURVE
 DOVECOT_WANT_STEMMER
 DOVECOT_WANT_TEXTCAT
 
@@ -890,6 +896,7 @@ src/plugins/acl/Makefile
 src/plugins/imap-acl/Makefile
 src/plugins/fs-compress/Makefile
 src/plugins/fts/Makefile
+src/plugins/fts-flatcurve/Makefile
 src/plugins/fts-solr/Makefile
 src/plugins/last-login/Makefile
 src/plugins/lazy-expunge/Makefile

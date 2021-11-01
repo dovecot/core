@@ -531,7 +531,7 @@ AC_DEFUN([DOVECOT_WANT_UBSAN], [
   AS_IF([test x$want_ubsan = xyes], [
      san_flags=""
      gl_COMPILER_OPTION_IF([-fsanitize=undefined], [
-             san_flags="$san_flags -fsanitize=undefined"
+             san_flags="$san_flags -fsanitize=undefined -fno-sanitize=function,vptr"
              AC_DEFINE([HAVE_FSANITIZE_UNDEFINED], [1], [Define if your compiler has -fsanitize=undefined])
      ])
      gl_COMPILER_OPTION_IF([-fno-sanitize=nonnull-attribute], [

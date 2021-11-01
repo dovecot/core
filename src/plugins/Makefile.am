@@ -6,6 +6,10 @@ if BUILD_SOLR
 FTS_SOLR = fts-solr
 endif
 
+if BUILD_FLATCURVE
+FTS_FLATCURVE = fts-flatcurve
+endif
+
 if HAVE_APPARMOR
 APPARMOR = apparmor
 endif
@@ -38,6 +42,7 @@ SUBDIRS = \
 	welcome \
 	$(ZLIB) \
 	$(FTS_SOLR) \
+	$(FTS_FLATCURVE) \
 	$(DICT_LDAP) \
 	$(APPARMOR) \
 	fs-compress \
