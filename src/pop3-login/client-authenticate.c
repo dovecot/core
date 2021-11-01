@@ -10,8 +10,10 @@
 #include "safe-memset.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include "uri-util.h"
 #include "auth-client.h"
 #include "pop3-capability.h"
+#include "pop3-protocol.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "pop3-proxy.h"
@@ -47,14 +49,40 @@ bool cmd_capa(struct pop3_client *client, const char *args ATTR_UNUSED)
 	return TRUE;
 }
 
+static void
+pop3_client_send_referral(struct client *client,
+			  const struct client_auth_reply *reply)
+{
+	string_t *line = t_str_new(128);
+
+	str_append(line, "-ERR [REFERRAL/");
+
+	struct uri_host host = {
+		.name = reply->proxy.host,
+		.ip = reply->proxy.host_ip,
+	};
+	if (reply->proxy.username != NULL)
+		uri_append_userinfo(line, reply->proxy.username);
+	uri_append_host(line, &host);
+	if (reply->proxy.port != POP3_DEFAULT_PORT)
+		uri_append_port(line, reply->proxy.port);
+
+	str_append(line, "] Referral\r\n");
+
+	client_send_raw_data(client, str_data(line), str_len(line));
+}
+
 void pop3_client_auth_result(struct client *client,
 			     enum client_auth_result result,
-			     const struct client_auth_reply *reply ATTR_UNUSED,
+			     const struct client_auth_reply *reply,
 			     const char *text)
 {
 	switch (result) {
 	case CLIENT_AUTH_RESULT_SUCCESS:
 		/* nothing to be done for POP3 */
+		break;
+	case CLIENT_AUTH_RESULT_REFERRAL_NOLOGIN:
+		pop3_client_send_referral(client, reply);
 		break;
 	case CLIENT_AUTH_RESULT_TEMPFAIL:
 		client_send_reply(client, POP3_CMD_REPLY_TEMPFAIL, text);
