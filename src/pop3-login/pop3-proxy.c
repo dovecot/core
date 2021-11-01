@@ -9,6 +9,7 @@
 #include "str.h"
 #include "str-sanitize.h"
 #include "strescape.h"
+#include "uri-util.h"
 #include "dsasl-client.h"
 #include "client.h"
 #include "pop3-proxy.h"
@@ -141,6 +142,64 @@ pop3_proxy_continue_sasl_auth(struct client *client, struct ostream *output,
 	return 0;
 }
 
+static bool
+pop3_proxy_parse_referral(struct client *client, const char *resp,
+			  const char **line_r)
+{
+	struct uri_parser parser;
+	const char *destuser;
+	struct uri_authority uri_auth;
+
+	if (!str_begins(resp, "[REFERRAL/"))
+		return FALSE;
+
+	i_zero(&parser);
+	parser.pool = pool_datastack_create();
+	parser.begin = parser.cur = (const unsigned char *)(resp + 10);
+	parser.end = parser.begin + strlen(resp + 10);
+	parser.parse_prefix = TRUE;
+
+	if (uri_parse_host_authority(&parser, &uri_auth) < 0 ||
+	    !uri_data_decode(&parser, uri_auth.enc_userinfo, NULL, &destuser)) {
+		e_debug(login_proxy_get_event(client->login_proxy),
+			"Couldn't parse REFERRAL response '%s': %s",
+			str_sanitize(resp, 160), parser.error);
+		return FALSE;
+
+	}
+	if (*parser.cur == '\0'){
+		e_debug(login_proxy_get_event(client->login_proxy),
+			"Couldn't parse REFERRAL response '%s': "
+			"Premature end of response line (expected ']')",
+			str_sanitize(resp, 160));
+		return FALSE;
+	}
+	if (*parser.cur != ']') {
+		e_debug(login_proxy_get_event(client->login_proxy),
+			"Couldn't parse REFERRAL response '%s': "
+			"Invalid character %s in REFERRAL target",
+			str_sanitize(resp, 160),
+			uri_char_sanitize(*parser.cur));
+		return FALSE;
+	}
+
+	string_t *str = t_str_new(128);
+	if (destuser != NULL)
+		str_append(str, destuser);
+	str_append_c(str, '@');
+	if (uri_auth.host.ip.family == AF_INET)
+		str_append(str, net_ip2addr(&uri_auth.host.ip));
+	else if (uri_auth.host.ip.family == AF_INET6)
+		str_printfa(str, "[%s]", net_ip2addr(&uri_auth.host.ip));
+	else
+		str_append(str, uri_auth.host.name);
+	if (uri_auth.port != 0)
+		str_printfa(str, ":%u", uri_auth.port);
+
+	*line_r = str_c(str);
+	return TRUE;
+}
+
 int pop3_proxy_parse_line(struct client *client, const char *line)
 {
 	struct pop3_client *pop3_client = (struct pop3_client *)client;
@@ -257,6 +316,8 @@ int pop3_proxy_parse_line(struct client *client, const char *line)
 		/* delay sending the reply until we know if we reconnect */
 		failure_type = LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL;
 		line += 5;
+	} else if (pop3_proxy_parse_referral(client, line + 5, &line)) {
+		failure_type = LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT;
 	} else {
 		client_send_raw(client, t_strconcat(line, "\r\n", NULL));
 		line += 5;
