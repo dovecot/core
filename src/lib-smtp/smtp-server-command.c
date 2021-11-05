@@ -692,9 +692,32 @@ bool smtp_server_command_replied_success(struct smtp_server_command *cmd)
 	return success;
 }
 
-bool smtp_server_command_send_replies(struct smtp_server_command *cmd)
+static int
+smtp_server_command_send_more_replies(struct smtp_server_command *cmd)
 {
 	unsigned int i;
+
+	// FIXME: handle LMTP DATA command with enormous number of recipients;
+	// i.e. don't keep filling output stream with replies indefinitely.
+	for (i = 0; i < cmd->replies_expected; i++) {
+		struct smtp_server_reply *reply;
+
+		reply = array_idx_modifiable(&cmd->replies, i);
+
+		if (!reply->submitted) {
+			i_assert(!reply->sent);
+			return 0;
+		}
+		if (smtp_server_reply_send(reply) < 0)
+			return -1;
+	}
+
+	return 1;
+}
+
+bool smtp_server_command_send_replies(struct smtp_server_command *cmd)
+{
+	int ret;
 
 	if (!smtp_server_command_next_to_reply(&cmd))
 		return FALSE;
@@ -708,23 +731,13 @@ bool smtp_server_command_send_replies(struct smtp_server_command *cmd)
 		return TRUE;
 
 	/* Send command replies */
-	// FIXME: handle LMTP DATA command with enormous number of recipients;
-	// i.e. don't keep filling output stream with replies indefinitely.
-	for (i = 0; i < cmd->replies_expected; i++) {
-		struct smtp_server_reply *reply;
-
-		reply = array_idx_modifiable(&cmd->replies, i);
-
-		if (!reply->submitted) {
-			i_assert(!reply->sent);
-			cmd->state = SMTP_SERVER_COMMAND_STATE_PROCESSING;
-			break;
-		}
-		if (smtp_server_reply_send(reply) < 0)
-			return FALSE;
-	}
-	if (cmd->state == SMTP_SERVER_COMMAND_STATE_PROCESSING)
+	ret = smtp_server_command_send_more_replies(cmd);
+	if (ret < 0)
 		return FALSE;
+	if (ret == 0) {
+		cmd->state = SMTP_SERVER_COMMAND_STATE_PROCESSING;
+		return FALSE;
+	}
 
 	smtp_server_command_finished(cmd);
 	return TRUE;
