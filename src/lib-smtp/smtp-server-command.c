@@ -696,6 +696,9 @@ static int
 smtp_server_command_send_more_replies(struct smtp_server_command *cmd)
 {
 	unsigned int i;
+	int ret = 1;
+
+	smtp_server_command_ref(cmd);
 
 	// FIXME: handle LMTP DATA command with enormous number of recipients;
 	// i.e. don't keep filling output stream with replies indefinitely.
@@ -706,13 +709,18 @@ smtp_server_command_send_more_replies(struct smtp_server_command *cmd)
 
 		if (!reply->submitted) {
 			i_assert(!reply->sent);
-			return 0;
+			ret = 0;
+			break;
 		}
-		if (smtp_server_reply_send(reply) < 0)
-			return -1;
+		if (smtp_server_reply_send(reply) < 0) {
+			ret = -1;
+			break;
+		}
 	}
 
-	return 1;
+	if (!smtp_server_command_unref(&cmd))
+		return -1;
+	return ret;
 }
 
 bool smtp_server_command_send_replies(struct smtp_server_command *cmd)
