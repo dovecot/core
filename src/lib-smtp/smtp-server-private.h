@@ -264,6 +264,7 @@ void smtp_server_command_submit_reply(struct smtp_server_command *cmd);
 int smtp_server_connection_flush(struct smtp_server_connection *conn);
 
 void smtp_server_command_ready_to_reply(struct smtp_server_command *cmd);
+bool smtp_server_command_send_replies(struct smtp_server_command *cmd);
 void smtp_server_command_finished(struct smtp_server_command *cmd);
 
 bool smtp_server_command_next_to_reply(struct smtp_server_command **_cmd);

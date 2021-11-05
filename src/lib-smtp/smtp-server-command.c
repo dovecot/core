@@ -692,6 +692,44 @@ bool smtp_server_command_replied_success(struct smtp_server_command *cmd)
 	return success;
 }
 
+bool smtp_server_command_send_replies(struct smtp_server_command *cmd)
+{
+	unsigned int i;
+
+	if (!smtp_server_command_next_to_reply(&cmd))
+		return FALSE;
+	if (cmd->state < SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY)
+		return FALSE;
+
+	i_assert(cmd->state == SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY &&
+		 array_is_created(&cmd->replies));
+
+	if (!smtp_server_command_completed(&cmd))
+		return TRUE;
+
+	/* Send command replies */
+	// FIXME: handle LMTP DATA command with enormous number of recipients;
+	// i.e. don't keep filling output stream with replies indefinitely.
+	for (i = 0; i < cmd->replies_expected; i++) {
+		struct smtp_server_reply *reply;
+
+		reply = array_idx_modifiable(&cmd->replies, i);
+
+		if (!reply->submitted) {
+			i_assert(!reply->sent);
+			cmd->state = SMTP_SERVER_COMMAND_STATE_PROCESSING;
+			break;
+		}
+		if (smtp_server_reply_send(reply) < 0)
+			return FALSE;
+	}
+	if (cmd->state == SMTP_SERVER_COMMAND_STATE_PROCESSING)
+		return FALSE;
+
+	smtp_server_command_finished(cmd);
+	return TRUE;
+}
+
 void smtp_server_command_finished(struct smtp_server_command *cmd)
 {
 	struct smtp_server_connection *conn = cmd->context.conn;
