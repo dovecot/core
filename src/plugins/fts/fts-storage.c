@@ -825,14 +825,13 @@ static void fts_mailbox_virtual_match_mail(struct mail_search_context *ctx,
 		hash_table_lookup(fctx->last_indexed_virtual_uids, box_name);
 	if (uid_value == NULL) {
 		/* This backend's last indexed uid is not yet inserted to the table */
-		pool_t p = pool_alloconly_create("be mailbox names", 1024);
 		if (mailbox_open(backend_mail->box) < 0 ||
 		    fts_backend_get_last_uid(fctx->backend, backend_mail->box,
 					     &be_last_uid) < 0) {
 			be_last_uid = 0;
 		} else {
 			const char *vname_copy =
-				p_strdup(p, backend_mail->box->vname);
+				p_strdup(fctx->result_pool, backend_mail->box->vname);
 			hash_table_insert(hash_tbl, vname_copy,
 					  POINTER_CAST(be_last_uid + 1));
 		}
