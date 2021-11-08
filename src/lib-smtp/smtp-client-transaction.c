@@ -380,6 +380,11 @@ smtp_client_transaction_rcpt_fail_reply(
 	const struct smtp_reply *reply)
 {
 	struct smtp_client_transaction_rcpt *rcpt = *_rcpt;
+
+	if (rcpt == NULL)
+		return;
+	*_rcpt = NULL;
+
 	struct smtp_client_transaction *trans = rcpt->trans;
 	smtp_client_command_callback_t *callback;
 	void *context;
@@ -409,7 +414,7 @@ smtp_client_transaction_rcpt_fail_reply(
 	if (callback != NULL)
 		callback(reply, context);
 
-	smtp_client_transaction_rcpt_free(_rcpt);
+	smtp_client_transaction_rcpt_free(&rcpt);
 }
 
 static void
