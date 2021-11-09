@@ -16,6 +16,14 @@
 #define DOVEADM_DUMP_DEFAULT_FIELDS \
 	"count sum min max avg median stddev %95"
 
+#define ADD_NAME_PARAM "name"
+#define ADD_DESCR_PARAM "description"
+#define ADD_FIELDS_PARAM "fields"
+#define ADD_GROUPBY_PARAM "group-by"
+#define ADD_FILTER_PARAM "filter"
+#define ADD_EXPORTER_PARAM "exporter"
+#define ADD_EXPORTERINCL_PARAM "exporter-include"
+
 enum doveadm_dump_field_type {
 	DOVEADM_DUMP_FIELD_TYPE_PASSTHROUGH = 0,
 	DOVEADM_DUMP_FIELD_TYPE_STDDEV,
@@ -217,15 +225,15 @@ static int build_stats_add_cmd(struct stats_cmd_context *ctx,
 		const char *name;
 		const char *default_val;
 	} params[] = {
-		{ "name", "" },
-		{ "description", "" },
-		{ "fields", "" },
-		{ "group_by", "" },
-		{ "filter", "" },
-		{ "exporter", "" },
+		{ ADD_NAME_PARAM, "" },
+		{ ADD_DESCR_PARAM, "" },
+		{ ADD_FIELDS_PARAM, "" },
+		{ ADD_GROUPBY_PARAM, "" },
+		{ ADD_FILTER_PARAM, "" },
+		{ ADD_EXPORTER_PARAM, "" },
 		/* Default exporter-include is to be modified
 		   together with stats-settings */
-		{ "exporter-include",
+		{ ADD_EXPORTERINCL_PARAM,
 		  STATS_METRIC_SETTINGS_DEFAULT_EXPORTER_INCLUDE },
 	};
 
@@ -310,15 +318,18 @@ DOVEADM_CMD_PARAMS_END
 struct doveadm_cmd_ver2 doveadm_cmd_stats_add_ver2 = {
 	.cmd = doveadm_cmd_stats_add,
 	.name = "stats add",
-	.usage = "[--description <string>] [--exporter <name> [--exporter-include <fields>]] [--fields <fields>] [--group_by <fields>] <name> <filter>",
+	.usage = "[--"ADD_DESCR_PARAM" <string>] "
+	"[--"ADD_EXPORTER_PARAM" <name> [--"ADD_EXPORTERINCL_PARAM" <fields>]] "
+	"[--"ADD_FIELDS_PARAM" <fields>] "
+	"[--"ADD_GROUPBY_PARAM" <fields>] <name> <filter>",
 DOVEADM_CMD_PARAMS_START
-DOVEADM_CMD_PARAM('\0', "name", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
-DOVEADM_CMD_PARAM('\0', "filter", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
-DOVEADM_CMD_PARAM('\0', "exporter", CMD_PARAM_STR, 0)
-DOVEADM_CMD_PARAM('\0', "exporter-include", CMD_PARAM_STR, 0)
-DOVEADM_CMD_PARAM('\0', "description", CMD_PARAM_STR, 0)
-DOVEADM_CMD_PARAM('\0', "fields", CMD_PARAM_STR, 0)
-DOVEADM_CMD_PARAM('\0', "group-by", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', ADD_NAME_PARAM, CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', ADD_FILTER_PARAM, CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', ADD_EXPORTER_PARAM, CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', ADD_EXPORTERINCL_PARAM, CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', ADD_DESCR_PARAM, CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', ADD_FIELDS_PARAM, CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', ADD_GROUPBY_PARAM, CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAMS_END
 };
 
