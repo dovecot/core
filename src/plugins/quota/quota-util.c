@@ -58,32 +58,48 @@ static inline bool
 quota_is_over(uoff_t alloc, int64_t used, uint64_t ceil, uint64_t over)
 {
 	if (used < 0) {
+		/* Resource usage decreased in this transaction. */
 		const uint64_t deleted = (uint64_t)-used;
 
-		/* we've deleted some messages. */
 		if (over > 0) {
+			/* We were over quota before deleting the messages. */
 			if (over > deleted) {
-				/* even after deletions we're over quota */
+				/* We are over quota, even after deletions and
+				   without the new allocation. */
 				return TRUE;
 			}
-			if (alloc > (deleted - over))
+			if (alloc > (deleted - over)) {
+				/* We are under quota after deletions, but the
+				   the new allocation exceeds the quota once
+				   more. */
 				return TRUE;
+			}
 		} else {
-			if (alloc > deleted && (alloc - deleted) > ceil)
+			/* We were under quota even before deleting the
+			   messages. */
+			if (alloc > deleted && (alloc - deleted) > ceil) {
+				/* The new allocation exceeds the quota limit.
+				 */
 				return TRUE;
+			}
 		}
 	} else if (alloc == 0) {
-		/* we need to explicitly test this case, since the generic
-		   check would fail if user is already over quota */
-		if (over > 0)
+		/* Nothing was allocated in this transaction. We need to
+		   explicitly test this case, since the generic check would fail
+		   if user is already over quota. */
+		if (over > 0) {
+			/* Resource usage is already over quota. */
 			return TRUE;
+		}
 	} else {
+		/* Resource usage increased in this transaction. */
 		if (ceil < alloc || (ceil - alloc) < (uint64_t)used) {
-			/* limit reached */
+			/* Limit reached. */
 			return TRUE;
 		}
 	}
 
+	/* Not over quota. */
 	return FALSE;
 }
 
