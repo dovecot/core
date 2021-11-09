@@ -90,16 +90,12 @@ quota_is_over(uoff_t alloc, int64_t used, uint64_t ceil, uint64_t over)
 				return TRUE;
 			}
 		}
-	} else if (alloc == 0) {
-		/* Nothing was allocated in this transaction. We need to
-		   explicitly test this case, since the generic check would fail
-		   if user is already over quota. */
+	} else {
+		/* Resource usage increased in this transaction. */
 		if (over > 0) {
 			/* Resource usage is already over quota. */
 			return TRUE;
 		}
-	} else {
-		/* Resource usage increased in this transaction. */
 		if (ceil < alloc || (ceil - alloc) < (uint64_t)used) {
 			/* Limit reached. */
 			return TRUE;
