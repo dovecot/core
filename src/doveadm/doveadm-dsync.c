@@ -1363,16 +1363,29 @@ DOVEADM_CMD_PARAM('g', "mailbox-guid", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('n', "namespace", CMD_PARAM_ARRAY, 0) \
 DOVEADM_CMD_PARAM('N', "all-namespaces", CMD_PARAM_BOOL, 0) \
 DOVEADM_CMD_PARAM('x', "exclude-mailbox", CMD_PARAM_ARRAY, 0) \
+DOVEADM_CMD_PARAM('a', "all-mailbox", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('s', "state", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('t', "sync-since-time", CMD_PARAM_STR, 0) \
+DOVEADM_CMD_PARAM('e', "sync-until-time", CMD_PARAM_STR, 0) \
+DOVEADM_CMD_PARAM('O', "sync-flags", CMD_PARAM_STR, 0) \
+DOVEADM_CMD_PARAM('I', "sync-max-size", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('T', "timeout", CMD_PARAM_INT64, 0) \
 DOVEADM_CMD_PARAM('d', "default-destination", CMD_PARAM_BOOL, 0) \
+DOVEADM_CMD_PARAM('D', "disable-mailbox-renames", CMD_PARAM_BOOL, 0) \
+DOVEADM_CMD_PARAM('E', "legacy-dsync", CMD_PARAM_BOOL, 0) \
 DOVEADM_CMD_PARAM('\0', "destination", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+
+#define DSYNC_COMMON_USAGE \
+	"[-l <secs>] [-r <rawlog path>] " \
+	"[-m <mailbox>] [-g <mailbox guid>] [-n <namespace> | -N] " \
+	"[-x <exclude>] [-a <all mailbox>] [-s <state>] [-T <secs>] " \
+	"[-t <start date>] [-e <end date>] [-O <sync flag>] [-I <max size>] " \
+	"-d|<dest>"
 
 struct doveadm_cmd_ver2 doveadm_cmd_dsync_mirror = {
 	.mail_cmd = cmd_dsync_alloc,
 	.name = "sync",
-	.usage = "[-1fPRU] [-l <secs>] [-r <rawlog path>] [-m <mailbox>] [-g <mailbox_guid>] [-n <namespace> | -N] [-x <exclude>] [-s <state>] [-t <start date>] -d|<dest>",
+	.usage = "[-1fDPRU] "DSYNC_COMMON_USAGE,
 	.flags = CMD_FLAG_NO_UNORDERED_OPTIONS,
 DOVEADM_CMD_PARAMS_START
 DSYNC_COMMON_PARAMS
@@ -1382,7 +1395,7 @@ DOVEADM_CMD_PARAMS_END
 struct doveadm_cmd_ver2 doveadm_cmd_dsync_backup = {
 	.mail_cmd = cmd_dsync_backup_alloc,
 	.name = "backup",
-	.usage = "[-fPRU] [-l <secs>] [-r <rawlog path>] [-m <mailbox>] [-g <mailbox_guid>] [-n <namespace> | -N] [-x <exclude>] [-s <state>] [-t <start date>] -d|<dest>",
+	.usage = "[-fDPRU] "DSYNC_COMMON_USAGE,
 	.flags = CMD_FLAG_NO_UNORDERED_OPTIONS,
 DOVEADM_CMD_PARAMS_START
 DSYNC_COMMON_PARAMS
