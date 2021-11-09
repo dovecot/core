@@ -57,6 +57,13 @@ int quota_get_mail_size(struct quota_transaction_context *ctx,
 static inline bool
 quota_is_over(uoff_t alloc, int64_t used, uint64_t ceil, uint64_t over)
 {
+	/* The over parameter is the amount by which the resource usage exceeds
+	   the limit already. The ceil parameter is the amount by which the
+	   resource usage is allowed to increase before crossing the limit.
+	   Therefore, the over and ceil values are mutually exclusive; these
+	   cannot both be nonzero. */
+	i_assert(over == 0 || ceil == 0);
+
 	if (used < 0) {
 		/* Resource usage decreased in this transaction. */
 		const uint64_t deleted = (uint64_t)-used;
