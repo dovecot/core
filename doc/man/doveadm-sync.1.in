@@ -11,15 +11,18 @@ doveadm\-backup \- Dovecot\(aqs one\-way mailbox synchronization utility
 [\fB\-S\fP \fIsocket_path\fP]
 .RB [ \-1fPRU ]
 [\fB\-l\fP \fIsecs\fP]
-[\fB\-r\fP \fIrawlog_path\fP]
+[\fB\-r\fP \fIrawlog path\fP]
 [\fB\-m\fP \fImailbox\fP]
-[\fB\-g\fP \fImailbox_guid\fP]
+[\fB\-g\fP \fImailbox guid\fP]
 [\fB\-n\fP \fInamespace\fP|\fB\-N\fP]
 [\fB\-x\fP \fIexclude\fP]
+[\fB\-a\fP \fIall mailbox\fP]
 [\fB\-s\fP \fIstate\fP]
 [\fB\-T\fP \fIsecs\fP]
 [\fB\-t\fP \fIstart date\fP]
 [\fB\-e\fP \fIend date\fP]
+[\fB\-O\fP \fIsync flag\fP]
+[\fB\-I\fP \fImax size\fP]
 \fB\-d\fP|\fIdestination\fP
 .\"-------------------------------------
 .PP
@@ -28,15 +31,18 @@ doveadm\-backup \- Dovecot\(aqs one\-way mailbox synchronization utility
 [\fB\-S\fP \fIsocket_path\fP]
 .RB [ \-fPRU ]
 [\fB\-l\fP \fIsecs\fP]
-[\fB\-r\fP \fIrawlog_path\fP]
+[\fB\-r\fP \fIrawlog path\fP]
 [\fB\-m\fP \fImailbox\fP]
-[\fB\-g\fP \fImailbox_guid\fP]
+[\fB\-g\fP \fImailbox guid\fP]
 [\fB\-n\fP \fInamespace\fP|\fB\-N\fP]
 [\fB\-x\fP \fIexclude\fP]
+[\fB\-a\fP \fIall mailbox\fP]
 [\fB\-s\fP \fIstate\fP]
 [\fB\-T\fP \fIsecs\fP]
 [\fB\-t\fP \fIstart date\fP]
 [\fB\-e\fP \fIend date\fP]
+[\fB\-O\fP \fIsync flag\fP]
+[\fB\-I\fP \fImax size\fP]
 \fB\-d\fP|\fIdestination\fP
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
@@ -177,13 +183,17 @@ which automatically runs dsync whenever messages have changed.
 .PP
 Command specific
 .IR options :
+@INCLUDE:option-A@
+.\"-------------------------------------
+@INCLUDE:option-F-file@
+.\"-------------------------------------
 .TP
 .B \-1
 Do one\-way synchronization instead of two\-way synchronization.
 .\"-------------------------------------
-@INCLUDE:option-A@
-.\"-------------------------------------
-@INCLUDE:option-F-file@
+.TP
+.B \-f
+Do full synchronization.
 .\"-------------------------------------
 .TP
 .B \-N
@@ -247,6 +257,30 @@ Synchronize only the specified namespace.
 This parameter can be used multiple times.
 .\"-------------------------------------
 .TP
+.BI \-a \ all\ mailbox
+Name for the "All mails" virtual mailbox. If specified, mails are attempted to
+be copied from this mailbox instead of being saved separately. This may
+reduce the total disk space usage as well as disk IO.
+.\"-------------------------------------
+.TP
+.BI \-t \ start\ date
+Skip any mails whose received-timestamp is older than the specified time.
+.\"-------------------------------------
+.TP
+.BI \-e \ end\ date
+Skip any mails whose received-timestamp is newer than the specified time.
+.\"-------------------------------------
+.TP
+.BI \-O \ sync\ flag
+Sync only mails that have the specified flag.
+If the flag name begins with \(dq\fB\-\fP\(dq, sync all mails except the ones
+with the specified flag.
+.\"-------------------------------------
+.TP
+.BI \-I \ max\ size
+Skip any mails larger than the specified size.
+.\"-------------------------------------
+.TP
 .BI \-r \ rawlog_path
 Running dsync remotely, write the remote input/output traffic to the
 specified log file.
@@ -263,6 +297,7 @@ The new state is always printed to standard output.
 .BI \-x \ mailbox_mask
 Exclude the specified mailbox name/mask.
 The mask may contain \(dq\fB?\fP\(dq and \(dq\fB*\fP\(dq wildcards.
+The mask can also be a special-use name (e.g. \\Trash).
 This parameter can be used multiple times.
 .\"------------------------------------------------------------------------
 .SH ARGUMENTS
