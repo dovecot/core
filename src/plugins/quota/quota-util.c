@@ -69,7 +69,7 @@ quota_is_over(uoff_t alloc, int64_t used, uint64_t ceil, uint64_t over)
 			if (alloc > (deleted - over))
 				return TRUE;
 		} else {
-			if (alloc > deleted && (alloc - deleted) < ceil)
+			if (alloc > deleted && (alloc - deleted) > ceil)
 				return TRUE;
 		}
 	} else if (alloc == 0) {
