@@ -59,6 +59,8 @@ static bool passdb_cache_verify_plain_callback(const char *reply, void *context)
 	enum passdb_result result;
 
 	result = passdb_blocking_auth_worker_reply_parse(request, reply);
+	if (result != PASSDB_RESULT_OK)
+		auth_fields_rollback(request->fields.extra_fields);
 	auth_request_verify_plain_callback_finish(result, request);
 	auth_request_unref(&request);
 	return TRUE;
@@ -110,6 +112,10 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 		e_debug(authdb_event(request), "cache: "
 			"validating password on worker");
 		auth_request_ref(request);
+		/* Save the extra fields already here, and take a snapshot.
+		   If verification fails, roll back fields. */
+		auth_request_set_fields(request, list + 1, NULL);
+		auth_fields_snapshot(request->fields.extra_fields);
 		auth_worker_call(request->pool, request->fields.user, str_c(str),
 				 passdb_cache_verify_plain_callback, request);
 		return TRUE;
