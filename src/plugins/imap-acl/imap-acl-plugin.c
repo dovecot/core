@@ -2,6 +2,8 @@
 
 #include "imap-common.h"
 #include "str.h"
+#include "ioloop.h"
+#include "time-util.h"
 #include "settings.h"
 #include "imap-quote.h"
 #include "imap-resp-code.h"
@@ -10,6 +12,7 @@
 #include "imapc-client-private.h"
 #include "imapc-settings.h"
 #include "imapc-storage.h"
+#include "imap-list.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
 #include "mail-storage-private.h"
@@ -1166,11 +1169,55 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 	return TRUE;
 }
 
+static void
+list_return_flag_myrights_send(
+	struct client_command_context *cmd, void *context ATTR_UNUSED,
+	const struct imap_list_return_flag_params *params)
+{
+	enum mailbox_info_flags mbox_flags = params->mbox_flags;
+	enum mailbox_list_iter_flags list_flags = params->list_flags;
+	struct mail_user *user = cmd->client->user;
+	struct mailbox *box;
+	int ret;
+
+	if ((mbox_flags & (MAILBOX_NONEXISTENT | MAILBOX_NOSELECT)) != 0) {
+		/* doesn't exist, don't even try to get STATUS */
+		return;
+	}
+	if ((mbox_flags & MAILBOX_SUBSCRIBED) == 0 &&
+	    (list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
+		/* listing subscriptions, but only child is subscribed */
+		i_assert((mbox_flags & MAILBOX_CHILD_SUBSCRIBED) != 0);
+		return;
+	}
+
+	if (ACL_USER_CONTEXT(user) == NULL) {
+		/* ACLs disabled */
+		return;
+	}
+
+	box = mailbox_alloc(params->ns->list, params->name,
+			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
+	ret = imap_acl_send_myrights(cmd, box, params->mutf7_name);
+	mailbox_free(&box);
+
+	if (ret < 0) {
+		client_send_line(cmd->client, t_strflocaltime(
+			"* NO "MAIL_ERRSTR_CRITICAL_MSG_STAMP, ioloop_time));
+	}
+}
+
+static const struct imap_list_return_flag list_return_flag_myrights = {
+	"MYRIGHTS",
+	.send = list_return_flag_myrights_send,
+};
+
 static void imap_acl_client_created(struct client **client)
 {
 	if (mail_user_is_plugin_loaded((*client)->user, imap_acl_module)) {
 		client_add_capability(*client, "ACL");
 		client_add_capability(*client, "RIGHTS=texk");
+		client_add_capability(*client, "LIST-MYRIGHTS");
 	}
 
 	if (next_hook_client_created != NULL)
@@ -1184,6 +1231,7 @@ void imap_acl_plugin_init(struct module *module)
 	command_register("MYRIGHTS", cmd_myrights, 0);
 	command_register("SETACL", cmd_setacl, 0);
 	command_register("DELETEACL", cmd_deleteacl, 0);
+	imap_list_return_flag_register(&list_return_flag_myrights);
 
 	imap_acl_module = module;
 	next_hook_client_created =
@@ -1197,6 +1245,7 @@ void imap_acl_plugin_deinit(void)
 	command_unregister("SETACL");
 	command_unregister("DELETEACL");
 	command_unregister("LISTRIGHTS");
+	imap_list_return_flag_unregister(&list_return_flag_myrights);
 
 	imap_client_created_hook_set(next_hook_client_created);
 }
