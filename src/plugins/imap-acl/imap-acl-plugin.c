@@ -224,8 +224,9 @@ acl_rights_is_owner(struct acl_backend *backend,
 	}
 }
 
-static bool have_positive_owner_rights(struct acl_backend *backend,
-				       struct acl_object *aclobj)
+static bool
+have_positive_owner_rights(struct acl_backend *backend,
+			   struct acl_object *aclobj)
 {
 	struct acl_object_list_iter *iter;
 	struct acl_rights rights;
@@ -311,8 +312,7 @@ imap_acl_write_aclobj(string_t *dest, struct acl_backend *backend,
 	return ret;
 }
 
-static const char *
-imapc_acl_get_mailbox_error(struct imapc_mailbox *mbox)
+static const char *imapc_acl_get_mailbox_error(struct imapc_mailbox *mbox)
 {
 	enum mail_error err;
 	const char *error = mailbox_get_last_error(&mbox->box, &err);
@@ -402,9 +402,10 @@ imap_acl_cmd_context_alloc(struct imapc_mailbox *mbox)
 	return iacl_ctx;
 }
 
-static void imap_acl_cmd_context_init(struct imapc_acl_context *iacl_ctx,
-				      struct imapc_mailbox *mbox,
-				      enum imap_acl_cmd proxy_cmd)
+static void
+imap_acl_cmd_context_init(struct imapc_acl_context *iacl_ctx,
+			  struct imapc_mailbox *mbox,
+			  enum imap_acl_cmd proxy_cmd)
 {
 	iacl_ctx->client = mbox->storage->client->client;
 	iacl_ctx->proxy_cmd = proxy_cmd;
@@ -413,14 +414,17 @@ static void imap_acl_cmd_context_init(struct imapc_acl_context *iacl_ctx,
 }
 
 static struct imapc_acl_context *
-imap_acl_cmd_context_register(struct imapc_mailbox *mbox, enum imap_acl_cmd proxy_cmd)
+imap_acl_cmd_context_register(struct imapc_mailbox *mbox,
+			      enum imap_acl_cmd proxy_cmd)
 {
 	struct mailbox *box = &mbox->box;
 	struct imap_acl_storage *iacl_storage = IMAP_ACL_CONTEXT(box->storage);
 
 	if (iacl_storage == NULL) {
-		iacl_storage = p_new(box->storage->pool, struct imap_acl_storage, 1);
-		MODULE_CONTEXT_SET(box->storage, imap_acl_storage_module, iacl_storage);
+		iacl_storage = p_new(box->storage->pool,
+				     struct imap_acl_storage, 1);
+		MODULE_CONTEXT_SET(box->storage, imap_acl_storage_module,
+				   iacl_storage);
 		iacl_storage->iacl_ctx = imap_acl_cmd_context_alloc(mbox);
 	}
 
@@ -429,8 +433,8 @@ imap_acl_cmd_context_register(struct imapc_mailbox *mbox, enum imap_acl_cmd prox
 	return iacl_storage->iacl_ctx;
 }
 
-static const char *imap_acl_get_mailbox_name(const struct mail_namespace *ns,
-					     const char *mailbox)
+static const char *
+imap_acl_get_mailbox_name(const struct mail_namespace *ns, const char *mailbox)
 {
 	/* Strip namespace prefix from mailbox name or append "INBOX" if
 	   mailbox is "" and mailbox is in shared namespace. */
@@ -522,9 +526,10 @@ imapc_acl_simple_context_init(struct imapc_simple_context *ctx,
 				imapc_simple_callback, ctx);
 }
 
-static void imapc_acl_send_client_reply(struct imapc_acl_context *iacl_ctx,
-					struct client_command_context *orig_cmd,
-					const char *success_tagged_reply)
+static void
+imapc_acl_send_client_reply(struct imapc_acl_context *iacl_ctx,
+			    struct client_command_context *orig_cmd,
+			    const char *success_tagged_reply)
 {
 	if (str_len(iacl_ctx->reply) == 0)
 		client_send_tagline(orig_cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
@@ -534,12 +539,11 @@ static void imapc_acl_send_client_reply(struct imapc_acl_context *iacl_ctx,
 	}
 }
 
-static bool imap_acl_proxy_cmd(struct mailbox *box,
-			       const char *mailbox,
-			       const char *cmd_args,
-			       const struct mail_namespace *ns,
-			       struct client_command_context *orig_cmd,
-			       const enum imap_acl_cmd proxy_cmd)
+static bool
+imap_acl_proxy_cmd(struct mailbox *box, const char *mailbox,
+		   const char *cmd_args, const struct mail_namespace *ns,
+		   struct client_command_context *orig_cmd,
+		   const enum imap_acl_cmd proxy_cmd)
 {
 	struct imapc_acl_context *iacl_ctx;
 	struct imapc_simple_context ctx;
@@ -563,7 +567,8 @@ static bool imap_acl_proxy_cmd(struct mailbox *box,
 	/* Register callbacks for untagged replies */
 	imapc_storage_client_register_untagged(mbox->storage->client, "ACL",
 					       imapc_acl_getacl_untagged_cb);
-	imapc_storage_client_register_untagged(mbox->storage->client, "MYRIGHTS",
+	imapc_storage_client_register_untagged(mbox->storage->client,
+					       "MYRIGHTS",
 					       imapc_acl_myrights_untagged_cb);
 
 	imapc_cmd = imapc_acl_simple_context_init(&ctx, mbox);
@@ -577,8 +582,9 @@ static bool imap_acl_proxy_cmd(struct mailbox *box,
 
 	if (ctx.ret != 0) {
 		/* If the remote replied BAD or NO send NO. */
-		client_send_tagline(orig_cmd,
-				    t_strdup_printf("NO %s", imapc_acl_get_mailbox_error(mbox)));
+		client_send_tagline(
+			orig_cmd, t_strdup_printf(
+				"NO %s", imapc_acl_get_mailbox_error(mbox)));
 	} else {
 		/* Command was OK on remote backend, send untagged reply from
 		   ctx.str and tagged reply. */
@@ -605,8 +611,10 @@ static bool imap_acl_proxy_cmd(struct mailbox *box,
 	}
 
 	/* Unregister callbacks for untagged replies */
-	imapc_storage_client_unregister_untagged(mbox->storage->client, "MYRIGHTS");
-	imapc_storage_client_unregister_untagged(mbox->storage->client, "ACL");
+	imapc_storage_client_unregister_untagged(
+		mbox->storage->client, "MYRIGHTS");
+	imapc_storage_client_unregister_untagged(
+		mbox->storage->client, "ACL");
 	return TRUE;
 }
 
@@ -686,8 +694,9 @@ static bool cmd_getacl(struct client_command_context *cmd)
 	return TRUE;
 }
 
-static void imap_acl_cmd_myrights(struct mailbox *box, const char *mailbox,
-				  struct client_command_context *cmd)
+static void
+imap_acl_cmd_myrights(struct mailbox *box, const char *mailbox,
+		      struct client_command_context *cmd)
 {
 	const char *const *rights;
 	string_t *str = t_str_new(128);
@@ -699,12 +708,12 @@ static void imap_acl_cmd_myrights(struct mailbox *box, const char *mailbox,
 	}
 
 	/* Post right alone doesn't give permissions to see if the mailbox
-	  exists or not. Only mail deliveries care about that. */
+	   exists or not. Only mail deliveries care about that. */
 	if (*rights == NULL ||
-	   (strcmp(*rights, MAIL_ACL_POST) == 0 && rights[1] == NULL)) {
+	    (strcmp(*rights, MAIL_ACL_POST) == 0 && rights[1] == NULL)) {
 		client_send_tagline(cmd, t_strdup_printf(
-				   "NO ["IMAP_RESP_CODE_NONEXISTENT"] "
-				   MAIL_ERRSTR_MAILBOX_NOT_FOUND, mailbox));
+				    "NO ["IMAP_RESP_CODE_NONEXISTENT"] "
+				    MAIL_ERRSTR_MAILBOX_NOT_FOUND, mailbox));
 		return;
 	}
 
@@ -845,8 +854,8 @@ imap_acl_identifier_parse(struct client_command_context *cmd,
 	settings_free(set);
 
 	if (str_begins_with(id, IMAP_ACL_GLOBAL_PREFIX)) {
-		*client_error_r = t_strdup_printf("Global ACLs can't be modified: %s",
-					   id);
+		*client_error_r = t_strdup_printf(
+			"Global ACLs can't be modified: %s", id);
 		return -1;
 	}
 
@@ -863,12 +872,12 @@ imap_acl_identifier_parse(struct client_command_context *cmd,
 			return -1;
 		}
 		rights->id_type = ACL_ID_AUTHENTICATED;
-	} else if (strcmp(id, IMAP_ACL_OWNER) == 0)
+	} else if (strcmp(id, IMAP_ACL_OWNER) == 0) {
 		rights->id_type = ACL_ID_OWNER;
-	else if (str_begins(id, IMAP_ACL_GROUP_PREFIX, &rights->identifier))
+	} else if (str_begins(id, IMAP_ACL_GROUP_PREFIX, &rights->identifier)) {
 		rights->id_type = ACL_ID_GROUP;
-	else if (str_begins(id, IMAP_ACL_GROUP_OVERRIDE_PREFIX,
-			    &rights->identifier)) {
+	} else if (str_begins(id, IMAP_ACL_GROUP_OVERRIDE_PREFIX,
+			      &rights->identifier)) {
 		rights->id_type = ACL_ID_GROUP_OVERRIDE;
 	} else {
 		rights->id_type = ACL_ID_USER;
@@ -877,9 +886,10 @@ imap_acl_identifier_parse(struct client_command_context *cmd,
 	return 0;
 }
 
-static void imap_acl_update_ensure_keep_admins(struct acl_backend *backend,
-						struct acl_object *aclobj,
-						struct acl_rights_update *update)
+static void
+imap_acl_update_ensure_keep_admins(struct acl_backend *backend,
+				   struct acl_object *aclobj,
+				   struct acl_rights_update *update)
 {
 	static const char *acl_admin = MAIL_ACL_ADMIN;
 	const char *const *rights = update->rights.rights;
@@ -951,10 +961,10 @@ cmd_acl_mailbox_update(struct mailbox *box,
 	return ret;
 }
 
-static void imap_acl_cmd_setacl(struct mailbox *box, struct mail_namespace *ns,
-				const char *mailbox, const char *identifier,
-				const char *rights,
-				struct client_command_context *cmd)
+static void
+imap_acl_cmd_setacl(struct mailbox *box, struct mail_namespace *ns,
+		    const char *mailbox, const char *identifier,
+		    const char *rights, struct client_command_context *cmd)
 {
 	struct acl_backend *backend;
 	struct acl_object *aclobj;
@@ -988,7 +998,8 @@ static void imap_acl_cmd_setacl(struct mailbox *box, struct mail_namespace *ns,
 		client_send_command_error(cmd, client_error);
 		return;
 	}
-	if (imap_acl_letters_parse(rights, &update.rights.rights, &client_error) < 0) {
+	if (imap_acl_letters_parse(rights, &update.rights.rights,
+				   &client_error) < 0) {
 		client_send_command_error(cmd, client_error);
 		return;
 	}
@@ -1023,7 +1034,8 @@ static void imap_acl_cmd_setacl(struct mailbox *box, struct mail_namespace *ns,
 	}
 
 	if (cmd_acl_mailbox_update(box, &update, &client_error) < 0)
-		client_send_tagline(cmd, t_strdup_printf("NO %s", client_error));
+		client_send_tagline(
+			cmd, t_strdup_printf("NO %s", client_error));
 	else
 		client_send_tagline(cmd, "OK Setacl complete.");
 }
@@ -1061,16 +1073,18 @@ static bool cmd_setacl(struct client_command_context *cmd)
 	/* If the location is remote and imapc_feature acl is enabled, proxy the
 	   command to the configured imapc location. */
 	else if (!imap_acl_proxy_cmd(box, orig_mailbox, str_c(proxy_cmd_args),
-				     ns, cmd, IMAP_ACL_CMD_SETACL))
+				     ns, cmd, IMAP_ACL_CMD_SETACL)) {
 		imap_acl_cmd_setacl(box, ns, orig_mailbox, identifier, rights,
 				    cmd);
+	}
 	mailbox_free(&box);
 	return TRUE;
 }
 
-static void imap_acl_cmd_deleteacl(struct mailbox *box, const char *mailbox,
-				   const char *identifier,
-				   struct client_command_context *cmd)
+static void
+imap_acl_cmd_deleteacl(struct mailbox *box, const char *mailbox,
+		       const char *identifier,
+		       struct client_command_context *cmd)
 {
 	struct acl_rights_update update;
 	const char *client_error;
@@ -1092,10 +1106,12 @@ static void imap_acl_cmd_deleteacl(struct mailbox *box, const char *mailbox,
 	if (acl_mailbox_open_as_admin(cmd, box, mailbox) <= 0)
 		return;
 
-	if (cmd_acl_mailbox_update(box, &update, &client_error) < 0)
-		client_send_tagline(cmd, t_strdup_printf("NO %s", client_error));
-	else
+	if (cmd_acl_mailbox_update(box, &update, &client_error) < 0) {
+		client_send_tagline(
+			cmd, t_strdup_printf("NO %s", client_error));
+	} else {
 		client_send_tagline(cmd, "OK Deleteacl complete.");
+	}
 }
 
 static bool cmd_deleteacl(struct client_command_context *cmd)
