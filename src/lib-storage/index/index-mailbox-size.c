@@ -330,6 +330,14 @@ index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
 
 	while (mailbox_search_next(search_ctx, &mail)) {
 		if (mails_left == 0) {
+			if (mail->mail_stream_opened) {
+				/* Seems stream is opened by mailbox search, so we
+				   will stop here, and finish it on background. */
+				index_mailbox_vsize_finish_bg(update,
+							      require_result);
+				ret = -1;
+				break;
+			}
 			/* if there are any more mails whose vsize can't be
 			   looked up from cache, abort and finish on
 			   background. */
