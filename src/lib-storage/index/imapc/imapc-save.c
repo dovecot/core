@@ -379,8 +379,9 @@ static void imapc_save_copyuid(struct imapc_save_context *ctx,
 	}
 }
 
-static void imapc_copy_callback(const struct imapc_command_reply *reply,
-				void *context)
+static void
+imapc_copy_simple_callback(const struct imapc_command_reply *reply,
+			   void *context)
 {
 	struct imapc_save_cmd_context *ctx = context;
 	uint32_t uid = 0;
@@ -403,15 +404,35 @@ static void imapc_copy_callback(const struct imapc_command_reply *reply,
 	imapc_client_stop(ctx->ctx->mbox->storage->client->client);
 }
 
+static int
+imapc_copy_simple(struct mail_save_context *_ctx, struct mail *mail)
+{
+	struct imapc_save_context *ctx = IMAPC_SAVECTX(_ctx);
+	struct mailbox_transaction_context *_t = _ctx->transaction;
+	struct imapc_mailbox *src_mbox = IMAPC_MAILBOX(mail->box);
+	struct imapc_save_cmd_context sctx;
+	struct imapc_command *cmd;
+
+	sctx.ret = -2;
+	sctx.ctx = ctx;
+	cmd = imapc_client_mailbox_cmd(src_mbox->client_box,
+				       imapc_copy_simple_callback,
+				       &sctx);
+	imapc_command_sendf(cmd, "UID COPY %u %s", mail->uid, _t->box->name);
+	while (sctx.ret == -2)
+		imapc_mailbox_run(src_mbox);
+	ctx->finished = TRUE;
+	return sctx.ret;
+}
+
 int imapc_copy(struct mail_save_context *_ctx, struct mail *mail)
 {
 	struct imapc_save_context *ctx = IMAPC_SAVECTX(_ctx);
 	struct mailbox_transaction_context *_t = _ctx->transaction;
 	struct imapc_mailbox *src_mbox;
 	struct imapc_msgmap *src_msgmap;
-	struct imapc_command *cmd;
-	struct imapc_save_cmd_context sctx;
 	uint32_t rseq;
+	int ret;
 
 	i_assert((_t->flags & MAILBOX_TRANSACTION_FLAG_EXTERNAL) != 0);
 
@@ -430,17 +451,9 @@ int imapc_copy(struct mail_save_context *_ctx, struct mail *mail)
 			return -1;
 		}
 		/* Mail has not been expunged and can be copied. */
-		sctx.ret = -2;
-		sctx.ctx = ctx;
-		cmd = imapc_client_mailbox_cmd(src_mbox->client_box,
-					       imapc_copy_callback, &sctx);
-		imapc_command_sendf(cmd, "UID COPY %u %s",
-				    mail->uid, _t->box->name);
-		while (sctx.ret == -2)
-			imapc_mailbox_run(src_mbox);
-		ctx->finished = TRUE;
+		ret = imapc_copy_simple(_ctx, mail);
 		index_save_context_free(_ctx);
-		return sctx.ret;
+		return ret;
 	}
 	return mail_storage_copy(_ctx, mail);
 }
