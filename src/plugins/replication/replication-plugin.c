@@ -348,6 +348,7 @@ static void replication_user_created(struct mail_user *user)
 
 	ruser = p_new(user->pool, struct replication_user, 1);
 	ruser->module_ctx.super = *v;
+	ruser->sync_secs = REPLICATION_SYNC_TIMEOUT_SECS;
 	user->vlast = &ruser->module_ctx.super;
 	v->deinit = replication_user_deinit;
 	MODULE_CONTEXT_SET(user, replication_user_module, ruser);
