@@ -113,6 +113,11 @@ struct imapc_untagged_fetch_ctx {
 	bool have_flags:1;
 };
 
+struct imapc_copy_request {
+	struct imapc_save_context *sctx;
+	struct seqset_builder *uidset_builder;
+};
+
 struct imapc_mailbox {
 	struct mailbox box;
 	struct imapc_storage *storage;
@@ -131,7 +136,12 @@ struct imapc_mailbox {
 	   sending soon (but still waiting to see if we can increase its
 	   UID range) */
 	string_t *pending_fetch_cmd;
+	/* if non-empty, contains the latest COPY command we're going to be
+	   sending soon. */
+	string_t *pending_copy_cmd;
+	char *copy_dest_box;
 	struct imapc_fetch_request *pending_fetch_request;
+	struct imapc_copy_request *pending_copy_request;
 	struct timeout *to_pending_fetch_send;
 
 	ARRAY(struct imapc_mailbox_event_callback) untagged_callbacks;
@@ -195,6 +205,7 @@ int imapc_save_finish(struct mail_save_context *ctx);
 void imapc_save_cancel(struct mail_save_context *ctx);
 int imapc_copy(struct mail_save_context *ctx, struct mail *mail);
 
+int imapc_transaction_save_commit(struct mailbox_transaction_context *t);
 int imapc_transaction_save_commit_pre(struct mail_save_context *ctx);
 void imapc_transaction_save_commit_post(struct mail_save_context *ctx,
 					struct mail_index_transaction_commit_result *result);

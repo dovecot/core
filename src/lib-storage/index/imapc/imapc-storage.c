@@ -541,6 +541,7 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	p_array_init(&mbox->untagged_fetch_contexts, pool, 16);
 	p_array_init(&mbox->delayed_expunged_uids, pool, 16);
 	mbox->pending_fetch_cmd = str_new(pool, 128);
+	mbox->pending_copy_cmd = str_new(pool, 128);
 	mbox->prev_mail_cache.fd = -1;
 	imapc_mailbox_register_callbacks(mbox);
 	return &mbox->box;
@@ -1282,6 +1283,15 @@ struct mail_storage imapc_storage = {
 	}
 };
 
+static int
+imapc_mailbox_transaction_commit(struct mailbox_transaction_context *t,
+				 struct mail_transaction_commit_changes *changes_r)
+{
+	int ret = imapc_transaction_save_commit(t);
+	int ret2 = index_transaction_commit(t, changes_r);
+	return ret >= 0 && ret2 >= 0 ? 0 : -1;
+}
+
 struct mailbox imapc_mailbox = {
 	.v = {
 		index_storage_is_readonly,
@@ -1310,7 +1320,7 @@ struct mailbox imapc_mailbox = {
 		NULL,
 		imapc_notify_changes,
 		index_transaction_begin,
-		index_transaction_commit,
+		imapc_mailbox_transaction_commit,
 		index_transaction_rollback,
 		NULL,
 		imapc_mail_alloc,
