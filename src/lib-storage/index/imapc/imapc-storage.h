@@ -152,6 +152,7 @@ struct imapc_mailbox {
 
 	ARRAY(uint64_t) rseq_modseqs;
 	ARRAY_TYPE(seq_range) delayed_expunged_uids;
+	ARRAY_TYPE(seq_range) copy_rollback_expunge_uids;
 	uint32_t sync_uid_validity;
 	uint32_t sync_uid_next;
 	uint64_t sync_highestmodseq;
@@ -179,6 +180,7 @@ struct imapc_mailbox {
 	bool exists_received:1;
 	bool state_fetching_uid1:1;
 	bool state_fetched_success:1;
+	bool rollback_pending:1;
 };
 
 struct imapc_simple_context {
