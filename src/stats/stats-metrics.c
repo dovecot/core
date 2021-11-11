@@ -199,7 +199,7 @@ bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
 
 	struct stats_metric_settings *_set =
 		stats_metric_settings_dup(metrics->pool, set);
-        if (!stats_metric_setting_parser_info.check_func(_set, metrics->pool, error_r))
+	if (!stats_metric_setting_parser_info.check_func(_set, metrics->pool, error_r))
 		return FALSE;
 	stats_metrics_add_set(metrics, _set);
 	return TRUE;
