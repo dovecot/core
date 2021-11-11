@@ -391,40 +391,17 @@ void imapc_transaction_save_rollback(struct mail_save_context *_ctx)
 	i_free(ctx);
 }
 
-static void imapc_save_copyuid(struct imapc_save_context *ctx,
+
+static bool imapc_save_copyuid(struct imapc_save_context *ctx,
 			       const struct imapc_command_reply *reply,
 			       uint32_t *uid_r)
 {
-	const char *const *args;
-	uint32_t uid_validity, dest_uid;
-
-	*uid_r = 0;
-
-	/* <uidvalidity> <source uid-set> <dest uid-set> */
-	args = t_strsplit(reply->resp_text_value, " ");
-	if (str_array_length(args) != 3)
-		return;
-
-	if (str_to_uint32(args[0], &uid_validity) < 0)
-		return;
-	if (ctx->dest_uid_validity == 0)
-		ctx->dest_uid_validity = uid_validity;
-	else if (ctx->dest_uid_validity != uid_validity)
-		return;
-
-	if (str_to_uint32(args[2], &dest_uid) == 0) {
-		seq_range_array_add_with_init(&ctx->dest_saved_uids,
-					      32, dest_uid);
-		*uid_r = dest_uid;
-	}
-}
-
-static bool imapc_save_bulk_copyuid(struct imapc_save_context *ctx,
-				    const struct imapc_command_reply *reply)
-{
 	ARRAY_TYPE(seq_range) dest_uidset, source_uidset;
+	struct seq_range_iter iter;
 	const char *const *args;
 	uint32_t uid_validity;
+
+	*uid_r = 0;
 
 	/* <uidvalidity> <source uid-set> <dest uid-set> */
 	args = t_strsplit(reply->resp_text_value, " ");
@@ -450,6 +427,9 @@ static bool imapc_save_bulk_copyuid(struct imapc_save_context *ctx,
 		i_array_init(&ctx->dest_saved_uids, 8);
 
 	seq_range_array_merge(&ctx->dest_saved_uids, &dest_uidset);
+
+	seq_range_array_iter_init(&iter, &dest_uidset);
+	(void)seq_range_array_iter_nth(&iter, 0, uid_r);
 	return TRUE;
 }
 
@@ -518,6 +498,7 @@ static void imapc_copy_bulk_callback(const struct imapc_command_reply *reply,
 	struct imapc_copy_request *request = context;
 	struct imapc_save_context *ctx = request->sctx;
 	struct imapc_mailbox *mbox = ctx->src_mbox;
+	unsigned int uid;
 
 	i_assert(mbox != NULL);
 	i_assert(request == mbox->pending_copy_request);
@@ -529,13 +510,13 @@ static void imapc_copy_bulk_callback(const struct imapc_command_reply *reply,
 		   copied from the reply so that rollback can expunge
 		   them */
 		if (null_strcasecmp(reply->resp_text_key, "COPYUID") == 0) {
-			(void)imapc_save_bulk_copyuid(ctx, reply);
+			(void)imapc_save_copyuid(ctx, reply, &uid);
 			imapc_transaction_save_rollback(&ctx->ctx);
 		}
 	} else if (reply->state == IMAPC_COMMAND_STATE_OK) {
 		if (reply->resp_text_key != NULL &&
 		   strcasecmp(reply->resp_text_key, "COPYUID") == 0 &&
-		   imapc_save_bulk_copyuid(ctx, reply)) {
+		   imapc_save_copyuid(ctx, reply, &uid)) {
 			ctx->finished = TRUE;
 		}
 	} else {
