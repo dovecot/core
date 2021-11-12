@@ -722,14 +722,17 @@ mail_duplicate_db_init(struct mail_user *user, const char *name)
 
 	e_debug(db->event, "Initialize");
 
+	db->user = user;
+
 	if (mail_user_get_home(user, &home) <= 0) {
 		e_error(db->event, "User %s doesn't have home dir set, "
 			"disabling duplicate database", user->username);
+		return db;
 	}
 
-	db->user = user;
-	db->path = home == NULL ? NULL :
-		i_strconcat(home, "/.dovecot.", name, NULL);
+	i_assert(home != NULL);
+
+	db->path = i_strconcat(home, "/.dovecot.", name, NULL);
 	db->dotlock_set = default_mail_duplicate_dotlock_set;
 
 	lock_dir = mail_user_get_volatile_dir(user);
