@@ -491,13 +491,15 @@ mail_duplicate_transaction_free(struct mail_duplicate_transaction **_trans)
 	i_assert(trans->db->transaction_count > 0);
 	trans->db->transaction_count--;
 
-	iter = hash_table_iterate_init(trans->hash);
-	while (hash_table_iterate(iter, trans->hash, &d, &d))
-		mail_duplicate_unlock(trans, d);
-	hash_table_iterate_deinit(&iter);
+	if (hash_table_is_created(trans->hash)) {
+		iter = hash_table_iterate_init(trans->hash);
+		while (hash_table_iterate(iter, trans->hash, &d, &d))
+			mail_duplicate_unlock(trans, d);
+		hash_table_iterate_deinit(&iter);
+		hash_table_destroy(&trans->hash);
+	}
 	i_assert(trans->id_lock_count == 0);
 
-	hash_table_destroy(&trans->hash);
 	event_unref(&trans->event);
 	pool_unref(&trans->pool);
 }
