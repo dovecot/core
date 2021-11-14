@@ -186,10 +186,7 @@ smtp_server_command_new_invalid(struct smtp_server_connection *conn)
 	cmd = smtp_server_command_alloc(conn);
 	smtp_server_command_update_event(cmd);
 
-	struct event_passthrough *e =
-		event_create_passthrough(cmd->context.event)->
-		set_name("smtp_server_command_started");
-	e_debug(e->event(), "Invalid command");
+	e_debug(cmd->context.event, "Invalid command");
 
 	return cmd;
 }
@@ -207,10 +204,7 @@ smtp_server_command_new(struct smtp_server_connection *conn,
 
 	smtp_server_command_update_event(cmd);
 
-	struct event_passthrough *e =
-		event_create_passthrough(cmd->context.event)->
-		set_name("smtp_server_command_started");
-	e_debug(e->event(), "New command");
+	e_debug(cmd->context.event, "New command");
 
 	return cmd;
 }
@@ -224,6 +218,11 @@ void smtp_server_command_execute(struct smtp_server_command *cmd,
 		event_add_str(cmd->context.event, "cmd_args", params);
 		event_add_str(cmd->context.event, "cmd_human_args", params);
 	}
+
+	struct event_passthrough *e =
+		event_create_passthrough(cmd->context.event)->
+		set_name("smtp_server_command_started");
+	e_debug(e->event(), "Execute command");
 
 	if (cmd->reg == NULL) {
 		/* RFC 5321, Section 4.2.4: Reply Code 502
