@@ -263,6 +263,16 @@ void index_mailbox_vsize_hdr_expunge(struct mailbox_vsize_update *update,
 	update->vsize_hdr.vsize -= vsize;
 }
 
+static void
+index_mailbox_vsize_finish_bg(struct mailbox_vsize_update *update,
+			      bool require_result)
+{
+	mail_storage_set_error(update->box->storage, MAIL_ERROR_INUSE,
+			       "Finishing vsize calculation on background");
+	if (require_result)
+		update->finish_in_background = TRUE;
+}
+
 static int
 index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
 				    bool require_result)
@@ -332,11 +342,7 @@ index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
 		    mailbox_get_last_mail_error(update->box) == MAIL_ERROR_LOOKUP_ABORTED) {
 			/* abort and finish on background */
 			i_assert(mails_left == 0);
-
-			mail_storage_set_error(update->box->storage, MAIL_ERROR_INUSE,
-				"Finishing vsize calculation on background");
-			if (require_result)
-				update->finish_in_background = TRUE;
+			index_mailbox_vsize_finish_bg(update, require_result);
 			break;
 		}
 		if (mail->mail_stream_opened || mail->mail_metadata_accessed) {
