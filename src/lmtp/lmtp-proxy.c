@@ -846,6 +846,7 @@ lmtp_proxy_rcpt_handle_not_proxied(struct lmtp_proxy_recipient *lprcpt,
 	const struct smtp_proxy_redirect predir = {
 		.username = destuser,
 		.host = set->set.host,
+		.host_ip = set->set.host_ip,
 		.port = set->set.port,
 	};
 	smtp_server_recipient_reply_redirect(rcpt, 0, &predir);

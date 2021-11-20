@@ -14,13 +14,14 @@ struct smtp_server_recipient;
 struct smtp_proxy_redirect {
 	const char *username;
 	const char *host;
+	struct ip_addr host_ip;
 	in_port_t port;
 };
 
 bool smtp_reply_code_is_proxy_redirect(unsigned int code, const char *enh_code);
 bool smtp_reply_is_proxy_redirect(const struct smtp_reply *reply);
 
-int smtp_proxy_redirect_parse(const char *target, const char **destuser_r,
+int smtp_proxy_redirect_parse(const char *resp, const char **destuser_r,
 			      const char **host_r, struct ip_addr *ip_r,
 			      in_port_t *port_r, const char **error_r);
 
