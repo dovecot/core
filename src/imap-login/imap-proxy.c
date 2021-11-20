@@ -249,27 +249,27 @@ client_send_login_reply(struct imap_client *client, string_t *str,
 	str_append(str, "\r\n");
 }
 
-static bool auth_resp_code_is_tempfail(const char *resp_code)
+static bool auth_resp_code_is_tempfail(const char *resp)
 {
 	/* Dovecot uses [UNAVAILABLE] for failures that can be retried.
 	   Non-retriable failures are [SERVERBUG]. */
-	return strcasecmp(resp_code, IMAP_RESP_CODE_UNAVAILABLE) == 0;
+	return strncasecmp(resp, IMAP_RESP_CODE_UNAVAILABLE"]",
+			   strlen(IMAP_RESP_CODE_UNAVAILABLE"]")) == 0;
 }
 
 static bool
-auth_resp_code_parse_referral(struct client *client, const char *resp_code,
+auth_resp_code_parse_referral(struct client *client, const char *resp,
 			      const char **userhostport_r)
 {
 	struct imap_url *url;
-	const char *referral, *error;
+	const char *error;
 
-	if (strncasecmp(resp_code, "REFERRAL ", 9) != 0)
+	if (strncasecmp(resp, "REFERRAL ", 9) != 0)
 		return FALSE;
-	referral = resp_code + 9;
-
-	if (imap_url_parse(referral, NULL, 0, &url, &error) < 0) {
+	if (imap_url_parse(resp + 9, NULL, 0, &url, &error) < 0) {
 		e_debug(login_proxy_get_event(client->login_proxy),
-			"Couldn't parse REFERRAL '%s': %s", referral, error);
+			"Couldn't parse REFERRAL response '%s': %s",
+			resp, error);
 		return FALSE;
 	}
 
@@ -401,10 +401,9 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 					       AUTH_FAILED_MSG);
 		} else if (str_begins(line, "NO [")) {
 			/* remote sent some other resp-code. forward it. */
-			const char *resp_code = t_strcut(line + 4, ']');
-			if (auth_resp_code_is_tempfail(resp_code))
+			if (auth_resp_code_is_tempfail(line + 4))
 				failure_type = LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL;
-			else if (auth_resp_code_parse_referral(client, resp_code,
+			else if (auth_resp_code_parse_referral(client, line + 4,
 							       &log_line))
 				failure_type = LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT;
 			else {
