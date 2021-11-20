@@ -399,7 +399,12 @@ submission_proxy_parse_redirect(const char *resp, const char **userhostport_r,
 	if (destuser != NULL)
 		str_append(str, destuser);
 	str_append_c(str, '@');
-	str_append(str, host);
+	if (ip.family == AF_INET)
+		str_append(str, net_ip2addr(&ip));
+	else if (ip.family == AF_INET6)
+		str_printfa(str, "[%s]", net_ip2addr(&ip));
+	else
+		str_append(str, host);
 	if (port != 0)
 		str_printfa(str, ":%u", port);
 	*userhostport_r = str_c(str);
