@@ -36,6 +36,7 @@ struct uri_parser {
 	string_t *tmpbuf;
 
 	bool allow_pct_nul:1;
+	bool parse_prefix:1;
 };
 
 static inline const char *uri_char_sanitize(unsigned char c)

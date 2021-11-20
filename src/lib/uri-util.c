@@ -795,6 +795,8 @@ uri_do_parse_authority(struct uri_parser *parser, struct uri_authority *auth,
 	case ':': case '/': case '?': case '#':
 		break;
 	default:
+		if (parser->parse_prefix)
+			break;
 		parser->error = "Invalid host identifier";
 		return -1;
 	}
@@ -812,6 +814,8 @@ uri_do_parse_authority(struct uri_parser *parser, struct uri_authority *auth,
 		case '/': case '?': case '#':
 			break;
 		default:
+			if (parser->parse_prefix)
+				break;
 			parser->error = "Invalid host port";
 			return -1;
 		}
@@ -880,8 +884,8 @@ int uri_parse_path_segment(struct uri_parser *parser, const char **segment_r)
 		parser->cur++;
 	}
 
-	if (parser->cur < parser->end && *parser->cur != '/' &&
-	    *parser->cur != '?' && *parser->cur != '#') {
+	if (!parser->parse_prefix && parser->cur < parser->end &&
+	    *parser->cur != '/' && *parser->cur != '?' && *parser->cur != '#') {
 		parser->error = p_strdup_printf(parser->pool,
 			"Path component contains invalid character %s",
 			uri_char_sanitize(*parser->cur));
@@ -989,7 +993,7 @@ int uri_parse_path(struct uri_parser *parser,
 		array_append_zero(&segments);
 		*path_r = array_get(&segments, &count);
 	}
-	if (parser->cur < parser->end &&
+	if (!parser->parse_prefix && parser->cur < parser->end &&
 	    *parser->cur != '?' && *parser->cur != '#') {
 		parser->error = p_strdup_printf(parser->pool,
 			"Path component contains invalid character %s",
@@ -1031,7 +1035,8 @@ int uri_parse_query(struct uri_parser *parser, const char **query_r)
 		parser->cur++;
 	}
 
-	if (parser->cur < parser->end && *parser->cur != '#') {
+	if (!parser->parse_prefix && parser->cur < parser->end &&
+	    *parser->cur != '#') {
 		parser->error = p_strdup_printf(parser->pool,
 			"Query component contains invalid character %s",
 			uri_char_sanitize(*parser->cur));
@@ -1076,7 +1081,7 @@ int uri_parse_fragment(struct uri_parser *parser, const char **fragment_r)
 		parser->cur++;
 	}
 
-	if (parser->cur < parser->end) {
+	if (!parser->parse_prefix && parser->cur < parser->end) {
 		parser->error = p_strdup_printf(parser->pool,
 			"Fragment component contains invalid character %s",
 			uri_char_sanitize(*parser->cur));
