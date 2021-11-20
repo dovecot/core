@@ -61,6 +61,7 @@ void imap_client_auth_result(struct client *client,
 		url.userid = reply->proxy.username;
 		url.auth_type = client->auth_mech_name;
 		url.host.name = reply->proxy.host;
+		url.host.ip = reply->proxy.host_ip;
 		if (reply->proxy.port != 143)
 			url.port = reply->proxy.port;
 		str_append(referral, "REFERRAL ");
