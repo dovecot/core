@@ -1815,7 +1815,7 @@ static void
 smtp_client_connection_lookup_ip(struct smtp_client_connection *conn)
 {
 	struct dns_lookup_settings dns_set;
-	struct ip_addr ip, *ips;
+	struct ip_addr *ips;
 	unsigned int ips_count;
 	int ret;
 
@@ -1824,13 +1824,7 @@ smtp_client_connection_lookup_ip(struct smtp_client_connection *conn)
 
 	e_debug(conn->event, "Looking up IP address");
 
-	if (net_addr2ip(conn->host, &ip) == 0) {
-		/* IP address */
-		conn->ips_count = 1;
-		conn->ips = i_new(struct ip_addr, conn->ips_count);
-		conn->ips[0] = ip;
-		conn->host_is_ip = TRUE;
-	} else if (conn->set.dns_client != NULL) {
+	if (conn->set.dns_client != NULL) {
 		e_debug(conn->event, "Performing asynchronous DNS lookup");
 		(void)dns_client_lookup(
 			conn->set.dns_client, conn->host,
@@ -2185,28 +2179,6 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 }
 
 struct smtp_client_connection *
-smtp_client_connection_create(struct smtp_client *client,
-			      enum smtp_protocol protocol,
-			      const char *host, in_port_t port,
-			      enum smtp_client_connection_ssl_mode ssl_mode,
-			      const struct smtp_client_settings *set)
-{
-	struct smtp_client_connection *conn;
-	const char *name = t_strdup_printf("%s:%u", host, port);
-
-	conn = smtp_client_connection_do_create(client, name, protocol, set);
-	conn->host = p_strdup(conn->pool, host);
-	conn->port = port;
-	conn->ssl_mode = ssl_mode;
-
-	event_add_str(conn->event, "host", host);
-
-	e_debug(conn->event, "Connection created");
-
-	return conn;
-}
-
-struct smtp_client_connection *
 smtp_client_connection_create_ip(struct smtp_client *client,
 				 enum smtp_protocol protocol,
 				 const struct ip_addr *ip, in_port_t port,
@@ -2215,20 +2187,69 @@ smtp_client_connection_create_ip(struct smtp_client *client,
 				 const struct smtp_client_settings *set)
 {
 	struct smtp_client_connection *conn;
+	const char *name = NULL;
+	struct ip_addr host_ip;
 	bool host_is_ip = FALSE;
 
-	if (hostname == NULL) {
-		hostname = net_ip2addr(ip);
+	i_zero(&host_ip);
+	if (ip != NULL)
+		host_ip = *ip;
+
+	if (hostname != NULL && *hostname != '\0') {
+		struct ip_addr hname_ip;
+
+		if (net_addr2ip(hostname, &hname_ip) == 0) {
+			i_assert(host_ip.family == 0 ||
+				 net_ip_compare(&host_ip, &hname_ip));
+			hostname = net_ip2addr(&hname_ip); /* normalize */
+			host_is_ip = TRUE;
+			host_ip = hname_ip;
+		}
+	} else if (host_ip.family != 0) {
+		hostname = net_ip2addr(&host_ip);
 		host_is_ip = TRUE;
+	} else
+		i_unreached();
+
+	if (!host_is_ip || host_ip.family == AF_INET)
+		name = t_strdup_printf("%s:%u", hostname, port);
+	else if (host_ip.family == AF_INET6)
+		name = t_strdup_printf("[%s]:%u", hostname, port);
+	else
+		i_unreached();
+
+	conn = smtp_client_connection_do_create(client, name, protocol, set);
+	conn->host = p_strdup(conn->pool, hostname);
+	conn->port = port;
+	conn->ssl_mode = ssl_mode;
+
+	if (host_is_ip) {
+		i_assert(host_ip.family != 0);
+		conn->host_is_ip = TRUE;
+	}
+	if (host_ip.family != 0) {
+		conn->ips_count = 1;
+		conn->ips = i_new(struct ip_addr, conn->ips_count);
+		conn->ips[0] = host_ip;
 	}
 
-	conn = smtp_client_connection_create(client, protocol, hostname, port,
-					     ssl_mode, set);
-	conn->ips_count = 1;
-	conn->ips = i_new(struct ip_addr, conn->ips_count);
-	conn->ips[0] = *ip;
-	conn->host_is_ip = host_is_ip;
+	event_add_str(conn->event, "host", hostname);
+
+	e_debug(conn->event, "Connection created");
+
 	return conn;
+}
+
+struct smtp_client_connection *
+smtp_client_connection_create(struct smtp_client *client,
+			      enum smtp_protocol protocol,
+			      const char *host, in_port_t port,
+			      enum smtp_client_connection_ssl_mode ssl_mode,
+			      const struct smtp_client_settings *set)
+{
+	return smtp_client_connection_create_ip(client, protocol,
+						NULL, port, host,
+						ssl_mode, set);
 }
 
 struct smtp_client_connection *
