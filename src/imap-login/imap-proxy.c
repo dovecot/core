@@ -269,7 +269,7 @@ auth_resp_code_parse_referral(struct client *client, const char *resp,
 	if (imap_url_parse(resp + 9, NULL, 0, &url, &error) < 0) {
 		e_debug(login_proxy_get_event(client->login_proxy),
 			"Couldn't parse REFERRAL response '%s': %s",
-			resp, error);
+			str_sanitize(resp, 160), error);
 		return FALSE;
 	}
 
