@@ -461,13 +461,13 @@ lmtp_proxy_rcpt_get_redirect_path(struct lmtp_proxy_recipient *lprcpt,
 
 	i_assert(conn->set.set.host_ip.family != 0);
 
-	str_printfa(str, "%s:%u",
-		    net_ip2addr(&conn->set.set.host_ip), conn->set.set.port);
+	str_printfa(str, "%s",
+		    net_ipport2str(&conn->set.set.host_ip, conn->set.set.port));
 	if (!array_is_created(&lprcpt->redirect_path))
 		return;
 	array_foreach(&lprcpt->redirect_path, redirect) {
-		str_printfa(str, ",%s:%u",
-			    net_ip2addr(&redirect->ip), redirect->port);
+		str_printfa(str, ",%s",
+			    net_ipport2str(&redirect->ip, redirect->port));
 	}
 }
 
