@@ -230,8 +230,8 @@ proxy_connect_error_append(struct login_proxy *proxy, string_t *str)
 
 	if (proxy->server_fd != -1 &&
 	    net_getsockname(proxy->server_fd, &local_ip, &local_port) == 0) {
-		str_printfa(str, ", local=%s:%u",
-			    net_ip2addr(&local_ip), local_port);
+		str_printfa(str, ", local=%s",
+			    net_ipport2str(&local_ip, local_port));
 	} else if (proxy->source_ip.family != 0) {
 		str_printfa(str, ", local=%s",
 			    net_ip2addr(&proxy->source_ip));
@@ -252,9 +252,11 @@ login_proxy_set_destination(struct login_proxy *proxy, const char *host,
 						 proxy->port);
 
 	/* Include destination ip:port also in the log prefix */
-	event_set_append_log_prefix(proxy->event, t_strdup_printf(
-		"proxy(%s,%s:%u): ", proxy->client->virtual_user,
-		net_ip2addr(&proxy->ip), proxy->port));
+	event_set_append_log_prefix(
+		proxy->event,
+		t_strdup_printf("proxy(%s,%s): ",
+				proxy->client->virtual_user,
+				net_ipport2str(&proxy->ip, proxy->port)));
 }
 
 static void proxy_reconnect_timeout(struct login_proxy *proxy)
@@ -751,9 +753,8 @@ void login_proxy_redirect_finish(struct login_proxy *proxy,
 	/* disconnect from current backend */
 	login_proxy_disconnect(proxy);
 
-	const char *ip_str = net_ip2addr(ip);
-	e_debug(proxy->event, "Redirecting to %s:%u", ip_str, port);
-	login_proxy_set_destination(proxy, ip_str, ip, port);
+	e_debug(proxy->event, "Redirecting to %s", net_ipport2str(ip, port));
+	login_proxy_set_destination(proxy, net_ip2addr(ip), ip, port);
 	(void)login_proxy_connect(proxy);
 }
 
