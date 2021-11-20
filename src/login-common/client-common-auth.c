@@ -448,8 +448,8 @@ proxy_redirect_reauth(struct client *client, const char *destuser,
 	unsigned int connect_timeout_msecs =
 		login_proxy_get_connect_timeout_msecs(client->login_proxy);
 	const char *const extra_fields[] = {
-		t_strdup_printf("proxy_redirect_host_next=%s:%u",
-				net_ip2addr(ip), port),
+		t_strdup_printf("proxy_redirect_host_next=%s",
+				net_ipport2str(ip, port)),
 		str_c(hosts_attempted),
 		t_strdup_printf("destuser=%s", str_tabescape(destuser)),
 		t_strdup_printf("proxy_timeout=%u", connect_timeout_msecs),
