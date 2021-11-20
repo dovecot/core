@@ -11,6 +11,7 @@ struct valid_imap_url_test {
 	struct imap_url url_base;
 
 	struct imap_url url_parsed;
+	const char *url_parsed_end;
 };
 
 /* Valid IMAP URL tests */
@@ -796,6 +797,82 @@ static const struct valid_imap_url_test valid_url_tests[] = {
 			.uauth_token_size = 20,
 		}
 	},
+	/* Prefix parsing */
+	{
+		.url = "imap://localhost] Referral",
+		.url_parsed = {
+			.host = { .name = "localhost" },
+		},
+		.url_parsed_end = "] Referral",
+	},
+	{
+		.url = "imap://user@localhost] Referral",
+		.url_parsed = {
+			.host = { .name = "localhost" },
+			.userid = "user"
+		},
+		.url_parsed_end = "] Referral",
+	},
+	{
+		.url = "imap://user;AUTH=PLAIN@localhost] Referral",
+		.url_parsed = {
+			.host = { .name = "localhost" },
+			.userid = "user",
+			.auth_type = "PLAIN",
+		},
+		.url_parsed_end = "] Referral",
+	},
+	{
+		.url = "imap://;AUTH=PLAIN@localhost] Referral",
+		.url_parsed = {
+			.host = { .name = "localhost" },
+			.auth_type = "PLAIN"
+		},
+		.url_parsed_end = "] Referral",
+	},
+	{
+		.url = "imap://user@localhost:993] Referral",
+		.url_parsed = {
+			.host = { .name = "localhost" },
+			.userid = "user",
+			.port = 993,
+		},
+		.url_parsed_end = "] Referral",
+	},
+	{
+		.url = "imap://user@127.0.0.1] Referral",
+		.url_parsed = {
+			.host = {
+				.name = "127.0.0.1",
+				.ip = { .family = AF_INET }
+			},
+			.userid = "user",
+		},
+		.url_parsed_end = "] Referral",
+	},
+	{
+		.url = "imap://user@[::1]] Referral",
+		.url_parsed = {
+			.host = {
+				.name = "[::1]",
+				.ip = { .family = AF_INET6 }
+			},
+			.userid = "user",
+		},
+		.url_parsed_end = "] Referral",
+	},
+	{
+		.url = "imap://user@example.com"
+		       "/INBOX/Drafts;UIDVALIDITY=788/;UID=16] Referral",
+		.url_parsed = {
+			.host = { .name = "example.com" },
+			.userid = "user",
+			.mailbox = "INBOX/Drafts",
+			.uidvalidity = 788,
+			.uid = 16,
+		},
+		.url_parsed_end = "] Referral",
+	},
 };
 
 static const unsigned int valid_url_test_count = N_ELEMENTS(valid_url_tests);
@@ -974,23 +1051,31 @@ static void test_imap_url_valid(void)
 	unsigned int i;
 
 	for (i = 0; i < valid_url_test_count; i++) T_BEGIN {
-		const char *url = valid_url_tests[i].url;
-		enum imap_url_parse_flags flags = valid_url_tests[i].flags;
-		const struct imap_url *urlt = &valid_url_tests[i].url_parsed;
-		const struct imap_url *urlb = &valid_url_tests[i].url_base;
+		const struct valid_imap_url_test *test = &valid_url_tests[i];
+		const char *url = test->url;
+		enum imap_url_parse_flags flags = test->flags;
+		const struct imap_url *urlt = &test->url_parsed;
+		const struct imap_url *urlb = &test->url_base;
 		struct imap_url *urlp;
-		const char *error = NULL;
+		const char *end = NULL, *error = NULL;
+		const char **end_p = (test->url_parsed_end == NULL ?
+				      NULL : &end);
 
 		test_begin(t_strdup_printf("imap url valid [%d]", i));
 
 		if (urlb->host.name == NULL) urlb = NULL;
-		if (imap_url_parse(url, urlb, flags, &urlp, &error) < 0)
+		if (imap_url_parse_prefix(url, urlb, flags,
+					  end_p, &urlp, &error) < 0)
 			urlp = NULL;
 
 		test_out_reason(t_strdup_printf("imap_url_parse(%s)",
 			valid_url_tests[i].url), urlp != NULL, error);
-		if (urlp != NULL)
+		if (urlp != NULL) {
 			test_imap_url_valid_check(urlt, urlp);
+			test_out_quiet(t_strdup_printf("end = %s", end),
+				       null_strcmp(end,
+						   test->url_parsed_end) == 0);
+		}
 
 		test_end();
 	} T_END;
