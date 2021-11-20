@@ -605,7 +605,7 @@ lmtp_proxy_rcpt_redirect_finish(struct lmtp_proxy_recipient *lprcpt,
 	redirect->port = port;
 
 	/* Connect to new host */
-	e_debug(rcpt->event, "Redirecting to %s:%u", net_ip2addr(ip), port);
+	e_debug(rcpt->event, "Redirecting to %s", net_ipport2str(ip, port));
 
 	if (lmtp_proxy_rcpt_get_connection(lprcpt, set, &conn) < 0)
 		return;
