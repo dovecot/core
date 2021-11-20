@@ -262,14 +262,28 @@ auth_resp_code_parse_referral(struct client *client, const char *resp,
 			      const char **userhostport_r)
 {
 	struct imap_url *url;
-	const char *error;
+	const char *end, *error;
 
 	if (strncasecmp(resp, "REFERRAL ", 9) != 0)
 		return FALSE;
-	if (imap_url_parse(resp + 9, NULL, 0, &url, &error) < 0) {
+	if (imap_url_parse_prefix(resp + 9, NULL, 0, &end, &url, &error) < 0) {
 		e_debug(login_proxy_get_event(client->login_proxy),
 			"Couldn't parse REFERRAL response '%s': %s",
 			str_sanitize(resp, 160), error);
+		return FALSE;
+	}
+	if (*end == '\0') {
+		e_debug(login_proxy_get_event(client->login_proxy),
+			"Couldn't parse REFERRAL response '%s': "
+			"Premature end of response line (expected ']')",
+			str_sanitize(resp, 160));
+		return FALSE;
+	}
+	if (*end != ']') {
+		e_debug(login_proxy_get_event(client->login_proxy),
+			"Couldn't parse REFERRAL response '%s': "
+			"Invalid character %s in URL",
+			str_sanitize(resp, 160), uri_char_sanitize(*end));
 		return FALSE;
 	}
 
