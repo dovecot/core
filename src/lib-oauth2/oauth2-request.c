@@ -170,20 +170,16 @@ oauth2_request_set_headers(struct oauth2_request *req,
 			req->req, "X-Dovecot-Auth-Service", input->service);
 	}
 	if (input->local_ip.family != 0) {
-		const char *addr;
-		if (net_ipport2str(&input->local_ip, input->local_port,
-				   &addr) == 0)	 {
-			http_client_request_add_header(
-				req->req, "X-Dovecot-Auth-Local", addr);
-		}
+		http_client_request_add_header(
+			req->req, "X-Dovecot-Auth-Local",
+			net_ipport2str(&input->local_ip,
+				       input->local_port));
 	}
 	if (input->remote_ip.family != 0) {
-		const char *addr;
-		if (net_ipport2str(&input->remote_ip, input->remote_port,
-				   &addr) == 0) {
-			http_client_request_add_header(
-				req->req, "X-Dovecot-Auth-Remote", addr);
-		}
+		http_client_request_add_header(
+			req->req, "X-Dovecot-Auth-Remote",
+			net_ipport2str(&input->remote_ip,
+				       input->remote_port));
 	}
 }
 

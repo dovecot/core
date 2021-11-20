@@ -113,9 +113,7 @@ stats_carbon_send(const char *endpoint, const char *data,
 	ctx->to = timeout_add(ctx->to_msecs,
 			      stats_carbon_timeout,
 			      ctx);
-	if (net_ipport2str(&ip, port, &host) < 0)
-		i_unreached();
-	ctx->endpoint = p_strdup(ctx->pool, host);
+	ctx->endpoint = p_strdup(ctx->pool, net_ipport2str(&ip, port));
 	ctx->callback = callback;
 	ctx->ctx = cb_ctx;
 

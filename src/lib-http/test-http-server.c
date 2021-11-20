@@ -66,7 +66,6 @@ client_http_handle_request(void *context,
 	struct client *client = (struct client *)context;
 	const struct http_request *http_req = http_server_request_get(req);
 	struct http_server_response *http_resp;
-	const char *ipport;
 	string_t *content;
 
 	if (strcmp(http_req->method, "GET") != 0) {
@@ -79,10 +78,10 @@ client_http_handle_request(void *context,
 
 	/* Compose response payload */
 	content = t_str_new(1024);
-	(void)net_ipport2str(&client->server_ip, client->server_port, &ipport);
-	str_printfa(content, "Server: %s\r\n", ipport);
-	(void)net_ipport2str(&client->ip, client->port, &ipport);
-	str_printfa(content, "Client: %s\r\n", ipport);
+	str_printfa(content, "Server: %s\r\n",
+		    net_ipport2str(&client->server_ip, client->server_port));
+	str_printfa(content, "Client: %s\r\n",
+		    net_ipport2str(&client->ip, client->port));
 	str_printfa(content, "Host: %s", http_req->target.url->host.name);
 	if (http_req->target.url->port != 0)
 		str_printfa(content, ":%u", http_req->target.url->port);

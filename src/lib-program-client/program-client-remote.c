@@ -421,8 +421,7 @@ program_client_net_connect_real(struct program_client_remote *prclient)
 
 	i_assert(prclient->ips_count > 0);
 
-	if (net_ipport2str(prclient->ips, prclient->port, &address) < 0)
-		i_unreached();
+	address = net_ipport2str(prclient->ips, prclient->port);
 	label = t_strconcat("tcp:", address, NULL);
 	program_client_set_label(pclient, label);
 
@@ -680,9 +679,7 @@ program_client_net_create_ips(const struct ip_addr *ips, size_t ips_count,
 
 	i_assert(ips != NULL && ips_count > 0);
 
-	if (net_ipport2str(ips, port, &label) < 0)
-		i_unreached();
-	label = t_strconcat("tcp:", label, NULL);
+	label = t_strconcat("tcp:", net_ipport2str(ips, port), NULL);
 
 	pool = pool_alloconly_create("program client net", 1024);
 	prclient = p_new(pool, struct program_client_remote, 1);
