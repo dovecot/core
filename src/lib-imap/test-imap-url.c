@@ -1010,6 +1010,9 @@ static const struct invalid_imap_url_test invalid_url_tests[] = {
 		.url = "imap:/INBOX",
 	},
 	{
+		.url = "imap://user;AUTH=PLAIN@%3a%3a1/",
+	},
+	{
 		.url = "imap://user@example.com/INBOX",
 		.flags = IMAP_URL_PARSE_REQUIRE_RELATIVE,
 		.url_base = {
@@ -1259,6 +1262,7 @@ static void test_imap_url_invalid(void)
 
 		if (imap_url_parse(url, urlb, flags, &urlp, &error) < 0)
 			urlp = NULL;
+		test_assert(urlp != NULL || error != NULL);
 		test_out_reason(t_strdup_printf("parse %s", url), urlp == NULL, error);
 
 		test_end();

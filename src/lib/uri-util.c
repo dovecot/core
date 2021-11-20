@@ -508,8 +508,11 @@ uri_do_parse_host_name(struct uri_parser *parser, string_t *host_name)
 		if (ret < 0) {
 			return -1;
 		} else if (ret > 0) {
-			if (!i_isalnum(ch))
+			if (!i_isalnum(ch)) {
+				parser->error =
+					"Invalid percent encoding in hostname";
 				return -1;
+			}
 			if (host_name != NULL)
 				str_append_c(host_name, ch);
 			part = parser->cur;
@@ -528,8 +531,11 @@ uri_do_parse_host_name(struct uri_parser *parser, string_t *host_name)
 				if (ret < 0) {
 					return -1;
 				} else if (ret > 0) {
-					if (!i_isalnum(ch) && ch != '-')
-						break;
+					if (!i_isalnum(ch) && ch != '-') {
+						parser->error =
+							"Invalid percent encoding in hostname";
+						return -1;
+					}
 					if (host_name != NULL) {
 						if (offset > part) {
 							str_append_data(
