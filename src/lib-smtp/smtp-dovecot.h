@@ -22,7 +22,7 @@ bool smtp_reply_is_proxy_redirect(const struct smtp_reply *reply);
 
 int smtp_proxy_redirect_parse(const char *target, const char **destuser_r,
 			      const char **host_r, struct ip_addr *ip_r,
-			      in_port_t *port_r);
+			      in_port_t *port_r, const char **error_r);
 
 void smtp_server_reply_redirect(struct smtp_server_cmd_ctx *cmd,
 				in_port_t default_port,

@@ -22,23 +22,31 @@ bool smtp_reply_is_proxy_redirect(const struct smtp_reply *reply)
 
 int smtp_proxy_redirect_parse(const char *target, const char **destuser_r,
 			      const char **host_r, struct ip_addr *ip_r,
-			      in_port_t *port_r)
+			      in_port_t *port_r, const char **error_r)
 {
 	const char *pend;
+
+	*error_r = NULL;
 
 	/* Skip <address> part of the reply if present (RCPT reply) */
 	pend = strchr(target, ' ');
 	if (*target == '<') {
-		if (pend == NULL)
+		if (pend == NULL) {
+			*error_r = "Invalid path in redirect response";
 			return -1;
+		}
 		target = pend + 1;
 		pend = strchr(target, ' ');
 	}
 	if (pend != NULL)
 		target = t_strdup_until(target, pend);
 
-	return (auth_proxy_parse_redirect(target, destuser_r, host_r,
-					  ip_r, port_r) ? 0 : -1);
+	if (!auth_proxy_parse_redirect(target, destuser_r, host_r,
+				       ip_r, port_r)) {
+		*error_r = "Invalid redirect data";
+		return -1;
+	}
+	return 0;
 }
 
 static const char *

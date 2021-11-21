@@ -557,12 +557,12 @@ static int
 lmtp_proxy_rcpt_parse_redirect(const struct smtp_reply *proxy_reply,
 			       const char **destuser_r,
 			       const char **host_r, struct ip_addr *ip_r,
-			       in_port_t *port_r)
+			       in_port_t *port_r, const char **error_r)
 {
 	if (proxy_reply->text_lines == NULL)
 		return -1;
 	return smtp_proxy_redirect_parse(*proxy_reply->text_lines, destuser_r,
-					 host_r, ip_r, port_r);
+					 host_r, ip_r, port_r, error_r);
 }
 
 static void
@@ -699,15 +699,15 @@ lmtp_proxy_rcpt_redirect(struct lmtp_proxy_recipient *lprcpt,
 	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
 	struct lmtp_proxy_connection *conn = lprcpt->conn;
 	struct lmtp_proxy_rcpt_settings set;
-	const char *host, *destuser = lrcpt->username;
+	const char *host, *destuser = lrcpt->username, *error;
 	struct ip_addr ip;
 	in_port_t port;
 
 	if (lmtp_proxy_rcpt_parse_redirect(proxy_reply, &destuser,
-					   &host, &ip, &port) < 0) {
+					   &host, &ip, &port, &error) < 0) {
 		e_error(rcpt->event,
-			"Backend server returned invalid redirect: %s",
-			smtp_reply_log(proxy_reply));
+			"Backend server returned invalid redirect '%s': %s",
+			smtp_reply_log(proxy_reply), error);
 		smtp_server_recipient_reply(rcpt, 451, "4.3.0",
 					    "Temporary internal proxy error");
 		return;
