@@ -384,14 +384,14 @@ strip_enhanced_code(const char *text, const char **enh_code_r)
 }
 
 static int
-submission_proxy_parse_redirect(const char *target, const char **userhostport_r,
+submission_proxy_parse_redirect(const char *resp, const char **userhostport_r,
 				const char **error_r)
 {
 	const char *destuser, *host;
 	struct ip_addr ip;
 	in_port_t port;
 
-	if (smtp_proxy_redirect_parse(target, &destuser, &host, &ip, &port,
+	if (smtp_proxy_redirect_parse(resp, &destuser, &host, &ip, &port,
 				      error_r) < 0)
 		return -1;
 
@@ -408,7 +408,7 @@ submission_proxy_parse_redirect(const char *target, const char **userhostport_r,
 
 static bool
 submission_proxy_handle_redirect(struct client *client, unsigned int status,
-				 const char *enh_code, const char *target,
+				 const char *enh_code, const char *resp,
 				 enum login_proxy_failure_type *failure_type_r,
 				 const char **text_r)
 {
@@ -417,11 +417,11 @@ submission_proxy_handle_redirect(struct client *client, unsigned int status,
 	if (!smtp_reply_code_is_proxy_redirect(status, enh_code))
 		return FALSE;
 
-	if (submission_proxy_parse_redirect(target, text_r, &error) < 0) {
+	if (submission_proxy_parse_redirect(resp, text_r, &error) < 0) {
 		e_debug(login_proxy_get_event(client->login_proxy),
 			"Backend server returned invalid redirect "
 			"'%03u %s %s': %s",
-			status, enh_code, str_sanitize(target, 160), error);
+			status, enh_code, str_sanitize(resp, 160), error);
 		*failure_type_r = LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL;
 		*text_r = "Temporary internal proxy error";
 		return TRUE;
