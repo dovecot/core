@@ -421,7 +421,7 @@ submission_proxy_handle_redirect(struct client *client, unsigned int status,
 		e_debug(login_proxy_get_event(client->login_proxy),
 			"Backend server returned invalid redirect "
 			"'%03u %s %s': %s",
-			status, enh_code, target, error);
+			status, enh_code, str_sanitize(target, 160), error);
 		*failure_type_r = LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL;
 		*text_r = "Temporary internal proxy error";
 		return TRUE;
