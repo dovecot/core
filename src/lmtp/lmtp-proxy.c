@@ -6,6 +6,7 @@
 #include "ostream.h"
 #include "iostream-ssl.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "strescape.h"
 #include "time-util.h"
 #include "smtp-common.h"
@@ -707,7 +708,7 @@ lmtp_proxy_rcpt_redirect(struct lmtp_proxy_recipient *lprcpt,
 					   &host, &ip, &port, &error) < 0) {
 		e_error(rcpt->event,
 			"Backend server returned invalid redirect '%s': %s",
-			smtp_reply_log(proxy_reply), error);
+			str_sanitize(smtp_reply_log(proxy_reply), 160), error);
 		smtp_server_recipient_reply(rcpt, 451, "4.3.0",
 					    "Temporary internal proxy error");
 		return;
