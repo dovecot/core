@@ -719,6 +719,20 @@ imapc_list_write_special_use(struct imapc_mailbox_list_iterate_context *ctx,
 	}
 }
 
+static bool
+imapc_list_is_ns_root(struct imapc_mailbox_list_iterate_context *ctx,
+		      struct mailbox_node *node)
+{
+	struct mailbox_node *root_node = ctx->ns_root;
+
+	while (root_node != NULL) {
+		if (node == root_node)
+			return TRUE;
+		root_node = root_node->parent;
+	}
+	return FALSE;
+}
+
 static const struct mailbox_info *
 imapc_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 {
@@ -739,7 +753,8 @@ imapc_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		node = mailbox_tree_iterate_next(ctx->iter, &vname);
 		if (node == NULL)
 			return mailbox_list_iter_default_next(_ctx);
-	} while ((node->flags & MAILBOX_MATCHED) == 0);
+	} while ((node->flags & MAILBOX_MATCHED) == 0 ||
+		 imapc_list_is_ns_root(ctx, node));
 
 	if (ctx->info.ns->prefix_len > 0 &&
 	    strcasecmp(vname, "INBOX") != 0 &&
