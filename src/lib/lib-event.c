@@ -61,11 +61,11 @@ struct event_reason {
 	struct event *event;
 };
 
-extern const struct event_passthrough event_passthrough_vfuncs;
+extern struct event_passthrough event_passthrough_vfuncs;
 
 static struct event *events = NULL;
 static struct event *current_global_event = NULL;
-static struct event_passthrough *event_last_passthrough = NULL;
+static struct event *event_last_passthrough = NULL;
 static ARRAY(event_callback_t *) event_handlers;
 static ARRAY(event_category_callback_t *) event_category_callbacks;
 static ARRAY(struct event_internal_category *) event_registered_categories_internal;
@@ -88,8 +88,7 @@ event_category_find_internal(const char *name);
 static struct event *last_passthrough_event(void)
 {
 	i_assert(event_last_passthrough != NULL);
-	return container_of(event_last_passthrough,
-			    struct event, event_passthrough);
+	return event_last_passthrough;
 }
 
 static void event_copy_parent_defaults(struct event *event,
@@ -394,7 +393,6 @@ event_create_internal(struct event *parent, const char *source_filename,
 	pool_t pool = pool_alloconly_create(MEMPOOL_GROWING"event", 1024);
 
 	event = p_new(pool, struct event, 1);
-	event->event_passthrough = event_passthrough_vfuncs;
 	event->refcount = 1;
 	event->id = ++event_id_counter;
 	event->pool = pool;
@@ -443,11 +441,11 @@ event_create_passthrough(struct event *parent, const char *source_filename,
 		event->tv_created_ioloop = parent->tv_created_ioloop;
 		event->tv_created = parent->tv_created;
 		memcpy(&event->ru_last, &parent->ru_last, sizeof(parent->ru_last));
-		event_last_passthrough = &event->event_passthrough;
+		event_last_passthrough = event;
 	} else {
-		event_last_passthrough = &parent->event_passthrough;
+		event_last_passthrough = parent;
 	}
-	return event_last_passthrough;
+	return &event_passthrough_vfuncs;
 }
 
 struct event *event_ref(struct event *event)
@@ -473,10 +471,8 @@ void event_unref(struct event **_event)
 
 	event_call_callbacks_noargs(event, EVENT_CALLBACK_TYPE_FREE);
 
-	if (event_last_passthrough != NULL) {
-		if (last_passthrough_event() == event)
-			event_last_passthrough = NULL;
-	}
+	if (event_last_passthrough == event)
+		event_last_passthrough = NULL;
 	if (event->log_prefix_from_system_pool)
 		i_free(event->log_prefix);
 	i_free(event->sending_name);
@@ -1587,21 +1583,21 @@ static struct event_passthrough *
 event_passthrough_set_append_log_prefix(const char *prefix)
 {
 	event_set_append_log_prefix(last_passthrough_event(), prefix);
-	return event_last_passthrough;
+	return &event_passthrough_vfuncs;
 }
 
 static struct event_passthrough *
 event_passthrough_replace_log_prefix(const char *prefix)
 {
 	event_replace_log_prefix(last_passthrough_event(), prefix);
-	return event_last_passthrough;
+	return &event_passthrough_vfuncs;
 }
 
 static struct event_passthrough *
 event_passthrough_set_name(const char *name)
 {
 	event_set_name(last_passthrough_event(), name);
-	return event_last_passthrough;
+	return &event_passthrough_vfuncs;
 }
 
 static struct event_passthrough *
@@ -1610,49 +1606,49 @@ event_passthrough_set_source(const char *filename,
 {
 	event_set_source(last_passthrough_event(), filename,
 			 linenum, literal_fname);
-	return event_last_passthrough;
+	return &event_passthrough_vfuncs;
 }
 
 static struct event_passthrough *
 event_passthrough_set_always_log_source(void)
 {
 	event_set_always_log_source(last_passthrough_event());
-	return event_last_passthrough;
+	return &event_passthrough_vfuncs;
 }
 
 static struct event_passthrough *
 event_passthrough_add_categories(struct event_category *const *categories)
 {
 	event_add_categories(last_passthrough_event(), categories);
-	return event_last_passthrough;
+	return &event_passthrough_vfuncs;
 }
 
 static struct event_passthrough *
 event_passthrough_add_category(struct event_category *category)
 {
 	event_add_category(last_passthrough_event(), category);
-	return event_last_passthrough;
+	return &event_passthrough_vfuncs;
 }
 
 static struct event_passthrough *
 event_passthrough_add_fields(const struct event_add_field *fields)
 {
 	event_add_fields(last_passthrough_event(), fields);
-	return event_last_passthrough;
+	return &event_passthrough_vfuncs;
 }
 
 static struct event_passthrough *
 event_passthrough_add_str(const char *key, const char *value)
 {
 	event_add_str(last_passthrough_event(), key, value);
-	return event_last_passthrough;
+	return &event_passthrough_vfuncs;
 }
 
 static struct event_passthrough *
 event_passthrough_strlist_append(const char *key, const char *value)
 {
         event_strlist_append(last_passthrough_event(), key, value);
-        return event_last_passthrough;
+        return &event_passthrough_vfuncs;
 }
 
 static struct event_passthrough *
@@ -1660,35 +1656,35 @@ event_passthrough_strlist_replace(const char *key, const char *const *values,
 				  unsigned int count)
 {
         event_strlist_replace(last_passthrough_event(), key, values, count);
-        return event_last_passthrough;
+        return &event_passthrough_vfuncs;
 }
 
 static struct event_passthrough *
 event_passthrough_add_int(const char *key, intmax_t num)
 {
 	event_add_int(last_passthrough_event(), key, num);
-	return event_last_passthrough;
+	return &event_passthrough_vfuncs;
 }
 
 static struct event_passthrough *
 event_passthrough_add_timeval(const char *key, const struct timeval *tv)
 {
 	event_add_timeval(last_passthrough_event(), key, tv);
-	return event_last_passthrough;
+	return &event_passthrough_vfuncs;
 }
 
 static struct event_passthrough *
 event_passthrough_inc_int(const char *key, intmax_t num)
 {
 	event_inc_int(last_passthrough_event(), key, num);
-	return event_last_passthrough;
+	return &event_passthrough_vfuncs;
 }
 
 static struct event_passthrough *
 event_passthrough_clear_field(const char *key)
 {
 	event_field_clear(last_passthrough_event(), key);
-	return event_last_passthrough;
+	return &event_passthrough_vfuncs;
 }
 
 static struct event *event_passthrough_event(void)
@@ -1698,7 +1694,7 @@ static struct event *event_passthrough_event(void)
 	return event;
 }
 
-const struct event_passthrough event_passthrough_vfuncs = {
+struct event_passthrough event_passthrough_vfuncs = {
 	.append_log_prefix = event_passthrough_set_append_log_prefix,
 	.replace_log_prefix = event_passthrough_replace_log_prefix,
 	.set_name = event_passthrough_set_name,

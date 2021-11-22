@@ -9,7 +9,6 @@ struct event_pointer {
 };
 
 struct event {
-	struct event_passthrough event_passthrough;
 	/* linked list of all events, newest first */
 	struct event *prev, *next;
 
