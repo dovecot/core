@@ -391,7 +391,7 @@ event_create_internal(struct event *parent, const char *source_filename,
 		      unsigned int source_linenum)
 {
 	struct event *event;
-	pool_t pool = pool_alloconly_create(MEMPOOL_GROWING"event", 64);
+	pool_t pool = pool_alloconly_create(MEMPOOL_GROWING"event", 1024);
 
 	event = p_new(pool, struct event, 1);
 	event->event_passthrough = event_passthrough_vfuncs;
