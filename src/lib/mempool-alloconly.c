@@ -312,7 +312,7 @@ pool_alloconly_free_blocks_until_last(struct alloconly_pool *apool)
 static void pool_alloconly_destroy(struct alloconly_pool *apool)
 {
 	/* destroy all but the last block */
-	pool_alloconly_clear(&apool->pool);
+	pool_alloconly_free_blocks_until_last(apool);
 
 	/* destroy the last block */
 	pool_alloconly_free_block(apool, apool->block);
