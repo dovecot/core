@@ -62,7 +62,7 @@ static const struct login_settings login_default_settings = {
 	.login_proxy_max_reconnects = 3,
 	.login_proxy_max_disconnect_delay = 0,
 	.login_proxy_rawlog_dir = "",
-	.director_username_hash = "%u",
+	.director_username_hash = "%Lu",
 
 	.auth_ssl_require_client_cert = FALSE,
 	.auth_ssl_username_from_cert = FALSE,
