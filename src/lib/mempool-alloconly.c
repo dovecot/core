@@ -280,6 +280,20 @@ pool_t pool_alloconly_create_clean(const char *name, size_t size)
 	return pool;
 }
 
+static void pool_alloconly_free_block(struct alloconly_pool *apool ATTR_UNUSED,
+				      struct pool_block *block)
+{
+#ifdef DEBUG
+	safe_memset(block, CLEAR_CHR, SIZEOF_POOLBLOCK + block->size);
+#else
+	if (apool->clean_frees) {
+		safe_memset(block, CLEAR_CHR,
+			    SIZEOF_POOLBLOCK + block->size);
+	}
+#endif
+	free(block);
+}
+
 static void
 pool_alloconly_free_blocks_until_last(struct alloconly_pool *apool)
 {
@@ -291,15 +305,7 @@ pool_alloconly_free_blocks_until_last(struct alloconly_pool *apool)
 		block = apool->block;
 		apool->block = block->prev;
 
-#ifdef DEBUG
-		safe_memset(block, CLEAR_CHR, SIZEOF_POOLBLOCK + block->size);
-#else
-		if (apool->clean_frees) {
-			safe_memset(block, CLEAR_CHR,
-				    SIZEOF_POOLBLOCK + block->size);
-		}
-#endif
-		free(block);
+		pool_alloconly_free_block(apool, block);
 	}
 }
 
