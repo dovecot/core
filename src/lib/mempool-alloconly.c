@@ -311,23 +311,11 @@ pool_alloconly_free_blocks_until_last(struct alloconly_pool *apool)
 
 static void pool_alloconly_destroy(struct alloconly_pool *apool)
 {
-	void *block;
-
 	/* destroy all but the last block */
 	pool_alloconly_clear(&apool->pool);
 
 	/* destroy the last block */
-	block = apool->block;
-#ifdef DEBUG
-	safe_memset(block, CLEAR_CHR, SIZEOF_POOLBLOCK + apool->block->size);
-#else
-	if (apool->clean_frees) {
-		safe_memset(block, CLEAR_CHR,
-			    SIZEOF_POOLBLOCK + apool->block->size);
-	}
-#endif
-
-	free(block);
+	pool_alloconly_free_block(apool, apool->block);
 }
 
 static const char *pool_alloconly_get_name(pool_t pool ATTR_UNUSED)
