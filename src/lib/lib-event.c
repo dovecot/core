@@ -1009,7 +1009,7 @@ event_find_field_recursive_str(const struct event *event, const char *key)
 }
 
 static struct event_field *
-event_get_field(struct event *event, const char *key)
+event_get_field(struct event *event, const char *key, bool clear)
 {
 	struct event_field *field;
 
@@ -1019,6 +1019,8 @@ event_get_field(struct event *event, const char *key)
 			p_array_init(&event->fields, event->pool, 8);
 		field = array_append_space(&event->fields);
 		field->key = p_strdup(event->pool, key);
+	} else if (clear) {
+		i_zero(&field->value);
 	}
 	event_set_changed(event);
 	return field;
@@ -1034,9 +1036,8 @@ event_add_str(struct event *event, const char *key, const char *value)
 		return event;
 	}
 
-	field = event_get_field(event, key);
+	field = event_get_field(event, key, TRUE);
 	field->value_type = EVENT_FIELD_VALUE_TYPE_STR;
-	i_zero(&field->value);
 	field->value.str = p_strdup(event->pool, value);
 	return event;
 }
@@ -1044,7 +1045,7 @@ event_add_str(struct event *event, const char *key, const char *value)
 struct event *
 event_strlist_append(struct event *event, const char *key, const char *value)
 {
-	struct event_field *field = event_get_field(event, key);
+	struct event_field *field = event_get_field(event, key, FALSE);
 
 	if (field->value_type != EVENT_FIELD_VALUE_TYPE_STRLIST)
 		i_zero(&field->value);
@@ -1067,8 +1068,7 @@ struct event *
 event_strlist_replace(struct event *event, const char *key,
 		      const char *const *values, unsigned int count)
 {
-	struct event_field *field = event_get_field(event, key);
-	i_zero(&field->value);
+	struct event_field *field = event_get_field(event, key, TRUE);
 	field->value_type = EVENT_FIELD_VALUE_TYPE_STRLIST;
 
 	for (unsigned int i = 0; i < count; i++)
@@ -1081,7 +1081,7 @@ event_strlist_copy_recursive(struct event *dest, const struct event *src,
 			     const char *key)
 {
 	event_strlist_append(dest, key, NULL);
-	struct event_field *field = event_get_field(dest, key);
+	struct event_field *field = event_get_field(dest, key, FALSE);
 	i_assert(field != NULL);
 	event_get_recursive_strlist(src, dest->pool, key,
 				    &field->value.strlist);
@@ -1093,9 +1093,8 @@ event_add_int(struct event *event, const char *key, intmax_t num)
 {
 	struct event_field *field;
 
-	field = event_get_field(event, key);
+	field = event_get_field(event, key, TRUE);
 	field->value_type = EVENT_FIELD_VALUE_TYPE_INTMAX;
-	i_zero(&field->value);
 	field->value.intmax = num;
 	return event;
 }
@@ -1120,9 +1119,8 @@ event_add_timeval(struct event *event, const char *key,
 {
 	struct event_field *field;
 
-	field = event_get_field(event, key);
+	field = event_get_field(event, key, TRUE);
 	field->value_type = EVENT_FIELD_VALUE_TYPE_TIMEVAL;
-	i_zero(&field->value);
 	field->value.timeval = *tv;
 	return event;
 }
@@ -1391,12 +1389,11 @@ event_import_field(struct event *event, enum event_code code, const char *arg,
 		*error_r = "Field name is missing";
 		return FALSE;
 	}
-	struct event_field *field = event_get_field(event, arg);
+	struct event_field *field = event_get_field(event, arg, TRUE);
 	if (args[0] == NULL) {
 		*error_r = "Field value is missing";
 		return FALSE;
 	}
-	i_zero(&field->value);
 	switch (code) {
 	case EVENT_CODE_FIELD_INTMAX:
 		field->value_type = EVENT_FIELD_VALUE_TYPE_INTMAX;
