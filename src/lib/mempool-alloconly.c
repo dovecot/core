@@ -280,6 +280,29 @@ pool_t pool_alloconly_create_clean(const char *name, size_t size)
 	return pool;
 }
 
+static void
+pool_alloconly_free_blocks_until_last(struct alloconly_pool *apool)
+{
+	struct pool_block *block;
+
+	/* destroy all blocks but the oldest, which contains the
+	   struct alloconly_pool allocation. */
+	while (apool->block->prev != NULL) {
+		block = apool->block;
+		apool->block = block->prev;
+
+#ifdef DEBUG
+		safe_memset(block, CLEAR_CHR, SIZEOF_POOLBLOCK + block->size);
+#else
+		if (apool->clean_frees) {
+			safe_memset(block, CLEAR_CHR,
+				    SIZEOF_POOLBLOCK + block->size);
+		}
+#endif
+		free(block);
+	}
+}
+
 static void pool_alloconly_destroy(struct alloconly_pool *apool)
 {
 	void *block;
@@ -471,29 +494,13 @@ static void pool_alloconly_clear(pool_t pool)
 {
 	struct alloconly_pool *apool =
 		container_of(pool, struct alloconly_pool, pool);
-	struct pool_block *block;
 	size_t base_size, avail_size;
 
 #ifdef DEBUG
 	check_sentries(apool->block);
 #endif
 
-	/* destroy all blocks but the oldest, which contains the
-	   struct alloconly_pool allocation. */
-	while (apool->block->prev != NULL) {
-		block = apool->block;
-		apool->block = block->prev;
-
-#ifdef DEBUG
-		safe_memset(block, CLEAR_CHR, SIZEOF_POOLBLOCK + block->size);
-#else
-		if (apool->clean_frees) {
-			safe_memset(block, CLEAR_CHR,
-				    SIZEOF_POOLBLOCK + block->size);
-		}
-#endif
-		free(block);
-	}
+	pool_alloconly_free_blocks_until_last(apool);
 
 	/* clear the first block */
 #ifdef DEBUG
