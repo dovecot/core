@@ -26,7 +26,7 @@ static int fail_mailbox_exists(struct mailbox *box ATTR_UNUSED,
 			       enum mailbox_existence *existence_r)
 {
 	*existence_r = MAILBOX_EXISTENCE_NONE;
-	return -1;
+	return 0;
 }
 
 static int fail_mailbox_open(struct mailbox *box)
