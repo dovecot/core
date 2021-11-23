@@ -480,9 +480,10 @@ static int acl_mailbox_exists(struct mailbox *box, bool auto_boxes,
 	const char *const *rights;
 	unsigned int i;
 
-	if (acl_object_get_my_rights(abox->aclobj, pool_datastack_create(),
-				     &rights) < 0)
+	if (acl_object_get_my_rights(abox->aclobj, pool_datastack_create(), &rights) < 0) {
+		mail_storage_set_internal_error(box->storage);
 		return -1;
+	}
 
 	/* for now this is used only by IMAP SUBSCRIBE. we'll intentionally
 	   violate RFC 4314 here, because it says SUBSCRIBE should succeed only
