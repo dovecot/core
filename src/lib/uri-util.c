@@ -1291,14 +1291,16 @@ void uri_append_host_ip(string_t *out, const struct ip_addr *host_ip)
 
 void uri_append_host(string_t *out, const struct uri_host *host)
 {
-	if (host->name != NULL) {
+	if (host->ip.family != 0)
+		uri_append_host_ip(out, &host->ip);
+	else {
+		i_assert(host->name != NULL);
 		/* Assume IPv6 literal if starts with '['; avoid encoding */
 		if (*host->name == '[')
 			str_append(out, host->name);
 		else
 			uri_append_host_name(out, host->name);
-	} else
-		uri_append_host_ip(out, &host->ip);
+	}
 }
 
 void uri_append_port(string_t *out, in_port_t port)
