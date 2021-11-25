@@ -475,7 +475,8 @@ static void dns_lookup_free(struct dns_lookup **_lookup)
 	timeout_remove(&lookup->to);
 	if (client->deinit_client_at_free)
 		dns_client_deinit(&client);
-	else if (client->head == NULL && client->connected) {
+	else if (client->head == NULL && client->connected &&
+		 client->to_idle == NULL) {
 		client->to_idle = timeout_add_to(client->ioloop,
 						 client->idle_timeout_msecs,
 						 dns_client_idle_timeout, client);
