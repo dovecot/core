@@ -152,13 +152,13 @@ test_libs = \
 check_PROGRAMS = test-sql
 
 test_sql_SOURCES = test-sql.c
-test_sql_LDADD =  $(test_libs)
+test_sql_LDADD =  $(test_libs) $(DLLIB)
 test_sql_DEPENDENCIES = $(test_libs)
 
 if BUILD_SQLITE
 check_PROGRAMS += test-sql-sqlite
 test_sql_sqlite_SOURCES = test-sql-sqlite.c
-test_sql_sqlite_LDADD = $(SQLITE_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
+test_sql_sqlite_LDADD = $(SQLITE_LIB) $(pkglib_LTLIBRARIES) $(test_libs) $(DLLIB)
 test_sql_sqlite_DEPENDENCIES = $(SQLITE_LIB) $(pkglib_LTLIBRARIES) $(test_libs)
 endif
 
