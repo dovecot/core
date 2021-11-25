@@ -106,7 +106,7 @@ maildir_storage_find_root_dir(const struct mail_namespace *ns)
 	if (ns->owner != NULL &&
 	    mail_user_get_home(ns->owner, &home) > 0) {
 		path = t_strconcat(home, "/Maildir", NULL);
-		if (access(path, R_OK|W_OK|X_OK) == 0) {
+		if (i_faccessat2(AT_FDCWD, path, R_OK | W_OK | X_OK, AT_EACCESS) == 0) {
 			e_debug(event,
 				"maildir autodetect: root exists (%s)", path);
 			return path;
@@ -115,7 +115,7 @@ maildir_storage_find_root_dir(const struct mail_namespace *ns)
 			"maildir autodetect: access(%s, rwx): failed: %m", path);
 	} else {
 		e_debug(event, "maildir autodetect: Home directory not set");
-		if (access("/cur", R_OK|W_OK|X_OK) == 0) {
+		if (i_faccessat2(AT_FDCWD, "/cur", R_OK | W_OK | X_OK, AT_EACCESS) == 0) {
 			e_debug(event,
 				"maildir autodetect: /cur exists, assuming chroot");
 			return "/";
@@ -712,7 +712,7 @@ bool maildir_is_backend_readonly(struct maildir_mailbox *mbox)
 		const char *box_path = mailbox_get_path(&mbox->box);
 
 		mbox->backend_readonly_set = TRUE;
-		if (access(t_strconcat(box_path, "/cur", NULL), W_OK) < 0 &&
+		if (i_faccessat2(AT_FDCWD, t_strconcat(box_path, "/cur", NULL), W_OK, AT_EACCESS) < 0 &&
 		    errno == EACCES)
 			mbox->backend_readonly = TRUE;
 	}

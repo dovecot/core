@@ -44,6 +44,11 @@
 #include "byteorder.h"
 #include "fd-util.h"
 
+#include <unistd.h>
+#ifdef HAVE_FACCESSAT2
+#  include <asm/unistd.h>
+#endif
+
 typedef struct buffer buffer_t;
 typedef struct buffer string_t;
 
@@ -151,4 +156,25 @@ static inline uint32_t time_to_uint32_trunc(time_t ts)
 		return UINT32_MAX;
 	return (uint32_t)(ts & 0xffffffff);
 }
+
+/* The original faccessat() syscall didn't handle the flag parameter.
+   glibc v2.33's faccessat() started using the new Linux faccessat2() syscall
+   However, we can still use faccessat2() syscall directly in some Linux distros
+   to avoid this problem, so just do it here when possible. */
+static inline int i_faccessat2(int fd, const char *file, int type, int flag)
+{
+#ifdef HAVE_FACCESSAT2
+	static bool failed = FALSE;
+	if (!failed) {
+		/* On bullseye the syscall is available,
+		   but the glibc wrapping function is not. */
+		int ret = syscall(__NR_faccessat2, fd, file, type, flag);
+		failed = ret == -1 && errno == ENOSYS;
+		if (!failed)
+			return ret;
+	}
+#endif
+        return faccessat(fd, file, type, flag);
+}
+
 #endif

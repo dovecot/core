@@ -101,7 +101,7 @@ mdbox_storage_find_root_dir(const struct mail_namespace *ns)
 	if (ns->owner != NULL &&
 	    mail_user_get_home(ns->owner, &home) > 0) {
 		path = t_strconcat(home, "/mdbox", NULL);
-		if (access(path, R_OK|W_OK|X_OK) == 0) {
+		if (i_faccessat2(AT_FDCWD, path, R_OK | W_OK | X_OK, AT_EACCESS) == 0) {
 			e_debug(event,
 				"mdbox autodetect: root exists (%s)", path);
 			return path;

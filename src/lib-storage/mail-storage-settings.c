@@ -682,7 +682,7 @@ static bool mail_user_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	}
 #else
 	if (*set->mail_plugins != '\0' &&
-	    access(set->mail_plugin_dir, R_OK | X_OK) < 0) {
+	    faccessat(AT_FDCWD, set->mail_plugin_dir, R_OK | X_OK, AT_EACCESS) < 0) {
 		*error_r = t_strdup_printf(
 			"mail_plugin_dir: access(%s) failed: %m",
 			set->mail_plugin_dir);

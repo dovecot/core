@@ -281,7 +281,7 @@ mbox_dotlock_privileged_op(struct mbox_mailbox *mbox,
 		fname++;
 	}
 	if (op == MBOX_DOTLOCK_OP_LOCK) {
-		if (access(fname, R_OK) < 0) {
+		if (i_faccessat2(AT_FDCWD, fname, R_OK, AT_EACCESS) < 0) {
 			mailbox_set_critical(&mbox->box,
 				"access(%s) failed: %m", box_path);
 			i_close_fd(&orig_dir_fd);

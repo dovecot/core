@@ -232,7 +232,7 @@ static bool mbox_is_file(const char *path, const char *name, struct event *event
 			name, path);
 		return FALSE;
 	}
-	if (access(path, R_OK|W_OK) < 0) {
+	if (i_faccessat2(AT_FDCWD, path, R_OK | W_OK, AT_EACCESS) < 0) {
 		e_debug(event, "mbox autodetect: %s: no R/W access (%s)",
 			name, path);
 		return FALSE;
@@ -256,7 +256,7 @@ static bool mbox_is_dir(const char *path, const char *name, struct event *event)
 			name, path);
 		return FALSE;
 	}
-	if (access(path, R_OK|W_OK|X_OK) < 0) {
+	if (i_faccessat2(AT_FDCWD, path, R_OK | W_OK | X_OK, AT_EACCESS) < 0) {
 		e_debug(event, "mbox autodetect: %s: no R/W/X access (%s)",
 			name, path);
 		return FALSE;
@@ -305,14 +305,14 @@ mbox_storage_find_inbox_file(struct mail_user *user, struct event *event)
 	const char *path;
 
 	path = t_strconcat("/var/mail/", user->username, NULL);
-	if (access(path, R_OK|W_OK) == 0) {
+	if (i_faccessat2(AT_FDCWD, path, R_OK | W_OK, AT_EACCESS) == 0) {
 		e_debug(event, "mbox autodetect: INBOX exists (%s)", path);
 		return path;
 	}
 	e_debug(event, "mbox autodetect: INBOX: access(%s, rw) failed: %m", path);
 
 	path = t_strconcat("/var/spool/mail/", user, NULL);
-	if (access(path, R_OK|W_OK) == 0) {
+	if (i_faccessat2(AT_FDCWD, path, R_OK | W_OK, AT_EACCESS) == 0) {
 		e_debug(event, "INBOX exists (%s)", path);
 		return path;
 	}
@@ -811,7 +811,7 @@ bool mbox_is_backend_readonly(struct mbox_mailbox *mbox)
 {
 	if (!mbox->backend_readonly_set) {
 		mbox->backend_readonly_set = TRUE;
-		if (access(mailbox_get_path(&mbox->box), R_OK|W_OK) < 0 &&
+		if (i_faccessat2(AT_FDCWD, mailbox_get_path(&mbox->box), R_OK | W_OK, AT_EACCESS) < 0 &&
 		    errno == EACCES)
 			mbox->backend_readonly = TRUE;
 	}
