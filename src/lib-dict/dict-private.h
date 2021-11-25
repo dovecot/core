@@ -1,3 +1,4 @@
+
 #ifndef DICT_PRIVATE_H
 #define DICT_PRIVATE_H
 
@@ -14,7 +15,7 @@ struct dict_vfuncs {
 	void (*wait)(struct dict *dict);
 
 	int (*lookup)(struct dict *dict, const struct dict_op_settings *set,
-		      pool_t pool, const char *key, const char **value_r,
+		      pool_t pool, const char *key, const char *const **values_r,
 		      const char **error_r);
 
 	struct dict_iterate_context *

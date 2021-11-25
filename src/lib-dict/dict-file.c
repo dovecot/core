@@ -224,9 +224,10 @@ static int file_dict_refresh(struct file_dict *dict, const char **error_r)
 static int file_dict_lookup(struct dict *_dict,
 			    const struct dict_op_settings *set,
 			    pool_t pool, const char *key,
-			    const char **value_r, const char **error_r)
+			    const char *const **values_r, const char **error_r)
 {
 	struct file_dict *dict = (struct file_dict *)_dict;
+	const char *value;
 
 	if (file_dict_ensure_path_home_dir(dict, set->home_dir, error_r) < 0)
 		return -1;
@@ -234,8 +235,14 @@ static int file_dict_lookup(struct dict *_dict,
 	if (file_dict_refresh(dict, error_r) < 0)
 		return -1;
 
-	*value_r = p_strdup(pool, hash_table_lookup(dict->hash, key));
-	return *value_r == NULL ? 0 : 1;
+	value = hash_table_lookup(dict->hash, key);
+	if (value == NULL)
+		return 0;
+
+	const char **values = p_new(pool, const char *, 2);
+	values[0] = p_strdup(pool, value);
+	*values_r = values;
+	return 1;
 }
 
 static struct dict_iterate_context *

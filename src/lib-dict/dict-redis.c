@@ -538,7 +538,7 @@ static void redis_dict_select_db(struct redis_dict *dict)
 static int redis_dict_lookup(struct dict *_dict,
 			     const struct dict_op_settings *set,
 			     pool_t pool, const char *key,
-			     const char **value_r, const char **error_r)
+			     const char *const **values_r, const char **error_r)
 {
 	struct redis_dict *dict = (struct redis_dict *)_dict;
 	struct timeout *to;
@@ -600,7 +600,9 @@ static int redis_dict_lookup(struct dict *_dict,
 	if (dict->conn.value_not_found)
 		return 0;
 
-	*value_r = p_strdup(pool, str_c(dict->conn.last_reply));
+	const char **values = p_new(pool, const char *, 2);
+	values[0] = p_strdup(pool, str_c(dict->conn.last_reply));
+	*values_r = values;
 	return 1;
 }
 

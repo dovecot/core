@@ -274,7 +274,8 @@ static void memcached_add_header(buffer_t *buf, unsigned int key_len)
 
 static int
 memcached_dict_lookup(struct dict *_dict, const struct dict_op_settings *set ATTR_UNUSED,
-		      pool_t pool, const char *key, const char **value_r,
+		      pool_t pool, const char *key,
+		      const char *const **values_r,
 		      const char **error_r)
 {
 	struct memcached_dict *dict = (struct memcached_dict *)_dict;
@@ -341,10 +342,13 @@ memcached_dict_lookup(struct dict *_dict, const struct dict_op_settings *set ATT
 		return -1;
 	}
 	switch (dict->conn.reply.status) {
-	case MEMCACHED_RESPONSE_OK:
-		*value_r = p_strndup(pool, dict->conn.reply.value,
-				     dict->conn.reply.value_len);
+	case MEMCACHED_RESPONSE_OK: {
+		const char **values = p_new(pool, const char *, 2);
+		values[0] = p_strndup(pool, dict->conn.reply.value,
+				      dict->conn.reply.value_len);
+		*values_r = values;
 		return 1;
+	}
 	case MEMCACHED_RESPONSE_NOTFOUND:
 		return 0;
 	case MEMCACHED_RESPONSE_INTERNALERROR:

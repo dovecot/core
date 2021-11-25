@@ -323,12 +323,17 @@ int dict_lookup(struct dict *dict, const struct dict_op_settings *set,
 		const char **value_r, const char **error_r)
 {
 	struct event *event = dict_event_create(dict, set);
+	const char *const *values;
 	int ret;
 	i_assert(dict_key_prefix_is_valid(key, set->username));
 
 	e_debug(event, "Looking up '%s'", key);
 	event_add_str(event, "key", key);
-	ret = dict->v.lookup(dict, set, pool, key, value_r, error_r);
+	ret = dict->v.lookup(dict, set, pool, key, &values, error_r);
+	if (ret > 0)
+		*value_r = values[0];
+	else if (ret == 0)
+		*value_r = NULL;
 	dict_lookup_finished(event, ret, *error_r);
 	event_unref(&event);
 	return ret;

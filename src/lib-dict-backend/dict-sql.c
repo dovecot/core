@@ -492,13 +492,6 @@ sql_dict_result_unescape(enum dict_sql_type type, pool_t pool,
 	return str_c(str);
 }
 
-static const char *
-sql_dict_result_unescape_value(const struct dict_sql_map *map, pool_t pool,
-			       struct sql_result *result)
-{
-	return sql_dict_result_unescape(map->value_types[0], pool, result, 0);
-}
-
 static const char *const *
 sql_dict_result_unescape_values(const struct dict_sql_map *map, pool_t pool,
 				struct sql_result *result)
@@ -528,15 +521,13 @@ sql_dict_result_unescape_field(const struct dict_sql_map *map, pool_t pool,
 
 static int sql_dict_lookup(struct dict *_dict, const struct dict_op_settings *set,
 			   pool_t pool, const char *key,
-			   const char **value_r, const char **error_r)
+			   const char *const **values_r, const char **error_r)
 {
 	struct sql_dict *dict = (struct sql_dict *)_dict;
 	const struct dict_sql_map *map;
 	struct sql_statement *stmt;
 	struct sql_result *result = NULL;
 	int ret;
-
-	*value_r = NULL;
 
 	if (sql_lookup_get_query(dict, set, key, &map, &stmt, error_r) < 0)
 		return -1;
@@ -547,7 +538,7 @@ static int sql_dict_lookup(struct dict *_dict, const struct dict_op_settings *se
 		*error_r = t_strdup_printf("dict sql lookup failed: %s",
 					   sql_result_get_error(result));
 	} else if (ret > 0) {
-		*value_r = sql_dict_result_unescape_value(map, pool, result);
+		*values_r = sql_dict_result_unescape_values(map, pool, result);
 	}
 
 	sql_result_unref(result);

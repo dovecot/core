@@ -355,7 +355,7 @@ ldap_dict_lookup_callback(struct ldap_result *result, struct dict_ldap_op *op)
 static int
 ldap_dict_lookup(struct dict *dict, const struct dict_op_settings *set,
 		 pool_t pool, const char *key,
-		 const char **value_r, const char **error_r)
+		 const char *const **values_r, const char **error_r)
 {
 	struct dict_lookup_result res;
 
@@ -367,7 +367,7 @@ ldap_dict_lookup(struct dict *dict, const struct dict_op_settings *set,
 		return -1;
 	}
 	if (res.ret > 0)
-		*value_r = p_strdup(pool, res.value);
+		*values_r = p_strarray_dup(pool, res.values);
 	return res.ret;
 }
 

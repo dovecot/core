@@ -34,7 +34,8 @@ static void dict_fail_wait(struct dict *dict ATTR_UNUSED)
 static int dict_fail_lookup(struct dict *dict ATTR_UNUSED,
 			    const struct dict_op_settings *set ATTR_UNUSED,
 			    pool_t pool ATTR_UNUSED,
-			    const char *key ATTR_UNUSED, const char **value_r ATTR_UNUSED,
+			    const char *key ATTR_UNUSED,
+			    const char *const **values_r ATTR_UNUSED,
 			    const char **error_r)
 {
 	*error_r = "Unsupported operation (dict does not support this feature)";

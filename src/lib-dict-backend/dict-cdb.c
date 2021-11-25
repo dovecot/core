@@ -87,7 +87,7 @@ static int
 cdb_dict_lookup(struct dict *_dict,
 		const struct dict_op_settings *set ATTR_UNUSED,
 		pool_t pool,
-	        const char *key, const char **value_r,
+	        const char *key, const char *const **values_r,
 	        const char **error_r)
 {
 	struct cdb_dict *dict = (struct cdb_dict *)_dict;
@@ -110,7 +110,6 @@ cdb_dict_lookup(struct dict *_dict,
 	}
 
 	if (ret <= 0) {
-		*value_r = NULL;
 		/* something bad with db */
 		if (ret < 0) {
 			*error_r = t_strdup_printf("cdb_find(%s) failed: %m", dict->path);
@@ -126,7 +125,9 @@ cdb_dict_lookup(struct dict *_dict,
 		*error_r = t_strdup_printf("cdb_read(%s) failed: %m", dict->path);
 		return -1;
 	}
-	*value_r = data;
+	const char **values = p_new(pool, const char *, 2);
+	values[0] = data;
+	*values_r = values;
 	return 1;
 }
 

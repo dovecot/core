@@ -520,7 +520,8 @@ memcached_ascii_dict_get_full_key(struct memcached_ascii_dict *dict,
 static int
 memcached_ascii_dict_lookup(struct dict *_dict,
 			    const struct dict_op_settings *set,
-			    pool_t pool, const char *key, const char **value_r,
+			    pool_t pool, const char *key,
+			    const char *const **values_r,
 			    const char **error_r)
 {
 	struct memcached_ascii_dict *dict = (struct memcached_ascii_dict *)_dict;
@@ -541,7 +542,9 @@ memcached_ascii_dict_lookup(struct dict *_dict,
 	if (memcached_ascii_wait(dict, error_r) < 0)
 		return -1;
 
-	*value_r = p_strdup(pool, str_c(dict->conn.reply_str));
+	const char **values = p_new(pool, const char *, 2);
+	values[0] = p_strdup(pool, str_c(dict->conn.reply_str));
+	*values_r = values;
 	return dict->conn.value_received ? 1 : 0;
 }
 

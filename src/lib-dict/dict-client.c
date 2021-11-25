@@ -988,7 +988,7 @@ client_dict_lookup_async(struct dict *_dict, const struct dict_op_settings *set,
 
 struct client_dict_sync_lookup {
 	char *error;
-	char *value;
+	const char **values;
 	int ret;
 };
 
@@ -998,14 +998,19 @@ static void client_dict_lookup_callback(const struct dict_lookup_result *result,
 	lookup->ret = result->ret;
 	if (result->ret == -1)
 		lookup->error = i_strdup(result->error);
-	else if (result->ret == 1)
-		lookup->value = i_strdup(result->value);
+	else if (result->ret == 1) {
+		/* The caller's pool could point to data stack. We can't
+		   allocate from there, since we're in a different data stack
+		   frame. */
+		lookup->values = p_strarray_dup(default_pool, result->values);
+	}
 }
 
 static int client_dict_lookup(struct dict *_dict,
 			      const struct dict_op_settings *set,
 			      pool_t pool, const char *key,
-			      const char **value_r, const char **error_r)
+			      const char *const **values_r,
+			      const char **error_r)
 {
 	struct client_dict_sync_lookup lookup;
 
@@ -1022,12 +1027,11 @@ static int client_dict_lookup(struct dict *_dict,
 		i_free(lookup.error);
 		return -1;
 	case 0:
-		i_assert(lookup.value == NULL);
-		*value_r = NULL;
+		i_assert(lookup.values == NULL);
 		return 0;
 	case 1:
-		*value_r = p_strdup(pool, lookup.value);
-		i_free(lookup.value);
+		*values_r = p_strarray_dup(pool, lookup.values);
+		i_free(lookup.values);
 		return 1;
 	}
 	i_unreached();
