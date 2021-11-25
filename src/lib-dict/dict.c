@@ -402,6 +402,8 @@ bool dict_iterate(struct dict_iterate_context *ctx,
 		return FALSE;
 	if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) == 0)
 		*value_r = values[0];
+	else
+		*value_r = NULL;
 	return TRUE;
 }
 
