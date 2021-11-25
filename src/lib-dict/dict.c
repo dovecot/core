@@ -322,18 +322,28 @@ int dict_lookup(struct dict *dict, const struct dict_op_settings *set,
 		pool_t pool, const char *key,
 		const char **value_r, const char **error_r)
 {
-	struct event *event = dict_event_create(dict, set);
 	const char *const *values;
+	int ret = dict_lookup_values(dict, set, pool, key, &values, error_r);
+	if (ret > 0)
+		*value_r = values[0];
+	else if (ret == 0)
+		*value_r = NULL;
+	return ret;
+}
+
+int dict_lookup_values(struct dict *dict, const struct dict_op_settings *set,
+		       pool_t pool, const char *key,
+		       const char *const **values_r, const char **error_r)
+{
+	struct event *event = dict_event_create(dict, set);
 	int ret;
 	i_assert(dict_key_prefix_is_valid(key, set->username));
 
 	e_debug(event, "Looking up '%s'", key);
 	event_add_str(event, "key", key);
-	ret = dict->v.lookup(dict, set, pool, key, &values, error_r);
-	if (ret > 0)
-		*value_r = values[0];
-	else if (ret == 0)
-		*value_r = NULL;
+	ret = dict->v.lookup(dict, set, pool, key, values_r, error_r);
+	if (ret == 0)
+		*values_r = NULL;
 	dict_lookup_finished(event, ret, *error_r);
 	event_unref(&event);
 	return ret;

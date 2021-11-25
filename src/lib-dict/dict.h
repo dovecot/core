@@ -100,10 +100,16 @@ bool dict_have_async_operations(struct dict *dict);
    be waited on. */
 bool dict_switch_ioloop(struct dict *dict) ATTR_NOWARN_UNUSED_RESULT;
 
-/* Lookup value for key. Set it to NULL if it's not found.
+/* Lookup the first value for the key. Set it to NULL if it's not found.
    Returns 1 if found, 0 if not found and -1 if lookup failed. */
 int dict_lookup(struct dict *dict, const struct dict_op_settings *set, pool_t pool,
 		const char *key, const char **value_r, const char **error_r);
+/* Lookup all the values for the key. Set it to NULL if it's not found.
+   Returns 1 if found, 0 if not found and -1 if lookup failed. */
+int dict_lookup_values(struct dict *dict, const struct dict_op_settings *set,
+		       pool_t pool, const char *key,
+		       const char *const **values_r, const char **error_r);
+/* Asynchronously lookup values for the key. */
 void dict_lookup_async(struct dict *dict, const struct dict_op_settings *set,
 		       const char *key, dict_lookup_callback_t *callback,
 		       void *context);
