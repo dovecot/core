@@ -476,7 +476,7 @@ buffer_truncate_rshift_bits(buffer_t *buf, size_t bits)
 
 	if (bits > 0) {
 		/* truncate it to closest byte boundary */
-		size_t bytes = ((bits + 7) & -8U)/8;
+		size_t bytes = ((bits + 7) & ~(size_t)7) / 8;
 		/* remaining bits */
 		bits = bits % 8;
 		buffer_set_used_size(buf, I_MIN(bytes, buf->used));
