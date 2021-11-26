@@ -334,7 +334,7 @@ str_parse_intmax(const char *str, intmax_t *num_r, const char **endp_r)
 	} else {
 		if (l > UINTMAX_MAX - (UINTMAX_MAX + INTMAX_MIN))
 			return -1;
-		*num_r = (intmax_t)-l;
+		*num_r = (intmax_t) UNSIGNED_MINUS(l);
 	}
 	return 0;
 }
