@@ -872,6 +872,8 @@ void mail_add_temp_wanted_fields(struct mail *mail,
 				 struct mailbox_header_lookup_ctx *headers)
 	ATTR_NULL(3);
 
+/* Returns mail's event. */
+struct event *mail_event(struct mail *mail);
 /* Returns message's flags */
 enum mail_flags mail_get_flags(struct mail *mail);
 /* Returns message's keywords */

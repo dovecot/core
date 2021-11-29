@@ -99,6 +99,11 @@ void mail_add_temp_wanted_fields(struct mail *mail,
 	p->v.add_temp_wanted_fields(mail, fields, headers);
 }
 
+struct event *mail_event(struct mail *mail)
+{
+	return mail->event;
+}
+
 enum mail_flags mail_get_flags(struct mail *mail)
 {
 	struct mail_private *p = (struct mail_private *)mail;
