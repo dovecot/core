@@ -2109,6 +2109,9 @@ void index_mail_update_access_parts_post(struct mail *_mail)
 void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 {
 	struct index_mail *mail = INDEX_MAIL(_mail);
+	const struct mail_index_record *rec;
+	struct mail_index_map *map;
+	bool expunged;
 
 	if (mail->data.seq == seq) {
 		if (!saving)
@@ -2123,8 +2126,10 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 	mail->data.seq = seq;
 	mail->mail.mail.seq = seq;
 	mail->mail.mail.saving = saving;
-	mail_index_lookup_uid(_mail->transaction->view, seq,
-			      &mail->mail.mail.uid);
+
+	rec = mail_index_lookup_full(_mail->transaction->view, seq,
+				     &map, &expunged);
+	mail->mail.mail.uid = rec->uid;
 
 	/* Recreate the mail event when changing mails. Even though the same
 	   mail struct is reused, they are practically different mails. The
@@ -2138,7 +2143,7 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 	/* Allow callers to easily find out if this mail was already expunged
 	   by another session. It's possible that it could still be
 	   successfully accessed. */
-	if (mail_index_is_expunged(_mail->transaction->view, seq))
+	if (expunged)
 		mail_set_expunged(&mail->mail.mail);
 
 	if (!mail->mail.search_mail) {
