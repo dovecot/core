@@ -668,7 +668,8 @@ void mail_opened_event(struct mail *mail)
 {
 	struct mail_private *pmail =
 		container_of(mail, struct mail_private, mail);
-	struct event_passthrough *e = event_create_passthrough(mail->event)->
+	struct event_passthrough *e =
+		event_create_passthrough(mail_event(mail))->
 		set_name("mail_opened")->
 		add_str("reason", pmail->get_stream_reason);
 	if (pmail->get_stream_reason != NULL)
@@ -680,7 +681,8 @@ void mail_opened_event(struct mail *mail)
 
 void mail_expunge_requested_event(struct mail *mail)
 {
-	struct event_passthrough *e = event_create_passthrough(mail->event)->
+	struct event_passthrough *e =
+		event_create_passthrough(mail_event(mail))->
 		set_name("mail_expunge_requested")->
 		add_int("uid", mail->uid)->
 		add_int("seq", mail->seq);

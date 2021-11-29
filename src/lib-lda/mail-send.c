@@ -89,7 +89,7 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 		return -1;
 	}
 
-	e_debug(mail->event, "Sending a rejection to <%s>: %s",
+	e_debug(mail_event(mail), "Sending a rejection to <%s>: %s",
 		smtp_address_encode(return_addr),
 		str_sanitize(reason, 512));
 
