@@ -17,7 +17,7 @@
 */
 
 /* nearest_power(num) == 1ULL << bits_required64(num-1) */
-static void test_nearest_power(void) 
+static void test_nearest_power(void)
 {
 	unsigned int b;
 	size_t num;
@@ -53,7 +53,7 @@ static void test_bits_is_power_of_two(void)
 	test_end();
 }
 
-static void test_bits_requiredXX(void) 
+static void test_bits_requiredXX(void)
 {
 	/* As ..64 depends on ..32 and tests it twice,
 	 * and ..32 depends on ..16 and tests it twice,
