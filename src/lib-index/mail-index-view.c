@@ -434,14 +434,14 @@ mail_index_lookup(struct mail_index_view *view, uint32_t seq)
 {
 	struct mail_index_map *map;
 
-	return mail_index_lookup_full(view, seq, &map);
+	return mail_index_lookup_full(view, seq, &map, NULL);
 }
 
 const struct mail_index_record *
 mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
-		       struct mail_index_map **map_r)
+		       struct mail_index_map **map_r, bool *expunged_r)
 {
-	return view->v.lookup_full(view, seq, map_r, NULL);
+	return view->v.lookup_full(view, seq, map_r, expunged_r);
 }
 
 bool mail_index_is_expunged(struct mail_index_view *view, uint32_t seq)

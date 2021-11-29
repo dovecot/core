@@ -586,7 +586,7 @@ const struct mail_index_record *
 mail_index_lookup(struct mail_index_view *view, uint32_t seq);
 const struct mail_index_record *
 mail_index_lookup_full(struct mail_index_view *view, uint32_t seq,
-		       struct mail_index_map **map_r);
+		       struct mail_index_map **map_r, bool *expunged_r);
 /* Returns TRUE if the given message has already been expunged from index. */
 bool mail_index_is_expunged(struct mail_index_view *view, uint32_t seq);
 /* Note that returned keyword indexes aren't sorted. */

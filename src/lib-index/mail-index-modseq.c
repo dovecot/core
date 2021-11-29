@@ -161,7 +161,7 @@ uint64_t mail_index_modseq_lookup(struct mail_index_view *view, uint32_t seq)
 	if (mmap == NULL)
 		return mail_index_modseq_get_head(view->index);
 
-	rec = mail_index_lookup_full(view, seq, &map);
+	rec = mail_index_lookup_full(view, seq, &map, NULL);
 	if (!mail_index_map_get_ext_idx(map, view->index->modseq_ext_id,
 					&ext_map_idx)) {
 		/* not enabled yet */
