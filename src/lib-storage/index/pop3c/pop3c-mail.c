@@ -147,6 +147,7 @@ static bool pop3c_mail_prefetch(struct mail *_mail)
 
 	if (pmail->imail.data.access_part != 0 &&
 	    pmail->imail.data.stream == NULL) {
+		_mail->mail_stream_accessed = TRUE;
 		capa = pop3c_client_get_capabilities(mbox->client);
 		pmail->prefetching_body = (capa & POP3C_CAPABILITY_TOP) == 0 ||
 			(pmail->imail.data.access_part & (READ_BODY | PARSE_BODY)) != 0;
@@ -206,6 +207,11 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 	}
 
 	if (mail->data.stream == NULL) {
+		if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
+			mail_set_aborted(_mail);
+			return -1;
+		}
+		_mail->mail_stream_accessed = TRUE;
 		capa = pop3c_client_get_capabilities(mbox->client);
 		if (get_body || (capa & POP3C_CAPABILITY_TOP) == 0) {
 			cmd = t_strdup_printf("RETR %u\r\n", _mail->seq);
