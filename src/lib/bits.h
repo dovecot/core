@@ -17,6 +17,10 @@
 /* ((val & bits) == bits) is uncommon */
 #define HAS_ALL_BITS(val,bits) ((~(val) & (bits)) == 0)
 
+/* negation implemented without using the subtraction operator
+   ~(x - 1) = 1 + ~x these are equivalent by -(-x) == ~(~(x)) == x */
+#define UNSIGNED_MINUS(x) (1 + ~(x))
+
 /* Returns x, such that x is the smallest power of 2 >= num. */
 size_t nearest_power(size_t num) ATTR_CONST;
 
@@ -84,7 +88,7 @@ bits_rotl64(uint64_t num, unsigned int count)
 {
 	const unsigned int mask = CHAR_BIT*sizeof(num) - 1;
 	count &= mask;
-	return (num << count) | (num >> (-count & mask));
+	return (num << count) | (num >> (UNSIGNED_MINUS(count) & mask));
 }
 
 static inline uint32_t ATTR_NO_SANITIZE_INTEGER
@@ -93,7 +97,7 @@ bits_rotl32(uint32_t num, unsigned int count)
 {
         const unsigned int mask = CHAR_BIT*sizeof(num) - 1;
         count &= mask;
-        return (num << count) | (num >> (-count & mask));
+        return (num << count) | (num >> (UNSIGNED_MINUS(count) & mask));
 }
 
 static inline uint64_t ATTR_NO_SANITIZE_INTEGER
@@ -102,7 +106,7 @@ bits_rotr64(uint64_t num, unsigned int count)
 {
 	const unsigned int mask = CHAR_BIT*sizeof(num) - 1;
 	count &= mask;
-	return (num >> count) | (num << (-count & mask));
+	return (num >> count) | (num << (UNSIGNED_MINUS(count) & mask));
 }
 
 static inline uint32_t ATTR_NO_SANITIZE_INTEGER
@@ -111,7 +115,7 @@ bits_rotr32(uint32_t num, unsigned int count)
 {
 	const unsigned int mask = CHAR_BIT*sizeof(num) - 1;
 	count &= mask;
-	return (num >> count) | (num << (-count & mask));
+	return (num >> count) | (num << (UNSIGNED_MINUS(count) & mask));
 }
 
 /* These functions look too big to be inline, but in almost all expected
