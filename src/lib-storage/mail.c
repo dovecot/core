@@ -99,6 +99,13 @@ void mail_add_temp_wanted_fields(struct mail *mail,
 	p->v.add_temp_wanted_fields(mail, fields, headers);
 }
 
+void mail_event_create(struct mail *mail)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	i_assert(p->_event != NULL);
+}
+
 struct event *mail_event(struct mail *mail)
 {
 	struct mail_private *p = (struct mail_private *)mail;
@@ -653,6 +660,7 @@ bool mail_stream_access_start(struct mail *mail)
 		return FALSE;
 	}
 	mail->mail_stream_accessed = TRUE;
+	mail_event_create(mail);
 	return TRUE;
 }
 
@@ -663,6 +671,7 @@ bool mail_metadata_access_start(struct mail *mail)
 		return FALSE;
 	}
 	mail->mail_metadata_accessed = TRUE;
+	mail_event_create(mail);
 	return TRUE;
 }
 

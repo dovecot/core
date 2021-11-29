@@ -814,6 +814,7 @@ void mail_set_mail_cache_corrupted(struct mail *mail, const char *fmt, ...)
 /* Indicate mail being expunged by autoexpunge */
 void mail_autoexpunge(struct mail *mail);
 
+void mail_event_create(struct mail *mail);
 /* Returns TRUE if everything should already be in memory after this call
    or if prefetching is not supported, i.e. the caller shouldn't do more
    prefetching before this message is handled. */
