@@ -406,9 +406,10 @@ struct mail {
 	bool has_nuls:1; /* message data is known to contain NULs */
 	bool has_no_nuls:1; /* -''- known to not contain NULs */
 
-	/* Mail's header/body stream was opened within this request.
-	   If lookup_abort!=MAIL_LOOKUP_ABORT_NEVER, this can't become TRUE. */
-	bool mail_stream_opened:1;
+	/* Mail's header/body stream was opened (or attempted to be opened)
+	   within this request. If lookup_abort!=MAIL_LOOKUP_ABORT_NEVER, this
+	   can't become TRUE. */
+	bool mail_stream_accessed:1;
 	/* Mail's fast metadata was accessed within this request, e.g. the mail
 	   file was stat()ed. If mail_stream_opened==TRUE, this value isn't
 	   accurate anymore, because some backends may always set this when

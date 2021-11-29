@@ -125,7 +125,7 @@ int sdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 		mail_set_aborted(_mail);
 		return -1;
 	}
-	_mail->mail_stream_opened = TRUE;
+	_mail->mail_stream_accessed = TRUE;
 
 	ret = sdbox_mail_file_set(mail);
 	if (ret < 0)

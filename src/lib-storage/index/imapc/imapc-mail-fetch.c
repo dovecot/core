@@ -217,7 +217,7 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 		mail_set_aborted(_mail);
 		return -1;
 	}
-	_mail->mail_stream_opened = TRUE;
+	_mail->mail_stream_accessed = TRUE;
 
 	/* drop any fields that we may already be fetching currently */
 	fields &= ENUM_NEGATE(mail->fetching_fields);

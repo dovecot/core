@@ -330,7 +330,7 @@ index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
 
 	while (mailbox_search_next(search_ctx, &mail)) {
 		if (mails_left == 0) {
-			if (mail->mail_stream_opened) {
+			if (mail->mail_stream_accessed) {
 				/* Seems stream is opened by mailbox search, so we
 				   will stop here, and finish it on background. */
 				index_mailbox_vsize_finish_bg(update,
@@ -353,7 +353,8 @@ index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
 			index_mailbox_vsize_finish_bg(update, require_result);
 			break;
 		}
-		if (mail->mail_stream_opened || mail->mail_metadata_accessed) {
+		if (mail->mail_stream_accessed ||
+		    mail->mail_metadata_accessed) {
 			/* slow vsize lookup */
 			i_assert(mails_left > 0);
 			mails_left--;

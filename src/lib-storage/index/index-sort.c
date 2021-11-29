@@ -171,7 +171,7 @@ void index_sort_list_add(struct mail_search_sort_program *program,
 			 struct mail *mail)
 {
 	enum mail_access_type orig_access_type = mail->access_type;
-	bool prev_slow = mail->mail_stream_opened ||
+	bool prev_slow = mail->mail_stream_accessed ||
 		mail->mail_metadata_accessed;
 
 	i_assert(mail->transaction == program->t);
@@ -188,7 +188,7 @@ void index_sort_list_add(struct mail_search_sort_program *program,
 	} T_END;
 	mail->access_type = orig_access_type;
 
-	if (!prev_slow && (mail->mail_stream_opened ||
+	if (!prev_slow && (mail->mail_stream_accessed ||
 			   mail->mail_metadata_accessed)) {
 		i_assert(program->slow_mails_left > 0);
 		program->slow_mails_left--;
@@ -549,7 +549,7 @@ static void
 index_sort_set_seq(struct mail_search_sort_program *program,
 		   struct mail *mail, uint32_t seq)
 {
-	if ((mail->mail_stream_opened || mail->mail_metadata_accessed) &&
+	if ((mail->mail_stream_accessed || mail->mail_metadata_accessed) &&
 	    program->slow_mails_left > 0)
 		program->slow_mails_left--;
 	mail_set_seq(mail, seq);
