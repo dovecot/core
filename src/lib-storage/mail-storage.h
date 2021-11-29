@@ -398,7 +398,6 @@ struct mail {
 	/* always set */
 	struct mailbox *box;
 	struct mailbox_transaction_context *transaction;
-	struct event *event;
 	uint32_t seq, uid;
 
 	bool expunged:1;

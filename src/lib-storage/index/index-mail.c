@@ -1755,8 +1755,10 @@ index_mail_alloc(struct mailbox_transaction_context *t,
 
 static void index_mail_init_event(struct mail *mail)
 {
-	mail->event = event_create(mail->box->event);
-	event_add_category(mail->event, &event_category_mail);
+	struct mail_private *p = (struct mail_private *)mail;
+
+	p->_event = event_create(mail->box->event);
+	event_add_category(p->_event, &event_category_mail);
 }
 
 void index_mail_init(struct index_mail *mail,
@@ -1885,7 +1887,7 @@ void index_mail_close(struct mail *_mail)
 
 	/* make sure old mail isn't visible in the event anymore even if it's
 	   attempted to be used. */
-	event_unref(&_mail->event);
+	event_unref(&mail->mail._event);
 
 	/* If uid == 0 but seq != 0, we came here from saving a (non-mbox)
 	   message. If that happens, don't bother checking if anything should
@@ -2162,15 +2164,15 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 
 	/* Recreate the mail event when changing mails. Even though the same
 	   mail struct is reused, they are practically different mails. */
-	event_unref(&_mail->event);
+	event_unref(&mail->mail._event);
 	index_mail_init_event(_mail);
-	event_add_int(_mail->event, "seq", _mail->seq);
-	event_add_int(_mail->event, "uid", _mail->uid);
+	event_add_int(mail->mail._event, "seq", _mail->seq);
+	event_add_int(mail->mail._event, "uid", _mail->uid);
 	/* Add mail age field to event. */
 	if (index_mail_get_age_days(_mail, &age_days))
-		event_add_int(_mail->event, "mail_age_days", age_days);
+		event_add_int(mail->mail._event, "mail_age_days", age_days);
 
-	event_set_append_log_prefix(_mail->event, t_strdup_printf(
+	event_set_append_log_prefix(mail->mail._event, t_strdup_printf(
 		"%sUID %u: ", saving ? "saving " : "", _mail->uid));
 
 	if (mail_index_view_is_inconsistent(_mail->transaction->view)) {
@@ -2313,7 +2315,7 @@ void index_mail_free(struct mail *_mail)
 
 	mailbox_header_lookup_unref(&mail->data.wanted_headers);
 	mailbox_header_lookup_unref(&mail->mail.wanted_headers);
-	event_unref(&_mail->event);
+	event_unref(&mail->mail._event);
 	pool_unref(&mail->mail.data_pool);
 	pool_unref(&mail->mail.pool);
 }

@@ -578,6 +578,7 @@ struct mail_private {
 	   allows mail_log plugin to log the copy operation using the original
 	   mailbox name. */
 	struct mail *vmail;
+	struct event *_event;
 
 	uint32_t seq_pvt;
 
