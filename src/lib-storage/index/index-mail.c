@@ -1753,14 +1753,6 @@ index_mail_alloc(struct mailbox_transaction_context *t,
 	return &mail->mail.mail;
 }
 
-static void index_mail_init_event(struct mail *mail)
-{
-	struct mail_private *p = (struct mail_private *)mail;
-
-	p->_event = event_create(mail->box->event);
-	event_add_category(p->_event, &event_category_mail);
-}
-
 void index_mail_init(struct index_mail *mail,
 		     struct mailbox_transaction_context *t,
 		     enum mail_fetch_field wanted_fields,
@@ -1775,7 +1767,6 @@ void index_mail_init(struct index_mail *mail,
 	mail->mail.v = *t->box->mail_vfuncs;
 	mail->mail.mail.box = t->box;
 	mail->mail.mail.transaction = t;
-	index_mail_init_event(&mail->mail.mail);
 	t->mail_ref_count++;
 	if (data_pool != NULL)
 		mail->mail.data_pool = data_pool;
@@ -2115,36 +2106,9 @@ void index_mail_update_access_parts_post(struct mail *_mail)
 	}
 }
 
-static bool index_mail_get_age_days(struct mail *mail, int *days_r)
-{
-	int age_days;
-	const struct mail_index_header *hdr =
-		mail_index_get_header(mail->transaction->view);
-	int n_days = N_ELEMENTS(hdr->day_first_uid);
-
-	for (age_days = 0; age_days < n_days; age_days++) {
-		if (mail->uid >= hdr->day_first_uid[age_days])
-			break;
-	}
-
-	if (age_days == n_days) {
-		/* mail is too old, cannot determine its age from
-		   day_first_uid[]. */
-		return FALSE;
-	}
-
-	if (hdr->day_stamp != 0) {
-		/* offset for hdr->day_stamp */
-		age_days += (ioloop_time - hdr->day_stamp) / (3600 * 24);
-	}
-	*days_r = age_days;
-	return TRUE;
-}
-
 void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 {
 	struct index_mail *mail = INDEX_MAIL(_mail);
-	int age_days;
 
 	if (mail->data.seq == seq) {
 		if (!saving)
@@ -2163,17 +2127,9 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 			      &mail->mail.mail.uid);
 
 	/* Recreate the mail event when changing mails. Even though the same
-	   mail struct is reused, they are practically different mails. */
-	event_unref(&mail->mail._event);
-	index_mail_init_event(_mail);
-	event_add_int(mail->mail._event, "seq", _mail->seq);
-	event_add_int(mail->mail._event, "uid", _mail->uid);
-	/* Add mail age field to event. */
-	if (index_mail_get_age_days(_mail, &age_days))
-		event_add_int(mail->mail._event, "mail_age_days", age_days);
-
-	event_set_append_log_prefix(mail->mail._event, t_strdup_printf(
-		"%sUID %u: ", saving ? "saving " : "", _mail->uid));
+	   mail struct is reused, they are practically different mails. The
+	   event should have already been freed by close(). */
+	i_assert(mail->mail._event == NULL);
 
 	if (mail_index_view_is_inconsistent(_mail->transaction->view)) {
 		mail_set_expunged(&mail->mail.mail);

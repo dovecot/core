@@ -99,17 +99,56 @@ void mail_add_temp_wanted_fields(struct mail *mail,
 	p->v.add_temp_wanted_fields(mail, fields, headers);
 }
 
+static bool index_mail_get_age_days(struct mail *mail, int *days_r)
+{
+	int age_days;
+	const struct mail_index_header *hdr =
+		mail_index_get_header(mail->transaction->view);
+	int n_days = N_ELEMENTS(hdr->day_first_uid);
+
+	for (age_days = 0; age_days < n_days; age_days++) {
+		if (mail->uid >= hdr->day_first_uid[age_days])
+			break;
+	}
+
+	if (age_days == n_days) {
+		/* mail is too old, cannot determine its age from
+		   day_first_uid[]. */
+		return FALSE;
+	}
+
+	if (hdr->day_stamp != 0) {
+		/* offset for hdr->day_stamp */
+		age_days += (ioloop_time - hdr->day_stamp) / (3600 * 24);
+	}
+	*days_r = age_days;
+	return TRUE;
+}
+
 void mail_event_create(struct mail *mail)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	int age_days;
 
-	i_assert(p->_event != NULL);
+	if (p->_event != NULL)
+		return;
+	p->_event = event_create(mail->box->event);
+	event_add_category(p->_event, &event_category_mail);
+	event_add_int(p->_event, "seq", mail->seq);
+	event_add_int(p->_event, "uid", mail->uid);
+	/* Add mail age field to event. */
+	if (index_mail_get_age_days(mail, &age_days))
+		event_add_int(p->_event, "mail_age_days", age_days);
+
+	event_set_append_log_prefix(p->_event, t_strdup_printf(
+		"%sUID %u: ", mail->saving ? "saving " : "", mail->uid));
 }
 
 struct event *mail_event(struct mail *mail)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
+	mail_event_create(mail);
 	return p->_event;
 }
 
