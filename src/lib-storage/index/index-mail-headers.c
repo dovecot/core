@@ -205,7 +205,7 @@ void index_mail_parse_header_init(struct index_mail *mail,
 	index_mail_filter_stream_destroy(mail);
 	i_assert(!mail->data.header_parser_initialized);
 
-	mail->header_seq = data->seq;
+	mail->header_seq = mail->mail.mail.seq;
 	if (mail->header_data == NULL) {
 		mail->header_data = buffer_create_dynamic(default_pool, 4096);
 		i_array_init(&mail->header_lines, 32);
@@ -681,7 +681,7 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 			mail_set_aborted(&mail->mail.mail);
 			return -1;
 		}
-		if (mail->header_seq != mail->data.seq ||
+		if (mail->header_seq != mail->mail.mail.seq ||
 		    index_mail_header_is_parsed(mail, field_idx) < 0) {
 			/* parse */
 			const char *reason = index_mail_cache_reason(_mail,

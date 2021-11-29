@@ -81,7 +81,7 @@ int index_mail_cache_lookup_field(struct index_mail *mail, buffer_t *buf,
 	int ret;
 
 	ret = mail_cache_lookup_field(mail->mail.mail.transaction->cache_view,
-				      buf, mail->data.seq, field_idx);
+				      buf, mail->mail.mail.seq, field_idx);
 	if (ret > 0)
 		mail->mail.mail.transaction->stats.cache_hit_count++;
 
@@ -341,7 +341,7 @@ index_mail_get_keyword_indexes(struct mail *_mail)
 	if (!array_is_created(&data->keyword_indexes)) {
 		p_array_init(&data->keyword_indexes, mail->mail.data_pool, 32);
 		mail_index_lookup_keywords(_mail->transaction->view,
-					   mail->data.seq,
+					   mail->mail.mail.seq,
 					   &data->keyword_indexes);
 	}
 	return &data->keyword_indexes;
@@ -2113,7 +2113,7 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 	struct mail_index_map *map;
 	bool expunged;
 
-	if (mail->data.seq == seq) {
+	if (mail->mail.mail.seq == seq) {
 		if (!saving)
 			return;
 		/* we started saving a mail, aborted it, and now we're saving
@@ -2123,7 +2123,6 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 
 	mail->mail.v.close(&mail->mail.mail);
 
-	mail->data.seq = seq;
 	mail->mail.mail.seq = seq;
 	mail->mail.mail.saving = saving;
 
