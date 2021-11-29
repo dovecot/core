@@ -20,14 +20,15 @@
 /* Returns x, such that x is the smallest power of 2 >= num. */
 size_t nearest_power(size_t num) ATTR_CONST;
 
+#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
+
 /* Returns TRUE if 2^x=num, i.e. if num has only a single bit set to 1. */
 static inline bool ATTR_CONST
 bits_is_power_of_two(uint64_t num)
 {
-	return num > 0 && (num & (num - 1)) == 0;
+	return __builtin_popcountll(num) == 1;
 }
 
-#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
 static inline unsigned int ATTR_CONST
 bits_required32(uint32_t num)
 {
@@ -44,7 +45,16 @@ bits_required64(uint64_t num)
 {
 	return num == 0 ? 0 : 64 - __builtin_clzll(num);
 }
+
 #else
+
+/* Returns TRUE if 2^x=num, i.e. if num has only a single bit set to 1. */
+static inline bool ATTR_CONST
+bits_is_power_of_two(uint64_t num)
+{
+	return num != 0 && (num & (num + ~0ULL)) == 0;
+}
+
 unsigned int bits_required8(uint8_t num) ATTR_CONST;
 
 static inline
@@ -65,6 +75,7 @@ unsigned int bits_required64(uint64_t num)
 	return (num <= 0xffffffff) ? bits_required32(num)
 		: 32 + bits_required32(num >> 32);
 }
+
 #endif
 
 static inline uint64_t ATTR_NO_SANITIZE_INTEGER

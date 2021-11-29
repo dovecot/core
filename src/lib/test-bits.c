@@ -50,6 +50,7 @@ static void test_bits_is_power_of_two(void)
 	}
 	test_assert(!bits_is_power_of_two(0));
 	test_assert(!bits_is_power_of_two(0xffffffffffffffffULL));
+	test_assert( bits_is_power_of_two(0x8000000000000000ULL));
 	test_end();
 }
 
