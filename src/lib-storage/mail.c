@@ -125,6 +125,19 @@ static bool index_mail_get_age_days(struct mail *mail, int *days_r)
 	return TRUE;
 }
 
+static const char *mail_event_log_callback(struct mail_private *p)
+{
+	char uid_buf[MAX_INT_STRLEN];
+
+	/* Replace the log prefix callback with an explicit prefix, so this
+	   callback doesn't have to be called more than once. */
+	const char *prefix = t_strconcat(
+		p->mail.saving ? "saving UID " : "UID ",
+		dec2str_buf(uid_buf, p->mail.uid), ": ", NULL);
+	event_set_append_log_prefix(p->_event, prefix);
+	return prefix;
+}
+
 void mail_event_create(struct mail *mail)
 {
 	struct mail_private *p = (struct mail_private *)mail;
@@ -140,8 +153,11 @@ void mail_event_create(struct mail *mail)
 	if (index_mail_get_age_days(mail, &age_days))
 		event_add_int(p->_event, "mail_age_days", age_days);
 
-	event_set_append_log_prefix(p->_event, t_strdup_printf(
-		"%sUID %u: ", mail->saving ? "saving " : "", mail->uid));
+	/* The mail events may be created often, but most of the time the log
+	   prefix isn't needed. We can save some CPU by delaying the prefix
+	   generation until it's actually used. */
+	event_set_log_prefix_callback(p->_event, FALSE,
+				      mail_event_log_callback, p);
 }
 
 struct event *mail_event(struct mail *mail)
