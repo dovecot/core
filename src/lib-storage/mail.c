@@ -649,6 +649,16 @@ bool mail_stream_access_start(struct mail *mail)
 	return TRUE;
 }
 
+bool mail_metadata_access_start(struct mail *mail)
+{
+	if (mail->lookup_abort >= MAIL_LOOKUP_ABORT_NOT_IN_CACHE) {
+		mail_set_aborted(mail);
+		return FALSE;
+	}
+	mail->mail_metadata_accessed = TRUE;
+	return TRUE;
+}
+
 void mail_opened_event(struct mail *mail)
 {
 	struct mail_private *pmail =

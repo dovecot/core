@@ -110,11 +110,8 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st_r)
 	const char *path;
 	int fd, ret;
 
-	if (mail->lookup_abort >= MAIL_LOOKUP_ABORT_NOT_IN_CACHE) {
-		mail_set_aborted(mail);
+	if (!mail_metadata_access_start(mail))
 		return -1;
-	}
-	mail->mail_metadata_accessed = TRUE;
 
 	if (imail->data.access_part != 0 &&
 	    imail->data.stream == NULL) {

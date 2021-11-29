@@ -830,6 +830,9 @@ int mail_set_attachment_keywords(struct mail *mail);
 /* Attempt to start accessing the mail stream. Returns TRUE is ok, FALSE if
    prevented by mail->lookup_abort. */
 bool mail_stream_access_start(struct mail *mail);
+/* Attempt to start accessing the mail metadata. Returns TRUE is ok, FALSE if
+   prevented by mail->lookup_abort. */
+bool mail_metadata_access_start(struct mail *mail);
 /* Emit mail opened events */
 void mail_opened_event(struct mail *mail);
 
