@@ -68,6 +68,12 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 
 	*deleted_r = FALSE;
 
+	if (mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
+		mail_set_aborted(mail);
+		return NULL;
+	}
+	mail->mail_stream_accessed = TRUE;
+
 	ctx.fd = -1;
 	ctx.path = NULL;
 
