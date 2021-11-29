@@ -99,11 +99,8 @@ int mdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 	uint32_t prev_file_id = 0, map_uid = 0;
 	bool deleted;
 
-	if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
-		mail_set_aborted(_mail);
+	if (!mail_stream_access_start(_mail))
 		return -1;
-	}
-	_mail->mail_stream_accessed = TRUE;
 
 	do {
 		if (mail->open_file != NULL) {

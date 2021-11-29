@@ -213,11 +213,8 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 	i_assert(headers == NULL ||
 		 IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_HEADERS));
 
-	if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
-		mail_set_aborted(_mail);
+	if (!mail_stream_access_start(_mail))
 		return -1;
-	}
-	_mail->mail_stream_accessed = TRUE;
 
 	/* drop any fields that we may already be fetching currently */
 	fields &= ENUM_NEGATE(mail->fetching_fields);
@@ -328,6 +325,9 @@ static void imapc_mail_cache_get(struct imapc_mail *mail,
 	}
 	mail->header_fetched = TRUE;
 	mail->body_fetched = TRUE;
+	/* The stream was already accessed and now it's cached.
+	   It still needs to be set accessed to avoid assert-crash. */
+	mail->imail.mail.mail.mail_stream_accessed = TRUE;
 	imapc_mail_init_stream(mail);
 }
 

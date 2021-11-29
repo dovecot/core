@@ -1350,7 +1350,7 @@ int index_mail_init_stream(struct index_mail *mail,
 	bool has_nuls, body_size_from_stream = FALSE;
 	int ret;
 
-	_mail->mail_stream_accessed = TRUE;
+	i_assert(_mail->mail_stream_accessed);
 
 	if (!data->initialized_wrapper_stream &&
 	    _mail->transaction->stats_track) {

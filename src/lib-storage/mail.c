@@ -639,6 +639,16 @@ int mail_set_attachment_keywords(struct mail *mail)
 	return ret;
 }
 
+bool mail_stream_access_start(struct mail *mail)
+{
+	if (mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
+		mail_set_aborted(mail);
+		return FALSE;
+	}
+	mail->mail_stream_accessed = TRUE;
+	return TRUE;
+}
+
 void mail_opened_event(struct mail *mail)
 {
 	struct mail_private *pmail =

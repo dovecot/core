@@ -152,6 +152,9 @@ imapc_save_add_to_index(struct imapc_save_context *ctx, uint32_t uid)
 		imail->data.stream = i_stream_create_fd_autoclose(&ctx->fd, 0);
 		imapc_mail->header_fetched = TRUE;
 		imapc_mail->body_fetched = TRUE;
+		/* The saved stream wasn't actually read, but it needs to be
+		   set accessed to avoid assert-crash. */
+		_mail->mail_stream_accessed = TRUE;
 		imapc_mail_init_stream(imapc_mail);
 	}
 

@@ -85,11 +85,8 @@ raw_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 	struct index_mail *mail = INDEX_MAIL(_mail);
 
 	if (mail->data.stream == NULL) {
-		if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
-			mail_set_aborted(_mail);
+		if (!mail_stream_access_start(_mail))
 			return -1;
-		}
-		_mail->mail_stream_accessed = TRUE;
 		/* we can't just reference mbox->input, because
 		   index_mail_close() expects to be able to free the stream */
 		mail->data.stream =

@@ -41,11 +41,8 @@ static int mbox_mail_seek(struct index_mail *mail)
 	if (_mail->expunged || mbox->syncing)
 		return -1;
 
-	if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
-		mail_set_aborted(_mail);
+	if (!mail_stream_access_start(_mail))
 		return -1;
-	}
-	_mail->mail_stream_accessed = TRUE;
 
 	if (mbox->mbox_stream != NULL &&
 	    istream_raw_mbox_is_corrupted(mbox->mbox_stream)) {
