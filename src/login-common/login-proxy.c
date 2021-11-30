@@ -306,10 +306,8 @@ static int login_proxy_connect(struct login_proxy *proxy)
 {
 	struct login_proxy_record *rec = proxy->state_rec;
 
-	struct event_passthrough *e = event_create_passthrough(proxy->event)->
-		set_name("proxy_session_started");
-	e_debug(e->event(), "Connecting to <%s>",
-	       login_proxy_get_ip_str(proxy->client->login_proxy));
+	e_debug(proxy->event, "Connecting to <%s>",
+		login_proxy_get_ip_str(proxy->client->login_proxy));
 
 	/* this needs to be done early, since login_proxy_free() shrinks
 	   num_waiting_connections. */
@@ -409,6 +407,11 @@ int login_proxy_new(struct client *client, struct event *event,
 	proxy->input_callback = input_callback;
 	proxy->failure_callback = failure_callback;
 	client->login_proxy = proxy;
+
+	struct event_passthrough *e = event_create_passthrough(proxy->event)->
+		set_name("proxy_session_started");
+	e_debug(e->event(), "Created proxy session to <%s>",
+	       login_proxy_get_ip_str(proxy->client->login_proxy));
 
 	return login_proxy_connect(proxy);
 }
@@ -627,6 +630,7 @@ bool login_proxy_failed(struct login_proxy *proxy, struct event *event,
 	}
 
 	if (try_reconnect && proxy_try_reconnect(proxy)) {
+		event_add_int(event, "reconnect_attempts", proxy->reconnect_count);
 		e_debug(event, "%s%s - reconnecting (attempt #%d)",
 			log_prefix, reason, proxy->reconnect_count);
 		proxy->failure_callback(proxy->client, type, reason, TRUE);
