@@ -105,7 +105,6 @@ struct dsync_cmd_context {
 	bool reverse_backup:1;
 	bool remote_user_prefix:1;
 	bool no_mail_sync:1;
-	bool no_mailbox_renames:1;
 	bool local_location_from_arg:1;
 	bool replicator_notify:1;
 	bool exited:1;
@@ -669,8 +668,6 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		brain_flags |= DSYNC_BRAIN_FLAG_SYNC_VISIBLE_NAMESPACES;
 	if (ctx->purge_remote)
 		brain_flags |= DSYNC_BRAIN_FLAG_PURGE_REMOTE;
-	if (ctx->no_mailbox_renames)
-		brain_flags |= DSYNC_BRAIN_FLAG_NO_MAILBOX_RENAMES;
 
 	if (ctx->backup) {
 		if (ctx->reverse_backup)
@@ -1056,9 +1053,6 @@ cmd_mailbox_dsync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
 	case 'd':
 		ctx->default_replica_location = TRUE;
 		break;
-	case 'D':
-		ctx->no_mailbox_renames = TRUE;
-		break;
 	case 'E':
 		/* dsync wrapper detection flag */
 		legacy_dsync = TRUE;
@@ -1326,7 +1320,6 @@ DOVEADM_CMD_PARAM('O', "sync-flags", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('I', "sync-max-size", CMD_PARAM_STR, 0) \
 DOVEADM_CMD_PARAM('T', "timeout", CMD_PARAM_INT64, 0) \
 DOVEADM_CMD_PARAM('d', "default-destination", CMD_PARAM_BOOL, 0) \
-DOVEADM_CMD_PARAM('D', "disable-mailbox-renames", CMD_PARAM_BOOL, 0) \
 DOVEADM_CMD_PARAM('E', "legacy-dsync", CMD_PARAM_BOOL, 0) \
 DOVEADM_CMD_PARAM('\0', "destination", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 
@@ -1340,7 +1333,7 @@ DOVEADM_CMD_PARAM('\0', "destination", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONA
 struct doveadm_cmd_ver2 doveadm_cmd_dsync_mirror = {
 	.mail_cmd = cmd_dsync_alloc,
 	.name = "sync",
-	.usage = "[-1fDPRU] "DSYNC_COMMON_USAGE,
+	.usage = "[-1fPRU] "DSYNC_COMMON_USAGE,
 	.flags = CMD_FLAG_NO_UNORDERED_OPTIONS,
 DOVEADM_CMD_PARAMS_START
 DSYNC_COMMON_PARAMS
@@ -1350,7 +1343,7 @@ DOVEADM_CMD_PARAMS_END
 struct doveadm_cmd_ver2 doveadm_cmd_dsync_backup = {
 	.mail_cmd = cmd_dsync_backup_alloc,
 	.name = "backup",
-	.usage = "[-fDPRU] "DSYNC_COMMON_USAGE,
+	.usage = "[-fPRU] "DSYNC_COMMON_USAGE,
 	.flags = CMD_FLAG_NO_UNORDERED_OPTIONS,
 DOVEADM_CMD_PARAMS_START
 DSYNC_COMMON_PARAMS

@@ -76,7 +76,7 @@ static const struct {
 	  .optional_keys = "sync_ns_prefix sync_box sync_box_guid sync_type "
 	  	"debug sync_visible_namespaces exclude_mailboxes  "
 	  	"send_mail_requests backup_send backup_recv lock_timeout "
-	  	"no_mail_sync no_mailbox_renames no_backup_overwrite purge_remote "
+	  	"no_mail_sync no_backup_overwrite purge_remote "
 		"no_notify sync_since_timestamp sync_max_size sync_flags sync_until_timestamp "
 		"virtual_all_box empty_hdr_workaround import_commit_msgs_interval "
 		"hashed_headers alt_char"
@@ -742,8 +742,6 @@ dsync_ibc_stream_send_handshake(struct dsync_ibc *_ibc,
 		dsync_serializer_encode_add(encoder, "sync_visible_namespaces", "");
 	if ((set->brain_flags & DSYNC_BRAIN_FLAG_NO_MAIL_SYNC) != 0)
 		dsync_serializer_encode_add(encoder, "no_mail_sync", "");
-	if ((set->brain_flags & DSYNC_BRAIN_FLAG_NO_MAILBOX_RENAMES) != 0)
-		dsync_serializer_encode_add(encoder, "no_mailbox_renames", "");
 	if ((set->brain_flags & DSYNC_BRAIN_FLAG_NO_BACKUP_OVERWRITE) != 0)
 		dsync_serializer_encode_add(encoder, "no_backup_overwrite", "");
 	if ((set->brain_flags & DSYNC_BRAIN_FLAG_PURGE_REMOTE) != 0)
@@ -886,8 +884,6 @@ dsync_ibc_stream_recv_handshake(struct dsync_ibc *_ibc,
 		set->brain_flags |= DSYNC_BRAIN_FLAG_SYNC_VISIBLE_NAMESPACES;
 	if (dsync_deserializer_decode_try(decoder, "no_mail_sync", &value))
 		set->brain_flags |= DSYNC_BRAIN_FLAG_NO_MAIL_SYNC;
-	if (dsync_deserializer_decode_try(decoder, "no_mailbox_renames", &value))
-		set->brain_flags |= DSYNC_BRAIN_FLAG_NO_MAILBOX_RENAMES;
 	if (dsync_deserializer_decode_try(decoder, "no_backup_overwrite", &value))
 		set->brain_flags |= DSYNC_BRAIN_FLAG_NO_BACKUP_OVERWRITE;
 	if (dsync_deserializer_decode_try(decoder, "purge_remote", &value))
