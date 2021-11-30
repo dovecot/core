@@ -1,3 +1,10 @@
+v2.3.17.1 2021-12-07  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	- dsync: Add back accidentically removed parameters.
+	- lib-ssl-iostream: Fix assert-crash when OpenSSL returned syscall error
+	  without errno.
+	- master: Dovecot failed to start if ssl_ca was too large.
+
 v2.3.17 2021-10-28  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* Dovecot now logs a warning if time seems to jump forward at least
