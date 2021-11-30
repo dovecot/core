@@ -118,7 +118,6 @@ struct dsync_brain {
 	bool no_mail_sync:1;
 	bool no_backup_overwrite:1;
 	bool no_mail_prefetch:1;
-	bool no_mailbox_renames:1;
 	bool changes_during_remote_sync:1;
 	bool require_full_resync:1;
 	bool verbose_proctitle:1;
