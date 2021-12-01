@@ -32,6 +32,7 @@ struct index_search_context {
 	bool have_seqsets:1;
 	bool have_index_args:1;
 	bool have_mailbox_args:1;
+	bool have_nonmatch_always:1;
 };
 
 struct mail *index_search_get_mail(struct index_search_context *ctx);

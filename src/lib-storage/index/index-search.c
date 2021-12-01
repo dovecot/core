@@ -122,8 +122,10 @@ static void search_init_arg(struct mail_search_arg *arg,
 			       arg->value.str) == 0;
 		if (match != arg->match_not)
 			arg->match_always = TRUE;
-		else
+		else {
 			arg->nonmatch_always = TRUE;
+			ctx->have_nonmatch_always = TRUE;
+		}
 		break;
 	case SEARCH_MAILBOX:
 	case SEARCH_MAILBOX_GLOB:
@@ -132,8 +134,10 @@ static void search_init_arg(struct mail_search_arg *arg,
 	case SEARCH_ALL:
 		if (!arg->match_not)
 			arg->match_always = TRUE;
-		else
+		else {
 			arg->nonmatch_always = TRUE;
+			ctx->have_nonmatch_always = TRUE;
+		}
 		break;
 	default:
 		break;
@@ -1874,7 +1878,7 @@ bool index_storage_search_next_update_seq(struct mail_search_context *_ctx)
 	}
 
 	if (!ctx->have_seqsets && !ctx->have_index_args &&
-	    _ctx->update_result == NULL) {
+	    !ctx->have_nonmatch_always && _ctx->update_result == NULL) {
 		_ctx->progress_cur = _ctx->seq;
 		return _ctx->seq <= ctx->seq2;
 	}
