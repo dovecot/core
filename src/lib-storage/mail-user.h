@@ -4,6 +4,7 @@
 #include "net.h"
 #include "unichar.h"
 #include "mail-storage-settings.h"
+#include "process-stat.h"
 
 struct module;
 struct stats;
@@ -72,6 +73,8 @@ struct mail_user {
 
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY(union mail_user_module_context *) module_contexts;
+
+	struct process_stat proc_stat;
 
 	/* User doesn't exist (as reported by userdb lookup when looking
 	   up home) */

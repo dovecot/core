@@ -192,6 +192,7 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 		*error_r = t_strdup(user->error);
 		return -1;
 	}
+	process_stat_read_start(&user->proc_stat, user->event);
 	return 0;
 }
 
@@ -227,8 +228,33 @@ void mail_user_unref(struct mail_user **_user)
 	pool_unref(&user->pool);
 }
 
+static void mail_user_session_finished(struct mail_user *user)
+{
+	struct event *ev = user->event;
+	struct process_stat *stat = &user->proc_stat;
+
+	process_stat_read_finish(stat, ev);
+
+	struct event_passthrough *e = event_create_passthrough(ev)->
+		set_name("mail_user_session_finished")->
+		add_int_nonzero("utime", stat->utime)->
+		add_int_nonzero("stime", stat->stime)->
+		add_int_nonzero("minor_faults", stat->minor_faults)->
+		add_int_nonzero("major_faults", stat->major_faults)->
+		add_int_nonzero("vol_cs", stat->vol_cs)->
+		add_int_nonzero("invol_cs", stat->invol_cs)->
+		add_int_nonzero("rss", stat->rss)->
+		add_int_nonzero("vsz", stat->vsz)->
+		add_int_nonzero("rchar", stat->rchar)->
+		add_int_nonzero("wchar", stat->wchar)->
+		add_int_nonzero("syscr", stat->syscr)->
+		add_int_nonzero("syscw", stat->syscw);
+	e_debug(e->event(), "User session is finished");
+}
+
 void mail_user_deinit(struct mail_user **user)
 {
+	mail_user_session_finished(*user);
 	i_assert((*user)->refcount == 1);
 	mail_user_unref(user);
 }
