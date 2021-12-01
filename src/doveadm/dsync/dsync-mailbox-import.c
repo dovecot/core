@@ -1382,7 +1382,7 @@ dsync_mailbox_import_want_change(struct dsync_mailbox_importer *importer,
 	}
 	if (importer->sync_max_size > 0) {
 		i_assert(change->virtual_size != UOFF_T_MAX);
-		if (change->virtual_size < importer->sync_max_size) {
+		if (change->virtual_size > importer->sync_max_size) {
 			/* mail is too large - skip it */
 			*result_r = "Ignoring missing local mail with too large size";
 			return FALSE;
