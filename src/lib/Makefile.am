@@ -159,6 +159,7 @@ liblib_la_SOURCES = \
 	pkcs5.c \
 	primes.c \
 	printf-format-fix.c \
+	process-stat.c \
 	process-title.c \
 	priorityq.c \
 	randgen.c \
@@ -316,6 +317,7 @@ headers = \
 	pkcs5.h \
 	primes.h \
 	printf-format-fix.h \
+	process-stat.h \
 	process-title.h \
 	priorityq.h \
 	randgen.h \
