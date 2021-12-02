@@ -179,9 +179,10 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 
 /* "Error in index cache file %s: ...". */
 void mail_cache_set_corrupted(struct mail_cache *cache, const char *fmt, ...)
-	ATTR_FORMAT(2, 3);
+	ATTR_FORMAT(2, 3) ATTR_COLD;
 void mail_cache_set_seq_corrupted_reason(struct mail_cache_view *cache_view,
-					 uint32_t seq, const char *reason);
+					 uint32_t seq, const char *reason)
+	ATTR_COLD;
 
 /* Returns human-readable reason for why a cached field is missing for
    the specified mail. This is mainly for debugging purposes, so the exact

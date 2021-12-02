@@ -450,7 +450,7 @@ bool mail_transaction_log_view_is_last(struct mail_transaction_log_view *view);
 void
 mail_transaction_log_view_set_corrupted(struct mail_transaction_log_view *view,
 					const char *fmt, ...)
-	ATTR_FORMAT(2, 3);
+	ATTR_FORMAT(2, 3) ATTR_COLD;
 bool
 mail_transaction_log_view_is_corrupted(struct mail_transaction_log_view *view);
 

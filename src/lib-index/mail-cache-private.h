@@ -416,6 +416,6 @@ int mail_cache_expunge_handler(struct mail_index_sync_map_ctx *sync_ctx,
 			       const void *data, void **sync_context);
 
 void mail_cache_set_syscall_error(struct mail_cache *cache,
-				  const char *function);
+				  const char *function) ATTR_COLD;
 
 #endif

@@ -56,7 +56,8 @@ mail_index_strmap_view_open(struct mail_index_strmap *strmap,
 			    const ARRAY_TYPE(mail_index_strmap_rec) **recs_r,
 			    const struct hash2_table **hash_r);
 void mail_index_strmap_view_close(struct mail_index_strmap_view **view);
-void mail_index_strmap_view_set_corrupted(struct mail_index_strmap_view *view);
+void mail_index_strmap_view_set_corrupted(struct mail_index_strmap_view *view)
+	ATTR_COLD;
 
 /* Return the highest used string index. */
 uint32_t mail_index_strmap_view_get_highest_idx(struct mail_index_strmap_view *view);

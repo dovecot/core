@@ -141,7 +141,7 @@ struct mail_transaction_log {
 void
 mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 					const char *fmt, ...)
-	ATTR_FORMAT(2, 3);
+	ATTR_FORMAT(2, 3) ATTR_COLD;
 
 void mail_transaction_log_get_dotlock_set(struct mail_transaction_log *log,
 					  struct dotlock_settings *set_r);

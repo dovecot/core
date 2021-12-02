@@ -556,10 +556,10 @@ bool mail_index_is_locked(struct mail_index *index);
 /* Mark index file corrupted in memory and delete it from disk.
    Invalidates all views. This should be called only for index files that can
    safely be recreated without any data loss. */
-void mail_index_mark_corrupted(struct mail_index *index);
+void mail_index_mark_corrupted(struct mail_index *index) ATTR_COLD;
 /* Check and fix any found problems. Returns -1 if we couldn't lock for sync,
    0 if everything went ok. */
-int mail_index_fsck(struct mail_index *index);
+int mail_index_fsck(struct mail_index *index) ATTR_COLD;
 /* Returns TRUE if mail_index_fsck() has been called since the last
    mail_index_reset_fscked() call. */
 bool mail_index_reset_fscked(struct mail_index *index);
