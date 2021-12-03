@@ -9,19 +9,6 @@
 
 #define CACHE_PREFETCH IO_BLOCK_SIZE
 
-static struct event *mail_cache_lookup_event(struct mail_cache_view *view,
-					     uint32_t seq)
-{
-	struct event *e = event_create(view->cache->event);
-	uint32_t uid;
-	mail_index_lookup_uid(view->view, seq, &uid);
-	event_set_name(e, "mail_cache_lookup_finished");
-	event_add_int(e, "seq", seq);
-	event_add_int(e, "uid", uid);
-	event_set_append_log_prefix(e, t_strdup_printf("UID %u: ", uid));
-	return e;
-}
-
 int mail_cache_get_record(struct mail_cache *cache, uint32_t offset,
 			  const struct mail_cache_record **rec_r)
 {
@@ -431,19 +418,14 @@ int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
 	struct mail_cache_lookup_iterate_ctx iter;
 	struct mail_cache_iterate_field field;
 	int ret;
-	struct event *lookup_event;
 
 	ret = mail_cache_field_exists(view, seq, field_idx);
 	mail_cache_decision_state_update(view, seq, field_idx);
 	if (ret <= 0)
 		return ret;
 
-	lookup_event = mail_cache_lookup_event(view, seq);
-
 	/* the field should exist */
 	mail_cache_lookup_iter_init(view, seq, &iter);
-	event_add_str(lookup_event, "field",
-		      view->cache->fields[field_idx].field.name);
 	if (view->cache->fields[field_idx].field.type == MAIL_CACHE_FIELD_BITMASK) {
 		ret = mail_cache_lookup_bitmask(&iter, field_idx,
 			view->cache->fields[field_idx].field.field_size,
@@ -460,9 +442,6 @@ int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
 	}
 	/* NOTE: view->cache->fields may have been reallocated by
 	   mail_cache_lookup_*(). */
-	e_debug(lookup_event, "Looked up field %s from mail cache",
-		view->cache->fields[field_idx].field.name);
-	event_unref(&lookup_event);
 	return ret;
 }
 
@@ -544,7 +523,6 @@ mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
 	uint8_t want = HDR_FIELD_STATE_WANT;
 	buffer_t *buf;
 	int ret;
-	struct event *lookup_event;
 
 	*pool_r = NULL;
 
@@ -572,7 +550,6 @@ mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
 	ctx.pool = *pool_r = pool_alloconly_create(MEMPOOL_GROWING"mail cache headers", 1024);
 	t_array_init(&ctx.lines, 32);
 
-	lookup_event = mail_cache_lookup_event(view, seq);
 	mail_cache_lookup_iter_init(view, seq, &iter);
 	while ((ret = mail_cache_lookup_iter_next(&iter, &field)) > 0) {
 		if (field.field_idx > max_field ||
@@ -582,12 +559,8 @@ mail_cache_lookup_headers_real(struct mail_cache_view *view, string_t *dest,
 			field_state[field.field_idx] = HDR_FIELD_STATE_SEEN;
 			header_lines_save(&ctx, &field);
 		}
-		const char *field_name = view->cache->fields[field.field_idx].field.name;
-		e_debug(event_create_passthrough(lookup_event)->
-			add_str("field", field_name)->event(),
-			"Looked up field %s from mail cache", field_name);
+
 	}
-	event_unref(&lookup_event);
 	if (ret < 0)
 		return -1;
 
