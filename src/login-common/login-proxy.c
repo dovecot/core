@@ -31,6 +31,7 @@
 #define KILLED_BY_ADMIN_REASON "Kicked by admin"
 #define KILLED_BY_DIRECTOR_REASON "Kicked via director"
 #define KILLED_BY_SHUTDOWN_REASON "Process shutting down"
+#define LOGIN_PROXY_SIDE_SELF "proxy"
 /* Wait this long before retrying on reconnect */
 #define PROXY_CONNECT_RETRY_MSECS 1000
 /* Don't even try to reconnect if proxying will timeout in less than this. */
@@ -95,6 +96,8 @@ static void login_proxy_free_final(struct login_proxy *proxy);
 
 static void ATTR_NULL(2)
 login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
+		      const char *disconnect_side,
+		      const char *disconnect_reason,
 		      enum login_proxy_free_flags flags);
 
 static time_t proxy_last_io(struct login_proxy *proxy)
@@ -113,8 +116,9 @@ static void login_proxy_free_errstr(struct login_proxy **_proxy,
 {
 	struct login_proxy *proxy = *_proxy;
 	string_t *log_msg = t_str_new(128);
+	const char *disconnect_side = server ? "server" : "client";
 
-	str_printfa(log_msg, "Disconnected by %s", server ? "server" : "client");
+	str_printfa(log_msg, "Disconnected by %s", disconnect_side);
 	if (errstr[0] != '\0')
 		str_printfa(log_msg, ": %s", errstr);
 
@@ -133,7 +137,7 @@ static void login_proxy_free_errstr(struct login_proxy **_proxy,
 		str_append(log_msg, ", server output blocked");
 
 	str_append_c(log_msg, ')');
-	login_proxy_free_full(_proxy, str_c(log_msg),
+	login_proxy_free_full(_proxy, str_c(log_msg), errstr, disconnect_side,
 			      server ? LOGIN_PROXY_FREE_FLAG_DELAYED : 0);
 }
 
@@ -525,6 +529,8 @@ static unsigned int login_proxy_delay_disconnect(struct login_proxy *proxy)
 
 static void ATTR_NULL(2)
 login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
+		      const char *disconnect_reason,
+		      const char *disconnect_side,
 		      enum login_proxy_free_flags flags)
 {
 	struct login_proxy *proxy = *_proxy;
@@ -537,11 +543,20 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
 		return;
 	proxy->destroying = TRUE;
 
+	struct event_passthrough *e = event_create_passthrough(proxy->event)->
+		add_str("disconnect_reason", disconnect_reason)->
+		add_str("disconnect_side", disconnect_side)->
+		set_name("proxy_session_finished");
+
+	if (proxy->detached) {
+		i_assert(proxy->connected);
+		e->add_int("idle_secs", ioloop_time - proxy_last_io(proxy));
+		e->add_int("bytes_in", proxy->server_output->offset);
+		e->add_int("bytes_out", proxy->client_output->offset);
+	}
+
 	/* we'll disconnect server side in any case. */
 	login_proxy_disconnect(proxy);
-
-	struct event_passthrough *e = event_create_passthrough(proxy->event)->
-		set_name("proxy_session_finished");
 
 	if (proxy->detached) {
 		/* detached proxy */
@@ -588,7 +603,7 @@ void login_proxy_free(struct login_proxy **_proxy)
 
 	i_assert(!proxy->detached || proxy->client->destroyed);
 	/* Note: The NULL error is never even attempted to be used here. */
-	login_proxy_free_full(_proxy, NULL, 0);
+	login_proxy_free_full(_proxy, NULL, "", LOGIN_PROXY_SIDE_SELF, 0);
 }
 
 bool login_proxy_failed(struct login_proxy *proxy, struct event *event,
@@ -849,7 +864,9 @@ int login_proxy_starttls(struct login_proxy *proxy)
 static void proxy_kill_idle(struct login_proxy *proxy)
 {
 	login_proxy_free_full(&proxy,
-		LOGIN_PROXY_KILL_PREFIX KILLED_BY_SHUTDOWN_REASON, 0);
+		LOGIN_PROXY_KILL_PREFIX KILLED_BY_SHUTDOWN_REASON,
+		KILLED_BY_SHUTDOWN_REASON,
+		LOGIN_PROXY_SIDE_SELF, 0);
 }
 
 void login_proxy_kill_idle(void)
@@ -925,6 +942,8 @@ login_proxy_cmd_kick_full(struct ipc_cmd *cmd, const char *const *args,
 		if (want_kick(proxy, args, key_idx)) {
 			login_proxy_free_full(&proxy,
 				LOGIN_PROXY_KILL_PREFIX KILLED_BY_ADMIN_REASON,
+				KILLED_BY_ADMIN_REASON,
+				LOGIN_PROXY_SIDE_SELF,
 				LOGIN_PROXY_FREE_FLAG_DELAYED);
 			count++;
 		}
@@ -1027,6 +1046,8 @@ login_proxy_cmd_kick_director_hash(struct ipc_cmd *cmd, const char *const *args)
 		    !net_ip_compare(&proxy->ip, &except_ip)) {
 			login_proxy_free_full(&proxy,
 				LOGIN_PROXY_KILL_PREFIX KILLED_BY_DIRECTOR_REASON,
+				KILLED_BY_DIRECTOR_REASON,
+				LOGIN_PROXY_SIDE_SELF,
 				LOGIN_PROXY_FREE_FLAG_DELAYED);
 			count++;
 		}
@@ -1138,7 +1159,9 @@ void login_proxy_deinit(void)
 	while (login_proxies != NULL) {
 		proxy = login_proxies;
 		login_proxy_free_full(&proxy,
-			LOGIN_PROXY_KILL_PREFIX KILLED_BY_SHUTDOWN_REASON, 0);
+			LOGIN_PROXY_KILL_PREFIX KILLED_BY_SHUTDOWN_REASON,
+			KILLED_BY_SHUTDOWN_REASON,
+			LOGIN_PROXY_SIDE_SELF, 0);
 	}
 	i_assert(detached_login_proxies_count == 0);
 
