@@ -93,7 +93,7 @@ static void login_proxy_ipc_cmd(struct ipc_cmd *cmd, const char *line);
 static void login_proxy_free_final(struct login_proxy *proxy);
 
 static void ATTR_NULL(2)
-login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
+login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
 		      enum login_proxy_free_flags flags);
 
 static time_t proxy_last_io(struct login_proxy *proxy)
@@ -111,28 +111,28 @@ static void login_proxy_free_errstr(struct login_proxy **_proxy,
 				    const char *errstr, bool server)
 {
 	struct login_proxy *proxy = *_proxy;
-	string_t *reason = t_str_new(128);
+	string_t *log_msg = t_str_new(128);
 
-	str_printfa(reason, "Disconnected by %s", server ? "server" : "client");
+	str_printfa(log_msg, "Disconnected by %s", server ? "server" : "client");
 	if (errstr[0] != '\0')
-		str_printfa(reason, ": %s", errstr);
+		str_printfa(log_msg, ": %s", errstr);
 
-	str_printfa(reason, " (%ds idle, in=%"PRIuUOFF_T", out=%"PRIuUOFF_T,
+	str_printfa(log_msg, " (%ds idle, in=%"PRIuUOFF_T", out=%"PRIuUOFF_T,
 		    (int)(ioloop_time - proxy_last_io(proxy)),
 		    proxy->server_output->offset, proxy->client_output->offset);
 	if (o_stream_get_buffer_used_size(proxy->client_output) > 0) {
-		str_printfa(reason, "+%zu",
+		str_printfa(log_msg, "+%zu",
 			    o_stream_get_buffer_used_size(proxy->client_output));
 	}
 	if (iostream_proxy_is_waiting_output(proxy->iostream_proxy,
 					     LOGIN_PROXY_SIDE_SERVER))
-		str_append(reason, ", client output blocked");
+		str_append(log_msg, ", client output blocked");
 	if (iostream_proxy_is_waiting_output(proxy->iostream_proxy,
 					     LOGIN_PROXY_SIDE_CLIENT))
-		str_append(reason, ", server output blocked");
+		str_append(log_msg, ", server output blocked");
 
-	str_append_c(reason, ')');
-	login_proxy_free_full(_proxy, str_c(reason),
+	str_append_c(log_msg, ')');
+	login_proxy_free_full(_proxy, str_c(log_msg),
 			      server ? LOGIN_PROXY_FREE_FLAG_DELAYED : 0);
 }
 
@@ -523,7 +523,7 @@ static unsigned int login_proxy_delay_disconnect(struct login_proxy *proxy)
 }
 
 static void ATTR_NULL(2)
-login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
+login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
 		      enum login_proxy_free_flags flags)
 {
 	struct login_proxy *proxy = *_proxy;
@@ -544,26 +544,26 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *reason,
 
 	if (proxy->detached) {
 		/* detached proxy */
-		i_assert(reason != NULL || proxy->client->destroyed);
+		i_assert(log_msg != NULL || proxy->client->destroyed);
 		DLLIST_REMOVE(&login_proxies, proxy);
 
 		if ((flags & LOGIN_PROXY_FREE_FLAG_DELAYED) != 0)
 			delay_ms = login_proxy_delay_disconnect(proxy);
 
 		if (delay_ms == 0)
-			e_info(e->event(), "%s", reason);
+			e_info(e->event(), "%s", log_msg);
 		else {
 			e_info(e->add_int("delay_ms", delay_ms)->event(),
 			       "%s - disconnecting client in %ums",
-			       reason, delay_ms);
+			       log_msg, delay_ms);
 		}
 		i_assert(detached_login_proxies_count > 0);
 		detached_login_proxies_count--;
 	} else {
 		i_assert(proxy->client_input == NULL);
 		i_assert(proxy->client_output == NULL);
-		if (reason != NULL)
-			e_debug(e->event(), "%s", reason);
+		if (log_msg != NULL)
+			e_debug(e->event(), "%s", log_msg);
 		else
 			e_debug(e->event(), "Failed to connect to %s",
 				login_proxy_get_ip_str(proxy));
