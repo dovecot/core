@@ -36,7 +36,7 @@ struct ldap_userdb_iterate_context {
 	struct userdb_iter_ldap_request request;
 	pool_t pool;
 	struct ldap_connection *conn;
-	bool continued, in_callback;
+	bool continued, in_callback, deinitialized;
 };
 
 static void
@@ -166,9 +166,14 @@ static void userdb_ldap_iterate_callback(struct ldap_connection *conn,
 	if (res == NULL || ldap_msgtype(res) == LDAP_RES_SEARCH_RESULT) {
 		if (res == NULL)
 			ctx->ctx.failed = TRUE;
-		ctx->ctx.callback(NULL, ctx->ctx.context);
+		if (!ctx->deinitialized)
+			ctx->ctx.callback(NULL, ctx->ctx.context);
+		auth_request_unref(&request->auth_request);
 		return;
 	}
+
+	if (ctx->deinitialized)
+		return;
 
 	/* the iteration can take a while. reset the request's create time so
 	   it won't be aborted while it's still running */
@@ -267,7 +272,7 @@ static int userdb_ldap_iterate_deinit(struct userdb_iterate_context *_ctx)
 	int ret = _ctx->failed ? -1 : 0;
 
 	db_ldap_enable_input(ctx->conn, TRUE);
-	auth_request_unref(&ctx->request.request.request.auth_request);
+	ctx->deinitialized = TRUE;
 	return ret;
 }
 
