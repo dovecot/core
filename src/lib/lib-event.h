@@ -82,6 +82,8 @@ struct event_passthrough {
 	struct event_passthrough *
 		(*add_int)(const char *key, intmax_t num);
 	struct event_passthrough *
+		(*add_int_nonzero)(const char *key, intmax_t num);
+	struct event_passthrough *
 		(*add_timeval)(const char *key, const struct timeval *tv);
 
 	struct event_passthrough *
@@ -329,6 +331,9 @@ struct event *
 event_add_str(struct event *event, const char *key, const char *value);
 struct event *
 event_add_int(struct event *event, const char *key, intmax_t num);
+/* Adds int value to event if it is non-zero */
+struct event *
+event_add_int_nonzero(struct event *event, const char *key, intmax_t num);
 /* Increase the key's value. If it's not set or isn't an integer type,
    initialize the value to num. */
 struct event *
