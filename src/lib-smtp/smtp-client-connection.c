@@ -21,6 +21,9 @@
 
 #include <ctype.h>
 
+#define SMTP_CLIENT_ERROR_TEXT_CONNECT_FAILED \
+	"Failed to connect to remote server"
+
 const char *const smtp_client_connection_state_names[] = {
 	"disconnected",
 	"connecting",
@@ -1247,7 +1250,7 @@ static void smtp_client_connection_input(struct connection *_conn)
 				i_stream_get_error(conn->conn.input));
 			smtp_client_connection_fail(
 				conn, SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED,
-				"Failed to connect to remote server");
+				SMTP_CLIENT_ERROR_TEXT_CONNECT_FAILED);
 			return;
 		}
 
@@ -1386,7 +1389,7 @@ static void smtp_client_connection_destroy(struct connection *_conn)
 		if (conn->connect_failed) {
 			smtp_client_connection_fail(conn,
 				SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED,
-				"Failed to connect to remote server");
+				SMTP_CLIENT_ERROR_TEXT_CONNECT_FAILED);
 			break;
 		}
 		if (_conn->input != NULL && _conn->input->stream_errno != 0) {
@@ -1602,7 +1605,7 @@ smtp_client_connection_connected(struct connection *_conn, bool success)
 				_conn->name, error);
 			smtp_client_connection_fail(
 				conn, SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED,
-				"Failed to connect to remote server");
+				SMTP_CLIENT_ERROR_TEXT_CONNECT_FAILED);
 		}
 	} else {
 		smtp_client_connection_established(conn);
@@ -1655,7 +1658,7 @@ smtp_client_connection_delayed_connect_error(
 	smtp_client_connection_connected(&conn->conn, FALSE);
 	smtp_client_connection_fail(
 		conn, SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED,
-		"Failed to connect to remote server");
+		SMTP_CLIENT_ERROR_TEXT_CONNECT_FAILED);
 }
 
 static void
