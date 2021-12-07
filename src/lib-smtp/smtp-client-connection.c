@@ -381,7 +381,10 @@ void smtp_client_connection_fail(struct smtp_client_connection *conn,
 
 	i_zero(&text_lines);
 	i_assert(user_error != NULL);
-	text_lines[0] = user_error;
+	if (conn->set.verbose_user_errors && error != NULL)
+		text_lines[0] = error;
+	else
+		text_lines[0] = user_error;
 
 	timeout_remove(&conn->to_connect);
 
@@ -2125,6 +2128,10 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 		conn->set.peer_trusted = set->peer_trusted;
 
 		conn->set.mail_send_broken_path = set->mail_send_broken_path;
+
+		conn->set.verbose_user_errors =
+			conn->set.verbose_user_errors ||
+			set->verbose_user_errors;
 	}
 
 	if (set != NULL && set->extra_capabilities != NULL) {

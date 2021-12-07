@@ -78,6 +78,7 @@ struct smtp_client *smtp_client_init(const struct smtp_client_settings *set)
 	client->set.socket_send_buffer_size = set->socket_send_buffer_size;
 	client->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
 	client->set.debug = set->debug;
+	client->set.verbose_user_errors = set->verbose_user_errors;
 
 	smtp_proxy_data_merge(pool, &client->set.proxy_data, &set->proxy_data);
 

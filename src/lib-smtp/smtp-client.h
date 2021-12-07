@@ -115,6 +115,9 @@ struct smtp_client_settings {
 	/* sending even broken MAIL command path (otherwise a broken address
 	   is sent as <>) */
 	bool mail_send_broken_path;
+	/* Yield verbose user-visible errors for commands and connections that
+	   failed locally. */
+	bool verbose_user_errors;
 };
 
 struct smtp_client *smtp_client_init(const struct smtp_client_settings *set);
