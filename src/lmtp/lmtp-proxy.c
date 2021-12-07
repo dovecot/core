@@ -229,6 +229,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	};
 	struct smtp_client_settings lmtp_set;
 	struct smtp_server_transaction *trans = proxy->trans;
+	struct client *client = proxy->client;
 	struct lmtp_proxy_connection *conn;
 	enum smtp_client_connection_ssl_mode ssl_mode;
 	struct ssl_iostream_settings ssl_set;
@@ -265,6 +266,7 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	lmtp_set.peer_trusted = !conn->set.proxy_not_trusted;
 	lmtp_set.forced_capabilities = SMTP_CAPABILITY__ORCPT;
 	lmtp_set.mail_send_broken_path = TRUE;
+	lmtp_set.verbose_user_errors = client->lmtp_set->lmtp_verbose_replies;
 
 	if (conn->set.hostip.family != 0) {
 		conn->lmtp_conn = smtp_client_connection_create_ip(
@@ -297,8 +299,17 @@ static void
 lmtp_proxy_handle_connection_error(struct lmtp_proxy_recipient *lprcpt,
 				   const struct smtp_reply *reply)
 {
-	struct smtp_server_recipient *rcpt = lprcpt->rcpt->rcpt;
+	struct lmtp_recipient *lrcpt = lprcpt->rcpt;
+	struct client *client = lrcpt->client;
+	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
 	const char *detail = "";
+
+	if (client->lmtp_set->lmtp_verbose_replies) {
+		smtp_server_command_fail(rcpt->cmd->cmd, 451, "4.4.0",
+					 "Proxy failed: %s",
+					 smtp_reply_log(reply));
+		return;
+	}
 
 	switch (reply->status) {
 	case SMTP_CLIENT_COMMAND_ERROR_ABORTED:

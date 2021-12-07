@@ -23,6 +23,7 @@ struct lmtp_settings {
 	bool lmtp_save_to_detail_mailbox;
 	bool lmtp_rcpt_check_quota;
 	bool lmtp_add_received_header;
+	bool lmtp_verbose_replies;
 	unsigned int lmtp_user_concurrency_limit;
 	const char *lmtp_hdr_delivery_address;
 	const char *lmtp_rawlog_dir;
