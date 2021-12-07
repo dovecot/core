@@ -1100,6 +1100,14 @@ event_add_int(struct event *event, const char *key, intmax_t num)
 }
 
 struct event *
+event_add_int_nonzero(struct event *event, const char *key, intmax_t num)
+{
+	if (num != 0)
+		return event_add_int(event, key, num);
+	return event;
+}
+
+struct event *
 event_inc_int(struct event *event, const char *key, intmax_t num)
 {
 	struct event_field *field;
@@ -1664,6 +1672,13 @@ event_passthrough_add_int(const char *key, intmax_t num)
 }
 
 static struct event_passthrough *
+event_passthrough_add_int_nonzero(const char *key, intmax_t num)
+{
+	event_add_int_nonzero(last_passthrough_event(), key, num);
+	return &event_passthrough_vfuncs;
+}
+
+static struct event_passthrough *
 event_passthrough_add_timeval(const char *key, const struct timeval *tv)
 {
 	event_add_timeval(last_passthrough_event(), key, tv);
@@ -1702,6 +1717,7 @@ struct event_passthrough event_passthrough_vfuncs = {
 	.add_fields = event_passthrough_add_fields,
 	.add_str = event_passthrough_add_str,
 	.add_int = event_passthrough_add_int,
+	.add_int_nonzero = event_passthrough_add_int_nonzero,
 	.add_timeval = event_passthrough_add_timeval,
 	.inc_int = event_passthrough_inc_int,
 	.strlist_append = event_passthrough_strlist_append,
