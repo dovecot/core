@@ -305,7 +305,8 @@ struct connection_list *smtp_client_connection_list_init(void);
 void smtp_client_connection_send_xclient(struct smtp_client_connection *conn);
 
 void smtp_client_connection_fail(struct smtp_client_connection *conn,
-				 unsigned int status, const char *error);
+				 unsigned int status, const char *error,
+				 const char *user_error) ATTR_NULL(3);
 
 void smtp_client_connection_handle_output_error(
 	struct smtp_client_connection *conn);

@@ -606,8 +606,6 @@ static int smtp_client_command_send_stream(struct smtp_client_command *cmd)
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
 		/* The provided payload stream is broken;
 		   fail this command separately */
-		e_error(cmd->event, "read(%s) failed: %s",
-			i_stream_get_name(stream), i_stream_get_error(stream));
 		smtp_client_command_fail(
 			&cmd, SMTP_CLIENT_COMMAND_ERROR_BROKEN_PAYLOAD,
 			"Broken payload stream");
@@ -616,6 +614,9 @@ static int smtp_client_command_send_stream(struct smtp_client_command *cmd)
 		o_stream_unref(&conn->dot_output);
 		smtp_client_connection_fail(
 			conn, SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST,
+			t_strdup_printf("read(%s) failed: %s",
+					i_stream_get_name(stream),
+					i_stream_get_error(stream)),
 			"Broken payload stream");
 		return -1;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
@@ -780,7 +781,7 @@ smtp_client_command_disconnected(struct smtp_client_connection *conn)
 {
 	smtp_client_connection_fail(
 		conn, SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST,
-		"Disconnected");
+		NULL, "Disconnected");
 }
 
 static void
