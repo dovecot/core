@@ -183,9 +183,8 @@ smtp_client_connection_transactions_fail_reply(
 }
 
 static void
-smtp_client_connection_transactions_fail(
-	struct smtp_client_connection *conn,
-	unsigned int status, const char *error)
+smtp_client_connection_transactions_fail(struct smtp_client_connection *conn,
+					 unsigned int status, const char *error)
 {
 	struct smtp_reply reply;
 
@@ -454,8 +453,9 @@ void smtp_client_connection_handle_output_error(
 	}
 }
 
-static void stmp_client_connection_ready(struct smtp_client_connection *conn,
-					 const struct smtp_reply *reply)
+static void
+stmp_client_connection_ready(struct smtp_client_connection *conn,
+			     const struct smtp_reply *reply)
 {
 	timeout_remove(&conn->to_connect);
 
@@ -931,8 +931,7 @@ smtp_client_connection_starttls_cb(const struct smtp_reply *reply,
 	}
 }
 
-static bool
-smtp_client_connection_starttls(struct smtp_client_connection *conn)
+static bool smtp_client_connection_starttls(struct smtp_client_connection *conn)
 {
 	struct smtp_client_command *cmd;
 
@@ -1654,8 +1653,8 @@ smtp_client_connection_delayed_connect_error(
 	timeout_remove(&conn->to_connect);
 	errno = conn->connect_errno;
 	smtp_client_connection_connected(&conn->conn, FALSE);
-	smtp_client_connection_fail(conn,
-		SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED,
+	smtp_client_connection_fail(
+		conn, SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED,
 		"Failed to connect to remote server");
 }
 
@@ -1674,8 +1673,8 @@ smtp_client_connection_do_connect(struct smtp_client_connection *conn)
 	if (connection_client_connect(&conn->conn) < 0) {
 		conn->connect_errno = errno;
 		e_debug(conn->event, "Connect failed: %m");
-		conn->to_connect = timeout_add_short(0,
-			smtp_client_connection_delayed_connect_error, conn);
+		conn->to_connect = timeout_add_short(
+			0, smtp_client_connection_delayed_connect_error, conn);
 		return;
 	}
 
@@ -1691,8 +1690,7 @@ smtp_client_connection_do_connect(struct smtp_client_connection *conn)
 	}
 }
 
-static bool
-smtp_client_connection_last_ip(struct smtp_client_connection *conn)
+static bool smtp_client_connection_last_ip(struct smtp_client_connection *conn)
 {
 	i_assert(conn->prev_connect_idx < conn->ips_count);
 	return (conn->prev_connect_idx + 1) % conn->ips_count == 0;
@@ -2023,8 +2021,10 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 	if (set != NULL) {
 		if (set->my_ip.family != 0)
 			conn->set.my_ip = set->my_ip;
-		if (set->my_hostname != NULL && *set->my_hostname != '\0')
-			conn->set.my_hostname = p_strdup(pool, set->my_hostname);
+		if (set->my_hostname != NULL && *set->my_hostname != '\0') {
+			conn->set.my_hostname =
+				p_strdup(pool, set->my_hostname);
+		}
 
 		conn->set.forced_capabilities |= set->forced_capabilities;
 		if (set->extra_capabilities != NULL) {
@@ -2032,16 +2032,24 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 				p_strarray_dup(pool, set->extra_capabilities);
 		}
 
-		if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0')
-			conn->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
+		if (set->rawlog_dir != NULL && *set->rawlog_dir != '\0') {
+			conn->set.rawlog_dir =
+				p_strdup_empty(pool, set->rawlog_dir);
+		}
 
-		if (set->ssl != NULL)
-			conn->set.ssl = ssl_iostream_settings_dup(pool, set->ssl);
+		if (set->ssl != NULL) {
+			conn->set.ssl =
+				ssl_iostream_settings_dup(pool, set->ssl);
+		}
 
-		if (set->master_user != NULL && *set->master_user != '\0')
-			conn->set.master_user = p_strdup_empty(pool, set->master_user);
-		if (set->username != NULL && *set->username != '\0')
-			conn->set.username = p_strdup_empty(pool, set->username);
+		if (set->master_user != NULL && *set->master_user != '\0') {
+			conn->set.master_user =
+				p_strdup_empty(pool, set->master_user);
+		}
+		if (set->username != NULL && *set->username != '\0') {
+			conn->set.username =
+				p_strdup_empty(pool, set->username);
+		}
 		if (set->password != NULL && *set->password != '\0') {
 			conn->password = p_strdup(pool, set->password);
 			conn->set.password = conn->password;
@@ -2055,21 +2063,33 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 		}
 		conn->set.remember_password = set->remember_password;
 
-		if (set->command_timeout_msecs > 0)
-			conn->set.command_timeout_msecs = set->command_timeout_msecs;
-		if (set->connect_timeout_msecs > 0)
-			conn->set.connect_timeout_msecs = set->connect_timeout_msecs;
+		if (set->command_timeout_msecs > 0) {
+			conn->set.command_timeout_msecs =
+				set->command_timeout_msecs;
+		}
+		if (set->connect_timeout_msecs > 0) {
+			conn->set.connect_timeout_msecs =
+				set->connect_timeout_msecs;
+		}
 		if (set->max_reply_size > 0)
 			conn->set.max_reply_size = set->max_reply_size;
-		if (set->max_data_chunk_size > 0)
-			conn->set.max_data_chunk_size = set->max_data_chunk_size;
-		if (set->max_data_chunk_pipeline > 0)
-			conn->set.max_data_chunk_pipeline = set->max_data_chunk_pipeline;
+		if (set->max_data_chunk_size > 0) {
+			conn->set.max_data_chunk_size =
+				set->max_data_chunk_size;
+		}
+		if (set->max_data_chunk_pipeline > 0) {
+			conn->set.max_data_chunk_pipeline =
+				set->max_data_chunk_pipeline;
+		}
 
-		if (set->socket_send_buffer_size > 0)
-			conn->set.socket_send_buffer_size = set->socket_send_buffer_size;
-		if (set->socket_recv_buffer_size > 0)
-			conn->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
+		if (set->socket_send_buffer_size > 0) {
+			conn->set.socket_send_buffer_size =
+				set->socket_send_buffer_size;
+		}
+		if (set->socket_recv_buffer_size > 0) {
+			conn->set.socket_recv_buffer_size =
+				set->socket_recv_buffer_size;
+		}
 		conn->set.debug = conn->set.debug || set->debug;
 
 		smtp_proxy_data_merge(conn->pool, &conn->set.proxy_data,
@@ -2079,7 +2099,6 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 
 		conn->set.mail_send_broken_path = set->mail_send_broken_path;
 	}
-
 
 	if (set != NULL && set->extra_capabilities != NULL) {
 		const char *const *extp;
@@ -2096,7 +2115,7 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 	}
 
 	i_assert(conn->set.my_hostname != NULL &&
-		*conn->set.my_hostname != '\0');
+		 *conn->set.my_hostname != '\0');
 
 	conn->caps.standard = conn->set.forced_capabilities;
 	conn->cap_pool = pool_alloconly_create(
