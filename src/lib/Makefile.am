@@ -172,6 +172,7 @@ liblib_la_SOURCES = \
 	safe-mkstemp.c \
 	sendfile-util.c \
 	seq-range-array.c \
+	seq-set-builder.c \
 	sha1.c \
 	sha2.c \
 	sha3.c \
@@ -329,6 +330,7 @@ headers = \
 	safe-mkstemp.h \
 	sendfile-util.h \
 	seq-range-array.h \
+	seq-set-builder.h \
 	sha-common.h \
 	sha1.h \
 	sha2.h \
@@ -446,6 +448,7 @@ test_lib_SOURCES = \
 	test-priorityq.c \
 	test-random.c \
 	test-seq-range-array.c \
+	test-seq-set-builder.c \
 	test-stats-dist.c \
 	test-str.c \
 	test-strescape.c \
