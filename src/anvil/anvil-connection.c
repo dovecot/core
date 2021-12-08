@@ -9,6 +9,7 @@
 #include "istream-multiplex.h"
 #include "ostream-multiplex.h"
 #include "connection.h"
+#include "str.h"
 #include "strescape.h"
 #include "master-service.h"
 #include "master-interface.h"
@@ -17,6 +18,7 @@
 #include "anvil-connection.h"
 
 #include <unistd.h>
+#include <signal.h>
 
 #define MAX_INBUF_SIZE 1024
 
@@ -38,6 +40,8 @@ struct anvil_connection_command {
 
 struct anvil_connection {
 	struct connection conn;
+	int refcount;
+
 	ARRAY(struct anvil_connection_command) commands;
 
 	struct istream *cmd_input;
@@ -50,11 +54,29 @@ struct anvil_connection {
 	bool added_to_hash:1;
 };
 
+struct anvil_cmd_kick {
+	struct anvil_connection *conn;
+	struct connect_limit_iter *iter;
+
+	int cmd_refcount;
+	unsigned int kick_count;
+};
+
 static struct connection_list *anvil_connections;
 static HASH_TABLE(struct anvil_connection_key *, struct anvil_connection *)
 	anvil_connections_hash;
 
 static void anvil_connection_destroy(struct connection *_conn);
+
+static void anvil_connection_unref(struct anvil_connection **_conn)
+{
+	struct anvil_connection *conn = *_conn;
+
+	*_conn = NULL;
+	i_assert(conn->refcount > 0);
+	if (--conn->refcount == 0)
+		i_free(conn);
+}
 
 static unsigned int
 anvil_connection_key_hash(const struct anvil_connection_key *key)
@@ -138,6 +160,112 @@ static void anvil_cmd_input(struct anvil_connection *conn)
 	}
 }
 
+static void kick_user_finished(struct anvil_cmd_kick *kick)
+{
+	i_assert(kick->cmd_refcount == 0);
+
+	if (kick->conn->conn.output != NULL) {
+		o_stream_nsend_str(kick->conn->conn.output,
+				   t_strdup_printf("%u\n", kick->kick_count));
+	}
+	anvil_connection_unref(&kick->conn);
+	i_free(kick);
+}
+
+static void
+kick_user_callback(const char *reply, const char *error,
+		   struct anvil_cmd_kick *kick)
+{
+	unsigned int count;
+
+	i_assert(kick->cmd_refcount > 0);
+
+	if (error != NULL)
+		;
+	else if (reply[0] == '+' && str_to_uint(reply+1, &count) == 0)
+		kick->kick_count += count;
+	else
+		i_error("Invalid KICK-USER reply: %s", reply);
+	if (--kick->cmd_refcount == 0)
+		kick_user_finished(kick);
+}
+
+static void
+kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
+	       bool add_conn_guid)
+{
+	struct anvil_cmd_kick *kick;
+	struct connect_limit_iter_result result;
+	string_t *cmd = t_str_new(128);
+	pid_t prev_pid = (pid_t)-1;
+
+	kick = i_new(struct anvil_cmd_kick, 1);
+	kick->conn = conn;
+	kick->iter = iter;
+	conn->refcount++;
+
+	while (connect_limit_iter_next(iter, &result)) {
+		switch (result.kick_type) {
+		case KICK_TYPE_NONE:
+			break;
+		case KICK_TYPE_SIGNAL:
+			if (prev_pid == result.pid) {
+				/* Already killed this pid. Note that the
+				   results are sorted by pid and kick_type
+				   is the same for all sessions within the
+				   process. */
+				break;
+			}
+			if (kill(result.pid, SIGTERM) == 0)
+				kick->kick_count++;
+			else if (errno != ESRCH) {
+				i_error("kill(%ld) failed: %m",
+					(long)result.pid);
+			}
+			break;
+		case KICK_TYPE_ADMIN_SOCKET:
+			str_truncate(cmd, 0);
+			str_append(cmd, "KICK-USER\t");
+			str_append_tabescaped(cmd, result.username);
+			if (!guid_128_is_empty(result.conn_guid) &&
+			    add_conn_guid) {
+				str_append_c(cmd, '\t');
+				str_append_tabescaped(cmd,
+					guid_128_to_string(result.conn_guid));
+			}
+
+			kick->cmd_refcount++;
+			admin_cmd_send(result.service, result.pid, str_c(cmd),
+				       kick_user_callback, kick);
+			break;
+		}
+		prev_pid = result.pid;
+	}
+	connect_limit_iter_deinit(&iter);
+	if (kick->cmd_refcount == 0)
+		kick_user_finished(kick);
+}
+
+static void kick_user(struct anvil_connection *conn, const char *username)
+{
+	struct connect_limit_iter *iter;
+
+	iter = connect_limit_iter_begin(connect_limit, username);
+	kick_user_iter(conn, iter, FALSE);
+}
+
+static void
+kick_alt_user(struct anvil_connection *conn,
+	      const char *alt_username_field, const char *alt_username,
+	      const struct ip_addr *except_ip)
+{
+	struct connect_limit_iter *iter;
+
+	iter = connect_limit_iter_begin_alt_username(connect_limit,
+			alt_username_field, alt_username, except_ip);
+	kick_user_iter(conn, iter, TRUE);
+}
+
 static int
 anvil_connection_request(struct anvil_connection *conn,
 			 const char *const *args, const char **error_r)
@@ -218,6 +346,26 @@ anvil_connection_request(struct anvil_connection *conn,
 		connect_limit_disconnect(connect_limit, pid, &key, conn_guid);
 	} else if (strcmp(cmd, "CONNECT-DUMP") == 0) {
 		connect_limit_dump(connect_limit, conn->conn.output);
+	} else if (strcmp(cmd, "KICK-USER") == 0) {
+		if (args[0] == NULL) {
+			*error_r = "KICK-USER: Not enough parameters";
+			return -1;
+		}
+		kick_user(conn, args[0]);
+	} else if (strcmp(cmd, "KICK-ALT-USER") == 0) {
+		if (args[0] == NULL || args[1] == NULL) {
+			*error_r = "KICK-ALT-USER: Not enough parameters";
+			return -1;
+		}
+		struct ip_addr except_ip;
+		if (args[2] == NULL)
+			i_zero(&except_ip);
+		else if (net_addr2ip(args[2], &except_ip) < 0) {
+			*error_r = "KICK-ALT-USER: Invalid except_ip parameter";
+			return -1;
+		}
+		kick_alt_user(conn, args[0], args[1],
+			      except_ip.family == 0 ? NULL : &except_ip);
 	} else if (strcmp(cmd, "KILL") == 0) {
 		if (args[0] == NULL) {
 			*error_r = "KILL: Not enough parameters";
@@ -405,6 +553,7 @@ void anvil_connection_create(int fd, bool master, bool fifo)
 
 	conn = i_new(struct anvil_connection, 1);
 	connection_init_server(anvil_connections, &conn->conn, "anvil", fd, fd);
+	conn->refcount = 1;
 	conn->conn.version_received = FALSE;
 	if (!fifo) {
 		conn->conn.output = o_stream_create_fd(fd, SIZE_MAX);
@@ -449,7 +598,7 @@ static void anvil_connection_destroy(struct connection *_conn)
 	i_stream_destroy(&conn->cmd_input);
 	o_stream_destroy(&conn->cmd_output);
 	i_free(conn->service);
-	i_free(conn);
+	anvil_connection_unref(&conn);
 
 	if (!fifo)
 		master_service_client_connection_destroyed(master_service);
