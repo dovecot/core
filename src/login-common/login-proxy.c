@@ -61,6 +61,7 @@ struct login_proxy {
 	struct ostream *client_output, *server_output;
 	struct iostream_proxy *iostream_proxy;
 	struct ssl_iostream *server_ssl_iostream;
+	guid_128_t anvil_conn_guid;
 
 	struct timeval created;
 	struct timeout *to, *to_notify;
@@ -86,6 +87,7 @@ struct login_proxy {
 	bool destroying:1;
 	bool delayed_disconnect:1;
 	bool disable_reconnect:1;
+	bool anvil_connect_sent:1;
 	bool num_waiting_connections_updated:1;
 };
 
@@ -617,6 +619,17 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
 		}
 		i_assert(detached_login_proxies_count > 0);
 		detached_login_proxies_count--;
+
+		struct master_service_anvil_session anvil_session = {
+			.username = client->virtual_user,
+			.service_name = master_service_get_name(master_service),
+			.ip = client->ip,
+		};
+		if (proxy->anvil_connect_sent) {
+			master_service_anvil_disconnect(master_service,
+							&anvil_session,
+							proxy->anvil_conn_guid);
+		}
 	} else {
 		i_assert(proxy->client_input == NULL);
 		i_assert(proxy->client_output == NULL);
@@ -891,6 +904,16 @@ void login_proxy_detach(struct login_proxy *proxy)
 
 	proxy->input_callback = NULL;
 	proxy->failure_callback = NULL;
+
+	i_assert(!proxy->anvil_connect_sent);
+	struct master_service_anvil_session anvil_session = {
+		.username = client->virtual_user,
+		.service_name = master_service_get_name(master_service),
+		.ip = client->ip,
+	};
+	if (master_service_anvil_connect(master_service, &anvil_session,
+					 proxy->anvil_conn_guid))
+		proxy->anvil_connect_sent = TRUE;
 
 	if (login_proxy_ipc_server == NULL) {
 		login_proxy_ipc_server =
