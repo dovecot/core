@@ -26,11 +26,11 @@ struct service_settings anvil_service_settings = {
 	.protocol = "",
 	.type = "anvil",
 	.executable = "anvil",
-	.user = "$default_internal_user",
+	.user = "",
 	.group = "",
 	.privileged_group = "",
 	.extra_groups = "",
-	.chroot = "empty",
+	.chroot = "",
 
 	.drop_priv_before_exec = FALSE,
 
