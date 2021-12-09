@@ -35,8 +35,6 @@ void var_expand_crypt_deinit(void);
 void auth_var_expand_crypt_init(struct module *module);
 void auth_var_expand_crypt_deinit(void);
 
-static bool has_been_init;
-
 static int
 var_expand_crypt_settings(struct var_expand_crypt_context *ctx,
 			  const char *const *args, const char **error_r)
@@ -141,7 +139,7 @@ var_expand_encrypt(struct var_expand_context *_ctx,
 		   const char *key, const char *field,
 		   const char **result_r, const char **error_r)
 {
-	if (!has_been_init && !var_expand_crypt_initialize(error_r))
+	if (!var_expand_crypt_initialize(error_r))
 		return -1;
 
 	const char *p = strchr(key, ';');
@@ -222,7 +220,7 @@ var_expand_decrypt(struct var_expand_context *_ctx,
 		   const char *key, const char *field,
 		   const char **result_r, const char **error_r)
 {
-	if (!has_been_init && !var_expand_crypt_initialize(error_r))
+	if (!var_expand_crypt_initialize(error_r))
 		return -1;
 
 	const char *p = strchr(key, ';');
@@ -324,8 +322,6 @@ void var_expand_crypt_init(struct module *module ATTR_UNUSED)
 void var_expand_crypt_deinit(void)
 {
 	var_expand_unregister_func_array(funcs);
-	if (has_been_init)
-		dcrypt_deinitialize();
 }
 
 void auth_var_expand_crypt_init(struct module *module)
