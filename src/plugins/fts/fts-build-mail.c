@@ -223,7 +223,6 @@ fts_build_body_begin(struct fts_mail_build_context *ctx,
 	parser_context.user = mail_storage_get_user(storage);
 	parser_context.content_disposition = ctx->content_disposition;
 
-	
 	if (fts_parser_init(&parser_context, &ctx->body_parser)) {
 		/* extract text using the the returned parser */
 		*binary_body_r = TRUE;
