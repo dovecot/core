@@ -58,6 +58,23 @@ fts_backend_class_lookup(const char *backend_name)
 	return NULL;
 }
 
+static void
+fts_header_filters_init(struct fts_backend *backend)
+{
+	struct fts_header_filters *filters = &backend->header_filters;
+	pool_t pool = filters->pool = pool_alloconly_create(
+		MEMPOOL_GROWING"fts_header_filters", 256);
+
+	p_array_init(&filters->includes, pool, 8);
+	p_array_init(&filters->excludes, pool, 8);
+}
+
+static void
+fts_header_filters_deinit(struct fts_backend *backend)
+{
+	pool_unref(&backend->header_filters.pool);
+}
+
 int fts_backend_init(const char *backend_name, struct mail_namespace *ns,
 		     const char **error_r, struct fts_backend **backend_r)
 {
@@ -76,6 +93,8 @@ int fts_backend_init(const char *backend_name, struct mail_namespace *ns,
 		i_free(backend);
 		return -1;
 	}
+
+	fts_header_filters_init(backend);
 	*backend_r = backend;
 	return 0;
 }
@@ -84,6 +103,7 @@ void fts_backend_deinit(struct fts_backend **_backend)
 {
 	struct fts_backend *backend = *_backend;
 
+	fts_header_filters_deinit(backend);
 	*_backend = NULL;
 	backend->v.deinit(backend);
 }

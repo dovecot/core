@@ -476,6 +476,84 @@ static int fts_body_parser_finish(struct fts_mail_build_context *ctx,
 	return 0;
 }
 
+static void
+load_header_filter(const char *key, struct fts_backend *backend,
+		   ARRAY_TYPE(const_string) list, bool *matches_all_r)
+{
+	const char *str = mail_user_plugin_getenv(backend->ns->user, key);
+
+	*matches_all_r = FALSE;
+	if (str == NULL || *str == '\0')
+		return;
+
+	char **entries = p_strsplit_spaces(backend->header_filters.pool, str, " ");
+	for (char **entry = entries; *entry != NULL; ++entry) {
+		const char *value = str_lcase(*entry);
+		array_push_back(&list, &value);
+		if (*value == '*') {
+			*matches_all_r = TRUE;
+			break;
+		}
+	}
+	array_sort(&list, i_strcmp_p);
+}
+
+static struct fts_header_filters *
+load_header_filters(struct fts_backend *backend)
+{
+	struct fts_header_filters *filters = &backend->header_filters;
+	if (!filters->loaded) {
+		bool match_all;
+
+		/* match_all return ignored in includes */
+		load_header_filter("fts_header_includes", backend,
+				   filters->includes, &match_all);
+
+		load_header_filter("fts_header_excludes", backend,
+				   filters->excludes, &match_all);
+		filters->loaded = TRUE;
+		filters->exclude_is_default = match_all;
+	}
+	return filters;
+}
+
+/* This performs comparison between two strings, where the second one can end
+ * with the wildcard '*'. When the match reaches a '*' on the pitem side, zero
+ * (match) is returned regardles of the remaining characters.
+ *
+ * The function obeys the same lexicographic order as i_strcmp_p() and
+ * strcmp(), which is the reason for the casts to unsigned before comparing.
+ */
+static int ATTR_PURE
+header_prefix_cmp(const char *const *pkey, const char *const *pitem)
+{
+	const char *key = *pkey;
+	const char *item = *pitem;
+
+	while (*key == *item && *key != '\0') key++, item++;
+	return item[0] == '*' && item[1] == '\0' ? 0 :
+	       (unsigned char)*key - (unsigned char)*item;
+}
+
+static bool
+is_header_indexable(struct message_block *block, struct fts_backend *backend)
+{
+	struct fts_header_filters *filters = load_header_filters(backend);
+	bool indexable;
+	T_BEGIN {
+		const char *hdr = t_str_lcase(block->hdr->name);
+
+		if (array_bsearch(&filters->includes, &hdr, header_prefix_cmp) != NULL)
+			indexable = TRUE;
+		else if (filters->exclude_is_default ||
+		         array_bsearch(&filters->excludes, &hdr, header_prefix_cmp) != NULL)
+			indexable = FALSE;
+		else
+			indexable = TRUE;
+	} T_END;
+	return indexable;
+}
+
 static int
 fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 		    struct mail *mail,
@@ -571,10 +649,12 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 			continue;
 
 		if (block.hdr != NULL) {
-			fts_parse_mail_header(&ctx, &raw_block);
-			if (fts_build_mail_header(&ctx, &block) < 0) {
-				ret = -1;
-				break;
+			if (is_header_indexable(&block, update_ctx->backend)) {
+				fts_parse_mail_header(&ctx, &raw_block);
+				if (fts_build_mail_header(&ctx, &block) < 0) {
+					ret = -1;
+					break;
+				}
 			}
 		} else if (block.size == 0) {
 			/* end of headers */
