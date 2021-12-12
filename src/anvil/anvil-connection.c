@@ -44,28 +44,22 @@ anvil_connection_next_line(struct anvil_connection *conn)
 }
 
 static bool
-connect_limit_key_parse(const char *ident, struct connect_limit_key *key_r)
+connect_limit_key_parse(const char *const **_args,
+			struct connect_limit_key *key_r)
 {
-	const char *p, *p2, *ip_str;
+	const char *const *args = *_args;
 
-	/* imap, pop3: service/ip/username
-	   lmtp: service/username */
-	p = strchr(ident, '/');
-	if (p == NULL)
+	/* <username> <service> <ip> */
+	if (str_array_length(args) < 3)
 		return FALSE;
 
 	i_zero(key_r);
-	key_r->service = t_strdup_until(ident, p++);
+	key_r->username = args[0];
+	key_r->service = args[1];
+	if (args[2][0] != '\0' && net_addr2ip(args[2], &key_r->ip) < 0)
+		return FALSE;
 
-	p2 = strchr(p, '/');
-	if (p2 == NULL)
-		key_r->username = p;
-	else {
-		ip_str = t_strdup_until(p, p2++);
-		key_r->username = p2;
-		if (ip_str[0] != '\0' && net_addr2ip(ip_str, &key_r->ip) < 0)
-			return FALSE;
-	}
+	*_args += 3;
 	return TRUE;
 }
 
@@ -89,7 +83,8 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "CONNECT: Invalid pid";
 			return -1;
 		}
-		if (!connect_limit_key_parse(args[1], &key)) {
+		args++;
+		if (!connect_limit_key_parse(&args, &key)) {
 			*error_r = "CONNECT: Invalid ident string";
 			return -1;
 		}
@@ -103,7 +98,8 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "DISCONNECT: Invalid pid";
 			return -1;
 		}
-		if (!connect_limit_key_parse(args[1], &key)) {
+		args++;
+		if (!connect_limit_key_parse(&args, &key)) {
 			*error_r = "DISCONNECT: Invalid ident string";
 			return -1;
 		}
@@ -129,7 +125,7 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "LOOKUP: Not enough parameters";
 			return -1;
 		}
-		if (!connect_limit_key_parse(args[0], &key)) {
+		if (!connect_limit_key_parse(&args, &key)) {
 			*error_r = "LOOKUP: Invalid ident string";
 			return -1;
 		}

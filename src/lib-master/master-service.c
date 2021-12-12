@@ -952,13 +952,12 @@ master_service_anvil_session_to_cmd(string_t *cmd,
 	const struct master_service_anvil_session *session)
 {
 	str_printfa(cmd, "%s\t", my_pid);
-	str_append_tabescaped(cmd, session->service_name);
-	if (session->ip.family != 0) {
-		str_append_c(cmd, '/');
-		str_append(cmd, net_ip2addr(&session->ip));
-	}
-	str_append_c(cmd, '/');
 	str_append_tabescaped(cmd, session->username);
+	str_append_c(cmd, '\t');
+	str_append_tabescaped(cmd, session->service_name);
+	str_append_c(cmd, '\t');
+	if (session->ip.family != 0)
+		str_append(cmd, net_ip2addr(&session->ip));
 }
 
 bool master_service_anvil_connect(struct master_service *service,

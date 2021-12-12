@@ -273,9 +273,10 @@ anvil_check_too_many_connections(struct client *client,
 		return;
 	}
 
-	query = t_strconcat("LOOKUP\t", login_binary->protocol, "/",
-			    net_ip2addr(&client->ip), "/",
-			    str_tabescape(client->virtual_user), NULL);
+	query = t_strconcat("LOOKUP\t",
+			    str_tabescape(client->virtual_user), "\t",
+			    login_binary->protocol, "\t",
+			    net_ip2addr(&client->ip), NULL);
 	client->anvil_request = req;
 	client->anvil_query =
 		anvil_client_query(anvil, query, anvil_lookup_callback, req);

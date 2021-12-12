@@ -352,8 +352,8 @@ int lmtp_local_rcpt(struct client *client,
 		const struct mail_storage_service_input *input =
 			mail_storage_service_user_get_input(llrcpt->service_user);
 		const char *query = t_strconcat("LOOKUP\t",
-			master_service_get_name(master_service),
-			"/", str_tabescape(input->username), NULL);
+			str_tabescape(input->username), "\t",
+			master_service_get_name(master_service), "\t", NULL);
 		llrcpt->anvil_query = anvil_client_query(anvil, query,
 			lmtp_local_rcpt_anvil_cb, llrcpt);
 		return 0;
