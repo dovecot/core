@@ -920,25 +920,28 @@ bool master_service_is_master_stopped(struct master_service *service)
 		(service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0;
 }
 
-void master_service_anvil_send(struct master_service *service, const char *cmd)
+bool master_service_anvil_send(struct master_service *service, const char *cmd)
 {
 	ssize_t ret;
 
 	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0)
-		return;
+		return FALSE;
 
 	ret = write(MASTER_ANVIL_FD, cmd, strlen(cmd));
 	if (ret < 0) {
 		if (errno == EPIPE) {
 			/* anvil process was probably recreated, don't bother
 			   logging an error about losing connection to it */
-			return;
+			return FALSE;
 		}
 		i_error("write(anvil) failed: %m");
-	} else if (ret == 0)
+		return FALSE;
+	} else if (ret == 0) {
 		i_error("write(anvil) failed: EOF");
-	else {
+		return FALSE;
+	} else {
 		i_assert((size_t)ret == strlen(cmd));
+		return TRUE;
 	}
 }
 
