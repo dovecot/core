@@ -43,11 +43,38 @@ anvil_connection_next_line(struct anvil_connection *conn)
 	return line == NULL ? NULL : t_strsplit_tabescaped(line);
 }
 
+static bool
+connect_limit_key_parse(const char *ident, struct connect_limit_key *key_r)
+{
+	const char *p, *p2, *ip_str;
+
+	/* imap, pop3: service/ip/username
+	   lmtp: service/username */
+	p = strchr(ident, '/');
+	if (p == NULL)
+		return FALSE;
+
+	i_zero(key_r);
+	key_r->service = t_strdup_until(ident, p++);
+
+	p2 = strchr(p, '/');
+	if (p2 == NULL)
+		key_r->username = p;
+	else {
+		ip_str = t_strdup_until(p, p2++);
+		key_r->username = p2;
+		if (ip_str[0] != '\0' && net_addr2ip(ip_str, &key_r->ip) < 0)
+			return FALSE;
+	}
+	return TRUE;
+}
+
 static int
 anvil_connection_request(struct anvil_connection *conn,
 			 const char *const *args, const char **error_r)
 {
 	const char *cmd = args[0];
+	struct connect_limit_key key;
 	unsigned int value, checksum;
 	time_t stamp;
 	pid_t pid;
@@ -62,7 +89,11 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "CONNECT: Invalid pid";
 			return -1;
 		}
-		connect_limit_connect(connect_limit, pid, args[1]);
+		if (!connect_limit_key_parse(args[1], &key)) {
+			*error_r = "CONNECT: Invalid ident string";
+			return -1;
+		}
+		connect_limit_connect(connect_limit, pid, &key);
 	} else if (strcmp(cmd, "DISCONNECT") == 0) {
 		if (args[0] == NULL || args[1] == NULL) {
 			*error_r = "DISCONNECT: Not enough parameters";
@@ -72,7 +103,11 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "DISCONNECT: Invalid pid";
 			return -1;
 		}
-		connect_limit_disconnect(connect_limit, pid, args[1]);
+		if (!connect_limit_key_parse(args[1], &key)) {
+			*error_r = "DISCONNECT: Invalid ident string";
+			return -1;
+		}
+		connect_limit_disconnect(connect_limit, pid, &key);
 	} else if (strcmp(cmd, "CONNECT-DUMP") == 0) {
 		connect_limit_dump(connect_limit, conn->output);
 	} else if (strcmp(cmd, "KILL") == 0) {
@@ -94,11 +129,15 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "LOOKUP: Not enough parameters";
 			return -1;
 		}
+		if (!connect_limit_key_parse(args[0], &key)) {
+			*error_r = "LOOKUP: Invalid ident string";
+			return -1;
+		}
 		if (conn->output == NULL) {
 			*error_r = "LOOKUP on a FIFO, can't send reply";
 			return -1;
 		}
-		value = connect_limit_lookup(connect_limit, args[0]);
+		value = connect_limit_lookup(connect_limit, &key);
 		o_stream_nsend_str(conn->output,
 				   t_strdup_printf("%u\n", value));
 	} else if (strcmp(cmd, "PENALTY-GET") == 0) {
