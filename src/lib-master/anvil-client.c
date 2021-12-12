@@ -32,7 +32,7 @@ struct anvil_client {
 	enum anvil_client_flags flags;
 };
 
-#define ANVIL_HANDSHAKE "VERSION\tanvil\t1\t0\n"
+#define ANVIL_HANDSHAKE "VERSION\tanvil\t2\t0\n"
 #define ANVIL_INBUF_SIZE 1024
 #define ANVIL_RECONNECT_MIN_SECS 5
 #define ANVIL_QUERY_TIMEOUT_MSECS (1000*5)

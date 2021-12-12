@@ -174,7 +174,7 @@ int who_parse_args(struct who_context *ctx, const char *const *masks)
 
 void who_lookup(struct who_context *ctx, who_callback_t *callback)
 {
-#define ANVIL_HANDSHAKE "VERSION\tanvil\t1\t0\n"
+#define ANVIL_HANDSHAKE "VERSION\tanvil\t2\t0\n"
 #define ANVIL_CMD ANVIL_HANDSHAKE"CONNECT-DUMP\n"
 	struct istream *input;
 	const char *line;
