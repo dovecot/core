@@ -186,7 +186,6 @@ client_create(int fd_in, int fd_out, struct mail_user *user,
 		set->parsed_workarounds;
 	const struct mail_storage_settings *mail_set;
 	struct smtp_server_settings smtp_set;
-	const char *ident;
 	struct client *client;
 	pool_t pool;
 
@@ -249,14 +248,10 @@ client_create(int fd_in, int fd_out, struct mail_user *user,
 	submission_client_count++;
 	DLLIST_PREPEND(&submission_clients, client);
 
-	ident = mail_user_get_anvil_userip_ident(client->user);
-	if (ident != NULL) {
-		if (master_service_anvil_send(
-			master_service, t_strconcat(
-				"CONNECT\t", my_pid, "\tsubmission/", ident,
-				"\n", NULL)))
-			client->anvil_sent = TRUE;
-	}
+	struct master_service_anvil_session anvil_session;
+	mail_user_get_anvil_session(client->user, &anvil_session);
+	if (master_service_anvil_connect(master_service, &anvil_session))
+		client->anvil_sent = TRUE;
 
 	if (hook_client_created != NULL)
 		hook_client_created(&client);
@@ -316,11 +311,9 @@ client_default_destroy(struct client *client)
 	DLLIST_REMOVE(&submission_clients, client);
 
 	if (client->anvil_sent) {
-		master_service_anvil_send(
-			master_service, t_strconcat(
-				"DISCONNECT\t", my_pid, "\tsubmission/",
-				mail_user_get_anvil_userip_ident(client->user),
-				"\n", NULL));
+		struct master_service_anvil_session anvil_session;
+		mail_user_get_anvil_session(client->user, &anvil_session);
+		master_service_anvil_disconnect(master_service, &anvil_session);
 	}
 
 	if (client->urlauth_ctx != NULL)

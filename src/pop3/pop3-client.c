@@ -448,7 +448,7 @@ void client_create_finish(struct client *client)
 int client_init_mailbox(struct client *client, const char **error_r)
 {
         enum mailbox_flags flags;
-	const char *ident, *errmsg;
+	const char *errmsg;
 
 	/* refresh proctitle before a potentially long-running init_mailbox() */
 	pop3_refresh_proctitle();
@@ -473,12 +473,10 @@ int client_init_mailbox(struct client *client, const char **error_r)
 	if (!client->set->pop3_no_flag_updates && client->messages_count > 0)
 		client->seen_bitmask = i_malloc(MSGS_BITMASK_SIZE(client));
 
-	ident = mail_user_get_anvil_userip_ident(client->user);
-	if (ident != NULL) {
-		if (master_service_anvil_send(master_service, t_strconcat(
-			"CONNECT\t", my_pid, "\tpop3/", ident, "\n", NULL)))
-			client->anvil_sent = TRUE;
-	}
+	struct master_service_anvil_session anvil_session;
+	mail_user_get_anvil_session(client->user, &anvil_session);
+	if (master_service_anvil_connect(master_service, &anvil_session))
+		client->anvil_sent = TRUE;
 	return 0;
 }
 
@@ -604,10 +602,9 @@ static void client_default_destroy(struct client *client, const char *reason)
 	if (client->mailbox != NULL)
 		mailbox_free(&client->mailbox);
 	if (client->anvil_sent) {
-		master_service_anvil_send(master_service, t_strconcat(
-			"DISCONNECT\t", my_pid, "\tpop3/",
-			mail_user_get_anvil_userip_ident(client->user),
-			"\n", NULL));
+		struct master_service_anvil_session anvil_session;
+		mail_user_get_anvil_session(client->user, &anvil_session);
+		master_service_anvil_disconnect(master_service, &anvil_session);
 	}
 
 	if (client->session_dotlock != NULL)

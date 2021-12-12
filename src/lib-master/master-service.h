@@ -92,6 +92,12 @@ struct master_service_connection {
 	bool accepted:1;
 };
 
+struct master_service_anvil_session {
+	const char *username;
+	const char *service_name;
+	struct ip_addr ip;
+};
+
 typedef void
 master_service_connection_callback_t(struct master_service_connection *conn);
 
@@ -225,9 +231,13 @@ bool master_service_is_killed(struct master_service *service);
    standalone. */
 bool master_service_is_master_stopped(struct master_service *service);
 
-/* Send command to anvil process, if we have fd to it. Returns TRUE if it was
-   successfully sent. */
-bool master_service_anvil_send(struct master_service *service, const char *cmd);
+/* Send CONNECT command to anvil process, if it's still connected.
+   Returns TRUE if it was successfully sent. */
+bool master_service_anvil_connect(struct master_service *service,
+	const struct master_service_anvil_session *session);
+/* Send DISCONNECT command to anvil process, if it's still connected. */
+void master_service_anvil_disconnect(struct master_service *service,
+	const struct master_service_anvil_session *session);
 /* Call to accept the client connection. Otherwise the connection is closed. */
 void master_service_client_connection_accept(struct master_service_connection *conn);
 /* Used to create "extra client connections" outside the common accept()

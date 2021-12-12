@@ -8,6 +8,7 @@
 #include "hostpid.h"
 #include "path-util.h"
 #include "array.h"
+#include "str.h"
 #include "strescape.h"
 #include "env-util.h"
 #include "home-expand.h"
@@ -920,7 +921,8 @@ bool master_service_is_master_stopped(struct master_service *service)
 		(service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0;
 }
 
-bool master_service_anvil_send(struct master_service *service, const char *cmd)
+static bool
+master_service_anvil_send(struct master_service *service, const char *cmd)
 {
 	ssize_t ret;
 
@@ -943,6 +945,40 @@ bool master_service_anvil_send(struct master_service *service, const char *cmd)
 		i_assert((size_t)ret == strlen(cmd));
 		return TRUE;
 	}
+}
+
+static void
+master_service_anvil_session_to_cmd(string_t *cmd,
+	const struct master_service_anvil_session *session)
+{
+	str_printfa(cmd, "%s\t", my_pid);
+	str_append_tabescaped(cmd, session->service_name);
+	if (session->ip.family != 0) {
+		str_append_c(cmd, '/');
+		str_append(cmd, net_ip2addr(&session->ip));
+	}
+	str_append_c(cmd, '/');
+	str_append_tabescaped(cmd, session->username);
+}
+
+bool master_service_anvil_connect(struct master_service *service,
+	const struct master_service_anvil_session *session)
+{
+	string_t *cmd = t_str_new(128);
+	str_append(cmd, "CONNECT\t");
+	master_service_anvil_session_to_cmd(cmd, session);
+	str_append_c(cmd, '\n');
+	return master_service_anvil_send(service, str_c(cmd));
+}
+
+void master_service_anvil_disconnect(struct master_service *service,
+	const struct master_service_anvil_session *session)
+{
+	string_t *cmd = t_str_new(128);
+	str_append(cmd, "DISCONNECT\t");
+	master_service_anvil_session_to_cmd(cmd, session);
+	str_append_c(cmd, '\n');
+	(void)master_service_anvil_send(service, str_c(cmd));
 }
 
 void master_service_client_connection_created(struct master_service *service)

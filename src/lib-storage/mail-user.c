@@ -640,12 +640,14 @@ int mail_user_lock_file_create(struct mail_user *user, const char *lock_fname,
 	return mail_storage_lock_create(path, &lock_set, mail_set, lock_r, error_r);
 }
 
-const char *mail_user_get_anvil_userip_ident(struct mail_user *user)
+void mail_user_get_anvil_session(struct mail_user *user,
+				 struct master_service_anvil_session *session_r)
 {
-	if (user->conn.remote_ip == NULL)
-		return NULL;
-	return t_strconcat(net_ip2addr(user->conn.remote_ip), "/",
-			   str_tabescape(user->username), NULL);
+	i_zero(session_r);
+	session_r->username = user->username;
+	session_r->service_name = master_service_get_name(master_service);
+	if (user->conn.remote_ip != NULL)
+		session_r->ip = *user->conn.remote_ip;
 }
 
 static void

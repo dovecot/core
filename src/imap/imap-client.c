@@ -118,7 +118,6 @@ struct client *client_create(int fd_in, int fd_out,
 {
 	const struct mail_storage_settings *mail_set;
 	struct client *client;
-	const char *ident;
 	pool_t pool;
 
 	/* always use nonblocking I/O */
@@ -203,12 +202,10 @@ struct client *client_create(int fd_in, int fd_out,
 		client_add_capability(client, "SPECIAL-USE");
 	}
 
-	ident = mail_user_get_anvil_userip_ident(client->user);
-	if (ident != NULL) {
-		if (master_service_anvil_send(master_service, t_strconcat(
-			"CONNECT\t", my_pid, "\timap/", ident, "\n", NULL)))
-			client->anvil_sent = TRUE;
-	}
+	struct master_service_anvil_session anvil_session;
+	mail_user_get_anvil_session(client->user, &anvil_session);
+	if (master_service_anvil_connect(master_service, &anvil_session))
+		client->anvil_sent = TRUE;
 
 	imap_client_count++;
 	DLLIST_PREPEND(&imap_clients, client);
@@ -493,10 +490,9 @@ static void client_default_destroy(struct client *client, const char *reason)
 	if (client->mailbox != NULL)
 		imap_client_close_mailbox(client);
 	if (client->anvil_sent) {
-		master_service_anvil_send(master_service, t_strconcat(
-			"DISCONNECT\t", my_pid, "\timap/",
-			mail_user_get_anvil_userip_ident(client->user),
-			"\n", NULL));
+		struct master_service_anvil_session anvil_session;
+		mail_user_get_anvil_session(client->user, &anvil_session);
+		master_service_anvil_disconnect(master_service, &anvil_session);
 	}
 
 	if (client->free_parser != NULL)

@@ -565,14 +565,6 @@ static void imap_client_io_deactivate_user(struct imap_client *client ATTR_UNUSE
 	i_set_failure_prefix("imap-hibernate: ");
 }
 
-static const char *imap_client_get_anvil_userip_ident(struct imap_client_state *state)
-{
-	if (state->remote_ip.family == 0)
-		return NULL;
-	return t_strconcat(net_ip2addr(&state->remote_ip), "/",
-			   str_tabescape(state->username), NULL);
-}
-
 struct imap_client *
 imap_client_create(int fd, const struct imap_client_state *state)
 {
@@ -583,7 +575,7 @@ imap_client_create(int fd, const struct imap_client_state *state)
 	struct imap_client *client;
 	pool_t pool = pool_alloconly_create("imap client", 256);
 	void *statebuf;
-	const char *ident, *error;
+	const char *error;
 
 	i_assert(state->username != NULL);
 	i_assert(state->mail_log_prefix != NULL);
@@ -638,12 +630,13 @@ imap_client_create(int fd, const struct imap_client_state *state)
 		client->log_prefix = p_strdup(pool, str_c(str));
 	} T_END;
 
-	ident = imap_client_get_anvil_userip_ident(&client->state);
-	if (ident != NULL) {
-		if (master_service_anvil_send(master_service, t_strconcat(
-			"CONNECT\t", my_pid, "\timap/", ident, "\n", NULL)))
-			client->state.anvil_sent = TRUE;
-	}
+	struct master_service_anvil_session anvil_session = {
+		.username = client->state.username,
+		.service_name = "imap",
+		.ip = client->state.remote_ip,
+	};
+	if (master_service_anvil_connect(master_service, &anvil_session))
+		client->state.anvil_sent = TRUE;
 
 	p_array_init(&client->notifys, pool, 2);
 	DLLIST_PREPEND(&imap_clients, client);
@@ -685,10 +678,12 @@ void imap_client_destroy(struct imap_client **_client, const char *reason)
 	}
 
 	if (client->state.anvil_sent) {
-		master_service_anvil_send(master_service, t_strconcat(
-			"DISCONNECT\t", my_pid, "\timap/",
-			imap_client_get_anvil_userip_ident(&client->state),
-			"\n", NULL));
+		struct master_service_anvil_session anvil_session = {
+			.username = client->state.username,
+			.service_name = "imap",
+			.ip = client->state.remote_ip,
+		};
+		master_service_anvil_disconnect(master_service, &anvil_session);
 	}
 
 	if (client->master_conn != NULL)

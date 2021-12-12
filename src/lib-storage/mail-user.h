@@ -10,6 +10,7 @@ struct module;
 struct stats;
 struct fs_settings;
 struct ssl_iostream_settings;
+struct master_service_anvil_session;
 struct mail_user;
 struct dict_op_settings;
 
@@ -200,8 +201,9 @@ void mail_user_drop_useless_namespaces(struct mail_user *user);
 const char *mail_user_home_expand(struct mail_user *user, const char *path);
 /* Returns 0 if ok, -1 if home directory isn't set. */
 int mail_user_try_home_expand(struct mail_user *user, const char **path);
-/* Returns unique user+ip identifier for anvil. */
-const char *mail_user_get_anvil_userip_ident(struct mail_user *user);
+/* Fill out anvil session struct for the user session. */
+void mail_user_get_anvil_session(struct mail_user *user,
+				 struct master_service_anvil_session *session_r);
 
 /* Basically the same as mail_storage_find_class(), except automatically load
    storage plugins when needed. */

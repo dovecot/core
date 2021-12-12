@@ -97,9 +97,11 @@ lmtp_local_rcpt_anvil_disconnect(struct lmtp_local_recipient *llrcpt)
 	llrcpt->anvil_connect_sent = FALSE;
 
 	input = mail_storage_service_user_get_input(llrcpt->service_user);
-	master_service_anvil_send(master_service, t_strconcat(
-		"DISCONNECT\t", my_pid, "\t", master_service_get_name(master_service),
-		"/", input->username, "\n", NULL));
+	struct master_service_anvil_session anvil_session = {
+		.username = input->username,
+		.service_name = master_service_get_name(master_service),
+	};
+	master_service_anvil_disconnect(master_service, &anvil_session);
 }
 
 static void
@@ -274,9 +276,11 @@ lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
 			"Too many concurrent deliveries for user");
 	} else if (lmtp_local_rcpt_anvil_finish(llrcpt)) {
 		input = mail_storage_service_user_get_input(llrcpt->service_user);
-		if (master_service_anvil_send(master_service, t_strconcat(
-			"CONNECT\t", my_pid, "\t", master_service_get_name(master_service),
-			"/", input->username, "\n", NULL)))
+		struct master_service_anvil_session anvil_session = {
+			.username = input->username,
+			.service_name = master_service_get_name(master_service),
+		};
+		if (master_service_anvil_connect(master_service, &anvil_session))
 			llrcpt->anvil_connect_sent = TRUE;
 	}
 }
