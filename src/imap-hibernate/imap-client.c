@@ -640,9 +640,9 @@ imap_client_create(int fd, const struct imap_client_state *state)
 
 	ident = imap_client_get_anvil_userip_ident(&client->state);
 	if (ident != NULL) {
-		master_service_anvil_send(master_service, t_strconcat(
-			"CONNECT\t", my_pid, "\timap/", ident, "\n", NULL));
-		client->state.anvil_sent = TRUE;
+		if (master_service_anvil_send(master_service, t_strconcat(
+			"CONNECT\t", my_pid, "\timap/", ident, "\n", NULL)))
+			client->state.anvil_sent = TRUE;
 	}
 
 	p_array_init(&client->notifys, pool, 2);

@@ -475,9 +475,9 @@ int client_init_mailbox(struct client *client, const char **error_r)
 
 	ident = mail_user_get_anvil_userip_ident(client->user);
 	if (ident != NULL) {
-		master_service_anvil_send(master_service, t_strconcat(
-			"CONNECT\t", my_pid, "\tpop3/", ident, "\n", NULL));
-		client->anvil_sent = TRUE;
+		if (master_service_anvil_send(master_service, t_strconcat(
+			"CONNECT\t", my_pid, "\tpop3/", ident, "\n", NULL)))
+			client->anvil_sent = TRUE;
 	}
 	return 0;
 }

@@ -205,9 +205,9 @@ struct client *client_create(int fd_in, int fd_out,
 
 	ident = mail_user_get_anvil_userip_ident(client->user);
 	if (ident != NULL) {
-		master_service_anvil_send(master_service, t_strconcat(
-			"CONNECT\t", my_pid, "\timap/", ident, "\n", NULL));
-		client->anvil_sent = TRUE;
+		if (master_service_anvil_send(master_service, t_strconcat(
+			"CONNECT\t", my_pid, "\timap/", ident, "\n", NULL)))
+			client->anvil_sent = TRUE;
 	}
 
 	imap_client_count++;

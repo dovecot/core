@@ -251,11 +251,11 @@ client_create(int fd_in, int fd_out, struct mail_user *user,
 
 	ident = mail_user_get_anvil_userip_ident(client->user);
 	if (ident != NULL) {
-		master_service_anvil_send(
+		if (master_service_anvil_send(
 			master_service, t_strconcat(
 				"CONNECT\t", my_pid, "\tsubmission/", ident,
-				"\n", NULL));
-		client->anvil_sent = TRUE;
+				"\n", NULL)))
+			client->anvil_sent = TRUE;
 	}
 
 	if (hook_client_created != NULL)

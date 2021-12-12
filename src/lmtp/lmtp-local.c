@@ -273,11 +273,11 @@ lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
 			rcpt, 451, "4.3.0",
 			"Too many concurrent deliveries for user");
 	} else if (lmtp_local_rcpt_anvil_finish(llrcpt)) {
-		llrcpt->anvil_connect_sent = TRUE;
 		input = mail_storage_service_user_get_input(llrcpt->service_user);
-		master_service_anvil_send(master_service, t_strconcat(
+		if (master_service_anvil_send(master_service, t_strconcat(
 			"CONNECT\t", my_pid, "\t", master_service_get_name(master_service),
-			"/", input->username, "\n", NULL));
+			"/", input->username, "\n", NULL)))
+			llrcpt->anvil_connect_sent = TRUE;
 	}
 }
 
