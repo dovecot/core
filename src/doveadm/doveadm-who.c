@@ -83,8 +83,8 @@ static int who_parse_line(const char *line, struct who_line *line_r)
 	const char *const *args = t_strsplit_tabescaped(line);
 	i_zero(line_r);
 
-	/* <pid> <refcount> <username> <service> <ip> */
-	if (str_array_length(args) < 5)
+	/* <pid> <refcount> <username> <service> <ip> <conn-guid> */
+	if (str_array_length(args) < 6)
 		return -1;
 
 	if (str_to_pid(args[0], &line_r->pid) < 0)
@@ -95,6 +95,10 @@ static int who_parse_line(const char *line, struct who_line *line_r)
 	line_r->service = args[3];
 	if (args[4][0] != '\0') {
 		if (net_addr2ip(args[4], &line_r->ip) < 0)
+			return -1;
+	}
+	if (args[5][0] != '\0') {
+		if (guid_128_from_string(args[5], line_r->conn_guid) < 0)
 			return -1;
 	}
 	return 0;

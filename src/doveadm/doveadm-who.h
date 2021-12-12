@@ -1,9 +1,12 @@
 #ifndef DOVEADM_WHO_H
 #define DOVEADM_WHO_H
 
+#include "guid.h"
+
 struct who_line {
 	const char *username;
 	const char *service;
+	guid_128_t conn_guid;
 	struct ip_addr ip;
 	pid_t pid;
 	unsigned int refcount;

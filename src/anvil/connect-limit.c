@@ -18,6 +18,7 @@ struct session {
 	/* points to userip_hash keys */
 	struct userip *userip;
 	pid_t pid;
+	guid_128_t conn_guid;
 	unsigned int refcount;
 };
 
@@ -50,12 +51,18 @@ static int userip_cmp(const struct userip *userip1,
 
 static unsigned int session_hash(const struct session *session)
 {
-	return userip_hash(session->userip) ^ session->pid;
+	return userip_hash(session->userip) ^
+		guid_128_hash(session->conn_guid) ^ session->pid;
 }
 
 static int session_cmp(const struct session *session1,
 		       const struct session *session2)
 {
+	/* conn-guids should be unique, but only if they're not empty */
+	int ret = guid_128_cmp(session1->conn_guid, session2->conn_guid);
+	if (ret != 0)
+		return ret;
+
 	if (session1->pid < session2->pid)
 		return -1;
 	else if (session1->pid > session2->pid)
@@ -103,7 +110,8 @@ unsigned int connect_limit_lookup(struct connect_limit *limit,
 }
 
 void connect_limit_connect(struct connect_limit *limit, pid_t pid,
-			   const struct connect_limit_key *key)
+			   const struct connect_limit_key *key,
+			   const guid_128_t conn_guid)
 {
 	struct session *session;
 	struct userip *userip;
@@ -131,16 +139,23 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 		.userip = userip,
 		.pid = pid,
 	};
+	guid_128_copy(session_lookup.conn_guid, conn_guid);
 	session = hash_table_lookup(limit->session_hash, &session_lookup);
 	if (session == NULL) {
 		session = i_new(struct session, 1);
 		session->userip = userip;
 		session->pid = pid;
+		guid_128_copy(session->conn_guid, conn_guid);
 		session->refcount = 1;
 		hash_table_insert(limit->session_hash, session, session);
 	} else {
 		session->refcount++;
 	}
+}
+
+static void session_free(struct session *session)
+{
+	i_free(session);
 }
 
 static void
@@ -168,7 +183,8 @@ userip_hash_unref(struct connect_limit *limit,
 }
 
 void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
-			      const struct connect_limit_key *key)
+			      const struct connect_limit_key *key,
+			      const guid_128_t conn_guid)
 {
 	struct session *session;
 	struct userip userip_lookup = {
@@ -181,19 +197,20 @@ void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
 		.userip = &userip_lookup,
 		.pid = pid,
 	};
+	guid_128_copy(session_lookup.conn_guid, conn_guid);
 
 	session = hash_table_lookup(limit->session_hash, &session_lookup);
 	if (session == NULL) {
 		i_error("connect limit: disconnection for unknown "
-			"(pid=%s, user=%s, service=%s, ip=%s)",
+			"(pid=%s, user=%s, service=%s, ip=%s, conn_guid=%s)",
 			dec2str(pid), key->username, key->service,
-			net_ip2addr(&key->ip));
+			net_ip2addr(&key->ip), guid_128_to_string(conn_guid));
 		return;
 	}
 
 	if (--session->refcount == 0) {
 		hash_table_remove(limit->session_hash, session);
-		i_free(session);
+		session_free(session);
 	}
 
 	userip_hash_unref(limit, &userip_lookup);
@@ -212,7 +229,7 @@ void connect_limit_disconnect_pid(struct connect_limit *limit, pid_t pid)
 			hash_table_remove(limit->session_hash, session);
 			for (; session->refcount > 0; session->refcount--)
 				userip_hash_unref(limit, session->userip);
-			i_free(session);
+			session_free(session);
 		}
 	}
 	hash_table_iterate_deinit(&iter);
@@ -237,6 +254,8 @@ void connect_limit_dump(struct connect_limit *limit, struct ostream *output)
 		str_append_c(str, '\t');
 		if (session->userip->ip.family != 0)
 			str_append(str, net_ip2addr(&session->userip->ip));
+		str_append_c(str, '\t');
+		str_append_tabescaped(str, guid_128_to_string(session->conn_guid));
 		str_append_c(str, '\n');
 		ret = o_stream_send(output, str_data(str), str_len(str));
 	} T_END;

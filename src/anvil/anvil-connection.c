@@ -68,6 +68,7 @@ anvil_connection_request(struct anvil_connection *conn,
 			 const char *const *args, const char **error_r)
 {
 	const char *cmd = args[0];
+	guid_128_t conn_guid;
 	struct connect_limit_key key;
 	unsigned int value, checksum;
 	time_t stamp;
@@ -88,7 +89,15 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "CONNECT: Invalid ident string";
 			return -1;
 		}
-		connect_limit_connect(connect_limit, pid, &key);
+		if (args[0] == NULL) {
+			*error_r = "CONNECT: Missing conn-guid";
+			return -1;
+		}
+		if (guid_128_from_string(args[0], conn_guid) < 0) {
+			*error_r = "CONNECT: Invalid conn-guid";
+			return -1;
+		}
+		connect_limit_connect(connect_limit, pid, &key, conn_guid);
 	} else if (strcmp(cmd, "DISCONNECT") == 0) {
 		if (args[0] == NULL || args[1] == NULL) {
 			*error_r = "DISCONNECT: Not enough parameters";
@@ -103,7 +112,15 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "DISCONNECT: Invalid ident string";
 			return -1;
 		}
-		connect_limit_disconnect(connect_limit, pid, &key);
+		if (args[0] == NULL) {
+			*error_r = "DISCONNECT: Missing conn-guid";
+			return -1;
+		}
+		if (guid_128_from_string(args[0], conn_guid) < 0) {
+			*error_r = "DISCONNECT: Invalid conn-guid";
+			return -1;
+		}
+		connect_limit_disconnect(connect_limit, pid, &key, conn_guid);
 	} else if (strcmp(cmd, "CONNECT-DUMP") == 0) {
 		connect_limit_dump(connect_limit, conn->output);
 	} else if (strcmp(cmd, "KILL") == 0) {
