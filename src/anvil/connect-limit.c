@@ -229,15 +229,15 @@ void connect_limit_dump(struct connect_limit *limit, struct ostream *output)
 	while (ret >= 0 &&
 	       hash_table_iterate(iter, limit->session_hash, &session, &value)) T_BEGIN {
 		str_truncate(str, 0);
-		str_append_tabescaped(str, session->userip->service);
-		if (session->userip->ip.family != 0) {
-			str_append_c(str, '/');
-			str_append(str, net_ip2addr(&session->userip->ip));
-		}
-		str_append_c(str, '/');
-		str_append_tabescaped(str, session->userip->username);
-		str_printfa(str, "\t%ld\t%u\n", (long)session->pid,
+		str_printfa(str, "%ld\t%u\t", (long)session->pid,
 			    session->refcount);
+		str_append_tabescaped(str, session->userip->username);
+		str_append_c(str, '\t');
+		str_append_tabescaped(str, session->userip->service);
+		str_append_c(str, '\t');
+		if (session->userip->ip.family != 0)
+			str_append(str, net_ip2addr(&session->userip->ip));
+		str_append_c(str, '\n');
 		ret = o_stream_send(output, str_data(str), str_len(str));
 	} T_END;
 	hash_table_iterate_deinit(&iter);

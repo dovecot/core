@@ -81,31 +81,22 @@ who_user_has_ip(const struct who_user *user, const struct ip_addr *ip)
 static int who_parse_line(const char *line, struct who_line *line_r)
 {
 	const char *const *args = t_strsplit_tabescaped(line);
-	const char *ident = args[0];
-	const char *pid_str = args[1];
-	const char *refcount_str = args[2];
-	const char *p, *ip_str;
-
 	i_zero(line_r);
 
-	/* ident = service/ip/username (imap, pop3)
-	   or      service/username (lmtp) */
-	p = strchr(ident, '/');
-	if (p == NULL)
+	/* <pid> <refcount> <username> <service> <ip> */
+	if (str_array_length(args) < 5)
 		return -1;
-	if (str_to_pid(pid_str, &line_r->pid) < 0)
+
+	if (str_to_pid(args[0], &line_r->pid) < 0)
 		return -1;
-	line_r->service = t_strdup_until(ident, p++);
-	line_r->username = strchr(p, '/');
-	if (line_r->username == NULL) {
-		/* no IP */
-		line_r->username = p;
-	} else {
-		ip_str = t_strdup_until(p, line_r->username++);
-		(void)net_addr2ip(ip_str, &line_r->ip);
+	if (str_to_uint(args[1], &line_r->refcount) < 0)
+		return -1;
+	line_r->username = args[2];
+	line_r->service = args[3];
+	if (args[4][0] != '\0') {
+		if (net_addr2ip(args[4], &line_r->ip) < 0)
+			return -1;
 	}
-	if (str_to_uint(refcount_str, &line_r->refcount) < 0)
-		return -1;
 	return 0;
 }
 
