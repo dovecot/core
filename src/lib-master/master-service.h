@@ -2,6 +2,7 @@
 #define MASTER_SERVICE_H
 
 #include "net.h"
+#include "guid.h"
 
 #include <unistd.h> /* for getopt() opt* variables */
 #include <stdio.h> /* for getopt() opt* variables in Solaris */
@@ -232,12 +233,15 @@ bool master_service_is_killed(struct master_service *service);
 bool master_service_is_master_stopped(struct master_service *service);
 
 /* Send CONNECT command to anvil process, if it's still connected.
-   Returns TRUE if it was successfully sent. */
+   Returns TRUE and connection GUID if it was successfully sent. */
 bool master_service_anvil_connect(struct master_service *service,
-	const struct master_service_anvil_session *session);
-/* Send DISCONNECT command to anvil process, if it's still connected. */
+	const struct master_service_anvil_session *session,
+	guid_128_t conn_guid_r);
+/* Send DISCONNECT command to anvil process, if it's still connected.
+   The conn_guid must match the guid returned by _connect(). */
 void master_service_anvil_disconnect(struct master_service *service,
-	const struct master_service_anvil_session *session);
+	const struct master_service_anvil_session *session,
+	const guid_128_t conn_guid);
 /* Call to accept the client connection. Otherwise the connection is closed. */
 void master_service_client_connection_accept(struct master_service_connection *conn);
 /* Used to create "extra client connections" outside the common accept()

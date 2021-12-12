@@ -30,6 +30,7 @@ struct lmtp_local_recipient {
 
 	struct mail_storage_service_user *service_user;
 	struct anvil_query *anvil_query;
+	guid_128_t anvil_conn_guid;
 
 	struct lmtp_local_recipient *duplicate;
 
@@ -101,7 +102,8 @@ lmtp_local_rcpt_anvil_disconnect(struct lmtp_local_recipient *llrcpt)
 		.username = input->username,
 		.service_name = master_service_get_name(master_service),
 	};
-	master_service_anvil_disconnect(master_service, &anvil_session);
+	master_service_anvil_disconnect(master_service, &anvil_session,
+					llrcpt->anvil_conn_guid);
 }
 
 static void
@@ -280,7 +282,8 @@ lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
 			.username = input->username,
 			.service_name = master_service_get_name(master_service),
 		};
-		if (master_service_anvil_connect(master_service, &anvil_session))
+		if (master_service_anvil_connect(master_service, &anvil_session,
+						 llrcpt->anvil_conn_guid))
 			llrcpt->anvil_connect_sent = TRUE;
 	}
 }

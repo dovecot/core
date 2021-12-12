@@ -2,6 +2,7 @@
 #define POP3_CLIENT_H
 
 #include "seq-range-array.h"
+#include "guid.h"
 
 struct client;
 struct mail_storage;
@@ -40,6 +41,7 @@ struct client {
 	struct istream *input;
 	struct ostream *output;
 	struct timeout *to_idle, *to_commit;
+	guid_128_t anvil_conn_guid;
 
 	command_func_t *cmd;
 	void *cmd_context;

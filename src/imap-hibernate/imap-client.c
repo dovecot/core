@@ -635,7 +635,8 @@ imap_client_create(int fd, const struct imap_client_state *state)
 		.service_name = "imap",
 		.ip = client->state.remote_ip,
 	};
-	if (master_service_anvil_connect(master_service, &anvil_session))
+	if (master_service_anvil_connect(master_service, &anvil_session,
+					 client->state.anvil_conn_guid))
 		client->state.anvil_sent = TRUE;
 
 	p_array_init(&client->notifys, pool, 2);
@@ -683,7 +684,8 @@ void imap_client_destroy(struct imap_client **_client, const char *reason)
 			.service_name = "imap",
 			.ip = client->state.remote_ip,
 		};
-		master_service_anvil_disconnect(master_service, &anvil_session);
+		master_service_anvil_disconnect(master_service, &anvil_session,
+						client->state.anvil_conn_guid);
 	}
 
 	if (client->master_conn != NULL)

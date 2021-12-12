@@ -164,6 +164,7 @@ struct client {
 	struct istream *input;
 	struct ostream *output;
 	struct timeout *to_idle, *to_idle_output, *to_delayed_input;
+	guid_128_t anvil_conn_guid;
 
 	pool_t pool;
 	struct mail_storage_service_user *service_user;

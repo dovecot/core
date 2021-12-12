@@ -2,6 +2,7 @@
 #define CLIENT_H
 
 #include "net.h"
+#include "guid.h"
 
 struct smtp_reply;
 
@@ -86,6 +87,7 @@ struct client {
 	const struct submission_settings *set;
 
 	struct smtp_server_connection *conn;
+	guid_128_t anvil_conn_guid;
 	struct client_state state;
 	ARRAY(struct submission_backend *) pending_backends;
 	ARRAY(struct submission_recipient *) rcpt_to;
