@@ -306,8 +306,9 @@ lmtp_proxy_handle_connection_error(struct lmtp_proxy_recipient *lprcpt,
 
 	if (client->lmtp_set->lmtp_verbose_replies) {
 		smtp_server_command_fail(rcpt->cmd->cmd, 451, "4.4.0",
-					 "Proxy failed: %s",
-					 smtp_reply_log(reply));
+					 "Proxy failed: %s (session=%s)",
+					 smtp_reply_log(reply),
+					 lrcpt->session_id);
 		return;
 	}
 
@@ -315,28 +316,29 @@ lmtp_proxy_handle_connection_error(struct lmtp_proxy_recipient *lprcpt,
 	case SMTP_CLIENT_COMMAND_ERROR_ABORTED:
 		break;
 	case SMTP_CLIENT_COMMAND_ERROR_HOST_LOOKUP_FAILED:
-		detail = " (DNS lookup)";
+		detail = "DNS lookup, ";
 		break;
 	case SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED:
 	case SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED:
-		detail = " (connect)";
+		detail = "connect, ";
 		break;
 	case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST:
 	case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED:
-		detail = " (connection lost)";
+		detail = "connection lost, ";
 		break;
 	case SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY:
-		detail = " (bad reply)";
+		detail = "bad reply, ";
 		break;
 	case SMTP_CLIENT_COMMAND_ERROR_TIMED_OUT:
-		detail = " (timed out)";
+		detail = "timed out, ";
 		break;
 	default:
 		break;
 	}
 
 	smtp_server_command_fail(rcpt->cmd->cmd, 451, "4.4.0",
-				 "Proxy failed%s", detail);
+				 "Proxy failed (%ssession=%s)",
+				 detail, lrcpt->session_id);
 }
 
 static bool
