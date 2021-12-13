@@ -47,6 +47,8 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 				 const struct smtp_reply *reply,
 				 struct smtp_reply *reply_r) ATTR_NULL(2)
 {
+	struct client *client = backend->backend.client;
+	struct mail_user *user = client->user;
 	const char *enh_code, *msg, *log_msg = NULL;
 	const char *const *reply_lines;
 	bool result = TRUE;
@@ -126,8 +128,15 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 
 		reason = t_strdup_printf("%s%s", msg, detail);
 		smtp_client_transaction_destroy(&backend->trans);
-		if (log_msg != NULL)
-			i_error("%s: %s", log_msg, smtp_reply_log(reply));
+		if (log_msg != NULL) {
+			if (smtp_reply_is_remote(reply)) {
+				i_error("%s: %s",
+					log_msg, smtp_reply_log(reply));
+			} else if (user->mail_debug) {
+				i_debug("%s: %s",
+					log_msg, smtp_reply_log(reply));
+			}
+		}
 		submission_backend_fail(&backend->backend, cmd,
 					enh_code, reason);
 		return FALSE;
