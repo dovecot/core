@@ -368,9 +368,10 @@ index_list_get_metadata(struct mailbox *box,
 			struct mailbox_metadata *metadata_r)
 {
 	struct index_list_mailbox *ibox = INDEX_LIST_STORAGE_CONTEXT(box);
+	int ret;
 
-	if (index_list_try_get_metadata(box, items, metadata_r) != 0)
-		return 0;
+	if ((ret = index_list_try_get_metadata(box, items, metadata_r)) != 0)
+		return ret;
 	return ibox->module_ctx.super.get_metadata(box, items, metadata_r);
 }
 
