@@ -3,13 +3,14 @@
 #include "common.h"
 #include "hash.h"
 #include "str.h"
+#include "str-table.h"
 #include "strescape.h"
 #include "ostream.h"
 #include "connect-limit.h"
 
 struct userip {
 	char *username;
-	char *service;
+	const char *service;
 	struct ip_addr ip;
 };
 
@@ -21,6 +22,8 @@ struct session {
 };
 
 struct connect_limit {
+	struct str_table *strings;
+
 	/* userip => unsigned int refcount */
 	HASH_TABLE(struct userip *, void *) userip_hash;
 	/* (userip, pid) => struct session */
@@ -66,6 +69,7 @@ struct connect_limit *connect_limit_init(void)
 	struct connect_limit *limit;
 
 	limit = i_new(struct connect_limit, 1);
+	limit->strings = str_table_init();
 	hash_table_create(&limit->userip_hash, default_pool, 0,
 			  userip_hash, userip_cmp);
 	hash_table_create(&limit->session_hash, default_pool, 0,
@@ -80,6 +84,7 @@ void connect_limit_deinit(struct connect_limit **_limit)
 	*_limit = NULL;
 	hash_table_destroy(&limit->userip_hash);
 	hash_table_destroy(&limit->session_hash);
+	str_table_deinit(&limit->strings);
 	i_free(limit);
 }
 
@@ -88,7 +93,7 @@ unsigned int connect_limit_lookup(struct connect_limit *limit,
 {
 	struct userip userip_lookup = {
 		.username = (char *)key->username,
-		.service = (char *)key->service,
+		.service = key->service,
 		.ip = key->ip,
 	};
 	void *value;
@@ -106,14 +111,14 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 
 	struct userip userip_lookup = {
 		.username = (char *)key->username,
-		.service = (char *)key->service,
+		.service = key->service,
 		.ip = key->ip,
 	};
 	if (!hash_table_lookup_full(limit->userip_hash, &userip_lookup,
 				    &userip, &value)) {
 		userip = i_new(struct userip, 1);
 		userip->username = i_strdup(key->username);
-		userip->service = i_strdup(key->service);
+		userip->service = str_table_ref(limit->strings, key->service);
 		userip->ip = key->ip;
 		value = POINTER_CAST(1);
 		hash_table_insert(limit->userip_hash, userip, value);
@@ -156,8 +161,8 @@ userip_hash_unref(struct connect_limit *limit,
 		hash_table_update(limit->userip_hash, userip, value);
 	} else {
 		hash_table_remove(limit->userip_hash, userip);
+		str_table_unref(limit->strings, &userip->service);
 		i_free(userip->username);
-		i_free(userip->service);
 		i_free(userip);
 	}
 }
@@ -168,7 +173,7 @@ void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
 	struct session *session;
 	struct userip userip_lookup = {
 		.username = (char *)key->username,
-		.service = (char *)key->service,
+		.service = key->service,
 		.ip = key->ip,
 	};
 
