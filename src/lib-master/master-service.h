@@ -47,11 +47,11 @@ enum master_service_flags {
 };
 
 struct master_service_connection_proxy {
-        /* only set if ssl is TRUE */
-        const char *hostname;
-        const char *cert_common_name;
-        const unsigned char *alpn;
-        unsigned int alpn_size;
+	/* only set if ssl is TRUE */
+	const char *hostname;
+	const char *cert_common_name;
+	const unsigned char *alpn;
+	unsigned int alpn_size;
 
 	bool ssl:1;
 	bool ssl_client_cert:1;

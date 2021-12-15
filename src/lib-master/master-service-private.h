@@ -16,7 +16,7 @@ struct master_service_listener {
 
 	/* state */
 	bool closed;
-	int fd;	
+	int fd;
 	struct io *io;
 };
 
