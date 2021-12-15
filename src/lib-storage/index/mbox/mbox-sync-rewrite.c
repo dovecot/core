@@ -93,7 +93,7 @@ static int mbox_fill_space(struct mbox_sync_context *sync_ctx,
 void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
 				 size_t size)
 {
-	size_t data_size, pos, start_pos;
+	off_t data_size, pos, start_pos;
 	const unsigned char *data;
 	void *p;
 
@@ -150,7 +150,7 @@ static void mbox_sync_header_remove_space(struct mbox_sync_mail_context *ctx,
 					  size_t start_pos, size_t *size)
 {
 	const unsigned char *data;
-	size_t data_size, pos, last_line_pos;
+	off_t data_size, pos, last_line_pos;
 
 	/* find the end of the LWSP */
 	data = str_data(ctx->header);
