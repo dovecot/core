@@ -13,7 +13,7 @@ struct userip {
 	struct ip_addr ip;
 };
 
-struct ident_pid {
+struct session {
 	/* points to userip_hash keys */
 	struct userip *userip;
 	pid_t pid;
@@ -23,8 +23,8 @@ struct ident_pid {
 struct connect_limit {
 	/* userip => unsigned int refcount */
 	HASH_TABLE(struct userip *, void *) userip_hash;
-	/* (userip, pid) => struct ident_pid */
-	HASH_TABLE(struct ident_pid *, struct ident_pid *) ident_pid_hash;
+	/* (userip, pid) => struct session */
+	HASH_TABLE(struct session *, struct session *) session_hash;
 };
 
 static unsigned int userip_hash(const struct userip *userip)
@@ -45,12 +45,12 @@ static int userip_cmp(const struct userip *userip1,
 	return strcmp(userip1->service, userip2->service);
 }
 
-static unsigned int ident_pid_hash(const struct ident_pid *i)
+static unsigned int session_hash(const struct session *i)
 {
 	return userip_hash(i->userip) ^ i->pid;
 }
 
-static int ident_pid_cmp(const struct ident_pid *i1, const struct ident_pid *i2)
+static int session_cmp(const struct session *i1, const struct session *i2)
 {
 	if (i1->pid < i2->pid)
 		return -1;
@@ -67,8 +67,8 @@ struct connect_limit *connect_limit_init(void)
 	limit = i_new(struct connect_limit, 1);
 	hash_table_create(&limit->userip_hash, default_pool, 0,
 			  userip_hash, userip_cmp);
-	hash_table_create(&limit->ident_pid_hash, default_pool, 0,
-			  ident_pid_hash, ident_pid_cmp);
+	hash_table_create(&limit->session_hash, default_pool, 0,
+			  session_hash, session_cmp);
 	return limit;
 }
 
@@ -78,7 +78,7 @@ void connect_limit_deinit(struct connect_limit **_limit)
 
 	*_limit = NULL;
 	hash_table_destroy(&limit->userip_hash);
-	hash_table_destroy(&limit->ident_pid_hash);
+	hash_table_destroy(&limit->session_hash);
 	i_free(limit);
 }
 
@@ -99,7 +99,7 @@ unsigned int connect_limit_lookup(struct connect_limit *limit,
 void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 			   const struct connect_limit_key *key)
 {
-	struct ident_pid *i, lookup_i;
+	struct session *i, lookup_i;
 	struct userip *userip;
 	void *value;
 
@@ -123,13 +123,13 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 
 	lookup_i.userip = userip;
 	lookup_i.pid = pid;
-	i = hash_table_lookup(limit->ident_pid_hash, &lookup_i);
+	i = hash_table_lookup(limit->session_hash, &lookup_i);
 	if (i == NULL) {
-		i = i_new(struct ident_pid, 1);
+		i = i_new(struct session, 1);
 		i->userip = userip;
 		i->pid = pid;
 		i->refcount = 1;
-		hash_table_insert(limit->ident_pid_hash, i, i);
+		hash_table_insert(limit->session_hash, i, i);
 	} else {
 		i->refcount++;
 	}
@@ -162,7 +162,7 @@ userip_hash_unref(struct connect_limit *limit,
 void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
 			      const struct connect_limit_key *key)
 {
-	struct ident_pid *i, lookup_i;
+	struct session *i, lookup_i;
 	struct userip userip_lookup = {
 		.username = (char *)key->username,
 		.service = (char *)key->service,
@@ -172,7 +172,7 @@ void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
 	lookup_i.userip = &userip_lookup;
 	lookup_i.pid = pid;
 
-	i = hash_table_lookup(limit->ident_pid_hash, &lookup_i);
+	i = hash_table_lookup(limit->session_hash, &lookup_i);
 	if (i == NULL) {
 		i_error("connect limit: disconnection for unknown "
 			"(pid=%s, user=%s, service=%s, ip=%s)",
@@ -182,7 +182,7 @@ void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
 	}
 
 	if (--i->refcount == 0) {
-		hash_table_remove(limit->ident_pid_hash, i);
+		hash_table_remove(limit->session_hash, i);
 		i_free(i);
 	}
 
@@ -192,14 +192,14 @@ void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
 void connect_limit_disconnect_pid(struct connect_limit *limit, pid_t pid)
 {
 	struct hash_iterate_context *iter;
-	struct ident_pid *i, *value;
+	struct session *i, *value;
 
 	/* this should happen rarely (or never), so this slow implementation
 	   should be fine. */
-	iter = hash_table_iterate_init(limit->ident_pid_hash);
-	while (hash_table_iterate(iter, limit->ident_pid_hash, &i, &value)) {
+	iter = hash_table_iterate_init(limit->session_hash);
+	while (hash_table_iterate(iter, limit->session_hash, &i, &value)) {
 		if (i->pid == pid) {
-			hash_table_remove(limit->ident_pid_hash, i);
+			hash_table_remove(limit->session_hash, i);
 			for (; i->refcount > 0; i->refcount--)
 				userip_hash_unref(limit, i->userip);
 			i_free(i);
@@ -211,13 +211,13 @@ void connect_limit_disconnect_pid(struct connect_limit *limit, pid_t pid)
 void connect_limit_dump(struct connect_limit *limit, struct ostream *output)
 {
 	struct hash_iterate_context *iter;
-	struct ident_pid *i, *value;
+	struct session *i, *value;
 	string_t *str = str_new(default_pool, 256);
 	ssize_t ret = 0;
 
-	iter = hash_table_iterate_init(limit->ident_pid_hash);
+	iter = hash_table_iterate_init(limit->session_hash);
 	while (ret >= 0 &&
-	       hash_table_iterate(iter, limit->ident_pid_hash, &i, &value)) T_BEGIN {
+	       hash_table_iterate(iter, limit->session_hash, &i, &value)) T_BEGIN {
 		str_truncate(str, 0);
 		str_append_tabescaped(str, i->userip->service);
 		if (i->userip->ip.family != 0) {
