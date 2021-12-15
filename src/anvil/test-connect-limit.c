@@ -66,8 +66,14 @@ static void test_connect_limit(void)
 		.username = "user1",
 		.service = "service1",
 	};
+	const char *const alt_usernames1[] = {
+		"altkey1", "altvalueA",
+		"altkey2", "altvalueB",
+		NULL
+	};
 	test_assert(net_addr2ip("1.2.3.4", &key.ip) == 0);
-	connect_limit_connect(limit, 501, &key, session1_guid, KICK_TYPE_NONE);
+	connect_limit_connect(limit, 501, &key, session1_guid, KICK_TYPE_NONE,
+			      alt_usernames1);
 #define TEST_SESSION1_STR "501\tuser1\tservice1\t1.2.3.4\t"SESSION1_HEX"\n"
 	test_session_dump(limit, TEST_SESSION1_STR);
 	test_assert(connect_limit_lookup(limit, &key) == 1);
@@ -77,8 +83,15 @@ static void test_connect_limit(void)
 		.username = "user1",
 		.service = "service1",
 	};
+	const char *const alt_usernames2[] = {
+		"altkey1", "altvalueA",
+		"altkey2", "altvalueC",
+		"altkey3", "altvalueA",
+		NULL
+	};
 	test_assert(net_addr2ip("1.2.3.4", &key2.ip) == 0);
-	connect_limit_connect(limit, 501, &key2, session2_guid, KICK_TYPE_NONE);
+	connect_limit_connect(limit, 501, &key2, session2_guid, KICK_TYPE_NONE,
+			      alt_usernames2);
 #define TEST_SESSION2_STR "501\tuser1\tservice1\t1.2.3.4\t"SESSION2_HEX"\n"
 	test_session_dump(limit, TEST_SESSION1_STR TEST_SESSION2_STR);
 	test_assert(connect_limit_lookup(limit, &key) == 2);
@@ -88,8 +101,15 @@ static void test_connect_limit(void)
 		.username = "user2",
 		.service = "service2",
 	};
+	const char *const alt_usernames3[] = {
+		"altkey1", "altvalueA",
+		"altkey2", "altvalueC",
+		"altkey4", "altvalueD",
+		NULL
+	};
 	test_assert(net_addr2ip("4.3.2.1", &key3.ip) == 0);
-	connect_limit_connect(limit, 600, &key3, session3_guid, KICK_TYPE_SIGNAL);
+	connect_limit_connect(limit, 600, &key3, session3_guid, KICK_TYPE_SIGNAL,
+			      alt_usernames3);
 #define TEST_SESSION3_STR "600\tuser2\tservice2\t4.3.2.1\t"SESSION3_HEX"\n"
 	test_session_dump(limit, TEST_SESSION1_STR TEST_SESSION2_STR TEST_SESSION3_STR);
 	test_assert(connect_limit_lookup(limit, &key) == 2);
@@ -102,7 +122,8 @@ static void test_connect_limit(void)
 	};
 	test_assert(net_addr2ip("4.3.2.1", &key4.ip) == 0);
 	test_expect_error_string("connect limit: connection for duplicate connection GUID "SESSION2_HEX" (pid=501 -> 600, user=user1 -> user3, service=service1 -> service3, ip=1.2.3.4 -> 4.3.2.1)");
-	connect_limit_connect(limit, 600, &key4, session2_guid, KICK_TYPE_SIGNAL);
+	connect_limit_connect(limit, 600, &key4, session2_guid, KICK_TYPE_SIGNAL,
+			      alt_usernames3);
 	test_expect_no_more_errors();
 	test_session_dump(limit, TEST_SESSION1_STR TEST_SESSION2_STR TEST_SESSION3_STR);
 
@@ -135,6 +156,27 @@ static void test_connect_limit(void)
 
 	/* test user iteration for nonexistent user3 */
 	iter = connect_limit_iter_begin(limit, "user3");
+	test_assert(!connect_limit_iter_next(iter, &iter_result));
+	connect_limit_iter_deinit(&iter);
+
+	/* test alt username iteration */
+	iter = connect_limit_iter_begin_alt_username(limit,
+			"altkey1", "altvalueA", NULL);
+	test_assert(connect_limit_iter_next(iter, &iter_result));
+	test_assert(iter_result.pid == 501 &&
+		    strcmp(iter_result.service, "service1") == 0 &&
+		    guid_128_cmp(iter_result.conn_guid, session1_guid) == 0 &&
+		    iter_result.kick_type == KICK_TYPE_NONE);
+	test_assert(connect_limit_iter_next(iter, &iter_result));
+	test_assert(iter_result.pid == 501 &&
+		    strcmp(iter_result.service, "service1") == 0 &&
+		    guid_128_cmp(iter_result.conn_guid, session2_guid) == 0 &&
+		    iter_result.kick_type == KICK_TYPE_NONE);
+	test_assert(connect_limit_iter_next(iter, &iter_result));
+	test_assert(iter_result.pid == 600 &&
+		    strcmp(iter_result.service, "service2") == 0 &&
+		    guid_128_cmp(iter_result.conn_guid, session3_guid) == 0 &&
+		    iter_result.kick_type == KICK_TYPE_SIGNAL);
 	test_assert(!connect_limit_iter_next(iter, &iter_result));
 	connect_limit_iter_deinit(&iter);
 

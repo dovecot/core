@@ -27,6 +27,7 @@ struct connect_limit_iter_result {
 	enum kick_type kick_type;
 	pid_t pid;
 	const char *service;
+	const char *username;
 	guid_128_t conn_guid;
 };
 
@@ -39,7 +40,8 @@ connect_limit_lookup(struct connect_limit *limit,
 void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 			   const struct connect_limit_key *key,
 			   const guid_128_t conn_guid,
-			   enum kick_type kick_type);
+			   enum kick_type kick_type,
+			   const char *const *alt_usernames);
 void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
 			      const struct connect_limit_key *key,
 			      const guid_128_t conn_guid);
@@ -50,6 +52,11 @@ void connect_limit_dump(struct connect_limit *limit, struct ostream *output);
    modified while the iterator exists. The results are sorted by pid. */
 struct connect_limit_iter *
 connect_limit_iter_begin(struct connect_limit *limit, const char *username);
+struct connect_limit_iter *
+connect_limit_iter_begin_alt_username(struct connect_limit *limit,
+				      const char *alt_username_field,
+				      const char *alt_username,
+				      const struct ip_addr *except_ip);
 bool connect_limit_iter_next(struct connect_limit_iter *iter,
 			     struct connect_limit_iter_result *result_r);
 void connect_limit_iter_deinit(struct connect_limit_iter **iter);

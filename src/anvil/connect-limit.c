@@ -4,6 +4,7 @@
 #include "array.h"
 #include "hash.h"
 #include "llist.h"
+#include "sort.h"
 #include "str.h"
 #include "str-table.h"
 #include "strescape.h"
@@ -23,6 +24,18 @@ struct userip {
 	struct ip_addr ip;
 };
 
+struct session_alt_username {
+	/* alt_username_hash sessions linked list */
+	struct session_alt_username *prev, *next;
+
+	/* points to alt_username_hash keys */
+	const char *alt_username;
+	/* session where this alt_username belongs to */
+	struct session *session;
+};
+HASH_TABLE_DEFINE_TYPE(session_alt_username, char *,
+		       struct session_alt_username *);
+
 struct session {
 	/* process->sessions linked list */
 	struct session *process_prev, *process_next;
@@ -33,6 +46,17 @@ struct session {
 	struct userip *userip;
 	struct process *process;
 	guid_128_t conn_guid;
+
+	/* Fields in the same order as connect_limit.alt_username_fields.
+	   Note that these may be session-specific, which is why they're not in
+	   struct user. */
+	unsigned int alt_usernames_count;
+	struct session_alt_username *alt_usernames;
+};
+
+struct alt_username_field {
+	char *name;
+	unsigned int refcount;
 };
 
 struct connect_limit {
@@ -48,6 +72,14 @@ struct connect_limit {
 	HASH_TABLE(const uint8_t *, struct session *) session_hash;
 	/* pid_t => struct process */
 	HASH_TABLE(void *, struct process *) process_hash;
+
+	/* Array of alt username fields. Note that if there are refcount=0
+	   fields they may be reused for other usernames later on, but there
+	   are never any name=NULL fields. */
+	ARRAY(struct alt_username_field) alt_username_fields;
+	/* alt_username => struct session linked list. This array is resized
+	   every time a new alt_username_field index is added. */
+	HASH_TABLE_TYPE(session_alt_username) *alt_username_hashes;
 };
 
 struct connect_limit_iter {
@@ -80,6 +112,7 @@ struct connect_limit *connect_limit_init(void)
 
 	limit = i_new(struct connect_limit, 1);
 	limit->strings = str_table_init();
+	i_array_init(&limit->alt_username_fields, 8);
 	hash_table_create(&limit->user_hash, default_pool, 0,
 			  str_hash, strcmp);
 	hash_table_create(&limit->userip_hash, default_pool, 0,
@@ -93,12 +126,22 @@ struct connect_limit *connect_limit_init(void)
 void connect_limit_deinit(struct connect_limit **_limit)
 {
 	struct connect_limit *limit = *_limit;
+	struct alt_username_field *alt_fields;
+	unsigned int i, count;
 
 	*_limit = NULL;
 	hash_table_destroy(&limit->user_hash);
 	hash_table_destroy(&limit->userip_hash);
 	hash_table_destroy(&limit->session_hash);
 	hash_table_destroy(&limit->process_hash);
+
+	alt_fields = array_get_modifiable(&limit->alt_username_fields, &count);
+	for (i = 0; i < count; i++) {
+		hash_table_destroy(&limit->alt_username_hashes[i]);
+		i_free(alt_fields[i].name);
+	}
+	i_free(limit->alt_username_hashes);
+	array_free(&limit->alt_username_fields);
 	str_table_deinit(&limit->strings);
 	i_free(limit);
 }
@@ -159,10 +202,155 @@ session_unlink_process(struct connect_limit *limit, struct session *session)
 	}
 }
 
+static bool
+alt_username_field_find(struct connect_limit *limit, const char *name,
+			unsigned int *idx_r)
+{
+	struct alt_username_field *fields;
+	unsigned int i, count, first_empty_idx = UINT_MAX;
+
+	fields = array_get_modifiable(&limit->alt_username_fields, &count);
+	for (i = 0; i < count; i++) {
+		if (strcmp(fields[i].name, name) == 0) {
+			*idx_r = i;
+			return TRUE;
+		}
+		if (fields[i].refcount == 0 && first_empty_idx == UINT_MAX)
+			first_empty_idx = i;
+	}
+	*idx_r = first_empty_idx;
+	return FALSE;
+}
+
+static unsigned int
+alt_username_field_ref(struct connect_limit *limit, const char *name)
+{
+	struct alt_username_field *field;
+	unsigned int idx;
+
+	if (!alt_username_field_find(limit, name, &idx)) {
+		/* Field wasn't found, but an existing field with refcount=0
+		   may have been reused. */
+		unsigned int old_count =
+			array_count(&limit->alt_username_fields);
+		if (idx == UINT_MAX)
+			idx = old_count;
+		field = array_idx_get_space(&limit->alt_username_fields, idx);
+		i_free(field->name);
+		field->name = i_strdup(name);
+
+		limit->alt_username_hashes =
+			i_realloc(limit->alt_username_hashes,
+				  sizeof(limit->alt_username_hashes[0]) *
+				  old_count,
+				  sizeof(limit->alt_username_hashes[0]) *
+				  I_MAX((idx+1), old_count));
+		hash_table_create(&limit->alt_username_hashes[idx],
+				  default_pool, 0, str_hash, strcmp);
+	} else {
+		field = array_idx_modifiable(&limit->alt_username_fields, idx);
+	}
+	field->refcount++;
+	return idx;
+}
+
+static void
+alt_username_field_unref(struct connect_limit *limit, unsigned int alt_idx)
+{
+	struct alt_username_field *field;
+
+	field = array_idx_modifiable(&limit->alt_username_fields, alt_idx);
+	i_assert(field->refcount > 0);
+	field->refcount--;
+}
+
+static void
+alt_username_value_link(struct connect_limit *limit,
+			struct session_alt_username *alt,
+			unsigned int alt_idx, const char *alt_username)
+{
+	struct session_alt_username *first_alt;
+	char *orig_key;
+
+	if (!hash_table_lookup_full(limit->alt_username_hashes[alt_idx],
+				    alt_username, &orig_key, &first_alt)) {
+		orig_key = i_strdup(alt_username);
+		alt->alt_username = orig_key;
+		hash_table_insert(limit->alt_username_hashes[alt_idx],
+				  orig_key, alt);
+	} else {
+		alt->alt_username = orig_key;
+		DLLIST_PREPEND(&first_alt, alt);
+		hash_table_update(limit->alt_username_hashes[alt_idx],
+				  orig_key, first_alt);
+	}
+}
+
+static void
+session_set_alt_usernames(struct connect_limit *limit, struct session *session,
+			  const char *const *alt_usernames)
+{
+	unsigned int count = str_array_length(alt_usernames)/2;
+	if (count == 0)
+		return;
+
+	unsigned int max_alt_idx = 0;
+	unsigned int *alt_indexes = t_new(unsigned int, count);
+	for (unsigned int i = 0; i < count; i++) {
+		alt_indexes[i] = alt_username_field_ref(limit, alt_usernames[i*2]);
+		max_alt_idx = I_MAX(max_alt_idx, alt_indexes[i]);
+	}
+
+	session->alt_usernames_count = max_alt_idx + 1;
+	session->alt_usernames =
+		i_new(struct session_alt_username,
+		      session->alt_usernames_count);
+	for (unsigned int i = 0; i < count; i++) {
+		unsigned int alt_idx = alt_indexes[i];
+		i_assert(session->alt_usernames[alt_idx].session == NULL);
+		session->alt_usernames[alt_idx].session = session;
+		alt_username_value_link(limit, &session->alt_usernames[alt_idx],
+					alt_idx, alt_usernames[i*2 + 1]);
+	}
+}
+
+static void
+session_unset_alt_usernames(struct connect_limit *limit,
+			    struct session *session)
+{
+	struct session_alt_username *first_alt, *alt;
+	char *orig_key;
+	unsigned int alt_idx;
+
+	for (alt_idx = 0; alt_idx < session->alt_usernames_count; alt_idx++) {
+		alt = &session->alt_usernames[alt_idx];
+		if (alt->session == NULL)
+			continue;
+
+		if (!hash_table_lookup_full(limit->alt_username_hashes[alt_idx],
+					    alt->alt_username,
+					    &orig_key, &first_alt))
+			i_panic("connect limit hash tables are inconsistent");
+		bool hash_update = (first_alt == alt);
+		DLLIST_REMOVE(&first_alt, alt);
+		if (first_alt == NULL) {
+			hash_table_remove(limit->alt_username_hashes[alt_idx],
+					  orig_key);
+			i_free(orig_key);
+		} else if (hash_update) {
+			hash_table_update(limit->alt_username_hashes[alt_idx],
+					  orig_key, first_alt);
+		}
+		alt_username_field_unref(limit, alt_idx);
+	}
+	i_free(session->alt_usernames);
+}
+
 void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 			   const struct connect_limit_key *key,
 			   const guid_128_t conn_guid,
-			   enum kick_type kick_type)
+			   enum kick_type kick_type,
+			   const char *const *alt_usernames)
 {
 	struct session *session, *first_user_session;
 	struct userip *userip;
@@ -210,6 +398,9 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 	session = i_new(struct session, 1);
 	session->userip = userip;
 	guid_128_copy(session->conn_guid, conn_guid);
+	T_BEGIN {
+		session_set_alt_usernames(limit, session, alt_usernames);
+	} T_END;
 
 	session_link_process(limit, session, pid, kick_type);
 	const uint8_t *conn_guid_p = session->conn_guid;
@@ -256,6 +447,8 @@ session_free(struct connect_limit *limit, struct session *session)
 		hash_table_update(limit->user_hash, orig_username,
 				  first_user_session);
 	}
+	session_unset_alt_usernames(limit, session);
+	i_free(session->alt_usernames);
 	i_free(session);
 }
 
@@ -351,11 +544,10 @@ connect_limit_iter_result_cmp(const struct connect_limit_iter_result *result1,
 	return guid_128_cmp(result1->conn_guid, result2->conn_guid);
 }
 
-struct connect_limit_iter *
-connect_limit_iter_begin(struct connect_limit *limit, const char *username)
+static struct connect_limit_iter *
+connect_limit_iter_init_common(struct connect_limit *limit)
 {
 	struct connect_limit_iter *iter;
-	struct session *session;
 
 	i_assert(limit->iter == NULL);
 
@@ -363,6 +555,17 @@ connect_limit_iter_begin(struct connect_limit *limit, const char *username)
 	iter->limit = limit;
 	i_array_init(&iter->results, 32);
 
+	limit->iter = iter;
+	return iter;
+}
+
+struct connect_limit_iter *
+connect_limit_iter_begin(struct connect_limit *limit, const char *username)
+{
+	struct connect_limit_iter *iter;
+	struct session *session;
+
+	iter = connect_limit_iter_init_common(limit);
 	session = hash_table_lookup(limit->user_hash, username);
 	while (session != NULL) {
 		struct connect_limit_iter_result *result =
@@ -370,12 +573,44 @@ connect_limit_iter_begin(struct connect_limit *limit, const char *username)
 		result->kick_type = session->process->kick_type;
 		result->pid = session->process->pid;
 		result->service = session->userip->service;
+		result->username = session->userip->username;
 		guid_128_copy(result->conn_guid, session->conn_guid);
 		session = session->user_next;
 	}
 	array_sort(&iter->results, connect_limit_iter_result_cmp);
+	return iter;
+}
 
-	limit->iter = iter;
+struct connect_limit_iter *
+connect_limit_iter_begin_alt_username(struct connect_limit *limit,
+				      const char *alt_username_field,
+				      const char *alt_username,
+				      const struct ip_addr *except_ip)
+{
+	struct connect_limit_iter *iter;
+	struct session_alt_username *alt;
+	unsigned int alt_idx;
+
+	iter = connect_limit_iter_init_common(limit);
+	if (!alt_username_field_find(limit, alt_username_field, &alt_idx))
+		return iter;
+
+	alt = hash_table_lookup(limit->alt_username_hashes[alt_idx],
+				alt_username);
+	while (alt != NULL) {
+		if (except_ip == NULL ||
+		    !net_ip_compare(&alt->session->userip->ip, except_ip)) {
+			struct connect_limit_iter_result *result =
+				array_append_space(&iter->results);
+			result->kick_type = alt->session->process->kick_type;
+			result->pid = alt->session->process->pid;
+			result->service = alt->session->userip->service;
+			guid_128_copy(result->conn_guid, alt->session->conn_guid);
+			result->username = alt->session->userip->username;
+		}
+		alt = alt->next;
+	}
+	array_sort(&iter->results, connect_limit_iter_result_cmp);
 	return iter;
 }
 

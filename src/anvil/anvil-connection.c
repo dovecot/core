@@ -121,8 +121,13 @@ anvil_connection_request(struct anvil_connection *conn,
 			}
 			args++;
 		}
+		const char *const *alt_usernames = NULL;
+		if (args[0] != NULL) {
+			alt_usernames = t_strsplit_tabescaped(args[0]);
+			args++;
+		}
 		connect_limit_connect(connect_limit, pid, &key,
-				      conn_guid, kick_type);
+				      conn_guid, kick_type, alt_usernames);
 	} else if (strcmp(cmd, "DISCONNECT") == 0) {
 		if (args[0] == NULL || args[1] == NULL) {
 			*error_r = "DISCONNECT: Not enough parameters";
