@@ -93,7 +93,7 @@ static int mbox_fill_space(struct mbox_sync_context *sync_ctx,
 void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
 				 size_t size)
 {
-	off_t data_size, pos, start_pos;
+	uoff_t data_size, pos, start_pos;
 	const unsigned char *data;
 	void *p;
 
@@ -105,6 +105,7 @@ void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
 		/* update the header using the existing offset.
 		   otherwise we might chose wrong header and just decrease
 		   the available space */
+		i_assert(ctx->mail.offset >= ctx->hdr_offset);
 		start_pos = ctx->mail.offset - ctx->hdr_offset;
 	} else {
 		/* Append at the end of X-Keywords header,
@@ -150,7 +151,7 @@ static void mbox_sync_header_remove_space(struct mbox_sync_mail_context *ctx,
 					  size_t start_pos, size_t *size)
 {
 	const unsigned char *data;
-	off_t data_size, pos, last_line_pos;
+	uoff_t data_size, pos, last_line_pos;
 
 	/* find the end of the LWSP */
 	data = str_data(ctx->header);
