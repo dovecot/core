@@ -559,7 +559,7 @@ int mailbox_list_index_refresh_force(struct mailbox_list *list)
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 	struct mail_index_view *view;
 	int ret;
-	bool refresh;
+	bool refresh, handle_corruption = TRUE;
 
 	i_assert(!ilist->syncing);
 
@@ -575,12 +575,18 @@ int mailbox_list_index_refresh_force(struct mailbox_list *list)
 	    ilist->mailbox_tree == NULL) {
 		/* refresh list of mailboxes */
 		ret = mailbox_list_index_sync(list, refresh);
+		if (ret < 0) {
+			/* I/O failure - don't try to handle corruption,
+			   since we don't have the latest state. */
+			handle_corruption = FALSE;
+		}
 	} else {
 		ret = mailbox_list_index_parse(list, view, FALSE);
 	}
 	mail_index_view_close(&view);
 
-	if (mailbox_list_index_handle_corruption(list) < 0) {
+	if (handle_corruption &&
+	    mailbox_list_index_handle_corruption(list) < 0) {
 		const char *errstr;
 		enum mail_error error;
 
