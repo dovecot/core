@@ -9,7 +9,6 @@ struct who_line {
 	guid_128_t conn_guid;
 	struct ip_addr ip;
 	pid_t pid;
-	unsigned int refcount;
 };
 
 

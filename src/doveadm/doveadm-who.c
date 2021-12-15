@@ -83,24 +83,20 @@ static int who_parse_line(const char *line, struct who_line *line_r)
 	const char *const *args = t_strsplit_tabescaped(line);
 	i_zero(line_r);
 
-	/* <pid> <refcount> <username> <service> <ip> <conn-guid> */
-	if (str_array_length(args) < 6)
+	/* <pid> <username> <service> <ip> <conn-guid> */
+	if (str_array_length(args) < 5)
 		return -1;
 
 	if (str_to_pid(args[0], &line_r->pid) < 0)
 		return -1;
-	if (str_to_uint(args[1], &line_r->refcount) < 0)
+	line_r->username = args[1];
+	line_r->service = args[2];
+	if (args[3][0] != '\0') {
+		if (net_addr2ip(args[3], &line_r->ip) < 0)
+			return -1;
+	}
+	if (guid_128_from_string(args[4], line_r->conn_guid) < 0)
 		return -1;
-	line_r->username = args[2];
-	line_r->service = args[3];
-	if (args[4][0] != '\0') {
-		if (net_addr2ip(args[4], &line_r->ip) < 0)
-			return -1;
-	}
-	if (args[5][0] != '\0') {
-		if (guid_128_from_string(args[5], line_r->conn_guid) < 0)
-			return -1;
-	}
 	return 0;
 }
 
@@ -132,7 +128,7 @@ static void who_aggregate_line(struct who_context *ctx,
 		p_array_init(&user->pids, ctx->pool, 8);
 		hash_table_insert(ctx->users, user, user);
 	}
-	user->connection_count += line->refcount;
+	user->connection_count++;
 
 	if (line->ip.family != 0 && !who_user_has_ip(user, &line->ip))
 		array_push_back(&user->ips, &line->ip);
@@ -294,17 +290,13 @@ bool who_line_filter_match(const struct who_line *line,
 static void who_print_line(struct who_context *ctx,
 			   const struct who_line *line)
 {
-	unsigned int i;
-
 	if (!who_line_filter_match(line, &ctx->filter))
 		return;
 
-	for (i = 0; i < line->refcount; i++) T_BEGIN {
-		doveadm_print(line->username);
-		doveadm_print(line->service);
-		doveadm_print(dec2str(line->pid));
-		doveadm_print(net_ip2addr(&line->ip));
-	} T_END;
+	doveadm_print(line->username);
+	doveadm_print(line->service);
+	doveadm_print(dec2str(line->pid));
+	doveadm_print(net_ip2addr(&line->ip));
 }
 
 static void cmd_who(struct doveadm_cmd_context *cctx)
