@@ -1,6 +1,7 @@
 /* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "array.h"
 #include "hash.h"
 #include "llist.h"
 #include "str.h"
@@ -15,7 +16,8 @@ struct process {
 };
 
 struct userip {
-	char *username;
+	/* points to user_hash keys */
+	const char *username;
 	const char *service;
 	struct ip_addr ip;
 };
@@ -23,6 +25,8 @@ struct userip {
 struct session {
 	/* process->sessions linked list */
 	struct session *process_prev, *process_next;
+	/* user_hash sessions linked list */
+	struct session *user_prev, *user_next;
 
 	/* points to userip_hash keys */
 	struct userip *userip;
@@ -34,12 +38,22 @@ struct session {
 struct connect_limit {
 	struct str_table *strings;
 
+	struct connect_limit_iter *iter;
+
+	/* username => struct session linked list */
+	HASH_TABLE(char *, struct session *) user_hash;
 	/* userip => unsigned int refcount */
 	HASH_TABLE(struct userip *, void *) userip_hash;
 	/* (userip, pid) => struct session */
 	HASH_TABLE(struct session *, struct session *) session_hash;
 	/* pid_t => struct process */
 	HASH_TABLE(void *, struct process *) process_hash;
+};
+
+struct connect_limit_iter {
+	struct connect_limit *limit;
+	ARRAY(struct connect_limit_iter_result) results;
+	unsigned int idx;
 };
 
 static unsigned int userip_hash(const struct userip *userip)
@@ -88,6 +102,8 @@ struct connect_limit *connect_limit_init(void)
 
 	limit = i_new(struct connect_limit, 1);
 	limit->strings = str_table_init();
+	hash_table_create(&limit->user_hash, default_pool, 0,
+			  str_hash, strcmp);
 	hash_table_create(&limit->userip_hash, default_pool, 0,
 			  userip_hash, userip_cmp);
 	hash_table_create(&limit->session_hash, default_pool, 0,
@@ -101,6 +117,7 @@ void connect_limit_deinit(struct connect_limit **_limit)
 	struct connect_limit *limit = *_limit;
 
 	*_limit = NULL;
+	hash_table_destroy(&limit->user_hash);
 	hash_table_destroy(&limit->userip_hash);
 	hash_table_destroy(&limit->session_hash);
 	hash_table_destroy(&limit->process_hash);
@@ -145,19 +162,28 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 			   const struct connect_limit_key *key,
 			   const guid_128_t conn_guid)
 {
-	struct session *session;
+	struct session *session, *first_user_session;
 	struct userip *userip;
+	char *username;
 	void *value;
 
+	i_assert(limit->iter == NULL);
+
+	if (!hash_table_lookup_full(limit->user_hash, key->username,
+				    &username, &first_user_session)) {
+		username = i_strdup(key->username);
+		first_user_session = NULL;
+	}
+
 	struct userip userip_lookup = {
-		.username = (char *)key->username,
+		.username = username,
 		.service = key->service,
 		.ip = key->ip,
 	};
 	if (!hash_table_lookup_full(limit->userip_hash, &userip_lookup,
 				    &userip, &value)) {
 		userip = i_new(struct userip, 1);
-		userip->username = i_strdup(key->username);
+		userip->username = username;
 		userip->service = str_table_ref(limit->strings, key->service);
 		userip->ip = key->ip;
 		value = POINTER_CAST(1);
@@ -182,26 +208,26 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 		hash_table_insert(limit->session_hash, session, session);
 		DLLIST_PREPEND_FULL(&session->process->sessions, session,
 				    process_prev, process_next);
+		DLLIST_PREPEND_FULL(&first_user_session, session,
+				    user_prev, user_next);
+		hash_table_update(limit->user_hash, username, session);
 	} else {
 		session->refcount++;
 	}
 }
 
-static void session_free(struct session *session)
-{
-	i_free(session);
-}
-
 static void
-userip_hash_unref(struct connect_limit *limit,
-		  const struct userip *userip_lookup)
+session_unref(struct connect_limit *limit, struct session *session)
 {
-	struct userip *userip;
+	struct userip *userip = session->userip;
+	struct session *first_user_session;
+	const char *username = userip->username;
+	char *orig_username;
 	void *value;
 	unsigned int new_refcount;
 
-	if (!hash_table_lookup_full(limit->userip_hash,
-				    userip_lookup, &userip, &value))
+	if (!hash_table_lookup_full(limit->userip_hash, userip,
+				    &userip, &value))
 		i_panic("connect limit hash tables are inconsistent");
 
 	new_refcount = POINTER_CAST_TO(value, unsigned int) - 1;
@@ -211,9 +237,26 @@ userip_hash_unref(struct connect_limit *limit,
 	} else {
 		hash_table_remove(limit->userip_hash, userip);
 		str_table_unref(limit->strings, &userip->service);
-		i_free(userip->username);
 		i_free(userip);
 	}
+
+	if (session->refcount > 0)
+		return;
+
+	if (!hash_table_lookup_full(limit->user_hash, username,
+				    &orig_username, &first_user_session))
+		i_panic("connect limit hash tables are inconsistent");
+
+	bool hash_update = (first_user_session == session);
+	DLLIST_REMOVE_FULL(&first_user_session, session, user_prev, user_next);
+	if (first_user_session == NULL) {
+		hash_table_remove(limit->user_hash, orig_username);
+		i_free(orig_username);
+	} else if (hash_update) {
+		hash_table_update(limit->user_hash, orig_username,
+				  first_user_session);
+	}
+	i_free(session);
 }
 
 void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
@@ -222,6 +265,8 @@ void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
 {
 	struct process *process;
 	struct session *session;
+
+	i_assert(limit->iter == NULL);
 
 	process = process_lookup(limit, pid);
 	if (process == NULL) {
@@ -254,10 +299,8 @@ void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
 		DLLIST_REMOVE_FULL(&process->sessions, session,
 				   process_prev, process_next);
 		hash_table_remove(limit->session_hash, session);
-		session_free(session);
 	}
-
-	userip_hash_unref(limit, &userip_lookup);
+	session_unref(limit, session);
 	if (process->sessions == NULL) {
 		hash_table_remove(limit->process_hash, POINTER_CAST(pid));
 		i_free(process);
@@ -280,8 +323,7 @@ void connect_limit_disconnect_pid(struct connect_limit *limit, pid_t pid)
 
 		hash_table_remove(limit->session_hash, session);
 		for (; session->refcount > 0; session->refcount--)
-			userip_hash_unref(limit, session->userip);
-		session_free(session);
+			session_unref(limit, session);
 	}
 	hash_table_remove(limit->process_hash, POINTER_CAST(pid));
 	i_free(process);
