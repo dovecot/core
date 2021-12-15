@@ -478,7 +478,7 @@ master_service_try_init_log(struct master_service *service,
 					  &facility))
 			facility = LOG_MAIL;
 		i_set_failure_syslog(service->set->instance_name, LOG_NDELAY,
-		                     facility);
+				     facility);
 		i_set_failure_prefix("%s", prefix);
 
 		if (strcmp(service->set->log_path, "syslog") != 0) {
@@ -665,7 +665,7 @@ void master_service_init_finish(struct master_service *service)
 	/* set default signal handlers */
 	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0)
 		sigint_flags |= LIBSIG_FLAG_RESTART;
-        lib_signals_set_handler(SIGINT, sigint_flags, sig_die, service);
+	lib_signals_set_handler(SIGINT, sigint_flags, sig_die, service);
 	lib_signals_set_handler(SIGTERM, LIBSIG_FLAG_DELAYED, sig_die, service);
 	if ((service->flags & MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE) != 0) {
 		lib_signals_set_handler(SIGUSR1, LIBSIG_FLAGS_SAFE,
@@ -866,7 +866,7 @@ void master_service_run(struct master_service *service,
 
 void master_service_stop(struct master_service *service)
 {
-        io_loop_stop(service->ioloop);
+	io_loop_stop(service->ioloop);
 }
 
 void master_service_stop_new_connections(struct master_service *service)
@@ -1015,7 +1015,7 @@ void master_service_client_connection_destroyed(struct master_service *service)
 
 	if (service->service_count_left == service->total_available_count) {
 		service->total_available_count--;
-                service->service_count_left--;
+		service->service_count_left--;
 	} else {
 		if (service->service_count_left != UINT_MAX)
 			service->service_count_left--;
