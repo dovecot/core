@@ -232,11 +232,12 @@ bool master_service_is_killed(struct master_service *service);
    standalone. */
 bool master_service_is_master_stopped(struct master_service *service);
 
-/* Send CONNECT command to anvil process, if it's still connected.
-   Returns TRUE and connection GUID if it was successfully sent. */
+/* Send CONNECT command to anvil process, if it's still connected. Returns TRUE
+   and connection GUID if it was successfully sent. If kick_supported=TRUE, the
+   process implements the KICK-USER command in anvil and admin sockets. */
 bool master_service_anvil_connect(struct master_service *service,
 	const struct master_service_anvil_session *session,
-	guid_128_t conn_guid_r);
+	bool kick_supported, guid_128_t conn_guid_r);
 /* Send DISCONNECT command to anvil process, if it's still connected.
    The conn_guid must match the guid returned by _connect(). */
 void master_service_anvil_disconnect(struct master_service *service,

@@ -283,7 +283,7 @@ lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
 			.service_name = master_service_get_name(master_service),
 		};
 		if (master_service_anvil_connect(master_service, &anvil_session,
-						 llrcpt->anvil_conn_guid))
+						 FALSE, llrcpt->anvil_conn_guid))
 			llrcpt->anvil_connect_sent = TRUE;
 	}
 }

@@ -636,7 +636,7 @@ imap_client_create(int fd, const struct imap_client_state *state)
 		.ip = client->state.remote_ip,
 	};
 	if (master_service_anvil_connect(master_service, &anvil_session,
-					 client->state.anvil_conn_guid))
+					 FALSE, client->state.anvil_conn_guid))
 		client->state.anvil_sent = TRUE;
 
 	p_array_init(&client->notifys, pool, 2);

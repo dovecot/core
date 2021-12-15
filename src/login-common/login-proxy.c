@@ -912,7 +912,7 @@ void login_proxy_detach(struct login_proxy *proxy)
 		.ip = client->ip,
 	};
 	if (master_service_anvil_connect(master_service, &anvil_session,
-					 proxy->anvil_conn_guid))
+					 TRUE, proxy->anvil_conn_guid))
 		proxy->anvil_connect_sent = TRUE;
 
 	if (login_proxy_ipc_server == NULL) {

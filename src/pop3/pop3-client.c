@@ -476,7 +476,7 @@ int client_init_mailbox(struct client *client, const char **error_r)
 	struct master_service_anvil_session anvil_session;
 	mail_user_get_anvil_session(client->user, &anvil_session);
 	if (master_service_anvil_connect(master_service, &anvil_session,
-					 client->anvil_conn_guid))
+					 TRUE, client->anvil_conn_guid))
 		client->anvil_sent = TRUE;
 	return 0;
 }

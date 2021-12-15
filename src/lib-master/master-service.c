@@ -962,7 +962,7 @@ master_service_anvil_session_to_cmd(string_t *cmd,
 
 bool master_service_anvil_connect(struct master_service *service,
 	const struct master_service_anvil_session *session,
-	guid_128_t conn_guid_r)
+	bool kick_supported, guid_128_t conn_guid_r)
 {
 	guid_128_generate(conn_guid_r);
 
@@ -971,6 +971,13 @@ bool master_service_anvil_connect(struct master_service *service,
 	str_append(cmd, guid_128_to_string(conn_guid_r));
 	str_append_c(cmd, '\t');
 	master_service_anvil_session_to_cmd(cmd, session);
+	str_append_c(cmd, '\t');
+	if (!kick_supported)
+		str_append_c(cmd, 'N');
+	else if (master_service_get_client_limit(service) == 1)
+		str_append_c(cmd, 'S');
+	else
+		str_append_c(cmd, 'A');
 	str_append_c(cmd, '\n');
 	return master_service_anvil_send(service, str_c(cmd));
 }
