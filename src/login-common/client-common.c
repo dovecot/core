@@ -334,6 +334,8 @@ void client_destroy(struct client *client, const char *reason)
 	client_disconnect(client, reason, !client->login_success);
 
 	pool_unref(&client->preproxy_pool);
+	client->forward_fields = NULL;
+	client->client_id = NULL;
 
 	if (client->master_tag != 0) {
 		i_assert(client->auth_request == NULL);
