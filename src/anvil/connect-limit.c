@@ -100,7 +100,7 @@ unsigned int connect_limit_lookup(struct connect_limit *limit,
 void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 			   const struct connect_limit_key *key)
 {
-	struct session *session, session_lookup;
+	struct session *session;
 	struct userip *userip;
 	void *value;
 
@@ -122,8 +122,10 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 		hash_table_update(limit->userip_hash, userip, value);
 	}
 
-	session_lookup.userip = userip;
-	session_lookup.pid = pid;
+	struct session session_lookup = {
+		.userip = userip,
+		.pid = pid,
+	};
 	session = hash_table_lookup(limit->session_hash, &session_lookup);
 	if (session == NULL) {
 		session = i_new(struct session, 1);
@@ -163,15 +165,17 @@ userip_hash_unref(struct connect_limit *limit,
 void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
 			      const struct connect_limit_key *key)
 {
-	struct session *session, session_lookup;
+	struct session *session;
 	struct userip userip_lookup = {
 		.username = (char *)key->username,
 		.service = (char *)key->service,
 		.ip = key->ip,
 	};
 
-	session_lookup.userip = &userip_lookup;
-	session_lookup.pid = pid;
+	struct session session_lookup = {
+		.userip = &userip_lookup,
+		.pid = pid,
+	};
 
 	session = hash_table_lookup(limit->session_hash, &session_lookup);
 	if (session == NULL) {
