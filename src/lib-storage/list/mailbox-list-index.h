@@ -132,6 +132,7 @@ struct mailbox_list_index {
 	bool rebuild_on_missing_inbox:1;
 	bool force_resynced:1;
 	bool force_resync_failed:1;
+	bool last_refresh_success:1;
 };
 
 struct mailbox_list_index_iterate_context {

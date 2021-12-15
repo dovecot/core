@@ -548,7 +548,7 @@ int mailbox_list_index_refresh(struct mailbox_list *list)
 		   it. when we're accessing many mailboxes at once (e.g.
 		   opening a virtual mailbox) we don't want to stat/read the
 		   index every single time. */
-		return 0;
+		return ilist->last_refresh_success ? 0 : -1;
 	}
 
 	return mailbox_list_index_refresh_force(list);
@@ -563,7 +563,6 @@ int mailbox_list_index_refresh_force(struct mailbox_list *list)
 
 	i_assert(!ilist->syncing);
 
-	ilist->last_refresh_timeval = ioloop_timeval;
 	if (mailbox_list_index_index_open(list) < 0)
 		return -1;
 	if (mail_index_refresh(ilist->index) < 0) {
@@ -590,6 +589,8 @@ int mailbox_list_index_refresh_force(struct mailbox_list *list)
 			"Failed to rebuild mailbox list index: %s", errstr));
 		ret = -1;
 	}
+	ilist->last_refresh_timeval = ioloop_timeval;
+	ilist->last_refresh_success = (ret == 0);
 	return ret;
 }
 
