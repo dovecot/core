@@ -216,7 +216,12 @@ static void cmd_kick(struct doveadm_cmd_context *cctx)
 	doveadm_print_formatted_set_format("%{result} ");
 	doveadm_print_header_simple("result");
 
-	who_lookup(&ctx.who, kick_aggregate_line);
+	struct doveadm_who_iter *iter =
+		doveadm_who_iter_init(ctx.who.anvil_path);
+	struct who_line who_line;
+	while (doveadm_who_iter_next(iter, &who_line))
+		kick_aggregate_line(&ctx.who, &who_line);
+	doveadm_who_iter_deinit(&iter);
 	kick_users(&ctx);
 
 	hash_table_destroy(&ctx.pids);

@@ -23,6 +23,11 @@ struct who_user {
 	unsigned int connection_count;
 };
 
+struct doveadm_who_iter {
+	struct istream *input;
+	pool_t pool, line_pool;
+};
+
 static void who_user_ip(const struct who_user *user, struct ip_addr *ip_r)
 {
 	if (array_count(&user->ips) == 0)
@@ -78,7 +83,8 @@ who_user_has_ip(const struct who_user *user, const struct ip_addr *ip)
 	return FALSE;
 }
 
-static int who_parse_line(const char *line, struct who_line *line_r)
+static int who_parse_line(struct doveadm_who_iter *iter,
+			  const char *line, struct who_line *line_r)
 {
 	const char *const *args = t_strsplit_tabescaped(line);
 	i_zero(line_r);
@@ -87,10 +93,11 @@ static int who_parse_line(const char *line, struct who_line *line_r)
 	if (str_array_length(args) < 6)
 		return -1;
 
+	p_clear(iter->line_pool);
 	if (str_to_pid(args[0], &line_r->pid) < 0)
 		return -1;
-	line_r->username = args[1];
-	line_r->service = args[2];
+	line_r->username = p_strdup(iter->line_pool, args[1]);
+	line_r->service = p_strdup(iter->line_pool, args[2]);
 	if (args[3][0] != '\0') {
 		if (net_addr2ip(args[3], &line_r->ip) < 0)
 			return -1;
@@ -167,38 +174,64 @@ int who_parse_args(struct who_context *ctx, const char *const *masks)
 	return 0;
 }
 
-void who_lookup(struct who_context *ctx, who_callback_t *callback)
+struct doveadm_who_iter *doveadm_who_iter_init(const char *anvil_path)
 {
 #define ANVIL_HANDSHAKE "VERSION\tanvil\t2\t0\n"
 #define ANVIL_CMD ANVIL_HANDSHAKE"CONNECT-DUMP\n"
-	struct istream *input;
+	struct doveadm_who_iter *iter;
 	const char *line;
 	int fd;
+	pool_t pool;
 
-	fd = doveadm_connect(ctx->anvil_path);
+	pool = pool_alloconly_create("doveadm who iter", 256);
+	iter = p_new(pool, struct doveadm_who_iter, 1);
+	iter->pool = pool;
+	iter->line_pool = pool_alloconly_create("doveadm who line", 256);
+
+	fd = doveadm_connect(anvil_path);
 	net_set_nonblock(fd, FALSE);
 	if (write(fd, ANVIL_CMD, strlen(ANVIL_CMD)) < 0)
-		i_fatal("write(%s) failed: %m", ctx->anvil_path);
+		i_fatal("write(%s) failed: %m", anvil_path);
 
-	input = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
-	while ((line = i_stream_read_next_line(input)) != NULL) {
+	iter->input = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
+	i_stream_set_name(iter->input, anvil_path);
+	if ((line = i_stream_read_next_line(iter->input)) == NULL)
+		i_fatal("anvil didn't send header line");
+	return iter;
+}
+
+bool doveadm_who_iter_next(struct doveadm_who_iter *iter,
+			   struct who_line *who_line_r)
+{
+	const char *line;
+	int ret;
+
+	while ((line = i_stream_read_next_line(iter->input)) != NULL) {
 		if (*line == '\0')
 			break;
 		T_BEGIN {
-			struct who_line who_line;
-
-			if (who_parse_line(line, &who_line) < 0)
-				i_error("Invalid input: %s", line);
-			else
-				callback(ctx, &who_line);
+			ret = who_parse_line(iter, line, who_line_r);
 		} T_END;
+		if (ret < 0)
+			i_error("Invalid input: %s", line);
+		else
+			return TRUE;
 	}
-	if (input->stream_errno != 0) {
-		i_fatal("read(%s) failed: %s", ctx->anvil_path,
-			i_stream_get_error(input));
+	if (iter->input->stream_errno != 0) {
+		i_fatal("read(%s) failed: %s", i_stream_get_name(iter->input),
+			i_stream_get_error(iter->input));
 	}
+	return FALSE;
+}
 
-	i_stream_destroy(&input);
+void doveadm_who_iter_deinit(struct doveadm_who_iter **_iter)
+{
+	struct doveadm_who_iter *iter = *_iter;
+
+	*_iter = NULL;
+	i_stream_destroy(&iter->input);
+	pool_unref(&iter->line_pool);
+	pool_unref(&iter->pool);
 }
 
 static bool who_user_filter_match(const struct who_user *user,
@@ -327,8 +360,11 @@ static void cmd_who(struct doveadm_cmd_context *cctx)
 	}
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
+	struct doveadm_who_iter *iter = doveadm_who_iter_init(ctx.anvil_path);
+	struct who_line who_line;
 	if (!separate_connections) {
-		who_lookup(&ctx, who_aggregate_line);
+		while (doveadm_who_iter_next(iter, &who_line))
+			who_aggregate_line(&ctx, &who_line);
 		who_print(&ctx);
 	} else {
 		doveadm_print_header("username", "username",
@@ -337,8 +373,10 @@ static void cmd_who(struct doveadm_cmd_context *cctx)
 		doveadm_print_header_simple("pid");
 		doveadm_print_header_simple("ip");
 		doveadm_print_header_simple("dest_ip");
-		who_lookup(&ctx, who_print_line);
+		while (doveadm_who_iter_next(iter, &who_line))
+			who_print_line(&ctx, &who_line);
 	}
+	doveadm_who_iter_deinit(&iter);
 
 	hash_table_destroy(&ctx.users);
 	pool_unref(&ctx.pool);
