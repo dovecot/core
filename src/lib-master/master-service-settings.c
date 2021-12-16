@@ -109,22 +109,26 @@ const struct setting_parser_info master_service_setting_parser_info = {
 
 /* <settings checks> */
 static bool
-log_filter_parse(const char *set_name, const char *set_value,
-		 struct event_filter **filter_r, const char **error_r)
+setting_filter_parse(const char *set_name, const char *set_value,
+		     void (*handle_filter)(struct event_filter *) ATTR_UNUSED,
+		     const char **error_r)
 {
+	struct event_filter *filter;
 	const char *error;
 
-	if (set_value[0] == '\0') {
-		*filter_r = NULL;
+	if (set_value[0] == '\0')
 		return TRUE;
-	}
 
-	*filter_r = event_filter_create();
-	if (event_filter_parse(set_value, *filter_r, &error) < 0) {
+	filter = event_filter_create();
+	if (event_filter_parse(set_value, filter, &error) < 0) {
 		*error_r = t_strdup_printf("Invalid %s: %s", set_name, error);
-		event_filter_unref(filter_r);
+		event_filter_unref(&filter);
 		return FALSE;
 	}
+#ifndef CONFIG_BINARY
+	handle_filter(filter);
+#endif
+	event_filter_unref(&filter);
 	return TRUE;
 }
 
@@ -145,25 +149,12 @@ master_service_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	}
 
-	struct event_filter *filter;
-	if (!log_filter_parse("log_debug", set->log_debug, &filter, error_r))
+	if (!setting_filter_parse("log_debug", set->log_debug,
+				  event_set_global_debug_log_filter, error_r))
 		return FALSE;
-	if (filter != NULL) {
-#ifndef CONFIG_BINARY
-		event_set_global_debug_log_filter(filter);
-#endif
-		event_filter_unref(&filter);
-	}
-
-	if (!log_filter_parse("log_core_filter", set->log_core_filter,
-			      &filter, error_r))
+	if (!setting_filter_parse("log_core_filter", set->log_core_filter,
+				  event_set_global_core_log_filter, error_r))
 		return FALSE;
-	if (filter != NULL) {
-#ifndef CONFIG_BINARY
-		event_set_global_core_log_filter(filter);
-#endif
-		event_filter_unref(&filter);
-	}
 	return TRUE;
 }
 /* </settings checks> */
