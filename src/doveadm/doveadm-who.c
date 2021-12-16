@@ -26,6 +26,10 @@ struct who_user {
 struct doveadm_who_iter {
 	struct istream *input;
 	pool_t pool, line_pool;
+
+	unsigned int alt_username_fields_count;
+	const char **alt_username_fields;
+
 	bool failed;
 };
 
@@ -90,7 +94,8 @@ static int who_parse_line(struct doveadm_who_iter *iter,
 	const char *const *args = t_strsplit_tabescaped(line);
 	i_zero(line_r);
 
-	/* <pid> <username> <service> <ip> <conn-guid> <dest-ip> */
+	/* <pid> <username> <service> <ip> <conn-guid> <dest-ip>
+	   [alt usernames] */
 	if (str_array_length(args) < 6)
 		return -1;
 
@@ -109,6 +114,7 @@ static int who_parse_line(struct doveadm_who_iter *iter,
 		if (net_addr2ip(args[5], &line_r->dest_ip) < 0)
 			return -1;
 	}
+	line_r->alt_usernames = p_strarray_dup(iter->line_pool, args + 6);
 	return 0;
 }
 
@@ -202,6 +208,11 @@ struct doveadm_who_iter *doveadm_who_iter_init(const char *anvil_path)
 	if ((line = i_stream_read_next_line(iter->input)) == NULL) {
 		i_error("anvil didn't send header line");
 		iter->failed = TRUE;
+	} else {
+		iter->alt_username_fields =
+			(const char **)p_strsplit_tabescaped(iter->pool, line);
+		iter->alt_username_fields_count =
+			str_array_length(iter->alt_username_fields);
 	}
 	return iter;
 }
@@ -341,9 +352,12 @@ bool who_line_filter_match(const struct who_line *line,
 	return TRUE;
 }
 
-static void who_print_line(struct who_context *ctx,
-			   const struct who_line *line)
+static void
+who_print_line(struct who_context *ctx, struct doveadm_who_iter *iter,
+	       const struct who_line *line)
 {
+	unsigned int alt_idx;
+
 	if (!who_line_filter_match(line, &ctx->filter))
 		return;
 
@@ -352,6 +366,11 @@ static void who_print_line(struct who_context *ctx,
 	doveadm_print(dec2str(line->pid));
 	doveadm_print(net_ip2addr(&line->ip));
 	doveadm_print(net_ip2addr(&line->dest_ip));
+
+	for (alt_idx = 0; line->alt_usernames[alt_idx] != NULL; alt_idx++)
+		doveadm_print(line->alt_usernames[alt_idx]);
+	for (; alt_idx < iter->alt_username_fields_count; alt_idx++)
+		doveadm_print("");
 }
 
 static void cmd_who(struct doveadm_cmd_context *cctx)
@@ -390,8 +409,10 @@ static void cmd_who(struct doveadm_cmd_context *cctx)
 		doveadm_print_header_simple("pid");
 		doveadm_print_header_simple("ip");
 		doveadm_print_header_simple("dest_ip");
+		for (unsigned int i = 0; i < iter->alt_username_fields_count; i++)
+			doveadm_print_header_simple(iter->alt_username_fields[i]);
 		while (doveadm_who_iter_next(iter, &who_line))
-			who_print_line(&ctx, &who_line);
+			who_print_line(&ctx, iter, &who_line);
 	}
 	if (doveadm_who_iter_deinit(&iter) < 0)
 		doveadm_exit_code = EX_TEMPFAIL;

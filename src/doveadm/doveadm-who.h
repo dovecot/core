@@ -7,6 +7,7 @@ struct who_line {
 	const char *username;
 	const char *service;
 	guid_128_t conn_guid;
+	const char *const *alt_usernames;
 	struct ip_addr ip;
 	struct ip_addr dest_ip;
 	pid_t pid;

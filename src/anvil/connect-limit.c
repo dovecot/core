@@ -539,9 +539,21 @@ void connect_limit_dump(struct connect_limit *limit, struct ostream *output)
 	struct hash_iterate_context *iter;
 	struct session *session;
 	const uint8_t *conn_guid;
+	const struct alt_username_field *alt_field;
+	unsigned int alt_idx;
 	string_t *str = str_new(default_pool, 256);
 	ssize_t ret = 0;
 
+	/* Send list of alt usernames in the header */
+	array_foreach(&limit->alt_username_fields, alt_field) {
+		if (str_len(str) > 0)
+			str_append_c(str, '\t');
+		str_append_tabescaped(str, alt_field->name);
+	}
+	str_append_c(str, '\n');
+	o_stream_nsend(output, str_data(str), str_len(str));
+
+	/* Send all sessions */
 	iter = hash_table_iterate_init(limit->session_hash);
 	while (ret >= 0 &&
 	       hash_table_iterate(iter, limit->session_hash,
@@ -559,6 +571,13 @@ void connect_limit_dump(struct connect_limit *limit, struct ostream *output)
 		str_append_c(str, '\t');
 		if (session->dest_ip.family != 0)
 			str_append(str, net_ip2addr(&session->dest_ip));
+		for (alt_idx = 0; alt_idx < session->alt_usernames_count; alt_idx++) {
+			str_append_c(str, '\t');
+			if (session->alt_usernames[alt_idx].alt_username != NULL) {
+				str_append_tabescaped(str,
+					session->alt_usernames[alt_idx].alt_username);
+			}
+		}
 		str_append_c(str, '\n');
 		ret = o_stream_send(output, str_data(str), str_len(str));
 	} T_END;

@@ -21,7 +21,8 @@ static guid_128_t session3_guid = {
 #define SESSION3_HEX "300000000000000000000000000000f3"
 
 static void
-test_session_dump(struct connect_limit *limit, const char *expected_dump)
+test_session_dump(struct connect_limit *limit, const char *expected_altnames,
+		  const char *expected_dump)
 {
 	string_t *str = str_new(default_pool, 128);
 	struct ostream *output = o_stream_create_buffer(str);
@@ -33,13 +34,25 @@ test_session_dump(struct connect_limit *limit, const char *expected_dump)
 		str_free(&str);
 		return;
 	}
+
+	/* check the alt usernames header */
+	const char *p = strchr(str_c(str), '\n');
+	if (p == NULL) {
+		test_assert(str_len(str) == 0);
+		test_assert_strcmp(expected_altnames, "");
+	} else {
+		test_assert_strcmp(expected_altnames,
+				   t_strndup(str_c(str), p - str_c(str)));
+		str_delete(str, 0, p - str_c(str) + 1);
+	}
+
 	/* The output comes from hash table, so the order isn't stable.
 	   Sort the lines so we can test it. */
 	const char **lines = t_strsplit(str_c(str), "\n");
 	unsigned int lines_count = str_array_length(lines);
 	i_qsort(lines, lines_count, sizeof(const char *), i_strcmp_p);
 
-	string_t *new_str = t_str_new(str_len(str));
+	string_t *new_str = str_new(default_pool, str_len(str));
 	/* the output ends with \n\n and they're sorted first */
 	i_assert(lines_count >= 2);
 	i_assert(lines[0][0] == '\0');
@@ -49,6 +62,7 @@ test_session_dump(struct connect_limit *limit, const char *expected_dump)
 		str_append_c(new_str, '\n');
 	}
 	test_assert_strcmp(str_c(new_str), expected_dump);
+	str_free(&new_str);
 
 	o_stream_destroy(&output);
 	str_free(&str);
@@ -76,8 +90,8 @@ static void test_connect_limit(void)
 	test_assert(net_addr2ip("1.2.3.4", &key.ip) == 0);
 	connect_limit_connect(limit, 501, &key, session1_guid, KICK_TYPE_NONE,
 			      &dest_ip, alt_usernames1);
-#define TEST_SESSION1_STR "501\tuser1\tservice1\t1.2.3.4\t"SESSION1_HEX"\t\n"
-	test_session_dump(limit, TEST_SESSION1_STR);
+#define TEST_SESSION1_STR "501\tuser1\tservice1\t1.2.3.4\t"SESSION1_HEX"\t\taltvalueA\taltvalueB\n"
+	test_session_dump(limit, "altkey1\taltkey2", TEST_SESSION1_STR);
 	test_assert(connect_limit_lookup(limit, &key) == 1);
 
 	/* same userip and pid */
@@ -95,8 +109,9 @@ static void test_connect_limit(void)
 	i_zero(&dest_ip);
 	connect_limit_connect(limit, 501, &key2, session2_guid, KICK_TYPE_NONE,
 			      &dest_ip, alt_usernames2);
-#define TEST_SESSION2_STR "501\tuser1\tservice1\t1.2.3.4\t"SESSION2_HEX"\t\n"
-	test_session_dump(limit, TEST_SESSION1_STR TEST_SESSION2_STR);
+#define TEST_SESSION2_STR "501\tuser1\tservice1\t1.2.3.4\t"SESSION2_HEX"\t\taltvalueA\taltvalueC\taltvalueA\n"
+	test_session_dump(limit, "altkey1\taltkey2\taltkey3",
+			  TEST_SESSION1_STR TEST_SESSION2_STR);
 	test_assert(connect_limit_lookup(limit, &key) == 2);
 
 	/* different user */
@@ -114,8 +129,9 @@ static void test_connect_limit(void)
 	test_assert(net_addr2ip("1.0.0.2", &dest_ip) == 0);
 	connect_limit_connect(limit, 600, &key3, session3_guid, KICK_TYPE_SIGNAL,
 			      &dest_ip, alt_usernames3);
-#define TEST_SESSION3_STR "600\tuser2\tservice2\t4.3.2.1\t"SESSION3_HEX"\t1.0.0.2\n"
-	test_session_dump(limit, TEST_SESSION1_STR TEST_SESSION2_STR TEST_SESSION3_STR);
+#define TEST_SESSION3_STR "600\tuser2\tservice2\t4.3.2.1\t"SESSION3_HEX"\t1.0.0.2\taltvalueA\taltvalueC\t\taltvalueD\n"
+	test_session_dump(limit, "altkey1\taltkey2\taltkey3\taltkey4",
+			  TEST_SESSION1_STR TEST_SESSION2_STR TEST_SESSION3_STR);
 	test_assert(connect_limit_lookup(limit, &key) == 2);
 	test_assert(connect_limit_lookup(limit, &key3) == 0);
 
@@ -130,7 +146,8 @@ static void test_connect_limit(void)
 	connect_limit_connect(limit, 600, &key4, session2_guid, KICK_TYPE_SIGNAL,
 			      &dest_ip, alt_usernames3);
 	test_expect_no_more_errors();
-	test_session_dump(limit, TEST_SESSION1_STR TEST_SESSION2_STR TEST_SESSION3_STR);
+	test_session_dump(limit, "altkey1\taltkey2\taltkey3\taltkey4",
+			  TEST_SESSION1_STR TEST_SESSION2_STR TEST_SESSION3_STR);
 
 	/* test user iteration for user1 */
 	struct connect_limit_iter *iter =
@@ -187,13 +204,14 @@ static void test_connect_limit(void)
 
 	/* disconnect a single session */
 	connect_limit_disconnect(limit, 600, &key3, session3_guid);
-	test_session_dump(limit, TEST_SESSION1_STR TEST_SESSION2_STR);
+	test_session_dump(limit, "altkey1\taltkey2\taltkey3\taltkey4",
+			  TEST_SESSION1_STR TEST_SESSION2_STR);
 	test_assert(connect_limit_lookup(limit, &key) == 2);
 	test_assert(connect_limit_lookup(limit, &key3) == 0);
 
 	/* disconnect all sessions from a process */
 	connect_limit_disconnect_pid(limit, 501);
-	test_session_dump(limit, "");
+	test_session_dump(limit, "altkey1\taltkey2\taltkey3\taltkey4", "");
 	test_assert(connect_limit_lookup(limit, &key3) == 0);
 
 	connect_limit_deinit(&limit);
