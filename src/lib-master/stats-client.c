@@ -196,8 +196,7 @@ stats_client_send_event(struct stats_client *client, struct event *event,
 	if (!client->handshaked)
 		return;
 
-	if (client->filter == NULL ||
-	    !event_filter_match(client->filter, event, ctx))
+	if (!event_filter_match(client->filter, event, ctx))
 		return;
 
 	/* Need to send the event for stats and/or export */
