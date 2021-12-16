@@ -46,6 +46,7 @@ static const struct setting_define master_service_setting_defines[] = {
 	DEF(STR, log_timestamp),
 	DEF(STR, log_debug),
 	DEF(STR, log_core_filter),
+	DEF(STR, process_shutdown_filter),
 	DEF(STR, syslog_facility),
 	DEF(STR, import_environment),
 	DEF(STR, stats_writer_socket_path),
@@ -83,6 +84,7 @@ static const struct master_service_settings master_service_default_settings = {
 	.log_timestamp = DEFAULT_FAILURE_STAMP_FORMAT,
 	.log_debug = "",
 	.log_core_filter = "",
+	.process_shutdown_filter = "",
 	.syslog_facility = "mail",
 	.import_environment = "TZ CORE_OUTOFMEM CORE_ERROR" ENV_SYSTEMD ENV_GDB,
 	.stats_writer_socket_path = "stats-writer",
@@ -132,6 +134,12 @@ setting_filter_parse(const char *set_name, const char *set_value,
 	return TRUE;
 }
 
+static void
+master_service_set_process_shutdown_filter_wrapper(struct event_filter *filter)
+{
+	master_service_set_process_shutdown_filter(master_service, filter);
+}
+
 static bool
 master_service_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 			      const char **error_r)
@@ -154,6 +162,11 @@ master_service_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	if (!setting_filter_parse("log_core_filter", set->log_core_filter,
 				  event_set_global_core_log_filter, error_r))
+		return FALSE;
+	if (!setting_filter_parse("process_shutdown_filter",
+				  set->process_shutdown_filter,
+				  master_service_set_process_shutdown_filter_wrapper,
+				  error_r))
 		return FALSE;
 	return TRUE;
 }

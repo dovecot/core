@@ -132,7 +132,7 @@ sig_state_changed(const siginfo_t *si ATTR_UNUSED, void *context)
 static bool
 master_service_event_callback(struct event *event,
 			      enum event_callback_type type,
-			      struct failure_context *ctx ATTR_UNUSED,
+			      struct failure_context *ctx,
 			      const char *fmt ATTR_UNUSED,
 			      va_list args ATTR_UNUSED)
 {
@@ -142,6 +142,12 @@ master_service_event_callback(struct event *event,
 		   inherit the category from them. */
 		event_add_category(event, &master_service_category);
 	}
+	/* This callback may be called while still in master_service_init().
+	   In that case master_service is NULL. */
+	if (type == EVENT_CALLBACK_TYPE_SEND && master_service != NULL &&
+	    event_filter_match(master_service->process_shutdown_filter,
+			       event, ctx))
+		master_service_stop_new_connections(master_service);
 	return TRUE;
 }
 
@@ -1525,4 +1531,17 @@ bool version_string_verify_full(const char *line, const char *service_name,
 		}
 	} T_END;
 	return ret;
+}
+
+void master_service_set_process_shutdown_filter(struct master_service *service,
+						struct event_filter *filter)
+{
+	master_service_unset_process_shutdown_filter(service);
+	service->process_shutdown_filter = filter;
+	event_filter_ref(service->process_shutdown_filter);
+}
+
+void master_service_unset_process_shutdown_filter(struct master_service *service)
+{
+	event_filter_unref(&service->process_shutdown_filter);
 }

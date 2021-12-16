@@ -253,4 +253,10 @@ bool version_string_verify_full(const char *line, const char *service_name,
 				unsigned major_version,
 				unsigned int *minor_version_r);
 
+/* Sets process shutdown filter */
+void master_service_set_process_shutdown_filter(struct master_service *service,
+						struct event_filter *filter);
+/* Unsets process shutdown filter, if it exists */
+void master_service_unset_process_shutdown_filter(struct master_service *service);
+
 #endif
