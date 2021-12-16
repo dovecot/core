@@ -803,6 +803,19 @@ int imapc_copy(struct mail_save_context *_ctx, struct mail *mail)
 			return -1;
 		}
 		/* Mail has not been expunged and can be copied. */
+		if (ctx->mbox->capabilities == 0) {
+			/* The destination mailbox has not yet been selected
+			   so the capabilities are unknown */
+			if (imapc_client_get_capabilities(ctx->mbox->storage->client->client,
+						      &ctx->mbox->capabilities) < 0) {
+				mail_storage_set_error(mail->box->storage,
+						       MAIL_ERROR_UNAVAILABLE,
+						       "Failed to determine capabilities for mailbox.");
+				ctx->finished = TRUE;
+				index_save_context_free(_ctx);
+				return -1;
+			}
+		}
 		if ((ctx->mbox->capabilities & IMAPC_CAPABILITY_UIDPLUS) != 0)
 			ret = imapc_copy_bulk(ctx, mail);
 		else
