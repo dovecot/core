@@ -713,6 +713,8 @@ event_filter_match_fastpath(struct event_filter *filter, struct event *event)
 bool event_filter_match(struct event_filter *filter, struct event *event,
 			const struct failure_context *ctx)
 {
+	if (filter == NULL)
+		return FALSE;
 	return event_filter_match_source(filter, event, event->source_filename,
 					 event->source_linenum, ctx);
 }
