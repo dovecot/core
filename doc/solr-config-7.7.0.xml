@@ -37,6 +37,9 @@
   <lib dir="${solr.install.dir:../../../..}/contrib/velocity/lib" regex=".*\.jar" />
   <lib dir="${solr.install.dir:../../../..}/dist/" regex="solr-velocity-\d.*\.jar" />
 
+  <lib dir="${solr.install.dir:../../../..}/contrib/analysis-extras/lib" regex="icu4j-.*\.jar"/>
+  <lib dir="${solr.install.dir:../../../..}/contrib/analysis-extras/lucene-libs" regex="lucene-analyzers-icu-.*\.jar"/>
+
   <!-- Data Directory
 
        Used to specify an alternate directory to hold all index data
