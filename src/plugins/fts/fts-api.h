@@ -53,7 +53,24 @@ struct fts_score_map {
 };
 ARRAY_DEFINE_TYPE(fts_score_map, struct fts_score_map);
 
+/* the structure is meant to be implemented by plugins that want to carry
+   some state over from a call to next ones within an fts_search_context
+   session.
+
+   The pointer to this structure is initially granted to be NULL and it
+   remains such unless the plugin itself activates it.
+
+   Any memory management for the pointer and its contents is expected to
+   be performed by the plugin itself, possibly but not necessarily using
+   the result pool propagated to plugin call by struct fts_result.pool and
+   struct fts_multi_result.pool. */
+
+struct fts_search_state;
+
 struct fts_result {
+	pool_t pool;
+	struct fts_search_state *search_state;
+
 	struct mailbox *box;
 
 	ARRAY_TYPE(seq_range) definite_uids;
@@ -67,6 +84,8 @@ struct fts_result {
 
 struct fts_multi_result {
 	pool_t pool;
+	struct fts_search_state *search_state;
+
 	/* box=NULL-terminated array of mailboxes and matching UIDs,
 	   all allocated from the given pool. */
 	struct fts_result *box_results;
