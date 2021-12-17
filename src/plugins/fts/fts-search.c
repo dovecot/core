@@ -43,6 +43,8 @@ static int fts_search_lookup_level_single(struct fts_search_context *fctx,
 	struct fts_result result;
 
 	i_zero(&result);
+	result.search_state = fctx->search_state;
+	result.pool = fctx->result_pool;
 	p_array_init(&result.definite_uids, fctx->result_pool, 32);
 	p_array_init(&result.maybe_uids, fctx->result_pool, 32);
 	p_array_init(&result.scores, fctx->result_pool, 32);
@@ -52,6 +54,7 @@ static int fts_search_lookup_level_single(struct fts_search_context *fctx,
 			       &result) < 0)
 		return -1;
 
+	fctx->search_state = result.search_state;
 	level = array_append_space(&fctx->levels);
 	level->args_matches = buffer_create_dynamic(fctx->result_pool, 16);
 	fts_search_serialize(level->args_matches, args);
@@ -168,6 +171,7 @@ static int fts_search_lookup_level_multi(struct fts_search_context *fctx,
 	array_sort(&mailboxes_arr, mailbox_cmp_fts_backend);
 
 	i_zero(&result);
+	result.search_state = fctx->search_state;
 	result.pool = fctx->result_pool;
 
 	level = array_append_space(&fctx->levels);
@@ -197,6 +201,7 @@ static int fts_search_lookup_level_multi(struct fts_search_context *fctx,
 		if (multi_add_lookup_result(fctx, level, args, &result) < 0)
 			return -1;
 	}
+	fctx->search_state = result.search_state;
 	return 0;
 }
 

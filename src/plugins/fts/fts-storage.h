@@ -45,6 +45,7 @@ struct fts_search_context {
 	struct fts_scores *scores;
 
 	struct fts_indexer_context *indexer_ctx;
+	struct fts_search_state *search_state;
 
 	bool virtual_mailbox:1;
 	bool fts_lookup_success:1;
