@@ -59,7 +59,8 @@ bool maildir_filename_get_size(const char *fname, char type, uoff_t *size_r)
 }
 
 /* a char* hash function from ASU -- from glib */
-unsigned int maildir_filename_base_hash(const char *s)
+unsigned int ATTR_NO_SANITIZE_INTEGER
+maildir_filename_base_hash(const char *s)
 {
 	unsigned int g, h = 0;
 
