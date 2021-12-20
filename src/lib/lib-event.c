@@ -1644,16 +1644,16 @@ event_passthrough_add_str(const char *key, const char *value)
 static struct event_passthrough *
 event_passthrough_strlist_append(const char *key, const char *value)
 {
-        event_strlist_append(last_passthrough_event(), key, value);
-        return &event_passthrough_vfuncs;
+	event_strlist_append(last_passthrough_event(), key, value);
+	return &event_passthrough_vfuncs;
 }
 
 static struct event_passthrough *
 event_passthrough_strlist_replace(const char *key, const char *const *values,
 				  unsigned int count)
 {
-        event_strlist_replace(last_passthrough_event(), key, values, count);
-        return &event_passthrough_vfuncs;
+	event_strlist_replace(last_passthrough_event(), key, values, count);
+	return &event_passthrough_vfuncs;
 }
 
 static struct event_passthrough *
