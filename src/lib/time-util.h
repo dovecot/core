@@ -69,6 +69,11 @@ timeval_sub_msecs(struct timeval *tv, unsigned int msecs)
 	}
 }
 
+static inline unsigned long long timeval_to_usecs(const struct timeval *tv)
+{
+	return (tv->tv_sec * 1000000ULL + tv->tv_usec);
+}
+
 static inline void timeval_add(struct timeval *tv, const struct timeval *val)
 {
 	i_assert(val->tv_usec < 1000000);
