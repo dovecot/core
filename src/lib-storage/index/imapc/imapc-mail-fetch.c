@@ -213,6 +213,12 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 	i_assert(headers == NULL ||
 		 IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_HEADERS));
 
+	if (!mbox->selected) {
+		mail_storage_set_error(_mail->box->storage,
+				MAIL_ERROR_NOTPOSSIBLE, "Can't fetch mails before selecting mailbox");
+		return -1;
+	}
+
 	if (!mail_stream_access_start(_mail))
 		return -1;
 
