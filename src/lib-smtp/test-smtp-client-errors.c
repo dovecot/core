@@ -1901,6 +1901,8 @@ test_client_premature_reply(const struct smtp_client_settings *client_set)
 	struct _premature_reply *ctx;
 	unsigned int i;
 
+	test_expect_errors(6);
+
 	ctx = i_new(struct _premature_reply, 1);
 	ctx->count = 6;
 
@@ -2232,6 +2234,8 @@ test_client_early_data_reply(const struct smtp_client_settings *client_set)
 	struct _early_data_reply *ctx;
 	unsigned int i;
 
+	test_expect_errors(2);
+
 	ctx = i_new(struct _early_data_reply, 1);
 	ctx->count = 3;
 
@@ -2310,6 +2314,8 @@ test_client_bad_reply(
 	struct smtp_client_connection *sconn;
 	struct smtp_client_command *scmd;
 	struct _bad_reply *ctx;
+
+	test_expect_errors(2);
 
 	ctx = i_new(struct _bad_reply, 1);
 	ctx->count = 2;
@@ -2451,6 +2457,8 @@ static bool
 test_client_bad_greeting(const struct smtp_client_settings *client_set)
 {
 	struct _bad_greeting *ctx;
+
+	test_expect_errors(2);
 
 	ctx = i_new(struct _bad_greeting, 1);
 	ctx->count = 3;
@@ -3279,6 +3287,8 @@ test_client_authentication_failed(const struct smtp_client_settings *client_set)
 	struct _authentication_failed *ctx;
 	unsigned int i;
 
+	test_expect_errors(2);
+
 	ctx = i_new(struct _authentication_failed, 1);
 	ctx->count = 2;
 
@@ -3299,7 +3309,6 @@ static void test_authentication_failed(void)
 	test_client_defaults(&smtp_client_set);
 
 	test_begin("authentication failed");
-	test_expect_errors(1);
 	test_run_client_server(&smtp_client_set,
 			       test_client_authentication_failed,
 			       test_server_authentication_failed, 2, NULL);

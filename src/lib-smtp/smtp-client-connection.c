@@ -1063,6 +1063,7 @@ smtp_client_connection_handshake_cb(const struct smtp_reply *reply,
 
 	lines = reply->text_lines;
 	if (*lines == NULL) {
+		e_error(conn->event, "Invalid handshake reply");
 		smtp_client_connection_fail(
 			conn, SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY,
 			"Invalid handshake reply");
@@ -1173,6 +1174,8 @@ smtp_client_connection_input_reply(struct smtp_client_connection *conn,
 			smtp_reply_log(reply));
 		if (reply->status != 220) {
 			if (smtp_reply_is_success(reply)) {
+				e_error(conn->event,
+					"Received inappropriate greeting");
 				smtp_client_connection_fail(
 					conn,
 					SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY,
@@ -1193,7 +1196,7 @@ smtp_client_connection_input_reply(struct smtp_client_connection *conn,
 
 	/* unexpected reply? */
 	if (conn->cmd_wait_list_head == NULL) {
-		e_debug(conn->event, "Unexpected reply: %s",
+		e_error(conn->event, "Unexpected reply: %s",
 			smtp_reply_log(reply));
 		smtp_client_connection_fail(
 			conn, SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY,
@@ -1297,6 +1300,7 @@ static void smtp_client_connection_input(struct connection *_conn)
 
 	if (ret < 0 || (ret == 0 && conn->conn.input->eof)) {
 		if (conn->conn.input->stream_errno == ENOBUFS) {
+			e_error(conn->event, "Command reply line too long");
 			smtp_client_connection_fail(
 				conn, SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY,
 				"Command reply line too long");
@@ -1320,6 +1324,8 @@ static void smtp_client_connection_input(struct connection *_conn)
 			}
 		} else {
 			i_assert(error != NULL);
+			e_error(conn->event, "Invalid command reply: %s",
+				error);
 			smtp_client_connection_fail(
 				conn, SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY,
 				t_strdup_printf("Invalid command reply: %s",
