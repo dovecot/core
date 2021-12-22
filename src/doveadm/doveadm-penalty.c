@@ -59,7 +59,7 @@ penalty_print_line(struct penalty_context *ctx,
 
 static void penalty_lookup(struct penalty_context *ctx)
 {
-#define ANVIL_HANDSHAKE "VERSION\tanvil\t2\t0\n"
+#define ANVIL_HANDSHAKE "VERSION\tanvil\t2\t0\n\n"
 #define ANVIL_CMD ANVIL_HANDSHAKE"PENALTY-DUMP\n"
 	struct istream *input;
 	const char *line;

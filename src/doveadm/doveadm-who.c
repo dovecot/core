@@ -183,7 +183,7 @@ int who_parse_args(struct who_context *ctx, const char *const *masks)
 
 struct doveadm_who_iter *doveadm_who_iter_init(const char *anvil_path)
 {
-#define ANVIL_HANDSHAKE "VERSION\tanvil\t2\t0\n"
+#define ANVIL_HANDSHAKE "VERSION\tanvil\t2\t0\n\n"
 #define ANVIL_CMD ANVIL_HANDSHAKE"CONNECT-DUMP\n"
 	struct doveadm_who_iter *iter;
 	const char *line;

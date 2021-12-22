@@ -5,8 +5,12 @@
 #include "net.h"
 #include "istream.h"
 #include "ostream.h"
+#include "istream-multiplex.h"
+#include "ostream-multiplex.h"
+#include "hostpid.h"
 #include "array.h"
 #include "aqueue.h"
+#include "master-service.h"
 #include "anvil-client.h"
 
 struct anvil_query {
@@ -32,7 +36,7 @@ struct anvil_client {
 	enum anvil_client_flags flags;
 };
 
-#define ANVIL_HANDSHAKE "VERSION\tanvil\t2\t0\n"
+#define ANVIL_HANDSHAKE "VERSION\tanvil\t2\t0\n%s\t%s\n"
 #define ANVIL_INBUF_SIZE 1024
 #define ANVIL_RECONNECT_MIN_SECS 5
 #define ANVIL_QUERY_TIMEOUT_MSECS (1000*5)
@@ -67,6 +71,22 @@ void anvil_client_deinit(struct anvil_client **_client)
 	i_free(client->path);
 	i_assert(client->to_reconnect == NULL);
 	i_free(client);
+}
+
+static void anvil_client_start_multiplex_input(struct anvil_client *client)
+{
+	struct istream *orig_input = client->input;
+	client->input = i_stream_create_multiplex(orig_input, ANVIL_INBUF_SIZE);
+	i_stream_unref(&orig_input);
+}
+
+static void
+anvil_client_start_multiplex_output(struct anvil_client *client)
+{
+	struct ostream *orig_output = client->output;
+	client->output = o_stream_create_multiplex(orig_output, SIZE_MAX);
+	o_stream_set_no_error_handling(client->output, TRUE);
+	o_stream_unref(&orig_output);
 }
 
 static void anvil_reconnect(struct anvil_client *client)
@@ -150,12 +170,19 @@ int anvil_client_connect(struct anvil_client *client, bool retry)
 	client->input = i_stream_create_fd(fd, ANVIL_INBUF_SIZE);
 	client->output = o_stream_create_fd(fd, SIZE_MAX);
 	client->io = io_add(fd, IO_READ, anvil_input, client);
-	if (o_stream_send_str(client->output, ANVIL_HANDSHAKE) < 0) {
+	const char *anvil_handshake =
+		t_strdup_printf(ANVIL_HANDSHAKE,
+				master_service_get_name(master_service),
+				my_pid);
+	if (o_stream_send_str(client->output, anvil_handshake) < 0) {
 		i_error("write(%s) failed: %s", client->path,
 			o_stream_get_error(client->output));
 		anvil_reconnect(client);
 		return -1;
 	}
+
+	anvil_client_start_multiplex_input(client);
+	anvil_client_start_multiplex_output(client);
 	return 0;
 }
 

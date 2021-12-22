@@ -4,6 +4,8 @@
 #include "llist.h"
 #include "istream.h"
 #include "ostream.h"
+#include "istream-multiplex.h"
+#include "ostream-multiplex.h"
 #include "connection.h"
 #include "strescape.h"
 #include "master-service.h"
@@ -22,6 +24,7 @@
 struct anvil_connection {
 	struct connection conn;
 
+	char *service;
 	bool master:1;
 	bool fifo:1;
 };
@@ -216,6 +219,49 @@ anvil_connection_request(struct anvil_connection *conn,
 }
 
 static int
+anvil_connection_handshake(struct anvil_connection *conn,
+			   const char *const *args)
+{
+	/* UNIX socket connections contain a handshake. It contains a PID of
+	   the connecting process, which is verified with UNIX credentials if
+	   they're available. */
+	pid_t pid;
+
+	if (args[0] == NULL) {
+		/* No service/pid. The client doesn't support admin-commands
+		   via anvil socket. */
+		return 0;
+	}
+
+	conn->service = i_strdup(args[0]);
+	if (args[1] == NULL || str_to_pid(args[1], &pid) < 0) {
+		e_error(conn->conn.event, "Invalid handshake pid: %s", args[1]);
+		return -1;
+	}
+	if (pid != conn->conn.remote_pid &&
+	    conn->conn.remote_pid != (pid_t)-1) {
+		e_error(conn->conn.event,
+			"Handshake PID %ld doesn't match UNIX credentials PID %ld",
+			(long)pid, (long)conn->conn.remote_pid);
+		return -1;
+	}
+
+	/* Switch input and output to use multiplex stream. The main
+	   input/output contains the first channel. */
+	struct istream *orig_input = conn->conn.input;
+	conn->conn.input = i_stream_create_multiplex(orig_input, MAX_INBUF_SIZE);
+	i_stream_unref(&orig_input);
+
+	struct ostream *orig_output = conn->conn.output;
+	conn->conn.output = o_stream_create_multiplex(orig_output, SIZE_MAX);
+	o_stream_set_no_error_handling(conn->conn.output, TRUE);
+	o_stream_unref(&orig_output);
+
+	connection_streams_changed(&conn->conn);
+	return 0;
+}
+
+static int
 anvil_connection_input_line(struct connection *_conn, const char *line)
 {
 	struct anvil_connection *conn =
@@ -239,6 +285,13 @@ anvil_connection_input_line(struct connection *_conn, const char *line)
 	}
 
 	args = t_strsplit_tabescaped(line);
+	if (!conn->conn.handshake_received && !conn->fifo) {
+		if (anvil_connection_handshake(conn, args) < 0)
+			return -1;
+		conn->conn.handshake_received = TRUE;
+		return 1;
+	}
+
 	if (args[0] == NULL) {
 		i_error("Anvil client sent empty line");
 		return -1;
@@ -274,6 +327,7 @@ static void anvil_connection_destroy(struct connection *_conn)
 
 	connection_deinit(&conn->conn);
 	o_stream_destroy(&conn->conn.output);
+	i_free(conn->service);
 	i_free(conn);
 
 	if (!fifo)
