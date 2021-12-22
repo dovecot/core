@@ -26,16 +26,9 @@ struct anvil_connection {
 	bool fifo:1;
 };
 
-static struct connection *anvil_connections = NULL;
+static struct connection_list *anvil_connections;
 
-static const char *const *
-anvil_connection_next_line(struct anvil_connection *conn)
-{
-	const char *line;
-
-	line = i_stream_next_line(conn->conn.input);
-	return line == NULL ? NULL : t_strsplit_tabescaped(line);
-}
+static void anvil_connection_destroy(struct connection *_conn);
 
 static bool
 connect_limit_key_parse(const char *const **_args,
@@ -222,89 +215,88 @@ anvil_connection_request(struct anvil_connection *conn,
 	return 0;
 }
 
-static void anvil_connection_input(struct anvil_connection *conn)
+static int
+anvil_connection_input_line(struct connection *_conn, const char *line)
 {
-	const char *line, *const *args, *error;
-
-	switch (i_stream_read(conn->conn.input)) {
-	case -2:
-		i_error("BUG: Anvil client connection sent too much data");
-		anvil_connection_destroy(conn);
-		return;
-	case -1:
-		anvil_connection_destroy(conn);
-		return;
-	}
+	struct anvil_connection *conn =
+		container_of(_conn, struct anvil_connection, conn);
+	const char *const *args, *error;
 
 	if (!conn->conn.version_received) {
-		if ((line = i_stream_next_line(conn->conn.input)) == NULL)
-			return;
-
 		if (!version_string_verify(line, "anvil",
 				ANVIL_CLIENT_PROTOCOL_MAJOR_VERSION)) {
 			if (anvil_restarted && (conn->master || conn->fifo)) {
 				/* old pending data. ignore input until we get
 				   the handshake. */
-				anvil_connection_input(conn);
-				return;
+				return 1;
 			}
 			i_error("Anvil client not compatible with this server "
 				"(mixed old and new binaries?) %s", line);
-			anvil_connection_destroy(conn);
-			return;
+			return -1;
 		}
 		conn->conn.version_received = TRUE;
+		return 1;
 	}
 
-	while ((args = anvil_connection_next_line(conn)) != NULL) {
-		if (args[0] != NULL) {
-			if (anvil_connection_request(conn, args, &error) < 0) {
-				i_error("Anvil client input error: %s", error);
-				anvil_connection_destroy(conn);
-				break;
-			}
-		}
+	args = t_strsplit_tabescaped(line);
+	if (args[0] == NULL) {
+		i_error("Anvil client sent empty line");
+		return -1;
 	}
+
+	if (anvil_connection_request(conn, args, &error) < 0) {
+		i_error("Anvil client input error: %s: %s", error, line);
+		return -1;
+	}
+	return 1;
 }
 
-struct anvil_connection *
-anvil_connection_create(int fd, bool master, bool fifo)
+void anvil_connection_create(int fd, bool master, bool fifo)
 {
 	struct anvil_connection *conn;
 
 	conn = i_new(struct anvil_connection, 1);
-	conn->conn.fd_in = fd;
-	conn->conn.input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
+	connection_init_server(anvil_connections, &conn->conn, "anvil", fd, fd);
+	conn->conn.version_received = FALSE;
 	if (!fifo) {
 		conn->conn.output = o_stream_create_fd(fd, SIZE_MAX);
 		o_stream_set_no_error_handling(conn->conn.output, TRUE);
 	}
-	conn->conn.io = io_add(fd, IO_READ, anvil_connection_input, conn);
 	conn->master = master;
 	conn->fifo = fifo;
-	DLLIST_PREPEND(&anvil_connections, &conn->conn);
-	return conn;
 }
 
-void anvil_connection_destroy(struct anvil_connection *conn)
+static void anvil_connection_destroy(struct connection *_conn)
 {
+	struct anvil_connection *conn =
+		container_of(_conn, struct anvil_connection, conn);
 	bool fifo = conn->fifo;
 
-	DLLIST_REMOVE(&anvil_connections, &conn->conn);
-
-	io_remove(&conn->conn.io);
-	i_stream_destroy(&conn->conn.input);
+	connection_deinit(&conn->conn);
 	o_stream_destroy(&conn->conn.output);
-	if (close(conn->conn.fd_in) < 0)
-		i_error("close(anvil conn) failed: %m");
 	i_free(conn);
 
 	if (!fifo)
 		master_service_client_connection_destroyed(master_service);
 }
 
-void anvil_connections_destroy_all(void)
+static struct connection_settings anvil_connections_set = {
+	.dont_send_version = TRUE,
+	.input_max_size = MAX_INBUF_SIZE,
+};
+
+static struct connection_vfuncs anvil_connections_vfuncs = {
+	.destroy = anvil_connection_destroy,
+	.input_line = anvil_connection_input_line,
+};
+
+void anvil_connections_init(void)
 {
-	while (anvil_connections != NULL)
-		anvil_connection_destroy((struct anvil_connection *)anvil_connections);
+	anvil_connections = connection_list_init(&anvil_connections_set,
+						 &anvil_connections_vfuncs);
+}
+
+void anvil_connections_deinit(void)
+{
+	connection_list_deinit(&anvil_connections);
 }

@@ -25,7 +25,7 @@ static void client_connected(struct master_service_connection *conn)
 	bool master = conn->listen_fd == MASTER_LISTEN_FD_FIRST;
 
 	master_service_client_connection_accept(conn);
-	(void)anvil_connection_create(conn->fd, master, conn->fifo);
+	anvil_connection_create(conn->fd, master, conn->fifo);
 }
 
 static void ATTR_NULL(1)
@@ -56,6 +56,7 @@ static void main_init(void)
 	master_service_set_die_with_master(master_service, FALSE);
 
 	anvil_restarted = getenv("ANVIL_RESTARTED") != NULL;
+	anvil_connections_init();
 	connect_limit = connect_limit_init();
 	penalty = penalty_init();
 	log_fdpass_io = io_add(MASTER_ANVIL_LOG_FDPASS_FD, IO_READ,
@@ -67,7 +68,7 @@ static void main_deinit(void)
 	io_remove(&log_fdpass_io);
 	penalty_deinit(&penalty);
 	connect_limit_deinit(&connect_limit);
-	anvil_connections_destroy_all();
+	anvil_connections_deinit();
 }
 
 int main(int argc, char *argv[])
