@@ -4,6 +4,7 @@
 #include "llist.h"
 #include "istream.h"
 #include "ostream.h"
+#include "connection.h"
 #include "strescape.h"
 #include "master-service.h"
 #include "master-interface.h"
@@ -19,27 +20,20 @@
 #define ANVIL_CLIENT_PROTOCOL_MINOR_VERSION 0
 
 struct anvil_connection {
-	struct anvil_connection *prev, *next;
+	struct connection conn;
 
-	int fd;
-	struct istream *input;
-	struct ostream *output;
-	struct io *io;
-
-	bool version_received:1;
-	bool handshaked:1;
 	bool master:1;
 	bool fifo:1;
 };
 
-static struct anvil_connection *anvil_connections = NULL;
+static struct connection *anvil_connections = NULL;
 
 static const char *const *
 anvil_connection_next_line(struct anvil_connection *conn)
 {
 	const char *line;
 
-	line = i_stream_next_line(conn->input);
+	line = i_stream_next_line(conn->conn.input);
 	return line == NULL ? NULL : t_strsplit_tabescaped(line);
 }
 
@@ -160,7 +154,7 @@ anvil_connection_request(struct anvil_connection *conn,
 		}
 		connect_limit_disconnect(connect_limit, pid, &key, conn_guid);
 	} else if (strcmp(cmd, "CONNECT-DUMP") == 0) {
-		connect_limit_dump(connect_limit, conn->output);
+		connect_limit_dump(connect_limit, conn->conn.output);
 	} else if (strcmp(cmd, "KILL") == 0) {
 		if (args[0] == NULL) {
 			*error_r = "KILL: Not enough parameters";
@@ -184,12 +178,12 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "LOOKUP: Invalid ident string";
 			return -1;
 		}
-		if (conn->output == NULL) {
+		if (conn->conn.output == NULL) {
 			*error_r = "LOOKUP on a FIFO, can't send reply";
 			return -1;
 		}
 		value = connect_limit_lookup(connect_limit, &key);
-		o_stream_nsend_str(conn->output,
+		o_stream_nsend_str(conn->conn.output,
 				   t_strdup_printf("%u\n", value));
 	} else if (strcmp(cmd, "PENALTY-GET") == 0) {
 		if (args[0] == NULL) {
@@ -197,7 +191,7 @@ anvil_connection_request(struct anvil_connection *conn,
 			return -1;
 		}
 		value = penalty_get(penalty, args[0], &stamp);
-		o_stream_nsend_str(conn->output,
+		o_stream_nsend_str(conn->conn.output,
 			t_strdup_printf("%u %s\n", value, dec2str(stamp)));
 	} else if (strcmp(cmd, "PENALTY-INC") == 0) {
 		if (args[0] == NULL || args[1] == NULL || args[2] == NULL) {
@@ -220,7 +214,7 @@ anvil_connection_request(struct anvil_connection *conn,
 		}
 		penalty_set_expire_secs(penalty, value);
 	} else if (strcmp(cmd, "PENALTY-DUMP") == 0) {
-		penalty_dump(penalty, conn->output);
+		penalty_dump(penalty, conn->conn.output);
 	} else {
 		*error_r = t_strconcat("Unknown command: ", cmd, NULL);
 		return -1;
@@ -232,7 +226,7 @@ static void anvil_connection_input(struct anvil_connection *conn)
 {
 	const char *line, *const *args, *error;
 
-	switch (i_stream_read(conn->input)) {
+	switch (i_stream_read(conn->conn.input)) {
 	case -2:
 		i_error("BUG: Anvil client connection sent too much data");
 		anvil_connection_destroy(conn);
@@ -242,8 +236,8 @@ static void anvil_connection_input(struct anvil_connection *conn)
 		return;
 	}
 
-	if (!conn->version_received) {
-		if ((line = i_stream_next_line(conn->input)) == NULL)
+	if (!conn->conn.version_received) {
+		if ((line = i_stream_next_line(conn->conn.input)) == NULL)
 			return;
 
 		if (!version_string_verify(line, "anvil",
@@ -259,7 +253,7 @@ static void anvil_connection_input(struct anvil_connection *conn)
 			anvil_connection_destroy(conn);
 			return;
 		}
-		conn->version_received = TRUE;
+		conn->conn.version_received = TRUE;
 	}
 
 	while ((args = anvil_connection_next_line(conn)) != NULL) {
@@ -279,16 +273,16 @@ anvil_connection_create(int fd, bool master, bool fifo)
 	struct anvil_connection *conn;
 
 	conn = i_new(struct anvil_connection, 1);
-	conn->fd = fd;
-	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
+	conn->conn.fd_in = fd;
+	conn->conn.input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
 	if (!fifo) {
-		conn->output = o_stream_create_fd(fd, SIZE_MAX);
-		o_stream_set_no_error_handling(conn->output, TRUE);
+		conn->conn.output = o_stream_create_fd(fd, SIZE_MAX);
+		o_stream_set_no_error_handling(conn->conn.output, TRUE);
 	}
-	conn->io = io_add(fd, IO_READ, anvil_connection_input, conn);
+	conn->conn.io = io_add(fd, IO_READ, anvil_connection_input, conn);
 	conn->master = master;
 	conn->fifo = fifo;
-	DLLIST_PREPEND(&anvil_connections, conn);
+	DLLIST_PREPEND(&anvil_connections, &conn->conn);
 	return conn;
 }
 
@@ -296,12 +290,12 @@ void anvil_connection_destroy(struct anvil_connection *conn)
 {
 	bool fifo = conn->fifo;
 
-	DLLIST_REMOVE(&anvil_connections, conn);
+	DLLIST_REMOVE(&anvil_connections, &conn->conn);
 
-	io_remove(&conn->io);
-	i_stream_destroy(&conn->input);
-	o_stream_destroy(&conn->output);
-	if (close(conn->fd) < 0)
+	io_remove(&conn->conn.io);
+	i_stream_destroy(&conn->conn.input);
+	o_stream_destroy(&conn->conn.output);
+	if (close(conn->conn.fd_in) < 0)
 		i_error("close(anvil conn) failed: %m");
 	i_free(conn);
 
@@ -312,5 +306,5 @@ void anvil_connection_destroy(struct anvil_connection *conn)
 void anvil_connections_destroy_all(void)
 {
 	while (anvil_connections != NULL)
-		anvil_connection_destroy(anvil_connections);
+		anvil_connection_destroy((struct anvil_connection *)anvil_connections);
 }
