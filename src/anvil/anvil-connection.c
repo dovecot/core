@@ -1,6 +1,7 @@
 /* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "hash.h"
 #include "llist.h"
 #include "istream.h"
 #include "ostream.h"
@@ -21,17 +22,39 @@
 #define ANVIL_CLIENT_PROTOCOL_MAJOR_VERSION 2
 #define ANVIL_CLIENT_PROTOCOL_MINOR_VERSION 0
 
+struct anvil_connection_key {
+	const char *service;
+	pid_t pid;
+};
+
 struct anvil_connection {
 	struct connection conn;
 
 	char *service;
 	bool master:1;
 	bool fifo:1;
+	bool added_to_hash:1;
 };
 
 static struct connection_list *anvil_connections;
+static HASH_TABLE(struct anvil_connection_key *, struct anvil_connection *)
+	anvil_connections_hash;
 
 static void anvil_connection_destroy(struct connection *_conn);
+
+static unsigned int
+anvil_connection_key_hash(const struct anvil_connection_key *key)
+{
+	return str_hash(key->service) ^ key->pid;
+}
+
+static int anvil_connection_key_cmp(const struct anvil_connection_key *key1,
+				    const struct anvil_connection_key *key2)
+{
+	if (key1->pid != key2->pid)
+		return 1;
+	return strcmp(key1->service, key2->service);
+}
 
 static bool
 connect_limit_key_parse(const char *const **_args,
@@ -258,6 +281,27 @@ anvil_connection_handshake(struct anvil_connection *conn,
 	o_stream_unref(&orig_output);
 
 	connection_streams_changed(&conn->conn);
+
+	struct anvil_connection_key *hash_key, key = {
+		.service = conn->service,
+		.pid = conn->conn.remote_pid,
+	};
+	struct anvil_connection *hash_conn;
+	if (hash_table_lookup_full(anvil_connections_hash, &key,
+				   &hash_key, &hash_conn)) {
+		e_warning(conn->conn.event,
+			  "Handshake with duplicate service=%s pid=%ld - "
+			  "replacing the old connection",
+			  key.service, (long)key.pid);
+		hash_table_remove(anvil_connections_hash, hash_key);
+		i_assert(hash_conn->added_to_hash);
+		hash_conn->added_to_hash = FALSE;
+	} else {
+		hash_key = i_new(struct anvil_connection_key, 1);
+		*hash_key = key;
+	}
+	hash_table_insert(anvil_connections_hash, hash_key, conn);
+	conn->added_to_hash = TRUE;
 	return 0;
 }
 
@@ -328,12 +372,36 @@ static void anvil_connection_destroy(struct connection *_conn)
 	bool fifo = conn->fifo;
 
 	connection_deinit(&conn->conn);
+
+	if (conn->added_to_hash) {
+		struct anvil_connection_key *hash_key, key = {
+			.service = conn->service,
+			.pid = conn->conn.remote_pid,
+		};
+		struct anvil_connection *hash_conn;
+		if (!hash_table_lookup_full(anvil_connections_hash, &key,
+					    &hash_key, &hash_conn))
+			i_unreached();
+		i_assert(hash_conn == conn);
+		hash_table_remove(anvil_connections_hash, &key);
+		i_free(hash_key);
+	}
+
 	o_stream_destroy(&conn->conn.output);
 	i_free(conn->service);
 	i_free(conn);
 
 	if (!fifo)
 		master_service_client_connection_destroyed(master_service);
+}
+
+struct anvil_connection *anvil_connection_find(const char *service, pid_t pid)
+{
+	struct anvil_connection_key key = {
+		.service = service,
+		.pid = pid,
+	};
+	return hash_table_lookup(anvil_connections_hash, &key);
 }
 
 static struct connection_settings anvil_connections_set = {
@@ -348,6 +416,8 @@ static struct connection_vfuncs anvil_connections_vfuncs = {
 
 void anvil_connections_init(void)
 {
+	hash_table_create(&anvil_connections_hash, default_pool, 0,
+			  anvil_connection_key_hash, anvil_connection_key_cmp);
 	anvil_connections = connection_list_init(&anvil_connections_set,
 						 &anvil_connections_vfuncs);
 }
@@ -355,4 +425,7 @@ void anvil_connections_init(void)
 void anvil_connections_deinit(void)
 {
 	connection_list_deinit(&anvil_connections);
+
+	i_assert(hash_table_count(anvil_connections_hash) == 0);
+	hash_table_destroy(&anvil_connections_hash);
 }
