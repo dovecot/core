@@ -138,8 +138,7 @@ lmtp_proxy_init(struct client *client,
 	return proxy;
 }
 
-static void
-lmtp_proxy_connection_deinit(struct lmtp_proxy_connection *conn)
+static void lmtp_proxy_connection_deinit(struct lmtp_proxy_connection *conn)
 {
 	if (conn->lmtp_trans != NULL)
 		smtp_client_transaction_destroy(&conn->lmtp_trans);
@@ -176,8 +175,7 @@ lmtp_proxy_mail_cb(const struct smtp_reply *proxy_reply ATTR_UNUSED,
 	/* nothing */
 }
 
-static void
-lmtp_proxy_connection_finish(struct lmtp_proxy_connection *conn)
+static void lmtp_proxy_connection_finish(struct lmtp_proxy_connection *conn)
 {
 	conn->finished = TRUE;
 	conn->lmtp_trans = NULL;
@@ -305,7 +303,7 @@ lmtp_proxy_handle_reply(struct lmtp_proxy_recipient *lprcpt,
 	*reply_r = *reply;
 
 	if (!smtp_reply_is_remote(reply) ||
-		reply->status == SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED) {
+	    reply->status == SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED) {
 		const char *detail = "";
 
 		switch (reply->status) {
