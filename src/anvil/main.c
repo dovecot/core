@@ -9,16 +9,21 @@
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "master-interface.h"
+#include "admin-client-pool.h"
 #include "connect-limit.h"
 #include "penalty.h"
 #include "anvil-connection.h"
 
 #include <unistd.h>
 
+#define ANVIL_CLIENT_POOL_MAX_CONNECTIONS 100
+
 struct connect_limit *connect_limit;
 struct penalty *penalty;
 bool anvil_restarted;
+
 static struct io *log_fdpass_io;
+static struct admin_client_pool *admin_pool;
 
 static void client_connected(struct master_service_connection *conn)
 {
@@ -52,11 +57,17 @@ log_fdpass_input(void *context ATTR_UNUSED)
 
 static void main_init(void)
 {
+	const struct master_service_settings *set =
+		master_service_settings_get(master_service);
+
 	/* delay dying until all of our clients are gone */
 	master_service_set_die_with_master(master_service, FALSE);
 
 	anvil_restarted = getenv("ANVIL_RESTARTED") != NULL;
 	anvil_connections_init();
+	admin_clients_init();
+	admin_pool = admin_client_pool_init(set->base_dir,
+					    ANVIL_CLIENT_POOL_MAX_CONNECTIONS);
 	connect_limit = connect_limit_init();
 	penalty = penalty_init();
 	log_fdpass_io = io_add(MASTER_ANVIL_LOG_FDPASS_FD, IO_READ,
@@ -68,6 +79,8 @@ static void main_deinit(void)
 	io_remove(&log_fdpass_io);
 	penalty_deinit(&penalty);
 	connect_limit_deinit(&connect_limit);
+	admin_client_pool_deinit(&admin_pool);
+	admin_clients_deinit();
 	anvil_connections_deinit();
 }
 

@@ -18,12 +18,16 @@ anvil_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 anvil_SOURCES = \
 	main.c \
+	admin-client.c \
+	admin-client-pool.c \
 	anvil-connection.c \
 	anvil-settings.c \
 	connect-limit.c \
 	penalty.c
 
 noinst_HEADERS = \
+	admin-client.h \
+	admin-client-pool.h \
 	anvil-connection.h \
 	common.h \
 	connect-limit.h \
