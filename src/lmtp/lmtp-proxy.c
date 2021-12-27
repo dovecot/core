@@ -293,45 +293,51 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	return conn;
 }
 
+static void
+lmtp_proxy_handle_connection_error(struct lmtp_proxy_recipient *lprcpt,
+				   const struct smtp_reply *reply)
+{
+	struct smtp_server_recipient *rcpt = lprcpt->rcpt->rcpt;
+	const char *detail = "";
+
+	switch (reply->status) {
+	case SMTP_CLIENT_COMMAND_ERROR_ABORTED:
+		break;
+	case SMTP_CLIENT_COMMAND_ERROR_HOST_LOOKUP_FAILED:
+		detail = " (DNS lookup)";
+		break;
+	case SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED:
+	case SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED:
+		detail = " (connect)";
+		break;
+	case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST:
+	case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED:
+		detail = " (connection lost)";
+		break;
+	case SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY:
+		detail = " (bad reply)";
+		break;
+	case SMTP_CLIENT_COMMAND_ERROR_TIMED_OUT:
+		detail = " (timed out)";
+		break;
+	default:
+		break;
+	}
+
+	smtp_server_command_fail(rcpt->cmd->cmd, 451, "4.4.0",
+				 "Proxy failed%s", detail);
+}
+
 static bool
 lmtp_proxy_handle_reply(struct lmtp_proxy_recipient *lprcpt,
 			const struct smtp_reply *reply,
 			struct smtp_reply *reply_r)
 {
-	struct smtp_server_recipient *rcpt = lprcpt->rcpt->rcpt;
-
 	*reply_r = *reply;
 
 	if (!smtp_reply_is_remote(reply) ||
 	    reply->status == SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED) {
-		const char *detail = "";
-
-		switch (reply->status) {
-		case SMTP_CLIENT_COMMAND_ERROR_ABORTED:
-			break;
-		case SMTP_CLIENT_COMMAND_ERROR_HOST_LOOKUP_FAILED:
-			detail = " (DNS lookup)";
-			break;
-		case SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED:
-		case SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED:
-			detail = " (connect)";
-			break;
-		case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST:
-		case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED:
-			detail = " (connection lost)";
-			break;
-		case SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY:
-			detail = " (bad reply)";
-			break;
-		case SMTP_CLIENT_COMMAND_ERROR_TIMED_OUT:
-			detail = " (timed out)";
-			break;
-		default:
-			break;
-		}
-
-		smtp_server_command_fail(rcpt->cmd->cmd, 451, "4.4.0",
-					 "Proxy failed", detail);
+		lmtp_proxy_handle_connection_error(lprcpt, reply);
 		return FALSE;
 	}
 
