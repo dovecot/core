@@ -1121,12 +1121,9 @@ static int index_mail_write_body_snippet(struct index_mail *mail)
 		return 0;
 	}
 
-	struct event_reason *reason = event_reason_begin("mail:snippet");
 	old_offset = mail->data.stream == NULL ? 0 : mail->data.stream->v_offset;
-	ret = mail_get_stream_because(&mail->mail.mail, NULL, NULL,
-		index_mail_cache_reason(&mail->mail.mail, "snippet"), &input);
-	event_reason_end(&reason);
-	if (ret < 0)
+	const char *reason = index_mail_cache_reason(&mail->mail.mail, "snippet");
+	if (mail_get_stream_because(&mail->mail.mail, NULL, NULL, reason, &input) < 0)
 		return -1;
 	i_assert(mail->data.stream != NULL);
 
