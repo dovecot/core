@@ -2139,11 +2139,9 @@ dcrypt_openssl_load_public_key_dovecot(struct dcrypt_public_key **key_r,
 	case DCRYPT_KEY_VERSION_1:
 		return dcrypt_openssl_load_public_key_dovecot_v1(
 			key_r, len, input, error_r);
-		break;
 	case DCRYPT_KEY_VERSION_2:
 		return dcrypt_openssl_load_public_key_dovecot_v2(
 			key_r, len, input, error_r);
-		break;
 	case DCRYPT_KEY_VERSION_NA:
 		i_unreached();
 	}
