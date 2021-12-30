@@ -332,7 +332,7 @@ int http_response_parse_next(struct http_response_parser *parser,
 		http_response_parser_restart(parser);
 
 	/* RFC 7230, Section 3:
-		
+
 	   HTTP-message   = start-line
 	                   *( header-field CRLF )
 	                    CRLF
@@ -343,7 +343,7 @@ int http_response_parse_next(struct http_response_parser *parser,
 			*error_r = parser->parser.error;
 			return ret;
 		}
-	} 
+	}
 	if ((ret = http_message_parse_headers(&parser->parser)) <= 0) {
 		*error_r = parser->parser.error;
 		return ret;
@@ -382,12 +382,12 @@ int http_response_parse_next(struct http_response_parser *parser,
 		/* [ message-body ] */
 		if (http_message_parse_body(&parser->parser, FALSE) < 0) {
 			*error_r = parser->parser.error;
- 			return -1;
+			return -1;
 		}
 	}
 
 	/* RFC 7231, Section 7.1.3: Retry-After
-	
+
 	   Servers send the "Retry-After" header field to indicate how long the
 	   user agent ought to wait before making a follow-up request.  When
 	   sent with a 503 (Service Unavailable) response, Retry-After indicates
@@ -396,7 +396,7 @@ int http_response_parse_next(struct http_response_parser *parser,
 	   the minimum time that the user agent is asked to wait before issuing
 	   the redirected request.
 	 */
-	if (parser->response_status == 503 || (parser->response_status / 100) == 3) {		
+	if (parser->response_status == 503 || (parser->response_status / 100) == 3) {
 		hdrval = http_header_field_get(parser->parser.msg.header, "Retry-After");
 		if (hdrval != NULL) {
 			(void)http_response_parse_retry_after

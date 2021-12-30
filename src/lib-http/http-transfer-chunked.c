@@ -494,7 +494,7 @@ http_transfer_chunked_istream_read(struct istream_private *stream)
 		case HTTP_CHUNKED_PARSE_STATE_FINISHED:
 			tcstream->istream.istream.eof = TRUE;
 			return -1;
-		case 	HTTP_CHUNKED_PARSE_STATE_DATA:
+		case HTTP_CHUNKED_PARSE_STATE_DATA:
 			ret = http_transfer_chunked_istream_read_data(tcstream);
 			if (ret != 0)
 				return ret;

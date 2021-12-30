@@ -263,7 +263,7 @@ static int http_header_parse(struct http_header_parser *parser)
 				buffer_append_c(parser->value_buf, ' ');
 				parser->state = HTTP_HEADER_PARSE_STATE_OWS;
 				break;
-			} 
+			}
 			/* next header line */
 			parser->state = HTTP_HEADER_PARSE_STATE_INIT;
 			return 1;
@@ -336,7 +336,7 @@ int http_header_parse_next_field(struct http_header_parser *parser,
 
 			if (parser->state != HTTP_HEADER_PARSE_STATE_EOH) {
 				data = buffer_get_data(parser->value_buf, &size);
-			
+
 				/* trim trailing OWS */
 				while (size > 0 &&
 					(data[size-1] == ' ' || data[size-1] == '\t'))
