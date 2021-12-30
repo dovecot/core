@@ -151,10 +151,10 @@ static void cmd_proxy_kick(struct doveadm_cmd_context *cctx)
 
 	cmd = t_str_new(128);
 	str_append(cmd, "proxy\t*\t");
-        if (ctx->kick_hosts != NULL) {
+	if (ctx->kick_hosts != NULL) {
 		str_append(cmd, "KICK-HOST\t");
 		str_append(cmd, ctx->kick_hosts);
-        }
+	}
 	else if (ctx->username_field == NULL)
 		str_append(cmd, "KICK");
 	else {
