@@ -396,7 +396,6 @@ static int smtp_command_parse_line(struct smtp_command_parser *parser)
 	}
 
 	i_unreached();
-	return -1;
 }
 
 static int smtp_command_parse(struct smtp_command_parser *parser)

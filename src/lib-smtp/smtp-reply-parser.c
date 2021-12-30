@@ -537,7 +537,6 @@ static int smtp_reply_parse_more(struct smtp_reply_parser *parser)
 	}
 
 	i_unreached();
-	return -1;
 }
 
 static int smtp_reply_parse(struct smtp_reply_parser *parser)
