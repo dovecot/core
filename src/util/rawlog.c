@@ -424,5 +424,4 @@ int main(int argc, char *argv[])
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
 
 	/* not reached */
-	return FATAL_EXEC;
 }
