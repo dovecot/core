@@ -1499,7 +1499,6 @@ uint32_t squat_uidlist_singleton_last_uid(uint32_t uid_list_idx)
 	}
 
 	i_unreached();
-	return 0;
 }
 
 int squat_uidlist_get_seqrange(struct squat_uidlist *uidlist,
