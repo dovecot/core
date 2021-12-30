@@ -297,7 +297,6 @@ oauth2_introspection_start(const struct oauth2_settings *set,
 		break;
 	default:
 		i_unreached();
-		break;
 	}
 
 	return oauth2_request_start(set, input, callback, context, p,
