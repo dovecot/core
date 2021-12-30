@@ -91,7 +91,11 @@ static bool imap_mktime(struct tm *tm, time_t *time_r)
 	if (tm->tm_year <= 100) {
 		/* too old. time_t can be signed or unsigned, handle
 		   both cases. */
-		*time_r = (time_t)-1 < (int)0 ? INT_MIN : 0;
+#ifdef TIME_T_SIGNED
+		*time_r = INT_MIN;
+#else
+		*time_r = 0;
+#endif
 	} else {
 		/* too high. return the highest allowed value.
 		   we shouldn't get here with 64bit time_t,
