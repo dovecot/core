@@ -727,7 +727,6 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 	}
 	case SET_ALIAS:
 		i_unreached();
-		break;
 	}
 
 	if (change_ptr != NULL)
