@@ -615,7 +615,6 @@ static void dump_cache(struct mail_cache_view *cache_view, unsigned int seq)
 		}
 		case MAIL_CACHE_FIELD_COUNT:
 			i_unreached();
-			break;
 		}
 
 		fwrite(str_data(str), 1, str_len(str), stdout);

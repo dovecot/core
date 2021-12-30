@@ -140,10 +140,8 @@ static void cmd_proxy_kick(struct doveadm_cmd_context *cctx)
 
 	ctx = cmd_proxy_init(cctx);
 	(void)doveadm_cmd_param_array(cctx, "user", &users);
-	if (users == NULL && ctx->kick_hosts == NULL) {
+	if (users == NULL && ctx->kick_hosts == NULL)
 		proxy_cmd_help(cctx);
-		return;
-	}
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
 	doveadm_print_formatted_set_format("%{count} connections kicked\n");
