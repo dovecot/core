@@ -102,7 +102,6 @@ index_list_get_refreshed_node_seq(struct index_mailbox_list *list,
 	}
 	i_panic("mailbox list index: refreshing doesn't lose expunged uid=%u",
 		(*node_r)->uid);
-	return -1;
 }
 
 static const char *

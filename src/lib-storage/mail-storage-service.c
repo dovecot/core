@@ -1105,7 +1105,6 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 		}
 	}
 	i_unreached();
-	return -1;
 }
 
 void mail_storage_service_set_auth_conn(struct mail_storage_service_ctx *ctx,
