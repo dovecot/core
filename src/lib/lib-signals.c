@@ -187,7 +187,10 @@ lib_signals_ioloop_find(struct ioloop *ioloop)
 
 static void lib_signals_init_io(struct signal_ioloop *l)
 {
-	i_assert(sig_pipe_fd[0] != -1);
+	if (sig_pipe_fd[0] == -1) {
+		/* no delayed signals */
+		return;
+	}
 
 	l->io = io_add_to(l->ioloop, sig_pipe_fd[0], IO_READ, signal_read, NULL);
 	io_set_never_wait_alone(l->io, signals_expected == 0);
