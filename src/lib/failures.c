@@ -109,10 +109,8 @@ static void default_on_handler_failure(const struct failure_context *ctx)
 		   write error to error log - maybe that'll work. */
 		i_fatal_status(FATAL_LOGWRITE, "write() failed to %s log: %m",
 			       log_type);
-		break;
 	default:
 		failure_exit(FATAL_LOGWRITE);
-		break;
 	}
 }
 
