@@ -293,7 +293,6 @@ static int http_request_parse(struct http_request_parser *parser,
 	}
 
 	i_unreached();
-	return -1;
 }
 
 static int http_request_parse_request_line(struct http_request_parser *parser,
@@ -352,7 +351,6 @@ http_request_parser_message_error(struct http_request_parser *parser)
 		break;
 	}
 	i_unreached();
-	return HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST;
 }
 
 bool http_request_parser_pending_payload(

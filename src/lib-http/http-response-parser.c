@@ -236,7 +236,6 @@ static int http_response_parse(struct http_response_parser *parser)
 	}
 
 	i_unreached();
-	return -1;
 }
 
 static int

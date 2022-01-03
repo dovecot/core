@@ -284,7 +284,6 @@ static int http_header_parse(struct http_header_parser *parser)
 	}
 
 	i_unreached();
-	return -1;
 }
 
 int http_header_parse_next_field(struct http_header_parser *parser,

@@ -319,7 +319,6 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 	}
 
 	i_unreached();
-	return -1;
 }
 
 static int
