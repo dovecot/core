@@ -1,6 +1,7 @@
 /* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "common.h"
+#include "array.h"
 #include "hash.h"
 #include "llist.h"
 #include "istream.h"
@@ -22,13 +23,26 @@
 #define ANVIL_CLIENT_PROTOCOL_MAJOR_VERSION 2
 #define ANVIL_CLIENT_PROTOCOL_MINOR_VERSION 0
 
+#define ANVIL_CMD_CHANNEL_ID 1
+
 struct anvil_connection_key {
 	const char *service;
 	pid_t pid;
 };
 
+struct anvil_connection_command {
+	char *cmdline;
+	anvil_connection_cmd_callback_t *callback;
+	void *context;
+};
+
 struct anvil_connection {
 	struct connection conn;
+	ARRAY(struct anvil_connection_command) commands;
+
+	struct istream *cmd_input;
+	struct ostream *cmd_output;
+	struct io *cmd_io;
 
 	char *service;
 	bool master:1;
@@ -92,6 +106,36 @@ static int str_to_kick_type(const char *str, enum kick_type *kick_type_r)
 		return -1;
 	}
 	return str[1] == '\0' ? 0 : -1;
+}
+
+static void
+anvil_connection_cmd_reply(struct anvil_connection *conn,
+			   const char *reply, const char *error)
+{
+	struct anvil_connection_command *cmd;
+
+	cmd = array_idx_modifiable(&conn->commands, 0);
+	cmd->callback(reply, error, cmd->context);
+	i_free(cmd->cmdline);
+	array_pop_front(&conn->commands);
+}
+
+static void anvil_cmd_input(struct anvil_connection *conn)
+{
+	const char *line;
+
+	if (connection_input_read_stream(&conn->conn, conn->cmd_input) < 0)
+		return;
+
+	while ((line = i_stream_next_line(conn->cmd_input)) != NULL) {
+		if (array_count(&conn->commands) == 0) {
+			e_error(conn->conn.event,
+				"Unexpected input from command channel: %s",
+				line);
+		} else {
+			anvil_connection_cmd_reply(conn, line, NULL);
+		}
+	}
 }
 
 static int
@@ -282,6 +326,13 @@ anvil_connection_handshake(struct anvil_connection *conn,
 
 	connection_streams_changed(&conn->conn);
 
+	/* add a separate channel for handling admin commands */
+	conn->cmd_input = i_stream_multiplex_add_channel(conn->conn.input,
+							 ANVIL_CMD_CHANNEL_ID);
+	conn->cmd_io = io_add_istream(conn->cmd_input, anvil_cmd_input, conn);
+	conn->cmd_output = o_stream_multiplex_add_channel(conn->conn.output,
+							  ANVIL_CMD_CHANNEL_ID);
+
 	struct anvil_connection_key *hash_key, key = {
 		.service = conn->service,
 		.pid = conn->conn.remote_pid,
@@ -363,6 +414,7 @@ void anvil_connection_create(int fd, bool master, bool fifo)
 	}
 	conn->master = master;
 	conn->fifo = fifo;
+	i_array_init(&conn->commands, 8);
 }
 
 static void anvil_connection_destroy(struct connection *_conn)
@@ -371,6 +423,11 @@ static void anvil_connection_destroy(struct connection *_conn)
 		container_of(_conn, struct anvil_connection, conn);
 	bool fifo = conn->fifo;
 
+	while (array_count(&conn->commands) > 0) {
+		anvil_connection_cmd_reply(conn, NULL,
+			connection_disconnect_reason(_conn));
+	}
+	array_free(&conn->commands);
 	connection_deinit(&conn->conn);
 
 	if (conn->added_to_hash) {
@@ -388,6 +445,9 @@ static void anvil_connection_destroy(struct connection *_conn)
 	}
 
 	o_stream_destroy(&conn->conn.output);
+	io_remove(&conn->cmd_io);
+	i_stream_destroy(&conn->cmd_input);
+	o_stream_destroy(&conn->cmd_output);
 	i_free(conn->service);
 	i_free(conn);
 
@@ -402,6 +462,25 @@ struct anvil_connection *anvil_connection_find(const char *service, pid_t pid)
 		.pid = pid,
 	};
 	return hash_table_lookup(anvil_connections_hash, &key);
+}
+
+void anvil_connection_send_cmd(struct anvil_connection *conn,
+			       const char *cmdline,
+			       anvil_connection_cmd_callback_t *callback,
+			       void *context)
+{
+	struct anvil_connection_command *cmd;
+
+	const struct const_iovec iov[] = {
+		{ cmdline, strlen(cmdline) },
+		{ "\n", 1 }
+	};
+	o_stream_nsendv(conn->cmd_output, iov, N_ELEMENTS(iov));
+
+	cmd = array_append_space(&conn->commands);
+	cmd->cmdline = i_strdup(cmdline);
+	cmd->callback = callback;
+	cmd->context = context;
 }
 
 static struct connection_settings anvil_connections_set = {
