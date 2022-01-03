@@ -25,6 +25,19 @@ bool anvil_restarted;
 static struct io *log_fdpass_io;
 static struct admin_client_pool *admin_pool;
 
+#undef admin_cmd_send
+void admin_cmd_send(const char *service, pid_t pid, const char *cmd,
+		    admin_cmd_callback_t *callback, void *context)
+{
+	struct anvil_connection *conn = anvil_connection_find(service, pid);
+	if (conn != NULL) {
+		anvil_connection_send_cmd(conn, cmd, callback, context);
+		return;
+	}
+	admin_client_pool_send_cmd(admin_pool, service, pid, cmd,
+				   callback, context);
+}
+
 static void client_connected(struct master_service_connection *conn)
 {
 	bool master = conn->listen_fd == MASTER_LISTEN_FD_FIRST;
