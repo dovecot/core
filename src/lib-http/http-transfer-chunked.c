@@ -516,7 +516,7 @@ http_transfer_chunked_istream_read(struct istream_private *stream)
 		}
 	}
 
-	return -1;
+	i_unreached();
 }
 
 static void
