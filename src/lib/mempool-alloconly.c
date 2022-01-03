@@ -231,8 +231,8 @@ pool_t pool_alloconly_create(const char *name ATTR_UNUSED, size_t size)
 	size_t min_alloc = SIZEOF_POOLBLOCK +
 		MEM_ALIGN(sizeof(struct alloconly_pool) + SENTRY_COUNT);
 
-	if (POOL_ALLOCONLY_MAX_EXTRA > (SSIZE_T_MAX - POOL_MAX_ALLOC_SIZE))
-		i_panic("POOL_MAX_ALLOC_SIZE is too large");
+	(void) COMPILE_ERROR_IF_TRUE(POOL_ALLOCONLY_MAX_EXTRA >
+				     (SSIZE_T_MAX - POOL_MAX_ALLOC_SIZE));
 
 #ifdef DEBUG
 	min_alloc += MEM_ALIGN(strlen(name) + 1 + SENTRY_COUNT) +

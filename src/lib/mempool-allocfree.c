@@ -147,8 +147,8 @@ pool_t pool_allocfree_create(const char *name ATTR_UNUSED)
 {
 	struct allocfree_pool *pool;
 
-	if (SIZEOF_POOLBLOCK > (SSIZE_T_MAX - POOL_MAX_ALLOC_SIZE))
-		i_panic("POOL_MAX_ALLOC_SIZE is too large");
+	(void) COMPILE_ERROR_IF_TRUE(SIZEOF_POOLBLOCK >
+				     (SSIZE_T_MAX - POOL_MAX_ALLOC_SIZE));
 
 	pool = calloc(1, SIZEOF_ALLOCFREE_POOL);
 	if (pool == NULL)
