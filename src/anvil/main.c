@@ -50,6 +50,26 @@ log_fdpass_input(void *context ATTR_UNUSED)
 	}
 }
 
+static void main_init(void)
+{
+	/* delay dying until all of our clients are gone */
+	master_service_set_die_with_master(master_service, FALSE);
+
+	anvil_restarted = getenv("ANVIL_RESTARTED") != NULL;
+	connect_limit = connect_limit_init();
+	penalty = penalty_init();
+	log_fdpass_io = io_add(MASTER_ANVIL_LOG_FDPASS_FD, IO_READ,
+			       log_fdpass_input, NULL);
+}
+
+static void main_deinit(void)
+{
+	io_remove(&log_fdpass_io);
+	penalty_deinit(&penalty);
+	connect_limit_deinit(&connect_limit);
+	anvil_connections_destroy_all();
+}
+
 int main(int argc, char *argv[])
 {
 	const enum master_service_flags service_flags =
@@ -68,23 +88,13 @@ int main(int argc, char *argv[])
 
 	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
-	anvil_restarted = getenv("ANVIL_RESTARTED") != NULL;
 
-	/* delay dying until all of our clients are gone */
-	master_service_set_die_with_master(master_service, FALSE);
-
-	connect_limit = connect_limit_init();
-	penalty = penalty_init();
-	log_fdpass_io = io_add(MASTER_ANVIL_LOG_FDPASS_FD, IO_READ,
-			       log_fdpass_input, NULL);
+	main_init();
 	master_service_init_finish(master_service);
 
 	master_service_run(master_service, client_connected);
 
-	io_remove(&log_fdpass_io);
-	penalty_deinit(&penalty);
-	connect_limit_deinit(&connect_limit);
-	anvil_connections_destroy_all();
+	main_deinit();
 	master_service_deinit(&master_service);
         return 0;
 }
