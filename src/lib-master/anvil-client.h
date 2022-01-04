@@ -10,6 +10,13 @@ struct anvil_client_callbacks {
 	/* Called when connection is lost. If it returns FALSE, reconnection
 	   isn't attempted. */
 	bool (*reconnect)(void);
+
+	/* Handle any command sent by anvil process. Send the reply with
+	   anvil_client_send_reply(). The command can be processed
+	   asynchronously, but the next command callback isn't called before
+	   the first one is replied to. Returns TRUE if the command was handled,
+	   FALSE if the command was unknown. */
+	bool (*command)(const char *cmd, const char *const *args);
 };
 
 /* reply=NULL if query failed */
@@ -37,6 +44,9 @@ void anvil_client_query_abort(struct anvil_client *client,
 			      struct anvil_query **query);
 /* Send a command to anvil, don't expect any replies. */
 void anvil_client_cmd(struct anvil_client *client, const char *cmd);
+
+/* Send reply to anvil for a command from anvil_client_callbacks.command(). */
+void anvil_client_send_reply(struct anvil_client *client, const char *reply);
 
 /* Returns TRUE if anvil is connected to. */
 bool anvil_client_is_connected(struct anvil_client *client);
