@@ -26,6 +26,7 @@ struct submission_settings {
 	unsigned int submission_max_recipients;
 	const char *submission_client_workarounds;
 	const char *submission_logout_format;
+	bool submission_add_received_header;
 
 	/* submission backend: */
 	const char *submission_backend_capabilities;

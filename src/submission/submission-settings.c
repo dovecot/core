@@ -73,6 +73,7 @@ static const struct setting_define submission_setting_defines[] = {
 	DEF(UINT, submission_max_recipients),
 	DEF(STR, submission_client_workarounds),
 	DEF(STR, submission_logout_format),
+	DEF(BOOL, submission_add_received_header),
 
 	DEF(STR, submission_backend_capabilities),
 
@@ -114,6 +115,7 @@ static const struct submission_settings submission_default_settings = {
 	.submission_max_recipients = 0,
 	.submission_client_workarounds = "",
 	.submission_logout_format = "in=%i out=%o",
+	.submission_add_received_header = TRUE,
 
 	.submission_backend_capabilities = NULL,
 
