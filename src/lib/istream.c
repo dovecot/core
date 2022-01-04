@@ -106,6 +106,17 @@ void i_stream_copy_fd(struct istream *dest, struct istream *source)
 	dest->readable_fd = source->readable_fd;
 }
 
+void i_stream_set_error(struct istream *stream, int stream_errno,
+			const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	stream->stream_errno = stream_errno;
+	io_stream_set_verror(&stream->real_stream->iostream, fmt, args);
+	va_end(args);
+}
+
 const char *i_stream_get_error(struct istream *stream)
 {
 	struct istream *s;

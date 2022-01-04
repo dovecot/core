@@ -101,6 +101,9 @@ int i_stream_get_fd(struct istream *stream);
    The readable_fd is preserved. Assert-crashes if source doesn't have a
    file descriptor. */
 void i_stream_copy_fd(struct istream *dest, struct istream *source);
+/* Set error for istream. */
+void i_stream_set_error(struct istream *stream, int stream_errno,
+			const char *fmt, ...) ATTR_FORMAT(3, 4);
 /* Returns error string for the last error. It also returns "EOF" in case there
    is no error, but eof is set. Otherwise it returns "<no error>". */
 const char *i_stream_get_error(struct istream *stream);
