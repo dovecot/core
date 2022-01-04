@@ -135,7 +135,8 @@ static bool login_host_request_is_self(struct login_host_request *request,
 
 static void
 login_host_callback(const struct mail_host *host, const char *hostname,
-		    const char *errormsg, void *context)
+		    unsigned int username_hash, const char *errormsg,
+		    void *context)
 {
 	struct login_host_request *request = context;
 	struct director *dir = request->conn->dir;
@@ -173,6 +174,8 @@ login_host_callback(const struct mail_host *host, const char *hostname,
 			str_append(str, "\thostip=");
 			str_append(str, host->ip_str);
 		}
+		str_printfa(str, "\t"DIRECTOR_ALT_USER_FIELD_NAME"=%u",
+			    username_hash);
 		line = str_c(str);
 	}
 	login_connection_send_line(request->conn, line);

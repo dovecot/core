@@ -8,6 +8,8 @@
 #define DIRECTOR_VERSION_MAJOR 1
 #define DIRECTOR_VERSION_MINOR 9
 
+#define DIRECTOR_ALT_USER_FIELD_NAME "user_director_hash"
+
 /* weak users supported in protocol */
 #define DIRECTOR_VERSION_WEAK_USERS 1
 /* director ring remove supported */

@@ -119,7 +119,8 @@ static void director_request_timeout(struct director *dir)
 
 		array_pop_front(&dir->pending_requests);
 		T_BEGIN {
-			request->callback(NULL, NULL, errormsg, request->context);
+			request->callback(NULL, NULL, 0, errormsg,
+					  request->context);
 		} T_END;
 		director_request_free(request);
 	}
@@ -137,7 +138,8 @@ void director_request(struct director *dir, const char *username,
 
 	if (!director_get_username_hash(dir, username,
 					&username_hash)) {
-		callback(NULL, NULL, "Failed to expand director_username_hash", context);
+		callback(NULL, NULL, 0,
+			 "Failed to expand director_username_hash", context);
 		return;
 	}
 
@@ -333,6 +335,7 @@ static bool director_request_continue_real(struct director_request *request)
 	director_update_user(dir, dir->self_host, user);
 	T_BEGIN {
 		request->callback(user->host, user->host->hostname,
+				  request->username_hash,
 				  NULL, request->context);
 	} T_END;
 	director_request_free(request);
