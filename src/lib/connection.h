@@ -225,6 +225,11 @@ void connection_streams_changed(struct connection *conn);
 /* Returns -1 = disconnected, 0 = nothing new, 1 = something new.
    If input_full_behavior is ALLOW, may return also -2 = buffer full. */
 int connection_input_read(struct connection *conn);
+/* Same as connection_input_read(), but read from a different input stream.
+   On failures, copy the error to the main istream. This is mainly intended
+   to be used with multiplex istream. */
+int connection_input_read_stream(struct connection *conn,
+				 struct istream *input);
 /* Verify that VERSION input matches what we expect. */
 int connection_verify_version(struct connection *conn,
 			      const char *service_name,

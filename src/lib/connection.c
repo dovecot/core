@@ -793,14 +793,15 @@ void connection_deinit(struct connection *conn)
 	conn->list = NULL;
 }
 
-int connection_input_read(struct connection *conn)
+int connection_input_read_stream(struct connection *conn,
+				 struct istream *input)
 {
 	conn->last_input = ioloop_time;
 	conn->last_input_tv = ioloop_timeval;
 	if (conn->to != NULL)
 		timeout_reset(conn->to);
 
-	switch (i_stream_read(conn->input)) {
+	switch (i_stream_read(input)) {
 	case -2:
 		/* buffer full */
 		switch (conn->list->set.input_full_behavior) {
@@ -814,6 +815,10 @@ int connection_input_read(struct connection *conn)
 		i_unreached();
 	case -1:
 		/* disconnected */
+		if (input != conn->input) {
+			i_stream_set_error(conn->input, input->stream_errno,
+					   "%s", i_stream_get_error(input));
+		}
 		connection_closed(conn, CONNECTION_DISCONNECT_CONN_CLOSED);
 		return -1;
 	case 0:
@@ -823,6 +828,11 @@ int connection_input_read(struct connection *conn)
 		/* something was read */
 		return 1;
 	}
+}
+
+int connection_input_read(struct connection *conn)
+{
+	return connection_input_read_stream(conn, conn->input);
 }
 
 const char *connection_disconnect_reason(struct connection *conn)
