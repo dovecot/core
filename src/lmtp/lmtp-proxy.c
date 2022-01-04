@@ -331,8 +331,7 @@ lmtp_proxy_handle_reply(struct lmtp_proxy_recipient *lprcpt,
 		}
 
 		smtp_server_command_fail(rcpt->cmd->cmd, 451, "4.4.0",
-					 "Remote server not answering%s",
-					 detail);
+					 "Proxy failed", detail);
 		return FALSE;
 	}
 
