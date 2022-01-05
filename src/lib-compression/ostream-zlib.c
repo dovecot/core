@@ -69,7 +69,7 @@ static int o_stream_zlib_send_gz_header(struct zlib_ostream *zstream)
 		o_stream_copy_error_from_parent(&zstream->ostream);
 		return -1;
 	}
-	i_assert(ret <= zstream->header_bytes_left);
+	i_assert((size_t)ret <= zstream->header_bytes_left);
 	zstream->header_bytes_left -= ret;
 	return zstream->header_bytes_left == 0 ? 1 : 0;
 }
