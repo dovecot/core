@@ -171,13 +171,7 @@ int anvil_client_connect(struct anvil_client *client, bool retry)
 		t_strdup_printf(ANVIL_HANDSHAKE,
 				master_service_get_name(master_service),
 				my_pid);
-	if (o_stream_send_str(client->conn.output, anvil_handshake) < 0) {
-		i_error("write(%s) failed: %s", client->conn.base_name,
-			o_stream_get_error(client->conn.output));
-		anvil_reconnect(client);
-		return -1;
-	}
-
+	o_stream_nsend_str(client->conn.output, anvil_handshake);
 	anvil_client_start_multiplex_input(client);
 	anvil_client_start_multiplex_output(client);
 	return 0;
@@ -235,12 +229,7 @@ static int anvil_client_send(struct anvil_client *client, const char *cmd)
 	iov[0].iov_len = strlen(cmd);
 	iov[1].iov_base = "\n";
 	iov[1].iov_len = 1;
-	if (o_stream_sendv(client->conn.output, iov, 2) < 0) {
-		i_error("write(%s) failed: %s", client->conn.base_name,
-			o_stream_get_error(client->conn.output));
-		anvil_reconnect(client);
-		return -1;
-	}
+	o_stream_nsendv(client->conn.output, iov, 2);
 	return 0;
 }
 
