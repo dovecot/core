@@ -201,6 +201,10 @@ void connection_init_from_streams(struct connection_list *list,
 				  struct ostream *output) ATTR_NULL(3);
 
 int connection_client_connect(struct connection *conn);
+/* Connect to UNIX socket. If it fails, try it up to msecs is reached.
+   Overrides connection_settings.unix_client_connect_msecs. */
+int connection_client_connect_with_retries(struct connection *conn,
+					   unsigned int msecs);
 
 /* Disconnects a connection */
 void connection_disconnect(struct connection *conn);

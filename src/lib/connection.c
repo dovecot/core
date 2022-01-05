@@ -695,7 +695,8 @@ static void connection_socket_connected(struct connection *conn)
 	connection_client_connected(conn, errno == 0);
 }
 
-int connection_client_connect(struct connection *conn)
+int connection_client_connect_with_retries(struct connection *conn,
+					   unsigned int msecs)
 {
 	const struct connection_settings *set = &conn->list->set;
 	int fd;
@@ -709,12 +710,10 @@ int connection_client_connect(struct connection *conn)
 		fd = net_connect_ip(&conn->remote_ip, conn->remote_port,
 				    (conn->local_ip.family != 0 ?
 				     &conn->local_ip : NULL));
-	} else if (conn->list->set.unix_client_connect_msecs == 0) {
+	} else if (msecs == 0) {
 		fd = net_connect_unix(conn->base_name);
 	} else {
-		fd = net_connect_unix_with_retries(
-			conn->base_name,
-			conn->list->set.unix_client_connect_msecs);
+		fd = net_connect_unix_with_retries(conn->base_name, msecs);
 	}
 	if (fd == -1)
 		return -1;
@@ -739,6 +738,12 @@ int connection_client_connect(struct connection *conn)
 		connection_client_connected(conn, TRUE);
 	}
 	return 0;
+}
+
+int connection_client_connect(struct connection *conn)
+{
+	return connection_client_connect_with_retries(conn,
+		conn->list->set.unix_client_connect_msecs);
 }
 
 static void connection_update_counters(struct connection *conn)
