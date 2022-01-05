@@ -7,6 +7,7 @@
 #include "hash.h"
 #include "strescape.h"
 #include "time-util.h"
+#include "master-service.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
 
@@ -59,7 +60,7 @@ penalty_print_line(struct penalty_context *ctx,
 
 static void penalty_lookup(struct penalty_context *ctx)
 {
-#define ANVIL_HANDSHAKE "VERSION\tanvil\t2\t0\n\n"
+#define ANVIL_HANDSHAKE "VERSION\tanvil-client\t2\t0\n\n"
 #define ANVIL_CMD ANVIL_HANDSHAKE"PENALTY-DUMP\n"
 	struct istream *input;
 	const char *line;
@@ -71,6 +72,11 @@ static void penalty_lookup(struct penalty_context *ctx)
 		i_fatal("write(%s) failed: %m", ctx->anvil_path);
 
 	input = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
+	if ((line = i_stream_read_next_line(input)) == NULL)
+		i_fatal("anvil didn't send VERSION line");
+	if (!version_string_verify(line, "anvil-server", 2))
+		i_fatal("Invalid VERSION line: %s", line);
+
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		if (*line == '\0')
 			break;

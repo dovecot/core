@@ -8,6 +8,7 @@
 #include "hash.h"
 #include "str.h"
 #include "strescape.h"
+#include "master-service.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
 #include "doveadm-who.h"
@@ -183,7 +184,7 @@ int who_parse_args(struct who_context *ctx, const char *const *masks)
 
 struct doveadm_who_iter *doveadm_who_iter_init(const char *anvil_path)
 {
-#define ANVIL_HANDSHAKE "VERSION\tanvil\t2\t0\n\n"
+#define ANVIL_HANDSHAKE "VERSION\tanvil-client\t2\t0\n\n"
 #define ANVIL_CMD ANVIL_HANDSHAKE"CONNECT-DUMP\n"
 	struct doveadm_who_iter *iter;
 	const char *line;
@@ -206,6 +207,12 @@ struct doveadm_who_iter *doveadm_who_iter_init(const char *anvil_path)
 	iter->input = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
 	i_stream_set_name(iter->input, anvil_path);
 	if ((line = i_stream_read_next_line(iter->input)) == NULL) {
+		i_error("anvil didn't send VERSION line");
+		iter->failed = TRUE;
+	} else if (!version_string_verify(line, "anvil-server", 2)) {
+		i_error("Invalid VERSION line: %s", line);
+		iter->failed = TRUE;
+	} else if ((line = i_stream_read_next_line(iter->input)) == NULL) {
 		i_error("anvil didn't send header line");
 		iter->failed = TRUE;
 	} else {

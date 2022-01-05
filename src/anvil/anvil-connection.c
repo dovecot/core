@@ -269,7 +269,7 @@ anvil_connection_input_line(struct connection *_conn, const char *line)
 	const char *const *args, *error;
 
 	if (!conn->conn.version_received) {
-		if (!version_string_verify(line, "anvil",
+		if (!version_string_verify(line, "anvil-client",
 				ANVIL_CLIENT_PROTOCOL_MAJOR_VERSION)) {
 			if (anvil_restarted && (conn->master || conn->fifo)) {
 				/* old pending data. ignore input until we get
@@ -314,6 +314,8 @@ void anvil_connection_create(int fd, bool master, bool fifo)
 	if (!fifo) {
 		conn->conn.output = o_stream_create_fd(fd, SIZE_MAX);
 		o_stream_set_no_error_handling(conn->conn.output, TRUE);
+		o_stream_nsend_str(conn->conn.output,
+				   "VERSION\tanvil-server\t2\t0\n");
 	}
 	conn->master = master;
 	conn->fifo = fifo;

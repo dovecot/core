@@ -147,6 +147,17 @@ static int anvil_client_input_line(struct connection *conn, const char *line)
 	struct anvil_query *query;
 	unsigned int count;
 
+	if (!conn->version_received) {
+		const char *const *args = t_strsplit_tabescaped(line);
+		if (connection_handshake_args_default(conn, args) < 0) {
+			conn->disconnect_reason =
+				CONNECTION_DISCONNECT_HANDSHAKE_FAILED;
+			return -1;
+		}
+		anvil_client_start_multiplex_input(client);
+		return 1;
+	}
+
 	if (aqueue_count(client->queries) == 0) {
 		e_error(client->conn.event, "Unexpected input: %s", line);
 		return -1;
@@ -193,7 +204,6 @@ int anvil_client_connect(struct anvil_client *client, bool retry)
 				master_service_get_name(master_service),
 				my_pid);
 	o_stream_nsend_str(client->conn.output, anvil_handshake);
-	anvil_client_start_multiplex_input(client);
 	anvil_client_start_multiplex_output(client);
 	return 0;
 }
