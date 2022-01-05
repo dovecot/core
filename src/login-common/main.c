@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
+#include "strescape.h"
 #include "randgen.h"
 #include "module-dir.h"
 #include "process-title.h"
@@ -322,6 +323,37 @@ static bool anvil_reconnect_callback(void)
 	return FALSE;
 }
 
+static void anvil_cmd_input_kick_user(const char *const *args)
+{
+	/* <user> [<conn-guid>] */
+	const char *user = args[0];
+	if (user == NULL) {
+		anvil_client_send_reply(anvil, "-Missing parameters");
+		return;
+	}
+	guid_128_t conn_guid;
+	if (args[1] == NULL)
+		guid_128_empty(conn_guid);
+	else if (guid_128_from_string(args[1], conn_guid) < 0) {
+		anvil_client_send_reply(anvil, "-Invalid conn-guid parameter");
+		return;
+	} else if (args[2] != NULL) {
+		anvil_client_send_reply(anvil, "-Extra parameters");
+		return;
+	}
+	unsigned int count = login_proxy_kick_user_connection(user, conn_guid);
+	anvil_client_send_reply(anvil, t_strdup_printf("+%u", count));
+}
+
+static bool anvil_cmd_input(const char *cmd, const char *const *args)
+{
+	if (strcmp(cmd, "KICK-USER") == 0)
+		anvil_cmd_input_kick_user(args);
+	else
+		return FALSE;
+	return TRUE;
+}
+
 void login_anvil_init(void)
 {
 	if (anvil != NULL)
@@ -329,6 +361,7 @@ void login_anvil_init(void)
 
 	const struct anvil_client_callbacks callbacks = {
 		.reconnect = anvil_reconnect_callback,
+		.command = anvil_cmd_input,
 	};
 	anvil = anvil_client_init("anvil", &callbacks, 0);
 	if (anvil_client_connect(anvil, TRUE) < 0)
