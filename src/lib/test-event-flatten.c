@@ -354,11 +354,11 @@ static void test_event_strlist_flatten(void)
 
 	event_export(event, dest);
 	/* see if it matches .. */
-	const char *reference = t_strdup_printf("%"PRIdTIME_T"\t%zu"
+	const char *reference = t_strdup_printf("%"PRIdTIME_T"\t%u"
 						"\tstest-event-flatten.c"
 						"\t%u\tLtest\t3\tl3\tl1\tl2",
 					event->tv_created.tv_sec,
-					event->tv_created.tv_usec,
+					(unsigned int)event->tv_created.tv_usec,
 					line);
 	test_assert_strcmp(str_c(dest), reference);
 
