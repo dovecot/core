@@ -2,6 +2,7 @@
 #define LOGIN_PROXY_H
 
 #include "net.h"
+#include "guid.h"
 #include "auth-proxy.h"
 
 /* Max. number of embedded proxying connections until proxying fails.
@@ -117,6 +118,8 @@ enum auth_proxy_ssl_flags
 login_proxy_get_ssl_flags(const struct login_proxy *proxy) ATTR_PURE;
 unsigned int
 login_proxy_get_connect_timeout_msecs(const struct login_proxy *proxy) ATTR_PURE;
+unsigned int
+login_proxy_kick_user_connection(const char *user, const guid_128_t conn_guid);
 
 void login_proxy_kill_idle(void);
 

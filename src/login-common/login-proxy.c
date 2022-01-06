@@ -1028,6 +1028,21 @@ want_kick_virtual_user(struct login_proxy *proxy, const char *const *args,
 }
 
 static bool
+want_kick_user(struct login_proxy *proxy, const char *const *userp,
+	       unsigned int key_idx ATTR_UNUSED)
+{
+	return strcmp(proxy->client->virtual_user, *userp) == 0;
+}
+
+static bool
+want_kick_user_session(struct login_proxy *proxy, const char *const *args,
+		       unsigned int key_idx ATTR_UNUSED)
+{
+	return strcmp(proxy->client->virtual_user, args[0]) == 0 &&
+		guid_128_cmp(proxy->anvil_conn_guid, (const uint8_t *)args[1]) == 0;
+}
+
+static bool
 want_kick_alt_username(struct login_proxy *proxy, const char *const *args,
 		       unsigned int key_idx)
 {
@@ -1084,6 +1099,18 @@ login_proxy_kick(const char *const *args,
 static unsigned int login_proxy_kick_user(const char *const *users)
 {
 	return login_proxy_kick(users, want_kick_virtual_user, 0);
+}
+
+unsigned int
+login_proxy_kick_user_connection(const char *user, const guid_128_t conn_guid)
+{
+	if (conn_guid == NULL || guid_128_is_empty(conn_guid))
+		return login_proxy_kick(&user, want_kick_user, 0);
+
+	const char *const args[] = {
+		user, (const char *)conn_guid
+	};
+	return login_proxy_kick(args, want_kick_user_session, 0);
 }
 
 static unsigned int login_proxy_kick_host(const char *const *hosts)
