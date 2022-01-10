@@ -1122,14 +1122,15 @@ smtp_client_command_rset_submit(struct smtp_client_connection *conn,
 
 /* MAIL FROM: */
 
-#undef smtp_client_command_mail_submit
+#undef smtp_client_command_mail_submit_after
 struct smtp_client_command *
-smtp_client_command_mail_submit(struct smtp_client_connection *conn,
-				enum smtp_client_command_flags flags,
-				const struct smtp_address *from,
-				const struct smtp_params_mail *params,
-				smtp_client_command_callback_t *callback,
-				void *context)
+smtp_client_command_mail_submit_after(struct smtp_client_connection *conn,
+				      enum smtp_client_command_flags flags,
+				      struct smtp_client_command *after,
+				      const struct smtp_address *from,
+				      const struct smtp_params_mail *params,
+				      smtp_client_command_callback_t *callback,
+				      void *context)
 {
 	struct smtp_client_command *cmd;
 
@@ -1161,8 +1162,22 @@ smtp_client_command_mail_submit(struct smtp_client_connection *conn,
 		if (str_len(cmd->data) == orig_len + 1)
 			str_truncate(cmd->data, orig_len);
 	}
-	smtp_client_command_submit(cmd);
+	smtp_client_command_submit_after(cmd, after);
 	return cmd;
+}
+
+#undef smtp_client_command_mail_submit
+struct smtp_client_command *
+smtp_client_command_mail_submit(struct smtp_client_connection *conn,
+				enum smtp_client_command_flags flags,
+				const struct smtp_address *from,
+				const struct smtp_params_mail *params,
+				smtp_client_command_callback_t *callback,
+				void *context)
+{
+	return smtp_client_command_mail_submit_after(conn, flags, NULL,
+						     from, params,
+						     callback, context);
 }
 
 /* RCPT TO: */
