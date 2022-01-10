@@ -730,6 +730,11 @@ void smtp_client_transaction_fail_reply(struct smtp_client_transaction *trans,
 		reply = trans->failure;
 	i_assert(reply != NULL);
 
+	if (trans->failing) {
+		e_debug(trans->event, "Already failing: %s",
+			smtp_reply_log(reply));
+		return;
+	}
 	trans->failing = TRUE;
 
 	e_debug(trans->event, "Returning failure: %s", smtp_reply_log(reply));
