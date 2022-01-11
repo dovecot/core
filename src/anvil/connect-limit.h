@@ -50,9 +50,11 @@ void connect_limit_disconnect_pid(struct connect_limit *limit, pid_t pid);
 void connect_limit_dump(struct connect_limit *limit, struct ostream *output);
 
 /* Iterate through sessions of the username. The connect-limit shouldn't be
-   modified while the iterator exists. The results are sorted by pid. */
+   modified while the iterator exists. The results are sorted by pid.
+   If conn_guid is empty, all sessions are iterated. */
 struct connect_limit_iter *
-connect_limit_iter_begin(struct connect_limit *limit, const char *username);
+connect_limit_iter_begin(struct connect_limit *limit, const char *username,
+			 const guid_128_t conn_guid);
 struct connect_limit_iter *
 connect_limit_iter_begin_alt_username(struct connect_limit *limit,
 				      const char *alt_username_field,

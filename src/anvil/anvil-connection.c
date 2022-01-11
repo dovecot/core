@@ -246,11 +246,12 @@ kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
 		kick_user_finished(kick);
 }
 
-static void kick_user(struct anvil_connection *conn, const char *username)
+static void kick_user(struct anvil_connection *conn, const char *username,
+		      const guid_128_t conn_guid)
 {
 	struct connect_limit_iter *iter;
 
-	iter = connect_limit_iter_begin(connect_limit, username);
+	iter = connect_limit_iter_begin(connect_limit, username, conn_guid);
 	kick_user_iter(conn, iter, FALSE);
 }
 
@@ -351,7 +352,14 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "KICK-USER: Not enough parameters";
 			return -1;
 		}
-		kick_user(conn, args[0]);
+		guid_128_t conn_guid;
+		if (args[1] == NULL)
+			guid_128_empty(conn_guid);
+		else if (guid_128_from_string(args[1], conn_guid) < 0) {
+			*error_r = "KICK-USER: Invalid conn-guid";
+			return -1;
+		}
+		kick_user(conn, args[0], conn_guid);
 	} else if (strcmp(cmd, "KICK-ALT-USER") == 0) {
 		if (args[0] == NULL || args[1] == NULL) {
 			*error_r = "KICK-ALT-USER: Not enough parameters";

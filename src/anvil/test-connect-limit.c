@@ -151,7 +151,7 @@ static void test_connect_limit(void)
 
 	/* test user iteration for user1 */
 	struct connect_limit_iter *iter =
-		connect_limit_iter_begin(limit, "user1");
+		connect_limit_iter_begin(limit, "user1", NULL);
 	struct connect_limit_iter_result iter_result;
 	test_assert(connect_limit_iter_next(iter, &iter_result));
 	test_assert(iter_result.pid == 501 &&
@@ -167,7 +167,7 @@ static void test_connect_limit(void)
 	connect_limit_iter_deinit(&iter);
 
 	/* test user iteration for user2 */
-	iter = connect_limit_iter_begin(limit, "user2");
+	iter = connect_limit_iter_begin(limit, "user2", NULL);
 	test_assert(connect_limit_iter_next(iter, &iter_result));
 	test_assert(iter_result.pid == 600 &&
 		    strcmp(iter_result.service, "service2") == 0 &&
@@ -177,7 +177,7 @@ static void test_connect_limit(void)
 	connect_limit_iter_deinit(&iter);
 
 	/* test user iteration for nonexistent user3 */
-	iter = connect_limit_iter_begin(limit, "user3");
+	iter = connect_limit_iter_begin(limit, "user3", NULL);
 	test_assert(!connect_limit_iter_next(iter, &iter_result));
 	connect_limit_iter_deinit(&iter);
 

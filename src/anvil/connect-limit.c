@@ -613,21 +613,27 @@ connect_limit_iter_init_common(struct connect_limit *limit)
 }
 
 struct connect_limit_iter *
-connect_limit_iter_begin(struct connect_limit *limit, const char *username)
+connect_limit_iter_begin(struct connect_limit *limit, const char *username,
+			 const guid_128_t conn_guid)
 {
 	struct connect_limit_iter *iter;
 	struct session *session;
+	bool check_conn_guid = conn_guid != NULL &&
+		!guid_128_is_empty(conn_guid);
 
 	iter = connect_limit_iter_init_common(limit);
 	session = hash_table_lookup(limit->user_hash, username);
 	while (session != NULL) {
-		struct connect_limit_iter_result *result =
-			array_append_space(&iter->results);
-		result->kick_type = session->process->kick_type;
-		result->pid = session->process->pid;
-		result->service = session->userip->service;
-		result->username = session->userip->username;
-		guid_128_copy(result->conn_guid, session->conn_guid);
+		if (!check_conn_guid ||
+		    guid_128_cmp(session->conn_guid, conn_guid) == 0) {
+			struct connect_limit_iter_result *result =
+				array_append_space(&iter->results);
+			result->kick_type = session->process->kick_type;
+			result->pid = session->process->pid;
+			result->service = session->userip->service;
+			result->username = session->userip->username;
+			guid_128_copy(result->conn_guid, session->conn_guid);
+		}
 		session = session->user_next;
 	}
 	array_sort(&iter->results, connect_limit_iter_result_cmp);
