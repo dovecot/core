@@ -10,6 +10,7 @@
 #include "iostream-ssl.h"
 #include "llist.h"
 #include "array.h"
+#include "hash.h"
 #include "str.h"
 #include "strescape.h"
 #include "time-util.h"
@@ -49,6 +50,9 @@ struct login_proxy_redirect {
 
 struct login_proxy {
 	struct login_proxy *prev, *next;
+	/* Linked list of the proxies with the same virtual_user within
+	   login_proxies_hash. This is set only after the proxy is detached. */
+	struct login_proxy *user_prev, *user_next;
 
 	struct client *client;
 	struct event *event;
@@ -90,6 +94,7 @@ struct login_proxy {
 
 static struct login_proxy_state *proxy_state;
 static struct login_proxy *login_proxies = NULL;
+static HASH_TABLE(char *, struct login_proxy *) login_proxies_hash;
 static struct login_proxy *login_proxies_pending = NULL;
 static struct login_proxy *login_proxies_disconnecting = NULL;
 static unsigned int detached_login_proxies_count = 0;
@@ -487,6 +492,48 @@ static void login_proxy_disconnect(struct login_proxy *proxy)
 	proxy->connected = FALSE;
 }
 
+static void login_proxy_detached_link(struct login_proxy *proxy)
+{
+	struct login_proxy *first_proxy;
+	char *user;
+
+	if (!hash_table_lookup_full(login_proxies_hash,
+				    proxy->client->virtual_user,
+				    &user, &first_proxy)) {
+		user = i_strdup(proxy->client->virtual_user);
+		hash_table_insert(login_proxies_hash, user, proxy);
+	} else {
+		DLLIST_PREPEND_FULL(&first_proxy, proxy, user_prev, user_next);
+		hash_table_update(login_proxies_hash, user, proxy);
+	}
+
+	DLLIST_PREPEND(&login_proxies, proxy);
+	detached_login_proxies_count++;
+}
+
+static void login_proxy_detached_unlink(struct login_proxy *proxy)
+{
+	struct login_proxy *first_proxy;
+	char *user;
+
+	i_assert(detached_login_proxies_count > 0);
+	detached_login_proxies_count--;
+
+	DLLIST_REMOVE(&login_proxies, proxy);
+
+	if (!hash_table_lookup_full(login_proxies_hash,
+				    proxy->client->virtual_user,
+				    &user, &first_proxy))
+		i_unreached();
+	DLLIST_REMOVE_FULL(&first_proxy, proxy, user_prev, user_next);
+	if (first_proxy != NULL)
+		hash_table_update(login_proxies_hash, user, first_proxy);
+	else {
+		hash_table_remove(login_proxies_hash, user);
+		i_free(user);
+	}
+}
+
 static void login_proxy_free_final(struct login_proxy *proxy)
 {
 	i_assert(proxy->server_ssl_iostream == NULL);
@@ -600,7 +647,7 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
 	if (proxy->detached) {
 		/* detached proxy */
 		i_assert(log_msg != NULL || proxy->client->destroyed);
-		DLLIST_REMOVE(&login_proxies, proxy);
+		login_proxy_detached_unlink(proxy);
 
 		if ((flags & LOGIN_PROXY_FREE_FLAG_DELAYED) != 0)
 			delay_ms = login_proxy_delay_disconnect(proxy);
@@ -612,8 +659,6 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
 			       "%s - disconnecting client in %ums",
 			       log_msg, delay_ms);
 		}
-		i_assert(detached_login_proxies_count > 0);
-		detached_login_proxies_count--;
 
 		struct master_service_anvil_session anvil_session = {
 			.username = client->virtual_user,
@@ -939,8 +984,7 @@ void login_proxy_detach(struct login_proxy *proxy)
 		proxy->anvil_connect_sent = TRUE;
 
 	DLLIST_REMOVE(&login_proxies_pending, proxy);
-	DLLIST_PREPEND(&login_proxies, proxy);
-	detached_login_proxies_count++;
+	login_proxy_detached_link(proxy);
 
 	client->login_proxy = NULL;
 }
@@ -1029,35 +1073,20 @@ void login_proxy_kill_idle(void)
 	}
 }
 
-static bool
-want_kick_user(struct login_proxy *proxy, const char *const *userp,
-	       unsigned int key_idx ATTR_UNUSED)
-{
-	return strcmp(proxy->client->virtual_user, *userp) == 0;
-}
-
-static bool
-want_kick_user_session(struct login_proxy *proxy, const char *const *args,
-		       unsigned int key_idx ATTR_UNUSED)
-{
-	return strcmp(proxy->client->virtual_user, args[0]) == 0 &&
-		guid_128_cmp(proxy->anvil_conn_guid, (const uint8_t *)args[1]) == 0;
-}
-
-static unsigned int
-login_proxy_kick(const char *const *args,
-		 bool (*want_kick)(struct login_proxy *, const char *const *,
-				   unsigned int), unsigned int key_idx)
+unsigned int
+login_proxy_kick_user_connection(const char *user, const guid_128_t conn_guid)
 {
 	struct login_proxy *proxy, *next;
 	unsigned int count = 0;
+	bool match_conn_guid = conn_guid != NULL &&
+		!guid_128_is_empty(conn_guid);
 
-	i_assert(args[0] != NULL);
+	proxy = hash_table_lookup(login_proxies_hash, user);
+	for (; proxy != NULL; proxy = next) T_BEGIN {
+		next = proxy->user_next;
 
-	for (proxy = login_proxies; proxy != NULL; proxy = next) T_BEGIN {
-		next = proxy->next;
-
-		if (want_kick(proxy, args, key_idx)) {
+		if (!match_conn_guid ||
+		    guid_128_cmp(proxy->anvil_conn_guid, conn_guid) == 0) {
 			login_proxy_free_full(&proxy,
 				LOGIN_PROXY_KILL_PREFIX KILLED_BY_ADMIN_REASON,
 				KILLED_BY_ADMIN_REASON,
@@ -1069,7 +1098,9 @@ login_proxy_kick(const char *const *args,
 	for (proxy = login_proxies_pending; proxy != NULL; proxy = next) T_BEGIN {
 		next = proxy->next;
 
-		if (want_kick(proxy, args, key_idx)) {
+		if (strcmp(proxy->client->virtual_user, user) == 0 &&
+		    (!match_conn_guid ||
+		     guid_128_cmp(proxy->anvil_conn_guid, conn_guid) == 0)) {
 			client_disconnect(proxy->client,
 				LOGIN_PROXY_KILL_PREFIX KILLED_BY_ADMIN_REASON,
 				FALSE);
@@ -1078,18 +1109,6 @@ login_proxy_kick(const char *const *args,
 		}
 	} T_END;
 	return count;
-}
-
-unsigned int
-login_proxy_kick_user_connection(const char *user, const guid_128_t conn_guid)
-{
-	if (conn_guid == NULL || guid_128_is_empty(conn_guid))
-		return login_proxy_kick(&user, want_kick_user, 0);
-
-	const char *const args[] = {
-		user, (const char *)conn_guid
-	};
-	return login_proxy_kick(args, want_kick_user_session, 0);
 }
 
 unsigned int login_proxies_get_detached_count(void)
@@ -1105,6 +1124,8 @@ struct client *login_proxies_get_first_detached_client(void)
 void login_proxy_init(const char *proxy_notify_pipe_path)
 {
 	proxy_state = login_proxy_state_init(proxy_notify_pipe_path);
+	hash_table_create(&login_proxies_hash, default_pool, 0,
+			  str_hash, strcmp);
 }
 
 void login_proxy_deinit(void)
@@ -1122,5 +1143,8 @@ void login_proxy_deinit(void)
 
 	while (login_proxies_disconnecting != NULL)
 		login_proxy_free_final(login_proxies_disconnecting);
+
+	i_assert(hash_table_count(login_proxies_hash) == 0);
+	hash_table_destroy(&login_proxies_hash);
 	login_proxy_state_deinit(&proxy_state);
 }
