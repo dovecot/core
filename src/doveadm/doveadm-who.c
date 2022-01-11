@@ -156,7 +156,8 @@ static void who_aggregate_line(struct who_context *ctx,
 		array_push_back(&user->pids, &line->pid);
 }
 
-int who_parse_args(struct who_context *ctx, const char *const *masks)
+int who_parse_args(struct who_context *ctx, const char *alt_username_field,
+		   const char *const *masks)
 {
 	struct ip_addr net_ip;
 	unsigned int i, net_bits;
@@ -179,6 +180,13 @@ int who_parse_args(struct who_context *ctx, const char *const *masks)
 			ctx->filter.username = masks[i];
 		}
 	}
+	if (alt_username_field != NULL && ctx->filter.username == NULL) {
+		i_error("Username must be given with passdb-field parameter");
+		doveadm_exit_code = EX_USAGE;
+		return -1;
+	}
+	ctx->filter.alt_username_field = alt_username_field;
+	ctx->filter.alt_username_idx = UINT_MAX;
 	return 0;
 }
 
@@ -222,6 +230,22 @@ struct doveadm_who_iter *doveadm_who_iter_init(const char *anvil_path)
 			str_array_length(iter->alt_username_fields);
 	}
 	return iter;
+}
+
+bool doveadm_who_iter_init_filter(struct doveadm_who_iter *iter,
+				  struct who_filter *filter)
+{
+	if (filter->alt_username_field == NULL)
+		return TRUE;
+
+	for (unsigned int i = 0; i < iter->alt_username_fields_count; i++) {
+		if (strcmp(filter->alt_username_field,
+			   iter->alt_username_fields[i]) == 0) {
+			filter->alt_username_idx = i;
+			return TRUE;
+		}
+	}
+	return FALSE;
 }
 
 bool doveadm_who_iter_next(struct doveadm_who_iter *iter,
@@ -347,8 +371,24 @@ static void who_print(struct who_context *ctx)
 bool who_line_filter_match(const struct who_line *line,
 			   const struct who_filter *filter)
 {
-	if (filter->username != NULL) {
+	unsigned int i;
+
+	if (filter->username == NULL)
+		;
+	else if (filter->alt_username_field == NULL) {
 		if (!wildcard_match_icase(line->username, filter->username))
+			return FALSE;
+	} else {
+		i_assert(filter->alt_username_idx != UINT_MAX);
+		if (line->alt_usernames == NULL)
+			return FALSE;
+		for (i = 0; line->alt_usernames[i] != NULL; i++) {
+			if (i == filter->alt_username_idx)
+				break;
+		}
+		if (i != filter->alt_username_idx ||
+		    !wildcard_match_icase(line->alt_usernames[i],
+					  filter->username))
 			return FALSE;
 	}
 	if (filter->net_bits > 0) {
@@ -382,20 +422,22 @@ who_print_line(struct who_context *ctx, struct doveadm_who_iter *iter,
 
 static void cmd_who(struct doveadm_cmd_context *cctx)
 {
-	const char *const *masks;
+	const char *passdb_field, *const *masks;
 	struct who_context ctx;
 	bool separate_connections = FALSE;
 
 	i_zero(&ctx);
 	if (!doveadm_cmd_param_str(cctx, "socket-path", &(ctx.anvil_path)))
 		ctx.anvil_path = t_strconcat(doveadm_settings->base_dir, "/anvil", NULL);
+	if (!doveadm_cmd_param_str(cctx, "passdb-field", &passdb_field))
+		passdb_field = NULL;
 	(void)doveadm_cmd_param_bool(cctx, "separate-connections", &separate_connections);
 
 	ctx.pool = pool_alloconly_create("who users", 10240);
 	hash_table_create(&ctx.users, ctx.pool, 0, who_user_hash, who_user_cmp);
 
 	if (doveadm_cmd_param_array(cctx, "mask", &masks)) {
-		if (who_parse_args(&ctx, masks) != 0) {
+		if (who_parse_args(&ctx, passdb_field, masks) != 0) {
 			hash_table_destroy(&ctx.users);
 			pool_unref(&ctx.pool);
 			return;
@@ -418,8 +460,10 @@ static void cmd_who(struct doveadm_cmd_context *cctx)
 		doveadm_print_header_simple("dest_ip");
 		for (unsigned int i = 0; i < iter->alt_username_fields_count; i++)
 			doveadm_print_header_simple(iter->alt_username_fields[i]);
-		while (doveadm_who_iter_next(iter, &who_line))
-			who_print_line(&ctx, iter, &who_line);
+		if (doveadm_who_iter_init_filter(iter, &ctx.filter)) {
+			while (doveadm_who_iter_next(iter, &who_line))
+				who_print_line(&ctx, iter, &who_line);
+		}
 	}
 	if (doveadm_who_iter_deinit(&iter) < 0)
 		doveadm_exit_code = EX_TEMPFAIL;
@@ -431,10 +475,11 @@ static void cmd_who(struct doveadm_cmd_context *cctx)
 struct doveadm_cmd_ver2 doveadm_cmd_who_ver2 = {
 	.name = "who",
 	.cmd = cmd_who,
-	.usage = "[-a <anvil socket path>] [-1] [<user mask>] [<ip/bits>]",
+	.usage = "[-a <anvil socket path>] [-1] [-f <passdb field>] [<user mask>] [<ip/bits>]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('a',"socket-path", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('1',"separate-connections", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('f',"passdb-field", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('\0',"mask", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };

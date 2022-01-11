@@ -77,6 +77,10 @@ static void kick_users_get_via_who(struct kick_context *ctx)
 	p_array_init(&ctx->kicks, ctx->who.pool, 64);
 	struct doveadm_who_iter *iter =
 		doveadm_who_iter_init(ctx->who.anvil_path);
+	if (!doveadm_who_iter_init_filter(iter, &ctx->who.filter)) {
+		doveadm_who_iter_deinit(&iter);
+		return;
+	}
 	struct who_line who_line;
 	while (doveadm_who_iter_next(iter, &who_line)) {
 		if (!who_line_filter_match(&who_line, &ctx->who.filter))
@@ -125,12 +129,14 @@ static void kick_users_via_anvil(struct kick_context *ctx)
 
 static void cmd_kick(struct doveadm_cmd_context *cctx)
 {
-	const char *const *masks;
+	const char *passdb_field, *const *masks;
 	struct kick_context ctx;
 
 	i_zero(&ctx);
 	if (!doveadm_cmd_param_str(cctx, "socket-path", &(ctx.who.anvil_path)))
 		ctx.who.anvil_path = t_strconcat(doveadm_settings->base_dir, "/anvil", NULL);
+	if (!doveadm_cmd_param_str(cctx, "passdb-field", &passdb_field))
+		passdb_field = NULL;
 	if (!doveadm_cmd_param_array(cctx, "mask", &masks)) {
 		doveadm_exit_code = EX_USAGE;
 		i_error("user and/or ip[/bits] must be specified.");
@@ -139,7 +145,7 @@ static void cmd_kick(struct doveadm_cmd_context *cctx)
 	ctx.conn_type = cctx->conn_type;
 	ctx.who.pool = pool_alloconly_create("kick pids", 10240);
 
-	if (who_parse_args(&ctx.who, masks)!=0) {
+	if (who_parse_args(&ctx.who, passdb_field, masks) != 0) {
 		pool_unref(&ctx.who.pool);
 		return;
 	}
@@ -157,9 +163,10 @@ static void cmd_kick(struct doveadm_cmd_context *cctx)
 struct doveadm_cmd_ver2 doveadm_cmd_kick_ver2 = {
 	.name = "kick",
 	.cmd = cmd_kick,
-	.usage = "[-a <anvil socket path>] <user mask>[|]<ip/bits>",
+	.usage = "[-a <anvil socket path>] [-f <passdb field>] <user mask>[|]<ip/bits>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('a',"socket-path",CMD_PARAM_STR,0)
+DOVEADM_CMD_PARAM('f',"passdb-field",CMD_PARAM_STR,0)
 DOVEADM_CMD_PARAM('\0',"mask",CMD_PARAM_ARRAY,CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
