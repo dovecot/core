@@ -110,10 +110,20 @@ static void kick_users_via_anvil(struct kick_context *ctx)
 
 	array_foreach(&ctx->kicks, session) {
 		str_truncate(cmd, 0);
-		str_append(cmd, "KICK-USER\t");
-		str_append_tabescaped(cmd, session->username);
-		str_append_c(cmd, '\t');
-		str_append_tabescaped(cmd, guid_128_to_string(session->conn_guid));
+		if (ctx->who.filter.alt_username_field == NULL) {
+			str_append(cmd, "KICK-USER\t");
+			str_append_tabescaped(cmd, session->username);
+			if (!guid_128_is_empty(session->conn_guid)) {
+				str_append_c(cmd, '\t');
+				str_append_tabescaped(cmd,
+					guid_128_to_string(session->conn_guid));
+			}
+		} else {
+			str_append(cmd, "KICK-ALT-USER\t");
+			str_append_tabescaped(cmd, ctx->who.filter.alt_username_field);
+			str_append_c(cmd, '\t');
+			str_append_tabescaped(cmd, session->username);
+		}
 
 		ctx->kicked = FALSE;
 		anvil_client_query(anvil, str_c(cmd),
@@ -154,7 +164,17 @@ static void cmd_kick(struct doveadm_cmd_context *cctx)
 	doveadm_print_formatted_set_format("%{result} ");
 	doveadm_print_header_simple("result");
 
-	kick_users_get_via_who(&ctx);
+	if (ctx.who.filter.net_bits == 0 &&
+	    strpbrk(ctx.who.filter.username, "*?") == NULL) {
+		/* kick a single [alternative] user's all connections */
+		p_array_init(&ctx.kicks, ctx.who.pool, 1);
+		struct kick_session *session = array_append_space(&ctx.kicks);
+		session->username = ctx.who.filter.username;
+	} else {
+		/* Complex kick filter. Iterate all connections and figure out
+		   locally which ones to kick. */
+		kick_users_get_via_who(&ctx);
+	}
 	kick_users_via_anvil(&ctx);
 
 	pool_unref(&ctx.who.pool);
