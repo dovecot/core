@@ -867,6 +867,28 @@ static void login_proxy_notify(struct login_proxy *proxy)
 	login_proxy_state_notify(proxy_state, proxy->client->proxy_user);
 }
 
+static bool
+client_get_alt_usernames(struct client *client,
+			 ARRAY_TYPE(const_string) *strings)
+{
+	unsigned int alt_username_count =
+		str_array_length(client->alt_usernames);
+	if (alt_username_count == 0)
+		return FALSE;
+
+	t_array_init(strings, alt_username_count * 2 + 1);
+	for (unsigned int i = 0; i < alt_username_count; i++) {
+		if (client->alt_usernames[i][0] == '\0')
+			continue;
+
+		const char *field_name =
+			array_idx_elem(&global_alt_usernames, i);
+		array_push_back(strings, &field_name);
+		array_push_back(strings, &client->alt_usernames[i]);
+	}
+	return TRUE;
+}
+
 void login_proxy_detach(struct login_proxy *proxy)
 {
 	struct client *client = proxy->client;
@@ -911,6 +933,11 @@ void login_proxy_detach(struct login_proxy *proxy)
 		.service_name = master_service_get_name(master_service),
 		.ip = client->ip,
 	};
+	ARRAY_TYPE(const_string) alt_usernames;
+	if (client_get_alt_usernames(client, &alt_usernames)) {
+		array_append_zero(&alt_usernames);
+		anvil_session.alt_usernames = array_idx(&alt_usernames, 0);
+	}
 	if (master_service_anvil_connect(master_service, &anvil_session,
 					 TRUE, proxy->anvil_conn_guid))
 		proxy->anvil_connect_sent = TRUE;
