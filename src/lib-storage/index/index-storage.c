@@ -955,6 +955,8 @@ bool index_storage_is_inconsistent(struct mailbox *box)
 
 void index_save_context_free(struct mail_save_context *ctx)
 {
+	i_assert(ctx->dest_mail != NULL);
+
 	index_mail_save_finish(ctx);
 	if (ctx->data.keywords != NULL)
 		mailbox_keywords_unref(&ctx->data.keywords);
