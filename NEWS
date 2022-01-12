@@ -1,3 +1,102 @@
+v2.3.18 2022-02-01  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* Removed mail_cache_lookup_finished event. This event wasn't especially
+	  useful, but it increased CPU usage significantly.
+	* fts: Don't index inline base64 encoded content in FTS indexes using
+	  the generic tokenizer. This reduces the FTS index sizes by removing
+	  input that is very unlikely to be searched for. See
+	  https://doc.dovecot.org/configuration_manual/fts/tokenization for
+	  details on how base64 is detected. Only applies when using libfts.
+	* lmtp: Session IDs are now preserved through proxied connections, so
+	  LMTP sessions can be tracked. This slightly changes the LMTP session
+	  ID format by appending ":N" number to it after each hop.
+	+ Events now have "reason_code" field, which can provide a list of
+	  reasons why the event is happening. See
+	  https://doc.dovecot.org/admin_manual/event_reasons/
+	+ New events are added. See https://doc.dovecot.org/admin_manual/list_of_events/
+	+ fts: Added fts_header_excludes and fts_header_includes settings to
+	  specify which headers to index. See
+	  https://doc.dovecot.org/settings/plugin/fts-plugin#plugin-fts-setting-fts-header-excludes
+	  for configuration details.
+	+ fts: Initialize the textcat language detection library only once per
+	  process. This can reduce CPU usage if fts_languages setting has multiple
+	  languages listed and service indexer-worker { service_count } isn't 1.
+	  Only applies when using libfts.
+	+ lib-storage: Reduced CPU usage significantly for some operations that
+	  accessed lots of emails (e.g. fetching all flags in a folder, SORT, ...)
+	+ lib: DOVECOT_PREREQ() - Add micro version which enables compiling
+	  external plugins against different versions of Dovecot.
+	+ lmtp: Added new lmtp_verbose_replies setting that makes errors sent to
+	  the LMTP client much more verbose with details about why exactly
+	  backend proxy connections or commands are failing.
+	+ submission: Support implicit SASL EXTERNAL with
+	  submission_client_workarounds=implicit-auth-external. This allows
+	  automatically logging in when SSL client certificate is present.
+	- *-login: Statistics were disabled if stats process connection was lost.
+	- auth: Authentication master user login fails with SCRAM-* SASL mechanisms.
+	- auth: With auth_cache_verify_password_with_worker=yes, passdb extra
+	  fields in the auth cache got lost.
+	- doveadm: Fixed crash if zlib_save_level setting was specified,
+	  but zlib_save was unset. v2.3.15 regression.
+	- doveadm: Proxying can panic when flushing print output. v2.3.17
+	  regression. Fixes:
+	  Panic: file ioloop.c: line 865 (io_loop_destroy): assertion failed:
+	  (ioloop == current_ioloop)
+	- doveadm: stats add --group-by parameter didn't work.
+	- fts: Using email-address fts tokenizer could result in excessive memory
+	  usage with garbage email input. This could cause the indexer-worker
+	  processes to fail due to reaching the VSZ memory size limit.
+	  Only applies when using libfts.
+	- imap: A SEARCH command timing out while fts returns indexes may timeout
+	  returning "NO [SERVERBUG]", while it should return "NO [INUSE]" instead.
+	- imap: LIST-EXTENDED doesn't return STATUS for all folders. Sending
+	  LIST .. RETURN (SUBSCRIBED STATUS (...)) did not return STATUS for
+	  folders that are not subscribed when they have a child folder that is
+	  subscribed as mandated by IMAP RFCs.
+	- imapc: Mailbox vsize calculation crashed with
+	  Panic: file index-mailbox-size.c: line 344 (index_mailbox_vsize_hdr_add_missing):
+	  assertion failed: (mails_left > 0)
+	- indexer: If indexer-worker crashes, the request it was processing gets
+	  stuck in the indexer process. This stops indexing for the folder until
+	  indexer process is restarted. v2.3.14 regression.
+	- indexer: Process was slowly leaking memory for each indexing request.
+	- lib-event: Unnamed events were wrongly filtered out for event/metric
+	  filters like "event=abc OR something_independent_of_event_name".
+	- lib-index: 64-bit big endian CPUs handle last_used field in
+	  dovecot.index.cache wrong.
+	- lib-ssl-iostream: Fix buggy OpenSSL error handling without assert-crashing.
+	  If there is no error available, log it as an error instead of crashing.
+	  The previous fix for this in v2.3.11 was incomplete. Fixes
+	  Panic: file istream-openssl.c: line 51 (i_stream_ssl_read_real):
+	  assertion failed: (errno != 0)
+	- lmtp: Out-of-memory issues can happen when proxying large messages to
+	  LMTP backend servers that accept the message data too slow.
+	- master: HAProxy header parsing has read buffer overflow if provided
+	  header size is invalid. This happens only if inet_listener
+	  { haproxy=yes } is configured and only if the remote IP address is in
+	  haproxy_trusted_networks.
+	- old_stats: Plugin kept increasing memory usage, which became
+	  noticeable with long-running imap sessions.
+	- stats: Dynamically adding same metric multiple times causes multiple stats.
+	- submission-login: Authentication does not accept OAUTH2 token (or
+	  other very long credentials) because it considers the line to be too long.
+	- submission-login: Process can crash if HELO is pipelined with an
+	  invalid domain.
+	- submission-proxy: Don't use SASL-IR if it would make the AUTH command
+	  line longer than 512 bytes.
+	- submission: Service would crash if relay server authentication failed.
+	- virtual: FTS search in a virtual folder could crash if there are
+	  duplicate mailbox GUIDs. This mainly happened when user had both INBOX
+	  and INBOX/INBOX folders and the namespace prefix was INBOX/. Fixes
+	  Panic: file hash.c: line 252 (hash_table_insert_node):
+	  assertion failed: (opcode == HASH_TABLE_OP_UPDATE)
+	- virtual: If mailbox opening fails, the backend mailbox is leaked and
+	  process crashes when client disconnects. Fixes
+	  Panic: file mail-user.c: line 232 (mail_user_deinit):
+	  assertion failed: ((*user)->refcount == 1)
+	- virtual: Searching headers in virtual folders didn't always use
+	  full-text search indexes, if fts_enforced=no or body.
+
 v2.3.17.1 2021-12-07  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	- dsync: Add back accidentically removed parameters.
