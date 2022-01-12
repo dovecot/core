@@ -110,8 +110,7 @@ static void cmd_kick(struct doveadm_cmd_context *cctx)
 	if (!doveadm_cmd_param_str(cctx, "passdb-field", &passdb_field))
 		passdb_field = NULL;
 	if (!doveadm_cmd_param_array(cctx, "mask", &masks)) {
-		doveadm_exit_code = EX_USAGE;
-		i_error("user and/or ip[/bits] must be specified.");
+		help_ver2(&doveadm_cmd_kick_ver2);
 		return;
 	}
 	ctx.conn_type = cctx->conn_type;
