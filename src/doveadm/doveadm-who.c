@@ -163,7 +163,8 @@ int who_parse_args(struct who_context *ctx, const char *alt_username_field,
 	unsigned int i, net_bits;
 
 	for (i = 0; masks[i] != NULL; i++) {
-		if (net_parse_range(masks[i], &net_ip, &net_bits) == 0) {
+		if (!str_is_numeric(masks[i], '\0') &&
+		    net_parse_range(masks[i], &net_ip, &net_bits) == 0) {
 			if (ctx->filter.net_bits != 0) {
 				i_error("Multiple network masks not supported");
 				doveadm_exit_code = EX_USAGE;
