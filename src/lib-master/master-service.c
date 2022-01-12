@@ -978,6 +978,17 @@ bool master_service_anvil_connect(struct master_service *service,
 		str_append_c(cmd, 'S');
 	else
 		str_append_c(cmd, 'A');
+	if (session->alt_usernames != NULL) {
+		string_t *alt_usernames = t_str_new(64);
+		for (unsigned int i = 0; session->alt_usernames[i] != NULL; i++) {
+			if (i > 0)
+				str_append_c(alt_usernames, '\t');
+			str_append_tabescaped(alt_usernames,
+					      session->alt_usernames[i]);
+		}
+		str_append_c(cmd, '\t');
+		str_append_tabescaped(cmd, str_c(alt_usernames));
+	}
 	str_append_c(cmd, '\n');
 	return master_service_anvil_send(service, str_c(cmd));
 }

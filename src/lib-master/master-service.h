@@ -95,6 +95,8 @@ struct master_service_connection {
 
 struct master_service_anvil_session {
 	const char *username;
+	/* NULL-terminated array of (field, value) pairs */
+	const char *const *alt_usernames;
 	const char *service_name;
 	struct ip_addr ip;
 };
