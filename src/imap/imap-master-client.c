@@ -240,7 +240,7 @@ imap_master_client_input_args(struct connection *conn, const char *const *args,
 	/* NOTE: before client_create_from_input() on failures we need to close
 	   fd_client, but afterward it gets closed by client_destroy() */
 	ret = client_create_from_input(&input, fd_client, fd_client,
-				       &imap_client, &error);
+				       TRUE, &imap_client, &error);
 	if (ret < 0) {
 		e_error(conn->event,
 			"imap-master(%s): Failed to create client: %s",
