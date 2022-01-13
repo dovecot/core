@@ -846,16 +846,20 @@ static int client_output(struct client *client)
 	}
 }
 
+void client_kick(struct client *client)
+{
+	mail_storage_service_io_activate_user(client->service_user);
+	if (client->cmd == NULL) {
+		client_send_line(client,
+				 "-ERR [SYS/TEMP] Server shutting down.");
+	}
+	client_destroy(client, "Server shutting down.");
+}
+
 void clients_destroy_all(void)
 {
-	while (pop3_clients != NULL) {
-		mail_storage_service_io_activate_user(pop3_clients->service_user);
-		if (pop3_clients->cmd == NULL) {
-			client_send_line(pop3_clients,
-				"-ERR [SYS/TEMP] Server shutting down.");
-		}
-		client_destroy(pop3_clients, "Server shutting down.");
-	}
+	while (pop3_clients != NULL)
+		client_kick(pop3_clients);
 }
 
 struct pop3_client_vfuncs pop3_client_vfuncs = {

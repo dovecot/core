@@ -132,6 +132,7 @@ void client_destroy(struct client *client, const char *reason) ATTR_NULL(2);
 
 /* Disconnect client connection */
 void client_disconnect(struct client *client, const char *reason);
+void client_kick(struct client *client);
 
 /* Send a line of data to client */
 void client_send_line(struct client *client, const char *fmt, ...)
