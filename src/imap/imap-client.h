@@ -282,6 +282,7 @@ void client_destroy(struct client *client, const char *reason) ATTR_NULL(2);
 void client_disconnect(struct client *client, const char *reason);
 void client_disconnect_with_error(struct client *client,
 				  const char *client_error);
+void client_kick(struct client *client);
 
 /* Add the given capability to the CAPABILITY reply. If imap_capability setting
    has an explicit capability, nothing is changed. */

@@ -1653,14 +1653,18 @@ void clients_init(void)
 				      imap_client_enable_qresync);
 }
 
+void client_kick(struct client *client)
+{
+	mail_storage_service_io_activate_user(client->service_user);
+	if (client->output_cmd_lock == NULL)
+		client_send_line(client, "* BYE Server shutting down.");
+	client_destroy(client, "Server shutting down.");
+}
+
 void clients_destroy_all(void)
 {
-	while (imap_clients != NULL) {
-		mail_storage_service_io_activate_user(imap_clients->service_user);
-		if (imap_clients->output_cmd_lock == NULL)
-			client_send_line(imap_clients, "* BYE Server shutting down.");
-		client_destroy(imap_clients, "Server shutting down.");
-	}
+	while (imap_clients != NULL)
+		client_kick(imap_clients);
 }
 
 struct imap_client_vfuncs imap_client_vfuncs = {
