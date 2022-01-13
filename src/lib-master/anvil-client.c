@@ -30,7 +30,7 @@ struct anvil_client {
 	ARRAY(struct anvil_query *) queries_arr;
 	struct aqueue *queries;
 
-	bool (*reconnect_callback)(void);
+	struct anvil_client_callbacks callbacks;
 	enum anvil_client_flags flags;
 	bool deinitializing;
 };
@@ -62,7 +62,8 @@ static struct connection_vfuncs anvil_connections_vfuncs = {
 };
 
 struct anvil_client *
-anvil_client_init(const char *path, bool (*reconnect_callback)(void),
+anvil_client_init(const char *path,
+		  const struct anvil_client_callbacks *callbacks,
 		  enum anvil_client_flags flags)
 {
 	struct anvil_client *client;
@@ -74,7 +75,8 @@ anvil_client_init(const char *path, bool (*reconnect_callback)(void),
 
 	client = i_new(struct anvil_client, 1);
 	connection_init_client_unix(anvil_connections, &client->conn, path);
-	client->reconnect_callback = reconnect_callback;
+	if (callbacks != NULL)
+		client->callbacks = *callbacks;
 	client->flags = flags;
 	i_array_init(&client->queries_arr, 32);
 	client->queries = aqueue_init(&client->queries_arr.arr);
@@ -120,8 +122,8 @@ anvil_client_start_multiplex_output(struct anvil_client *client)
 
 static void anvil_client_reconnect(struct anvil_client *client)
 {
-	if (client->reconnect_callback != NULL) {
-		if (!client->reconnect_callback()) {
+	if (client->callbacks.reconnect != NULL) {
+		if (!client->callbacks.reconnect()) {
 			/* no reconnection */
 			return;
 		}

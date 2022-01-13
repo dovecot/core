@@ -327,7 +327,10 @@ void login_anvil_init(void)
 	if (anvil != NULL)
 		return;
 
-	anvil = anvil_client_init("anvil", anvil_reconnect_callback, 0);
+	const struct anvil_client_callbacks callbacks = {
+		.reconnect = anvil_reconnect_callback,
+	};
+	anvil = anvil_client_init("anvil", &callbacks, 0);
 	if (anvil_client_connect(anvil, TRUE) < 0)
 		i_fatal("Couldn't connect to anvil");
 }

@@ -6,13 +6,20 @@ enum anvil_client_flags {
 	ANVIL_CLIENT_FLAG_HIDE_ENOENT	= 0x01
 };
 
+struct anvil_client_callbacks {
+	/* Called when connection is lost. If it returns FALSE, reconnection
+	   isn't attempted. */
+	bool (*reconnect)(void);
+};
+
 /* reply=NULL if query failed */
 typedef void anvil_callback_t(const char *reply, void *context);
 
 /* If reconnect_callback is specified, it's called when connection is lost.
    If the callback returns FALSE, reconnection isn't attempted. */
 struct anvil_client *
-anvil_client_init(const char *path, bool (*reconnect_callback)(void),
+anvil_client_init(const char *path,
+		  const struct anvil_client_callbacks *callbacks,
 		  enum anvil_client_flags flags) ATTR_NULL(2);
 void anvil_client_deinit(struct anvil_client **client);
 
