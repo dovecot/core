@@ -106,4 +106,6 @@ void master_service_haproxy_new(struct master_service *service,
 				struct master_service_connection *conn);
 void master_service_haproxy_abort(struct master_service *service);
 
+void master_admin_clients_deinit(void);
+
 #endif

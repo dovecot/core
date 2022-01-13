@@ -17,6 +17,7 @@
 #include "settings-parser.h"
 #include "syslog-util.h"
 #include "stats-client.h"
+#include "master-admin-client.h"
 #include "master-instance.h"
 #include "master-login.h"
 #include "master-service-ssl.h"
@@ -628,6 +629,10 @@ bool master_service_parse_option(struct master_service *service,
 
 static void master_service_error(struct master_service *service)
 {
+	/* Close all master-admin connections from anvil. This way they won't
+	   block stopping the process quickly. */
+	master_admin_clients_deinit();
+
 	master_service_stop_new_connections(service);
 	if (service->master_status.available_count ==
 	    service->total_available_count || service->die_with_master) {
@@ -1115,9 +1120,11 @@ static void master_service_deinit_real(struct master_service **_service)
 		if (!t_pop(&service->datastack_frame_id))
 			i_panic("Leaked t_pop() call");
 	}
+	master_admin_clients_deinit();
 	master_service_haproxy_abort(service);
 
-	master_service_io_listeners_remove(service);
+	for (unsigned int i = 0; i < service->socket_count; i++)
+		io_remove(&service->listeners[i].io);
 	master_service_ssl_ctx_deinit(service);
 
 	if (service->stats_client != NULL)
@@ -1280,8 +1287,13 @@ static void master_service_listen(struct master_service_listener *l)
 {
 	struct master_service *service = l->service;
 	struct master_service_connection conn;
+	const char *conn_name;
+	bool master_admin_conn;
 
-	if (service->master_status.available_count == 0) {
+	conn_name = master_service_get_socket_name(service, l->fd);
+	master_admin_conn = master_admin_client_can_accept(conn_name);
+
+	if (service->master_status.available_count == 0 && !master_admin_conn) {
 		if (master_service_full(service)) {
 			/* Stop the listener until a client has disconnected or
 			   overflow callback has killed one. */
@@ -1335,6 +1347,10 @@ static void master_service_listen(struct master_service_listener *l)
 
 	net_set_nonblock(conn.fd, TRUE);
 
+	if (master_admin_conn) {
+		master_admin_client_create(&conn);
+		return;
+	}
 	master_service_client_connection_created(service);
 	if (l->haproxy)
 		master_service_haproxy_new(service, &conn);
@@ -1368,7 +1384,8 @@ void master_service_io_listeners_remove(struct master_service *service)
 	unsigned int i;
 
 	for (i = 0; i < service->socket_count; i++) {
-		io_remove(&service->listeners[i].io);
+		if (!master_admin_client_can_accept(service->listeners[i].name))
+			io_remove(&service->listeners[i].io);
 	}
 }
 
@@ -1390,7 +1407,8 @@ static void master_service_io_listeners_close(struct master_service *service)
 	/* close via listeners. some fds might be pipes that are
 	   currently handled as clients. we don't want to close them. */
 	for (i = 0; i < service->socket_count; i++) {
-		if (service->listeners[i].fd != -1) {
+		if (service->listeners[i].fd != -1 &&
+		    !master_admin_client_can_accept(service->listeners[i].name)) {
 			if (close(service->listeners[i].fd) < 0) {
 				i_error("close(listener %d) failed: %m",
 					service->listeners[i].fd);
