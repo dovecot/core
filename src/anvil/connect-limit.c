@@ -121,7 +121,9 @@ static struct process *process_lookup(struct connect_limit *limit, pid_t pid)
 	return hash_table_lookup(limit->process_hash, POINTER_CAST(pid));
 }
 
-static struct process *process_get(struct connect_limit *limit, pid_t pid)
+static void
+session_link_process(struct connect_limit *limit, struct session *session,
+		     pid_t pid)
 {
 	struct process *process;
 
@@ -132,7 +134,25 @@ static struct process *process_get(struct connect_limit *limit, pid_t pid)
 		hash_table_insert(limit->process_hash,
 				  POINTER_CAST(pid), process);
 	}
-	return process;
+
+	session->process = process;
+	DLLIST_PREPEND_FULL(&process->sessions, session,
+			    process_prev, process_next);
+}
+
+static void
+session_unlink_process(struct connect_limit *limit, struct session *session)
+{
+	struct process *process;
+
+	process = session->process;
+	DLLIST_REMOVE_FULL(&process->sessions, session,
+			   process_prev, process_next);
+	if (process->sessions == NULL) {
+		hash_table_remove(limit->process_hash,
+				  POINTER_CAST(process->pid));
+		i_free(process);
+	}
 }
 
 void connect_limit_connect(struct connect_limit *limit, pid_t pid,
@@ -184,12 +204,11 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 
 	session = i_new(struct session, 1);
 	session->userip = userip;
-	session->process = process_get(limit, pid);
 	guid_128_copy(session->conn_guid, conn_guid);
+
+	session_link_process(limit, session, pid);
 	const uint8_t *conn_guid_p = session->conn_guid;
 	hash_table_insert(limit->session_hash, conn_guid_p, session);
-	DLLIST_PREPEND_FULL(&session->process->sessions, session,
-			    process_prev, process_next);
 	DLLIST_PREPEND_FULL(&first_user_session, session,
 			    user_prev, user_next);
 	hash_table_update(limit->user_hash, username, session);
@@ -239,7 +258,6 @@ void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
 			      const struct connect_limit_key *key,
 			      const guid_128_t conn_guid)
 {
-	struct process *process;
 	struct session *session;
 
 	i_assert(limit->iter == NULL);
@@ -259,17 +277,10 @@ void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
 	}
 	i_assert(hash_table_lookup(limit->process_hash, POINTER_CAST(pid)) != NULL);
 
-	process = session->process;
-	DLLIST_REMOVE_FULL(&process->sessions, session,
-			   process_prev, process_next);
 	const uint8_t *conn_guid_p = session->conn_guid;
 	hash_table_remove(limit->session_hash, conn_guid_p);
+	session_unlink_process(limit, session);
 	session_free(limit, session);
-
-	if (process->sessions == NULL) {
-		hash_table_remove(limit->process_hash, POINTER_CAST(pid));
-		i_free(process);
-	}
 }
 
 void connect_limit_disconnect_pid(struct connect_limit *limit, pid_t pid)
