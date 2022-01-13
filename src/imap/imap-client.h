@@ -230,6 +230,7 @@ struct client {
 	bool logged_out:1;
 	bool disconnected:1;
 	bool hibernated:1;
+	bool unhibernated:1; /* client was created by unhibernation */
 	bool destroyed:1;
 	bool handling_input:1;
 	bool syncing:1;
@@ -266,7 +267,7 @@ extern unsigned int imap_feature_qresync;
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
-struct client *client_create(int fd_in, int fd_out,
+struct client *client_create(int fd_in, int fd_out, bool unhibernated,
 			     struct event *event, struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct imap_settings *set,

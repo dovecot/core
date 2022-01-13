@@ -40,6 +40,7 @@ void imap_refresh_proctitle(void) { }
 void imap_refresh_proctitle_delayed(void) { }
 int client_create_from_input(const struct mail_storage_service_input *input ATTR_UNUSED,
 			     int fd_in ATTR_UNUSED, int fd_out ATTR_UNUSED,
+			     bool unhibernated ATTR_UNUSED,
 			     struct client **client_r ATTR_UNUSED,
 			     const char **error_r ATTR_UNUSED) { return -1; }
 
@@ -173,7 +174,7 @@ static void test_imap_client_hibernate(void)
 
 	struct event *event = event_create(NULL);
 	int client_fd = dup(dev_null_fd);
-	client = client_create(client_fd, client_fd, event,
+	client = client_create(client_fd, client_fd, FALSE, event,
 			       mail_user, service_user,
 			       imap_setting_parser_info.defaults, &smtp_set);
 	ctx.client = client;
