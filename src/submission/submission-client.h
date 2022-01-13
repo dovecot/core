@@ -143,6 +143,7 @@ client_create(int fd_in, int fd_out, struct mail_user *user,
 	      bool no_greeting);
 void client_destroy(struct client **client, const char *prefix,
 		    const char *reason) ATTR_NULL(2, 3);
+void client_kick(struct client *client);
 
 typedef void (*client_input_callback_t)(struct client *context);
 

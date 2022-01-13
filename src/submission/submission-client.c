@@ -493,14 +493,16 @@ void client_add_extra_capability(struct client *client, const char *capability,
 	array_push_back(&client->extra_capabilities, &cap);
 }
 
+void client_kick(struct client *client)
+{
+	mail_storage_service_io_activate_user(client->service_user);
+	client_destroy(&client, "4.3.2", "Shutting down");
+}
+
 void clients_destroy_all(void)
 {
-	while (submission_clients != NULL) {
-		struct client *client = submission_clients;
-
-		mail_storage_service_io_activate_user(client->service_user);
-		client_destroy(&client, "4.3.2", "Shutting down");
-	}
+	while (submission_clients != NULL)
+		client_kick(submission_clients);
 }
 
 static const struct smtp_server_callbacks smtp_callbacks = {
