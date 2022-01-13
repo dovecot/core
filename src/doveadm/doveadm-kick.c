@@ -22,40 +22,8 @@ struct kick_context {
 	struct who_context who;
 	enum doveadm_client_type conn_type;
 	ARRAY(struct kick_session) kicks;
-	ARRAY(const char *) kicked_users;
-
-	bool kicked;
+	unsigned int kicked_count;
 };
-
-static void kick_print_kicked(struct kick_context *ctx)
-{
-	unsigned int i, count;
-	const char *const *users;
-	bool cli = (ctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
-
-	if (array_count(&ctx->kicked_users) == 0) {
-		if (cli)
-			printf("no users kicked\n");
-		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
-		return;
-	}
-
-	if (cli)
-		printf("kicked connections from the following users:\n");
-
-	array_sort(&ctx->kicked_users, i_strcmp_p);
-	users = array_get(&ctx->kicked_users, &count);
-	doveadm_print(users[0]);
-	for (i = 1; i < count; i++) {
-		if (strcmp(users[i-1], users[i]) != 0)
-			doveadm_print(users[i]);
-	}
-
-	doveadm_print_flush();
-
-	if (cli)
-		printf("\n");
-}
 
 static void kick_user_anvil_callback(const char *reply, void *context)
 {
@@ -65,8 +33,8 @@ static void kick_user_anvil_callback(const char *reply, void *context)
 	if (reply != NULL) {
 		if (str_to_uint(reply, &count) < 0)
 			i_error("Unexpected reply from anvil: %s", reply);
-		else if (count > 0)
-			ctx->kicked = TRUE;
+		else
+			ctx->kicked_count += count;
 	}
 	io_loop_stop(current_ioloop);
 }
@@ -105,9 +73,6 @@ static void kick_users_via_anvil(struct kick_context *ctx)
 		return;
 	}
 
-	p_array_init(&ctx->kicked_users, ctx->who.pool,
-		     array_count(&ctx->kicks));
-
 	array_foreach(&ctx->kicks, session) {
 		str_truncate(cmd, 0);
 		if (ctx->who.filter.alt_username_field == NULL) {
@@ -125,16 +90,13 @@ static void kick_users_via_anvil(struct kick_context *ctx)
 			str_append_tabescaped(cmd, session->username);
 		}
 
-		ctx->kicked = FALSE;
 		anvil_client_query(anvil, str_c(cmd),
 				   kick_user_anvil_callback, ctx);
 		io_loop_run(current_ioloop);
-		if (ctx->kicked)
-			array_push_back(&ctx->kicked_users, &session->username);
 	}
 	anvil_client_deinit(&anvil);
 
-	kick_print_kicked(ctx);
+	doveadm_print(dec2str(ctx->kicked_count));
 }
 
 static void cmd_kick(struct doveadm_cmd_context *cctx)
@@ -161,8 +123,8 @@ static void cmd_kick(struct doveadm_cmd_context *cctx)
 	}
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
-	doveadm_print_formatted_set_format("%{result} ");
-	doveadm_print_header_simple("result");
+	doveadm_print_formatted_set_format("%{count} connections kicked\n");
+	doveadm_print_header_simple("count");
 
 	if (ctx.who.filter.net_bits == 0 &&
 	    strpbrk(ctx.who.filter.username, "*?") == NULL) {
