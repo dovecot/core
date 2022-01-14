@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "hostpid.h"
+#include "str.h"
 #include "mail-index.h"
 #include "subscription-file.h"
 #include "mailbox-list-delete.h"
@@ -691,6 +692,50 @@ index_list_delete_entry(struct index_mailbox_list *list, const char *name,
 }
 
 static int
+index_list_try_delete_nonexistent_parent(struct mailbox_list *_list,
+					 const char *name)
+{
+	struct index_mailbox_list *list =
+		container_of(_list, struct index_mailbox_list, list);
+	struct mailbox_list_index_node *node, *parent = NULL;
+	string_t *full_name;
+	const char *p;
+	char sep = mailbox_list_get_hierarchy_sep(_list);
+
+	if ((p = strrchr(name, sep)) == NULL) {
+		/* No occurrences of the hierarchy separator could be found
+		   in the name, so the mailbox has no parents. */
+               return 0;
+	}
+
+	/* Lookup parent node of of given "name" */
+	node = mailbox_list_index_lookup(_list, t_strdup_until(name, p));
+	full_name = t_str_new(32);
+
+	while (node != NULL) {
+		/* Attempt to delete all parent nodes that are NOSELECT or
+		   NONEXISTENT */
+		if (node->children != NULL)
+			break;
+		if ((node->flags & MAILBOX_LIST_INDEX_FLAG_NOSELECT) != 0 ||
+		    (node->flags & MAILBOX_LIST_INDEX_FLAG_NONEXISTENT) != 0) {
+			/* The parent mailbox has no other children and is not
+			   existant or not selectable, delete it */
+			str_truncate(full_name, 0);
+			mailbox_list_index_node_get_path(node, sep, full_name);
+			parent = node->parent;
+			if (index_list_delete_entry(list, str_c(full_name), FALSE) < 0)
+				return -1;
+		} else
+			break;
+
+		/* If there is another parent attempt to delete it as well */
+		node = parent;
+	}
+	return 0;
+}
+
+static int
 index_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 {
 	struct index_mailbox_list *list = (struct index_mailbox_list *)_list;
@@ -720,6 +765,9 @@ index_list_delete_mailbox(struct mailbox_list *_list, const char *name)
 		if (index_list_delete_entry(list, name, TRUE) < 0)
 			return -1;
 	}
+	if (_list->set.no_noselect && ret == 0)
+		(void)index_list_try_delete_nonexistent_parent(_list, name);
+
 	return ret;
 }
 
