@@ -21,6 +21,7 @@ struct submission_backend_relay {
 
 	bool trans_started:1;
 	bool trusted:1;
+	bool quit_confirmed:1;
 };
 
 static struct submission_backend_vfuncs backend_relay_vfuncs;
@@ -114,6 +115,8 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 			break;
 		case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST:
 		case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED:
+			if (backend->quit_confirmed)
+				return FALSE;
 			detail = " (connection lost)";
 			break;
 		case SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY:
@@ -978,6 +981,7 @@ static void relay_cmd_quit_finish(struct relay_cmd_quit_context *quit_cmd)
 {
 	struct smtp_server_cmd_ctx *cmd = quit_cmd->cmd;
 
+	quit_cmd->backend->quit_confirmed = TRUE;
 	if (quit_cmd->cmd_relayed != NULL)
 		smtp_client_command_abort(&quit_cmd->cmd_relayed);
 	smtp_server_reply_quit(cmd);
@@ -1004,6 +1008,7 @@ static void relay_cmd_quit_relay(struct relay_cmd_quit_context *quit_cmd)
 		< SMTP_CLIENT_CONNECTION_STATE_READY) {
 		/* Don't bother relaying QUIT command when relay is not
 		   fully initialized. */
+		quit_cmd->backend->quit_confirmed = TRUE;
 		smtp_server_reply_quit(cmd);
 		return;
 	}
