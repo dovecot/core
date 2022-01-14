@@ -808,6 +808,7 @@ index_list_rename_mailbox(struct mailbox_list *_oldlist, const char *oldname,
 	const void *data;
 	bool created, expunged;
 	uint32_t oldseq, newseq;
+	int ret;
 
 	if (_oldlist != _newlist) {
 		mailbox_list_set_error(_oldlist, MAIL_ERROR_NOTPOSSIBLE,
@@ -881,7 +882,12 @@ index_list_rename_mailbox(struct mailbox_list *_oldlist, const char *oldname,
 			      sync_ctx->ilist->ext_id, &oldrec, NULL);
 	mail_index_expunge(sync_ctx->trans, newseq);
 
-	return mailbox_list_index_sync_end(&sync_ctx, TRUE);
+	ret = mailbox_list_index_sync_end(&sync_ctx, TRUE);
+
+	if (_oldlist->set.no_noselect && ret == 0)
+               (void)index_list_try_delete_nonexistent_parent(_oldlist, oldname);
+
+	return ret;
 }
 
 static struct mailbox_list_iterate_context *
