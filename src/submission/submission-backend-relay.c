@@ -958,6 +958,14 @@ relay_cmd_quit_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 		smtp_client_command_abort(&quit_cmd->cmd_relayed);
 }
 
+static void relay_cmd_quit_relayed_destroy(void *context)
+{
+	struct relay_cmd_quit_context *quit_cmd = context;
+
+	i_assert(quit_cmd != NULL);
+	quit_cmd->cmd_relayed = NULL;
+}
+
 static void
 relay_cmd_quit_replied(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 		       struct relay_cmd_quit_context *quit_cmd)
@@ -1010,6 +1018,9 @@ static void relay_cmd_quit_relay(struct relay_cmd_quit_context *quit_cmd)
 		smtp_client_command_new(backend->conn, 0,
 					relay_cmd_quit_callback, quit_cmd);
 	smtp_client_command_write(quit_cmd->cmd_relayed, "QUIT");
+	smtp_client_command_set_abort_callback(
+		quit_cmd->cmd_relayed,
+		relay_cmd_quit_relayed_destroy, quit_cmd);
 	smtp_client_command_submit(quit_cmd->cmd_relayed);
 }
 
