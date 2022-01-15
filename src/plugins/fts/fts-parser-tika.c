@@ -33,7 +33,8 @@ struct tika_fts_parser {
 	struct io *io;
 	struct istream *payload;
 
-	bool failed;
+	bool data_sent:1;
+	bool failed:1;
 };
 
 static MODULE_CONTEXT_DEFINE_INIT(fts_parser_tika_user_module,
@@ -223,11 +224,18 @@ static void fts_parser_tika_more(struct fts_parser *_parser,
 						     block->data,
 						     block->size) < 0)
 			parser->failed = TRUE;
+		else
+			parser->data_sent = TRUE;
 		block->size = 0;
 		return;
 	}
 
 	if (parser->payload == NULL) {
+		/* No data exists in this part. Optimize by aborting the HTTP
+		 * request since there's nothing for Tika to parse. */
+		if (!parser->data_sent)
+			return;
+
 		/* read the result from Tika */
 		if (!parser->failed &&
 		    http_client_request_finish_payload(&parser->http_req) < 0)
