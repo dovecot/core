@@ -359,13 +359,15 @@ static bool keywords_are_equal(struct mail_keywords *kw,
 static int
 imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
 			    uint32_t rseq, uint32_t fetch_uid,
-			    uint32_t *lseq_r, uint32_t *uid_r)
+			    uint32_t *lseq_r, uint32_t *uid_r,
+			    bool *new_message_r)
 {
 	struct imapc_msgmap *msgmap;
 	uint32_t uid, msg_count, rseq2;
 
 	*lseq_r = 0;
 	*uid_r = uid = fetch_uid;
+	*new_message_r = FALSE;
 
 	if (rseq > mbox->exists_count) {
 		/* Receiving a FETCH for a message that EXISTS hasn't
@@ -452,6 +454,7 @@ imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
 			mail_index_append(mbox->delayed_sync_trans,
 					  uid, lseq_r);
 			mbox->min_append_uid = uid + 1;
+			*new_message_r = TRUE;
 		}
 	}
 	return 0;
@@ -534,16 +537,18 @@ imapc_untagged_fetch_update_flags(struct imapc_mailbox *mbox,
 	mail_index_keywords_unref(&kw);
 }
 
-static void imapc_untagged_fetch_handle(struct imapc_mailbox *mbox,
+static bool imapc_untagged_fetch_handle(struct imapc_mailbox *mbox,
 					struct imapc_untagged_fetch_ctx *ctx,
 					uint32_t rseq)
 {
 	uint32_t lseq;
+	bool new_message;
 
 	imapc_mailbox_init_delayed_trans(mbox);
 	if (imapc_mailbox_msgmap_update(mbox, rseq, ctx->fetch_uid,
-					&lseq, &ctx->uid) < 0 || ctx->uid == 0)
-		return;
+					&lseq, &ctx->uid,
+					&new_message) < 0 || ctx->uid == 0)
+		return FALSE;
 
 	if ((ctx->flags & MAIL_RECENT) == 0 && mbox->highest_nonrecent_uid < ctx->uid) {
 		/* remember for STATUS_FIRST_RECENT_UID */
@@ -559,7 +564,7 @@ static void imapc_untagged_fetch_handle(struct imapc_mailbox *mbox,
 			/* already expunged by another session */
 			if (rseq == mbox->sync_next_rseq)
 				mbox->sync_next_rseq++;
-			return;
+			return new_message;
 		}
 	}
 
@@ -595,6 +600,7 @@ static void imapc_untagged_fetch_handle(struct imapc_mailbox *mbox,
 				       guid_cache_idx, ctx->guid, strlen(ctx->guid));
 		}
 	}
+	return new_message;
 }
 
 static bool imapc_untagged_fetch_parse(struct imapc_mailbox *mbox,
