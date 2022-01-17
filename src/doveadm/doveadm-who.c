@@ -156,8 +156,8 @@ static void who_aggregate_line(struct who_context *ctx,
 		array_push_back(&user->pids, &line->pid);
 }
 
-int who_parse_args(struct who_context *ctx, const char *alt_username_field,
-		   const char *const *masks)
+static int
+who_parse_masks(struct who_context *ctx, const char *const *masks)
 {
 	struct ip_addr net_ip;
 	unsigned int i, net_bits;
@@ -180,6 +180,19 @@ int who_parse_args(struct who_context *ctx, const char *alt_username_field,
 			}
 			ctx->filter.username = masks[i];
 		}
+	}
+	return 0;
+}
+
+int who_parse_args(struct who_context *ctx, const char *alt_username_field,
+		   const struct ip_addr *dest_ip, const char *const *masks)
+{
+	if (dest_ip != NULL)
+		ctx->filter.dest_ip = *dest_ip;
+
+	if (masks != NULL) {
+		if (who_parse_masks(ctx, masks) < 0)
+			return -1;
 	}
 	if (alt_username_field != NULL && ctx->filter.username == NULL) {
 		i_error("Username must be given with passdb-field parameter");
@@ -397,6 +410,10 @@ bool who_line_filter_match(const struct who_line *line,
 				       filter->net_bits))
 			return FALSE;
 	}
+	if (filter->dest_ip.family != 0) {
+		if (!net_ip_compare(&line->dest_ip, &filter->dest_ip))
+			return FALSE;
+	}
 	return TRUE;
 }
 
@@ -438,7 +455,7 @@ static void cmd_who(struct doveadm_cmd_context *cctx)
 	hash_table_create(&ctx.users, ctx.pool, 0, who_user_hash, who_user_cmp);
 
 	if (doveadm_cmd_param_array(cctx, "mask", &masks)) {
-		if (who_parse_args(&ctx, passdb_field, masks) != 0) {
+		if (who_parse_args(&ctx, passdb_field, NULL, masks) != 0) {
 			hash_table_destroy(&ctx.users);
 			pool_unref(&ctx.pool);
 			return;

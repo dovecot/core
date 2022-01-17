@@ -101,22 +101,30 @@ static void kick_users_via_anvil(struct kick_context *ctx)
 
 static void cmd_kick(struct doveadm_cmd_context *cctx)
 {
-	const char *passdb_field, *const *masks;
+	const char *passdb_field, *dest_host, *const *masks = NULL;
 	struct kick_context ctx;
+	struct ip_addr dest_ip;
 
 	i_zero(&ctx);
 	if (!doveadm_cmd_param_str(cctx, "socket-path", &(ctx.who.anvil_path)))
 		ctx.who.anvil_path = t_strconcat(doveadm_settings->base_dir, "/anvil", NULL);
 	if (!doveadm_cmd_param_str(cctx, "passdb-field", &passdb_field))
 		passdb_field = NULL;
-	if (!doveadm_cmd_param_array(cctx, "mask", &masks)) {
+
+	if (!doveadm_cmd_param_str(cctx, "dest-host", &dest_host))
+		i_zero(&dest_ip);
+	else if (net_addr2ip(dest_host, &dest_ip) < 0)
+		i_fatal("dest-host isn't a valid IP address");
+
+	if (!doveadm_cmd_param_array(cctx, "mask", &masks) &&
+	    dest_ip.family == 0) {
 		help_ver2(&doveadm_cmd_kick_ver2);
 		return;
 	}
 	ctx.conn_type = cctx->conn_type;
 	ctx.who.pool = pool_alloconly_create("kick pids", 10240);
 
-	if (who_parse_args(&ctx.who, passdb_field, masks) != 0) {
+	if (who_parse_args(&ctx.who, passdb_field, &dest_ip, masks) != 0) {
 		pool_unref(&ctx.who.pool);
 		return;
 	}
@@ -126,6 +134,7 @@ static void cmd_kick(struct doveadm_cmd_context *cctx)
 	doveadm_print_header_simple("count");
 
 	if (ctx.who.filter.net_bits == 0 &&
+	    ctx.who.filter.dest_ip.family == 0 &&
 	    strpbrk(ctx.who.filter.username, "*?") == NULL) {
 		/* kick a single [alternative] user's all connections */
 		p_array_init(&ctx.kicks, ctx.who.pool, 1);
@@ -144,10 +153,11 @@ static void cmd_kick(struct doveadm_cmd_context *cctx)
 struct doveadm_cmd_ver2 doveadm_cmd_kick_ver2 = {
 	.name = "kick",
 	.cmd = cmd_kick,
-	.usage = "[-a <anvil socket path>] [-f <passdb field>] <user mask>[|]<ip/bits>",
+	.usage = "[-a <anvil socket path>] [-f <passdb field>] [-h <dest host>] <user mask>[|]<ip/bits>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('a',"socket-path",CMD_PARAM_STR,0)
 DOVEADM_CMD_PARAM('f',"passdb-field",CMD_PARAM_STR,0)
+DOVEADM_CMD_PARAM('h',"dest-host",CMD_PARAM_STR,0)
 DOVEADM_CMD_PARAM('\0',"mask",CMD_PARAM_ARRAY,CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
