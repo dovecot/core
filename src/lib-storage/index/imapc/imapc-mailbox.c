@@ -474,6 +474,106 @@ bool imapc_mailbox_name_equals(struct imapc_mailbox *mbox,
 	return FALSE;
 }
 
+static void imapc_untagged_fetch_handle(struct imapc_mailbox *mbox,
+					ARRAY_TYPE(const_string) keywords,
+					const char *guid,
+					enum mail_flags flags,
+					uint32_t rseq,
+					uint64_t modseq,
+					uint32_t fetch_uid,
+					uint32_t *lseq_r,
+					uint32_t *uid_r,
+					bool have_labels,
+					bool seen_flags)
+{
+	const struct mail_index_record *rec = NULL;
+	const char *atom;
+
+	imapc_mailbox_init_delayed_trans(mbox);
+	if (imapc_mailbox_msgmap_update(mbox, rseq, fetch_uid,
+					lseq_r, uid_r) < 0 || *uid_r == 0)
+		return;
+
+	if ((flags & MAIL_RECENT) == 0 && mbox->highest_nonrecent_uid < *uid_r) {
+		/* remember for STATUS_FIRST_RECENT_UID */
+		mbox->highest_nonrecent_uid = *uid_r;
+	}
+	/* FIXME: we should ideally also pass these through so they show up
+	   to clients. */
+	flags &= ENUM_NEGATE(MAIL_RECENT);
+
+	if (*lseq_r == 0) {
+		if (!mail_index_lookup_seq(mbox->delayed_sync_view,
+					   *uid_r, lseq_r)) {
+			/* already expunged by another session */
+			if (rseq == mbox->sync_next_rseq)
+				mbox->sync_next_rseq++;
+			return;
+		}
+	}
+
+	if (rseq == mbox->sync_next_rseq) {
+		/* we're doing the initial full sync of mails. expunge any
+		   mails that no longer exist. */
+		while (mbox->sync_next_lseq < *lseq_r) {
+			mail_index_lookup_uid(mbox->delayed_sync_view,
+					      mbox->sync_next_lseq, uid_r);
+			imapc_mailbox_index_expunge(mbox, *uid_r);
+			mbox->sync_next_lseq++;
+		}
+		i_assert(*lseq_r == mbox->sync_next_lseq);
+		mbox->sync_next_rseq++;
+		mbox->sync_next_lseq++;
+	}
+
+	rec = mail_index_lookup(mbox->delayed_sync_view, *lseq_r);
+	if (seen_flags && rec->flags != flags) {
+		mail_index_update_flags(mbox->delayed_sync_trans, *lseq_r,
+					MODIFY_REPLACE, flags);
+	}
+	if (seen_flags) {
+		ARRAY_TYPE(keyword_indexes) old_kws;
+		struct mail_keywords *kw;
+
+		t_array_init(&old_kws, 8);
+		mail_index_lookup_keywords(mbox->delayed_sync_view, *lseq_r,
+					   &old_kws);
+
+		if (have_labels) {
+			/* add keyword for mails that have GMail labels.
+			   this can be used for "All Mail" mailbox migrations
+			   with dsync */
+			atom = "$GMailHaveLabels";
+			array_push_back(&keywords, &atom);
+		}
+
+		array_append_zero(&keywords);
+		kw = mail_index_keywords_create(mbox->box.index,
+						array_front(&keywords));
+		if (!keywords_are_equal(kw, &old_kws)) {
+			mail_index_update_keywords(mbox->delayed_sync_trans,
+						   *lseq_r, MODIFY_REPLACE, kw);
+		}
+		mail_index_keywords_unref(&kw);
+	}
+	if (modseq != 0) {
+		if (mail_index_modseq_lookup(mbox->delayed_sync_view, *lseq_r) < modseq)
+			mail_index_update_modseq(mbox->delayed_sync_trans, *lseq_r, modseq);
+		array_idx_set(&mbox->rseq_modseqs, rseq-1, &modseq);
+	}
+	if (guid != NULL) {
+		struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
+		const enum index_cache_field guid_cache_idx =
+			ibox->cache_fields[MAIL_CACHE_GUID].idx;
+
+		if (mail_cache_field_can_add(mbox->delayed_sync_cache_trans,
+					     *lseq_r, guid_cache_idx)) {
+			mail_cache_add(mbox->delayed_sync_cache_trans, *lseq_r,
+				       guid_cache_idx, guid, strlen(guid));
+		}
+	}
+}
+
 static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 				 struct imapc_mailbox *mbox)
 {
@@ -482,7 +582,6 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	struct imapc_mail *mail;
 	const struct imap_arg *list, *flags_list, *modseq_list;
 	const char *atom, *guid = NULL;
-	const struct mail_index_record *rec = NULL;
 	enum mail_flags flags;
 	uint32_t fetch_uid, uid;
 	uint64_t modseq = 0;
@@ -549,96 +648,15 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		/* UID missing and we're not tracking MSNs */
 		return;
 	}
-
-	imapc_mailbox_init_delayed_trans(mbox);
-	if (imapc_mailbox_msgmap_update(mbox, rseq, fetch_uid,
-					&lseq, &uid) < 0 || uid == 0)
-		return;
-
-	if ((flags & MAIL_RECENT) == 0 && mbox->highest_nonrecent_uid < uid) {
-		/* remember for STATUS_FIRST_RECENT_UID */
-		mbox->highest_nonrecent_uid = uid;
-	}
-	/* FIXME: we should ideally also pass these through so they show up
-	   to clients. */
-	flags &= ENUM_NEGATE(MAIL_RECENT);
+	imapc_untagged_fetch_handle(mbox, keywords, guid, flags, rseq, modseq,
+				    fetch_uid, &lseq, &uid, have_labels,
+				    seen_flags);
 
 	/* if this is a reply to some FETCH request, update the mail's fields */
 	array_foreach_elem(&mbox->fetch_requests, fetch_request) {
 		array_foreach_elem(&fetch_request->mails, mail) {
 			if (mail->imail.mail.mail.uid == uid)
 				imapc_mail_fetch_update(mail, reply, list);
-		}
-	}
-
-	if (lseq == 0) {
-		if (!mail_index_lookup_seq(mbox->delayed_sync_view,
-					   uid, &lseq)) {
-			/* already expunged by another session */
-			if (rseq == mbox->sync_next_rseq)
-				mbox->sync_next_rseq++;
-			return;
-		}
-	}
-
-	if (rseq == mbox->sync_next_rseq) {
-		/* we're doing the initial full sync of mails. expunge any
-		   mails that no longer exist. */
-		while (mbox->sync_next_lseq < lseq) {
-			mail_index_lookup_uid(mbox->delayed_sync_view,
-					      mbox->sync_next_lseq, &uid);
-			imapc_mailbox_index_expunge(mbox, uid);
-			mbox->sync_next_lseq++;
-		}
-		i_assert(lseq == mbox->sync_next_lseq);
-		mbox->sync_next_rseq++;
-		mbox->sync_next_lseq++;
-	}
-
-	rec = mail_index_lookup(mbox->delayed_sync_view, lseq);
-	if (seen_flags && rec->flags != flags) {
-		mail_index_update_flags(mbox->delayed_sync_trans, lseq,
-					MODIFY_REPLACE, flags);
-	}
-	if (seen_flags) {
-		ARRAY_TYPE(keyword_indexes) old_kws;
-		struct mail_keywords *kw;
-
-		t_array_init(&old_kws, 8);
-		mail_index_lookup_keywords(mbox->delayed_sync_view, lseq,
-					   &old_kws);
-
-		if (have_labels) {
-			/* add keyword for mails that have GMail labels.
-			   this can be used for "All Mail" mailbox migrations
-			   with dsync */
-			atom = "$GMailHaveLabels";
-			array_push_back(&keywords, &atom);
-		}
-
-		array_append_zero(&keywords);
-		kw = mail_index_keywords_create(mbox->box.index,
-						array_front(&keywords));
-		if (!keywords_are_equal(kw, &old_kws)) {
-			mail_index_update_keywords(mbox->delayed_sync_trans,
-						   lseq, MODIFY_REPLACE, kw);
-		}
-		mail_index_keywords_unref(&kw);
-	}
-	if (modseq != 0) {
-		if (mail_index_modseq_lookup(mbox->delayed_sync_view, lseq) < modseq)
-			mail_index_update_modseq(mbox->delayed_sync_trans, lseq, modseq);
-		array_idx_set(&mbox->rseq_modseqs, rseq-1, &modseq);
-	}
-	if (guid != NULL) {
-		struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
-		const enum index_cache_field guid_cache_idx =
-			ibox->cache_fields[MAIL_CACHE_GUID].idx;
-
-		if (mail_cache_field_can_add(mbox->delayed_sync_cache_trans,
-					     lseq, guid_cache_idx)) {
-			mail_cache_add(mbox->delayed_sync_cache_trans, lseq,
-				       guid_cache_idx, guid, strlen(guid));
 		}
 	}
 	imapc_mailbox_idle_notify(mbox);
