@@ -978,6 +978,9 @@ bool master_service_anvil_connect(struct master_service *service,
 		str_append_c(cmd, 'S');
 	else
 		str_append_c(cmd, 'A');
+	str_append_c(cmd, '\t');
+	if (session->dest_ip.family != 0)
+		str_append(cmd, net_ip2addr(&session->dest_ip));
 	if (session->alt_usernames != NULL) {
 		string_t *alt_usernames = t_str_new(64);
 		for (unsigned int i = 0; session->alt_usernames[i] != NULL; i++) {

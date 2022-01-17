@@ -99,6 +99,8 @@ struct master_service_anvil_session {
 	const char *const *alt_usernames;
 	const char *service_name;
 	struct ip_addr ip;
+	/* Proxy destination IP */
+	struct ip_addr dest_ip;
 };
 
 typedef void
