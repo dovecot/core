@@ -18,13 +18,16 @@
 #define ANVIL_CMD_CHANNEL_ID 1
 
 struct anvil_query {
+	struct anvil_client *client;
+	struct timeout *to;
+
 	anvil_callback_t *callback;
 	void *context;
 };
 
 struct anvil_client {
 	struct connection conn;
-	struct timeout *to_query;
+	struct timeout *to_cancel;
 
 	struct timeout *to_reconnect;
 	time_t last_reconnect;
@@ -190,6 +193,15 @@ static void anvil_client_reconnect(struct anvil_client *client)
 	}
 }
 
+static void anvil_query_free(struct anvil_query **_query)
+{
+	struct anvil_query *query = *_query;
+
+	*_query = NULL;
+	timeout_remove(&query->to);
+	i_free(query);
+}
+
 static int anvil_client_input_line(struct connection *conn, const char *line)
 {
 	struct anvil_client *client =
@@ -220,15 +232,8 @@ static int anvil_client_input_line(struct connection *conn, const char *line)
 	if (query->callback != NULL) T_BEGIN {
 		query->callback(line, query->context);
 	} T_END;
-	i_free(query);
+	anvil_query_free(&query);
 	aqueue_delete_tail(client->queries);
-
-	if (client->to_query != NULL) {
-		if (aqueue_count(client->queries) == 0)
-			timeout_remove(&client->to_query);
-		else
-			timeout_reset(client->to_query);
-	}
 	return 1;
 }
 
@@ -271,10 +276,10 @@ static void anvil_client_cancel_queries(struct anvil_client *client)
 		query = queries[aqueue_idx(client->queries, 0)];
 		if (query->callback != NULL)
 			query->callback(NULL, query->context);
-		i_free(query);
+		anvil_query_free(&query);
 		aqueue_delete_tail(client->queries);
 	}
-	timeout_remove(&client->to_query);
+	timeout_remove(&client->to_cancel);
 }
 
 static void anvil_client_destroy(struct connection *conn)
@@ -293,8 +298,10 @@ static void anvil_client_destroy(struct connection *conn)
 		anvil_client_reconnect(client);
 }
 
-static void anvil_client_timeout(struct anvil_client *client)
+static void anvil_client_timeout(struct anvil_query *anvil_query)
 {
+	struct anvil_client *client = anvil_query->client;
+
 	i_assert(aqueue_count(client->queries) > 0);
 
 	e_error(client->conn.event,
@@ -328,6 +335,7 @@ anvil_client_query(struct anvil_client *client, const char *query,
 	struct anvil_query *anvil_query;
 
 	anvil_query = i_new(struct anvil_query, 1);
+	anvil_query->client = client;
 	anvil_query->callback = callback;
 	anvil_query->context = context;
 	aqueue_append(client->queries, &anvil_query);
@@ -335,12 +343,14 @@ anvil_client_query(struct anvil_client *client, const char *query,
 		/* connection failure. add a delayed failure callback.
 		   the caller may not expect the callback to be called
 		   immediately. */
-		timeout_remove(&client->to_query);
-		client->to_query =
-			timeout_add_short(0, anvil_client_cancel_queries, client);
-	} else if (client->to_query == NULL) {
-		client->to_query = timeout_add(ANVIL_QUERY_TIMEOUT_MSECS,
-					       anvil_client_timeout, client);
+		if (client->to_cancel == NULL) {
+			client->to_cancel =
+				timeout_add_short(0,
+					anvil_client_cancel_queries, client);
+		}
+	} else {
+		anvil_query->to = timeout_add(ANVIL_QUERY_TIMEOUT_MSECS,
+					      anvil_client_timeout, anvil_query);
 	}
 	return anvil_query;
 }
