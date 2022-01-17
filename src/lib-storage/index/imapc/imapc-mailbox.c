@@ -474,37 +474,50 @@ bool imapc_mailbox_name_equals(struct imapc_mailbox *mbox,
 	return FALSE;
 }
 
+static struct imapc_untagged_fetch_ctx *
+imapc_untagged_fetch_ctx_create(void)
+{
+	pool_t pool = pool_alloconly_create("imapc untagged fetch ctx", 128);
+	struct imapc_untagged_fetch_ctx *ctx =
+		p_new(pool, struct imapc_untagged_fetch_ctx, 1);
+	ctx->pool = pool;
+	return ctx;
+}
+
+static void imapc_untagged_fetch_ctx_free(struct imapc_untagged_fetch_ctx **_ctx)
+{
+	struct imapc_untagged_fetch_ctx *ctx = *_ctx;
+
+	*_ctx = NULL;
+	i_assert(ctx != NULL);
+
+	pool_unref(&ctx->pool);
+}
+
 static void imapc_untagged_fetch_handle(struct imapc_mailbox *mbox,
-					ARRAY_TYPE(const_string) keywords,
-					const char *guid,
-					enum mail_flags flags,
-					uint32_t rseq,
-					uint64_t modseq,
-					uint32_t fetch_uid,
-					uint32_t *lseq_r,
-					uint32_t *uid_r,
-					bool have_labels,
-					bool seen_flags)
+					struct imapc_untagged_fetch_ctx *ctx,
+					uint32_t rseq)
 {
 	const struct mail_index_record *rec = NULL;
 	const char *atom;
+	uint32_t lseq;
 
 	imapc_mailbox_init_delayed_trans(mbox);
-	if (imapc_mailbox_msgmap_update(mbox, rseq, fetch_uid,
-					lseq_r, uid_r) < 0 || *uid_r == 0)
+	if (imapc_mailbox_msgmap_update(mbox, rseq, ctx->fetch_uid,
+					&lseq, &ctx->uid) < 0 || ctx->uid == 0)
 		return;
 
-	if ((flags & MAIL_RECENT) == 0 && mbox->highest_nonrecent_uid < *uid_r) {
+	if ((ctx->flags & MAIL_RECENT) == 0 && mbox->highest_nonrecent_uid < ctx->uid) {
 		/* remember for STATUS_FIRST_RECENT_UID */
-		mbox->highest_nonrecent_uid = *uid_r;
+		mbox->highest_nonrecent_uid = ctx->uid;
 	}
 	/* FIXME: we should ideally also pass these through so they show up
 	   to clients. */
-	flags &= ENUM_NEGATE(MAIL_RECENT);
+	ctx->flags &= ENUM_NEGATE(MAIL_RECENT);
 
-	if (*lseq_r == 0) {
+	if (lseq == 0) {
 		if (!mail_index_lookup_seq(mbox->delayed_sync_view,
-					   *uid_r, lseq_r)) {
+					   ctx->uid, &lseq)) {
 			/* already expunged by another session */
 			if (rseq == mbox->sync_next_rseq)
 				mbox->sync_next_rseq++;
@@ -515,150 +528,160 @@ static void imapc_untagged_fetch_handle(struct imapc_mailbox *mbox,
 	if (rseq == mbox->sync_next_rseq) {
 		/* we're doing the initial full sync of mails. expunge any
 		   mails that no longer exist. */
-		while (mbox->sync_next_lseq < *lseq_r) {
+		while (mbox->sync_next_lseq < lseq) {
 			mail_index_lookup_uid(mbox->delayed_sync_view,
-					      mbox->sync_next_lseq, uid_r);
-			imapc_mailbox_index_expunge(mbox, *uid_r);
+					      mbox->sync_next_lseq, &ctx->uid);
+			imapc_mailbox_index_expunge(mbox, ctx->uid);
 			mbox->sync_next_lseq++;
 		}
-		i_assert(*lseq_r == mbox->sync_next_lseq);
+		i_assert(lseq == mbox->sync_next_lseq);
 		mbox->sync_next_rseq++;
 		mbox->sync_next_lseq++;
 	}
 
-	rec = mail_index_lookup(mbox->delayed_sync_view, *lseq_r);
-	if (seen_flags && rec->flags != flags) {
-		mail_index_update_flags(mbox->delayed_sync_trans, *lseq_r,
-					MODIFY_REPLACE, flags);
+	rec = mail_index_lookup(mbox->delayed_sync_view, lseq);
+	if (ctx->have_flags && rec->flags != ctx->flags) {
+		mail_index_update_flags(mbox->delayed_sync_trans, lseq,
+					MODIFY_REPLACE, ctx->flags);
 	}
-	if (seen_flags) {
+	if (ctx->have_flags) {
 		ARRAY_TYPE(keyword_indexes) old_kws;
 		struct mail_keywords *kw;
 
 		t_array_init(&old_kws, 8);
-		mail_index_lookup_keywords(mbox->delayed_sync_view, *lseq_r,
+		mail_index_lookup_keywords(mbox->delayed_sync_view, lseq,
 					   &old_kws);
 
-		if (have_labels) {
+		if (ctx->have_gmail_labels) {
 			/* add keyword for mails that have GMail labels.
 			   this can be used for "All Mail" mailbox migrations
 			   with dsync */
 			atom = "$GMailHaveLabels";
-			array_push_back(&keywords, &atom);
+			array_push_back(&ctx->keywords, &atom);
 		}
 
-		array_append_zero(&keywords);
+		array_append_zero(&ctx->keywords);
 		kw = mail_index_keywords_create(mbox->box.index,
-						array_front(&keywords));
+						array_front(&ctx->keywords));
 		if (!keywords_are_equal(kw, &old_kws)) {
 			mail_index_update_keywords(mbox->delayed_sync_trans,
-						   *lseq_r, MODIFY_REPLACE, kw);
+						   lseq, MODIFY_REPLACE, kw);
 		}
 		mail_index_keywords_unref(&kw);
 	}
-	if (modseq != 0) {
-		if (mail_index_modseq_lookup(mbox->delayed_sync_view, *lseq_r) < modseq)
-			mail_index_update_modseq(mbox->delayed_sync_trans, *lseq_r, modseq);
-		array_idx_set(&mbox->rseq_modseqs, rseq-1, &modseq);
+	if (ctx->modseq != 0) {
+		if (mail_index_modseq_lookup(mbox->delayed_sync_view, lseq) < ctx->modseq)
+			mail_index_update_modseq(mbox->delayed_sync_trans, lseq, ctx->modseq);
+		array_idx_set(&mbox->rseq_modseqs, rseq-1, &ctx->modseq);
 	}
-	if (guid != NULL) {
+	if (ctx->guid != NULL) {
 		struct index_mailbox_context *ibox = INDEX_STORAGE_CONTEXT(&mbox->box);
 		const enum index_cache_field guid_cache_idx =
 			ibox->cache_fields[MAIL_CACHE_GUID].idx;
 
 		if (mail_cache_field_can_add(mbox->delayed_sync_cache_trans,
-					     *lseq_r, guid_cache_idx)) {
-			mail_cache_add(mbox->delayed_sync_cache_trans, *lseq_r,
-				       guid_cache_idx, guid, strlen(guid));
+					     lseq, guid_cache_idx)) {
+			mail_cache_add(mbox->delayed_sync_cache_trans, lseq,
+				       guid_cache_idx, ctx->guid, strlen(ctx->guid));
 		}
 	}
 }
 
-static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
-				 struct imapc_mailbox *mbox)
+static bool imapc_untagged_fetch_parse(struct imapc_mailbox *mbox,
+				       struct imapc_untagged_fetch_ctx *ctx,
+				       const struct imap_arg *list)
 {
-	uint32_t lseq, rseq = reply->num;
-	struct imapc_fetch_request *fetch_request;
-	struct imapc_mail *mail;
-	const struct imap_arg *list, *flags_list, *modseq_list;
-	const char *atom, *guid = NULL;
-	enum mail_flags flags;
-	uint32_t fetch_uid, uid;
-	uint64_t modseq = 0;
+	const struct imap_arg *flags_list, *modseq_list;
+	const char *atom, *patom;
 	unsigned int i, j;
-	ARRAY_TYPE(const_string) keywords = ARRAY_INIT;
-	bool seen_flags = FALSE, have_labels = FALSE;
 
-	if (mbox == NULL || rseq == 0 || !imap_arg_get_list(reply->args, &list))
-		return;
-
-	fetch_uid = 0; flags = 0;
+	ctx->fetch_uid = 0; ctx->flags = 0;
 	for (i = 0; list[i].type != IMAP_ARG_EOL; i += 2) {
 		if (!imap_arg_get_atom(&list[i], &atom) ||
 		    list[i+1].type == IMAP_ARG_EOL)
-			return;
+			return FALSE;
 
 		if (strcasecmp(atom, "UID") == 0) {
 			if (!imap_arg_get_atom(&list[i+1], &atom) ||
-			    str_to_uint32(atom, &fetch_uid) < 0)
-				return;
+			    str_to_uint32(atom, &ctx->fetch_uid) < 0)
+				return FALSE;
 		} else if (strcasecmp(atom, "FLAGS") == 0) {
 			if (!imap_arg_get_list(&list[i+1], &flags_list))
-				return;
+				return FALSE;
 
-			t_array_init(&keywords, 8);
-			seen_flags = TRUE;
+			p_array_init(&ctx->keywords, ctx->pool, 8);
+			ctx->have_flags = TRUE;
 			for (j = 0; flags_list[j].type != IMAP_ARG_EOL; j++) {
 				if (!imap_arg_get_atom(&flags_list[j], &atom))
-					return;
+					return FALSE;
 				if (atom[0] == '\\')
-					flags |= imap_parse_system_flag(atom);
+					ctx->flags |= imap_parse_system_flag(atom);
 				else {
+					patom = p_strdup(ctx->pool, atom);
 					/* keyword */
-					array_push_back(&keywords, &atom);
+					array_push_back(&ctx->keywords, &patom);
 				}
 			}
 		} else if (strcasecmp(atom, "MODSEQ") == 0 &&
 			   imapc_mailbox_has_modseqs(mbox)) {
 			/* (modseq-number) */
 			if (!imap_arg_get_list(&list[i+1], &modseq_list))
-				return;
+				return FALSE;
 			if (!imap_arg_get_atom(&modseq_list[0], &atom) ||
-			    str_to_uint64(atom, &modseq) < 0 ||
+			    str_to_uint64(atom, &ctx->modseq) < 0 ||
 			    modseq_list[1].type != IMAP_ARG_EOL)
-				return;
+				return FALSE;
 		} else if (strcasecmp(atom, "X-GM-MSGID") == 0 &&
 			   !mbox->initial_sync_done) {
 			if (imap_arg_get_atom(&list[i+1], &atom))
-				guid = atom;
+				ctx->guid = atom;
 		} else if (strcasecmp(atom, "X-GM-LABELS") == 0 &&
 			   IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_GMAIL_MIGRATION)) {
 			if (!imap_arg_get_list(&list[i+1], &flags_list))
-				return;
+				return FALSE;
 			for (j = 0; flags_list[j].type != IMAP_ARG_EOL; j++) {
 				if (!imap_arg_get_astring(&flags_list[j], &atom))
-					return;
+					return FALSE;
 				if (strcasecmp(atom, "\\Muted") != 0)
-					have_labels = TRUE;
+					ctx->have_gmail_labels = TRUE;
 			}
 		}
 	}
-	if (fetch_uid == 0 &&
+	if (ctx->fetch_uid == 0 &&
 	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES)) {
 		/* UID missing and we're not tracking MSNs */
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
+				 struct imapc_mailbox *mbox)
+{
+	const struct imap_arg *list;
+	struct imapc_fetch_request *fetch_request;
+	struct imapc_mail *mail;
+
+	if (mbox == NULL || reply->num == 0 || !imap_arg_get_list(reply->args, &list))
+		return;
+
+	struct imapc_untagged_fetch_ctx *ctx =
+		imapc_untagged_fetch_ctx_create();
+	if (!imapc_untagged_fetch_parse(mbox, ctx, list)) {
+		imapc_untagged_fetch_ctx_free(&ctx);
 		return;
 	}
-	imapc_untagged_fetch_handle(mbox, keywords, guid, flags, rseq, modseq,
-				    fetch_uid, &lseq, &uid, have_labels,
-				    seen_flags);
+	imapc_untagged_fetch_handle(mbox, ctx, reply->num);
 
 	/* if this is a reply to some FETCH request, update the mail's fields */
 	array_foreach_elem(&mbox->fetch_requests, fetch_request) {
 		array_foreach_elem(&fetch_request->mails, mail) {
-			if (mail->imail.mail.mail.uid == uid)
+			if (mail->imail.mail.mail.uid == ctx->uid)
 				imapc_mail_fetch_update(mail, reply, list);
 		}
 	}
+	imapc_untagged_fetch_ctx_free(&ctx);
 	imapc_mailbox_idle_notify(mbox);
 }
 
