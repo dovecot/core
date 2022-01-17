@@ -63,6 +63,24 @@ connect_limit_key_parse(const char *const **_args,
 	return TRUE;
 }
 
+static int str_to_kick_type(const char *str, enum kick_type *kick_type_r)
+{
+	switch (str[0]) {
+	case 'N':
+		*kick_type_r = KICK_TYPE_NONE;
+		break;
+	case 'S':
+		*kick_type_r = KICK_TYPE_SIGNAL;
+		break;
+	case 'A':
+		*kick_type_r = KICK_TYPE_ADMIN_SOCKET;
+		break;
+	default:
+		return -1;
+	}
+	return str[1] == '\0' ? 0 : -1;
+}
+
 static int
 anvil_connection_request(struct anvil_connection *conn,
 			 const char *const *args, const char **error_r)
@@ -94,7 +112,17 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "CONNECT: Invalid ident string";
 			return -1;
 		}
-		connect_limit_connect(connect_limit, pid, &key, conn_guid);
+		/* extra parameters: */
+		enum kick_type kick_type = KICK_TYPE_NONE;
+		if (args[0] != NULL) {
+			if (str_to_kick_type(args[0], &kick_type) < 0) {
+				*error_r = "CONNECT: Invalid kick_type";
+				return -1;
+			}
+			args++;
+		}
+		connect_limit_connect(connect_limit, pid, &key,
+				      conn_guid, kick_type);
 	} else if (strcmp(cmd, "DISCONNECT") == 0) {
 		if (args[0] == NULL || args[1] == NULL) {
 			*error_r = "DISCONNECT: Not enough parameters";

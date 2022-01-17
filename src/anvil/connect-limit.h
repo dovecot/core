@@ -4,6 +4,16 @@
 #include "net.h"
 #include "guid.h"
 
+enum kick_type {
+	/* This process doesn't support kicking users */
+	KICK_TYPE_NONE,
+	/* User kicking should be done by sending TERM signal */
+	KICK_TYPE_SIGNAL,
+	/* User kicking should be done by sending KICK-USER command to the
+	   process's admin socket or the existing anvil connection. */
+	KICK_TYPE_ADMIN_SOCKET,
+};
+
 struct connect_limit_key {
 	/* User's primary username */
 	const char *username;
@@ -14,6 +24,7 @@ struct connect_limit_key {
 };
 
 struct connect_limit_iter_result {
+	enum kick_type kick_type;
 	pid_t pid;
 	const char *service;
 	guid_128_t conn_guid;
@@ -27,7 +38,8 @@ connect_limit_lookup(struct connect_limit *limit,
 		     const struct connect_limit_key *key);
 void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 			   const struct connect_limit_key *key,
-			   const guid_128_t conn_guid);
+			   const guid_128_t conn_guid,
+			   enum kick_type kick_type);
 void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
 			      const struct connect_limit_key *key,
 			      const guid_128_t conn_guid);

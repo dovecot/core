@@ -12,6 +12,7 @@
 
 struct process {
 	pid_t pid;
+	enum kick_type kick_type;
 	struct session *sessions;
 };
 
@@ -123,7 +124,7 @@ static struct process *process_lookup(struct connect_limit *limit, pid_t pid)
 
 static void
 session_link_process(struct connect_limit *limit, struct session *session,
-		     pid_t pid)
+		     pid_t pid, enum kick_type kick_type)
 {
 	struct process *process;
 
@@ -138,6 +139,9 @@ session_link_process(struct connect_limit *limit, struct session *session,
 	session->process = process;
 	DLLIST_PREPEND_FULL(&process->sessions, session,
 			    process_prev, process_next);
+	/* The kick_type shouldn't change for the process, but keep updating
+	   it anyway. */
+	process->kick_type = kick_type;
 }
 
 static void
@@ -157,7 +161,8 @@ session_unlink_process(struct connect_limit *limit, struct session *session)
 
 void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 			   const struct connect_limit_key *key,
-			   const guid_128_t conn_guid)
+			   const guid_128_t conn_guid,
+			   enum kick_type kick_type)
 {
 	struct session *session, *first_user_session;
 	struct userip *userip;
@@ -206,7 +211,7 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 	session->userip = userip;
 	guid_128_copy(session->conn_guid, conn_guid);
 
-	session_link_process(limit, session, pid);
+	session_link_process(limit, session, pid, kick_type);
 	const uint8_t *conn_guid_p = session->conn_guid;
 	hash_table_insert(limit->session_hash, conn_guid_p, session);
 	DLLIST_PREPEND_FULL(&first_user_session, session,
@@ -362,6 +367,7 @@ connect_limit_iter_begin(struct connect_limit *limit, const char *username)
 	while (session != NULL) {
 		struct connect_limit_iter_result *result =
 			array_append_space(&iter->results);
+		result->kick_type = session->process->kick_type;
 		result->pid = session->process->pid;
 		result->service = session->userip->service;
 		guid_128_copy(result->conn_guid, session->conn_guid);
