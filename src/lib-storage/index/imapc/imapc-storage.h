@@ -94,6 +94,25 @@ struct imapc_fetch_request {
 	ARRAY(struct imapc_mail *) mails;
 };
 
+struct imapc_untagged_fetch_ctx {
+	pool_t pool;
+
+	/* keywords, flags, guid, modseq and fetch_uid may or may not be
+	   received with an untagged fetch response */
+	ARRAY_TYPE(const_string) keywords;
+	/* Is set if have_flags is TRUE */
+	enum mail_flags flags;
+	const char *guid;
+	uint64_t modseq;
+	uint32_t fetch_uid;
+
+	/* uid is generated locally based on the remote MSN or fetch_uid */
+	uint32_t uid;
+
+	bool have_gmail_labels:1;
+	bool have_flags:1;
+};
+
 struct imapc_mailbox {
 	struct mailbox box;
 	struct imapc_storage *storage;
