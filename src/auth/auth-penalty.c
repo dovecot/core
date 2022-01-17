@@ -137,6 +137,7 @@ void auth_penalty_lookup(struct auth_penalty *penalty,
 	T_BEGIN {
 		anvil_client_query(penalty->client,
 				   t_strdup_printf("PENALTY-GET\t%s", ident),
+				   ANVIL_DEFAULT_LOOKUP_TIMEOUT_MSECS,
 				   auth_penalty_anvil_callback, request);
 	} T_END;
 }

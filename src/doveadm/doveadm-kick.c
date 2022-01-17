@@ -91,6 +91,7 @@ static void kick_users_via_anvil(struct kick_context *ctx)
 		}
 
 		anvil_client_query(anvil, str_c(cmd),
+				   ANVIL_DEFAULT_KICK_TIMEOUT_MSECS,
 				   kick_user_anvil_callback, ctx);
 		io_loop_run(current_ioloop);
 	}

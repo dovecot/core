@@ -1,6 +1,9 @@
 #ifndef ANVIL_CLIENT_H
 #define ANVIL_CLIENT_H
 
+#define ANVIL_DEFAULT_LOOKUP_TIMEOUT_MSECS (5*1000)
+#define ANVIL_DEFAULT_KICK_TIMEOUT_MSECS (25*1000)
+
 enum anvil_client_flags {
 	/* if connect() fails with ENOENT, hide the error */
 	ANVIL_CLIENT_FLAG_HIDE_ENOENT	= 0x01
@@ -39,6 +42,7 @@ int anvil_client_connect(struct anvil_client *client, bool retry);
    be sent. */
 struct anvil_query *
 anvil_client_query(struct anvil_client *client, const char *query,
+		   unsigned int timeout_msecs,
 		   anvil_callback_t *callback, void *context);
 void anvil_client_query_abort(struct anvil_client *client,
 			      struct anvil_query **query);

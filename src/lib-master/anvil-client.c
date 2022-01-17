@@ -20,6 +20,7 @@
 struct anvil_query {
 	struct anvil_client *client;
 	struct timeout *to;
+	unsigned int timeout_msecs;
 
 	anvil_callback_t *callback;
 	void *context;
@@ -47,7 +48,6 @@ struct anvil_client {
 
 #define ANVIL_INBUF_SIZE 1024
 #define ANVIL_RECONNECT_MIN_SECS 5
-#define ANVIL_QUERY_TIMEOUT_MSECS (1000*5)
 
 static void anvil_client_destroy(struct connection *conn);
 static int anvil_client_input_line(struct connection *conn, const char *line);
@@ -305,8 +305,9 @@ static void anvil_client_timeout(struct anvil_query *anvil_query)
 	i_assert(aqueue_count(client->queries) > 0);
 
 	e_error(client->conn.event,
-		"Anvil queries timed out after %u secs - aborting queries",
-		ANVIL_QUERY_TIMEOUT_MSECS/1000);
+		"Anvil queries timed out after %u.%03u secs - aborting queries",
+		anvil_query->timeout_msecs / 1000,
+		anvil_query->timeout_msecs % 1000);
 	/* perhaps reconnect helps */
 	anvil_client_destroy(&client->conn);
 }
@@ -330,12 +331,16 @@ static int anvil_client_send(struct anvil_client *client, const char *cmd)
 
 struct anvil_query *
 anvil_client_query(struct anvil_client *client, const char *query,
+		   unsigned int timeout_msecs,
 		   anvil_callback_t *callback, void *context)
 {
 	struct anvil_query *anvil_query;
 
+	i_assert(timeout_msecs > 0);
+
 	anvil_query = i_new(struct anvil_query, 1);
 	anvil_query->client = client;
+	anvil_query->timeout_msecs = timeout_msecs;
 	anvil_query->callback = callback;
 	anvil_query->context = context;
 	aqueue_append(client->queries, &anvil_query);
@@ -349,7 +354,7 @@ anvil_client_query(struct anvil_client *client, const char *query,
 					anvil_client_cancel_queries, client);
 		}
 	} else {
-		anvil_query->to = timeout_add(ANVIL_QUERY_TIMEOUT_MSECS,
+		anvil_query->to = timeout_add(timeout_msecs,
 					      anvil_client_timeout, anvil_query);
 	}
 	return anvil_query;

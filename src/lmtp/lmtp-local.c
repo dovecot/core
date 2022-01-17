@@ -358,6 +358,7 @@ int lmtp_local_rcpt(struct client *client,
 			str_tabescape(input->username), "\t",
 			master_service_get_name(master_service), "\t", NULL);
 		llrcpt->anvil_query = anvil_client_query(anvil, query,
+			ANVIL_DEFAULT_LOOKUP_TIMEOUT_MSECS,
 			lmtp_local_rcpt_anvil_cb, llrcpt);
 		return 0;
 	}

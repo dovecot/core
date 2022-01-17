@@ -279,7 +279,9 @@ anvil_check_too_many_connections(struct client *client,
 			    net_ip2addr(&client->ip), NULL);
 	client->anvil_request = req;
 	client->anvil_query =
-		anvil_client_query(anvil, query, anvil_lookup_callback, req);
+		anvil_client_query(anvil, query,
+				   ANVIL_DEFAULT_LOOKUP_TIMEOUT_MSECS,
+				   anvil_lookup_callback, req);
 }
 
 static bool

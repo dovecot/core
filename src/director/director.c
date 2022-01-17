@@ -1111,6 +1111,7 @@ void director_kill_user(struct director *dir, struct director_host *src,
 				      user->username_hash);
 		dir->users_kicking_count++;
 		ctx->anvil_cmd = anvil_client_query(dir->anvil, cmd,
+			ANVIL_DEFAULT_KICK_TIMEOUT_MSECS,
 			director_kill_user_callback, ctx);
 	} else {
 		/* a) we didn't even know about the user before now.
@@ -1209,6 +1210,7 @@ void director_kick_user(struct director *dir, struct director_host *src,
 	str_append_tabescaped(cmd, username);
 	dir->users_kicking_count++;
 	anvil_client_query(dir->anvil, str_c(cmd),
+			   ANVIL_DEFAULT_KICK_TIMEOUT_MSECS,
 			   director_kick_user_callback, dir);
 
 	if (orig_src == NULL) {
@@ -1235,6 +1237,7 @@ void director_kick_user_alt(struct director *dir, struct director_host *src,
 	str_append_tabescaped(cmd, value);
 	dir->users_kicking_count++;
 	anvil_client_query(dir->anvil, str_c(cmd),
+			   ANVIL_DEFAULT_KICK_TIMEOUT_MSECS,
 			   director_kick_user_callback, dir);
 
 	if (orig_src == NULL) {
@@ -1263,6 +1266,7 @@ void director_kick_user_hash(struct director *dir, struct director_host *src,
 			      username_hash, net_ip2addr(except_ip));
 	dir->users_kicking_count++;
 	anvil_client_query(dir->anvil, cmd,
+			   ANVIL_DEFAULT_KICK_TIMEOUT_MSECS,
 			   director_kick_user_callback, dir);
 
 	if (orig_src == NULL) {
