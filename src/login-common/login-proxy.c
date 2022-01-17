@@ -932,6 +932,7 @@ void login_proxy_detach(struct login_proxy *proxy)
 		.username = client->virtual_user,
 		.service_name = master_service_get_name(master_service),
 		.ip = client->ip,
+		.dest_ip = proxy->ip,
 	};
 	ARRAY_TYPE(const_string) alt_usernames;
 	if (client_get_alt_usernames(client, &alt_usernames)) {
