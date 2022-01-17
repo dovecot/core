@@ -46,6 +46,7 @@ struct session {
 	struct userip *userip;
 	struct process *process;
 	guid_128_t conn_guid;
+	struct ip_addr dest_ip;
 
 	/* Fields in the same order as connect_limit.alt_username_fields.
 	   Note that these may be session-specific, which is why they're not in
@@ -350,6 +351,7 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 			   const struct connect_limit_key *key,
 			   const guid_128_t conn_guid,
 			   enum kick_type kick_type,
+			   const struct ip_addr *dest_ip,
 			   const char *const *alt_usernames)
 {
 	struct session *session, *first_user_session;
@@ -362,12 +364,14 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 	session = hash_table_lookup(limit->session_hash, conn_guid);
 	if (session != NULL) {
 		i_error("connect limit: connection for duplicate connection GUID %s "
-			"(pid=%s -> %s, user=%s -> %s, service=%s -> %s, ip=%s -> %s)",
+			"(pid=%s -> %s, user=%s -> %s, service=%s -> %s, "
+			"ip=%s -> %s, dest_ip=%s -> %s)",
 			guid_128_to_string(conn_guid),
 			dec2str(session->process->pid), dec2str(pid),
 			session->userip->username, key->username,
 			session->userip->service, key->service,
-			net_ip2addr(&session->userip->ip), net_ip2addr(&key->ip));
+			net_ip2addr(&session->userip->ip), net_ip2addr(&key->ip),
+			net_ip2addr(&session->dest_ip), net_ip2addr(dest_ip));
 		return;
 	}
 
@@ -398,6 +402,8 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 	session = i_new(struct session, 1);
 	session->userip = userip;
 	guid_128_copy(session->conn_guid, conn_guid);
+	if (dest_ip != NULL)
+		session->dest_ip = *dest_ip;
 	T_BEGIN {
 		session_set_alt_usernames(limit, session, alt_usernames);
 	} T_END;
@@ -525,6 +531,9 @@ void connect_limit_dump(struct connect_limit *limit, struct ostream *output)
 			str_append(str, net_ip2addr(&session->userip->ip));
 		str_append_c(str, '\t');
 		str_append_tabescaped(str, guid_128_to_string(session->conn_guid));
+		str_append_c(str, '\t');
+		if (session->dest_ip.family != 0)
+			str_append(str, net_ip2addr(&session->dest_ip));
 		str_append_c(str, '\n');
 		ret = o_stream_send(output, str_data(str), str_len(str));
 	} T_END;

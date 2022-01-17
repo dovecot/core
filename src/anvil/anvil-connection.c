@@ -121,13 +121,24 @@ anvil_connection_request(struct anvil_connection *conn,
 			}
 			args++;
 		}
+		struct ip_addr dest_ip;
+		i_zero(&dest_ip);
+		if (args[0] != NULL) {
+			if (args[0][0] != '\0' &&
+			    net_addr2ip(args[0], &dest_ip) < 0) {
+				*error_r = "CONNECT: Invalid dest_ip";
+				return -1;
+			}
+			args++;
+		}
 		const char *const *alt_usernames = NULL;
 		if (args[0] != NULL) {
 			alt_usernames = t_strsplit_tabescaped(args[0]);
 			args++;
 		}
 		connect_limit_connect(connect_limit, pid, &key,
-				      conn_guid, kick_type, alt_usernames);
+				      conn_guid, kick_type, &dest_ip,
+				      alt_usernames);
 	} else if (strcmp(cmd, "DISCONNECT") == 0) {
 		if (args[0] == NULL || args[1] == NULL) {
 			*error_r = "DISCONNECT: Not enough parameters";

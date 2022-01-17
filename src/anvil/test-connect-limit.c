@@ -71,10 +71,13 @@ static void test_connect_limit(void)
 		"altkey2", "altvalueB",
 		NULL
 	};
+	struct ip_addr dest_ip;
+	i_zero(&dest_ip);
 	test_assert(net_addr2ip("1.2.3.4", &key.ip) == 0);
+	test_assert(net_addr2ip("55.44.33.22", &dest_ip) == 0);
 	connect_limit_connect(limit, 501, &key, session1_guid, KICK_TYPE_NONE,
-			      alt_usernames1);
-#define TEST_SESSION1_STR "501\tuser1\tservice1\t1.2.3.4\t"SESSION1_HEX"\n"
+			      &dest_ip, alt_usernames1);
+#define TEST_SESSION1_STR "501\tuser1\tservice1\t1.2.3.4\t"SESSION1_HEX"\t55.44.33.22\n"
 	test_session_dump(limit, TEST_SESSION1_STR);
 	test_assert(connect_limit_lookup(limit, &key) == 1);
 
@@ -90,9 +93,10 @@ static void test_connect_limit(void)
 		NULL
 	};
 	test_assert(net_addr2ip("1.2.3.4", &key2.ip) == 0);
+	i_zero(&dest_ip);
 	connect_limit_connect(limit, 501, &key2, session2_guid, KICK_TYPE_NONE,
-			      alt_usernames2);
-#define TEST_SESSION2_STR "501\tuser1\tservice1\t1.2.3.4\t"SESSION2_HEX"\n"
+			      &dest_ip, alt_usernames2);
+#define TEST_SESSION2_STR "501\tuser1\tservice1\t1.2.3.4\t"SESSION2_HEX"\t\n"
 	test_session_dump(limit, TEST_SESSION1_STR TEST_SESSION2_STR);
 	test_assert(connect_limit_lookup(limit, &key) == 2);
 
@@ -108,9 +112,10 @@ static void test_connect_limit(void)
 		NULL
 	};
 	test_assert(net_addr2ip("4.3.2.1", &key3.ip) == 0);
+	test_assert(net_addr2ip("1.0.0.2", &dest_ip) == 0);
 	connect_limit_connect(limit, 600, &key3, session3_guid, KICK_TYPE_SIGNAL,
-			      alt_usernames3);
-#define TEST_SESSION3_STR "600\tuser2\tservice2\t4.3.2.1\t"SESSION3_HEX"\n"
+			      &dest_ip, alt_usernames3);
+#define TEST_SESSION3_STR "600\tuser2\tservice2\t4.3.2.1\t"SESSION3_HEX"\t1.0.0.2\n"
 	test_session_dump(limit, TEST_SESSION1_STR TEST_SESSION2_STR TEST_SESSION3_STR);
 	test_assert(connect_limit_lookup(limit, &key) == 2);
 	test_assert(connect_limit_lookup(limit, &key3) == 1);
@@ -121,9 +126,10 @@ static void test_connect_limit(void)
 		.service = "service3",
 	};
 	test_assert(net_addr2ip("4.3.2.1", &key4.ip) == 0);
-	test_expect_error_string("connect limit: connection for duplicate connection GUID "SESSION2_HEX" (pid=501 -> 600, user=user1 -> user3, service=service1 -> service3, ip=1.2.3.4 -> 4.3.2.1)");
+	test_assert(net_addr2ip("1.0.0.3", &dest_ip) == 0);
+	test_expect_error_string("connect limit: connection for duplicate connection GUID "SESSION2_HEX" (pid=501 -> 600, user=user1 -> user3, service=service1 -> service3, ip=1.2.3.4 -> 4.3.2.1, dest_ip= -> 1.0.0.3)");
 	connect_limit_connect(limit, 600, &key4, session2_guid, KICK_TYPE_SIGNAL,
-			      alt_usernames3);
+			      &dest_ip, alt_usernames3);
 	test_expect_no_more_errors();
 	test_session_dump(limit, TEST_SESSION1_STR TEST_SESSION2_STR TEST_SESSION3_STR);
 

@@ -83,8 +83,8 @@ static int who_parse_line(const char *line, struct who_line *line_r)
 	const char *const *args = t_strsplit_tabescaped(line);
 	i_zero(line_r);
 
-	/* <pid> <username> <service> <ip> <conn-guid> */
-	if (str_array_length(args) < 5)
+	/* <pid> <username> <service> <ip> <conn-guid> <dest-ip> */
+	if (str_array_length(args) < 6)
 		return -1;
 
 	if (str_to_pid(args[0], &line_r->pid) < 0)
@@ -97,6 +97,10 @@ static int who_parse_line(const char *line, struct who_line *line_r)
 	}
 	if (guid_128_from_string(args[4], line_r->conn_guid) < 0)
 		return -1;
+	if (args[5][0] != '\0') {
+		if (net_addr2ip(args[5], &line_r->dest_ip) < 0)
+			return -1;
+	}
 	return 0;
 }
 
@@ -297,6 +301,7 @@ static void who_print_line(struct who_context *ctx,
 	doveadm_print(line->service);
 	doveadm_print(dec2str(line->pid));
 	doveadm_print(net_ip2addr(&line->ip));
+	doveadm_print(net_ip2addr(&line->dest_ip));
 }
 
 static void cmd_who(struct doveadm_cmd_context *cctx)
@@ -331,6 +336,7 @@ static void cmd_who(struct doveadm_cmd_context *cctx)
 		doveadm_print_header("service", "proto", 0);
 		doveadm_print_header_simple("pid");
 		doveadm_print_header_simple("ip");
+		doveadm_print_header_simple("dest_ip");
 		who_lookup(&ctx, who_print_line);
 	}
 

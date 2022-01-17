@@ -41,6 +41,7 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 			   const struct connect_limit_key *key,
 			   const guid_128_t conn_guid,
 			   enum kick_type kick_type,
+			   const struct ip_addr *dest_ip,
 			   const char *const *alt_usernames);
 void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
 			      const struct connect_limit_key *key,
