@@ -80,6 +80,11 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "CONNECT: Not enough parameters";
 			return -1;
 		}
+		if (guid_128_from_string(args[0], conn_guid) < 0) {
+			*error_r = "CONNECT: Invalid conn-guid";
+			return -1;
+		}
+		args++;
 		if (str_to_pid(args[0], &pid) < 0) {
 			*error_r = "CONNECT: Invalid pid";
 			return -1;
@@ -89,20 +94,17 @@ anvil_connection_request(struct anvil_connection *conn,
 			*error_r = "CONNECT: Invalid ident string";
 			return -1;
 		}
-		if (args[0] == NULL) {
-			*error_r = "CONNECT: Missing conn-guid";
-			return -1;
-		}
-		if (guid_128_from_string(args[0], conn_guid) < 0) {
-			*error_r = "CONNECT: Invalid conn-guid";
-			return -1;
-		}
 		connect_limit_connect(connect_limit, pid, &key, conn_guid);
 	} else if (strcmp(cmd, "DISCONNECT") == 0) {
 		if (args[0] == NULL || args[1] == NULL) {
 			*error_r = "DISCONNECT: Not enough parameters";
 			return -1;
 		}
+		if (guid_128_from_string(args[0], conn_guid) < 0) {
+			*error_r = "DISCONNECT: Invalid conn-guid";
+			return -1;
+		}
+		args++;
 		if (str_to_pid(args[0], &pid) < 0) {
 			*error_r = "DISCONNECT: Invalid pid";
 			return -1;
@@ -110,14 +112,6 @@ anvil_connection_request(struct anvil_connection *conn,
 		args++;
 		if (!connect_limit_key_parse(&args, &key)) {
 			*error_r = "DISCONNECT: Invalid ident string";
-			return -1;
-		}
-		if (args[0] == NULL) {
-			*error_r = "DISCONNECT: Missing conn-guid";
-			return -1;
-		}
-		if (guid_128_from_string(args[0], conn_guid) < 0) {
-			*error_r = "DISCONNECT: Invalid conn-guid";
 			return -1;
 		}
 		connect_limit_disconnect(connect_limit, pid, &key, conn_guid);
