@@ -538,6 +538,7 @@ imapc_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	p_array_init(&mbox->untagged_callbacks, pool, 16);
 	p_array_init(&mbox->resp_text_callbacks, pool, 16);
 	p_array_init(&mbox->fetch_requests, pool, 16);
+	p_array_init(&mbox->untagged_fetch_contexts, pool, 16);
 	p_array_init(&mbox->delayed_expunged_uids, pool, 16);
 	mbox->pending_fetch_cmd = str_new(pool, 128);
 	mbox->prev_mail_cache.fd = -1;

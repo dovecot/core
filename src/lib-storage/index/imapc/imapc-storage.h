@@ -126,6 +126,7 @@ struct imapc_mailbox {
 	struct timeout *to_idle_check, *to_idle_delay;
 
 	ARRAY(struct imapc_fetch_request *) fetch_requests;
+	ARRAY(struct imapc_untagged_fetch_ctx *) untagged_fetch_contexts;
 	/* if non-empty, contains the latest FETCH command we're going to be
 	   sending soon (but still waiting to see if we can increase its
 	   UID range) */
@@ -239,5 +240,14 @@ void imapc_mailbox_register_resp_text(struct imapc_mailbox *mbox,
 				      imapc_mailbox_callback_t *callback);
 
 void imapc_mailbox_register_callbacks(struct imapc_mailbox *mbox);
+
+struct mail_index_view *
+imapc_mailbox_get_sync_view(struct imapc_mailbox *mbox);
+
+void imapc_untagged_fetch_ctx_free(struct imapc_untagged_fetch_ctx **_ctx);
+void imapc_untagged_fetch_update_flags(struct imapc_mailbox *mbox,
+				       struct imapc_untagged_fetch_ctx *ctx,
+				       struct mail_index_view *view,
+				       uint32_t lseq);
 
 #endif
