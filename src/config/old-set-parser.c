@@ -102,19 +102,19 @@ static bool old_settings_ssl_dh_read(const char **value, const char **error_r)
 	}
 
 	/* then try to read the rest of the data */
-	while(i_stream_read(is) > 0) {
+	if (i_stream_read(is) > 0) {
 		const unsigned char *buf = i_stream_get_data(is, &siz);
-		if (siz < 88) break;
-		memcpy(&keysize, buf, 2);
-		if (keysize == 512) {
-			memcpy(&off, buf+4, 4);
-			off += 16; // skip headers
-		} else {
-			off = 8; // skip header
+		if (siz >= 88) {
+			memcpy(&keysize, buf, 2);
+			if (keysize == 512) {
+				memcpy(&off, buf+4, 4);
+				off += 16; // skip headers
+			} else {
+				off = 8; // skip header
+			}
+			if (off <= siz)
+				buffer_append(data, buf+off, siz);
 		}
-		if (off > siz) break;
-		buffer_append(data, buf+off, siz);
-		break;
 	}
 
 	const void *tmp = buffer_get_data(data, &siz);
