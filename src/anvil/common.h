@@ -11,6 +11,8 @@ extern struct connect_limit *connect_limit;
 extern struct penalty *penalty;
 extern bool anvil_restarted;
 
+void anvil_refresh_proctitle_delayed(void);
+
 void admin_cmd_send(const char *service, pid_t pid, const char *cmd,
 		    admin_cmd_callback_t *callback, void *context);
 #define admin_cmd_send(service, pid, cmd, callback, context) \

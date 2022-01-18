@@ -16,6 +16,11 @@ void anvil_connection_send_cmd(struct anvil_connection *conn,
 			       anvil_connection_cmd_callback_t *callback,
 			       void *context);
 
+void anvil_get_global_counts(unsigned int *connection_count_r,
+			     unsigned int *kicks_pending_count_r,
+			     unsigned int *cmd_counter_r,
+			     unsigned int *connect_dump_counter_r);
+
 void anvil_connections_init(void);
 void anvil_connections_deinit(void);
 

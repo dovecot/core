@@ -2,9 +2,11 @@
 
 #include "common.h"
 #include "array.h"
+#include "str.h"
 #include "env-util.h"
 #include "fdpass.h"
 #include "ioloop.h"
+#include "process-title.h"
 #include "restrict-access.h"
 #include "master-service.h"
 #include "master-service-settings.h"
@@ -17,13 +19,63 @@
 #include <unistd.h>
 
 #define ANVIL_CLIENT_POOL_MAX_CONNECTIONS 100
+#define ANVIL_PROCTITLE_REFRESH_INTERVAL_MSECS 1000
 
 struct connect_limit *connect_limit;
 struct penalty *penalty;
 bool anvil_restarted;
 
+static bool verbose_proctitle = FALSE;
 static struct io *log_fdpass_io;
 static struct admin_client_pool *admin_pool;
+static struct timeout *to_refresh;
+static unsigned int prev_cmd_counter = 0;
+static unsigned int prev_connect_dump_counter = 0;
+
+static void anvil_refresh_proctitle(void *context ATTR_UNUSED)
+{
+	unsigned int connections_count;
+	unsigned int kicks_pending_count;
+	unsigned int cmd_counter, cmd_diff;
+	unsigned int connect_dump_counter, connect_dump_diff;
+	anvil_get_global_counts(&connections_count, &kicks_pending_count,
+				&cmd_counter, &connect_dump_counter);
+	if (cmd_counter >= prev_cmd_counter)
+		cmd_diff = cmd_counter - prev_cmd_counter;
+	else {
+		/* wrapped */
+		cmd_diff = (UINT_MAX - prev_cmd_counter + 1) + cmd_counter;
+	}
+	if (connect_dump_counter >= prev_connect_dump_counter) {
+		connect_dump_diff = connect_dump_counter -
+			prev_connect_dump_counter;
+	} else {
+		/* wrapped */
+		connect_dump_diff = (UINT_MAX - prev_connect_dump_counter + 1) +
+			connect_dump_counter;
+	}
+	prev_cmd_counter = cmd_counter;
+	prev_connect_dump_counter = connect_dump_counter;
+
+	process_title_set(t_strdup_printf(
+		"[%u connections, %u requests, %u user-lists, %u user-kicks]",
+		connections_count, cmd_diff,
+		connect_dump_diff, kicks_pending_count));
+
+	if (cmd_diff == 0 && connect_dump_diff == 0 && kicks_pending_count == 0)
+		timeout_remove(&to_refresh);
+}
+
+void anvil_refresh_proctitle_delayed(void)
+{
+	if (!verbose_proctitle)
+		return;
+
+	if (to_refresh != NULL)
+		return;
+	to_refresh = timeout_add(ANVIL_PROCTITLE_REFRESH_INTERVAL_MSECS,
+				 anvil_refresh_proctitle, NULL);
+}
 
 #undef admin_cmd_send
 void admin_cmd_send(const char *service, pid_t pid, const char *cmd,
@@ -76,6 +128,7 @@ static void main_init(void)
 	/* delay dying until all of our clients are gone */
 	master_service_set_die_with_master(master_service, FALSE);
 
+	verbose_proctitle = set->verbose_proctitle;
 	anvil_restarted = getenv("ANVIL_RESTARTED") != NULL;
 	anvil_connections_init();
 	admin_clients_init();
@@ -95,13 +148,13 @@ static void main_deinit(void)
 	admin_client_pool_deinit(&admin_pool);
 	admin_clients_deinit();
 	anvil_connections_deinit();
+	timeout_remove(&to_refresh);
 }
 
 int main(int argc, char *argv[])
 {
 	const enum master_service_flags service_flags =
-		MASTER_SERVICE_FLAG_DONT_SEND_STATS |
-		MASTER_SERVICE_FLAG_UPDATE_PROCTITLE;
+		MASTER_SERVICE_FLAG_DONT_SEND_STATS;
 	const char *error;
 
 	master_service = master_service_init("anvil", service_flags,

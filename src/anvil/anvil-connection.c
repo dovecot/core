@@ -65,6 +65,9 @@ struct anvil_cmd_kick {
 static struct connection_list *anvil_connections;
 static HASH_TABLE(struct anvil_connection_key *, struct anvil_connection *)
 	anvil_connections_hash;
+static unsigned int anvil_global_kick_count = 0;
+static unsigned int anvil_global_cmd_counter = 0;
+static unsigned int anvil_global_connect_dump_count = 0;
 
 static void anvil_connection_destroy(struct connection *_conn);
 
@@ -179,7 +182,10 @@ kick_user_callback(const char *reply, const char *error,
 	unsigned int count;
 
 	i_assert(kick->cmd_refcount > 0);
+	i_assert(anvil_global_kick_count > 0);
 
+	anvil_global_kick_count--;
+	anvil_refresh_proctitle_delayed();
 	if (error != NULL)
 		;
 	else if (reply[0] == '+' && str_to_uint(reply+1, &count) == 0)
@@ -234,6 +240,7 @@ kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
 					guid_128_to_string(result.conn_guid));
 			}
 
+			anvil_global_kick_count++;
 			kick->cmd_refcount++;
 			admin_cmd_send(result.service, result.pid, str_c(cmd),
 				       kick_user_callback, kick);
@@ -277,6 +284,9 @@ anvil_connection_request(struct anvil_connection *conn,
 	unsigned int value, checksum;
 	time_t stamp;
 	pid_t pid;
+
+	anvil_global_cmd_counter++;
+	anvil_refresh_proctitle_delayed();
 
 	args++;
 	if (strcmp(cmd, "CONNECT") == 0) {
@@ -346,6 +356,7 @@ anvil_connection_request(struct anvil_connection *conn,
 		}
 		connect_limit_disconnect(connect_limit, pid, &key, conn_guid);
 	} else if (strcmp(cmd, "CONNECT-DUMP") == 0) {
+		anvil_global_connect_dump_count++;
 		connect_limit_dump(connect_limit, conn->conn.output);
 	} else if (strcmp(cmd, "KICK-USER") == 0) {
 		if (args[0] == NULL) {
@@ -638,6 +649,17 @@ void anvil_connection_send_cmd(struct anvil_connection *conn,
 	cmd->cmdline = i_strdup(cmdline);
 	cmd->callback = callback;
 	cmd->context = context;
+}
+
+void anvil_get_global_counts(unsigned int *connection_count_r,
+			     unsigned int *kicks_pending_count_r,
+			     unsigned int *cmd_counter_r,
+			     unsigned int *connect_dump_counter_r)
+{
+	*connection_count_r = anvil_connections->connections_count;
+	*kicks_pending_count_r = anvil_global_kick_count;
+	*cmd_counter_r = anvil_global_cmd_counter;
+	*connect_dump_counter_r = anvil_global_connect_dump_count;
 }
 
 static struct connection_settings anvil_connections_set = {
