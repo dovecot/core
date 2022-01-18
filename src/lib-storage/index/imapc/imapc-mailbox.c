@@ -450,10 +450,16 @@ imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
 		if (uid < mbox->min_append_uid ||
 		    uid < mail_index_get_header(mbox->delayed_sync_view)->next_uid) {
 			/* message is already added to index */
-		} else {
+		} else if (mbox->state_fetching_uid1) {
+			/* Initial fetching, allow messages to be appened to
+			   index directly */
 			mail_index_append(mbox->delayed_sync_trans,
 					  uid, lseq_r);
 			mbox->min_append_uid = uid + 1;
+		} else {
+			/* message is not yet added to index, in order to
+			   prevent log synchronization errors add this
+			   message later, when the mailbox is synced. */
 			*new_message_r = TRUE;
 		}
 	}
@@ -682,6 +688,7 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 	const struct imap_arg *list;
 	struct imapc_fetch_request *fetch_request;
 	struct imapc_mail *mail;
+	bool new_message = FALSE;
 
 	if (mbox == NULL || reply->num == 0 || !imap_arg_get_list(reply->args, &list))
 		return;
@@ -692,7 +699,8 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 		imapc_untagged_fetch_ctx_free(&ctx);
 		return;
 	}
-	imapc_untagged_fetch_handle(mbox, ctx, reply->num);
+
+	new_message = imapc_untagged_fetch_handle(mbox, ctx, reply->num);
 
 	/* if this is a reply to some FETCH request, update the mail's fields */
 	array_foreach_elem(&mbox->fetch_requests, fetch_request) {
@@ -701,7 +709,18 @@ static void imapc_untagged_fetch(const struct imapc_untagged_reply *reply,
 				imapc_mail_fetch_update(mail, reply, list);
 		}
 	}
-	imapc_untagged_fetch_ctx_free(&ctx);
+
+	if (!new_message) {
+		/* Handling this context is finished if the mail was not new
+		   to the local index. It has not been added to
+		   mbox->untagged_fetch_contexts so no need to delete it from
+		   the array. The context itself can be freed here. */
+		imapc_untagged_fetch_ctx_free(&ctx);
+	} else {
+		/* If this is a new message store this context to be handled
+		   when syncing */
+		array_push_back(&mbox->untagged_fetch_contexts, &ctx);
+	}
 	imapc_mailbox_idle_notify(mbox);
 }
 
