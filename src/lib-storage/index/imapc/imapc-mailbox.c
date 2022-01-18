@@ -40,7 +40,7 @@ void imapc_mailbox_set_corrupted(struct imapc_mailbox *mbox,
 	imapc_client_mailbox_reconnect(mbox->client_box, errmsg);
 }
 
-static struct mail_index_view *
+struct mail_index_view *
 imapc_mailbox_get_sync_view(struct imapc_mailbox *mbox)
 {
 	if (mbox->sync_view == NULL)
@@ -487,7 +487,7 @@ imapc_untagged_fetch_ctx_create(void)
 	return ctx;
 }
 
-static void imapc_untagged_fetch_ctx_free(struct imapc_untagged_fetch_ctx **_ctx)
+void imapc_untagged_fetch_ctx_free(struct imapc_untagged_fetch_ctx **_ctx)
 {
 	struct imapc_untagged_fetch_ctx *ctx = *_ctx;
 
@@ -497,10 +497,10 @@ static void imapc_untagged_fetch_ctx_free(struct imapc_untagged_fetch_ctx **_ctx
 	pool_unref(&ctx->pool);
 }
 
-static void
-imapc_untagged_fetch_update_flags(struct imapc_mailbox *mbox,
-				  struct imapc_untagged_fetch_ctx *ctx,
-				  uint32_t lseq)
+void imapc_untagged_fetch_update_flags(struct imapc_mailbox *mbox,
+				       struct imapc_untagged_fetch_ctx *ctx,
+				       struct mail_index_view *view,
+				       uint32_t lseq)
 {
 	ARRAY_TYPE(keyword_indexes) old_kws;
 	struct mail_keywords *kw;
@@ -510,14 +510,14 @@ imapc_untagged_fetch_update_flags(struct imapc_mailbox *mbox,
 	if (!ctx->have_flags)
 		return;
 
-	rec = mail_index_lookup(mbox->delayed_sync_view, lseq);
+	rec = mail_index_lookup(view, lseq);
 	if (rec->flags != ctx->flags) {
 		mail_index_update_flags(mbox->delayed_sync_trans, lseq,
 					MODIFY_REPLACE, ctx->flags);
 	}
 
 	t_array_init(&old_kws, 8);
-	mail_index_lookup_keywords(mbox->delayed_sync_view, lseq, &old_kws);
+	mail_index_lookup_keywords(view, lseq, &old_kws);
 
 	if (ctx->have_gmail_labels) {
 		/* add keyword for mails that have GMail labels.
@@ -582,7 +582,11 @@ static bool imapc_untagged_fetch_handle(struct imapc_mailbox *mbox,
 		mbox->sync_next_lseq++;
 	}
 
-	imapc_untagged_fetch_update_flags(mbox, ctx, lseq);
+	if (!new_message) {
+		/* Only update flags immediately for existing messages */
+		imapc_untagged_fetch_update_flags(mbox, ctx,
+						  mbox->delayed_sync_view, lseq);
+	}
 
 	if (ctx->modseq != 0) {
 		if (mail_index_modseq_lookup(mbox->delayed_sync_view, lseq) < ctx->modseq)

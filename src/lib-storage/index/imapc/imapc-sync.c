@@ -524,6 +524,68 @@ static int imapc_sync_finish(struct imapc_sync_context **_ctx)
 	return ret;
 }
 
+static int imapc_untagged_fetch_uid_cmp(struct imapc_untagged_fetch_ctx *const *ctx1,
+					struct imapc_untagged_fetch_ctx *const *ctx2)
+{
+	return (*ctx1)->uid < (*ctx2)->uid ? -1 :
+		(*ctx1)->uid > (*ctx2)->uid ? 1 : 0;
+}
+
+static void imapc_sync_handle_untagged_fetches(struct imapc_mailbox *mbox)
+{
+	struct imapc_untagged_fetch_ctx *untagged_fetch_context;
+	struct mail_index_view *updated_view;
+	uint32_t lseq;
+
+	i_assert(array_count(&mbox->untagged_fetch_contexts) > 0);
+	i_assert(mbox->delayed_sync_trans == NULL);
+
+	array_sort(&mbox->untagged_fetch_contexts, imapc_untagged_fetch_uid_cmp);
+
+	mbox->delayed_sync_trans =
+		mail_index_transaction_begin(imapc_mailbox_get_sync_view(mbox),
+						     MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+
+	array_foreach_elem(&mbox->untagged_fetch_contexts, untagged_fetch_context) {
+		if (untagged_fetch_context->uid < mbox->min_append_uid ||
+		    untagged_fetch_context->uid < mail_index_get_header(mbox->sync_view)->next_uid) {
+			/* The message was already added */
+			continue;
+		}
+
+		mail_index_append(mbox->delayed_sync_trans,
+				  untagged_fetch_context->uid,
+				  &lseq);
+		mbox->min_append_uid = untagged_fetch_context->uid + 1;
+	}
+
+	updated_view = mail_index_transaction_open_updated_view(mbox->delayed_sync_trans);
+
+	array_foreach_elem(&mbox->untagged_fetch_contexts, untagged_fetch_context) {
+		if (!untagged_fetch_context->have_flags) {
+			imapc_untagged_fetch_ctx_free(&untagged_fetch_context);
+			continue;
+		}
+
+		/* Lookup the mail belonging to this context using the
+		   context->uid */
+		if (!mail_index_lookup_seq(updated_view,
+					   untagged_fetch_context->uid,
+					   &lseq)) {
+			/* mail is expunged already */
+			imapc_untagged_fetch_ctx_free(&untagged_fetch_context);
+			continue;
+		}
+
+		imapc_untagged_fetch_update_flags(mbox, untagged_fetch_context,
+						  updated_view, lseq);
+		imapc_untagged_fetch_ctx_free(&untagged_fetch_context);
+	}
+
+	mail_index_view_close(&updated_view);
+	array_clear(&mbox->untagged_fetch_contexts);
+}
+
 static int imapc_sync(struct imapc_mailbox *mbox)
 {
 	struct imapc_sync_context *sync_ctx;
@@ -536,6 +598,10 @@ static int imapc_sync(struct imapc_mailbox *mbox)
 
 	if (imapc_sync_begin(mbox, &sync_ctx, force) < 0)
 		return -1;
+
+	if (!array_is_empty(&mbox->untagged_fetch_contexts))
+		imapc_sync_handle_untagged_fetches(mbox);
+
 	if (sync_ctx == NULL)
 		return 0;
 	if (imapc_sync_finish(&sync_ctx) < 0)
