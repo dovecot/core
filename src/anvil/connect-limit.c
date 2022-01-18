@@ -60,6 +60,12 @@ struct alt_username_field {
 	unsigned int refcount;
 };
 
+/* Track only non-proxying sessions for mail_max_userip_connections. Otherwise
+   if the same server is acting as both proxy and backend the connection could
+   be counted twice. */
+#define SESSION_TRACK_USERIP(session) \
+	((session)->dest_ip.family == 0)
+
 struct connect_limit {
 	struct str_table *strings;
 
@@ -67,7 +73,8 @@ struct connect_limit {
 
 	/* username => struct session linked list */
 	HASH_TABLE(char *, struct session *) user_hash;
-	/* userip => unsigned int refcount */
+	/* userip => unsigned int refcount. Only track for sessions where
+	   SESSION_TRACK_USERIP() returns TRUE. */
 	HASH_TABLE(struct userip *, void *) userip_hash;
 	/* conn_guid => struct session */
 	HASH_TABLE(const uint8_t *, struct session *) session_hash;
@@ -381,32 +388,35 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 		first_user_session = NULL;
 	}
 
-	struct userip userip_lookup = {
-		.username = username,
-		.service = key->service,
-		.ip = key->ip,
-	};
-	if (!hash_table_lookup_full(limit->userip_hash, &userip_lookup,
-				    &userip, &value)) {
-		userip = i_new(struct userip, 1);
-		userip->username = username;
-		userip->service = str_table_ref(limit->strings, key->service);
-		userip->ip = key->ip;
-		value = POINTER_CAST(1);
-		hash_table_insert(limit->userip_hash, userip, value);
-	} else {
-		value = POINTER_CAST(POINTER_CAST_TO(value, unsigned int) + 1);
-		hash_table_update(limit->userip_hash, userip, value);
-	}
-
 	session = i_new(struct session, 1);
-	session->userip = userip;
 	guid_128_copy(session->conn_guid, conn_guid);
 	if (dest_ip != NULL)
 		session->dest_ip = *dest_ip;
 	T_BEGIN {
 		session_set_alt_usernames(limit, session, alt_usernames);
 	} T_END;
+
+	struct userip userip_lookup = {
+		.username = username,
+		.service = key->service,
+		.ip = key->ip,
+	};
+
+	if (!SESSION_TRACK_USERIP(session) ||
+	    !hash_table_lookup_full(limit->userip_hash, &userip_lookup,
+				    &userip, &value)) {
+		userip = i_new(struct userip, 1);
+		userip->username = username;
+		userip->service = str_table_ref(limit->strings, key->service);
+		userip->ip = key->ip;
+		value = POINTER_CAST(1);
+		if (SESSION_TRACK_USERIP(session))
+			hash_table_insert(limit->userip_hash, userip, value);
+	} else {
+		value = POINTER_CAST(POINTER_CAST_TO(value, unsigned int) + 1);
+		hash_table_update(limit->userip_hash, userip, value);
+	}
+	session->userip = userip;
 
 	session_link_process(limit, session, pid, kick_type);
 	const uint8_t *conn_guid_p = session->conn_guid;
@@ -416,13 +426,16 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 	hash_table_update(limit->user_hash, username, session);
 }
 
+static void userip_free(struct connect_limit *limit, struct userip *userip)
+{
+	str_table_unref(limit->strings, &userip->service);
+	i_free(userip);
+}
+
 static void
-session_free(struct connect_limit *limit, struct session *session)
+userip_hash_unref(struct connect_limit *limit, struct session *session)
 {
 	struct userip *userip = session->userip;
-	struct session *first_user_session;
-	const char *username = userip->username;
-	char *orig_username;
 	void *value;
 	unsigned int new_refcount;
 
@@ -436,9 +449,21 @@ session_free(struct connect_limit *limit, struct session *session)
 		hash_table_update(limit->userip_hash, userip, value);
 	} else {
 		hash_table_remove(limit->userip_hash, userip);
-		str_table_unref(limit->strings, &userip->service);
-		i_free(userip);
+		userip_free(limit, userip);
 	}
+}
+
+static void
+session_free(struct connect_limit *limit, struct session *session)
+{
+	struct session *first_user_session;
+	char *orig_username;
+	const char *username = session->userip->username;
+
+	if (SESSION_TRACK_USERIP(session))
+		userip_hash_unref(limit, session);
+	else
+		userip_free(limit, session->userip);
 
 	if (!hash_table_lookup_full(limit->user_hash, username,
 				    &orig_username, &first_user_session))

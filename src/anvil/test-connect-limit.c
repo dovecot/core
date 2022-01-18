@@ -74,10 +74,9 @@ static void test_connect_limit(void)
 	struct ip_addr dest_ip;
 	i_zero(&dest_ip);
 	test_assert(net_addr2ip("1.2.3.4", &key.ip) == 0);
-	test_assert(net_addr2ip("55.44.33.22", &dest_ip) == 0);
 	connect_limit_connect(limit, 501, &key, session1_guid, KICK_TYPE_NONE,
 			      &dest_ip, alt_usernames1);
-#define TEST_SESSION1_STR "501\tuser1\tservice1\t1.2.3.4\t"SESSION1_HEX"\t55.44.33.22\n"
+#define TEST_SESSION1_STR "501\tuser1\tservice1\t1.2.3.4\t"SESSION1_HEX"\t\n"
 	test_session_dump(limit, TEST_SESSION1_STR);
 	test_assert(connect_limit_lookup(limit, &key) == 1);
 
@@ -118,7 +117,7 @@ static void test_connect_limit(void)
 #define TEST_SESSION3_STR "600\tuser2\tservice2\t4.3.2.1\t"SESSION3_HEX"\t1.0.0.2\n"
 	test_session_dump(limit, TEST_SESSION1_STR TEST_SESSION2_STR TEST_SESSION3_STR);
 	test_assert(connect_limit_lookup(limit, &key) == 2);
-	test_assert(connect_limit_lookup(limit, &key3) == 1);
+	test_assert(connect_limit_lookup(limit, &key3) == 0);
 
 	/* duplicate conn-guid */
 	struct connect_limit_key key4 = {
