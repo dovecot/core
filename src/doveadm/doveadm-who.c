@@ -369,7 +369,7 @@ static void who_print(struct who_context *ctx)
 	doveadm_print_header("username", "username", 0);
 	doveadm_print_header("connections", "#",
 			     DOVEADM_PRINT_HEADER_FLAG_RIGHT_JUSTIFY);
-	doveadm_print_header("service", "proto", 0);
+	doveadm_print_header("service", "service", 0);
 	doveadm_print_header("pids", "(pids)", 0);
 	doveadm_print_header("ips", "(ips)", 0);
 
@@ -472,7 +472,7 @@ static void cmd_who(struct doveadm_cmd_context *cctx)
 	} else {
 		doveadm_print_header("username", "username",
 				     DOVEADM_PRINT_HEADER_FLAG_EXPAND);
-		doveadm_print_header("service", "proto", 0);
+		doveadm_print_header("service", "service", 0);
 		doveadm_print_header_simple("pid");
 		doveadm_print_header_simple("ip");
 		doveadm_print_header_simple("dest_ip");
