@@ -20,7 +20,7 @@ struct process {
 struct userip {
 	/* points to user_hash keys */
 	const char *username;
-	const char *service;
+	const char *protocol;
 	struct ip_addr ip;
 };
 
@@ -45,6 +45,7 @@ struct session {
 	/* points to userip_hash keys */
 	struct userip *userip;
 	struct process *process;
+	const char *service;
 	guid_128_t conn_guid;
 	struct ip_addr dest_ip;
 
@@ -98,7 +99,7 @@ struct connect_limit_iter {
 
 static unsigned int userip_hash(const struct userip *userip)
 {
-	return str_hash(userip->username) ^ str_hash(userip->service) ^
+	return str_hash(userip->username) ^ str_hash(userip->protocol) ^
 		net_ip_hash(&userip->ip);
 }
 
@@ -111,7 +112,7 @@ static int userip_cmp(const struct userip *userip1,
 	ret = net_ip_cmp(&userip1->ip, &userip2->ip);
 	if (ret != 0)
 		return ret;
-	return strcmp(userip1->service, userip2->service);
+	return strcmp(userip1->protocol, userip2->protocol);
 }
 
 struct connect_limit *connect_limit_init(void)
@@ -159,7 +160,7 @@ unsigned int connect_limit_lookup(struct connect_limit *limit,
 {
 	struct userip userip_lookup = {
 		.username = (char *)key->username,
-		.service = key->service,
+		.protocol = t_strcut(key->service, '-'),
 		.ip = key->ip,
 	};
 	void *value;
@@ -376,7 +377,7 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 			guid_128_to_string(conn_guid),
 			dec2str(session->process->pid), dec2str(pid),
 			session->userip->username, key->username,
-			session->userip->service, key->service,
+			session->service, key->service,
 			net_ip2addr(&session->userip->ip), net_ip2addr(&key->ip),
 			net_ip2addr(&session->dest_ip), net_ip2addr(dest_ip));
 		return;
@@ -390,6 +391,7 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 
 	session = i_new(struct session, 1);
 	guid_128_copy(session->conn_guid, conn_guid);
+	session->service = str_table_ref(limit->strings, key->service);
 	if (dest_ip != NULL)
 		session->dest_ip = *dest_ip;
 	T_BEGIN {
@@ -398,7 +400,7 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 
 	struct userip userip_lookup = {
 		.username = username,
-		.service = key->service,
+		.protocol = t_strcut(key->service, '-'),
 		.ip = key->ip,
 	};
 
@@ -407,7 +409,8 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 				    &userip, &value)) {
 		userip = i_new(struct userip, 1);
 		userip->username = username;
-		userip->service = str_table_ref(limit->strings, key->service);
+		userip->protocol = str_table_ref(limit->strings,
+						 userip_lookup.protocol);
 		userip->ip = key->ip;
 		value = POINTER_CAST(1);
 		if (SESSION_TRACK_USERIP(session))
@@ -428,7 +431,7 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 
 static void userip_free(struct connect_limit *limit, struct userip *userip)
 {
-	str_table_unref(limit->strings, &userip->service);
+	str_table_unref(limit->strings, &userip->protocol);
 	i_free(userip);
 }
 
@@ -479,6 +482,7 @@ session_free(struct connect_limit *limit, struct session *session)
 				  first_user_session);
 	}
 	session_unset_alt_usernames(limit, session);
+	str_table_unref(limit->strings, &session->service);
 	i_free(session->alt_usernames);
 	i_free(session);
 }
@@ -497,7 +501,7 @@ void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
 	if (session == NULL || pid != session->process->pid ||
 	    !net_ip_compare(&key->ip, &session->userip->ip) ||
 	    strcmp(key->username, session->userip->username) != 0 ||
-	    strcmp(key->service, session->userip->service) != 0) {
+	    strcmp(key->service, session->service) != 0) {
 		i_error("connect limit: disconnection for unknown "
 			"(pid=%s, user=%s, service=%s, ip=%s, conn_guid=%s)",
 			dec2str(pid), key->username, key->service,
@@ -562,7 +566,7 @@ void connect_limit_dump(struct connect_limit *limit, struct ostream *output)
 		str_printfa(str, "%ld\t", (long)session->process->pid);
 		str_append_tabescaped(str, session->userip->username);
 		str_append_c(str, '\t');
-		str_append_tabescaped(str, session->userip->service);
+		str_append_tabescaped(str, session->service);
 		str_append_c(str, '\t');
 		if (session->userip->ip.family != 0)
 			str_append(str, net_ip2addr(&session->userip->ip));
@@ -630,7 +634,7 @@ connect_limit_iter_begin(struct connect_limit *limit, const char *username,
 				array_append_space(&iter->results);
 			result->kick_type = session->process->kick_type;
 			result->pid = session->process->pid;
-			result->service = session->userip->service;
+			result->service = session->service;
 			result->username = session->userip->username;
 			guid_128_copy(result->conn_guid, session->conn_guid);
 		}
@@ -663,7 +667,7 @@ connect_limit_iter_begin_alt_username(struct connect_limit *limit,
 				array_append_space(&iter->results);
 			result->kick_type = alt->session->process->kick_type;
 			result->pid = alt->session->process->pid;
-			result->service = alt->session->userip->service;
+			result->service = alt->session->service;
 			guid_128_copy(result->conn_guid, alt->session->conn_guid);
 			result->username = alt->session->userip->username;
 		}

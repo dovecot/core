@@ -17,7 +17,11 @@ enum kick_type {
 struct connect_limit_key {
 	/* User's primary username */
 	const char *username;
-	/* Service name */
+	/* Service name. Note that connect_limit_lookup() ignores everything
+	   after the first "-". This way the both "imap" and "imap-hibernate"
+	   services are counted towards the same limit. To avoid counting
+	   proxied imap-login connections, sessions with non-zero dest_ip
+	   aren't included in the count. */
 	const char *service;
 	/* IP address. If family==0, there is no IP. */
 	struct ip_addr ip;
@@ -34,6 +38,9 @@ struct connect_limit_iter_result {
 struct connect_limit *connect_limit_init(void);
 void connect_limit_deinit(struct connect_limit **limit);
 
+/* Get the number of connections matching the given key. Note that the service
+   is truncated from the first "-". Note that sessions with non-zero dest_ip
+   aren't counted. */
 unsigned int
 connect_limit_lookup(struct connect_limit *limit,
 		     const struct connect_limit_key *key);
