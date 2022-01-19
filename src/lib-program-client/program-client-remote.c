@@ -362,8 +362,7 @@ static int program_client_unix_connect(struct program_client *pclient)
 	pclient->fd_in = (prclient->noreply && pclient->output == NULL ?
 			  -1 : fd);
 	pclient->fd_out = fd;
-	pclient->io = io_add(fd, IO_WRITE,
-			     program_client_remote_connected, prclient);
+	program_client_remote_connected(prclient);
 	return 0;
 }
 
