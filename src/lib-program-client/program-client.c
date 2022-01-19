@@ -743,3 +743,21 @@ void program_client_run_async(struct program_client *pclient,
 	if (program_client_connect(pclient) < 0)
 		program_client_fail(pclient, PROGRAM_CLIENT_ERROR_IO);
 }
+
+void program_client_wait(struct program_client *pclient)
+{
+	if (pclient->disconnected)
+		return;
+
+	struct ioloop *prev_ioloop = current_ioloop;
+	struct ioloop *ioloop = io_loop_create();
+
+	program_client_switch_ioloop(pclient);
+
+	io_loop_run(ioloop);
+
+	io_loop_set_current(prev_ioloop);
+	program_client_switch_ioloop(pclient);
+	io_loop_set_current(ioloop);
+	io_loop_destroy(&ioloop);
+}

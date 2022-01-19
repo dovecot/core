@@ -98,4 +98,8 @@ void program_client_run_async(struct program_client *pclient,
 		1 ? context : CALLBACK_TYPECHECK(callback, \
 			void (*)(enum program_client_exit_status, typeof(context))))
 
+/* wait on program client by running an internal ioloop
+   make sure pclient is not free'd in the program client callback when
+   using this function */
+void program_client_wait(struct program_client *pclient);
 #endif
