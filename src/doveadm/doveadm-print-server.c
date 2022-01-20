@@ -88,7 +88,8 @@ static void doveadm_print_server_flush(void)
 		       str_data(ctx.str), str_len(ctx.str));
 	str_truncate(ctx.str, 0);
 
-	if (o_stream_get_buffer_used_size(doveadm_print_ostream) < IO_BLOCK_SIZE)
+	if (o_stream_get_buffer_used_size(doveadm_print_ostream) < IO_BLOCK_SIZE ||
+	    doveadm_print_ostream->stream_errno != 0)
 		return;
 	/* Wait until buffer is flushed to avoid it growing too large */
 	struct ioloop *prev_loop = current_ioloop;
