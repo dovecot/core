@@ -623,7 +623,7 @@ static struct connection_settings doveadm_client_set = {
 	.input_max_size = MAX_INBUF_SIZE,
 	.output_max_size = SIZE_MAX,
 	.client = TRUE,
-	.client_connect_timeout_msecs = DOVEADM_TCP_CONNECT_TIMEOUT_SECS,
+	.client_connect_timeout_msecs = DOVEADM_TCP_CONNECT_TIMEOUT_SECS*1000,
 };
 
 int doveadm_client_create(const struct doveadm_client_settings *set,
