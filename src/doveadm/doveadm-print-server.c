@@ -102,7 +102,6 @@ static void doveadm_print_server_flush(void)
 	timeout_remove(&to);
 	o_stream_unset_flush_callback(doveadm_print_ostream);
 	o_stream_switch_ioloop_to(doveadm_print_ostream, prev_loop);
-	io_loop_set_current(prev_loop);
 	io_loop_destroy(&loop);
 }
 
