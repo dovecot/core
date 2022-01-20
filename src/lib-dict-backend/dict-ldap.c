@@ -300,7 +300,10 @@ void ldap_dict_lookup_done(const struct dict_lookup_result *result, void *ctx)
 {
 	struct dict_lookup_result *res = ctx;
 	res->ret = result->ret;
-	res->value = t_strdup(result->value);
+	if (result->ret > 0) {
+		res->values = p_strarray_dup(pool_datastack_create(),
+					     result->values);
+	}
 	res->error = t_strdup(result->error);
 }
 
