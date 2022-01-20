@@ -121,25 +121,26 @@ static int o_stream_multiplex_flush(struct multiplex_ostream *mstream)
 	int ret = o_stream_flush(mstream->parent);
 	if (ret >= 0) {
 		if (!o_stream_multiplex_sendv(mstream))
-			ret = 0;
+			return 0;
 	}
-	if (ret <= 0)
-		return ret;
 
-	/* Everything is flushed. See if one of the callbacks' flush callbacks
-	   wants to write more data. */
+	/* a) Everything is flushed. See if one of the callbacks' flush
+	   callbacks wants to write more data.
+	   b) ostream failed. Notify the callbacks in case they need to know. */
 	struct multiplex_ochannel *channel;
 	bool unfinished = FALSE;
+	bool failed = FALSE;
 	array_foreach_elem(&mstream->channels, channel) {
 		if (channel != NULL && channel->ostream.callback != NULL) {
 			ret = channel->ostream.callback(channel->ostream.context);
 			if (ret < 0)
-				return -1;
-			if (ret == 0)
+				failed = TRUE;
+			else if (ret == 0)
 				unfinished = TRUE;
 		}
 	}
-	return unfinished ? 0 : 1;
+	return failed ? -1 :
+		(unfinished ? 0 : 1);
 }
 
 static int o_stream_multiplex_ochannel_flush(struct ostream_private *stream)
