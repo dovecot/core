@@ -37,6 +37,7 @@ static struct test_server {
 	struct io *io;
 	struct timeout *to;
 	struct test_client *client;
+	struct program_client *async_client;
 	int listen_fd;
 } test_globals;
 
@@ -258,6 +259,11 @@ static void test_program_teardown(void)
 	if (test_globals.client != NULL)
 		test_program_client_destroy(&test_globals.client);
 
+	if (test_globals.async_client != NULL) {
+		program_client_wait(test_globals.async_client);
+		program_client_destroy(&test_globals.async_client);
+	}
+
 	io_remove(&test_globals.io);
 	i_close_fd(&test_globals.listen_fd);
 	io_loop_destroy(&test_globals.ioloop);
@@ -408,6 +414,52 @@ static void test_program_noreply(void)
 	test_end();
 }
 
+static void test_program_sync(void)
+{
+	struct program_client *pc;
+	int ret;
+
+	const char *const args[] = {
+		"test_program_io", NULL, NULL
+	};
+
+	test_begin("test_program_sync");
+
+	pc = program_client_unix_create(TEST_SOCKET, args, &pc_set, TRUE);
+	ret = program_client_run(pc);
+	test_assert(ret == 1);
+
+	program_client_destroy(&pc);
+	test_program_end(test_globals.client);
+
+	test_end();
+}
+
+static void test_program_async_wait_finish(enum program_client_exit_status ret,
+					   struct program_client *client ATTR_UNUSED)
+{
+	test_assert(ret == PROGRAM_CLIENT_EXIT_STATUS_SUCCESS);
+	io_loop_stop(current_ioloop);
+}
+
+static void test_program_async_wait(void)
+{
+	const char *const args[] = {
+		"test_program_io", NULL, NULL
+	};
+
+	test_begin("test_program_async_wait");
+
+	test_globals.async_client = program_client_unix_create(TEST_SOCKET,
+			args, &pc_set, TRUE);
+
+	program_client_run_async(test_globals.async_client,
+				 test_program_async_wait_finish,
+				 test_globals.async_client);
+
+	test_end();
+}
+
 int main(int argc, char *argv[])
 {
 	int ret, c;
@@ -418,6 +470,8 @@ int main(int argc, char *argv[])
 		test_program_io,
 		test_program_failure,
 		test_program_noreply,
+		test_program_sync,
+		test_program_async_wait,
 		test_program_teardown,
 		NULL
 	};
