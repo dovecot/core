@@ -560,8 +560,8 @@ lmtp_proxy_rcpt_parse_redirect(const struct smtp_reply *proxy_reply,
 			       const char **host_r, struct ip_addr *ip_r,
 			       in_port_t *port_r, const char **error_r)
 {
-	if (proxy_reply->text_lines == NULL)
-		return -1;
+	i_assert(proxy_reply->text_lines != NULL);
+
 	return smtp_proxy_redirect_parse(*proxy_reply->text_lines, destuser_r,
 					 host_r, ip_r, port_r, error_r);
 }
