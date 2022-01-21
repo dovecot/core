@@ -718,6 +718,12 @@ smtp_client_connection_clear_password(struct smtp_client_connection *conn)
 }
 
 static void
+smtp_client_connection_auth_deinit(struct smtp_client_connection *conn)
+{
+	dsasl_client_free(&conn->sasl_client);
+}
+
+static void
 smtp_client_connection_auth_cb(const struct smtp_reply *reply,
 			       struct smtp_client_connection *conn)
 {
@@ -782,9 +788,9 @@ smtp_client_connection_auth_cb(const struct smtp_reply *reply,
 	}
 
 	smtp_client_connection_clear_password(conn);
+	smtp_client_connection_auth_deinit(conn);
 
 	e_debug(conn->event, "Authenticated successfully");
-	dsasl_client_free(&conn->sasl_client);
 
 	if (conn->to_connect != NULL)
 		timeout_reset(conn->to_connect);
@@ -2008,7 +2014,7 @@ void smtp_client_connection_disconnect(struct smtp_client_connection *conn)
 	ssl_iostream_destroy(&conn->ssl_iostream);
 	if (conn->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&conn->ssl_ctx);
-	dsasl_client_free(&conn->sasl_client);
+	smtp_client_connection_auth_deinit(conn);
 
 	o_stream_destroy(&conn->dot_output);
 
