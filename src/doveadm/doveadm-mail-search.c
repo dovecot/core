@@ -20,7 +20,7 @@ cmd_search_box(struct doveadm_mail_cmd_context *ctx,
 	const char *guid_str;
 	int ret = 0;
 
-	if (doveadm_mail_iter_init(ctx, info, ctx->search_args, 0, NULL, FALSE,
+	if (doveadm_mail_iter_init(ctx, info, ctx->search_args, 0, NULL, 0,
 				   &iter) < 0)
 		return -1;
 	box = doveadm_mail_iter_get_mailbox(iter);

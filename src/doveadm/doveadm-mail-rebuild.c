@@ -18,7 +18,7 @@ cmd_rebuild_attachment_box(struct doveadm_mail_cmd_context *ctx,
 
 	if (doveadm_mail_iter_init(ctx, info, ctx->search_args,
 				   MAIL_FETCH_IMAP_BODYSTRUCTURE|
-				   MAIL_FETCH_MESSAGE_PARTS, NULL, FALSE,
+				   MAIL_FETCH_MESSAGE_PARTS, NULL, 0,
 				   &iter) < 0)
 		return -1;
 
