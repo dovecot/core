@@ -1,15 +1,18 @@
 /* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ostream.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
 #include "mail-search.h"
+#include "doveadm-print.h"
 #include "doveadm-mail.h"
 #include "doveadm-mail-iter.h"
 
 struct doveadm_mail_iter {
 	struct doveadm_mail_cmd_context *ctx;
 	struct mail_search_args *search_args;
+	enum doveadm_mail_iter_flags flags;
 
 	struct mailbox *box;
 	struct mailbox_transaction_context *t;
@@ -36,6 +39,7 @@ int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
 
 	iter = i_new(struct doveadm_mail_iter, 1);
 	iter->ctx = ctx;
+	iter->flags = flags;
 	iter->box = mailbox_alloc(info->ns->list, info->vname,
 				  MAILBOX_FLAG_IGNORE_ACLS | readonly_flag);
 	iter->search_args = search_args;
@@ -155,6 +159,11 @@ bool doveadm_mail_iter_next(struct doveadm_mail_iter *iter,
 	if (iter->search_ctx == NULL)
 		return FALSE;
 	if (doveadm_is_killed()) {
+		iter->killed = TRUE;
+		return FALSE;
+	}
+	if ((iter->flags & DOVEADM_MAIL_ITER_FLAG_STOP_WITH_CLIENT) != 0 &&
+	    doveadm_print_ostream->stream_errno != 0) {
 		iter->killed = TRUE;
 		return FALSE;
 	}
