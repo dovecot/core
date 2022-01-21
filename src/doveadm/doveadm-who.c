@@ -343,7 +343,7 @@ static void who_print_user(const struct who_user *user)
 
 	str_append_c(str, '(');
 	array_foreach_elem(&user->pids, pid)
-		str_printfa(str, "%ld ", (long)pid);
+		str_printfa(str, "%lu ", (unsigned long)pid);
 	if (str_len(str) > 1)
 		str_truncate(str, str_len(str)-1);
 	str_append_c(str, ')');

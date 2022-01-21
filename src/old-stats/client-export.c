@@ -333,7 +333,7 @@ static int client_export_iter_session(struct client *client)
 		} T_END;
 		str_append_c(cmd->str, '\t');
 		str_append_tabescaped(cmd->str, session->service);
-		str_printfa(cmd->str, "\t%ld", (long)session->pid);
+		str_printfa(cmd->str, "\t%lu", (unsigned long)session->pid);
 		str_printfa(cmd->str, "\t%d", !session->disconnected);
 		client_export_timeval(cmd->str, &session->last_update);
 		str_printfa(cmd->str, "\t%u\t", session->num_cmds);

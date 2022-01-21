@@ -563,7 +563,7 @@ void connect_limit_dump(struct connect_limit *limit, struct ostream *output)
 	       hash_table_iterate(iter, limit->session_hash,
 				  &conn_guid, &session)) T_BEGIN {
 		str_truncate(str, 0);
-		str_printfa(str, "%ld\t", (long)session->process->pid);
+		str_printfa(str, "%lu\t", (unsigned long)session->process->pid);
 		str_append_tabescaped(str, session->userip->username);
 		str_append_c(str, '\t');
 		str_append_tabescaped(str, session->service);
