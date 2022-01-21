@@ -6,6 +6,8 @@
 enum doveadm_mail_iter_flags {
 	/* Open the mailbox with MAILBOX_FLAG_READONLY */
 	DOVEADM_MAIL_ITER_FLAG_READONLY = BIT(0),
+	/* Stop the iteration if client is detected to be disconnected. */
+	DOVEADM_MAIL_ITER_FLAG_STOP_WITH_CLIENT = BIT(1),
 };
 
 struct doveadm_mail_iter;
