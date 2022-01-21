@@ -609,7 +609,7 @@ cmd_fetch_box(struct fetch_cmd_context *ctx, const struct mailbox_info *info)
 	if (doveadm_mail_iter_init(&ctx->ctx, info, ctx->ctx.search_args,
 				   ctx->wanted_fields,
 				   array_front(&ctx->header_fields),
-				   0,
+				   DOVEADM_MAIL_ITER_FLAG_STOP_WITH_CLIENT,
 				   &iter) < 0)
 		return -1;
 
