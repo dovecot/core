@@ -32,7 +32,7 @@ cmd_copy_box(struct copy_cmd_context *ctx, struct mailbox *destbox,
 	int ret = 0, ret2;
 
 	if (doveadm_mail_iter_init(&ctx->ctx, info, ctx->ctx.search_args, 0,
-				   NULL, FALSE, &iter) < 0)
+				   NULL, 0, &iter) < 0)
 		return -1;
 
 	/* use a separately committed transaction for each mailbox.

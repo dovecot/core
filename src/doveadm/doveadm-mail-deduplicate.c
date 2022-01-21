@@ -82,7 +82,7 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 	struct uidlist *value;
 	int ret = 0;
 
-	if (doveadm_mail_iter_init(_ctx, info, search_args, 0, NULL, FALSE,
+	if (doveadm_mail_iter_init(_ctx, info, search_args, 0, NULL, 0,
 				   &iter) < 0)
 		return -1;
 

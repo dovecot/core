@@ -250,7 +250,7 @@ static int cmd_mailbox_cache_remove_box(struct mailbox_cache_cmd_context *ctx,
 	int ret = 0, count = 0;
 
 	if (doveadm_mail_iter_init(&ctx->ctx, info, ctx->ctx.search_args,
-				   0, NULL, FALSE, &iter) < 0)
+				   0, NULL, 0, &iter) < 0)
 		return -1;
 
 	box = doveadm_mail_iter_get_mailbox(iter);
