@@ -916,10 +916,11 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 
 	/* RFC 4954, Section 4:
 
-	   If the client is transmitting an initial response of zero
-	   length, it MUST instead transmit the response as a single
-	   equals sign ("=").  This indicates that the response is
-	   present, but contains no data. */
+	   If the client is transmitting an initial response of zero length, it
+	   MUST instead transmit the response as a single equals sign ("=").
+	   This indicates that the response is present, but contains no data.
+	 */
+
 	init_resp = (str_len(sasl_output_base64) == 0 ?
 		     "=" : str_c(sasl_output_base64));
 
