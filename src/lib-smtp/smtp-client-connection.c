@@ -715,6 +715,7 @@ static void
 smtp_client_connection_auth_deinit(struct smtp_client_connection *conn)
 {
 	dsasl_client_free(&conn->sasl_client);
+	i_free(conn->sasl_ir);
 }
 
 static void
@@ -732,6 +733,24 @@ smtp_client_connection_auth_cb(const struct smtp_reply *reply,
 			error = t_strdup_printf(
 				"Authentication failed: "
 				"Server returned multi-line reply: %s",
+				smtp_reply_log(reply));
+			smtp_client_connection_fail(
+				conn, SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED,
+				error, "Authentication protocol error");
+			return;
+		}
+		if (conn->sasl_ir != NULL) {
+			if (*reply->text_lines[0] == '\0') {
+				/* Send intial response */
+				o_stream_nsend_str(conn->conn.output,
+						   conn->sasl_ir);
+				o_stream_nsend_str(conn->conn.output, "\r\n");
+				i_free(conn->sasl_ir);
+				return;
+			}
+			error = t_strdup_printf(
+				"Authentication failed: "
+				"Server sent unexpected server-first challenge: %s",
 				smtp_reply_log(reply));
 			smtp_client_connection_fail(
 				conn, SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED,
@@ -849,7 +868,7 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 	const unsigned char *sasl_output;
 	size_t sasl_output_len;
 	string_t *sasl_output_base64;
-	const char *init_resp, *error;
+	const char *error;
 
 	if (set->username == NULL && set->sasl_mech == NULL) {
 		if (!conn->set.xclient_defer)
@@ -916,19 +935,37 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 
 	/* RFC 4954, Section 4:
 
+	   Note that the AUTH command is still subject to the line length
+	   limitations defined in [SMTP]. If use of the initial response
+	   argument would cause the AUTH command to exceed this length, the
+	   client MUST NOT use the initial response parameter (and instead
+	   proceed as defined in Section 5.1 of [SASL]).
+
 	   If the client is transmitting an initial response of zero length, it
 	   MUST instead transmit the response as a single equals sign ("=").
 	   This indicates that the response is present, but contains no data.
 	 */
 
-	init_resp = (str_len(sasl_output_base64) == 0 ?
-		     "=" : str_c(sasl_output_base64));
+	const char *init_resp = "";
+	const char *mech_name =  dsasl_client_mech_get_name(sasl_mech);
+
+	i_assert(conn->sasl_ir == NULL);
+	if (str_len(sasl_output_base64) == 0)
+		init_resp = "=";
+	else if ((5 + strlen(mech_name) + 1 + str_len(sasl_output_base64)) >
+		 SMTP_CLIENT_BASE_LINE_LENGTH_LIMIT)
+		conn->sasl_ir = i_strdup(str_c(sasl_output_base64));
+	else
+		init_resp = str_c(sasl_output_base64);
 
 	cmd = smtp_client_command_new(conn, SMTP_CLIENT_COMMAND_FLAG_PRELOGIN,
 				      smtp_client_connection_auth_cb, conn);
-	smtp_client_command_printf(cmd, "AUTH %s %s",
-				   dsasl_client_mech_get_name(sasl_mech),
-				   init_resp);
+	if (*init_resp == '\0')
+		smtp_client_command_printf(cmd, "AUTH %s", mech_name);
+	else {
+		smtp_client_command_printf(cmd, "AUTH %s %s",
+					   mech_name, init_resp);
+	}
 	smtp_client_command_submit(cmd);
 
 	smtp_client_connection_set_state(
