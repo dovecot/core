@@ -3061,7 +3061,7 @@ test_authentication_input_line(struct server_connection *conn,
 {
 	switch (conn->state) {
 	case SERVER_CONNECTION_STATE_EHLO:
-		if (server_index == 1) {
+		if (server_index > 0) {
 			o_stream_nsend_str(
 				conn->conn.output,
 				"250-testserver\r\n"
@@ -3130,6 +3130,9 @@ test_client_authentication_login_cb(const struct smtp_reply *reply,
 	case 1:
 		test_assert(reply->status == 535);
 		break;
+	case 2:
+		test_assert(reply->status == 250);
+		break;
 	}
 }
 
@@ -3150,6 +3153,9 @@ test_client_authentication_mail_from_cb(
 		break;
 	case 1:
 		test_assert(reply->status == 535);
+		break;
+	case 2:
+		test_assert(reply->status == 250);
 		break;
 	}
 }
@@ -3172,6 +3178,9 @@ test_client_authentication_rcpt_to_cb(
 	case 1:
 		test_assert(reply->status == 535);
 		break;
+	case 2:
+		test_assert(reply->status == 250);
+		break;
 	}
 }
 
@@ -3185,7 +3194,16 @@ test_client_authentication_rcpt_data_cb(
 			pctx->index, smtp_reply_log(reply));
 	}
 
-	test_assert(FALSE);
+
+	switch (pctx->index) {
+	case 0:
+	case 1:
+		test_assert(FALSE);
+		break;
+	case 2:
+		test_assert(TRUE);
+		break;
+	}
 }
 
 static void
@@ -3205,6 +3223,9 @@ test_client_authentication_data_cb(
 		break;
 	case 1:
 		test_assert(reply->status == 535);
+		break;
+	case 2:
+		test_assert(reply->status == 250);
 		break;
 	}
 }
@@ -3290,7 +3311,7 @@ test_client_authentication(const struct smtp_client_settings *client_set)
 	test_expect_errors(2);
 
 	ctx = i_new(struct _authentication, 1);
-	ctx->count = 2;
+	ctx->count = 3;
 
 	smtp_client = smtp_client_init(client_set);
 
@@ -3311,7 +3332,7 @@ static void test_authentication(void)
 	test_begin("authentication");
 	test_run_client_server(&smtp_client_set,
 			       test_client_authentication,
-			       test_server_authentication, 2, NULL);
+			       test_server_authentication, 3, NULL);
 	test_end();
 }
 
@@ -3949,6 +3970,15 @@ server_connection_input(struct connection *_conn)
 				o_stream_nsend_str(
 					conn->conn.output, "235 2.7.0 "
 					"Authentication successful\r\n");
+				continue;
+			}
+			if (str_begins(line, "EHLO ")) {
+				o_stream_nsend_str(conn->conn.output,
+						   "250-testserver\r\n"
+						   "250-PIPELINING\r\n"
+						   "250-ENHANCEDSTATUSCODES\r\n"
+						   "250-AUTH PLAIN\r\n"
+						   "250 DSN\r\n");
 				continue;
 			}
 			o_stream_nsend_str(conn->conn.output,
