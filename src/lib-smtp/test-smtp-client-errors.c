@@ -3056,7 +3056,7 @@ static void test_dns_lookup_failure(void)
 /* server */
 
 static int
-test_authentication_failed_input_line(struct server_connection *conn,
+test_authentication_input_line(struct server_connection *conn,
 				      const char *line ATTR_UNUSED)
 {
 	switch (conn->state) {
@@ -3090,20 +3090,20 @@ test_authentication_failed_input_line(struct server_connection *conn,
 	return 0;
 }
 
-static void test_server_authentication_failed(unsigned int index)
+static void test_server_authentication(unsigned int index)
 {
-	test_server_input_line = test_authentication_failed_input_line;
+	test_server_input_line = test_authentication_input_line;
 	test_server_run(index);
 }
 
 /* client */
 
-struct _authentication_failed {
+struct _authentication {
 	unsigned int count;
 };
 
-struct _authentication_failed_peer {
-	struct _authentication_failed *context;
+struct _authentication_peer {
+	struct _authentication *context;
 	unsigned int index;
 
 	struct smtp_client_connection *conn;
@@ -3111,11 +3111,11 @@ struct _authentication_failed_peer {
 };
 
 static void
-test_client_authentication_failed_login_cb(const struct smtp_reply *reply,
+test_client_authentication_login_cb(const struct smtp_reply *reply,
 					   void *context)
 {
-	struct _authentication_failed_peer *pctx =
-		(struct _authentication_failed_peer *)context;
+	struct _authentication_peer *pctx =
+		(struct _authentication_peer *)context;
 
 	if (debug) {
 		i_debug("LOGIN REPLY[%u]: %s",
@@ -3134,9 +3134,9 @@ test_client_authentication_failed_login_cb(const struct smtp_reply *reply,
 }
 
 static void
-test_client_authentication_failed_mail_from_cb(
+test_client_authentication_mail_from_cb(
 	const struct smtp_reply *reply,
-	struct _authentication_failed_peer *pctx)
+	struct _authentication_peer *pctx)
 {
 	if (debug) {
 		i_debug("MAIL FROM REPLY[%u]: %s",
@@ -3155,9 +3155,9 @@ test_client_authentication_failed_mail_from_cb(
 }
 
 static void
-test_client_authentication_failed_rcpt_to_cb(
+test_client_authentication_rcpt_to_cb(
 	const struct smtp_reply *reply,
-	struct _authentication_failed_peer *pctx)
+	struct _authentication_peer *pctx)
 {
 	if (debug) {
 		i_debug("RCPT TO REPLY[%u]: %s",
@@ -3176,9 +3176,9 @@ test_client_authentication_failed_rcpt_to_cb(
 }
 
 static void
-test_client_authentication_failed_rcpt_data_cb(
+test_client_authentication_rcpt_data_cb(
 	const struct smtp_reply *reply,
-	struct _authentication_failed_peer *pctx)
+	struct _authentication_peer *pctx)
 {
 	if (debug) {
 		i_debug("RCPT DATA REPLY[%u]: %s",
@@ -3189,9 +3189,9 @@ test_client_authentication_failed_rcpt_data_cb(
 }
 
 static void
-test_client_authentication_failed_data_cb(
+test_client_authentication_data_cb(
 	const struct smtp_reply *reply,
-	struct _authentication_failed_peer *pctx)
+	struct _authentication_peer *pctx)
 {
 	if (debug) {
 		i_debug("DATA REPLY[%u]: %s",
@@ -3210,10 +3210,10 @@ test_client_authentication_failed_data_cb(
 }
 
 static void
-test_client_authentication_failed_finished(
-	struct _authentication_failed_peer *pctx)
+test_client_authentication_finished(
+	struct _authentication_peer *pctx)
 {
-	struct _authentication_failed *ctx = pctx->context;
+	struct _authentication *ctx = pctx->context;
 
 	if (debug)
 		i_debug("FINISHED[%u]", pctx->index);
@@ -3227,10 +3227,10 @@ test_client_authentication_failed_finished(
 }
 
 static void
-test_client_authentication_failed_submit(struct _authentication_failed *ctx,
+test_client_authentication_submit(struct _authentication *ctx,
 					 unsigned int index)
 {
-	struct _authentication_failed_peer *pctx;
+	struct _authentication_peer *pctx;
 	struct smtp_client_settings smtp_set;
 	static const char *message =
 		"From: stephan@example.com\r\n"
@@ -3240,7 +3240,7 @@ test_client_authentication_failed_submit(struct _authentication_failed *ctx,
 		"Frop!\r\n";
 	struct istream *input;
 
-	pctx = i_new(struct _authentication_failed_peer, 1);
+	pctx = i_new(struct _authentication_peer, 1);
 	pctx->context = ctx;
 	pctx->index = index;
 
@@ -3256,12 +3256,12 @@ test_client_authentication_failed_submit(struct _authentication_failed *ctx,
 		pctx->conn, &((struct smtp_address){
 			.localpart = "sender",
 			.domain = "example.com"}), NULL, 0,
-		test_client_authentication_failed_finished, pctx);
+		test_client_authentication_finished, pctx);
 	smtp_client_connection_connect(
-		pctx->conn, test_client_authentication_failed_login_cb,
+		pctx->conn, test_client_authentication_login_cb,
 		(void *)pctx);
 	smtp_client_transaction_start(
-		pctx->trans, test_client_authentication_failed_mail_from_cb,
+		pctx->trans, test_client_authentication_mail_from_cb,
 		pctx);
 	smtp_client_connection_unref(&pctx->conn);
 
@@ -3269,49 +3269,49 @@ test_client_authentication_failed_submit(struct _authentication_failed *ctx,
 		pctx->trans, &((struct smtp_address){
 			.localpart = "rcpt",
 			.domain = "example.com"}), NULL,
-		test_client_authentication_failed_rcpt_to_cb,
-		test_client_authentication_failed_rcpt_data_cb, pctx);
+		test_client_authentication_rcpt_to_cb,
+		test_client_authentication_rcpt_data_cb, pctx);
 
 	input = i_stream_create_from_data(message, strlen(message));
 	i_stream_set_name(input, "message");
 
 	smtp_client_transaction_send(
 		pctx->trans, input,
-		test_client_authentication_failed_data_cb, pctx);
+		test_client_authentication_data_cb, pctx);
 	i_stream_unref(&input);
 }
 
 static bool
-test_client_authentication_failed(const struct smtp_client_settings *client_set)
+test_client_authentication(const struct smtp_client_settings *client_set)
 {
-	struct _authentication_failed *ctx;
+	struct _authentication *ctx;
 	unsigned int i;
 
 	test_expect_errors(2);
 
-	ctx = i_new(struct _authentication_failed, 1);
+	ctx = i_new(struct _authentication, 1);
 	ctx->count = 2;
 
 	smtp_client = smtp_client_init(client_set);
 
 	for (i = 0; i < ctx->count; i++)
-		test_client_authentication_failed_submit(ctx, i);
+		test_client_authentication_submit(ctx, i);
 
 	return TRUE;
 }
 
 /* test */
 
-static void test_authentication_failed(void)
+static void test_authentication(void)
 {
 	struct smtp_client_settings smtp_client_set;
 
 	test_client_defaults(&smtp_client_set);
 
-	test_begin("authentication failed");
+	test_begin("authentication");
 	test_run_client_server(&smtp_client_set,
-			       test_client_authentication_failed,
-			       test_server_authentication_failed, 2, NULL);
+			       test_client_authentication,
+			       test_server_authentication, 2, NULL);
 	test_end();
 }
 
@@ -3768,7 +3768,7 @@ static void (*const test_functions[])(void) = {
 	test_dns_service_failure,
 	test_dns_timeout,
 	test_dns_lookup_failure,
-	test_authentication_failed,
+	test_authentication,
 	test_transaction_timeout,
 #ifdef HAVE_OPENSSL
 	test_invalid_ssl_certificate,
