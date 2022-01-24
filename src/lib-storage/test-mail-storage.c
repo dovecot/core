@@ -1,9 +1,23 @@
 /* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ioloop.h"
 #include "test-common.h"
 #include "master-service.h"
 #include "test-mail-storage-common.h"
+
+/* globally used test date and appropriate time_t value */
+static struct test_globals {
+	const char *date_str_iso;
+	const char *date_str_imap;
+	const char *date_str_unix;
+	time_t date_time_t;
+} test_globals = {
+	.date_str_iso = "2022-01-21",
+	.date_str_imap = "21-Jan-2022",
+	.date_str_unix = "1642723200",
+	.date_time_t = 1642723200
+};
 
 static void test_init_storage(struct mail_storage *storage_r)
 {
@@ -624,6 +638,112 @@ static void test_mailbox_list_mbox(void)
 	test_end();
 }
 
+
+static void test_mail_parse_human_timestamp_iso(void)
+{
+	int ret;
+	time_t timestamp;
+	bool is_utc;
+
+	test_begin("mail_parse_human_timestamp (iso)");
+
+	ret = mail_parse_human_timestamp(test_globals.date_str_iso, &timestamp,
+					 &is_utc);
+
+	test_assert(ret == 0);
+	test_assert(timestamp == test_globals.date_time_t);
+	test_assert(is_utc);
+
+	test_end();
+}
+
+static void test_mail_parse_human_timestamp_imap(void)
+{
+	int ret;
+	time_t timestamp;
+	bool is_utc;
+
+	test_begin("mail_parse_human_timestamp (imap)");
+
+	ret = mail_parse_human_timestamp(test_globals.date_str_imap, &timestamp,
+					 &is_utc);
+
+	test_assert(ret == 0);
+	test_assert(timestamp == test_globals.date_time_t);
+	test_assert(!is_utc);
+
+	test_end();
+}
+
+static void test_mail_parse_human_timestamp_unix(void)
+{
+	int ret;
+	time_t timestamp;
+	bool is_utc;
+
+	test_begin("mail_parse_human_timestamp (unix)");
+
+	ret = mail_parse_human_timestamp(test_globals.date_str_unix, &timestamp,
+					 &is_utc);
+
+	test_assert(ret == 0);
+	test_assert(timestamp == test_globals.date_time_t);
+	test_assert(is_utc);
+
+	test_end();
+}
+
+static void test_mail_parse_human_timestamp_time_interval(void)
+{
+	int ret;
+	time_t timestamp;
+	bool is_utc;
+
+	test_begin("mail_parse_human_timestamp (time interval)");
+
+	/* make sure the time interval of 5 minutes (=300 seconds) is
+	   correctly parsed and reduced from the main ioloop's timestamp */
+	ret = mail_parse_human_timestamp("5 mins", &timestamp, &is_utc);
+
+	test_assert(ret == 0);
+	test_assert(timestamp == ioloop_time - 300);
+	test_assert(is_utc);
+
+	test_end();
+}
+
+static const char *invalid_timestamps[] = {
+	/* ISO format, upper case 's' instead of numeric '5' */
+	"1234-S6-78",
+	/* IMAP format, incorrect month abbreviation "Jam" */
+	"01-Jam-2022",
+	/* IMAP format, missing '-' separators */
+	"02 Feb 2022",
+	/* unix timestamp, upper case 'o' instead of numeric '0' */
+	"148314240O",
+	/* time interval, spelling error */
+	"1minsa",
+	/* time interval, negative value */
+	"-100D",
+	/* Note: for further tests regarding time interval, see
+		 `src/lib-settings/test-settings-parser.c` */
+
+	/* arbitrary string */
+	"invalid timestamp"
+};
+
+static void test_mail_parse_human_timestamp_fail(void)
+{
+	unsigned int i;
+	test_begin("mail_parse_human_timestamp (fail)");
+	for (i = 0; i < N_ELEMENTS(invalid_timestamps); i++) {
+		const char *item = invalid_timestamps[i];
+		test_assert_idx(
+			mail_parse_human_timestamp(item, NULL, NULL) == -1, i);
+	}
+	test_end();
+}
+
 int main(int argc, char **argv)
 {
 	int ret;
@@ -633,6 +753,11 @@ int main(int argc, char **argv)
 		test_mailbox_verify_name,
 		test_mailbox_list_maildir,
 		test_mailbox_list_mbox,
+		test_mail_parse_human_timestamp_iso,
+		test_mail_parse_human_timestamp_imap,
+		test_mail_parse_human_timestamp_unix,
+		test_mail_parse_human_timestamp_time_interval,
+		test_mail_parse_human_timestamp_fail,
 		NULL
 	};
 
