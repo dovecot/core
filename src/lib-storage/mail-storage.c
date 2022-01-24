@@ -35,6 +35,7 @@
 #include "mailbox-search-result-private.h"
 #include "mailbox-guid-cache.h"
 #include "mail-cache.h"
+#include "utc-mktime.h"
 
 #include <ctype.h>
 
@@ -3140,8 +3141,8 @@ int mail_parse_human_timestamp(const char *str, time_t *timestamp_r,
 			(str[2]-'0') * 10 + (str[3]-'0') - 1900;
 		tm.tm_mon = (str[5]-'0') * 10 + (str[6]-'0') - 1;
 		tm.tm_mday = (str[8]-'0') * 10 + (str[9]-'0');
-		*timestamp_r = mktime(&tm);
-		*utc_r = FALSE;
+		*timestamp_r = utc_mktime(&tm);
+		*utc_r = TRUE;
 		return 0;
 	} else if (imap_parse_date(str, timestamp_r)) {
 		/* imap date */
