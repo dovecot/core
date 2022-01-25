@@ -77,6 +77,7 @@ doveadm_common_cmds = \
 	doveadm-dict.c \
 	doveadm-director.c \
 	doveadm-fs.c \
+	doveadm-indexer.c \
 	doveadm-instance.c \
 	doveadm-kick.c \
 	doveadm-log.c \

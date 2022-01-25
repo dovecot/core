@@ -31,6 +31,9 @@ static struct doveadm_cmd_ver2 *doveadm_commands_ver2[] = {
 	&doveadm_cmd_proxy_kick_ver2,
 	&doveadm_cmd_who_ver2,
 	&doveadm_cmd_proxy_list_ver2,
+	&doveadm_cmd_indexer_add,
+	&doveadm_cmd_indexer_remove,
+	&doveadm_cmd_indexer_list,
 };
 
 ARRAY_TYPE(doveadm_cmd_ver2) doveadm_cmds_ver2;

@@ -159,5 +159,8 @@ extern struct doveadm_cmd_ver2 doveadm_cmd_proxy_list_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_sis_deduplicate;
 extern struct doveadm_cmd_ver2 doveadm_cmd_sis_find;
 extern struct doveadm_cmd_ver2 doveadm_cmd_zlibconnect;
+extern struct doveadm_cmd_ver2 doveadm_cmd_indexer_add;
+extern struct doveadm_cmd_ver2 doveadm_cmd_indexer_remove;
+extern struct doveadm_cmd_ver2 doveadm_cmd_indexer_list;
 
 #endif
