@@ -2,6 +2,9 @@
 
 #include "lib.h"
 #include "array.h"
+#include "connection.h"
+#include "istream.h"
+#include "ostream.h"
 #include "net.h"
 #include "time-util.h"
 #include "master-service.h"
@@ -151,6 +154,57 @@ int doveadm_connect_with_default_port(const char *path,
 int doveadm_connect(const char *path)
 {
 	return doveadm_connect_with_default_port(path, 0);
+}
+
+int doveadm_blocking_connect(const char *path,
+			     const struct connection_settings *set,
+			     struct istream **input_r,
+			     struct ostream **output_r, const char **error_r)
+{
+	const char *line;
+	int ret = 0;
+
+	int fd = net_connect_unix(path);
+	if (fd == -1) {
+		*error_r = t_strdup_printf(
+			"net_connect_unix(%s) failed: %m", path);
+		return -1;
+	}
+	net_set_nonblock(fd, FALSE);
+	*output_r = o_stream_create_fd_blocking(fd);
+	o_stream_set_name(*output_r, path);
+
+	if (!set->dont_send_version && set->service_name_out != NULL &&
+	    set->major_version != 0) {
+		const char *str = t_strdup_printf("VERSION\t%s\t%u\t%u\n",
+			set->service_name_out,
+			set->major_version, set->minor_version);
+		o_stream_nsend_str(*output_r, str);
+	}
+
+	*input_r = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
+	i_stream_set_name(*input_r, path);
+	if (set->service_name_in != NULL) {
+		alarm(DOVEADM_HANDSHAKE_TIMEOUT_SECS);
+		if ((line = i_stream_read_next_line(*input_r)) == NULL) {
+			*error_r = t_strdup_printf("read(%s) failed: %s",
+				path, i_stream_get_error(*input_r));
+			ret = -1;
+		} else if (!version_string_verify(line, set->service_name_in,
+						  set->major_version)) {
+			*error_r = t_strdup_printf(
+				"%s is not a compatible socket "
+				"(wanted %s v%u, received: %s)", path,
+				set->service_name_in, set->major_version, line);
+			ret = -1;
+		}
+		alarm(0);
+	}
+	if (ret < 0) {
+		o_stream_destroy(output_r);
+		i_stream_destroy(input_r);
+	}
+	return ret;
 }
 
 int i_strccdascmp(const char *a, const char *b)

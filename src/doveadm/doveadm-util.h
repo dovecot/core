@@ -3,6 +3,8 @@
 
 #include "net.h"
 
+struct connection_settings;
+
 extern bool doveadm_verbose, doveadm_debug, doveadm_server;
 
 const char *unixdate2str(time_t timestamp);
@@ -11,6 +13,12 @@ int doveadm_connect(const char *path);
 int doveadm_tcp_connect(const char *target, in_port_t default_port);
 int doveadm_connect_with_default_port(const char *path,
 				      in_port_t default_port);
+
+/* Connect to a connection API compatible UNIX socket. */
+int doveadm_blocking_connect(const char *path,
+			     const struct connection_settings *set,
+			     struct istream **input_r,
+			     struct ostream **output_r, const char **error_r);
 
 void doveadm_load_modules(void);
 void doveadm_unload_modules(void);

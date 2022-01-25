@@ -2,10 +2,18 @@
 
 #include "lib.h"
 #include "test-common.h"
+#include "master-service.h"
 #include "doveadm-settings.h"
 #include "doveadm-util.h"
 
 struct doveadm_settings *doveadm_settings; /* just to avoid linker error */
+
+bool version_string_verify(const char *line ATTR_UNUSED,
+			   const char *service_name ATTR_UNUSED,
+			   unsigned major_version ATTR_UNUSED)
+{
+	return FALSE;
+}
 
 static void test_i_strccdascmp(void)
 {
