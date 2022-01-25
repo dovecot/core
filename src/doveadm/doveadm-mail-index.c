@@ -3,8 +3,9 @@
 #include "lib.h"
 #include "str.h"
 #include "strescape.h"
-#include "net.h"
-#include "write-full.h"
+#include "connection.h"
+#include "istream.h"
+#include "ostream.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
 #include "mail-search-build.h"
@@ -15,12 +16,12 @@
 #include <stdio.h>
 
 #define INDEXER_SOCKET_NAME "indexer"
-#define INDEXER_HANDSHAKE "VERSION\tindexer-client\t1\t0\n"
 
 struct index_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 
-	int queue_fd;
+	struct istream *queue_input;
+	struct ostream *queue_output;
 	unsigned int max_recent_msgs;
 	bool queue:1;
 	bool have_wildcards:1;
@@ -154,21 +155,24 @@ static void index_queue_connect(struct index_cmd_context *ctx)
 
 	path = t_strconcat(doveadm_settings->base_dir,
 			   "/"INDEXER_SOCKET_NAME, NULL);
-	ctx->queue_fd = net_connect_unix(path);
-	if (ctx->queue_fd == -1)
-		i_fatal("net_connect_unix(%s) failed: %m", path);
-	fd_set_nonblock(ctx->queue_fd, FALSE);
-	if (write_full(ctx->queue_fd, INDEXER_HANDSHAKE,
-		       strlen(INDEXER_HANDSHAKE)) < 0)
-		i_fatal("write(indexer) failed: %m");
+	const struct connection_settings set = {
+		.service_name_out = "indexer-client",
+		.service_name_in = "indexer-server",
+		.major_version = 1,
+		.minor_version = 0,
+	};
+	const char *error;
+	if (doveadm_blocking_connect(path, &set, &ctx->queue_input,
+				     &ctx->queue_output, &error) < 0)
+		i_fatal("%s", error);
 }
 
 static void cmd_index_queue(struct index_cmd_context *ctx,
 			    struct mail_user *user, const char *mailbox)
 {
-	if (ctx->queue_fd == -1)
+	if (ctx->queue_input == NULL)
 		index_queue_connect(ctx);
-	i_assert(ctx->queue_fd != -1);
+	i_assert(ctx->queue_input != NULL);
 
 	T_BEGIN {
 		string_t *str = t_str_new(256);
@@ -178,8 +182,18 @@ static void cmd_index_queue(struct index_cmd_context *ctx,
 		str_append_c(str, '\t');
 		str_append_tabescaped(str, mailbox);
 		str_printfa(str, "\t%u\n", ctx->max_recent_msgs);
-		if (write_full(ctx->queue_fd, str_data(str), str_len(str)) < 0)
-			i_fatal("write(indexer) failed: %m");
+		o_stream_nsend(ctx->queue_output, str_data(str), str_len(str));
+		if (o_stream_flush(ctx->queue_output) < 0) {
+			i_fatal("write(indexer) failed: %s",
+				o_stream_get_error(ctx->queue_output));
+		}
+		const char *line;
+		if ((line = i_stream_read_next_line(ctx->queue_input)) == NULL) {
+			i_fatal("read(indexer) failed: %s",
+				i_stream_get_error(ctx->queue_input));
+		}
+		if (strcmp(line, "0\tOK") != 0)
+			i_fatal("indexer: APPEND returned unexpected reply: %s", line);
 	} T_END;
 }
 
@@ -247,10 +261,8 @@ static void cmd_index_deinit(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct index_cmd_context *ctx = (struct index_cmd_context *)_ctx;
 
-	if (ctx->queue_fd != -1) {
-		net_disconnect(ctx->queue_fd);
-		ctx->queue_fd = -1;
-	}
+	o_stream_destroy(&ctx->queue_output);
+	i_stream_destroy(&ctx->queue_input);
 }
 
 static bool
@@ -279,7 +291,6 @@ static struct doveadm_mail_cmd_context *cmd_index_alloc(void)
 	struct index_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct index_cmd_context);
-	ctx->queue_fd = -1;
 	ctx->ctx.getopt_args = "qn:";
 	ctx->ctx.v.parse_arg = cmd_index_parse_arg;
 	ctx->ctx.v.init = cmd_index_init;
