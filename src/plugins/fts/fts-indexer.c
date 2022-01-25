@@ -272,7 +272,7 @@ int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
 	return ctx->failed || ret < 0 ? -1 : 1;
 }
 
-#define INDEXER_HANDSHAKE "1\t0\tindexer\tindexer\n"
+#define INDEXER_HANDSHAKE "VERSION\tindexer\t1\t0\n"
 
 int fts_indexer_cmd(struct mail_user *user, const char *cmd,
 	            const char **path_r)
