@@ -120,8 +120,8 @@ int connection_verify_version(struct connection *conn,
 	i_assert(!conn->version_received);
 
 	if (strcmp(service_name, conn->list->set.service_name_in) != 0) {
-		e_error(conn->event, "Connected to wrong socket type. "
-			"We want '%s', but received '%s'",
+		e_error(conn->event, "Received wrong socket type. "
+			"We want '%s', but received '%s' (wrong socket path?)",
 			conn->list->set.service_name_in, service_name);
 		return -1;
 	}
