@@ -239,6 +239,7 @@ void indexer_queue_request_finish(struct indexer_queue *queue,
 		array_free(&request->contexts);
 	i_free(request->username);
 	i_free(request->mailbox);
+	i_free(request->session_id);
 	i_free(request);
 
 	indexer_refresh_proctitle();
