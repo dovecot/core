@@ -157,6 +157,7 @@ static void index_queue_connect(struct index_cmd_context *ctx)
 	ctx->queue_fd = net_connect_unix(path);
 	if (ctx->queue_fd == -1)
 		i_fatal("net_connect_unix(%s) failed: %m", path);
+	fd_set_nonblock(ctx->queue_fd, FALSE);
 	if (write_full(ctx->queue_fd, INDEXER_HANDSHAKE,
 		       strlen(INDEXER_HANDSHAKE)) < 0)
 		i_fatal("write(indexer) failed: %m");
