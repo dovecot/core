@@ -156,8 +156,8 @@ static const struct connection_vfuncs indexer_client_vfuncs = {
 };
 
 static const struct connection_settings indexer_client_set = {
-	.service_name_in = "indexer",
-	.service_name_out = "indexer",
+	.service_name_in = "indexer-client",
+	.service_name_out = "indexer-server",
 	.major_version = INDEXER_CLIENT_PROTOCOL_MAJOR_VERSION,
 	.minor_version = INDEXER_CLIENT_PROTOCOL_MINOR_VERSION,
 	.input_max_size = SIZE_MAX,

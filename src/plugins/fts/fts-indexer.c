@@ -201,8 +201,8 @@ static void fts_indexer_idle_timeout(struct connection *conn)
 
 static const struct connection_settings indexer_client_set =
 {
-	.service_name_in = "indexer",
-	.service_name_out = "indexer",
+	.service_name_in = "indexer-server",
+	.service_name_out = "indexer-client",
 	.major_version = 1,
 	.minor_version = 0,
 	.client_connect_timeout_msecs = 2000,
@@ -272,7 +272,7 @@ int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
 	return ctx->failed || ret < 0 ? -1 : 1;
 }
 
-#define INDEXER_HANDSHAKE "VERSION\tindexer\t1\t0\n"
+#define INDEXER_HANDSHAKE "VERSION\tindexer-client\t1\t0\n"
 
 int fts_indexer_cmd(struct mail_user *user, const char *cmd,
 	            const char **path_r)

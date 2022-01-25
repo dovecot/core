@@ -15,7 +15,7 @@
 #include <stdio.h>
 
 #define INDEXER_SOCKET_NAME "indexer"
-#define INDEXER_HANDSHAKE "VERSION\tindexer\t1\t0\n"
+#define INDEXER_HANDSHAKE "VERSION\tindexer-client\t1\t0\n"
 
 struct index_cmd_context {
 	struct doveadm_mail_cmd_context ctx;

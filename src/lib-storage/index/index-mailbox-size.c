@@ -37,7 +37,7 @@
 #define VSIZE_UPDATE_MAX_LOCK_SECS 10
 
 #define INDEXER_SOCKET_NAME "indexer"
-#define INDEXER_HANDSHAKE "VERSION\tindexer\t1\t0\n"
+#define INDEXER_HANDSHAKE "VERSION\tindexer-client\t1\t0\n"
 
 struct mailbox_vsize_update {
 	struct mailbox *box;

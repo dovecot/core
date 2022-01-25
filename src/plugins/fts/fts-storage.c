@@ -31,7 +31,7 @@
 	MODULE_CONTEXT_REQUIRE(obj, fts_mailbox_list_module)
 
 #define INDEXER_SOCKET_NAME "indexer"
-#define INDEXER_HANDSHAKE "VERSION\tindexer\t1\t0\n"
+#define INDEXER_HANDSHAKE "VERSION\tindexer-client\t1\t0\n"
 
 struct fts_mailbox_list {
 	union mailbox_list_module_context module_ctx;
