@@ -13,7 +13,10 @@ enum indexer_request_type {
 };
 
 struct indexer_request {
+	/* Linked list of all requests - highest priority first */
 	struct indexer_request *prev, *next;
+	/* Linked list of the same username's requests */
+	struct indexer_request *user_prev, *user_next;
 
 	char *username;
 	char *mailbox;
