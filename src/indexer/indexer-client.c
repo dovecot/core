@@ -102,6 +102,42 @@ indexer_client_request_optimize(struct indexer_client *client,
 	return 0;
 }
 
+static int
+indexer_client_request_remove(struct indexer_client *client,
+			      const char *const *args, const char **error_r)
+{
+	unsigned int tag;
+
+	/* <tag> <user mask> [<mailbox mask>] */
+	if (str_array_length(args) < 2) {
+		*error_r = "Wrong parameter count";
+		return -1;
+	}
+	if (str_to_uint(args[0], &tag) < 0) {
+		*error_r = "Invalid tag";
+		return -1;
+	}
+	const char *user_mask = args[1];
+	const char *mailbox_mask = args[2];
+
+	if (wildcard_is_literal(user_mask))
+		indexer_queue_cancel(client->queue, user_mask, mailbox_mask);
+	else {
+		struct indexer_request *request;
+		struct indexer_queue_iter *iter =
+			indexer_queue_iter_init(client->queue, FALSE);
+		while ((request = indexer_queue_iter_next(iter)) != NULL) {
+			if (wildcard_match(request->username, user_mask)) {
+				indexer_queue_cancel(client->queue,
+					request->username, mailbox_mask);
+			}
+		}
+		indexer_queue_iter_deinit(&iter);
+	}
+	o_stream_nsend_str(client->conn.output, t_strdup_printf("%u\tOK\n", tag));
+	return 0;
+}
+
 static void
 indexer_client_request_list_write(string_t *str,
 				  struct indexer_request *request)
@@ -193,6 +229,8 @@ indexer_client_request(struct indexer_client *client,
 		return indexer_client_request_queue(client, FALSE, args, error_r);
 	else if (strcmp(cmd, "OPTIMIZE") == 0)
 		return indexer_client_request_optimize(client, args, error_r);
+	else if (strcmp(cmd, "REMOVE") == 0)
+		return indexer_client_request_remove(client, args, error_r);
 	else if (strcmp(cmd, "LIST") == 0)
 		return indexer_client_request_list(client, args, error_r);
 	else {

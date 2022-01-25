@@ -4,6 +4,7 @@
 #include "array.h"
 #include "llist.h"
 #include "hash.h"
+#include "wildcard-match.h"
 #include "indexer-queue.h"
 
 struct indexer_queue {
@@ -290,6 +291,37 @@ indexer_queue_request_cancel(struct indexer_queue *queue,
 	request->reindex_head = request->reindex_tail = FALSE;
 	DLLIST2_REMOVE(&queue->head, &queue->tail, request);
 	indexer_queue_request_finish(queue, &request, FALSE);
+}
+
+void indexer_queue_cancel(struct indexer_queue *queue, const char *username,
+			  const char *mailbox_mask)
+{
+	struct indexer_request *request, *next;
+	bool single_mailbox =
+		mailbox_mask != NULL && wildcard_is_literal(mailbox_mask);
+
+	if (single_mailbox)
+		request = indexer_queue_lookup(queue, username, mailbox_mask);
+	else
+		request = hash_table_lookup(queue->users, username);
+
+	while (request != NULL) {
+		next = request->user_next;
+		if (mailbox_mask != NULL && !single_mailbox &&
+		    !wildcard_match(request->mailbox, mailbox_mask)) {
+			/* mailbox mask doesn't match - go to the next one */
+		} else if (request->working) {
+			/* Can't remove a request that is being worked on,
+			   but we can make sure it won't be added back to the
+			   queue. */
+			request->reindex_head = request->reindex_tail = FALSE;
+		} else {
+			indexer_queue_request_cancel(queue, &request);
+		}
+		if (single_mailbox)
+			break;
+		request = next;
+	}
 }
 
 void indexer_queue_cancel_all(struct indexer_queue *queue)

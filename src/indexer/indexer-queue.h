@@ -54,6 +54,11 @@ void indexer_queue_append(struct indexer_queue *queue, bool append,
 void indexer_queue_append_optimize(struct indexer_queue *queue,
 				   const char *username, const char *mailbox,
 				   void *context);
+/* Remove all queued requests for the user. If mailbox_mask is non-NULL, remove
+   only requests that match the mailbox mask (with * and ? wildcards). Already
+   running requests aren't removed, but their reindex flag is cleared. */
+void indexer_queue_cancel(struct indexer_queue *queue,
+			  const char *username, const char *mailbox_mask);
 void indexer_queue_cancel_all(struct indexer_queue *queue);
 
 bool indexer_queue_is_empty(struct indexer_queue *queue);
