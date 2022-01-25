@@ -221,8 +221,6 @@ void indexer_queue_request_finish(struct indexer_queue *queue,
 	if (request->reindex_head || request->reindex_tail) {
 		i_assert(request->working);
 		request->working = FALSE;
-		request->reindex_head = FALSE;
-		request->reindex_tail = FALSE;
 		if (request->working_context_idx > 0) {
 			array_delete(&request->contexts, 0,
 				     request->working_context_idx);
@@ -231,6 +229,8 @@ void indexer_queue_request_finish(struct indexer_queue *queue,
 			DLLIST2_PREPEND(&queue->head, &queue->tail, request);
 		else
 			DLLIST2_APPEND(&queue->head, &queue->tail, request);
+		request->reindex_head = FALSE;
+		request->reindex_tail = FALSE;
 		return;
 	}
 
