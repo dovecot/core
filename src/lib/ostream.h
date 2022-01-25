@@ -67,6 +67,9 @@ struct ostream *o_stream_create_fd_file_autoclose(int *fd, uoff_t offset);
 /* Create ostream for file. If append flag is not set, file will be truncated. */
 struct ostream *o_stream_create_file(const char *path, uoff_t offset, mode_t mode,
 				     enum ostream_create_file_flags flags);
+/* Create ostream for a blocking (network) fd. It assumes that all the output
+   can be written to the fd. If not, the ostream fails. */
+struct ostream *o_stream_create_fd_blocking(int fd);
 /* Create an output stream to a buffer. Note that the buffer is treated as the
    ostream's internal buffer. This means that o_stream_get_buffer_used_size()
    returns buf->used, and _get_buffer_avail_size() returns how many bytes can

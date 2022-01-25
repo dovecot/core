@@ -1152,3 +1152,16 @@ struct ostream *o_stream_create_file(const char *path, uoff_t offset, mode_t mod
 		return o_stream_create_error(errno);
 	return o_stream_create_fd_file_autoclose(&fd, offset);
 }
+
+struct ostream *o_stream_create_fd_blocking(int fd)
+{
+	struct file_ostream *fstream;
+	struct ostream *ostream;
+
+	fstream = i_new(struct file_ostream, 1);
+	ostream = o_stream_create_file_common(fstream, fd, 0, FALSE);
+	/* disable buffering entirely */
+	fstream->ostream.max_buffer_size = 0;
+	ostream->blocking = TRUE;
+	return ostream;
+}
