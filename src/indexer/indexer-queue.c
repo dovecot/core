@@ -280,6 +280,18 @@ void indexer_queue_request_finish(struct indexer_queue *queue,
 	indexer_refresh_proctitle();
 }
 
+static void
+indexer_queue_request_cancel(struct indexer_queue *queue,
+			     struct indexer_request **_request)
+{
+	struct indexer_request *request = *_request;
+
+	*_request = NULL;
+	request->reindex_head = request->reindex_tail = FALSE;
+	DLLIST2_REMOVE(&queue->head, &queue->tail, request);
+	indexer_queue_request_finish(queue, &request, FALSE);
+}
+
 void indexer_queue_cancel_all(struct indexer_queue *queue)
 {
 	struct indexer_request *request;
@@ -293,10 +305,8 @@ void indexer_queue_cancel_all(struct indexer_queue *queue)
 		request->reindex_head = request->reindex_tail = FALSE;
 	hash_table_iterate_deinit(&iter);
 
-	while ((request = indexer_queue_request_peek(queue)) != NULL) {
-		indexer_queue_request_remove(queue);
-		indexer_queue_request_finish(queue, &request, FALSE);
-	}
+	while ((request = indexer_queue_request_peek(queue)) != NULL)
+		indexer_queue_request_cancel(queue, &request);
 }
 
 bool indexer_queue_is_empty(struct indexer_queue *queue)
