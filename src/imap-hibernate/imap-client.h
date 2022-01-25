@@ -35,6 +35,8 @@ void imap_client_add_notify_fd(struct imap_client *client, int fd);
 void imap_client_create_finish(struct imap_client *client);
 void imap_client_destroy(struct imap_client **_client, const char *reason);
 
+unsigned int imap_clients_kick(const char *user, const guid_128_t conn_guid);
+
 void imap_clients_init(void);
 void imap_clients_deinit(void);
 

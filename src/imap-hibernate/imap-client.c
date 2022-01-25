@@ -637,7 +637,7 @@ imap_client_create(int fd, const struct imap_client_state *state)
 		.ip = client->state.remote_ip,
 	};
 	if (master_service_anvil_connect(master_service, &anvil_session,
-					 FALSE, client->state.anvil_conn_guid))
+					 TRUE, client->state.anvil_conn_guid))
 		client->state.anvil_sent = TRUE;
 
 	p_array_init(&client->notifys, pool, 2);
@@ -785,6 +785,21 @@ static void imap_client_kick(struct imap_client *client)
 	o_stream_nsend_str(client->output,
 			   "* BYE "MASTER_SERVICE_SHUTTING_DOWN_MSG".\r\n");
 	imap_client_destroy(&client, MASTER_SERVICE_SHUTTING_DOWN_MSG);
+}
+
+unsigned int imap_clients_kick(const char *user, const guid_128_t conn_guid)
+{
+	struct imap_client *client, *next;
+	unsigned int count = 0;
+
+	for (client = imap_clients; client != NULL; client = next) {
+		next = client->next;
+		if (strcmp(client->state.username, user) == 0 &&
+		    (guid_128_is_empty(conn_guid) ||
+		     guid_128_cmp(client->state.anvil_conn_guid, conn_guid) == 0))
+			imap_client_kick(client);
+	}
+	return count;
 }
 
 void imap_clients_init(void)
