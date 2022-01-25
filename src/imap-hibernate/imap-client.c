@@ -632,7 +632,7 @@ imap_client_create(int fd, const struct imap_client_state *state)
 
 	struct master_service_anvil_session anvil_session = {
 		.username = client->state.username,
-		.service_name = "imap",
+		.service_name = master_service_get_name(master_service),
 		.ip = client->state.remote_ip,
 	};
 	if (master_service_anvil_connect(master_service, &anvil_session,
@@ -681,7 +681,7 @@ void imap_client_destroy(struct imap_client **_client, const char *reason)
 	if (client->state.anvil_sent) {
 		struct master_service_anvil_session anvil_session = {
 			.username = client->state.username,
-			.service_name = "imap",
+			.service_name = master_service_get_name(master_service),
 			.ip = client->state.remote_ip,
 		};
 		master_service_anvil_disconnect(master_service, &anvil_session,
