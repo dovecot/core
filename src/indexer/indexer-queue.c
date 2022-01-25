@@ -17,6 +17,13 @@ struct indexer_queue {
 	struct indexer_request *head, *tail;
 };
 
+struct indexer_queue_iter {
+	struct indexer_queue *queue;
+	struct hash_iterate_context *hash_iter;
+	struct indexer_request *next;
+	bool only_working;
+};
+
 static unsigned int
 indexer_request_hash(const struct indexer_request *request)
 {
@@ -300,4 +307,51 @@ bool indexer_queue_is_empty(struct indexer_queue *queue)
 unsigned int indexer_queue_count(struct indexer_queue *queue)
 {
 	return hash_table_count(queue->requests);
+}
+
+struct indexer_queue_iter *
+indexer_queue_iter_init(struct indexer_queue *queue, bool only_working)
+{
+	struct indexer_queue_iter *iter;
+
+	iter = i_new(struct indexer_queue_iter, 1);
+	iter->queue = queue;
+	iter->only_working = only_working;
+
+	/* First output all the requests currently being worked on. They exist
+	   only in the hash table. */
+	iter->hash_iter = hash_table_iterate_init(queue->requests);
+	return iter;
+}
+
+struct indexer_request *indexer_queue_iter_next(struct indexer_queue_iter *iter)
+{
+	struct indexer_request *request;
+
+	if (iter->hash_iter != NULL) {
+		while (hash_table_iterate(iter->hash_iter,
+					  iter->queue->requests,
+					  &request, &request)) {
+			if (request->working)
+				return request;
+		}
+		hash_table_iterate_deinit(&iter->hash_iter);
+		if (iter->only_working)
+			return NULL;
+		iter->next = indexer_queue_request_peek(iter->queue);
+	}
+	request = iter->next;
+	if (request != NULL)
+		iter->next = request->next;
+	return request;
+}
+
+void indexer_queue_iter_deinit(struct indexer_queue_iter **_iter)
+{
+	struct indexer_queue_iter *iter = *_iter;
+
+	*_iter = NULL;
+
+	hash_table_iterate_deinit(&iter->hash_iter);
+	i_free(iter);
 }

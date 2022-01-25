@@ -77,4 +77,12 @@ void indexer_queue_request_finish(struct indexer_queue *queue,
 				  struct indexer_request **request,
 				  bool success);
 
+/* Iterate through all requests. First it returns the requests currently being
+   worked on, followed by the queued requests in the priority order. If
+   only_working=TRUE, return only the requests currently being worked on. */
+struct indexer_queue_iter *
+indexer_queue_iter_init(struct indexer_queue *queue, bool only_working);
+struct indexer_request *indexer_queue_iter_next(struct indexer_queue_iter *iter);
+void indexer_queue_iter_deinit(struct indexer_queue_iter **iter);
+
 #endif
