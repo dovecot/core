@@ -789,7 +789,7 @@ void imap_clients_deinit(void)
 		struct imap_client *client = imap_clients;
 
 		imap_client_io_activate_user(client);
-		imap_client_destroy(&client, "Shutting down");
+		imap_client_destroy(&client, "Server shutting down");
 	}
 	timeout_remove(&to_unhibernate);
 	priorityq_deinit(&unhibernate_queue);
