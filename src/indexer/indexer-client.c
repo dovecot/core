@@ -4,7 +4,9 @@
 #include "connection.h"
 #include "istream.h"
 #include "ostream.h"
+#include "str.h"
 #include "strescape.h"
+#include "wildcard-match.h"
 #include "master-service.h"
 #include "indexer-queue.h"
 #include "indexer-client.h"
@@ -100,6 +102,83 @@ indexer_client_request_optimize(struct indexer_client *client,
 	return 0;
 }
 
+static void
+indexer_client_request_list_write(string_t *str,
+				  struct indexer_request *request)
+{
+	str_append_tabescaped(str, request->username);
+	str_append_c(str, '\t');
+	str_append_tabescaped(str, request->mailbox);
+	str_append_c(str, '\t');
+	if (request->session_id != NULL)
+		str_append_tabescaped(str, request->session_id);
+	str_printfa(str, "\t%u\t", request->max_recent_msgs);
+	switch (request->type) {
+	case INDEXER_REQUEST_TYPE_INDEX:
+		str_append_c(str, 'i');
+		break;
+	case INDEXER_REQUEST_TYPE_OPTIMIZE:
+		str_append_c(str, 'o');
+		break;
+	}
+	str_append_c(str, '\t');
+	if (request->working)
+		str_append_c(str, 'w');
+	if (request->reindex_head)
+		str_append_c(str, 'h');
+	if (request->reindex_tail)
+		str_append_c(str, 't');
+}
+
+static int
+indexer_client_request_list(struct indexer_client *client,
+			    const char *const *args, const char **error_r)
+{
+	const char *mask;
+	unsigned int tag;
+	bool only_working;
+
+	/* <tag> <type> [<user mask>] */
+	if (str_array_length(args) < 2) {
+		*error_r = "Wrong parameter count";
+		return -1;
+	}
+	if (str_to_uint(args[0], &tag) < 0) {
+		*error_r = "Invalid tag";
+		return -1;
+	}
+	if (strcmp(args[1], "all") == 0)
+		only_working = FALSE;
+	else if (strcmp(args[1], "working") == 0)
+		only_working = TRUE;
+	else {
+		*error_r = "Invalid type";
+		return -1;
+	}
+	mask = args[2];
+
+	string_t *str = t_str_new(128);
+	struct indexer_request *request;
+	struct indexer_queue_iter *iter =
+		indexer_queue_iter_init(client->queue, only_working);
+	while ((request = indexer_queue_iter_next(iter)) != NULL) {
+		if (mask != NULL && !wildcard_match(request->username, mask))
+			continue;
+
+		str_truncate(str, 0);
+		str_printfa(str, "%u\t", tag);
+		indexer_client_request_list_write(str, request);
+		str_append_c(str, '\n');
+		o_stream_nsend(client->conn.output, str_data(str), str_len(str));
+	}
+	indexer_queue_iter_deinit(&iter);
+
+	str_truncate(str, 0);
+	str_printfa(str, "%u\n", tag);
+	o_stream_nsend(client->conn.output, str_data(str), str_len(str));
+	return 0;
+}
+
 static int
 indexer_client_request(struct indexer_client *client,
 		       const char *const *args, const char **error_r)
@@ -114,6 +193,8 @@ indexer_client_request(struct indexer_client *client,
 		return indexer_client_request_queue(client, FALSE, args, error_r);
 	else if (strcmp(cmd, "OPTIMIZE") == 0)
 		return indexer_client_request_optimize(client, args, error_r);
+	else if (strcmp(cmd, "LIST") == 0)
+		return indexer_client_request_list(client, args, error_r);
 	else {
 		*error_r = t_strconcat("Unknown command: ", cmd, NULL);
 		return -1;
@@ -161,7 +242,7 @@ static const struct connection_settings indexer_client_set = {
 	.major_version = INDEXER_CLIENT_PROTOCOL_MAJOR_VERSION,
 	.minor_version = INDEXER_CLIENT_PROTOCOL_MINOR_VERSION,
 	.input_max_size = SIZE_MAX,
-	.output_max_size = IO_BLOCK_SIZE,
+	.output_max_size = SIZE_MAX,
 };
 
 
