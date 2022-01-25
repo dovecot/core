@@ -408,6 +408,14 @@ service_get_client_limit(struct master_settings *set, const char *name)
 	return set->default_client_limit;
 }
 
+static bool service_is_enabled(const struct master_settings *set,
+			       struct service_settings *service)
+{
+	return service->protocol[0] == '\0' ||
+		str_array_find((const char **)set->protocols_split,
+			       service->protocol);
+}
+
 static bool
 master_settings_verify(void *_set, pool_t pool, const char **error_r)
 {
@@ -513,9 +521,7 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	for (i = 0; i < count; i++) {
 		struct service_settings *service = services[i];
 
-		if (*service->protocol != '\0' &&
-		    !str_array_find((const char **)set->protocols_split,
-				    service->protocol)) {
+		if (!service_is_enabled(set, service)) {
 			/* protocol not enabled, ignore its settings */
 			continue;
 		}
