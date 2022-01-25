@@ -4,6 +4,7 @@ pkglibexec_PROGRAMS = indexer indexer-worker
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-mail \
@@ -45,3 +46,20 @@ noinst_HEADERS = \
 	worker-connection.h \
 	worker-pool.h
 
+test_programs = \
+	test-indexer-queue
+
+noinst_PROGRAMS = $(test_programs)
+
+test_libs = \
+	../lib-test/libtest.la \
+	../lib/liblib.la
+
+test_indexer_queue_SOURCES = test-indexer-queue.c indexer-queue.c
+test_indexer_queue_LDADD = $(test_libs)
+test_indexer_queue_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
+
+check-local:
+	for bin in $(test_programs); do \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	done
