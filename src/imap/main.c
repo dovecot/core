@@ -127,7 +127,7 @@ static void client_kill_idle(struct client *client)
 
 	mail_storage_service_io_activate_user(client->service_user);
 	client_send_line(client, "* BYE Server shutting down.");
-	client_destroy(client, "Server shutting down.");
+	client_destroy(client, "Server shutting down");
 }
 
 static void imap_die(void)

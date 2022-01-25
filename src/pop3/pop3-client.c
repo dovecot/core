@@ -855,7 +855,7 @@ void client_kick(struct client *client)
 		client_send_line(client,
 				 "-ERR [SYS/TEMP] Server shutting down.");
 	}
-	client_destroy(client, "Server shutting down.");
+	client_destroy(client, "Server shutting down");
 }
 
 void clients_destroy_all(void)
