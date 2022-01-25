@@ -587,6 +587,7 @@ imap_client_create(int fd, const struct imap_client_state *state)
 	client->fd = fd;
 	client->input = i_stream_create_fd(fd, IMAP_MAX_INBUF);
 	client->output = o_stream_create_fd(fd, IMAP_MAX_OUTBUF);
+	o_stream_set_no_error_handling(client->output, TRUE);
 	client->state = *state;
 	client->state.username = p_strdup(pool, state->username);
 	client->state.session_id = p_strdup(pool, state->session_id);
@@ -778,6 +779,13 @@ static void imap_clients_unhibernate(void *context ATTR_UNUSED)
 	timeout_remove(&to_unhibernate);
 }
 
+static void imap_client_kick(struct imap_client *client)
+{
+	imap_client_io_activate_user(client);
+	o_stream_nsend_str(client->output, "* BYE Server shutting down.\r\n");
+	imap_client_destroy(&client, "Server shutting down");
+}
+
 void imap_clients_init(void)
 {
 	unhibernate_queue = priorityq_init(client_unhibernate_cmp, 64);
@@ -785,12 +793,9 @@ void imap_clients_init(void)
 
 void imap_clients_deinit(void)
 {
-	while (imap_clients != NULL) {
-		struct imap_client *client = imap_clients;
+	while (imap_clients != NULL)
+		imap_client_kick(imap_clients);
 
-		imap_client_io_activate_user(client);
-		imap_client_destroy(&client, "Server shutting down");
-	}
 	timeout_remove(&to_unhibernate);
 	priorityq_deinit(&unhibernate_queue);
 }
