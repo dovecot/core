@@ -140,7 +140,7 @@ void indexer_queue_append(struct indexer_queue *queue, bool append,
 	request = indexer_queue_append_request(queue, append, username, mailbox,
 					       session_id, max_recent_msgs,
 					       context);
-	request->index = TRUE;
+	request->type = INDEXER_REQUEST_TYPE_INDEX;
 	indexer_queue_append_finish(queue);
 }
 
@@ -152,7 +152,7 @@ void indexer_queue_append_optimize(struct indexer_queue *queue,
 
 	request = indexer_queue_append_request(queue, TRUE, username, mailbox,
 					       NULL, 0, context);
-	request->optimize = TRUE;
+	request->type = INDEXER_REQUEST_TYPE_OPTIMIZE;
 	indexer_queue_append_finish(queue);
 }
 

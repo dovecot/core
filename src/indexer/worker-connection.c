@@ -120,7 +120,6 @@ void worker_connection_request(struct connection *conn,
 		container_of(conn, struct worker_connection, conn);
 
 	i_assert(worker_connection_is_connected(conn));
-	i_assert(request->index || request->optimize);
 
 	if (worker->request_username == NULL)
 		worker->request_username = i_strdup(request->username);
@@ -141,10 +140,14 @@ void worker_connection_request(struct connection *conn,
 		if (request->session_id != NULL)
 			str_append_tabescaped(str, request->session_id);
 		str_printfa(str, "\t%u\t", request->max_recent_msgs);
-		if (request->index)
+		switch (request->type) {
+		case INDEXER_REQUEST_TYPE_INDEX:
 			str_append_c(str, 'i');
-		if (request->optimize)
+			break;
+		case INDEXER_REQUEST_TYPE_OPTIMIZE:
 			str_append_c(str, 'o');
+			break;
+		}
 		str_append_c(str, '\n');
 		o_stream_nsend(conn->output, str_data(str), str_len(str));
 	} T_END;

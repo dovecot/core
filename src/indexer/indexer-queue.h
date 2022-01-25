@@ -5,6 +5,13 @@
 
 typedef void indexer_queue_callback_t(int status, void *context);
 
+enum indexer_request_type {
+	/* index messages in the mailbox */
+	INDEXER_REQUEST_TYPE_INDEX,
+	/* optimize the mailbox */
+	INDEXER_REQUEST_TYPE_OPTIMIZE,
+};
+
 struct indexer_request {
 	struct indexer_request *prev, *next;
 
@@ -13,10 +20,8 @@ struct indexer_request {
 	char *session_id;
 	unsigned int max_recent_msgs;
 
-	/* index messages in this mailbox */
-	bool index:1;
-	/* optimize this mailbox */
-	bool optimize:1;
+	enum indexer_request_type type;
+
 	/* currently indexing this mailbox */
 	bool working:1;
 	/* after indexing is finished, add this request back to the queue and
