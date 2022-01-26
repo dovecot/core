@@ -104,6 +104,11 @@ struct ldap_request {
 	/* timestamp when request was created */
 	time_t create_time;
 
+	/* Number of times this request has been sent to LDAP server. This
+	   increases when LDAP gets disconnected and reconnect send the request
+	   again. */
+	unsigned int send_count;
+
 	bool failed:1;
 	/* This is to prevent double logging the result */
 	bool result_logged:1;
