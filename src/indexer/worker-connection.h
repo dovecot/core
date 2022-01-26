@@ -4,15 +4,19 @@
 #include "indexer.h"
 
 struct indexer_request;
+struct connection;
 struct connection_list;
 
 typedef void worker_available_callback_t(void);
 
-struct connection *
-worker_connection_create(const char *socket_path,
-			 indexer_status_callback_t *callback,
-			 worker_available_callback_t *avail_callback,
-			 struct connection_list *list);
+/* Try to create a new worker connection. Returns 1 if successful, 0 if
+   indexer-worker service's process_limit was already reached, -1 on connect
+   error. */
+int worker_connection_try_create(const char *socket_path,
+				 indexer_status_callback_t *callback,
+				 worker_available_callback_t *avail_callback,
+				 struct connection_list *list,
+				 struct connection **conn_r);
 void worker_connection_destroy(struct connection *conn);
 
 struct connection_list *worker_connection_list_create(void);

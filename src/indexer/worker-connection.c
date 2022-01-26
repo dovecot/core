@@ -195,18 +195,28 @@ struct connection_list *worker_connection_list_create(void)
 				    &worker_connection_vfuncs);
 }
 
-struct connection *
-worker_connection_create(const char *socket_path,
-			 indexer_status_callback_t *callback,
-			 worker_available_callback_t *avail_callback,
-			 struct connection_list *list)
+int worker_connection_try_create(const char *socket_path,
+				 indexer_status_callback_t *callback,
+				 worker_available_callback_t *avail_callback,
+				 struct connection_list *list,
+				 struct connection **conn_r)
 {
 	struct worker_connection *conn;
+	unsigned int max_connections;
+
+	max_connections = I_MAX(1, worker_connections_get_process_limit());
+	if (list->connections_count >= max_connections)
+		return 0;
 
 	conn = i_new(struct worker_connection, 1);
 	conn->callback = callback;
 	conn->avail_callback = avail_callback;
 	connection_init_client_unix(list, &conn->conn, socket_path);
+	if (connection_client_connect(&conn->conn) < 0) {
+		worker_connection_destroy(&conn->conn);
+		return -1;
+	}
 
-	return &conn->conn;
+	*conn_r = &conn->conn;
+	return 1;
 }

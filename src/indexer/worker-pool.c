@@ -51,35 +51,12 @@ bool worker_pool_have_connections(struct worker_pool *pool)
 	return pool->connection_list->connections != NULL;
 }
 
-static int worker_pool_add_connection(struct worker_pool *pool,
-				      struct connection **conn_r)
-{
-	struct connection *conn;
-
-	conn = worker_connection_create(pool->socket_path, pool->callback,
-					pool->avail_callback,
-					pool->connection_list);
-	if (connection_client_connect(conn) < 0) {
-		worker_connection_destroy(conn);
-		return -1;
-	}
-
-	*conn_r = conn;
-	return 0;
-}
-
 bool worker_pool_get_connection(struct worker_pool *pool,
 				struct connection **conn_r)
 {
-	unsigned int max_connections;
-
-	max_connections = I_MAX(1, worker_connections_get_process_limit());
-	if (pool->connection_list->connections_count >= max_connections)
-		return FALSE;
-	if (worker_pool_add_connection(pool, conn_r) < 0)
-		return FALSE;
-
-	return TRUE;
+	return worker_connection_try_create(pool->socket_path, pool->callback,
+					    pool->avail_callback,
+					    pool->connection_list, conn_r) > 0;
 }
 
 struct connection *
