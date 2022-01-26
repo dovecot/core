@@ -174,7 +174,7 @@ db_ldap_result_iterate_init_full(struct ldap_connection *conn,
 				 struct ldap_request_search *ldap_request,
 				 LDAPMessage *res, bool skip_null_values,
 				 bool iter_dn_values);
-static void db_ldap_abort_requests(struct ldap_connection *conn,
+static bool db_ldap_abort_requests(struct ldap_connection *conn,
 				   unsigned int max_count,
 				   unsigned int timeout_secs,
 				   bool error, const char *reason);
@@ -509,13 +509,14 @@ static void db_ldap_default_bind_finished(struct ldap_connection *conn,
 	}
 }
 
-static void db_ldap_abort_requests(struct ldap_connection *conn,
+static bool db_ldap_abort_requests(struct ldap_connection *conn,
 				   unsigned int max_count,
 				   unsigned int timeout_secs,
 				   bool error, const char *reason)
 {
 	struct ldap_request *request;
 	time_t diff;
+	bool aborts = FALSE;
 
 	while (aqueue_count(conn->request_queue) > 0 && max_count > 0) {
 		request = array_idx_elem(&conn->request_array,
@@ -541,7 +542,9 @@ static void db_ldap_abort_requests(struct ldap_connection *conn,
 		}
 		request->callback(conn, request, NULL);
 		max_count--;
+		aborts = TRUE;
 	}
+	return aborts;
 }
 
 static struct ldap_request *
@@ -854,9 +857,10 @@ db_ldap_handle_request_result(struct ldap_connection *conn,
 
 	if (idx > 0) {
 		/* see if there are timed out requests */
-		db_ldap_abort_requests(conn, idx,
-				       DB_LDAP_REQUEST_LOST_TIMEOUT_SECS,
-				       TRUE, "Request lost");
+		if (db_ldap_abort_requests(conn, idx,
+					   DB_LDAP_REQUEST_LOST_TIMEOUT_SECS,
+					   TRUE, "Request lost"))
+			ldap_conn_reconnect(conn);
 	}
 	return TRUE;
 }
