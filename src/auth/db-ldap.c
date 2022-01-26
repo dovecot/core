@@ -178,6 +178,7 @@ static bool db_ldap_abort_requests(struct ldap_connection *conn,
 				   unsigned int max_count,
 				   unsigned int timeout_secs,
 				   bool error, const char *reason);
+static void db_ldap_request_free(struct ldap_request *request);
 
 static int deref2str(const char *str, int *ref_r)
 {
@@ -410,6 +411,9 @@ static bool db_ldap_request_queue_next(struct ldap_connection *conn)
 		   whenever attempting to send the request. */
 		ret = 0;
 	} else {
+		/* clear away any partial results saved before reconnecting */
+		db_ldap_request_free(request);
+
 		switch (request->type) {
 		case LDAP_REQUEST_TYPE_BIND:
 			ret = db_ldap_request_bind(conn, request);
@@ -893,7 +897,8 @@ db_ldap_request_free(struct ldap_request *request)
 				if (named_res->result != NULL)
 					db_ldap_result_unref(&named_res->result);
 			}
-			array_clear(&srequest->named_results);
+			array_free(&srequest->named_results);
+			srequest->name_idx = 0;
 		}
 	}
 }
