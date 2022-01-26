@@ -39,11 +39,15 @@ static void client_connected(struct master_service_connection *conn)
 	indexer_client_create(conn, queue);
 }
 
-static void worker_send_request(struct connection *conn,
-				struct indexer_request *request)
+static bool worker_send_request(struct indexer_request *request)
 {
+	if (worker_connection_try_create("indexer-worker", request,
+					 worker_status_callback,
+					 worker_avail_callback) <= 0)
+		return FALSE;
+	indexer_queue_request_remove(queue);
 	indexer_queue_request_work(request);
-	worker_connection_request(conn, request);
+	return TRUE;
 }
 
 static void queue_try_send_more(struct indexer_queue *queue)
@@ -67,15 +71,11 @@ static void queue_try_send_more(struct indexer_queue *queue)
 				first_moved_request = request;
 			indexer_queue_move_head_to_tail(queue);
 			continue;
-		} else {
-			/* create a new connection to a worker */
-			if (worker_connection_try_create("indexer-worker",
-							 worker_status_callback,
-							 worker_avail_callback) <= 0)
-				break;
 		}
-		indexer_queue_request_remove(queue);
-		worker_send_request(conn, request);
+
+		/* create a new connection to a worker */
+		if (!worker_send_request(request))
+			break;
 	}
 }
 

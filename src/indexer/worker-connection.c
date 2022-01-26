@@ -117,21 +117,11 @@ worker_connection_input_args(struct connection *conn, const char *const *args)
 	return ret;
 }
 
-void worker_connection_request(struct connection *conn,
+static void
+worker_connection_send_request(struct worker_connection *worker,
 			       struct indexer_request *request)
 {
-	struct worker_connection *worker =
-		container_of(conn, struct worker_connection, conn);
-
-	i_assert(!conn->disconnected);
-
-	if (worker->request_username == NULL)
-		worker->request_username = i_strdup(request->username);
-	else {
-		i_assert(strcmp(worker->request_username,
-				request->username) == 0);
-	}
-
+	worker->request_username = i_strdup(request->username);
 	worker->request = request;
 
 	T_BEGIN {
@@ -153,7 +143,7 @@ void worker_connection_request(struct connection *conn,
 			break;
 		}
 		str_append_c(str, '\n');
-		o_stream_nsend(conn->output, str_data(str), str_len(str));
+		o_stream_nsend(worker->conn.output, str_data(str), str_len(str));
 	} T_END;
 }
 
@@ -186,6 +176,7 @@ void worker_connections_deinit(void)
 }
 
 int worker_connection_try_create(const char *socket_path,
+				 struct indexer_request *request,
 				 indexer_status_callback_t *callback,
 				 worker_available_callback_t *avail_callback)
 {
@@ -205,6 +196,7 @@ int worker_connection_try_create(const char *socket_path,
 		worker_connection_destroy(&conn->conn);
 		return -1;
 	}
+	worker_connection_send_request(conn, request);
 	return 1;
 }
 
@@ -221,8 +213,7 @@ struct connection *worker_connections_find_user(const char *username)
 		struct worker_connection *worker =
 			container_of(conn, struct worker_connection, conn);
 
-		if (worker->request_username != NULL &&
-		    strcmp(worker->request_username, username) == 0)
+		if (strcmp(worker->request_username, username) == 0)
 			return conn;
 	}
 	return NULL;
