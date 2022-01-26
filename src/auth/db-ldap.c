@@ -907,6 +907,7 @@ db_ldap_handle_result(struct ldap_connection *conn, struct db_ldap_result *res)
 	request = db_ldap_find_request(conn, msgid, &idx);
 	if (request == NULL) {
 		e_error(conn->event, "Reply with unknown msgid %d", msgid);
+		ldap_conn_reconnect(conn);
 		return;
 	}
 	/* request is allocated from auth_request's pool */
