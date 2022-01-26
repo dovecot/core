@@ -722,7 +722,11 @@ static void
 smtp_client_connection_auth_cb(const struct smtp_reply *reply,
 			       struct smtp_client_connection *conn)
 {
+	struct smtp_client_command *cmd, *cmd_auth = conn->cmd_auth;
 	const char *error;
+
+	conn->cmd_auth = NULL;
+	i_assert(cmd_auth != NULL);
 
 	if (reply->status == 334) {
 		const unsigned char *sasl_output;
@@ -742,9 +746,12 @@ smtp_client_connection_auth_cb(const struct smtp_reply *reply,
 		if (conn->sasl_ir != NULL) {
 			if (*reply->text_lines[0] == '\0') {
 				/* Send intial response */
-				o_stream_nsend_str(conn->conn.output,
-						   conn->sasl_ir);
-				o_stream_nsend_str(conn->conn.output, "\r\n");
+				cmd = smtp_client_command_new(
+					conn, SMTP_CLIENT_COMMAND_FLAG_PRELOGIN,
+					smtp_client_connection_auth_cb, conn);
+				smtp_client_command_write(cmd, conn->sasl_ir);
+				smtp_client_command_submit_after(cmd, cmd_auth);
+				conn->cmd_auth = cmd;
 				i_free(conn->sasl_ir);
 				return;
 			}
@@ -781,9 +788,12 @@ smtp_client_connection_auth_cb(const struct smtp_reply *reply,
 				MAX_BASE64_ENCODED_SIZE(sasl_output_len) + 2);
 			base64_encode(sasl_output, sasl_output_len,
 				      smtp_output);
-			str_append(smtp_output, "\r\n");
-			o_stream_nsend(conn->conn.output, str_data(smtp_output),
-				       str_len(smtp_output));
+			cmd = smtp_client_command_new(
+				conn, SMTP_CLIENT_COMMAND_FLAG_PRELOGIN,
+				smtp_client_connection_auth_cb, conn);
+			smtp_client_command_write(cmd, conn->sasl_ir);
+			smtp_client_command_submit_after(cmd, cmd_auth);
+			conn->cmd_auth = cmd;
 			return;
 		}
 
@@ -967,6 +977,7 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 					   mech_name, init_resp);
 	}
 	smtp_client_command_submit(cmd);
+	conn->cmd_auth = cmd;
 
 	smtp_client_connection_set_state(
 		conn, SMTP_CLIENT_CONNECTION_STATE_AUTHENTICATING);

@@ -195,8 +195,11 @@ struct smtp_client_connection {
 	unsigned int xclient_replies_expected;
 
 	struct dns_lookup *dns_lookup;
+
 	struct dsasl_client *sasl_client;
 	char *sasl_ir;
+	struct smtp_client_command *cmd_auth;
+
 	struct timeout *to_connect, *to_trans, *to_commands, *to_cmd_fail;
 	struct io *io_cmd_payload;
 
