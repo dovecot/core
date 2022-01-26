@@ -8,12 +8,14 @@
 #include "master-service-settings.h"
 #include "indexer-client.h"
 #include "indexer-queue.h"
-#include "worker-pool.h"
 #include "worker-connection.h"
 
 static const struct master_service_settings *set;
 static struct indexer_queue *queue;
-static struct worker_pool *worker_pool;
+
+static void
+worker_status_callback(int percentage, struct indexer_request *request);
+static void worker_avail_callback(void);
 
 void indexer_refresh_proctitle(void)
 {
@@ -28,7 +30,7 @@ void indexer_refresh_proctitle(void)
 static bool idle_die(void)
 {
 	return indexer_queue_is_empty(queue) &&
-		!worker_pool_have_connections(worker_pool);
+		worker_connections_get_count() == 0;
 }
 
 static void client_connected(struct master_service_connection *conn)
@@ -50,8 +52,7 @@ static void queue_try_send_more(struct indexer_queue *queue)
 	struct indexer_request *request, *first_moved_request = NULL;
 
 	while ((request = indexer_queue_request_peek(queue)) != NULL) {
-		conn = worker_pool_find_username_connection(worker_pool,
-							    request->username);
+		conn = worker_connections_find_user(request->username);
 		if (conn != NULL) {
 			/* There is already a connection handling a request
 			 * for this user. Move the request to the back of the
@@ -68,7 +69,10 @@ static void queue_try_send_more(struct indexer_queue *queue)
 			continue;
 		} else {
 			/* create a new connection to a worker */
-			if (!worker_pool_get_connection(worker_pool, &conn))
+			if (worker_connection_try_create("indexer-worker",
+							 worker_status_callback,
+							 worker_avail_callback,
+							 &conn) <= 0)
 				break;
 		}
 		indexer_queue_request_remove(queue);
@@ -120,16 +124,14 @@ int main(int argc, char *argv[])
 
 	queue = indexer_queue_init(indexer_client_status_callback);
 	indexer_queue_set_listen_callback(queue, queue_listen_callback);
-	worker_pool = worker_pool_init("indexer-worker",
-				       worker_status_callback,
-				       worker_avail_callback);
+	worker_connections_init();
 	master_service_init_finish(master_service);
 
 	master_service_run(master_service, client_connected);
 
 	indexer_queue_cancel_all(queue);
 	indexer_clients_destroy_all();
-	worker_pool_deinit(&worker_pool);
+	worker_connections_deinit();
 	indexer_queue_deinit(&queue);
 
 	master_service_deinit(&master_service);

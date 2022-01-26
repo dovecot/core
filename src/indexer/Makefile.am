@@ -22,8 +22,7 @@ indexer_SOURCES = \
 	indexer-client.c \
 	indexer-queue.c \
 	indexer-settings.c \
-	worker-connection.c \
-	worker-pool.c
+	worker-connection.c
 
 indexer_worker_LDADD = \
 	$(LIBDOVECOT_STORAGE) \
@@ -43,8 +42,7 @@ noinst_HEADERS = \
 	indexer-client.h \
 	indexer-queue.h \
 	master-connection.h \
-	worker-connection.h \
-	worker-pool.h
+	worker-connection.h
 
 test_programs = \
 	test-indexer-queue

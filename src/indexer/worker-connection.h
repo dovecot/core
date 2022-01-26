@@ -5,7 +5,6 @@
 
 struct indexer_request;
 struct connection;
-struct connection_list;
 
 typedef void worker_available_callback_t(void);
 
@@ -15,11 +14,8 @@ typedef void worker_available_callback_t(void);
 int worker_connection_try_create(const char *socket_path,
 				 indexer_status_callback_t *callback,
 				 worker_available_callback_t *avail_callback,
-				 struct connection_list *list,
 				 struct connection **conn_r);
 void worker_connection_destroy(struct connection *conn);
-
-struct connection_list *worker_connection_list_create(void);
 
 /* Returns TRUE if worker is connected to (not necessarily handshaked yet) */
 bool worker_connection_is_connected(struct connection *conn);
@@ -37,9 +33,10 @@ void worker_connection_request(struct connection *conn,
    or NULL if there are none. */
 const char *worker_connection_get_username(struct connection *conn);
 
-unsigned int worker_connections_get_count(struct connection_list *list);
-struct connection *
-worker_connections_find_user(struct connection_list *list,
-			     const char *username);
+unsigned int worker_connections_get_count(void);
+struct connection *worker_connections_find_user(const char *username);
+
+void worker_connections_init(void);
+void worker_connections_deinit(void);
 
 #endif

@@ -34,6 +34,7 @@ struct worker_connection {
 };
 
 static unsigned int worker_last_process_limit = 0;
+static struct connection_list *worker_connections;
 
 static void worker_connection_call_callback(struct worker_connection *worker,
 					    int percentage)
@@ -189,29 +190,35 @@ static const struct connection_settings worker_connection_set = {
 	.client = TRUE,
 };
 
-struct connection_list *worker_connection_list_create(void)
+void worker_connections_init(void)
 {
-	return connection_list_init(&worker_connection_set,
-				    &worker_connection_vfuncs);
+	worker_connections =
+		connection_list_init(&worker_connection_set,
+				     &worker_connection_vfuncs);
+}
+
+void worker_connections_deinit(void)
+{
+	connection_list_deinit(&worker_connections);
 }
 
 int worker_connection_try_create(const char *socket_path,
 				 indexer_status_callback_t *callback,
 				 worker_available_callback_t *avail_callback,
-				 struct connection_list *list,
 				 struct connection **conn_r)
 {
 	struct worker_connection *conn;
 	unsigned int max_connections;
 
 	max_connections = I_MAX(1, worker_connections_get_process_limit());
-	if (list->connections_count >= max_connections)
+	if (worker_connections->connections_count >= max_connections)
 		return 0;
 
 	conn = i_new(struct worker_connection, 1);
 	conn->callback = callback;
 	conn->avail_callback = avail_callback;
-	connection_init_client_unix(list, &conn->conn, socket_path);
+	connection_init_client_unix(worker_connections, &conn->conn,
+				    socket_path);
 	if (connection_client_connect(&conn->conn) < 0) {
 		worker_connection_destroy(&conn->conn);
 		return -1;
@@ -221,19 +228,17 @@ int worker_connection_try_create(const char *socket_path,
 	return 1;
 }
 
-unsigned int worker_connections_get_count(struct connection_list *list)
+unsigned int worker_connections_get_count(void)
 {
-	return list->connections_count;
+	return worker_connections->connections_count;
 }
 
-struct connection *
-worker_connections_find_user(struct connection_list *list,
-			     const char *username)
+struct connection *worker_connections_find_user(const char *username)
 {
 	struct connection *conn;
 	const char *worker_user;
 
-	for (conn = list->connections; conn != NULL; conn = conn->next) {
+	for (conn = worker_connections->connections; conn != NULL; conn = conn->next) {
 		worker_user = worker_connection_get_username(conn);
 		if (worker_user != NULL && strcmp(worker_user, username) == 0)
 			return conn;
