@@ -6,6 +6,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "strescape.h"
+#include "hostpid.h"
 #include "process-title.h"
 #include "master-service.h"
 #include "master-service-settings.h"
@@ -310,8 +311,8 @@ static int master_connection_handshake_args(struct connection *connection,
 	int ret;
 	if ((ret = connection_handshake_args_default(connection, args)) < 1)
 		return ret;
-	const char *limit = t_strdup_printf("%u\n",
-		master_service_get_process_limit(master_service));
+	const char *limit = t_strdup_printf("%u\t%s\n",
+		master_service_get_process_limit(master_service), my_pid);
 	o_stream_nsend_str(connection->output, limit);
 	return 1;
 }

@@ -28,6 +28,7 @@ struct worker_connection {
 	indexer_status_callback_t *callback;
 	worker_available_callback_t *avail_callback;
 
+	pid_t pid;
 	char *request_username;
 	struct indexer_request *request;
 };
@@ -59,18 +60,30 @@ void worker_connection_destroy(struct connection *conn)
 static int
 worker_connection_handshake_args(struct connection *conn, const char *const *args)
 {
+	struct worker_connection *worker =
+		container_of(conn, struct worker_connection, conn);
 	unsigned int process_limit;
 	int ret;
+
 	if (!conn->version_received) {
 		if ((ret = connection_handshake_args_default(conn, args)) < 1)
 			return ret;
 		/* we are not done yet */
 		return 0;
 	}
+	if (str_array_length(args) < 2) {
+		e_error(conn->event, "Worker sent invalid handshake");
+		return -1;
+	}
 	if (str_to_uint(args[0], &process_limit) < 0 ||
 	    process_limit == 0) {
 		e_error(conn->event, "Worker sent invalid process limit '%s'",
 			args[0]);
+		return -1;
+	}
+	if (str_to_pid(args[1], &worker->pid) < 0 || worker->pid <= 0) {
+		e_error(conn->event, "Worker sent invalid pid '%s'",
+			args[1]);
 		return -1;
 	}
 	worker_last_process_limit = process_limit;
