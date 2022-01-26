@@ -174,6 +174,10 @@ db_ldap_result_iterate_init_full(struct ldap_connection *conn,
 				 struct ldap_request_search *ldap_request,
 				 LDAPMessage *res, bool skip_null_values,
 				 bool iter_dn_values);
+static void db_ldap_abort_requests(struct ldap_connection *conn,
+				   unsigned int max_count,
+				   unsigned int timeout_secs,
+				   bool error, const char *reason);
 
 static int deref2str(const char *str, int *ref_r)
 {
@@ -434,7 +438,7 @@ static bool db_ldap_request_queue_next(struct ldap_connection *conn)
 }
 
 static void
-db_ldap_check_hanging(struct ldap_connection *conn, struct ldap_request *request)
+db_ldap_check_hanging(struct ldap_connection *conn)
 {
 	struct ldap_request *first_request;
 	unsigned int count;
@@ -448,8 +452,8 @@ db_ldap_check_hanging(struct ldap_connection *conn, struct ldap_request *request
 				       aqueue_idx(conn->request_queue, 0));
 	secs_diff = ioloop_time - first_request->create_time;
 	if (secs_diff > DB_LDAP_REQUEST_LOST_TIMEOUT_SECS) {
-		e_error(authdb_event(request->auth_request),
-			"Connection appears to be hanging, reconnecting");
+		db_ldap_abort_requests(conn, UINT_MAX, 0, TRUE,
+				       "LDAP connection appears to be hanging");
 		ldap_conn_reconnect(conn);
 	}
 }
@@ -462,7 +466,7 @@ void db_ldap_request(struct ldap_connection *conn,
 	request->msgid = -1;
 	request->create_time = ioloop_time;
 
-	db_ldap_check_hanging(conn, request);
+	db_ldap_check_hanging(conn);
 
 	aqueue_append(conn->request_queue, &request);
 	(void)db_ldap_request_queue_next(conn);
