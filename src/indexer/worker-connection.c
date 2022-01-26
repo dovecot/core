@@ -220,3 +220,23 @@ int worker_connection_try_create(const char *socket_path,
 	*conn_r = &conn->conn;
 	return 1;
 }
+
+unsigned int worker_connections_get_count(struct connection_list *list)
+{
+	return list->connections_count;
+}
+
+struct connection *
+worker_connections_find_user(struct connection_list *list,
+			     const char *username)
+{
+	struct connection *conn;
+	const char *worker_user;
+
+	for (conn = list->connections; conn != NULL; conn = conn->next) {
+		worker_user = worker_connection_get_username(conn);
+		if (worker_user != NULL && strcmp(worker_user, username) == 0)
+			return conn;
+	}
+	return NULL;
+}

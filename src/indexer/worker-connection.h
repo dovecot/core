@@ -37,4 +37,9 @@ void worker_connection_request(struct connection *conn,
    or NULL if there are none. */
 const char *worker_connection_get_username(struct connection *conn);
 
+unsigned int worker_connections_get_count(struct connection_list *list);
+struct connection *
+worker_connections_find_user(struct connection_list *list,
+			     const char *username);
+
 #endif

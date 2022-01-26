@@ -48,7 +48,7 @@ void worker_pool_deinit(struct worker_pool **_pool)
 
 bool worker_pool_have_connections(struct worker_pool *pool)
 {
-	return pool->connection_list->connections != NULL;
+	return worker_connections_get_count(pool->connection_list) > 0;
 }
 
 bool worker_pool_get_connection(struct worker_pool *pool,
@@ -63,13 +63,5 @@ struct connection *
 worker_pool_find_username_connection(struct worker_pool *pool,
 				     const char *username)
 {
-	struct connection *list;
-	const char *worker_user;
-
-	for (list = pool->connection_list->connections; list != NULL; list = list->next) {
-		worker_user = worker_connection_get_username(list);
-		if (worker_user != NULL && strcmp(worker_user, username) == 0)
-			return list;
-	}
-	return NULL;
+	return worker_connections_find_user(pool->connection_list, username);
 }
