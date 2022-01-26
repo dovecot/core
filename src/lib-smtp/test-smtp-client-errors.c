@@ -3074,7 +3074,8 @@ test_authentication_input_line(struct server_connection *conn,
 		}
 		break;
 	case SERVER_CONNECTION_STATE_MAIL_FROM:
-		if (server_index == 1) {
+		switch (server_index ) {
+		case 1:
 			o_stream_nsend_str(
 				conn->conn.output,
 				"535 5.7.8 "
@@ -3082,6 +3083,27 @@ test_authentication_input_line(struct server_connection *conn,
 			i_sleep_intr_secs(10);
 			server_connection_deinit(&conn);
 			return -1;
+		case 3: case 5:
+			if (str_begins(line, "AUTH ")) {
+				o_stream_nsend_str(conn->conn.output,
+						   "334 \r\n");
+				return 1;
+			}
+			if (str_begins(line, "EHLO ")) {
+				o_stream_nsend_str(conn->conn.output,
+						   "250-testserver\r\n"
+						   "250-PIPELINING\r\n"
+						   "250-ENHANCEDSTATUSCODES\r\n"
+						   "250-AUTH PLAIN\r\n"
+						   "250 DSN\r\n");
+				return 1;
+			}
+			if (!str_begins(line, "MAIL ")) {
+				o_stream_nsend_str(
+					conn->conn.output, "235 2.7.0 "
+					"Authentication successful\r\n");
+				return 1;
+			}
 		}
 		break;
 	default:
@@ -3130,7 +3152,7 @@ test_client_authentication_login_cb(const struct smtp_reply *reply,
 	case 1:
 		test_assert(reply->status == 535);
 		break;
-	case 2:
+	case 2:	case 3:	case 4:	case 5:
 		test_assert(reply->status == 250);
 		break;
 	}
@@ -3154,7 +3176,7 @@ test_client_authentication_mail_from_cb(
 	case 1:
 		test_assert(reply->status == 535);
 		break;
-	case 2:
+	case 2:	case 3:	case 4:	case 5:
 		test_assert(reply->status == 250);
 		break;
 	}
@@ -3178,7 +3200,7 @@ test_client_authentication_rcpt_to_cb(
 	case 1:
 		test_assert(reply->status == 535);
 		break;
-	case 2:
+	case 2:	case 3:	case 4:	case 5:
 		test_assert(reply->status == 250);
 		break;
 	}
@@ -3200,7 +3222,7 @@ test_client_authentication_rcpt_data_cb(
 	case 1:
 		test_assert(FALSE);
 		break;
-	case 2:
+	case 2:	case 3:	case 4:	case 5:
 		test_assert(TRUE);
 		break;
 	}
@@ -3224,7 +3246,7 @@ test_client_authentication_data_cb(
 	case 1:
 		test_assert(reply->status == 535);
 		break;
-	case 2:
+	case 2:	case 3:	case 4:	case 5:
 		test_assert(reply->status == 250);
 		break;
 	}
@@ -3267,7 +3289,62 @@ test_client_authentication_submit(struct _authentication *ctx,
 
 	i_zero(&smtp_set);
 	smtp_set.username = "peter.wolfsen";
-	smtp_set.password = "crybaby";
+
+	switch (index) {
+	case 3: /* Much too large for initial response */
+		smtp_set.password =
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef";
+		break;
+	case 4: /* Just small enough for initial response */
+		smtp_set.password =
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"01234";
+		break;
+	case 5: /* Just too large for initial response */
+		smtp_set.password =
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"0123456789abcdef0123456789abcdef"
+			"012345";
+		break;
+	default:
+		smtp_set.password = "crybaby";
+		break;
+	}
 
 	pctx->conn = smtp_client_connection_create(
 		smtp_client, SMTP_PROTOCOL_SMTP,
@@ -3311,7 +3388,7 @@ test_client_authentication(const struct smtp_client_settings *client_set)
 	test_expect_errors(2);
 
 	ctx = i_new(struct _authentication, 1);
-	ctx->count = 3;
+	ctx->count = 6;
 
 	smtp_client = smtp_client_init(client_set);
 
@@ -3332,7 +3409,7 @@ static void test_authentication(void)
 	test_begin("authentication");
 	test_run_client_server(&smtp_client_set,
 			       test_client_authentication,
-			       test_server_authentication, 3, NULL);
+			       test_server_authentication, 6, NULL);
 	test_end();
 }
 
