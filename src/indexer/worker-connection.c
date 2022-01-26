@@ -45,7 +45,7 @@ static void worker_connection_call_callback(struct worker_connection *worker,
 		worker->request = NULL;
 }
 
-void worker_connection_destroy(struct connection *conn)
+static void worker_connection_destroy(struct connection *conn)
 {
 	struct worker_connection *worker =
 		container_of(conn, struct worker_connection, conn);
@@ -117,23 +117,13 @@ worker_connection_input_args(struct connection *conn, const char *const *args)
 	return ret;
 }
 
-bool worker_connection_is_connected(struct connection *conn)
-{
-	return !conn->disconnected;
-}
-
-unsigned int worker_connections_get_process_limit(void)
-{
-	return worker_last_process_limit;
-}
-
 void worker_connection_request(struct connection *conn,
 			       struct indexer_request *request)
 {
 	struct worker_connection *worker =
 		container_of(conn, struct worker_connection, conn);
 
-	i_assert(worker_connection_is_connected(conn));
+	i_assert(!conn->disconnected);
 
 	if (worker->request_username == NULL)
 		worker->request_username = i_strdup(request->username);
@@ -165,13 +155,6 @@ void worker_connection_request(struct connection *conn,
 		str_append_c(str, '\n');
 		o_stream_nsend(conn->output, str_data(str), str_len(str));
 	} T_END;
-}
-
-const char *worker_connection_get_username(struct connection *conn)
-{
-	struct worker_connection *worker =
-		container_of(conn, struct worker_connection, conn);
-	return worker->request_username;
 }
 
 static const struct connection_vfuncs worker_connection_vfuncs = {
@@ -210,7 +193,7 @@ int worker_connection_try_create(const char *socket_path,
 	struct worker_connection *conn;
 	unsigned int max_connections;
 
-	max_connections = I_MAX(1, worker_connections_get_process_limit());
+	max_connections = I_MAX(1, worker_last_process_limit);
 	if (worker_connections->connections_count >= max_connections)
 		return 0;
 
@@ -236,11 +219,13 @@ unsigned int worker_connections_get_count(void)
 struct connection *worker_connections_find_user(const char *username)
 {
 	struct connection *conn;
-	const char *worker_user;
 
 	for (conn = worker_connections->connections; conn != NULL; conn = conn->next) {
-		worker_user = worker_connection_get_username(conn);
-		if (worker_user != NULL && strcmp(worker_user, username) == 0)
+		struct worker_connection *worker =
+			container_of(conn, struct worker_connection, conn);
+
+		if (worker->request_username != NULL &&
+		    strcmp(worker->request_username, username) == 0)
 			return conn;
 	}
 	return NULL;
