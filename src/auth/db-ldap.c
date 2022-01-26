@@ -49,6 +49,8 @@
 #  define LDAP_OPT_SUCCESS LDAP_SUCCESS
 #endif
 
+#define DB_LDAP_REQUEST_MAX_ATTEMPT_COUNT 3
+
 static const char *LDAP_ESCAPE_CHARS = "*,\\#+<>;\"()= ";
 
 struct db_ldap_result {
@@ -399,18 +401,25 @@ static bool db_ldap_request_queue_next(struct ldap_connection *conn)
 		break;
 	}
 
-	switch (request->type) {
-	case LDAP_REQUEST_TYPE_BIND:
-		ret = db_ldap_request_bind(conn, request);
-		break;
-	case LDAP_REQUEST_TYPE_SEARCH:
-		ret = db_ldap_request_search(conn, request);
-		break;
+	if (request->send_count >= DB_LDAP_REQUEST_MAX_ATTEMPT_COUNT) {
+		/* Enough many times retried. Server just keeps disconnecting
+		   whenever attempting to send the request. */
+		ret = 0;
+	} else {
+		switch (request->type) {
+		case LDAP_REQUEST_TYPE_BIND:
+			ret = db_ldap_request_bind(conn, request);
+			break;
+		case LDAP_REQUEST_TYPE_SEARCH:
+			ret = db_ldap_request_search(conn, request);
+			break;
+		}
 	}
 
 	if (ret > 0) {
 		/* success */
 		i_assert(request->msgid != -1);
+		request->send_count++;
 		conn->pending_count++;
 		return TRUE;
 	} else if (ret < 0) {
