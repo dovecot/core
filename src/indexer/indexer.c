@@ -11,11 +11,6 @@
 #include "worker-pool.h"
 #include "worker-connection.h"
 
-struct worker_request {
-	struct connection *conn;
-	struct indexer_request *request;
-};
-
 static const struct master_service_settings *set;
 static struct indexer_queue *queue;
 static struct worker_pool *worker_pool;
@@ -45,14 +40,8 @@ static void client_connected(struct master_service_connection *conn)
 static void worker_send_request(struct connection *conn,
 				struct indexer_request *request)
 {
-	struct worker_request *wrequest;
-
-	wrequest = i_new(struct worker_request, 1);
-	wrequest->conn = conn;
-	wrequest->request = request;
-
 	indexer_queue_request_work(request);
-	worker_connection_request(conn, request, wrequest);
+	worker_connection_request(conn, request);
 }
 
 static void queue_try_send_more(struct indexer_queue *queue)

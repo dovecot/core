@@ -114,14 +114,12 @@ unsigned int worker_connections_get_process_limit(void)
 }
 
 void worker_connection_request(struct connection *conn,
-			       struct indexer_request *request,
-			       void *context)
+			       struct indexer_request *request)
 {
 	struct worker_connection *worker =
 		container_of(conn, struct worker_connection, conn);
 
 	i_assert(worker_connection_is_connected(conn));
-	i_assert(context != NULL);
 	i_assert(request->index || request->optimize);
 
 	if (worker->request_username == NULL)
