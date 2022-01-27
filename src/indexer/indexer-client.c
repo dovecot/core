@@ -247,7 +247,7 @@ indexer_client_input_args(struct connection *conn, const char *const *args)
 	const char *error;
 
 	if (indexer_client_request(client, args, &error) < 0) {
-		i_error("Client input error: %s", error);
+		e_error(conn->event, "Client input error: %s", error);
 		return -1;
 	}
 	return 1;
