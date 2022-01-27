@@ -696,7 +696,7 @@ index_list_try_delete_nonexistent_parent(struct mailbox_list *_list,
 {
 	struct index_mailbox_list *list =
 		container_of(_list, struct index_mailbox_list, list);
-	struct mailbox_list_index_node *node, *parent = NULL;
+	struct mailbox_list_index_node *node;
 	string_t *full_name;
 	const char *p;
 	char sep = mailbox_list_get_hierarchy_sep(_list);
@@ -722,14 +722,22 @@ index_list_try_delete_nonexistent_parent(struct mailbox_list *_list,
 			   existant or not selectable, delete it */
 			str_truncate(full_name, 0);
 			mailbox_list_index_node_get_path(node, sep, full_name);
-			parent = node->parent;
 			if (index_list_delete_entry(list, str_c(full_name), FALSE) < 0)
 				return -1;
+
+			if ((p = strrchr(str_c(full_name), sep)) == NULL) {
+				/* No occurrences of the hierarchy separator
+				   could be found in the mailbox that was
+				   just deleted. */
+				node = NULL;
+			} else {
+				/* lookup parent node of the node just deleted */
+				str_truncate(full_name, p - str_c(full_name));
+				node = mailbox_list_index_lookup(_list, str_c(full_name));
+			}
 		} else
 			break;
 
-		/* If there is another parent attempt to delete it as well */
-		node = parent;
 	}
 	return 0;
 }
