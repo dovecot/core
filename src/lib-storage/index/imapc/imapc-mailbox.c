@@ -494,12 +494,50 @@ static void imapc_untagged_fetch_ctx_free(struct imapc_untagged_fetch_ctx **_ctx
 	pool_unref(&ctx->pool);
 }
 
+static void
+imapc_untagged_fetch_update_flags(struct imapc_mailbox *mbox,
+				  struct imapc_untagged_fetch_ctx *ctx,
+				  uint32_t lseq)
+{
+	const struct mail_index_record *rec = NULL;
+	const char *atom;
+
+	rec = mail_index_lookup(mbox->delayed_sync_view, lseq);
+	if (ctx->have_flags && rec->flags != ctx->flags) {
+		mail_index_update_flags(mbox->delayed_sync_trans, lseq,
+					MODIFY_REPLACE, ctx->flags);
+	}
+	if (ctx->have_flags) {
+		ARRAY_TYPE(keyword_indexes) old_kws;
+		struct mail_keywords *kw;
+
+		t_array_init(&old_kws, 8);
+		mail_index_lookup_keywords(mbox->delayed_sync_view, lseq,
+					   &old_kws);
+
+		if (ctx->have_gmail_labels) {
+			/* add keyword for mails that have GMail labels.
+			   this can be used for "All Mail" mailbox migrations
+			   with dsync */
+			atom = "$GMailHaveLabels";
+			array_push_back(&ctx->keywords, &atom);
+		}
+
+		array_append_zero(&ctx->keywords);
+		kw = mail_index_keywords_create(mbox->box.index,
+						array_front(&ctx->keywords));
+		if (!keywords_are_equal(kw, &old_kws)) {
+			mail_index_update_keywords(mbox->delayed_sync_trans,
+						   lseq, MODIFY_REPLACE, kw);
+		}
+		mail_index_keywords_unref(&kw);
+	}
+}
+
 static void imapc_untagged_fetch_handle(struct imapc_mailbox *mbox,
 					struct imapc_untagged_fetch_ctx *ctx,
 					uint32_t rseq)
 {
-	const struct mail_index_record *rec = NULL;
-	const char *atom;
 	uint32_t lseq;
 
 	imapc_mailbox_init_delayed_trans(mbox);
@@ -539,36 +577,8 @@ static void imapc_untagged_fetch_handle(struct imapc_mailbox *mbox,
 		mbox->sync_next_lseq++;
 	}
 
-	rec = mail_index_lookup(mbox->delayed_sync_view, lseq);
-	if (ctx->have_flags && rec->flags != ctx->flags) {
-		mail_index_update_flags(mbox->delayed_sync_trans, lseq,
-					MODIFY_REPLACE, ctx->flags);
-	}
-	if (ctx->have_flags) {
-		ARRAY_TYPE(keyword_indexes) old_kws;
-		struct mail_keywords *kw;
+	imapc_untagged_fetch_update_flags(mbox, ctx, lseq);
 
-		t_array_init(&old_kws, 8);
-		mail_index_lookup_keywords(mbox->delayed_sync_view, lseq,
-					   &old_kws);
-
-		if (ctx->have_gmail_labels) {
-			/* add keyword for mails that have GMail labels.
-			   this can be used for "All Mail" mailbox migrations
-			   with dsync */
-			atom = "$GMailHaveLabels";
-			array_push_back(&ctx->keywords, &atom);
-		}
-
-		array_append_zero(&ctx->keywords);
-		kw = mail_index_keywords_create(mbox->box.index,
-						array_front(&ctx->keywords));
-		if (!keywords_are_equal(kw, &old_kws)) {
-			mail_index_update_keywords(mbox->delayed_sync_trans,
-						   lseq, MODIFY_REPLACE, kw);
-		}
-		mail_index_keywords_unref(&kw);
-	}
 	if (ctx->modseq != 0) {
 		if (mail_index_modseq_lookup(mbox->delayed_sync_view, lseq) < ctx->modseq)
 			mail_index_update_modseq(mbox->delayed_sync_trans, lseq, ctx->modseq);
