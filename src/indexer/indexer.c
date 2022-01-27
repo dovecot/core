@@ -71,8 +71,7 @@ static void queue_try_send_more(struct indexer_queue *queue)
 			/* create a new connection to a worker */
 			if (worker_connection_try_create("indexer-worker",
 							 worker_status_callback,
-							 worker_avail_callback,
-							 &conn) <= 0)
+							 worker_avail_callback) <= 0)
 				break;
 		}
 		indexer_queue_request_remove(queue);

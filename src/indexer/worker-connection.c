@@ -187,8 +187,7 @@ void worker_connections_deinit(void)
 
 int worker_connection_try_create(const char *socket_path,
 				 indexer_status_callback_t *callback,
-				 worker_available_callback_t *avail_callback,
-				 struct connection **conn_r)
+				 worker_available_callback_t *avail_callback)
 {
 	struct worker_connection *conn;
 	unsigned int max_connections;
@@ -206,8 +205,6 @@ int worker_connection_try_create(const char *socket_path,
 		worker_connection_destroy(&conn->conn);
 		return -1;
 	}
-
-	*conn_r = &conn->conn;
 	return 1;
 }
 

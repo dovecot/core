@@ -13,8 +13,7 @@ typedef void worker_available_callback_t(void);
    error. */
 int worker_connection_try_create(const char *socket_path,
 				 indexer_status_callback_t *callback,
-				 worker_available_callback_t *avail_callback,
-				 struct connection **conn_r);
+				 worker_available_callback_t *avail_callback);
 
 /* Send a new indexing request for username+mailbox. The status callback is
    called as necessary. Requests can be queued, but only for the same
