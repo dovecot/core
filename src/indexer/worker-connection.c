@@ -205,7 +205,7 @@ unsigned int worker_connections_get_count(void)
 	return worker_connections->connections_count;
 }
 
-struct connection *worker_connections_find_user(const char *username)
+struct worker_connection *worker_connections_find_user(const char *username)
 {
 	struct connection *conn;
 
@@ -214,7 +214,7 @@ struct connection *worker_connections_find_user(const char *username)
 			container_of(conn, struct worker_connection, conn);
 
 		if (strcmp(worker->request_username, username) == 0)
-			return conn;
+			return worker;
 	}
 	return NULL;
 }

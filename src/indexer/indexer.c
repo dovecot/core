@@ -52,12 +52,12 @@ static bool worker_send_request(struct indexer_request *request)
 
 static void queue_try_send_more(struct indexer_queue *queue)
 {
-	struct connection *conn;
+	struct worker_connection *worker;
 	struct indexer_request *request, *first_moved_request = NULL;
 
 	while ((request = indexer_queue_request_peek(queue)) != NULL) {
-		conn = worker_connections_find_user(request->username);
-		if (conn != NULL) {
+		worker = worker_connections_find_user(request->username);
+		if (worker != NULL) {
 			/* There is already a connection handling a request
 			 * for this user. Move the request to the back of the
 			 * queue and handle requests from other users.

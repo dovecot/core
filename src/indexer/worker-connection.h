@@ -4,7 +4,7 @@
 #include "indexer.h"
 
 struct indexer_request;
-struct connection;
+struct worker_connection;
 
 typedef void worker_available_callback_t(void);
 
@@ -18,7 +18,7 @@ int worker_connection_try_create(const char *socket_path,
 				 worker_available_callback_t *avail_callback);
 
 unsigned int worker_connections_get_count(void);
-struct connection *worker_connections_find_user(const char *username);
+struct worker_connection *worker_connections_find_user(const char *username);
 
 void worker_connections_init(void);
 void worker_connections_deinit(void);
