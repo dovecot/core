@@ -368,8 +368,7 @@ static void proxy_input(struct client *client)
 
 static void proxy_reset(struct client *client)
 {
-	if (client->proxy_sasl_client != NULL)
-		dsasl_client_free(&client->proxy_sasl_client);
+	dsasl_client_free(&client->proxy_sasl_client);
 	client->v.proxy_reset(client);
 }
 
