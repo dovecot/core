@@ -134,7 +134,6 @@ http_server_resource_create(struct http_server *server, pool_t pool,
 
 	pool_ref(pool);
 
-	pool = pool_alloconly_create("http server resource", 1024);
 	res = p_new(pool, struct http_server_resource, 1);
 	res->pool = pool;
 	res->server = server;
