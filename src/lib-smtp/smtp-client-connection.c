@@ -2007,8 +2007,7 @@ void smtp_client_connection_disconnect(struct smtp_client_connection *conn)
 	ssl_iostream_destroy(&conn->ssl_iostream);
 	if (conn->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&conn->ssl_ctx);
-	if (conn->sasl_client != NULL)
-		dsasl_client_free(&conn->sasl_client);
+	dsasl_client_free(&conn->sasl_client);
 
 	o_stream_destroy(&conn->dot_output);
 

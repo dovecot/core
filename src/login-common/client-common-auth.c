@@ -392,8 +392,7 @@ void client_common_proxy_failed(struct client *client,
 				const char *reason ATTR_UNUSED,
 				bool reconnecting)
 {
-	if (client->proxy_sasl_client != NULL)
-		dsasl_client_free(&client->proxy_sasl_client);
+	dsasl_client_free(&client->proxy_sasl_client);
 	if (reconnecting) {
 		client->v.proxy_reset(client);
 		return;
