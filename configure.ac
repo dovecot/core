@@ -1,9 +1,15 @@
 AC_PREREQ([2.59])
 
+m4_define([dovecot_VERSION],
+    m4_esyscmd_s([build-aux/git-version-gen]))))
+
+m4_define([dovecot_ABI_VERSION],
+    m4_esyscmd_s([build-aux/git-abi-version-gen]))))
+
 # Be sure to update ABI version also if anything changes that might require
 # recompiling plugins. Most importantly that means if any structs are changed.
-AC_INIT([Dovecot],[3.0.devel],[dovecot@dovecot.org])
-AC_DEFINE_UNQUOTED([DOVECOT_ABI_VERSION], "3.0.ABIv0($PACKAGE_VERSION)", [Dovecot ABI version])
+AC_INIT([Dovecot], m4_defn([dovecot_VERSION]), [dovecot@dovecot.org])
+AC_DEFINE([DOVECOT_ABI_VERSION], m4_quote(m4_defn([dovecot_ABI_VERSION])), [Dovecot ABI version])
 
 AC_CONFIG_SRCDIR([src])
 AC_CONFIG_MACRO_DIR([m4])

@@ -21,11 +21,15 @@ EXTRA_DIST = \
 	run-test-valgrind.supp \
 	dovecot.service.in \
 	dovecot.socket \
+	version \
 	$(conf_DATA)
 
 noinst_DATA = dovecot-config
 
 nodist_pkginclude_HEADERS = config.h
+
+version:
+	$(AM_V_GEN)$(top_srcdir)/build-aux/git-version-gen > $@
 
 README: README.md
 	$(PANDOC) -f markdown_github -t plain -o $@ $<

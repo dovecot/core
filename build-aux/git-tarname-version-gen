@@ -1,0 +1,14 @@
+#!/bin/sh
+
+## serial 1
+
+if test "${VERSION}" != ""; then
+  VN=`echo ${VERSION} | sed -e "s/^\([0-9]*\.[0-9]*\)\.\([0-9]*\).*/dovecot-\1-plugin_name/"`
+elif test -f version; then
+  VN=`cat version`
+  VN=`echo $VN | sed -e "s/^\([0-9]*\.[0-9]*\)\.\([0-9]*\).*/dovecot-\1-plugin_name/"`
+else
+  VN='dovecot-0.0-plugin_name'
+fi
+
+echo $VN

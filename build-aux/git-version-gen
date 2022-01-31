@@ -1,0 +1,18 @@
+#!/bin/sh
+
+## serial 1
+
+if test "${VERSION}" != ""; then
+  VN="${VERSION}"
+elif test -s version; then
+  VN=`cat version`
+elif test -d .git; then
+ VN="0.0.0-`git rev-list --count HEAD`+`git describe --always`"
+ git update-index -q --refresh
+ test x = x"`git diff-index --name-only HEAD --`" || VN="${VN}-dirty"
+else
+  echo "Cannot determine version number">&2
+  exit 1
+fi
+
+echo $VN

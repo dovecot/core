@@ -1,0 +1,14 @@
+#!/bin/sh
+
+## serial 1
+
+if test "${VERSION}" != ""; then
+  VN=`echo ${VERSION} | sed -e "s/^\([0-9]*\.[0-9]*\)\.\([0-9]*\).*/\1.ABIv\2(${VERSION})/"`
+elif test -f version; then
+  VN=`cat version`
+  VN=`echo $VN | sed -e "s/^\([0-9]*\.[0-9]*\)\.\([0-9]*\).*/\1.ABIv\2($VN)/"`
+else test -d .git;
+  VN="0.0.ABIv0(0.0.0)"
+fi
+
+echo \"$VN\"

@@ -48,6 +48,7 @@ compile_commands.json
 /dovecot.service
 /README
 /INSTALL
+/version
 
 /aclocal.m4
 /m4/libtool.m4
