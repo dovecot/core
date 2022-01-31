@@ -256,6 +256,8 @@ void replicator_connection_destroy(struct replicator_connection **_conn)
 
 	timeout_remove(&conn->to);
 	hash_table_destroy(&conn->requests);
+	i_free(conn->ips);
+	i_free(conn->path);
 	i_free(conn);
 }
 
