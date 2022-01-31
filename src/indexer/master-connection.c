@@ -273,6 +273,14 @@ master_connection_cmd_index(struct master_connection *conn,
 		return -1;
 	}
 
+	struct master_service_anvil_session anvil_session;
+	guid_128_t anvil_conn_guid;
+	bool anvil_sent = FALSE;
+	mail_user_get_anvil_session(user, &anvil_session);
+	if (master_service_anvil_connect(master_service, &anvil_session,
+					 TRUE, anvil_conn_guid))
+		anvil_sent = TRUE;
+
 	indexer_worker_refresh_proctitle(user->username, mailbox, 0, 0);
 	struct event_reason *reason =
 		event_reason_begin("indexer:index_mailbox");
@@ -283,6 +291,11 @@ master_connection_cmd_index(struct master_connection *conn,
 	indexer_worker_refresh_proctitle(user->username, "(deinit)", 0, 0);
 	mail_user_deinit(&user);
 	mail_storage_service_user_unref(&service_user);
+
+	if (anvil_sent) {
+		master_service_anvil_disconnect(master_service, &anvil_session,
+						anvil_conn_guid);
+	}
 	indexer_worker_refresh_proctitle(NULL, NULL, 0, 0);
 	return ret;
 }
