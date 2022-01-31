@@ -244,14 +244,55 @@ index_mailbox(struct master_connection *conn, struct mail_user *user,
 }
 
 static int
+master_connection_cmd_index(struct master_connection *conn,
+			    const char *username, const char *mailbox,
+			    const char *session_id,
+			    unsigned int max_recent_msgs, const char *what)
+{
+	struct mail_storage_service_input input;
+	struct mail_storage_service_user *service_user;
+	struct mail_user *user;
+	const char *error;
+	int ret;
+
+	i_zero(&input);
+	input.module = "mail";
+	input.service = "indexer-worker";
+	input.username = username;
+	/* if session-id is given, use it as a prefix to a unique session ID.
+	   we can't use the session-id directly or stats process will complain
+	   about duplicates. (especially LMTP would use the same session-id for
+	   multiple users' indexing at the same time.) */
+	if (session_id[0] != '\0')
+		input.session_id_prefix = session_id;
+
+	if (mail_storage_service_lookup_next(conn->storage_service, &input,
+					     &service_user, &user, &error) <= 0) {
+		e_error(conn->conn.event, "User %s lookup failed: %s",
+			username, error);
+		ret = -1;
+	} else {
+		indexer_worker_refresh_proctitle(user->username, mailbox, 0, 0);
+		struct event_reason *reason =
+			event_reason_begin("indexer:index_mailbox");
+		ret = index_mailbox(conn, user, mailbox, max_recent_msgs, what);
+		event_reason_end(&reason);
+		/* refresh proctitle before a potentially long-running
+		   user unref */
+		indexer_worker_refresh_proctitle(user->username, "(deinit)", 0, 0);
+		mail_user_deinit(&user);
+		mail_storage_service_user_unref(&service_user);
+		indexer_worker_refresh_proctitle(NULL, NULL, 0, 0);
+	}
+	return ret;
+}
+
+static int
 master_connection_input_args(struct connection *_conn, const char *const *args)
 {
 	struct master_connection *conn =
 		container_of(_conn, struct master_connection, conn);
-	struct mail_storage_service_input input;
-	struct mail_storage_service_user *service_user;
-	struct mail_user *user;
-	const char *str, *error;
+	const char *str;
 	unsigned int max_recent_msgs;
 	int ret;
 
@@ -262,36 +303,13 @@ master_connection_input_args(struct connection *_conn, const char *const *args)
 			t_strarray_join(args, "\t"));
 		return -1;
 	}
+	const char *username = args[0];
+	const char *mailbox = args[1];
+	const char *session_id = args[2];
+	const char *what = args[4];
 
-	i_zero(&input);
-	input.module = "mail";
-	input.service = "indexer-worker";
-	input.username = args[0];
-	/* if session-id is given, use it as a prefix to a unique session ID.
-	   we can't use the session-id directly or stats process will complain
-	   about duplicates. (especially LMTP would use the same session-id for
-	   multiple users' indexing at the same time.) */
-	if (args[2][0] != '\0')
-		input.session_id_prefix = args[2];
-
-	if (mail_storage_service_lookup_next(conn->storage_service, &input,
-					     &service_user, &user, &error) <= 0) {
-		e_error(conn->conn.event, "User %s lookup failed: %s", args[0], error);
-		ret = -1;
-	} else {
-		indexer_worker_refresh_proctitle(user->username, args[1], 0, 0);
-		struct event_reason *reason =
-			event_reason_begin("indexer:index_mailbox");
-		ret = index_mailbox(conn, user, args[1],
-				    max_recent_msgs, args[4]);
-		event_reason_end(&reason);
-		/* refresh proctitle before a potentially long-running
-		   user unref */
-		indexer_worker_refresh_proctitle(user->username, "(deinit)", 0, 0);
-		mail_user_deinit(&user);
-		mail_storage_service_user_unref(&service_user);
-		indexer_worker_refresh_proctitle(NULL, NULL, 0, 0);
-	}
+	ret = master_connection_cmd_index(conn, username, mailbox, session_id,
+					  max_recent_msgs, what);
 
 	str = ret < 0 ? "-1\n" : "100\n";
 	o_stream_nsend_str(conn->conn.output, str);
