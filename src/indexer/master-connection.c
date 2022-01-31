@@ -270,20 +270,20 @@ master_connection_cmd_index(struct master_connection *conn,
 					     &service_user, &user, &error) <= 0) {
 		e_error(conn->conn.event, "User %s lookup failed: %s",
 			username, error);
-		ret = -1;
-	} else {
-		indexer_worker_refresh_proctitle(user->username, mailbox, 0, 0);
-		struct event_reason *reason =
-			event_reason_begin("indexer:index_mailbox");
-		ret = index_mailbox(conn, user, mailbox, max_recent_msgs, what);
-		event_reason_end(&reason);
-		/* refresh proctitle before a potentially long-running
-		   user unref */
-		indexer_worker_refresh_proctitle(user->username, "(deinit)", 0, 0);
-		mail_user_deinit(&user);
-		mail_storage_service_user_unref(&service_user);
-		indexer_worker_refresh_proctitle(NULL, NULL, 0, 0);
+		return -1;
 	}
+
+	indexer_worker_refresh_proctitle(user->username, mailbox, 0, 0);
+	struct event_reason *reason =
+		event_reason_begin("indexer:index_mailbox");
+	ret = index_mailbox(conn, user, mailbox, max_recent_msgs, what);
+	event_reason_end(&reason);
+	/* refresh proctitle before a potentially long-running
+	   user unref */
+	indexer_worker_refresh_proctitle(user->username, "(deinit)", 0, 0);
+	mail_user_deinit(&user);
+	mail_storage_service_user_unref(&service_user);
+	indexer_worker_refresh_proctitle(NULL, NULL, 0, 0);
 	return ret;
 }
 
