@@ -794,6 +794,10 @@ bool old_settings_handle(struct config_parser_context *ctx,
 			config_parser_apply_line(ctx, CONFIG_LINE_TYPE_SECTION_BEGIN,
 						 "service", "dns-client");
 			return TRUE;
+		} else if (ctx->pathlen == 0 && strcmp(key, "service") == 0 &&
+			   strcmp(value, "ipc") == 0) {
+			obsolete(ctx, "service ipc {} no longer exists");
+			/* continue anyway */
 		}
 		break;
 	case CONFIG_LINE_TYPE_SECTION_END:
