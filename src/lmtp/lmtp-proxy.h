@@ -8,6 +8,7 @@
 #include "smtp-client.h"
 
 #define LMTP_PROXY_DEFAULT_TTL 5
+#define LMTP_PROXY_DEFAULT_PORT 24
 
 struct smtp_server_cmd_ctx;
 struct smtp_server_cmd_rcpt;

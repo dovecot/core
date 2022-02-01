@@ -915,7 +915,8 @@ int lmtp_proxy_rcpt(struct client *client,
 	}
 
 	i_zero(&set);
-	set.set.port = client->local_port;
+	set.set.port = (client->local_port != 0 ?
+			client->local_port : LMTP_PROXY_DEFAULT_PORT);
 	set.set.timeout_msecs = LMTP_PROXY_DEFAULT_TIMEOUT_MSECS;
 	set.protocol = SMTP_PROTOCOL_LMTP;
 
