@@ -255,22 +255,24 @@ mail_crypt_mail_save_begin(struct mail_save_context *ctx,
 	const char *pubid;
 	struct mailbox *box = ctx->transaction->box;
 	struct mail_crypt_mailbox *mbox = MAIL_CRYPT_CONTEXT(box);
-	struct mail_crypt_user *muser =
-		MAIL_CRYPT_USER_CONTEXT_REQUIRE(box->storage->user);
+	struct mail_crypt_user *muser = MAIL_CRYPT_USER_CONTEXT(box->storage->user);
 
-	enum io_stream_encrypt_flags enc_flags;
-	if (muser->save_version == 1) {
-		enc_flags = IO_STREAM_ENC_VERSION_1;
-	} else if (muser->save_version == 2) {
-		enc_flags = IO_STREAM_ENC_INTEGRITY_AEAD;
-	} else {
-		i_assert(muser->save_version == 0);
-		i_panic("mail_crypt_mail_save_begin not supposed to be called"
-				"when mail_crypt_save_version is 0");
+	enum io_stream_encrypt_flags enc_flags = 0;
+	if (muser != NULL) {
+		if (muser->save_version == 1) {
+			enc_flags = IO_STREAM_ENC_VERSION_1;
+		} else if (muser->save_version == 2) {
+			enc_flags = IO_STREAM_ENC_INTEGRITY_AEAD;
+		} else {
+			i_assert(muser->save_version == 0);
+		}
 	}
 
 	if (mbox->module_ctx.super.save_begin(ctx, input) < 0)
 		return -1;
+
+	if (enc_flags == 0)
+		return 0;
 
 	struct dcrypt_public_key *pub_key;
 	if (muser->global_keys.public_key != NULL)
@@ -370,20 +372,17 @@ static void mail_crypt_mailbox_allocated(struct mailbox *box)
 	MODULE_CONTEXT_SET(box, mail_crypt_storage_module, mbox);
 
 	if ((class_flags & MAIL_STORAGE_CLASS_FLAG_BINARY_DATA) != 0) {
-		if (muser != NULL) {
-			if (muser->save_version > 0) {
-				v->save_begin = mail_crypt_mail_save_begin;
-				/* if global keys are used, re-encrypting on copy/move
-				   is not necessary, so do not attempt to do it.
+		v->save_begin = mail_crypt_mail_save_begin;
 
-				   with per-folder keys, emails must be re-encrypted
-				   when moving to another folder */
-				if (muser->global_keys.public_key == NULL)
-					v->copy = mail_crypt_mailbox_copy;
-			}
-		} else {
+		/* if global keys are used, re-encrypting on copy/move
+		   is not necessary, so do not attempt to do it.
+		   with per-folder keys, emails must be re-encrypted
+		   when moving to another folder */
+		if (muser == NULL || muser->save_version == 0 ||
+		    muser->global_keys.public_key == NULL)
+			v->copy = mail_crypt_mailbox_copy;
+		if (muser == NULL || muser->save_version == 0)
 			v->save_finish = mail_crypt_mail_save_finish;
-		}
 	}
 }
 
@@ -470,10 +469,11 @@ void mail_crypt_plugin_init(struct module *module)
 	if (!dcrypt_initialize("openssl", NULL, &error))
 		i_fatal("dcrypt_initialize(): %s", error);
 	mail_storage_hooks_add(module, &mail_crypt_mail_storage_hooks);
-	/* rather kludgy. we need to hook into mail reading as early as
-	   possible, but we need to hook into mail writing as late as
-	   possible. we could create just two real plugins, but that's a bit
-	   annoying to configure. */
+	/* when this plugin is loaded, there's the potential chance for
+	   mixed delivery between encrypted and non-encrypted recipients.
+	   The mail_crypt_mailbox_allocated() hook ensures encrypted
+	   content isn't copied as such into cleartext recipients
+	   (and the other way around) */
 	mail_storage_hooks_add_forced(&crypto_post_module,
 				      &mail_crypt_mail_storage_hooks_post);
 	mail_crypt_key_register_mailbox_internal_attributes();
