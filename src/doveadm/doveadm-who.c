@@ -26,6 +26,7 @@ struct who_user {
 struct doveadm_who_iter {
 	struct istream *input;
 	pool_t pool, line_pool;
+	bool failed;
 };
 
 static void who_user_ip(const struct who_user *user, struct ip_addr *ip_r)
@@ -190,13 +191,18 @@ struct doveadm_who_iter *doveadm_who_iter_init(const char *anvil_path)
 
 	fd = doveadm_connect(anvil_path);
 	net_set_nonblock(fd, FALSE);
-	if (write(fd, ANVIL_CMD, strlen(ANVIL_CMD)) < 0)
-		i_fatal("write(%s) failed: %m", anvil_path);
+	if (write(fd, ANVIL_CMD, strlen(ANVIL_CMD)) < 0) {
+		i_error("write(%s) failed: %m", anvil_path);
+		iter->failed = TRUE;
+		return iter;
+	}
 
 	iter->input = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
 	i_stream_set_name(iter->input, anvil_path);
-	if ((line = i_stream_read_next_line(iter->input)) == NULL)
-		i_fatal("anvil didn't send header line");
+	if ((line = i_stream_read_next_line(iter->input)) == NULL) {
+		i_error("anvil didn't send header line");
+		iter->failed = TRUE;
+	}
 	return iter;
 }
 
@@ -206,32 +212,43 @@ bool doveadm_who_iter_next(struct doveadm_who_iter *iter,
 	const char *line;
 	int ret;
 
-	while ((line = i_stream_read_next_line(iter->input)) != NULL) {
+	if (iter->failed)
+		return FALSE;
+
+	if ((line = i_stream_read_next_line(iter->input)) != NULL) {
 		if (*line == '\0')
-			break;
+			return FALSE;
 		T_BEGIN {
 			ret = who_parse_line(iter, line, who_line_r);
 		} T_END;
-		if (ret < 0)
+		if (ret < 0) {
 			i_error("Invalid input: %s", line);
-		else
-			return TRUE;
+			iter->failed = TRUE;
+			return FALSE;
+		}
+		return TRUE;
 	}
 	if (iter->input->stream_errno != 0) {
-		i_fatal("read(%s) failed: %s", i_stream_get_name(iter->input),
+		i_error("read(%s) failed: %s", i_stream_get_name(iter->input),
 			i_stream_get_error(iter->input));
+	} else {
+		i_error("read(%s) failed: Unexpected EOF",
+			i_stream_get_name(iter->input));
 	}
+	iter->failed = TRUE;
 	return FALSE;
 }
 
-void doveadm_who_iter_deinit(struct doveadm_who_iter **_iter)
+int doveadm_who_iter_deinit(struct doveadm_who_iter **_iter)
 {
 	struct doveadm_who_iter *iter = *_iter;
+	bool failed = iter->failed;
 
 	*_iter = NULL;
 	i_stream_destroy(&iter->input);
 	pool_unref(&iter->line_pool);
 	pool_unref(&iter->pool);
+	return failed ? -1 : 0;
 }
 
 static bool who_user_filter_match(const struct who_user *user,
@@ -376,7 +393,8 @@ static void cmd_who(struct doveadm_cmd_context *cctx)
 		while (doveadm_who_iter_next(iter, &who_line))
 			who_print_line(&ctx, &who_line);
 	}
-	doveadm_who_iter_deinit(&iter);
+	if (doveadm_who_iter_deinit(&iter) < 0)
+		doveadm_exit_code = EX_TEMPFAIL;
 
 	hash_table_destroy(&ctx.users);
 	pool_unref(&ctx.pool);

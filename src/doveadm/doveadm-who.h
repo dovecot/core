@@ -38,6 +38,6 @@ bool who_line_filter_match(const struct who_line *line,
 struct doveadm_who_iter *doveadm_who_iter_init(const char *anvil_path);
 bool doveadm_who_iter_next(struct doveadm_who_iter *iter,
 			   struct who_line *who_line_r);
-void doveadm_who_iter_deinit(struct doveadm_who_iter **_iter);
+int doveadm_who_iter_deinit(struct doveadm_who_iter **_iter);
 
 #endif /* DOVEADM_WHO_H */

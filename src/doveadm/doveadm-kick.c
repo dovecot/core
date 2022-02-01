@@ -221,7 +221,8 @@ static void cmd_kick(struct doveadm_cmd_context *cctx)
 	struct who_line who_line;
 	while (doveadm_who_iter_next(iter, &who_line))
 		kick_aggregate_line(&ctx.who, &who_line);
-	doveadm_who_iter_deinit(&iter);
+	if (doveadm_who_iter_deinit(&iter) < 0)
+		doveadm_exit_code = EX_TEMPFAIL;
 	kick_users(&ctx);
 
 	hash_table_destroy(&ctx.pids);
