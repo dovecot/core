@@ -40,9 +40,12 @@ smtp_server_transaction_create(struct smtp_server_connection *conn,
 	trans->conn = conn;
 
 	/* generate transaction ID */
-	conn->transaction_seq++;
-	trans->id = p_strdup_printf(pool, "%s:%u", conn->session_id,
-				    conn->transaction_seq);
+	if (conn->transaction_seq++ == 0)
+		trans->id = conn->session_id;
+	else {
+		trans->id = p_strdup_printf(pool, "%s:T%u", conn->session_id,
+					    conn->transaction_seq);
+	}
 
 	trans->flags = mail_data->flags;
 	trans->mail_from = smtp_address_clone(trans->pool, mail_data->path);
