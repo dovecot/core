@@ -20,7 +20,7 @@ struct lmtp_recipient {
 	enum lmtp_recipient_type type;
 	void *backend_context;
 
-	char *session_id;
+	const char *session_id;
 	const char *forward_fields;
 
 	/* Module-specific contexts. */
