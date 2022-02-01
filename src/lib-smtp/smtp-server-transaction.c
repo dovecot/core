@@ -23,7 +23,7 @@ smtp_server_transaction_update_event(struct smtp_server_transaction *trans)
 		      smtp_address_encode_raw(trans->mail_from));
 	smtp_params_mail_add_to_event(&trans->params, event);
 	event_set_append_log_prefix(event,
-				    t_strdup_printf("trans %s: ", trans->id));
+				    t_strdup_printf("trans <%s>: ", trans->id));
 }
 
 struct smtp_server_transaction *
