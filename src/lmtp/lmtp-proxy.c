@@ -747,7 +747,7 @@ lmtp_proxy_data_cb(const struct smtp_reply *proxy_reply,
 
 	/* Compose log message */
 	msg = t_str_new(128);
-	str_printfa(msg, "%s: ", trans->id);
+	str_printfa(msg, "%s: ", lrcpt->session_id);
 	if (smtp_reply_is_success(proxy_reply))
 		str_append(msg, "Sent message to");
 	else
