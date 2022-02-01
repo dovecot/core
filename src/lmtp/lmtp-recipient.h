@@ -17,13 +17,13 @@ struct lmtp_recipient {
 	struct client *client;
 	struct smtp_server_recipient *rcpt;
 
-	char *username, *detail;
+	const char *username, *detail;
 	char delim;
 
 	enum lmtp_recipient_type type;
 	void *backend_context;
 
-	char *session_id;
+	const char *session_id;
 	const char *forward_fields;
 
 	/* Module-specific contexts. */
