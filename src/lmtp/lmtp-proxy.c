@@ -87,6 +87,7 @@ struct lmtp_proxy {
 	struct istream *data_input;
 
 	unsigned int max_timeout_msecs;
+	unsigned int proxy_session_seq;
 
 	bool finished:1;
 };
@@ -126,6 +127,8 @@ lmtp_proxy_init(struct client *client,
 					      &lmtp_set.proxy_data);
 	lmtp_set.proxy_data.source_ip = client->remote_ip;
 	lmtp_set.proxy_data.source_port = client->remote_port;
+	/* This initial session_id is used only locally by lib-smtp. Each LMTP
+	   proxy connection gets a more specific updated session_id. */
 	lmtp_set.proxy_data.session = trans->id;
 	if (lmtp_set.proxy_data.ttl_plus_1 == 0)
 		lmtp_set.proxy_data.ttl_plus_1 = LMTP_PROXY_DEFAULT_TTL + 1;
@@ -279,6 +282,11 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 			conn->set.host, conn->set.port,
 			ssl_mode, &lmtp_set);
 	}
+	struct smtp_proxy_data proxy_data = {
+		.session = t_strdup_printf("%s:P%u", proxy->trans->id,
+					   ++proxy->proxy_session_seq),
+	};
+	smtp_client_connection_update_proxy_data(conn->lmtp_conn, &proxy_data);
 	smtp_client_connection_accept_extra_capability(conn->lmtp_conn,
 						       &cap_rcpt_forward);
 	smtp_client_connection_connect(conn->lmtp_conn, NULL, NULL);
