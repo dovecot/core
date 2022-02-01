@@ -51,10 +51,12 @@ lmtp_recipient_create(struct client *client,
 
 	/* Use a unique session_id for each mail delivery. This is especially
 	   important for stats process to not see duplicate sessions. */
-	client->state.session_id_seq++;
-	lrcpt->session_id = p_strdup_printf(rcpt->pool, "%s:%u", trans->id,
-					    client->state.session_id_seq);
-
+	if (client->state.session_id_seq++ == 0)
+		lrcpt->session_id = trans->id;
+	else {
+		lrcpt->session_id = p_strdup_printf(rcpt->pool, "%s:R%u",
+			trans->id, client->state.session_id_seq);
+	}
 	event_add_str(rcpt->event, "session", lrcpt->session_id);
 
 	return lrcpt;
