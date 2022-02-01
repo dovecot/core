@@ -329,6 +329,7 @@ static int anvil_client_send(struct anvil_client *client, const char *cmd)
 	return 0;
 }
 
+#undef anvil_client_query
 struct anvil_query *
 anvil_client_query(struct anvil_client *client, const char *query,
 		   unsigned int timeout_msecs,

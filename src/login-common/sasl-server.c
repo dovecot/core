@@ -215,9 +215,8 @@ static int master_send_request(struct anvil_request *anvil_request)
 }
 
 static void ATTR_NULL(1)
-anvil_lookup_callback(const char *reply, void *context)
+anvil_lookup_callback(const char *reply, struct anvil_request *req)
 {
-	struct anvil_request *req = context;
 	struct client *client = req->client;
 	const struct login_settings *set = client->set;
 	const char *errmsg;

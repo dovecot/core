@@ -61,9 +61,10 @@ unsigned int auth_penalty_to_secs(unsigned int penalty)
 	return secs < AUTH_PENALTY_MAX_SECS ? secs : AUTH_PENALTY_MAX_SECS;
 }
 
-static void auth_penalty_anvil_callback(const char *reply, void *context)
+static void
+auth_penalty_anvil_callback(const char *reply,
+			    struct auth_penalty_request *request)
 {
-	struct auth_penalty_request *request = context;
 	unsigned int penalty = 0;
 	unsigned long last_penalty = 0;
 	unsigned int secs, drop_penalty;

@@ -256,10 +256,8 @@ lmtp_local_rcpt_anvil_finish(struct lmtp_local_recipient *llrcpt)
 }
 
 static void
-lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
+lmtp_local_rcpt_anvil_cb(const char *reply, struct lmtp_local_recipient *llrcpt)
 {
-	struct lmtp_local_recipient *llrcpt =
-		(struct lmtp_local_recipient *)context;
 	struct client *client = llrcpt->rcpt->client;
 	struct smtp_server_recipient *rcpt = llrcpt->rcpt->rcpt;
 	const struct mail_storage_service_input *input;

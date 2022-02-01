@@ -25,9 +25,9 @@ struct kick_context {
 	unsigned int kicked_count;
 };
 
-static void kick_user_anvil_callback(const char *reply, void *context)
+static void
+kick_user_anvil_callback(const char *reply, struct kick_context *ctx)
 {
-	struct kick_context *ctx = context;
 	unsigned int count;
 
 	if (reply != NULL) {

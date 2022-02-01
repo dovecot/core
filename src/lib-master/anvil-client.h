@@ -44,6 +44,11 @@ struct anvil_query *
 anvil_client_query(struct anvil_client *client, const char *query,
 		   unsigned int timeout_msecs,
 		   anvil_callback_t *callback, void *context);
+#define anvil_client_query(client, query, timeout_msecs, callback, context) \
+	anvil_client_query(client, query, timeout_msecs, \
+		(anvil_callback_t *)(callback), 1 ? (context) : \
+		CALLBACK_TYPECHECK(callback, \
+			void (*)(const char *, typeof(context))))
 void anvil_client_query_abort(struct anvil_client *client,
 			      struct anvil_query **query);
 /* Send a command to anvil, don't expect any replies. */

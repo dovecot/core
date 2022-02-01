@@ -1006,9 +1006,10 @@ static void director_user_kill_fail_throttled(unsigned int new_events_count,
 	i_error("Failed to kill %u users' connections", new_events_count);
 }
 
-static void director_kill_user_callback(const char *reply, void *context)
+static void
+director_kill_user_callback(const char *reply,
+			    struct director_kill_context *ctx)
 {
-	struct director_kill_context *ctx = context;
 	struct user *user;
 
 	/* don't try to abort the IPC command anymore */
@@ -1191,10 +1192,8 @@ void director_move_user(struct director *dir, struct director_host *src,
 }
 
 static void
-director_kick_user_callback(const char *reply ATTR_UNUSED, void *context)
+director_kick_user_callback(const char *reply ATTR_UNUSED, struct director *dir)
 {
-	struct director *dir = context;
-
 	i_assert(dir->users_kicking_count > 0);
 	dir->users_kicking_count--;
 	if (dir->kick_callback != NULL)
