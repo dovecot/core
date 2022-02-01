@@ -1,4 +1,4 @@
-v2.3.18 2022-02-01  Aki Tuomi <aki.tuomi@open-xchange.com>
+v2.3.18 2022-02-03  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* Removed mail_cache_lookup_finished event. This event wasn't especially
 	  useful, but it increased CPU usage significantly.
@@ -9,7 +9,8 @@ v2.3.18 2022-02-01  Aki Tuomi <aki.tuomi@open-xchange.com>
 	  details on how base64 is detected. Only applies when using libfts.
 	* lmtp: Session IDs are now preserved through proxied connections, so
 	  LMTP sessions can be tracked. This slightly changes the LMTP session
-	  ID format by appending ":N" number to it after each hop.
+	  ID format by appending ":Tn" (transaction), ":Pn" (proxy connection)
+	  and ":Rn" (recipient) counters after the session ID prefix.
 	+ Events now have "reason_code" field, which can provide a list of
 	  reasons why the event is happening. See
 	  https://doc.dovecot.org/admin_manual/event_reasons/
