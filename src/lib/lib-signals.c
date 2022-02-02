@@ -111,6 +111,24 @@ const char *lib_signal_code_to_str(int signo, int sicode)
 	return t_strdup_printf("unknown %d", sicode);
 }
 
+static void lib_signal_delayed(const siginfo_t *si)
+{
+	int signo = si->si_signo;
+
+	if (pending_signals[signo].si_signo != 0)
+		return;
+
+	pending_signals[signo] = *si;
+	if (!have_pending_signals) {
+		char c = 0;
+		if (write(sig_pipe_fd[1], &c, 1) != 1) {
+			lib_signals_syscall_error(
+				"signal: write(sigpipe) failed: ");
+		}
+		have_pending_signals = TRUE;
+	}
+}
+
 #ifdef SA_SIGINFO
 static void sig_handler(int signo, siginfo_t *si, void *context ATTR_UNUSED)
 #else
@@ -119,7 +137,6 @@ static void sig_handler(int signo)
 {
 	struct signal_handler *h;
 	int saved_errno;
-	char c = 0;
 
 #if defined(SI_NOINFO) || !defined(SA_SIGINFO)
 #ifndef SA_SIGINFO
@@ -149,16 +166,8 @@ static void sig_handler(int signo)
 	for (h = signal_handlers[signo]; h != NULL; h = h->next) {
 		if (h->immediate_handler != NULL)
 			h->immediate_handler(si, h->context);
-		else if (pending_signals[signo].si_signo == 0) {
-			pending_signals[signo] = *si;
-			if (!have_pending_signals) {
-				if (write(sig_pipe_fd[1], &c, 1) != 1) {
-					lib_signals_syscall_error(
-						"signal: write(sigpipe) failed: ");
-				}
-				have_pending_signals = TRUE;
-			}
-		}
+		else
+			lib_signal_delayed(si);
 	}
 	errno = saved_errno;
 }
