@@ -1139,6 +1139,7 @@ static void master_service_deinit_real(struct master_service **_service)
 	i_free(master_service_category_name);
 	master_service_category.name = NULL;
 	event_unregister_callback(master_service_event_callback);
+	master_service_unset_process_shutdown_filter(service);
 }
 
 static void master_service_free(struct master_service *service)
