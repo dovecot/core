@@ -18,7 +18,6 @@ SUBDIRS = \
 	acl \
 	imap-acl \
 	fts \
-	fts-squat \
 	last-login \
 	lazy-expunge \
 	listescape \

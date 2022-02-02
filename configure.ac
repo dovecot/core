@@ -742,7 +742,7 @@ dnl
 dnl ** Full text search
 dnl
 
-fts=" squat"
+fts=""
 not_fts=""
 
 DOVECOT_WANT_SOLR
@@ -892,7 +892,6 @@ src/plugins/imap-acl/Makefile
 src/plugins/fs-compress/Makefile
 src/plugins/fts/Makefile
 src/plugins/fts-solr/Makefile
-src/plugins/fts-squat/Makefile
 src/plugins/last-login/Makefile
 src/plugins/lazy-expunge/Makefile
 src/plugins/listescape/Makefile
