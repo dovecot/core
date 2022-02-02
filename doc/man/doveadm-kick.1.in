@@ -4,41 +4,65 @@
 doveadm\-kick \- Disconnect users by user name and/or IP address
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
-.BR doveadm " [" \-Dv "] " kick " [ \-a
+.BR doveadm " [" \-Dv "] " kick "
+.RB [ -a
 .IR anvil_socket_path ]
-.RB [ \-f ]
-.I user
+.RB [ \-f
+.IR passdb_field ]
+.RB [ \-h
+.IR dest_host ]
+.I user_mask
 .\"-------------------------------------
 .br
-.BR doveadm " [" \-Dv "] " kick " [ \-a
+.BR doveadm " [" \-Dv "] " kick "
+.RB [ -a
 .IR anvil_socket_path ]
-.RB [ \-f ]
-\fIip\fP[\fB/\fP\fImask\fP]
+.RB [ \-f
+.IR passdb_field ]
+.RB [ \-h
+.IR dest_host ]
+\fIip\fP[\fB/\fP\fIbits\fP]
 .\"-------------------------------------
 .br
-.BR doveadm " [" \-Dv "] " kick " [ \-a
+.BR doveadm " [" \-Dv "] " kick "
+.RB [ -a
 .IR anvil_socket_path ]
-.RB [ \-f ]
-.I user
-\fIip\fP[\fB/\fP\fImask\fP]
+.RB [ \-f
+.IR passdb_field ]
+.RB [ \-h
+.IR dest_host ]
+.I user_mask
+\fIip\fP[\fB/\fP\fIbits\fP]
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv "] " kick "
+.RB [ -a
+.IR anvil_socket_path ]
+.RB [ \-f
+.IR passdb_field ]
+.B \-h
+.I dest_host
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
 .BR doveadm \(aqs\  kick
 command is used to disconnect users by
-.I user
-name and/or the
+.I user_mask
+and/or the
 .I ip
 address, from which they are connected.
 .PP
 In the first form, all users, whose login name matches the
-.I user
+.I user_mask
 argument, will be disconnected.
 .PP
 In the second form, all users, connected from the given IP address or
 network range, will be disconnected.
 .PP
-In the last form, only users connected from the given IP address or
+In the third form, only users connected from the given IP address or
 networks range and a matching login name will be disconnected.
+.PP
+In the last form, all proxy connections to the given destination host are
+disconnected.
 .\"------------------------------------------------------------------------
 @INCLUDE:global-options@
 .\" --- command specific options --- "/.
@@ -61,35 +85,31 @@ setting was overridden in
 .IR @pkgsysconfdir@/dovecot.conf .
 .\"-------------------------------------
 .TP
-.B \-f
-Enforce the disconnect, even when there are multiple
-.IR user s,
-from different networks, connected to a single process.
-This option may be only required when you have configured something like:
-.sp
-.nf
-service imap {
-  ...
-  client_limit = \fI1+n\fP
-  service_count = 0
-  ...
-}
-.fi
+.BI \-f\  passdb_field
+Alternative username field to use for kicking, as returned by passdb.
+Only the passdb fields beginning with the
+.I user_
+prefix are tracked.
+.\"-------------------------------------
+.TP
+.BI \-h\  dest_host
+Disconnect proxy connections to the given
+.IR dest_host .
 .\"------------------------------------------------------------------------
 .SH ARGUMENTS
 .TP
-.IR ip [/ mask ]
+.IR ip [/ bits ]
 .I ip
 or
 .IB ip /\c
-.I mask
+.I bits
 is the host or network, from which the users are connected.
 .\"-------------------------------------
 .TP
-.I user
-Is a
-.IR user \(aqs
-login name.
+.I user_mask
+Is a user\(aqs login name, or the altenative username (user_* field) if the
+.B -f
+parameter is used.
 Depending on the configuration, a login name may be for example
 .BR jane " or " john@example.com .
 It\(aqs also possible to use
@@ -107,28 +127,27 @@ is 3 characters long and begins with
 .sp
 .nf
 .B doveadm who \-1 ja*
-username                      proto pid  ip
-jane                          imap  8192 ::1
-james                         imap  8203 2001:db8:543:2::1
-.B doveadm kick ba?
-kicked connections from the following users:
-bar baz
+username                      service pid ip
+jane                          imap   8192 ::1
+jano                          imap   8196 ::2
+james                         imap   8203 2001:db8:543:2::1
+.B doveadm kick jan?
+The connections for jane and jano are kicked.
 .fi
 .PP
 The next example shows how to kick user foo\(aqs connections from 192.0.2.*.
 .sp
 .nf
 .B doveadm who \-1 foo
-username                     proto pid  ip
-foo                          imap  8135 fd95:4eed:38ba::25
-foo                          imap  9112 192.0.2.53
-foo                          imap  8216 192.0.2.111
+username                     service pid ip
+foo                          imap   8135 fd95:4eed:38ba::25
+foo                          imap   9112 192.0.2.53
+foo                          imap   8216 192.0.2.111
 .B doveadm kick foo 192.0.2.0/24
-kicked connections from the following users:
-foo
+
 .B doveadm who f*
-username                  # proto (pids) (ips)
-foo                       1 imap  (8135) (fd95:4eed:38ba::25)
+username                  # service (pids) (ips)
+foo                       1 imap    (8135) (fd95:4eed:38ba::25)
 .fi
 .\"------------------------------------------------------------------------
 @INCLUDE:reporting-bugs@

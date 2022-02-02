@@ -7,9 +7,11 @@ doveadm\-who \- Show who is logged in to the Dovecot server
 .BR doveadm " [" \-Dv "] [" \-f
 .IR formatter ]
 .BR who\  [ \-1 ]
+.RB [ -f
+.IR passdb_field ]
 [\fB\-a\fP \fIanvil_socket_path\fP]
-.RI [ user ]
-[\fIip\fP[\fB/\fP\fImask\fP]]
+.RI [ user_mask ]
+[\fIip\fP[\fB/\fP\fIbits\fP]]
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
 The
@@ -47,19 +49,29 @@ The socket may be located in another directory, when the default
 .I base_dir
 setting was overridden in
 .IR @pkgsysconfdir@/dovecot.conf .
+.\"-------------------------------------
+.TP
+.BI \-f\  passdb_field
+Alternative username field to use for kicking, as returned by passdb.
+Only the passdb fields beginning with the
+.I user_
+prefix are tracked.
 .\"------------------------------------------------------------------------
 .SH ARGUMENTS
 .TP
-\fIip\fP[\fB/\fP\fImask\fP]
+\fIip\fP[\fB/\fP\fIbits\fP]
 Specify an
 .I ip
 address or network range, in CIDR notation, to reduce the result to
 matching connections.
 .\"-------------------------------------
 .TP
-.I user
-List only users, whose name match
-.IR user .
+.I user_mask
+List only users whose login name matches the
+.IR user_mask ,
+or the altenative username (user_* field) if the
+.B -f
+parameter is used.
 It\(aqs also possible to use wildcards in the
 .I user
 name.

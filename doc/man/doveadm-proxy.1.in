@@ -1,85 +1,26 @@
 .\" Copyright (c) 2014-2018 Dovecot authors, see the included COPYING file
 .TH DOVEADM\-PROXY 1 "2014-11-09" "Dovecot v2.3" "Dovecot"
 .SH NAME
-doveadm\-proxy \- Handle Dovecot proxy connections
+doveadm\-proxy \- Handle Dovecot proxy connections (obsolete)
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
 .BR doveadm " [" \-Dv ]
 [\fB\-f\fP \fIformatter\fP]
-.BI proxy \ command
+.BI proxy \ kick
+.RI [ OPTIONS ]\ [ ARGUMENTS ]
+.\"-------------------------------------
+.br
+.BR doveadm " [" \-Dv ]
+[\fB\-f\fP \fIformatter\fP]
+.BI proxy \ list
 .RI [ OPTIONS ]\ [ ARGUMENTS ]
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
-The
-.B doveadm proxy
-.I commands
-are used to list or kick active Dovecot proxy connections.
-.\"------------------------------------------------------------------------
-@INCLUDE:global-options-formatter@
-.\" --- command specific options --- "/.
-.PP
-This command uses by default the
-.B table
-output formatter.
-.PP
-Command specific
-.IR options :
-.\"-------------------------------------
-.TP
-.BI \-a \ ipc_socket_path
-This option is used to specify an alternative socket.
-The option\(aqs argument is either an absolute path to a local UNIX domain
-socket.
-.sp
-By default
-.BR doveadm (1)
-will use the socket
-.IR @rundir@/ipc .
-The socket may be located in another directory, when the default
-.I base_dir
-setting was overridden in
-.IR @pkgsysconfdir@/dovecot.conf .
-.\"------------------------------------------------------------------------
-.SH ARGUMENTS
-.TP
-.I user
-Is a
-.IR user \(aqs
-login name.
-Depending on the configuration, a login name may be for example
-.BR jane " or " john@example.com .
-It\(aqs also possible to use
-.RB \(dq * \(dq
-and
-.RB \(dq ? \(dq
-wildcards (e.g. *@example.org).
-.\"------------------------------------------------------------------------
-.SH COMMANDS
-.SS proxy kick
-.B doveadm proxy kick
-[\fB\-a\fP \fIipc_socket_path\fP]
-[\fB\-f\fP \fIpassdb_field\fP]
-[\fB\-h\fP \fIhost_list\fP | \fIuser_list\fP]
-.PP
-Kick all the connections being proxied for the given
-.IR user_list
-or for the given backend
-.IR host_list .
-.\"-------------------------------------
-.SS proxy list
-.B doveadm proxy list
-[\fB\-a\fP \fIipc_socket_path\fP]
-.PP
-List all the users currently being proxied.
-.\"------------------------------------------------------------------------
-.SH EXAMPLE
-List all currently active proxy connections:
-.PP
-.nf
-.B doveadm proxy list
-username                    proto src ip          dest ip     port
-jane@example.net            imap  192.168.0.100   192.168.0.5 143
-.fi
+These commands are aliases to the
+.B doveadm kick
+and 
+.B doveadm who
+commands.
 .\"------------------------------------------------------------------------
 @INCLUDE:reporting-bugs@
 .\"------------------------------------------------------------------------
