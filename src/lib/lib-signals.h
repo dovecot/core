@@ -40,6 +40,14 @@ void lib_signals_ioloop_attach(void);
 void lib_signals_set_handler(int signo, enum libsig_flags flags,
 			     signal_handler_t *handler, void *context)
 	ATTR_NULL(4);
+/* Set the immediate_handler to be called always. If the handler calls
+   lib_signals_delayed(), call also delayed_handler later.
+   The LIBSIG_FLAG_DELAYED flag is ignored. */
+void lib_signals_set_handler2(int signo, enum libsig_flags flags,
+			      signal_handler_t *immediate_handler,
+			      signal_handler_t *delayed_handler,
+			      void *context)
+	ATTR_NULL(5);
 /* Ignore given signal. */
 void lib_signals_ignore(int signo, bool restart_syscalls);
 /* Clear all signal handlers for a specific signal and set the signal to be
@@ -65,6 +73,10 @@ void lib_signals_switch_ioloop(int signo,
 /* Log a syscall error inside a (non-delayed) signal handler where i_error() is
    unsafe. errno number will be appended to the prefix. */
 void lib_signals_syscall_error(const char *prefix);
+/* Call the delayed signal handler later for the given signal. This is expected
+   to be called from an immediate signal handler set by
+   lib_signals_set_handler2(). */
+void lib_signal_delayed(const siginfo_t *si);
 
 void lib_signals_init(void);
 void lib_signals_deinit(void);

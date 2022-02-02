@@ -111,7 +111,7 @@ const char *lib_signal_code_to_str(int signo, int sicode)
 	return t_strdup_printf("unknown %d", sicode);
 }
 
-static void lib_signal_delayed(const siginfo_t *si)
+void lib_signal_delayed(const siginfo_t *si)
 {
 	int signo = si->si_signo;
 
@@ -500,9 +500,20 @@ static void lib_signals_set(int signo, enum libsig_flags flags)
 void lib_signals_set_handler(int signo, enum libsig_flags flags,
 			     signal_handler_t *handler, void *context)
 {
+	if ((flags & LIBSIG_FLAG_DELAYED) == 0)
+		lib_signals_set_handler2(signo, flags, handler, NULL, context);
+	else
+		lib_signals_set_handler2(signo, flags, NULL, handler, context);
+}
+
+void lib_signals_set_handler2(int signo, enum libsig_flags flags,
+			      signal_handler_t *immediate_handler,
+			      signal_handler_t *delayed_handler,
+			      void *context)
+{
 	struct signal_handler *h;
 
-	i_assert(handler != NULL);
+	i_assert(immediate_handler != NULL || delayed_handler != NULL);
 
 	if (signo < 0 || signo > MAX_SIGNAL_VALUE) {
 		i_panic("Trying to set signal %d handler, but max is %d",
@@ -513,10 +524,8 @@ void lib_signals_set_handler(int signo, enum libsig_flags flags,
 		lib_signals_set(signo, flags);
 
 	h = i_new(struct signal_handler, 1);
-	if ((flags & LIBSIG_FLAG_DELAYED) == 0)
-		h->immediate_handler = handler;
-	else
-		h->delayed_handler = handler;
+	h->immediate_handler = immediate_handler;
+	h->delayed_handler = delayed_handler;
 	h->context = context;
 	h->flags = flags;
 
