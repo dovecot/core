@@ -62,11 +62,6 @@ AS_HELP_STRING([--with-nss], [Build with NSS module support (auto)]),
   TEST_WITH(nss, $withval),
   want_nss=auto)
 
-AC_ARG_WITH(shadow,
-AS_HELP_STRING([--with-shadow], [Build with shadow password support (auto)]),
-  TEST_WITH(shadow, $withval),
-  want_shadow=auto)
-
 AC_ARG_WITH(pam,
 AS_HELP_STRING([--with-pam], [Build with PAM support (auto)]),
   TEST_WITH(pam, $withval),

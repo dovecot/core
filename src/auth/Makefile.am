@@ -135,7 +135,6 @@ libauth_la_SOURCES = \
 	passdb-passwd.c \
 	passdb-passwd-file.c \
 	passdb-pam.c \
-	passdb-shadow.c \
 	passdb-sql.c \
 	passdb-static.c \
 	passdb-template.c \

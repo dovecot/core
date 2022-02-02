@@ -725,9 +725,6 @@ static void print_build_options(void)
 #ifdef PASSDB_PASSWD_FILE
 		" passwd-file"
 #endif
-#ifdef PASSDB_SHADOW 
-		" shadow"
-#endif
 #ifdef PASSDB_SQL 
 		" sql"
 #endif

@@ -315,7 +315,6 @@ extern struct passdb_module_interface passdb_dict;
 #ifdef HAVE_LUA
 extern struct passdb_module_interface passdb_lua;
 #endif
-extern struct passdb_module_interface passdb_shadow;
 extern struct passdb_module_interface passdb_passwd_file;
 extern struct passdb_module_interface passdb_pam;
 extern struct passdb_module_interface passdb_checkpassword;
@@ -337,7 +336,6 @@ void passdbs_init(void)
 	passdb_register_module(&passdb_passwd_file);
 	passdb_register_module(&passdb_pam);
 	passdb_register_module(&passdb_checkpassword);
-	passdb_register_module(&passdb_shadow);
 	passdb_register_module(&passdb_ldap);
 	passdb_register_module(&passdb_sql);
 	passdb_register_module(&passdb_static);

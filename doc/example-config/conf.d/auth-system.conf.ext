@@ -23,15 +23,6 @@ passdb {
   #args = 
 #}
 
-# Shadow passwords for system users (NSS, /etc/shadow or similar).
-# Deprecated by PAM nowadays.
-# <doc/wiki/PasswordDatabase.Shadow.txt>
-#passdb {
-  #driver = shadow
-  # [blocking=no]
-  #args = 
-#}
-
 # PAM-like authentication for OpenBSD.
 # <doc/wiki/PasswordDatabase.BSDAuth.txt>
 #passdb {
