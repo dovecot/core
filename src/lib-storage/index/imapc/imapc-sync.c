@@ -583,6 +583,8 @@ static void imapc_sync_handle_untagged_fetches(struct imapc_mailbox *mbox)
 	}
 
 	mail_index_view_close(&updated_view);
+	if (mail_index_transaction_commit(&mbox->delayed_sync_trans) < 0)
+		mailbox_set_index_error(&mbox->box);
 	array_clear(&mbox->untagged_fetch_contexts);
 }
 
