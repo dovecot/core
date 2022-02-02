@@ -10,6 +10,7 @@
 struct master_admin_client {
 	struct connection conn;
 
+	struct ioloop *wait_ioloop;
 	bool reply_pending;
 };
 
@@ -40,6 +41,23 @@ cmd_kick_user(struct master_admin_client *client, const char *const *args)
 		master_admin_client_callbacks.cmd_kick_user(user, conn_guid)));
 }
 
+static void
+cmd_kick_user_signal(struct master_admin_client *client,
+		     const char *const *args)
+{
+	const char *user = args[0];
+	if (user == NULL) {
+		master_admin_client_send_reply(client, "-Missing parameter");
+		return;
+	}
+
+	/* This command is usually handled by the signal handler, but looks
+	   like the signal handling was delayed. Remember the username for
+	   the signal. */
+	master_service_set_last_kick_signal_user(master_service, user);
+	/* Don't send a response back, just like the signal handler won't. */
+}
+
 static int
 master_admin_client_input_args(struct connection *conn, const char *const *args)
 {
@@ -55,12 +73,22 @@ master_admin_client_input_args(struct connection *conn, const char *const *args)
 	const char *cmd = args[0];
 	args++;
 
+	if (client->wait_ioloop != NULL) {
+		/* A command was received while waiting in
+		   master_admin_client_initial_read(). Now that we've seen it,
+		   stop the wait ioloop after the command is finished. */
+		io_loop_stop(client->wait_ioloop);
+	}
+
 	client->reply_pending = TRUE;
 	if (strcmp(cmd, "KICK-USER") == 0 &&
 	    master_admin_client_callbacks.cmd_kick_user != NULL)
 		cmd_kick_user(client, args);
-	else if (master_admin_client_callbacks.cmd == NULL ||
-		 !master_admin_client_callbacks.cmd(client, cmd, args)) {
+	else if (strcmp(cmd, "KICK-USER-SIGNAL") == 0) {
+		cmd_kick_user_signal(client, args);
+		return -1;
+	} else if (master_admin_client_callbacks.cmd == NULL ||
+		   !master_admin_client_callbacks.cmd(client, cmd, args)) {
 		client->reply_pending = FALSE;
 		o_stream_nsend_str(conn->output, "-Unknown command\n");
 	}
@@ -113,6 +141,21 @@ static const struct connection_vfuncs master_admin_conn_vfuncs = {
 	.input_args = master_admin_client_input_args
 };
 
+static void master_admin_client_initial_read(struct master_admin_client *client)
+{
+	struct ioloop *prev_ioloop = current_ioloop;
+	client->wait_ioloop = io_loop_create();
+	connection_switch_ioloop(&client->conn);
+	struct timeout *to =
+		timeout_add_short(100, io_loop_stop, client->wait_ioloop);
+
+	io_loop_run(client->wait_ioloop);
+
+	timeout_remove(&to);
+	connection_switch_ioloop_to(&client->conn, prev_ioloop);
+	io_loop_destroy(&client->wait_ioloop);
+}
+
 void master_admin_client_create(struct master_service_connection *master_conn)
 {
 	struct master_admin_client *client;
@@ -126,6 +169,14 @@ void master_admin_client_create(struct master_service_connection *master_conn)
 	client = i_new(struct master_admin_client, 1);
 	connection_init_server(master_admin_clients, &client->conn, master_conn->name,
 			       master_conn->fd, master_conn->fd);
+	if (master_service_get_client_limit(master_service) == 1) {
+		/* client_limit=1 for this process, so this connection is
+		   likely to be for KICK-USER-SIGNAL command. We're currently
+		   blocking the SIGTERM, so try for a while to read the command
+		   here. This way the command can be handled more reliably
+		   instead of SIGTERM interrupting its handling too early. */
+		master_admin_client_initial_read(client);
+	}
 }
 
 bool master_admin_client_can_accept(const char *name)

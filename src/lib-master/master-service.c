@@ -7,6 +7,7 @@
 #include "ioloop.h"
 #include "hostpid.h"
 #include "path-util.h"
+#include "net.h"
 #include "array.h"
 #include "str.h"
 #include "strescape.h"
@@ -65,6 +66,21 @@ const char *master_service_getopt_string(void)
 	return "c:i:ko:OL";
 }
 
+static int block_sigterm(sigset_t *oldmask_r)
+{
+	sigset_t sigmask;
+
+	if (sigemptyset(&sigmask) < 0)
+		i_error("sigemptyset() failed: %m");
+	else if (sigaddset(&sigmask, SIGTERM) < 0)
+		i_error("sigaddset(SIGTERM) failed: %m");
+	else if (sigprocmask(SIG_BLOCK, &sigmask, oldmask_r) < 0)
+		i_error("sigprocmask(SIG_BLOCK, SIGTERM) failed: %m");
+	else
+		return 0;
+	return -1;
+}
+
 static void sig_die(const siginfo_t *si, void *context)
 {
 	struct master_service *service = context;
@@ -97,6 +113,151 @@ static void sig_die(const siginfo_t *si, void *context)
 
 	service->killed = TRUE;
 	io_loop_stop(service->ioloop);
+}
+
+static bool sig_term_buf_get_kick_user(char *buf, const char **user_r)
+{
+	/* WARNING: We are in a (non-delayed) signal handler context.
+	   Be VERY careful what functions you call. */
+	if (strncmp(buf, "VERSION\tmaster-admin-client\t1\t", 30) != 0)
+		return FALSE;
+	buf += 30;
+	/* skip over minor version */
+	while (*buf >= '0' && *buf <= '0') buf++;
+	if (*buf != '\n')
+		return FALSE;
+	buf++;
+
+	if (strncmp(buf, "KICK-USER-SIGNAL\t", 17) != 0)
+		return FALSE;
+	buf += 17;
+
+	/* <user> [<conn-guid>] - Handling the conn-guid is too much effort,
+	   it should normally be enough to just check the user. */
+	char *p = strpbrk(buf, "\t\n");
+	if (p == NULL)
+		return FALSE;
+	*p = '\0';
+
+	*user_r = buf;
+	return TRUE;
+}
+
+static bool
+sig_service_kick_user_match(struct master_service *service, const char *user)
+{
+	/* WARNING: We are in a (non-delayed) signal handler context.
+	   Be VERY careful what functions you call. */
+	if (service->current_user != NULL)
+		return strcmp(user, service->current_user) == 0 ? 1 : 0;
+	else {
+		/* There is no currently accessed user. Most likely it
+		   means that the process already stopped handling the
+		   requested user. */
+		return 0;
+	}
+}
+
+static int sig_term_try_kick_user(struct master_service *service, int fd_listen)
+{
+	/* WARNING: We are in a (non-delayed) signal handler context.
+	   Be VERY careful what functions you call. */
+	struct sockaddr sa;
+	int fd, ret = -1;
+	char buf[256];
+	ssize_t bytes;
+	socklen_t addrlen;
+
+	if (service->last_kick_signal_user != NULL &&
+	    service->last_kick_signal_user_accessed == 0) {
+		/* The signal came a bit late. The KICK-USER-SIGNAL command
+		   was already handled. */
+		service->last_kick_signal_user_accessed = 1;
+		return sig_service_kick_user_match(service,
+			service->last_kick_signal_user) ? 1 : 0;
+	}
+
+	fd = accept(fd_listen, &sa, &addrlen);
+	if (fd < 0) {
+		if (errno == EAGAIN || errno == ECONNABORTED)
+			return -1;
+		lib_signals_syscall_error("SIGTERM: accept() failed: ");
+		return -1;
+	}
+	alarm(1);
+	bytes = read(fd, buf, sizeof(buf)-1);
+	alarm(0);
+	if (bytes >= 0) {
+		const char *user;
+		buf[bytes] = '\0';
+		if (!sig_term_buf_get_kick_user(buf, &user)) {
+			/* This wasn't a KICK-USER-SIGNAL command at all. The
+			   process will be soon killed with a delayed SIGTERM,
+			   so we can simply close the connection and ignore the
+			   command. */
+		} else {
+			ret = sig_service_kick_user_match(service, user) ? 1 : 0;
+		}
+	} else if (errno != EINTR) {
+		lib_signals_syscall_error("SIGTERM: read() failed: ");
+	}
+	if (close(fd) < 0)
+		lib_signals_syscall_error("SIGTERM: close() failed: ");
+	return ret;
+}
+
+static bool sig_term_try_kick(struct master_service *service)
+{
+	/* WARNING: We are in a (non-delayed) signal handler context.
+	   Be VERY careful what functions you call. */
+	int ret;
+
+	/* see if there's a admin-socket connection waiting */
+	for (unsigned int i = 0; i < service->socket_count; i++) {
+		struct master_service_listener *l = &service->listeners[i];
+
+		if (master_admin_client_can_accept(l->name)) {
+			ret = sig_term_try_kick_user(service, l->fd);
+			if (ret > 0) {
+				/* USER-KICK matched */
+				return TRUE;
+			}
+			if (ret == 0) {
+				/* USER-KICK mismatch - ignore */
+				return FALSE;
+			}
+			/* no connection or not a USER-KICK command */
+		}
+	}
+	/* no. just handle the signal normally as a delayed signal. */
+	return TRUE;
+}
+
+static void sig_term(const siginfo_t *si, void *context)
+{
+	/* WARNING: We are in a (non-delayed) signal handler context.
+	   Be VERY careful what functions you call. */
+	struct master_service *service = context;
+	sigset_t sigmask, oldmask;
+	int saved_errno = errno;
+	bool call_delayed = TRUE;
+
+	/* Block SIGTERM so that we don't get back here recursively. */
+	if (sigemptyset(&sigmask) < 0)
+		lib_signals_syscall_error("SIGTERM: sigemptyset() failed: ");
+	else if (sigaddset(&sigmask, SIGTERM) < 0)
+		lib_signals_syscall_error("SIGTERM: sigaddset() failed: ");
+	else if (sigprocmask(SIG_BLOCK, &sigmask, &oldmask) < 0)
+		lib_signals_syscall_error("SIGTERM: sigprocmask(SIG_BLOCK) failed: ");
+	else {
+		call_delayed = sig_term_try_kick(service);
+		if (sigprocmask(SIG_SETMASK, &oldmask, NULL) < 0)
+			lib_signals_syscall_error("SIGTERM: sigprocmask(SIG_SETMASK) failed: ");
+	}
+
+	if (call_delayed)
+		lib_signal_delayed(si);
+	errno = saved_errno;
 }
 
 static void sig_close_listeners(const siginfo_t *si ATTR_UNUSED, void *context)
@@ -189,6 +350,8 @@ static void master_service_init_socket_listeners(struct master_service *service)
 
 			if (*settings != NULL) {
 				l->name = i_strdup_empty(*settings);
+				if (master_admin_client_can_accept(l->name))
+					service->have_admin_sockets = TRUE;
 				settings++;
 			}
 			while (*settings != NULL) {
@@ -678,7 +841,10 @@ void master_service_init_finish(struct master_service *service)
 	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0)
 		sigint_flags |= LIBSIG_FLAG_RESTART;
 	lib_signals_set_handler(SIGINT, sigint_flags, sig_die, service);
-	lib_signals_set_handler(SIGTERM, LIBSIG_FLAG_DELAYED, sig_die, service);
+	if (!service->have_admin_sockets)
+		lib_signals_set_handler(SIGTERM, LIBSIG_FLAG_DELAYED, sig_die, service);
+	else
+		lib_signals_set_handler2(SIGTERM, 0, sig_term, sig_die, service);
 	if ((service->flags & MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE) != 0) {
 		lib_signals_set_handler(SIGUSR1, LIBSIG_FLAGS_SAFE,
 					sig_state_changed, service);
@@ -974,10 +1140,12 @@ bool master_service_anvil_connect(struct master_service *service,
 	str_append_c(cmd, '\t');
 	if (!kick_supported)
 		str_append_c(cmd, 'N');
-	else if (master_service_get_client_limit(service) == 1)
-		str_append_c(cmd, 'S');
-	else
+	else if (master_service_get_client_limit(service) > 1)
 		str_append_c(cmd, 'A');
+	else if (service->have_admin_sockets)
+		str_append_c(cmd, 'W');
+	else
+		str_append_c(cmd, 'S');
 	str_append_c(cmd, '\t');
 	if (session->dest_ip.family != 0)
 		str_append(cmd, net_ip2addr(&session->dest_ip));
@@ -1432,7 +1600,20 @@ static void master_service_listen(struct master_service_listener *l)
 		i_assert(service->master_status.available_count > 0);
 	}
 
+	sigset_t oldmask;
+	bool sigterm_blocked = FALSE;
+	if (master_admin_conn) {
+		/* Keep SIGTERM blocked while handling a master-admin
+		   connection. This prevents race conditions with the SIGTERM
+		   being received while handling the KICK-USER-SIGNAL
+		   command. */
+		sigterm_blocked = block_sigterm(&oldmask) == 0;
+	}
 	master_service_accept(l, conn_name, master_admin_conn);
+	if (sigterm_blocked) {
+		if (sigprocmask(SIG_SETMASK, &oldmask, NULL) < 0)
+			i_error("sigprocmask(SIG_SETMASK) failed: %m");
+	}
 }
 
 void master_service_io_listeners_add(struct master_service *service)
@@ -1645,7 +1826,33 @@ void master_service_unset_process_shutdown_filter(struct master_service *service
 void master_service_set_current_user(struct master_service *service,
 				     const char *user)
 {
+	/* block the signal to avoid races accessing current_user */
+	sigset_t oldmask;
+	bool sigterm_blocked = block_sigterm(&oldmask) == 0;
+
 	char *old_user = service->current_user;
 	service->current_user = i_strdup(user);
 	i_free(old_user);
+
+	if (sigterm_blocked) {
+		if (sigprocmask(SIG_SETMASK, &oldmask, NULL) < 0)
+			i_error("sigprocmask(SIG_SETMASK) failed: %m");
+	}
+}
+
+void master_service_set_last_kick_signal_user(struct master_service *service,
+					      const char *user)
+{
+	/* block the signal to avoid races accessing last_kick_signal_user */
+	sigset_t oldmask;
+	bool sigterm_blocked = block_sigterm(&oldmask) == 0;
+
+	i_free(service->last_kick_signal_user);
+	service->last_kick_signal_user = i_strdup(user);
+	service->last_kick_signal_user_accessed = 0;
+
+	if (sigterm_blocked) {
+		if (sigprocmask(SIG_SETMASK, &oldmask, NULL) < 0)
+			i_error("sigprocmask(SIG_SETMASK) failed: %m");
+	}
 }

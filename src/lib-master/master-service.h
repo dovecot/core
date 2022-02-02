@@ -284,5 +284,9 @@ void master_service_unset_process_shutdown_filter(struct master_service *service
    users due to race conditions. */
 void master_service_set_current_user(struct master_service *service,
 				     const char *user);
+/* Set the user that is expected to be kicked by the next SIGTERM. If it
+   doesn't match the current_user, the SIGTERM will be ignored. */
+void master_service_set_last_kick_signal_user(struct master_service *service,
+					      const char *user);
 
 #endif

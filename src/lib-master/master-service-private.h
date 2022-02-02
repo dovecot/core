@@ -4,6 +4,8 @@
 #include "master-interface.h"
 #include "master-service.h"
 
+#include <signal.h>
+
 struct master_service_haproxy_conn;
 
 struct master_service_listener {
@@ -72,6 +74,8 @@ struct master_service {
 	time_t ssl_params_last_refresh;
 
 	char *current_user;
+	char *last_kick_signal_user;
+	volatile sig_atomic_t last_kick_signal_user_accessed;
 
 	struct stats_client *stats_client;
 	struct master_service_haproxy_conn *haproxy_conns;
@@ -85,6 +89,7 @@ struct master_service {
 	bool die_with_master:1;
 	bool call_avail_overflow:1;
 	bool config_path_changed_with_param:1;
+	bool have_admin_sockets:1;
 	bool want_ssl_server:1;
 	bool ssl_ctx_initialized:1;
 	bool config_path_from_master:1;
