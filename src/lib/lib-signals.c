@@ -147,7 +147,7 @@ static void sig_handler(int signo)
 	   get interrupted by another signal while inside this handler. */
 	saved_errno = errno;
 	for (h = signal_handlers[signo]; h != NULL; h = h->next) {
-		if ((h->flags & LIBSIG_FLAG_DELAYED) == 0)
+		if (h->immediate_handler != NULL)
 			h->immediate_handler(si, h->context);
 		else if (pending_signals[signo].si_signo == 0) {
 			pending_signals[signo] = *si;
@@ -262,7 +262,7 @@ static void signal_handle_shadowed(void)
 		for (h = signal_handlers[sis[i].si_signo]; h != NULL;
 		     h = h->next) {
 			i_assert(h->sig_ioloop != NULL);
-			if ((h->flags & LIBSIG_FLAG_DELAYED) == 0 ||
+			if (h->delayed_handler == NULL ||
 			    (h->flags & LIBSIG_FLAG_IOLOOP_AUTOMOVE) != 0)
 				continue;
 			if (h->shadowed &&
@@ -363,7 +363,7 @@ static void ATTR_NULL(1) signal_read(void *context ATTR_UNUSED)
 
 		for (h = signal_handlers[signo]; h != NULL; h = h->next) {
 			i_assert(h->sig_ioloop != NULL);
-			if ((h->flags & LIBSIG_FLAG_DELAYED) == 0) {
+			if (h->delayed_handler == NULL) {
 				/* handler already called immediately in signal
 				   context */
 				continue;
@@ -515,7 +515,7 @@ void lib_signals_set_handler(int signo, enum libsig_flags flags,
 	h->next = signal_handlers[signo];
 	signal_handlers[signo] = h;
 
-	if ((flags & LIBSIG_FLAG_DELAYED) != 0 && sig_pipe_fd[0] == -1) {
+	if (h->delayed_handler != NULL && sig_pipe_fd[0] == -1) {
 		/* first delayed handler */
 		if (pipe(sig_pipe_fd) < 0)
 			i_fatal("pipe() failed: %m");
@@ -638,7 +638,6 @@ void lib_signals_switch_ioloop(int signo,
 
 	for (h = signal_handlers[signo]; h != NULL; h = h->next) {
 		if (h->delayed_handler == handler && h->context == context) {
-			i_assert((h->flags & LIBSIG_FLAG_DELAYED) != 0);
 			i_assert((h->flags & LIBSIG_FLAG_IOLOOP_AUTOMOVE) == 0);
 			signal_handler_switch_ioloop(h);
 			/* check whether we can now handle any shadowed delayed
