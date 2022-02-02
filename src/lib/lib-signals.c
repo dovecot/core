@@ -31,7 +31,8 @@ struct signal_ioloop {
 };
 
 struct signal_handler {
-	signal_handler_t *handler;
+	signal_handler_t *immediate_handler;
+	signal_handler_t *delayed_handler;
 	void *context;
 
 	enum libsig_flags flags;
@@ -147,7 +148,7 @@ static void sig_handler(int signo)
 	saved_errno = errno;
 	for (h = signal_handlers[signo]; h != NULL; h = h->next) {
 		if ((h->flags & LIBSIG_FLAG_DELAYED) == 0)
-			h->handler(si, h->context);
+			h->immediate_handler(si, h->context);
 		else if (pending_signals[signo].si_signo == 0) {
 			pending_signals[signo] = *si;
 			if (!have_pending_signals) {
@@ -271,7 +272,7 @@ static void signal_handle_shadowed(void)
 			}
 			/* handler can be called now */
 			h->shadowed = FALSE;
-			h->handler(&sis[i], h->context);
+			h->delayed_handler(&sis[i], h->context);
 		}
 		if (!shadowed) {
 			/* no handlers are shadowed anymore; delete the signal
@@ -376,7 +377,7 @@ static void ATTR_NULL(1) signal_read(void *context ATTR_UNUSED)
 				continue;
 			}
 			/* handler can be called now */
-			h->handler(&signals[signo], h->context);
+			h->delayed_handler(&signals[signo], h->context);
 		}
 
 		if (shadowed) {
@@ -503,7 +504,10 @@ void lib_signals_set_handler(int signo, enum libsig_flags flags,
 		lib_signals_set(signo, flags);
 
 	h = i_new(struct signal_handler, 1);
-	h->handler = handler;
+	if ((flags & LIBSIG_FLAG_DELAYED) == 0)
+		h->immediate_handler = handler;
+	else
+		h->delayed_handler = handler;
 	h->context = context;
 	h->flags = flags;
 
@@ -586,7 +590,9 @@ void lib_signals_unset_handler(int signo, signal_handler_t *handler,
 	struct signal_handler *h, **p;
 
 	for (p = &signal_handlers[signo]; *p != NULL; p = &(*p)->next) {
-		if ((*p)->handler == handler && (*p)->context == context) {
+		if (((*p)->immediate_handler == handler ||
+		     (*p)->delayed_handler == handler) &&
+		    (*p)->context == context) {
 			if (p == &signal_handlers[signo] &&
 			    (*p)->next == NULL) {
 				/* last handler is to be removed */
@@ -611,7 +617,8 @@ void lib_signals_set_expected(int signo, bool expected,
 	struct signal_handler *h;
 
 	for (h = signal_handlers[signo]; h != NULL; h = h->next) {
-		if (h->handler == handler && h->context == context) {
+		if ((h->immediate_handler == handler ||
+		     h->delayed_handler == handler) && h->context == context) {
 			if (h->expected == expected)
 				return;
 			h->expected = expected;
@@ -630,7 +637,7 @@ void lib_signals_switch_ioloop(int signo,
 	struct signal_handler *h;
 
 	for (h = signal_handlers[signo]; h != NULL; h = h->next) {
-		if (h->handler == handler && h->context == context) {
+		if (h->delayed_handler == handler && h->context == context) {
 			i_assert((h->flags & LIBSIG_FLAG_DELAYED) != 0);
 			i_assert((h->flags & LIBSIG_FLAG_IOLOOP_AUTOMOVE) == 0);
 			signal_handler_switch_ioloop(h);
