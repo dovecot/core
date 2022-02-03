@@ -90,6 +90,7 @@ void doveadm_mail_failed_error(struct doveadm_mail_cmd_context *ctx,
 		exit_code = DOVEADM_EX_NOTPOSSIBLE;
 		break;
 	case MAIL_ERROR_LOOKUP_ABORTED:
+	case MAIL_ERROR_INTERRUPTED:
 		break;
 	}
 	/* tempfail overrides all other exit codes, otherwise use whatever

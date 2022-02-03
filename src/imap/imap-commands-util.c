@@ -183,6 +183,8 @@ imap_get_error_string(struct client_command_context *cmd,
 	case MAIL_ERROR_LIMIT:
 		resp_code = IMAP_RESP_CODE_LIMIT;
 		break;
+	case MAIL_ERROR_INTERRUPTED:
+		break;
 	}
 	if (resp_code == NULL || *error_string == '[')
 		return t_strconcat("NO ", error_string, NULL);
