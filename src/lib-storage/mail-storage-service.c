@@ -95,6 +95,7 @@ struct mail_storage_service_user {
 
 	bool anonymous:1;
 	bool admin:1;
+	bool master_service_user_set:1;
 };
 
 struct module *mail_storage_service_modules = NULL;
@@ -1536,6 +1537,10 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 		mail_storage_service_io_deactivate_user(user);
 		return -2;
 	}
+	if (master_service_get_client_limit(master_service) == 1) {
+		master_service_set_current_user(master_service, user->input.username);
+		user->master_service_user_set = TRUE;
+	}
 	return 0;
 }
 
@@ -1633,6 +1638,9 @@ void mail_storage_service_user_unref(struct mail_storage_service_user **_user)
 			mail_storage_service_io_deactivate_user_cb, user);
 		io_loop_context_unref(&user->ioloop_ctx);
 	}
+
+	if (user->master_service_user_set)
+		master_service_set_current_user(master_service, NULL);
 
 	settings_parser_deinit(&user->set_parser);
 	event_unref(&user->event);
