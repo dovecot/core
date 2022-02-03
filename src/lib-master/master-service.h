@@ -235,6 +235,9 @@ void master_service_stop_new_connections(struct master_service *service);
 bool master_service_is_killed(struct master_service *service);
 /* Returns the signal that caused service to stop. */
 int master_service_get_kill_signal(struct master_service *service);
+/* Returns the timestamp when the stop signal was received. */
+void master_service_get_kill_time(struct master_service *service,
+				  struct timeval *tv_r);
 /* Returns TRUE if our master process is already stopped. This process may or
    may not be dying itself. Returns FALSE always if the process was started
    standalone. */

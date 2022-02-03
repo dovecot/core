@@ -231,14 +231,38 @@ static bool sig_term_try_kick(struct master_service *service)
 	return TRUE;
 }
 
+static void sig_die_delayed(struct master_service *service, const siginfo_t *si)
+{
+	/* WARNING: We are in a (non-delayed) signal handler context.
+	   Be VERY careful what functions you call. */
+	if (service->killed_time.tv_sec == 0) {
+#ifdef HAVE_CLOCK_GETTIME
+		struct timespec ts;
+		if (clock_gettime(CLOCK_REALTIME, &ts) < 0) {
+			lib_signals_syscall_error("clock_gettime() failed: ");
+			service->killed_time.tv_sec = time(NULL);
+			service->killed_time.tv_usec = 0;
+		} else {
+			service->killed_time.tv_sec = ts.tv_sec;
+			service->killed_time.tv_usec = ts.tv_nsec/1000;
+		}
+#else
+		service->killed_time.tv_sec = time(NULL);
+		service->killed_time.tv_usec = 0;
+#endif
+	}
+	/* set killed_signal after killed_time */
+	service->killed_signal = si->si_signo;
+	lib_signal_delayed(si);
+}
+
 static void sig_standalone_die(const siginfo_t *si, void *context)
 {
 	/* WARNING: We are in a (non-delayed) signal handler context.
 	   Be VERY careful what functions you call. */
 	struct master_service *service = context;
 
-	service->killed_signal = si->si_signo;
-	lib_signal_delayed(si);
+	sig_die_delayed(service, si);
 }
 
 static void sig_term(const siginfo_t *si, void *context)
@@ -263,10 +287,8 @@ static void sig_term(const siginfo_t *si, void *context)
 			lib_signals_syscall_error("SIGTERM: sigprocmask(SIG_SETMASK) failed: ");
 	}
 
-	if (call_delayed) {
-		service->killed_signal = si->si_signo;
-		lib_signal_delayed(si);
-	}
+	if (call_delayed)
+		sig_die_delayed(service, si);
 	errno = saved_errno;
 }
 
@@ -1104,6 +1126,21 @@ bool master_service_is_killed(struct master_service *service)
 int master_service_get_kill_signal(struct master_service *service)
 {
 	return service->killed_signal;
+}
+
+void master_service_get_kill_time(struct master_service *service,
+				  struct timeval *tv_r)
+{
+	/* block the signal to avoid races accessing killed_time */
+	sigset_t oldmask;
+	bool sigterm_blocked = block_sigterm(&oldmask) == 0;
+
+	*tv_r = service->killed_time;
+
+	if (sigterm_blocked) {
+		if (sigprocmask(SIG_SETMASK, &oldmask, NULL) < 0)
+			i_error("sigprocmask(SIG_SETMASK) failed: %m");
+	}
 }
 
 bool master_service_is_master_stopped(struct master_service *service)

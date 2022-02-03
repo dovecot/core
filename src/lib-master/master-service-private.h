@@ -77,6 +77,7 @@ struct master_service {
 	char *last_kick_signal_user;
 	volatile sig_atomic_t last_kick_signal_user_accessed;
 	volatile sig_atomic_t killed_signal;
+	volatile struct timeval killed_time;
 
 	struct stats_client *stats_client;
 	struct master_service_haproxy_conn *haproxy_conns;
