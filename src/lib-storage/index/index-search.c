@@ -9,6 +9,7 @@
 #include "time-util.h"
 #include "unichar.h"
 #include "imap-match.h"
+#include "master-service.h"
 #include "message-address.h"
 #include "message-date.h"
 #include "message-search.h"
@@ -36,6 +37,10 @@
 #define SEARCH_MAX_NONBLOCK_USECS 250000
 #define SEARCH_INITIAL_MAX_COST 30000
 #define SEARCH_RECALC_MIN_USECS 50000
+
+/* If interrupt signal is received and search doesn't finish in this many
+   milliseconds, fail the search with MAIL_ERRSTR_INTERRUPTED. */
+#define SEARCH_INTERRUPT_DELAY_MSECS 2000
 
 struct search_header_context {
         struct index_search_context *index_ctx;
@@ -1815,6 +1820,30 @@ static int search_more(struct index_search_context *ctx,
 	return ret;
 }
 
+static bool
+index_storage_search_is_interrupted(struct index_search_context *ctx)
+{
+	if (!master_service_is_killed(master_service))
+		return FALSE;
+
+	struct timeval tv_now;
+	i_gettimeofday(&tv_now);
+
+	if (ctx->interrupt_start_time.tv_sec == 0) {
+		master_service_get_kill_time(master_service,
+					     &ctx->interrupt_start_time);
+		i_assert(ctx->interrupt_start_time.tv_sec > 0);
+	} else if (timeval_diff_msecs(&tv_now, &ctx->interrupt_start_time) >=
+		 SEARCH_INTERRUPT_DELAY_MSECS) {
+		mail_storage_set_error(ctx->box->storage,
+				       MAIL_ERROR_INTERRUPTED,
+				       MAIL_ERRSTR_INTERRUPTED);
+		search_set_failed(ctx);
+		return TRUE;
+	}
+	return FALSE;
+}
+
 bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 					struct mail **mail_r, bool *tryagain_r)
 {
@@ -1824,6 +1853,9 @@ bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	int ret;
 
 	*tryagain_r = FALSE;
+
+	if (index_storage_search_is_interrupted(ctx))
+		return FALSE;
 
 	if (_ctx->sort_program == NULL) {
 		ret = search_more(ctx, &mail);
