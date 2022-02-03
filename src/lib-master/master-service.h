@@ -279,4 +279,10 @@ void master_service_set_process_shutdown_filter(struct master_service *service,
 /* Unsets process shutdown filter, if it exists */
 void master_service_unset_process_shutdown_filter(struct master_service *service);
 
+/* Change the user being currently handled. Call with user=NULL once done.
+   This is used by SIGTERM handler to prevent doveadm kick from kicking wrong
+   users due to race conditions. */
+void master_service_set_current_user(struct master_service *service,
+				     const char *user);
+
 #endif

@@ -1227,6 +1227,7 @@ static void master_service_free(struct master_service *service)
 	i_free(service->configured_name);
 	i_free(service->name);
 	i_free(service->config_path);
+	i_free(service->current_user);
 	i_free(service);
 }
 
@@ -1630,4 +1631,12 @@ void master_service_set_process_shutdown_filter(struct master_service *service,
 void master_service_unset_process_shutdown_filter(struct master_service *service)
 {
 	event_filter_unref(&service->process_shutdown_filter);
+}
+
+void master_service_set_current_user(struct master_service *service,
+				     const char *user)
+{
+	char *old_user = service->current_user;
+	service->current_user = i_strdup(user);
+	i_free(old_user);
 }

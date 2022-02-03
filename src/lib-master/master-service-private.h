@@ -71,6 +71,8 @@ struct master_service {
 	struct ssl_iostream_context *ssl_ctx;
 	time_t ssl_params_last_refresh;
 
+	char *current_user;
+
 	struct stats_client *stats_client;
 	struct master_service_haproxy_conn *haproxy_conns;
 	struct event_filter *process_shutdown_filter;
