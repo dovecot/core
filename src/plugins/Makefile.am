@@ -2,10 +2,6 @@ if BUILD_ZLIB_PLUGIN
 ZLIB = zlib imap-zlib
 endif
 
-if BUILD_LUCENE
-FTS_LUCENE = fts-lucene
-endif
-
 if BUILD_SOLR
 FTS_SOLR = fts-solr
 endif
@@ -42,7 +38,6 @@ SUBDIRS = \
 	virtual \
 	welcome \
 	$(ZLIB) \
-	$(FTS_LUCENE) \
 	$(FTS_SOLR) \
 	$(DICT_LDAP) \
 	$(APPARMOR) \

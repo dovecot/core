@@ -126,12 +126,6 @@ AS_HELP_STRING([--with-cassandra], [Build with Cassandra driver support]),
   TEST_WITH(cassandra, $withval),
   want_cassandra=no)
 
-AC_ARG_WITH(lucene,
-AS_HELP_STRING([--with-lucene], [Build with CLucene full text search support]),
-  TEST_WITH(lucene, $withval),
-  want_lucene=no)
-AM_CONDITIONAL(BUILD_LUCENE, test "$want_lucene" = "yes")
-
 AC_ARG_WITH(stemmer,
 AS_HELP_STRING([--with-stemmer], [Build with libstemmer support (for FTS) (auto)]),
   TEST_WITH(stemmer, $withval),
@@ -752,7 +746,6 @@ fts=" squat"
 not_fts=""
 
 DOVECOT_WANT_SOLR
-DOVECOT_WANT_CLUCENE
 DOVECOT_WANT_STEMMER
 DOVECOT_WANT_TEXTCAT
 
@@ -760,9 +753,6 @@ DOVECOT_WANT_ICU
 
 DOVECOT_WANT_APPARMOR
 
-if test $have_lucene = no; then
-  not_fts="$not_fts lucene"
-fi
 if test $have_solr = no; then
   not_fts="$not_fts solr"
 fi
@@ -901,7 +891,6 @@ src/plugins/acl/Makefile
 src/plugins/imap-acl/Makefile
 src/plugins/fs-compress/Makefile
 src/plugins/fts/Makefile
-src/plugins/fts-lucene/Makefile
 src/plugins/fts-solr/Makefile
 src/plugins/fts-squat/Makefile
 src/plugins/last-login/Makefile
