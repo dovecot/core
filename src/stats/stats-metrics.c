@@ -90,8 +90,8 @@ stats_metric_alloc(pool_t pool, const char *name,
 	metric->duration_stats = stats_dist_init();
 	metric->fields_count = str_array_length(fields);
 	if (metric->fields_count > 0) {
-	    metric->fields = p_new(pool, struct metric_field,
-				   metric->fields_count);
+		metric->fields = p_new(pool, struct metric_field,
+				       metric->fields_count);
 		for (unsigned int i = 0; i < metric->fields_count; i++) {
 			metric->fields[i].field_key = p_strdup(pool, fields[i]);
 			metric->fields[i].stats = stats_dist_init();
