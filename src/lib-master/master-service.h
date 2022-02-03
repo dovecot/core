@@ -233,6 +233,8 @@ void master_service_stop(struct master_service *service);
 void master_service_stop_new_connections(struct master_service *service);
 /* Returns TRUE if we've received a SIGINT/SIGTERM and we've decided to stop. */
 bool master_service_is_killed(struct master_service *service);
+/* Returns the signal that caused service to stop. */
+int master_service_get_kill_signal(struct master_service *service);
 /* Returns TRUE if our master process is already stopped. This process may or
    may not be dying itself. Returns FALSE always if the process was started
    standalone. */

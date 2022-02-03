@@ -1101,6 +1101,11 @@ bool master_service_is_killed(struct master_service *service)
 	return service->killed_signal != 0;
 }
 
+int master_service_get_kill_signal(struct master_service *service)
+{
+	return service->killed_signal;
+}
+
 bool master_service_is_master_stopped(struct master_service *service)
 {
 	return service->io_status_error == NULL &&
