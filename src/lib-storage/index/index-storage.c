@@ -761,6 +761,7 @@ static int mailbox_expunge_all_data(struct mailbox *box)
         struct mailbox_transaction_context *t;
 	struct mail *mail;
 	struct mail_search_args *search_args;
+	int ret;
 
 	(void)mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ);
 
@@ -774,20 +775,18 @@ static int mailbox_expunge_all_data(struct mailbox *box)
 	while (mailbox_search_next(ctx, &mail))
 		mail_expunge(mail);
 
-	if (mailbox_search_deinit(&ctx) < 0) {
-		mailbox_transaction_rollback(&t);
-		return -1;
-	}
-
-	if (mailbox_delete_all_attributes(t, MAIL_ATTRIBUTE_TYPE_PRIVATE) < 0 ||
-	    mailbox_delete_all_attributes(t, MAIL_ATTRIBUTE_TYPE_SHARED) < 0) {
-		mailbox_transaction_rollback(&t);
-		return -1;
+	ret = mailbox_search_deinit(&ctx);
+	if (ret == 0) {
+		if (mailbox_delete_all_attributes(t, MAIL_ATTRIBUTE_TYPE_PRIVATE) < 0 ||
+		    mailbox_delete_all_attributes(t, MAIL_ATTRIBUTE_TYPE_SHARED) < 0)
+			ret = -1;
 	}
 	if (mailbox_transaction_commit(&t) < 0)
-		return -1;
+		ret = -1;
 	/* sync to actually perform the expunges */
-	return mailbox_sync(box, 0);
+	if (mailbox_sync(box, 0) < 0)
+		ret = -1;
+	return ret;
 }
 
 int index_storage_mailbox_delete_pre(struct mailbox *box)
