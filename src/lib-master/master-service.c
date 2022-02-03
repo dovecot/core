@@ -1351,26 +1351,12 @@ static bool master_service_full(struct master_service *service)
 	return TRUE;
 }
 
-static void master_service_listen(struct master_service_listener *l)
+static void
+master_service_accept(struct master_service_listener *l, const char *conn_name,
+		      bool master_admin_conn)
 {
 	struct master_service *service = l->service;
 	struct master_service_connection conn;
-	const char *conn_name;
-	bool master_admin_conn;
-
-	conn_name = master_service_get_socket_name(service, l->fd);
-	master_admin_conn = master_admin_client_can_accept(conn_name);
-
-	if (service->master_status.available_count == 0 && !master_admin_conn) {
-		if (master_service_full(service)) {
-			/* Stop the listener until a client has disconnected or
-			   overflow callback has killed one. */
-			master_service_io_listeners_remove(service);
-			return;
-		}
-		/* we can accept another client */
-		i_assert(service->master_status.available_count > 0);
-	}
 
 	i_zero(&conn);
 	conn.listen_fd = l->fd;
@@ -1405,7 +1391,7 @@ static void master_service_listen(struct master_service_listener *l)
 		l->fd = -1;
 	}
 	conn.ssl = l->ssl;
-	conn.name = master_service_get_socket_name(service, conn.listen_fd);
+	conn.name = conn_name;
 
 	(void)net_getsockname(conn.fd, &conn.local_ip, &conn.local_port);
 	conn.real_remote_ip = conn.remote_ip;
@@ -1424,6 +1410,29 @@ static void master_service_listen(struct master_service_listener *l)
 		master_service_haproxy_new(service, &conn);
 	else
 		master_service_client_connection_callback(service, &conn);
+}
+
+static void master_service_listen(struct master_service_listener *l)
+{
+	struct master_service *service = l->service;
+	const char *conn_name;
+	bool master_admin_conn;
+
+	conn_name = master_service_get_socket_name(service, l->fd);
+	master_admin_conn = master_admin_client_can_accept(conn_name);
+
+	if (service->master_status.available_count == 0 && !master_admin_conn) {
+		if (master_service_full(service)) {
+			/* Stop the listener until a client has disconnected or
+			   overflow callback has killed one. */
+			master_service_io_listeners_remove(service);
+			return;
+		}
+		/* we can accept another client */
+		i_assert(service->master_status.available_count > 0);
+	}
+
+	master_service_accept(l, conn_name, master_admin_conn);
 }
 
 void master_service_io_listeners_add(struct master_service *service)
