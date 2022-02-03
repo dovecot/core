@@ -127,6 +127,9 @@ static int str_to_kick_type(const char *str, enum kick_type *kick_type_r)
 	case 'A':
 		*kick_type_r = KICK_TYPE_ADMIN_SOCKET;
 		break;
+	case 'W':
+		*kick_type_r = KICK_TYPE_SIGNAL_WITH_SOCKET;
+		break;
 	default:
 		return -1;
 	}
@@ -230,8 +233,12 @@ kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
 			}
 			break;
 		case KICK_TYPE_ADMIN_SOCKET:
+		case KICK_TYPE_SIGNAL_WITH_SOCKET:
 			str_truncate(cmd, 0);
-			str_append(cmd, "KICK-USER\t");
+			if (result.kick_type == KICK_TYPE_SIGNAL_WITH_SOCKET)
+				str_append(cmd, "KICK-USER-SIGNAL\t");
+			else
+				str_append(cmd, "KICK-USER\t");
 			str_append_tabescaped(cmd, result.username);
 			if (!guid_128_is_empty(result.conn_guid) &&
 			    add_conn_guid) {
@@ -244,6 +251,14 @@ kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
 			kick->cmd_refcount++;
 			admin_cmd_send(result.service, result.pid, str_c(cmd),
 				       kick_user_callback, kick);
+			if (result.kick_type == KICK_TYPE_SIGNAL_WITH_SOCKET) {
+				if (kill(result.pid, SIGTERM) == 0)
+					kick->kick_count++;
+				else if (errno != ESRCH) {
+					i_error("kill(%ld) failed: %m",
+						(long)result.pid);
+				}
+			}
 			break;
 		}
 		prev_pid = result.pid;

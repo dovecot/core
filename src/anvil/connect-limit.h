@@ -12,6 +12,10 @@ enum kick_type {
 	/* User kicking should be done by sending KICK-USER command to the
 	   process's admin socket or the existing anvil connection. */
 	KICK_TYPE_ADMIN_SOCKET,
+	/* Use KICK-USER command together with TERM signal. The SIGTERM handler
+	   reads and processes the KICK-USER command. This way if there's a
+	   race condition wrong process isn't killed. */
+	KICK_TYPE_SIGNAL_WITH_SOCKET,
 };
 
 struct connect_limit_key {
