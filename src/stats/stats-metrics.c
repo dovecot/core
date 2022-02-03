@@ -27,6 +27,7 @@ static void
 stats_metric_event(struct metric *metric, struct event *event, pool_t pool);
 static struct metric *
 stats_metric_sub_metric_alloc(struct metric *metric, const char *name, pool_t pool);
+static void stats_metric_free(struct metric *metric);
 
 static void stats_exporters_add_set(struct stats_metrics *metrics,
 				    const struct stats_exporter_settings *set)
@@ -209,12 +210,14 @@ bool stats_metrics_remove_dynamic(struct stats_metrics *metrics,
 				  const char *name)
 {
 	unsigned int m_idx;
+	bool ret = FALSE;
 	struct metric *m = stats_metrics_find(metrics, name, &m_idx);
 	if (m != NULL) {
 		array_delete(&metrics->metrics, m_idx, 1);
-		return event_filter_remove_queries_with_context(metrics->filter, m);
+		ret = event_filter_remove_queries_with_context(metrics->filter, m);
+		stats_metric_free(m);
 	}
-	return FALSE;
+	return ret;
 }
 
 static void
