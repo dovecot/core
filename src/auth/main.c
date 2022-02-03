@@ -25,7 +25,6 @@
 #include "auth-penalty.h"
 #include "auth-token.h"
 #include "auth-request-handler.h"
-#include "auth-request-stats.h"
 #include "auth-worker-server.h"
 #include "auth-worker-client.h"
 #include "auth-master-connection.h"
@@ -194,7 +193,6 @@ static void main_preinit(void)
 
 	if (!worker)
 		auth_penalty = auth_penalty_init(AUTH_PENALTY_ANVIL_PATH);
-	auth_request_stats_init();
 	mech_init(global_auth_settings);
 	mech_reg = mech_register_init(global_auth_settings);
 	dict_drivers_register_builtin();
@@ -294,7 +292,6 @@ static void main_deinit(void)
 	passdbs_deinit();
 	passdb_cache_deinit();
         password_schemes_deinit();
-	auth_request_stats_deinit();
 
 	sql_drivers_deinit();
 	child_wait_deinit();

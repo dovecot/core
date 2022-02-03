@@ -109,9 +109,6 @@ static void test_mechs_init(void)
 	array_push_back(&set.passdbs, &mock_set);
 	t_array_init(&set.userdbs, 1);
 
-	/* Disable stats */
-	set.stats = FALSE;
-
 	/* For tests of digest-md5. */
 	set.realms_arr = t_strsplit_spaces("example.com ", " ");
 	/* For tests of mech-anonymous. */

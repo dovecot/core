@@ -44,7 +44,6 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-http \
 	-I$(top_srcdir)/src/lib-sql \
 	-I$(top_srcdir)/src/lib-settings \
-	-I$(top_srcdir)/src/lib-old-stats \
 	-I$(top_srcdir)/src/lib-otp \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-oauth2 \
@@ -74,7 +73,6 @@ libpassword_la_CFLAGS = $(AM_CPPFLAGS) $(LIBSODIUM_CFLAGS)
 
 auth_libs = \
 	libauth.la \
-	libstats_auth.la \
 	libpassword.la \
 	../lib-otp/libotp.la \
 	$(AUTH_LUA_LIBS) \
@@ -101,7 +99,6 @@ libauth_la_SOURCES = \
 	auth-request.c \
 	auth-request-fields.c \
 	auth-request-handler.c \
-	auth-request-stats.c \
 	auth-request-var-expand.c \
 	auth-settings.c \
 	auth-fields.c \
@@ -170,10 +167,8 @@ headers = \
 	auth-request.h \
 	auth-request-handler.h \
 	auth-request-handler-private.h \
-	auth-request-stats.h \
 	auth-request-var-expand.h \
 	auth-settings.h \
-	auth-stats.h \
 	auth-fields.h \
 	auth-token.h \
 	auth-worker-client.h \
@@ -235,14 +230,6 @@ checkpassword_reply_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 checkpassword_reply_sources = \
 	checkpassword-reply.c
-
-stats_moduledir = $(moduledir)/old-stats
-stats_module_LTLIBRARIES = libstats_auth.la
-
-libstats_auth_la_LDFLAGS = -module -avoid-version
-libstats_auth_la_LIBADD = $(LIBDOVECOT)
-libstats_auth_la_DEPENDENCIES = $(LIBDOVECOT_DEPS)
-libstats_auth_la_SOURCES = auth-stats.c
 
 test_programs = \
 	test-libpassword \

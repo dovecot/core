@@ -112,8 +112,6 @@ struct auth_request {
         struct auth_passdb *passdb;
         struct auth_userdb *userdb;
 
-	struct stats *stats;
-
 	/* passdb lookups have a handler, userdb lookups don't */
 	struct auth_request_handler *handler;
         struct auth_master_connection *master;

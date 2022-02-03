@@ -257,7 +257,6 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(BOOL, policy_log_only),
 	DEF(UINT, policy_hash_truncate),
 
-	DEF(BOOL, stats),
 	DEF(BOOL, verbose),
 	DEF(BOOL, debug),
 	DEF(BOOL, debug_passwords),
@@ -316,7 +315,6 @@ static const struct auth_settings auth_default_settings = {
 	.policy_log_only = FALSE,
 	.policy_hash_truncate = 12,
 
-	.stats = FALSE,
 	.verbose = FALSE,
 	.debug = FALSE,
 	.debug_passwords = FALSE,
