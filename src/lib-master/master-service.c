@@ -231,6 +231,16 @@ static bool sig_term_try_kick(struct master_service *service)
 	return TRUE;
 }
 
+static void sig_standalone_die(const siginfo_t *si, void *context)
+{
+	/* WARNING: We are in a (non-delayed) signal handler context.
+	   Be VERY careful what functions you call. */
+	struct master_service *service = context;
+
+	service->killed_signal = si->si_signo;
+	lib_signal_delayed(si);
+}
+
 static void sig_term(const siginfo_t *si, void *context)
 {
 	/* WARNING: We are in a (non-delayed) signal handler context.
@@ -828,7 +838,6 @@ static void master_status_error(struct master_service *service)
 
 void master_service_init_finish(struct master_service *service)
 {
-	enum libsig_flags sigint_flags = LIBSIG_FLAG_DELAYED;
 	struct stat st;
 
 	i_assert(!service->init_finished);
@@ -838,13 +847,24 @@ void master_service_init_finish(struct master_service *service)
 	lib_set_clean_exit(FALSE);
 
 	/* set default signal handlers */
-	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0)
-		sigint_flags |= LIBSIG_FLAG_RESTART;
-	lib_signals_set_handler(SIGINT, sigint_flags, sig_die, service);
-	if (!service->have_admin_sockets)
-		lib_signals_set_handler(SIGTERM, LIBSIG_FLAG_DELAYED, sig_die, service);
-	else
-		lib_signals_set_handler2(SIGTERM, 0, sig_term, sig_die, service);
+	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0) {
+		/* Standalone programs stop immediately on signals */
+		lib_signals_set_handler2(SIGINT, 0, sig_standalone_die,
+					 sig_die, service);
+		lib_signals_set_handler2(SIGTERM, 0, sig_standalone_die,
+					 sig_die, service);
+	} else {
+		/* SIGINT is used by master for killing idle processes */
+		lib_signals_set_handler(SIGINT, LIBSIG_FLAGS_SAFE,
+					sig_die, service);
+		if (!service->have_admin_sockets) {
+			lib_signals_set_handler(SIGTERM, LIBSIG_FLAG_DELAYED,
+						sig_die, service);
+		} else {
+			lib_signals_set_handler2(SIGTERM, 0,
+						 sig_term, sig_die, service);
+		}
+	}
 	if ((service->flags & MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE) != 0) {
 		lib_signals_set_handler(SIGUSR1, LIBSIG_FLAGS_SAFE,
 					sig_state_changed, service);
