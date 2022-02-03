@@ -105,15 +105,11 @@ int imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg,
 		}
 
 		ret = mailbox_search_deinit(&ctx);
-		if (ret < 0) {
-			mailbox_transaction_rollback(&t);
-			break;
-		} else {
-			ret = mailbox_transaction_commit(&t);
-			if (ret < 0)
-				break;
-		}
-	} while (imap_search_seqset_iter_next(seqset_iter));
+		/* If mailbox search fails, just commit the expunges done
+		   so far. There's no need to rollback. */
+		if (mailbox_transaction_commit(&t) < 0)
+			ret = -1;
+	} while (ret >= 0 && imap_search_seqset_iter_next(seqset_iter));
 
 	imap_search_seqset_iter_deinit(&seqset_iter);
 	mail_search_args_unref(&search_args);
