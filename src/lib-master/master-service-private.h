@@ -76,12 +76,12 @@ struct master_service {
 	char *current_user;
 	char *last_kick_signal_user;
 	volatile sig_atomic_t last_kick_signal_user_accessed;
+	volatile sig_atomic_t killed_signal;
 
 	struct stats_client *stats_client;
 	struct master_service_haproxy_conn *haproxy_conns;
 	struct event_filter *process_shutdown_filter;
 
-	bool killed:1;
 	bool stopping:1;
 	bool keep_environment:1;
 	bool log_directly:1;

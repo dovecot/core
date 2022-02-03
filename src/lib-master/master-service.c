@@ -111,7 +111,7 @@ static void sig_die(const siginfo_t *si, void *context)
 		}
 	}
 
-	service->killed = TRUE;
+	service->killed_signal = si->si_signo;
 	io_loop_stop(service->ioloop);
 }
 
@@ -253,8 +253,10 @@ static void sig_term(const siginfo_t *si, void *context)
 			lib_signals_syscall_error("SIGTERM: sigprocmask(SIG_SETMASK) failed: ");
 	}
 
-	if (call_delayed)
+	if (call_delayed) {
+		service->killed_signal = si->si_signo;
 		lib_signal_delayed(si);
+	}
 	errno = saved_errno;
 }
 
@@ -1076,7 +1078,7 @@ void master_service_stop_new_connections(struct master_service *service)
 
 bool master_service_is_killed(struct master_service *service)
 {
-	return service->killed;
+	return service->killed_signal != 0;
 }
 
 bool master_service_is_master_stopped(struct master_service *service)
