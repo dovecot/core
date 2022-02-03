@@ -141,9 +141,16 @@ index_mailbox_precache(struct master_connection *conn, struct mailbox *box)
 		}
 	}
 	if (mailbox_search_deinit(&ctx) < 0) {
-		e_error(index_event, "Mail search failed: %s%s",
-			mailbox_get_last_internal_error(box, NULL),
-			get_attempt_error(counter, first_uid, last_uid));
+		enum mail_error error;
+		const char *errstr = mailbox_get_last_internal_error(box, &error);
+
+		if (error == MAIL_ERROR_INTERRUPTED) {
+			e_info(index_event, "Mail search interrupted: %s%s", errstr,
+			       get_attempt_error(counter, first_uid, last_uid));
+		} else {
+			e_error(index_event, "Mail search failed: %s%s", errstr,
+				get_attempt_error(counter, first_uid, last_uid));
+		}
 		ret = -1;
 	}
 	const char *uids = first_uid == 0 ? "" :
