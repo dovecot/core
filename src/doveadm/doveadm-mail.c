@@ -44,16 +44,14 @@ struct doveadm_mail_cmd_module_register
 	doveadm_mail_cmd_module_register = { 0 };
 char doveadm_mail_cmd_hide = '\0';
 
-static int killed_signo = 0;
-
 bool doveadm_is_killed(void)
 {
-	return killed_signo != 0;
+	return master_service_is_killed(master_service);
 }
 
 int doveadm_killed_signo(void)
 {
-	return killed_signo;
+	return master_service_get_kill_signal(master_service);
 }
 
 void doveadm_mail_failed_error(struct doveadm_mail_cmd_context *ctx,
@@ -496,11 +494,6 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 	return 1;
 }
 
-static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
-{
-	killed_signo = si->si_signo;
-}
-
 int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 			     const char **error_r)
 {
@@ -514,9 +507,6 @@ int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 	ctx->v.init(ctx, ctx->args);
 	if (hook_doveadm_mail_init != NULL)
 		hook_doveadm_mail_init(ctx);
-
-	lib_signals_set_handler(SIGINT, 0, sig_die, NULL);
-	lib_signals_set_handler(SIGTERM, 0, sig_die, NULL);
 
 	return doveadm_mail_next_user(ctx, error_r);
 }
@@ -535,8 +525,6 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 	doveadm_mail_ctx_to_storage_service_input(ctx, &ctx->storage_service_input);
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
 							 ctx->service_flags);
-        lib_signals_set_handler(SIGINT, 0, sig_die, NULL);
-	lib_signals_set_handler(SIGTERM, 0, sig_die, NULL);
 
 	ctx->v.init(ctx, ctx->args);
 
