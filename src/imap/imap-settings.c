@@ -18,11 +18,13 @@ static bool imap_settings_verify(void *_set, pool_t pool,
 /* <settings checks> */
 static struct file_listener_settings imap_unix_listeners_array[] = {
 	{ "login/imap", 0666, "", "" },
-	{ "imap-master", 0600, "", "" }
+	{ "imap-master", 0600, "", "" },
+	{ "srv.imap/%{pid}", 0600, "", "" },
 };
 static struct file_listener_settings *imap_unix_listeners[] = {
 	&imap_unix_listeners_array[0],
-	&imap_unix_listeners_array[1]
+	&imap_unix_listeners_array[1],
+	&imap_unix_listeners_array[2],
 };
 static buffer_t imap_unix_listeners_buf = {
 	{ { imap_unix_listeners, sizeof(imap_unix_listeners) } }

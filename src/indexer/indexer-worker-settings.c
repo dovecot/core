@@ -9,10 +9,12 @@
 
 /* <settings checks> */
 static struct file_listener_settings indexer_worker_unix_listeners_array[] = {
-	{ "indexer-worker", 0600, "$default_internal_user", "" }
+	{ "indexer-worker", 0600, "$default_internal_user", "" },
+	{ "srv.indexer-worker/%{pid}", 0600, "", "" },
 };
 static struct file_listener_settings *indexer_worker_unix_listeners[] = {
-	&indexer_worker_unix_listeners_array[0]
+	&indexer_worker_unix_listeners_array[0],
+	&indexer_worker_unix_listeners_array[1],
 };
 static buffer_t indexer_worker_unix_listeners_buf = {
 	{ { indexer_worker_unix_listeners, sizeof(indexer_worker_unix_listeners) } }
