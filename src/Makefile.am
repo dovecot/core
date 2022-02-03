@@ -17,7 +17,6 @@ LIBDOVECOT_SUBDIRS = \
 	lib-dcrypt \
 	lib-dict \
 	lib-sasl \
-	lib-old-stats \
 	lib-http \
 	lib-fs \
 	lib-mail \
@@ -69,5 +68,4 @@ SUBDIRS = \
 	util \
 	doveadm \
 	stats \
-	old-stats \
 	plugins

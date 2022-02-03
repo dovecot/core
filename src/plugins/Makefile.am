@@ -37,8 +37,6 @@ SUBDIRS = \
 	imap-quota \
 	pop3-migration \
 	replication \
-	old-stats \
-	imap-old-stats \
 	mail-crypt \
 	trash \
 	virtual \
