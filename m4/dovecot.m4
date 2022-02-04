@@ -239,7 +239,7 @@ AC_DEFUN([DC_DOVECOT_MODULEDIR],[
 	AC_ARG_WITH(moduledir,
 	[  --with-moduledir=DIR    Base directory for dynamically loadable modules],
 		[moduledir="$withval"],
-		[moduledir="$dovecot_moduledir"]
+		[moduledir="\$(libdir)/dovecot"]
 	)
 	AC_SUBST(moduledir)
 ])
