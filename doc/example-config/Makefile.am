@@ -7,7 +7,7 @@ dist-hook:
 	rm -f $(distdir)/README
 
 README: README.in Makefile
-	cat $(srcdir)/README.in | sed "s|@exampledir@|$(exampledir)|" > README
+	$(AM_V_GEN)cat $(srcdir)/README.in | sed "s|@exampledir@|$(exampledir)|" > README
 
 exampledir = $(docdir)/example-config
 example_DATA = \
