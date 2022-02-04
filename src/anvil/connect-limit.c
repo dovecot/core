@@ -21,6 +21,9 @@ struct connect_limit {
 	HASH_TABLE(struct ident_pid *, struct ident_pid *) ident_pid_hash;
 };
 
+static void
+connect_limit_ident_hash_unref(struct connect_limit *limit, const char *ident);
+
 static unsigned int ident_pid_hash(const struct ident_pid *i)
 {
 	return str_hash(i->ident) ^ i->pid;
@@ -50,6 +53,17 @@ struct connect_limit *connect_limit_init(void)
 void connect_limit_deinit(struct connect_limit **_limit)
 {
 	struct connect_limit *limit = *_limit;
+	struct hash_iterate_context *iter;
+	struct ident_pid *i, *value;
+
+	iter = hash_table_iterate_init(limit->ident_pid_hash);
+	while (hash_table_iterate(iter, limit->ident_pid_hash, &i, &value)) {
+		hash_table_remove(limit->ident_pid_hash, i);
+		for (; i->refcount > 0; i->refcount--)
+			connect_limit_ident_hash_unref(limit, i->ident);
+		i_free(i);
+	}
+	hash_table_iterate_deinit(&iter);
 
 	*_limit = NULL;
 	hash_table_destroy(&limit->ident_hash);
