@@ -11,6 +11,7 @@
 
 #include "ioloop-private.h"
 #include "llist.h"
+#include "time-util.h"
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/types.h>
