@@ -34,7 +34,7 @@ compile_commands.json
 /libtool
 /build-aux/ltmain.sh
 /build-aux/missing
-/run-test.sh
+/build-aux/run-test.sh
 /stamp.h
 /stamp-h1
 /stamp-h2

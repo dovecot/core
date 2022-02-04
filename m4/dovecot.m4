@@ -259,55 +259,11 @@ AC_DEFUN([DC_PLUGIN_DEPS],[
 ])
 
 AC_DEFUN([DC_DOVECOT_TEST_WRAPPER],[
+  AC_REQUIRE_AUX_FILE([run-test.sh.in])
   AC_ARG_VAR([VALGRIND], [Path to valgrind])
   AC_PATH_PROG(VALGRIND, valgrind, reject)
   AS_IF([test "$VALGRIND" != reject], [
-    cat > run-test.sh <<_DC_EOF
-#!/bin/sh
-top_srcdir=\$[1]
-shift
-
-if test "\$NOUNDEF" != ""; then
-  noundef="--undef-value-errors=no"
-else
-  noundef=""
-fi
-
-if test "\$NOCHILDREN" != ""; then
-  trace_children="--trace-children=no"
-else
-  trace_children="--trace-children=yes"
-fi
-
-skip_path="\$top_srcdir/run-test-valgrind.exclude"
-if test -r "\$skip_path" && grep -w -q "\$(basename \$[1])" "\$skip_path"; then
-  NOVALGRIND=true
-fi
-
-if test "\$NOVALGRIND" != ""; then
-  \$[*]
-  ret=\$?
-else
-  test_out="test.out~\$\$"
-  trap "rm -f \$test_out" 0 1 2 3 15
-  supp_path="\$top_srcdir/run-test-valgrind.supp"
-  if test -r "\$supp_path"; then
-    $VALGRIND -q \$trace_children --error-exitcode=213 --leak-check=full --gen-suppressions=all --suppressions="\$supp_path" --log-file=\$test_out \$noundef \$[*]
-  else
-    $VALGRIND -q \$trace_children --error-exitcode=213 --leak-check=full --gen-suppressions=all --log-file=\$test_out \$noundef \$[*]
-  fi
-  ret=\$?
-  if test -s \$test_out; then
-    cat \$test_out
-    ret=1
-  fi
-fi
-if test \$ret != 0; then
-  echo "Failed to run: \$[*]" >&2
-fi
-exit \$ret
-_DC_EOF
-    RUN_TEST='$(LIBTOOL) execute $(SHELL) $(top_builddir)/run-test.sh $(top_srcdir)'
+    RUN_TEST='$(LIBTOOL) execute $(SHELL) $(top_builddir)/build-aux/run-test.sh'
   ], [
     RUN_TEST=''
   ])

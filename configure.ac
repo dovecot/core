@@ -922,6 +922,7 @@ src/plugins/var-expand-crypt/Makefile
 src/plugins/apparmor/Makefile
 src/plugins/charset-alias/Makefile
 stamp.h
+build-aux/run-test.sh
 dovecot-config.in])
 
 AC_OUTPUT
