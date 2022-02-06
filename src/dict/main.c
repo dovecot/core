@@ -130,8 +130,6 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
-	timeout_remove(&to_proctitle);
-
 	/* wait for all dict operations to finish */
 	dict_init_cache_wait_all();
 	/* connections should no longer have any extra refcounts */
@@ -144,6 +142,7 @@ static void main_deinit(void)
 	module_dir_unload(&modules);
 
 	sql_drivers_deinit();
+	timeout_remove(&to_proctitle);
 }
 
 int main(int argc, char *argv[])
