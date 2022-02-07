@@ -70,7 +70,7 @@ static void script_execute(struct mail_user *user, const char *cmd, bool wait)
 	}
 
 	struct welcome_client_list *wclient = i_new(struct welcome_client_list, 1);
-	wclient->client = program_client_unix_create(socket_path, args, &set, TRUE);
+	wclient->client = program_client_unix_create(socket_path, args, &set, !wait);
 
 	if (wait) {
 		enum program_client_exit_status ret =
