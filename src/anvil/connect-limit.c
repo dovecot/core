@@ -357,3 +357,66 @@ void connect_limit_dump(struct connect_limit *limit, struct ostream *output)
 	o_stream_nsend(output, "\n", 1);
 	str_free(&str);
 }
+
+static int
+connect_limit_iter_result_cmp(const struct connect_limit_iter_result *result1,
+			      const struct connect_limit_iter_result *result2)
+{
+	if (result1->pid < result2->pid)
+		return -1;
+	if (result1->pid > result2->pid)
+		return 1;
+	return guid_128_cmp(result1->conn_guid, result2->conn_guid);
+}
+
+struct connect_limit_iter *
+connect_limit_iter_begin(struct connect_limit *limit, const char *username)
+{
+	struct connect_limit_iter *iter;
+	struct session *session;
+
+	i_assert(limit->iter == NULL);
+
+	iter = i_new(struct connect_limit_iter, 1);
+	iter->limit = limit;
+	i_array_init(&iter->results, 32);
+
+	session = hash_table_lookup(limit->user_hash, username);
+	while (session != NULL) {
+		struct connect_limit_iter_result *result =
+			array_append_space(&iter->results);
+		result->pid = session->process->pid;
+		result->service = session->userip->service;
+		guid_128_copy(result->conn_guid, session->conn_guid);
+		session = session->user_next;
+	}
+	array_sort(&iter->results, connect_limit_iter_result_cmp);
+
+	limit->iter = iter;
+	return iter;
+}
+
+bool connect_limit_iter_next(struct connect_limit_iter *iter,
+			     struct connect_limit_iter_result *result_r)
+{
+	const struct connect_limit_iter_result *results;
+	unsigned int count;
+
+	results = array_get(&iter->results, &count);
+	if (iter->idx == count)
+		return FALSE;
+	*result_r = results[iter->idx++];
+	return TRUE;
+}
+
+void connect_limit_iter_deinit(struct connect_limit_iter **_iter)
+{
+	struct connect_limit_iter *iter = *_iter;
+
+	i_assert(iter->limit->iter == iter);
+	iter->limit->iter = NULL;
+
+	*_iter = NULL;
+	array_free(&iter->results);
+	i_free(iter);
+}
