@@ -37,10 +37,11 @@ static void welcome_client_destroy(struct welcome_client_list **_wclient) {
 	i_free(wclient);
 }
 
-static void script_finish(int ret, struct program_client *client ATTR_UNUSED)
+static void script_finish(enum program_client_exit_status ret,
+			  struct program_client *client ATTR_UNUSED)
 {
-	if (ret < 1)
-		i_error("welcome: Execution failed");
+	if (ret != PROGRAM_CLIENT_EXIT_STATUS_SUCCESS)
+		i_error("welcome: Execution failed: %d", ret);
 }
 
 static void script_execute(struct mail_user *user, const char *cmd, bool wait)
@@ -72,7 +73,8 @@ static void script_execute(struct mail_user *user, const char *cmd, bool wait)
 	wclient->client = program_client_unix_create(socket_path, args, &set, TRUE);
 
 	if (wait) {
-		int ret = program_client_run(wclient->client);
+		enum program_client_exit_status ret =
+			program_client_run(wclient->client);
 		script_finish(ret, wclient->client);
 		welcome_client_destroy(&wclient);
 	} else {
