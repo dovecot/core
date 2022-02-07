@@ -49,11 +49,6 @@ bool doveadm_is_killed(void)
 	return master_service_is_killed(master_service);
 }
 
-int doveadm_killed_signo(void)
-{
-	return master_service_get_kill_signal(master_service);
-}
-
 void doveadm_mail_failed_error(struct doveadm_mail_cmd_context *ctx,
 			       enum mail_error error)
 {

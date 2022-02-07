@@ -113,7 +113,6 @@ extern struct doveadm_mail_cmd_module_register doveadm_mail_cmd_module_register;
 extern char doveadm_mail_cmd_hide;
 
 bool doveadm_is_killed(void);
-int doveadm_killed_signo(void);
 
 void doveadm_mail_help(const struct doveadm_mail_cmd *cmd) ATTR_NORETURN;
 void doveadm_mail_help_name(const char *cmd_name) ATTR_NORETURN;
