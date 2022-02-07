@@ -81,7 +81,7 @@ static int block_sigterm(sigset_t *oldmask_r)
 	return -1;
 }
 
-static void sig_die(const siginfo_t *si, void *context)
+static void sig_delayed_die(const siginfo_t *si, void *context)
 {
 	struct master_service *service = context;
 
@@ -317,7 +317,7 @@ static void sig_close_listeners(const siginfo_t *si ATTR_UNUSED, void *context)
 }
 
 static void
-sig_state_changed(const siginfo_t *si ATTR_UNUSED, void *context)
+sig_delayed_state_changed(const siginfo_t *si ATTR_UNUSED, void *context)
 {
 	struct master_service *service = context;
 
@@ -872,24 +872,24 @@ void master_service_init_finish(struct master_service *service)
 	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0) {
 		/* Standalone programs stop immediately on signals */
 		lib_signals_set_handler2(SIGINT, 0, sig_standalone_die,
-					 sig_die, service);
+					 sig_delayed_die, service);
 		lib_signals_set_handler2(SIGTERM, 0, sig_standalone_die,
-					 sig_die, service);
+					 sig_delayed_die, service);
 	} else {
 		/* SIGINT is used by master for killing idle processes */
 		lib_signals_set_handler(SIGINT, LIBSIG_FLAGS_SAFE,
-					sig_die, service);
+					sig_delayed_die, service);
 		if (!service->have_admin_sockets) {
 			lib_signals_set_handler(SIGTERM, LIBSIG_FLAG_DELAYED,
-						sig_die, service);
+						sig_delayed_die, service);
 		} else {
-			lib_signals_set_handler2(SIGTERM, 0,
-						 sig_term, sig_die, service);
+			lib_signals_set_handler2(SIGTERM, 0, sig_term,
+						 sig_delayed_die, service);
 		}
 	}
 	if ((service->flags & MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE) != 0) {
 		lib_signals_set_handler(SIGUSR1, LIBSIG_FLAGS_SAFE,
-					sig_state_changed, service);
+					sig_delayed_state_changed, service);
 	}
 
 	if ((service->flags & MASTER_SERVICE_FLAG_STANDALONE) == 0) {
