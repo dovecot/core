@@ -37,6 +37,8 @@ program_client_callback(struct program_client *pclient, int result,
 	pclient->callback = NULL;
 	if (pclient->destroying || callback == NULL)
 		return;
+	if (pclient->wait_ioloop != NULL)
+		io_loop_stop(pclient->wait_ioloop);
 	callback(result, context);
 }
 
@@ -754,7 +756,9 @@ void program_client_wait(struct program_client *pclient)
 
 	program_client_switch_ioloop(pclient);
 
+	pclient->wait_ioloop = ioloop;
 	io_loop_run(ioloop);
+	pclient->wait_ioloop = NULL;
 
 	io_loop_set_current(prev_ioloop);
 	program_client_switch_ioloop(pclient);

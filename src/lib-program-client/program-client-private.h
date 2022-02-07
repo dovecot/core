@@ -35,6 +35,7 @@ struct program_client {
 	struct io *io;
 	struct timeout *to;
 	struct timeval start_time;
+	struct ioloop *wait_ioloop;
 
 	struct istream *input, *program_input, *raw_program_input;
 	struct ostream *output, *program_output, *raw_program_output;
