@@ -81,11 +81,16 @@ static int block_sigterm(sigset_t *oldmask_r)
 	return -1;
 }
 
-static void log_killed_signal(const siginfo_t *si)
+static void
+log_killed_signal(struct master_service *service, const siginfo_t *si)
 {
+	if (service->killed_signal_logged)
+		return;
+
 	i_warning("Killed with signal %d (by pid=%s uid=%s code=%s)",
 		  si->si_signo, dec2str(si->si_pid), dec2str(si->si_uid),
 		  lib_signal_code_to_str(si->si_signo, si->si_code));
+	service->killed_signal_logged = TRUE;
 }
 
 static void sig_delayed_die(const siginfo_t *si, void *context)
@@ -95,7 +100,7 @@ static void sig_delayed_die(const siginfo_t *si, void *context)
 	/* SIGINT comes either from master process or from keyboard. we don't
 	   want to log it in either case.*/
 	if (si->si_signo != SIGINT) {
-		log_killed_signal(si);
+		log_killed_signal(service, si);
 	} else if ((service->flags & MASTER_SERVICE_FLAG_NO_IDLE_DIE) != 0) {
 		/* never die when idling */
 		return;
@@ -255,6 +260,7 @@ static void sig_die_delayed(struct master_service *service, const siginfo_t *si)
 		service->killed_time.tv_usec = 0;
 #endif
 	}
+	service->killed_signal_info = *si;
 	/* set killed_signal after killed_time */
 	service->killed_signal = si->si_signo;
 	lib_signal_delayed(si);
@@ -1415,6 +1421,11 @@ static void master_service_deinit_real(struct master_service **_service)
 	struct master_service *service = *_service;
 
 	*_service = NULL;
+
+	if (master_service_is_killed(service) &&
+	    (service->killed_signal != SIGINT ||
+	     (service->flags & MASTER_SERVICE_FLAG_STANDALONE) != 0))
+		log_killed_signal(service, &service->killed_signal_info);
 
 	if (!service->init_finished &&
 	    (service->flags & MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME) == 0) {

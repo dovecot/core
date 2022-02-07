@@ -75,6 +75,7 @@ struct master_service {
 
 	char *current_user;
 	char *last_kick_signal_user;
+	siginfo_t killed_signal_info;
 	volatile sig_atomic_t last_kick_signal_user_accessed;
 	volatile sig_atomic_t killed_signal;
 	volatile struct timeval killed_time;
@@ -96,6 +97,7 @@ struct master_service {
 	bool config_path_from_master:1;
 	bool log_initialized:1;
 	bool init_finished:1;
+	bool killed_signal_logged:1;
 };
 
 void master_service_io_listeners_add(struct master_service *service);
