@@ -41,7 +41,6 @@ static void script_finish(int ret, struct program_client *client ATTR_UNUSED)
 {
 	if (ret < 1)
 		i_error("welcome: Execution failed");
-	io_loop_stop(current_ioloop);
 }
 
 static void script_execute(struct mail_user *user, const char *cmd, bool wait)
