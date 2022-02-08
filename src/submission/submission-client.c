@@ -496,7 +496,7 @@ void client_add_extra_capability(struct client *client, const char *capability,
 void client_kick(struct client *client)
 {
 	mail_storage_service_io_activate_user(client->service_user);
-	client_destroy(&client, "4.3.2", "Server shutting down");
+	client_destroy(&client, "4.3.2", MASTER_SERVICE_SHUTTING_DOWN_MSG);
 }
 
 void clients_destroy_all(void)

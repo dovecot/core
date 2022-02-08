@@ -1657,9 +1657,11 @@ void clients_init(void)
 void client_kick(struct client *client)
 {
 	mail_storage_service_io_activate_user(client->service_user);
-	if (client->output_cmd_lock == NULL)
-		client_send_line(client, "* BYE Server shutting down.");
-	client_destroy(client, "Server shutting down");
+	if (client->output_cmd_lock == NULL) {
+		client_send_line(client,
+				 "* BYE "MASTER_SERVICE_SHUTTING_DOWN_MSG".");
+	}
+	client_destroy(client, MASTER_SERVICE_SHUTTING_DOWN_MSG);
 }
 
 void clients_destroy_all(void)

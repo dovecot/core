@@ -782,8 +782,9 @@ static void imap_clients_unhibernate(void *context ATTR_UNUSED)
 static void imap_client_kick(struct imap_client *client)
 {
 	imap_client_io_activate_user(client);
-	o_stream_nsend_str(client->output, "* BYE Server shutting down.\r\n");
-	imap_client_destroy(&client, "Server shutting down");
+	o_stream_nsend_str(client->output,
+			   "* BYE "MASTER_SERVICE_SHUTTING_DOWN_MSG".\r\n");
+	imap_client_destroy(&client, MASTER_SERVICE_SHUTTING_DOWN_MSG);
 }
 
 void imap_clients_init(void)

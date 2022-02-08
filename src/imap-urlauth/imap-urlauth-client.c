@@ -375,6 +375,8 @@ void client_disconnect(struct client *client, const char *reason)
 
 void clients_destroy_all(void)
 {
-	while (imap_urlauth_clients != NULL)
-		client_destroy(imap_urlauth_clients, "Server shutting down");
+	while (imap_urlauth_clients != NULL) {
+		client_destroy(imap_urlauth_clients,
+			       MASTER_SERVICE_SHUTTING_DOWN_MSG);
+	}
 }

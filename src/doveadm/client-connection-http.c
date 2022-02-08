@@ -1162,7 +1162,7 @@ client_connection_http_free(struct client_connection *_conn)
 		/* We're not in the lib-http/server's connection destroy
 		   callback. */
 		http_server_connection_close(&conn->http_conn,
-			"Server shutting down");
+			MASTER_SERVICE_SHUTTING_DOWN_MSG);
 	}
 }
 

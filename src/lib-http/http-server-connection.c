@@ -140,7 +140,8 @@ bool http_server_connection_shut_down(struct http_server_connection *conn)
 {
 	if (conn->request_queue_head == NULL ||
 	    conn->request_queue_head->state == HTTP_SERVER_REQUEST_STATE_NEW) {
-		http_server_connection_close(&conn, "Server shutting down");
+		http_server_connection_close(&conn,
+					     MASTER_SERVICE_SHUTTING_DOWN_MSG);
 		return TRUE;
 	}
 	return FALSE;

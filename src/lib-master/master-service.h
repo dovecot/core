@@ -7,6 +7,8 @@
 #include <unistd.h> /* for getopt() opt* variables */
 #include <stdio.h> /* for getopt() opt* variables in Solaris */
 
+#define MASTER_SERVICE_SHUTTING_DOWN_MSG "Server shutting down"
+
 enum master_service_flags {
 	/* stdin/stdout already contains a client which we want to serve */
 	MASTER_SERVICE_FLAG_STD_CLIENT		= 0x01,
