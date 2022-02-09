@@ -66,10 +66,12 @@ static void kick_users_via_anvil(struct kick_context *ctx)
 	const struct kick_session *session;
 	string_t *cmd = t_str_new(128);
 
+	struct ioloop *ioloop = io_loop_create();
 	struct anvil_client *anvil =
 		anvil_client_init(ctx->who.anvil_path, NULL, 0);
 	if (anvil_client_connect(anvil, TRUE) < 0) {
 		doveadm_exit_code = EX_TEMPFAIL;
+		io_loop_destroy(&ioloop);
 		return;
 	}
 
@@ -93,9 +95,10 @@ static void kick_users_via_anvil(struct kick_context *ctx)
 		anvil_client_query(anvil, str_c(cmd),
 				   ANVIL_DEFAULT_KICK_TIMEOUT_MSECS,
 				   kick_user_anvil_callback, ctx);
-		io_loop_run(current_ioloop);
+		io_loop_run(ioloop);
 	}
 	anvil_client_deinit(&anvil);
+	io_loop_destroy(&ioloop);
 
 	doveadm_print(dec2str(ctx->kicked_count));
 }
