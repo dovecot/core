@@ -64,8 +64,7 @@ cmds = \
 	cmd-thread.c \
 	cmd-unselect.c \
 	cmd-unsubscribe.c \
-	cmd-urlfetch.c \
-	cmd-x-cancel.c
+	cmd-urlfetch.c
 
 common_sources = \
 	$(cmds) \
