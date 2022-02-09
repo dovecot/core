@@ -5,8 +5,6 @@
    0 if state couldn't be exported, -1 if temporary internal error error. */
 int imap_state_export_internal(struct client *client, buffer_t *dest,
 			       const char **error_r);
-int imap_state_export_external(struct client *client, buffer_t *dest,
-			       const char **error_r);
 
 /* Returns 1 if ok, 0 if state was corrupted, -1 if other error. Internal state
    comes from another Dovecot component, which can override IP addresses,

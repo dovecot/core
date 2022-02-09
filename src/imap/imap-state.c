@@ -91,7 +91,7 @@ import_seq_range(const unsigned char **data, const unsigned char *end,
 int imap_state_export_internal(struct client *client, buffer_t *dest,
 			       const char **error_r)
 {
-	/* the only IMAP command we allow running is IDLE or X-STATE */
+	/* the only IMAP command we allow running is IDLE */
 	if (client->command_queue_size > 1) {
 		*error_r = "Multiple commands in progress";
 		return 0;
@@ -105,19 +105,6 @@ int imap_state_export_internal(struct client *client, buffer_t *dest,
 		return 0;
 	}
 	return client->v.state_export(client, TRUE, dest, error_r);
-}
-
-int imap_state_export_external(struct client *client, buffer_t *dest,
-			       const char **error_r)
-{
-	if (client->command_queue_size > 1) {
-		*error_r = "Multiple commands in progress";
-		return 0;
-	}
-
-	i_assert(client->command_queue_size == 1);
-	i_assert(strcmp(client->command_queue->name, "X-STATE") == 0);
-	return client->v.state_export(client, FALSE, dest, error_r);
 }
 
 static int
