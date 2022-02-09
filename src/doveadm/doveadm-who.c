@@ -222,6 +222,7 @@ struct doveadm_who_iter *doveadm_who_iter_init(const char *anvil_path)
 	net_set_nonblock(fd, FALSE);
 	if (write(fd, ANVIL_CMD, strlen(ANVIL_CMD)) < 0) {
 		i_error("write(%s) failed: %m", anvil_path);
+		i_close_fd(&fd);
 		iter->failed = TRUE;
 		return iter;
 	}
