@@ -88,6 +88,8 @@ static struct sql_db_cache *dict_sql_db_cache;
 
 static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx);
 static void sql_dict_prev_set_flush(struct sql_dict_transaction_context *ctx);
+static void sql_dict_prev_inc_free(struct sql_dict_transaction_context *ctx);
+static void sql_dict_prev_set_free(struct sql_dict_transaction_context *ctx);
 
 static int
 sql_dict_init(struct dict *driver, const char *uri,
@@ -907,8 +909,10 @@ sql_dict_transaction_init(struct dict *_dict)
 
 static void sql_dict_transaction_free(struct sql_dict_transaction_context *ctx)
 {
-	i_assert(!array_is_created(&ctx->prev_inc));
-	i_assert(!array_is_created(&ctx->prev_set));
+	if (array_is_created(&ctx->prev_inc))
+		sql_dict_prev_inc_free(ctx);
+	if (array_is_created(&ctx->prev_set))
+		sql_dict_prev_set_free(ctx);
 
 	pool_unref(&ctx->inc_row_pool);
 	i_free(ctx->error);
