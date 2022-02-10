@@ -248,11 +248,11 @@ static void auth_input_line(const char *line, void *context)
 		login_connection_send_line(conn, line);
 		return;
 	}
-	if (*conn->dir->set->master_user_separator != '\0') {
+	if (*conn->dir->set->auth_master_user_separator != '\0') {
 		/* with master user logins we still want to use only the
 		   login username */
 		username = t_strcut(username,
-				    *conn->dir->set->master_user_separator);
+				    *conn->dir->set->auth_master_user_separator);
 	}
 
 	/* we need to add the host. the lookup might be asynchronous */
