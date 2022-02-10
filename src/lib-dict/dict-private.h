@@ -103,8 +103,6 @@ void dict_transaction_commit_async_noop_callback(
 extern struct dict dict_driver_client;
 extern struct dict dict_driver_file;
 extern struct dict dict_driver_fs;
-extern struct dict dict_driver_memcached;
-extern struct dict dict_driver_memcached_ascii;
 extern struct dict dict_driver_redis;
 extern struct dict dict_driver_cdb;
 extern struct dict dict_driver_fail;

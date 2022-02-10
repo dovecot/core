@@ -10,8 +10,6 @@ base_sources = \
 	dict.c \
 	dict-client.c \
 	dict-file.c \
-	dict-memcached.c \
-	dict-memcached-ascii.c \
 	dict-redis.c \
 	dict-fail.c \
 	dict-transaction-memory.c
