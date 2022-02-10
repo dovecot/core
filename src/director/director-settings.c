@@ -64,7 +64,7 @@ struct service_settings director_service_settings = {
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct director_settings)
 
 static const struct setting_define director_setting_defines[] = {
-	DEF(STR, master_user_separator),
+	DEF(STR, auth_master_user_separator),
 
 	DEF(STR, director_servers),
 	DEF(STR, director_mail_servers),
@@ -82,7 +82,7 @@ static const struct setting_define director_setting_defines[] = {
 };
 
 const struct director_settings director_default_settings = {
-	.master_user_separator = "",
+	.auth_master_user_separator = "",
 
 	.director_servers = "",
 	.director_mail_servers = "",
