@@ -44,7 +44,7 @@ static void imapc_sync_callback(const struct imapc_command_reply *reply,
 				     cmd->cmd_str, reply->text_full);
 		ctx->failed = TRUE;
 	}
-	
+
 	if (--ctx->sync_command_count == 0)
 		imapc_client_stop(ctx->mbox->storage->client->client);
 	i_free(cmd->cmd_str);
