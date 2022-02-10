@@ -850,6 +850,16 @@ static void imapc_mailbox_close(struct mailbox *box)
 
 	(void)imapc_mailbox_commit_delayed_trans(mbox, FALSE, &changes);
 	imapc_mail_fetch_flush(mbox);
+
+	/* Arriving here we may have fetch contexts still unprocessed,
+	   if there have been no mailbox_sync() after receiving the untagged replies.
+	   Losing these changes isn't a problem, since the same changes will be found
+	   out after connecting to the server the next time. */
+	struct imapc_untagged_fetch_ctx *untagged_fetch_context;
+	array_foreach_elem(&mbox->untagged_fetch_contexts, untagged_fetch_context)
+		imapc_untagged_fetch_ctx_free(&untagged_fetch_context);
+	array_clear(&mbox->untagged_fetch_contexts);
+
 	if (mbox->client_box != NULL)
 		imapc_client_mailbox_close(&mbox->client_box);
 	if (array_is_created(&mbox->rseq_modseqs))
