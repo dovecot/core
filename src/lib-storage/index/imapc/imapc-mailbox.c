@@ -729,7 +729,7 @@ static void imapc_untagged_expunge(const struct imapc_untagged_reply *reply,
 {
 	struct imapc_msgmap *msgmap;
 	uint32_t uid, rseq = reply->num;
-	
+
 	if (mbox == NULL || rseq == 0 ||
 	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_MSN_UPDATES))
 		return;
