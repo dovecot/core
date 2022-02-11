@@ -138,14 +138,7 @@ void indexer_client_status_callback(int percentage, void *context)
 {
 	struct indexer_client_request *ctx = context;
 
-	/* we are in deinit already, or the client has disconnected */
-	if (ctx->client->conn.output == NULL) {
-		indexer_client_unref(ctx->client);
-		i_free(ctx);
-		return;
-	}
-
-	T_BEGIN {
+	if (ctx->client->conn.output != NULL) T_BEGIN {
 		o_stream_nsend_str(ctx->client->conn.output,
 			t_strdup_printf("%u\t%d\n", ctx->tag, percentage));
 	} T_END;
