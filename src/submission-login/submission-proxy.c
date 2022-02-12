@@ -234,7 +234,7 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 		dsasl_client_new(client->common.proxy_mech, &sasl_set);
 	mech_name = dsasl_client_mech_get_name(client->common.proxy_mech);
 
-	str_printfa(str, "AUTH %s ", mech_name);
+	str_printfa(str, "AUTH %s", mech_name);
 	if (dsasl_client_output(client->common.proxy_sasl_client,
 				&sasl_output, &sasl_output_len, &error) < 0) {
 		const char *reason = t_strdup_printf(
@@ -245,10 +245,35 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 			LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
 		return -1;
 	}
-	if (sasl_output_len == 0)
-		str_append_c(str, '=');
-	else
-		base64_encode(sasl_output, sasl_output_len, str);
+
+	string_t *sasl_output_base64 = t_str_new(
+		MAX_BASE64_ENCODED_SIZE(sasl_output_len));
+	base64_encode(sasl_output, sasl_output_len, sasl_output_base64);
+
+	/* RFC 4954, Section 4:
+
+	   Note that the AUTH command is still subject to the line length
+	   limitations defined in [SMTP]. If use of the initial response
+	   argument would cause the AUTH command to exceed this length, the
+	   client MUST NOT use the initial response parameter (and instead
+	   proceed as defined in Section 5.1 of [SASL]).
+
+	   If the client is transmitting an initial response of zero length, it
+	   MUST instead transmit the response as a single equals sign ("=").
+	   This indicates that the response is present, but contains no data.
+	 */
+
+	i_assert(client->proxy_sasl_ir == NULL);
+	if (str_len(sasl_output_base64) == 0)
+		str_append(str, " =");
+	else if ((5 + strlen(mech_name) + 1 + str_len(sasl_output_base64)) >
+		 SMTP_BASE_LINE_LENGTH_LIMIT)
+		client->proxy_sasl_ir = i_strdup(str_c(sasl_output_base64));
+	else {
+		str_append_c(str, ' ');
+		str_append_str(str, sasl_output_base64);
+	}
+
 	str_append(str, "\r\n");
 	o_stream_nsend(output, str_data(str), str_len(str));
 
@@ -306,14 +331,44 @@ proxy_handle_ehlo_reply(struct submission_client *client,
 }
 
 static int
-submission_proxy_continue_sasl_auth(struct client *client, struct ostream *output,
-				    const char *line)
+submission_proxy_continue_sasl_auth(struct client *client,
+				    struct ostream *output, const char *line,
+				    bool last_line)
 {
+	struct submission_client *subm_client =
+		container_of(client, struct submission_client, common);
 	string_t *str;
 	const unsigned char *data;
 	size_t data_len;
 	const char *error;
 	int ret;
+
+	if (!last_line) {
+		const char *reason = t_strdup_printf(
+			"Server returned multi-line challenge: 334 %s",
+			str_sanitize(line, 1024));
+		login_proxy_failed(client->login_proxy,
+			login_proxy_get_event(client->login_proxy),
+			LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
+		return -1;
+	}
+	if (subm_client->proxy_sasl_ir != NULL) {
+		if (*line == '\0') {
+			/* Send initial response */
+			o_stream_nsend(output, subm_client->proxy_sasl_ir,
+				       strlen(subm_client->proxy_sasl_ir));
+			o_stream_nsend_str(output, "\r\n");
+			i_free(subm_client->proxy_sasl_ir);
+			return 0;
+		}
+		const char *reason = t_strdup_printf(
+			"Server sent unexpected server-first challenge: "
+			"334 %s", str_sanitize(line, 1024));
+		login_proxy_failed(client->login_proxy,
+			login_proxy_get_event(client->login_proxy),
+			LOGIN_PROXY_FAILURE_TYPE_PROTOCOL, reason);
+		return -1;
+	}
 
 	str = t_str_new(128);
 	if (base64_decode(line, strlen(line), NULL, str) < 0) {
@@ -523,8 +578,8 @@ int submission_proxy_parse_line(struct client *client, const char *line)
 			break;
 		if (status == 334 && client->proxy_sasl_client != NULL) {
 			/* continue SASL authentication */
-			if (submission_proxy_continue_sasl_auth(client, output,
-								text) < 0)
+			if (submission_proxy_continue_sasl_auth(
+				client, output, text, last_line) < 0)
 				return -1;
 			return 0;
 		}
@@ -595,6 +650,7 @@ void submission_proxy_reset(struct client *client)
 	subm_client->proxy_state = SUBMISSION_PROXY_BANNER;
 	subm_client->proxy_capability = 0;
 	i_free_and_null(subm_client->proxy_xclient);
+	i_free(subm_client->proxy_sasl_ir);
 	subm_client->proxy_reply_status = 0;
 	subm_client->proxy_reply = NULL;
 }
