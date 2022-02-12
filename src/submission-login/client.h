@@ -29,6 +29,7 @@ struct submission_client {
 
 	enum submission_proxy_state proxy_state;
 	enum smtp_capability proxy_capability;
+	char *proxy_sasl_ir;
 	unsigned int proxy_reply_status;
 	struct smtp_server_reply *proxy_reply;
 	const char **proxy_xclient;
