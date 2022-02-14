@@ -77,6 +77,7 @@ doc/man/doveadm-fts.1
 doc/man/doveadm-import.1
 doc/man/doveadm-instance.1
 doc/man/doveadm-index.1
+doc/man/doveadm-indexer.1
 doc/man/doveadm-force-resync.1
 doc/man/doveadm-help.1
 doc/man/doveadm-kick.1
