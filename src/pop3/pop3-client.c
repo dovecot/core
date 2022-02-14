@@ -742,8 +742,10 @@ bool client_handle_input(struct client *client)
 		args = strchr(line, ' ');
 		if (args != NULL)
 			*args++ = '\0';
-
-		T_BEGIN {
+		if (*line == '\0') {
+			client_send_line(client, "-ERR Unknown command.");
+			ret = -1;
+		} else T_BEGIN {
 			const char *reason_code =
 				event_reason_code_prefix("pop3", "cmd_", line);
 			struct event_reason *reason =
