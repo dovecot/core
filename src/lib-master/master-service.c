@@ -162,11 +162,9 @@ static int sig_term_try_kick_user(struct master_service *service, int fd_listen)
 {
 	/* WARNING: We are in a (non-delayed) signal handler context.
 	   Be VERY careful what functions you call. */
-	struct sockaddr sa;
 	int fd, ret = -1;
 	char buf[256];
 	ssize_t bytes;
-	socklen_t addrlen;
 
 	if (service->last_kick_signal_user != NULL &&
 	    service->last_kick_signal_user_accessed == 0) {
@@ -177,7 +175,7 @@ static int sig_term_try_kick_user(struct master_service *service, int fd_listen)
 			service->last_kick_signal_user) ? 1 : 0;
 	}
 
-	fd = accept(fd_listen, &sa, &addrlen);
+	fd = accept(fd_listen, NULL, NULL);
 	if (fd < 0) {
 		if (errno == EAGAIN || errno == ECONNABORTED)
 			return -1;
