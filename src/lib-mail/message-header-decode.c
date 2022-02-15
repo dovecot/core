@@ -49,7 +49,7 @@ message_header_decode_encoded(const unsigned char *data, size_t size,
 	case 'B':
 		if (base64_decode(data + start_pos[1] + 1,
 				  start_pos[2] - start_pos[1] - 1,
-				  NULL, decodebuf) < 0) {
+				  decodebuf) < 0) {
 			/* contains invalid data. show what we got so far. */
 		}
 		break;

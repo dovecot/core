@@ -328,7 +328,7 @@ int imap_proxy_parse_line(struct client *client, const char *line)
 
 		str = t_str_new(128);
 		if (line[1] != ' ' ||
-		    base64_decode(line+2, strlen(line+2), NULL, str) < 0) {
+		    base64_decode(line+2, strlen(line+2), str) < 0) {
 			const char *reason = t_strdup_printf(
 				"Invalid base64 data in AUTHENTICATE response");
 			login_proxy_failed(client->login_proxy,

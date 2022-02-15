@@ -79,7 +79,7 @@ int scram_scheme_parse(const struct hash_method *hmethod, const char *name,
 	*salt_r = fields[1];
 
 	buf = t_buffer_create(hmethod->digest_size);
-	if (base64_decode(fields[2], strlen(fields[2]), NULL, buf) < 0 ||
+	if (base64_decode(fields[2], strlen(fields[2]), buf) < 0 ||
 	    buf->used != hmethod->digest_size) {
 		*error_r = t_strdup_printf(
 			"Invalid %s StoredKey in passdb", name);
@@ -88,7 +88,7 @@ int scram_scheme_parse(const struct hash_method *hmethod, const char *name,
 	memcpy(stored_key_r, buf->data, hmethod->digest_size);
 
 	buffer_set_used_size(buf, 0);
-	if (base64_decode(fields[3], strlen(fields[3]), NULL, buf) < 0 ||
+	if (base64_decode(fields[3], strlen(fields[3]), buf) < 0 ||
 	    buf->used != hmethod->digest_size) {
 		*error_r = t_strdup_printf(
 			"Invalid %s ServerKey in passdb", name);

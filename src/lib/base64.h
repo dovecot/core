@@ -305,16 +305,10 @@ t_base64_encode_str(enum base64_encode_flags flags, size_t max_line_len,
 
 /* Translates base64 data into binary and appends it to dest buffer. See
    base64_scheme_decode().
-
-   The src_pos_r parameter is deprecated and MUST be NULL.
  */
 static inline int
-base64_decode(const void *src, size_t src_size, size_t *src_pos_r ATTR_UNUSED,
-	      buffer_t *dest) ATTR_NULL(3)
+base64_decode(const void *src, size_t src_size, buffer_t *dest)
 {
-	// NOTE: src_pos_r is deprecated here; to be removed in v2.4 */
-	i_assert(src_pos_r == NULL);
-
 	return base64_scheme_decode(&base64_scheme, 0, src, src_size, dest);
 }
 

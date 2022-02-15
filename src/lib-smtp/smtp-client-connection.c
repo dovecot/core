@@ -774,8 +774,7 @@ smtp_client_connection_auth_cb(const struct smtp_reply *reply,
 		input_len = strlen(reply->text_lines[0]);
 		buf = buffer_create_dynamic(pool_datastack_create(),
 			MAX_BASE64_DECODED_SIZE(input_len));
-		if (base64_decode(reply->text_lines[0], input_len,
-				  NULL, buf) < 0) {
+		if (base64_decode(reply->text_lines[0], input_len, buf) < 0) {
 			error = t_strdup_printf(
 				"Authentication failed: "
 				"Server sent non-base64 input for AUTH: %s",

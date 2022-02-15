@@ -98,7 +98,7 @@ static bool verify_b(const char *str, unsigned int i, bool starts_with_a)
 				return FALSE;
 		}
 		buffer_set_used_size(&buf, 0);
-		if (base64_decode(str+start, i-start, NULL, &buf) < 0)
+		if (base64_decode(str+start, i-start, &buf) < 0)
 			return FALSE;
 		i++;
 

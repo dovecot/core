@@ -153,7 +153,7 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 			buffer_t *state_buf;
 
 			state_buf = buffer_create_dynamic(pool, 1024);
-			if (base64_decode(value, strlen(value), NULL,
+			if (base64_decode(value, strlen(value),
 					  state_buf) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid state base64 value: %s", value);

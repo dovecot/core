@@ -110,7 +110,7 @@ pop3_proxy_continue_sasl_auth(struct client *client, struct ostream *output,
 	int ret;
 
 	str = t_str_new(128);
-	if (base64_decode(line, strlen(line), NULL, str) < 0) {
+	if (base64_decode(line, strlen(line), str) < 0) {
 		const char *reason = t_strdup_printf(
 			"Invalid base64 data in AUTH response");
 		login_proxy_failed(client->login_proxy,

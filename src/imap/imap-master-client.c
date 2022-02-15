@@ -147,21 +147,21 @@ imap_master_client_parse_input(const char *const *args, pool_t pool,
 			input_r->userdb_fields =
 				t_strsplit_tabescaped(value);
 		} else if (strcmp(key, "client_input") == 0) {
-			if (base64_decode(value, strlen(value), NULL,
+			if (base64_decode(value, strlen(value),
 					  master_input_r->client_input) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid client_input base64 value: %s", value);
 				return -1;
 			}
 		} else if (strcmp(key, "client_output") == 0) {
-			if (base64_decode(value, strlen(value), NULL,
+			if (base64_decode(value, strlen(value),
 					  master_input_r->client_output) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid client_output base64 value: %s", value);
 				return -1;
 			}
 		} else if (strcmp(key, "state") == 0) {
-			if (base64_decode(value, strlen(value), NULL,
+			if (base64_decode(value, strlen(value),
 					  master_input_r->state) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid state base64 value: %s", value);

@@ -462,7 +462,7 @@ test_auth_handshake_auth(struct server_connection *conn, unsigned int id,
 	}
 	data = t_buffer_create(256);
 	if (resp != NULL) {
-		if (base64_decode(resp, strlen(resp), NULL, data) < 0) {
+		if (base64_decode(resp, strlen(resp), data) < 0) {
 			i_error("Bad AUTH request: Bad base64");
 			return FALSE;
 		}
@@ -496,7 +496,7 @@ test_auth_handshake_cont(struct server_connection *conn, unsigned int id,
 	resp = args[0];
 	data = t_buffer_create(256);
 	if (resp != NULL) {
-		if (base64_decode(resp, strlen(resp), NULL, data) < 0) {
+		if (base64_decode(resp, strlen(resp), data) < 0) {
 			i_error("Bad CONT request: Bad base64");
 			return FALSE;
 		}

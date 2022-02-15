@@ -431,7 +431,7 @@ parse_scram_client_final(struct scram_auth_request *request,
 
 		request->proof = buffer_create_dynamic(request->pool,
 					MAX_BASE64_DECODED_SIZE(len));
-		if (base64_decode(&fields[field_count-1][2], len, NULL,
+		if (base64_decode(&fields[field_count-1][2], len,
 				  request->proof) < 0) {
 			*error_r = "Invalid base64 encoding";
 			return FALSE;

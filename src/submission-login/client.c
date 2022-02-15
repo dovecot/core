@@ -200,7 +200,7 @@ client_connection_cmd_xclient(void *context,
 				client->common.forward_fields =	str_new(
 					client->common.preproxy_pool,
 					MAX_BASE64_DECODED_SIZE(value_len));
-				if (base64_decode(value, value_len, NULL,
+				if (base64_decode(value, value_len,
 					  client->common.forward_fields) < 0) {
 					smtp_server_reply(cmd, 501, "5.5.4",
 						"Invalid FORWARD parameter");

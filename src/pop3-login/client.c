@@ -73,7 +73,7 @@ static bool cmd_xclient(struct pop3_client *client, const char *args)
 			client->common.forward_fields =
 				str_new(client->common.preproxy_pool,
 					MAX_BASE64_DECODED_SIZE(value_len));
-			if (base64_decode((*tmp)+8, value_len, NULL,
+			if (base64_decode((*tmp)+8, value_len,
 					  client->common.forward_fields) < 0)
 				args_ok = FALSE;
 		}

@@ -371,7 +371,7 @@ submission_proxy_continue_sasl_auth(struct client *client,
 	}
 
 	str = t_str_new(128);
-	if (base64_decode(line, strlen(line), NULL, str) < 0) {
+	if (base64_decode(line, strlen(line), str) < 0) {
 		login_proxy_failed(client->login_proxy,
 			login_proxy_get_event(client->login_proxy),
 			LOGIN_PROXY_FAILURE_TYPE_PROTOCOL,
