@@ -7,7 +7,6 @@
 #include "process-stat.h"
 
 struct module;
-struct stats;
 struct fs_settings;
 struct ssl_iostream_settings;
 struct master_service_anvil_session;
@@ -17,7 +16,6 @@ struct dict_op_settings;
 struct mail_user_vfuncs {
 	void (*deinit)(struct mail_user *user);
 	void (*deinit_pre)(struct mail_user *user);
-	void (*stats_fill)(struct mail_user *user, struct stats *stats);
 };
 
 struct mail_user_connection_data {
@@ -218,10 +216,6 @@ void mail_user_init_ssl_client_settings(struct mail_user *user,
 void mail_user_init_fs_settings(struct mail_user *user,
 				struct fs_settings *fs_set,
 				struct ssl_iostream_settings *ssl_set_r);
-
-/* Fill statistics for user. By default there are no statistics, so stats
-   plugin must be loaded to have anything filled. */
-void mail_user_stats_fill(struct mail_user *user, struct stats *stats);
 
 /* Try to mkdir() user's home directory. Ideally this should be called only
    after the caller tries to create a file to the home directory, but it fails

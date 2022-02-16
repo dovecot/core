@@ -48,11 +48,6 @@ static void mail_user_deinit_pre_base(struct mail_user *user ATTR_UNUSED)
 {
 }
 
-static void mail_user_stats_fill_base(struct mail_user *user ATTR_UNUSED,
-				      struct stats *stats ATTR_UNUSED)
-{
-}
-
 static struct mail_user *
 mail_user_alloc_int(struct event *parent_event,
 		    const char *username,
@@ -86,7 +81,6 @@ mail_user_alloc_int(struct event *parent_event,
 
 	user->v.deinit = mail_user_deinit_base;
 	user->v.deinit_pre = mail_user_deinit_pre_base;
-	user->v.stats_fill = mail_user_stats_fill_base;
 	p_array_init(&user->module_contexts, user->pool, 5);
 	return user;
 }
@@ -761,11 +755,6 @@ void mail_user_init_fs_settings(struct mail_user *user,
 
 	fs_set->ssl_client_set = ssl_set_r;
 	mail_user_init_ssl_client_settings(user, ssl_set_r);
-}
-
-void mail_user_stats_fill(struct mail_user *user, struct stats *stats)
-{
-	user->v.stats_fill(user, stats);
 }
 
 static int
