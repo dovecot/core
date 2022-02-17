@@ -528,7 +528,7 @@ auth_settings_read(const char *service, pool_t pool,
 		&auth_setting_parser_info,
 		NULL
 	};
- 	struct master_service_settings_input input;
+	struct master_service_settings_input input;
 	struct setting_parser_context *set_parser;
 	const char *error;
 	void **sets;
