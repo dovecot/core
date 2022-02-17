@@ -289,13 +289,14 @@ master_connection_cmd_index(struct master_connection *conn,
 	/* refresh proctitle before a potentially long-running
 	   user unref */
 	indexer_worker_refresh_proctitle(user->username, "(deinit)", 0, 0);
-	mail_user_deinit(&user);
-	mail_storage_service_user_unref(&service_user);
 
 	if (anvil_sent) {
 		master_service_anvil_disconnect(master_service, &anvil_session,
 						anvil_conn_guid);
 	}
+
+	mail_user_deinit(&user);
+	mail_storage_service_user_unref(&service_user);
 	indexer_worker_refresh_proctitle(NULL, NULL, 0, 0);
 	return ret;
 }
