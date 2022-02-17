@@ -128,7 +128,7 @@ void index_storage_lock_notify(struct mailbox *box,
 	}
 
 	ibox->next_lock_notify = now + LOCK_NOTIFY_INTERVAL;
-        ibox->last_notify_type = notify_type;
+	ibox->last_notify_type = notify_type;
 
 	switch (notify_type) {
 	case MAILBOX_LOCK_NOTIFY_NONE:
@@ -758,7 +758,7 @@ mailbox_delete_all_attributes(struct mailbox_transaction_context *t,
 static int mailbox_expunge_all_data(struct mailbox *box)
 {
 	struct mail_search_context *ctx;
-        struct mailbox_transaction_context *t;
+	struct mailbox_transaction_context *t;
 	struct mail *mail;
 	struct mail_search_args *search_args;
 	int ret;
@@ -866,7 +866,7 @@ int index_storage_mailbox_delete_post(struct mailbox *box)
 	if (box->list->v.delete_mailbox(box->list, box->name) < 0) {
 		mail_storage_copy_list_error(box->storage, box->list);
 		return -1;
-	} 
+	}
 
 	if (ret_guid == 0) {
 		mailbox_list_add_change(box->list,

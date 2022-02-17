@@ -116,7 +116,7 @@ struct mail_search_arg {
 		struct imap_match_glob *mailbox_glob;
 	} initialized;
 
-        void *context;
+	void *context;
 	const char *hdr_field_name; /* for SEARCH_HEADER* */
 	bool match_not:1; /* result = !result */
 	bool match_always:1; /* result = 1 always */

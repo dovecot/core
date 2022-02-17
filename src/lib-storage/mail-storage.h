@@ -22,7 +22,7 @@ struct message_size;
 enum mail_storage_flags {
 	/* Remember message headers' MD5 sum */
 	MAIL_STORAGE_FLAG_KEEP_HEADER_MD5	= 0x01,
-	/* Don't try to autodetect anything, require that the given data 
+	/* Don't try to autodetect anything, require that the given data
 	   contains all the necessary information. */
 	MAIL_STORAGE_FLAG_NO_AUTODETECTION	= 0x02,
 	/* Don't autocreate any directories. If they don't exist,
