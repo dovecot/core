@@ -29,6 +29,7 @@
 #define AUTH_WORKER_ABORT_SECS 60
 #define AUTH_WORKER_DELAY_WARN_SECS 3
 #define AUTH_WORKER_DELAY_WARN_MIN_INTERVAL_SECS 300
+#define AUTH_WORKER_CONNECT_RETRY_TIMEOUT_MSECS 5000
 
 struct auth_worker_request {
 	unsigned int id;
@@ -52,7 +53,7 @@ struct auth_worker_connection {
 	bool resuming:1;
 };
 
-static ARRAY(struct auth_worker_connection *) connections = ARRAY_INIT;
+static struct connection_list *connections = NULL;
 static unsigned int idle_count = 0, auth_workers_with_errors = 0;
 static ARRAY(struct auth_worker_request *) worker_request_array;
 static struct aqueue *worker_request_queue;
@@ -61,16 +62,15 @@ static unsigned int auth_workers_throttle_count;
 
 static const char *worker_socket_path;
 
-static void worker_input(struct auth_worker_connection *worker);
-static void auth_worker_destroy(struct auth_worker_connection **worker,
-				const char *reason, bool restart) ATTR_NULL(2);
+static void auth_worker_deinit(struct auth_worker_connection **worker,
+			       const char *reason, bool restart) ATTR_NULL(2);
 
 static void auth_worker_idle_timeout(struct auth_worker_connection *worker)
 {
 	i_assert(worker->request == NULL);
 
 	if (idle_count > 1)
-		auth_worker_destroy(&worker, NULL, FALSE);
+		auth_worker_deinit(&worker, NULL, FALSE);
 	else
 		timeout_reset(worker->to_lookup);
 }
@@ -79,7 +79,7 @@ static void auth_worker_call_timeout(struct auth_worker_connection *worker)
 {
 	i_assert(worker->request != NULL);
 
-	auth_worker_destroy(&worker, "Lookup timed out", TRUE);
+	auth_worker_deinit(&worker, "Lookup timed out", TRUE);
 }
 
 static bool auth_worker_request_send(struct auth_worker_connection *worker,
@@ -148,16 +148,28 @@ static void auth_worker_request_send_next(struct auth_worker_connection *worker)
 	} while (!auth_worker_request_send(worker, request));
 }
 
-static void auth_worker_send_handshake(struct auth_worker_connection *worker)
+static int auth_worker_handshake_args(struct connection *conn,
+				      const char *const *args)
 {
-	string_t *str;
+	if (!conn->version_received) {
+		if (connection_handshake_args_default(conn, args) < 0)
+			return -1;
+	}
+
+	return 1;
+}
+
+static void auth_worker_server_connected(struct connection *conn, bool success)
+{
+	if (!success)
+		return;
+
+	/* send outgoing handshake:
+	   DBHASH	<passdb_md5>	<userdb_md5> */
 	unsigned char passdb_md5[MD5_RESULTLEN];
 	unsigned char userdb_md5[MD5_RESULTLEN];
 
-	str = t_str_new(128);
-	str_printfa(str, "VERSION\tauth-worker\t%u\t%u\n",
-		    AUTH_WORKER_PROTOCOL_MAJOR_VERSION,
-		    AUTH_WORKER_PROTOCOL_MINOR_VERSION);
+	string_t *str = t_str_new(128);
 
 	passdbs_generate_md5(passdb_md5);
 	userdbs_generate_md5(userdb_md5);
@@ -167,76 +179,64 @@ static void auth_worker_send_handshake(struct auth_worker_connection *worker)
 	binary_to_hex_append(str, userdb_md5, sizeof(userdb_md5));
 	str_append_c(str, '\n');
 
-	o_stream_nsend(worker->conn.output, str_data(str), str_len(str));
+	o_stream_nsend(conn->output, str_data(str), str_len(str));
+}
+
+static void auth_worker_destroy(struct connection *conn)
+{
+	struct auth_worker_connection *worker =
+		container_of(conn, struct auth_worker_connection, conn);
+
+	const char *reason;
+	bool restart;
+	if (conn->disconnect_reason == CONNECTION_DISCONNECT_DEINIT) {
+		reason = "Shutting down";
+		restart = FALSE;
+	} else {
+		reason = t_strdup_printf("Worker process died unexpectedly: %s",
+					 connection_disconnect_reason(conn));
+		restart = TRUE;
+	}
+	auth_worker_deinit(&worker, reason, restart);
 }
 
 static struct auth_worker_connection *auth_worker_create(void)
 {
-	struct auth_worker_connection *worker;
-	struct event *event;
-
-	if (array_count(&connections) >= auth_workers_throttle_count)
+	if (connections->connections_count >= auth_workers_throttle_count)
 		return NULL;
 
-	event = event_create(auth_event);
-	event_set_append_log_prefix(event, "auth-worker: ");
+	struct auth_worker_connection *worker = i_new(struct auth_worker_connection, 1);
 
-	worker = i_new(struct auth_worker_connection, 1);
-	worker->conn.fd_in = net_connect_unix_with_retries(worker_socket_path, 5000);
-	if (worker->conn.fd_in == -1) {
-		if (errno == EACCES) {
-			e_error(event, "%s",
-				eacces_error_get("net_connect_unix",
-						 worker_socket_path));
-		} else {
-			e_error(event, "net_connect_unix(%s) failed: %m",
-				worker_socket_path);
-		}
-		event_unref(&event);
-		return NULL;
-	}
-	worker->conn.input = i_stream_create_fd(worker->conn.fd_in,
-						AUTH_WORKER_MAX_LINE_LENGTH);
-	worker->conn.output = o_stream_create_fd(worker->conn.fd_in, SIZE_MAX);
-	o_stream_set_no_error_handling(worker->conn.output, TRUE);
-	worker->conn.io = io_add(worker->conn.fd_in, IO_READ, worker_input, worker);
+	worker->conn.event_parent = auth_event;
+	connection_init_client_unix(connections, &worker->conn,
+				    worker_socket_path);
+	connection_client_connect(&worker->conn);
+
+	event_set_append_log_prefix(worker->conn.event, "auth-worker: ");
+
 	worker->to_lookup = timeout_add(AUTH_WORKER_MAX_IDLE_SECS * 1000,
 					auth_worker_idle_timeout, worker);
-	worker->conn.event = event;
-	auth_worker_send_handshake(worker);
 
 	idle_count++;
-	array_push_back(&connections, &worker);
 	return worker;
 }
 
-static void auth_worker_destroy(struct auth_worker_connection **_worker,
-				const char *reason, bool restart)
+static void auth_worker_deinit(struct auth_worker_connection **_worker,
+			       const char *reason, bool restart)
 {
 	struct auth_worker_connection *worker = *_worker;
-	struct auth_worker_connection *const *workers;
-	unsigned int idx;
 
 	*_worker = NULL;
 
 	if (worker->received_error) {
 		i_assert(auth_workers_with_errors > 0);
-		i_assert(auth_workers_with_errors <= array_count(&connections));
+		i_assert(auth_workers_with_errors <= connections->connections_count);
 		auth_workers_with_errors--;
-	}
-
-	array_foreach(&connections, workers) {
-		if (*workers == worker) {
-			idx = array_foreach_idx(&connections, workers);
-			array_delete(&connections, idx, 1);
-			break;
-		}
 	}
 
 	if (worker->request == NULL)
 		idle_count--;
-
-	if (worker->request != NULL) {
+	else {
 		e_error(worker->conn.event, "Aborted %s request for %s: %s",
 			t_strcut(worker->request->data, '\t'),
 			worker->request->username, reason);
@@ -248,14 +248,9 @@ static void auth_worker_destroy(struct auth_worker_connection **_worker,
 		worker->request->callback(args, worker->request->context);
 	}
 
-	io_remove(&worker->conn.io);
-	i_stream_destroy(&worker->conn.input);
-	o_stream_destroy(&worker->conn.output);
 	timeout_remove(&worker->to_lookup);
+	connection_deinit(&worker->conn);
 
-	if (close(worker->conn.fd_in) < 0)
-		e_error(worker->conn.event, "close() failed: %m");
-	event_unref(&worker->conn.event);
 	i_free(worker);
 
 	if (idle_count == 0 && restart) {
@@ -267,24 +262,31 @@ static void auth_worker_destroy(struct auth_worker_connection **_worker,
 
 static struct auth_worker_connection *auth_worker_find_free(void)
 {
-	struct auth_worker_connection *worker;
-
 	if (idle_count == 0)
 		return NULL;
 
-	array_foreach_elem(&connections, worker) {
+	struct connection *conn = connections->connections;
+	while (conn != NULL) {
+		struct auth_worker_connection *worker =
+			container_of(conn, struct auth_worker_connection, conn);
 		if (worker->request == NULL)
 			return worker;
+
+		conn = conn->next;
 	}
+
 	i_unreached();
 }
 
-static bool auth_worker_request_handle(struct auth_worker_connection *worker,
-				       struct auth_worker_request *request,
-				       const char *line)
+static int auth_worker_request_handle(struct auth_worker_connection *worker,
+				      const char *const *args)
 {
-	if (str_begins_with(line, "*\t")) {
-		/* multi-line reply, not finished yet */
+	struct auth_worker_request *_request = worker->request;
+
+	/* lines starting with '*' denote a multi-line request
+	   if they do, reset timeouts
+	   if they do not, mark this request as handled */
+	if (args[0][0] == '*') {
 		if (worker->resuming)
 			timeout_reset(worker->to_lookup);
 		else {
@@ -303,20 +305,12 @@ static bool auth_worker_request_handle(struct auth_worker_connection *worker,
 		idle_count++;
 	}
 
-	const char *const *args = t_strsplit_tabescaped(line);
-	if (args[0] == NULL) {
-		const char *empty_args[] = { "", NULL };
-		args = empty_args;
-	}
-
-	if (!request->callback(args, request->context) &&
-	    worker->conn.io != NULL) {
+	if (!_request->callback(args, _request->context)) {
 		worker->timeout_pending_resume = FALSE;
 		timeout_remove(&worker->to_lookup);
-		io_remove(&worker->conn.io);
-		return FALSE;
+		return -1;
 	}
-	return TRUE;
+	return 1;
 }
 
 static bool auth_worker_error(struct auth_worker_connection *worker)
@@ -325,22 +319,22 @@ static bool auth_worker_error(struct auth_worker_connection *worker)
 		return TRUE;
 	worker->received_error = TRUE;
 	auth_workers_with_errors++;
-	i_assert(auth_workers_with_errors <= array_count(&connections));
+	i_assert(auth_workers_with_errors <= connections->connections_count);
 
 	if (auth_workers_with_errors == 1) {
 		/* this is the only failing auth worker connection.
 		   don't create new ones until this one sends SUCCESS. */
-		auth_workers_throttle_count = array_count(&connections);
+		auth_workers_throttle_count = connections->connections_count;
 		return TRUE;
 	}
 
 	/* too many auth workers, reduce them */
-	i_assert(array_count(&connections) > 1);
-	if (auth_workers_throttle_count >= array_count(&connections))
-		auth_workers_throttle_count = array_count(&connections)-1;
+	i_assert(connections->connections_count > 1);
+	if (auth_workers_throttle_count >= connections->connections_count)
+		auth_workers_throttle_count = connections->connections_count-1;
 	else if (auth_workers_throttle_count > 1)
 		auth_workers_throttle_count--;
-	auth_worker_destroy(&worker, "Internal auth worker failure", FALSE);
+	auth_worker_deinit(&worker, "Internal auth worker failure", FALSE);
 	return FALSE;
 }
 
@@ -352,7 +346,7 @@ static void auth_worker_success(struct auth_worker_connection *worker)
 		return;
 
 	i_assert(auth_workers_with_errors > 0);
-	i_assert(auth_workers_with_errors <= array_count(&connections));
+	i_assert(auth_workers_with_errors <= connections->connections_count);
 	auth_workers_with_errors--;
 
 	if (auth_workers_with_errors == 0) {
@@ -364,79 +358,58 @@ static void auth_worker_success(struct auth_worker_connection *worker)
 	worker->received_error = FALSE;
 }
 
-static void worker_input(struct auth_worker_connection *worker)
+static int worker_input_args(struct connection *conn, const char *const *args)
 {
-	const char *line, *id_str;
+	struct auth_worker_connection *worker =
+		container_of(conn, struct auth_worker_connection, conn);
+
+	if (strcmp(args[0], "ERROR") == 0) {
+		if (!auth_worker_error(worker))
+			return -1;
+		return 1;
+	} else if (strcmp(args[0], "SUCCESS") == 0) {
+		auth_worker_success(worker);
+		return 1;
+	} else if (strcmp(args[0], "SHUTDOWN") == 0) {
+		worker->shutdown = TRUE;
+		return 1;
+	} else if (strcmp(args[0],  "RESTART") == 0) {
+		worker->restart = TRUE;
+		return 1;
+	}
+
+	/* skip invalid lines */
 	unsigned int id;
-
-	switch (i_stream_read(worker->conn.input)) {
-	case 0:
-		return;
-	case -1:
-		/* disconnected */
-		auth_worker_destroy(&worker, "Worker process died unexpectedly",
-				    TRUE);
-		return;
-	case -2:
-		/* buffer full */
-		e_error(worker->conn.event,
-			"BUG: Auth worker sent us more than %d bytes",
-			(int)AUTH_WORKER_MAX_LINE_LENGTH);
-		auth_worker_destroy(&worker, "Worker is buggy", TRUE);
-		return;
+	if (str_to_uint(args[0], &id) < 0) {
+		e_error(conn->event, "Invalid ID: %s", args[0]);
+		return 1;
 	}
 
-	while ((line = i_stream_next_line(worker->conn.input)) != NULL) {
-		if (strcmp(line, "RESTART") == 0) {
-			worker->restart = TRUE;
-			continue;
-		}
-		if (strcmp(line, "SHUTDOWN") == 0) {
-			worker->shutdown = TRUE;
-			continue;
-		}
-		if (strcmp(line, "ERROR") == 0) {
-			if (!auth_worker_error(worker))
-				return;
-			continue;
-		}
-		if (strcmp(line, "SUCCESS") == 0) {
-			auth_worker_success(worker);
-			continue;
-		}
-		id_str = line;
-		line = strchr(line, '\t');
-		if (line == NULL ||
-		    str_to_uint(t_strdup_until(id_str, line), &id) < 0)
-			continue;
-
-		if (worker->request != NULL && id == worker->request->id) {
-			if (!auth_worker_request_handle(worker, worker->request,
-							line + 1))
-				break;
+	int ret = 0;
+	if (worker->request != NULL && id == worker->request->id)
+		 ret = auth_worker_request_handle(worker, args + 1);
+	else {
+		if (worker->request != NULL) {
+			e_error(conn->event,
+				"BUG: Worker sent reply with id %u, "
+				"expected %u", id, worker->request->id);
 		} else {
-			if (worker->request != NULL) {
-				e_error(worker->conn.event,
-					"BUG: Worker sent reply with id %u, "
-					"expected %u", id, worker->request->id);
-			} else {
-				e_error(worker->conn.event,
-					"BUG: Worker sent reply with id %u, "
-					"none was expected", id);
-			}
-			auth_worker_destroy(&worker, "Worker is buggy", TRUE);
-			return;
+			e_error(conn->event,
+				"BUG: Worker sent reply with id %u, "
+				"none was expected", id);
 		}
+		auth_worker_deinit(&worker, "Worker is buggy", TRUE);
+		return -1;
 	}
 
-	if (worker->request != NULL) {
-		/* there's still a pending request */
-	} else if (worker->restart)
-		auth_worker_destroy(&worker, "Max requests limit", TRUE);
+	if (worker->restart)
+		auth_worker_deinit(&worker, "Max requests limit", TRUE);
 	else if (worker->shutdown)
-		auth_worker_destroy(&worker, "Idle kill", FALSE);
-	else
+		auth_worker_deinit(&worker, "Idle kill", FALSE);
+	else if (worker->request != NULL)
 		auth_worker_request_send_next(worker);
+
+	return ret;
 }
 
 static void worker_input_resume(struct auth_worker_connection *worker)
@@ -445,8 +418,28 @@ static void worker_input_resume(struct auth_worker_connection *worker)
 	timeout_remove(&worker->to_lookup);
 	worker->to_lookup = timeout_add(AUTH_WORKER_RESUME_TIMEOUT_SECS * 1000,
 					auth_worker_call_timeout, worker);
-	worker_input(worker);
+	connection_input_resume(&worker->conn);
 }
+
+static const struct connection_settings auth_worker_server_settings =
+{
+	.service_name_in = "auth-worker",
+	.service_name_out = "auth-worker",
+	.major_version = AUTH_WORKER_PROTOCOL_MAJOR_VERSION,
+	.minor_version = AUTH_WORKER_PROTOCOL_MINOR_VERSION,
+	.client = TRUE,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
+	.unix_client_connect_msecs = AUTH_WORKER_CONNECT_RETRY_TIMEOUT_MSECS,
+};
+
+static const struct connection_vfuncs auth_worker_server_funcs =
+{
+	.client_connected = auth_worker_server_connected,
+	.destroy = auth_worker_destroy,
+	.handshake_args = auth_worker_handshake_args,
+	.input_args = worker_input_args,
+};
 
 struct auth_worker_connection *
 auth_worker_call(pool_t pool, const char *username, const char *data,
@@ -490,8 +483,6 @@ void auth_worker_server_resume_input(struct auth_worker_connection *worker)
 		return;
 	}
 
-	if (worker->conn.io == NULL)
-		worker->conn.io = io_add(worker->conn.fd_in, IO_READ, worker_input, worker);
 	if (!worker->timeout_pending_resume) {
 		worker->timeout_pending_resume = TRUE;
 		timeout_remove(&worker->to_lookup);
@@ -508,19 +499,13 @@ void auth_worker_server_init(void)
 	i_array_init(&worker_request_array, 128);
 	worker_request_queue = aqueue_init(&worker_request_array.arr);
 
-	i_array_init(&connections, 16);
+	connections = connection_list_init(&auth_worker_server_settings,
+					   &auth_worker_server_funcs);
 }
 
 void auth_worker_server_deinit(void)
 {
-	struct auth_worker_connection **workerp, *worker;
-
-	while (array_count(&connections) > 0) {
-		workerp = array_front_modifiable(&connections);
-		worker = *workerp;
-		auth_worker_destroy(&worker, "Shutting down", FALSE);
-	}
-	array_free(&connections);
+	connection_list_deinit(&connections);
 
 	aqueue_deinit(&worker_request_queue);
 	array_free(&worker_request_array);
