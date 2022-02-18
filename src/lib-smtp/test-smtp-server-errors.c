@@ -1281,7 +1281,7 @@ test_server_big_data_data_continue(void *conn_ctx ATTR_UNUSED,
 					"Message too big for system");
 		return -1;
 	}
-		
+
 	if (ret == 0)
 		return 0;
 
