@@ -337,6 +337,8 @@ AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
 	       malloc_usable_size glob fallocate posix_fadvise \
 	       getpeereid getpeerucred inotify_init timegm)
 
+AC_CHECK_HEADERS([valgrind/valgrind.h])
+
 DOVECOT_SOCKPEERCRED
 DOVECOT_CLOCK_GETTIME
 

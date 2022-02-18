@@ -1,6 +1,13 @@
 #ifndef TEST_COMMON_H
 #define TEST_COMMON_H
 
+#ifdef HAVE_VALGRIND_VALGRIND_H
+#  include <valgrind/valgrind.h>
+#  define ON_VALGRIND ((bool) RUNNING_ON_VALGRIND)
+#else
+#  define ON_VALGRIND FALSE
+#endif
+
 struct istream *test_istream_create(const char *data);
 struct istream *test_istream_create_data(const void *data, size_t size);
 void test_istream_set_size(struct istream *input, uoff_t size);
