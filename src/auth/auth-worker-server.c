@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "aqueue.h"
+#include "connection.h"
 #include "net.h"
 #include "istream.h"
 #include "ostream.h"
@@ -38,14 +39,8 @@ struct auth_worker_request {
 };
 
 struct auth_worker_connection {
-	int fd;
-
-	struct event *event;
-	struct io *io;
-	struct istream *input;
-	struct ostream *output;
-	struct timeout *to;
-
+	struct connection conn;
+	struct timeout *to_lookup;
 	struct auth_worker_request *request;
 	unsigned int id_counter;
 
@@ -76,7 +71,7 @@ static void auth_worker_idle_timeout(struct auth_worker_connection *conn)
 	if (idle_count > 1)
 		auth_worker_destroy(&conn, NULL, FALSE);
 	else
-		timeout_reset(conn->to);
+		timeout_reset(conn->to_lookup);
 }
 
 static void auth_worker_call_timeout(struct auth_worker_connection *conn)
@@ -92,10 +87,10 @@ static bool auth_worker_request_send(struct auth_worker_connection *conn,
 	struct const_iovec iov[3];
 	unsigned int age_secs = ioloop_time - request->created;
 
-	i_assert(conn->to != NULL);
+	i_assert(conn->to_lookup != NULL);
 
 	if (age_secs >= AUTH_WORKER_ABORT_SECS) {
-		e_error(conn->event,
+		e_error(conn->conn.event,
 			"Aborting auth request that was queued for %d secs, "
 			"%d left in queue",
 			age_secs, aqueue_count(worker_request_queue));
@@ -108,7 +103,7 @@ static bool auth_worker_request_send(struct auth_worker_connection *conn,
 	    ioloop_time - auth_worker_last_warn >
 	    AUTH_WORKER_DELAY_WARN_MIN_INTERVAL_SECS) {
 		auth_worker_last_warn = ioloop_time;
-		e_error(conn->event, "Auth request was queued for %d "
+		e_error(conn->conn.event, "Auth request was queued for %d "
 			"seconds, %d left in queue "
 			"(see auth_worker_max_count)",
 			age_secs, aqueue_count(worker_request_queue));
@@ -123,14 +118,14 @@ static bool auth_worker_request_send(struct auth_worker_connection *conn,
 	iov[2].iov_base = "\n";
 	iov[2].iov_len = 1;
 
-	o_stream_nsendv(conn->output, iov, 3);
+	o_stream_nsendv(conn->conn.output, iov, 3);
 
 	i_assert(conn->request == NULL);
 	conn->request = request;
 
-	timeout_remove(&conn->to);
-	conn->to = timeout_add(AUTH_WORKER_LOOKUP_TIMEOUT_SECS * 1000,
-			       auth_worker_call_timeout, conn);
+	timeout_remove(&conn->to_lookup);
+	conn->to_lookup = timeout_add(AUTH_WORKER_LOOKUP_TIMEOUT_SECS * 1000,
+				      auth_worker_call_timeout, conn);
 	idle_count--;
 	return TRUE;
 }
@@ -168,14 +163,13 @@ static void auth_worker_send_handshake(struct auth_worker_connection *conn)
 	binary_to_hex_append(str, userdb_md5, sizeof(userdb_md5));
 	str_append_c(str, '\n');
 
-	o_stream_nsend(conn->output, str_data(str), str_len(str));
+	o_stream_nsend(conn->conn.output, str_data(str), str_len(str));
 }
 
 static struct auth_worker_connection *auth_worker_create(void)
 {
-	struct auth_worker_connection *conn;
+	struct auth_worker_connection *worker;
 	struct event *event;
-	int fd;
 
 	if (array_count(&connections) >= auth_workers_throttle_count)
 		return NULL;
@@ -183,8 +177,9 @@ static struct auth_worker_connection *auth_worker_create(void)
 	event = event_create(auth_event);
 	event_set_append_log_prefix(event, "auth-worker: ");
 
-	fd = net_connect_unix_with_retries(worker_socket_path, 5000);
-	if (fd == -1) {
+	worker = i_new(struct auth_worker_connection, 1);
+	worker->conn.fd_in = net_connect_unix_with_retries(worker_socket_path, 5000);
+	if (worker->conn.fd_in == -1) {
 		if (errno == EACCES) {
 			e_error(event, "%s",
 				eacces_error_get("net_connect_unix",
@@ -196,21 +191,19 @@ static struct auth_worker_connection *auth_worker_create(void)
 		event_unref(&event);
 		return NULL;
 	}
-
-	conn = i_new(struct auth_worker_connection, 1);
-	conn->fd = fd;
-	conn->input = i_stream_create_fd(fd, AUTH_WORKER_MAX_LINE_LENGTH);
-	conn->output = o_stream_create_fd(fd, SIZE_MAX);
-	o_stream_set_no_error_handling(conn->output, TRUE);
-	conn->io = io_add(fd, IO_READ, worker_input, conn);
-	conn->to = timeout_add(AUTH_WORKER_MAX_IDLE_SECS * 1000,
-			       auth_worker_idle_timeout, conn);
-	conn->event = event;
-	auth_worker_send_handshake(conn);
+	worker->conn.input = i_stream_create_fd(worker->conn.fd_in,
+						AUTH_WORKER_MAX_LINE_LENGTH);
+	worker->conn.output = o_stream_create_fd(worker->conn.fd_in, SIZE_MAX);
+	o_stream_set_no_error_handling(worker->conn.output, TRUE);
+	worker->conn.io = io_add(worker->conn.fd_in, IO_READ, worker_input, worker);
+	worker->to_lookup = timeout_add(AUTH_WORKER_MAX_IDLE_SECS * 1000,
+					auth_worker_idle_timeout, worker);
+	worker->conn.event = event;
+	auth_worker_send_handshake(worker);
 
 	idle_count++;
-	array_push_back(&connections, &conn);
-	return conn;
+	array_push_back(&connections, &worker);
+	return worker;
 }
 
 static void auth_worker_destroy(struct auth_worker_connection **_conn,
@@ -240,7 +233,7 @@ static void auth_worker_destroy(struct auth_worker_connection **_conn,
 		idle_count--;
 
 	if (conn->request != NULL) {
-		e_error(conn->event, "Aborted %s request for %s: %s",
+		e_error(conn->conn.event, "Aborted %s request for %s: %s",
 			t_strcut(conn->request->data, '\t'),
 			conn->request->username, reason);
 		conn->request->callback(t_strdup_printf(
@@ -248,14 +241,14 @@ static void auth_worker_destroy(struct auth_worker_connection **_conn,
 				conn->request->context);
 	}
 
-	io_remove(&conn->io);
-	i_stream_destroy(&conn->input);
-	o_stream_destroy(&conn->output);
-	timeout_remove(&conn->to);
+	io_remove(&conn->conn.io);
+	i_stream_destroy(&conn->conn.input);
+	o_stream_destroy(&conn->conn.output);
+	timeout_remove(&conn->to_lookup);
 
-	if (close(conn->fd) < 0)
-		e_error(conn->event, "close() failed: %m");
-	event_unref(&conn->event);
+	if (close(conn->conn.fd_in) < 0)
+		e_error(conn->conn.event, "close() failed: %m");
+	event_unref(&conn->conn.event);
 	i_free(conn);
 
 	if (idle_count == 0 && restart) {
@@ -286,27 +279,28 @@ static bool auth_worker_request_handle(struct auth_worker_connection *conn,
 	if (str_begins_with(line, "*\t")) {
 		/* multi-line reply, not finished yet */
 		if (conn->resuming)
-			timeout_reset(conn->to);
+			timeout_reset(conn->to_lookup);
 		else {
 			conn->resuming = TRUE;
-			timeout_remove(&conn->to);
-			conn->to = timeout_add(AUTH_WORKER_RESUME_TIMEOUT_SECS * 1000,
-					       auth_worker_call_timeout, conn);
+			timeout_remove(&conn->to_lookup);
+			conn->to_lookup = timeout_add(AUTH_WORKER_RESUME_TIMEOUT_SECS * 1000,
+						      auth_worker_call_timeout, conn);
 		}
 	} else {
 		conn->resuming = FALSE;
 		conn->request = NULL;
 		conn->timeout_pending_resume = FALSE;
-		timeout_remove(&conn->to);
-		conn->to = timeout_add(AUTH_WORKER_MAX_IDLE_SECS * 1000,
-				       auth_worker_idle_timeout, conn);
+		timeout_remove(&conn->to_lookup);
+		conn->to_lookup = timeout_add(AUTH_WORKER_MAX_IDLE_SECS * 1000,
+					      auth_worker_idle_timeout, conn);
 		idle_count++;
 	}
 
-	if (!request->callback(line, request->context) && conn->io != NULL) {
+	if (!request->callback(line, request->context) &&
+	    conn->conn.io != NULL) {
 		conn->timeout_pending_resume = FALSE;
-		timeout_remove(&conn->to);
-		io_remove(&conn->io);
+		timeout_remove(&conn->to_lookup);
+		io_remove(&conn->conn.io);
 		return FALSE;
 	}
 	return TRUE;
@@ -362,7 +356,7 @@ static void worker_input(struct auth_worker_connection *conn)
 	const char *line, *id_str;
 	unsigned int id;
 
-	switch (i_stream_read(conn->input)) {
+	switch (i_stream_read(conn->conn.input)) {
 	case 0:
 		return;
 	case -1:
@@ -372,14 +366,14 @@ static void worker_input(struct auth_worker_connection *conn)
 		return;
 	case -2:
 		/* buffer full */
-		e_error(conn->event,
+		e_error(conn->conn.event,
 			"BUG: Auth worker sent us more than %d bytes",
 			(int)AUTH_WORKER_MAX_LINE_LENGTH);
 		auth_worker_destroy(&conn, "Worker is buggy", TRUE);
 		return;
 	}
 
-	while ((line = i_stream_next_line(conn->input)) != NULL) {
+	while ((line = i_stream_next_line(conn->conn.input)) != NULL) {
 		if (strcmp(line, "RESTART") == 0) {
 			conn->restart = TRUE;
 			continue;
@@ -409,11 +403,11 @@ static void worker_input(struct auth_worker_connection *conn)
 				break;
 		} else {
 			if (conn->request != NULL) {
-				e_error(conn->event,
+				e_error(conn->conn.event,
 					"BUG: Worker sent reply with id %u, "
 					"expected %u", id, conn->request->id);
 			} else {
-				e_error(conn->event,
+				e_error(conn->conn.event,
 					"BUG: Worker sent reply with id %u, "
 					"none was expected", id);
 			}
@@ -435,9 +429,9 @@ static void worker_input(struct auth_worker_connection *conn)
 static void worker_input_resume(struct auth_worker_connection *conn)
 {
 	conn->timeout_pending_resume = FALSE;
-	timeout_remove(&conn->to);
-	conn->to = timeout_add(AUTH_WORKER_RESUME_TIMEOUT_SECS * 1000,
-			       auth_worker_call_timeout, conn);
+	timeout_remove(&conn->to_lookup);
+	conn->to_lookup = timeout_add(AUTH_WORKER_RESUME_TIMEOUT_SECS * 1000,
+				      auth_worker_call_timeout, conn);
 	worker_input(conn);
 }
 
@@ -483,12 +477,12 @@ void auth_worker_server_resume_input(struct auth_worker_connection *conn)
 		return;
 	}
 
-	if (conn->io == NULL)
-		conn->io = io_add(conn->fd, IO_READ, worker_input, conn);
+	if (conn->conn.io == NULL)
+		conn->conn.io = io_add(conn->conn.fd_in, IO_READ, worker_input, conn);
 	if (!conn->timeout_pending_resume) {
 		conn->timeout_pending_resume = TRUE;
-		timeout_remove(&conn->to);
-		conn->to = timeout_add_short(0, worker_input_resume, conn);
+		timeout_remove(&conn->to_lookup);
+		conn->to_lookup = timeout_add_short(0, worker_input_resume, conn);
 	}
 }
 
