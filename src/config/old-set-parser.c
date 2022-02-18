@@ -274,6 +274,15 @@ old_settings_handle_root(struct config_parser_context *ctx,
 		obsolete(ctx, "%s has been removed", key);
 		return TRUE;
 	}
+	if (strcmp(key, "auth_worker_max_count") == 0) {
+		obsolete(ctx,
+			 "%s has been replaced with service auth-worker { process_limit }",
+			 key);
+		config_apply_line(ctx, key,
+				  t_strdup_printf("service/auth-worker/process_limit=%s", value),
+				  NULL);
+		return TRUE;
+	}
 	if (ctx->old->auth_section == 1) {
 		if (!str_begins_with(key, "auth_"))
 			key = t_strconcat("auth_", key, NULL);

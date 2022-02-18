@@ -76,8 +76,6 @@ struct auth_settings {
 	bool ssl_username_from_cert;
 	bool use_winbind;
 
-	unsigned int worker_max_count;
-
 	/* settings that don't have auth_ prefix: */
 	ARRAY(struct auth_passdb_settings *) passdbs;
 	ARRAY(struct auth_userdb_settings *) userdbs;

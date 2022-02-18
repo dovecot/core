@@ -266,8 +266,6 @@ static const struct setting_define auth_setting_defines[] = {
 	DEF(BOOL, ssl_username_from_cert),
 	DEF(BOOL, use_winbind),
 
-	DEF(UINT, worker_max_count),
-
 	DEFLIST(passdbs, "passdb", &auth_passdb_setting_parser_info),
 	DEFLIST(userdbs, "userdb", &auth_userdb_setting_parser_info),
 
@@ -327,8 +325,6 @@ static const struct auth_settings auth_default_settings = {
 	.ssl_client_ca_file = "",
 
 	.use_winbind = FALSE,
-
-	.worker_max_count = 30,
 
 	.passdbs = ARRAY_INIT,
 	.userdbs = ARRAY_INIT,
@@ -428,11 +424,6 @@ static bool auth_settings_check(void *_set, pool_t pool,
 		set->debug = TRUE;
 	if (set->debug)
 		set->verbose = TRUE;
-
-	if (set->worker_max_count == 0) {
-		*error_r = "auth_worker_max_count must be above zero";
-		return FALSE;
-	}
 
 	if (set->cache_size > 0 && set->cache_size < 1024) {
 		/* probably a configuration error.
