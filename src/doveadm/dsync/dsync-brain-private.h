@@ -148,7 +148,8 @@ bool dsync_brain_mailbox_update_pre(struct dsync_brain *brain,
 				    const char **reason_r);
 bool dsync_boxes_need_sync(struct dsync_brain *brain,
 			   const struct dsync_mailbox *box1,
-			   const struct dsync_mailbox *box2);
+			   const struct dsync_mailbox *box2,
+			   const char **reason_r);
 void dsync_brain_sync_init_box_states(struct dsync_brain *brain);
 void dsync_brain_set_changes_during_sync(struct dsync_brain *brain,
 					 const char *reason);
