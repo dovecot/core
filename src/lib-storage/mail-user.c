@@ -644,6 +644,37 @@ void mail_user_get_anvil_session(struct mail_user *user,
 		session_r->ip = *user->conn.remote_ip;
 }
 
+const char *const *mail_user_get_alt_usernames(struct mail_user *user)
+{
+	if (user->_alt_usernames != NULL)
+		return user->_alt_usernames;
+	if (user->userdb_fields == NULL) {
+		user->_alt_usernames = p_new(user->pool, const char *, 1);
+		return user->_alt_usernames;
+	}
+
+	ARRAY_TYPE(const_string) alt_usernames;
+	t_array_init(&alt_usernames, 4);
+	for (unsigned int i = 0; user->userdb_fields[i] != NULL; i++) {
+		const char *field = user->userdb_fields[i];
+		if (strncmp(field, "user_", 5) != 0)
+			continue;
+
+		const char *value = strchr(field, '=');
+		if (value != NULL) {
+			const char *key =
+				p_strdup_until(user->pool, field, value++);
+			array_append(&alt_usernames, &key, 1);
+			array_append(&alt_usernames, &value, 1);
+		}
+	}
+	array_append_zero(&alt_usernames);
+
+	unsigned int count;
+	user->_alt_usernames = array_get_copy(&alt_usernames, user->pool, &count);
+	return user->_alt_usernames;
+}
+
 static void
 mail_user_try_load_class_plugin(struct mail_user *user, const char *name)
 {

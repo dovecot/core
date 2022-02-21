@@ -49,6 +49,7 @@ struct mail_user {
 	struct mail_user_connection_data conn;
 	const char *auth_mech, *auth_token, *auth_user;
 	const char *const *userdb_fields;
+	const char *const *_alt_usernames;
 	/* Timestamp when this session was initially created. Most importantly
 	   this stays the same after IMAP client is hibernated and restored. */
 	time_t session_create_time;
@@ -202,6 +203,9 @@ int mail_user_try_home_expand(struct mail_user *user, const char **path);
 /* Fill out anvil session struct for the user session. */
 void mail_user_get_anvil_session(struct mail_user *user,
 				 struct master_service_anvil_session *session_r);
+/* Returns NULL-terminated array of (user_field, value) pairs. The fields are
+   extracted from user->userdb_fields[]. */
+const char *const *mail_user_get_alt_usernames(struct mail_user *user);
 
 /* Basically the same as mail_storage_find_class(), except automatically load
    storage plugins when needed. */
