@@ -446,8 +446,8 @@ static void worker_input_resume(struct auth_worker_connection *worker)
 
 static const struct connection_settings auth_worker_server_settings =
 {
-	.service_name_in = "auth-worker",
-	.service_name_out = "auth-worker",
+	.service_name_in = AUTH_WORKER_NAME,
+	.service_name_out = AUTH_MASTER_NAME,
 	.major_version = AUTH_WORKER_PROTOCOL_MAJOR_VERSION,
 	.minor_version = AUTH_WORKER_PROTOCOL_MINOR_VERSION,
 	.client = TRUE,

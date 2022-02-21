@@ -888,8 +888,8 @@ static const struct connection_vfuncs auth_worker_client_v =
 
 static const struct connection_settings auth_worker_client_set =
 {
-	.service_name_in = "auth-worker",
-	.service_name_out = "auth-worker",
+	.service_name_in = AUTH_MASTER_NAME,
+	.service_name_out = AUTH_WORKER_NAME,
 	.major_version = AUTH_WORKER_PROTOCOL_MAJOR_VERSION,
 	.minor_version = AUTH_WORKER_PROTOCOL_MINOR_VERSION,
 	.input_max_size = SIZE_MAX,
