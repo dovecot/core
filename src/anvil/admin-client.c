@@ -77,6 +77,8 @@ void admin_client_unref(struct admin_client **_client)
 	struct admin_client *client = *_client;
 	struct admin_client_command *cmd;
 
+	if (client == NULL)
+		return;
 	*_client = NULL;
 
 	i_assert(client->refcount > 0);
