@@ -21,7 +21,8 @@ void anvil_get_global_counts(unsigned int *connection_count_r,
 			     unsigned int *cmd_counter_r,
 			     unsigned int *connect_dump_counter_r);
 
-void anvil_connections_init(const char *base_dir);
+void anvil_connections_init(const char *base_dir,
+			    unsigned int max_kick_connections);
 void anvil_connections_deinit(void);
 
 #endif

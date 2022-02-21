@@ -67,6 +67,7 @@ struct anvil_cmd_kick_target {
 };
 
 struct anvil_cmd_kick {
+	struct anvil_cmd_kick *prev, *next;
 	struct anvil_connection *conn;
 	struct connect_limit_iter *iter;
 	bool add_conn_guid;
@@ -83,8 +84,12 @@ static unsigned int anvil_global_kick_count = 0;
 static unsigned int anvil_global_cmd_counter = 0;
 static unsigned int anvil_global_connect_dump_count = 0;
 static char *anvil_base_dir;
+static struct anvil_cmd_kick *anvil_kicks;
+static struct timeout *to_kick;
+static unsigned int anvil_max_kick_connections;
 
 static void anvil_connection_destroy(struct connection *_conn);
+static bool kick_user_iter_more(struct anvil_cmd_kick *kick);
 
 static void anvil_connection_unref(struct anvil_connection **_conn)
 {
@@ -184,13 +189,27 @@ static void anvil_cmd_input(struct anvil_connection *conn)
 static void kick_user_finished(struct anvil_cmd_kick *kick)
 {
 	i_assert(kick->cmd_refcount == 0);
+	i_assert(kick->iter == NULL);
 
 	if (kick->conn->conn.output != NULL) {
 		o_stream_nsend_str(kick->conn->conn.output,
 				   t_strdup_printf("%u\n", kick->kick_count));
 	}
 	anvil_connection_unref(&kick->conn);
+	DLLIST_REMOVE(&anvil_kicks, kick);
 	i_free(kick);
+}
+
+static void kick_more(void *context ATTR_UNUSED)
+{
+	struct anvil_cmd_kick *kick, *next;
+
+	timeout_remove(&to_kick);
+	for (kick = anvil_kicks; kick != NULL; kick = next) {
+		next = kick->next;
+		if (!kick_user_iter_more(kick))
+			break;
+	}
 }
 
 static void
@@ -219,8 +238,13 @@ kick_user_callback(const char *reply, const char *error,
 	}
 
 	admin_client_unref(&target->client);
-	if (--kick->cmd_refcount == 0)
+	kick->cmd_refcount--;
+	if (kick->iter != NULL) {
+		if (to_kick == NULL)
+			to_kick = timeout_add_short(0, kick_more, NULL);
+	} else if (kick->cmd_refcount == 0) {
 		kick_user_finished(kick);
+	}
 	i_free(target->username);
 	i_free(target->service);
 	i_free(target);
@@ -244,12 +268,19 @@ kick_user_with_signal(struct anvil_cmd_kick_target *target, const char *cmd)
 	}
 }
 
-static void kick_user_iter_more(struct anvil_cmd_kick *kick)
+static bool kick_user_iter_more(struct anvil_cmd_kick *kick)
 {
 	struct connect_limit_iter_result result;
 	string_t *cmd = t_str_new(128);
 
-	while (connect_limit_iter_next(kick->iter, &result)) {
+	for (;;) {
+		if (anvil_global_kick_count >= anvil_max_kick_connections) {
+			/* Continue after some of the kicks have finished */
+			return FALSE;
+		}
+		if (!connect_limit_iter_next(kick->iter, &result))
+			break;
+
 		switch (result.kick_type) {
 		case KICK_TYPE_NONE:
 			break;
@@ -308,6 +339,7 @@ static void kick_user_iter_more(struct anvil_cmd_kick *kick)
 	connect_limit_iter_deinit(&kick->iter);
 	if (kick->cmd_refcount == 0)
 		kick_user_finished(kick);
+	return TRUE;
 }
 
 static void
@@ -322,8 +354,9 @@ kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
 	kick->add_conn_guid = add_conn_guid;
 	kick->prev_pid = (pid_t)-1;
 	conn->refcount++;
+	DLLIST_PREPEND(&anvil_kicks, kick);
 
-	kick_user_iter_more(kick);
+	(void)kick_user_iter_more(kick);
 }
 
 static void kick_user(struct anvil_connection *conn, const char *username,
@@ -747,9 +780,12 @@ static struct connection_vfuncs anvil_connections_vfuncs = {
 	.input_line = anvil_connection_input_line,
 };
 
-void anvil_connections_init(const char *base_dir)
+void anvil_connections_init(const char *base_dir,
+			    unsigned int max_kick_connections)
 {
 	anvil_base_dir = i_strdup(base_dir);
+	anvil_max_kick_connections = max_kick_connections;
+
 	hash_table_create(&anvil_connections_hash, default_pool, 0,
 			  anvil_connection_key_hash, anvil_connection_key_cmp);
 	anvil_connections = connection_list_init(&anvil_connections_set,
@@ -762,5 +798,6 @@ void anvil_connections_deinit(void)
 
 	i_assert(hash_table_count(anvil_connections_hash) == 0);
 	hash_table_destroy(&anvil_connections_hash);
+	timeout_remove(&to_kick);
 	i_free(anvil_base_dir);
 }
