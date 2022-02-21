@@ -61,7 +61,7 @@ static bool failure_ignore_errors = FALSE, log_prefix_sent = FALSE;
 static bool coredump_on_error = FALSE;
 static void log_timestamp_add(const struct failure_context *ctx, string_t *str);
 static void log_prefix_add(const struct failure_context *ctx, string_t *str);
-static void i_failure_send_option_forced(const char *key, const char *value);
+static int i_failure_send_option_forced(const char *key, const char *value);
 static int internal_send_split(string_t *full_str, size_t prefix_len);
 
 static string_t * ATTR_FORMAT(3, 0) default_format(const struct failure_context *ctx,
@@ -191,8 +191,13 @@ static string_t * ATTR_FORMAT(3, 0) internal_format(const struct failure_context
 		if (ctx->log_prefix_type_pos != 0)
 			log_type |= LOG_TYPE_FLAG_PREFIX_LEN;
 	} else if (!log_prefix_sent && log_prefix != NULL) {
+		if (i_failure_send_option_forced("prefix", log_prefix) < 0) {
+			/* Failed to write log prefix. The log message writing
+			   would likely fail as well, but don't even try since
+			   the log prefix would be wrong. */
+			return NULL;
+		}
 		log_prefix_sent = TRUE;
-		i_failure_send_option_forced("prefix", log_prefix);
 	}
 
 	str = t_str_new(128);
@@ -266,7 +271,8 @@ static int common_handler(const struct failure_context *ctx,
 
 	T_BEGIN {
 		string_t *str = failure_handler.v->format(ctx, &prefix_len, format, args);
-		ret = failure_handler.v->write(ctx->type, str, prefix_len);
+		ret = str == NULL ? -1 :
+			failure_handler.v->write(ctx->type, str, prefix_len);
 	} T_END;
 
 	if (ret < 0 && failure_ignore_errors)
@@ -720,20 +726,20 @@ void i_set_failure_file(const char *path, const char *prefix)
 	i_set_debug_handler(default_error_handler);
 }
 
-static void i_failure_send_option_forced(const char *key, const char *value)
+static int i_failure_send_option_forced(const char *key, const char *value)
 {
 	const char *str;
 
 	str = t_strdup_printf("\001%c%s %s=%s\n", LOG_TYPE_OPTION+1,
 			      my_pid, key, value);
-	(void)log_fd_write(STDERR_FILENO, (const unsigned char *)str,
-			   strlen(str));
+	return log_fd_write(STDERR_FILENO, (const unsigned char *)str,
+			    strlen(str));
 }
 
 static void i_failure_send_option(const char *key, const char *value)
 {
 	if (error_handler == i_internal_error_handler)
-		i_failure_send_option_forced(key, value);
+		(void)i_failure_send_option_forced(key, value);
 }
 
 void i_set_failure_prefix(const char *prefix_fmt, ...)
