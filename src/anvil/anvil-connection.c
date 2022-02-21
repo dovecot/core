@@ -54,6 +54,15 @@ struct anvil_connection {
 	bool added_to_hash:1;
 };
 
+struct anvil_cmd_kick_target {
+	struct anvil_cmd_kick *kick;
+
+	char *username;
+	char *service;
+	pid_t pid;
+	enum kick_type kick_type;
+};
+
 struct anvil_cmd_kick {
 	struct anvil_connection *conn;
 	struct connect_limit_iter *iter;
@@ -180,8 +189,9 @@ static void kick_user_finished(struct anvil_cmd_kick *kick)
 
 static void
 kick_user_callback(const char *reply, const char *error,
-		   struct anvil_cmd_kick *kick)
+		   struct anvil_cmd_kick_target *target)
 {
+	struct anvil_cmd_kick *kick = target->kick;
 	unsigned int count;
 
 	i_assert(kick->cmd_refcount > 0);
@@ -195,10 +205,17 @@ kick_user_callback(const char *reply, const char *error,
 		kick->kick_count += count;
 	else {
 		e_error(kick->conn->conn.event,
-			"Invalid KICK-USER reply: %s", reply);
+			"Invalid %s %s reply sent to service %s PID %ld: %s",
+			target->kick_type == KICK_TYPE_SIGNAL_WITH_SOCKET ?
+			"KICK-USER-SIGNAL" : "KICK-USER",
+			target->username, target->service,
+			(long)target->pid, reply);
 	}
 	if (--kick->cmd_refcount == 0)
 		kick_user_finished(kick);
+	i_free(target->username);
+	i_free(target->service);
+	i_free(target);
 }
 
 static void
@@ -250,10 +267,18 @@ kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
 					guid_128_to_string(result.conn_guid));
 			}
 
+			struct anvil_cmd_kick_target *target =
+				i_new(struct anvil_cmd_kick_target, 1);
+			target->kick = kick;
+			target->username = i_strdup(result.username);
+			target->service = i_strdup(result.service);
+			target->pid = result.pid;
+			target->kick_type = result.kick_type;
+
 			anvil_global_kick_count++;
 			kick->cmd_refcount++;
 			admin_cmd_send(result.service, result.pid, str_c(cmd),
-				       kick_user_callback, kick);
+				       kick_user_callback, target);
 			if (result.kick_type == KICK_TYPE_SIGNAL_WITH_SOCKET) {
 				if (kill(result.pid, SIGTERM) == 0)
 					kick->kick_count++;
