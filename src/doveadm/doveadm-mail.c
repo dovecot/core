@@ -569,8 +569,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 				fflush(stdout);
 			}
 		}
-		if (killed_signo != 0) {
-			i_warning("Killed with signal %d", killed_signo);
+		if (doveadm_is_killed()) {
 			ret = -1;
 			break;
 		}
