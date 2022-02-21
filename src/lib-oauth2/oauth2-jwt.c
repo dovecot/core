@@ -20,13 +20,16 @@
 
 #include <time.h>
 
-static const char *get_field(const struct json_tree *tree, const char *key)
+static const char *get_field(const struct json_tree *tree, const char *key,
+			     enum json_type *type_r)
 {
 	const struct json_tree_node *root = json_tree_root(tree);
 	const struct json_tree_node *value_node = json_tree_find_key(root, key);
 	if (value_node == NULL || value_node->value_type == JSON_TYPE_OBJECT ||
 	    value_node->value_type == JSON_TYPE_ARRAY)
 		return NULL;
+	if (type_r != NULL)
+		*type_r = value_node->value_type;
 	return json_tree_get_value_str(value_node);
 }
 
@@ -34,11 +37,22 @@ static int get_time_field(const struct json_tree *tree, const char *key,
 			  int64_t *value_r)
 {
 	time_t tvalue;
-	const char *value = get_field(tree, key);
+	enum json_type value_type;
+	const char *value = get_field(tree, key, &value_type);
+
 	int tz_offset ATTR_UNUSED;
 	if (value == NULL)
 		return 0;
-	if (str_to_int64(value, value_r) == 0) {
+	if (value_type == JSON_TYPE_NUMBER) {
+		/* Parse with atof() to handle the json valid exponential formats,
+		   but discard the decimal part of the fields as we are not
+		   interested in them.
+
+		   The worst case of x.99999 would appear as almost a second older
+		   than the actual x which is same as saying we processed it a
+		   second later for the purpose of JWT tokens */
+		double v = atof(value);
+		*value_r = (int64_t) v;
 		if (*value_r < 0)
 			return -1;
 		return 1;
@@ -322,9 +336,9 @@ static int
 oauth2_jwt_header_process(struct json_tree *tree, const char **alg_r,
 			  const char **kid_r, const char **error_r)
 {
-	const char *typ = get_field(tree, "typ");
-	const char *alg = get_field(tree, "alg");
-	const char *kid = get_field(tree, "kid");
+	const char *typ = get_field(tree, "typ", NULL);
+	const char *alg = get_field(tree, "alg", NULL);
+	const char *kid = get_field(tree, "kid", NULL);
 
 	if (null_strcmp(typ, "JWT") != 0) {
 		*error_r = "Cannot find 'typ' field";
@@ -349,7 +363,7 @@ oauth2_jwt_body_process(const struct oauth2_settings *set, const char *alg,
 			struct json_tree *tree, const char *const *blobs,
 			const char **error_r)
 {
-	const char *sub = get_field(tree, "sub");
+	const char *sub = get_field(tree, "sub", NULL);
 
 	int ret;
 	int64_t t0 = time(NULL);
@@ -400,7 +414,7 @@ oauth2_jwt_body_process(const struct oauth2_settings *set, const char *alg,
 		return -1;
 	}
 
-	const char *iss = get_field(tree, "iss");
+	const char *iss = get_field(tree, "iss", NULL);
 	if (set->issuers != NULL && *set->issuers != NULL) {
 		if (iss == NULL) {
 			*error_r = "Token is missing 'iss' field";
@@ -414,7 +428,7 @@ oauth2_jwt_body_process(const struct oauth2_settings *set, const char *alg,
 	}
 
 	/* see if there is azp */
-	const char *azp = get_field(tree, "azp");
+	const char *azp = get_field(tree, "azp", NULL);
 	if (azp == NULL)
 		azp = "default";
 	else

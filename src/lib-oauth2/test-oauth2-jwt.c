@@ -138,9 +138,10 @@ static buffer_t *create_jwt_token_kid(const char *algo, const char *kid)
 
 	/* body */
 	base64url_encode_str(
+		/* decimals injected to excercise the JSON number parser */
 		t_strdup_printf("{\"sub\":\"testuser\","\
 				"\"iat\":%"PRIdTIME_T","
-				"\"exp\":%"PRIdTIME_T"}",
+				"\"exp\":%"PRIdTIME_T".000E+0}",
 				time(NULL), time(NULL)+600),
 		tokenbuf);
 	return tokenbuf;
@@ -159,9 +160,10 @@ static buffer_t *create_jwt_token(const char *algo)
 
 	/* body */
 	base64url_encode_str(
+		/* decimals injected to excercise the JSON number parser */
 		t_strdup_printf("{\"sub\":\"testuser\","\
 				"\"iat\":%"PRIdTIME_T","
-				"\"exp\":%"PRIdTIME_T"}",
+				"\"exp\":%"PRIdTIME_T".000E+0}",
 				time(NULL), time(NULL)+600),
 		tokenbuf);
 	return tokenbuf;
@@ -662,8 +664,9 @@ static void test_jwt_dates(void)
 	base64url_encode_str("{\"alg\":\"HS256\",\"typ\":\"JWT\"}", tokenbuf);
 	str_append_c(tokenbuf, '.');
 	base64url_encode_str(t_strdup_printf("{\"sub\":\"testuser\","
+					     "\"nbf\":0,"
 					     "\"exp\":%"PRIdTIME_T","
-					     "\"nbf\":0,\"iat\":%"PRIdTIME_T"}",
+					     "\"iat\":%"PRIdTIME_T".000E+0}",
 					     exp, iat),
 			     tokenbuf);
 	sign_jwt_token_hs256(tokenbuf, hs_sign_key);
