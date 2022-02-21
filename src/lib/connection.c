@@ -41,35 +41,12 @@ static void connection_connect_timeout(struct connection *conn)
 	connection_closed(conn, CONNECTION_DISCONNECT_CONNECT_TIMEOUT);
 }
 
-void connection_input_default(struct connection *conn)
+static void connection_input_parse_lines(struct connection *conn)
 {
 	const char *line;
 	struct istream *input;
 	struct ostream *output;
 	int ret = 0;
-
-	if (!conn->handshake_received &&
-	    conn->v.handshake != NULL) {
-		if ((ret = conn->v.handshake(conn)) < 0) {
-			connection_closed(
-				conn, CONNECTION_DISCONNECT_HANDSHAKE_FAILED);
-			return;
-		} else if (ret == 0) {
-			return;
-		} else {
-			connection_handshake_ready(conn);
-		}
-	}
-
-	switch (connection_input_read(conn)) {
-	case -1:
-		return;
-	case 0: /* allow calling this function for buffered input */
-	case 1:
-		break;
-	default:
-		i_unreached();
-	}
 
 	input = conn->input;
 	output = conn->output;
@@ -110,6 +87,36 @@ void connection_input_default(struct connection *conn)
 		connection_closed(conn, reason);
 	}
 	i_stream_unref(&input);
+}
+
+void connection_input_default(struct connection *conn)
+{
+	int ret;
+
+	if (!conn->handshake_received &&
+	    conn->v.handshake != NULL) {
+		if ((ret = conn->v.handshake(conn)) < 0) {
+			connection_closed(
+				conn, CONNECTION_DISCONNECT_HANDSHAKE_FAILED);
+			return;
+		} else if (ret == 0) {
+			return;
+		} else {
+			connection_handshake_ready(conn);
+		}
+	}
+
+	switch (connection_input_read(conn)) {
+	case -1:
+		return;
+	case 0: /* allow calling this function for buffered input */
+	case 1:
+		break;
+	default:
+		i_unreached();
+	}
+
+	connection_input_parse_lines(conn);
 }
 
 int connection_verify_version(struct connection *conn,
