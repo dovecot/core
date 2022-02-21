@@ -205,7 +205,7 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 {
 	struct dsasl_client_settings sasl_set;
 	const unsigned char *sasl_output;
-	size_t len;
+	size_t sasl_output_len;
 	const char *mech_name, *error;
 	string_t *str;
 
@@ -236,7 +236,7 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 
 	str_printfa(str, "AUTH %s ", mech_name);
 	if (dsasl_client_output(client->common.proxy_sasl_client,
-				&sasl_output, &len, &error) < 0) {
+				&sasl_output, &sasl_output_len, &error) < 0) {
 		const char *reason = t_strdup_printf(
 			"SASL mechanism %s init failed: %s",
 			mech_name, error);
@@ -245,10 +245,10 @@ proxy_send_login(struct submission_client *client, struct ostream *output)
 			LOGIN_PROXY_FAILURE_TYPE_INTERNAL, reason);
 		return -1;
 	}
-	if (len == 0)
+	if (sasl_output_len == 0)
 		str_append_c(str, '=');
 	else
-		base64_encode(sasl_output, len, str);
+		base64_encode(sasl_output, sasl_output_len, str);
 	str_append(str, "\r\n");
 	o_stream_nsend(output, str_data(str), str_len(str));
 
