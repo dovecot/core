@@ -69,6 +69,7 @@ struct anvil_cmd_kick_target {
 struct anvil_cmd_kick {
 	struct anvil_connection *conn;
 	struct connect_limit_iter *iter;
+	bool add_conn_guid;
 
 	pid_t prev_pid;
 	int cmd_refcount;
@@ -254,6 +255,7 @@ kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
 	kick = i_new(struct anvil_cmd_kick, 1);
 	kick->conn = conn;
 	kick->iter = iter;
+	kick->add_conn_guid = add_conn_guid;
 	kick->prev_pid = (pid_t)-1;
 	conn->refcount++;
 
@@ -286,7 +288,7 @@ kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
 				str_append(cmd, "KICK-USER\t");
 			str_append_tabescaped(cmd, result.username);
 			if (!guid_128_is_empty(result.conn_guid) &&
-			    add_conn_guid) {
+			    kick->add_conn_guid) {
 				str_append_c(cmd, '\t');
 				str_append_tabescaped(cmd,
 					guid_128_to_string(result.conn_guid));
