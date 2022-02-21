@@ -549,7 +549,7 @@ smtp_client_connection_xclient_add(struct smtp_client_connection *conn,
 	smtp_xtext_encode_cstr(str, value);
 
 	if (prev_offset == offset ||
-	    str_len(str) <= SMTP_CLIENT_BASE_LINE_LENGTH_LIMIT)
+	    str_len(str) <= SMTP_BASE_LINE_LENGTH_LIMIT)
 		return;
 
 	/* preserve field we just added */
@@ -963,7 +963,7 @@ smtp_client_connection_authenticate(struct smtp_client_connection *conn)
 	if (str_len(sasl_output_base64) == 0)
 		init_resp = "=";
 	else if ((5 + strlen(mech_name) + 1 + str_len(sasl_output_base64)) >
-		 SMTP_CLIENT_BASE_LINE_LENGTH_LIMIT)
+		 SMTP_BASE_LINE_LENGTH_LIMIT)
 		conn->sasl_ir = i_strdup(str_c(sasl_output_base64));
 	else
 		init_resp = str_c(sasl_output_base64);
