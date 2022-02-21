@@ -7,7 +7,7 @@ admin_client_callback_t(const char *reply, const char *error, void *context);
 
 struct admin_client *
 admin_client_init(const char *base_dir, const char *service, pid_t pid);
-void admin_client_deinit(struct admin_client **client);
+void admin_client_unref(struct admin_client **client);
 
 void admin_client_send_cmd(struct admin_client *client, const char *cmdline,
 			   admin_client_callback_t *callback, void *context);

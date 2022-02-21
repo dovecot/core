@@ -14,6 +14,7 @@ struct admin_client_command {
 
 struct admin_client {
 	struct connection conn;
+	int refcount;
 	struct timeout *to_failed;
 	ARRAY(struct admin_client_command) commands;
 };
@@ -30,9 +31,16 @@ admin_client_init(const char *base_dir, const char *service, pid_t pid)
 			       base_dir, service, (long)pid);
 
 	client = i_new(struct admin_client, 1);
+	client->refcount = 1;
 	connection_init_client_unix(admin_clients, &client->conn, path);
 	i_array_init(&client->commands, 8);
 	return client;
+}
+
+static void admin_client_ref(struct admin_client *client)
+{
+	i_assert(client->refcount > 0);
+	client->refcount++;
 }
 
 static void admin_client_reply(struct admin_client *client,
@@ -49,9 +57,11 @@ static void admin_client_reply(struct admin_client *client,
 static void
 admin_client_fail_commands(struct admin_client *client, const char *error)
 {
+	admin_client_ref(client);
 	timeout_remove(&client->to_failed);
 	while (array_count(&client->commands) > 0)
 		admin_client_reply(client, NULL, error);
+	admin_client_unref(&client);
 }
 
 static void admin_client_destroy(struct connection *conn)
@@ -62,12 +72,17 @@ static void admin_client_destroy(struct connection *conn)
 	admin_client_fail_commands(client, connection_disconnect_reason(conn));
 }
 
-void admin_client_deinit(struct admin_client **_client)
+void admin_client_unref(struct admin_client **_client)
 {
 	struct admin_client *client = *_client;
 	struct admin_client_command *cmd;
 
 	*_client = NULL;
+
+	i_assert(client->refcount > 0);
+	if (--client->refcount > 0)
+		return;
+
 	array_foreach_modifiable(&client->commands, cmd)
 		i_free(cmd->cmdline);
 	array_free(&client->commands);
@@ -123,8 +138,11 @@ admin_client_input_line(struct connection *conn, const char *line)
 		e_error(conn->event, "Unexpected input: %s", line);
 		return -1;
 	}
+	admin_client_ref(client);
 	admin_client_reply(client, line, NULL);
-	return 1;
+	int ret = client->refcount == 1 ? -1 : 1;
+	admin_client_unref(&client);
+	return ret;
 }
 
 static const struct connection_settings admin_client_set = {

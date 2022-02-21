@@ -44,7 +44,7 @@ void admin_client_pool_deinit(struct admin_client_pool **_pool)
 
 	array_foreach_elem(&pool->clients, client) {
 		i_assert(client->refcount == 0);
-		admin_client_deinit(&client->client);
+		admin_client_unref(&client->client);
 	}
 	array_free(&pool->clients);
 	i_free(pool->base_dir);
@@ -65,7 +65,7 @@ static void admin_client_pool_cleanup(struct admin_client_pool *pool)
 		if (pool->idle_connection_count == 0)
 			break;
 		if (clients[i-1]->refcount == 0) {
-			admin_client_deinit(&clients[i-1]->client);
+			admin_client_unref(&clients[i-1]->client);
 			array_delete(&pool->clients, i-1, 1);
 		}
 	}
