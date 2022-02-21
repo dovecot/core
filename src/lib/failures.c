@@ -726,7 +726,8 @@ static void i_failure_send_option_forced(const char *key, const char *value)
 
 	str = t_strdup_printf("\001%c%s %s=%s\n", LOG_TYPE_OPTION+1,
 			      my_pid, key, value);
-	(void)write_full(STDERR_FILENO, str, strlen(str));
+	(void)log_fd_write(STDERR_FILENO, (const unsigned char *)str,
+			   strlen(str));
 }
 
 static void i_failure_send_option(const char *key, const char *value)
