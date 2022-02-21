@@ -640,6 +640,7 @@ void mail_user_get_anvil_session(struct mail_user *user,
 	i_zero(session_r);
 	session_r->username = user->username;
 	session_r->service_name = master_service_get_name(master_service);
+	session_r->alt_usernames = mail_user_get_alt_usernames(user);
 	if (user->conn.remote_ip != NULL)
 		session_r->ip = *user->conn.remote_ip;
 }
