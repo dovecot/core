@@ -4,6 +4,12 @@
 #include "net.h"
 
 /*
+ * Limits
+ */
+
+#define SMTP_BASE_LINE_LENGTH_LIMIT (512 - 2)
+
+/*
  * SMTP protocols
  */
 
