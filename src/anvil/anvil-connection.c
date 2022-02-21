@@ -193,8 +193,10 @@ kick_user_callback(const char *reply, const char *error,
 		;
 	else if (reply[0] == '+' && str_to_uint(reply+1, &count) == 0)
 		kick->kick_count += count;
-	else
-		i_error("Invalid KICK-USER reply: %s", reply);
+	else {
+		e_error(kick->conn->conn.event,
+			"Invalid KICK-USER reply: %s", reply);
+	}
 	if (--kick->cmd_refcount == 0)
 		kick_user_finished(kick);
 }
@@ -228,7 +230,8 @@ kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
 			if (kill(result.pid, SIGTERM) == 0)
 				kick->kick_count++;
 			else if (errno != ESRCH) {
-				i_error("kill(%ld) failed: %m",
+				e_error(conn->conn.event,
+					"kill(%ld) failed: %m",
 					(long)result.pid);
 			}
 			break;
@@ -255,7 +258,8 @@ kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
 				if (kill(result.pid, SIGTERM) == 0)
 					kick->kick_count++;
 				else if (errno != ESRCH) {
-					i_error("kill(%ld) failed: %m",
+					e_error(conn->conn.event,
+						"kill(%ld) failed: %m",
 						(long)result.pid);
 				}
 			}
@@ -553,7 +557,8 @@ anvil_connection_input_line(struct connection *_conn, const char *line)
 				   the handshake. */
 				return 1;
 			}
-			i_error("Anvil client not compatible with this server "
+			e_error(_conn->event,
+				"Anvil client not compatible with this server "
 				"(mixed old and new binaries?) %s", line);
 			return -1;
 		}
@@ -570,12 +575,13 @@ anvil_connection_input_line(struct connection *_conn, const char *line)
 	}
 
 	if (args[0] == NULL) {
-		i_error("Anvil client sent empty line");
+		e_error(_conn->event, "Anvil client sent empty line");
 		return -1;
 	}
 
 	if (anvil_connection_request(conn, args, &error) < 0) {
-		i_error("Anvil client input error: %s: %s", error, line);
+		e_error(_conn->event, "Anvil client input error: %s: %s",
+			error, line);
 		return -1;
 	}
 	return 1;
