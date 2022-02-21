@@ -10,7 +10,6 @@
 #include "smtp-client-transaction.h"
 #include "smtp-client-connection.h"
 
-#define SMTP_BASE_LINE_LENGTH_LIMIT (512 - 2)
 #define SMTP_CLIENT_DATA_CHUNK_SIZE IO_BLOCK_SIZE
 
 struct smtp_client_command {
