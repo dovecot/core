@@ -304,6 +304,8 @@ dsync_mailbox_import_init(struct mailbox *box,
 	mailbox_get_open_status(importer->box, STATUS_UIDNEXT |
 				STATUS_HIGHESTMODSEQ | STATUS_HIGHESTPVTMODSEQ,
 				&status);
+	if (status.nonpermanent_modseqs)
+		status.highest_modseq = 0;
 	importer->local_uid_next = status.uidnext;
 	importer->local_initial_highestmodseq = status.highest_modseq;
 	importer->local_initial_highestpvtmodseq = status.highest_pvt_modseq;

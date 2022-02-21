@@ -276,6 +276,8 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 	mailbox_get_open_status(brain->box, STATUS_UIDNEXT |
 				STATUS_HIGHESTMODSEQ |
 				STATUS_HIGHESTPVTMODSEQ, &status);
+	if (status.nonpermanent_modseqs)
+		status.highest_modseq = 0;
 	if (ret == 0) {
 		if (pvt_too_old) {
 			desync_reason = t_strdup_printf(
@@ -426,6 +428,8 @@ static int dsync_box_get(struct mailbox *box, struct dsync_mailbox *dsync_box_r,
 		*error_r = error;
 		return -1;
 	}
+	if (status.nonpermanent_modseqs)
+		status.highest_modseq = 0;
 
 	i_assert(status.uidvalidity != 0 || status.messages == 0);
 
