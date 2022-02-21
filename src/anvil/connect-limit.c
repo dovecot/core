@@ -70,8 +70,6 @@ struct alt_username_field {
 struct connect_limit {
 	struct str_table *strings;
 
-	struct connect_limit_iter *iter;
-
 	/* username => struct session linked list */
 	HASH_TABLE(char *, struct session *) user_hash;
 	/* userip => unsigned int refcount. Only track for sessions where
@@ -92,6 +90,7 @@ struct connect_limit {
 };
 
 struct connect_limit_iter {
+	pool_t pool;
 	struct connect_limit *limit;
 	ARRAY(struct connect_limit_iter_result) results;
 	unsigned int idx;
@@ -367,8 +366,6 @@ void connect_limit_connect(struct connect_limit *limit, pid_t pid,
 	char *username;
 	void *value;
 
-	i_assert(limit->iter == NULL);
-
 	session = hash_table_lookup(limit->session_hash, conn_guid);
 	if (session != NULL) {
 		i_error("connect limit: connection for duplicate connection GUID %s "
@@ -493,8 +490,6 @@ void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
 {
 	struct session *session;
 
-	i_assert(limit->iter == NULL);
-
 	session = hash_table_lookup(limit->session_hash, conn_guid);
 	/* Connection GUID alone should be enough to match, but if there are any
 	   mismatching parameters it can cause the state to become corrupted. */
@@ -606,13 +601,11 @@ connect_limit_iter_init_common(struct connect_limit *limit)
 {
 	struct connect_limit_iter *iter;
 
-	i_assert(limit->iter == NULL);
-
-	iter = i_new(struct connect_limit_iter, 1);
+	pool_t pool = pool_alloconly_create("connect limit iter", 1024);
+	iter = p_new(pool, struct connect_limit_iter, 1);
+	iter->pool = pool;
 	iter->limit = limit;
 	i_array_init(&iter->results, 32);
-
-	limit->iter = iter;
 	return iter;
 }
 
@@ -634,8 +627,10 @@ connect_limit_iter_begin(struct connect_limit *limit, const char *username,
 				array_append_space(&iter->results);
 			result->kick_type = session->process->kick_type;
 			result->pid = session->process->pid;
-			result->service = session->service;
-			result->username = session->userip->username;
+			result->service = str_table_ref(limit->strings,
+							session->service);
+			result->username = p_strdup(iter->pool,
+						    session->userip->username);
 			guid_128_copy(result->conn_guid, session->conn_guid);
 		}
 		session = session->user_next;
@@ -667,9 +662,10 @@ connect_limit_iter_begin_alt_username(struct connect_limit *limit,
 				array_append_space(&iter->results);
 			result->kick_type = alt->session->process->kick_type;
 			result->pid = alt->session->process->pid;
-			result->service = alt->session->service;
+			result->service = str_table_ref(limit->strings,
+							alt->session->service);
 			guid_128_copy(result->conn_guid, alt->session->conn_guid);
-			result->username = alt->session->userip->username;
+			result->username = p_strdup(iter->pool, alt->session->userip->username);
 		}
 		alt = alt->next;
 	}
@@ -693,11 +689,11 @@ bool connect_limit_iter_next(struct connect_limit_iter *iter,
 void connect_limit_iter_deinit(struct connect_limit_iter **_iter)
 {
 	struct connect_limit_iter *iter = *_iter;
-
-	i_assert(iter->limit->iter == iter);
-	iter->limit->iter = NULL;
+	struct connect_limit_iter_result *result;
 
 	*_iter = NULL;
+	array_foreach_modifiable(&iter->results, result)
+		str_table_unref(iter->limit->strings, &result->service);
 	array_free(&iter->results);
-	i_free(iter);
+	pool_unref(&iter->pool);
 }
