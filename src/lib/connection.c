@@ -41,7 +41,7 @@ static void connection_connect_timeout(struct connection *conn)
 	connection_closed(conn, CONNECTION_DISCONNECT_CONNECT_TIMEOUT);
 }
 
-static void connection_input_parse_lines(struct connection *conn)
+static int connection_input_parse_lines(struct connection *conn)
 {
 	const char *line;
 	struct istream *input;
@@ -74,6 +74,11 @@ static void connection_input_parse_lines(struct connection *conn)
 		} T_END;
 		if (ret <= 0)
 			break;
+		if (conn->input != input) {
+			/* Input handler changed the istream (and maybe
+			   ostream?) Restart reading using the new streams. */
+			break;
+		}
 	}
 	if (output != NULL) {
 		o_stream_uncork(output);
@@ -86,7 +91,10 @@ static void connection_input_parse_lines(struct connection *conn)
 			reason = CONNECTION_DISCONNECT_DEINIT;
 		connection_closed(conn, reason);
 	}
+	if (input->closed)
+		ret = -1;
 	i_stream_unref(&input);
+	return ret;
 }
 
 void connection_input_default(struct connection *conn)
@@ -116,7 +124,7 @@ void connection_input_default(struct connection *conn)
 		i_unreached();
 	}
 
-	connection_input_parse_lines(conn);
+	while (connection_input_parse_lines(conn) > 0) ;
 }
 
 int connection_verify_version(struct connection *conn,
