@@ -130,7 +130,7 @@ static void main_init(void)
 
 	verbose_proctitle = set->verbose_proctitle;
 	anvil_restarted = getenv("ANVIL_RESTARTED") != NULL;
-	anvil_connections_init();
+	anvil_connections_init(set->base_dir);
 	admin_clients_init();
 	admin_pool = admin_client_pool_init(set->base_dir,
 					    ANVIL_CLIENT_POOL_MAX_CONNECTIONS);

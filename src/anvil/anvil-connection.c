@@ -15,6 +15,7 @@
 #include "master-interface.h"
 #include "connect-limit.h"
 #include "penalty.h"
+#include "admin-client.h"
 #include "anvil-connection.h"
 
 #include <unistd.h>
@@ -61,6 +62,8 @@ struct anvil_cmd_kick_target {
 	char *service;
 	pid_t pid;
 	enum kick_type kick_type;
+
+	struct admin_client *client;
 };
 
 struct anvil_cmd_kick {
@@ -77,6 +80,7 @@ static HASH_TABLE(struct anvil_connection_key *, struct anvil_connection *)
 static unsigned int anvil_global_kick_count = 0;
 static unsigned int anvil_global_cmd_counter = 0;
 static unsigned int anvil_global_connect_dump_count = 0;
+static char *anvil_base_dir;
 
 static void anvil_connection_destroy(struct connection *_conn);
 
@@ -211,11 +215,31 @@ kick_user_callback(const char *reply, const char *error,
 			target->username, target->service,
 			(long)target->pid, reply);
 	}
+
+	admin_client_unref(&target->client);
 	if (--kick->cmd_refcount == 0)
 		kick_user_finished(kick);
 	i_free(target->username);
 	i_free(target->service);
 	i_free(target);
+}
+
+static void
+kick_user_with_signal(struct anvil_cmd_kick_target *target, const char *cmd)
+{
+	/* Always create a new admin-client connection to the destination
+	   process, even if one already existed. This way the process's signal
+	   handler can accept() the connection and handle the kick command
+	   immediately. */
+	target->client =
+		admin_client_init(anvil_base_dir, target->service, target->pid);
+	admin_client_send_cmd(target->client, cmd, kick_user_callback, target);
+	if (kill(target->pid, SIGTERM) == 0)
+		target->kick->kick_count++;
+	else if (errno != ESRCH) {
+		e_error(target->kick->conn->conn.event, "kill(%ld) failed: %m",
+			(long)target->pid);
+	}
 }
 
 static void
@@ -277,16 +301,12 @@ kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
 
 			anvil_global_kick_count++;
 			kick->cmd_refcount++;
-			admin_cmd_send(result.service, result.pid, str_c(cmd),
-				       kick_user_callback, target);
-			if (result.kick_type == KICK_TYPE_SIGNAL_WITH_SOCKET) {
-				if (kill(result.pid, SIGTERM) == 0)
-					kick->kick_count++;
-				else if (errno != ESRCH) {
-					e_error(conn->conn.event,
-						"kill(%ld) failed: %m",
-						(long)result.pid);
-				}
+			if (result.kick_type == KICK_TYPE_SIGNAL_WITH_SOCKET)
+				kick_user_with_signal(target, str_c(cmd));
+			else {
+				admin_cmd_send(result.service, result.pid,
+					       str_c(cmd),
+					       kick_user_callback, target);
 			}
 			break;
 		}
@@ -718,8 +738,9 @@ static struct connection_vfuncs anvil_connections_vfuncs = {
 	.input_line = anvil_connection_input_line,
 };
 
-void anvil_connections_init(void)
+void anvil_connections_init(const char *base_dir)
 {
+	anvil_base_dir = i_strdup(base_dir);
 	hash_table_create(&anvil_connections_hash, default_pool, 0,
 			  anvil_connection_key_hash, anvil_connection_key_cmp);
 	anvil_connections = connection_list_init(&anvil_connections_set,
@@ -732,4 +753,5 @@ void anvil_connections_deinit(void)
 
 	i_assert(hash_table_count(anvil_connections_hash) == 0);
 	hash_table_destroy(&anvil_connections_hash);
+	i_free(anvil_base_dir);
 }
