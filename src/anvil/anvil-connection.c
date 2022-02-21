@@ -244,22 +244,12 @@ kick_user_with_signal(struct anvil_cmd_kick_target *target, const char *cmd)
 	}
 }
 
-static void
-kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
-	       bool add_conn_guid)
+static void kick_user_iter_more(struct anvil_cmd_kick *kick)
 {
-	struct anvil_cmd_kick *kick;
 	struct connect_limit_iter_result result;
 	string_t *cmd = t_str_new(128);
 
-	kick = i_new(struct anvil_cmd_kick, 1);
-	kick->conn = conn;
-	kick->iter = iter;
-	kick->add_conn_guid = add_conn_guid;
-	kick->prev_pid = (pid_t)-1;
-	conn->refcount++;
-
-	while (connect_limit_iter_next(iter, &result)) {
+	while (connect_limit_iter_next(kick->iter, &result)) {
 		switch (result.kick_type) {
 		case KICK_TYPE_NONE:
 			break;
@@ -274,7 +264,7 @@ kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
 			if (kill(result.pid, SIGTERM) == 0)
 				kick->kick_count++;
 			else if (errno != ESRCH) {
-				e_error(conn->conn.event,
+				e_error(kick->conn->conn.event,
 					"kill(%ld) failed: %m",
 					(long)result.pid);
 			}
@@ -315,9 +305,25 @@ kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
 		}
 		kick->prev_pid = result.pid;
 	}
-	connect_limit_iter_deinit(&iter);
+	connect_limit_iter_deinit(&kick->iter);
 	if (kick->cmd_refcount == 0)
 		kick_user_finished(kick);
+}
+
+static void
+kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
+	       bool add_conn_guid)
+{
+	struct anvil_cmd_kick *kick;
+
+	kick = i_new(struct anvil_cmd_kick, 1);
+	kick->conn = conn;
+	kick->iter = iter;
+	kick->add_conn_guid = add_conn_guid;
+	kick->prev_pid = (pid_t)-1;
+	conn->refcount++;
+
+	kick_user_iter_more(kick);
 }
 
 static void kick_user(struct anvil_connection *conn, const char *username,
