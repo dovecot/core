@@ -70,6 +70,7 @@ struct anvil_cmd_kick {
 	struct anvil_connection *conn;
 	struct connect_limit_iter *iter;
 
+	pid_t prev_pid;
 	int cmd_refcount;
 	unsigned int kick_count;
 };
@@ -249,11 +250,11 @@ kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
 	struct anvil_cmd_kick *kick;
 	struct connect_limit_iter_result result;
 	string_t *cmd = t_str_new(128);
-	pid_t prev_pid = (pid_t)-1;
 
 	kick = i_new(struct anvil_cmd_kick, 1);
 	kick->conn = conn;
 	kick->iter = iter;
+	kick->prev_pid = (pid_t)-1;
 	conn->refcount++;
 
 	while (connect_limit_iter_next(iter, &result)) {
@@ -261,7 +262,7 @@ kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
 		case KICK_TYPE_NONE:
 			break;
 		case KICK_TYPE_SIGNAL:
-			if (prev_pid == result.pid) {
+			if (kick->prev_pid == result.pid) {
 				/* Already killed this pid. Note that the
 				   results are sorted by pid and kick_type
 				   is the same for all sessions within the
@@ -310,7 +311,7 @@ kick_user_iter(struct anvil_connection *conn, struct connect_limit_iter *iter,
 			}
 			break;
 		}
-		prev_pid = result.pid;
+		kick->prev_pid = result.pid;
 	}
 	connect_limit_iter_deinit(&iter);
 	if (kick->cmd_refcount == 0)
