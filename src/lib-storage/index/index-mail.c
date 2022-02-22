@@ -98,10 +98,16 @@ int index_mail_cache_lookup_field(struct index_mail *mail, buffer_t *buf,
 
 static void index_mail_try_set_attachment_keywords(struct index_mail *mail)
 {
+	if (mail->data.attachment_flags_updating) {
+		/* We can get here from mail_get_parts() */
+		return;
+	}
+	mail->data.attachment_flags_updating = TRUE;
 	enum mail_lookup_abort orig_lookup_abort = mail->mail.mail.lookup_abort;
 	mail->mail.mail.lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
 	(void)mail_set_attachment_keywords(&mail->mail.mail);
 	mail->mail.mail.lookup_abort = orig_lookup_abort;
+	mail->data.attachment_flags_updating = FALSE;
 }
 
 static bool
