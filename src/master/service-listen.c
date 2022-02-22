@@ -235,7 +235,7 @@ int service_listener_listen(struct service_listener *l)
 	default:
 		i_unreached();
 	}
-	if (ret < 0)
+	if (ret <= 0)
 		service_error(l->service, "%s", error);
 	return ret;
 }
