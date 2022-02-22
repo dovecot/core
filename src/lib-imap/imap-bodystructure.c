@@ -700,6 +700,14 @@ imap_bodystructure_parse_args(const struct imap_arg *args, pool_t pool,
 	return imap_bodystructure_parse_args_int(0, args, pool, _part, error_r);
 }
 
+static void imap_bodystructure_reset_data(struct message_part *parts)
+{
+	for (; parts != NULL; parts = parts->next) {
+		parts->data = NULL;
+		imap_bodystructure_reset_data(parts->children);
+	}
+}
+
 int imap_bodystructure_parse_full(const char *bodystructure,
 	pool_t pool, struct message_part **parts,
 	const char **error_r)
@@ -728,6 +736,13 @@ int imap_bodystructure_parse_full(const char *bodystructure,
 			ret = imap_bodystructure_parse_args
 				(args, pool, parts, error_r);
 		} T_END_PASS_STR_IF(ret < 0, error_r);
+	}
+
+	if (ret < 0) {
+		/* Don't leave partially filled data to message_parts. Some of
+		   the code expects that if the first message_part->data is
+		   filled, they all are. */
+		imap_bodystructure_reset_data(*parts);
 	}
 
 	imap_parser_unref(&parser);

@@ -554,6 +554,7 @@ static void test_imap_bodystructure_parse_invalid(void)
 		parts = msg_parse(pool, test->message, 0, 0, FALSE);
 		test_assert_idx(imap_bodystructure_parse(test->bodystructure,
 							 pool, parts, &error) == -1, i);
+		test_assert(parts->data == NULL);
 		test_assert_strcmp_idx(error, test->error, i);
 		pool_unref(&pool);
 	} T_END;
