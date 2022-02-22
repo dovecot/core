@@ -96,6 +96,9 @@ struct connect_limit_iter {
 	unsigned int idx;
 };
 
+static void
+connect_limit_process_free(struct connect_limit *limit, struct process *process);
+
 static unsigned int userip_hash(const struct userip *userip)
 {
 	return str_hash(userip->username) ^ str_hash(userip->protocol) ^
@@ -131,6 +134,19 @@ struct connect_limit *connect_limit_init(void)
 	return limit;
 }
 
+static void connect_limit_destroy_all_processes(struct connect_limit *limit)
+{
+	struct hash_iterate_context *iter;
+	struct process *process;
+	void *process_key;
+
+	iter = hash_table_iterate_init(limit->process_hash);
+	while (hash_table_iterate(iter, limit->process_hash,
+				  &process_key, &process))
+		connect_limit_process_free(limit, process);
+	hash_table_iterate_deinit(&iter);
+}
+
 void connect_limit_deinit(struct connect_limit **_limit)
 {
 	struct connect_limit *limit = *_limit;
@@ -138,6 +154,14 @@ void connect_limit_deinit(struct connect_limit **_limit)
 	unsigned int i, count;
 
 	*_limit = NULL;
+
+	connect_limit_destroy_all_processes(limit);
+
+	i_assert(hash_table_count(limit->user_hash) == 0);
+	i_assert(hash_table_count(limit->userip_hash) == 0);
+	i_assert(hash_table_count(limit->session_hash) == 0);
+	i_assert(hash_table_count(limit->process_hash) == 0);
+
 	hash_table_destroy(&limit->user_hash);
 	hash_table_destroy(&limit->userip_hash);
 	hash_table_destroy(&limit->session_hash);
