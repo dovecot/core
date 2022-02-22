@@ -1117,7 +1117,7 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 	struct ip_addr ip;
 	const char *tag = "", *host_tag, *hostname = NULL;
 	unsigned int arg_count, vhost_count;
-	bool update, down = FALSE;
+	bool update, down = FALSE, tag_changed = FALSE;
 	time_t last_updown_change = 0;
 
 	arg_count = str_array_length(args);
@@ -1156,18 +1156,11 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 					      hostname, &ip, tag);
 		update = TRUE;
 	} else {
-		update = host->vhost_count != vhost_count ||
-			host->down != down;
-
 		host_tag = mail_host_get_tag(host);
-		if (strcmp(tag, host_tag) != 0) {
-			e_error(conn->event,
-				"Host %s changed tag from '%s' to '%s'",
-				host->ip_str,
-				host_tag, tag);
-			mail_host_set_tag(host, tag);
-			update = TRUE;
-		}
+		tag_changed = strcmp(tag, host_tag) != 0;
+		update = host->vhost_count != vhost_count ||
+			host->down != down || tag_changed;
+
 		if (update && host->desynced) {
 			string_t *str = t_str_new(128);
 
@@ -1213,6 +1206,13 @@ director_cmd_host_int(struct director_connection *conn, const char *const *args,
 	if (update) {
 		const char *log_prefix = t_strdup_printf("director(%s): ",
 							 conn->name);
+		if (tag_changed) {
+			e_error(conn->event,
+				"Host %s changed tag from '%s' to '%s'",
+				host->ip_str,
+				mail_host_get_tag(host), tag);
+			mail_host_set_tag(host, tag);
+		}
 		mail_host_set_down(host, down, last_updown_change, log_prefix);
 		mail_host_set_vhost_count(host, vhost_count, log_prefix);
 		director_update_host(conn->dir, src_host, dir_host, host);
