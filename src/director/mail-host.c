@@ -330,6 +330,11 @@ void mail_host_set_tag(struct mail_host *host, const char *tag_name)
 {
 	i_assert(tag_name != NULL);
 
+	/* If the host already has users, forget all of them. Otherwise state
+	   becomes inconsistent, since tag->users won't match
+	   user->host->tag. */
+	user_directory_remove_host(host->tag->users, host);
+
 	host->tag = mail_tag_get(host->list, tag_name);
 	host->list->vhosts_unsorted = TRUE;
 }
