@@ -808,6 +808,9 @@ if test "$docdir" = ""; then
 fi
 AC_SUBST(docdir)
 
+AS_IF([test "$AR_FLAGS" = "cru"], [AR_FLAGS="cr"], [])
+AC_SUBST([AR_FLAGS])
+
 DC_DOVECOT_TEST_WRAPPER
 AC_SUBST(abs_top_builddir)
 
