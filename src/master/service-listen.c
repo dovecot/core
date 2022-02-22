@@ -65,13 +65,6 @@ int service_unix_listener_listen(struct service_listener *l, const char *path,
 		if (fd != -1)
 			break;
 
-		if (errno == EISDIR || errno == ENOENT) {
-			/* looks like the path doesn't exist. */
-			*error_r = t_strdup_printf(
-				"net_listen_unix(%s) failed: %m", path);
-			return 0;
-		}
-
 		if (errno != EADDRINUSE) {
 			*error_r = t_strdup_printf(
 				"net_listen_unix(%s) failed: %m", path);
