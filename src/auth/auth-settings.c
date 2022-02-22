@@ -91,7 +91,7 @@ struct service_settings auth_worker_service_settings = {
 	.drop_priv_before_exec = FALSE,
 
 	.process_min_avail = 0,
-	.process_limit = 0,
+	.process_limit = 30,
 	.client_limit = 1,
 	.service_count = 0,
 	.idle_kill = 0,

@@ -896,6 +896,12 @@ static const struct connection_settings auth_worker_client_set =
 	.output_max_size = SIZE_MAX, /* we use throttling */
 };
 
+static void auth_worker_client_send_handshake(struct connection *conn)
+{
+	o_stream_nsend_str(conn->output, t_strdup_printf("PROCESS-LIMIT\t%u\n",
+			   master_service_get_process_limit(master_service)));
+}
+
 struct auth_worker_client *
 auth_worker_client_create(struct auth *auth,
 			  const struct master_service_connection *master_conn)
@@ -912,6 +918,7 @@ auth_worker_client_create(struct auth *auth,
 	client->conn.input_idle_timeout_secs = master_service_get_idle_kill_secs(master_service);
 	connection_init_server(clients, &client->conn, master_conn->name,
 			       master_conn->fd, master_conn->fd);
+	auth_worker_client_send_handshake(&client->conn);
 
 	auth_worker_refresh_proctitle(CLIENT_STATE_HANDSHAKE);
 

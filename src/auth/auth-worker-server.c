@@ -59,6 +59,7 @@ static ARRAY(struct auth_worker_request *) worker_request_array;
 static struct aqueue *worker_request_queue;
 static time_t auth_worker_last_warn;
 static unsigned int auth_workers_throttle_count;
+static unsigned int auth_worker_process_limit = 0;
 
 static const char *worker_socket_path;
 
@@ -109,7 +110,7 @@ static bool auth_worker_request_send(struct auth_worker_connection *worker,
 		auth_worker_last_warn = ioloop_time;
 		e_error(worker->conn.event, "Auth request was queued for %d "
 			"seconds, %d left in queue "
-			"(see auth_worker_max_count)",
+			"(see service auth-worker { process_limit })",
 			age_secs, aqueue_count(worker_request_queue));
 	}
 
@@ -156,6 +157,25 @@ static int auth_worker_handshake_args(struct connection *conn,
 	if (!conn->version_received) {
 		if (connection_handshake_args_default(conn, args) < 0)
 			return -1;
+		return 0;
+	}
+
+	if (strcmp(args[0], "PROCESS-LIMIT") == 0) {
+		if (str_to_uint(args[1], &auth_worker_process_limit) < 0 ||
+		    auth_worker_process_limit == 0) {
+			e_error(conn->event,
+				"Worker sent invalid process limit '%s'",
+				args[1]);
+			return -1;
+		}
+
+		e_debug(conn->event, "Worker sent process limit '%s'", args[1]);
+		auth_workers_throttle_count = auth_worker_process_limit;
+	}
+
+	if (auth_workers_throttle_count == 0) {
+		e_error(conn->event, "Worker did not send process limit");
+		return -1;
 	}
 
 	return 1;
@@ -204,7 +224,10 @@ static void auth_worker_destroy(struct connection *conn)
 
 static struct auth_worker_connection *auth_worker_create(void)
 {
-	if (connections->connections_count >= auth_workers_throttle_count)
+	/* first connection will negotiate auth_worker_process_limit
+	   via handshake */
+	if (auth_worker_process_limit > 0 &&
+	    connections->connections_count >= auth_workers_throttle_count)
 		return NULL;
 
 	struct auth_worker_connection *worker = i_new(struct auth_worker_connection, 1);
@@ -342,8 +365,6 @@ static bool auth_worker_error(struct auth_worker_connection *worker)
 
 static void auth_worker_success(struct auth_worker_connection *worker)
 {
-	unsigned int max_count = global_auth_settings->worker_max_count;
-
 	if (!worker->received_error)
 		return;
 
@@ -354,8 +375,8 @@ static void auth_worker_success(struct auth_worker_connection *worker)
 	if (auth_workers_with_errors == 0) {
 		/* all workers are succeeding now, set the limit back to
 		   original. */
-		auth_workers_throttle_count = max_count;
-	} else if (auth_workers_throttle_count < max_count)
+		auth_workers_throttle_count = auth_worker_process_limit;
+	} else if (auth_workers_throttle_count < auth_worker_process_limit)
 		auth_workers_throttle_count++;
 	worker->received_error = FALSE;
 }
@@ -495,8 +516,6 @@ void auth_worker_server_resume_input(struct auth_worker_connection *worker)
 void auth_worker_server_init(void)
 {
 	worker_socket_path = "auth-worker";
-	auth_workers_throttle_count = global_auth_settings->worker_max_count;
-	i_assert(auth_workers_throttle_count > 0);
 
 	i_array_init(&worker_request_array, 128);
 	worker_request_queue = aqueue_init(&worker_request_array.arr);
