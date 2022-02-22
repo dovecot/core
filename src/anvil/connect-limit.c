@@ -511,14 +511,10 @@ void connect_limit_disconnect(struct connect_limit *limit, pid_t pid,
 	session_free(limit, session);
 }
 
-void connect_limit_disconnect_pid(struct connect_limit *limit, pid_t pid)
+static void
+connect_limit_process_free(struct connect_limit *limit, struct process *process)
 {
-	struct process *process;
 	struct session *session;
-
-	process = process_lookup(limit, pid);
-	if (process == NULL)
-		return;
 
 	while (process->sessions != NULL) {
 		session = process->sessions;
@@ -529,8 +525,17 @@ void connect_limit_disconnect_pid(struct connect_limit *limit, pid_t pid)
 		hash_table_remove(limit->session_hash, conn_guid_p);
 		session_free(limit, session);
 	}
-	hash_table_remove(limit->process_hash, POINTER_CAST(pid));
+	hash_table_remove(limit->process_hash, POINTER_CAST(process->pid));
 	i_free(process);
+}
+
+void connect_limit_disconnect_pid(struct connect_limit *limit, pid_t pid)
+{
+	struct process *process;
+
+	process = process_lookup(limit, pid);
+	if (process != NULL)
+		connect_limit_process_free(limit, process);
 }
 
 void connect_limit_dump(struct connect_limit *limit, struct ostream *output)
