@@ -45,6 +45,11 @@ can be:
 Dump the list of expunged mails in
 .IR dovecot\-expunges.log .
 .TP
+.B fts\-flatcurve
+Dump the keywords indexed in
+.I fts\-flatcurve
+indexes directory and their frequencies.
+.TP
 .B imapzlib
 Uncompress an IMAP traffic log, which contains data compressed using the
 IMAP COMPRESSION extension.
