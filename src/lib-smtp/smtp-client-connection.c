@@ -745,7 +745,7 @@ smtp_client_connection_auth_cb(const struct smtp_reply *reply,
 		}
 		if (conn->sasl_ir != NULL) {
 			if (*reply->text_lines[0] == '\0') {
-				/* Send intial response */
+				/* Send initial response */
 				cmd = smtp_client_command_new(
 					conn, SMTP_CLIENT_COMMAND_FLAG_PRELOGIN,
 					smtp_client_connection_auth_cb, conn);
