@@ -214,6 +214,7 @@ imapc_mailbox_fetch_state_callback(const struct imapc_command_reply *reply,
 	struct imapc_mailbox *mbox = context;
 
 	mbox->state_fetching_uid1 = FALSE;
+	mbox->delayed_untagged_exists = FALSE;
 	imapc_client_stop(mbox->storage->client->client);
 
 	switch (reply->state) {
@@ -245,7 +246,7 @@ void imap_mailbox_select_finish(struct imapc_mailbox *mbox)
 	mbox->selected = TRUE;
 }
 
-static void
+bool
 imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, uint32_t first_uid)
 {
 	struct imapc_command *cmd;
@@ -255,11 +256,11 @@ imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, uint32_t first_uid)
 		   just make sure everything is expunged in local index.
 		   Delay calling imapc_mailbox_fetch_state_finish() until
 		   SELECT finishes, so we see the updated UIDNEXT. */
-		return;
+		return FALSE;
 	}
 	if (mbox->state_fetching_uid1) {
 		/* retrying after reconnection - don't send duplicate */
-		return;
+		return FALSE;
 	}
 
 	string_t *str = t_str_new(64);
@@ -297,6 +298,7 @@ imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, uint32_t first_uid)
 	}
 	mbox->state_fetching_uid1 = first_uid == 1;
 	imapc_command_send(cmd, str_c(str));
+	return TRUE;
 }
 
 static void
@@ -305,7 +307,6 @@ imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 {
 	struct mail_index_view *view;
 	uint32_t exists_count = reply->num;
-	const struct mail_index_header *hdr;
 
 	if (mbox == NULL)
 		return;
@@ -325,11 +326,12 @@ imapc_untagged_exists(const struct imapc_untagged_reply *reply,
 
 	if (mbox->selecting) {
 		/* We don't know the latest flags, refresh them. */
-		imapc_mailbox_fetch_state(mbox, 1);
+		(void)imapc_mailbox_fetch_state(mbox, 1);
 	} else if (mbox->sync_fetch_first_uid != 1) {
+		const struct mail_index_header *hdr;
 		hdr = mail_index_get_header(view);
 		mbox->sync_fetch_first_uid = hdr->next_uid;
-		imapc_mailbox_fetch_state(mbox, hdr->next_uid);
+		mbox->delayed_untagged_exists = TRUE;
 	}
 	imapc_mailbox_idle_notify(mbox);
 }
