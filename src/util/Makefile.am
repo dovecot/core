@@ -4,8 +4,7 @@ pkglibexec_PROGRAMS = \
 	rawlog \
 	script \
 	script-login \
-	gdbhelper \
-	maildirlock
+	gdbhelper
 
 noinst_PROGRAMS = \
 	test-fs
@@ -62,13 +61,6 @@ gdbhelper_LDADD = $(LIBDOVECOT) \
 gdbhelper_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 gdbhelper_SOURCES = \
 	gdbhelper.c
-
-maildirlock_LDADD = $(LIBDOVECOT) \
-	$(BINARY_LDFLAGS)
-
-maildirlock_DEPENDENCIES = $(LIBDOVECOT_DEPS)
-maildirlock_SOURCES = \
-	maildirlock.c
 
 pkglibexec_SCRIPTS = health-check.sh
 
