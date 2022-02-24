@@ -1735,20 +1735,6 @@ smtp_client_connection_connect_timeout(struct smtp_client_connection *conn)
 }
 
 static void
-smtp_client_connection_delayed_connect_error(
-	struct smtp_client_connection *conn)
-{
-	e_debug(conn->event, "Delayed connect error");
-
-	timeout_remove(&conn->to_connect);
-	errno = conn->connect_errno;
-	smtp_client_connection_connected(&conn->conn, FALSE);
-	smtp_client_connection_fail(
-		conn, SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED,
-		NULL, SMTP_CLIENT_ERROR_TEXT_CONNECT_FAILED);
-}
-
-static void
 smtp_client_connection_do_connect(struct smtp_client_connection *conn)
 {
 	unsigned int msecs;
@@ -1760,11 +1746,8 @@ smtp_client_connection_do_connect(struct smtp_client_connection *conn)
 	i_zero(&conn->state_data);
 	p_clear(conn->state_pool);
 
-	if (connection_client_connect(&conn->conn) < 0) {
-		conn->connect_errno = errno;
+	if (connection_client_connect_async(&conn->conn) < 0) {
 		e_debug(conn->event, "Connect failed: %m");
-		conn->to_connect = timeout_add_short(
-			0, smtp_client_connection_delayed_connect_error, conn);
 		return;
 	}
 

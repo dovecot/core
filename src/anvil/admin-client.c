@@ -92,8 +92,16 @@ void admin_client_unref(struct admin_client **_client)
 	i_free(client);
 }
 
-static void admin_client_connect_failed_callback(struct admin_client *client)
+static void admin_client_connected(struct connection *conn, bool success)
 {
+	struct admin_client *client =
+		container_of(conn, struct admin_client, conn);
+
+	if (success)
+		return;
+
+	e_error(conn->event, "net_connect_unix(%s) failed: %m",
+		conn->base_name);
 	admin_client_fail_commands(client, "Failed to connect to admin socket");
 }
 
@@ -109,16 +117,8 @@ void admin_client_send_cmd(struct admin_client *client, const char *cmdline,
 	cmd->context = context;
 
 	if (client->conn.disconnected) {
-		if (connection_client_connect(&client->conn) < 0) {
-			e_error(client->conn.event,
-				"net_connect_unix(%s) failed: %m",
-				client->conn.base_name);
-			if (client->to_failed == NULL) {
-				client->to_failed = timeout_add_short(0,
-					admin_client_connect_failed_callback, client);
-			}
+		if (connection_client_connect_async(&client->conn) < 0)
 			return;
-		}
 	}
 	const struct const_iovec iov[] = {
 		{ cmdline, strlen(cmdline) },
@@ -160,6 +160,7 @@ static const struct connection_settings admin_client_set = {
 
 static const struct connection_vfuncs admin_client_vfuncs = {
 	.destroy = admin_client_destroy,
+	.client_connected = admin_client_connected,
 	.input_line = admin_client_input_line,
 };
 

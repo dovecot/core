@@ -1609,16 +1609,6 @@ struct connection_list *http_client_connection_list_init(void)
 				    &http_client_connection_vfuncs);
 }
 
-static void
-http_client_connection_delayed_connect_error(
-	struct http_client_connection *conn)
-{
-	timeout_remove(&conn->to_input);
-	errno = conn->connect_errno;
-	http_client_connection_connected(&conn->conn, FALSE);
-	http_client_connection_close(&conn);
-}
-
 static void http_client_connect_timeout(struct http_client_connection *conn)
 {
 	conn->conn.disconnect_reason = CONNECTION_DISCONNECT_CONNECT_TIMEOUT;
@@ -1632,12 +1622,8 @@ http_client_connection_connect(struct http_client_connection *conn,
 	struct http_client_context *cctx = conn->ppool->peer->cctx;
 
 	conn->connect_start_timestamp = ioloop_timeval;
-	if (connection_client_connect(&conn->conn) < 0) {
-		conn->connect_errno = errno;
+	if (connection_client_connect_async(&conn->conn) < 0) {
 		e_debug(conn->event, "Connect failed: %m");
-		conn->to_input = timeout_add_short_to(
-			conn->conn.ioloop, 0,
-			http_client_connection_delayed_connect_error, conn);
 		return;
 	}
 

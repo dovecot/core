@@ -175,7 +175,6 @@ struct http_client_connection {
 	struct http_client_peer_pool *ppool;
 	struct http_client_peer *peer;
 
-	int connect_errno;
 	struct timeval connect_start_timestamp;
 	struct timeval connected_timestamp;
 	struct http_client_request *connect_request;
