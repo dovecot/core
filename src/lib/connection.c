@@ -761,6 +761,27 @@ int connection_client_connect(struct connection *conn)
 		conn->list->set.unix_client_connect_msecs);
 }
 
+static void connection_client_connect_failed(struct connection *conn)
+{
+	timeout_remove(&conn->to);
+	errno = conn->connect_failed_errno;
+	conn->v.client_connected(conn, FALSE);
+	connection_closed(conn, CONNECTION_DISCONNECT_CONN_CLOSED);
+}
+
+int connection_client_connect_async(struct connection *conn)
+{
+	i_assert(conn->v.client_connected != NULL);
+
+	if (connection_client_connect(conn) < 0) {
+		i_assert(conn->to == NULL);
+		conn->connect_failed_errno = errno;
+		conn->to = timeout_add_short(0, connection_client_connect_failed, conn);
+		return -1;
+	}
+	return 0;
+}
+
 static void connection_update_counters(struct connection *conn)
 {
 	if (conn->input != NULL)

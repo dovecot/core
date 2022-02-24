@@ -152,6 +152,7 @@ struct connection {
 	/* handlers */
 	struct connection_vfuncs v;
 
+	int connect_failed_errno;
 	enum connection_disconnect_reason disconnect_reason;
 
 	bool version_received:1;
@@ -200,7 +201,12 @@ void connection_init_from_streams(struct connection_list *list,
 				  struct istream *input,
 				  struct ostream *output) ATTR_NULL(3);
 
+/* connect() to the server. If the connect() fails immediately, return -1. */
 int connection_client_connect(struct connection *conn);
+/* connect() to the server. If the connect() fails immediately, call the
+   client_connected() and destroy() asynchronously from a timeout. This
+   simulates what happens on a delayed connect() failure. */
+int connection_client_connect_async(struct connection *conn);
 /* Connect to UNIX socket. If it fails, try it up to msecs is reached.
    Overrides connection_settings.unix_client_connect_msecs. */
 int connection_client_connect_with_retries(struct connection *conn,
