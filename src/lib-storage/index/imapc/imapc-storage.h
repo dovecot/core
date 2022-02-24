@@ -181,6 +181,7 @@ struct imapc_mailbox {
 	bool state_fetching_uid1:1;
 	bool state_fetched_success:1;
 	bool rollback_pending:1;
+	bool delayed_untagged_exists:1;
 };
 
 struct imapc_simple_context {
@@ -262,5 +263,6 @@ void imapc_untagged_fetch_update_flags(struct imapc_mailbox *mbox,
 				       struct imapc_untagged_fetch_ctx *ctx,
 				       struct mail_index_view *view,
 				       uint32_t lseq);
+bool imapc_mailbox_fetch_state(struct imapc_mailbox *mbox, uint32_t first_uid);
 
 #endif
