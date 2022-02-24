@@ -479,26 +479,6 @@ int config_export_finish(struct config_export_context **_ctx)
 			continue;
 
 		T_BEGIN {
-			enum setting_type stype;
-			const char *const *value = settings_parse_get_value(parser->parser, "ssl", &stype);
-
-			if ((ctx->flags & CONFIG_DUMP_FLAG_IN_SECTION) == 0 &&
-			    value != NULL && strcmp(*value, "no") != 0 &&
-			    settings_parse_is_valid_key(parser->parser, "ssl_dh")) {
-				value = settings_parse_get_value(parser->parser,
-					"ssl_dh", &stype);
-
-				if (value == NULL || **value == '\0') {
-					const char *newval;
-					if (old_settings_ssl_dh_load(&newval, &error)) {
-						if (newval != NULL)
-							settings_parse_line(parser->parser, t_strdup_printf("%s=%s", "ssl_dh", newval));
-					} else {
-						i_error("%s", error);
-						ret = -1;
-					}
-				}
-			}
 			settings_export(ctx, parser->root, FALSE,
 					settings_parser_get(parser->parser),
 					settings_parser_get_changes(parser->parser));

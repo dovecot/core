@@ -8,9 +8,6 @@
 #include "istream.h"
 #include "base64.h"
 
-static bool seen_ssl_parameters_dat;
-static const char *ssl_dh_parameters;
-
 #define config_apply_line (void)config_apply_line
 
 struct socket_set {
@@ -42,9 +39,6 @@ static const struct config_filter managesieve_filter = {
 	.service = "sieve"
 };
 
-static char *ssl_dh_value = NULL;
-static bool ssl_dh_loaded = FALSE;
-
 static void ATTR_FORMAT(2, 3)
 obsolete(struct config_parser_context *ctx, const char *str, ...)
 {
@@ -69,100 +63,6 @@ static void set_rename(struct config_parser_context *ctx,
 {
 	obsolete(ctx, "%s has been renamed to %s", old_key, key);
 	config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE, key, value);
-}
-
-static bool old_settings_ssl_dh_read(const char **value, const char **error_r)
-{
-
-	if (ssl_dh_parameters != NULL) *value = ssl_dh_parameters;
-
-	const char *fn = t_strconcat(PKG_STATEDIR, "/ssl-parameters.dat", NULL);
-	buffer_t *data = t_buffer_create(300);
-	string_t *b64_data = t_str_new(500);
-	size_t siz;
-	unsigned short keysize;
-	unsigned int off=0;
-
-	/* try read it */
-	struct istream *is = i_stream_create_file(fn, IO_BLOCK_SIZE);
-
-	if (is->stream_errno == ENOENT) {
-		/* this is given because the ssl-parameters.dat file is no more there
-		 and we don't want to to make go searching for the file
-		 this code is only ever reached if ssl_dh_parameters is empty anyways
-		 */
-		/* check moved to correct place from here */
-		*value = NULL;
-		i_stream_unref(&is);
-		return TRUE;
-	} else if (is->stream_errno != 0) {
-		*error_r = t_strdup(i_stream_get_error(is));
-		i_stream_unref(&is);
-		return FALSE;
-	}
-
-	/* then try to read the rest of the data */
-	if (i_stream_read(is) > 0) {
-		const unsigned char *buf = i_stream_get_data(is, &siz);
-		if (siz >= 88) {
-			memcpy(&keysize, buf, 2);
-			if (keysize == 512) {
-				memcpy(&off, buf+4, 4);
-				off += 16; // skip headers
-			} else {
-				off = 8; // skip header
-			}
-			if (off <= siz)
-				buffer_append(data, buf+off, siz);
-		}
-	}
-
-	const void *tmp = buffer_get_data(data, &siz);
-
-	if (siz > 4) {
-		str_append(b64_data, "-----BEGIN DH PARAMETERS-----\n");
-		base64_encode(tmp, siz-4, b64_data);
-		/* need to wrap the string nicely */
-		for(size_t i = 29+65; i < str_len(b64_data); i+=64) /* start at header + first 64 */
-		{
-			str_insert(b64_data, i++, "\n");
-		}
-		str_append_c(b64_data,'\n');
-		str_append(b64_data, "-----END DH PARAMETERS-----");
-		ssl_dh_parameters = i_strdup(str_c(b64_data));
-		*value = ssl_dh_parameters;
-
-		if (!seen_ssl_parameters_dat) {
-			i_warning("please set ssl_dh=<%s", SYSCONFDIR"/dh.pem");
-			i_warning("You can generate it with: dd if=%s bs=1 skip=%u | openssl dhparam -inform der > %s", fn, off, SYSCONFDIR"/dh.pem");
-			seen_ssl_parameters_dat = TRUE;
-		}
-	} else if (is->stream_errno == ENOENT) {
-		/* check for empty ssl_dh elsewhere */
-		*value = NULL;
-		i_stream_unref(&is);
-		return TRUE;
-	} else {
-		*error_r = "ssl enabled, but ssl_dh not set";
-		i_stream_unref(&is);
-		return FALSE;
-	}
-	i_stream_unref(&is);
-
-	return TRUE;
-}
-
-bool old_settings_ssl_dh_load(const char **value, const char **error_r)
-{
-	if (ssl_dh_loaded) {
-		*value = ssl_dh_value;
-		return TRUE;
-	}
-	if (!old_settings_ssl_dh_read(value, error_r))
-		return FALSE;
-	ssl_dh_value = i_strdup(*value);
-	ssl_dh_loaded = TRUE;
-	return TRUE;
 }
 
 /* FIXME: Remove ssl_protocols_to_min_protocol() in v2.4 */
@@ -825,5 +725,4 @@ void old_settings_init(struct config_parser_context *ctx)
 
 void old_settings_deinit_global(void)
 {
-	i_free(ssl_dh_value);
 }
