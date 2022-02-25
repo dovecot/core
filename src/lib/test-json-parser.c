@@ -373,6 +373,10 @@ static void test_json_parser_errors(void)
 		"{\"foo\": \"\\ud808\"}",
 		"{\"foo\": \"\\udfff\"}",
 		"{\"foo\": \"\\uyyyy\"}",
+		"{\"a\":\"",
+		"{\"a\":nul",
+		"{\"a\":fals",
+		"{\"a\":tru",
 	};
 	unsigned int i;
 
