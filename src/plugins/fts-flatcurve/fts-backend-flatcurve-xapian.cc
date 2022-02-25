@@ -1735,7 +1735,6 @@ int fts_flatcurve_xapian_delete_index(struct flatcurve_fts_backend *backend,
 	return ret;
 }
 
-#ifdef XAPIAN_HAS_COMPACT
 /* Returns: 0 on success, -1 on error */
 static int
 fts_flatcurve_xapian_optimize_rebuild(struct flatcurve_fts_backend *backend,
@@ -1895,13 +1894,11 @@ fts_flatcurve_xapian_optimize_box_do(struct flatcurve_fts_backend *backend,
 
 	return 0;
 }
-#endif
 
 /* Returns: 0 on success, -1 on error */
 int fts_flatcurve_xapian_optimize_box(struct flatcurve_fts_backend *backend,
 				      const char **error_r)
 {
-#ifdef XAPIAN_HAS_COMPACT
 	static const enum flatcurve_xapian_db_opts opts =
 		(enum flatcurve_xapian_db_opts)
 			(FLATCURVE_XAPIAN_DB_NOCREATE_CURRENT |
@@ -1938,9 +1935,6 @@ int fts_flatcurve_xapian_optimize_box(struct flatcurve_fts_backend *backend,
 	}
 	fts_flatcurve_xapian_unlock(backend);
 	return ret;
-#else
-	return 0;
-#endif
 }
 
 static void

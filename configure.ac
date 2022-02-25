@@ -155,9 +155,9 @@ AS_HELP_STRING([--with-solr], [Build with Solr full text search support]),
   want_solr=no)
 
 AC_ARG_WITH(flatcurve,
-AS_HELP_STRING([--with-flatcurve], [Build with Flatcurve (Xapian) full text search support]),
+AS_HELP_STRING([--with-flatcurve], [Build with Flatcurve (Xapian) full text search support (auto)]),
   TEST_WITH(flatcurve, $withval),
-  want_flatcurve=no)
+  want_flatcurve=auto)
 
 AC_ARG_WITH(sodium,
 AS_HELP_STRING([--with-sodium], [Build with libsodium support (enables argon2, default: auto)]),
