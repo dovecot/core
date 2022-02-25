@@ -10,6 +10,7 @@ sudo make install
 ```
 
 is enough. This installs Dovecot under /usr/local.
+When building from git, you need to run `./autogen.sh` first.
 
 If you have installed some libraries into locations which require special include or library paths, you can give them in CPPFLAGS and LDFLAGS environment variables. For example:
 
