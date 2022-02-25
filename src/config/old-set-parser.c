@@ -65,7 +65,6 @@ static void set_rename(struct config_parser_context *ctx,
 	config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE, key, value);
 }
 
-/* FIXME: Remove ssl_protocols_to_min_protocol() in v2.4 */
 static int ssl_protocols_to_min_protocol(const char *ssl_protocols,
 					 const char **min_protocol_r,
 					 const char **error_r)
