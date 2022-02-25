@@ -60,6 +60,7 @@ static void sql_query_callback(struct sql_result *result,
 	struct sql_passdb_module *module = (struct sql_passdb_module *)_module;
 	enum passdb_result passdb_result;
 	const char *password, *scheme;
+	char *dup_password = NULL;
 	int ret;
 
 	passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
@@ -105,7 +106,8 @@ static void sql_query_callback(struct sql_result *result,
 		} else {
 			/* passdb_password may change on the way,
 			   so we'll need to strdup. */
-			password = t_strdup(auth_request->passdb_password);
+			dup_password = t_strdup_noconst(auth_request->passdb_password);
+			password = dup_password;
 			passdb_result = PASSDB_RESULT_OK;
 		}
 	}
@@ -118,6 +120,8 @@ static void sql_query_callback(struct sql_result *result,
 		passdb_handle_credentials(passdb_result, password, scheme,
 			sql_request->callback.lookup_credentials,
 			auth_request);
+		if (dup_password != NULL)
+			safe_memset(dup_password, 0, strlen(dup_password));
 		auth_request_unref(&auth_request);
 		return;
 	}
@@ -136,6 +140,7 @@ static void sql_query_callback(struct sql_result *result,
 	sql_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :
 					   PASSDB_RESULT_PASSWORD_MISMATCH,
 					   auth_request);
+	safe_memset(dup_password, 0, strlen(dup_password));
 	auth_request_unref(&auth_request);
 }
 
