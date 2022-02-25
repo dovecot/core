@@ -911,7 +911,7 @@ mail_storage_service_time_moved(const struct timeval *old_time,
 
 	if (diff > 0) {
 		if ((diff / 1000) > MAX_NOWARN_FORWARD_MSECS)
-			i_warning("Time jumped forwards %lld.%06lld seconds",
+			i_warning("Time moved forward %lld.%06lld seconds",
 				  diff / 1000000, diff % 1000000);
 		return;
 	}

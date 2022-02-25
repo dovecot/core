@@ -620,7 +620,7 @@ master_time_moved(const struct timeval *old_time,
 
 	if (diff < 0) {
 		diff = -diff;
-		i_warning("Time moved forwards by %lld.%06lld seconds - adjusting timeouts.",
+		i_warning("Time moved forward by %lld.%06lld seconds - adjusting timeouts.",
 			  diff / 1000000, diff % 1000000);
 		return;
 	}

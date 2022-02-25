@@ -658,7 +658,7 @@ static void io_loop_handle_timeouts_real(struct ioloop *ioloop)
 						&ioloop_timeval);
 		if (unlikely(-diff_usecs >= IOLOOP_TIME_MOVED_FORWARDS_MIN_USECS)) {
 			io_loops_timeouts_update(-diff_usecs);
-			/* time moved forwards */
+			/* time moved forward */
 			ioloop->time_moved_callback(&ioloop->next_max_time,
 						    &ioloop_timeval);
 			i_assert(ioloop == current_ioloop);
