@@ -142,11 +142,12 @@ login_set_var_expand_table(const struct master_service_settings_input *input)
 
 static void *
 login_setting_dup(pool_t pool, const struct setting_parser_info *info,
-		  const void *src_set)
+		  const struct setting_parser_context *parser)
 {
 	const char *error;
-	void *dest;
+	void *src_set, *dest;
 
+	src_set = settings_parser_get_root_set(parser, info);
 	dest = settings_dup(info, src_set, pool);
 	if (!settings_check(info, pool, dest, &error)) {
 		const char *name = info->module_name;
@@ -169,7 +170,6 @@ login_settings_read(pool_t pool,
 	struct master_service_settings_input input;
 	const char *error;
 	const struct setting_parser_context *parser;
-	void *const *cache_sets;
 	void **sets;
 	unsigned int i, count;
 
@@ -202,12 +202,10 @@ login_settings_read(pool_t pool,
 					       &parser, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
-	cache_sets = master_service_settings_parser_get_others(master_service, parser);
 	for (count = 0; input.roots[count] != NULL; count++) ;
-	i_assert(cache_sets[count] == NULL);
 	sets = p_new(pool, void *, count + 1);
 	for (i = 0; i < count; i++)
-		sets[i] = login_setting_dup(pool, input.roots[i], cache_sets[i]);
+		sets[i] = login_setting_dup(pool, input.roots[i], parser);
 
 	if (settings_var_expand(&login_setting_parser_info, sets[0], pool,
 				login_set_var_expand_table(&input), &error) <= 0)
@@ -215,10 +213,10 @@ login_settings_read(pool_t pool,
 
 	*ssl_set_r =
 		login_setting_dup(pool, &master_service_ssl_setting_parser_info,
-				  settings_parser_get_list(parser)[1]);
+				  parser);
 	*ssl_server_set_r =
 		login_setting_dup(pool, &master_service_ssl_server_setting_parser_info,
-				  settings_parser_get_list(parser)[2]);
+				  parser);
 	*other_settings_r = sets + 1;
 	return sets[0];
 }
