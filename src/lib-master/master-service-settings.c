@@ -754,10 +754,8 @@ pool_t master_service_settings_detach(struct master_service *service)
 const struct master_service_settings *
 master_service_settings_get(struct master_service *service)
 {
-	void **sets;
-
-	sets = settings_parser_get_list(service->set_parser);
-	return sets[0];
+	return settings_parser_get_root_set(service->set_parser,
+		&master_service_setting_parser_info);
 }
 
 void **master_service_settings_get_others(struct master_service *service)

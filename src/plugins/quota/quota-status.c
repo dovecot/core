@@ -306,8 +306,8 @@ static void main_init(void)
 					       &user_info, &set_parser,
 					       &error) < 0)
 		i_fatal("%s", error);
-	user_set = master_service_settings_parser_get_others(master_service,
-							     set_parser)[0];
+	user_set = settings_parser_get_root_set(set_parser,
+			&mail_user_setting_parser_info);
 	set = master_service_settings_get_others(master_service)[1];
 
 	quota_status_settings = settings_dup(&quota_status_setting_parser_info, set,

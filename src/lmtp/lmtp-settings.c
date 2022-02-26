@@ -193,13 +193,19 @@ void lmtp_settings_dup(const struct setting_parser_context *set_parser,
 		       struct lda_settings **lda_set_r)
 {
 	const char *error;
-	void **sets;
 
-	sets = master_service_settings_parser_get_others(master_service,
-							 set_parser);
-	*user_set_r = settings_dup(&mail_user_setting_parser_info, sets[0], pool);
-	*lda_set_r = settings_dup(&lda_setting_parser_info, sets[2], pool);
-	*lmtp_set_r = settings_dup(&lmtp_setting_parser_info, sets[3], pool);
+	*user_set_r = settings_parser_get_root_set(set_parser,
+				&mail_user_setting_parser_info);
+	*user_set_r = settings_dup(&mail_user_setting_parser_info,
+				   *user_set_r, pool);
+	*lda_set_r = settings_parser_get_root_set(set_parser,
+				&lda_setting_parser_info);
+	*lda_set_r = settings_dup(&lda_setting_parser_info,
+				  *lda_set_r, pool);
+	*lmtp_set_r = settings_parser_get_root_set(set_parser,
+				&lmtp_setting_parser_info);
+	*lmtp_set_r = settings_dup(&lmtp_setting_parser_info,
+				   *lmtp_set_r, pool);
 	if (!lmtp_settings_check(*lmtp_set_r, pool, &error))
 		i_unreached();
 }

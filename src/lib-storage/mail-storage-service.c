@@ -1227,7 +1227,6 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	const char *const *userdb_fields, *error;
 	struct auth_user_reply reply;
 	const struct setting_parser_context *set_parser;
-	void **sets;
 	pool_t user_pool, temp_pool;
 	int ret = 1;
 
@@ -1263,9 +1262,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 						    ctx->default_log_prefix);
 		update_log_prefix = TRUE;
 	}
-	sets = master_service_settings_parser_get_others(master_service,
-							 set_parser);
-	user_set = sets[0];
+	user_set = settings_parser_get_root_set(set_parser,
+						&mail_user_setting_parser_info);
 
 	if (update_log_prefix)
 		mail_storage_service_set_log_prefix(ctx, user_set, NULL, input, NULL);
@@ -1342,9 +1340,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 
 	user->set_parser = settings_parser_dup(set_parser, user_pool);
 
-	sets = master_service_settings_parser_get_others(master_service,
-							 user->set_parser);
-	user->user_set = sets[0];
+	user->user_set = settings_parser_get_root_set(user->set_parser,
+				&mail_user_setting_parser_info);
 	user->ssl_set = master_service_ssl_settings_get_from_parser(user->set_parser);
 	user->gid_source = "mail_gid setting";
 	user->uid_source = "mail_uid setting";
@@ -1672,7 +1669,6 @@ void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 	const struct setting_parser_context *set_parser;
 	const char *error;
 	pool_t temp_pool;
-	void **sets;
 
 	if (ctx->conn != NULL)
 		return;
@@ -1682,9 +1678,8 @@ void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 					       &user_info, &set_parser,
 					       &error) < 0)
 		i_fatal("%s", error);
-	sets = master_service_settings_parser_get_others(master_service,
-							 set_parser);
-	user_set = sets[0];
+	user_set = settings_parser_get_root_set(set_parser,
+						&mail_user_setting_parser_info);
 
 	mail_storage_service_first_init(ctx, user_info, user_set, ctx->flags);
 	pool_unref(&temp_pool);
