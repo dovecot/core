@@ -252,17 +252,6 @@ void *settings_parser_get(struct setting_parser_context *ctx)
 	return ctx->roots[0].set_struct;
 }
 
-void **settings_parser_get_list(const struct setting_parser_context *ctx)
-{
-	unsigned int i;
-	void **sets;
-
-	sets = t_new(void *, ctx->root_count + 1);
-	for (i = 0; i < ctx->root_count; i++)
-		sets[i] = ctx->roots[i].set_struct;
-	return sets;
-}
-
 void *settings_parser_get_root_set(const struct setting_parser_context *ctx,
 				   const struct setting_parser_info *root)
 {
