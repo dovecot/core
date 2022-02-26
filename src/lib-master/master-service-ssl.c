@@ -60,7 +60,8 @@ void master_service_ssl_ctx_init(struct master_service *service)
 
 	set = master_service_settings_get_root_set(service,
 			&master_service_ssl_setting_parser_info);
-	server_set = master_service_ssl_server_settings_get(service);
+	server_set = master_service_settings_get_root_set(service,
+			&master_service_ssl_server_setting_parser_info);
 	if (strcmp(set->ssl, "no") == 0) {
 		/* SSL disabled, don't use it */
 		return;

@@ -163,16 +163,6 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 }
 /* </settings checks> */
 
-const struct master_service_ssl_server_settings *
-master_service_ssl_server_settings_get(struct master_service *service)
-{
-	void **sets;
-
-	i_assert(service->want_ssl_server);
-	sets = settings_parser_get_list(service->set_parser);
-	return sets[2];
-}
-
 static void master_service_ssl_common_settings_to_iostream_set(
 	const struct master_service_ssl_settings *ssl_set, pool_t pool,
 	struct ssl_iostream_settings *set_r)
