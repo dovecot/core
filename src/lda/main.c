@@ -293,8 +293,10 @@ lda_deliver(struct mail_deliver_input *dinput,
 	const char *errstr;
 	int ret;
 
-	smtp_set = mail_storage_service_user_get_set(service_user)[1];
-	lda_set = mail_storage_service_user_get_set(service_user)[2];
+	smtp_set = mail_storage_service_user_get_set(service_user,
+			&smtp_submit_setting_parser_info);
+	lda_set = mail_storage_service_user_get_set(service_user,
+			&lda_setting_parser_info);
 	ret = mail_user_var_expand(dinput->rcpt_user, &lda_setting_parser_info,
 				   lda_set, &errstr);
 	if (ret > 0) {

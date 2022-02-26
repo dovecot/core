@@ -122,7 +122,8 @@ lmtp_local_rcpt_reply_overquota(struct lmtp_local_recipient *llrcpt,
 {
 	struct smtp_server_recipient *rcpt = llrcpt->rcpt->rcpt;
 	struct lda_settings *lda_set =
-		mail_storage_service_user_get_set(llrcpt->service_user)[2];
+		mail_storage_service_user_get_set(llrcpt->service_user,
+			&lda_setting_parser_info);
 
 	if (lda_set->quota_full_tempfail)
 		smtp_server_recipient_reply(rcpt, 452, "4.2.2", "%s", error);
@@ -423,7 +424,6 @@ lmtp_local_deliver(struct lmtp_local *local,
 	struct lda_settings *lda_set;
 	struct mail_namespace *ns;
 	struct setting_parser_context *set_parser;
-	void **sets;
 	const char *line, *error, *username;
 	int ret;
 
@@ -468,9 +468,10 @@ lmtp_local_deliver(struct lmtp_local *local,
 	}
 	local->rcpt_user = rcpt_user;
 
-	sets = mail_storage_service_user_get_set(service_user);
-	smtp_set = sets[1];
-	lda_set = sets[2];
+	smtp_set = mail_storage_service_user_get_set(service_user,
+			&smtp_submit_setting_parser_info);
+	lda_set = mail_storage_service_user_get_set(service_user,
+			&lda_setting_parser_info);
 	ret = mail_user_var_expand(rcpt_user, &smtp_submit_setting_parser_info,
 				   smtp_set, &error);
 	if (ret > 0) {

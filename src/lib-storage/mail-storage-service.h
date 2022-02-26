@@ -151,9 +151,10 @@ void mail_storage_service_io_activate_user(struct mail_storage_service_user *use
    log prefix. */
 void mail_storage_service_io_deactivate_user(struct mail_storage_service_user *user);
 
-/* Return the settings pointed to by set_root parameter in _init().
-   The settings contain all the changes done by userdb lookups. */
-void **mail_storage_service_user_get_set(struct mail_storage_service_user *user);
+/* Return settings struct for the given root. The settings contain all the
+   changes done by userdb lookups. */
+void *mail_storage_service_user_get_set(struct mail_storage_service_user *user,
+					const struct setting_parser_info *root);
 const struct mail_storage_settings *
 mail_storage_service_user_get_mail_set(struct mail_storage_service_user *user);
 const struct mail_storage_service_input *

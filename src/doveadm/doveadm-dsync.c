@@ -1079,7 +1079,8 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 	const struct master_service_ssl_settings *ssl_set;
 	const char *username = "";
 
-	user_set = mail_storage_service_user_get_set(service_user)[0];
+	user_set = mail_storage_service_user_get_set(service_user,
+			&mail_user_setting_parser_info);
 	ssl_set = mail_storage_service_user_get_ssl_settings(service_user);
 
 	ctx->fd_in = -1;

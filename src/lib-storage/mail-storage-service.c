@@ -1756,10 +1756,10 @@ struct mail_storage_service_ctx *mail_storage_service_get_global(void)
 	return storage_service_global;
 }
 
-void **mail_storage_service_user_get_set(struct mail_storage_service_user *user)
+void *mail_storage_service_user_get_set(struct mail_storage_service_user *user,
+					const struct setting_parser_info *root)
 {
-	return master_service_settings_parser_get_others(master_service,
-							 user->set_parser);
+	return settings_parser_get_root_set(user->set_parser, root);
 }
 
 const struct mail_storage_settings *

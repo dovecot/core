@@ -588,7 +588,8 @@ client_handle_user_command(struct client *client, const char *cmd,
 	/* drop privileges */
 	restrict_access_allow_coredumps(TRUE);
 
-	set = mail_storage_service_user_get_set(user)[1];
+	set = mail_storage_service_user_get_set(user,
+			&imap_urlauth_worker_setting_parser_info);
 	if (mail_user_var_expand(mail_user, &imap_urlauth_worker_setting_parser_info,
 				 set, &error) <= 0) {
 		client_send_line(client, "NO");
