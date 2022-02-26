@@ -1342,7 +1342,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 
 	user->user_set = settings_parser_get_root_set(user->set_parser,
 				&mail_user_setting_parser_info);
-	user->ssl_set = master_service_ssl_settings_get_from_parser(user->set_parser);
+	user->ssl_set = settings_parser_get_root_set(user->set_parser,
+				&master_service_ssl_setting_parser_info);
 	user->gid_source = "mail_gid setting";
 	user->uid_source = "mail_uid setting";
 
