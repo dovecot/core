@@ -110,6 +110,15 @@ static void test_var_get_key_range(void)
 	test_end();
 }
 
+static int test_var_expand_func0(const char *data ATTR_UNUSED,
+				 void *context ATTR_UNUSED,
+				 const char **value_r,
+				 const char **error_r ATTR_UNUSED)
+{
+	*value_r = "0";
+	return 1;
+}
+
 static int test_var_expand_func1(const char *data, void *context,
 				 const char **value_r,
 				 const char **error_r ATTR_UNUSED)
@@ -158,6 +167,7 @@ static int test_var_expand_func5(const char *data ATTR_UNUSED,
 static void test_var_expand_with_funcs(void)
 {
 	static const struct var_expand_test tests[] = {
+		{ "%f", "0", 1 },
 		{ "%{func1}", "<>", 1 },
 		{ "%{func1:foo}", "<foo>", 1 },
 		{ "%{func2}", "", 1 },
@@ -171,6 +181,7 @@ static void test_var_expand_with_funcs(void)
 		{ '\0', NULL, NULL }
 	};
 	static const struct var_expand_func_table func_table[] = {
+		{ "f", test_var_expand_func0 },
 		{ "func1", test_var_expand_func1 },
 		{ "func2", test_var_expand_func2 },
 		{ "func3", test_var_expand_func3 },

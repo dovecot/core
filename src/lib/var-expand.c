@@ -168,16 +168,29 @@ static const struct var_expand_modifier modifiers[] = {
 };
 
 static int
-var_expand_short(const struct var_expand_table *table, char key,
+var_expand_short(const struct var_expand_context *ctx, char key,
 		 const char **var_r, const char **error_r)
 {
 	const struct var_expand_table *t;
 
-	if (table != NULL) {
-		for (t = table; !TABLE_LAST(t); t++) {
+	if (ctx->table != NULL) {
+		for (t = ctx->table; !TABLE_LAST(t); t++) {
 			if (t->key == key) {
 				*var_r = t->value != NULL ? t->value : "";
 				return 1;
+			}
+		}
+	}
+
+	if (ctx->func_table != NULL) {
+		for (unsigned int i = 0; ctx->func_table[i].key != NULL; i++) {
+			if (ctx->func_table[i].key[0] == key &&
+			    ctx->func_table[i].key[1] == '\0') {
+				const char *value;
+				int ret = ctx->func_table->func(
+					"", ctx->context, &value, error_r);
+				*var_r = value != NULL ? value : "";
+				return ret;
 			}
 		}
 	}
@@ -597,7 +610,7 @@ int var_expand_with_funcs(string_t *dest, const char *str,
 						      &var, error_r);
 				str = end;
 			} else {
-				ret = var_expand_short(ctx.table, *str,
+				ret = var_expand_short(&ctx, *str,
 						       &var, error_r);
 			}
 			i_assert(var != NULL);
