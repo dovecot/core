@@ -263,6 +263,22 @@ void **settings_parser_get_list(const struct setting_parser_context *ctx)
 	return sets;
 }
 
+void *settings_parser_get_root_set(const struct setting_parser_context *ctx,
+				   const struct setting_parser_info *root)
+{
+	for (unsigned int i = 0; i < ctx->root_count; i++) {
+		/* FIXME: after removing dynamic settings this should be
+		   just comparing info == root. */
+		const struct setting_parser_info *ctx_root =
+			ctx->roots[i].info->orig_info != NULL ?
+			ctx->roots[i].info->orig_info :
+			ctx->roots[i].info;
+		if (ctx_root == root)
+			return ctx->roots[i].set_struct;
+	}
+	i_panic("Couldn't find settings for root %s", root->module_name);
+}
+
 void *settings_parser_get_changes(struct setting_parser_context *ctx)
 {
 	i_assert(ctx->root_count == 1);
@@ -1595,6 +1611,8 @@ void settings_parser_dyn_update(pool_t pool,
 	old_parent = dyn_parsers[0].info->parent;
 	new_parent = p_new(pool, struct setting_parser_info, 1);
 	*new_parent = *old_parent;
+	new_parent->orig_info = old_parent->orig_info != NULL ?
+		old_parent->orig_info : old_parent;
 	settings_parser_update_children_parent(new_parent, pool);
 
 	/* update root */

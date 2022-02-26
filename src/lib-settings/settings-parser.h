@@ -101,6 +101,7 @@ struct setting_define {
 	SETTING_DEFINE_STRUCT_TYPE(SET_ENUM, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
 
 struct setting_parser_info {
+	const struct setting_parser_info *orig_info; /* FIXME: remove after getting rid of dynamic parsers */
 	const char *module_name;
 	const struct setting_define *defines;
 	const void *defaults;
@@ -149,6 +150,11 @@ void *settings_parser_get(struct setting_parser_context *ctx);
 /* If there are multiple roots, return a NULL-terminated list to all of
    their settings. */
 void **settings_parser_get_list(const struct setting_parser_context *ctx);
+/* Returns settings for a specific root. The root is expected to exist, and it
+   must be the same pointer as given to settings_parser_init*(). If it doesn't,
+   the function panics. */
+void *settings_parser_get_root_set(const struct setting_parser_context *ctx,
+				   const struct setting_parser_info *root);
 /* Like settings_parser_get(), but return change struct. */
 void *settings_parser_get_changes(struct setting_parser_context *ctx);
 /* Returns the setting parser's roots (same as given to init()). */
