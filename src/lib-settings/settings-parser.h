@@ -155,6 +155,10 @@ void **settings_parser_get_list(const struct setting_parser_context *ctx);
    the function panics. */
 void *settings_parser_get_root_set(const struct setting_parser_context *ctx,
 				   const struct setting_parser_info *root);
+/* Combine settings_parser_get_root_set() and settings_dup(). */
+void *settings_parser_get_root_set_dup(const struct setting_parser_context *ctx,
+				       const struct setting_parser_info *root,
+				       pool_t pool);
 /* Like settings_parser_get(), but return change struct. */
 void *settings_parser_get_changes(struct setting_parser_context *ctx);
 /* Returns the setting parser's roots (same as given to init()). */

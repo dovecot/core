@@ -279,6 +279,13 @@ void *settings_parser_get_root_set(const struct setting_parser_context *ctx,
 	i_panic("Couldn't find settings for root %s", root->module_name);
 }
 
+void *settings_parser_get_root_set_dup(const struct setting_parser_context *ctx,
+				       const struct setting_parser_info *root,
+				       pool_t pool)
+{
+	return settings_dup(root, settings_parser_get_root_set(ctx, root), pool);
+}
+
 void *settings_parser_get_changes(struct setting_parser_context *ctx)
 {
 	i_assert(ctx->root_count == 1);
