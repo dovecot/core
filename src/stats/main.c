@@ -61,8 +61,8 @@ static void main_preinit(void)
 
 static void main_init(void)
 {
-	void **sets = master_service_settings_get_others(master_service);
-	stats_settings = sets[0];
+	stats_settings = master_service_settings_get_root_set(master_service,
+				&stats_setting_parser_info);
 
 	stats_startup_time = ioloop_time;
 	stats_metrics = stats_metrics_init(stats_settings);

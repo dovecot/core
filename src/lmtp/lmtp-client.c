@@ -99,11 +99,12 @@ static void client_load_modules(struct client *client)
 
 static void client_raw_user_create(struct client *client)
 {
-	void **sets;
+	const struct mail_user_settings *user_set;
 
-	sets = master_service_settings_get_others(master_service);
+	user_set = master_service_settings_get_root_set(master_service,
+				&mail_user_setting_parser_info);
 	client->raw_mail_user =
-		raw_storage_create_from_set(client->user_set_info, sets[0]);
+		raw_storage_create_from_set(client->user_set_info, user_set);
 }
 
 static void client_read_settings(struct client *client, bool ssl)

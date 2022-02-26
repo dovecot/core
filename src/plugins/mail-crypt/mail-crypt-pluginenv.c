@@ -28,7 +28,8 @@ fs_crypt_load_settings(void)
 					 &output, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
-	return master_service_settings_get_others(master_service)[0];
+	return master_service_settings_get_root_set(master_service,
+				&fs_crypt_setting_parser_info);
 }
 
 static

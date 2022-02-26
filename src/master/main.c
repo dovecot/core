@@ -374,7 +374,6 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	struct master_service_settings_input input;
 	struct master_service_settings_output output;
 	const struct master_settings *set;
-	void **sets;
 	struct service_list *new_services;
 	struct service *service;
 	const char *error;
@@ -405,8 +404,8 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 		i_sd_notify(0, "READY=1");
 		return;
 	}
-	sets = master_service_settings_get_others(master_service);
-	set = sets[0];
+	set = master_service_settings_get_root_set(master_service,
+						   &master_setting_parser_info);
 
 	if (services_create(set, &new_services, &error) < 0) {
 		/* new configuration is invalid, keep the old */
@@ -483,7 +482,8 @@ static struct master_settings *master_settings_read(void)
 	if (master_service_settings_read(master_service, &input, &output,
 					 &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
-	return master_service_settings_get_others(master_service)[0];
+	return master_service_settings_get_root_set(master_service,
+						    &master_setting_parser_info);
 }
 
 static void main_log_startup(char **protocols)

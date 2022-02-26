@@ -54,11 +54,9 @@ replicator_dump_timeout(void *context ATTR_UNUSED)
 
 static void main_init(void)
 {
-	void **sets;
-
 	service_set = master_service_settings_get(master_service);
-	sets = master_service_settings_get_others(master_service);
-	set = sets[0];
+	set = master_service_settings_get_root_set(master_service,
+				&replicator_setting_parser_info);
 
 	queue = replicator_queue_init(set->replication_full_sync_interval,
 				      REPLICATOR_FAILURE_RESYNC_INTERVAL_SECS);

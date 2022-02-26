@@ -216,7 +216,6 @@ int main(int argc, char *argv[])
 	struct login_server_settings login_set;
 	struct master_service_settings_input input;
 	struct master_service_settings_output output;
-	void **sets;
 	enum master_service_flags service_flags = 0;
 	const char *error = NULL, *username = NULL;
 	const char *auth_socket_path = "auth-master";
@@ -261,8 +260,9 @@ int main(int argc, char *argv[])
 						&error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 
-	sets = master_service_settings_get_others(master_service);
-	imap_urlauth_settings = sets[0];
+	imap_urlauth_settings = 
+		master_service_settings_get_root_set(master_service,
+			&imap_urlauth_setting_parser_info);
 
 	if (imap_urlauth_settings->verbose_proctitle)
 		verbose_proctitle = TRUE;

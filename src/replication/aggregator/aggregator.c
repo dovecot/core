@@ -32,11 +32,10 @@ static void main_preinit(void)
 	struct ip_addr *ips;
 	unsigned int ips_count;
 	const struct aggregator_settings *set;
-	void **sets;
 	int ret;
 
-	sets = master_service_settings_get_others(master_service);
-	set = sets[0];
+	set = master_service_settings_get_root_set(master_service,
+				&aggregator_setting_parser_info);
 
 	aggregator_event = event_create(NULL);
 	event_add_category(aggregator_event, &event_category_replication);
