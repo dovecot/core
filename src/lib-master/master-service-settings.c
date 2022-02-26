@@ -572,7 +572,6 @@ int master_service_settings_read(struct master_service *service,
 	struct setting_parser_context *parser;
 	struct istream *istream;
 	const char *path = NULL, *error;
-	void **sets;
 	unsigned int i;
 	int ret, fd = -1;
 	time_t now, timeout;
@@ -702,8 +701,8 @@ int master_service_settings_read(struct master_service *service,
 		return -1;
 	}
 
-	sets = settings_parser_get_list(parser);
-	service->set = sets[0];
+	service->set = settings_parser_get_root_set(parser,
+				&master_service_setting_parser_info);
 	service->set_parser = parser;
 
 	if (service->set->version_ignore &&
