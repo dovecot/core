@@ -237,7 +237,6 @@ void doveadm_read_settings(void)
 	struct doveadm_setting_root *root;
 	ARRAY(const struct setting_parser_info *) set_roots;
 	ARRAY_TYPE(const_string) module_names;
-	void **sets;
 	const char *error;
 
 	t_array_init(&set_roots, N_ELEMENTS(default_set_roots) +
@@ -264,27 +263,23 @@ void doveadm_read_settings(void)
 		i_fatal("Error reading configuration: %s", error);
 
 	doveadm_settings_pool = pool_alloconly_create("doveadm settings", 1024);
-	service_set = master_service_settings_get(master_service);
-	service_set = settings_dup(&master_service_setting_parser_info,
-				   service_set, doveadm_settings_pool);
+	service_set = master_service_settings_get_root_set_dup(master_service,
+		&master_service_setting_parser_info, doveadm_settings_pool);
 	doveadm_verbose_proctitle = service_set->verbose_proctitle;
 
-	sets = master_service_settings_get_others(master_service);
-	set = sets[1];
+	set = master_service_settings_get_root_set(
+		master_service, &doveadm_setting_parser_info);
 	doveadm_settings = settings_dup(&doveadm_setting_parser_info, set,
 					doveadm_settings_pool);
-	doveadm_ssl_set = master_service_settings_get_root_set(master_service,
-					&master_service_ssl_setting_parser_info);
-	doveadm_ssl_set = settings_dup(&master_service_ssl_setting_parser_info,
-				       doveadm_ssl_set, doveadm_settings_pool);
+	doveadm_ssl_set = master_service_settings_get_root_set_dup(
+		master_service, &master_service_ssl_setting_parser_info,
+		doveadm_settings_pool);
 	doveadm_settings_expand(doveadm_settings, doveadm_settings_pool);
 	doveadm_settings->parsed_features = set->parsed_features; /* copy this value by hand */
 
 	array_foreach_modifiable(&doveadm_setting_roots, root) {
-		unsigned int idx =
-			array_foreach_idx(&doveadm_setting_roots, root);
-		root->settings = settings_dup(root->info, sets[2+idx],
-					      doveadm_settings_pool);
+		root->settings = master_service_settings_get_root_set_dup(
+			master_service, root->info, doveadm_settings_pool);
 	}
 }
 
