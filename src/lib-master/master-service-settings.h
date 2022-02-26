@@ -103,8 +103,6 @@ void *master_service_settings_get_root_set(struct master_service *service,
 					   const struct setting_parser_info *root);
 void *master_service_settings_get_root_set_dup(struct master_service *service,
 	const struct setting_parser_info *root, pool_t pool);
-void **master_service_settings_parser_get_others(struct master_service *service,
-						 const struct setting_parser_context *set_parser);
 struct setting_parser_context *
 master_service_get_settings_parser(struct master_service *service);
 

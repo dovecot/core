@@ -771,13 +771,6 @@ void *master_service_settings_get_root_set_dup(struct master_service *service,
 		master_service_settings_get_root_set(service, root), pool);
 }
 
-void **master_service_settings_parser_get_others(struct master_service *service,
-						 const struct setting_parser_context *set_parser)
-{
-	return settings_parser_get_list(set_parser) + 2 +
-		(service->want_ssl_server ? 1 : 0);
-}
-
 struct setting_parser_context *
 master_service_get_settings_parser(struct master_service *service)
 {
