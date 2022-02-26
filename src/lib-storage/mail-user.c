@@ -158,19 +158,8 @@ int mail_user_var_expand(struct mail_user *user,
 int mail_user_init(struct mail_user *user, const char **error_r)
 {
 	const struct mail_storage_settings *mail_set;
-	const char *home, *key, *value, *error;
-	bool need_home_dir;
+	const char *error;
 
-	need_home_dir = user->_home == NULL &&
-		settings_vars_have_key(user->set_info, user->set,
-				       'h', "home", &key, &value);
-	if (need_home_dir && mail_user_get_home(user, &home) <= 0) {
-		user->error = p_strdup_printf(user->pool,
-			"userdb didn't return a home directory, "
-			"but %s used it (%%h): %s", key, value);
-	}
-
-	/* expand settings after we can expand %h */
 	if (mail_user_var_expand(user, user->set_info, user->set,
 				 &error) <= 0) {
 		user->error = p_strdup_printf(user->pool,
@@ -299,11 +288,6 @@ void mail_user_set_vars(struct mail_user *user, const char *service,
 const struct var_expand_table *
 mail_user_var_expand_table(struct mail_user *user)
 {
-	/* use a cached table, unless home directory has been set afterwards */
-	if (user->var_expand_table != NULL &&
-	    user->var_expand_table[4].value == user->_home)
-		return user->var_expand_table;
-
 	const char *username =
 		p_strdup(user->pool, t_strcut(user->username, '@'));
 	const char *domain = i_strchr_to_next(user->username, '@');
@@ -329,7 +313,6 @@ mail_user_var_expand_table(struct mail_user *user)
 		{ 'n', username, "username" },
 		{ 'd', domain, "domain" },
 		{ 's', user->service, "service" },
-		{ 'h', user->_home /* don't look it up unless we need it */, "home" },
 		{ 'l', local_ip, "lip" },
 		{ 'r', remote_ip, "rip" },
 		{ 'p', my_pid, "pid" },
@@ -354,6 +337,20 @@ mail_user_var_expand_table(struct mail_user *user)
 
 	user->var_expand_table = tab;
 	return user->var_expand_table;
+}
+
+static int
+mail_user_var_expand_func_home(const char *data ATTR_UNUSED, void *context,
+			       const char **value_r, const char **error_r)
+{
+	struct mail_user *user = context;
+
+	if (mail_user_get_home(user, value_r) <= 0) {
+		*error_r = "Setting used home directory (%h) but there is no "
+			"mail_home and userdb didn't return it";
+		return -1;
+	}
+	return 1;
 }
 
 static int
@@ -878,6 +875,8 @@ mail_user_get_dict_op_settings(struct mail_user *user)
 }
 
 static const struct var_expand_func_table mail_user_var_expand_func_table_arr[] = {
+	{ "h", mail_user_var_expand_func_home },
+	{ "home", mail_user_var_expand_func_home },
 	{ "userdb", mail_user_var_expand_func_userdb },
 	{ NULL, NULL }
 };
