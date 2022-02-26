@@ -764,6 +764,13 @@ void *master_service_settings_get_root_set(struct master_service *service,
 	return settings_parser_get_root_set(service->set_parser,  root);
 }
 
+void *master_service_settings_get_root_set_dup(struct master_service *service,
+	const struct setting_parser_info *root, pool_t pool)
+{
+	return settings_dup(root,
+		master_service_settings_get_root_set(service, root), pool);
+}
+
 void **master_service_settings_get_others(struct master_service *service)
 {
 	return master_service_settings_parser_get_others(service,
