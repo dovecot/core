@@ -283,7 +283,6 @@ static void main_init(void)
 	const struct setting_parser_info *user_info;
 	const struct setting_parser_context *set_parser;
 	const struct mail_user_settings *user_set;
-	const struct quota_status_settings *set;
 	const char *value, *error;
 	pool_t pool;
 
@@ -308,11 +307,10 @@ static void main_init(void)
 		i_fatal("%s", error);
 	user_set = settings_parser_get_root_set(set_parser,
 			&mail_user_setting_parser_info);
-	set = master_service_settings_get_root_set(master_service,
-				&quota_status_setting_parser_info);
+	quota_status_settings = master_service_settings_get_root_set_dup(
+		master_service, &quota_status_setting_parser_info,
+		quota_status_pool);
 
-	quota_status_settings = settings_dup(&quota_status_setting_parser_info, set,
-					     quota_status_pool);
 	value = mail_user_set_plugin_getenv(user_set, "quota_status_nouser");
 	nouser_reply = p_strdup(quota_status_pool,
 				value != NULL ? value : "REJECT Unknown user");

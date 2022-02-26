@@ -39,7 +39,6 @@ static int client_connection_read_settings(struct client_connection *conn)
 	struct master_service_settings_input input;
 	struct master_service_settings_output output;
 	const char *error;
-	void *set;
 
 	i_zero(&input);
 	input.roots = set_roots;
@@ -52,9 +51,8 @@ static int client_connection_read_settings(struct client_connection *conn)
 		e_error(conn->event, "Error reading configuration: %s", error);
 		return -1;
 	}
-	set = master_service_settings_get_root_set(master_service,
-				&doveadm_setting_parser_info);
-	conn->set = settings_dup(&doveadm_setting_parser_info, set, conn->pool);
+	conn->set = master_service_settings_get_root_set_dup(master_service,
+				&doveadm_setting_parser_info, conn->pool);
 	return 0;
 }
 
