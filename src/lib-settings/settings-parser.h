@@ -225,11 +225,6 @@ int settings_var_expand_with_funcs(const struct setting_parser_info *info,
 				   const struct var_expand_table *table,
 				   const struct var_expand_func_table *func_table,
 				   void *func_context, const char **error_r);
-/* Go through all the settings and return the first one that has an unexpanded
-   setting containing the given %key. */
-bool settings_vars_have_key(const struct setting_parser_info *info, void *set,
-			    char var_key, const char *long_var_key,
-			    const char **key_r, const char **value_r);
 /* Duplicate the entire settings structure. */
 void *settings_dup(const struct setting_parser_info *info,
 		   const void *set, pool_t pool);
