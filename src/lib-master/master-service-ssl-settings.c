@@ -163,13 +163,6 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 }
 /* </settings checks> */
 
-const struct master_service_ssl_settings *
-master_service_ssl_settings_get(struct master_service *service)
-{
-	return settings_parser_get_root_set(service->set_parser,
-		&master_service_ssl_setting_parser_info);
-}
-
 const struct master_service_ssl_server_settings *
 master_service_ssl_server_settings_get(struct master_service *service)
 {

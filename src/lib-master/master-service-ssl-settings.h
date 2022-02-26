@@ -45,9 +45,6 @@ struct master_service_ssl_server_settings {
 extern const struct setting_parser_info master_service_ssl_setting_parser_info;
 extern const struct setting_parser_info master_service_ssl_server_setting_parser_info;
 
-const struct master_service_ssl_settings *
-master_service_ssl_settings_get(struct master_service *service);
-
 const struct master_service_ssl_server_settings *
 master_service_ssl_server_settings_get(struct master_service *service);
 

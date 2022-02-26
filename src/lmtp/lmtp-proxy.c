@@ -18,6 +18,7 @@
 #include "smtp-dovecot.h"
 #include "auth-proxy.h"
 #include "auth-master.h"
+#include "master-service-settings.h"
 #include "master-service-ssl-settings.h"
 #include "mail-storage-service.h"
 #include "lda-settings.h"
@@ -206,7 +207,8 @@ lmtp_proxy_connection_init_ssl(struct lmtp_proxy_connection *conn,
 		return;
 	}
 
-	master_ssl_set = master_service_ssl_settings_get(master_service);
+	master_ssl_set = master_service_settings_get_root_set(master_service,
+			&master_service_ssl_setting_parser_info);
 	master_service_ssl_client_settings_to_iostream_set(
 		master_ssl_set, pool_datastack_create(), ssl_set_r);
 	if ((conn->set.set.ssl_flags & AUTH_PROXY_SSL_FLAG_ANY_CERT) != 0)

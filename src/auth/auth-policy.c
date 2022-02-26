@@ -13,6 +13,7 @@
 #include "http-client.h"
 #include "json-parser.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "master-service-ssl-settings.h"
 #include "auth-request.h"
 #include "auth-penalty.h"
@@ -163,7 +164,8 @@ void auth_policy_open_and_close_to_key(const char *fromkey, const char *tokey, s
 void auth_policy_init(void)
 {
 	const struct master_service_ssl_settings *master_ssl_set =
-		master_service_ssl_settings_get(master_service);
+		master_service_settings_get_root_set(master_service,
+			&master_service_ssl_setting_parser_info);
 	struct ssl_iostream_settings ssl_set;
 	i_zero(&ssl_set);
 

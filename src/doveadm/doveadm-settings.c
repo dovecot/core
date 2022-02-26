@@ -273,9 +273,10 @@ void doveadm_read_settings(void)
 	set = sets[1];
 	doveadm_settings = settings_dup(&doveadm_setting_parser_info, set,
 					doveadm_settings_pool);
+	doveadm_ssl_set = master_service_settings_get_root_set(master_service,
+					&master_service_ssl_setting_parser_info);
 	doveadm_ssl_set = settings_dup(&master_service_ssl_setting_parser_info,
-				       master_service_ssl_settings_get(master_service),
-				       doveadm_settings_pool);
+				       doveadm_ssl_set, doveadm_settings_pool);
 	doveadm_settings_expand(doveadm_settings, doveadm_settings_pool);
 	doveadm_settings->parsed_features = set->parsed_features; /* copy this value by hand */
 
