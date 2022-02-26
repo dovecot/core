@@ -1803,17 +1803,6 @@ pool_t mail_storage_service_user_get_pool(struct mail_storage_service_user *user
 	return user->pool;
 }
 
-void *mail_storage_service_get_settings(struct master_service *service)
-{
-	void **sets, *set;
-
-	T_BEGIN {
-		sets = master_service_settings_get_others(service);
-		set = sets[1];
-	} T_END;
-	return set;
-}
-
 int mail_storage_service_user_set_setting(struct mail_storage_service_user *user,
 					  const char *key,
 					  const char *value,
