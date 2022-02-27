@@ -156,6 +156,11 @@ void mail_user_set_vars(struct mail_user *user, const char *service,
 /* Return %variable expansion table for the user. */
 const struct var_expand_table *
 mail_user_var_expand_table(struct mail_user *user);
+/* Expand %variables for the user. The settings values may be allocated from
+   user->pool. Returns the same as settings_var_expand_with_funcs(). */
+int mail_user_var_expand(struct mail_user *user,
+			 const struct setting_parser_info *info, void *set,
+			 const char **error_r);
 
 /* Specify the user's home directory. This should be called also when it's
    known that the user doesn't have a home directory to avoid the internal
