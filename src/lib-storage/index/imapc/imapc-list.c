@@ -96,7 +96,7 @@ static int imapc_list_init(struct mailbox_list *_list, const char **error_r)
 
 	list->set = mail_user_set_get_driver_settings(_list->ns->user->set_info,
 						      _list->ns->user_set,
-						      IMAPC_STORAGE_NAME);
+						      imapc_get_setting_parser_info());
 	if (imapc_storage_client_create(_list->ns, list->set, _list->mail_set,
 					&list->client, error_r) < 0)
 		return -1;

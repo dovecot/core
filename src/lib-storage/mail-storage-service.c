@@ -113,7 +113,7 @@ mail_user_set_get_mail_debug(const struct setting_parser_info *user_info,
 	const struct mail_storage_settings *mail_set;
 
 	mail_set = mail_user_set_get_driver_settings(user_info, user_set,
-						MAIL_STORAGE_SET_DRIVER_NAME);
+			&mail_storage_setting_parser_info);
 	return mail_set->mail_debug;
 }
 
@@ -1768,7 +1768,7 @@ mail_storage_service_user_get_mail_set(struct mail_storage_service_user *user)
 {
 	return mail_user_set_get_driver_settings(
 				user->user_info, user->user_set,
-				MAIL_STORAGE_SET_DRIVER_NAME);
+				&mail_storage_setting_parser_info);
 }
 
 const struct mail_storage_service_input *
