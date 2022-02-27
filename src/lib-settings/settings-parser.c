@@ -1630,6 +1630,7 @@ void settings_parser_dyn_update(pool_t pool,
 
 		new_info = p_new(pool, struct setting_parser_info, 1);
 		*new_info = *dyn_parsers[i].info;
+		new_info->orig_info = dyn_parsers[i].info;
 		new_info->parent = new_parent;
 		new_dyn_parsers[i].info = new_info;
 	}
@@ -1649,6 +1650,29 @@ const void *settings_find_dynamic(const struct setting_parser_info *info,
 		if (strcmp(info->dynamic_parsers[i].name, name) == 0) {
 			return CONST_PTR_OFFSET(base_set,
 				info->dynamic_parsers[i].struct_offset);
+		}
+	}
+	return NULL;
+}
+
+const void *
+settings_find_dynamic_by_info(const struct setting_parser_info *base_info,
+			      const void *base_set,
+			      const struct setting_parser_info *info)
+{
+	unsigned int i;
+
+	if (base_info->dynamic_parsers == NULL)
+		return NULL;
+
+	for (i = 0; base_info->dynamic_parsers[i].name != NULL; i++) {
+		const struct setting_parser_info *ctx_root =
+			base_info->dynamic_parsers[i].info->orig_info != NULL ?
+			base_info->dynamic_parsers[i].info->orig_info :
+			base_info->dynamic_parsers[i].info;
+		if (ctx_root == info) {
+			return CONST_PTR_OFFSET(base_set,
+				base_info->dynamic_parsers[i].struct_offset);
 		}
 	}
 	return NULL;

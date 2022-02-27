@@ -258,6 +258,10 @@ void settings_parser_dyn_update(pool_t pool,
    no such registered name. */
 const void *settings_find_dynamic(const struct setting_parser_info *info,
 				  const void *base_set, const char *name);
+const void *
+settings_find_dynamic_by_info(const struct setting_parser_info *base_info,
+			      const void *base_set,
+			      const struct setting_parser_info *info);
 
 /* Copy changed settings from src to dest. If conflict_key_r is not NULL and
    both src and dest have changed the same setting, return -1 and set the
