@@ -98,8 +98,8 @@ int mail_namespace_alloc(struct mail_user *user,
 	ns->set = ns_set;
 	ns->unexpanded_set = unexpanded_set;
 	ns->user_set = user_all_settings;
-	ns->mail_set = mail_user_set_get_driver_settings(user->set_info,
-				ns->user_set, &mail_storage_setting_parser_info);
+	ns->mail_set = mail_user_set_get_driver_settings(user->set_parser,
+		user->set_info, ns->user_set, &mail_storage_setting_parser_info);
 	i_array_init(&ns->all_storages, 2);
 
 	if (strcmp(ns_set->type, "private") == 0) {

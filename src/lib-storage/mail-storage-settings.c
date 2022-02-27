@@ -349,7 +349,8 @@ const struct setting_parser_info mail_user_setting_parser_info = {
 };
 
 const void *
-mail_user_set_get_driver_settings(const struct setting_parser_info *base_info,
+mail_user_set_get_driver_settings(const struct setting_parser_context *set_parser ATTR_UNUSED,
+				  const struct setting_parser_info *base_info,
 				  const struct mail_user_settings *set,
 				  const struct setting_parser_info *info)
 {
@@ -366,14 +367,16 @@ mail_user_set_get_driver_settings(const struct setting_parser_info *base_info,
 const struct mail_storage_settings *
 mail_user_set_get_storage_set(struct mail_user *user)
 {
-	return mail_user_set_get_driver_settings(user->set_info, user->set,
+	return mail_user_set_get_driver_settings(user->set_parser,
+						 user->set_info, user->set,
 		&mail_storage_setting_parser_info);
 }
 
 const void *mail_namespace_get_driver_settings(struct mail_namespace *ns,
 					       struct mail_storage *storage)
 {
-	return mail_user_set_get_driver_settings(storage->user->set_info,
+	return mail_user_set_get_driver_settings(storage->user->set_parser,
+		storage->user->set_info,
 		ns->user_set, storage->v.get_setting_parser_info());
 }
 

@@ -437,8 +437,9 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 	location++;
 
 	if (*location == '\0') {
-		mail_set = mail_user_set_get_driver_settings(user->set_info,
-			user->unexpanded_set, &mail_storage_setting_parser_info);
+		mail_set = mail_user_set_get_driver_settings(user->set_parser,
+			user->set_info, user->unexpanded_set,
+			&mail_storage_setting_parser_info);
 		i_assert(mail_set != NULL);
 		location = mail_set->mail_location;
 		if (*location == SETTING_STRVAR_EXPANDED[0])

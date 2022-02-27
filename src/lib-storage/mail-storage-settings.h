@@ -11,6 +11,7 @@ struct mail_namespace;
 struct mail_storage;
 struct message_address;
 struct smtp_address;
+struct setting_parser_context;
 
 struct mail_storage_settings {
 	const char *mail_location;
@@ -152,7 +153,8 @@ extern const struct mailbox_settings mailbox_default_settings;
 struct ssl_iostream_settings;
 
 const void *
-mail_user_set_get_driver_settings(const struct setting_parser_info *base_info,
+mail_user_set_get_driver_settings(const struct setting_parser_context *set_parser,
+				  const struct setting_parser_info *base_info,
 				  const struct mail_user_settings *set,
 				  const struct setting_parser_info *info);
 
