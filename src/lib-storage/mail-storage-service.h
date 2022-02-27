@@ -169,6 +169,9 @@ pool_t mail_storage_service_user_get_pool(struct mail_storage_service_user *user
 const char *
 mail_storage_service_user_get_log_prefix(struct mail_storage_service_user *user);
 
+/* Return all service settings roots. This includes the roots given to
+   mail_storage_service_init() as well as all dynamically created
+   mail_storage_classes. */
 const struct setting_parser_info *const *
 mail_storage_service_get_set_roots(struct mail_storage_service_ctx *ctx);
 const char *

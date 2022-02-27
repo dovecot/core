@@ -349,19 +349,12 @@ const struct setting_parser_info mail_user_setting_parser_info = {
 };
 
 const void *
-mail_user_set_get_driver_settings(const struct setting_parser_context *set_parser ATTR_UNUSED,
-				  const struct setting_parser_info *base_info,
-				  const struct mail_user_settings *set,
+mail_user_set_get_driver_settings(const struct setting_parser_context *set_parser,
+				  const struct setting_parser_info *base_info ATTR_UNUSED,
+				  const struct mail_user_settings *set ATTR_UNUSED,
 				  const struct setting_parser_info *info)
 {
-	const void *dset;
-
-	dset = settings_find_dynamic_by_info(base_info, set, info);
-	if (dset == NULL) {
-		i_panic("Default settings not found for storage driver %s",
-			info->module_name);
-	}
-	return dset;
+	return settings_parser_get_root_set(set_parser, info);
 }
 
 const struct mail_storage_settings *

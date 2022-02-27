@@ -23,6 +23,7 @@
 #include "mail-user.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
+#include "mail-storage-private.h"
 #include "mail-storage-service.h"
 
 #include <sys/stat.h>
@@ -976,8 +977,10 @@ mail_storage_service_init(struct master_service *service,
 		count = 0;
 	else
 		for (count = 0; set_roots[count] != NULL; count++) ;
-	p_array_init(&ctx->set_roots, pool, count + 1);
+	p_array_init(&ctx->set_roots, pool, count + 16);
 	const struct setting_parser_info *info = &mail_user_setting_parser_info;
+	array_push_back(&ctx->set_roots, &info);
+	info = &mail_storage_setting_parser_info;
 	array_push_back(&ctx->set_roots, &info);
 	array_append(&ctx->set_roots, set_roots, count);
 
@@ -1029,9 +1032,35 @@ mail_storage_service_get_set_roots(struct mail_storage_service_ctx *ctx)
 	return array_front(&ctx->set_roots);
 }
 
+static void
+mail_storage_service_add_set_info(struct mail_storage_service_ctx *ctx,
+				  const struct setting_parser_info *info)
+{
+	const struct setting_parser_info *old_info;
+
+	array_foreach_elem(&ctx->set_roots, old_info) {
+		if (old_info == info)
+			return;
+	}
+	array_push_back(&ctx->set_roots, &info);
+}
+
+static void
+mail_storage_service_add_storage_set_roots(struct mail_storage_service_ctx *ctx)
+{
+	struct mail_storage *storage;
+
+	array_foreach_elem(&mail_storage_classes, storage) {
+		if (storage->v.get_setting_parser_info != NULL) {
+			mail_storage_service_add_set_info(ctx,
+				storage->v.get_setting_parser_info());
+		}
+	}
+}
+
 int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 				       const struct mail_storage_service_input *input,
-				       pool_t pool,
+				       pool_t pool ATTR_UNUSED,
 				       const struct setting_parser_info **user_info_r,
 				       const struct setting_parser_context **parser_r,
 				       const char **error_r)
@@ -1039,7 +1068,6 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 	struct master_service_settings_input set_input;
 	const struct setting_parser_info *const *roots;
 	struct master_service_settings_output set_output;
-	const struct dynamic_settings_parser *dyn_parsers;
 	enum mail_storage_service_flags flags;
 	unsigned int i;
 
@@ -1048,6 +1076,7 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 	flags = input == NULL ? ctx->flags :
 		mail_storage_service_input_get_flags(ctx, input);
 
+	mail_storage_service_add_storage_set_roots(ctx);
 	i_zero(&set_input);
 	set_input.roots = mail_storage_service_get_set_roots(ctx);
 	set_input.preserve_user = TRUE;
@@ -1081,19 +1110,17 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 		set_input.never_exec = TRUE;
 	}
 
-	dyn_parsers = mail_storage_get_dynamic_parsers(pool);
 	if (null_strcmp(set_input.module, ctx->set_cache_module) == 0 &&
 	    null_strcmp(set_input.service, ctx->set_cache_service) == 0 &&
 	    ctx->set_cache != NULL) {
 		if (master_service_settings_cache_read(ctx->set_cache,
-						       &set_input, dyn_parsers,
+						       &set_input, NULL,
 						       parser_r, error_r) < 0) {
 			*error_r = t_strdup_printf(
 				"Error reading configuration: %s", *error_r);
 			return -1;
 		}
 	} else {
-		settings_parser_dyn_update(pool, &set_input.roots, dyn_parsers);
 		if (master_service_settings_read(ctx->service, &set_input,
 						 &set_output, error_r) < 0) {
 			*error_r = t_strdup_printf(
