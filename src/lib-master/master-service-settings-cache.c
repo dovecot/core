@@ -358,7 +358,6 @@ cache_add(struct master_service_settings_cache *cache,
 
 int master_service_settings_cache_read(struct master_service_settings_cache *cache,
 				       const struct master_service_settings_input *input,
-				       const struct dynamic_settings_parser *dyn_parsers,
 				       const struct setting_parser_context **parser_r,
 				       const char **error_r)
 {
@@ -379,10 +378,6 @@ int master_service_settings_cache_read(struct master_service_settings_cache *cac
 			return 0;
 	}
 
-	if (dyn_parsers != NULL) {
-		settings_parser_dyn_update(cache->pool, &new_input.roots,
-					   dyn_parsers);
-	}
 	if (master_service_settings_read(cache->service, &new_input,
 					 &output, error_r) < 0)
 		return -1;

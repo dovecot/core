@@ -82,7 +82,7 @@ static void test_master_service_settings_cache_once(void)
 		input.remote_ip.family = AF_INET;
 		input.remote_ip.u.ip4.s_addr = i_rand_minmax(100, 199);
 	}
-	test_assert(master_service_settings_cache_read(cache, &input, NULL, &parser, &error) == 0);
+	test_assert(master_service_settings_cache_read(cache, &input, &parser, &error) == 0);
 }
 
 static void test_master_service_settings_cache(void)

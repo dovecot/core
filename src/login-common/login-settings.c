@@ -198,7 +198,7 @@ login_settings_read(pool_t pool,
 			master_service_settings_cache_init_filter(set_cache);
 	}
 
-	if (master_service_settings_cache_read(set_cache, &input, NULL,
+	if (master_service_settings_cache_read(set_cache, &input,
 					       &parser, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
 

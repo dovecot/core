@@ -1111,7 +1111,7 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 	    null_strcmp(set_input.service, ctx->set_cache_service) == 0 &&
 	    ctx->set_cache != NULL) {
 		if (master_service_settings_cache_read(ctx->set_cache,
-						       &set_input, NULL,
+						       &set_input,
 						       parser_r, error_r) < 0) {
 			*error_r = t_strdup_printf(
 				"Error reading configuration: %s", *error_r);
