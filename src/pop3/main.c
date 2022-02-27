@@ -152,9 +152,8 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	if (set->verbose_proctitle)
 		verbose_proctitle = TRUE;
 
-	if (settings_var_expand(&pop3_setting_parser_info, set,
-				mail_user->pool, mail_user_var_expand_table(mail_user),
-				&errstr) <= 0) {
+	if (mail_user_var_expand(mail_user, &pop3_setting_parser_info, set,
+				 &errstr) <= 0) {
 		*error_r = t_strdup_printf("Failed to expand settings: %s", errstr);
 		mail_user_deinit(&mail_user);
 		mail_storage_service_user_unref(&user);

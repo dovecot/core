@@ -423,7 +423,6 @@ lmtp_local_deliver(struct lmtp_local *local,
 	struct lda_settings *lda_set;
 	struct mail_namespace *ns;
 	struct setting_parser_context *set_parser;
-	const struct var_expand_table *var_table;
 	void **sets;
 	const char *line, *error, *username;
 	int ret;
@@ -470,18 +469,13 @@ lmtp_local_deliver(struct lmtp_local *local,
 	local->rcpt_user = rcpt_user;
 
 	sets = mail_storage_service_user_get_set(service_user);
-	var_table = mail_user_var_expand_table(rcpt_user);
 	smtp_set = sets[1];
 	lda_set = sets[2];
-	ret = settings_var_expand(
-		&smtp_submit_setting_parser_info,
-		smtp_set, client->pool, var_table,
-		&error);
+	ret = mail_user_var_expand(rcpt_user, &smtp_submit_setting_parser_info,
+				   smtp_set, &error);
 	if (ret > 0) {
-		ret = settings_var_expand(
-			&lda_setting_parser_info,
-			lda_set, client->pool, var_table,
-			&error);
+		ret = mail_user_var_expand(rcpt_user, &lda_setting_parser_info,
+					   lda_set, &error);
 	}
 	if (ret <= 0) {
 		e_error(rcpt->event, "Failed to expand settings: %s", error);

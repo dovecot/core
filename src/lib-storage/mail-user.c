@@ -171,10 +171,8 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 	}
 
 	/* expand settings after we can expand %h */
-	if (settings_var_expand_with_funcs(user->set_info, user->set,
-					   user->pool, mail_user_var_expand_table(user),
-					   mail_user_var_expand_func_table, user,
-					   &error) <= 0) {
+	if (mail_user_var_expand(user, user->set_info, user->set,
+				 &error) <= 0) {
 		user->error = p_strdup_printf(user->pool,
 			"Failed to expand settings: %s", error);
 	}

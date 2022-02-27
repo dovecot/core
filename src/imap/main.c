@@ -283,12 +283,10 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 	if (imap_set->verbose_proctitle)
 		verbose_proctitle = TRUE;
 
-	if (settings_var_expand(&smtp_submit_setting_parser_info, smtp_set,
-				mail_user->pool, mail_user_var_expand_table(mail_user),
-				&errstr) <= 0 ||
-			settings_var_expand(&imap_setting_parser_info, imap_set,
-				mail_user->pool, mail_user_var_expand_table(mail_user),
-				&errstr) <= 0) {
+	if (mail_user_var_expand(mail_user, &smtp_submit_setting_parser_info,
+				 smtp_set, &errstr) <= 0 ||
+	    mail_user_var_expand(mail_user, &imap_setting_parser_info,
+				 imap_set, &errstr) <= 0) {
 		*error_r = t_strdup_printf("Failed to expand settings: %s", errstr);
 		mail_user_deinit(&mail_user);
 		mail_storage_service_user_unref(&user);

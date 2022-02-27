@@ -196,9 +196,8 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	if (set->verbose_proctitle)
 		verbose_proctitle = TRUE;
 
-	if (settings_var_expand(&submission_setting_parser_info, set,
-				mail_user->pool, mail_user_var_expand_table(mail_user),
-				&errstr) <= 0) {
+	if (mail_user_var_expand(mail_user, &submission_setting_parser_info,
+				 set, &errstr) <= 0) {
 		*error_r = t_strdup_printf("Failed to expand settings: %s", errstr);
 		send_error(fd_out, event, set->hostname,
 			   "4.3.5", MAIL_ERRSTR_CRITICAL_MSG);
