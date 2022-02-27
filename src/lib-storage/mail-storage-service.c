@@ -1058,7 +1058,6 @@ mail_storage_service_add_storage_set_roots(struct mail_storage_service_ctx *ctx)
 
 int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 				       const struct mail_storage_service_input *input,
-				       pool_t pool ATTR_UNUSED,
 				       const struct setting_parser_info **user_info_r,
 				       const struct setting_parser_context **parser_r,
 				       const char **error_r)
@@ -1273,9 +1272,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		mail_storage_service_seteuid_root();
 	}
 
-	if (mail_storage_service_read_settings(ctx, input, user_pool,
-					       &user_info, &set_parser,
-					       error_r) < 0) {
+	if (mail_storage_service_read_settings(ctx, input, &user_info,
+					       &set_parser, error_r) < 0) {
 		if (ctx->config_permission_denied) {
 			/* just restart and maybe next time we will open the
 			   config socket before dropping privileges */
@@ -1701,21 +1699,17 @@ void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 	const struct mail_user_settings *user_set;
 	const struct setting_parser_context *set_parser;
 	const char *error;
-	pool_t temp_pool;
 
 	if (ctx->conn != NULL)
 		return;
 
-	temp_pool = pool_alloconly_create("service all settings", 4096);
-	if (mail_storage_service_read_settings(ctx, input, temp_pool,
-					       &user_info, &set_parser,
-					       &error) < 0)
+	if (mail_storage_service_read_settings(ctx, input, &user_info,
+					       &set_parser, &error) < 0)
 		i_fatal("%s", error);
 	user_set = settings_parser_get_root_set(set_parser,
 						&mail_user_setting_parser_info);
 
 	mail_storage_service_first_init(ctx, set_parser, user_set, ctx->flags);
-	pool_unref(&temp_pool);
 }
 
 static int

@@ -284,7 +284,6 @@ static void main_init(void)
 	const struct setting_parser_context *set_parser;
 	const struct mail_user_settings *user_set;
 	const char *value, *error;
-	pool_t pool;
 
 	clients = connection_list_init(&client_set, &client_vfuncs);
 	storage_service = mail_storage_service_init(master_service, set_roots,
@@ -300,8 +299,7 @@ static void main_init(void)
 	input.username = "";
 
 	quota_status_pool = pool_alloconly_create("quota status settings", 512);
-	pool = pool_alloconly_create("service all settings", 4096);
-	if (mail_storage_service_read_settings(storage_service, &input, pool,
+	if (mail_storage_service_read_settings(storage_service, &input,
 					       &user_info, &set_parser,
 					       &error) < 0)
 		i_fatal("%s", error);
@@ -314,7 +312,6 @@ static void main_init(void)
 	value = mail_user_set_plugin_getenv(user_set, "quota_status_nouser");
 	nouser_reply = p_strdup(quota_status_pool,
 				value != NULL ? value : "REJECT Unknown user");
-	pool_unref(&pool);
 }
 
 static void main_deinit(void)
