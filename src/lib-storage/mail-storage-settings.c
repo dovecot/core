@@ -355,30 +355,6 @@ mail_user_set_get_storage_set(struct mail_user *user)
 		&mail_storage_setting_parser_info);
 }
 
-const struct dynamic_settings_parser *
-mail_storage_get_dynamic_parsers(pool_t pool)
-{
-	struct dynamic_settings_parser *parsers;
-	struct mail_storage *const *storages;
-	unsigned int i, j, count;
-
-	storages = array_get(&mail_storage_classes, &count);
-	parsers = p_new(pool, struct dynamic_settings_parser, 1 + count + 1);
-	parsers[0].name = MAIL_STORAGE_SET_DRIVER_NAME;
-	parsers[0].info = &mail_storage_setting_parser_info;
-
-	for (i = 0, j = 1; i < count; i++) {
-		if (storages[i]->v.get_setting_parser_info == NULL)
-			continue;
-
-		parsers[j].name = storages[i]->name;
-		parsers[j].info = storages[i]->v.get_setting_parser_info();
-		j++;
-	}
-	parsers[j].name = NULL;
-	return parsers;
-}
-
 static void
 fix_base_path(struct mail_user_settings *set, pool_t pool, const char **str)
 {

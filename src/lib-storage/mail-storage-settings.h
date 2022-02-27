@@ -4,8 +4,6 @@
 #include "file-lock.h"
 #include "fsync-mode.h"
 
-#define MAIL_STORAGE_SET_DRIVER_NAME "MAIL"
-
 struct mail_user;
 struct mail_namespace;
 struct mail_storage;
@@ -156,9 +154,6 @@ struct ssl_iostream_settings;
 
 const struct mail_storage_settings *
 mail_user_set_get_storage_set(struct mail_user *user);
-
-const struct dynamic_settings_parser *
-mail_storage_get_dynamic_parsers(pool_t pool);
 
 bool mail_user_set_get_postmaster_address(const struct mail_user_settings *set,
 					  const struct message_address **address_r,
