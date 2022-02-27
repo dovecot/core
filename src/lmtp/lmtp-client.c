@@ -103,8 +103,8 @@ client_raw_user_create(struct client *client,
 {
 	const struct mail_user_settings *user_set;
 
-	user_set = master_service_settings_get_root_set(master_service,
-				&mail_user_setting_parser_info);
+	user_set = settings_parser_get_root_set(client->set_parser,
+			&mail_user_setting_parser_info);
 	client->raw_mail_user =
 		raw_storage_create_from_set(set_parser,
 					    client->user_set_info, user_set);
