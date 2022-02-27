@@ -256,13 +256,7 @@ void *settings_parser_get_root_set(const struct setting_parser_context *ctx,
 				   const struct setting_parser_info *root)
 {
 	for (unsigned int i = 0; i < ctx->root_count; i++) {
-		/* FIXME: after removing dynamic settings this should be
-		   just comparing info == root. */
-		const struct setting_parser_info *ctx_root =
-			ctx->roots[i].info->orig_info != NULL ?
-			ctx->roots[i].info->orig_info :
-			ctx->roots[i].info;
-		if (ctx_root == root)
+		if (ctx->roots[i].info == root)
 			return ctx->roots[i].set_struct;
 	}
 	i_panic("Couldn't find settings for root %s", root->module_name);
@@ -1026,26 +1020,6 @@ int settings_parse_exec(struct setting_parser_context *ctx,
 	return ret;
 }
 
-static bool
-settings_check_dynamic(const struct setting_parser_info *info, pool_t pool,
-		       void *set, const char **error_r)
-{
-	unsigned int i;
-
-	if (info->dynamic_parsers == NULL)
-		return TRUE;
-
-	for (i = 0; info->dynamic_parsers[i].name != NULL; i++) {
-		struct dynamic_settings_parser *dyn = &info->dynamic_parsers[i];
-
-		if (!settings_check(dyn->info, pool,
-				    PTR_OFFSET(set, dyn->struct_offset),
-				    error_r))
-			return FALSE;
-	}
-	return TRUE;
-}
-
 bool settings_check(const struct setting_parser_info *info, pool_t pool,
 		    void *set, const char **error_r)
 {
@@ -1078,7 +1052,7 @@ bool settings_check(const struct setting_parser_info *info, pool_t pool,
 				return FALSE;
 		}
 	}
-	return settings_check_dynamic(info, pool, set, error_r);
+	return TRUE;
 }
 
 bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
@@ -1215,18 +1189,6 @@ settings_var_expand_info(const struct setting_parser_info *info, void *set,
 	if (info->expand_check_func != NULL) {
 		if (!info->expand_check_func(set, pool, error_r))
 			return -1;
-	}
-	if (info->dynamic_parsers != NULL) {
-		for (i = 0; info->dynamic_parsers[i].name != NULL; i++) {
-			struct dynamic_settings_parser *dyn = &info->dynamic_parsers[i];
-			const struct setting_parser_info *dinfo = dyn->info;
-			void *dset = PTR_OFFSET(set, dyn->struct_offset);
-
-			if (dinfo->expand_check_func != NULL) {
-				if (!dinfo->expand_check_func(dset, pool, error_r))
-					return -1;
-			}
-		}
 	}
 
 	return final_ret;
@@ -1481,201 +1443,6 @@ settings_changes_dup(const struct setting_parser_info *info,
 		}
 	}
 	return dest_set;
-}
-
-static void
-info_update_real(pool_t pool, struct setting_parser_info *parent,
-		 const struct dynamic_settings_parser *parsers)
-{
-	/* @UNSAFE */
-	ARRAY(struct setting_define) defines;
-	ARRAY_TYPE(dynamic_settings_parser) dynamic_parsers;
-	struct dynamic_settings_parser new_parser;
-	const struct setting_define *cur_defines;
-	struct setting_define *new_defines, new_define;
-	void *parent_defaults;
-	unsigned int i, j;
-	size_t offset, new_struct_size;
-
-	t_array_init(&defines, 128);
-	/* add existing defines */
-	for (j = 0; parent->defines[j].key != NULL; j++)
-		array_push_back(&defines, &parent->defines[j]);
-	new_struct_size = MEM_ALIGN(parent->struct_size);
-
-	/* add new dynamic defines */
-	for (i = 0; parsers[i].name != NULL; i++) {
-		i_assert(parsers[i].info->parent == parent);
-		cur_defines = parsers[i].info->defines;
-		for (j = 0; cur_defines[j].key != NULL; j++) {
-			new_define = cur_defines[j];
-			new_define.offset += new_struct_size;
-			array_push_back(&defines, &new_define);
-		}
-		new_struct_size += MEM_ALIGN(parsers[i].info->struct_size);
-	}
-	new_defines = p_new(pool, struct setting_define,
-			    array_count(&defines) + 1);
-	memcpy(new_defines, array_front(&defines),
-	       sizeof(*parent->defines) * array_count(&defines));
-	parent->defines = new_defines;
-
-	/* update defaults */
-	parent_defaults = p_malloc(pool, new_struct_size);
-	memcpy(parent_defaults, parent->defaults, parent->struct_size);
-	offset = MEM_ALIGN(parent->struct_size);
-	for (i = 0; parsers[i].name != NULL; i++) {
-		memcpy(PTR_OFFSET(parent_defaults, offset),
-		       parsers[i].info->defaults, parsers[i].info->struct_size);
-		offset += MEM_ALIGN(parsers[i].info->struct_size);
-	}
-	parent->defaults = parent_defaults;
-
-	/* update dynamic parsers list */
-	t_array_init(&dynamic_parsers, 32);
-	if (parent->dynamic_parsers != NULL) {
-		for (i = 0; parent->dynamic_parsers[i].name != NULL; i++) {
-			array_push_back(&dynamic_parsers,
-					&parent->dynamic_parsers[i]);
-		}
-	}
-	offset = MEM_ALIGN(parent->struct_size);
-	for (i = 0; parsers[i].name != NULL; i++) {
-		new_parser = parsers[i];
-		new_parser.name = p_strdup(pool, new_parser.name);
-		new_parser.struct_offset = offset;
-		array_push_back(&dynamic_parsers, &new_parser);
-		offset += MEM_ALIGN(parsers[i].info->struct_size);
-	}
-	parent->dynamic_parsers =
-		p_new(pool, struct dynamic_settings_parser,
-		      array_count(&dynamic_parsers) + 1);
-	memcpy(parent->dynamic_parsers, array_front(&dynamic_parsers),
-	       sizeof(*parent->dynamic_parsers) *
-	       array_count(&dynamic_parsers));
-	parent->struct_size = new_struct_size;
-}
-
-void settings_parser_info_update(pool_t pool,
-				 struct setting_parser_info *parent,
-				 const struct dynamic_settings_parser *parsers)
-{
-	if (parsers[0].name != NULL) T_BEGIN {
-		info_update_real(pool, parent, parsers);
-	} T_END;
-}
-
-static void
-settings_parser_update_children_parent(struct setting_parser_info *parent,
-				       pool_t pool)
-{
-	struct setting_define *new_defs;
-	struct setting_parser_info *new_info;
-	unsigned int i, count;
-
-	for (count = 0; parent->defines[count].key != NULL; count++) ;
-
-	new_defs = p_new(pool, struct setting_define, count + 1);
-	memcpy(new_defs, parent->defines, sizeof(*new_defs) * count);
-	parent->defines = new_defs;
-
-	for (i = 0; i < count; i++) {
-		if (new_defs[i].list_info == NULL ||
-		    new_defs[i].list_info->parent == NULL)
-			continue;
-
-		new_info = p_new(pool, struct setting_parser_info, 1);
-		*new_info = *new_defs[i].list_info;
-		new_info->parent = parent;
-		new_defs[i].list_info = new_info;
-	}
-}
-
-void settings_parser_dyn_update(pool_t pool,
-				const struct setting_parser_info *const **_roots,
-				const struct dynamic_settings_parser *dyn_parsers)
-{
-	const struct setting_parser_info *const *roots = *_roots;
-	const struct setting_parser_info *old_parent, **new_roots;
-	struct setting_parser_info *new_parent, *new_info;
-	struct dynamic_settings_parser *new_dyn_parsers;
-	unsigned int i, count;
-
-	/* settings_parser_info_update() modifies the parent structure.
-	   since we may be using the same structure later, we want it to be
-	   in its original state, so we'll have to copy all structures. */
-	old_parent = dyn_parsers[0].info->parent;
-	new_parent = p_new(pool, struct setting_parser_info, 1);
-	*new_parent = *old_parent;
-	new_parent->orig_info = old_parent->orig_info != NULL ?
-		old_parent->orig_info : old_parent;
-	settings_parser_update_children_parent(new_parent, pool);
-
-	/* update root */
-	for (count = 0; roots[count] != NULL; count++) ;
-	new_roots = p_new(pool, const struct setting_parser_info *, count + 1);
-	for (i = 0; i < count; i++) {
-		if (roots[i] == old_parent)
-			new_roots[i] = new_parent;
-		else
-			new_roots[i] = roots[i];
-	}
-	*_roots = new_roots;
-
-	/* update parent in dyn_parsers */
-	for (count = 0; dyn_parsers[count].name != NULL; count++) ;
-	new_dyn_parsers = p_new(pool, struct dynamic_settings_parser, count + 1);
-	for (i = 0; i < count; i++) {
-		new_dyn_parsers[i] = dyn_parsers[i];
-
-		new_info = p_new(pool, struct setting_parser_info, 1);
-		*new_info = *dyn_parsers[i].info;
-		new_info->orig_info = dyn_parsers[i].info;
-		new_info->parent = new_parent;
-		new_dyn_parsers[i].info = new_info;
-	}
-
-	settings_parser_info_update(pool, new_parent, new_dyn_parsers);
-}
-
-const void *settings_find_dynamic(const struct setting_parser_info *info,
-				  const void *base_set, const char *name)
-{
-	unsigned int i;
-
-	if (info->dynamic_parsers == NULL)
-		return NULL;
-
-	for (i = 0; info->dynamic_parsers[i].name != NULL; i++) {
-		if (strcmp(info->dynamic_parsers[i].name, name) == 0) {
-			return CONST_PTR_OFFSET(base_set,
-				info->dynamic_parsers[i].struct_offset);
-		}
-	}
-	return NULL;
-}
-
-const void *
-settings_find_dynamic_by_info(const struct setting_parser_info *base_info,
-			      const void *base_set,
-			      const struct setting_parser_info *info)
-{
-	unsigned int i;
-
-	if (base_info->dynamic_parsers == NULL)
-		return NULL;
-
-	for (i = 0; base_info->dynamic_parsers[i].name != NULL; i++) {
-		const struct setting_parser_info *ctx_root =
-			base_info->dynamic_parsers[i].info->orig_info != NULL ?
-			base_info->dynamic_parsers[i].info->orig_info :
-			base_info->dynamic_parsers[i].info;
-		if (ctx_root == info) {
-			return CONST_PTR_OFFSET(base_set,
-				base_info->dynamic_parsers[i].struct_offset);
-		}
-	}
-	return NULL;
 }
 
 static struct setting_link *

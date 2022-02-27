@@ -101,7 +101,6 @@ struct setting_define {
 	SETTING_DEFINE_STRUCT_TYPE(SET_ENUM, SET_FLAG_HIDDEN, const char *, key, name, struct_name)
 
 struct setting_parser_info {
-	const struct setting_parser_info *orig_info; /* FIXME: remove after getting rid of dynamic parsers */
 	const char *module_name;
 	const struct setting_define *defines;
 	const void *defaults;
@@ -115,19 +114,9 @@ struct setting_parser_info {
 	bool (*check_func)(void *set, pool_t pool, const char **error_r);
 	bool (*expand_check_func)(void *set, pool_t pool, const char **error_r);
 	const struct setting_parser_info *const *dependencies;
-	struct dynamic_settings_parser *dynamic_parsers;
 
 };
 ARRAY_DEFINE_TYPE(setting_parser_info, struct setting_parser_info);
-
-/* name=NULL-terminated list of parsers. These follow the static settings.
-   After this list follows the actual settings. */
-struct dynamic_settings_parser {
-	const char *name;
-	const struct setting_parser_info *info;
-	size_t struct_offset;
-};
-ARRAY_DEFINE_TYPE(dynamic_settings_parser, struct dynamic_settings_parser);
 
 enum settings_parser_flags {
 	SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS	= 0x01,
@@ -243,25 +232,6 @@ void *settings_dup_with_pointers(const struct setting_parser_info *info,
 struct setting_parser_context *
 settings_parser_dup(const struct setting_parser_context *old_ctx,
 		    pool_t new_pool);
-
-/* parsers is a name=NULL -terminated list. The parsers are appended as
-   dynamic_settings_list structures to their parent. All must have the same
-   parent. The new structures are allocated from the given pool. */
-void settings_parser_info_update(pool_t pool,
-				 struct setting_parser_info *parent,
-				 const struct dynamic_settings_parser *parsers);
-void settings_parser_dyn_update(pool_t pool,
-				const struct setting_parser_info *const **roots,
-				const struct dynamic_settings_parser *dyn_parsers);
-
-/* Return pointer to beginning of settings for given name, or NULL if there is
-   no such registered name. */
-const void *settings_find_dynamic(const struct setting_parser_info *info,
-				  const void *base_set, const char *name);
-const void *
-settings_find_dynamic_by_info(const struct setting_parser_info *base_info,
-			      const void *base_set,
-			      const struct setting_parser_info *info);
 
 /* Copy changed settings from src to dest. If conflict_key_r is not NULL and
    both src and dest have changed the same setting, return -1 and set the
