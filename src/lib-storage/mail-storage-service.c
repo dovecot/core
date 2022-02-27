@@ -685,7 +685,8 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	/* NOTE: if more user initialization is added, add it also to
 	   mail_user_dup() */
 	mail_user = mail_user_alloc_nodup_set(user->event, user->input.username,
-					      user->user_info, user->user_set);
+					      user->set_parser, user->user_info,
+					      user->user_set);
 	mail_user->_service_user = user;
 	mail_storage_service_user_ref(user);
 	mail_user_set_home(mail_user, *home == '\0' ? NULL : home);

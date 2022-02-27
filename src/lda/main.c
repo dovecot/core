@@ -156,7 +156,8 @@ lda_raw_mail_open(struct mail_deliver_input *dinput, const char *path)
 
 	user_set = master_service_settings_get_root_set(master_service,
 				&mail_user_setting_parser_info);
-	raw_mail_user = raw_storage_create_from_set(dinput->rcpt_user->set_info,
+	raw_mail_user = raw_storage_create_from_set(dinput->rcpt_user->unexpanded_set_parser,
+						    dinput->rcpt_user->set_info,
 						    user_set);
 
 	mail_from = (dinput->mail_from != NULL ?

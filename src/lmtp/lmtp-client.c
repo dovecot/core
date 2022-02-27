@@ -97,14 +97,17 @@ static void client_load_modules(struct client *client)
 	module_dir_init(mail_storage_service_modules);
 }
 
-static void client_raw_user_create(struct client *client)
+static void
+client_raw_user_create(struct client *client,
+		       const struct setting_parser_context *set_parser)
 {
 	const struct mail_user_settings *user_set;
 
 	user_set = master_service_settings_get_root_set(master_service,
 				&mail_user_setting_parser_info);
 	client->raw_mail_user =
-		raw_storage_create_from_set(client->user_set_info, user_set);
+		raw_storage_create_from_set(set_parser,
+					    client->user_set_info, user_set);
 }
 
 static void client_read_settings(struct client *client, bool ssl)
@@ -129,6 +132,9 @@ static void client_read_settings(struct client *client, bool ssl)
 					       &client->user_set_info,
 					       &set_parser, &error) < 0)
 		i_fatal("%s", error);
+
+	/* create raw user before duplicating the settings parser */
+	client_raw_user_create(client, set_parser);
 
 	set_parser = settings_parser_dup(set_parser, client->pool);
 	lmtp_settings_get(set_parser, client->pool, &lmtp_set, &lda_set);
@@ -173,7 +179,6 @@ struct client *client_create(int fd_in, int fd_out,
 	event_add_category(client->event, &event_category_lmtp);
 
 	client_read_settings(client, conn_tls);
-	client_raw_user_create(client);
 	client_load_modules(client);
 	client->my_domain = client->unexpanded_lda_set->hostname;
 
