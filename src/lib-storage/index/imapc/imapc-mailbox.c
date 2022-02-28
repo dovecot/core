@@ -440,6 +440,8 @@ imapc_mailbox_msgmap_update(struct imapc_mailbox *mbox,
 		}
 		mbox->prev_skipped_rseq = rseq;
 		mbox->prev_skipped_uid = fetch_uid;
+		/* Check if this uid must be added later when syncing. */
+		*new_message_r = TRUE;
 	} else if (fetch_uid < imapc_msgmap_uidnext(msgmap)) {
 		imapc_mailbox_set_corrupted(mbox,
 			"Expunged message reappeared in session "
