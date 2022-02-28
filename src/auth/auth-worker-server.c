@@ -130,6 +130,8 @@ static bool auth_worker_request_send(struct auth_worker_connection *worker,
 	timeout_remove(&worker->to_lookup);
 	worker->to_lookup = timeout_add(AUTH_WORKER_LOOKUP_TIMEOUT_SECS * 1000,
 					auth_worker_call_timeout, worker);
+
+	i_assert(idle_count > 0);
 	idle_count--;
 	return TRUE;
 }
