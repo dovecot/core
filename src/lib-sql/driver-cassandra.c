@@ -1697,6 +1697,18 @@ driver_cassandra_get_value(struct cassandra_result *result,
 		type = "int32";
 		break;
 	}
+	case CASS_VALUE_TYPE_DOUBLE: {
+		cass_double_t num;
+
+		rc = cass_value_get_double(value, &num);
+		if (rc == CASS_OK) {
+			const char *str = t_strdup_printf("%f", num);
+			output_size = strlen(str);
+			output = (const void *)str;
+		}
+		type = "double";
+		break;
+	}
 	case CASS_VALUE_TYPE_TIMESTAMP:
 	case CASS_VALUE_TYPE_BIGINT: {
 		cass_int64_t num;
