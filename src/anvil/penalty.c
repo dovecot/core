@@ -121,9 +121,9 @@ static void penalty_add_checksum(struct penalty_rec *rec, unsigned int checksum)
 
 	if (!rec->checksum_is_pointer) {
 		if (rec->checksum.value[CHECKSUM_VALUE_COUNT-1] == 0) {
-			memcpy(rec->checksum.value + 1, rec->checksum.value,
-			       sizeof(rec->checksum.value[0]) *
-			       (CHECKSUM_VALUE_COUNT-1));
+			memmove(rec->checksum.value + 1, rec->checksum.value,
+				sizeof(rec->checksum.value[0]) *
+				(CHECKSUM_VALUE_COUNT-1));
 			rec->checksum.value[0] = checksum;
 			return;
 		}
