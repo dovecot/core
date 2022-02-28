@@ -447,6 +447,32 @@ int str_to_time(const char *str, time_t *num_r)
 STR_PARSE_U__TEMPLATE(str_parse_uoff, uoff_t)
 
 /*
+ * Floating point types
+ */
+
+int str_to_float(const char *str, float *num_r)
+{
+	char *endp;
+	float num = strtof(str, &endp);
+	if (*endp != '\0')
+		return -1;
+
+	*num_r = num;
+	return 0;
+}
+
+int str_to_double(const char *str, double *num_r)
+{
+	char *endp;
+	double num = strtod(str, &endp);
+	if (*endp != '\0')
+		return -1;
+
+	*num_r = num;
+	return 0;
+}
+
+/*
  * Error handling
  */
 

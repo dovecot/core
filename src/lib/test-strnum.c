@@ -2,6 +2,7 @@
 
 #include "test-lib.h"
 
+#include <math.h>
 
 #define INVALID(n) { #n, -1, 0 }
 #define VALID(n) { #n, 0, n }
@@ -358,6 +359,39 @@ static void test_str_to_i32(void)
 	test_end();
 }
 
+static void test_str_to_float(void)
+{
+	unsigned int i;
+	const struct {
+		const char *input;
+		int ret;
+		float val;
+	} tests[] = {
+		VALID(0.1),
+		VALID(0),
+		VALID(-0.1),
+		INVALID(--0),
+		INVALID(0.1x),
+		INVALID(0.1.2),
+		INVALID(bad),
+	};
+	test_begin("str_to_int");
+	for (i = 0; i < N_ELEMENTS(tests); ++i) {
+		float val = 1234.0;
+		double val2 = 1234.0;
+		int ret = str_to_float(tests[i].input, &val);
+		int ret2 = str_to_double(tests[i].input, &val2);
+		test_assert_idx(ret == tests[i].ret, i);
+		if (ret == 0)
+			test_assert_idx(val == tests[i].val, i);
+		else
+			test_assert_idx(val == 1234.0, i);
+		test_assert_idx(ret == ret2, i);
+		test_assert_idx(fabs(val-val2) < 0.000001, i);
+	}
+	test_end();
+}
+
 static void test_str_is_float(void)
 {
 	test_begin("str_is_float accepts integer");
@@ -394,5 +428,6 @@ void test_strnum(void)
 	test_str_to_u32();
 	test_str_to_llong();
 	test_str_to_i32();
+	test_str_to_float();
 	test_str_is_float();
 }

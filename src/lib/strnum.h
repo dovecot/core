@@ -173,6 +173,17 @@ int str_to_time(const char *str, time_t *num_r)
 	ATTR_WARN_UNUSED_RESULT;
 
 /*
+ * Floating point types
+ *
+ * Note: These use strto[fd](), which have locale-dependent behavior. However,
+ * Dovecot never calls setlocale(), so the locale is always C.
+ */
+int str_to_float(const char *str, float *num_r)
+	ATTR_WARN_UNUSED_RESULT;
+int str_to_double(const char *str, double *num_r)
+	ATTR_WARN_UNUSED_RESULT;
+
+/*
  * Utility
  */
 
