@@ -181,6 +181,7 @@ enum cassandra_sql_arg_type {
 	CASSANDRA_SQL_ARG_TYPE_STR,
 	CASSANDRA_SQL_ARG_TYPE_BINARY,
 	CASSANDRA_SQL_ARG_TYPE_INT64,
+	CASSANDRA_SQL_ARG_TYPE_DOUBLE,
 };
 
 struct cassandra_sql_arg {
@@ -191,6 +192,7 @@ struct cassandra_sql_arg {
 	const unsigned char *value_binary;
 	size_t value_binary_size;
 	int64_t value_int64;
+	double value_double;
 };
 
 struct cassandra_sql_statement {
@@ -2175,6 +2177,11 @@ static void prepare_finish_arg(struct cassandra_sql_statement *stmt,
 		rc = driver_cassandra_bind_int(stmt, arg->column_idx,
 					       arg->value_int64);
 		break;
+	case CASSANDRA_SQL_ARG_TYPE_DOUBLE:
+		rc = cass_statement_bind_double(stmt->cass_stmt,
+						arg->column_idx,
+						arg->value_double);
+		break;
 	default:
 		i_unreached();
 	}
@@ -2447,6 +2454,23 @@ driver_cassandra_statement_bind_int64(struct sql_statement *_stmt,
 }
 
 static void
+driver_cassandra_statement_bind_double(struct sql_statement *_stmt,
+				       unsigned int column_idx, double value)
+{
+	struct cassandra_sql_statement *stmt =
+		(struct cassandra_sql_statement *)_stmt;
+
+	if (stmt->cass_stmt != NULL)
+		cass_statement_bind_double(stmt->cass_stmt, column_idx, value);
+	else if (stmt->prep != NULL) {
+		struct cassandra_sql_arg *arg =
+			driver_cassandra_add_pending_arg(stmt, column_idx,
+				CASSANDRA_SQL_ARG_TYPE_DOUBLE);
+		arg->value_double = value;
+	}
+}
+
+static void
 driver_cassandra_statement_query(struct sql_statement *_stmt,
 				 sql_query_callback_t *callback, void *context)
 {
@@ -2569,6 +2593,7 @@ const struct sql_db driver_cassandra_db = {
 		.statement_bind_str = driver_cassandra_statement_bind_str,
 		.statement_bind_binary = driver_cassandra_statement_bind_binary,
 		.statement_bind_int64 = driver_cassandra_statement_bind_int64,
+		.statement_bind_double = driver_cassandra_statement_bind_double,
 		.statement_query = driver_cassandra_statement_query,
 		.statement_query_s = driver_cassandra_statement_query_s,
 		.update_stmt = driver_cassandra_update_stmt,
