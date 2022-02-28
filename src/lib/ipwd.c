@@ -30,8 +30,8 @@ static void gr_init(void)
 
 	if (grbuf == NULL || errno == ERANGE) {
 		grbuf_size = nearest_power(old_grbuf_size + 1);
-		if (grbuf_size < PWBUF_MIN_SIZE)
-			grbuf_size = PWBUF_MIN_SIZE;
+		if (grbuf_size < GRBUF_MIN_SIZE)
+			grbuf_size = GRBUF_MIN_SIZE;
 		grbuf = i_realloc(grbuf, old_grbuf_size, grbuf_size);
 	}
 }
