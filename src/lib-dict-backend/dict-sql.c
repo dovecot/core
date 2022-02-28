@@ -29,6 +29,7 @@ struct sql_dict_param {
 
 	const char *value_str;
 	int64_t value_int64;
+	double value_double;
 	const void *value_binary;
 	size_t value_binary_size;
 };
@@ -249,6 +250,9 @@ sql_dict_statement_bind(struct sql_statement *stmt, unsigned int column_idx,
 	case DICT_SQL_TYPE_UINT:
 		sql_statement_bind_int64(stmt, column_idx, param->value_int64);
 		break;
+	case DICT_SQL_TYPE_DOUBLE:
+		sql_statement_bind_double(stmt, column_idx, param->value_double);
+		break;
 	case DICT_SQL_TYPE_HEXBLOB:
 		sql_statement_bind_binary(stmt, column_idx, param->value_binary,
 					  param->value_binary_size);
@@ -313,6 +317,15 @@ sql_dict_value_get(const struct dict_sql_map *map,
 		    str_to_int64(value, &param->value_int64) < 0) {
 			*error_r = t_strdup_printf(
 				"%s field's value isn't 64bit unsigned integer: %s%s (in pattern: %s)",
+				field_name, value, value_suffix, map->pattern);
+			return -1;
+		}
+		return 0;
+	case DICT_SQL_TYPE_DOUBLE:
+		if (value_suffix[0] != '\0' ||
+		    str_to_double(value, &param->value_double) < 0) {
+			*error_r = t_strdup_printf(
+				"%s field's value isn't a double: %s%s (in pattern: %s)",
 				field_name, value, value_suffix, map->pattern);
 			return -1;
 		}
@@ -482,6 +495,7 @@ sql_dict_result_unescape(enum dict_sql_type type, pool_t pool,
 	case DICT_SQL_TYPE_STRING:
 	case DICT_SQL_TYPE_INT:
 	case DICT_SQL_TYPE_UINT:
+	case DICT_SQL_TYPE_DOUBLE:
 		value = sql_result_get_field_value(result, result_idx);
 		return value == NULL ? "" : p_strdup(pool, value);
 	case DICT_SQL_TYPE_HEXBLOB:
