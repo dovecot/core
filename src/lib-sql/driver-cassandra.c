@@ -177,9 +177,16 @@ struct cassandra_transaction_context {
 	bool failed:1;
 };
 
+enum cassandra_sql_arg_type {
+	CASSANDRA_SQL_ARG_TYPE_STR,
+	CASSANDRA_SQL_ARG_TYPE_BINARY,
+	CASSANDRA_SQL_ARG_TYPE_INT64,
+};
+
 struct cassandra_sql_arg {
 	unsigned int column_idx;
 
+	enum cassandra_sql_arg_type type;
 	char *value_str;
 	const unsigned char *value_binary;
 	size_t value_binary_size;
@@ -2142,16 +2149,22 @@ static void prepare_finish_arg(struct cassandra_sql_statement *stmt,
 {
 	CassError rc;
 
-	if (arg->value_str != NULL) {
+	switch (arg->type) {
+	case CASSANDRA_SQL_ARG_TYPE_STR:
 		rc = cass_statement_bind_string(stmt->cass_stmt, arg->column_idx,
 						arg->value_str);
-	} else if (arg->value_binary != NULL) {
+		break;
+	case CASSANDRA_SQL_ARG_TYPE_BINARY:
 		rc = cass_statement_bind_bytes(stmt->cass_stmt, arg->column_idx,
 					       arg->value_binary,
 					       arg->value_binary_size);
-	} else {
+		break;
+	case CASSANDRA_SQL_ARG_TYPE_INT64:
 		rc = driver_cassandra_bind_int(stmt, arg->column_idx,
 					       arg->value_int64);
+		break;
+	default:
+		i_unreached();
 	}
 	if (rc != CASS_OK) {
 		e_error(stmt->stmt.db->event,
@@ -2353,13 +2366,15 @@ driver_cassandra_statement_set_timestamp(struct sql_statement *_stmt,
 
 static struct cassandra_sql_arg *
 driver_cassandra_add_pending_arg(struct cassandra_sql_statement *stmt,
-				 unsigned int column_idx)
+				 unsigned int column_idx,
+				 enum cassandra_sql_arg_type value_type)
 {
 	struct cassandra_sql_arg *arg;
 
 	if (!array_is_created(&stmt->pending_args))
 		p_array_init(&stmt->pending_args, stmt->stmt.pool, 8);
 	arg = array_append_space(&stmt->pending_args);
+	arg->type = value_type;
 	arg->column_idx = column_idx;
 	return arg;
 }
@@ -2375,7 +2390,8 @@ driver_cassandra_statement_bind_str(struct sql_statement *_stmt,
 		cass_statement_bind_string(stmt->cass_stmt, column_idx, value);
 	else if (stmt->prep != NULL) {
 		struct cassandra_sql_arg *arg =
-			driver_cassandra_add_pending_arg(stmt, column_idx);
+			driver_cassandra_add_pending_arg(stmt, column_idx,
+				CASSANDRA_SQL_ARG_TYPE_STR);
 		arg->value_str = p_strdup(_stmt->pool, value);
 	}
 }
@@ -2393,7 +2409,8 @@ driver_cassandra_statement_bind_binary(struct sql_statement *_stmt,
 					  value, value_size);
 	} else if (stmt->prep != NULL) {
 		struct cassandra_sql_arg *arg =
-			driver_cassandra_add_pending_arg(stmt, column_idx);
+			driver_cassandra_add_pending_arg(stmt, column_idx,
+				CASSANDRA_SQL_ARG_TYPE_BINARY);
 		arg->value_binary = value_size == 0 ? &uchar_nul :
 			p_memdup(_stmt->pool, value, value_size);
 		arg->value_binary_size = value_size;
@@ -2411,7 +2428,8 @@ driver_cassandra_statement_bind_int64(struct sql_statement *_stmt,
 		driver_cassandra_bind_int(stmt, column_idx, value);
 	else if (stmt->prep != NULL) {
 		struct cassandra_sql_arg *arg =
-			driver_cassandra_add_pending_arg(stmt, column_idx);
+			driver_cassandra_add_pending_arg(stmt, column_idx,
+				CASSANDRA_SQL_ARG_TYPE_INT64);
 		arg->value_int64 = value;
 	}
 }
