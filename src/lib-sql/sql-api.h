@@ -150,6 +150,8 @@ void sql_statement_bind_binary(struct sql_statement *stmt,
 			       size_t value_size);
 void sql_statement_bind_int64(struct sql_statement *stmt,
 			      unsigned int column_idx, int64_t value);
+void sql_statement_bind_double(struct sql_statement *stmt,
+			       unsigned int column_idx, double value);
 void sql_statement_query(struct sql_statement **stmt,
 			 sql_query_callback_t *callback, void *context);
 #define sql_statement_query(stmt, callback, context) \

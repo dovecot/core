@@ -423,6 +423,16 @@ void sql_statement_bind_int64(struct sql_statement *stmt,
 		stmt->db->v.statement_bind_int64(stmt, column_idx, value);
 }
 
+void sql_statement_bind_double(struct sql_statement *stmt,
+			       unsigned int column_idx, double value)
+{
+	const char *value_str = p_strdup_printf(stmt->pool, "%f", value);
+	array_idx_set(&stmt->args, column_idx, &value_str);
+
+	if (stmt->db->v.statement_bind_double != NULL)
+		stmt->db->v.statement_bind_double(stmt, column_idx, value);
+}
+
 #undef sql_statement_query
 void sql_statement_query(struct sql_statement **_stmt,
 			 sql_query_callback_t *callback, void *context)
