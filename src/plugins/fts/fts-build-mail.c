@@ -536,12 +536,12 @@ header_prefix_cmp(const char *const *pkey, const char *const *pitem)
 }
 
 static bool
-is_header_indexable(struct message_block *block, struct fts_backend *backend)
+is_header_indexable(const char *header_name, struct fts_backend *backend)
 {
-	struct fts_header_filters *filters = load_header_filters(backend);
 	bool indexable;
 	T_BEGIN {
-		const char *hdr = t_str_lcase(block->hdr->name);
+		struct fts_header_filters *filters = load_header_filters(backend);
+		const char *hdr = t_str_lcase(header_name);
 
 		if (array_bsearch(&filters->includes, &hdr, header_prefix_cmp) != NULL)
 			indexable = TRUE;
@@ -649,12 +649,11 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 			continue;
 
 		if (block.hdr != NULL) {
-			if (is_header_indexable(&block, update_ctx->backend)) {
-				fts_parse_mail_header(&ctx, &raw_block);
-				if (fts_build_mail_header(&ctx, &block) < 0) {
-					ret = -1;
-					break;
-				}
+			fts_parse_mail_header(&ctx, &raw_block);
+			if (is_header_indexable(block.hdr->name, update_ctx->backend) &&
+			    fts_build_mail_header(&ctx, &block) < 0) {
+				ret = -1;
+				break;
 			}
 		} else if (block.size == 0) {
 			/* end of headers */
