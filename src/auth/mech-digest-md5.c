@@ -15,8 +15,6 @@
 #include "passdb.h"
 
 
-#define MAX_REALM_LEN 64
-
 /* Linear whitespace */
 #define IS_LWS(c) ((c) == ' ' || (c) == '\t')
 

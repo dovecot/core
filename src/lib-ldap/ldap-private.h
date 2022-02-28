@@ -6,10 +6,6 @@
 
 #include <ldap.h>
 
-#define DOVE_LDAP_CONTINUE 0
-#define DOVE_LDAP_COMPLETE 1
-#define DOVE_LDAP_REQUEUE 2
-
 struct ldap_connection;
 struct ldap_result;
 

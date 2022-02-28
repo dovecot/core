@@ -5,9 +5,6 @@
 
 #include "smtp-server.h"
 
-#define SMTP_SERVER_COMMAND_POOL_MAX              (8 * 1024)
-
-#define SMTP_SERVER_DEFAULT_MAX_COMMAND_LINE      (4 * 1024)
 #define SMTP_SERVER_DEFAULT_MAX_BAD_COMMANDS      10
 #define SMTP_SERVER_DEFAULT_MAX_SIZE_EXCESS_LIMIT (1024*1024)
 

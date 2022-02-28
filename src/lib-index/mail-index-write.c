@@ -10,10 +10,6 @@
 
 #include <stdio.h>
 
-#define MAIL_INDEX_MIN_UPDATE_SIZE 1024
-/* if we're updating >= count-n messages, recreate the index */
-#define MAIL_INDEX_MAX_OVERWRITE_NEG_SEQ_COUNT 10
-
 static int mail_index_create_backup(struct mail_index *index)
 {
 	const char *backup_path, *tmp_backup_path;

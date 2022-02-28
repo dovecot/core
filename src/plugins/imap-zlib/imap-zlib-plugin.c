@@ -10,8 +10,6 @@
 #include "imap-zlib-plugin.h"
 
 
-#define IMAP_COMPRESS_DEFAULT_LEVEL 6
-
 #define IMAP_ZLIB_IMAP_CONTEXT(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, imap_zlib_imap_module)
 

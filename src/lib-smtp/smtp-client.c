@@ -15,9 +15,6 @@
 
 #include "smtp-client-private.h"
 
-#define SMTP_DEFAULT_PORT 80
-#define SSMTP_DEFAULT_PORT 465
-
 static struct event_category event_category_smtp_client = {
 	.name = "smtp-client"
 };

@@ -14,7 +14,6 @@
 #include <unistd.h>
 
 #define TEST_SOCKET_NAME ".test-dns-server"
-#define TEST_CACHE_TTL 4
 
 static const struct {
 	const char *name;

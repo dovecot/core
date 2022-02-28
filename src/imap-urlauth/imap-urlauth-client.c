@@ -33,8 +33,6 @@
 /* Disconnect client after idling this many milliseconds */
 #define CLIENT_IDLE_TIMEOUT_MSECS (10*60*1000)
 
-#define USER_EXECUTABLE "imap-urlauth-worker"
-
 #define IS_STANDALONE() \
         (getenv(MASTER_IS_PARENT_ENV) == NULL)
 

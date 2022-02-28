@@ -189,8 +189,6 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-#define MAILDIR_FILENAME_FLAG_FOUND 128
-
 /* When rename()ing many files from new/ to cur/, it's possible that next
    readdir() skips some files. we don't of course wish to lose them, so we
    go and rescan the new/ directory again from beginning until no files are

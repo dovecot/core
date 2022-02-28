@@ -3,8 +3,6 @@
 
 #include "iostream-rawlog.h"
 
-#define IOSTREAM_RAWLOG_MAX_PREFIX_LEN 3
-
 struct rawlog_iostream {
 	struct iostream_private *iostream;
 	enum iostream_rawlog_flags flags;

@@ -13,7 +13,6 @@
    comparisons. Note that system CPU usage can grow very large on loaded
    systems, so we're not checking its upper limit at all. */
 #define ALLOW_MSECS_BELOW 500
-#define ALLOW_MSECS_ABOVE 3000
 
 static const char *const test_path = ".test.cpulimit";
 

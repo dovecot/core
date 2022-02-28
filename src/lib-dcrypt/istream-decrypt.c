@@ -17,8 +17,6 @@
 
 #include <arpa/inet.h>
 
-#define ISTREAM_DECRYPT_READ_FIRST 15
-
 struct decrypt_istream_snapshot {
 	struct istream_snapshot snapshot;
 	struct decrypt_istream *dstream;

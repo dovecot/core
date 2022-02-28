@@ -6,8 +6,6 @@
 #include "ostream.h"
 #include "fs-sis-common.h"
 
-#define QUEUE_DIR_NAME "queue"
-
 struct sis_queue_fs {
 	struct fs fs;
 	char *queue_dir;

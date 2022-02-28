@@ -19,7 +19,6 @@
 #include "doveadm-print.h"
 #include "doveadm-mail.h"
 
-#define DOVEADM_SERVER_CONNECTIONS_MAX 4
 #define DOVEADM_SERVER_QUEUE_MAX 16
 
 #define DOVEADM_MAIL_SERVER_FAILED() \

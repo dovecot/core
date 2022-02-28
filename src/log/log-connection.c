@@ -16,7 +16,6 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#define FATAL_QUEUE_TIMEOUT_MSECS 500
 #define MAX_MSECS_PER_CONNECTION 100
 
 /* Log a warning after 1 secs when we've been all the time busy writing the

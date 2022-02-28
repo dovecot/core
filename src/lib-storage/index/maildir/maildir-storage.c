@@ -15,8 +15,6 @@
 
 #include <sys/stat.h>
 
-#define MAILDIR_LIST_CONTEXT(obj) \
-	MODULE_CONTEXT(obj, maildir_mailbox_list_module)
 #define MAILDIR_SUBFOLDER_FILENAME "maildirfolder"
 
 struct maildir_mailbox_list_context {

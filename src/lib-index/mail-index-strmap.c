@@ -77,9 +77,6 @@ struct mail_index_strmap_hash_key {
 	uint32_t crc32;
 };
 
-/* number of bytes required to store one string idx */
-#define STRMAP_FILE_STRIDX_SIZE (sizeof(uint32_t)*2)
-
 /* renumber the string indexes when highest string idx becomes larger than
    <number of indexes>*STRMAP_FILE_MAX_STRIDX_MULTIPLIER */
 #define STRMAP_FILE_MAX_STRIDX_MULTIPLIER 2

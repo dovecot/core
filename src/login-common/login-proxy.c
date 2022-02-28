@@ -27,7 +27,6 @@
 #define LOGIN_PROXY_DIE_IDLE_SECS 2
 #define LOGIN_PROXY_KILL_PREFIX "Disconnected by proxy: "
 #define KILLED_BY_ADMIN_REASON "Kicked by admin"
-#define KILLED_BY_DIRECTOR_REASON "Kicked via director"
 #define KILLED_BY_SHUTDOWN_REASON "Process shutting down"
 #define LOGIN_PROXY_SIDE_SELF "proxy"
 /* Wait this long before retrying on reconnect */

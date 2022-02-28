@@ -8,8 +8,6 @@
 #include "worker-connection.h"
 #include "worker-pool.h"
 
-#define MAX_WORKER_IDLE_SECS (60*5)
-
 struct worker_pool {
 	char *socket_path;
 	indexer_status_callback_t *callback;

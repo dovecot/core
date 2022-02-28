@@ -14,7 +14,6 @@
 #define MAILDIR_FLAGS_SEP ','
 
 #define MAILDIR_INFO_SEP_S ":"
-#define MAILDIR_EXTRA_SEP_S ","
 #define MAILDIR_FLAGS_SEP_S ","
 
 /* ":2," is the standard flags separator */

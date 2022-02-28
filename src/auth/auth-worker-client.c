@@ -20,7 +20,6 @@
 #define OUTBUF_THROTTLE_SIZE (1024*10)
 
 #define CLIENT_STATE_HANDSHAKE "handshaking"
-#define CLIENT_STATE_ITER "iterating users"
 #define CLIENT_STATE_IDLE "idling"
 #define CLIENT_STATE_STOP "waiting for shutdown"
 

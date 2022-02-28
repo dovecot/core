@@ -10,8 +10,6 @@
 #include "smtp-client-transaction.h"
 #include "smtp-client-connection.h"
 
-#define SMTP_CLIENT_DATA_CHUNK_SIZE IO_BLOCK_SIZE
-
 struct smtp_client_command {
 	pool_t pool;
 	int refcount;

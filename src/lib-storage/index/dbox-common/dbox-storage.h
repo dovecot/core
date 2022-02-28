@@ -14,7 +14,6 @@ struct dbox_save_context;
 #define DBOX_ALT_SYMLINK_NAME "dbox-alt-root"
 
 #define DBOX_MAILBOX_DIR_NAME "mailboxes"
-#define DBOX_TRASH_DIR_NAME "trash"
 #define DBOX_MAILDIR_NAME "dbox-Mails"
 
 /* Delete temp files having ctime older than this. */

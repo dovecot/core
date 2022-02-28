@@ -4,8 +4,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#define DEFAULT_LOCK_TIMEOUT 120
-
 struct file_lock;
 struct dotlock;
 

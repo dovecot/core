@@ -282,7 +282,6 @@ static void uni_ucs4_decompose_hangul_utf8(unichar_t chr, buffer_t *output)
 #define LBase 0x1100 
 #define VBase 0x1161 
 #define TBase 0x11A7
-#define LCount 19 
 #define VCount 21
 #define TCount 28
 #define NCount (VCount * TCount)

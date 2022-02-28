@@ -31,8 +31,6 @@
 #include <unistd.h>
 #include <sysexits.h>
 
-#define MAX_CTRL_HANDSHAKE 255
-
 /* max. length of input lines (URLs) */
 #define MAX_INBUF_SIZE 2048
 

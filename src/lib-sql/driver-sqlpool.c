@@ -8,8 +8,6 @@
 
 #include <time.h>
 
-#define QUERY_TIMEOUT_SECS 6
-
 /* sqlpool events are separate from category:sql, because
    they are usually not very interesting, and would only
    make logging too noisy. They can be enabled explicitly.

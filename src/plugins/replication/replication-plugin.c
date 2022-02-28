@@ -18,7 +18,6 @@
 #define REPLICATION_SOCKET_NAME "replication-notify"
 #define REPLICATION_FIFO_NAME "replication-notify-fifo"
 #define REPLICATION_NOTIFY_DELAY_MSECS 500
-#define REPLICATION_SYNC_TIMEOUT_SECS 10
 
 #define REPLICATION_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, replication_user_module)

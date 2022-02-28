@@ -13,8 +13,6 @@
 
 #include <unistd.h>
 
-#define BUF_INITIAL_SIZE (1024*32)
-
 struct seekable_istream {
 	struct istream_private istream;
 

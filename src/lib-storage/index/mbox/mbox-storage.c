@@ -20,12 +20,6 @@
 /* How often to touch the dotlock file when using KEEP_LOCKED flag */
 #define MBOX_LOCK_TOUCH_MSECS (10*1000)
 
-/* Assume that if atime < mtime, there are new mails. If it's good enough for
-   UW-IMAP, it's good enough for us. */
-#define STAT_GET_MARKED(st) \
-	((st).st_size == 0 ? MAILBOX_UNMARKED : \
-	 (st).st_atime < (st).st_mtime ? MAILBOX_MARKED : MAILBOX_UNMARKED)
-
 #define MBOX_LIST_CONTEXT(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, mbox_mailbox_list_module)
 

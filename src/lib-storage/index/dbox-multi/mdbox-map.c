@@ -15,9 +15,6 @@
 
 #define MAX_BACKWARDS_LOOKUPS 10
 
-#define DBOX_FORCE_PURGE_MIN_BYTES (1024*1024*10)
-#define DBOX_FORCE_PURGE_MIN_RATIO 0.5
-
 #define MAP_STORAGE(map) (&(map)->storage->storage.storage)
 
 struct mdbox_map_transaction_context {

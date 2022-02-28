@@ -79,7 +79,6 @@
 #define DIRECTOR_RECONNECT_AFTER_WRONG_CONNECT_MSECS 1000
 #define DIRECTOR_WAIT_DISCONNECT_SECS 10
 #define DIRECTOR_HANDSHAKE_WARN_SECS 29
-#define DIRECTOR_HANDSHAKE_BYTES_LOG_MIN_SECS (60*30)
 #define DIRECTOR_MAX_SYNC_SEQ_DUPLICATES 4
 /* If we receive SYNCs with a timestamp this many seconds higher than the last
    valid received SYNC timestamp, assume that we lost the director's restart

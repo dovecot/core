@@ -20,8 +20,6 @@ enum mail_duplicate_check_result {
 	MAIL_DUPLICATE_CHECK_RESULT_DEADLOCK,
 };
 
-#define MAIL_DUPLICATE_DEFAULT_KEEP (3600 * 24)
-
 struct mail_duplicate_transaction *
 mail_duplicate_transaction_begin(struct mail_duplicate_db *db);
 void mail_duplicate_transaction_rollback(

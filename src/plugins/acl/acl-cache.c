@@ -10,8 +10,6 @@
    IMAP ACLs define only 10 standard rights and 10 user-defined rights. */
 #define DEFAULT_ACL_RIGHTS_COUNT 64
 
-#define ACL_GLOBAL_COUNT 2
-
 struct acl_object_cache {
 	char *name;
 

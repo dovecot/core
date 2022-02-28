@@ -28,9 +28,6 @@
 
 */
 
-#define MINIMUM_SERIALIZED_SIZE \
-	(sizeof(unsigned int) + sizeof(uoff_t) * 4)
-
 struct deserialize_context {
 	pool_t pool;
 	const unsigned char *data, *end;

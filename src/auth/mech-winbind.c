@@ -20,8 +20,6 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-#define DEFAULT_WINBIND_HELPER_PATH "/usr/bin/ntlm_auth"
-
 enum helper_result {
 	HR_OK	= 0,	/* OK or continue */
 	HR_FAIL	= -1,	/* authentication failed */

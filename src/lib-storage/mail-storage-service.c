@@ -39,9 +39,6 @@
 #define MAX_TIME_BACKWARDS_SLEEP_MSECS  (5*1000)
 #define MAX_NOWARN_FORWARD_MSECS        (10*1000)
 
-#define ERRSTR_INVALID_USER_SETTINGS \
-	"Invalid user settings. Refer to server log for more information."
-
 struct mail_storage_service_privileges {
 	uid_t uid;
 	gid_t gid;

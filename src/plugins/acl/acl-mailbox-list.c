@@ -13,8 +13,6 @@
 #include "acl-shared-storage.h"
 #include "acl-plugin.h"
 
-#define MAILBOX_FLAG_MATCHED 0x40000000
-
 struct acl_mailbox_list_iterate_context {
 	union mailbox_list_iterate_module_context module_ctx;
 
