@@ -446,6 +446,7 @@ void imapc_connection_disconnect_full(struct imapc_connection *conn,
 
 	if (conn->state == IMAPC_CONNECTION_STATE_DISCONNECTED) {
 		i_assert(array_count(&conn->cmd_wait_list) == 0);
+		imapc_connection_abort_commands(conn, NULL, reconnecting);
 		return;
 	}
 
