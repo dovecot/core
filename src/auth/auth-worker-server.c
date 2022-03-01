@@ -10,6 +10,7 @@
 #include "ostream.h"
 #include "hex-binary.h"
 #include "str.h"
+#include "strescape.h"
 #include "eacces-error.h"
 #include "auth-request.h"
 #include "auth-worker-client.h"
@@ -94,9 +95,12 @@ static bool auth_worker_request_send(struct auth_worker_connection *worker,
 			"Aborting auth request that was queued for %d secs, "
 			"%d left in queue",
 			age_secs, aqueue_count(worker_request_queue));
-		request->callback(t_strdup_printf(
-			"FAIL\t%d", PASSDB_RESULT_INTERNAL_FAILURE),
-			request->context);
+		const char *const args[] = {
+			"FAIL",
+			t_strdup_printf("%d", PASSDB_RESULT_INTERNAL_FAILURE),
+			NULL,
+		};
+		request->callback(args, request->context);
 		return FALSE;
 	}
 	if (age_secs >= AUTH_WORKER_DELAY_WARN_SECS &&
@@ -236,9 +240,12 @@ static void auth_worker_destroy(struct auth_worker_connection **_worker,
 		e_error(worker->conn.event, "Aborted %s request for %s: %s",
 			t_strcut(worker->request->data, '\t'),
 			worker->request->username, reason);
-		worker->request->callback(t_strdup_printf(
-				"FAIL\t%d", PASSDB_RESULT_INTERNAL_FAILURE),
-				worker->request->context);
+		const char *const args[] = {
+			"FAIL",
+			t_strdup_printf("%d", PASSDB_RESULT_INTERNAL_FAILURE),
+			NULL,
+		};
+		worker->request->callback(args, worker->request->context);
 	}
 
 	io_remove(&worker->conn.io);
@@ -296,7 +303,13 @@ static bool auth_worker_request_handle(struct auth_worker_connection *worker,
 		idle_count++;
 	}
 
-	if (!request->callback(line, request->context) &&
+	const char *const *args = t_strsplit_tabescaped(line);
+	if (args[0] == NULL) {
+		const char *empty_args[] = { "", NULL };
+		args = empty_args;
+	}
+
+	if (!request->callback(args, request->context) &&
 	    worker->conn.io != NULL) {
 		worker->timeout_pending_resume = FALSE;
 		timeout_remove(&worker->to_lookup);

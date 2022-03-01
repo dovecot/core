@@ -22,12 +22,10 @@ auth_worker_reply_parse_args(struct auth_request *request,
 }
 
 enum passdb_result
-passdb_blocking_auth_worker_reply_parse(struct auth_request *request, const char *reply)
+passdb_blocking_auth_worker_reply_parse(struct auth_request *request,
+					const char *const *args)
 {
 	enum passdb_result ret;
-	const char *const *args;
-
-	args = t_strsplit_tabescaped(reply);
 
 	if (strcmp(*args, "OK") == 0 && args[1] != NULL && args[2] != NULL) {
 		/* OK \t user \t password [\t extra] */
@@ -68,18 +66,18 @@ passdb_blocking_auth_worker_reply_parse(struct auth_request *request, const char
 		}
 	}
 
-	e_error(authdb_event(request),
-		"Received invalid reply from worker: %s", reply);
+	e_error(authdb_event(request), "Received invalid reply from worker: %s",
+		t_strarray_join(args, "\t"));
 	return PASSDB_RESULT_INTERNAL_FAILURE;
 }
 
 static bool
-verify_plain_callback(const char *reply, void *context)
+verify_plain_callback(const char *const *args, void *context)
 {
 	struct auth_request *request = context;
 	enum passdb_result result;
 
-	result = passdb_blocking_auth_worker_reply_parse(request, reply);
+	result = passdb_blocking_auth_worker_reply_parse(request, args);
 	auth_request_verify_plain_callback(result, request);
 	auth_request_unref(&request);
 	return TRUE;
@@ -100,13 +98,13 @@ void passdb_blocking_verify_plain(struct auth_request *request)
 			 verify_plain_callback, request);
 }
 
-static bool lookup_credentials_callback(const char *reply, void *context)
+static bool lookup_credentials_callback(const char *const *args, void *context)
 {
 	struct auth_request *request = context;
 	enum passdb_result result;
 	const char *password = NULL, *scheme = NULL;
 
-	result = passdb_blocking_auth_worker_reply_parse(request, reply);
+	result = passdb_blocking_auth_worker_reply_parse(request, args);
 	if (result == PASSDB_RESULT_OK && request->passdb_password != NULL) {
 		password = request->passdb_password;
 		scheme = password_get_scheme(&password);
@@ -141,13 +139,12 @@ void passdb_blocking_lookup_credentials(struct auth_request *request)
 }
 
 static bool
-set_credentials_callback(const char *reply, void *context)
+set_credentials_callback(const char *const *args, void *context)
 {
 	struct auth_request *request = context;
 	bool success;
 
-	success = strcmp(reply, "OK") == 0 ||
-		str_begins_with(reply, "OK\t");
+	success = strcmp(args[0], "OK") == 0;
 	request->private_callback.set_credentials(success, request);
 	auth_request_unref(&request);
 	return TRUE;

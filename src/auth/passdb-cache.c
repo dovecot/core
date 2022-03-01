@@ -52,12 +52,13 @@ passdb_cache_lookup(struct auth_request *request, const char *key,
 	return TRUE;
 }
 
-static bool passdb_cache_verify_plain_callback(const char *reply, void *context)
+static bool passdb_cache_verify_plain_callback(const char *const *args,
+					       void *context)
 {
 	struct auth_request *request = context;
 	enum passdb_result result;
 
-	result = passdb_blocking_auth_worker_reply_parse(request, reply);
+	result = passdb_blocking_auth_worker_reply_parse(request, args);
 	if (result != PASSDB_RESULT_OK)
 		auth_fields_rollback(request->fields.extra_fields);
 	auth_request_verify_plain_callback_finish(result, request);

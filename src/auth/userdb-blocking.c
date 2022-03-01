@@ -14,23 +14,28 @@ struct blocking_userdb_iterate_context {
 	bool destroyed;
 };
 
-static bool user_callback(const char *reply, void *context)
+static bool user_callback(const char *const *args, void *context)
 {
 	struct auth_request *request = context;
 	enum userdb_result result;
-	const char *username, *args;
+	const char *username;
 
-	if (str_begins(reply, "FAIL\t", &args)) {
+	if (strcmp(args[0], "FAIL") == 0) {
 		result = USERDB_RESULT_INTERNAL_FAILURE;
-	} else if (str_begins(reply, "NOTFOUND\t", &args)) {
+		args++;
+	} else if (strcmp(args[0], "NOTFOUND") == 0) {
 		result = USERDB_RESULT_USER_UNKNOWN;
-	} else if (str_begins(reply, "OK\t", &username)) {
+		args++;
+	} else if (strcmp(args[0], "OK") == 0) {
 		result = USERDB_RESULT_OK;
-		args = strchr(username, '\t');
-		if (args == NULL)
-			args = "";
-		else
-			username = t_strdup_until(username, args++);
+		if (args[1] == NULL) {
+			username = "";
+			args++;
+		} else {
+			username = args[1];
+			args += 2;
+		}
+
 		if (username[0] != '\0' &&
 		    strcmp(request->fields.user, username) != 0) {
 			auth_request_set_username_forced(request, username);
@@ -40,11 +45,11 @@ static bool user_callback(const char *reply, void *context)
 		result = USERDB_RESULT_INTERNAL_FAILURE;
 		e_error(authdb_event(request),
 			"BUG: auth-worker sent invalid user reply");
-		args = "";
+		args = NULL;
 	}
 
-	if (*args != '\0') {
-		auth_fields_import(request->fields.userdb_reply, args, 0);
+	if (args != NULL && args[0] != NULL && *args[0] != '\0') {
+		auth_fields_import_args(request->fields.userdb_reply, args, 0);
 		if (auth_fields_exists(request->fields.userdb_reply, "tempfail"))
 			request->userdb_lookup_tempfailed = TRUE;
 	}
@@ -67,20 +72,19 @@ void userdb_blocking_lookup(struct auth_request *request)
 			 str_c(str), user_callback, request);
 }
 
-static bool iter_callback(const char *reply, void *context)
+static bool iter_callback(const char *const *args, void *context)
 {
 	struct blocking_userdb_iterate_context *ctx = context;
-	const char *args;
 
-	if (str_begins(reply, "*\t", &args)) {
+	if (strcmp(args[0], "*") == 0 && args[1] != NULL) {
 		if (ctx->destroyed)
 			return TRUE;
 		ctx->next = FALSE;
-		ctx->ctx.callback(args, ctx->ctx.context);
+		ctx->ctx.callback(args[1], ctx->ctx.context);
 		return ctx->next || ctx->destroyed;
 	}
 
-	if (strcmp(reply, "OK") != 0)
+	if (strcmp(args[0], "OK") != 0)
 		ctx->ctx.failed = TRUE;
 	if (!ctx->destroyed)
 		ctx->ctx.callback(NULL, ctx->ctx.context);

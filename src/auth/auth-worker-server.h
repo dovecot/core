@@ -4,7 +4,7 @@
 struct auth_request;
 struct auth_stream_reply;
 
-typedef bool auth_worker_callback_t(const char *reply, void *context);
+typedef bool auth_worker_callback_t(const char *const *args, void *context);
 
 struct auth_worker_connection * ATTR_NOWARN_UNUSED_RESULT
 auth_worker_call(pool_t pool, const char *username, const char *data,
