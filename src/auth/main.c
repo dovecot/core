@@ -26,7 +26,7 @@
 #include "auth-penalty.h"
 #include "auth-token.h"
 #include "auth-request-handler.h"
-#include "auth-worker-client.h"
+#include "auth-worker-server.h"
 #include "auth-worker-connection.h"
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
@@ -310,13 +310,13 @@ static void main_deinit(void)
 
 static void worker_connected(struct master_service_connection *conn)
 {
-	if (auth_worker_has_client()) {
+	if (auth_worker_has_connections()) {
 		i_error("Auth workers can handle only a single client");
 		return;
 	}
 
 	master_service_client_connection_accept(conn);
-	(void)auth_worker_client_create(auth_default_service(), conn);
+	(void)auth_worker_server_create(auth_default_service(), conn);
 }
 
 static void client_connected(struct master_service_connection *conn)
@@ -365,7 +365,7 @@ static void auth_die(void)
 		/* do nothing. auth clients should disconnect soon. */
 	} else {
 		/* ask auth master to disconnect us */
-		auth_worker_client_send_shutdown();
+		auth_worker_server_send_shutdown();
 	}
 }
 

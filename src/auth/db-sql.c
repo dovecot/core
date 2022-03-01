@@ -6,7 +6,7 @@
 
 #include "settings.h"
 #include "auth-request.h"
-#include "auth-worker-client.h"
+#include "auth-worker-server.h"
 #include "db-sql.h"
 
 #include <stddef.h>
@@ -145,14 +145,14 @@ void db_sql_connect(struct db_sql_connection *conn)
 		   so tell the auth master to stop creating new workers (and
 		   maybe close old ones). this handling is especially useful if
 		   we reach the max. number of connections for sql server. */
-		auth_worker_client_send_error();
+		auth_worker_server_send_error();
 	}
 }
 
 void db_sql_success(struct db_sql_connection *conn ATTR_UNUSED)
 {
 	if (worker)
-		auth_worker_client_send_success();
+		auth_worker_server_send_success();
 }
 
 void db_sql_check_userdb_warning(struct db_sql_connection *conn)

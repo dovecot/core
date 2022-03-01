@@ -13,20 +13,20 @@
 #include "process-title.h"
 #include "master-service.h"
 #include "auth-request.h"
-#include "auth-worker-client.h"
+#include "auth-worker-server.h"
 
 
 #define AUTH_WORKER_WARN_DISCONNECTED_LONG_CMD_SECS 30
 #define OUTBUF_THROTTLE_SIZE (1024*10)
 
-#define CLIENT_STATE_HANDSHAKE "handshaking"
-#define CLIENT_STATE_IDLE "idling"
-#define CLIENT_STATE_STOP "waiting for shutdown"
+#define WORKER_STATE_HANDSHAKE "handshaking"
+#define WORKER_STATE_IDLE "idling"
+#define WORKER_STATE_STOP "waiting for shutdown"
 
 static unsigned int auth_worker_max_service_count = 0;
 static unsigned int auth_worker_service_count = 0;
 
-struct auth_worker_client {
+struct auth_worker_server {
 	struct connection conn;
 	int refcount;
 
@@ -39,37 +39,37 @@ struct auth_worker_client {
 };
 
 struct auth_worker_command {
-	struct auth_worker_client *client;
+	struct auth_worker_server *server;
 	struct event *event;
 };
 
 struct auth_worker_list_context {
 	struct auth_worker_command *cmd;
-	struct auth_worker_client *client;
+	struct auth_worker_server *server;
 	struct auth_request *auth_request;
 	struct userdb_iterate_context *iter;
 	bool sending, sent, done;
 };
 
 static struct connection_list *clients = NULL;
-static bool auth_worker_client_error = FALSE;
+static bool auth_worker_server_error = FALSE;
 
-static int auth_worker_output(struct auth_worker_client *client);
-static void auth_worker_client_destroy(struct connection *conn);
-static void auth_worker_client_unref(struct auth_worker_client **_client);
+static int auth_worker_output(struct auth_worker_server *server);
+static void auth_worker_server_destroy(struct connection *conn);
+static void auth_worker_server_unref(struct auth_worker_server **_client);
 
 void auth_worker_set_max_service_count(unsigned int count)
 {
 	auth_worker_max_service_count = count;
 }
 
-static struct auth_worker_client *auth_worker_get_client(void)
+static struct auth_worker_server *auth_worker_get_client(void)
 {
-	if (!auth_worker_has_client())
+	if (!auth_worker_has_connections())
 		return NULL;
-	struct auth_worker_client *client =
-		container_of(clients->connections, struct auth_worker_client, conn);
-	return client;
+	struct auth_worker_server *server =
+		container_of(clients->connections, struct auth_worker_server, conn);
+	return server;
 }
 
 void auth_worker_refresh_proctitle(const char *state)
@@ -77,21 +77,21 @@ void auth_worker_refresh_proctitle(const char *state)
 	if (!global_auth_settings->verbose_proctitle || !worker)
 		return;
 
-	if (auth_worker_client_error)
+	if (auth_worker_server_error)
 		state = "error";
-	else if (!auth_worker_has_client())
+	else if (!auth_worker_has_connections())
 		state = "waiting for connection";
 	process_title_set(t_strdup_printf("worker: %s", state));
 }
 
 static void
-auth_worker_client_check_throttle(struct auth_worker_client *client)
+auth_worker_server_check_throttle(struct auth_worker_server *server)
 {
-	if (o_stream_get_buffer_used_size(client->conn.output) >=
+	if (o_stream_get_buffer_used_size(server->conn.output) >=
 	    OUTBUF_THROTTLE_SIZE) {
 		/* stop reading new requests until client has read the pending
 		   replies. */
-		connection_input_halt(&client->conn);
+		connection_input_halt(&server->conn);
 	}
 }
 
@@ -109,12 +109,12 @@ auth_worker_request_finished_full(struct auth_worker_command *cmd,
 	} else {
 		e_debug(cmd->event, "Finished");
 	}
-	auth_worker_client_check_throttle(cmd->client);
-	auth_worker_client_unref(&cmd->client);
+	auth_worker_server_check_throttle(cmd->server);
+	auth_worker_server_unref(&cmd->server);
 	event_unref(&cmd->event);
 	i_free(cmd);
 
-	auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
+	auth_worker_refresh_proctitle(WORKER_STATE_IDLE);
 }
 
 static void auth_worker_request_finished(struct auth_worker_command *cmd,
@@ -137,7 +137,7 @@ bool auth_worker_auth_request_new(struct auth_worker_command *cmd, unsigned int 
 
 	auth_request = auth_request_new_dummy(cmd->event);
 
-	cmd->client->refcount++;
+	cmd->server->refcount++;
 	auth_request->context = cmd;
 	auth_request->id = id;
 
@@ -168,22 +168,22 @@ bool auth_worker_auth_request_new(struct auth_worker_command *cmd, unsigned int 
 	return TRUE;
 }
 
-static void auth_worker_send_reply(struct auth_worker_client *client,
+static void auth_worker_send_reply(struct auth_worker_server *server,
 				   struct auth_request *request,
 				   string_t *str)
 {
-	time_t cmd_duration = time(NULL) - client->cmd_start;
+	time_t cmd_duration = time(NULL) - server->cmd_start;
 	const char *p;
 
 	if (worker_restart_request)
-		o_stream_nsend_str(client->conn.output, "RESTART\n");
-	o_stream_nsend(client->conn.output, str_data(str), str_len(str));
-	if (o_stream_flush(client->conn.output) < 0 && request != NULL &&
+		o_stream_nsend_str(server->conn.output, "RESTART\n");
+	o_stream_nsend(server->conn.output, str_data(str), str_len(str));
+	if (o_stream_flush(server->conn.output) < 0 && request != NULL &&
 	    cmd_duration > AUTH_WORKER_WARN_DISCONNECTED_LONG_CMD_SECS) {
 		p = i_strchr_to_next(str_c(str), '\t');
 		p = p == NULL ? "BUG" : t_strcut(p, '\t');
 
-		e_warning(client->conn.event, "Auth master disconnected us while handling "
+		e_warning(server->conn.event, "Auth master disconnected us while handling "
 			  "request for %s for %ld secs (result=%s)",
 			  request->fields.user, (long)cmd_duration, p);
 	}
@@ -213,7 +213,7 @@ static void verify_plain_callback(enum passdb_result result,
 				  struct auth_request *request)
 {
 	struct auth_worker_command *cmd = request->context;
-	struct auth_worker_client *client = cmd->client;
+	struct auth_worker_server *server = cmd->server;
 	const char *error = NULL;
 	string_t *str;
 
@@ -242,7 +242,7 @@ static void verify_plain_callback(enum passdb_result result,
 		reply_append_extra_fields(str, request);
 	}
 	str_append_c(str, '\n');
-	auth_worker_send_reply(client, request, str);
+	auth_worker_send_reply(server, request, str);
 
 	auth_request_passdb_lookup_end(request, result);
 	auth_worker_request_finished(cmd, error);
@@ -303,7 +303,7 @@ auth_worker_handle_passw(struct auth_worker_command *cmd,
 			 unsigned int id, const char *const *args,
 			 const char **error_r)
 {
-	struct auth_worker_client *client = cmd->client;
+	struct auth_worker_server *server = cmd->server;
 	struct auth_request *request;
 	string_t *str;
 	const char *password;
@@ -348,7 +348,7 @@ auth_worker_handle_passw(struct auth_worker_command *cmd,
 	}
 
 	str_append_c(str, '\n');
-	auth_worker_send_reply(client, request, str);
+	auth_worker_send_reply(server, request, str);
 
 	auth_worker_request_finished(cmd, error);
 	auth_request_unref(&request);
@@ -361,7 +361,7 @@ lookup_credentials_callback(enum passdb_result result,
 			    struct auth_request *request)
 {
 	struct auth_worker_command *cmd = request->context;
-	struct auth_worker_client *client = cmd->client;
+	struct auth_worker_server *server = cmd->server;
 	string_t *str;
 
 	if (request->failed && result == PASSDB_RESULT_OK)
@@ -389,7 +389,7 @@ lookup_credentials_callback(enum passdb_result result,
 		reply_append_extra_fields(str, request);
 	}
 	str_append_c(str, '\n');
-	auth_worker_send_reply(client, request, str);
+	auth_worker_send_reply(server, request, str);
 
 	auth_request_passdb_lookup_end(request, result);
 	auth_request_unref(&request);
@@ -446,13 +446,13 @@ static void
 set_credentials_callback(bool success, struct auth_request *request)
 {
 	struct auth_worker_command *cmd = request->context;
-	struct auth_worker_client *client = cmd->client;
+	struct auth_worker_server *server = cmd->server;
 
 	string_t *str;
 
 	str = t_str_new(64);
 	str_printfa(str, "%u\t%s\n", request->id, success ? "OK" : "FAIL");
-	auth_worker_send_reply(client, request, str);
+	auth_worker_send_reply(server, request, str);
 
 	auth_worker_request_finished(cmd, success ? NULL :
 				     "Failed to set credentials");
@@ -499,7 +499,7 @@ lookup_user_callback(enum userdb_result result,
 		     struct auth_request *auth_request)
 {
 	struct auth_worker_command *cmd = auth_request->context;
-	struct auth_worker_client *client = cmd->client;
+	struct auth_worker_server *server = cmd->server;
 	const char *error;
 	string_t *str;
 
@@ -527,7 +527,7 @@ lookup_user_callback(enum userdb_result result,
 	}
 	str_append_c(str, '\n');
 
-	auth_worker_send_reply(client, auth_request, str);
+	auth_worker_send_reply(server, auth_request, str);
 
 	auth_request_userdb_lookup_end(auth_request, result);
 	error = result == USERDB_RESULT_OK ? NULL :
@@ -586,19 +586,19 @@ auth_worker_handle_user(struct auth_worker_command *cmd,
 }
 
 static void
-auth_worker_client_idle_kill(struct connection *conn ATTR_UNUSED)
+auth_worker_server_idle_kill(struct connection *conn ATTR_UNUSED)
 {
-	auth_worker_client_send_shutdown();
+	auth_worker_server_send_shutdown();
 }
 
 static void list_iter_deinit(struct auth_worker_list_context *ctx)
 {
 	struct auth_worker_command *cmd = ctx->cmd;
-	struct auth_worker_client *client = ctx->client;
+	struct auth_worker_server *server = ctx->server;
 	const char *error = NULL;
 	string_t *str;
 
-	i_assert(client->conn.io == NULL);
+	i_assert(server->conn.io == NULL);
 
 	str = t_str_new(32);
 	if (ctx->auth_request->userdb->userdb->iface->
@@ -607,11 +607,11 @@ static void list_iter_deinit(struct auth_worker_list_context *ctx)
 		str_printfa(str, "%u\tFAIL\n", ctx->auth_request->id);
 	} else
 		str_printfa(str, "%u\tOK\n", ctx->auth_request->id);
-	auth_worker_send_reply(client, NULL, str);
+	auth_worker_send_reply(server, NULL, str);
 
-	connection_input_resume(&client->conn);
-	o_stream_set_flush_callback(client->conn.output, auth_worker_output,
-				    client);
+	connection_input_resume(&server->conn);
+	o_stream_set_flush_callback(server->conn.output, auth_worker_output,
+				    server);
 	auth_request_userdb_lookup_end(ctx->auth_request, USERDB_RESULT_OK);
 	auth_worker_request_finished(cmd, error);
 	auth_request_unref(&ctx->auth_request);
@@ -632,11 +632,11 @@ static void list_iter_callback(const char *user, void *context)
 	}
 
 	if (!ctx->sending)
-		o_stream_cork(ctx->client->conn.output);
+		o_stream_cork(ctx->server->conn.output);
 	T_BEGIN {
 		str = t_str_new(128);
 		str_printfa(str, "%u\t*\t%s\n", ctx->auth_request->id, user);
-		o_stream_nsend(ctx->client->conn.output, str_data(str), str_len(str));
+		o_stream_nsend(ctx->server->conn.output, str_data(str), str_len(str));
 	} T_END;
 
 	if (ctx->sending) {
@@ -652,27 +652,27 @@ static void list_iter_callback(const char *user, void *context)
 			ctx->auth_request->userdb->userdb->iface->
 				iterate_next(ctx->iter);
 		} T_END;
-		if (o_stream_get_buffer_used_size(ctx->client->conn.output) > OUTBUF_THROTTLE_SIZE) {
-			if (o_stream_flush(ctx->client->conn.output) < 0) {
+		if (o_stream_get_buffer_used_size(ctx->server->conn.output) > OUTBUF_THROTTLE_SIZE) {
+			if (o_stream_flush(ctx->server->conn.output) < 0) {
 				ctx->done = TRUE;
 				break;
 			}
 		}
 	} while (ctx->sent &&
-		 o_stream_get_buffer_used_size(ctx->client->conn.output) <= OUTBUF_THROTTLE_SIZE);
-	o_stream_uncork(ctx->client->conn.output);
+		 o_stream_get_buffer_used_size(ctx->server->conn.output) <= OUTBUF_THROTTLE_SIZE);
+	o_stream_uncork(ctx->server->conn.output);
 	ctx->sending = FALSE;
 	if (ctx->done)
 		list_iter_deinit(ctx);
 	else
-		o_stream_set_flush_pending(ctx->client->conn.output, TRUE);
+		o_stream_set_flush_pending(ctx->server->conn.output, TRUE);
 }
 
 static int auth_worker_list_output(struct auth_worker_list_context *ctx)
 {
 	int ret;
 
-	if ((ret = o_stream_flush(ctx->client->conn.output)) < 0) {
+	if ((ret = o_stream_flush(ctx->server->conn.output)) < 0) {
 		list_iter_deinit(ctx);
 		return 1;
 	}
@@ -688,7 +688,7 @@ auth_worker_handle_list(struct auth_worker_command *cmd,
 			unsigned int id, const char *const *args,
 			const char **error_r)
 {
-	struct auth_worker_client *client = cmd->client;
+	struct auth_worker_server *server = cmd->server;
 	struct auth_worker_list_context *ctx;
 	struct auth_userdb *userdb;
 	unsigned int userdb_id;
@@ -698,7 +698,7 @@ auth_worker_handle_list(struct auth_worker_command *cmd,
 		return FALSE;
 	}
 
-	userdb = auth_userdb_find_by_id(client->auth->userdbs, userdb_id);
+	userdb = auth_userdb_find_by_id(server->auth->userdbs, userdb_id);
 	if (userdb == NULL) {
 		*error_r = "BUG: LIST had invalid userdb ID";
 		return FALSE;
@@ -706,7 +706,7 @@ auth_worker_handle_list(struct auth_worker_command *cmd,
 
 	ctx = i_new(struct auth_worker_list_context, 1);
 	ctx->cmd = cmd;
-	ctx->client = client;
+	ctx->server = server;
 	if (!auth_worker_auth_request_new(cmd, id, args + 1, &ctx->auth_request)) {
 		*error_r = "BUG: LIST had missing parameters";
 		i_free(ctx);
@@ -714,9 +714,9 @@ auth_worker_handle_list(struct auth_worker_command *cmd,
 	}
 	ctx->auth_request->userdb = userdb;
 
-	connection_input_halt(&ctx->client->conn);
+	connection_input_halt(&ctx->server->conn);
 
-	o_stream_set_flush_callback(ctx->client->conn.output,
+	o_stream_set_flush_callback(ctx->server->conn.output,
 				    auth_worker_list_output, ctx);
 	ctx->auth_request->userdb_lookup = TRUE;
 	auth_request_userdb_lookup_begin(ctx->auth_request);
@@ -743,7 +743,7 @@ static bool auth_worker_verify_db_hash(const char *passdb_hash, const char *user
 	return strcmp(str_c(str), userdb_hash) == 0;
 };
 
-static int auth_worker_client_handshake_args(struct connection *conn, const char *const *args)
+static int auth_worker_server_handshake_args(struct connection *conn, const char *const *args)
 {
 	if (!conn->version_received) {
 		if (connection_handshake_args_default(conn, args) < 0)
@@ -769,14 +769,14 @@ static int auth_worker_client_handshake_args(struct connection *conn, const char
 }
 
 static int
-auth_worker_client_input_args(struct connection *conn, const char *const *args)
+auth_worker_server_input_args(struct connection *conn, const char *const *args)
 {
 	unsigned int id;
 	bool ret = FALSE;
 	const char *error = NULL;
 	struct auth_worker_command *cmd;
-	struct auth_worker_client *client =
-		container_of(conn, struct auth_worker_client, conn);
+	struct auth_worker_server *server =
+		container_of(conn, struct auth_worker_server, conn);
 
 	if (str_array_length(args) < 3 ||
 	    str_to_uint(args[0], &id) < 0) {
@@ -788,14 +788,14 @@ auth_worker_client_input_args(struct connection *conn, const char *const *args)
 	io_loop_time_refresh();
 
 	cmd = i_new(struct auth_worker_command, 1);
-	cmd->client = client;
-	cmd->event = event_create(client->conn.event);
+	cmd->server = server;
+	cmd->event = event_create(server->conn.event);
 	event_add_category(cmd->event, &event_category_auth);
 	event_add_str(cmd->event, "command", args[1]);
 	event_add_int(cmd->event, "command_id", id);
 	event_set_append_log_prefix(cmd->event, t_strdup_printf("auth-worker<%u>: ", id));
-	client->cmd_start = ioloop_time;
-	client->refcount++;
+	server->cmd_start = ioloop_time;
+	server->refcount++;
 	e_debug(cmd->event, "Handling %s request", args[1]);
 
 	/* Check if we have reached service_count */
@@ -829,64 +829,64 @@ auth_worker_client_input_args(struct connection *conn, const char *const *args)
 		auth_worker_request_finished_bug(cmd, error);
 		return -1;
 	}
-	auth_worker_client_unref(&client);
+	auth_worker_server_unref(&server);
 	return 1;
 }
 
-static int auth_worker_output(struct auth_worker_client *client)
+static int auth_worker_output(struct auth_worker_server *server)
 {
-	if (o_stream_flush(client->conn.output) < 0) {
-		auth_worker_client_destroy(&client->conn);
+	if (o_stream_flush(server->conn.output) < 0) {
+		auth_worker_server_destroy(&server->conn);
 		return 1;
 	}
 
-	if (o_stream_get_buffer_used_size(client->conn.output) <=
-	    OUTBUF_THROTTLE_SIZE/3 && client->conn.io == NULL) {
+	if (o_stream_get_buffer_used_size(server->conn.output) <=
+	    OUTBUF_THROTTLE_SIZE/3 && server->conn.io == NULL) {
 		/* allow input again */
-		connection_input_resume(&client->conn);
+		connection_input_resume(&server->conn);
 	}
 	return 1;
 }
 
-static void auth_worker_client_unref(struct auth_worker_client **_client)
+static void auth_worker_server_unref(struct auth_worker_server **_client)
 {
-	struct auth_worker_client *client = *_client;
-	if (client == NULL)
+	struct auth_worker_server *server = *_client;
+	if (server == NULL)
 		return;
-	if (--client->refcount > 0)
+	if (--server->refcount > 0)
 		return;
 
 	/* the connection should've been destroyed before getting here */
-	i_assert(client->destroyed);
-	connection_deinit(&client->conn);
-	i_free(client);
+	i_assert(server->destroyed);
+	connection_deinit(&server->conn);
+	i_free(server);
 }
 
-static void auth_worker_client_destroy(struct connection *conn)
+static void auth_worker_server_destroy(struct connection *conn)
 {
-	struct auth_worker_client *client =
-		container_of(conn, struct auth_worker_client, conn);
+	struct auth_worker_server *server =
+		container_of(conn, struct auth_worker_server, conn);
 
-	i_assert(!client->destroyed);
-	client->destroyed = TRUE;
+	i_assert(!server->destroyed);
+	server->destroyed = TRUE;
 	connection_input_halt(conn);
 	i_stream_close(conn->input);
 	o_stream_close(conn->output);
 	net_disconnect(conn->fd_in);
 	conn->fd_out = conn->fd_in = -1;
-	auth_worker_client_unref(&client);
+	auth_worker_server_unref(&server);
 	master_service_client_connection_destroyed(master_service);
 }
 
-static const struct connection_vfuncs auth_worker_client_v =
+static const struct connection_vfuncs auth_worker_server_v =
 {
-	.input_args = auth_worker_client_input_args,
-	.handshake_args = auth_worker_client_handshake_args,
-	.destroy = auth_worker_client_destroy,
-	.idle_timeout = auth_worker_client_idle_kill,
+	.input_args = auth_worker_server_input_args,
+	.handshake_args = auth_worker_server_handshake_args,
+	.destroy = auth_worker_server_destroy,
+	.idle_timeout = auth_worker_server_idle_kill,
 };
 
-static const struct connection_settings auth_worker_client_set =
+static const struct connection_settings auth_worker_server_set =
 {
 	.service_name_in = AUTH_MASTER_NAME,
 	.service_name_out = AUTH_WORKER_NAME,
@@ -896,74 +896,75 @@ static const struct connection_settings auth_worker_client_set =
 	.output_max_size = SIZE_MAX, /* we use throttling */
 };
 
-static void auth_worker_client_send_handshake(struct connection *conn)
+static void auth_worker_server_send_handshake(struct connection *conn)
 {
 	o_stream_nsend_str(conn->output, t_strdup_printf("PROCESS-LIMIT\t%u\n",
 			   master_service_get_process_limit(master_service)));
 }
 
-struct auth_worker_client *
-auth_worker_client_create(struct auth *auth,
+struct auth_worker_server *
+auth_worker_server_create(struct auth *auth,
 			  const struct master_service_connection *master_conn)
 {
-	struct auth_worker_client *client;
+	struct auth_worker_server *server;
 
 	if (clients == NULL)
-		clients = connection_list_init(&auth_worker_client_set, &auth_worker_client_v);
+		clients = connection_list_init(&auth_worker_server_set,
+					       &auth_worker_server_v);
 
-	client = i_new(struct auth_worker_client, 1);
-	client->refcount = 1;
-	client->auth = auth;
-	client->conn.event_parent = auth_event;
-	client->conn.input_idle_timeout_secs = master_service_get_idle_kill_secs(master_service);
-	connection_init_server(clients, &client->conn, master_conn->name,
+	server = i_new(struct auth_worker_server, 1);
+	server->refcount = 1;
+	server->auth = auth;
+	server->conn.event_parent = auth_event;
+	server->conn.input_idle_timeout_secs = master_service_get_idle_kill_secs(master_service);
+	connection_init_server(clients, &server->conn, master_conn->name,
 			       master_conn->fd, master_conn->fd);
-	auth_worker_client_send_handshake(&client->conn);
+	auth_worker_server_send_handshake(&server->conn);
 
-	auth_worker_refresh_proctitle(CLIENT_STATE_HANDSHAKE);
+	auth_worker_refresh_proctitle(WORKER_STATE_HANDSHAKE);
 
-	if (auth_worker_client_error)
-		auth_worker_client_send_error();
-	return client;
+	if (auth_worker_server_error)
+		auth_worker_server_send_error();
+	return server;
 }
 
-void auth_worker_client_send_error(void)
+void auth_worker_server_send_error(void)
 {
-	struct auth_worker_client *auth_worker_client =
+	struct auth_worker_server *auth_worker_server =
 		auth_worker_get_client();
-	auth_worker_client_error = TRUE;
-	if (auth_worker_client != NULL &&
-	    !auth_worker_client->error_sent) {
-		o_stream_nsend_str(auth_worker_client->conn.output, "ERROR\n");
-		auth_worker_client->error_sent = TRUE;
+	auth_worker_server_error = TRUE;
+	if (auth_worker_server != NULL &&
+	    !auth_worker_server->error_sent) {
+		o_stream_nsend_str(auth_worker_server->conn.output, "ERROR\n");
+		auth_worker_server->error_sent = TRUE;
 	}
 	auth_worker_refresh_proctitle("");
 }
 
-void auth_worker_client_send_success(void)
+void auth_worker_server_send_success(void)
 {
-	struct auth_worker_client *auth_worker_client =
+	struct auth_worker_server *auth_worker_server =
 		auth_worker_get_client();
-	auth_worker_client_error = FALSE;
-	if (auth_worker_client == NULL)
+	auth_worker_server_error = FALSE;
+	if (auth_worker_server == NULL)
 		return;
-	if (auth_worker_client->error_sent) {
-		o_stream_nsend_str(auth_worker_client->conn.output,
+	if (auth_worker_server->error_sent) {
+		o_stream_nsend_str(auth_worker_server->conn.output,
 				   "SUCCESS\n");
-		auth_worker_client->error_sent = FALSE;
+		auth_worker_server->error_sent = FALSE;
 	}
-	if (auth_worker_client->conn.io != NULL)
-		auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
+	if (auth_worker_server->conn.io != NULL)
+		auth_worker_refresh_proctitle(WORKER_STATE_IDLE);
 }
 
-void auth_worker_client_send_shutdown(void)
+void auth_worker_server_send_shutdown(void)
 {
-	struct auth_worker_client *auth_worker_client =
+	struct auth_worker_server *auth_worker_server =
 		auth_worker_get_client();
-	if (auth_worker_client != NULL)
-		o_stream_nsend_str(auth_worker_client->conn.output,
+	if (auth_worker_server != NULL)
+		o_stream_nsend_str(auth_worker_server->conn.output,
 				   "SHUTDOWN\n");
-	auth_worker_refresh_proctitle(CLIENT_STATE_STOP);
+	auth_worker_refresh_proctitle(WORKER_STATE_STOP);
 }
 
 void auth_worker_connections_destroy_all(void)
@@ -975,7 +976,7 @@ void auth_worker_connections_destroy_all(void)
 	connection_list_deinit(&clients);
 }
 
-bool auth_worker_has_client(void)
+bool auth_worker_has_connections(void)
 {
 	return clients != NULL && clients->connections_count > 0;
 }

@@ -13,7 +13,7 @@
 #include "strescape.h"
 #include "eacces-error.h"
 #include "auth-request.h"
-#include "auth-worker-client.h"
+#include "auth-worker-server.h"
 #include "auth-worker-connection.h"
 
 #include <unistd.h>

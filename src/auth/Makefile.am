@@ -103,8 +103,8 @@ libauth_la_SOURCES = \
 	auth-settings.c \
 	auth-fields.c \
 	auth-token.c \
-	auth-worker-client.c \
 	auth-worker-connection.c \
+	auth-worker-server.c \
 	db-checkpassword.c \
 	db-dict.c \
 	db-dict-cache-key.c \
@@ -170,8 +170,8 @@ headers = \
 	auth-settings.h \
 	auth-fields.h \
 	auth-token.h \
-	auth-worker-client.h \
 	auth-worker-connection.h \
+	auth-worker-server.h \
 	db-dict.h \
 	db-ldap.h \
 	db-sql.h \

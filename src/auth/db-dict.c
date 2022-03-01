@@ -9,7 +9,7 @@
 #include "settings.h"
 #include "dict.h"
 #include "auth-request.h"
-#include "auth-worker-client.h"
+#include "auth-worker-server.h"
 #include "db-dict.h"
 
 #include <stddef.h>
