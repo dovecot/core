@@ -96,7 +96,7 @@ static const struct {
 	{ .name = "mailbox_delete",
 	  .chr = 'D',
 	  .required_keys = "hierarchy_sep",
-	  .optional_keys = "mailboxes dirs unsubscribes"
+	  .optional_keys = "escape_char mailboxes dirs unsubscribes"
 	},
 	{ .name = "mailbox",
 	  .chr = 'B',
@@ -1160,7 +1160,8 @@ dsync_ibc_stream_encode_delete(string_t *str,
 static void
 dsync_ibc_stream_send_mailbox_deletes(struct dsync_ibc *_ibc,
 				      const struct dsync_mailbox_delete *deletes,
-				      unsigned int count, char hierarchy_sep)
+				      unsigned int count, char hierarchy_sep,
+				      char escape_char)
 {
 	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
 	struct dsync_serializer_encoder *encoder;
@@ -1173,6 +1174,8 @@ dsync_ibc_stream_send_mailbox_deletes(struct dsync_ibc *_ibc,
 	encoder = dsync_ibc_send_encode_begin(ibc, ITEM_MAILBOX_DELETE);
 	sep[0] = hierarchy_sep; sep[1] = '\0';
 	dsync_serializer_encode_add(encoder, "hierarchy_sep", sep);
+	sep[0] = escape_char; sep[1] = '\0';
+	dsync_serializer_encode_add(encoder, "escape_char", sep);
 
 	substr = t_str_new(128);
 	dsync_ibc_stream_encode_delete(substr, encoder, deletes, count,
@@ -1213,7 +1216,8 @@ decode_mailbox_deletes(ARRAY_TYPE(dsync_mailbox_delete) *deletes,
 static enum dsync_ibc_recv_ret
 dsync_ibc_stream_recv_mailbox_deletes(struct dsync_ibc *_ibc,
 				      const struct dsync_mailbox_delete **deletes_r,
-				      unsigned int *count_r, char *hierarchy_sep_r)
+				      unsigned int *count_r, char *hierarchy_sep_r,
+				      char *escape_char_r)
 {
 	struct dsync_ibc_stream *ibc = (struct dsync_ibc_stream *)_ibc;
 	struct dsync_deserializer_decoder *decoder;
@@ -1234,6 +1238,16 @@ dsync_ibc_stream_recv_mailbox_deletes(struct dsync_ibc *_ibc,
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 	}
 	*hierarchy_sep_r = value[0];
+
+	if (!dsync_deserializer_decode_try(decoder, "escape_char", &value))
+		*escape_char_r = '\0';
+	else {
+		if (strlen(value) > 1) {
+			dsync_ibc_input_error(ibc, decoder, "Invalid escape_char '%s'", value);
+			return DSYNC_IBC_RECV_RET_TRYAGAIN;
+		}
+		*escape_char_r = value[0];
+	}
 
 	if (dsync_deserializer_decode_try(decoder, "mailboxes", &value) &&
 	    decode_mailbox_deletes(&deletes, value,

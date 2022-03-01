@@ -13,23 +13,31 @@
 static void dsync_brain_check_namespaces(struct dsync_brain *brain)
 {
 	struct mail_namespace *ns, *first_ns = NULL;
-	char sep;
+	char sep, escape_char;
 
 	i_assert(brain->hierarchy_sep == '\0');
+	i_assert(brain->escape_char == '\0');
 
 	for (ns = brain->user->namespaces; ns != NULL; ns = ns->next) {
 		if (!dsync_brain_want_namespace(brain, ns))
 			continue;
 
 		sep = mail_namespace_get_sep(ns);
+		escape_char = mailbox_list_get_settings(ns->list)->vname_escape_char;
 		if (first_ns == NULL) {
 			brain->hierarchy_sep = sep;
+			brain->escape_char = escape_char;
 			first_ns = ns;
 		} else if (brain->hierarchy_sep != sep) {
 			i_fatal("Synced namespaces have conflicting separators "
 				"('%c' for prefix=\"%s\", '%c' for prefix=\"%s\")",
 				brain->hierarchy_sep, first_ns->prefix,
 				sep, ns->prefix);
+		} else if (brain->escape_char != escape_char) {
+			i_fatal("Synced namespaces have conflicting escape chars "
+				"('%c' for prefix=\"%s\", '%c' for prefix=\"%s\")",
+				brain->escape_char, first_ns->prefix,
+				escape_char, ns->prefix);
 		}
 	}
 	if (brain->hierarchy_sep != '\0')
@@ -47,10 +55,12 @@ void dsync_brain_mailbox_trees_init(struct dsync_brain *brain)
 	dsync_brain_check_namespaces(brain);
 
 	brain->local_mailbox_tree =
-		dsync_mailbox_tree_init(brain->hierarchy_sep, brain->alt_char);
+		dsync_mailbox_tree_init(brain->hierarchy_sep,
+					brain->escape_char, brain->alt_char);
 	/* we'll convert remote mailbox names to use our own separator */
 	brain->remote_mailbox_tree =
-		dsync_mailbox_tree_init(brain->hierarchy_sep, brain->alt_char);
+		dsync_mailbox_tree_init(brain->hierarchy_sep,
+					brain->escape_char, brain->alt_char);
 
 	/* fill the local mailbox tree */
 	for (ns = brain->user->namespaces; ns != NULL; ns = ns->next) {
@@ -138,7 +148,8 @@ void dsync_brain_send_mailbox_tree_deletes(struct dsync_brain *brain)
 	deletes = dsync_mailbox_tree_get_deletes(brain->local_mailbox_tree,
 						 &count);
 	dsync_ibc_send_mailbox_deletes(brain->ibc, deletes, count,
-				       brain->hierarchy_sep);
+				       brain->hierarchy_sep,
+				       brain->escape_char);
 
 	brain->state = DSYNC_STATE_RECV_MAILBOX_TREE;
 }
@@ -500,14 +511,15 @@ bool dsync_brain_recv_mailbox_tree_deletes(struct dsync_brain *brain)
 	const char *status;
 	const struct dsync_mailbox_delete *deletes;
 	unsigned int i, count;
-	char sep;
+	char sep, escape_char;
 
 	if (dsync_ibc_recv_mailbox_deletes(brain->ibc, &deletes, &count,
-					   &sep) == 0)
+					   &sep, &escape_char) == 0)
 		return FALSE;
 
 	/* apply remote's mailbox deletions based on our local tree */
-	dsync_mailbox_tree_set_remote_sep(brain->local_mailbox_tree, sep);
+	dsync_mailbox_tree_set_remote_chars(brain->local_mailbox_tree, sep,
+					    escape_char);
 	for (i = 0; i < count; i++) {
 		dsync_brain_mailbox_tree_add_delete(brain->local_mailbox_tree,
 						    brain->remote_mailbox_tree,
@@ -526,8 +538,9 @@ bool dsync_brain_recv_mailbox_tree_deletes(struct dsync_brain *brain)
 	/* apply local mailbox deletions based on remote tree */
 	deletes = dsync_mailbox_tree_get_deletes(brain->local_mailbox_tree,
 						 &count);
-	dsync_mailbox_tree_set_remote_sep(brain->remote_mailbox_tree,
-					  brain->hierarchy_sep);
+	dsync_mailbox_tree_set_remote_chars(brain->remote_mailbox_tree,
+					    brain->hierarchy_sep,
+					    brain->escape_char);
 	for (i = 0; i < count; i++) {
 		dsync_brain_mailbox_tree_add_delete(brain->remote_mailbox_tree,
 						    brain->local_mailbox_tree,

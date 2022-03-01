@@ -88,11 +88,12 @@ dsync_ibc_recv_mailbox_tree_node(struct dsync_ibc *ibc,
 enum dsync_ibc_send_ret
 dsync_ibc_send_mailbox_deletes(struct dsync_ibc *ibc,
 			       const struct dsync_mailbox_delete *deletes,
-			       unsigned int count, char hierarchy_sep)
+			       unsigned int count, char hierarchy_sep,
+			       char escape_char)
 {
 	T_BEGIN {
 		ibc->v.send_mailbox_deletes(ibc, deletes, count,
-					      hierarchy_sep);
+					    hierarchy_sep, escape_char);
 	} T_END;
 	return dsync_ibc_send_ret(ibc);
 }
@@ -100,10 +101,11 @@ dsync_ibc_send_mailbox_deletes(struct dsync_ibc *ibc,
 enum dsync_ibc_recv_ret
 dsync_ibc_recv_mailbox_deletes(struct dsync_ibc *ibc,
 			       const struct dsync_mailbox_delete **deletes_r,
-			       unsigned int *count_r, char *hierarchy_sep_r)
+			       unsigned int *count_r, char *hierarchy_sep_r,
+			       char *escape_char_r)
 {
 	return ibc->v.recv_mailbox_deletes(ibc, deletes_r, count_r,
-					     hierarchy_sep_r);
+					   hierarchy_sep_r, escape_char_r);
 }
 
 enum dsync_ibc_send_ret

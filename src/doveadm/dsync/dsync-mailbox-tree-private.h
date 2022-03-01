@@ -6,6 +6,7 @@
 struct dsync_mailbox_tree {
 	pool_t pool;
 	char sep, sep_str[2], remote_sep, alt_char;
+	char escape_char, remote_escape_char;
 	/* root node isn't part of the real mailbox tree. its name is "" and
 	   it has no siblings */
 	struct dsync_mailbox_node root;
