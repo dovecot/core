@@ -1,8 +1,10 @@
 #ifndef DSYNC_BRAIN_H
 #define DSYNC_BRAIN_H
 
+#include "module-context.h"
 #include "guid.h"
 #include "mail-error.h"
+#include "mailbox-list-private.h"
 
 struct mail_namespace;
 struct mail_user;
@@ -84,6 +86,15 @@ struct dsync_brain_settings {
 	/* Input state for DSYNC_BRAIN_SYNC_TYPE_STATE */
 	const char *state;
 };
+
+#define DSYNC_LIST_CONTEXT(obj) \
+	MODULE_CONTEXT(obj, dsync_mailbox_list_module)
+struct dsync_mailbox_list {
+	union mailbox_list_module_context module_ctx;
+	bool have_orig_escape_char;
+};
+extern MODULE_CONTEXT_DEFINE(dsync_mailbox_list_module,
+			     &mailbox_list_module_register);
 
 struct dsync_brain *
 dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,

@@ -363,11 +363,17 @@ static void doveadm_user_init_dsync(struct mail_user *user)
 
 	user->dsyncing = TRUE;
 	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
+		struct dsync_mailbox_list *dlist =
+			p_new(ns->list->pool, struct dsync_mailbox_list, 1);
+		MODULE_CONTEXT_SET(ns->list, dsync_mailbox_list_module, dlist);
+
 		if (ns->list->set.vname_escape_char == '\0') {
 			ns->list->set.vname_escape_char =
 				ns_sep != DSYNC_LIST_VNAME_ESCAPE_CHAR ?
 				DSYNC_LIST_VNAME_ESCAPE_CHAR :
 				DSYNC_LIST_VNAME_ALT_ESCAPE_CHAR;
+		} else {
+			dlist->have_orig_escape_char = TRUE;
 		}
 	}
 }
