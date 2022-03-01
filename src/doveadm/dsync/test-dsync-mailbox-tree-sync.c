@@ -30,6 +30,18 @@ void mailbox_name_get_sha128(const char *name, guid_128_t guid_128_r)
 	memcpy(guid_128_r, sha, I_MIN(GUID_128_SIZE, sizeof(sha)));
 }
 
+void mailbox_list_name_unescape(const char **name ATTR_UNUSED,
+				char escape_char ATTR_UNUSED)
+{
+}
+
+void mailbox_list_name_escape(const char *name,
+			      const char *escape_chars ATTR_UNUSED,
+			      string_t *dest)
+{
+	str_append(dest, name);
+}
+
 static struct dsync_mailbox_node *
 node_create(struct dsync_mailbox_tree *tree, unsigned int counter,
 	    const char *name, unsigned int last_renamed_or_created)

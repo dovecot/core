@@ -84,15 +84,24 @@ void dsync_brain_mailbox_trees_init(struct dsync_brain *brain)
 		dsync_mailbox_tree_iter_init(brain->local_mailbox_tree);
 }
 
+static const char *const *
+dsync_brain_mailbox_to_parts(struct dsync_brain *brain, const char *name)
+{
+	char sep[] = { brain->hierarchy_sep, '\0' };
+	char **parts = p_strsplit(unsafe_data_stack_pool, name, sep);
+	for (unsigned int i = 0; parts[i] != NULL; i++) {
+		mailbox_list_name_unescape((const char **)&parts[i],
+					   brain->escape_char);
+	}
+	return (const char *const *)parts;
+}
 
 void dsync_brain_send_mailbox_tree(struct dsync_brain *brain)
 {
 	struct dsync_mailbox_node *node;
 	enum dsync_ibc_send_ret ret;
 	const char *full_name;
-	char sep[2];
 
-	sep[0] = brain->hierarchy_sep; sep[1] = '\0';
 	while (dsync_mailbox_tree_iter_next(brain->local_tree_iter,
 					    &full_name, &node)) {
 		if (node->ns == NULL) {
@@ -115,19 +124,7 @@ void dsync_brain_send_mailbox_tree(struct dsync_brain *brain)
 					dsync_mailbox_node_to_string(node));
 			}
 
-			/* Avoid sending out mailbox names with escape
-			   characters. Especially when dsync is used for
-			   migration, we don't want to end up having invalid
-			   mUTF7 mailbox names locally. Also, remote might not
-			   even be configured to use the same escape
-			   character. */
-			if (node->ns != NULL) {
-				i_assert(brain->alt_char != '\0');
-				full_name = t_str_replace(full_name,
-					node->ns->list->set.vname_escape_char,
-					brain->alt_char);
-			}
-			parts = t_strsplit(full_name, sep);
+			parts = dsync_brain_mailbox_to_parts(brain, full_name);
 			ret = dsync_ibc_send_mailbox_tree_node(brain->ibc,
 							       parts, node);
 		} T_END;
@@ -302,13 +299,29 @@ dsync_get_mailbox_name(struct dsync_brain *brain, const char *const *name_parts,
 	ns_sep = mail_namespace_get_sep(ns);
 
 	/* build the mailbox name */
+	char escape_chars[] = {
+		brain->escape_char,
+		ns_sep,
+	};
+	struct dsync_mailbox_list *dlist = DSYNC_LIST_CONTEXT(ns->list);
+	if (dlist != NULL && !dlist->have_orig_escape_char) {
+		/* The escape character was added only for dsync internally.
+		   Normally there is no escape character configured. Change
+		   the mailbox names so that it doesn't rely on it. */
+		escape_chars[0] = '\0';
+	}
 	vname = t_str_new(128);
 	for (; *name_parts != NULL; name_parts++) {
-		for (p = *name_parts; *p != '\0'; p++) {
-			if (*p != ns_sep)
-				str_append_c(vname, *p);
-			else
-				str_append_c(vname, brain->alt_char);
+		if (escape_chars[0] != '\0') {
+			mailbox_list_name_escape(*name_parts, escape_chars,
+						 vname);
+		} else {
+			for (p = *name_parts; *p != '\0'; p++) {
+				if (*p != ns_sep)
+					str_append_c(vname, *p);
+				else
+					str_append_c(vname, brain->alt_char);
+			}
 		}
 		str_append_c(vname, ns_sep);
 	}

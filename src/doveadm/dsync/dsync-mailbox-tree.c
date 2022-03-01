@@ -258,13 +258,37 @@ convert_name_to_remote_sep(struct dsync_mailbox_tree *tree, const char *name)
 {
 	string_t *str = t_str_new(128);
 
-	for (; *name != '\0'; name++) {
-		if (*name == tree->sep)
-			str_append_c(str, tree->remote_sep);
-		else if (*name == tree->remote_sep)
-			str_append_c(str, tree->alt_char);
-		else
-			str_append_c(str, *name);
+	char remote_escape_chars[3] = {
+		tree->remote_escape_char,
+		tree->remote_sep,
+		'\0'
+	};
+
+	for (;;) {
+		const char *end = strchr(name, tree->sep);
+		const char *name_part = end == NULL ? name :
+			t_strdup_until(name, end++);
+
+		if (tree->escape_char != '\0')
+			mailbox_list_name_unescape(&name_part, tree->escape_char);
+		if (remote_escape_chars[0] != '\0') {
+			/* The local name can be fully escaped to remote
+			   name and back. */
+			mailbox_list_name_escape(name_part, remote_escape_chars,
+						 str);
+		} else {
+			/* There is no remote escape char, so for conflicting
+			   separator use the alt_char. */
+			for (; *name_part != '\0'; name_part++) {
+				if (*name_part == tree->remote_sep)
+					str_append_c(str, tree->alt_char);
+				else
+					str_append_c(str, *name_part);
+			}
+		}
+		if (end == NULL)
+			break;
+		str_append_c(str, tree->remote_sep);
 	}
 	return str_c(str);
 }
