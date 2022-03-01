@@ -3,7 +3,7 @@
 #include "auth-common.h"
 #include "str.h"
 #include "strescape.h"
-#include "auth-worker-server.h"
+#include "auth-worker-connection.h"
 #include "password-scheme.h"
 #include "passdb.h"
 #include "passdb-blocking.h"

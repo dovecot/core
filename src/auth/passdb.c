@@ -3,7 +3,7 @@
 #include "auth-common.h"
 #include "array.h"
 #include "password-scheme.h"
-#include "auth-worker-server.h"
+#include "auth-worker-connection.h"
 #include "passdb.h"
 
 static ARRAY(struct passdb_module_interface *) passdb_interfaces;

@@ -3,7 +3,7 @@
 #include "auth-common.h"
 #include "array.h"
 #include "ipwd.h"
-#include "auth-worker-server.h"
+#include "auth-worker-connection.h"
 #include "userdb.h"
 
 static ARRAY(struct userdb_module_interface *) userdb_interfaces;

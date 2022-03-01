@@ -26,8 +26,8 @@
 #include "auth-penalty.h"
 #include "auth-token.h"
 #include "auth-request-handler.h"
-#include "auth-worker-server.h"
 #include "auth-worker-client.h"
+#include "auth-worker-connection.h"
 #include "auth-master-connection.h"
 #include "auth-client-connection.h"
 #include "auth-policy.h"
@@ -237,7 +237,7 @@ static void main_init(void)
 	auth_worker_refresh_proctitle("");
 
 	child_wait_init();
-	auth_worker_server_init();
+	auth_worker_connection_init();
 	auths_init();
 	auth_request_handler_init();
 	auth_policy_init();
@@ -270,7 +270,7 @@ static void main_deinit(void)
 		auth_penalty_deinit(&auth_penalty);
 	}
 	/* deinit auth workers, which aborts pending requests */
-        auth_worker_server_deinit();
+        auth_worker_connection_deinit();
 	/* deinit passdbs and userdbs. it aborts any pending async requests. */
 	auths_deinit();
 	/* flush pending requests */

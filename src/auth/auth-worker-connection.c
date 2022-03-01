@@ -14,7 +14,7 @@
 #include "eacces-error.h"
 #include "auth-request.h"
 #include "auth-worker-client.h"
-#include "auth-worker-server.h"
+#include "auth-worker-connection.h"
 
 #include <unistd.h>
 
@@ -181,7 +181,8 @@ static int auth_worker_handshake_args(struct connection *conn,
 	return 1;
 }
 
-static void auth_worker_server_connected(struct connection *conn, bool success)
+static void auth_worker_connection_connected(struct connection *conn,
+					     bool success)
 {
 	if (!success)
 		return;
@@ -444,7 +445,7 @@ static void worker_input_resume(struct auth_worker_connection *worker)
 	connection_input_resume(&worker->conn);
 }
 
-static const struct connection_settings auth_worker_server_settings =
+static const struct connection_settings auth_worker_connection_settings =
 {
 	.service_name_in = AUTH_WORKER_NAME,
 	.service_name_out = AUTH_MASTER_NAME,
@@ -456,9 +457,9 @@ static const struct connection_settings auth_worker_server_settings =
 	.unix_client_connect_msecs = AUTH_WORKER_CONNECT_RETRY_TIMEOUT_MSECS,
 };
 
-static const struct connection_vfuncs auth_worker_server_funcs =
+static const struct connection_vfuncs auth_worker_connection_funcs =
 {
-	.client_connected = auth_worker_server_connected,
+	.client_connected = auth_worker_connection_connected,
 	.destroy = auth_worker_destroy,
 	.handshake_args = auth_worker_handshake_args,
 	.input_args = worker_input_args,
@@ -499,7 +500,7 @@ auth_worker_call(pool_t pool, const char *username, const char *data,
 	return worker;
 }
 
-void auth_worker_server_resume_input(struct auth_worker_connection *worker)
+void auth_worker_connection_resume_input(struct auth_worker_connection *worker)
 {
 	if (worker->request == NULL) {
 		/* request was just finished, don't try to resume it */
@@ -513,18 +514,18 @@ void auth_worker_server_resume_input(struct auth_worker_connection *worker)
 	}
 }
 
-void auth_worker_server_init(void)
+void auth_worker_connection_init(void)
 {
 	worker_socket_path = "auth-worker";
 
 	i_array_init(&worker_request_array, 128);
 	worker_request_queue = aqueue_init(&worker_request_array.arr);
 
-	connections = connection_list_init(&auth_worker_server_settings,
-					   &auth_worker_server_funcs);
+	connections = connection_list_init(&auth_worker_connection_settings,
+					   &auth_worker_connection_funcs);
 }
 
-void auth_worker_server_deinit(void)
+void auth_worker_connection_deinit(void)
 {
 	connection_list_deinit(&connections);
 

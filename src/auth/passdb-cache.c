@@ -4,7 +4,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "restrict-process-size.h"
-#include "auth-worker-server.h"
+#include "auth-worker-connection.h"
 #include "password-scheme.h"
 #include "passdb.h"
 #include "passdb-cache.h"

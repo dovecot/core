@@ -2,7 +2,7 @@
 
 #include "auth-common.h"
 #include "str.h"
-#include "auth-worker-server.h"
+#include "auth-worker-connection.h"
 #include "userdb.h"
 #include "userdb-blocking.h"
 
@@ -120,7 +120,7 @@ void userdb_blocking_iter_next(struct userdb_iterate_context *_ctx)
 		(struct blocking_userdb_iterate_context *)_ctx;
 
 	ctx->next = TRUE;
-	auth_worker_server_resume_input(ctx->conn);
+	auth_worker_connection_resume_input(ctx->conn);
 }
 
 int userdb_blocking_iter_deinit(struct userdb_iterate_context **_ctx)
@@ -134,6 +134,6 @@ int userdb_blocking_iter_deinit(struct userdb_iterate_context **_ctx)
 	/* iter_callback() may still be called */
 	ctx->destroyed = TRUE;
 
-	auth_worker_server_resume_input(ctx->conn);
+	auth_worker_connection_resume_input(ctx->conn);
 	return ret;
 }
