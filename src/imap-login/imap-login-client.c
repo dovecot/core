@@ -20,6 +20,7 @@
 #include "imap-quote.h"
 #include "imap-login-commands.h"
 #include "imap-login-settings.h"
+#include "imap-capability-list.h"
 
 #if LOGIN_MAX_INBUF_SIZE < 1024+2
 #  error LOGIN_MAX_INBUF_SIZE too short to fit all ID command parameters
@@ -92,31 +93,31 @@ static const char *get_capability(struct client *client)
 {
 	struct imap_client *imap_client = (struct imap_client *)client;
 	string_t *cap_str = t_str_new(256);
-	bool explicit_capability = FALSE;
 
-	if (*imap_client->set->imap_capability == '\0')
-		str_append(cap_str, CAPABILITY_BANNER_STRING);
-	else if (*imap_client->set->imap_capability != '+') {
-		explicit_capability = TRUE;
-		str_append(cap_str, imap_client->set->imap_capability);
-	} else {
-		str_append(cap_str, CAPABILITY_BANNER_STRING);
-		str_append_c(cap_str, ' ');
-		str_append(cap_str, imap_client->set->imap_capability + 1);
-	}
+    /* imap-login is preauth by definition */
+    enum imap_capability_visibility visibility = IMAP_CAP_VISIBILITY_PREAUTH;
 
-	if (!explicit_capability) {
-		if (imap_client->set->imap_literal_minus)
-			str_append(cap_str, " LITERAL-");
-		else
-			str_append(cap_str, " LITERAL+");
-	}
+    /* is tls/ssl enabled? */
+    if (client->tls)
+        visibility |= IMAP_CAP_VISIBILITY_TLS_ACTIVE;
+    else
+        visibility |= IMAP_CAP_VISIBILITY_TLS_INACTIVE;
 
-	if (client_is_tls_enabled(client) && !client->tls)
-		str_append(cap_str, " STARTTLS");
-	if (is_login_cmd_disabled(client))
-		str_append(cap_str, " LOGINDISABLED");
+    /* is login cmd disabled? */
+    if (is_login_cmd_disabled(client))
+        visibility |= IMAP_CAP_VISIBILITY_NO_LOGIN;
 
+    /* Are we secured? (localhost? tls? etc) */
+    if (imap_client->common.secured)
+        visibility |= IMAP_CAP_VISIBILITY_SECURE;
+    else
+        visibility |= IMAP_CAP_VISIBILITY_INSECURE;
+
+    /* build capability string based on IMAP_CAP_VISIBILITY_ flags */
+    imap_capability_list_get_capability(imap_client->capability_list,
+                         cap_str, visibility);
+
+   	/* grab the AUTH= capabilities from auth server */
 	client_authenticate_get_capabilities(client, cap_str);
 	return str_c(cap_str);
 }
@@ -374,6 +375,7 @@ static struct client *imap_client_alloc(pool_t pool)
 static void imap_client_create(struct client *client, void **other_sets)
 {
 	struct imap_client *imap_client = (struct imap_client *)client;
+    bool explicit_capability = FALSE;
 
 	imap_client->set = other_sets[0];
 	imap_client->parser =
@@ -382,6 +384,51 @@ static void imap_client_create(struct client *client, void **other_sets)
 				   IMAP_LOGIN_MAX_LINE_LENGTH);
 	if (imap_client->set->imap_literal_minus)
 		imap_parser_enable_literal_minus(imap_client->parser);
+
+	/* create our capability list from CAPABILITY_BANNER_STRING */
+	imap_client->capability_list =
+		 imap_capability_list_create(NULL);
+
+	if (*imap_client->set->imap_capability == '\0')
+		imap_capability_list_append_string(imap_client->capability_list,
+						   CAPABILITY_BANNER_STRING);
+	else if (*imap_client->set->imap_capability != '+') {
+		imap_capability_list_append_string(imap_client->capability_list,
+						   imap_client->set->imap_capability);
+		explicit_capability = TRUE;
+	} else {
+		/* add the capability banner string to the cap list */
+		imap_capability_list_append_string(imap_client->capability_list,
+						   CAPABILITY_BANNER_STRING);
+		/* add everything after the plus to our cap list */
+		imap_capability_list_append_string(imap_client->capability_list,
+						   imap_client->set->imap_capability + 1);
+	}
+
+	/* Add the LITERAL+/- if the capability isn't explicitly set */
+	if (!explicit_capability) {
+		if (imap_client->set->imap_literal_minus)
+			imap_capability_list_add(imap_client->capability_list, "LITERAL-",
+						 IMAP_CAP_VISIBILITY_ALWAYS);
+		else
+			imap_capability_list_add(imap_client->capability_list, "LITERAL+",
+						 IMAP_CAP_VISIBILITY_ALWAYS);
+	}
+
+	/* add STARTTLS to cap list if it is needed */
+	if (client_is_tls_enabled(client)) {
+		imap_capability_list_add(imap_client->capability_list, "STARTTLS",
+					 IMAP_CAP_VISIBILITY_FLAG_REQUIRE_ALL |
+					 IMAP_CAP_VISIBILITY_PREAUTH |
+					 IMAP_CAP_VISIBILITY_TLS_INACTIVE);
+	}
+
+	/* add LOGINDISABLED to cap list */
+	imap_capability_list_add(imap_client->capability_list, "LOGINDISABLED",
+				 IMAP_CAP_VISIBILITY_FLAG_REQUIRE_ALL |
+				 IMAP_CAP_VISIBILITY_PREAUTH |
+				 IMAP_CAP_VISIBILITY_NO_LOGIN);
+
 	client->io = io_add_istream(client->input, client_input, client);
 }
 
@@ -389,6 +436,7 @@ static void imap_client_destroy(struct client *client)
 {
 	struct imap_client *imap_client = (struct imap_client *)client;
 
+    imap_capability_list_unref(&imap_client->capability_list);
 	i_free_and_null(imap_client->proxy_backend_capability);
 	imap_parser_unref(&imap_client->parser);
 }
