@@ -1,6 +1,6 @@
 #!/bin/sh
 
-## serial 1
+## serial 2
 
 set -eu
 
@@ -36,12 +36,12 @@ else
   test_out="test.out~$$"
   trap "rm -f $test_out" 0 1 2 3 15
   supp_path="$top_srcdir/run-test-valgrind.supp"
+  ret=0
   if test -r "$supp_path"; then
-    $VALGRIND -q $trace_children --error-exitcode=213 --leak-check=full --gen-suppressions=all --suppressions="$supp_path" --log-file=$test_out $noundef "$@"
+    $VALGRIND -q $trace_children --error-exitcode=213 --leak-check=full --gen-suppressions=all --suppressions="$supp_path" --log-file=$test_out $noundef "$@" || ret=$?
   else
-    $VALGRIND -q $trace_children --error-exitcode=213 --leak-check=full --gen-suppressions=all --log-file=$test_out $noundef "$@"
+    $VALGRIND -q $trace_children --error-exitcode=213 --leak-check=full --gen-suppressions=all --log-file=$test_out $noundef "$@" || ret=$?
   fi
-  ret=$?
   if test -s $test_out; then
     cat $test_out
     ret=1
