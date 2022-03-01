@@ -26,8 +26,6 @@ void auth_fields_remove(struct auth_fields *fields, const char *key);
 const char *auth_fields_find(struct auth_fields *fields, const char *key);
 bool auth_fields_exists(struct auth_fields *fields, const char *key);
 
-void auth_fields_import(struct auth_fields *fields, const char *str,
-			enum auth_field_flags flags);
 void auth_fields_import_args(struct auth_fields *fields,
 			     const char *const *args,
 			     enum auth_field_flags flags);

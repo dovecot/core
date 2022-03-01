@@ -143,12 +143,6 @@ void auth_fields_import_prefixed(struct auth_fields *fields, const char *prefix,
 	} T_END;
 }
 
-void auth_fields_import(struct auth_fields *fields, const char *str,
-			enum auth_field_flags flags)
-{
-	auth_fields_import_prefixed(fields, "", str, flags);
-}
-
 void auth_fields_import_args(struct auth_fields *fields,
 			     const char *const *args,
 			     enum auth_field_flags flags)
