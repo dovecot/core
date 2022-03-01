@@ -238,6 +238,8 @@ struct client {
 	bool mailbox_examined:1;
 	bool anvil_sent:1;
 	bool tls_compression:1;
+    bool secured:1;
+    bool ssl_secured:1;
 	bool input_skip_line:1; /* skip all the data until we've
 					   found a new line */
 	bool modseqs_sent_since_sync:1;
