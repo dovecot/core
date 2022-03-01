@@ -40,6 +40,9 @@ static const char *dsync_state_names[] = {
 	"done"
 };
 
+struct dsync_mailbox_list_module dsync_mailbox_list_module =
+	MODULE_CONTEXT_INIT(&mailbox_list_module_register);
+
 static void dsync_brain_mailbox_states_dump(struct dsync_brain *brain);
 
 static const char *
