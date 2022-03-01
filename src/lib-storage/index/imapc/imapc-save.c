@@ -519,14 +519,16 @@ void imapc_transaction_save_rollback(struct mail_save_context *_ctx)
 	       ctx->failed = TRUE;
 	       (void)imapc_transaction_save_commit_pre(_ctx);
 
+	       i_assert(ctx->finished || ctx->src_mbox != NULL);
 	       /* Clean up the pending copy and the context attached to it */
-	       if (ctx->src_mbox->pending_copy_request != NULL)
-		       seqset_builder_deinit(&ctx->src_mbox->pending_copy_request->uidset_builder);
-
-	       imapc_copy_bulk_ctx_deinit(ctx);
-	       i_free(ctx->src_mbox->pending_copy_request);
-
-	       imapc_client_stop(ctx->src_mbox->storage->client->client);
+	       if (ctx->src_mbox != NULL) {
+		       if (ctx->src_mbox->pending_copy_request != NULL) {
+			       seqset_builder_deinit(&ctx->src_mbox->pending_copy_request->uidset_builder);
+			       i_free(ctx->src_mbox->pending_copy_request);
+		       }
+		       imapc_copy_bulk_ctx_deinit(ctx);
+		       imapc_client_stop(ctx->src_mbox->storage->client->client);
+	       }
        }
 
 	/* Expunge all added messages from index */
