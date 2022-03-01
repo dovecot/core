@@ -137,9 +137,12 @@ static void test_cpu_limit_nested(enum cpu_limit_type type, const char *type_str
 void test_cpu_limit(void)
 {
 	test_cpu_limit_simple(CPU_LIMIT_TYPE_USER, "user");
-	test_cpu_limit_simple(CPU_LIMIT_TYPE_SYSTEM, "system");
+	/* the system cpu-limit tests take too long with valgrind */
+	if (!ON_VALGRIND)
+		test_cpu_limit_simple(CPU_LIMIT_TYPE_SYSTEM, "system");
 	test_cpu_limit_simple(CPU_LIMIT_TYPE_ALL, "all");
 	test_cpu_limit_nested(CPU_LIMIT_TYPE_USER, "user");
-	test_cpu_limit_nested(CPU_LIMIT_TYPE_SYSTEM, "system");
+	if (!ON_VALGRIND)
+		test_cpu_limit_nested(CPU_LIMIT_TYPE_SYSTEM, "system");
 	test_cpu_limit_nested(CPU_LIMIT_TYPE_ALL, "all");
 }
