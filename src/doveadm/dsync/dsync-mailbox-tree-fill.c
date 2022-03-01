@@ -159,6 +159,8 @@ dsync_mailbox_tree_add_change_timestamps(struct dsync_mailbox_tree *tree,
 
 	iter = mailbox_log_iter_init(log);
 	while ((rec = mailbox_log_iter_next(iter)) != NULL) {
+		/* For DELETE_MAILBOX the record_guid is the mailbox GUID.
+		   Otherwise it's 128bit SHA1 of the mailbox vname. */
 		node = rec->type == MAILBOX_LOG_RECORD_DELETE_MAILBOX ? NULL :
 			dsync_mailbox_tree_find_sha(tree, ns, rec->mailbox_guid);
 
