@@ -108,6 +108,7 @@ static void test_seq_set_builder_try_add(void)
 	test_assert(!seqset_builder_try_add(seq_set_builder, 24, 17));
 	test_assert(str_len(test_str) <= 24);
 	test_assert_strcmp(str_c(test_str), "UID MOVE 1,3,5,7,9,2,13,");
+	seqset_builder_deinit(&seq_set_builder);
 
 	str_truncate(test_str, 0);
 	seq_set_builder = seqset_builder_init(test_str);
