@@ -3,8 +3,9 @@
 #include "lib.h"
 #include "str.h"
 #include "strescape.h"
+#include "connection.h"
 #include "istream.h"
-#include "write-full.h"
+#include "ostream.h"
 #include "master-service.h"
 #include "sleep.h"
 #include "doveadm.h"
@@ -81,41 +82,35 @@ void doveadm_master_send_signal(int signo)
 	}
 }
 
-static void cmd_stop(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
+static void cmd_stop(struct doveadm_cmd_context *cctx ATTR_UNUSED)
 {
 	doveadm_master_send_signal(SIGTERM);
 }
 
-static void cmd_reload(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
+static void cmd_reload(struct doveadm_cmd_context *cctx ATTR_UNUSED)
 {
 	doveadm_master_send_signal(SIGHUP);
 }
 
 static struct istream *master_service_send_cmd(const char *cmd)
 {
+	const char *path =
+		t_strconcat(doveadm_settings->base_dir, "/master", NULL);
+	const struct connection_settings set = {
+		.service_name_out = "master-client",
+		.service_name_in = "master-server",
+		.major_version = 1,
+		.minor_version = 0,
+	};
 	struct istream *input;
-	const char *path, *line;
-
-	path = t_strconcat(doveadm_settings->base_dir, "/master", NULL);
-	int fd = net_connect_unix(path);
-	if (fd == -1)
-		i_fatal("net_connect_unix(%s) failed: %m", path);
-	net_set_nonblock(fd, FALSE);
-
-	const char *str =
-		t_strdup_printf("VERSION\tmaster-client\t1\t0\n%s\n", cmd);
-	if (write_full(fd, str, strlen(str)) < 0)
-		i_fatal("write(%s) failed: %m", path);
-
-	input = i_stream_create_fd_autoclose(&fd, IO_BLOCK_SIZE);
-	alarm(5);
-	if ((line = i_stream_read_next_line(input)) == NULL)
-		i_fatal("read(%s) failed: %m", path);
-	if (!version_string_verify(line, "master-server", 1)) {
-		i_fatal_status(EX_PROTOCOL,
-			"%s is not a compatible master socket", path);
-	}
-	alarm(0);
+	struct ostream *output;
+	const char *error;
+	if (doveadm_blocking_connect(path, &set, &input, &output, &error) < 0)
+		i_fatal("%s", error);
+	o_stream_nsend_str(output, t_strconcat(cmd, "\n", NULL));
+	if (o_stream_flush(output) < 0)
+		i_fatal("%s", o_stream_get_error(output));
+	o_stream_unref(&output);
 	return input;
 }
 
@@ -254,7 +249,7 @@ static void cmd_process_status(struct doveadm_cmd_context *cctx)
 }
 
 struct doveadm_cmd_ver2 doveadm_cmd_stop_ver2 = {
-	.old_cmd = cmd_stop,
+	.cmd = cmd_stop,
 	.name = "stop",
 	.usage = "",
 DOVEADM_CMD_PARAMS_START
@@ -262,7 +257,7 @@ DOVEADM_CMD_PARAMS_END
 };
 
 struct doveadm_cmd_ver2 doveadm_cmd_reload_ver2 = {
-        .old_cmd = cmd_reload,
+        .cmd = cmd_reload,
         .name = "reload",
         .usage = "",
 DOVEADM_CMD_PARAMS_START

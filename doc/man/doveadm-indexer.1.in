@@ -1,0 +1,79 @@
+.\" Copyright (c) 2022 Dovecot authors, see the included COPYING file
+.TH DOVEADM\-INDEXER 1 "2022-02-02" "Dovecot v2.3" "Dovecot"
+.SH NAME
+doveadm\-indexer \- Commands related to managing the indexer process
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.BR doveadm " [" \-Dv ]
+[\fB\-f\fP \fIformatter\fP]
+.BI indexer \ command
+.RI [ OPTIONS ]\ [ ARGUMENTS ]
+\"------------------------------------------------------------------------
+.SH DESCRIPTION
+.B doveadm indexer
+can be used to manage the indexer process.
+.\"------------------------------------------------------------------------
+@INCLUDE:global-options-formatter@
+.\"------------------------------------------------------------------------
+.SH COMMANDS
+.SS indexer add
+.B doveadm indexer add
+[\fB\-h\fP]
+[\fB\-n\fP \fImax_recent\fP]
+.I user
+.I mailbox
+.PP
+Add indexing request for the given
+.I user
+and the
+.I mailbox
+to the indexer queue. 
+It works the same as the
+.B doveadm index -q
+command.
+.PP
+.\"-------------------------------------
+.TP
+.B \-h
+Add the indexing request to the head of the queue. By default the request is
+added to the tail of the queue.
+.\"-------------------------------------
+.TP
+.BI \-n \ max_recent
+An integer value, which specifies the maximum number of \(rsRecent
+messages in mailboxes.
+If the mailbox contains more than
+.I max_recent
+messages with \(rsRecent flag set, the mailbox will not be indexed.
+This may be useful to avoid unnecessary indexing for large mailboxes that
+are never opened.
+.\"------------------------------------------------------------------------
+.SS indexer remove
+.B doveadm indexer remove
+.I user_mask
+.PP
+Remove all indexer requests for the matching
+.IR user_mask .
+It\(aqs possible to use wildcards. Requests that are currently processed by
+indexer-worker are not listed; use
+.B doveadm kick
+instead to kick them.
+.\"------------------------------------------------------------------------
+.SS indexer list
+.B doveadm indexer list
+.IR user_mask " [" mailbox_mask ]
+.PP
+List all the queued indexing requests matching the
+.I user_mask
+(and the
+.IR mailbox_mask ).
+It\(aqs possible to use wildcards. Requests that are currently processed by
+indexer-worker are not listed; use
+.B doveadm who
+instead to see them.
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH SEE ALSO
+.BR doveadm (1)
+.BR doveadm-index (1)

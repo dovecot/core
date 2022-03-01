@@ -1145,7 +1145,7 @@ static void test_data_disconnect(void)
 }
 
 /*
- * Data timout
+ * Data timeout
  */
 
 /* server */
@@ -1947,8 +1947,8 @@ static void server_connection_accept(void *context ATTR_UNUSED)
 /* */
 
 static struct connection_settings server_connection_set = {
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.client = FALSE
 };
 
@@ -2034,7 +2034,7 @@ static void test_message_delivery(const char *message, const char *file)
 
 	msize = strlen(message);
 
-	input = i_stream_create_file(file, (size_t)-1);
+	input = i_stream_create_file(file, SIZE_MAX);
 	while ((ret = i_stream_read_more(input, &data, &size)) > 0) {
 		const unsigned char *mdata;
 

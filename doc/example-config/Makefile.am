@@ -7,7 +7,7 @@ dist-hook:
 	rm -f $(distdir)/README
 
 README: README.in Makefile
-	cat $(srcdir)/README.in | sed "s|@exampledir@|$(exampledir)|" > README
+	$(AM_V_GEN)cat $(srcdir)/README.in | sed "s|@exampledir@|$(exampledir)|" > README
 
 exampledir = $(docdir)/example-config
 example_DATA = \
@@ -15,6 +15,7 @@ example_DATA = \
 	dovecot-dict-auth.conf.ext \
 	dovecot-dict-sql.conf.ext \
 	dovecot-ldap.conf.ext \
+	dovecot-oauth2.conf.ext \
 	dovecot-sql.conf.ext
 
 EXTRA_DIST = \

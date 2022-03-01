@@ -20,13 +20,15 @@ static bool stats_settings_check(void *_set, pool_t pool, const char **error_r);
 static struct file_listener_settings stats_unix_listeners_array[] = {
 	{ "stats-reader", 0600, "", "" },
 	{ "stats-writer", 0660, "", "$default_internal_group" },
+	{ "login/stats-writer", 0600, "$default_login_user", "" },
 };
 static struct file_listener_settings *stats_unix_listeners[] = {
 	&stats_unix_listeners_array[0],
 	&stats_unix_listeners_array[1],
+	&stats_unix_listeners_array[2],
 };
 static buffer_t stats_unix_listeners_buf = {
-	stats_unix_listeners, sizeof(stats_unix_listeners), { NULL, }
+	{ { stats_unix_listeners, sizeof(stats_unix_listeners) } }
 };
 /* </settings checks> */
 
@@ -48,7 +50,7 @@ struct service_settings stats_service_settings = {
 	.client_limit = 0,
 	.service_count = 0,
 	.idle_kill = UINT_MAX,
-	.vsz_limit = (uoff_t)-1,
+	.vsz_limit = UOFF_T_MAX,
 
 	.unix_listeners = { { &stats_unix_listeners_buf,
 			      sizeof(stats_unix_listeners[0]) } },
@@ -61,15 +63,15 @@ struct service_settings stats_service_settings = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct stats_exporter_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct stats_exporter_settings)
 
 static const struct setting_define stats_exporter_setting_defines[] = {
-	DEF(SET_STR, name),
-	DEF(SET_STR, transport),
-	DEF(SET_STR, transport_args),
-	DEF(SET_TIME_MSECS, transport_timeout),
-	DEF(SET_STR, format),
-	DEF(SET_STR, format_args),
+	DEF(STR, name),
+	DEF(STR, transport),
+	DEF(STR, transport_args),
+	DEF(TIME_MSECS, transport_timeout),
+	DEF(STR, format),
+	DEF(STR, format_args),
 	SETTING_DEFINE_LIST_END
 };
 
@@ -89,7 +91,7 @@ const struct setting_parser_info stats_exporter_setting_parser_info = {
 	.type_offset = offsetof(struct stats_exporter_settings, name),
 	.struct_size = sizeof(struct stats_exporter_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.check_func = stats_exporter_settings_check,
 };
 
@@ -99,16 +101,16 @@ const struct setting_parser_info stats_exporter_setting_parser_info = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct stats_metric_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct stats_metric_settings)
 
 static const struct setting_define stats_metric_setting_defines[] = {
-	DEF(SET_STR, metric_name),
-	DEF(SET_STR, fields),
-	DEF(SET_STR, group_by),
-	DEF(SET_STR, filter),
-	DEF(SET_STR, exporter),
-	DEF(SET_STR, exporter_include),
-	DEF(SET_STR, description),
+	DEF(STR, metric_name),
+	DEF(STR, fields),
+	DEF(STR, group_by),
+	DEF(STR, filter),
+	DEF(STR, exporter),
+	DEF(STR, exporter_include),
+	DEF(STR, description),
 	SETTING_DEFINE_LIST_END
 };
 
@@ -118,7 +120,7 @@ static const struct stats_metric_settings stats_metric_default_settings = {
 	.filter = "",
 	.exporter = "",
 	.group_by = "",
-	.exporter_include = "name hostname timestamps categories fields",
+	.exporter_include = STATS_METRIC_SETTINGS_DEFAULT_EXPORTER_INCLUDE,
 	.description = "",
 };
 
@@ -129,7 +131,7 @@ const struct setting_parser_info stats_metric_setting_parser_info = {
 	.type_offset = offsetof(struct stats_metric_settings, metric_name),
 	.struct_size = sizeof(struct stats_metric_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.check_func = stats_metric_settings_check,
 };
 
@@ -139,14 +141,15 @@ const struct setting_parser_info stats_metric_setting_parser_info = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct stats_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct stats_settings)
 #undef DEFLIST_UNIQUE
 #define DEFLIST_UNIQUE(field, name, defines) \
-	{ SET_DEFLIST_UNIQUE, name, \
-	  offsetof(struct stats_settings, field), defines }
+	{ .type = SET_DEFLIST_UNIQUE, .key = name, \
+	  .offset = offsetof(struct stats_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define stats_setting_defines[] = {
-	DEF(SET_STR, stats_http_rawlog_dir),
+	DEF(STR, stats_http_rawlog_dir),
 
 	DEFLIST_UNIQUE(metrics, "metric", &stats_metric_setting_parser_info),
 	DEFLIST_UNIQUE(exporters, "event_exporter", &stats_exporter_setting_parser_info),
@@ -165,10 +168,10 @@ const struct setting_parser_info stats_setting_parser_info = {
 	.defines = stats_setting_defines,
 	.defaults = &stats_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct stats_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.check_func = stats_settings_check,
 };
 
@@ -501,21 +504,21 @@ static bool stats_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 				 const char **error_r)
 {
 	struct stats_settings *set = _set;
-	struct stats_exporter_settings *const *exporter;
-	struct stats_metric_settings *const *metric;
+	struct stats_exporter_settings *exporter;
+	struct stats_metric_settings *metric;
 
 	if (!array_is_created(&set->metrics) || !array_is_created(&set->exporters))
 		return TRUE;
 
 	/* check that all metrics refer to exporters that exist */
-	array_foreach(&set->metrics, metric) {
+	array_foreach_elem(&set->metrics, metric) {
 		bool found = FALSE;
 
-		if ((*metric)->exporter[0] == '\0')
+		if (metric->exporter[0] == '\0')
 			continue; /* metric not exported */
 
-		array_foreach(&set->exporters, exporter) {
-			if (strcmp((*metric)->exporter, (*exporter)->name) == 0) {
+		array_foreach_elem(&set->exporters, exporter) {
+			if (strcmp(metric->exporter, exporter->name) == 0) {
 				found = TRUE;
 				break;
 			}
@@ -524,8 +527,8 @@ static bool stats_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		if (!found) {
 			*error_r = t_strdup_printf("metric %s refers to "
 						   "non-existent exporter '%s'",
-						   (*metric)->metric_name,
-						   (*metric)->exporter);
+						   metric->metric_name,
+						   metric->exporter);
 			return FALSE;
 		}
 	}

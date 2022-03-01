@@ -41,6 +41,11 @@ int acl_mailbox_right_lookup(struct mailbox *box, unsigned int right_idx)
 
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT_REQUIRE(box->list);
 
+	/* If acls are ignored for this namespace do not check if
+	   there are rights. */
+	if (alist->ignore_acls)
+		return 1;
+
 	ret = acl_object_have_right(abox->aclobj,
 			alist->rights.acl_storage_right_idx[right_idx]);
 	if (ret > 0)
@@ -84,7 +89,8 @@ static void acl_mailbox_free(struct mailbox *box)
 {
 	struct acl_mailbox *abox = ACL_CONTEXT_REQUIRE(box);
 
-	acl_object_deinit(&abox->aclobj);
+	if (abox->aclobj != NULL)
+		acl_object_deinit(&abox->aclobj);
 	abox->module_ctx.super.free(box);
 }
 
@@ -109,7 +115,7 @@ static void acl_mailbox_copy_acls_from_parent(struct mailbox *box)
 			(void)acl_object_update(abox->aclobj, &update);
 	}
 	/* FIXME: Add error handling */
-	acl_object_list_deinit(&iter);
+	(void)acl_object_list_deinit(&iter);
 	acl_object_deinit(&parent_aclobj);
 }
 
@@ -148,6 +154,12 @@ acl_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 	abox->skip_acl_checks = TRUE;
 	ret = abox->module_ctx.super.create_box(box, update, directory);
 	abox->skip_acl_checks = FALSE;
+	/* update local acl object, otherwise with LAYOUT=INDEX, we end up
+	   without local path to acl file, and copying fails. */
+	struct acl_backend *acl_be = abox->aclobj->backend;
+	acl_object_deinit(&abox->aclobj);
+	abox->aclobj = acl_object_init_from_name(acl_be, box->name);
+
 	if (ret == 0)
 		acl_mailbox_copy_acls_from_parent(box);
 	return ret;
@@ -281,9 +293,9 @@ acl_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 		if (!acl_flags)
 			flags &= MAIL_SEEN | MAIL_DELETED;
 		if (!acl_flag_seen)
-			flags &= ~MAIL_SEEN;
+			flags &= ENUM_NEGATE(MAIL_SEEN);
 		if (!acl_flag_del)
-			flags &= ~MAIL_DELETED;
+			flags &= ENUM_NEGATE(MAIL_DELETED);
 	} else if (!acl_flags || !acl_flag_seen || !acl_flag_del) {
 		/* we don't have permission to replace all the flags. */
 		if (!acl_flags && !acl_flag_seen && !acl_flag_del) {
@@ -293,7 +305,8 @@ acl_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 
 		/* handle this by first removing the allowed flags and
 		   then adding the allowed flags */
-		acl_mail_update_flags(_mail, MODIFY_REMOVE, ~flags);
+		acl_mail_update_flags(_mail, MODIFY_REMOVE,
+				      ENUM_NEGATE(flags));
 		if (flags != 0)
 			acl_mail_update_flags(_mail, MODIFY_ADD, flags);
 		return;
@@ -370,12 +383,12 @@ acl_save_get_flags(struct mailbox *box, enum mail_flags *flags,
 		return -1;
 
 	if (!acl_flag_seen) {
-		*flags &= ~MAIL_SEEN;
-		*pvt_flags &= ~MAIL_SEEN;
+		*flags &= ENUM_NEGATE(MAIL_SEEN);
+		*pvt_flags &= ENUM_NEGATE(MAIL_SEEN);
 	}
 	if (!acl_flag_del) {
-		*flags &= ~MAIL_DELETED;
-		*pvt_flags &= ~MAIL_DELETED;
+		*flags &= ENUM_NEGATE(MAIL_DELETED);
+		*pvt_flags &= ENUM_NEGATE(MAIL_DELETED);
 	}
 	if (!acl_flags) {
 		*flags &= MAIL_SEEN | MAIL_DELETED;
@@ -467,9 +480,10 @@ static int acl_mailbox_exists(struct mailbox *box, bool auto_boxes,
 	const char *const *rights;
 	unsigned int i;
 
-	if (acl_object_get_my_rights(abox->aclobj, pool_datastack_create(),
-				     &rights) < 0)
+	if (acl_object_get_my_rights(abox->aclobj, pool_datastack_create(), &rights) < 0) {
+		mail_storage_set_internal_error(box->storage);
 		return -1;
+	}
 
 	/* for now this is used only by IMAP SUBSCRIBE. we'll intentionally
 	   violate RFC 4314 here, because it says SUBSCRIBE should succeed only
@@ -591,9 +605,9 @@ static int acl_mailbox_get_status(struct mailbox *box,
 			status_r->allow_new_keywords = FALSE;
 		}
 		if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_DELETED) <= 0)
-			status_r->permanent_flags &= ~MAIL_DELETED;
+			status_r->permanent_flags &= ENUM_NEGATE(MAIL_DELETED);
 		if (acl_mailbox_right_lookup(box, ACL_STORAGE_RIGHT_WRITE_SEEN) <= 0)
-			status_r->permanent_flags &= ~MAIL_SEEN;
+			status_r->permanent_flags &= ENUM_NEGATE(MAIL_SEEN);
 	}
 	return 0;
 }
@@ -610,7 +624,7 @@ void acl_mailbox_allocated(struct mailbox *box)
 		return;
 	}
 
-	if (mail_namespace_is_shared_user_root(box->list->ns)) {
+	if (mail_namespace_is_shared_user_root(box->list->ns) || alist->ignore_acls) {
 		/* this is the root shared namespace, which itself doesn't
 		   have any existing mailboxes. */
 		ignore_acls = TRUE;
@@ -621,8 +635,11 @@ void acl_mailbox_allocated(struct mailbox *box)
 	box->vlast = &abox->module_ctx.super;
 	/* aclobj can be used for setting ACLs, even when mailbox is opened
 	   with IGNORE_ACLS flag */
-	abox->aclobj = acl_object_init_from_name(alist->rights.backend,
+	if (alist->rights.backend != NULL)
+		abox->aclobj = acl_object_init_from_name(alist->rights.backend,
 						 mailbox_get_name(box));
+	else
+		i_assert(ignore_acls);
 
 	v->free = acl_mailbox_free;
 	if (!ignore_acls) {

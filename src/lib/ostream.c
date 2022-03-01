@@ -43,6 +43,11 @@ const char *o_stream_get_error(struct ostream *stream)
 	return strerror(stream->stream_errno);
 }
 
+const char *o_stream_get_disconnect_reason(struct ostream *stream)
+{
+	return io_stream_get_disconnect_reason(NULL, stream);
+}
+
 static void o_stream_close_full(struct ostream *stream, bool close_parents)
 {
 	/* Ideally o_stream_finish() would be called for all non-failed
@@ -518,7 +523,8 @@ void o_stream_switch_ioloop(struct ostream *stream)
 static void o_stream_default_close(struct iostream_private *stream,
 				   bool close_parent)
 {
-	struct ostream_private *_stream = (struct ostream_private *)stream;
+	struct ostream_private *_stream =
+		container_of(stream, struct ostream_private, iostream);
 
 	(void)o_stream_flush(&_stream->ostream);
 	if (close_parent)
@@ -527,7 +533,8 @@ static void o_stream_default_close(struct iostream_private *stream,
 
 static void o_stream_default_destroy(struct iostream_private *stream)
 {
-	struct ostream_private *_stream = (struct ostream_private *)stream;
+	struct ostream_private *_stream =
+		container_of(stream, struct ostream_private, iostream);
 
 	o_stream_unref(&_stream->parent);
 }
@@ -536,7 +543,8 @@ static void
 o_stream_default_set_max_buffer_size(struct iostream_private *stream,
 				     size_t max_size)
 {
-	struct ostream_private *_stream = (struct ostream_private *)stream;
+	struct ostream_private *_stream =
+		container_of(stream, struct ostream_private, iostream);
 
 	if (_stream->parent != NULL)
 		o_stream_set_max_buffer_size(_stream->parent, max_size);
@@ -562,6 +570,8 @@ void o_stream_copy_error_from_parent(struct ostream_private *_stream)
 {
 	struct ostream *src = _stream->parent;
 	struct ostream *dest = &_stream->ostream;
+
+	i_assert(src->stream_errno != 0);
 
 	dest->stream_errno = src->stream_errno;
 	dest->overflow = src->overflow;

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 #
 # Copyright (c) 2019 Dovecot authors, see the included COPYING file */
 #
@@ -7,19 +7,25 @@
 # 	executable = script -p /path/to/health-check.sh
 #
 # This simple example merely answers "PONG\n" if the input is "PING\n". It
-# stops waiting for input after $TIMEOUT which causes the process to die
+# stops waiting for input after $timeout which causes the process to die
 # which causes the script module to close the socket. Inputs and outputs
 # can be written to STDIN and STDOUT, they are duplicated file-descriptors
 # if called from the script service.
 
-TIMEOUT=10
+timeout=10
 
-read -t ${TIMEOUT} -r input
+# timeout the read via trap for POSIX shell compatibility
+trap "exit 0" QUIT
+{
+	sleep $timeout
+	kill -3 $$ 2>/dev/null
+} &
+read -r input
 
 exit_code=$?
-cleaned_input=${input//[^a-zA-Z0-9]/}
+cleaned_input=$(echo ${input} | sed "s/[^a-zA-Z0-9]//g")
 
-if [ $exit_code -eq 0 ] && [ "$cleaned_input" = "PING" ];then
+if [ ${exit_code} -eq 0 ] && [ "${cleaned_input}" = "PING" ];then
 	echo "PONG"
 fi
 # always exit successful

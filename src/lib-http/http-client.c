@@ -85,6 +85,10 @@
 
  */
 
+static struct event_category event_category_http_client = {
+	.name = "http-client"
+};
+
 static struct http_client_context *http_client_global_context = NULL;
 
 static void
@@ -138,6 +142,7 @@ http_client_init_shared(struct http_client_context *cctx,
 		parent_event = event_get_parent(cctx->event);
 	}
 	client->event = event_create(parent_event);
+	event_add_category(client->event, &event_category_http_client);
 	event_set_forced_debug(client->event,
 			       (set != NULL && set->debug) || (cctx != NULL && cctx->set.debug));
 	event_set_append_log_prefix(client->event, log_prefix);
@@ -384,13 +389,11 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 static void
 http_client_handle_request_errors(struct http_client *client)
 {		
-	struct http_client_request *const *req_idx;
+	struct http_client_request *req;
 
 	timeout_remove(&client->to_failing_requests);
 
-	array_foreach(&client->delayed_failing_requests, req_idx) {
-		struct http_client_request *req = *req_idx;
-
+	array_foreach_elem(&client->delayed_failing_requests, req) {
 		i_assert(req->refcount == 1);
 		http_client_request_error_delayed(&req);
 	}
@@ -442,6 +445,7 @@ http_client_context_create(const struct http_client_settings *set)
 	cctx->ioloop = current_ioloop;
 
 	cctx->event = event_create(set->event_parent);
+	event_add_category(cctx->event, &event_category_http_client);
 	event_set_forced_debug(cctx->event, set->debug);
 	event_set_append_log_prefix(cctx->event, "http-client: ");
 

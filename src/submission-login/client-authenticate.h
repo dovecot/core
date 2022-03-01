@@ -16,4 +16,6 @@ int cmd_auth_continue(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 int cmd_auth(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_cmd_auth *data);
 
+void cmd_mail(struct smtp_server_cmd_ctx *cmd, const char *params);
+
 #endif

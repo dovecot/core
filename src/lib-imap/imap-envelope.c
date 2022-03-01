@@ -223,25 +223,26 @@ bool imap_envelope_parse(const char *envelope,
 	struct imap_parser *parser;
 	const struct imap_arg *args;
 	int ret;
+	bool success;
 
 	input = i_stream_create_from_data(envelope, strlen(envelope));
 	(void)i_stream_read(input);
 
-	parser = imap_parser_create(input, NULL, (size_t)-1);
+	parser = imap_parser_create(input, NULL, SIZE_MAX);
 	ret = imap_parser_finish_line(parser, 0,
 				      IMAP_PARSE_FLAG_LITERAL_TYPE, &args);
 	if (ret < 0) {
 		*error_r = t_strdup_printf("IMAP parser failed: %s",
 					   imap_parser_get_error(parser, NULL));
+		success = FALSE;
 	} else if (ret == 0) {
 		*error_r = "Empty envelope";
-		ret = -1;
+		success = FALSE;
 	} else {
-		if (!imap_envelope_parse_args(args, pool, envlp_r, error_r))
-			ret = -1;
+		success = imap_envelope_parse_args(args, pool, envlp_r, error_r);
 	}
 
 	imap_parser_unref(&parser);
 	i_stream_destroy(&input);
-	return (ret >= 0);
+	return success;
 }

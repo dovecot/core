@@ -1,6 +1,8 @@
 #ifndef EVENT_FILTER_PRIVATE_H
 #define EVENT_FILTER_PRIVATE_H
 
+#include "event-filter.h"
+
 enum event_filter_node_op {
 	/* leaf nodes */
 	EVENT_FILTER_OP_CMP_EQ = 1,
@@ -15,15 +17,28 @@ enum event_filter_node_op {
 	EVENT_FILTER_OP_NOT,
 };
 
+struct event_filter {
+	struct event_filter *prev, *next;
+
+	pool_t pool;
+	int refcount;
+	ARRAY(struct event_filter_query_internal) queries;
+
+	bool fragment;
+	bool named_queries_only;
+};
+
 enum event_filter_node_type {
 	/* internal nodes */
 	EVENT_FILTER_NODE_TYPE_LOGIC = 1, /* children */
 
 	/* leaf nodes */
-	EVENT_FILTER_NODE_TYPE_EVENT_NAME, /* str */
+	EVENT_FILTER_NODE_TYPE_EVENT_NAME_EXACT, /* str */
+	EVENT_FILTER_NODE_TYPE_EVENT_NAME_WILDCARD, /* str */
 	EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION, /* str + int */
 	EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY, /* cat */
-	EVENT_FILTER_NODE_TYPE_EVENT_FIELD, /* field */
+	EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT, /* field */
+	EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD, /* field */
 };
 
 enum event_filter_log_type {
@@ -91,5 +106,16 @@ int event_filter_parser_lex_destroy(void *yyscanner);
 int event_filter_parser_parse(struct event_filter_parser_state *state);
 void event_filter_parser_set_extra(void *user, void *yyscanner);
 void event_filter_parser_error(void *scan, const char *e);
+
+/* the following are exposed to allow for unit testing */
+bool
+event_filter_query_match_eval(struct event_filter_node *node,
+			      struct event *event, const char *source_filename,
+			      unsigned int source_linenum,
+			      enum event_filter_log_type log_type);
+const char *
+event_filter_category_from_log_type(enum event_filter_log_type log_type);
+struct event_filter_node *
+event_filter_get_expr_for_testing(struct event_filter *filter, unsigned int *count_r);
 
 #endif

@@ -69,7 +69,6 @@ struct auth_settings {
 	bool policy_log_only;
 	unsigned int policy_hash_truncate;
 
-	bool stats;
 	bool verbose, debug, debug_passwords;
 	const char *verbose_passwords;
 	bool ssl_require_client_cert;

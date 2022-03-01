@@ -24,6 +24,14 @@ long long timeval_diff_usecs(const struct timeval *tv1,
 			     const struct timeval *tv2);
 
 static inline void
+timeval_from_usecs(struct timeval *tv_r, unsigned long long usecs)
+{
+	i_assert(usecs != ULLONG_MAX);
+	tv_r->tv_sec = usecs / 1000000;
+	tv_r->tv_usec = usecs % 1000000;
+}
+
+static inline void
 timeval_add_usecs(struct timeval *tv, long long usecs)
 {
 	i_assert(usecs >= 0);
@@ -69,6 +77,27 @@ timeval_sub_msecs(struct timeval *tv, unsigned int msecs)
 	}
 }
 
+static inline unsigned long long timeval_to_usecs(const struct timeval *tv)
+{
+	return (tv->tv_sec * 1000000ULL + tv->tv_usec);
+}
+
+static inline void timeval_add(struct timeval *tv, const struct timeval *val)
+{
+	i_assert(val->tv_usec < 1000000);
+	tv->tv_sec += val->tv_sec;
+	tv->tv_usec += val->tv_usec;
+	if (tv->tv_usec >= 1000000) {
+		tv->tv_sec++;
+		tv->tv_usec -= 1000000;
+	}
+}
+
+static inline time_t timeval_round(struct timeval *tv)
+{
+	return (tv->tv_usec < 500000 ? tv->tv_sec : tv->tv_sec + 1);
+}
+
 /* Convert t to local time and return timestamp on that day at 00:00:00. */
 time_t time_to_local_day_start(time_t t);
 
@@ -76,5 +105,12 @@ time_t time_to_local_day_start(time_t t);
 const char *t_strftime(const char *fmt, const struct tm *tm) ATTR_STRFTIME(1);
 const char *t_strflocaltime(const char *fmt, time_t t) ATTR_STRFTIME(1);
 const char *t_strfgmtime(const char *fmt, time_t t) ATTR_STRFTIME(1);
+
+/* Parse string as <unix timestamp>[.<usecs>] into timeval. <usecs> must not
+   have higher precision time, i.e. a maximum of 6 digits is allowed. Note that
+   ".1" is handled as ".1000000" so the string should have been written using
+   "%06u" printf format. */
+int str_to_timeval(const char *str, struct timeval *tv_r)
+	ATTR_WARN_UNUSED_RESULT;
 
 #endif

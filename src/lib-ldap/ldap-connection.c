@@ -29,10 +29,10 @@ void ldap_connection_deinit(struct ldap_connection **_conn)
 
 	unsigned int n = aqueue_count(conn->request_queue);
 	for (unsigned int i = 0; i < n; i++) {
-		struct ldap_op_queue_entry *const *reqp =
-			array_idx(&conn->request_array,
-				  aqueue_idx(conn->request_queue, i));
-		timeout_remove(&(*reqp)->to_abort);
+		struct ldap_op_queue_entry *req =
+			array_idx_elem(&conn->request_array,
+				       aqueue_idx(conn->request_queue, i));
+		timeout_remove(&req->to_abort);
 	}
 	pool_unref(&conn->pool);
 }
@@ -197,11 +197,11 @@ void ldap_connection_switch_ioloop(struct ldap_connection *conn)
 	unsigned int n = aqueue_count(conn->request_queue);
 
 	for (unsigned int i = 0; i < n; i++) {
-		struct ldap_op_queue_entry *const *reqp =
-			array_idx(&conn->request_array,
-				  aqueue_idx(conn->request_queue, i));
-		if ((*reqp)->to_abort != NULL)
-			(*reqp)->to_abort = io_loop_move_timeout(&(*reqp)->to_abort);
+		struct ldap_op_queue_entry *req =
+			array_idx_elem(&conn->request_array,
+				       aqueue_idx(conn->request_queue, i));
+		if (req->to_abort != NULL)
+			req->to_abort = io_loop_move_timeout(&req->to_abort);
 	}
 }
 
@@ -234,10 +234,29 @@ void ldap_connection_result_success(struct ldap_connection *conn,
 		req->result_callback(&res, req->result_callback_ctx);
 }
 
+static struct ldap_op_queue_entry *
+ldap_connection_next_unsent_request(struct ldap_connection *conn,
+				    unsigned int *index_r)
+{
+	struct ldap_op_queue_entry *last_req = NULL;
+	*index_r = 0;
+
+	for (unsigned int i = 0; i < aqueue_count(conn->request_queue); i++) {
+		struct ldap_op_queue_entry *req =
+			array_idx_elem(&conn->request_array,
+				aqueue_idx(conn->request_queue, i));
+		if (req->msgid > -1)
+			break;
+		*index_r = i;
+		last_req = req;
+	}
+	return last_req;
+}
+
 static
 void ldap_connection_send_next(struct ldap_connection *conn)
 {
-	unsigned int i = 0, n;
+	unsigned int index;
 	struct ldap_op_queue_entry *req;
 
 	timeout_remove(&conn->to_reconnect);
@@ -254,21 +273,7 @@ void ldap_connection_send_next(struct ldap_connection *conn)
 
 	if (conn->pending > 10) return; /* try again later */
 
-	req = NULL;
-	/* get next request */
-	n = aqueue_count(conn->request_queue);
-
-	for(i=0; i < n; i++) {
-		struct ldap_op_queue_entry *const *reqp =
-			array_idx(&conn->request_array,
-				  aqueue_idx(conn->request_queue, i));
-		if ((*reqp)->msgid > -1)
-			break;
-		req = *reqp;
-	}
-
-	i--;
-
+	req = ldap_connection_next_unsent_request(conn, &index);
 	/* nothing to actually send */
 	if (req == NULL) return;
 
@@ -287,7 +292,7 @@ void ldap_connection_send_next(struct ldap_connection *conn)
 			req->result_callback(&res, req->result_callback_ctx);
 
 		ldap_connection_request_destroy(&req);
-		aqueue_delete(conn->request_queue, i);
+		aqueue_delete(conn->request_queue, index);
 	} else conn->pending++;
 }
 
@@ -422,10 +427,10 @@ void ldap_connection_abort_request(struct ldap_op_queue_entry *req)
 
 	unsigned int n = aqueue_count(req->conn->request_queue);
 	for (unsigned int i = 0; i < n; i++) {
-		struct ldap_op_queue_entry *const *reqp =
-			array_idx(&req->conn->request_array,
-				  aqueue_idx(req->conn->request_queue, i));
-		if (req == *reqp) {
+		struct ldap_op_queue_entry *arr_req =
+			array_idx_elem(&req->conn->request_array,
+				       aqueue_idx(req->conn->request_queue, i));
+		if (req == arr_req) {
 			aqueue_delete(req->conn->request_queue, i);
 			ldap_connection_request_destroy(&req);
 			return;
@@ -555,12 +560,12 @@ void ldap_connection_kill(struct ldap_connection *conn)
 		unsigned int n = aqueue_count(conn->request_queue);
 
 		for (unsigned int i = 0; i < n; i++) {
-			struct ldap_op_queue_entry *const *reqp =
-				array_idx(&conn->request_array,
-					  aqueue_idx(conn->request_queue, i));
-			if ((*reqp)->msgid > -1)
-				ldap_abandon_ext(conn->conn, (*reqp)->msgid, NULL, NULL);
-			(*reqp)->msgid = -1;
+			struct ldap_op_queue_entry *req =
+				array_idx_elem(&conn->request_array,
+					       aqueue_idx(conn->request_queue, i));
+			if (req->msgid > -1)
+				ldap_abandon_ext(conn->conn, req->msgid, NULL, NULL);
+			req->msgid = -1;
 		}
 	}
 	if (conn->conn != NULL) {
@@ -584,12 +589,12 @@ ldap_connection_find_req_by_msgid(struct ldap_connection *conn, int msgid,
 {
 	unsigned int i, n = aqueue_count(conn->request_queue);
 	for (i = 0; i < n; i++) {
-		struct ldap_op_queue_entry *const *reqp =
-			array_idx(&conn->request_array,
-				  aqueue_idx(conn->request_queue, i));
-		if ((*reqp)->msgid == msgid) {
+		struct ldap_op_queue_entry *req =
+			array_idx_elem(&conn->request_array,
+				       aqueue_idx(conn->request_queue, i));
+		if (req->msgid == msgid) {
 			*idx_r = i;
-			return *reqp;
+			return req;
 		}
 	}
 	return NULL;

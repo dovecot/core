@@ -12,6 +12,7 @@ static void test_fs_async_write(const char *test_name, struct fs *fs)
 	struct test_fs_file *test_file;
 	struct ostream *output;
 	unsigned int i;
+	int ret;
 
 	test_begin(t_strdup_printf("%s: async write", test_name));
 	for (i = 0; i < 3; i++) {
@@ -31,7 +32,9 @@ static void test_fs_async_write(const char *test_name, struct fs *fs)
 
 		switch (i) {
 		case 0:
-			test_assert(fs_write_stream_finish_async(file) > 0);
+			while ((ret = fs_write_stream_finish_async(file)) == 0)
+				fs_wait_async(fs);
+			test_assert(ret > 0);
 			test_assert(test_file->contents->used > 0);
 			break;
 		case 1:
@@ -53,6 +56,7 @@ static void test_fs_async_copy(const char *test_name, struct fs *fs)
 {
 	struct fs_file *src, *dest;
 	struct test_fs_file *test_file;
+	int ret;
 
 	test_begin(t_strdup_printf("%s: async copy", test_name));
 
@@ -67,7 +71,9 @@ static void test_fs_async_copy(const char *test_name, struct fs *fs)
 	test_file = test_fs_file_get(fs, "bar");
 	test_file->wait_async = FALSE;
 
-	test_assert(fs_copy_finish_async(dest) == 0);
+	while ((ret = fs_copy_finish_async(dest)) < 0 && errno == EAGAIN)
+	       fs_wait_async(fs);
+	test_assert(ret == 0);
 	test_assert(test_file->contents->used > 0);
 	fs_file_deinit(&dest);
 

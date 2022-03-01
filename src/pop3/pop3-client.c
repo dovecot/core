@@ -75,11 +75,14 @@ static void client_commit_timeout(struct client *client)
 static void client_idle_timeout(struct client *client)
 {
 	if (client->cmd != NULL) {
-		client_destroy(client,
-			"Disconnected for inactivity in reading our output");
+		client_destroy(client, t_strdup_printf(
+			"Client has not read server output for for %"PRIdTIME_T" secs",
+			ioloop_time - client->last_output));
 	} else {
 		client_send_line(client, "-ERR Disconnected for inactivity.");
-		client_destroy(client, "Disconnected for inactivity");
+		client_destroy(client, t_strdup_printf(
+			"Inactivity - no input for %"PRIdTIME_T" secs",
+			ioloop_time - client->last_input));
 	}
 }
 
@@ -396,17 +399,11 @@ struct client *client_create(int fd_in, int fd_out,
 	client->fd_in = fd_in;
 	client->fd_out = fd_out;
 	client->input = i_stream_create_fd(fd_in, MAX_INBUF_SIZE);
-	client->output = o_stream_create_fd(fd_out, (size_t)-1);
+	client->output = o_stream_create_fd(fd_out, SIZE_MAX);
 	o_stream_set_no_error_handling(client->output, TRUE);
 	o_stream_set_flush_callback(client->output, client_output, client);
 
-	if (set->rawlog_dir[0] != '\0') {
-		(void)iostream_rawlog_create(set->rawlog_dir, &client->input,
-					     &client->output);
-	}
-
 	p_array_init(&client->module_contexts, client->pool, 5);
-	client->io = io_add_istream(client->input, client_input, client);
         client->last_input = ioloop_time;
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
 				      client_idle_timeout, client);
@@ -439,10 +436,19 @@ struct client *client_create(int fd_in, int fd_out,
 	return client;
 }
 
+void client_create_finish(struct client *client)
+{
+	if (client->set->rawlog_dir[0] != '\0') {
+		(void)iostream_rawlog_create(client->set->rawlog_dir,
+					     &client->input, &client->output);
+	}
+	client->io = io_add_istream(client->input, client_input, client);
+}
+
 int client_init_mailbox(struct client *client, const char **error_r)
 {
         enum mailbox_flags flags;
-	const char *ident, *errmsg;
+	const char *errmsg;
 
 	/* refresh proctitle before a potentially long-running init_mailbox() */
 	pop3_refresh_proctitle();
@@ -451,7 +457,6 @@ int client_init_mailbox(struct client *client, const char **error_r)
 	if (!client->set->pop3_no_flag_updates)
 		flags |= MAILBOX_FLAG_DROP_RECENT;
 	client->mailbox = mailbox_alloc(client->inbox_ns->list, "INBOX", flags);
-	mailbox_set_reason(client->mailbox, "POP3 INBOX");
 	if (mailbox_open(client->mailbox) < 0) {
 		*error_r = t_strdup_printf("Couldn't open INBOX: %s",
 			mailbox_get_last_internal_error(client->mailbox, NULL));
@@ -468,12 +473,11 @@ int client_init_mailbox(struct client *client, const char **error_r)
 	if (!client->set->pop3_no_flag_updates && client->messages_count > 0)
 		client->seen_bitmask = i_malloc(MSGS_BITMASK_SIZE(client));
 
-	ident = mail_user_get_anvil_userip_ident(client->user);
-	if (ident != NULL) {
-		master_service_anvil_send(master_service, t_strconcat(
-			"CONNECT\t", my_pid, "\tpop3/", ident, "\n", NULL));
+	struct master_service_anvil_session anvil_session;
+	mail_user_get_anvil_session(client->user, &anvil_session);
+	if (master_service_anvil_connect(master_service, &anvil_session,
+					 TRUE, client->anvil_conn_guid))
 		client->anvil_sent = TRUE;
-	}
 	return 0;
 }
 
@@ -575,7 +579,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 			reason = io_stream_get_disconnect_reason(client->input,
 								 client->output);
 		}
-		i_info("%s %s", reason, client_stats(client));
+		i_info("Disconnected: %s %s", reason, client_stats(client));
 	}
 
 	if (client->cmd != NULL) {
@@ -599,10 +603,10 @@ static void client_default_destroy(struct client *client, const char *reason)
 	if (client->mailbox != NULL)
 		mailbox_free(&client->mailbox);
 	if (client->anvil_sent) {
-		master_service_anvil_send(master_service, t_strconcat(
-			"DISCONNECT\t", my_pid, "\tpop3/",
-			mail_user_get_anvil_userip_ident(client->user),
-			"\n", NULL));
+		struct master_service_anvil_session anvil_session;
+		mail_user_get_anvil_session(client->user, &anvil_session);
+		master_service_anvil_disconnect(master_service, &anvil_session,
+						client->anvil_conn_guid);
 	}
 
 	if (client->session_dotlock != NULL)
@@ -737,10 +741,17 @@ bool client_handle_input(struct client *client)
 		args = strchr(line, ' ');
 		if (args != NULL)
 			*args++ = '\0';
-
-		T_BEGIN {
+		if (*line == '\0') {
+			client_send_line(client, "-ERR Unknown command.");
+			ret = -1;
+		} else T_BEGIN {
+			const char *reason_code =
+				event_reason_code_prefix("pop3", "cmd_", line);
+			struct event_reason *reason =
+				event_reason_begin(reason_code);
 			ret = client_command_execute(client, line,
 						     args != NULL ? args : "");
+			event_reason_end(&reason);
 		} T_END;
 		if (ret >= 0) {
 			client->bad_counter = 0;
@@ -837,16 +848,20 @@ static int client_output(struct client *client)
 	}
 }
 
+void client_kick(struct client *client)
+{
+	mail_storage_service_io_activate_user(client->service_user);
+	if (client->cmd == NULL) {
+		client_send_line(client,
+			"-ERR [SYS/TEMP] "MASTER_SERVICE_SHUTTING_DOWN_MSG".");
+	}
+	client_destroy(client, MASTER_SERVICE_SHUTTING_DOWN_MSG);
+}
+
 void clients_destroy_all(void)
 {
-	while (pop3_clients != NULL) {
-		if (pop3_clients->cmd == NULL) {
-			client_send_line(pop3_clients,
-				"-ERR [SYS/TEMP] Server shutting down.");
-		}
-		mail_storage_service_io_activate_user(pop3_clients->service_user);
-		client_destroy(pop3_clients, "Server shutting down.");
-	}
+	while (pop3_clients != NULL)
+		client_kick(pop3_clients);
 }
 
 struct pop3_client_vfuncs pop3_client_vfuncs = {

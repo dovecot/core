@@ -114,11 +114,14 @@ int mailbox_list_index_index_open(struct mailbox_list *list)
 }
 
 struct mailbox_list_index_node *
-mailbox_list_index_node_find_sibling(struct mailbox_list_index_node *node,
+mailbox_list_index_node_find_sibling(const struct mailbox_list *list,
+				     struct mailbox_list_index_node *node,
 				     const char *name)
 {
+	mailbox_list_name_unescape(&name, list->set.storage_name_escape_char);
+
 	while (node != NULL) {
-		if (strcmp(node->name, name) == 0)
+		if (strcmp(node->raw_name, name) == 0)
 			return node;
 		node = node->next;
 	}
@@ -135,12 +138,12 @@ mailbox_list_index_lookup_real(struct mailbox_list *list, const char *name)
 	char sep[2];
 
 	if (*name == '\0')
-		return mailbox_list_index_node_find_sibling(node, "");
+		return mailbox_list_index_node_find_sibling(list, node, "");
 
 	sep[0] = mailbox_list_get_hierarchy_sep(list); sep[1] = '\0';
 	path = t_strsplit(name, sep);
 	for (i = 0;; i++) {
-		node = mailbox_list_index_node_find_sibling(node, path[i]);
+		node = mailbox_list_index_node_find_sibling(list, node, path[i]);
 		if (node == NULL || path[i+1] == NULL)
 			break;
 		node = node->children;
@@ -172,7 +175,7 @@ void mailbox_list_index_node_get_path(const struct mailbox_list_index_node *node
 		mailbox_list_index_node_get_path(node->parent, sep, str);
 		str_append_c(str, sep);
 	}
-	str_append(str, node->name);
+	str_append(str, node->raw_name);
 }
 
 void mailbox_list_index_node_unlink(struct mailbox_list_index *ilist,
@@ -255,7 +258,7 @@ mailbox_list_index_generate_name(struct mailbox_list_index *ilist,
 	guid_128_generate(guid);
 	name = p_strdup_printf(ilist->mailbox_pool, "%s%s", prefix,
 			       guid_128_to_string(guid));
-	node->name = name;
+	node->raw_name = name;
 	node->flags |= MAILBOX_LIST_INDEX_FLAG_CORRUPTED_NAME;
 
 	hash_table_insert(ilist->mailbox_names,
@@ -268,13 +271,13 @@ static int mailbox_list_index_node_cmp(const struct mailbox_list_index_node *n1,
 				       const struct mailbox_list_index_node *n2)
 {
 	return  n1->parent == n2->parent &&
-		strcmp(n1->name, n2->name) == 0 ? 0 : -1;
+		strcmp(n1->raw_name, n2->raw_name) == 0 ? 0 : -1;
 }
 
 static unsigned int
 mailbox_list_index_node_hash(const struct mailbox_list_index_node *node)
 {
-	return str_hash(node->name) ^
+	return str_hash(node->raw_name) ^
 		POINTER_CAST_TO(node->parent, unsigned int);
 }
 
@@ -302,13 +305,20 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 	const void *data;
 	bool expunged;
 	uint32_t seq, uid, count;
+	HASH_TABLE(uint8_t *, struct mailbox_list_index_node *) duplicate_guid;
 
 	*error_r = NULL;
 
-	hash_table_create(&duplicate_hash, default_pool, 0,
+	pool_t dup_pool =
+		pool_alloconly_create(MEMPOOL_GROWING"duplicate pool", 2048);
+	hash_table_create(&duplicate_hash, dup_pool, 0,
 			  mailbox_list_index_node_hash,
 			  mailbox_list_index_node_cmp);
 	count = mail_index_view_get_messages_count(view);
+	if (!ilist->has_backing_store)
+		hash_table_create(&duplicate_guid, dup_pool, 0, guid_128_hash,
+				  guid_128_cmp);
+
 	for (seq = 1; seq <= count; seq++) {
 		node = p_new(ilist->mailbox_pool,
 			     struct mailbox_list_index_node, 1);
@@ -333,9 +343,9 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 			node->name_id = ++ilist->highest_name_id;
 			node->corrupted_ext = TRUE;
 		}
-		node->name = hash_table_lookup(ilist->mailbox_names,
+		node->raw_name = hash_table_lookup(ilist->mailbox_names,
 					       POINTER_CAST(irec->name_id));
-		if (node->name == NULL) {
+		if (node->raw_name == NULL) {
 			*error_r = t_strdup_printf(
 				"name_id=%u not in index header", irec->name_id);
 			if (ilist->has_backing_store)
@@ -352,18 +362,35 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 			node->flags |= MAILBOX_LIST_INDEX_FLAG_NOSELECT;
 			*error_r = t_strdup_printf(
 				"mailbox '%s' (uid=%u) is missing GUID - "
-				"marking it non-selectable", node->name, node->uid);
+				"marking it non-selectable", node->raw_name, node->uid);
 			node->corrupted_flags = TRUE;
 		}
 		if (!ilist->has_backing_store && !guid_128_is_empty(irec->guid) &&
 		    (rec->flags & (MAILBOX_LIST_INDEX_FLAG_NONEXISTENT |
 				   MAILBOX_LIST_INDEX_FLAG_NOSELECT)) != 0) {
-			node->flags &= ~(MAILBOX_LIST_INDEX_FLAG_NONEXISTENT |
-					 MAILBOX_LIST_INDEX_FLAG_NOSELECT);
+			node->flags &= ENUM_NEGATE(MAILBOX_LIST_INDEX_FLAG_NONEXISTENT | MAILBOX_LIST_INDEX_FLAG_NOSELECT);
 			*error_r = t_strdup_printf(
 				"non-selectable mailbox '%s' (uid=%u) already has GUID - "
-				"marking it selectable", node->name, node->uid);
+				"marking it selectable", node->raw_name, node->uid);
 			node->corrupted_flags = TRUE;
+		}
+
+		if (!ilist->has_backing_store && !guid_128_is_empty(irec->guid)) {
+			struct mailbox_list_index_node *dup_node;
+			uint8_t *guid_p = p_memdup(dup_pool, irec->guid,
+						   sizeof(guid_128_t));
+			if ((dup_node = hash_table_lookup(duplicate_guid, guid_p)) != NULL) {
+				*error_r = t_strdup_printf(
+						"duplicate GUID %s for mailbox '%s' and '%s'",
+						guid_128_to_string(guid_p),
+						node->raw_name,
+						dup_node->raw_name);
+				node->corrupted_ext = TRUE;
+				ilist->corrupted_names_or_parents = TRUE;
+				ilist->call_corruption_callback = TRUE;
+			} else {
+				hash_table_insert(duplicate_guid, guid_p, node);
+			}
 		}
 
 		hash_table_insert(ilist->mailbox_hash,
@@ -399,7 +426,7 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 			} else if (node_has_parent(parent, node)) {
 				*error_r = t_strdup_printf(
 					"parent_uid=%u loops to node itself (%s)",
-					uid, node->name);
+					uid, node->raw_name);
 				if (ilist->has_backing_store)
 					break;
 				/* just place it under the root */
@@ -408,20 +435,19 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 				node->parent = parent;
 				node->next = parent->children;
 				parent->children = node;
-				continue;
 			}
-		} else if (strcasecmp(node->name, "INBOX") == 0) {
+		} else if (strcasecmp(node->raw_name, "INBOX") == 0) {
 			ilist->rebuild_on_missing_inbox = FALSE;
 		}
 		if (hash_table_lookup(duplicate_hash, node) == NULL)
 			hash_table_insert(duplicate_hash, node, node);
 		else {
-			const char *old_name = node->name;
+			const char *old_name = node->raw_name;
 
 			if (ilist->has_backing_store) {
 				*error_r = t_strdup_printf(
 					"Duplicate mailbox '%s' in index",
-					node->name);
+					node->raw_name);
 				break;
 			}
 
@@ -430,15 +456,20 @@ static int mailbox_list_index_parse_records(struct mailbox_list_index *ilist,
 			node->corrupted_ext = TRUE;
 			node->name_id = ++ilist->highest_name_id;
 			mailbox_list_index_generate_name(ilist, node,
-				t_strconcat(node->name, "-duplicate-", NULL));
+				t_strconcat(node->raw_name, "-duplicate-", NULL));
 			*error_r = t_strdup_printf(
 				"Duplicate mailbox '%s' in index, renaming to %s",
-				old_name, node->name);
+				old_name, node->raw_name);
 		}
-		node->next = ilist->mailbox_tree;
-		ilist->mailbox_tree = node;
+		if (node->parent == NULL) {
+			node->next = ilist->mailbox_tree;
+			ilist->mailbox_tree = node;
+		}
 	}
 	hash_table_destroy(&duplicate_hash);
+	if (!ilist->has_backing_store)
+		hash_table_destroy(&duplicate_guid);
+	pool_unref(&dup_pool);
 	return *error_r == NULL ? 0 : -1;
 }
 
@@ -517,7 +548,7 @@ int mailbox_list_index_refresh(struct mailbox_list *list)
 		   it. when we're accessing many mailboxes at once (e.g.
 		   opening a virtual mailbox) we don't want to stat/read the
 		   index every single time. */
-		return 0;
+		return ilist->last_refresh_success ? 0 : -1;
 	}
 
 	return mailbox_list_index_refresh_force(list);
@@ -528,11 +559,10 @@ int mailbox_list_index_refresh_force(struct mailbox_list *list)
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT_REQUIRE(list);
 	struct mail_index_view *view;
 	int ret;
-	bool refresh;
+	bool refresh, handle_corruption = TRUE;
 
 	i_assert(!ilist->syncing);
 
-	ilist->last_refresh_timeval = ioloop_timeval;
 	if (mailbox_list_index_index_open(list) < 0)
 		return -1;
 	if (mail_index_refresh(ilist->index) < 0) {
@@ -545,13 +575,28 @@ int mailbox_list_index_refresh_force(struct mailbox_list *list)
 	    ilist->mailbox_tree == NULL) {
 		/* refresh list of mailboxes */
 		ret = mailbox_list_index_sync(list, refresh);
+		if (ret < 0) {
+			/* I/O failure - don't try to handle corruption,
+			   since we don't have the latest state. */
+			handle_corruption = FALSE;
+		}
 	} else {
 		ret = mailbox_list_index_parse(list, view, FALSE);
 	}
 	mail_index_view_close(&view);
 
-	if (mailbox_list_index_handle_corruption(list) < 0)
+	if (handle_corruption &&
+	    mailbox_list_index_handle_corruption(list) < 0) {
+		const char *errstr;
+		enum mail_error error;
+
+		errstr = mailbox_list_get_last_internal_error(list, &error);
+		mailbox_list_set_error(list, error, t_strdup_printf(
+			"Failed to rebuild mailbox list index: %s", errstr));
 		ret = -1;
+	}
+	ilist->last_refresh_timeval = ioloop_timeval;
+	ilist->last_refresh_success = (ret == 0);
 	return ret;
 }
 
@@ -604,17 +649,22 @@ static int
 list_handle_corruption_locked(struct mailbox_list *list,
 			      enum mail_storage_list_index_rebuild_reason reason)
 {
-	struct mail_storage *const *storagep;
+	struct mail_storage *storage;
+	const char *errstr;
+	enum mail_error error;
 
-	array_foreach(&list->ns->all_storages, storagep) {
-		if ((*storagep)->v.list_index_rebuild != NULL) {
-			if ((*storagep)->v.list_index_rebuild(*storagep, reason) < 0)
-				return -1;
-			else {
-				/* FIXME: implement a generic handler that
-				   just lists mailbox directories in filesystem
-				   and adds the missing ones to the index. */
-			}
+	array_foreach_elem(&list->ns->all_storages, storage) {
+		if (storage->v.list_index_rebuild == NULL)
+			continue;
+
+		if (storage->v.list_index_rebuild(storage, reason) < 0) {
+			errstr = mail_storage_get_last_internal_error(storage, &error);
+			mailbox_list_set_error(list, error, errstr);
+			return -1;
+		} else {
+			/* FIXME: implement a generic handler that
+			   just lists mailbox directories in filesystem
+			   and adds the missing ones to the index. */
 		}
 	}
 	return mailbox_list_index_set_uncorrupted(list);
@@ -631,6 +681,9 @@ int mailbox_list_index_handle_corruption(struct mailbox_list *list)
 	else if (ilist->rebuild_on_missing_inbox)
 		reason = MAIL_STORAGE_LIST_INDEX_REBUILD_REASON_NO_INBOX;
 	else
+		return 0;
+
+	if (list->disable_rebuild_on_corruption)
 		return 0;
 
 	/* make sure we don't recurse */
@@ -687,6 +740,7 @@ int mailbox_list_index_view_open(struct mailbox *box, bool require_refreshed,
 	struct mailbox_list_index *ilist = INDEX_LIST_CONTEXT(box->list);
 	struct mailbox_list_index_node *node;
 	struct mail_index_view *view;
+	const char *reason = NULL;
 	uint32_t seq;
 	int ret;
 
@@ -708,6 +762,8 @@ int mailbox_list_index_view_open(struct mailbox *box, bool require_refreshed,
 	node = mailbox_list_index_lookup(box->list, box->name);
 	if (node == NULL) {
 		/* mailbox not found */
+		e_debug(box->event, "Couldn't open mailbox in list index: "
+			"Mailbox not found");
 		return 0;
 	}
 
@@ -715,24 +771,33 @@ int mailbox_list_index_view_open(struct mailbox *box, bool require_refreshed,
 	if (mailbox_list_index_need_refresh(ilist, view)) {
 		/* mailbox_list_index_refresh_later() was called.
 		   Can't trust the index's contents. */
+		reason = "Refresh-flag set";
 		ret = 1;
 	} else if (!mail_index_lookup_seq(view, node->uid, &seq)) {
 		/* our in-memory tree is out of sync */
 		ret = 1;
+		reason = "Mailbox no longer exists in index";
 	} else if (!require_refreshed) {
 		/* this operation doesn't need the index to be up-to-date */
 		ret = 0;
-	} else T_BEGIN {
+	} else {
 		ret = box->v.list_index_has_changed == NULL ? 0 :
-			box->v.list_index_has_changed(box, view, seq, FALSE);
-	} T_END;
+			box->v.list_index_has_changed(box, view, seq, FALSE,
+						      &reason);
+		i_assert(ret <= 0 || reason != NULL);
+	}
 
 	if (ret != 0) {
 		/* error / mailbox has changed. we'll need to sync it. */
 		if (ret < 0)
 			mailbox_list_index_refresh_later(box->list);
-		else
+		else {
+			i_assert(reason != NULL);
+			e_debug(box->event,
+				"Couldn't open mailbox in list index: %s",
+				reason);
 			ilist->index_last_check_changed = TRUE;
+		}
 		mail_index_view_close(&view);
 		return ret < 0 ? -1 : 0;
 	}

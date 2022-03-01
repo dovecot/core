@@ -53,7 +53,24 @@ struct fts_score_map {
 };
 ARRAY_DEFINE_TYPE(fts_score_map, struct fts_score_map);
 
+/* the structure is meant to be implemented by plugins that want to carry
+   some state over from a call to next ones within an fts_search_context
+   session.
+
+   The pointer to this structure is initially granted to be NULL and it
+   remains such unless the plugin itself activates it.
+
+   Any memory management for the pointer and its contents is expected to
+   be performed by the plugin itself, possibly but not necessarily using
+   the result pool propagated to plugin call by struct fts_result.pool and
+   struct fts_multi_result.pool. */
+
+struct fts_search_state;
+
 struct fts_result {
+	pool_t pool;
+	struct fts_search_state *search_state;
+
 	struct mailbox *box;
 
 	ARRAY_TYPE(seq_range) definite_uids;
@@ -67,6 +84,8 @@ struct fts_result {
 
 struct fts_multi_result {
 	pool_t pool;
+	struct fts_search_state *search_state;
+
 	/* box=NULL-terminated array of mailboxes and matching UIDs,
 	   all allocated from the given pool. */
 	struct fts_result *box_results;
@@ -81,6 +100,10 @@ void fts_backend_deinit(struct fts_backend **backend);
 /* Get the last_uid for the mailbox. */
 int fts_backend_get_last_uid(struct fts_backend *backend, struct mailbox *box,
 			     uint32_t *last_uid_r);
+/* Returns 1 if uid has already been indexed, 0 if not, -1 on error.
+   If 0 is returned, also return last_indexed_uid_r. */
+int fts_backend_is_uid_indexed(struct fts_backend *backend, struct mailbox *box,
+			       uint32_t uid, uint32_t *last_indexed_uid_r);
 
 /* Returns TRUE if there exists an update context. */
 bool fts_backend_is_updating(struct fts_backend *backend);

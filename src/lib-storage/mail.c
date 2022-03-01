@@ -49,21 +49,29 @@ void mail_set_seq(struct mail *mail, uint32_t seq)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	p->v.set_seq(mail, seq, FALSE);
+	T_BEGIN {
+		p->v.set_seq(mail, seq, FALSE);
+	} T_END;
 }
 
 void mail_set_seq_saving(struct mail *mail, uint32_t seq)
 {
 	struct mail_private *p = (struct mail_private *)mail;
 
-	p->v.set_seq(mail, seq, TRUE);
+	T_BEGIN {
+		p->v.set_seq(mail, seq, TRUE);
+	} T_END;
 }
 
 bool mail_set_uid(struct mail *mail, uint32_t uid)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	bool ret;
 
-	return p->v.set_uid(mail, uid);
+	T_BEGIN {
+		ret = p->v.set_uid(mail, uid);
+	} T_END;
+	return ret;
 }
 
 bool mail_prefetch(struct mail *mail)
@@ -86,6 +94,62 @@ void mail_add_temp_wanted_fields(struct mail *mail,
 	i_assert(headers == NULL || headers->box == mail->box);
 
 	p->v.add_temp_wanted_fields(mail, fields, headers);
+}
+
+static bool index_mail_get_age_days(struct mail *mail, int *days_r)
+{
+	int age_days;
+	const struct mail_index_header *hdr =
+		mail_index_get_header(mail->transaction->view);
+	int n_days = N_ELEMENTS(hdr->day_first_uid);
+
+	for (age_days = 0; age_days < n_days; age_days++) {
+		if (mail->uid >= hdr->day_first_uid[age_days])
+			break;
+	}
+
+	if (age_days == n_days) {
+		/* mail is too old, cannot determine its age from
+		   day_first_uid[]. */
+		return FALSE;
+	}
+
+	if (hdr->day_stamp != 0) {
+		/* offset for hdr->day_stamp */
+		age_days += (ioloop_time - hdr->day_stamp) / (3600 * 24);
+	}
+	*days_r = age_days;
+	return TRUE;
+}
+
+void mail_event_create(struct mail *mail)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+	int age_days;
+
+	if (p->_event != NULL)
+		return;
+	p->_event = event_create(mail->box->event);
+	event_add_category(p->_event, &event_category_mail);
+	event_add_int(p->_event, "seq", mail->seq);
+	event_add_int(p->_event, "uid", mail->uid);
+	/* Add mail age field to event. */
+	if (index_mail_get_age_days(mail, &age_days))
+		event_add_int(p->_event, "mail_age_days", age_days);
+
+	char uid_buf[MAX_INT_STRLEN];
+	const char *prefix = t_strconcat(
+		p->mail.saving ? "saving UID " : "UID ",
+		dec2str_buf(uid_buf, p->mail.uid), ": ", NULL);
+	event_set_append_log_prefix(p->_event, prefix);
+}
+
+struct event *mail_event(struct mail *mail)
+{
+	struct mail_private *p = (struct mail_private *)mail;
+
+	mail_event_create(mail);
+	return p->_event;
 }
 
 enum mail_flags mail_get_flags(struct mail *mail)
@@ -428,6 +492,7 @@ void mail_expunge(struct mail *mail)
 	T_BEGIN {
 		p->v.expunge(mail);
 	} T_END;
+	mail_expunge_requested_event(mail);
 }
 
 void mail_autoexpunge(struct mail *mail)
@@ -445,13 +510,15 @@ void mail_set_expunged(struct mail *mail)
 	mail->expunged = TRUE;
 }
 
-void mail_precache(struct mail *mail)
+int mail_precache(struct mail *mail)
 {
 	struct mail_private *p = (struct mail_private *)mail;
+	int ret;
 
 	T_BEGIN {
-		p->v.precache(mail);
+		ret = p->v.precache(mail);
 	} T_END;
+	return ret;
 }
 
 void mail_set_cache_corrupted(struct mail *mail,
@@ -507,12 +574,16 @@ static int mail_parse_parts(struct mail *mail, struct message_part **parts_r)
 	struct mail_private *pmail = (struct mail_private*)mail;
 
 	/* need to get bodystructure first */
-	if (mail_get_special(mail, MAIL_FETCH_IMAP_BODYSTRUCTURE, &structure) < 0)
+	if (mail_get_special(mail, MAIL_FETCH_IMAP_BODYSTRUCTURE,
+			     &structure) < 0) {
+		/* Don't bother logging an error. See
+		   mail_set_attachment_keywords(). */
 		return -1;
+	}
 	if (imap_bodystructure_parse_full(structure, pmail->data_pool, parts_r,
 					  &error) < 0) {
-		mail_set_critical(mail, "imap_bodystructure_parse() failed: %s",
-				  error);
+		mail_set_cache_corrupted(mail, MAIL_FETCH_IMAP_BODYSTRUCTURE,
+					 error);
 		return -1;
 	}
 	return 0;
@@ -543,9 +614,10 @@ int mail_set_attachment_keywords(struct mail *mail)
 	/* walk all parts and see if there is an attachment */
 	struct message_part *parts;
 	if (mail_get_parts(mail, &parts) < 0) {
-		mail_set_critical(mail, "Failed to add attachment keywords: "
-				  "mail_get_parts() failed: %s",
-				  mail_storage_get_last_internal_error(mail->box->storage, NULL));
+		/* Callers don't really care about the exact error, and
+		   critical errors were already logged. Most importantly we
+		   don't want to log MAIL_ERROR_LOOKUP_ABORTED since that is
+		   an expected error. */
 		ret = -1;
 	} else if (parts->data == NULL &&
 		   mail_parse_parts(mail, &parts) < 0) {
@@ -572,4 +644,51 @@ int mail_set_attachment_keywords(struct mail *mail)
 		mailbox_keywords_unref(&kw_has_not);
 
 	return ret;
+}
+
+bool mail_stream_access_start(struct mail *mail)
+{
+	if (mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
+		mail_set_aborted(mail);
+		return FALSE;
+	}
+	mail->mail_stream_accessed = TRUE;
+	mail_event_create(mail);
+	return TRUE;
+}
+
+bool mail_metadata_access_start(struct mail *mail)
+{
+	if (mail->lookup_abort >= MAIL_LOOKUP_ABORT_NOT_IN_CACHE) {
+		mail_set_aborted(mail);
+		return FALSE;
+	}
+	mail->mail_metadata_accessed = TRUE;
+	mail_event_create(mail);
+	return TRUE;
+}
+
+void mail_opened_event(struct mail *mail)
+{
+	struct mail_private *pmail =
+		container_of(mail, struct mail_private, mail);
+	struct event_passthrough *e =
+		event_create_passthrough(mail_event(mail))->
+		set_name("mail_opened")->
+		add_str("reason", pmail->get_stream_reason);
+	if (pmail->get_stream_reason != NULL)
+		e_debug(e->event(), "Opened mail because: %s",
+			pmail->get_stream_reason);
+	else
+		e_debug(e->event(), "Opened mail");
+}
+
+void mail_expunge_requested_event(struct mail *mail)
+{
+	struct event_passthrough *e =
+		event_create_passthrough(mail_event(mail))->
+		set_name("mail_expunge_requested")->
+		add_int("uid", mail->uid)->
+		add_int("seq", mail->seq);
+	e_debug(e->event(), "Expunge requested");
 }

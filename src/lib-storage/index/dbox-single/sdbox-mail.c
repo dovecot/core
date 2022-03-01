@@ -121,11 +121,8 @@ int sdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 	bool deleted;
 	int ret;
 
-	if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
-		mail_set_aborted(_mail);
+	if (!mail_stream_access_start(_mail))
 		return -1;
-	}
-	_mail->mail_stream_opened = TRUE;
 
 	ret = sdbox_mail_file_set(mail);
 	if (ret < 0)

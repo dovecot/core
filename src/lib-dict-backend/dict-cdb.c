@@ -26,7 +26,8 @@ struct cdb_dict_iterate_context {
 
 	enum dict_iterate_flags flags;
 	buffer_t *buffer;
-	const char **paths;
+	const char *values[2];
+	char *path;
 	unsigned cptr;
 	char *error;
 };
@@ -83,8 +84,10 @@ static void cdb_dict_deinit(struct dict *_dict)
 }
 
 static int
-cdb_dict_lookup(struct dict *_dict, pool_t pool,
-	        const char *key, const char **value_r,
+cdb_dict_lookup(struct dict *_dict,
+		const struct dict_op_settings *set ATTR_UNUSED,
+		pool_t pool,
+	        const char *key, const char *const **values_r,
 	        const char **error_r)
 {
 	struct cdb_dict *dict = (struct cdb_dict *)_dict;
@@ -96,18 +99,17 @@ cdb_dict_lookup(struct dict *_dict, pool_t pool,
 	if ((dict->flag & CDB_WITH_NULL) != 0) {
 		ret = cdb_find(&dict->cdb, key, (unsigned)strlen(key)+1);
 		if (ret > 0)
-			dict->flag &= ~CDB_WITHOUT_NULL;
+			dict->flag &= ENUM_NEGATE(CDB_WITHOUT_NULL);
 	}
 
 	/* ...or not */
 	if (ret == 0 && (dict->flag & CDB_WITHOUT_NULL) != 0) {
 		ret = cdb_find(&dict->cdb, key, (unsigned)strlen(key));
 		if (ret > 0)
-			dict->flag &= ~CDB_WITH_NULL;
+			dict->flag &= ENUM_NEGATE(CDB_WITH_NULL);
 	}
 
 	if (ret <= 0) {
-		*value_r = NULL;
 		/* something bad with db */
 		if (ret < 0) {
 			*error_r = t_strdup_printf("cdb_find(%s) failed: %m", dict->path);
@@ -123,20 +125,23 @@ cdb_dict_lookup(struct dict *_dict, pool_t pool,
 		*error_r = t_strdup_printf("cdb_read(%s) failed: %m", dict->path);
 		return -1;
 	}
-	*value_r = data;
+	const char **values = p_new(pool, const char *, 2);
+	values[0] = data;
+	*values_r = values;
 	return 1;
 }
 
 static struct dict_iterate_context *
-cdb_dict_iterate_init(struct dict *_dict, const char *const *paths,
-		      enum dict_iterate_flags flags)
+cdb_dict_iterate_init(struct dict *_dict,
+		      const struct dict_op_settings *set ATTR_UNUSED,
+		      const char *path, enum dict_iterate_flags flags)
 {
 	struct cdb_dict_iterate_context *ctx =
 		i_new(struct cdb_dict_iterate_context, 1);
 	struct cdb_dict *dict = (struct cdb_dict *)_dict;
 
 	ctx->ctx.dict = &dict->dict;
-	ctx->paths = p_strarray_dup(default_pool, paths);
+	ctx->path = i_strdup(path);
 	ctx->flags = flags;
 	ctx->buffer = buffer_create_dynamic(default_pool, 256);
 
@@ -178,12 +183,12 @@ cdb_dict_next(struct cdb_dict_iterate_context *ctx, const char **key_r)
 }
 
 static bool cdb_dict_iterate(struct dict_iterate_context *_ctx,
-			     const char **key_r, const char **value_r)
+			     const char **key_r, const char *const **values_r)
 {
 	struct cdb_dict_iterate_context *ctx =
 		(struct cdb_dict_iterate_context *)_ctx;
 	struct cdb_dict *dict = (struct cdb_dict *)_ctx->dict;
-	const char *key, **ptr;
+	const char *key;
 	bool match = FALSE;
 	char *data;
 	unsigned datalen;
@@ -192,18 +197,15 @@ static bool cdb_dict_iterate(struct dict_iterate_context *_ctx,
 		return FALSE;
 
 	while(!match && cdb_dict_next(ctx, &key)) {
-		/* if it matches any of the paths */
-		for(ptr = ctx->paths; *ptr != NULL; ptr++) {
-			if (((ctx->flags & DICT_ITERATE_FLAG_EXACT_KEY) != 0 &&
-			     strcmp(key, *ptr) == 0) ||
-			    ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0 &&
-			     str_begins(key, *ptr)) ||
-			    ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) == 0 &&
-			     str_begins(key, *ptr) &&
-			     strchr(key + strlen(*ptr), '/') == NULL)) {
-				match = TRUE;
-				break;
-			}
+		if (((ctx->flags & DICT_ITERATE_FLAG_EXACT_KEY) != 0 &&
+		     strcmp(key, ctx->path) == 0) ||
+		    ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0 &&
+		     str_begins(key, ctx->path)) ||
+		    ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) == 0 &&
+		     str_begins(key, ctx->path) &&
+		     strchr(key + strlen(ctx->path), '/') == NULL)) {
+			match = TRUE;
+			break;
 		}
 	}
 
@@ -225,7 +227,8 @@ static bool cdb_dict_iterate(struct dict_iterate_context *_ctx,
 	}
 
 	data[datalen] = '\0';
-	*value_r = data;
+	ctx->values[0] = data;
+	*values_r = ctx->values;
 
 	return TRUE;
 }
@@ -243,7 +246,7 @@ static int cdb_dict_iterate_deinit(struct dict_iterate_context *_ctx,
 
 	buffer_free(&ctx->buffer);
 	i_free(ctx->error);
-	i_free(ctx->paths);
+	i_free(ctx->path);
 	i_free(ctx);
 
 	return ret;

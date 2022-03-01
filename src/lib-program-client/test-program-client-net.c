@@ -102,10 +102,11 @@ test_program_input_handle(struct test_client *client, const char *line)
 
 	switch(client->state) {
 	case CLIENT_STATE_INIT:
-		test_assert((cmp=strncmp(line, "VERSION\tscript\t", 15)) == 0);
-		if (cmp == 0) {
+		cmp = strncmp(line, "VERSION\tscript\t", 15);
+		test_assert(cmp == 0);
+		if (cmp == 0)
 			client->state = CLIENT_STATE_VERSION;
-		} else
+		else
 			return -1;
 		break;
 	case CLIENT_STATE_VERSION:
@@ -134,7 +135,8 @@ test_program_input_handle(struct test_client *client, const char *line)
 		}
 		if (client->is_body == NULL)
 			client->is_body = i_stream_create_dot(client->in, FALSE);
-		switch(o_stream_send_istream(client->os_body, client->is_body)) {
+		switch (o_stream_send_istream(client->os_body,
+					      client->is_body)) {
 		case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
 			i_panic("Cannot write to ostream-temp: %s",
 				o_stream_get_error(client->os_body));
@@ -145,8 +147,8 @@ test_program_input_handle(struct test_client *client, const char *line)
 		case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
 			break;
 		case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
-			client->body =
-				iostream_temp_finish(&client->os_body, -1);
+			client->body = iostream_temp_finish(&client->os_body,
+							    SIZE_MAX);
 			i_stream_unref(&client->is_body);
 			client->state = CLIENT_STATE_FINISH;
 			return 0;
@@ -162,9 +164,16 @@ test_program_input_handle(struct test_client *client, const char *line)
 	return 0;
 }
 
+static void test_program_end(struct test_client *client)
+{
+	timeout_remove(&test_globals.to);
+	test_program_client_destroy(&client);
+}
+
 static void test_program_run(struct test_client *client)
 {
 	const char *const *args;
+	bool disconnect_later = FALSE;
 	unsigned int count;
 
 	struct ostream *os;
@@ -174,9 +183,9 @@ static void test_program_run(struct test_client *client)
 	if (array_is_created(&client->args)) {
 		args = array_get(&client->args, &count);
 		test_assert(count > 0);
-		if (count > 0) {
+		if (count >= 2) {
 			if (strcmp(args[0], "test_program_success") == 0) {
-				/* return hello world */
+				/* Return hello world */
 				i_assert(count >= 3);
 				o_stream_nsend_str(client->out,
 					t_strdup_printf("%s %s\r\n.\n+\n",
@@ -193,8 +202,18 @@ static void test_program_run(struct test_client *client)
 			}
 		} else
 			o_stream_nsend_str(client->out, ".\n-\n");
+		if (count >= 3 && strcmp(args[1], "slow_disconnect") == 0)
+			disconnect_later = TRUE;
 	}
-	test_program_client_destroy(&client);
+
+	test_assert(o_stream_flush(client->out) > 0);
+
+	if (!disconnect_later)
+		test_program_client_destroy(&client);
+	else {
+		test_globals.to = timeout_add_short(
+			500, test_program_end, client);
+	}
 }
 
 static void test_program_input(struct test_client *client)
@@ -213,7 +232,8 @@ static void test_program_input(struct test_client *client)
 				ret = 0;
 				break;
 			}
-			if ((ret=test_program_input_handle(client, line)) < 0) {
+			ret = test_program_input_handle(client, line);
+			if (ret < 0) {
 				i_warning("Client sent invalid line: %s", line);
 				break;
 			}
@@ -231,8 +251,8 @@ static void test_program_input(struct test_client *client)
 		i_warning("Client prematurely disconnected");
 
 	io_remove(&client->io);
-	/* incur slight delay to check if the connection gets
-	   prematurely closed */
+	/* Incur slight delay to check if the connection gets prematurely
+	   closed. */
 	test_globals.to = timeout_add_short(100, test_program_run, client);
 }
 
@@ -252,8 +272,8 @@ static void test_program_connected(struct test_server *server)
 	client = p_new(pool, struct test_client, 1);
 	client->pool = pool;
 	client->fd = fd;
-	client->in = i_stream_create_fd(fd, -1);
-	client->out = o_stream_create_fd(fd, -1);
+	client->in = i_stream_create_fd(fd, SIZE_MAX);
+	client->out = o_stream_create_fd(fd, SIZE_MAX);
 	client->io = io_add_istream(client->in, test_program_input, client);
 	p_array_init(&client->args, client->pool, 2);
 	server->client = client;
@@ -270,7 +290,7 @@ static void test_program_setup(void)
 	test_globals.ioloop = io_loop_create();
 	io_loop_set_current(test_globals.ioloop);
 
-	/* create listener */
+	/* Create listener */
 	test_globals.port = 0;
 	test_assert(net_addr2ip("127.0.0.1", &ip) == 0);
 
@@ -296,9 +316,10 @@ static void test_program_teardown(void)
 	test_end();
 }
 
-static void test_program_async_callback(int result, int *ret)
+static void test_program_async_callback(enum program_client_exit_status result,
+					int *ret)
 {
-	*ret = result;
+	*ret = (int)result;
 	test_program_io_loop_stop();
 }
 
@@ -338,16 +359,10 @@ static void test_program_success(void)
 	test_end();
 }
 
-static void test_program_io(void)
+static void test_program_io_common(const char *const *args)
 {
 	struct program_client *pc;
 	int ret = -2;
-
-	const char *const args[] = {
-		"test_program_io", NULL
-	};
-
-	test_begin("test_program_io (async)");
 
 	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
 				       &pc_set, FALSE);
@@ -374,6 +389,25 @@ static void test_program_io(void)
 	buffer_free(&output);
 
 	i_assert(test_globals.client == NULL);
+}
+
+static void test_program_io(void)
+{
+	const char *args[3] = {
+		"test_program_io", NULL, NULL
+	};
+
+	test_begin("test_program_io (async)");
+
+	test_program_io_common(args);
+
+	test_end();
+
+	args[1] = "slow_disconnect";
+
+	test_begin("test_program_io (async, slow disconnect)");
+
+	test_program_io_common(args);
 
 	test_end();
 }

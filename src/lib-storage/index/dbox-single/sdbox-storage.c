@@ -123,7 +123,7 @@ sdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	pool_t pool;
 
 	/* dbox can't work without index files */
-	flags &= ~MAILBOX_FLAG_NO_INDEX_FILES;
+	flags &= ENUM_NEGATE(MAILBOX_FLAG_NO_INDEX_FILES);
 
 	pool = pool_alloconly_create("sdbox mailbox", 1024*3);
 	mbox = p_new(pool, struct sdbox_mailbox, 1);
@@ -450,7 +450,7 @@ struct mail_storage sdbox_storage = {
 		sdbox_storage_autodetect,
 		sdbox_mailbox_alloc,
 		NULL,
-		NULL,
+		mail_storage_list_index_rebuild,
 	}
 };
 
@@ -469,7 +469,7 @@ struct mail_storage dbox_storage = {
 		sdbox_storage_autodetect,
 		sdbox_mailbox_alloc,
 		NULL,
-		NULL,
+		mail_storage_list_index_rebuild,
 	}
 };
 
@@ -509,6 +509,7 @@ struct mailbox sdbox_mailbox = {
 		index_storage_search_deinit,
 		index_storage_search_next_nonblock,
 		index_storage_search_next_update_seq,
+		index_storage_search_next_match_mail,
 		sdbox_save_alloc,
 		sdbox_save_begin,
 		dbox_save_continue,

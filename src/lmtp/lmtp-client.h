@@ -6,6 +6,7 @@
 
 #define CLIENT_MAIL_DATA_MAX_INMEMORY_SIZE (1024*128)
 
+struct master_service_connection;
 struct mail_storage;
 struct mail_deliver_context;
 union lmtp_module_context;
@@ -44,8 +45,7 @@ struct client_state {
 };
 
 struct lmtp_client_vfuncs {
-	void (*destroy)(struct client *client, const char *enh_code,
-			const char *reason);
+	void (*destroy)(struct client *client);
 
 	void (*trans_start)(struct client *client,
 			    struct smtp_server_transaction *trans);
@@ -114,10 +114,8 @@ extern struct lmtp_module_register lmtp_module_register;
 
 struct client *client_create(int fd_in, int fd_out,
 			     const struct master_service_connection *conn);
-void client_destroy(struct client *client, const char *enh_code,
+void client_destroy(struct client **client, const char *enh_code,
 		    const char *reason) ATTR_NULL(2, 3);
-void client_disconnect(struct client *client, const char *enh_code,
-		       const char *reason) ATTR_NULL(2, 3);
 
 void client_state_reset(struct client *client);
 void client_update_data_state(struct client *client, const char *new_args);

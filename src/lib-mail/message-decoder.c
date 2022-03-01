@@ -79,11 +79,11 @@ void message_decoder_set_return_binary(struct message_decoder_context *ctx,
 	if (set)
 		ctx->flags |= MESSAGE_DECODER_FLAG_RETURN_BINARY;
 	else
-		ctx->flags &= ~MESSAGE_DECODER_FLAG_RETURN_BINARY;
+		ctx->flags &= ENUM_NEGATE(MESSAGE_DECODER_FLAG_RETURN_BINARY);
 	message_decode_body_init_charset(ctx, ctx->prev_part);
 }
 
-enum message_cte message_decoder_parse_cte(struct message_header_line *hdr)
+enum message_cte message_decoder_parse_cte(const struct message_header_line *hdr)
 {
 	struct rfc822_parser_context parser;
 	enum message_cte message_cte;
@@ -93,7 +93,17 @@ enum message_cte message_decoder_parse_cte(struct message_header_line *hdr)
 	rfc822_parser_init(&parser, hdr->full_value, hdr->full_value_len, NULL);
 
 	rfc822_skip_lwsp(&parser);
-	(void)rfc822_parse_mime_token(&parser, value);
+
+	/* Ensure we do not accidentically accept confused values like
+	   'base64 binary' or embedded NULs */
+	if (rfc822_parse_mime_token(&parser, value) == 1) {
+		rfc822_skip_lwsp(&parser);
+		/* RFC 2045 does not permit parameters for CTE,
+		   but in case someone uses them, we accept
+		   parameter separator ';' to be lenient. */
+		if (*parser.data != ';')
+			return MESSAGE_CTE_UNKNOWN;
+	}
 
 	message_cte = MESSAGE_CTE_UNKNOWN;
 	switch (str_len(value)) {

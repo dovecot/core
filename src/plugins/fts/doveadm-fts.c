@@ -190,10 +190,11 @@ cmd_fts_tokenize_run(struct doveadm_mail_cmd_context *_ctx,
 		struct fts_language_list *lang_list =
 			fts_user_get_language_list(user);
 		enum fts_language_result result;
+		const char *error;
 
 		result = fts_language_detect(lang_list,
 		    (const unsigned char *)ctx->tokens, strlen(ctx->tokens),
-                    &lang);
+                    &lang, &error);
 		if (lang == NULL)
 			lang = fts_language_list_get_first(lang_list);
 		switch (result) {
@@ -206,7 +207,7 @@ cmd_fts_tokenize_run(struct doveadm_mail_cmd_context *_ctx,
 		case FTS_LANGUAGE_RESULT_OK:
 			break;
 		case FTS_LANGUAGE_RESULT_ERROR:
-			i_error("Language detection library initialization failed");
+			i_error("Language detection library initialization failed: %s", error);
 			_ctx->exit_code = EX_CONFIG;
 			return -1;
 		default:

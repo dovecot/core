@@ -139,7 +139,7 @@ add_binary_part(struct binary_ctx *ctx, const struct message_part *part,
 		block->converted = TRUE;
 		block->converted_hdr = TRUE;
 
-		linput = i_stream_create_limit(ctx->input, (uoff_t)-1);
+		linput = i_stream_create_limit(ctx->input, UOFF_T_MAX);
 		block->input = i_stream_create_header_filter(linput,
 				HEADER_FILTER_EXCLUDE | HEADER_FILTER_HIDE_BODY,
 				filter_headers, N_ELEMENTS(filter_headers),
@@ -339,13 +339,14 @@ blocks_count_lines(struct binary_ctx *ctx, struct istream *full_input)
 		i_stream_skip(full_input, skip);
 		cur_block_offset += skip;
 
-		if (cur_block->input->eof) {
+		if (i_stream_read_eof(cur_block->input)) {
 			/* go to the next block */
-			if (++block_idx == block_count) {
+			if (block_idx+1 == block_count) {
 				i_assert(i_stream_read_eof(full_input));
 				ret = -1;
 				break;
 			}
+			block_idx++;
 			cur_block++;
 			cur_block_offset = 0;
 		}

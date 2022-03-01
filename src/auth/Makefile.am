@@ -12,6 +12,19 @@ if LDAP_PLUGIN
 LDAP_LIB = libauthdb_ldap.la
 endif
 
+LUA_LIB =
+AUTH_LUA_LIBS =
+AUTH_LUA_LDADD =
+
+if HAVE_LUA
+if AUTH_LUA_PLUGIN
+LUA_LIB += libauthdb_lua.la
+else
+AUTH_LUA_LIBS += $(LIBDOVECOT_LUA)
+AUTH_LUA_LDADD += $(LUA_LIBS)
+endif
+endif
+
 auth_module_LTLIBRARIES = \
 	$(GSSAPI_LIB) \
 	$(LDAP_LIB) \
@@ -31,8 +44,6 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-http \
 	-I$(top_srcdir)/src/lib-sql \
 	-I$(top_srcdir)/src/lib-settings \
-	-I$(top_srcdir)/src/lib-old-stats \
-	-I$(top_srcdir)/src/lib-ntlm \
 	-I$(top_srcdir)/src/lib-otp \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-oauth2 \
@@ -56,30 +67,19 @@ libpassword_la_SOURCES = \
 	password-scheme-md5crypt.c \
 	password-scheme-scram.c \
 	password-scheme-otp.c \
-	password-scheme-rpa.c \
 	password-scheme-pbkdf2.c \
 	password-scheme-sodium.c
 libpassword_la_CFLAGS = $(AM_CPPFLAGS) $(LIBSODIUM_CFLAGS)
 
-if HAVE_LUA
-if AUTH_LUA_PLUGIN
-LUA_LIB = libauthdb_lua.la
-else !AUTH_LUA_PLUGIN
-LIBDOVECOT_LUA = ../lib-lua/libdovecot-lua.la
-endif !AUTH_LUA_PLUGIN
-endif
-
 auth_libs = \
 	libauth.la \
-	libstats_auth.la \
 	libpassword.la \
-	../lib-ntlm/libntlm.la \
 	../lib-otp/libotp.la \
-	$(LIBDOVECOT_LUA) \
+	$(AUTH_LUA_LIBS) \
 	$(LIBDOVECOT_SQL)
 
 auth_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
-auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS) $(BINARY_LDFLAGS)
+auth_LDADD = $(auth_libs) $(LIBDOVECOT) $(AUTH_LIBS) $(BINARY_LDFLAGS) $(AUTH_LUA_LDADD)
 auth_DEPENDENCIES = $(auth_libs) $(LIBDOVECOT_DEPS)
 auth_SOURCES = main.c
 
@@ -93,12 +93,12 @@ libauth_la_SOURCES = \
 	auth-client-connection.c \
 	auth-master-connection.c \
 	auth-policy.c \
-	mech-otp-skey-common.c \
+	mech-otp-common.c \
 	mech-plain-common.c \
 	auth-penalty.c \
 	auth-request.c \
+	auth-request-fields.c \
 	auth-request-handler.c \
-	auth-request-stats.c \
 	auth-request-var-expand.c \
 	auth-settings.c \
 	auth-fields.c \
@@ -119,11 +119,8 @@ libauth_la_SOURCES = \
 	mech-digest-md5.c \
 	mech-external.c \
 	mech-gssapi.c \
-	mech-ntlm.c \
 	mech-otp.c \
 	mech-scram.c \
-	mech-skey.c \
-	mech-rpa.c \
 	mech-apop.c \
 	mech-winbind.c \
 	mech-dovecot-token.c \
@@ -138,9 +135,6 @@ libauth_la_SOURCES = \
 	passdb-passwd.c \
 	passdb-passwd-file.c \
 	passdb-pam.c \
-	passdb-shadow.c \
-	passdb-sia.c \
-	passdb-vpopmail.c \
 	passdb-sql.c \
 	passdb-static.c \
 	passdb-template.c \
@@ -152,7 +146,6 @@ libauth_la_SOURCES = \
 	userdb-passwd-file.c \
 	userdb-prefetch.c \
 	userdb-static.c \
-	userdb-vpopmail.c \
 	userdb-sql.c \
 	userdb-template.c \
 	$(ldap_sources) \
@@ -164,7 +157,7 @@ headers = \
 	auth-client-connection.h \
 	auth-common.h \
 	auth-master-connection.h \
-	mech-otp-skey-common.h \
+	mech-otp-common.h \
 	mech-plain-common.h \
 	mech-digest-md5-private.h \
 	mech-scram.h \
@@ -173,10 +166,8 @@ headers = \
 	auth-request.h \
 	auth-request-handler.h \
 	auth-request-handler-private.h \
-	auth-request-stats.h \
 	auth-request-var-expand.h \
 	auth-settings.h \
-	auth-stats.h \
 	auth-fields.h \
 	auth-token.h \
 	auth-worker-client.h \
@@ -196,8 +187,7 @@ headers = \
 	password-scheme.h \
 	userdb.h \
 	userdb-blocking.h \
-	userdb-template.h \
-	userdb-vpopmail.h
+	userdb-template.h
 
 if GSSAPI_PLUGIN
 libmech_gssapi_la_LDFLAGS = -module -avoid-version
@@ -215,7 +205,7 @@ endif
 
 if AUTH_LUA_PLUGIN
 libauthdb_lua_la_LDFLAGS = -module -avoid-version
-libauthdb_lua_la_LIBADD = ../lib-lua/libdovecot-lua.la $(LUA_LIBS)
+libauthdb_lua_la_LIBADD = $(LIBDOVECOT_LUA)
 libauthdb_lua_la_CPPFLAGS = $(AM_CPPFLAGS) -DPLUGIN_BUILD
 libauthdb_lua_la_SOURCES = $(lua_sources)
 endif
@@ -240,14 +230,6 @@ checkpassword_reply_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 checkpassword_reply_sources = \
 	checkpassword-reply.c
 
-stats_moduledir = $(moduledir)/old-stats
-stats_module_LTLIBRARIES = libstats_auth.la
-
-libstats_auth_la_LDFLAGS = -module -avoid-version
-libstats_auth_la_LIBADD = $(LIBDOVECOT)
-libstats_auth_la_DEPENDENCIES = $(LIBDOVECOT_DEPS)
-libstats_auth_la_SOURCES = auth-stats.c
-
 test_programs = \
 	test-libpassword \
 	test-auth-cache \
@@ -264,7 +246,6 @@ test_libs = \
 test_libpassword_SOURCES = test-libpassword.c
 test_libpassword_LDADD = \
 	libpassword.la \
-	../lib-ntlm/libntlm.la \
         ../lib-otp/libotp.la \
 	$(CRYPT_LIBS) \
 	$(LIBDOVECOT_SQL) \
@@ -283,20 +264,21 @@ test_auth_cache_CPPFLAGS = $(AM_CPPFLAGS)
 
 test_auth_SOURCES = \
 	test-auth-request-var-expand.c \
+	test-auth-request-fields.c \
 	test-username-filter.c \
 	test-db-dict.c \
 	test-lua.c \
 	test-mock.c \
 	test-main.c
 
-test_auth_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS)
+test_auth_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
 test_auth_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 test_mech_SOURCES = \
 	test-mock.c \
 	test-mech.c
 
-test_mech_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS)
+test_mech_LDADD = $(test_libs) $(auth_libs) $(AUTH_LIBS) $(LUA_LIBS)
 test_mech_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 check-local:

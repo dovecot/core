@@ -181,7 +181,7 @@ static void imap_search_result_save(struct imap_search_context *ctx)
 		imap_append_quoted(str, ctx->cmd->tag);
 		str_append_c(str, ']');
 		client_send_line(client, str_c(str));
-		ctx->return_options &= ~SEARCH_RETURN_UPDATE;
+		ctx->return_options &= ENUM_NEGATE(SEARCH_RETURN_UPDATE);
 		imap_search_context_free(ctx);
 		return;
 	}
@@ -482,10 +482,7 @@ static void cmd_search_more_callback(struct client_command_context *cmd)
 		client_command_free(&cmd);
 	cmd_sync_delayed(client);
 
-	if (client->disconnected)
-		client_destroy(client, NULL);
-	else
-		client_continue_pending_input(client);
+	client_continue_pending_input(client);
 }
 
 int cmd_search_parse_return_if_found(struct imap_search_context *ctx,

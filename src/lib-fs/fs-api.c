@@ -41,8 +41,7 @@ fs_alloc(const struct fs *fs_class, const char *args,
 	 const struct fs_settings *set, struct fs **fs_r, const char **error_r)
 {
 	struct fs *fs;
-	const char *temp_error;
-	char *error = NULL;
+	const char *error;
 	int ret;
 
 	fs = fs_class->v.alloc();
@@ -50,18 +49,17 @@ fs_alloc(const struct fs *fs_class, const char *args,
 	fs->set.debug = set->debug;
 	fs->set.enable_timing = set->enable_timing;
 	i_array_init(&fs->module_contexts, 5);
-	fs->event = fs_create_event(fs, set->event);
+	fs->event = fs_create_event(fs, set->event_parent);
+	event_set_forced_debug(fs->event, fs->set.debug);
 
 	T_BEGIN {
-		if ((ret = fs_class->v.init(fs, args, set, &temp_error)) < 0)
-			error = i_strdup(temp_error);
-	} T_END;
+		ret = fs_class->v.init(fs, args, set, &error);
+	} T_END_PASS_STR_IF(ret < 0, &error);
 	if (ret < 0) {
 		/* a bit kludgy way to allow data stack frame usage in normal
 		   conditions but still be able to return error message from
 		   data stack. */
 		*error_r = t_strdup_printf("%s: %s", fs_class->name, error);
-		i_free(error);
 		fs_unref(&fs);
 		return -1;
 	}
@@ -98,14 +96,14 @@ static void fs_classes_init(void)
 
 static const struct fs *fs_class_find(const char *driver)
 {
-	const struct fs *const *classp;
+	const struct fs *class;
 
 	if (!array_is_created(&fs_classes))
 		fs_classes_init();
 
-	array_foreach(&fs_classes, classp) {
-		if (strcmp((*classp)->name, driver) == 0)
-			return *classp;
+	array_foreach_elem(&fs_classes, class) {
+		if (strcmp(class->name, driver) == 0)
+			return class;
 	}
 	return NULL;
 }
@@ -226,6 +224,10 @@ void fs_unref(struct fs **_fs)
 	}
 	i_assert(fs->files == NULL);
 
+	if (fs->v.deinit != NULL)
+		fs->v.deinit(fs);
+
+	fs_deinit(&fs->parent);
 	event_unref(&fs->event);
 	i_free(fs->username);
 	i_free(fs->session_id);
@@ -235,7 +237,7 @@ void fs_unref(struct fs **_fs)
 			stats_dist_deinit(&fs->stats.timings[i]);
 	}
 	T_BEGIN {
-		fs->v.deinit(fs);
+		fs->v.free(fs);
 	} T_END;
 	array_free_i(&module_contexts_arr);
 }
@@ -274,12 +276,12 @@ struct fs_file *fs_file_init_with_event(struct fs *fs, struct event *event,
 	T_BEGIN {
 		file = fs->v.file_alloc();
 		file->fs = fs;
-		file->flags = mode_flags & ~FS_OPEN_MODE_MASK;
+		file->flags = mode_flags & ENUM_NEGATE(FS_OPEN_MODE_MASK);
 		file->event = fs_create_event(fs, event);
 		event_set_ptr(file->event, FS_EVENT_FIELD_FS, fs);
 		event_set_ptr(file->event, FS_EVENT_FIELD_FILE, file);
 		fs->v.file_init(file, path, mode_flags & FS_OPEN_MODE_MASK,
-				mode_flags & ~FS_OPEN_MODE_MASK);
+				mode_flags & ENUM_NEGATE(FS_OPEN_MODE_MASK));
 	} T_END;
 
 	fs->files_open_count++;
@@ -316,7 +318,8 @@ void fs_file_free(struct fs_file *file)
 		   fs_file_last_error(). Log it to make sure it's not lost.
 		   Note that the errors are always set only to the file at
 		   the root of the parent hierarchy. */
-		e_error(file->event, "%s (in file deinit)", file->last_error);
+		e_error(file->event, "%s (in file %s deinit)",
+			file->last_error, fs_file_path(file));
 	}
 
 	fs_file_deinit(&file->parent);
@@ -330,7 +333,7 @@ void fs_file_set_flags(struct fs_file *file,
 		       enum fs_open_flags remove_flags)
 {
 	file->flags |= add_flags;
-	file->flags &= ~remove_flags;
+	file->flags &= ENUM_NEGATE(remove_flags);
 
 	if (file->parent != NULL)
 		fs_file_set_flags(file->parent, add_flags, remove_flags);
@@ -595,15 +598,18 @@ fs_set_verror(struct event *event, const char *fmt, va_list args)
 
 	/* free old error after strdup in case args point to the old error */
 	if (file != NULL) {
-		char *old_error = file->last_error;
 		file = fs_file_get_error_file(file);
+		char *old_error = file->last_error;
 
-		if (old_error != NULL && strcmp(old_error, new_error) == 0) {
+		if (old_error == NULL) {
+			i_assert(!file->last_error_changed);
+		} else if (strcmp(old_error, new_error) == 0) {
 			/* identical error - ignore */
 		} else if (file->last_error_changed) {
 			/* multiple fs_set_error() calls used without
 			   fs_file_last_error() in the middle. */
-			e_error(file->event, "%s (overwriting error)", old_error);
+			e_error(file->event, "%s (overwriting error for file %s)",
+				old_error, fs_file_path(file));
 		}
 		if (errno == EAGAIN || errno == ENOENT || errno == EEXIST ||
 		    errno == ENOTEMPTY) {
@@ -625,8 +631,8 @@ fs_set_verror(struct event *event, const char *fmt, va_list args)
 		} else if (iter->last_error != NULL) {
 			/* multiple fs_set_error() calls before the iter
 			   finishes */
-			e_error(iter->fs->event, "%s (overwriting error)",
-				iter->last_error);
+			e_error(iter->fs->event, "%s (overwriting error for file %s)",
+				iter->last_error, iter->path);
 		}
 		i_free(iter->last_error);
 		iter->last_error = new_error;
@@ -736,7 +742,7 @@ struct istream *fs_read_stream(struct fs_file *file, size_t max_buffer_size)
 
 	if (file->seekable_input != NULL) {
 		/* allow multiple open streams, each in a different position */
-		input = i_stream_create_limit(file->seekable_input, (uoff_t)-1);
+		input = i_stream_create_limit(file->seekable_input, UOFF_T_MAX);
 		i_stream_seek(input, 0);
 		return input;
 	}
@@ -952,6 +958,7 @@ void fs_write_set_hash(struct fs_file *file, const struct hash_method *method,
 	memcpy(file->write_digest, digest, method->digest_size);
 }
 
+#undef fs_file_set_async_callback
 void fs_file_set_async_callback(struct fs_file *file,
 				fs_file_async_callback_t *callback,
 				void *context)
@@ -1088,9 +1095,9 @@ int fs_get_nlinks(struct fs_file *file, nlink_t *nlinks_r)
 int fs_default_copy(struct fs_file *src, struct fs_file *dest)
 {
 	int tmp_errno;
-	/* we're going to be counting this as read+write, so remove the
-	   copy_count we just added */
-	dest->fs->stats.copy_count--;
+	/* we're going to be counting this as read+write, so don't update
+	   copy_count */
+	dest->copy_counted = TRUE;
 
 	if (dest->copy_src != NULL) {
 		i_assert(src == NULL || src == dest->copy_src);
@@ -1156,7 +1163,10 @@ int fs_copy(struct fs_file *src, struct fs_file *dest)
 	} T_END;
 	if (!(ret < 0 && errno == EAGAIN)) {
 		fs_file_timing_end(dest, FS_OP_COPY);
-		dest->fs->stats.copy_count++;
+		if (dest->copy_counted)
+			dest->copy_counted = FALSE;
+		else
+			dest->fs->stats.copy_count++;
 		dest->metadata_changed = FALSE;
 	}
 	return ret;
@@ -1171,7 +1181,10 @@ int fs_copy_finish_async(struct fs_file *dest)
 	} T_END;
 	if (!(ret < 0 && errno == EAGAIN)) {
 		fs_file_timing_end(dest, FS_OP_COPY);
-		dest->fs->stats.copy_count++;
+		if (dest->copy_counted)
+			dest->copy_counted = FALSE;
+		else
+			dest->fs->stats.copy_count++;
 		dest->metadata_changed = FALSE;
 	}
 	return ret;
@@ -1237,6 +1250,7 @@ fs_iter_init_with_event(struct fs *fs, struct event *event,
 		iter = fs->v.iter_alloc();
 		iter->fs = fs;
 		iter->flags = flags;
+		iter->path = i_strdup(path);
 		iter->event = fs_create_event(fs, event);
 		event_set_ptr(iter->event, FS_EVENT_FIELD_FS, fs);
 		event_set_ptr(iter->event, FS_EVENT_FIELD_ITER, iter);
@@ -1272,6 +1286,7 @@ int fs_iter_deinit(struct fs_iter **_iter, const char **error_r)
 	if (ret < 0)
 		*error_r = t_strdup(iter->last_error);
 	i_free(iter->last_error);
+	i_free(iter->path);
 	i_free(iter);
 	event_unref(&event);
 	return ret;
@@ -1298,6 +1313,7 @@ const char *fs_iter_next(struct fs_iter *iter)
 	return ret;
 }
 
+#undef fs_iter_set_async_callback
 void fs_iter_set_async_callback(struct fs_iter *iter,
 				fs_file_async_callback_t *callback,
 				void *context)
@@ -1375,10 +1391,11 @@ uint64_t fs_stats_get_write_usecs(const struct fs_stats *stats)
 }
 
 struct fs_file *
-fs_file_init_parent(struct fs_file *parent, const char *path, int mode_flags)
+fs_file_init_parent(struct fs_file *parent, const char *path,
+		    enum fs_open_mode mode, enum fs_open_flags flags)
 {
 	return fs_file_init_with_event(parent->fs->parent, parent->event,
-				       path, mode_flags);
+				       path, (int)mode | (int)flags);
 }
 
 struct fs_iter *

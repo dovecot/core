@@ -58,7 +58,8 @@ get_disconnect_reason(struct cmd_append_context *ctx, uoff_t lit_offset)
 	string_t *str = t_str_new(128);
 	unsigned int secs = ioloop_time - ctx->started;
 
-	str_printfa(str, "Disconnected in APPEND (%u msgs, %u secs",
+	str_printfa(str, "%s (While APPENDing: %u msgs, %u secs",
+		    i_stream_get_disconnect_reason(ctx->input),
 		    ctx->count, secs);
 	if (ctx->literal_size > 0) {
 		str_printfa(str, ", %"PRIuUOFF_T"/%"PRIuUOFF_T" bytes",
@@ -122,10 +123,7 @@ static void client_input_append(struct client_command_context *cmd)
 	cmd_sync_delayed(client);
 	o_stream_uncork(client->output);
 
-	if (client->disconnected)
-		client_destroy(client, NULL);
-	else
-		client_continue_pending_input(client);
+	client_continue_pending_input(client);
 }
 
 static void cmd_append_finish(struct cmd_append_context *ctx)
@@ -261,7 +259,7 @@ static void cmd_append_catenate_text(struct client_command_context *cmd)
 {
 	struct cmd_append_context *ctx = cmd->context;
 
-	if (ctx->literal_size > (uoff_t)-1 - ctx->cat_msg_size &&
+	if (ctx->literal_size > UOFF_T_MAX - ctx->cat_msg_size &&
 	    !ctx->failed) {
 		client_send_tagline(cmd,
 			"NO [TOOBIG] Composed message grows too big.");
@@ -571,8 +569,8 @@ cmd_append_handle_args(struct client_command_context *cmd,
 
 	if (cat_list != NULL) {
 		ctx->cat_msg_size = 0;
-		ctx->input = i_stream_create_chain(&ctx->catchain);
-		i_stream_set_max_buffer_size(ctx->input, IO_BLOCK_SIZE);
+		ctx->input = i_stream_create_chain(&ctx->catchain,
+						   IO_BLOCK_SIZE);
 	} else {
 		if (ctx->literal_size == 0) {
 			/* no message data, abort */
@@ -933,7 +931,7 @@ bool cmd_append(struct client_command_context *cmd)
 	if (client_open_save_dest_box(cmd, mailbox, &ctx->box) < 0)
 		ctx->failed = TRUE;
 	else {
-		event_add_str(cmd->event, "mailbox",
+		event_add_str(cmd->global_event, "mailbox",
 			      mailbox_get_vname(ctx->box));
 		ctx->t = mailbox_transaction_begin(ctx->box,
 					MAILBOX_TRANSACTION_FLAG_EXTERNAL |

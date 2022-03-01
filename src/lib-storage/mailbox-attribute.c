@@ -155,8 +155,7 @@ mailbox_internal_attributes_add_prefixes(ARRAY_TYPE(const_string) *attrs,
 		return;
 	new_count = array_count(attrs);
 	for (unsigned int i = old_count; i < new_count; i++) {
-		const char *const *old_keyp = array_idx(attrs, i);
-		const char *old_key = *old_keyp;
+		const char *old_key = array_idx_elem(attrs, i);
 		const char *prefixed_key;
 
 		if (old_key[0] == '\0')
@@ -299,7 +298,7 @@ mailbox_attribute_set_common(struct mailbox_transaction_context *t,
 			i_unreached();
 		}
 		/* the value was validated. */
-		type_flags &= ~MAIL_ATTRIBUTE_TYPE_FLAG_VALIDATED;
+		type_flags &= ENUM_NEGATE(MAIL_ATTRIBUTE_TYPE_FLAG_VALIDATED);
 	}
 
 	ret = t->box->v.attribute_set(t, type_flags, key, value);
@@ -378,7 +377,7 @@ mailbox_attribute_get_common(struct mailbox *box,
 		case MAIL_ATTRIBUTE_INTERNAL_RANK_OVERRIDE:
 			/* we already checked that this attribute has
 			   validated-flag */
-			type_flags &= ~MAIL_ATTRIBUTE_TYPE_FLAG_VALIDATED;
+			type_flags &= ENUM_NEGATE(MAIL_ATTRIBUTE_TYPE_FLAG_VALIDATED);
 
 			if (iattr->get == NULL)
 				break;
@@ -510,7 +509,7 @@ mailbox_attribute_iter_init(struct mailbox *box,
 	/* copy relevant attributes */
 	array_foreach(&extra_attrs, attr) {
 		/* skip internal server attributes unless we're iterating inbox */
-		if (!box->inbox_any &&
+		if (!box->inbox_user &&
 		    strncmp(*attr, MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER,
 			    strlen(MAILBOX_ATTRIBUTE_PREFIX_DOVECOT_PVT_SERVER)) == 0)
 			continue;

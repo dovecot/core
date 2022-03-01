@@ -85,7 +85,6 @@ quota_check(struct mail_user *user, uoff_t mail_size, const char **error_r)
 
 	ns = mail_namespace_find_inbox(user->namespaces);
 	box = mailbox_alloc(ns->list, "INBOX", MAILBOX_FLAG_POST_SESSION);
-	mailbox_set_reason(box, "quota status");
 
 	ctx = quota_transaction_begin(box);
 	const char *internal_error;
@@ -146,7 +145,7 @@ static void client_handle_request(struct quota_client *client)
 	}
 
 	i_zero(&input);
-	input.parent_event = client->event;
+	input.event_parent = client->event;
 	smtp_address_detail_parse_temp(quota_status_settings->recipient_delimiter,
 				       rcpt, &input.username, &delim,
 				       &detail);
@@ -257,8 +256,8 @@ static void client_destroy(struct connection *conn)
 }
 
 static struct connection_settings client_set = {
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.client = FALSE
 };
 

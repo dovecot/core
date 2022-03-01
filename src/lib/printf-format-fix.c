@@ -83,7 +83,7 @@ printf_format_fix_noalloc(const char *format, size_t *len_r)
 		p = p2+1;
 		if (*p == '%') {
 			/* we'll be strict and allow %% only when there are no
-			   optinal flags or modifiers. */
+			   optional flags or modifiers. */
 			p++;
 			continue;
 		}

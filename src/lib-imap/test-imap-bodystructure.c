@@ -4,6 +4,7 @@
 #include "istream.h"
 #include "str.h"
 #include "message-part-data.h"
+#include "message-part-serialize.h"
 #include "message-parser.h"
 #include "imap-bodystructure.h"
 #include "test-common.h"
@@ -379,8 +380,16 @@ struct normalize_test normalize_tests[] = {
 static const unsigned int normalize_tests_count = N_ELEMENTS(normalize_tests);
 
 static struct message_part *
-msg_parse(pool_t pool, const char *message, bool parse_bodystructure)
+msg_parse(pool_t pool, const char *message, unsigned int max_nested_mime_parts,
+	  unsigned int max_total_mime_parts, bool parse_bodystructure)
 {
+	const struct message_parser_settings parser_set = {
+		.hdr_flags = MESSAGE_HEADER_PARSER_FLAG_SKIP_INITIAL_LWSP |
+			MESSAGE_HEADER_PARSER_FLAG_DROP_CR,
+		.flags = MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK,
+		.max_nested_mime_parts = max_nested_mime_parts,
+		.max_total_mime_parts = max_total_mime_parts,
+	};
 	struct message_parser_ctx *parser;
 	struct istream *input;
 	struct message_block block;
@@ -388,10 +397,7 @@ msg_parse(pool_t pool, const char *message, bool parse_bodystructure)
 	int ret;
 
 	input = i_stream_create_from_data(message, strlen(message));
-	parser = message_parser_init(pool, input,
-			MESSAGE_HEADER_PARSER_FLAG_SKIP_INITIAL_LWSP |
-			MESSAGE_HEADER_PARSER_FLAG_DROP_CR,
-			MESSAGE_PARSER_FLAG_SKIP_BODY_BLOCK);
+	parser = message_parser_init(pool, input, &parser_set);
 	while ((ret = message_parser_parse_next_block(parser, &block)) > 0) {
 		if (parse_bodystructure) {
 			message_part_data_parse_from_header(pool, block.part,
@@ -408,6 +414,7 @@ msg_parse(pool_t pool, const char *message, bool parse_bodystructure)
 static void test_imap_bodystructure_write(void)
 {
 	struct message_part *parts;
+	const char *error;
 	unsigned int i;
 
 	for (i = 0; i < parse_tests_count; i++) T_BEGIN {
@@ -416,15 +423,30 @@ static void test_imap_bodystructure_write(void)
 		pool_t pool = pool_alloconly_create("imap bodystructure write", 1024);
 
 		test_begin(t_strdup_printf("imap bodystructure write [%u]", i));
-		parts = msg_parse(pool, test->message, TRUE);
+		parts = msg_parse(pool, test->message, 0, 0, TRUE);
 
-		imap_bodystructure_write(parts, str, TRUE);
+		test_assert(imap_bodystructure_write(parts, str, TRUE, &error) == 0);
 		test_assert(strcmp(str_c(str), test->bodystructure) == 0);
 
 		str_truncate(str, 0);
-		imap_bodystructure_write(parts, str, FALSE);
+		test_assert(imap_bodystructure_write(parts, str, FALSE, &error) == 0);
 		test_assert(strcmp(str_c(str), test->body) == 0);
 
+		pool_unref(&pool);
+		test_end();
+	} T_END;
+
+	T_BEGIN {
+		test_begin("imap bodystructure write - corrupted");
+		pool_t pool = pool_alloconly_create("imap bodystructure write", 1024);
+
+		parts = msg_parse(pool, "Subject: hello world", 0, 0, TRUE);
+		i_assert((parts->flags & MESSAGE_PART_FLAG_TEXT) != 0);
+		parts->flags &= ENUM_NEGATE(MESSAGE_PART_FLAG_TEXT);
+
+		string_t *str = t_str_new(128);
+		test_assert(imap_bodystructure_write(parts, str, FALSE, &error) < 0);
+		test_assert_strcmp(error, "text flag mismatch");
 		pool_unref(&pool);
 		test_end();
 	} T_END;
@@ -443,7 +465,7 @@ static void test_imap_bodystructure_parse(void)
 		pool_t pool = pool_alloconly_create("imap bodystructure parse", 1024);
 
 		test_begin(t_strdup_printf("imap bodystructure parser [%u]", i));
-		parts = msg_parse(pool, test->message, FALSE);
+		parts = msg_parse(pool, test->message, 0, 0, FALSE);
 
 		test_assert(imap_body_parse_from_bodystructure(test->bodystructure,
 								     str, &error) == 0);
@@ -455,7 +477,7 @@ static void test_imap_bodystructure_parse(void)
 
 		if (ret == 0) {
 			str_truncate(str, 0);
-			imap_bodystructure_write(parts, str, TRUE);
+			test_assert(imap_bodystructure_write(parts, str, TRUE, &error) == 0);
 			test_assert(strcmp(str_c(str), test->bodystructure) == 0);
 		} else {
 			i_error("Invalid BODYSTRUCTURE: %s", error);
@@ -464,6 +486,78 @@ static void test_imap_bodystructure_parse(void)
 		pool_unref(&pool);
 		test_end();
 	} T_END;
+}
+
+static void test_imap_bodystructure_parse_invalid(void)
+{
+	static const struct parse_test_invalid {
+		const char *message;
+		const char *bodystructure;
+		const char *error;
+	} invalid_bodystructure_tests[] = {
+		/* Make sure NILs aren't allowed where strings are expected */
+		{ "foo", "NIL \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL NIL NIL", "Invalid content-type" },
+		{ "foo", "\"text\" NIL (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL NIL NIL", "Invalid content-type" },
+		{ "foo", "\"text\" \"plain\" (NIL \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL NIL NIL", "Invalid content params" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" NIL) NIL NIL \"7bit\" 0 0 NIL NIL NIL NIL", "Invalid content params" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL NIL 0 0 NIL NIL NIL NIL", "Invalid content-transfer-encoding" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" NIL 0 NIL NIL NIL NIL", "Invalid size field" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 NIL NIL NIL NIL NIL", "Invalid lines field" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL (NIL (\"foo\" \"bar\")) NIL NIL", "Invalid content-disposition" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL (\"inline\" (NIL \"bar\")) NIL NIL", "Invalid content-disposition params" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL (\"inline\" (\"foo\" NIL)) NIL NIL", "Invalid content-disposition params" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL (NIL \"bar\") NIL", "Invalid content-language" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL (\"foo\" NIL) NIL", "Invalid content-language" },
+
+		/* Make sure atoms aren't allowed anywhere */
+		{ "foo", "ATOM \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL NIL NIL", "Invalid content-type" },
+		{ "foo", "\"text\" ATOM (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL NIL NIL", "Invalid content-type" },
+		{ "foo", "\"text\" \"plain\" (ATOM \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL NIL NIL", "Invalid content params" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" ATOM) NIL NIL \"7bit\" 0 0 NIL NIL NIL NIL", "Invalid content params" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") ATOM NIL \"7bit\" 0 0 NIL NIL NIL NIL", "Invalid content-id" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL ATOM \"7bit\" 0 0 NIL NIL NIL NIL", "Invalid content-description" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL ATOM 0 0 NIL NIL NIL NIL", "Invalid content-transfer-encoding" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" ATOM 0 NIL NIL NIL NIL", "Invalid size field" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 ATOM NIL NIL NIL NIL", "Invalid lines field" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 ATOM NIL NIL NIL", "Invalid content-md5" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL ATOM NIL NIL", "Invalid content-disposition list" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL (ATOM (\"foo\" \"bar\")) NIL NIL", "Invalid content-disposition" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL (\"inline\" (ATOM \"bar\")) NIL NIL", "Invalid content-disposition params" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL (\"inline\" (\"foo\" ATOM)) NIL NIL", "Invalid content-disposition params" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL ATOM NIL", "Invalid content-language" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL (ATOM \"bar\") NIL", "Invalid content-language" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL (\"foo\" ATOM) NIL", "Invalid content-language" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL NIL ATOM", "Invalid content-location" },
+
+		/* Make sure empty lists aren't allowed anywhere */
+		{ "foo", "\"text\" \"plain\" () NIL NIL \"7bit\" 0 0 NIL NIL NIL NIL", "Invalid content params" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") () NIL \"7bit\" 0 0 NIL NIL NIL NIL", "Invalid content-id" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL () \"7bit\" 0 0 NIL NIL NIL NIL", "Invalid content-description" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL () 0 0 NIL NIL NIL NIL", "Invalid content-transfer-encoding" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" () 0 NIL NIL NIL NIL", "Invalid size field" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 () NIL NIL NIL NIL", "Invalid lines field" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 () NIL NIL NIL", "Invalid content-md5" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL () NIL NIL", "Invalid content-disposition" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL () NIL", "Invalid content-language" },
+		{ "foo", "\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\" 0 0 NIL NIL NIL ()", "Invalid content-location" },
+	};
+	struct message_part *parts;
+	const char *error;
+	unsigned int i;
+
+	test_begin("imap bodystructure parser invalid");
+	for (i = 0; i < N_ELEMENTS(invalid_bodystructure_tests); i++) T_BEGIN {
+		const struct parse_test_invalid *test =
+			&invalid_bodystructure_tests[i];
+		pool_t pool = pool_alloconly_create("imap bodystructure parse", 1024);
+
+		parts = msg_parse(pool, test->message, 0, 0, FALSE);
+		test_assert_idx(imap_bodystructure_parse(test->bodystructure,
+							 pool, parts, &error) == -1, i);
+		test_assert_strcmp_idx(error, test->error, i);
+		pool_unref(&pool);
+	} T_END;
+	test_end();
 }
 
 static void test_imap_bodystructure_parse_full(void)
@@ -486,7 +580,7 @@ static void test_imap_bodystructure_parse_full(void)
 
 		if (ret == 0) {
 			str_truncate(str, 0);
-			imap_bodystructure_write(parts, str, TRUE);
+			test_assert(imap_bodystructure_write(parts, str, TRUE, &error) == 0);
 			test_assert(strcmp(str_c(str), test->bodystructure) == 0);
 		} else {
 			i_error("Invalid BODYSTRUCTURE: %s", error);
@@ -510,7 +604,7 @@ static void test_imap_bodystructure_normalize(void)
 		pool_t pool = pool_alloconly_create("imap bodystructure parse", 1024);
 
 		test_begin(t_strdup_printf("imap bodystructure normalize [%u]", i));
-		parts = msg_parse(pool, test->message, FALSE);
+		parts = msg_parse(pool, test->message, 0, 0, FALSE);
 
 		ret = imap_bodystructure_parse(test->input,
 							   pool, parts, &error);
@@ -518,7 +612,7 @@ static void test_imap_bodystructure_normalize(void)
 
 		if (ret == 0) {
 			str_truncate(str, 0);
-			imap_bodystructure_write(parts, str, TRUE);
+			test_assert(imap_bodystructure_write(parts, str, TRUE, &error) == 0);
 			test_assert(strcmp(str_c(str), test->output) == 0);
 		} else {
 			i_error("Invalid BODYSTRUCTURE: %s", error);
@@ -529,13 +623,110 @@ static void test_imap_bodystructure_normalize(void)
 	} T_END;
 }
 
+static const struct {
+	const char *input;
+	const char *bodystructure;
+	unsigned int max_depth;
+	unsigned int max_total;
+} truncation_tests[] = {
+	{
+		.input = "Content-Type: message/rfc822\n"
+			"\n"
+			"Content-Type: message/rfc822\n"
+			"Header2: value2\n"
+			"\n"
+			"Subject: hello world\n"
+			"Header2: value2\n"
+			"Header3: value3\n"
+			"\n"
+			"body line 1\n"
+			"body line 2\n"
+			"body line 4\n"
+			"body line 3\n",
+		.bodystructure = "\"message\" \"rfc822\" NIL NIL NIL \"7bit\" 159 (NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL) (\"application\" \"octet-stream\" NIL NIL NIL \"7bit\" 110 NIL NIL NIL NIL) 11 NIL NIL NIL NIL",
+		.max_depth = 2,
+	},
+	{
+		.input = "Content-Type: multipart/mixed; boundary=1\n"
+			"\n"
+			"--1\n"
+			"Content-Type: multipart/mixed; boundary=2\n"
+			"\n"
+			"--2\n"
+			"Content-Type: multipart/mixed; boundary=3\n"
+			"\n"
+			"--3\n"
+			"\n"
+			"body\n",
+		.bodystructure = "(\"application\" \"octet-stream\" (\"boundary\" \"2\") NIL NIL \"7bit\" 63 NIL NIL NIL NIL) \"mixed\" (\"boundary\" \"1\") NIL NIL NIL",
+		.max_depth = 2,
+	},
+	{
+		.input = "Content-Type: multipart/digest; boundary=1\n"
+			"\n"
+			"--1\n"
+			"\n"
+			"Subject: hdr1\n"
+			"\n"
+			"body1\n"
+			"--1\n"
+			"\n"
+			"Subject: hdr2\n"
+			"\n"
+			"body2\n",
+		.bodystructure = "(\"application\" \"octet-stream\" NIL NIL NIL \"7bit\" 55 NIL NIL NIL NIL) \"digest\" (\"boundary\" \"1\") NIL NIL NIL",
+		.max_total = 2,
+	},
+
+};
+
+static void test_imap_bodystructure_truncation(void)
+{
+	struct message_part *parts;
+	const char *error;
+	string_t *str_body = t_str_new(128);
+	string_t *str_parts = t_str_new(128);
+	pool_t pool = pool_alloconly_create("imap bodystructure parse", 1024);
+
+	test_begin("imap bodystructure truncation");
+
+	for (unsigned int i = 0; i < N_ELEMENTS(truncation_tests); i++) {
+		p_clear(pool);
+		str_truncate(str_body, 0);
+		str_truncate(str_parts, 0);
+
+		parts = msg_parse(pool, truncation_tests[i].input,
+				  truncation_tests[i].max_depth,
+				  truncation_tests[i].max_total,
+				  TRUE);
+
+		/* write out BODYSTRUCTURE and serialize message_parts */
+		test_assert(imap_bodystructure_write(parts, str_body, TRUE, &error) == 0);
+		message_part_serialize(parts, str_parts);
+
+		/* now deserialize message_parts and make sure they can be used
+		   to parse BODYSTRUCTURE */
+		parts = message_part_deserialize(pool, str_data(str_parts),
+						 str_len(str_parts), &error);
+		test_assert(parts != NULL);
+		test_assert(imap_bodystructure_parse(str_c(str_body), pool,
+						     parts, &error) == 0);
+		test_assert_strcmp(str_c(str_body),
+				   truncation_tests[i].bodystructure);
+	}
+	pool_unref(&pool);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_imap_bodystructure_write,
 		test_imap_bodystructure_parse,
+		test_imap_bodystructure_parse_invalid,
 		test_imap_bodystructure_normalize,
 		test_imap_bodystructure_parse_full,
+		test_imap_bodystructure_truncation,
 		NULL
 	};
 	return test_run(test_functions);

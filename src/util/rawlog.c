@@ -277,7 +277,7 @@ rawlog_proxy_create(int client_in_fd, int client_out_fd, int server_fd,
 
 	proxy = i_new(struct rawlog_proxy, 1);
 	proxy->server_fd = server_fd;
-	proxy->server_output = o_stream_create_fd(server_fd, (size_t)-1);
+	proxy->server_output = o_stream_create_fd(server_fd, SIZE_MAX);
 	o_stream_set_no_error_handling(proxy->server_output, TRUE);
 	o_stream_set_flush_callback(proxy->server_output, server_output, proxy);
 	proxy->server_io = io_add(server_fd, IO_READ, server_input, proxy);
@@ -285,7 +285,7 @@ rawlog_proxy_create(int client_in_fd, int client_out_fd, int server_fd,
 	proxy->client_in_fd = client_in_fd;
 	proxy->client_out_fd = client_out_fd;
 	proxy->client_output =
-		o_stream_create_fd(client_out_fd, (size_t)-1);
+		o_stream_create_fd(client_out_fd, SIZE_MAX);
 	o_stream_set_no_error_handling(proxy->client_output, TRUE);
 	proxy->client_io = io_add(proxy->client_in_fd, IO_READ,
 				  client_input, proxy);
@@ -367,7 +367,7 @@ static void rawlog_open(enum rawlog_flags flags)
 	io_loop_destroy(&ioloop);
 
 	lib_deinit();
-	exit(0);
+	lib_exit(0);
 }
 
 int main(int argc, char *argv[])
@@ -385,9 +385,9 @@ int main(int argc, char *argv[])
 		switch (c) {
 		case 'f':
 			if (strcmp(optarg, "in") == 0)
-				flags &= ~RAWLOG_FLAG_LOG_OUTPUT;
+				flags &= ENUM_NEGATE(RAWLOG_FLAG_LOG_OUTPUT);
 			else if (strcmp(optarg, "out") == 0)
-				flags &= ~RAWLOG_FLAG_LOG_INPUT;
+				flags &= ENUM_NEGATE(RAWLOG_FLAG_LOG_INPUT);
 			else
 				i_fatal("Invalid filter: %s", optarg);
 			break;
@@ -424,5 +424,4 @@ int main(int argc, char *argv[])
 	i_fatal_status(FATAL_EXEC, "execv(%s) failed: %m", executable);
 
 	/* not reached */
-	return FATAL_EXEC;
 }

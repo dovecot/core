@@ -437,7 +437,8 @@ static void BF_encode(char *dst, const BF_word *src, size_t size)
 	} while (sptr < end);
 }
 
-static void BF_swap(BF_word *x, int count)
+static void ATTR_UNSIGNED_WRAPS
+BF_swap(BF_word *x, int count)
 {
 	static int endianness_check = 1;
 	char *is_little_endian = (char *)&endianness_check;
@@ -534,7 +535,8 @@ static void BF_swap(BF_word *x, int count)
 		*(ptr - 1) = R; \
 	} while (ptr < &data.ctx.S[3][0xFF]);
 
-static void BF_set_key(const char *key, BF_key expanded, BF_key initial,
+static void ATTR_UNSIGNED_WRAPS
+BF_set_key(const char *key, BF_key expanded, BF_key initial,
     unsigned char flags)
 {
 	const char *ptr = key;
@@ -587,7 +589,7 @@ static void BF_set_key(const char *key, BF_key expanded, BF_key initial,
 			tmp[0] <<= 8;
 			tmp[0] |= (unsigned char)*ptr; /* correct */
 			tmp[1] <<= 8;
-			tmp[1] |= (BF_word_signed)(signed char)*ptr; /* bug */
+			tmp[1] |= (BF_word)(signed char)*ptr; /* bug */
 /*
  * Sign extension in the first char has no effect - nothing to overwrite yet,
  * and those extra 24 bits will be fully shifted out of the 32-bit word.  For
@@ -640,7 +642,9 @@ static const unsigned char flags_by_subtype[26] =
 	{2, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4, 0};
 
-static char *BF_crypt(const char *key, const char *setting,
+static char * ATTR_NO_SANITIZE_UNDEFINED ATTR_NO_SANITIZE_INTEGER
+	ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
+BF_crypt(const char *key, const char *setting,
 	char *output, size_t size,
 	BF_word min)
 {

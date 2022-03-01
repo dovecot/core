@@ -16,7 +16,7 @@ static void test_istream_chain_basic(void)
 	test_input = test_istream_create("stream1");
 	test_input2 = test_istream_create("STREAM2");
 
-	input = i_stream_create_chain(&chain);
+	input = i_stream_create_chain(&chain, IO_BLOCK_SIZE);
 	/* no input */
 	test_assert(i_stream_read(input) == 0);
 	/* stream1 input */
@@ -63,7 +63,7 @@ static void test_istream_chain_early_end(void)
 	test_istream_set_size(test_input, 3);
 	test_istream_set_allow_eof(test_input, FALSE);
 
-	input = i_stream_create_chain(&chain);
+	input = i_stream_create_chain(&chain, IO_BLOCK_SIZE);
 	i_stream_chain_append(chain, test_input);
 	test_assert(i_stream_read(input) == 3);
 	test_istream_set_size(test_input, 5);
@@ -82,73 +82,91 @@ static void test_istream_chain_early_end(void)
 
 static void test_istream_chain_accumulate(void)
 {
-	struct istream *input;
-	struct istream  *test_input, *test_input2, *test_input3, *test_input4,
-		*test_input5;
+	struct istream *input, *tmp_istream;
+	struct istream *test_istreams[5];
 	struct istream_chain *chain;
 	const unsigned char *data;
 	size_t size;
 
 	test_begin("istream chain accumulate");
 
-	test_input = test_istream_create("aaaaaaaaaaaaaaaaaaaa");
-	test_input2 = test_istream_create("bbbbbbbbbbbbbbbbbbbbbbbbb");
-	test_input3 = test_istream_create("cccccccccccccccccccccccccccccc");
-	test_input4 = test_istream_create("ddddddddddddddddddddddddd");
-	test_input5 = test_istream_create("eeeeeeeeeeeeeeeeeeee");
+	test_istreams[0] = test_istream_create("abcdefghijklmnopqrst");
+	test_istreams[1] = test_istream_create("ABCDEFGHIJKLMNOPQRSTUVWXY");
+	test_istreams[2] = test_istream_create("!\"#$%&'()*+,-./01234567890:;<=");
+	test_istreams[3] = test_istream_create("z1y2x3w4v5u6t7s8r9q0p.o,n");
+	test_istreams[4] = test_istream_create("aAbBcCdDeEfFgGhHiIjJ");
 
-	input = i_stream_create_chain(&chain);
+	input = i_stream_create_chain(&chain, IO_BLOCK_SIZE);
 	/* no input */
 	test_assert(i_stream_read(input) == 0);
 
 	/* first stream */
-	i_stream_chain_append(chain, test_input);
+	i_stream_chain_append(chain, test_istreams[0]);
+	tmp_istream = test_istreams[0]; i_stream_unref(&tmp_istream);
 	test_assert(i_stream_read_data(input, &data, &size, 0) == 1);
 	test_assert(size == 20);
-	test_assert(memcmp(data, "aaaaaaaaaaaaaaaaaaaa", 20) == 0);
+	test_assert(memcmp(data, "abcdefghijklmnopqrst", 20) == 0);
 
 	/* partially skip */
 	i_stream_skip(input, 12);
 
 	/* second stream */
-	i_stream_chain_append(chain, test_input2);
+	i_stream_chain_append(chain, test_istreams[1]);
+	tmp_istream = test_istreams[1]; i_stream_unref(&tmp_istream);
+	test_istream_set_size(test_istreams[1], 0);
+	test_assert(i_stream_read_data(input, &data, &size, 10) == 0);
+	test_assert(size == 8);
+	test_istream_set_size(test_istreams[1], 10);
 	test_assert(i_stream_read_data(input, &data, &size, 10) == 1);
+	test_assert(size == 18);
+	test_istream_set_allow_eof(test_istreams[1], FALSE);
+	test_assert(i_stream_read(input) == 0);
+	test_istream_set_size(test_istreams[1], 25);
+	test_istream_set_allow_eof(test_istreams[1], TRUE);
+	test_assert(i_stream_read_data(input, &data, &size, 30) == 1);
 	test_assert(size == 33);
-	test_assert(memcmp(data, "aaaaaaaa"
-		"bbbbbbbbbbbbbbbbbbbbbbbbb", 33) == 0);
+	test_assert(memcmp(data, "mnopqrst"
+		"ABCDEFGHIJKLMNOPQRSTUVWXY", 33) == 0);
 
 	/* partially skip */
 	i_stream_skip(input, 12);
 
 	/* third stream */
-	i_stream_chain_append(chain, test_input3);
+	i_stream_chain_append(chain, test_istreams[2]);
+	tmp_istream = test_istreams[2]; i_stream_unref(&tmp_istream);
+	test_istream_set_size(test_istreams[2], 0);
+	test_assert(i_stream_read(input) == 0);
+	test_istream_set_size(test_istreams[2], 30);
 	test_assert(i_stream_read_data(input, &data, &size, 25) == 1);
 	test_assert(size == 51);
-	test_assert(memcmp(data, "bbbbbbbbbbbbbbbbbbbbb"
-		"cccccccccccccccccccccccccccccc", 51) == 0);
+	test_assert(memcmp(data, "EFGHIJKLMNOPQRSTUVWXY"
+		"!\"#$%&'()*+,-./01234567890:;<=", 51) == 0);
+	test_assert(i_stream_read(input) == 0);
 
 	/* partially skip */
 	i_stream_skip(input, 12);
 
 	/* forth stream */
-	i_stream_chain_append(chain, test_input4);
+	i_stream_chain_append(chain, test_istreams[3]);
+	tmp_istream = test_istreams[3]; i_stream_unref(&tmp_istream);
 	test_assert(i_stream_read_data(input, &data, &size, 40) == 1);
 	test_assert(size == 64);
-	test_assert(memcmp(data, "bbbbbbbbb"
-		"cccccccccccccccccccccccccccccc"
-		"ddddddddddddddddddddddddd", 64) == 0);
+	test_assert(memcmp(data, "QRSTUVWXY"
+		"!\"#$%&'()*+,-./01234567890:;<="
+		"z1y2x3w4v5u6t7s8r9q0p.o,n", 64) == 0);
 
 	/* partially skip */
 	i_stream_skip(input, 6);
 
 	/* fifth stream */
-	i_stream_chain_append(chain, test_input5);
+	i_stream_chain_append(chain, test_istreams[4]);
+	tmp_istream = test_istreams[4]; i_stream_unref(&tmp_istream);
 	test_assert(i_stream_read_data(input, &data, &size, 60) == 1);
 	test_assert(size == 78);
-	test_assert(memcmp(data, "bbb"
-		"cccccccccccccccccccccccccccccc"
-		"ddddddddddddddddddddddddd"
-		"eeeeeeeeeeeeeeeeeeee", 78) == 0);
+	test_assert(memcmp(data, "WXY"
+		"!\"#$%&'()*+,-./01234567890:;<="
+		"z1y2x3w4v5u6t7s8r9q0p.o,n"
+		"aAbBcCdDeEfFgGhHiIjJ", 78) == 0);
 
 	/* EOF */
 	i_stream_chain_append_eof(chain);
@@ -156,10 +174,10 @@ static void test_istream_chain_accumulate(void)
 	test_assert(input->eof && input->stream_errno == 0);
 	test_assert(i_stream_read_data(input, &data, &size, 78) == -1);
 	test_assert(size == 78);
-	test_assert(memcmp(data, "bbb"
-		"cccccccccccccccccccccccccccccc"
-		"ddddddddddddddddddddddddd"
-		"eeeeeeeeeeeeeeeeeeee", 78) == 0);
+	test_assert(memcmp(data, "WXY"
+		"!\"#$%&'()*+,-./01234567890:;<="
+		"z1y2x3w4v5u6t7s8r9q0p.o,n"
+		"aAbBcCdDeEfFgGhHiIjJ", 78) == 0);
 
 	/* skip rest */
 	i_stream_skip(input, 78);
@@ -170,12 +188,6 @@ static void test_istream_chain_accumulate(void)
 	test_assert(size == 0);
 
 	i_stream_unref(&input);
-
-	i_stream_unref(&test_input);
-	i_stream_unref(&test_input2);
-	i_stream_unref(&test_input3);
-	i_stream_unref(&test_input4);
-	i_stream_unref(&test_input5);
 	test_end();
 }
 

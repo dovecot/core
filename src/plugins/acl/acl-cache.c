@@ -237,7 +237,7 @@ acl_cache_update_rights_mask(struct acl_cache *cache,
 		/* remove changed bits from old mask */
 		size = I_MIN(old_mask->size, change_mask->size);
 		for (i = 0; i < size; i++)
-			old_mask->mask[i] &= ~change_mask->mask[i];
+			old_mask->mask[i] &= ENUM_NEGATE(change_mask->mask[i]);
 		break;
 	case ACL_MODIFY_MODE_REPLACE:
 		if (old_mask == NULL && change_mask == NULL)
@@ -361,7 +361,7 @@ acl_cache_my_current_rights_recalculate(struct acl_object_cache *obj_cache)
 		/* apply the negative rights. they override positive rights. */
 		size = I_MIN(mask->size, obj_cache->my_neg_rights->size);
 		for (i = 0; i < size; i++)
-			mask->mask[i] &= ~obj_cache->my_neg_rights->mask[i];
+			mask->mask[i] &= ENUM_NEGATE(obj_cache->my_neg_rights->mask[i]);
 	}
 
 	obj_cache->my_current_rights = mask;

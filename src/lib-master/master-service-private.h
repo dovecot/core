@@ -4,6 +4,8 @@
 #include "master-interface.h"
 #include "master-service.h"
 
+#include <signal.h>
+
 struct master_service_haproxy_conn;
 
 struct master_service_listener {
@@ -16,7 +18,7 @@ struct master_service_listener {
 
 	/* state */
 	bool closed;
-	int fd;	
+	int fd;
 	struct io *io;
 };
 
@@ -57,8 +59,8 @@ struct master_service {
 	void (*die_callback)(void);
 	struct timeout *to_die;
 
-	void (*avail_overflow_callback)(void);
-	struct timeout *to_overflow_state;
+	master_service_avail_overflow_callback_t *avail_overflow_callback;
+	struct timeout *to_overflow_state, *to_overflow_call;
 
 	struct master_login *login;
 
@@ -71,10 +73,17 @@ struct master_service {
 	struct ssl_iostream_context *ssl_ctx;
 	time_t ssl_params_last_refresh;
 
+	char *current_user;
+	char *last_kick_signal_user;
+	siginfo_t killed_signal_info;
+	volatile sig_atomic_t last_kick_signal_user_accessed;
+	volatile sig_atomic_t killed_signal;
+	volatile struct timeval killed_time;
+
 	struct stats_client *stats_client;
 	struct master_service_haproxy_conn *haproxy_conns;
+	struct event_filter *process_shutdown_filter;
 
-	bool killed:1;
 	bool stopping:1;
 	bool keep_environment:1;
 	bool log_directly:1;
@@ -82,13 +91,13 @@ struct master_service {
 	bool die_with_master:1;
 	bool call_avail_overflow:1;
 	bool config_path_changed_with_param:1;
-	bool want_ssl_settings:1;
+	bool have_admin_sockets:1;
 	bool want_ssl_server:1;
 	bool ssl_ctx_initialized:1;
 	bool config_path_from_master:1;
 	bool log_initialized:1;
-	bool ssl_module_loaded:1;
 	bool init_finished:1;
+	bool killed_signal_logged:1;
 };
 
 void master_service_io_listeners_add(struct master_service *service);
@@ -106,5 +115,7 @@ void master_service_client_connection_callback(struct master_service *service,
 void master_service_haproxy_new(struct master_service *service,
 				struct master_service_connection *conn);
 void master_service_haproxy_abort(struct master_service *service);
+
+void master_admin_clients_deinit(void);
 
 #endif

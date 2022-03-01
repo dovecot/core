@@ -22,10 +22,10 @@ struct test_service_settings {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct test_service_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct test_service_settings)
 
 static const struct setting_define test_setting_defines[] = {
-	DEF(SET_STR, foo),
+	DEF(STR, foo),
 	SETTING_DEFINE_LIST_END
 };
 
@@ -38,10 +38,10 @@ static const struct setting_parser_info test_setting_parser_info = {
 	.defines = test_setting_defines,
 	.defaults = &test_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct test_service_settings),
 
-	.parent_offset = (size_t)-1
+	.parent_offset = SIZE_MAX
 };
 
 int master_service_settings_read(struct master_service *service ATTR_UNUSED,

@@ -27,6 +27,9 @@ struct sis_fs_file {
 	bool opened;
 };
 
+#define SIS_FS(ptr)	container_of((ptr), struct sis_fs, fs)
+#define SIS_FILE(ptr)	container_of((ptr), struct sis_fs_file, file)
+
 static struct fs *fs_sis_alloc(void)
 {
 	struct sis_fs *fs;
@@ -67,11 +70,10 @@ fs_sis_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 	return 0;
 }
 
-static void fs_sis_deinit(struct fs *_fs)
+static void fs_sis_free(struct fs *_fs)
 {
-	struct sis_fs *fs = (struct sis_fs *)_fs;
+	struct sis_fs *fs = SIS_FS(_fs);
 
-	fs_deinit(&_fs->parent);
 	i_free(fs);
 }
 
@@ -85,8 +87,8 @@ static void
 fs_sis_file_init(struct fs_file *_file, const char *path,
 		 enum fs_open_mode mode, enum fs_open_flags flags)
 {
-	struct sis_fs_file *file = (struct sis_fs_file *)_file;
-	struct sis_fs *fs = (struct sis_fs *)_file->fs;
+	struct sis_fs_file *file = SIS_FILE(_file);
+	struct sis_fs *fs = SIS_FS(_file->fs);
 	const char *dir, *hash;
 
 	file->file.path = i_strdup(path);
@@ -103,7 +105,7 @@ fs_sis_file_init(struct fs_file *_file, const char *path,
 	/* if hashes/<hash> already exists, open it */
 	file->hash_path = i_strdup_printf("%s/"HASH_DIR_NAME"/%s", dir, hash);
 	file->hash_file = fs_file_init_parent(_file, file->hash_path,
-					      FS_OPEN_MODE_READONLY);
+					      FS_OPEN_MODE_READONLY, 0);
 
 	file->hash_input = fs_read_stream(file->hash_file, IO_BLOCK_SIZE);
 	if (i_stream_read(file->hash_input) == -1) {
@@ -115,12 +117,12 @@ fs_sis_file_init(struct fs_file *_file, const char *path,
 		i_stream_destroy(&file->hash_input);
 	}
 
-	file->file.parent = fs_file_init_parent(_file, path, mode | flags);
+	file->file.parent = fs_file_init_parent(_file, path, mode, flags);
 }
 
 static void fs_sis_file_deinit(struct fs_file *_file)
 {
-	struct sis_fs_file *file = (struct sis_fs_file *)_file;
+	struct sis_fs_file *file = SIS_FILE(_file);
 
 	fs_file_deinit(&file->hash_file);
 	fs_file_free(_file);
@@ -132,7 +134,7 @@ static void fs_sis_file_deinit(struct fs_file *_file)
 
 static void fs_sis_file_close(struct fs_file *_file)
 {
-	struct sis_fs_file *file = (struct sis_fs_file *)_file;
+	struct sis_fs_file *file = SIS_FILE(_file);
 
 	i_stream_unref(&file->hash_input);
 	fs_file_close(file->hash_file);
@@ -214,7 +216,7 @@ static void fs_sis_replace_hash_file(struct sis_fs_file *file)
 
 	/* replace existing hash file atomically */
 	temp_file = fs_file_init_parent(&file->file, str_c(temp_path),
-					FS_OPEN_MODE_READONLY);
+					FS_OPEN_MODE_READONLY, 0);
 	ret = fs_copy(file->file.parent, temp_file);
 	if (ret < 0 && errno == EEXIST) {
 		/* either someone's racing us or it's a stale file.
@@ -244,7 +246,7 @@ static void fs_sis_replace_hash_file(struct sis_fs_file *file)
 
 static int fs_sis_write(struct fs_file *_file, const void *data, size_t size)
 {
-	struct sis_fs_file *file = (struct sis_fs_file *)_file;
+	struct sis_fs_file *file = SIS_FILE(_file);
 
 	if (_file->parent == NULL)
 		return -1;
@@ -267,7 +269,7 @@ static int fs_sis_write(struct fs_file *_file, const void *data, size_t size)
 
 static void fs_sis_write_stream(struct fs_file *_file)
 {
-	struct sis_fs_file *file = (struct sis_fs_file *)_file;
+	struct sis_fs_file *file = SIS_FILE(_file);
 
 	i_assert(_file->output == NULL);
 
@@ -290,7 +292,7 @@ static void fs_sis_write_stream(struct fs_file *_file)
 
 static int fs_sis_write_stream_finish(struct fs_file *_file, bool success)
 {
-	struct sis_fs_file *file = (struct sis_fs_file *)_file;
+	struct sis_fs_file *file = SIS_FILE(_file);
 
 	if (!success) {
 		if (_file->parent != NULL)
@@ -332,7 +334,8 @@ const struct fs fs_class_sis = {
 	.v = {
 		fs_sis_alloc,
 		fs_sis_init,
-		fs_sis_deinit,
+		NULL,
+		fs_sis_free,
 		fs_wrapper_get_properties,
 		fs_sis_file_alloc,
 		fs_sis_file_init,

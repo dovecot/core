@@ -61,9 +61,10 @@ unsigned int auth_penalty_to_secs(unsigned int penalty)
 	return secs < AUTH_PENALTY_MAX_SECS ? secs : AUTH_PENALTY_MAX_SECS;
 }
 
-static void auth_penalty_anvil_callback(const char *reply, void *context)
+static void
+auth_penalty_anvil_callback(const char *reply,
+			    struct auth_penalty_request *request)
 {
-	struct auth_penalty_request *request = context;
 	unsigned int penalty = 0;
 	unsigned long last_penalty = 0;
 	unsigned int secs, drop_penalty;
@@ -76,7 +77,8 @@ static void auth_penalty_anvil_callback(const char *reply, void *context)
 			master_service_stop(master_service);
 		}
 	} else if (sscanf(reply, "%u %lu", &penalty, &last_penalty) != 2) {
-		i_error("Invalid PENALTY-GET reply: %s", reply);
+		e_error(request->auth_request->event,
+			"Invalid PENALTY-GET reply: %s", reply);
 	} else {
 		if ((time_t)last_penalty > ioloop_time) {
 			/* time moved backwards? */
@@ -104,7 +106,7 @@ auth_penalty_get_ident(struct auth_request *auth_request)
 {
 	struct ip_addr ip;
 
-	ip = auth_request->remote_ip;
+	ip = auth_request->fields.remote_ip;
 	if (IPADDR_IS_V6(&ip)) {
 		memset(ip.u.ip6.s6_addr + PENALTY_IPV6_MASK_BITS/CHAR_BIT, 0,
 		       sizeof(ip.u.ip6.s6_addr) -
@@ -121,7 +123,8 @@ void auth_penalty_lookup(struct auth_penalty *penalty,
 	const char *ident;
 
 	ident = auth_penalty_get_ident(auth_request);
-	if (penalty->disabled || ident == NULL || auth_request->no_penalty) {
+	if (penalty->disabled || ident == NULL ||
+	    auth_request->fields.no_penalty) {
 		callback(0, auth_request);
 		return;
 	}
@@ -135,6 +138,7 @@ void auth_penalty_lookup(struct auth_penalty *penalty,
 	T_BEGIN {
 		anvil_client_query(penalty->client,
 				   t_strdup_printf("PENALTY-GET\t%s", ident),
+				   ANVIL_DEFAULT_LOOKUP_TIMEOUT_MSECS,
 				   auth_penalty_anvil_callback, request);
 	} T_END;
 }
@@ -144,7 +148,7 @@ get_userpass_checksum(struct auth_request *auth_request)
 {
 	return auth_request->mech_password == NULL ? 0 :
 		crc32_str_more(crc32_str(auth_request->mech_password),
-			       auth_request->user);
+			       auth_request->fields.user);
 }
 
 void auth_penalty_update(struct auth_penalty *penalty,
@@ -153,7 +157,8 @@ void auth_penalty_update(struct auth_penalty *penalty,
 	const char *ident;
 
 	ident = auth_penalty_get_ident(auth_request);
-	if (penalty->disabled || ident == NULL || auth_request->no_penalty)
+	if (penalty->disabled || ident == NULL ||
+	    auth_request->fields.no_penalty)
 		return;
 
 	if (value > AUTH_PENALTY_MAX_PENALTY) {

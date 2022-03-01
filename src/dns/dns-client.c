@@ -123,8 +123,8 @@ static const struct connection_settings dns_client_set = {
 	.service_name_out = "dns",
 	.major_version = 1,
 	.minor_version = 0,
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX
 };
 
 static void client_connected(struct master_service_connection *master_conn)

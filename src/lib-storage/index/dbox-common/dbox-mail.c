@@ -22,9 +22,8 @@ dbox_mail_alloc(struct mailbox_transaction_context *t,
 
 	pool = pool_alloconly_create("mail", 2048);
 	mail = p_new(pool, struct dbox_mail, 1);
-	mail->imail.mail.pool = pool;
 
-	index_mail_init(&mail->imail, t, wanted_fields, wanted_headers);
+	index_mail_init(&mail->imail, t, wanted_fields, wanted_headers, pool, NULL);
 	return &mail->imail.mail.mail;
 }
 
@@ -107,7 +106,7 @@ int dbox_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 	if (value == NULL)
 		return index_mail_get_virtual_size(_mail, size_r);
 
-	if (str_to_uintmax_hex(value, &size) < 0 || size > (uoff_t)-1)
+	if (str_to_uintmax_hex(value, &size) < 0 || size > UOFF_T_MAX)
 		return -1;
 	data->virtual_size = (uoff_t)size;
 	*size_r = data->virtual_size;

@@ -89,7 +89,7 @@ pop3c_client_create_from_set(struct mail_storage *storage,
 		client_set.ssl_mode = POP3C_CLIENT_SSL_MODE_STARTTLS;
 	else
 		client_set.ssl_mode = POP3C_CLIENT_SSL_MODE_NONE;
-	return pop3c_client_init(&client_set);
+	return pop3c_client_init(&client_set, storage->event);
 }
 
 static void
@@ -127,10 +127,10 @@ pop3c_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 }
 
 static int
-pop3c_mailbox_exists(struct mailbox *box, bool auto_boxes ATTR_UNUSED,
+pop3c_mailbox_exists(struct mailbox *box, bool auto_boxes,
 		     enum mailbox_existence *existence_r)
 {
-	if (box->inbox_any)
+	if ((auto_boxes && mailbox_is_autocreated(box)) || box->inbox_any)
 		*existence_r = MAILBOX_EXISTENCE_SELECT;
 	else
 		*existence_r = MAILBOX_EXISTENCE_NONE;
@@ -240,7 +240,7 @@ static int pop3c_mailbox_get_metadata(struct mailbox *box,
 		/* a bit ugly way to do this, but better than nothing for now.
 		   FIXME: if indexes are enabled, keep this there. */
 		mail_generate_guid_128_hash(box->name, metadata_r->guid);
-		items &= ~MAILBOX_METADATA_GUID;
+		items &= ENUM_NEGATE(MAILBOX_METADATA_GUID);
 	}
 	if (items != 0) {
 		if (index_mailbox_get_metadata(box, items, metadata_r) < 0)
@@ -353,6 +353,7 @@ struct mailbox pop3c_mailbox = {
 		index_storage_search_deinit,
 		index_storage_search_next_nonblock,
 		index_storage_search_next_update_seq,
+		index_storage_search_next_match_mail,
 		pop3c_save_alloc,
 		pop3c_save_begin,
 		pop3c_save_continue,

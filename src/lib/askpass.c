@@ -30,7 +30,7 @@ static void askpass_str(const char *prompt, buffer_t *pass)
 		if (tcgetattr(fd, &old_tio) == 0) {
 			restore_tio = TRUE;
 			tio = old_tio;
-			tio.c_lflag &= ~(ECHO | ECHONL);
+			tio.c_lflag &= ENUM_NEGATE(ECHO | ECHONL);
 			(void)tcsetattr(fd, TCSAFLUSH, &tio);
 		}
 	} else {

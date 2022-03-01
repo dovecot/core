@@ -10,6 +10,17 @@
 
 #include "zstd.h"
 #include "zstd_errors.h"
+#include "iostream-zstd-private.h"
+
+#ifndef HAVE_ZSTD_GETERRORCODE
+ZSTD_ErrorCode ZSTD_getErrorCode(size_t functionResult)
+{
+	ssize_t errcode = (ssize_t)functionResult;
+	if (errcode < 0)
+		return -errcode;
+	return ZSTD_error_no_error;
+}
+#endif
 
 struct zstd_istream {
 	struct istream_private istream;
@@ -29,7 +40,7 @@ struct zstd_istream {
 	/* storage for data */
 	buffer_t *data_buffer;
 
-	bool log_errors:1;
+	bool hdr_read:1;
 	bool marked:1;
 	bool zs_closed:1;
 	/* is there data remaining */
@@ -80,25 +91,28 @@ static void i_stream_zstd_close(struct iostream_private *stream,
 		i_stream_close(zstream->istream.parent);
 }
 
-static void i_stream_zstd_error(struct zstd_istream *zstream, const char *error)
+static void i_stream_zstd_read_error(struct zstd_istream *zstream, size_t err)
 {
+	ZSTD_ErrorCode errcode = zstd_version_errcode(ZSTD_getErrorCode(err));
+	const char *error = ZSTD_getErrorName(err);
+	if (errcode == ZSTD_error_memory_allocation)
+		i_fatal_status(FATAL_OUTOFMEM, "zstd.read(%s): Out of memory",
+			       i_stream_get_name(&zstream->istream.istream));
+	else if (errcode == ZSTD_error_prefix_unknown ||
+#if HAVE_DECL_ZSTD_ERROR_PARAMETER_UNSUPPORTED == 1
+		 errcode == ZSTD_error_parameter_unsupported ||
+#endif
+
+		 errcode == ZSTD_error_dictionary_wrong ||
+		 errcode == ZSTD_error_init_missing)
+		zstream->istream.istream.stream_errno = EINVAL;
+	else
+		zstream->istream.istream.stream_errno = EIO;
+
 	io_stream_set_error(&zstream->istream.iostream,
 			    "zstd.read(%s): %s at %"PRIuUOFF_T,
 			    i_stream_get_name(&zstream->istream.istream), error,
 			    i_stream_get_absolute_offset(&zstream->istream.istream));
-	zstream->istream.istream.stream_errno = EIO;
-	if (zstream->log_errors)
-		i_error("%s", zstream->istream.iostream.error);
-}
-
-static void i_stream_zstd_read_error(struct zstd_istream *zstream, size_t err)
-{
-	const char *error = ZSTD_getErrorName(err);
-	if (err == ZSTD_error_memory_allocation)
-		i_fatal_status(FATAL_OUTOFMEM, "zstd.read(%s): Out of memory",
-			       i_stream_get_name(&zstream->istream.istream));
-
-	i_stream_zstd_error(zstream, error);
 }
 
 static ssize_t i_stream_zstd_read(struct istream_private *stream)
@@ -107,7 +121,6 @@ static ssize_t i_stream_zstd_read(struct istream_private *stream)
 		container_of(stream, struct zstd_istream, istream);
 	const unsigned char *data;
 	size_t size;
-	ssize_t ret;
 
 	if (stream->istream.eof)
 		return -1;
@@ -126,14 +139,18 @@ static ssize_t i_stream_zstd_read(struct istream_private *stream)
 
 		/* see if we can get more */
 		if (zstream->input.pos == zstream->input.size) {
+			ssize_t ret;
 			buffer_set_used_size(zstream->frame_buffer, 0);
 			/* need to read more */
 			if ((ret = i_stream_read_more(stream->parent, &data, &size)) < 0) {
 				stream->istream.stream_errno =
 					stream->parent->stream_errno;
 				stream->istream.eof = stream->parent->eof;
-				if (zstream->remain &&
-				    stream->istream.stream_errno == 0)
+				if (stream->istream.stream_errno != 0)
+					;
+				else if (!zstream->hdr_read)
+					stream->istream.stream_errno = EINVAL;
+				else if (zstream->remain)
 					/* truncated data */
 					stream->istream.stream_errno = EPIPE;
 				return ret;
@@ -141,6 +158,10 @@ static ssize_t i_stream_zstd_read(struct istream_private *stream)
 			if (ret == 0)
 				return 0;
 			buffer_append(zstream->frame_buffer, data, size);
+			/* NOTE: All of the parent stream input is skipped
+			   over here. This is why there's no need to call
+			   i_stream_set_input_pending() here like with other
+			   compression istreams. */
 			i_stream_skip(stream->parent, size);
 			zstream->input.src = zstream->frame_buffer->data;
 			zstream->input.size = zstream->frame_buffer->used;
@@ -154,15 +175,16 @@ static ssize_t i_stream_zstd_read(struct istream_private *stream)
 		zstream->output.pos = 0;
 		zstream->output.size = ZSTD_DStreamOutSize();
 
-		ret = ZSTD_decompressStream(zstream->dstream, &zstream->output,
-					    &zstream->input);
-
-		if (ZSTD_isError(ret) != 0) {
-			i_stream_zstd_read_error(zstream, ret);
+		size_t zret = ZSTD_decompressStream(zstream->dstream, &zstream->output,
+						    &zstream->input);
+		if (ZSTD_isError(zret) != 0) {
+			i_stream_zstd_read_error(zstream, zret);
 			return -1;
 		}
-
-		zstream->remain = ret > 0;
+		/* ZSTD magic number is 4 bytes, but it's only defined after v0.8 */
+		if (!zstream->hdr_read && zstream->input.size > 4)
+			zstream->hdr_read = TRUE;
+		zstream->remain = zret > 0;
 		buffer_set_used_size(zstream->data_buffer, zstream->output.pos);
 	}
 	i_unreached();
@@ -219,12 +241,13 @@ static void i_stream_zstd_sync(struct istream_private *stream)
 }
 
 struct istream *
-i_stream_create_zstd(struct istream *input, bool log_errors)
+i_stream_create_zstd(struct istream *input)
 {
 	struct zstd_istream *zstream;
 
+	zstd_version_check();
+
 	zstream = i_new(struct zstd_istream, 1);
-	zstream->log_errors = log_errors;
 
 	i_stream_zstd_init(zstream);
 

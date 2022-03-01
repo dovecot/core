@@ -10,6 +10,12 @@
 #include "passdb-template.h"
 #include "userdb-template.h"
 #include "auth.h"
+#include "dns-lookup.h"
+
+#define AUTH_DNS_SOCKET_PATH "dns-client"
+#define AUTH_DNS_DEFAULT_TIMEOUT_MSECS (1000*10)
+#define AUTH_DNS_IDLE_TIMEOUT_MSECS (1000*60)
+#define AUTH_DNS_CACHE_TTL_SECS 10
 
 struct event *auth_event;
 struct event_category event_category_auth = {
@@ -315,6 +321,7 @@ static void auth_init(struct auth *auth)
 {
 	struct auth_passdb *passdb;
 	struct auth_userdb *userdb;
+	struct dns_lookup_settings dns_set;
 
 	for (passdb = auth->masterdbs; passdb != NULL; passdb = passdb->next)
 		auth_passdb_init(passdb);
@@ -322,6 +329,14 @@ static void auth_init(struct auth *auth)
 		auth_passdb_init(passdb);
 	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)
 		userdb_init(userdb->userdb);
+
+	i_zero(&dns_set);
+	dns_set.dns_client_socket_path = AUTH_DNS_SOCKET_PATH;
+	dns_set.timeout_msecs = AUTH_DNS_DEFAULT_TIMEOUT_MSECS;
+	dns_set.idle_timeout_msecs = AUTH_DNS_IDLE_TIMEOUT_MSECS;
+	dns_set.cache_ttl_secs = AUTH_DNS_CACHE_TTL_SECS;
+
+	auth->dns_client = dns_client_init(&dns_set);
 }
 
 static void auth_deinit(struct auth *auth)
@@ -335,6 +350,8 @@ static void auth_deinit(struct auth *auth)
 		passdb_deinit(passdb->passdb);
 	for (userdb = auth->userdbs; userdb != NULL; userdb = userdb->next)
 		userdb_deinit(userdb->userdb);
+
+	dns_client_deinit(&auth->dns_client);
 }
 
 struct auth *auth_find_service(const char *name)
@@ -373,7 +390,7 @@ void auths_preinit(const struct auth_settings *set, pool_t pool,
 {
 	struct master_service_settings_output set_output;
 	const struct auth_settings *service_set;
-	struct auth *auth, *const *authp;
+	struct auth *auth;
 	unsigned int i;
 	const char *not_service = NULL;
 	bool check_default = TRUE;
@@ -404,15 +421,15 @@ void auths_preinit(const struct auth_settings *set, pool_t pool,
 	if (not_service != NULL && str_array_find(services, not_service+1))
 		check_default = FALSE;
 
-	array_foreach(&auths, authp) {
-		if ((*authp)->service != NULL || check_default)
-			auth_mech_list_verify_passdb(*authp);
+	array_foreach_elem(&auths, auth) {
+		if (auth->service != NULL || check_default)
+			auth_mech_list_verify_passdb(auth);
 	}
 }
 
 void auths_init(void)
 {
-	struct auth *const *auth;
+	struct auth *auth;
 
 	/* sanity checks */
 	i_assert(auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_USER_IDX].key == 'u');
@@ -423,16 +440,16 @@ void auths_init(void)
 	i_assert(auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT-1].key != '\0' ||
 		 auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT-1].long_key != NULL);
 
-	array_foreach(&auths, auth)
-		auth_init(*auth);
+	array_foreach_elem(&auths, auth)
+		auth_init(auth);
 }
 
 void auths_deinit(void)
 {
-	struct auth *const *auth;
+	struct auth *auth;
 
-	array_foreach(&auths, auth)
-		auth_deinit(*auth);
+	array_foreach_elem(&auths, auth)
+		auth_deinit(auth);
 	event_unref(&auth_event);
 }
 

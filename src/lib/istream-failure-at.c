@@ -14,7 +14,8 @@ struct failure_at_istream {
 static void i_stream_failure_at_destroy(struct iostream_private *stream)
 {
 	struct failure_at_istream *fstream =
-		(struct failure_at_istream *)stream;
+		container_of(stream, struct failure_at_istream,
+			     istream.iostream);
 
 	i_free(fstream->error_string);
 }
@@ -22,7 +23,8 @@ static void i_stream_failure_at_destroy(struct iostream_private *stream)
 static ssize_t
 i_stream_failure_at_read(struct istream_private *stream)
 {
-	struct failure_at_istream *fstream = (struct failure_at_istream *)stream;
+	struct failure_at_istream *fstream =
+		container_of(stream, struct failure_at_istream, istream);
 	uoff_t new_offset;
 	ssize_t ret;
 
@@ -52,7 +54,7 @@ i_stream_failure_at_read(struct istream_private *stream)
 			stream->pos = new_pos;
 		}
 	} else if (ret < 0 && stream->istream.stream_errno == 0 &&
-		   fstream->failure_offset == (uoff_t)-1) {
+		   fstream->failure_offset == UOFF_T_MAX) {
 		/* failure at EOF */
 		stream->istream.stream_errno = errno =
 			fstream->error_code;
@@ -90,6 +92,6 @@ struct istream *
 i_stream_create_failure_at_eof(struct istream *input, int stream_errno,
 			       const char *error_string)
 {
-	return i_stream_create_failure_at(input, (uoff_t)-1, stream_errno,
+	return i_stream_create_failure_at(input, UOFF_T_MAX, stream_errno,
 					  error_string);
 }

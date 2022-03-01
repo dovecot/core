@@ -68,7 +68,7 @@ enum imapc_client_ssl_mode {
 
 #define IMAPC_DEFAULT_CONNECT_TIMEOUT_MSECS (1000*30)
 #define IMAPC_DEFAULT_COMMAND_TIMEOUT_MSECS (1000*60*5)
-#define IMAPC_DEFAULT_MAX_LINE_LENGTH ((size_t)-1)
+#define IMAPC_DEFAULT_MAX_LINE_LENGTH (SIZE_MAX)
 
 struct imapc_throttling_settings {
 	unsigned int init_msecs;
@@ -180,7 +180,8 @@ typedef void imapc_state_change_callback_t(void *context,
 					   const char *error);
 
 struct imapc_client *
-imapc_client_init(const struct imapc_client_settings *set);
+imapc_client_init(const struct imapc_client_settings *set,
+		  struct event *event_parent);
 void imapc_client_disconnect(struct imapc_client *client);
 void imapc_client_deinit(struct imapc_client **client);
 

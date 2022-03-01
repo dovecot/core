@@ -20,11 +20,11 @@ void doveadm_dump_register(const struct doveadm_cmd_dump *dump)
 static const struct doveadm_cmd_dump *
 dump_find_name(const char *name)
 {
-	const struct doveadm_cmd_dump *const *dumpp;
+	const struct doveadm_cmd_dump *dump;
 
-	array_foreach(&dumps, dumpp) {
-		if (strcmp((*dumpp)->name, name) == 0)
-			return *dumpp;
+	array_foreach_elem(&dumps, dump) {
+		if (strcmp(dump->name, name) == 0)
+			return dump;
 	}
 	return NULL;
 }
@@ -32,58 +32,55 @@ dump_find_name(const char *name)
 static const struct doveadm_cmd_dump *
 dump_find_test(const char *path)
 {
-	const struct doveadm_cmd_dump *const *dumpp;
+	const struct doveadm_cmd_dump *dump;
 
-	array_foreach(&dumps, dumpp) {
-		if ((*dumpp)->test != NULL && (*dumpp)->test(path))
-			return *dumpp;
+	array_foreach_elem(&dumps, dump) {
+		if (dump->test != NULL && dump->test(path))
+			return dump;
 	}
 	return NULL;
 }
 
-static void cmd_dump(int argc, char *argv[])
+static void cmd_dump(struct doveadm_cmd_context *cctx)
 {
 	const struct doveadm_cmd_dump *dump;
-	const char *type = NULL;
-	int c;
+	const char *path, *type = NULL, *const *args = NULL;
+	const char *no_args = NULL;
 
-	while ((c = getopt(argc, argv, "t:")) > 0) {
-		switch (c) {
-		case 't':
-			type = optarg;
-			break;
-		default:
-			help(&doveadm_cmd_dump);
-		}
-	}
-	if (optind == argc)
-		help(&doveadm_cmd_dump);
+	if (!doveadm_cmd_param_str(cctx, "path", &path))
+		help_ver2(&doveadm_cmd_dump);
+	(void)doveadm_cmd_param_str(cctx, "type", &type);
+	(void)doveadm_cmd_param_array(cctx, "args", &args);
 
-	optind--;
-	argc -= optind;
-	argv += optind;
-
-	dump = type != NULL ? dump_find_name(type) : dump_find_test(argv[1]);
+	dump = type != NULL ? dump_find_name(type) : dump_find_test(path);
 	if (dump == NULL) {
 		if (type != NULL) {
 			print_dump_types();
 			i_fatal_status(EX_USAGE, "Unknown type: %s", type);
 		} else {
 			i_fatal_status(EX_DATAERR,
-				"Can't autodetect file type: %s", argv[1]);
+				"Can't autodetect file type: %s", path);
 		}
 	} else {
 		if (type == NULL)
 			printf("Detected file type: %s\n", dump->name);
 	}
-	dump->cmd(argc, argv);
+	dump->cmd(path, args != NULL ? args : &no_args);
 }
 
-struct doveadm_cmd doveadm_cmd_dump = {
-	cmd_dump, "dump", "[-t <type>] <path>"
+struct doveadm_cmd_ver2 doveadm_cmd_dump = {
+	.name = "dump",
+	.cmd = cmd_dump,
+	.usage = "[-t <type>] <path> [<type-specific args>]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('t', "type", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "path", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "args", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };
 
-static void cmd_dump_multiplex(int argc ATTR_UNUSED, char *argv[])
+static void
+cmd_dump_multiplex(const char *path, const char *const *args ATTR_UNUSED)
 {
 	const unsigned int channels_count = 256;
 	struct istream *file_input, *channels[channels_count];
@@ -91,7 +88,7 @@ static void cmd_dump_multiplex(int argc ATTR_UNUSED, char *argv[])
 	size_t size;
 	unsigned int i;
 
-	file_input = i_stream_create_file(argv[1], IO_BLOCK_SIZE);
+	file_input = i_stream_create_file(path, IO_BLOCK_SIZE);
 	/* A bit kludgy: istream-multiplex returns 0 if a wrong channel is
 	   being read from. This causes a panic with blocking istreams.
 	   Work around this by assuming that the file istream isn't blocking. */

@@ -9,6 +9,24 @@
 #include "strescape.h"
 #include "hostpid.h"
 
+static void append_strlist(string_t *dest, const ARRAY_TYPE(const_string) *strlist)
+{
+	string_t *str = t_str_new(64);
+	const char *value;
+	bool first = TRUE;
+
+	/* append the strings first escaped into a temporary string */
+	array_foreach_elem(strlist, value) {
+		if (first)
+			first = FALSE;
+		else
+			str_append_c(str, '\t');
+		str_append_tabescaped(str, value);
+	}
+	/* append the temporary string (double-)escaped as the value */
+	str_append_tabescaped(dest, str_c(str));
+}
+
 static void append_int(string_t *dest, intmax_t val)
 {
 	str_printfa(dest, "%jd", val);
@@ -29,12 +47,26 @@ static void append_time(string_t *dest, const struct timeval *time,
 	}
 }
 
+static void append_field_str(string_t *dest, const char *str,
+			     const struct metric_export_info *info)
+{
+	if (info->exporter->format_max_field_len == 0)
+		str_append_tabescaped(dest, str);
+	else {
+		size_t len = strlen(str);
+		str_append_tabescaped_n(dest, (const unsigned char *)str,
+			I_MIN(len, info->exporter->format_max_field_len));
+		if (len > info->exporter->format_max_field_len)
+			str_append(dest, "...");
+	}
+}
+
 static void append_field_value(string_t *dest, const struct event_field *field,
 			       const struct metric_export_info *info)
 {
 	switch (field->value_type) {
 	case EVENT_FIELD_VALUE_TYPE_STR:
-		str_append_tabescaped(dest, field->value.str);
+		append_field_str(dest, field->value.str, info);
 		break;
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
 		append_int(dest, field->value.intmax);
@@ -42,6 +74,9 @@ static void append_field_value(string_t *dest, const struct event_field *field,
 	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
 		append_time(dest, &field->value.timeval,
 			    info->exporter->time_format);
+		break;
+	case EVENT_FIELD_VALUE_TYPE_STRLIST:
+		append_strlist(dest, &field->value.strlist);
 		break;
 	}
 }
@@ -81,16 +116,10 @@ static void tabtext_export_timestamps(string_t *dest, struct event *event,
 	str_append_c(dest, '\t');
 }
 
-static void append_category(string_t *dest, struct event_category *cat)
+static void append_category(string_t *dest, const char *cat)
 {
-	/* append parent's categories */
-	if (cat->parent != NULL)
-		append_category(dest, cat->parent);
-
-	/* append this */
 	str_append(dest, "category:");
-	str_append_tabescaped(dest, cat->name);
-	str_append_c(dest, '\t');
+	str_append_tabescaped(dest, cat);
 }
 
 static void tabtext_export_categories(string_t *dest, struct event *event,
@@ -98,14 +127,15 @@ static void tabtext_export_categories(string_t *dest, struct event *event,
 {
 	struct event_category *const *cats;
 	unsigned int count;
-	unsigned int i;
 
 	if ((info->include & EVENT_EXPORTER_INCL_CATEGORIES) == 0)
 		return;
 
 	cats = event_get_categories(event, &count);
-	for (i = 0; i < count; i++)
-		append_category(dest, cats[i]);
+	event_export_helper_fmt_categories(dest, cats, count,
+					   append_category, "\t");
+
+	str_append_c(dest, '\t'); /* extra \t to have something to remove later */
 }
 
 static void tabtext_export_fields(string_t *dest, struct event *event,
@@ -137,7 +167,7 @@ static void tabtext_export_fields(string_t *dest, struct event *event,
 			const char *name = fields[i].field_key;
 			const struct event_field *field;
 
-			field = event_find_field(event, name);
+			field = event_find_field_recursive(event, name);
 			if (field == NULL)
 				continue; /* doesn't exist, skip it */
 

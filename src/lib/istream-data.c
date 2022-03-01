@@ -23,7 +23,7 @@ struct istream *i_stream_create_from_data(const void *data, size_t size)
 	stream = i_new(struct istream_private, 1);
 	stream->buffer = data;
 	stream->pos = size;
-	stream->max_buffer_size = (size_t)-1;
+	stream->max_buffer_size = SIZE_MAX;
 
 	stream->read = i_stream_data_read;
 	stream->seek = i_stream_data_seek;

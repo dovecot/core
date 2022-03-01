@@ -58,6 +58,8 @@ struct service {
 
 	/* all listeners, even those that aren't currently listening */
 	ARRAY(struct service_listener *) listeners;
+	/* per-process unix_listeners */
+	ARRAY(struct service_listener *) unix_pid_listeners;
 	/* linked list of all processes belonging to this service */
 	struct service_process *processes;
 
@@ -105,6 +107,8 @@ struct service {
 	/* when process_limit is reached, wait for a while until we actually
 	   start dropping pending connections */
 	struct timeout *to_drop;
+	/* delayed process_limit reached warning with SERVICE_TYPE_WORKER */
+	struct timeout *to_drop_warning;
 
 	/* prefork processes up to process_min_avail if there's time */
 	struct timeout *to_prefork;

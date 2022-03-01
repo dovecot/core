@@ -122,6 +122,7 @@ struct imap_url_parser {
 	const struct imap_url *base;
 
 	bool relative:1;
+	bool partial_parse:1;
 };
 
 static int
@@ -231,7 +232,9 @@ static int imap_url_parse_iserver(struct imap_url_parser *url_parser)
 			for (p += 6; *p != '\0'; p++) {
 				if (*p == ';' || *p == ':') {
 					parser->error = t_strdup_printf(
-						"Stray '%c' in userinfo `%s'", *p, auth.enc_userinfo);
+						"Stray %s in userinfo `%s'",
+						uri_char_sanitize(*p),
+						auth.enc_userinfo);
 					return -1;
 				}
 			}
@@ -881,17 +884,14 @@ static bool imap_url_do_parse(struct imap_url_parser *url_parser)
 		return FALSE;
 	}
 
-	/* must be at end of URL now */
-	i_assert(parser->cur == parser->end);
-
 	return TRUE;
 }
 
 /* Public API */
 
-int imap_url_parse(const char *url, const struct imap_url *base,
-		   enum imap_url_parse_flags flags,
-		   struct imap_url **url_r, const char **error_r)
+int imap_url_parse_prefix(const char *url, const struct imap_url *base,
+			  enum imap_url_parse_flags flags, const char **end_r,
+			  struct imap_url **url_r, const char **error_r)
 {
 	struct imap_url_parser url_parser;
 
@@ -902,6 +902,7 @@ int imap_url_parse(const char *url, const struct imap_url *base,
 
 	i_zero(&url_parser);
 	uri_parser_init(&url_parser.parser, pool_datastack_create(), url);
+	url_parser.parser.parse_prefix = (end_r != NULL);
 
 	url_parser.url = t_new(struct imap_url, 1);
 	url_parser.url->uauth_expire = (time_t)-1;
@@ -911,6 +912,12 @@ int imap_url_parse(const char *url, const struct imap_url *base,
 	if (!imap_url_do_parse(&url_parser)) {
 		*error_r = url_parser.parser.error;
 		return -1;
+	}
+	if (end_r != NULL)
+		*end_r = (const char *)url_parser.parser.cur;
+	else {
+		/* must be at end of URL now */
+		i_assert(url_parser.parser.cur == url_parser.parser.end);
 	}
 	*url_r = url_parser.url;
 	return 0;

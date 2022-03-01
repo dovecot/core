@@ -49,8 +49,7 @@ cmd_resetkey_mailbox(struct client_command_context *cmd,
 
 	/* open mailbox */
 	box = mailbox_alloc(ns->list, mailbox, flags);
-	event_add_str(cmd->event, "mailbox", mailbox_get_vname(box));
-	mailbox_set_reason(box, "RESETKEY");
+	event_add_str(cmd->global_event, "mailbox", mailbox_get_vname(box));
 	if (mailbox_open(box) < 0) {
 		client_send_box_error(cmd, box);
 		mailbox_free(&box);

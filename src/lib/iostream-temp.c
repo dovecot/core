@@ -37,7 +37,8 @@ static void
 o_stream_temp_close(struct iostream_private *stream,
 		    bool close_parent ATTR_UNUSED)
 {
-	struct temp_ostream *tstream = (struct temp_ostream *)stream;
+	struct temp_ostream *tstream =
+		container_of(stream, struct temp_ostream, ostream.iostream);
 
 	i_close_fd(&tstream->fd);
 	buffer_free(&tstream->buf);
@@ -80,7 +81,7 @@ static int o_stream_temp_move_to_fd(struct temp_ostream *tstream)
 int o_stream_temp_move_to_memory(struct ostream *output)
 {
 	struct temp_ostream *tstream =
-		(struct temp_ostream *)output->real_stream;
+		container_of(output->real_stream, struct temp_ostream, ostream);
 	unsigned char buf[IO_BLOCK_SIZE];
 	uoff_t offset = 0;
 	ssize_t ret = 0;
@@ -140,13 +141,14 @@ static ssize_t
 o_stream_temp_sendv(struct ostream_private *stream,
 		    const struct const_iovec *iov, unsigned int iov_count)
 {
-	struct temp_ostream *tstream = (struct temp_ostream *)stream;
+	struct temp_ostream *tstream =
+		container_of(stream, struct temp_ostream, ostream);
 	ssize_t ret = 0;
 	unsigned int i;
 	enum ostream_send_istream_result res;
 
 
-	tstream->flags &= ~IOSTREAM_TEMP_FLAG_TRY_FD_DUP;
+	tstream->flags &= ENUM_NEGATE(IOSTREAM_TEMP_FLAG_TRY_FD_DUP);
 	if (tstream->dupstream != NULL) {
 		if (o_stream_temp_dup_cancel(tstream, &res))
 			return -1;
@@ -250,13 +252,14 @@ static enum ostream_send_istream_result
 o_stream_temp_send_istream(struct ostream_private *_outstream,
 			   struct istream *instream)
 {
-	struct temp_ostream *outstream = (struct temp_ostream *)_outstream;
+	struct temp_ostream *outstream =
+		container_of(_outstream, struct temp_ostream, ostream);
 	enum ostream_send_istream_result res;
 
 	if ((outstream->flags & IOSTREAM_TEMP_FLAG_TRY_FD_DUP) != 0) {
 		if (o_stream_temp_dup_istream(outstream, instream, &res))
 			return res;
-		outstream->flags &= ~IOSTREAM_TEMP_FLAG_TRY_FD_DUP;
+		outstream->flags &= ENUM_NEGATE(IOSTREAM_TEMP_FLAG_TRY_FD_DUP);
 	}
 	return io_stream_copy(&outstream->ostream.ostream, instream);
 }
@@ -265,7 +268,8 @@ static int
 o_stream_temp_write_at(struct ostream_private *stream,
 		       const void *data, size_t size, uoff_t offset)
 {
-	struct temp_ostream *tstream = (struct temp_ostream *)stream;
+	struct temp_ostream *tstream =
+		container_of(stream, struct temp_ostream, ostream);
 
 	if (tstream->fd == -1) {
 		i_assert(stream->ostream.offset == tstream->buf->used);
@@ -345,7 +349,8 @@ struct istream *iostream_temp_finish(struct ostream **output,
 				     size_t max_buffer_size)
 {
 	struct temp_ostream *tstream =
-		(struct temp_ostream *)(*output)->real_stream;
+		container_of((*output)->real_stream, struct temp_ostream,
+			     ostream);
 	struct istream *input, *input2;
 	uoff_t abs_offset, size;
 	const char *for_path;

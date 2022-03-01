@@ -121,12 +121,12 @@ void io_loop_handle_remove(struct io_file *io, bool closed ATTR_UNUSED)
 	i_free(io);
 
 	if ((condition & IO_READ) != 0) {
-		ctx->fds[index].events &= ~(POLLIN|POLLPRI);
-		ctx->fds[index].revents &= ~(POLLIN|POLLPRI);
+		ctx->fds[index].events &= ENUM_NEGATE(POLLIN | POLLPRI);
+		ctx->fds[index].revents &= ENUM_NEGATE(POLLIN | POLLPRI);
 	}
 	if ((condition & IO_WRITE) != 0) {
-		ctx->fds[index].events &= ~POLLOUT;
-		ctx->fds[index].revents &= ~POLLOUT;
+		ctx->fds[index].events &= ENUM_NEGATE(POLLOUT);
+		ctx->fds[index].revents &= ENUM_NEGATE(POLLOUT);
 	}
 
 	if ((ctx->fds[index].events & (POLLIN|POLLOUT)) == 0) {
@@ -195,13 +195,13 @@ void io_loop_handler_run_internal(struct ioloop *ioloop)
 				pollfd->revents = 0;
 			} else if ((io->io.condition & IO_READ) != 0) {
 				call = (pollfd->revents & IO_POLL_INPUT) != 0;
-				pollfd->revents &= ~IO_POLL_INPUT;
+				pollfd->revents &= ENUM_NEGATE(IO_POLL_INPUT);
 			} else if ((io->io.condition & IO_WRITE) != 0) {
 				call = (pollfd->revents & IO_POLL_OUTPUT) != 0;
-				pollfd->revents &= ~IO_POLL_OUTPUT;
+				pollfd->revents &= ENUM_NEGATE(IO_POLL_OUTPUT);
 			} else if ((io->io.condition & IO_ERROR) != 0) {
 				call = (pollfd->revents & IO_POLL_ERROR) != 0;
-				pollfd->revents &= ~IO_POLL_ERROR;
+				pollfd->revents &= ENUM_NEGATE(IO_POLL_ERROR);
 			} else {
 				call = FALSE;
 			}

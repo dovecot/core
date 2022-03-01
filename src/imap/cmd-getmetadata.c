@@ -1,6 +1,7 @@
 /* Copyright (c) 2013-2018 Dovecot authors, see the included COPYING file */
 
 #include "imap-common.h"
+#include "mail-storage-private.h"
 #include "str.h"
 #include "istream.h"
 #include "istream-sized.h"
@@ -163,18 +164,12 @@ cmd_getmetadata_handle_error_str(struct imap_getmetadata_context *ctx,
 }
 
 static bool
-cmd_getmetadata_handle_error(struct imap_getmetadata_context *ctx,
-			     bool entry_error)
+cmd_getmetadata_handle_error(struct imap_getmetadata_context *ctx)
 {
 	const char *error_string;
 	enum mail_error error;
 
 	error_string = imap_metadata_transaction_get_last_error(ctx->trans, &error);
-	if ((error == MAIL_ERROR_NOTFOUND || error == MAIL_ERROR_PERM) &&
-	    entry_error) {
-		/* don't treat this as an error */
-		return FALSE;
-	}
 	if (error == MAIL_ERROR_NOTPOSSIBLE && ctx->depth > 0) {
 		/* Using DEPTH to iterate children with imap_metadata=no.
 		   Don't return an error, since some of the entries could be
@@ -195,7 +190,7 @@ static void cmd_getmetadata_send_entry(struct imap_getmetadata_context *ctx,
 	string_t *str;
 
 	if (imap_metadata_get_stream(ctx->trans, entry, &value) < 0) {
-		if (cmd_getmetadata_handle_error(ctx, TRUE))
+		if (cmd_getmetadata_handle_error(ctx))
 			return;
 	}
 
@@ -203,7 +198,8 @@ static void cmd_getmetadata_send_entry(struct imap_getmetadata_context *ctx,
 		value_len = strlen(value.value);
 	else if (value.value_stream != NULL) {
 		if (i_stream_get_size(value.value_stream, TRUE, &value_len) < 0) {
-			i_error("GETMETADATA %s: i_stream_get_size(%s) failed: %s", entry,
+			e_error(client->event,
+				"GETMETADATA %s: i_stream_get_size(%s) failed: %s", entry,
 				i_stream_get_name(value.value_stream),
 				i_stream_get_error(value.value_stream));
 			i_stream_unref(&value.value_stream);
@@ -247,7 +243,7 @@ cmd_getmetadata_stream_continue(struct imap_getmetadata_context *ctx)
 
 	o_stream_set_max_buffer_size(ctx->cmd->client->output, 0);
 	res = o_stream_send_istream(ctx->cmd->client->output, ctx->cur_stream);
-	o_stream_set_max_buffer_size(ctx->cmd->client->output, (size_t)-1);
+	o_stream_set_max_buffer_size(ctx->cmd->client->output, SIZE_MAX);
 
 	switch (res) {
 	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
@@ -257,7 +253,7 @@ cmd_getmetadata_stream_continue(struct imap_getmetadata_context *ctx)
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 		return FALSE;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
-		i_error("read(%s) failed: %s",
+		e_error(ctx->cmd->client->event, "read(%s) failed: %s",
 			i_stream_get_name(ctx->cur_stream),
 			i_stream_get_error(ctx->cur_stream));
 		client_disconnect(ctx->cmd->client,
@@ -293,7 +289,7 @@ cmd_getmetadata_send_entry_tree(struct imap_getmetadata_context *ctx,
 			if (subentry == NULL) {
 				/* iteration finished, get to the next entry */
 				if (imap_metadata_iter_deinit(&ctx->iter) < 0) {
-					if (!cmd_getmetadata_handle_error(ctx, FALSE))
+					if (!cmd_getmetadata_handle_error(ctx))
 						i_unreached();
 				}
 				return -1;
@@ -439,10 +435,18 @@ cmd_getmetadata_try_mailbox(struct imap_getmetadata_context *ctx,
 			    struct mail_namespace *ns, const char *mailbox)
 {
 	ctx->box = mailbox_alloc(ns->list, mailbox, MAILBOX_FLAG_READONLY);
-	event_add_str(ctx->cmd->event, "mailbox", mailbox_get_vname(ctx->box));
-	mailbox_set_reason(ctx->box, "GETMETADATA");
-	if (mailbox_open(ctx->box) < 0)
+	event_add_str(ctx->cmd->global_event, "mailbox",
+		      mailbox_get_vname(ctx->box));
+
+	enum mailbox_existence existence;
+	if (mailbox_exists(ctx->box, TRUE, &existence) < 0) {
 		return -1;
+	} else if (existence == MAILBOX_EXISTENCE_NONE) {
+		const char *err = t_strdup_printf(MAIL_ERRSTR_MAILBOX_NOT_FOUND,
+						  mailbox_get_vname(ctx->box));
+		mail_storage_set_error(ctx->box->storage, MAIL_ERROR_NOTFOUND, err);
+		return -1;
+	}
 
 	ctx->trans = imap_metadata_transaction_begin(ctx->box);
 	return cmd_getmetadata_start(ctx) ? 1 : 0;

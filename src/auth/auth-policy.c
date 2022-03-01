@@ -170,9 +170,8 @@ void auth_policy_init(void)
 	if (global_auth_settings->debug)
 		http_client_set.debug = 1;
 
-	master_service_ssl_settings_to_iostream_set(master_ssl_set, pool_datastack_create(),
-						    MASTER_SERVICE_SSL_SETTINGS_TYPE_CLIENT,
-						    &ssl_set);
+	master_service_ssl_client_settings_to_iostream_set(master_ssl_set,
+		pool_datastack_create(), &ssl_set);
 	http_client_set.ssl = &ssl_set;
 	http_client_set.event_parent = auth_event;
 	http_client = http_client_init(&http_client_set);
@@ -468,8 +467,8 @@ const struct var_expand_table *policy_get_var_expand_table(struct auth_request *
 	struct var_expand_table *table;
 	unsigned int count = 2;
 
-	table = auth_request_get_var_expand_table_full(auth_request, auth_policy_escape_function,
-						       &count);
+	table = auth_request_get_var_expand_table_full(auth_request,
+		auth_request->fields.user, auth_policy_escape_function, &count);
 	table[0].key = '\0';
 	table[0].long_key = "hashed_password";
 	table[0].value = hashed_password;
@@ -503,10 +502,10 @@ void auth_policy_create_json(struct policy_lookup_ctx *context,
 	digest->loop(ctx,
 		context->set->policy_hash_nonce,
 		strlen(context->set->policy_hash_nonce));
-	if (context->request->requested_login_user != NULL)
-		requested_username = context->request->requested_login_user;
-	else if (context->request->user != NULL)
-		requested_username = context->request->user;
+	if (context->request->fields.requested_login_user != NULL)
+		requested_username = context->request->fields.requested_login_user;
+	else if (context->request->fields.user != NULL)
+		requested_username = context->request->fields.user;
 	else
 		requested_username = "";
 	/* use +1 to make sure \0 gets included */
@@ -531,7 +530,8 @@ void auth_policy_create_json(struct policy_lookup_ctx *context,
 	}
 	if (include_success) {
 		str_append(context->json, ",\"success\":");
-		if (!context->request->failed && context->request->successful &&
+		if (!context->request->failed &&
+		    context->request->fields.successful &&
 		    !context->request->internal_failure)
 			str_append(context->json, "true");
 		else
@@ -540,7 +540,7 @@ void auth_policy_create_json(struct policy_lookup_ctx *context,
 		str_append(context->json, context->request->policy_refusal ? "true" : "false");
 	}
 	str_append(context->json, ",\"tls\":");
-	if (context->request->secured == AUTH_REQUEST_SECURED_TLS)
+	if (context->request->fields.secured == AUTH_REQUEST_SECURED_TLS)
 		str_append(context->json, "true");
 	else
 		str_append(context->json, "false");

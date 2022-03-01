@@ -95,7 +95,8 @@ static void sigchld_handler(const siginfo_t *si ATTR_UNUSED,
 
 static void
 winbind_helper_connect(const struct auth_settings *set,
-		       struct winbind_helper *winbind)
+		       struct winbind_helper *winbind,
+		       struct event *event)
 {
 	int infd[2], outfd[2];
 	pid_t pid;
@@ -104,7 +105,7 @@ winbind_helper_connect(const struct auth_settings *set,
 		return;
 
 	if (pipe(infd) < 0) {
-		i_error("pipe() failed: %m");
+		e_error(event, "pipe() failed: %m");
 		return;
 	}
 	if (pipe(outfd) < 0) {
@@ -114,7 +115,7 @@ winbind_helper_connect(const struct auth_settings *set,
 
 	pid = fork();
 	if (pid < 0) {
-		i_error("fork() failed: %m");
+		e_error(event, "fork() failed: %m");
 		i_close_fd(&infd[0]); i_close_fd(&infd[1]);
 		i_close_fd(&outfd[0]); i_close_fd(&outfd[1]);
 		return;
@@ -145,7 +146,7 @@ winbind_helper_connect(const struct auth_settings *set,
 	winbind->in_pipe =
 		i_stream_create_fd_autoclose(&infd[0], AUTH_CLIENT_MAX_LINE_LENGTH);
 	winbind->out_pipe =
-		o_stream_create_fd_autoclose(&outfd[1], (size_t)-1);
+		o_stream_create_fd_autoclose(&outfd[1], SIZE_MAX);
 
 	if (!sigchld_handler_set) {
 		sigchld_handler_set = TRUE;
@@ -293,7 +294,8 @@ mech_winbind_auth_initial(struct auth_request *auth_request,
 	struct winbind_auth_request *request =
 		(struct winbind_auth_request *)auth_request;
 
-	winbind_helper_connect(auth_request->set, request->winbind);
+	winbind_helper_connect(auth_request->set, request->winbind,
+			       auth_request->event);
 	mech_generic_auth_initial(auth_request, data, data_size);
 }
 

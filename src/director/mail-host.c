@@ -5,12 +5,14 @@
 #include "bsearch-insert-pos.h"
 #include "crc32.h"
 #include "md5.h"
+#include "director.h"
 #include "user-directory.h"
 #include "mail-host.h"
 
 #define VHOST_MULTIPLIER 100
 
 struct mail_host_list {
+	struct director *dir;
 	ARRAY_TYPE(mail_tag) tags;
 	ARRAY_TYPE(mail_host) hosts;
 	user_free_hook_t *user_free_hook;
@@ -79,54 +81,54 @@ static void mail_vhost_add(struct mail_tag *tag, struct mail_host *host)
 static void
 mail_tag_vhosts_sort_ring(struct mail_host_list *list, struct mail_tag *tag)
 {
-	struct mail_host *const *hostp;
+	struct mail_host *host;
 
 	/* rebuild vhosts */
 	array_clear(&tag->vhosts);
-	array_foreach(&list->hosts, hostp)
-		mail_vhost_add(tag, *hostp);
+	array_foreach_elem(&list->hosts, host)
+		mail_vhost_add(tag, host);
 	array_sort(&tag->vhosts, mail_vhost_cmp);
 }
 
 static void
 mail_hosts_sort(struct mail_host_list *list)
 {
-	struct mail_host *const *hostp;
-	struct mail_tag *const *tagp;
+	struct mail_host *host;
+	struct mail_tag *tag;
 	uint32_t num;
 
 	array_sort(&list->hosts, mail_host_cmp);
 
 	list->have_vhosts = FALSE;
-	array_foreach(&list->tags, tagp) {
-		mail_tag_vhosts_sort_ring(list, *tagp);
-		if (array_count(&(*tagp)->vhosts) > 0)
+	array_foreach_elem(&list->tags, tag) {
+		mail_tag_vhosts_sort_ring(list, tag);
+		if (array_count(&tag->vhosts) > 0)
 			list->have_vhosts = TRUE;
 	}
 	list->vhosts_unsorted = FALSE;
 
 	/* recalculate the hosts_hash */
 	list->hosts_hash = 0;
-	array_foreach(&list->hosts, hostp) {
-		num = ((*hostp)->down ? 1 : 0) ^ (*hostp)->vhost_count;
+	array_foreach_elem(&list->hosts, host) {
+		num = (host->down ? 1 : 0) ^ host->vhost_count;
 		list->hosts_hash = crc32_data_more(list->hosts_hash,
 						   &num, sizeof(num));
-		num = net_ip_hash(&(*hostp)->ip);
+		num = net_ip_hash(&host->ip);
 		list->hosts_hash = crc32_data_more(list->hosts_hash,
 						   &num, sizeof(num));
 		list->hosts_hash = crc32_str_more(list->hosts_hash,
-						  (*hostp)->tag->name);
+						  host->tag->name);
 	}
 }
 
 struct mail_tag *
 mail_tag_find(struct mail_host_list *list, const char *tag_name)
 {
-	struct mail_tag *const *tagp;
+	struct mail_tag *tag;
 
-	array_foreach(&list->tags, tagp) {
-		if (strcmp((*tagp)->name, tag_name) == 0)
-			return *tagp;
+	array_foreach_elem(&list->tags, tag) {
+		if (strcmp(tag->name, tag_name) == 0)
+			return tag;
 	}
 	return NULL;
 }
@@ -141,7 +143,8 @@ mail_tag_get(struct mail_host_list *list, const char *tag_name)
 		tag = i_new(struct mail_tag, 1);
 		tag->name = i_strdup(tag_name);
 		i_array_init(&tag->vhosts, 16*VHOST_MULTIPLIER);
-		tag->users = user_directory_init(list->user_expire_secs,
+		tag->users = user_directory_init(list->dir,
+						 list->user_expire_secs,
 						 list->user_free_hook);
 		array_push_back(&list->tags, &tag);
 	}
@@ -201,7 +204,7 @@ mail_host_add(struct mail_host_list *list, const char *hostname,
 	}
 
 	if (net_gethostbyname(hostname, &ips, &ips_count) < 0) {
-		i_error("Unknown mail host: %s", hostname);
+		e_error(list->dir->event, "Unknown mail host: %s", hostname);
 		return -1;
 	}
 
@@ -220,12 +223,12 @@ mail_hosts_add_range(struct mail_host_list *list,
 	unsigned int i, j, max_bits, last_bits;
 
 	if (ip1.family != ip2.family) {
-		i_error("IP address family mismatch: %s vs %s",
+		e_error(list->dir->event, "IP address family mismatch: %s vs %s",
 			net_ip2addr(&ip1), net_ip2addr(&ip2));
 		return -1;
 	}
 	if (net_ip_cmp(&ip1, &ip2) > 0) {
-		i_error("IP addresses reversed: %s-%s",
+		e_error(list->dir->event, "IP addresses reversed: %s-%s",
 			net_ip2addr(&ip1), net_ip2addr(&ip2));
 		return -1;
 	}
@@ -244,7 +247,7 @@ mail_hosts_add_range(struct mail_host_list *list,
 	/* make sure initial bits match */
 	for (i = 0; i < (max_bits-last_bits)/32; i++) {
 		if (ip1_arr[i] != ip2_arr[i]) {
-			i_error("IP address range too large: %s-%s",
+			e_error(list->dir->event, "IP address range too large: %s-%s",
 				net_ip2addr(&ip1), net_ip2addr(&ip2));
 			return -1;
 		}
@@ -254,7 +257,7 @@ mail_hosts_add_range(struct mail_host_list *list,
 
 	for (j = last_bits; j < 32; j++) {
 		if ((i1 & (1U << j)) != (i2 & (1U << j))) {
-			i_error("IP address range too large: %s-%s",
+			e_error(list->dir->event, "IP address range too large: %s-%s",
 				net_ip2addr(&ip1), net_ip2addr(&ip2));
 			return -1;
 		}
@@ -310,9 +313,9 @@ int mail_hosts_parse_and_add(struct mail_host_list *list,
 
 	if (array_count(&list->hosts) == 0) {
 		if (ret < 0)
-			i_error("No valid servers specified");
+			e_error(list->dir->event, "No valid servers specified");
 		else
-			i_error("Empty server list");
+			e_error(list->dir->event, "Empty server list");
 		ret = -1;
 	}
 	return ret;
@@ -327,6 +330,11 @@ void mail_host_set_tag(struct mail_host *host, const char *tag_name)
 {
 	i_assert(tag_name != NULL);
 
+	/* If the host already has users, forget all of them. Otherwise state
+	   becomes inconsistent, since tag->users won't match
+	   user->host->tag. */
+	user_directory_remove_host(host->tag->users, host);
+
 	host->tag = mail_tag_get(host->list, tag_name);
 	host->list->vhosts_unsorted = TRUE;
 }
@@ -336,7 +344,7 @@ void mail_host_set_down(struct mail_host *host, bool down,
 {
 	if (host->down != down) {
 		const char *updown = down ? "down" : "up";
-		i_info("%sHost %s changed %s "
+		e_info(host->list->dir->event, "%sHost %s changed %s "
 		       "(vhost_count=%u last_updown_change=%ld)",
 		       log_prefix, host->ip_str, updown,
 		       host->vhost_count, (long)host->last_updown_change);
@@ -350,7 +358,8 @@ void mail_host_set_down(struct mail_host *host, bool down,
 void mail_host_set_vhost_count(struct mail_host *host, unsigned int vhost_count,
 			       const char *log_prefix)
 {
-	i_info("%sHost %s vhost count changed from %u to %u",
+	e_info(host->list->dir->event,
+	       "%sHost %s vhost count changed from %u to %u",
 	       log_prefix, host->ip_str,
 	       host->vhost_count, vhost_count);
 
@@ -385,14 +394,14 @@ void mail_host_remove(struct mail_host *host)
 struct mail_host *
 mail_host_lookup(struct mail_host_list *list, const struct ip_addr *ip)
 {
-	struct mail_host *const *hostp;
+	struct mail_host *host;
 
 	if (list->vhosts_unsorted)
 		mail_hosts_sort(list);
 
-	array_foreach(&list->hosts, hostp) {
-		if (net_ip_compare(&(*hostp)->ip, ip))
-			return *hostp;
+	array_foreach_elem(&list->hosts, host) {
+		if (net_ip_compare(&host->ip, ip))
+			return host;
 	}
 	return NULL;
 }
@@ -404,8 +413,8 @@ mail_host_get_by_hash_ring(struct mail_tag *tag, unsigned int hash)
 	unsigned int count, idx;
 
 	vhosts = array_get(&tag->vhosts, &count);
-	array_bsearch_insert_pos(&tag->vhosts, &hash,
-				 mail_vhost_hash_cmp, &idx);
+	(void)array_bsearch_insert_pos(&tag->vhosts, &hash,
+				       mail_vhost_hash_cmp, &idx);
 	i_assert(idx <= count);
 	if (idx == count) {
 		if (count == 0)
@@ -433,17 +442,17 @@ mail_host_get_by_hash(struct mail_host_list *list, unsigned int hash,
 
 void mail_hosts_set_synced(struct mail_host_list *list)
 {
-	struct mail_host *const *hostp;
+	struct mail_host *host;
 
-	array_foreach(&list->hosts, hostp)
-		(*hostp)->desynced = FALSE;
+	array_foreach_elem(&list->hosts, host)
+		host->desynced = FALSE;
 }
 
 unsigned int mail_hosts_hash(struct mail_host_list *list)
 {
 	if (list->vhosts_unsorted)
 		mail_hosts_sort(list);
-	/* don't retun 0 as hash, since we're using it as "doesn't exist" in
+	/* don't return 0 as hash, since we're using it as "doesn't exist" in
 	   some places. */
 	return list->hosts_hash == 0 ? 1 : list->hosts_hash;
 }
@@ -464,13 +473,13 @@ const ARRAY_TYPE(mail_host) *mail_hosts_get(struct mail_host_list *list)
 
 bool mail_hosts_have_tags(struct mail_host_list *list)
 {
-	struct mail_tag *const *tagp;
+	struct mail_tag *tag;
 
 	if (list->vhosts_unsorted)
 		mail_hosts_sort(list);
 
-	array_foreach(&list->tags, tagp) {
-		if ((*tagp)->name[0] != '\0' && array_count(&(*tagp)->vhosts) > 0)
+	array_foreach_elem(&list->tags, tag) {
+		if (tag->name[0] != '\0' && array_count(&tag->vhosts) > 0)
 			return TRUE;
 	}
 	return FALSE;
@@ -482,12 +491,14 @@ const ARRAY_TYPE(mail_tag) *mail_hosts_get_tags(struct mail_host_list *list)
 }
 
 struct mail_host_list *
-mail_hosts_init(unsigned int user_expire_secs,
+mail_hosts_init(struct director *dir,
+		unsigned int user_expire_secs,
 		user_free_hook_t *user_free_hook)
 {
 	struct mail_host_list *list;
 
 	list = i_new(struct mail_host_list, 1);
+	list->dir = dir;
 	list->user_expire_secs = user_expire_secs;
 	list->user_free_hook = user_free_hook;
 
@@ -499,15 +510,15 @@ mail_hosts_init(unsigned int user_expire_secs,
 void mail_hosts_deinit(struct mail_host_list **_list)
 {
 	struct mail_host_list *list = *_list;
-	struct mail_host *const *hostp;
-	struct mail_tag *const *tagp;
+	struct mail_host *host;
+	struct mail_tag *tag;
 
 	*_list = NULL;
 
-	array_foreach(&list->tags, tagp)
-		mail_tag_free(*tagp);
-	array_foreach(&list->hosts, hostp)
-		mail_host_free(*hostp);
+	array_foreach_elem(&list->tags, tag)
+		mail_tag_free(tag);
+	array_foreach_elem(&list->hosts, host)
+		mail_host_free(host);
 	array_free(&list->hosts);
 	array_free(&list->tags);
 	i_free(list);
@@ -529,11 +540,11 @@ mail_host_dup(struct mail_host_list *dest_list, const struct mail_host *src)
 struct mail_host_list *mail_hosts_dup(const struct mail_host_list *src)
 {
 	struct mail_host_list *dest;
-	struct mail_host *const *hostp, *dest_host;
+	struct mail_host *host, *dest_host;
 
-	dest = mail_hosts_init(src->user_expire_secs, src->user_free_hook);
-	array_foreach(&src->hosts, hostp) {
-		dest_host = mail_host_dup(dest, *hostp);
+	dest = mail_hosts_init(src->dir, src->user_expire_secs, src->user_free_hook);
+	array_foreach_elem(&src->hosts, host) {
+		dest_host = mail_host_dup(dest, host);
 		array_push_back(&dest->hosts, &dest_host);
 	}
 	mail_hosts_sort(dest);
@@ -542,8 +553,8 @@ struct mail_host_list *mail_hosts_dup(const struct mail_host_list *src)
 
 void mail_hosts_sort_users(struct mail_host_list *list)
 {
-	struct mail_tag *const *tagp;
+	struct mail_tag *tag;
 
-	array_foreach(&list->tags, tagp)
-		user_directory_sort((*tagp)->users);
+	array_foreach_elem(&list->tags, tag)
+		user_directory_sort(tag->users);
 }

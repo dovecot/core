@@ -28,14 +28,12 @@ static bool
 push_notification_driver_dlog_begin_txn(
 	struct push_notification_driver_txn *dtxn)
 {
-	const struct push_notification_event *const *event;
+	const struct push_notification_event *event;
 
 	i_debug("Called begin_txn push_notification plugin hook.");
 
-	array_foreach(&push_notification_events, event) {
-		push_notification_event_init(dtxn, (*event)->name, NULL);
-	}
-
+	array_foreach_elem(&push_notification_events, event)
+		push_notification_event_init(dtxn, event->name, NULL);
 	return TRUE;
 }
 
@@ -44,16 +42,16 @@ push_notification_driver_dlog_process_mbox(
 	struct push_notification_driver_txn *dtxn ATTR_UNUSED,
 	struct push_notification_txn_mbox *mbox)
 {
-	struct push_notification_txn_event *const *event;
+	struct push_notification_txn_event *event;
 
 	i_debug("Called process_mbox push_notification plugin hook.");
 
 	i_debug("Mailbox data: Mailbox [%s]", mbox->mailbox);
 
 	if (array_is_created(&mbox->eventdata)) {
-		array_foreach(&mbox->eventdata, event) {
-			if ((*event)->event->event->mbox.debug_mbox != NULL)
-				(*event)->event->event->mbox.debug_mbox(*event);
+		array_foreach_elem(&mbox->eventdata, event) {
+			if (event->event->event->mbox.debug_mbox != NULL)
+				event->event->event->mbox.debug_mbox(event);
 		}
 	}
 }
@@ -63,7 +61,7 @@ push_notification_driver_dlog_process_msg(
 	struct push_notification_driver_txn *dtxn ATTR_UNUSED,
 	struct push_notification_txn_msg *msg)
 {
-	struct push_notification_txn_event *const *event;
+	struct push_notification_txn_event *event;
 
 	i_debug("Called process_msg push_notification plugin hook.");
 
@@ -71,10 +69,9 @@ push_notification_driver_dlog_process_msg(
 		msg->mailbox, msg->uid, msg->uid_validity);
 
 	if (array_is_created(&msg->eventdata)) {
-		array_foreach(&msg->eventdata, event) {
-			if ((*event)->event->event->msg.debug_msg != NULL) {
-				(*event)->event->event->msg.debug_msg(*event);
-			}
+		array_foreach_elem(&msg->eventdata, event) {
+			if (event->event->event->msg.debug_msg != NULL)
+				event->event->event->msg.debug_msg(event);
 		}
 	}
 }

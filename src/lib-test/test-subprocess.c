@@ -5,6 +5,7 @@
 #include "hostpid.h"
 #include "array.h"
 #include "ioloop.h"
+#include "sleep.h"
 #include "test-common.h"
 #include "test-subprocess.h"
 
@@ -18,6 +19,7 @@ struct test_subprocess {
 
 volatile sig_atomic_t test_subprocess_is_child = 0;
 static bool test_subprocess_lib_init = FALSE;
+static volatile bool test_subprocess_notification_signal_received[SIGUSR1 + 1];
 static struct event *test_subprocess_event = NULL;
 static ARRAY(struct test_subprocess *) test_subprocesses = ARRAY_INIT;
 static void (*test_subprocess_cleanup_callback)(void) = NULL;
@@ -31,10 +33,10 @@ test_subprocess_signal(const siginfo_t *si ATTR_UNUSED,
 
 static void test_subprocess_free_all(void)
 {
-	struct test_subprocess **subpp;
+	struct test_subprocess *subp;
 
-	array_foreach_modifiable(&test_subprocesses, subpp)
-		i_free(*subpp);
+	array_foreach_elem(&test_subprocesses, subp)
+		i_free(subp);
 	array_free(&test_subprocesses);
 }
 
@@ -65,15 +67,14 @@ test_subprocess_child(int (*func)(void *context), void *context,
 	ret = func(context);
 
 	/* Prevent race condition */
-	lib_signals_clear_handlers(SIGTERM);
-	lib_signals_ignore(SIGTERM, TRUE);
+	lib_signals_clear_handlers_and_ignore(SIGTERM);
 
 	event_unref(&test_subprocess_event);
 	lib_signals_deinit();
 
 	if (!continue_test) {
 		lib_deinit();
-		exit(ret);
+		lib_exit(ret);
 	}
 	test_exit((test_has_failed() ? 1 : 0));
 }
@@ -85,20 +86,23 @@ void test_subprocess_fork(int (*func)(void *context), void *context,
 	struct test_subprocess *subprocess;
 
 	subprocess = i_new(struct test_subprocess, 1);
-	array_push_back(&test_subprocesses, &subprocess);
 
 	lib_signals_ioloop_detach();
 
+	/* avoid races: fork the child process with test_subprocess_is_child
+	   set to 1 in case it immediately receives a signal. */
+	test_subprocess_is_child = 1;
 	if ((subprocess->pid = fork()) == (pid_t)-1)
 		i_fatal("test: sub-process: fork() failed: %m");
 	if (subprocess->pid == 0) {
-		test_subprocess_is_child = 1;
 		test_subprocess_free_all();
 
 		test_subprocess_child(func, context, continue_test);
 		i_unreached();
 	}
+	test_subprocess_is_child = 0;
 
+	array_push_back(&test_subprocesses, &subprocess);
 	lib_signals_ioloop_attach();
 }
 
@@ -129,6 +133,7 @@ static void test_subprocess_verify_exit_status(int status)
 
 static void test_subprocess_kill_forced(struct test_subprocess *subp)
 {
+	i_assert(subp->pid > 0);
 	(void)kill(subp->pid, SIGKILL);
 	(void)waitpid(subp->pid, NULL, 0);
 }
@@ -282,7 +287,10 @@ test_subprocess_terminate(const siginfo_t *si, void *context ATTR_UNUSED)
 	test_subprocess_cleanup();
 
 	(void)signal(signo, SIG_DFL);
-	raise(signo);
+	if (signo == SIGTERM)
+		_exit(0);
+	else
+		raise(signo);
 }
 
 static void test_atexit(void)
@@ -296,6 +304,47 @@ static void test_atexit(void)
 void test_subprocess_set_cleanup_callback(void (*callback)(void))
 {
 	test_subprocess_cleanup_callback = callback;
+}
+
+void test_subprocess_notify_signal_send(int signo, pid_t pid)
+{
+	if (kill(pid, signo) < 0)
+		i_fatal("kill(%ld, SIGHUP) failed: %m", (long)pid);
+}
+
+void test_subprocess_notify_signal_send_parent(int signo)
+{
+	test_subprocess_notify_signal_send(signo, getppid());
+}
+
+void test_subprocess_notify_signal_reset(int signo)
+{
+	i_assert(signo >= 0 &&
+		 (unsigned int)signo < N_ELEMENTS(test_subprocess_notification_signal_received));
+	test_subprocess_notification_signal_received[signo] = FALSE;
+}
+
+void test_subprocess_notify_signal_wait(int signo, unsigned int timeout_msecs)
+{
+	unsigned int i, count = timeout_msecs / 10;
+
+	for (i = 0; i < count; i++) {
+		if (test_subprocess_notification_signal_received[signo])
+			return;
+		i_sleep_msecs(10);
+	}
+	i_fatal("Didn't receive wait notification signal from server");
+}
+
+static void
+test_subprocess_notification_signal(const siginfo_t *si,
+				    void *context ATTR_UNUSED)
+{
+	int signo = si->si_signo;
+
+	i_assert(signo >= 0 &&
+		 (unsigned int)signo < N_ELEMENTS(test_subprocess_notification_signal_received));
+	test_subprocess_notification_signal_received[signo] = TRUE;
 }
 
 void test_subprocesses_init(bool debug)
@@ -314,6 +363,10 @@ void test_subprocesses_init(bool debug)
 	lib_signals_set_handler(SIGINT, 0, test_subprocess_terminate, NULL);
 	lib_signals_set_handler(SIGSEGV, 0, test_subprocess_terminate, NULL);
 	lib_signals_set_handler(SIGABRT, 0, test_subprocess_terminate, NULL);
+	lib_signals_set_handler(SIGHUP, LIBSIG_FLAG_RESTART,
+				test_subprocess_notification_signal, NULL);
+	lib_signals_set_handler(SIGUSR1, LIBSIG_FLAG_RESTART,
+				test_subprocess_notification_signal, NULL);
 
 	i_array_init(&test_subprocesses, 8);
 

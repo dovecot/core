@@ -41,7 +41,7 @@ struct imap_msgpart {
         struct mailbox_header_lookup_ctx *header_ctx;
 	const char *const *headers;
 
-	/* which part of the message part to fetch (default: 0..(uoff_t)-1) */
+	/* which part of the message part to fetch (default: 0..UOFF_T_MAX) */
 	uoff_t partial_offset, partial_size;
 
 	bool decode_cte_to_binary:1;
@@ -62,7 +62,7 @@ static struct imap_msgpart *imap_msgpart_type(enum fetch_type fetch_type)
 	pool = pool_alloconly_create("imap msgpart", sizeof(*msgpart)+32);
 	msgpart = p_new(pool, struct imap_msgpart, 1);
 	msgpart->pool = pool;
-	msgpart->partial_size = (uoff_t)-1;
+	msgpart->partial_size = UOFF_T_MAX;
 	msgpart->fetch_type = fetch_type;
 	msgpart->section_number = "";
 	if (fetch_type == FETCH_HEADER || fetch_type == FETCH_FULL)
@@ -148,7 +148,7 @@ imap_msgpart_get_header_fields(pool_t pool, const char *header_list,
 	int result = 0;
 
 	input = i_stream_create_from_data(header_list, strlen(header_list));
-	parser = imap_parser_create(input, NULL, (size_t)-1);
+	parser = imap_parser_create(input, NULL, SIZE_MAX);
 
 	if (imap_parser_finish_line(parser, 0, 0, &args) > 0 &&
 	    imap_arg_get_list_full(args, &hdr_list, &list_count) &&
@@ -207,7 +207,7 @@ int imap_msgpart_parse(const char *section, struct imap_msgpart **msgpart_r)
 	pool = pool_alloconly_create("imap msgpart", 1024);
 	msgpart = *msgpart_r = p_new(pool, struct imap_msgpart, 1);
 	msgpart->pool = pool;
-	msgpart->partial_size = (uoff_t)-1;
+	msgpart->partial_size = UOFF_T_MAX;
 
 	/* get the section number */
 	next_digit = TRUE;
@@ -442,7 +442,7 @@ imap_msgpart_crlf_seek(struct mail *mail, struct istream *input,
 
 	if (mail->uid > 0 &&
 	    (msgpart->partial_offset != 0 ||
-	     msgpart->partial_size != (uoff_t)-1) && !input->eof) {
+	     msgpart->partial_size != UOFF_T_MAX) && !input->eof) {
 		/* update cache */
 		cache->uid = mail->uid;
 		cache->physical_start = physical_start;
@@ -505,7 +505,7 @@ imap_msgpart_get_partial(struct mail *mail, const struct imap_msgpart *msgpart,
 	if (!mail->has_no_nuls && convert_nuls) {
 		/* IMAP literals must not contain NULs. change them to
 		   0x80 characters. */
-		input2 = i_stream_create_nonuls(result->input, 0x80);
+		input2 = i_stream_create_nonuls(result->input, '\x80');
 		i_stream_unref(&result->input);
 		result->input = input2;
 	}
@@ -812,6 +812,7 @@ int imap_msgpart_bodypartstructure(struct mail *mail,
 {
 	struct message_part *all_parts, *part;
 	string_t *bpstruct;
+	const char *error;
 	int ret;
 
 	/* if we start parsing the body in here, make sure we also parse the
@@ -840,7 +841,13 @@ int imap_msgpart_bodypartstructure(struct mail *mail,
 
 	if (ret >= 0) {
 		bpstruct = t_str_new(256);
-		imap_bodystructure_write(part, bpstruct, TRUE);
+		if (imap_bodystructure_write(part, bpstruct, TRUE, &error) < 0) {
+			error = t_strdup_printf(
+				"Invalid message_part/BODYSTRUCTURE: %s", error);
+			mail_set_cache_corrupted(mail, MAIL_FETCH_MESSAGE_PARTS,
+						 error);
+			return -1;
+		}
 		*bpstruct_r = str_c(bpstruct);
 	}
 	return ret < 0 ? -1 : 1;

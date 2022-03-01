@@ -29,12 +29,10 @@ static void i_stream_ssl_destroy(struct iostream_private *stream)
 	ssl_iostream_unref(&sstream->ssl_io);
 }
 
-static ssize_t i_stream_ssl_read_real(struct istream_private *stream)
+static ssize_t i_stream_ssl_read(struct istream_private *stream)
 {
 	struct ssl_istream *sstream = (struct ssl_istream *)stream;
 	struct ssl_iostream *ssl_io = sstream->ssl_io;
-	unsigned char buffer[IO_BLOCK_SIZE];
-	size_t orig_max_buffer_size = stream->max_buffer_size;
 	size_t size;
 	ssize_t ret, total_ret;
 
@@ -43,66 +41,73 @@ static ssize_t i_stream_ssl_read_real(struct istream_private *stream)
 		return -1;
 	}
 
-	ret = openssl_iostream_more(ssl_io,
-		OPENSSL_IOSTREAM_SYNC_TYPE_HANDSHAKE);
-	if (ret <= 0) {
-		if (ret < 0) {
-			/* handshake failed */
-			i_assert(errno != 0);
-			io_stream_set_error(&stream->iostream,
-					    "%s", ssl_io->last_error);
-			stream->istream.stream_errno = errno;
-		}
-		return ret;
-	}
-	if (!i_stream_try_alloc(stream, 1, &size))
-		return -2;
-
-	while ((ret = SSL_read(ssl_io->ssl,
-			       stream->w_buffer + stream->pos, size)) <= 0) {
-		/* failed to read anything */
-		ret = openssl_iostream_handle_error(ssl_io, ret,
-			OPENSSL_IOSTREAM_SYNC_TYPE_CONTINUE_READ, "SSL_read");
-		if (ret <= 0) {
-			if (ret == 0)
-				return 0;
-			if (ssl_io->last_error != NULL) {
+	if (!ssl_io->handshaked) {
+		if ((ret = ssl_iostream_handshake(ssl_io)) <= 0) {
+			if (ret < 0) {
+				/* handshake failed */
+				i_assert(errno != 0);
 				io_stream_set_error(&stream->iostream,
 						    "%s", ssl_io->last_error);
-			}
-			if (errno != EPIPE)
 				stream->istream.stream_errno = errno;
-			stream->istream.eof = TRUE;
-			sstream->seen_eof = TRUE;
-			return -1;
+			}
+			return ret;
 		}
-		/* we did some BIO I/O, try reading again */
 	}
-	stream->pos += ret;
-	total_ret = ret;
+	if (openssl_iostream_bio_sync(ssl_io,
+			OPENSSL_IOSTREAM_SYNC_TYPE_HANDSHAKE) < 0) {
+		i_assert(ssl_io->plain_stream_errno != 0 &&
+			 ssl_io->plain_stream_errstr != NULL);
+		io_stream_set_error(&stream->iostream,
+				    "%s", ssl_io->plain_stream_errstr);
+		stream->istream.stream_errno = ssl_io->plain_stream_errno;
+		return -1;
+	}
 
-	/* now make sure that we read everything already buffered in OpenSSL
-	   into the stream (without reading anything more). this makes I/O loop
-	   behave similarly for ssl-istream as file-istream. */
-	stream->max_buffer_size = (size_t)-1;
-	while ((ret = SSL_read(ssl_io->ssl, buffer, sizeof(buffer))) > 0) {
-		memcpy(i_stream_alloc(stream, ret), buffer, ret);
+	total_ret = 0;
+	for (;;) {
+		int pending = SSL_pending(ssl_io->ssl);
+
+		/* Allocate buffer space if needed. */
+		i_assert(stream->buffer_size >= stream->pos);
+		size = stream->buffer_size - stream->pos;
+		if ((pending > 0 || size == 0) &&
+		    !i_stream_try_alloc(stream, I_MAX(pending, 1), &size)) {
+			if (total_ret > 0)
+				break;
+			return -2;
+		}
+
+		ret = SSL_read(ssl_io->ssl, stream->w_buffer + stream->pos, size);
+		if (ret <= 0) {
+			/* failed to read anything */
+			ret = openssl_iostream_handle_error(ssl_io, ret,
+				(total_ret == 0 ?
+				 OPENSSL_IOSTREAM_SYNC_TYPE_CONTINUE_READ :
+				 OPENSSL_IOSTREAM_SYNC_TYPE_NONE), "SSL_read");
+			if (ret <= 0) {
+				if (ret == 0)
+					break;
+				if (ssl_io->last_error != NULL) {
+					io_stream_set_error(&stream->iostream,
+							    "%s", ssl_io->last_error);
+				}
+				if (errno != EPIPE)
+					stream->istream.stream_errno = errno;
+				stream->istream.eof = TRUE;
+				sstream->seen_eof = TRUE;
+				if (total_ret > 0)
+					break;
+				return -1;
+			}
+			/* we did some BIO I/O, try reading again */
+			continue;
+		}
 		stream->pos += ret;
 		total_ret += ret;
 	}
-	stream->max_buffer_size = orig_max_buffer_size;
+	if (SSL_pending(ssl_io->ssl) > 0)
+		i_stream_set_input_pending(ssl_io->ssl_input, TRUE);
 	return total_ret;
-}
-
-static ssize_t i_stream_ssl_read(struct istream_private *stream)
-{
-	struct ssl_istream *sstream = (struct ssl_istream *)stream;
-	ssize_t ret;
-
-	if ((ret = i_stream_ssl_read_real(stream)) >= 0) {
-		i_assert(i_stream_get_data_size(sstream->ssl_io->plain_input) == 0);
-	}
-	return ret;
 }
 
 struct istream *openssl_i_stream_create_ssl(struct ssl_iostream *ssl_io)

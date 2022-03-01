@@ -14,8 +14,6 @@
 
 #include <fcntl.h>
 
-#define ZLIB_PLUGIN_DEFAULT_LEVEL 6
-
 #define ZLIB_CONTEXT(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, zlib_storage_module)
 #define ZLIB_MAIL_CONTEXT(obj) \
@@ -45,7 +43,7 @@ struct zlib_user {
 	struct zlib_mail_cache cache;
 
 	const struct compression_handler *save_handler;
-	unsigned int save_level;
+	int save_level;
 };
 
 const char *zlib_plugin_version = DOVECOT_ABI_VERSION;
@@ -98,7 +96,7 @@ zlib_mail_cache_open(struct zlib_user *zuser, struct mail *mail,
 	input = i_stream_create_seekable_path(inputs,
 				i_stream_get_max_buffer_size(inputs[0]),
 				str_c(temp_prefix));
-	i_stream_set_name(input, t_strdup_printf("zlib(%s)",
+	i_stream_set_name(input, t_strdup_printf("compress(%s)",
 						 i_stream_get_name(inputs[0])));
 	i_stream_unref(&inputs[0]);
 
@@ -110,7 +108,7 @@ zlib_mail_cache_open(struct zlib_user *zuser, struct mail *mail,
 		cache->input = input;
 		/* index-mail wants the stream to be destroyed at close, so create
 		   a new stream instead of just increasing reference. */
-		return i_stream_create_limit(cache->input, (uoff_t)-1);
+		return i_stream_create_limit(cache->input, UOFF_T_MAX);
 	} else {
 		return input;
 	}
@@ -136,7 +134,7 @@ static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
 		   already be seeked into the wanted offset. */
 		i_stream_unref(stream);
 		i_stream_seek(cache->input, 0);
-		*stream = i_stream_create_limit(cache->input, (uoff_t)-1);
+		*stream = i_stream_create_limit(cache->input, UOFF_T_MAX);
 		return zmail->module_ctx.super.istream_opened(_mail, stream);
 	}
 
@@ -150,7 +148,7 @@ static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
 		}
 
 		input = *stream;
-		*stream = handler->create_istream(input, TRUE);
+		*stream = handler->create_istream(input);
 		i_stream_unref(&input);
 		/* dont cache the stream if _mail->uid is 0 */
 		*stream = zlib_mail_cache_open(zuser, _mail, *stream, (_mail->uid > 0));
@@ -260,8 +258,7 @@ static void zlib_mailbox_open_input(struct mailbox *box)
 	struct stat st;
 	int fd;
 
-	handler = compression_lookup_handler_from_ext(box->name);
-	if (handler == NULL || handler->create_istream == NULL)
+	if (compression_lookup_handler_from_ext(box->name, &handler) <= 0)
 		return;
 
 	if (mail_storage_is_mailbox_file(box->storage)) {
@@ -281,7 +278,7 @@ static void zlib_mailbox_open_input(struct mailbox *box)
 		}
 		input = i_stream_create_fd_autoclose(&fd, MAX_INBUF_SIZE);
 		i_stream_set_name(input, box_path);
-		box->input = handler->create_istream(input, TRUE);
+		box->input = handler->create_istream(input);
 		i_stream_unref(&input);
 		box->flags |= MAILBOX_FLAG_READONLY;
 	}
@@ -339,6 +336,7 @@ static void zlib_mail_user_created(struct mail_user *user)
 	struct mail_user_vfuncs *v = user->vlast;
 	struct zlib_user *zuser;
 	const char *name;
+	int ret;
 
 	zuser = p_new(user->pool, struct zlib_user, 1);
 	zuser->module_ctx.super = *v;
@@ -347,24 +345,29 @@ static void zlib_mail_user_created(struct mail_user *user)
 
 	name = mail_user_plugin_getenv(user, "zlib_save");
 	if (name != NULL && *name != '\0') {
-		zuser->save_handler = compression_lookup_handler(name);
-		if (zuser->save_handler == NULL)
-			i_error("zlib_save: Unknown handler: %s", name);
-		else if (zuser->save_handler->create_ostream == NULL) {
-			i_error("zlib_save: Support not compiled in for handler: %s", name);
+		ret = compression_lookup_handler(name, &zuser->save_handler);
+		if (ret <= 0) {
+			i_error("zlib_save: %s: %s", ret == 0 ?
+				"Support not compiled in for handler" :
+				"Unknown handler", name);
 			zuser->save_handler = NULL;
 		}
 	}
-	name = mail_user_plugin_getenv(user, "zlib_save_level");
-	if (name != NULL) {
-		if (str_to_uint(name, &zuser->save_level) < 0 ||
-		    zuser->save_level < 1 || zuser->save_level > 9) {
-			i_error("zlib_save_level: Level must be between 1..9");
-			zuser->save_level = 0;
+	name = zuser->save_handler == NULL ? NULL :
+		mail_user_plugin_getenv(user, "zlib_save_level");
+	if (name != NULL && name[0] != '\0') {
+		if (str_to_int(name, &zuser->save_level) < 0 ||
+		    zuser->save_level < zuser->save_handler->get_min_level() ||
+		    zuser->save_level > zuser->save_handler->get_max_level()) {
+			i_error("zlib_save_level: Level must be between %d..%d",
+				zuser->save_handler->get_min_level(),
+				zuser->save_handler->get_max_level());
+			zuser->save_level =
+				zuser->save_handler->get_default_level();
 		}
+	} else if (zuser->save_handler != NULL) {
+		zuser->save_level = zuser->save_handler->get_default_level();
 	}
-	if (zuser->save_level == 0)
-		zuser->save_level = ZLIB_PLUGIN_DEFAULT_LEVEL;
 	MODULE_CONTEXT_SET(user, zlib_user_module, zuser);
 }
 

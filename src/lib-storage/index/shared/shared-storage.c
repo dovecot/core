@@ -122,8 +122,8 @@ static bool shared_namespace_exists(struct mail_namespace *ns)
 	const char *path;
 	struct stat st;
 
-	path = mailbox_list_get_root_forced(ns->list, MAILBOX_LIST_PATH_TYPE_DIR);
-	if (path == NULL) {
+	if (!mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_DIR,
+					&path)) {
 		/* we can't know if this exists */
 		return TRUE;
 	}

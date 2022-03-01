@@ -55,7 +55,6 @@ static int imap_notify_status(struct imap_notify_namespace *notify_ns,
 		items.flags |= IMAP_STATUS_ITEM_HIGHESTMODSEQ;
 
 	box = mailbox_alloc(notify_ns->ns->list, rec->vname, 0);
-	mailbox_set_reason(box, "NOTIFY STATUS");
 	if ((rec->events & MAILBOX_LIST_NOTIFY_UIDVALIDITY) != 0) {
 		items.flags |= IMAP_STATUS_ITEM_UIDVALIDITY |
 			IMAP_STATUS_ITEM_UIDNEXT | IMAP_STATUS_ITEM_MESSAGES |
@@ -190,7 +189,7 @@ bool imap_notify_match_mailbox(struct imap_notify_namespace *notify_ns,
 			       const char *vname)
 {
 	struct mailbox *box;
-	const char *const *namep;
+	const char *name;
 	size_t name_len;
 	char ns_sep;
 	bool ret;
@@ -198,29 +197,28 @@ bool imap_notify_match_mailbox(struct imap_notify_namespace *notify_ns,
 	switch (notify_boxes->type) {
 	case IMAP_NOTIFY_TYPE_SUBSCRIBED:
 		box = mailbox_alloc(notify_ns->ns->list, vname, 0);
-		mailbox_set_reason(box, "NOTIFY is subscribed");
 		ret = mailbox_is_subscribed(box);
 		mailbox_free(&box);
 		return ret;
 	case IMAP_NOTIFY_TYPE_SUBTREE:
 		ns_sep = mail_namespace_get_sep(notify_ns->ns);
-		array_foreach(&notify_boxes->names, namep) {
-			name_len = strlen(*namep);
+		array_foreach_elem(&notify_boxes->names, name) {
+			name_len = strlen(name);
 			if (name_len == 0) {
 				/* everything under root. NOTIFY spec itself
 				   doesn't define this, but we use it for
 				   implementing "personal" */
 				return TRUE;
 			}
-			if (str_begins(vname, *namep) &&
+			if (str_begins(vname, name) &&
 			    (vname[name_len] == '\0' ||
 			     vname[name_len] == ns_sep))
 				return TRUE;
 		}
 		break;
 	case IMAP_NOTIFY_TYPE_MAILBOX:
-		array_foreach(&notify_boxes->names, namep) {
-			if (strcmp(*namep, vname) == 0)
+		array_foreach_elem(&notify_boxes->names, name) {
+			if (strcmp(name, vname) == 0)
 				return TRUE;
 		}
 		break;
@@ -273,18 +271,20 @@ imap_client_notify_selected(struct client *client)
 	if (!fetch_ctx->state.fetching)
 		return 1;
 
-	if ((ret = imap_fetch_more_no_lock_update(fetch_ctx)) <= 0)
-		return ret;
+	if ((ret = imap_fetch_more_no_lock_update(fetch_ctx)) == 0)
+		return 0;
 	/* finished the FETCH */
 	if (imap_fetch_end(fetch_ctx) < 0)
 		return -1;
-	return 1;
+	return ret;
 }
 
 static int imap_client_notify_more(struct client *client)
 {
 	struct imap_notify_namespace *notify_ns;
 	int ret = 1;
+
+	struct event_reason *reason = event_reason_begin("imap:notify_update");
 
 	/* send notifications for selected mailbox first. note that it may
 	   leave the client's output stream in the middle of a FETCH reply. */
@@ -304,9 +304,10 @@ static int imap_client_notify_more(struct client *client)
 	}
 
 	if (ret < 0) {
-		client_send_line(notify_ns->ctx->client,
+		client_send_line(client,
 			"* NO NOTIFY error, some events may have got lost");
 	}
+	event_reason_end(&reason);
 	return ret;
 }
 
@@ -352,9 +353,11 @@ void imap_client_notify_finished(struct client *client)
 
 static void notify_callback(struct imap_notify_namespace *notify_ns)
 {
+	struct event_reason *reason = event_reason_begin("imap:notify_update");
 	o_stream_cork(notify_ns->ctx->client->output);
 	imap_client_notify_ns(notify_ns);
 	o_stream_uncork(notify_ns->ctx->client->output);
+	event_reason_end(&reason);
 }
 
 static enum mailbox_list_notify_event

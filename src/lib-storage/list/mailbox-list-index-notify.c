@@ -211,6 +211,7 @@ notify_lookup_guid(struct mailbox_list_notify_index *inotify,
 	struct mailbox_list_index *ilist =
 		INDEX_LIST_CONTEXT_REQUIRE(inotify->notify.list);
 	struct mailbox_list_index_node *index_node;
+	const char *reason;
 	uint32_t seq;
 
 	if (!mail_index_lookup_seq(view, uid, &seq))
@@ -231,7 +232,7 @@ notify_lookup_guid(struct mailbox_list_notify_index *inotify,
 	i_zero(status_r);
 	memset(guid_r, 0, GUID_128_SIZE);
 	(void)mailbox_list_index_status(inotify->notify.list, view, seq,
-					items, status_r, guid_r, NULL);
+					items, status_r, guid_r, NULL, &reason);
 	return index_node;
 }
 
@@ -243,13 +244,15 @@ static void notify_update_stat(struct mailbox_list_notify_index *inotify,
 	if (stat_list &&
 	    stat(inotify->list_log_path, &inotify->list_last_st) < 0 &&
 	    errno != ENOENT) {
-		i_error("stat(%s) failed: %m", inotify->list_log_path);
+		e_error(inotify->notify.list->ns->user->event,
+			"stat(%s) failed: %m", inotify->list_log_path);
 		call = TRUE;
 	}
 	if (inotify->inbox_log_path != NULL && stat_inbox) {
 		if (stat(inotify->inbox_log_path, &inotify->inbox_last_st) < 0 &&
 		    errno != ENOENT) {
-			i_error("stat(%s) failed: %m", inotify->inbox_log_path);
+			e_error(inotify->notify.list->ns->user->event,
+				"stat(%s) failed: %m", inotify->inbox_log_path);
 			call = TRUE;
 		}
 	}
@@ -394,7 +397,8 @@ mailbox_list_index_notify_read_next(struct mailbox_list_notify_index *inotify)
 		unsigned int i, record_size;
 
 		if (inotify->cur_ext == ILIST_EXT_NONE) {
-			i_error("%s: Missing ext-intro for ext-rec-update",
+			e_error(ilist->index->event,
+				"%s: Missing ext-intro for ext-rec-update",
 				ilist->index->filepath);
 			break;
 		}
@@ -402,7 +406,7 @@ mailbox_list_index_notify_read_next(struct mailbox_list_notify_index *inotify)
 		/* the record is padded to 32bits in the transaction log */
 		ext = array_idx(&inotify->view->index->extensions,
 				inotify->cur_ext_id);
-		record_size = (sizeof(*rec) + ext->record_size + 3) & ~3;
+		record_size = (sizeof(*rec) + ext->record_size + 3) & ~3U;
 		for (i = 0; i < hdr->size; i += record_size) {
 			rec = CONST_PTR_OFFSET(data, i);
 
@@ -683,11 +687,9 @@ mailbox_list_index_notify_subscribe(struct mailbox_list_notify_index *inotify,
 				    unsigned int idx)
 {
 	struct mailbox_list_notify_rec *rec = &inotify->notify_rec;
-	const char *const *vnamep;
 
 	i_zero(rec);
-	vnamep = array_idx(&inotify->new_subscriptions, idx);
-	rec->vname = *vnamep;
+	rec->vname = array_idx_elem(&inotify->new_subscriptions, idx);
 	rec->storage_name = mailbox_list_get_storage_name(inotify->notify.list,
 							  rec->vname);
 	rec->events = MAILBOX_LIST_NOTIFY_SUBSCRIBE;
@@ -699,11 +701,9 @@ mailbox_list_index_notify_unsubscribe(struct mailbox_list_notify_index *inotify,
 				      unsigned int idx)
 {
 	struct mailbox_list_notify_rec *rec = &inotify->notify_rec;
-	const char *const *vnamep;
 
 	i_zero(rec);
-	vnamep = array_idx(&inotify->new_unsubscriptions, idx);
-	rec->vname = *vnamep;
+	rec->vname = array_idx_elem(&inotify->new_unsubscriptions, idx);
 	rec->storage_name = mailbox_list_get_storage_name(inotify->notify.list,
 							  rec->vname);
 	rec->events = MAILBOX_LIST_NOTIFY_UNSUBSCRIBE;
@@ -817,7 +817,8 @@ mailbox_list_notify_inbox_get_events(struct mailbox_list_notify_index *inotify)
 
 	mailbox_get_open_status(inotify->inbox, notify_status_items, &old_status);
 	if (mailbox_sync(inotify->inbox, MAILBOX_SYNC_FLAG_FAST) < 0) {
-		i_error("Mailbox list index notify: Failed to sync INBOX: %s",
+		e_error(inotify->notify.list->ns->user->event,
+			"Mailbox list index notify: Failed to sync INBOX: %s",
 			mailbox_get_last_internal_error(inotify->inbox, NULL));
 		return 0;
 	}

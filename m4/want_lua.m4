@@ -12,28 +12,55 @@ AC_DEFUN([DOVECOT_WANT_LUA],[
   ])
   AC_MSG_RESULT([$with_lua])
 
-  AS_IF([test "x$with_lua" != "xno"],
-    [for LUAPC in lua5.3 lua-5.3 lua53 lua5.2 lua-5.2 lua52 lua5.1 lua-5.1 lua51 lua; do
-       PKG_CHECK_MODULES([LUA], $LUAPC >= 5.1, [
-         AC_DEFINE([HAVE_LUA], [1], [Define to 1 if you have lua])
-         with_lua=yes
-       ], [LUAPC=""]) # otherwise pkg_check will fail
-       if test "x$LUA_LIBS" != "x"; then break; fi
-     done
+  AS_IF([test "x$with_lua" != "xno"], [
+    AS_IF([test -n "$LUA_CFLAGS" -o -n "$LUA_LIBS"], [
+      with_lua=yes
+    ], [
+      for LUAPC in lua5.3 lua-5.3 lua53 lua5.1 lua-5.1 lua51 lua; do
+         PKG_CHECK_MODULES([LUA], [$LUAPC >= 5.1 $LUAPC != 5.2] , [
+           with_lua=yes
+         ], [LUAPC=""]) # otherwise pkg_check will fail
+         if test "x$LUA_LIBS" != "x"; then break; fi
+       done
+    ])
   ])
 
   AS_IF([test "x$with_lua" = "xyes"], [
     AC_MSG_CHECKING([for chosen LUA])
-    AS_IF([test "x$LUAPC" = "x"], [
-        AC_MSG_ERROR([cannot find lua])
-      ],[
-        AC_MSG_RESULT([$LUAPC])
-      ])
+    AC_DEFINE([HAVE_LUA], [1], [Define to 1 if you have lua])
+    AS_IF([test "x$LUAPC" != "x"], [
+      AC_MSG_RESULT([$LUAPC])
+    ],[
+      AC_MSG_RESULT([specified via LUA_CFLAGS and LUA_LIBS])
+    ])
   ])
 
   AS_IF([test "x$with_lua" = "xyes"],
     AS_IF([test "x$with_lua_plugin" != "xyes"],
      AC_DEFINE([BUILTIN_LUA],, [Lua support is builtin])
    )
+   dnl Check if various lua functions are present
+   old_CFLAGS="$CFLAGS"
+   CFLAGS="$CFLAGS $LUA_CFLAGS"
+   old_LIBS="$LIBS"
+   LIBS="$LIBS $LUA_LIBS"
+
+   AC_CHECK_FUNCS([luaL_setfuncs])
+   AC_CHECK_FUNCS([luaL_setmetatable])
+   AC_CHECK_FUNCS([lua_isinteger])
+   AC_CHECK_FUNCS([lua_resume])
+   AC_CHECK_FUNCS([lua_seti])
+   AC_CHECK_FUNCS([lua_tointegerx])
+   AC_CHECK_FUNCS([lua_yieldk])
+
+   AS_IF([test "$ac_cv_func_lua_resume" = "yes" -a \
+               "$ac_cv_func_lua_yieldk" = "yes"],
+     AC_DEFINE([DLUA_WITH_YIELDS],,
+       [Lua scripts will be able to yield])
+     dlua_with_yields=yes
+   )
+
+   CFLAGS="$old_CFLAGS"
+   LIBS="$old_LIBS"
   )
 ])

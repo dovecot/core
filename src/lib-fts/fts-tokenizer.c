@@ -52,11 +52,11 @@ void fts_tokenizer_unregister(const struct fts_tokenizer *tok_class)
 
 const struct fts_tokenizer *fts_tokenizer_find(const char *name)
 {
-	const struct fts_tokenizer *const *tp;
+	const struct fts_tokenizer *tok;
 
-	array_foreach(&fts_tokenizer_classes, tp) {
-		if (strcmp((*tp)->name, name) == 0)
-			return *tp;
+	array_foreach_elem(&fts_tokenizer_classes, tok) {
+		if (strcmp(tok->name, name) == 0)
+			return tok;
 	}
 	return NULL;
 }
@@ -139,24 +139,37 @@ fts_tokenizer_next_self(struct fts_tokenizer *tok,
 		 (data == tok->prev_data && size == tok->prev_size));
 
 	if (tok->prev_reply_finished) {
-		/* whole new data */
+		/* whole new data: get the first token */
 		ret = tok->v->next(tok, data, size, &skip, token_r, error_r);
 	} else {
-		/* continuing previous data */
+		/* continuing previous data: skip over the tokens that were
+		   already returned from it and get the next token. */
 		i_assert(tok->prev_skip <= size);
-		ret = tok->v->next(tok, data + tok->prev_skip,
+
+		const unsigned char *data_next;
+		if (data != NULL)
+			data_next = data + tok->prev_skip;
+		else {
+			i_assert(tok->prev_skip == 0 && size == 0);
+			data_next = NULL;
+		}
+		ret = tok->v->next(tok, data_next,
 				   size - tok->prev_skip, &skip,
 				   token_r, error_r);
 	}
 
 	if (ret > 0) {
+		/* A token was successfully returned. There could be more
+		   tokens left within the provided data, so remember what part
+		   of the data we used so far. */
 		i_assert(skip <= size - tok->prev_skip);
 		tok->prev_data = data;
 		tok->prev_size = size;
 		tok->prev_skip = tok->prev_skip + skip;
 		tok->prev_reply_finished = FALSE;
 	} else if (ret == 0) {
-		/* we need a new data block */
+		/* Need more data to get the next token. The next call will
+		   provide a whole new data block, so reset the prev_* state. */
 		fts_tokenizer_self_reset(tok);
 	}
 	return ret;
@@ -176,14 +189,40 @@ int fts_tokenizer_next(struct fts_tokenizer *tok,
 
 	switch (tok->parent_state) {
 	case FTS_TOKENIZER_PARENT_STATE_ADD_DATA:
+		/* Try to get the next token using this tokenizer */
 		ret = fts_tokenizer_next_self(tok, data, size, token_r, error_r);
-		if (ret <= 0 || tok->parent == NULL || tok->skip_parents)
+		if (ret <= 0) {
+			/* error / more data needed */
+			if (ret == 0 && size == 0 &&
+			    tok->finalize_parent_pending) {
+				/* Tokenizer input is being finalized. The
+				   child tokenizer is done now, but the parent
+				   tokenizer still needs to be finalized. */
+				tok->finalize_parent_pending = FALSE;
+				tok->parent_state =
+					FTS_TOKENIZER_PARENT_STATE_FINALIZE;
+				return fts_tokenizer_next(tok, NULL, 0, token_r, error_r);
+			}
 			break;
+		}
+
+		/* Feed the returned token to the parent tokenizer, if it
+		   exists. The parent tokenizer may further split it into
+		   smaller pieces. */
+		if (tok->parent == NULL)
+			break;
+		if (tok->skip_parents) {
+			/* Parent tokenizer exists, but it's skipped for now.
+			   This can be used by child tokenizers to return a
+			   token directly, bypassing the parent tokenizer. */
+			break;
+		}
 		buffer_set_used_size(tok->parent_input, 0);
 		buffer_append(tok->parent_input, *token_r, strlen(*token_r));
 		tok->parent_state++;
 		/* fall through */
 	case FTS_TOKENIZER_PARENT_STATE_NEXT_OUTPUT:
+		/* Return the next token from parent tokenizer */
 		ret = fts_tokenizer_next(tok->parent, tok->parent_input->data,
 		                         tok->parent_input->used, token_r, error_r);
 		if (ret != 0)
@@ -191,11 +230,19 @@ int fts_tokenizer_next(struct fts_tokenizer *tok,
 		tok->parent_state++;
 		/* fall through */
 	case FTS_TOKENIZER_PARENT_STATE_FINALIZE:
-		ret = fts_tokenizer_next(tok->parent, NULL, 0, token_r, error_r);
-		if (ret != 0)
-			break;
-		/* we're finished sending this token to parent tokenizer.
-		   see if our own tokenizer has more tokens available */
+		/* No more input is coming from the child tokenizer. Return the
+		   final token(s) from the parent tokenizer. */
+		if (!tok->stream_to_parents || size == 0) {
+			ret = fts_tokenizer_next(tok->parent, NULL, 0,
+						 token_r, error_r);
+			if (ret != 0)
+				break;
+		} else {
+			tok->finalize_parent_pending = TRUE;
+		}
+		/* We're finished handling the previous child token. See if
+		   there are more child tokens available with this same data
+		   input. */
 		tok->parent_state = FTS_TOKENIZER_PARENT_STATE_ADD_DATA;
 		return fts_tokenizer_next(tok, data, size, token_r, error_r);
 	default:

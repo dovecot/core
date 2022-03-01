@@ -206,7 +206,7 @@ log_append_ext_hdr_update(struct mail_index_export_context *ctx,
 	data = hdr->data;
 	mask = hdr->mask;
 
-	buf = t_buffer_create(256);
+	buf = buffer_create_dynamic(default_pool, 256);
 	for (offset = 0; offset <= hdr->alloc_size; offset++) {
 		if (offset < hdr->alloc_size && mask[offset] != 0) {
 			if (!started) {
@@ -233,6 +233,7 @@ log_append_ext_hdr_update(struct mail_index_export_context *ctx,
 		buffer_append_zero(buf, 4 - buf->used % 4);
 	log_append_buffer(ctx, buf, use_32 ? MAIL_TRANSACTION_EXT_HDR_UPDATE32 :
 			  MAIL_TRANSACTION_EXT_HDR_UPDATE);
+	buffer_free(&buf);
 }
 
 static void
@@ -527,120 +528,6 @@ void mail_index_transaction_export(struct mail_index_transaction *t,
 	append_ctx->index_sync_transaction = t->sync_transaction;
 	append_ctx->tail_offset_changed = t->tail_offset_changed;
 	append_ctx->want_fsync =
-		(t->view->index->fsync_mask & change_mask) != 0 ||
+		(t->view->index->set.fsync_mask & change_mask) != 0 ||
 		(t->flags & MAIL_INDEX_TRANSACTION_FLAG_FSYNC) != 0;
-}
-
-static unsigned int
-count_modseq_incs_with(struct mail_index_transaction *t,
-		       ARRAY_TYPE(seq_range) *tmp_seqs,
-		       const ARRAY_TYPE(seq_range) *orig_seqs)
-{
-	if (!array_is_created(orig_seqs))
-		return 0;
-
-	array_clear(tmp_seqs);
-	array_append_array(tmp_seqs, orig_seqs);
-	mail_index_transaction_seq_range_to_uid(t, tmp_seqs);
-	return array_count(tmp_seqs) > 0 ? 1 : 0;
-}
-
-static unsigned int
-mail_index_transaction_keywords_count_modseq_incs(struct mail_index_transaction *t)
-{
-        const struct mail_index_transaction_keyword_update *update;
-	ARRAY_TYPE(seq_range) tmp_seqs;
-	unsigned int count = 0;
-
-	i_array_init(&tmp_seqs, 64);
-	array_foreach_modifiable(&t->keyword_updates, update) {
-		count += count_modseq_incs_with(t, &tmp_seqs, &update->add_seq);
-		count += count_modseq_incs_with(t, &tmp_seqs, &update->remove_seq);
-	}
-	array_free(&tmp_seqs);
-	return count;
-}
-
-static bool
-transaction_flag_updates_have_non_internal(struct mail_index_transaction *t)
-{
-	struct mail_transaction_log_file *file = t->view->index->log->head;
-	const uint8_t internal_flags =
-		MAIL_INDEX_MAIL_FLAG_BACKEND | MAIL_INDEX_MAIL_FLAG_DIRTY;
-	const struct mail_index_flag_update *u;
-	const unsigned int hdr_version =
-		MAIL_TRANSACTION_LOG_HDR_VERSION(&file->hdr);
-
-	if (!MAIL_TRANSACTION_LOG_VERSION_HAVE(hdr_version, HIDE_INTERNAL_MODSEQS)) {
-		/* this check can be a bit racy if the call isn't done while
-		   transaction log is locked. practically it won't matter
-		   now though. */
-		return array_count(&t->updates) > 0;
-	}
-
-	array_foreach(&t->updates, u) {
-		uint8_t changed_flags = u->add_flags | u->remove_flags;
-
-		if ((changed_flags & ~internal_flags) != 0)
-			return TRUE;
-	}
-	return FALSE;
-}
-
-uint64_t mail_index_transaction_get_highest_modseq(struct mail_index_transaction *t)
-{
-	struct mail_transaction_log_file *file = t->view->index->log->head;
-	uint64_t new_highest_modseq = file->sync_highest_modseq;
-
-	i_assert(file->locked);
-
-	if (new_highest_modseq == 0) {
-		/* highest-modseq tracking isn't enabled in this transaction
-		   log file. This shouldn't happen with logs created since
-		   v2.2.26+, because initial_modseq is always set. We don't
-		   also bother checking if this transaction itself enables the
-		   highest-modseq tracking, because it's always done as a
-		   standalone transaction in mail_index_modseq_enable(),
-		   which doesn't care about this function. */
-		i_warning("%s: Requested highest-modseq for transaction, "
-			  "but modseq tracking isn't enabled for the file "
-			  "(this shouldn't happen)", file->filepath);
-		return 0;
-	}
-
-	/* finish everything that can affect highest-modseq */
-	mail_index_transaction_finish_so_far(t);
-
-	/* NOTE: keep in sync with mail_transaction_update_modseq() */
-	if (array_is_created(&t->appends) && array_count(&t->appends) > 0) {
-		/* sorting may change the order of keyword_updates,  */
-		new_highest_modseq++;
-	}
-	if (array_is_created(&t->updates) &&
-	    transaction_flag_updates_have_non_internal(t))
-		new_highest_modseq++;
-	if (array_is_created(&t->keyword_updates)) {
-		new_highest_modseq +=
-			mail_index_transaction_keywords_count_modseq_incs(t);
-	}
-	if (t->attribute_updates != NULL)
-		new_highest_modseq++;
-	/* NOTE: the order of modseq_updates and everything following it
-	   must match mail_index_transaction_export(). */
-	if (array_is_created(&t->modseq_updates)) {
-		const struct mail_transaction_modseq_update *mu;
-
-		/* mail_index_update_highest_modseq() is handled here also,
-		   as a special case of uid==0. */
-		array_foreach(&t->modseq_updates, mu) {
-			uint64_t modseq = ((uint64_t)mu->modseq_high32 << 32) |
-				mu->modseq_low32;
-			if (new_highest_modseq < modseq)
-				new_highest_modseq = modseq;
-		}
-	}
-	if (array_is_created(&t->expunges) && array_count(&t->expunges) > 0 &&
-	    (t->flags & MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL) != 0)
-		new_highest_modseq++;
-	return new_highest_modseq;
 }

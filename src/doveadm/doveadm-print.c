@@ -121,8 +121,7 @@ int doveadm_print_istream(struct istream *input)
 	i_assert(ret == -1);
 	doveadm_print_stream("", 0);
 	if (input->stream_errno != 0) {
-		i_error("read(%s) failed: %s", i_stream_get_name(input),
-			i_stream_get_error(input));
+		/* caller will log the error */
 		return -1;
 	}
 	return 0;

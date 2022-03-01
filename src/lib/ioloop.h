@@ -215,14 +215,15 @@ void io_loop_remove_switch_callback(io_switch_callback_t *callback);
 void io_loop_add_destroy_callback(io_destroy_callback_t *callback);
 void io_loop_remove_destroy_callback(io_destroy_callback_t *callback);
 
-/* Create a new ioloop context. This context is automatically attached to all
-   the following I/Os and timeouts that are added until the context is
-   deactivated (e.g. returning to back to a running ioloop). Whenever such
-   added I/O or timeout callback is called, this context is automatically
-   activated.
+/* Create a new ioloop context. While the context is activated, it's
+   automatically attached to all the following I/Os and timeouts that are
+   added until the context is deactivated (e.g. returning to back to a running
+   ioloop). Whenever such added I/O or timeout callback is called, this context
+   is automatically activated.
 
-   Creating this context already deactivates any currently running context
-   and activates the newly created context. */
+   After the context is created, callbacks should be added to it and the
+   context should be activated with either io_loop_context_activate() or
+   io_loop_context_switch(). */
 struct ioloop_context *io_loop_context_new(struct ioloop *ioloop);
 void io_loop_context_ref(struct ioloop_context *ctx);
 void io_loop_context_unref(struct ioloop_context **ctx);
@@ -266,6 +267,9 @@ void io_loop_context_activate(struct ioloop_context *ctx);
    active or it assert-crashes. This should be called only after a context
    was explicitly activated with io_loop_context_activate(). */
 void io_loop_context_deactivate(struct ioloop_context *ctx);
+/* If there's an active ioloop context, deactivate it. Then activate the given
+   context. Usually used after creating a new context. */
+void io_loop_context_switch(struct ioloop_context *ctx);
 
 /* Returns fd, which contains all of the ioloop's current notifications.
    When it becomes readable, there is a new notification. Calling this function
@@ -308,6 +312,8 @@ bool io_loop_have_ios(struct ioloop *ioloop);
 /* Returns TRUE if there is a pending timeout that is going to be run
    immediately. */
 bool io_loop_have_immediate_timeouts(struct ioloop *ioloop);
+/* Returns TRUE if there are no IOs or timeouts in the ioloop. */
+bool io_loop_is_empty(struct ioloop *ioloop);
 /* Returns number of microseconds spent on the ioloop waiting itself. */
 uint64_t io_loop_get_wait_usecs(struct ioloop *ioloop);
 /* Return all io conditions added for the given fd. This needs to scan through

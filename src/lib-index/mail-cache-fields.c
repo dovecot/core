@@ -37,7 +37,7 @@ static bool field_has_fixed_size(enum mail_cache_field_type type)
 
 static bool field_decision_is_valid(enum mail_cache_decision_type type)
 {
-	switch (type & ~MAIL_CACHE_DECISION_FORCED) {
+	switch (type & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED)) {
 	case MAIL_CACHE_DECISION_NO:
 	case MAIL_CACHE_DECISION_TEMP:
 	case MAIL_CACHE_DECISION_YES:
@@ -287,8 +287,10 @@ mail_cache_header_fields_get_offset(struct mail_cache *cache,
 	}
 	cache->last_field_header_offset = offset;
 
-	if (next_count > cache->index->optimization_set.cache.purge_header_continue_count)
-		cache->need_purge_file_seq = cache->hdr->file_seq;
+	if (next_count > cache->index->optimization_set.cache.purge_header_continue_count) {
+		mail_cache_purge_later(cache, t_strdup_printf(
+			"Too many continued headers (%u)", next_count));
+	}
 
 	if (field_hdr_r != NULL) {
 		/* detect corrupted size later */
@@ -325,8 +327,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 	char *orig_key;
 	void *orig_value;
 	unsigned int fidx, new_fields_count;
-	enum mail_cache_decision_type dec;
-	time_t max_drop_time;
+	struct mail_cache_purge_drop_ctx drop_ctx;
 	uint32_t offset, i;
 
 	if (mail_cache_header_fields_get_offset(cache, &offset, &field_hdr) < 0)
@@ -371,10 +372,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 	for (i = 0; i < cache->fields_count; i++)
 		cache->field_file_map[i] = (uint32_t)-1;
 
-	max_drop_time = cache->index->map->hdr.day_stamp == 0 ? 0 :
-		cache->index->map->hdr.day_stamp -
-		cache->index->optimization_set.cache.unaccessed_field_drop_secs;
-
+	mail_cache_purge_drop_init(cache, &cache->index->map->hdr, &drop_ctx);
 	i_zero(&field);
 	for (i = 0; i < field_hdr->fields_count; i++) {
 		for (p = names; p != end && *p != '\0'; p++) ;
@@ -396,7 +394,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 
 		/* ignore any forced-flags in the file */
 		enum mail_cache_decision_type file_dec =
-			decisions[i] & ~MAIL_CACHE_DECISION_FORCED;
+			decisions[i] & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED);
 
 		if (hash_table_lookup_full(cache->field_name_hash, names,
 					   &orig_key, &orig_value)) {
@@ -407,7 +405,7 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 			if ((cur_dec & MAIL_CACHE_DECISION_FORCED) != 0) {
 				/* Forced decision. If the decision has
 				   changed, update the fields in the file. */
-				if ((cur_dec & ~MAIL_CACHE_DECISION_FORCED) != file_dec)
+				if ((cur_dec & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED)) != file_dec)
 					cache->field_header_write_pending = TRUE;
 			} else if (cache->fields[fidx].decision_dirty) {
 				/* Decisions have recently been updated
@@ -439,18 +437,35 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 		cache->field_file_map[fidx] = i;
 		cache->file_field_map[i] = fidx;
 
-		/* update last_used if it's newer than ours */
+		/* Update last_used if it's newer than ours. Note that the
+		   last_used may have been overwritten while we were reading
+		   this cache header. In theory this can mean that the
+		   last_used field is only half-updated and contains garbage.
+		   This practically won't matter, since the worst that can
+		   happen is that we trigger a purge earlier than necessary.
+		   The purging re-reads the last_used while cache is locked and
+		   correctly figures out whether to drop the field. */
 		if ((time_t)last_used[i] > cache->fields[fidx].field.last_used)
 			cache->fields[fidx].field.last_used = last_used[i];
 
-		dec = cache->fields[fidx].field.decision;
-		if (cache->fields[fidx].field.last_used < max_drop_time &&
-		    cache->fields[fidx].field.last_used != 0 &&
-		    (dec & MAIL_CACHE_DECISION_FORCED) == 0 &&
-		    dec != MAIL_CACHE_DECISION_NO) {
-			/* time to drop this field. don't bother dropping
-			   fields that have never been used. */
-			cache->need_purge_file_seq = cache->hdr->file_seq;
+		switch (mail_cache_purge_drop_test(&drop_ctx, fidx)) {
+		case MAIL_CACHE_PURGE_DROP_DECISION_NONE:
+			break;
+		case MAIL_CACHE_PURGE_DROP_DECISION_DROP:
+			mail_cache_purge_later(cache, t_strdup_printf(
+				"Drop old field %s (last_used=%"PRIdTIME_T")",
+				cache->fields[fidx].field.name,
+				cache->fields[fidx].field.last_used));
+			break;
+		case MAIL_CACHE_PURGE_DROP_DECISION_TO_TEMP:
+			/* This cache decision change can cause the field to be
+			   dropped for old mails, so do it via purging. */
+			mail_cache_purge_later(cache, t_strdup_printf(
+				"Change cache decision to temp for old field %s "
+				"(last_used=%"PRIdTIME_T")",
+				cache->fields[fidx].field.name,
+				cache->fields[fidx].field.last_used));
+			break;
 		}
 
                 names = p + 1;
@@ -509,6 +524,19 @@ static void copy_to_buf_byte(struct mail_cache *cache, buffer_t *dest,
 	}
 }
 
+static void
+copy_to_buf_last_used(struct mail_cache *cache, buffer_t *dest, bool add_new)
+{
+	size_t offset = offsetof(struct mail_cache_field, last_used);
+#if defined(WORDS_BIGENDIAN) && SIZEOF_VOID_P == 8
+	/* 64bit time_t with big endian CPUs: copy the last 32 bits instead of
+	   the first 32 bits (that are always 0). The 32 bits are enough until
+	   year 2106, so we're not in a hurry to use 64 bits on disk. */
+	offset += sizeof(uint32_t);
+#endif
+	copy_to_buf(cache, dest, add_new, offset, sizeof(uint32_t));
+}
+
 static int mail_cache_header_fields_update_locked(struct mail_cache *cache)
 {
 	buffer_t *buffer;
@@ -521,9 +549,7 @@ static int mail_cache_header_fields_update_locked(struct mail_cache *cache)
 
 	buffer = t_buffer_create(256);
 
-	copy_to_buf(cache, buffer, FALSE,
-		    offsetof(struct mail_cache_field, last_used),
-		    sizeof(uint32_t));
+	copy_to_buf_last_used(cache, buffer, FALSE);
 	ret = mail_cache_write(cache, buffer->data, buffer->used,
 			       offset + MAIL_CACHE_FIELD_LAST_USED());
 	if (ret == 0) {
@@ -584,9 +610,7 @@ void mail_cache_header_fields_get(struct mail_cache *cache, buffer_t *dest)
 	buffer_append(dest, &hdr, sizeof(hdr));
 
 	/* we have to keep the field order for the existing fields. */
-	copy_to_buf(cache, dest, TRUE,
-		    offsetof(struct mail_cache_field, last_used),
-		    sizeof(uint32_t));
+	copy_to_buf_last_used(cache, dest, TRUE);
 	copy_to_buf(cache, dest, TRUE,
 		    offsetof(struct mail_cache_field, field_size),
 		    sizeof(uint32_t));

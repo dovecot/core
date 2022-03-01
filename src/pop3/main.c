@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "buffer.h"
 #include "istream.h"
+#include "istream-concat.h"
 #include "ostream.h"
 #include "path-util.h"
 #include "base64.h"
@@ -14,6 +15,7 @@
 #include "master-service.h"
 #include "master-login.h"
 #include "master-interface.h"
+#include "master-admin-client.h"
 #include "var-expand.h"
 #include "mail-error.h"
 #include "mail-user.h"
@@ -83,8 +85,16 @@ static void client_add_input(struct client *client, const buffer_t *buf)
 	struct ostream *output;
 
 	if (buf != NULL && buf->used > 0) {
-		if (!i_stream_add_data(client->input, buf->data, buf->used))
-			i_panic("Couldn't add client input to stream");
+		struct istream *inputs[] = {
+			i_stream_create_copy_from_data(buf->data, buf->used),
+			client->input,
+			NULL
+		};
+		client->input = i_stream_create_concat(inputs);
+		i_stream_copy_fd(client->input, inputs[1]);
+		i_stream_unref(&inputs[0]);
+		i_stream_unref(&inputs[1]);
+		i_stream_set_input_pending(client->input, TRUE);
 	}
 
 	output = client->output;
@@ -173,8 +183,7 @@ static int init_namespaces(struct client *client, bool already_logged_in)
 	return 0;
 }
 
-static void add_input(struct client *client,
-		      const buffer_t *input_buf)
+static void client_init_session(struct client *client)
 {
 	const char *error;
 
@@ -210,13 +219,14 @@ static void add_input(struct client *client,
 			return; /* no need to propagate an error */
 	}
 
-	if (client_init_mailbox(client, &error) < 0) {
+	struct event_reason *reason = event_reason_begin("pop3:initialize");
+	int ret = client_init_mailbox(client, &error);
+	event_reason_end(&reason);
+
+	if (ret < 0) {
 		i_error("%s", error);
 		client_destroy(client, error);
-		return;
 	}
-
-	client_add_input(client, input_buf);
 }
 
 static void main_stdio_run(const char *username)
@@ -245,7 +255,10 @@ static void main_stdio_run(const char *username)
 	if (client_create_from_input(&input, STDIN_FILENO, STDOUT_FILENO,
 				     &client, &error) < 0)
 		i_fatal("%s", error);
-	add_input(client, input_buf);
+	client_add_input(client, input_buf);
+	client_create_finish(client);
+
+	client_init_session(client);
 	/* client may be destroyed now */
 }
 
@@ -284,7 +297,10 @@ login_client_connected(const struct master_login_client *login_client,
 		master_service_client_connection_destroyed(master_service);
 		return;
 	}
-	add_input(client, &input_buf);
+	client_add_input(client, &input_buf);
+	client_create_finish(client);
+
+	client_init_session(client);
 	/* client may be destroyed now */
 }
 
@@ -298,6 +314,26 @@ static void login_client_failed(const struct master_login_client *client,
 		/* ignored */
 	}
 }
+
+static unsigned int
+master_admin_cmd_kick_user(const char *user, const guid_128_t conn_guid)
+{
+	struct client *client, *next;
+	unsigned int count = 0;
+
+	for (client = pop3_clients; client != NULL; client = next) {
+		next = client->next;
+		if (strcmp(client->user->username, user) == 0 &&
+		    (guid_128_is_empty(conn_guid) ||
+		     guid_128_cmp(client->anvil_conn_guid, conn_guid) == 0))
+			client_kick(client);
+	}
+	return count;
+}
+
+static const struct master_admin_client_callback admin_callbacks = {
+	.cmd_kick_user = master_admin_cmd_kick_user,
+};
 
 static void client_connected(struct master_service_connection *conn)
 {
@@ -316,7 +352,8 @@ int main(int argc, char *argv[])
 	};
 	struct master_login_settings login_set;
 	enum master_service_flags service_flags = 0;
-	enum mail_storage_service_flags storage_service_flags = 0;
+	enum mail_storage_service_flags storage_service_flags =
+		MAIL_STORAGE_SERVICE_FLAG_NO_SSL_CA;
 	const char *username = NULL, *auth_socket_path = "auth-master";
 	int c;
 
@@ -381,6 +418,7 @@ int main(int argc, char *argv[])
 	if (!IS_STANDALONE())
 		master_login = master_login_init(master_service, &login_set);
 
+	master_admin_clients_init(&admin_callbacks);
 	master_service_set_die_callback(master_service, pop3_die);
 
 	storage_service =

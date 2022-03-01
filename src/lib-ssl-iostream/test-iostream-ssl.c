@@ -29,22 +29,9 @@ struct test_endpoint {
 	bool failed;
 
 	struct test_endpoint *other;
+
+	bool finished:1;
 };
-
-static int bufsize_flush_callback(struct test_endpoint *ep)
-{
-	io_loop_stop(current_ioloop);
-	int ret = o_stream_flush(ep->output);
-	test_assert(ret >= 0);
-	return ret;
-}
-
-static int small_packets_flush_callback(struct test_endpoint *ep)
-{
-	int ret = o_stream_flush(ep->output);
-	test_assert(ret >= 0);
-	return ret;
-}
 
 static void send_output(struct test_endpoint *ep)
 {
@@ -54,6 +41,21 @@ static void send_output(struct test_endpoint *ep)
 	buffer_append(ep->other->last_write, data, amt);
 	test_assert(o_stream_send(ep->output, data, amt) == amt);
 	ep->sent += amt;
+}
+
+static int flush_output(struct test_endpoint *ep, bool finish)
+{
+	int ret = (finish ?
+		   o_stream_finish(ep->output) : o_stream_flush(ep->output));
+	test_assert(ret >= 0);
+
+	if (ret > 0) {
+		if (finish)
+			ep->finished = TRUE;
+		if (ep->other->finished)
+			io_loop_stop(current_ioloop);
+	}
+	return ret;
 }
 
 static void handshake_input_callback(struct test_endpoint *ep)
@@ -71,6 +73,17 @@ static void handshake_input_callback(struct test_endpoint *ep)
 	}
 }
 
+static int bufsize_flush_callback(struct test_endpoint *ep)
+{
+	io_loop_stop(current_ioloop);
+	return flush_output(ep, FALSE);
+}
+
+static int bufsize_finish_callback(struct test_endpoint *ep)
+{
+	return flush_output(ep, TRUE);
+}
+
 static void bufsize_input_callback(struct test_endpoint *ep)
 {
 	const unsigned char *data;
@@ -82,6 +95,21 @@ static void bufsize_input_callback(struct test_endpoint *ep)
 
 	test_assert(i_stream_read_bytes(ep->input, &data, &size, wanted) > -1);
 	i_stream_skip(ep->input, I_MIN(size, wanted));
+}
+
+static void bufsize_discard_callback(struct test_endpoint *ep)
+{
+	const unsigned char *data;
+	size_t size;
+
+	test_assert(i_stream_read_bytes(ep->input, &data, &size, 1) > -1 ||
+		    ep->input->stream_errno == 0);
+	i_stream_skip(ep->input, size);
+}
+
+static int small_packets_flush_callback(struct test_endpoint *ep)
+{
+	return flush_output(ep, FALSE);
 }
 
 static void small_packets_input_callback(struct test_endpoint *ep)
@@ -96,7 +124,8 @@ static void small_packets_input_callback(struct test_endpoint *ep)
 	}
 
 	size = 0;
-	test_assert((ret = i_stream_read_bytes(ep->input, &data, &size, wanted)) > -1);
+	test_assert((ret = i_stream_read_bytes(ep->input, &data, &size, wanted)) > -1 ||
+		    ep->input->stream_errno == 0);
 
 	if (size > wanted)
 		i_stream_set_input_pending(ep->input, TRUE);
@@ -114,7 +143,7 @@ static void small_packets_input_callback(struct test_endpoint *ep)
 	}
 
 	if (ep->sent > MAX_SENT_BYTES)
-		io_loop_stop(current_ioloop);
+		(void)flush_output(ep, TRUE);
 	else
 		send_output(ep);
 }
@@ -372,6 +401,7 @@ static void test_iostream_ssl_get_buffer_avail_size(void)
 	ssl_iostream_test_settings_client(&set);
 	set.allow_invalid_cert = TRUE;
 	client = create_test_endpoint(fd[1], &set);
+	client->client = TRUE;
 
 	client->other = server;
 	server->other = client;
@@ -417,8 +447,15 @@ static void test_iostream_ssl_get_buffer_avail_size(void)
 		io_loop_run(ioloop);
 	}
 
-	test_assert(o_stream_finish(server->output) >= 0);
-	test_assert(o_stream_finish(client->output) >= 0);
+	io_remove(&server->io);
+	io_remove(&client->io);
+	o_stream_set_flush_callback(server->output, bufsize_finish_callback, server);
+	o_stream_set_flush_callback(client->output, bufsize_finish_callback, client);
+	server->io = io_add_istream(server->input, bufsize_discard_callback, server);
+	client->io = io_add_istream(client->input, bufsize_discard_callback, client);
+	o_stream_set_flush_pending(server->output, TRUE);
+	o_stream_set_flush_pending(client->output, TRUE);
+	io_loop_run(ioloop);
 
 	i_stream_unref(&server->input);
 	o_stream_unref(&server->output);
@@ -455,6 +492,7 @@ static void test_iostream_ssl_small_packets(void)
 	ssl_iostream_test_settings_client(&set);
 	set.allow_invalid_cert = TRUE;
 	client = create_test_endpoint(fd[1], &set);
+	client->client = TRUE;
 
 	test_assert(ssl_iostream_context_init_server(server->set, &server->ctx,
 		    &error) == 0);
@@ -492,8 +530,6 @@ static void test_iostream_ssl_small_packets(void)
 
 	test_assert(server->sent > MAX_SENT_BYTES ||
 		    client->sent > MAX_SENT_BYTES);
-	test_assert(o_stream_finish(server->output) >= 0);
-	test_assert(o_stream_finish(client->output) >= 0);
 
 	i_stream_unref(&server->input);
 	o_stream_unref(&server->output);

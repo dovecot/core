@@ -1,7 +1,160 @@
 /* Copyright (c) 2014-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
+#include "lib-event-private.h"
+#include "event-filter.h"
 #include "data-stack.h"
+
+static int ds_grow_event_count = 0;
+
+static bool
+test_ds_grow_event_callback(struct event *event,
+			    enum event_callback_type type,
+			    struct failure_context *ctx,
+			    const char *fmt ATTR_UNUSED,
+			    va_list args ATTR_UNUSED)
+{
+	const struct event_field *field;
+
+	if (type != EVENT_CALLBACK_TYPE_SEND)
+		return TRUE;
+
+	ds_grow_event_count++;
+	test_assert(ctx->type == LOG_TYPE_DEBUG);
+
+	field = event_find_field_nonrecursive(event, "alloc_size");
+	test_assert(field != NULL &&
+		    field->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX &&
+		    field->value.intmax >= 1024 * (5 + 100));
+	field = event_find_field_nonrecursive(event, "used_size");
+	test_assert(field != NULL &&
+		    field->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX &&
+		    field->value.intmax >= 1024 * (5 + 100));
+	field = event_find_field_nonrecursive(event, "last_alloc_size");
+	test_assert(field != NULL &&
+		    field->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX &&
+		    field->value.intmax >= 1024 * 100);
+	field = event_find_field_nonrecursive(event, "frame_marker");
+	test_assert(field != NULL &&
+		    field->value_type == EVENT_FIELD_VALUE_TYPE_STR &&
+		    strstr(field->value.str, "data-stack.c") != NULL);
+	return TRUE;
+}
+
+static void test_ds_grow_event(void)
+{
+	const char *error;
+
+	test_begin("data-stack grow event");
+	event_register_callback(test_ds_grow_event_callback);
+
+	i_assert(event_get_global_debug_log_filter() == NULL);
+	struct event_filter *filter = event_filter_create();
+	test_assert(event_filter_parse("event=data_stack_grow", filter, &error) == 0);
+	event_set_global_debug_log_filter(filter);
+	event_filter_unref(&filter);
+
+	/* make sure the test won't fail due to earlier data stack
+	   allocations. */
+	data_stack_free_unused();
+	T_BEGIN {
+		(void)t_malloc0(1024*5);
+		test_assert(ds_grow_event_count == 0);
+		(void)t_malloc0(1024*100);
+		test_assert(ds_grow_event_count == 1);
+	} T_END;
+	event_unset_global_debug_log_filter();
+	event_unregister_callback(test_ds_grow_event_callback);
+	test_end();
+}
+
+static void test_ds_get_used_size(void)
+{
+	test_begin("data-stack data_stack_get_used_size()");
+	size_t size1 = data_stack_get_used_size();
+	(void)t_malloc0(500);
+	size_t size2 = data_stack_get_used_size();
+	test_assert(size1 + 500 <= size2);
+
+	T_BEGIN {
+		(void)t_malloc0(300);
+		size_t sub_size1 = data_stack_get_used_size();
+		T_BEGIN {
+			(void)t_malloc0(300);
+		} T_END;
+		test_assert_cmp(sub_size1, ==, data_stack_get_used_size());
+	} T_END;
+	test_assert_cmp(size2, ==, data_stack_get_used_size());
+	test_end();
+}
+
+static void test_ds_get_bytes_available(void)
+{
+	test_begin("data-stack t_get_bytes_available()");
+	for (unsigned int i = 0; i < 32; i++) {
+		size_t orig_avail = t_get_bytes_available();
+		size_t avail1;
+		T_BEGIN {
+			if (i > 0)
+				t_malloc_no0(i);
+			avail1 = t_get_bytes_available();
+			t_malloc_no0(avail1);
+			test_assert_idx(t_get_bytes_available() == 0, i);
+			t_malloc_no0(1);
+			test_assert_idx(t_get_bytes_available() > 0, i);
+		} T_END;
+		T_BEGIN {
+			if (i > 0)
+				t_malloc_no0(i);
+			size_t avail2 = t_get_bytes_available();
+			test_assert_idx(avail1 == avail2, i);
+			t_malloc_no0(avail2 + 1);
+			test_assert_idx(t_get_bytes_available() > 0, i);
+		} T_END;
+		test_assert_idx(t_get_bytes_available() == orig_avail, i);
+	}
+	test_end();
+}
+
+static void ATTR_FORMAT(2, 0)
+test_ds_growing_debug(const struct failure_context *ctx ATTR_UNUSED,
+		      const char *format, va_list args)
+{
+	ds_grow_event_count++;
+	(void)t_strdup_vprintf(format, args);
+}
+
+static void test_ds_grow_in_event(void)
+{
+	size_t i, alloc1 = 8096;
+	unsigned char *buf;
+	const char *error;
+
+	test_begin("data-stack grow in event");
+
+	struct event_filter *filter = event_filter_create();
+	event_set_global_debug_log_filter(filter);
+	test_assert(event_filter_parse("event=data_stack_grow", filter, &error) == 0);
+	event_filter_unref(&filter);
+
+	i_set_debug_handler(test_ds_growing_debug);
+	buf = t_buffer_get(alloc1);
+	for (i = 0; i < alloc1; i++)
+		buf[i] = i & 0xff;
+
+	test_assert(ds_grow_event_count == 0);
+	buf = t_buffer_reget(buf, 65536);
+	test_assert(ds_grow_event_count == 1);
+	for (i = 0; i < alloc1; i++) {
+		if (buf[i] != (unsigned char)i)
+			break;
+	}
+	test_assert(i == alloc1);
+
+	i_set_debug_handler(default_error_handler);
+	event_unset_global_debug_log_filter();
+	test_end();
+}
 
 static void test_ds_buffers(void)
 {
@@ -11,7 +164,7 @@ static void test_ds_buffers(void)
 		unsigned char *p;
 		size_t left = t_get_bytes_available();
 		while (left < 10000) {
-			t_malloc_no0(left); /* force a new block */
+			t_malloc_no0(left+1); /* force a new block */
 			left = t_get_bytes_available();
 		}
 		left -= 64; /* make room for the sentry if DEBUG */
@@ -21,7 +174,7 @@ static void test_ds_buffers(void)
 			/* grow it */
 			unsigned char *p2 = t_buffer_get(i);
 			test_assert_idx(p == p2, i);
-			p[i-1] = i;
+			p[i-1] = i & 0xff;
 			test_assert_idx(p[i-2] == (unsigned char)(i-1), i);
 		}
 		/* now fix it permanently */
@@ -44,7 +197,10 @@ static void test_ds_buffers(void)
 	T_BEGIN {
 		size_t bigleft = t_get_bytes_available();
 		size_t i;
-		for (i = 1; i < bigleft-64; i += i_rand()%32) T_BEGIN {
+		/* with DEBUG: the stack frame allocation takes 96 bytes
+		   and malloc takes extra 40 bytes + alignment, so don't let
+		   "i" be too high. */
+		for (i = 1; i < bigleft-96-40-16; i += i_rand_limit(32)) T_BEGIN {
 			unsigned char *p, *p2;
 			size_t left;
 			t_malloc_no0(i);
@@ -70,7 +226,7 @@ static void test_ds_realloc()
 		unsigned char *p;
 		size_t left = t_get_bytes_available();
 		while (left < 10000) {
-			t_malloc_no0(left); /* force a new block */
+			t_malloc_no0(left+1); /* force a new block */
 			left = t_get_bytes_available();
 		}
 		left -= 64; /* make room for the sentry if DEBUG */
@@ -79,7 +235,7 @@ static void test_ds_realloc()
 		for (i = 2; i <= left; i++) {
 			/* grow it */
 			test_assert_idx(t_try_realloc(p, i), i);
-			p[i-1] = i;
+			p[i-1] = i & 0xff;
 			test_assert_idx(p[i-2] == (unsigned char)(i-1), i);
 		}
 		test_assert(t_get_bytes_available() < 64 + MEM_ALIGN(1));
@@ -125,24 +281,87 @@ static void test_ds_recurse(int depth, int number, size_t size)
 	test_assert_idx(t_pop(&t_id), depth);
 }
 
-static void test_ds_recursive(int count, int depth)
+static void test_ds_recursive(void)
 {
+	int count = 20, depth = 80;
 	int i;
 
 	test_begin("data-stack recursive");
+	size_t init_size = data_stack_get_used_size();
 	for(i = 0; i < count; i++) T_BEGIN {
-			int number=i_rand()%100+50;
-			int size=i_rand()%100+50;
+			int number=i_rand_limit(100)+50;
+			int size=i_rand_limit(100)+50;
 			test_ds_recurse(depth, number, size);
 		} T_END;
+	test_assert_cmp(init_size, ==, data_stack_get_used_size());
+	test_end();
+}
+
+static void test_ds_pass_str(void)
+{
+	data_stack_frame_t frames[32*2 + 1]; /* BLOCK_FRAME_COUNT*2 + 1 */
+	const char *strings[N_ELEMENTS(frames)];
+
+	test_begin("data-stack pass string");
+	for (unsigned int frame = 0; frame < N_ELEMENTS(frames); frame++) {
+		frames[frame] = t_push("test");
+		if (frame % 10 == 5) {
+			/* increase block counts */
+			(void)t_malloc_no0(1024*30);
+			(void)t_malloc_no0(1024*30);
+		}
+		strings[frame] = t_strdup_printf("frame %d", frame);
+		for (unsigned int i = 0; i <= frame; i++) {
+			test_assert_idx(data_stack_frame_contains(&frames[frame], strings[i]) == (i == frame),
+					frame * 100 + i);
+		}
+	}
+
+	const char *last_str = strings[N_ELEMENTS(frames)-1];
+	for (unsigned int frame = N_ELEMENTS(frames); frame > 0; ) {
+		frame--;
+		test_assert(t_pop_pass_str(&frames[frame], &last_str));
+	}
+	test_assert_strcmp(last_str, "frame 64");
+
+	/* make sure the pass_condition works properly */
+	const char *error, *orig_error, *orig2_error;
+	T_BEGIN {
+		(void)t_strdup("qwertyuiop");
+		error = orig_error = t_strdup("123456");
+	} T_END_PASS_STR_IF(TRUE, &error);
+
+	orig2_error = orig_error;
+	T_BEGIN {
+		(void)t_strdup("abcdefghijklmnopqrstuvwxyz");
+	} T_END_PASS_STR_IF(FALSE, &orig2_error);
+	/* orig_error and orig2_error both point to freed data stack frame */
+	test_assert(orig_error == orig2_error);
+	/* the passed error is still valid though */
+	test_assert_strcmp(error, "123456");
+
 	test_end();
 }
 
 void test_data_stack(void)
 {
-	test_ds_buffers();
-	test_ds_realloc();
-	test_ds_recursive(20, 80);
+	void (*tests[])(void) = {
+		test_ds_grow_event,
+		test_ds_get_used_size,
+		test_ds_get_bytes_available,
+		test_ds_grow_in_event,
+		test_ds_buffers,
+		test_ds_realloc,
+		test_ds_recursive,
+		test_ds_pass_str,
+	};
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		ds_grow_event_count = 0;
+		data_stack_free_unused();
+		T_BEGIN {
+			tests[i]();
+		} T_END;
+	}
 }
 
 enum fatal_test_state fatal_data_stack(unsigned int stage)

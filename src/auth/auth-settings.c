@@ -33,7 +33,7 @@ static struct file_listener_settings *auth_unix_listeners[] = {
 	&auth_unix_listeners_array[5]
 };
 static buffer_t auth_unix_listeners_buf = {
-	auth_unix_listeners, sizeof(auth_unix_listeners), { NULL, }
+	{ { auth_unix_listeners, sizeof(auth_unix_listeners) } }
 };
 /* </settings checks> */
 
@@ -55,7 +55,7 @@ struct service_settings auth_service_settings = {
 	.client_limit = 0,
 	.service_count = 0,
 	.idle_kill = 0,
-	.vsz_limit = (uoff_t)-1,
+	.vsz_limit = UOFF_T_MAX,
 
 	.unix_listeners = { { &auth_unix_listeners_buf,
 			      sizeof(auth_unix_listeners[0]) } },
@@ -73,14 +73,14 @@ static struct file_listener_settings *auth_worker_unix_listeners[] = {
 	&auth_worker_unix_listeners_array[0]
 };
 static buffer_t auth_worker_unix_listeners_buf = {
-	auth_worker_unix_listeners, sizeof(auth_worker_unix_listeners), { NULL, }
+	{ { auth_worker_unix_listeners, sizeof(auth_worker_unix_listeners) } }
 };
 /* </settings checks> */
 
 struct service_settings auth_worker_service_settings = {
 	.name = "auth-worker",
 	.protocol = "",
-	.type = "",
+	.type = "worker",
 	.executable = "auth -w",
 	.user = "",
 	.group = "",
@@ -93,9 +93,9 @@ struct service_settings auth_worker_service_settings = {
 	.process_min_avail = 0,
 	.process_limit = 0,
 	.client_limit = 1,
-	.service_count = 1,
+	.service_count = 0,
 	.idle_kill = 0,
-	.vsz_limit = (uoff_t)-1,
+	.vsz_limit = UOFF_T_MAX,
 
 	.unix_listeners = { { &auth_worker_unix_listeners_buf,
 			      sizeof(auth_worker_unix_listeners[0]) } },
@@ -105,26 +105,26 @@ struct service_settings auth_worker_service_settings = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct auth_passdb_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct auth_passdb_settings)
 
 static const struct setting_define auth_passdb_setting_defines[] = {
-	DEF(SET_STR, name),
-	DEF(SET_STR, driver),
-	DEF(SET_STR, args),
-	DEF(SET_STR, default_fields),
-	DEF(SET_STR, override_fields),
-	DEF(SET_STR, mechanisms),
-	DEF(SET_STR, username_filter),
+	DEF(STR, name),
+	DEF(STR, driver),
+	DEF(STR, args),
+	DEF(STR, default_fields),
+	DEF(STR, override_fields),
+	DEF(STR, mechanisms),
+	DEF(STR, username_filter),
 
-	DEF(SET_ENUM, skip),
-	DEF(SET_ENUM, result_success),
-	DEF(SET_ENUM, result_failure),
-	DEF(SET_ENUM, result_internalfail),
+	DEF(ENUM, skip),
+	DEF(ENUM, result_success),
+	DEF(ENUM, result_failure),
+	DEF(ENUM, result_internalfail),
 
-	DEF(SET_BOOL, deny),
-	DEF(SET_BOOL, pass),
-	DEF(SET_BOOL, master),
-	DEF(SET_ENUM, auth_verbose),
+	DEF(BOOL, deny),
+	DEF(BOOL, pass),
+	DEF(BOOL, master),
+	DEF(ENUM, auth_verbose),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -156,7 +156,7 @@ const struct setting_parser_info auth_passdb_setting_parser_info = {
 	.type_offset = offsetof(struct auth_passdb_settings, name),
 	.struct_size = sizeof(struct auth_passdb_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.parent = &auth_setting_parser_info,
 
 	.check_func = auth_passdb_settings_check
@@ -164,21 +164,21 @@ const struct setting_parser_info auth_passdb_setting_parser_info = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct auth_userdb_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct auth_userdb_settings)
 
 static const struct setting_define auth_userdb_setting_defines[] = {
-	DEF(SET_STR, name),
-	DEF(SET_STR, driver),
-	DEF(SET_STR, args),
-	DEF(SET_STR, default_fields),
-	DEF(SET_STR, override_fields),
+	DEF(STR, name),
+	DEF(STR, driver),
+	DEF(STR, args),
+	DEF(STR, default_fields),
+	DEF(STR, override_fields),
 
-	DEF(SET_ENUM, skip),
-	DEF(SET_ENUM, result_success),
-	DEF(SET_ENUM, result_failure),
-	DEF(SET_ENUM, result_internalfail),
+	DEF(ENUM, skip),
+	DEF(ENUM, result_success),
+	DEF(ENUM, result_failure),
+	DEF(ENUM, result_internalfail),
 
-	DEF(SET_ENUM, auth_verbose),
+	DEF(ENUM, auth_verbose),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -206,7 +206,7 @@ const struct setting_parser_info auth_userdb_setting_parser_info = {
 	.type_offset = offsetof(struct auth_userdb_settings, name),
 	.struct_size = sizeof(struct auth_userdb_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.parent = &auth_setting_parser_info,
 
 	.check_func = auth_userdb_settings_check
@@ -217,67 +217,68 @@ const struct setting_parser_info auth_userdb_setting_parser_info = {
 #undef DEF_NOPREFIX
 #undef DEFLIST
 #define DEF(type, name) \
-	{ type, "auth_"#name, offsetof(struct auth_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type("auth_"#name, name, struct auth_settings)
 #define DEF_NOPREFIX(type, name) \
-	{ type, #name, offsetof(struct auth_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct auth_settings)
 #define DEFLIST(field, name, defines) \
-	{ SET_DEFLIST, name, offsetof(struct auth_settings, field), defines }
+	{ .type = SET_DEFLIST, .key = name, \
+	  .offset = offsetof(struct auth_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define auth_setting_defines[] = {
-	DEF(SET_STR, mechanisms),
-	DEF(SET_STR, realms),
-	DEF(SET_STR, default_realm),
-	DEF(SET_SIZE, cache_size),
-	DEF(SET_TIME, cache_ttl),
-	DEF(SET_TIME, cache_negative_ttl),
-	DEF(SET_BOOL, cache_verify_password_with_worker),
-	DEF(SET_STR, username_chars),
-	DEF(SET_STR, username_translation),
-	DEF(SET_STR, username_format),
-	DEF(SET_STR, master_user_separator),
-	DEF(SET_STR, anonymous_username),
-	DEF(SET_STR, krb5_keytab),
-	DEF(SET_STR, gssapi_hostname),
-	DEF(SET_STR, winbind_helper_path),
-	DEF(SET_STR, proxy_self),
-	DEF(SET_TIME, failure_delay),
+	DEF(STR, mechanisms),
+	DEF(STR, realms),
+	DEF(STR, default_realm),
+	DEF(SIZE, cache_size),
+	DEF(TIME, cache_ttl),
+	DEF(TIME, cache_negative_ttl),
+	DEF(BOOL, cache_verify_password_with_worker),
+	DEF(STR, username_chars),
+	DEF(STR, username_translation),
+	DEF(STR, username_format),
+	DEF(STR, master_user_separator),
+	DEF(STR, anonymous_username),
+	DEF(STR, krb5_keytab),
+	DEF(STR, gssapi_hostname),
+	DEF(STR, winbind_helper_path),
+	DEF(STR, proxy_self),
+	DEF(TIME, failure_delay),
 
-	DEF(SET_STR, policy_server_url),
-	DEF(SET_STR, policy_server_api_header),
-	DEF(SET_UINT, policy_server_timeout_msecs),
-	DEF(SET_STR, policy_hash_mech),
-	DEF(SET_STR, policy_hash_nonce),
-	DEF(SET_STR, policy_request_attributes),
-	DEF(SET_BOOL, policy_reject_on_fail),
-	DEF(SET_BOOL, policy_check_before_auth),
-	DEF(SET_BOOL, policy_check_after_auth),
-	DEF(SET_BOOL, policy_report_after_auth),
-	DEF(SET_BOOL, policy_log_only),
-	DEF(SET_UINT, policy_hash_truncate),
+	DEF(STR, policy_server_url),
+	DEF(STR, policy_server_api_header),
+	DEF(UINT, policy_server_timeout_msecs),
+	DEF(STR, policy_hash_mech),
+	DEF(STR, policy_hash_nonce),
+	DEF(STR, policy_request_attributes),
+	DEF(BOOL, policy_reject_on_fail),
+	DEF(BOOL, policy_check_before_auth),
+	DEF(BOOL, policy_check_after_auth),
+	DEF(BOOL, policy_report_after_auth),
+	DEF(BOOL, policy_log_only),
+	DEF(UINT, policy_hash_truncate),
 
-	DEF(SET_BOOL, stats),
-	DEF(SET_BOOL, verbose),
-	DEF(SET_BOOL, debug),
-	DEF(SET_BOOL, debug_passwords),
-	DEF(SET_STR, verbose_passwords),
-	DEF(SET_BOOL, ssl_require_client_cert),
-	DEF(SET_BOOL, ssl_username_from_cert),
-	DEF(SET_BOOL, use_winbind),
+	DEF(BOOL, verbose),
+	DEF(BOOL, debug),
+	DEF(BOOL, debug_passwords),
+	DEF(STR, verbose_passwords),
+	DEF(BOOL, ssl_require_client_cert),
+	DEF(BOOL, ssl_username_from_cert),
+	DEF(BOOL, use_winbind),
 
-	DEF(SET_UINT, worker_max_count),
+	DEF(UINT, worker_max_count),
 
 	DEFLIST(passdbs, "passdb", &auth_passdb_setting_parser_info),
 	DEFLIST(userdbs, "userdb", &auth_userdb_setting_parser_info),
 
-	DEF_NOPREFIX(SET_STR, base_dir),
-	DEF_NOPREFIX(SET_BOOL, verbose_proctitle),
-	DEF_NOPREFIX(SET_UINT, first_valid_uid),
-	DEF_NOPREFIX(SET_UINT, last_valid_uid),
-	DEF_NOPREFIX(SET_UINT, first_valid_gid),
-	DEF_NOPREFIX(SET_UINT, last_valid_gid),
+	DEF_NOPREFIX(STR, base_dir),
+	DEF_NOPREFIX(BOOL, verbose_proctitle),
+	DEF_NOPREFIX(UINT, first_valid_uid),
+	DEF_NOPREFIX(UINT, last_valid_uid),
+	DEF_NOPREFIX(UINT, first_valid_gid),
+	DEF_NOPREFIX(UINT, last_valid_gid),
 
-	DEF_NOPREFIX(SET_STR, ssl_client_ca_dir),
-	DEF_NOPREFIX(SET_STR, ssl_client_ca_file),
+	DEF_NOPREFIX(STR, ssl_client_ca_dir),
+	DEF_NOPREFIX(STR, ssl_client_ca_file),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -314,7 +315,6 @@ static const struct auth_settings auth_default_settings = {
 	.policy_log_only = FALSE,
 	.policy_hash_truncate = 12,
 
-	.stats = FALSE,
 	.verbose = FALSE,
 	.debug = FALSE,
 	.debug_passwords = FALSE,
@@ -344,10 +344,10 @@ const struct setting_parser_info auth_setting_parser_info = {
 	.defines = auth_setting_defines,
 	.defaults = &auth_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct auth_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 
 	.check_func = auth_settings_check
 };

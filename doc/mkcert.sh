@@ -15,12 +15,12 @@ CERTFILE=$CERTDIR/dovecot.pem
 KEYFILE=$KEYDIR/dovecot.pem
 
 if [ ! -d $CERTDIR ]; then
-  echo "$SSLDIR/certs directory doesn't exist"
+  echo "$CERTDIR directory doesn't exist"
   exit 1
 fi
 
 if [ ! -d $KEYDIR ]; then
-  echo "$SSLDIR/private directory doesn't exist"
+  echo "$KEYDIR directory doesn't exist"
   exit 1
 fi
 

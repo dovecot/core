@@ -63,8 +63,8 @@ index_storage_get_user_dict(struct mail_storage *err_storage,
 	}
 
 	i_zero(&dict_set);
-	dict_set.username = user->username;
 	dict_set.base_dir = user->set->base_dir;
+	dict_set.event_parent = user->event;
 	if (dict_init(attr_storage->set->mail_attribute_dict, &dict_set,
 		      &user->_attr_dict, &error) < 0) {
 		mail_storage_set_critical(err_storage,
@@ -131,10 +131,8 @@ index_storage_get_dict(struct mailbox *box, enum mail_attribute_type type_flags,
 	}
 
 	i_zero(&set);
-	set.username = storage->user->username;
 	set.base_dir = storage->user->set->base_dir;
-	if (mail_user_get_home(storage->user, &set.home_dir) <= 0)
-		set.home_dir = NULL;
+	set.event_parent = storage->user->event;
 	if (dict_init(storage->set->mail_attribute_dict, &set,
 		      &storage->_shared_attr_dict, &error) < 0) {
 		mail_storage_set_critical(storage,
@@ -201,7 +199,10 @@ index_storage_attribute_get_dict_trans(struct mailbox_transaction_context *t,
 	if (index_storage_get_dict(t->box, type_flags, &dict, mailbox_prefix_r) < 0)
 		return -1;
 	i_assert(*dtransp == NULL);
-	*dtransp = *dtrans_r = dict_transaction_begin(dict);
+
+	struct mail_user *user = mailbox_list_get_user(t->box->list);
+	const struct dict_op_settings *set = mail_user_get_dict_op_settings(user);
+	*dtransp = *dtrans_r = dict_transaction_begin(dict, set);
 	return 0;
 }
 
@@ -255,12 +256,14 @@ int index_storage_attribute_get(struct mailbox *box,
 	if (index_storage_get_dict(box, type_flags, &dict, &mailbox_prefix) < 0)
 		return -1;
 
-	ret = dict_lookup(dict, pool_datastack_create(),
+	struct mail_user *user = mailbox_list_get_user(box->list);
+	const struct dict_op_settings *set = mail_user_get_dict_op_settings(user);
+	ret = dict_lookup(dict, set, pool_datastack_create(),
 			  key_get_prefixed(type_flags, mailbox_prefix, key),
 			  &value_r->value, &error);
 	if (ret < 0) {
 		mailbox_set_critical(box,
-			"Failed to set attribute %s: %s", key, error);
+			"Failed to get attribute %s: %s", key, error);
 		return -1;
 	}
 	return ret;
@@ -284,7 +287,9 @@ index_storage_attribute_iter_init(struct mailbox *box,
 		iter->prefix = i_strdup(key_get_prefixed(type_flags, mailbox_prefix,
 							 prefix));
 		iter->prefix_len = strlen(iter->prefix);
-		iter->diter = dict_iterate_init(dict, iter->prefix,
+		struct mail_user *user = mailbox_list_get_user(box->list);
+		const struct dict_op_settings *set = mail_user_get_dict_op_settings(user);
+		iter->diter = dict_iterate_init(dict, set, iter->prefix,
 						DICT_ITERATE_FLAG_RECURSE |
 						DICT_ITERATE_FLAG_NO_VALUE);
 	}

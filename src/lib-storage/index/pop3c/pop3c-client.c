@@ -56,6 +56,7 @@ struct pop3c_client_cmd {
 
 struct pop3c_client {
 	pool_t pool;
+	struct event *event;
 	struct pop3c_client_settings set;
 	struct ssl_iostream_context *ssl_ctx;
 	struct ip_addr ip;
@@ -90,7 +91,8 @@ static int pop3c_client_ssl_init(struct pop3c_client *client);
 static void pop3c_client_input(struct pop3c_client *client);
 
 struct pop3c_client *
-pop3c_client_init(const struct pop3c_client_settings *set)
+pop3c_client_init(const struct pop3c_client_settings *set,
+		  struct event *event_parent)
 {
 	struct pop3c_client *client;
 	const char *error;
@@ -99,6 +101,7 @@ pop3c_client_init(const struct pop3c_client_settings *set)
 	pool = pool_alloconly_create("pop3c client", 1024);
 	client = p_new(pool, struct pop3c_client, 1);
 	client->pool = pool;
+	client->event = event_create(event_parent);
 	client->fd = -1;
 	p_array_init(&client->commands, pool, 16);
 
@@ -210,6 +213,7 @@ void pop3c_client_deinit(struct pop3c_client **_client)
 	pop3c_client_disconnect(client);
 	if (client->ssl_ctx != NULL)
 		ssl_iostream_context_unref(&client->ssl_ctx);
+	event_unref(&client->event);
 	pool_unref(&client->pool);
 }
 
@@ -268,6 +272,7 @@ static int pop3c_client_dns_lookup(struct pop3c_client *client)
 		dns_set.dns_client_socket_path =
 			client->set.dns_client_socket_path;
 		dns_set.timeout_msecs = POP3C_DNS_LOOKUP_TIMEOUT_MSECS;
+		dns_set.event_parent = client->event;
 		if (dns_lookup(client->set.host, &dns_set,
 			       pop3c_dns_callback, client,
 			       &client->dns_lookup) < 0)
@@ -626,7 +631,7 @@ static void pop3c_client_connect_ip(struct pop3c_client *client)
 	client->input = client->raw_input =
 		i_stream_create_fd(client->fd, POP3C_MAX_INBUF_SIZE);
 	client->output = client->raw_output =
-		o_stream_create_fd(client->fd, (size_t)-1);
+		o_stream_create_fd(client->fd, SIZE_MAX);
 	o_stream_set_no_error_handling(client->output, TRUE);
 
 	if (*client->set.rawlog_dir != '\0' &&
@@ -884,7 +889,7 @@ pop3c_client_cmd_stream_async(struct pop3c_client *client, const char *cmdline,
 
 	cmd = pop3c_client_cmd_line_async(client, cmdline, callback, context);
 
-	input = i_stream_create_chain(&cmd->chain);
+	input = i_stream_create_chain(&cmd->chain, POP3C_MAX_INBUF_SIZE);
 	inputs[0] = i_stream_create_dot(input, TRUE);
 	inputs[1] = NULL;
 	cmd->input = i_stream_create_seekable(inputs, POP3C_MAX_INBUF_SIZE,

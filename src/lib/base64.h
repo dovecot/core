@@ -89,6 +89,12 @@ uoff_t base64_get_full_encoded_size(struct base64_encoder *enc,
    base64_encode_more() with the indicated src_size. */
 size_t base64_encode_get_size(struct base64_encoder *enc, size_t src_size);
 
+/* Translate the space in the destination buffer to the number of bytes that can
+   be encoded at most to complete the full base64 encoding, including padding
+   and newlines if configured. */
+size_t base64_encode_get_full_space(struct base64_encoder *enc,
+				    size_t dst_space);
+
 /* Translates binary data into some form of Base64. The src must not point to
    dest buffer. Returns TRUE when all the provided data is encoded. Returns
    FALSE when the space in the provided buffer is insufficient. The return value
@@ -299,16 +305,10 @@ t_base64_encode_str(enum base64_encode_flags flags, size_t max_line_len,
 
 /* Translates base64 data into binary and appends it to dest buffer. See
    base64_scheme_decode().
-
-   The src_pos_r parameter is deprecated and MUST be NULL.
  */
 static inline int
-base64_decode(const void *src, size_t src_size, size_t *src_pos_r ATTR_UNUSED,
-	      buffer_t *dest) ATTR_NULL(3)
+base64_decode(const void *src, size_t src_size, buffer_t *dest)
 {
-	// NOTE: src_pos_r is deprecated here; to be removed in v2.4 */
-	i_assert(src_pos_r == NULL);
-
 	return base64_scheme_decode(&base64_scheme, 0, src, src_size, dest);
 }
 

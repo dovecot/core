@@ -78,13 +78,9 @@ struct smtp_client *smtp_client_init(const struct smtp_client_settings *set)
 	client->set.socket_send_buffer_size = set->socket_send_buffer_size;
 	client->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
 	client->set.debug = set->debug;
+	client->set.verbose_user_errors = set->verbose_user_errors;
 
-	client->set.proxy_data.source_ip = set->proxy_data.source_ip;
-	client->set.proxy_data.source_port = set->proxy_data.source_port;
-	client->set.proxy_data.ttl_plus_1 = set->proxy_data.ttl_plus_1;
-	client->set.proxy_data.timeout_secs = set->proxy_data.timeout_secs;
-	client->set.proxy_data.helo = p_strdup_empty(pool, set->proxy_data.helo);
-	client->set.proxy_data.login = p_strdup_empty(pool, set->proxy_data.login);
+	smtp_proxy_data_merge(pool, &client->set.proxy_data, &set->proxy_data);
 
 	client->conn_list = smtp_client_connection_list_init();
 

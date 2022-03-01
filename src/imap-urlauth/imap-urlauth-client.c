@@ -38,7 +38,7 @@
 #define IS_STANDALONE() \
         (getenv(MASTER_IS_PARENT_ENV) == NULL)
 
-struct event_category event_category_urlauth = {
+static struct event_category event_category_urlauth = {
 	.name = "imap-urlauth",
 };
 
@@ -69,8 +69,11 @@ int client_create(const char *service, const char *username,
 	client->event = event_create(NULL);
 	event_set_forced_debug(client->event, set->mail_debug);
 	event_add_category(client->event, &event_category_urlauth);
+	event_set_append_log_prefix(client->event, t_strdup_printf(
+		"user %s: ", username));
 
 	if (client_worker_connect(client) < 0) {
+		event_unref(&client->event);
 		i_free(client);
 		return -1;
 	}
@@ -80,13 +83,13 @@ int client_create(const char *service, const char *username,
 	if (username != NULL) {
 		if (set->imap_urlauth_submit_user != NULL &&
 		    strcmp(set->imap_urlauth_submit_user, username) == 0) {
-			e_debug(client->event, "User %s has URLAUTH submit access", username);
+			e_debug(client->event, "User has URLAUTH submit access");
 			app = "submit+";
 			array_push_back(&client->access_apps, &app);
 		}
 		if (set->imap_urlauth_stream_user != NULL &&
 		    strcmp(set->imap_urlauth_stream_user, username) == 0) {
-			e_debug(client->event, "User %s has URLAUTH stream access", username);
+			e_debug(client->event, "User has URLAUTH stream access");
 			app = "stream";
 			array_push_back(&client->access_apps, &app);
 		}
@@ -95,7 +98,7 @@ int client_create(const char *service, const char *username,
 	client->username = i_strdup(username);
 	client->service = i_strdup(service);
 
-	client->output = o_stream_create_fd(fd_out, (size_t)-1);
+	client->output = o_stream_create_fd(fd_out, SIZE_MAX);
 
 	imap_urlauth_client_count++;
 	DLLIST_PREPEND(&imap_urlauth_clients, client);
@@ -145,11 +148,12 @@ static int client_worker_connect(struct client *client)
 	client->fd_ctrl = net_connect_unix_with_retries(socket_path, 1000);
 	if (client->fd_ctrl < 0) {
 		if (errno == EACCES) {
-			i_error("imap-urlauth-client: %s",
+			e_error(client->event, "imap-urlauth-client: %s",
 				eacces_error_get("net_connect_unix",
 						 socket_path));
 		} else {
-			i_error("imap-urlauth-client: net_connect_unix(%s) failed: %m",
+			e_error(client->event, "imap-urlauth-client: "
+				"net_connect_unix(%s) failed: %m",
 				socket_path);
 		}
 		return -1;
@@ -166,21 +170,22 @@ static int client_worker_connect(struct client *client)
 
 	if (ret <= 0) {
 		if (ret < 0) {
-			i_error("fd_send(%s, %d) failed: %m",
+			e_error(client->event, "fd_send(%s, %d) failed: %m",
 				socket_path, client->fd_ctrl);
 		} else {
-			i_error("fd_send(%s, %d) failed to send byte",
+			e_error(client->event, "fd_send(%s, %d) failed to send byte",
 				socket_path, client->fd_ctrl);
 		}
 		client_worker_disconnect(client);
 		return -1;
 	}
 
-	client->ctrl_output = o_stream_create_fd(client->fd_ctrl, (size_t)-1);
+	client->ctrl_output = o_stream_create_fd(client->fd_ctrl, SIZE_MAX);
 
 	/* send protocol version handshake */
 	if (o_stream_send_str(client->ctrl_output, handshake) < 0) {
-		i_error("Error sending handshake to imap-urlauth worker: %m");
+		e_error(client->event,
+			"Error sending handshake to imap-urlauth worker: %m");
 		client_worker_disconnect(client);
 		return -1;
 	}
@@ -325,13 +330,10 @@ void client_worker_input(struct client *client)
 
 void client_destroy(struct client *client, const char *reason)
 {
-	i_set_failure_prefix("%s: ", master_service_get_name(master_service));
+	i_assert(reason != NULL || client->disconnected);
 
-	if (!client->disconnected) {
-		if (reason == NULL)
-			reason = "Connection closed";
-		i_info("Disconnected: %s", reason);
-	}
+	if (!client->disconnected)
+		e_info(client->event, "Disconnected: %s", reason);
 
 	imap_urlauth_client_count--;
 	DLLIST_REMOVE(&imap_urlauth_clients, client);
@@ -366,13 +368,15 @@ void client_disconnect(struct client *client, const char *reason)
 		return;
 
 	client->disconnected = TRUE;
-	i_info("Disconnected: %s", reason);
+	e_info(client->event, "Disconnected: %s", reason);
 
 	client->to_idle = timeout_add(0, client_destroy_timeout, client);
 }
 
 void clients_destroy_all(void)
 {
-	while (imap_urlauth_clients != NULL)
-		client_destroy(imap_urlauth_clients, "Server shutting down.");
+	while (imap_urlauth_clients != NULL) {
+		client_destroy(imap_urlauth_clients,
+			       MASTER_SERVICE_SHUTTING_DOWN_MSG);
+	}
 }

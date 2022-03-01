@@ -110,6 +110,17 @@ void submission_client_auth_result(struct client *client,
 		if (client->login_proxy != NULL)
 			subm_client->pending_auth = cmd;
 		break;
+	case CLIENT_AUTH_RESULT_REFERRAL_NOLOGIN: {
+		const struct smtp_proxy_redirect predir = {
+			.username = reply->proxy.username,
+			.host = reply->proxy.host,
+			.host_ip = reply->proxy.host_ip,
+			.port = reply->proxy.port,
+		};
+		smtp_server_reply_redirect(cmd, login_binary->default_port,
+					   &predir);
+		break;
+	}
 	case CLIENT_AUTH_RESULT_TEMPFAIL:
 		/* RFC4954, Section 6:
 
@@ -262,29 +273,84 @@ void submission_client_auth_send_challenge(struct client *client,
 	smtp_server_cmd_auth_send_challenge(cmd, data);
 }
 
+static void
+cmd_auth_set_master_data_prefix(struct submission_client *subm_client,
+				const char *mail_params) ATTR_NULL(2)
+{
+	struct client *client = &subm_client->common;
+	struct smtp_server_helo_data *helo;
+	struct smtp_proxy_data proxy;
+
+	buffer_t *buf = buffer_create_dynamic(default_pool, 2048);
+
+	/* pass ehlo parameter to post-login service upon successful login */
+	helo = smtp_server_connection_get_helo_data(subm_client->conn);
+	if (helo->domain_valid) {
+		i_assert(helo->domain != NULL);
+		buffer_append(buf, helo->domain, strlen(helo->domain));
+	}
+	buffer_append_c(buf, '\0');
+
+	/* pass proxied ehlo parameter to post-login service upon successful
+	   login */
+	smtp_server_connection_get_proxy_data(subm_client->conn, &proxy);
+	if (proxy.helo != NULL)
+		buffer_append(buf, proxy.helo, strlen(proxy.helo));
+	buffer_append_c(buf, '\0');
+
+	/* Pass MAIL command to post-login service if any. */
+	if (mail_params != NULL) {
+		buffer_append(buf, "MAIL ", 5);
+		buffer_append(buf, mail_params, strlen(mail_params));
+		buffer_append(buf, "\r\n", 2);
+	}
+
+	i_free(client->master_data_prefix);
+	client->master_data_prefix_len = buf->used;
+	client->master_data_prefix = buffer_free_without_data(&buf);
+}
+
 int cmd_auth(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_cmd_auth *data)
 {
 	struct submission_client *subm_client = conn_ctx;
 	struct client *client = &subm_client->common;
-	struct smtp_server_helo_data *helo;
-	const char *prefix = "";
+
+	cmd_auth_set_master_data_prefix(subm_client, NULL);
 
 	i_assert(subm_client->pending_auth == NULL);
-
-	helo = smtp_server_connection_get_helo_data(subm_client->conn);
-	if (helo->domain_valid) {
-		i_assert(helo->domain != NULL);
-		prefix = helo->domain;
-	}
-
-	/* pass ehlo parameter to post-login service upon successful login */
-	i_free(client->master_data_prefix);
-	client->master_data_prefix = (void *)i_strdup(prefix);
-	client->master_data_prefix_len = strlen(prefix) + 1;
-
 	subm_client->pending_auth = cmd;
 
 	(void)client_auth_begin(client, data->sasl_mech, data->initial_response);
 	return 0;
+}
+
+void cmd_mail(struct smtp_server_cmd_ctx *cmd, const char *params)
+{
+	struct smtp_server_connection *conn = cmd->conn;
+	struct submission_client *subm_client =
+		smtp_server_connection_get_context(conn);
+	struct client *client = &subm_client->common;
+	enum submission_login_client_workarounds workarounds =
+		subm_client->set->parsed_workarounds;
+
+	if (HAS_NO_BITS(workarounds,
+			SUBMISSION_LOGIN_WORKAROUND_IMPLICIT_AUTH_EXTERNAL) ||
+	    sasl_server_find_available_mech(client, "EXTERNAL") == NULL) {
+		smtp_server_command_fail(cmd->cmd, 530, "5.7.0",
+					 "Authentication required.");
+		return;
+	}
+
+	e_debug(cmd->event,
+		"Performing implicit EXTERNAL authentication");
+
+	smtp_server_command_input_lock(cmd);
+
+	cmd_auth_set_master_data_prefix(subm_client, params);
+
+	i_assert(subm_client->pending_auth == NULL);
+	subm_client->pending_auth = cmd;
+
+	(void)client_auth_begin_implicit(client, "EXTERNAL", "=");
 }

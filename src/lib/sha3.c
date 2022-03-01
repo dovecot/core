@@ -69,7 +69,7 @@ static const unsigned keccakf_piln[24] = {
 /* generally called after SHA3_KECCAK_SPONGE_WORDS-ctx->capacityWords words
  * are XORed into the state s
  */
-static void
+static void ATTR_UNSIGNED_WRAPS
 keccakf(uint64_t s[25])
 {
 	int i, j, round;
@@ -303,13 +303,14 @@ static void hash_method_result_sha3_256(void *context, unsigned char *result_r)
 }
 
 const struct hash_method hash_method_sha3_256 = {
-	"sha3-256",
-	sizeof(struct sha3_ctx),
-	SHA256_RESULTLEN,
+	.name = "sha3-256",
+	.block_size = SHA256_BLOCK_SIZE,
+	.context_size = sizeof(struct sha3_ctx),
+	.digest_size = SHA256_RESULTLEN,
 
-	hash_method_init_sha3_256,
-	hash_method_loop_sha3,
-	hash_method_result_sha3_256
+	.init = hash_method_init_sha3_256,
+	.loop = hash_method_loop_sha3,
+	.result = hash_method_result_sha3_256,
 };
 
 static void hash_method_init_sha3_512(void *context)
@@ -323,11 +324,12 @@ static void hash_method_result_sha3_512(void *context, unsigned char *result_r)
 }
 
 const struct hash_method hash_method_sha3_512 = {
-	"sha3-512",
-	sizeof(struct sha3_ctx),
-	SHA512_RESULTLEN,
+	.name = "sha3-512",
+	.block_size = SHA512_BLOCK_SIZE,
+	.context_size = sizeof(struct sha3_ctx),
+	.digest_size = SHA512_RESULTLEN,
 
-	hash_method_init_sha3_512,
-	hash_method_loop_sha3,
-	hash_method_result_sha3_512
+	.init = hash_method_init_sha3_512,
+	.loop = hash_method_loop_sha3,
+	.result = hash_method_result_sha3_512,
 };

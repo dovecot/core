@@ -14,6 +14,7 @@
 #include "base64.h"
 #include "str.h"
 #include "strescape.h"
+#include "time-util.h"
 #include "var-expand.h"
 #include "master-service.h"
 #include "master-service-settings.h"
@@ -40,6 +41,7 @@
 #define IMAP_UNHIBERNATE_RETRY_MSECS 100
 
 #define IMAP_CLIENT_BUFFER_FULL_ERROR "Client output buffer is full"
+#define IMAP_CLIENT_UNHIBERNATE_ERROR "Failed to unhibernate client"
 
 enum imap_client_input_state {
 	IMAP_CLIENT_INPUT_STATE_UNKNOWN,
@@ -59,6 +61,7 @@ struct imap_client {
 
 	struct imap_client *prev, *next;
 	pool_t pool;
+	struct event *event;
 	struct imap_client_state state;
 	ARRAY(struct imap_client_notify) notifys;
 
@@ -84,6 +87,14 @@ static struct priorityq *unhibernate_queue;
 static struct timeout *to_unhibernate;
 static const char imap_still_here_text[] = "* OK Still here\r\n";
 
+static struct event_category event_category_imap = {
+	.name = "imap",
+};
+static struct event_category event_category_imap_hibernate = {
+	.name = "imap-hibernate",
+	.parent = &event_category_imap,
+};
+
 static void imap_client_stop(struct imap_client *client);
 void imap_client_destroy(struct imap_client **_client, const char *reason);
 static void imap_client_add_idle_keepalive_timeout(struct imap_client *client);
@@ -97,6 +108,23 @@ static void imap_client_disconnected(struct imap_client **_client)
 
 	reason = io_stream_get_disconnect_reason(client->input, client->output);
 	imap_client_destroy(_client, reason);
+}
+
+static void
+imap_client_unhibernate_failed(struct imap_client **_client, const char *error)
+{
+	struct imap_client *client = *_client;
+	struct timeval created;
+	event_get_create_time(client->event, &created);
+
+	struct event_passthrough *e =
+		event_create_passthrough(client->event)->
+		set_name("imap_client_unhibernated")->
+		add_int("hibernation_usecs",
+			timeval_diff_usecs(&ioloop_timeval, &created))->
+		add_str("error", error);
+	e_error(e->event(), IMAP_CLIENT_UNHIBERNATE_ERROR": %s", error);
+	imap_client_destroy(_client, IMAP_CLIENT_UNHIBERNATE_ERROR);
 }
 
 static void
@@ -124,11 +152,16 @@ imap_client_move_back_send_callback(void *context, struct ostream *output)
 	struct imap_client *client = context;
 	const struct imap_client_state *state = &client->state;
 	string_t *str = t_str_new(256);
+	struct timeval created;
 	const unsigned char *input_data;
 	size_t input_size;
 	ssize_t ret;
 
 	str_append_tabescaped(str, state->username);
+	event_get_create_time(client->event, &created);
+	str_printfa(str, "\thibernation_started=%"PRIdTIME_T".%06u",
+		    created.tv_sec, (unsigned int)created.tv_usec);
+
 	if (state->session_id != NULL) {
 		str_append(str, "\tsession=");
 		str_append_tabescaped(str, state->session_id);
@@ -141,8 +174,12 @@ imap_client_move_back_send_callback(void *context, struct ostream *output)
 		str_printfa(str, "\ttag=%s", client->state.tag);
 	if (state->local_ip.family != 0)
 		str_printfa(str, "\tlip=%s", net_ip2addr(&state->local_ip));
+	if (state->local_port != 0)
+		str_printfa(str, "\tlport=%u", state->local_port);
 	if (state->remote_ip.family != 0)
 		str_printfa(str, "\trip=%s", net_ip2addr(&state->remote_ip));
+	if (state->remote_port != 0)
+		str_printfa(str, "\trport=%u", state->remote_port);
 	if (state->userdb_fields != NULL) {
 		str_append(str, "\tuserdb_fields=");
 		str_append_tabescaped(str, state->userdb_fields);
@@ -176,9 +213,9 @@ imap_client_move_back_send_callback(void *context, struct ostream *output)
 	/* send the fd first */
 	ret = fd_send(o_stream_get_fd(output), client->fd, str_data(str), 1);
 	if (ret < 0) {
-		i_error("fd_send(%s) failed: %m",
-			o_stream_get_name(output));
-		imap_client_destroy(&client, "Failed to recreate imap process");
+		const char *error = t_strdup_printf(
+			"fd_send(%s) failed: %m", o_stream_get_name(output));
+		imap_client_unhibernate_failed(&client, error);
 		return;
 	}
 	i_assert(ret > 0);
@@ -192,11 +229,19 @@ imap_client_move_back_read_callback(void *context, const char *line)
 
 	if (line[0] != '+') {
 		/* failed - FIXME: retry later? */
-		imap_client_destroy(&client, t_strdup_printf(
-			"Failed to recreate imap process: %s", line+1));
+		imap_client_unhibernate_failed(&client, line+1);
 	} else {
 		imap_client_destroy(&client, NULL);
 	}
+}
+
+static bool imap_move_has_reached_timeout(struct imap_client *client)
+{
+	int max_secs = client->input_pending ?
+		IMAP_CLIENT_MOVE_BACK_WITH_INPUT_TIMEOUT_SECS :
+		IMAP_CLIENT_MOVE_BACK_WITHOUT_INPUT_TIMEOUT_SECS;
+	return client->move_back_start != 0 &&
+		ioloop_time - client->move_back_start > max_secs;
 }
 
 static bool imap_client_try_move_back(struct imap_client *client)
@@ -222,22 +267,16 @@ static bool imap_client_try_move_back(struct imap_client *client)
 		/* success */
 		imap_client_stop(client);
 		return TRUE;
-	} else if (ret < 0) {
+	} else if (ret < 0 || imap_move_has_reached_timeout(client)) {
 		/* failed to connect to the imap-master socket */
-		i_error("Failed to unhibernate client: %s", error);
-		imap_client_destroy(&client, error);
+		imap_client_unhibernate_failed(&client, error);
 		return TRUE;
 	}
 
-	int max_secs = client->input_pending ?
-		IMAP_CLIENT_MOVE_BACK_WITH_INPUT_TIMEOUT_SECS :
-		IMAP_CLIENT_MOVE_BACK_WITHOUT_INPUT_TIMEOUT_SECS;
-	if (client->move_back_start != 0 &&
-	    ioloop_time - client->move_back_start > max_secs) {
-		/* we've waited long enough */
-		imap_client_destroy(&client, error);
-		return TRUE;
-	}
+	e_debug(event_create_passthrough(client->event)->
+		set_name("imap_client_unhibernate_retried")->
+		add_str("error", error)->event(),
+		"Unhibernation failed: %s - retrying", error);
 	/* Stop listening for client's IOs while waiting for the next
 	   reconnection attempt. However if we got here because of an external
 	   notification keep waiting to see if client sends any IO, since that
@@ -481,6 +520,9 @@ imap_client_get_var_expand_table(struct imap_client *client)
 		{ '\0', auth_user, "auth_user" },
 		{ '\0', auth_username, "auth_username" },
 		{ '\0', auth_domain, "auth_domain" },
+		/* aliases: */
+		{ '\0', local_ip, "local_ip" },
+		{ '\0', remote_ip, "remote_ip" },
 		/* NOTE: keep this synced with lib-storage's
 		   mail_user_var_expand_table() */
 		{ '\0', NULL, NULL }
@@ -523,14 +565,6 @@ static void imap_client_io_deactivate_user(struct imap_client *client ATTR_UNUSE
 	i_set_failure_prefix("imap-hibernate: ");
 }
 
-static const char *imap_client_get_anvil_userip_ident(struct imap_client_state *state)
-{
-	if (state->remote_ip.family == 0)
-		return NULL;
-	return t_strconcat(net_ip2addr(&state->remote_ip), "/",
-			   str_tabescape(state->username), NULL);
-}
-
 struct imap_client *
 imap_client_create(int fd, const struct imap_client_state *state)
 {
@@ -541,7 +575,7 @@ imap_client_create(int fd, const struct imap_client_state *state)
 	struct imap_client *client;
 	pool_t pool = pool_alloconly_create("imap client", 256);
 	void *statebuf;
-	const char *ident, *error;
+	const char *error;
 
 	i_assert(state->username != NULL);
 	i_assert(state->mail_log_prefix != NULL);
@@ -553,11 +587,29 @@ imap_client_create(int fd, const struct imap_client_state *state)
 	client->fd = fd;
 	client->input = i_stream_create_fd(fd, IMAP_MAX_INBUF);
 	client->output = o_stream_create_fd(fd, IMAP_MAX_OUTBUF);
+	o_stream_set_no_error_handling(client->output, TRUE);
 	client->state = *state;
 	client->state.username = p_strdup(pool, state->username);
 	client->state.session_id = p_strdup(pool, state->session_id);
 	client->state.userdb_fields = p_strdup(pool, state->userdb_fields);
 	client->state.stats = p_strdup(pool, state->stats);
+
+	client->event = event_create(NULL);
+	event_add_category(client->event, &event_category_imap_hibernate);
+	event_add_str(client->event, "user", state->username);
+	event_add_str(client->event, "session", state->session_id);
+	if (state->mailbox_vname != NULL)
+		event_add_str(client->event, "mailbox", state->mailbox_vname);
+	if (state->local_ip.family != 0)
+		event_add_str(client->event, "local_ip",
+			      net_ip2addr(&state->local_ip));
+	if (state->local_port != 0)
+		event_add_int(client->event, "local_port", state->local_port);
+	if (state->remote_ip.family != 0)
+		event_add_str(client->event, "remote_ip",
+			      net_ip2addr(&state->remote_ip));
+	if (state->remote_port != 0)
+		event_add_int(client->event, "remote_port", state->remote_port);
 
 	if (state->state_size > 0) {
 		client->state.state = statebuf = p_malloc(pool, state->state_size);
@@ -572,18 +624,21 @@ imap_client_create(int fd, const struct imap_client_state *state)
 		if (var_expand_with_funcs(str, state->mail_log_prefix,
 					  imap_client_get_var_expand_table(client),
 					  funcs, fields, &error) <= 0) {
-			i_error("Failed to expand mail_log_prefix=%s: %s",
+			e_error(client->event,
+				"Failed to expand mail_log_prefix=%s: %s",
 				state->mail_log_prefix, error);
 		}
 		client->log_prefix = p_strdup(pool, str_c(str));
 	} T_END;
 
-	ident = imap_client_get_anvil_userip_ident(&client->state);
-	if (ident != NULL) {
-		master_service_anvil_send(master_service, t_strconcat(
-			"CONNECT\t", my_pid, "\timap/", ident, "\n", NULL));
+	struct master_service_anvil_session anvil_session = {
+		.username = client->state.username,
+		.service_name = master_service_get_name(master_service),
+		.ip = client->state.remote_ip,
+	};
+	if (master_service_anvil_connect(master_service, &anvil_session,
+					 TRUE, client->state.anvil_conn_guid))
 		client->state.anvil_sent = TRUE;
-	}
 
 	p_array_init(&client->notifys, pool, 2);
 	DLLIST_PREPEND(&imap_clients, client);
@@ -620,14 +675,18 @@ void imap_client_destroy(struct imap_client **_client, const char *reason)
 	if (reason != NULL) {
 		/* the client input/output bytes don't count the DONE+IDLE by
 		   imap-hibernate, but that shouldn't matter much. */
-		i_info("%s %s", reason, client->state.stats);
+		e_info(client->event, "Disconnected: %s %s",
+		       reason, client->state.stats);
 	}
 
 	if (client->state.anvil_sent) {
-		master_service_anvil_send(master_service, t_strconcat(
-			"DISCONNECT\t", my_pid, "\timap/",
-			imap_client_get_anvil_userip_ident(&client->state),
-			"\n", NULL));
+		struct master_service_anvil_session anvil_session = {
+			.username = client->state.username,
+			.service_name = master_service_get_name(master_service),
+			.ip = client->state.remote_ip,
+		};
+		master_service_anvil_disconnect(master_service, &anvil_session,
+						client->state.anvil_conn_guid);
 	}
 
 	if (client->master_conn != NULL)
@@ -648,6 +707,7 @@ void imap_client_destroy(struct imap_client **_client, const char *reason)
 	i_stream_destroy(&client->input);
 	o_stream_destroy(&client->output);
 	i_close_fd(&client->fd);
+	event_unref(&client->event);
 	pool_unref(&client->pool);
 
 	master_service_client_connection_destroyed(master_service);
@@ -669,7 +729,7 @@ void imap_client_create_finish(struct imap_client *client)
 	io_loop_context_add_callbacks(client->ioloop_ctx,
 				      imap_client_io_activate_user,
 				      imap_client_io_deactivate_user, client);
-	imap_client_io_activate_user(client);
+	io_loop_context_switch(client->ioloop_ctx);
 
 	if (client->state.idle_cmd) {
 		client->io = io_add(client->fd, IO_READ,
@@ -719,6 +779,29 @@ static void imap_clients_unhibernate(void *context ATTR_UNUSED)
 	timeout_remove(&to_unhibernate);
 }
 
+static void imap_client_kick(struct imap_client *client)
+{
+	imap_client_io_activate_user(client);
+	o_stream_nsend_str(client->output,
+			   "* BYE "MASTER_SERVICE_SHUTTING_DOWN_MSG".\r\n");
+	imap_client_destroy(&client, MASTER_SERVICE_SHUTTING_DOWN_MSG);
+}
+
+unsigned int imap_clients_kick(const char *user, const guid_128_t conn_guid)
+{
+	struct imap_client *client, *next;
+	unsigned int count = 0;
+
+	for (client = imap_clients; client != NULL; client = next) {
+		next = client->next;
+		if (strcmp(client->state.username, user) == 0 &&
+		    (guid_128_is_empty(conn_guid) ||
+		     guid_128_cmp(client->state.anvil_conn_guid, conn_guid) == 0))
+			imap_client_kick(client);
+	}
+	return count;
+}
+
 void imap_clients_init(void)
 {
 	unhibernate_queue = priorityq_init(client_unhibernate_cmp, 64);
@@ -726,12 +809,9 @@ void imap_clients_init(void)
 
 void imap_clients_deinit(void)
 {
-	while (imap_clients != NULL) {
-		struct imap_client *client = imap_clients;
+	while (imap_clients != NULL)
+		imap_client_kick(imap_clients);
 
-		imap_client_io_activate_user(client);
-		imap_client_destroy(&client, "Shutting down");
-	}
 	timeout_remove(&to_unhibernate);
 	priorityq_deinit(&unhibernate_queue);
 }

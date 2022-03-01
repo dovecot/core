@@ -6,6 +6,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-sasl \
+	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-program-client \
@@ -46,7 +47,8 @@ libsmtp_la_SOURCES = \
 	smtp-server-connection.c \
 	smtp-server.c \
 	smtp-submit-settings.c \
-	smtp-submit.c
+	smtp-submit.c \
+	smtp-dovecot.c
 
 headers = \
 	smtp-parser.h \
@@ -66,7 +68,8 @@ headers = \
 	smtp-server-private.h \
 	smtp-server.h \
 	smtp-submit-settings.h \
-	smtp-submit.h
+	smtp-submit.h \
+	smtp-dovecot.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
@@ -84,7 +87,14 @@ test_programs = \
 
 test_nocheck_programs =
 
-noinst_PROGRAMS = $(test_programs) $(test_nocheck_programs)
+fuzz_programs =
+
+if USE_FUZZER
+fuzz_programs += \
+	fuzz-smtp-server
+endif
+
+noinst_PROGRAMS = $(fuzz_programs) $(test_programs) $(test_nocheck_programs)
 
 EXTRA_DIST = \
 	test-bin/sendmail-exit-1.sh \
@@ -160,13 +170,20 @@ test_smtp_submit_DEPENDENCIES = $(test_deps)
 
 test_smtp_client_errors_SOURCES = test-smtp-client-errors.c
 test_smtp_client_errors_LDFLAGS = -export-dynamic
-test_smtp_client_errors_LDADD = $(test_libs)
+test_smtp_client_errors_LDADD = $(test_libs) $(test_libs_ssl)
 test_smtp_client_errors_DEPENDENCIES = $(test_deps)
 
 test_smtp_server_errors_SOURCES = test-smtp-server-errors.c
 test_smtp_server_errors_LDFLAGS = -export-dynamic
 test_smtp_server_errors_LDADD = $(test_libs)
 test_smtp_server_errors_DEPENDENCIES = $(test_deps)
+
+nodist_EXTRA_fuzz_smtp_server_SOURCES = force-cxx-linking.cxx
+fuzz_smtp_server_CPPFLAGS = $(FUZZER_CPPFLAGS)
+fuzz_smtp_server_LDFLAGS = $(FUZZER_LDFLAGS)
+fuzz_smtp_server_SOURCES = fuzz-smtp-server.c
+fuzz_smtp_server_LDADD = $(test_libs)
+fuzz_smtp_server_DEPENDENCIES = $(test_deps)
 
 check-local:
 	for bin in $(test_programs); do \

@@ -16,13 +16,15 @@ static bool submission_settings_verify(void *_set, pool_t pool,
 
 /* <settings checks> */
 static struct file_listener_settings submission_unix_listeners_array[] = {
-	{ "login/submission", 0666, "", "" }
+	{ "login/submission", 0666, "", "" },
+	{ "srv.submission/%{pid}", 0600, "", "" },
 };
 static struct file_listener_settings *submission_unix_listeners[] = {
-	&submission_unix_listeners_array[0]
+	&submission_unix_listeners_array[0],
+	&submission_unix_listeners_array[1],
 };
 static buffer_t submission_unix_listeners_buf = {
-	submission_unix_listeners, sizeof(submission_unix_listeners), { 0, }
+	{ { submission_unix_listeners, sizeof(submission_unix_listeners) } }
 };
 /* </settings checks> */
 
@@ -44,7 +46,7 @@ struct service_settings submission_service_settings = {
 	.client_limit = 1,
 	.service_count = 1,
 	.idle_kill = 0,
-	.vsz_limit = (uoff_t)-1,
+	.vsz_limit = UOFF_T_MAX,
 
 	.unix_listeners = { { &submission_unix_listeners_buf,
 			      sizeof(submission_unix_listeners[0]) } },
@@ -54,45 +56,46 @@ struct service_settings submission_service_settings = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct submission_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct submission_settings)
 
 static const struct setting_define submission_setting_defines[] = {
-	DEF(SET_BOOL, verbose_proctitle),
-	DEF(SET_STR_VARS, rawlog_dir),
+	DEF(BOOL, verbose_proctitle),
+	DEF(STR_VARS, rawlog_dir),
 
-	DEF(SET_STR, hostname),
+	DEF(STR, hostname),
 
-	DEF(SET_STR, login_greeting),
-	DEF(SET_STR, login_trusted_networks),
+	DEF(STR, login_greeting),
+	DEF(STR, login_trusted_networks),
 
-	DEF(SET_STR, recipient_delimiter),
+	DEF(STR, recipient_delimiter),
 
-	DEF(SET_SIZE, submission_max_mail_size),
-	DEF(SET_UINT, submission_max_recipients),
-	DEF(SET_STR, submission_client_workarounds),
-	DEF(SET_STR, submission_logout_format),
+	DEF(SIZE, submission_max_mail_size),
+	DEF(UINT, submission_max_recipients),
+	DEF(STR, submission_client_workarounds),
+	DEF(STR, submission_logout_format),
+	DEF(BOOL, submission_add_received_header),
 
-	DEF(SET_STR, submission_backend_capabilities),
+	DEF(STR, submission_backend_capabilities),
 
-	DEF(SET_STR, submission_relay_host),
-	DEF(SET_IN_PORT, submission_relay_port),
-	DEF(SET_BOOL, submission_relay_trusted),
+	DEF(STR, submission_relay_host),
+	DEF(IN_PORT, submission_relay_port),
+	DEF(BOOL, submission_relay_trusted),
 
-	DEF(SET_STR, submission_relay_user),
-	DEF(SET_STR, submission_relay_master_user),
-	DEF(SET_STR, submission_relay_password),
+	DEF(STR, submission_relay_user),
+	DEF(STR, submission_relay_master_user),
+	DEF(STR, submission_relay_password),
 
-	DEF(SET_ENUM, submission_relay_ssl),
-	DEF(SET_BOOL, submission_relay_ssl_verify),
+	DEF(ENUM, submission_relay_ssl),
+	DEF(BOOL, submission_relay_ssl_verify),
 
-	DEF(SET_STR_VARS, submission_relay_rawlog_dir),
-	DEF(SET_TIME, submission_relay_max_idle_time),
+	DEF(STR_VARS, submission_relay_rawlog_dir),
+	DEF(TIME, submission_relay_max_idle_time),
 
-	DEF(SET_TIME_MSECS, submission_relay_connect_timeout),
-	DEF(SET_TIME_MSECS, submission_relay_command_timeout),
+	DEF(TIME_MSECS, submission_relay_connect_timeout),
+	DEF(TIME_MSECS, submission_relay_command_timeout),
 
-	DEF(SET_STR, imap_urlauth_host),
-	DEF(SET_IN_PORT, imap_urlauth_port),
+	DEF(STR, imap_urlauth_host),
+	DEF(IN_PORT, imap_urlauth_port),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -112,6 +115,7 @@ static const struct submission_settings submission_default_settings = {
 	.submission_max_recipients = 0,
 	.submission_client_workarounds = "",
 	.submission_logout_format = "in=%i out=%o",
+	.submission_add_received_header = TRUE,
 
 	.submission_backend_capabilities = NULL,
 
@@ -146,10 +150,10 @@ const struct setting_parser_info submission_setting_parser_info = {
 	.defines = submission_setting_defines,
 	.defaults = &submission_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct submission_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 
 	.check_func = submission_settings_verify,
 	.dependencies = submission_setting_dependencies
@@ -161,12 +165,17 @@ struct submission_client_workaround_list {
 	enum submission_client_workarounds num;
 };
 
+/* These definitions need to be kept in sync with equivalent definitions present
+   in src/submission-login/submission-login-settings.c. Workarounds that are not
+   relevant to the submission service are defined as 0 here to prevent "Unknown
+   workaround" errors below. */
 static const struct submission_client_workaround_list
 submission_client_workaround_list[] = {
 	{ "whitespace-before-path",
 	  SUBMISSION_WORKAROUND_WHITESPACE_BEFORE_PATH },
 	{ "mailbox-for-path",
 	  SUBMISSION_WORKAROUND_MAILBOX_FOR_PATH },
+	{ "implicit-auth-external", 0 },
 	{ NULL, 0 }
 };
 

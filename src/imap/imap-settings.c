@@ -18,14 +18,16 @@ static bool imap_settings_verify(void *_set, pool_t pool,
 /* <settings checks> */
 static struct file_listener_settings imap_unix_listeners_array[] = {
 	{ "login/imap", 0666, "", "" },
-	{ "imap-master", 0600, "", "" }
+	{ "imap-master", 0600, "", "" },
+	{ "srv.imap/%{pid}", 0600, "", "" },
 };
 static struct file_listener_settings *imap_unix_listeners[] = {
 	&imap_unix_listeners_array[0],
-	&imap_unix_listeners_array[1]
+	&imap_unix_listeners_array[1],
+	&imap_unix_listeners_array[2],
 };
 static buffer_t imap_unix_listeners_buf = {
-	imap_unix_listeners, sizeof(imap_unix_listeners), { NULL, }
+	{ { imap_unix_listeners, sizeof(imap_unix_listeners) } }
 };
 /* </settings checks> */
 
@@ -47,7 +49,7 @@ struct service_settings imap_service_settings = {
 	.client_limit = 1,
 	.service_count = 1,
 	.idle_kill = 0,
-	.vsz_limit = (uoff_t)-1,
+	.vsz_limit = UOFF_T_MAX,
 
 	.unix_listeners = { { &imap_unix_listeners_buf,
 			      sizeof(imap_unix_listeners[0]) } },
@@ -58,28 +60,30 @@ struct service_settings imap_service_settings = {
 #undef DEF
 #undef DEFLIST
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct imap_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct imap_settings)
 #define DEFLIST(field, name, defines) \
-	{ SET_DEFLIST, name, offsetof(struct imap_settings, field), defines }
+	{ .type = SET_DEFLIST, .key = name, \
+	  .offset = offsetof(struct imap_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define imap_setting_defines[] = {
-	DEF(SET_BOOL, verbose_proctitle),
-	DEF(SET_STR_VARS, rawlog_dir),
+	DEF(BOOL, verbose_proctitle),
+	DEF(STR_VARS, rawlog_dir),
 
-	DEF(SET_SIZE, imap_max_line_length),
-	DEF(SET_TIME, imap_idle_notify_interval),
-	DEF(SET_STR, imap_capability),
-	DEF(SET_STR, imap_client_workarounds),
-	DEF(SET_STR, imap_logout_format),
-	DEF(SET_STR, imap_id_send),
-	DEF(SET_STR, imap_id_log),
-	DEF(SET_ENUM, imap_fetch_failure),
-	DEF(SET_BOOL, imap_metadata),
-	DEF(SET_BOOL, imap_literal_minus),
-	DEF(SET_TIME, imap_hibernate_timeout),
+	DEF(SIZE, imap_max_line_length),
+	DEF(TIME, imap_idle_notify_interval),
+	DEF(STR, imap_capability),
+	DEF(STR, imap_client_workarounds),
+	DEF(STR, imap_logout_format),
+	DEF(STR, imap_id_send),
+	DEF(STR, imap_id_log),
+	DEF(ENUM, imap_fetch_failure),
+	DEF(BOOL, imap_metadata),
+	DEF(BOOL, imap_literal_minus),
+	DEF(TIME, imap_hibernate_timeout),
 
-	DEF(SET_STR, imap_urlauth_host),
-	DEF(SET_IN_PORT, imap_urlauth_port),
+	DEF(STR, imap_urlauth_host),
+	DEF(IN_PORT, imap_urlauth_port),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -121,10 +125,10 @@ const struct setting_parser_info imap_setting_parser_info = {
 	.defines = imap_setting_defines,
 	.defaults = &imap_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct imap_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 
 	.check_func = imap_settings_verify,
 	.dependencies = imap_setting_dependencies

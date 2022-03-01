@@ -167,7 +167,7 @@ doveadm_mailbox_list_iter_next(struct doveadm_mailbox_list_iter *iter)
 	const char *const *patterns;
 	unsigned int count;
 
-	while (iter->iter == NULL) {
+	if (iter->iter == NULL) {
 		patterns = array_get(&iter->patterns, &count);
 		if (iter->pattern_idx == count)
 			return NULL;

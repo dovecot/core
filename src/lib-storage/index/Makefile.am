@@ -1,4 +1,4 @@
-SUBDIRS = maildir mbox dbox-common dbox-multi dbox-single cydir imapc pop3c raw shared
+SUBDIRS = maildir mbox dbox-common dbox-multi dbox-single imapc pop3c raw shared
 
 noinst_LTLIBRARIES = libstorage_index.la
 
@@ -7,6 +7,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-fs \
+	-I$(top_srcdir)/src/lib-master \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-imap \
 	-I$(top_srcdir)/src/lib-index \

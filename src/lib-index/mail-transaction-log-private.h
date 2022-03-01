@@ -9,7 +9,7 @@ struct dotlock_settings;
 /* Synchronization can take a while sometimes, especially when copying lots of
    mails. */
 #define MAIL_TRANSACTION_LOG_LOCK_TIMEOUT (3*60)
-#define MAIL_TRANSACTION_LOG_LOCK_CHANGE_TIMEOUT (3*60)
+#define MAIL_TRANSACTION_LOG_DOTLOCK_CHANGE_TIMEOUT (3*60)
 
 #define MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file) ((file)->fd == -1)
 
@@ -22,7 +22,9 @@ struct modseq_cache {
 
 struct mail_transaction_log_file {
 	struct mail_transaction_log *log;
-        struct mail_transaction_log_file *next;
+	/* Next file in the mail_transaction_log.files list. Sorted by
+	   hdr.file_seq. */
+	struct mail_transaction_log_file *next;
 
 	/* refcount=0 is a valid state. files start that way, and they're
 	   freed only when mail_transaction_logs_clean() is called. */
@@ -31,73 +33,115 @@ struct mail_transaction_log_file {
 	char *filepath;
 	int fd;
 
+	/* Cached values for last stat()/fstat() */
 	ino_t st_ino;
 	dev_t st_dev;
 	time_t last_mtime;
 	uoff_t last_size;
 
+	/* Used to avoid logging mmap() errors too rapidly. */
 	time_t last_mmap_error_time;
+	/* If non-NULL, the log file should be rotated. The string contains a
+	   human-readable reason why the rotation was requested. */
 	char *need_rotate;
 
+	/* Copy of the log file header. Set when opened. */
 	struct mail_transaction_log_header hdr;
+	/* Buffer that points to mmap_base */
 	buffer_t mmap_buffer;
+	/* Buffer that can be used to access the log file contents. Either
+	   points to mmap_buffer, or it's a copy of the file contents starting
+	   from buffer_offset. */
 	buffer_t *buffer;
+	/* Offset to log where the buffer starts from. 0 with mmaped log. */
 	uoff_t buffer_offset;
+	/* If non-NULL, mmap()ed log file */
 	void *mmap_base;
 	size_t mmap_size;
 
-	/* points to the next uncommitted transaction. usually same as EOF. */
+	/* Offset to log file how far it's been read. Usually it's the same
+	   as the log file size. However, if the last multi-record transaction
+	   wasn't fully written (or is in the middle of being written), this
+	   points to the beginning of the MAIL_TRANSACTION_BOUNDARY record. */
 	uoff_t sync_offset;
 	/* highest modseq at sync_offset */
 	uint64_t sync_highest_modseq;
-	/* saved_tail_offset is the offset that was last written to transaction
-	   log. max_tail_offset is what should be written to the log the next
-	   time a transaction is written. transaction log handling may update
-	   max_tail_offset automatically by making it skip external transactions
-	   after the last saved offset (to avoid re-reading them needlessly). */
-	uoff_t saved_tail_offset, max_tail_offset;
-	/* don't give warnings about saved_tail_offset shrinking if
-	   sync_offset is less than this. */
-	uoff_t saved_tail_sync_offset;
+	/* The last mail_index_header.log_file_tail_offset update that was
+	   read from the log. */
+	uoff_t last_read_hdr_tail_offset;
+	/* Update mail_index_header.log_file_tail_offset to this offset the
+	   next time a transaction is written. Transaction log handling may
+	   increase this automatically by making it skip external transactions
+	   after last_read_hdr_tail_offset (to avoid re-reading them
+	   needlessly). */
+	uoff_t max_tail_offset;
 
-	/* if we've seen _INDEX_[UN9DELETED transaction in this file,
-	   this is the offset. otherwise (uoff_t)-1 */
+	/* Last seen offsets for MAIL_TRANSACTION_INDEX_DELETED and
+	   MAIL_TRANSACTION_INDEX_UNDELETED records. These are used to update
+	   mail_index.index_delete* fields. */
 	uoff_t index_deleted_offset, index_undeleted_offset;
 
+	/* Cache to optimize mail_transaction_log_file_get_modseq_next_offset()
+	   so it doesn't always have to start from the beginning of the log
+	   file to find the wanted modseq. */
 	struct modseq_cache modseq_cache[LOG_FILE_MODSEQ_CACHE_SIZE];
 
+	/* Lock for the log file fd. If dotlocking is used, this is NULL and
+	   mail_transaction_log.dotlock is used instead. */
 	struct file_lock *file_lock;
-	time_t lock_created;
+	/* Time when the log was successfully locked */
+	time_t lock_create_time;
 
+	/* Log is currently locked. */
 	bool locked:1;
+	/* TRUE if sync_offset has already been updated while this log was
+	   locked. This can be used to optimize away unnecessary checks to see
+	   whether there's more data written to log after sync_offset. */
 	bool locked_sync_offset_updated:1;
+	/* Log file has found to be corrupted. Stop trying to read it.
+	   The indexid is also usually overwritten to be 0 in the log header at
+	   this time. */
 	bool corrupted:1;
 };
 
 struct mail_transaction_log {
 	struct mail_index *index;
-        struct mail_transaction_log_view *views;
+	/* Linked list of all transaction log views */
+	struct mail_transaction_log_view *views;
+	/* Paths to .log and .log.2 */
 	char *filepath, *filepath2;
 
-	/* files is a linked list of all the opened log files. the list is
-	   sorted by the log file sequence, so that transaction views can use
-	   them easily. head contains a pointer to the newest log file. */
-	struct mail_transaction_log_file *files, *head;
+	/* Linked list of all the opened log files. The oldest files may have
+	   already been unlinked. The list is sorted by the log file sequence
+	   (oldest/lowest first), so that transaction views can use them
+	   easily. */
+	struct mail_transaction_log_file *files;
+	/* Latest log file (the last file in the files linked list) */
+	struct mail_transaction_log_file *head;
 	/* open_file is used temporarily while opening the log file.
-	   if _open() failed, it's left there for _create(). */
+	   if mail_transaction_log_open() failed, it's left there for
+	   mail_transaction_log_create(). */
 	struct mail_transaction_log_file *open_file;
 
-	unsigned int dotlock_count;
+	/* Normally the .log locking is done via their file descriptors, so
+	   e.g. rotating a log needs to lock both the old and the new files
+	   at the same time. However, when FILE_LOCK_METHOD_DOTLOCK is used,
+	   the lock isn't file-specific. There is just a single dotlock that
+	   is created by the first log file lock. The second lock simply
+	   increases the refcount. (It's not expected that there would be more
+	   than 2 locks.) */
+	int dotlock_refcount;
 	struct dotlock *dotlock;
 
-	bool nfs_flush:1;
+	/* This session has already checked whether an old .log.2 should be
+	   unlinked. */
 	bool log_2_unlink_checked:1;
 };
 
 void
 mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file,
 					const char *fmt, ...)
-	ATTR_FORMAT(2, 3);
+	ATTR_FORMAT(2, 3) ATTR_COLD;
 
 void mail_transaction_log_get_dotlock_set(struct mail_transaction_log *log,
 					  struct dotlock_settings *set_r);
@@ -142,6 +186,8 @@ void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file,
 void mail_transaction_update_modseq(const struct mail_transaction_header *hdr,
 				    const void *data, uint64_t *cur_modseq,
 				    unsigned int version);
+/* Returns 1 if ok, 0 if file is corrupted or offset range is invalid,
+   -1 if I/O error */
 int mail_transaction_log_file_get_highest_modseq_at(
 		struct mail_transaction_log_file *file,
 		uoff_t offset, uint64_t *highest_modseq_r,

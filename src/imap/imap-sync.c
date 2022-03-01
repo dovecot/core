@@ -42,12 +42,12 @@ static int search_update_fetch_more(const struct imap_search_update *update)
 {
 	int ret;
 
-	if ((ret = imap_fetch_more_no_lock_update(update->fetch_ctx)) <= 0)
-		return ret;
+	if ((ret = imap_fetch_more_no_lock_update(update->fetch_ctx)) == 0)
+		return 0;
 	/* finished the FETCH */
 	if (imap_fetch_end(update->fetch_ctx) < 0)
 		return -1;
-	return 1;
+	return ret;
 }
 
 static int
@@ -176,7 +176,7 @@ imap_sync_init(struct client *client, struct mailbox *box,
 
 	if (client->notify_immediate_expunges) {
 		/* NOTIFY enabled without SELECTED-DELAYED */
-		flags &= ~MAILBOX_SYNC_FLAG_NO_EXPUNGES;
+		flags &= ENUM_NEGATE(MAILBOX_SYNC_FLAG_NO_EXPUNGES);
 	}
 
 	ctx = i_new(struct imap_sync_context, 1);
@@ -427,10 +427,10 @@ static void imap_sync_vanished(struct imap_sync_context *ctx)
 	line = t_str_new(256);
 	str_append(line, "* VANISHED ");
 	for (i = 0; i < count; i++) {
-		start_uid = 0; prev_uid = (uint32_t)-1;
+		start_uid = 0; prev_uid = 0;
 		for (seq = seqs[i].seq1; seq <= seqs[i].seq2; seq++) {
 			mail_set_seq(ctx->mail, seq);
-			if (prev_uid + 1 != ctx->mail->uid) {
+			if (prev_uid == 0 || prev_uid + 1 != ctx->mail->uid) {
 				if (start_uid != 0) {
 					if (!comma)
 						comma = TRUE;
@@ -678,7 +678,7 @@ static void get_common_sync_flags(struct client *client,
 	}
 	i_assert(noexpunges_count == 0 || noexpunges_count == count);
 	if (fast_count != count)
-		*flags_r &= ~MAILBOX_SYNC_FLAG_FAST;
+		*flags_r &= ENUM_NEGATE(MAILBOX_SYNC_FLAG_FAST);
 
 	i_assert((*flags_r & MAILBOX_SYNC_FLAG_FIX_INCONSISTENT) == 0);
 }

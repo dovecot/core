@@ -26,7 +26,6 @@ db_dict_parse_cache_key(const ARRAY_TYPE(db_dict_key) *keys,
 {
 	const struct db_dict_field *field;
 	const struct db_dict_key *key;
-	const struct db_dict_key *const *keyp;
 	const char *p, *name;
 	unsigned int idx, size;
 	string_t *str = t_str_new(128);
@@ -59,7 +58,7 @@ db_dict_parse_cache_key(const ARRAY_TYPE(db_dict_key) *keys,
 			p += size;
 		}
 	}
-	array_foreach(objects, keyp)
-		str_printfa(str, "\t%s", (*keyp)->key);
+	array_foreach_elem(objects, key)
+		str_printfa(str, "\t%s", key->key);
 	return str_c(str);
 }

@@ -118,7 +118,8 @@ i_stream_json_unescape(const unsigned char *src, size_t len,
 
 static ssize_t i_stream_jsonstr_read(struct istream_private *stream)
 {
-	struct jsonstr_istream *jstream = (struct jsonstr_istream *)stream;
+	struct jsonstr_istream *jstream =
+		container_of(stream, struct jsonstr_istream, istream);
 	const unsigned char *data;
 	unsigned int srcskip, destskip, extra;
 	size_t i, dest, size;

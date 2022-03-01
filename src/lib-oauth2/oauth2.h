@@ -1,4 +1,3 @@
-/* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 #ifndef OAUTH2_H
 #define OAUTH2_H
 
@@ -20,7 +19,8 @@ struct oauth2_settings {
 	/* GET tokeninfo from this URL, token is appended to URL
 	   http://some.host/path?access_token= */
 	const char *tokeninfo_url;
-	/* POST grant password here, needs user credentials and client_* settings */
+	/* POST grant password here, needs user credentials and client_*
+	   settings */
 	const char *grant_url;
 	/* GET more information from this URL, uses Bearer authentication */
 	const char *introspection_url;
@@ -56,13 +56,11 @@ struct oauth2_settings {
 struct oauth2_request_result {
 	/* Oauth2 server response fields */
 	ARRAY_TYPE(oauth2_field) *fields;
-	/* Error message */
+	/* Non-NULL if there was an unexpected internal error. */
 	const char *error;
-	/* Request handled successfully */
-	bool success:1;
 	/* timestamp token expires at */
 	time_t expires_at;
-	/* User authenticated successfully */
+	/* User authenticated successfully. Implies that error==NULL. */
 	bool valid:1;
 };
 
@@ -85,9 +83,12 @@ oauth2_passwd_grant_start(const struct oauth2_settings *set,
 			  const char *password,
 			  oauth2_request_callback_t *callback,
 			  void *context);
-#define oauth2_passwd_grant_start(set, input, username, password, callback, context) \
-	oauth2_passwd_grant_start(set, input - \
-		CALLBACK_TYPECHECK(callback, void(*)(struct oauth2_request_result*, typeof(context))), \
+#define oauth2_passwd_grant_start(set, input, username, password, callback, \
+				  context) \
+	oauth2_passwd_grant_start( \
+		set, input - CALLBACK_TYPECHECK( \
+			callback, void(*)(struct oauth2_request_result*, \
+					  typeof(context))), \
 		username, password, \
 		(oauth2_request_callback_t*)callback, (void*)context);
 
@@ -97,8 +98,10 @@ oauth2_token_validation_start(const struct oauth2_settings *set,
 			      oauth2_request_callback_t *callback,
 			      void *context);
 #define oauth2_token_validation_start(set, input, callback, context) \
-	oauth2_token_validation_start(set, input - \
-		CALLBACK_TYPECHECK(callback, void(*)(struct oauth2_request_result*, typeof(context))), \
+	oauth2_token_validation_start( \
+		set, input - CALLBACK_TYPECHECK( \
+			callback, void(*)(struct oauth2_request_result*, \
+					  typeof(context))), \
 		(oauth2_request_callback_t*)callback, (void*)context);
 
 struct oauth2_request*
@@ -107,8 +110,10 @@ oauth2_introspection_start(const struct oauth2_settings *set,
 			   oauth2_request_callback_t *callback,
 			   void *context);
 #define oauth2_introspection_start(set, input, callback, context) \
-	oauth2_introspection_start(set, input - \
-		CALLBACK_TYPECHECK(callback, void(*)(struct oauth2_request_result*, typeof(context))), \
+	oauth2_introspection_start( \
+		set, input - CALLBACK_TYPECHECK( \
+			callback, void(*)(struct oauth2_request_result*, \
+					  typeof(context))), \
 		(oauth2_request_callback_t*)callback, (void*)context);
 
 struct oauth2_request *
@@ -117,11 +122,13 @@ oauth2_refresh_start(const struct oauth2_settings *set,
 		     oauth2_request_callback_t *callback,
 		     void *context);
 #define oauth2_refresh_start(set, input, callback, context) \
-	oauth2_refresh_start(set, input - \
-		CALLBACK_TYPECHECK(callback, void(*)(struct oauth2_request_result*, typeof(context))), \
+	oauth2_refresh_start( \
+		set, input - CALLBACK_TYPECHECK( \
+			callback, void(*)(struct oauth2_request_result*, \
+					  typeof(context))), \
 		(oauth2_request_callback_t*)callback, (void*)context);
 
-/* abort without calling callback, use this to cancel the request */
+/* Abort without calling callback, use this to cancel the request */
 void oauth2_request_abort(struct oauth2_request **);
 
 int oauth2_try_parse_jwt(const struct oauth2_settings *set,
@@ -136,6 +143,7 @@ int oauth2_validation_key_cache_evict(struct oauth2_validation_key_cache *cache,
 				      const char *key_id);
 
 /* Deinitialize validation key cache */
-void oauth2_validation_key_cache_deinit(struct oauth2_validation_key_cache **_cache);
+void oauth2_validation_key_cache_deinit(
+	struct oauth2_validation_key_cache **_cache);
 
 #endif

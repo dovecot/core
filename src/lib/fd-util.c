@@ -108,7 +108,7 @@ void fd_set_nonblock(int fd, bool nonblock)
 	if (nonblock)
 		flags |= O_NONBLOCK;
 	else
-		flags &= ~O_NONBLOCK;
+		flags &= ENUM_NEGATE(O_NONBLOCK);
 
 	if (fcntl(fd, F_SETFL, flags) < 0)
 		i_fatal("fcntl(%d, F_SETFL) failed: %m", fd);
@@ -151,7 +151,10 @@ void i_close_fd_path(int *fd, const char *path, const char *arg,
 	}
 
 	saved_errno = errno;
-	if (unlikely(close(*fd) < 0))
+	/* Ignore ECONNRESET because we don't really care about it here,
+	   as we are closing the socket down in any case. There might be
+	   unsent data but nothing we can do about that. */
+	if (unlikely(close(*fd) < 0 && errno != ECONNRESET))
 		i_error("%s: close(%s%s%s) @ %s:%d failed (fd=%d): %m",
 			func, arg,
 			(path == NULL) ? "" : " = ",

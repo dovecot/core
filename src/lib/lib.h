@@ -81,6 +81,11 @@ void lib_atexit_priority(lib_atexit_callback_t *callback, int priority);
 /* Manually run the atexit callbacks. lib_deinit() also does this if not
    explicitly called. */
 void lib_atexit_run(void);
+/* Unless this or lib_deinit() is called, any unexpected exit() will result
+   in abort(). This can be helpful in catching unexpected exits. */
+void lib_set_clean_exit(bool set);
+/* Same as lib_set_clean_exit(TRUE) followed by exit(status). */
+void lib_exit(int status) ATTR_NORETURN;
 
 void lib_init(void);
 bool lib_is_initialized(void);
@@ -89,6 +94,16 @@ void lib_deinit(void);
 uint32_t i_rand(void);
 /* Returns a random integer < upper_bound. */
 uint32_t i_rand_limit(uint32_t upper_bound);
+
+static inline unsigned short i_rand_ushort(void)
+{
+        return i_rand_limit(USHRT_MAX + 1);
+}
+
+static inline unsigned char i_rand_uchar(void)
+{
+        return i_rand_limit(UCHAR_MAX + 1);
+}
 
 /* Returns a random integer >= min_val, and <= max_val. */
 static inline uint32_t i_rand_minmax(uint32_t min_val, uint32_t max_val)

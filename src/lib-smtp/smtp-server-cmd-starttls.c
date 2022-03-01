@@ -37,6 +37,13 @@ static int cmd_starttls_start(struct smtp_server_connection *conn)
 		return -1;
 	}
 
+	/* The command queue must be empty at this point. If anything were to be
+	   queued somehow, this connection is vulnerable to STARTTLS command
+	   insertion.
+	 */
+	i_assert(conn->command_queue_count == 0 &&
+		 conn->command_queue_head == NULL);
+
 	/* RFC 3207, Section 4.2:
 
 	   Upon completion of the TLS handshake, the SMTP protocol is reset to
@@ -106,6 +113,13 @@ cmd_starttls_next(struct smtp_server_cmd_ctx *cmd, void *context ATTR_UNUSED)
 	struct smtp_server_command *command = cmd->cmd;
 	const struct smtp_server_callbacks *callbacks = conn->callbacks;
 	int ret;
+
+	/* The command queue can only contain the STARTTLS command at this
+	   point. If anything beyond the STARTTLS were queued somehow, this
+	   connection is vulnerable to STARTTLS command insertion.
+	 */
+	i_assert(conn->command_queue_count == 1 &&
+	         conn->command_queue_tail == command);
 
 	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_STARTTLS,
 					 NULL);

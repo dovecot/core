@@ -3,8 +3,9 @@
 
 #include "hash-method.h"
 #include "sha1.h"
+#include "sha2.h"
 
-#define HMAC_MAX_CONTEXT_SIZE 256
+#define HMAC_MAX_CONTEXT_SIZE sizeof(struct sha512_ctx)
 
 struct hmac_context_priv {
 	char ctx[HMAC_MAX_CONTEXT_SIZE];

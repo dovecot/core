@@ -37,6 +37,9 @@ struct crypt_fs_file {
 	struct ostream *temp_output;
 };
 
+#define CRYPT_FS(ptr)	container_of((ptr), struct crypt_fs, fs)
+#define CRYPT_FILE(ptr)	container_of((ptr), struct crypt_fs_file, file)
+
 /* defined outside this file */
 extern const struct fs FS_CLASS_CRYPT;
 
@@ -57,7 +60,7 @@ static int
 fs_crypt_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 	      const char **error_r)
 {
-	struct crypt_fs *fs = (struct crypt_fs *)_fs;
+	struct crypt_fs *fs = CRYPT_FS(_fs);
 	const char *enc_algo, *set_prefix;
 	const char *p, *arg, *value, *error, *parent_name, *parent_args;
 	const char *public_key_path = "", *private_key_path = "", *password = "";
@@ -116,12 +119,11 @@ fs_crypt_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 	return 0;
 }
 
-static void fs_crypt_deinit(struct fs *_fs)
+static void fs_crypt_free(struct fs *_fs)
 {
-	struct crypt_fs *fs = (struct crypt_fs *)_fs;
+	struct crypt_fs *fs = CRYPT_FS(_fs);
 
 	mail_crypt_global_keys_free(&fs->keys);
-	fs_deinit(&_fs->parent);
 	i_free(fs->enc_algo);
 	i_free(fs->set_prefix);
 	i_free(fs->public_key_path);
@@ -140,23 +142,23 @@ static void
 fs_crypt_file_init(struct fs_file *_file, const char *path,
 		   enum fs_open_mode mode, enum fs_open_flags flags)
 {
-	struct crypt_fs *fs = (struct crypt_fs *)_file->fs;
-	struct crypt_fs_file *file = (struct crypt_fs_file *)_file;
+	struct crypt_fs *fs = CRYPT_FS(_file->fs);
+	struct crypt_fs_file *file = CRYPT_FILE(_file);
 
 	file->file.path = i_strdup(path);
 	file->fs = fs;
 	file->open_mode = mode;
 
 	/* avoid unnecessarily creating two seekable streams */
-	flags &= ~FS_OPEN_FLAG_SEEKABLE;
+	flags &= ENUM_NEGATE(FS_OPEN_FLAG_SEEKABLE);
 
-	file->file.parent = fs_file_init_parent(_file, path, mode | flags);
+	file->file.parent = fs_file_init_parent(_file, path, mode, flags);
 	if (mode == FS_OPEN_MODE_READONLY &&
 	    (flags & FS_OPEN_FLAG_ASYNC) == 0) {
 		/* use async stream for super, so fs_read_stream() won't create
 		   another seekable stream needlessly */
 		file->super_read = fs_file_init_parent(_file, path,
-			mode | flags | FS_OPEN_FLAG_ASYNC |
+			mode, flags | FS_OPEN_FLAG_ASYNC |
 			FS_OPEN_FLAG_ASYNC_NOQUEUE);
 	} else {
 		file->super_read = file->file.parent;
@@ -165,7 +167,7 @@ fs_crypt_file_init(struct fs_file *_file, const char *path,
 
 static void fs_crypt_file_deinit(struct fs_file *_file)
 {
-	struct crypt_fs_file *file = (struct crypt_fs_file *)_file;
+	struct crypt_fs_file *file = CRYPT_FILE(_file);
 
 	if (file->super_read != _file->parent)
 		fs_file_deinit(&file->super_read);
@@ -176,7 +178,7 @@ static void fs_crypt_file_deinit(struct fs_file *_file)
 
 static void fs_crypt_file_close(struct fs_file *_file)
 {
-	struct crypt_fs_file *file = (struct crypt_fs_file *)_file;
+	struct crypt_fs_file *file = CRYPT_FILE(_file);
 
 	i_stream_unref(&file->input);
 	fs_file_close(file->super_read);
@@ -189,7 +191,7 @@ static int fs_crypt_read_file(const char *set_name, const char *path,
 	struct istream *input;
 	int ret;
 
-	input = i_stream_create_file(path, (size_t)-1);
+	input = i_stream_create_file(path, SIZE_MAX);
 	while (i_stream_read(input) > 0) ;
 	if (input->stream_errno != 0) {
 		*error_r = t_strdup_printf("%s: read(%s) failed: %s",
@@ -261,7 +263,7 @@ fs_crypt_istream_get_key(const char *pubkey_digest,
 static struct istream *
 fs_crypt_read_stream(struct fs_file *_file, size_t max_buffer_size)
 {
-	struct crypt_fs_file *file = (struct crypt_fs_file *)_file;
+	struct crypt_fs_file *file = CRYPT_FILE(_file);
 	struct istream *input;
 
 	if (file->input != NULL) {
@@ -281,7 +283,7 @@ fs_crypt_read_stream(struct fs_file *_file, size_t max_buffer_size)
 
 static void fs_crypt_write_stream(struct fs_file *_file)
 {
-	struct crypt_fs_file *file = (struct crypt_fs_file *)_file;
+	struct crypt_fs_file *file = CRYPT_FILE(_file);
 	const char *error;
 
 	i_assert(_file->output == NULL);
@@ -321,7 +323,7 @@ static void fs_crypt_write_stream(struct fs_file *_file)
 
 static int fs_crypt_write_stream_finish(struct fs_file *_file, bool success)
 {
-	struct crypt_fs_file *file = (struct crypt_fs_file *)_file;
+	struct crypt_fs_file *file = CRYPT_FILE(_file);
 	struct istream *input;
 	int ret;
 

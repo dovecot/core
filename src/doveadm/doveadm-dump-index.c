@@ -7,9 +7,9 @@
 #include "file-lock.h"
 #include "message-parser.h"
 #include "message-part-serialize.h"
-#include "mail-index-private.h"
 #include "mail-cache-private.h"
 #include "mail-index-modseq.h"
+#include "mail-storage-private.h"
 #include "doveadm-dump.h"
 
 #include <stdio.h>
@@ -86,11 +86,6 @@ struct mailbox_list_index_msgs_record {
 	uint32_t unseen;
 	uint32_t recent;
 	uint32_t uidnext;
-};
-struct mailbox_index_vsize {
-	uint64_t vsize;
-	uint32_t highest_uid;
-	uint32_t message_count;
 };
 
 struct fts_index_header {
@@ -217,7 +212,7 @@ static void dump_extension_header(struct mail_index *index,
 	/* add some padding, since we don't bother to handle undersized
 	   headers correctly */
 	buf = t_malloc0(MALLOC_ADD(ext->hdr_size, 128));
-	data = CONST_PTR_OFFSET(index->map->hdr_base, ext->hdr_offset);
+	data = MAIL_INDEX_MAP_HDR_OFFSET(index->map, ext->hdr_offset);
 	memcpy(buf, data, ext->hdr_size);
 	data = buf;
 
@@ -326,6 +321,12 @@ static void dump_extension_header(struct mail_index *index,
 		printf("header ........ = %s\n",
 		       binary_to_hex(data, ext->hdr_size));
 		dump_box_name_header(data, ext->hdr_size);
+	} else if (strcmp(ext->name, "hdr-pop3-uidl") == 0) {
+		const struct mailbox_index_pop3_uidl *hdr = data;
+
+		printf("header\n");
+		printf(" - max_uid_with_pop3_uidl = %u\n",
+		       hdr->max_uid_with_pop3_uidl);
 	} else {
 		printf("header ........ = %s\n",
 		       binary_to_hex(data, ext->hdr_size));
@@ -385,7 +386,7 @@ static const char *cache_decision2str(enum mail_cache_decision_type type)
 {
 	const char *str;
 
-	switch (type & ~MAIL_CACHE_DECISION_FORCED) {
+	switch (type & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED)) {
 	case MAIL_CACHE_DECISION_NO:
 		str = "no";
 		break;
@@ -614,7 +615,6 @@ static void dump_cache(struct mail_cache_view *cache_view, unsigned int seq)
 		}
 		case MAIL_CACHE_FIELD_COUNT:
 			i_unreached();
-			break;
 		}
 
 		fwrite(str_data(str), 1, str_len(str), stdout);
@@ -763,20 +763,21 @@ static struct mail_index *path_open_index(const char *path)
 		return mail_index_alloc(NULL, ".", path);
 }
 
-static void cmd_dump_index(int argc ATTR_UNUSED, char *argv[])
+static void
+cmd_dump_index(const char *path, const char *const *args)
 {
 	struct mail_index *index;
 	struct mail_index_view *view;
 	struct mail_cache_view *cache_view;
 	unsigned int seq, uid = 0;
 
-	index = path_open_index(argv[1]);
+	index = path_open_index(path);
 	if (index == NULL ||
 	    mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY) <= 0)
-		i_fatal("Couldn't open index %s", argv[1]);
-	if (argv[2] != NULL) {
-		if (str_to_uint(argv[2], &uid) < 0)
-			i_fatal("Invalid uid number %s", argv[2]);
+		i_fatal("Couldn't open index %s", path);
+	if (args[0] != NULL) {
+		if (str_to_uint(args[0], &uid) < 0)
+			i_fatal("Invalid uid number %s", args[0]);
 	}
 
 	view = mail_index_view_open(index);

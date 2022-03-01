@@ -210,7 +210,7 @@ void auth_fields_snapshot(struct auth_fields *fields)
 		array_append_array(&fields->snapshot_fields, &fields->fields);
 	}
 	array_foreach_modifiable(&fields->fields, field)
-		field->flags &= ~AUTH_FIELD_FLAG_CHANGED;
+		field->flags &= ENUM_NEGATE(AUTH_FIELD_FLAG_CHANGED);
 }
 
 void auth_fields_rollback(struct auth_fields *fields)

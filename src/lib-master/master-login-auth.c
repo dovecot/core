@@ -90,7 +90,7 @@ static const struct connection_settings master_login_auth_set = {
 	.minor_version = AUTH_MASTER_PROTOCOL_MINOR_VERSION,
 	.unix_client_connect_msecs = 1000,
 	.input_max_size = AUTH_MAX_INBUF_SIZE,
-	.output_max_size = (size_t)-1,
+	.output_max_size = SIZE_MAX,
 	.client = TRUE,
 };
 

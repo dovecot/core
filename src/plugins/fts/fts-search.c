@@ -9,6 +9,7 @@
 #include "fts-search-args.h"
 #include "fts-search-serialize.h"
 #include "fts-storage.h"
+#include "hash.h"
 
 static void
 uid_range_to_seqs(struct fts_search_context *fctx,
@@ -42,6 +43,8 @@ static int fts_search_lookup_level_single(struct fts_search_context *fctx,
 	struct fts_result result;
 
 	i_zero(&result);
+	result.search_state = fctx->search_state;
+	result.pool = fctx->result_pool;
 	p_array_init(&result.definite_uids, fctx->result_pool, 32);
 	p_array_init(&result.maybe_uids, fctx->result_pool, 32);
 	p_array_init(&result.scores, fctx->result_pool, 32);
@@ -51,6 +54,7 @@ static int fts_search_lookup_level_single(struct fts_search_context *fctx,
 			       &result) < 0)
 		return -1;
 
+	fctx->search_state = result.search_state;
 	level = array_append_space(&fctx->levels);
 	level->args_matches = buffer_create_dynamic(fctx->result_pool, 16);
 	fts_search_serialize(level->args_matches, args);
@@ -167,6 +171,7 @@ static int fts_search_lookup_level_multi(struct fts_search_context *fctx,
 	array_sort(&mailboxes_arr, mailbox_cmp_fts_backend);
 
 	i_zero(&result);
+	result.search_state = fctx->search_state;
 	result.pool = fctx->result_pool;
 
 	level = array_append_space(&fctx->levels);
@@ -196,6 +201,7 @@ static int fts_search_lookup_level_multi(struct fts_search_context *fctx,
 		if (multi_add_lookup_result(fctx, level, args, &result) < 0)
 			return -1;
 	}
+	fctx->search_state = result.search_state;
 	return 0;
 }
 
@@ -336,20 +342,62 @@ static void fts_search_merge_scores(struct fts_search_context *fctx)
 				      TRUE, &fctx->scores->score_map);
 }
 
-void fts_search_lookup(struct fts_search_context *fctx)
+int fts_search_get_first_missing_uid(struct fts_backend *backend,
+				     struct mailbox *box,
+				     uint32_t *last_indexed_uid_r)
+{
+	uint32_t messages_count = mail_index_view_get_messages_count(box->view);
+	uint32_t uid, last_indexed_uid;
+	int ret;
+
+	if (messages_count == 0)
+		return 1;
+
+	mail_index_lookup_uid(box->view, messages_count, &uid);
+	for (bool refreshed = FALSE;; refreshed = TRUE) {
+		ret = fts_backend_is_uid_indexed(backend, box, uid,
+						 &last_indexed_uid);
+		if (ret != 0)
+			return ret;
+		if (refreshed || backend->updating) {
+			*last_indexed_uid_r = last_indexed_uid;
+			return 0;
+		}
+
+		/* UID doesn't seem to be indexed yet.
+		   Refresh FTS and check again. */
+		if (fts_backend_refresh(backend) < 0)
+			return -1;
+	}
+	i_unreached();
+}
+
+static void fts_search_try_lookup(struct fts_search_context *fctx)
 {
 	uint32_t last_uid, seq1, seq2;
+	int ret;
 
 	i_assert(array_count(&fctx->levels) == 0);
 	i_assert(fctx->args->simplified);
 
-	if (fts_backend_refresh(fctx->backend) < 0)
+	ret = fts_search_get_first_missing_uid(fctx->backend, fctx->box,
+					       &last_uid);
+	if (ret < 0)
 		return;
-	if (fts_backend_get_last_uid(fctx->backend, fctx->box, &last_uid) < 0)
-		return;
-	mailbox_get_seq_range(fctx->box, last_uid+1, (uint32_t)-1,
-			      &seq1, &seq2);
+
+	if (ret > 0) {
+		/* everything is already indexed */
+		seq1 = seq2 = 0;
+	} else {
+		mailbox_get_seq_range(fctx->box, last_uid+1, (uint32_t)-1,
+				      &seq1, &seq2);
+	}
 	fctx->first_unindexed_seq = seq1 != 0 ? seq1 : (uint32_t)-1;
+
+	if (fctx->virtual_mailbox) {
+		hash_table_clear(fctx->last_indexed_virtual_uids, TRUE);
+		fctx->next_unindexed_seq = fctx->first_unindexed_seq;
+	}
 
 	if ((fctx->backend->flags & FTS_BACKEND_FLAG_TOKENIZED_INPUT) != 0) {
 		if (fts_search_args_expand(fctx->backend, fctx->args) < 0)
@@ -364,4 +412,11 @@ void fts_search_lookup(struct fts_search_context *fctx)
 
 	fts_search_deserialize(fctx->args->args, fctx->orig_matches);
 	fts_backend_lookup_done(fctx->backend);
+}
+
+void fts_search_lookup(struct fts_search_context *fctx)
+{
+	struct event_reason *reason = event_reason_begin("fts:lookup");
+	fts_search_try_lookup(fctx);
+	event_reason_end(&reason);
 }

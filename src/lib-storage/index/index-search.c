@@ -9,6 +9,7 @@
 #include "time-util.h"
 #include "unichar.h"
 #include "imap-match.h"
+#include "master-service.h"
 #include "message-address.h"
 #include "message-date.h"
 #include "message-search.h"
@@ -36,6 +37,10 @@
 #define SEARCH_MAX_NONBLOCK_USECS 250000
 #define SEARCH_INITIAL_MAX_COST 30000
 #define SEARCH_RECALC_MIN_USECS 50000
+
+/* If interrupt signal is received and search doesn't finish in this many
+   milliseconds, fail the search with MAIL_ERRSTR_INTERRUPTED. */
+#define SEARCH_INTERRUPT_DELAY_MSECS 2000
 
 struct search_header_context {
         struct index_search_context *index_ctx;
@@ -122,8 +127,10 @@ static void search_init_arg(struct mail_search_arg *arg,
 			       arg->value.str) == 0;
 		if (match != arg->match_not)
 			arg->match_always = TRUE;
-		else
+		else {
 			arg->nonmatch_always = TRUE;
+			ctx->have_nonmatch_always = TRUE;
+		}
 		break;
 	case SEARCH_MAILBOX:
 	case SEARCH_MAILBOX_GLOB:
@@ -132,8 +139,10 @@ static void search_init_arg(struct mail_search_arg *arg,
 	case SEARCH_ALL:
 		if (!arg->match_not)
 			arg->match_always = TRUE;
-		else
+		else {
 			arg->nonmatch_always = TRUE;
+			ctx->have_nonmatch_always = TRUE;
+		}
 		break;
 	default:
 		break;
@@ -209,7 +218,7 @@ static int search_arg_match_index(struct index_search_context *ctx,
 	case SEARCH_FLAGS:
 		/* recent flag shouldn't be set, but indexes from v1.0.x
 		   may contain it. */
-		flags = rec->flags & ~MAIL_RECENT;
+		flags = rec->flags & ENUM_NEGATE(MAIL_RECENT);
 		if ((arg->value.flags & MAIL_RECENT) != 0 &&
 		    mailbox_recent_flags_have_uid(ctx->box, rec->uid))
 			flags |= MAIL_RECENT;
@@ -218,7 +227,7 @@ static int search_arg_match_index(struct index_search_context *ctx,
 			   no private flags */
 		} else {
 			pvt_flags_mask = mailbox_get_private_flags_mask(ctx->box);
-			flags &= ~pvt_flags_mask;
+			flags &= ENUM_NEGATE(pvt_flags_mask);
 			if (index_search_get_pvt(ctx, rec->uid)) {
 				rec = mail_index_lookup(ctx->mail_ctx.transaction->view_pvt,
 							ctx->pvt_seq);
@@ -659,6 +668,9 @@ static void search_header_unmatch(struct mail_search_arg *arg,
 static void search_header(struct message_header_line *hdr,
 			  struct search_header_context *ctx)
 {
+	if (ctx->parse_headers)
+		index_mail_parse_header(NULL, hdr, ctx->imail);
+
 	if (hdr == NULL) {
 		/* end of headers, mark all unknown SEARCH_HEADERs unmatched */
 		(void)mail_search_args_foreach(ctx->args, search_header_unmatch,
@@ -668,9 +680,6 @@ static void search_header(struct message_header_line *hdr,
 
 	if (hdr->eoh)
 		return;
-
-	if (ctx->parse_headers)
-		index_mail_parse_header(NULL, hdr, ctx->imail);
 
 	if (ctx->custom_header || strcasecmp(hdr->name, "Date") == 0) {
 		ctx->hdr = hdr;
@@ -1354,7 +1363,7 @@ search_arg_deinit(struct mail_search_arg *arg,
 int index_storage_search_deinit(struct mail_search_context *_ctx)
 {
         struct index_search_context *ctx = (struct index_search_context *)_ctx;
-	struct mail **mailp;
+	struct mail *mail;
 	int ret;
 
 	ret = ctx->failed ? -1 : 0;
@@ -1373,11 +1382,11 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 	array_free(&ctx->mail_ctx.results);
 	array_free(&ctx->mail_ctx.module_contexts);
 
-	array_foreach_modifiable(&ctx->mail_ctx.mails, mailp) {
-		struct index_mail *imail = INDEX_MAIL(*mailp);
+	array_foreach_elem(&ctx->mail_ctx.mails, mail) {
+		struct index_mail *imail = INDEX_MAIL(mail);
 
 		imail->mail.search_mail = FALSE;
-		mail_free(mailp);
+		mail_free(&mail);
 	}
 
 	if (ctx->failed)
@@ -1597,14 +1606,61 @@ static bool search_would_block(struct index_search_context *ctx)
 	return ret;
 }
 
+int index_storage_search_next_match_mail(struct mail_search_context *_ctx,
+					 struct mail *mail)
+{
+	struct index_search_context *ctx =
+		container_of(_ctx, struct index_search_context, mail_ctx);
+	struct index_mail *imail = INDEX_MAIL(mail);
+	int match;
+
+	ctx->cur_mail = mail;
+	/* mail's access_type is SEARCH only while using it to process
+	   the search query. afterwards the mail can still be accessed
+	   for fetching. */
+	ctx->cur_mail->access_type = MAIL_ACCESS_TYPE_SEARCH;
+	T_BEGIN {
+		match = search_match_next(ctx);
+	} T_END;
+	ctx->cur_mail->access_type = MAIL_ACCESS_TYPE_DEFAULT;
+	ctx->cur_mail = NULL;
+
+	i_assert(imail->data.search_results == NULL);
+	if (match < 0) {
+		/* result isn't known yet, do a prefetch and
+		   finish later */
+		imail->data.search_results =
+			buffer_create_dynamic(imail->mail.data_pool, 64);
+		mail_search_args_result_serialize(_ctx->args,
+						  imail->data.search_results);
+	}
+
+	mail_search_args_reset(_ctx->args->args, FALSE);
+
+	if (match != 0) {
+		/* either matched or result is still unknown.
+		   anyway we're far enough now that we probably want
+		   to update the access_parts. the only problem here is
+		   if searching would want fewer access_parts than the
+		   fetching part, but that's probably not a big problem
+		   usually. */
+		index_mail_update_access_parts_pre(mail);
+		return 1;
+	}
+
+	/* non-match */
+	if (_ctx->args->stop_on_nonmatch)
+		return -1;
+	return 0;
+}
+
 static int search_more_with_mail(struct index_search_context *ctx,
 				 struct mail *mail)
 {
 	struct mail_search_context *_ctx = &ctx->mail_ctx;
 	struct mailbox *box = _ctx->transaction->box;
-	struct index_mail *imail = INDEX_MAIL(mail);
 	unsigned long long cost1, cost2;
-	int match, ret;
+	int ret;
 
 	if (search_would_block(ctx)) {
 		/* this lookup is useful when a large number of
@@ -1623,55 +1679,17 @@ static int search_more_with_mail(struct index_search_context *ctx,
 	while (box->v.search_next_update_seq(_ctx)) {
 		mail_set_seq(mail, _ctx->seq);
 
-		ctx->cur_mail = mail;
-		/* mail's access_type is SEARCH only while using it to process
-		   the search query. afterwards the mail can still be accessed
-		   for fetching. */
-		ctx->cur_mail->access_type = MAIL_ACCESS_TYPE_SEARCH;
-		T_BEGIN {
-			match = search_match_next(ctx);
-		} T_END;
-		ctx->cur_mail->access_type = MAIL_ACCESS_TYPE_DEFAULT;
-		ctx->cur_mail = NULL;
-
-		i_assert(imail->data.search_results == NULL);
-		if (match < 0) {
-			/* result isn't known yet, do a prefetch and
-			   finish later */
-			imail->data.search_results =
-				buffer_create_dynamic(imail->mail.data_pool, 64);
-			mail_search_args_result_serialize(_ctx->args,
-				imail->data.search_results);
-		}
-
-		mail_search_args_reset(_ctx->args->args, FALSE);
-
-		if (match != 0) {
-			/* either matched or result is still unknown.
-			   anyway we're far enough now that we probably want
-			   to update the access_parts. the only problem here is
-			   if searching would want fewer access_parts than the
-			   fetching part, but that's probably not a big problem
-			   usually. */
-			index_mail_update_access_parts_pre(mail);
-			ret = 1;
+		ret = box->v.search_next_match_mail(_ctx, mail);
+		if (ret != 0)
 			break;
-		}
-
-		/* non-match */
-		if (_ctx->args->stop_on_nonmatch) {
-			ret = -1;
-			break;
-		}
 
 		cost2 = search_get_cost(mail->transaction);
 		ctx->cost += cost2 - cost1;
 		cost1 = cost2;
 
-		if (search_would_block(ctx)) {
-			ret = 0;
+		if (search_would_block(ctx))
 			break;
-		}
+		ret = -1;
 	}
 	cost2 = search_get_cost(mail->transaction);
 	ctx->cost += cost2 - cost1;
@@ -1802,6 +1820,30 @@ static int search_more(struct index_search_context *ctx,
 	return ret;
 }
 
+static bool
+index_storage_search_is_interrupted(struct index_search_context *ctx)
+{
+	if (!master_service_is_killed(master_service))
+		return FALSE;
+
+	struct timeval tv_now;
+	i_gettimeofday(&tv_now);
+
+	if (ctx->interrupt_start_time.tv_sec == 0) {
+		master_service_get_kill_time(master_service,
+					     &ctx->interrupt_start_time);
+		i_assert(ctx->interrupt_start_time.tv_sec > 0);
+	} else if (timeval_diff_msecs(&tv_now, &ctx->interrupt_start_time) >=
+		 SEARCH_INTERRUPT_DELAY_MSECS) {
+		mail_storage_set_error(ctx->box->storage,
+				       MAIL_ERROR_INTERRUPTED,
+				       MAIL_ERRSTR_INTERRUPTED);
+		search_set_failed(ctx);
+		return TRUE;
+	}
+	return FALSE;
+}
+
 bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 					struct mail **mail_r, bool *tryagain_r)
 {
@@ -1811,6 +1853,9 @@ bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	int ret;
 
 	*tryagain_r = FALSE;
+
+	if (index_storage_search_is_interrupted(ctx))
+		return FALSE;
 
 	if (_ctx->sort_program == NULL) {
 		ret = search_more(ctx, &mail);
@@ -1865,7 +1910,7 @@ bool index_storage_search_next_update_seq(struct mail_search_context *_ctx)
 	}
 
 	if (!ctx->have_seqsets && !ctx->have_index_args &&
-	    _ctx->update_result == NULL) {
+	    !ctx->have_nonmatch_always && _ctx->update_result == NULL) {
 		_ctx->progress_cur = _ctx->seq;
 		return _ctx->seq <= ctx->seq2;
 	}

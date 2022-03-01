@@ -15,7 +15,7 @@
 	"Bar Baz <bar@example.org>" \
 	"Foo Bar (comment)foo.bar@host.example.org " \
 	"foo, foo@domain " \
-	"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.tld " \
+	"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@1bcdefghijklmnopqrstuvxy1.2bcdefghijklmnopqrstuvxy2.3bcdefghijklmnopqrstuvxy3.4bcdefghijklmnopqrstuvxy4.5bcdefghijklmnopqrstuvxy5.6bcdefghijklmnopqrstuvxy6.7bcdefghijklmnopqrstuvxy7.8bcdefghijklmnopqrstuvxy8.9bcdefghijklmnopqrstuvxy9.0bcdefghijklmnopqrstuvxy0.tld " \
 	"trailing, period@blue.com. " \
 	"multi-trialing, mul@trail.com..... " \
 	"m@s " \
@@ -319,7 +319,6 @@ static void test_fts_tokenizer_address_only(void)
 	static const char *const expected_output[] = {
 		"abc.dfg@example.com", "bar@example.org",
 		"foo.bar@host.example.org", "foo@domain",
-		"abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstu",
 		"period@blue.com", /*trailing period '.' in email */
 		"mul@trail.com",
 		"m@s", /*one letter local-part and domain name */
@@ -341,14 +340,25 @@ static void test_fts_tokenizer_address_parent(const char *name, const char * con
 {
 	static const char input[] = TEST_INPUT_ADDRESS;
 	static const char *const expected_output[] = {
-		"invalid", "invalid", "Abc", "Dfg", "abc", "dfg", "example", "com", "abc.dfg@example.com",
-		"Bar", "Baz", "bar", "example", "org", "bar@example.org",
-		"Foo", "Bar", "comment", "foo", "bar", "host", "example", "org", "foo.bar@host.example.org",
-		"foo", "foo", "domain", "foo@domain", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyzabcde",  "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyz","tld", "abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstu",
+		"invalid", "invalid", "Abc", "Dfg", "abc", "dfg", "example", "abc.dfg@example.com", "com",
+		"Bar", "Baz", "bar", "example", "bar@example.org", "org",
+		"Foo", "Bar", "comment", "foo", "bar", "host", "example", "foo.bar@host.example.org", "org",
+		"foo", "foo", "foo@domain", "domain",
+		"abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyzabcde",
+		"1bcdefghijklmnopqrstuvxy1",
+		"2bcdefghijklmnopqrstuvxy2",
+		"3bcdefghijklmnopqrstuvxy3",
+		"4bcdefghijklmnopqrstuvxy4",
+		"5bcdefghijklmnopqrstuvxy5",
+		"6bcdefghijklmnopqrstuvxy6",
+		"7bcdefghijklmnopqrstuvxy7",
+		"8bcdefghijklmnopqrstuvxy8",
+		"9bcdefghijklmnopqrstuvxy9",
+		"0bcdefghijklmnopqrstuvxy0", "tld",
 		"trailing", "period", "blue", "com", "period@blue.com",
 		"multi", "trialing", "mul", "trail", "com", "mul@trail.com",
-		"m", "s", "m@s",
-		"hypen", "hypen", "hypen", "com", "hypen@hypen-hypen.com",
+		"m", "m@s", "s",
+		"hypen", "hypen", "hypen", "hypen@hypen-hypen.com", "com",
 		"hypen", "hypen", "hypen", "sick", "com", "hypen@hypen-hypen-sick.com",
 		NULL
 	};
@@ -382,7 +392,18 @@ static void test_fts_tokenizer_address_search(void)
 		"invalid", "invalid", "Abc", "Dfg", "abc.dfg@example.com",
 		"Bar", "Baz", "bar@example.org",
 		"Foo", "Bar", "comment", "foo.bar@host.example.org",
-		"foo", "foo@domain", "abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyzabcdefghijklmnopqrstuvxyz@abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstuvxyz.abcdefghijklmnopqrstu",
+		"foo", "foo@domain",
+		"abcdefghijklmnopqrstuvxyz", "abcdefghijklmnopqrstuvxyzabcde",
+		"1bcdefghijklmnopqrstuvxy1",
+		"2bcdefghijklmnopqrstuvxy2",
+		"3bcdefghijklmnopqrstuvxy3",
+		"4bcdefghijklmnopqrstuvxy4",
+		"5bcdefghijklmnopqrstuvxy5",
+		"6bcdefghijklmnopqrstuvxy6",
+		"7bcdefghijklmnopqrstuvxy7",
+		"8bcdefghijklmnopqrstuvxy8",
+		"9bcdefghijklmnopqrstuvxy9",
+		"0bcdefghijklmnopqrstuvxy0", "tld",
 		"trailing", "period@blue.com",
 		"multi", "trialing", "mul@trail.com",
 		"m@s",
@@ -475,7 +496,7 @@ static void test_fts_tokenizer_address_maxlen(void)
 
 static void test_fts_tokenizer_random(void)
 {
-	const char test_chars[] = { 0, ' ', '.', 'a', 'b', 'c', '-', '@', '\xC3', '\xA4' };
+	const unsigned char test_chars[] = { 0, ' ', '.', 'a', 'b', 'c', '-', '@', '\xC3', '\xA4' };
 	const char *const settings[] = {"algorithm", "simple", NULL};
 	const char *const email_settings[] = {"maxlen", "9", NULL};
 	unsigned int i;
@@ -490,7 +511,7 @@ static void test_fts_tokenizer_random(void)
 
 	for (i = 0; i < 10000; i++) T_BEGIN {
 		for (unsigned int j = 0; j < sizeof(addr); j++)
-			addr[j] = test_chars[i_rand() % N_ELEMENTS(test_chars)];
+			addr[j] = test_chars[i_rand_limit(N_ELEMENTS(test_chars))];
 		str_truncate(str, 0);
 		if (uni_utf8_get_valid_data(addr, sizeof(addr), str))
 			str_append_data(str, addr, sizeof(addr));
@@ -563,9 +584,88 @@ test_fts_tokenizer_explicit_prefix(void)
 	}
 }
 
+static void test_fts_tokenizer_skip_base64(void)
+{
+	/* The skip_base64 works on the data already available in the buffer
+	   of the tokenizer, it does not pull more data to see if a base64
+	   sequence long enough would match or not. This is why it does not
+	   use test_tokenizer_inputoutput that also tests with one-byte-at-once
+	   or random chunking, as those are known to fail with the current
+	   implementation */
+	struct fts_tokenizer *tok;
+	const char *error;
+	const char *token;
+
+	static const char *input =
+		",/dirtyleader/456789012345678901234567890123456789/\r\n"
+
+		" /cleanleader/456789012345678901234567890123456789/\r\n"
+		"\t/cleanleader/456789012345678901234567890123456789/\r\n"
+		"\r/cleanleader/456789012345678901234567890123456789/\r\n"
+		"\n/cleanleader/456789012345678901234567890123456789/\r\n"
+		"=/cleanleader/456789012345678901234567890123456789/\r\n"
+		";/cleanleader/456789012345678901234567890123456789/\r\n"
+		":/cleanleader/456789012345678901234567890123456789/\r\n"
+		";/cleanleader/456789012345678901234567890123456789/\r\n"
+
+		"/23456789012345678901234567890123456/dirtytrailer/,\r\n"
+
+		"/23456789012345678901234567890123456/cleantrailer/ \r\n"
+		"/23456789012345678901234567890123456/cleantrailer/\t\r\n"
+		"/23456789012345678901234567890123456/cleantrailer/\r\r\n"
+		"/23456789012345678901234567890123456/cleantrailer/\n\r\n"
+		"/23456789012345678901234567890123456/cleantrailer/=\r\n"
+		"/23456789012345678901234567890123456/cleantrailer/;\r\n"
+		"/23456789012345678901234567890123456/cleantrailer/:\r\n"
+		"/23456789012345678901234567890123456/cleantrailer/?\r\n"
+
+		"J1RrDrZSWxIAphKpYckeKNs10iTeiGMY0hNI32SMoSqCTgH96\r\n" // 49
+		"MziUaLMK6FAOQws3OIuX0tgvQcyhu06ILAWWB1nGPy/bSEAEYg\r\n" // 50
+		"ljWSJo8kxsm4/CiZBpwFfWkd64y+5ZytnKqgkQD87UbQ7FcpZgj\r\n" // 51
+		"pTXUOBszCfdAgfZpWpPiOEQSthPxN9XMaS7HnOTyXtRBPVt96vw=\r\n" // 51=
+		"MJmsWlDKXo7NCSt1wvazf9Xad18qOzpLJkVs/sxKsvLYyPD/zv=\r\n" // 50=
+		"CBLsZ5dUybAEWcDkQwytSL348U/2lvadma7lF4wdNOc8sjUL8=\r\n" // 49=
+
+		"4HWw7lJ15ZW3G1GtH9/NQbylcThN2IJo1kr83Fa2c9z2GFK1/NF+DpAkjbhDA3Al\r\n"
+
+		"alpha bravo charlie delta echo foxtrot golf hotel india\r\n"
+		"=juliet=kilo=lima=mike=november=oscar=papa=qebec=romeo=\r\n";
+
+	static const char *const expected_output[] = {
+		"dirtyleader", "456789012345678901234567890123",
+		"234567890123456789012345678901", "dirtytrailer",
+		"J1RrDrZSWxIAphKpYckeKNs10iTeiG", // 49
+		"CBLsZ5dUybAEWcDkQwytSL348U", "2lvadma7lF4wdNOc8sjUL8", // 49=
+		"alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india",
+		"juliet", "kilo", "lima", "mike", "november", "oscar", "papa", "qebec", "romeo",
+		NULL
+	};
+
+	test_begin("fts tokenizer skip base64");
+	test_assert(fts_tokenizer_create(fts_tokenizer_generic, NULL, tr29_settings, &tok, &error) == 0);
+
+	size_t index = 0;
+	while (fts_tokenizer_next(tok, (const unsigned char *) input, strlen(input), &token, &error) > 0) {
+		i_assert(index < N_ELEMENTS(expected_output));
+		test_assert_strcmp(token, expected_output[index]);
+		++index;
+	}
+	while (fts_tokenizer_next(tok, NULL, 0, &token, &error) > 0) {
+		i_assert(index < N_ELEMENTS(expected_output));
+		test_assert_strcmp(token, expected_output[index]);
+		++index;
+	}
+	i_assert(index < N_ELEMENTS(expected_output));
+	test_assert_idx(expected_output[index] == NULL, index);
+
+	fts_tokenizer_unref(&tok);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
+		test_fts_tokenizer_skip_base64,
 		test_fts_tokenizer_find,
 		test_fts_tokenizer_generic_only,
 		test_fts_tokenizer_generic_tr29_only,

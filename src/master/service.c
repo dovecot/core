@@ -218,7 +218,7 @@ service_create(pool_t pool, const struct service_settings *set,
 	    service->client_limit > set->service_count)
 		service->client_limit = set->service_count;
 
-	service->vsz_limit = set->vsz_limit != (uoff_t)-1 ? set->vsz_limit :
+	service->vsz_limit = set->vsz_limit != UOFF_T_MAX ? set->vsz_limit :
 		set->master_set->default_vsz_limit;
 	service->idle_kill = set->idle_kill != 0 ? set->idle_kill :
 		set->master_set->default_idle_kill;
@@ -319,7 +319,9 @@ service_create(pool_t pool, const struct service_settings *set,
 
 	p_array_init(&service->listeners, pool,
 		     unix_count + fifo_count + inet_count);
-		     
+	if (unix_count > 0)
+		p_array_init(&service->unix_pid_listeners, pool, 1);
+
 	for (i = 0; i < unix_count; i++) {
 		if (unix_listeners[i]->mode == 0) {
 			/* disabled */
@@ -330,7 +332,11 @@ service_create(pool_t pool, const struct service_settings *set,
 						 unix_listeners[i], error_r);
 		if (l == NULL)
 			return NULL;
-		array_push_back(&service->listeners, &l);
+
+		if (strstr(unix_listeners[i]->path, "%{pid}") == NULL)
+			array_push_back(&service->listeners, &l);
+		else
+			array_push_back(&service->unix_pid_listeners, &l);
 	}
 	for (i = 0; i < fifo_count; i++) {
 		if (fifo_listeners[i]->mode == 0) {
@@ -362,11 +368,9 @@ service_create(pool_t pool, const struct service_settings *set,
 struct service *
 service_lookup(struct service_list *service_list, const char *name)
 {
-	struct service *const *services;
+	struct service *service;
 
-	array_foreach(&service_list->services, services) {
-		struct service *service = *services;
-
+	array_foreach_elem(&service_list->services, service) {
 		if (strcmp(service->set->name, name) == 0)
 			return service;
 	}
@@ -376,11 +380,9 @@ service_lookup(struct service_list *service_list, const char *name)
 struct service *
 service_lookup_type(struct service_list *service_list, enum service_type type)
 {
-	struct service *const *services;
+	struct service *service;
 
-	array_foreach(&service_list->services, services) {
-		struct service *service = *services;
-
+	array_foreach_elem(&service_list->services, service) {
 		if (service->type == type)
 			return service;
 	}
@@ -434,8 +436,10 @@ services_create_real(const struct master_settings *set, pool_t pool,
 	for (i = 0; i < count; i++) {
 		if (!service_want(service_settings[i]))
 			continue;
-		service = service_create(pool, service_settings[i],
-					 service_list, &error);
+		T_BEGIN {
+			service = service_create(pool, service_settings[i],
+						 service_list, &error);
+		} T_END_PASS_STR_IF(service == NULL, &error);
 		if (service == NULL) {
 			*error_r = t_strdup_printf("service(%s) %s",
 				service_settings[i]->name, error);
@@ -578,7 +582,7 @@ void service_login_notify(struct service *service, bool all_processes_full)
 
 static void services_kill_timeout(struct service_list *service_list)
 {
-	struct service *const *services, *log_service;
+	struct service *service, *log_service;
 	unsigned int service_uninitialized, uninitialized_count = 0;
 	unsigned int signal_count = 0;
 	int sig;
@@ -590,9 +594,7 @@ static void services_kill_timeout(struct service_list *service_list)
 	service_list->sigterm_sent = TRUE;
 
 	log_service = NULL;
-	array_foreach(&service_list->services, services) {
-		struct service *service = *services;
-
+	array_foreach_elem(&service_list->services, service) {
 		if (service->type == SERVICE_TYPE_LOG)
 			log_service = service;
 		else {
@@ -655,16 +657,16 @@ void service_list_ref(struct service_list *service_list)
 
 void service_list_unref(struct service_list *service_list)
 {
-	struct service *const *servicep;
-	struct service_listener *const *listenerp;
+	struct service *service;
+	struct service_listener *listener;
 
 	i_assert(service_list->refcount > 0);
 	if (--service_list->refcount > 0)
 		return;
 
-	array_foreach(&service_list->services, servicep) {
-		array_foreach(&(*servicep)->listeners, listenerp)
-			i_close_fd(&(*listenerp)->fd);
+	array_foreach_elem(&service_list->services, service) {
+		array_foreach_elem(&service->listeners, listener)
+			i_close_fd(&listener->fd);
 	}
 	i_close_fd(&service_list->master_fd);
 
@@ -691,18 +693,18 @@ static void service_throttle_timeout(struct service *service)
 
 static void service_drop_listener_connections(struct service *service)
 {
-	struct service_listener *const *listenerp;
+	struct service_listener *listener;
 	int fd;
 
-	array_foreach(&service->listeners, listenerp) {
-		switch ((*listenerp)->type) {
+	array_foreach_elem(&service->listeners, listener) {
+		switch (listener->type) {
 		case SERVICE_LISTENER_UNIX:
 		case SERVICE_LISTENER_INET:
-			if ((*listenerp)->fd == -1) {
+			if (listener->fd == -1) {
 				/* already stopped listening */
 				break;
 			}
-			while ((fd = net_accept((*listenerp)->fd,
+			while ((fd = net_accept(listener->fd,
 						NULL, NULL)) >= 0)
 				i_close_fd(&fd);
 			break;
@@ -728,11 +730,9 @@ void service_throttle(struct service *service, unsigned int msecs)
 void services_throttle_time_sensitives(struct service_list *list,
 				       unsigned int msecs)
 {
-	struct service *const *services;
+	struct service *service;
 
-	array_foreach(&list->services, services) {
-		struct service *service = *services;
-
+	array_foreach_elem(&list->services, service) {
 		if (service->type == SERVICE_TYPE_UNKNOWN)
 			service_throttle(service, msecs);
 	}

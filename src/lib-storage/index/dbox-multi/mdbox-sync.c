@@ -122,16 +122,13 @@ static int dbox_sync_mark_expunges(struct mdbox_sync_context *ctx)
 	if (mail_index_transaction_commit(&trans) < 0)
 		return -1;
 
-	if (box->v.sync_notify != NULL) {
-		/* do notifications after commit finished successfully */
-		box->tmp_sync_view = ctx->sync_view;
-		seq_range_array_iter_init(&iter, &ctx->expunged_seqs); n = 0;
-		while (seq_range_array_iter_nth(&iter, n++, &seq)) {
-			mail_index_lookup_uid(ctx->sync_view, seq, &uid);
-			box->v.sync_notify(box, uid, MAILBOX_SYNC_TYPE_EXPUNGE);
-		}
-		box->tmp_sync_view = NULL;
+	box->tmp_sync_view = ctx->sync_view;
+	seq_range_array_iter_init(&iter, &ctx->expunged_seqs); n = 0;
+	while (seq_range_array_iter_nth(&iter, n++, &seq)) {
+		mail_index_lookup_uid(ctx->sync_view, seq, &uid);
+		mailbox_sync_notify(box, uid, MAILBOX_SYNC_TYPE_EXPUNGE);
 	}
+	box->tmp_sync_view = NULL;
 	return 0;
 }
 
@@ -193,8 +190,7 @@ static int mdbox_sync_index(struct mdbox_sync_context *ctx)
 		array_free(&ctx->expunged_seqs);
 	}
 
-	if (box->v.sync_notify != NULL)
-		box->v.sync_notify(box, 0, 0);
+	mailbox_sync_notify(box, 0, 0);
 
 	return ret == 0 ? 1 :
 		(ctx->mbox->storage->corrupted ? 0 : -1);
@@ -323,6 +319,7 @@ int mdbox_sync_begin(struct mdbox_mailbox *mbox, enum mdbox_sync_flags flags,
 int mdbox_sync_finish(struct mdbox_sync_context **_ctx, bool success)
 {
 	struct mdbox_sync_context *ctx = *_ctx;
+	struct mail_storage *storage = &ctx->mbox->storage->storage.storage;
 	int ret = success ? 0 : -1;
 
 	*_ctx = NULL;
@@ -335,6 +332,9 @@ int mdbox_sync_finish(struct mdbox_sync_context **_ctx, bool success)
 	} else {
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
+
+	if (storage->rebuild_list_index)
+		ret = mail_storage_list_index_rebuild_and_set_uncorrupted(storage);
 
 	i_free(ctx);
 	return ret;

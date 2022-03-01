@@ -500,10 +500,10 @@ mail_index_insert_flag_update(struct mail_index_transaction *t,
 
 		updates[idx].add_flags =
 			(updates[idx].add_flags | u.add_flags) &
-			~u.remove_flags;
+			ENUM_NEGATE(u.remove_flags);
 		updates[idx].remove_flags =
 			(updates[idx].remove_flags | u.remove_flags) &
-			~u.add_flags;
+			ENUM_NEGATE(u.add_flags);
 		u.uid1 = updates[idx].uid2 + 1;
 
 		if (updates[idx].add_flags == 0 &&
@@ -561,7 +561,7 @@ static void mail_index_record_modify_flags(struct mail_index_record *rec,
 		rec->flags |= flags;
 		break;
 	case MODIFY_REMOVE:
-		rec->flags &= ~flags;
+		rec->flags &= ENUM_NEGATE(flags);
 		break;
 	}
 }
@@ -604,7 +604,7 @@ void mail_index_update_flags_range(struct mail_index_transaction *t,
 	switch (modify_type) {
 	case MODIFY_REPLACE:
 		u.add_flags = flags;
-		u.remove_flags = ~flags & MAIL_INDEX_FLAGS_MASK;
+		u.remove_flags = ENUM_NEGATE(flags) & MAIL_INDEX_FLAGS_MASK;
 		break;
 	case MODIFY_ADD:
 		if (flags == 0)
@@ -999,7 +999,7 @@ void mail_index_update_header_ext(struct mail_index_transaction *t,
 
 	hdr = array_idx_get_space(&t->ext_hdr_updates, ext_id);
 	if (hdr->alloc_size < offset || hdr->alloc_size - offset < size) {
-		i_assert(size < (size_t)-1 - offset);
+		i_assert(size < SIZE_MAX - offset);
 		new_size = nearest_power(offset + size);
 		hdr->mask = i_realloc(hdr->mask, hdr->alloc_size, new_size);
 		hdr->data = i_realloc(hdr->data, hdr->alloc_size, new_size);
@@ -1335,7 +1335,7 @@ void mail_index_unset_fscked(struct mail_index_transaction *t)
 
 	/* remove fsck'd-flag if it exists. */
 	if ((new_hdr.flags & MAIL_INDEX_HDR_FLAG_FSCKD) != 0) {
-		new_hdr.flags &= ~MAIL_INDEX_HDR_FLAG_FSCKD;
+		new_hdr.flags &= ENUM_NEGATE(MAIL_INDEX_HDR_FLAG_FSCKD);
 		mail_index_update_header(t,
 			offsetof(struct mail_index_header, flags),
 			&new_hdr.flags, sizeof(new_hdr.flags), FALSE);

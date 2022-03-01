@@ -18,18 +18,23 @@ anvil_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 anvil_SOURCES = \
 	main.c \
+	admin-client.c \
+	admin-client-pool.c \
 	anvil-connection.c \
 	anvil-settings.c \
 	connect-limit.c \
 	penalty.c
 
 noinst_HEADERS = \
+	admin-client.h \
+	admin-client-pool.h \
 	anvil-connection.h \
 	common.h \
 	connect-limit.h \
 	penalty.h
 
 test_programs = \
+	test-connect-limit \
 	test-penalty
 
 noinst_PROGRAMS = $(test_programs)
@@ -37,6 +42,10 @@ noinst_PROGRAMS = $(test_programs)
 test_libs = \
 	../lib-test/libtest.la \
 	../lib/liblib.la
+
+test_connect_limit_SOURCES = test-connect-limit.c
+test_connect_limit_LDADD = connect-limit.o $(test_libs)
+test_connect_limit_DEPENDENCIES = $(pkglibexec_PROGRAMS) $(test_libs)
 
 test_penalty_SOURCES = test-penalty.c
 test_penalty_LDADD = penalty.o $(test_libs)

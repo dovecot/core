@@ -54,7 +54,7 @@ virtual_search_args_parse(const string_t *rule, const char **error_r)
 	input = i_stream_create_from_data(str_data(rule), str_len(rule));
 	(void)i_stream_read(input);
 
-	imap_parser = imap_parser_create(input, NULL, (size_t)-1);
+	imap_parser = imap_parser_create(input, NULL, SIZE_MAX);
 	ret = imap_parser_finish_line(imap_parser, 0,  0, &args);
 	if (ret < 0) {
 		sargs = NULL;
@@ -372,7 +372,6 @@ virtual_config_metadata_match(const struct mailbox_info *info,
 		return 1;
 
 	box = mailbox_alloc(info->ns->list, info->vname, MAILBOX_FLAG_READONLY);
-	mailbox_set_reason(box, "virtual mailbox metadata match");
 	for (i = 0; i < count; i++) {
 		/* break on error or match */
 		if ((ret = virtual_config_box_metadata_match(box, boxes[i], error_r)) < 0 || ret > 0)
@@ -501,7 +500,7 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 	ctx.mbox = mbox;
 	ctx.pool = mbox->box.pool;
 	ctx.rule = t_str_new(256);
-	ctx.input = i_stream_create_fd(fd, (size_t)-1);
+	ctx.input = i_stream_create_fd(fd, SIZE_MAX);
 	i_stream_set_return_partial_line(ctx.input, TRUE);
 	while ((line = i_stream_read_next_line(ctx.input)) != NULL) {
 		linenum++;
@@ -529,9 +528,12 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 
 	virtual_mailbox_get_list_patterns(&ctx);
 	if (ret == 0 && ctx.have_wildcards) {
+		struct event_reason *reason =
+			event_reason_begin("virtual:config_read");
 		ret = virtual_config_expand_wildcards(&ctx, &error);
 		if (ret < 0)
 			mailbox_set_critical(&mbox->box, "%s: %s", path, error);
+		event_reason_end(&reason);
 	}
 
 	if (ret == 0 && !ctx.have_mailbox_defines) {

@@ -148,23 +148,22 @@ static void dbox_sync_file_expunge(struct sdbox_sync_context *ctx,
 		ret = dbox_file_unlink(file);
 
 	/* do sync_notify only when the file was unlinked by us */
-	if (ret > 0 && box->v.sync_notify != NULL)
-		box->v.sync_notify(box, uid, MAILBOX_SYNC_TYPE_EXPUNGE);
+	if (ret > 0)
+		mailbox_sync_notify(box, uid, MAILBOX_SYNC_TYPE_EXPUNGE);
 	dbox_file_unref(&file);
 }
 
 static void dbox_sync_expunge_files(struct sdbox_sync_context *ctx)
 {
-	const uint32_t *uidp;
+	uint32_t uid;
 
 	/* NOTE: Index is no longer locked. Multiple processes may be unlinking
 	   the files at the same time. */
 	ctx->mbox->box.tmp_sync_view = ctx->sync_view;
-	array_foreach(&ctx->expunged_uids, uidp) T_BEGIN {
-		dbox_sync_file_expunge(ctx, *uidp);
+	array_foreach_elem(&ctx->expunged_uids, uid) T_BEGIN {
+		dbox_sync_file_expunge(ctx, uid);
 	} T_END;
-	if (ctx->mbox->box.v.sync_notify != NULL)
-		ctx->mbox->box.v.sync_notify(&ctx->mbox->box, 0, 0);
+	mailbox_sync_notify(&ctx->mbox->box, 0, 0);
 	ctx->mbox->box.tmp_sync_view = NULL;
 }
 
@@ -267,6 +266,7 @@ int sdbox_sync_begin(struct sdbox_mailbox *mbox, enum sdbox_sync_flags flags,
 int sdbox_sync_finish(struct sdbox_sync_context **_ctx, bool success)
 {
 	struct sdbox_sync_context *ctx = *_ctx;
+	struct mail_storage *storage = &ctx->mbox->storage->storage.storage;
 	int ret = success ? 0 : -1;
 
 	*_ctx = NULL;
@@ -284,6 +284,9 @@ int sdbox_sync_finish(struct sdbox_sync_context **_ctx, bool success)
 	} else {
 		mail_index_sync_rollback(&ctx->index_sync_ctx);
 	}
+
+        if (storage->rebuild_list_index)
+		ret = mail_storage_list_index_rebuild_and_set_uncorrupted(storage);
 
 	index_storage_expunging_deinit(&ctx->mbox->box);
 	array_free(&ctx->expunged_uids);

@@ -74,13 +74,14 @@ buffer_t *t_hash_data(const struct hash_method *meth,
 }
 
 static const struct hash_method hash_method_size = {
-	"size",
-	sizeof(uint64_t),
-	sizeof(uint64_t),
+	.name = "size",
+	.block_size = 1,
+	.context_size = sizeof(uint64_t),
+	.digest_size = sizeof(uint64_t),
 
-	hash_method_init_size,
-	hash_method_loop_size,
-	hash_method_result_size
+	.init = hash_method_init_size,
+	.loop = hash_method_loop_size,
+	.result = hash_method_result_size
 };
 
 const struct hash_method *hash_methods[] = {
@@ -88,6 +89,7 @@ const struct hash_method *hash_methods[] = {
 	&hash_method_md5,
 	&hash_method_sha1,
 	&hash_method_sha256,
+	&hash_method_sha384,
 	&hash_method_sha512,
 	&hash_method_sha3_256,
 	&hash_method_sha3_512,

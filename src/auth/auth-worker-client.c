@@ -24,6 +24,9 @@
 #define CLIENT_STATE_IDLE "idling"
 #define CLIENT_STATE_STOP "waiting for shutdown"
 
+static unsigned int auth_worker_max_service_count = 0;
+static unsigned int auth_worker_service_count = 0;
+
 struct auth_worker_client {
 	struct connection conn;
 	int refcount;
@@ -56,6 +59,11 @@ static int auth_worker_output(struct auth_worker_client *client);
 static void auth_worker_client_destroy(struct connection *conn);
 static void auth_worker_client_unref(struct auth_worker_client **_client);
 
+void auth_worker_set_max_service_count(unsigned int count)
+{
+	auth_worker_max_service_count = count;
+}
+
 static struct auth_worker_client *auth_worker_get_client(void)
 {
 	if (!auth_worker_has_client())
@@ -63,20 +71,6 @@ static struct auth_worker_client *auth_worker_get_client(void)
 	struct auth_worker_client *client =
 		container_of(clients->connections, struct auth_worker_client, conn);
 	return client;
-}
-
-static void auth_worker_log_finished(struct auth_worker_command *cmd,
-				     const char *error)
-{
-	event_set_name(cmd->event, "auth_worker_request_finished");
-	if (error != NULL) {
-		event_add_str(cmd->event, "error", error);
-		e_error(cmd->event, "Finished: %s", error);
-	} else {
-		e_debug(cmd->event, "Finished");
-	}
-	event_unref(&cmd->event);
-	i_free(cmd);
 }
 
 void auth_worker_refresh_proctitle(const char *state)
@@ -102,13 +96,47 @@ auth_worker_client_check_throttle(struct auth_worker_client *client)
 	}
 }
 
+static void
+auth_worker_request_finished_full(struct auth_worker_command *cmd,
+				  const char *error, bool log_as_error)
+{
+	event_set_name(cmd->event, "auth_worker_request_finished");
+	if (error != NULL) {
+		event_add_str(cmd->event, "error", error);
+		if (log_as_error)
+			e_error(cmd->event, "Finished: %s", error);
+		else
+			e_debug(cmd->event, "Finished: %s", error);
+	} else {
+		e_debug(cmd->event, "Finished");
+	}
+	auth_worker_client_check_throttle(cmd->client);
+	auth_worker_client_unref(&cmd->client);
+	event_unref(&cmd->event);
+	i_free(cmd);
+
+	auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
+}
+
+static void auth_worker_request_finished(struct auth_worker_command *cmd,
+					 const char *error)
+{
+	auth_worker_request_finished_full(cmd, error, FALSE);
+}
+
+static void auth_worker_request_finished_bug(struct auth_worker_command *cmd,
+					     const char *error)
+{
+	auth_worker_request_finished_full(cmd, error, TRUE);
+}
+
 bool auth_worker_auth_request_new(struct auth_worker_command *cmd, unsigned int id,
 				  const char *const *args, struct auth_request **request_r)
 {
 	struct auth_request *auth_request;
 	const char *key, *value;
 
-	auth_request = auth_request_new_dummy();
+	auth_request = auth_request_new_dummy(cmd->event);
 
 	cmd->client->refcount++;
 	auth_request->context = cmd;
@@ -123,16 +151,17 @@ bool auth_worker_auth_request_new(struct auth_worker_command *cmd, unsigned int 
 			(void)auth_request_import(auth_request, key, value);
 		}
 	}
-	if (auth_request->user == NULL || auth_request->service == NULL) {
+	if (auth_request->fields.user == NULL ||
+	    auth_request->fields.service == NULL) {
 		auth_request_unref(&auth_request);
 		return FALSE;
 	}
 
 	/* reset changed-fields, so we'll export only the ones that were
 	   changed by this lookup. */
-	auth_fields_snapshot(auth_request->extra_fields);
-	if (auth_request->userdb_reply != NULL)
-		auth_fields_snapshot(auth_request->userdb_reply);
+	auth_fields_snapshot(auth_request->fields.extra_fields);
+	if (auth_request->fields.userdb_reply != NULL)
+		auth_fields_snapshot(auth_request->fields.userdb_reply);
 
 	auth_request_init(auth_request);
 	*request_r = auth_request;
@@ -157,24 +186,24 @@ static void auth_worker_send_reply(struct auth_worker_client *client,
 
 		e_warning(client->conn.event, "Auth master disconnected us while handling "
 			  "request for %s for %ld secs (result=%s)",
-			  request->user, (long)cmd_duration, p);
+			  request->fields.user, (long)cmd_duration, p);
 	}
 }
 
 static void
 reply_append_extra_fields(string_t *str, struct auth_request *request)
 {
-	if (!auth_fields_is_empty(request->extra_fields)) {
+	if (!auth_fields_is_empty(request->fields.extra_fields)) {
 		str_append_c(str, '\t');
 		/* export only the fields changed by this lookup, so the
 		   changed-flag gets preserved correctly on the master side as
 		   well. */
-		auth_fields_append(request->extra_fields, str,
+		auth_fields_append(request->fields.extra_fields, str,
 				   AUTH_FIELD_FLAG_CHANGED,
 				   AUTH_FIELD_FLAG_CHANGED);
 	}
-	if (request->userdb_reply != NULL &&
-	    auth_fields_is_empty(request->userdb_reply)) {
+	if (request->fields.userdb_reply != NULL &&
+	    auth_fields_is_empty(request->fields.userdb_reply)) {
 		/* all userdb_* fields had NULL values. we'll still
 		   need to tell this to the master */
 		str_append(str, "\tuserdb_"AUTH_REQUEST_USER_KEY_IGNORE);
@@ -186,6 +215,7 @@ static void verify_plain_callback(enum passdb_result result,
 {
 	struct auth_worker_command *cmd = request->context;
 	struct auth_worker_client *client = cmd->client;
+	const char *error = NULL;
 	string_t *str;
 
 	if (request->failed && result == PASSDB_RESULT_OK)
@@ -195,16 +225,18 @@ static void verify_plain_callback(enum passdb_result result,
 	str_printfa(str, "%u\t", request->id);
 
 	if (result == PASSDB_RESULT_OK)
-		if (auth_fields_exists(request->extra_fields, "noauthenticate"))
+		if (auth_fields_exists(request->fields.extra_fields, "noauthenticate"))
 			str_append(str, "NEXT");
 		else
 			str_append(str, "OK");
-	else
+	else {
 		str_printfa(str, "FAIL\t%d", result);
+		error = passdb_result_to_string(result);
+	}
 	if (result != PASSDB_RESULT_INTERNAL_FAILURE) {
 		str_append_c(str, '\t');
 		if (request->user_changed_by_lookup)
-			str_append_tabescaped(str, request->user);
+			str_append_tabescaped(str, request->fields.user);
 		str_append_c(str, '\t');
 		if (request->passdb_password != NULL)
 			str_append_tabescaped(str, request->passdb_password);
@@ -214,10 +246,8 @@ static void verify_plain_callback(enum passdb_result result,
 	auth_worker_send_reply(client, request, str);
 
 	auth_request_passdb_lookup_end(request, result);
-	auth_worker_log_finished(cmd, NULL);
+	auth_worker_request_finished(cmd, error);
 	auth_request_unref(&request);
-	auth_worker_client_check_throttle(client);
-	auth_worker_client_unref(&client);
 }
 
 static bool
@@ -278,7 +308,7 @@ auth_worker_handle_passw(struct auth_worker_command *cmd,
 	struct auth_request *request;
 	string_t *str;
 	const char *password;
-	const char *crypted, *scheme;
+	const char *crypted, *scheme, *error;
 	unsigned int passdb_id;
 	int ret;
 
@@ -307,20 +337,22 @@ auth_worker_handle_passw(struct auth_worker_command *cmd,
 	str = t_str_new(128);
 	str_printfa(str, "%u\t", request->id);
 
-	if (ret == 1)
+	if (ret == 1) {
 		str_printfa(str, "OK\t\t");
-	else if (ret == 0)
+		error = NULL;
+	} else if (ret == 0) {
 		str_printfa(str, "FAIL\t%d", PASSDB_RESULT_PASSWORD_MISMATCH);
-	else
+		error = passdb_result_to_string(PASSDB_RESULT_PASSWORD_MISMATCH);
+	} else {
 		str_printfa(str, "FAIL\t%d", PASSDB_RESULT_INTERNAL_FAILURE);
+		error = passdb_result_to_string(PASSDB_RESULT_INTERNAL_FAILURE);
+	}
 
 	str_append_c(str, '\n');
 	auth_worker_send_reply(client, request, str);
 
-	auth_worker_log_finished(cmd, NULL);
+	auth_worker_request_finished(cmd, error);
 	auth_request_unref(&request);
-	auth_worker_client_check_throttle(client);
-	auth_worker_client_unref(&client);
 	return TRUE;
 }
 
@@ -347,10 +379,10 @@ lookup_credentials_callback(enum passdb_result result,
 		else
 			str_append(str, "OK\t");
 		if (request->user_changed_by_lookup)
-			str_append_tabescaped(str, request->user);
+			str_append_tabescaped(str, request->fields.user);
 		str_append_c(str, '\t');
-		if (request->credentials_scheme[0] != '\0') {
-			str_printfa(str, "{%s.b64}", request->credentials_scheme);
+		if (request->wanted_credentials_scheme[0] != '\0') {
+			str_printfa(str, "{%s.b64}", request->wanted_credentials_scheme);
 			base64_encode(credentials, size, str);
 		} else {
 			i_assert(size == 0);
@@ -362,9 +394,7 @@ lookup_credentials_callback(enum passdb_result result,
 
 	auth_request_passdb_lookup_end(request, result);
 	auth_request_unref(&request);
-	auth_worker_log_finished(cmd, NULL);
-	auth_worker_client_check_throttle(client);
-	auth_worker_client_unref(&client);
+	auth_worker_request_finished(cmd, NULL);
 }
 
 static bool
@@ -388,7 +418,8 @@ auth_worker_handle_passl(struct auth_worker_command *cmd,
 		*error_r = "BUG: PASSL had missing parameters";
 		return FALSE;
 	}
-	auth_request->credentials_scheme = p_strdup(auth_request->pool, scheme);
+	auth_request->wanted_credentials_scheme =
+		p_strdup(auth_request->pool, scheme);
 
 	while (auth_request->passdb->passdb->id != passdb_id) {
 		auth_request->passdb = auth_request->passdb->next;
@@ -424,10 +455,9 @@ set_credentials_callback(bool success, struct auth_request *request)
 	str_printfa(str, "%u\t%s\n", request->id, success ? "OK" : "FAIL");
 	auth_worker_send_reply(client, request, str);
 
-	auth_worker_log_finished(cmd, NULL);
+	auth_worker_request_finished(cmd, success ? NULL :
+				     "Failed to set credentials");
 	auth_request_unref(&request);
-	auth_worker_client_check_throttle(client);
-	auth_worker_client_unref(&client);
 }
 
 static bool
@@ -471,6 +501,7 @@ lookup_user_callback(enum userdb_result result,
 {
 	struct auth_worker_command *cmd = auth_request->context;
 	struct auth_worker_client *client = cmd->client;
+	const char *error;
 	string_t *str;
 
 	str = t_str_new(128);
@@ -485,10 +516,10 @@ lookup_user_callback(enum userdb_result result,
 	case USERDB_RESULT_OK:
 		str_append(str, "OK\t");
 		if (auth_request->user_changed_by_lookup)
-			str_append_tabescaped(str, auth_request->user);
+			str_append_tabescaped(str, auth_request->fields.user);
 		str_append_c(str, '\t');
 		/* export only the fields changed by this lookup */
-		auth_fields_append(auth_request->userdb_reply, str,
+		auth_fields_append(auth_request->fields.userdb_reply, str,
 				   AUTH_FIELD_FLAG_CHANGED,
 				   AUTH_FIELD_FLAG_CHANGED);
 		if (auth_request->userdb_lookup_tempfailed)
@@ -500,10 +531,10 @@ lookup_user_callback(enum userdb_result result,
 	auth_worker_send_reply(client, auth_request, str);
 
 	auth_request_userdb_lookup_end(auth_request, result);
-	auth_worker_log_finished(cmd, NULL);
+	error = result == USERDB_RESULT_OK ? NULL :
+		userdb_result_to_string(result);
+	auth_worker_request_finished(cmd, error);
 	auth_request_unref(&auth_request);
-	auth_worker_client_check_throttle(client);
-	auth_worker_client_unref(&client);
 }
 
 static struct auth_userdb *
@@ -547,8 +578,8 @@ auth_worker_handle_user(struct auth_worker_command *cmd,
 		return FALSE;
 	}
 
-	if (auth_request->userdb_reply == NULL)
-		auth_request_init_userdb_reply(auth_request);
+	if (auth_request->fields.userdb_reply == NULL)
+		auth_request_init_userdb_reply(auth_request, TRUE);
 	auth_request_userdb_lookup_begin(auth_request);
 	auth_request->userdb->userdb->iface->
 		lookup(auth_request, lookup_user_callback);
@@ -565,15 +596,17 @@ static void list_iter_deinit(struct auth_worker_list_context *ctx)
 {
 	struct auth_worker_command *cmd = ctx->cmd;
 	struct auth_worker_client *client = ctx->client;
+	const char *error = NULL;
 	string_t *str;
 
 	i_assert(client->conn.io == NULL);
 
 	str = t_str_new(32);
 	if (ctx->auth_request->userdb->userdb->iface->
-	    		iterate_deinit(ctx->iter) < 0)
+	    			iterate_deinit(ctx->iter) < 0) {
+		error = "Iteration failed";
 		str_printfa(str, "%u\tFAIL\n", ctx->auth_request->id);
-	else
+	} else
 		str_printfa(str, "%u\tOK\n", ctx->auth_request->id);
 	auth_worker_send_reply(client, NULL, str);
 
@@ -581,12 +614,9 @@ static void list_iter_deinit(struct auth_worker_list_context *ctx)
 	o_stream_set_flush_callback(client->conn.output, auth_worker_output,
 				    client);
 	auth_request_userdb_lookup_end(ctx->auth_request, USERDB_RESULT_OK);
-	auth_worker_log_finished(cmd, NULL);
+	auth_worker_request_finished(cmd, error);
 	auth_request_unref(&ctx->auth_request);
-	auth_worker_client_unref(&client);
 	i_free(ctx);
-
-	auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
 }
 
 static void list_iter_callback(const char *user, void *context)
@@ -724,12 +754,14 @@ static int auth_worker_client_handshake_args(struct connection *conn, const char
 
 	if (str_array_length(args) < 3 ||
 	    strcmp(args[0], "DBHASH") != 0) {
-		i_error("BUG: Invalid input: %s", t_strarray_join(args, "\t"));
+		e_error(conn->event, "BUG: Invalid input: %s",
+			t_strarray_join(args, "\t"));
 		return -1;
 	}
 
 	if (!auth_worker_verify_db_hash(args[1], args[2])) {
-		i_error("Auth worker sees different passdbs/userdbs "
+		e_error(conn->event,
+			"Auth worker sees different passdbs/userdbs "
 			"than auth server. Maybe config just changed "
 			"and this goes away automatically?");
 		return -1;
@@ -749,7 +781,8 @@ auth_worker_client_input_args(struct connection *conn, const char *const *args)
 
 	if (str_array_length(args) < 3 ||
 	    str_to_uint(args[0], &id) < 0) {
-		i_error("BUG: Invalid input: %s", t_strarray_join(args, "\t"));
+		e_error(conn->event, "BUG: Invalid input: %s",
+			t_strarray_join(args, "\t"));
 		return -1;
 	}
 
@@ -760,11 +793,18 @@ auth_worker_client_input_args(struct connection *conn, const char *const *args)
 	cmd->event = event_create(client->conn.event);
 	event_add_category(cmd->event, &event_category_auth);
 	event_add_str(cmd->event, "command", args[1]);
-	event_add_int(cmd->event, "id", id);
+	event_add_int(cmd->event, "command_id", id);
 	event_set_append_log_prefix(cmd->event, t_strdup_printf("auth-worker<%u>: ", id));
 	client->cmd_start = ioloop_time;
 	client->refcount++;
 	e_debug(cmd->event, "Handling %s request", args[1]);
+
+	/* Check if we have reached service_count */
+	if (auth_worker_max_service_count > 0) {
+		auth_worker_service_count++;
+		if (auth_worker_service_count >= auth_worker_max_service_count)
+			worker_restart_request = TRUE;
+	}
 
 	auth_worker_refresh_proctitle(args[1]);
 	if (strcmp(args[1], "PASSV") == 0)
@@ -787,12 +827,11 @@ auth_worker_client_input_args(struct connection *conn, const char *const *args)
 	i_assert(ret || error != NULL);
 
 	if (!ret) {
-		auth_worker_log_finished(cmd, error);
-	} else if (client->conn.io == NULL) {
-		auth_worker_refresh_proctitle(CLIENT_STATE_IDLE);
+		auth_worker_request_finished_bug(cmd, error);
+		return -1;
 	}
 	auth_worker_client_unref(&client);
-	return ret ? 1 : -1;
+	return 1;
 }
 
 static int auth_worker_output(struct auth_worker_client *client)
@@ -854,8 +893,8 @@ static const struct connection_settings auth_worker_client_set =
 	.service_name_out = "auth-worker",
 	.major_version = AUTH_WORKER_PROTOCOL_MAJOR_VERSION,
 	.minor_version = AUTH_WORKER_PROTOCOL_MINOR_VERSION,
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1, /* we use throttling */
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX, /* we use throttling */
 };
 
 struct auth_worker_client *

@@ -71,6 +71,8 @@ mail_index_map_register_ext(struct mail_index_map *map,
 	struct mail_index_ext *ext;
 	uint32_t idx, ext_map_idx, empty_idx = (uint32_t)-1;
 
+	i_assert(mail_index_ext_name_is_valid(name));
+
 	if (!array_is_created(&map->extensions)) {
                 mail_index_map_init_extbufs(map, 5);
 		idx = 0;
@@ -122,7 +124,7 @@ int mail_index_map_ext_get_next(struct mail_index_map *map,
 	   - 64bit alignment padding
 	*/
 	name_offset = offset + sizeof(*ext_hdr);
-	ext_hdr = CONST_PTR_OFFSET(map->hdr_base, offset);
+	ext_hdr = MAIL_INDEX_MAP_HDR_OFFSET(map, offset);
 	if (offset + sizeof(*ext_hdr) >= map->hdr.header_size)
 		return -1;
 
@@ -130,9 +132,9 @@ int mail_index_map_ext_get_next(struct mail_index_map *map,
 	if (offset > map->hdr.header_size)
 		return -1;
 
-	*name_r = t_strndup(CONST_PTR_OFFSET(map->hdr_base, name_offset),
+	*name_r = t_strndup(MAIL_INDEX_MAP_HDR_OFFSET(map, name_offset),
 			    ext_hdr->name_size);
-	if (strcmp(*name_r, str_sanitize(*name_r, -1)) != 0) {
+	if (strcmp(*name_r, str_sanitize(*name_r, SIZE_MAX)) != 0) {
 		/* we allow only plain ASCII names, so this extension
 		   is most likely broken */
 		*name_r = "";
@@ -208,8 +210,8 @@ int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
 		*error_r = "Invalid field values";
 		return -1;
 	}
-	if (*name == '\0') {
-		*error_r = "Broken name";
+	if (!mail_index_ext_name_is_valid(name)) {
+		*error_r = "Invalid name";
 		return -1;
 	}
 
@@ -255,8 +257,9 @@ struct mail_index_map *mail_index_map_alloc(struct mail_index *index)
 
 	i_zero(&tmp_map);
 	mail_index_header_init(index, &tmp_map.hdr);
+	tmp_map.hdr_copy_buf = t_buffer_create(sizeof(tmp_map.hdr));
+	buffer_append(tmp_map.hdr_copy_buf, &tmp_map.hdr, sizeof(tmp_map.hdr));
 	tmp_map.index = index;
-	tmp_map.hdr_base = &tmp_map.hdr;
 
 	/* a bit kludgy way to do this, but it initializes everything
 	   nicely and correctly */
@@ -356,11 +359,9 @@ static void mail_index_map_copy_header(struct mail_index_map *dest,
 		      I_MIN(sizeof(dest->hdr), src->hdr.base_header_size));
 	if (src != dest) {
 		buffer_write(dest->hdr_copy_buf, src->hdr.base_header_size,
-			     CONST_PTR_OFFSET(src->hdr_base,
-					      src->hdr.base_header_size),
+			     MAIL_INDEX_MAP_HDR_OFFSET(src, src->hdr.base_header_size),
 			     src->hdr.header_size - src->hdr.base_header_size);
 	}
-	dest->hdr_base = buffer_get_modifiable_data(dest->hdr_copy_buf, NULL);
 	i_assert(dest->hdr_copy_buf->used == dest->hdr.header_size);
 }
 
@@ -429,6 +430,8 @@ void mail_index_record_map_move_to_private(struct mail_index_map *map)
 	const struct mail_index_record *rec;
 
 	if (array_count(&map->rec_map->maps) > 1) {
+		/* Multiple references to the rec_map. Create a clone of the
+		   rec_map, which is in memory. */
 		new_map = mail_index_record_map_alloc(map);
 		mail_index_map_copy_records(new_map, map->rec_map,
 					    map->hdr.record_size);
@@ -441,6 +444,10 @@ void mail_index_record_map_move_to_private(struct mail_index_map *map)
 	}
 
 	if (new_map->records_count != map->hdr.messages_count) {
+		/* The rec_map has more messages than what map contains.
+		   These messages aren't necessary (and may confuse the caller),
+		   so truncate them away. */
+		i_assert(new_map->records_count > map->hdr.messages_count);
 		new_map->records_count = map->hdr.messages_count;
 		if (new_map->records_count == 0)
 			new_map->last_appended_uid = 0;
@@ -457,9 +464,14 @@ void mail_index_map_move_to_memory(struct mail_index_map *map)
 {
 	struct mail_index_record_map *new_map;
 
-	if (map->rec_map->mmap_base == NULL)
+	if (map->rec_map->mmap_base == NULL) {
+		/* rec_map is already in memory */
 		return;
+	}
 
+	/* Move the rec_map contents to memory. If this is the only map that
+	   refers to the rec_map, it can be directly replaced and the old
+	   content munmap()ed. Otherwise, create a new rec_map for this map. */
 	if (array_count(&map->rec_map->maps) == 1)
 		new_map = map->rec_map;
 	else {

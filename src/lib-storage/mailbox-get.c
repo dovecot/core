@@ -17,14 +17,20 @@ void mailbox_get_uid_range(struct mailbox *box,
 {
 	const struct seq_range *range;
 	unsigned int i, count;
-	uint32_t seq, uid;
+	uint32_t seq, uid, uid2;
 
 	range = array_get(seqs, &count);
 	for (i = 0; i < count; i++) {
 		if (range[i].seq2 == (uint32_t)-1) {
-			i_assert(count == i-1);
-			mail_index_lookup_uid(box->view, range[i].seq1, &uid);
-			seq_range_array_add_range(uids, uid, (uint32_t)-1);
+			i_assert(i == count-1);
+			mail_index_lookup_uid(box->view,
+				mail_index_view_get_messages_count(box->view),
+				&uid2);
+			if (range[i].seq1 == (uint32_t)-1)
+				uid = uid2;
+			else
+				mail_index_lookup_uid(box->view, range[i].seq1, &uid);
+			seq_range_array_add_range(uids, uid, uid2);
 			break;
 		}
 		for (seq = range[i].seq1; seq <= range[i].seq2; seq++) {
@@ -97,12 +103,13 @@ mailbox_get_expunges_init(struct mailbox *box, uint64_t prev_modseq,
 					    &reset, &reason);
 	if (ret == 0) {
 		mail_transaction_log_get_tail(box->index->log, &tail_seq);
-		i_assert(tail_seq > log_seq);
-		ret = mail_transaction_log_view_set(log_view, tail_seq, 0,
-					box->view->log_file_head_seq,
-					box->view->log_file_head_offset,
-					&reset, &reason);
-		i_assert(ret != 0);
+		if (tail_seq <= box->view->log_file_head_seq) {
+			i_assert(tail_seq > log_seq);
+			ret = mail_transaction_log_view_set(log_view, tail_seq, 0,
+							    box->view->log_file_head_seq,
+							    box->view->log_file_head_offset,
+							    &reset, &reason);
+		}
 		*modseq_too_old_r = TRUE;
 	}
 	if (ret <= 0) {

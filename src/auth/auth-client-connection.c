@@ -104,7 +104,7 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 	i_assert(conn->pid == 0);
 
 	if (str_to_uint(args, &pid) < 0 || pid == 0) {
-		i_error("BUG: Authentication client said it's PID 0");
+		e_error(conn->event, "BUG: Authentication client said it's PID 0");
 		return FALSE;
 	}
 
@@ -129,7 +129,7 @@ auth_client_input_cpid(struct auth_client_connection *conn, const char *args)
 	}
 
 	if (old != NULL) {
-		i_error("BUG: Authentication client gave a PID "
+		e_error(conn->event, "BUG: Authentication client gave a PID "
 			"%u of existing connection", pid);
 		return FALSE;
 	}
@@ -201,7 +201,7 @@ auth_client_cancel(struct auth_client_connection *conn, const char *line)
 	unsigned int client_id;
 
 	if (str_to_uint(line, &client_id) < 0) {
-		i_error("BUG: Authentication client sent broken CANCEL");
+		e_error(conn->event, "BUG: Authentication client sent broken CANCEL");
 		return FALSE;
 	}
 
@@ -234,7 +234,7 @@ auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 		return auth_client_cancel(conn, line + 7);
 	}
 
-	i_error("BUG: Authentication client sent unknown command: %s",
+	e_error(conn->event, "BUG: Authentication client sent unknown command: %s",
 		str_sanitize(line, 80));
 	return FALSE;
 }
@@ -253,7 +253,7 @@ static void auth_client_input(struct auth_client_connection *conn)
 		return;
 	case -2:
 		/* buffer full */
-		i_error("BUG: Auth client %u sent us more than %d bytes",
+		e_error(conn->event, "BUG: Auth client %u sent us more than %d bytes",
 			conn->pid, (int)AUTH_CLIENT_MAX_LINE_LENGTH);
 		auth_client_connection_destroy(&conn);
 		return;
@@ -273,14 +273,14 @@ static void auth_client_input(struct auth_client_connection *conn)
 			if (!str_begins(line, "VERSION\t") ||
 			    str_parse_uint(line + 8, &vmajor, &p) < 0 ||
 			    *(p++) != '\t' || str_to_uint(p, &vminor) < 0) {
-				i_error("Authentication client "
+				e_error(conn->event, "Authentication client "
 					"sent invalid VERSION line: %s", line);
 				auth_client_connection_destroy(&conn);
 				return;
 			}
 			/* make sure the major version matches */
 			if (vmajor != AUTH_MASTER_PROTOCOL_MAJOR_VERSION) {
-				i_error("Authentication client "
+				e_error(conn->event, "Authentication client "
 					"not compatible with this server "
 					"(mixed old and new binaries?)");
 				auth_client_connection_destroy(&conn);
@@ -297,7 +297,7 @@ static void auth_client_input(struct auth_client_connection *conn)
 				return;
 			}
 		} else {
-			i_error("BUG: Authentication client sent "
+			e_error(conn->event, "BUG: Authentication client sent "
 				"unknown handshake command: %s",
 				str_sanitize(line, 80));
 			auth_client_connection_destroy(&conn);
@@ -335,14 +335,13 @@ void auth_client_connection_create(struct auth *auth, int fd,
 	conn->connect_uid = ++connect_uid_counter;
 	conn->login_requests = login_requests;
 	conn->token_auth = token_auth;
-	conn->event = event_create(NULL);
+	conn->event = event_create(auth_event);
 	event_set_forced_debug(conn->event, auth->set->debug);
-	event_add_category(conn->event, &event_category_auth);
 	random_fill(conn->cookie, sizeof(conn->cookie));
 
 	conn->fd = fd;
 	conn->input = i_stream_create_fd(fd, AUTH_CLIENT_MAX_LINE_LENGTH);
-	conn->output = o_stream_create_fd(fd, (size_t)-1);
+	conn->output = o_stream_create_fd(fd, SIZE_MAX);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	o_stream_set_flush_callback(conn->output, auth_client_output, conn);
 	conn->io = io_add(fd, IO_READ, auth_client_input, conn);
@@ -413,7 +412,7 @@ static void auth_client_disconnected(struct auth_client_connection **_conn)
 	request_count = conn->request_handler == NULL ? 0 :
 		auth_request_handler_get_request_count(conn->request_handler);
 	if (request_count > 0) {
-		i_warning("auth client %u disconnected with %u "
+		e_error(conn->event, "auth client %u disconnected with %u "
 			  "pending requests: %s", conn->pid, request_count,
 			  err == 0 ? "EOF" : strerror(err));
 	}

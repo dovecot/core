@@ -73,7 +73,7 @@ static void test_var_expand_builtin(void)
 
 	tests[0].out = my_hostname;
 	tests[1].out = my_pid;
-	env_put("FOO=baR");
+	env_put("FOO", "baR");
 
 	test_begin("var_expand - builtin");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
@@ -289,6 +289,7 @@ static void test_var_expand_extensions(void)
 		{ "rounds,salt,expand: %{sha1;rounds=1000,salt=%{other-value}:value} %{other-value}", "rounds,salt,expand: 49a598ee110af615e175f2e4511cc5d7ccff96ab other-example" },
 		{ "format: %4.8{sha1:value}", "format: 9c272973" },
 		{ "base64: %{sha1;format=base64:value}", "base64: w0mcJylzCn+AfvuGdqkty2+KP48=" },
+		{ "base64url: %{sha1;format=base64url:value}", "base64url: w0mcJylzCn-AfvuGdqkty2-KP48" },
 	};
 
 	static const struct var_expand_func_table func_table[] = {

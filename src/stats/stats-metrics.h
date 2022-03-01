@@ -4,7 +4,10 @@
 #include "stats-settings.h"
 #include "sha1.h"
 
+#define STATS_EVENT_FIELD_NAME_DURATION "duration"
+
 struct metric;
+struct stats_metrics;
 
 struct exporter {
 	const char *name;
@@ -15,6 +18,9 @@ struct exporter {
 	 * the "how do we encode the event before sending it" knobs
 	 */
 	enum event_exporter_time_fmt time_format;
+
+	/* Max length for string field values */
+	size_t format_max_field_len;
 
 	/* function to serialize the event */
 	void (*format)(const struct metric *, struct event *, buffer_t *);
@@ -97,6 +103,13 @@ struct metric {
 
 	struct metric_export_info export_info;
 };
+
+bool stats_metrics_add_dynamic(struct stats_metrics *metrics,
+			       struct stats_metric_settings *set,
+			       const char **error_r);
+
+bool stats_metrics_remove_dynamic(struct stats_metrics *metrics,
+				  const char *name);
 
 struct stats_metrics *stats_metrics_init(const struct stats_settings *set);
 void stats_metrics_deinit(struct stats_metrics **metrics);

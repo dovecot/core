@@ -75,10 +75,22 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 					"Invalid lip value: %s", value);
 				return -1;
 			}
+		} else if (strcmp(key, "lport") == 0) {
+			if (net_str2port(value, &state_r->local_port) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid lport value: %s", value);
+				return -1;
+			}
 		} else if (strcmp(key, "rip") == 0) {
 			if (net_addr2ip(value, &state_r->remote_ip) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid rip value: %s", value);
+				return -1;
+			}
+		} else if (strcmp(key, "rport") == 0) {
+			if (net_str2port(value, &state_r->remote_port) < 0) {
+				*error_r = t_strdup_printf(
+					"Invalid rport value: %s", value);
 				return -1;
 			}
 		} else if (strcmp(key, "peer_dev_major") == 0) {
@@ -117,6 +129,8 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 			state_r->idle_cmd = TRUE;
 		} else if (strcmp(key, "session") == 0) {
 			state_r->session_id = value;
+		} else if (strcmp(key, "mailbox") == 0) {
+			state_r->mailbox_vname = value;
 		} else if (strcmp(key, "session_created") == 0) {
 			if (str_to_time(value, &state_r->session_created) < 0) {
 				*error_r = t_strdup_printf(
@@ -139,7 +153,7 @@ imap_hibernate_client_parse_input(const char *const *args, pool_t pool,
 			buffer_t *state_buf;
 
 			state_buf = buffer_create_dynamic(pool, 1024);
-			if (base64_decode(value, strlen(value), NULL,
+			if (base64_decode(value, strlen(value),
 					  state_buf) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid state base64 value: %s", value);
@@ -168,7 +182,7 @@ imap_hibernate_client_input_args(struct connection *conn,
 	const char *error;
 
 	if (imap_hibernate_client_parse_input(args, pool, &state, &error) < 0) {
-		i_error("Failed to parse client input: %s", error);
+		e_error(conn->event, "Failed to parse client input: %s", error);
 		o_stream_nsend_str(conn->output, t_strdup_printf(
 			"-Failed to parse client input: %s\n", error));
 		return -1;
@@ -194,7 +208,7 @@ imap_hibernate_client_input_line(struct connection *conn, const char *line)
 		return 1;
 	}
 	if (client->finished) {
-		i_error("Received unexpected line: %s", line);
+		e_error(conn->event, "Received unexpected line: %s", line);
 		return -1;
 	}
 
@@ -204,23 +218,26 @@ imap_hibernate_client_input_line(struct connection *conn, const char *line)
 
 		fd = i_stream_unix_get_read_fd(conn->input);
 		if (fd == -1) {
-			i_error("IMAP client fd not received");
+			e_error(conn->event, "IMAP client fd not received");
 			return -1;
 		}
 
 		pool = pool_alloconly_create("client cmd", 1024);
 		args = p_strsplit_tabescaped(pool, line);
-		ret = imap_hibernate_client_input_args(conn, (void *)args, fd, pool);
+		ret = imap_hibernate_client_input_args(conn, (const void *)args,
+						       fd, pool);
 		if (ret >= 0 && client->debug)
-			i_debug("Create client with input: %s", line);
+			e_debug(conn->event, "Create client with input: %s", line);
 		pool_unref(&pool);
 	} else {
 		fd = i_stream_unix_get_read_fd(conn->input);
 		if (fd == -1) {
-			i_error("IMAP notify fd not received (input: %s)", line);
+			e_error(conn->event,
+				"IMAP notify fd not received (input: %s)", line);
 			ret = -1;
 		} else if (line[0] != '\0') {
-			i_error("Expected empty notify fd line from client, but got: %s", line);
+			e_error(conn->event,
+				"Expected empty notify fd line from client, but got: %s", line);
 			o_stream_nsend_str(conn->output,
 					   "Expected empty notify fd line");
 			ret = -1;
@@ -266,8 +283,8 @@ static struct connection_settings client_set = {
 	.major_version = 1,
 	.minor_version = 0,
 
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.client = FALSE
 };
 

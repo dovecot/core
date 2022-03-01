@@ -93,9 +93,9 @@ void quota_backend_register(const struct quota_backend *backend)
 void quota_backend_unregister(const struct quota_backend *backend)
 {
 	for(unsigned int i = 0; i < array_count(&quota_backends); i++) {
-		const struct quota_backend *const *be =
-			array_idx(&quota_backends, i);
-		if (strcmp((*be)->name, backend->name) == 0) {
+		const struct quota_backend *be =
+			array_idx_elem(&quota_backends, i);
+		if (strcmp(be->name, backend->name) == 0) {
 			array_delete(&quota_backends, i, 1);
 			return;
 		}
@@ -238,10 +238,8 @@ quota_root_settings_init(struct quota_settings *quota_set, const char *root_def,
 	}
 	root_set->args = p_strdup(quota_set->pool, args);
 
-	if (quota_set->debug) {
-		i_debug("Quota root: name=%s backend=%s args=%s",
-			root_set->name, backend_name, args == NULL ? "" : args);
-	}
+	e_debug(quota_set->event, "Quota root: name=%s backend=%s args=%s",
+		root_set->name, backend_name, args == NULL ? "" : args);
 
 	p_array_init(&root_set->rules, quota_set->pool, 4);
 	p_array_init(&root_set->warning_rules, quota_set->pool, 4);
@@ -310,6 +308,7 @@ int quota_user_read_settings(struct mail_user *user,
 	pool = pool_alloconly_create("quota settings", 2048);
 	quota_set = p_new(pool, struct quota_settings, 1);
 	quota_set->pool = pool;
+	quota_set->event = event_create(user->event);
 	quota_set->test_alloc = quota_default_test_alloc;
 	quota_set->debug = user->mail_debug;
 	quota_set->quota_exceeded_msg =
@@ -342,6 +341,7 @@ int quota_user_read_settings(struct mail_user *user,
 				   &error) < 0) {
 			*error_r = t_strdup_printf("Invalid quota root %s: %s",
 						   root_name, error);
+			event_unref(&quota_set->event);
 			pool_unref(&pool);
 			return -1;
 		}
@@ -350,6 +350,7 @@ int quota_user_read_settings(struct mail_user *user,
 	}
 	if (quota_set->max_mail_size == 0 &&
 	    array_count(&quota_set->root_sets) == 0) {
+		event_unref(&quota_set->event);
 		pool_unref(&pool);
 		return 0;
 	}
@@ -365,6 +366,7 @@ void quota_settings_deinit(struct quota_settings **_quota_set)
 
 	*_quota_set = NULL;
 
+	event_unref(&quota_set->event);
 	pool_unref(&quota_set->pool);
 }
 
@@ -374,6 +376,7 @@ static void quota_root_deinit(struct quota_root *root)
 
 	if (root->limit_set_dict != NULL)
 		dict_deinit(&root->limit_set_dict);
+	event_unref(&root->backend.event);
 	root->backend.v.deinit(root);
 	pool_unref(&pool);
 }
@@ -409,9 +412,15 @@ quota_root_init(struct quota_root_settings *root_set, struct quota *quota,
 		     sizeof(void *), 10);
 
 	if (root->backend.v.init != NULL) {
+		root->backend.event = event_create(quota->event);
+		event_drop_parent_log_prefixes(root->backend.event, 1);
+		event_set_forced_debug(root->backend.event, root->quota->set->debug);
+
 		if (root->backend.v.init(root, root_set->args, error_r) < 0) {
 			*error_r = t_strdup_printf("%s quota init failed: %s",
 					root->backend.name, *error_r);
+
+			event_unref(&root->backend.event);
 			return -1;
 		}
 	} else {
@@ -439,6 +448,9 @@ int quota_init(struct quota_settings *quota_set, struct mail_user *user,
 	int ret;
 
 	quota = i_new(struct quota, 1);
+	quota->event = event_create(user->event);
+	event_set_forced_debug(quota->event, quota_set->debug);
+	event_set_append_log_prefix(quota->event, "quota: ");
 	quota->user = user;
 	quota->set = quota_set;
 	i_array_init(&quota->roots, 8);
@@ -475,6 +487,7 @@ void quota_deinit(struct quota **_quota)
 
 	array_free(&quota->roots);
 	array_free(&quota->namespaces);
+	event_unref(&quota->event);
 	i_free(quota);
 }
 
@@ -820,6 +833,7 @@ int quota_set_resource(struct quota_root *root, const char *name,
 {
 	struct dict_transaction_context *trans;
 	const char *key, *error;
+	const struct dict_op_settings *set;
 
 	if (root->set->limit_set == NULL) {
 		*client_error_r = MAIL_ERRSTR_NO_PERMISSION;
@@ -841,23 +855,24 @@ int quota_set_resource(struct quota_root *root, const char *name,
 		struct dict_settings set;
 
 		i_zero(&set);
-		set.username = root->quota->user->username;
 		set.base_dir = root->quota->user->set->base_dir;
-		if (mail_user_get_home(root->quota->user, &set.home_dir) <= 0)
-			set.home_dir = NULL;
+		set.event_parent = root->quota->user->event;
 		if (dict_init(root->set->limit_set, &set,
 			      &root->limit_set_dict, &error) < 0) {
-			i_error("dict_init() failed: %s", error);
+			e_error(root->quota->event,
+				"dict_init() failed: %s", error);
 			*client_error_r = "Internal quota limit update error";
 			return -1;
 		}
 	}
 
-	trans = dict_transaction_begin(root->limit_set_dict);
+	set = mail_user_get_dict_op_settings(root->ns->user);
+	trans = dict_transaction_begin(root->limit_set_dict, set);
 	key = t_strdup_printf(QUOTA_LIMIT_SET_PATH"%s", key);
 	dict_set(trans, key, dec2str(value));
 	if (dict_transaction_commit(&trans, &error) < 0) {
-		i_error("dict_transaction_commit() failed: %s", error);
+		e_error(root->quota->event,
+			"dict_transaction_commit() failed: %s", error);
 		*client_error_r = "Internal quota limit update error";
 		return -1;
 	}
@@ -1032,8 +1047,7 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 
 	restrict_access_init(&set.restrict_set);
 
-	if (root->quota->set->debug)
-		i_debug("quota: Executing warning: %s (because %s)", cmd, reason);
+	e_debug(root->quota->event, "Executing warning: %s (because %s)", cmd, reason);
 
 	args = t_strsplit_spaces(cmd, " ");
 	if (last_arg != NULL) {
@@ -1065,7 +1079,8 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 
 	if (program_client_create(socket_path, args, &set, TRUE,
 				  &pc, &error) < 0) {
-		i_error("program_client_create(%s) failed: %s", socket_path,
+		e_error(root->quota->event,
+			"program_client_create(%s) failed: %s", socket_path,
 			error);
 		return;
 	}
@@ -1090,13 +1105,15 @@ static void quota_warnings_execute(struct quota_transaction_context *ctx,
 
 	if (quota_get_resource(root, "", QUOTA_NAME_STORAGE_BYTES,
 			       &bytes_current, &bytes_limit, &error) == QUOTA_GET_RESULT_INTERNAL_ERROR) {
-		i_error("Failed to get quota resource "QUOTA_NAME_STORAGE_BYTES
+		e_error(root->quota->event,
+			"Failed to get quota resource "QUOTA_NAME_STORAGE_BYTES
 			": %s", error);
 		return;
 	}
 	if (quota_get_resource(root, "", QUOTA_NAME_MESSAGES,
 			       &count_current, &count_limit, &error) == QUOTA_GET_RESULT_INTERNAL_ERROR) {
-		i_error("Failed to get quota resource "QUOTA_NAME_MESSAGES
+		e_error(root->quota->event,
+			"Failed to get quota resource "QUOTA_NAME_MESSAGES
 			": %s", error);
 		return;
 	}
@@ -1104,12 +1121,12 @@ static void quota_warnings_execute(struct quota_transaction_context *ctx,
 	if (ctx->bytes_used > 0 && bytes_current < (uint64_t)ctx->bytes_used)
 		bytes_before = 0;
 	else
-		bytes_before = bytes_current - ctx->bytes_used;
+		bytes_before = (int64_t)bytes_current - ctx->bytes_used;
 
 	if (ctx->count_used > 0 && count_current < (uint64_t)ctx->count_used)
 		count_before = 0;
 	else
-		count_before = count_current - ctx->count_used;
+		count_before = (int64_t)count_current - ctx->count_used;
 	for (i = 0; i < count; i++) {
 		if (quota_warning_match(&warnings[i],
 					bytes_before, bytes_current,
@@ -1158,7 +1175,8 @@ int quota_transaction_commit(struct quota_transaction_context **_ctx)
 
 			const char *error;
 			if (roots[i]->backend.v.update(roots[i], ctx, &error) < 0) {
-				i_error("Failed to update quota for %s: %s",
+				e_error(ctx->quota->event,
+					"Failed to update quota for %s: %s",
 					mailbox_name, error);
 				ret = -1;
 			}
@@ -1192,10 +1210,8 @@ static bool quota_over_flag_init_root(struct quota_root *root,
 	name = t_strconcat(root->set->set_name, "_over_script", NULL);
 	*quota_over_script_r = mail_user_plugin_getenv(root->quota->user, name);
 	if (*quota_over_script_r == NULL) {
-		if (root->quota->set->debug) {
-			i_debug("quota: quota_over_flag check: "
-				"%s unset - skipping", name);
-		}
+		e_debug(root->quota->event, "quota_over_flag check: "
+			"%s unset - skipping", name);
 		return FALSE;
 	}
 
@@ -1203,10 +1219,8 @@ static bool quota_over_flag_init_root(struct quota_root *root,
 	name = t_strconcat(root->set->set_name, "_over_flag_value", NULL);
 	flag_mask = mail_user_plugin_getenv(root->quota->user, name);
 	if (flag_mask == NULL) {
-		if (root->quota->set->debug) {
-			i_debug("quota: quota_over_flag check: "
-				"%s unset - skipping", name);
-		}
+		e_debug(root->quota->event, "quota_over_flag check: "
+			"%s unset - skipping", name);
 		return FALSE;
 	}
 
@@ -1234,20 +1248,16 @@ static void quota_over_flag_check_root(struct quota_root *root)
 	if (root->quota->user->session_create_time +
 	    QUOTA_OVER_FLAG_MAX_DELAY_SECS < ioloop_time) {
 		/* userdb's quota_over_flag lookup is too old. */
-		if (root->quota->set->debug) {
-			i_debug("quota: quota_over_flag check: "
-				"Flag lookup time is too old - skipping");
-		}
+		e_debug(root->quota->event, "quota_over_flag check: "
+			"Flag lookup time is too old - skipping");
 		return;
 	}
 	if (root->quota->user->session_restored) {
 		/* we don't know whether the quota_over_script was executed
 		   before hibernation. just assume that it was, so we don't
 		   unnecessarily call it too often. */
-		if (root->quota->set->debug) {
-			i_debug("quota: quota_over_flag check: "
-				"Session was already hibernated - skipping");
-		}
+		e_debug(root->quota->event, "quota_over_flag check: "
+			"Session was already hibernated - skipping");
 		return;
 	}
 	root->quota_over_flag_checked = TRUE;
@@ -1261,23 +1271,21 @@ static void quota_over_flag_check_root(struct quota_root *root)
 					 &limit, &error);
 		if (ret == QUOTA_GET_RESULT_INTERNAL_ERROR) {
 			/* can't reliably verify this */
-			i_error("quota: Quota %s lookup failed - can't verify quota_over_flag: %s",
+			e_error(root->quota->event, "Quota %s lookup failed -"
+				"can't verify quota_over_flag: %s",
 				resources[i], error);
 			return;
 		}
-		if (root->quota->set->debug) {
-			i_debug("quota: quota_over_flag check: %s ret=%d value=%"PRIu64" limit=%"PRIu64,
-				resources[i], ret, value, limit);
-		}
+		e_debug(root->quota->event, "quota_over_flag check: %s ret=%d"
+			"value=%"PRIu64" limit=%"PRIu64, resources[i], ret,
+			value, limit);
 		if (ret == QUOTA_GET_RESULT_LIMITED && value >= limit)
 			cur_overquota = TRUE;
 	}
-	if (root->quota->set->debug) {
-		i_debug("quota: quota_over_flag=%d(%s) vs currently overquota=%d",
-			quota_over_status ? 1 : 0,
-			quota_over_flag == NULL ? "(null)" : quota_over_flag,
-			cur_overquota ? 1 : 0);
-	}
+	e_debug(root->quota->event, "quota_over_flag=%d(%s) vs currently overquota=%d",
+		quota_over_status ? 1 : 0,
+		quota_over_flag == NULL ? "(null)" : quota_over_flag,
+		cur_overquota ? 1 : 0);
 	if (cur_overquota != quota_over_status) {
 		quota_warning_execute(root, quota_over_script, quota_over_flag,
 				      "quota_over_flag mismatch");
@@ -1452,7 +1460,8 @@ void quota_alloc(struct quota_transaction_context *ctx, struct mail *mail)
 void quota_free_bytes(struct quota_transaction_context *ctx,
 		      uoff_t physical_size)
 {
-	ctx->bytes_used -= physical_size;
+	i_assert(physical_size <= INT64_MAX);
+	ctx->bytes_used -= (int64_t)physical_size;
 	ctx->count_used--;
 }
 

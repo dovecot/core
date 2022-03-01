@@ -68,7 +68,8 @@ passdb_dict_lookup_key(struct auth_request *auth_request,
 			return PASSDB_RESULT_INTERNAL_FAILURE;
 
 		if (auth_request->passdb_password == NULL &&
-		    !auth_fields_exists(auth_request->extra_fields, "nopassword")) {
+		    !auth_fields_exists(auth_request->fields.extra_fields,
+					"nopassword")) {
 			return auth_request_password_missing(auth_request);
 		} else {
 			return PASSDB_RESULT_OK;
@@ -104,7 +105,7 @@ static void passdb_dict_lookup_pass(struct passdb_dict_request *dict_request)
 		i_assert(password == NULL || scheme != NULL);
 	}
 
-	if (auth_request->credentials_scheme != NULL) {
+	if (auth_request->wanted_credentials_scheme != NULL) {
 		passdb_handle_credentials(passdb_result, password, scheme,
 			dict_request->callback.lookup_credentials,
 			auth_request);

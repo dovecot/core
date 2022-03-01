@@ -1,69 +1,60 @@
 /* Copyright (c) 2004-2018 Dovecot authors, see the included COPYING file */
 
 /*
-   Users can be divided to three groups:
+   IMAP clients can work in many different ways. There are basically 2
+   types:
 
-   1. Most users will use only a single IMAP client which caches everything
-      locally. For these users it's quite pointless to do any kind of caching
-      as it only wastes disk space. That might also mean more disk I/O.
+   1. Online clients that ask for the same information multiple times (e.g.
+      webmails, Pine)
 
-   2. Some users use multiple IMAP clients which cache everything locally.
-      These could benefit from caching until all clients have fetched the
-      data. After that it's useless.
+   2. Offline clients that usually download first some of the interesting
+      message headers and only after that the message bodies (possibly
+      automatically, or possibly only when the user opens the mail). Most
+      non-webmail IMAP clients behave like this.
 
-   3. Some clients don't do permanent local caching at all. For example
-      Pine and webmails. These clients would benefit from caching everything.
-      Some locally caching clients might also access some data from server
-      again, such as when searching messages. They could benefit from caching
-      only these fields.
+   Cache file is extremely helpful with the type 1 clients. The first time
+   that client requests message headers or some other metadata they're
+   stored into the cache file. The second time they ask for the same
+   information Dovecot can now get it quickly from the cache file instead
+   of opening the message and parsing the headers.
 
-   After thinking about these a while, I figured out that people who care
-   about performance most will be using Dovecot optimized LDA anyway
-   which updates the indexes/cache immediately. In that case even the first
-   user group would benefit from caching the same way as second group. LDA
-   reads the mail anyway, so it might as well extract some information
-   about it and store them into cache.
+   For type 2 clients the cache file is also somewhat helpful if client
+   fetches any initial metadata. Some of the information is helpful in any
+   case, for example it's required to know the message's virtual size when
+   downloading the message with IMAP. Without the virtual size being in cache
+   Dovecot first has to read the whole message first to calculate it, which
+   increases CPU usage.
 
-   So, group 1. and 2. could be optimally implemented by keeping things
-   cached only for a while. I thought a week would be good. When cache file
-   is purged, everything older than week will be dropped.
+   Only the specified fields that client(s) have asked for earlier are
+   stored into cache file. This allows Dovecot to be adaptive to different
+   clients' needs and still not waste disk space (and cause extra disk
+   I/O!) for fields that client never needs.
 
-   But how to figure out if user is in group 3? One quite easy rule would
-   be to see if client is accessing messages older than a week. But with
-   only that rule we might have already dropped useful cached data. It's
-   not very nice if we have to read and cache it twice.
+   Dovecot can cache fields either permanently or temporarily. Temporarily
+   cached fields are dropped from the cache file after about a week.
+   Dovecot uses two rules to determine when data should be cached
+   permanently instead of temporarily:
 
-   Most locally caching clients always fetch new messages (all but body)
-   when they see them. They fetch them in ascending order. Noncaching
-   clients might fetch messages in pretty much any order, as they usually
-   don't fetch everything they can, only what's visible in screen. Some
-   will use server side sorting/threading which also makes messages to be
-   fetched in random order. Second rule would then be that if a session
-   doesn't fetch messages in ascending order, the fetched field type will
-   be permanently cached.
+   1. Client accessed messages in non-sequential order within this session.
+      This most likely means it doesn't have a local cache.
 
-   So, we have three caching decisions:
+   2. Client accessed a message older than one week.
 
-   1. Don't cache: Clients have never wanted the field
-   2. Cache temporarily: Clients want this only once
-   3. Cache permanently: Clients want this more than once
+   These rules might not always work optimally, so Dovecot also re-evaluates
+   the caching decisions once in a while:
 
-   Different mailboxes have different decisions. Different fields have
-   different decisions.
+   - When caching decision is YES (permanently cache the field), the field's
+     last_used is updated only when the caching decision has been verified to
+     be correct.
 
-   There are some problems, such as if a client accesses message older than
-   a week, we can't know if user just started using a new client which is
-   just filling its local cache for the first time. Or it might be a
-   client user hasn't just used for over a week. In these cases we
-   shouldn't have marked the field to be permanently cached. User might
-   also switch clients from non-caching to caching.
+   - When caching decision is TEMP, the last_used is updated whenever the field
+     is accessed.
 
-   So we should re-evaluate our caching decisions from time to time. This
-   is done by checking the above rules constantly and marking when was the
-   last time the decision was right. If decision hasn't matched for two
-   months, it's changed. I picked two months because people go to at least
-   one month vacations where they might still be reading mails, but with
-   different clients.
+   - When last_used becomes 30 days old (or unaccessed_field_drop_secs) a
+     YES caching decision is changed to TEMP.
+
+   - When last_used becomes 60 days old (or 2*unaccessed_field_drop_secs) a
+     TEMP caching decision is changed to NO.
 */
 
 #include "lib.h"
@@ -72,7 +63,7 @@
 
 const char *mail_cache_decision_to_string(enum mail_cache_decision_type dec)
 {
-	switch (dec & ~MAIL_CACHE_DECISION_FORCED) {
+	switch (dec & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED)) {
 	case MAIL_CACHE_DECISION_NO:
 		return "no";
 	case MAIL_CACHE_DECISION_TEMP:

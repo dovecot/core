@@ -6,6 +6,7 @@
 #include "mech.h"
 #include "passdb.h"
 #include "oauth2.h"
+#include "json-parser.h"
 #include <ctype.h>
 
 struct oauth2_auth_request {
@@ -38,13 +39,13 @@ static bool oauth2_unescape_username(const char *in, const char **username_r)
 }
 
 static void oauth2_verify_callback(enum passdb_result result,
-				   const char *error,
+				   const char *const *error_fields,
 				   struct auth_request *request)
 {
 	struct oauth2_auth_request *oauth2_req =
 			(struct oauth2_auth_request*)request;
 
-	i_assert(result == PASSDB_RESULT_OK || error != NULL);
+	i_assert(result == PASSDB_RESULT_OK || error_fields != NULL);
 	switch (result) {
 	case PASSDB_RESULT_OK:
 		auth_request_success(request, "", 0);
@@ -56,7 +57,35 @@ static void oauth2_verify_callback(enum passdb_result result,
 		/* we could get new token after this */
 		if (request->mech_password != NULL)
 			request->mech_password = NULL;
-		auth_request_handler_reply_continue(request, error, strlen(error));
+		string_t *error = t_str_new(64);
+		str_append_c(error, '{');
+		for (unsigned int i = 0; error_fields[i] != NULL; i += 2) {
+			i_assert(error_fields[i+1] != NULL);
+			if (i > 0)
+				str_append_c(error, ',');
+			str_append_c(error, '"');
+			json_append_escaped(error, error_fields[i]);
+			str_append(error, "\":\"");
+			json_append_escaped(error, error_fields[i+1]);
+			str_append_c(error, '"');
+		}
+		/* FIXME: HORRIBLE HACK - REMOVE ME!!!
+		   It is because the mech has not been implemented properly
+		   that we need to pass the config url in this strange way.
+
+		   This **must** be removed from here and db-oauth2 once the
+		   validation result et al is handled here.
+		*/
+		if (request->openid_config_url != NULL) {
+			if (str_len(error) > 0)
+				str_append_c(error, ',');
+			str_printfa(error, "\"openid-configuration\":\"");
+			json_append_escaped(error, request->openid_config_url);
+			str_append_c(error, '"');
+		}
+		str_append_c(error, '}');
+		auth_request_handler_reply_continue(request, str_data(error),
+						    str_len(error));
 		oauth2_req->failed = TRUE;
 		break;
 	}
@@ -65,17 +94,23 @@ static void oauth2_verify_callback(enum passdb_result result,
 static void
 xoauth2_verify_callback(enum passdb_result result, struct auth_request *request)
 {
-	const char *error =
-		"{\"status\":\"401\",\"schemes\":\"bearer\",\"scope\":\"mail\"}";
-	oauth2_verify_callback(result, error, request);
+	const char *const error_fields[] = {
+		"status", "401",
+		"schemes", "bearer",
+		"scope", "mail",
+		NULL
+	};
+	oauth2_verify_callback(result, error_fields, request);
 }
 
 static void
 oauthbearer_verify_callback(enum passdb_result result, struct auth_request *request)
 {
-	const char *error =
-		"{\"status\":\"invalid_token\"}";
-	oauth2_verify_callback(result, error, request);
+	const char *error_fields[] = {
+		"status", "invalid_token",
+		NULL
+	};
+	oauth2_verify_callback(result, error_fields, request);
 }
 
 /* Input syntax:

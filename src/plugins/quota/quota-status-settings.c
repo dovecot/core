@@ -8,10 +8,10 @@
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct quota_status_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct quota_status_settings)
 
 static const struct setting_define quota_status_setting_defines[] = {
-	DEF(SET_STR, recipient_delimiter),
+	DEF(STR, recipient_delimiter),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -29,9 +29,9 @@ const struct setting_parser_info quota_status_setting_parser_info = {
 	.defines = quota_status_setting_defines,
 	.defaults = &quota_status_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct quota_status_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.dependencies = quota_status_setting_dependencies
 };

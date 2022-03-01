@@ -60,14 +60,24 @@ struct ostream *o_stream_create_fd(int fd, size_t max_buffer_size);
 /* The fd is set to -1 immediately to avoid accidentally closing it twice. */
 struct ostream *o_stream_create_fd_autoclose(int *fd, size_t max_buffer_size);
 /* Create an output stream from a regular file which begins at given offset.
-   If offset==(uoff_t)-1, the current offset isn't known. */
+   If offset==UOFF_T_MAX, the current offset isn't known. */
 struct ostream *
 o_stream_create_fd_file(int fd, uoff_t offset, bool autoclose_fd);
 struct ostream *o_stream_create_fd_file_autoclose(int *fd, uoff_t offset);
 /* Create ostream for file. If append flag is not set, file will be truncated. */
 struct ostream *o_stream_create_file(const char *path, uoff_t offset, mode_t mode,
 				     enum ostream_create_file_flags flags);
-/* Create an output stream to a buffer. */
+/* Create ostream for a blocking (network) fd. It assumes that all the output
+   can be written to the fd. If not, the ostream fails. */
+struct ostream *o_stream_create_fd_blocking(int fd);
+/* Create an output stream to a buffer. Note that the buffer is treated as the
+   ostream's internal buffer. This means that o_stream_get_buffer_used_size()
+   returns buf->used, and _get_buffer_avail_size() returns how many bytes can
+   be written until the buffer's max size is reached. This behavior may make
+   ostream-buffer unsuitable for code that assumes that having bytes in the
+   internal buffer means that ostream isn't finished flushing its internal
+   buffer. Especially o_stream_flush_parent_if_needed() (used by
+   lib-compression ostreams) don't work with this. */
 struct ostream *o_stream_create_buffer(buffer_t *buf);
 /* Create an output streams that always fails the writes. */
 struct ostream *o_stream_create_error(int stream_errno);
@@ -87,6 +97,12 @@ const char *o_stream_get_name(struct ostream *stream);
 int o_stream_get_fd(struct ostream *stream);
 /* Returns error string for the previous error. */
 const char *o_stream_get_error(struct ostream *stream);
+/* Returns human-readable reason for why ostream was disconnected.
+   The output is either "Connection closed" for clean disconnections or
+   "Connection closed: <error>" for unclean disconnections. This is an
+   alternative to o_stream_get_error(), which is preferred to be used when
+   logging errors about client connections. */
+const char *o_stream_get_disconnect_reason(struct ostream *stream);
 
 /* Close this stream (but not its parents) and unreference it. */
 void o_stream_destroy(struct ostream **stream);
@@ -152,7 +168,9 @@ static inline int o_stream_uncork_flush(struct ostream *stream)
 }
 
 /* Set "flush pending" state of stream. If set, the flush callback is called
-   when more data is allowed to be sent, even if the buffer itself is empty. */
+   when more data is allowed to be sent, even if the buffer itself is empty.
+   Note that if the stream is corked, the flush callback won't be called until
+   the stream is first uncorked. */
 void o_stream_set_flush_pending(struct ostream *stream, bool set);
 /* Returns the number of bytes currently in all the pending write buffers of
    this ostream, including its parent streams. This function is commonly used

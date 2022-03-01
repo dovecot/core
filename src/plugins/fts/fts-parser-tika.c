@@ -64,7 +64,6 @@ tika_get_http_client_url(struct mail_user *user, struct http_url **http_url_r)
 	}
 
 	if (tika_http_client == NULL) {
-		i_zero(&ssl_set);
 		mail_user_init_ssl_client_settings(user, &ssl_set);
 
 		i_zero(&http_set);
@@ -77,7 +76,15 @@ tika_get_http_client_url(struct mail_user *user, struct http_url **http_url_r)
 		http_set.request_timeout_msecs = 60*1000;
 		http_set.ssl = &ssl_set;
 		http_set.debug = user->mail_debug;
-		tika_http_client = http_client_init(&http_set);
+		http_set.event_parent = user->event;
+
+		/* FIXME: We should initialize a shared client instead. However,
+		          this is currently not possible due to an obscure bug
+		          in the blocking HTTP payload API, which causes
+		          conflicts with other HTTP applications like FTS Solr.
+		          Using a private client will provide a quick fix for
+		          now. */
+		tika_http_client = http_client_init_private(&http_set);
 	}
 	*http_url_r = tuser->http_url;
 	return 0;

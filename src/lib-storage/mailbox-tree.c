@@ -306,7 +306,7 @@ static int mailbox_node_name_cmp(struct mailbox_node *const *node1,
 static void mailbox_tree_sort_branch(struct mailbox_node **nodes,
 				     ARRAY_TYPE(mailbox_node) *tmparr)
 {
-	struct mailbox_node *node, *const *nodep, **dest;
+	struct mailbox_node *node, **dest;
 
 	if (*nodes == NULL)
 		return;
@@ -319,8 +319,8 @@ static void mailbox_tree_sort_branch(struct mailbox_node **nodes,
 
 	/* update the node pointers */
 	dest = nodes;
-	array_foreach(tmparr, nodep) {
-		*dest = *nodep;
+	array_foreach_elem(tmparr, node) {
+		*dest = node;
 		dest = &(*dest)->next;
 	}
 	*dest = NULL;

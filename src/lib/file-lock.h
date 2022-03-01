@@ -15,6 +15,21 @@ enum file_lock_method {
 	FILE_LOCK_METHOD_DOTLOCK
 };
 
+struct file_lock_settings {
+	enum file_lock_method lock_method;
+
+	/* When the lock is freed, close the fd automatically. This can
+	   be useful for files that are only created to exist as lock files. */
+	bool unlink_on_free:1;
+	/* When the lock is freed, unlink() the file automatically, unless other
+	   processes are already waiting on the lock. This can be useful for
+	   files that are only created to exist as lock files. */
+	bool close_on_free:1;
+	/* Do not panic when the kernel returns EDEADLK while acquiring the
+	   lock. */
+	bool allow_deadlock:1;
+};
+
 /* Parse lock method from given string. Returns TRUE if ok,
    FALSE if name is unknown. */
 bool file_lock_method_parse(const char *name, enum file_lock_method *method_r);
@@ -24,25 +39,14 @@ const char *file_lock_method_to_str(enum file_lock_method method);
 /* Lock the file. Returns 1 if successful, 0 if file is already locked,
    or -1 if error. lock_type is F_WRLCK or F_RDLCK. */
 int file_try_lock(int fd, const char *path, int lock_type,
-		  enum file_lock_method lock_method,
-		  struct file_lock **lock_r);
-/* Like file_try_lock(), but return the error message as a string instead
-   of logging it. Also when returning 0 an error message is returned. */
-int file_try_lock_error(int fd, const char *path, int lock_type,
-			enum file_lock_method lock_method,
-			struct file_lock **lock_r, const char **error_r);
+		  const struct file_lock_settings *set,
+		  struct file_lock **lock_r, const char **error_r);
 /* Like lock_try_lock(), but return 0 only after having tried to lock for
    timeout_secs. */
 int file_wait_lock(int fd, const char *path, int lock_type,
-		   enum file_lock_method lock_method,
+		   const struct file_lock_settings *set,
 		   unsigned int timeout_secs,
-		   struct file_lock **lock_r);
-/* Like file_wait_lock(), but return the error message as a string instead
-   of logging it. Also when returning 0 an error message is returned. */
-int file_wait_lock_error(int fd, const char *path, int lock_type,
-			 enum file_lock_method lock_method,
-			 unsigned int timeout_secs,
-			 struct file_lock **lock_r, const char **error_r);
+		   struct file_lock **lock_r, const char **error_r);
 /* Change the lock type. WARNING: This isn't an atomic operation!
    The result is the same as file_unlock() + file_try_lock(). */
 int file_lock_try_update(struct file_lock *lock, int lock_type);

@@ -1,6 +1,13 @@
 #ifndef TEST_COMMON_H
 #define TEST_COMMON_H
 
+#ifdef HAVE_VALGRIND_VALGRIND_H
+#  include <valgrind/valgrind.h>
+#  define ON_VALGRIND ((bool) RUNNING_ON_VALGRIND)
+#else
+#  define ON_VALGRIND FALSE
+#endif
+
 struct istream *test_istream_create(const char *data);
 struct istream *test_istream_create_data(const void *data, size_t size);
 void test_istream_set_size(struct istream *input, uoff_t size);
@@ -44,10 +51,53 @@ void test_begin(const char *name);
 						      __FILE__, __LINE__, _temp_s1, _temp_s2, i); \
 	} STMT_END
 
-void test_assert_failed(const char *code, const char *file, unsigned int line);
-void test_assert_failed_idx(const char *code, const char *file, unsigned int line, long long i);
+#define test_assert_cmp(_value1, _op, _value2) \
+	test_assert_cmp_idx(_value1, _op, _value2, LLONG_MIN)
+#define test_assert_cmp_idx(_value1, _op, _value2, _idx) STMT_START { \
+		intmax_t _temp_value1 = (_value1); \
+		intmax_t _temp_value2 = (_value2); \
+		if (!(_value1 _op _value2)) \
+			test_assert_failed_cmp_intmax_idx( \
+				#_value1 " " #_op " " #_value2, \
+				__FILE__, __LINE__, _temp_value1, _temp_value2, \
+				#_op, _idx); \
+	} STMT_END
+
+#define test_assert_ucmp(_value1, _op, _value2) \
+	test_assert_ucmp_idx(_value1, _op, _value2, LLONG_MIN)
+#define test_assert_ucmp_idx(_value1, _op, _value2, _idx) STMT_START { \
+		uintmax_t _temp_value1 = (_value1); \
+		uintmax_t _temp_value2 = (_value2); \
+		if (!(_value1 _op _value2)) \
+			test_assert_failed_ucmp_intmax_idx( \
+				#_value1 " " #_op " " #_value2, \
+				__FILE__, __LINE__, _temp_value1, _temp_value2, \
+				#_op, _idx); \
+	} STMT_END
+
+#ifdef STATIC_CHECKER
+#  define ATTR_STATIC_CHECKER_NORETURN ATTR_NORETURN
+#else
+#  define ATTR_STATIC_CHECKER_NORETURN
+#endif
+
+void test_assert_failed(const char *code, const char *file, unsigned int line)
+	ATTR_STATIC_CHECKER_NORETURN;
+void test_assert_failed_idx(const char *code, const char *file, unsigned int line, long long i)
+	ATTR_STATIC_CHECKER_NORETURN;
 void test_assert_failed_strcmp_idx(const char *code, const char *file, unsigned int line,
-				   const char * src, const char * dst, long long i);
+				   const char * src, const char * dst, long long i)
+	ATTR_STATIC_CHECKER_NORETURN;
+void test_assert_failed_cmp_intmax_idx(const char *code, const char *file,
+				       unsigned int line,
+				       intmax_t src, intmax_t dst,
+				       const char *op, long long i)
+	ATTR_STATIC_CHECKER_NORETURN;
+void test_assert_failed_ucmp_intmax_idx(const char *code, const char *file,
+					unsigned int line,
+					uintmax_t src, uintmax_t dst,
+					const char *op, long long i)
+	ATTR_STATIC_CHECKER_NORETURN;
 bool test_has_failed(void);
 /* If you're testing nasty cases which you want to warn, surround the noisy op with these */
 void test_expect_errors(unsigned int expected);
@@ -87,6 +137,8 @@ enum fatal_test_state {
    FATAL_TEST_FINISHED or FATAL_TEST_ABORT is returned. */
 typedef enum fatal_test_state test_fatal_func_t(unsigned int stage);
 
+typedef void test_fatal_callback_t(void *context);
+
 struct named_fatal {
 	const char *name;
 	test_fatal_func_t *func;
@@ -98,6 +150,14 @@ int test_run_named_with_fatals(const char *match, const struct named_test tests[
 
 /* Require the Fatal/Panic string to match this or the fatal test fails. */
 void test_expect_fatal_string(const char *substr);
+/* Call the specified callback when a fatal is being triggered. This is mainly
+   intended to allow freeing memory so valgrind won't complain about memory
+   leaks. */
+void test_fatal_set_callback(test_fatal_callback_t *callback, void *context);
+#define test_fatal_set_callback(callback, context) \
+	test_fatal_set_callback(1 ? (test_fatal_callback_t *)callback : \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))), \
+		context)
 
 #define FATAL_DECL(x) enum fatal_test_state x(unsigned int);
 #define FATAL_NAMELESS(x) x, /* Were you to want to use the X trick but not name the tests */

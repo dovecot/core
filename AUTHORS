@@ -19,4 +19,6 @@ Portions Copyright (c) 2008 Apple Inc.  All rights reserved.
 
 Blowfish code by Solar Designer <solar at openwall.com>
 
+SMTP fuzzer code by Catena cyber <p.antoine at catenacyber.fr>
+
 Grepping 'Patch by' from ChangeLog shows up more people.

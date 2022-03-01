@@ -85,10 +85,10 @@ void http_server_response_request_free(struct http_server_response *resp)
 	str_free(&resp->headers);
 
 	if (array_is_created(&resp->perm_headers)) {
-		char **headers;
+		char *headers;
 
-		array_foreach_modifiable(&resp->perm_headers, headers)
-			i_free(*headers);
+		array_foreach_elem(&resp->perm_headers, headers)
+			i_free(headers);
 		array_free(&resp->perm_headers);
 	}
 }
@@ -329,6 +329,8 @@ void http_server_response_request_finished(struct http_server_response *resp)
 
 	if (resp->payload_stream != NULL)
 		http_server_ostream_response_finished(resp->payload_stream);
+
+	event_add_int(resp->request->event, "status_code", resp->status);
 }
 
 int http_server_response_finish_payload_out(struct http_server_response *resp)
@@ -519,7 +521,7 @@ int http_server_response_send_more(struct http_server_response *resp)
 	/* Chunked ostream needs to write to the parent stream's buffer */
 	o_stream_set_max_buffer_size(output, IO_BLOCK_SIZE);
 	res = o_stream_send_istream(output, resp->payload_input);
-	o_stream_set_max_buffer_size(output, (size_t)-1);
+	o_stream_set_max_buffer_size(output, SIZE_MAX);
 
 	switch (res) {
 	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:

@@ -144,6 +144,7 @@ struct mailbox_list {
 	bool index_root_dir_created:1;
 	bool list_index_root_dir_created:1;
 	bool guid_cache_updated:1;
+	bool disable_rebuild_on_corruption:1;
 	bool guid_cache_invalidated:1;
 	bool last_error_is_internal:1;
 };
@@ -189,13 +190,9 @@ int mailbox_list_settings_parse(struct mail_user *user, const char *data,
 				struct mailbox_list_settings *set_r,
 				const char **error_r);
 const char *
-mailbox_list_escape_name(struct mailbox_list *list, const char *vname);
-const char *
 mailbox_list_escape_name_params(const char *vname, const char *ns_prefix,
 				char ns_sep, char list_sep, char escape_char,
 				const char *maildir_name);
-const char *
-mailbox_list_unescape_name(struct mailbox_list *list, const char *src);
 const char *
 mailbox_list_unescape_name_params(const char *src, const char *ns_prefix,
 				  char ns_sep, char list_sep, char escape_char);

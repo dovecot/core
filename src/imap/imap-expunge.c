@@ -73,6 +73,20 @@ int imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg,
 		return -1;
 	}
 
+	/* NOTE: This batching mainly helps when lazy_expunge is used. Without
+	   it, it just quickly writes a bunch of expunge transactions. The
+	   actual email deletion is done afterwards in mailbox_sync() for all
+	   of the mails. This isn't ideal, but alternatives are a bit tricky
+	   because mailbox_sync() can't be called for the SELECTed mailbox.
+
+	   a) Simpler fix would be to open a new mailbox view which can be
+	   synced, but this causes imapc to open another IMAP connection.
+	   Although if it's done only for large expunge transactions it would
+	   be less of an issue.
+
+	   b) The caller would have to do batching and sync the mailbox
+	   multiple times. This would require a new kind of cmd_sync() that
+	   would send untagged replies but not the tagged reply. */
 	seqset_iter = imap_search_seqset_iter_init(search_args, status.messages,
 						   IMAP_EXPUNGE_BATCH_SIZE);
 
@@ -91,15 +105,11 @@ int imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg,
 		}
 
 		ret = mailbox_search_deinit(&ctx);
-		if (ret < 0) {
-			mailbox_transaction_rollback(&t);
-			break;
-		} else {
-			ret = mailbox_transaction_commit(&t);
-			if (ret < 0)
-				break;
-		}
-	} while (imap_search_seqset_iter_next(seqset_iter));
+		/* If mailbox search fails, just commit the expunges done
+		   so far. There's no need to rollback. */
+		if (mailbox_transaction_commit(&t) < 0)
+			ret = -1;
+	} while (ret >= 0 && imap_search_seqset_iter_next(seqset_iter));
 
 	imap_search_seqset_iter_deinit(&seqset_iter);
 	mail_search_args_unref(&search_args);

@@ -76,8 +76,6 @@ static const struct command imap_ext_commands[] = {
 	{ "UID SORT",		cmd_sort,        COMMAND_FLAG_BREAKS_SEQS },
 	{ "UID THREAD",		cmd_thread,      COMMAND_FLAG_BREAKS_SEQS },
 	{ "UNSELECT",		cmd_unselect,    COMMAND_FLAG_BREAKS_MAILBOX },
-	{ "X-CANCEL",		cmd_x_cancel,    0 },
-	{ "X-STATE",		cmd_x_state,     COMMAND_FLAG_REQUIRES_SYNC },
 	{ "XLIST",		cmd_list,        0 },
 	/* IMAP URLAUTH (RFC4467): */
 	{ "GENURLAUTH",		cmd_genurlauth,  0 },
@@ -194,7 +192,7 @@ bool command_exec(struct client_command_context *cmd)
 	io_loop_time_refresh();
 	command_stats_start(cmd);
 
-	event_push_global(cmd->event);
+	event_push_global(cmd->global_event);
 	cmd->executing = TRUE;
 	array_foreach(&command_hooks, hook)
 		hook->pre(cmd);
@@ -202,7 +200,7 @@ bool command_exec(struct client_command_context *cmd)
 	array_foreach(&command_hooks, hook)
 		hook->post(cmd);
 	cmd->executing = FALSE;
-	event_pop_global(cmd->event);
+	event_pop_global(cmd->global_event);
 	if (cmd->state == CLIENT_COMMAND_STATE_DONE)
 		finished = TRUE;
 

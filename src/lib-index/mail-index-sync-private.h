@@ -52,9 +52,11 @@ void mail_index_sync_map_init(struct mail_index_sync_map_ctx *sync_map_ctx,
 			      struct mail_index_view *view,
 			      enum mail_index_sync_handler_type type);
 void mail_index_sync_map_deinit(struct mail_index_sync_map_ctx *sync_map_ctx);
-int mail_index_sync_map(struct mail_index_map **map,
-			enum mail_index_sync_handler_type type, bool force,
-			const char *sync_reason);
+bool mail_index_sync_map_want_index_reopen(struct mail_index_map *map,
+					   enum mail_index_sync_handler_type type);
+int mail_index_sync_map(struct mail_index_map **_map,
+			enum mail_index_sync_handler_type type,
+			const char **reason_r);
 
 int mail_index_sync_record(struct mail_index_sync_map_ctx *ctx,
 			   const struct mail_transaction_header *hdr,
@@ -68,10 +70,6 @@ void
 mail_index_sync_deinit_expunge_handlers(struct mail_index_sync_map_ctx *ctx);
 void mail_index_sync_init_handlers(struct mail_index_sync_map_ctx *ctx);
 void mail_index_sync_deinit_handlers(struct mail_index_sync_map_ctx *ctx);
-
-void mail_index_sync_ext_init(struct mail_index_sync_map_ctx *ctx,
-			      const char *name, bool fix_size,
-			      uint32_t *ext_map_idx_r);
 
 int mail_index_sync_ext_intro(struct mail_index_sync_map_ctx *ctx,
 			      const struct mail_transaction_ext_intro *u);
@@ -96,7 +94,8 @@ mail_index_sync_keywords_reset(struct mail_index_sync_map_ctx *ctx,
 			       const struct mail_transaction_keyword_reset *r);
 
 void mail_index_sync_set_corrupted(struct mail_index_sync_map_ctx *ctx,
-				   const char *fmt, ...) ATTR_FORMAT(2, 3);
+				   const char *fmt, ...)
+	ATTR_FORMAT(2, 3) ATTR_COLD;
 
 #ifdef DEBUG
 void mail_index_map_check(struct mail_index_map *map);

@@ -286,6 +286,10 @@ static void i_stream_binary_converter_close(struct iostream_private *stream,
 
 struct istream *i_stream_create_binary_converter(struct istream *input)
 {
+	const struct message_parser_settings parser_set = {
+		.flags = MESSAGE_PARSER_FLAG_INCLUDE_MULTIPART_BLOCKS |
+			MESSAGE_PARSER_FLAG_INCLUDE_BOUNDARIES,
+	};
 	struct binary_converter_istream *bstream;
 
 	bstream = i_new(struct binary_converter_istream, 1);
@@ -299,9 +303,7 @@ struct istream *i_stream_create_binary_converter(struct istream *input)
 	bstream->istream.istream.seekable = FALSE;
 
 	bstream->pool = pool_alloconly_create("istream binary converter", 128);
-	bstream->parser = message_parser_init(bstream->pool, input, 0,
-				MESSAGE_PARSER_FLAG_INCLUDE_MULTIPART_BLOCKS |
-				MESSAGE_PARSER_FLAG_INCLUDE_BOUNDARIES);
+	bstream->parser = message_parser_init(bstream->pool, input, &parser_set);
 	return i_stream_create(&bstream->istream, input,
 			       i_stream_get_fd(input), 0);
 }

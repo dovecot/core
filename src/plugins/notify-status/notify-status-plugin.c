@@ -52,10 +52,9 @@ static int notify_status_dict_init(struct mail_user *user, const char *uri,
 				   struct dict **dict_r, const char **error_r)
 {
 	struct dict_settings set = {
-		.username = user->username,
 		.base_dir = user->set->base_dir,
+		.event_parent = user->event,
 	};
-	(void)mail_user_get_home(user, &set.home_dir);
 	if (dict_init(uri, &set, dict_r, error_r) < 0) {
 		*error_r = t_strdup_printf("dict_init(%s) failed: %s",
 					   uri, *error_r);
@@ -90,7 +89,7 @@ static bool notify_status_mailbox_enabled(struct mailbox *box)
 {
 	struct mail_user *user = mail_storage_get_user(mailbox_get_storage(box));
 	struct notify_status_user *nuser = NOTIFY_STATUS_USER_CONTEXT(user);
-	struct imap_match_glob **glob;
+	struct imap_match_glob *glob;
 	/* not enabled */
 	if (nuser == NULL)
 		return FALSE;
@@ -99,8 +98,8 @@ static bool notify_status_mailbox_enabled(struct mailbox *box)
 	if (array_count(&nuser->patterns) == 0)
 		return TRUE;
 
-	array_foreach_modifiable(&nuser->patterns, glob) {
-		if ((imap_match(*glob, mailbox_get_vname(box)) & IMAP_MATCH_YES) != 0)
+	array_foreach_elem(&nuser->patterns, glob) {
+		if ((imap_match(glob, mailbox_get_vname(box)) & IMAP_MATCH_YES) != 0)
 			return TRUE;
 	}
 	return FALSE;
@@ -176,7 +175,8 @@ static void notify_update_mailbox_status(struct mailbox *box)
 			i_error("notify-status: var_expand(%s) failed: %s",
 				nuser->value_template, error);
 		} else {
-			t = dict_transaction_begin(nuser->dict);
+			const struct dict_op_settings *set = mail_user_get_dict_op_settings(user);
+			t = dict_transaction_begin(nuser->dict, set);
 			dict_set(t, key, str_c(dest));
 			dict_transaction_commit_async(&t, notify_update_callback, NULL) ;
 		}
@@ -197,7 +197,8 @@ static void notify_remove_mailbox_status(struct mailbox *box)
 	const char *key =
 		t_strdup_printf(NOTIFY_STATUS_KEY, mailbox_get_vname(box));
 
-	t = dict_transaction_begin(nuser->dict);
+	const struct dict_op_settings *set = mail_user_get_dict_op_settings(user);
+	t = dict_transaction_begin(nuser->dict, set);
 	dict_unset(t, key);
 	dict_transaction_commit_async(&t, notify_update_callback, NULL) ;
 }

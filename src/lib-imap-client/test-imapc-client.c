@@ -54,7 +54,7 @@ static struct imapc_client_settings test_imapc_default_settings = {
 	.temp_path_prefix = ".test-tmp/",
 	.rawlog_dir = "",
 
-	.connect_timeout_msecs = 500,
+	.connect_timeout_msecs = 5000,
 	.connect_retry_count = 3,
 	.connect_retry_interval_msecs = 10,
 
@@ -160,8 +160,8 @@ test_server_wait_connection(struct test_server *server, bool send_banner)
 		i_debug("Client connected");
 
 	fd_set_nonblock(server->fd, FALSE);
-	server->input = i_stream_create_fd(server->fd, (size_t)-1);
-	server->output = o_stream_create_fd(server->fd, (size_t)-1);
+	server->input = i_stream_create_fd(server->fd, SIZE_MAX);
+	server->output = o_stream_create_fd(server->fd, SIZE_MAX);
 	o_stream_set_no_error_handling(server->output, TRUE);
 
 	if (send_banner) {
@@ -240,7 +240,7 @@ test_run_client(const struct imapc_client_settings *client_set,
 	i_sleep_msecs(100); /* wait a little for server setup */
 
 	ioloop = io_loop_create();
-	imapc_client = imapc_client_init(client_set);
+	imapc_client = imapc_client_init(client_set, NULL);
 	client_test();
 	imapc_client_logout(imapc_client);
 	test_assert(array_count(&imapc_cmd_last_replies) == 0);
@@ -342,6 +342,7 @@ static void test_imapc_banner_hangs_server(void)
 static void test_imapc_banner_hangs(void)
 {
 	struct imapc_client_settings set = test_imapc_default_settings;
+	set.connect_timeout_msecs = 500;
 
 	test_begin("imapc banner hangs");
 	test_run_client_server(&set, test_imapc_banner_hangs_client,
@@ -389,6 +390,7 @@ static void test_imapc_login_hangs_server(void)
 static void test_imapc_login_hangs(void)
 {
 	struct imapc_client_settings set = test_imapc_default_settings;
+	set.connect_timeout_msecs = 500;
 
 	test_begin("imapc login hangs");
 	test_run_client_server(&set, test_imapc_login_hangs_client,
@@ -626,6 +628,7 @@ static void test_imapc_reconnect_resend_cmds_failed_server(void)
 static void test_imapc_reconnect_resend_commands_failed(void)
 {
 	struct imapc_client_settings set = test_imapc_default_settings;
+	set.connect_timeout_msecs = 500;
 
 	test_begin("imapc reconnect resend commands failed");
 	test_run_client_server(&set,

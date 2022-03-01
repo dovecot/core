@@ -37,6 +37,8 @@ program_client_callback(struct program_client *pclient, int result,
 	pclient->callback = NULL;
 	if (pclient->destroying || callback == NULL)
 		return;
+	if (pclient->wait_ioloop != NULL)
+		io_loop_stop(pclient->wait_ioloop);
 	callback(result, context);
 }
 
@@ -141,7 +143,8 @@ void program_client_disconnected(struct program_client *pclient)
 
 	program_client_callback(pclient,
 		(pclient->error != PROGRAM_CLIENT_ERROR_NONE ?
-			-1 : (int)pclient->exit_code),
+			PROGRAM_CLIENT_EXIT_STATUS_INTERNAL_FAILURE :
+			pclient->exit_status),
 		pclient->context);
 }
 
@@ -584,7 +587,7 @@ void program_client_init_streams(struct program_client *pclient)
 	if (pclient->fd_in >= 0) {
 		struct istream *program_input;
 
-		program_input = i_stream_create_fd(pclient->fd_in, (size_t)-1);
+		program_input = i_stream_create_fd(pclient->fd_in, SIZE_MAX);
 		i_stream_set_name(program_input, "program stdout");
 		pclient->raw_program_input = program_input;
 	}
@@ -598,7 +601,7 @@ void program_client_init_streams(struct program_client *pclient)
 		for(i = 0; i < count; i++) {
 			i_assert(efds[i].parent_fd >= 0);
 			efds[i].input = i_stream_create_fd
-				(efds[i].parent_fd, (size_t)-1);
+				(efds[i].parent_fd, SIZE_MAX);
 			i_stream_set_name(efds[i].input,
 				t_strdup_printf("program output fd=%d",
 						efds[i].child_fd));
@@ -723,7 +726,7 @@ int program_client_run(struct program_client *pclient)
 	if (pclient->error != PROGRAM_CLIENT_ERROR_NONE)
 		return -1;
 
-	return (int)pclient->exit_code;
+	return pclient->exit_status;
 }
 
 #undef program_client_run_async
@@ -734,11 +737,31 @@ void program_client_run_async(struct program_client *pclient,
 	i_assert(callback != NULL);
 
 	pclient->disconnected = FALSE;
-	pclient->exit_code = PROGRAM_CLIENT_EXIT_SUCCESS;
+	pclient->exit_status = PROGRAM_CLIENT_EXIT_STATUS_SUCCESS;
 	pclient->error = PROGRAM_CLIENT_ERROR_NONE;
 
 	pclient->callback = callback;
 	pclient->context = context;
 	if (program_client_connect(pclient) < 0)
 		program_client_fail(pclient, PROGRAM_CLIENT_ERROR_IO);
+}
+
+void program_client_wait(struct program_client *pclient)
+{
+	if (pclient->disconnected)
+		return;
+
+	struct ioloop *prev_ioloop = current_ioloop;
+	struct ioloop *ioloop = io_loop_create();
+
+	program_client_switch_ioloop(pclient);
+
+	pclient->wait_ioloop = ioloop;
+	io_loop_run(ioloop);
+	pclient->wait_ioloop = NULL;
+
+	io_loop_set_current(prev_ioloop);
+	program_client_switch_ioloop(pclient);
+	io_loop_set_current(ioloop);
+	io_loop_destroy(&ioloop);
 }

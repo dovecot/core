@@ -94,7 +94,7 @@ int main(void)
 
 	if (write_full(4, str_data(str), str_len(str)) < 0) {
 		i_error("checkpassword: write_full() failed: %m");
-		exit(111);
+		lib_exit(111);
 	}
 	authorized = getenv("AUTHORIZED");
 	if (authorized == NULL) {

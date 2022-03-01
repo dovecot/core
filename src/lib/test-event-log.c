@@ -2369,6 +2369,22 @@ static void test_event_log_message(void)
 				"appended2.appended3.appended5.TEXT",
 			.result_str_out = "appended2.appended3.appended5.TEXT",
 		},
+		{
+			.prefixes = (const struct test_log_event []) {
+				{ TYPE_PREFIX_APPEND, "appended1,", 0 },
+				{ TYPE_PREFIX_APPEND, "appended2.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended3.",
+				  FLAG_DROP_PREFIXES_1 },
+				{ TYPE_PREFIX_APPEND, "appended4.", 0 },
+				{ TYPE_PREFIX_APPEND, "appended5.",
+				  (FLAG_DROP_PREFIXES_1 |
+				   FLAG_DROP_PREFIXES_2) },
+				{ .type = TYPE_END }
+			},
+			.global_log_prefix = "global3.",
+			.result = "global3.Info: appended5.TEXT",
+			.result_str_out = "appended5.TEXT",
+		},
 	};
 
 	test_begin("event log message");
@@ -2447,8 +2463,12 @@ static void test_event_log_message(void)
 		}
 		event = parent;
 
-		if (test->result_str_out != NULL)
-			params.base_str_out = t_str_new(256);
+		if (test->result_str_out != NULL) {
+			/* Use small value so buffer size grows. This way the
+			   unit test fails if anyone attempts to add data-stack
+			   frame to event_log(). */
+			params.base_str_out = t_str_new(1);
+		}
 		event_log(event, &params, "TEXT");
 
 		test_assert_strcmp(test->result, test_output);
@@ -2466,7 +2486,7 @@ static void test_event_log_message(void)
 
 static void test_event_duration()
 {
-	intmax_t duration;
+	uintmax_t duration;
 	test_begin("event duration");
 	struct event *e = event_create(NULL);
 	usleep(10);
@@ -2487,6 +2507,7 @@ static void test_event_log_level(void)
 
 	struct event *event = event_create(NULL);
 	event_set_min_log_level(event, LOG_TYPE_WARNING);
+	errno = EACCES;
 	e_info(event, "Info event");
 	test_assert(test_output == NULL);
 	e_warning(event, "Warning event");
@@ -2495,6 +2516,7 @@ static void test_event_log_level(void)
 	i_set_info_handler(orig_info);
 	i_set_error_handler(orig_error);
 	i_free(test_output);
+	test_assert(errno == EACCES);
 	test_end();
 }
 

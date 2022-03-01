@@ -202,32 +202,21 @@ cmd_user_list(struct auth_master_connection *conn,
 	o_stream_nsend_str(doveadm_print_ostream, "]}");
 }
 
-static void cmd_auth_cache_flush(int argc, char *argv[])
+static void cmd_auth_cache_flush(struct doveadm_cmd_context *cctx)
 {
-	const char *master_socket_path = NULL;
+	const char *master_socket_path, *const *users;
 	struct auth_master_connection *conn;
 	unsigned int count;
-	int c;
 
-	while ((c = getopt(argc, argv, "a:")) > 0) {
-		switch (c) {
-		case 'a':
-			master_socket_path = optarg;
-			break;
-		default:
-			doveadm_exit_code = EX_USAGE;
-			return;
-		}
-	}
-	argv += optind;
-
-	if (master_socket_path == NULL) {
+	if (!doveadm_cmd_param_str(cctx, "socket-path", &master_socket_path)) {
 		master_socket_path = t_strconcat(doveadm_settings->base_dir,
 						 "/auth-master", NULL);
 	}
+	if (!doveadm_cmd_param_array(cctx, "user", &users))
+		i_fatal("Missing user parameter");
 
 	conn = doveadm_get_auth_master_conn(master_socket_path);
-	if (auth_master_cache_flush(conn, (void *)argv, &count) < 0) {
+	if (auth_master_cache_flush(conn, users, &count) < 0) {
 		i_error("Cache flush failed");
 		doveadm_exit_code = EX_TEMPFAIL;
 	} else {
@@ -495,7 +484,7 @@ static
 struct doveadm_cmd_ver2 doveadm_cmd_auth_server[] = {
 {
 	.name = "auth cache flush",
-	.old_cmd = cmd_auth_cache_flush,
+	.cmd = cmd_auth_cache_flush,
 	.usage = "[-a <master socket path>] [<user> [...]]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)

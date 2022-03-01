@@ -72,7 +72,7 @@ static int config_add_type(struct setting_parser_context *parser,
 		/* section inside strlist */
 		return -1;
 	}
-	if (info->type_offset == (size_t)-1)
+	if (info->type_offset == SIZE_MAX)
 		return 0;
 
 	str = t_str_new(256);
@@ -233,11 +233,9 @@ static struct config_filter_parser *
 config_filter_parser_find(struct config_parser_context *ctx,
 			  const struct config_filter *filter)
 {
-	struct config_filter_parser *const *parsers;
+	struct config_filter_parser *parser;
 
-	array_foreach(&ctx->all_parsers, parsers) {
-		struct config_filter_parser *parser = *parsers;
-
+	array_foreach_elem(&ctx->all_parsers, parser) {
 		if (config_filters_equal(&parser->filter, filter))
 			return parser;
 	}
@@ -362,8 +360,7 @@ config_filter_parser_check(struct config_parser_context *ctx,
 			   const struct config_module_parser *p,
 			   const char **error_r)
 {
-	const char *error;
-	char *error_dup = NULL;
+	const char *error = NULL;
 	bool ok;
 
 	for (; p->root != NULL; p++) {
@@ -375,13 +372,11 @@ config_filter_parser_check(struct config_parser_context *ctx,
 		settings_parse_var_skip(p->parser);
 		T_BEGIN {
 			ok = settings_parser_check(p->parser, ctx->pool, &error);
-			if (!ok)
-				error_dup = i_strdup(error);
-		} T_END;
+		} T_END_PASS_STR_IF(!ok, &error);
 		if (!ok) {
-			i_assert(error_dup != NULL);
-			*error_r = t_strdup(error_dup);
-			i_free(error_dup);
+			/* be sure to assert-crash early if error is missing */
+			i_assert(error != NULL);
+			*error_r = error;
 			return -1;
 		}
 	}
@@ -515,7 +510,7 @@ static int settings_add_include(struct config_parser_context *ctx, const char *p
 	new_input = p_new(ctx->pool, struct input_stack, 1);
 	new_input->prev = ctx->cur_input;
 	new_input->path = p_strdup(ctx->pool, path);
-	new_input->input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
+	new_input->input = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
 	i_stream_set_return_partial_line(new_input->input, TRUE);
 	ctx->cur_input = new_input;
 	return 0;
@@ -669,8 +664,8 @@ config_parse_line(struct config_parser_context *ctx,
 			*value_r = line + 1;
 			return CONFIG_LINE_TYPE_KEYFILE;
 		}
-		if (*line == '$') {
-			*value_r = line + 1;
+		if (*line != '\'' && *line != '"' && strchr(line, '$') != NULL) {
+			*value_r = line;
 			return CONFIG_LINE_TYPE_KEYVARIABLE;
 		}
 
@@ -795,15 +790,81 @@ config_require_key(struct config_parser_context *ctx, const char *key)
 	return FALSE;
 }
 
+static int config_write_keyvariable(struct config_parser_context *ctx,
+				    const char *key, const char *value,
+				    string_t *str)
+{
+	const char *var_end, *p_start = value;
+	bool dump;
+	while (value != NULL) {
+		const char *var_name;
+		bool expand_parent;
+		var_end = strchr(value, ' ');
+
+		/* expand_parent=TRUE for "key = $key stuff".
+		   we'll always expand it so that doveconf -n can give
+		   usable output */
+		if (var_end == NULL)
+			var_name = value;
+		else
+			var_name = t_strdup_until(value, var_end);
+		expand_parent = strcmp(key, var_name +
+				       (*var_name == '$' ? 1 : 0)) == 0;
+
+		if (!str_begins(var_name, "$") ||
+		    (value > p_start && !IS_WHITE(value[-1]))) {
+			str_append(str, var_name);
+		} else if (!ctx->expand_values && !expand_parent) {
+			str_append(str, var_name);
+		} else if (str_begins(var_name, "$ENV:")) {
+			/* use environment variable */
+			const char *envval = getenv(var_name+5);
+			if (envval != NULL)
+				str_append(str, envval);
+		} else {
+			const char *var_value;
+			enum setting_type var_type;
+
+			i_assert(var_name[0] == '$');
+			var_name++;
+
+			var_value = config_get_value(ctx->cur_section, var_name,
+						     expand_parent, &var_type);
+			if (var_value == NULL) {
+				ctx->error = p_strconcat(ctx->pool,
+							 "Unknown variable: $",
+							 var_name, NULL);
+				return -1;
+			}
+			if (!config_export_type(str, var_value, NULL,
+						var_type, TRUE, &dump)) {
+				ctx->error = p_strconcat(ctx->pool,
+							 "Invalid variable: $",
+							 var_name, NULL);
+				return -1;
+			}
+		}
+
+		if (var_end == NULL)
+			break;
+
+		str_append_c(str, ' ');
+
+		/* find next token */
+		while (*var_end != '\0' && IS_WHITE(*var_end)) var_end++;
+		value = var_end;
+		while (*var_end != '\0' && !IS_WHITE(*var_end)) var_end++;
+	}
+
+	return 0;
+}
+
 static int config_write_value(struct config_parser_context *ctx,
 			      enum config_line_type type,
 			      const char *key, const char *value)
 {
 	string_t *str = ctx->str;
-	const void *var_name, *var_value, *p;
-	enum setting_type var_type;
 	const char *error, *path, *full_key;
-	bool dump, expand_parent;
 
 	switch (type) {
 	case CONFIG_LINE_TYPE_KEYVALUE:
@@ -828,38 +889,8 @@ static int config_write_value(struct config_parser_context *ctx,
 		}
 		break;
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
-		/* expand_parent=TRUE for "key = $key stuff".
-		   we'll always expand it so that doveconf -n can give
-		   usable output */
-		p = strchr(value, ' ');
-		if (p == NULL)
-			var_name = value;
-		else
-			var_name = t_strdup_until(value, p);
-		expand_parent = strcmp(key, var_name) == 0;
-
-		if (!ctx->expand_values && !expand_parent) {
-			str_append_c(str, '$');
-			str_append(str, value);
-		} else {
-			var_value = config_get_value(ctx->cur_section, var_name,
-						     expand_parent, &var_type);
-			if (var_value == NULL) {
-				ctx->error = p_strconcat(ctx->pool,
-							 "Unknown variable: $",
-							 var_name, NULL);
-				return -1;
-			}
-			if (!config_export_type(str, var_value, NULL,
-						var_type, TRUE, &dump)) {
-				ctx->error = p_strconcat(ctx->pool,
-							 "Invalid variable: $",
-							 var_name, NULL);
-				return -1;
-			}
-			if (p != NULL)
-				str_append(str, p);
-		}
+		if (config_write_keyvariable(ctx, key, value, str) < 0)
+			return -1;
 		break;
 	default:
 		i_unreached();
@@ -1019,7 +1050,7 @@ int config_parse_file(const char *path, bool expand_values,
 	ctx.str = str_new(ctx.pool, 256);
 	full_line = str_new(default_pool, 512);
 	ctx.cur_input->input = fd != -1 ?
-		i_stream_create_fd_autoclose(&fd, (size_t)-1) :
+		i_stream_create_fd_autoclose(&fd, SIZE_MAX) :
 		i_stream_create_from_data("", 0);
 	i_stream_set_return_partial_line(ctx.cur_input->input, TRUE);
 	old_settings_init(&ctx);

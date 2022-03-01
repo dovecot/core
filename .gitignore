@@ -6,6 +6,9 @@ Makefile.in
 *.la
 *.orig
 *.rej
+*.gcno
+*.gcda
+*.tmp
 .deps
 .libs
 .idea
@@ -15,27 +18,27 @@ compile_commands.json
 
 /configure
 /config.cache
-/config.guess
+/build-aux/config.guess
 /config.h
 /config.h.in
 /config.log
 /config.status
-/config.sub
-/config.rpath
-/compile
-/depcomp
+/build-aux/config.sub
+/build-aux/config.rpath
+/build-aux/compile
+/build-aux/depcomp
 /dummy-config.h
 /dummy-config.h.in
 /fts-config.h
-/install-sh
+/build-aux/install-sh
 /libtool
-/ltmain.sh
-/missing
-/run-test.sh
+/build-aux/ltmain.sh
+/build-aux/missing
+/build-aux/run-test.sh
 /stamp.h
 /stamp-h1
 /stamp-h2
-/ylwrap
+/build-aux/ylwrap
 /autom4te.cache
 /ChangeLog
 /cc-wrapper.sh
@@ -45,6 +48,7 @@ compile_commands.json
 /dovecot.service
 /README
 /INSTALL
+/version
 
 /aclocal.m4
 /m4/libtool.m4
@@ -74,6 +78,7 @@ doc/man/doveadm-fts.1
 doc/man/doveadm-import.1
 doc/man/doveadm-instance.1
 doc/man/doveadm-index.1
+doc/man/doveadm-indexer.1
 doc/man/doveadm-force-resync.1
 doc/man/doveadm-help.1
 doc/man/doveadm-kick.1
@@ -143,8 +148,6 @@ src/lmtp/lmtp
 src/master/dovecot
 src/ssl-params/ssl-params
 src/stats/stats
-src/old-stats/old-stats
-src/plugins/fts-squat/squat-test
 src/pop3-login/pop3-login
 src/pop3/pop3
 src/replication/replicator/replicator
@@ -162,3 +165,7 @@ src/plugins/fts/xml2text
 src/plugins/quota/rquota_xdr.c
 src/plugins/quota/rquota.h
 src/plugins/quota/quota-status
+src/lib-imap/fuzz-imap-utf7
+src/lib-imap/fuzz-imap-bodystructure
+src/lib-mail/fuzz-message-parser
+src/lib-smtp/fuzz-smtp-server

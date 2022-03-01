@@ -10,13 +10,15 @@
 
 /* <settings checks> */
 static struct file_listener_settings imap_hibernate_unix_listeners_array[] = {
-	{ "imap-hibernate", 0660, "", "$default_internal_group" }
+	{ "imap-hibernate", 0660, "", "$default_internal_group" },
+	{ "srv.imap-hibernate/%{pid}", 0600, "", "" },
 };
 static struct file_listener_settings *imap_hibernate_unix_listeners[] = {
-	&imap_hibernate_unix_listeners_array[0]
+	&imap_hibernate_unix_listeners_array[0],
+	&imap_hibernate_unix_listeners_array[1],
 };
 static buffer_t imap_hibernate_unix_listeners_buf = {
-	imap_hibernate_unix_listeners, sizeof(imap_hibernate_unix_listeners), { NULL, }
+	{ { imap_hibernate_unix_listeners, sizeof(imap_hibernate_unix_listeners) } }
 };
 /* </settings checks> */
 
@@ -38,7 +40,7 @@ struct service_settings imap_hibernate_service_settings = {
 	.client_limit = 0,
 	.service_count = 0,
 	.idle_kill = 0,
-	.vsz_limit = (uoff_t)-1,
+	.vsz_limit = UOFF_T_MAX,
 
 	.unix_listeners = { { &imap_hibernate_unix_listeners_buf,
 			      sizeof(imap_hibernate_unix_listeners[0]) } },

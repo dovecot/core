@@ -351,10 +351,11 @@ static void log_record_print(const struct mail_transaction_header *hdr,
 		size_t record_size;
 
 		end = CONST_PTR_OFFSET(data, size);
-		record_size = (sizeof(*rec) + prev_intro.record_size + 3) & ~3;
+		record_size = (sizeof(*rec) + prev_intro.record_size + 3) & ~3U;
 		while (rec < end) {
 			printf(" - uid=%u: ", rec->uid);
-			if (prev_intro.record_size <= (char*)end - (char *)(rec+1))
+			size_t bytes_left = (const char *)end - (const char *)(rec + 1);
+			if (prev_intro.record_size <= bytes_left)
 				print_data(rec + 1, prev_intro.record_size);
 			else
 				printf("(record_size too large)");
@@ -517,14 +518,14 @@ static int dump_record(struct istream *input, uint64_t *modseq,
 	return 1;
 }
 
-static void cmd_dump_log(int argc ATTR_UNUSED, char *argv[])
+static void cmd_dump_log(const char *path, const char *const *args ATTR_UNUSED)
 {
 	struct istream *input;
 	uint64_t modseq;
 	unsigned int version;
 	int ret;
 
-	input = i_stream_create_file(argv[1], (size_t)-1);
+	input = i_stream_create_file(path, SIZE_MAX);
 	dump_hdr(input, &modseq, &version);
 	do {
 		T_BEGIN {

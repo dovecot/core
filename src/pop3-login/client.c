@@ -12,6 +12,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "master-service.h"
+#include "pop3-protocol.h"
 #include "client.h"
 #include "client-authenticate.h"
 #include "auth-client.h"
@@ -33,7 +34,7 @@ static bool cmd_stls(struct pop3_client *client)
 static bool cmd_quit(struct pop3_client *client)
 {
 	client_send_reply(&client->common, POP3_CMD_REPLY_OK, "Logging out");
-	client_destroy(&client->common, "Aborted login");
+	client_destroy(&client->common, CLIENT_UNAUTHENTICATED_LOGOUT_MSG);
 	return TRUE;
 }
 
@@ -72,7 +73,7 @@ static bool cmd_xclient(struct pop3_client *client, const char *args)
 			client->common.forward_fields =
 				str_new(client->common.preproxy_pool,
 					MAX_BASE64_DECODED_SIZE(value_len));
-			if (base64_decode((*tmp)+8, value_len, NULL,
+			if (base64_decode((*tmp)+8, value_len,
 					  client->common.forward_fields) < 0)
 				args_ok = FALSE;
 		}
@@ -373,8 +374,8 @@ static struct client_vfuncs pop3_client_vfuncs = {
 static struct login_binary pop3_login_binary = {
 	.protocol = "pop3",
 	.process_name = "pop3-login",
-	.default_port = 110,
-	.default_ssl_port = 995,
+	.default_port = POP3_DEFAULT_PORT,
+	.default_ssl_port = POP3S_DEFAULT_PORT,
 
 	.event_category = {
 		.name = "pop3",

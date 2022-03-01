@@ -8,7 +8,6 @@
 #include "iostream-temp.h"
 #include "master-service.h"
 #include "settings-parser.h"
-#include "lda-settings.h"
 #include "mail-user.h"
 #include "smtp-address.h"
 #include "mail-deliver.h"
@@ -67,6 +66,10 @@ cmd_rcpt_handle_forward_fields(struct smtp_server_cmd_ctx *cmd,
 	if (ret == 0)
 		return 0;
 
+	/* Drop the parameter */
+	(void)smtp_params_rcpt_drop_extra(&rcpt->params,
+					  LMTP_RCPT_FORWARD_PARAMETER, NULL);
+
 	/* Check the real IP rather than the proxied client IP, since XCLIENT
 	   command will update that, thereby making it untrusted. Unlike the
 	   XCLIENT command, the RCPT forward parameter needs to be used after
@@ -86,9 +89,21 @@ int cmd_rcpt(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
 	     struct smtp_server_recipient *rcpt)
 {
 	struct client *client = (struct client *)conn_ctx;
+	struct smtp_server_transaction *trans;
 	struct lmtp_recipient *lrcpt;
 
-	lrcpt = lmtp_recipient_create(client, rcpt);
+	i_assert(!smtp_address_isnull(rcpt->path));
+	if (*rcpt->path->localpart == '\0' && rcpt->path->domain == NULL) {
+		smtp_server_recipient_reply(
+			rcpt, 550, "5.1.1",
+			"Unacceptable TO: Empty path not allowed");
+		return -1;
+	}
+
+	trans = smtp_server_connection_get_transaction(rcpt->conn);
+	i_assert(trans != NULL); /* MAIL command is synchronous */
+
+	lrcpt = lmtp_recipient_create(client, trans, rcpt);
 
 	if (cmd_rcpt_handle_forward_fields(cmd, lrcpt) < 0)
 		return -1;
@@ -100,46 +115,17 @@ int client_default_cmd_rcpt(struct client *client,
 			    struct smtp_server_cmd_ctx *cmd,
 			    struct lmtp_recipient *lrcpt)
 {
-	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
-	const char *username, *detail;
-	char delim = '\0';
 	int ret;
-
-	i_assert(!smtp_address_isnull(rcpt->path));
-	if (*rcpt->path->localpart == '\0' && rcpt->path->domain == NULL) {
-		smtp_server_recipient_reply(
-			rcpt, 550, "5.1.1",
-			"Unacceptable TO: Empty path not allowed");
-		return -1;
-	}
-
-	smtp_address_detail_parse_temp(
-		client->unexpanded_lda_set->recipient_delimiter,
-		rcpt->path, &username, &delim, &detail);
-	i_assert(*username != '\0');
-
-	/* Make user name and detail available in the recipient event. The
-	   mail_user event (for local delivery) also adds the user field, but
-	   adding it here makes it available to the recipient event in general.
-	   Additionally, the auth lookups performed for local and proxy delivery
-	   can further override the "user" recipient event when the auth service
-	   returns a different user name. In any case, we provide the initial
-	   value here.
-	 */
-	event_add_str(rcpt->event, "user", username);
-	if (detail[0] != '\0')
-		event_add_str(rcpt->event, "detail", detail);
 
 	if (client->lmtp_set->lmtp_proxy) {
 		/* proxied? */
-		if ((ret=lmtp_proxy_rcpt(client, cmd, lrcpt,
-					 username, detail, delim)) != 0)
+		if ((ret = lmtp_proxy_rcpt(client, cmd, lrcpt)) != 0)
 			return (ret < 0 ? -1 : 0);
 		/* no */
 	}
 
 	/* local delivery */
-	return lmtp_local_rcpt(client, cmd, lrcpt, username, detail);
+	return lmtp_local_rcpt(client, cmd, lrcpt);
 }
 
 /*

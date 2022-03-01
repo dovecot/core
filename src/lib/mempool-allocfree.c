@@ -147,8 +147,8 @@ pool_t pool_allocfree_create(const char *name ATTR_UNUSED)
 {
 	struct allocfree_pool *pool;
 
-	if (SIZEOF_POOLBLOCK > (SSIZE_T_MAX - POOL_MAX_ALLOC_SIZE))
-		i_panic("POOL_MAX_ALLOC_SIZE is too large");
+	(void) COMPILE_ERROR_IF_TRUE(SIZEOF_POOLBLOCK >
+				     (SSIZE_T_MAX - POOL_MAX_ALLOC_SIZE));
 
 	pool = calloc(1, SIZEOF_ALLOCFREE_POOL);
 	if (pool == NULL)
@@ -234,7 +234,9 @@ static void *pool_block_attach(struct allocfree_pool *apool, struct pool_block *
 static struct pool_block *
 pool_block_detach(struct allocfree_pool *apool, unsigned char *mem)
 {
-	struct pool_block *block = PTR_OFFSET(mem, -SIZEOF_POOLBLOCK);
+	/* cannot use PTR_OFFSET because of negative value */
+	i_assert((uintptr_t)mem >= SIZEOF_POOLBLOCK);
+	struct pool_block *block = (struct pool_block *)(mem - SIZEOF_POOLBLOCK);
 
 	/* make sure the block we are dealing with is correct */
 	i_assert(block->block == mem);

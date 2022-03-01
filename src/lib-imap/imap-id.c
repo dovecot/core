@@ -111,7 +111,7 @@ const char *imap_id_reply_generate(const char *settings)
 	input = i_stream_create_from_data(settings, strlen(settings));
 	(void)i_stream_read(input);
 
-	parser = imap_parser_create(input, NULL, (size_t)-1);
+	parser = imap_parser_create(input, NULL, SIZE_MAX);
 	if (imap_parser_finish_line(parser, 0, 0, &args) <= 0)
 		ret = "NIL";
 	else

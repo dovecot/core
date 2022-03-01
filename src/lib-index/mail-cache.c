@@ -46,7 +46,7 @@ void mail_cache_set_corrupted(struct mail_cache *cache, const char *fmt, ...)
 	T_BEGIN {
 		const char *reason = t_strdup_vprintf(fmt, va);
 		const char *errstr = t_strdup_printf(
-			"Deleting corrupted file: %s", reason);
+			"Deleting corrupted cache: %s", reason);
 		e_error(event_create_passthrough(cache->event)->
 			set_name("mail_cache_corrupted")->
 			add_str("reason", reason)->event(), "%s", errstr);
@@ -146,7 +146,7 @@ static int mail_cache_try_open(struct mail_cache *cache)
 	if (cache->fd == -1) {
 		mail_cache_file_close(cache);
 		if (errno == ENOENT) {
-			cache->need_purge_file_seq = 0;
+			mail_cache_purge_later_reset(cache);
 			return 0;
 		}
 
@@ -223,11 +223,11 @@ static void mail_cache_update_need_purge(struct mail_cache *cache)
 	struct stat st;
 	unsigned int msg_count;
 	unsigned int records_count, cont_percentage, delete_percentage;
-	bool want_purge = FALSE;
+	const char *want_purge_reason = NULL;
 
 	if (hdr->minor_version == 0) {
 		/* purge to get ourself into the new header version */
-		cache->need_purge_file_seq = hdr->file_seq;
+		mail_cache_purge_later(cache, "Minor version too old");
 		return;
 	}
 
@@ -248,24 +248,28 @@ static void mail_cache_update_need_purge(struct mail_cache *cache)
 	cont_percentage = hdr->continued_record_count * 100 / records_count;
 	if (cont_percentage >= set->purge_continued_percentage) {
 		/* too many continued rows, purge */
-		want_purge = TRUE;
+		want_purge_reason = t_strdup_printf(
+			"Too many continued records (%u/%u)",
+			hdr->continued_record_count, records_count);
 	}
 
 	delete_percentage = hdr->deleted_record_count * 100 /
 		(records_count + hdr->deleted_record_count);
 	if (delete_percentage >= set->purge_delete_percentage) {
 		/* too many deleted records, purge */
-		want_purge = TRUE;
+		want_purge_reason = t_strdup_printf(
+			"Too many deleted records (%u/%u)",
+			hdr->deleted_record_count, records_count);
 	}
 
-	if (want_purge) {
+	if (want_purge_reason != NULL) {
 		if (fstat(cache->fd, &st) < 0) {
 			if (!ESTALE_FSTAT(errno))
 				mail_cache_set_syscall_error(cache, "fstat()");
 			return;
 		}
 		if ((uoff_t)st.st_size >= set->purge_min_size)
-			cache->need_purge_file_seq = hdr->file_seq;
+			mail_cache_purge_later(cache, want_purge_reason);
 	}
 
 }
@@ -316,10 +320,9 @@ mail_cache_map_finish(struct mail_cache *cache, uoff_t offset, size_t size,
 		/* verify the header validity only with offset=0. this way
 		   we won't waste time re-verifying it all the time */
 		if (!mail_cache_verify_header(cache, hdr)) {
-			cache->need_purge_file_seq =
-				!MAIL_CACHE_IS_UNUSABLE(cache) &&
-				cache->hdr->file_seq != 0 ?
-				cache->hdr->file_seq : 0;
+			if (!MAIL_CACHE_IS_UNUSABLE(cache) &&
+			    cache->hdr->file_seq != 0)
+				mail_cache_purge_later(cache, "Invalid header");
 			*corrupted_r = TRUE;
 			return -1;
 		}
@@ -402,6 +405,7 @@ mail_cache_map_full(struct mail_cache *cache, size_t offset, size_t size,
 	struct stat st;
 	const void *data;
 	ssize_t ret;
+	size_t orig_size = size;
 
 	*corrupted_r = FALSE;
 
@@ -423,7 +427,7 @@ mail_cache_map_full(struct mail_cache *cache, size_t offset, size_t size,
 			*data_r = NULL;
 			return 0;
 		}
-		if (offset + size > (uoff_t)st.st_size)
+		if (size > (uoff_t)st.st_size - offset)
 			size = st.st_size - offset;
 	}
 
@@ -462,6 +466,10 @@ mail_cache_map_full(struct mail_cache *cache, size_t offset, size_t size,
 		/* already mapped */
 		i_assert(cache->mmap_base != NULL);
 		*data_r = CONST_PTR_OFFSET(cache->mmap_base, offset);
+		if (orig_size > cache->mmap_length - offset) {
+			/* requested offset/size points outside file */
+			return 0;
+		}
 		return 1;
 	}
 
@@ -497,7 +505,7 @@ mail_cache_map_full(struct mail_cache *cache, size_t offset, size_t size,
 	}
 	*data_r = offset > cache->mmap_length ? NULL :
 		CONST_PTR_OFFSET(cache->mmap_base, offset);
-	return mail_cache_map_finish(cache, offset, size,
+	return mail_cache_map_finish(cache, offset, orig_size,
 				     cache->mmap_base, FALSE, corrupted_r);
 }
 
@@ -569,15 +577,13 @@ mail_cache_open_or_create_path(struct mail_index *index, const char *path)
 
 	cache->event = event_create(index->event);
 	event_add_category(cache->event, &event_category_mail_cache);
-	event_set_append_log_prefix(cache->event,
-		t_strdup_printf("Cache %s: ", cache->filepath));
 
 	cache->dotlock_settings.use_excl_lock =
 		(index->flags & MAIL_INDEX_OPEN_FLAG_DOTLOCK_USE_EXCL) != 0;
 	cache->dotlock_settings.nfs_flush =
 		(index->flags & MAIL_INDEX_OPEN_FLAG_NFS_FLUSH) != 0;
 	cache->dotlock_settings.timeout =
-		I_MIN(MAIL_CACHE_LOCK_TIMEOUT, index->max_lock_timeout_secs);
+		I_MIN(MAIL_CACHE_LOCK_TIMEOUT, index->set.max_lock_timeout_secs);
 	cache->dotlock_settings.stale_timeout = MAIL_CACHE_LOCK_CHANGE_TIMEOUT;
 
 	if (!MAIL_INDEX_IS_IN_MEMORY(index) &&
@@ -589,8 +595,8 @@ mail_cache_open_or_create_path(struct mail_index *index, const char *path)
 	cache->ext_id =
 		mail_index_ext_register(index, "cache", 0,
 					sizeof(uint32_t), sizeof(uint32_t));
-	mail_index_register_expunge_handler(index, cache->ext_id, FALSE,
-					    mail_cache_expunge_handler, cache);
+	mail_index_register_expunge_handler(index, cache->ext_id,
+					    mail_cache_expunge_handler);
 	return cache;
 }
 
@@ -619,6 +625,7 @@ void mail_cache_free(struct mail_cache **_cache)
 	hash_table_destroy(&cache->field_name_hash);
 	pool_unref(&cache->field_pool);
 	event_unref(&cache->event);
+	i_free(cache->need_purge_reason);
 	i_free(cache->field_file_map);
 	i_free(cache->file_field_map);
 	i_free(cache->fields);
@@ -639,9 +646,9 @@ static int mail_cache_lock_file(struct mail_cache *cache)
 	}
 
 	i_assert(cache->file_lock == NULL);
-	if (cache->index->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
+	if (cache->index->set.lock_method != FILE_LOCK_METHOD_DOTLOCK) {
 		timeout_secs = I_MIN(MAIL_CACHE_LOCK_TIMEOUT,
-				     cache->index->max_lock_timeout_secs);
+				     cache->index->set.max_lock_timeout_secs);
 
 		ret = mail_index_lock_fd(cache->index, cache->filepath,
 					 cache->fd, F_WRLCK,
@@ -883,7 +890,7 @@ void mail_cache_unlock(struct mail_cache *cache)
 	if (MAIL_CACHE_IS_UNUSABLE(cache)) {
 		/* we found it to be broken during the lock. just clean up. */
 		cache->hdr_modified = FALSE;
-	} else if (cache->index->fsync_mode == FSYNC_MODE_ALWAYS) {
+	} else if (cache->index->set.fsync_mode == FSYNC_MODE_ALWAYS) {
 		if (fdatasync(cache->fd) < 0)
 			mail_cache_set_syscall_error(cache, "fdatasync()");
 	}

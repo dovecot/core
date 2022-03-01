@@ -7,6 +7,7 @@
 #include "base64.h"
 #include "hex-binary.h"
 #include "str.h"
+#include "strescape.h"
 #include "var-expand.h"
 #include "wildcard-match.h"
 #include "settings-parser.h"
@@ -45,7 +46,7 @@ struct authtest_input {
 
 };
 
-static void auth_cmd_help(doveadm_command_t *cmd);
+static void auth_cmd_help(struct doveadm_cmd_context *cctx);
 
 static struct auth_master_connection *
 doveadm_get_auth_master_conn(const char *auth_socket_path)
@@ -189,10 +190,18 @@ static void auth_connected(struct auth_client *client,
 	i_zero(&info);
 	info.mech = "PLAIN";
 	info.service = input->info.service;
+	info.session_id = input->info.session_id;
+	info.local_name = input->info.local_name;
 	info.local_ip = input->info.local_ip;
 	info.local_port = input->info.local_port;
 	info.remote_ip = input->info.remote_ip;
 	info.remote_port = input->info.remote_port;
+	info.real_local_ip = input->info.real_local_ip;
+	info.real_remote_ip = input->info.real_remote_ip;
+	info.real_local_port = input->info.real_local_port;
+	info.real_remote_port = input->info.real_remote_port;
+	info.extra_fields = input->info.extra_fields;
+	info.forward_fields = input->info.forward_fields;
 	info.initial_resp_base64 = str_c(base64_resp);
 	if (doveadm_settings->auth_debug ||
 	    event_want_debug_log(event_auth))
@@ -224,10 +233,15 @@ cmd_auth_input(const char *auth_socket_path, struct authtest_input *input)
 	auth_client_deinit(&client);
 }
 
-static void auth_user_info_parse(struct auth_user_info *info, const char *arg)
+static void
+auth_user_info_parse_arg(struct auth_user_info *info, const char *arg)
 {
 	if (str_begins(arg, "service="))
 		info->service = arg + 8;
+	else if (str_begins(arg, "session="))
+		info->session_id = arg + 8;
+	else if (str_begins(arg, "local_name="))
+		info->local_name = arg + 11;
 	else if (str_begins(arg, "lip=")) {
 		if (net_addr2ip(arg + 4, &info->local_ip) < 0)
 			i_fatal("lip: Invalid ip");
@@ -240,15 +254,53 @@ static void auth_user_info_parse(struct auth_user_info *info, const char *arg)
 	} else if (str_begins(arg, "rport=")) {
 		if (net_str2port(arg + 6, &info->remote_port) < 0)
 			i_fatal("rport: Invalid port number");
+	} else if (str_begins(arg, "real_lip=")) {
+		if (net_addr2ip(arg + 9, &info->real_local_ip) < 0)
+			i_fatal("real_lip: Invalid ip");
+	} else if (str_begins(arg, "real_rip=")) {
+		if (net_addr2ip(arg + 9, &info->real_remote_ip) < 0)
+			i_fatal("real_rip: Invalid ip");
+	} else if (str_begins(arg, "real_lport=")) {
+		if (net_str2port(arg + 11, &info->real_local_port) < 0)
+			i_fatal("real_lport: Invalid port number");
+	} else if (str_begins(arg, "real_rport=")) {
+		if (net_str2port(arg + 11, &info->real_remote_port) < 0)
+			i_fatal("real_rport: Invalid port number");
+	} else if (str_begins(arg, "forward_")) {
+		const char *key = arg+8;
+		const char *value = strchr(arg+8, '=');
+
+		if (value == NULL)
+			value = "";
+		else
+			key = t_strdup_until(key, value++);
+		key = str_tabescape(key);
+		value = str_tabescape(value);
+		if (info->forward_fields == NULL) {
+			info->forward_fields =
+				t_strdup_printf("%s=%s", key, value);
+		} else {
+			info->forward_fields =
+				t_strdup_printf("%s\t%s=%s", info->forward_fields, key, value);
+		}
 	} else {
-		i_fatal("Unknown -x argument: %s", arg);
+		if (!array_is_created(&info->extra_fields))
+			t_array_init(&info->extra_fields, 4);
+		array_push_back(&info->extra_fields, &arg);
 	}
+}
+
+static void
+auth_user_info_parse(struct auth_user_info *info, const char *const *args)
+{
+	for (unsigned int i = 0; args[i] != NULL; i++)
+		auth_user_info_parse_arg(info, args[i]);
 }
 
 static void
 cmd_user_list(struct auth_master_connection *conn,
 	      const struct authtest_input *input,
-	      char *const *users)
+	      const char *const *users)
 {
 	struct auth_master_user_list_ctx *ctx;
 	const char *username, *user_mask = "*";
@@ -270,31 +322,21 @@ cmd_user_list(struct auth_master_connection *conn,
 		i_fatal("user listing failed");
 }
 
-static void cmd_auth_cache_flush(int argc, char *argv[])
+static void cmd_auth_cache_flush(struct doveadm_cmd_context *cctx)
 {
-	const char *master_socket_path = NULL;
+	const char *master_socket_path;
 	struct auth_master_connection *conn;
+	const char *const *users = NULL;
 	unsigned int count;
-	int c;
 
-	while ((c = getopt(argc, argv, "a:")) > 0) {
-		switch (c) {
-		case 'a':
-			master_socket_path = optarg;
-			break;
-		default:
-			auth_cmd_help(cmd_auth_cache_flush);
-		}
-	}
-	argv += optind;
-
-	if (master_socket_path == NULL) {
+	if (!doveadm_cmd_param_str(cctx, "socket-path", &master_socket_path)) {
 		master_socket_path = t_strconcat(doveadm_settings->base_dir,
 						 "/auth-master", NULL);
 	}
+	(void)doveadm_cmd_param_array(cctx, "user", &users);
 
 	conn = doveadm_get_auth_master_conn(master_socket_path);
-	if (auth_master_cache_flush(conn, (void *)argv, &count) < 0) {
+	if (auth_master_cache_flush(conn, users, &count) < 0) {
 		i_error("Cache flush failed");
 		doveadm_exit_code = EX_TEMPFAIL;
 	} else {
@@ -310,37 +352,22 @@ static void authtest_input_init(struct authtest_input *input)
 	input->info.debug = doveadm_settings->auth_debug;
 }
 
-static void cmd_auth_test(int argc, char *argv[])
+static void cmd_auth_test(struct doveadm_cmd_context *cctx)
 {
 	const char *auth_socket_path = NULL;
+	const char *const *auth_info;
 	struct authtest_input input;
-	int c;
 
 	authtest_input_init(&input);
-	while ((c = getopt(argc, argv, "a:M:x:")) > 0) {
-		switch (c) {
-		case 'a':
-			auth_socket_path = optarg;
-			break;
-		case 'M':
-			input.master_user = optarg;
-			break;
-		case 'x':
-			auth_user_info_parse(&input.info, optarg);
-			break;
-		default:
-			auth_cmd_help(cmd_auth_test);
-		}
-	}
+	(void)doveadm_cmd_param_str(cctx, "socket-path", &auth_socket_path);
+	(void)doveadm_cmd_param_str(cctx, "master-user", &input.master_user);
+	if (doveadm_cmd_param_array(cctx, "auth-info", &auth_info))
+		auth_user_info_parse(&input.info, auth_info);
 
-	if (optind == argc)
-		auth_cmd_help(cmd_auth_test);
-
-	input.username = argv[optind++];
-	input.password = argv[optind] != NULL ? argv[optind++] :
-		t_askpass("Password: ");
-	if (argv[optind] != NULL)
-			i_fatal("Unexpected parameter: %s", argv[optind]);
+	if (!doveadm_cmd_param_str(cctx, "user", &input.username))
+		auth_cmd_help(cctx);
+	if (!doveadm_cmd_param_str(cctx, "password", &input.password))
+		input.password = t_askpass("Password: ");
 	cmd_auth_input(auth_socket_path, &input);
 	if (!input.success)
 		doveadm_exit_code = EX_NOPERM;
@@ -395,46 +422,35 @@ cmd_auth_master_input(const char *auth_master_socket_path,
 	master_login_auth_deinit(&master_auth);
 }
 
-static void cmd_auth_login(int argc, char *argv[])
+static void cmd_auth_login(struct doveadm_cmd_context *cctx)
 {
 	const char *auth_login_socket_path, *auth_master_socket_path;
+	const char *const *auth_info;
 	struct auth_client *auth_client;
 	struct authtest_input input;
-	int c;
 
 	authtest_input_init(&input);
-	auth_login_socket_path = t_strconcat(doveadm_settings->base_dir,
-					     "/auth-login", NULL);
-	auth_master_socket_path = t_strconcat(doveadm_settings->base_dir,
-					      "/auth-master", NULL);
-	while ((c = getopt(argc, argv, "a:m:M:x:")) > 0) {
-		switch (c) {
-		case 'a':
-			auth_login_socket_path = optarg;
-			break;
-		case 'm':
-			auth_master_socket_path = optarg;
-			break;
-		case 'M':
-			input.master_user = optarg;
-			break;
-		case 'x':
-			auth_user_info_parse(&input.info, optarg);
-			break;
-		default:
-			auth_cmd_help(cmd_auth_login);
-		}
+	if (!doveadm_cmd_param_str(cctx, "auth-login-socket-path",
+				   &auth_login_socket_path)) {
+		auth_login_socket_path =
+			t_strconcat(doveadm_settings->base_dir,
+				    "/auth-login", NULL);
 	}
-
-	if (optind == argc)
-		auth_cmd_help(cmd_auth_login);
+	if (!doveadm_cmd_param_str(cctx, "auth-master-socket-path",
+				   &auth_master_socket_path)) {
+		auth_master_socket_path =
+			t_strconcat(doveadm_settings->base_dir,
+				    "/auth-master", NULL);
+	}
+	(void)doveadm_cmd_param_str(cctx, "master-user", &input.master_user);
+	if (doveadm_cmd_param_array(cctx, "auth-info", &auth_info))
+		auth_user_info_parse(&input.info, auth_info);
+	if (!doveadm_cmd_param_str(cctx, "user", &input.username))
+		auth_cmd_help(cctx);
+	if (!doveadm_cmd_param_str(cctx, "password", &input.password))
+		input.password = t_askpass("Password: ");
 
 	input.pool = pool_alloconly_create("auth login", 256);
-	input.username = argv[optind++];
-	input.password = argv[optind] != NULL ? argv[optind++] :
-		t_askpass("Password: ");
-	if (argv[optind] != NULL)
-			i_fatal("Unexpected parameter: %s", argv[optind]);
 	/* authenticate */
 	auth_client = auth_client_init(auth_login_socket_path, getpid(), FALSE);
 	auth_client_connect(auth_client);
@@ -451,37 +467,28 @@ static void cmd_auth_login(int argc, char *argv[])
 	pool_unref(&input.pool);
 }
 
-static void cmd_auth_lookup(int argc, char *argv[])
+static void cmd_auth_lookup(struct doveadm_cmd_context *cctx)
 {
-	const char *auth_socket_path = doveadm_settings->auth_socket_path;
+	const char *auth_socket_path;
 	struct auth_master_connection *conn;
 	struct authtest_input input;
 	const char *show_field = NULL;
+	const char *const *auth_info, *const *users;
 	bool first = TRUE;
-	int c, ret;
+	int ret;
 
 	authtest_input_init(&input);
-	while ((c = getopt(argc, argv, "a:f:x:")) > 0) {
-		switch (c) {
-		case 'a':
-			auth_socket_path = optarg;
-			break;
-		case 'f':
-			show_field = optarg;
-			break;
-		case 'x':
-			auth_user_info_parse(&input.info, optarg);
-			break;
-		default:
-			auth_cmd_help(cmd_auth_lookup);
-		}
-	}
-
-	if (optind == argc)
-		auth_cmd_help(cmd_auth_lookup);
+	if (!doveadm_cmd_param_str(cctx, "socket-path", &auth_socket_path))
+		auth_socket_path = doveadm_settings->auth_socket_path;
+	(void)doveadm_cmd_param_str(cctx, "field", &show_field);
+	if (doveadm_cmd_param_array(cctx, "auth-info", &auth_info))
+		auth_user_info_parse(&input.info, auth_info);
+	if (!doveadm_cmd_param_array(cctx, "user", &users))
+		auth_cmd_help(cctx);
 
 	conn = doveadm_get_auth_master_conn(auth_socket_path);
-	while ((input.username = argv[optind++]) != NULL) {
+	for (unsigned int i = 0; users[i] != NULL; i++) {
+		input.username = users[i];
 		if (first)
 			first = FALSE;
 		else
@@ -606,39 +613,28 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 	return 1;
 }
 
-static void cmd_user(int argc, char *argv[])
+static void cmd_user(struct doveadm_cmd_context *cctx)
 {
-	const char *auth_socket_path = doveadm_settings->auth_socket_path;
+	const char *auth_socket_path;
 	struct auth_master_connection *conn;
 	struct authtest_input input;
 	const char *show_field = NULL, *expand_field = NULL;
+	const char *const *user_masks, *const *auth_info;
 	struct mail_storage_service_ctx *storage_service = NULL;
 	unsigned int i;
 	bool have_wildcards, userdb_only = FALSE, first = TRUE;
-	int c, ret;
+	int ret;
 
 	authtest_input_init(&input);
-	while ((c = getopt(argc, argv, "a:e:f:ux:")) > 0) {
-		switch (c) {
-		case 'a':
-			auth_socket_path = optarg;
-			break;
-		case 'e':
-			expand_field = optarg;
-			break;
-		case 'f':
-			show_field = optarg;
-			break;
-		case 'u':
-			userdb_only = TRUE;
-			break;
-		case 'x':
-			auth_user_info_parse(&input.info, optarg);
-			break;
-		default:
-			auth_cmd_help(cmd_user);
-		}
-	}
+	if (!doveadm_cmd_param_str(cctx, "socket-path", &auth_socket_path))
+		auth_socket_path = doveadm_settings->auth_socket_path;
+	(void)doveadm_cmd_param_str(cctx, "field", &show_field);
+	(void)doveadm_cmd_param_str(cctx, "expand-field", &expand_field);
+	(void)doveadm_cmd_param_bool(cctx, "userdb-only", &userdb_only);
+	if (doveadm_cmd_param_array(cctx, "auth-info", &auth_info))
+		auth_user_info_parse(&input.info, auth_info);
+	if (!doveadm_cmd_param_array(cctx, "user-mask", &user_masks))
+		auth_cmd_help(cctx);
 
 	if (expand_field != NULL && userdb_only) {
 		i_error("-e can't be used with -u");
@@ -651,22 +647,19 @@ static void cmd_user(int argc, char *argv[])
 		return;
 	}
 
-	if (optind == argc)
-		auth_cmd_help(cmd_user);
-
 	conn = doveadm_get_auth_master_conn(auth_socket_path);
 
 	have_wildcards = FALSE;
-	for (i = optind; argv[i] != NULL; i++) {
-		if (strchr(argv[i], '*') != NULL ||
-		    strchr(argv[i], '?') != NULL) {
+	for (i = 0; user_masks[i] != NULL; i++) {
+		if (strchr(user_masks[i], '*') != NULL ||
+		    strchr(user_masks[i], '?') != NULL) {
 			have_wildcards = TRUE;
 			break;
 		}
 	}
 
 	if (have_wildcards) {
-		cmd_user_list(conn, &input, argv + optind);
+		cmd_user_list(conn, &input, user_masks);
 		auth_master_deinit(&conn);
 		return;
 	}
@@ -688,7 +681,8 @@ static void cmd_user(int argc, char *argv[])
 		}
 	}
 
-	while ((input.username = argv[optind++]) != NULL) {
+	for (i = 0; user_masks[i] != NULL; i++) {
+		input.username = user_masks[i];
 		if (first)
 			first = FALSE;
 		else
@@ -712,26 +706,74 @@ static void cmd_user(int argc, char *argv[])
 		auth_master_deinit(&conn);
 }
 
-struct doveadm_cmd doveadm_cmd_auth[] = {
-	{ cmd_auth_test, "auth test",
-	  "[-a <auth socket path>] [-x <auth info>] [-M <master user>] <user> [<password>]" },
-	{ cmd_auth_login, "auth login",
-	  "[-a <auth-login socket path>] [-m <auth-master socket path>] [-x <auth info>] [-M <master user>] <user> [<password>]" },
-	{ cmd_auth_lookup, "auth lookup",
-	  "[-a <userdb socket path>] [-x <auth info>] [-f field] <user> [...]" },
-	{ cmd_auth_cache_flush, "auth cache flush",
-	  "[-a <master socket path>] [<user> [...]]" },
-	{ cmd_user, "user",
-	  "[-a <userdb socket path>] [-x <auth info>] [-f field] [-e <value>] [-u] <user mask> [...]" }
+struct doveadm_cmd_ver2 doveadm_cmd_auth[] = {
+{
+	.cmd = cmd_auth_test,
+	.name = "auth test",
+	.usage = "[-a <auth socket path>] [-x <auth info>] [-M <master user>] <user> [<password>]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('x', "auth-info", CMD_PARAM_ARRAY, 0)
+DOVEADM_CMD_PARAM('M', "master-user", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "user", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "password", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.cmd = cmd_auth_login,
+	.name = "auth login",
+	.usage = "[-a <auth-login socket path>] [-m <auth-master socket path>] [-x <auth info>] [-M <master user>] <user> [<password>]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "auth-login-socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('m', "auth-master-socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('x', "auth-info", CMD_PARAM_ARRAY, 0)
+DOVEADM_CMD_PARAM('M', "master-user", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "user", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "password", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.cmd = cmd_auth_lookup,
+	.name = "auth lookup",
+	.usage = "[-a <userdb socket path>] [-x <auth info>] [-f field] <user> [<user> [...]]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('x', "auth-info", CMD_PARAM_ARRAY, 0)
+DOVEADM_CMD_PARAM('f', "field", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "user", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.cmd = cmd_auth_cache_flush,
+	.name = "auth cache flush",
+	.usage = "[-a <master socket path>] [<user> [...]]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('\0', "user", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.cmd = cmd_user,
+	.name = "user",
+	.usage = "[-a <userdb socket path>] [-x <auth info>] [-f field] [-e <value>] [-u] <user mask> [<user mask> [...]]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('a', "socket-path", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('x', "auth-info", CMD_PARAM_ARRAY, 0)
+DOVEADM_CMD_PARAM('f', "field", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('e', "expand-field", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('u', "userdb-only", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('\0', "user-mask", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+}
 };
 
-static void auth_cmd_help(doveadm_command_t *cmd)
+static void auth_cmd_help(struct doveadm_cmd_context *cctx)
 {
 	unsigned int i;
 
 	for (i = 0; i < N_ELEMENTS(doveadm_cmd_auth); i++) {
-		if (doveadm_cmd_auth[i].cmd == cmd)
-			help(&doveadm_cmd_auth[i]);
+		if (doveadm_cmd_auth[i].cmd == cctx->cmd->cmd)
+			help_ver2(&doveadm_cmd_auth[i]);
 	}
 	i_unreached();
 }
@@ -741,5 +783,5 @@ void doveadm_register_auth_commands(void)
 	unsigned int i;
 
 	for (i = 0; i < N_ELEMENTS(doveadm_cmd_auth); i++)
-		doveadm_register_cmd(&doveadm_cmd_auth[i]);
+		doveadm_cmd_register_ver2(&doveadm_cmd_auth[i]);
 }

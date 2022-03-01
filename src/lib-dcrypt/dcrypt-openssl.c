@@ -23,6 +23,7 @@
 #include <openssl/engine.h>
 #include <openssl/hmac.h>
 #include <openssl/objects.h>
+#include <openssl/bn.h>
 #include "dcrypt.h"
 #include "dcrypt-private.h"
 
@@ -1020,7 +1021,6 @@ dcrypt_openssl_decrypt_point_password_v1(const char *data_hex,
 					 const char **error_r)
 {
 	buffer_t *salt, *data, *password, *key;
-	struct dcrypt_context_symmetric *dctx;
 
 	data = t_buffer_create(128);
 	salt = t_buffer_create(16);
@@ -1034,10 +1034,8 @@ dcrypt_openssl_decrypt_point_password_v1(const char *data_hex,
 	/* aes-256-ctr uses 32 byte key, and v1 uses all-zero IV */
 	if (!dcrypt_openssl_pbkdf2(password->data, password->used,
 				   salt->data, salt->used,
-				   "sha256", 16, key, 32, error_r)) {
-		dcrypt_ctx_sym_destroy(&dctx);
+				   "sha256", 16, key, 32, error_r))
 		return FALSE;
-	}
 
 	return dcrypt_openssl_decrypt_point_v1(data, key, point_r, error_r);
 }
@@ -1206,7 +1204,7 @@ dcrypt_openssl_cipher_key_dovecot_v2(const char *cipher,
 		res = FALSE;
 	} else {
 		/* provide result if succeeded */
-		buffer_append_buf(result_r, tmp, 0, (size_t)-1);
+		buffer_append_buf(result_r, tmp, 0, SIZE_MAX);
 		res = TRUE;
 	}
 	/* and ensure no data leaks */
@@ -1919,7 +1917,7 @@ static int bn2base64url(const BIGNUM *bn, string_t *dest)
 	unsigned char *data = t_malloc_no0(len);
 	if (BN_bn2bin(bn, data) != len)
 		return -1;
-	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, (size_t)-1, data, len, dest);
+	base64url_encode(BASE64_ENCODE_FLAG_NO_PADDING, SIZE_MAX, data, len, dest);
 	return 0;
 }
 
@@ -2141,11 +2139,9 @@ dcrypt_openssl_load_public_key_dovecot(struct dcrypt_public_key **key_r,
 	case DCRYPT_KEY_VERSION_1:
 		return dcrypt_openssl_load_public_key_dovecot_v1(
 			key_r, len, input, error_r);
-		break;
 	case DCRYPT_KEY_VERSION_2:
 		return dcrypt_openssl_load_public_key_dovecot_v2(
 			key_r, len, input, error_r);
-		break;
 	case DCRYPT_KEY_VERSION_NA:
 		i_unreached();
 	}

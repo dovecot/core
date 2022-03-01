@@ -7,12 +7,12 @@ AM_CPPFLAGS = \
 
 libcompression_la_SOURCES = \
 	compression.c \
+	istream-decompress.c \
 	istream-lzma.c \
 	istream-lz4.c \
 	istream-zlib.c \
 	istream-bzlib.c \
 	istream-zstd.c \
-	ostream-lzma.c \
 	ostream-lz4.c \
 	ostream-zlib.c \
 	ostream-bzlib.c \
@@ -26,6 +26,9 @@ pkginc_lib_HEADERS = \
 	iostream-lz4.h \
 	istream-zlib.h \
 	ostream-zlib.h
+
+noinst_HEADERS = \
+	iostream-zstd-private.h
 
 pkglib_LTLIBRARIES = libdovecot-compression.la
 libdovecot_compression_la_SOURCES = 

@@ -21,6 +21,7 @@ struct submission_backend_relay {
 
 	bool trans_started:1;
 	bool trusted:1;
+	bool quit_confirmed:1;
 };
 
 static struct submission_backend_vfuncs backend_relay_vfuncs;
@@ -45,8 +46,10 @@ static bool
 backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 				 struct smtp_server_cmd_ctx *cmd,
 				 const struct smtp_reply *reply,
-				 struct smtp_reply *reply_r)
+				 struct smtp_reply *reply_r) ATTR_NULL(2)
 {
+	struct client *client = backend->backend.client;
+	struct mail_user *user = client->user;
 	const char *enh_code, *msg, *log_msg = NULL;
 	const char *const *reply_lines;
 	bool result = TRUE;
@@ -112,6 +115,8 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 			break;
 		case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_LOST:
 		case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED:
+			if (backend->quit_confirmed)
+				return FALSE;
 			detail = " (connection lost)";
 			break;
 		case SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY:
@@ -126,8 +131,15 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *backend,
 
 		reason = t_strdup_printf("%s%s", msg, detail);
 		smtp_client_transaction_destroy(&backend->trans);
-		if (log_msg != NULL)
-			i_error("%s: %s", log_msg, smtp_reply_log(reply));
+		if (log_msg != NULL) {
+			if (smtp_reply_is_remote(reply)) {
+				i_error("%s: %s",
+					log_msg, smtp_reply_log(reply));
+			} else if (user->mail_debug) {
+				i_debug("%s: %s",
+					log_msg, smtp_reply_log(reply));
+			}
+		}
 		submission_backend_fail(&backend->backend, cmd,
 					enh_code, reason);
 		return FALSE;
@@ -735,14 +747,13 @@ backend_relay_cmd_data_init_callbacks(struct submission_backend_relay *backend,
 				      struct smtp_server_transaction *trans)
 {
 	struct client *client = backend->backend.client;
-	struct submission_recipient *const *rcptp;
+	struct submission_recipient *rcpt;
 
 	if (!HAS_ALL_BITS(trans->flags,
 			  SMTP_SERVER_TRANSACTION_FLAG_REPLY_PER_RCPT))
 		return;
 
-	array_foreach_modifiable(&client->rcpt_to, rcptp) {
-		struct submission_recipient *rcpt = *rcptp;
+	array_foreach_elem(&client->rcpt_to, rcpt) {
 		struct smtp_client_transaction_rcpt *relay_rcpt =
 			rcpt->backend_context;
 
@@ -950,6 +961,14 @@ relay_cmd_quit_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 		smtp_client_command_abort(&quit_cmd->cmd_relayed);
 }
 
+static void relay_cmd_quit_relayed_destroy(void *context)
+{
+	struct relay_cmd_quit_context *quit_cmd = context;
+
+	i_assert(quit_cmd != NULL);
+	quit_cmd->cmd_relayed = NULL;
+}
+
 static void
 relay_cmd_quit_replied(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 		       struct relay_cmd_quit_context *quit_cmd)
@@ -962,6 +981,7 @@ static void relay_cmd_quit_finish(struct relay_cmd_quit_context *quit_cmd)
 {
 	struct smtp_server_cmd_ctx *cmd = quit_cmd->cmd;
 
+	quit_cmd->backend->quit_confirmed = TRUE;
 	if (quit_cmd->cmd_relayed != NULL)
 		smtp_client_command_abort(&quit_cmd->cmd_relayed);
 	smtp_server_reply_quit(cmd);
@@ -988,6 +1008,7 @@ static void relay_cmd_quit_relay(struct relay_cmd_quit_context *quit_cmd)
 		< SMTP_CLIENT_CONNECTION_STATE_READY) {
 		/* Don't bother relaying QUIT command when relay is not
 		   fully initialized. */
+		quit_cmd->backend->quit_confirmed = TRUE;
 		smtp_server_reply_quit(cmd);
 		return;
 	}
@@ -1002,6 +1023,9 @@ static void relay_cmd_quit_relay(struct relay_cmd_quit_context *quit_cmd)
 		smtp_client_command_new(backend->conn, 0,
 					relay_cmd_quit_callback, quit_cmd);
 	smtp_client_command_write(quit_cmd->cmd_relayed, "QUIT");
+	smtp_client_command_set_abort_callback(
+		quit_cmd->cmd_relayed,
+		relay_cmd_quit_relayed_destroy, quit_cmd);
 	smtp_client_command_submit(quit_cmd->cmd_relayed);
 }
 
@@ -1058,7 +1082,6 @@ submission_backend_relay_create(
 	submission_backend_init(&backend->backend, pool, client,
 				&backend_relay_vfuncs);
 
-	i_zero(&ssl_set);
 	mail_user_init_ssl_client_settings(user, &ssl_set);
 	if (set->ssl_verify)
 		ssl_set.verbose_invalid_cert = TRUE;
@@ -1078,14 +1101,11 @@ submission_backend_relay_create(
 	}
 
 	if (set->trusted) {
-		struct smtp_server_helo_data *helo_data =
-			smtp_server_connection_get_helo_data(client->conn);
-
 		backend->trusted = TRUE;
 		smtp_set.peer_trusted = TRUE;
 
-		smtp_set.proxy_data.helo = helo_data->domain;
-		smtp_set.proxy_data.proto = SMTP_PROXY_PROTOCOL_ESMTP;
+		smtp_server_connection_get_proxy_data(client->conn,
+						      &smtp_set.proxy_data);
 
 		if (user->conn.remote_ip != NULL) {
 			smtp_set.proxy_data.source_ip =
@@ -1155,8 +1175,11 @@ static void backend_relay_ready_cb(const struct smtp_reply *reply,
 				   void *context)
 {
 	struct submission_backend_relay *backend = context;
+	struct smtp_reply dummy;
 
 	/* check relay status */
+	if (!backend_relay_handle_relay_reply(backend, NULL, reply, &dummy))
+		return;
 	if (!smtp_reply_is_success(reply)) {
 		i_error("Failed to establish relay connection: %s",
 			smtp_reply_log(reply));

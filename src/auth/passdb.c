@@ -15,11 +15,9 @@ static const struct passdb_module_interface passdb_iface_deinit = {
 
 static struct passdb_module_interface *passdb_interface_find(const char *name)
 {
-	struct passdb_module_interface *const *ifaces;
+	struct passdb_module_interface *iface;
 
-	array_foreach(&passdb_interfaces, ifaces) {
-		struct passdb_module_interface *iface = *ifaces;
-
+	array_foreach_elem(&passdb_interfaces, iface) {
 		if (strcmp(iface->name, name) == 0)
 			return iface;
 	}
@@ -60,7 +58,7 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 			    const char *input, const char *input_scheme,
 			    const unsigned char **credentials_r, size_t *size_r)
 {
-	const char *wanted_scheme = auth_request->credentials_scheme;
+	const char *wanted_scheme = auth_request->wanted_credentials_scheme;
 	const char *plaintext, *error;
 	int ret;
 	struct password_generate_params pwd_gen_params;
@@ -87,9 +85,9 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 	}
 
 	if (*wanted_scheme == '\0') {
-		/* anything goes. change the credentials_scheme to what we
-		   actually got, so blocking passdbs work. */
-		auth_request->credentials_scheme =
+		/* anything goes. change the wanted_credentials_scheme to what
+		   we actually got, so blocking passdbs work. */
+		auth_request->wanted_credentials_scheme =
 			p_strdup(auth_request->pool, t_strcut(input_scheme, '.'));
 		return TRUE;
 	}
@@ -111,12 +109,12 @@ bool passdb_get_credentials(struct auth_request *auth_request,
 		/* we can generate anything out of plaintext passwords */
 		plaintext = t_strndup(*credentials_r, *size_r);
 		i_zero(&pwd_gen_params);
-		pwd_gen_params.user = auth_request->original_username;
+		pwd_gen_params.user = auth_request->fields.original_username;
 		if (!auth_request->domain_is_realm &&
 		    strchr(pwd_gen_params.user, '@') != NULL) {
 			/* domain must not be used as realm. add the @realm. */
 			pwd_gen_params.user = t_strconcat(pwd_gen_params.user, "@",
-					       auth_request->realm, NULL);
+					       auth_request->fields.realm, NULL);
 		}
 		if (auth_request->set->debug_passwords) {
 			e_debug(authdb_event(auth_request),
@@ -145,7 +143,8 @@ void passdb_handle_credentials(enum passdb_result result,
 	if (result != PASSDB_RESULT_OK) {
 		callback(result, NULL, 0, auth_request);
 		return;
-	} else if (auth_fields_exists(auth_request->extra_fields, "noauthenticate")) {
+	} else if (auth_fields_exists(auth_request->fields.extra_fields,
+				      "noauthenticate")) {
 		callback(PASSDB_RESULT_NEXT, NULL, 0, auth_request);
 		return;
 	}
@@ -154,17 +153,17 @@ void passdb_handle_credentials(enum passdb_result result,
 		if (!passdb_get_credentials(auth_request, password, scheme,
 					    &credentials, &size))
 			result = PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
-	} else if (*auth_request->credentials_scheme == '\0') {
+	} else if (*auth_request->wanted_credentials_scheme == '\0') {
 		/* We're doing a passdb lookup (not authenticating).
 		   Pass through a NULL password without an error. */
-	} else if (auth_request->delayed_credentials != NULL) {
+	} else if (auth_request->fields.delayed_credentials != NULL) {
 		/* We already have valid credentials from an earlier
 		   passdb lookup. auth_request_lookup_credentials_finish()
 		   will use them. */
 	} else {
 		e_info(authdb_event(auth_request),
 		       "Requested %s scheme, but we have a NULL password",
-		       auth_request->credentials_scheme);
+		       auth_request->wanted_credentials_scheme);
 		result = PASSDB_RESULT_SCHEME_NOT_AVAILABLE;
 	}
 
@@ -316,14 +315,11 @@ extern struct passdb_module_interface passdb_dict;
 #ifdef HAVE_LUA
 extern struct passdb_module_interface passdb_lua;
 #endif
-extern struct passdb_module_interface passdb_shadow;
 extern struct passdb_module_interface passdb_passwd_file;
 extern struct passdb_module_interface passdb_pam;
 extern struct passdb_module_interface passdb_checkpassword;
-extern struct passdb_module_interface passdb_vpopmail;
 extern struct passdb_module_interface passdb_ldap;
 extern struct passdb_module_interface passdb_sql;
-extern struct passdb_module_interface passdb_sia;
 extern struct passdb_module_interface passdb_static;
 extern struct passdb_module_interface passdb_oauth2;
 
@@ -340,11 +336,8 @@ void passdbs_init(void)
 	passdb_register_module(&passdb_passwd_file);
 	passdb_register_module(&passdb_pam);
 	passdb_register_module(&passdb_checkpassword);
-	passdb_register_module(&passdb_shadow);
-	passdb_register_module(&passdb_vpopmail);
 	passdb_register_module(&passdb_ldap);
 	passdb_register_module(&passdb_sql);
-	passdb_register_module(&passdb_sia);
 	passdb_register_module(&passdb_static);
 	passdb_register_module(&passdb_oauth2);
 }

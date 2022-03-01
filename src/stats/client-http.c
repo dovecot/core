@@ -133,7 +133,7 @@ static void
 stats_http_resource_root_make_response(struct http_server_response *resp,
 				       const struct http_request *hreq)
 {
-	struct stats_http_resource *const *res_p;
+	struct stats_http_resource *res;
 	struct http_url url;
 	string_t *msg;
 
@@ -154,9 +154,7 @@ stats_http_resource_root_make_response(struct http_server_response *resp,
 	str_append(msg, "<h1>Dovecot Stats:</h1>\n");
 	str_append(msg, "<p><ul>\n");
 
-	array_foreach(&stats_http_resources, res_p) {
-		struct stats_http_resource *res = *res_p;
-
+	array_foreach_elem(&stats_http_resources, res) {
 		if (res->title == NULL)
 			continue;
 

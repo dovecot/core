@@ -35,6 +35,7 @@ struct solr_connection_post {
 };
 
 struct solr_connection {
+	struct event *event;
 	char *http_host;
 	in_port_t http_port;
 	char *http_base_url;
@@ -63,6 +64,7 @@ static char *solr_connection_create_http_base_url(struct http_url *http_url)
 
 int solr_connection_init(const struct fts_solr_settings *solr_set,
 			 const struct ssl_iostream_settings *ssl_client_set,
+			 struct event *event_parent,
 			 struct solr_connection **conn_r, const char **error_r)
 {
 	struct http_client_settings http_set;
@@ -78,6 +80,7 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 	}
 
 	conn = i_new(struct solr_connection, 1);
+	conn->event = event_create(event_parent);
 	conn->http_host = i_strdup(http_url->host.name);
 	conn->http_port = http_url->port;
 	conn->http_base_url = solr_connection_create_http_base_url(http_url);
@@ -103,7 +106,15 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 		http_set.ssl = ssl_client_set;
 		http_set.debug = solr_set->debug;
 		http_set.rawlog_dir = solr_set->rawlog_dir;
-		solr_http_client = http_client_init(&http_set);
+		http_set.event_parent = conn->event;
+
+		/* FIXME: We should initialize a shared client instead. However,
+		          this is currently not possible due to an obscure bug
+		          in the blocking HTTP payload API, which causes
+		          conflicts with other HTTP applications like FTS Tika.
+		          Using a private client will provide a quick fix for
+		          now. */
+		solr_http_client = http_client_init_private(&http_set);
 	}
 
 	*conn_r = conn;
@@ -115,6 +126,7 @@ void solr_connection_deinit(struct solr_connection **_conn)
 	struct solr_connection *conn = *_conn;
 
 	*_conn = NULL;
+	event_unref(&conn->event);
 	i_free(conn->http_host);
 	i_free(conn->http_base_url);
 	i_free(conn->http_user);

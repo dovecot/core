@@ -21,7 +21,11 @@ enum message_part_flags {
 	MESSAGE_PART_FLAG_HAS_NULS		= 0x20,
 
 	/* Mime-Version header exists. */
-	MESSAGE_PART_FLAG_IS_MIME		= 0x40
+	MESSAGE_PART_FLAG_IS_MIME		= 0x40,
+	/* Message parsing was aborted because there were too many MIME parts.
+	   This MIME part points to a blob which wasn't actually parsed to
+	   see if it would contain further MIME parts. */
+	MESSAGE_PART_FLAG_OVERFLOW		= 0x80,
 };
 
 struct message_part {
@@ -49,5 +53,15 @@ unsigned int message_part_to_idx(const struct message_part *part);
    doesn't exist. */
 struct message_part *
 message_part_by_idx(struct message_part *parts, unsigned int idx);
+
+/* Returns TRUE when message parts are considered equal. Equality is determined
+   to be TRUE, when
+
+  - both parts are NULL
+  - both parts are not NULL, and
+    - both parts children are equal
+    - both parts have same position, sizes, line counts and flags. */
+bool message_part_is_equal(const struct message_part *p1,
+			   const struct message_part *p2) ATTR_NULL(1, 2);
 
 #endif

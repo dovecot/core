@@ -60,8 +60,7 @@ bool client_handle_parser_error(struct imap_client *client,
 	case IMAP_PARSE_ERROR_LITERAL_TOO_BIG:
 		client_send_reply(&client->common,
 				  IMAP_CMD_REPLY_BYE, msg);
-		client_destroy(&client->common,
-			       t_strconcat("Disconnected: ", msg, NULL));
+		client_destroy(&client->common, msg);
 		return FALSE;
 	default:
 		break;
@@ -170,7 +169,7 @@ static int cmd_logout(struct imap_client *client,
 	client_send_reply(&client->common, IMAP_CMD_REPLY_BYE, "Logging out");
 	client_send_reply(&client->common, IMAP_CMD_REPLY_OK,
 			  "Logout completed.");
-	client_destroy(&client->common, "Aborted login");
+	client_destroy(&client->common, CLIENT_UNAUTHENTICATED_LOGOUT_MSG);
 	return 1;
 }
 
@@ -194,30 +193,18 @@ static int client_command_execute(struct imap_client *client, const char *cmd,
 	return login_cmd->func(client, args);
 }
 
-static bool imap_is_valid_tag(const char *tag)
+static bool client_invalid_command(struct imap_client *client)
 {
-	for (; *tag != '\0'; tag++) {
-		switch (*tag) {
-		case '+':
-		/* atom-specials: */
-		case '(':
-		case ')':
-		case '{':
-		case '/':
-		case ' ':
-		/* list-wildcards: */
-		case '%':
-		case '*':
-		/* quoted-specials: */
-		case '"':
-		case '\\':
-			return FALSE;
-		default:
-			if (*tag < ' ') /* CTL */
-				return FALSE;
-			break;
-		}
+	if (client->cmd_tag == NULL || *client->cmd_tag == '\0')
+		client->cmd_tag = "*";
+	if (++client->common.bad_counter >= CLIENT_MAX_BAD_COMMANDS) {
+		client_send_reply(&client->common, IMAP_CMD_REPLY_BYE,
+				  "Too many invalid IMAP commands.");
+		client_destroy(&client->common, "Too many invalid commands");
+		return FALSE;
 	}
+	client_send_reply(&client->common, IMAP_CMD_REPLY_BAD,
+			  "Error in IMAP command received by server.");
 	return TRUE;
 }
 
@@ -245,6 +232,9 @@ static int client_parse_command(struct imap_client *client,
 
 static bool client_handle_input(struct imap_client *client)
 {
+	const char *tag, *name;
+	int ret;
+
 	i_assert(!client->common.authenticating);
 
 	if (client->cmd_finished) {
@@ -266,23 +256,35 @@ static bool client_handle_input(struct imap_client *client)
 	}
 
 	if (client->cmd_tag == NULL) {
-                client->cmd_tag = imap_parser_read_word(client->parser);
-		if (client->cmd_tag == NULL)
+		ret = imap_parser_read_tag(client->parser, &tag);
+		if (ret == 0)
 			return FALSE; /* need more data */
-		if (!imap_is_valid_tag(client->cmd_tag) ||
-		    strlen(client->cmd_tag) > IMAP_TAG_MAX_LEN) {
+		if (ret < 0 || strlen(tag) > IMAP_TAG_MAX_LEN) {
 			/* the tag is invalid, don't allow it and don't
 			   send it back. this attempts to prevent any
 			   potentially dangerous replies in case someone tries
 			   to access us using HTTP protocol. */
-			client->cmd_tag = "";
+			client->skip_line = TRUE;
+			client->cmd_finished = TRUE;
+			if (!client_invalid_command(client))
+				return FALSE;
+			return client_handle_input(client);
 		}
+		client->cmd_tag = tag;
 	}
 
 	if (client->cmd_name == NULL) {
-                client->cmd_name = imap_parser_read_word(client->parser);
-		if (client->cmd_name == NULL)
+		ret = imap_parser_read_command_name(client->parser, &name);
+		if (ret == 0)
 			return FALSE; /* need more data */
+		if (ret < 0) {
+			client->skip_line = TRUE;
+			client->cmd_finished = TRUE;
+			if (!client_invalid_command(client))
+				return FALSE;
+			return client_handle_input(client);
+		}
+		client->cmd_name = name;
 	}
 	return client->common.v.input_next_cmd(&client->common);
 }
@@ -326,17 +328,8 @@ static bool imap_client_input_next_cmd(struct client *_client)
 			"not the command name. Add that before the command, "
 			"like: a login user pass");
 	} else if (ret < 0) {
-		if (*client->cmd_tag == '\0')
-			client->cmd_tag = "*";
-		if (++client->common.bad_counter >= CLIENT_MAX_BAD_COMMANDS) {
-			client_send_reply(&client->common, IMAP_CMD_REPLY_BYE,
-				"Too many invalid IMAP commands.");
-			client_destroy(&client->common,
-				"Disconnected: Too many invalid commands");
+		if (!client_invalid_command(client))
 			return FALSE;
-		}
-		client_send_reply(&client->common, IMAP_CMD_REPLY_BAD,
-			"Error in IMAP command received by server.");
 	}
 
 	return ret != 0 && !client->common.destroyed;

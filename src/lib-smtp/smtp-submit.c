@@ -316,7 +316,7 @@ smtp_submit_send_host(struct smtp_submit *subm)
 	struct smtp_client_connection *smtp_conn;
 	struct smtp_client_transaction *smtp_trans;
 	enum smtp_client_connection_ssl_mode ssl_mode;
-	struct smtp_address *const *rcptp;
+	struct smtp_address *rcpt;
 	const char *host;
 	in_port_t port;
 
@@ -352,9 +352,9 @@ smtp_submit_send_host(struct smtp_submit *subm)
 		subm->mail_from, NULL, 0, smtp_submit_send_host_finished, subm);
 	smtp_client_connection_unref(&smtp_conn);
 
-	array_foreach(&subm->rcpt_to, rcptp) {
+	array_foreach_elem(&subm->rcpt_to, rcpt) {
 		smtp_client_transaction_add_rcpt(smtp_trans,
-			*rcptp, NULL, rcpt_to_callback, data_dummy_callback, subm);
+			rcpt, NULL, rcpt_to_callback, data_dummy_callback, subm);
 	}
 
 	subm->smtp_client = smtp_client;
@@ -366,14 +366,15 @@ smtp_submit_send_host(struct smtp_submit *subm)
 }
 
 static void
-smtp_submit_sendmail_callback(int status, struct smtp_submit *subm)
+smtp_submit_sendmail_callback(enum program_client_exit_status status,
+			      struct smtp_submit *subm)
 {
-	if (status < 0) {
+	if (status == PROGRAM_CLIENT_EXIT_STATUS_INTERNAL_FAILURE) {
 		smtp_submit_callback(subm, -1,
 			"Failed to execute sendmail");
 		return;
 	}
-	if (status == 0) {
+	if (status == PROGRAM_CLIENT_EXIT_STATUS_FAILURE) {
 		smtp_submit_callback(subm, -1,
 			"Sendmail program returned error");
 		return;
@@ -388,7 +389,7 @@ smtp_submit_send_sendmail(struct smtp_submit *subm)
 	const struct smtp_submit_settings *set = &subm->session->set;
 	const char *const *sendmail_args, *sendmail_bin, *str;
 	ARRAY_TYPE(const_string) args;
-	struct smtp_address *const *rcptp;
+	struct smtp_address *rcpt;
 	unsigned int i;
 	struct program_client_settings pc_set;
 	struct program_client *pc;
@@ -407,9 +408,9 @@ smtp_submit_send_sendmail(struct smtp_submit *subm)
 	array_push_back(&args, &str);
 
 	str = "--"; array_push_back(&args, &str);
-	array_foreach(&subm->rcpt_to, rcptp) {
-		const char *rcpt = smtp_address_encode(*rcptp);
-		array_push_back(&args, &rcpt);
+	array_foreach_elem(&subm->rcpt_to, rcpt) {
+		const char *rcpt_encoded = smtp_address_encode(rcpt);
+		array_push_back(&args, &rcpt_encoded);
 	}
 	array_append_zero(&args);
 

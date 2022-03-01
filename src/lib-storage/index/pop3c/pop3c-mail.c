@@ -18,9 +18,8 @@ pop3c_mail_alloc(struct mailbox_transaction_context *t,
 
 	pool = pool_alloconly_create("mail", 2048);
 	mail = p_new(pool, struct pop3c_mail, 1);
-	mail->imail.mail.pool = pool;
 
-	index_mail_init(&mail->imail, t, wanted_fields, wanted_headers);
+	index_mail_init(&mail->imail, t, wanted_fields, wanted_headers, pool, NULL);
 	return &mail->imail.mail.mail;
 }
 
@@ -75,7 +74,7 @@ static int pop3c_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	struct message_size hdr_size, body_size;
 	struct istream *input;
 
-	if (mail->data.virtual_size != (uoff_t)-1) {
+	if (mail->data.virtual_size != UOFF_T_MAX) {
 		/* virtual size is already known. it's the same as our
 		   (correct) physical size */
 		*size_r = mail->data.virtual_size;
@@ -104,7 +103,7 @@ static int pop3c_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	if (mail_get_stream(_mail, &hdr_size, &body_size, &input) < 0)
 		return -1;
 
-	i_assert(mail->data.physical_size != (uoff_t)-1);
+	i_assert(mail->data.physical_size != UOFF_T_MAX);
 	*size_r = mail->data.physical_size;
 	return 0;
 }
@@ -147,7 +146,8 @@ static bool pop3c_mail_prefetch(struct mail *_mail)
 	const char *cmd;
 
 	if (pmail->imail.data.access_part != 0 &&
-	    pmail->imail.data.stream == NULL) {
+	    pmail->imail.data.stream == NULL &&
+	    mail_stream_access_start(_mail)) {
 		capa = pop3c_client_get_capabilities(mbox->client);
 		pmail->prefetching_body = (capa & POP3C_CAPABILITY_TOP) == 0 ||
 			(pmail->imail.data.access_part & (READ_BODY | PARSE_BODY)) != 0;
@@ -207,6 +207,8 @@ pop3c_mail_get_stream(struct mail *_mail, bool get_body,
 	}
 
 	if (mail->data.stream == NULL) {
+		if (!mail_stream_access_start(_mail))
+			return -1;
 		capa = pop3c_client_get_capabilities(mbox->client);
 		if (get_body || (capa & POP3C_CAPABILITY_TOP) == 0) {
 			cmd = t_strdup_printf("RETR %u\r\n", _mail->seq);

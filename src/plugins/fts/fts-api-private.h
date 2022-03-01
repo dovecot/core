@@ -16,6 +16,9 @@ struct fts_backend_vfuncs {
 
 	int (*get_last_uid)(struct fts_backend *backend, struct mailbox *box,
 			    uint32_t *last_uid_r);
+	/* If NULL, this is implemented using get_last_uid() */
+	int (*is_uid_indexed)(struct fts_backend *backend, struct mailbox *box,
+			      uint32_t uid, uint32_t *last_indexed_uid_r);
 
 	struct fts_backend_update_context *
 		(*update_init)(struct fts_backend *backend);
@@ -69,12 +72,21 @@ enum fts_backend_flags {
 	FTS_BACKEND_FLAG_TOKENIZED_INPUT	= 0x10
 };
 
+struct fts_header_filters {
+	pool_t pool;
+	ARRAY_TYPE(const_string) includes;
+	ARRAY_TYPE(const_string) excludes;
+	bool loaded:1;
+	bool exclude_is_default:1;
+};
+
 struct fts_backend {
 	const char *name;
 	enum fts_backend_flags flags;
 
 	struct fts_backend_vfuncs v;
 	struct mail_namespace *ns;
+	struct fts_header_filters header_filters;
 
 	bool updating:1;
 };

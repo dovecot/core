@@ -86,6 +86,7 @@ static void main_init(void)
 	lmtp_set.auth_optional = TRUE;
 	lmtp_set.rcpt_domain_optional = TRUE;
 	lmtp_set.mail_path_allow_broken = TRUE;
+	lmtp_set.reason_code_module = "lmtp";
 
 	lmtp_server = smtp_server_init(&lmtp_set);
 
@@ -121,7 +122,6 @@ int main(int argc, char *argv[])
 		NULL
 	};
 	enum master_service_flags service_flags =
-		MASTER_SERVICE_FLAG_USE_SSL_SETTINGS |
 		MASTER_SERVICE_FLAG_HAVE_STARTTLS;
 	enum mail_storage_service_flags storage_service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP |

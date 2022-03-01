@@ -61,7 +61,7 @@ int imap_msgpart_url_create(struct mail_user *user, const struct imap_url *url,
 
 	imap_msgpart_set_partial(msgpart, url->partial_offset,
 				 url->partial_size == 0 ?
-				 (uoff_t)-1 : url->partial_size);
+				 UOFF_T_MAX : url->partial_size);
 
 	*mpurl_r = mpurl;
 	return 0;
@@ -127,10 +127,8 @@ int imap_msgpart_url_open_mailbox(struct imap_msgpart_url *mpurl,
 	if (mpurl->selected_box != NULL &&
 	    mailbox_equals(mpurl->selected_box, ns, mpurl->mailbox))
 		box = mpurl->selected_box;
-	else {
+	else
 		box = mailbox_alloc(ns->list, mpurl->mailbox, flags);
-		mailbox_set_reason(box, "Read IMAP URL");
-	}
 	if (mailbox_open(box) < 0) {
 		*client_error_r = mail_storage_get_last_error(mailbox_get_storage(box),
 							      error_code_r);

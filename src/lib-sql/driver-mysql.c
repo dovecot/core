@@ -66,6 +66,7 @@ struct mysql_transaction_context {
 
 	bool failed:1;
 	bool committed:1;
+	bool commit_started:1;
 };
 
 extern const struct sql_db driver_mysql_db;
@@ -645,22 +646,25 @@ transaction_send_query(struct mysql_transaction_context *ctx, const char *query,
 static int driver_mysql_try_commit_s(struct mysql_transaction_context *ctx)
 {
 	struct sql_transaction_context *_ctx = &ctx->ctx;
+	bool multi = _ctx->head != NULL && _ctx->head->next != NULL;
 
-	/* try to use a transaction in any case,
-	   even if it's not actually functional. */
-	if (transaction_send_query(ctx, "BEGIN", NULL) < 0) {
+	/* wrap in BEGIN/COMMIT only if transaction has mutiple statements. */
+	if (multi && transaction_send_query(ctx, "BEGIN", NULL) < 0) {
 		if (_ctx->db->state != SQL_DB_STATE_DISCONNECTED)
 			return -1;
 		/* we got disconnected, retry */
 		return 0;
+	} else if (multi) {
+		ctx->commit_started = TRUE;
 	}
+
 	while (_ctx->head != NULL) {
 		if (transaction_send_query(ctx, _ctx->head->query,
 					   _ctx->head->affected_rows) < 0)
 			return -1;
 		_ctx->head = _ctx->head->next;
 	}
-	if (transaction_send_query(ctx, "COMMIT", NULL) < 0)
+	if (multi && transaction_send_query(ctx, "COMMIT", NULL) < 0)
 		return -1;
 	return 1;
 }
@@ -702,11 +706,26 @@ driver_mysql_transaction_rollback(struct sql_transaction_context *_ctx)
 	struct mysql_transaction_context *ctx =
 		(struct mysql_transaction_context *)_ctx;
 
-	if (ctx->failed)
+	if (ctx->failed) {
+		bool rolledback = FALSE;
+		const char *orig_error = t_strdup(ctx->error);
+		if (ctx->commit_started) {
+			/* reset failed flag so ROLLBACK is actually sent.
+			   otherwise, transaction_send_query() will return
+			   without trying to send the query. */
+			ctx->failed = FALSE;
+			if (transaction_send_query(ctx, "ROLLBACK", NULL) < 0)
+				e_debug(event_create_passthrough(_ctx->event)->
+					add_str("error", ctx->error)->event(),
+					"Rollback failed: %s", ctx->error);
+			else
+				rolledback = TRUE;
+		}
 		e_debug(sql_transaction_finished_event(_ctx)->
-			add_str("error", ctx->error)->event(),
-			"Transaction failed: %s", ctx->error);
-	else if (ctx->committed)
+			add_str("error", orig_error)->event(),
+			"Transaction failed: %s%s", orig_error,
+			rolledback ? " - Rolled back" : "");
+	} else if (ctx->committed)
 		e_debug(sql_transaction_finished_event(_ctx)->event(),
 			"Transaction committed");
 	else
@@ -744,7 +763,8 @@ driver_mysql_escape_blob(struct sql_db *_db ATTR_UNUSED,
 
 const struct sql_db driver_mysql_db = {
 	.name = "mysql",
-	.flags = SQL_DB_FLAG_BLOCKING | SQL_DB_FLAG_POOLED,
+	.flags = SQL_DB_FLAG_BLOCKING | SQL_DB_FLAG_POOLED |
+		 SQL_DB_FLAG_ON_DUPLICATE_KEY,
 
 	.v = {
 		.init_full = driver_mysql_init_full_v,

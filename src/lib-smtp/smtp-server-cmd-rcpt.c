@@ -24,12 +24,19 @@ cmd_rcpt_destroy(struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 }
 
 static bool
-cmd_rcpt_check_state(struct smtp_server_cmd_ctx *cmd)
+cmd_rcpt_check_state(struct smtp_server_cmd_ctx *cmd, bool next_to_reply)
 {
 	struct smtp_server_connection *conn = cmd->conn;
+	struct smtp_server_command *command = cmd->cmd;
 	struct smtp_server_transaction *trans = conn->state.trans;
 
-	if (conn->state.pending_mail_cmds == 0 && trans == NULL) {
+	if (smtp_server_command_is_replied(command) &&
+	    !smtp_server_command_replied_success(command) &&
+	    !smtp_server_command_reply_is_forwarded(command))
+		return FALSE;
+
+	if (trans == NULL &&
+	    (conn->state.pending_mail_cmds == 0 || next_to_reply)) {
 		smtp_server_reply(cmd,
 			503, "5.5.0", "MAIL needed first");
 		return FALSE;
@@ -56,27 +63,19 @@ cmd_rcpt_completed(struct smtp_server_cmd_ctx *cmd,
 	i_assert(conn->state.pending_rcpt_cmds > 0);
 	conn->state.pending_rcpt_cmds--;
 
-	if (conn->state.state < SMTP_SERVER_STATE_RCPT_TO) {
-		i_assert(conn->state.state == SMTP_SERVER_STATE_MAIL_FROM);
-		smtp_server_connection_set_state(
-			conn, SMTP_SERVER_STATE_RCPT_TO,
-			smtp_address_encode(data->rcpt->path));
-	}
-
 	i_assert(smtp_server_command_is_replied(command));
+	i_assert(conn->state.state == SMTP_SERVER_STATE_RCPT_TO ||
+		 !smtp_server_command_replied_success(command));
+
 	if (!smtp_server_command_replied_success(command)) {
+		/* Failure */
 		conn->state.denied_rcpt_cmds++;
-
-		/* failure; substitute our own error if predictable */
-		if (smtp_server_command_reply_is_forwarded(command))
-			(void)cmd_rcpt_check_state(cmd);
-
 		smtp_server_recipient_denied(
 			rcpt, smtp_server_command_get_reply(cmd->cmd, 0));
 		return;
 	}
 
-	/* success */
+	/* Success */
 	data->rcpt = NULL; /* clear to prevent destruction */
 	(void)smtp_server_recipient_approved(&rcpt);
 }
@@ -87,13 +86,11 @@ cmd_rcpt_recheck(struct smtp_server_cmd_ctx *cmd,
 {
 	struct smtp_server_connection *conn = cmd->conn;
 
-	i_assert(conn->state.pending_mail_cmds == 0);
-
-	/* all preceeding commands have finished and now the transaction state
+	/* All preceding commands have finished and now the transaction state
 	   is clear. This provides the opportunity to re-check the transaction
 	   state and abort the pending proxied mail command if it is bound to
 	   fail */
-	if (!cmd_rcpt_check_state(cmd))
+	if (!cmd_rcpt_check_state(cmd, TRUE))
 		return;
 
 	/* Advance state */
@@ -125,8 +122,8 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 	   Forward-path = Path
 	 */
 
-	/* check transaction state as far as possible */
-	if (!cmd_rcpt_check_state(cmd))
+	/* Check transaction state as far as possible */
+	if (!cmd_rcpt_check_state(cmd, FALSE))
 		return;
 
 	/* ( "<Postmaster@" Domain ">" / "<Postmaster>" / Forward-path ) */
@@ -208,19 +205,24 @@ void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd,
 				     cmd_rcpt_completed, rcpt_data);
 	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_DESTROY,
 				     cmd_rcpt_destroy, rcpt_data);
-	
+
 	conn->state.pending_rcpt_cmds++;
 
 	smtp_server_command_ref(command);
 	i_assert(callbacks != NULL && callbacks->conn_cmd_rcpt != NULL);
-	if ((ret=callbacks->conn_cmd_rcpt(conn->context, cmd, rcpt)) <= 0) {
+
+	struct event_reason *reason =
+		smtp_server_connection_reason_begin(conn, "cmd_rcpt");
+	ret = callbacks->conn_cmd_rcpt(conn->context, cmd, rcpt);
+	event_reason_end(&reason);
+	if (ret <= 0) {
 		i_assert(ret == 0 || smtp_server_command_is_replied(command));
-		/* command is waiting for external event or it failed */
+		/* Command is waiting for external event or it failed */
 		smtp_server_command_unref(&command);
 		return;
 	}
 	if (!smtp_server_command_is_replied(command)) {
-		/* set generic RCPT success reply if none is provided */
+		/* Set generic RCPT success reply if none is provided */
 		smtp_server_cmd_rcpt_reply_success(cmd);
 	}
 	smtp_server_command_unref(&command);

@@ -11,12 +11,6 @@ enum program_client_error {
 	PROGRAM_CLIENT_ERROR_OTHER
 };
 
-enum program_client_exit_code {
-	PROGRAM_CLIENT_EXIT_INTERNAL_FAILURE = -1,
-	PROGRAM_CLIENT_EXIT_FAILURE = 0,
-	PROGRAM_CLIENT_EXIT_SUCCESS = 1,
-};
-
 struct program_client_extra_fd {
 	struct program_client *pclient;
 
@@ -41,6 +35,7 @@ struct program_client {
 	struct io *io;
 	struct timeout *to;
 	struct timeval start_time;
+	struct ioloop *wait_ioloop;
 
 	struct istream *input, *program_input, *raw_program_input;
 	struct ostream *output, *program_output, *raw_program_output;
@@ -54,7 +49,7 @@ struct program_client {
 
 	bool other_error;
 	enum program_client_error error;
-	enum program_client_exit_code exit_code;
+	enum program_client_exit_status exit_status;
 
 	int (*connect) (struct program_client * pclient);
 	int (*close_output) (struct program_client * pclient);

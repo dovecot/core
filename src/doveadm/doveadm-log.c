@@ -24,10 +24,8 @@
 #define LOG_ERRORS_FNAME "log-errors"
 #define LOG_TIMESTAMP_FORMAT "%b %d %H:%M:%S"
 
-extern struct doveadm_cmd doveadm_cmd_log[];
-
 static void ATTR_NULL(2)
-cmd_log_test(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
+cmd_log_test(struct doveadm_cmd_context *cctx ATTR_UNUSED)
 {
 	struct failure_context ctx;
 	unsigned int i;
@@ -49,7 +47,7 @@ cmd_log_test(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
 	}
 }
 
-static void cmd_log_reopen(int argc ATTR_UNUSED, char *argv[] ATTR_UNUSED)
+static void cmd_log_reopen(struct doveadm_cmd_context *cctx ATTR_UNUSED)
 {
 	doveadm_master_send_signal(SIGUSR1);
 }
@@ -192,13 +190,14 @@ static void cmd_log_find_syslog_messages(struct log_find_context *ctx)
 }
 
 static void
-cmd_log_find_syslog(struct log_find_context *ctx, int argc, char *argv[])
+cmd_log_find_syslog(struct log_find_context *ctx,
+		    struct doveadm_cmd_context *cctx)
 {
 	const char *log_dir;
 	struct stat st;
 
-	if (argc > 1)
-		log_dir = argv[1];
+	if (doveadm_cmd_param_str(cctx, "log-dir", &log_dir))
+		;
 	else if (stat("/var/log", &st) == 0 && S_ISDIR(st.st_mode))
 		log_dir = "/var/log";
 	else if (stat("/var/adm", &st) == 0 && S_ISDIR(st.st_mode))
@@ -208,14 +207,14 @@ cmd_log_find_syslog(struct log_find_context *ctx, int argc, char *argv[])
 
 	printf("Looking for log files from %s\n", log_dir);
 	cmd_log_find_syslog_files(ctx, log_dir);
-	cmd_log_test(0, NULL);
+	cmd_log_test(cctx);
 
 	/* give syslog some time to write the messages to files */
 	sleep(1);
 	cmd_log_find_syslog_messages(ctx);
 }
 
-static void cmd_log_find(int argc, char *argv[])
+static void cmd_log_find(struct doveadm_cmd_context *cctx)
 {
 	const struct master_service_settings *set;
 	const char *log_file_path;
@@ -256,7 +255,7 @@ static void cmd_log_find(int argc, char *argv[])
 	    strcmp(set->info_log_path, "syslog") == 0 ||
 	    strcmp(set->debug_log_path, "syslog") == 0) {
 		/* at least some logs were logged via syslog */
-		cmd_log_find_syslog(&ctx, argc, argv);
+		cmd_log_find_syslog(&ctx, cctx);
 	}
 
 	/* print them */
@@ -325,26 +324,16 @@ static void cmd_log_error_write(const char *const *args, time_t min_timestamp)
 	}
 }
 
-static void cmd_log_errors(int argc, char *argv[])
+static void cmd_log_errors(struct doveadm_cmd_context *cctx)
 {
 	struct istream *input;
 	const char *path, *line, *const *args;
 	time_t min_timestamp = 0;
-	int c, fd;
+	int64_t since_int64;
+	int fd;
 
-	while ((c = getopt(argc, argv, "s:")) > 0) {
-		switch (c) {
-		case 's':
-			if (str_to_time(optarg, &min_timestamp) < 0)
-				i_fatal("Invalid timestamp: %s", optarg);
-			break;
-		default:
-			help(&doveadm_cmd_log[3]);
-		}
-	}
-	argv += optind - 1;
-	if (argv[1] != NULL)
-		help(&doveadm_cmd_log[3]);
+	if (doveadm_cmd_param_int64(cctx, "since", &since_int64))
+		min_timestamp = since_int64;
 
 	path = t_strconcat(doveadm_settings->base_dir,
 			   "/"LOG_ERRORS_FNAME, NULL);
@@ -353,7 +342,7 @@ static void cmd_log_errors(int argc, char *argv[])
 		i_fatal("net_connect_unix(%s) failed: %m", path);
 	net_set_nonblock(fd, FALSE);
 
-	input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
+	input = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_FORMATTED);
 	doveadm_print_formatted_set_format("%{timestamp} %{type}: %{prefix}: %{text}\n");
@@ -375,27 +364,43 @@ static void cmd_log_errors(int argc, char *argv[])
 	i_stream_destroy(&input);
 }
 
-struct doveadm_cmd doveadm_cmd_log[] = {
-	{ cmd_log_test, "log test", "" },
-	{ cmd_log_reopen, "log reopen", "" },
-	{ cmd_log_find, "log find", "[<dir>]" },
-};
-
-struct doveadm_cmd_ver2 doveadm_cmd_log_errors_ver2 = {
+struct doveadm_cmd_ver2 doveadm_cmd_log[] = {
+{
+	.name = "log test",
+	.cmd = cmd_log_test,
+	.usage = "",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "log reopen",
+	.cmd = cmd_log_reopen,
+	.usage = "",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAMS_END
+},
+{
+	.name = "log find",
+	.cmd = cmd_log_find,
+	.usage = "[<dir>]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('\0', "log-dir", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
+},
+{
 	.name = "log errors",
 	.usage = "[-s <min_timestamp>]",
-	.old_cmd = cmd_log_errors,
+	.cmd = cmd_log_errors,
 DOVEADM_CMD_PARAMS_START
-DOVEADM_CMD_PARAM('s', "since", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('s', "since", CMD_PARAM_INT64, 0)
 DOVEADM_CMD_PARAMS_END
+}
 };
 
 void doveadm_register_log_commands(void)
 {
 	unsigned int i;
 
-	doveadm_cmd_register_ver2(&doveadm_cmd_log_errors_ver2);
-
 	for (i = 0; i < N_ELEMENTS(doveadm_cmd_log); i++)
-		doveadm_register_cmd(&doveadm_cmd_log[i]);
+		doveadm_cmd_register_ver2(&doveadm_cmd_log[i]);
 }

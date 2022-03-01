@@ -35,7 +35,7 @@ mech_plain_auth_continue(struct auth_request *request,
 		}
 	}
 
-	if (authenid != NULL && strcmp(authid, authenid) == 0) {
+	if (count == 2 && authenid != NULL && strcmp(authid, authenid) == 0) {
 		/* the login username isn't different */
 		authid = "";
 	}

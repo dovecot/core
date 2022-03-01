@@ -12,6 +12,7 @@
 #include "dict-settings.h"
 #include "dict-commands.h"
 #include "dict-connection.h"
+#include "dict-init-cache.h"
 
 #include <unistd.h>
 
@@ -49,7 +50,6 @@ static int dict_connection_handshake_args(struct connection *_conn,
 		return -1;
 
 	conn->value_type = (enum dict_data_type)value_type_num;
-	conn->username = i_strdup(args[3]);
 	conn->name = i_strdup(args[4]);
 
 	/* try initialize the given dict */
@@ -88,17 +88,15 @@ static int dict_connection_dict_init(struct dict_connection *conn)
 			conn->name);
 		return -1;
 	}
+	event_set_append_log_prefix(conn->conn.event,
+				    t_strdup_printf("%s: ", conn->name));
 	event_add_str(conn->conn.event, "dict_name", conn->name);
-	if (conn->username[0] != '\0')
-		event_add_str(conn->conn.event, "user", conn->username);
 	uri = strlist[i+1];
 
 	i_zero(&dict_set);
-	dict_set.value_type = conn->value_type;
-	dict_set.username = conn->username;
 	dict_set.base_dir = dict_settings->base_dir;
 	dict_set.event_parent = conn->conn.event;
-	if (dict_init(uri, &dict_set, &conn->dict, &error) < 0) {
+	if (dict_init_cache_get(conn->name, uri, &dict_set, &conn->dict, &error) < 0) {
 		/* dictionary initialization failed */
 		e_error(conn->conn.event, "Failed to initialize dictionary '%s': %s",
 			conn->name, error);
@@ -160,14 +158,12 @@ bool dict_connection_unref(struct dict_connection *conn)
 	/* we should have only transactions that haven't been committed or
 	   rollbacked yet. close those before dict is deinitialized. */
 	if (array_is_created(&conn->transactions)) {
-		array_foreach_modifiable(&conn->transactions, transaction) {
-			if (transaction->ctx != NULL)
-				dict_transaction_rollback(&transaction->ctx);
-		}
+		array_foreach_modifiable(&conn->transactions, transaction)
+			dict_transaction_rollback(&transaction->ctx);
 	}
 
 	if (conn->dict != NULL)
-		dict_deinit(&conn->dict);
+		dict_init_cache_unref(&conn->dict);
 
 	if (array_is_created(&conn->transactions))
 		array_free(&conn->transactions);
@@ -177,7 +173,6 @@ bool dict_connection_unref(struct dict_connection *conn)
 	connection_deinit(&conn->conn);
 
 	i_free(conn->name);
-	i_free(conn->username);
 	i_free(conn);
 
 	master_service_client_connection_destroyed(master_service);
@@ -245,7 +240,7 @@ static void dict_connection_destroy(struct connection *_conn)
 	dict_connection_cmds_output_more(conn);
 
 	io_remove(&conn->conn.io);
-	dict_connection_unref_safe(conn);
+	dict_connection_unref(conn);
 }
 
 unsigned int dict_connections_current_count(void)

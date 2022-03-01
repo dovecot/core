@@ -125,7 +125,7 @@ mail_index_strmap_set_syscall_error(struct mail_index_strmap *strmap,
 	i_assert(function != NULL);
 
 	if (ENOSPACE(errno)) {
-		strmap->index->nodiskspace = TRUE;
+		strmap->index->last_error.nodiskspace = TRUE;
 		if ((strmap->index->flags &
 		     MAIL_INDEX_OPEN_FLAG_NEVER_IN_MEMORY) == 0)
 			return;
@@ -265,7 +265,7 @@ static int mail_index_strmap_open(struct mail_index_strmap_view *view)
 		mail_index_strmap_set_syscall_error(strmap, "open()");
 		return -1;
 	}
-	strmap->input = i_stream_create_fd(strmap->fd, (size_t)-1);
+	strmap->input = i_stream_create_fd(strmap->fd, SIZE_MAX);
 	ret = i_stream_read_bytes(strmap->input, &data, &size, sizeof(hdr));
 	if (ret <= 0) {
 		if (ret < 0) {
@@ -1001,9 +1001,9 @@ static int mail_index_strmap_recreate(struct mail_index_strmap_view *view)
 
 	str = t_str_new(256);
 	str_append(str, strmap->path);
-	fd = safe_mkstemp_hostpid_group(str, view->view->index->mode,
-					view->view->index->gid,
-					view->view->index->gid_origin);
+	fd = safe_mkstemp_hostpid_group(str, view->view->index->set.mode,
+					view->view->index->set.gid,
+					view->view->index->set.gid_origin);
 	temp_path = str_c(str);
 
 	if (fd == -1) {
@@ -1039,21 +1039,26 @@ static int mail_index_strmap_recreate(struct mail_index_strmap_view *view)
 static int mail_index_strmap_lock(struct mail_index_strmap *strmap)
 {
 	unsigned int timeout_secs;
+	const char *error;
 	int ret;
 
 	i_assert(strmap->fd != -1);
 
-	if (strmap->index->lock_method != FILE_LOCK_METHOD_DOTLOCK) {
+	if (strmap->index->set.lock_method != FILE_LOCK_METHOD_DOTLOCK) {
 		i_assert(strmap->file_lock == NULL);
 
+		struct file_lock_settings lock_set = {
+			.lock_method = strmap->index->set.lock_method,
+		};
 		timeout_secs = I_MIN(MAIL_INDEX_STRMAP_TIMEOUT_SECS,
-				     strmap->index->max_lock_timeout_secs);
+				     strmap->index->set.max_lock_timeout_secs);
 		ret = file_wait_lock(strmap->fd, strmap->path, F_WRLCK,
-				     strmap->index->lock_method, timeout_secs,
-				     &strmap->file_lock);
+				     &lock_set, timeout_secs,
+				     &strmap->file_lock, &error);
 		if (ret <= 0) {
-			mail_index_strmap_set_syscall_error(strmap,
-							    "file_wait_lock()");
+			mail_index_set_error(strmap->index,
+				"file_wait_lock() failed with strmap index file %s: %s",
+				strmap->path, error);
 		}
 	} else {
 		i_assert(strmap->dotlock == NULL);

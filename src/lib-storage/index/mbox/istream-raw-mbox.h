@@ -16,7 +16,7 @@ int istream_raw_mbox_get_body_offset(struct istream *stream,
 				     uoff_t *body_offset_r);
 
 /* Return the number of bytes in the body of this message. If
-   expected_body_size isn't (uoff_t)-1, we'll use it as potentially valid body
+   expected_body_size isn't UOFF_T_MAX, we'll use it as potentially valid body
    size to avoid actually reading through the whole message. */
 int istream_raw_mbox_get_body_size(struct istream *stream,
 				   uoff_t expected_body_size,
@@ -31,7 +31,7 @@ const char *istream_raw_mbox_get_sender(struct istream *stream);
 /* Return TRUE if the empty line between this and the next mail contains CR. */
 bool istream_raw_mbox_has_crlf_ending(struct istream *stream);
 
-/* Jump to next message. If expected_body_size isn't (uoff_t)-1, we'll use it
+/* Jump to next message. If expected_body_size isn't UOFF_T_MAX, we'll use it
    as potentially valid body size. */
 int istream_raw_mbox_next(struct istream *stream, uoff_t expected_body_size);
 

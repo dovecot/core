@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "env-util.h"
 #include "test-common.h"
 #include "mail-index-private.h"
 #include "mail-index-transaction-private.h"
@@ -358,7 +359,7 @@ static void test_mail_index_flag_update_random(void)
 		case 1:
 			modify_type = MODIFY_REMOVE;
 			for (seq = seq1; seq <= seq2; seq++)
-				flags[seq] &= ~change;
+				flags[seq] &= ENUM_NEGATE(change);
 			break;
 		case 2:
 			modify_type = MODIFY_REPLACE;
@@ -676,7 +677,7 @@ int main(void)
 		NULL
 	};
 	/* daylight saving time confuses things */
-	putenv("TZ=UTC");
+	env_put("TZ", "UTC");
 	tzset();
 	return test_run(test_functions);
 }

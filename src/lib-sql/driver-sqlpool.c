@@ -417,11 +417,44 @@ driver_sqlpool_get_sync_connection(struct sqlpool_db *db,
 	return FALSE;
 }
 
+static bool
+driver_sqlpool_get_connected_flags(struct sqlpool_db *db,
+				   enum sql_db_flags *flags_r)
+{
+	const struct sqlpool_connection *conn;
+
+	array_foreach(&db->all_connections, conn) {
+		if (conn->db->state > SQL_DB_STATE_CONNECTING) {
+			*flags_r = sql_get_flags(conn->db);
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+static enum sql_db_flags driver_sqlpool_get_flags(struct sql_db *_db)
+{
+	struct sqlpool_db *db = (struct sqlpool_db *)_db;
+	const struct sqlpool_connection *conn;
+	enum sql_db_flags flags;
+
+	/* try to use a connected db */
+	if (driver_sqlpool_get_connected_flags(db, &flags))
+		return flags;
+
+	if (!driver_sqlpool_get_sync_connection(db, &conn)) {
+		/* Failed to connect to database. Just use the first
+		   connection. */
+		conn = array_idx(&db->all_connections, 0);
+	}
+	return sql_get_flags(conn->db);
+}
+
 static int
 driver_sqlpool_parse_hosts(struct sqlpool_db *db, const char *connect_string,
 			   const char **error_r)
 {
-	const char *const *args, *key, *value, *const *hostnamep;
+	const char *const *args, *key, *value, *hostname;
 	struct sqlpool_host *host;
 	ARRAY_TYPE(const_string) hostnames, connect_args;
 
@@ -467,10 +500,10 @@ driver_sqlpool_parse_hosts(struct sqlpool_db *db, const char *connect_string,
 		if (*connect_string == '\0')
 			connect_string = NULL;
 
-		array_foreach(&hostnames, hostnamep) {
+		array_foreach_elem(&hostnames, hostname) {
 			host = array_append_space(&db->hosts);
 			host->connect_string =
-				i_strconcat("host=", *hostnamep, " ",
+				i_strconcat("host=", hostname, " ",
 					    connect_string, NULL);
 		}
 	}
@@ -496,7 +529,6 @@ static void sqlpool_add_all_once(struct sqlpool_db *db)
 int driver_sqlpool_init_full(const struct sql_settings *set, const struct sql_db *driver,
 			     struct sql_db **db_r, const char **error_r)
 {
-	char *error;
 	struct sqlpool_db *db;
 	int ret;
 
@@ -511,15 +543,11 @@ int driver_sqlpool_init_full(const struct sql_settings *set, const struct sql_db
 	i_array_init(&db->hosts, 8);
 
 	T_BEGIN {
-		const char *tmp = NULL;
-		if ((ret = driver_sqlpool_parse_hosts(db, set->connect_string,
-						      &tmp)) < 0)
-			error = i_strdup(tmp);
-	} T_END;
+		ret = driver_sqlpool_parse_hosts(db, set->connect_string,
+						 error_r);
+	} T_END_PASS_STR_IF(ret < 0, error_r);
 
 	if (ret < 0) {
-		*error_r = t_strdup(error);
-		i_free(error);
 		driver_sqlpool_deinit(&db->api);
 		return ret;
 	}
@@ -871,10 +899,20 @@ driver_sqlpool_escape_blob(struct sql_db *_db,
 	return sql_escape_blob(conns[0].db, data, size);
 }
 
+static void driver_sqlpool_wait(struct sql_db *_db)
+{
+	struct sqlpool_db *db = (struct sqlpool_db *)_db;
+	const struct sqlpool_connection *conn;
+
+	array_foreach(&db->all_connections, conn)
+		sql_wait(conn->db);
+}
+
 struct sql_db driver_sqlpool_db = {
 	"",
 
 	.v = {
+		.get_flags = driver_sqlpool_get_flags,
 		.deinit = driver_sqlpool_deinit,
 		.connect = driver_sqlpool_connect,
 		.disconnect = driver_sqlpool_disconnect,
@@ -882,6 +920,7 @@ struct sql_db driver_sqlpool_db = {
 		.exec = driver_sqlpool_exec,
 		.query = driver_sqlpool_query,
 		.query_s = driver_sqlpool_query_s,
+		.wait = driver_sqlpool_wait,
 
 		.transaction_begin = driver_sqlpool_transaction_begin,
 		.transaction_commit = driver_sqlpool_transaction_commit,

@@ -34,10 +34,12 @@ enum mail_storage_service_flags {
 	MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS		= 0x400,
 	/* Don't create namespaces, only the user. */
 	MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES		= 0x800,
+	/* Disable reading ssl_ca setting to save memory. */
+	MAIL_STORAGE_SERVICE_FLAG_NO_SSL_CA		= 0x1000,
 };
 
 struct mail_storage_service_input {
-	struct event *parent_event;
+	struct event *event_parent;
 
 	const char *module;
 	const char *service;
@@ -159,10 +161,16 @@ const struct mail_storage_service_input *
 mail_storage_service_user_get_input(struct mail_storage_service_user *user);
 struct setting_parser_context *
 mail_storage_service_user_get_settings_parser(struct mail_storage_service_user *user);
+const struct master_service_ssl_settings *
+mail_storage_service_user_get_ssl_settings(struct mail_storage_service_user *user);
 struct mail_storage_service_ctx *
 mail_storage_service_user_get_service_ctx(struct mail_storage_service_user *user);
 pool_t mail_storage_service_user_get_pool(struct mail_storage_service_user *user);
+const char *
+mail_storage_service_user_get_log_prefix(struct mail_storage_service_user *user);
 
+const char *
+mail_storage_service_get_log_prefix(struct mail_storage_service_ctx *ctx);
 const struct var_expand_table *
 mail_storage_service_get_var_expand_table(struct mail_storage_service_ctx *ctx,
 					  struct mail_storage_service_input *input);

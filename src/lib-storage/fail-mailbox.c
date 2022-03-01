@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "str-sanitize.h"
 #include "mail-storage-private.h"
 #include "mailbox-list-private.h"
 #include "fail-mail-storage.h"
@@ -25,7 +26,7 @@ static int fail_mailbox_exists(struct mailbox *box ATTR_UNUSED,
 			       enum mailbox_existence *existence_r)
 {
 	*existence_r = MAILBOX_EXISTENCE_NONE;
-	return -1;
+	return 0;
 }
 
 static int fail_mailbox_open(struct mailbox *box)
@@ -210,6 +211,13 @@ fail_mailbox_search_next_update_seq(struct mail_search_context *ctx ATTR_UNUSED)
 	return FALSE;
 }
 
+static int
+fail_mailbox_search_next_match_mail(struct mail_search_context *ctx ATTR_UNUSED,
+				    struct mail *mail ATTR_UNUSED)
+{
+	return -1;
+}
+
 static struct mail_save_context *
 fail_mailbox_save_alloc(struct mailbox_transaction_context *t)
 {
@@ -292,6 +300,7 @@ struct mailbox fail_mailbox = {
 		fail_mailbox_search_deinit,
 		fail_mailbox_search_next_nonblock,
 		fail_mailbox_search_next_update_seq,
+		fail_mailbox_search_next_match_mail,
 		fail_mailbox_save_alloc,
 		fail_mailbox_save_begin,
 		fail_mailbox_save_continue,
@@ -327,7 +336,7 @@ fail_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	event_add_category(box->event, &event_category_mailbox);
 	event_add_str(box->event, "mailbox", box->vname);
 	event_set_append_log_prefix(box->event,
-		t_strdup_printf("Mailbox %s: ", box->vname));
+		t_strdup_printf("Mailbox %s: ", str_sanitize(box->vname, 128)));
 
 	p_array_init(&box->search_results, pool, 16);
 	p_array_init(&box->module_contexts, pool, 5);

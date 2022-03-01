@@ -21,6 +21,7 @@ mailbox_list_notify_node_get_status(struct mailbox_list_notify_tree *tree,
 				    struct mailbox_notify_node *nnode)
 {
 	struct mailbox_status status;
+	const char *reason;
 	uint32_t seq;
 
 	if (!mail_index_lookup_seq(tree->view, nnode->index_uid, &seq))
@@ -29,7 +30,8 @@ mailbox_list_notify_node_get_status(struct mailbox_list_notify_tree *tree,
 	i_zero(&status);
 	(void)mailbox_list_index_status(tree->list, tree->view, seq,
 		STATUS_UIDVALIDITY | STATUS_UIDNEXT | STATUS_MESSAGES |
-		STATUS_UNSEEN | STATUS_HIGHESTMODSEQ, &status, nnode->guid, NULL);
+		STATUS_UNSEEN | STATUS_HIGHESTMODSEQ, &status, nnode->guid,
+		NULL, &reason);
 	nnode->uidvalidity = status.uidvalidity;
 	nnode->uidnext = status.uidnext;
 	nnode->messages = status.messages;
@@ -47,7 +49,7 @@ mailbox_list_notify_node_build(struct mailbox_list_notify_tree *tree,
 	size_t prefix_len;
 	bool created;
 
-	str_append(path, index_node->name);
+	str_append(path, index_node->raw_name);
 
 	node = mailbox_tree_get(tree->mailboxes, str_c(path), &created);
 	nnode = (struct mailbox_notify_node *)node;

@@ -63,7 +63,7 @@ static void bench_compression_speed(const struct compression_handler *handler,
 
 	is = i_stream_create_file("compressed.bin", 1024);
 	os = o_stream_create_file("decompressed.bin", 0, 0644, 0);
-	struct istream *is_decompressed = handler->create_istream(is, FALSE);
+	struct istream *is_decompressed = handler->create_istream(is);
 	i_stream_unref(&is);
 
 	ts_0 = i_nanoseconds();
@@ -96,7 +96,7 @@ static void print_usage(const char *prog)
 {
 	fprintf(stderr, "Usage: %s block_size count level\n", prog);
 	fprintf(stderr, "Runs with 1000 8k blocks using level 6 if nothing given\n");
-	exit(1);
+	lib_exit(1);
 }
 
 int main(int argc, const char *argv[])
@@ -154,7 +154,8 @@ int main(int argc, const char *argv[])
 	printf("Input data constructed          \n");
 
 	for (unsigned int i = 0; compression_handlers[i].name != NULL; i++) T_BEGIN {
-		if (compression_handlers[i].create_istream != NULL) {
+		if (compression_handlers[i].create_istream != NULL &&
+		    compression_handlers[i].create_ostream != NULL) {
 			bench_compression_speed(&compression_handlers[i], level,
 						block_count);
 		}

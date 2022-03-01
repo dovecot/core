@@ -84,7 +84,7 @@ static int seach_arg_mime_child_match(struct search_mimepart_context *mpctx,
 		return (part->children != NULL ? 1 : 0);
 	}
 
-	/* CHILD <mpart-key>: matches if this part has any child that mathes
+	/* CHILD <mpart-key>: matches if this part has any child that matches
 	   the mpart-key (subargs).
 	 */
 

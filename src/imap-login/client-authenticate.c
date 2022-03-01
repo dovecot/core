@@ -58,11 +58,12 @@ void imap_client_auth_result(struct client *client,
 		referral = t_str_new(128);
 
 		i_zero(&url);
-		url.userid = reply->destuser;
+		url.userid = reply->proxy.username;
 		url.auth_type = client->auth_mech_name;
-		url.host.name = reply->host;
-		if (reply->port != 143)
-			url.port = reply->port;
+		url.host.name = reply->proxy.host;
+		url.host.ip = reply->proxy.host_ip;
+		if (reply->proxy.port != 143)
+			url.port = reply->proxy.port;
 		str_append(referral, "REFERRAL ");
 		str_append(referral, imap_url_create(&url));
 

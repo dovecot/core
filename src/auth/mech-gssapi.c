@@ -97,7 +97,7 @@ static void mech_gssapi_log_error(struct auth_request *request,
 
 		e_info(request->mech_event,
 		       "While %s: %s", description,
-		       str_sanitize(status_string.value, (size_t)-1));
+		       str_sanitize(status_string.value, SIZE_MAX));
 
 		(void)gss_release_buffer(&minor_status, &status_string);
 	} while (message_context != 0);
@@ -109,7 +109,7 @@ static void mech_gssapi_initialize(const struct auth_settings *set)
 
 	if (*path != '\0') {
 		/* environment may be used by Kerberos 5 library directly */
-		env_put(t_strconcat("KRB5_KTNAME=", path, NULL));
+		env_put("KRB5_KTNAME", path);
 #ifdef HAVE_GSSKRB5_REGISTER_ACCEPTOR_IDENTITY
 		gsskrb5_register_acceptor_identity(path);
 #elif defined (HAVE_KRB5_GSS_REGISTER_ACCEPTOR_IDENTITY)
@@ -154,12 +154,12 @@ obtain_service_credentials(struct auth_request *request, gss_cred_id_t *ret_r)
 		return GSS_S_COMPLETE;
 	}
 
-	if (strcasecmp(request->service, "POP3") == 0) {
+	if (strcasecmp(request->fields.service, "POP3") == 0) {
 		/* The standard POP3 service name with GSSAPI is called
 		   just "pop". */
 		service_name = "pop";
 	} else {
-		service_name = t_str_lcase(request->service);
+		service_name = t_str_lcase(request->fields.service);
 	}
 
 	principal_name = t_str_new(128);
@@ -409,7 +409,7 @@ k5_principal_is_authorized(struct auth_request *request, const char *name)
 {
 	const char *value, *const *authorized_names, *const *tmp;
 
-	value = auth_fields_find(request->extra_fields, "k5principals");
+	value = auth_fields_find(request->fields.extra_fields, "k5principals");
 	if (value == NULL)
 		return FALSE;
 
@@ -536,7 +536,8 @@ mech_gssapi_userok(struct gssapi_auth_request *request, const char *login_user)
 #else
 	e_info(auth_request->mech_event,
 	       "Cross-realm authentication not supported "
-	       "(authn_name=%s, authz_name=%s)", request->auth_request.original_username, login_user);
+	       "(authn_name=%s, authz_name=%s)",
+	       request->auth_request.fields.original_username, login_user);
 	return -1;
 #endif
 }
@@ -570,7 +571,7 @@ gssapi_credentials_callback(enum passdb_result result,
 		break;
 	}
 
-	if (mech_gssapi_userok(gssapi_request, request->user) == 0)
+	if (mech_gssapi_userok(gssapi_request, request->fields.user) == 0)
 		auth_request_success(request, NULL, 0);
 	else
 		auth_request_fail(request);
@@ -735,7 +736,7 @@ mech_gssapi_auth_free(struct auth_request *request)
 const struct mech_module mech_gssapi = {
 	"GSSAPI",
 
-	.flags = 0,
+	.flags = MECH_SEC_ALLOW_NULS,
 	.passdb_need = MECH_PASSDB_NEED_NOTHING,
 
 	mech_gssapi_auth_new,

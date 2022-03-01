@@ -319,7 +319,6 @@ http_transfer_chunked_parse(struct http_transfer_chunked_istream *tcstream)
 	}
 
 	i_unreached();
-	return -1;
 }
 
 static int
@@ -494,7 +493,7 @@ http_transfer_chunked_istream_read(struct istream_private *stream)
 		case HTTP_CHUNKED_PARSE_STATE_FINISHED:
 			tcstream->istream.istream.eof = TRUE;
 			return -1;
-		case 	HTTP_CHUNKED_PARSE_STATE_DATA:
+		case HTTP_CHUNKED_PARSE_STATE_DATA:
 			ret = http_transfer_chunked_istream_read_data(tcstream);
 			if (ret != 0)
 				return ret;
@@ -516,7 +515,7 @@ http_transfer_chunked_istream_read(struct istream_private *stream)
 		}
 	}
 
-	return -1;
+	i_unreached();
 }
 
 static void
@@ -673,7 +672,8 @@ http_transfer_chunked_ostream_sendv(struct ostream_private *stream,
 	if ((ret = o_stream_flush(stream->parent)) <= 0) {
 		/* error / we still couldn't flush existing data to
 		   parent stream. */
-		o_stream_copy_error_from_parent(stream);
+		if (ret < 0)
+			o_stream_copy_error_from_parent(stream);
 		return ret;
 	}
 

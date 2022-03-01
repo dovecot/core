@@ -10,6 +10,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+static int fd_callback_fd = -1;
+
 static int fd_callback(const char **path_r, void *context ATTR_UNUSED)
 {
 	int fd;
@@ -20,6 +22,7 @@ static int fd_callback(const char **path_r, void *context ATTR_UNUSED)
 		i_error("creat(%s) failed: %m", *path_r);
 	else
 		i_unlink(*path_r);
+	fd_callback_fd = fd;
 	return fd;
 }
 
@@ -85,7 +88,7 @@ static void test_istream_seekable_random(void)
 		data_len = i_rand_minmax(1, 100);
 		w_data = t_malloc_no0(data_len);
 		for (j = 0; j < data_len; j++)
-			w_data[j] = offset++;
+			w_data[j] = (offset++) & 0xff;
 		streams[i] = test_istream_create_data(w_data, data_len);
 		streams[i]->seekable = FALSE;
 		test_istream_set_allow_eof(streams[i], TRUE);
@@ -216,6 +219,54 @@ static void test_istream_seekable_invalid_read(void)
 	test_end();
 }
 
+static void test_istream_seekable_get_size(void)
+{
+	test_begin("istream seekable get size");
+	struct istream *str_input = test_istream_create("123456");
+	str_input->seekable = FALSE;
+	struct istream *seek_inputs[] = { str_input, NULL };
+	struct istream *input = i_stream_create_seekable(seek_inputs, 32, fd_callback, NULL);
+	uoff_t size;
+	test_assert(i_stream_read(input) == 6);
+	test_assert(i_stream_read(input) == -1);
+	test_assert(i_stream_get_size(input, TRUE, &size) == 1 &&
+		    size == 6);
+	i_stream_unref(&input);
+	i_stream_unref(&str_input);
+	test_end();
+}
+
+static void test_istream_seekable_failed_writes(void)
+{
+	struct istream *input, *streams[2];
+
+	test_begin("istream seekable failed write");
+	streams[0] = test_istream_create("stream");
+	test_istream_set_size(streams[0], 3);
+	test_istream_set_allow_eof(streams[0], FALSE);
+	streams[0]->seekable = FALSE;
+	streams[1] = NULL;
+
+	input = i_stream_create_seekable(streams, 2, fd_callback, NULL);
+	i_stream_set_name(input, "test seekable");
+	test_assert(i_stream_read(input) == 2);
+	i_stream_skip(input, 2);
+	test_assert(i_stream_read(input) == 1);
+	i_close_fd(&fd_callback_fd);
+	test_istream_set_size(streams[0], 5);
+
+	test_expect_error_string("istream-seekable: write_full(test-lib.tmp) failed: Bad file descriptor");
+	test_assert(i_stream_read(input) == -1);
+	test_expect_no_more_errors();
+
+	test_expect_error_string("file_istream.close((seekable temp-istream for: test seekable)) failed: Bad file descriptor");
+	i_stream_unref(&input);
+	test_expect_no_more_errors();
+
+	i_stream_unref(&streams[0]);
+	test_end();
+}
+
 void test_istream_seekable(void)
 {
 	unsigned int i;
@@ -234,4 +285,6 @@ void test_istream_seekable(void)
 	test_istream_seekable_eof();
 	test_istream_seekable_early_end();
 	test_istream_seekable_invalid_read();
+	test_istream_seekable_get_size();
+	test_istream_seekable_failed_writes();
 }

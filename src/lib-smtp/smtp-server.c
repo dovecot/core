@@ -33,6 +33,8 @@ struct smtp_server *smtp_server_init(const struct smtp_server_settings *set)
 	server = p_new(pool, struct smtp_server, 1);
 	server->pool = pool;
 	server->set.protocol = set->protocol;
+	server->set.reason_code_module =
+		p_strdup(pool, set->reason_code_module);
 	server->set.rawlog_dir = p_strdup_empty(pool, set->rawlog_dir);
 
 	if (set->ssl != NULL) {
@@ -83,7 +85,9 @@ struct smtp_server *smtp_server_init(const struct smtp_server_settings *set)
 	server->set.auth_optional = set->auth_optional;
 	server->set.rcpt_domain_optional = set->rcpt_domain_optional;
 	server->set.mail_path_allow_broken = set->mail_path_allow_broken;
+	server->set.no_greeting = set->no_greeting;
 	server->set.debug = set->debug;
+	server->set.no_state_in_reason = set->no_state_in_reason;
 
 	/* There is no event log prefix added here, since the server itself does
 	   not log anything. */

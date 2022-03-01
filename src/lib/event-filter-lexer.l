@@ -71,16 +71,33 @@ static size_t event_filter_parser_input_proc(char *buf, size_t size, yyscan_t sc
 [Oo][Rr]			{ return OR; }
 [Nn][Oo][Tt]			{ return NOT; }
 [<>=()]				{ return *yytext; }
-[A-Za-z0-9:.*_-]+		{ yylval->str = t_strdup(yytext); return TOKEN; }
+[A-Za-z0-9:.*?_-]+		{ yylval->str = t_strdup(yytext); return TOKEN; }
 [ \t\n\r]			{ /* ignore */ }
 .				{
-					char msg[160];
-
-					i_snprintf(msg, sizeof(msg),
-						   "syntax error, unexpected character '%c'",
-						   yytext[0]);
-
-					event_filter_parser_error(yyextra, msg);
+					/*
+					 * We simply return the char to the
+					 * and let the grammar error out
+					 * with a syntax error.
+					 *
+					 * Note: The cast is significant
+					 * since utf-8 bytes >=128 will
+					 * otherwise result in sign
+					 * extension and a negative int
+					 * getting returned on some
+					 * platforms (e.g., x86) which in
+					 * turn confuses the parser.  E.g.,
+					 * if:
+					 *    *yytext = '\x80'
+					 * we get:
+					 *    *yytext             -> -128
+					 *    (int) *yytext       -> -128
+					 * which is wrong.  With the
+					 * unsigned char cast, we get:
+					 *    (u.c.) *yytext      -> 128
+					 *    (int)(u.c.) *yytext -> 128
+					 * which is correct.
+					 */
+					return (unsigned char) *yytext;
 				}
 %%
 #ifdef __clang__

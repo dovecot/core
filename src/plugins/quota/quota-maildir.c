@@ -83,7 +83,7 @@ static int maildir_sum_dir(const char *dir, uint64_t *total_bytes,
 			continue;
 
 		p = strstr(dp->d_name, ",S=");
-		num = (uoff_t)-1;
+		num = UOFF_T_MAX;
 		if (p != NULL) {
 			/* ,S=nnnn[:,] */
 			p += 3;
@@ -92,13 +92,13 @@ static int maildir_sum_dir(const char *dir, uint64_t *total_bytes,
 
 			if (*p != ':' && *p != '\0' && *p != ',') {
 				/* not in expected format, fallback to stat() */
-				num = (uoff_t)-1;
+				num = UOFF_T_MAX;
 			} else {
 				*total_bytes += num;
 				*total_count += 1;
 			}
 		}
-		if (num == (uoff_t)-1) {
+		if (num == UOFF_T_MAX) {
 			struct stat st;
 
 			str_truncate(path, len);
@@ -188,7 +188,8 @@ maildir_list_next(struct maildir_list_context *ctx, time_t *mtime_r)
 		/* ignore if the directory got lost, stale or if it was
 		   actually a file and not a directory */
 		if (errno != ENOENT && errno != ESTALE && errno != ENOTDIR) {
-			i_error("stat(%s) failed: %m", str_c(ctx->path));
+			e_error(ctx->root->root.backend.event,
+				"stat(%s) failed: %m", str_c(ctx->path));
 			ctx->state = 0;
 		}
 	}
@@ -278,7 +279,8 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 					perm.file_create_gid,
 					perm.file_create_gid_origin) < 0 &&
 		    errno != EEXIST) {
-			i_error("mkdir_parents(%s) failed: %m", dir);
+			e_error(root->root.backend.event,
+				"mkdir_parents(%s) failed: %m", dir);
 			return -1;
 		}
 		fd = safe_mkstemp_hostpid_group(temp_path,
@@ -287,7 +289,8 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 						perm.file_create_gid_origin);
 	}
 	if (fd == -1) {
-		i_error("safe_mkstemp(%s) failed: %m", path);
+		e_error(root->root.backend.event,
+			"safe_mkstemp(%s) failed: %m", path);
 		return -1;
 	}
 
@@ -304,7 +307,8 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	str_printfa(str, "\n%"PRIu64" %"PRIu64"\n",
 		    root->total_bytes, root->total_count);
 	if (write_full(fd, str_data(str), str_len(str)) < 0) {
-		i_error("write_full(%s) failed: %m", str_c(temp_path));
+		e_error(root->root.backend.event,
+			"write_full(%s) failed: %m", str_c(temp_path));
 		i_close_fd(&fd);
 		i_unlink(str_c(temp_path));
 		return -1;
@@ -312,7 +316,8 @@ static int maildirsize_write(struct maildir_quota_root *root, const char *path)
 	i_close_fd(&fd);
 
 	if (rename(str_c(temp_path), path) < 0) {
-		i_error("rename(%s, %s) failed: %m", str_c(temp_path), path);
+		e_error(root->root.backend.event,
+			"rename(%s, %s) failed: %m", str_c(temp_path), path);
 		i_unlink_if_exists(str_c(temp_path));
 		return -1;
 	}
@@ -358,7 +363,8 @@ static void maildirsize_rebuild_later(struct maildir_quota_root *root)
 
 	if (unlink(root->maildirsize_path) < 0 &&
 	    errno != ENOENT && errno != ESTALE)
-		i_error("unlink(%s) failed: %m", root->maildirsize_path);
+		e_error(root->root.backend.event,
+			"unlink(%s) failed: %m", root->maildirsize_path);
 }
 
 static int maildirsize_recalculate_finish(struct maildir_quota_root *root,
@@ -379,9 +385,11 @@ static int maildirsize_recalculate(struct maildir_quota_root *root,
 				   const char **error_r)
 {
 	struct mail_namespace *const *namespaces;
+	struct event_reason *reason;
 	unsigned int i, count;
 	int ret = 0;
 
+	reason = event_reason_begin("quota:recalculate");
 	maildirsize_recalculate_init(root);
 
 	/* count mails from all namespaces */
@@ -411,7 +419,9 @@ static int maildirsize_recalculate(struct maildir_quota_root *root,
 		}
 	}
 
-	return maildirsize_recalculate_finish(root, ret, error_r);
+	ret = maildirsize_recalculate_finish(root, ret, error_r);
+	event_reason_end(&reason);
+	return ret;
 }
 
 static bool
@@ -657,7 +667,8 @@ static bool maildirquota_limits_init(struct maildir_quota_root *root)
 		/* non-maildir namespace, skip */
 		if ((storage->class_flags &
 		     MAIL_STORAGE_CLASS_FLAG_NOQUOTA) == 0) {
-			i_warning("quota: Namespace '%s' is not Maildir, "
+			e_warning(root->root.backend.event,
+				  "Namespace '%s' is not Maildir, "
 				  "skipping for Maildir++ quota",
 				  root->maildirsize_ns->prefix);
 		}
@@ -743,7 +754,8 @@ static int maildirsize_update(struct maildir_quota_root *root,
 		if (errno == ESTALE) {
 			/* deleted/replaced already, ignore */
 		} else {
-			i_error("write_full(%s) failed: %m",
+			e_error(root->root.backend.event,
+				"write_full(%s) failed: %m",
 				root->maildirsize_path);
 		}
 	} else {
@@ -751,7 +763,8 @@ static int maildirsize_update(struct maildir_quota_root *root,
 		if (close(root->fd) < 0) {
 			ret = -1;
 			if (errno != ESTALE)
-				i_error("close(%s) failed: %m", root->maildirsize_path);
+				e_error(root->root.backend.event,
+					"close(%s) failed: %m", root->maildirsize_path);
 		}
 		root->fd = -1;
 	}
@@ -770,6 +783,7 @@ static struct quota_root *maildir_quota_alloc(void)
 static int maildir_quota_init(struct quota_root *_root, const char *args,
 			      const char **error_r)
 {
+	event_set_append_log_prefix(_root->backend.event, "quota-maildir: ");
 	return quota_root_default_init(_root, args, error_r);
 }
 
@@ -899,7 +913,7 @@ maildir_quota_update(struct quota_root *_root,
 	   it doesn't exist. */
 	if (maildirquota_refresh(root, &recalculated, &error) < 0) {
 		*error_r = t_strdup_printf(
-			"quota-maildir: Could not update storage usage data: %s",
+			"Could not update storage usage data: %s",
 			error);
 		return -1;
 	}
@@ -909,11 +923,11 @@ maildir_quota_update(struct quota_root *_root,
 		   we wanted to do. */
 	} else if (root->fd == -1) {
 		if (maildirsize_recalculate(root, &error) < 0)
-			i_error("quota-maildir: %s", error);
+			e_error(root->root.backend.event, "%s", error);
 	} else if (ctx->recalculate != QUOTA_RECALCULATE_DONT) {
 		i_close_fd(&root->fd);
 		if (maildirsize_recalculate(root, &error) < 0)
-			i_error("quota-maildir: %s", error);
+			e_error(root->root.backend.event, "%s", error);
 	} else if (maildirsize_update(root, ctx->count_used, ctx->bytes_used) < 0) {
 		i_close_fd(&root->fd);
 		maildirsize_rebuild_later(root);

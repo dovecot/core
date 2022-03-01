@@ -7,6 +7,7 @@
 #include "message-parser.h"
 #include "message-header-decode.h"
 #include "message-decoder.h"
+#include "message-part-data.h"
 #include "test-common.h"
 
 void message_header_decode_utf8(const unsigned char *data, size_t size,
@@ -105,6 +106,7 @@ static void test_message_decoder_multipart(void)
 		"\n"
 		"?garbage\n"
 		"--foo--\n";
+	const struct message_parser_settings parser_set = { .flags = 0, };
 	struct message_parser_ctx *parser;
 	struct message_decoder_context *decoder;
 	struct message_part *parts;
@@ -116,7 +118,7 @@ static void test_message_decoder_multipart(void)
 	test_begin("message decoder multipart");
 
 	istream = test_istream_create(test_message_input);
-	parser = message_parser_init(pool_datastack_create(), istream, 0, 0);
+	parser = message_parser_init(pool_datastack_create(), istream, &parser_set);
 	decoder = message_decoder_init(NULL, 0);
 
 	test_istream_set_allow_eof(istream, FALSE);
@@ -139,6 +141,7 @@ static void test_message_decoder_multipart(void)
 
 	message_decoder_deinit(&decoder);
 	message_parser_deinit(&parser, &parts);
+	test_assert(istream->stream_errno == 0);
 	i_stream_unref(&istream);
 	test_end();
 }
@@ -206,12 +209,304 @@ static void test_message_decoder_current_content_type(void)
 	test_end();
 }
 
+static void test_message_decoder_content_transfer_encoding(void)
+{
+	static const unsigned char test_message_input[] =
+"Content-Type: multipart/mixed; boundary=\"1\"\n"
+"MIME-Version: 1.0\n\n"
+"--1\n"
+"Content-Transfer-Encoding:      7bit\n"
+"Content-Type: text/plain; charset=us-ascii\n\n"
+"Move black king to queen's bishop\n\n"
+"--1\n"
+"Content-Transfer-Encoding:\t\t\t\tbinary\n"
+"Content-Type: text/plain; charset=UTF-8\n\n"
+"Move \xE2\x99\x9A to \xE2\x99\x9B's \xE2\x99\x9D\n\n"
+"--1\n"
+"Content-Transfer-Encoding: 8bit\t\t\t\r\n"
+"Content-Type: text/plain; charset=UTF-8\n\n"
+"Move \xE2\x99\x9A to \xE2\x99\x9B's \xE2\x99\x9D\n\n"
+"--1\n"
+"Content-Transfer-Encoding: quoted-printable              \r\n"
+"Content-Type: text/plain; charset=UTF-8\n\n"
+"Move =E2=99=9A to =E2=99=9B's =E2=99=9D\n\n"
+"--1\n"
+"Content-Transfer-Encoding: base64\n"
+"Content-Type: text/plain; charset=UTF-8\n\n"
+"TW92ZSDimZogdG8g4pmbJ3Mg4pmdCg==\n\n"
+"--1--\n";
+
+	static const char test_message_output[] =
+"Move black king to queen's bishop\n"
+"Move \xE2\x99\x9A to \xE2\x99\x9B's \xE2\x99\x9D\n"
+"Move \xE2\x99\x9A to \xE2\x99\x9B's \xE2\x99\x9D\n"
+"Move \xE2\x99\x9A to \xE2\x99\x9B's \xE2\x99\x9D\r\n"
+"Move \xE2\x99\x9A to \xE2\x99\x9B's \xE2\x99\x9D\n";
+
+	test_begin("message decoder content transfer encoding");
+
+	const struct message_parser_settings parser_set = { .flags = 0, };
+	struct message_parser_ctx *parser;
+	struct message_decoder_context *decoder;
+	struct message_part *parts, *part;
+	struct message_block input, output;
+	struct istream *istream;
+	string_t *str_out = t_str_new(20);
+	int ret;
+
+	pool_t pool = pool_alloconly_create("message parser", 10240);
+	istream = test_istream_create_data(test_message_input,
+					   sizeof(test_message_input)-1);
+	parser = message_parser_init(pool, istream, &parser_set);
+	decoder = message_decoder_init(NULL, 0);
+
+	while ((ret = message_parser_parse_next_block(parser, &input)) > 0) {
+		message_part_data_parse_from_header(pool, input.part, input.hdr);
+		if (message_decoder_decode_next_block(decoder, &input, &output) &&
+		    output.hdr == NULL && output.size > 0)
+			str_append_data(str_out, output.data, output.size);
+	}
+
+	test_assert(ret == -1);
+	test_assert_strcmp(test_message_output, str_c(str_out));
+	message_decoder_deinit(&decoder);
+	message_parser_deinit(&parser, &parts);
+	test_assert(istream->stream_errno == 0);
+
+	/* validate parts */
+
+	part = parts;
+	test_assert(part->children_count == 5);
+	part = part->children;
+	test_assert_strcmp(part->data->content_type, "text");
+	test_assert_strcmp(part->data->content_subtype, "plain");
+	test_assert_strcmp(part->data->content_transfer_encoding, "7bit");
+	test_assert_strcmp(part->data->content_type, "text");
+
+	part = part->next;
+	test_assert_strcmp(part->data->content_transfer_encoding, "binary");
+	test_assert_strcmp(part->data->content_type, "text");
+	test_assert_strcmp(part->data->content_subtype, "plain");
+	part = part->next;
+	test_assert_strcmp(part->data->content_transfer_encoding, "8bit");
+	part = part->next;
+	test_assert_strcmp(part->data->content_transfer_encoding, "quoted-printable");
+	part = part->next;
+	test_assert_strcmp(part->data->content_transfer_encoding, "base64");
+	i_stream_unref(&istream);
+	pool_unref(&pool);
+	test_end();
+}
+
+static void test_message_decoder_invalid_content_transfer_encoding(void)
+{
+	static const unsigned char test_message_input[] =
+	/* all of the child parts have invalid content transfer encoding */
+"Content-Type: multipart/mixed; boundary=\"1\"\n"
+"MIME-Version: 1.0\n\n"
+"--1\n"
+"Content-Transfer-Encoding: 6bit\n"
+"Content-Type: text/plain; charset=UTF-8\n\n"
+"Move black king to queen's bishop\n\n"
+"--1\n"
+"Content-Transfer-Encoding:		     7bits\n"
+"Content-Type: text/plain; charset=UTF-8\n\n"
+"Move \xE2\x99\x9A to \xE2\x99\x9B's \xE2\x99\x9D\n\n"
+"--1\n"
+"Content-Transfer-Encoding: 8 bit\n"
+"Content-Type: text/plain; charset=UTF-8\n\n"
+"Move \xE2\x99\x9A to \xE2\x99\x9B's \xE2\x99\x9D\n\n"
+"--1\n"
+"Content-Transfer-Encoding: 7-bit\n"
+"Content-Type: text/plain; charset=UTF-8\n\n"
+"Move \xE2\x99\x9A to \xE2\x99\x9B's \xE2\x99\x9D\n\n"
+"--1\n"
+"Content-Transfer-Encoding: 8-bit\n"
+"Content-Type: text/plain; charset=UTF-8\n\n"
+"Move \xE2\x99\x9A to \xE2\x99\x9B's \xE2\x99\x9D\n\n"
+"--1\n"
+"Content-Transfer-Encoding:\n"
+"Content-Type: text/plain; charset=UTF-8\n\n"
+"Move =E2=99=9A to =E2=99=9B's =E2=99=9D\n\n"
+"--1--\n";
+
+	const char *test_message_output = "";
+
+	test_begin("message decoder content transfer invalid encoding");
+
+	const struct message_parser_settings parser_set = { .flags = 0 };
+	struct message_parser_ctx *parser;
+	struct message_decoder_context *decoder;
+	struct message_part *parts, *part;
+	struct message_block input, output;
+	struct istream *istream;
+	string_t *str_out = t_str_new(20);
+	int ret;
+
+	pool_t pool = pool_alloconly_create("message parser", 10240);
+	istream = test_istream_create_data(test_message_input,
+					   sizeof(test_message_input)-1);
+	parser = message_parser_init(pool, istream, &parser_set);
+	decoder = message_decoder_init(NULL, 0);
+
+	while ((ret = message_parser_parse_next_block(parser, &input)) > 0) {
+		message_part_data_parse_from_header(pool, input.part, input.hdr);
+		if (input.hdr != NULL &&
+		    strcasecmp(input.hdr->name, "content-transfer-encoding") == 0) {
+			enum message_cte cte = message_decoder_parse_cte(input.hdr);
+			test_assert(cte == MESSAGE_CTE_UNKNOWN);
+		}
+		if (message_decoder_decode_next_block(decoder, &input, &output) &&
+		    output.hdr == NULL && output.size > 0)
+			str_append_data(str_out, output.data, output.size);
+	}
+
+	test_assert(ret == -1);
+	test_assert_strcmp(test_message_output, str_c(str_out));
+	message_decoder_deinit(&decoder);
+	message_parser_deinit(&parser, &parts);
+	test_assert(istream->stream_errno == 0);
+
+	part = parts;
+	test_assert(part->children_count == 6);
+	part = part->children;
+	test_assert_strcmp(part->data->content_type, "text");
+	test_assert_strcmp(part->data->content_subtype, "plain");
+	test_assert_strcmp(part->data->content_transfer_encoding, "6bit");
+	test_assert_strcmp(part->data->content_type, "text");
+
+	part = part->next;
+	test_assert_strcmp(part->data->content_transfer_encoding, "7bits");
+	test_assert_strcmp(part->data->content_type, "text");
+	test_assert_strcmp(part->data->content_subtype, "plain");
+	part = part->next;
+	test_assert(part->data->content_transfer_encoding == NULL);
+	part = part->next;
+	test_assert_strcmp(part->data->content_transfer_encoding, "7-bit");
+	part = part->next;
+	test_assert_strcmp(part->data->content_transfer_encoding, "8-bit");
+	part = part->next;
+	test_assert(part->next == NULL);
+	i_stream_unref(&istream);
+	pool_unref(&pool);
+
+#define X10(a) a a a a a a a a a a
+
+#undef TEST_CASE
+#define TEST_CASE(value, result) \
+	{ \
+		.hdr = { \
+			.name = "Content-Transfer-Encoding", \
+			.name_len = 25, \
+			.full_value = (const unsigned char*)value, \
+			.full_value_len = sizeof(value)-1, \
+		}, \
+		.cte = result, \
+	}
+
+	const struct {
+		const struct message_header_line hdr;
+		enum message_cte cte;
+	} test_case[] = {
+		TEST_CASE("(binary comment) base64", MESSAGE_CTE_BASE64),
+		TEST_CASE("(\"binary\" ( (comment) test) ) base64", MESSAGE_CTE_BASE64),
+		TEST_CASE("base64 binary", MESSAGE_CTE_UNKNOWN),
+		TEST_CASE("base64\0binary", MESSAGE_CTE_UNKNOWN),
+		TEST_CASE("\0binary", MESSAGE_CTE_UNKNOWN),
+		TEST_CASE("( " X10(X10(X10(X10("a")))) " ) base64", MESSAGE_CTE_BASE64),
+		TEST_CASE("( " X10(X10(X10(X10("a")))) " ) base64 ( " X10(X10(X10(X10("a")))) ")", MESSAGE_CTE_BASE64),
+		TEST_CASE("( base64", MESSAGE_CTE_UNKNOWN),
+		TEST_CASE("base64 (", MESSAGE_CTE_BASE64),
+		TEST_CASE(X10(X10(X10(X10(" ")))) " base64", MESSAGE_CTE_BASE64),
+		TEST_CASE("base64 ; logging-type=\"foobar\"", MESSAGE_CTE_BASE64),
+	};
+
+	for (size_t i = 0; i < N_ELEMENTS(test_case); i++) {
+		test_assert_idx(message_decoder_parse_cte(&test_case[i].hdr) == test_case[i].cte, i);
+	}
+
+	test_end();
+}
+
+static void test_message_decoder_charset(void)
+{
+	/* ensure we decode correctly */
+	static const unsigned char test_message_input[] =
+	/* none of these should work */
+"Content-Type: multipart/mixed; boundary=\"1\"\n"
+"MIME-Version: 1.0\n\n"
+"--1\n"
+"Content-Transfer-Encoding: binary\n"
+"Content-Type: text/plain; charset=utf-16le\n\n"
+"\x54\x00\x65\x00\x73\x00\x74\x00\x20\x00\x6d\x00\x65\x00\x73\x00\x73\x00\x61\x00\x67\x00\x65\x00\n\x00\n"
+"--1\n"
+"Content-Transfer-Encoding: base64\n"
+"Content-Type: text/plain; charset=utf-16be\n\n"
+"AFQAZQBzAHQAIABtAGUAcwBzAGEAZwBlAAo=\n\n"
+"--1\n"
+"Content-Transfer-Encoding: base64\n"
+"Content-Type: text/plain; charset=utf-16le\n\n"
+"VABlAHMAdAAgAG0AZQBzAHMAYQBnAGUACgA=\n\n"
+"--1\n"
+"Content-Transfer-Encoding: base64\n"
+"Content-Type: text/plain; charset=EUC-JP\n\n"
+"odjApLOmv824osDruMCh2Q==\n\n"
+"--1\n"
+"Content-Transfer-Encoding: binary\n"
+"Content-Type: text/plain; charset=UTF-8\n\n"
+"\xad\xad\xad\xad\xad\xad\n"
+"--1--\n";
+
+	static const char *test_message_output =
+"Test message\nTest message\nTest message\n"
+"\xe3\x80\x8e\xe4\xb8\x96\xe7\x95\x8c\xe4\xba\xba"
+"\xe6\xa8\xa9\xe5\xae\xa3\xe8\xa8\x80\xe3\x80\x8f"
+UNICODE_REPLACEMENT_CHAR_UTF8;
+
+	test_begin("message decoder charset");
+
+	const struct message_parser_settings parser_set = { .flags = 0, };
+	struct message_parser_ctx *parser;
+	struct message_decoder_context *decoder;
+	struct message_part *parts;
+	struct message_block input, output;
+	struct istream *istream;
+	string_t *str_out = t_str_new(20);
+	int ret;
+
+	pool_t pool = pool_alloconly_create("message parser", 10240);
+	istream = test_istream_create_data(test_message_input,
+					   sizeof(test_message_input)-1);
+	parser = message_parser_init(pool, istream, &parser_set);
+	decoder = message_decoder_init(NULL, 0);
+
+	while ((ret = message_parser_parse_next_block(parser, &input)) > 0) {
+		message_part_data_parse_from_header(pool, input.part, input.hdr);
+		if (message_decoder_decode_next_block(decoder, &input, &output) &&
+		    output.hdr == NULL && output.size > 0)
+			str_append_data(str_out, output.data, output.size);
+	}
+
+	test_assert(ret == -1);
+	test_assert_strcmp(test_message_output, str_c(str_out));
+	message_decoder_deinit(&decoder);
+	message_parser_deinit(&parser, &parts);
+	test_assert(istream->stream_errno == 0);
+
+	i_stream_unref(&istream);
+	pool_unref(&pool);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_message_decoder,
 		test_message_decoder_multipart,
 		test_message_decoder_current_content_type,
+		test_message_decoder_content_transfer_encoding,
+		test_message_decoder_invalid_content_transfer_encoding,
+		test_message_decoder_charset,
 		NULL
 	};
 	return test_run(test_functions);

@@ -2,21 +2,10 @@
 
 #include "lib.h"
 #include "test-common.h"
-#include "ioloop.h"
-#include "lib-signals.h"
-#include "master-service.h"
-#include "mail-storage.h"
-#include "mail-storage-service.h"
-#include "mailbox-list.h"
-#include "settings-parser.h"
-#include "mail-user.h"
-#include "safe-mkstemp.h"
-#include "safe-mkdir.h"
-#include "str.h"
-#include "unlink-directory.h"
-#include "randgen.h"
-#include "dcrypt.h"
 #include "hex-binary.h"
+#include "master-service.h"
+#include "test-mail-storage-common.h"
+#include "dcrypt.h"
 
 #include "mail-crypt-common.h"
 #include "mail-crypt-key.h"
@@ -27,16 +16,9 @@ static const char *mcp_old_user_key_id = "d0cfaca5d335f9edc41c84bb47465184cb0e2e
 static const char *mcp_old_box_key = "1\t716\t1\t0567e6bf9579813ae967314423b0fceb14bda24749303923de9a9bb9370e0026f995901a57e63113eeb2baf0c940e978d00686cbb52bd5014bc318563375876255\t0300E46DA2125427BE968EB3B649910CDC4C405E5FFDE18D433A97CABFEE28CEEFAE9EE356C792004FFB80981D67E741B8CC036A34235A8D2E1F98D1658CFC963D07EB\td0cfaca5d335f9edc41c84bb47465184cb0e2ec3931bebfcea4dd433615e77a0\t7c9a1039ea2e4fed73e81dd3ffc3fa22ea4a28352939adde7bf8ea858b00fa4f";
 static const char *mcp_old_box_key_id = "7c9a1039ea2e4fed73e81dd3ffc3fa22ea4a28352939adde7bf8ea858b00fa4f";
 
-static struct mail_storage_service_ctx *mail_storage_service = NULL;
-static struct mail_user *test_mail_user = NULL;
-static struct mail_storage_service_user *test_service_user = NULL;
-static struct ioloop *test_ioloop = NULL;
-static const char *mail_home;
-
+static struct test_mail_storage_ctx *test_ctx;
 static const char *test_user_key_id;
 static const char *test_box_key_id;
-
-static pool_t test_pool;
 
 static struct mail_crypt_user mail_crypt_user;
 
@@ -126,75 +108,6 @@ test_mail_attribute_set(struct mailbox_transaction_context *t,
 }
 
 
-static
-int init_test_mail_user(void)
-{
-	struct setting_parser_context *set_parser;
-	const char *error;
-	char path_buf[4096];
-
-	if (getcwd(path_buf, sizeof(path_buf)) == NULL)
-		i_fatal("getcwd() failed: %m");
-
-	mail_home = p_strdup_printf(test_pool, "%s/mcp_user/", path_buf);
-
-	struct mail_storage_service_input input = {
-		.userdb_fields = (const char*const[]){
-			t_strdup_printf("mail=maildir:~/"),
-			t_strdup_printf("home=%s", mail_home),
-			t_strdup_printf("mail_crypt_curve=prime256v1"),
-			NULL
-		},
-		.username = "mcp_test@example.com",
-		.no_userdb_lookup = TRUE,
-		.debug = TRUE,
-	};
-
-	mail_storage_service = mail_storage_service_init(master_service, NULL,
-		MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS |
-		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
-		MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS);
-
-	if (mail_storage_service_lookup(mail_storage_service, &input,
-					 &test_service_user, &error) < 0)
-	{
-		i_error("Cannot lookup test user: %s", error);
-		return -1;
-	}
-
-	set_parser =
-		mail_storage_service_user_get_settings_parser(test_service_user);
-
-	if (settings_parse_line(set_parser,
-		t_strdup_printf("mail_attribute_dict=file:%s/dovecot-attributes",
-				mail_home)) < 0) {
-		i_error("Cannot set mail_attribute_dict: %s",
-			settings_parser_get_error(set_parser));
-		return -1;
-	}
-
-	if (mail_storage_service_next(mail_storage_service, test_service_user,
-				      &test_mail_user, &error) < 0)
-	{
-		 i_error("Cannot lookup test user: %s", error);
-		 return -1;
-	}
-
-	return 0;
-}
-
-static
-void deinit_test_mail_user()
-{
-	const char *error;
-	mail_user_deinit(&test_mail_user);
-	mail_storage_service_user_unref(&test_service_user);
-	mail_storage_service_deinit(&mail_storage_service);
-	if (unlink_directory(mail_home, UNLINK_DIRECTORY_FLAG_RMDIR,
-			     &error) < 0)
-		i_error("unlink_directory(%s) failed: %s", mail_home, error);
-}
-
 static void test_generate_user_key(void)
 {
 	struct dcrypt_keypair pair;
@@ -204,7 +117,7 @@ static void test_generate_user_key(void)
 	test_begin("generate user key");
 
 	/* try to generate a keypair for user */
-	if (mail_crypt_user_generate_keypair(test_mail_user, &pair,
+	if (mail_crypt_user_generate_keypair(test_ctx->user, &pair,
 					     &pubid, &error) < 0) {
 		i_error("generate_keypair failed: %s", error);
 		test_exit(1);
@@ -212,13 +125,13 @@ static void test_generate_user_key(void)
 
 	test_assert(pubid != NULL);
 
-	test_user_key_id = p_strdup(test_pool, pubid);
+	test_user_key_id = p_strdup(test_ctx->pool, pubid);
 
 	dcrypt_keypair_unref(&pair);
 	error = NULL;
 
 	/* keys ought to be in cache or somewhere...*/
-	if (mail_crypt_user_get_private_key(test_mail_user, NULL, &pair.priv, &error) <= 0)
+	if (mail_crypt_user_get_private_key(test_ctx->user, NULL, &pair.priv, &error) <= 0)
 	{
 		i_error("Cannot get user private key: %s", error);
 	}
@@ -239,12 +152,12 @@ static void test_generate_inbox_key(void)
 
 	test_begin("generate inbox key");
 
-	if (mail_crypt_user_get_public_key(test_mail_user, &user_key,
+	if (mail_crypt_user_get_public_key(test_ctx->user, &user_key,
 					    &error) <= 0) {
 		i_error("Cannot get user private key: %s", error);
 	}
 	struct mail_namespace *ns =
-		mail_namespace_find_inbox(test_mail_user->namespaces);
+		mail_namespace_find_inbox(test_ctx->user->namespaces);
 	struct mailbox *box = mailbox_alloc(ns->list, "INBOX",
 					    MAILBOX_FLAG_READONLY);
 	if (mailbox_open(box) < 0)
@@ -262,7 +175,7 @@ static void test_generate_inbox_key(void)
 	dcrypt_key_unref_public(&user_key);
 	mailbox_free(&box);
 
-	test_box_key_id = p_strdup(test_pool, pubid);
+	test_box_key_id = p_strdup(test_ctx->pool, pubid);
 
 	test_end();
 }
@@ -274,16 +187,17 @@ static void test_cache_reset(void)
 
 	test_begin("cache reset");
 
-	struct mail_crypt_user *muser = mail_crypt_get_mail_crypt_user(test_mail_user);
+	struct mail_crypt_user *muser =
+		mail_crypt_get_mail_crypt_user(test_ctx->user);
 	mail_crypt_key_cache_destroy(&muser->key_cache);
 
-	test_assert(mail_crypt_user_get_private_key(test_mail_user, NULL,
+	test_assert(mail_crypt_user_get_private_key(test_ctx->user, NULL,
 					    	    &pair.priv, &error) > 0);
 	if (error != NULL)
 		i_error("mail_crypt_user_get_private_key() failed: %s", error);
 	error = NULL;
-	test_assert(mail_crypt_user_get_public_key(test_mail_user,
-						    &pair.pub, &error) > 0);
+	test_assert(mail_crypt_user_get_public_key(test_ctx->user,
+						   &pair.pub, &error) > 0);
 	if (error != NULL)
 		i_error("mail_crypt_user_get_public_key() failed: %s", error);
 
@@ -305,7 +219,7 @@ static void test_verify_keys(void)
 	struct dcrypt_public_key *pubkey = NULL;
 
 	struct mail_namespace *ns =
-		mail_namespace_find_inbox(test_mail_user->namespaces);
+		mail_namespace_find_inbox(test_ctx->user->namespaces);
 	struct mailbox *box = mailbox_alloc(ns->list, "INBOX",
 					    MAILBOX_FLAG_READONLY);
 	if (mailbox_open(box) < 0)
@@ -402,7 +316,7 @@ static void test_old_key(void)
 	struct dcrypt_private_key *privkey = NULL;
 
 	struct mail_namespace *ns =
-		mail_namespace_find_inbox(test_mail_user->namespaces);
+		mail_namespace_find_inbox(test_ctx->user->namespaces);
 	struct mailbox *box = mailbox_alloc(ns->list, "INBOX",
 					    MAILBOX_FLAG_READONLY);
 	if (mailbox_open(box) < 0)
@@ -453,23 +367,34 @@ static void test_setup(void)
 		i_info("No functional dcrypt backend found - skipping tests");
 		test_exit(0);
 	}
-	test_pool = pool_alloconly_create(MEMPOOL_GROWING "mcp test pool", 128);
-	test_ioloop = io_loop_create();
-	/* allocate a user */
-	if (init_test_mail_user() < 0) {
-		test_exit(1);
-	}
+	test_ctx = test_mail_storage_init();
+	const char *username = "mcp_test@example.com";
+	const char *const extra_input[] = {
+		t_strdup_printf("mail_crypt_curve=prime256v1"),
+		t_strdup_printf("mail_attribute_dict=file:%s/%s/dovecot-attributes",
+				test_ctx->home_root, username),
+		NULL
+	};
+	struct test_mail_storage_settings storage_set = {
+		.username = username,
+		.driver = "maildir",
+		.hierarchy_sep = "/",
+		.extra_input = extra_input,
+	};
+	test_mail_storage_init_user(test_ctx, &storage_set);
+
 	mail_crypt_key_register_mailbox_internal_attributes();
 }
 
 static void test_teardown(void)
 {
-	deinit_test_mail_user();
-	struct mail_crypt_user *muser = mail_crypt_get_mail_crypt_user(test_mail_user);
+	struct mail_crypt_user *muser =
+		mail_crypt_get_mail_crypt_user(test_ctx->user);
 	mail_crypt_key_cache_destroy(&muser->key_cache);
+
+	test_mail_storage_deinit_user(test_ctx);
+	test_mail_storage_deinit(&test_ctx);
 	dcrypt_deinitialize();
-	io_loop_destroy(&test_ioloop);
-	pool_unref(&test_pool);
 }
 
 int main(int argc, char **argv)

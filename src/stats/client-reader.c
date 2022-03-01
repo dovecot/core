@@ -9,7 +9,9 @@
 #include "ostream.h"
 #include "master-service.h"
 #include "stats-metrics.h"
+#include "stats-settings.h"
 #include "client-reader.h"
+#include "client-writer.h"
 
 struct reader_client {
 	struct connection conn;
@@ -150,6 +152,59 @@ reader_client_input_dump_reset(struct reader_client *client,
 }
 
 static int
+reader_client_input_metrics_add(struct reader_client *client,
+				const char *const *args)
+{
+	const char *error;
+
+	if (str_array_length(args) < 7) {
+		e_error(client->conn.event, "METRICS-ADD: Not enough parameters");
+		return -1;
+	}
+
+	struct stats_metric_settings set = {
+		.metric_name = args[0],
+		.description = args[1],
+		.fields = args[2],
+		.group_by = args[3],
+		.filter = args[4],
+		.exporter = args[5],
+		.exporter_include = args[6],
+	};
+	o_stream_cork(client->conn.output);
+	if (stats_metrics_add_dynamic(stats_metrics, &set, &error)) {
+		client_writer_update_connections();
+		o_stream_nsend(client->conn.output, "+", 1);
+	} else {
+		o_stream_nsend(client->conn.output, "-", 1);
+		o_stream_nsend_str(client->conn.output, "METRICS-ADD: ");
+		o_stream_nsend_str(client->conn.output, error);
+	}
+	o_stream_nsend(client->conn.output, "\n", 1);
+	o_stream_uncork(client->conn.output);
+	return 1;
+}
+
+static int
+reader_client_input_metrics_remove(struct reader_client *client,
+				   const char *const *args)
+{
+	if (str_array_length(args) < 1) {
+		e_error(client->conn.event, "METRICS-REMOVE: Not enough parameters");
+		return -1;
+	}
+
+	if (stats_metrics_remove_dynamic(stats_metrics, args[0])) {
+		client_writer_update_connections();
+		o_stream_nsend(client->conn.output, "+\n", 2);
+	} else {
+		o_stream_nsend_str(client->conn.output,
+				   t_strdup_printf("-metrics '%s' not found\n", args[0]));
+	}
+	return 1;
+}
+
+static int
 reader_client_input_args(struct connection *conn, const char *const *args)
 {
 	struct reader_client *client = (struct reader_client *)conn;
@@ -162,6 +217,10 @@ reader_client_input_args(struct connection *conn, const char *const *args)
 	args++;
 	if (strcmp(cmd, "DUMP") == 0)
 		return reader_client_input_dump(client, args);
+	else if (strcmp(cmd, "METRICS-ADD") == 0)
+		return reader_client_input_metrics_add(client, args);
+	else if (strcmp(cmd, "METRICS-REMOVE") == 0)
+		return reader_client_input_metrics_remove(client, args);
 	else if (strcmp(cmd, "DUMP-RESET") == 0)
 		return reader_client_input_dump_reset(client, args);
 	return 1;
@@ -174,7 +233,7 @@ static struct connection_settings client_set = {
 	.minor_version = 0,
 
 	.input_max_size = 1024,
-	.output_max_size = (size_t)-1,
+	.output_max_size = SIZE_MAX,
 	.client = FALSE,
 };
 

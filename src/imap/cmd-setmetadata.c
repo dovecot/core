@@ -7,6 +7,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "imap-metadata.h"
+#include "mail-storage-private.h"
 
 #define METADATA_MAX_INMEM_SIZE (1024*128)
 
@@ -176,7 +177,14 @@ cmd_setmetadata_entry(struct imap_setmetadata_context *ctx,
 		if (ctx->failed)
 			return 1;
 		i_zero(&value);
-		value.value = imap_arg_as_nstring(entry_value);
+		/* NOTE: The RFC doesn't allow atoms as value, but since
+		   Dovecot has traditionally supported it this is kept for
+		   backwards compatibility just in case some client is
+		   using it. */
+		if (entry_value->type == IMAP_ARG_NIL)
+			;
+		else if (!imap_arg_get_atom(entry_value, &value.value))
+			value.value = imap_arg_as_nstring(entry_value);
 		ret = imap_metadata_set(ctx->trans, entry_name, &value);
 		if (ret < 0) {
 			/* delay reporting the failure so we'll finish
@@ -316,14 +324,22 @@ cmd_setmetadata_mailbox(struct imap_setmetadata_context *ctx,
 	else {
 		ctx->box = mailbox_alloc(ns->list, mailbox,
 					 MAILBOX_FLAG_ATTRIBUTE_SESSION);
-		mailbox_set_reason(ctx->box, "SETMETADATA");
-		if (mailbox_open(ctx->box) < 0) {
+		enum mailbox_existence existence;
+		if (mailbox_exists(ctx->box, TRUE, &existence) < 0) {
+			client_send_box_error(cmd, ctx->box);
+			mailbox_free(&ctx->box);
+			return TRUE;
+		} else if (existence == MAILBOX_EXISTENCE_NONE) {
+			const char *err = t_strdup_printf(MAIL_ERRSTR_MAILBOX_NOT_FOUND,
+							  mailbox_get_vname(ctx->box));
+			mail_storage_set_error(ctx->box->storage, MAIL_ERROR_NOTFOUND, err);
 			client_send_box_error(cmd, ctx->box);
 			mailbox_free(&ctx->box);
 			return TRUE;
 		}
 	}
-	event_add_str(ctx->cmd->event, "mailbox", mailbox_get_vname(ctx->box));
+	event_add_str(ctx->cmd->global_event, "mailbox",
+		      mailbox_get_vname(ctx->box));
 	ctx->trans = imap_metadata_transaction_begin(ctx->box);
 	return cmd_setmetadata_start(ctx);
 }

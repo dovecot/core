@@ -55,7 +55,8 @@ smtp_client_command_plug(struct smtp_client_connection *conn,
 			 struct smtp_client_command *after);
 
 void smtp_client_command_ref(struct smtp_client_command *cmd);
-void smtp_client_command_unref(struct smtp_client_command **_cmd);
+bool smtp_client_command_unref(struct smtp_client_command **_cmd)
+			       ATTR_NOWARN_UNUSED_RESULT;
 
 bool smtp_client_command_name_equals(struct smtp_client_command *cmd,
 				     const char *name);
@@ -178,6 +179,22 @@ smtp_client_command_rset_submit(struct smtp_client_connection *conn,
 		(smtp_client_command_callback_t *)callback, context)
 
 /* Send MAIL FROM:<address> <params...> */
+struct smtp_client_command *
+smtp_client_command_mail_submit_after(struct smtp_client_connection *conn,
+				      enum smtp_client_command_flags flags,
+				      struct smtp_client_command *after,
+				      const struct smtp_address *from,
+				      const struct smtp_params_mail *params,
+				      smtp_client_command_callback_t *callback,
+				      void *context);
+#define smtp_client_command_mail_submit_after(conn, flags, after, \
+					      address, params, \
+					      callback, context) \
+	smtp_client_command_mail_submit_after(conn, flags - \
+		CALLBACK_TYPECHECK(callback, void (*)( \
+			const struct smtp_reply *reply, typeof(context))), \
+		after, address, params, \
+		(smtp_client_command_callback_t *)callback, context)
 struct smtp_client_command *
 smtp_client_command_mail_submit(struct smtp_client_connection *conn,
 				enum smtp_client_command_flags flags,

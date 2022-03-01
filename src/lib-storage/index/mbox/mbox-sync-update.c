@@ -36,18 +36,18 @@ void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,
 
 	if (diff == 0) {
 		if (ctx->header_last_change < pos + have ||
-		    ctx->header_last_change == (size_t)-1)
+		    ctx->header_last_change == SIZE_MAX)
 			ctx->header_last_change = pos + have;
 	} else {
 		/* FIXME: if (diff < ctx->space && pos < ctx->offset) then
 		   move the data only up to space offset and give/take the
 		   space from there. update header_last_change accordingly.
 		   (except pos and offset can't be compared directly) */
-		ctx->header_last_change = (size_t)-1;
+		ctx->header_last_change = SIZE_MAX;
 		for (i = 0; i < MBOX_HDR_COUNT; i++) {
 			if (ctx->hdr_pos[i] > pos &&
-			    ctx->hdr_pos[i] != (size_t)-1)
-				ctx->hdr_pos[i] += diff;
+			    ctx->hdr_pos[i] != SIZE_MAX)
+				ctx->hdr_pos[i] = (ssize_t)ctx->hdr_pos[i] + diff;
 		}
 
 		if (ctx->mail.space > 0) {
@@ -56,16 +56,16 @@ void mbox_sync_move_buffer(struct mbox_sync_mail_context *ctx,
 				 ctx->mail.offset > ctx->hdr_offset + pos + have);
 			if (ctx->mail.offset > ctx->hdr_offset + pos) {
 				/* free space offset moves */
-				ctx->mail.offset += diff;
+				ctx->mail.offset = (ssize_t)ctx->mail.offset + diff;
 			}
 		}
 
 		if (diff < 0)
 			str_delete(ctx->header, pos, -diff);
 		else {
-			ctx->header_last_change = (size_t)-1;
+			ctx->header_last_change = SIZE_MAX;
 			buffer_copy(ctx->header, pos + diff,
-				    ctx->header, pos, (size_t)-1);
+				    ctx->header, pos, SIZE_MAX);
 		}
 	}
 }
@@ -197,7 +197,7 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 	}
 
 	if (ctx->sync_ctx->dest_first_mail &&
-	    ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == (size_t)-1) {
+	    ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == SIZE_MAX) {
 		i_assert(ctx->sync_ctx->base_uid_validity != 0);
 
 		str_append(ctx->header, "X-IMAPbase: ");
@@ -218,7 +218,7 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 		str_append_c(ctx->header, '\n');
 	}
 
-	if (ctx->hdr_pos[MBOX_HDR_X_UID] == (size_t)-1 && !ctx->mail.pseudo) {
+	if (ctx->hdr_pos[MBOX_HDR_X_UID] == SIZE_MAX && !ctx->mail.pseudo) {
 		str_append(ctx->header, "X-UID: ");
 		ctx->hdr_pos[MBOX_HDR_X_UID] = str_len(ctx->header);
 		str_printfa(ctx->header, "%u\n", ctx->mail.uid);
@@ -226,7 +226,7 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 
 	ctx->mail.flags ^= MBOX_NONRECENT_KLUDGE;
 
-	if (ctx->hdr_pos[MBOX_HDR_STATUS] == (size_t)-1 &&
+	if (ctx->hdr_pos[MBOX_HDR_STATUS] == SIZE_MAX &&
 	    (ctx->mail.flags & STATUS_FLAGS_MASK) != 0) {
 		str_append(ctx->header, "Status: ");
 		ctx->hdr_pos[MBOX_HDR_STATUS] = str_len(ctx->header);
@@ -234,7 +234,7 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 		str_append_c(ctx->header, '\n');
 	}
 
-	if (ctx->hdr_pos[MBOX_HDR_X_STATUS] == (size_t)-1 &&
+	if (ctx->hdr_pos[MBOX_HDR_X_STATUS] == SIZE_MAX &&
 	    (ctx->mail.flags & XSTATUS_FLAGS_MASK) != 0) {
 		str_append(ctx->header, "X-Status: ");
 		ctx->hdr_pos[MBOX_HDR_X_STATUS] = str_len(ctx->header);
@@ -244,7 +244,7 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 
 	ctx->mail.flags ^= MBOX_NONRECENT_KLUDGE;
 
-	if (ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] == (size_t)-1 &&
+	if (ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] == SIZE_MAX &&
 	    array_is_created(&ctx->mail.keywords) &&
 	    array_count(&ctx->mail.keywords) > 0) {
 		str_append(ctx->header, "X-Keywords: ");
@@ -254,16 +254,16 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 		str_append_c(ctx->header, '\n');
 	}
 
-	if (ctx->content_length == (uoff_t)-1 &&
+	if (ctx->content_length == UOFF_T_MAX &&
 	    ctx->mail.body_size >= MBOX_MIN_CONTENT_LENGTH_SIZE) {
 		str_printfa(ctx->header, "Content-Length: %"PRIuUOFF_T"\n",
 			    ctx->mail.body_size);
 	}
 
 	if (str_len(ctx->header) != new_hdr_size) {
-		if (ctx->header_first_change == (size_t)-1)
+		if (ctx->header_first_change == SIZE_MAX)
 			ctx->header_first_change = new_hdr_size;
-		ctx->header_last_change = (size_t)-1;
+		ctx->header_last_change = SIZE_MAX;
 	}
 
 	if (ctx->have_eoh)
@@ -272,7 +272,7 @@ static void mbox_sync_add_missing_headers(struct mbox_sync_mail_context *ctx)
 
 static void mbox_sync_update_status(struct mbox_sync_mail_context *ctx)
 {
-	if (ctx->hdr_pos[MBOX_HDR_STATUS] != (size_t)-1) {
+	if (ctx->hdr_pos[MBOX_HDR_STATUS] != SIZE_MAX) {
 		status_flags_replace(ctx, ctx->hdr_pos[MBOX_HDR_STATUS],
 				     mbox_status_flags);
 	}
@@ -280,7 +280,7 @@ static void mbox_sync_update_status(struct mbox_sync_mail_context *ctx)
 
 static void mbox_sync_update_xstatus(struct mbox_sync_mail_context *ctx)
 {
-	if (ctx->hdr_pos[MBOX_HDR_X_STATUS] != (size_t)-1) {
+	if (ctx->hdr_pos[MBOX_HDR_X_STATUS] != SIZE_MAX) {
 		status_flags_replace(ctx, ctx->hdr_pos[MBOX_HDR_X_STATUS],
 				     mbox_xstatus_flags);
 	}
@@ -318,14 +318,14 @@ static void mbox_sync_update_line(struct mbox_sync_mail_context *ctx,
 	}
 
 	mbox_sync_move_buffer(ctx, pos, str_len(new_line), p - hdr + 1);
-	buffer_copy(ctx->header, pos, new_line, 0, (size_t)-1);
+	buffer_copy(ctx->header, pos, new_line, 0, SIZE_MAX);
 }
 
 static void mbox_sync_update_xkeywords(struct mbox_sync_mail_context *ctx)
 {
 	string_t *str;
 
-	if (ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] == (size_t)-1)
+	if (ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] == SIZE_MAX)
 		return;
 
 	str = t_str_new(256);
@@ -343,7 +343,7 @@ static void mbox_sync_update_x_imap_base(struct mbox_sync_mail_context *ctx)
 	i_assert(sync_ctx->base_uid_validity != 0);
 
 	if (!sync_ctx->dest_first_mail ||
-	    ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == (size_t)-1)
+	    ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] == SIZE_MAX)
 		return;
 
 	if (!ctx->imapbase_rewrite) {
@@ -371,7 +371,7 @@ static void mbox_sync_update_x_uid(struct mbox_sync_mail_context *ctx)
 {
 	string_t *str;
 
-	if (ctx->hdr_pos[MBOX_HDR_X_UID] == (size_t)-1 ||
+	if (ctx->hdr_pos[MBOX_HDR_X_UID] == SIZE_MAX ||
 	    ctx->mail.uid == ctx->parsed_uid)
 		return;
 
@@ -385,7 +385,7 @@ static void mbox_sync_update_header_real(struct mbox_sync_mail_context *ctx)
 	i_assert(ctx->mail.uid != 0 || ctx->mail.pseudo);
 
 	if (!ctx->sync_ctx->keep_recent)
-		ctx->mail.flags &= ~MAIL_RECENT;
+		ctx->mail.flags &= ENUM_NEGATE(MAIL_RECENT);
 
 	mbox_sync_update_status(ctx);
 	mbox_sync_update_xstatus(ctx);
@@ -413,16 +413,16 @@ mbox_sync_update_header_from_real(struct mbox_sync_mail_context *ctx,
 	    (ctx->mail.flags & STATUS_FLAGS_MASK) !=
 	    (mail->flags & STATUS_FLAGS_MASK) ||
 	    (ctx->mail.flags & MAIL_RECENT) != 0) {
-		ctx->mail.flags = (ctx->mail.flags & ~STATUS_FLAGS_MASK) |
+		ctx->mail.flags = (ctx->mail.flags & ENUM_NEGATE(STATUS_FLAGS_MASK)) |
 			(mail->flags & STATUS_FLAGS_MASK);
 		if (!ctx->sync_ctx->keep_recent)
-                        ctx->mail.flags &= ~MAIL_RECENT;
+                        ctx->mail.flags &= ENUM_NEGATE(MAIL_RECENT);
 		mbox_sync_update_status(ctx);
 	}
 	if (mail->xstatus_broken ||
 	    (ctx->mail.flags & XSTATUS_FLAGS_MASK) !=
 	    (mail->flags & XSTATUS_FLAGS_MASK)) {
-		ctx->mail.flags = (ctx->mail.flags & ~XSTATUS_FLAGS_MASK) |
+		ctx->mail.flags = (ctx->mail.flags & ENUM_NEGATE(XSTATUS_FLAGS_MASK)) |
 			(mail->flags & XSTATUS_FLAGS_MASK);
 		mbox_sync_update_xstatus(ctx);
 	}

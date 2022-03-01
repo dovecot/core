@@ -6,6 +6,7 @@
 #include "hash.h"
 #include "llist.h"
 #include "mail-host.h"
+#include "director.h"
 
 /* n% of timeout_secs */
 #define USER_NEAR_EXPIRING_PERCENTAGE 10
@@ -21,6 +22,8 @@ struct user_directory_iter {
 };
 
 struct user_directory {
+	struct director *director;
+
 	/* unsigned int username_hash => user */
 	HASH_TABLE(void *, struct user *) hash;
 	/* sorted by time. may be unsorted while handshakes are going on. */
@@ -41,13 +44,13 @@ struct user_directory {
 
 static void user_move_iters(struct user_directory *dir, struct user *user)
 {
-	struct user_directory_iter *const *iterp;
+	struct user_directory_iter *iter;
 
-	array_foreach(&dir->iters, iterp) {
-		if ((*iterp)->pos == user)
-			(*iterp)->pos = user->next;
-		if ((*iterp)->stop_after_tail == user) {
-			(*iterp)->stop_after_tail =
+	array_foreach_elem(&dir->iters, iter) {
+		if (iter->pos == user)
+			iter->pos = user->next;
+		if (iter->stop_after_tail == user) {
+			iter->stop_after_tail =
 				user->prev != NULL ? user->prev : user->next;
 		}
 	}
@@ -92,7 +95,8 @@ static bool user_directory_user_has_connections(struct user_directory *dir,
 			return TRUE;
 		}
 
-		i_warning("User %u weakness appears to be stuck, removing it",
+		e_warning(dir->director->event,
+			  "User %u weakness appears to be stuck, removing it",
 			  user->username_hash);
 	}
 	return FALSE;
@@ -201,7 +205,7 @@ static int user_timestamp_cmp(struct user *const *user1,
 void user_directory_sort(struct user_directory *dir)
 {
 	ARRAY(struct user *) users;
-	struct user *user, *const *userp;
+	struct user *user;
 	unsigned int i, users_count = hash_table_count(dir->hash);
 
 	dir->sort_pending = FALSE;
@@ -229,8 +233,8 @@ void user_directory_sort(struct user_directory *dir)
 
 	/* recreate the linked list */
 	dir->head = dir->tail = NULL;
-	array_foreach(&users, userp)
-		DLLIST2_APPEND(&dir->head, &dir->tail, *userp);
+	array_foreach_elem(&users, user)
+		DLLIST2_APPEND(&dir->head, &dir->tail, user);
 	i_assert(dir->head != NULL &&
 		 dir->head->timestamp <= dir->tail->timestamp);
 	array_free(&users);
@@ -253,7 +257,7 @@ bool user_directory_user_is_near_expiring(struct user_directory *dir,
 }
 
 struct user_directory *
-user_directory_init(unsigned int timeout_secs,
+user_directory_init(struct director *director, unsigned int timeout_secs,
 		    user_free_hook_t *user_free_hook)
 {
 	struct user_directory *dir;
@@ -261,6 +265,7 @@ user_directory_init(unsigned int timeout_secs,
 	i_assert(timeout_secs > USER_NEAR_EXPIRING_MIN);
 
 	dir = i_new(struct user_directory, 1);
+	dir->director = director;
 	dir->timeout_secs = timeout_secs;
 	dir->user_near_expiring_secs =
 		timeout_secs * USER_NEAR_EXPIRING_PERCENTAGE / 100;

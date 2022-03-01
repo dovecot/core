@@ -41,11 +41,11 @@ void fts_filter_register(const struct fts_filter *filter_class)
 
 const struct fts_filter *fts_filter_find(const char *name)
 {
-	const struct fts_filter *const *fp = NULL;
+	const struct fts_filter *filter;
 
-	array_foreach(&fts_filter_classes, fp) {
-		if (strcmp((*fp)->class_name, name) == 0)
-			return *fp;
+	array_foreach_elem(&fts_filter_classes, filter) {
+		if (strcmp(filter->class_name, name) == 0)
+			return filter;
 	}
 	return NULL;
 }

@@ -43,7 +43,9 @@ static void test_file_create_locked_basic(void)
 {
 	struct file_create_settings set = {
 		.lock_timeout_secs = 0,
-		.lock_method = FILE_LOCK_METHOD_FCNTL,
+		.lock_settings = {
+			.lock_method = FILE_LOCK_METHOD_FCNTL,
+		},
 	};
 	const char *path = ".test-file-create-locked";
 	struct file_lock *lock;
@@ -67,11 +69,11 @@ static void test_file_create_locked_basic(void)
 		test_assert(fd > 0);
 		test_assert(created);
 		if (test_has_failed())
-			exit(1);
+			lib_exit(1);
 		create_file(".test-temp-file-create-locked-child");
 		sleep(60);
 		i_close_fd(&fd);
-		exit(0);
+		lib_exit(0);
 	default:
 		/* parent */
 		test_assert(wait_for_file(pid, ".test-temp-file-create-locked-child"));
@@ -92,7 +94,9 @@ static void test_file_create_locked_mkdir(void)
 {
 	struct file_create_settings set = {
 		.lock_timeout_secs = 0,
-		.lock_method = FILE_LOCK_METHOD_FCNTL,
+		.lock_settings = {
+			.lock_method = FILE_LOCK_METHOD_FCNTL,
+		},
 	};
 	const char *path;
 	struct file_lock *lock;

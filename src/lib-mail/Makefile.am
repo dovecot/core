@@ -28,6 +28,7 @@ libmail_la_SOURCES = \
 	message-header-parser.c \
 	message-id.c \
 	message-parser.c \
+	message-parser-from-parts.c \
 	message-part.c \
 	message-part-data.c \
 	message-part-serialize.c \
@@ -42,7 +43,8 @@ libmail_la_SOURCES = \
 	rfc822-parser.c
 
 noinst_HEADERS = \
-	html-entities.h
+	html-entities.h \
+	message-parser-private.h
 
 headers = \
 	istream-attachment-connector.h \
@@ -90,6 +92,7 @@ test_programs = \
 	test-istream-qp-decoder \
 	test-istream-qp-encoder \
 	test-mail-html2text \
+	test-mail-user-hash \
 	test-mbox-from \
 	test-message-address \
 	test-message-date \
@@ -101,7 +104,9 @@ test_programs = \
 	test-message-id \
 	test-message-parser \
 	test-message-part \
+	test-message-part-serialize \
 	test-message-search \
+	test-message-size \
 	test-message-snippet \
 	test-ostream-dot \
 	test-qp-decoder \
@@ -110,10 +115,26 @@ test_programs = \
 	test-rfc2231-parser \
 	test-rfc822-parser
 
-noinst_PROGRAMS = $(test_programs)
+fuzz_programs =
+
+if USE_FUZZER
+fuzz_programs += fuzz-message-parser
+
+nodist_EXTRA_fuzz_message_parser_SOURCES = force-cxx-linking.cxx
+
+fuzz_message_parser_CPPFLAGS = $(FUZZER_CPPFLAGS)
+fuzz_message_parser_LDFLAGS = $(FUZZER_LDFLAGS)
+fuzz_message_parser_SOURCES = fuzz-message-parser.c
+fuzz_message_parser_LDADD = $(test_libs)
+fuzz_message_parser_DEPENDENCIES = $(test_deps)
+
+endif
+
+noinst_PROGRAMS = $(fuzz_programs) $(test_programs)
 
 test_libs = \
 	$(noinst_LTLIBRARIES) \
+	../lib-charset/libcharset.la \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
@@ -191,6 +212,10 @@ test_message_search_SOURCES = test-message-search.c
 test_message_search_LDADD = $(test_libs) ../lib-charset/libcharset.la
 test_message_search_DEPENDENCIES = $(test_deps) ../lib-charset/libcharset.la
 
+test_message_size_SOURCES = test-message-size.c
+test_message_size_LDADD = $(test_libs)
+test_message_size_DEPENDENCIES = $(test_deps)
+
 test_message_snippet_SOURCES = test-message-snippet.c
 test_message_snippet_LDADD = $(test_message_decoder_LDADD)
 test_message_snippet_DEPENDENCIES = $(test_deps)
@@ -222,6 +247,14 @@ test_rfc2231_parser_DEPENDENCIES = $(test_deps)
 test_rfc822_parser_SOURCES = test-rfc822-parser.c
 test_rfc822_parser_LDADD = $(test_libs)
 test_rfc822_parser_DEPENDENCIES = $(test_deps)
+
+test_mail_user_hash_SOURCES = test-mail-user-hash.c
+test_mail_user_hash_LDADD = $(test_libs)
+test_mail_user_hash_DEPENDENCIES = $(test_deps)
+
+test_message_part_serialize_SOURCES = test-message-part-serialize.c
+test_message_part_serialize_LDADD = $(test_libs)
+test_message_part_serialize_DEPENDENCIES = $(test_deps)
 
 check-local:
 	for bin in $(test_programs); do \

@@ -412,7 +412,7 @@ static bool parse_content_length(struct mbox_sync_mail_context *ctx,
 	uoff_t value = 0;
 	size_t i;
 
-	if (ctx->content_length != (uoff_t)-1) {
+	if (ctx->content_length != UOFF_T_MAX) {
 		/* duplicate */
 		return FALSE;
 	}
@@ -466,13 +466,13 @@ int mbox_sync_parse_next_mail(struct istream *input,
 	ctx->hdr_offset = ctx->mail.offset;
 	ctx->mail.flags = MAIL_RECENT; /* default to having recent flag */
 
-        ctx->header_first_change = (size_t)-1;
+        ctx->header_first_change = SIZE_MAX;
 	ctx->header_last_change = 0;
 
 	for (i = 0; i < MBOX_HDR_COUNT; i++)
-		ctx->hdr_pos[i] = (size_t)-1;
+		ctx->hdr_pos[i] = SIZE_MAX;
 
-	ctx->content_length = (uoff_t)-1;
+	ctx->content_length = UOFF_T_MAX;
 	str_truncate(ctx->header, 0);
 
         mbox_md5_ctx = ctx->sync_ctx->mbox->md5_v.init();
@@ -505,7 +505,7 @@ int mbox_sync_parse_next_mail(struct istream *input,
 				/* this header is broken, remove it */
 				ctx->need_rewrite = TRUE;
 				str_truncate(ctx->header, line_start_pos);
-				if (ctx->header_first_change == (size_t)-1) {
+				if (ctx->header_first_change == SIZE_MAX) {
 					ctx->header_first_change =
 						line_start_pos;
 				}

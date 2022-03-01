@@ -314,13 +314,13 @@ static void check_duplicates(ARRAY_TYPE(const_string) *names,
 
 	base_name = module_file_get_name(name);
 	names_p = array_get(names, &count);
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < count; i++) T_BEGIN {
 		tmp = module_file_get_name(names_p[i]);
 
 		if (strcmp(tmp, base_name) == 0)
 			i_fatal("Multiple files for module %s: %s/%s, %s/%s",
 				base_name, dir, name, dir, names_p[i]);
-	}
+	} T_END;
 }
 
 struct module *module_dir_find(struct module *modules, const char *name)
@@ -575,7 +575,9 @@ void module_dir_deinit(struct module *modules)
 		for (i = 0; i < count; i++) {
 			module = rev[i];
 
-			module->deinit();
+			T_BEGIN {
+				module->deinit();
+			} T_END;
 			module->initialized = FALSE;
 		}
 	} T_END;

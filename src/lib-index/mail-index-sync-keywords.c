@@ -45,7 +45,7 @@ keywords_get_header_buf(struct mail_index_map *map,
 	struct mail_index_keyword_header new_kw_hdr;
 	uint32_t offset;
 
-	kw_hdr = CONST_PTR_OFFSET(map->hdr_base, ext->hdr_offset);
+	kw_hdr = MAIL_INDEX_MAP_HDR_OFFSET(map, ext->hdr_offset);
 	kw_rec = (const void *)(kw_hdr + 1);
 	name = (const char *)(kw_rec + kw_hdr->keywords_count);
 
@@ -189,7 +189,6 @@ keywords_header_add(struct mail_index_sync_map_ctx *ctx,
 	}
 
 	buffer_copy(map->hdr_copy_buf, ext->hdr_offset, buf, 0, buf->used);
-	map->hdr_base = map->hdr_copy_buf->data;
 	i_assert(map->hdr_copy_buf->used == map->hdr.header_size);
 
 	if (mail_index_map_parse_keywords(map) < 0)
@@ -236,7 +235,7 @@ keywords_update_records(struct mail_index_sync_map_ctx *ctx,
 		}
 		break;
 	case MODIFY_REMOVE:
-		data_mask = ~data_mask;
+		data_mask = (unsigned char)~data_mask;
 		for (; seq1 <= seq2; seq1++) {
 			rec = MAIL_INDEX_REC_AT_SEQ(view->map, seq1);
 			data = PTR_OFFSET(rec, data_offset);

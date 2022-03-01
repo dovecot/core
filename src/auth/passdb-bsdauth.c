@@ -23,7 +23,7 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 
 	e_debug(authdb_event(request), "lookup");
 
-	switch (i_getpwnam(request->user, &pw)) {
+	switch (i_getpwnam(request->fields.user, &pw)) {
 	case -1:
 		e_error(authdb_event(request),
 			"getpwnam() failed: %m");
@@ -36,8 +36,9 @@ bsdauth_verify_plain(struct auth_request *request, const char *password,
 	}
 
 	/* check if the password is valid */
-	type = t_strdup_printf("auth-%s", request->service);
-	result = auth_userokay(request->user, NULL, t_strdup_noconst(type),
+	type = t_strdup_printf("auth-%s", request->fields.service);
+	result = auth_userokay(request->fields.user, NULL,
+			       t_strdup_noconst(type),
 			       t_strdup_noconst(password));
 
 	/* clear the passwords from memory */

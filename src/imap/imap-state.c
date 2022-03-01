@@ -91,7 +91,7 @@ import_seq_range(const unsigned char **data, const unsigned char *end,
 int imap_state_export_internal(struct client *client, buffer_t *dest,
 			       const char **error_r)
 {
-	/* the only IMAP command we allow running is IDLE or X-STATE */
+	/* the only IMAP command we allow running is IDLE */
 	if (client->command_queue_size > 1) {
 		*error_r = "Multiple commands in progress";
 		return 0;
@@ -105,19 +105,6 @@ int imap_state_export_internal(struct client *client, buffer_t *dest,
 		return 0;
 	}
 	return client->v.state_export(client, TRUE, dest, error_r);
-}
-
-int imap_state_export_external(struct client *client, buffer_t *dest,
-			       const char **error_r)
-{
-	if (client->command_queue_size > 1) {
-		*error_r = "Multiple commands in progress";
-		return 0;
-	}
-
-	i_assert(client->command_queue_size == 1);
-	i_assert(strcmp(client->command_queue->name, "X-STATE") == 0);
-	return client->v.state_export(client, FALSE, dest, error_r);
 }
 
 static int
@@ -194,11 +181,11 @@ imap_state_export_mailbox_mails(buffer_t *dest, struct mailbox *box,
 static uint32_t
 mailbox_status_keywords_crc32(const struct mailbox_status *status)
 {
-	const char *const *strp;
+	const char *str;
 	uint32_t crc = 0;
 
-	array_foreach(status->keywords, strp)
-		crc = crc32_str(*strp);
+	array_foreach_elem(status->keywords, str)
+		crc = crc32_str(str);
 	return crc;
 }
 
@@ -571,7 +558,6 @@ import_state_mailbox_open(struct client *client,
 	else
 		flags |= MAILBOX_FLAG_DROP_RECENT;
 	box = mailbox_alloc(ns->list, state->vname, flags);
-	mailbox_set_reason(box, "unhibernate");
 	if (mailbox_open(box) < 0) {
 		*error_r = t_strdup_printf("Couldn't open mailbox: %s",
 			mailbox_get_last_internal_error(box, NULL));

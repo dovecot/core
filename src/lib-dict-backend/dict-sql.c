@@ -39,13 +39,14 @@ struct sql_dict_iterate_context {
 	pool_t pool;
 
 	enum dict_iterate_flags flags;
-	const char **paths;
+	const char *path;
 
 	struct sql_result *result;
 	string_t *key;
 	const struct dict_sql_map *map;
 	size_t key_prefix_len, pattern_prefix_len;
-	unsigned int path_idx, sql_fields_start_idx, next_map_idx;
+	unsigned int sql_fields_start_idx, next_map_idx;
+	bool destroyed;
 	bool synchronous_result;
 	bool iter_query_sent;
 	bool allow_null_map; /* allow next map to be NULL */
@@ -57,20 +58,25 @@ struct sql_dict_inc_row {
 	unsigned int rows;
 };
 
+struct sql_dict_prev {
+	const struct dict_sql_map *map;
+	char *key;
+	union {
+		char *str;
+		long long diff;
+	} value;
+};
+
 struct sql_dict_transaction_context {
 	struct dict_transaction_context ctx;
 
 	struct sql_transaction_context *sql_ctx;
 
-	const struct dict_sql_map *prev_inc_map;
-	char *prev_inc_key;
-	long long prev_inc_diff;
 	pool_t inc_row_pool;
 	struct sql_dict_inc_row *inc_row;
 
-	const struct dict_sql_map *prev_set_map;
-	char *prev_set_key;
-	char *prev_set_value;
+	ARRAY(struct sql_dict_prev) prev_inc;
+	ARRAY(struct sql_dict_prev) prev_set;
 
 	dict_transaction_commit_callback_t *async_callback;
 	void *async_context;
@@ -82,6 +88,8 @@ static struct sql_db_cache *dict_sql_db_cache;
 
 static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx);
 static void sql_dict_prev_set_flush(struct sql_dict_transaction_context *ctx);
+static void sql_dict_prev_inc_free(struct sql_dict_transaction_context *ctx);
+static void sql_dict_prev_set_free(struct sql_dict_transaction_context *ctx);
 
 static int
 sql_dict_init(struct dict *driver, const char *uri,
@@ -96,7 +104,6 @@ sql_dict_init(struct dict *driver, const char *uri,
 	dict = p_new(pool, struct sql_dict, 1);
 	dict->pool = pool;
 	dict->dict = *driver;
-	dict->username = p_strdup(pool, set->username);
 	dict->set = dict_sql_settings_read(uri, error_r);
 	if (dict->set == NULL) {
 		pool_unref(&pool);
@@ -106,8 +113,6 @@ sql_dict_init(struct dict *driver, const char *uri,
 	sql_set.driver = driver->name;
 	sql_set.connect_string = dict->set->connect;
 	sql_set.event_parent = set->event_parent;
-	/* currently pgsql and sqlite don't support "ON DUPLICATE KEY" */
-	dict->has_on_duplicate_key = strcmp(driver->name, "mysql") == 0;
 
 	if (sql_db_cache_new(dict_sql_db_cache, &sql_set, &dict->db, error_r) < 0) {
 		pool_unref(&pool);
@@ -126,21 +131,24 @@ static void sql_dict_deinit(struct dict *_dict)
 	pool_unref(&dict->pool);
 }
 
-static void sql_dict_wait(struct dict *dict ATTR_UNUSED)
+static void sql_dict_wait(struct dict *_dict)
 {
-	/* FIXME: lib-sql doesn't support this yet */
+	struct sql_dict *dict = (struct sql_dict *)_dict;
+	sql_wait(dict->db);
 }
 
+/* Try to match path to map->pattern. For example pattern="shared/x/$/$/y"
+   and path="shared/x/1/2/y", this is match and pattern_values=[1, 2]. */
 static bool
 dict_sql_map_match(const struct dict_sql_map *map, const char *path,
-		   ARRAY_TYPE(const_string) *values, size_t *pat_len_r,
+		   ARRAY_TYPE(const_string) *pattern_values, size_t *pat_len_r,
 		   size_t *path_len_r, bool partial_ok, bool recurse)
 {
 	const char *path_start = path;
 	const char *pat, *field, *p;
 	size_t len;
 
-	array_clear(values);
+	array_clear(pattern_values);
 	pat = map->pattern;
 	while (*pat != '\0' && *path != '\0') {
 		if (*pat == '$') {
@@ -157,13 +165,14 @@ dict_sql_map_match(const struct dict_sql_map *map, const char *path,
 					pat--;
 					if (path[len-1] == '/') {
 						field = t_strndup(path, len-1);
-						array_push_back(values,
+						array_push_back(pattern_values,
 								&field);
 					} else {
-						array_push_back(values, &path);
+						array_push_back(pattern_values,
+								&path);
 					}
 				} else {
-					array_push_back(values, &path);
+					array_push_back(pattern_values, &path);
 					path += len;
 				}
 				*path_len_r = path - path_start;
@@ -174,12 +183,12 @@ dict_sql_map_match(const struct dict_sql_map *map, const char *path,
 			p = strchr(path, '/');
 			if (p != NULL) {
 				field = t_strdup_until(path, p);
-				array_push_back(values, &field);
+				array_push_back(pattern_values, &field);
 				path = p;
 			} else {
 				/* no '/' anymore, but it'll still match a
 				   partial */
-				array_push_back(values, &path);
+				array_push_back(pattern_values, &path);
 				path += strlen(path);
 				pat++;
 			}
@@ -212,16 +221,16 @@ dict_sql_map_match(const struct dict_sql_map *map, const char *path,
 
 static const struct dict_sql_map *
 sql_dict_find_map(struct sql_dict *dict, const char *path,
-		  ARRAY_TYPE(const_string) *values)
+		  ARRAY_TYPE(const_string) *pattern_values)
 {
 	const struct dict_sql_map *maps;
 	unsigned int i, count;
 	size_t len;
 
-	t_array_init(values, dict->set->max_field_count);
+	t_array_init(pattern_values, dict->set->max_pattern_fields_count);
 	maps = array_get(&dict->set->maps, &count);
 	for (i = 0; i < count; i++) {
-		if (dict_sql_map_match(&maps[i], path, values,
+		if (dict_sql_map_match(&maps[i], path, pattern_values,
 				       &len, &len, FALSE, FALSE))
 			return &maps[i];
 	}
@@ -338,23 +347,23 @@ sql_dict_field_get_value(const struct dict_sql_map *map,
 }
 
 static int
-sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
+sql_dict_where_build(const char *username, const struct dict_sql_map *map,
 		     const ARRAY_TYPE(const_string) *values_arr,
-		     char key1, enum sql_recurse_type recurse_type,
+		     bool add_username, enum sql_recurse_type recurse_type,
 		     string_t *query, ARRAY_TYPE(sql_dict_param) *params,
 		     const char **error_r)
 {
-	const struct dict_sql_field *sql_fields;
-	const char *const *values;
+	const struct dict_sql_field *pattern_fields;
+	const char *const *pattern_values;
 	unsigned int i, count, count2, exact_count;
-	bool priv = key1 == DICT_PATH_PRIVATE[0];
 
-	sql_fields = array_get(&map->sql_fields, &count);
-	values = array_get(values_arr, &count2);
-	/* if we came here from iteration code there may be less values */
+	pattern_fields = array_get(&map->pattern_fields, &count);
+	pattern_values = array_get(values_arr, &count2);
+	/* if we came here from iteration code there may be fewer
+	   pattern_values */
 	i_assert(count2 <= count);
 
-	if (count2 == 0 && !priv) {
+	if (count2 == 0 && !add_username) {
 		/* we want everything */
 		return 0;
 	}
@@ -362,11 +371,17 @@ sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 	str_append(query, " WHERE");
 	exact_count = count == count2 && recurse_type != SQL_DICT_RECURSE_NONE ?
 		count2-1 : count2;
+	if (exact_count != array_count(values_arr)) {
+		*error_r = t_strdup_printf("Key continues past the matched pattern %s", map->pattern);
+		return -1;
+	}
+
 	for (i = 0; i < exact_count; i++) {
 		if (i > 0)
 			str_append(query, " AND");
-		str_printfa(query, " %s = ?", sql_fields[i].name);
-		if (sql_dict_field_get_value(map, &sql_fields[i], values[i], "",
+		str_printfa(query, " %s = ?", pattern_fields[i].name);
+		if (sql_dict_field_get_value(map, &pattern_fields[i],
+					     pattern_values[i], "",
 					     params, error_r) < 0)
 			return -1;
 	}
@@ -377,20 +392,21 @@ sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 		if (i > 0)
 			str_append(query, " AND");
 		if (i < count2) {
-			str_printfa(query, " %s LIKE ?", sql_fields[i].name);
-			if (sql_dict_field_get_value(map, &sql_fields[i],
-						     values[i], "/%",
+			str_printfa(query, " %s LIKE ?", pattern_fields[i].name);
+			if (sql_dict_field_get_value(map, &pattern_fields[i],
+						     pattern_values[i], "/%",
 						     params, error_r) < 0)
 				return -1;
-			str_printfa(query, " AND %s NOT LIKE ?", sql_fields[i].name);
-			if (sql_dict_field_get_value(map, &sql_fields[i],
-						     values[i], "/%/%",
+			str_printfa(query, " AND %s NOT LIKE ?", pattern_fields[i].name);
+			if (sql_dict_field_get_value(map, &pattern_fields[i],
+						     pattern_values[i], "/%/%",
 						     params, error_r) < 0)
 				return -1;
 		} else {
 			str_printfa(query, " %s LIKE '%%' AND "
 				    "%s NOT LIKE '%%/%%'",
-				    sql_fields[i].name, sql_fields[i].name);
+				    pattern_fields[i].name,
+				    pattern_fields[i].name);
 		}
 		break;
 	case SQL_DICT_RECURSE_FULL:
@@ -398,36 +414,38 @@ sql_dict_where_build(struct sql_dict *dict, const struct dict_sql_map *map,
 			if (i > 0)
 				str_append(query, " AND");
 			str_printfa(query, " %s LIKE ",
-				    sql_fields[i].name);
-			if (sql_dict_field_get_value(map, &sql_fields[i],
-						     values[i], "/%",
+				    pattern_fields[i].name);
+			if (sql_dict_field_get_value(map, &pattern_fields[i],
+						     pattern_values[i], "/%",
 						     params, error_r) < 0)
 				return -1;
 		}
 		break;
 	}
-	if (priv) {
+	if (add_username) {
 		struct sql_dict_param *param = array_append_space(params);
 		if (count2 > 0)
 			str_append(query, " AND");
 		str_printfa(query, " %s = ?", map->username_field);
 		param->value_type = DICT_SQL_TYPE_STRING;
-		param->value_str = dict->username;
+		param->value_str = t_strdup(username);
 	}
 	return 0;
 }
 
 static int
-sql_lookup_get_query(struct sql_dict *dict, const char *key,
+sql_lookup_get_query(struct sql_dict *dict,
+		     const struct dict_op_settings *set,
+		     const char *key,
 		     const struct dict_sql_map **map_r,
 		     struct sql_statement **stmt_r,
 		     const char **error_r)
 {
 	const struct dict_sql_map *map;
-	ARRAY_TYPE(const_string) values;
+	ARRAY_TYPE(const_string) pattern_values;
 	const char *error;
 
-	map = *map_r = sql_dict_find_map(dict, key, &values);
+	map = *map_r = sql_dict_find_map(dict, key, &pattern_values);
 	if (map == NULL) {
 		*error_r = t_strdup_printf(
 			"sql dict lookup: Invalid/unmapped key: %s", key);
@@ -439,7 +457,8 @@ sql_lookup_get_query(struct sql_dict *dict, const char *key,
 	t_array_init(&params, 4);
 	str_printfa(query, "SELECT %s FROM %s",
 		    map->value_field, map->table);
-	if (sql_dict_where_build(dict, map, &values, key[0],
+	if (sql_dict_where_build(set->username, map, &pattern_values,
+				 key[0] == DICT_PATH_PRIVATE[0],
 				 SQL_DICT_RECURSE_NONE, query,
 				 &params, &error) < 0) {
 		*error_r = t_strdup_printf(
@@ -475,13 +494,6 @@ sql_dict_result_unescape(enum dict_sql_type type, pool_t pool,
 	return str_c(str);
 }
 
-static const char *
-sql_dict_result_unescape_value(const struct dict_sql_map *map, pool_t pool,
-			       struct sql_result *result)
-{
-	return sql_dict_result_unescape(map->value_types[0], pool, result, 0);
-}
-
 static const char *const *
 sql_dict_result_unescape_values(const struct dict_sql_map *map, pool_t pool,
 				struct sql_result *result)
@@ -504,13 +516,14 @@ sql_dict_result_unescape_field(const struct dict_sql_map *map, pool_t pool,
 {
 	const struct dict_sql_field *sql_field;
 
-	sql_field = array_idx(&map->sql_fields, sql_field_idx);
+	sql_field = array_idx(&map->pattern_fields, sql_field_idx);
 	return sql_dict_result_unescape(sql_field->value_type, pool,
 					result, result_idx);
 }
 
-static int sql_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
-			   const char **value_r, const char **error_r)
+static int sql_dict_lookup(struct dict *_dict, const struct dict_op_settings *set,
+			   pool_t pool, const char *key,
+			   const char *const **values_r, const char **error_r)
 {
 	struct sql_dict *dict = (struct sql_dict *)_dict;
 	const struct dict_sql_map *map;
@@ -518,9 +531,7 @@ static int sql_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	struct sql_result *result = NULL;
 	int ret;
 
-	*value_r = NULL;
-
-	if (sql_lookup_get_query(dict, key, &map, &stmt, error_r) < 0)
+	if (sql_lookup_get_query(dict, set, key, &map, &stmt, error_r) < 0)
 		return -1;
 
 	result = sql_statement_query_s(&stmt);
@@ -529,7 +540,7 @@ static int sql_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 		*error_r = t_strdup_printf("dict sql lookup failed: %s",
 					   sql_result_get_error(result));
 	} else if (ret > 0) {
-		*value_r = sql_dict_result_unescape_value(map, pool, result);
+		*values_r = sql_dict_result_unescape_values(map, pool, result);
 	}
 
 	sql_result_unref(result);
@@ -569,7 +580,9 @@ sql_dict_lookup_async_callback(struct sql_result *sql_result,
 }
 
 static void
-sql_dict_lookup_async(struct dict *_dict, const char *key,
+sql_dict_lookup_async(struct dict *_dict,
+		      const struct dict_op_settings *set,
+		      const char *key,
 		      dict_lookup_callback_t *callback, void *context)
 {
 	struct sql_dict *dict = (struct sql_dict *)_dict;
@@ -578,7 +591,7 @@ sql_dict_lookup_async(struct dict *_dict, const char *key,
 	struct sql_statement *stmt;
 	const char *error;
 
-	if (sql_lookup_get_query(dict, key, &map, &stmt, &error) < 0) {
+	if (sql_lookup_get_query(dict, set, key, &map, &stmt, &error) < 0) {
 		struct dict_lookup_result result;
 
 		i_zero(&result);
@@ -596,7 +609,7 @@ sql_dict_lookup_async(struct dict *_dict, const char *key,
 
 static const struct dict_sql_map *
 sql_dict_iterate_find_next_map(struct sql_dict_iterate_context *ctx,
-			       ARRAY_TYPE(const_string) *values)
+			       ARRAY_TYPE(const_string) *pattern_values)
 {
 	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
 	const struct dict_sql_map *maps;
@@ -604,27 +617,23 @@ sql_dict_iterate_find_next_map(struct sql_dict_iterate_context *ctx,
 	size_t pat_len, path_len;
 	bool recurse = (ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0;
 
-	t_array_init(values, dict->set->max_field_count);
+	t_array_init(pattern_values, dict->set->max_pattern_fields_count);
 	maps = array_get(&dict->set->maps, &count);
 	for (i = ctx->next_map_idx; i < count; i++) {
-		if (dict_sql_map_match(&maps[i], ctx->paths[ctx->path_idx],
-				       values, &pat_len, &path_len, TRUE, recurse) &&
+		if (dict_sql_map_match(&maps[i], ctx->path,
+				       pattern_values, &pat_len, &path_len,
+				       TRUE, recurse) &&
 		    (recurse ||
-		     array_count(values)+1 >= array_count(&maps[i].sql_fields))) {
+		     array_count(pattern_values)+1 >= array_count(&maps[i].pattern_fields))) {
 			ctx->key_prefix_len = path_len;
 			ctx->pattern_prefix_len = pat_len;
 			ctx->next_map_idx = i + 1;
 
 			str_truncate(ctx->key, 0);
-			str_append(ctx->key, ctx->paths[ctx->path_idx]);
+			str_append(ctx->key, ctx->path);
 			return &maps[i];
 		}
 	}
-
-	/* try the next path, if there is any */
-	ctx->path_idx++;
-	if (ctx->paths[ctx->path_idx] != NULL)
-		return sql_dict_iterate_find_next_map(ctx, values);
 	return NULL;
 }
 
@@ -634,13 +643,14 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 				  const char **error_r)
 {
 	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
+	const struct dict_op_settings_private *set = &ctx->ctx.set;
 	const struct dict_sql_map *map;
-	ARRAY_TYPE(const_string) values;
-	const struct dict_sql_field *sql_fields;
+	ARRAY_TYPE(const_string) pattern_values;
+	const struct dict_sql_field *pattern_fields;
 	enum sql_recurse_type recurse_type;
 	unsigned int i, count;
 
-	map = sql_dict_iterate_find_next_map(ctx, &values);
+	map = sql_dict_iterate_find_next_map(ctx, &pattern_values);
 	/* NULL map is allowed if we have already done some lookups */
 	if (map == NULL) {
 		if (!ctx->allow_null_map) {
@@ -661,8 +671,8 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 		str_printfa(query, "%s,", map->value_field);
 
 	/* get all missing fields */
-	sql_fields = array_get(&map->sql_fields, &count);
-	i = array_count(&values);
+	pattern_fields = array_get(&map->pattern_fields, &count);
+	i = array_count(&pattern_values);
 	if (i == count) {
 		/* we always want to know the last field since we're
 		   iterating its children */
@@ -671,7 +681,7 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 	}
 	ctx->sql_fields_start_idx = i;
 	for (; i < count; i++)
-		str_printfa(query, "%s,", sql_fields[i].name);
+		str_printfa(query, "%s,", pattern_fields[i].name);
 	str_truncate(query, str_len(query)-1);
 
 	str_printfa(query, " FROM %s", map->table);
@@ -685,15 +695,15 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 
 	ARRAY_TYPE(sql_dict_param) params;
 	t_array_init(&params, 4);
-	if (sql_dict_where_build(dict, map, &values,
-				 ctx->paths[ctx->path_idx][0],
+	bool add_username = (ctx->path[0] == DICT_PATH_PRIVATE[0]);
+	if (sql_dict_where_build(set->username, map, &pattern_values, add_username,
 				 recurse_type, query, &params, error_r) < 0)
 		return -1;
 
 	if ((ctx->flags & DICT_ITERATE_FLAG_SORT_BY_KEY) != 0) {
 		str_append(query, " ORDER BY ");
 		for (i = 0; i < count; i++) {
-			str_printfa(query, "%s", sql_fields[i].name);
+			str_printfa(query, "%s", pattern_fields[i].name);
 			if (i < count-1)
 				str_append_c(query, ',');
 		}
@@ -714,17 +724,21 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 static void sql_dict_iterate_callback(struct sql_result *result,
 				      struct sql_dict_iterate_context *ctx)
 {
-	sql_result_ref(result);
-	ctx->result = result;
-	if (ctx->ctx.async_callback != NULL && !ctx->synchronous_result)
-		ctx->ctx.async_callback(ctx->ctx.async_context);
+	if (!ctx->destroyed) {
+		sql_result_ref(result);
+		ctx->result = result;
+		if (ctx->ctx.async_callback != NULL && !ctx->synchronous_result)
+			ctx->ctx.async_callback(ctx->ctx.async_context);
+	}
+
+	pool_t pool_copy = ctx->pool;
+	pool_unref(&pool_copy);
 }
 
 static int sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 {
 	struct sql_statement *stmt;
 	const char *error;
-	unsigned int path_idx = ctx->path_idx;
 	int ret;
 
 	ret = sql_dict_iterate_build_next_query(ctx, &stmt, &error);
@@ -735,7 +749,7 @@ static int sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 		/* failed */
 		ctx->error = p_strdup_printf(ctx->pool,
 			"sql dict iterate failed for %s: %s",
-			ctx->paths[path_idx], error);
+			ctx->path, error);
 		return -1;
 	}
 
@@ -744,6 +758,7 @@ static int sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 	} else {
 		i_assert(ctx->result == NULL);
 		ctx->synchronous_result = TRUE;
+		pool_ref(ctx->pool);
 		sql_statement_query(&stmt, sql_dict_iterate_callback, ctx);
 		ctx->synchronous_result = FALSE;
 	}
@@ -751,11 +766,11 @@ static int sql_dict_iterate_next_query(struct sql_dict_iterate_context *ctx)
 }
 
 static struct dict_iterate_context *
-sql_dict_iterate_init(struct dict *_dict, const char *const *paths,
-		      enum dict_iterate_flags flags)
+sql_dict_iterate_init(struct dict *_dict,
+		      const struct dict_op_settings *set ATTR_UNUSED,
+		      const char *path, enum dict_iterate_flags flags)
 {
 	struct sql_dict_iterate_context *ctx;
-	unsigned int i, path_count;
 	pool_t pool;
 
 	pool = pool_alloconly_create("sql dict iterate", 512);
@@ -764,17 +779,14 @@ sql_dict_iterate_init(struct dict *_dict, const char *const *paths,
 	ctx->pool = pool;
 	ctx->flags = flags;
 
-	for (path_count = 0; paths[path_count] != NULL; path_count++) ;
-	ctx->paths = p_new(pool, const char *, path_count + 1);
-	for (i = 0; i < path_count; i++)
-		ctx->paths[i] = p_strdup(pool, paths[i]);
+	ctx->path = p_strdup(pool, path);
 
 	ctx->key = str_new(pool, 256);
 	return &ctx->ctx;
 }
 
 static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
-			     const char **key_r, const char **value_r)
+			     const char **key_r, const char *const **values_r)
 {
 	struct sql_dict_iterate_context *ctx =
 		(struct sql_dict_iterate_context *)_ctx;
@@ -805,6 +817,7 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 		else {
 			/* get more results asynchronously */
 			ctx->synchronous_result = TRUE;
+			pool_ref(ctx->pool);
 			sql_result_more(&ctx->result, sql_dict_iterate_callback, ctx);
 			ctx->synchronous_result = FALSE;
 			if (ctx->result == NULL) {
@@ -824,7 +837,7 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 		/* we have gotten *SOME* results, so can allow
 		   unmapped next key now. */
 		ctx->allow_null_map = TRUE;
-		return sql_dict_iterate(_ctx, key_r, value_r);
+		return sql_dict_iterate(_ctx, key_r, values_r);
 	}
 	if (ret < 0) {
 		ctx->error = p_strdup_printf(ctx->pool,
@@ -857,11 +870,9 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 	}
 
 	*key_r = str_c(ctx->key);
-	if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0)
-		*value_r = "";
-	else {
-		*value_r = sql_dict_result_unescape_value(ctx->map,
-					pool_datastack_create(), ctx->result);
+	if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) == 0) {
+		*values_r = sql_dict_result_unescape_values(ctx->map,
+			pool_datastack_create(), ctx->result);
 	}
 	return TRUE;
 }
@@ -876,7 +887,10 @@ static int sql_dict_iterate_deinit(struct dict_iterate_context *_ctx,
 	*error_r = t_strdup(ctx->error);
 	if (ctx->result != NULL)
 		sql_result_unref(ctx->result);
-	pool_unref(&ctx->pool);
+	ctx->destroyed = TRUE;
+
+	pool_t pool_copy = ctx->pool;
+	pool_unref(&pool_copy);
 	return ret;
 }
 
@@ -895,8 +909,12 @@ sql_dict_transaction_init(struct dict *_dict)
 
 static void sql_dict_transaction_free(struct sql_dict_transaction_context *ctx)
 {
+	if (array_is_created(&ctx->prev_inc))
+		sql_dict_prev_inc_free(ctx);
+	if (array_is_created(&ctx->prev_set))
+		sql_dict_prev_set_free(ctx);
+
 	pool_unref(&ctx->inc_row_pool);
-	i_free(ctx->prev_inc_key);
 	i_free(ctx->error);
 	i_free(ctx);
 }
@@ -955,9 +973,10 @@ sql_dict_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 	const char *error;
 	struct dict_commit_result result;
 
-	if (ctx->prev_inc_map != NULL)
+	/* flush any pending set/inc */
+	if (array_is_created(&ctx->prev_inc))
 		sql_dict_prev_inc_flush(ctx);
-	if (ctx->prev_set_map != NULL)
+	if (array_is_created(&ctx->prev_set))
 		sql_dict_prev_set_flush(ctx);
 
 	/* note that the above calls might still set ctx->error */
@@ -1023,8 +1042,8 @@ struct dict_sql_build_query {
 	struct sql_dict *dict;
 
 	ARRAY(struct dict_sql_build_query_field) fields;
-	const ARRAY_TYPE(const_string) *extra_values;
-	char key1;
+	const ARRAY_TYPE(const_string) *pattern_values;
+	bool add_username;
 };
 
 static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
@@ -1034,9 +1053,9 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 {
 	struct sql_dict *dict = build->dict;
 	const struct dict_sql_build_query_field *fields;
-	const struct dict_sql_field *sql_fields;
+	const struct dict_sql_field *pattern_fields;
 	ARRAY_TYPE(sql_dict_param) params;
-	const char *const *extra_values;
+	const char *const *pattern_values;
 	unsigned int i, field_count, count, count2;
 	string_t *prefix, *suffix;
 
@@ -1046,6 +1065,10 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 	t_array_init(&params, 4);
 	prefix = t_str_new(64);
 	suffix = t_str_new(256);
+	/* SQL table is guaranteed to be the same for all fields.
+	   Build all the SQL field names into prefix and '?' placeholders for
+	   each value into the suffix. The actual field values will be added
+	   into params[]. */
 	str_printfa(prefix, "INSERT INTO %s", fields[0].map->table);
 	str_append(prefix, " (");
 	str_append(suffix, ") VALUES (");
@@ -1064,35 +1087,54 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 				       "", &params, error_r) < 0)
 			return -1;
 	}
-	if (build->key1 == DICT_PATH_PRIVATE[0]) {
+	if (build->add_username) {
 		struct sql_dict_param *param = array_append_space(&params);
 		str_printfa(prefix, ",%s", fields[0].map->username_field);
 		str_append(suffix, ",?");
 		param->value_type = DICT_SQL_TYPE_STRING;
-		param->value_str = dict->username;
+		param->value_str = ctx->ctx.set.username;
 	}
 
-	/* add the other fields from the key */
-	sql_fields = array_get(&fields[0].map->sql_fields, &count);
-	extra_values = array_get(build->extra_values, &count2);
+	/* add the variable fields that were parsed from the path */
+	pattern_fields = array_get(&fields[0].map->pattern_fields, &count);
+	pattern_values = array_get(build->pattern_values, &count2);
 	i_assert(count == count2);
 	for (i = 0; i < count; i++) {
-		str_printfa(prefix, ",%s", sql_fields[i].name);
+		str_printfa(prefix, ",%s", pattern_fields[i].name);
 		str_append(suffix, ",?");
-		if (sql_dict_field_get_value(fields[0].map, &sql_fields[i],
-					     extra_values[i], "",
+		if (sql_dict_field_get_value(fields[0].map, &pattern_fields[i],
+					     pattern_values[i], "",
 					     &params, error_r) < 0)
 			return -1;
 	}
 
 	str_append_str(prefix, suffix);
 	str_append_c(prefix, ')');
-	if (!dict->has_on_duplicate_key) {
+
+	enum sql_db_flags flags = sql_get_flags(dict->db);
+	if ((flags & SQL_DB_FLAG_ON_DUPLICATE_KEY) != 0)
+		str_append(prefix, " ON DUPLICATE KEY UPDATE ");
+	else if ((flags & SQL_DB_FLAG_ON_CONFLICT_DO) != 0) {
+		str_append(prefix, " ON CONFLICT (");
+		for (i = 0; i < count; i++) {
+			if (i > 0)
+				str_append_c(prefix, ',');
+			str_append(prefix, pattern_fields[i].name);
+		}
+		if (build->add_username) {
+			if (count > 0)
+				str_append_c(prefix, ',');
+			str_append(prefix, fields[0].map->username_field);
+		}
+		str_append(prefix, ") DO UPDATE SET ");
+	} else {
 		*stmt_r = sql_dict_transaction_stmt_init(ctx, str_c(prefix), &params);
 		return 0;
 	}
 
-	str_append(prefix, " ON DUPLICATE KEY UPDATE ");
+	/* If the row already exists, UPDATE it instead. The pattern_values
+	   don't need to be updated here, because they are expected to be part
+	   of the row's primary key. */
 	for (i = 0; i < field_count; i++) {
 		const char *first_value_field =
 			t_strcut(fields[i].map->value_field, ',');
@@ -1115,10 +1157,10 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 
 static int
 sql_dict_update_query(const struct dict_sql_build_query *build,
+		      const struct dict_op_settings_private *set,
 		      const char **query_r, ARRAY_TYPE(sql_dict_param) *params,
 		      const char **error_r)
 {
-	struct sql_dict *dict = build->dict;
 	const struct dict_sql_build_query_field *fields;
 	unsigned int i, field_count;
 	string_t *query;
@@ -1137,53 +1179,78 @@ sql_dict_update_query(const struct dict_sql_build_query *build,
 			    first_value_field);
 	}
 
-	if (sql_dict_where_build(dict, fields[0].map, build->extra_values,
-				 build->key1, SQL_DICT_RECURSE_NONE, query,
-				 params, error_r) < 0)
+	if (sql_dict_where_build(set->username, fields[0].map, build->pattern_values,
+				 build->add_username, SQL_DICT_RECURSE_NONE,
+				 query, params, error_r) < 0)
 		return -1;
 	*query_r = str_c(query);
 	return 0;
 }
 
-static void sql_dict_set_real(struct dict_transaction_context *_ctx,
-			      const char *key, const char *value)
+static void sql_dict_prev_set_free(struct sql_dict_transaction_context *ctx)
 {
-	struct sql_dict_transaction_context *ctx =
-		(struct sql_dict_transaction_context *)_ctx;
-	struct sql_dict *dict = (struct sql_dict *)_ctx->dict;
-	const struct dict_sql_map *map;
+	struct sql_dict_prev *prev_set;
+
+	array_foreach_modifiable(&ctx->prev_set, prev_set) {
+		i_free(prev_set->value.str);
+		i_free(prev_set->key);
+	}
+	array_free(&ctx->prev_set);
+}
+
+static void sql_dict_prev_set_flush(struct sql_dict_transaction_context *ctx)
+{
+	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
+	const struct sql_dict_prev *prev_sets;
+	unsigned int count;
 	struct sql_statement *stmt;
-	ARRAY_TYPE(const_string) values;
+	ARRAY_TYPE(const_string) pattern_values;
 	struct dict_sql_build_query build;
-	struct dict_sql_build_query_field field;
+	struct dict_sql_build_query_field *field;
 	const char *error;
 
-	if (ctx->error != NULL)
-		return;
+	i_assert(array_is_created(&ctx->prev_set));
 
-	map = sql_dict_find_map(dict, key, &values);
-	if (map == NULL) {
-		ctx->error = i_strdup_printf(
-			"dict-sql: Invalid/unmapped key: %s", key);
+	if (ctx->error != NULL) {
+		sql_dict_prev_set_free(ctx);
 		return;
 	}
 
-	field.map = map;
-	field.value = value;
+	prev_sets = array_get(&ctx->prev_set, &count);
+	i_assert(count > 0);
+
+	/* Get the variable values from the dict path. We already verified that
+	   these are all exactly the same for everything in prev_sets. */
+	if (sql_dict_find_map(dict, prev_sets[0].key, &pattern_values) == NULL)
+		i_unreached(); /* this was already checked */
 
 	i_zero(&build);
 	build.dict = dict;
-	t_array_init(&build.fields, 1);
-	array_push_back(&build.fields, &field);
-	build.extra_values = &values;
-	build.key1 = key[0];
+	build.pattern_values = &pattern_values;
+	build.add_username = (prev_sets[0].key[0] == DICT_PATH_PRIVATE[0]);
+
+	/* build.fields[] is used to get the map { value_field } for the
+	   SQL field names, as well as the values for them.
+
+	   Example: INSERT INTO ... (build.fields[0].map->value_field,
+	   ...[1], ...) VALUES (build.fields[0].value, ...[1], ...) */
+	t_array_init(&build.fields, count);
+	for (unsigned int i = 0; i < count; i++) {
+		i_assert(build.add_username ==
+			 (prev_sets[i].key[0] == DICT_PATH_PRIVATE[0]));
+		field = array_append_space(&build.fields);
+		field->map = prev_sets[i].map;
+		field->value = prev_sets[i].value.str;
+	}
 
 	if (sql_dict_set_query(ctx, &build, &stmt, &error) < 0) {
-		ctx->error = i_strdup_printf("dict-sql: Failed to set %s=%s: %s",
-					     key, value, error);
+		ctx->error = i_strdup_printf(
+			"dict-sql: Failed to set %u fields (first %s): %s",
+			count, prev_sets[0].key, error);
 	} else {
 		sql_update_stmt(ctx->sql_ctx, &stmt);
 	}
+	sql_dict_prev_set_free(ctx);
 }
 
 static void sql_dict_unset(struct dict_transaction_context *_ctx,
@@ -1192,8 +1259,9 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 	struct sql_dict_transaction_context *ctx =
 		(struct sql_dict_transaction_context *)_ctx;
 	struct sql_dict *dict = (struct sql_dict *)_ctx->dict;
+	const struct dict_op_settings_private *set = &_ctx->set;
 	const struct dict_sql_map *map;
-	ARRAY_TYPE(const_string) values;
+	ARRAY_TYPE(const_string) pattern_values;
 	string_t *query = t_str_new(256);
 	ARRAY_TYPE(sql_dict_param) params;
 	const char *error;
@@ -1201,12 +1269,14 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 	if (ctx->error != NULL)
 		return;
 
-	if (ctx->prev_inc_map != NULL)
+	/* In theory we could unset one of the previous set/incs in this
+	   same transaction, so flush them first. */
+	if (array_is_created(&ctx->prev_inc))
 		sql_dict_prev_inc_flush(ctx);
-	if (ctx->prev_set_map != NULL)
+	if (array_is_created(&ctx->prev_set))
 		sql_dict_prev_set_flush(ctx);
 
-	map = sql_dict_find_map(dict, key, &values);
+	map = sql_dict_find_map(dict, key, &pattern_values);
 	if (map == NULL) {
 		ctx->error = i_strdup_printf("dict-sql: Invalid/unmapped key: %s", key);
 		return;
@@ -1214,7 +1284,8 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 
 	str_printfa(query, "DELETE FROM %s", map->table);
 	t_array_init(&params, 4);
-	if (sql_dict_where_build(dict, map, &values, key[0],
+	if (sql_dict_where_build(set->username, map, &pattern_values,
+				 key[0] == DICT_PATH_PRIVATE[0],
 				 SQL_DICT_RECURSE_NONE, query,
 				 &params, &error) < 0) {
 		ctx->error = i_strdup_printf(
@@ -1242,99 +1313,110 @@ sql_dict_next_inc_row(struct sql_dict_transaction_context *ctx)
 	return &row->rows;
 }
 
-static void sql_dict_atomic_inc_real(struct sql_dict_transaction_context *ctx,
-				     const char *key, long long diff)
+static void sql_dict_prev_inc_free(struct sql_dict_transaction_context *ctx)
+{
+	struct sql_dict_prev *prev_inc;
+
+	array_foreach_modifiable(&ctx->prev_inc, prev_inc)
+		i_free(prev_inc->key);
+	array_free(&ctx->prev_inc);
+}
+
+static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx)
 {
 	struct sql_dict *dict = (struct sql_dict *)ctx->ctx.dict;
-	const struct dict_sql_map *map;
-	ARRAY_TYPE(const_string) values;
+	const struct dict_op_settings_private *set = &ctx->ctx.set;
+	const struct sql_dict_prev *prev_incs;
+	unsigned int count;
+	ARRAY_TYPE(const_string) pattern_values;
 	struct dict_sql_build_query build;
-	struct dict_sql_build_query_field field;
+	struct dict_sql_build_query_field *field;
 	ARRAY_TYPE(sql_dict_param) params;
 	struct sql_dict_param *param;
 	const char *query, *error;
 
-	if (ctx->error != NULL)
+	i_assert(array_is_created(&ctx->prev_inc));
+
+	if (ctx->error != NULL) {
+		sql_dict_prev_inc_free(ctx);
 		return;
+	}
 
-	map = sql_dict_find_map(dict, key, &values);
-	i_assert(map != NULL);
+	prev_incs = array_get(&ctx->prev_inc, &count);
+	i_assert(count > 0);
 
-	field.map = map;
-	field.value = NULL; /* unused */
+	/* Get the variable values from the dict path. We already verified that
+	   these are all exactly the same for everything in prev_incs. */
+	if (sql_dict_find_map(dict, prev_incs[0].key, &pattern_values) == NULL)
+		i_unreached(); /* this was already checked */
 
 	i_zero(&build);
 	build.dict = dict;
-	t_array_init(&build.fields, 1);
-	array_push_back(&build.fields, &field);
-	build.extra_values = &values;
-	build.key1 = key[0];
+	build.pattern_values = &pattern_values;
+	build.add_username = (prev_incs[0].key[0] == DICT_PATH_PRIVATE[0]);
 
-	t_array_init(&params, 4);
-	param = array_append_space(&params);
-	param->value_type = DICT_SQL_TYPE_INT;
-	param->value_int64 = diff;
+	/* build.fields[] is an array of maps, which are used to get the
+	   map { value_field } for the SQL field names.
 
-	if (sql_dict_update_query(&build, &query, &params, &error) < 0) {
+	   params[] specifies the list of values to use for each field.
+
+	   Example: UPDATE .. SET build.fields[0].map->value_field =
+	   ...->value_field + params[0]->value_int64, ...[1]... */
+	t_array_init(&build.fields, count);
+	t_array_init(&params, count);
+	for (unsigned int i = 0; i < count; i++) {
+		i_assert(build.add_username ==
+			 (prev_incs[i].key[0] == DICT_PATH_PRIVATE[0]));
+		field = array_append_space(&build.fields);
+		field->map = prev_incs[i].map;
+		field->value = NULL; /* unused */
+
+		param = array_append_space(&params);
+		param->value_type = DICT_SQL_TYPE_INT;
+		param->value_int64 = prev_incs[i].value.diff;
+	}
+
+	if (sql_dict_update_query(&build, set, &query, &params, &error) < 0) {
 		ctx->error = i_strdup_printf(
-			"dict-sql: Failed to increase %s: %s", key, error);
+			"dict-sql: Failed to increase %u fields (first %s): %s",
+			count, prev_incs[0].key, error);
 	} else {
 		struct sql_statement *stmt =
 			sql_dict_transaction_stmt_init(ctx, query, &params);
 		sql_update_stmt_get_rows(ctx->sql_ctx, &stmt,
 					 sql_dict_next_inc_row(ctx));
 	}
-}
-
-static void sql_dict_prev_set_flush(struct sql_dict_transaction_context *ctx)
-{
-	sql_dict_set_real(&ctx->ctx, ctx->prev_set_key, ctx->prev_set_value);
-	i_free_and_null(ctx->prev_set_value);
-	i_free_and_null(ctx->prev_set_key);
-	ctx->prev_set_map = NULL;
-}
-
-static void sql_dict_prev_inc_flush(struct sql_dict_transaction_context *ctx)
-{
-	sql_dict_atomic_inc_real(ctx, ctx->prev_inc_key, ctx->prev_inc_diff);
-	i_free_and_null(ctx->prev_inc_key);
-	ctx->prev_inc_map = NULL;
+	sql_dict_prev_inc_free(ctx);
 }
 
 static bool
 sql_dict_maps_are_mergeable(struct sql_dict *dict,
-			    const struct dict_sql_map *map1,
+			    const struct sql_dict_prev *prev1,
 			    const struct dict_sql_map *map2,
-			    const char *map1_key, const char *map2_key,
-			    const ARRAY_TYPE(const_string) *map2_values)
+			    const char *map2_key,
+			    const ARRAY_TYPE(const_string) *map2_pattern_values)
 {
 	const struct dict_sql_map *map3;
-	ARRAY_TYPE(const_string) map1_values;
-	const char *const *v1, *const *v2;
-	unsigned int i, count1, count2;
+	ARRAY_TYPE(const_string) map1_pattern_values;
 
-	if (strcmp(map1->table, map2->table) != 0)
+	/* sql table names must equal */
+	if (strcmp(prev1->map->table, map2->table) != 0)
 		return FALSE;
-	if (map1_key[0] != map2_key[0])
+	/* private vs shared prefix must equal */
+	if (prev1->key[0] != map2_key[0])
 		return FALSE;
-	if (map1_key[0] == DICT_PATH_PRIVATE[0]) {
-		if (strcmp(map1->username_field, map2->username_field) != 0)
+	if (prev1->key[0] == DICT_PATH_PRIVATE[0]) {
+		/* for private keys, username must equal */
+		if (strcmp(prev1->map->username_field, map2->username_field) != 0)
 			return FALSE;
 	}
 
-	map3 = sql_dict_find_map(dict, map1_key, &map1_values);
-	i_assert(map3 == map1);
+	/* variable values in the paths must equal exactly */
+	map3 = sql_dict_find_map(dict, prev1->key, &map1_pattern_values);
+	i_assert(map3 == prev1->map);
 
-	v1 = array_get(&map1_values, &count1);
-	v2 = array_get(map2_values, &count2);
-	if (count1 != count2)
-		return FALSE;
-
-	for (i = 0; i < count1; i++) {
-		if (strcmp(v1[i], v2[i]) != 0)
-			return FALSE;
-	}
-	return TRUE;
+	return array_equal_fn(&map1_pattern_values, map2_pattern_values,
+			      i_strcmp_p);
 }
 
 static void sql_dict_set(struct dict_transaction_context *_ctx,
@@ -1344,63 +1426,38 @@ static void sql_dict_set(struct dict_transaction_context *_ctx,
 		(struct sql_dict_transaction_context *)_ctx;
 	struct sql_dict *dict = (struct sql_dict *)_ctx->dict;
 	const struct dict_sql_map *map;
-	ARRAY_TYPE(const_string) values;
+	ARRAY_TYPE(const_string) pattern_values;
 
 	if (ctx->error != NULL)
 		return;
 
-	if (ctx->prev_inc_map != NULL)
+	/* In theory we could set the previous inc in this same transaction,
+	   so flush it first. */
+	if (array_is_created(&ctx->prev_inc))
 		sql_dict_prev_inc_flush(ctx);
 
-	map = sql_dict_find_map(dict, key, &values);
+	map = sql_dict_find_map(dict, key, &pattern_values);
 	if (map == NULL) {
 		ctx->error = i_strdup_printf(
 			"sql dict set: Invalid/unmapped key: %s", key);
 		return;
 	}
 
-	if (ctx->prev_set_map == NULL) {
-		/* see if we can merge this increment SQL query with the
-		   next one */
-		ctx->prev_set_map = map;
-		ctx->prev_set_key = i_strdup(key);
-		ctx->prev_set_value = i_strdup(value);
-		return;
-	}
-
-	if (!sql_dict_maps_are_mergeable(dict, ctx->prev_set_map, map,
-					 ctx->prev_set_key, key, &values)) {
+	if (array_is_created(&ctx->prev_set) &&
+	    !sql_dict_maps_are_mergeable(dict, array_front(&ctx->prev_set),
+					 map, key, &pattern_values)) {
+		/* couldn't merge to the previous set - flush it */
 		sql_dict_prev_set_flush(ctx);
-		sql_dict_set_real(&ctx->ctx, key, value);
-	} else {
-		struct dict_sql_build_query build;
-		struct dict_sql_build_query_field *field;
-		struct sql_statement *stmt;
-		const char *error;
-
-		i_zero(&build);
-		build.dict = dict;
-		t_array_init(&build.fields, 1);
-		build.extra_values = &values;
-		build.key1 = key[0];
-
-		field = array_append_space(&build.fields);
-		field->map = ctx->prev_set_map;
-		field->value = ctx->prev_set_value;
-		field = array_append_space(&build.fields);
-		field->map = map;
-		field->value = value;
-
-		if (sql_dict_set_query(ctx, &build, &stmt, &error) < 0) {
-			ctx->error = i_strdup_printf(
-				"dict-sql: Failed to set %s: %s", key, error);
-		} else {
-			sql_update_stmt(ctx->sql_ctx, &stmt);
-		}
-		i_free_and_null(ctx->prev_set_value);
-		i_free_and_null(ctx->prev_set_key);
-		ctx->prev_set_map = NULL;
 	}
+
+	if (!array_is_created(&ctx->prev_set))
+		i_array_init(&ctx->prev_set, 4);
+	/* Either this is the first set, or this can be merged with the
+	   previous set. */
+	struct sql_dict_prev *prev_set = array_append_space(&ctx->prev_set);
+	prev_set->map = map;
+	prev_set->key = i_strdup(key);
+	prev_set->value.str = i_strdup(value);
 }
 
 static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
@@ -1410,75 +1467,38 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 		(struct sql_dict_transaction_context *)_ctx;
 	struct sql_dict *dict = (struct sql_dict *)_ctx->dict;
 	const struct dict_sql_map *map;
-	ARRAY_TYPE(const_string) values;
+	ARRAY_TYPE(const_string) pattern_values;
 
 	if (ctx->error != NULL)
 		return;
 
-	if (ctx->prev_set_map != NULL)
+	/* In theory we could inc the previous set in this same transaction,
+	   so flush it first. */
+	if (array_is_created(&ctx->prev_set))
 		sql_dict_prev_set_flush(ctx);
 
-	map = sql_dict_find_map(dict, key, &values);
+	map = sql_dict_find_map(dict, key, &pattern_values);
 	if (map == NULL) {
 		ctx->error = i_strdup_printf(
 			"sql dict atomic inc: Invalid/unmapped key: %s", key);
 		return;
 	}
 
-	if (ctx->prev_inc_map == NULL) {
-		/* see if we can merge this increment SQL query with the
-		   next one */
-		ctx->prev_inc_map = map;
-		ctx->prev_inc_key = i_strdup(key);
-		ctx->prev_inc_diff = diff;
-		return;
-	}
-
-	if (!sql_dict_maps_are_mergeable(dict, ctx->prev_inc_map, map,
-					 ctx->prev_inc_key, key, &values)) {
+	if (array_is_created(&ctx->prev_inc) &&
+	    !sql_dict_maps_are_mergeable(dict, array_front(&ctx->prev_inc),
+					 map, key, &pattern_values)) {
+		/* couldn't merge to the previous inc - flush it */
 		sql_dict_prev_inc_flush(ctx);
-		sql_dict_atomic_inc_real(ctx, key, diff);
-	} else {
-		struct dict_sql_build_query build;
-		struct dict_sql_build_query_field *field;
-		ARRAY_TYPE(sql_dict_param) params;
-		struct sql_dict_param *param;
-		const char *query, *error;
-
-		i_zero(&build);
-		build.dict = dict;
-		t_array_init(&build.fields, 1);
-		build.extra_values = &values;
-		build.key1 = key[0];
-
-		field = array_append_space(&build.fields);
-		field->map = ctx->prev_inc_map;
-		field = array_append_space(&build.fields);
-		field->map = map;
-		/* field->value is unused */
-
-		t_array_init(&params, 4);
-		param = array_append_space(&params);
-		param->value_type = DICT_SQL_TYPE_INT;
-		param->value_int64 = ctx->prev_inc_diff;
-
-		param = array_append_space(&params);
-		param->value_type = DICT_SQL_TYPE_INT;
-		param->value_int64 = diff;
-
-		if (sql_dict_update_query(&build, &query, &params, &error) < 0) {
-			ctx->error = i_strdup_printf(
-				"dict-sql: Failed to increase %s: %s", key, error);
-		} else {
-			struct sql_statement *stmt =
-				sql_dict_transaction_stmt_init(ctx, query, &params);
-			sql_update_stmt_get_rows(ctx->sql_ctx, &stmt,
-						 sql_dict_next_inc_row(ctx));
-		}
-
-		i_free_and_null(ctx->prev_inc_key);
-		ctx->prev_inc_map = NULL;
 	}
+
+	if (!array_is_created(&ctx->prev_inc))
+		i_array_init(&ctx->prev_inc, 4);
+	/* Either this is the first inc, or this can be merged with the
+	   previous inc. */
+	struct sql_dict_prev *prev_inc = array_append_space(&ctx->prev_inc);
+	prev_inc->map = map;
+	prev_inc->key = i_strdup(key);
+	prev_inc->value.diff = diff;
 }
 
 static struct dict sql_dict = {

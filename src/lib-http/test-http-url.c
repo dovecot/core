@@ -809,6 +809,9 @@ static struct invalid_http_url_test invalid_url_tests[] = {
 		.url = "http:/www.example.com"
 	},
 	{
+		.url = "http://%3a%3a1",
+	},
+	{
 		.url = ""
 	},
 	{

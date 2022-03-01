@@ -31,7 +31,6 @@ struct zlib_istream {
 	struct stat last_parent_statbuf;
 
 	bool gz:1;
-	bool log_errors:1;
 	bool marked:1;
 	bool header_read:1;
 	bool trailer_read:1;
@@ -60,8 +59,6 @@ static void zlib_read_error(struct zlib_istream *zstream, const char *error)
 			    "zlib.read(%s): %s at %"PRIuUOFF_T,
 			    i_stream_get_name(&zstream->istream.istream), error,
 			    i_stream_get_absolute_offset(&zstream->istream.istream));
-	if (zstream->log_errors)
-		i_error("%s", zstream->istream.iostream.error);
 }
 
 static int i_stream_zlib_read_header(struct istream_private *stream)
@@ -174,6 +171,13 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 
 	high_offset = stream->istream.v_offset + (stream->pos - stream->skip);
 	if (zstream->eof_offset == high_offset) {
+		/* zlib library returned EOF. */
+		if (!zstream->gz) {
+			/* deflate - ignore if there's still more data */
+			stream->istream.eof = TRUE;
+			return -1;
+		}
+		/* gz format - read the trailer */
 		if (!zstream->trailer_read) {
 			do {
 				ret = i_stream_zlib_read_trailer(zstream);
@@ -181,10 +185,15 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 			if (ret <= 0)
 				return ret;
 		}
-		if (!zstream->gz || i_stream_read_eof(stream->parent)) {
+		/* See if there's another concatenated gz stream. */
+		if (i_stream_read_eof(stream->parent)) {
+			/* EOF or error */
+			stream->istream.stream_errno =
+				stream->parent->stream_errno;
 			stream->istream.eof = TRUE;
 			return -1;
 		}
+		/* Multiple gz streams concatenated together */
 		zstream->starting_concated_output = TRUE;
 	}
 	if (zstream->starting_concated_output) {
@@ -204,8 +213,8 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 		}
 
 		/* gzip file with concatenated content */
-		stream->cached_stream_size = (uoff_t)-1;
-		zstream->eof_offset = (uoff_t)-1;
+		stream->cached_stream_size = UOFF_T_MAX;
+		zstream->eof_offset = UOFF_T_MAX;
 		zstream->header_read = FALSE;
 		zstream->trailer_read = FALSE;
 		zstream->crc32 = 0;
@@ -263,7 +272,14 @@ static ssize_t i_stream_zlib_read(struct istream_private *stream)
 					 out_size);
 	stream->pos += out_size;
 
-	i_stream_skip(stream->parent, size - zstream->zs.avail_in);
+	size_t bytes_consumed = size - zstream->zs.avail_in;
+	i_stream_skip(stream->parent, bytes_consumed);
+	if (i_stream_get_data_size(stream->parent) > 0 &&
+	    (bytes_consumed > 0 || out_size > 0)) {
+		/* Parent stream was only partially consumed. Set the stream's
+		   IO as pending to avoid hangs. */
+		i_stream_set_input_pending(&stream->istream, TRUE);
+	}
 
 	switch (ret) {
 	case Z_OK:
@@ -328,7 +344,7 @@ static void i_stream_zlib_reset(struct zlib_istream *zstream)
 	struct istream_private *stream = &zstream->istream;
 
 	i_stream_seek(stream->parent, stream->parent_start_offset);
-	zstream->eof_offset = (uoff_t)-1;
+	zstream->eof_offset = UOFF_T_MAX;
 	zstream->crc32 = 0;
 
 	zstream->zs.next_in = NULL;
@@ -379,14 +395,13 @@ static void i_stream_zlib_sync(struct istream_private *stream)
 }
 
 static struct istream *
-i_stream_create_zlib(struct istream *input, bool gz, bool log_errors)
+i_stream_create_zlib(struct istream *input, bool gz)
 {
 	struct zlib_istream *zstream;
 
 	zstream = i_new(struct zlib_istream, 1);
-	zstream->eof_offset = (uoff_t)-1;
+	zstream->eof_offset = UOFF_T_MAX;
 	zstream->gz = gz;
-	zstream->log_errors = log_errors;
 
 	i_stream_zlib_init(zstream);
 
@@ -404,13 +419,13 @@ i_stream_create_zlib(struct istream *input, bool gz, bool log_errors)
 			       i_stream_get_fd(input), 0);
 }
 
-struct istream *i_stream_create_gz(struct istream *input, bool log_errors)
+struct istream *i_stream_create_gz(struct istream *input)
 {
-	return i_stream_create_zlib(input, TRUE, log_errors);
+	return i_stream_create_zlib(input, TRUE);
 }
 
-struct istream *i_stream_create_deflate(struct istream *input, bool log_errors)
+struct istream *i_stream_create_deflate(struct istream *input)
 {
-	return i_stream_create_zlib(input, FALSE, log_errors);
+	return i_stream_create_zlib(input, FALSE);
 }
 #endif

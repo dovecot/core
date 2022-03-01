@@ -6,8 +6,11 @@
 #include "ostream.h"
 #include "ioloop.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "mkdir-parents.h"
 #include "dict.h"
+#include "fs-api.h"
+#include "message-header-parser.h"
 #include "mail-index-alloc-cache.h"
 #include "mail-index-private.h"
 #include "mail-index-modseq.h"
@@ -47,9 +50,19 @@ static void set_cache_decisions(struct mail_cache *cache,
 		if (idx != UINT_MAX) {
 			field = *mail_cache_register_get_field(cache, idx);
 		} else if (strncasecmp(name, "hdr.", 4) == 0) {
-			i_zero(&field);
-			field.name = name;
-			field.type = MAIL_CACHE_FIELD_HEADER;
+			/* Do some sanity checking for the header name. Mainly
+			   to make sure there aren't UTF-8 characters that look
+			   like their ASCII equivalents or are completely
+			   invisible. */
+			if (message_header_name_is_valid(name+4)) {
+				i_zero(&field);
+				field.name = name;
+				field.type = MAIL_CACHE_FIELD_HEADER;
+			} else {
+				i_error("%s: Header name '%s' has invalid character, ignoring",
+					set, name);
+				continue;
+			}
 		} else {
 			i_error("%s: Unknown cache field name '%s', ignoring",
 				set, *arr);
@@ -168,10 +181,14 @@ index_mailbox_alloc_index(struct mailbox *box, struct mail_index **index_r)
 	return 0;
 }
 
-int index_storage_mailbox_exists(struct mailbox *box,
-				 bool auto_boxes ATTR_UNUSED,
+int index_storage_mailbox_exists(struct mailbox *box, bool auto_boxes,
 				 enum mailbox_existence *existence_r)
 {
+	if (auto_boxes && mailbox_is_autocreated(box)) {
+		*existence_r = MAILBOX_EXISTENCE_SELECT;
+		return 0;
+	}
+
 	return index_storage_mailbox_exists_full(box, NULL, existence_r);
 }
 
@@ -179,15 +196,13 @@ int index_storage_mailbox_exists_full(struct mailbox *box, const char *subdir,
 				      enum mailbox_existence *existence_r)
 {
 	struct stat st;
-	enum mail_error error;
 	const char *path, *path2, *index_path;
 	int ret;
 
 	/* see if it's selectable */
 	ret = mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX, &path);
 	if (ret < 0) {
-		mailbox_list_get_last_error(box->list, &error);
-		if (error != MAIL_ERROR_NOTFOUND)
+		if (mailbox_get_last_mail_error(box) != MAIL_ERROR_NOTFOUND)
 			return -1;
 		*existence_r = MAILBOX_EXISTENCE_NONE;
 		return 0;
@@ -294,7 +309,7 @@ int index_storage_mailbox_open(struct mailbox *box, bool move_to_memory)
 
 	index_flags = ibox->index_flags;
 	if (move_to_memory)
-		index_flags &= ~MAIL_INDEX_OPEN_FLAG_CREATE;
+		index_flags &= ENUM_NEGATE(MAIL_INDEX_OPEN_FLAG_CREATE);
 
 	if (index_storage_mailbox_alloc_index(box) < 0)
 		return -1;
@@ -391,7 +406,7 @@ void index_storage_mailbox_alloc(struct mailbox *box, const char *vname,
 	event_add_category(box->event, &event_category_mailbox);
 	event_add_str(box->event, "mailbox", box->vname);
 	event_set_append_log_prefix(box->event,
-		t_strdup_printf("Mailbox %s: ", box->vname));
+		t_strdup_printf("Mailbox %s: ", str_sanitize(box->vname, 128)));
 
 	p_array_init(&box->search_results, box->pool, 16);
 	array_create(&box->module_contexts,
@@ -675,10 +690,12 @@ int index_storage_mailbox_create(struct mailbox *box, bool directory)
 				return -1;
 			if (existence != MAILBOX_EXISTENCE_SELECT)
 				return 1;
+		} else if (!box->storage->rebuilding_list_index) {
+			/* ignore existing location if we are recovering list index */
+			mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
+					       "Mailbox already exists");
+			return -1;
 		}
-		mail_storage_set_error(box->storage, MAIL_ERROR_EXISTS,
-				       "Mailbox already exists");
-		return -1;
 	}
 
 	if (directory) {
@@ -744,6 +761,7 @@ static int mailbox_expunge_all_data(struct mailbox *box)
         struct mailbox_transaction_context *t;
 	struct mail *mail;
 	struct mail_search_args *search_args;
+	int ret;
 
 	(void)mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ);
 
@@ -757,20 +775,18 @@ static int mailbox_expunge_all_data(struct mailbox *box)
 	while (mailbox_search_next(ctx, &mail))
 		mail_expunge(mail);
 
-	if (mailbox_search_deinit(&ctx) < 0) {
-		mailbox_transaction_rollback(&t);
-		return -1;
-	}
-
-	if (mailbox_delete_all_attributes(t, MAIL_ATTRIBUTE_TYPE_PRIVATE) < 0 ||
-	    mailbox_delete_all_attributes(t, MAIL_ATTRIBUTE_TYPE_SHARED) < 0) {
-		mailbox_transaction_rollback(&t);
-		return -1;
+	ret = mailbox_search_deinit(&ctx);
+	if (ret == 0) {
+		if (mailbox_delete_all_attributes(t, MAIL_ATTRIBUTE_TYPE_PRIVATE) < 0 ||
+		    mailbox_delete_all_attributes(t, MAIL_ATTRIBUTE_TYPE_SHARED) < 0)
+			ret = -1;
 	}
 	if (mailbox_transaction_commit(&t) < 0)
-		return -1;
+		ret = -1;
 	/* sync to actually perform the expunges */
-	return mailbox_sync(box, 0);
+	if (mailbox_sync(box, 0) < 0)
+		ret = -1;
+	return ret;
 }
 
 int index_storage_mailbox_delete_pre(struct mailbox *box)
@@ -938,6 +954,8 @@ bool index_storage_is_inconsistent(struct mailbox *box)
 
 void index_save_context_free(struct mail_save_context *ctx)
 {
+	i_assert(ctx->dest_mail != NULL);
+
 	index_mail_save_finish(ctx);
 	if (ctx->data.keywords != NULL)
 		mailbox_keywords_unref(&ctx->data.keywords);
@@ -971,7 +989,7 @@ mail_copy_cache_field(struct mail_save_context *ctx, struct mail *src_mail,
 	dest_field = mail_cache_register_get_field(dest_trans->box->cache,
 						   dest_field_idx);
 	if ((dest_field->decision &
-	     ~MAIL_CACHE_DECISION_FORCED) == MAIL_CACHE_DECISION_NO) {
+	     ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED)) == MAIL_CACHE_DECISION_NO) {
 		/* field not wanted in destination mailbox */
 		return;
 	}
@@ -1111,6 +1129,7 @@ void index_storage_destroy(struct mail_storage *storage)
 		dict_wait(storage->_shared_attr_dict);
 		dict_deinit(&storage->_shared_attr_dict);
 	}
+	fs_unref(&storage->mailboxes_fs);
 }
 
 static void index_storage_expunging_init(struct mailbox *box)

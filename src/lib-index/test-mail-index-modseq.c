@@ -54,7 +54,7 @@ static void test_mail_index_modseq_get_next_log_offset(void)
 
 	view2 = mail_index_view_open(index);
 	for (uint64_t modseq = 1; modseq <= 7; modseq++) {
-		uint32_t log_seq;
+		uint32_t log_seq = 0;
 		uoff_t log_offset;
 
 		test_assert_idx(mail_index_modseq_get_next_log_offset(view2, modseq, &log_seq, &log_offset) == (tests[modseq].log_seq != 0), modseq);

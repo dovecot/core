@@ -8,6 +8,7 @@
 #include "llist.h"
 #include "safe-memset.h"
 #include "auth-client-interface.h"
+#include "director.h"
 #include "auth-connection.h"
 
 #include <unistd.h>
@@ -15,6 +16,7 @@
 struct auth_connection {
 	struct auth_connection *prev, *next;
 
+	struct director *dir;
 	char *path;
 	int fd;
 	struct io *io;
@@ -38,12 +40,13 @@ static void auth_connection_input(struct auth_connection *conn)
 		return;
 	case -1:
 		/* disconnected */
-		i_error("Auth server disconnected unexpectedly");
+		e_error(conn->dir->event, "Auth server disconnected unexpectedly");
 		auth_connection_disconnected(&conn);
 		return;
 	case -2:
 		/* buffer full */
-		i_error("BUG: Auth server sent us more than %d bytes",
+		e_error(conn->dir->event,
+			"BUG: Auth server sent us more than %d bytes",
 			(int)AUTH_CLIENT_MAX_LINE_LENGTH);
 		auth_connection_disconnected(&conn);
 		return;
@@ -57,11 +60,13 @@ static void auth_connection_input(struct auth_connection *conn)
 	}
 }
 
-struct auth_connection *auth_connection_init(const char *path)
+struct auth_connection *
+auth_connection_init(struct director *dir, const char *path)
 {
 	struct auth_connection *conn;
  
 	conn = i_new(struct auth_connection, 1);
+	conn->dir = dir;
 	conn->fd = -1;
 	conn->path = i_strdup(path);
 	DLLIST_PREPEND(&auth_connections, conn);
@@ -81,12 +86,12 @@ int auth_connection_connect(struct auth_connection *conn)
 
 	conn->fd = net_connect_unix_with_retries(conn->path, 1000);
 	if (conn->fd == -1) {
-		i_error("connect(%s) failed: %m", conn->path);
+		e_error(conn->dir->event, "connect(%s) failed: %m", conn->path);
 		return -1;
 	}
 
 	conn->input = i_stream_create_fd(conn->fd, AUTH_CLIENT_MAX_LINE_LENGTH);
-	conn->output = o_stream_create_fd(conn->fd, (size_t)-1);
+	conn->output = o_stream_create_fd(conn->fd, SIZE_MAX);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->io = io_add(conn->fd, IO_READ, auth_connection_input, conn);
 	return 0;
@@ -105,7 +110,7 @@ void auth_connection_deinit(struct auth_connection **_conn)
 		o_stream_unref(&conn->output);
 
 		if (close(conn->fd) < 0)
-			i_error("close(auth connection) failed: %m");
+			e_error(conn->dir->event, "close(auth connection) failed: %m");
 	}
 	i_free(conn->path);
 	i_free(conn);

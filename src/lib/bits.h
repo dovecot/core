@@ -17,17 +17,22 @@
 /* ((val & bits) == bits) is uncommon */
 #define HAS_ALL_BITS(val,bits) ((~(val) & (bits)) == 0)
 
+/* negation implemented without using the subtraction operator
+   ~(x - 1) = 1 + ~x these are equivalent by -(-x) == ~(~(x)) == x */
+#define UNSIGNED_MINUS(x) (1 + ~(x))
+
 /* Returns x, such that x is the smallest power of 2 >= num. */
 size_t nearest_power(size_t num) ATTR_CONST;
+
+#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
 
 /* Returns TRUE if 2^x=num, i.e. if num has only a single bit set to 1. */
 static inline bool ATTR_CONST
 bits_is_power_of_two(uint64_t num)
 {
-	return num > 0 && (num & (num - 1)) == 0;
+	return __builtin_popcountll(num) == 1;
 }
 
-#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
 static inline unsigned int ATTR_CONST
 bits_required32(uint32_t num)
 {
@@ -44,7 +49,16 @@ bits_required64(uint64_t num)
 {
 	return num == 0 ? 0 : 64 - __builtin_clzll(num);
 }
+
 #else
+
+/* Returns TRUE if 2^x=num, i.e. if num has only a single bit set to 1. */
+static inline bool ATTR_CONST
+bits_is_power_of_two(uint64_t num)
+{
+	return num != 0 && (num & (num + ~0ULL)) == 0;
+}
+
 unsigned int bits_required8(uint8_t num) ATTR_CONST;
 
 static inline
@@ -65,38 +79,43 @@ unsigned int bits_required64(uint64_t num)
 	return (num <= 0xffffffff) ? bits_required32(num)
 		: 32 + bits_required32(num >> 32);
 }
+
 #endif
 
-static inline uint64_t
+static inline uint64_t ATTR_NO_SANITIZE_INTEGER
+	ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
 bits_rotl64(uint64_t num, unsigned int count)
 {
 	const unsigned int mask = CHAR_BIT*sizeof(num) - 1;
 	count &= mask;
-	return (num << count) | (num >> (-count & mask));
+	return (num << count) | (num >> (UNSIGNED_MINUS(count) & mask));
 }
 
-static inline uint32_t
+static inline uint32_t ATTR_NO_SANITIZE_INTEGER
+	ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
 bits_rotl32(uint32_t num, unsigned int count)
 {
         const unsigned int mask = CHAR_BIT*sizeof(num) - 1;
         count &= mask;
-        return (num << count) | (num >> (-count & mask));
+        return (num << count) | (num >> (UNSIGNED_MINUS(count) & mask));
 }
 
-static inline uint64_t
+static inline uint64_t ATTR_NO_SANITIZE_INTEGER
+	ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
 bits_rotr64(uint64_t num, unsigned int count)
 {
 	const unsigned int mask = CHAR_BIT*sizeof(num) - 1;
 	count &= mask;
-	return (num >> count) | (num << (-count & mask));
+	return (num >> count) | (num << (UNSIGNED_MINUS(count) & mask));
 }
 
-static inline uint32_t
+static inline uint32_t ATTR_NO_SANITIZE_INTEGER
+	ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
 bits_rotr32(uint32_t num, unsigned int count)
 {
 	const unsigned int mask = CHAR_BIT*sizeof(num) - 1;
 	count &= mask;
-	return (num >> count) | (num << (-count & mask));
+	return (num >> count) | (num << (UNSIGNED_MINUS(count) & mask));
 }
 
 /* These functions look too big to be inline, but in almost all expected
@@ -143,7 +162,8 @@ bits_fraclog_bucket_start(unsigned int bucket, unsigned int fracbits)
 	unsigned int bandstart = fracoffs1 << (bandnum - 1);
 	return bandstart;
 }
-static inline unsigned int ATTR_CONST
+static inline unsigned int ATTR_CONST ATTR_NO_SANITIZE_INTEGER
+	ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
 bits_fraclog_bucket_end(unsigned int bucket, unsigned int fracbits)
 {
 	unsigned int bandnum = bucket >> fracbits;

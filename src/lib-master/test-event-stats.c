@@ -64,8 +64,8 @@ static void stats_conn_input(struct connection *_conn);
 static bool compare_test_stats_to(const char *format, ...) ATTR_FORMAT(1, 2);
 
 static struct connection_settings stats_conn_set = {
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.client = FALSE
 };
 
@@ -157,7 +157,7 @@ static void stats_conn_input(struct connection *_conn)
 	int fd;
 	struct ostream *stats_data_out;
 	struct server_connection *conn = (struct server_connection *)_conn;
-	const char *handshake = "VERSION\tstats-server\t3\t0\n"
+	const char *handshake = "VERSION\tstats-server\t4\t0\n"
 		"FILTER\tcategory=test1 OR category=test2 OR category=test3 OR "
 		"category=test4 OR category=test5\n";
 	const char *line = NULL;
@@ -177,13 +177,14 @@ static void stats_conn_input(struct connection *_conn)
 					i_fatal("failed create stats data file %m");
 				}
 
-				stats_data_out = o_stream_create_fd_autoclose(&fd, (size_t)-1);
+				stats_data_out = o_stream_create_fd_autoclose(&fd, SIZE_MAX);
 				o_stream_nsend_str(stats_data_out, line);
 				o_stream_nsend_str(stats_data_out, "\n");
 
 				o_stream_set_no_error_handling(stats_data_out, TRUE);
 				o_stream_unref(&stats_data_out);
 			}
+			i_sleep_msecs(100);
 		}
 		i_unlink(test_done);
 		signal_process(stats_ready);
@@ -224,9 +225,13 @@ static bool compare_test_stats_data_line(const char *reference, const char *actu
 {
 	const char *const *ref_args = t_strsplit(reference, "\t");
 	const char *const *act_args = t_strsplit(actual, "\t");
-	unsigned int max = I_MIN(str_array_length(ref_args), str_array_length(act_args));
+	unsigned int max = str_array_length(ref_args);
 
-	for(size_t i=0; i < max && *ref_args != NULL; i++) {
+	/* different lengths imply not equal */
+	if (str_array_length(ref_args) != str_array_length(act_args))
+		return FALSE;
+
+	for (size_t i = 0; i < max; i++) {
 		if (i > 1 && i < 6) continue;
 		if (*(ref_args[i]) == 'l') {
 			i++;
@@ -264,7 +269,7 @@ static bool compare_test_stats_to(const char *format, ...)
 	/* Wait stats data to be recorded by stats process */
 	wait_for_signal(stats_ready);
 
-	input = i_stream_create_file(stats_data_file, (size_t)-1);
+	input = i_stream_create_file(stats_data_file, SIZE_MAX);
 	while (i_stream_read(input) > 0) ;
 	if (input->stream_errno != 0) {
 		i_fatal("stats data file read failed: %s",
@@ -316,8 +321,8 @@ static void test_no_merging1(void)
 	event_unref(&single_ev);
 	test_assert(
 		compare_test_stats_to(
-			"EVENT	0	1	0	0"
-			"	stest-event-stats.c	%d"
+			"EVENT	0	0	1	0	0"
+			"	s"__FILE__"	%d"
 			"	l0	0	ctest1	Skey1	str1\n", l));
 	test_end();
 }
@@ -330,7 +335,7 @@ static void test_no_merging2(void)
 	TST_BEGIN("no merging parent sent to stats");
 	struct event *parent_ev = event_create(NULL);
 	event_add_category(parent_ev, &test_cats[0]);
-	parent_ev->id_sent_to_stats = TRUE;
+	parent_ev->sent_to_stats_id = parent_ev->change_id;
 	id = parent_ev->id;
 	struct event *child_ev = event_create(parent_ev);
 	event_add_category(child_ev, &test_cats[1]);
@@ -340,8 +345,8 @@ static void test_no_merging2(void)
 	event_unref(&child_ev);
 	test_assert(
 		compare_test_stats_to(
-			"EVENT	%"PRIu64"	1	0	0"
-			"	stest-event-stats.c	%d"
+			"EVENT	0	%"PRIu64"	1	0	0"
+			"	s"__FILE__"	%d"
 			"	l0	0	ctest2\n"
 			"END	9\n", id, l));
 	test_end();
@@ -357,7 +362,7 @@ static void test_no_merging3(void)
 	lp = __LINE__ - 1;
 	idp = parent_ev->id;
 	event_add_category(parent_ev, &test_cats[0]);
-	parent_ev->id_sent_to_stats = FALSE;
+	parent_ev->sent_to_stats_id = 0;
 	ioloop_timeval.tv_sec++;
 	struct event *child_ev = event_create(parent_ev);
 	event_add_category(child_ev, &test_cats[1]);
@@ -368,9 +373,9 @@ static void test_no_merging3(void)
 	test_assert(
 		compare_test_stats_to(
 			"BEGIN	%"PRIu64"	0	1	0	0"
-			"	stest-event-stats.c	%d	ctest1\n"
-			"EVENT	%"PRIu64"	1	1	0"
-			"	stest-event-stats.c	%d"
+			"	s"__FILE__"	%d	ctest1\n"
+			"EVENT	0	%"PRIu64"	1	1	0"
+			"	s"__FILE__"	%d"
 			"	l1	0	ctest2\n"
 			"END\t%"PRIu64"\n", idp, lp, idp, l, idp));
 	test_end();
@@ -397,8 +402,8 @@ static void test_merge_events1(void)
 	event_unref(&merge_ev2);
 	test_assert(
 		compare_test_stats_to(
-			"EVENT	0	1	0	0"
-			"	stest-event-stats.c	%d	l0	0"
+			"EVENT	0	0	1	0	0"
+			"	s"__FILE__"	%d	l0	0"
 			"	ctest3	ctest2	ctest1	Tkey3"
 			"	10	0	Ikey2	20"
 			"	Skey1	str1\n", l));
@@ -412,7 +417,7 @@ static void test_merge_events2(void)
 	TST_BEGIN("merge events parent sent to stats");
 	struct event *parent_ev = event_create(NULL);
 	event_add_category(parent_ev, &test_cats[3]);
-	parent_ev->id_sent_to_stats = TRUE;
+	parent_ev->sent_to_stats_id = parent_ev->change_id;
 	struct event *merge_ev1 = event_create(parent_ev);
 	event_add_category(merge_ev1, &test_cats[0]);
 	event_add_category(merge_ev1, &test_cats[1]);
@@ -432,8 +437,8 @@ static void test_merge_events2(void)
 	event_unref(&merge_ev2);
 	test_assert(
 		compare_test_stats_to(
-			"EVENT	%"PRIu64"	1	0	0"
-			"	stest-event-stats.c	%d	l0	0"
+			"EVENT	0	%"PRIu64"	1	0	0"
+			"	s"__FILE__"	%d	l0	0"
 			"	ctest3	ctest2	ctest1	Tkey3"
 			"	10	0	Ikey2	20"
 			"	Skey1	str1\n"
@@ -466,9 +471,9 @@ static void test_skip_parents(void)
 	test_assert(
 		compare_test_stats_to(
 			"BEGIN	%"PRIu64"	0	1	0	0"
-			"	stest-event-stats.c	%d	ctest1\n"
-			"EVENT	%"PRIu64"	1	3	0	"
-			"stest-event-stats.c	%d	l3	0"
+			"	s"__FILE__"	%d	ctest1\n"
+			"EVENT	0	%"PRIu64"	1	3	0	"
+			"s"__FILE__"	%d	l3	0"
 			"	ctest2\nEND\t%"PRIu64"\n", id, lp, id, l, id));
 	test_end();
 }
@@ -508,11 +513,201 @@ static void test_merge_events_skip_parents(void)
 	test_assert(
 		compare_test_stats_to(
 			"BEGIN	%"PRIu64"	0	1	0	0"
-			"	stest-event-stats.c	%d	ctest1\n"
-			"EVENT	%"PRIu64"	1	3	0	"
-			"stest-event-stats.c	%d	l3	0	"
+			"	s"__FILE__"	%d	ctest1\n"
+			"EVENT	0	%"PRIu64"	1	3	0	"
+			"s"__FILE__"	%d	l3	0	"
 			"ctest4	ctest5	Tkey3	10	0	Skey4"
 			"	str4\nEND\t%"PRIu64"\n", id, lp, id, l, id));
+	test_end();
+}
+
+static struct event *make_event(struct event *parent,
+				struct event_category *cat,
+				int *line_r, uint64_t *id_r)
+{
+	struct event *event;
+	int line;
+
+	event = event_create(parent);
+	line = __LINE__ -1;
+
+	if (line_r != NULL)
+		*line_r = line;
+	if (id_r != NULL)
+		*id_r = event->id;
+
+	/* something in the test infrastructure assumes that at least one
+	   category is always present - make it happy */
+	event_add_category(event, cat);
+
+	/* advance the clock to avoid event sending optimizations */
+	ioloop_timeval.tv_sec++;
+
+	return event;
+}
+
+static void test_parent_update_post_send(void)
+{
+	struct event *a, *b, *c;
+	uint64_t id;
+	int line, line_log1, line_log2;
+
+	TST_BEGIN("parent updated after send");
+
+	a = make_event(NULL, &test_cats[0], &line, &id);
+	b = make_event(a, &test_cats[1], NULL, NULL);
+	c = make_event(b, &test_cats[2], NULL, NULL);
+
+	/* set initial field values */
+	event_add_int(a, "a", 1);
+	event_add_int(b, "b", 2);
+	event_add_int(c, "c", 3);
+
+	/* force 'a' event to be sent */
+	e_info(b, "field 'a' should be 1");
+	line_log1 = __LINE__ - 1;
+
+	event_add_int(a, "a", 1000); /* update parent */
+
+	/* log child, which should re-sent parent */
+	e_info(c, "field 'a' should be 1000");
+	line_log2 = __LINE__ - 1;
+
+	event_unref(&a);
+	event_unref(&b);
+	event_unref(&c);
+
+	/* EVENT <parent> <type> ... */
+	/* BEGIN <id> <parent> <type> ... */
+	/* END <id> */
+	test_assert(
+		compare_test_stats_to(
+			/* first e_info() */
+			"BEGIN	%"PRIu64"	0	1	0	0"
+			"	s"__FILE__"	%d	ctest1"
+			"	Ia	1\n"
+			"EVENT	0	%"PRIu64"	1	1	0"
+			"	s"__FILE__"	%d"
+			"	l1	0	ctest2" "	Ib	2\n"
+			/* second e_info() */
+			"UPDATE	%"PRIu64"	0	0	0"
+			"	s"__FILE__"	%d	ctest1"
+			"	Ia	1000\n"
+			"BEGIN	%"PRIu64"	%"PRIu64"	1	0	0"
+			"	s"__FILE__"	%d"
+			"	l0	0	ctest2	Ib	2\n"
+			"EVENT	0	%"PRIu64"	1	1	0"
+			"	s"__FILE__"	%d"
+			"	l1	0	ctest3"
+			"	Ic	3\n"
+			"END\t%"PRIu64"\n"
+			"END\t%"PRIu64"\n",
+			id, line, /* BEGIN */
+			id, line_log1, /* EVENT */
+			id, line, /* UPDATE */
+			id + 1, id, line, /* BEGIN */
+			id + 1, line_log2, /* EVENT */
+			id + 1 /* END */,
+			id /* END */));
+
+	test_end();
+}
+
+static void test_large_event_id(void)
+{
+	TST_BEGIN("large event id");
+	int line, line_log1, line_log2, line_log3;
+	struct event *a, *b;
+	uint64_t id;
+
+	a = make_event(NULL, &test_cats[0], &line, &id);
+	a->id += 1000000;
+	id = a->id;
+	a->change_id++;
+	b = make_event(a, &test_cats[1], NULL, NULL);
+
+	ioloop_timeval.tv_sec++;
+	e_info(a, "emit");
+	line_log1 = __LINE__-1;
+	ioloop_timeval.tv_sec++;
+	e_info(b, "emit");
+	line_log2 = __LINE__-1;
+	event_add_int(a, "test1", 1);
+	e_info(b, "emit");
+	line_log3 = __LINE__-1;
+
+	event_unref(&b);
+	event_unref(&a);
+
+	test_assert(
+		compare_test_stats_to(
+			/* first e_info() */
+			"EVENT	0	%"PRIu64"	1	1	0"
+			"	s"__FILE__"	%d"
+			"	l1	0	ctest1\n"
+			"BEGIN	%"PRIu64"	0	1	0	0"
+			"	s"__FILE__"	%d"
+			"	l0	0	ctest1\n"
+			"EVENT	0	%"PRIu64"	1	1	0"
+			"	s"__FILE__"	%d"
+			"	l1	0	ctest2\n"
+			"UPDATE	%"PRIu64"	0	1	0"
+			"	s"__FILE__"	%d"
+			"	l1	0	ctest1	Itest1	1\n"
+			"EVENT	0	%"PRIu64"	1	1	0"
+			"	s"__FILE__"	%d"
+			"	l1	0	ctest2\n"
+			"END	%"PRIu64"\n",
+			(uint64_t)0, line_log1,
+			id, line,
+			id, line_log2,
+			id, line,
+			id, line_log3,
+			id
+		)
+	);
+
+	test_end();
+}
+
+static void test_global_event(void)
+{
+	TST_BEGIN("merge events global");
+	struct event *merge_ev1 = event_create(NULL);
+	event_add_category(merge_ev1, &test_cats[0]);
+	event_add_str(merge_ev1,test_fields[0].key, test_fields[0].value.str);
+	struct event *merge_ev2 = event_create(merge_ev1);
+	event_add_int(merge_ev2,test_fields[1].key, test_fields[1].value.intmax);
+
+	struct event *global_event = event_create(NULL);
+	int global_event_line = __LINE__ - 1;
+	uint64_t global_event_id = global_event->id;
+	event_add_str(global_event, "global", "value");
+	event_push_global(global_event);
+
+	struct timeval tv;
+	event_get_create_time(merge_ev1, &tv);
+
+	e_info(merge_ev2, "info message");
+	int log_line = __LINE__ - 1;
+
+	event_pop_global(global_event);
+	event_unref(&merge_ev1);
+	event_unref(&merge_ev2);
+	event_unref(&global_event);
+
+	test_assert(
+		compare_test_stats_to(
+			"BEGIN\t%"PRIu64"\t0\t1\t0\t0"
+			"\ts"__FILE__"\t%d"
+			"\tSglobal\tvalue\n"
+			"EVENT\t%"PRIu64"\t0\t1\t0\t0"
+			"\ts"__FILE__"\t%d\tl0\t0"
+			"\tctest1\tIkey2\t20\tSkey1\tstr1\n"
+			"END\t%"PRIu64"\n",
+			global_event_id, global_event_line,
+			global_event_id, log_line,
+			global_event_id));
 	test_end();
 }
 
@@ -527,6 +722,9 @@ static int run_tests(void)
 		test_merge_events2,
 		test_skip_parents,
 		test_merge_events_skip_parents,
+		test_parent_update_post_send,
+		test_large_event_id,
+		test_global_event,
 		NULL
 	};
 	struct ioloop *ioloop = io_loop_create();

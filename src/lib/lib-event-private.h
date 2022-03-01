@@ -1,13 +1,14 @@
 #ifndef LIB_EVENT_PRIVATE_H
 #define LIB_EVENT_PRIVATE_H
 
+#include <sys/resource.h>
+
 struct event_pointer {
 	const char *key;
 	void *value;
 };
 
 struct event {
-	struct event_passthrough event_passthrough;
 	/* linked list of all events, newest first */
 	struct event *prev, *next;
 
@@ -16,27 +17,41 @@ struct event {
 	struct event *parent;
 	uint64_t id;
 
+	/* Avoid sending the event to stats over and over.  The 'change_id'
+	   increments every time something about this event changes.  If
+	   'sent_to_stats_id' matches 'change_id', we skip sending this
+	   event out.  If it doesn't match, we send it and set
+	   'sent_to_stats_id' to 'change_id'. sent_to_stats_id=0 is reserved
+	   for "event hasn't been sent". 'change_id' can never be 0. */
+	uint32_t change_id;
+	uint32_t sent_to_stats_id;
+
 	char *log_prefix;
 	unsigned int log_prefixes_dropped;
+	/* sending_debug_log can be used if this value matches
+	   event_filter_replace_counter. */
+	unsigned int debug_level_checked_filter_counter;
 	event_log_prefix_callback_t *log_prefix_callback;
 	void *log_prefix_callback_context;
 	event_log_message_callback_t *log_message_callback;
 	void *log_message_callback_context;
 	ARRAY(struct event_pointer) pointers;
+	/* If the event's log level is at least this high, log it. If it's
+	   lower, check for debug log filters etc. */
 	enum log_type min_log_level;
+
 	bool log_prefix_from_system_pool:1;
 	bool log_prefix_replace:1;
 	bool passthrough:1;
 	bool forced_debug:1;
 	bool always_log_source:1;
 	bool sending_debug_log:1;
-	bool id_sent_to_stats:1;
-	bool debug_level_checked:1;
 
 /* Fields that are exported & imported: */
 	struct timeval tv_created_ioloop;
 	struct timeval tv_created;
 	struct timeval tv_last_sent;
+	struct rusage ru_last;
 
 	const char *source_filename;
 	unsigned int source_linenum;
@@ -89,5 +104,11 @@ void event_unregister_callback(event_callback_t *callback);
    unregistered. */
 void event_category_register_callback(event_category_callback_t *callback);
 void event_category_unregister_callback(event_category_callback_t *callback);
+
+static inline void event_recalculate_debug_level(struct event *event)
+{
+	event->debug_level_checked_filter_counter =
+		event_filter_replace_counter - 1;
+}
 
 #endif

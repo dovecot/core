@@ -9,12 +9,12 @@
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct mdbox_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct mdbox_settings)
 
 static const struct setting_define mdbox_setting_defines[] = {
-	DEF(SET_BOOL, mdbox_preallocate_space),
-	DEF(SET_SIZE, mdbox_rotate_size),
-	DEF(SET_TIME, mdbox_rotate_interval),
+	DEF(BOOL, mdbox_preallocate_space),
+	DEF(SIZE, mdbox_rotate_size),
+	DEF(TIME, mdbox_rotate_interval),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -30,10 +30,10 @@ static const struct setting_parser_info mdbox_setting_parser_info = {
 	.defines = mdbox_setting_defines,
 	.defaults = &mdbox_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct mdbox_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.parent = &mail_user_setting_parser_info
 };
 

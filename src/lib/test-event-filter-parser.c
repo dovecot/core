@@ -51,6 +51,16 @@ static const char *values_single[] = {
 	"foo",
 	"foo.c",
 	"foo.c:123",
+
+	/* wildcards */
+	"*foo",
+	"f*o",
+	"foo*",
+	"*",
+	"?foo",
+	"f?o",
+	"foo?",
+	"?",
 };
 
 /* values that need to be quoted */
@@ -75,6 +85,10 @@ static const char *values_multi[] = {
 	"\xc3\xa4\xc3\xa1\xc4\x8d\xc4\x8f\xc4\x9b\xc5\x88\xc3\xb6\xc5\x99\xc3\xbc\xc3\xba\xc5\xaf",
 	/* utf-8: ascii + combining char */
 	"r\xcc\x8c",
+
+	/* wildcards */
+	"foo * bar",
+	"foo ? bar",
 };
 
 /* boolean operators used as values get lowercased unless they are quoted */
@@ -114,6 +128,9 @@ static struct test {
 } tests[] = {
 	GOOD("", ""),
 
+	/* unquoted tokens can be only [a-zA-Z0-9:.*?_-]+ */
+	BAD("abc=r\xcc\x8c", "event filter: syntax error"),
+
 	/* check that spaces and extra parens don't break anything */
 #define CHECK_REAL(sp1, key, sp2, sp3, value, sp4) \
 	GOOD(sp1 key sp2 "=" sp3 value sp4, \
@@ -141,8 +158,7 @@ static struct test {
 #undef CHECK_REAL
 
 	/* check empty parens */
-	BAD("()",
-	    "event filter: syntax error, unexpected ')', expecting TOKEN or STRING or NOT or '('"),
+	BAD("()", "event filter: syntax error"),
 
 	/* check name only / name+comparator (!negated & negated) */
 #define CHECK_CMP_REAL(not, name, cmp, err) \
@@ -153,17 +169,17 @@ static struct test {
 	CHECK_CMP_REAL("NOT ", name, cmp, err)
 #define CHECK(name) \
 	CHECK_CMP(name, "", \
-	    "event filter: syntax error, unexpected $end, expecting '=' or '>' or '<'"), \
+	    "event filter: syntax error"), \
 	CHECK_CMP(name, "=", \
-	    "event filter: syntax error, unexpected $end"), \
+	    "event filter: syntax error"), \
 	CHECK_CMP(name, "<", \
-	    "event filter: syntax error, unexpected $end"), \
+	    "event filter: syntax error"), \
 	CHECK_CMP(name, "<=", \
-	    "event filter: syntax error, unexpected $end"), \
+	    "event filter: syntax error"), \
 	CHECK_CMP(name, ">", \
-	    "event filter: syntax error, unexpected $end"), \
+	    "event filter: syntax error"), \
 	CHECK_CMP(name, ">=", \
-	    "event filter: syntax error, unexpected $end")
+	    "event filter: syntax error")
 
 	CHECK("event"),
 	CHECK("source_location"),
@@ -205,43 +221,40 @@ static void testcase(const char *name, const char *input, const char *exp,
 {
 	struct event_filter *filter;
 	const char *error;
-	const char *got;
 	int ret;
-
-	test_begin(t_strdup_printf("event filter parser: %s: %s", name, input));
 
 	filter = event_filter_create();
 	ret = event_filter_parse(input, filter, &error);
 
-	test_assert((ret != 0) == fails);
+	test_out_quiet(name != NULL ? name : "filter parser",
+		       (ret != 0) == fails);
 
 	if (ret == 0) {
 		string_t *tmp = t_str_new(128);
 
 		event_filter_export(filter, tmp);
 
-		got = str_c(tmp);
+		test_out_quiet(t_strdup_printf("input: %s", input),
+			       strcmp(exp, str_c(tmp)) == 0);
 	} else {
-		got = error;
+		test_out_quiet(t_strdup_printf("input: %s", input),
+			       str_begins(error, exp));
 	}
 
-	test_assert_strcmp(exp, got);
-
 	event_filter_unref(&filter);
-
-	test_end();
 }
 
 static void test_event_filter_parser_table(void)
 {
 	unsigned int i;
 
+	test_begin("event filter parser: table");
 	for (i = 0; i < N_ELEMENTS(tests); i++) T_BEGIN {
-		testcase("table",
-			 tests[i].input,
+		testcase(NULL, tests[i].input,
 			 tests[i].output,
 			 tests[i].fails);
 	} T_END;
+	test_end();
 }
 
 static void test_event_filter_parser_categories(void)
@@ -251,6 +264,7 @@ static void test_event_filter_parser_categories(void)
 	};
 	unsigned int i;
 
+	test_begin("event filter parser: log type category");
 	for (i = 0; i < N_ELEMENTS(cat_names); i++) T_BEGIN {
 		string_t *str = t_str_new(128);
 
@@ -258,8 +272,9 @@ static void test_event_filter_parser_categories(void)
 		str_append(str, cat_names[i]);
 		str_append(str, ")");
 
-		testcase("log type category", str_c(str), str_c(str), FALSE);
+		testcase(NULL, str_c(str), str_c(str), FALSE);
 	} T_END;
+	test_end();
 }
 
 static void
@@ -294,7 +309,7 @@ test_event_filter_parser_simple_nesting_helper(bool not1, bool not2,
 			      expr2,
 			      not2 ? ")" : "");
 
-	testcase("simple nesting", in, exp, FALSE);
+	testcase(NULL, in, exp, FALSE);
 }
 
 static void test_event_filter_parser_simple_nesting(void)
@@ -310,6 +325,7 @@ static void test_event_filter_parser_simple_nesting(void)
 	unsigned int loc;
 	unsigned int not;
 
+	test_begin("event filter parser: simple nesting");
 	for (i = 0; i < N_ELEMENTS(whitespace); i++) {
 		for (not = 0; not < 4; not++) {
 			const bool not1 = (not & 0x2) != 0;
@@ -334,38 +350,50 @@ static void test_event_filter_parser_simple_nesting(void)
 			} T_END;
 		}
 	}
+	test_end();
 }
 
 /*
  * Test '<key><op><value>' with each possible operator and each possible
  * quoting of <key> and <value>.  Some quotings are not allowed.  The keyq
  * and valueq arguments specify whether the <key> and <value> strings
- * should be quoted.
+ * should be quoted.  key_special indicates that the key is *not* a field
+ * and therefore only the = operator should parse successfully.
  */
 static void generated_single_comparison(const char *name,
 					bool parens,
 					const char *key,
 					enum quoting keyq,
+					bool key_special,
 					const char *value_in,
 					const char *value_exp,
 					enum quoting valueq)
 {
 	unsigned int c, q;
+	bool should_fail;
 
 	for (c = 0; c < N_ELEMENTS(comparators); c++) {
 		string_t *output = t_str_new(128);
 
-		str_append_c(output, '(');
-		if (keyq != QUOTE_MUST_NOT)
+		if (key_special && (strcmp(comparators[c], "=") != 0)) {
+			/* the key is a not a field, only = is allowed */
+			str_append(output, "event filter: Only fields support inequality comparisons");
+			should_fail = TRUE;
+		} else {
+			/* the key is a field, all comparators are allowed */
+			str_append_c(output, '(');
+			if (keyq != QUOTE_MUST_NOT)
+				str_append_c(output, '"');
+			str_append(output, key);
+			if (keyq != QUOTE_MUST_NOT)
+				str_append_c(output, '"');
+			str_append(output, comparators[c]);
 			str_append_c(output, '"');
-		str_append(output, key);
-		if (keyq != QUOTE_MUST_NOT)
+			str_append_escaped(output, value_exp, strlen(value_exp));
 			str_append_c(output, '"');
-		str_append(output, comparators[c]);
-		str_append_c(output, '"');
-		str_append_escaped(output, value_exp, strlen(value_exp));
-		str_append_c(output, '"');
-		str_append_c(output, ')');
+			str_append_c(output, ')');
+			should_fail = FALSE;
+		}
 
 		for (q = 0; q < 4; q++) {
 			const bool qkey = (q & 1) == 1;
@@ -400,7 +428,7 @@ static void generated_single_comparison(const char *name,
 			testcase(name,
 				 str_c(input),
 				 str_c(output),
-				 FALSE);
+				 should_fail);
 		}
 	}
 }
@@ -409,6 +437,8 @@ static void test_event_filter_parser_generated(bool parens)
 {
 	unsigned int w, v;
 
+	test_begin(t_strdup_printf("event filter parser: parser generated parens=%s",
+				   parens ? "yes" : "no"));
 	/* check that non-field keys work */
 	for (w = 0; w < N_ELEMENTS(what_special); w++) {
 		for (v = 0; v < N_ELEMENTS(values_single); v++)
@@ -416,6 +446,7 @@ static void test_event_filter_parser_generated(bool parens)
 						    parens,
 						    what_special[w],
 						    QUOTE_MUST_NOT,
+						    TRUE,
 						    values_single[v],
 						    values_single[v],
 						    QUOTE_MAY);
@@ -425,6 +456,7 @@ static void test_event_filter_parser_generated(bool parens)
 						    parens,
 						    what_special[w],
 						    QUOTE_MUST_NOT,
+						    TRUE,
 						    values_multi[v],
 						    values_multi[v],
 						    QUOTE_MUST);
@@ -434,6 +466,7 @@ static void test_event_filter_parser_generated(bool parens)
 						    parens,
 						    what_special[w],
 						    QUOTE_MUST_NOT,
+						    TRUE,
 						    values_oper[v].in,
 						    values_oper[v].out_unquoted,
 						    QUOTE_MUST_NOT);
@@ -441,6 +474,7 @@ static void test_event_filter_parser_generated(bool parens)
 						    parens,
 						    what_special[w],
 						    QUOTE_MUST_NOT,
+						    TRUE,
 						    values_oper[v].in,
 						    values_oper[v].out_quoted,
 						    QUOTE_MUST);
@@ -454,6 +488,7 @@ static void test_event_filter_parser_generated(bool parens)
 						    parens,
 						    what_fields_single[w],
 						    QUOTE_MAY,
+						    FALSE,
 						    values_single[v],
 						    values_single[v],
 						    QUOTE_MAY);
@@ -463,6 +498,7 @@ static void test_event_filter_parser_generated(bool parens)
 						    parens,
 						    what_fields_single[w],
 						    QUOTE_MAY,
+						    FALSE,
 						    values_multi[v],
 						    values_multi[v],
 						    QUOTE_MUST);
@@ -472,6 +508,7 @@ static void test_event_filter_parser_generated(bool parens)
 						    parens,
 						    what_fields_single[w],
 						    QUOTE_MAY,
+						    FALSE,
 						    values_oper[v].in,
 						    values_oper[v].out_unquoted,
 						    QUOTE_MUST_NOT);
@@ -479,11 +516,20 @@ static void test_event_filter_parser_generated(bool parens)
 						    parens,
 						    what_fields_single[w],
 						    QUOTE_MAY,
+						    FALSE,
 						    values_oper[v].in,
 						    values_oper[v].out_quoted,
 						    QUOTE_MUST);
 		}
 	}
+	test_end();
+}
+
+static void test_event_filter_parser_simple_invalid(void)
+{
+	test_begin("event filter parser: simple invalid");
+	testcase(NULL, "a=b=c", "", TRUE);
+	test_end();
 }
 
 void test_event_filter_parser(void)
@@ -493,4 +539,5 @@ void test_event_filter_parser(void)
 	test_event_filter_parser_simple_nesting();
 	test_event_filter_parser_generated(FALSE);
 	test_event_filter_parser_generated(TRUE);
+	test_event_filter_parser_simple_invalid();
 }

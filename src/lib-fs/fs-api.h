@@ -148,7 +148,7 @@ struct fs_settings {
 
 	/* Parent event to use, unless overridden by
 	   fs_file_init_with_event() */
-	struct event *event;
+	struct event *event_parent;
 
 	/* Enable debugging */
 	bool debug;
@@ -318,6 +318,10 @@ void fs_write_set_hash(struct fs_file *file, const struct hash_method *method,
 void fs_file_set_async_callback(struct fs_file *file,
 				fs_file_async_callback_t *callback,
 				void *context);
+#define fs_file_set_async_callback(file, callback, context) \
+	fs_file_set_async_callback(file, (fs_file_async_callback_t *)(callback), \
+		1 ? (context) : \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
 /* Wait until some file can be read/written to more before returning.
    It's an error to call this when there are no pending async operations. */
 void fs_wait_async(struct fs *fs);
@@ -373,6 +377,10 @@ const char *fs_iter_next(struct fs_iter *iter);
 void fs_iter_set_async_callback(struct fs_iter *iter,
 				fs_file_async_callback_t *callback,
 				void *context);
+#define fs_iter_set_async_callback(iter, callback, context) \
+	fs_iter_set_async_callback(iter, (fs_file_async_callback_t *)(callback), \
+		1 ? (context) : \
+		CALLBACK_TYPECHECK(callback, void (*)(typeof(context))))
 /* For asynchronous iterations: If fs_iter_next() returns NULL, use this
    function to determine if you should wait for more data or finish up. */
 bool fs_iter_have_more(struct fs_iter *iter);

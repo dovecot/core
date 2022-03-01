@@ -169,43 +169,46 @@ auth_str_add_keyvalue(string_t *dest, const char *key, const char *value)
 static void
 auth_str_append_extra_fields(struct auth_request *request, string_t *dest)
 {
-	if (!auth_fields_is_empty(request->extra_fields)) {
+	const struct auth_request_fields *fields = &request->fields;
+
+	if (!auth_fields_is_empty(fields->extra_fields)) {
 		str_append_c(dest, '\t');
-		auth_fields_append(request->extra_fields, dest,
+		auth_fields_append(fields->extra_fields, dest,
 				   AUTH_FIELD_FLAG_HIDDEN, 0);
 	}
 
-	if (request->original_username != NULL &&
-	    null_strcmp(request->original_username, request->user) != 0 &&
-	    !auth_fields_exists(request->extra_fields, "original_user")) {
+	if (fields->original_username != NULL &&
+	    null_strcmp(fields->original_username, fields->user) != 0 &&
+	    !auth_fields_exists(fields->extra_fields, "original_user")) {
 		auth_str_add_keyvalue(dest, "original_user",
-				      request->original_username);
+				      fields->original_username);
 	}
-	if (request->master_user != NULL &&
-	    !auth_fields_exists(request->extra_fields, "auth_user"))
-		auth_str_add_keyvalue(dest, "auth_user", request->master_user);
+	if (fields->master_user != NULL &&
+	    !auth_fields_exists(fields->extra_fields, "auth_user"))
+		auth_str_add_keyvalue(dest, "auth_user", fields->master_user);
 	if (*request->set->anonymous_username != '\0' &&
-	    null_strcmp(request->user, request->set->anonymous_username) == 0) {
+	    null_strcmp(fields->user, request->set->anonymous_username) == 0) {
 		/* this is an anonymous login, either via ANONYMOUS
 		   SASL mechanism or simply logging in as the anonymous
 		   user via another mechanism */
 		str_append(dest, "\tanonymous");
 	}
 	if (!request->auth_only &&
-	    auth_fields_exists(request->extra_fields, "proxy")) {
+	    auth_fields_exists(fields->extra_fields, "proxy")) {
 		/* we're proxying */
-		if (!auth_fields_exists(request->extra_fields, "pass") &&
+		if (!auth_fields_exists(fields->extra_fields, "pass") &&
 		    request->mech_password != NULL) {
 			/* send back the password that was sent by user
 			   (not the password in passdb). */
 			auth_str_add_keyvalue(dest, "pass",
 					      request->mech_password);
 		}
-		if (request->master_user != NULL &&
-		    !auth_fields_exists(request->extra_fields, "master")) {
+		if (fields->master_user != NULL &&
+		    !auth_fields_exists(fields->extra_fields, "master") &&
+		    *fields->master_user != '\0') {
 			/* the master username needs to be forwarded */
 			auth_str_add_keyvalue(dest, "master",
-					      request->master_user);
+					      fields->master_user);
 		}
 	}
 }
@@ -231,7 +234,7 @@ auth_request_handle_failure(struct auth_request *request, const char *reply)
 	if (request->set->policy_report_after_auth)
 		auth_policy_report(request);
 
-	if (auth_fields_exists(request->extra_fields, "nodelay")) {
+	if (auth_fields_exists(request->fields.extra_fields, "nodelay")) {
 		/* passdb specifically requested not to delay the reply. */
 		handler->callback(reply, handler->conn);
 		auth_request_unref(&request);
@@ -272,19 +275,19 @@ auth_request_handler_reply_success_finish(struct auth_request *request)
 
 	/* sanitize these fields, since the login code currently assumes they
 	   are exactly in this format. */
-	auth_fields_booleanize(request->extra_fields, "nologin");
-	auth_fields_booleanize(request->extra_fields, "proxy");
+	auth_fields_booleanize(request->fields.extra_fields, "nologin");
+	auth_fields_booleanize(request->fields.extra_fields, "proxy");
 
 	str_printfa(str, "OK\t%u\tuser=", request->id);
-	str_append_tabescaped(str, request->user);
+	str_append_tabescaped(str, request->fields.user);
 	auth_str_append_extra_fields(request, str);
 
 	if (request->set->policy_report_after_auth)
 		auth_policy_report(request);
 
 	if (handler->master_callback == NULL ||
-	    auth_fields_exists(request->extra_fields, "nologin") ||
-	    auth_fields_exists(request->extra_fields, "proxy")) {
+	    auth_fields_exists(request->fields.extra_fields, "nologin") ||
+	    auth_fields_exists(request->fields.extra_fields, "proxy")) {
 		/* this request doesn't have to wait for master
 		   process to pick it up. delete it */
 		auth_request_handler_remove(handler, request);
@@ -299,19 +302,19 @@ auth_request_handler_reply_failure_finish(struct auth_request *request)
 	const char *code = NULL;
 	string_t *str = t_str_new(128);
 
-	auth_fields_remove(request->extra_fields, "nologin");
+	auth_fields_remove(request->fields.extra_fields, "nologin");
 
 	str_printfa(str, "FAIL\t%u", request->id);
-	if (request->user != NULL)
-		auth_str_add_keyvalue(str, "user", request->user);
-	else if (request->original_username != NULL) {
+	if (request->fields.user != NULL)
+		auth_str_add_keyvalue(str, "user", request->fields.user);
+	else if (request->fields.original_username != NULL) {
 		auth_str_add_keyvalue(str, "user", 
-				      request->original_username);
+				      request->fields.original_username);
 	}
 
 	if (request->internal_failure) {
 		code = AUTH_CLIENT_FAIL_CODE_TEMPFAIL;
-	} else if (request->master_user != NULL) {
+	} else if (request->fields.master_user != NULL) {
 		/* authentication succeeded, but we can't log in
 		   as the wanted user */
 		code = AUTH_CLIENT_FAIL_CODE_AUTHZFAILED;
@@ -333,7 +336,7 @@ auth_request_handler_reply_failure_finish(struct auth_request *request)
 		}
 	}
 
-	if (auth_fields_exists(request->extra_fields, "nodelay")) {
+	if (auth_fields_exists(request->fields.extra_fields, "nodelay")) {
 		/* this is normally a hidden field, need to add it explicitly */
 		str_append(str, "\tnodelay");
 	}
@@ -364,6 +367,8 @@ void auth_request_handler_reply(struct auth_request *request,
 				const void *auth_reply, size_t reply_size)
 {
 	struct auth_request_handler *handler = request->handler;
+
+	request->handler_pending_reply = FALSE;
 	handler->reply_callback(request, result, auth_reply, reply_size);
 }
 
@@ -400,7 +405,7 @@ auth_request_handler_default_reply_callback(struct auth_request *request,
 		if (reply_size > 0) {
 			str = t_str_new(MAX_BASE64_ENCODED_SIZE(reply_size));
 			base64_encode(auth_reply, reply_size, str);
-			auth_fields_add(request->extra_fields, "resp",
+			auth_fields_add(request->fields.extra_fields, "resp",
 					str_c(str), 0);
 		}
 		ret = auth_request_proxy_finish(request,
@@ -435,6 +440,15 @@ auth_request_handler_default_reply_continue(struct auth_request *request,
 {
 	auth_request_handler_reply(request, AUTH_CLIENT_RESULT_CONTINUE,
 				   reply, reply_size);
+}
+
+void auth_request_handler_abort(struct auth_request *request)
+{
+	i_assert(request->handler_pending_reply);
+
+	/* request destroyed while waiting for auth_request_penalty_finish()
+	   to be called. */
+	auth_request_handler_unref(&request->handler);
 }
 
 static void
@@ -522,7 +536,8 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	list = t_strsplit_tabescaped(args);
 	if (list[0] == NULL || list[1] == NULL ||
 	    str_to_uint(list[0], &id) < 0 || id == 0) {
-		i_error("BUG: Authentication client %u "
+		e_error(handler->conn->event,
+			"BUG: Authentication client %u "
 			"sent broken AUTH request", handler->client_pid);
 		return FALSE;
 	}
@@ -531,7 +546,8 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		mech = &mech_dovecot_token;
 		if (strcmp(list[1], mech->mech_name) != 0) {
 			/* unsupported mechanism */
-			i_error("BUG: Authentication client %u requested invalid "
+			e_error(handler->conn->event,
+				"BUG: Authentication client %u requested invalid "
 				"authentication mechanism %s (DOVECOT-TOKEN required)",
 				handler->client_pid, str_sanitize(list[1], MAX_MECH_NAME_LEN));
 			return FALSE;
@@ -541,7 +557,8 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 		mech = mech_register_find(auth_default->reg, list[1]);
 		if (mech == NULL) {
 			/* unsupported mechanism */
-			i_error("BUG: Authentication client %u requested unsupported "
+			e_error(handler->conn->event,
+				"BUG: Authentication client %u requested unsupported "
 				"authentication mechanism %s", handler->client_pid,
 				str_sanitize(list[1], MAX_MECH_NAME_LEN));
 			return FALSE;
@@ -578,22 +595,25 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	}
 
 	if (*list != NULL) {
-		i_error("BUG: Authentication client %u "
+		e_error(handler->conn->event,
+			"BUG: Authentication client %u "
 			"sent AUTH parameters after 'resp'",
 			handler->client_pid);
 		auth_request_unref(&request);
 		return FALSE;
 	}
 
-	if (request->service == NULL) {
-		i_error("BUG: Authentication client %u "
+	if (request->fields.service == NULL) {
+		e_error(handler->conn->event,
+			"BUG: Authentication client %u "
 			"didn't specify service in request",
 			handler->client_pid);
 		auth_request_unref(&request);
 		return FALSE;
 	}
 	if (hash_table_lookup(handler->requests, POINTER_CAST(id)) != NULL) {
-		i_error("BUG: Authentication client %u "
+		e_error(handler->conn->event,
+			"BUG: Authentication client %u "
 			"sent a duplicate ID %u", handler->client_pid, id);
 		auth_request_unref(&request);
 		return FALSE;
@@ -605,7 +625,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	hash_table_insert(handler->requests, POINTER_CAST(id), request);
 
 	if (request->set->ssl_require_client_cert &&
-	    !request->valid_client_cert) {
+	    !request->fields.valid_client_cert) {
 		/* we fail without valid certificate */
                 auth_request_handler_auth_fail(handler, request,
 			"Client didn't present valid SSL certificate");
@@ -614,13 +634,13 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 
 	 if (request->set->ssl_require_client_cert &&
 	     request->set->ssl_username_from_cert &&
-	     !request->cert_username) {
+	     !request->fields.cert_username) {
 		  auth_request_handler_auth_fail(handler, request,
 			 "SSL certificate didn't contain username");
 		 return TRUE;
 	 }
 
-	/* Handle initial respose */
+	/* Handle initial response */
 	if (initial_resp == NULL) {
 		/* No initial response */
 		request->initial_response = NULL;
@@ -647,7 +667,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 
 		/* Initial response encoded in Bas64 */
 		buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(len));
-		if (base64_decode(initial_resp, len, NULL, buf) < 0) {
+		if (base64_decode(initial_resp, len, buf) < 0) {
 			auth_request_handler_auth_fail_code(handler, request,
 				AUTH_CLIENT_FAIL_CODE_INVALID_BASE64,
 				"Invalid base64 data in initial response");
@@ -663,6 +683,7 @@ bool auth_request_handler_auth_begin(struct auth_request_handler *handler,
 	/* handler is referenced until auth_request_handler_reply()
 	   is called. */
 	handler->refcount++;
+	request->handler_pending_reply = TRUE;
 
 	/* before we start authenticating, see if we need to wait first */
 	auth_penalty_lookup(auth_penalty, request, auth_penalty_callback);
@@ -680,7 +701,8 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 
 	data = strchr(args, '\t');
 	if (data == NULL || str_to_uint(t_strdup_until(args, data), &id) < 0) {
-		i_error("BUG: Authentication client sent broken CONT request");
+		e_error(handler->conn->event,
+			"BUG: Authentication client sent broken CONT request");
 		return FALSE;
 	}
 	data++;
@@ -703,7 +725,7 @@ bool auth_request_handler_auth_continue(struct auth_request_handler *handler,
 
 	data_len = strlen(data);
 	buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(data_len));
-	if (base64_decode(data, data_len, NULL, buf) < 0) {
+	if (base64_decode(data, data_len, buf) < 0) {
 		auth_request_handler_auth_fail_code(handler, request,
 			AUTH_CLIENT_FAIL_CODE_INVALID_BASE64,
 			"Invalid base64 data in continued response");
@@ -721,17 +743,17 @@ static void auth_str_append_userdb_extra_fields(struct auth_request *request,
 						string_t *dest)
 {
 	str_append_c(dest, '\t');
-	auth_fields_append(request->userdb_reply, dest,
+	auth_fields_append(request->fields.userdb_reply, dest,
 			   AUTH_FIELD_FLAG_HIDDEN, 0);
 
-	if (request->master_user != NULL &&
-	    !auth_fields_exists(request->userdb_reply, "master_user")) {
+	if (request->fields.master_user != NULL &&
+	    !auth_fields_exists(request->fields.userdb_reply, "master_user")) {
 		auth_str_add_keyvalue(dest, "master_user",
-				      request->master_user);
+				      request->fields.master_user);
 	}
 	auth_str_add_keyvalue(dest, "auth_mech", request->mech->mech_name);
 	if (*request->set->anonymous_username != '\0' &&
-	    strcmp(request->user, request->set->anonymous_username) == 0) {
+	    strcmp(request->fields.user, request->set->anonymous_username) == 0) {
 		/* this is an anonymous login, either via ANONYMOUS
 		   SASL mechanism or simply logging in as the anonymous
 		   user via another mechanism */
@@ -741,18 +763,20 @@ static void auth_str_append_userdb_extra_fields(struct auth_request *request,
 	if (request->request_auth_token &&
 	    request->session_pid != (pid_t)-1) {
 		const char *auth_token =
-			auth_token_get(request->service,
+			auth_token_get(request->fields.service,
 				       dec2str(request->session_pid),
-				       request->user,
-				       request->session_id);
+				       request->fields.user,
+				       request->fields.session_id);
 		auth_str_add_keyvalue(dest, "auth_token", auth_token);
 	}
-	if (request->master_user != NULL) {
-		auth_str_add_keyvalue(dest, "auth_user", request->master_user);
-	} else if (request->original_username != NULL &&
-		   strcmp(request->original_username, request->user) != 0) {
+	if (request->fields.master_user != NULL) {
 		auth_str_add_keyvalue(dest, "auth_user",
-				      request->original_username);
+				      request->fields.master_user);
+	} else if (request->fields.original_username != NULL &&
+		   strcmp(request->fields.original_username,
+			  request->fields.user) != 0) {
+		auth_str_add_keyvalue(dest, "auth_user",
+				      request->fields.original_username);
 	}
 }
 
@@ -775,7 +799,8 @@ static void userdb_callback(enum userdb_result result,
 	case USERDB_RESULT_INTERNAL_FAILURE:
 		str_printfa(str, "FAIL\t%u", request->id);
 		if (request->userdb_lookup_tempfailed) {
-			value = auth_fields_find(request->userdb_reply, "reason");
+			value = auth_fields_find(request->fields.userdb_reply,
+						 "reason");
 			if (value != NULL)
 				auth_str_add_keyvalue(str, "reason", value);
 		}
@@ -785,7 +810,7 @@ static void userdb_callback(enum userdb_result result,
 		break;
 	case USERDB_RESULT_OK:
 		str_printfa(str, "USER\t%u\t", request->id);
-		str_append_tabescaped(str, request->user);
+		str_append_tabescaped(str, request->fields.user);
 		auth_str_append_userdb_extra_fields(request, str);
 		break;
 	}
@@ -817,7 +842,7 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 
 	request = hash_table_lookup(handler->requests, POINTER_CAST(client_id));
 	if (request == NULL) {
-		auth_master_log_error(master, "Master request %u.%u not found",
+		e_error(master->event, "Master request %u.%u not found",
 			handler->client_pid, client_id);
 		return auth_master_request_failed(handler, master, id);
 	}
@@ -843,7 +868,7 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 	if (request->session_pid != (pid_t)-1 &&
 	    net_getunixcred(master->fd, &cred) == 0 &&
 	    cred.pid != (pid_t)-1 && request->session_pid != cred.pid) {
-		auth_master_log_error(master,
+		e_error(master->event,
 			"Session pid %ld provided by master for request %u.%u "
 			"did not match peer credentials (pid=%ld, uid=%ld)",
 			(long)request->session_pid,
@@ -853,8 +878,8 @@ bool auth_request_handler_master_request(struct auth_request_handler *handler,
 	}
 
 	if (request->state != AUTH_REQUEST_STATE_FINISHED ||
-	    !request->successful) {
-		auth_master_log_error(master,
+	    !request->fields.successful) {
+		e_error(master->event,
 			"Master requested unfinished authentication request "
 			"%u.%u", handler->client_pid, client_id);
 		handler->master_callback(t_strdup_printf("FAIL\t%u", id),

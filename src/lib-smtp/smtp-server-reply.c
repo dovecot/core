@@ -627,6 +627,8 @@ static int smtp_server_reply_send_real(struct smtp_server_reply *reply)
 	}
 
 	if (o_stream_send(output, str_data(textbuf), str_len(textbuf)) < 0) {
+		e_debug(reply->event, "Send failed: %s",
+			o_stream_get_disconnect_reason(output));
 		smtp_server_connection_handle_output_error(conn);
 		return -1;
 	}
@@ -821,7 +823,7 @@ void smtp_server_reply_ehlo_add_size(struct smtp_server_reply *reply)
 	if ((caps & SMTP_CAPABILITY_SIZE) == 0)
 		return;
 
-	if (cap_size > 0 && cap_size != (uoff_t)-1) {
+	if (cap_size > 0 && cap_size != UOFF_T_MAX) {
 		smtp_server_reply_ehlo_add_param(reply,
 			"SIZE", "%"PRIuUOFF_T, cap_size);
 	} else {
@@ -854,7 +856,7 @@ void smtp_server_reply_ehlo_add_vrfy(struct smtp_server_reply *reply)
 void smtp_server_reply_ehlo_add_xclient(struct smtp_server_reply *reply)
 {
 	static const char *base_fields =
-		"ADDR PORT PROTO HELO LOGIN TTL TIMEOUT";
+		"ADDR PORT PROTO HELO LOGIN SESSION TTL TIMEOUT";
 	struct smtp_server_cmd_ctx *cmd = &reply->command->context;
 	struct smtp_server_connection *conn = cmd->conn;
 

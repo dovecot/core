@@ -1,15 +1,18 @@
 /* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "ostream.h"
 #include "mail-storage.h"
 #include "mail-namespace.h"
 #include "mail-search.h"
+#include "doveadm-print.h"
 #include "doveadm-mail.h"
 #include "doveadm-mail-iter.h"
 
 struct doveadm_mail_iter {
 	struct doveadm_mail_cmd_context *ctx;
 	struct mail_search_args *search_args;
+	enum doveadm_mail_iter_flags flags;
 
 	struct mailbox *box;
 	struct mailbox_transaction_context *t;
@@ -22,7 +25,7 @@ int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
 			   struct mail_search_args *search_args,
 			   enum mail_fetch_field wanted_fields,
 			   const char *const *wanted_headers,
-			   bool readonly,
+			   enum doveadm_mail_iter_flags flags,
 			   struct doveadm_mail_iter **iter_r)
 {
 	struct doveadm_mail_iter *iter;
@@ -31,13 +34,14 @@ int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
 	enum mail_error error;
 
 	enum mailbox_flags readonly_flag =
-		readonly ? MAILBOX_FLAG_READONLY : 0;
+		(flags & DOVEADM_MAIL_ITER_FLAG_READONLY) != 0 ?
+		MAILBOX_FLAG_READONLY : 0;
 
 	iter = i_new(struct doveadm_mail_iter, 1);
 	iter->ctx = ctx;
+	iter->flags = flags;
 	iter->box = mailbox_alloc(info->ns->list, info->vname,
 				  MAILBOX_FLAG_IGNORE_ACLS | readonly_flag);
-	mailbox_set_reason(iter->box, ctx->cmd->name);
 	iter->search_args = search_args;
 
 	if (mailbox_sync(iter->box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
@@ -155,6 +159,11 @@ bool doveadm_mail_iter_next(struct doveadm_mail_iter *iter,
 	if (iter->search_ctx == NULL)
 		return FALSE;
 	if (doveadm_is_killed()) {
+		iter->killed = TRUE;
+		return FALSE;
+	}
+	if ((iter->flags & DOVEADM_MAIL_ITER_FLAG_STOP_WITH_CLIENT) != 0 &&
+	    doveadm_print_ostream->stream_errno != 0) {
 		iter->killed = TRUE;
 		return FALSE;
 	}

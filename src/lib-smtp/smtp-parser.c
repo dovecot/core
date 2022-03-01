@@ -121,8 +121,8 @@ void smtp_parser_init(struct smtp_parser *parser,
 	pool_t pool, const char *data)
 {
 	parser->pool = pool;
-	parser->begin = parser->cur = (unsigned char *)data;
-	parser->end = (unsigned char *)data + strlen(data);
+	parser->begin = parser->cur = (const unsigned char *)data;
+	parser->end = parser->begin + strlen(data);
 	parser->error = NULL;
 }
 

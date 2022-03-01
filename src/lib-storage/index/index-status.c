@@ -205,7 +205,7 @@ get_metadata_cache_fields(struct mailbox *box,
 	cache_fields = t_new(ARRAY_TYPE(mailbox_cache_field), 1);
 	t_array_init(cache_fields, count);
 	for (i = 0; i < count; i++) {
-		dec = fields[i].decision & ~MAIL_CACHE_DECISION_FORCED;
+		dec = fields[i].decision & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED);
 		if (dec != MAIL_CACHE_DECISION_NO) {
 			cf = array_append_space(cache_fields);
 			cf->name = fields[i].name;
@@ -309,7 +309,7 @@ int index_mailbox_get_metadata(struct mailbox *box,
 		metadata_r->backend_ns_prefix = "";
 		metadata_r->backend_ns_type =
 			mailbox_list_get_namespace(box->list)->type;
-		items &= ~MAILBOX_METADATA_BACKEND_NAMESPACE;
+		items &= ENUM_NEGATE(MAILBOX_METADATA_BACKEND_NAMESPACE);
 	}
 	if (items == 0)
 		return 0;

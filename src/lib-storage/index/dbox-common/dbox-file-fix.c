@@ -177,7 +177,7 @@ dbox_file_find_next_magic(struct dbox_file *file, uoff_t *offset_r, bool *pre_r)
 			continue;
 		}
 
-		pre_offset = (uoff_t)-1;
+		pre_offset = UOFF_T_MAX;
 		match = dbox_file_match_pre_magic(input, &pre_offset, &need_bytes);
 		if (match < 0) {
 			/* more data needed */
@@ -201,14 +201,14 @@ dbox_file_find_next_magic(struct dbox_file *file, uoff_t *offset_r, bool *pre_r)
 		}
 		if (match > 0) {
 			post_offset = input->v_offset;
-			if (pre_offset == (uoff_t)-1 ||
+			if (pre_offset == UOFF_T_MAX ||
 			    post_offset < pre_offset) {
 				pre_offset = post_offset;
 				*pre_r = FALSE;
 			}
 		}
 
-		if (pre_offset != (uoff_t)-1) {
+		if (pre_offset != UOFF_T_MAX) {
 			*offset_r = pre_offset;
 			ret = 1;
 			break;
@@ -351,7 +351,7 @@ dbox_file_fix_write_stream(struct dbox_file *file, uoff_t start_offset,
 					return -1;
 				dbox_file_skip_broken_header(file);
 				body_offset = file->input->v_offset;
-				msg_size = (uoff_t)-1;
+				msg_size = UOFF_T_MAX;
 			} else {
 				i_stream_skip(file->input,
 					      file->msg_header_size);
@@ -373,7 +373,7 @@ dbox_file_fix_write_stream(struct dbox_file *file, uoff_t start_offset,
 			} else {
 				/* msg header is broken. write our own. */
 				i_stream_seek(file->input, body_offset);
-				if (msg_size != (uoff_t)-1) {
+				if (msg_size != UOFF_T_MAX) {
 					/* previous magic find might have
 					   skipped too much. seek back and
 					   make sure */

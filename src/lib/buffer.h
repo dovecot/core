@@ -2,9 +2,13 @@
 #define BUFFER_H
 
 struct buffer {
-	const void *data;
-	const size_t used;
-	void *priv[5];
+	union {
+		struct {
+			const void *data;
+			const size_t used;
+		};
+		void *priv[9];
+	};
 };
 
 /* WARNING: Be careful with functions that return pointers to data.
@@ -18,17 +22,23 @@ void buffer_create_from_data(buffer_t *buffer, void *data, size_t size);
 /* Create a non-modifiable buffer from given data. */
 void buffer_create_from_const_data(buffer_t *buffer,
 				   const void *data, size_t size);
-#if defined(__GNUC__) && (__GNUC__ * 100 + __GNUC_MINOR__) > 401
-#define buffer_create_from_data(b,d,s) ({				           \
-	(void)COMPILE_ERROR_IF_TRUE(__builtin_object_size((d),1) < ((s)>0?(s):1)); \
-	buffer_create_from_data((b), (d), (s)); })
-#define buffer_create_from_const_data(b,d,s) ({				           \
-	(void)COMPILE_ERROR_IF_TRUE(__builtin_object_size((d),1) < ((s)>0?(s):1)); \
-	buffer_create_from_const_data((b), (d), (s)); })
-#endif
+#define buffer_create_from_data(b,d,s) \
+	TYPE_CHECKS(void, \
+	COMPILE_ERROR_IF_TRUE(__builtin_object_size((d),1) < ((s)>0?(s):1)), \
+	buffer_create_from_data((b), (d), (s)))
+#define buffer_create_from_const_data(b,d,s) \
+	TYPE_CHECKS(void, \
+	COMPILE_ERROR_IF_TRUE(__builtin_object_size((d),1) < ((s)>0?(s):1)), \
+	buffer_create_from_const_data((b), (d), (s)))
+
 /* Creates a dynamically growing buffer. Whenever write would exceed the
    current size it's grown. */
 buffer_t *buffer_create_dynamic(pool_t pool, size_t init_size);
+/* Create a dynamically growing buffer with a maximum size. Writes past the
+   maximum size will i_panic(). Internally allow it to grow max_size+1 so
+   str_c() NUL can be used. */
+buffer_t *buffer_create_dynamic_max(pool_t pool, size_t init_size,
+				    size_t max_size);
 
 #define t_buffer_create(init_size) \
 	buffer_create_dynamic(pool_datastack_create(), (init_size))
@@ -73,11 +83,11 @@ void buffer_insert_zero(buffer_t *buf, size_t pos, size_t data_size);
 
 /* Copy data from buffer to another. The buffers may be same in which case
    it's internal copying, possibly with overlapping positions (ie. memmove()
-   like functionality). copy_size may be set to (size_t)-1 to copy the rest of
+   like functionality). copy_size may be set to SIZE_MAX to copy the rest of
    the used data in buffer. */
 void buffer_copy(buffer_t *dest, size_t dest_pos,
 		 const buffer_t *src, size_t src_pos, size_t copy_size);
-/* Append data to buffer from another. copy_size may be set to (size_t)-1 to
+/* Append data to buffer from another. copy_size may be set to SIZE_MAX to
    copy the rest of the used data in buffer. */
 void buffer_append_buf(buffer_t *dest, const buffer_t *src,
 		       size_t src_pos, size_t copy_size);
@@ -161,5 +171,29 @@ void buffer_verify_pool(buffer_t *buf);
 
 */
 void buffer_truncate_rshift_bits(buffer_t *buf, size_t bits);
+
+enum buffer_append_result {
+	/* Stream reached EOF successfully */
+	BUFFER_APPEND_OK = 0,
+	/* Error was encountered */
+	BUFFER_APPEND_READ_ERROR = -1,
+	/* Stream is non-blocking, call again later */
+	BUFFER_APPEND_READ_MORE = -2,
+	/* Stream was consumed up to max_read_size */
+	BUFFER_APPEND_READ_MAX_SIZE = -3,
+};
+
+/* Attempt to fully read a stream. Since this can be a network stream, it
+   can return BUFFER_APPEND_READ_MORE, which means you need to call this
+   function again. It is caller's responsibility to keep track of
+   max_read_size in case more reading is needed. */
+enum buffer_append_result
+buffer_append_full_istream(buffer_t *buf, struct istream *is, size_t max_read_size,
+			   const char **error_r);
+
+/* Attempt to fully read a file. BUFFER_APPEND_READ_MORE is never returned. */
+enum buffer_append_result
+buffer_append_full_file(buffer_t *buf, const char *file, size_t max_read_size,
+			const char **error_r);
 
 #endif

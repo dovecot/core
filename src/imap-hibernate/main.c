@@ -3,12 +3,17 @@
 #include "lib.h"
 #include "restrict-access.h"
 #include "master-service.h"
+#include "master-admin-client.h"
 #include "master-service-settings.h"
 #include "imap-client.h"
 #include "imap-hibernate-client.h"
 #include "imap-master-connection.h"
 
 static bool debug = FALSE;
+
+static const struct master_admin_client_callback admin_callbacks = {
+	.cmd_kick_user = imap_clients_kick,
+};
 
 static void client_connected(struct master_service_connection *conn)
 {
@@ -42,6 +47,7 @@ int main(int argc, char *argv[])
 	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
 
+	master_admin_clients_init(&admin_callbacks);
 	imap_clients_init();
 	imap_master_connections_init();
 	imap_hibernate_clients_init();

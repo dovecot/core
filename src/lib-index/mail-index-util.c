@@ -95,7 +95,7 @@ bool mail_index_seq_array_lookup(const ARRAY_TYPE(seq_array) *array,
 void mail_index_seq_array_alloc(ARRAY_TYPE(seq_array) *array,
 				size_t record_size)
 {
-	size_t aligned_record_size = (record_size + 3) & ~3;
+	size_t aligned_record_size = (record_size + 3) & ~3U;
 
 	i_assert(!array_is_created(array));
 
@@ -112,7 +112,7 @@ bool mail_index_seq_array_add(ARRAY_TYPE(seq_array) *array, uint32_t seq,
 	unsigned int idx, aligned_record_size;
 
 	/* records need to be 32bit aligned */
-	aligned_record_size = (record_size + 3) & ~3;
+	aligned_record_size = (record_size + 3) & ~3U;
 
 	if (!array_is_created(array))
 		mail_index_seq_array_alloc(array, record_size);

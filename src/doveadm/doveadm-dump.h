@@ -6,7 +6,7 @@
 struct doveadm_cmd_dump {
 	const char *name;
 	bool (*test)(const char *path);
-	doveadm_command_t *cmd;
+	void (*cmd)(const char *path, const char *const *args);
 };
 
 extern struct doveadm_cmd_dump doveadm_cmd_dump_dbox;

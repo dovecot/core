@@ -27,12 +27,10 @@
 
 struct lmtp_local_recipient {
 	struct lmtp_recipient *rcpt;
-	char *session_id;
-
-	char *detail;
 
 	struct mail_storage_service_user *service_user;
 	struct anvil_query *anvil_query;
+	guid_128_t anvil_conn_guid;
 
 	struct lmtp_local_recipient *duplicate;
 
@@ -100,9 +98,12 @@ lmtp_local_rcpt_anvil_disconnect(struct lmtp_local_recipient *llrcpt)
 	llrcpt->anvil_connect_sent = FALSE;
 
 	input = mail_storage_service_user_get_input(llrcpt->service_user);
-	master_service_anvil_send(master_service, t_strconcat(
-		"DISCONNECT\t", my_pid, "\t", master_service_get_name(master_service),
-		"/", input->username, "\n", NULL));
+	struct master_service_anvil_session anvil_session = {
+		.username = input->username,
+		.service_name = master_service_get_name(master_service),
+	};
+	master_service_anvil_disconnect(master_service, &anvil_session,
+					llrcpt->anvil_conn_guid);
 }
 
 static void
@@ -189,9 +190,13 @@ lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *llrcpt)
 			smtp_address_encode(address), error);
 		ret = -1;
 	} else {
+		/* Set the log prefix for the user. The default log prefix is
+		   automatically restored later when user context gets
+		   deactivated. */
+		i_set_failure_prefix("%s",
+			mail_storage_service_user_get_log_prefix(llrcpt->service_user));
 		ns = mail_namespace_find_inbox(user->namespaces);
 		box = mailbox_alloc(ns->list, "INBOX", 0);
-		mailbox_set_reason(box, "over-quota check");
 		ret = mailbox_get_status(box, STATUS_CHECK_OVER_QUOTA, &status);
 		if (ret < 0) {
 			error = mailbox_get_last_error(box, &mail_error);
@@ -208,6 +213,7 @@ lmtp_local_rcpt_check_quota(struct lmtp_local_recipient *llrcpt)
 		}
 		mailbox_free(&box);
 		mail_user_deinit(&user);
+		mail_storage_service_io_deactivate_user(llrcpt->service_user);
 	}
 
 	if (ret < 0 && !smtp_server_recipient_is_replied(rcpt)) {
@@ -250,10 +256,8 @@ lmtp_local_rcpt_anvil_finish(struct lmtp_local_recipient *llrcpt)
 }
 
 static void
-lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
+lmtp_local_rcpt_anvil_cb(const char *reply, struct lmtp_local_recipient *llrcpt)
 {
-	struct lmtp_local_recipient *llrcpt =
-		(struct lmtp_local_recipient *)context;
 	struct client *client = llrcpt->rcpt->client;
 	struct smtp_server_recipient *rcpt = llrcpt->rcpt->rcpt;
 	const struct mail_storage_service_input *input;
@@ -271,39 +275,27 @@ lmtp_local_rcpt_anvil_cb(const char *reply, void *context)
 			rcpt, 451, "4.3.0",
 			"Too many concurrent deliveries for user");
 	} else if (lmtp_local_rcpt_anvil_finish(llrcpt)) {
-		llrcpt->anvil_connect_sent = TRUE;
 		input = mail_storage_service_user_get_input(llrcpt->service_user);
-		master_service_anvil_send(master_service, t_strconcat(
-			"CONNECT\t", my_pid, "\t", master_service_get_name(master_service),
-			"/", input->username, "\n", NULL));
+		struct master_service_anvil_session anvil_session = {
+			.username = input->username,
+			.service_name = master_service_get_name(master_service),
+		};
+		if (master_service_anvil_connect(master_service, &anvil_session,
+						 FALSE, llrcpt->anvil_conn_guid))
+			llrcpt->anvil_connect_sent = TRUE;
 	}
 }
 
-int lmtp_local_rcpt(struct client *client, struct smtp_server_cmd_ctx *cmd,
-		    struct lmtp_recipient *lrcpt, const char *username,
-		    const char *detail)
+int lmtp_local_rcpt(struct client *client,
+		    struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+		    struct lmtp_recipient *lrcpt)
 {
-	struct smtp_server_connection *conn = cmd->conn;
 	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
-	struct smtp_server_transaction *trans;
 	struct lmtp_local_recipient *llrcpt;
 	struct mail_storage_service_input input;
 	struct mail_storage_service_user *service_user;
-	const char *session_id, *error = NULL;
+	const char *error = NULL, *username = lrcpt->username;
 	int ret = 0;
-
-	trans = smtp_server_connection_get_transaction(conn);
-	i_assert(trans != NULL); /* MAIL command is synchronous */
-
-	/* Use a unique session_id for each mail delivery. This is especially
-	   important for stats process to not see duplicate sessions. */
-	client->state.session_id_seq++;
-	if (client->state.session_id_seq == 1)
-		session_id = trans->id;
-	else {
-		session_id = t_strdup_printf("%s:%u",
-			trans->id, client->state.session_id_seq);
-	}
 
 	i_zero(&input);
 	input.module = input.service = "lmtp";
@@ -312,15 +304,13 @@ int lmtp_local_rcpt(struct client *client, struct smtp_server_cmd_ctx *cmd,
 	input.remote_ip = client->remote_ip;
 	input.local_port = client->local_port;
 	input.remote_port = client->remote_port;
-	input.session_id = session_id;
+	input.session_id = lrcpt->session_id;
 	input.conn_ssl_secured =
 		smtp_server_connection_is_ssl_secured(client->conn);
 	input.conn_secured = input.conn_ssl_secured ||
 		smtp_server_connection_is_trusted(client->conn);
 	input.forward_fields = lrcpt->forward_fields;
-
-	event_add_str(rcpt->event, "session", session_id);
-	input.parent_event = rcpt->event;
+	input.event_parent = rcpt->event;
 
 	ret = mail_storage_service_lookup(storage_service, &input,
 					  &service_user, &error);
@@ -343,9 +333,7 @@ int lmtp_local_rcpt(struct client *client, struct smtp_server_cmd_ctx *cmd,
 
 	llrcpt = p_new(rcpt->pool, struct lmtp_local_recipient, 1);
 	llrcpt->rcpt = lrcpt;
-	llrcpt->detail = p_strdup(rcpt->pool, detail);
 	llrcpt->service_user = service_user;
-	llrcpt->session_id = p_strdup(rcpt->pool, session_id);
 
 	lrcpt->type = LMTP_RECIPIENT_TYPE_LOCAL;
 	lrcpt->backend_context = llrcpt;
@@ -365,9 +353,10 @@ int lmtp_local_rcpt(struct client *client, struct smtp_server_cmd_ctx *cmd,
 		const struct mail_storage_service_input *input =
 			mail_storage_service_user_get_input(llrcpt->service_user);
 		const char *query = t_strconcat("LOOKUP\t",
-			master_service_get_name(master_service),
-			"/", str_tabescape(input->username), NULL);
+			str_tabescape(input->username), "\t",
+			master_service_get_name(master_service), "\t", NULL);
 		llrcpt->anvil_query = anvil_client_query(anvil, query,
+			ANVIL_DEFAULT_LOOKUP_TIMEOUT_MSECS,
 			lmtp_local_rcpt_anvil_cb, llrcpt);
 		return 0;
 	}
@@ -437,7 +426,6 @@ lmtp_local_deliver(struct lmtp_local *local,
 	const struct var_expand_table *var_table;
 	void **sets;
 	const char *line, *error, *username;
-	string_t *str;
 	int ret;
 
 	input = mail_storage_service_user_get_input(service_user);
@@ -463,7 +451,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 	}
 
 	i_zero(&lldctx);
-	lldctx.session_id = llrcpt->session_id;
+	lldctx.session_id = lrcpt->session_id;
 	lldctx.src_mail = src_mail;
 	lldctx.session = session;
 
@@ -472,7 +460,6 @@ lmtp_local_deliver(struct lmtp_local *local,
 	lldctx.delivery_time_started = ioloop_timeval;
 
 	client_update_data_state(client, username);
-	i_set_failure_prefix("lmtp(%s, %s): ", my_pid, username);
 	if (mail_storage_service_next(storage_service, service_user,
 				      &rcpt_user, &error) < 0) {
 		e_error(rcpt->event, "Failed to initialize user: %s", error);
@@ -503,29 +490,22 @@ lmtp_local_deliver(struct lmtp_local *local,
 		return -1;
 	}
 
-	str = t_str_new(256);
-	if (var_expand_with_funcs(str, rcpt_user->set->mail_log_prefix,
-				  var_table, mail_user_var_expand_func_table,
-				  rcpt_user, &error) <= 0) {
-		e_error(rcpt->event, "Failed to expand mail_log_prefix=%s: %s",
-			rcpt_user->set->mail_log_prefix, error);
-		smtp_server_recipient_reply(rcpt, 451, "4.3.0",
-					    "Temporary internal error");
-		return -1;
-	}
-	i_set_failure_prefix("%s", str_c(str));
+	/* Set the log prefix for the user. The default log prefix is
+	   automatically restored later when user context gets deactivated. */
+	i_set_failure_prefix("%s",
+		mail_storage_service_user_get_log_prefix(service_user));
 
 	lldctx.rcpt_user = rcpt_user;
 	lldctx.smtp_set = smtp_set;
 	lldctx.lda_set = lda_set;
 
-	if (*llrcpt->detail == '\0' ||
+	if (*lrcpt->detail == '\0' ||
 	    !client->lmtp_set->lmtp_save_to_detail_mailbox)
 		lldctx.rcpt_default_mailbox = "INBOX";
 	else {
 		ns = mail_namespace_find_inbox(rcpt_user->namespaces);
 		lldctx.rcpt_default_mailbox =
-			t_strconcat(ns->prefix, llrcpt->detail, NULL);
+			t_strconcat(ns->prefix, lrcpt->detail, NULL);
 	}
 
 	ret = client->v.local_deliver(client, lrcpt, cmd, trans, &lldctx);
@@ -667,7 +647,6 @@ lmtp_local_deliver_to_rcpts(struct lmtp_local *local,
 		ret = lmtp_local_deliver(local, cmd,
 			trans, llrcpt, src_mail, session);
 		client_update_data_state(client, NULL);
-		i_set_failure_prefix("lmtp(%s): ", my_pid);
 
 		/* succeeded and mail_user is not saved in first_saved_mail */
 		if ((ret == 0 &&
@@ -677,16 +656,20 @@ lmtp_local_deliver_to_rcpts(struct lmtp_local *local,
 		    (ret != 0 && local->rcpt_user != NULL)) {
 			if (i == (count - 1))
 				mail_user_autoexpunge(local->rcpt_user);
+			mail_storage_service_io_deactivate_user(local->rcpt_user->_service_user);
 			mail_user_deinit(&local->rcpt_user);
 		} else if (ret == 0) {
 			/* use the first saved message to save it elsewhere too.
 			   this might allow hard linking the files.
 			   mail_user is saved in first_saved_mail,
 			   will be unreferenced later on */
+			mail_storage_service_io_deactivate_user(local->rcpt_user->_service_user);
 			local->rcpt_user = NULL;
 			src_mail = local->first_saved_mail;
 			first_uid = geteuid();
 			i_assert(first_uid != 0);
+		} else if (local->rcpt_user != NULL) {
+			mail_storage_service_io_deactivate_user(local->rcpt_user->_service_user);
 		}
 	}
 	return first_uid;
@@ -759,10 +742,12 @@ void lmtp_local_data(struct client *client,
 				i_fatal("seteuid() failed: %m");
 		}
 
+		mail_storage_service_io_activate_user(user->_service_user);
 		mail_free(&mail);
 		mailbox_transaction_rollback(&trans);
 		mailbox_free(&box);
 		mail_user_autoexpunge(user);
+		mail_storage_service_io_deactivate_user(user->_service_user);
 		mail_user_deinit(&user);
 	}
 

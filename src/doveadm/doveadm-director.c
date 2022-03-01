@@ -62,7 +62,7 @@ static void director_connect(struct director_context *ctx)
 	fd = doveadm_connect(ctx->socket_path);
 	net_set_nonblock(fd, FALSE);
 
-	ctx->input = i_stream_create_fd_autoclose(&fd, (size_t)-1);
+	ctx->input = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
 	director_send(ctx, DIRECTOR_HANDSHAKE);
 
 	alarm(5);

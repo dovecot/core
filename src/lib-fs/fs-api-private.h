@@ -30,6 +30,7 @@ struct fs_vfuncs {
 	int (*init)(struct fs *fs, const char *args,
 		    const struct fs_settings *set, const char **error_r);
 	void (*deinit)(struct fs *fs);
+	void (*free)(struct fs *fs);
 
 	enum fs_properties (*get_properties)(struct fs *fs);
 
@@ -140,6 +141,7 @@ struct fs_file {
 	bool read_or_prefetch_counted:1;
 	bool lookup_metadata_counted:1;
 	bool stat_counted:1;
+	bool copy_counted:1;
 	bool istream_open:1;
 	bool last_error_changed:1;
 };
@@ -154,6 +156,7 @@ struct fs_iter {
 
 	struct fs *fs;
 	struct event *event;
+	char *path;
 	enum fs_iter_flags flags;
 	struct timeval start_time;
 	char *last_error;
@@ -196,7 +199,8 @@ int fs_default_copy(struct fs_file *src, struct fs_file *dest);
 void fs_file_timing_end(struct fs_file *file, enum fs_op op);
 
 struct fs_file *
-fs_file_init_parent(struct fs_file *parent, const char *path, int mode_flags);
+fs_file_init_parent(struct fs_file *parent, const char *path,
+		    enum fs_open_mode mode, enum fs_open_flags flags);
 struct fs_iter *
 fs_iter_init_parent(struct fs_iter *parent,
 		    const char *path, enum fs_iter_flags flags);

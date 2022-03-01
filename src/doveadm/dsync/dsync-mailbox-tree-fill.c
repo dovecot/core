@@ -343,9 +343,16 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 
 	/* assign namespace to its root, so it gets copied to children */
 	if (ns->prefix_len > 0) {
-		node = dsync_mailbox_tree_get(tree,
-			t_strndup(ns->prefix, ns->prefix_len-1));
+		const char *vname = t_strndup(ns->prefix, ns->prefix_len-1);
+		node = dsync_mailbox_tree_get(tree, vname);
 		node->ns = ns;
+
+		struct mailbox_info ns_info = {
+			.vname = vname,
+			.ns = ns,
+		};
+		if (dsync_mailbox_tree_add(tree, &ns_info, box_guid, error_r) < 0)
+			return -1;
 	} else {
 		tree->root.ns = ns;
 	}

@@ -84,22 +84,21 @@ void auth_master_request_callback(const char *reply, struct auth_master_connecti
 	o_stream_nsendv(conn->output, iov, 2);
 }
 
-void auth_master_log_error(struct auth_master_connection *conn,
-			   const char *fmt, ...)
+static const char *
+auth_master_event_log_callback(struct auth_master_connection *conn,
+			       enum log_type log_type ATTR_UNUSED,
+			       const char *message)
 {
-	va_list args;
 	string_t *str = t_str_new(128);
 
-	str_printfa(str, "created %d msecs ago",
+	str_printfa(str, "auth-master client: %s (created %d msecs ago", message,
 		    timeval_diff_msecs(&ioloop_timeval, &conn->create_time));
 	if (conn->handshake_time.tv_sec != 0) {
 		str_printfa(str, ", handshake %d msecs ago",
 			    timeval_diff_msecs(&ioloop_timeval, &conn->create_time));
 	}
-
-	va_start(args, fmt);
-	i_error("%s (%s)", t_strdup_vprintf(fmt, args), str_c(str));
-	va_end(args);
+	str_append_c(str, ')');
+	return str_c(str);
 }
 
 static bool
@@ -117,34 +116,33 @@ master_input_request(struct auth_master_connection *conn, const char *args)
 	    str_to_uint(list[0], &id) < 0 ||
 	    str_to_uint(list[1], &client_pid) < 0 ||
 	    str_to_uint(list[2], &client_id) < 0) {
-		auth_master_log_error(conn, "BUG: Master sent broken REQUEST");
+		e_error(conn->event, "BUG: Master sent broken REQUEST");
 		return FALSE;
 	}
 
 	buffer_create_from_data(&buf, cookie, sizeof(cookie));
 	if (hex_to_binary(list[3], &buf) < 0) {
-		auth_master_log_error(conn,
-			"BUG: Master sent broken REQUEST cookie");
+		e_error(conn->event, "BUG: Master sent broken REQUEST cookie");
 		return FALSE;
 	}
 	params = list + 4;
 
 	client_conn = auth_client_connection_lookup(client_pid);
 	if (client_conn == NULL) {
-		auth_master_log_error(conn,
+		e_error(conn->event,
 			"Master requested auth for nonexistent client %u",
 			client_pid);
 		o_stream_nsend_str(conn->output,
 				   t_strdup_printf("FAIL\t%u\n", id));
 	} else if (!mem_equals_timing_safe(client_conn->cookie, cookie, sizeof(cookie))) {
-		auth_master_log_error(conn,
+		e_error(conn->event,
 			"Master requested auth for client %u with invalid cookie",
 			client_pid);
 		o_stream_nsend_str(conn->output,
 				   t_strdup_printf("FAIL\t%u\n", id));
 	} else if (!auth_request_handler_master_request(
 			client_conn->request_handler, conn, id, client_id, params)) {
-		auth_master_log_error(conn,
+		e_error(conn->event,
 			"Master requested auth for non-login client %u",
 			client_pid);
 		o_stream_nsend_str(conn->output,
@@ -162,8 +160,7 @@ master_input_cache_flush(struct auth_master_connection *conn, const char *args)
 	/* <id> [<user> [<user> [..]] */
 	list = t_strsplit_tabescaped(args);
 	if (list[0] == NULL) {
-		auth_master_log_error(conn,
-			"BUG: doveadm sent broken CACHE-FLUSH");
+		e_error(conn->event, "BUG: doveadm sent broken CACHE-FLUSH");
 		return FALSE;
 	}
 
@@ -194,11 +191,11 @@ master_input_auth_request(struct auth_master_connection *conn, const char *args,
 	list = t_strsplit_tabescaped(args);
 	if (list[0] == NULL || list[1] == NULL ||
 	    str_to_uint(list[0], &id) < 0) {
-		auth_master_log_error(conn, "BUG: Master sent broken %s", cmd);
+		e_error(conn->event, "BUG: Master sent broken %s", cmd);
 		return -1;
 	}
 
-	auth_request = auth_request_new_dummy();
+	auth_request = auth_request_new_dummy(auth_event);
 	auth_request->id = id;
 	auth_request->master = conn;
 	auth_master_connection_ref(conn);
@@ -217,8 +214,8 @@ master_input_auth_request(struct auth_master_connection *conn, const char *args,
 		(void)auth_request_import_info(auth_request, name, arg);
 	}
 
-	if (auth_request->service == NULL) {
-		auth_master_log_error(conn,
+	if (auth_request->fields.service == NULL) {
+		e_error(conn->event,
 			"BUG: Master sent %s request without service", cmd);
 		auth_request_unref(&auth_request);
 		auth_master_connection_unref(&conn);
@@ -239,7 +236,7 @@ static int
 user_verify_restricted_uid(struct auth_request *auth_request)
 {
 	struct auth_master_connection *conn = auth_request->master;
-	struct auth_fields *reply = auth_request->userdb_reply;
+	struct auth_fields *reply = auth_request->fields.userdb_reply;
 	const char *value, *reason;
 	uid_t uid;
 
@@ -287,7 +284,7 @@ user_callback(enum userdb_result result,
 	case USERDB_RESULT_INTERNAL_FAILURE:
 		str_printfa(str, "FAIL\t%u", auth_request->id);
 		if (auth_request->userdb_lookup_tempfailed) {
-			value = auth_fields_find(auth_request->userdb_reply,
+			value = auth_fields_find(auth_request->fields.userdb_reply,
 						 "reason");
 			if (value != NULL)
 				str_printfa(str, "\treason=%s", value);
@@ -298,9 +295,9 @@ user_callback(enum userdb_result result,
 		break;
 	case USERDB_RESULT_OK:
 		str_printfa(str, "USER\t%u\t", auth_request->id);
-		str_append_tabescaped(str, auth_request->user);
+		str_append_tabescaped(str, auth_request->fields.user);
 		str_append_c(str, '\t');
-		auth_fields_append(auth_request->userdb_reply, str,
+		auth_fields_append(auth_request->fields.userdb_reply, str,
 				   AUTH_FIELD_FLAG_HIDDEN, 0);
 		break;
 	}
@@ -350,10 +347,10 @@ static void pass_callback_finish(struct auth_request *auth_request,
 			break;
 		}
 		str_printfa(str, "PASS\t%u\tuser=", auth_request->id);
-		str_append_tabescaped(str, auth_request->user);
-		if (!auth_fields_is_empty(auth_request->extra_fields)) {
+		str_append_tabescaped(str, auth_request->fields.user);
+		if (!auth_fields_is_empty(auth_request->fields.extra_fields)) {
 			str_append_c(str, '\t');
-			auth_fields_append(auth_request->extra_fields,
+			auth_fields_append(auth_request->fields.extra_fields,
 					   str, AUTH_FIELD_FLAG_HIDDEN, 0);
 		}
 		break;
@@ -553,13 +550,13 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 	/* <id> [<parameters>] */
 	list = t_strsplit_tabescaped(args);
 	if (list[0] == NULL || str_to_uint(list[0], &id) < 0) {
-		auth_master_log_error(conn, "BUG: Master sent broken LIST");
+		e_error(conn->event, "BUG: Master sent broken LIST");
 		return FALSE;
 	}
 	list++;
 
 	if (conn->iter_ctx != NULL) {
-		auth_master_log_error(conn,
+		e_error(conn->event,
 			"Auth client is already iterating users");
 		str = t_strdup_printf("DONE\t%u\tfail\n", id);
 		o_stream_nsend_str(conn->output, str);
@@ -567,7 +564,7 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 	}
 
 	if (conn->userdb_restricted_uid != 0) {
-		auth_master_log_error(conn,
+		e_error(conn->event,
 			"Auth client doesn't have permissions to list users: %s",
 			auth_restricted_reason(conn));
 		str = t_strdup_printf("DONE\t%u\tfail\n", id);
@@ -578,14 +575,14 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 	while (userdb != NULL && userdb->userdb->iface->iterate_init == NULL)
 		userdb = userdb->next;
 	if (userdb == NULL) {
-		auth_master_log_error(conn,
+		e_error(conn->event,
 			"Trying to iterate users, but userdbs don't support it");
 		str = t_strdup_printf("DONE\t%u\tfail\n", id);
 		o_stream_nsend_str(conn->output, str);
 		return TRUE;
 	}
 
-	auth_request = auth_request_new_dummy();
+	auth_request = auth_request_new_dummy(auth_event);
 	auth_request->id = id;
 	auth_request->master = conn;
 	auth_master_connection_ref(conn);
@@ -603,15 +600,18 @@ master_input_list(struct auth_master_connection *conn, const char *args)
 		if (!auth_request_import_info(auth_request, name, arg) &&
 		    strcmp(name, "user") == 0) {
 			/* username mask */
-			auth_request->user = p_strdup(auth_request->pool, arg);
+			auth_request_set_username_forced(auth_request, arg);
 		}
 	}
 
 	/* rest of the code doesn't like NULL user or service */
-	if (auth_request->user == NULL)
-		auth_request->user = "";
-	if (auth_request->service == NULL)
-		auth_request->service = "";
+	if (auth_request->fields.user == NULL)
+		auth_request_set_username_forced(auth_request, "");
+	if (auth_request->fields.service == NULL) {
+		if (!auth_request_import(auth_request, "service", ""))
+			i_unreached();
+		i_assert(auth_request->fields.service != NULL);
+	}
 
 	ctx = i_new(struct master_list_iter_ctx, 1);
 	ctx->conn = conn;
@@ -646,14 +646,14 @@ auth_master_input_line(struct auth_master_connection *conn, const char *line)
 		if (str_begins(line, "CACHE-FLUSH\t"))
 			return master_input_cache_flush(conn, line + 12);
 		if (str_begins(line, "CPID\t")) {
-			auth_master_log_error(conn,
+			e_error(conn->event,
 				"Authentication client trying to connect to "
 				"master socket");
 			return FALSE;
 		}
 	}
 
-	auth_master_log_error(conn, "BUG: Unknown command in %s socket: %s",
+	e_error(conn->event, "BUG: Unknown command in %s socket: %s",
 		conn->userdb_only ? "userdb" : "master",
 		str_sanitize(line, 80));
 	return FALSE;
@@ -673,8 +673,7 @@ static void master_input(struct auth_master_connection *conn)
 		return;
 	case -2:
 		/* buffer full */
-		auth_master_log_error(conn,
-			"BUG: Master sent us more than %d bytes",
+		e_error(conn->event, "BUG: Master sent us more than %d bytes",
 			(int)MAX_INBUF_SIZE);
                 auth_master_connection_destroy(&conn);
 		return;
@@ -689,7 +688,7 @@ static void master_input(struct auth_master_connection *conn)
 		if (!str_begins(line, "VERSION\t") ||
 		    !str_uint_equals(t_strcut(line + 8, '\t'),
 				     AUTH_MASTER_PROTOCOL_MAJOR_VERSION)) {
-			auth_master_log_error(conn,
+			e_error(conn->event,
 				"Master not compatible with this server "
 				"(mixed old and new binaries?)");
 			auth_master_connection_destroy(&conn);
@@ -744,7 +743,7 @@ auth_master_connection_set_permissions(struct auth_master_connection *conn,
 	}
 
 	if (net_getunixcred(conn->fd, &cred) < 0) {
-		auth_master_log_error(conn,
+		e_error(conn->event,
 			"userdb connection: Failed to get peer's credentials");
 		return -1;
 	}
@@ -777,11 +776,13 @@ auth_master_connection_create(struct auth *auth, int fd,
 	conn->path = i_strdup(path);
 	conn->auth = auth;
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
-	conn->output = o_stream_create_fd(fd, (size_t)-1);
+	conn->output = o_stream_create_fd(fd, SIZE_MAX);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	o_stream_set_flush_callback(conn->output, master_output, conn);
 	conn->io = io_add(fd, IO_READ, master_input, conn);
 	conn->userdb_only = userdb_only;
+	conn->event = event_create(auth_event);
+	event_set_log_message_callback(conn->event, auth_master_event_log_callback, conn);
 
 	line = t_strdup_printf("VERSION\t%u\t%u\nSPID\t%s\n",
 			       AUTH_MASTER_PROTOCOL_MAJOR_VERSION,
@@ -839,6 +840,7 @@ void auth_master_connection_unref(struct auth_master_connection **_conn)
 	i_stream_unref(&conn->input);
 	o_stream_unref(&conn->output);
 
+	event_unref(&conn->event);
 	i_free(conn->path);
 	i_free(conn);
 }

@@ -33,6 +33,9 @@ struct event_log_params {
 	bool no_send:1;
 };
 
+/* Increased every time global event filters have changed. */
+extern unsigned int event_filter_replace_counter;
+
 void e_error(struct event *event,
 	     const char *source_filename, unsigned int source_linenum,
 	     const char *fmt, ...) ATTR_FORMAT(4, 5);
@@ -85,14 +88,21 @@ void e_log(struct event *event, enum log_type level,
 		event_send_abort(_tmp_event); \
 	} STMT_END
 
-/* Returns TRUE if debug event should be sent (either logged or sent to
-   stats). */
+/* Returns TRUE if event should be logged. Typically event_want_debug_log()
+   could be used in deciding whether to build an expensive debug log message
+   (e.g. requires extra disk IO). Note that if this is used, the actual
+   event being sent won't be matched against event filters because it's never
+   called. The result of the check is cached in the event, so repeated calls
+   are efficient. */
 bool event_want_log_level(struct event *event, enum log_type level,
 			  const char *source_filename,
 			  unsigned int source_linenum);
 #define event_want_log_level(_event, level) event_want_log_level((_event), (level), __FILE__, __LINE__)
 #define event_want_debug_log(_event) event_want_log_level((_event), LOG_TYPE_DEBUG)
 
+/* Returns TRUE if event should be processed (for logging or sending to stats).
+   The logging is checked with event_want_log_level() with the same caching
+   behavior.  */
 bool event_want_level(struct event *event, enum log_type level,
 		      const char *source_filename,
 		      unsigned int source_linenum);

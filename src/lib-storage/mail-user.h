@@ -4,17 +4,18 @@
 #include "net.h"
 #include "unichar.h"
 #include "mail-storage-settings.h"
+#include "process-stat.h"
 
 struct module;
-struct stats;
 struct fs_settings;
 struct ssl_iostream_settings;
+struct master_service_anvil_session;
 struct mail_user;
+struct dict_op_settings;
 
 struct mail_user_vfuncs {
 	void (*deinit)(struct mail_user *user);
 	void (*deinit_pre)(struct mail_user *user);
-	void (*stats_fill)(struct mail_user *user, struct stats *stats);
 };
 
 struct mail_user_connection_data {
@@ -48,6 +49,7 @@ struct mail_user {
 	struct mail_user_connection_data conn;
 	const char *auth_mech, *auth_token, *auth_user;
 	const char *const *userdb_fields;
+	const char *const *_alt_usernames;
 	/* Timestamp when this session was initially created. Most importantly
 	   this stays the same after IMAP client is hibernated and restored. */
 	time_t session_create_time;
@@ -62,6 +64,7 @@ struct mail_user {
 	struct mail_user_settings *set;
 	struct mail_namespace *namespaces;
 	struct mail_storage *storages;
+	struct dict_op_settings *dict_op_set;
 	ARRAY(const struct mail_storage_hooks *) hooks;
 
 	normalizer_func_t *default_normalizer;
@@ -70,6 +73,8 @@ struct mail_user {
 
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY(union mail_user_module_context *) module_contexts;
+
+	struct process_stat proc_stat;
 
 	/* User doesn't exist (as reported by userdb lookup when looking
 	   up home) */
@@ -159,12 +164,16 @@ mail_user_var_expand_table(struct mail_user *user);
 void mail_user_set_home(struct mail_user *user, const char *home);
 /* Get the home directory for the user. Returns 1 if home directory looked up
    successfully, 0 if there is no home directory (either user doesn't exist or
-   has no home directory) or -1 if lookup failed. */
+   has no home directory) or -1 if lookup failed. The returned home string
+   is valid until the user is freed. */
 int mail_user_get_home(struct mail_user *user, const char **home_r);
 /* Appends path + file prefix for creating a temporary file.
    The file prefix doesn't contain any uniqueness. */
 void mail_user_set_get_temp_prefix(string_t *dest,
 				   const struct mail_user_settings *set);
+/* Get volatile directory from INBOX namespace if configured. Returns NULL if
+   none is configured. */
+const char *mail_user_get_volatile_dir(struct mail_user *user);
 /* Returns 1 on success, 0 if lock_secs is reached, -1 on error */
 int mail_user_lock_file_create(struct mail_user *user, const char *lock_fname,
 			       unsigned int lock_secs,
@@ -191,8 +200,12 @@ void mail_user_drop_useless_namespaces(struct mail_user *user);
 const char *mail_user_home_expand(struct mail_user *user, const char *path);
 /* Returns 0 if ok, -1 if home directory isn't set. */
 int mail_user_try_home_expand(struct mail_user *user, const char **path);
-/* Returns unique user+ip identifier for anvil. */
-const char *mail_user_get_anvil_userip_ident(struct mail_user *user);
+/* Fill out anvil session struct for the user session. */
+void mail_user_get_anvil_session(struct mail_user *user,
+				 struct master_service_anvil_session *session_r);
+/* Returns NULL-terminated array of (user_field, value) pairs. The fields are
+   extracted from user->userdb_fields[]. */
+const char *const *mail_user_get_alt_usernames(struct mail_user *user);
 
 /* Basically the same as mail_storage_find_class(), except automatically load
    storage plugins when needed. */
@@ -201,21 +214,23 @@ mail_user_get_storage_class(struct mail_user *user, const char *name);
 
 /* Initialize SSL client settings from mail_user settings. */
 void mail_user_init_ssl_client_settings(struct mail_user *user,
-				struct ssl_iostream_settings *ssl_set);
+	struct ssl_iostream_settings *ssl_set_r);
 
 /* Initialize fs_settings from mail_user settings. */
 void mail_user_init_fs_settings(struct mail_user *user,
 				struct fs_settings *fs_set,
-				struct ssl_iostream_settings *ssl_set);
-
-/* Fill statistics for user. By default there are no statistics, so stats
-   plugin must be loaded to have anything filled. */
-void mail_user_stats_fill(struct mail_user *user, struct stats *stats);
+				struct ssl_iostream_settings *ssl_set_r);
 
 /* Try to mkdir() user's home directory. Ideally this should be called only
    after the caller tries to create a file to the home directory, but it fails
    with ENOENT. This way it avoids unnecessary disk IO to the home. */
 int mail_user_home_mkdir(struct mail_user *user);
+
+/* Return dict_op_settings for the user. The returned settings are valid until
+   the user is freed. */
+const struct dict_op_settings *
+mail_user_get_dict_op_settings(struct mail_user *user);
+
 
 /* Obtain the postmaster address to be used for this user as an RFC 5322 (IMF)
    address. Returns false if the configured postmaster address is invalid in

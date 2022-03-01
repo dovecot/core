@@ -715,7 +715,7 @@ static void test_mail_cache_purge_field_changes_int(enum test_drop drop)
 	for (i = 0; i < N_ELEMENTS(cache_fields); i++) {
 		const char *value = t_strdup_printf("%s-value",
 						    cache_fields[i].name);
-		if ((cache_fields[i].decision & ~MAIL_CACHE_DECISION_FORCED) !=
+		if ((cache_fields[i].decision & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED)) !=
 		    MAIL_CACHE_DECISION_NO) {
 			mail_cache_add(cache_trans, 1, cache_fields[i].idx,
 				       value, strlen(value));

@@ -149,13 +149,13 @@ void test_unichar(void)
 		test_assert(chr2 == chr);
 
 		if ((chr & 0x63) == 0) {
-			unsigned int utf8len = uni_utf8_char_bytes(*str_c(str));
+			unsigned int utf8len = uni_utf8_char_bytes((unsigned char)*str_c(str));
 
 			/* virtually truncate the byte string */
 			while (--utf8len > 0)
 				test_assert(uni_utf8_get_char_n(str_c(str), utf8len, &chr2) == 0);
 
-			utf8len = uni_utf8_char_bytes(*str_c(str));
+			utf8len = uni_utf8_char_bytes((unsigned char)*str_c(str));
 
 			/* actually truncate the byte stream */
 			while (--utf8len > 0) {

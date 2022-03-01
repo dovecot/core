@@ -97,8 +97,9 @@ static int mail_index_mmap(struct mail_index_map *map, uoff_t file_size)
 	}
 
 	mail_index_map_copy_hdr(map, hdr);
+	buffer_set_used_size(map->hdr_copy_buf, 0);
+	buffer_append(map->hdr_copy_buf, rec_map->mmap_base, hdr->header_size);
 
-	map->hdr_base = rec_map->mmap_base;
 	rec_map->records = PTR_OFFSET(rec_map->mmap_base, map->hdr.header_size);
 	return 1;
 }
@@ -242,7 +243,6 @@ mail_index_try_read_map(struct mail_index_map *map,
 	map->rec_map->records_count = records_count;
 
 	mail_index_map_copy_hdr(map, hdr);
-	map->hdr_base = map->hdr_copy_buf->data;
 	i_assert(map->hdr_copy_buf->used == map->hdr.header_size);
 	return 1;
 }
@@ -250,19 +250,14 @@ mail_index_try_read_map(struct mail_index_map *map,
 static int mail_index_read_map(struct mail_index_map *map, uoff_t file_size)
 {
 	struct mail_index *index = map->index;
-	mail_index_sync_lost_handler_t *const *handlerp;
 	struct stat st;
 	unsigned int i;
 	int ret;
 	bool try_retry, retry;
 
-	/* notify all "sync lost" handlers */
-	array_foreach(&index->sync_lost_handlers, handlerp)
-		(**handlerp)(index);
-
 	for (i = 0;; i++) {
 		try_retry = i < MAIL_INDEX_ESTALE_RETRY_COUNT;
-		if (file_size == (uoff_t)-1) {
+		if (file_size == UOFF_T_MAX) {
 			/* fstat() below failed */
 			ret = 0;
 			retry = try_retry;
@@ -293,7 +288,7 @@ static int mail_index_read_map(struct mail_index_map *map, uoff_t file_size)
 				mail_index_set_syscall_error(index, "fstat()");
 				return -1;
 			}
-			file_size = (uoff_t)-1;
+			file_size = UOFF_T_MAX;
 		}
 	}
 	return ret;
@@ -307,14 +302,14 @@ mail_index_map_latest_file(struct mail_index *index, const char **reason_r)
 	struct mail_index_map *old_map, *new_map;
 	struct stat st;
 	uoff_t file_size;
-	bool use_mmap, unusable = FALSE;
+	bool use_mmap, reopened, unusable = FALSE;
 	const char *error;
 	int ret, try;
 
 	*reason_r = NULL;
 
 	index->reopen_main_index = FALSE;
-	ret = mail_index_reopen_if_changed(index, reason_r);
+	ret = mail_index_reopen_if_changed(index, &reopened, reason_r);
 	if (ret <= 0) {
 		if (ret < 0)
 			return -1;
@@ -335,13 +330,13 @@ mail_index_map_latest_file(struct mail_index *index, const char **reason_r)
 			mail_index_set_syscall_error(index, "fstat()");
 			return -1;
 		}
-		file_size = (uoff_t)-1;
+		file_size = UOFF_T_MAX;
 	}
 
 	/* mmaping seems to be slower than just reading the file, so even if
 	   mmap isn't disabled don't use it unless the file is large enough */
 	use_mmap = (index->flags & MAIL_INDEX_OPEN_FLAG_MMAP_DISABLE) == 0 &&
-		file_size != (uoff_t)-1 && file_size > MAIL_INDEX_MMAP_MIN_SIZE;
+		file_size != UOFF_T_MAX && file_size > MAIL_INDEX_MMAP_MIN_SIZE;
 
 	new_map = mail_index_map_alloc(index);
 	if (use_mmap) {
@@ -395,14 +390,76 @@ mail_index_map_latest_file(struct mail_index *index, const char **reason_r)
 	}
 	i_assert(new_map->rec_map->records != NULL);
 
-	index->last_read_log_file_seq = new_map->hdr.log_file_seq;
-	index->last_read_log_file_tail_offset =
+	index->main_index_hdr_log_file_seq = new_map->hdr.log_file_seq;
+	index->main_index_hdr_log_file_tail_offset =
 		new_map->hdr.log_file_tail_offset;
 
 	mail_index_unmap(&index->map);
 	index->map = new_map;
-	*reason_r = "Index mapped";
+	*reason_r = t_strdup_printf("Index mapped (file_seq=%u)",
+				    index->map->hdr.log_file_seq);
 	return 1;
+}
+
+static int
+mail_index_map_latest_sync(struct mail_index *index,
+			   enum mail_index_sync_handler_type type,
+			   const char *reason)
+{
+	const char *map_reason, *reopen_reason;
+	bool reopened;
+	int ret;
+
+	if (index->log->head == NULL || index->indexid == 0) {
+		/* we're creating the index file, we don't have any
+		   logs yet */
+		return 1;
+	}
+
+	/* and update the map with the latest changes from transaction log */
+	ret = mail_index_sync_map(&index->map, type, &map_reason);
+	if (ret != 0)
+		return ret;
+
+	if (index->fd == -1) {
+		reopen_reason = "Index not open";
+		reopened = FALSE;
+	} else {
+		/* Check if the index was recreated while we were opening it.
+		   This is unlikely, but could happen if
+		   mail_index_log_optimization_settings.max_size is tiny. */
+		ret = mail_index_reopen_if_changed(index, &reopened, &reopen_reason);
+		if (ret < 0)
+			return -1;
+		if (ret == 0) {
+			/* Index was unexpectedly lost. The mailbox was
+			   probably deleted while we were opening it. Handle
+			   this as an error. */
+			index->index_deleted = TRUE;
+			return -1;
+		}
+	}
+	if (!reopened) {
+		/* fsck the index and try to reopen */
+		mail_index_set_error(index, "Index %s: %s: %s - fscking "
+				     "(reopen_reason: %s)",
+				     index->filepath, reason, map_reason,
+				     reopen_reason);
+		if (!index->readonly) {
+			if (mail_index_fsck(index) < 0)
+				return -1;
+		}
+	}
+
+	ret = mail_index_map_latest_file(index, &reason);
+	if (ret > 0 && index->indexid != 0) {
+		ret = mail_index_sync_map(&index->map, type, &map_reason);
+		if (ret == 0) {
+			mail_index_set_error(index, "Index %s: %s: %s",
+				index->filepath, reason, map_reason);
+		}
+	}
+	return ret;
 }
 
 int mail_index_map(struct mail_index *index,
@@ -419,12 +476,22 @@ int mail_index_map(struct mail_index *index,
 		index->map = mail_index_map_alloc(index);
 
 	/* first try updating the existing mapping from transaction log. */
-	if (index->initial_mapped && !index->reopen_main_index) {
-		/* we're not creating/opening the index.
-		   sync this as a view from transaction log. */
-		ret = mail_index_sync_map(&index->map, type, FALSE, "initial mapping");
-	} else {
+	if (!index->initial_mapped || index->reopen_main_index) {
+		/* index is being created/opened for the first time */
 		ret = 0;
+	} else if (mail_index_sync_map_want_index_reopen(index->map, type)) {
+		/* it's likely more efficient to reopen the index file than
+		   sync from the transaction log. */
+		ret = 0;
+	} else {
+		/* sync the map from the transaction log. */
+		ret = mail_index_sync_map(&index->map, type, &reason);
+		if (ret == 0) {
+			e_debug(index->event,
+				"Couldn't sync map from transaction log: %s - "
+				"reopening index instead",
+				reason);
+		}
 	}
 
 	if (ret == 0) {
@@ -435,22 +502,7 @@ int mail_index_map(struct mail_index *index,
 		   don't even try to use the transaction log. */
 		ret = mail_index_map_latest_file(index, &reason);
 		if (ret > 0) {
-			/* if we're creating the index file, we don't have any
-			   logs yet */
-			if (index->log->head != NULL && index->indexid != 0) {
-				/* and update the map with the latest changes
-				   from transaction log */
-				ret = mail_index_sync_map(&index->map, type,
-							  TRUE, reason);
-			}
-			if (ret == 0) {
-				/* we fsck'd the index. try opening again. */
-				ret = mail_index_map_latest_file(index, &reason);
-				if (ret > 0 && index->indexid != 0) {
-					ret = mail_index_sync_map(&index->map,
-						type, TRUE, reason);
-				}
-			}
+			ret = mail_index_map_latest_sync(index, type, reason);
 		} else if (ret == 0 && !index->readonly) {
 			/* make sure we don't try to open the file again */
 			if (unlink(index->filepath) < 0 && errno != ENOENT)

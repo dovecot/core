@@ -20,7 +20,7 @@ static bool i_stream_mail_try_get_cached_size(struct mail_istream *mstream)
 	struct mail *mail = mstream->mail;
 	enum mail_lookup_abort orig_lookup_abort;
 
-	if (mstream->expected_size != (uoff_t)-1)
+	if (mstream->expected_size != UOFF_T_MAX)
 		return TRUE;
 
 	/* make sure this call doesn't change any existing error message,
@@ -29,10 +29,10 @@ static bool i_stream_mail_try_get_cached_size(struct mail_istream *mstream)
 	orig_lookup_abort = mail->lookup_abort;
 	mail->lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
 	if (mail_get_physical_size(mail, &mstream->expected_size) < 0)
-		mstream->expected_size = (uoff_t)-1;
+		mstream->expected_size = UOFF_T_MAX;
 	mail->lookup_abort = orig_lookup_abort;
 	mail_storage_last_error_pop(mail->box->storage);
-	return mstream->expected_size != (uoff_t)-1;
+	return mstream->expected_size != UOFF_T_MAX;
 }
 
 static const char *
@@ -158,7 +158,7 @@ struct istream *i_stream_create_mail(struct mail *mail, struct istream *input,
 	mstream = i_new(struct mail_istream, 1);
 	mstream->mail = mail;
 	mstream->input_has_body = input_has_body;
-	mstream->expected_size = (uoff_t)-1;
+	mstream->expected_size = UOFF_T_MAX;
 	(void)i_stream_mail_try_get_cached_size(mstream);
 	mstream->istream.max_buffer_size = input->real_stream->max_buffer_size;
 	mstream->istream.stream_size_passthrough = TRUE;

@@ -49,7 +49,8 @@ typedef void pop3c_cmd_callback_t(enum pop3c_command_state state,
 				  const char *reply, void *context);
 
 struct pop3c_client *
-pop3c_client_init(const struct pop3c_client_settings *set);
+pop3c_client_init(const struct pop3c_client_settings *set,
+		  struct event *event_parent);
 void pop3c_client_deinit(struct pop3c_client **client);
 
 void pop3c_client_login(struct pop3c_client *client,

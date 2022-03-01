@@ -23,6 +23,7 @@ struct config_export_context {
 	void *context;
 
 	const char *const *modules;
+	const char *const *exclude_settings;
 	enum config_dump_flags flags;
 	const struct config_module_parser *parsers;
 	struct config_module_parser *dup_parsers;
@@ -200,15 +201,15 @@ setting_export_section_name(string_t *str, const struct setting_define *def,
 		return;
 	}
 	name_offset = def->list_info->type_offset;
-	i_assert(name_offset != (size_t)-1);
+	i_assert(name_offset != SIZE_MAX);
 
 	name = CONST_PTR_OFFSET(set, name_offset);
 	if (*name == NULL || **name == '\0') {
 		/* no name, this one isn't unique. use the index. */
 		str_printfa(str, "%u", idx);
-	} else {
+	} else T_BEGIN {
 		str_append(str, settings_section_escape(*name));
-	}
+	} T_END;
 }
 
 static void
@@ -227,14 +228,26 @@ settings_export(struct config_export_context *ctx,
 	bool dump, dump_default = FALSE;
 
 	for (def = info->defines; def->key != NULL; def++) {
+		if (ctx->exclude_settings != NULL &&
+		    str_array_find(ctx->exclude_settings, def->key))
+			continue;
+
 		value = CONST_PTR_OFFSET(set, def->offset);
 		default_value = info->defaults == NULL ? NULL :
 			CONST_PTR_OFFSET(info->defaults, def->offset);
 		change_value = CONST_PTR_OFFSET(change_set, def->offset);
 		switch (ctx->scope) {
-		case CONFIG_DUMP_SCOPE_ALL:
+		case CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN:
 			dump_default = TRUE;
 			break;
+		case CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN:
+			if ((def->flags & SET_FLAG_HIDDEN) == 0) {
+				/* not hidden - dump it */
+				dump_default = TRUE;
+				break;
+			}
+			/* hidden - dump default only if it's explicitly set */
+			/* fall through */
 		case CONFIG_DUMP_SCOPE_SET:
 			dump_default = *((const char *)change_value) != 0;
 			break;
@@ -365,7 +378,9 @@ settings_export(struct config_export_context *ctx,
 }
 
 struct config_export_context *
-config_export_init(const char *const *modules, enum config_dump_scope scope,
+config_export_init(const char *const *modules,
+		   const char *const *exclude_settings,
+		   enum config_dump_scope scope,
 		   enum config_dump_flags flags,
 		   config_request_callback_t *callback, void *context)
 {
@@ -377,6 +392,8 @@ config_export_init(const char *const *modules, enum config_dump_scope scope,
 	ctx->pool = pool;
 
 	ctx->modules = modules == NULL ? NULL : p_strarray_dup(pool, modules);
+	ctx->exclude_settings = exclude_settings == NULL ? NULL :
+		p_strarray_dup(pool, exclude_settings);
 	ctx->flags = flags;
 	ctx->callback = callback;
 	ctx->context = context;
@@ -462,26 +479,6 @@ int config_export_finish(struct config_export_context **_ctx)
 			continue;
 
 		T_BEGIN {
-			enum setting_type stype;
-			const char *const *value = settings_parse_get_value(parser->parser, "ssl", &stype);
-
-			if ((ctx->flags & CONFIG_DUMP_FLAG_IN_SECTION) == 0 &&
-			    value != NULL && strcmp(*value, "no") != 0 &&
-			    settings_parse_is_valid_key(parser->parser, "ssl_dh")) {
-				value = settings_parse_get_value(parser->parser,
-					"ssl_dh", &stype);
-
-				if (value == NULL || **value == '\0') {
-					const char *newval;
-					if (old_settings_ssl_dh_load(&newval, &error)) {
-						if (newval != NULL)
-							settings_parse_line(parser->parser, t_strdup_printf("%s=%s", "ssl_dh", newval));
-					} else {
-						i_error("%s", error);
-						ret = -1;
-					}
-				}
-			}
 			settings_export(ctx, parser->root, FALSE,
 					settings_parser_get(parser->parser),
 					settings_parser_get_changes(parser->parser));

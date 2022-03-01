@@ -2,6 +2,7 @@
 #define CLIENT_H
 
 #include "net.h"
+#include "guid.h"
 
 struct smtp_reply;
 
@@ -28,8 +29,7 @@ struct client_extra_capability {
 };
 
 struct submission_client_vfuncs {
-	void (*destroy)(struct client *client, const char *prefix,
-			const char *reason);
+	void (*destroy)(struct client *client);
 
 	void (*trans_start)(struct client *client,
 			    struct smtp_server_transaction *trans);
@@ -87,6 +87,7 @@ struct client {
 	const struct submission_settings *set;
 
 	struct smtp_server_connection *conn;
+	guid_128_t anvil_conn_guid;
 	struct client_state state;
 	ARRAY(struct submission_backend *) pending_backends;
 	ARRAY(struct submission_recipient *) rcpt_to;
@@ -99,8 +100,6 @@ struct client {
 	struct imap_urlauth_context *urlauth_ctx;
 
 	struct timeout *to_quit;
-
-	struct smtp_server_stats stats;
 
 	enum smtp_capability backend_capabilities;
 	struct submission_backend *backend_default;
@@ -135,17 +134,16 @@ extern struct submission_module_register submission_module_register;
 extern struct client *submission_clients;
 extern unsigned int submission_client_count;
 
-struct client *client_create(int fd_in, int fd_out,
-			     struct mail_user *user,
-			     struct mail_storage_service_user *service_user,
-			     const struct submission_settings *set,
-			     const char *helo,
-			     const unsigned char *pdata,
-			     unsigned int pdata_len);
-void client_destroy(struct client *client, const char *prefix,
+struct client *
+client_create(int fd_in, int fd_out, struct mail_user *user,
+	      struct mail_storage_service_user *service_user,
+	      const struct submission_settings *set, const char *helo,
+	      const struct smtp_proxy_data *proxy_data,
+	      const unsigned char *pdata, unsigned int pdata_len,
+	      bool no_greeting);
+void client_destroy(struct client **client, const char *prefix,
 		    const char *reason) ATTR_NULL(2, 3);
-void client_disconnect(struct client *client, const char *prefix,
-		       const char *reason);
+void client_kick(struct client *client);
 
 typedef void (*client_input_callback_t)(struct client *context);
 

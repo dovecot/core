@@ -173,6 +173,35 @@ int imap_search_get_seqset(struct client_command_context *cmd,
 	return ret;
 }
 
+void imap_search_anyset_to_uidset(struct client_command_context *cmd,
+				  struct mail_search_args *args)
+{
+	struct mail_search_arg *arg = args->args;
+
+	i_assert(arg->next == NULL);
+	switch (arg->type) {
+	case SEARCH_ALL:
+		if (arg->match_not)
+			break;
+		t_array_init(&arg->value.seqset, 1);
+		seq_range_array_add_range(&arg->value.seqset, 1, (uint32_t)-1);
+		/* fall through */
+	case SEARCH_SEQSET: {
+		ARRAY_TYPE(seq_range) seqs = arg->value.seqset;
+
+		arg->type = SEARCH_UIDSET;
+		p_array_init(&arg->value.seqset, args->pool, 16);
+		mailbox_get_uid_range(cmd->client->mailbox, &seqs,
+				      &arg->value.seqset);
+		break;
+	}
+	case SEARCH_UIDSET:
+		break;
+	default:
+		i_unreached();
+	}
+}
+
 static int imap_search_get_searchres(struct client_command_context *cmd,
 				     struct mail_search_args **search_args_r)
 {
@@ -266,9 +295,9 @@ imap_search_seqset_iter_init(struct mail_search_args *search_args,
 	iter->batch_size = batch_size;
 	mail_search_args_ref(iter->search_args);
 
-	/* Assume that the search query is always a seqset or SEARCH_ALL. */
 	switch (search_args->args->type) {
 	case SEARCH_SEQSET:
+	case SEARCH_UIDSET:
 		break;
 	case SEARCH_ALL:
 		if (search_args->args->match_not) {
@@ -287,7 +316,8 @@ imap_search_seqset_iter_init(struct mail_search_args *search_args,
 			search_args->args->type);
 	}
 
-	i_assert(search_args->args->type == SEARCH_SEQSET);
+	i_assert(search_args->args->type == SEARCH_SEQSET ||
+		 search_args->args->type == SEARCH_UIDSET);
 
 	i_array_init(&iter->seqset_left,
 		     array_count(&search_args->args->value.seqset));

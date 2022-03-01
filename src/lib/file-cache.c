@@ -70,7 +70,7 @@ int file_cache_set_size(struct file_cache *cache, uoff_t size)
 	if (size <= cache->mmap_length)
 		return 0;
 
-	if (size > (size_t)-1) {
+	if (size > SIZE_MAX) {
 		i_error("file_cache_set_size(%s, %"PRIuUOFF_T"): size too large",
 			cache->path, size);
 		return -1;
@@ -116,8 +116,8 @@ ssize_t file_cache_read(struct file_cache *cache, uoff_t offset, size_t size)
 		   doesn't have to deal with any extra checks. */
 		size = SSIZE_T_MAX;
 	}
-	if (offset >= (uoff_t)-1 - size)
-		size = (uoff_t)-1 - offset;
+	if (offset >= UOFF_T_MAX - size)
+		size = UOFF_T_MAX - offset;
 
 	if (offset + size > cache->mmap_length &&
 	    offset + size - cache->mmap_length > 1024*1024) {
@@ -241,7 +241,7 @@ void file_cache_write(struct file_cache *cache, const void *data, size_t size,
 	unsigned int first_page, last_page;
 
 	i_assert(page_size > 0);
-	i_assert((uoff_t)-1 - offset > size);
+	i_assert(UOFF_T_MAX - offset > size);
 
 	if (file_cache_set_size(cache, offset + size) < 0) {
 		/* couldn't grow mapping. just make sure the written memory

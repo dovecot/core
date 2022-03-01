@@ -6,7 +6,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "log-throttle.h"
-#include "ipc-client.h"
+#include "anvil-client.h"
 #include "program-client.h"
 #include "var-expand.h"
 #include "istream.h"
@@ -19,7 +19,7 @@
 #include "director-connection.h"
 #include "director.h"
 
-#define DIRECTOR_IPC_PROXY_PATH "ipc"
+#define DIRECTOR_ANVIL_SOCKET_PATH "anvil"
 #define DIRECTOR_DNS_SOCKET_PATH "dns-client"
 #define DIRECTOR_RECONNECT_RETRY_SECS 60
 #define DIRECTOR_RECONNECT_TIMEOUT_MSECS (30*1000)
@@ -29,8 +29,6 @@
 #define DIRECTOR_QUICK_RECONNECT_TIMEOUT_MSECS 1000
 #define DIRECTOR_DELAYED_DIR_REMOVE_MSECS (1000*30)
 
-bool director_debug;
-
 const char *user_kill_state_names[USER_KILL_STATE_DELAY+1] = {
 	"none",
 	"killing",
@@ -39,6 +37,10 @@ const char *user_kill_state_names[USER_KILL_STATE_DELAY+1] = {
 	"waiting-for-everyone",
 	"flushing",
 	"delay",
+};
+
+static struct event_category event_category_director = {
+	.name = "director",
 };
 
 static struct log_throttle *user_move_throttle;
@@ -117,11 +119,11 @@ static bool
 director_has_outgoing_connection(struct director *dir,
 				 struct director_host *host)
 {
-	struct director_connection *const *connp;
+	struct director_connection *conn;
 
-	array_foreach(&dir->connections, connp) {
-		if (director_connection_get_host(*connp) == host &&
-		    !director_connection_is_incoming(*connp))
+	array_foreach_elem(&dir->connections, conn) {
+		if (director_connection_get_host(conn) == host &&
+		    !director_connection_is_incoming(conn))
 			return TRUE;
 	}
 	return FALSE;
@@ -141,7 +143,7 @@ director_log_connect(struct director *dir, struct director_host *host,
 		str_printfa(str, ", last protocol failure %ds ago",
 			    (int)(ioloop_time - host->last_protocol_failure));
 	}
-	i_info("Connecting to %s:%u (as %s%s): %s",
+	e_info(dir->event, "Connecting to %s:%u (as %s%s): %s",
 	       host->ip_str, host->port,
 	       net_ip2addr(&dir->self_ip), str_c(str), reason);
 }
@@ -160,7 +162,7 @@ int director_connect_host(struct director *dir, struct director_host *host,
 	fd = net_connect_ip(&host->ip, port, &dir->self_ip);
 	if (fd == -1) {
 		host->last_network_failure = ioloop_time;
-		i_error("connect(%s) failed: %m", host->name);
+		e_error(dir->event, "connect(%s) failed: %m", host->name);
 		return -1;
 	}
 	/* Reset timestamp so that director_connect() won't skip this host
@@ -200,7 +202,7 @@ static void director_quick_reconnect_retry(struct director *dir)
 
 static bool director_wait_for_others(struct director *dir)
 {
-	struct director_host *const *hostp;
+	struct director_host *host;
 
 	/* don't assume we're alone until we've attempted to connect
 	   to others for a while */
@@ -211,9 +213,9 @@ static bool director_wait_for_others(struct director *dir)
 	if (dir->ring_first_alone == 0)
 		dir->ring_first_alone = ioloop_time;
 	/* reset all failures and try again */
-	array_foreach(&dir->dir_hosts, hostp) {
-		(*hostp)->last_network_failure = 0;
-		(*hostp)->last_protocol_failure = 0;
+	array_foreach_elem(&dir->dir_hosts, host) {
+		host->last_network_failure = 0;
+		host->last_protocol_failure = 0;
 	}
 	timeout_remove(&dir->to_reconnect);
 	dir->to_reconnect = timeout_add(DIRECTOR_QUICK_RECONNECT_TIMEOUT_MSECS,
@@ -260,13 +262,15 @@ void director_connect(struct director *dir, const char *reason)
 
 	/* we're the only one */
 	if (count > 1) {
-		i_warning("director: Couldn't connect to right side, "
+		e_warning(dir->event,
+			  "director: Couldn't connect to right side, "
 			  "we must be the only director left");
 	}
 	if (dir->left != NULL) {
 		/* since we couldn't connect to it,
 		   it must have failed recently */
-		i_warning("director: Assuming %s is dead, disconnecting",
+		e_warning(dir->event,
+			  "director: Assuming %s is dead, disconnecting",
 			  director_connection_get_name(dir->left));
 		director_connection_deinit(&dir->left,
 					   "This connection is dead?");
@@ -284,11 +288,12 @@ void director_set_ring_handshaked(struct director *dir)
 
 	timeout_remove(&dir->to_handshake_warning);
 	if (dir->ring_handshake_warning_sent) {
-		i_warning("Directors have been connected, "
+		e_warning(dir->event,
+			  "Directors have been connected, "
 			  "continuing delayed requests");
 		dir->ring_handshake_warning_sent = FALSE;
 	}
-	dir_debug("Director ring handshaked");
+	e_debug(dir->event, "Director ring handshaked");
 
 	dir->ring_handshaked = TRUE;
 	director_set_ring_synced(dir);
@@ -323,7 +328,8 @@ void director_set_ring_synced(struct director *dir)
 
 	timeout_remove(&dir->to_handshake_warning);
 	if (dir->ring_handshake_warning_sent) {
-		i_warning("Ring is synced, continuing delayed requests "
+		e_warning(dir->event,
+			  "Ring is synced, continuing delayed requests "
 			  "(syncing took %d secs, hosts_hash=%u)",
 			  (int)(ioloop_time - dir->ring_last_sync_time),
 			  mail_hosts_hash(dir->mail_hosts));
@@ -389,10 +395,10 @@ void director_sync_send(struct director *dir, struct director_host *host,
 static bool
 director_has_any_outgoing_connections(struct director *dir)
 {
-	struct director_connection *const *connp;
+	struct director_connection *conn;
 
-	array_foreach(&dir->connections, connp) {
-		if (!director_connection_is_incoming(*connp))
+	array_foreach_elem(&dir->connections, conn) {
+		if (!director_connection_is_incoming(conn))
 			return TRUE;
 	}
 	return FALSE;
@@ -410,7 +416,8 @@ bool director_resend_sync(struct director *dir)
 		   hanging due to some bug. */
 		if (dir->to_reconnect == NULL &&
 		    !director_has_any_outgoing_connections(dir)) {
-			i_warning("Right side connection is unexpectedly lost, reconnecting");
+			e_warning(dir->event,
+				  "Right side connection is unexpectedly lost, reconnecting");
 			director_connect(dir, "Right side connection lost");
 		}
 	} else if (dir->left != NULL) {
@@ -431,7 +438,7 @@ static void director_sync_timeout(struct director *dir)
 	i_assert(!dir->ring_synced);
 
 	if (director_resend_sync(dir))
-		i_error("Ring SYNC seq=%u appears to have got lost, resending", dir->sync_seq);
+		e_error(dir->event, "Ring SYNC seq=%u appears to have got lost, resending", dir->sync_seq);
 }
 
 void director_set_ring_unsynced(struct director *dir)
@@ -467,14 +474,14 @@ static void director_sync(struct director *dir)
 	if (dir->right == NULL) {
 		i_assert(!dir->ring_synced ||
 			 (dir->left == NULL && dir->right == NULL));
-		dir_debug("Ring is desynced (seq=%u, no right connection)",
-			  dir->sync_seq);
+		e_debug(dir->event, "Ring is desynced (seq=%u, no right connection)",
+			dir->sync_seq);
 		return;
 	}
 
-	dir_debug("Ring is desynced (seq=%u, sending SYNC to %s)",
-		  dir->sync_seq, dir->right == NULL ? "(nowhere)" :
-		  director_connection_get_name(dir->right));
+	e_debug(dir->event, "Ring is desynced (seq=%u, sending SYNC to %s)",
+		dir->sync_seq, dir->right == NULL ? "(nowhere)" :
+		director_connection_get_name(dir->right));
 
 	/* send PINGs to our connections more rapidly until we've synced again.
 	   if the connection has actually died, we don't need to wait (and
@@ -489,19 +496,19 @@ static void director_sync(struct director *dir)
 
 void director_sync_freeze(struct director *dir)
 {
-	struct director_connection *const *connp;
+	struct director_connection *conn;
 
 	i_assert(!dir->sync_frozen);
 	i_assert(!dir->sync_pending);
 
-	array_foreach(&dir->connections, connp)
-		director_connection_cork(*connp);
+	array_foreach_elem(&dir->connections, conn)
+		director_connection_cork(conn);
 	dir->sync_frozen = TRUE;
 }
 
 void director_sync_thaw(struct director *dir)
 {
-	struct director_connection *const *connp;
+	struct director_connection *conn;
 
 	i_assert(dir->sync_frozen);
 
@@ -510,8 +517,8 @@ void director_sync_thaw(struct director *dir)
 		dir->sync_pending = FALSE;
 		director_sync(dir);
 	}
-	array_foreach(&dir->connections, connp)
-		director_connection_uncork(*connp);
+	array_foreach_elem(&dir->connections, conn)
+		director_connection_uncork(conn);
 }
 
 void director_notify_ring_added(struct director_host *added_host,
@@ -520,7 +527,8 @@ void director_notify_ring_added(struct director_host *added_host,
 	const char *cmd;
 
 	if (log) {
-		i_info("Adding director %s to ring (requested by %s)",
+		e_info(added_host->dir->event,
+		       "Adding director %s to ring (requested by %s)",
 		       added_host->name, src->name);
 	}
 
@@ -557,7 +565,7 @@ void director_ring_remove(struct director_host *removed_host,
 	unsigned int i, count;
 	const char *cmd;
 
-	i_info("Removing director %s from ring (requested by %s)",
+	e_info(dir->event, "Removing director %s from ring (requested by %s)",
 	       removed_host->name, src->name);
 
 	if (removed_host->self && !src->self) {
@@ -625,10 +633,10 @@ director_send_host(struct director *dir, struct director_host *src,
 	} else if (host_tag[0] != '\0' &&
 		   dir->ring_min_version < DIRECTOR_VERSION_TAGS_V2) {
 		if (dir->ring_min_version < DIRECTOR_VERSION_TAGS) {
-			i_error("Ring has directors that don't support tags - removing host %s with tag '%s'",
+			e_error(dir->event, "Ring has directors that don't support tags - removing host %s with tag '%s'",
 				host->ip_str, host_tag);
 		} else {
-			i_error("Ring has directors that support mixed versions of tags - removing host %s with tag '%s'",
+			e_error(dir->event, "Ring has directors that support mixed versions of tags - removing host %s with tag '%s'",
 				host->ip_str, host_tag);
 		}
 		director_remove_host(dir, NULL, NULL, host);
@@ -648,10 +656,10 @@ director_send_host(struct director *dir, struct director_host *src,
 
 void director_resend_hosts(struct director *dir)
 {
-	struct mail_host *const *hostp;
+	struct mail_host *host;
 
-	array_foreach(mail_hosts_get(dir->mail_hosts), hostp)
-		director_send_host(dir, dir->self_host, NULL, *hostp);
+	array_foreach_elem(mail_hosts_get(dir->mail_hosts), host)
+		director_send_host(dir, dir->self_host, NULL, host);
 }
 
 void director_update_host(struct director *dir, struct director_host *src,
@@ -661,11 +669,11 @@ void director_update_host(struct director *dir, struct director_host *src,
 	/* update state in case this is the first mail host being added */
 	director_set_state_changed(dir);
 
-	dir_debug("Updating host %s vhost_count=%u "
-		  "down=%d last_updown_change=%ld (hosts_hash=%u)",
-		  host->ip_str, host->vhost_count, host->down ? 1 : 0,
-		  (long)host->last_updown_change,
-		  mail_hosts_hash(dir->mail_hosts));
+	e_debug(dir->event, "Updating host %s vhost_count=%u "
+		"down=%d last_updown_change=%ld (hosts_hash=%u)",
+		host->ip_str, host->vhost_count, host->down ? 1 : 0,
+		(long)host->last_updown_change,
+		mail_hosts_hash(dir->mail_hosts));
 
 	director_send_host(dir, src, orig_src, host);
 
@@ -721,21 +729,21 @@ void director_flush_host(struct director *dir, struct director_host *src,
 void director_update_user(struct director *dir, struct director_host *src,
 			  struct user *user)
 {
-	struct director_connection *const *connp;
+	struct director_connection *conn;
 
 	i_assert(src != NULL);
 	i_assert(!user->weak);
 
-	array_foreach(&dir->connections, connp) {
-		if (director_connection_get_host(*connp) == src)
+	array_foreach_elem(&dir->connections, conn) {
+		if (director_connection_get_host(conn) == src)
 			continue;
 
-		if (director_connection_get_minor_version(*connp) >= DIRECTOR_VERSION_USER_TIMESTAMP) {
-			director_connection_send(*connp, t_strdup_printf(
+		if (director_connection_get_minor_version(conn) >= DIRECTOR_VERSION_USER_TIMESTAMP) {
+			director_connection_send(conn, t_strdup_printf(
 				"USER\t%u\t%s\t%u\n", user->username_hash, user->host->ip_str,
 				user->timestamp));
 		} else {
-			director_connection_send(*connp, t_strdup_printf(
+			director_connection_send(conn, t_strdup_printf(
 				"USER\t%u\t%s\n", user->username_hash, user->host->ip_str));
 		}
 	}
@@ -780,7 +788,8 @@ void director_update_user_weak(struct director *dir, struct director_host *src,
 }
 
 static void
-director_flush_user_continue(int result, struct director_kill_context *ctx)
+director_flush_user_continue(enum program_client_exit_status result,
+			     struct director_kill_context *ctx)
 {
 	struct director *dir = ctx->dir;
 	ctx->callback_pending = FALSE;
@@ -788,18 +797,18 @@ director_flush_user_continue(int result, struct director_kill_context *ctx)
 	struct user *user = user_directory_lookup(ctx->tag->users,
 						  ctx->username_hash);
 
-	if (result == 0) {
-		struct istream *is = iostream_temp_finish(&ctx->reply, (size_t)-1);
+	if (result == PROGRAM_CLIENT_EXIT_STATUS_FAILURE) {
+		struct istream *is = iostream_temp_finish(&ctx->reply, SIZE_MAX);
 		char *data;
 		i_stream_set_return_partial_line(is, TRUE);
 		data = i_stream_read_next_line(is);
-		i_error("%s: Failed to flush user hash %u in host %s: %s",
+		e_error(dir->event, "%s: Failed to flush user hash %u in host %s: %s",
 			ctx->socket_path,
 			ctx->username_hash,
 			net_ip2addr(&ctx->host_ip),
 			data == NULL ? "(no output to stdout)" : data);
 		while((data = i_stream_read_next_line(is)) != NULL) {
-			i_error("%s: Failed to flush user hash %u in host %s: %s",
+			e_error(dir->event, "%s: Failed to flush user hash %u in host %s: %s",
 				ctx->socket_path,
 				ctx->username_hash,
 				net_ip2addr(&ctx->host_ip), data);
@@ -812,15 +821,16 @@ director_flush_user_continue(int result, struct director_kill_context *ctx)
 
 	if (!DIRECTOR_KILL_CONTEXT_IS_VALID(user, ctx)) {
 		/* user was already freed - ignore */
-		dir_debug("User %u freed while flushing, result=%d",
-			  ctx->username_hash, result);
+		e_debug(dir->event, "User %u freed while flushing, result=%d",
+			ctx->username_hash, result);
 		i_assert(ctx->to_move == NULL);
 		i_free(ctx);
 	} else {
 		/* ctx is freed later via user->kill_ctx */
-		dir_debug("Flushing user %u finished, result=%d",
-			  ctx->username_hash, result);
-		director_user_kill_finish_delayed(dir, user, result == 1);
+		e_debug(dir->event, "Flushing user %u finished, result=%d",
+			ctx->username_hash, result);
+		director_user_kill_finish_delayed(dir, user,
+			result == PROGRAM_CLIENT_EXIT_STATUS_SUCCESS);
 	}
 }
 
@@ -855,7 +865,7 @@ director_flush_user(struct director *dir, struct user *user)
 
 	string_t *s_sock = str_new(default_pool, 32);
 	if (var_expand(s_sock, dir->set->director_flush_socket, tab, &error) <= 0) {
-		i_error("Failed to expand director_flush_socket=%s: %s",
+		e_error(dir->event, "Failed to expand director_flush_socket=%s: %s",
 			dir->set->director_flush_socket, error);
 		director_user_kill_finish_delayed(dir, user, FALSE);
 		return;
@@ -880,17 +890,18 @@ director_flush_user(struct director *dir, struct user *user)
 	};
 
 	ctx->kill_state = USER_KILL_STATE_FLUSHING;
-	dir_debug("Flushing user %u via %s", user->username_hash,
-		  ctx->socket_path);
+	e_debug(dir->event, "Flushing user %u via %s", user->username_hash,
+		ctx->socket_path);
 
 	if ((program_client_create(ctx->socket_path, args, &set, FALSE,
 				   &ctx->pclient, &error)) != 0) {
-		i_error("%s: Failed to flush user hash %u in host %s: %s",
+		e_error(dir->event, "%s: Failed to flush user hash %u in host %s: %s",
 			ctx->socket_path,
 			user->username_hash,
 			user->host->ip_str,
 			error);
-		director_flush_user_continue(0, ctx);
+		director_flush_user_continue(PROGRAM_CLIENT_EXIT_STATUS_FAILURE,
+					     ctx);
 		return;
 	}
 
@@ -919,11 +930,11 @@ static void director_user_move_free(struct user *user)
 
 	i_assert(kill_ctx != NULL);
 
-	dir_debug("User %u move finished at state=%s", user->username_hash,
-		  user_kill_state_names[kill_ctx->kill_state]);
+	e_debug(dir->event, "User %u move finished at state=%s", user->username_hash,
+		user_kill_state_names[kill_ctx->kill_state]);
 
-	if (kill_ctx->ipc_cmd != NULL)
-		ipc_client_cmd_abort(dir->ipc_proxy, &kill_ctx->ipc_cmd);
+	if (kill_ctx->anvil_cmd != NULL)
+		anvil_client_query_abort(dir->anvil, &kill_ctx->anvil_cmd);
 	timeout_remove(&kill_ctx->to_move);
 	i_free(kill_ctx->socket_path);
 	i_free(kill_ctx);
@@ -971,9 +982,9 @@ director_finish_user_kill(struct director *dir, struct user *user, bool self)
 	i_assert(kill_ctx->kill_state != USER_KILL_STATE_FLUSHING);
 	i_assert(kill_ctx->kill_state != USER_KILL_STATE_DELAY);
 
-	dir_debug("User %u kill finished - %sstate=%s", user->username_hash,
-		  self ? "we started it " : "",
-		  user_kill_state_names[kill_ctx->kill_state]);
+	e_debug(dir->event, "User %u kill finished - %sstate=%s", user->username_hash,
+		self ? "we started it " : "",
+		user_kill_state_names[kill_ctx->kill_state]);
 
 	if (dir->right == NULL) {
 		/* we're alone */
@@ -995,32 +1006,26 @@ static void director_user_kill_fail_throttled(unsigned int new_events_count,
 	i_error("Failed to kill %u users' connections", new_events_count);
 }
 
-static void director_kill_user_callback(enum ipc_client_cmd_state state,
-					const char *data, void *context)
+static void
+director_kill_user_callback(const char *reply,
+			    struct director_kill_context *ctx)
 {
-	struct director_kill_context *ctx = context;
 	struct user *user;
 
 	/* don't try to abort the IPC command anymore */
-	ctx->ipc_cmd = NULL;
+	ctx->anvil_cmd = NULL;
 
 	/* this is an asynchronous notification about user being killed.
 	   there are no guarantees about what might have happened to the user
 	   in the mean time. */
-	switch (state) {
-	case IPC_CLIENT_CMD_STATE_REPLY:
-		/* shouldn't get here. the command reply isn't finished yet. */
-		i_error("login process sent unexpected reply to kick: %s", data);
-		return;
-	case IPC_CLIENT_CMD_STATE_OK:
-		break;
-	case IPC_CLIENT_CMD_STATE_ERROR:
+	if (reply == NULL || !str_is_numeric(reply, '\0')) {
 		if (log_throttle_accept(user_kill_fail_throttle)) {
-			i_error("Failed to kill user %u connections: %s",
-				ctx->username_hash, data);
+			e_error(ctx->dir->event,
+				"Failed to kill user %u connections: %s",
+				ctx->username_hash, reply != NULL ? reply :
+				"Internal error");
 		}
 		/* we can't really do anything but continue anyway */
-		break;
 	}
 
 	i_assert(ctx->dir->users_kicking_count > 0);
@@ -1055,7 +1060,8 @@ static void director_user_move_timeout(struct user *user)
 	i_assert(user->kill_ctx->kill_state != USER_KILL_STATE_DELAY);
 
 	if (log_throttle_accept(user_move_throttle)) {
-		i_error("Finishing user %u move timed out, "
+		e_error(user->kill_ctx->dir->event,
+			"Finishing user %u move timed out, "
 			"its state may now be inconsistent (state=%s)",
 			user->username_hash,
 			user_kill_state_names[user->kill_ctx->kill_state]);
@@ -1078,9 +1084,9 @@ void director_kill_user(struct director *dir, struct director_host *src,
 		/* User is being moved again before the previous move
 		   finished. We'll just continue wherever we left off
 		   earlier. */
-		dir_debug("User %u move restarted - previous kill_state=%s",
-			  user->username_hash,
-			  user_kill_state_names[user->kill_ctx->kill_state]);
+		e_debug(dir->event, "User %u move restarted - previous kill_state=%s",
+			user->username_hash,
+			user_kill_state_names[user->kill_ctx->kill_state]);
 		return;
 	}
 
@@ -1101,11 +1107,13 @@ void director_kill_user(struct director *dir, struct director_host *src,
 	ctx->kill_state = USER_KILL_STATE_KILLING;
 
 	if ((old_host != NULL && old_host != user->host) || forced_kick) {
-		cmd = t_strdup_printf("proxy\t*\tKICK-DIRECTOR-HASH\t%u",
+		cmd = t_strdup_printf("KICK-ALT-USER\t"
+				      DIRECTOR_ALT_USER_FIELD_NAME"\t%u",
 				      user->username_hash);
 		dir->users_kicking_count++;
-		ctx->ipc_cmd = ipc_client_cmd(dir->ipc_proxy, cmd,
-					      director_kill_user_callback, ctx);
+		ctx->anvil_cmd = anvil_client_query(dir->anvil, cmd,
+			ANVIL_DEFAULT_KICK_TIMEOUT_MSECS,
+			director_kill_user_callback, ctx);
 	} else {
 		/* a) we didn't even know about the user before now.
 		   don't bother performing a local kick, since it wouldn't
@@ -1143,8 +1151,8 @@ void director_move_user(struct director *dir, struct director_host *src,
 	*/
 	user = user_directory_lookup(users, username_hash);
 	if (user == NULL) {
-		dir_debug("User %u move started: User was nonexistent",
-			  username_hash);
+		e_debug(dir->event, "User %u move started: User was nonexistent",
+			username_hash);
 		user = user_directory_add(users, username_hash,
 					  host, ioloop_time);
 	} else if (user->host == host) {
@@ -1153,8 +1161,8 @@ void director_move_user(struct director *dir, struct director_host *src,
 		   killing any of our connections. */
 		old_host = user->host;
 		user->timestamp = ioloop_time;
-		dir_debug("User %u move forwarded: host is already %s",
-			  username_hash, host->ip_str);
+		e_debug(dir->event, "User %u move forwarded: host is already %s",
+			username_hash, host->ip_str);
 	} else {
 		/* user is looked up via the new host's tag, so if it's found
 		   the old tag has to be the same. */
@@ -1165,9 +1173,9 @@ void director_move_user(struct director *dir, struct director_host *src,
 		user->host = host;
 		user->host->user_count++;
 		user->timestamp = ioloop_time;
-		dir_debug("User %u move started: host %s -> %s",
-			  username_hash, old_host->ip_str,
-			  host->ip_str);
+		e_debug(dir->event, "User %u move started: host %s -> %s",
+			username_hash, old_host->ip_str,
+			host->ip_str);
 	}
 
 	if (orig_src == NULL) {
@@ -1184,17 +1192,8 @@ void director_move_user(struct director *dir, struct director_host *src,
 }
 
 static void
-director_kick_user_callback(enum ipc_client_cmd_state state,
-			    const char *data, void *context)
+director_kick_user_callback(const char *reply ATTR_UNUSED, struct director *dir)
 {
-	struct director *dir = context;
-
-	if (state == IPC_CLIENT_CMD_STATE_REPLY) {
-		/* shouldn't get here. the command reply isn't finished yet. */
-		i_error("login process sent unexpected reply to kick: %s", data);
-		return;
-	}
-
 	i_assert(dir->users_kicking_count > 0);
 	dir->users_kicking_count--;
 	if (dir->kick_callback != NULL)
@@ -1206,11 +1205,12 @@ void director_kick_user(struct director *dir, struct director_host *src,
 {
 	string_t *cmd = t_str_new(64);
 
-	str_append(cmd, "proxy\t*\tKICK\t");
+	str_append(cmd, "KICK-USER\t");
 	str_append_tabescaped(cmd, username);
 	dir->users_kicking_count++;
-	ipc_client_cmd(dir->ipc_proxy, str_c(cmd),
-		       director_kick_user_callback, dir);
+	anvil_client_query(dir->anvil, str_c(cmd),
+			   ANVIL_DEFAULT_KICK_TIMEOUT_MSECS,
+			   director_kick_user_callback, dir);
 
 	if (orig_src == NULL) {
 		orig_src = dir->self_host;
@@ -1230,13 +1230,14 @@ void director_kick_user_alt(struct director *dir, struct director_host *src,
 {
 	string_t *cmd = t_str_new(64);
 
-	str_append(cmd, "proxy\t*\tKICK-ALT\t");
+	str_append(cmd, "KICK-ALT-USER\t");
 	str_append_tabescaped(cmd, field);
 	str_append_c(cmd, '\t');
 	str_append_tabescaped(cmd, value);
 	dir->users_kicking_count++;
-	ipc_client_cmd(dir->ipc_proxy, str_c(cmd),
-		       director_kick_user_callback, dir);
+	anvil_client_query(dir->anvil, str_c(cmd),
+			   ANVIL_DEFAULT_KICK_TIMEOUT_MSECS,
+			   director_kick_user_callback, dir);
 
 	if (orig_src == NULL) {
 		orig_src = dir->self_host;
@@ -1259,11 +1260,13 @@ void director_kick_user_hash(struct director *dir, struct director_host *src,
 {
 	const char *cmd;
 
-	cmd = t_strdup_printf("proxy\t*\tKICK-DIRECTOR-HASH\t%u\t%s",
+	cmd = t_strdup_printf("KICK-ALT-USER\t"
+			      DIRECTOR_ALT_USER_FIELD_NAME"\t%u\t%s",
 			      username_hash, net_ip2addr(except_ip));
 	dir->users_kicking_count++;
-	ipc_client_cmd(dir->ipc_proxy, cmd,
-		       director_kick_user_callback, dir);
+	anvil_client_query(dir->anvil, cmd,
+			   ANVIL_DEFAULT_KICK_TIMEOUT_MSECS,
+			   director_kick_user_callback, dir);
 
 	if (orig_src == NULL) {
 		orig_src = dir->self_host;
@@ -1309,8 +1312,8 @@ director_user_tag_killed(struct director *dir, struct mail_tag *tag,
 		director_finish_user_kill(dir, user, TRUE);
 		break;
 	case USER_KILL_STATE_KILLING_NOTIFY_RECEIVED:
-		dir_debug("User %u kill_state=%s - ignoring USER-KILLED",
-			  username_hash, user_kill_state_names[user->kill_ctx->kill_state]);
+		e_debug(dir->event, "User %u kill_state=%s - ignoring USER-KILLED",
+			username_hash, user_kill_state_names[user->kill_ctx->kill_state]);
 		break;
 	case USER_KILL_STATE_NONE:
 	case USER_KILL_STATE_FLUSHING:
@@ -1330,10 +1333,10 @@ director_user_tag_killed(struct director *dir, struct mail_tag *tag,
 
 void director_user_killed(struct director *dir, unsigned int username_hash)
 {
-	struct mail_tag *const *tagp;
+	struct mail_tag *tag;
 
-	array_foreach(mail_hosts_get_tags(dir->mail_hosts), tagp)
-		director_user_tag_killed(dir, *tagp, username_hash);
+	array_foreach_elem(mail_hosts_get_tags(dir->mail_hosts), tag)
+		director_user_tag_killed(dir, tag, username_hash);
 }
 
 static void
@@ -1347,18 +1350,18 @@ director_user_tag_killed_everywhere(struct director *dir,
 
 	user = user_directory_lookup(tag->users, username_hash);
 	if (user == NULL) {
-		dir_debug("User %u no longer exists - ignoring USER-KILLED-EVERYWHERE",
-			  username_hash);
+		e_debug(dir->event, "User %u no longer exists - ignoring USER-KILLED-EVERYWHERE",
+			username_hash);
 		return;
 	}
 	if (!USER_IS_BEING_KILLED(user)) {
-		dir_debug("User %u is no longer being killed - ignoring USER-KILLED-EVERYWHERE",
-			  username_hash);
+		e_debug(dir->event, "User %u is no longer being killed - ignoring USER-KILLED-EVERYWHERE",
+			username_hash);
 		return;
 	}
 	if (user->kill_ctx->kill_state != USER_KILL_STATE_KILLED_WAITING_FOR_EVERYONE) {
-		dir_debug("User %u kill_state=%s - ignoring USER-KILLED-EVERYWHERE",
-			  username_hash, user_kill_state_names[user->kill_ctx->kill_state]);
+		e_debug(dir->event, "User %u kill_state=%s - ignoring USER-KILLED-EVERYWHERE",
+			username_hash, user_kill_state_names[user->kill_ctx->kill_state]);
 		return;
 	}
 
@@ -1371,10 +1374,10 @@ void director_user_killed_everywhere(struct director *dir,
 				     struct director_host *orig_src,
 				     unsigned int username_hash)
 {
-	struct mail_tag *const *tagp;
+	struct mail_tag *tag;
 
-	array_foreach(mail_hosts_get_tags(dir->mail_hosts), tagp) {
-		director_user_tag_killed_everywhere(dir, *tagp, src, orig_src,
+	array_foreach_elem(mail_hosts_get_tags(dir->mail_hosts), tag) {
+		director_user_tag_killed_everywhere(dir, tag, src, orig_src,
 						    username_hash);
 	}
 }
@@ -1405,14 +1408,14 @@ void director_update_send_version(struct director *dir,
 				  struct director_host *src,
 				  unsigned int min_version, const char *cmd)
 {
-	struct director_connection *const *connp;
+	struct director_connection *conn;
 
 	i_assert(src != NULL);
 
-	array_foreach(&dir->connections, connp) {
-		if (director_connection_get_host(*connp) != src &&
-		    director_connection_get_minor_version(*connp) >= min_version)
-			director_connection_send(*connp, cmd);
+	array_foreach_elem(&dir->connections, conn) {
+		if (director_connection_get_host(conn) != src &&
+		    director_connection_get_minor_version(conn) >= min_version)
+			director_connection_send(conn, cmd);
 	}
 }
 
@@ -1445,13 +1448,17 @@ director_init(const struct director_settings *set,
 	dir->self_ip = *listen_ip;
 	dir->state_change_callback = callback;
 	dir->kick_callback = kick_callback;
+	dir->event = event_create(NULL);
+	event_add_category(dir->event, &event_category_director);
 	i_array_init(&dir->dir_hosts, 16);
 	i_array_init(&dir->pending_requests, 16);
 	i_array_init(&dir->connections, 8);
-	dir->mail_hosts = mail_hosts_init(set->director_user_expire,
+	dir->mail_hosts = mail_hosts_init(dir, set->director_user_expire,
 					  director_user_freed);
 
-	dir->ipc_proxy = ipc_client_init(DIRECTOR_IPC_PROXY_PATH);
+	dir->anvil = anvil_client_init(DIRECTOR_ANVIL_SOCKET_PATH, NULL, 0);
+	if (anvil_client_connect(dir->anvil, FALSE) < 0)
+		i_fatal("Couldn't connect to anvil");
 	dir->ring_min_version = DIRECTOR_VERSION_MINOR;
 	return dir;
 }
@@ -1473,7 +1480,7 @@ void director_deinit(struct director **_dir)
 	mail_hosts_deinit(&dir->mail_hosts);
 	mail_hosts_deinit(&dir->orig_config_hosts);
 
-	ipc_client_deinit(&dir->ipc_proxy);
+	anvil_client_deinit(&dir->anvil);
 	timeout_remove(&dir->to_reconnect);
 	timeout_remove(&dir->to_handshake_warning);
 	timeout_remove(&dir->to_request);
@@ -1488,21 +1495,8 @@ void director_deinit(struct director **_dir)
 	array_free(&dir->pending_requests);
 	array_free(&dir->dir_hosts);
 	array_free(&dir->connections);
+	event_unref(&dir->event);
 	i_free(dir);
-}
-
-void dir_debug(const char *fmt, ...)
-{
-	va_list args;
-
-	if (!director_debug)
-		return;
-
-	va_start(args, fmt);
-	T_BEGIN {
-		i_debug("%s", t_strdup_vprintf(fmt, args));
-	} T_END;
-	va_end(args);
 }
 
 struct director_user_iter {
@@ -1532,8 +1526,8 @@ struct user *director_iterate_users_next(struct director_user_iter *iter)
 		tags = mail_hosts_get_tags(iter->dir->mail_hosts);
 		if (iter->tag_idx >= array_count(tags))
 			return NULL;
-		struct mail_tag *const *tagp = array_idx(tags, iter->tag_idx);
-		iter->user_iter = user_directory_iter_init((*tagp)->users,
+		struct mail_tag *tag = array_idx_elem(tags, iter->tag_idx);
+		iter->user_iter = user_directory_iter_init(tag->users,
 			iter->iter_until_current_tail);
 	}
 	user = user_directory_iter_next(iter->user_iter);
@@ -1564,7 +1558,7 @@ director_get_username_hash(struct director *dir, const char *username,
 	if (mail_user_hash(username, dir->set->director_username_hash, hash_r,
 			   &error))
 		return TRUE;
-	i_error("Failed to expand director_user_expire=%s: %s",
+	e_error(dir->event, "Failed to expand director_username_hash=%s: %s",
 		dir->set->director_username_hash, error);
 	return FALSE;
 }

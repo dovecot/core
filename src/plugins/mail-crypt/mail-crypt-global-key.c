@@ -102,10 +102,8 @@ int mail_crypt_load_global_private_key(const char *set_key, const char *key_data
 		/* Fail here if password is not set since openssl will prompt
 		 * for it otherwise */
 		if (key_password == NULL) {
-			if (error_r != NULL)
-				*error_r = t_strdup_printf("%s: %s unset, no "
-						"password to decrypt the key",
-						set_key, set_pw);
+			*error_r = t_strdup_printf("%s: %s unset, no password to decrypt the key",
+						   set_key, set_pw);
 			return -1;
 		}
 	}

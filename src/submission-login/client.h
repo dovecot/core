@@ -5,6 +5,7 @@
 #include "client-common.h"
 #include "auth-client.h"
 #include "smtp-server.h"
+#include "smtp-dovecot.h"
 
 enum submission_proxy_state {
 	SUBMISSION_PROXY_BANNER = 0,
@@ -12,6 +13,7 @@ enum submission_proxy_state {
 	SUBMISSION_PROXY_STARTTLS,
 	SUBMISSION_PROXY_TLS_EHLO,
 	SUBMISSION_PROXY_XCLIENT,
+	SUBMISSION_PROXY_XCLIENT_EHLO,
 	SUBMISSION_PROXY_AUTHENTICATE,
 
 	SUBMISSION_PROXY_STATE_COUNT
@@ -27,9 +29,11 @@ struct submission_client {
 
 	enum submission_proxy_state proxy_state;
 	enum smtp_capability proxy_capability;
+	char *proxy_sasl_ir;
 	unsigned int proxy_reply_status;
 	struct smtp_server_reply *proxy_reply;
 	const char **proxy_xclient;
+	unsigned int proxy_xclient_replies_expected;
 };
 
 #endif

@@ -16,7 +16,8 @@ struct sized_istream {
 
 static void i_stream_sized_destroy(struct iostream_private *stream)
 {
-	struct sized_istream *sstream = (struct sized_istream *)stream;
+	struct sized_istream *sstream =
+		container_of(stream, struct sized_istream, istream.iostream);
 	uoff_t v_offset;
 
 	v_offset = sstream->istream.parent_start_offset +
@@ -61,7 +62,7 @@ i_stream_sized_parent_read(struct istream_private *stream, size_t *pos_r)
 static ssize_t i_stream_sized_read(struct istream_private *stream)
 {
 	struct sized_istream *sstream =
-		(struct sized_istream *)stream;
+		container_of(stream, struct sized_istream, istream);
 	struct istream_sized_error_data data;
 	const char *error;
 	uoff_t left;
@@ -133,7 +134,8 @@ static ssize_t i_stream_sized_read(struct istream_private *stream)
 static int
 i_stream_sized_stat(struct istream_private *stream, bool exact ATTR_UNUSED)
 {
-	struct sized_istream *sstream = (struct sized_istream *)stream;
+	struct sized_istream *sstream =
+		container_of(stream, struct sized_istream, istream);
 	const struct stat *st;
 
 	/* parent stream may be base64-decoder. don't waste time decoding the
@@ -197,7 +199,9 @@ struct istream *i_stream_create_min_sized(struct istream *input, uoff_t min_size
 	struct istream *ret;
 
 	ret= i_stream_create_sized(input, min_size);
-	((struct sized_istream *)ret->real_stream)->min_size_only = TRUE;
+	struct sized_istream *ret_sstream =
+		container_of(ret->real_stream, struct sized_istream, istream);
+	ret_sstream->min_size_only = TRUE;
 	return ret;
 }
 
@@ -207,7 +211,9 @@ struct istream *i_stream_create_min_sized_range(struct istream *input,
 	struct istream *ret;
 
 	ret = i_stream_create_sized_range(input, offset, min_size);
-	((struct sized_istream *)ret->real_stream)->min_size_only = TRUE;
+	struct sized_istream *ret_sstream =
+		container_of(ret->real_stream, struct sized_istream, istream);
+	ret_sstream->min_size_only = TRUE;
 	return ret;
 }
 

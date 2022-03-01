@@ -141,7 +141,7 @@ static void dsync_ibc_pipe_deinit(struct dsync_ibc *ibc)
 {
 	struct dsync_ibc_pipe *pipe = (struct dsync_ibc_pipe *)ibc;
 	struct item *item;
-	pool_t *poolp;
+	pool_t pool;
 
 	if (pipe->remote != NULL) {
 		i_assert(pipe->remote->remote == pipe);
@@ -152,8 +152,8 @@ static void dsync_ibc_pipe_deinit(struct dsync_ibc *ibc)
 	array_foreach_modifiable(&pipe->item_queue, item) {
 		pool_unref(&item->pool);
 	}
-	array_foreach_modifiable(&pipe->pools, poolp)
-		pool_unref(poolp);
+	array_foreach_elem(&pipe->pools, pool)
+		pool_unref(&pool);
 	array_free(&pipe->pools);
 	array_free(&pipe->item_queue);
 	i_free(pipe);
@@ -279,7 +279,7 @@ dsync_ibc_pipe_recv_mailbox_tree_node(struct dsync_ibc *ibc,
 	if (item == NULL)
 		return DSYNC_IBC_RECV_RET_TRYAGAIN;
 
-	*name_r = (void *)item->u.node.name;
+	*name_r = (const void *)item->u.node.name;
 	item->u.node.name = NULL;
 
 	*node_r = &item->u.node;

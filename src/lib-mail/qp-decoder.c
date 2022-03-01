@@ -102,19 +102,19 @@ static void qp_decoder_invalid(struct qp_decoder *qp, const char **error_r)
 		break;
 	case STATE_EQUALS_WHITESPACE:
 		buffer_append_c(qp->dest, '=');
-		buffer_append_buf(qp->dest, qp->whitespace, 0, (size_t)-1);
+		buffer_append_buf(qp->dest, qp->whitespace, 0, SIZE_MAX);
 		buffer_set_used_size(qp->whitespace, 0);
 		*error_r = "'=<whitespace>' not followed by newline";
 		break;
 	case STATE_CR:
-		buffer_append_buf(qp->dest, qp->whitespace, 0, (size_t)-1);
+		buffer_append_buf(qp->dest, qp->whitespace, 0, SIZE_MAX);
 		buffer_set_used_size(qp->whitespace, 0);
 		buffer_append_c(qp->dest, '\r');
 		*error_r = "CR not followed by LF";
 		break;
 	case STATE_SOFTCR:
 		buffer_append_c(qp->dest, '=');
-		buffer_append_buf(qp->dest, qp->whitespace, 0, (size_t)-1);
+		buffer_append_buf(qp->dest, qp->whitespace, 0, SIZE_MAX);
 		buffer_set_used_size(qp->whitespace, 0);
 		buffer_append_c(qp->dest, '\r');
 		*error_r = "CR not followed by LF";
@@ -134,7 +134,7 @@ int qp_decoder_more(struct qp_decoder *qp, const unsigned char *src,
 	const char *error;
 	size_t i;
 
-	*invalid_src_pos_r = (size_t)-1;
+	*invalid_src_pos_r = SIZE_MAX;
 	*error_r = NULL;
 
 	for (i = 0; i < src_size; ) {
@@ -159,12 +159,12 @@ int qp_decoder_more(struct qp_decoder *qp, const unsigned char *src,
 				/* this wasn't trailing whitespace.
 				   put it back. */
 				buffer_append_buf(qp->dest, qp->whitespace,
-						  0, (size_t)-1);
+						  0, SIZE_MAX);
 				if (qp->whitespace->used > QP_MAX_WHITESPACE_LEN) {
 					/* we already truncated some of the
 					   whitespace away, because the line
 					   is too long */
-					if (*invalid_src_pos_r == (size_t)-1) {
+					if (*invalid_src_pos_r == SIZE_MAX) {
 						*invalid_src_pos_r = i;
 						*error_r = "Too much whitespace";
 					}
@@ -192,7 +192,7 @@ int qp_decoder_more(struct qp_decoder *qp, const unsigned char *src,
 			} else {
 				/* invalid input */
 				qp_decoder_invalid(qp, &error);
-				if (*invalid_src_pos_r == (size_t)-1) {
+				if (*invalid_src_pos_r == SIZE_MAX) {
 					*invalid_src_pos_r = i;
 					*error_r = error;
 				}
@@ -214,7 +214,7 @@ int qp_decoder_more(struct qp_decoder *qp, const unsigned char *src,
 			} else {
 				/* invalid input */
 				qp_decoder_invalid(qp, &error);
-				if (*invalid_src_pos_r == (size_t)-1) {
+				if (*invalid_src_pos_r == SIZE_MAX) {
 					*invalid_src_pos_r = i;
 					*error_r = error;
 				}
@@ -238,7 +238,7 @@ int qp_decoder_more(struct qp_decoder *qp, const unsigned char *src,
 				/* =<whitespace> not followed by [CR]LF
 				   is invalid. */
 				qp_decoder_invalid(qp, &error);
-				if (*invalid_src_pos_r == (size_t)-1) {
+				if (*invalid_src_pos_r == SIZE_MAX) {
 					*invalid_src_pos_r = i;
 					*error_r = error;
 				}
@@ -254,7 +254,7 @@ int qp_decoder_more(struct qp_decoder *qp, const unsigned char *src,
 				qp->state = STATE_TEXT;
 			} else {
 				qp_decoder_invalid(qp, &error);
-				if (*invalid_src_pos_r == (size_t)-1) {
+				if (*invalid_src_pos_r == SIZE_MAX) {
 					*invalid_src_pos_r = i;
 					*error_r = error;
 				}
@@ -264,8 +264,8 @@ int qp_decoder_more(struct qp_decoder *qp, const unsigned char *src,
 		}
 		i++;
 	}
-	i_assert((*invalid_src_pos_r == (size_t)-1) == (*error_r == NULL));
-	return *invalid_src_pos_r == (size_t)-1 ? 0 : -1;
+	i_assert((*invalid_src_pos_r == SIZE_MAX) == (*error_r == NULL));
+	return *invalid_src_pos_r == SIZE_MAX ? 0 : -1;
 }
 
 int qp_decoder_finish(struct qp_decoder *qp, const char **error_r)

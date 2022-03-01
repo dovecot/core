@@ -48,8 +48,7 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 		return TRUE;
 
 	box = mailbox_alloc(ns->list, mailbox, 0);
-	event_add_str(cmd->event, "mailbox", mailbox_get_vname(box));
-	mailbox_set_reason(box, subscribe ? "SUBSCRIBE" : "UNSUBSCRIBE");
+	event_add_str(cmd->global_event, "mailbox", mailbox_get_vname(box));
 	if (subscribe) {
 		if (!subscribe_is_valid_name(cmd, box)) {
 			mailbox_free(&box);
@@ -65,7 +64,6 @@ bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe)
 		/* try to unsubscribe both "box" and "box/" */
 		const char *name2 = t_strdup_printf("%s%c", mailbox, sep);
 		box2 = mailbox_alloc(ns->list, name2, 0);
-		mailbox_set_reason(box2, "UNSUBSCRIBE");
 		if (mailbox_set_subscribed(box2, FALSE) == 0)
 			unsubscribed_mailbox2 = TRUE;
 		mailbox_free(&box2);

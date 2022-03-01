@@ -14,7 +14,7 @@ static struct file_listener_settings *dict_unix_listeners[] = {
 	&dict_unix_listeners_array[0]
 };
 static buffer_t dict_unix_listeners_buf = {
-	dict_unix_listeners, sizeof(dict_unix_listeners), { NULL, }
+	{ { dict_unix_listeners, sizeof(dict_unix_listeners) } }
 };
 
 static struct file_listener_settings dict_async_unix_listeners_array[] = {
@@ -24,7 +24,7 @@ static struct file_listener_settings *dict_async_unix_listeners[] = {
 	&dict_async_unix_listeners_array[0]
 };
 static buffer_t dict_async_unix_listeners_buf = {
-	dict_async_unix_listeners, sizeof(dict_async_unix_listeners), { NULL, }
+	{ { dict_async_unix_listeners, sizeof(dict_async_unix_listeners) } }
 };
 /* </settings checks> */
 
@@ -46,7 +46,7 @@ struct service_settings dict_service_settings = {
 	.client_limit = 1,
 	.service_count = 0,
 	.idle_kill = 0,
-	.vsz_limit = (uoff_t)-1,
+	.vsz_limit = UOFF_T_MAX,
 
 	.unix_listeners = { { &dict_unix_listeners_buf,
 			      sizeof(dict_unix_listeners[0]) } },
@@ -72,7 +72,7 @@ struct service_settings dict_async_service_settings = {
 	.client_limit = 0,
 	.service_count = 0,
 	.idle_kill = 0,
-	.vsz_limit = (uoff_t)-1,
+	.vsz_limit = UOFF_T_MAX,
 
 	.unix_listeners = { { &dict_async_unix_listeners_buf,
 			      sizeof(dict_async_unix_listeners[0]) } },
@@ -82,14 +82,15 @@ struct service_settings dict_async_service_settings = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct dict_server_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct dict_server_settings)
 
 static const struct setting_define dict_setting_defines[] = {
-	DEF(SET_STR, base_dir),
-	DEF(SET_BOOL, verbose_proctitle),
+	DEF(STR, base_dir),
+	DEF(BOOL, verbose_proctitle),
 
-	DEF(SET_STR, dict_db_config),
-	{ SET_STRLIST, "dict", offsetof(struct dict_server_settings, dicts), NULL },
+	DEF(STR, dict_db_config),
+	{ .type = SET_STRLIST, .key = "dict",
+	  .offset = offsetof(struct dict_server_settings, dicts) },
 
 	SETTING_DEFINE_LIST_END
 };
@@ -107,10 +108,10 @@ const struct setting_parser_info dict_setting_parser_info = {
 	.defines = dict_setting_defines,
 	.defaults = &dict_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct dict_server_settings),
 
-	.parent_offset = (size_t)-1
+	.parent_offset = SIZE_MAX
 };
 
 const struct dict_server_settings *dict_settings;

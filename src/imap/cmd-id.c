@@ -16,7 +16,7 @@ bool cmd_id(struct client_command_context *cmd)
 		cmd->client->id_logged = TRUE;
 		value = imap_id_args_get_log_reply(args, set->imap_id_log);
 		if (value != NULL)
-			i_info("ID sent: %s", value);
+			e_info(cmd->client->event, "ID sent: %s", value);
 	}
 
 	client_send_line(cmd->client, t_strdup_printf(

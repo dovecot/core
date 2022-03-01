@@ -31,9 +31,10 @@ imap_client_created_func_t * ATTR_NOWARN_UNUSED_RESULT
 imap_client_created_hook_set(imap_client_created_func_t *new_hook);
 
 void imap_refresh_proctitle(void);
+void imap_refresh_proctitle_delayed(void);
 
 int client_create_from_input(const struct mail_storage_service_input *input,
-			     int fd_in, int fd_out, struct client **client_r,
-			     const char **error_r);
+			     int fd_in, int fd_out, bool unhibernated,
+			     struct client **client_r, const char **error_r);
 
 #endif

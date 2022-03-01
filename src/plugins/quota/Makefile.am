@@ -20,6 +20,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage/index/imapc \
 	-I$(top_srcdir)/src/lib-storage/index/maildir \
 	-I$(top_srcdir)/src/lib-program-client \
+	-I$(top_srcdir)/src/lib-doveadm \
 	-I$(top_srcdir)/src/doveadm \
 	$(LIBTIRPC_CFLAGS)
 
@@ -87,7 +88,7 @@ RQUOTA_XDR_LO = rquota_xdr.lo
 #RQUOTA_X = /usr/include/rpcsvc/rquota.x
 RQUOTA_X = $(srcdir)/rquota.x
 rquota_xdr.c: Makefile rquota.h
-	if [ "$(top_srcdir)" != "$(top_builddir)" ]; then \
+	$(AM_V_GEN)if [ "$(top_srcdir)" != "$(top_builddir)" ]; then \
 	  cp $(RQUOTA_X) $(top_builddir)/src/plugins/quota/; \
 	fi; \
 	(echo '#include "lib.h"'; \
@@ -102,7 +103,7 @@ rquota_xdr.c: Makefile rquota.h
 	    -e 's/^static char rcsid.*//' ) > rquota_xdr.c
 
 rquota.h: Makefile $(RQUOTA_X)
-	$(RPCGEN) -h $(RQUOTA_X) > rquota.h
+	$(AM_V_GEN)$(RPCGEN) -h $(RQUOTA_X) > rquota.h
 
 quota-fs.lo: rquota.h
 

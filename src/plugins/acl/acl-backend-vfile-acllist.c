@@ -50,8 +50,7 @@ static bool acl_list_get_root_dir(struct acl_backend_vfile *backend,
 		return FALSE;
 
 	storage = mailbox_list_get_namespace(backend->backend.list)->storage;
-	type = (storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) != 0 ?
-		MAILBOX_LIST_PATH_TYPE_CONTROL : MAILBOX_LIST_PATH_TYPE_DIR;
+	type = mail_storage_get_acl_list_path_type(storage);
 	if (!mailbox_list_get_root_path(backend->backend.list, type, &rootdir))
 		return FALSE;
 	*type_r = type;
@@ -132,7 +131,7 @@ static int acl_backend_vfile_acllist_read(struct acl_backend_vfile *backend)
 	backend->acllist_mtime = st.st_mtime;
 	acllist_clear(backend, st.st_size);
 
-	input = i_stream_create_fd(fd, (size_t)-1);
+	input = i_stream_create_fd(fd, SIZE_MAX);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
 		acllist.mtime = 0;
 		for (p = line; *p >= '0' && *p <= '9'; p++)
@@ -200,12 +199,8 @@ acllist_append(struct acl_backend_vfile *backend, struct ostream *output,
 		acllist.name = p_strdup(backend->acllist_pool, name);
 		array_push_back(&backend->acllist, &acllist);
 
-		T_BEGIN {
-			const char *line;
-			line = t_strdup_printf("%s %s\n",
-					       dec2str(acllist.mtime), name);
-			o_stream_nsend_str(output, line);
-		} T_END;
+		o_stream_nsend_str(output, t_strdup_printf(
+			"%s %s\n", dec2str(acllist.mtime), name));
 	}
 	acl_object_deinit(&aclobj);
 	return ret < 0 ? -1 : 0;
@@ -274,12 +269,9 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 	iter = mailbox_list_iter_init(list, "*",
 				      MAILBOX_LIST_ITER_RAW_LIST |
 				      MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
-	while ((info = mailbox_list_iter_next(iter)) != NULL) {
-		if (acllist_append(backend, output, info->vname) < 0) {
-			ret = -1;
-			break;
-		}
-	}
+	while (ret == 0 && (info = mailbox_list_iter_next(iter)) != NULL) T_BEGIN {
+		ret = acllist_append(backend, output, info->vname);
+	} T_END;
 
 	if (o_stream_finish(output) < 0) {
 		i_error("write(%s) failed: %s", str_c(path),

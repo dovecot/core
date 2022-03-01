@@ -379,38 +379,24 @@ void restrict_access(const struct restrict_access_settings *set,
 void restrict_access_set_env(const struct restrict_access_settings *set)
 {
 	if (set->system_groups_user != NULL &&
-	    *set->system_groups_user != '\0') {
-		env_put(t_strconcat("RESTRICT_USER=",
-				    set->system_groups_user, NULL));
-	}
+	    *set->system_groups_user != '\0')
+		env_put("RESTRICT_USER", set->system_groups_user);
 	if (set->chroot_dir != NULL && *set->chroot_dir != '\0')
-		env_put(t_strconcat("RESTRICT_CHROOT=", set->chroot_dir, NULL));
+		env_put("RESTRICT_CHROOT", set->chroot_dir);
 
-	if (set->uid != (uid_t)-1) {
-		env_put(t_strdup_printf("RESTRICT_SETUID=%s",
-					dec2str(set->uid)));
-	}
-	if (set->gid != (gid_t)-1) {
-		env_put(t_strdup_printf("RESTRICT_SETGID=%s",
-					dec2str(set->gid)));
-	}
-	if (set->privileged_gid != (gid_t)-1) {
-		env_put(t_strdup_printf("RESTRICT_SETGID_PRIV=%s",
-					dec2str(set->privileged_gid)));
-	}
-	if (set->extra_groups != NULL && *set->extra_groups != '\0') {
-		env_put(t_strconcat("RESTRICT_SETEXTRAGROUPS=",
-				    set->extra_groups, NULL));
-	}
+	if (set->uid != (uid_t)-1)
+		env_put("RESTRICT_SETUID", dec2str(set->uid));
+	if (set->gid != (gid_t)-1)
+		env_put("RESTRICT_SETGID", dec2str(set->gid));
+	if (set->privileged_gid != (gid_t)-1)
+		env_put("RESTRICT_SETGID_PRIV", dec2str(set->privileged_gid));
+	if (set->extra_groups != NULL && *set->extra_groups != '\0')
+		env_put("RESTRICT_SETEXTRAGROUPS", set->extra_groups);
 
-	if (set->first_valid_gid != 0) {
-		env_put(t_strdup_printf("RESTRICT_GID_FIRST=%s",
-					dec2str(set->first_valid_gid)));
-	}
-	if (set->last_valid_gid != 0) {
-		env_put(t_strdup_printf("RESTRICT_GID_LAST=%s",
-					dec2str(set->last_valid_gid)));
-	}
+	if (set->first_valid_gid != 0)
+		env_put("RESTRICT_GID_FIRST", dec2str(set->first_valid_gid));
+	if (set->last_valid_gid != 0)
+		env_put("RESTRICT_GID_LAST", dec2str(set->last_valid_gid));
 }
 
 static const char *null_if_empty(const char *str)

@@ -10,6 +10,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-mail \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
+	-I$(top_srcdir)/src/lib-pop3 \
 	$(BINARY_CFLAGS)
 
 pop3_LDFLAGS = -export-dynamic \
@@ -29,7 +30,6 @@ pop3_SOURCES = \
 	pop3-settings.c
 
 headers = \
-	pop3-capability.h \
 	pop3-client.h \
 	pop3-commands.h \
 	pop3-common.h \

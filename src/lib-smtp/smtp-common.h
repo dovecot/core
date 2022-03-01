@@ -4,6 +4,12 @@
 #include "net.h"
 
 /*
+ * Limits
+ */
+
+#define SMTP_BASE_LINE_LENGTH_LIMIT (512 - 2)
+
+/*
  * SMTP protocols
  */
 
@@ -88,6 +94,8 @@ struct smtp_proxy_data {
 	in_port_t source_port;
 	/* HELO, LOGIN */
 	const char *helo, *login;
+	/* SESSION */
+	const char *session;
 
 	/* TTL: send as this -1, so the default 0 means "don't send it" */
 	unsigned int ttl_plus_1;
@@ -100,10 +108,6 @@ struct smtp_proxy_data {
 	const struct smtp_proxy_data_field *extra_fields;
 	unsigned int extra_fields_count;
 };
-
-/*
- * SMTP proxy data
- */
 
 void smtp_proxy_data_merge(pool_t pool, struct smtp_proxy_data *dst,
 			   const struct smtp_proxy_data *src);

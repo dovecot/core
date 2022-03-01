@@ -90,7 +90,7 @@ static const char *dict_sql_fields_map(struct setting_parser_ctx *ctx)
 	pattern = t_str_new(strlen(ctx->cur_map.pattern) + 1);
 	fields = array_get_modifiable(&ctx->cur_fields, &count);
 
-	p_array_init(&ctx->cur_map.sql_fields, ctx->pool, count);
+	p_array_init(&ctx->cur_map.pattern_fields, ctx->pool, count);
 	for (p = ctx->cur_map.pattern; *p != '\0';) {
 		if (*p != '$') {
 			str_append_c(pattern, *p);
@@ -113,7 +113,7 @@ static const char *dict_sql_fields_map(struct setting_parser_ctx *ctx)
 
 		/* mark this field as used */
 		fields[i].variable = NULL;
-		array_push_back(&ctx->cur_map.sql_fields,
+		array_push_back(&ctx->cur_map.pattern_fields,
 				&fields[i].sql_field);
 	}
 
@@ -125,8 +125,8 @@ static const char *dict_sql_fields_map(struct setting_parser_ctx *ctx)
 		}
 	}
 
-	if (ctx->set->max_field_count < count)
-		ctx->set->max_field_count = count;
+	if (ctx->set->max_pattern_fields_count < count)
+		ctx->set->max_pattern_fields_count = count;
 	ctx->cur_map.pattern = p_strdup(ctx->pool, str_c(pattern));
 	return NULL;
 }
@@ -186,9 +186,9 @@ static const char *dict_sql_map_finish(struct setting_parser_ctx *ctx)
 		ctx->cur_map.username_field = "'username_field not set'";
 	}
 
-	if (!array_is_created(&ctx->cur_map.sql_fields)) {
+	if (!array_is_created(&ctx->cur_map.pattern_fields)) {
 		/* no fields besides value. allocate the array anyway. */
-		p_array_init(&ctx->cur_map.sql_fields, ctx->pool, 1);
+		p_array_init(&ctx->cur_map.pattern_fields, ctx->pool, 1);
 		if (strchr(ctx->cur_map.pattern, '$') != NULL)
 			return "Missing fields for pattern variables";
 	}

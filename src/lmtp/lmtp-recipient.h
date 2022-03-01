@@ -17,9 +17,13 @@ struct lmtp_recipient {
 	struct client *client;
 	struct smtp_server_recipient *rcpt;
 
+	const char *username, *detail;
+	char delim;
+
 	enum lmtp_recipient_type type;
 	void *backend_context;
 
+	const char *session_id;
 	const char *forward_fields;
 
 	/* Module-specific contexts. */
@@ -37,6 +41,7 @@ extern struct lmtp_recipient_module_register lmtp_recipient_module_register;
 
 struct lmtp_recipient *
 lmtp_recipient_create(struct client *client,
+		      struct smtp_server_transaction *trans,
 		      struct smtp_server_recipient *rcpt);
 
 struct lmtp_recipient *

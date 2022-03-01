@@ -2,6 +2,7 @@
 #define LOGIN_SETTINGS_H
 
 struct master_service_ssl_settings;
+struct master_service_ssl_server_settings;
 
 struct login_settings {
 	const char *login_trusted_networks;
@@ -15,6 +16,7 @@ struct login_settings {
 	unsigned int login_proxy_timeout;
 	unsigned int login_proxy_max_reconnects;
 	unsigned int login_proxy_max_disconnect_delay;
+	const char *login_proxy_rawlog_dir;
 	const char *director_username_hash;
 
 	bool auth_ssl_require_client_cert;
@@ -41,6 +43,7 @@ login_settings_read(pool_t pool,
 		    const struct ip_addr *remote_ip,
 		    const char *local_name,
 		    const struct master_service_ssl_settings **ssl_set_r,
+		    const struct master_service_ssl_server_settings **ssl_server_set_r,
 		    void ***other_settings_r) ATTR_NULL(2, 3, 4);
 void login_settings_deinit(void);
 

@@ -30,6 +30,7 @@ nodist_man1_MANS = \
 	doveadm-fs.1 \
 	doveadm-fts.1 \
 	doveadm-import.1 \
+	doveadm-indexer.1 \
 	doveadm-instance.1 \
 	doveadm-index.1 \
 	doveadm-force-resync.1 \
@@ -82,6 +83,7 @@ EXTRA_DIST = \
 	doveadm-fs.1.in \
 	doveadm-fts.1.in \
 	doveadm-import.1.in \
+	doveadm-indexer.1.in \
 	doveadm-instance.1.in \
 	doveadm-index.1.in \
 	doveadm-force-resync.1.in \
@@ -114,5 +116,5 @@ EXTRA_DIST = \
 CLEANFILES = $(nodist_man1_MANS)
 
 .1.in.1: $(man_includefiles) Makefile
-	$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(pkgsysconfdir) \
+	$(AM_V_GEN)$(SHELL) $(srcdir)/sed.sh $(srcdir) $(rundir) $(pkgsysconfdir) \
 		$(pkglibexecdir) < $< > $@

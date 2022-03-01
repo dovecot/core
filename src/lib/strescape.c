@@ -103,38 +103,67 @@ int str_unescape_next(const char **str, const char **unescaped_r)
 
 void str_append_tabescaped_n(string_t *dest, const unsigned char *src, size_t src_size)
 {
+	size_t prev_pos = 0;
+	char esc[2] = { '\001', '\0' };
+
 	for (size_t i = 0; i < src_size; i++) {
 		switch (src[i]) {
 		case '\000':
-			str_append_c(dest, '\001');
-			str_append_c(dest, '0');
+			esc[1] = '0';
 			break;
 		case '\001':
-			str_append_c(dest, '\001');
-			str_append_c(dest, '1');
+			esc[1] = '1';
 			break;
 		case '\t':
-			str_append_c(dest, '\001');
-			str_append_c(dest, 't');
+			esc[1] = 't';
 			break;
 		case '\r':
-			str_append_c(dest, '\001');
-			str_append_c(dest, 'r');
+			esc[1] = 'r';
 			break;
 		case '\n':
-			str_append_c(dest, '\001');
-			str_append_c(dest, 'n');
+			esc[1] = 'n';
 			break;
 		default:
-			str_append_c(dest, src[i]);
-			break;
+			continue;
 		}
+		str_append_data(dest, src + prev_pos, i - prev_pos);
+		str_append_data(dest, esc, 2);
+		prev_pos = i + 1;
 	}
+	str_append_data(dest, src + prev_pos, src_size - prev_pos);
 }
 
 void str_append_tabescaped(string_t *dest, const char *src)
 {
-	str_append_tabescaped_n(dest, (const unsigned char*)src, strlen(src));
+	size_t pos, prev_pos = 0;
+	char esc[2] = { '\001', '\0' };
+
+	for (;;) {
+		pos = prev_pos + strcspn(src + prev_pos, "\001\t\r\n");
+		str_append_data(dest, src + prev_pos, pos - prev_pos);
+		prev_pos = pos + 1;
+
+		switch (src[pos]) {
+		case '\000':
+			/* end of src string reached */
+			return;
+		case '\001':
+			esc[1] = '1';
+			break;
+		case '\t':
+			esc[1] = 't';
+			break;
+		case '\r':
+			esc[1] = 'r';
+			break;
+		case '\n':
+			esc[1] = 'n';
+			break;
+		default:
+			i_unreached();
+		}
+		str_append_data(dest, esc, 2);
+	}
 }
 
 
@@ -143,13 +172,11 @@ const char *str_tabescape(const char *str)
 	string_t *tmp;
 	const char *p;
 
-	for (p = str; *p != '\0'; p++) {
-		if (*p <= '\r') {
-			tmp = t_str_new(128);
-			str_append_data(tmp, str, p-str);
-			str_append_tabescaped(tmp, p);
-			return str_c(tmp);
-		}
+	if ((p = strpbrk(str, "\001\t\r\n")) != NULL) {
+		tmp = t_str_new(128);
+		str_append_data(tmp, str, p-str);
+		str_append_tabescaped(tmp, p);
+		return str_c(tmp);
 	}
 	return str;
 }
@@ -197,115 +224,135 @@ void str_append_tabunescaped(string_t *dest, const void *src, size_t src_size)
 	}
 }
 
-char *str_tabunescape(char *str)
+static char *str_tabunescape_from(char *str, char *src)
 {
 	/* @UNSAFE */
-	char *dest, *start = str;
+	char *dest, *p;
 
-	str = strchr(str, '\001');
-	if (str == NULL) {
-		/* no unescaping needed */
-		return start;
-	}
-
-	for (dest = str; *str != '\0'; str++) {
-		if (*str != '\001')
-			*dest++ = *str;
-		else {
-			str++;
-			if (*str == '\0')
-				break;
-			switch (*str) {
-			case '0':
-				*dest++ = '\000';
-				break;
-			case '1':
-				*dest++ = '\001';
-				break;
-			case 't':
-				*dest++ = '\t';
-				break;
-			case 'r':
-				*dest++ = '\r';
-				break;
-			case 'n':
-				*dest++ = '\n';
-				break;
-			default:
-				*dest++ = *str;
-				break;
-			}
+	dest = src;
+	for (;;) {
+		switch (src[1]) {
+		case '\0':
+			/* truncated input */
+			*dest = '\0';
+			return str;
+		case '0':
+			*dest++ = '\000';
+			break;
+		case '1':
+			*dest++ = '\001';
+			break;
+		case 't':
+			*dest++ = '\t';
+			break;
+		case 'r':
+			*dest++ = '\r';
+			break;
+		case 'n':
+			*dest++ = '\n';
+			break;
+		default:
+			*dest++ = src[1];
+			break;
 		}
-	}
+		src += 2;
 
-	*dest = '\0';
-	return start;
+		p = strchr(src, '\001');
+		if (p == NULL) {
+			memmove(dest, src, strlen(src)+1);
+			break;
+		}
+
+		size_t copy_len = p - src;
+		memmove(dest, src, copy_len);
+		dest += copy_len;
+		src = p;
+	}
+	return str;
+}
+
+char *str_tabunescape(char *str)
+{
+	char *src = strchr(str, '\001');
+	if (src == NULL) {
+		/* no unescaping needed */
+		return str;
+	}
+	return str_tabunescape_from(str, src);
 }
 
 const char *t_str_tabunescape(const char *str)
 {
-	if (strchr(str, '\001') == NULL)
+	const char *p;
+
+	p = strchr(str, '\001');
+	if (p == NULL)
 		return str;
-	else
-		return str_tabunescape(t_strdup_noconst(str));
+
+	char *dest = t_strdup_noconst(str);
+	return str_tabunescape_from(dest, dest + (p - str));
 }
 
-const char *const *t_strsplit_tabescaped_inplace(char *data)
+static char **p_strsplit_tabescaped_inplace(pool_t pool, char *data)
 {
 	/* @UNSAFE */
 	char **array;
 	unsigned int count, new_alloc_count, alloc_count;
 
 	if (*data == '\0')
-		return t_new(const char *, 1);
+		return p_new(pool, char *, 1);
 
 	alloc_count = 32;
-	array = t_malloc_no0(sizeof(char *) * alloc_count);
+	array = pool == unsafe_data_stack_pool ?
+		t_malloc_no0(sizeof(char *) * alloc_count) :
+		p_malloc(pool, sizeof(char *) * alloc_count);
 
 	array[0] = data; count = 1;
-	bool need_unescape = FALSE;
+	char *need_unescape = NULL;
 	while ((data = strpbrk(data, "\t\001")) != NULL) {
 		/* separator or escape char found */
 		if (*data == '\001') {
-			need_unescape = TRUE;
+			if (need_unescape == NULL)
+				need_unescape = data;
 			data++;
 			continue;
 		}
 		if (count+1 >= alloc_count) {
 			new_alloc_count = nearest_power(alloc_count+1);
-			array = p_realloc(unsafe_data_stack_pool, array,
+			array = p_realloc(pool, array,
 					  sizeof(char *) * alloc_count,
 					  sizeof(char *) *
 					  new_alloc_count);
 			alloc_count = new_alloc_count;
 		}
 		*data++ = '\0';
-		if (need_unescape) {
-			str_tabunescape(array[count-1]);
-			need_unescape = FALSE;
+		if (need_unescape != NULL) {
+			str_tabunescape_from(array[count-1], need_unescape);
+			need_unescape = NULL;
 		}
 		array[count++] = data;
 	}
-	if (need_unescape)
-		str_tabunescape(array[count-1]);
+	if (need_unescape != NULL)
+		str_tabunescape_from(array[count-1], need_unescape);
 	i_assert(count < alloc_count);
 	array[count] = NULL;
 
-	return (const char *const *)array;
+	return array;
+}
+
+const char *const *t_strsplit_tabescaped_inplace(char *data)
+{
+	char *const *escaped =
+		p_strsplit_tabescaped_inplace(unsafe_data_stack_pool, data);
+	return (const char *const *)escaped;
 }
 
 char **p_strsplit_tabescaped(pool_t pool, const char *str)
 {
-	char **args;
-	unsigned int i;
-
-	args = p_strsplit(pool, str, "\t");
-	for (i = 0; args[i] != NULL; i++)
-		args[i] = str_tabunescape(args[i]);
-	return args;
+	return p_strsplit_tabescaped_inplace(pool, p_strdup(pool, str));
 }
 
 const char *const *t_strsplit_tabescaped(const char *str)
 {
-	return (void *)p_strsplit_tabescaped(unsafe_data_stack_pool, str);
+	return t_strsplit_tabescaped_inplace(t_strdup_noconst(str));
 }

@@ -17,6 +17,7 @@
 #include "dict-commands.h"
 #include "dict-connection.h"
 #include "dict-settings.h"
+#include "dict-init-cache.h"
 #include "main.h"
 
 #include <math.h>
@@ -24,6 +25,7 @@
 static struct module *modules;
 static struct timeout *to_proctitle;
 static bool proctitle_updated;
+static struct ioloop *main_ioloop;
 
 static void
 add_stats_string(string_t *str, struct stats_dist *stats, const char *name)
@@ -68,7 +70,7 @@ void dict_proctitle_update_later(void)
 		return;
 
 	if (to_proctitle == NULL)
-		to_proctitle = timeout_add(1000, dict_proctitle_update, NULL);
+		to_proctitle = timeout_add_to(main_ioloop, 1000, dict_proctitle_update, NULL);
 	proctitle_updated = TRUE;
 }
 
@@ -106,8 +108,7 @@ static void main_init(void)
 
 	if (*dict_settings->dict_db_config != '\0') {
 		/* for berkeley db library */
-		env_put(t_strconcat("DB_CONFIG=", dict_settings->dict_db_config,
-				    NULL));
+		env_put("DB_CONFIG", dict_settings->dict_db_config);
 	}
 
 	i_zero(&mod_set);
@@ -129,18 +130,19 @@ static void main_init(void)
 
 static void main_deinit(void)
 {
-	/* FIXME: we're not able to do a clean deinit currently without
-	   larger changes. */
-	exit(0);
-	timeout_remove(&to_proctitle);
-
+	/* wait for all dict operations to finish */
+	dict_init_cache_wait_all();
+	/* connections should no longer have any extra refcounts */
 	dict_connections_destroy_all();
+	dict_init_cache_destroy_all();
+
 	dict_drivers_unregister_all();
 	dict_commands_deinit();
 
 	module_dir_unload(&modules);
 
 	sql_drivers_deinit();
+	timeout_remove(&to_proctitle);
 }
 
 int main(int argc, char *argv[])
@@ -165,10 +167,12 @@ int main(int argc, char *argv[])
 	main_preinit();
 	master_service_set_die_callback(master_service, dict_die);
 
+	main_ioloop = current_ioloop;
 	main_init();
 	master_service_init_finish(master_service);
 	master_service_run(master_service, client_connected);
 
+	/* clean up cached dicts */
 	main_deinit();
 	master_service_deinit(&master_service);
         return 0;

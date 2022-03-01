@@ -57,7 +57,7 @@ env_put_extra_fields(const ARRAY_TYPE(auth_field) *extra_fields)
 	array_foreach(extra_fields, field) {
 		key = t_str_ucase(field->key);
 		value = field->value != NULL ? field->value : "1";
-		env_put(t_strconcat(key, "=", value, NULL));
+		env_put(key, value);
 	}
 }
 
@@ -116,20 +116,8 @@ static void
 checkpassword_request_finish_auth(struct chkpw_auth_request *request)
 {
 	switch (request->exit_status) {
-	/* vpopmail exit codes: */
-	case 3:		/* password fail / vpopmail user not found */
-	case 12: 	/* null user name given */
-	case 13:	/* null password given */
-	case 15:	/* user has no password */
-	case 20:	/* invalid user/domain characters */
-	case 21:	/* system user not found */
-	case 22:	/* system user shadow entry not found */
-	case 23:	/* system password fail */
-
 	/* standard checkpassword exit codes: */
 	case 1:
-		/* (1 is additionally defined in vpopmail for
-		   "pop/smtp/webmail/ imap/access denied") */
 		e_info(authdb_event(request->request),
 		       "Login failed (status=%d)",
 		       request->exit_status);
@@ -227,55 +215,47 @@ static void env_put_auth_vars(struct auth_request *request)
 		   checkpassword API. */
 		if (tab[i].long_key != NULL && tab[i].value != NULL &&
 		    strcasecmp(tab[i].long_key, "password") != 0) {
-			env_put(t_strdup_printf("AUTH_%s=%s",
-						t_str_ucase(tab[i].long_key),
-						tab[i].value));
+			env_put(t_strdup_printf("AUTH_%s",
+						t_str_ucase(tab[i].long_key)),
+				tab[i].value);
 		}
 	}
 }
 
 static void checkpassword_setup_env(struct auth_request *request)
 {
+	const struct auth_request_fields *fields = &request->fields;
+
 	/* Besides passing the standard username and password in a
 	   pipe, also pass some other possibly interesting information
 	   via environment. Use UCSPI names for local/remote IPs. */
-	env_put("PROTO=TCP"); /* UCSPI */
-	env_put(t_strdup_printf("ORIG_UID=%s", dec2str(getuid())));
-	env_put(t_strconcat("SERVICE=", request->service, NULL));
-	if (request->local_ip.family != 0) {
-		env_put(t_strconcat("TCPLOCALIP=",
-				    net_ip2addr(&request->local_ip), NULL));
+	env_put("PROTO", "TCP"); /* UCSPI */
+	env_put("ORIG_UID", dec2str(getuid()));
+	env_put("SERVICE", fields->service);
+	if (fields->local_ip.family != 0) {
+		env_put("TCPLOCALIP", net_ip2addr(&fields->local_ip));
 		/* FIXME: for backwards compatibility only,
 		   remove some day */
-		env_put(t_strconcat("LOCAL_IP=",
-				    net_ip2addr(&request->local_ip), NULL));
+		env_put("LOCAL_IP", net_ip2addr(&fields->local_ip));
 	}
-	if (request->remote_ip.family != 0) {
-		env_put(t_strconcat("TCPREMOTEIP=",
-				    net_ip2addr(&request->remote_ip), NULL));
+	if (fields->remote_ip.family != 0) {
+		env_put("TCPREMOTEIP", net_ip2addr(&fields->remote_ip));
 		/* FIXME: for backwards compatibility only,
 		   remove some day */
-		env_put(t_strconcat("REMOTE_IP=",
-				    net_ip2addr(&request->remote_ip), NULL));
+		env_put("REMOTE_IP", net_ip2addr(&fields->remote_ip));
 	}
-	if (request->local_port != 0) {
-		env_put(t_strdup_printf("TCPLOCALPORT=%u",
-					request->local_port));
-	}
-	if (request->remote_port != 0) {
-		env_put(t_strdup_printf("TCPREMOTEPORT=%u",
-					request->remote_port));
-	}
-	if (request->master_user != NULL) {
-		env_put(t_strconcat("MASTER_USER=",
-				    request->master_user, NULL));
-	}
-	if (!auth_fields_is_empty(request->extra_fields)) {
-		const ARRAY_TYPE(auth_field) *fields =
-			auth_fields_export(request->extra_fields);
+	if (fields->local_port != 0)
+		env_put("TCPLOCALPORT", dec2str(fields->local_port));
+	if (fields->remote_port != 0)
+		env_put("TCPREMOTEPORT", dec2str(fields->remote_port));
+	if (fields->master_user != NULL)
+		env_put("MASTER_USER", fields->master_user);
+	if (!auth_fields_is_empty(fields->extra_fields)) {
+		const ARRAY_TYPE(auth_field) *extra_fields =
+			auth_fields_export(fields->extra_fields);
 
 		/* extra fields could come from master db */
-		env_put_extra_fields(fields);
+		env_put_extra_fields(extra_fields);
 	}
 	env_put_auth_vars(request);
 }
@@ -289,7 +269,8 @@ checkpassword_get_cmd(struct auth_request *request, const char *args,
 
 	str = t_str_new(256);
 	if (auth_request_var_expand(str, args, request, NULL, &error) <= 0) {
-		i_error("Failed to expand checkpassword_path=%s: %s",
+		e_error(authdb_event(request),
+			"Failed to expand checkpassword_path=%s: %s",
 			args, error);
 	}
 
@@ -341,7 +322,8 @@ static void checkpassword_child_output(struct chkpw_auth_request *request)
 	ssize_t ret;
 
 	buf = t_buffer_create(CHECKPASSWORD_MAX_REQUEST_LEN);
-	buffer_append(buf, auth_request->user, strlen(auth_request->user)+1);
+	buffer_append(buf, auth_request->fields.user,
+		      strlen(auth_request->fields.user)+1);
 	if (request->auth_password != NULL) {
 		buffer_append(buf, request->auth_password,
 			      strlen(request->auth_password)+1);
@@ -377,7 +359,7 @@ static void checkpassword_child_output(struct chkpw_auth_request *request)
 	io_remove(&request->io_out);
 
 	if (close(request->fd_out) < 0)
-		i_error("checkpassword: close() failed: %m");
+		e_error(authdb_event(request->request), "close() failed: %m");
 	request->fd_out = -1;
 }
 
@@ -392,7 +374,7 @@ checkpassword_exec(struct db_checkpassword *db, struct auth_request *request,
 	if (dup2(fd_out, 3) < 0 || dup2(fd_in, 4) < 0) {
 		e_error(authdb_event(request),
 			"dup2() failed: %m");
-		exit(111);
+		lib_exit(111);
 	}
 
 	if (!authenticate) {
@@ -402,12 +384,11 @@ checkpassword_exec(struct db_checkpassword *db, struct auth_request *request,
 		   ignored by setting AUTHORIZED.  This needs a
 		   special checkpassword program which knows how to
 		   handle this. */
-		env_put("AUTHORIZED=1");
-		if (request->credentials_scheme != NULL) {
+		env_put("AUTHORIZED", "1");
+		if (request->wanted_credentials_scheme != NULL) {
 			/* passdb credentials lookup */
-			env_put("CREDENTIALS_LOOKUP=1");
-			env_put(t_strdup_printf("SCHEME=%s",
-						request->credentials_scheme));
+			env_put("CREDENTIALS_LOOKUP", "1");
+			env_put("SCHEME", request->wanted_credentials_scheme);
 		}
 	}
 	checkpassword_setup_env(request);
@@ -463,7 +444,7 @@ void db_checkpassword_call(struct db_checkpassword *db,
 	pid_t pid;
 
 	/* <username> \0 <password> \0 timestamp \0 */
-	output_len = strlen(request->user) + 3;
+	output_len = strlen(request->fields.user) + 3;
 	if (auth_password != NULL)
 		output_len += strlen(auth_password);
 	if (output_len > CHECKPASSWORD_MAX_REQUEST_LEN) {

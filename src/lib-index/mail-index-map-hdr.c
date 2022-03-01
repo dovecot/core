@@ -78,21 +78,20 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 	   - struct mail_index_keyword_header
 	   - struct mail_index_keyword_header_rec * keywords_count
 	   - const char names[] * keywords_count
+
+	   The mail_index_keyword_header_rec are rather unnecessary nowadays.
+	   They were originally an optimization when dovecot.index header kept
+	   changing constantly, but nowadays the changes are usually read from
+	   the .log changes, so re-reading dovecot.index header isn't common.
+	   In a later version we could even remove it.
 	*/
 	i_assert(ext->hdr_offset < map->hdr.header_size);
-	kw_hdr = CONST_PTR_OFFSET(map->hdr_base, ext->hdr_offset);
+	kw_hdr = MAIL_INDEX_MAP_HDR_OFFSET(map, ext->hdr_offset);
 	kw_rec = (const void *)(kw_hdr + 1);
 	name = (const char *)(kw_rec + kw_hdr->keywords_count);
 
 	old_count = !array_is_created(&map->keyword_idx_map) ? 0 :
 		array_count(&map->keyword_idx_map);
-
-	/* Keywords can only be added into same mapping. Removing requires a
-	   new mapping (recreating the index file) */
-	if (kw_hdr->keywords_count == old_count) {
-		/* nothing changed */
-		return 0;
-	}
 
 	/* make sure the header is valid */
 	if (kw_hdr->keywords_count < old_count) {
@@ -129,13 +128,22 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 	if (!array_is_created(&map->keyword_idx_map)) 
 		i_array_init(&map->keyword_idx_map, kw_hdr->keywords_count);
 
-#ifdef DEBUG
-	/* Check that existing headers are still the same. It's behind DEBUG
-	   since it's pretty useless waste of CPU normally. */
+	size_t name_offset = 0;
+	/* Check that existing headers are still the same. */
 	for (i = 0; i < array_count(&map->keyword_idx_map); i++) {
 		const char *keyword = name + kw_rec[i].name_offset;
 		const unsigned int *old_idx;
 		unsigned int kw_idx;
+
+		if (kw_rec[i].name_offset != name_offset) {
+			/* this shouldn't happen, but the old code didn't check
+			   for this so for safety keep this as a warning. */
+			e_warning(index->event,
+				  "Corrupted index file %s: "
+				  "Mismatching keyword name_offset",
+				  index->filepath);
+		}
+		name_offset += strlen(keyword) + 1;
 
 		old_idx = array_idx(&map->keyword_idx_map, i);
 		if (!mail_index_keyword_lookup(index, keyword, &kw_idx) ||
@@ -146,12 +154,22 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 			return -1;
 		}
 	}
-#endif
+
 	/* Register the newly seen keywords */
 	i = array_count(&map->keyword_idx_map);
 	for (; i < kw_hdr->keywords_count; i++) {
 		const char *keyword = name + kw_rec[i].name_offset;
 		unsigned int kw_idx;
+
+		if (kw_rec[i].name_offset != name_offset) {
+			/* this shouldn't happen, but the old code didn't check
+			   for this so for safety keep this as a warning. */
+			e_warning(index->event,
+				  "Corrupted index file %s: "
+				  "Mismatching keyword name_offset",
+				  index->filepath);
+		}
+		name_offset += strlen(keyword) + 1;
 
 		if (*keyword == '\0') {
 			mail_index_set_error(index, "Corrupted index file %s: "
@@ -227,7 +245,7 @@ static void mail_index_map_clear_recent_flags(struct mail_index_map *map)
 
 	for (seq = 1; seq <= map->hdr.messages_count; seq++) {
 		rec = MAIL_INDEX_REC_AT_SEQ(map, seq);
-		rec->flags &= ~MAIL_RECENT;
+		rec->flags &= ENUM_NEGATE(MAIL_RECENT);
 	}
 }
 
@@ -237,7 +255,7 @@ int mail_index_map_check_header(struct mail_index_map *map,
 	struct mail_index *index = map->index;
 	const struct mail_index_header *hdr = &map->hdr;
 
-	if (!mail_index_check_header_compat(index, hdr, (uoff_t)-1, error_r))
+	if (!mail_index_check_header_compat(index, hdr, UOFF_T_MAX, error_r))
 		return 0;
 
 	/* following some extra checks that only take a bit of CPU */

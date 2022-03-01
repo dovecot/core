@@ -47,7 +47,7 @@ bool imap_arg_get_nstring(const struct imap_arg *arg, const char **str_r)
 		*str_r = NULL;
 		return TRUE;
 	}
-	return imap_arg_get_astring(arg, str_r);
+	return imap_arg_get_string(arg, str_r);
 }
 
 bool imap_arg_get_literal_size(const struct imap_arg *arg, uoff_t *size_r)

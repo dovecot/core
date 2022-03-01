@@ -50,7 +50,8 @@ mech_dovecot_token_auth_continue(struct auth_request *request,
 		auth_request_fail(request);
 	} else {
 		const char *valid_token =
-			auth_token_get(service, pid, request->user, session_id);
+			auth_token_get(service, pid, request->fields.user,
+				       session_id);
 
 		if (auth_token != NULL &&
 		    str_equals_timing_almost_safe(auth_token, valid_token)) {

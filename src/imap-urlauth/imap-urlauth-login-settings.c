@@ -18,8 +18,8 @@ static struct file_listener_settings *imap_urlauth_login_unix_listeners[] = {
 	&imap_urlauth_login_unix_listeners_array[0]
 };
 static buffer_t imap_urlauth_login_unix_listeners_buf = {
-	imap_urlauth_login_unix_listeners,
-		sizeof(imap_urlauth_login_unix_listeners), { NULL, }
+	{ { imap_urlauth_login_unix_listeners,
+	    sizeof(imap_urlauth_login_unix_listeners) } }
 };
 /* </settings checks> */
 
@@ -41,7 +41,7 @@ struct service_settings imap_urlauth_login_service_settings = {
 	.client_limit = 0,
 	.service_count = 1,
 	.idle_kill = 0,
-	.vsz_limit = (uoff_t)-1,
+	.vsz_limit = UOFF_T_MAX,
 
 	.unix_listeners = { { &imap_urlauth_login_unix_listeners_buf,
 			      sizeof(imap_urlauth_login_unix_listeners[0]) } },
@@ -62,8 +62,8 @@ const struct setting_parser_info imap_urlauth_login_setting_parser_info = {
 	.module_name = "imap-urlauth-login",
 	.defines = imap_urlauth_login_setting_defines,
 
-	.type_offset = (size_t)-1,
-	.parent_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
+	.parent_offset = SIZE_MAX,
 
 	.dependencies = imap_urlauth_login_setting_dependencies
 };

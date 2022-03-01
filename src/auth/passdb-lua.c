@@ -50,7 +50,7 @@ passdb_lua_lookup(struct auth_request *request,
 		e_error(authdb_event(request), "db-lua: %s", error);
 	} else if (result != PASSDB_RESULT_OK) {
 		/* skip next bit */
-	} else if (!auth_fields_exists(request->extra_fields, "nopassword")) {
+	} else if (!auth_fields_exists(request->fields.extra_fields, "nopassword")) {
 		if (*password_r == NULL || **password_r == '\0') {
 			result = auth_request_password_missing(request);
 		} else {

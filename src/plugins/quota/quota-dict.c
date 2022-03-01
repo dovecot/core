@@ -42,6 +42,8 @@ static int dict_quota_init(struct quota_root *_root, const char *args,
 	struct dict_settings set;
 	const char *username, *p, *error;
 
+	event_set_append_log_prefix(_root->backend.event, "quota-dict: ");
+
 	const struct quota_param_parser dict_params[] = {
 		{.param_name = "no-unset", .param_handler = handle_nounset_param},
 		quota_param_hidden, quota_param_ignoreunlimited, quota_param_noenforcing, quota_param_ns,
@@ -63,18 +65,14 @@ static int dict_quota_init(struct quota_root *_root, const char *args,
 	if (*username == '\0')
 		username = _root->quota->user->username;
 
-	if (_root->quota->set->debug) {
-		i_debug("dict quota: user=%s, uri=%s, noenforcing=%d",
-			username, args, _root->no_enforcing ? 1 : 0);
-	}
+	e_debug(_root->backend.event, "user=%s, uri=%s, noenforcing=%d",
+		username, args, _root->no_enforcing ? 1 : 0);
 
 	/* FIXME: we should use 64bit integer as datatype instead but before
 	   it can actually be used don't bother */
 	i_zero(&set);
-	set.username = username;
 	set.base_dir = _root->quota->user->set->base_dir;
-	if (mail_user_get_home(_root->quota->user, &set.home_dir) <= 0)
-		set.home_dir = NULL;
+	set.event_parent = _root->quota->user->event;
 	if (dict_init(args, &set, &root->dict, &error) < 0) {
 		*error_r = t_strdup_printf("dict_init(%s) failed: %s", args, error);
 		return -1;
@@ -111,13 +109,19 @@ dict_quota_count(struct dict_quota_root *root,
 		 const char **error_r)
 {
 	struct dict_transaction_context *dt;
+	struct event_reason *reason;
 	uint64_t bytes, count;
 	enum quota_get_result error_res;
+	const struct dict_op_settings *set;
 
-	if (quota_count(&root->root, &bytes, &count, &error_res, error_r) < 0)
+	reason = event_reason_begin("quota:recalculate");
+	int ret = quota_count(&root->root, &bytes, &count, &error_res, error_r);
+	event_reason_end(&reason);
+	if (ret < 0)
 		return error_res;
 
-	dt = dict_transaction_begin(root->dict);
+	set = mail_user_get_dict_op_settings(root->root.quota->user);
+	dt = dict_transaction_begin(root->dict, set);
 	/* these unsets are mainly necessary for pgsql, because its
 	   trigger otherwise increases quota without deleting it.
 	   but some people with other databases want to store the
@@ -130,12 +134,10 @@ dict_quota_count(struct dict_quota_root *root,
 	dict_set(dt, DICT_QUOTA_CURRENT_BYTES_PATH, dec2str(bytes));
 	dict_set(dt, DICT_QUOTA_CURRENT_COUNT_PATH, dec2str(count));
 
-	if (root->root.quota->set->debug) {
-		i_debug("dict quota: Quota recalculated: "
-			"count=%"PRIu64" bytes=%"PRIu64, count, bytes);
-	}
+	e_debug(root->root.backend.event, "Quota recalculated: "
+		"count=%"PRIu64" bytes=%"PRIu64, count, bytes);
 
-	dict_transaction_commit_async(&dt, NULL, NULL);
+	dict_transaction_commit_async_nocallback(&dt);
 	*value_r = want_bytes ? bytes : count;
 	return QUOTA_GET_RESULT_LIMITED;
 }
@@ -148,6 +150,7 @@ dict_quota_get_resource(struct quota_root *_root,
 	struct dict_quota_root *root = (struct dict_quota_root *)_root;
 	bool want_bytes;
 	int ret;
+	const struct dict_op_settings *set;
 
 	if (strcmp(name, QUOTA_NAME_STORAGE_BYTES) == 0)
 		want_bytes = TRUE;
@@ -158,10 +161,11 @@ dict_quota_get_resource(struct quota_root *_root,
 		return QUOTA_GET_RESULT_UNKNOWN_RESOURCE;
 	}
 
+	set = mail_user_get_dict_op_settings(root->root.quota->user);
 	const char *key, *value, *error;
 	key = want_bytes ? DICT_QUOTA_CURRENT_BYTES_PATH :
 		DICT_QUOTA_CURRENT_COUNT_PATH;
-	ret = dict_lookup(root->dict, unsafe_data_stack_pool,
+	ret = dict_lookup(root->dict, set, unsafe_data_stack_pool,
 			  key, &value, &error);
 	if (ret < 0) {
 		*error_r = t_strdup_printf(
@@ -189,20 +193,20 @@ static void dict_quota_recalc_timeout(struct dict_quota_root *root)
 	timeout_remove(&root->to_update);
 	if (dict_quota_count(root, TRUE, &value, &error)
 	    <= QUOTA_GET_RESULT_INTERNAL_ERROR)
-		i_error("quota-dict: Recalculation failed: %s", error);
+		e_error(root->root.backend.event,
+			"Recalculation failed: %s", error);
 }
 
 static void dict_quota_update_callback(const struct dict_commit_result *result,
-				       void *context)
+				       struct dict_quota_root *root)
 {
-	struct dict_quota_root *root = context;
-
 	if (result->ret == 0) {
 		/* row doesn't exist, need to recalculate it */
 		if (root->to_update == NULL)
 			root->to_update = timeout_add_short(0, dict_quota_recalc_timeout, root);
 	} else if (result->ret < 0) {
-		i_error("dict quota: Quota update failed: %s "
+		e_error(root->root.backend.event,
+			"Quota update failed: %s "
 			"- Quota is now desynced", result->error);
 	}
 }
@@ -215,13 +219,15 @@ dict_quota_update(struct quota_root *_root,
 	struct dict_quota_root *root = (struct dict_quota_root *) _root;
 	struct dict_transaction_context *dt;
 	uint64_t value;
+	const struct dict_op_settings *set;
 
 	if (ctx->recalculate != QUOTA_RECALCULATE_DONT) {
 		if (dict_quota_count(root, TRUE, &value, error_r)
 		    <= QUOTA_GET_RESULT_INTERNAL_ERROR)
 			return -1;
 	} else {
-		dt = dict_transaction_begin(root->dict);
+		set = mail_user_get_dict_op_settings(root->root.quota->user);
+		dt = dict_transaction_begin(root->dict, set);
 		if (ctx->bytes_used != 0) {
 			dict_atomic_inc(dt, DICT_QUOTA_CURRENT_BYTES_PATH,
 					ctx->bytes_used);

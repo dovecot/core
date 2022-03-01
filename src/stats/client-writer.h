@@ -5,6 +5,8 @@ struct stats_metrics;
 
 void client_writer_create(int fd);
 
+void client_writer_update_connections(void);
+
 void client_writers_init(void);
 void client_writers_deinit(void);
 

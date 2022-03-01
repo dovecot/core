@@ -8,6 +8,8 @@
 #define DIRECTOR_VERSION_MAJOR 1
 #define DIRECTOR_VERSION_MINOR 9
 
+#define DIRECTOR_ALT_USER_FIELD_NAME "user_director_hash"
+
 /* weak users supported in protocol */
 #define DIRECTOR_VERSION_WEAK_USERS 1
 /* director ring remove supported */
@@ -90,8 +92,8 @@ struct director_kill_context {
 	/* Move timeout to make sure user's connections won't silently hang
 	   indefinitely if there is some trouble moving it. */
 	struct timeout *to_move;
-	/* IPC command to kick the user */
-	struct ipc_client_cmd *ipc_cmd;
+	/* anvil command to kick the user */
+	struct anvil_query *anvil_cmd;
 
 	/* these are set only for director_flush_socket handling: */
 	struct ip_addr host_ip;
@@ -101,6 +103,7 @@ struct director_kill_context {
 };
 
 struct director {
+	struct event *event;
 	const struct director_settings *set;
 
 	/* IP and port of this director. self_host->ip/port must equal these. */
@@ -145,7 +148,7 @@ struct director {
 	ARRAY(struct director_host *) dir_hosts;
 	struct timeout *to_remove_dirs;
 
-	struct ipc_client *ipc_proxy;
+	struct anvil_client *anvil;
 	unsigned int sync_seq;
 	unsigned int ring_change_counter;
 	unsigned int last_sync_sent_ring_change_counter;
@@ -172,8 +175,6 @@ struct director {
 	bool sync_frozen:1;
 	bool sync_pending:1;
 };
-
-extern bool director_debug;
 
 /* Create a new director. If listen_ip specifies an actual IP, it's used with
    listen_port for finding ourself from the director_servers setting.
@@ -266,8 +267,6 @@ director_get_username_hash(struct director *dir, const char *username,
 
 void directors_init(void);
 void directors_deinit(void);
-
-void dir_debug(const char *fmt, ...) ATTR_FORMAT(1, 2);
 
 struct director_user_iter *
 director_iterate_users_init(struct director *dir, bool iter_until_current_tail);

@@ -4,6 +4,7 @@ pkglibexec_PROGRAMS = imap
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-dict \
 	-I$(top_srcdir)/src/lib-master \
@@ -63,11 +64,9 @@ cmds = \
 	cmd-thread.c \
 	cmd-unselect.c \
 	cmd-unsubscribe.c \
-	cmd-urlfetch.c \
-	cmd-x-cancel.c \
-	cmd-x-state.c
+	cmd-urlfetch.c
 
-imap_SOURCES = \
+common_sources = \
 	$(cmds) \
 	imap-client.c \
 	imap-client-hibernate.c \
@@ -86,7 +85,10 @@ imap_SOURCES = \
 	imap-status.c \
 	imap-state.c \
 	imap-sync.c \
-	mail-storage-callbacks.c \
+	mail-storage-callbacks.c
+
+imap_SOURCES = \
+	$(common_sources) \
 	main.c
 
 headers = \
@@ -110,3 +112,17 @@ headers = \
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
+
+test_programs = \
+	test-imap-client-hibernate
+noinst_PROGRAMS = $(test_programs)
+
+test_imap_client_hibernate_SOURCES = \
+	test-imap-client-hibernate.c $(common_sources)
+test_imap_client_hibernate_LDADD = $(imap_LDADD)
+test_imap_client_hibernate_DEPENDENCIES = $(imap_DEPENDENCIES)
+
+check-local:
+	for bin in $(test_programs); do \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	done

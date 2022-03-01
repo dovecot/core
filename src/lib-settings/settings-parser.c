@@ -59,10 +59,10 @@ static const struct setting_parser_info strlist_info = {
 	.defines = NULL,
 	.defaults = NULL,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = 0,
 
-	.parent_offset = (size_t)-1
+	.parent_offset = SIZE_MAX
 };
 
 HASH_TABLE_DEFINE_TYPE(setting_link, struct setting_link *,
@@ -299,8 +299,8 @@ setting_define_find(const struct setting_parser_info *info, const char *key)
 	return NULL;
 }
 
-static int
-get_bool(struct setting_parser_context *ctx, const char *value, bool *result_r)
+int settings_get_bool(const char *value, bool *result_r,
+		      const char **error_r)
 {
 	/* FIXME: eventually we'd want to support only yes/no */
 	if (strcasecmp(value, "yes") == 0 ||
@@ -309,12 +309,21 @@ get_bool(struct setting_parser_context *ctx, const char *value, bool *result_r)
 	else if (strcasecmp(value, "no") == 0)
 		*result_r = FALSE;
 	else {
-		ctx->error = p_strdup_printf(ctx->parser_pool,
-			"Invalid boolean value: %s (use yes or no)", value);
+		*error_r = t_strdup_printf("Invalid boolean value: %s (use yes or no)",
+					   value);
 		return -1;
 	}
 
 	return 0;
+}
+
+static int
+get_bool(struct setting_parser_context *ctx, const char *value, bool *result_r)
+{
+	int ret;
+	if ((ret = settings_get_bool(value, result_r, &ctx->error)) < 0)
+		ctx->error = p_strdup(ctx->parser_pool, ctx->error);
+	return ret;
 }
 
 static int
@@ -482,7 +491,7 @@ int settings_get_size(const char *str, uoff_t *bytes_r,
 		*error_r = t_strconcat("Invalid size: ", str, NULL);
 		return -1;
 	}
-	if (num > ((uoff_t)-1) / multiply) {
+	if (num > (UOFF_T_MAX) / multiply) {
 		*error_r = t_strconcat("Size is too large: ", str, NULL);
 		return -1;
 	}
@@ -534,7 +543,7 @@ setting_link_init_set_struct(struct setting_parser_context *ctx,
 	setting_parser_copy_defaults(ctx, link->info, link);
 	array_push_back(link->array, &link->set_struct);
 
-	if (link->info->parent_offset != (size_t)-1 && link->parent != NULL) {
+	if (link->info->parent_offset != SIZE_MAX && link->parent != NULL) {
 		ptr = STRUCT_MEMBER_P(link->set_struct,
 				      link->info->parent_offset);
 		*((void **)ptr) = link->parent->set_struct;
@@ -718,7 +727,6 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 	}
 	case SET_ALIAS:
 		i_unreached();
-		break;
 	}
 
 	if (change_ptr != NULL)
@@ -1151,7 +1159,7 @@ int settings_parse_exec(struct setting_parser_context *ctx,
 	}
 	i_close_fd(&fd[1]);
 
-	input = i_stream_create_fd_autoclose(&fd[0], (size_t)-1);
+	input = i_stream_create_fd_autoclose(&fd[0], SIZE_MAX);
 	i_stream_set_name(input, bin_path);
 	ret = settings_parse_stream_read(ctx, input);
 	i_stream_destroy(&input);
@@ -1193,9 +1201,13 @@ bool settings_check(const struct setting_parser_info *info, pool_t pool,
 	const ARRAY_TYPE(void_array) *val;
 	void *const *children;
 	unsigned int i, count;
+	bool valid;
 
 	if (info->check_func != NULL) {
-		if (!info->check_func(set, pool, error_r))
+		T_BEGIN {
+			valid = info->check_func(set, pool, error_r);
+		} T_END_PASS_STR_IF(!valid, error_r);
+		if (!valid)
 			return FALSE;
 	}
 
@@ -1383,21 +1395,15 @@ int settings_var_expand_with_funcs(const struct setting_parser_info *info,
 				   const struct var_expand_func_table *func_table,
 				   void *func_context, const char **error_r)
 {
-	char *error_dup = NULL;
 	int ret;
 
 	T_BEGIN {
-		const char *error;
 		string_t *str = t_str_new(256);
 
 		ret = settings_var_expand_info(info, set, pool, table,
 					       func_table, func_context, str,
-					       &error);
-		if (ret <= 0)
-			error_dup = i_strdup(error);
-	} T_END;
-	*error_r = t_strdup(error_dup);
-	i_free(error_dup);
+					       error_r);
+	} T_END_PASS_STR_IF(ret <= 0, error_r);
 	return ret;
 }
 
@@ -1483,7 +1489,7 @@ static void settings_set_parent(const struct setting_parser_info *info,
 {
 	void **ptr;
 
-	if (info->parent_offset == (size_t)-1)
+	if (info->parent_offset == SIZE_MAX)
 		return;
 
 	ptr = PTR_OFFSET(child, info->parent_offset);
@@ -2055,7 +2061,7 @@ settings_copy_deflist_unique(const struct setting_define *def,
 	unsigned int i, j, src_count, dest_count, ccount;
 	unsigned int type_offset;
 
-	i_assert(def->list_info->type_offset != (size_t)-1);
+	i_assert(def->list_info->type_offset != SIZE_MAX);
 
 	src_arr = CONST_PTR_OFFSET(src_link->set_struct, def->offset);
 	src_carr = CONST_PTR_OFFSET(src_link->change_struct, def->offset);

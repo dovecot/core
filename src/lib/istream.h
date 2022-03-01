@@ -44,9 +44,6 @@ struct istream *i_stream_create_fd_autoclose(int *fd, size_t max_buffer_size);
 /* Open the given path only when something is actually tried to be read from
    the stream. */
 struct istream *i_stream_create_file(const char *path, size_t max_buffer_size);
-struct istream *i_stream_create_mmap(int fd, size_t block_size,
-				     uoff_t start_offset, uoff_t v_size,
-				     bool autoclose_fd);
 /* Create an input stream using the provided data block. That data block must
 remain allocated during the full lifetime of the stream. */
 struct istream *i_stream_create_from_data(const void *data, size_t size);
@@ -100,12 +97,21 @@ void i_stream_remove_destroy_callback(struct istream *stream,
 
 /* Return file descriptor for stream, or -1 if none is available. */
 int i_stream_get_fd(struct istream *stream);
+/* Copy the file descriptor from source istream to destination istream.
+   The readable_fd is preserved. Assert-crashes if source doesn't have a
+   file descriptor. */
+void i_stream_copy_fd(struct istream *dest, struct istream *source);
+/* Set error for istream. */
+void i_stream_set_error(struct istream *stream, int stream_errno,
+			const char *fmt, ...) ATTR_FORMAT(3, 4);
 /* Returns error string for the last error. It also returns "EOF" in case there
    is no error, but eof is set. Otherwise it returns "<no error>". */
 const char *i_stream_get_error(struct istream *stream);
-/* Returns human-readable reason for why istream was disconnected. This can be
-   called to log the error when i_stream_read() returns -1. If there's an error
-   the output is identical to i_stream_get_error(). */
+/* Returns human-readable reason for why istream was disconnected.
+   The output is either "Connection closed" for clean disconnections or
+   "Connection closed: <error>" for unclean disconnections. This is an
+   alternative to i_stream_get_error(), which is preferred to be used when
+   logging errors about client connections. */
 const char *i_stream_get_disconnect_reason(struct istream *stream);
 
 /* Mark the stream and all of its parent streams closed. Any reads after this
@@ -225,6 +231,14 @@ i_stream_read_more(struct istream *stream, const unsigned char **data_r,
 	i_assert(ret != -2); /* stream must have space for at least 1 byte */
 	return ret;
 }
+/* Like i_stream_read_more(), but tries to avoid buffering more than the
+   indicated limit. Use this function to prevent growing the stream buffer
+   beyond what the application is willing to read immediately. Since this
+   function doesn't fully prevent buffering beyond the limit, the amount of data
+   actually buffered can exceed the limit. However, *size_r will allways be <=
+   limit to avoid confusion. */
+int i_stream_read_limited(struct istream *stream, const unsigned char **data_r,
+			  size_t *size_r, size_t limit);
 /* Return the timestamp when istream last successfully read something.
    The timestamp is 0 if nothing has ever been read. */
 void i_stream_get_last_read_time(struct istream *stream, struct timeval *tv_r);

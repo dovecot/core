@@ -2,6 +2,8 @@
 #define LOGIN_PROXY_H
 
 #include "net.h"
+#include "guid.h"
+#include "auth-proxy.h"
 
 /* Max. number of embedded proxying connections until proxying fails.
    This is intended to avoid an accidental configuration where two proxies
@@ -15,15 +17,6 @@
 
 struct client;
 struct login_proxy;
-
-enum login_proxy_ssl_flags {
-	/* Use SSL/TLS enabled */
-	PROXY_SSL_FLAG_YES	= 0x01,
-	/* Don't do SSL handshake immediately after connected */
-	PROXY_SSL_FLAG_STARTTLS	= 0x02,
-	/* Don't require that the received certificate is valid */
-	PROXY_SSL_FLAG_ANY_CERT	= 0x04
-};
 
 enum login_proxy_failure_type {
 	/* connect() failed or remote disconnected us. */
@@ -45,6 +38,9 @@ enum login_proxy_failure_type {
 	/* Authentication failed with a temporary failure code. Attempting it
 	   again might work. */
 	LOGIN_PROXY_FAILURE_TYPE_AUTH_TEMPFAIL,
+	/* Authentication requests connecting to another host. The reason
+	   string contains the host (and optionally :port). */
+	LOGIN_PROXY_FAILURE_TYPE_AUTH_REDIRECT,
 };
 
 struct login_proxy_settings {
@@ -56,7 +52,8 @@ struct login_proxy_settings {
 	   every n seconds */
 	unsigned int notify_refresh_secs;
 	unsigned int host_immediate_failure_after_secs;
-	enum login_proxy_ssl_flags ssl_flags;
+	enum auth_proxy_ssl_flags ssl_flags;
+	const char *rawlog_dir;
 };
 
 /* Called when new input comes from proxy. */
@@ -68,15 +65,27 @@ typedef void login_proxy_failure_callback_t(struct client *client,
 					    enum login_proxy_failure_type type,
 					    const char *reason,
 					    bool reconnecting);
+/* Redirect connection to destination (host:port). The callback needs to call
+   login_proxy_redirect_finish() or login_proxy_failed(). */
+typedef void login_proxy_redirect_callback_t(struct client *client,
+					     struct event *event,
+					     const char *destination);
 
 /* Create a proxy to given host. Returns NULL if failed. Given callback is
    called when new input is available from proxy. */
 int login_proxy_new(struct client *client, struct event *event,
 		    const struct login_proxy_settings *set,
 		    login_proxy_input_callback_t *input_callback,
-		    login_proxy_failure_callback_t *failure_callback);
+		    login_proxy_failure_callback_t *failure_callback,
+		    login_proxy_redirect_callback_t *redirect_callback);
 /* Free the proxy. This should be called if authentication fails. */
 void login_proxy_free(struct login_proxy **proxy);
+
+/* Append to str host:ip[,host2:ip[,...]] path of redirects followed so far. */
+void login_proxy_get_redirect_path(struct login_proxy *proxy, string_t *str);
+/* Finish redirection to ip:port from a redirect callback. */
+void login_proxy_redirect_finish(struct login_proxy *proxy,
+				 const struct ip_addr *ip, in_port_t port);
 
 /* Login proxying session has failed. Returns TRUE if the reconnection is
    attempted. */
@@ -101,10 +110,16 @@ struct ostream *login_proxy_get_ostream(struct login_proxy *proxy);
 void login_proxy_append_success_log_info(struct login_proxy *proxy,
 					 string_t *str);
 struct event *login_proxy_get_event(struct login_proxy *proxy);
+const char *login_proxy_get_source_host(const struct login_proxy *proxy) ATTR_PURE;
 const char *login_proxy_get_host(const struct login_proxy *proxy) ATTR_PURE;
+const char *login_proxy_get_ip_str(const struct login_proxy *proxy) ATTR_PURE;
 in_port_t login_proxy_get_port(const struct login_proxy *proxy) ATTR_PURE;
-enum login_proxy_ssl_flags
+enum auth_proxy_ssl_flags
 login_proxy_get_ssl_flags(const struct login_proxy *proxy) ATTR_PURE;
+unsigned int
+login_proxy_get_connect_timeout_msecs(const struct login_proxy *proxy) ATTR_PURE;
+unsigned int
+login_proxy_kick_user_connection(const char *user, const guid_128_t conn_guid);
 
 void login_proxy_kill_idle(void);
 

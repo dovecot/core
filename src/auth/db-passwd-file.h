@@ -19,6 +19,7 @@ struct passwd_file {
         struct db_passwd_file *db;
 	pool_t pool;
 	int refcount;
+	struct event *event;
 
 	time_t last_sync_time;
 	char *path;
@@ -33,6 +34,7 @@ struct db_passwd_file {
 	struct db_passwd_file *next;
 
 	int refcount;
+	struct event *event;
 
 	char *path;
 	HASH_TABLE(char *, struct passwd_file *) files;
@@ -41,7 +43,6 @@ struct db_passwd_file {
 	bool vars:1;
 	bool userdb:1;
 	bool userdb_warn_missing:1;
-	bool debug:1;
 };
 
 int db_passwd_file_lookup(struct db_passwd_file *db,

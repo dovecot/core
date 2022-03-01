@@ -99,8 +99,8 @@ The password
 .I scheme
 which should be used to generate the hashed password.
 By default the
-.BI CRAM\-MD5\  scheme
-will be used.
+.BI CRYPT\  scheme
+will be used (with the $2y$ bcrypt format).
 It is also possible to append an encoding suffix to the
 .IR scheme .
 Supported encoding suffixes are:

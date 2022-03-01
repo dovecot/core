@@ -189,14 +189,13 @@ fts_backend_solr_init(struct fts_backend *_backend, const char **error_r)
 	}
 	if (fuser->set.use_libfts) {
 		/* change our flags so we get proper input */
-		_backend->flags &= ~FTS_BACKEND_FLAG_FUZZY_SEARCH;
+		_backend->flags &= ENUM_NEGATE(FTS_BACKEND_FLAG_FUZZY_SEARCH);
 		_backend->flags |= FTS_BACKEND_FLAG_TOKENIZED_INPUT;
 	}
 
-	i_zero(&ssl_set);
 	mail_user_init_ssl_client_settings(_backend->ns->user, &ssl_set);
-
 	return solr_connection_init(&fuser->set, &ssl_set,
+				    _backend->ns->user->event,
 				    &backend->solr_conn, error_r);
 }
 
@@ -963,23 +962,22 @@ struct fts_backend fts_backend_solr = {
 	.flags = FTS_BACKEND_FLAG_FUZZY_SEARCH,
 
 	{
-		fts_backend_solr_alloc,
-		fts_backend_solr_init,
-		fts_backend_solr_deinit,
-		fts_backend_solr_get_last_uid,
-		fts_backend_solr_update_init,
-		fts_backend_solr_update_deinit,
-		fts_backend_solr_update_set_mailbox,
-		fts_backend_solr_update_expunge,
-		fts_backend_solr_update_set_build_key,
-		fts_backend_solr_update_unset_build_key,
-		fts_backend_solr_update_build_more,
-		fts_backend_solr_refresh,
-		fts_backend_solr_rescan,
-		fts_backend_solr_optimize,
-		fts_backend_default_can_lookup,
-		fts_backend_solr_lookup,
-		fts_backend_solr_lookup_multi,
-		NULL
+		.alloc = fts_backend_solr_alloc,
+		.init = fts_backend_solr_init,
+		.deinit = fts_backend_solr_deinit,
+		.get_last_uid = fts_backend_solr_get_last_uid,
+		.update_init = fts_backend_solr_update_init,
+		.update_deinit = fts_backend_solr_update_deinit,
+		.update_set_mailbox = fts_backend_solr_update_set_mailbox,
+		.update_expunge = fts_backend_solr_update_expunge,
+		.update_set_build_key = fts_backend_solr_update_set_build_key,
+		.update_unset_build_key = fts_backend_solr_update_unset_build_key,
+		.update_build_more = fts_backend_solr_update_build_more,
+		.refresh = fts_backend_solr_refresh,
+		.rescan = fts_backend_solr_rescan,
+		.optimize = fts_backend_solr_optimize,
+		.can_lookup = fts_backend_default_can_lookup,
+		.lookup = fts_backend_solr_lookup,
+		.lookup_multi = fts_backend_solr_lookup_multi,
 	}
 };

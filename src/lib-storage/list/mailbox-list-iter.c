@@ -35,6 +35,7 @@ struct ns_list_iterate_context {
 	bool cur_ns_prefix_sent:1;
 	bool inbox_list:1;
 	bool inbox_listed:1;
+	bool inbox_seen:1;
 };
 
 static void mailbox_list_ns_iter_failed(struct ns_list_iterate_context *ctx);
@@ -450,7 +451,7 @@ mailbox_list_ns_prefix_return(struct ns_list_iterate_context *ctx,
 	    ns->prefix[5] == mail_namespace_get_sep(ns)) {
 		/* prefix=INBOX/ (or prefix=INBOX/something/) namespace exists.
 		   so we can create children to INBOX. */
-		ctx->inbox_info.flags &= ~MAILBOX_NOINFERIORS;
+		ctx->inbox_info.flags &= ENUM_NEGATE(MAILBOX_NOINFERIORS);
 	}
 
 	if (ns->prefix_len == 0 || !mailbox_list_ns_prefix_match(ctx, ns))
@@ -572,7 +573,9 @@ mailbox_list_ns_iter_try_next(struct mailbox_list_iterate_context *_ctx,
 	bool has_children;
 
 	if (ctx->cur_ns == NULL) {
-		if (!ctx->inbox_listed && ctx->inbox_list && !_ctx->failed) {
+		if (!ctx->inbox_listed && ctx->inbox_list && !_ctx->failed &&
+		    ((_ctx->flags & MAILBOX_LIST_ITER_NO_AUTO_BOXES) == 0 ||
+		     ctx->inbox_seen)) {
 			/* send delayed INBOX reply */
 			ctx->inbox_listed = TRUE;
 			inbox_set_children_flags(ctx);
@@ -626,6 +629,7 @@ mailbox_list_ns_iter_try_next(struct mailbox_list_iterate_context *_ctx,
 			/* delay sending INBOX reply. we already saved its
 			   flags at init stage, except for \Noinferiors
 			   and subscription states */
+			ctx->inbox_seen = TRUE;
 			ctx->inbox_info.flags |=
 				(info->flags & (MAILBOX_NOINFERIORS |
 						MAILBOX_SUBSCRIBED |
@@ -636,7 +640,7 @@ mailbox_list_ns_iter_try_next(struct mailbox_list_iterate_context *_ctx,
 		    info->vname[5] == mail_namespace_get_sep(info->ns)) {
 			/* we know now that INBOX has children */
 			ctx->inbox_info.flags |= MAILBOX_CHILDREN;
-			ctx->inbox_info.flags &= ~MAILBOX_NOINFERIORS;
+			ctx->inbox_info.flags &= ENUM_NEGATE(MAILBOX_NOINFERIORS);
 		}
 		if (info->ns->prefix_len > 0 &&
 		    strncmp(info->vname, info->ns->prefix,
@@ -729,6 +733,10 @@ static int inbox_info_init(struct ns_list_iterate_context *ctx,
 
 	if ((ret = mailbox_list_mailbox(ctx->inbox_info.ns->list, "INBOX", &flags)) > 0)
 		ctx->inbox_info.flags = flags;
+	else if (ret < 0) {
+		ctx->cur_ns = ctx->inbox_info.ns;
+		mailbox_list_ns_iter_failed(ctx);
+	}
 	return ret;
 }
 
@@ -860,7 +868,7 @@ mailbox_list_iter_autocreate_filter(struct mailbox_list_iterate_context *ctx,
 		if ((ctx->flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0)
 			info->flags |= MAILBOX_CHILD_SUBSCRIBED;
 		else {
-			info->flags &= ~MAILBOX_NOCHILDREN;
+			info->flags &= ENUM_NEGATE(MAILBOX_NOCHILDREN);
 			info->flags |= MAILBOX_CHILDREN;
 		}
 	}
@@ -874,9 +882,9 @@ mailbox_list_iter_autocreate_filter(struct mailbox_list_iterate_context *ctx,
 					      FALSE, &idx);
 	}
 	if ((match2 & AUTOCREATE_MATCH_RESULT_YES) != 0)
-		info->flags &= ~MAILBOX_NONEXISTENT;
+		info->flags &= ENUM_NEGATE(MAILBOX_NONEXISTENT);
 	if ((match2 & AUTOCREATE_MATCH_RESULT_CHILDREN) != 0) {
-		info->flags &= ~MAILBOX_NOCHILDREN;
+		info->flags &= ENUM_NEGATE(MAILBOX_NOCHILDREN);
 		info->flags |= MAILBOX_CHILDREN;
 	}
 
@@ -965,7 +973,7 @@ static bool autocreate_iter_autobox(struct mailbox_list_iterate_context *ctx,
 				      MAILBOX_CHILD_SUBSCRIBED));
 		if ((old_flags & MAILBOX_NONEXISTENT) == 0) {
 			actx->new_info.flags |= MAILBOX_CHILDREN;
-			actx->new_info.flags &= ~MAILBOX_NOCHILDREN;
+			actx->new_info.flags &= ENUM_NEGATE(MAILBOX_NOCHILDREN);
 		}
 		if ((old_flags & MAILBOX_SUBSCRIBED) != 0)
 			actx->new_info.flags |= MAILBOX_CHILD_SUBSCRIBED;
@@ -1121,7 +1129,7 @@ mailbox_list_iter_update_real(struct mailbox_list_iter_update_context *ctx,
 				if (!ctx->update_only && add_matched)
 					node->flags |= MAILBOX_MATCHED;
 				if ((always_flags & MAILBOX_CHILDREN) != 0)
-					node->flags &= ~MAILBOX_NOCHILDREN;
+					node->flags &= ENUM_NEGATE(MAILBOX_NOCHILDREN);
 				node->flags |= always_flags;
 			}
 			/* We don't want to show the parent mailboxes unless
@@ -1146,7 +1154,7 @@ mailbox_list_iter_update_real(struct mailbox_list_iter_update_context *ctx,
 
 		name = t_strdup_until(name, p);
 		create_flags |= MAILBOX_NONEXISTENT;
-		create_flags &= ~MAILBOX_NOCHILDREN;
+		create_flags &= ENUM_NEGATE(MAILBOX_NOCHILDREN);
 		always_flags = MAILBOX_CHILDREN | ctx->parent_flags;
 	}
 }

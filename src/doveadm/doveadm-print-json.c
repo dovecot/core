@@ -7,7 +7,6 @@
 #include "ostream.h"
 #include "json-parser.h"
 #include "doveadm.h"
-#include "doveadm-server.h"
 #include "doveadm-print.h"
 #include "doveadm-print-private.h"
 #include "client-connection.h"

@@ -2,14 +2,15 @@
 
 #include "lib.h"
 #include "net.h"
+#include "ioloop.h"
+#include "llist.h"
 #include "str.h"
+#include "program-client.h"
 #include "strescape.h"
 #include "eacces-error.h"
 #include "write-full.h"
 #include "module-context.h"
 #include "mail-storage-private.h"
-
-#define WELCOME_SOCKET_TIMEOUT_SECS 30
 
 #define WELCOME_CONTEXT(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, welcome_storage_module)
@@ -19,15 +20,43 @@ struct welcome_mailbox {
 	bool created;
 };
 
+static struct welcome_client_list {
+	struct welcome_client_list *prev, *next;
+	struct program_client *client;
+} *welcome_clients = NULL;
+
 static MODULE_CONTEXT_DEFINE_INIT(welcome_storage_module,
 				  &mail_storage_module_register);
 
+static void welcome_client_destroy(struct welcome_client_list **_wclient) {
+	struct welcome_client_list *wclient = *_wclient;
+
+	*_wclient = NULL;
+
+	program_client_destroy(&wclient->client);
+	i_free(wclient);
+}
+
+static void script_finish(enum program_client_exit_status ret,
+			  struct program_client *client ATTR_UNUSED)
+{
+	if (ret != PROGRAM_CLIENT_EXIT_STATUS_SUCCESS)
+		i_error("welcome: Execution failed: %d", ret);
+}
+
 static void script_execute(struct mail_user *user, const char *cmd, bool wait)
 {
-	const char *socket_path, *const *args;
-	string_t *str;
-	char buf[1024];
-	int fd, ret;
+	const char *socket_path, *home, *const *args;
+
+	if (mail_user_get_home(user, &home) < 0)
+		home = NULL;
+
+	struct program_client_settings set = {
+		.client_connect_timeout_msecs = 1000,
+		.event = user->event,
+		.debug = user->mail_debug,
+		.home = home,
+	};
 
 	e_debug(user->event, "welcome: Executing %s (wait=%d)", cmd, wait ? 1 : 0);
 
@@ -39,45 +68,20 @@ static void script_execute(struct mail_user *user, const char *cmd, bool wait)
 		socket_path = t_strconcat(user->set->base_dir, "/",
 					  socket_path, NULL);
 	}
-	if ((fd = net_connect_unix_with_retries(socket_path, 1000)) < 0) {
-		if (errno == EACCES) {
-			i_error("welcome: %s",
-				eacces_error_get("net_connect_unix",
-						 socket_path));
-		} else {
-			i_error("welcome: net_connect_unix(%s) failed: %m",
-				socket_path);
-		}
-		return;
-	}
 
-	str = t_str_new(1024);
-	str_append(str, "VERSION\tscript\t4\t0\n");
-	if (!wait)
-		str_append(str, "noreply\n");
-	else
-		str_append(str, "-\n");
-	for (; *args != NULL; args++) {
-		str_append_tabescaped(str, *args);
-		str_append_c(str, '\n');
-	}
-	str_append_c(str, '\n');
+	struct welcome_client_list *wclient = i_new(struct welcome_client_list, 1);
+	wclient->client = program_client_unix_create(socket_path, args, &set, !wait);
 
-	alarm(WELCOME_SOCKET_TIMEOUT_SECS);
-	net_set_nonblock(fd, FALSE);
-	if (write_full(fd, str_data(str), str_len(str)) < 0)
-		i_error("write(%s) failed: %m", socket_path);
-	else if (wait) {
-		ret = read(fd, buf, sizeof(buf));
-		if (ret < 0)
-			i_error("welcome: read(%s) failed: %m", socket_path);
-		else if (ret < 2)
-			i_error("welcome: %s failed: Only %d bytes read", socket_path, ret);
-		else if (buf[0] != '+')
-			i_error("welcome: %s failed: Script returned error", socket_path);
+	if (wait) {
+		enum program_client_exit_status ret =
+			program_client_run(wclient->client);
+		script_finish(ret, wclient->client);
+		welcome_client_destroy(&wclient);
+	} else {
+		DLLIST_PREPEND(&welcome_clients, wclient);
+		program_client_run_async(wclient->client, script_finish,
+					 wclient->client);
 	}
-	if (close(fd) < 0)
-		i_error("close(%s) failed: %m", socket_path);
 }
 
 static int
@@ -140,6 +144,14 @@ void welcome_plugin_init(struct module *module)
 
 void welcome_plugin_deinit(void)
 {
+	while (welcome_clients != NULL) {
+		struct welcome_client_list *next = welcome_clients->next;
+
+		program_client_wait(welcome_clients->client);
+		welcome_client_destroy(&welcome_clients);
+		welcome_clients = next;
+	}
+
 	mail_storage_hooks_remove(&welcome_mail_storage_hooks);
 }
 

@@ -29,6 +29,7 @@ struct atexit_callback {
 };
 
 static ARRAY(struct atexit_callback) atexit_callbacks = ARRAY_INIT;
+static bool lib_clean_exit;
 
 #undef i_unlink
 int i_unlink(const char *path, const char *source_fname,
@@ -132,6 +133,31 @@ static void lib_open_non_stdio_dev_null(void)
 	fd_close_on_exec(dev_null_fd, TRUE);
 }
 
+void lib_set_clean_exit(bool set)
+{
+	lib_clean_exit = set;
+}
+
+void lib_exit(int status)
+{
+	lib_set_clean_exit(TRUE);
+	exit(status);
+}
+
+static void lib_atexit_handler(void)
+{
+	/* We're already in exit code path. Avoid using any functions that
+	   might cause strange breakage. Especially anything that could call
+	   exit() again could cause infinite looping in some OSes. */
+	if (!lib_clean_exit) {
+		const char *error = "Unexpected exit - converting to abort\n";
+		if (write(STDERR_FILENO, error, strlen(error)) < 0) {
+			/* ignore */
+		}
+		abort();
+	}
+}
+
 void lib_init(void)
 {
 	i_assert(!lib_initialized);
@@ -142,6 +168,13 @@ void lib_init(void)
 	lib_event_init();
 	event_filter_init();
 	var_expand_extensions_init();
+
+	/* Default to clean exit. Otherwise there would be too many accidents
+	   with e.g. command line parsing errors that try to return instead
+	   of using lib_exit(). master_service_init_finish() will change this
+	   again to be FALSE. */
+	lib_set_clean_exit(TRUE);
+	atexit(lib_atexit_handler);
 
 	lib_initialized = TRUE;
 }
@@ -160,12 +193,14 @@ void lib_deinit(void)
 	hostpid_deinit();
 	var_expand_extensions_deinit();
 	event_filter_deinit();
+	data_stack_deinit_event();
 	lib_event_deinit();
 	restrict_access_deinit();
 	i_close_fd(&dev_null_fd);
 	data_stack_deinit();
-	env_deinit();
 	failures_deinit();
 	process_title_deinit();
 	random_deinit();
+
+	lib_clean_exit = TRUE;
 }

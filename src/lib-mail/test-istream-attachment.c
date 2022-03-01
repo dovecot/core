@@ -297,14 +297,14 @@ static int test_input_stream(struct istream *file_input)
 			ret = -1;
 
 		/* try again without knowing the message's size */
-		msg_size = (uoff_t)-1;
+		msg_size = UOFF_T_MAX;
 	}
 
 	/* try with a wrong message size */
 	for (int i = 0; i < 2; i++) {
 		input2 = i_stream_create_from_data(base_buf->data, base_buf->used);
-		input = test_build_original_istream(input2, orig_msg_size +
-						    (i == 0 ? 1 : -1));
+		input = test_build_original_istream(input2,
+				i == 0 ? orig_msg_size + 1 : orig_msg_size - 1);
 		i_stream_unref(&input2);
 		while (i_stream_read_more(input, &data, &size) > 0)
 			i_stream_skip(input, size);

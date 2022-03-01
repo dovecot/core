@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "llist.h"
+#include "str-sanitize.h"
 #include "smtp-address.h"
 #include "smtp-reply.h"
 
@@ -15,8 +16,36 @@ smtp_server_recipient_update_event(struct smtp_server_recipient_private *prcpt)
 
 	event_add_str(event, "rcpt_to", path);
 	smtp_params_rcpt_add_to_event(&prcpt->rcpt.params, event);
-	event_set_append_log_prefix(event,
-				    t_strdup_printf("rcpt %s: ", path));
+	event_set_append_log_prefix(
+		event, t_strdup_printf("rcpt %s: ", str_sanitize(path, 128)));
+}
+
+static void
+smtp_server_recipient_create_event(struct smtp_server_recipient_private *prcpt)
+{
+	struct smtp_server_recipient *rcpt = &prcpt->rcpt;
+	struct smtp_server_connection *conn = rcpt->conn;
+
+	if (rcpt->event != NULL)
+		return;
+
+	if (conn->state.trans == NULL) {
+		/* Create event for the transaction early. */
+		if (conn->next_trans_event == NULL) {
+			conn->next_trans_event = event_create(conn->event);
+			event_set_append_log_prefix(conn->next_trans_event,
+						    "trans: ");
+		}
+		rcpt->event = event_create(conn->next_trans_event);
+	} else {
+		/* Use existing transaction event. */
+		rcpt->event = event_create(conn->state.trans->event);
+	}
+	/* Drop transaction log prefix so that the connection event prefix
+	   remains. */
+	event_drop_parent_log_prefixes(rcpt->event, 1);
+
+	smtp_server_recipient_update_event(prcpt);
 }
 
 struct smtp_server_recipient *
@@ -36,8 +65,7 @@ smtp_server_recipient_create(struct smtp_server_cmd_ctx *cmd,
 	prcpt->rcpt.path = smtp_address_clone(pool, rcpt_to);
 	smtp_params_rcpt_copy(pool, &prcpt->rcpt.params, params);
 
-	prcpt->rcpt.event = event_create(cmd->conn->event);
-	smtp_server_recipient_update_event(prcpt);
+	smtp_server_recipient_create_event(prcpt);
 
 	return &prcpt->rcpt;
 }
@@ -76,6 +104,8 @@ bool smtp_server_recipient_unref(struct smtp_server_recipient **_rcpt)
 		i_unreached();
 
 	if (!rcpt->finished) {
+		smtp_server_recipient_create_event(prcpt);
+
 		struct event_passthrough *e =
 			event_create_passthrough(rcpt->event)->
 			set_name("smtp_server_transaction_rcpt_finished");
@@ -110,6 +140,7 @@ bool smtp_server_recipient_approved(struct smtp_server_recipient **_rcpt)
 	struct smtp_server_transaction *trans = rcpt->conn->state.trans;
 
 	i_assert(trans != NULL);
+	i_assert(rcpt->event != NULL);
 
 	e_debug(rcpt->event, "Approved");
 
@@ -124,6 +155,8 @@ void smtp_server_recipient_denied(struct smtp_server_recipient *rcpt,
 				  const struct smtp_server_reply *reply)
 {
 	i_assert(!rcpt->finished);
+	i_assert(rcpt->event != NULL);
+
 	rcpt->finished = TRUE;
 
 	struct event_passthrough *e =
@@ -134,10 +167,9 @@ void smtp_server_recipient_denied(struct smtp_server_recipient *rcpt,
 	e_debug(e->event(), "Denied");
 }
 
-void smtp_server_recipient_last_data(struct smtp_server_recipient *rcpt,
-				     struct smtp_server_cmd_ctx *cmd)
+void smtp_server_recipient_data_command(struct smtp_server_recipient *rcpt,
+					struct smtp_server_cmd_ctx *cmd)
 {
-	i_assert(rcpt->cmd == NULL);
 	rcpt->cmd = cmd;
 }
 
@@ -150,7 +182,7 @@ void smtp_server_recipient_data_replied(struct smtp_server_recipient *rcpt)
 	rcpt->replied = TRUE;
 	if (!smtp_server_recipient_call_hooks(
 		&rcpt, SMTP_SERVER_RECIPIENT_HOOK_DATA_REPLIED)) {
-		/* nothing to do */
+		/* Nothing to do */
 	}
 }
 
@@ -181,7 +213,7 @@ void smtp_server_recipient_replyv(struct smtp_server_recipient *rcpt,
 					 status, enh_code, fmt, args);
 		return;
 	}
-		
+
 	smtp_server_reply_index(rcpt->cmd, rcpt->index, status, enh_code,
 				"<%s> %s", smtp_address_encode(rcpt->path),
 				t_strdup_vprintf(fmt, args));
@@ -253,7 +285,7 @@ void smtp_server_recipient_add_hook(struct smtp_server_recipient *rcpt,
 
 	hook = prcpt->hooks_head;
 	while (hook != NULL) {
-		/* no double registrations */
+		/* No double registrations */
 		i_assert(hook->type != type || hook->func != func);
 
 		hook = hook->next;

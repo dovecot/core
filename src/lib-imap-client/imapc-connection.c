@@ -296,12 +296,11 @@ imapc_connection_abort_commands_array(ARRAY_TYPE(imapc_command) *cmd_array,
 				      struct imapc_client_mailbox *only_box,
 				      bool keep_retriable)
 {
-	struct imapc_command *const *cmdp, *cmd;
+	struct imapc_command *cmd;
 	unsigned int i;
 
 	for (i = 0; i < array_count(cmd_array); ) {
-		cmdp = array_idx(cmd_array, i);
-		cmd = *cmdp;
+		cmd = array_idx_elem(cmd_array, i);
 
 		if (cmd->box != only_box && only_box != NULL)
 			i++;
@@ -322,7 +321,7 @@ void imapc_connection_abort_commands(struct imapc_connection *conn,
 				     struct imapc_client_mailbox *only_box,
 				     bool keep_retriable)
 {
-	struct imapc_command *const *cmdp, *cmd;
+	struct imapc_command *cmd;
 	ARRAY_TYPE(imapc_command) tmp_array;
 	struct imapc_command_reply reply;
 
@@ -353,9 +352,7 @@ void imapc_connection_abort_commands(struct imapc_connection *conn,
 		reply.text_without_resp = reply.text_full =
 			"Disconnected from server";
 	}
-	array_foreach(&tmp_array, cmdp) {
-		cmd = *cmdp;
-
+	array_foreach_elem(&tmp_array, cmd) {
 		if (cmd->sent && conn->state == IMAPC_CONNECTION_STATE_DONE) {
 			/* We're not disconnected, so the reply will still
 			   come. Remember that it needs to be ignored. */
@@ -364,7 +361,8 @@ void imapc_connection_abort_commands(struct imapc_connection *conn,
 		cmd->callback(&reply, cmd->context);
 		imapc_command_free(cmd);
 	}
-	timeout_remove(&conn->to);
+	if (array_count(&conn->cmd_wait_list) == 0)
+		timeout_remove(&conn->to);
 }
 
 static void
@@ -446,8 +444,10 @@ void imapc_connection_disconnect_full(struct imapc_connection *conn,
 	timeout_remove(&conn->to);
 	conn->reconnecting = reconnecting;
 
-	if (conn->state == IMAPC_CONNECTION_STATE_DISCONNECTED)
+	if (conn->state == IMAPC_CONNECTION_STATE_DISCONNECTED) {
+		i_assert(array_count(&conn->cmd_wait_list) == 0);
 		return;
+	}
 
 	if (conn->client->set.debug)
 		i_debug("imapc(%s): Disconnected", conn->name);
@@ -870,6 +870,7 @@ imapc_connection_auth_finish(struct imapc_connection *conn,
 
 	imapc_auth_ok(conn);
 
+	i_assert(array_count(&conn->cmd_wait_list) == 0);
 	timeout_remove(&conn->to);
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_DONE);
 	imapc_login_callback(conn, reply);
@@ -922,7 +923,7 @@ imapc_connection_authenticate_cb(const struct imapc_command_reply *reply,
 
 	input_len = strlen(reply->text_full);
 	buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(input_len));
-	if (base64_decode(reply->text_full, input_len, NULL, buf) < 0) {
+	if (base64_decode(reply->text_full, input_len, buf) < 0) {
 		imapc_auth_failed(conn, reply,
 				  t_strdup_printf("Server sent non-base64 input for AUTHENTICATE: %s",
 						  reply->text_full));
@@ -1584,6 +1585,7 @@ static void imapc_connection_input(struct imapc_connection *conn)
 	if (ret < 0 && conn->client->logging_out &&
 	    conn->disconnect_reason != NULL) {
 		/* expected disconnection */
+		imapc_connection_disconnect(conn);
 	} else if (ret < 0) {
 		/* disconnected or buffer full */
 		str = t_str_new(128);
@@ -1807,7 +1809,7 @@ static void imapc_connection_connect_next_ip(struct imapc_connection *conn)
 	conn->fd = fd;
 	conn->input = conn->raw_input =
 		i_stream_create_fd(fd, conn->client->set.max_line_length);
-	conn->output = conn->raw_output = o_stream_create_fd(fd, (size_t)-1);
+	conn->output = conn->raw_output = o_stream_create_fd(fd, SIZE_MAX);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 
 	if (*conn->client->set.rawlog_dir != '\0' &&
@@ -1888,6 +1890,7 @@ void imapc_connection_connect(struct imapc_connection *conn)
 	dns_set.dns_client_socket_path =
 		conn->client->set.dns_client_socket_path;
 	dns_set.timeout_msecs = conn->client->set.connect_timeout_msecs;
+	dns_set.event_parent = conn->client->event;
 
 	imapc_connection_set_state(conn, IMAPC_CONNECTION_STATE_CONNECTING);
 	if (conn->ips_count > 0) {
@@ -2027,6 +2030,8 @@ static void imapc_command_send_finished(struct imapc_connection *conn,
 {
 	struct imapc_command *const *cmdp;
 
+	i_assert(conn->to != NULL);
+
 	if (cmd->idle)
 		conn->idle_plus_waiting = TRUE;
 	cmd->sent = TRUE;
@@ -2068,7 +2073,7 @@ static int imapc_command_try_send_stream(struct imapc_connection *conn,
 	/* we're sending the stream now */
 	o_stream_set_max_buffer_size(conn->output, 0);
 	res = o_stream_send_istream(conn->output, stream->input);
-	o_stream_set_max_buffer_size(conn->output, (size_t)-1);
+	o_stream_set_max_buffer_size(conn->output, SIZE_MAX);
 
 	switch (res) {
 	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:

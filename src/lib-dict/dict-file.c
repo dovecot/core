@@ -27,15 +27,12 @@ struct file_dict {
 	enum file_lock_method lock_method;
 
 	char *path;
+	char *home_dir;
+	bool dict_path_checked;
 	HASH_TABLE(char *, char *) hash;
 	int fd;
 
 	bool refreshed;
-};
-
-struct file_dict_iterate_path {
-	const char *path;
-	size_t len;
 };
 
 struct file_dict_iterate_context {
@@ -43,9 +40,11 @@ struct file_dict_iterate_context {
 	pool_t pool;
 
 	struct hash_iterate_context *iter;
-	struct file_dict_iterate_path *paths;
+	const char *path;
+	size_t path_len;
 
 	enum dict_iterate_flags flags;
+	const char *values[2];
 	const char *error;
 };
 
@@ -56,8 +55,30 @@ static struct dotlock_settings file_dict_dotlock_settings = {
 };
 
 static int
+file_dict_ensure_path_home_dir(struct file_dict *dict, const char *home_dir,
+			       const char **error_r)
+{
+	if (null_strcmp(dict->home_dir, home_dir) == 0)
+		return 0;
+
+	if (dict->dict_path_checked) {
+		*error_r = t_strdup_printf("home_dir changed from %s to %s "
+				"(requested dict was: %s)", dict->home_dir,
+				home_dir, dict->path);
+		return -1;
+	}
+
+	char *_p = dict->path;
+	dict->path = i_strdup(home_expand_tilde(dict->path, home_dir));
+	dict->home_dir = i_strdup(home_dir);
+	i_free(_p);
+	dict->dict_path_checked = TRUE;
+	return 0;
+}
+
+static int
 file_dict_init(struct dict *driver, const char *uri,
-	       const struct dict_settings *set,
+	       const struct dict_settings *set ATTR_UNUSED,
 	       struct dict **dict_r, const char **error_r)
 {
 	struct file_dict *dict;
@@ -82,8 +103,11 @@ file_dict_init(struct dict *driver, const char *uri,
 			return -1;
 		}
 	}
-	dict->path = set->home_dir == NULL ? i_strdup(path) :
-		i_strdup(home_expand_tilde(path, set->home_dir));
+
+	/* keep the path for now, later in dict operations check if home_dir
+	   should be prepended. */
+	dict->path = i_strdup(path);
+
 	dict->dict = *driver;
 	dict->hash_pool = pool_alloconly_create("file dict", 1024);
 	hash_table_create(&dict->hash, dict->hash_pool, 0, str_hash, strcmp);
@@ -100,6 +124,7 @@ static void file_dict_deinit(struct dict *_dict)
 	hash_table_destroy(&dict->hash);
 	pool_unref(&dict->hash_pool);
 	i_free(dict->path);
+	i_free(dict->home_dir);
 	i_free(dict);
 }
 
@@ -178,7 +203,7 @@ static int file_dict_refresh(struct file_dict *dict, const char **error_r)
 	p_clear(dict->hash_pool);
 
 	if (dict->fd != -1) {
-		input = i_stream_create_fd(dict->fd, (size_t)-1);
+		input = i_stream_create_fd(dict->fd, SIZE_MAX);
 
 		while ((key = i_stream_read_next_line(input)) != NULL) {
 			/* strdup() before the second read */
@@ -196,25 +221,37 @@ static int file_dict_refresh(struct file_dict *dict, const char **error_r)
 	return 0;
 }
 
-static int file_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
-			    const char **value_r, const char **error_r)
+static int file_dict_lookup(struct dict *_dict,
+			    const struct dict_op_settings *set,
+			    pool_t pool, const char *key,
+			    const char *const **values_r, const char **error_r)
 {
 	struct file_dict *dict = (struct file_dict *)_dict;
+	const char *value;
+
+	if (file_dict_ensure_path_home_dir(dict, set->home_dir, error_r) < 0)
+		return -1;
 
 	if (file_dict_refresh(dict, error_r) < 0)
 		return -1;
 
-	*value_r = p_strdup(pool, hash_table_lookup(dict->hash, key));
-	return *value_r == NULL ? 0 : 1;
+	value = hash_table_lookup(dict->hash, key);
+	if (value == NULL)
+		return 0;
+
+	const char **values = p_new(pool, const char *, 2);
+	values[0] = p_strdup(pool, value);
+	*values_r = values;
+	return 1;
 }
 
 static struct dict_iterate_context *
-file_dict_iterate_init(struct dict *_dict, const char *const *paths,
-		       enum dict_iterate_flags flags)
+file_dict_iterate_init(struct dict *_dict,
+		       const struct dict_op_settings *set ATTR_UNUSED,
+		       const char *path, enum dict_iterate_flags flags)
 {
         struct file_dict_iterate_context *ctx;
 	struct file_dict *dict = (struct file_dict *)_dict;
-	unsigned int i, path_count;
 	const char *error;
 	pool_t pool;
 
@@ -223,61 +260,54 @@ file_dict_iterate_init(struct dict *_dict, const char *const *paths,
 	ctx->ctx.dict = _dict;
 	ctx->pool = pool;
 
-	for (path_count = 0; paths[path_count] != NULL; path_count++) ;
-	ctx->paths = p_new(pool, struct file_dict_iterate_path, path_count + 1);
-	for (i = 0; i < path_count; i++) {
-		ctx->paths[i].path = p_strdup(pool, paths[i]);
-		ctx->paths[i].len = strlen(paths[i]);
-	}
+	ctx->path = p_strdup(pool, path);
+	ctx->path_len = strlen(path);
 	ctx->flags = flags;
 
-	if (file_dict_refresh(dict, &error) < 0)
+	if (file_dict_ensure_path_home_dir(dict, set->home_dir, &error) < 0 ||
+	    file_dict_refresh(dict, &error) < 0)
 		ctx->error = p_strdup(pool, error);
 
 	ctx->iter = hash_table_iterate_init(dict->hash);
 	return &ctx->ctx;
 }
 
-static const struct file_dict_iterate_path *
-file_dict_iterate_find_path(struct file_dict_iterate_context *ctx,
-			    const char *key)
+static bool
+file_dict_iterate_key_matches(struct file_dict_iterate_context *ctx,
+			      const char *key)
 {
-	unsigned int i;
-
-	for (i = 0; ctx->paths[i].path != NULL; i++) {
-		if (strncmp(ctx->paths[i].path, key, ctx->paths[i].len) == 0)
-			return &ctx->paths[i];
-	}
-	return NULL;
+	if (strncmp(ctx->path, key, ctx->path_len) == 0)
+		return TRUE;
+	return FALSE;
 }
 
+
 static bool file_dict_iterate(struct dict_iterate_context *_ctx,
-			      const char **key_r, const char **value_r)
+			      const char **key_r, const char *const **values_r)
 {
 	struct file_dict_iterate_context *ctx =
 		(struct file_dict_iterate_context *)_ctx;
-	const struct file_dict_iterate_path *path;
 	char *key, *value;
 
 	while (hash_table_iterate(ctx->iter,
 				  ((struct file_dict *)_ctx->dict)->hash,
 				  &key, &value)) {
-		path = file_dict_iterate_find_path(ctx, key);
-		if (path == NULL)
+		if (!file_dict_iterate_key_matches(ctx, key))
 			continue;
 
 		if ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0) {
 			/* match everything */
 		} else if ((ctx->flags & DICT_ITERATE_FLAG_EXACT_KEY) != 0) {
-			if (key[path->len] != '\0')
+			if (key[ctx->path_len] != '\0')
 				continue;
 		} else {
-			if (strchr(key + path->len, '/') != NULL)
+			if (strchr(key + ctx->path_len, '/') != NULL)
 				continue;
 		}
 
 		*key_r = key;
-		*value_r = value;
+		ctx->values[0] = value;
+		*values_r = ctx->values;
 		return TRUE;
 	}
 	return FALSE;
@@ -497,14 +527,17 @@ file_dict_lock(struct file_dict *dict, struct file_lock **lock_r,
 	}
 
 	*lock_r = NULL;
+	struct file_lock_settings lock_set = {
+		.lock_method = dict->lock_method,
+	};
 	do {
 		file_lock_free(lock_r);
-		if (file_wait_lock(dict->fd, dict->path, F_WRLCK,
-				   dict->lock_method,
+		if (file_wait_lock(dict->fd, dict->path, F_WRLCK, &lock_set,
 				   file_dict_dotlock_settings.timeout,
-				   lock_r) <= 0) {
+				   lock_r, &error) <= 0) {
 			*error_r = t_strdup_printf(
-				"file_wait_lock(%s) failed: %m", dict->path);
+				"file_wait_lock(%s) failed: %s",
+				dict->path, error);
 			return -1;
 		}
 		/* check again if we need to reopen the file because it was
@@ -530,6 +563,9 @@ file_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	int fd = -1;
 
 	*atomic_inc_not_found_r = FALSE;
+
+	if (file_dict_ensure_path_home_dir(dict, ctx->ctx.set.home_dir, error_r) < 0)
+		return -1;
 
 	switch (dict->lock_method) {
 	case FILE_LOCK_METHOD_FCNTL:

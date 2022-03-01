@@ -67,7 +67,7 @@ client_find_namespace(struct client_command_context *cmd, const char **mailbox)
 bool client_verify_open_mailbox(struct client_command_context *cmd)
 {
 	if (cmd->client->mailbox != NULL) {
-		event_add_str(cmd->event, "mailbox",
+		event_add_str(cmd->global_event, "mailbox",
 			      mailbox_get_vname(cmd->client->mailbox));
 		return TRUE;
 	} else {
@@ -112,7 +112,6 @@ int client_open_save_dest_box(struct client_command_context *cmd,
 		return 0;
 	}
 	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_SAVEONLY);
-	mailbox_set_reason(box, cmd->name);
 	if (mailbox_open(box) < 0) {
 		error_string = mailbox_get_last_error(box, &error);
 		if (error == MAIL_ERROR_NOTFOUND) {
@@ -183,6 +182,8 @@ imap_get_error_string(struct client_command_context *cmd,
 		break;
 	case MAIL_ERROR_LIMIT:
 		resp_code = IMAP_RESP_CODE_LIMIT;
+		break;
+	case MAIL_ERROR_INTERRUPTED:
 		break;
 	}
 	if (resp_code == NULL || *error_string == '[')
@@ -351,7 +352,7 @@ const char *const *
 client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,
 			 const ARRAY_TYPE(keyword_indexes) *src)
 {
-	const unsigned int *kw_indexes;
+	unsigned int kw_index;
 	const char *const *all_names;
 	unsigned int all_count;
 
@@ -360,9 +361,7 @@ client_get_keyword_names(struct client *client, ARRAY_TYPE(keywords) *dest,
 	/* convert indexes to names */
 	all_names = array_get(client->keywords.names, &all_count);
 	array_clear(dest);
-	array_foreach(src, kw_indexes) {
-		unsigned int kw_index = *kw_indexes;
-
+	array_foreach_elem(src, kw_index) {
 		i_assert(kw_index < all_count);
 		array_push_back(dest, &all_names[kw_index]);
 	}

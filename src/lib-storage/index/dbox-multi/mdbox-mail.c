@@ -99,11 +99,8 @@ int mdbox_mail_open(struct dbox_mail *mail, uoff_t *offset_r,
 	uint32_t prev_file_id = 0, map_uid = 0;
 	bool deleted;
 
-	if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
-		mail_set_aborted(_mail);
+	if (!mail_stream_access_start(_mail))
 		return -1;
-	}
-	_mail->mail_stream_opened = TRUE;
 
 	do {
 		if (mail->open_file != NULL) {
@@ -221,7 +218,7 @@ mdbox_mail_update_flags(struct mail *mail, enum modify_type modify_type,
 {
 	if ((flags & DBOX_INDEX_FLAG_ALT) != 0) {
 		mdbox_purge_alt_flag_change(mail, modify_type != MODIFY_REMOVE);
-		flags &= ~DBOX_INDEX_FLAG_ALT;
+		flags &= ENUM_NEGATE(DBOX_INDEX_FLAG_ALT);
 		if (flags == 0 && modify_type != MODIFY_REPLACE)
 			return;
 	}

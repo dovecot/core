@@ -41,35 +41,12 @@ static void connection_connect_timeout(struct connection *conn)
 	connection_closed(conn, CONNECTION_DISCONNECT_CONNECT_TIMEOUT);
 }
 
-void connection_input_default(struct connection *conn)
+static int connection_input_parse_lines(struct connection *conn)
 {
 	const char *line;
 	struct istream *input;
 	struct ostream *output;
 	int ret = 0;
-
-	if (!conn->handshake_received &&
-	    conn->v.handshake != NULL) {
-		if ((ret = conn->v.handshake(conn)) < 0) {
-			connection_closed(
-				conn, CONNECTION_DISCONNECT_HANDSHAKE_FAILED);
-			return;
-		} else if (ret == 0) {
-			return;
-		} else {
-			connection_handshake_ready(conn);
-		}
-	}
-
-	switch (connection_input_read(conn)) {
-	case -1:
-		return;
-	case 0: /* allow calling this function for buffered input */
-	case 1:
-		break;
-	default:
-		i_unreached();
-	}
 
 	input = conn->input;
 	output = conn->output;
@@ -97,6 +74,11 @@ void connection_input_default(struct connection *conn)
 		} T_END;
 		if (ret <= 0)
 			break;
+		if (conn->input != input) {
+			/* Input handler changed the istream (and maybe
+			   ostream?) Restart reading using the new streams. */
+			break;
+		}
 	}
 	if (output != NULL) {
 		o_stream_uncork(output);
@@ -109,7 +91,40 @@ void connection_input_default(struct connection *conn)
 			reason = CONNECTION_DISCONNECT_DEINIT;
 		connection_closed(conn, reason);
 	}
+	if (input->closed)
+		ret = -1;
 	i_stream_unref(&input);
+	return ret;
+}
+
+void connection_input_default(struct connection *conn)
+{
+	int ret;
+
+	if (!conn->handshake_received &&
+	    conn->v.handshake != NULL) {
+		if ((ret = conn->v.handshake(conn)) < 0) {
+			connection_closed(
+				conn, CONNECTION_DISCONNECT_HANDSHAKE_FAILED);
+			return;
+		} else if (ret == 0) {
+			return;
+		} else {
+			connection_handshake_ready(conn);
+		}
+	}
+
+	switch (connection_input_read(conn)) {
+	case -1:
+		return;
+	case 0: /* allow calling this function for buffered input */
+	case 1:
+		break;
+	default:
+		i_unreached();
+	}
+
+	while (connection_input_parse_lines(conn) > 0) ;
 }
 
 int connection_verify_version(struct connection *conn,
@@ -120,8 +135,8 @@ int connection_verify_version(struct connection *conn,
 	i_assert(!conn->version_received);
 
 	if (strcmp(service_name, conn->list->set.service_name_in) != 0) {
-		e_error(conn->event, "Connected to wrong socket type. "
-			"We want '%s', but received '%s'",
+		e_error(conn->event, "Received wrong socket type. "
+			"We want '%s', but received '%s' (wrong socket path?)",
 			conn->list->set.service_name_in, service_name);
 		return -1;
 	}
@@ -232,8 +247,7 @@ void connection_input_resume(struct connection *conn)
 	connection_input_resume_full(conn, TRUE);
 }
 
-static void
-connection_update_property_label(struct connection *conn)
+static void connection_update_property_label(struct connection *conn)
 {
 	const char *label;
 
@@ -258,12 +272,17 @@ connection_update_property_label(struct connection *conn)
 					conn->remote_port);
 	}
 
+	i_assert(label != NULL || conn->property_label == NULL);
+	if (conn->property_label != NULL &&
+	    strcmp(conn->property_label, label) != 0) {
+		e_debug(conn->event, "Updated peer address to %s", label);
+	}
+
 	i_free(conn->property_label);
 	conn->property_label = i_strdup(label);
 }
 
-static void
-connection_update_label(struct connection *conn)
+static void connection_update_label(struct connection *conn)
 {
 	bool unix_socket = conn->unix_socket ||
 		(conn->remote_ip.family == 0 && conn->remote_uid != (uid_t)-1);
@@ -385,8 +404,7 @@ void connection_update_event(struct connection *conn)
 		event_add_int(conn->event, "remote_uid", conn->remote_uid);
 }
 
-static void
-connection_update_properties(struct connection *conn)
+void connection_update_properties(struct connection *conn)
 {
 	int fd = (conn->fd_in < 0 ? conn->fd_out : conn->fd_in);
 	struct net_unix_cred cred;
@@ -489,8 +507,6 @@ static void connection_client_connected(struct connection *conn, bool success)
 	connection_update_properties(conn);
 
 	conn->connect_finished = ioloop_timeval;
-	event_add_timeval(conn->event, "connect_finished_time",
-			  &ioloop_timeval);
 
 	struct event_passthrough *e = event_create_passthrough(conn->event)->
 		set_name("server_connection_connected");
@@ -694,7 +710,8 @@ static void connection_socket_connected(struct connection *conn)
 	connection_client_connected(conn, errno == 0);
 }
 
-int connection_client_connect(struct connection *conn)
+int connection_client_connect_with_retries(struct connection *conn,
+					   unsigned int msecs)
 {
 	const struct connection_settings *set = &conn->list->set;
 	int fd;
@@ -708,12 +725,10 @@ int connection_client_connect(struct connection *conn)
 		fd = net_connect_ip(&conn->remote_ip, conn->remote_port,
 				    (conn->local_ip.family != 0 ?
 				     &conn->local_ip : NULL));
-	} else if (conn->list->set.unix_client_connect_msecs == 0) {
+	} else if (msecs == 0) {
 		fd = net_connect_unix(conn->base_name);
 	} else {
-		fd = net_connect_unix_with_retries(
-			conn->base_name,
-			conn->list->set.unix_client_connect_msecs);
+		fd = net_connect_unix_with_retries(conn->base_name, msecs);
 	}
 	if (fd == -1)
 		return -1;
@@ -738,6 +753,12 @@ int connection_client_connect(struct connection *conn)
 		connection_client_connected(conn, TRUE);
 	}
 	return 0;
+}
+
+int connection_client_connect(struct connection *conn)
+{
+	return connection_client_connect_with_retries(conn,
+		conn->list->set.unix_client_connect_msecs);
 }
 
 static void connection_update_counters(struct connection *conn)
@@ -792,14 +813,15 @@ void connection_deinit(struct connection *conn)
 	conn->list = NULL;
 }
 
-int connection_input_read(struct connection *conn)
+int connection_input_read_stream(struct connection *conn,
+				 struct istream *input)
 {
 	conn->last_input = ioloop_time;
 	conn->last_input_tv = ioloop_timeval;
 	if (conn->to != NULL)
 		timeout_reset(conn->to);
 
-	switch (i_stream_read(conn->input)) {
+	switch (i_stream_read(input)) {
 	case -2:
 		/* buffer full */
 		switch (conn->list->set.input_full_behavior) {
@@ -813,6 +835,10 @@ int connection_input_read(struct connection *conn)
 		i_unreached();
 	case -1:
 		/* disconnected */
+		if (input != conn->input) {
+			i_stream_set_error(conn->input, input->stream_errno,
+					   "%s", i_stream_get_error(input));
+		}
 		connection_closed(conn, CONNECTION_DISCONNECT_CONN_CLOSED);
 		return -1;
 	case 0:
@@ -822,6 +848,11 @@ int connection_input_read(struct connection *conn)
 		/* something was read */
 		return 1;
 	}
+}
+
+int connection_input_read(struct connection *conn)
+{
+	return connection_input_read_stream(conn, conn->input);
 }
 
 const char *connection_disconnect_reason(struct connection *conn)

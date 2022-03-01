@@ -36,7 +36,7 @@ void *array_insert_space_i(struct array *array, unsigned int idx)
 
 	pos = idx * array->element_size;
 	buffer_copy(array->buffer, pos + array->element_size,
-		    array->buffer, pos, (size_t)-1);
+		    array->buffer, pos, SIZE_MAX);
 
 	data = buffer_get_space_unsafe(array->buffer, pos, array->element_size);
 	memset(data, 0, array->element_size);

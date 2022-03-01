@@ -10,6 +10,7 @@
 #include "mail-storage-private.h"
 #include "mail-search-build.h"
 #include "mailbox-list-private.h"
+#include "mailbox-match-plugin.h"
 #include "mail-namespace.h"
 #include "lazy-expunge-plugin.h"
 
@@ -43,6 +44,7 @@ struct lazy_expunge_mail_user {
 	union mail_user_module_context module_ctx;
 
 	struct mail_namespace *lazy_ns;
+	struct mailbox_match_plugin *excludes;
 	const char *lazy_mailbox_vname;
 	const char *env;
 	bool copy_only_last_instance;
@@ -126,7 +128,6 @@ mailbox_open_or_create(struct mailbox_list *list, struct mailbox *src_box,
 
 	box = mailbox_alloc(list, name, MAILBOX_FLAG_NO_INDEX_FILES |
 			    MAILBOX_FLAG_SAVEONLY | MAILBOX_FLAG_IGNORE_ACLS);
-	mailbox_set_reason(box, "lazy_expunge");
 	if (mailbox_open(box) == 0) {
 		*error_r = NULL;
 		return box;
@@ -263,6 +264,10 @@ static bool lazy_expunge_is_internal_mailbox(struct mailbox *box)
 		/* lazy-expunge mailbox */
 		return TRUE;
 	}
+	if (mailbox_match_plugin_exclude(luser->excludes, box)) {
+		/* Mailbox explicitly excluded by configuration */
+		return TRUE;
+	}
 	return FALSE;
 }
 
@@ -287,57 +292,18 @@ static void lazy_expunge_set_error(struct lazy_expunge_transaction *lt,
 		i_strdup(mail_storage_get_last_internal_error(storage, NULL));
 }
 
-static void lazy_expunge_mail_expunge(struct mail *_mail)
+static void lazy_expunge_mail_expunge_move(struct mail *_mail)
 {
 	struct mail_namespace *ns = _mail->box->list->ns;
 	struct lazy_expunge_mail_user *luser =
 		LAZY_EXPUNGE_USER_CONTEXT_REQUIRE(ns->user);
 	struct mail_private *mail = (struct mail_private *)_mail;
-	struct lazy_expunge_mail *mmail = LAZY_EXPUNGE_MAIL_CONTEXT_REQUIRE(mail);
+	struct lazy_expunge_mail *mmail =
+		LAZY_EXPUNGE_MAIL_CONTEXT_REQUIRE(mail);
 	struct lazy_expunge_transaction *lt =
 		LAZY_EXPUNGE_CONTEXT_REQUIRE(_mail->transaction);
-	struct mail *real_mail;
 	struct mail_save_context *save_ctx;
 	const char *error;
-	bool moving = mmail->moving;
-	int ret;
-
-	if (lt->delayed_error != MAIL_ERROR_NONE)
-		return;
-	if (mmail->recursing) {
-		mmail->module_ctx.super.expunge(_mail);
-		return;
-	}
-
-	/* Clear this in case the mail is used for non-move later on. */
-	mmail->moving = FALSE;
-
-	/* don't copy the mail if we're expunging from lazy_expunge
-	   namespace (even if it's via a virtual mailbox) */
-	if (mail_get_backend_mail(_mail, &real_mail) < 0) {
-		lazy_expunge_set_error(lt, _mail->box->storage);
-		return;
-	}
-	if (lazy_expunge_is_internal_mailbox(real_mail->box)) {
-		mmail->module_ctx.super.expunge(_mail);
-		return;
-	}
-
-	if (lt->copy_only_last_instance) {
-		/* we want to copy only the last instance of the mail to
-		   lazy_expunge namespace. other instances will be expunged
-		   immediately. */
-		if (moving)
-			ret = 0;
-		else if ((ret = lazy_expunge_mail_is_last_instance(_mail)) < 0) {
-			lazy_expunge_set_error(lt, _mail->box->storage);
-			return;
-		}
-		if (ret == 0) {
-			mmail->module_ctx.super.expunge(_mail);
-			return;
-		}
-	}
 
 	if (lt->dest_box == NULL) {
 		lt->dest_box = mailbox_open_or_create(luser->lazy_ns->list,
@@ -364,12 +330,72 @@ static void lazy_expunge_mail_expunge(struct mail *_mail)
 
 	save_ctx = mailbox_save_alloc(lt->dest_trans);
 	mailbox_save_copy_flags(save_ctx, _mail);
-	save_ctx->data.flags &= ~MAIL_DELETED;
+	save_ctx->data.flags &= ENUM_NEGATE(MAIL_DELETED);
 
 	mmail->recursing = TRUE;
 	if (mailbox_move(&save_ctx, _mail) < 0 && !_mail->expunged)
 		lazy_expunge_set_error(lt, lt->dest_box->storage);
 	mmail->recursing = FALSE;
+}
+
+static void lazy_expunge_mail_expunge(struct mail *_mail)
+{
+	struct lazy_expunge_transaction *lt =
+		LAZY_EXPUNGE_CONTEXT_REQUIRE(_mail->transaction);
+	struct mail_private *mail = (struct mail_private *)_mail;
+	struct lazy_expunge_mail *mmail =
+		LAZY_EXPUNGE_MAIL_CONTEXT_REQUIRE(mail);
+	struct mail *real_mail;
+	bool moving = mmail->moving;
+	int ret;
+
+	if (lt->delayed_error != MAIL_ERROR_NONE)
+		return;
+	if (mmail->recursing) {
+		mmail->module_ctx.super.expunge(_mail);
+		return;
+	}
+
+	/* Clear this in case the mail is used for non-move later on. */
+	mmail->moving = FALSE;
+
+	/* don't copy the mail if we're expunging from lazy_expunge
+	   namespace (even if it's via a virtual mailbox) */
+	if (mail_get_backend_mail(_mail, &real_mail) < 0) {
+		lazy_expunge_set_error(lt, _mail->box->storage);
+		return;
+	}
+	if (lazy_expunge_is_internal_mailbox(real_mail->box)) {
+		mmail->module_ctx.super.expunge(_mail);
+		return;
+	}
+
+	struct event_reason *reason =
+		event_reason_begin("lazy_expunge:expunge");
+	if (!lt->copy_only_last_instance)
+		ret = 1;
+	else {
+		/* we want to copy only the last instance of the mail to
+		   lazy_expunge namespace. other instances will be expunged
+		   immediately. */
+		if (moving)
+			ret = 0;
+		else {
+			ret = lazy_expunge_mail_is_last_instance(_mail);
+			if (ret < 0)
+				lazy_expunge_set_error(lt, _mail->box->storage);
+		}
+	}
+	if (ret > 0)
+		lazy_expunge_mail_expunge_move(_mail);
+	event_reason_end(&reason);
+
+	if (ret == 0) {
+		/* Not the last instance of the mail - expunge it normally.
+		   Since this is a normal expunge, do it without the
+		   reason_code. */
+		mmail->module_ctx.super.expunge(_mail);
+	}
 }
 
 static int lazy_expunge_copy(struct mail_save_context *ctx, struct mail *_mail)
@@ -580,6 +606,8 @@ static void lazy_expunge_user_deinit(struct mail_user *user)
 	/* mail_namespaces_created hook isn't necessarily ever called */
 	if (luser->lazy_ns != NULL)
 		mail_namespace_unref(&luser->lazy_ns);
+	mailbox_match_plugin_deinit(&luser->excludes);
+
 	luser->module_ctx.super.deinit(user);
 }
 
@@ -598,6 +626,7 @@ static void lazy_expunge_mail_user_created(struct mail_user *user)
 		luser->env = env;
 		luser->copy_only_last_instance =
 			mail_user_plugin_getenv_bool(user, "lazy_expunge_only_last_instance");
+		luser->excludes = mailbox_match_plugin_init(user, "lazy_expunge_exclude");
 
 		MODULE_CONTEXT_SET(user, lazy_expunge_mail_user_module, luser);
 	} else {

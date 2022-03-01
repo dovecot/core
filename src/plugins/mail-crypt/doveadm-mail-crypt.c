@@ -188,7 +188,7 @@ static int mcp_update_shared_keys(struct doveadm_mail_cmd_context *ctx,
 		return -1;
 	}
 
-	const char *const *id;
+	const char *id;
 	bool found = FALSE;
 	string_t *uid = t_str_new(64);
 
@@ -198,10 +198,10 @@ static int mcp_update_shared_keys(struct doveadm_mail_cmd_context *ctx,
 	ret = 0;
 
 	/* then perform sharing */
-	array_foreach(&ids, id) {
-		if (strchr(*id, '/') != NULL) {
+	array_foreach_elem(&ids, id) {
+		if (strchr(id, '/') != NULL) {
 			str_truncate(uid, 0);
-			const char *hexuid = t_strcut(*id, '/');
+			const char *hexuid = t_strcut(id, '/');
 			hex_to_binary(hexuid, uid);
 			if (mcp_update_shared_key(t, user, str_c(uid), key,
 						  &error) < 0) {
@@ -575,16 +575,16 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 				mailbox_get_vname(box),
 				error);
 		} else {
-			const char *const *id;
+			const char *id;
 			const char *boxname = mailbox_get_vname(box);
 			if (value.value == NULL)
 				value.value = "<NO ACTIVE KEY>";
-			array_foreach(&ids, id) {
+			array_foreach_elem(&ids, id) {
 				struct generated_key key;
 				key.name = boxname;
-				key.id = *id;
+				key.id = id;
 				if (value.value != NULL)
-					key.active = strcmp(*id, value.value) == 0;
+					key.active = strcmp(id, value.value) == 0;
 				else
 					key.active = FALSE;
 				key.box = box;
@@ -735,8 +735,14 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 			_ctx->exit_code = EX_USAGE;
 			return -1;
 		}
-		ctx->new_password =
-			p_strdup(_ctx->pool, t_askpass("New password: "));
+		const char *passw;
+		passw = t_askpass("New password: ");
+		if (strcmp(passw, t_askpass("Confirm new password: ")) != 0) {
+			doveadm_print("Passwords don't match, aborting");
+			_ctx->exit_code = EX_USAGE;
+			return -1;
+		}
+		ctx->new_password = p_strdup(_ctx->pool, passw);
 	}
 
 	if (ctx->clear_password &&
@@ -1024,7 +1030,7 @@ DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('C', "clear-password", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('N', "ask-new-password", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('n', "new-password", CMD_PARAM_STR, 0)
-DOVEADM_CMD_PARAM('O', "ask-old-password", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('O', "ask-old-password", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('o', "old-password", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAMS_END
 };

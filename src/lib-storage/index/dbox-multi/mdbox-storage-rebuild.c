@@ -556,7 +556,6 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY |
 			    MAILBOX_FLAG_IGNORE_ACLS);
-	mailbox_set_reason(box, "mdbox rebuild");
 	if (box->storage != &ctx->storage->storage.storage) {
 		/* the namespace has multiple storages. */
 		mailbox_free(&box);
@@ -709,7 +708,6 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 		box = mailbox_alloc(ctx->default_list, mailbox,
 				    MAILBOX_FLAG_READONLY |
 				    MAILBOX_FLAG_IGNORE_ACLS);
-		mailbox_set_reason(box, "mdbox rebuild restore");
 		i_assert(box->storage == storage);
 		if (mailbox_open(box) == 0)
 			break;
@@ -901,7 +899,8 @@ mdbox_storage_rebuild_scan_dir(struct mdbox_storage_rebuild_context *ctx,
 	return ret;
 }
 
-static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
+static int
+mdbox_storage_rebuild_scan_prepare(struct mdbox_storage_rebuild_context *ctx)
 {
 	const void *data;
 	size_t data_size;
@@ -937,7 +936,11 @@ static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 		/* storage was already rebuilt by someone else */
 		return 0;
 	}
+	return 1;
+}
 
+static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
+{
 	i_warning("mdbox %s: rebuilding indexes", ctx->storage->storage_dir);
 
 	if (mdbox_storage_rebuild_scan_dir(ctx, ctx->storage->storage_dir,
@@ -973,7 +976,11 @@ int mdbox_storage_rebuild_in_context(struct mdbox_storage *storage,
 	}
 
 	ctx = mdbox_storage_rebuild_init(storage, atomic);
-	ret = mdbox_storage_rebuild_scan(ctx);
+	if ((ret = mdbox_storage_rebuild_scan_prepare(ctx)) > 0) {
+		struct event_reason *reason = event_reason_begin("mdbox:rebuild");
+		ret = mdbox_storage_rebuild_scan(ctx);
+		event_reason_end(&reason);
+	}
 	mdbox_storage_rebuild_deinit(ctx);
 
 	if (ret == 0) {

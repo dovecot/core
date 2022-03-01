@@ -21,6 +21,7 @@ enum imapc_features {
 	IMAPC_FEATURE_SEND_ID			= 0x2000,
 	IMAPC_FEATURE_FETCH_EMPTY_IS_EXPUNGED	= 0x4000,
 	IMAPC_FEATURE_NO_MSN_UPDATES		= 0x8000,
+	IMAPC_FEATURE_ACL 			= 0x10000,
 };
 /* </settings checks> */
 

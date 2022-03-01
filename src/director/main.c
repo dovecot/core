@@ -42,11 +42,11 @@ static ARRAY(enum director_socket_type) listener_socket_types;
 
 static unsigned int director_total_users_count(void)
 {
-	struct mail_tag *const *tagp;
+	struct mail_tag *tag;
 	unsigned int count = 0;
 
-	array_foreach(mail_hosts_get_tags(director->mail_hosts), tagp)
-		count += user_directory_count((*tagp)->users);
+	array_foreach_elem(mail_hosts_get_tags(director->mail_hosts), tag)
+		count += user_directory_count(tag->users);
 	return count;
 }
 
@@ -164,7 +164,8 @@ static int director_client_connected(int fd, const struct ip_addr *ip)
 
 	host = director_host_lookup_ip(director, ip);
 	if (host == NULL || host->removed) {
-		i_warning("Connection from %s: Server not listed in "
+		e_warning(director->event,
+			  "Connection from %s: Server not listed in "
 			  "director_servers, dropping", net_ip2addr(ip));
 		return -1;
 	}
@@ -199,7 +200,7 @@ static void client_connected(struct master_service_connection *conn)
 		userdb = *typep == DIRECTOR_SOCKET_TYPE_USERDB;
 		socket_path = userdb ? AUTH_USERDB_SOCKET_PATH :
 			AUTH_SOCKET_PATH;
-		auth = auth_connection_init(socket_path);
+		auth = auth_connection_init(director, socket_path);
 		if (auth_connection_connect(auth) < 0) {
 			auth_connection_deinit(&auth);
 			break;
@@ -231,7 +232,7 @@ static void client_connected(struct master_service_connection *conn)
 
 static void director_state_changed(struct director *dir)
 {
-	struct director_request *const *requestp;
+	struct director_request *request;
 	ARRAY(struct director_request *) new_requests;
 	bool ret;
 
@@ -240,12 +241,12 @@ static void director_state_changed(struct director *dir)
 
 	/* if there are any pending client requests, finish them now */
 	t_array_init(&new_requests, 8);
-	array_foreach(&dir->pending_requests, requestp) {
-		ret = director_request_continue(*requestp);
+	array_foreach_elem(&dir->pending_requests, request) {
+		ret = director_request_continue(request);
 		if (!ret) {
 			/* a) request for a user being killed
 			   b) user is weak */
-			array_push_back(&new_requests, requestp);
+			array_push_back(&new_requests, &request);
 		}
 	}
 	array_clear(&dir->pending_requests);
@@ -345,7 +346,7 @@ int main(int argc, char *argv[])
 
 	main_preinit();
 	director->test_port = test_port;
-	director_debug = debug;
+	event_set_forced_debug(director->event, debug);
 	director_connect(director, "Initial connection");
 
 	if (director->test_port != 0) {

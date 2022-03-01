@@ -31,7 +31,7 @@ unsigned int uni_strlen(const unichar_t *str)
 
 int uni_utf8_get_char(const char *input, unichar_t *chr_r)
 {
-	return uni_utf8_get_char_n((const unsigned char *)input, (size_t)-1,
+	return uni_utf8_get_char_n((const unsigned char *)input, SIZE_MAX,
 				   chr_r);
 }
 

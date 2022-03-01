@@ -41,11 +41,8 @@ static int mbox_mail_seek(struct index_mail *mail)
 	if (_mail->expunged || mbox->syncing)
 		return -1;
 
-	if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NEVER) {
-		mail_set_aborted(_mail);
+	if (!mail_stream_access_start(_mail))
 		return -1;
-	}
-	_mail->mail_stream_opened = TRUE;
 
 	if (mbox->mbox_stream != NULL &&
 	    istream_raw_mbox_is_corrupted(mbox->mbox_stream)) {
@@ -244,7 +241,7 @@ mbox_mail_get_next_offset(struct index_mail *mail, uoff_t *next_offset_r)
 	int trailer_size;
 	int ret = 1;
 
-	*next_offset_r = (uoff_t)-1;
+	*next_offset_r = UOFF_T_MAX;
 
 	hdr = mail_index_get_header(mail->mail.mail.transaction->view);
 	if (mail->mail.mail.seq > hdr->messages_count) {
@@ -311,7 +308,7 @@ static int mbox_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	if (mbox_mail_get_next_offset(mail, &next_offset) > 0)
 		body_size = next_offset - body_offset;
 	else
-		body_size = (uoff_t)-1;
+		body_size = UOFF_T_MAX;
 
 	/* verify that the calculated body size is correct */
 	if (istream_raw_mbox_get_body_size(mbox->mbox_stream,
@@ -357,10 +354,10 @@ static int mbox_mail_init_stream(struct index_mail *mail)
 	}
 	i_stream_seek(raw_stream, hdr_offset);
 
-	if (next_offset != (uoff_t)-1)
+	if (next_offset != UOFF_T_MAX)
 		istream_raw_mbox_set_next_offset(raw_stream, next_offset);
 
-	raw_stream = i_stream_create_limit(raw_stream, (uoff_t)-1);
+	raw_stream = i_stream_create_limit(raw_stream, UOFF_T_MAX);
 	mail->data.stream =
 		i_stream_create_header_filter(raw_stream,
 				HEADER_FILTER_EXCLUDE | HEADER_FILTER_NO_CR,

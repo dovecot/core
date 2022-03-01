@@ -37,15 +37,15 @@ struct istream_private {
 	const unsigned char *buffer;
 	unsigned char *w_buffer; /* may be NULL */
 
-	size_t buffer_size, max_buffer_size, init_buffer_size;
-	size_t skip, pos, try_alloc_limit;
+	size_t buffer_size, max_buffer_size, init_buffer_size, data_limit;
+	size_t skip, pos;
 	/* If seeking backwards within the buffer, the next read() will
 	   return again pos..high_pos */
 	size_t high_pos;
 
 	struct istream *parent; /* for filter streams */
 	uoff_t parent_start_offset;
-	/* Initially (uoff_t)-1. Otherwise it's the exact known stream size,
+	/* Initially UOFF_T_MAX. Otherwise it's the exact known stream size,
 	   which can be used by stat() / get_size(). */
 	uoff_t cached_stream_size;
 
@@ -73,6 +73,8 @@ struct istream_private {
 struct istream_snapshot {
 	struct istream_snapshot *prev_snapshot;
 	struct memarea *old_memarea;
+	struct istream *istream;
+	void (*free)(struct istream_snapshot *snapshot);
 };
 
 enum istream_create_flag {
@@ -100,6 +102,10 @@ bool ATTR_NOWARN_UNUSED_RESULT
 i_stream_try_alloc_avoid_compress(struct istream_private *stream,
 				  size_t wanted_size, size_t *size_r);
 void *i_stream_alloc(struct istream_private *stream, size_t size);
+/* Detach istream from its current memarea. This unreferences the memarea and
+   resets the w_buffer to empty. This can be used to make sure i_stream_*alloc()
+   won't return a pointer to memory referenced to in a snapshot. */
+void i_stream_memarea_detach(struct istream_private *stream);
 /* Free memory allocated by i_stream_*alloc() */
 void i_stream_free_buffer(struct istream_private *stream);
 ssize_t i_stream_read_copy_from_parent(struct istream *istream);

@@ -66,7 +66,7 @@ void dbox_file_init(struct dbox_file *file)
 {
 	file->refcount = 1;
 	file->fd = -1;
-	file->cur_offset = (uoff_t)-1;
+	file->cur_offset = UOFF_T_MAX;
 	file->cur_path = file->primary_path;
 }
 
@@ -95,7 +95,6 @@ void dbox_file_unref(struct dbox_file **_file)
 static int dbox_file_parse_header(struct dbox_file *file, const char *line)
 {
 	const char *const *tmp, *value;
-	unsigned int pos;
 	enum dbox_header_key key;
 
 	file->file_version = *line - '0';
@@ -105,7 +104,6 @@ static int dbox_file_parse_header(struct dbox_file *file, const char *line)
 		return -1;
 	}
 	line += 2;
-	pos = 2;
 
 	file->msg_header_size = 0;
 
@@ -131,7 +129,6 @@ static int dbox_file_parse_header(struct dbox_file *file, const char *line)
 			file->create_time = (time_t)time;
 			break;
 		}
-		pos += strlen(value) + 2;
 	}
 
 	if (file->msg_header_size == 0) {
@@ -305,21 +302,25 @@ void dbox_file_close(struct dbox_file *file)
 			dbox_file_set_syscall_error(file, "close()");
 		file->fd = -1;
 	}
-	file->cur_offset = (uoff_t)-1;
+	file->cur_offset = UOFF_T_MAX;
 }
 
 int dbox_file_try_lock(struct dbox_file *file)
 {
+	const char *error;
 	int ret;
 
 	i_assert(file->fd != -1);
 
 #ifdef DBOX_FILE_LOCK_METHOD_FLOCK
+	struct file_lock_settings lock_set = {
+		.lock_method = FILE_LOCK_METHOD_FLOCK,
+	};
 	ret = file_try_lock(file->fd, file->cur_path, F_WRLCK,
-			    FILE_LOCK_METHOD_FLOCK, &file->lock);
+			    &lock_set, &file->lock, &error);
 	if (ret < 0) {
 		mail_storage_set_critical(&file->storage->storage,
-			"file_try_lock(%s) failed: %m", file->cur_path);
+			"file_try_lock(%s) failed: %s", file->cur_path, error);
 	}
 #else
 	ret = file_dotlock_create(&dotlock_set, file->cur_path,
@@ -419,7 +420,7 @@ dbox_file_seek_next_at_metadata(struct dbox_file *file, uoff_t *offset)
 
 	/* skip over the actual metadata */
 	buf_size = i_stream_get_max_buffer_size(file->input);
-	i_stream_set_max_buffer_size(file->input, (size_t)-1);
+	i_stream_set_max_buffer_size(file->input, SIZE_MAX);
 	while ((line = i_stream_read_next_line(file->input)) != NULL) {
 		if (*line == DBOX_METADATA_OLDV1_SPACE || *line == '\0') {
 			/* end of metadata */
@@ -433,7 +434,7 @@ dbox_file_seek_next_at_metadata(struct dbox_file *file, uoff_t *offset)
 
 void dbox_file_seek_rewind(struct dbox_file *file)
 {
-	file->cur_offset = (uoff_t)-1;
+	file->cur_offset = UOFF_T_MAX;
 }
 
 int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r)
@@ -443,7 +444,7 @@ int dbox_file_seek_next(struct dbox_file *file, uoff_t *offset_r, bool *last_r)
 
 	i_assert(file->input != NULL);
 
-	if (file->cur_offset == (uoff_t)-1) {
+	if (file->cur_offset == UOFF_T_MAX) {
 		/* first mail. we may not have read the file at all yet,
 		   so set the offset afterwards. */
 		offset = 0;
@@ -689,7 +690,7 @@ dbox_file_metadata_read_at(struct dbox_file *file, uoff_t metadata_offset)
 	ret = 0;
 	buf_size = i_stream_get_max_buffer_size(file->input);
 	/* use unlimited line length for metadata */
-	i_stream_set_max_buffer_size(file->input, (size_t)-1);
+	i_stream_set_max_buffer_size(file->input, SIZE_MAX);
 	while ((line = i_stream_read_next_line(file->input)) != NULL) {
 		if (*line == DBOX_METADATA_OLDV1_SPACE || *line == '\0') {
 			/* end of metadata */
@@ -710,7 +711,7 @@ int dbox_file_metadata_read(struct dbox_file *file)
 	uoff_t metadata_offset;
 	int ret;
 
-	i_assert(file->cur_offset != (uoff_t)-1);
+	i_assert(file->cur_offset != UOFF_T_MAX);
 
 	if (file->metadata_read_offset == file->cur_offset)
 		return 1;
@@ -750,7 +751,7 @@ uoff_t dbox_file_get_plaintext_size(struct dbox_file *file)
 	value = dbox_file_metadata_get(file, DBOX_METADATA_PHYSICAL_SIZE);
 	if (value == NULL ||
 	    str_to_uintmax_hex(value, &size) < 0 ||
-	    size > (uoff_t)-1) {
+	    size > UOFF_T_MAX) {
 		/* no. that means we can use the size in the header */
 		return file->cur_physical_size;
 	}

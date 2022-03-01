@@ -67,6 +67,19 @@ mailbox_list_index_iter_init(struct mailbox_list *list,
 }
 
 static void
+mailbox_list_get_escaped_mailbox_name(struct mailbox_list *list,
+				      const char *raw_name,
+				      string_t *escaped_name)
+{
+	const char escape_chars[] = {
+		list->set.storage_name_escape_char,
+		mailbox_list_get_hierarchy_sep(list),
+		'\0'
+	};
+	mailbox_list_name_escape(raw_name, escape_chars, escaped_name);
+}
+
+static void
 mailbox_list_index_update_info(struct mailbox_list_index_iterate_context *ctx)
 {
 	struct mailbox_list_index_node *node = ctx->next_node;
@@ -82,7 +95,8 @@ mailbox_list_index_update_info(struct mailbox_list_index_iterate_context *ctx)
 		str_append_c(ctx->path,
 			     mailbox_list_get_hierarchy_sep(ctx->ctx.list));
 	}
-	str_append(ctx->path, node->name);
+	mailbox_list_get_escaped_mailbox_name(ctx->ctx.list, node->raw_name,
+					      ctx->path);
 
 	ctx->info.vname = mailbox_list_get_vname(ctx->ctx.list, str_c(ctx->path));
 	ctx->info.flags = node->children != NULL ?
@@ -94,7 +108,8 @@ mailbox_list_index_update_info(struct mailbox_list_index_iterate_context *ctx)
 		/* listing INBOX itself */
 		ctx->info.vname = "INBOX";
 		if (mail_namespace_is_inbox_noinferiors(ctx->info.ns)) {
-			ctx->info.flags &= ~(MAILBOX_CHILDREN|MAILBOX_NOCHILDREN);
+			ctx->info.flags &= ENUM_NEGATE(MAILBOX_CHILDREN |
+						       MAILBOX_NOCHILDREN);
 			ctx->info.flags |= MAILBOX_NOINFERIORS;
 		}
 	} else {
@@ -132,7 +147,7 @@ mailbox_list_index_update_next(struct mailbox_list_index_iterate_context *ctx,
 	struct mailbox_list_index_node *node = ctx->next_node;
 
 	if (!ctx->prefix_inbox_list && ctx->ctx.list->ns->prefix_len > 0 &&
-	    strcmp(node->name, "INBOX") == 0 && node->parent == NULL &&
+	    strcmp(node->raw_name, "INBOX") == 0 && node->parent == NULL &&
 	    node->children != NULL) {
 		/* prefix/INBOX has children */
 		ctx->prefix_inbox_list = TRUE;
@@ -146,7 +161,16 @@ mailbox_list_index_update_next(struct mailbox_list_index_iterate_context *ctx,
 		while (node->next == NULL) {
 			node = node->parent;
 			if (node != NULL) {
-				ctx->parent_len -= strlen(node->name);
+				/* The storage name kept in the iteration context
+				   is escaped. To calculate the right truncation
+				   margin, the length of the name must be
+				   calculated from the escaped storage name and
+				   not from node->raw_name. */
+				string_t *escaped_name = t_str_new(64);
+				mailbox_list_get_escaped_mailbox_name(ctx->ctx.list,
+								      node->raw_name,
+								      escaped_name);
+				ctx->parent_len -= str_len(escaped_name);
 				if (node->parent != NULL)
 					ctx->parent_len--;
 			}
@@ -191,7 +215,9 @@ mailbox_list_index_iter_next(struct mailbox_list_iterate_context *_ctx)
 
 	/* listing mailboxes from index */
 	while (ctx->next_node != NULL) {
-		mailbox_list_index_update_info(ctx);
+		T_BEGIN {
+			mailbox_list_index_update_info(ctx);
+		} T_END;
 		match = imap_match(_ctx->glob, ctx->info.vname);
 
 		follow_children = (match & (IMAP_MATCH_YES |
@@ -199,7 +225,7 @@ mailbox_list_index_iter_next(struct mailbox_list_iterate_context *_ctx)
 		if (match == IMAP_MATCH_YES && iter_subscriptions_ok(ctx)) {
 			/* If this is a) \NoSelect leaf, b) not LAYOUT=index
 			   and c) NO-NOSELECT is set, try to rmdir the leaf
-			   directores from filesystem. (With LAYOUT=index the
+			   directories from filesystem. (With LAYOUT=index the
 			   \NoSelect mailboxes aren't on the filesystem.) */
 			if (ilist->has_backing_store &&
 			    mailbox_list_iter_try_delete_noselect(_ctx, &ctx->info,

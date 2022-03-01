@@ -81,7 +81,7 @@ int index_mail_cache_lookup_field(struct index_mail *mail, buffer_t *buf,
 	int ret;
 
 	ret = mail_cache_lookup_field(mail->mail.mail.transaction->cache_view,
-				      buf, mail->data.seq, field_idx);
+				      buf, mail->mail.mail.seq, field_idx);
 	if (ret > 0)
 		mail->mail.mail.transaction->stats.cache_hit_count++;
 
@@ -94,6 +94,25 @@ int index_mail_cache_lookup_field(struct index_mail *mail, buffer_t *buf,
 	}
 
 	return ret;
+}
+
+static void index_mail_try_set_attachment_keywords(struct index_mail *mail)
+{
+	enum mail_lookup_abort orig_lookup_abort = mail->mail.mail.lookup_abort;
+	mail->mail.mail.lookup_abort = MAIL_LOOKUP_ABORT_NOT_IN_CACHE;
+	(void)mail_set_attachment_keywords(&mail->mail.mail);
+	mail->mail.mail.lookup_abort = orig_lookup_abort;
+}
+
+static bool
+index_mail_want_attachment_keywords_on_fetch(struct index_mail *mail)
+{
+	const struct mail_storage_settings *mail_set =
+		mailbox_get_settings(mail->mail.mail.box);
+
+	return mail_set->parsed_mail_attachment_detection_add_flags &&
+		!mail_set->parsed_mail_attachment_detection_no_flags_on_fetch &&
+		!mail_has_attachment_keywords(&mail->mail.mail);
 }
 
 static int get_serialized_parts(struct index_mail *mail, buffer_t **part_buf_r)
@@ -143,6 +162,12 @@ static bool get_cached_parts(struct index_mail *mail)
 
 	if (mail->data.parts != NULL)
 		return TRUE;
+	if (mail->data.parser_ctx != NULL) {
+		/* Message is already being parsed. Get the message parts by
+		   finishing its parsing, so there won't be any confusion about
+		   whether e.g. data->parsed_bodystructure=TRUE match data->parts  */
+		return FALSE;
+	}
 
 	T_BEGIN {
 		part = get_unserialized_parts(mail);
@@ -160,6 +185,8 @@ static bool get_cached_parts(struct index_mail *mail)
 	}
 
 	mail->data.parts = part;
+	if (index_mail_want_attachment_keywords_on_fetch(mail))
+		index_mail_try_set_attachment_keywords(mail);
 	return TRUE;
 }
 
@@ -243,7 +270,7 @@ enum mail_flags index_mail_get_flags(struct mail *_mail)
 	if (index_mail_get_pvt(_mail)) {
 		/* mailbox has private flags */
 		pvt_flags_mask = mailbox_get_private_flags_mask(_mail->box);
-		flags &= ~pvt_flags_mask;
+		flags &= ENUM_NEGATE(pvt_flags_mask);
 		rec = mail_index_lookup(_mail->transaction->view_pvt,
 					mail->seq_pvt);
 		flags |= rec->flags & pvt_flags_mask;
@@ -320,7 +347,7 @@ index_mail_get_keyword_indexes(struct mail *_mail)
 	if (!array_is_created(&data->keyword_indexes)) {
 		p_array_init(&data->keyword_indexes, mail->mail.data_pool, 32);
 		mail_index_lookup_keywords(_mail->transaction->view,
-					   mail->data.seq,
+					   mail->mail.mail.seq,
 					   &data->keyword_indexes);
 	}
 	return &data->keyword_indexes;
@@ -480,18 +507,32 @@ static void index_mail_try_set_body_size(struct index_mail *mail)
 	struct index_mail_data *data = &mail->data;
 
 	if (data->hdr_size_set && !data->inexact_total_sizes &&
-	    data->physical_size != (uoff_t)-1 &&
-	    data->virtual_size != (uoff_t)-1) {
+	    data->physical_size != UOFF_T_MAX &&
+	    data->virtual_size != UOFF_T_MAX) {
 		/* We know the total size of this mail and we know the
 		   header size, so we can calculate also the body size.
 		   However, don't do this if there's a possibility that
 		   physical_size or virtual_size don't actually match the
 		   mail stream's size (e.g. buggy imapc servers). */
-		data->body_size.physical_size = data->physical_size -
-			data->hdr_size.physical_size;
-		data->body_size.virtual_size = data->virtual_size -
-			data->hdr_size.virtual_size;
-		data->body_size_set = TRUE;
+		if (data->physical_size < data->hdr_size.physical_size) {
+			mail_set_cache_corrupted(&mail->mail.mail,
+				MAIL_FETCH_PHYSICAL_SIZE, t_strdup_printf(
+				"Cached physical size smaller than header size "
+				"(%"PRIuUOFF_T" < %"PRIuUOFF_T")",
+				data->physical_size, data->hdr_size.physical_size));
+		} else if (data->virtual_size < data->hdr_size.virtual_size) {
+			mail_set_cache_corrupted(&mail->mail.mail,
+				MAIL_FETCH_VIRTUAL_SIZE, t_strdup_printf(
+				"Cached virtual size smaller than header size "
+				"(%"PRIuUOFF_T" < %"PRIuUOFF_T")",
+				data->virtual_size, data->hdr_size.virtual_size));
+		} else {
+			data->body_size.physical_size = data->physical_size -
+				data->hdr_size.physical_size;
+			data->body_size.virtual_size = data->virtual_size -
+				data->hdr_size.virtual_size;
+			data->body_size_set = TRUE;
+		}
 	}
 }
 
@@ -506,9 +547,9 @@ bool index_mail_get_cached_virtual_size(struct index_mail *mail, uoff_t *size_r)
 	const uint32_t *vsize = index_mail_get_vsize_extension(_mail);
 
 	data->cache_fetch_fields |= MAIL_FETCH_VIRTUAL_SIZE;
-	if (data->virtual_size == (uoff_t)-1 && vsize != NULL && *vsize > 0)
+	if (data->virtual_size == UOFF_T_MAX && vsize != NULL && *vsize > 0)
 		data->virtual_size = (*vsize)-1;
-	if (data->virtual_size == (uoff_t)-1) {
+	if (data->virtual_size == UOFF_T_MAX) {
 		if (index_mail_get_cached_uoff_t(mail,
 						 MAIL_CACHE_VIRTUAL_FULL_SIZE,
 						 &size))
@@ -579,7 +620,7 @@ int index_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 		return -1;
 	i_stream_seek(data->stream, old_offset);
 
-	i_assert(data->virtual_size != (uoff_t)-1);
+	i_assert(data->virtual_size != UOFF_T_MAX);
 	*size_r = data->virtual_size;
 	return 0;
 }
@@ -590,8 +631,16 @@ int index_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	struct index_mail_data *data = &mail->data;
 	uoff_t size;
 
-	data->cache_fetch_fields |= MAIL_FETCH_PHYSICAL_SIZE;
-	if (data->physical_size == (uoff_t)-1) {
+	if (_mail->lookup_abort != MAIL_LOOKUP_ABORT_NOT_IN_CACHE &&
+	    _mail->lookup_abort != MAIL_LOOKUP_ABORT_READ_MAIL) {
+		/* If size.physical isn't in cache yet, add it. Do this only
+		   when the caller appears to actually want it to be cached.
+		   We don't want to cache the size when coming in here from
+		   i_stream_mail_try_get_cached_size() or
+		   index_mail_get_cached_body_size(). */
+		data->cache_fetch_fields |= MAIL_FETCH_PHYSICAL_SIZE;
+	}
+	if (data->physical_size == UOFF_T_MAX) {
 		if (index_mail_get_cached_uoff_t(mail,
 						 MAIL_CACHE_PHYSICAL_FULL_SIZE,
 						 &size))
@@ -600,7 +649,7 @@ int index_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 			(void)get_cached_msgpart_sizes(mail);
 	}
 	*size_r = data->physical_size;
-	return *size_r == (uoff_t)-1 ? -1 : 0;
+	return *size_r == UOFF_T_MAX ? -1 : 0;
 }
 
 void index_mail_cache_add(struct index_mail *mail, enum index_cache_field field,
@@ -699,10 +748,10 @@ static void index_mail_body_parsed_cache_flags(struct index_mail *mail)
 
 	/* cache flags should never get unset as long as the message doesn't
 	   change, but try to handle it anyway */
-	cache_flags &= ~(MAIL_CACHE_FLAG_BINARY_HEADER |
-			 MAIL_CACHE_FLAG_BINARY_BODY |
-			 MAIL_CACHE_FLAG_HAS_NULS |
-			 MAIL_CACHE_FLAG_HAS_NO_NULS);
+	cache_flags &= ENUM_NEGATE(MAIL_CACHE_FLAG_BINARY_HEADER |
+				   MAIL_CACHE_FLAG_BINARY_BODY |
+				   MAIL_CACHE_FLAG_HAS_NULS |
+				   MAIL_CACHE_FLAG_HAS_NO_NULS);
 	if (message_parts_have_nuls(data->parts)) {
 		_mail->has_nuls = TRUE;
 		_mail->has_no_nuls = FALSE;
@@ -765,6 +814,21 @@ static void index_mail_body_parsed_cache_message_parts(struct index_mail *mail)
 	data->messageparts_saved_to_cache = TRUE;
 }
 
+static int
+index_mail_write_bodystructure(struct index_mail *mail, string_t *str,
+			       bool extended)
+{
+	const char *error;
+
+	if (imap_bodystructure_write(mail->data.parts, str, extended,
+				     &error) < 0) {
+		mail_set_cache_corrupted(&mail->mail.mail,
+			MAIL_FETCH_MESSAGE_PARTS, error);
+		return -1;
+	}
+	return 0;
+}
+
 static void
 index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 					   enum index_cache_field field)
@@ -813,12 +877,12 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 	}
 	if (cache_bodystructure) {
 		str = str_new(mail->mail.data_pool, 128);
-		imap_bodystructure_write(data->parts, str, TRUE);
-		data->bodystructure = str_c(str);
-
-		index_mail_cache_add(mail, MAIL_CACHE_IMAP_BODYSTRUCTURE,
-				     str_c(str), str_len(str));
-		bodystructure_cached = TRUE;
+		if (index_mail_write_bodystructure(mail, str, TRUE) == 0) {
+			data->bodystructure = str_c(str);
+			index_mail_cache_add(mail, MAIL_CACHE_IMAP_BODYSTRUCTURE,
+					     str_c(str), str_len(str));
+			bodystructure_cached = TRUE;
+		}
 	} else {
 		bodystructure_cached =
 			mail_cache_field_exists(_mail->transaction->cache_view,
@@ -845,11 +909,11 @@ index_mail_body_parsed_cache_bodystructure(struct index_mail *mail,
 
 	if (cache_body) {
 		str = str_new(mail->mail.data_pool, 128);
-		imap_bodystructure_write(data->parts, str, FALSE);
-		data->body = str_c(str);
-
-		index_mail_cache_add(mail, MAIL_CACHE_IMAP_BODY,
-				     str_c(str), str_len(str));
+		if (index_mail_write_bodystructure(mail, str, FALSE) == 0) {
+			data->body = str_c(str);
+			index_mail_cache_add(mail, MAIL_CACHE_IMAP_BODY,
+					     str_c(str), str_len(str));
+		}
 	}
 }
 
@@ -941,7 +1005,7 @@ static void index_mail_cache_sizes(struct index_mail *mail)
 	*/
 	if ((mail_index_map_get_ext_idx(view->index->map, _mail->box->mail_vsize_ext_id, &idx) ||
 	     mail_index_map_get_ext_idx(view->index->map, _mail->box->vsize_hdr_ext_id, &idx)) &&
-	    (sizes[0] != (uoff_t)-1 &&
+	    (sizes[0] != UOFF_T_MAX &&
 	     sizes[0] < (uint32_t)-1)) {
 		const uint32_t *vsize_ext =
 			index_mail_get_vsize_extension(_mail);
@@ -955,11 +1019,11 @@ static void index_mail_cache_sizes(struct index_mail *mail)
 					      _mail->box->mail_vsize_ext_id, &vsize, NULL);
 		}
 		/* it's already in index, so don't update cache */
-		sizes[0] = (uoff_t)-1;
+		sizes[0] = UOFF_T_MAX;
 	}
 
 	for (i = 0; i < N_ELEMENTS(size_fields); i++) {
-		if (sizes[i] != (uoff_t)-1 &&
+		if (sizes[i] != UOFF_T_MAX &&
 		    index_mail_want_cache(mail, size_fields[i])) {
 			index_mail_cache_add(mail, size_fields[i],
 					     &sizes[i], sizeof(sizes[i]));
@@ -1084,6 +1148,13 @@ static int index_mail_write_body_snippet(struct index_mail *mail)
 	return ret;
 }
 
+void index_mail_parts_reset(struct index_mail *mail)
+{
+	mail->data.parts = NULL;
+	mail->data.parsed_bodystructure_header = FALSE;
+	mail->data.parsed_bodystructure = FALSE;
+}
+
 static int
 index_mail_parse_body_finish(struct index_mail *mail,
 			     enum index_cache_field field, bool success)
@@ -1114,9 +1185,15 @@ index_mail_parse_body_finish(struct index_mail *mail,
 		   decide if that is an error or not. (for example we
 		   could be coming here from IMAP APPEND when IMAP
 		   client has closed the connection too early. we
-		   don't want to log an error in that case.) */
-		if (parser_input->stream_errno != 0 &&
-		    parser_input->stream_errno != EPIPE) {
+		   don't want to log an error in that case.)
+		   Note that EPIPE may also come from istream-mail which
+		   detects a corrupted message size. Either way, the
+		   body wasn't successfully parsed. */
+		if (parser_input->stream_errno == 0)
+			;
+		else if (parser_input->stream_errno == EPIPE)
+			ret = -1;
+		else {
 			index_mail_stream_log_failure_for(mail, parser_input);
 			ret = -1;
 		}
@@ -1127,12 +1204,18 @@ index_mail_parse_body_finish(struct index_mail *mail,
 			i_assert(error != NULL);
 			index_mail_set_message_parts_corrupted(&mail->mail.mail, error);
 		}
-		mail->data.parts = NULL;
-		mail->data.parsed_bodystructure = FALSE;
+		index_mail_parts_reset(mail);
 		if (mail->data.save_bodystructure_body)
 			mail->data.save_bodystructure_header = TRUE;
+		if (mail->data.header_parser_initialized)
+			index_mail_parse_header_deinit(mail);
 		return -1;
 	}
+	if (mail->data.header_parser_initialized) {
+		i_assert(!success);
+		index_mail_parse_header_deinit(mail);
+	}
+
 	if (mail->data.save_bodystructure_body) {
 		mail->data.parsed_bodystructure = TRUE;
 		mail->data.save_bodystructure_header = FALSE;
@@ -1154,12 +1237,9 @@ index_mail_parse_body_finish(struct index_mail *mail,
 	index_mail_body_parsed_cache_bodystructure(mail, field);
 	index_mail_cache_sizes(mail);
 	index_mail_cache_dates(mail);
-	if (mail_set->parsed_mail_attachment_detection_add_flags_on_save &&
-	    mail->data.parsed_bodystructure &&
-	    !mail_has_attachment_keywords(&mail->mail.mail)) {
-		i_assert(mail->data.parts != NULL);
-		(void)mail_set_attachment_keywords(&mail->mail.mail);
-	}
+	if (mail_set->parsed_mail_attachment_detection_add_flags &&
+	    !mail_has_attachment_keywords(&mail->mail.mail))
+		index_mail_try_set_attachment_keywords(mail);
 	return 0;
 }
 
@@ -1198,9 +1278,23 @@ void index_mail_stream_log_failure_for(struct index_mail *mail,
 		if (_mail->expunged)
 			return;
 	}
-	mail_set_critical(_mail,
-		"read(%s) failed: %s (read reason=%s)",
-		i_stream_get_name(input), i_stream_get_error(input),
+
+	const char *old_error =
+		mailbox_get_last_internal_error(_mail->box, NULL);
+	const char *new_error = t_strdup_printf("read(%s) failed: %s",
+		i_stream_get_name(input), i_stream_get_error(input));
+
+	if (mail->data.istream_error_logged &&
+	    strstr(old_error, new_error) != NULL) {
+		/* Avoid logging the same istream error multiple times
+		   (even if the read reason is different). The old_error begins
+		   with the UID=n prefix, which we can ignore since we know
+		   that this mail already logged a critical error, so it has
+		   to be about this same mail. */
+		return;
+	}
+	mail->data.istream_error_logged = TRUE;
+	mail_set_critical(_mail, "%s (read reason=%s)", new_error,
 		mail->mail.get_stream_reason == NULL ? "" :
 		mail->mail.get_stream_reason);
 }
@@ -1265,13 +1359,7 @@ int index_mail_init_stream(struct index_mail *mail,
 	bool has_nuls, body_size_from_stream = FALSE;
 	int ret;
 
-	if (mail->mail.get_stream_reason != NULL &&
-	    mail->mail.get_stream_reason[0] != '\0') {
-		e_debug(_mail->event,
-			"Opened mail because: %s",
-			mail->mail.get_stream_reason);
-	}
-	_mail->mail_stream_opened = TRUE;
+	i_assert(_mail->mail_stream_accessed);
 
 	if (!data->initialized_wrapper_stream &&
 	    _mail->transaction->stats_track) {
@@ -1290,15 +1378,26 @@ int index_mail_init_stream(struct index_mail *mail,
 			index_mail_stream_destroy_callback, mail);
 	}
 
+	bool want_attachment_kw =
+		index_mail_want_attachment_keywords_on_fetch(mail);
+	if (want_attachment_kw) {
+		data->access_part |= PARSE_HDR | PARSE_BODY;
+		data->access_reason_code = "mail:attachment_keywords";
+	}
+
 	if (hdr_size != NULL || body_size != NULL)
 		(void)get_cached_msgpart_sizes(mail);
 
-	if (hdr_size != NULL || body_size != NULL) {
+	bool want_body_parsing = want_attachment_kw ||
+		(body_size != NULL && !data->body_size_set &&
+		 (data->access_part & PARSE_BODY) != 0);
+
+	if (hdr_size != NULL || body_size != NULL || want_body_parsing) {
 		i_stream_seek(data->stream, 0);
-		if (!data->hdr_size_set) {
-			if ((data->access_part & PARSE_HDR) != 0) {
+		if (!data->hdr_size_set || want_body_parsing) {
+			if ((data->access_part & (PARSE_HDR | PARSE_BODY)) != 0) {
 				(void)get_cached_parts(mail);
-				if (index_mail_parse_headers(mail, NULL, "parse header") < 0)
+				if (index_mail_parse_headers_internal(mail, NULL) < 0)
 					return -1;
 			} else {
 				if (message_get_header_size(data->stream,
@@ -1315,10 +1414,10 @@ int index_mail_init_stream(struct index_mail *mail,
 			*hdr_size = data->hdr_size;
 	}
 
-	if (body_size != NULL) {
-		if (!data->body_size_set)
+	if (body_size != NULL || want_body_parsing) {
+		if (!data->body_size_set && body_size != NULL)
 			index_mail_get_cached_body_size(mail);
-		if (!data->body_size_set) {
+		if (!data->body_size_set || want_body_parsing) {
 			i_stream_seek(data->stream,
 				      data->hdr_size.physical_size);
 			if ((data->access_part & PARSE_BODY) != 0) {
@@ -1336,7 +1435,8 @@ int index_mail_init_stream(struct index_mail *mail,
 			body_size_from_stream = TRUE;
 		}
 
-		*body_size = data->body_size;
+		if (body_size != NULL)
+			*body_size = data->body_size;
 	}
 
 	if (data->hdr_size_set && data->body_size_set) {
@@ -1362,6 +1462,39 @@ int index_mail_init_stream(struct index_mail *mail,
 	return 0;
 }
 
+static int
+index_mail_parse_bodystructure_full(struct index_mail *mail,
+				    enum index_cache_field field)
+{
+	struct index_mail_data *data = &mail->data;
+
+	if ((data->save_bodystructure_header &&
+	     !data->parsed_bodystructure_header) ||
+	    !data->save_bodystructure_body ||
+	    field == MAIL_CACHE_BODY_SNIPPET) {
+		/* we haven't parsed the header yet */
+		const char *reason =
+			index_mail_cache_reason(&mail->mail.mail, "bodystructure");
+		bool orig_bodystructure_header =
+			data->save_bodystructure_header;
+		bool orig_bodystructure_body =
+			data->save_bodystructure_body;
+		data->save_bodystructure_header = TRUE;
+		data->save_bodystructure_body = TRUE;
+		(void)get_cached_parts(mail);
+		if (index_mail_parse_headers(mail, NULL, reason) < 0) {
+			data->save_bodystructure_header =
+				orig_bodystructure_header;
+			data->save_bodystructure_body =
+				orig_bodystructure_body;
+			return -1;
+		}
+		i_assert(data->parser_ctx != NULL);
+	}
+
+	return index_mail_parse_body(mail, field);
+}
+
 static int index_mail_parse_bodystructure(struct index_mail *mail,
 					  enum index_cache_field field)
 {
@@ -1373,25 +1506,18 @@ static int index_mail_parse_bodystructure(struct index_mail *mail,
 		   a string */
 		index_mail_body_parsed_cache_bodystructure(mail, field);
 	} else {
-		if ((data->save_bodystructure_header &&
-		     !data->parsed_bodystructure_header) ||
-		    !data->save_bodystructure_body ||
-		    field == MAIL_CACHE_BODY_SNIPPET) {
-			/* we haven't parsed the header yet */
-			const char *reason =
-				index_mail_cache_reason(&mail->mail.mail, "bodystructure");
+		if (index_mail_parse_bodystructure_full(mail, field) < 0)
+			return -1;
+		if (data->parts == NULL) {
+			/* Corrupted mime.parts detected. Retry by parsing
+			   the mail. */
+			data->parsed_bodystructure = FALSE;
+			data->parsed_bodystructure_header = FALSE;
 			data->save_bodystructure_header = TRUE;
 			data->save_bodystructure_body = TRUE;
-			(void)get_cached_parts(mail);
-			if (index_mail_parse_headers(mail, NULL, reason) < 0) {
-				data->save_bodystructure_header = TRUE;
+			if (index_mail_parse_bodystructure_full(mail, field) < 0)
 				return -1;
-			}
-			i_assert(data->parser_ctx != NULL);
 		}
-
-		if (index_mail_parse_body(mail, field) < 0)
-			return -1;
 	}
 	i_assert(data->parts != NULL);
 
@@ -1401,14 +1527,16 @@ static int index_mail_parse_bodystructure(struct index_mail *mail,
 	case MAIL_CACHE_IMAP_BODY:
 		if (data->body == NULL) {
 			str = str_new(mail->mail.data_pool, 128);
-			imap_bodystructure_write(data->parts, str, FALSE);
+			if (index_mail_write_bodystructure(mail, str, FALSE) < 0)
+				return -1;
 			data->body = str_c(str);
 		}
 		break;
 	case MAIL_CACHE_IMAP_BODYSTRUCTURE:
 		if (data->bodystructure == NULL) {
 			str = str_new(mail->mail.data_pool, 128);
-			imap_bodystructure_write(data->parts, str, TRUE);
+			if (index_mail_write_bodystructure(mail, str, TRUE) < 0)
+				return -1;
 			data->bodystructure = str_c(str);
 		}
 		break;
@@ -1540,18 +1668,18 @@ bool index_mail_get_cached_bodystructure(struct index_mail *mail,
 
 	str = str_new(mail->mail.data_pool, 128);
 	if ((data->cache_flags & MAIL_CACHE_FLAG_TEXT_PLAIN_7BIT_ASCII) != 0 &&
-	    get_cached_parts(mail)) {
+	    get_cached_parts(mail))
 		index_mail_get_plain_bodystructure(mail, str, TRUE);
-		*value_r = data->bodystructure = str_c(str);
-		return TRUE;
-	}
-	if (index_mail_cache_lookup_field(mail, str, bodystructure_cache_field) > 0) {
-		*value_r = data->bodystructure = str_c(str);
-		return TRUE;
+	else if (index_mail_cache_lookup_field(mail, str,
+			bodystructure_cache_field) <= 0) {
+		str_free(&str);
+		return FALSE;
 	}
 
-	str_free(&str);
-	return FALSE;
+	*value_r = data->bodystructure = str_c(str);
+	if (index_mail_want_attachment_keywords_on_fetch(mail))
+		index_mail_try_set_attachment_keywords(mail);
+	return TRUE;
 }
 
 int index_mail_get_special(struct mail *_mail,
@@ -1629,32 +1757,30 @@ index_mail_alloc(struct mailbox_transaction_context *t,
 
 	pool = pool_alloconly_create("mail", 2048);
 	mail = p_new(pool, struct index_mail, 1);
-	mail->mail.pool = pool;
 
-	index_mail_init(mail, t, wanted_fields, wanted_headers);
+	index_mail_init(mail, t, wanted_fields, wanted_headers, pool, NULL);
 	return &mail->mail.mail;
-}
-
-static void index_mail_init_event(struct mail *mail)
-{
-	mail->event = event_create(mail->box->event);
-	event_add_category(mail->event, &event_category_mail);
 }
 
 void index_mail_init(struct index_mail *mail,
 		     struct mailbox_transaction_context *t,
 		     enum mail_fetch_field wanted_fields,
-		     struct mailbox_header_lookup_ctx *wanted_headers)
+		     struct mailbox_header_lookup_ctx *wanted_headers,
+		     struct pool *mail_pool,
+		     struct pool *data_pool)
 {
+	mail->mail.pool = mail_pool;
 	array_create(&mail->mail.module_contexts, mail->mail.pool,
 		     sizeof(void *), 5);
 
 	mail->mail.v = *t->box->mail_vfuncs;
 	mail->mail.mail.box = t->box;
 	mail->mail.mail.transaction = t;
-	index_mail_init_event(&mail->mail.mail);
 	t->mail_ref_count++;
-	mail->mail.data_pool = pool_alloconly_create("index_mail", 16384);
+	if (data_pool != NULL)
+		mail->mail.data_pool = data_pool;
+	else
+		mail->mail.data_pool = pool_alloconly_create("index_mail", 16384);
 	mail->ibox = INDEX_STORAGE_CONTEXT(t->box);
 	mail->mail.wanted_fields = wanted_fields;
 	if (wanted_headers != NULL) {
@@ -1713,8 +1839,8 @@ static void index_mail_init_data(struct index_mail *mail)
 {
 	struct index_mail_data *data = &mail->data;
 
-	data->virtual_size = (uoff_t)-1;
-	data->physical_size = (uoff_t)-1;
+	data->virtual_size = UOFF_T_MAX;
+	data->physical_size = UOFF_T_MAX;
 	data->save_date = (time_t)-1;
 	data->received_date = (time_t)-1;
 	data->sent_date.time = (uint32_t)-1;
@@ -1741,7 +1867,7 @@ static void index_mail_reset_data(struct index_mail *mail)
 	mail->mail.mail.has_nuls = FALSE;
 	mail->mail.mail.has_no_nuls = FALSE;
 	mail->mail.mail.saving = FALSE;
-	mail->mail.mail.mail_stream_opened = FALSE;
+	mail->mail.mail.mail_stream_accessed = FALSE;
 	mail->mail.mail.mail_metadata_accessed = FALSE;
 }
 
@@ -1761,8 +1887,7 @@ void index_mail_close(struct mail *_mail)
 
 	/* make sure old mail isn't visible in the event anymore even if it's
 	   attempted to be used. */
-	event_unref(&_mail->event);
-	index_mail_init_event(&mail->mail.mail);
+	event_unref(&mail->mail._event);
 
 	/* If uid == 0 but seq != 0, we came here from saving a (non-mbox)
 	   message. If that happens, don't bother checking if anything should
@@ -1809,8 +1934,10 @@ static void check_envelope(struct index_mail *mail)
 						     "hdr.message-id");
 	if (cache_field_hdr == UINT_MAX ||
 	    mail_cache_field_exists(_mail->transaction->cache_view,
-				    _mail->seq, cache_field_hdr) <= 0)
+				    _mail->seq, cache_field_hdr) <= 0) {
+		mail->data.access_reason_code = "mail:imap_envelope";
 		mail->data.access_part |= PARSE_HDR;
+	}
 	mail->data.save_envelope = TRUE;
 }
 
@@ -1857,6 +1984,7 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 
 		if (mail_cache_field_exists(cache_view, _mail->seq,
 					    cache_field) <= 0) {
+			data->access_reason_code = "mail:mime_parts";
 			data->access_part |= PARSE_HDR | PARSE_BODY;
 			data->save_message_parts = TRUE;
 		}
@@ -1881,6 +2009,7 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 					    cache_field1) <= 0 &&
 		    mail_cache_field_exists(cache_view, _mail->seq,
 					    cache_field2) <= 0) {
+			data->access_reason_code = "mail:imap_bodystructure";
 			data->access_part |= PARSE_HDR | PARSE_BODY;
 			data->save_bodystructure_header = TRUE;
 			data->save_bodystructure_body = TRUE;
@@ -1896,6 +2025,7 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 
                 if (mail_cache_field_exists(cache_view, _mail->seq,
                                             cache_field) <= 0) {
+			data->access_reason_code = "mail:imap_bodystructure";
 			data->access_part |= PARSE_HDR | PARSE_BODY;
 			data->save_bodystructure_header = TRUE;
 			data->save_bodystructure_body = TRUE;
@@ -1910,6 +2040,7 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 
 		if (mail_cache_field_exists(cache_view, _mail->seq,
 					    cache_field) <= 0) {
+			data->access_reason_code = "mail:date";
 			data->access_part |= PARSE_HDR;
 			data->save_sent_date = TRUE;
 		}
@@ -1921,12 +2052,17 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 
 		if (mail_cache_field_exists(cache_view, _mail->seq,
 					    cache_field) <= 0) {
+			data->access_reason_code = "mail:snippet";
 			data->access_part |= PARSE_HDR | PARSE_BODY;
 			data->save_body_snippet = TRUE;
 		}
 	}
 	if ((data->wanted_fields & (MAIL_FETCH_STREAM_HEADER |
 				    MAIL_FETCH_STREAM_BODY)) != 0) {
+		/* Clear reason_code if set. The mail is going to be read
+		   in any case, so the previous reason for deciding to open
+		   the mail won't matter. */
+		data->access_reason_code = NULL;
 		if ((data->wanted_fields & MAIL_FETCH_STREAM_HEADER) != 0)
 			data->access_part |= READ_HDR;
 		if ((data->wanted_fields & MAIL_FETCH_STREAM_BODY) != 0)
@@ -1939,7 +2075,7 @@ void index_mail_update_access_parts_pre(struct mail *_mail)
 	   The attachment flag detection is done while parsing BODYSTRUCTURE.
 	   We want to do this for mails that are being saved, but also when
 	   we need to open the mail body anyway. */
-	if (mail_set->parsed_mail_attachment_detection_add_flags_on_save &&
+	if (mail_set->parsed_mail_attachment_detection_add_flags &&
 	    (_mail->saving || data->access_part != 0) &&
 	    !mail_has_attachment_keywords(&mail->mail.mail)) {
 		data->save_bodystructure_header = TRUE;
@@ -1982,8 +2118,11 @@ void index_mail_update_access_parts_post(struct mail *_mail)
 void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 {
 	struct index_mail *mail = INDEX_MAIL(_mail);
+	const struct mail_index_record *rec;
+	struct mail_index_map *map;
+	bool expunged;
 
-	if (mail->data.seq == seq) {
+	if (mail->mail.mail.seq == seq) {
 		if (!saving)
 			return;
 		/* we started saving a mail, aborted it, and now we're saving
@@ -1993,21 +2132,27 @@ void index_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 
 	mail->mail.v.close(&mail->mail.mail);
 
-	mail->data.seq = seq;
 	mail->mail.mail.seq = seq;
 	mail->mail.mail.saving = saving;
-	mail_index_lookup_uid(_mail->transaction->view, seq,
-			      &mail->mail.mail.uid);
 
-	event_add_int(_mail->event, "seq", _mail->seq);
-	event_add_int(_mail->event, "uid", _mail->uid);
-	event_set_append_log_prefix(_mail->event, t_strdup_printf(
-		"%sUID %u: ", saving ? "saving " : "", _mail->uid));
+	rec = mail_index_lookup_full(_mail->transaction->view, seq,
+				     &map, &expunged);
+	mail->mail.mail.uid = rec->uid;
+
+	/* Recreate the mail event when changing mails. Even though the same
+	   mail struct is reused, they are practically different mails. The
+	   event should have already been freed by close(). */
+	i_assert(mail->mail._event == NULL);
 
 	if (mail_index_view_is_inconsistent(_mail->transaction->view)) {
 		mail_set_expunged(&mail->mail.mail);
 		return;
 	}
+	/* Allow callers to easily find out if this mail was already expunged
+	   by another session. It's possible that it could still be
+	   successfully accessed. */
+	if (expunged)
+		mail_set_expunged(&mail->mail.mail);
 
 	if (!mail->mail.search_mail) {
 		index_mail_update_access_parts_pre(_mail);
@@ -2139,7 +2284,7 @@ void index_mail_free(struct mail *_mail)
 
 	mailbox_header_lookup_unref(&mail->data.wanted_headers);
 	mailbox_header_lookup_unref(&mail->mail.wanted_headers);
-	event_unref(&_mail->event);
+	event_unref(&mail->mail._event);
 	pool_unref(&mail->mail.data_pool);
 	pool_unref(&mail->mail.pool);
 }
@@ -2178,6 +2323,7 @@ void index_mail_cache_parse_deinit(struct mail *_mail, time_t received_date,
 
 		if (mail->data.parser_ctx == NULL) {
 			/* we didn't even start cache parsing */
+			i_assert(!mail->data.header_parser_initialized);
 			return;
 		}
 	}
@@ -2238,7 +2384,7 @@ void index_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 		/* mailbox has private flags */
 		pvt_flags_mask = mailbox_get_private_flags_mask(_mail->box);
 		pvt_flags = flags & pvt_flags_mask;
-		flags &= ~pvt_flags_mask;
+		flags &= ENUM_NEGATE(pvt_flags_mask);
 		if (index_mail_update_pvt_flags(_mail, modify_type, pvt_flags)) {
 			mail_index_update_flags(_mail->transaction->itrans_pvt,
 						mail->seq_pvt,
@@ -2327,7 +2473,7 @@ static void index_mail_parse(struct mail *mail, bool parse_body)
 	}
 }
 
-void index_mail_precache(struct mail *mail)
+int index_mail_precache(struct mail *mail)
 {
 	struct index_mail *imail = INDEX_MAIL(mail);
 	enum mail_fetch_field cache;
@@ -2339,7 +2485,7 @@ void index_mail_precache(struct mail *mail)
 					mail->seq)) {
 		/* already cached this mail (we should get here only if FTS
 		   plugin decreased the first precached seq) */
-		return;
+		return 0;
 	}
 
 	cache = imail->data.wanted_fields;
@@ -2359,6 +2505,7 @@ void index_mail_precache(struct mail *mail)
 		(void)mail_get_special(mail, MAIL_FETCH_POP3_ORDER, &str);
 	if ((cache & MAIL_FETCH_GUID) != 0)
 		(void)mail_get_special(mail, MAIL_FETCH_GUID, &str);
+	return 0;
 }
 
 static void
@@ -2387,21 +2534,21 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 		break;
 	case MAIL_FETCH_PHYSICAL_SIZE:
 		field_name = "physical size";
-		imail->data.physical_size = (uoff_t)-1;
-		imail->data.virtual_size = (uoff_t)-1;
-		imail->data.parts = NULL;
+		imail->data.physical_size = UOFF_T_MAX;
+		imail->data.virtual_size = UOFF_T_MAX;
+		index_mail_parts_reset(imail);
 		index_mail_reset_vsize_ext(mail);
 		break;
 	case MAIL_FETCH_VIRTUAL_SIZE:
 		field_name = "virtual size";
-		imail->data.physical_size = (uoff_t)-1;
-		imail->data.virtual_size = (uoff_t)-1;
-		imail->data.parts = NULL;
+		imail->data.physical_size = UOFF_T_MAX;
+		imail->data.virtual_size = UOFF_T_MAX;
+		index_mail_parts_reset(imail);
 		index_mail_reset_vsize_ext(mail);
 		break;
 	case MAIL_FETCH_MESSAGE_PARTS:
 		field_name = "MIME parts";
-		imail->data.parts = NULL;
+		index_mail_parts_reset(imail);
 		break;
 	case MAIL_FETCH_IMAP_BODY:
 		field_name = "IMAP BODY";
@@ -2437,9 +2584,17 @@ void index_mail_set_cache_corrupted(struct mail *mail,
 	}
 }
 
-int index_mail_opened(struct mail *mail ATTR_UNUSED,
+int index_mail_opened(struct mail *mail,
 		      struct istream **stream ATTR_UNUSED)
 {
+	struct index_mail *imail =
+		container_of(mail, struct index_mail, mail.mail);
+	struct event_reason *reason = NULL;
+
+	if (imail->data.access_reason_code != NULL)
+		reason = event_reason_begin(imail->data.access_reason_code);
+	mail_opened_event(mail);
+	event_reason_end(&reason);
 	return 0;
 }
 

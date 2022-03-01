@@ -4,8 +4,8 @@
 dovecot-sysreport \- Dovecot\(aqs system report utility
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
-.BR dovecot-sysreport " [" \-h|\-\-help "] [" \-c|\-\-core
-.IR binary " " core "]
+.BR dovecot-sysreport " [" \-h|\-\-help "] [" \-c|\-\-core " ["\c
+.IR binary "] " core " [...]]"
 .BR "[\-d|\-\-destination
 .IR dest "]
 .BR "[\-k|\-\-keeptemp]
@@ -27,8 +27,8 @@ Prints a help message.
 Sets the root file of the dovecot's configuration. If not set, it will be
 assumed to be in the default configuration path.
 .TP
-.BI \-o|\-\-core\  "binary\  core"
-Includes a core file along with its dependencies extracted from the
+.BI \-o|\-\-core\ [ binary "] " core " [...]]"
+Includes core files along with their dependencies extracted from the
 specified binary file.
 .TP
 .BI \-d|\-\-destination\  dest

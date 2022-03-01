@@ -96,12 +96,10 @@ int istream_attachment_connector_add(struct istream_attachment_connector *conn,
 static void
 istream_attachment_connector_free(struct istream_attachment_connector *conn)
 {
-	struct istream *const *streamp, *stream;
+	struct istream *stream;
 
-	array_foreach(&conn->streams, streamp) {
-		stream = *streamp;
+	array_foreach_elem(&conn->streams, stream)
 		i_stream_unref(&stream);
-	}
 	i_stream_unref(&conn->base_input);
 	pool_unref(&conn->pool);
 }
@@ -118,7 +116,7 @@ istream_attachment_connector_finish(struct istream_attachment_connector **_conn)
 	if (conn->base_input_offset != conn->msg_size) {
 		i_assert(conn->base_input_offset < conn->msg_size);
 
-		if (conn->msg_size != (uoff_t)-1) {
+		if (conn->msg_size != UOFF_T_MAX) {
 			trailer_size = conn->msg_size - conn->encoded_offset;
 			input = i_stream_create_sized_range(conn->base_input,
 							    conn->base_input_offset,
@@ -128,7 +126,7 @@ istream_attachment_connector_finish(struct istream_attachment_connector **_conn)
 		} else {
 			input = i_stream_create_range(conn->base_input,
 						      conn->base_input_offset,
-						      (uoff_t)-1);
+						      UOFF_T_MAX);
 		}
 		array_push_back(&conn->streams, &input);
 	}

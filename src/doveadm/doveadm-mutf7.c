@@ -8,44 +8,35 @@
 #include <stdio.h>
 #include <unistd.h>
 
-static void cmd_mailbox_mutf7(int argc, char *argv[])
+static void cmd_mailbox_mutf7(struct doveadm_cmd_context *cctx)
 {
 	string_t *str;
-	bool from_utf8;
+	const char *const *names;
+	bool from_utf8, to_utf8;
 	unsigned int i;
-	int c;
 
-	from_utf8 = TRUE;
-	while ((c = getopt(argc, argv, "78")) > 0) {
-		switch (c) {
-		case '7':
-			from_utf8 = FALSE;
-			break;
-		case '8':
+	if (!doveadm_cmd_param_array(cctx, "name", &names))
+		help_ver2(&doveadm_cmd_mailbox_mutf7);
+	if (!doveadm_cmd_param_bool(cctx, "from-utf8", &from_utf8)) {
+		if (!doveadm_cmd_param_bool(cctx, "to-utf8", &to_utf8))
 			from_utf8 = TRUE;
-			break;
-		default:
-			help(&doveadm_cmd_mailbox_mutf7);
-		}
+		else
+			from_utf8 = !to_utf8;
 	}
-	argv += optind;
-
-	if (argv[0] == NULL)
-		help(&doveadm_cmd_mailbox_mutf7);
 
 	str = t_str_new(128);
-	for (i = 0; argv[i] != NULL; i++) {
+	for (i = 0; names[i] != NULL; i++) {
 		str_truncate(str, 0);
 		if (from_utf8) {
-			if (imap_utf8_to_utf7(argv[i], str) < 0) {
+			if (imap_utf8_to_utf7(names[i], str) < 0) {
 				i_error("Mailbox name not valid UTF-8: %s",
-					argv[i]);
+					names[i]);
 				doveadm_exit_code = EX_DATAERR;
 			}
 		} else {
-			if (imap_utf7_to_utf8(argv[i], str) < 0) {
+			if (imap_utf7_to_utf8(names[i], str) < 0) {
 				i_error("Mailbox name not valid mUTF-7: %s",
-					argv[i]);
+					names[i]);
 				doveadm_exit_code = EX_DATAERR;
 			}
 		}
@@ -53,7 +44,13 @@ static void cmd_mailbox_mutf7(int argc, char *argv[])
 	}
 }
 
-struct doveadm_cmd doveadm_cmd_mailbox_mutf7 = {
-	cmd_mailbox_mutf7, "mailbox mutf7",
-	"[-7|-8] <name> [...]"
+struct doveadm_cmd_ver2 doveadm_cmd_mailbox_mutf7 = {
+	.name = "mailbox mutf7",
+	.cmd = cmd_mailbox_mutf7,
+	.usage = "[-7|-8] <name> [...]",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('7', "to-utf8", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('8', "from-utf8", CMD_PARAM_BOOL, 0)
+DOVEADM_CMD_PARAM('\0', "name", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };

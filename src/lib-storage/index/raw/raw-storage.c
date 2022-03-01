@@ -36,7 +36,7 @@ raw_storage_create_from_set(const struct setting_parser_info *set_info,
 	ns = mail_namespaces_init_empty(user);
 	/* raw storage doesn't have INBOX. We especially don't want LIST to
 	   return INBOX. */
-	ns->flags &= ~NAMESPACE_FLAG_INBOX_USER;
+	ns->flags &= ENUM_NEGATE(NAMESPACE_FLAG_INBOX_USER);
 	ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
 	ns->set = ns_set;
 	/* absolute paths are ok with raw storage */
@@ -77,7 +77,7 @@ raw_mailbox_alloc_common(struct mail_user *user, struct istream *input,
 
 	i_assert(strcmp(box->storage->name, RAW_STORAGE_NAME) == 0);
 	raw_box = RAW_MAILBOX(box);
-	raw_box->envelope_sender = envelope_sender;
+	raw_box->envelope_sender = p_strdup(box->pool, envelope_sender);
 	raw_box->mtime = received_time;
 	return 0;
 }
@@ -141,7 +141,7 @@ raw_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 
 	mbox->mtime = mbox->ctime = (time_t)-1;
 	mbox->storage = RAW_STORAGE(storage);
-	mbox->size = (uoff_t)-1;
+	mbox->size = UOFF_T_MAX;
 	return &mbox->box;
 }
 
@@ -254,6 +254,7 @@ struct mailbox raw_mailbox = {
 		index_storage_search_deinit,
 		index_storage_search_next_nonblock,
 		index_storage_search_next_update_seq,
+		index_storage_search_next_match_mail,
 		NULL,
 		NULL,
 		NULL,

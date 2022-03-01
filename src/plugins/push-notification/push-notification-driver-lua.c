@@ -138,15 +138,15 @@ push_notification_driver_lua_init_events(
 	struct push_notification_driver_txn *dtxn)
 {
 	struct dlua_push_notification_context *ctx = dtxn->duser->context;
-	const struct push_notification_event *const *event;
+	const struct push_notification_event *event;
 	ctx->config_mn.flags = DLUA_DEFAULT_EVENTS;
 	ctx->config_ma.flags = DLUA_DEFAULT_EVENTS;
 	ctx->config_fc.store_old = TRUE;
 	bool found_one = FALSE;
 
 	/* Register *all* events that are present in Lua */
-	array_foreach(push_notification_get_events(), event) {
-		const char *name = (*event)->name;
+	array_foreach_elem(push_notification_get_events(), event) {
+		const char *name = event->name;
 		const char *fn = push_notification_driver_lua_to_fn(name);
 		if (!dlua_script_has_function(ctx->script, fn))
 			continue;
@@ -167,8 +167,8 @@ push_notification_driver_lua_init_events(
 		} else if (strcmp(name, "FlagsClear") == 0) {
 			push_notification_event_init(dtxn, name,
 						     &ctx->config_fc);
-		} else if ((*event)->init.default_config != NULL) {
-			void *config = (*event)->init.default_config();
+		} else if (event->init.default_config != NULL) {
+			void *config = event->init.default_config();
 			push_notification_event_init(dtxn, name, config);
 		} else {
 			push_notification_event_init(dtxn, name, NULL);
@@ -185,14 +185,12 @@ push_notification_driver_lua_begin_txn(
 	struct mail_user *user = dtxn->ptxn->muser;
 	struct dlua_push_notification_context *ctx = dtxn->duser->context;
 	struct event *event = event_create(ctx->event);
+	const char *error;
+
 	event_set_name(event, DLUA_CALL_FINISHED);
 	event_add_str(event, "function_name", DLUA_FN_BEGIN_TXN);
 
-	int luaerr;
-
-	/* Start txn and store whatever LUA gives us back, it's our txid */
-	lua_getglobal(ctx->script->L, DLUA_FN_BEGIN_TXN);
-	if (!lua_isfunction(ctx->script->L, -1)) {
+	if (!dlua_script_has_function(ctx->script, DLUA_FN_BEGIN_TXN)) {
 		event_add_str(event, "error",
 			      "Missing function " DLUA_FN_BEGIN_TXN);
 		e_error(event, "Missing function " DLUA_FN_BEGIN_TXN);
@@ -210,12 +208,10 @@ push_notification_driver_lua_begin_txn(
 		user->username);
 
 	/* Push mail user as argument */
-	dlua_push_mail_user(ctx->script, user);
-	if ((luaerr = lua_pcall(ctx->script->L, 1, 1, 0)) != 0) {
-		const char *error = lua_tostring(ctx->script->L, -1);
+	dlua_push_mail_user(ctx->script->L, user);
+	if (dlua_pcall(ctx->script->L, DLUA_FN_BEGIN_TXN, 1, 1, &error) < 0) {
 		event_add_str(event, "error", error);
 		e_error(event, "%s", error);
-		lua_pop(ctx->script->L, 1);
 		return FALSE;
 	}
 
@@ -256,7 +252,7 @@ static const char *push_notification_driver_lua_to_fn(const char *evname)
 }
 
 /* Pushes lua list of flags */
-static void dlua_pushflags(struct dlua_script *script, enum mail_flags flags)
+static void dlua_push_flags(struct dlua_script *script, enum mail_flags flags)
 {
 	lua_newtable(script->L);
 	int idx = 1;
@@ -288,7 +284,7 @@ static void dlua_pushflags(struct dlua_script *script, enum mail_flags flags)
 }
 
 static void
-dlua_pushkeywords(struct dlua_script *script, const char *const *keywords,
+dlua_push_keywords(struct dlua_script *script, const char *const *keywords,
 		  unsigned int count)
 {
 	lua_newtable(script->L);
@@ -309,20 +305,20 @@ push_notification_lua_push_flagsclear(
 	unsigned int size = 0;
 	struct push_notification_event_flagsclear_data *data = event->data;
 
-	dlua_pushflags(script, data->flags_clear);
+	dlua_push_flags(script, data->flags_clear);
 	lua_setfield(script->L, -2, "flags");
-	dlua_pushflags(script, data->flags_old);
+	dlua_push_flags(script, data->flags_old);
 	lua_setfield(script->L, -2, "flags_old");
 
 	if (array_is_created(&data->keywords_clear)) {
 		const char *const *kw = array_get(&data->keywords_clear, &size);
-		dlua_pushkeywords(script, kw, size);
+		dlua_push_keywords(script, kw, size);
 		lua_setfield(script->L, -2, "keywords");
 	}
 
 	if (array_is_created(&data->keywords_old)) {
 		const char *const *kw = array_get(&data->keywords_old, &size);
-		dlua_pushkeywords(script, kw, size);
+		dlua_push_keywords(script, kw, size);
 		lua_setfield(script->L, -2, "keywords_old");
 	}
 }
@@ -336,12 +332,12 @@ push_notification_lua_push_flagsset(
 	unsigned int size = 0;
 	struct push_notification_event_flagsset_data *data = event->data;
 
-	dlua_pushflags(script, data->flags_set);
+	dlua_push_flags(script, data->flags_set);
 	lua_setfield(script->L, -2, "flags");
 
 	if (array_is_created(&data->keywords_set)) {
 		const char *const *kw = array_get(&data->keywords_set, &size);
-		dlua_pushkeywords(script, kw, size);
+		dlua_push_keywords(script, kw, size);
 		lua_setfield(script->L, -2, "keywords");
 	}
 }
@@ -357,7 +353,7 @@ push_notification_lua_push_mailboxrename(
 	lua_setfield(script->L, -2, "mailbox_old");
 }
 
-#define push_notification_lua_pushstring(L, value) \
+#define push_notification_lua_push_string(L, value) \
 	lua_pushstring((L), (value) == NULL ? "" : (value))
 
 static void
@@ -365,14 +361,14 @@ push_notification_lua_push_message_ext(
 	const struct push_notification_message_ext *ext,
 	struct dlua_script *script)
 {
-	push_notification_lua_pushstring(script->L, ext->from_address);
+	push_notification_lua_push_string(script->L, ext->from_address);
 	lua_setfield(script->L, -2, "from_address");
-	push_notification_lua_pushstring(script->L, ext->from_display_name_utf8);
+	push_notification_lua_push_string(script->L, ext->from_display_name_utf8);
 	lua_setfield(script->L, -2, "from_display_name");
 
-	push_notification_lua_pushstring(script->L, ext->to_address);
+	push_notification_lua_push_string(script->L, ext->to_address);
 	lua_setfield(script->L, -2, "to_address");
-	push_notification_lua_pushstring(script->L, ext->to_display_name_utf8);
+	push_notification_lua_push_string(script->L, ext->to_display_name_utf8);
 	lua_setfield(script->L, -2, "to_display_name");
 
 	lua_pushstring(script->L, ext->subject_utf8);
@@ -392,19 +388,19 @@ push_notification_lua_push_messageappend(
 	lua_pushnumber(script->L, data->date_tz);
 	lua_setfield(script->L, -2, "tz");
 
-	push_notification_lua_pushstring(script->L, data->from);
+	push_notification_lua_push_string(script->L, data->from);
 	lua_setfield(script->L, -2, "from");
 
-	push_notification_lua_pushstring(script->L, data->to);
+	push_notification_lua_push_string(script->L, data->to);
 	lua_setfield(script->L, -2, "to");
 
 	lua_pushstring(script->L, data->snippet);
 	lua_setfield(script->L, -2, "snippet");
 
-	dlua_pushflags(script, data->flags);
+	dlua_push_flags(script, data->flags);
 	lua_setfield(script->L, -2, "flags");
 
-	dlua_pushkeywords(script, data->keywords,
+	dlua_push_keywords(script, data->keywords,
 			  str_array_length(data->keywords));
 	lua_setfield(script->L, -2, "keywords");
 
@@ -427,19 +423,19 @@ push_notification_lua_push_messagenew(
 	lua_pushnumber(script->L, data->date_tz);
 	lua_setfield(script->L, -2, "tz");
 
-	push_notification_lua_pushstring(script->L, data->from);
+	push_notification_lua_push_string(script->L, data->from);
 	lua_setfield(script->L, -2, "from");
 
-	push_notification_lua_pushstring(script->L, data->to);
+	push_notification_lua_push_string(script->L, data->to);
 	lua_setfield(script->L, -2, "to");
 
 	lua_pushstring(script->L, data->snippet);
 	lua_setfield(script->L, -2, "snippet");
 
-	dlua_pushflags(script, data->flags);
+	dlua_push_flags(script, data->flags);
 	lua_setfield(script->L, -2, "flags");
 
-	dlua_pushkeywords(script, data->keywords,
+	dlua_push_keywords(script, data->keywords,
 			  str_array_length(data->keywords));
 	lua_setfield(script->L, -2, "keywords");
 
@@ -478,7 +474,7 @@ static struct push_notification_event_to_lua {
 };
 
 static void
-push_notification_driver_lua_pushevent(
+push_notification_driver_lua_push_event(
 	const struct push_notification_txn_event *event,
 	struct dlua_push_notification_context *ctx)
 {
@@ -505,7 +501,7 @@ push_notification_driver_lua_call(
 	const struct push_notification_txn_mbox *mbox,
 	struct push_notification_txn_msg *msg)
 {
-	int luaerr;
+	const char *error;
 	const char *fn =
 		push_notification_driver_lua_to_fn(event->event->event->name);
 	struct event *e = event_create(ctx->event);
@@ -513,15 +509,11 @@ push_notification_driver_lua_call(
 	event_add_str(e, "event_name", event->event->event->name);
 	event_add_str(e, "function_name", fn);
 
-	/* This has been assured already in init */
-	lua_getglobal(ctx->script->L, fn);
-	i_assert(lua_isfunction(ctx->script->L, -1));
-
 	/* Push context */
 	lua_rawgeti(ctx->script->L, LUA_REGISTRYINDEX, tctx->tx_ref);
 
 	/* Push event + common fields */
-	push_notification_driver_lua_pushevent(event, ctx);
+	push_notification_driver_lua_push_event(event, ctx);
 
 	if (mbox != NULL) {
 		lua_pushstring(ctx->script->L, mbox->mailbox);
@@ -546,11 +538,9 @@ push_notification_driver_lua_call(
 		i_unreached();
 
 	/* Perform call */
-	if ((luaerr = lua_pcall(ctx->script->L, 2, 0, 0)) != 0) {
-		const char *error = lua_tostring(ctx->script->L, -1);
+	if (dlua_pcall(ctx->script->L, fn, 2, 0, &error) < 0) {
 		event_add_str(e, "error", error);
 		e_error(e, "%s", error);
-		lua_pop(ctx->script->L, 1);
 	} else {
 		e_debug(e, "Called %s", fn);
 	}
@@ -562,14 +552,14 @@ push_notification_driver_lua_process_mbox(
 	struct push_notification_driver_txn *dtxn,
 	struct push_notification_txn_mbox *mbox)
 {
-	struct push_notification_txn_event *const *event;
+	struct push_notification_txn_event *event;
 	struct dlua_push_notification_context *ctx = dtxn->duser->context;
 	struct dlua_push_notification_txn_context *tctx = dtxn->context;
 
 	if (array_is_created(&mbox->eventdata)) {
-		array_foreach(&mbox->eventdata, event) {
+		array_foreach_elem(&mbox->eventdata, event) {
 			push_notification_driver_lua_call(ctx, tctx,
-							  (*event), mbox, NULL);
+							  event, mbox, NULL);
 		}
 	}
 }
@@ -579,14 +569,14 @@ push_notification_driver_lua_process_msg(
 	struct push_notification_driver_txn *dtxn,
 	struct push_notification_txn_msg *msg)
 {
-	struct push_notification_txn_event *const *event;
+	struct push_notification_txn_event *event;
 	struct dlua_push_notification_context *ctx = dtxn->duser->context;
 	struct dlua_push_notification_txn_context *tctx = dtxn->context;
 
 	if (array_is_created(&msg->eventdata)) {
-		array_foreach(&msg->eventdata, event) {
+		array_foreach_elem(&msg->eventdata, event) {
 			push_notification_driver_lua_call(ctx, tctx,
-							  (*event), NULL, msg);
+							  event, NULL, msg);
 		}
 	}
 }
@@ -596,6 +586,7 @@ push_notification_driver_lua_end_txn(struct push_notification_driver_txn *dtxn,
 				     bool success)
 {
 	/* Call end txn */
+	const char *error;
 	struct dlua_push_notification_context *ctx = dtxn->duser->context;
 	struct dlua_push_notification_txn_context *tctx = dtxn->context;
 	struct mail_user *user = dtxn->ptxn->muser;
@@ -603,18 +594,15 @@ push_notification_driver_lua_end_txn(struct push_notification_driver_txn *dtxn,
 	event_set_name(event, DLUA_CALL_FINISHED);
 	event_add_str(event, "function_name", DLUA_FN_END_TXN);
 
-	lua_getglobal(ctx->script->L, DLUA_FN_END_TXN);
-	if (!lua_isfunction(ctx->script->L, -1)) {
+	if (!dlua_script_has_function(ctx->script, DLUA_FN_END_TXN)) {
 		e_error(event, "Missing function " DLUA_FN_END_TXN);
 	} else {
 		e_debug(ctx->event, "Calling " DLUA_FN_END_TXN);
 		lua_rawgeti(ctx->script->L, LUA_REGISTRYINDEX, tctx->tx_ref);
 		lua_pushboolean(ctx->script->L, success);
-		if (lua_pcall(ctx->script->L, 2, 0, 0) != 0) {
-			const char *error = lua_tostring(ctx->script->L, -1);
+		if (dlua_pcall(ctx->script->L, DLUA_FN_END_TXN, 2, 0, &error) < 0) {
 			event_add_str(event, "error", error);
 			e_error(event, "%s", error);
-			lua_pop(ctx->script->L, 1);
 		} else {
 			e_debug(event, "Called " DLUA_FN_END_TXN);
 		}

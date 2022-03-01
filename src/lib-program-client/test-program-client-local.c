@@ -178,12 +178,12 @@ static void test_program_io_big(void)
 	   and then finally reads the rest in one go. */
 	const char *const args[] = {
 		"-c",
-		"(head -c 10240; sleep 0.1; "
-		 "head -c 10240; sleep 0.1; "
-		 "head -c 10240; sleep 0.1; "
-		 "head -c 10240; sleep 0.1; "
-		 "head -c 10240; sleep 0.1; "
-		 "head -c 10240; sleep 0.1; cat)",
+		"(dd bs=10240 count=1; sleep 0.1; "
+		 "dd bs=10240 count=1; sleep 0.1; "
+		 "dd bs=10240 count=1; sleep 0.1; "
+		 "dd bs=10240 count=1; sleep 0.1; "
+		 "dd bs=10240 count=1; sleep 0.1; "
+		 "dd bs=10240 count=1; sleep 0.1; cat) 2>/dev/null",
 		NULL
 	};
 

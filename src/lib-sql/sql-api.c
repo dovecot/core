@@ -167,7 +167,10 @@ void sql_unref(struct sql_db **_db)
 
 enum sql_db_flags sql_get_flags(struct sql_db *db)
 {
-	return db->flags;
+	if (db->v.get_flags != NULL)
+		return db->v.get_flags(db);
+	else
+		return db->flags;
 }
 
 int sql_connect(struct sql_db *db)
@@ -505,7 +508,7 @@ sql_result_build_map(struct sql_result *result,
 			}
 			i_assert(def->offset + field_size <= dest_size);
 		} else {
-			result->map[i].offset = (size_t)-1;
+			result->map[i].offset = SIZE_MAX;
 		}
 	}
 }
@@ -529,7 +532,7 @@ static void sql_result_fetch(struct sql_result *result)
 	memset(result->fetch_dest, 0, result->fetch_dest_size);
 	count = result->map_size;
 	for (i = 0; i < count; i++) {
-		if (result->map[i].offset == (size_t)-1)
+		if (result->map[i].offset == SIZE_MAX)
 			continue;
 
 		value = sql_result_get_field_value(result, i);
@@ -810,6 +813,13 @@ struct event_passthrough *sql_transaction_finished_event(struct sql_transaction_
 	return event_create_passthrough(ctx->event)->
 		set_name(SQL_TRANSACTION_FINISHED);
 }
+
+void sql_wait(struct sql_db *db)
+{
+	if (db->v.wait != NULL)
+		db->v.wait(db);
+}
+
 
 struct sql_result sql_not_connected_result = {
 	.v = {

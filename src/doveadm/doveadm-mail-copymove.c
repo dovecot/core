@@ -32,7 +32,7 @@ cmd_copy_box(struct copy_cmd_context *ctx, struct mailbox *destbox,
 	int ret = 0, ret2;
 
 	if (doveadm_mail_iter_init(&ctx->ctx, info, ctx->ctx.search_args, 0,
-				   NULL, FALSE, &iter) < 0)
+				   NULL, 0, &iter) < 0)
 		return -1;
 
 	/* use a separately committed transaction for each mailbox.
@@ -83,11 +83,14 @@ cmd_copy_alloc_source_user(struct copy_cmd_context *ctx)
 	input = ctx->ctx.storage_service_input;
 	input.username = ctx->source_username;
 
+	mail_storage_service_io_deactivate_user(ctx->ctx.cur_service_user);
 	if (mail_storage_service_lookup_next(ctx->ctx.storage_service, &input,
 					     &ctx->source_service_user,
 					     &ctx->source_user,
 					     &error) < 0)
 		i_fatal("Couldn't lookup user %s: %s", input.username, error);
+	mail_storage_service_io_deactivate_user(ctx->source_service_user);
+	mail_storage_service_io_activate_user(ctx->ctx.cur_service_user);
 }
 
 static int
@@ -109,7 +112,6 @@ cmd_copy_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 	ns = mail_namespace_find(user->namespaces, ctx->destname);
 	destbox = mailbox_alloc(ns->list, ctx->destname, MAILBOX_FLAG_SAVEONLY);
-	mailbox_set_reason(destbox, _ctx->cmd->name);
 	if (mailbox_open(destbox) < 0) {
 		i_error("Can't open mailbox '%s': %s", ctx->destname,
 			mailbox_get_last_internal_error(destbox, NULL));

@@ -10,6 +10,7 @@ struct strinput {
 };
 
 static const char tabescaped_input[] = "\0011\001t\001r\001nplip\001n";
+static const char tabescaped_input_with_nul[] = "\0011\001t\001r\001nplip\001n\0010";
 static const char tabunescaped_input[] = "\001\t\r\nplip\n";
 
 static const char *wrong_tabescaped_input = "a\001\001b\001\nc\0011\001t\001r\001nplip\001n";
@@ -132,6 +133,12 @@ static void test_tabescape(void)
 
 	str_append_tabescaped(str, tabunescaped_input);
 	test_assert(strcmp(str_c(str), tabescaped_input) == 0);
+
+	/* test escaping the trailing NUL as well */
+	str_truncate(str, 0);
+	str_append_tabescaped_n(str, (const unsigned char *)tabunescaped_input,
+				strlen(tabunescaped_input)+1);
+	test_assert_strcmp(str_c(str), tabescaped_input_with_nul);
 
 	/* unescaping */
 	str_truncate(str, 0);

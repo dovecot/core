@@ -67,14 +67,14 @@ struct http_server *http_server_init(const struct http_server_settings *set)
 void http_server_deinit(struct http_server **_server)
 {
 	struct http_server *server = *_server;
-	struct http_server_resource **resp;
+	struct http_server_resource *res;
 
 	*_server = NULL;
 
 	connection_list_deinit(&server->conn_list);
 
-	array_foreach_modifiable(&server->resources, resp)
-		http_server_resource_free(resp);
+	array_foreach_elem(&server->resources, res)
+		http_server_resource_free(&res);
 	i_assert(array_count(&server->locations) == 0);
 
 	if (server->ssl_ctx != NULL)

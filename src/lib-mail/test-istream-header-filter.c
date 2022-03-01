@@ -70,6 +70,11 @@ test_istream_run_check(struct run_ctx *run_ctx,
 
 	test_assert(i_stream_stat(filter, TRUE, &st) == 0 &&
 		    (uoff_t)st->st_size == *size_r);
+
+	/* make sure buffer doesn't change when returning -1 */
+	i_stream_skip(filter, 1);
+	test_assert(i_stream_read(filter) == -1);
+	test_assert(memcmp(data, output, *size_r) == 0);
 }
 
 static void
@@ -242,7 +247,29 @@ static void test_istream_filter_large_buffer(void)
 			if (ret == -1)
 				break;
 			if (ret == -2) {
+				unsigned char orig_data[128];
+				size_t orig_data_size;
+
 				data = i_stream_get_data(filter, &size);
+				orig_data_size = I_MIN(sizeof(orig_data), size);
+				memcpy(orig_data, data, orig_data_size);
+
+				/* skip only a bit */
+				size = I_MIN(size, 1);
+				str_append_data(output, data, size);
+				i_stream_skip(filter, size);
+
+				/* do another read */
+				ret = i_stream_read(filter);
+				i_assert(ret == -2 || ret > 0);
+				/* make sure the old data pointer is still
+				   usable if -2 is returned */
+				if (ret != -2)
+					data = i_stream_get_data(filter, &size);
+				else {
+					test_assert(memcmp(data, orig_data, orig_data_size) == 0);
+					data = i_stream_get_data(filter, &size);
+				}
 				str_append_data(output, data, size);
 				i_stream_skip(filter, size);
 			}

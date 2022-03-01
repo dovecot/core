@@ -177,9 +177,9 @@ log_add_flag_update(struct dsync_transaction_log_scan *ctx, const void *data,
 					DSYNC_MAIL_CHANGE_TYPE_FLAG_CHANGE,
 					&change)) {
 				change->add_flags |= rec->add_flags;
-				change->remove_flags &= ~rec->add_flags;
+				change->remove_flags &= ENUM_NEGATE(rec->add_flags);
 				change->remove_flags |= rec->remove_flags;
-				change->add_flags &= ~rec->remove_flags;
+				change->add_flags &= ENUM_NEGATE(rec->remove_flags);
 			}
 		}
 	}
@@ -574,7 +574,7 @@ dsync_transaction_log_scan_find_new_expunge(struct dsync_transaction_log_scan *s
 	if (mail_transaction_log_view_set(log_view,
 					  scan->last_log_seq,
 					  scan->last_log_offset,
-					  (uint32_t)-1, (uoff_t)-1,
+					  (uint32_t)-1, UOFF_T_MAX,
 					  &reset, &reason) > 0) {
 		while (!found &&
 		       mail_transaction_log_view_next(log_view, &hdr, &data) > 0) {

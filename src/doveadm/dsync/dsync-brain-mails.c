@@ -21,7 +21,7 @@ const char *dsync_box_state_names[DSYNC_BOX_STATE_DONE+1] = {
 static bool dsync_brain_master_sync_recv_mailbox(struct dsync_brain *brain)
 {
 	const struct dsync_mailbox *dsync_box;
-	const char *resync_reason;
+	const char *resync_reason, *reason;
 	enum dsync_ibc_recv_ret ret;
 	bool resync;
 
@@ -64,10 +64,16 @@ static bool dsync_brain_master_sync_recv_mailbox(struct dsync_brain *brain)
 						 &brain->local_dsync_box,
 						 dsync_box, &resync_reason);
 
-	if (!dsync_boxes_need_sync(brain, &brain->local_dsync_box, dsync_box)) {
+	if (!dsync_boxes_need_sync(brain, &brain->local_dsync_box, dsync_box,
+				   &reason)) {
 		/* no fields appear to have changed, skip this mailbox */
 		dsync_brain_sync_mailbox_deinit(brain);
 		return TRUE;
+	}
+	if (brain->debug) {
+		i_debug("brain %c: Syncing mailbox %s: %s",
+			brain->master_brain ? 'M' : 'S',
+			guid_128_to_string(dsync_box->mailbox_guid), reason);
 	}
 	if ((ret = dsync_brain_sync_mailbox_open(brain, dsync_box)) < 0)
 		return TRUE;

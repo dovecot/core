@@ -76,22 +76,8 @@ static void cmd_auth_input(struct smtp_server_cmd_ctx *cmd)
 		&auth_response, &error_code, &error)) <= 0) {
 		/* check for disconnect */
 		if (conn->conn.input->eof) {
-			switch (conn->conn.input->stream_errno) {
-			case 0:
-			case EPIPE:
-			case ECONNRESET:
-				smtp_server_connection_close(&conn,
-					"Remote closed connection unexpectedly during AUTH");
-				break;
-			default:
-				e_error(conn->event,
-					"Connection lost during AUTH: "
-					"read(%s) failed: %s",
-					i_stream_get_name(conn->conn.input),
-					i_stream_get_error(conn->conn.input));
-				smtp_server_connection_close(&conn,
-					"Read failure");
-			}
+			smtp_server_connection_close(&conn,
+				i_stream_get_disconnect_reason(conn->conn.input));
 			return;
 		}
 		/* handle syntax error */
@@ -169,7 +155,7 @@ cmd_auth_start(struct smtp_server_cmd_ctx *cmd,
 	const struct smtp_server_callbacks *callbacks = conn->callbacks;
 	int ret;
 
-	/* all preceeding commands have finished and now the transaction state
+	/* all preceding commands have finished and now the transaction state
 	   is clear. This provides the opportunity to re-check the protocol
 	   state */
 	if (!cmd_auth_check_state(cmd))

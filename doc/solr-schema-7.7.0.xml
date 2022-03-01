@@ -1,29 +1,56 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<schema name="dovecot" version="2.0">
+<schema name="dovecot" version="2.1">
+  <uniqueKey>id</uniqueKey>
+
   <fieldType name="string" class="solr.StrField" omitNorms="true" sortMissingLast="true"/>
   <fieldType name="long" class="solr.LongPointField" positionIncrementGap="0"/>
-  <fieldType name="boolean" class="solr.BoolField" sortMissingLast="true"/>
-
   <fieldType name="text" class="solr.TextField" autoGeneratePhraseQueries="true" positionIncrementGap="100">
-    <analyzer type="index">
-      <tokenizer class="solr.StandardTokenizerFactory"/>
-      <filter class="solr.StopFilterFactory" words="stopwords.txt" ignoreCase="true"/>
-      <filter class="solr.WordDelimiterGraphFilterFactory" catenateNumbers="1" generateNumberParts="1" splitOnCaseChange="1" generateWordParts="1" splitOnNumerics="1" catenateAll="1" catenateWords="1"/>
-      <filter class="solr.FlattenGraphFilterFactory"/>
-      <filter class="solr.LowerCaseFilterFactory"/>
+
+  <analyzer type="index">
+      <!-- Use unicode aware tokenizer, see
+           https://solr.apache.org/guide/7_7/tokenizers.html#icu-tokenizer
+      -->
+      <tokenizer class="solr.ICUTokenizerFactory"/>
+      <!-- Unicode aware case folding to normalize input, see
+           https://solr.apache.org/guide/7_7/filter-descriptions.html#icu-folding-filter
+      -->
+      <filter class="solr.ICUFoldingFilterFactory"/>
+      <!-- Protect protected words from being modified by stemmers. Edit protwords.txt
+           to customize -->
       <filter class="solr.KeywordMarkerFilterFactory" protected="protwords.txt"/>
+      <!-- Split tokens from word delimiters -->
+      <filter class="solr.WordDelimiterGraphFilterFactory" catenateNumbers="1"
+              generateNumberParts="1" splitOnCaseChange="1" generateWordParts="1"
+              splitOnNumerics="1" catenateAll="1" catenateWords="1"/>
+      <!-- Porter is optimized filter for english, if you want other languages
+           use SnowballPorterFilter here, see https://solr.apache.org/guide/7_6/filter-descriptions.html
+           <filter class="solr.SnowballPorterFilterFactory" language="French"/>
+      -->
       <filter class="solr.PorterStemFilterFactory"/>
+      <!-- Map synonyms, use synonyms.txt to customize -->
+      <filter class="solr.SynonymGraphFilterFactory" expand="true" ignoreCase="true"
+              synonyms="synonyms.txt"/>
+      <!-- Remove stop words, customize with stopwords.txt, usually solr ships
+           stopword catalog for multiple languages, so you can choose from there. -->
+      <filter class="solr.StopFilterFactory" words="stopwords.txt" ignoreCase="true"/>
+      <!-- Flatten the graph so it can be consumed by indexer -->
+      <filter class="solr.FlattenGraphFilterFactory"/>
     </analyzer>
     <analyzer type="query">
-      <tokenizer class="solr.StandardTokenizerFactory"/>
-      <filter class="solr.SynonymGraphFilterFactory" expand="true" ignoreCase="true" synonyms="synonyms.txt"/>
-      <filter class="solr.FlattenGraphFilterFactory"/>
-      <filter class="solr.StopFilterFactory" words="stopwords.txt" ignoreCase="true"/>
-      <filter class="solr.WordDelimiterGraphFilterFactory" catenateNumbers="1" generateNumberParts="1" splitOnCaseChange="1" generateWordParts="1" splitOnNumerics="1" catenateAll="1" catenateWords="1"/>
-      <filter class="solr.LowerCaseFilterFactory"/>
+      <tokenizer class="solr.ICUTokenizerFactory"/>
+      <filter class="solr.ICUFoldingFilterFactory"/>
       <filter class="solr.KeywordMarkerFilterFactory" protected="protwords.txt"/>
+      <filter class="solr.WordDelimiterGraphFilterFactory" catenateNumbers="1"
+              generateNumberParts="1" splitOnCaseChange="1" generateWordParts="1"
+              splitOnNumerics="1" catenateAll="1" catenateWords="1"/>
+      <!-- See above for comment on Porter -->
       <filter class="solr.PorterStemFilterFactory"/>
+      <filter class="solr.SynonymGraphFilterFactory" expand="true" ignoreCase="true" synonyms="synonyms.txt"/>
+      <!-- Differs from stop word filter a bit,
+           see https://solr.apache.org/guide/7_7/filter-descriptions.html#synonym-graph-filter
+      -->
+      <filter class="solr.SuggestStopFilterFactory" words="stopwords.txt" ignoreCase="true"/>
     </analyzer>
   </fieldType>
 

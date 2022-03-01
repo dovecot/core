@@ -843,7 +843,7 @@ int mbox_unlock(struct mbox_mailbox *mbox, unsigned int lock_id)
 	bool fcntl_locked;
 	int i;
 
-	i_assert(mbox->mbox_lock_id == (lock_id & ~1));
+	i_assert(mbox->mbox_lock_id == (lock_id & ~1U));
 
 	if ((lock_id & 1) != 0) {
 		/* dropping exclusive lock */

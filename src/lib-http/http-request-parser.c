@@ -25,7 +25,7 @@ enum http_request_parser_state {
 struct http_request_parser {
 	struct http_message_parser parser;
 	pool_t pool;
-	
+
 	enum http_request_parser_state state;
 
 	struct http_url *default_base_url;
@@ -286,14 +286,13 @@ static int http_request_parse(struct http_request_parser *parser,
 			}
 			parser->state = HTTP_REQUEST_PARSE_STATE_INIT;
 			break;
- 		case HTTP_REQUEST_PARSE_STATE_HEADER:
- 		default:
- 			i_unreached();
+		case HTTP_REQUEST_PARSE_STATE_HEADER:
+		default:
+			i_unreached();
 		}
 	}
 
 	i_unreached();
-	return -1;
 }
 
 static int http_request_parse_request_line(struct http_request_parser *parser,
@@ -352,7 +351,6 @@ http_request_parser_message_error(struct http_request_parser *parser)
 		break;
 	}
 	i_unreached();
-	return HTTP_REQUEST_PARSE_ERROR_BROKEN_REQUEST;
 }
 
 bool http_request_parser_pending_payload(
@@ -398,7 +396,7 @@ http_request_parse_expect_header(struct http_request_parser *parser,
 			http_parse_ows(&hparser);
 			if (hparser.cur >= hparser.end)
 				break;
-			
+
 			if (*hparser.cur == '=') {
 				hparser.cur++;
 				http_parse_ows(&hparser);
@@ -408,7 +406,7 @@ http_request_parse_expect_header(struct http_request_parser *parser,
 					parse_error = TRUE;
 					break;
 				}
-		
+
 				if (parser->error_code == HTTP_REQUEST_PARSE_ERROR_NONE) {
 					parser->error_code = HTTP_REQUEST_PARSE_ERROR_EXPECTATION_FAILED;
 					_parser->error = t_strdup_printf
@@ -456,7 +454,7 @@ http_request_parse_expect_header(struct http_request_parser *parser,
 				}
 			}
 			if (parse_error)
-				break;		
+				break;
 		}
 		http_parse_ows(&hparser);
 		if (hparser.cur >= hparser.end || *hparser.cur != ',')
@@ -488,7 +486,7 @@ http_request_parse_headers(struct http_request_parser *parser,
 {
 	const ARRAY_TYPE(http_header_field) *hdrs;
 	const struct http_header_field *hdr;
-	
+
 	hdrs = http_header_get_fields(parser->parser.msg.header);
 	array_foreach(hdrs, hdr) {
 		int ret = 0;
@@ -538,7 +536,7 @@ int http_request_parse_next(struct http_request_parser *parser,
 		return ret;
 
 	/* RFC 7230, Section 3:
-		
+
 	   HTTP-message   = start-line
 	                   *( header-field CRLF )
 	                    CRLF
@@ -549,7 +547,7 @@ int http_request_parse_next(struct http_request_parser *parser,
 
 		/* assign early for error reporting */
 		request->method = parser->request_method;
-		request->target_raw = parser->request_target; 
+		request->target_raw = parser->request_target;
 		request->version_major = parser->parser.msg.version_major;
 		request->version_minor = parser->parser.msg.version_minor;
 

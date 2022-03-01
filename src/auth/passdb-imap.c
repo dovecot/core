@@ -91,7 +91,7 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 	string_t *str;
 
 	set = module->set;
-	set.debug = auth_request->debug;
+	set.debug = event_want_debug(auth_request->event);
 	set.dns_client_socket_path =
 		t_strconcat(auth_request->set->base_dir, "/",
 			    DNS_CLIENT_SOCKET_NAME, NULL);
@@ -129,7 +129,7 @@ passdb_imap_verify_plain(struct auth_request *auth_request,
 		"lookup host=%s port=%d", set.host, set.port);
 
 	request = p_new(auth_request->pool, struct imap_auth_request, 1);
-	request->client = imapc_client_init(&set);
+	request->client = imapc_client_init(&set, authdb_event(auth_request));
 	request->auth_request = auth_request;
 	request->verify_callback = callback;
 

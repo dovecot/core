@@ -109,7 +109,7 @@ run_pump(struct istream *in, struct ostream *out, int *counter,
 	if (!ctx.out->blocking && ctx.in->stream_errno != 0 &&
 	    ctx.out->stream_errno == 0) {
 		/* input failed, finish flushing output */
-		test_ostream_set_max_output_size(ctx.out, (size_t)-1);
+		test_ostream_set_max_output_size(ctx.out, SIZE_MAX);
 		test_assert(o_stream_flush(ctx.out) > 0);
 	} else {
 		test_assert(o_stream_flush(ctx.out) != 0);

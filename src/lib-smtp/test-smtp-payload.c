@@ -31,9 +31,11 @@
 #include <unistd.h>
 #include <dirent.h>
 
-#define CLIENT_PROGRESS_TIMEOUT     30
-#define SERVER_KILL_TIMEOUT_SECS    20
-#define MAX_PARALLEL_PENDING        200
+#define VALGRIND_TIMEOUT_MULTIPLIER (ON_VALGRIND ? 5 : 1)
+
+#define CLIENT_PROGRESS_TIMEOUT_MSECS (60 * VALGRIND_TIMEOUT_MULTIPLIER * 1000)
+#define SERVER_KILL_TIMEOUT_SECS      (20 * VALGRIND_TIMEOUT_MULTIPLIER)
+#define MAX_PARALLEL_PENDING          200
 
 static bool debug = FALSE;
 static bool small_socket_buffers = FALSE;
@@ -377,7 +379,7 @@ test_server_conn_cmd_data_continue(void *conn_ctx ATTR_UNUSED,
 
 /* client connection */
 
-static void test_server_connection_destroy(void *context);
+static void test_server_connection_free(void *context);
 
 static const struct smtp_server_callbacks server_callbacks =
 {
@@ -387,7 +389,7 @@ static const struct smtp_server_callbacks server_callbacks =
 
 	.conn_trans_free = test_server_conn_trans_free,
 
-	.conn_destroy = test_server_connection_destroy,
+	.conn_free = test_server_connection_free,
 };
 
 static void client_init(int fd)
@@ -424,7 +426,7 @@ static void client_deinit(struct client **_client)
 	pool_unref(&client->pool);
 }
 
-static void test_server_connection_destroy(void *context)
+static void test_server_connection_free(void *context)
 {
 	struct client *client = context;
 
@@ -576,6 +578,8 @@ static void
 test_client_transaction_finish(struct test_client_transaction *tctrans)
 {
 	tctrans->conn->trans = NULL;
+	if (io_loop_is_running(current_ioloop))
+		test_client_finished(tctrans->files_idx);
 	test_client_transaction_destroy(tctrans);
 }
 
@@ -661,8 +665,6 @@ test_client_transaction_data(const struct smtp_reply *reply,
 			"SMTP transaction for %s failed: %s",
 			path, smtp_reply_log(reply));
 	}
-
-	test_client_finished(tctrans->files_idx);
 }
 
 static void test_client_continue(void *dummy ATTR_UNUSED)
@@ -778,7 +780,7 @@ static void test_client_continue(void *dummy ATTR_UNUSED)
 		}
 
 		if (debug) {
-			uoff_t raw_size = (uoff_t)-1, b64_size = (uoff_t)-1;
+			uoff_t raw_size = UOFF_T_MAX, b64_size = UOFF_T_MAX;
 
 			(void)i_stream_get_size(fstream, TRUE, &raw_size);
 			(void)i_stream_get_size(payload, TRUE, &b64_size);
@@ -812,7 +814,7 @@ test_client(enum smtp_protocol protocol,
 
 	if (!small_socket_buffers) {
 		to_client_progress = timeout_add(
-			CLIENT_PROGRESS_TIMEOUT*1000,
+			CLIENT_PROGRESS_TIMEOUT_MSECS,
 			test_client_progress_timeout, NULL);
 	}
 
@@ -963,7 +965,7 @@ test_run_scenarios(
 	smtp_server_set.protocol = protocol;
 	smtp_server_set.capabilities = capabilities;
 	smtp_server_set.hostname = "localhost";
-	smtp_server_set.max_client_idle_time_msecs = 10*000;
+	smtp_server_set.max_client_idle_time_msecs = CLIENT_PROGRESS_TIMEOUT_MSECS;
 	smtp_server_set.max_pipelined_commands = 1;
 	smtp_server_set.auth_optional = TRUE;
 	smtp_server_set.ssl = &ssl_server_set;
@@ -973,6 +975,8 @@ test_run_scenarios(
 	i_zero(&smtp_client_set);
 	smtp_client_set.my_hostname = "localhost";
 	smtp_client_set.temp_path_prefix = "/tmp";
+	smtp_client_set.command_timeout_msecs = CLIENT_PROGRESS_TIMEOUT_MSECS;
+	smtp_client_set.connect_timeout_msecs = CLIENT_PROGRESS_TIMEOUT_MSECS;
 	smtp_client_set.ssl = &ssl_client_set;
 	smtp_client_set.debug = debug;
 

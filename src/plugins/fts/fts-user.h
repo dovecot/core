@@ -18,7 +18,10 @@ struct fts_user_language *fts_user_get_data_lang(struct mail_user *user);
 const ARRAY_TYPE(fts_user_language) *
 fts_user_get_data_languages(struct mail_user *user);
 
-int fts_mail_user_init(struct mail_user *user, const char **error_r);
+bool fts_user_autoindex_exclude(struct mailbox *box);
+
+int fts_mail_user_init(struct mail_user *user, bool initialize_libfts,
+		       const char **error_r);
 void fts_mail_user_deinit(struct mail_user *user);
 
 #endif

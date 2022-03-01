@@ -11,10 +11,15 @@
 
 /* MAIL command */
 
-static bool
-cmd_mail_check_state(struct smtp_server_cmd_ctx *cmd)
+static bool cmd_mail_check_state(struct smtp_server_cmd_ctx *cmd)
 {
 	struct smtp_server_connection *conn = cmd->conn;
+	struct smtp_server_command *command = cmd->cmd;
+
+	if (smtp_server_command_is_replied(command) &&
+	    !smtp_server_command_replied_success(command) &&
+	    !smtp_server_command_reply_is_forwarded(command))
+		return FALSE;
 
 	if (conn->state.trans != NULL) {
 		smtp_server_reply(cmd, 503, "5.5.0", "MAIL already given");
@@ -34,14 +39,15 @@ cmd_mail_completed(struct smtp_server_cmd_ctx *cmd,
 	conn->state.pending_mail_cmds--;
 
 	i_assert(smtp_server_command_is_replied(command));
+	i_assert(conn->state.state == SMTP_SERVER_STATE_MAIL_FROM ||
+		 !smtp_server_command_replied_success(command));
+
 	if (!smtp_server_command_replied_success(command)) {
-		/* failure; substitute our own error if predictable */
-		if (smtp_server_command_reply_is_forwarded(command))
-			(void)cmd_mail_check_state(cmd);
+		/* Failure */
 		return;
 	}
 
-	/* success */
+	/* Success */
 	conn->state.trans = smtp_server_transaction_create(conn, data);
 }
 
@@ -51,7 +57,7 @@ cmd_mail_recheck(struct smtp_server_cmd_ctx *cmd,
 {
 	struct smtp_server_connection *conn = cmd->conn;
 
-	/* all preceeding commands have finished and now the transaction state
+	/* All preceding commands have finished and now the transaction state
 	   is clear. This provides the opportunity to re-check the transaction
 	   state */
 	if (!cmd_mail_check_state(cmd))
@@ -82,7 +88,7 @@ void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd,
 	   Reverse-path = Path / "<>"
 	 */
 
-	/* check transaction state as far as possible */
+	/* Check transaction state as far as possible */
 	if (!cmd_mail_check_state(cmd))
 		return;
 
@@ -182,18 +188,21 @@ void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd,
 
 	smtp_server_command_ref(command);
 	if (callbacks != NULL && callbacks->conn_cmd_mail != NULL) {
-		/* specific implementation of MAIL command */
-		if ((ret=callbacks->conn_cmd_mail(conn->context,
-			cmd, mail_data)) <= 0) {
+		/* Specific implementation of MAIL command */
+		struct event_reason *reason =
+			smtp_server_connection_reason_begin(conn, "cmd_mail");
+		ret = callbacks->conn_cmd_mail(conn->context, cmd, mail_data);
+		event_reason_end(&reason);
+		if (ret <= 0) {
 			i_assert(ret == 0 ||
 				 smtp_server_command_is_replied(command));
-			/* command is waiting for external event or it failed */
+			/* Command is waiting for external event or it failed */
 			smtp_server_command_unref(&command);
 			return;
 		}
 	}
 	if (!smtp_server_command_is_replied(command)) {
-		/* set generic MAIL success reply if none is provided */
+		/* Set generic MAIL success reply if none is provided */
 		smtp_server_cmd_mail_reply_success(cmd);
 	}
 	smtp_server_command_unref(&command);

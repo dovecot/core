@@ -123,7 +123,7 @@ static void test_iostream_temp_istream(void)
 
 	/* non-working fd-dup: send two istreams */
 	i_stream_seek(input, 0);
-	input2 = i_stream_create_limit(input, (uoff_t)-1);
+	input2 = i_stream_create_limit(input, UOFF_T_MAX);
 	output = iostream_temp_create_sized(".intentional-nonexistent-error/",
 		IOSTREAM_TEMP_FLAG_TRY_FD_DUP, "test", 4);
 	test_assert(o_stream_send_istream(output, input) == OSTREAM_SEND_ISTREAM_RESULT_FINISHED);

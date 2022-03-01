@@ -29,7 +29,7 @@ int dns_ncompare(const char *a, const char *b, size_t n)
 
 int dns_compare(const char *a, const char *b)
 {
-	return dns_ncompare(a, b, (size_t)-1);
+	return dns_ncompare(a, b, SIZE_MAX);
 }
 
 int dns_compare_labels(const char *a, const char *b)

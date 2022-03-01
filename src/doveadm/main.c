@@ -4,8 +4,6 @@
 #include "restrict-access.h"
 #include "process-title.h"
 #include "master-service.h"
-#include "master-service-settings.h"
-#include "master-service-ssl-settings.h"
 #include "settings-parser.h"
 #include "dict.h"
 #include "doveadm.h"
@@ -15,7 +13,6 @@
 #include "doveadm-dump.h"
 #include "doveadm-mail.h"
 #include "doveadm-print-private.h"
-#include "doveadm-server.h"
 #include "ostream.h"
 
 const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {
@@ -25,10 +22,7 @@ const struct doveadm_print_vfuncs *doveadm_print_vfuncs_all[] = {
 };
 
 struct client_connection *doveadm_client;
-bool doveadm_verbose_proctitle;
 int doveadm_exit_code = 0;
-
-static pool_t doveadm_settings_pool;
 
 static void doveadm_die(void)
 {
@@ -51,12 +45,6 @@ static void client_connected(struct master_service_connection *conn)
 	}
 }
 
-void help(const struct doveadm_cmd *cmd)
-{
-	i_fatal("Client sent invalid command. Usage: %s %s",
-		cmd->name, cmd->short_usage);
-}
-
 void help_ver2(const struct doveadm_cmd_ver2 *cmd)
 {
 	i_fatal("Client sent invalid command. Usage: %s %s",
@@ -72,26 +60,26 @@ static void main_preinit(void)
 static void main_init(void)
 {
 	doveadm_server = TRUE;
-	doveadm_settings_pool = pool_alloconly_create("doveadm settings", 1024);
-	doveadm_settings = master_service_settings_get_others(master_service)[1];
-	doveadm_settings = settings_dup(&doveadm_setting_parser_info,
-					doveadm_settings, doveadm_settings_pool);
-	doveadm_ssl_set = settings_dup(&master_service_ssl_setting_parser_info,
-				       master_service_ssl_settings_get(master_service),
-				       doveadm_settings_pool);
-	doveadm_settings_expand(doveadm_settings, doveadm_settings_pool);
-	doveadm_verbose_proctitle =
-		master_service_settings_get(master_service)->verbose_proctitle;
-	if (doveadm_verbose_proctitle)
-		process_title_set("[idling]");
 
+	doveadm_settings_init();
 	doveadm_cmds_init();
 	doveadm_register_auth_server_commands();
 	doveadm_dump_init();
 	doveadm_mail_init();
-	doveadm_server_init();
 	dict_drivers_register_builtin();
 	doveadm_load_modules();
+	/* read settings only after loading doveadm plugins, which
+	   may modify what settings are read */
+	doveadm_read_settings();
+	/* Load mail_plugins */
+	doveadm_mail_init_finish();
+	/* kludgy: Load the rest of the doveadm plugins after
+	   mail_plugins have been loaded. */
+	doveadm_load_modules();
+
+	doveadm_server_init();
+	if (doveadm_verbose_proctitle)
+		process_title_set("[idling]");
 }
 
 static void main_deinit(void)
@@ -103,22 +91,14 @@ static void main_deinit(void)
 	dict_drivers_unregister_builtin();
 	doveadm_print_deinit();
 	doveadm_cmds_deinit();
-	pool_unref(&doveadm_settings_pool);
+	doveadm_settings_deinit();
 }
 
 int main(int argc, char *argv[])
 {
-	const struct setting_parser_info *set_roots[] = {
-		&master_service_ssl_setting_parser_info,
-		&doveadm_setting_parser_info,
-		NULL
-	};
 	enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN |
-		MASTER_SERVICE_FLAG_USE_SSL_SETTINGS;
-	struct master_service_settings_input input;
-	struct master_service_settings_output output;
-	const char *error;
+		MASTER_SERVICE_FLAG_HAVE_STARTTLS;
 	int c;
 
 	master_service = master_service_init("doveadm", service_flags,
@@ -133,15 +113,6 @@ int main(int argc, char *argv[])
 			return FATAL_DEFAULT;
 		}
 	}
-
-	i_zero(&input);
-	input.roots = set_roots;
-	input.module = "doveadm";
-	input.service = "doveadm";
-
-	if (master_service_settings_read(master_service, &input, &output,
-					 &error) < 0)
-		i_fatal("Error reading configuration: %s", error);
 
 	master_service_init_log(master_service);
 	main_preinit();

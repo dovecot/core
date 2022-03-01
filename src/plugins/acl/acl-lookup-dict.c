@@ -44,8 +44,8 @@ struct acl_lookup_dict *acl_lookup_dict_init(struct mail_user *user)
 		struct dict_settings dict_set;
 
 		i_zero(&dict_set);
-		dict_set.username = "";
 		dict_set.base_dir = user->set->base_dir;
+		dict_set.event_parent = user->event;
 		if (dict_init(uri, &dict_set, &dict->dict, &error) < 0)
 			i_error("acl: dict_init(%s) failed: %s", uri, error);
 	} else {
@@ -104,6 +104,7 @@ acl_rights_is_same_user(const struct acl_rights *right, struct mail_user *user)
 static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 					       ARRAY_TYPE(const_string) *ids)
 {
+	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT(ns->list);
 	struct acl_backend *backend;
 	struct acl_mailbox_list_context *ctx;
 	struct acl_object *aclobj;
@@ -114,7 +115,7 @@ static int acl_lookup_dict_rebuild_add_backend(struct mail_namespace *ns,
 	int ret = 0;
 
 	if ((ns->flags & NAMESPACE_FLAG_NOACL) != 0 || ns->owner == NULL ||
-	    ACL_LIST_CONTEXT(ns->list) == NULL)
+	    alist == NULL || alist->ignore_acls)
 		return 0;
 
 	id = t_str_new(128);
@@ -151,7 +152,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 {
 	const char *username = dict->user->username;
 	struct dict_iterate_context *iter;
-	struct dict_transaction_context *dt;
+	struct dict_transaction_context *dt = NULL;
 	const char *prefix, *key, *value, *const *old_ids, *const *new_ids, *p;
 	const char *error;
 	ARRAY_TYPE(const_string) old_ids_arr;
@@ -159,6 +160,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	string_t *path;
 	size_t prefix_len;
 	int ret;
+	const struct dict_op_settings *set = mail_user_get_dict_op_settings(dict->user);
 
 	/* get all existing identifiers for the user. we might be able to
 	   sync identifiers also for other users whose shared namespaces we
@@ -168,7 +170,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	t_array_init(&old_ids_arr, 128);
 	prefix = DICT_PATH_SHARED DICT_SHARED_BOXES_PATH;
 	prefix_len = strlen(prefix);
-	iter = dict_iterate_init(dict->dict, prefix, DICT_ITERATE_FLAG_RECURSE);
+	iter = dict_iterate_init(dict->dict, set, prefix, DICT_ITERATE_FLAG_RECURSE);
 	while (dict_iterate(iter, &key, &value)) {
 		/* prefix/$type/$dest/$source */
 		key += prefix_len;
@@ -190,7 +192,6 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 	path = t_str_new(256);
 	str_append(path, prefix);
 
-	dt = dict_transaction_begin(dict->dict);
 	old_ids = array_get(&old_ids_arr, &old_count);
 	new_ids = array_get(new_ids_arr, &new_count);
 	for (newi = oldi = 0; newi < new_count || oldi < old_count; ) {
@@ -203,6 +204,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			/* new identifier, add it */
 			str_truncate(path, prefix_len);
 			str_append(path, new_ids[newi]);
+			dt = dict_transaction_begin(dict->dict, set);
 			dict_set(dt, str_c(path), "1");
 			newi++;
 		} else if (!no_removes) {
@@ -211,13 +213,15 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			str_append(path, old_ids[oldi]);
 			str_append_c(path, '/');
 			str_append(path, username);
+			dt = dict_transaction_begin(dict->dict, set);
 			dict_unset(dt, str_c(path));
 			oldi++;
 		}
-	}
-	if (dict_transaction_commit(&dt, &error) < 0) {
-		i_error("acl: dict commit failed: %s", error);
-		return -1;
+		if (dt != NULL && dict_transaction_commit(&dt, &error) < 0) {
+			i_error("acl: dict commit failed: %s", error);
+			return -1;
+		}
+		i_assert(dt == NULL);
 	}
 	return 0;
 }
@@ -263,15 +267,15 @@ int acl_lookup_dict_rebuild(struct acl_lookup_dict *dict)
 static void acl_lookup_dict_iterate_read(struct acl_lookup_dict_iter *iter)
 {
 	struct dict_iterate_context *dict_iter;
-	const char *const *idp, *prefix, *key, *value, *error;
+	const char *id, *prefix, *key, *value, *error;
 	size_t prefix_len;
 
-	idp = array_idx(&iter->iter_ids, iter->iter_idx);
+	id = array_idx_elem(&iter->iter_ids, iter->iter_idx);
 	iter->iter_idx++;
 	iter->iter_value_idx = 0;
 
 	prefix = t_strconcat(DICT_PATH_SHARED DICT_SHARED_BOXES_PATH,
-			     *idp, "/", NULL);
+			     id, "/", NULL);
 	prefix_len = strlen(prefix);
 
 	/* read all of it to memory. at least currently dict-proxy can support
@@ -279,7 +283,8 @@ static void acl_lookup_dict_iterate_read(struct acl_lookup_dict_iter *iter)
 	   the dict, which opens another iteration. */
 	p_clear(iter->iter_value_pool);
 	array_clear(&iter->iter_values);
-	dict_iter = dict_iterate_init(iter->dict->dict, prefix,
+	const struct dict_op_settings *set = mail_user_get_dict_op_settings(iter->dict->user);
+	dict_iter = dict_iterate_init(iter->dict->dict, set, prefix,
 				      DICT_ITERATE_FLAG_RECURSE);
 	while (dict_iterate(dict_iter, &key, &value)) {
 		i_assert(prefix_len < strlen(key));

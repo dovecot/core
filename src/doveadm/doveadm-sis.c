@@ -206,7 +206,7 @@ static int sis_try_deduplicate(const char *rootdir, const char *fname)
 	return hardlink_replace(path, hashes_path, st.st_ino) < 0 ? -1 : 0;
 }
 
-static void cmd_sis_deduplicate(int argc, char *argv[])
+static void cmd_sis_deduplicate(struct doveadm_cmd_context *cctx)
 {
 	const char *rootdir, *queuedir;
 	DIR *dir;
@@ -216,14 +216,12 @@ static void cmd_sis_deduplicate(int argc, char *argv[])
 	size_t dir_len;
 	int ret;
 
-	if (argc < 3)
-		help(&doveadm_cmd_sis_deduplicate);
+	if (!doveadm_cmd_param_str(cctx, "root-dir", &rootdir) ||
+	    !doveadm_cmd_param_str(cctx, "queue-dir", &queuedir))
+		help_ver2(&doveadm_cmd_sis_deduplicate);
 
 	/* go through the filenames in the queue dir and see if
 	   we can deduplicate them. */
-	rootdir = argv[1];
-	queuedir = argv[2];
-
 	if (stat(rootdir, &st) < 0)
 		i_fatal("stat(%s) failed: %m", rootdir);
 
@@ -264,7 +262,7 @@ static void cmd_sis_deduplicate(int argc, char *argv[])
 		i_error("closedir(%s) failed: %m", queuedir);
 }
 
-static void cmd_sis_find(int argc, char *argv[])
+static void cmd_sis_find(struct doveadm_cmd_context *cctx)
 {
 	const char *rootdir, *path, *hash;
 	DIR *dir;
@@ -273,16 +271,16 @@ static void cmd_sis_find(int argc, char *argv[])
 	string_t *str;
 	size_t dir_len, hash_len;
 
-	if (argc < 3 || strlen(argv[2]) < 4)
-		help(&doveadm_cmd_sis_find);
+	if (!doveadm_cmd_param_str(cctx, "root-dir", &rootdir) ||
+	    !doveadm_cmd_param_str(cctx, "hash", &hash) ||
+	    strlen(hash) < 4)
+		help_ver2(&doveadm_cmd_sis_find);
 
-	rootdir = argv[1];
 	if (stat(rootdir, &st) < 0) {
 		if (errno == ENOENT)
 			i_fatal("Attachment dir doesn't exist: %s", rootdir);
 		i_fatal("stat(%s) failed: %m", rootdir);
 	}
-	hash = argv[2];
 	hash_len = strlen(hash);
 
 	path = sis_get_dir(rootdir, hash);
@@ -312,9 +310,21 @@ static void cmd_sis_find(int argc, char *argv[])
 		i_error("closedir(%s) failed: %m", path);
 }
 
-struct doveadm_cmd doveadm_cmd_sis_deduplicate = {
-	cmd_sis_deduplicate, "sis deduplicate", "<root dir> <queue dir>"
+struct doveadm_cmd_ver2 doveadm_cmd_sis_deduplicate = {
+	.name = "sis deduplicate",
+	.cmd = cmd_sis_deduplicate,
+	.usage = "<root dir> <queue dir>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('\0', "root-dir", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "queue-dir", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };
-struct doveadm_cmd doveadm_cmd_sis_find = {
-	cmd_sis_find, "sis find", "<root dir> <hash>"
+struct doveadm_cmd_ver2 doveadm_cmd_sis_find = {
+	.name = "sis find",
+	.cmd = cmd_sis_find,
+	.usage = "<root dir> <hash>",
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_PARAM('\0', "root-dir", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "hash", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };

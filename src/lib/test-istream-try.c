@@ -1,8 +1,11 @@
 /* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
-#include "istream.h"
+#include "istream-private.h"
+#include "istream-base64.h"
 #include "istream-try.h"
+
+#define MIN_FULL_SIZE 1
 
 static void test_istream_try_normal(void)
 {
@@ -17,7 +20,7 @@ static void test_istream_try_normal(void)
 		test_inputs[2] = NULL;
 		test_istream_set_size(test_inputs[0], 0);
 		test_istream_set_size(test_inputs[1], 0);
-		try_input = istream_try_create(test_inputs);
+		try_input = istream_try_create(test_inputs, MIN_FULL_SIZE);
 
 		/* nonblocking read */
 		test_assert_idx(i_stream_read(try_input) == 0, test);
@@ -137,7 +140,8 @@ static void test_istream_try_empty(void)
 		test_istream_create(""),
 		NULL
 	};
-	struct istream *try_input = istream_try_create(test_inputs);
+	struct istream *try_input =
+		istream_try_create(test_inputs, MIN_FULL_SIZE);
 	test_assert(i_stream_read(try_input) == -1);
 	test_assert(try_input->eof);
 	test_assert(try_input->stream_errno == 0);
@@ -147,8 +151,45 @@ static void test_istream_try_empty(void)
 	test_end();
 }
 
+static void test_istream_try_buffer_full(void)
+{
+	const char *test_strings[] = { "Zm9v", "YmFy" };
+	struct istream *test_inputs[3], *try_input, *input, *input2;
+
+	test_begin("istream try buffer full");
+
+	for (unsigned int i = 0; i < 2; i++) {
+		input = test_istream_create(test_strings[i]);
+		test_istream_set_size(input, 1);
+		test_istream_set_max_buffer_size(input, 1);
+		input2 = i_stream_create_base64_decoder(input);
+		i_stream_unref(&input);
+		test_inputs[i] = input2;
+	};
+	test_inputs[2] = NULL;
+
+	try_input = istream_try_create(test_inputs, MIN_FULL_SIZE);
+
+	test_assert(i_stream_read(try_input) == 0);
+	test_assert(try_input->real_stream->parent != NULL);
+	test_assert(i_stream_get_data_size(test_inputs[0]) == 0);
+	test_assert(i_stream_get_data_size(test_inputs[1]) == 0);
+
+	test_istream_set_size(test_inputs[0], 2);
+	test_assert(i_stream_read(try_input) == 1);
+	test_assert(i_stream_get_data_size(test_inputs[0]) == 1);
+	test_assert(i_stream_get_data_size(test_inputs[1]) == 0);
+
+	i_stream_unref(&test_inputs[0]);
+	i_stream_unref(&test_inputs[1]);
+	i_stream_unref(&try_input);
+
+	test_end();
+}
+
 void test_istream_try(void)
 {
 	test_istream_try_normal();
 	test_istream_try_empty();
+	test_istream_try_buffer_full();
 }

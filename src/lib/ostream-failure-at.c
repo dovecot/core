@@ -15,7 +15,8 @@ struct failure_at_ostream {
 static void o_stream_failure_at_destroy(struct iostream_private *stream)
 {
 	struct failure_at_ostream *fstream =
-		(struct failure_at_ostream *)stream;
+		container_of(stream, struct failure_at_ostream,
+			     ostream.iostream);
 
 	i_free(fstream->error_string);
 	o_stream_unref(&fstream->ostream.parent);
@@ -26,7 +27,7 @@ o_stream_failure_at_sendv(struct ostream_private *stream,
 			  const struct const_iovec *iov, unsigned int iov_count)
 {
 	struct failure_at_ostream *fstream =
-		(struct failure_at_ostream *)stream;
+		container_of(stream, struct failure_at_ostream, ostream);
 	unsigned int i;
 	struct const_iovec *iov_dup;
 	unsigned int iov_dup_count;
@@ -80,7 +81,7 @@ static int
 o_stream_failure_at_flush(struct ostream_private *stream)
 {
 	struct failure_at_ostream *fstream =
-		(struct failure_at_ostream *)stream;
+		container_of(stream, struct failure_at_ostream, ostream);
 
 	if (fstream->failed) {
 		io_stream_set_error(&stream->iostream, "%s",

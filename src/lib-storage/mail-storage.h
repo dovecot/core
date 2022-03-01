@@ -398,7 +398,6 @@ struct mail {
 	/* always set */
 	struct mailbox *box;
 	struct mailbox_transaction_context *transaction;
-	struct event *event;
 	uint32_t seq, uid;
 
 	bool expunged:1;
@@ -406,9 +405,10 @@ struct mail {
 	bool has_nuls:1; /* message data is known to contain NULs */
 	bool has_no_nuls:1; /* -''- known to not contain NULs */
 
-	/* Mail's header/body stream was opened within this request.
-	   If lookup_abort!=MAIL_LOOKUP_ABORT_NEVER, this can't become TRUE. */
-	bool mail_stream_opened:1;
+	/* Mail's header/body stream was opened (or attempted to be opened)
+	   within this request. If lookup_abort!=MAIL_LOOKUP_ABORT_NEVER, this
+	   can't become TRUE. */
+	bool mail_stream_accessed:1;
 	/* Mail's fast metadata was accessed within this request, e.g. the mail
 	   file was stat()ed. If mail_stream_opened==TRUE, this value isn't
 	   accurate anymore, because some backends may always set this when
@@ -529,9 +529,6 @@ struct mailbox *
 mailbox_alloc_for_user(struct mail_user *user, const char *mname,
 		       enum mailbox_flags flags);
 
-/* Set a human-readable reason for why this mailbox is being accessed.
-   This is used for logging purposes. */
-void mailbox_set_reason(struct mailbox *box, const char *reason);
 /* Get mailbox existence state. If auto_boxes=FALSE, return
    MAILBOX_EXISTENCE_NONE for autocreated mailboxes that haven't been
    physically created yet */
@@ -874,6 +871,9 @@ void mail_add_temp_wanted_fields(struct mail *mail,
 				 struct mailbox_header_lookup_ctx *headers)
 	ATTR_NULL(3);
 
+/* Returns mail's event. This lazily creates the event when called for the
+   first time for the mail. */
+struct event *mail_event(struct mail *mail);
 /* Returns message's flags */
 enum mail_flags mail_get_flags(struct mail *mail);
 /* Returns message's keywords */
@@ -959,7 +959,8 @@ int mail_get_hdr_stream_because(struct mail *mail,
 /* Returns the message part's body decoded to 8bit binary. If the
    Content-Transfer-Encoding isn't supported, returns -1 and sets error to
    MAIL_ERROR_CONVERSION. If the part refers to a multipart, all of its
-   children are returned decoded. */
+   children are returned decoded. Note that the returned stream must be
+   unreferenced, unlike mail_get_*stream*() which automatically free it. */
 int mail_get_binary_stream(struct mail *mail, const struct message_part *part,
 			   bool include_hdr, uoff_t *size_r,
 			   bool *binary_r, struct istream **stream_r);
@@ -1000,7 +1001,7 @@ void mail_update_pop3_uidl(struct mail *mail, const char *uidl);
 void mail_expunge(struct mail *mail);
 
 /* Add missing fields to cache. */
-void mail_precache(struct mail *mail);
+int mail_precache(struct mail *mail);
 /* Mark a cached field corrupted and have it recalculated. */
 void mail_set_cache_corrupted(struct mail *mail,
 			      enum mail_fetch_field field,

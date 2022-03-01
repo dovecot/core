@@ -12,6 +12,7 @@
 
 struct file_lock;
 struct file_create_settings;
+struct fs;
 
 /* Default prefix for indexes */
 #define MAIL_INDEX_PREFIX "dovecot.index"
@@ -22,6 +23,8 @@ struct file_create_settings;
 #define MAIL_READ_FULL_BLOCK_SIZE IO_BLOCK_SIZE
 
 #define MAIL_SHARED_STORAGE_NAME "shared"
+
+#define MAIL_STORAGE_LOST_MAILBOX_PREFIX "recovered-lost-folder-"
 
 enum mail_storage_list_index_rebuild_reason {
 	/* Mailbox list index was found to be corrupted. */
@@ -106,6 +109,8 @@ enum mail_storage_class_flags {
 	/* Storage deletes all files internally - mailbox list's
 	   delete_mailbox() shouldn't delete anything itself. */
 	MAIL_STORAGE_CLASS_FLAG_NO_LIST_DELETES	= 0x400,
+	/* Storage creates a secondary index */
+	MAIL_STORAGE_CLASS_FLAG_SECONDARY_INDEX	= 0x800,
 };
 
 struct mail_binary_cache {
@@ -153,6 +158,9 @@ struct mail_storage {
 	 * uniqueness checking (via strcmp) and never used as a path. */
 	const char *unique_root_dir;
 
+	/* prefix for lost mailbox */
+	const char *lost_mailbox_prefix;
+
 	/* Last error set in mail_storage_set_critical(). */
 	char *last_internal_error;
 
@@ -176,12 +184,17 @@ struct mail_storage {
 	   attributes. */
 	struct dict *_shared_attr_dict;
 
+	/* optional fs-api object for accessing mailboxes */
+	struct fs *mailboxes_fs;
+
 	/* Module-specific contexts. See mail_storage_module_id. */
 	ARRAY(union mail_storage_module_context *) module_contexts;
 
 	/* Failed to create shared attribute dict, don't try again */
 	bool shared_attr_dict_failed:1;
 	bool last_error_is_internal:1;
+	bool rebuilding_list_index:1;
+	bool rebuild_list_index:1;
 };
 
 struct mail_attachment_part {
@@ -248,10 +261,12 @@ struct mailbox_vfuncs {
 
 	/* Lookup sync extension record and figure out if it mailbox has
 	   changed since. Returns 1 = yes, 0 = no, -1 = error. if quick==TRUE,
-	   return 1 if it's too costly to find out exactly. */
+	   return 1 if it's too costly to find out exactly. The reason_r is
+	   set if 1 is returned. */
 	int (*list_index_has_changed)(struct mailbox *box,
 				      struct mail_index_view *list_view,
-				      uint32_t seq, bool quick);
+				      uint32_t seq, bool quick,
+				      const char **reason_r);
 	/* Update the sync extension record. */
 	void (*list_index_update_sync)(struct mailbox *box,
 				       struct mail_index_transaction *trans,
@@ -297,8 +312,27 @@ struct mailbox_vfuncs {
 	int (*search_deinit)(struct mail_search_context *ctx);
 	bool (*search_next_nonblock)(struct mail_search_context *ctx,
 				     struct mail **mail_r, bool *tryagain_r);
-	/* Internal search function which updates ctx->seq */
+	/* Internally used by the search to find the next mail that potentially
+	   matches the search query. The function performs "quick checks" on
+	   the search query that can be done without initializing the mail
+	   struct. For example it can filter out non-matching mails based on
+	   SEARCH_SEQSET and SEARCH_UIDSET. Once a potentially matching mail is
+	   found, ctx->seq is updated to it.
+
+	   Plugins can use this function to skip over any mails that can't
+	   match the search query. Plugins can also set
+	   mail_search_arg.[non]match_always=TRUE
+	   for search args that it already definitely knows will/won't match,
+	   which prevents the standard search from attempting to match them
+	   again.
+
+	   This is used by the FTS plugin to skip over non-matching mails and
+	   to initialize the [non]match_always=TRUE for the search args that
+	   were matched against the FTS indexes. This prevents the standard
+	   search from having to open any email bodies. */
 	bool (*search_next_update_seq)(struct mail_search_context *ctx);
+	int (*search_next_match_mail)(struct mail_search_context *ctx,
+				      struct mail *mail);
 
 	struct mail_save_context *
 		(*save_alloc)(struct mailbox_transaction_context *t);
@@ -377,8 +411,6 @@ struct mailbox {
 	/* Filled lazily when mailbox is opened, use mailbox_get_index_path()
 	   to access it */
 	const char *_index_path;
-	/* Reason for why mailbox is being accessed or NULL if unknown. */
-	const char *reason;
 
 	/* default vfuncs for new struct mails. */
 	const struct mail_vfuncs *mail_vfuncs;
@@ -477,7 +509,7 @@ struct mail_vfuncs {
 	bool (*set_uid)(struct mail *mail, uint32_t uid);
 	void (*set_uid_cache_updates)(struct mail *mail, bool set);
 	bool (*prefetch)(struct mail *mail);
-	void (*precache)(struct mail *mail);
+	int (*precache)(struct mail *mail);
 	void (*add_temp_wanted_fields)(struct mail *mail,
 				       enum mail_fetch_field fields,
 				       struct mailbox_header_lookup_ctx *headers);
@@ -546,6 +578,8 @@ struct mail_private {
 	   allows mail_log plugin to log the copy operation using the original
 	   mailbox name. */
 	struct mail *vmail;
+	/* Event is created lazily. Use mail_event() to access it. */
+	struct event *_event;
 
 	uint32_t seq_pvt;
 
@@ -781,6 +815,7 @@ void mail_set_mail_cache_corrupted(struct mail *mail, const char *fmt, ...)
 /* Indicate mail being expunged by autoexpunge */
 void mail_autoexpunge(struct mail *mail);
 
+void mail_event_create(struct mail *mail);
 /* Returns TRUE if everything should already be in memory after this call
    or if prefetching is not supported, i.e. the caller shouldn't do more
    prefetching before this message is handled. */
@@ -794,6 +829,18 @@ bool mail_has_attachment_keywords(struct mail *mail);
 /* Sets attachment keywords. Returns -1 on error, 0 when no attachment(s) found,
    and 1 if attachment was found. */
 int mail_set_attachment_keywords(struct mail *mail);
+
+/* Attempt to start accessing the mail stream. Returns TRUE is ok, FALSE if
+   prevented by mail->lookup_abort. */
+bool mail_stream_access_start(struct mail *mail);
+/* Attempt to start accessing the mail metadata. Returns TRUE is ok, FALSE if
+   prevented by mail->lookup_abort. */
+bool mail_metadata_access_start(struct mail *mail);
+/* Emit mail opened events */
+void mail_opened_event(struct mail *mail);
+
+/* Emit mail expunge_requested event */
+void mail_expunge_requested_event(struct mail *mail);
 
 void mailbox_set_deleted(struct mailbox *box);
 int mailbox_mark_index_deleted(struct mailbox *box, bool del);
@@ -852,7 +899,15 @@ enum mail_index_open_flags
 mail_storage_settings_to_index_flags(const struct mail_storage_settings *set);
 void mailbox_save_context_deinit(struct mail_save_context *ctx);
 
+/* Notify that a sync should be done. */
+void mailbox_sync_notify(struct mailbox *box, uint32_t uid,
+			 enum mailbox_sync_type sync_type);
+
 /* for unit testing */
 int mailbox_verify_name(struct mailbox *box);
+
+int mail_storage_list_index_rebuild_and_set_uncorrupted(struct mail_storage *storage);
+int mail_storage_list_index_rebuild(struct mail_storage *storage,
+				    enum mail_storage_list_index_rebuild_reason reason);
 
 #endif

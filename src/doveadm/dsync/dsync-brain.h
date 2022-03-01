@@ -28,9 +28,6 @@ enum dsync_brain_flags {
 	   only with pipe ibc. It's useful if most of the mails can be copied
 	   directly within filesystem without having to read them. */
 	DSYNC_BRAIN_FLAG_NO_MAIL_PREFETCH	= 0x100,
-	/* Disable mailbox renaming logic. This is just a kludge that should
-	   be removed once the renaming logic has no more bugs.. */
-	DSYNC_BRAIN_FLAG_NO_MAILBOX_RENAMES	= 0x200,
 	/* Add MAILBOX_TRANSACTION_FLAG_NO_NOTIFY to transactions. */
 	DSYNC_BRAIN_FLAG_NO_NOTIFY		= 0x400,
 	/* Workaround missing Date/Message-ID headers */
@@ -95,7 +92,8 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 			const struct dsync_brain_settings *set);
 struct dsync_brain *
 dsync_brain_slave_init(struct mail_user *user, struct dsync_ibc *ibc,
-		       bool local, const char *process_title_prefix);
+		       bool local, const char *process_title_prefix,
+		       char default_alt_char);
 /* Returns 0 if everything was successful, -1 if syncing failed in some way */
 int dsync_brain_deinit(struct dsync_brain **brain, enum mail_error *error_r);
 

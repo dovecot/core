@@ -3,6 +3,8 @@
 
 #include "net.h"
 
+struct ssl_iostream_settings;
+
 /* <settings checks> */
 enum dsync_features {
 	DSYNC_FEATURE_EMPTY_HDR_WORKAROUND = 0x1,
@@ -36,13 +38,28 @@ struct doveadm_settings {
 	ARRAY(const char *) plugin_envs;
 };
 
+struct doveadm_setting_root {
+	const struct setting_parser_info *info;
+	void *settings;
+};
+ARRAY_DEFINE_TYPE(doveadm_setting_root, struct doveadm_setting_root);
+
 extern const struct setting_parser_info doveadm_setting_parser_info;
 extern struct doveadm_settings *doveadm_settings;
 extern const struct master_service_settings *service_set;
 extern const struct master_service_ssl_settings *doveadm_ssl_set;
-struct ssl_iostream_settings;
+extern ARRAY_TYPE(doveadm_setting_root) doveadm_setting_roots;
+extern bool doveadm_verbose_proctitle;
 
 void doveadm_get_ssl_settings(struct ssl_iostream_settings *set_r, pool_t pool);
 void doveadm_settings_expand(struct doveadm_settings *set, pool_t pool);
+
+void doveadm_setting_roots_add(const struct setting_parser_info *info);
+void *doveadm_setting_roots_get_settings(const struct setting_parser_info *info);
+
+void doveadm_read_settings(void);
+
+void doveadm_settings_init(void);
+void doveadm_settings_deinit(void);
 
 #endif

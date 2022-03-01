@@ -44,7 +44,6 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	}
 
 	box = mailbox_alloc(ns->list, vname, MAILBOX_FLAG_READONLY);
-	mailbox_set_reason(box, "quota count");
 	if ((box->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NOQUOTA) != 0) {
 		/* quota doesn't exist for this mailbox/storage */
 		ret = 0;
@@ -178,6 +177,8 @@ int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r,
 		return 0;
 	root->recounting = TRUE;
 
+	struct event_reason *reason = event_reason_begin("quota:count");
+
 	iter = quota_mailbox_iter_begin(root);
 	while ((info = quota_mailbox_iter_next(iter)) != NULL) {
 		if (quota_count_mailbox(root, info->ns, info->vname,
@@ -196,6 +197,7 @@ int quota_count(struct quota_root *root, uint64_t *bytes_r, uint64_t *count_r,
 			*error1 != '\0' && *error2 != '\0' ? " and " : "";
 		*error_r = t_strconcat(error1, separator, error2, NULL);
 	}
+	event_reason_end(&reason);
 	root->recounting = FALSE;
 	return ret;
 }
@@ -242,6 +244,8 @@ static int count_quota_init(struct quota_root *root, const char *args,
 		*error_r = "quota count backend requires quota_vsizes=yes";
 		return -1;
 	}
+	event_set_append_log_prefix(root->backend.event, "quota-count: ");
+
 	root->auto_updating = TRUE;
 	return quota_root_default_init(root, args, error_r);
 }
@@ -338,16 +342,18 @@ static int quota_count_recalculate_box(struct mailbox *box,
 static int quota_count_recalculate(struct quota_root *root,
 				   const char **error_r)
 {
+	struct event_reason *reason;
 	struct quota_mailbox_iter *iter;
 	const struct mailbox_info *info;
 	struct mailbox *box;
 	int ret = 0;
 	const char *error1 = "", *error2 = "";
 
+	reason = event_reason_begin("quota:recalculate");
+
 	iter = quota_mailbox_iter_begin(root);
 	while ((info = quota_mailbox_iter_next(iter)) != NULL) {
 		box = mailbox_alloc(info->ns->list, info->vname, 0);
-		mailbox_set_reason(box, "quota recalculate");
 		if (quota_count_recalculate_box(box, &error1) < 0)
 			ret = -1;
 		mailbox_free(&box);
@@ -361,6 +367,7 @@ static int quota_count_recalculate(struct quota_root *root,
 			"quota-count: recalculate failed: %s%s%s",
 			error1, separator, error2);
 	}
+	event_reason_end(&reason);
 	return ret;
 }
 

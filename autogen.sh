@@ -1,18 +1,16 @@
 #!/bin/sh
 
 # If you've non-standard directories, set these
-ACLOCAL_DIR=m4
 #GETTEXT_DIR=
 
-ACLOCAL="aclocal -I$ACLOCAL_DIR"
-export ACLOCAL
-
-for dir in $GETTEXT_DIR /usr/share/gettext /usr/local/share/gettext; do
-  if test -f $dir/config.rpath; then
-    /bin/cp -f $dir/config.rpath .
-    break
-  fi
-done
+if ! test -f build-aux/config.rpath; then
+  for dir in $GETTEXT_DIR /usr/share/gettext /usr/local/share/gettext; do
+    if test -f $dir/config.rpath; then
+      /bin/cp -f $dir/config.rpath build-aux/
+      break
+    fi
+  done
+fi
 
 if test ! -f doc/wiki/Authentication.txt; then
   cd doc

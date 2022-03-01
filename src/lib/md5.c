@@ -67,6 +67,8 @@
  * the bit counters.  There're no alignment requirements.
  */
 static const void * ATTR_NOWARN_UNUSED_RESULT ATTR_UNSIGNED_WRAPS
+        ATTR_NO_SANITIZE_UNDEFINED ATTR_NO_SANITIZE_INTEGER
+        ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
 body(struct md5_context *ctx, const void *data, size_t size)
 {
 	const unsigned char *ptr;
@@ -215,14 +217,15 @@ md5_update(struct md5_context *ctx, const void *data, size_t size)
 	}
 
 	if (size >= 64) {
-		data = body(ctx, data, size & ~(unsigned long)0x3f);
+		data = body(ctx, data, size & ~0x3fUL);
 		size &= 0x3f;
 	}
 
 	memcpy(ctx->buffer, data, size);
 }
 
-void ATTR_UNSIGNED_WRAPS
+void ATTR_UNSIGNED_WRAPS ATTR_NO_SANITIZE_UNDEFINED
+	ATTR_NO_SANITIZE_INTEGER ATTR_NO_SANITIZE_IMPLICIT_CONVERSION
 md5_final(struct md5_context *ctx, unsigned char result[STATIC_ARRAY MD5_RESULTLEN])
 {
 	/* @UNSAFE */
@@ -300,11 +303,12 @@ static void hash_method_result_md5(void *context, unsigned char *result_r)
 }
 
 const struct hash_method hash_method_md5 = {
-	"md5",
-	sizeof(struct md5_context),
-	MD5_RESULTLEN,
+	.name = "md5",
+	.block_size = 64, /* block size is 512 bits */
+	.context_size = sizeof(struct md5_context),
+	.digest_size = MD5_RESULTLEN,
 
-	hash_method_init_md5,
-	hash_method_loop_md5,
-	hash_method_result_md5
+	.init = hash_method_init_md5,
+	.loop = hash_method_loop_md5,
+	.result = hash_method_result_md5,
 };

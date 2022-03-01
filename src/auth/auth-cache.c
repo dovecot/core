@@ -338,16 +338,16 @@ auth_cache_escape(const char *string,
 
 static const char *
 auth_request_expand_cache_key(const struct auth_request *request,
-			      const char *key)
+			      const char *key, const char *username)
 {
 	static bool error_logged = FALSE;
-	const char *value, *error;
+	const char *error;
 
 	/* Uniquely identify the request's passdb/userdb with the P/U prefix
 	   and by "%!", which expands to the passdb/userdb ID number. */
 	key = t_strconcat(request->userdb_lookup ? "U" : "P", "%!",
-			  request->master_user == NULL ? "" : "+%{master_user}",
-			  "\t", key, NULL);
+		request->fields.master_user == NULL ? "" : "+%{master_user}",
+		"\t", key, NULL);
 
 	/* It's fine to have unknown %variables in the cache key.
 	   For example db-ldap can have pass_attrs containing
@@ -356,12 +356,19 @@ auth_request_expand_cache_key(const struct auth_request *request,
 	   filtered out early in the cache_key, but that gets more
 	   problematic when it needs to support also filtering out
 	   e.g. %{sha256:ldap:fields}. */
-	if (t_auth_request_var_expand(key, request, auth_cache_escape,
-				      &value, &error) < 0 && !error_logged) {
+	string_t *value = t_str_new(128);
+	unsigned int count = 0;
+	const struct var_expand_table *table =
+		auth_request_get_var_expand_table_full(request,
+			username, auth_cache_escape, &count);
+	if (auth_request_var_expand_with_table(value, key, request, table,
+					       auth_cache_escape, &error) < 0 &&
+	    !error_logged) {
 		error_logged = TRUE;
-		i_error("Failed to expand auth cache key %s: %s", key, error);
+		e_error(authdb_event(request),
+			"Failed to expand auth cache key %s: %s", key, error);
 	}
-	return value;
+	return str_c(value);
 }
 
 const char *
@@ -377,7 +384,7 @@ auth_cache_lookup(struct auth_cache *cache, const struct auth_request *request,
 	*expired_r = FALSE;
 	*neg_expired_r = FALSE;
 
-	key = auth_request_expand_cache_key(request, key);
+	key = auth_request_expand_cache_key(request, key, request->fields.user);
 	node = hash_table_lookup(cache->hash, key);
 	if (node == NULL) {
 		cache->miss_count++;
@@ -414,7 +421,8 @@ void auth_cache_insert(struct auth_cache *cache, struct auth_request *request,
 {
         struct auth_cache_node *node;
 	size_t data_size, alloc_size, key_len, value_len = strlen(value);
-	char *hash_key, *current_username;
+	const char *cache_username;
+	char *hash_key;
 
 	if (*value == '\0' && cache->neg_ttl_secs == 0) {
 		/* we're not caching negative entries */
@@ -423,20 +431,17 @@ void auth_cache_insert(struct auth_cache *cache, struct auth_request *request,
 
 	/* store into cache using the translated username, except if we're doing
 	   a master user login */
-	current_username = request->user;
-	if (request->translated_username != NULL &&
-	    request->requested_login_user == NULL &&
-	    request->master_user == NULL)
-		request->user = t_strdup_noconst(request->translated_username);
+	cache_username = request->fields.user;
+	if (request->fields.translated_username != NULL &&
+	    request->fields.requested_login_user == NULL &&
+	    request->fields.master_user == NULL)
+		cache_username = request->fields.translated_username;
 
-	key = auth_request_expand_cache_key(request, key);
+	key = auth_request_expand_cache_key(request, key, cache_username);
 	key_len = strlen(key);
 
-	request->user = current_username;
-
 	data_size = key_len + 1 + value_len + 1;
-	alloc_size = sizeof(struct auth_cache_node) -
-		sizeof(node->data) + data_size;
+	alloc_size = sizeof(struct auth_cache_node) + data_size;
 
 	/* make sure we have enough space */
 	while (cache->size_left < alloc_size && cache->tail != NULL)
@@ -476,7 +481,7 @@ void auth_cache_remove(struct auth_cache *cache,
 {
 	struct auth_cache_node *node;
 
-	key = auth_request_expand_cache_key(request, key);
+	key = auth_request_expand_cache_key(request, key, request->fields.user);
 	node = hash_table_lookup(cache->hash, key);
 	if (node == NULL)
 		return;

@@ -27,9 +27,9 @@ void mail_index_transaction_hook_unregister(hook_mail_index_transaction_created_
 
 	i_assert(array_is_created(&hook_mail_index_transaction_created));
 	for(idx = 0; idx < array_count(&hook_mail_index_transaction_created); idx++) {
-		hook_mail_index_transaction_created_t *const *hook_ptr =
-			array_idx(&hook_mail_index_transaction_created, idx);
-		if (*hook_ptr == hook) {
+		hook_mail_index_transaction_created_t *arr_hook =
+			array_idx_elem(&hook_mail_index_transaction_created, idx);
+		if (arr_hook == hook) {
 			array_delete(&hook_mail_index_transaction_created, idx, 1);
 			found = TRUE;
 			break;
@@ -80,7 +80,6 @@ void mail_index_transaction_unref(struct mail_index_transaction **_t)
 
 	DLLIST_REMOVE(&t->view->transactions_list, t);
 	array_free(&t->module_contexts);
-	mail_index_view_transaction_unref(t->view);
 	if (t->latest_view != NULL)
 		mail_index_view_close(&t->latest_view);
 	mail_index_view_close(&t->view);
@@ -192,10 +191,6 @@ mail_index_transaction_commit_real(struct mail_index_transaction *t,
 	if (mail_transaction_log_append_begin(log->index, trans_flags, &ctx) < 0)
 		return -1;
 	ret = mail_transaction_log_file_refresh(t, ctx);
-#ifdef DEBUG
-	uint64_t expected_highest_modseq =
-		mail_index_transaction_get_highest_modseq(t);
-#endif
 	if (ret > 0) T_BEGIN {
 		mail_index_transaction_finish(t);
 		mail_index_transaction_export(t, ctx, changes_r);
@@ -206,10 +201,6 @@ mail_index_transaction_commit_real(struct mail_index_transaction *t,
 		return -1;
 	mail_transaction_log_get_head(log, &log_seq2, &log_offset2);
 	i_assert(log_seq1 == log_seq2);
-
-#ifdef DEBUG
-	i_assert(expected_highest_modseq == log->head->sync_highest_modseq);
-#endif
 
 	if (t->reset) {
 		/* get rid of the old index. it might just confuse readers,
@@ -332,7 +323,6 @@ mail_index_transaction_begin(struct mail_index_view *view,
 	struct mail_index_transaction *t;
 
 	/* don't allow syncing view while there's ongoing transactions */
-	mail_index_view_transaction_ref(view);
  	mail_index_view_ref(view);
 
 	t = i_new(struct mail_index_transaction, 1);
@@ -358,9 +348,9 @@ mail_index_transaction_begin(struct mail_index_view *view,
 	if (array_is_created(&hook_mail_index_transaction_created)) {
 	        struct hook_build_context *ctx =
 			hook_build_init((void *)&t->v, sizeof(t->v));
-		hook_mail_index_transaction_created_t *const *ptr;
-		array_foreach(&hook_mail_index_transaction_created, ptr) {
-			(*ptr)(t);
+		hook_mail_index_transaction_created_t *callback;
+		array_foreach_elem(&hook_mail_index_transaction_created, callback) {
+			callback(t);
 			hook_build_update(ctx, t->vlast);
 		}
 		t->vlast = NULL;

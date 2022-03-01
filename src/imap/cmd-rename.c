@@ -37,10 +37,10 @@ bool cmd_rename(struct client_command_context *cmd)
 
 	old_box = mailbox_alloc(old_ns->list, oldname, 0);
 	new_box = mailbox_alloc(new_ns->list, newname, 0);
-	mailbox_set_reason(old_box, "RENAME from");
-	mailbox_set_reason(new_box, "RENAME to");
-	event_add_str(cmd->event, "old_mailbox", mailbox_get_vname(old_box));
-	event_add_str(cmd->event, "new_mailbox", mailbox_get_vname(new_box));
+	event_add_str(cmd->global_event, "old_mailbox",
+		      mailbox_get_vname(old_box));
+	event_add_str(cmd->global_event, "new_mailbox",
+		      mailbox_get_vname(new_box));
 	if (mailbox_rename(old_box, new_box) < 0)
 		client_send_box_error(cmd, old_box);
 	else

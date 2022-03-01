@@ -22,23 +22,45 @@ enum mail_cache_decision_type {
 };
 
 enum mail_cache_field_type {
+	/* Fixed size cache field. The size is specified only in the cache
+	   field header, not separately for each record. */
 	MAIL_CACHE_FIELD_FIXED_SIZE,
+	/* Variable sized binary data. */
 	MAIL_CACHE_FIELD_VARIABLE_SIZE,
+	/* Variable sized string. There is no difference internally to how
+	   MAIL_CACHE_FIELD_VARIABLE_SIZE is handled, but it helps at least
+	   "doveadm dump" to know whether to hex-encode the output. */
 	MAIL_CACHE_FIELD_STRING,
+	/* A fixed size bitmask field. It's possible to add new bits by
+	   updating this field. All the added fields are ORed together. */
 	MAIL_CACHE_FIELD_BITMASK,
+	/* Variable sized message header. The data begins with a 0-terminated
+	   uint32_t line_numbers[]. The line number exists only for each
+	   header, header continuation lines in multiline headers don't get
+	   listed. After the line numbers comes the list of headers, including
+	   the "header-name: " prefix for each line, LFs and the TABs or spaces
+	   for continued lines. */
 	MAIL_CACHE_FIELD_HEADER,
 
 	MAIL_CACHE_FIELD_COUNT
 };
 
 struct mail_cache_field {
+	/* Unique name for the cache field. The field name doesn't matter
+	   internally. */
 	const char *name;
+	/* Field index name. Used to optimize accessing the cache field. */
 	unsigned int idx;
 
+	/* Type of the field */
 	enum mail_cache_field_type type;
+	/* Size of the field, if it's a fixed size type. */
 	unsigned int field_size;
+	/* Current caching decision */
 	enum mail_cache_decision_type decision;
-	/* If higher than the current last_used field, update it */
+	/* Timestamp when the cache field was last intentionally read (e.g.
+	   by an IMAP client). Saving new mails doesn't update this field.
+	   This is used to track when an unaccessed field should be dropped. */
 	time_t last_used;
 };
 
@@ -65,7 +87,11 @@ mail_cache_register_get_list(struct mail_cache *cache, pool_t pool,
 			     unsigned int *count_r);
 
 /* Returns TRUE if cache should be purged. */
-bool mail_cache_need_purge(struct mail_cache *cache);
+bool mail_cache_need_purge(struct mail_cache *cache, const char **reason_r);
+/* Set cache file to be purged later. */
+void mail_cache_purge_later(struct mail_cache *cache, const char *reason);
+/* Don't try to purge the cache file later after all. */
+void mail_cache_purge_later_reset(struct mail_cache *cache);
 /* Purge cache file. Offsets are updated to given transaction.
    The transaction log must already be exclusively locked.
 
@@ -153,9 +179,10 @@ int mail_cache_lookup_headers(struct mail_cache_view *view, string_t *dest,
 
 /* "Error in index cache file %s: ...". */
 void mail_cache_set_corrupted(struct mail_cache *cache, const char *fmt, ...)
-	ATTR_FORMAT(2, 3);
+	ATTR_FORMAT(2, 3) ATTR_COLD;
 void mail_cache_set_seq_corrupted_reason(struct mail_cache_view *cache_view,
-					 uint32_t seq, const char *reason);
+					 uint32_t seq, const char *reason)
+	ATTR_COLD;
 
 /* Returns human-readable reason for why a cached field is missing for
    the specified mail. This is mainly for debugging purposes, so the exact

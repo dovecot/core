@@ -10,7 +10,7 @@
 
 #include <unistd.h>
 
-#define ANVIL_HANDSHAKE "VERSION\tanvil\t1\t0\n"
+#define ANVIL_HANDSHAKE "VERSION\tanvil-client\t2\t0\n"
 
 struct service_anvil_global *service_anvil_global;
 

@@ -16,7 +16,7 @@ static void test_buffer_random(void)
 
 	buf = buffer_create_dynamic(default_pool, 1);
 	for (i = 0; i < BUF_TEST_SIZE; i++)
-		testdata[i] = i_rand();
+		testdata[i] = i_rand_uchar();
 	memset(shadowbuf, 0, sizeof(shadowbuf));
 
 	shadowbuf_size = 0;
@@ -235,52 +235,52 @@ static void test_buffer_truncate_bits(void)
 		size_t bits;
 		buffer_t output;
 	} test_cases[] = {
-                { { "\xff\xff\xff", 3, {0} },  0, { "",  0, {0} } },
-                { { "\xff\xff\xff", 3, {0} },  1, { "\x01", 1, {0} } },
-                { { "\xff\xff\xff", 3, {0} },  2, { "\x03", 1, {0} } },
-                { { "\xff\xff\xff", 3, {0} },  3, { "\x07", 1, {0} } },
-                { { "\xff\xff\xff", 3, {0} },  4, { "\x0f", 1, {0} } },
-                { { "\xff\xff\xff", 3, {0} },  5, { "\x1f", 1, {0} } },
-                { { "\xff\xff\xff", 3, {0} },  6, { "\x3f", 1, {0} } },
-                { { "\xff\xff\xff", 3, {0} },  7, { "\x7f", 1, {0} } },
-                { { "\xff\xff\xff", 3, {0} },  8, { "\xff", 1, {0} } },
-                { { "\xff\xff\xff", 3, {0} },  9, { "\x01\xff", 2, {0} } },
-                { { "\xff\xff\xff", 3, {0} }, 10, { "\x03\xff", 2, {0} } },
-                { { "\xff\xff\xff", 3, {0} }, 11, { "\x07\xff", 2, {0} } },
-                { { "\xff\xff\xff", 3, {0} }, 12, { "\x0f\xff", 2, {0} } },
-                { { "\xff\xff\xff", 3, {0} }, 13, { "\x1f\xff", 2, {0} } },
-                { { "\xff\xff\xff", 3, {0} }, 14, { "\x3f\xff", 2, {0} } },
-                { { "\xff\xff\xff", 3, {0} }, 15, { "\x7f\xff", 2, {0} } },
-                { { "0123456789", 10, {0} }, 16, { "01",  2, {0} } },
-                { { "0123456789", 10, {0} }, 24, { "012",  3, {0} } },
-                { { "0123456789", 10, {0} }, 32, { "0123",  4, {0} } },
-                { { "0123456789", 10, {0} }, 40, { "01234",  5, {0} } },
-                { { "0123456789", 10, {0} }, 48, { "012345",  6, {0} } },
-                { { "0123456789", 10, {0} }, 56, { "0123456",  7, {0} } },
-                { { "0123456789", 10, {0} }, 64, { "01234567",  8, {0} } },
-                { { "0123456789", 10, {0} }, 72, { "012345678",  9, {0} } },
-		{ { "0123456789", 10, {0} }, 80, { "0123456789", 10, {0} } },
+		{ { { { "\xff\xff\xff", 3 } } },  0, { { { "",  0 } } } },
+                { { { { "\xff\xff\xff", 3 } } },  1, { { { "\x01", 1 } } } },
+                { { { { "\xff\xff\xff", 3 } } },  2, { { { "\x03", 1 } } } },
+                { { { { "\xff\xff\xff", 3 } } },  3, { { { "\x07", 1 } } } },
+                { { { { "\xff\xff\xff", 3 } } },  4, { { { "\x0f", 1 } } } },
+                { { { { "\xff\xff\xff", 3 } } },  5, { { { "\x1f", 1 } } } },
+                { { { { "\xff\xff\xff", 3 } } },  6, { { { "\x3f", 1 } } } },
+                { { { { "\xff\xff\xff", 3 } } },  7, { { { "\x7f", 1 } } } },
+                { { { { "\xff\xff\xff", 3 } } },  8, { { { "\xff", 1 } } } },
+                { { { { "\xff\xff\xff", 3 } } },  9, { { { "\x01\xff", 2 } } } },
+                { { { { "\xff\xff\xff", 3 } } }, 10, { { { "\x03\xff", 2 } } } },
+                { { { { "\xff\xff\xff", 3 } } }, 11, { { { "\x07\xff", 2 } } } },
+                { { { { "\xff\xff\xff", 3 } } }, 12, { { { "\x0f\xff", 2 } } } },
+                { { { { "\xff\xff\xff", 3 } } }, 13, { { { "\x1f\xff", 2 } } } },
+                { { { { "\xff\xff\xff", 3 } } }, 14, { { { "\x3f\xff", 2 } } } },
+                { { { { "\xff\xff\xff", 3 } } }, 15, { { { "\x7f\xff", 2 } } } },
+                { { { { "0123456789", 10 } } }, 16, { { { "01",  2 } } } },
+                { { { { "0123456789", 10 } } }, 24, { { { "012",  3 } } } },
+                { { { { "0123456789", 10 } } }, 32, { { { "0123",  4 } } } },
+                { { { { "0123456789", 10 } } }, 40, { { { "01234",  5 } } } },
+                { { { { "0123456789", 10 } } }, 48, { { { "012345",  6 } } } },
+                { { { { "0123456789", 10 } } }, 56, { { { "0123456",  7 } } } },
+                { { { { "0123456789", 10 } } }, 64, { { { "01234567",  8 } } } },
+                { { { { "0123456789", 10 } } }, 72, { { { "012345678",  9 } } } },
+		{ { { { "0123456789", 10 } } }, 80, { { { "0123456789", 10 } } } },
 
-		{ { "\x58\x11\xed\x02\x4d\x87\x4a\xe2\x5c\xb2\xfa\x69\xf0\xa9\x46\x2e\x04\xca\x5d\x82", 20, {0} },
+		{ { { { "\x58\x11\xed\x02\x4d\x87\x4a\xe2\x5c\xb2\xfa\x69\xf0\xa9\x46\x2e\x04\xca\x5d\x82", 20 } } },
 		  13,
-		  { "\x0b\x02", 2, {0} }
+		  { { { "\x0b\x02", 2 } } }
 		},
 
 		/* special test cases for auth policy */
 
-		{ { "\x34\x40\xc8\xc9\x3a\xb6\xe7\xc4\x3f\xc1\xc3\x4d\xd5\x56\xa3\xea\xfb\x5a\x33\x57\xac\x11\x39\x2c\x71\xcb\xee\xbb\xc8\x66\x2f\x64", 32, {0} },
+		{ { { { "\x34\x40\xc8\xc9\x3a\xb6\xe7\xc4\x3f\xc1\xc3\x4d\xd5\x56\xa3\xea\xfb\x5a\x33\x57\xac\x11\x39\x2c\x71\xcb\xee\xbb\xc8\x66\x2f\x64", 32 } } },
 		  12,
-		  { "\x03\x44", 2, {0} }
+		  { { { "\x03\x44", 2 } } }
 		},
 
-		{ { "\x49\xe5\x8a\x88\x76\xd3\x25\x68\xc9\x89\x4a\xe0\x64\xe4\x04\xf4\xf9\x13\xec\x88\x97\x47\x30\x7f\x3f\xcd\x8f\x74\x4f\x40\xd1\x25", 32, {0} },
+		{ { { { "\x49\xe5\x8a\x88\x76\xd3\x25\x68\xc9\x89\x4a\xe0\x64\xe4\x04\xf4\xf9\x13\xec\x88\x97\x47\x30\x7f\x3f\xcd\x8f\x74\x4f\x40\xd1\x25", 32 } } },
                   12,
-                  { "\x04\x9e", 2, {0} }
+		  { { { "\x04\x9e", 2 } } }
                 },
 
-		{ { "\x08\x3c\xdc\x14\x61\x80\x1c\xe8\x43\x81\x98\xfa\xc0\x64\x04\x7a\xa2\x73\x25\x6e\xe6\x4b\x85\x42\xd0\xe2\x78\xd7\x91\xb4\x89\x3f", 32, {0} },
+		{ { { { "\x08\x3c\xdc\x14\x61\x80\x1c\xe8\x43\x81\x98\xfa\xc0\x64\x04\x7a\xa2\x73\x25\x6e\xe6\x4b\x85\x42\xd0\xe2\x78\xd7\x91\xb4\x89\x3f", 32 } } },
                   12,
-                  { "\x00\x83", 2, {0} }
+		  { { { "\x00\x83", 2 } } }
                 },
 
 	};
@@ -289,7 +289,7 @@ static void test_buffer_truncate_bits(void)
 
 	for(size_t i = 0; i < N_ELEMENTS(test_cases); i++) {
 		buffer_set_used_size(buf, 0);
-		buffer_copy(buf, 0, &test_cases[i].input, 0, (size_t)-1);
+		buffer_copy(buf, 0, &test_cases[i].input, 0, SIZE_MAX);
 		buffer_truncate_rshift_bits(buf, test_cases[i].bits);
 		test_assert_idx(buffer_cmp(buf, &test_cases[i].output) == TRUE, i);
 	}
@@ -334,4 +334,34 @@ void test_buffer(void)
 	test_buffer_set_used_size();
 	test_buffer_truncate_bits();
 	test_buffer_replace();
+}
+
+static void fatal_buffer_free(buffer_t *buf)
+{
+	buffer_free(&buf);
+}
+
+enum fatal_test_state fatal_buffer(unsigned int stage)
+{
+	buffer_t *buf;
+
+	switch (stage) {
+	case 0:
+		test_begin("fatal buffer_create_dynamic_max()");
+		buf = buffer_create_dynamic_max(default_pool, 1, 5);
+		buffer_append(buf, "12345", 5);
+		test_expect_fatal_string("Buffer write out of range");
+		test_fatal_set_callback(fatal_buffer_free, buf);
+		buffer_append_c(buf, 'x');
+		return FATAL_TEST_FAILURE;
+	case 1:
+		buf = buffer_create_dynamic_max(default_pool, 1, 5);
+		test_expect_fatal_string("Buffer write out of range");
+		test_fatal_set_callback(fatal_buffer_free, buf);
+		buffer_append(buf, "123456", 6);
+		return FATAL_TEST_FAILURE;
+	default:
+		test_end();
+		return FATAL_TEST_FINISHED;
+	}
 }

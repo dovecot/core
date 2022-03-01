@@ -20,7 +20,7 @@ mbox_list_get_ext_id(struct mbox_mailbox *mbox,
 
 int mbox_list_index_has_changed(struct mailbox *box,
 				struct mail_index_view *list_view,
-				uint32_t seq, bool quick)
+				uint32_t seq, bool quick, const char **reason_r)
 {
 	struct mbox_mailbox *mbox = MBOX_MAILBOX(box);
 	const struct mbox_list_index_record *rec;
@@ -31,7 +31,8 @@ int mbox_list_index_has_changed(struct mailbox *box,
 	bool expunged;
 	int ret;
 
-	ret = index_storage_list_index_has_changed(box, list_view, seq, quick);
+	ret = index_storage_list_index_has_changed(box, list_view, seq,
+						   quick, reason_r);
 	if (ret != 0 || box->storage->set->mailbox_list_index_very_dirty_syncs)
 		return ret;
 
@@ -39,8 +40,15 @@ int mbox_list_index_has_changed(struct mailbox *box,
 	mail_index_lookup_ext(list_view, seq, ext_id, &data, &expunged);
 	rec = data;
 
-	if (rec == NULL || expunged || rec->mtime == 0) {
-		/* doesn't exist or not synced */
+	if (rec == NULL) {
+		*reason_r = "mbox record is missing";
+		return 1;
+	} else if (expunged) {
+		*reason_r = "mbox record is expunged";
+		return 1;
+	} else if (rec->mtime == 0) {
+		/* not synced */
+		*reason_r = "mbox record mtime=0";
 		return 1;
 	}
 
@@ -53,9 +61,18 @@ int mbox_list_index_has_changed(struct mailbox *box,
 		mailbox_set_critical(box, "stat(%s) failed: %m", path);
 		return -1;
 	}
-	if ((time_t)rec->mtime != st.st_mtime ||
-	    rec->size != (uint32_t)(st.st_size & 0xffffffffU))
+	if ((time_t)rec->mtime != st.st_mtime) {
+		*reason_r = t_strdup_printf(
+			"mbox record mtime changed %u != %"PRIdTIME_T,
+			rec->mtime, st.st_mtime);
 		return 1;
+	}
+	uint32_t new_size = (uint32_t)(st.st_size & 0xffffffffU);
+	if (rec->size != new_size) {
+		*reason_r = t_strdup_printf("mbox record size changed %u != %u",
+					    rec->size, new_size);
+		return 1;
+	}
 	return 0;
 }
 

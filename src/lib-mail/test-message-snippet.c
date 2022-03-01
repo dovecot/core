@@ -111,17 +111,174 @@ static const struct {
 	  "Incomplete utf8 \xC3",
 	  100,
 	  "Incomplete utf8" },
-        { "Content-Transfer-Encoding: quoted-printable\n"
-          "Content-Type: text/html;\n"
-          "      charset=utf-8\n"
-          "\n"
-          "<html><head><meta http-equiv=3D\"Content-Type\" content=3D\"text/html =\n"
-          "charset=3Dutf-8\"></head><body style=3D\"word-wrap: break-word; =\n"
-          "-webkit-nbsp-mode: space; -webkit-line-break: after-white-space;\" =\n"
-          "class=3D\"\"><div><blockquote>quoted text is included</blockquote>\n"
-          "</div><br =class=3D\"\"></body></html>=\n",
-          100,
-          ">quoted text is included" },
+	{ "Content-Transfer-Encoding: quoted-printable\n"
+	  "Content-Type: text/html;\n"
+	  "      charset=utf-8\n"
+	  "\n"
+	  "<html><head><meta http-equiv=3D\"Content-Type\" content=3D\"text/html =\n"
+	  "charset=3Dutf-8\"></head><body style=3D\"word-wrap: break-word; =\n"
+	  "-webkit-nbsp-mode: space; -webkit-line-break: after-white-space;\" =\n"
+	  "class=3D\"\"><div><blockquote>quoted text is included</blockquote>\n"
+	  "</div><br =class=3D\"\"></body></html>=\n",
+	  100,
+	  ">quoted text is included" },
+	{ "Content-Type: text/plain; charset=utf-8\n"
+	 "\n"
+	 "I think\n",
+	 100,
+	 "I think"
+	},
+	{ "Content-Type: text/plain; charset=utf-8\n"
+	 "\n"
+	 "  Lorem Ipsum\n",
+	 100,
+	 "Lorem Ipsum"
+	},
+	{ "Content-Type: text/plain; charset=utf-8\n"
+	 "\n"
+	 " I think\n",
+	 100,
+	 "I think"
+	},
+	{ "Content-Type: text/plain; charset=utf-8\n"
+	 "\n"
+	 "   A cat\n",
+	 100,
+	 "A cat"
+	},
+	{ "Content-Type: text/plain; charset=utf-8\n"
+	 "\n"
+	 " \n",
+	 100,
+	 ""
+	},
+	{ "MIME-Version: 1.0\n"
+	 "Content-Type: multipart/mixed; boundary=a\n"
+	 "\n--a\n"
+	 "Content-Transfer-Encoding: 7bit\n"
+	 "Content-Type: text/html; charset=utf-8\n\n"
+	 "<html><head></head><body><p>part one</p></body></head>\n"
+	 "\n--a\n"
+	 "Content-Transfer-Encoding: 7bit\n"
+	 "Content-Type: text/html; charset=utf-8\n\n"
+	 "<html><head></head><body><p>part two</p></body></head>\n"
+	 "\n--a--\n",
+	 100,
+	 "part one"
+	},
+	{ "MIME-Version: 1.0\n"
+	 "Content-Type: multipart/alternative; boundary=a\n"
+	 "\n--a\n"
+	 "Content-Transfer-Encoding: 7bit\n"
+	 "Content-Type: text/html; charset=utf-8\n\n"
+	 "<html><head></head><body><p>part one</p></body></head>\n"
+	 "\n--a\n"
+	 "Content-Transfer-Encoding: 7bit\n"
+	 "Content-Type: text/plain; charset=utf-8\n\n"
+	 "part two\n"
+	 "\n--a--\n",
+	 100,
+	 "part one"
+	},
+	{ "MIME-Version: 1.0\n"
+	  "Content-Type: multipart/mixed; boundary=a\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/html; charset=utf-8\n\n"
+	  "<html><head></head><body><div><p></p><!-- comment --></body></head>\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/html; charset=utf-8\n\n"
+	  "<html><head></head><body><p>part two</p></body></head>\n"
+	  "\n--a--\n",
+	  100,
+	  "part two"
+	},
+	{ "MIME-Version: 1.0\n"
+	  "Content-Type: multipart/alternative; boundary=a\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	 "Content-Type: text/plain; charset=utf-8\n\n"
+	  "> original text\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/plain; charset=utf-8\n\n"
+	  "part two\n"
+	  "\n--a--\n",
+	  100,
+	  ">original text"
+	},
+	{ "MIME-Version: 1.0\n"
+	  "Content-Type: multipart/alternative; boundary=a\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/plain; charset=utf-8\n\n"
+	  "top poster\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/plain; charset=utf-8\n\n"
+	  "> original text\n"
+	  "\n--a--\n",
+	  100,
+	  "top poster"
+	},
+	{ "MIME-Version: 1.0\n"
+	  "Content-Type: multipart/mixed; boundary=a\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/html; charset=utf-8\n\n"
+	  "<html><head></head><body><div><p></p><!-- comment --></body></head>\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/html; charset=utf-8\n\n"
+	  "<html><head></head><body><blockquote><!-- another --></blockquote>\n"
+	 "</body></head>\n"
+	  "\n--a--\n",
+	  100,
+	  ""
+	},
+	{ "MIME-Version: 1.0\n"
+	  "Content-Type: multipart/mixed; boundary=a\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/html; charset=utf-8\n\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/html; charset=utf-8\n\n"
+	  "</body></head>\n"
+	  "\n--a--\n",
+	  100,
+	  ""
+	},
+	{ "MIME-Version: 1.0\n"
+	  "Content-Type: multipart/mixed; boundary=a\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: base64\n"
+	  "Content-Type: application/octet-stream\n\n"
+	  "U2hvdWxkIG5vdCBiZSBpbiBzbmlwcGV0\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: 7bit\n"
+	  "Content-Type: text/html; charset=utf-8\n\n"
+	  "<html><head></head><body><p>Should be in snippet</p></body></html>\n"
+	  "\n--a--\n",
+	  100,
+	  "Should be in snippet"
+	},
+	{ "MIME-Version: 1.0\n"
+	  "Content-Type: multipart/mixed; boundary=a\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: base64\n"
+	  "Content-Type: application/octet-stream\n\n"
+	  "U2hvdWxkIG5vdCBiZSBpbiBzbmlwcGV0\n"
+	  "\n--a\n"
+	  "Content-Transfer-Encoding: base64\n"
+	  "Content-Type: TeXT/html; charset=utf-8\n\n"
+	  "PGh0bWw+PGhlYWQ+PC9oZWFkPjxib2R5PjxwPlNob3VsZCBiZSBpbiBzbmlwcGV0PC9wPjwvYm9k\n"
+	  "eT48L2h0bWw+\n"
+	  "\n--a--\n",
+	  100,
+	  "Should be in snippet"
+	},
 };
 
 static void test_message_snippet(void)
@@ -140,7 +297,7 @@ static void test_message_snippet(void)
 		test_istream_set_max_buffer_size(input,
 			I_MIN(45, strlen(tests[i].input)));
 		test_assert_idx(message_snippet_generate(input, tests[i].max_snippet_chars, str) == 0, i);
-		test_assert_idx(strcmp(tests[i].output, str_c(str)) == 0, i);
+		test_assert_strcmp_idx(tests[i].output, str_c(str), i);
 		i_stream_destroy(&input);
 	}
 	test_end();
@@ -156,7 +313,7 @@ static void test_message_snippet_nuls(void)
 
 	input = i_stream_create_from_data(input_text, sizeof(input_text)-1);
 	test_assert(message_snippet_generate(input, 5, str) == 0);
-	test_assert(strcmp(str_c(str), "fooba") == 0);
+	test_assert_strcmp(str_c(str), "fooba");
 	i_stream_destroy(&input);
 	test_end();
 }

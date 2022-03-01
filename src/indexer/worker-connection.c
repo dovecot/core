@@ -3,8 +3,10 @@
 #include "lib.h"
 #include "array.h"
 #include "aqueue.h"
+#include "connection.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "llist.h"
 #include "ostream.h"
 #include "str.h"
 #include "strescape.h"
@@ -17,223 +19,110 @@
 #define INDEXER_PROTOCOL_MAJOR_VERSION 1
 #define INDEXER_PROTOCOL_MINOR_VERSION 0
 
-#define INDEXER_MASTER_HANDSHAKE "VERSION\tindexer-master-worker\t1\t0\n"
+#define INDEXER_MASTER_NAME "indexer-master-worker"
 #define INDEXER_WORKER_NAME "indexer-worker-master"
 
 struct worker_connection {
-	int refcount;
+	struct connection conn;
 
-	char *socket_path;
 	indexer_status_callback_t *callback;
+	worker_available_callback_t *avail_callback;
 
-	int fd;
-	struct io *io;
-	struct istream *input;
-	struct ostream *output;
-
+	pid_t pid;
 	char *request_username;
-	ARRAY(void *) request_contexts;
-	struct aqueue *request_queue;
-
-	unsigned int process_limit;
-	bool version_received:1;
+	struct indexer_request *request;
 };
 
-struct worker_connection *
-worker_connection_create(const char *socket_path,
-			 indexer_status_callback_t *callback)
-{
-	struct worker_connection *conn;
+static unsigned int worker_last_process_limit = 0;
+static struct connection_list *worker_connections;
 
-	conn = i_new(struct worker_connection, 1);
-	conn->refcount = 1;
-	conn->socket_path = i_strdup(socket_path);
-	conn->callback = callback;
-	conn->fd = -1;
-	i_array_init(&conn->request_contexts, 32);
-	conn->request_queue = aqueue_init(&conn->request_contexts.arr);
-	return conn;
+static void worker_connection_call_callback(struct worker_connection *worker,
+					    int percentage)
+{
+	if (worker->request != NULL)
+		worker->callback(percentage, worker->request);
+	if (percentage < 0 || percentage == 100)
+		worker->request = NULL;
 }
 
-static void worker_connection_unref(struct worker_connection *conn)
+static void worker_connection_destroy(struct connection *conn)
 {
-	i_assert(conn->refcount > 0);
-	if (--conn->refcount > 0)
-		return;
+	struct worker_connection *worker =
+		container_of(conn, struct worker_connection, conn);
 
-	aqueue_deinit(&conn->request_queue);
-	array_free(&conn->request_contexts);
-	i_free(conn->socket_path);
+	worker_connection_call_callback(worker, -1);
+	i_free_and_null(worker->request_username);
+	connection_deinit(conn);
+
+	worker->avail_callback();
 	i_free(conn);
 }
 
-static void worker_connection_disconnect(struct worker_connection *conn)
+static int
+worker_connection_handshake_args(struct connection *conn, const char *const *args)
 {
-	unsigned int i, count = aqueue_count(conn->request_queue);
+	struct worker_connection *worker =
+		container_of(conn, struct worker_connection, conn);
+	unsigned int process_limit;
+	int ret;
 
-	if (conn->fd != -1) {
-		io_remove(&conn->io);
-		i_stream_destroy(&conn->input);
-		o_stream_destroy(&conn->output);
-
-		if (close(conn->fd) < 0)
-			i_error("close(%s) failed: %m", conn->socket_path);
-		conn->fd = -1;
+	if (!conn->version_received) {
+		if ((ret = connection_handshake_args_default(conn, args)) < 1)
+			return ret;
+		/* we are not done yet */
+		return 0;
 	}
-
-	/* cancel any pending requests */
-	if (count > 0) {
-		i_error("Indexer worker disconnected, "
-			"discarding %u requests for %s",
-			count, conn->request_username);
+	if (str_array_length(args) < 2) {
+		e_error(conn->event, "Worker sent invalid handshake");
+		return -1;
 	}
-
-	/* conn->callback() can try to destroy us */
-	conn->refcount++;
-	for (i = 0; i < count; i++) {
-		void *const *contextp =
-			array_idx(&conn->request_contexts,
-				  aqueue_idx(conn->request_queue, 0));
-		void *context = *contextp;
-
-		aqueue_delete_tail(conn->request_queue);
-		conn->callback(-1, context);
+	if (str_to_uint(args[0], &process_limit) < 0 ||
+	    process_limit == 0) {
+		e_error(conn->event, "Worker sent invalid process limit '%s'",
+			args[0]);
+		return -1;
 	}
-	i_free_and_null(conn->request_username);
-	worker_connection_unref(conn);
-}
-
-void worker_connection_destroy(struct worker_connection **_conn)
-{
-	struct worker_connection *conn = *_conn;
-
-	*_conn = NULL;
-
-	worker_connection_disconnect(conn);
-	worker_connection_unref(conn);
+	if (str_to_pid(args[1], &worker->pid) < 0 || worker->pid <= 0) {
+		e_error(conn->event, "Worker sent invalid pid '%s'",
+			args[1]);
+		return -1;
+	}
+	worker_last_process_limit = process_limit;
+	return 1;
 }
 
 static int
-worker_connection_input_line(struct worker_connection *conn, const char *line)
+worker_connection_input_args(struct connection *conn, const char *const *args)
 {
-	void *const *contextp, *context;
+	struct worker_connection *worker =
+		container_of(conn, struct worker_connection, conn);
 	int percentage;
+	int ret = 1;
 
-	if (aqueue_count(conn->request_queue) == 0) {
-		i_error("Input from worker without pending requests: %s", line);
-		return -1;
-	}
-
-	if (str_to_int(line, &percentage) < 0 ||
+	if (str_to_int(args[0], &percentage) < 0 ||
 	    percentage < -1 || percentage > 100) {
-		i_error("Invalid input from worker: %s", line);
+		e_error(conn->event, "Worker sent invalid progress '%s'", args[0]);
 		return -1;
 	}
 
-	contextp = array_idx(&conn->request_contexts,
-			     aqueue_idx(conn->request_queue, 0));
-	context = *contextp;
-	if (percentage < 0 || percentage == 100) {
-		/* the request is finished */
-		aqueue_delete_tail(conn->request_queue);
-		if (aqueue_count(conn->request_queue) == 0)
-			i_free_and_null(conn->request_username);
+	if (percentage < 0)
+		ret = -1;
+
+	worker_connection_call_callback(worker, percentage);
+	if (worker->request == NULL) {
+		/* disconnect after each request */
+		ret = -1;
 	}
 
-	conn->callback(percentage, context);
-	return 0;
+	return ret;
 }
 
-static void worker_connection_input(struct worker_connection *conn)
+static void
+worker_connection_send_request(struct worker_connection *worker,
+			       struct indexer_request *request)
 {
-	const char *line;
-
-	if (i_stream_read(conn->input) < 0) {
-		worker_connection_disconnect(conn);
-		return;
-	}
-
-	if (!conn->version_received) {
-		if ((line = i_stream_next_line(conn->input)) == NULL)
-			return;
-
-		if (!version_string_verify(line, INDEXER_WORKER_NAME,
-				INDEXER_PROTOCOL_MAJOR_VERSION)) {
-			i_error("Indexer worker not compatible with this master "
-				"(mixed old and new binaries?)");
-			worker_connection_disconnect(conn);
-			return;
-		}
-		conn->version_received = TRUE;
-	}
-	if (conn->process_limit == 0) {
-		if ((line = i_stream_next_line(conn->input)) == NULL)
-			return;
-		if (str_to_uint(line, &conn->process_limit) < 0 ||
-		    conn->process_limit == 0) {
-			i_error("Indexer worker sent invalid handshake: %s",
-				line);
-			worker_connection_disconnect(conn);
-			return;
-		}
-	}
-
-	while ((line = i_stream_next_line(conn->input)) != NULL) {
-		if (worker_connection_input_line(conn, line) < 0) {
-			worker_connection_disconnect(conn);
-			break;
-		}
-	}
-}
-
-int worker_connection_connect(struct worker_connection *conn)
-{
-	i_assert(conn->fd == -1);
-
-	conn->fd = net_connect_unix(conn->socket_path);
-	if (conn->fd == -1) {
-		i_error("connect(%s) failed: %m", conn->socket_path);
-		return -1;
-	}
-	conn->io = io_add(conn->fd, IO_READ, worker_connection_input, conn);
-	conn->input = i_stream_create_fd(conn->fd, (size_t)-1);
-	conn->output = o_stream_create_fd(conn->fd, (size_t)-1);
-	o_stream_set_no_error_handling(conn->output, TRUE);
-	o_stream_nsend_str(conn->output, INDEXER_MASTER_HANDSHAKE);
-	return 0;
-}
-
-bool worker_connection_is_connected(struct worker_connection *conn)
-{
-	return conn->fd != -1;
-}
-
-bool worker_connection_get_process_limit(struct worker_connection *conn,
-					 unsigned int *limit_r)
-{
-	if (conn->process_limit == 0)
-		return FALSE;
-
-	*limit_r = conn->process_limit;
-	return TRUE;
-}
-
-void worker_connection_request(struct worker_connection *conn,
-			       const struct indexer_request *request,
-			       void *context)
-{
-	i_assert(worker_connection_is_connected(conn));
-	i_assert(context != NULL);
-	i_assert(request->index || request->optimize);
-
-	if (conn->request_username == NULL)
-		conn->request_username = i_strdup(request->username);
-	else {
-		i_assert(strcmp(conn->request_username,
-				request->username) == 0);
-	}
-
-	aqueue_append(conn->request_queue, &context);
+	worker->request_username = i_strdup(request->username);
+	worker->request = request;
 
 	T_BEGIN {
 		string_t *str = t_str_new(128);
@@ -245,21 +134,87 @@ void worker_connection_request(struct worker_connection *conn,
 		if (request->session_id != NULL)
 			str_append_tabescaped(str, request->session_id);
 		str_printfa(str, "\t%u\t", request->max_recent_msgs);
-		if (request->index)
+		switch (request->type) {
+		case INDEXER_REQUEST_TYPE_INDEX:
 			str_append_c(str, 'i');
-		if (request->optimize)
+			break;
+		case INDEXER_REQUEST_TYPE_OPTIMIZE:
 			str_append_c(str, 'o');
+			break;
+		}
 		str_append_c(str, '\n');
-		o_stream_nsend(conn->output, str_data(str), str_len(str));
+		o_stream_nsend(worker->conn.output, str_data(str), str_len(str));
 	} T_END;
 }
 
-bool worker_connection_is_busy(struct worker_connection *conn)
+static const struct connection_vfuncs worker_connection_vfuncs = {
+	.destroy = worker_connection_destroy,
+	.input_args = worker_connection_input_args,
+	.handshake_args = worker_connection_handshake_args,
+};
+
+static const struct connection_settings worker_connection_set = {
+	.service_name_in = INDEXER_WORKER_NAME,
+	.service_name_out = INDEXER_MASTER_NAME,
+	.major_version = INDEXER_PROTOCOL_MAJOR_VERSION,
+	.minor_version = INDEXER_PROTOCOL_MINOR_VERSION,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
+	.client = TRUE,
+};
+
+void worker_connections_init(void)
 {
-	return aqueue_count(conn->request_queue) > 0;
+	worker_connections =
+		connection_list_init(&worker_connection_set,
+				     &worker_connection_vfuncs);
 }
 
-const char *worker_connection_get_username(struct worker_connection *conn)
+void worker_connections_deinit(void)
 {
-	return conn->request_username;
+	connection_list_deinit(&worker_connections);
+}
+
+int worker_connection_try_create(const char *socket_path,
+				 struct indexer_request *request,
+				 indexer_status_callback_t *callback,
+				 worker_available_callback_t *avail_callback)
+{
+	struct worker_connection *conn;
+	unsigned int max_connections;
+
+	max_connections = I_MAX(1, worker_last_process_limit);
+	if (worker_connections->connections_count >= max_connections)
+		return 0;
+
+	conn = i_new(struct worker_connection, 1);
+	conn->callback = callback;
+	conn->avail_callback = avail_callback;
+	connection_init_client_unix(worker_connections, &conn->conn,
+				    socket_path);
+	if (connection_client_connect(&conn->conn) < 0) {
+		worker_connection_destroy(&conn->conn);
+		return -1;
+	}
+	worker_connection_send_request(conn, request);
+	return 1;
+}
+
+unsigned int worker_connections_get_count(void)
+{
+	return worker_connections->connections_count;
+}
+
+struct worker_connection *worker_connections_find_user(const char *username)
+{
+	struct connection *conn;
+
+	for (conn = worker_connections->connections; conn != NULL; conn = conn->next) {
+		struct worker_connection *worker =
+			container_of(conn, struct worker_connection, conn);
+
+		if (strcmp(worker->request_username, username) == 0)
+			return worker;
+	}
+	return NULL;
 }

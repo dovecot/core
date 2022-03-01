@@ -16,7 +16,7 @@ passwd_lookup(struct auth_request *request, struct passwd *pw_r)
 {
 	e_debug(authdb_event(request), "lookup");
 
-	switch (i_getpwnam(request->user, pw_r)) {
+	switch (i_getpwnam(request->fields.user, pw_r)) {
 	case -1:
 		e_error(authdb_event(request),
 			"getpwnam() failed: %m");

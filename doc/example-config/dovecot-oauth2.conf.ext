@@ -39,6 +39,9 @@
 ## Expected issuer(s) for the token (space separated list)
 # issuers =
 
+## URL to RFC 7628 OpenID Provider Configuration Information schema
+# openid_configuration_url =
+
 ## Extra fields to set in passdb response (in passdb static style)
 # pass_attrs =
 

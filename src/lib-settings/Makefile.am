@@ -16,7 +16,8 @@ pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
-	test-settings-parser
+	test-settings-parser \
+	test-settings
 
 noinst_PROGRAMS = $(test_programs)
 
@@ -28,6 +29,10 @@ test_libs = \
 test_settings_parser_SOURCES = test-settings-parser.c
 test_settings_parser_LDADD = $(test_libs)
 test_settings_parser_DEPENDENCIES = $(test_libs)
+
+test_settings_SOURCES = test-settings.c
+test_settings_LDADD = $(test_libs)
+test_settings_DEPENDENCIES = $(test_libs)
 
 check-local:
 	for bin in $(test_programs); do \

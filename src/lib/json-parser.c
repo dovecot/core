@@ -27,6 +27,7 @@ enum json_state {
 };
 
 struct json_parser {
+	pool_t pool;
 	struct istream *input;
 	uoff_t highwater_offset;
 	enum json_parser_flags flags;
@@ -111,8 +112,11 @@ struct json_parser *json_parser_init_flags(struct istream *input,
 					   enum json_parser_flags flags)
 {
 	struct json_parser *parser;
+	pool_t pool = pool_alloconly_create("json parser",
+					    sizeof(struct json_parser)+64);
 
-	parser = i_new(struct json_parser, 1);
+	parser = p_new(pool, struct json_parser, 1);
+	parser->pool = pool;
 	parser->input = input;
 	parser->flags = flags;
 	parser->value = str_new(default_pool, 128);
@@ -132,13 +136,12 @@ int json_parser_deinit(struct json_parser **_parser, const char **error_r)
 
 	if (parser->error != NULL) {
 		/* actual parser error */
-		*error_r = parser->error;
+		*error_r = t_strdup(parser->error);
 	} else if (parser->input->stream_errno != 0) {
 		*error_r = t_strdup_printf("read(%s) failed: %s",
 					   i_stream_get_name(parser->input),
 					   i_stream_get_error(parser->input));
 	} else if (parser->data == parser->end &&
-		   !i_stream_have_bytes_left(parser->input) &&
 		   parser->state != JSON_STATE_DONE) {
 		*error_r = "Missing '}'";
 	} else {
@@ -148,7 +151,7 @@ int json_parser_deinit(struct json_parser **_parser, const char **error_r)
 	i_stream_unref(&parser->input);
 	array_free(&parser->nesting);
 	str_free(&parser->value);
-	i_free(parser);
+	pool_unref(&parser->pool);
 	return *error_r != NULL ? -1 : 0;
 }
 
@@ -179,7 +182,10 @@ static int json_skip_string(struct json_parser *parser)
 			return 1;
 		}
 		if (*parser->data == '\\') {
-			switch (*++parser->data) {
+			parser->data++;
+			if (parser->data == parser->end)
+				break;
+			switch (*parser->data) {
 			case '"':
 			case '\\':
 			case '/':
@@ -190,11 +196,14 @@ static int json_skip_string(struct json_parser *parser)
 			case 't':
 				break;
 			case 'u':
-				if (parser->end - parser->data < 4)
+				if (parser->end - parser->data < 4) {
+					parser->data = parser->end;
 					return -1;
+				}
 				parser->data += 3;
 				break;
 			default:
+				parser->error = "Invalid escape string";
 				return -1;
 			}
 		}
@@ -254,10 +263,9 @@ static int json_parse_unicode_escape(struct json_parser *parser)
 		}
 		if (parser->data[0] != '\\' || parser->data[1] != 'u' ||
 		    !UTF16_VALID_LOW_SURROGATE(chr)) {
-			parser->error =
-				t_strdup_printf("High surrogate 0x%04x seen, "
-						"but not followed by low surrogate",
-						hi_surg);
+			parser->error = p_strdup_printf(parser->pool,
+				"High surrogate 0x%04x seen, "
+				"but not followed by low surrogate", hi_surg);
 			return -1;
 		}
 		chr = uni_join_surrogate(hi_surg, chr);
@@ -265,8 +273,12 @@ static int json_parse_unicode_escape(struct json_parser *parser)
 	}
 
 	if (!uni_is_valid_ucs4(chr)) {
-		parser->error =
-			t_strdup_printf("Invalid unicode character U+%04x", chr);
+		parser->error = p_strdup_printf(parser->pool,
+			"Invalid unicode character U+%04x", chr);
+		return -1;
+	}
+	if (chr == 0) {
+		parser->error = "\\u0000 not supported in strings";
 		return -1;
 	}
 	uni_ucs4_to_utf8_c(chr, parser->value);
@@ -295,9 +307,8 @@ static int json_parse_string(struct json_parser *parser, bool allow_skip,
 			*value_r = str_c(parser->value);
 			return 1;
 		}
-		if (*parser->data != '\\')
-			str_append_c(parser->value, *parser->data);
-		else {
+		switch (*parser->data) {
+		case '\\':
 			if (++parser->data == parser->end)
 				return 0;
 			switch (*parser->data) {
@@ -326,8 +337,16 @@ static int json_parse_string(struct json_parser *parser, bool allow_skip,
 					return ret;
 				break;
 			default:
+				parser->error = "Invalid escape string";
 				return -1;
 			}
+			break;
+		case '\0':
+			parser->error = "NULs not supported in strings";
+			return -1;
+		default:
+			str_append_c(parser->value, *parser->data);
+			break;
 		}
 	}
 	return 0;

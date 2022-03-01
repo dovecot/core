@@ -18,5 +18,14 @@ void event_export_transport_log(const struct exporter *exporter, const buffer_t 
 void event_export_helper_fmt_rfc3339_time(string_t *dest, const struct timeval *time);
 /* append a microsecond resolution unix timestamp in seconds (i.e., %u.%06u) */
 void event_export_helper_fmt_unix_time(string_t *dest, const struct timeval *time);
+/* append category names using 'append' function pointer, separated by 'separator' arg
+
+   The result has no duplicates regardless of if the array has any or if any
+   of the categories' ancestors are implictly or explicitly duplicated. */
+void event_export_helper_fmt_categories(string_t *dest,
+					struct event_category *const *cats,
+					unsigned int count,
+					void (*append)(string_t *, const char *),
+					const char *separator);
 
 #endif

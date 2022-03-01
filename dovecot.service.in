@@ -10,13 +10,12 @@
 [Unit]
 Description=Dovecot IMAP/POP3 email server
 Documentation=man:dovecot(1)
-Documentation=http://wiki2.dovecot.org/
-After=local-fs.target network-online.target
+Documentation=https://doc.dovecot.org/
+After=local-fs.target network-online.target remote-fs.target
 
 [Service]
-Type=simple
+Type=@systemdservicetype@
 ExecStart=@sbindir@/dovecot -F
-PIDFile=@rundir@/master.pid
 ExecReload=@bindir@/doveadm reload
 ExecStop=@bindir@/doveadm stop
 PrivateTmp=true

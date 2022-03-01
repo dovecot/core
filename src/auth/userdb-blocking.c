@@ -34,19 +34,21 @@ static bool user_callback(const char *reply, void *context)
 			args = "";
 		else
 			username = t_strdup_until(username, args++);
-		if (username[0] != '\0' && strcmp(request->user, username) != 0) {
-			request->user = p_strdup(request->pool, username);
+		if (username[0] != '\0' &&
+		    strcmp(request->fields.user, username) != 0) {
+			auth_request_set_username_forced(request, username);
 			request->user_changed_by_lookup = TRUE;
 		}
 	} else {
 		result = USERDB_RESULT_INTERNAL_FAILURE;
-		i_error("BUG: auth-worker sent invalid user reply");
+		e_error(authdb_event(request),
+			"BUG: auth-worker sent invalid user reply");
 		args = "";
 	}
 
 	if (*args != '\0') {
-		auth_fields_import(request->userdb_reply, args, 0);
-		if (auth_fields_exists(request->userdb_reply, "tempfail"))
+		auth_fields_import(request->fields.userdb_reply, args, 0);
+		if (auth_fields_exists(request->fields.userdb_reply, "tempfail"))
 			request->userdb_lookup_tempfailed = TRUE;
 	}
 
@@ -64,7 +66,7 @@ void userdb_blocking_lookup(struct auth_request *request)
 	auth_request_export(request, str);
 
 	auth_request_ref(request);
-	auth_worker_call(request->pool, request->user,
+	auth_worker_call(request->pool, request->fields.user,
 			 str_c(str), user_callback, request);
 }
 

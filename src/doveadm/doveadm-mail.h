@@ -77,6 +77,8 @@ struct doveadm_mail_cmd_context {
 	/* search args aren't set for all mail commands */
 	struct mail_search_args *search_args;
 	struct istream *users_list_input;
+	int proxy_ttl;
+	ARRAY_TYPE(const_string) proxy_forward_fields;
 
 	struct mail_storage_service_user *cur_service_user;
 	struct mail_user *cur_mail_user;
@@ -105,45 +107,37 @@ struct doveadm_mail_cmd {
 	const char *name;
 	const char *usage_args;
 };
-ARRAY_DEFINE_TYPE(doveadm_mail_cmd, struct doveadm_mail_cmd);
 
-extern ARRAY_TYPE(doveadm_mail_cmd) doveadm_mail_cmds;
 extern void (*hook_doveadm_mail_init)(struct doveadm_mail_cmd_context *ctx);
 extern struct doveadm_mail_cmd_module_register doveadm_mail_cmd_module_register;
 extern char doveadm_mail_cmd_hide;
 
 bool doveadm_is_killed(void);
-int doveadm_killed_signo(void);
 
-bool doveadm_mail_try_run(const char *cmd_name, int argc, char *argv[]);
-void doveadm_mail_register_cmd(const struct doveadm_mail_cmd *cmd);
-const struct doveadm_mail_cmd *doveadm_mail_cmd_find(const char *cmd_name);
-
-void doveadm_mail_usage(string_t *out);
 void doveadm_mail_help(const struct doveadm_mail_cmd *cmd) ATTR_NORETURN;
 void doveadm_mail_help_name(const char *cmd_name) ATTR_NORETURN;
 void doveadm_mail_try_help_name(const char *cmd_name);
-bool doveadm_mail_has_subcommands(const char *cmd_name);
 
 void doveadm_mail_init(void);
+void doveadm_mail_init_finish(void);
 void doveadm_mail_deinit(void);
 
-const struct doveadm_mail_cmd *
-doveadm_mail_cmd_find_from_argv(const char *cmd_name, int *argc,
-				const char *const **argv);
 struct doveadm_mail_cmd_context *
 doveadm_mail_cmd_init(const struct doveadm_mail_cmd *cmd,
 		      const struct doveadm_settings *set);
+void doveadm_mail_cmd_deinit(struct doveadm_mail_cmd_context *ctx);
+void doveadm_mail_cmd_free(struct doveadm_mail_cmd_context *ctx);
 int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 			     const char **error_r);
 int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
-			     const struct mail_storage_service_input *input,
 			     const char **error_r);
 void doveadm_mail_server_flush(void);
 
 /* Request input stream to be read (from stdin). This must be called from
    the command's init() function. */
 void doveadm_mail_get_input(struct doveadm_mail_cmd_context *ctx);
+const char *
+doveadm_mail_get_forward_fields(struct doveadm_mail_cmd_context *ctx);
 
 struct mailbox *
 doveadm_mailbox_find(struct mail_user *user, const char *mailbox);
@@ -169,8 +163,7 @@ void doveadm_mail_failed_mailbox(struct doveadm_mail_cmd_context *ctx,
 void doveadm_mail_failed_list(struct doveadm_mail_cmd_context *ctx,
 			      struct mailbox_list *list);
 
-extern struct doveadm_mail_cmd cmd_batch;
-
+extern struct doveadm_cmd_ver2 doveadm_cmd_batch;
 extern struct doveadm_cmd_ver2 doveadm_cmd_mailbox_metadata_set_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_mailbox_metadata_unset_ver2;
 extern struct doveadm_cmd_ver2 doveadm_cmd_mailbox_metadata_get_ver2;

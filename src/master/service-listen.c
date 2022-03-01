@@ -4,8 +4,8 @@
 #include "array.h"
 #include "ioloop.h"
 #include "net.h"
-#ifdef HAVE_SYSTEMD
-#include "sd-daemon.h"
+#ifdef HAVE_LIBSYSTEMD
+#  include <systemd/sd-daemon.h>
 #endif
 #include "service.h"
 #include "service-listen.h"
@@ -33,7 +33,8 @@ static unsigned int service_get_backlog(struct service *service)
 }
 
 static int
-service_file_chown(const struct service_listener *l)
+service_file_chown(const struct service_listener *l, const char *path,
+		   const char **error_r)
 {
 	uid_t uid = l->set.fileset.uid;
 	uid_t gid = l->set.fileset.gid;
@@ -42,16 +43,16 @@ service_file_chown(const struct service_listener *l)
 	    (gid == (gid_t)-1 || gid == master_gid))
 		return 0;
 
-	if (chown(l->set.fileset.set->path, uid, gid) < 0) {
-		service_error(l->service, "chown(%s, %lld, %lld) failed: %m",
-			      l->set.fileset.set->path,
-			      (long long)uid, (long long)gid);
+	if (chown(path, uid, gid) < 0) {
+		*error_r = t_strdup_printf("chown(%s, %lld, %lld) failed: %m",
+					   path, (long long)uid, (long long)gid);
 		return -1;
 	}
 	return 0;
 }
 
-static int service_unix_listener_listen(struct service_listener *l)
+int service_unix_listener_listen(struct service_listener *l, const char *path,
+				 bool verify_addrinuse, const char **error_r)
 {
         struct service *service = l->service;
 	const struct file_listener_settings *set = l->set.fileset.set;
@@ -60,35 +61,35 @@ static int service_unix_listener_listen(struct service_listener *l)
 
 	old_umask = umask((set->mode ^ 0777) & 0777);
 	for (i = 0;; i++) {
-		fd = net_listen_unix(set->path, service_get_backlog(service));
+		fd = net_listen_unix(path, service_get_backlog(service));
 		if (fd != -1)
 			break;
 
-		if (errno == EISDIR || errno == ENOENT) {
-			/* looks like the path doesn't exist. */
-			return 0;
-		}
-
 		if (errno != EADDRINUSE) {
-			service_error(service, "net_listen_unix(%s) failed: %m",
-				      set->path);
+			*error_r = t_strdup_printf(
+				"net_listen_unix(%s) failed: %m", path);
 			return -1;
 		}
 
 		/* already in use - see if it really exists.
 		   after 3 times just fail here. */
-		fd = net_connect_unix(set->path);
+		if (verify_addrinuse)
+			fd = net_connect_unix(path);
+		else {
+			fd = -1;
+			errno = ECONNREFUSED;
+		}
 		if (fd != -1 || errno != ECONNREFUSED || i >= 3) {
 			i_close_fd(&fd);
-			service_error(service, "Socket already exists: %s",
-				      set->path);
+			*error_r = t_strdup_printf("Socket already exists: %s",
+						   path);
 			return 0;
 		}
 
 		/* delete and try again */
-		if (unlink(set->path) < 0 && errno != ENOENT) {
-			service_error(service, "unlink(%s) failed: %m",
-				      set->path);
+		if (unlink(path) < 0 && errno != ENOENT) {
+			*error_r = t_strdup_printf("unlink(%s) failed: %m",
+						   path);
 			return -1;
 		}
 	}
@@ -96,7 +97,7 @@ static int service_unix_listener_listen(struct service_listener *l)
 
 	i_assert(fd != -1);
 
-	if (service_file_chown(l) < 0) {
+	if (service_file_chown(l, path, error_r) < 0) {
 		i_close_fd(&fd);
 		return -1;
 	}
@@ -107,9 +108,9 @@ static int service_unix_listener_listen(struct service_listener *l)
 	return 1;
 }
 
-static int service_fifo_listener_listen(struct service_listener *l)
+static int
+service_fifo_listener_listen(struct service_listener *l, const char **error_r)
 {
-        struct service *service = l->service;
 	const struct file_listener_settings *set = l->set.fileset.set;
 	unsigned int i;
 	mode_t old_umask;
@@ -123,24 +124,24 @@ static int service_fifo_listener_listen(struct service_listener *l)
 		if (ret == 0)
 			break;
 		if (ret < 0 && (errno != EEXIST || i == 1)) {
-			service_error(service, "mkfifo(%s) failed: %m",
-				      set->path);
+			*error_r = t_strdup_printf("mkfifo(%s) failed: %m",
+						   set->path);
 			return -1;
 		}
 		if (unlink(set->path) < 0) {
-			service_error(service, "unlink(%s) failed: %m",
-				      set->path);
+			*error_r = t_strdup_printf("unlink(%s) failed: %m",
+						   set->path);
 			return -1;
 		}
 	}
-	if (service_file_chown(l) < 0)
+	if (service_file_chown(l, set->path, error_r) < 0)
 		return -1;
 
 	/* open as RDWR, so that even if the last writer closes,
 	   we won't get EOF errors */
 	fd = open(set->path, O_RDWR | O_NONBLOCK);
 	if (fd == -1) {
-		service_error(service, "open(%s) failed: %m", set->path);
+		*error_r = t_strdup_printf("open(%s) failed: %m", set->path);
 		return -1;
 	}
 
@@ -150,9 +151,10 @@ static int service_fifo_listener_listen(struct service_listener *l)
 	return 1;
 }
 
-#ifdef HAVE_SYSTEMD
+#ifdef HAVE_LIBSYSTEMD
 static int
-systemd_listen_fd(const struct ip_addr *ip, in_port_t port, int *fd_r)
+systemd_listen_fd(const struct ip_addr *ip, in_port_t port, int *fd_r,
+		  const char **error_r)
 {
 	static int sd_fds = -1;
 	int fd, fd_max;
@@ -160,14 +162,15 @@ systemd_listen_fd(const struct ip_addr *ip, in_port_t port, int *fd_r)
 	if (sd_fds < 0) {
 		sd_fds = sd_listen_fds(0);
 		if (sd_fds < 0) {
-			i_error("sd_listen_fds() failed: %s", strerror(-sd_fds));
+			*error_r = t_strdup_printf("sd_listen_fds() failed: %s",
+						   strerror(-sd_fds));
 			return -1;
 		}
 	}
 
 	fd_max = SD_LISTEN_FDS_START + sd_fds - 1;
 	for (fd = SD_LISTEN_FDS_START; fd <= fd_max; fd++) {
-		if (sd_is_socket_inet(fd, ip->family, SOCK_STREAM, 1, port)) {
+		if (sd_is_socket_inet(fd, ip->family, SOCK_STREAM, 1, port) > 0) {
 			*fd_r = fd;
 			return 0;
 		}
@@ -179,7 +182,8 @@ systemd_listen_fd(const struct ip_addr *ip, in_port_t port, int *fd_r)
 }
 #endif
 
-static int service_inet_listener_listen(struct service_listener *l)
+static int
+service_inet_listener_listen(struct service_listener *l, const char **error_r)
 {
         struct service *service = l->service;
 	enum net_listen_flags flags = 0;
@@ -187,8 +191,8 @@ static int service_inet_listener_listen(struct service_listener *l)
 	in_port_t port = set->port;
 	int fd;
 
-#ifdef HAVE_SYSTEMD
-	if (systemd_listen_fd(&l->set.inetset.ip, port, &fd) < 0)
+#ifdef HAVE_LIBSYSTEMD
+	if (systemd_listen_fd(&l->set.inetset.ip, port, &fd, error_r) < 0)
 		return -1;
 
 	if (fd == -1)
@@ -199,8 +203,8 @@ static int service_inet_listener_listen(struct service_listener *l)
 		fd = net_listen_full(&l->set.inetset.ip, &port, &flags,
 				     service_get_backlog(service));
 		if (fd < 0) {
-			service_error(service, "listen(%s, %u) failed: %m",
-				      l->inet_address, set->port);
+			*error_r = t_strdup_printf("listen(%s, %u) failed: %m",
+						   l->inet_address, set->port);
 			return errno == EADDRINUSE ? 0 : -1;
 		}
 		l->reuse_port = (flags & NET_LISTEN_FLAG_REUSEPORT) != 0;
@@ -214,25 +218,34 @@ static int service_inet_listener_listen(struct service_listener *l)
 
 int service_listener_listen(struct service_listener *l)
 {
+	const char *error;
+	int ret;
+
 	switch (l->type) {
 	case SERVICE_LISTENER_UNIX:
-		return service_unix_listener_listen(l);
+		ret = service_unix_listener_listen(l, l->set.fileset.set->path,
+						   TRUE, &error);
+		break;
 	case SERVICE_LISTENER_FIFO:
-		return service_fifo_listener_listen(l);
+		ret = service_fifo_listener_listen(l, &error);
+		break;
 	case SERVICE_LISTENER_INET:
-		return service_inet_listener_listen(l);
+		ret = service_inet_listener_listen(l, &error);
+		break;
+	default:
+		i_unreached();
 	}
-	i_unreached();
+	if (ret <= 0)
+		service_error(l->service, "%s", error);
+	return ret;
 }
 
 static int service_listen(struct service *service)
 {
-	struct service_listener *const *listeners;
+	struct service_listener *l;
 	int ret = 1, ret2 = 0;
 
-	array_foreach(&service->listeners, listeners) {
-		struct service_listener *l = *listeners;
-
+	array_foreach_elem(&service->listeners, l) {
 		if (l->fd != -1)
 			continue;
 
@@ -243,8 +256,8 @@ static int service_listen(struct service *service)
 	return ret;
 }
 
-#ifdef HAVE_SYSTEMD
-static int get_socket_info(int fd, unsigned int *family, in_port_t *port)
+#ifdef HAVE_LIBSYSTEMD
+static int get_socket_info(int fd, sa_family_t *family_r, in_port_t *port_r)
 {
 	union sockaddr_union {
 		struct sockaddr sa;
@@ -253,9 +266,10 @@ static int get_socket_info(int fd, unsigned int *family, in_port_t *port)
 	} sockaddr;
 	socklen_t l;
 
-	// FIXME(Stephan): why -1?
-	if (port) *port = -1;
-	if (family) *family = -1;
+	if (port_r != NULL)
+		*port_r = 0;
+	if (family_r != NULL)
+		*family_r = AF_UNSPEC;
 
 	i_zero(&sockaddr);
 	l = sizeof(sockaddr);
@@ -263,18 +277,19 @@ static int get_socket_info(int fd, unsigned int *family, in_port_t *port)
 	if (getsockname(fd, &sockaddr.sa, &l) < 0)
 	      return -errno;
 
-	if (family) *family = sockaddr.sa.sa_family;
-	if (port) {
+	if (family_r != NULL)
+		*family_r = sockaddr.sa.sa_family;
+	if (port_r != NULL) {
 		if (sockaddr.sa.sa_family == AF_INET) {
 			if (l < sizeof(struct sockaddr_in))
 				return -EINVAL;
 
-			*port = ntohs(sockaddr.in4.sin_port);
+			*port_r = ntohs(sockaddr.in4.sin_port);
 		} else {
 			if (l < sizeof(struct sockaddr_in6))
 				return -EINVAL;
 
-			*port = ntohs(sockaddr.in6.sin6_port);
+			*port_r = ntohs(sockaddr.in6.sin6_port);
 		}
 	}
 	return 0;
@@ -282,7 +297,7 @@ static int get_socket_info(int fd, unsigned int *family, in_port_t *port)
 
 static int services_verify_systemd(struct service_list *service_list)
 {
-	struct service *const *services;
+	struct service *service;
 	static int sd_fds = -1;
 	int fd, fd_max;
 
@@ -297,16 +312,15 @@ static int services_verify_systemd(struct service_list *service_list)
 	fd_max = SD_LISTEN_FDS_START + sd_fds - 1;
 	for (fd = SD_LISTEN_FDS_START; fd <= fd_max; fd++) {
 		if (sd_is_socket_inet(fd, 0, SOCK_STREAM, 1, 0) > 0) {
-			int found = FALSE;
+			bool found = FALSE;
 			in_port_t port;
-			unsigned int family;
+			sa_family_t family;
 			get_socket_info(fd, &family, &port);
 			
-			array_foreach(&service_list->services, services) {
-				struct service_listener *const *listeners;
+			array_foreach_elem(&service_list->services, service) {
+				struct service_listener *l;
 
-				array_foreach(&(*services)->listeners, listeners) {
-					struct service_listener *l = *listeners;
+				array_foreach_elem(&service->listeners, l) {
 					if (l->type != SERVICE_LISTENER_INET)
 						continue;
 					if (l->set.inetset.set->port == port &&
@@ -315,14 +329,19 @@ static int services_verify_systemd(struct service_list *service_list)
 						break;
 					}
 				}
-				if (found) break;
+				if (found)
+					break;
 			}
 			if (!found) {
-				i_error("systemd listens on port %d, but it's not configured in Dovecot. Closing.",port);
-				if (shutdown(fd, SHUT_RDWR) < 0 && errno != ENOTCONN)
-					i_error("shutdown() failed: %m");
+				i_error("systemd listens on port %d, "
+					"but it's not configured in Dovecot. "
+					"Closing.", port);
+				if (shutdown(fd, SHUT_RDWR) < 0 &&
+				    errno != ENOTCONN)
+					i_error("shutdown(%d) failed: %m", fd);
 				if (dup2(dev_null_fd, fd) < 0)
-					i_error("dup2() failed: %m");
+					i_error("dup2(%d, %d) failed: %m",
+						dev_null_fd, fd);
 			}
 		}
 	}
@@ -359,11 +378,11 @@ static int services_listen_master(struct service_list *service_list)
 
 int services_listen(struct service_list *service_list)
 {
-	struct service *const *services;
+	struct service *service;
 	int ret = 1, ret2;
 
-	array_foreach(&service_list->services, services) {
-		ret2 = service_listen(*services);
+	array_foreach_elem(&service_list->services, service) {
+		ret2 = service_listen(service);
 		if (ret2 < ret)
 			ret = ret2;
 	}
@@ -374,7 +393,7 @@ int services_listen(struct service_list *service_list)
 			ret = ret2;
 	}
 
-#ifdef HAVE_SYSTEMD
+#ifdef HAVE_LIBSYSTEMD
 	if (ret > 0)
 		services_verify_systemd(service_list);
 #endif

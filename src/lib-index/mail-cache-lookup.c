@@ -330,7 +330,8 @@ static int mail_cache_seq(struct mail_cache_view *view, uint32_t seq)
 	struct mail_cache_iterate_field field;
 	int ret;
 
-	if (++view->cached_exists_value == 0) {
+	view->cached_exists_value = (view->cached_exists_value + 1) & UINT8_MAX;
+	if (view->cached_exists_value == 0) {
 		/* wrapped, we'll have to clear the buffer */
 		buffer_set_used_size(view->cached_exists_buf, 0);
 		view->cached_exists_value++;
@@ -414,7 +415,6 @@ mail_cache_lookup_bitmask(struct mail_cache_lookup_iterate_ctx *iter,
 int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
 			    uint32_t seq, unsigned int field_idx)
 {
-	const struct mail_cache_field *field_def;
 	struct mail_cache_lookup_iterate_ctx iter;
 	struct mail_cache_iterate_field field;
 	int ret;
@@ -426,21 +426,22 @@ int mail_cache_lookup_field(struct mail_cache_view *view, buffer_t *dest_buf,
 
 	/* the field should exist */
 	mail_cache_lookup_iter_init(view, seq, &iter);
-	field_def = &view->cache->fields[field_idx].field;
-	if (field_def->type == MAIL_CACHE_FIELD_BITMASK) {
-		return mail_cache_lookup_bitmask(&iter, field_idx,
-						 field_def->field_size,
-						 dest_buf);
-	}
-
-	/* return the first one that's found. if there are multiple
-	   they're all identical. */
-	while ((ret = mail_cache_lookup_iter_next(&iter, &field)) > 0) {
-		if (field.field_idx == field_idx) {
-			buffer_append(dest_buf, field.data, field.size);
-			break;
+	if (view->cache->fields[field_idx].field.type == MAIL_CACHE_FIELD_BITMASK) {
+		ret = mail_cache_lookup_bitmask(&iter, field_idx,
+			view->cache->fields[field_idx].field.field_size,
+			dest_buf);
+	} else {
+		/* return the first one that's found. if there are multiple
+		   they're all identical. */
+		while ((ret = mail_cache_lookup_iter_next(&iter, &field)) > 0) {
+			if (field.field_idx == field_idx) {
+				buffer_append(dest_buf, field.data, field.size);
+				break;
+			}
 		}
 	}
+	/* NOTE: view->cache->fields may have been reallocated by
+	   mail_cache_lookup_*(). */
 	return ret;
 }
 

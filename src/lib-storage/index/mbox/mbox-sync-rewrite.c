@@ -28,11 +28,11 @@ int mbox_move(struct mbox_sync_context *sync_ctx,
 
 	i_stream_sync(sync_ctx->input);
 
-	output = o_stream_create_fd_file(sync_ctx->write_fd, (uoff_t)-1, FALSE);
+	output = o_stream_create_fd_file(sync_ctx->write_fd, UOFF_T_MAX, FALSE);
 	i_stream_seek(sync_ctx->file_input, source);
 	if (o_stream_seek(output, dest) < 0) {
-		mbox_set_syscall_error(sync_ctx->mbox,
-				       "o_stream_seek()");
+		mbox_ostream_set_syscall_error(sync_ctx->mbox, output,
+					       "o_stream_seek()");
 		o_stream_unref(&output);
 		return -1;
 	}
@@ -109,7 +109,7 @@ void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
 	} else {
 		/* Append at the end of X-Keywords header,
 		   or X-UID if it doesn't exist */
-		start_pos = ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] != (size_t)-1 ?
+		start_pos = ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] != SIZE_MAX ?
 			ctx->hdr_pos[MBOX_HDR_X_KEYWORDS] :
 			ctx->hdr_pos[MBOX_HDR_X_UID];
 	}
@@ -138,7 +138,7 @@ void mbox_sync_headers_add_space(struct mbox_sync_mail_context *ctx,
 
 	if (ctx->header_first_change > pos)
 		ctx->header_first_change = pos;
-	ctx->header_last_change = (size_t)-1;
+	ctx->header_last_change = SIZE_MAX;
 
 	ctx->mail.space = (pos - start_pos) + size;
 	ctx->mail.offset = ctx->hdr_offset;
@@ -175,7 +175,7 @@ static void mbox_sync_header_remove_space(struct mbox_sync_mail_context *ctx,
 	/* and remove what we can */
 	if (ctx->header_first_change > start_pos)
 		ctx->header_first_change = start_pos;
-	ctx->header_last_change = (size_t)-1;
+	ctx->header_last_change = SIZE_MAX;
 
 	if (data_size - start_pos <= *size) {
 		/* remove it all */
@@ -220,7 +220,7 @@ static void mbox_sync_headers_remove_space(struct mbox_sync_mail_context *ctx,
 
 	for (i = 0; i < 3 && size > 0; i++) {
 		pos = space_positions[i];
-		if (ctx->hdr_pos[pos] != (size_t)-1) {
+		if (ctx->hdr_pos[pos] != SIZE_MAX) {
 			mbox_sync_header_remove_space(ctx, ctx->hdr_pos[pos],
 						      &size);
 		}
@@ -235,7 +235,7 @@ static void mbox_sync_first_mail_written(struct mbox_sync_mail_context *ctx,
 	/* we wrote the first mail. update last-uid offset so we can find
 	   it later */
 	i_assert(ctx->last_uid_value_start_pos != 0);
-	i_assert(ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] != (size_t)-1);
+	i_assert(ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] != SIZE_MAX);
 
 	ctx->sync_ctx->base_uid_last_offset = hdr_offset +
 		ctx->hdr_pos[MBOX_HDR_X_IMAPBASE] +
@@ -290,7 +290,7 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 
 	i_assert(ctx->mail.space >= 0);
 
-	if (ctx->header_first_change == (size_t)-1 && move_diff == 0) {
+	if (ctx->header_first_change == SIZE_MAX && move_diff == 0) {
 		/* no changes actually. we get here if index sync record told
 		   us to do something that was already there */
 		return 1;
@@ -302,14 +302,14 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 		ctx->header_last_change = 0;
 	}
 
-	if (ctx->header_last_change != (size_t)-1 &&
+	if (ctx->header_last_change != SIZE_MAX &&
 	    ctx->header_last_change != 0)
 		str_truncate(ctx->header, ctx->header_last_change);
 
 	if (pwrite_full(sync_ctx->write_fd,
 			str_data(ctx->header) + ctx->header_first_change,
 			str_len(ctx->header) - ctx->header_first_change,
-			ctx->hdr_offset + ctx->header_first_change +
+			(off_t)ctx->hdr_offset + (off_t)ctx->header_first_change +
 			move_diff) < 0) {
 		mbox_set_syscall_error(sync_ctx->mbox, "pwrite_full()");
 		return -1;
@@ -319,7 +319,7 @@ int mbox_sync_try_rewrite(struct mbox_sync_mail_context *ctx, off_t move_diff)
 	    (ctx->imapbase_updated || ctx->sync_ctx->base_uid_last != 0)) {
 		/* the position might have moved as a result of moving
 		   whitespace */
-		mbox_sync_first_mail_written(ctx, ctx->hdr_offset + move_diff);
+		mbox_sync_first_mail_written(ctx, (off_t)ctx->hdr_offset + move_diff);
 	}
 
 	mbox_sync_file_updated(sync_ctx, FALSE);
@@ -385,7 +385,7 @@ static int mbox_sync_read_next(struct mbox_sync_context *sync_ctx,
 	if (mails[idx].space != 0) {
 		if (mails[idx].space < 0) {
 			/* remove all possible spacing before updating */
-			mbox_sync_headers_remove_space(mail_ctx, (size_t)-1);
+			mbox_sync_headers_remove_space(mail_ctx, SIZE_MAX);
 		}
 		mbox_sync_update_header_from(mail_ctx, &mails[idx]);
 	} else {
@@ -540,8 +540,8 @@ int mbox_sync_rewrite(struct mbox_sync_context *sync_ctx,
 			/* give the rest of the extra space to first mail.
 			   we might also have to move the mail backwards to
 			   fill the expunged space */
-			padding_per_mail = move_diff + expunged_space +
-				mails[idx].space;
+			padding_per_mail = move_diff + (off_t)expunged_space +
+				(off_t)mails[idx].space;
 		}
 
 		next_end_offset = mails[idx].offset;

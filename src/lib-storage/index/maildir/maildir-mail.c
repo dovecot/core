@@ -68,6 +68,9 @@ maildir_open_mail(struct maildir_mailbox *mbox, struct mail *mail,
 
 	*deleted_r = FALSE;
 
+	if (!mail_stream_access_start(mail))
+		return NULL;
+
 	ctx.fd = -1;
 	ctx.path = NULL;
 
@@ -107,11 +110,8 @@ static int maildir_mail_stat(struct mail *mail, struct stat *st_r)
 	const char *path;
 	int fd, ret;
 
-	if (mail->lookup_abort >= MAIL_LOOKUP_ABORT_NOT_IN_CACHE) {
-		mail_set_aborted(mail);
+	if (!mail_metadata_access_start(mail))
 		return -1;
-	}
-	mail->mail_metadata_accessed = TRUE;
 
 	if (imail->data.access_part != 0 &&
 	    imail->data.stream == NULL) {
@@ -234,7 +234,7 @@ static int maildir_get_pop3_state(struct index_mail *mail)
 		MAIL_FETCH_VIRTUAL_SIZE;
 
 	if (mail->data.wanted_headers != NULL ||
-	    (mail->data.wanted_fields & ~allowed_pop3_fields) != 0)
+	    (mail->data.wanted_fields & ENUM_NEGATE(allowed_pop3_fields)) != 0)
 		not_pop3_only = TRUE;
 
 	/* get vsize decisions */
@@ -243,7 +243,7 @@ static int maildir_get_pop3_state(struct index_mail *mail)
 	if (not_pop3_only) {
 		vsize_dec = mail_cache_field_get_decision(box->cache,
 							  vsize_idx);
-		vsize_dec &= ~MAIL_CACHE_DECISION_FORCED;
+		vsize_dec &= ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED);
 	} else {
 		/* also check if there are any non-[pv]size cached fields */
 		vsize_dec = MAIL_CACHE_DECISION_NO;
@@ -251,7 +251,7 @@ static int maildir_get_pop3_state(struct index_mail *mail)
 						      pool_datastack_create(),
 						      &count);
 		for (i = 0; i < count; i++) {
-			dec = fields[i].decision & ~MAIL_CACHE_DECISION_FORCED;
+			dec = fields[i].decision & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED);
 			if (fields[i].idx == vsize_idx)
 				vsize_dec = dec;
 			else if (dec != MAIL_CACHE_DECISION_NO &&
@@ -392,9 +392,9 @@ static int maildir_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 			return -1;
 	}
 
-	if (data->virtual_size == (uoff_t)-1) {
+	if (data->virtual_size == UOFF_T_MAX) {
 		if (index_mail_get_cached_virtual_size(mail, size_r)) {
-			i_assert(mail->data.virtual_size != (uoff_t)-1);
+			i_assert(mail->data.virtual_size != UOFF_T_MAX);
 			maildir_handle_size_caching(mail, TRUE, TRUE);
 			return 0;
 		}
@@ -402,7 +402,7 @@ static int maildir_mail_get_virtual_size(struct mail *_mail, uoff_t *size_r)
 					      &data->virtual_size) < 0)
 			return -1;
 	}
-	if (data->virtual_size != (uoff_t)-1) {
+	if (data->virtual_size != UOFF_T_MAX) {
 		data->dont_cache_fetch_fields |= MAIL_FETCH_VIRTUAL_SIZE;
 		*size_r = data->virtual_size;
 		return 0;
@@ -438,9 +438,9 @@ static int maildir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 			return -1;
 	}
 
-	if (data->physical_size == (uoff_t)-1) {
+	if (data->physical_size == UOFF_T_MAX) {
 		if (index_mail_get_physical_size(_mail, size_r) == 0) {
-			i_assert(mail->data.physical_size != (uoff_t)-1);
+			i_assert(mail->data.physical_size != UOFF_T_MAX);
 			maildir_handle_size_caching(mail, TRUE, FALSE);
 			return 0;
 		}
@@ -448,7 +448,7 @@ static int maildir_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 					      &data->physical_size) < 0)
 			return -1;
 	}
-	if (data->physical_size != (uoff_t)-1) {
+	if (data->physical_size != UOFF_T_MAX) {
 		data->dont_cache_fetch_fields |= MAIL_FETCH_PHYSICAL_SIZE;
 		*size_r = data->physical_size;
 		return 0;
@@ -676,7 +676,7 @@ do_fix_size(struct maildir_mailbox *mbox, const char *path,
 	info = strchr(fname, MAILDIR_INFO_SEP);
 	if (info == NULL) info = "";
 
-	if (ctx->physical_size == (uoff_t)-1) {
+	if (ctx->physical_size == UOFF_T_MAX) {
 		if (stat(path, &st) < 0) {
 			if (errno == ENOENT)
 				return 0;
@@ -728,7 +728,7 @@ maildir_mail_remove_sizes_from_filename(struct mail *mail,
 		return;
 
 	i_zero(&ctx);
-	ctx.physical_size = (uoff_t)-1;
+	ctx.physical_size = UOFF_T_MAX;
 	if (field == MAIL_FETCH_VIRTUAL_SIZE &&
 	    maildir_filename_get_size(fname, MAILDIR_EXTRA_VIRTUAL_SIZE,
 				      &size)) {

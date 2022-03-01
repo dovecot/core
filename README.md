@@ -32,7 +32,7 @@ Auth
 - [RFC2595 - Using TLS with IMAP, POP3 and ACAP](https://tools.ietf.org/html/rfc2595)
 - [RFC2831 - Using Digest Authentication as a SASL Mechanism (DIGEST-MD5)](https://tools.ietf.org/html/rfc2831)
 - [RFC5802 - Salted Challenge Response Authentication Mechanism (SCRAM)](https://tools.ietf.org/html/rfc5802)
-- SASL and GSS-API Mechanisms 
+- [RFC4752 - GSS-API (Kerberos V5) SASL Mechanism](https://tools.ietf.org/doc/html/rfc4752)
 - [RFC7628 - A Set of Simple Authentication and Security Layer (SASL) Mechanisms for OAuth](https://tools.ietf.org/html/rfc7628)
 - [Google XOAUTH2 protocol](https://developers.google.com/gmail/xoauth2_protocol)
 
@@ -95,6 +95,7 @@ IMAP extensions
 - [RFC7162 - IMAP Extensions: Quick Flag Changes Resynchronization (CONDSTORE) and Quick Mailbox Resynchronization (QRESYNC) (updated RFC4551 and RFC5162)](https://tools.ietf.org/html/rfc7162)
 - [RFC7888 - IMAP4 Non-synchronizing Literals (updated RFC2088)](https://tools.ietf.org/html/rfc7888)
 - [RFC8457 - IMAP "$Important" Keyword and "\Important" Special-Use Attribute](https://tools.ietf.org/html/rfc8457)
+- [RFC8970 - IMAP4 Extension: Message Preview Generation](https://tools.ietf.org/html/rfc8970)
 
 SMTP/LMTP base
 --------------

@@ -637,7 +637,7 @@ test_server_response_ostream_disconnect_output(
 
 	o_stream_set_max_buffer_size(output, IO_BLOCK_SIZE);
 	res = o_stream_send_istream(output, ctx->payload_input);
-	o_stream_set_max_buffer_size(output, (size_t)-1);
+	o_stream_set_max_buffer_size(output, SIZE_MAX);
 
 	switch (res) {
 	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
@@ -801,8 +801,8 @@ static void client_connection_destroy(struct connection *_conn)
 /* */
 
 static struct connection_settings client_connection_set = {
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.client = TRUE
 };
 

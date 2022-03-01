@@ -42,8 +42,8 @@ extern const char *const smtp_server_state_names[];
 struct smtp_server_helo_data {
 	const char *domain;
 
-	bool domain_valid:1;  /* valid domain/literal specified */
-	bool old_smtp:1;      /* client sent HELO rather than EHLO */
+	bool domain_valid:1;  /* Valid domain/literal specified */
+	bool old_smtp:1;      /* Client sent HELO rather than EHLO */
 };
 
 /*
@@ -107,9 +107,9 @@ void smtp_server_recipient_reply_forward(struct smtp_server_recipient *rcpt,
 /* Hooks */
 
 void smtp_server_recipient_add_hook(struct smtp_server_recipient *rcpt,
-				  enum smtp_server_recipient_hook_type type,
-				  smtp_server_rcpt_func_t func,
-				  void *context);
+				    enum smtp_server_recipient_hook_type type,
+				    smtp_server_rcpt_func_t func,
+				    void *context);
 #define smtp_server_recipient_add_hook(_rcpt, _type, _func, _context) \
 	smtp_server_recipient_add_hook((_rcpt), (_type) - \
 		CALLBACK_TYPECHECK(_func, void (*)( \
@@ -168,11 +168,12 @@ smtp_server_transaction_find_rcpt_duplicate(
 	struct smtp_server_transaction *trans,
 	struct smtp_server_recipient *rcpt);
 
-void smtp_server_transaction_fail_data(
-	struct smtp_server_transaction *trans,
-	struct smtp_server_cmd_ctx *data_cmd,
-	unsigned int status, const char *enh_code,
-	const char *fmt, va_list args) ATTR_FORMAT(5, 0);
+void smtp_server_transaction_fail_data(struct smtp_server_transaction *trans,
+				       struct smtp_server_cmd_ctx *data_cmd,
+				       unsigned int status,
+				       const char *enh_code,
+				       const char *fmt, va_list args)
+				       ATTR_FORMAT(5, 0);
 
 void smtp_server_transaction_write_trace_record(
 	string_t *str, struct smtp_server_transaction *trans,
@@ -185,9 +186,9 @@ void smtp_server_transaction_write_trace_record(
 struct smtp_server_cmd_helo {
 	struct smtp_server_helo_data helo;
 
-	bool first:1;         /* this is the first */
-	bool changed:1;       /* this EHLO/HELO/LHLO is the first or
-	                         different from a previous one */
+	bool first:1;         /* This is the first */
+	bool changed:1;       /* This EHLO/HELO/LHLO is the first or different
+	                         from a previous one */
 };
 
 struct smtp_server_cmd_mail {
@@ -230,51 +231,44 @@ struct smtp_server_callbacks {
 	  */
 
 	/* HELO/EHLO/LHLO */
-	int (*conn_cmd_helo)(void *conn_ctx,
-		struct smtp_server_cmd_ctx *cmd,
-		struct smtp_server_cmd_helo *data);
+	int (*conn_cmd_helo)(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
+			     struct smtp_server_cmd_helo *data);
 	/* STARTTLS */
 	int (*conn_cmd_starttls)(void *conn_ctx,
-		struct smtp_server_cmd_ctx *cmd);
+				 struct smtp_server_cmd_ctx *cmd);
 	/* AUTH */
-	int (*conn_cmd_auth)(void *conn_ctx,
-		struct smtp_server_cmd_ctx *cmd,
-		struct smtp_server_cmd_auth *data);
+	int (*conn_cmd_auth)(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
+			     struct smtp_server_cmd_auth *data);
 	int (*conn_cmd_auth_continue)(void *conn_ctx,
-		struct smtp_server_cmd_ctx *cmd, const char *response);
+				      struct smtp_server_cmd_ctx *cmd,
+				      const char *response);
 	/* MAIL */
-	int (*conn_cmd_mail)(void *conn_ctx,
-		struct smtp_server_cmd_ctx *cmd,
-		struct smtp_server_cmd_mail *data);
+	int (*conn_cmd_mail)(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
+			     struct smtp_server_cmd_mail *data);
 	/* RCPT */
-	int (*conn_cmd_rcpt)(void *conn_ctx,
-		struct smtp_server_cmd_ctx *cmd,
-		struct smtp_server_recipient *rcpt);
+	int (*conn_cmd_rcpt)(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
+			     struct smtp_server_recipient *rcpt);
 	/* RSET */
-	int (*conn_cmd_rset)(void *conn_ctx,
-		struct smtp_server_cmd_ctx *cmd);
+	int (*conn_cmd_rset)(void *conn_ctx, struct smtp_server_cmd_ctx *cmd);
 	/* DATA */
 	int (*conn_cmd_data_begin)(void *conn_ctx,
-		struct smtp_server_cmd_ctx *cmd,
-		struct smtp_server_transaction *trans,
-		struct istream *data_input);
+				   struct smtp_server_cmd_ctx *cmd,
+				   struct smtp_server_transaction *trans,
+				   struct istream *data_input);
 	int (*conn_cmd_data_continue)(void *conn_ctx,
-		struct smtp_server_cmd_ctx *cmd,
-		struct smtp_server_transaction *trans);
+				     struct smtp_server_cmd_ctx *cmd,
+				     struct smtp_server_transaction *trans);
 	/* VRFY */
-	int (*conn_cmd_vrfy)(void *conn_ctx,
-		struct smtp_server_cmd_ctx *cmd,
-		const char *param);
+	int (*conn_cmd_vrfy)(void *conn_ctx, struct smtp_server_cmd_ctx *cmd,
+			     const char *param);
 	/* NOOP */
-	int (*conn_cmd_noop)(void *conn_ctx,
-		struct smtp_server_cmd_ctx *cmd);
+	int (*conn_cmd_noop)(void *conn_ctx, struct smtp_server_cmd_ctx *cmd);
 	/* QUIT */
-	int (*conn_cmd_quit)(void *conn_ctx,
-		struct smtp_server_cmd_ctx *cmd);
+	int (*conn_cmd_quit)(void *conn_ctx, struct smtp_server_cmd_ctx *cmd);
 	/* XCLIENT */
 	void (*conn_cmd_xclient)(void *conn_ctx,
-		struct smtp_server_cmd_ctx *cmd,
-		struct smtp_proxy_data *data);
+				 struct smtp_server_cmd_ctx *cmd,
+				 struct smtp_proxy_data *data);
 
 	/* Command input callbacks:
 
@@ -301,9 +295,13 @@ struct smtp_server_callbacks {
 
 	/* Connection */
 	int (*conn_start_tls)(void *conn_ctx,
-		struct istream **input, struct ostream **output);
+			      struct istream **input, struct ostream **output);
+	/* Connection is disconnected. This is always called before
+	   conn_free(). */
 	void (*conn_disconnect)(void *context, const char *reason);
-	void (*conn_destroy)(void *context);
+	/* The last reference to connection is dropped, causing the connection
+	   to be freed. */
+	void (*conn_free)(void *context);
 
 	/* Security */
 	bool (*conn_is_trusted)(void *context);
@@ -326,6 +324,8 @@ struct smtp_server_settings {
 	/* Enabled workarounds for client protocol deviations */
 	enum smtp_server_workarounds workarounds;
 
+	/* Module name for event reason codes. */
+	const char *reason_code_module;
 	/* Our hostname as presented to the client */
 	const char *hostname;
 	/* The message sent in the SMTP server greeting */
@@ -392,6 +392,11 @@ struct smtp_server_settings {
 	/* The path provided to the RCPT command does not need to have the
 	   domain part. */
 	bool rcpt_domain_optional:1;
+	/* Don't include "(state=%s)" in the disconnection reason string. */
+	bool no_state_in_reason:1;
+	/* Don't send a greeting or login success message to the client upon
+	   connection start. */
+	bool no_greeting:1;
 };
 
 struct smtp_server_stats {
@@ -415,14 +420,15 @@ void smtp_server_switch_ioloop(struct smtp_server *server);
 /* Create connection. It is still inactive and needs to be started with
    one of the functions below. */
 struct smtp_server_connection *
-smtp_server_connection_create(struct smtp_server *server,
-	int fd_in, int fd_out,
-	const struct ip_addr *remote_ip, in_port_t remote_port,
-	bool ssl_start, const struct smtp_server_settings *set,
+smtp_server_connection_create(
+	struct smtp_server *server, int fd_in, int fd_out,
+	const struct ip_addr *remote_ip, in_port_t remote_port, bool ssl_start,
+	const struct smtp_server_settings *set,
 	const struct smtp_server_callbacks *callbacks, void *context)
 	ATTR_NULL(4, 6, 8);
 struct smtp_server_connection *
-smtp_server_connection_create_from_streams(struct smtp_server *server,
+smtp_server_connection_create_from_streams(
+	struct smtp_server *server,
 	struct istream *input, struct ostream *output,
 	const struct ip_addr *remote_ip, in_port_t remote_port,
 	const struct smtp_server_settings *set,
@@ -459,21 +465,24 @@ void smtp_server_connection_input_lock(struct smtp_server_connection *conn);
 void smtp_server_connection_input_unlock(struct smtp_server_connection *conn);
 
 void smtp_server_connection_set_streams(struct smtp_server_connection *conn,
-	struct istream *input, struct ostream *output);
+					struct istream *input,
+					struct ostream *output);
 void smtp_server_connection_set_ssl_streams(struct smtp_server_connection *conn,
-	struct istream *input, struct ostream *output);
+					    struct istream *input,
+					    struct ostream *output);
 
 void smtp_server_connection_close(struct smtp_server_connection **_conn,
 				  const char *reason) ATTR_NULL(2);
 void smtp_server_connection_terminate(struct smtp_server_connection **_conn,
 				      const char *enh_code, const char *reason)
-	ATTR_NULL(3);
+				      ATTR_NULL(3);
 
 bool smtp_server_connection_data_check_state(struct smtp_server_cmd_ctx *cmd);
 void smtp_server_connection_data_chunk_init(struct smtp_server_cmd_ctx *cmd);
 int smtp_server_connection_data_chunk_add(struct smtp_server_cmd_ctx *cmd,
-	struct istream *chunk, uoff_t chunk_size, bool chunk_last,
-	bool client_input);
+					  struct istream *chunk,
+					  uoff_t chunk_size, bool chunk_last,
+					  bool client_input);
 
 enum smtp_server_state
 smtp_server_connection_get_state(struct smtp_server_connection *conn,
@@ -487,16 +496,20 @@ smtp_server_connection_get_transaction_id(struct smtp_server_connection *conn);
 const struct smtp_server_stats *
 smtp_server_connection_get_stats(struct smtp_server_connection *conn);
 void *smtp_server_connection_get_context(struct smtp_server_connection *conn)
-	ATTR_PURE;
+					 ATTR_PURE;
 enum smtp_protocol
 smtp_server_connection_get_protocol(struct smtp_server_connection *conn)
-	ATTR_PURE;
+				    ATTR_PURE;
 const char *
 smtp_server_connection_get_protocol_name(struct smtp_server_connection *conn);
 struct smtp_server_helo_data *
 smtp_server_connection_get_helo_data(struct smtp_server_connection *conn);
+
 void smtp_server_connection_get_proxy_data(struct smtp_server_connection *conn,
-	struct smtp_proxy_data *proxy_data);
+					   struct smtp_proxy_data *proxy_data);
+void smtp_server_connection_set_proxy_data(
+	struct smtp_server_connection *conn,
+	const struct smtp_proxy_data *proxy_data);
 
 void smtp_server_connection_set_capabilities(
 	struct smtp_server_connection *conn, enum smtp_capability capabilities);
@@ -522,7 +535,7 @@ enum smtp_server_command_flags {
 };
 
 enum smtp_server_command_hook_type {
-	/* next: command is next to reply but has not submittted all replies
+	/* next: command is next to reply but has not submitted all replies
 	   yet. */
 	SMTP_SERVER_COMMAND_HOOK_NEXT,
 	/* replied_one: command has submitted one reply. */
@@ -579,13 +592,17 @@ void smtp_server_command_remove_hook(struct smtp_server_command *cmd,
 
 /* The core SMTP commands are pre-registered. Special connection callbacks are
    provided for the core SMTP commands. Only use this command registration API
-   when custom/extension SMTP commands are required.
+   when custom/extension SMTP commands are required. It is also possible to
+   completely override the default implementations.
  */
 void smtp_server_command_register(struct smtp_server *server, const char *name,
 				  smtp_server_cmd_start_func_t *func,
 				  enum smtp_server_command_flags);
 void smtp_server_command_unregister(struct smtp_server *server,
 				    const char *name);
+void smtp_server_command_override(struct smtp_server *server, const char *name,
+				  smtp_server_cmd_start_func_t *func,
+				  enum smtp_server_command_flags flags);
 
 void smtp_server_command_set_reply_count(struct smtp_server_command *cmd,
 					 unsigned int count);
@@ -607,47 +624,83 @@ bool smtp_server_command_replied_success(struct smtp_server_command *cmd);
 
 void smtp_server_command_input_lock(struct smtp_server_cmd_ctx *cmd);
 void smtp_server_command_input_unlock(struct smtp_server_cmd_ctx *cmd);
-void smtp_server_command_input_capture(struct smtp_server_cmd_ctx *cmd,
+void smtp_server_command_input_capture(
+	struct smtp_server_cmd_ctx *cmd,
 	smtp_server_cmd_input_callback_t *callback);
 
+void smtp_server_command_pipeline_block(struct smtp_server_cmd_ctx *cmd);
+void smtp_server_command_pipeline_unblock(struct smtp_server_cmd_ctx *cmd);
+
 /* EHLO */
+
+void smtp_server_cmd_ehlo(struct smtp_server_cmd_ctx *cmd, const char *params);
+void smtp_server_cmd_helo(struct smtp_server_cmd_ctx *cmd, const char *params);
 
 struct smtp_server_reply *
 smtp_server_cmd_ehlo_reply_create(struct smtp_server_cmd_ctx *cmd);
 void smtp_server_cmd_ehlo_reply_default(struct smtp_server_cmd_ctx *cmd);
 
+/* STARTTLS */
+
+void smtp_server_cmd_starttls(struct smtp_server_cmd_ctx *cmd,
+			      const char *params);
+
 /* AUTH */
+
+void smtp_server_cmd_auth(struct smtp_server_cmd_ctx *cmd, const char *params);
 
 void smtp_server_cmd_auth_send_challenge(struct smtp_server_cmd_ctx *cmd,
 					 const char *challenge);
 void smtp_server_cmd_auth_success(struct smtp_server_cmd_ctx *cmd,
-	const char *username, const char *success_msg)
-	ATTR_NULL(3);
+				  const char *username, const char *success_msg)
+				  ATTR_NULL(3);
 
 /* MAIL */
+
+void smtp_server_cmd_mail(struct smtp_server_cmd_ctx *cmd, const char *params);
 
 void smtp_server_cmd_mail_reply_success(struct smtp_server_cmd_ctx *cmd);
 
 /* RCPT */
+
+void smtp_server_cmd_rcpt(struct smtp_server_cmd_ctx *cmd, const char *params);
 
 bool smtp_server_command_is_rcpt(struct smtp_server_cmd_ctx *cmd);
 void smtp_server_cmd_rcpt_reply_success(struct smtp_server_cmd_ctx *cmd);
 
 /* RSET */
 
+void smtp_server_cmd_rset(struct smtp_server_cmd_ctx *cmd, const char *params);
+
 void smtp_server_cmd_rset_reply_success(struct smtp_server_cmd_ctx *cmd);
 
 /* DATA */
+
+void smtp_server_cmd_data(struct smtp_server_cmd_ctx *cmd, const char *params);
+void smtp_server_cmd_bdat(struct smtp_server_cmd_ctx *cmd, const char *params);
 
 bool smtp_server_cmd_data_check_size(struct smtp_server_cmd_ctx *cmd);
 
 /* VRFY */
 
+void smtp_server_cmd_vrfy(struct smtp_server_cmd_ctx *cmd, const char *params);
+
 void smtp_server_cmd_vrfy_reply_default(struct smtp_server_cmd_ctx *cmd);
 
 /* NOOP */
 
+void smtp_server_cmd_noop(struct smtp_server_cmd_ctx *cmd, const char *params);
+
 void smtp_server_cmd_noop_reply_success(struct smtp_server_cmd_ctx *cmd);
+
+/* QUIT */
+
+void smtp_server_cmd_quit(struct smtp_server_cmd_ctx *cmd, const char *params);
+
+/* XCLIENT */
+
+void smtp_server_cmd_xclient(struct smtp_server_cmd_ctx *cmd,
+			     const char *params);
 
 /*
  * Reply
@@ -655,14 +708,15 @@ void smtp_server_cmd_noop_reply_success(struct smtp_server_cmd_ctx *cmd);
 
 struct smtp_server_reply *
 smtp_server_reply_create_index(struct smtp_server_command *cmd,
-	unsigned int index, unsigned int status, const char *enh_code)
-	ATTR_NULL(3);
+			       unsigned int index, unsigned int status,
+			       const char *enh_code) ATTR_NULL(3);
 struct smtp_server_reply *
-smtp_server_reply_create(struct smtp_server_command *cmd,
-	unsigned int status, const char *enh_code) ATTR_NULL(3);
+smtp_server_reply_create(struct smtp_server_command *cmd, unsigned int status,
+			 const char *enh_code) ATTR_NULL(3);
 struct smtp_server_reply *
 smtp_server_reply_create_forward(struct smtp_server_command *cmd,
-	unsigned int index, const struct smtp_reply *from);
+				 unsigned int index,
+				 const struct smtp_reply *from);
 
 void smtp_server_reply_set_status(struct smtp_server_reply *reply,
 				  unsigned int status, const char *enh_code)
@@ -671,7 +725,7 @@ unsigned int smtp_server_reply_get_status(struct smtp_server_reply *reply,
 					  const char **enh_code_r) ATTR_NULL(3);
 
 void smtp_server_reply_add_text(struct smtp_server_reply *reply,
-	const char *line);
+				const char *line);
 void smtp_server_reply_prepend_text(struct smtp_server_reply *reply,
 				    const char *text_prefix);
 void smtp_server_reply_replace_path(struct smtp_server_reply *reply,
@@ -685,19 +739,22 @@ void smtp_server_reply_submit_duplicate(struct smtp_server_cmd_ctx *_cmd,
 /* Submit a reply for the command at the specified index (> 0 only if more than
    a single reply is expected). */
 void smtp_server_reply_indexv(struct smtp_server_cmd_ctx *_cmd,
-	unsigned int index, unsigned int status, const char *enh_code,
-	const char *fmt, va_list args) ATTR_FORMAT(5, 0);
+			      unsigned int index, unsigned int status,
+			      const char *enh_code,
+			      const char *fmt, va_list args) ATTR_FORMAT(5, 0);
 void smtp_server_reply_index(struct smtp_server_cmd_ctx *_cmd,
-	unsigned int index, unsigned int status, const char *enh_code,
-	const char *fmt, ...) ATTR_FORMAT(5, 6);
+			     unsigned int index, unsigned int status,
+			     const char *enh_code, const char *fmt, ...)
+			     ATTR_FORMAT(5, 6);
 /* Submit the reply for the specified command. */
-void smtp_server_reply(struct smtp_server_cmd_ctx *_cmd,
-	unsigned int status, const char *enh_code, const char *fmt, ...)
-	ATTR_FORMAT(4, 5);
+void smtp_server_reply(struct smtp_server_cmd_ctx *_cmd, unsigned int status,
+		       const char *enh_code, const char *fmt, ...)
+		       ATTR_FORMAT(4, 5);
 /* Forward a reply for the command at the specified index (> 0 only if more
    than a single reply is expected). */
 void smtp_server_reply_index_forward(struct smtp_server_cmd_ctx *cmd,
-	unsigned int index, const struct smtp_reply *from);
+				     unsigned int index,
+				     const struct smtp_reply *from);
 /* Forward the reply for the specified command. */
 void smtp_server_reply_forward(struct smtp_server_cmd_ctx *cmd,
 			       const struct smtp_reply *from);
@@ -723,7 +780,9 @@ smtp_server_reply_create_ehlo(struct smtp_server_command *cmd);
 void smtp_server_reply_ehlo_add(struct smtp_server_reply *reply,
 				const char *keyword);
 void smtp_server_reply_ehlo_add_param(struct smtp_server_reply *reply,
-	const char *keyword, const char *param_fmt, ...) ATTR_FORMAT(3, 4);
+				      const char *keyword,
+				      const char *param_fmt, ...)
+				      ATTR_FORMAT(3, 4);
 void smtp_server_reply_ehlo_add_params(struct smtp_server_reply *reply,
 				       const char *keyword,
 				       const char *const *params) ATTR_NULL(3);

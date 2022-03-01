@@ -601,10 +601,12 @@ mail_thread_iterate_children(struct mail_thread_iterate_context *parent_iter,
 	child_iter->ctx->refcount++;
 
 	i_array_init(&child_iter->children, 8);
+	struct event_reason *reason = event_reason_begin("mailbox:thread");
 	thread_sort_children(child_iter->ctx, parent_idx,
 			     &child_iter->children);
 	if (child_iter->ctx->return_seqs)
 		nodes_change_uids_to_seqs(child_iter, FALSE);
+	event_reason_end(&reason);
 	return child_iter;
 }
 
@@ -623,11 +625,14 @@ mail_thread_iterate_init_full(struct mail_thread_cache *cache,
 	ctx->cache = cache;
 	ctx->tmp_mail = tmp_mail;
 	ctx->return_seqs = return_seqs;
+
+	struct event_reason *reason = event_reason_begin("mailbox:thread");
 	mail_thread_finish(ctx, thread_type);
 
 	mail_thread_iterate_fill_root(iter);
 	if (return_seqs)
 		nodes_change_uids_to_seqs(iter, TRUE);
+	event_reason_end(&reason);
 	return iter;
 }
 

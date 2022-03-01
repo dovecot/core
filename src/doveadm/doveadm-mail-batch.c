@@ -16,12 +16,12 @@ static int cmd_batch_prerun(struct doveadm_mail_cmd_context *_ctx,
 			    const char **error_r)
 {
 	struct batch_cmd_context *ctx = (struct batch_cmd_context *)_ctx;
-	struct doveadm_mail_cmd_context *const *cmdp;
+	struct doveadm_mail_cmd_context *cmd;
 	int ret = 0;
 
-	array_foreach(&ctx->commands, cmdp) {
-		if ((*cmdp)->v.prerun != NULL &&
-		    (*cmdp)->v.prerun(*cmdp, service_user, error_r) < 0) {
+	array_foreach_elem(&ctx->commands, cmd) {
+		if (cmd->v.prerun != NULL &&
+		    cmd->v.prerun(cmd, service_user, error_r) < 0) {
 			ret = -1;
 			break;
 		}
@@ -33,18 +33,23 @@ static int cmd_batch_run(struct doveadm_mail_cmd_context *_ctx,
 			 struct mail_user *user)
 {
 	struct batch_cmd_context *ctx = (struct batch_cmd_context *)_ctx;
-	struct doveadm_mail_cmd_context *const *cmdp;
+	struct doveadm_mail_cmd_context *cmd;
 	int ret = 0;
 
-	array_foreach(&ctx->commands, cmdp) {
-		(*cmdp)->cur_mail_user = user;
-		if ((*cmdp)->v.run(*cmdp, user) < 0) {
-			i_assert((*cmdp)->exit_code != 0);
-			_ctx->exit_code = (*cmdp)->exit_code;
-			ret = -1;
+	array_foreach_elem(&ctx->commands, cmd) {
+		cmd->cur_mail_user = user;
+		const char *reason_code =
+			event_reason_code_prefix("doveadm", "cmd_",
+						 cmd->cmd->name);
+		struct event_reason *reason = event_reason_begin(reason_code);
+		ret = cmd->v.run(cmd, user);
+		event_reason_end(&reason);
+		if (ret < 0) {
+			i_assert(cmd->exit_code != 0);
+			_ctx->exit_code = cmd->exit_code;
 			break;
 		}
-		(*cmdp)->cur_mail_user = NULL;
+		cmd->cur_mail_user = NULL;
 	}
 	return ret;
 }
@@ -55,25 +60,20 @@ cmd_batch_add(struct batch_cmd_context *batchctx,
 {
 	struct doveadm_mail_cmd_context *subctx;
 	const struct doveadm_cmd_ver2 *cmd_ver2;
-	struct doveadm_mail_cmd tmpcmd;
 	const struct doveadm_mail_cmd *cmd;
 	const char *getopt_args;
 	int c;
 
-	cmd_ver2 = doveadm_cmd_find_with_args_ver2(argv[0], &argc, &argv);
-
+	cmd_ver2 = doveadm_cmdline_find_with_args(argv[0], &argc, &argv);
 	if (cmd_ver2 == NULL)
-		cmd = doveadm_mail_cmd_find_from_argv(argv[0], &argc, &argv);
-	else {
-		i_zero(&tmpcmd);
-		tmpcmd.usage_args = cmd_ver2->usage;
-		tmpcmd.name = cmd_ver2->name;
-		tmpcmd.alloc = cmd_ver2->mail_cmd;
-		cmd = &tmpcmd;
-	}
-
-	if (cmd == NULL)
 		i_fatal_status(EX_USAGE, "doveadm batch: '%s' mail command doesn't exist", argv[0]);
+
+	struct doveadm_mail_cmd *dyncmd =
+		p_new(batchctx->ctx.pool, struct doveadm_mail_cmd, 1);
+	dyncmd->usage_args = cmd_ver2->usage;
+	dyncmd->name = cmd_ver2->name;
+	dyncmd->alloc = cmd_ver2->mail_cmd;
+	cmd = dyncmd;
 
 	subctx = doveadm_mail_cmd_init(cmd, doveadm_settings);
 	subctx->full_args = argv + 1;
@@ -137,11 +137,11 @@ cmd_batch_init(struct doveadm_mail_cmd_context *_ctx,
 	       const char *const args[] ATTR_UNUSED)
 {
 	struct batch_cmd_context *ctx = (struct batch_cmd_context *)_ctx;
-	struct doveadm_mail_cmd_context *const *cmdp;
+	struct doveadm_mail_cmd_context *cmd;
 	struct batch_cmd_context *subctx;
 
-	array_foreach(&ctx->commands, cmdp) {
-		subctx = (struct batch_cmd_context *)*cmdp;
+	array_foreach_elem(&ctx->commands, cmd) {
+		subctx = (struct batch_cmd_context *)cmd;
 		subctx->ctx.storage_service = _ctx->storage_service;
 		if (subctx->ctx.v.init != NULL)
 			subctx->ctx.v.init(&subctx->ctx, subctx->ctx.args);
@@ -151,11 +151,11 @@ cmd_batch_init(struct doveadm_mail_cmd_context *_ctx,
 static void cmd_batch_deinit(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct batch_cmd_context *ctx = (struct batch_cmd_context *)_ctx;
-	struct doveadm_mail_cmd_context *const *cmdp;
+	struct doveadm_mail_cmd_context *cmd;
 
-	array_foreach(&ctx->commands, cmdp) {
-		if ((*cmdp)->v.deinit != NULL)
-			(*cmdp)->v.deinit(*cmdp);
+	array_foreach_elem(&ctx->commands, cmd) {
+		doveadm_mail_cmd_deinit(cmd);
+		doveadm_mail_cmd_free(cmd);
 	}
 }
 
@@ -173,6 +173,14 @@ static struct doveadm_mail_cmd_context *cmd_batch_alloc(void)
 	return &ctx->ctx;
 }
 
-struct doveadm_mail_cmd cmd_batch = {
-	cmd_batch_alloc, "batch", "<sep> <cmd1> [<sep> <cmd2> [..]]"
+struct doveadm_cmd_ver2 doveadm_cmd_batch = {
+	.name = "batch",
+	.mail_cmd = cmd_batch_alloc,
+	.usage = "<sep> <cmd1> [<sep> <cmd2> [..]]",
+	.flags = CMD_FLAG_NO_UNORDERED_OPTIONS,
+DOVEADM_CMD_PARAMS_START
+DOVEADM_CMD_MAIL_COMMON
+DOVEADM_CMD_PARAM('\0', "separator", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAM('\0', "args", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMS_END
 };

@@ -9,9 +9,9 @@
 
 static void
 test_oauth_json_valid_parsed(struct oauth2_request *req ATTR_UNUSED,
-			    bool success, const char *error ATTR_UNUSED)
+			     const char *error)
 {
-	test_assert(success);
+	test_assert(error == NULL);
 }
 
 static void test_oauth2_json_valid(void)
@@ -73,7 +73,7 @@ static void test_oauth2_json_valid(void)
 	/* Parse the JSON response */
 	for (pos = 0; pos <= strlen(test_input); pos +=2) {
 		test_istream_set_size(req->is, pos);
-		oauth2_parse_json(req);
+		oauth2_request_parse_json(req);
 		if (req->is == NULL)
 			break;
 	}

@@ -44,7 +44,7 @@ static void imapc_sync_callback(const struct imapc_command_reply *reply,
 				     cmd->cmd_str, reply->text_full);
 		ctx->failed = TRUE;
 	}
-	
+
 	if (--ctx->sync_command_count == 0)
 		imapc_client_stop(ctx->mbox->storage->client->client);
 	i_free(cmd->cmd_str);
@@ -227,7 +227,7 @@ static void
 imapc_sync_index_keyword(struct imapc_sync_context *ctx,
 			 const struct mail_index_sync_rec *sync_rec)
 {
-	const char *const *kw_p;
+	const char *kw_str;
 	enum modify_type modify_type;
 
 	switch (sync_rec->type) {
@@ -241,9 +241,9 @@ imapc_sync_index_keyword(struct imapc_sync_context *ctx,
 		i_unreached();
 	}
 
-	kw_p = array_idx(ctx->keywords, sync_rec->keyword_idx);
+	kw_str = array_idx_elem(ctx->keywords, sync_rec->keyword_idx);
 	imapc_sync_store(ctx, modify_type, sync_rec->uid1,
-			 sync_rec->uid2, *kw_p);
+			 sync_rec->uid2, kw_str);
 }
 
 static void imapc_sync_expunge_finish(struct imapc_sync_context *ctx)
@@ -421,8 +421,7 @@ static void imapc_sync_index(struct imapc_sync_context *ctx)
 	imapc_sync_uid_next(ctx);
 	imapc_sync_highestmodseq(ctx);
 
-	if (mbox->box.v.sync_notify != NULL)
-		mbox->box.v.sync_notify(&mbox->box, 0, 0);
+	mailbox_sync_notify(&mbox->box, 0, 0);
 
 	if (!ctx->failed) {
 		/* reset only after a successful sync */
@@ -478,6 +477,14 @@ imapc_sync_begin(struct imapc_mailbox *mbox,
 
 	mbox->syncing = TRUE;
 	mbox->sync_ctx = ctx;
+
+	if (mbox->delayed_untagged_exists) {
+		bool fetch_send = imapc_mailbox_fetch_state(mbox,
+							    mbox->min_append_uid);
+		while (fetch_send && mbox->delayed_untagged_exists)
+			imapc_mailbox_run(mbox);
+	}
+
 	if (!mbox->box.deleting)
 		imapc_sync_index(ctx);
 
@@ -525,6 +532,70 @@ static int imapc_sync_finish(struct imapc_sync_context **_ctx)
 	return ret;
 }
 
+static int imapc_untagged_fetch_uid_cmp(struct imapc_untagged_fetch_ctx *const *ctx1,
+					struct imapc_untagged_fetch_ctx *const *ctx2)
+{
+	return (*ctx1)->uid < (*ctx2)->uid ? -1 :
+		(*ctx1)->uid > (*ctx2)->uid ? 1 : 0;
+}
+
+static void imapc_sync_handle_untagged_fetches(struct imapc_mailbox *mbox)
+{
+	struct imapc_untagged_fetch_ctx *untagged_fetch_context;
+	struct mail_index_view *updated_view;
+	uint32_t lseq;
+
+	i_assert(array_count(&mbox->untagged_fetch_contexts) > 0);
+	i_assert(mbox->delayed_sync_trans == NULL);
+
+	array_sort(&mbox->untagged_fetch_contexts, imapc_untagged_fetch_uid_cmp);
+
+	mbox->delayed_sync_trans =
+		mail_index_transaction_begin(imapc_mailbox_get_sync_view(mbox),
+						     MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
+
+	array_foreach_elem(&mbox->untagged_fetch_contexts, untagged_fetch_context) {
+		if (untagged_fetch_context->uid < mbox->min_append_uid ||
+		    untagged_fetch_context->uid < mail_index_get_header(mbox->sync_view)->next_uid) {
+			/* The message was already added */
+			continue;
+		}
+
+		mail_index_append(mbox->delayed_sync_trans,
+				  untagged_fetch_context->uid,
+				  &lseq);
+		mbox->min_append_uid = untagged_fetch_context->uid + 1;
+	}
+
+	updated_view = mail_index_transaction_open_updated_view(mbox->delayed_sync_trans);
+
+	array_foreach_elem(&mbox->untagged_fetch_contexts, untagged_fetch_context) {
+		if (!untagged_fetch_context->have_flags) {
+			imapc_untagged_fetch_ctx_free(&untagged_fetch_context);
+			continue;
+		}
+
+		/* Lookup the mail belonging to this context using the
+		   context->uid */
+		if (!mail_index_lookup_seq(updated_view,
+					   untagged_fetch_context->uid,
+					   &lseq)) {
+			/* mail is expunged already */
+			imapc_untagged_fetch_ctx_free(&untagged_fetch_context);
+			continue;
+		}
+
+		imapc_untagged_fetch_update_flags(mbox, untagged_fetch_context,
+						  updated_view, lseq);
+		imapc_untagged_fetch_ctx_free(&untagged_fetch_context);
+	}
+
+	mail_index_view_close(&updated_view);
+	if (mail_index_transaction_commit(&mbox->delayed_sync_trans) < 0)
+		mailbox_set_index_error(&mbox->box);
+	array_clear(&mbox->untagged_fetch_contexts);
+}
+
 static int imapc_sync(struct imapc_mailbox *mbox)
 {
 	struct imapc_sync_context *sync_ctx;
@@ -537,6 +608,10 @@ static int imapc_sync(struct imapc_mailbox *mbox)
 
 	if (imapc_sync_begin(mbox, &sync_ctx, force) < 0)
 		return -1;
+
+	if (!array_is_empty(&mbox->untagged_fetch_contexts))
+		imapc_sync_handle_untagged_fetches(mbox);
+
 	if (sync_ctx == NULL)
 		return 0;
 	if (imapc_sync_finish(&sync_ctx) < 0)
@@ -562,6 +637,21 @@ imapc_noop_if_needed(struct imapc_mailbox *mbox, enum mailbox_sync_flags flags)
 	}
 }
 
+static bool imapc_mailbox_need_initial_fetch(struct imapc_mailbox *mbox)
+{
+	if (mbox->box.deleting) {
+		/* If the mailbox is about to be deleted there is no need to
+		   expect initial fetch to be done */
+		return FALSE;
+	}
+	if ((mbox->box.flags & MAILBOX_FLAG_SAVEONLY) != 0) {
+		/* The mailbox is opened only for saving there is no need to
+		   expect initial fetchting do be done. */
+		return FALSE;
+	}
+	return TRUE;
+}
+
 struct mailbox_sync_context *
 imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 {
@@ -581,7 +671,7 @@ imapc_mailbox_sync_init(struct mailbox *box, enum mailbox_sync_flags flags)
 	if (imapc_storage_client_handle_auth_failure(mbox->storage->client))
 		ret = -1;
 	else if (!mbox->state_fetched_success && !mbox->state_fetching_uid1 &&
-		 !mbox->box.deleting) {
+		 imapc_mailbox_need_initial_fetch(mbox)) {
 		/* initial FETCH failed already */
 		ret = -1;
 	}

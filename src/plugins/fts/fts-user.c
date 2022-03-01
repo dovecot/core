@@ -3,6 +3,8 @@
 #include "lib.h"
 #include "module-context.h"
 #include "mail-user.h"
+#include "mail-storage-private.h"
+#include "mailbox-match-plugin.h"
 #include "fts-language.h"
 #include "fts-filter.h"
 #include "fts-tokenizer.h"
@@ -18,6 +20,8 @@ struct fts_user {
 	struct fts_language_list *lang_list;
 	struct fts_user_language *data_lang;
 	ARRAY_TYPE(fts_user_language) languages, data_languages;
+
+	struct mailbox_match_plugin *autoindex_exclude;
 };
 
 static MODULE_CONTEXT_DEFINE_INIT(fts_user_module,
@@ -234,13 +238,13 @@ struct fts_user_language *
 fts_user_language_find(struct mail_user *user,
 		       const struct fts_language *lang)
 {
-	struct fts_user_language *const *user_langp;
+	struct fts_user_language *user_lang;
 	struct fts_user *fuser = FTS_USER_CONTEXT(user);
 		
 	i_assert(fuser != NULL);
-	array_foreach(&fuser->languages, user_langp) {
-		if (strcmp((*user_langp)->lang->name, lang->name) == 0)
-			return *user_langp;
+	array_foreach_elem(&fuser->languages, user_lang) {
+		if (strcmp(user_lang->lang->name, lang->name) == 0)
+			return user_lang;
 	}
 	return NULL;
 }
@@ -267,10 +271,10 @@ static int fts_user_languages_fill_all(struct mail_user *user,
                                        struct fts_user *fuser,
                                        const char **error_r)
 {
-	const struct fts_language *const *langp;
+	const struct fts_language *lang;
 
-	array_foreach(fts_language_list_get_all(fuser->lang_list), langp) {
-		if (fts_user_language_create(user, fuser, *langp, error_r) < 0)
+	array_foreach_elem(fts_language_list_get_all(fuser->lang_list), lang) {
+		if (fts_user_language_create(user, fuser, lang, error_r) < 0)
 			return -1;
 	}
 	return 0;
@@ -336,6 +340,13 @@ struct fts_user_language *fts_user_get_data_lang(struct mail_user *user)
 	return fuser->data_lang;
 }
 
+bool fts_user_autoindex_exclude(struct mailbox *box)
+{
+	struct fts_user *fuser = FTS_USER_CONTEXT(box->storage->user);
+
+	return mailbox_match_plugin_exclude(fuser->autoindex_exclude, box);
+}
+
 static void fts_user_language_free(struct fts_user_language *user_lang)
 {
 	if (user_lang->filter != NULL)
@@ -348,16 +359,34 @@ static void fts_user_language_free(struct fts_user_language *user_lang)
 
 static void fts_user_free(struct fts_user *fuser)
 {
-	struct fts_user_language *const *user_langp;
+	struct fts_user_language *user_lang;
 
 	if (fuser->lang_list != NULL)
 		fts_language_list_deinit(&fuser->lang_list);
 
-	array_foreach(&fuser->languages, user_langp)
-		fts_user_language_free(*user_langp);
+	if (array_is_created(&fuser->languages)) {
+		array_foreach_elem(&fuser->languages, user_lang)
+			fts_user_language_free(user_lang);
+	}
+	mailbox_match_plugin_deinit(&fuser->autoindex_exclude);
 }
 
-int fts_mail_user_init(struct mail_user *user, const char **error_r)
+static int
+fts_mail_user_init_libfts(struct mail_user *user, struct fts_user *fuser,
+			  const char **error_r)
+{
+	p_array_init(&fuser->languages, user->pool, 4);
+
+	if (fts_user_init_languages(user, fuser, error_r) < 0 ||
+	    fts_user_init_data_language(user, fuser, error_r) < 0)
+		return -1;
+	if (fts_user_languages_fill_all(user, fuser, error_r) < 0)
+		return -1;
+	return 0;
+}
+
+int fts_mail_user_init(struct mail_user *user, bool initialize_libfts,
+		       const char **error_r)
 {
 	struct fts_user *fuser = FTS_USER_CONTEXT(user);
 
@@ -369,17 +398,14 @@ int fts_mail_user_init(struct mail_user *user, const char **error_r)
 
 	fuser = p_new(user->pool, struct fts_user, 1);
 	fuser->refcount = 1;
-	p_array_init(&fuser->languages, user->pool, 4);
-
-	if (fts_user_init_languages(user, fuser, error_r) < 0 ||
-	    fts_user_init_data_language(user, fuser, error_r) < 0) {
-		fts_user_free(fuser);
-		return -1;
+	if (initialize_libfts) {
+		if (fts_mail_user_init_libfts(user, fuser, error_r) < 0) {
+			fts_user_free(fuser);
+			return -1;
+		}
 	}
-	if (fts_user_languages_fill_all(user, fuser, error_r) < 0) {
-		fts_user_free(fuser);
-		return -1;
-	}
+	fuser->autoindex_exclude =
+		mailbox_match_plugin_init(user, "fts_autoindex_exclude");
 
 	MODULE_CONTEXT_SET(user, fts_user_module, fuser);
 	return 0;

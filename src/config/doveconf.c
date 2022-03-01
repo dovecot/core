@@ -77,8 +77,8 @@ config_request_get_strings(const char *key, const char *value,
 	case CONFIG_KEY_UNIQUE_KEY:
 		p = strrchr(key, '/');
 		i_assert(p != NULL);
-		value = p_strdup_printf(ctx->pool, "%s/"UNIQUE_KEY_SUFFIX"%s=%s",
-					t_strdup_until(key, p), p + 1, value);
+		value = p_strdup_printf(ctx->pool, "%.*s/"UNIQUE_KEY_SUFFIX"%s=%s",
+					(int)(p - key), key, p + 1, value);
 		break;
 	case CONFIG_KEY_ERROR:
 		value = p_strdup(ctx->pool, value);
@@ -154,7 +154,7 @@ config_dump_human_init(const char *const *modules, enum config_dump_scope scope,
 		flags |= CONFIG_DUMP_FLAG_CHECK_SETTINGS;
 	if (in_section)
 		flags |= CONFIG_DUMP_FLAG_IN_SECTION;
-	ctx->export_ctx = config_export_init(modules, scope, flags,
+	ctx->export_ctx = config_export_init(modules, NULL, scope, flags,
 					     config_request_get_strings, ctx);
 	return ctx;
 }
@@ -487,8 +487,8 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 
 	/* flush output before writing errors */
 	o_stream_uncork(output);
-	array_foreach(&ctx->errors, strings) {
-		i_error("%s", *strings);
+	array_foreach_elem(&ctx->errors, str) {
+		i_error("%s", str);
 		ret = -1;
 	}
 	return ret;
@@ -615,7 +615,7 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 		bool hide_passwords)
 {
 	static struct config_dump_human_context *ctx;
-	const char *const *str;
+	const char *str;
 	size_t len;
 	bool dump_section = FALSE;
 
@@ -625,20 +625,20 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 		return -1;
 
 	len = strlen(setting_name_filter);
-	array_foreach(&ctx->strings, str) {
-		if (strncmp(*str, setting_name_filter, len) != 0)
+	array_foreach_elem(&ctx->strings, str) {
+		if (strncmp(str, setting_name_filter, len) != 0)
 			continue;
 
-		if ((*str)[len] == '=') {
+		if (str[len] == '=') {
 			if (hide_key)
-				printf("%s\n", *str + len+1);
+				printf("%s\n", str + len+1);
 			else {
 				printf("%s = %s\n", setting_name_filter,
-				       *str + len+1);
+				       str + len+1);
 			}
 			dump_section = FALSE;
 			break;
-		} else if ((*str)[len] == '/') {
+		} else if (str[len] == '/') {
 			dump_section = TRUE;
 		}
 	}
@@ -675,7 +675,7 @@ static void config_request_putenv(const char *key, const char *value,
 				  void *context ATTR_UNUSED)
 {
 	T_BEGIN {
-		env_put(t_strconcat(t_str_ucase(key), "=", value, NULL));
+		env_put(t_str_ucase(key), value);
 	} T_END;
 }
 
@@ -826,13 +826,13 @@ static void hostname_verify_format(const char *arg)
 	hash_table_destroy(&hosts);
 
 	if (duplicates)
-		exit(EX_CONFIG);
+		lib_exit(EX_CONFIG);
 	else {
 		host2 = t_strdup(str_c(host));
 		hostname_format_write(host, &fmt, 0);
 		printf("No duplicate host hashes in %s .. %s\n",
 		       str_c(host), host2);
-		exit(0);
+		lib_exit(0);
 	}
 }
 
@@ -843,7 +843,8 @@ static void check_wrong_config(const char *config_path)
 	base_dir = get_setting("master", "base_dir");
 	symlink_path = t_strconcat(base_dir, "/"PACKAGE".conf", NULL);
 	if (t_readlink(symlink_path, &prev_path, &error) < 0) {
-		i_error("t_readlink(%s) failed: %s", symlink_path, error);
+		if (errno != ENOENT)
+			i_error("t_readlink(%s) failed: %s", symlink_path, error);
 		return;
 	}
 
@@ -866,7 +867,7 @@ int main(int argc, char *argv[])
 		MASTER_SERVICE_FLAG_DONT_SEND_STATS |
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME;
-	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL;
+	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN;
 	const char *orig_config_path, *config_path, *module;
 	ARRAY(const char *) module_names;
 	struct config_filter filter;
@@ -886,7 +887,7 @@ int main(int argc, char *argv[])
 
 	i_zero(&filter);
 	master_service = master_service_init("config", master_service_flags,
-					     &argc, &argv, "adf:hHm:nNpPexS");
+					     &argc, &argv, "adf:hHm:nNpPexsS");
 	orig_config_path = t_strdup(master_service_get_config_path(master_service));
 
 	i_set_failure_prefix("doveconf: ");
@@ -927,6 +928,9 @@ int main(int argc, char *argv[])
 		case 'P':
 			hide_passwords = FALSE;
 			break;
+		case 's':
+			scope = CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN;
+			break;
 		case 'S':
 			simple_output = TRUE;
 			break;
@@ -956,6 +960,8 @@ int main(int argc, char *argv[])
 	} else if (argv[optind] != NULL) {
 		/* print only a single config setting */
 		setting_name_filters = argv+optind;
+		if (scope == CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN)
+			scope = CONFIG_DUMP_SCOPE_ALL_WITH_HIDDEN;
 	} else if (!simple_output) {
 		/* print the config file path before parsing it, so in case
 		   of errors it's still shown */
@@ -992,7 +998,7 @@ int main(int argc, char *argv[])
 	if (simple_output) {
 		struct config_export_context *ctx;
 
-		ctx = config_export_init(wanted_modules, scope,
+		ctx = config_export_init(wanted_modules, NULL, scope,
 					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
 					 config_request_simple_stdout,
 					 setting_name_filters);
@@ -1019,14 +1025,14 @@ int main(int argc, char *argv[])
 		printf("# Hostname: %s\n", my_hostdomain());
 		if (!config_path_specified)
 			check_wrong_config(config_path);
-		if (scope == CONFIG_DUMP_SCOPE_ALL)
+		if (scope == CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN)
 			printf("# NOTE: Send doveconf -n output instead when asking for help.\n");
 		fflush(stdout);
 		ret2 = config_dump_human(&filter, wanted_modules, scope, NULL, hide_passwords);
 	} else {
 		struct config_export_context *ctx;
 
-		ctx = config_export_init(wanted_modules, CONFIG_DUMP_SCOPE_SET,
+		ctx = config_export_init(wanted_modules, NULL, CONFIG_DUMP_SCOPE_SET,
 					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
 					 config_request_putenv, NULL);
 		config_export_by_filter(ctx, &filter);
@@ -1043,7 +1049,7 @@ int main(int argc, char *argv[])
 			master_service_env_clean();
 		}
 
-		env_put("DOVECONF_ENV=1");
+		env_put("DOVECONF_ENV", "1");
 		if (config_export_finish(&ctx) < 0)
 			i_fatal("Invalid configuration");
 		execvp(exec_args[0], exec_args);

@@ -52,13 +52,13 @@ cmd_xclient_recheck(struct smtp_server_cmd_ctx *cmd,
 {
 	struct smtp_server_connection *conn = cmd->conn;
 
-	/* all preceeding commands have finished and now the transaction state is
+	/* all preceding commands have finished and now the transaction state is
 	   clear. This provides the opportunity to re-check the protocol state */
 	if (!cmd_xclient_check_state(cmd))
 		return;
 	smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_XCLIENT, NULL);
 
-	/* succes; send greeting */
+	/* success; send greeting */
 	smtp_server_reply(cmd, 220, NULL, "%s %s",
 		conn->set.hostname, conn->set.login_greeting);
 	return;
@@ -183,6 +183,10 @@ void smtp_server_cmd_xclient(struct smtp_server_cmd_ctx *cmd,
 					"Invalid PROTO parameter");
 				return;
 			}
+		} else if (strcmp(param.keyword, "SESSION") == 0) {
+			if (strcasecmp(param.value, "[UNAVAILABLE]") == 0)
+				continue;
+			proxy_data->session = p_strdup(cmd->pool, param.value);
 		} else if (strcmp(param.keyword, "TIMEOUT") == 0) {
 			if (str_to_uint(param.value,
 				&proxy_data->timeout_secs) < 0) {

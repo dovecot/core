@@ -45,7 +45,7 @@ static void
 push_notification_transaction_init(struct push_notification_txn *ptxn)
 {
 	struct push_notification_driver_txn *dtxn;
-	struct push_notification_driver_user **duser;
+	struct push_notification_driver_user *duser;
 	struct mail_storage *storage;
 
 	if (ptxn->initialized)
@@ -60,9 +60,9 @@ push_notification_transaction_init(struct push_notification_txn *ptxn)
 		return;
 	}
 
-	array_foreach_modifiable(&ptxn->puser->driverlist->drivers, duser) {
+	array_foreach_elem(&ptxn->puser->driverlist->drivers, duser) {
 		dtxn = p_new(ptxn->pool, struct push_notification_driver_txn, 1);
-		dtxn->duser = *duser;
+		dtxn->duser = duser;
 		dtxn->ptxn = ptxn;
 
 		if ((dtxn->duser->driver->v.begin_txn == NULL) ||
@@ -102,14 +102,12 @@ static void
 push_notification_transaction_end(struct push_notification_txn *ptxn,
 				  bool success)
 {
-	struct push_notification_driver_txn **dtxn;
+	struct push_notification_driver_txn *dtxn;
 
 	if (ptxn->initialized) {
-		array_foreach_modifiable(&ptxn->drivers, dtxn) {
-			if ((*dtxn)->duser->driver->v.end_txn != NULL) {
-				(*dtxn)->duser->driver->v.end_txn(*dtxn,
-								  success);
-			}
+		array_foreach_elem(&ptxn->drivers, dtxn) {
+			if (dtxn->duser->driver->v.end_txn != NULL)
+				dtxn->duser->driver->v.end_txn(dtxn, success);
 		}
 	}
 
@@ -303,7 +301,7 @@ static void push_notification_user_deinit(struct mail_user *user)
 	struct push_notification_user *puser =
 		PUSH_NOTIFICATION_USER_CONTEXT(user);
 	struct push_notification_driver_list *dlist = puser->driverlist;
-	struct push_notification_driver_user **duser;
+	struct push_notification_driver_user *duser;
 	struct ioloop *prev_ioloop = current_ioloop;
 
 	/* Make sure we're in the main ioloop, so if the deinit/cleanup moves
@@ -311,11 +309,11 @@ static void push_notification_user_deinit(struct mail_user *user)
 	 */
 	io_loop_set_current(main_ioloop);
 
-	array_foreach_modifiable(&dlist->drivers, duser) {
-		if ((*duser)->driver->v.deinit != NULL)
-			(*duser)->driver->v.deinit(*duser);
-		if ((*duser)->driver->v.cleanup != NULL)
-			(*duser)->driver->v.cleanup();
+	array_foreach_elem(&dlist->drivers, duser) {
+		if (duser->driver->v.deinit != NULL)
+			duser->driver->v.deinit(duser);
+		if (duser->driver->v.cleanup != NULL)
+			duser->driver->v.cleanup();
 	}
 	io_loop_set_current(prev_ioloop);
 

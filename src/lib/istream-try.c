@@ -7,6 +7,7 @@
 struct try_istream {
 	struct istream_private istream;
 
+	size_t min_buffer_full_size;
 	unsigned int try_input_count;
 	struct istream **try_input;
 	unsigned int try_idx;
@@ -27,7 +28,8 @@ static void i_stream_unref_try_inputs(struct try_istream *tstream)
 static void i_stream_try_close(struct iostream_private *stream,
 			       bool close_parent)
 {
-	struct try_istream *tstream = (struct try_istream *)stream;
+	struct try_istream *tstream =
+		container_of(stream, struct try_istream, istream.iostream);
 
 	if (close_parent) {
 		if (tstream->istream.parent != NULL)
@@ -40,7 +42,9 @@ static void i_stream_try_close(struct iostream_private *stream,
 	i_stream_unref_try_inputs(tstream);
 }
 
-static bool i_stream_try_is_buffer_full(struct istream *try_input)
+static bool
+i_stream_try_is_buffer_full(struct try_istream *tstream,
+			    struct istream *try_input)
 {
 	/* See if one of the parent istreams have their buffer full.
 	   This is mainly intended to check with istream-tee whether its
@@ -48,11 +52,20 @@ static bool i_stream_try_is_buffer_full(struct istream *try_input)
 	   a full buffer of input, but it hasn't decided to return anything
 	   yet. But it also hasn't failed, so we'll assume that the input is
 	   correct for it and it simply needs a lot more input before it can
-	   return anything (e.g. istream-bzlib). */
+	   return anything (e.g. istream-bzlib).
+
+	   Note that it's common for buffer_size to be 0 for all parents. This
+	   could be e.g. because the root is istream-concat, which breaks the
+	   parent hierarchy since it has multiple parents. So the buffer_size
+	   check can be thought of just as an optional extra check that
+	   sometimes works and sometimes doesn't.
+
+	   Note that we don't check whether skip==pos. An istream could be
+	   reading its buffer full without skipping over anything. */
 	while (try_input->real_stream->parent != NULL) {
 		try_input = try_input->real_stream->parent;
-		if (try_input->real_stream->pos == try_input->real_stream->buffer_size &&
-		    try_input->real_stream->buffer_size > 0)
+		if (try_input->real_stream->pos >= try_input->real_stream->buffer_size &&
+		    try_input->real_stream->pos >= tstream->min_buffer_full_size)
 			return TRUE;
 	}
 	return FALSE;
@@ -67,7 +80,7 @@ static int i_stream_try_detect(struct try_istream *tstream)
 			tstream->try_input[tstream->try_idx];
 
 		ret = i_stream_read(try_input);
-		if (ret == 0 && i_stream_try_is_buffer_full(try_input))
+		if (ret == 0 && i_stream_try_is_buffer_full(tstream, try_input))
 			ret = 1;
 		if (ret > 0) {
 			i_stream_init_parent(&tstream->istream, try_input);
@@ -101,7 +114,8 @@ static int i_stream_try_detect(struct try_istream *tstream)
 static ssize_t
 i_stream_try_read(struct istream_private *stream)
 {
-	struct try_istream *tstream = (struct try_istream *)stream;
+	struct try_istream *tstream =
+		container_of(stream, struct try_istream, istream);
 	int ret;
 
 	if (stream->parent == NULL) {
@@ -114,7 +128,8 @@ i_stream_try_read(struct istream_private *stream)
 	return i_stream_read_copy_from_parent(&stream->istream);
 }
 
-struct istream *istream_try_create(struct istream *const input[])
+struct istream *istream_try_create(struct istream *const input[],
+				   size_t min_buffer_full_size)
 {
 	struct try_istream *tstream;
 	unsigned int count;
@@ -133,6 +148,7 @@ struct istream *istream_try_create(struct istream *const input[])
 	i_assert(count != 0);
 
 	tstream = i_new(struct try_istream, 1);
+	tstream->min_buffer_full_size = min_buffer_full_size;
 	tstream->try_input_count = count;
 	tstream->try_input = p_memdup(default_pool, input,
 				      sizeof(*input) * count);

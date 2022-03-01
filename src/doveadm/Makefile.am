@@ -13,6 +13,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-compression \
 	-I$(top_srcdir)/src/lib-dict \
+	-I$(top_srcdir)/src/lib-doveadm \
 	-I$(top_srcdir)/src/lib-fs \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-master \
@@ -24,6 +25,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-http \
 	-I$(top_srcdir)/src/lib-dcrypt \
 	-I$(top_srcdir)/src/auth \
+	-I$(top_srcdir)/src/stats \
 	-DMODULEDIR=\""$(moduledir)"\" \
 	-DAUTH_MODULE_DIR=\""$(moduledir)/auth"\" \
 	-DDOVEADM_MODULEDIR=\""$(doveadm_moduledir)"\" \
@@ -36,7 +38,6 @@ AM_CPPFLAGS = \
 
 cmd_pw_libs = \
 	../auth/libpassword.la \
-	../lib-ntlm/libntlm.la \
 	../lib-otp/libotp.la
 
 libs = \
@@ -76,13 +77,13 @@ doveadm_common_cmds = \
 	doveadm-dict.c \
 	doveadm-director.c \
 	doveadm-fs.c \
+	doveadm-indexer.c \
 	doveadm-instance.c \
 	doveadm-kick.c \
 	doveadm-log.c \
 	doveadm-master.c \
 	doveadm-mutf7.c \
 	doveadm-penalty.c \
-	doveadm-proxy.c \
 	doveadm-replicator.c \
 	doveadm-sis.c \
 	doveadm-stats.c \
@@ -134,7 +135,6 @@ common = \
 	doveadm-print.c \
 	doveadm-settings.c \
 	doveadm-util.c \
-	server-connection.c \
 	doveadm-print-formatted.c
 
 doveadm_SOURCES = \
@@ -174,8 +174,6 @@ pkginc_lib_HEADERS = \
 noinst_HEADERS = \
 	client-connection.h \
 	client-connection-private.h \
-	server-connection.h \
-	doveadm-server.h \
 	doveadm-who.h
 
 install-exec-local:

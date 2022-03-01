@@ -124,8 +124,8 @@ o_stream_encrypt_send_header_v2(struct encrypt_ostream *stream)
 		8 + stream->key_data_len);
 	buffer_append(values, &i, 4);
 
-	buffer_append_buf(values, stream->cipher_oid, 0, (size_t)-1);
-	buffer_append_buf(values, stream->mac_oid, 0, (size_t)-1);
+	buffer_append_buf(values, stream->cipher_oid, 0, SIZE_MAX);
+	buffer_append_buf(values, stream->mac_oid, 0, SIZE_MAX);
 	i = cpu32_to_be(IO_STREAM_ENCRYPT_ROUNDS);
 	buffer_append(values, &i, 4);
 	i = cpu32_to_be(stream->key_data_len);
@@ -359,11 +359,11 @@ o_stream_encrypt_key_for_pubkey_v2(struct encrypt_ostream *stream,
 	/* store ephemeral key (if present) */
 	unsigned int val = cpu32_to_be(ephemeral_key->used);
 	buffer_append(res, &val, 4);
-	buffer_append_buf(res, ephemeral_key, 0, (size_t)-1);
+	buffer_append_buf(res, ephemeral_key, 0, SIZE_MAX);
 	/* store encrypted key */
 	val = cpu32_to_be(encrypted_key->used);
 	buffer_append(res, &val, 4);
-	buffer_append_buf(res, encrypted_key, 0, (size_t)-1);
+	buffer_append_buf(res, encrypted_key, 0, SIZE_MAX);
 
 	return 0;
 }

@@ -9,7 +9,6 @@
 #include "md5.h"
 #include "hmac.h"
 #include "hmac-cram-md5.h"
-#include "ntlm.h"
 #include "mycrypt.h"
 #include "randgen.h"
 #include "sha1.h"
@@ -180,7 +179,7 @@ int password_decode(const char *password, const char *scheme,
 		/* fall through */
 	case PW_ENCODING_BASE64:
 		buf = t_buffer_create(MAX_BASE64_DECODED_SIZE(len));
-		if (base64_decode(password, len, NULL, buf) < 0) {
+		if (base64_decode(password, len, buf) < 0) {
 			*error_r = "Input isn't valid base64 encoded data";
 			return -1;
 		}
@@ -246,13 +245,10 @@ bool password_generate_encoded(const char *plaintext, const struct password_gene
 
 const char *password_generate_salt(size_t len)
 {
-	unsigned int i;
 	char *salt;
-
 	salt = t_malloc_no0(len + 1);
-	random_fill(salt, len);
-	for (i = 0; i < len; i++)
-		salt[i] = salt_chars[salt[i] % (sizeof(salt_chars)-1)];
+	for (size_t i = 0; i < len; i++)
+		salt[i] = salt_chars[i_rand_limit(sizeof(salt_chars) - 1)];
 	salt[len] = '\0';
 	return salt;
 }
@@ -373,13 +369,9 @@ md5_crypt_generate(const char *plaintext, const struct password_generate_params 
 		   const unsigned char **raw_password_r, size_t *size_r)
 {
 	const char *password;
-	char salt[9];
-	unsigned int i;
+	const char *salt;
 
-	random_fill(salt, sizeof(salt)-1);
-	for (i = 0; i < sizeof(salt)-1; i++)
-		salt[i] = salt_chars[salt[i] % (sizeof(salt_chars)-1)];
-	salt[sizeof(salt)-1] = '\0';
+	salt = password_generate_salt(8);
 
 	password = password_generate_md5_crypt(plaintext, salt);
 	*raw_password_r = (const unsigned char *)password;
@@ -717,32 +709,6 @@ plain_md5_generate(const char *plaintext, const struct password_generate_params 
 	*size_r = MD5_RESULTLEN;
 }
 
-static void
-lm_generate(const char *plaintext, const struct password_generate_params *params ATTR_UNUSED,
-	    const unsigned char **raw_password_r, size_t *size_r)
-{
-	unsigned char *digest;
-
-	digest = t_malloc_no0(LM_HASH_SIZE);
-	lm_hash(plaintext, digest);
-
-	*raw_password_r = digest;
-	*size_r = LM_HASH_SIZE;
-}
-
-static void
-ntlm_generate(const char *plaintext, const struct password_generate_params *params ATTR_UNUSED,
-	      const unsigned char **raw_password_r, size_t *size_r)
-{
-	unsigned char *digest;
-
-	digest = t_malloc_no0(NTLMSSP_HASH_SIZE);
-	ntlm_v1_hash(plaintext, digest);
-
-	*raw_password_r = digest;
-	*size_r = NTLMSSP_HASH_SIZE;
-}
-
 static int otp_verify(const char *plaintext, const struct password_generate_params *params ATTR_UNUSED,
 		      const unsigned char *raw_password, size_t size,
 		      const char **error_r)
@@ -750,7 +716,7 @@ static int otp_verify(const char *plaintext, const struct password_generate_para
 	const char *password, *generated;
 
 	password = t_strndup(raw_password, size);
-	if (password_generate_otp(plaintext, password, -1, &generated) < 0) {
+	if (password_generate_otp(plaintext, password, UINT_MAX, &generated) < 0) {
 		*error_r = "Invalid OTP data in passdb";
 		return -1;
 	}
@@ -768,31 +734,6 @@ otp_generate(const char *plaintext, const struct password_generate_params *param
 		i_unreached();
 	*raw_password_r = (const unsigned char *)password;
 	*size_r = strlen(password);
-}
-
-static void
-skey_generate(const char *plaintext, const struct password_generate_params *params ATTR_UNUSED,
-	      const unsigned char **raw_password_r, size_t *size_r)
-{
-	const char *password;
-
-	if (password_generate_otp(plaintext, NULL, OTP_HASH_MD4, &password) < 0)
-		i_unreached();
-	*raw_password_r = (const unsigned char *)password;
-	*size_r = strlen(password);
-}
-
-static void
-rpa_generate(const char *plaintext, const struct password_generate_params *params ATTR_UNUSED,
-	     const unsigned char **raw_password_r, size_t *size_r)
-{
-	unsigned char *digest;
-
-	digest = t_malloc_no0(MD5_RESULTLEN);
-	password_generate_rpa(plaintext, digest);
-
-	*raw_password_r = digest;
-	*size_r = MD5_RESULTLEN;
 }
 
 static const struct password_scheme builtin_schemes[] = {
@@ -829,11 +770,7 @@ static const struct password_scheme builtin_schemes[] = {
 	  NULL, plain_md5_generate },
 	{ "LDAP-MD5", PW_ENCODING_BASE64, MD5_RESULTLEN,
 	  NULL, plain_md5_generate },
-	{ "LANMAN", PW_ENCODING_HEX, LM_HASH_SIZE, NULL, lm_generate },
-	{ "NTLM", PW_ENCODING_HEX, NTLMSSP_HASH_SIZE, NULL, ntlm_generate },
 	{ "OTP", PW_ENCODING_NONE, 0, otp_verify, otp_generate },
-	{ "SKEY", PW_ENCODING_NONE, 0, otp_verify, skey_generate },
-	{ "RPA", PW_ENCODING_HEX, MD5_RESULTLEN, NULL, rpa_generate },
         { "PBKDF2", PW_ENCODING_NONE, 0, pbkdf2_verify, pbkdf2_generate },
 };
 

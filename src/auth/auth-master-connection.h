@@ -7,6 +7,7 @@ struct auth_stream_reply;
 struct auth_master_connection {
 	struct auth_master_connection *prev, *next;
 	struct auth *auth;
+	struct event *event;
 	int refcount;
 
 	struct timeval create_time, handshake_time;
@@ -26,9 +27,6 @@ struct auth_master_connection {
 	bool destroyed:1;
 	bool userdb_only:1;
 };
-
-void auth_master_log_error(struct auth_master_connection *conn,
-			   const char *fmt, ...) ATTR_FORMAT(2, 3);
 
 struct auth_master_connection *
 auth_master_connection_create(struct auth *auth, int fd,

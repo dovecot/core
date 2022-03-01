@@ -88,7 +88,7 @@ i_stream_base64_finish_encode(struct base64_encoder_istream *bstream)
 static ssize_t i_stream_base64_encoder_read(struct istream_private *stream)
 {
 	struct base64_encoder_istream *bstream =
-		(struct base64_encoder_istream *)stream;
+		container_of(stream, struct base64_encoder_istream, istream);
 	size_t pre_count, post_count;
 	int ret;
 
@@ -143,7 +143,7 @@ i_stream_base64_encoder_seek(struct istream_private *stream,
 			     uoff_t v_offset, bool mark)
 {
 	struct base64_encoder_istream *bstream =
-		(struct base64_encoder_istream *)stream;
+		container_of(stream, struct base64_encoder_istream, istream);
 
 	if (v_offset < stream->istream.v_offset) {
 		/* seeking backwards - go back to beginning and seek
@@ -163,7 +163,7 @@ i_stream_base64_encoder_stat(struct istream_private *stream,
 	bool exact ATTR_UNUSED)
 {
 	struct base64_encoder_istream *bstream =
-		(struct base64_encoder_istream *)stream;
+		container_of(stream, struct base64_encoder_istream, istream);
 	const struct stat *st;
 
 	if (i_stream_stat(stream->parent, exact, &st) < 0) {

@@ -77,8 +77,8 @@ Queues the indexing to be run by indexer process.
 Without \-q the indexing is done directly by the
 .BR doveadm (1)
 process.
-Some backends like fts\-lucene can\(aqt handle multiple processes updating
-the indexes simultaneously, so \-q should usually be used on production.
+Some backends can\(aqt handle multiple processes updating the indexes
+simultaneously, so \-q should usually be used on production.
 .\"-------------------------------------
 @INCLUDE:option-S-socket@
 .\"-------------------------------------

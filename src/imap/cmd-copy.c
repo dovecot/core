@@ -2,6 +2,7 @@
 
 #include "imap-common.h"
 #include "str.h"
+#include "istream.h"
 #include "ostream.h"
 #include "imap-resp-code.h"
 #include "imap-util.h"
@@ -15,6 +16,7 @@
 
 struct cmd_copy_context {
 	struct client_command_context *cmd;
+	struct mailbox *srcbox;
 	struct mailbox *destbox;
 	bool move;
 
@@ -29,22 +31,25 @@ struct cmd_copy_context {
 	enum mail_error mail_error;
 };
 
-static void client_send_sendalive_if_needed(struct client *client)
+static int client_send_sendalive_if_needed(struct client *client)
 {
 	time_t now, last_io;
+	int ret = 0;
 
 	if (o_stream_get_buffer_used_size(client->output) != 0)
-		return;
+		return 0;
 
 	now = time(NULL);
 	last_io = I_MAX(client->last_input, client->last_output);
 	if (now - last_io > MAIL_STORAGE_STAYALIVE_SECS) {
 		o_stream_nsend_str(client->output, "* OK Hang in there..\r\n");
 		/* make sure it doesn't get stuck on the corked stream */
-		o_stream_uncork(client->output);
+		if (o_stream_uncork_flush(client->output) < 0)
+			ret = -1;
 		o_stream_cork(client->output);
 		client->last_output = now;
 	}
+	return ret;
 }
 
 static void copy_update_trashed(struct client *client, struct mailbox *box,
@@ -60,11 +65,28 @@ static void copy_update_trashed(struct client *client, struct mailbox *box,
 		client->trashed_count += count;
 }
 
+static bool client_is_disconnected(struct client *client)
+{
+	if (client->fd_in == STDIN_FILENO) {
+		/* Skip this check for stdio clients. It's often used in
+		   testing where the test expects that all commands will be
+		   run even though stdin already has reached EOF. */
+		return FALSE;
+	}
+	ssize_t bytes = i_stream_read(client->input);
+	if (bytes == -1)
+		return TRUE;
+	if (bytes != 0)
+		i_stream_set_input_pending(client->input, TRUE);
+	return FALSE;
+}
+
 static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
-			  struct mail_search_args *search_args)
+			  const struct mail_search_args *uid_search_args)
 {
 	struct client *client = copy_ctx->cmd->client;
 	struct mailbox_transaction_context *t, *src_trans;
+	struct mail_search_args *search_args;
 	struct mail_search_context *search_ctx;
 	struct mail_save_context *save_ctx;
 	struct mail *mail;
@@ -72,6 +94,21 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 	struct mail_transaction_commit_changes changes;
 	ARRAY_TYPE(seq_range) src_uids;
 	int ret;
+
+	/* convert uidset to seqset */
+	search_args = mail_search_args_dup(uid_search_args);
+	mail_search_args_init(search_args, copy_ctx->srcbox, TRUE, NULL);
+	/* make sure the number of messages didn't already change */
+	i_assert(uid_search_args->args->type == SEARCH_UIDSET);
+	i_assert(search_args->args->type == SEARCH_SEQSET ||
+		 (search_args->args->type == SEARCH_ALL &&
+		  search_args->args->match_not));
+	if (search_args->args->type != SEARCH_SEQSET ||
+	    seq_range_count(&search_args->args->value.seqset) !=
+	    seq_range_count(&uid_search_args->args->value.seqset)) {
+		mail_search_args_unref(&search_args);
+		return 0;
+	}
 
 	i_assert(o_stream_is_corked(client->output) ||
 		 client->output->stream_errno != 0);
@@ -81,10 +118,13 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 				      MAILBOX_TRANSACTION_FLAG_EXTERNAL |
 				      MAILBOX_TRANSACTION_FLAG_ASSIGN_UIDS,
 				      cmd_reason);
-
-	src_trans = mailbox_transaction_begin(client->mailbox, 0, cmd_reason);
+	/* Refresh source index so expunged mails will be noticed */
+	src_trans = mailbox_transaction_begin(copy_ctx->srcbox,
+					      MAILBOX_TRANSACTION_FLAG_REFRESH,
+					      cmd_reason);
 	search_ctx = mailbox_search_init(src_trans, search_args,
 					 NULL, 0, NULL);
+	mail_search_args_unref(&search_args);
 
 	t_array_init(&src_uids, 64);
 	ret = 1;
@@ -94,8 +134,22 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 			break;
 		}
 
-		if ((++copy_ctx->copy_count % COPY_CHECK_INTERVAL) == 0)
-			client_send_sendalive_if_needed(client);
+		if ((++copy_ctx->copy_count % COPY_CHECK_INTERVAL) == 0) {
+			/* If we're COPYing (not MOVEing), check if client has
+			   already disconnected. If yes, abort the COPY to
+			   avoid client duplicating the COPY again later.
+			   We can detect this as long as the client doesn't
+			   fill the input buffer full. */
+			if (client_send_sendalive_if_needed(client) < 0 ||
+			    (!copy_ctx->move &&
+			     client_is_disconnected(client))) {
+				/* Client disconnected. Use the same failure
+				   code path as if some messages were
+				   expunged. */
+				ret = 0;
+				break;
+			}
+		}
 
 		save_ctx = mailbox_save_alloc(t);
 		mailbox_save_copy_flags(save_ctx, mail);
@@ -120,9 +174,14 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 	}
 	if (mailbox_search_deinit(&search_ctx) < 0 && ret >= 0) {
 		copy_ctx->error_string =
-			mailbox_get_last_error(client->mailbox, &copy_ctx->mail_error);
+			mailbox_get_last_error(copy_ctx->srcbox, &copy_ctx->mail_error);
 		ret = -1;
 	}
+
+	/* Do a final check before committing COPY to see if the client has
+	   already disconnected. */
+	if (!copy_ctx->move && client_is_disconnected(client))
+		ret = 0;
 
 	if (ret <= 0)
 		mailbox_transaction_rollback(&t);
@@ -160,13 +219,25 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 		pool_unref(&changes.pool);
 	}
 
-	if (ret <= 0 && copy_ctx->move) {
+	if (!copy_ctx->move ||
+	    copy_ctx->srcbox == copy_ctx->destbox) {
+		/* copying or moving within the same mailbox
+		   succeeded or failed */
+		if (mailbox_transaction_commit(&src_trans) < 0 && ret >= 0) {
+			copy_ctx->error_string =
+				mailbox_get_last_error(copy_ctx->srcbox, &copy_ctx->mail_error);
+			ret = -1;
+		}
+	} else if (ret <= 0) {
 		/* move failed, don't expunge anything */
 		mailbox_transaction_rollback(&src_trans);
 	} else {
-		if (mailbox_transaction_commit(&src_trans) < 0 && ret >= 0) {
+		/* move succeeded */
+		if (mailbox_transaction_commit(&src_trans) < 0 ||
+		    mailbox_sync(copy_ctx->srcbox,
+				 MAILBOX_SYNC_FLAG_EXPUNGE) < 0) {
 			copy_ctx->error_string =
-				mailbox_get_last_error(client->mailbox, &copy_ctx->mail_error);
+				mailbox_get_last_error(copy_ctx->srcbox, &copy_ctx->mail_error);
 			ret = -1;
 		}
 	}
@@ -205,14 +276,46 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 	if (!client_verify_open_mailbox(cmd))
 		return TRUE;
 
+	/* First convert the message set to sequences. This way nonexistent
+	   UIDs are dropped. */
 	ret = imap_search_get_seqset(cmd, messageset, cmd->uid, &search_args);
 	if (ret <= 0)
 		return ret < 0;
+	if (search_args->args->type == SEARCH_ALL) {
+		i_assert(search_args->args->match_not);
+		mail_search_args_unref(&search_args);
+		return cmd_sync(cmd, sync_flags, imap_flags,
+				"OK No messages found.");
+	}
+	/* Convert seqset to uidset. This is required for MOVE to work
+	   correctly, since it opens another view for the source mailbox
+	   that can have different sequences. */
+	imap_search_anyset_to_uidset(cmd, search_args);
 
 	if (client_open_save_dest_box(cmd, mailbox, &destbox) < 0) {
 		mail_search_args_unref(&search_args);
 		return TRUE;
 	}
+
+	i_zero(&copy_ctx);
+	copy_ctx.cmd = cmd;
+	copy_ctx.destbox = destbox;
+	if (destbox == client->mailbox || !move)
+		copy_ctx.srcbox = client->mailbox;
+	else {
+		copy_ctx.srcbox = mailbox_alloc(mailbox_get_namespace(client->mailbox)->list,
+						mailbox_get_vname(client->mailbox), 0);
+		if (mailbox_sync(copy_ctx.srcbox, 0) < 0) {
+			mail_search_args_unref(&search_args);
+			client_send_box_error(cmd, copy_ctx.srcbox);
+			mailbox_free(&copy_ctx.srcbox);
+			mailbox_free(&destbox);
+			return TRUE;
+		}
+	}
+	copy_ctx.move = move;
+	i_array_init(&copy_ctx.src_uids, 8);
+	i_array_init(&copy_ctx.saved_uids, 8);
 
 	if (move) {
 		/* When moving mails, perform the work in batches of
@@ -221,12 +324,6 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 		seqset_iter = imap_search_seqset_iter_init(search_args,
 			client->messages_count, MOVE_COMMIT_INTERVAL);
 	}
-	i_zero(&copy_ctx);
-	copy_ctx.cmd = cmd;
-	copy_ctx.destbox = destbox;
-	copy_ctx.move = move;
-	i_array_init(&copy_ctx.src_uids, 8);
-	i_array_init(&copy_ctx.saved_uids, 8);
 	do {
 		T_BEGIN {
 			ret = fetch_and_copy(&copy_ctx, search_args);
@@ -282,6 +379,8 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 		sync_flags |= MAILBOX_SYNC_FLAG_EXPUNGE;
 		imap_flags |= IMAP_SYNC_FLAG_SAFE;
 	}
+	if (copy_ctx.srcbox != client->mailbox)
+		mailbox_free(&copy_ctx.srcbox);
 
 	if (ret > 0)
 		return cmd_sync(cmd, sync_flags, imap_flags, str_c(msg));

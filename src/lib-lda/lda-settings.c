@@ -14,20 +14,22 @@ static bool lda_settings_check(void *_set, pool_t pool, const char **error_r);
 #undef DEF
 #undef DEFLIST
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct lda_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct lda_settings)
 #define DEFLIST(field, name, defines) \
-	{ SET_DEFLIST, name, offsetof(struct lda_settings, field), defines }
+	{ .type = SET_DEFLIST, .key = name, \
+	  .offset = offsetof(struct lda_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define lda_setting_defines[] = {
-	DEF(SET_STR, hostname),
-	DEF(SET_STR, rejection_subject),
-	DEF(SET_STR, rejection_reason),
-	DEF(SET_STR, deliver_log_format),
-	DEF(SET_STR, recipient_delimiter),
-	DEF(SET_STR, lda_original_recipient_header),
-	DEF(SET_BOOL, quota_full_tempfail),
-	DEF(SET_BOOL, lda_mailbox_autocreate),
-	DEF(SET_BOOL, lda_mailbox_autosubscribe),
+	DEF(STR, hostname),
+	DEF(STR, rejection_subject),
+	DEF(STR, rejection_reason),
+	DEF(STR, deliver_log_format),
+	DEF(STR, recipient_delimiter),
+	DEF(STR, lda_original_recipient_header),
+	DEF(BOOL, quota_full_tempfail),
+	DEF(BOOL, lda_mailbox_autocreate),
+	DEF(BOOL, lda_mailbox_autosubscribe),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -56,10 +58,10 @@ const struct setting_parser_info lda_setting_parser_info = {
 	.defines = lda_setting_defines,
 	.defaults = &lda_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct lda_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 
 #ifndef CONFIG_BINARY
 	.check_func = lda_settings_check,

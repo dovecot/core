@@ -1,6 +1,6 @@
 /* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
-#include "lib.h"
+#include "auth-common.h"
 #include "array.h"
 #include "str.h"
 #include "var-expand.h"
@@ -9,6 +9,7 @@
 #include "settings.h"
 #include "oauth2.h"
 #include "http-client.h"
+#include "http-url.h"
 #include "iostream-ssl.h"
 #include "auth-request.h"
 #include "auth-settings.h"
@@ -54,6 +55,12 @@ struct passdb_oauth2_settings {
 	const char *local_validation_key_dict;
 	/* valid token issuers */
 	const char *issuers;
+	/* The URL for a document following the OpenID Provider Configuration
+	   Information schema, see
+
+	   https://datatracker.ietf.org/doc/html/rfc7628#section-3.2.2
+	*/
+	const char *openid_configuration_url;
 
 	/* TLS options */
 	const char *tls_ca_cert_file;
@@ -122,6 +129,7 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(client_id),
 	DEF_STR(client_secret),
 	DEF_STR(issuers),
+	DEF_STR(openid_configuration_url),
 	DEF_INT(timeout_msecs),
 	DEF_INT(max_idle_time_msecs),
 	DEF_INT(max_parallel_connections),
@@ -152,11 +160,12 @@ static struct passdb_oauth2_settings default_oauth2_settings = {
 	.introspection_mode = "",
 	.username_format = "%Lu",
 	.username_attribute = "email",
-	.active_attribute = "",
-	.active_value = "",
+	.active_attribute = "active",
+	.active_value = "true",
 	.client_id = "",
 	.client_secret = "",
 	.issuers = "",
+	.openid_configuration_url = "",
 	.pass_attrs = "",
 	.local_validation_key_dict = "",
 	.rawlog_dir = "",
@@ -243,6 +252,7 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	http_set.no_auto_redirect = FALSE;
 	http_set.no_auto_retry = TRUE;
 	http_set.debug = db->set.debug;
+	http_set.event_parent = auth_event;
 
 	db->client = http_client_init(&http_set);
 
@@ -257,6 +267,13 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	db->oauth2_set.send_auth_headers = db->set.send_auth_headers;
 	db->oauth2_set.use_grant_password = db->set.use_grant_password;
 	db->oauth2_set.scope = db->set.scope;
+
+	if (*db->set.active_attribute != '\0' &&
+	    *db->set.active_value == '\0')
+		i_fatal("oauth2: Cannot have empty active_value if active_attribute is set");
+	if (*db->set.active_attribute == '\0' &&
+	    *db->set.active_value != '\0')
+		i_fatal("oauth2: Cannot have empty active_attribute is active_value is set");
 
 	if (*db->set.introspection_mode == '\0' ||
 	    strcmp(db->set.introspection_mode, "auth") == 0) {
@@ -277,9 +294,8 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 
 	if (db->oauth2_set.introspection_mode == INTROSPECTION_MODE_LOCAL) {
 		struct dict_settings dict_set = {
-			.username = "",
 			.base_dir = global_auth_settings->base_dir,
-			.value_type = DICT_DATA_TYPE_STRING,
+			.event_parent = auth_event,
 		};
 		if (dict_init(db->set.local_validation_key_dict, &dict_set,
 			      &db->oauth2_set.key_dict, &error) < 0)
@@ -294,6 +310,16 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 	if (*db->set.issuers != '\0')
 		db->oauth2_set.issuers = (const char *const *)
 			p_strsplit_spaces(pool, db->set.issuers, " ");
+
+	if (*db->set.openid_configuration_url != '\0') {
+		struct http_url *parsed_url ATTR_UNUSED;
+		if (http_url_parse(db->set.openid_configuration_url, NULL, 0,
+				   pool_datastack_create(), &parsed_url,
+				   &error) < 0) {
+			i_fatal("Invalid openid_configuration_url: %s",
+				error);
+		}
+	}
 
 	DLLIST_PREPEND(&db_oauth2_head, db);
 
@@ -331,6 +357,21 @@ void db_oauth2_unref(struct db_oauth2 **_db)
 		dict_deinit(&db->oauth2_set.key_dict);
 	oauth2_validation_key_cache_deinit(&db->oauth2_set.key_cache);
 	pool_unref(&db->pool);
+}
+
+static void
+db_oauth2_add_openid_config_url(struct db_oauth2_request *req)
+{
+	/* FIXME: HORRIBLE HACK - REMOVE ME!!!
+	   It is because the mech has not been implemented properly
+	   that we need to pass the config url in this strange way.
+
+	   This **must** be moved to mech-oauth2 once the validation
+	   result et al is handled there.
+	*/
+	req->auth_request->openid_config_url =
+		p_strdup_empty(req->auth_request->pool,
+			       req->db->set.openid_configuration_url);
 }
 
 static bool
@@ -409,8 +450,8 @@ db_oauth2_value_get_var_expand_table(struct auth_request *auth_request,
 	struct var_expand_table *table;
 	unsigned int count = 1;
 
-	table = auth_request_get_var_expand_table_full(auth_request, NULL,
-						       &count);
+	table = auth_request_get_var_expand_table_full(auth_request,
+			auth_request->fields.user, NULL, &count);
 	table[0].key = '$';
 	table[0].value = oauth2_value;
 	return table;
@@ -426,7 +467,7 @@ db_oauth2_template_export(struct db_oauth2_request *req,
 		{ NULL, NULL }
 	};
 	string_t *dest;
-	const char *const *args, *value;
+	const char *const *args, *value, *error;
 	struct passdb_template *tmpl = req->db->tmpl;
 	unsigned int i, count;
 
@@ -445,7 +486,10 @@ db_oauth2_template_export(struct db_oauth2_request *req,
 				table = db_oauth2_value_get_var_expand_table(req->auth_request,
 									     auth_fields_find(req->fields, args[i]));
 			if (var_expand_with_funcs(dest, args[i+1], table, funcs_table,
-						  req, error_r) < 0) {
+						  req, &error) < 0) {
+				*error_r = t_strdup_printf(
+					"var_expand(%s) failed: %s",
+					args[i+1], error);
 				*result_r = PASSDB_RESULT_INTERNAL_FAILURE;
 				return FALSE;
 			}
@@ -474,21 +518,36 @@ static void db_oauth2_fields_merge(struct db_oauth2_request *req,
 	}
 }
 
+static const char *
+db_oauth2_field_find(const ARRAY_TYPE(oauth2_field) *fields, const char *name)
+{
+	const struct oauth2_field *f;
+
+	array_foreach(fields, f) {
+		if (strcmp(f->name, name) == 0)
+			return f->value;
+	}
+	return NULL;
+}
+
 static void db_oauth2_callback(struct db_oauth2_request *req,
 			       enum passdb_result result,
-			       const char *error)
+			       const char *error_prefix, const char *error)
 {
 	db_oauth2_lookup_callback_t *callback = req->callback;
 	req->callback = NULL;
 
 	i_assert(result == PASSDB_RESULT_OK || error != NULL);
 
-	e_debug(authdb_event(req->auth_request),
-		"callback(result: %s, error: %s)",
-		passdb_result_to_string(result), error);
+	if (result != PASSDB_RESULT_OK)
+		db_oauth2_add_openid_config_url(req);
 
+	/* Successful lookups were logged by the caller. Failed lookups will be
+	   logged either with e_error() or e_info() by the callback. */
 	if (callback != NULL) {
 		DLLIST_REMOVE(&req->db->head, req);
+		if (result != PASSDB_RESULT_OK)
+			error = t_strconcat(error_prefix, error, NULL);
 		callback(req, result, error, req->context);
 	}
 }
@@ -540,13 +599,14 @@ static bool
 db_oauth2_user_is_enabled(struct db_oauth2_request *req,
 			  enum passdb_result *result_r, const char **error_r)
 {
-	if (*req->db->set.active_attribute != '\0') {
-		const char *active_value = auth_fields_find(req->fields, req->db->set.active_attribute);
-		if (active_value == NULL ||
-		    (*req->db->set.active_value != '\0' &&
-		     strcmp(req->db->set.active_value, active_value) != 0)) {
-			*error_r = "User account is not active";
-			*result_r = PASSDB_RESULT_USER_DISABLED;
+	if (*req->db->set.active_attribute != '\0' &&
+	    *req->db->set.active_value != '\0') {
+		const char *active_value =
+			auth_fields_find(req->fields, req->db->set.active_attribute);
+		if (active_value != NULL &&
+		    strcmp(req->db->set.active_value, active_value) != 0) {
+			*error_r = "Provided token is not valid";
+			*result_r = PASSDB_RESULT_PASSWORD_MISMATCH;
 			return FALSE;
 		}
 	}
@@ -588,8 +648,8 @@ static void db_oauth2_process_fields(struct db_oauth2_request *req,
 {
 	*error_r = NULL;
 
-	if (db_oauth2_validate_username(req, result_r, error_r) &&
-	    db_oauth2_user_is_enabled(req, result_r, error_r) &&
+	if (db_oauth2_user_is_enabled(req, result_r, error_r) &&
+	    db_oauth2_validate_username(req, result_r, error_r) &&
 	    db_oauth2_token_in_scope(req, result_r, error_r) &&
 	    db_oauth2_template_export(req, result_r, error_r)) {
 		*result_r = PASSDB_RESULT_OK;
@@ -607,19 +667,17 @@ db_oauth2_introspect_continue(struct oauth2_request_result *result,
 
 	req->req = NULL;
 
-	e_debug(authdb_event(req->auth_request),
-		"Introspection result: %s",
-		result->success ? "success" : "failed");
-
-	if (!result->success) {
+	if (result->error != NULL) {
 		/* fail here */
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
 		error = result->error;
 	} else {
+		e_debug(authdb_event(req->auth_request),
+			"Introspection succeeded");
 		db_oauth2_fields_merge(req, result->fields);
 		db_oauth2_process_fields(req, &passdb_result, &error);
 	}
-	db_oauth2_callback(req, passdb_result, error);
+	db_oauth2_callback(req, passdb_result, "Introspection failed: ", error);
 }
 
 static void db_oauth2_lookup_introspect(struct db_oauth2_request *req)
@@ -631,15 +689,15 @@ static void db_oauth2_lookup_introspect(struct db_oauth2_request *req)
 		"Making introspection request to %s",
 		req->db->set.introspection_url);
 	input.token = req->token;
-	input.local_ip = req->auth_request->local_ip;
-	input.local_port = req->auth_request->local_port;
-	input.remote_ip = req->auth_request->remote_ip;
-	input.remote_port = req->auth_request->remote_port;
-	input.real_local_ip = req->auth_request->real_local_ip;
-	input.real_local_port = req->auth_request->real_local_port;
-	input.real_remote_ip = req->auth_request->real_remote_ip;
-	input.real_remote_port = req->auth_request->real_remote_port;
-	input.service = req->auth_request->service;
+	input.local_ip = req->auth_request->fields.local_ip;
+	input.local_port = req->auth_request->fields.local_port;
+	input.remote_ip = req->auth_request->fields.remote_ip;
+	input.remote_port = req->auth_request->fields.remote_port;
+	input.real_local_ip = req->auth_request->fields.real_local_ip;
+	input.real_local_port = req->auth_request->fields.real_local_port;
+	input.real_remote_ip = req->auth_request->fields.real_remote_ip;
+	input.real_remote_port = req->auth_request->fields.real_remote_port;
+	input.service = req->auth_request->fields.service;
 
 	req->req = oauth2_introspection_start(&req->db->oauth2_set, &input,
 					      db_oauth2_introspect_continue, req);
@@ -660,43 +718,64 @@ static void db_oauth2_local_validation(struct db_oauth2_request *req,
 		db_oauth2_fields_merge(req, &fields);
 		db_oauth2_process_fields(req, &passdb_result, &error);
 	}
-	db_oauth2_callback(req, passdb_result, error);
+	if (passdb_result == PASSDB_RESULT_OK) {
+		e_debug(authdb_event(req->auth_request),
+			"Local validation succeeded");
+	}
+	db_oauth2_callback(req, passdb_result,
+			   "Local validation failed: ", error);
+}
+
+static void
+db_oauth2_lookup_continue_valid(struct db_oauth2_request *req,
+				ARRAY_TYPE(oauth2_field) *fields,
+				const char *error_prefix)
+{
+	enum passdb_result passdb_result;
+	const char *error;
+
+	db_oauth2_fields_merge(req, fields);
+	if (db_oauth2_have_all_fields(req) &&
+	    !req->db->set.force_introspection) {
+		/* pass */
+	} else if (req->db->oauth2_set.introspection_mode ==
+		   INTROSPECTION_MODE_LOCAL) {
+		e_debug(authdb_event(req->auth_request),
+			"Attempting to locally validate token");
+		db_oauth2_local_validation(req, req->token);
+		return;
+	} else if (!db_oauth2_user_is_enabled(req, &passdb_result, &error)) {
+		db_oauth2_callback(req, passdb_result,
+				   "Token is not valid: ", error);
+		return;
+	} else if (*req->db->set.introspection_url != '\0') {
+		db_oauth2_lookup_introspect(req);
+		return;
+	}
+	db_oauth2_process_fields(req, &passdb_result, &error);
+	db_oauth2_callback(req, passdb_result, error_prefix, error);
 }
 
 static void
 db_oauth2_lookup_continue(struct oauth2_request_result *result,
 			  struct db_oauth2_request *req)
 {
-	enum passdb_result passdb_result;
-	const char *error;
-
+	i_assert(req->token != NULL);
 	req->req = NULL;
 
-	if (!result->success) {
-		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
-		error = result->error;
+	if (result->error != NULL) {
+		db_oauth2_callback(req, PASSDB_RESULT_INTERNAL_FAILURE,
+				   "Token validation failed: ", result->error);
 	} else if (!result->valid) {
-		passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
-		error = "Invalid token";
+		db_oauth2_callback(req, PASSDB_RESULT_PASSWORD_MISMATCH,
+				   "Token validation failed: ",
+				   "Invalid token");
 	} else {
-		db_oauth2_fields_merge(req, result->fields);
-		if (req->token == NULL) {
-			db_oauth2_callback(req, PASSDB_RESULT_INTERNAL_FAILURE,
-					   "OAuth2 token missing from reply");
-			return;
-		} else if (db_oauth2_have_all_fields(req) &&
-			   !req->db->set.force_introspection) {
-			/* pass */
-		} else if (req->db->oauth2_set.introspection_mode == INTROSPECTION_MODE_LOCAL) {
-			db_oauth2_local_validation(req, req->token);
-			return;
-		} else if (*req->db->set.introspection_url != '\0') {
-			db_oauth2_lookup_introspect(req);
-			return;
-		}
-		db_oauth2_process_fields(req, &passdb_result, &error);
+		e_debug(authdb_event(req->auth_request),
+			"Token validation succeeded");
+		db_oauth2_lookup_continue_valid(req, result->fields,
+						"Token validation failed: ");
 	}
-	db_oauth2_callback(req, passdb_result, error);
 }
 
 static void
@@ -704,38 +783,40 @@ db_oauth2_lookup_passwd_grant(struct oauth2_request_result *result,
 			      struct db_oauth2_request *req)
 {
 	enum passdb_result passdb_result;
-	const char *error;
-	const struct oauth2_field *f;
+	const char *token, *error;
 
+	i_assert(req->token == NULL);
 	req->req = NULL;
 
-	if (!result->valid) {
-		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
-		if (result->success) {
-			error = NULL;
-			array_foreach(result->fields, f) {
-				if (strcmp(f->name, "error") == 0) {
-					error = f->value;
-					break;
-				}
-			}
-			if (error != NULL &&
-			    strcmp("invalid_grant", error) == 0) {
-				passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
-			}
-			if (error == NULL)
-				error = "Internal error";
-		} else
-			error = result->error;
-		db_oauth2_callback(req, passdb_result, error);
-	} else {
-		/* make sure token is NULL if no access_token is found */
-		req->token = NULL;
-		array_foreach(result->fields, f)
-			if (strcmp(f->name, "access_token") == 0)
-				req->token = p_strdup(req->pool, f->value);
-		db_oauth2_lookup_continue(result, req);
+	if (result->valid) {
+		e_debug(authdb_event(req->auth_request),
+			"Password grant succeeded");
+		token = db_oauth2_field_find(result->fields, "access_token");
+		if (token == NULL) {
+			db_oauth2_callback(req, PASSDB_RESULT_INTERNAL_FAILURE,
+					   "Password grant failed: ",
+					   "OAuth2 token missing from reply");
+		} else {
+			req->token = p_strdup(req->pool, token);
+			db_oauth2_lookup_continue_valid(req, result->fields,
+				"Password grant failed: ");
+		}
+		return;
 	}
+
+	passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
+	if (result->error != NULL)
+		error = result->error;
+	else {
+		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
+		error = db_oauth2_field_find(result->fields, "error");
+		if (error == NULL)
+			error = "OAuth2 server returned failure without error field";
+		else if (strcmp("invalid_grant", error) == 0)
+			passdb_result = PASSDB_RESULT_PASSWORD_MISMATCH;
+	}
+	db_oauth2_callback(req, passdb_result,
+			   "Password grant failed: ", error);
 }
 
 #undef db_oauth2_lookup
@@ -753,15 +834,15 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 	req->auth_request = request;
 
 	input.token = token;
-	input.local_ip = req->auth_request->local_ip;
-	input.local_port = req->auth_request->local_port;
-	input.remote_ip = req->auth_request->remote_ip;
-	input.remote_port = req->auth_request->remote_port;
-	input.real_local_ip = req->auth_request->real_local_ip;
-	input.real_local_port = req->auth_request->real_local_port;
-	input.real_remote_ip = req->auth_request->real_remote_ip;
-	input.real_remote_port = req->auth_request->real_remote_port;
-	input.service = req->auth_request->service;
+	input.local_ip = req->auth_request->fields.local_ip;
+	input.local_port = req->auth_request->fields.local_port;
+	input.remote_ip = req->auth_request->fields.remote_ip;
+	input.remote_port = req->auth_request->fields.remote_port;
+	input.real_local_ip = req->auth_request->fields.real_local_ip;
+	input.real_local_port = req->auth_request->fields.real_local_port;
+	input.real_remote_ip = req->auth_request->fields.real_remote_ip;
+	input.real_remote_port = req->auth_request->fields.real_remote_port;
+	input.service = req->auth_request->fields.service;
 
 	if (db->oauth2_set.introspection_mode == INTROSPECTION_MODE_LOCAL &&
 	    !db_oauth2_uses_password_grant(db)) {
@@ -776,8 +857,10 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 		e_debug(authdb_event(req->auth_request),
 			"Making grant url request to %s",
 			db->set.grant_url);
+		/* There is no valid token until grant looks it up. */
+		req->token = NULL;
 		req->req = oauth2_passwd_grant_start(&db->oauth2_set, &input,
-						     request->user, request->mech_password,
+						     request->fields.user, request->mech_password,
 						     db_oauth2_lookup_passwd_grant, req);
 	} else if (*db->oauth2_set.tokeninfo_url == '\0') {
 		e_debug(authdb_event(req->auth_request),

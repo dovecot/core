@@ -14,7 +14,7 @@ static const struct {
 	{ "a", 1, 0 },
 	{ "ab", 1, EINVAL },
 	{ "ab", 0, EINVAL },
-	{ "ab", (uoff_t)-1, EPIPE },
+	{ "ab", UOFF_T_MAX, EPIPE },
 };
 
 static void

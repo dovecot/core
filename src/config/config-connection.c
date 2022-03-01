@@ -72,10 +72,12 @@ static int config_connection_request(struct config_connection *conn,
 	struct config_filter filter;
 	const char *path, *error, *module, *const *wanted_modules;
 	ARRAY(const char *) modules;
+	ARRAY(const char *) exclude_settings;
 	bool is_master = FALSE;
 
 	/* [<args>] */
 	t_array_init(&modules, 4);
+	t_array_init(&exclude_settings, 4);
 	i_zero(&filter);
 	for (; *args != NULL; args++) {
 		if (str_begins(*args, "service="))
@@ -85,6 +87,9 @@ static int config_connection_request(struct config_connection *conn,
 			if (strcmp(module, "master") == 0)
 				is_master = TRUE;
 			array_push_back(&modules, &module);
+		} else if (str_begins(*args, "exclude=")) {
+			const char *value = *args + 8;
+			array_push_back(&exclude_settings, &value);
 		} else if (str_begins(*args, "lname="))
 			filter.local_name = *args + 6;
 		else if (str_begins(*args, "lip=")) {
@@ -104,6 +109,7 @@ static int config_connection_request(struct config_connection *conn,
 	array_append_zero(&modules);
 	wanted_modules = array_count(&modules) == 1 ? NULL :
 		array_front(&modules);
+	array_append_zero(&exclude_settings);
 
 	if (is_master) {
 		/* master reads configuration only when reloading settings */
@@ -118,7 +124,10 @@ static int config_connection_request(struct config_connection *conn,
 
 	o_stream_cork(conn->output);
 
-	ctx = config_export_init(wanted_modules, CONFIG_DUMP_SCOPE_SET, 0,
+	ctx = config_export_init(wanted_modules,
+				 array_count(&exclude_settings) == 1 ? NULL :
+				 array_front(&exclude_settings),
+				 CONFIG_DUMP_SCOPE_SET, 0,
 				 config_request_output, conn->output);
 	config_export_by_filter(ctx, &filter);
 	config_export_get_output(ctx, &output);
@@ -230,7 +239,7 @@ struct config_connection *config_connection_create(int fd)
 	conn = i_new(struct config_connection, 1);
 	conn->fd = fd;
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
-	conn->output = o_stream_create_fd(fd, (size_t)-1);
+	conn->output = o_stream_create_fd(fd, SIZE_MAX);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->io = io_add(fd, IO_READ, config_connection_input, conn);
 	DLLIST_PREPEND(&config_connections, conn);

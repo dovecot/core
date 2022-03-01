@@ -5,6 +5,7 @@
    permissions checks from revealing mailbox's existence */
 #define MAIL_ERRSTR_MAILBOX_NOT_FOUND "Mailbox doesn't exist: %s"
 #define MAIL_ERRSTR_NO_PERMISSION "Permission denied"
+#define MAIL_ERRSTR_INTERRUPTED "Operation interrupted"
 
 /* And just for making error strings consistent: */
 #define MAIL_ERRSTR_NO_QUOTA "Not enough disk quota"
@@ -54,6 +55,8 @@ enum mail_error {
 	/* Operation couldn't be finished as efficiently as required by
 	   mail.lookup_abort. */
 	MAIL_ERROR_LOOKUP_ABORTED,
+	/* Interrupted (due to a signal). */
+	MAIL_ERROR_INTERRUPTED,
 };
 
 /* Convert errno to mail_error and an error string. Returns TRUE if successful,

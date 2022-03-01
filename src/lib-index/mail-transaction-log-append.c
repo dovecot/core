@@ -54,7 +54,7 @@ log_buffer_move_to_memory(struct mail_transaction_log_append_ctx *ctx)
 	i_assert(MAIL_TRANSACTION_LOG_FILE_IN_MEMORY(file));
 
 	i_assert(file->buffer_offset + file->buffer->used == file->sync_offset);
-	buffer_append_buf(file->buffer, ctx->output, 0, (size_t)-1);
+	buffer_append_buf(file->buffer, ctx->output, 0, SIZE_MAX);
 	file->sync_offset = file->buffer_offset + file->buffer->used;
 	return 0;
 }
@@ -71,7 +71,7 @@ static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
 			file->buffer = buffer_create_dynamic(default_pool, 4096);
 			file->buffer_offset = sizeof(file->hdr);
 		}
-		buffer_append_buf(file->buffer, ctx->output, 0, (size_t)-1);
+		buffer_append_buf(file->buffer, ctx->output, 0, SIZE_MAX);
 		file->sync_offset = file->buffer_offset + file->buffer->used;
 		return 0;
 	}
@@ -89,8 +89,8 @@ static int log_buffer_write(struct mail_transaction_log_append_ctx *ctx)
 		 file->max_tail_offset);
 
 	if ((ctx->want_fsync &&
-	     file->log->index->fsync_mode != FSYNC_MODE_NEVER) ||
-	    file->log->index->fsync_mode == FSYNC_MODE_ALWAYS) {
+	     file->log->index->set.fsync_mode != FSYNC_MODE_NEVER) ||
+	    file->log->index->set.fsync_mode == FSYNC_MODE_ALWAYS) {
 		if (fdatasync(file->fd) < 0) {
 			mail_index_file_set_syscall_error(ctx->log->index,
 							  file->filepath,
@@ -158,9 +158,9 @@ log_append_sync_offset_if_needed(struct mail_transaction_log_append_ctx *ctx)
 	}
 	offset = file->max_tail_offset;
 
-	if (file->saved_tail_offset == offset)
+	if (file->last_read_hdr_tail_offset == offset)
 		return;
-	i_assert(offset > file->saved_tail_offset);
+	i_assert(offset > file->last_read_hdr_tail_offset);
 
 	buffer_create_from_data(&buf, update_data, sizeof(update_data));
 	u = buffer_append_space_unsafe(&buf, sizeof(*u));

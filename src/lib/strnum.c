@@ -314,8 +314,8 @@ STR_TO_S__TEMPLATE(str_to_llong, long long, LLONG_MIN, LLONG_MAX)
 STR_TO_S__TEMPLATE(str_to_int32, int32_t, INT32_MIN, INT32_MAX)
 STR_TO_S__TEMPLATE(str_to_int64, int64_t, INT64_MIN, INT64_MAX)
 
-int str_parse_intmax(const char *str, intmax_t *num_r,
-	const char **endp_r)
+int ATTR_NO_SANITIZE_IMPLICIT_CONVERSION ATTR_NO_SANITIZE_INTEGER
+str_parse_intmax(const char *str, intmax_t *num_r, const char **endp_r)
 {
 	bool neg = FALSE;
 	uintmax_t l;
@@ -334,7 +334,7 @@ int str_parse_intmax(const char *str, intmax_t *num_r,
 	} else {
 		if (l > UINTMAX_MAX - (UINTMAX_MAX + INTMAX_MIN))
 			return -1;
-		*num_r = (intmax_t)-l;
+		*num_r = (intmax_t) UNSIGNED_MINUS(l);
 	}
 	return 0;
 }
@@ -427,7 +427,7 @@ int str_to_uoff(const char *str, uoff_t *num_r)
 	if (str_to_uintmax(str, &l) < 0)
 		return -1;
 
-	if (l > (uoff_t)-1)
+	if (l > UOFF_T_MAX)
 		return -1;
 	*num_r = (uoff_t)l;
 	return 0;

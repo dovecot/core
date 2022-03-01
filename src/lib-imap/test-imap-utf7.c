@@ -15,26 +15,33 @@ static void test_imap_utf7_by_example(void)
 		{ "&&x&&", "&-&-x&-&-" },
 		{ "~peter/mail/\xe5\x8f\xb0\xe5\x8c\x97/\xe6\x97\xa5\xe6\x9c\xac\xe8\xaa\x9e",
 		  "~peter/mail/&U,BTFw-/&ZeVnLIqe-" },
-		{ "tiet\xc3\xa4j\xc3\xa4", "tiet&AOQ-j&AOQ-" },
+		{ "tiet\xc3\xa4&j\xc3\xa4&", "tiet&AOQ-&-j&AOQ-&-" }, /* & is always encoded as &- */
 		{ "p\xe4\xe4", NULL },
 		{ NULL, "&" },
 		{ NULL, "&Jjo" },
 		{ NULL, "&Jjo!" },
-		{ NULL, "&U,BTFw-&ZeVnLIqe-" }
+		{ NULL, "&U,BTFw-&ZeVnLIqe-" } /* unnecessary shift */
 	};
-	string_t *dest;
+	string_t *dest, *dest2;
 	unsigned int i;
 
 	dest = t_str_new(256);
+	dest2 = t_str_new(256);
 
 	test_begin("imap mutf7 examples");
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		str_truncate(dest, 0);
 		if (tests[i].utf8 != NULL) {
-			str_truncate(dest, 0);
 			if (imap_utf8_to_utf7(tests[i].utf8, dest) < 0)
 				test_assert_idx(tests[i].mutf7 == NULL, i);
 			else
 				test_assert_idx(null_strcmp(tests[i].mutf7, str_c(dest)) == 0, i);
+		} else {
+			/* invalid mUTF-7 - test that escaping works */
+			str_truncate(dest2, 0);
+			imap_utf7_to_utf8_escaped(tests[i].mutf7, "%", dest);
+			imap_escaped_utf8_to_utf7(str_c(dest), '%', dest2);
+			test_assert_idx(strcmp(tests[i].mutf7, str_c(dest2)) == 0, i);
 		}
 		if (tests[i].mutf7 != NULL) {
 			str_truncate(dest, 0);
@@ -45,6 +52,15 @@ static void test_imap_utf7_by_example(void)
 			test_assert_idx(imap_utf7_is_valid(tests[i].mutf7) != (tests[i].utf8 == NULL), i);
 		}
 	}
+
+	str_truncate(dest, 0);
+	imap_utf7_to_utf8_escaped(".foo%", "%.", dest);
+	test_assert_strcmp(str_c(dest), "%2efoo%25");
+
+	str_truncate(dest, 0);
+	test_assert(imap_escaped_utf8_to_utf7("%foo%2ebar", '%', dest) == 0);
+	test_assert_strcmp(str_c(dest), "%foo.bar");
+
 	test_end();
 }
 
@@ -85,27 +101,49 @@ static void test_imap_utf7_ucs4_cases(void)
 static const char mb64[64]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+,";
 static void test_imap_utf7_non_utf16(void)
 {
-	char csrc[1+4+1+1];
+	string_t *dest, *dest2;
 	unsigned int i;
 
 	test_begin("imap mutf7 non-utf16");
+	dest = t_str_new(32);
+	dest2 = t_str_new(32);
 	for (i = 0; i <= 255; ++i) {
 		/* Invalid, code a single 8-bit octet */
-		csrc[2] = '&';
-		csrc[3] = mb64[i>>2];
-		csrc[4] = mb64[(i&3) << 4];
-		csrc[5] = '-';
-		csrc[6] = '\0';
-		test_assert_idx(!imap_utf7_is_valid(csrc+2), i);
+		const char csrc[] = {
+			'&',
+			mb64[i >> 2],
+			mb64[(i & 3) << 4],
+			'-',
+			'\0'
+		};
+		test_assert_idx(!imap_utf7_is_valid(csrc), i);
+
+		/* escaping can reverse the original string */
+		str_truncate(dest, 0);
+		str_truncate(dest2, 0);
+		imap_utf7_to_utf8_escaped(csrc, "%", dest);
+		imap_escaped_utf8_to_utf7(str_c(dest), '%', dest2);
+		test_assert_idx(strcmp(csrc, str_c(dest2)) == 0, i);
 	}
 	for (i = 0; i <= 255; ++i) {
 		/* Invalid, U+00E4 followed by a single octet */
-		csrc[0] = '&';
-		csrc[1] = mb64[                       (0x00 >> 2)];
-		csrc[2] = mb64[((0x00 & 0x03) << 4) | (0xe4 >> 4)];
-		csrc[3] = mb64[((0xe4 & 0x0f) << 2) | (   i >> 6)];
-		csrc[4] = mb64[     i & 0x3f                     ];
+		const char csrc[] = {
+			'&',
+			mb64[                       (0x00 >> 2)],
+			mb64[((0x00 & 0x03) << 4) | (0xe4 >> 4)],
+			mb64[((0xe4 & 0x0f) << 2) | (   i >> 6)],
+			mb64[     i & 0x3f                     ],
+			'-',
+			'\0'
+		};
 		test_assert_idx(!imap_utf7_is_valid(csrc), i);
+
+		/* escaping can reverse the original string */
+		str_truncate(dest, 0);
+		str_truncate(dest2, 0);
+		imap_utf7_to_utf8_escaped(csrc, "%", dest);
+		imap_escaped_utf8_to_utf7(str_c(dest), '%', dest2);
+		test_assert_idx(strcmp(csrc, str_c(dest2)) == 0, i);
 	}
 	test_end();
 }

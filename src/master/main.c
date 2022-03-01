@@ -14,7 +14,7 @@
 #include "execv-const.h"
 #include "restrict-process-size.h"
 #include "master-instance.h"
-#include "master-service.h"
+#include "master-service-private.h"
 #include "master-service-settings.h"
 #include "askpass.h"
 #include "capabilities.h"
@@ -26,6 +26,15 @@
 #include "service-process.h"
 #include "service-log.h"
 #include "dovecot-version.h"
+#ifdef HAVE_LIBSYSTEMD
+#  include <systemd/sd-daemon.h>
+#  define i_sd_notify(unset, message) (void)sd_notify((unset), (message))
+#  define i_sd_notifyf(unset, message, ...) \
+	(void)sd_notifyf((unset), (message), __VA_ARGS__)
+#else
+#  define i_sd_notify(unset, message)
+#  define i_sd_notifyf(unset, message, ...)
+#endif
 
 #include <stdio.h>
 #include <unistd.h>
@@ -370,6 +379,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	struct service *service;
 	const char *error;
 
+	i_sd_notify(0, "RELOADING=1");
 	i_warning("SIGHUP received - reloading configuration");
 
 	/* see if hostname changed */
@@ -380,6 +390,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 		if (service_process_create(services->config) == NULL) {
 			i_error("Can't reload configuration because "
 				"we couldn't create a config process");
+			i_sd_notify(0, "READY=1");
 			return;
 		}
 	}
@@ -391,6 +402,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	if (master_service_settings_read(master_service, &input,
 					 &output, &error) < 0) {
 		i_error("Error reading configuration: %s", error);
+		i_sd_notify(0, "READY=1");
 		return;
 	}
 	sets = master_service_settings_get_others(master_service);
@@ -399,6 +411,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	if (services_create(set, &new_services, &error) < 0) {
 		/* new configuration is invalid, keep the old */
 		i_error("Config reload failed: %s", error);
+		i_sd_notify(0, "READY=1");
 		return;
 	}
 	new_services->config->config_file_path =
@@ -409,6 +422,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	services_monitor_stop(services, FALSE);
 	if (services_listen_using(new_services, services) < 0) {
 		services_monitor_start(services);
+		i_sd_notify(0, "READY=1");
 		return;
 	}
 
@@ -422,6 +436,7 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 
 	services = new_services;
         services_monitor_start(services);
+	i_sd_notify(0, "READY=1");
 }
 
 static void
@@ -430,6 +445,7 @@ sig_log_reopen(const siginfo_t *si ATTR_UNUSED, void *context ATTR_UNUSED)
 	unsigned int uninitialized_count;
 	service_signal(services->log, SIGUSR1, &uninitialized_count);
 
+	master_service->log_initialized = FALSE;
 	master_service_init_log(master_service);
 	i_set_fatal_handler(master_fatal_callback);
 }
@@ -449,6 +465,7 @@ static void sig_die(const siginfo_t *si, void *context ATTR_UNUSED)
 	/* make sure new processes won't be created by the currently
 	   running ioloop. */
 	services->destroying = TRUE;
+	i_sd_notify(0, "STOPPING=1\nSTATUS=Dovecot stopping...");
 	master_service_stop(master_service);
 }
 
@@ -497,7 +514,7 @@ static void main_log_startup(char **protocols)
 
 static void master_set_process_limit(void)
 {
-	struct service *const *servicep;
+	struct service *service;
 	unsigned int process_limit = 0;
 	rlim_t nproc;
 
@@ -508,8 +525,8 @@ static void master_set_process_limit(void)
 	   guess: mail processes should probably be counted together for a
 	   common vmail user (unless system users are being used), but
 	   we can't really guess what the mail processes are. */
-	array_foreach(&services->services, servicep)
-		process_limit += (*servicep)->process_limit;
+	array_foreach_elem(&services->services, service)
+		process_limit += service->process_limit;
 
 	if (restrict_get_process_limit(&nproc) == 0 &&
 	    process_limit > nproc)
@@ -544,6 +561,8 @@ static void main_init(const struct master_settings *set)
 	master_clients_init();
 
 	services_monitor_start(services);
+	i_sd_notifyf(0, "READY=1\nSTATUS=v" DOVECOT_VERSION_FULL " running\n"
+		   "MAINPID=%u", getpid());
 	startup_finished = TRUE;
 }
 
@@ -573,6 +592,8 @@ static void main_deinit(void)
 
 	service_anvil_global_deinit();
 	service_pids_deinit();
+	/* notify systemd that we are done */
+	i_sd_notify(0, "STATUS=Dovecot stopped");
 }
 
 static const char *get_full_config_path(struct service_list *list)
@@ -597,12 +618,16 @@ master_time_moved(const struct timeval *old_time,
 	long long diff = timeval_diff_usecs(old_time, new_time);
 	unsigned int msecs;
 
-	if (diff < 0)
+	if (diff < 0) {
+		diff = -diff;
+		i_warning("Time moved forward by %lld.%06lld seconds - adjusting timeouts.",
+			  diff / 1000000, diff % 1000000);
 		return;
+	}
 	msecs = (unsigned int)(diff/1000);
 
 	/* time moved backwards. disable launching new service processes
-	   until  */
+	   until the throttling timeout has reached. */
 	if (msecs > SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_MSECS)
 		msecs = SERVICE_TIME_MOVED_BACKWARDS_MAX_THROTTLE_MSECS;
 	services_throttle_time_sensitives(services, msecs);
@@ -700,14 +725,8 @@ static void print_build_options(void)
 #ifdef PASSDB_PASSWD_FILE
 		" passwd-file"
 #endif
-#ifdef PASSDB_SHADOW 
-		" shadow"
-#endif
 #ifdef PASSDB_SQL 
 		" sql"
-#endif
-#ifdef PASSDB_VPOPMAIL
-		" vpopmail"
 #endif
 	"\nUserdb:"
 #ifdef USERDB_CHECKPASSWORD
@@ -736,9 +755,6 @@ static void print_build_options(void)
 #endif
 #ifdef USERDB_STATIC 
 		" static"
-#endif
-#ifdef USERDB_VPOPMAIL
-		" vpopmail"
 #endif
 	"\n", IO_BLOCK_SIZE);
 }
@@ -772,7 +788,8 @@ int main(int argc, char *argv[])
 				MASTER_SERVICE_FLAG_STANDALONE |
 				MASTER_SERVICE_FLAG_DONT_SEND_STATS |
 				MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR |
-				MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME,
+				MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME |
+				MASTER_SERVICE_FLAG_DISABLE_SSL_SET,
 				&argc, &argv, "+Fanp");
 	i_unset_failure_prefix();
 
@@ -804,7 +821,7 @@ int main(int argc, char *argv[])
 			if (!master_service_parse_option(master_service,
 							 c, optarg)) {
 				print_help();
-				exit(FATAL_DEFAULT);
+				lib_exit(FATAL_DEFAULT);
 			}
 			break;
 		}
@@ -870,6 +887,7 @@ int main(int argc, char *argv[])
 	pidfile_path =
 		i_strconcat(set->base_dir, "/"MASTER_PID_FILE_NAME, NULL);
 
+	lib_set_clean_exit(TRUE);
 	master_service_init_log(master_service);
 	startup_early_errors_flush();
 	i_get_failure_handlers(&orig_fatal_callback, &orig_error_callback,

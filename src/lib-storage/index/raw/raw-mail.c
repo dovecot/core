@@ -14,11 +14,8 @@ static int raw_mail_stat(struct mail *mail)
 	struct raw_mailbox *mbox = RAW_MAILBOX(mail->box);
 	const struct stat *st;
 
-	if (mail->lookup_abort >= MAIL_LOOKUP_ABORT_NOT_IN_CACHE) {
-		mail_set_aborted(mail);
+	if (!mail_metadata_access_start(mail))
 		return -1;
-	}
-	mail->mail_metadata_accessed = TRUE;
 
 	mail->transaction->stats.fstat_lookup_count++;
 	if (i_stream_stat(mail->box->input, TRUE, &st) < 0) {
@@ -31,7 +28,7 @@ static int raw_mail_stat(struct mail *mail)
 		mbox->mtime = st->st_mtime;
 	if (mbox->ctime != (time_t)-1)
 		mbox->ctime = st->st_ctime;
-	mbox->size = st->st_size;
+	mbox->size = (size_t)st->st_size;
 	return 0;
 }
 
@@ -68,7 +65,7 @@ static int raw_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct raw_mailbox *mbox = RAW_MAILBOX(_mail->box);
 
-	if (mbox->size == (uoff_t)-1) {
+	if (mbox->size == UOFF_T_MAX) {
 		if (raw_mail_stat(_mail) < 0)
 			return -1;
 	}
@@ -85,10 +82,12 @@ raw_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 	struct index_mail *mail = INDEX_MAIL(_mail);
 
 	if (mail->data.stream == NULL) {
+		if (!mail_stream_access_start(_mail))
+			return -1;
 		/* we can't just reference mbox->input, because
 		   index_mail_close() expects to be able to free the stream */
 		mail->data.stream =
-			i_stream_create_limit(_mail->box->input, (uoff_t)-1);
+			i_stream_create_limit(_mail->box->input, UOFF_T_MAX);
 	}
 
 	return index_mail_init_stream(mail, hdr_size, body_size, stream_r);

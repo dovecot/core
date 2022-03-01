@@ -187,15 +187,12 @@ static int virtual_backend_box_alloc(struct virtual_mailbox *mbox,
 	i_assert(bbox->box == NULL);
 
 	if (!bbox->clear_recent)
-		flags &= ~MAILBOX_FLAG_DROP_RECENT;
+		flags &= ENUM_NEGATE(MAILBOX_FLAG_DROP_RECENT);
 
 	mailbox = bbox->name;
 	ns = mail_namespace_find(user->namespaces, mailbox);
 	bbox->box = mailbox_alloc(ns->list, mailbox, flags);
 	MODULE_CONTEXT_SET(bbox->box, virtual_storage_module, bbox);
-	mailbox_set_reason(bbox->box, mbox->box.reason == NULL ?
-		t_strdup_printf("virtual mailbox %s", mailbox_get_vname(&mbox->box)) :
-		t_strdup_printf("virtual mailbox %s: %s", mailbox_get_vname(&mbox->box), mbox->box.reason));
 
 	if (bbox == mbox->save_bbox) {
 		/* Assume that the save_bbox exists, whether or not it truly
@@ -275,6 +272,7 @@ virtual_mailbox_alloc(struct mail_storage *_storage, struct mailbox_list *list,
 
 	mbox->storage = storage;
 	mbox->virtual_ext_id = (uint32_t)-1;
+	mbox->virtual_ext2_id = (uint32_t)-1;
 	mbox->virtual_guid_ext_id = (uint32_t)-1;
 	return &mbox->box;
 }
@@ -497,17 +495,19 @@ static int virtual_mailbox_open(struct mailbox *box)
 		ret = virtual_mailboxes_open(mbox, box->flags);
 		array_pop_back(&mbox->storage->open_stack);
 	}
+	if (ret == 0)
+		ret = index_storage_mailbox_open(box, FALSE);
 	if (ret < 0) {
 		virtual_mailbox_close_internal(mbox);
 		return -1;
 	}
-	if (index_storage_mailbox_open(box, FALSE) < 0)
-		return -1;
 
 	mbox->virtual_ext_id =
 		mail_index_ext_register(mbox->box.index, "virtual", 0,
 			sizeof(struct virtual_mail_index_record),
 			sizeof(uint32_t));
+	mbox->virtual_ext2_id =
+		mail_index_ext_register(mbox->box.index, "virtual2", 0, 0, 0);
 
 	mbox->virtual_guid_ext_id =
 		mail_index_ext_register(mbox->box.index, "virtual-guid", GUID_128_SIZE,
@@ -857,11 +857,13 @@ static bool virtual_is_inconsistent(struct mailbox *box)
 static int
 virtual_list_index_has_changed(struct mailbox *box ATTR_UNUSED,
 			       struct mail_index_view *list_view ATTR_UNUSED,
-			       uint32_t seq ATTR_UNUSED, bool quick ATTR_UNUSED)
+			       uint32_t seq ATTR_UNUSED, bool quick ATTR_UNUSED,
+			       const char **reason_r)
 {
 	/* we don't have any quick and easy optimizations for tracking
 	   virtual folders. ideally we'd completely disable mailbox list
 	   indexes for them, but this is the easiest way to do it for now. */
+	*reason_r = "Virtual indexes always change";
 	return 1;
 }
 
@@ -874,7 +876,8 @@ virtual_list_index_update_sync(struct mailbox *box ATTR_UNUSED,
 
 struct mail_storage virtual_storage = {
 	.name = VIRTUAL_STORAGE_NAME,
-	.class_flags = MAIL_STORAGE_CLASS_FLAG_NOQUOTA,
+	.class_flags = MAIL_STORAGE_CLASS_FLAG_NOQUOTA |
+		       MAIL_STORAGE_CLASS_FLAG_SECONDARY_INDEX,
 
 	.v = {
 		NULL,
@@ -926,6 +929,7 @@ struct mailbox virtual_mailbox = {
 		virtual_search_deinit,
 		virtual_search_next_nonblock,
 		virtual_search_next_update_seq,
+		index_storage_search_next_match_mail,
 		virtual_save_alloc,
 		virtual_save_begin,
 		virtual_save_continue,

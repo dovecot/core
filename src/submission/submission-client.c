@@ -63,17 +63,6 @@ static void client_input_post(void *context)
 	submission_backends_client_input_post(client);
 }
 
-static const char *client_remote_id(struct client *client)
-{
-	const char *addr = NULL;
-
-	if (client->user->conn.remote_ip != NULL)
-		addr = net_ip2addr(client->user->conn.remote_ip);
-	if (addr == NULL)
-		addr = "local";
-	return addr;
-}
-
 static void client_parse_backend_capabilities(struct client *client)
 {
 	const struct submission_settings *set = client->set;
@@ -185,18 +174,18 @@ static void client_init_urlauth(struct client *client)
 	client->urlauth_ctx = imap_urlauth_init(client->user, &config);
 }
 
-struct client *client_create(int fd_in, int fd_out,
-			     struct mail_user *user,
-			     struct mail_storage_service_user *service_user,
-			     const struct submission_settings *set,
-			     const char *helo,
-			     const unsigned char *pdata, unsigned int pdata_len)
+struct client *
+client_create(int fd_in, int fd_out, struct mail_user *user,
+	      struct mail_storage_service_user *service_user,
+	      const struct submission_settings *set, const char *helo,
+	      const struct smtp_proxy_data *proxy_data,
+	      const unsigned char *pdata, unsigned int pdata_len,
+	      bool no_greeting)
 {
 	enum submission_client_workarounds workarounds =
 		set->parsed_workarounds;
 	const struct mail_storage_settings *mail_set;
 	struct smtp_server_settings smtp_set;
-	const char *ident;
 	struct client *client;
 	pool_t pool;
 
@@ -223,6 +212,7 @@ struct client *client_create(int fd_in, int fd_out,
 	smtp_set.max_client_idle_time_msecs = CLIENT_IDLE_TIMEOUT_MSECS;
 	smtp_set.max_message_size = set->submission_max_mail_size;
 	smtp_set.rawlog_dir = set->rawlog_dir;
+	smtp_set.no_greeting = no_greeting;
 	smtp_set.debug = user->mail_debug;
 
 	if ((workarounds & SUBMISSION_WORKAROUND_WHITESPACE_BEFORE_PATH) != 0) {
@@ -241,9 +231,9 @@ struct client *client_create(int fd_in, int fd_out,
 	client->conn = smtp_server_connection_create(smtp_server,
 		fd_in, fd_out, user->conn.remote_ip, user->conn.remote_port,
 		FALSE, &smtp_set, &smtp_callbacks, client);
-	smtp_server_connection_login(client->conn,
-		client->user->username, helo,
-		pdata, pdata_len, user->conn.ssl_secured);
+	smtp_server_connection_set_proxy_data(client->conn, proxy_data);
+	smtp_server_connection_login(client->conn, client->user->username, helo,
+				     pdata, pdata_len, user->conn.ssl_secured);
 
 	client_create_backend_default(client, set);
 
@@ -258,13 +248,11 @@ struct client *client_create(int fd_in, int fd_out,
 	submission_client_count++;
 	DLLIST_PREPEND(&submission_clients, client);
 
-	ident = mail_user_get_anvil_userip_ident(client->user);
-	if (ident != NULL) {
-		master_service_anvil_send(master_service, t_strconcat(
-			"CONNECT\t", my_pid, "\tsubmission/",
-			ident, "\n", NULL));
+	struct master_service_anvil_session anvil_session;
+	mail_user_get_anvil_session(client->user, &anvil_session);
+	if (master_service_anvil_connect(master_service, &anvil_session,
+					 TRUE, client->anvil_conn_guid))
 		client->anvil_sent = TRUE;
-	}
 
 	if (hook_client_created != NULL)
 		hook_client_created(&client);
@@ -294,21 +282,26 @@ static void client_state_reset(struct client *client)
 	i_zero(&client->state);
 }
 
-void client_destroy(struct client *client, const char *prefix,
+void client_destroy(struct client **_client, const char *prefix,
 		    const char *reason)
 {
-	client->v.destroy(client, prefix, reason);
+	struct client *client = *_client;
+	struct smtp_server_connection *conn = client->conn;
+
+	*_client = NULL;
+
+	smtp_server_connection_terminate(
+		&conn, (prefix == NULL ? "4.0.0" : prefix), reason);
 }
 
 static void
-client_default_destroy(struct client *client, const char *prefix,
-		       const char *reason)
+client_default_destroy(struct client *client)
 {
+	i_assert(client->disconnected);
+
 	if (client->destroyed)
 		return;
 	client->destroyed = TRUE;
-
-	client_disconnect(client, prefix, reason);
 
 	submission_backends_destroy_all(client);
 	array_free(&client->pending_backends);
@@ -319,10 +312,10 @@ client_default_destroy(struct client *client, const char *prefix,
 	DLLIST_REMOVE(&submission_clients, client);
 
 	if (client->anvil_sent) {
-		master_service_anvil_send(master_service, t_strconcat(
-			"DISCONNECT\t", my_pid, "\tsubmission/",
-			mail_user_get_anvil_userip_ident(client->user),
-			"\n", NULL));
+		struct master_service_anvil_session anvil_session;
+		mail_user_get_anvil_session(client->user, &anvil_session);
+		master_service_anvil_disconnect(master_service, &anvil_session,
+						client->anvil_conn_guid);
 	}
 
 	if (client->urlauth_ctx != NULL)
@@ -393,35 +386,17 @@ client_connection_state_changed(void *context ATTR_UNUSED,
 		submission_refresh_proctitle();
 }
 
-static void client_connection_disconnect(void *context, const char *reason)
-{
-	struct client *client = context;
-	struct smtp_server_connection *conn = client->conn;
-	const struct smtp_server_stats *stats;
-
-	if (conn != NULL) {
-		stats = smtp_server_connection_get_stats(conn);
-		client->stats = *stats;
-	}
-	client_disconnect(client, NULL, reason);
-}
-
-static void client_connection_destroy(void *context)
-{
-	struct client *client = context;
-
-	client_destroy(client, NULL, NULL);
-}
-
 static const char *client_stats(struct client *client)
 {
-	const char *trans_id = (client->conn == NULL ? "" :
-		smtp_server_connection_get_transaction_id(client->conn));
+	const struct smtp_server_stats *stats =
+		smtp_server_connection_get_stats(client->conn);
+	const char *trans_id =
+		smtp_server_connection_get_transaction_id(client->conn);
 	const struct var_expand_table logout_tab[] = {
-		{ 'i', dec2str(client->stats.input), "input" },
-		{ 'o', dec2str(client->stats.output), "output" },
-		{ '\0', dec2str(client->stats.command_count), "command_count" },
-		{ '\0', dec2str(client->stats.reply_count), "reply_count" },
+		{ 'i', dec2str(stats->input), "input" },
+		{ 'o', dec2str(stats->output), "output" },
+		{ '\0', dec2str(stats->command_count), "command_count" },
+		{ '\0', dec2str(stats->reply_count), "reply_count" },
 		{ '\0', trans_id, "transaction_id" },
 		{ '\0', NULL, NULL }
 	};
@@ -442,10 +417,9 @@ static const char *client_stats(struct client *client)
 	return str_c(str);
 }
 
-void client_disconnect(struct client *client, const char *enh_code,
-		       const char *reason)
+static void client_connection_disconnect(void *context, const char *reason)
 {
-	struct smtp_server_connection *conn;
+	struct client *client = context;
 	const char *log_reason;
 
 	if (client->disconnected)
@@ -458,27 +432,18 @@ void client_disconnect(struct client *client, const char *enh_code,
 	if (array_is_created(&client->rcpt_to))
 		array_clear(&client->rcpt_to);
 
-	if (client->conn != NULL) {
-		const struct smtp_server_stats *stats =
-			smtp_server_connection_get_stats(client->conn);
-		client->stats = *stats;
-	}
-
 	if (reason == NULL)
-		log_reason = reason = "Connection closed";
+		log_reason = "Connection closed";
 	else
 		log_reason = t_str_oneline(reason);
-	i_info("Disconnect from %s: %s %s (state=%s)",
-	       client_remote_id(client),
-	       log_reason, client_stats(client),
-	       smtp_server_state_names[client->state.state]);
+	i_info("Disconnected: %s %s", log_reason, client_stats(client));
+}
 
-	conn = client->conn;
-	client->conn = NULL;
-	if (conn != NULL) {
-		smtp_server_connection_terminate(&conn,
-			(enh_code == NULL ? "4.0.0" : enh_code), reason);
-	}
+static void client_connection_free(void *context)
+{
+	struct client *client = context;
+
+	client->v.destroy(client);
 }
 
 uoff_t client_get_max_mail_size(struct client *client)
@@ -528,12 +493,16 @@ void client_add_extra_capability(struct client *client, const char *capability,
 	array_push_back(&client->extra_capabilities, &cap);
 }
 
+void client_kick(struct client *client)
+{
+	mail_storage_service_io_activate_user(client->service_user);
+	client_destroy(&client, "4.3.2", MASTER_SERVICE_SHUTTING_DOWN_MSG);
+}
+
 void clients_destroy_all(void)
 {
-	while (submission_clients != NULL) {
-		client_destroy(submission_clients,
-			"4.3.2", "Shutting down");
-	}
+	while (submission_clients != NULL)
+		client_kick(submission_clients);
 }
 
 static const struct smtp_server_callbacks smtp_callbacks = {
@@ -560,7 +529,7 @@ static const struct smtp_server_callbacks smtp_callbacks = {
 	.conn_state_changed = client_connection_state_changed,
 
 	.conn_disconnect = client_connection_disconnect,
-	.conn_destroy = client_connection_destroy,
+	.conn_free = client_connection_free,
 };
 
 static const struct submission_client_vfuncs submission_client_vfuncs = {

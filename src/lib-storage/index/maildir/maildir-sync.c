@@ -285,6 +285,8 @@ static void maildir_sync_deinit(struct maildir_sync_context *ctx)
 		(void)maildir_uidlist_sync_deinit(&ctx->uidlist_sync_ctx, FALSE);
 	if (ctx->index_sync_ctx != NULL)
 		maildir_sync_index_rollback(&ctx->index_sync_ctx);
+	if (ctx->mbox->storage->storage.rebuild_list_index)
+		(void)mail_storage_list_index_rebuild_and_set_uncorrupted(&ctx->mbox->storage->storage);
 }
 
 static int maildir_fix_duplicate(struct maildir_sync_context *ctx,

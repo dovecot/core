@@ -75,8 +75,8 @@ static void status_parse_fields(struct status_cmd_context *ctx,
 		}
 
 		if (ctx->total_sum &&
-		    ((ctx->status_items & ~TOTAL_STATUS_ITEMS) != 0 ||
-		     (ctx->metadata_items & ~TOTAL_METADATA_ITEMS) != 0)) {
+		    ((ctx->status_items & ENUM_NEGATE(TOTAL_STATUS_ITEMS)) != 0 ||
+		     (ctx->metadata_items & ENUM_NEGATE(TOTAL_METADATA_ITEMS)) != 0)) {
 			i_fatal_status(EX_USAGE,
 				"Status field %s can't be used with -t", field);
 		}
@@ -107,8 +107,12 @@ status_output(struct status_cmd_context *ctx, struct mailbox *box,
 		doveadm_print_num(metadata->virtual_size);
 	if ((ctx->metadata_items & MAILBOX_METADATA_GUID) != 0)
 		doveadm_print(guid_128_to_string(metadata->guid));
-	if ((ctx->metadata_items & MAILBOX_METADATA_FIRST_SAVE_DATE) != 0)
-		doveadm_print_num(metadata->first_save_date);
+	if ((ctx->metadata_items & MAILBOX_METADATA_FIRST_SAVE_DATE) > 0) {
+		if (metadata->first_save_date > -1)
+			doveadm_print_num(metadata->first_save_date);
+		else
+			doveadm_print("never");
+	}
 }
 
 static void
@@ -132,7 +136,6 @@ status_mailbox(struct status_cmd_context *ctx, const struct mailbox_info *info)
 	struct mailbox_metadata metadata;
 
 	box = doveadm_mailbox_find(ctx->ctx.cur_mail_user, info->vname);
-	mailbox_set_reason(box, ctx->ctx.cmd->name);
 	if (mailbox_get_status(box, ctx->status_items, &status) < 0 ||
 	    mailbox_get_metadata(box, ctx->metadata_items, &metadata) < 0) {
 		i_error("Mailbox %s: Failed to lookup mailbox status: %s",

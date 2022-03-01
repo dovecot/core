@@ -79,7 +79,7 @@ master_service_settings_cache_init(struct master_service *service,
 	cache->service = service;
 	cache->module = p_strdup(pool, module);
 	cache->service_name = p_strdup(pool, service_name);
-	cache->max_cache_size = (size_t)-1;
+	cache->max_cache_size = SIZE_MAX;
 	return cache;
 }
 

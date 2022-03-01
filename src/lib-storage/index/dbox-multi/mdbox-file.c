@@ -272,7 +272,7 @@ void mdbox_file_unrefed(struct dbox_file *file)
 	unsigned int i, count;
 
 	/* don't cache metadata seeks while file isn't being referenced */
-	file->metadata_read_offset = (uoff_t)-1;
+	file->metadata_read_offset = UOFF_T_MAX;
 	mfile->close_time = ioloop_time;
 
 	if (mfile->file_id != 0) {

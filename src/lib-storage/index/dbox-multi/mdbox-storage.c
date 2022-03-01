@@ -151,7 +151,7 @@ mdbox_mailbox_alloc(struct mail_storage *storage, struct mailbox_list *list,
 	pool_t pool;
 
 	/* dbox can't work without index files */
-	flags &= ~MAILBOX_FLAG_NO_INDEX_FILES;
+	flags &= ENUM_NEGATE(MAILBOX_FLAG_NO_INDEX_FILES);
 
 	pool = pool_alloconly_create("mdbox mailbox", 1024*3);
 	mbox = p_new(pool, struct mdbox_mailbox, 1);
@@ -465,7 +465,7 @@ struct mail_storage mdbox_storage = {
 		mdbox_storage_autodetect,
 		mdbox_mailbox_alloc,
 		mdbox_purge,
-		NULL,
+		mail_storage_list_index_rebuild,
 	}
 };
 
@@ -505,6 +505,7 @@ struct mailbox mdbox_mailbox = {
 		index_storage_search_deinit,
 		index_storage_search_next_nonblock,
 		index_storage_search_next_update_seq,
+		index_storage_search_next_match_mail,
 		mdbox_save_alloc,
 		mdbox_save_begin,
 		dbox_save_continue,

@@ -18,14 +18,14 @@ cmd_helo_completed(struct smtp_server_cmd_ctx *cmd,
 
 	i_assert(smtp_server_command_is_replied(command));
 	if (!smtp_server_command_replied_success(command)) {
-		/* failure */
+		/* Failure */
 		return;
 	}
 
 	if (conn->pending_helo == &data->helo)
 		conn->pending_helo = NULL;
 
-	/* success */
+	/* Success */
 	smtp_server_connection_reset_state(conn);
 
 	i_free(conn->helo_domain);
@@ -41,10 +41,9 @@ cmd_helo_next(struct smtp_server_cmd_ctx *cmd,
 {
 	struct smtp_server_connection *conn = cmd->conn;
 
-	if (conn->helo.domain == NULL ||
-		strcmp(conn->helo.domain, data->helo.domain) != 0 ||
-		conn->helo.old_smtp != data->helo.old_smtp)
-		data->changed = TRUE; /* definitive assessment */
+	if (null_strcmp(conn->helo.domain, data->helo.domain) != 0 ||
+	    conn->helo.old_smtp != data->helo.old_smtp)
+		data->changed = TRUE; /* Definitive assessment */
 }
 
 static void
@@ -59,7 +58,7 @@ smtp_server_cmd_helo_run(struct smtp_server_cmd_ctx *cmd, const char *params,
 	const char *domain = NULL;
 	int ret;
 
-	/* parse domain argument */
+	/* Parse domain argument */
 
 	if (*params == '\0') {
 		smtp_server_reply(cmd, 501, "", "Missing hostname");
@@ -67,7 +66,7 @@ smtp_server_cmd_helo_run(struct smtp_server_cmd_ctx *cmd, const char *params,
 	}
 	ret = smtp_helo_domain_parse(params, !old_smtp, &domain);
 
-	smtp_server_command_input_lock(cmd);
+	smtp_server_command_pipeline_block(cmd);
 	if (conn->state.state == SMTP_SERVER_STATE_GREETING) {
 		smtp_server_connection_set_state(conn, SMTP_SERVER_STATE_HELO,
 						 NULL);
@@ -80,49 +79,48 @@ smtp_server_cmd_helo_run(struct smtp_server_cmd_ctx *cmd, const char *params,
 	helo_data->first = first;
 	command->data = helo_data;
 
-	if (conn->helo.domain == NULL ||
-	    (domain != NULL && strcmp(conn->helo.domain, domain) != 0) ||
+	if (null_strcmp(conn->helo.domain, domain) != 0 ||
 	    conn->helo.old_smtp != old_smtp)
-		helo_data->changed = TRUE; /* preliminary assessment */
+		helo_data->changed = TRUE; /* Preliminary assessment */
 
 	if (conn->pending_helo == NULL)
 		conn->pending_helo = &helo_data->helo;
 
-	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_NEXT,
-				     cmd_helo_next, helo_data);
-	smtp_server_command_add_hook(command, SMTP_SERVER_COMMAND_HOOK_COMPLETED,
-				     cmd_helo_completed, helo_data);
+	smtp_server_command_add_hook(
+		command, SMTP_SERVER_COMMAND_HOOK_NEXT,
+		cmd_helo_next, helo_data);
+	smtp_server_command_add_hook(
+		command, SMTP_SERVER_COMMAND_HOOK_COMPLETED,
+		cmd_helo_completed, helo_data);
 
 	smtp_server_command_ref(command);
 	if (callbacks != NULL && callbacks->conn_cmd_helo != NULL) {
-		/* specific implementation of EHLO command */
-		if ((ret=callbacks->conn_cmd_helo(conn->context,
-			cmd, helo_data)) <= 0) {
+		/* Specific implementation of EHLO command */
+		ret = callbacks->conn_cmd_helo(conn->context, cmd, helo_data);
+		if (ret <= 0) {
 			i_assert(ret == 0 ||
 				 smtp_server_command_is_replied(command));
-			/* command is waiting for external event or it failed */
+			/* Command is waiting for external event or it failed */
 			smtp_server_command_unref(&command);
 			return;
 		}
 	}
 
 	if (!smtp_server_command_is_replied(command)) {
-		/* submit default EHLO reply if none is provided */
+		/* Submit default EHLO reply if none is provided */
 		smtp_server_cmd_ehlo_reply_default(cmd);
 	}
 	smtp_server_command_unref(&command);
 }
 
-void smtp_server_cmd_ehlo(struct smtp_server_cmd_ctx *cmd,
-			 const char *params)
+void smtp_server_cmd_ehlo(struct smtp_server_cmd_ctx *cmd, const char *params)
 {
 	/* ehlo = "EHLO" SP ( Domain / address-literal ) CRLF */
 
 	smtp_server_cmd_helo_run(cmd, params, FALSE);
 }
 
-void smtp_server_cmd_helo(struct smtp_server_cmd_ctx *cmd,
-			  const char *params)
+void smtp_server_cmd_helo(struct smtp_server_cmd_ctx *cmd, const char *params)
 {
 	/* helo = "HELO" SP Domain CRLF */
 
@@ -157,11 +155,13 @@ smtp_server_cmd_ehlo_reply_create(struct smtp_server_cmd_ctx *cmd)
 	unsigned int extra_caps_count, i, j;
 	struct smtp_server_reply *reply;
 
-	i_assert(cmd->cmd->reg->func == smtp_server_cmd_ehlo);
 	reply = smtp_server_reply_create_ehlo(cmd->cmd);
 
-	if (helo_data->helo.old_smtp)
+	if (helo_data->helo.old_smtp) {
+		i_assert(cmd->cmd->reg->func == smtp_server_cmd_helo);
 		return reply;
+	}
+	i_assert(cmd->cmd->reg->func == smtp_server_cmd_ehlo);
 
 	extra_caps_count = 0;
 	if (array_is_created(&conn->extra_capabilities)) {

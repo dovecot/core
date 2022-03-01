@@ -41,15 +41,15 @@ struct mail_index_sync_map_ctx;
 	 (u)->modseq_inc_flag == 0)
 
 #define MAIL_INDEX_EXT_KEYWORDS "keywords"
+#define MAIL_INDEX_EXT_NAME_MAX_LENGTH 64
 
 typedef int mail_index_expunge_handler_t(struct mail_index_sync_map_ctx *ctx,
-					 uint32_t seq, const void *data,
-					 void **sync_context, void *context);
-typedef void mail_index_sync_lost_handler_t(struct mail_index *index);
+					 const void *data, void **sync_context);
 
 #define MAIL_INDEX_HEADER_SIZE_ALIGN(size) \
-	(((size) + 7) & ~7)
+	(((size) + 7) & ~7U)
 
+/* In-memory copy of struct mail_index_ext_header */
 struct mail_index_ext {
 	const char *name;
 	uint32_t index_idx; /* index ext_id */
@@ -63,14 +63,27 @@ struct mail_index_ext {
 };
 
 struct mail_index_ext_header {
-	uint32_t hdr_size; /* size of data[] */
+	/* Size of data[], i.e. the extension size in header */
+	uint32_t hdr_size;
+	/* If reset_id changes, all of the extension record data is
+	   invalidated. For example with cache files reset_id must match the
+	   cache header's file_seq or the cache offsets aren't valid. */
 	uint32_t reset_id;
+	/* Offset of this extension in struct mail_index_record. */
 	uint16_t record_offset;
+	/* Size of this extension in struct mail_index_record. */
 	uint16_t record_size;
+	/* Required alignment of this extension in struct mail_index_record.
+	   It's expected that record_offset is correctly aligned. This is used
+	   only when rearranging fields due to adding/removing other
+	   extensions. */
 	uint16_t record_align;
+	/* Size of name[], which contains the extension's unique name. */
 	uint16_t name_size;
-	/* unsigned char name[name_size] */
-	/* unsigned char data[hdr_size] (starting 64bit aligned) */
+	/* unsigned char name[name_size]; */
+	/* Extension header data, if any. This starts from the next 64-bit
+	   aligned offset after name[]. */
+	/* unsigned char data[hdr_size]; */
 };
 
 struct mail_index_keyword_header {
@@ -98,9 +111,6 @@ struct mail_index_registered_ext {
 	uint16_t record_align;
 
 	mail_index_expunge_handler_t *expunge_handler;
-
-	void *expunge_context;
-	bool expunge_handler_call_always:1;
 };
 
 struct mail_index_record_map {
@@ -118,12 +128,17 @@ struct mail_index_record_map {
 	uint32_t last_appended_uid;
 };
 
+#define MAIL_INDEX_MAP_HDR_OFFSET(map, hdr_offset) \
+	CONST_PTR_OFFSET((map)->hdr_copy_buf->data, hdr_offset)
 struct mail_index_map {
 	struct mail_index *index;
 	int refcount;
 
+	/* Copy of the base header for convenience. Note that base_header_size
+	   may be smaller or larger than this struct. If it's smaller, the last
+	   fields in the struct are filled with zeroes. */
 	struct mail_index_header hdr;
-	const void *hdr_base;
+	/* Copy of the full header. */
 	buffer_t *hdr_copy_buf;
 
 	pool_t extension_pool;
@@ -143,49 +158,83 @@ union mail_index_module_context {
 	struct mail_index_module_register *reg;
 };
 
-struct mail_index {
-	char *dir, *prefix;
+struct mail_index_settings {
+	/* Directory path for .cache file. Set via
+	   mail_index_set_cache_dir(). */
 	char *cache_dir;
-	struct event *event;
 
-	struct mail_cache *cache;
-	struct mail_transaction_log *log;
-
-	unsigned int open_count;
-	enum mail_index_open_flags flags;
+	/* fsyncing behavior. Set via mail_index_set_fsync_mode(). */
 	enum fsync_mode fsync_mode;
 	enum mail_index_fsync_mask fsync_mask;
+
+	/* Index file permissions. Set via mail_index_set_permissions(). */
 	mode_t mode;
 	gid_t gid;
 	char *gid_origin;
 
-	struct mail_index_optimization_settings optimization_set;
-	uint32_t pending_log2_rotate_time;
+	/* Lock settings. Set via mail_index_set_lock_method(). */
+	enum file_lock_method lock_method;
+	unsigned int max_lock_timeout_secs;
 
-	pool_t extension_pool;
-	ARRAY(struct mail_index_registered_ext) extensions;
-
+	/* Initial extension added to newly created indexes. Set via
+	   mail_index_set_ext_init_data(). */
 	uint32_t ext_hdr_init_id;
 	void *ext_hdr_init_data;
+};
 
-	ARRAY(mail_index_sync_lost_handler_t *) sync_lost_handlers;
+struct mail_index_error {
+	/* Human-readable error text */
+	char *text;
+
+	/* Error happened because there's no disk space, i.e. syscall failed
+	   with ENOSPC or EDQUOT. */
+	bool nodiskspace:1;
+};
+
+struct mail_index {
+	/* Directory path for the index, or NULL for in-memory indexes. */
+	char *dir;
+	/* Filename prefix for the index, e.g. "dovecot.index." */
+	char *prefix;
+	struct event *event;
+	enum mail_index_open_flags flags;
+	struct mail_index_settings set;
+	struct mail_index_optimization_settings optimization_set;
+
+	struct mail_cache *cache;
+	struct mail_transaction_log *log;
 
 	char *filepath;
 	int fd;
-
+	/* Linked list of currently opened views */
+	struct mail_index_view *views;
+	/* Latest map */
 	struct mail_index_map *map;
-	char *need_recreate;
 
-	time_t last_mmap_error_time;
-
+	/* ID number that permanently identifies the index. This is stored in
+	   the index files' headers. If the indexids suddenly changes, it means
+	   that the index has been completely recreated and needs to be
+	   reopened (e.g. the mailbox was deleted and recreated while it
+	   was open). */
 	uint32_t indexid;
+	/* Views initially use this same ID value. This ID is incremented
+	   whenever something unexpected happens to the index that prevents
+	   syncing existing views. When the view's inconsistency_id doesn't
+	   match this one, the view is marked as inconsistent. */
 	unsigned int inconsistency_id;
+	/* How many times this index has been opened with mail_index_open(). */
+	unsigned int open_count;
 
-	/* last_read_log_file_* contains the seq/offsets we last read from
-	   the main index file's headers. these are used to figure out when
-	   the main index file should be updated. */
-	uint32_t last_read_log_file_seq;
-	uint32_t last_read_log_file_tail_offset;
+	/* These contain the log_file_seq and log_file_tail_offset that exists
+	   in dovecot.index file's header. These are used to figure out if it's
+	   time to rewrite the dovecot.index file. Note that these aren't
+	   available in index->map->hdr, because it gets updated when
+	   transaction log file is read. */
+	uint32_t main_index_hdr_log_file_seq;
+	uint32_t main_index_hdr_log_file_tail_offset;
+
+	/* log file which last updated index_deleted */
+	uint32_t index_delete_changed_file_seq;
 
 	/* transaction log head seq/offset when we last fscked */
 	uint32_t fsck_log_head_file_seq;
@@ -193,61 +242,96 @@ struct mail_index {
 
 	/* syncing will update this if non-NULL */
 	struct mail_index_transaction_commit_result *sync_commit_result;
+	/* Delayed log2_rotate_time update to mail_index_header. This is set
+	   and unset within the same sync. */
+	uint32_t hdr_log2_rotate_time_delayed_update;
 
-	enum file_lock_method lock_method;
-	unsigned int max_lock_timeout_secs;
+	/* Registered extensions */
+	pool_t extension_pool;
+	ARRAY(struct mail_index_registered_ext) extensions;
 
+	/* All keywords that have ever been used in this index. Keywords are
+	   only added here, never removed. */
 	pool_t keywords_pool;
 	ARRAY_TYPE(keywords) keywords;
 	HASH_TABLE(char *, void *) keywords_hash; /* name -> unsigned int idx */
 
+	/* Registered extension IDs */
 	uint32_t keywords_ext_id;
 	uint32_t modseq_ext_id;
-
-	struct mail_index_view *views;
 
 	/* Module-specific contexts. */
 	ARRAY(union mail_index_module_context *) module_contexts;
 
-	char *error;
-	bool nodiskspace:1;
-	bool index_lock_timeout:1;
+	/* Last error returned by mail_index_get_error_message().
+	   Cleared by mail_index_reset_error(). */
+	struct mail_index_error last_error;
+	/* Timestamp when mmap() failure was logged the last time. This is used
+	   to prevent logging the same error too rapidly. This could happen
+	   e.g. if mmap()ing a large cache file that exceeeds process's
+	   VSZ limit. */
+	time_t last_mmap_error_time;
+	/* If non-NULL, dovecot.index should be recreated as soon as possible.
+	   The reason for why the recreation is wanted is stored as human-
+	   readable text. */
+	char *need_recreate;
 
-	bool index_delete_requested:1; /* next sync sets it deleted */
-	bool index_deleted:1; /* no changes allowed anymore */
+	/* Mapping has noticed non-external MAIL_TRANSACTION_INDEX_DELETED
+	   record, i.e. a request to mark the index deleted. The next sync
+	   will finish the deletion by writing external
+	   MAIL_TRANSACTION_INDEX_DELETED record. */
+	bool index_delete_requested:1;
+	/* Mapping has noticed external MAIL_TRANSACTION_INDEX_DELETED record,
+	   or index was unexpectedly deleted under us. No more changes are
+	   allowed to the index, except undeletion. */
+	bool index_deleted:1;
+	/* .log is locked for syncing. This is the main exclusive lock for
+	   indexes. */
 	bool log_sync_locked:1;
+	/* Main index or .log couldn't be opened read-write */
 	bool readonly:1;
+	/* mail_index_map() is running */
 	bool mapping:1;
+	/* mail_index_sync_*() is running */
 	bool syncing:1;
+	/* Mapping has read more from .log than it preferred. Use
+	   mail_index_base_optimization_settings.rewrite_min_log_bytes the next
+	   time when checking if index needs a rewrite. */
 	bool index_min_write:1;
+	/* mail_index_modseq_enable() has been called. Track per-flag
+	   modseq numbers in memory (global modseqs are tracked anyway). */
 	bool modseqs_enabled:1;
+	/* mail_index_open() is creating new index files */
 	bool initial_create:1;
+	/* TRUE after mail_index_map() has succeeded */
 	bool initial_mapped:1;
+	/* The next mail_index_map() must reopen the main index, because the
+	   currently opened one is too old. */
 	bool reopen_main_index:1;
+	/* Index has been fsck'd, but mail_index_reset_fscked() hasn't been
+	   called yet. */
 	bool fscked:1;
 };
 
 extern struct mail_index_module_register mail_index_module_register;
 extern struct event_category event_category_mail_index;
 
-/* Add/replace sync handler for specified extra record. */
+/* Add/replace expunge handler for specified extension. */
 void mail_index_register_expunge_handler(struct mail_index *index,
-					 uint32_t ext_id, bool call_always,
-					 mail_index_expunge_handler_t *callback,
-					 void *context);
+					 uint32_t ext_id,
+					 mail_index_expunge_handler_t *callback);
 void mail_index_unregister_expunge_handler(struct mail_index *index,
 					   uint32_t ext_id);
-void mail_index_register_sync_lost_handler(struct mail_index *index,
-					   mail_index_sync_lost_handler_t *cb);
-void mail_index_unregister_sync_lost_handler(struct mail_index *index,
-					mail_index_sync_lost_handler_t *cb);
 
 int mail_index_create_tmp_file(struct mail_index *index,
 			       const char *path_prefix, const char **path_r);
 
 int mail_index_try_open_only(struct mail_index *index);
 void mail_index_close_file(struct mail_index *index);
-int mail_index_reopen_if_changed(struct mail_index *index,
+/* Returns 1 if index was successfully (re-)opened, 0 if the index no longer
+   exists, -1 if I/O error. If 1 is returned, reopened_r=TRUE if a new index
+   was actually reopened (or if index wasn't even open before this call). */
+int mail_index_reopen_if_changed(struct mail_index *index, bool *reopened_r,
 				 const char **reason_r);
 /* Update/rewrite the main index file from index->map */
 void mail_index_write(struct mail_index *index, bool want_rotate,
@@ -273,16 +357,18 @@ int mail_index_map(struct mail_index *index,
 		   enum mail_index_sync_handler_type type);
 /* Unreference given mapping and unmap it if it's dropped to zero. */
 void mail_index_unmap(struct mail_index_map **map);
-
-/* Clone a map. The returned map is always in memory. */
+/* Clone a map. It still points to the original rec_map. */
 struct mail_index_map *mail_index_map_clone(const struct mail_index_map *map);
+/* Make sure the map has its own private rec_map, cloning it if necessary. */
 void mail_index_record_map_move_to_private(struct mail_index_map *map);
-/* Move a mmaped map to memory. */
+/* If map points to mmap()ed index, copy it to the memory. */
 void mail_index_map_move_to_memory(struct mail_index_map *map);
+
 void mail_index_fchown(struct mail_index *index, int fd, const char *path);
 
 bool mail_index_map_lookup_ext(struct mail_index_map *map, const char *name,
 			       uint32_t *idx_r);
+bool mail_index_ext_name_is_valid(const char *name);
 uint32_t
 mail_index_map_register_ext(struct mail_index_map *map,
 			    const char *name, uint32_t ext_offset,
@@ -321,23 +407,21 @@ int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr,
 				 const char *name, const char **error_r);
 unsigned int mail_index_map_ext_hdr_offset(unsigned int name_len);
 
-void mail_index_view_transaction_ref(struct mail_index_view *view);
-void mail_index_view_transaction_unref(struct mail_index_view *view);
-
 void mail_index_fsck_locked(struct mail_index *index);
 
 /* Log an error and set it as the index's current error that is available
    with mail_index_get_error_message(). */
 void mail_index_set_error(struct mail_index *index, const char *fmt, ...)
-	ATTR_FORMAT(2, 3);
+	ATTR_FORMAT(2, 3) ATTR_COLD;
 /* Same as mail_index_set_error(), but don't log the error. */
-void mail_index_set_error_nolog(struct mail_index *index, const char *str);
+void mail_index_set_error_nolog(struct mail_index *index, const char *str)
+	ATTR_COLD;
 /* "%s failed with index file %s: %m" */
 void mail_index_set_syscall_error(struct mail_index *index,
-				  const char *function);
+				  const char *function) ATTR_COLD;
 /* "%s failed with file %s: %m" */
 void mail_index_file_set_syscall_error(struct mail_index *index,
 				       const char *filepath,
-				       const char *function);
+				       const char *function) ATTR_COLD;
 
 #endif

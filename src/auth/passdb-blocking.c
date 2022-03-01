@@ -96,7 +96,7 @@ void passdb_blocking_verify_plain(struct auth_request *request)
 	auth_request_export(request, str);
 
 	auth_request_ref(request);
-	auth_worker_call(request->pool, request->user, str_c(str),
+	auth_worker_call(request->pool, request->fields.user, str_c(str),
 			 verify_plain_callback, request);
 }
 
@@ -131,12 +131,12 @@ void passdb_blocking_lookup_credentials(struct auth_request *request)
 
 	str = t_str_new(128);
 	str_printfa(str, "PASSL\t%u\t", request->passdb->passdb->id);
-	str_append_tabescaped(str, request->credentials_scheme);
+	str_append_tabescaped(str, request->wanted_credentials_scheme);
 	str_append_c(str, '\t');
 	auth_request_export(request, str);
 
 	auth_request_ref(request);
-	auth_worker_call(request->pool, request->user, str_c(str),
+	auth_worker_call(request->pool, request->fields.user, str_c(str),
 			 lookup_credentials_callback, request);
 }
 
@@ -164,6 +164,6 @@ void passdb_blocking_set_credentials(struct auth_request *request,
 	auth_request_export(request, str);
 
 	auth_request_ref(request);
-	auth_worker_call(request->pool, request->user, str_c(str),
+	auth_worker_call(request->pool, request->fields.user, str_c(str),
 			 set_credentials_callback, request);
 }

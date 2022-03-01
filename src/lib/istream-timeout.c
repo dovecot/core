@@ -20,7 +20,8 @@ struct timeout_istream {
 static void i_stream_timeout_close(struct iostream_private *stream,
 				   bool close_parent)
 {
-	struct timeout_istream *tstream = (struct timeout_istream *)stream;
+	struct timeout_istream *tstream =
+		container_of(stream, struct timeout_istream, istream.iostream);
 
 	timeout_remove(&tstream->to);
 	if (close_parent)
@@ -30,7 +31,8 @@ static void i_stream_timeout_close(struct iostream_private *stream,
 static void i_stream_timeout_switch_ioloop_to(struct istream_private *stream,
 					      struct ioloop *ioloop)
 {
-	struct timeout_istream *tstream = (struct timeout_istream *)stream;
+	struct timeout_istream *tstream =
+		container_of(stream, struct timeout_istream, istream);
 
 	if (tstream->to != NULL)
 		tstream->to = io_loop_move_timeout_to(ioloop, &tstream->to);
@@ -88,7 +90,8 @@ static void i_stream_timeout_set_pending(struct timeout_istream *tstream)
 static ssize_t
 i_stream_timeout_read(struct istream_private *stream)
 {
-	struct timeout_istream *tstream = (struct timeout_istream *)stream;
+	struct timeout_istream *tstream =
+		container_of(stream, struct timeout_istream, istream);
 	struct iostream_private *iostream = &tstream->istream.iostream;
 	ssize_t ret;
 

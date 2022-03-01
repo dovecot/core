@@ -14,7 +14,7 @@ static struct file_listener_settings *aggregator_unix_listeners[] = {
 	&aggregator_unix_listeners_array[0]
 };
 static buffer_t aggregator_unix_listeners_buf = {
-	aggregator_unix_listeners, sizeof(aggregator_unix_listeners), { NULL, }
+	{ { aggregator_unix_listeners, sizeof(aggregator_unix_listeners) } }
 };
 
 static struct file_listener_settings aggregator_fifo_listeners_array[] = {
@@ -24,7 +24,7 @@ static struct file_listener_settings *aggregator_fifo_listeners[] = {
 	&aggregator_fifo_listeners_array[0]
 };
 static buffer_t aggregator_fifo_listeners_buf = {
-	aggregator_fifo_listeners, sizeof(aggregator_fifo_listeners), { NULL, }
+	{ { aggregator_fifo_listeners, sizeof(aggregator_fifo_listeners) } }
 };
 /* </settings checks> */
 
@@ -46,7 +46,7 @@ struct service_settings aggregator_service_settings = {
 	.client_limit = 0,
 	.service_count = 0,
 	.idle_kill = 0,
-	.vsz_limit = (uoff_t)-1,
+	.vsz_limit = UOFF_T_MAX,
 
 	.unix_listeners = { { &aggregator_unix_listeners_buf,
 			      sizeof(aggregator_unix_listeners[0]) } },
@@ -57,11 +57,11 @@ struct service_settings aggregator_service_settings = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct aggregator_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct aggregator_settings)
 
 static const struct setting_define aggregator_setting_defines[] = {
-	DEF(SET_STR, replicator_host),
-	DEF(SET_IN_PORT, replicator_port),
+	DEF(STR, replicator_host),
+	DEF(IN_PORT, replicator_port),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -76,10 +76,10 @@ const struct setting_parser_info aggregator_setting_parser_info = {
 	.defines = aggregator_setting_defines,
 	.defaults = &aggregator_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct aggregator_settings),
 
-	.parent_offset = (size_t)-1
+	.parent_offset = SIZE_MAX
 };
 
 const struct aggregator_settings *aggregator_settings;

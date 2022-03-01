@@ -1,4 +1,5 @@
-noinst_LTLIBRARIES = libdict.la
+noinst_LTLIBRARIES = \
+	libdict.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -9,8 +10,6 @@ base_sources = \
 	dict.c \
 	dict-client.c \
 	dict-file.c \
-	dict-memcached.c \
-	dict-memcached-ascii.c \
 	dict-redis.c \
 	dict-fail.c \
 	dict-transaction-memory.c
@@ -23,6 +22,28 @@ headers = \
 	dict-client.h \
 	dict-private.h \
 	dict-transaction-memory.h
+
+# Internally, the dict methods yield via lua_yieldk() as implemented in Lua
+# 5.3 and newer.
+if DLUA_WITH_YIELDS
+noinst_LTLIBRARIES += libdict_lua.la
+
+libdict_lua_la_SOURCES = \
+	dict-lua.c \
+	dict-iter-lua.c \
+	dict-txn-lua.c
+libdict_lua_la_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	$(LUA_CFLAGS) \
+	-I$(top_srcdir)/src/lib-lua
+libdict_lua_la_LIBADD =
+libdict_lua_la_DEPENDENCIES = \
+	libdict.la
+
+headers += \
+	dict-lua.h \
+	dict-lua-private.h
+endif
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)

@@ -37,7 +37,7 @@
 #define VSIZE_UPDATE_MAX_LOCK_SECS 10
 
 #define INDEXER_SOCKET_NAME "indexer"
-#define INDEXER_HANDSHAKE "VERSION\tindexer\t1\t0\n"
+#define INDEXER_HANDSHAKE "VERSION\tindexer-client\t1\t0\n"
 
 struct mailbox_vsize_update {
 	struct mailbox *box;
@@ -263,6 +263,16 @@ void index_mailbox_vsize_hdr_expunge(struct mailbox_vsize_update *update,
 	update->vsize_hdr.vsize -= vsize;
 }
 
+static void
+index_mailbox_vsize_finish_bg(struct mailbox_vsize_update *update,
+			      bool require_result)
+{
+	mail_storage_set_error(update->box->storage, MAIL_ERROR_INUSE,
+			       "Finishing vsize calculation on background");
+	if (require_result)
+		update->finish_in_background = TRUE;
+}
+
 static int
 index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
 				    bool require_result)
@@ -320,6 +330,14 @@ index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
 
 	while (mailbox_search_next(search_ctx, &mail)) {
 		if (mails_left == 0) {
+			if (mail->mail_stream_accessed) {
+				/* Seems stream is opened by mailbox search, so we
+				   will stop here, and finish it on background. */
+				index_mailbox_vsize_finish_bg(update,
+							      require_result);
+				ret = -1;
+				break;
+			}
 			/* if there are any more mails whose vsize can't be
 			   looked up from cache, abort and finish on
 			   background. */
@@ -332,14 +350,11 @@ index_mailbox_vsize_hdr_add_missing(struct mailbox_vsize_update *update,
 		    mailbox_get_last_mail_error(update->box) == MAIL_ERROR_LOOKUP_ABORTED) {
 			/* abort and finish on background */
 			i_assert(mails_left == 0);
-
-			mail_storage_set_error(update->box->storage, MAIL_ERROR_INUSE,
-				"Finishing vsize calculation on background");
-			if (require_result)
-				update->finish_in_background = TRUE;
+			index_mailbox_vsize_finish_bg(update, require_result);
 			break;
 		}
-		if (mail->mail_stream_opened || mail->mail_metadata_accessed) {
+		if (mail->mail_stream_accessed ||
+		    mail->mail_metadata_accessed) {
 			/* slow vsize lookup */
 			i_assert(mails_left > 0);
 			mails_left--;
@@ -390,7 +405,9 @@ int index_mailbox_get_virtual_size(struct mailbox *box,
 	   anyway internally even though we won't be saving the result. */
 	(void)index_mailbox_vsize_update_wait_lock(update);
 
+	struct event_reason *reason = event_reason_begin("mailbox:vsize");
 	ret = index_mailbox_vsize_hdr_add_missing(update, TRUE);
+	event_reason_end(&reason);
 	metadata_r->virtual_size = update->vsize_hdr.vsize;
 	index_mailbox_vsize_update_deinit(&update);
 	return ret;
@@ -474,8 +491,12 @@ void index_mailbox_vsize_update_appends(struct mailbox *box)
 		   a remote STATUS (UIDNEXT) call. */
 		mailbox_get_open_status(update->box, STATUS_UIDNEXT, &status);
 		if (update->vsize_hdr.highest_uid + 1 != status.uidnext &&
-		    index_mailbox_vsize_update_try_lock(update))
+		    index_mailbox_vsize_update_try_lock(update)) {
+			struct event_reason *reason =
+				event_reason_begin("mailbox:vsize");
 			(void)index_mailbox_vsize_hdr_add_missing(update, FALSE);
+			event_reason_end(&reason);
+		}
 	}
 	index_mailbox_vsize_update_deinit(&update);
 }

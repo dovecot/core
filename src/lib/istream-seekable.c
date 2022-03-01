@@ -36,7 +36,8 @@ struct seekable_istream {
 static void i_stream_seekable_close(struct iostream_private *stream,
 				    bool close_parent ATTR_UNUSED)
 {
-	struct seekable_istream *sstream = (struct seekable_istream *)stream;
+	struct seekable_istream *sstream =
+		container_of(stream, struct seekable_istream, istream.iostream);
 
 	sstream->fd = -1;
 	i_stream_close(sstream->fd_input);
@@ -52,7 +53,8 @@ static void unref_streams(struct seekable_istream *sstream)
 
 static void i_stream_seekable_destroy(struct iostream_private *stream)
 {
-	struct seekable_istream *sstream = (struct seekable_istream *)stream;
+	struct seekable_istream *sstream =
+		container_of(stream, struct seekable_istream, istream.iostream);
 
 	i_stream_free_buffer(&sstream->istream);
 	i_stream_unref(&sstream->fd_input);
@@ -68,7 +70,8 @@ static void
 i_stream_seekable_set_max_buffer_size(struct iostream_private *stream,
 				      size_t max_size)
 {
-	struct seekable_istream *sstream = (struct seekable_istream *)stream;
+	struct seekable_istream *sstream =
+		container_of(stream, struct seekable_istream, istream.iostream);
 	unsigned int i;
 
 	sstream->istream.max_buffer_size = max_size;
@@ -122,7 +125,7 @@ static int copy_to_temp_file(struct seekable_istream *sstream)
 				i_stream_get_name(&stream->istream),
 				i_stream_get_error(sstream->fd_input));
 			i_stream_destroy(&sstream->fd_input);
-			i_close_fd(&sstream->fd);
+			sstream->fd = -1; /* autoclosed by fd_input */
 			return -1;
 		}
 	}
@@ -162,7 +165,8 @@ static ssize_t read_more(struct seekable_istream *sstream)
 		sstream->cur_input = sstream->input[sstream->cur_idx++];
 		if (sstream->cur_input == NULL) {
 			/* last one, EOF */
-			sstream->size = sstream->istream.istream.v_offset;
+			sstream->size = sstream->istream.istream.v_offset +
+				(sstream->istream.pos - sstream->istream.skip);
 			sstream->istream.istream.eof = TRUE;
 			/* Now that EOF is reached, the stream can't return 0
 			   anymore. Callers can now use this stream in places
@@ -193,6 +197,10 @@ static bool read_from_buffer(struct seekable_istream *sstream, ssize_t *ret_r)
 		stream->skip = stream->istream.v_offset;
 		stream->pos = sstream->buffer_peak;
 		size = stream->pos - stream->skip;
+		if (stream->istream.v_offset == sstream->buffer_peak) {
+			/* this could happen after write to temp file failed */
+			return read_from_buffer(sstream, ret_r);
+		}
 	} else {
 		/* need to read more */
 		i_assert(stream->pos == sstream->buffer_peak);
@@ -235,19 +243,26 @@ static int i_stream_seekable_write_failed(struct seekable_istream *sstream)
 {
 	struct istream_private *stream = &sstream->istream;
 	void *data;
+	size_t old_pos = stream->pos;
 
 	i_assert(sstream->fd != -1);
+	i_assert(stream->skip == 0);
 
-	stream->max_buffer_size = (size_t)-1;
+	stream->max_buffer_size = SIZE_MAX;
+	stream->pos = 0;
 	data = i_stream_alloc(stream, sstream->write_peak);
+	stream->pos = old_pos;
 
 	if (pread_full(sstream->fd, data, sstream->write_peak, 0) < 0) {
-		i_error("istream-seekable: read(%s) failed: %m", sstream->temp_path);
-		memarea_unref(&stream->memarea);
+		sstream->istream.istream.stream_errno = errno;
+		sstream->istream.istream.eof = TRUE;
+		io_stream_set_error(&sstream->istream.iostream,
+				    "istream-seekable: read(%s) failed: %m",
+				    sstream->temp_path);
 		return -1;
 	}
 	i_stream_destroy(&sstream->fd_input);
-	i_close_fd(&sstream->fd);
+	sstream->fd = -1; /* autoclosed by fd_input */
 
 	i_free_and_null(sstream->temp_path);
 	return 0;
@@ -255,7 +270,8 @@ static int i_stream_seekable_write_failed(struct seekable_istream *sstream)
 
 static ssize_t i_stream_seekable_read(struct istream_private *stream)
 {
-	struct seekable_istream *sstream = (struct seekable_istream *)stream;
+	struct seekable_istream *sstream =
+		container_of(stream, struct seekable_istream, istream);
 	const unsigned char *data;
 	size_t size, pos;
 	ssize_t ret;
@@ -266,7 +282,7 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 
 		/* copy everything to temp file and use it as the stream */
 		if (copy_to_temp_file(sstream) < 0) {
-			stream->max_buffer_size = (size_t)-1;
+			stream->max_buffer_size = SIZE_MAX;
 			if (!read_from_buffer(sstream, &ret))
 				i_unreached();
 			return ret;
@@ -329,12 +345,13 @@ static ssize_t i_stream_seekable_read(struct istream_private *stream)
 static int
 i_stream_seekable_stat(struct istream_private *stream, bool exact)
 {
-	struct seekable_istream *sstream = (struct seekable_istream *)stream;
+	struct seekable_istream *sstream =
+		container_of(stream, struct seekable_istream, istream);
 	const struct stat *st;
 	uoff_t old_offset, len;
 	ssize_t ret;
 
-	if (sstream->size != (uoff_t)-1) {
+	if (sstream->size != UOFF_T_MAX) {
 		/* we've already reached EOF and know the size */
 		stream->statbuf.st_size = sstream->size;
 		return 0;
@@ -394,7 +411,8 @@ static struct istream_snapshot *
 i_stream_seekable_snapshot(struct istream_private *stream,
 			   struct istream_snapshot *prev_snapshot)
 {
-	struct seekable_istream *sstream = (struct seekable_istream *)stream;
+	struct seekable_istream *sstream =
+		container_of(stream, struct seekable_istream, istream);
 
 	if (sstream->fd == -1) {
 		/* still in memory */
@@ -434,7 +452,7 @@ i_streams_merge(struct istream *input[], size_t max_buffer_size,
 	sstream->context = context;
         sstream->istream.max_buffer_size = max_buffer_size;
 	sstream->fd = -1;
-	sstream->size = (uoff_t)-1;
+	sstream->size = UOFF_T_MAX;
 
 	sstream->input = i_new(struct istream *, count + 1);
 	memcpy(sstream->input, input, sizeof(*input) * count);
@@ -533,7 +551,8 @@ i_stream_create_seekable_path(struct istream *input[],
 	stream = i_stream_create_seekable(input, max_buffer_size,
 					  seekable_fd_callback,
 					  i_strdup(temp_path_prefix));
-	sstream = (struct seekable_istream *)stream->real_stream;
+	sstream = container_of(stream->real_stream,
+			       struct seekable_istream, istream);
 	sstream->free_context = TRUE;
 	return stream;
 }

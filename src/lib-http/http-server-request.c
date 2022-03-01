@@ -5,6 +5,7 @@
 #include "ioloop.h"
 #include "ostream.h"
 #include "istream-private.h"
+#include "str-sanitize.h"
 
 #include "http-server-private.h"
 
@@ -49,9 +50,10 @@ void http_server_request_update_event(struct http_server_request *req)
 		event_add_str(req->event, "method", req->req.method);
 	if (req->req.target_raw != NULL)
 		event_add_str(req->event, "target", req->req.target_raw);
+	event_add_int(req->event, "request_id", req->id);
 	event_set_append_log_prefix(
 		req->event, t_strdup_printf("request %s: ",
-					    http_server_request_label(req)));
+			str_sanitize(http_server_request_label(req), 256)));
 }
 
 struct http_server_request *
@@ -70,6 +72,8 @@ http_server_request_new(struct http_server_connection *conn)
 	req->server = conn->server;
 	req->id = ++id_counter;
 	req->event = event_create(conn->event);
+	req->input_start_offset = conn->conn.input->v_offset;
+	req->output_start_offset = conn->conn.output->offset;
 	http_server_request_update_event(req);
 
 	http_server_connection_add_request(conn, req);
@@ -325,6 +329,18 @@ http_server_request_default_handler(struct http_server_request *req)
 	return;
 }
 
+void http_server_request_received(struct http_server_request *req)
+{
+	http_server_request_update_event(req);
+	struct event_passthrough *e = event_create_passthrough(req->event)->
+		set_name("http_server_request_started");
+	e_debug(e->event(), "Received new request %s "
+		"(%u requests pending; %u maximum)",
+		http_server_request_label(req),
+		req->conn->request_queue_count,
+		req->conn->server->set.max_pipelined_requests);
+}
+
 void http_server_request_callback(struct http_server_request *req)
 {
 	struct http_server_connection *conn = req->conn;
@@ -402,8 +418,6 @@ void http_server_request_finished(struct http_server_request *req)
 	http_server_tunnel_callback_t tunnel_callback = resp->tunnel_callback;
 	void *tunnel_context = resp->tunnel_context;
 
-	e_debug(req->event, "Finished");
-
 	i_assert(req->state < HTTP_SERVER_REQUEST_STATE_FINISHED);
 	req->state = HTTP_SERVER_REQUEST_STATE_FINISHED;
 
@@ -412,6 +426,16 @@ void http_server_request_finished(struct http_server_request *req)
 
 	if (req->response != NULL)
 		http_server_response_request_finished(req->response);
+
+	uoff_t bytes_in = req->conn->conn.input->v_offset -
+			  req->input_start_offset;
+	uoff_t bytes_out = req->conn->conn.output->offset -
+			   req->output_start_offset;
+	struct event_passthrough *e = event_create_passthrough(req->event)->
+		set_name("http_server_request_finished")->
+		add_int("bytes_in", bytes_in)->
+		add_int("bytes_out", bytes_out);
+	e_debug(e->event(), "Finished request");
 
 	if (tunnel_callback == NULL) {
 		if (req->connection_close) {
@@ -836,7 +860,7 @@ void http_server_request_forward_payload(struct http_server_request *req,
 
 	i_assert(req->req.payload != NULL);
 
-	if (max_size == (uoff_t)-1) {
+	if (max_size == UOFF_T_MAX) {
 		i_stream_ref(input);
 	} else {
 		if ((ret = i_stream_get_size(input, TRUE,

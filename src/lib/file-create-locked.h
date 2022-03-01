@@ -7,7 +7,8 @@ struct file_create_settings {
 	/* 0 = try locking without waiting */
 	unsigned int lock_timeout_secs;
 
-	enum file_lock_method lock_method;
+	struct file_lock_settings lock_settings;
+
 	/* 0 = 0600 */
 	int mode;
 	/* 0 = default */

@@ -87,19 +87,21 @@ char *p_strdup_until(pool_t pool, const void *start, const void *end)
 
 char *p_strndup(pool_t pool, const void *str, size_t max_chars)
 {
+	const char *p;
 	char *mem;
 	size_t len;
 
 	i_assert(str != NULL);
-	i_assert(max_chars != (size_t)-1);
+	i_assert(max_chars != SIZE_MAX);
 
-	len = 0;
-	while (len < max_chars && ((const char *) str)[len] != '\0')
-		len++;
+	p = memchr(str, '\0', max_chars);
+	if (p == NULL)
+		len = max_chars;
+	else
+		len = p - (const char *)str;
 
 	mem = p_malloc(pool, len+1);
 	memcpy(mem, str, len);
-	mem[len] = '\0';
 	return mem;
 }
 
@@ -229,24 +231,46 @@ char *p_strconcat(pool_t pool, const char *str1, ...)
         return ret;
 }
 
+static void *t_memdup(const void *data, size_t size)
+{
+	void *mem = t_malloc_no0(size);
+	memcpy(mem, data, size);
+	return mem;
+}
+
 const char *t_strdup(const char *str)
 {
-	return p_strdup(unsafe_data_stack_pool, str);
+	return t_strdup_noconst(str);
 }
 
 char *t_strdup_noconst(const char *str)
 {
-	return p_strdup(unsafe_data_stack_pool, str);
+	if (str == NULL)
+		return NULL;
+	return t_memdup(str, strlen(str) + 1);
 }
 
 const char *t_strdup_empty(const char *str)
 {
-	return p_strdup_empty(unsafe_data_stack_pool, str);
+	if (str == NULL || *str == '\0')
+		return NULL;
+
+	return t_strdup(str);
 }
 
 const char *t_strdup_until(const void *start, const void *end)
 {
-	return p_strdup_until(unsafe_data_stack_pool, start, end);
+	char *mem;
+	size_t size;
+
+	i_assert((const char *) start <= (const char *) end);
+
+	size = (size_t)((const char *)end - (const char *)start);
+
+	mem = t_malloc_no0(size + 1);
+	memcpy(mem, start, size);
+	mem[size] = '\0';
+	return mem;
 }
 
 const char *t_strndup(const void *str, size_t max_chars)
@@ -607,6 +631,46 @@ str_match(const char *p1, const char *p2)
 		i++;
 
 	return i;
+}
+
+size_t i_memspn(const void *data, size_t data_len,
+		const void *accept, size_t accept_len)
+{
+	const unsigned char *start = data;
+	i_assert(data != NULL || data_len == 0);
+	i_assert(accept != NULL || accept_len == 0);
+	size_t pos = 0;
+	/* nothing to accept */
+	if (accept_len == 0)
+		return 0;
+	for (; pos < data_len; pos++) {
+		if (memchr(accept, start[pos], accept_len) == NULL)
+			break;
+	}
+	return pos;
+}
+
+size_t i_memcspn(const void *data, size_t data_len,
+		 const void *reject, size_t reject_len)
+{
+	const unsigned char *start = data;
+	const unsigned char *r = reject;
+	const unsigned char *ptr = CONST_PTR_OFFSET(data, data_len);
+	i_assert(data != NULL || data_len == 0);
+	i_assert(reject != NULL || reject_len == 0);
+	/* nothing to reject */
+	if (reject_len == 0 || data_len == 0)
+		return data_len;
+	/* Doing repeated memchr's over the data is faster than
+	   going over it once byte by byte, as long as reject
+	   is reasonably short. */
+	for (size_t i = 0; i < reject_len; i++) {
+		const unsigned char *kand =
+			memchr(start, r[i], data_len);
+		if (kand != NULL && kand < ptr)
+			ptr = kand;
+	}
+	return ptr - start;
 }
 
 static char **

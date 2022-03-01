@@ -7,6 +7,7 @@
 #include "str.h"
 #include "time-util.h"
 #include "sql-api-private.h"
+#include "llist.h"
 
 #ifdef BUILD_PGSQL
 #include <libpq-fe.h>
@@ -25,6 +26,7 @@ struct pgsql_db {
 	struct timeout *to_connect;
 	enum io_condition io_dir;
 
+	struct pgsql_result *pending_results;
 	struct pgsql_result *cur_result;
 	struct ioloop *ioloop, *orig_ioloop;
 	struct sql_result *sync_result;
@@ -45,6 +47,9 @@ struct pgsql_binary_value {
 
 struct pgsql_result {
 	struct sql_result api;
+
+	struct pgsql_result *prev, *next;
+
 	PGresult *pgres;
 	struct timeout *to;
 
@@ -87,6 +92,12 @@ static struct event_category event_category_pgsql = {
 	.parent = &event_category_sql,
 	.name = "pgsql"
 };
+
+static void pgsql_notice_processor(void *arg, const char *message)
+{
+	struct pgsql_db *db = arg;
+	e_info(db->api.event, "%s", message);
+}
 
 static void driver_pgsql_set_state(struct pgsql_db *db, enum sql_db_state state)
 {
@@ -194,6 +205,10 @@ static void connect_callback(struct pgsql_db *db)
 	if (io_dir == 0) {
 		db->connect_state = "connected";
 		timeout_remove(&db->to_connect);
+		if (PQserverVersion(db->pg) >= 90500) {
+			/* v9.5+ */
+			db->api.flags |= SQL_DB_FLAG_ON_CONFLICT_DO;
+		}
 		driver_pgsql_set_state(db, SQL_DB_STATE_IDLE);
 		if (db->ioloop != NULL) {
 			/* driver_pgsql_sync_init() waiting for connection to
@@ -227,6 +242,8 @@ static int driver_pgsql_connect(struct sql_db *_db)
 	if (db->pg == NULL) {
 		i_fatal("pgsql: PQconnectStart() failed (out of memory)");
 	}
+
+	(void)PQsetNoticeProcessor(db->pg, pgsql_notice_processor, db);
 
 	if (PQstatus(db->pg) == CONNECTION_BAD) {
 		e_error(_db->event, "Connect failed to database %s: %s",
@@ -279,8 +296,28 @@ static void driver_pgsql_free(struct pgsql_db **_db)
 	event_unref(&db->api.event);
 	i_free(db->connect_string);
 	i_free(db->host);
+	i_free(db->error);
 	array_free(&db->api.module_contexts);
 	i_free(db);
+}
+
+static enum sql_db_flags driver_pgsql_get_flags(struct sql_db *db)
+{
+	switch (db->state) {
+	case SQL_DB_STATE_DISCONNECTED:
+		if (sql_connect(db) < 0)
+			break;
+		/* fall through */
+	case SQL_DB_STATE_CONNECTING:
+		/* Wait for connection to finish, so we can get the flags
+		   reliably. */
+		sql_wait(db);
+		break;
+	case SQL_DB_STATE_IDLE:
+	case SQL_DB_STATE_BUSY:
+		break;
+	}
+	return db->flags;
 }
 
 static int driver_pgsql_init_full_v(const struct sql_settings *set,
@@ -407,6 +444,7 @@ static void result_finish(struct pgsql_result *result)
 
 	i_assert(db->io == NULL);
 	timeout_remove(&result->to);
+	DLLIST_REMOVE(&db->pending_results, result);
 
 	/* if connection to server was lost, we don't yet see that the
 	   connection is bad. we only see the fatal error, so assume it also
@@ -518,6 +556,7 @@ static void do_query(struct pgsql_result *result, const char *query)
 
 	driver_pgsql_set_state(db, SQL_DB_STATE_BUSY);
 	db->cur_result = result;
+	DLLIST_PREPEND(&db->pending_results, result);
 	result->to = timeout_add(SQL_QUERY_TIMEOUT_SECS * 1000,
 				 query_timeout, result);
 	result->query = i_strdup(query);
@@ -812,7 +851,7 @@ driver_pgsql_result_get_field_value_binary(struct sql_result *_result,
 	if (!array_is_created(&result->binary_values))
 		i_array_init(&result->binary_values, idx + 1);
 
-	binary_value = array_idx_modifiable(&result->binary_values, idx);
+	binary_value = array_idx_get_space(&result->binary_values, idx);
 	if (binary_value->value == NULL) {
 		binary_value->value =
 			PQunescapeBytea((const unsigned char *)value,
@@ -1222,10 +1261,35 @@ driver_pgsql_escape_blob(struct sql_db *_db ATTR_UNUSED,
 {
 	string_t *str = t_str_new(128);
 
-	str_append(str, "E'\\x");
+	str_append(str, "E'\\\\x");
 	binary_to_hex_append(str, data, size);
 	str_append_c(str, '\'');
 	return str_c(str);
+}
+
+static bool driver_pgsql_have_work(struct pgsql_db *db)
+{
+	return db->next_callback != NULL || db->pending_results != NULL ||
+		db->api.state == SQL_DB_STATE_CONNECTING;
+}
+
+static void driver_pgsql_wait(struct sql_db *_db)
+{
+	struct pgsql_db *db = (struct pgsql_db *)_db;
+
+	if (!driver_pgsql_have_work(db))
+		return;
+
+	struct ioloop *prev_ioloop = current_ioloop;
+	db->ioloop = io_loop_create();
+	db->io = io_loop_move_io(&db->io);
+	while (driver_pgsql_have_work(db))
+		io_loop_run(db->ioloop);
+
+	io_loop_set_current(prev_ioloop);
+	db->io = io_loop_move_io(&db->io);
+	io_loop_set_current(db->ioloop);
+	io_loop_destroy(&db->ioloop);
 }
 
 const struct sql_db driver_pgsql_db = {
@@ -1233,6 +1297,7 @@ const struct sql_db driver_pgsql_db = {
 	.flags = SQL_DB_FLAG_POOLED,
 
 	.v = {
+		.get_flags = driver_pgsql_get_flags,
 		.init_full = driver_pgsql_init_full_v,
 		.deinit = driver_pgsql_deinit_v,
 		.connect = driver_pgsql_connect,
@@ -1241,6 +1306,7 @@ const struct sql_db driver_pgsql_db = {
 		.exec = driver_pgsql_exec,
 		.query = driver_pgsql_query,
 		.query_s = driver_pgsql_query_s,
+		.wait = driver_pgsql_wait,
 
 		.transaction_begin = driver_pgsql_transaction_begin,
 		.transaction_commit = driver_pgsql_transaction_commit,

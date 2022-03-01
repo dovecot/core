@@ -288,7 +288,7 @@ static void test_timestamp(const char *ts, int idx)
 
 	/* %G - ISO 8601 year */
 	test_assert_idx(strlen(t[0]) == 4, idx);
-	unsigned v;
+	unsigned v = 0;
 	test_assert_idx(str_to_uint(t[0], &v) == 0, idx);
 	test_assert_idx(1000 <= v, idx);
 	test_assert_idx(v <= 3000, idx);
@@ -354,6 +354,77 @@ static void test_micro_nanoseconds(void)
 	test_end();
 }
 
+static void test_str_to_timeval(void)
+{
+	struct {
+		const char *str;
+		time_t tv_sec;
+		suseconds_t tv_usec;
+	} tests[] = {
+		{ "0", 0, 0 },
+		{ "0.0", 0, 0 },
+		{ "0.000000", 0, 0 },
+		{ "0.1", 0, 100000 },
+		{ "0.100000", 0, 100000 },
+		{ "0.000001", 0, 1 },
+		{ "0.100000", 0, 100000 },
+		{ "2147483647", 2147483647, 0 },
+		{ "2147483647.999999", 2147483647, 999999 },
+	};
+	const char *test_failures[] = {
+		"",
+		"0.",
+		"0.0000000",
+		"1234.-1",
+		"1234.x",
+		"x",
+		"x.100",
+	};
+	struct timeval tv;
+
+	test_begin("str_to_timeval");
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		test_assert_idx(str_to_timeval(tests[i].str, &tv) == 0, i);
+		test_assert_idx(tv.tv_sec == tests[i].tv_sec, i);
+		test_assert_idx(tv.tv_usec == tests[i].tv_usec, i);
+	}
+	for (unsigned int i = 0; i < N_ELEMENTS(test_failures); i++)
+		test_assert_idx(str_to_timeval(test_failures[i], &tv) == -1, i);
+	test_end();
+}
+
+static void test_timeval_from_usecs(void)
+{
+	test_begin("timeval_from_usecs");
+	struct timeval tv0, tv1;
+
+	i_zero(&tv1);
+	timeval_from_usecs(&tv0, 0);
+	test_assert(timeval_cmp(&tv0, &tv1) == 0);
+
+	tv1.tv_sec = 1;
+	tv1.tv_usec = 0;
+	timeval_from_usecs(&tv0, 1000000);
+	test_assert(timeval_cmp(&tv0, &tv1) == 0);
+
+	tv1.tv_sec = 1;
+	tv1.tv_usec = 1;
+	timeval_from_usecs(&tv0, 1000001);
+	test_assert(timeval_cmp(&tv0, &tv1) == 0);
+
+	tv1.tv_sec = 1;
+	tv1.tv_usec = 999999;
+	timeval_from_usecs(&tv0, 1999999);
+	test_assert(timeval_cmp(&tv0, &tv1) == 0);
+
+	tv1.tv_sec = 0;
+	tv1.tv_usec = 999999;
+	timeval_from_usecs(&tv0, 999999);
+	test_assert(timeval_cmp(&tv0, &tv1) == 0);
+
+	test_end();
+}
+
 void test_time_util(void)
 {
 	test_timeval_cmp();
@@ -363,4 +434,6 @@ void test_time_util(void)
 	test_strftime_now();
 	test_strftime_fixed();
 	test_micro_nanoseconds();
+	test_str_to_timeval();
+	test_timeval_from_usecs();
 }

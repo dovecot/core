@@ -279,7 +279,7 @@ int net_connect_unix(const char *path)
 #ifdef ENAMETOOLONG
 		errno = ENAMETOOLONG;
 #else
-		errno = EINVAL;
+		errno = EOVERFLOW;
 #endif
 		return -1;
 	}
@@ -462,7 +462,7 @@ int net_listen_full(const struct ip_addr *my_ip, in_port_t *port,
 		if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT,
 			       &opt, sizeof(opt)) < 0)
 #endif
-			*flags &= ~NET_LISTEN_FLAG_REUSEPORT;
+			*flags &= ENUM_NEGATE(NET_LISTEN_FLAG_REUSEPORT);
 	}
 
 	/* If using IPv6, bind only to IPv6 if possible. This avoids
@@ -513,7 +513,11 @@ int net_listen_unix(const char *path, int backlog)
 	sa.un.sun_family = AF_UNIX;
 	if (i_strocpy(sa.un.sun_path, path, sizeof(sa.un.sun_path)) < 0) {
 		/* too long path */
+#ifdef ENAMETOOLONG
+		errno = ENAMETOOLONG;
+#else
 		errno = EOVERFLOW;
+#endif
 		return -1;
 	}
 
@@ -1021,16 +1025,13 @@ int net_str2hostport(const char *str, in_port_t default_port,
 	return 0;
 }
 
-int net_ipport2str(const struct ip_addr *ip, in_port_t port, const char **str_r)
+const char *net_ipport2str(const struct ip_addr *ip, in_port_t port)
 {
-	if (!IPADDR_IS_V4(ip) && !IPADDR_IS_V6(ip)) return -1;
+	i_assert(IPADDR_IS_V4(ip) || IPADDR_IS_V6(ip));
 
-	*str_r = t_strdup_printf("%s%s%s:%u",
-				 IPADDR_IS_V6(ip) ? "[" : "",
-				 net_ip2addr(ip),
-				 IPADDR_IS_V6(ip) ? "]" : "",
-				 port);
-	return 0;
+	return t_strdup_printf("%s%s%s:%u",
+			       (IPADDR_IS_V6(ip) ? "[" : ""), net_ip2addr(ip),
+			       (IPADDR_IS_V6(ip) ? "]" : ""), port);
 }
 
 int net_ipv6_mapped_ipv4_convert(const struct ip_addr *src,
@@ -1105,7 +1106,7 @@ enum net_hosterror_type net_get_hosterror_type(int error)
 
 int net_hosterror_notfound(int error)
 {
-#ifdef EAI_NODATA /* NODATA is depricated */
+#ifdef EAI_NODATA /* NODATA is deprecated */
 	return (error != 1 && (error == EAI_NONAME || error == EAI_NODATA)) ? 1 : 0;
 #else
 	return (error != 1 && (error == EAI_NONAME)) ? 1 : 0;

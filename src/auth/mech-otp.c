@@ -13,7 +13,7 @@
 #include "passdb.h"
 #include "hex-binary.h"
 #include "otp.h"
-#include "mech-otp-skey-common.h"
+#include "mech-otp-common.h"
 
 static void 
 otp_send_challenge(struct auth_request *auth_request,
@@ -55,24 +55,6 @@ otp_send_challenge(struct auth_request *auth_request,
 }
 
 static void
-skey_credentials_callback(enum passdb_result result,
-			  const unsigned char *credentials, size_t size,
-			  struct auth_request *auth_request)
-{
-	switch (result) {
-	case PASSDB_RESULT_OK:
-		otp_send_challenge(auth_request, credentials, size);
-		break;
-	case PASSDB_RESULT_INTERNAL_FAILURE:
-		auth_request_internal_failure(auth_request);
-		break;
-	default:
-		auth_request_fail(auth_request);
-		break;
-	}
-}
-
-static void
 otp_credentials_callback(enum passdb_result result,
 			 const unsigned char *credentials, size_t size,
 			 struct auth_request *auth_request)
@@ -85,9 +67,7 @@ otp_credentials_callback(enum passdb_result result,
 		auth_request_internal_failure(auth_request);
 		break;
 	default:
-		/* OTP credentials not found, try S/KEY */
-		auth_request_lookup_credentials(auth_request, "OTP",
-						skey_credentials_callback);
+		auth_request_fail(auth_request);
 		break;
 	}
 }
@@ -223,7 +203,7 @@ static void
 mech_otp_auth_continue(struct auth_request *auth_request,
 		       const unsigned char *data, size_t data_size)
 {
-	if (auth_request->user == NULL) {
+	if (auth_request->fields.user == NULL) {
 		mech_otp_auth_phase1(auth_request, data, data_size);
 	} else {
 		mech_otp_auth_phase2(auth_request, data, data_size);
@@ -256,5 +236,5 @@ const struct mech_module mech_otp = {
 	mech_otp_auth_new,
 	mech_generic_auth_initial,
 	mech_otp_auth_continue,
-	mech_otp_skey_auth_free
+	mech_otp_auth_free
 };

@@ -8,34 +8,11 @@ struct event_filter_field {
 	const char *value;
 };
 
-struct event_filter_query {
-	/* NULL-terminated list of categories */
-	const char *const *categories;
-	/* key=NULL-terminated list of key=value fields */
-	const struct event_filter_field *fields;
-
-	/* event name. Supports '*' and '?' wildcards. */
-	const char *name;
-	/* source filename:line */
-	const char *source_filename;
-	unsigned int source_linenum;
-
-	/* context associated with this query. This is returned when iterating
-	   through matched queries. If NULL, the iteration won't return this
-	   query. */
-	void *context;
-};
-
 struct event_filter *event_filter_create(void);
 struct event_filter *event_filter_create_fragment(pool_t pool);
 void event_filter_ref(struct event_filter *filter);
 void event_filter_unref(struct event_filter **filter);
 
-/* Add a new query to the filter. All of the categories and fields in the query
-   need to match, so they're ANDed together. Separate queries are ORed
-   together. */
-void event_filter_add(struct event_filter *filter,
-		      const struct event_filter_query *query);
 /* Add queries from source filter to destination filter. */
 void event_filter_merge(struct event_filter *dest,
 			const struct event_filter *src);
@@ -44,6 +21,11 @@ void event_filter_merge(struct event_filter *dest,
 void event_filter_merge_with_context(struct event_filter *dest,
 				     const struct event_filter *src,
 				     void *new_context);
+
+/* Remove query with given context from filter.
+   Returns TRUE if query was removed, otherwise FALSE. */
+bool event_filter_remove_queries_with_context(struct event_filter *filter,
+					      void *context);
 
 /* Export the filter into a string.  The context pointers aren't exported. */
 void event_filter_export(struct event_filter *filter, string_t *dest);

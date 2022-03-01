@@ -122,9 +122,7 @@ acl_backend_vfile_get_local_dir(struct acl_backend *backend,
 		return NULL;
 	i_assert(list == ns->list);
 
-	type = mail_storage_is_mailbox_file(storage) ||
-		(storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NO_ROOT) != 0 ?
-		MAILBOX_LIST_PATH_TYPE_CONTROL : MAILBOX_LIST_PATH_TYPE_MAILBOX;
+	type = mail_storage_get_acl_list_path_type(storage);
 	if (name == NULL) {
 		if (!mailbox_list_get_root_path(list, type, &dir))
 			return NULL;
@@ -224,8 +222,7 @@ acl_backend_vfile_has_acl(struct acl_backend *_backend, const char *name)
 	struct acl_backend_vfile *backend =
 		(struct acl_backend_vfile *)_backend;
 	struct acl_backend_vfile_validity *old_validity, new_validity;
-	const char *path, *local_path, *global_path, *dir, *vname = "";
-	const char *error;
+	const char *global_path, *vname;
 	int ret;
 
 	old_validity = acl_cache_get_validity(_backend->cache, name);
@@ -234,42 +231,50 @@ acl_backend_vfile_has_acl(struct acl_backend *_backend, const char *name)
 	else
 		i_zero(&new_validity);
 
-	/* See if the mailbox exists. If we wanted recursive lookups we could
-	   skip this, but at least for now we assume that if an existing
-	   mailbox has no ACL it's equivalent to default ACLs. */
-	if (mailbox_list_get_path(_backend->list, name,
-				  MAILBOX_LIST_PATH_TYPE_MAILBOX, &path) <= 0)
-		ret = -1;
-	else {
-		ret = acl_backend_vfile_exists(backend, path,
-					       &new_validity.mailbox_validity);
+	/* The caller wants to stop whenever a parent mailbox exists, even if
+	   it has no ACL file. Also, if a mailbox doesn't exist then it can't
+	   have a local ACL file. First check if there's a matching global ACL.
+	   If not, check if the mailbox exists. */
+	vname = *name == '\0' ? "" :
+		mailbox_list_get_vname(_backend->list, name);
+	struct mailbox *box =
+		mailbox_alloc(_backend->list, vname,
+			      MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
+	if (backend->global_path == NULL) {
+		/* global ACLs disabled */
+		ret = 0;
+	} else if (_backend->global_file != NULL) {
+		/* check global ACL file */
+		ret = acl_global_file_refresh(_backend->global_file);
+		if (ret == 0 && acl_global_file_have_any(_backend->global_file, box->vname))
+			ret = 1;
+	} else {
+		/* check global ACL directory */
+		global_path = t_strconcat(backend->global_path, "/", name, NULL);
+		ret = acl_backend_vfile_exists(backend, global_path,
+					       &new_validity.global_validity);
 	}
 
-	if (ret == 0 &&
-	    (*name == '\0' ||
-	     mailbox_list_is_valid_name(_backend->list, name, &error))) {
-		vname = *name == '\0' ? "" :
-			mailbox_list_get_vname(_backend->list, name);
-		dir = acl_backend_vfile_get_local_dir(_backend, name, vname);
-		if (dir != NULL) {
-			local_path = t_strconcat(dir, "/", name, NULL);
-			ret = acl_backend_vfile_exists(backend, local_path,
-						       &new_validity.local_validity);
+	if (ret != 0) {
+		/* error / global ACL found */
+	} else if (mailbox_open(box) == 0) {
+		/* mailbox exists */
+		ret = 1;
+	} else {
+		enum mail_error error;
+		const char *errstr =
+			mailbox_get_last_internal_error(box, &error);
+		if (error == MAIL_ERROR_NOTFOUND)
+			ret = 0;
+		else {
+			e_error(box->event, "acl: Failed to open mailbox: %s",
+				errstr);
+			ret = -1;
 		}
 	}
 
-	if (ret == 0 && backend->global_path != NULL) {
-		if (_backend->global_file != NULL) {
-			ret = acl_global_file_refresh(_backend->global_file);
-			if (ret == 0 && acl_global_file_have_any(_backend->global_file, vname))
-				ret = 1;
-		} else {
-			global_path = t_strconcat(backend->global_path, "/", name, NULL);
-			ret = acl_backend_vfile_exists(backend, global_path,
-						       &new_validity.global_validity);
-		}
-	}
 	acl_cache_set_validity(_backend->cache, name, &new_validity);
+	mailbox_free(&box);
 	return ret > 0;
 }
 
@@ -366,7 +371,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, bool global, const char *path,
 	if (aclobj->backend->debug)
 		i_debug("acl vfile: reading file %s", path);
 
-	input = i_stream_create_fd(fd, (size_t)-1);
+	input = i_stream_create_fd(fd, SIZE_MAX);
 	i_stream_set_return_partial_line(input, TRUE);
 	linenum = 0;
 	while ((line = i_stream_read_next_line(input)) != NULL) {

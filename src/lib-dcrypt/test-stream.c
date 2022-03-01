@@ -577,6 +577,10 @@ static void test_read_increment(void)
 		i_stream_set_max_buffer_size(is_3, ++i);
 	}
 
+	/* make sure snapshotting works: */
+	i_stream_skip(is_3, 1);
+	test_assert(i_stream_read(is_3) == -1);
+
 	test_assert(total == 13534);
 	test_assert(is_3->stream_errno == 0);
 	test_assert(is_3->eof);

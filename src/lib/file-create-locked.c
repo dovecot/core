@@ -22,15 +22,19 @@ try_lock_existing(int fd, const char *path,
 		  const struct file_create_settings *set,
 		  struct file_lock **lock_r, const char **error_r)
 {
+	struct file_lock_settings lock_set = set->lock_settings;
 	struct stat st1, st2;
 	int ret;
+
+	lock_set.unlink_on_free = FALSE;
+	lock_set.close_on_free = FALSE;
 
 	if (fstat(fd, &st1) < 0) {
 		*error_r = t_strdup_printf("fstat(%s) failed: %m", path);
 		return -1;
 	}
-	if (file_wait_lock_error(fd, path, F_WRLCK, set->lock_method,
-				 set->lock_timeout_secs, lock_r, error_r) <= 0)
+	if (file_wait_lock(fd, path, F_WRLCK, &lock_set, set->lock_timeout_secs,
+			   lock_r, error_r) <= 0)
 		return -1;
 	if (stat(path, &st2) == 0) {
 		ret = st1.st_ino == st2.st_ino &&
@@ -44,6 +48,11 @@ try_lock_existing(int fd, const char *path,
 	if (ret <= 0) {
 		/* the fd is closed next - no need to unlock */
 		file_lock_free(lock_r);
+	} else {
+		file_lock_set_unlink_on_free(
+			*lock_r, set->lock_settings.unlink_on_free);
+		file_lock_set_close_on_free(
+			*lock_r, set->lock_settings.close_on_free);
 	}
 	return ret;
 }
@@ -103,9 +112,13 @@ try_create_new(const char *path, const struct file_create_settings *set,
 		return -1;
 	}
 
+	struct file_lock_settings lock_set = set->lock_settings;
+	lock_set.unlink_on_free = FALSE;
+	lock_set.close_on_free = FALSE;
+
 	ret = -1;
-	if (file_try_lock_error(fd, str_c(temp_path), F_WRLCK,
-				set->lock_method, lock_r, error_r) <= 0) {
+	if (file_try_lock(fd, str_c(temp_path), F_WRLCK, &lock_set,
+			  lock_r, error_r) <= 0) {
 	} else if (link(str_c(temp_path), path) < 0) {
 		if (errno == EEXIST) {
 			/* just created by somebody else */
@@ -123,6 +136,10 @@ try_create_new(const char *path, const struct file_create_settings *set,
 		file_lock_free(lock_r);
 	} else {
 		file_lock_set_path(*lock_r, path);
+		file_lock_set_unlink_on_free(
+			*lock_r, set->lock_settings.unlink_on_free);
+		file_lock_set_close_on_free(
+			*lock_r, set->lock_settings.close_on_free);
 		i_unlink_if_exists(str_c(temp_path));
 		*fd_r = fd;
 		return 1;

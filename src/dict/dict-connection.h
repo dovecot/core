@@ -16,7 +16,6 @@ struct dict_connection {
 	struct dict_server *server;
 	int refcount;
 
-	char *username;
 	char *name;
 	struct dict *dict;
 	enum dict_data_type value_type;
@@ -29,6 +28,7 @@ struct dict_connection {
 	ARRAY(struct dict_connection_cmd *) cmds;
 	unsigned int async_id_counter;
 
+	bool iter_flush_pending;
 	bool destroyed;
 };
 

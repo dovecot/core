@@ -26,13 +26,13 @@ extern const struct setting_parser_info service_setting_parser_info;
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct file_listener_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct file_listener_settings)
 
 static const struct setting_define file_listener_setting_defines[] = {
-	DEF(SET_STR, path),
-	DEF(SET_UINT_OCT, mode),
-	DEF(SET_STR, user),
-	DEF(SET_STR, group),
+	DEF(STR, path),
+	DEF(UINT_OCT, mode),
+	DEF(STR, user),
+	DEF(STR, group),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -51,21 +51,21 @@ static const struct setting_parser_info file_listener_setting_parser_info = {
 	.type_offset = offsetof(struct file_listener_settings, path),
 	.struct_size = sizeof(struct file_listener_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.parent = &service_setting_parser_info
 };
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct inet_listener_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct inet_listener_settings)
 
 static const struct setting_define inet_listener_setting_defines[] = {
-	DEF(SET_STR, name),
-	DEF(SET_STR, address),
-	DEF(SET_IN_PORT, port),
-	DEF(SET_BOOL, ssl),
-	DEF(SET_BOOL, reuse_port),
-	DEF(SET_BOOL, haproxy),
+	DEF(STR, name),
+	DEF(STR, address),
+	DEF(IN_PORT, port),
+	DEF(BOOL, ssl),
+	DEF(BOOL, reuse_port),
+	DEF(BOOL, haproxy),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -86,39 +86,38 @@ static const struct setting_parser_info inet_listener_setting_parser_info = {
 	.type_offset = offsetof(struct inet_listener_settings, name),
 	.struct_size = sizeof(struct inet_listener_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.parent = &service_setting_parser_info
 };
 
 #undef DEF
-#undef DEFLIST
 #undef DEFLIST_UNIQUE
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct service_settings, name), NULL }
-#define DEFLIST(field, name, defines) \
-	{ SET_DEFLIST, name, offsetof(struct service_settings, field), defines }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct service_settings)
 #define DEFLIST_UNIQUE(field, name, defines) \
-	{ SET_DEFLIST_UNIQUE, name, offsetof(struct service_settings, field), defines }
+	{ .type = SET_DEFLIST_UNIQUE, .key = name, \
+	  .offset = offsetof(struct service_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define service_setting_defines[] = {
-	DEF(SET_STR, name),
-	DEF(SET_STR, protocol),
-	DEF(SET_STR, type),
-	DEF(SET_STR, executable),
-	DEF(SET_STR, user),
-	DEF(SET_STR, group),
-	DEF(SET_STR, privileged_group),
-	DEF(SET_STR, extra_groups),
-	DEF(SET_STR, chroot),
+	DEF(STR, name),
+	DEF(STR, protocol),
+	DEF(STR, type),
+	DEF(STR, executable),
+	DEF(STR, user),
+	DEF(STR, group),
+	DEF(STR, privileged_group),
+	DEF(STR, extra_groups),
+	DEF(STR, chroot),
 
-	DEF(SET_BOOL, drop_priv_before_exec),
+	DEF(BOOL, drop_priv_before_exec),
 
-	DEF(SET_UINT, process_min_avail),
-	DEF(SET_UINT, process_limit),
-	DEF(SET_UINT, client_limit),
-	DEF(SET_UINT, service_count),
-	DEF(SET_TIME, idle_kill),
-	DEF(SET_SIZE, vsz_limit),
+	DEF(UINT, process_min_avail),
+	DEF(UINT, process_limit),
+	DEF(UINT, client_limit),
+	DEF(UINT, service_count),
+	DEF(TIME, idle_kill),
+	DEF(SIZE, vsz_limit),
 
 	DEFLIST_UNIQUE(unix_listeners, "unix_listener",
 		       &file_listener_setting_parser_info),
@@ -148,7 +147,7 @@ static const struct service_settings service_default_settings = {
 	.client_limit = 0,
 	.service_count = 0,
 	.idle_kill = 0,
-	.vsz_limit = (uoff_t)-1,
+	.vsz_limit = UOFF_T_MAX,
 
 	.unix_listeners = ARRAY_INIT,
 	.fifo_listeners = ARRAY_INIT,
@@ -169,32 +168,34 @@ const struct setting_parser_info service_setting_parser_info = {
 #undef DEF
 #undef DEFLIST_UNIQUE
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct master_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct master_settings)
 #define DEFLIST_UNIQUE(field, name, defines) \
-	{ SET_DEFLIST_UNIQUE, name, offsetof(struct master_settings, field), defines }
+	{ .type = SET_DEFLIST_UNIQUE, .key = name, \
+	  .offset = offsetof(struct master_settings, field), \
+	  .list_info = defines }
 
 static const struct setting_define master_setting_defines[] = {
-	DEF(SET_STR, base_dir),
-	DEF(SET_STR, state_dir),
-	DEF(SET_STR, libexec_dir),
-	DEF(SET_STR, instance_name),
-	DEF(SET_STR, protocols),
-	DEF(SET_STR, listen),
-	DEF(SET_ENUM, ssl),
-	DEF(SET_STR, default_internal_user),
-	DEF(SET_STR, default_internal_group),
-	DEF(SET_STR, default_login_user),
-	DEF(SET_UINT, default_process_limit),
-	DEF(SET_UINT, default_client_limit),
-	DEF(SET_TIME, default_idle_kill),
-	DEF(SET_SIZE, default_vsz_limit),
+	DEF(STR, base_dir),
+	DEF(STR, state_dir),
+	DEF(STR, libexec_dir),
+	DEF(STR, instance_name),
+	DEF(STR, protocols),
+	DEF(STR, listen),
+	DEF(ENUM, ssl),
+	DEF(STR, default_internal_user),
+	DEF(STR, default_internal_group),
+	DEF(STR, default_login_user),
+	DEF(UINT, default_process_limit),
+	DEF(UINT, default_client_limit),
+	DEF(TIME, default_idle_kill),
+	DEF(SIZE, default_vsz_limit),
 
-	DEF(SET_BOOL, version_ignore),
+	DEF(BOOL, version_ignore),
 
-	DEF(SET_UINT, first_valid_uid),
-	DEF(SET_UINT, last_valid_uid),
-	DEF(SET_UINT, first_valid_gid),
-	DEF(SET_UINT, last_valid_gid),
+	DEF(UINT, first_valid_uid),
+	DEF(UINT, last_valid_uid),
+	DEF(UINT, first_valid_gid),
+	DEF(UINT, last_valid_gid),
 
 	DEFLIST_UNIQUE(services, "service", &service_setting_parser_info),
 
@@ -237,10 +238,10 @@ const struct setting_parser_info master_setting_parser_info = {
 	.defines = master_setting_defines,
 	.defaults = &master_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct master_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 
 	.check_func = master_settings_verify
 };
@@ -280,16 +281,14 @@ fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 			ARRAY_TYPE(const_string) *all_listeners,
 			const char **error_r)
 {
-	struct file_listener_settings *const *sets;
+	struct file_listener_settings *set;
 	size_t base_dir_len = strlen(master_set->base_dir);
 	enum service_user_default user_default;
 
 	if (!array_is_created(l))
 		return TRUE;
 
-	array_foreach(l, sets) {
-		struct file_listener_settings *set = *sets;
-
+	array_foreach_elem(l, set) {
 		if (set->path[0] == '\0') {
 			*error_r = "path must not be empty";
 			return FALSE;
@@ -315,15 +314,13 @@ fix_file_listener_paths(ARRAY_TYPE(file_listener_settings) *l,
 static void add_inet_listeners(ARRAY_TYPE(inet_listener_settings) *l,
 			       ARRAY_TYPE(const_string) *all_listeners)
 {
-	struct inet_listener_settings *const *sets;
+	struct inet_listener_settings *set;
 	const char *str;
 
 	if (!array_is_created(l))
 		return;
 
-	array_foreach(l, sets) {
-		struct inet_listener_settings *set = *sets;
-
+	array_foreach_elem(l, set) {
 		if (set->port != 0) {
 			str = t_strdup_printf("%u:%s", set->port, set->address);
 			array_push_back(all_listeners, &str);
@@ -346,6 +343,8 @@ static bool master_settings_parse_type(struct service_settings *set,
 		set->parsed_type = SERVICE_TYPE_LOGIN;
 	else if (strcmp(set->type, "startup") == 0)
 		set->parsed_type = SERVICE_TYPE_STARTUP;
+	else if (strcmp(set->type, "worker") == 0)
+		set->parsed_type = SERVICE_TYPE_WORKER;
 	else {
 		*error_r = t_strconcat("Unknown service type: ",
 				       set->type, NULL);
@@ -369,11 +368,9 @@ static void service_set_login_dump_core(struct service_settings *set)
 static bool
 services_have_protocol(struct master_settings *set, const char *name)
 {
-	struct service_settings *const *services;
+	struct service_settings *service;
 
-	array_foreach(&set->services, services) {
-		struct service_settings *service = *services;
-
+	array_foreach_elem(&set->services, service) {
 		if (strcmp(service->protocol, name) == 0)
 			return TRUE;
 	}
@@ -385,11 +382,11 @@ static const struct service_settings *
 master_default_settings_get_service(const char *name)
 {
 	extern struct master_settings master_default_settings;
-	struct service_settings *const *setp;
+	struct service_settings *set;
 
-	array_foreach(&master_default_settings.services, setp) {
-		if (strcmp((*setp)->name, name) == 0)
-			return *setp;
+	array_foreach_elem(&master_default_settings.services, set) {
+		if (strcmp(set->name, name) == 0)
+			return set;
 	}
 	return NULL;
 }
@@ -398,17 +395,25 @@ master_default_settings_get_service(const char *name)
 static unsigned int
 service_get_client_limit(struct master_settings *set, const char *name)
 {
-	struct service_settings *const *servicep;
+	struct service_settings *service;
 
-	array_foreach(&set->services, servicep) {
-		if (strcmp((*servicep)->name, name) == 0) {
-			if ((*servicep)->client_limit != 0)
-				return (*servicep)->client_limit;
+	array_foreach_elem(&set->services, service) {
+		if (strcmp(service->name, name) == 0) {
+			if (service->client_limit != 0)
+				return service->client_limit;
 			else
 				return set->default_client_limit;
 		}
 	}
 	return set->default_client_limit;
+}
+
+static bool service_is_enabled(const struct master_settings *set,
+			       struct service_settings *service)
+{
+	return service->protocol[0] == '\0' ||
+		str_array_find((const char **)set->protocols_split,
+			       service->protocol);
 }
 
 static bool
@@ -422,6 +427,8 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	struct passwd pw;
 	unsigned int i, j, count, client_limit, process_limit;
 	unsigned int max_auth_client_processes, max_anvil_client_processes;
+	string_t *max_auth_client_processes_reason = t_str_new(64);
+	string_t *max_anvil_client_processes_reason = t_str_new(64);
 	size_t len;
 #ifdef CONFIG_BINARY
 	const struct service_settings *default_service;
@@ -514,9 +521,7 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	for (i = 0; i < count; i++) {
 		struct service_settings *service = services[i];
 
-		if (*service->protocol != '\0' &&
-		    !str_array_find((const char **)set->protocols_split,
-				    service->protocol)) {
+		if (!service_is_enabled(set, service)) {
 			/* protocol not enabled, ignore its settings */
 			continue;
 		}
@@ -577,12 +582,20 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 			   imap-hibernate doesn't do any auth lookups. */
 			if ((service->service_count != 1 ||
 			     strcmp(service->type, "login") == 0) &&
-			    strcmp(service->name, "imap-hibernate") != 0)
+			    strcmp(service->name, "imap-hibernate") != 0) {
+				str_printfa(max_auth_client_processes_reason,
+					    " + service %s { process_limit=%u }",
+					    service->name, process_limit);
 				max_auth_client_processes += process_limit;
+			}
 		}
 		if (strcmp(service->type, "login") == 0 ||
-		    strcmp(service->name, "auth") == 0)
+		    strcmp(service->name, "auth") == 0) {
 			max_anvil_client_processes += process_limit;
+			str_printfa(max_anvil_client_processes_reason,
+				    " + service %s { process_limit=%u }",
+				    service->name, process_limit);
+		}
 
 		if (!fix_file_listener_paths(&service->unix_listeners, pool,
 					     set, &all_listeners, error_r)) {
@@ -602,17 +615,22 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 	client_limit = service_get_client_limit(set, "auth");
 	if (client_limit < max_auth_client_processes && !warned_auth) {
 		warned_auth = TRUE;
+		str_delete(max_auth_client_processes_reason, 0, 3);
 		i_warning("service auth { client_limit=%u } is lower than "
-			  "required under max. load (%u)",
-			  client_limit, max_auth_client_processes);
+			  "required under max. load (%u). "
+			  "Counted for protocol services with service_count != 1: %s",
+			  client_limit, max_auth_client_processes,
+			  str_c(max_auth_client_processes_reason));
 	}
 
 	client_limit = service_get_client_limit(set, "anvil");
 	if (client_limit < max_anvil_client_processes && !warned_anvil) {
 		warned_anvil = TRUE;
+		str_delete(max_anvil_client_processes_reason, 0, 3);
 		i_warning("service anvil { client_limit=%u } is lower than "
-			  "required under max. load (%u)",
-			  client_limit, max_anvil_client_processes);
+			  "required under max. load (%u). Counted with: %s",
+			  client_limit, max_anvil_client_processes,
+			  str_c(max_anvil_client_processes_reason));
 	}
 #ifndef CONFIG_BINARY
 	if (restrict_get_fd_limit(&fd_limit) == 0 &&
@@ -641,16 +659,14 @@ master_settings_verify(void *_set, pool_t pool, const char **error_r)
 static bool
 login_want_core_dumps(const struct master_settings *set, gid_t *gid_r)
 {
-	struct service_settings *const *services;
+	struct service_settings *service;
 	const char *error;
 	bool cores = FALSE;
 	uid_t uid;
 
 	*gid_r = (gid_t)-1;
 
-	array_foreach(&set->services, services) {
-		struct service_settings *service = *services;
-
+	array_foreach_elem(&set->services, service) {
 		if (service->parsed_type == SERVICE_TYPE_LOGIN) {
 			if (service->login_dump_core)
 				cores = TRUE;
@@ -666,17 +682,13 @@ static bool
 settings_have_auth_unix_listeners_in(const struct master_settings *set,
 				     const char *dir)
 {
-	struct service_settings *const *services;
-	struct file_listener_settings *const *uls;
+	struct service_settings *service;
+	struct file_listener_settings *u;
 	size_t dir_len = strlen(dir);
 
-	array_foreach(&set->services, services) {
-		struct service_settings *service = *services;
-
+	array_foreach_elem(&set->services, service) {
 		if (array_is_created(&service->unix_listeners)) {
-			array_foreach(&service->unix_listeners, uls) {
-				struct file_listener_settings *u = *uls;
-
+			array_foreach_elem(&service->unix_listeners, u) {
 				if (strncmp(u->path, dir, dir_len) == 0 &&
 				    u->path[dir_len] == '/')
 					return TRUE;
@@ -764,6 +776,129 @@ mkdir_login_dir(const struct master_settings *set, const char *login_dir)
 	}
 }
 
+static void mkdir_listener(const struct file_listener_settings *set,
+			   const char *dir, unsigned int mode)
+{
+	const char *error;
+	uid_t uid;
+	gid_t gid;
+
+	/* Use the specified permissions for the parent directory, but only
+	   if the directory doesn't already exist. It's likely not important
+	   enough to change permissions for an existing directory and it might
+	   cause problems if the permissions are intentionally different. */
+	if (get_uidgid(set->user, &uid, &gid, &error) < 0 ||
+	    get_gid(set->group, &gid, &error) < 0)
+		i_fatal("%s (for creating directory %s)", error, dir);
+	else if (mkdir(dir, mode) == 0) {
+		if (chown(dir, uid, gid) < 0)
+			i_fatal("chown(%s) failed: %m", dir);
+	} else if (errno != EEXIST) {
+		i_fatal("mkdir(%s) failed: %m", dir);
+	}
+}
+
+static int
+file_listener_settings_cmp_path(struct file_listener_settings *const *f1,
+				struct file_listener_settings *const *f2)
+{
+	return strcmp((*f1)->path, (*f2)->path);
+}
+
+static void
+subdir_add(ARRAY_TYPE(file_listener_settings) *subdir_listeners,
+	   struct file_listener_settings *f, const char *base_prefix)
+{
+	if (!str_begins(f->path, base_prefix)) {
+		/* not under base_dir */
+		return;
+	}
+
+	const char *rel_path = f->path + strlen(base_prefix);
+	if (strchr(rel_path, '/') == NULL) {
+		/* not under a subdirectory */
+		return;
+	}
+
+	if (str_begins(rel_path, "login/") ||
+	    str_begins(rel_path, "token-login/")) {
+		/* these are handled specially */
+		return;
+	}
+	array_push_back(subdir_listeners, &f);
+}
+
+static void mkdir_listener_subdirs(const struct master_settings *set)
+{
+	struct service_settings *service;
+	ARRAY_TYPE(file_listener_settings) subdir_listeners;
+	struct file_listener_settings *f, *const *files;
+	unsigned int i, count, files_mode, dir_mode;
+	const char *p1, *p2, *last_group, *base_prefix;
+	size_t dir1_len, dir2_len;
+
+	/* First gather all unix/fifo listeners that have directories under
+	   base_dir. */
+	t_array_init(&subdir_listeners, 16);
+	base_prefix = t_strconcat(set->base_dir, "/", NULL);
+	array_foreach_elem(&set->services, service) {
+		if (!service_is_enabled(set, service))
+			continue;
+
+		if (array_is_created(&service->unix_listeners)) {
+			array_foreach_elem(&service->unix_listeners, f)
+				subdir_add(&subdir_listeners, f, base_prefix);
+		}
+		if (array_is_created(&service->fifo_listeners)) {
+			array_foreach_elem(&service->fifo_listeners, f)
+				subdir_add(&subdir_listeners, f, base_prefix);
+		}
+	}
+	/* Sort the listeners by path, so the listeners with same directories
+	   are next to each others. */
+	array_sort(&subdir_listeners, file_listener_settings_cmp_path);
+	files = array_get(&subdir_listeners, &count);
+	files_mode = 0; last_group = NULL;
+	for (i = 0; i < count; i++) {
+		p1 = strrchr(files[i]->path, '/');
+		i_assert(p1 != NULL);
+		dir1_len = p1 - files[i]->path;
+		/* Create the directory permissions based on the union of its
+		   file listeners permissions. */
+		files_mode |= files[i]->mode;
+		if ((files[i]->mode & 0070) != 0)
+			last_group = files[i]->group;
+
+		if (i+1 < count) {
+			/* Delay creating the directory if the next listener
+			   has the same directory. */
+			p2 = strrchr(files[i+1]->path, '/');
+			i_assert(p2 != NULL);
+			dir2_len = p2 - files[i+1]->path;
+			if (dir1_len == dir2_len &&
+			    memcmp(files[i]->path, files[i+1]->path, dir1_len) == 0) {
+				/* If the user or group differs, add more
+				   permission bits to the mode. */
+				if (strcmp(files[i]->user, files[i+1]->user) != 0)
+					files_mode |= 0006;
+				if (last_group != NULL &&
+				    (files[i+1]->mode & 0070) != 0 &&
+				    strcmp(files[i]->group, last_group) != 0)
+					files_mode |= 0006;
+				continue;
+			}
+		}
+		/* keep the owner permissions +rwx, but group and other
+		   permissions only as +rx. */
+		dir_mode = 0700;
+		if ((files_mode & 0070) != 0) dir_mode |= 0050;
+		if ((files_mode & 0007) != 0) dir_mode |= 0005;
+		mkdir_listener(files[i], t_strndup(files[i]->path, dir1_len),
+			       dir_mode);
+		files_mode = 0; last_group = NULL;
+	}
+}
+
 void master_settings_do_fixes(const struct master_settings *set)
 {
 	const char *empty_dir;
@@ -791,6 +926,7 @@ void master_settings_do_fixes(const struct master_settings *set)
 
 	mkdir_login_dir(set, t_strconcat(set->base_dir, "/login", NULL));
 	mkdir_login_dir(set, t_strconcat(set->base_dir, "/token-login", NULL));
+	mkdir_listener_subdirs(set);
 
 	empty_dir = t_strconcat(set->base_dir, "/empty", NULL);
 	if (safe_mkdir(empty_dir, 0755, master_uid, getegid()) == 0) {

@@ -1,19 +1,18 @@
 /* Copyright (c) 2020 Dovecot authors, see the included COPYING file */
 
-#include "lib.h"
+#include "test-auth.h"
 #include "auth.h"
 #include "str.h"
+#include "ioloop.h"
 #include "auth-common.h"
 #include "auth-request.h"
 #include "auth-request-handler-private.h"
 #include "auth-settings.h"
 #include "mech-digest-md5-private.h"
 #include "otp.h"
-#include "mech-otp-skey-common.h"
+#include "mech-otp-common.h"
 #include "settings-parser.h"
 #include "password-scheme.h"
-#include "test-common.h"
-#include "test-auth.h"
 #include "auth-token.h"
 
 #include <unistd.h>
@@ -68,7 +67,7 @@ request_handler_reply_mock_callback(struct auth_request *request,
 	if (request->passdb_result == PASSDB_RESULT_OK)
 		request->failed = FALSE;
 	else if (request->mech == &mech_otp) {
-		if (null_strcmp(request->user, "otp_phase_2") == 0)
+		if (null_strcmp(request->fields.user, "otp_phase_2") == 0)
 			request->failed = FALSE;
 	} else if (request->mech == &mech_oauthbearer) {
 	}
@@ -94,7 +93,7 @@ static void test_mechs_init(void)
 	process_start_time = time(NULL);
 
 	/* Copy default settings */
-	set = *(struct auth_settings *) auth_setting_parser_info.defaults;
+	set = *(const struct auth_settings *)auth_setting_parser_info.defaults;
 	global_auth_settings = &set;
 	global_auth_settings->base_dir = ".";
 	memset((&set)->username_chars_map, 1, sizeof((&set)->username_chars_map));
@@ -109,9 +108,6 @@ static void test_mechs_init(void)
 	mock_set->master = TRUE;
 	array_push_back(&set.passdbs, &mock_set);
 	t_array_init(&set.userdbs, 1);
-
-	/* Disable stats */
-	set.stats = FALSE;
 
 	/* For tests of digest-md5. */
 	set.realms_arr = t_strsplit_spaces("example.com ", " ");
@@ -150,14 +146,14 @@ static void test_mech_prepare_request(struct auth_request **request_r,
 	request->userdb = auth->userdbs;
 	handler->refcount = 1;
 
-	auth_fields_add(request->extra_fields, "nodelay", "", 0);
+	auth_fields_add(request->fields.extra_fields, "nodelay", "", 0);
 	auth_request_ref(request);
 	auth_request_state_count[AUTH_REQUEST_STATE_NEW] = 1;
 
 	if (test_case->set_username_before_test || test_case->set_cert_username)
-		request->user = p_strdup(request->pool, test_case->username);
+		request->fields.user = p_strdup(request->pool, test_case->username);
 	if (test_case->set_cert_username)
-		request->cert_username = TRUE;
+		request->fields.cert_username = TRUE;
 
 	*request_r = request;
 }
@@ -190,12 +186,12 @@ static void test_mech_handle_challenge(struct auth_request *request,
 }
 
 static inline const unsigned char *
-test_mech_construct_apop_challenge(unsigned int connect_uid, unsigned long *len_r)
+test_mech_construct_apop_challenge(unsigned int connect_uid, size_t *len_r)
 {
 	string_t *apop_challenge = t_str_new(128);
 
-	str_printfa(apop_challenge,"<%lx.%u.%"PRIdTIME_T"", (unsigned long) getpid(),
-		    connect_uid, process_start_time+10);
+	str_printfa(apop_challenge,"<%lx.%lx.%"PRIxTIME_T".", (unsigned long)getpid(),
+		    (unsigned long)connect_uid, process_start_time+10);
 	str_append_data(apop_challenge, "\0testuser\0responseoflen16-", 26);
 	*len_r = apop_challenge->used;
 	return apop_challenge->data;
@@ -259,6 +255,7 @@ static void test_mechs(void)
 		{&mech_apop, UCHAR_LEN("1.1.1"), NULL, NULL, FALSE, FALSE, FALSE},
 		{&mech_otp, UCHAR_LEN("somebody\0testuser"), "testuser", "otp(testuser): unsupported response type", FALSE, TRUE, FALSE},
 		{&mech_cram_md5, UCHAR_LEN("testuser\0response"), "testuser", NULL, FALSE, FALSE, FALSE},
+		{&mech_plain, UCHAR_LEN("testuser\0"), "testuser", NULL, FALSE, FALSE, FALSE},
 
 		/* Covering most of the digest md5 parsing */
 		{&mech_digest_md5, UCHAR_LEN("username=\"testuser@example.com\",realm=\"example.com\",cnonce=\"OA6MHXh6VqTrRk\",response=d388dad90d4bbd760a152321f2143af7,qop=\"auth\""), NULL, NULL, FALSE, FALSE, FALSE},
@@ -321,7 +318,7 @@ static void test_mechs(void)
 		struct test_case *test_case = &tests[running_test];
 		const struct mech_module *mech = test_case->mech;
 		struct auth_request *request;
-		const char *testname = t_strdup_printf("auth mech %s %d/%lu",
+		const char *testname = t_strdup_printf("auth mech %s %d/%zu",
 						       mech->mech_name,
 						       running_test+1,
 						       N_ELEMENTS(tests));
@@ -343,7 +340,9 @@ static void test_mechs(void)
 			test_expect_error_string(test_case->expect_error);
 
 		request->state = AUTH_REQUEST_STATE_NEW;
-		request->initial_response = test_case->in;
+		unsigned char *input_dup = test_case->len == 0 ? NULL :
+			i_memdup(test_case->in, test_case->len);
+		request->initial_response = input_dup;
 		request->initial_response_len = test_case->len;
 		auth_request_initial(request);
 
@@ -356,10 +355,10 @@ static void test_mechs(void)
 						   test_case->success);
 		}
 
-		const char *username = request->user;
+		const char *username = request->fields.user;
 
-		if (request->master_user != NULL)
-			username = request->master_user;
+		if (request->fields.master_user != NULL)
+			username = request->fields.master_user;
 
 		if (!test_case->set_username_before_test && test_case->success) {
 			/* If the username was set by the test logic, do not
@@ -381,6 +380,7 @@ static void test_mechs(void)
 
 		event_unref(&request->event);
 		event_unref(&request->mech_event);
+		i_free(input_dup);
 		mech->auth_free(request);
 
 		test_end();
@@ -406,5 +406,9 @@ int main(void)
 		NULL
 	};
 
-	return test_run(test_functions);
+	struct ioloop *ioloop = io_loop_create();
+	io_loop_set_current(ioloop);
+	int ret = test_run(test_functions);
+	io_loop_destroy(&ioloop);
+	return ret;
 }

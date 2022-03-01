@@ -20,12 +20,11 @@
 #include "passdb-cache.h"
 #include "mech.h"
 #include "otp.h"
-#include "mech-otp-skey-common.h"
+#include "mech-otp-common.h"
 #include "auth.h"
 #include "auth-penalty.h"
 #include "auth-token.h"
 #include "auth-request-handler.h"
-#include "auth-request-stats.h"
 #include "auth-worker-server.h"
 #include "auth-worker-client.h"
 #include "auth-master-connection.h"
@@ -43,7 +42,6 @@ enum auth_socket_type {
 	AUTH_SOCKET_LOGIN_CLIENT,
 	AUTH_SOCKET_MASTER,
 	AUTH_SOCKET_USERDB,
-	AUTH_SOCKET_POSTFIX,
 	AUTH_SOCKET_TOKEN,
 	AUTH_SOCKET_TOKEN_LOGIN
 };
@@ -121,8 +119,6 @@ auth_socket_type_get(const char *path)
 		return AUTH_SOCKET_MASTER;
 	else if (strcmp(suffix, "userdb") == 0)
 		return AUTH_SOCKET_USERDB;
-	else if (strcmp(suffix, "postmap") == 0)
-		return AUTH_SOCKET_POSTFIX;
 	else if (strcmp(suffix, "token") == 0)
 		return AUTH_SOCKET_TOKEN;
 	else if (strcmp(suffix, "tokenlogin") == 0)
@@ -197,7 +193,6 @@ static void main_preinit(void)
 
 	if (!worker)
 		auth_penalty = auth_penalty_init(AUTH_PENALTY_ANVIL_PATH);
-	auth_request_stats_init();
 	mech_init(global_auth_settings);
 	mech_reg = mech_register_init(global_auth_settings);
 	dict_drivers_register_builtin();
@@ -250,6 +245,10 @@ static void main_init(void)
 		/* workers have only a single connection from the master
 		   auth process */
 		master_service_set_client_limit(master_service, 1);
+		auth_worker_set_max_service_count(
+			master_service_get_service_count(master_service));
+		/* make sure this process cycles if auth connection drops */
+		master_service_set_service_count(master_service, 1);
 	} else {
 		/* caching is handled only by the main auth process */
 		passdb_cache_init(global_auth_settings);
@@ -293,7 +292,6 @@ static void main_deinit(void)
 	passdbs_deinit();
 	passdb_cache_deinit();
         password_schemes_deinit();
-	auth_request_stats_deinit();
 
 	sql_drivers_deinit();
 	child_wait_deinit();
@@ -337,9 +335,6 @@ static void client_connected(struct master_service_connection *conn)
 		(void)auth_master_connection_create(auth, conn->fd,
 						    l->path, &l->st, TRUE);
 		break;
-	case AUTH_SOCKET_POSTFIX:
-		e_error(auth_event, "postfix socketmap is no longer supported");
-		break;
 	case AUTH_SOCKET_LOGIN_CLIENT:
 		auth_client_connection_create(auth, conn->fd, TRUE, FALSE);
 		break;
@@ -372,7 +367,6 @@ int main(int argc, char *argv[])
 {
 	int c;
 	enum master_service_flags service_flags =
-		MASTER_SERVICE_FLAG_USE_SSL_SETTINGS |
 		MASTER_SERVICE_FLAG_NO_SSL_INIT;
 
 	master_service = master_service_init("auth", service_flags, &argc, &argv, "w");

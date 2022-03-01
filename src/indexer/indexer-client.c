@@ -1,10 +1,12 @@
 /* Copyright (c) 2011-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "llist.h"
+#include "connection.h"
 #include "istream.h"
 #include "ostream.h"
+#include "str.h"
 #include "strescape.h"
+#include "wildcard-match.h"
 #include "master-service.h"
 #include "indexer-queue.h"
 #include "indexer-client.h"
@@ -17,19 +19,10 @@
 #define INDEXER_CLIENT_PROTOCOL_MINOR_VERSION 0
 
 struct indexer_client {
-	struct indexer_client *prev, *next;
+	struct connection conn;
 
 	int refcount;
 	struct indexer_queue *queue;
-
-	int fd;
-	struct istream *input;
-	struct ostream *output;
-	struct io *io;
-
-	bool version_received:1;
-	bool handshaked:1;
-	bool destroyed:1;
 };
 
 struct indexer_client_request {
@@ -37,24 +30,9 @@ struct indexer_client_request {
 	unsigned int tag;
 };
 
-static struct indexer_client *clients = NULL;
-static unsigned int clients_count = 0;
-
-static void indexer_client_destroy(struct indexer_client *client);
+static void indexer_client_destroy(struct connection *conn);
 static void indexer_client_ref(struct indexer_client *client);
 static void indexer_client_unref(struct indexer_client *client);
-
-static const char *const*
-indexer_client_next_line(struct indexer_client *client)
-{
-	const char *line;
-
-	line = i_stream_next_line(client->input);
-	if (line == NULL)
-		return NULL;
-
-	return t_strsplit_tabescaped(line);
-}
 
 static int
 indexer_client_request_queue(struct indexer_client *client, bool append,
@@ -91,7 +69,7 @@ indexer_client_request_queue(struct indexer_client *client, bool append,
 
 	indexer_queue_append(client->queue, append, args[1], args[2],
 			     session_id, max_recent_msgs, ctx);
-	o_stream_nsend_str(client->output, t_strdup_printf("%u\tOK\n", tag));
+	o_stream_nsend_str(client->conn.output, t_strdup_printf("%u\tOK\n", tag));
 	return 0;
 }
 
@@ -120,7 +98,120 @@ indexer_client_request_optimize(struct indexer_client *client,
 	}
 
 	indexer_queue_append_optimize(client->queue, args[1], args[2], ctx);
-	o_stream_nsend_str(client->output, t_strdup_printf("%u\tOK\n", tag));
+	o_stream_nsend_str(client->conn.output, t_strdup_printf("%u\tOK\n", tag));
+	return 0;
+}
+
+static int
+indexer_client_request_remove(struct indexer_client *client,
+			      const char *const *args, const char **error_r)
+{
+	unsigned int tag;
+
+	/* <tag> <user mask> [<mailbox mask>] */
+	if (str_array_length(args) < 2) {
+		*error_r = "Wrong parameter count";
+		return -1;
+	}
+	if (str_to_uint(args[0], &tag) < 0) {
+		*error_r = "Invalid tag";
+		return -1;
+	}
+	const char *user_mask = args[1];
+	const char *mailbox_mask = args[2];
+
+	if (wildcard_is_literal(user_mask))
+		indexer_queue_cancel(client->queue, user_mask, mailbox_mask);
+	else {
+		struct indexer_request *request;
+		struct indexer_queue_iter *iter =
+			indexer_queue_iter_init(client->queue, FALSE);
+		while ((request = indexer_queue_iter_next(iter)) != NULL) {
+			if (wildcard_match(request->username, user_mask)) {
+				indexer_queue_cancel(client->queue,
+					request->username, mailbox_mask);
+			}
+		}
+		indexer_queue_iter_deinit(&iter);
+	}
+	o_stream_nsend_str(client->conn.output, t_strdup_printf("%u\tOK\n", tag));
+	return 0;
+}
+
+static void
+indexer_client_request_list_write(string_t *str,
+				  struct indexer_request *request)
+{
+	str_append_tabescaped(str, request->username);
+	str_append_c(str, '\t');
+	str_append_tabescaped(str, request->mailbox);
+	str_append_c(str, '\t');
+	if (request->session_id != NULL)
+		str_append_tabescaped(str, request->session_id);
+	str_printfa(str, "\t%u\t", request->max_recent_msgs);
+	switch (request->type) {
+	case INDEXER_REQUEST_TYPE_INDEX:
+		str_append_c(str, 'i');
+		break;
+	case INDEXER_REQUEST_TYPE_OPTIMIZE:
+		str_append_c(str, 'o');
+		break;
+	}
+	str_append_c(str, '\t');
+	if (request->working)
+		str_append_c(str, 'w');
+	if (request->reindex_head)
+		str_append_c(str, 'h');
+	if (request->reindex_tail)
+		str_append_c(str, 't');
+}
+
+static int
+indexer_client_request_list(struct indexer_client *client,
+			    const char *const *args, const char **error_r)
+{
+	const char *mask;
+	unsigned int tag;
+	bool only_working;
+
+	/* <tag> <type> [<user mask>] */
+	if (str_array_length(args) < 2) {
+		*error_r = "Wrong parameter count";
+		return -1;
+	}
+	if (str_to_uint(args[0], &tag) < 0) {
+		*error_r = "Invalid tag";
+		return -1;
+	}
+	if (strcmp(args[1], "all") == 0)
+		only_working = FALSE;
+	else if (strcmp(args[1], "working") == 0)
+		only_working = TRUE;
+	else {
+		*error_r = "Invalid type";
+		return -1;
+	}
+	mask = args[2];
+
+	string_t *str = t_str_new(128);
+	struct indexer_request *request;
+	struct indexer_queue_iter *iter =
+		indexer_queue_iter_init(client->queue, only_working);
+	while ((request = indexer_queue_iter_next(iter)) != NULL) {
+		if (mask != NULL && !wildcard_match(request->username, mask))
+			continue;
+
+		str_truncate(str, 0);
+		str_printfa(str, "%u\t", tag);
+		indexer_client_request_list_write(str, request);
+		str_append_c(str, '\n');
+		o_stream_nsend(client->conn.output, str_data(str), str_len(str));
+	}
+	indexer_queue_iter_deinit(&iter);
+
+	str_truncate(str, 0);
+	str_printfa(str, "%u\n", tag);
+	o_stream_nsend(client->conn.output, str_data(str), str_len(str));
 	return 0;
 }
 
@@ -138,57 +229,36 @@ indexer_client_request(struct indexer_client *client,
 		return indexer_client_request_queue(client, FALSE, args, error_r);
 	else if (strcmp(cmd, "OPTIMIZE") == 0)
 		return indexer_client_request_optimize(client, args, error_r);
+	else if (strcmp(cmd, "REMOVE") == 0)
+		return indexer_client_request_remove(client, args, error_r);
+	else if (strcmp(cmd, "LIST") == 0)
+		return indexer_client_request_list(client, args, error_r);
 	else {
 		*error_r = t_strconcat("Unknown command: ", cmd, NULL);
 		return -1;
 	}
 }
 
-static void indexer_client_input(struct indexer_client *client)
+static int
+indexer_client_input_args(struct connection *conn, const char *const *args)
 {
-	const char *line, *const *args, *error;
+	struct indexer_client *client =
+		container_of(conn, struct indexer_client, conn);
+	const char *error;
 
-	switch (i_stream_read(client->input)) {
-	case -2:
-		i_error("BUG: Client connection sent too much data");
-		indexer_client_destroy(client);
-		return;
-	case -1:
-		indexer_client_destroy(client);
-		return;
+	if (indexer_client_request(client, args, &error) < 0) {
+		e_error(conn->event, "Client input error: %s", error);
+		return -1;
 	}
-
-	if (!client->version_received) {
-		if ((line = i_stream_next_line(client->input)) == NULL)
-			return;
-
-		if (!version_string_verify(line, "indexer",
-				INDEXER_CLIENT_PROTOCOL_MAJOR_VERSION)) {
-			i_error("Client not compatible with this server "
-				"(mixed old and new binaries?)");
-			indexer_client_destroy(client);
-			return;
-		}
-		client->version_received = TRUE;
-	}
-
-	while ((args = indexer_client_next_line(client)) != NULL) {
-		if (args[0] != NULL) {
-			if (indexer_client_request(client, args, &error) < 0) {
-				i_error("Client input error: %s", error);
-				indexer_client_destroy(client);
-				break;
-			}
-		}
-	}
+	return 1;
 }
 
 void indexer_client_status_callback(int percentage, void *context)
 {
 	struct indexer_client_request *ctx = context;
 
-	T_BEGIN {
-		o_stream_nsend_str(ctx->client->output,
+	if (ctx->client->conn.output != NULL) T_BEGIN {
+		o_stream_nsend_str(ctx->client->conn.output,
 			t_strdup_printf("%u\t%d\n", ctx->tag, percentage));
 	} T_END;
 	if (percentage < 0 || percentage == 100) {
@@ -197,44 +267,49 @@ void indexer_client_status_callback(int percentage, void *context)
 	}
 }
 
-struct indexer_client *
-indexer_client_create(int fd, struct indexer_queue *queue)
+static struct connection_list *indexer_client_list = NULL;
+
+static const struct connection_vfuncs indexer_client_vfuncs = {
+	.destroy = indexer_client_destroy,
+	.input_args = indexer_client_input_args,
+};
+
+static const struct connection_settings indexer_client_set = {
+	.service_name_in = "indexer-client",
+	.service_name_out = "indexer-server",
+	.major_version = INDEXER_CLIENT_PROTOCOL_MAJOR_VERSION,
+	.minor_version = INDEXER_CLIENT_PROTOCOL_MINOR_VERSION,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
+};
+
+
+void indexer_client_create(struct master_service_connection *conn,
+			   struct indexer_queue *queue)
 {
 	struct indexer_client *client;
+
+	if (indexer_client_list == NULL) {
+		indexer_client_list =
+			connection_list_init(&indexer_client_set,
+					     &indexer_client_vfuncs);
+	}
 
 	client = i_new(struct indexer_client, 1);
 	client->refcount = 1;
 	client->queue = queue;
-	client->fd = fd;
-	client->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
-	client->output = o_stream_create_fd(fd, (size_t)-1);
-	o_stream_set_no_error_handling(client->output, TRUE);
-	client->io = io_add(fd, IO_READ, indexer_client_input, client);
-
-	DLLIST_PREPEND(&clients, client);
-	clients_count++;
+	connection_init_server(indexer_client_list, &client->conn,
+			       conn->name, conn->fd, conn->fd);
 	indexer_refresh_proctitle();
-	return client;
 }
 
-static void indexer_client_destroy(struct indexer_client *client)
+static void indexer_client_destroy(struct connection *conn)
 {
-	if (client->destroyed)
-		return;
-	client->destroyed = TRUE;
-
-	DLLIST_REMOVE(&clients, client);
-
-	io_remove(&client->io);
-	i_stream_close(client->input);
-	o_stream_close(client->output);
-	if (close(client->fd) < 0)
-		i_error("close(client) failed: %m");
-	client->fd = -1;
-	indexer_client_unref(client);
-
-	clients_count--;
+	struct indexer_client *client =
+		container_of(conn, struct indexer_client, conn);
+	connection_deinit(&client->conn);
 	master_service_client_connection_destroyed(master_service);
+	indexer_client_unref(client);
 	indexer_refresh_proctitle();
 }
 
@@ -251,18 +326,17 @@ static void indexer_client_unref(struct indexer_client *client)
 
 	if (--client->refcount > 0)
 		return;
-	i_stream_destroy(&client->input);
-	o_stream_destroy(&client->output);
 	i_free(client);
 }
 
 unsigned int indexer_clients_get_count(void)
 {
-	return clients_count;
+	if (indexer_client_list == NULL)
+		return 0;
+	return indexer_client_list->connections_count;
 }
 
 void indexer_clients_destroy_all(void)
 {
-	while (clients != NULL)
-		indexer_client_destroy(clients);
+	connection_list_deinit(&indexer_client_list);
 }

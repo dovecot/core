@@ -288,7 +288,7 @@ search_add_save(struct dsync_mailbox_exporter *exporter, struct mail *mail)
 	const char *guid, *hdr_hash;
 	enum mail_fetch_field wanted_fields = MAIL_FETCH_GUID;
 	time_t received_timestamp = 0;
-	uoff_t virtual_size = (uoff_t)-1;
+	uoff_t virtual_size = UOFF_T_MAX;
 	int ret;
 
 	/* update wanted fields in case we didn't already set them for the
@@ -316,7 +316,7 @@ search_add_save(struct dsync_mailbox_exporter *exporter, struct mail *mail)
 	if (exporter->export_virtual_sizes) {
 		if (mail_get_virtual_size(mail, &virtual_size) < 0)
 			return dsync_mail_error(exporter, mail, "virtual-size");
-		i_assert(virtual_size != (uoff_t)-1);
+		i_assert(virtual_size != UOFF_T_MAX);
 	}
 
 	change = export_save_change_get(exporter, mail->uid);

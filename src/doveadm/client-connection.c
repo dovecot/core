@@ -7,7 +7,6 @@
 #include "master-service-settings.h"
 #include "doveadm.h"
 #include "doveadm-settings.h"
-#include "doveadm-server.h"
 #include "client-connection-private.h"
 
 bool doveadm_client_is_allowed_command(const struct doveadm_settings *set,

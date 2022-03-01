@@ -104,6 +104,8 @@ struct ioloop_context {
 	int refcount;
 	struct ioloop *ioloop;
 	ARRAY(struct ioloop_context_callback) callbacks;
+	ARRAY(struct event *) global_event_stack;
+	struct event *root_global_event;
 };
 
 int io_loop_run_get_wait_time(struct ioloop *ioloop, struct timeval *tv_r);
@@ -121,5 +123,7 @@ void io_loop_handler_deinit(struct ioloop *ioloop);
 
 void io_loop_notify_remove(struct io *io);
 void io_loop_notify_handler_deinit(struct ioloop *ioloop);
+
+struct event *io_loop_get_active_global_root(void);
 
 #endif

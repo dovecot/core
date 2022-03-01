@@ -130,7 +130,7 @@ fs_posix_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 	return 0;
 }
 
-static void fs_posix_deinit(struct fs *_fs)
+static void fs_posix_free(struct fs *_fs)
 {
 	struct posix_fs *fs = container_of(_fs, struct posix_fs, fs);
 
@@ -647,7 +647,7 @@ static void fs_posix_write_stream(struct fs_file *_file)
 	} else {
 		i_assert(file->fd != -1);
 		_file->output = o_stream_create_fd_file(file->fd,
-							(uoff_t)-1, FALSE);
+							UOFF_T_MAX, FALSE);
 	}
 	o_stream_set_name(_file->output, file->full_path);
 }
@@ -688,11 +688,15 @@ fs_posix_lock(struct fs_file *_file, unsigned int secs, struct fs_lock **lock_r)
 	struct posix_fs *fs = container_of(_file->fs, struct posix_fs, fs);
 	struct dotlock_settings dotlock_set;
 	struct posix_fs_lock fs_lock, *ret_lock;
+	const char *error;
 	int ret = -1;
 
 	i_zero(&fs_lock);
 	fs_lock.lock.file = _file;
 
+	struct file_lock_settings lock_set = {
+		.lock_method = FILE_LOCK_METHOD_FLOCK,
+	};
 	switch (fs->lock_method) {
 	case FS_POSIX_LOCK_METHOD_FLOCK:
 #ifndef HAVE_FLOCK
@@ -702,16 +706,16 @@ fs_posix_lock(struct fs_file *_file, unsigned int secs, struct fs_lock **lock_r)
 #else
 		if (secs == 0) {
 			ret = file_try_lock(file->fd, file->full_path, F_WRLCK,
-					    FILE_LOCK_METHOD_FLOCK,
-					    &fs_lock.file_lock);
+					    &lock_set, &fs_lock.file_lock,
+					    &error);
 		} else {
 			ret = file_wait_lock(file->fd, file->full_path, F_WRLCK,
-					     FILE_LOCK_METHOD_FLOCK, secs,
-					     &fs_lock.file_lock);
+					     &lock_set, secs,
+					     &fs_lock.file_lock, &error);
 		}
 		if (ret < 0) {
-			fs_set_error_errno(_file->event, "flock(%s) failed: %m",
-					   file->full_path);
+			fs_set_error_errno(_file->event, "flock(%s) failed: %s",
+					   file->full_path, error);
 		}
 #endif
 		break;
@@ -990,7 +994,8 @@ const struct fs fs_class_posix = {
 	.v = {
 		fs_posix_alloc,
 		fs_posix_init,
-		fs_posix_deinit,
+		NULL,
+		fs_posix_free,
 		fs_posix_get_properties,
 		fs_posix_file_alloc,
 		fs_posix_file_init,

@@ -65,7 +65,7 @@ static void login_connection_input(struct login_connection *conn)
 			if (errno == EAGAIN)
 				return;
 			if (errno != ECONNRESET)
-				i_error("read(login connection) failed: %m");
+				e_error(conn->dir->event, "read(login connection) failed: %m");
 		}
 		login_connection_deinit(&conn);
 		return;
@@ -83,7 +83,7 @@ static void login_connection_authreply_input(struct login_connection *conn)
 		if (!conn->handshaked) {
 			if (!version_string_verify(line, "director-authreply-client",
 						   AUTHREPLY_PROTOCOL_MAJOR_VERSION)) {
-				i_error("authreply client sent invalid handshake: %s", line);
+				e_error(conn->dir->event, "authreply client sent invalid handshake: %s", line);
 				login_connection_deinit(&conn);
 				bail = TRUE; /* don't return from within a T_BEGIN {...} T_END */
 			} else {
@@ -100,7 +100,7 @@ static void login_connection_authreply_input(struct login_connection *conn)
 	if (conn->input->eof) {
 		if (conn->input->stream_errno != 0 &&
 		    conn->input->stream_errno != ECONNRESET) {
-			i_error("read(authreply connection) failed: %s",
+			e_error(conn->dir->event, "read(authreply connection) failed: %s",
 				i_stream_get_error(conn->input));
 		}
 		login_connection_deinit(&conn);
@@ -135,7 +135,8 @@ static bool login_host_request_is_self(struct login_host_request *request,
 
 static void
 login_host_callback(const struct mail_host *host, const char *hostname,
-		    const char *errormsg, void *context)
+		    unsigned int username_hash, const char *errormsg,
+		    void *context)
 {
 	struct login_host_request *request = context;
 	struct director *dir = request->conn->dir;
@@ -150,7 +151,7 @@ login_host_callback(const struct mail_host *host, const char *hostname,
 		else
 			i_panic("BUG: Unexpected line: %s", request->line);
 
-		i_error("director: User %s host lookup failed: %s",
+		e_error(dir->event, "director: User %s host lookup failed: %s",
 			request->username, errormsg);
 		line = t_strconcat("FAIL\t", t_strcut(line_params, '\t'),
 				   "\tcode="AUTH_CLIENT_FAIL_CODE_TEMPFAIL, NULL);
@@ -173,6 +174,8 @@ login_host_callback(const struct mail_host *host, const char *hostname,
 			str_append(str, "\thostip=");
 			str_append(str, host->ip_str);
 		}
+		str_printfa(str, "\t"DIRECTOR_ALT_USER_FIELD_NAME"=%u",
+			    username_hash);
 		line = str_c(str);
 	}
 	login_connection_send_line(request->conn, line);
@@ -223,13 +226,13 @@ static void auth_input_line(const char *line, void *context)
 			host = TRUE;
 		else if (str_begins(*args, "lip=")) {
 			if (net_addr2ip((*args) + 4, &temp_request.local_ip) < 0)
-				i_error("auth sent invalid lip field: %s", (*args) + 6);
+				e_error(conn->dir->event, "auth sent invalid lip field: %s", (*args) + 6);
 		} else if (str_begins(*args, "lport=")) {
 			if (net_str2port((*args) + 6, &temp_request.local_port) < 0)
-				i_error("auth sent invalid lport field: %s", (*args) + 6);
+				e_error(conn->dir->event, "auth sent invalid lport field: %s", (*args) + 6);
 		} else if (str_begins(*args, "port=")) {
 			if (net_str2port((*args) + 5, &temp_request.dest_port) < 0)
-				i_error("auth sent invalid port field: %s", (*args) + 6);
+				e_error(conn->dir->event, "auth sent invalid port field: %s", (*args) + 6);
 		} else if (str_begins(*args, "destuser="))
 			username = *args + 9;
 		else if (str_begins(*args, "director_tag="))
@@ -276,7 +279,7 @@ login_connection_init(struct director *dir, int fd,
 	conn->refcount = 1;
 	conn->fd = fd;
 	conn->dir = dir;
-	conn->output = o_stream_create_fd(conn->fd, (size_t)-1);
+	conn->output = o_stream_create_fd(conn->fd, SIZE_MAX);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	if (type != LOGIN_CONNECTION_TYPE_AUTHREPLY) {
 		i_assert(auth != NULL);
@@ -315,7 +318,7 @@ void login_connection_deinit(struct login_connection **_conn)
 	i_stream_destroy(&conn->input);
 	o_stream_destroy(&conn->output);
 	if (close(conn->fd) < 0)
-		i_error("close(login connection) failed: %m");
+		e_error(conn->dir->event, "close(login connection) failed: %m");
 	conn->fd = -1;
 
 	if (conn->auth != NULL)

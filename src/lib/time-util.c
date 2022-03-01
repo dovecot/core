@@ -38,21 +38,23 @@ int timeval_cmp(const struct timeval *tv1, const struct timeval *tv2)
 int timeval_cmp_margin(const struct timeval *tv1, const struct timeval *tv2,
 	unsigned int usec_margin)
 {
-	unsigned long long usecs_diff;
+	long long secs_diff, usecs_diff;
 	int sec_margin, ret;
 
 	if (tv1->tv_sec < tv2->tv_sec) {
 		sec_margin = ((int)usec_margin / 1000000) + 1;
-		if ((tv2->tv_sec - tv1->tv_sec) > sec_margin)
+		secs_diff = (long long)tv2->tv_sec - (long long)tv1->tv_sec;
+		if (secs_diff > sec_margin)
 			return -1;
-		usecs_diff = (tv2->tv_sec - tv1->tv_sec) * 1000000ULL +
+		usecs_diff = secs_diff * 1000000LL +
 			(tv2->tv_usec - tv1->tv_usec);
 		ret = -1;
 	} else if (tv1->tv_sec > tv2->tv_sec) {
 		sec_margin = ((int)usec_margin / 1000000) + 1;
-		if ((tv1->tv_sec - tv2->tv_sec) > sec_margin)
+		secs_diff = (long long)tv1->tv_sec - (long long)tv2->tv_sec;
+		if (secs_diff > sec_margin)
 			return 1;
-		usecs_diff = (tv1->tv_sec - tv2->tv_sec) * 1000000ULL +
+		usecs_diff = secs_diff * 1000000LL +
 			(tv1->tv_usec - tv2->tv_usec);
 		ret = 1;
 	} else if (tv1->tv_usec < tv2->tv_usec) {
@@ -62,12 +64,18 @@ int timeval_cmp_margin(const struct timeval *tv1, const struct timeval *tv2,
 		usecs_diff = tv1->tv_usec - tv2->tv_usec;
 		ret = 1;
 	}
-	return usecs_diff > usec_margin ? ret : 0;
+	i_assert(usecs_diff >= 0);
+	return (unsigned long long)usecs_diff > usec_margin ? ret : 0;
 }
 
 int timeval_diff_msecs(const struct timeval *tv1, const struct timeval *tv2)
 {
-	return timeval_diff_usecs(tv1, tv2) / 1000;
+	long long diff = timeval_diff_usecs(tv1, tv2) / 1000LL;
+#ifdef DEBUG
+	/* FIXME v2.4: Remove the ifdef */
+	i_assert(diff <= INT_MAX);
+#endif
+	return (int)diff;
 }
 
 long long timeval_diff_usecs(const struct timeval *tv1,
@@ -130,4 +138,32 @@ const char *t_strflocaltime(const char *fmt, time_t t)
 const char *t_strfgmtime(const char *fmt, time_t t)
 {
 	return strftime_real(fmt, gmtime(&t));
+}
+
+int str_to_timeval(const char *str, struct timeval *tv_r)
+{
+	tv_r->tv_usec = 0;
+
+	const char *p = strchr(str, '.');
+	if (p == NULL)
+		return str_to_time(str, &tv_r->tv_sec);
+
+	int ret;
+	T_BEGIN {
+		ret = str_to_time(t_strdup_until(str, p++), &tv_r->tv_sec);
+	} T_END;
+	if (ret < 0 || p[0] == '\0')
+		return -1;
+
+	unsigned int len = strlen(p);
+	if (len > 6)
+		return -1; /* we don't support sub-microseconds */
+	char usecs_str[7] = "000000";
+	memcpy(usecs_str, p, len);
+
+	unsigned int usec;
+	if (str_to_uint(usecs_str, &usec) < 0)
+		return -1;
+	tv_r->tv_usec = usec;
+	return 0;
 }

@@ -88,6 +88,12 @@ extern const char *mbox_hide_headers[], *mbox_save_drop_headers[];
 extern unsigned int mbox_hide_headers_count, mbox_save_drop_headers_count;
 
 void mbox_set_syscall_error(struct mbox_mailbox *mbox, const char *function);
+void mbox_istream_set_syscall_error(struct mbox_mailbox *mbox,
+				    struct istream *input,
+				    const char *function);
+void mbox_ostream_set_syscall_error(struct mbox_mailbox *mbox,
+				    struct ostream *output,
+				    const char *function);
 
 struct mailbox_sync_context *
 mbox_storage_sync_init(struct mailbox *box, enum mailbox_sync_flags flags);

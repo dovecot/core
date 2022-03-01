@@ -60,7 +60,7 @@ index_transaction_index_commit(struct mail_index_transaction *index_trans,
 	}
 
 	if (array_is_created(&t->pvt_saves)) {
-		if (index_mailbox_sync_pvt_init(t->box, TRUE, &pvt_sync_ctx) < 0)
+		if (index_mailbox_sync_pvt_init(t->box, TRUE, 0, &pvt_sync_ctx) < 0)
 			ret = -1;
 	}
 
@@ -101,10 +101,8 @@ index_transaction_index_rollback(struct mail_index_transaction *index_trans)
 	struct mailbox_transaction_context *t =
 		MAIL_STORAGE_CONTEXT_REQUIRE(index_trans);
 
-	if (t->attr_pvt_trans != NULL)
-		dict_transaction_rollback(&t->attr_pvt_trans);
-	if (t->attr_shared_trans != NULL)
-		dict_transaction_rollback(&t->attr_shared_trans);
+	dict_transaction_rollback(&t->attr_pvt_trans);
+	dict_transaction_rollback(&t->attr_shared_trans);
 
 	if (t->save_ctx != NULL) {
 		mailbox_save_context_deinit(t->save_ctx);

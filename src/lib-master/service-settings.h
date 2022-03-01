@@ -16,7 +16,11 @@ enum service_type {
 	SERVICE_TYPE_ANVIL,
 	SERVICE_TYPE_CONFIG,
 	SERVICE_TYPE_LOGIN,
-	SERVICE_TYPE_STARTUP
+	SERVICE_TYPE_STARTUP,
+	/* Worker processes are intentionally limited to their process_limit,
+	   and they can regularly reach it. There shouldn't be unnecessary
+	   warnings about temporarily reaching the limit. */
+	SERVICE_TYPE_WORKER,
 };
 /* </settings checks> */
 

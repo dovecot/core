@@ -72,8 +72,8 @@ fs_dict_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 	}
 
 	i_zero(&dict_set);
-	dict_set.username = set->username;
 	dict_set.base_dir = set->base_dir;
+	dict_set.event_parent = set->event_parent;
 
 	if (dict_init(p, &dict_set, &fs->dict, &error) < 0) {
 		*error_r = t_strdup_printf("dict_init(%s) failed: %s",
@@ -83,7 +83,7 @@ fs_dict_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 	return 0;
 }
 
-static void fs_dict_deinit(struct fs *_fs)
+static void fs_dict_free(struct fs *_fs)
 {
 	struct dict_fs *fs = (struct dict_fs *)_fs;
 
@@ -156,7 +156,10 @@ static int fs_dict_lookup(struct dict_fs_file *file)
 	if (file->value != NULL)
 		return 0;
 
-	ret = dict_lookup(fs->dict, file->pool, file->key, &file->value, &error);
+	struct dict_op_settings set = {
+		.username = file->file.fs->username,
+	};
+	ret = dict_lookup(fs->dict, &set, file->pool, file->key, &file->value, &error);
 	if (ret > 0)
 		return 0;
 	else if (ret < 0) {
@@ -220,8 +223,11 @@ static int fs_dict_write_stream_finish(struct fs_file *_file, bool success)
 	if (!success)
 		return -1;
 
+	struct dict_op_settings set = {
+		.username = _file->fs->username,
+	};
 	fs_dict_write_rename_if_needed(file);
-	trans = dict_transaction_begin(fs->dict);
+	trans = dict_transaction_begin(fs->dict, &set);
 	switch (fs->encoding) {
 	case FS_DICT_VALUE_ENCODING_RAW:
 		dict_set(trans, file->key, str_c(file->write_buffer));
@@ -269,7 +275,10 @@ static int fs_dict_delete(struct fs_file *_file)
 	struct dict_transaction_context *trans;
 	const char *error;
 
-	trans = dict_transaction_begin(fs->dict);
+	struct dict_op_settings set = {
+		.username = fs->fs.username,
+	};
+	trans = dict_transaction_begin(fs->dict, &set);
 	dict_unset(trans, file->key);
 	if (dict_transaction_commit(&trans, &error) < 0) {
 		fs_set_error(_file->event, EIO,
@@ -295,7 +304,10 @@ fs_dict_iter_init(struct fs_iter *_iter, const char *path,
 	if (fs->path_prefix != NULL)
 		path = t_strconcat(fs->path_prefix, path, NULL);
 
-	iter->dict_iter = dict_iterate_init(fs->dict, path, 0);
+	struct dict_op_settings set = {
+		.username = iter->iter.fs->username,
+	};
+	iter->dict_iter = dict_iterate_init(fs->dict, &set, path, 0);
 }
 
 static const char *fs_dict_iter_next(struct fs_iter *_iter)
@@ -326,7 +338,8 @@ const struct fs fs_class_dict = {
 	.v = {
 		fs_dict_alloc,
 		fs_dict_init,
-		fs_dict_deinit,
+		NULL,
+		fs_dict_free,
 		fs_dict_get_properties,
 		fs_dict_file_alloc,
 		fs_dict_file_init,

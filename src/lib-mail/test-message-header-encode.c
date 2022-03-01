@@ -98,7 +98,7 @@ static bool verify_b(const char *str, unsigned int i, bool starts_with_a)
 				return FALSE;
 		}
 		buffer_set_used_size(&buf, 0);
-		if (base64_decode(str+start, i-start, NULL, &buf) < 0)
+		if (base64_decode(str+start, i-start, &buf) < 0)
 			return FALSE;
 		i++;
 
@@ -180,6 +180,10 @@ static void test_message_header_encode(void)
 		"a =?", "a =?utf-8?q?=3D=3F?=",
 		"foo\001bar", "=?utf-8?q?foo=01bar?=",
 		"\x01\x02\x03\x04\x05\x06\x07\x08", "=?utf-8?b?AQIDBAUGBwg=?=",
+#define TEXT30 "123456789012345678901234567890"
+		TEXT30 " \xc3\xa4 " TEXT30 "\xc3\xa4 stuff",
+			TEXT30 " =?utf-8?q?=C3=A4_12345678901234567890123456?=\n"
+			"\t=?utf-8?q?7890=C3=A4?= stuff",
 
 		"a\r\n b", "a\r\n b",
 		"a\r\n\tb", "a\r\n\tb",
@@ -190,7 +194,66 @@ static void test_message_header_encode(void)
 		"a\r\n", "a",
 		"a\n", "a",
 		"foo\n \001bar", "foo\n =?utf-8?q?=01bar?=",
-		"foo\001\n bar", "=?utf-8?q?foo=01?=\n bar"
+		"foo\001\n bar", "=?utf-8?q?foo=01?=\n bar",
+		"\xC3\xA4\xC3\xA4\xC3\xA4\xC3\xA4\xC3\xA4\xC3\xA4\xC3\xA4"
+		"\xC3\xA4\xC3\xA4\xC3\xA4\xC3\xA4\xC3\xA4\xC3\xA4\xC3\xA4",
+			"=?utf-8?b?w6TDpMOkw6TDpMOkw6TDpMOkw6TDpMOkw6TDpA==?=",
+		/* Bad UTF-8 */
+		"foofoo-\x80\x80\x80\x80\x80\x80\x80-barbar",
+			"=?utf-8?q?foofoo-=EF=BF=BD-barbar?=",
+		"foobarfoobar-\x80\x80\x80\x80\x80\x80\x80",
+			"=?utf-8?q?foobarfoobar-=EF=BF=BD?=",
+		"\x80\x80\x80\x80\x80\x80\x80-foobarfoobar",
+			"=?utf-8?q?=EF=BF=BD-foobarfoobar?=",
+		"foofoo-\x80\x80\x80\x80\x80\x80\x80-barbarbarbar-"
+		"\x81\x82\x83\x84\x85\x86\x87-bazbaz",
+			"=?utf-8?q?foofoo-=EF=BF=BD-barbarbarbar-"
+			"=EF=BF=BD-bazbaz?=",
+		"foobarfoobarfoobar-\x80\x80\x80\x80\x80\x80\x80-"
+		"\x81\x82\x83\x84\x85\x86\x87-bazbaz",
+			"=?utf-8?q?foobarfoobarfoobar-=EF=BF=BD-"
+			"=EF=BF=BD-bazbaz?=",
+		"\x80\x80\x80\x80\x80\x80\x80-foobarfoobarfoobar-"
+		"\x81\x82\x83\x84\x85\x86\x87-bazbaz",
+			"=?utf-8?q?=EF=BF=BD-foobarfoobarfoobar-"
+			"=EF=BF=BD-bazbaz?=",
+		"foofoo-\xC3-barbar",
+			"=?utf-8?q?foofoo-=EF=BF=BD-barbar?=",
+		"foobarfoobar-\xC3",
+			"=?utf-8?q?foobarfoobar-=EF=BF=BD?=",
+		"\xC3-foobarfoobar",
+			"=?utf-8?q?=EF=BF=BD-foobarfoobar?=",
+		"f-\x80\x80\x80\x80\x80\x80\x80-b", "=?utf-8?b?Zi3vv70tYg==?=",
+		"fb-\x80\x80\x80\x80\x80\x80\x80", "=?utf-8?b?ZmIt77+9?=",
+		"\x80\x80\x80\x80\x80\x80\x80-fb", "=?utf-8?b?77+9LWZi?=",
+		"ff-\x80\x80\x80\x80\x80\x80\x80-bb-"
+		"\x81\x82\x83\x84\x85\x86\x87-zz",
+			"=?utf-8?b?ZmYt77+9LWJiLe+/vS16eg==?=",
+		"fbfb-\x80\x80\x80\x80\x80\x80\x80-"
+		"\x81\x82\x83\x84\x85\x86\x87-zz",
+			"=?utf-8?b?ZmJmYi3vv70t77+9LXp6?=",
+		"\x80\x80\x80\x80\x80\x80\x80-ff-"
+		"\x81\x82\x83\x84\x85\x86\x87-zz",
+			"=?utf-8?b?77+9LWZmLe+/vS16eg==?=",
+		"\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80\x80",
+			"=?utf-8?b?77+9?=",
+		"-\xC3-\xC3-\xC3-\xC3-\xC3-\xC3-",
+			"=?utf-8?q?-=EF=BF=BD-=EF=BF=BD-"
+			"=EF=BF=BD-=EF=BF=BD-=EF=BF=BD-=EF=BF=BD-?=",
+		"\xC3--\xC3-\xC3-\xC3-\xC3--\xC3",
+			"=?utf-8?q?=EF=BF=BD--=EF=BF=BD-"
+			"=EF=BF=BD-=EF=BF=BD-=EF=BF=BD--=EF=BF=BD?=",
+		"-\xC3\xC3-\xC3\xC3-\xC3\xC3-\xC3\xC3-\xC3\xC3-\xC3\xC3-",
+			"=?utf-8?b?Le+/vS3vv70t77+9Le+/vS3vv70t77+9LQ==?=",
+		"-\xC3\xC3\xC3-\xC3\xC3\xC3-\xC3\xC3\xC3-"
+		"\xC3\xC3\xC3-\xC3\xC3\xC3-\xC3\xC3\xC3-",
+			"=?utf-8?b?Le+/vS3vv70t77+9Le+/vS3vv70t77+9LQ==?=",
+		"\xC3\xC3\xC3\xC3\xC3\xC3\xC3\xC3\xC3\xC3\xC3\xC3\xC3\xC3",
+			"=?utf-8?b?77+9?=",
+		"-\xC3\xA4\xC3\xC3-\xC3\xC3\xA4\xC3-\xC3\xC3\xC3\xA4-"
+		"\xC3\xC3\xC3\xA4-\xC3\xC3\xA4\xC3-\xC3\xA4\xC3\xC3-",
+			"=?utf-8?b?LcOk77+9Le+/vcOk77+9Le+/"
+			"vcOkLe+/vcOkLe+/vcOk77+9LcOk77+9LQ==?=",
 	};                          
 	string_t *str = t_str_new(128);
 	unsigned int i;
@@ -199,7 +262,7 @@ static void test_message_header_encode(void)
 	for (i = 0; i < N_ELEMENTS(data); i += 2) {
 		str_truncate(str, 0);
 		message_header_encode(data[i], str);
-		test_assert(strcmp(str_c(str), data[i+1]) == 0);
+		test_assert_strcmp(str_c(str), data[i+1]);
 	}
 	test_end();
 }
@@ -211,11 +274,11 @@ static void test_message_header_encode_data(void)
 
 	test_begin("message header encode data");
 	message_header_encode_data(nuls, 1, str);
-	test_assert(strcmp(str_c(str), "=?utf-8?q?=00?=") == 0);
+	test_assert_strcmp(str_c(str), "=?utf-8?q?=00?=");
 
 	str_truncate(str, 0);
 	message_header_encode_data(nuls, sizeof(nuls), str);
-	test_assert(strcmp(str_c(str), "=?utf-8?b?AAAAAAAAAAAAAA==?=") == 0);
+	test_assert_strcmp(str_c(str), "=?utf-8?b?AAAAAAAAAAAAAA==?=");
 	test_end();
 }
 

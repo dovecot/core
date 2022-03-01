@@ -70,6 +70,9 @@ struct sql_db_vfuncs {
 			 const char **error);
 	void (*deinit)(struct sql_db *db);
 	void (*unref)(struct sql_db *db);
+	void (*wait) (struct sql_db *db);
+
+	enum sql_db_flags (*get_flags)(struct sql_db *db);
 
 	int (*connect)(struct sql_db *db);
 	void (*disconnect)(struct sql_db *db);

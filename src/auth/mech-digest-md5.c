@@ -257,9 +257,8 @@ static bool auth_handle_response(struct digest_auth_request *request,
 	(void)str_lcase(key);
 
 	if (strcmp(key, "realm") == 0) {
-		if (request->auth_request.realm == NULL && *value != '\0')
-			request->auth_request.realm =
-				p_strdup(request->pool, value);
+		if (request->auth_request.fields.realm == NULL && *value != '\0')
+			auth_request_set_realm(&request->auth_request, value);
 		return TRUE;
 	}
 
@@ -523,10 +522,10 @@ mech_digest_md5_auth_continue(struct auth_request *auth_request,
 	const char *username, *error;
 
 	if (parse_digest_response(request, data, data_size, &error)) {
-		if (auth_request->realm != NULL &&
+		if (auth_request->fields.realm != NULL &&
 		    strchr(request->username, '@') == NULL) {
 			username = t_strconcat(request->username, "@",
-					       auth_request->realm, NULL);
+					       auth_request->fields.realm, NULL);
 			auth_request->domain_is_realm = TRUE;
 		} else {
 			username = request->username;

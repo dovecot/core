@@ -4,9 +4,13 @@
 #include "buffer.h"
 #include "istream.h"
 #include "str.h"
+#include "strfuncs.h"
 #include "unichar.h"
 #include "message-size.h"
 #include "message-header-parser.h"
+
+/* RFC 5322 2.1.1 and 2.2 */
+#define MESSAGE_HEADER_NAME_MAX_LEN 1000
 
 struct message_header_parser_ctx {
 	struct message_header_line line;
@@ -262,16 +266,15 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		line->value = msg;
 		line->value_len = size;
 	} else if (colon_pos == UINT_MAX) {
-		/* missing ':', assume the whole line is name */
-		line->value = NULL;
-		line->value_len = 0;
+		/* missing ':', assume the whole line is value */
+		line->value = msg;
+		line->value_len = size;
+		line->full_value_offset = line->name_offset;
 
-		str_truncate(ctx->name, 0);
-		buffer_append(ctx->name, msg, size);
-		line->name = str_c(ctx->name);
-		line->name_len = str_len(ctx->name);
+		line->name = "";
+		line->name_len = 0;
 
-		line->middle = NULL;
+		line->middle = uchar_empty_ptr;
 		line->middle_len = 0;
 	} else {
 		size_t pos;
@@ -309,21 +312,34 @@ int message_parse_header_next(struct message_header_parser_ctx *ctx,
 		while (colon_pos > 0 && IS_LWSP(msg[colon_pos-1]))
 			colon_pos--;
 
-		str_truncate(ctx->name, 0);
-		/* use buffer_append() so the name won't be truncated if there
-		   are NULs. */
-		buffer_append(ctx->name, msg, colon_pos);
-		str_append_c(ctx->name, '\0');
+		/* Treat overlong header names as if the full header line was
+		   a value. Callers can usually handle large values better than
+		   large names. */
+		if (colon_pos > MESSAGE_HEADER_NAME_MAX_LEN) {
+			line->name = "";
+			line->name_len = 0;
+			line->middle = uchar_empty_ptr;
+			line->middle_len = 0;
+			line->value = msg;
+			line->value_len = size;
+			line->full_value_offset = line->name_offset;
+		} else {
+			str_truncate(ctx->name, 0);
+			/* use buffer_append() so the name won't be truncated if there
+			   are NULs. */
+			buffer_append(ctx->name, msg, colon_pos);
+			str_append_c(ctx->name, '\0');
 
-		/* keep middle stored also in ctx->name so it's available
-		   with use_full_value */
-		line->middle = msg + colon_pos;
-		line->middle_len = (size_t)(line->value - line->middle);
-		str_append_data(ctx->name, line->middle, line->middle_len);
+			/* keep middle stored also in ctx->name so it's available
+			   with use_full_value */
+			line->middle = msg + colon_pos;
+			line->middle_len = (size_t)(line->value - line->middle);
+			str_append_data(ctx->name, line->middle, line->middle_len);
 
-		line->name = str_c(ctx->name);
-		line->name_len = colon_pos;
-		line->middle = str_data(ctx->name) + line->name_len + 1;
+			line->name = str_c(ctx->name);
+			line->name_len = colon_pos;
+			line->middle = str_data(ctx->name) + line->name_len + 1;
+		}
 	}
 
 	if (!line->continued) {
@@ -433,4 +449,26 @@ message_header_strdup(pool_t pool, const unsigned char *data, size_t size)
 			str_append(str, UNICODE_REPLACEMENT_CHAR_UTF8);
 	}
 	return str_c(str);
+}
+
+bool message_header_name_is_valid(const char *name)
+{
+	/*
+	  field-name      =   1*ftext
+
+	  ftext           =   %d33-57 /          ; Printable US-ASCII
+			      %d59-126           ;  characters not including
+						 ;  ":".
+	*/
+	for (unsigned int i = 0; name[i] != '\0'; i++) {
+		unsigned char c = name[i];
+		if (c >= 33 && c <= 57) {
+			/* before ":" */
+		} else if (c >= 59 && c <= 126) {
+			/* after ":" */
+		} else {
+			return FALSE;
+		}
+	}
+	return TRUE;
 }

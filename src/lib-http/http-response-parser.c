@@ -65,7 +65,7 @@ http_response_parser_restart(struct http_response_parser *parser)
 	http_message_parser_restart(&parser->parser, NULL);
 	parser->response_status = 0;
 	parser->response_reason = NULL;
-	parser->response_offset = (uoff_t)-1;
+	parser->response_offset = UOFF_T_MAX;
 }
 
 static int http_response_parse_status(struct http_response_parser *parser)
@@ -236,7 +236,6 @@ static int http_response_parse(struct http_response_parser *parser)
 	}
 
 	i_unreached();
-	return -1;
 }
 
 static int
@@ -303,7 +302,7 @@ http_response_parse_retry_after(const char *hdrval, time_t resp_time,
 	}
 
 	return (http_date_parse
-		((unsigned char *)hdrval, strlen(hdrval), retry_after_r) ? 0 : -1);
+		((const unsigned char *)hdrval, strlen(hdrval), retry_after_r) ? 0 : -1);
 }
 
 uoff_t http_response_parser_get_last_offset(struct http_response_parser *parser)
@@ -332,7 +331,7 @@ int http_response_parse_next(struct http_response_parser *parser,
 		http_response_parser_restart(parser);
 
 	/* RFC 7230, Section 3:
-		
+
 	   HTTP-message   = start-line
 	                   *( header-field CRLF )
 	                    CRLF
@@ -343,7 +342,7 @@ int http_response_parse_next(struct http_response_parser *parser,
 			*error_r = parser->parser.error;
 			return ret;
 		}
-	} 
+	}
 	if ((ret = http_message_parse_headers(&parser->parser)) <= 0) {
 		*error_r = parser->parser.error;
 		return ret;
@@ -382,12 +381,12 @@ int http_response_parse_next(struct http_response_parser *parser,
 		/* [ message-body ] */
 		if (http_message_parse_body(&parser->parser, FALSE) < 0) {
 			*error_r = parser->parser.error;
- 			return -1;
+			return -1;
 		}
 	}
 
 	/* RFC 7231, Section 7.1.3: Retry-After
-	
+
 	   Servers send the "Retry-After" header field to indicate how long the
 	   user agent ought to wait before making a follow-up request.  When
 	   sent with a 503 (Service Unavailable) response, Retry-After indicates
@@ -396,7 +395,7 @@ int http_response_parse_next(struct http_response_parser *parser,
 	   the minimum time that the user agent is asked to wait before issuing
 	   the redirected request.
 	 */
-	if (parser->response_status == 503 || (parser->response_status / 100) == 3) {		
+	if (parser->response_status == 503 || (parser->response_status / 100) == 3) {
 		hdrval = http_header_field_get(parser->parser.msg.header, "Retry-After");
 		if (hdrval != NULL) {
 			(void)http_response_parse_retry_after

@@ -1,7 +1,8 @@
 noinst_LTLIBRARIES = libdns.la
 
 AM_CPPFLAGS = \
-	-I$(top_srcdir)/src/lib
+	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test
 
 libdns_la_SOURCES = \
 	dns-lookup.c \
@@ -12,6 +13,7 @@ headers = \
 	dns-util.h
 
 test_programs = \
+	test-dns-lookup \
 	test-dns-util
 
 noinst_PROGRAMS = $(test_programs)
@@ -21,10 +23,11 @@ test_libs = \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 
-test_dns_util_SOURCE = test-dns-util.c
+test_dns_util_SOURCES = test-dns-util.c
 test_dns_util_LDADD = $(test_libs)
-test_dns_util_CFLAGS = $(AM_CPPFLAGS) \
-	-I$(top_srcdir)/src/lib-test
+
+test_dns_lookup_SOURCES = test-dns-lookup.c
+test_dns_lookup_LDADD = $(test_libs)
 
 check-local:
 	for bin in $(test_programs); do \

@@ -9,6 +9,10 @@ doveadm\-stats \- Inspect or reset stats
 .BR doveadm\ stats\ top " [ " \-s\ <stats\ socket\ path> " ] " "[ " -b " ]" " [ " sort field> " ]"
 .PP
 .BR doveadm\ stats\ reset " [ " \-s\ <stats\ socket\ path> " ] "
+.PP
+.BR doveadm\ stats\ add " [ " \-\-description\ <string> " ] [ " \-\-exporter\ <name> " [ " \-\-exporter-include\ <field> " ]] [ " \-\-fields\ <fields> " ] [ " \-\-group_by\ <fields> " ] " <name>\ <filter>
+.PP
+.BR doveadm\ stats\ remove\ <name>
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
 .B doveadm stats dump
@@ -19,6 +23,12 @@ is used to monitor statistics
 .PP
 .B doveadm stats reset
 is used to reset statistics
+.PP
+.B doveadm stats add
+is used to add metrics to statistics
+.PP
+.B doveadm stats remove
+is used to remove metrics from statistics
 .\"------------------------------------------------------------------------
 .SH OPTIONS
 Command specific

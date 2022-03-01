@@ -161,7 +161,8 @@ int mailbox_list_subscriptions_refresh(struct mailbox_list *src_list,
 								 src_list, name);
 		} T_END;
 		if (ret < 0) {
-			i_warning("Subscriptions file %s: "
+			e_warning(dest_list->ns->user->event,
+				  "Subscriptions file %s: "
 				  "Removing invalid entry: %s",
 				  path, name);
 			(void)subsfile_set_subscribed(src_list, path,
@@ -184,7 +185,7 @@ void mailbox_list_set_subscription_flags(struct mailbox_list *list,
 {
 	struct mailbox_node *node;
 
-	*flags &= ~(MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED);
+	*flags &= ENUM_NEGATE(MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED);
 
 	node = mailbox_tree_lookup(list->subscriptions, vname);
 	if (node != NULL) {
@@ -298,7 +299,7 @@ mailbox_list_subscriptions_iter_next(struct mailbox_list_iterate_context *_ctx)
 
 	}
 
-	ctx->info.flags &= ~(MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED);
+	ctx->info.flags &= ENUM_NEGATE(MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED);
 	ctx->info.flags |=
 		node->flags & (MAILBOX_SUBSCRIBED | MAILBOX_CHILD_SUBSCRIBED);
 	return &ctx->info;

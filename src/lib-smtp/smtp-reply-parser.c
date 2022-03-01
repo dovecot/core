@@ -162,7 +162,7 @@ smtp_reply_parser_init(struct istream *input, size_t max_reply_size)
 
 	parser = i_new(struct smtp_reply_parser, 1);
 	parser->max_reply_size =
-		(max_reply_size > 0 ? max_reply_size : (size_t)-1);
+		(max_reply_size > 0 ? max_reply_size : SIZE_MAX);
 	parser->input = input;
 	i_stream_ref(input);
 	parser->strbuf = str_new(default_pool, 128);
@@ -424,21 +424,21 @@ static int smtp_reply_parse_more(struct smtp_reply_parser *parser)
 		case SMTP_REPLY_PARSE_STATE_SEP:
 			switch (*parser->cur) {
 			/* "-" [ textstring ] CRLF */
-			case '-': 
+			case '-':
 				parser->cur++;
 				parser->state.last_line = FALSE;
 				parser->state.state =
 					SMTP_REPLY_PARSE_STATE_TEXT;
 				break;
 			/* SP [ textstring ] CRLF ; allow missing text */
-			case ' ': 
+			case ' ':
 				parser->cur++;
 				parser->state.state =
 					SMTP_REPLY_PARSE_STATE_TEXT;
 				parser->state.last_line = TRUE;
 				break;
 			/* CRLF */
-			case '\r': 
+			case '\r':
 			case '\n':
 				parser->state.last_line = TRUE;
 				parser->state.state = SMTP_REPLY_PARSE_STATE_CR;
@@ -537,7 +537,6 @@ static int smtp_reply_parse_more(struct smtp_reply_parser *parser)
 	}
 
 	i_unreached();
-	return -1;
 }
 
 static int smtp_reply_parse(struct smtp_reply_parser *parser)

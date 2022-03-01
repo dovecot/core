@@ -28,20 +28,18 @@ static int mail_lua_call_hook(struct dlua_script *script,
 			      const char *hook,
 			      const char **error_r)
 {
-	lua_getglobal(script->L, hook);
+	const char *error;
 
-	/* not found, disable */
-	if (!lua_isfunction(script->L, -1))
+	if (!dlua_script_has_function(script, hook))
 		return 0;
 
 	if (user->mail_debug)
 		e_debug(user->event, "mail-lua: Calling %s(user)", hook);
 
-	dlua_push_mail_user(script, user);
+	dlua_push_mail_user(script->L, user);
 
-	if (lua_pcall(script->L, 1, 2, 0) != 0) {
-		*error_r = t_strdup_printf("%s(user) failed: %s",
-					   hook, lua_tostring(script->L, -1));
+	if (dlua_pcall(script->L, hook, 1, 2, &error) < 0) {
+		*error_r = t_strdup_printf("%s(user) failed: %s", hook, error);
 		return -1;
 	}
 
@@ -53,6 +51,7 @@ static int mail_lua_call_hook(struct dlua_script *script,
 					   hook, errmsg);
 	}
 
+	lua_pop(script->L, 2);
 	(void)lua_gc(script->L, LUA_GCCOLLECT, 0);
 
 	return ret < 0 ? -1 : 1;
@@ -62,13 +61,12 @@ static void mail_lua_user_deinit_pre(struct mail_user *user)
 {
 	struct mail_lua_user_context *luser = MAIL_LUA_USER_CONTEXT(user);
 	const char *error;
-	int ret;
 
 	if (luser == NULL)
 		return;
 
-	if ((ret = mail_lua_call_hook(luser->script, user, MAIL_LUA_USER_DEINIT_PRE_FN,
-				      &error)) < 0) {
+	if (mail_lua_call_hook(luser->script, user, MAIL_LUA_USER_DEINIT_PRE_FN,
+			       &error) < 0) {
 		e_error(user->event, "mail-lua: %s", error);
 	}
 
@@ -79,15 +77,14 @@ static void mail_lua_user_deinit(struct mail_user *user)
 {
 	struct mail_lua_user_context *luser = MAIL_LUA_USER_CONTEXT(user);
 	const char *error;
-	int ret;
 
 	if (luser == NULL)
 		return;
 
 	luser->module_ctx.super.deinit(user);
 
-	if ((ret = mail_lua_call_hook(luser->script, user, MAIL_LUA_USER_DEINIT_FN,
-				      &error)) < 0) {
+	if (mail_lua_call_hook(luser->script, user, MAIL_LUA_USER_DEINIT_FN,
+			       &error) < 0) {
 		e_error(user->event, "mail-lua: %s", error);
 	}
 

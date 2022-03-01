@@ -10,6 +10,7 @@
 
 #include "zstd.h"
 #include "zstd_errors.h"
+#include "iostream-zstd-private.h"
 
 struct zstd_ostream {
 	struct ostream_private ostream;
@@ -20,28 +21,55 @@ struct zstd_ostream {
 	unsigned char *outbuf;
 
 	bool flushed:1;
-	bool log_errors:1;
 	bool closed:1;
 	bool finished:1;
 };
 
-static void o_stream_zstd_error(struct zstd_ostream *zstream, const char *error)
+int compression_get_min_level_zstd(void)
 {
-	io_stream_set_error(&zstream->ostream.iostream,
-			    "zstd.write(%s): %s at %"PRIuUOFF_T,
-			    o_stream_get_name(&zstream->ostream.ostream), error,
-			    zstream->ostream.ostream.offset);
-	if (zstream->log_errors)
-		i_error("%s", zstream->ostream.iostream.error);
+#if HAVE_DECL_ZSTD_MINCLEVEL == 1
+	return ZSTD_minCLevel();
+#else
+	return 1;
+#endif
+}
+
+int compression_get_default_level_zstd(void)
+{
+#ifdef ZSTD_CLEVEL_DEFAULT
+	return ZSTD_CLEVEL_DEFAULT;
+#else
+	/* Documentation says 3 is default */
+	return 3;
+#endif
+}
+
+int compression_get_max_level_zstd(void)
+{
+	return ZSTD_maxCLevel();
 }
 
 static void o_stream_zstd_write_error(struct zstd_ostream *zstream, size_t err)
 {
+	ZSTD_ErrorCode errcode = zstd_version_errcode(ZSTD_getErrorCode(err));
 	const char *error = ZSTD_getErrorName(err);
-	if (err == ZSTD_error_memory_allocation)
+	if (errcode == ZSTD_error_memory_allocation)
 		i_fatal_status(FATAL_OUTOFMEM, "zstd.write(%s): Out of memory",
 			       o_stream_get_name(&zstream->ostream.ostream));
-	o_stream_zstd_error(zstream, error);
+	else if (errcode == ZSTD_error_prefix_unknown ||
+#if HAVE_DECL_ZSTD_ERROR_PARAMETER_UNSUPPORTED == 1
+		 errcode == ZSTD_error_parameter_unsupported ||
+#endif
+		 errcode == ZSTD_error_dictionary_wrong ||
+		 errcode == ZSTD_error_init_missing)
+		zstream->ostream.ostream.stream_errno = EINVAL;
+	else
+		zstream->ostream.ostream.stream_errno = EIO;
+
+	io_stream_set_error(&zstream->ostream.iostream,
+			    "zstd.write(%s): %s at %"PRIuUOFF_T,
+			    o_stream_get_name(&zstream->ostream.ostream), error,
+			    zstream->ostream.ostream.offset);
 }
 
 static ssize_t o_stream_zstd_send_outbuf(struct zstd_ostream *zstream)
@@ -75,24 +103,37 @@ o_stream_zstd_sendv(struct ostream_private *stream,
 
 	for (unsigned int i = 0; i < iov_count; i++) {
 		/* does it actually fit there */
-		if (zstream->output.pos + iov[i].iov_len >= zstream->output.size)
-			break;
 		ZSTD_inBuffer input = {
 			.src = iov[i].iov_base,
 			.pos = 0,
 			.size = iov[i].iov_len
 		};
-		ret = ZSTD_compressStream(zstream->cstream, &zstream->output,
-					  &input);
-		if (ZSTD_isError(ret) != 0) {
-			o_stream_zstd_write_error(zstream, ret);
-			return -1;
+		bool flush_attempted = FALSE;
+		for (;;) {
+			size_t prev_pos = input.pos;
+			ret = ZSTD_compressStream(zstream->cstream, &zstream->output,
+						  &input);
+			if (ZSTD_isError(ret) != 0) {
+				o_stream_zstd_write_error(zstream, ret);
+				return -1;
+			}
+			size_t new_input_size = input.pos - prev_pos;
+			if (new_input_size == 0 && flush_attempted) {
+				/* non-blocking output buffer full */
+				return total;
+			}
+			stream->ostream.offset += new_input_size;
+			total += new_input_size;
+			if (input.pos == input.size)
+				break;
+			/* output buffer full. try to flush it. */
+			if (o_stream_zstd_send_outbuf(zstream) < 0)
+				return -1;
+			flush_attempted = TRUE;
 		}
-		total += input.pos;
 	}
 	if (o_stream_zstd_send_outbuf(zstream) < 0)
 		return -1;
-	stream->ostream.offset += total;
 	return total;
 }
 
@@ -100,8 +141,10 @@ static int o_stream_zstd_send_flush(struct zstd_ostream *zstream, bool final)
 {
 	int ret;
 
-	if (zstream->flushed)
+	if (zstream->flushed) {
+		i_assert(zstream->output.pos == 0);
 		return 1;
+	}
 
 	if ((ret = o_stream_flush_parent_if_needed(&zstream->ostream)) <= 0)
 		return ret;
@@ -129,6 +172,7 @@ static int o_stream_zstd_send_flush(struct zstd_ostream *zstream, bool final)
 
 	if (final)
 		zstream->flushed = TRUE;
+	i_assert(zstream->output.pos == 0);
 	return 1;
 }
 
@@ -172,7 +216,10 @@ o_stream_create_zstd(struct ostream *output, int level)
 	struct zstd_ostream *zstream;
 	size_t ret;
 
-	i_assert(level >= 1 && level <= ZSTD_maxCLevel());
+	i_assert(level >= compression_get_min_level_zstd() &&
+		 level <= compression_get_max_level_zstd());
+
+	zstd_version_check();
 
 	zstream = i_new(struct zstd_ostream, 1);
 	zstream->ostream.sendv = o_stream_zstd_sendv;

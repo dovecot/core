@@ -57,6 +57,7 @@ mech_oauthbearer_input(struct dsasl_client *_client,
 
 		/* deinitialize json parser */
 		int ret = json_parser_deinit(&parser, &error);
+		i_stream_unref(&is);
 
 		if (status != NULL)
 			client->status = p_strdup(_client->pool, status);
@@ -155,7 +156,7 @@ mech_oauthbearer_set_parameter(struct dsasl_client *_client, const char *key,
 	} else if (strcmp(key, "port") == 0) {
 		if (value == NULL) {
 			client->port = 0;
-		} else if (net_str2port(key, &client->port) < 0) {
+		} else if (net_str2port(value, &client->port) < 0) {
 			*error_r = "Invalid port value";
 			return -1;
 		}

@@ -156,6 +156,11 @@ cmd_notify_add_mailbox(struct imap_notify_context *ctx,
 	size_t cur_len, name_len = strlen(name);
 	char ns_sep = mail_namespace_get_sep(ns);
 
+	if (mail_namespace_is_removable(ns)) {
+		/* exclude removable namespaces */
+		return;
+	}
+
 	if ((ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0 &&
 	    !str_begins(name, "INBOX") &&
 	    strncasecmp(name, "INBOX", 5) == 0 &&
@@ -436,7 +441,6 @@ imap_notify_box_send_status(struct client_command_context *cmd,
 		items.flags |= IMAP_STATUS_ITEM_HIGHESTMODSEQ;
 
 	box = mailbox_alloc(info->ns->list, info->vname, MAILBOX_FLAG_READONLY);
-	mailbox_set_reason(box, "NOTIFY send STATUS");
 	(void)mailbox_enable(box, client_enabled_mailbox_features(ctx->client));
 
 	if (imap_status_get(cmd, info->ns, info->vname, &items, &result) < 0) {

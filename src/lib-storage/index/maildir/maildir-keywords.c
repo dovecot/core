@@ -478,7 +478,7 @@ unsigned int maildir_keywords_char_idx(struct maildir_keywords_sync_ctx *ctx,
 char maildir_keywords_idx_char(struct maildir_keywords_sync_ctx *ctx,
 			       unsigned int idx)
 {
-	const char *const *name_p;
+	const char *name;
 	char *chr_p;
 	unsigned int chridx;
 	int ret;
@@ -487,10 +487,10 @@ char maildir_keywords_idx_char(struct maildir_keywords_sync_ctx *ctx,
 	if (*chr_p != '\0')
 		return *chr_p;
 
-	name_p = array_idx(ctx->keywords, idx);
+	name = array_idx_elem(ctx->keywords, idx);
 	ret = !ctx->readonly ?
-		maildir_keywords_lookup_or_create(ctx->mk, *name_p, &chridx) :
-		maildir_keywords_lookup(ctx->mk, *name_p, &chridx);
+		maildir_keywords_lookup_or_create(ctx->mk, name, &chridx) :
+		maildir_keywords_lookup(ctx->mk, name, &chridx);
 	if (ret <= 0)
 		return '\0';
 

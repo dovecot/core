@@ -124,6 +124,8 @@ void ssl_iostream_context_unref(struct ssl_iostream_context **_ctx)
 {
 	struct ssl_iostream_context *ctx = *_ctx;
 
+	if (*_ctx == NULL)
+		return;
 	*_ctx = NULL;
 	ssl_vfuncs->context_unref(ctx);
 }

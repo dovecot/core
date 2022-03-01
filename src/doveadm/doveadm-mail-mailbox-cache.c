@@ -115,7 +115,7 @@ static const char *
 cmd_mailbox_cache_decision_to_str(enum mail_cache_decision_type decision)
 {
 	string_t *ret = t_str_new(10);
-	switch((decision & ~MAIL_CACHE_DECISION_FORCED)) {
+	switch((decision & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED))) {
 	case MAIL_CACHE_DECISION_NO:
 		str_append(ret, "no");
 		break;
@@ -250,7 +250,7 @@ static int cmd_mailbox_cache_remove_box(struct mailbox_cache_cmd_context *ctx,
 	int ret = 0, count = 0;
 
 	if (doveadm_mail_iter_init(&ctx->ctx, info, ctx->ctx.search_args,
-				   0, NULL, FALSE, &iter) < 0)
+				   0, NULL, 0, &iter) < 0)
 		return -1;
 
 	box = doveadm_mail_iter_get_mailbox(iter);

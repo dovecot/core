@@ -7,12 +7,9 @@
 #include "mail-storage-settings.h"
 #include "fs-crypt-settings.h"
 
-#undef DEF
-#define DEF(type, name) \
-	{ type, #name, offsetof(struct fs_crypt_settings, name), NULL }
-
 static const struct setting_define fs_crypt_setting_defines[] = {
-	{ SET_STRLIST, "plugin", offsetof(struct fs_crypt_settings, plugin_envs), NULL },
+	{ .type = SET_STRLIST, .key = "plugin",
+	  .offset = offsetof(struct fs_crypt_settings, plugin_envs) },
 
 	SETTING_DEFINE_LIST_END
 };
@@ -30,9 +27,9 @@ const struct setting_parser_info fs_crypt_setting_parser_info = {
 	.defines = fs_crypt_setting_defines,
 	.defaults = &fs_crypt_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct fs_crypt_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 	.dependencies = fs_crypt_setting_dependencies
 };

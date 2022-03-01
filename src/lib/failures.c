@@ -61,7 +61,7 @@ static bool failure_ignore_errors = FALSE, log_prefix_sent = FALSE;
 static bool coredump_on_error = FALSE;
 static void log_timestamp_add(const struct failure_context *ctx, string_t *str);
 static void log_prefix_add(const struct failure_context *ctx, string_t *str);
-static void i_failure_send_option(const char *key, const char *value);
+static int i_failure_send_option_forced(const char *key, const char *value);
 static int internal_send_split(string_t *full_str, size_t prefix_len);
 
 static string_t * ATTR_FORMAT(3, 0) default_format(const struct failure_context *ctx,
@@ -109,10 +109,8 @@ static void default_on_handler_failure(const struct failure_context *ctx)
 		   write error to error log - maybe that'll work. */
 		i_fatal_status(FATAL_LOGWRITE, "write() failed to %s log: %m",
 			       log_type);
-		break;
 	default:
 		failure_exit(FATAL_LOGWRITE);
-		break;
 	}
 }
 
@@ -191,8 +189,13 @@ static string_t * ATTR_FORMAT(3, 0) internal_format(const struct failure_context
 		if (ctx->log_prefix_type_pos != 0)
 			log_type |= LOG_TYPE_FLAG_PREFIX_LEN;
 	} else if (!log_prefix_sent && log_prefix != NULL) {
+		if (i_failure_send_option_forced("prefix", log_prefix) < 0) {
+			/* Failed to write log prefix. The log message writing
+			   would likely fail as well, but don't even try since
+			   the log prefix would be wrong. */
+			return NULL;
+		}
 		log_prefix_sent = TRUE;
-		i_failure_send_option("prefix", log_prefix);
 	}
 
 	str = t_str_new(128);
@@ -266,7 +269,8 @@ static int common_handler(const struct failure_context *ctx,
 
 	T_BEGIN {
 		string_t *str = failure_handler.v->format(ctx, &prefix_len, format, args);
-		ret = failure_handler.v->write(ctx->type, str, prefix_len);
+		ret = str == NULL ? -1 :
+			failure_handler.v->write(ctx->type, str, prefix_len);
 	} T_END;
 
 	if (ret < 0 && failure_ignore_errors)
@@ -310,7 +314,7 @@ void failure_exit(int status)
 		recursed = TRUE;
 		failure_exit_callback(&status);
 	}
-	exit(status);
+	lib_exit(status);
 }
 
 static void log_timestamp_add(const struct failure_context *ctx, string_t *str)
@@ -516,6 +520,7 @@ void i_panic(const char *format, ...)
 	struct failure_context ctx;
 	va_list args;
 
+	lib_set_clean_exit(TRUE);
 	i_zero(&ctx);
 	ctx.type = LOG_TYPE_PANIC;
 
@@ -530,6 +535,7 @@ void i_fatal(const char *format, ...)
 	struct failure_context ctx;
 	va_list args;
 
+	lib_set_clean_exit(TRUE);
 	i_zero(&ctx);
 	ctx.type = LOG_TYPE_FATAL;
 	ctx.exit_status = FATAL_DEFAULT;
@@ -545,6 +551,7 @@ void i_fatal_status(int status, const char *format, ...)
 	struct failure_context ctx;
 	va_list args;
 
+	lib_set_clean_exit(TRUE);
 	i_zero(&ctx);
 	ctx.type = LOG_TYPE_FATAL;
 	ctx.exit_status = status;
@@ -717,16 +724,20 @@ void i_set_failure_file(const char *path, const char *prefix)
 	i_set_debug_handler(default_error_handler);
 }
 
-static void i_failure_send_option(const char *key, const char *value)
+static int i_failure_send_option_forced(const char *key, const char *value)
 {
 	const char *str;
 
-	if (error_handler != i_internal_error_handler)
-		return;
-
 	str = t_strdup_printf("\001%c%s %s=%s\n", LOG_TYPE_OPTION+1,
 			      my_pid, key, value);
-	(void)write_full(STDERR_FILENO, str, strlen(str));
+	return log_fd_write(STDERR_FILENO, (const unsigned char *)str,
+			    strlen(str));
+}
+
+static void i_failure_send_option(const char *key, const char *value)
+{
+	if (error_handler == i_internal_error_handler)
+		(void)i_failure_send_option_forced(key, value);
 }
 
 void i_set_failure_prefix(const char *prefix_fmt, ...)
@@ -755,12 +766,30 @@ const char *i_get_failure_prefix(void)
 
 static int internal_send_split(string_t *full_str, size_t prefix_len)
 {
+	/* This function splits the log line into PIPE_BUF sized blocks, so
+	   the log process doesn't see partial lines. The log prefix is
+	   repeated for each sent line. However, if the log prefix is
+	   excessively long, we're still going to send the log lines even
+	   if they are longer than PIPE_BUF. LINE_MIN_TEXT_LEN controls the
+	   minimum number of bytes we're going to send of the actual log line
+	   regardless of the log prefix length. (Alternative solution could be
+	   to just forcibly split the line to PIPE_BUF length blocks without
+	   repeating the log prefix for subsequent lines.) */
+#define LINE_MIN_TEXT_LEN 128
+#if LINE_MIN_TEXT_LEN >= PIPE_BUF
+#  error LINE_MIN_TEXT_LEN too large
+#endif
 	string_t *str;
 	size_t max_text_len, pos = prefix_len;
 
 	str = t_str_new(PIPE_BUF);
 	str_append_data(str, str_data(full_str), prefix_len);
-	max_text_len = PIPE_BUF - prefix_len - 1;
+	if (prefix_len < PIPE_BUF) {
+		max_text_len = I_MAX(PIPE_BUF - prefix_len - 1,
+				     LINE_MIN_TEXT_LEN);
+	} else {
+		max_text_len = LINE_MIN_TEXT_LEN;
+	}
 
 	while (pos < str_len(full_str)) {
 		str_truncate(str, prefix_len);
@@ -958,4 +987,10 @@ void failures_deinit(void)
 	i_free_and_null(log_prefix);
 	i_free_and_null(log_stamp_format);
 	i_free_and_null(log_stamp_format_suffix);
+}
+
+#undef i_unreached
+void i_unreached(const char *source_filename, int source_linenum)
+{
+	i_panic("file %s: line %d: unreached", source_filename, source_linenum);
 }

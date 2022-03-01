@@ -6,6 +6,12 @@
 
 struct program_client;
 
+enum program_client_exit_status {
+	PROGRAM_CLIENT_EXIT_STATUS_INTERNAL_FAILURE = -1,
+	PROGRAM_CLIENT_EXIT_STATUS_FAILURE = 0,
+	PROGRAM_CLIENT_EXIT_STATUS_SUCCESS = 1,
+};
+
 struct program_client_settings {
 	unsigned int client_connect_timeout_msecs;
 	unsigned int input_idle_timeout_msecs;
@@ -31,7 +37,8 @@ struct program_client_settings {
 };
 
 typedef void program_client_fd_callback_t(void *context, struct istream *input);
-typedef void program_client_callback_t(int, void *);
+typedef void program_client_callback_t(enum program_client_exit_status status,
+				       void *context);
 
 struct program_client *
 program_client_local_create(const char *bin_path, const char *const *args,
@@ -82,14 +89,17 @@ void program_client_set_extra_fd(struct program_client *pclient, int fd,
 void program_client_set_env(struct program_client *pclient,
 	const char *name, const char *value);
 
-/* Since script service cannot return system exit code, the exit value shall be
-   -1, 0, or 1. -1 is internal error, 0 is failure and 1 is success */
-int program_client_run(struct program_client *pclient);
+enum program_client_exit_status
+program_client_run(struct program_client *pclient);
 void program_client_run_async(struct program_client *pclient,
 			      program_client_callback_t *, void*);
 #define program_client_run_async(pclient, callback, context) \
 	program_client_run_async(pclient, (program_client_callback_t*)callback, \
-		(char*)context - CALLBACK_TYPECHECK(callback, \
-			void (*)(int, typeof(context))))
+		1 ? context : CALLBACK_TYPECHECK(callback, \
+			void (*)(enum program_client_exit_status, typeof(context))))
 
+/* wait on program client by running an internal ioloop
+   make sure pclient is not free'd in the program client callback when
+   using this function */
+void program_client_wait(struct program_client *pclient);
 #endif

@@ -28,7 +28,7 @@ push_notification_event_flagsset_debug_msg(
 	struct push_notification_txn_event *event)
 {
 	struct push_notification_event_flagsset_data *data = event->data;
-	const char *const *keyword;
+	const char *keyword;
 
 	if ((data->flags_set & MAIL_ANSWERED) != 0)
 		i_debug("%s: Answered flag set", EVENT_NAME);
@@ -41,8 +41,8 @@ push_notification_event_flagsset_debug_msg(
 	if ((data->flags_set & MAIL_DRAFT) != 0)
 		i_debug("%s: Draft flag set", EVENT_NAME);
 
-	array_foreach(&data->keywords_set, keyword)
-		i_debug("%s: Keyword set [%s]", EVENT_NAME, *keyword);
+	array_foreach_elem(&data->keywords_set, keyword)
+		i_debug("%s: Keyword set [%s]", EVENT_NAME, keyword);
 }
 
 static struct push_notification_event_flagsset_data *

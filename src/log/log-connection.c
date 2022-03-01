@@ -31,6 +31,13 @@ struct log_client {
 	bool fatal_logged:1;
 };
 
+struct log_line_metadata {
+	bool continues;
+	enum log_type log_type;
+	pid_t pid;
+	char *log_prefix;
+};
+
 struct log_connection {
 	struct log_connection *prev, *next;
 
@@ -39,6 +46,8 @@ struct log_connection {
 	int listen_fd;
 	struct io *io;
 	struct istream *input;
+
+	struct log_line_metadata partial_line;
 
 	char *default_prefix;
 	HASH_TABLE(void *, struct log_client *) clients;
@@ -236,9 +245,17 @@ log_parse_master_line(const char *line, const struct timeval *log_time,
 	}
 }
 
+static void log_partial_line_free(struct log_connection *log)
+{
+	if (!log->partial_line.continues)
+		return;
+	i_free(log->partial_line.log_prefix);
+	i_zero(&log->partial_line);
+}
+
 static void
 log_it(struct log_connection *log, const char *line,
-       const struct timeval *log_time, const struct tm *tm)
+       const struct timeval *log_time, const struct tm *tm, bool partial_line)
 {
 	struct failure_line failure;
 	struct failure_context failure_ctx;
@@ -246,11 +263,39 @@ log_it(struct log_connection *log, const char *line,
 	const char *prefix = "";
 
 	if (log->master) {
+		if (partial_line) {
+			/* really not expected */
+			i_error("Received partial line from master: %s", line);
+		}
 		log_parse_master_line(line, log_time, tm);
 		return;
 	}
 
-	i_failure_parse_line(line, &failure);
+	if (log->partial_line.continues && line[0] != '\001') {
+		/* The previous line didn't have LF, and it's now continued
+		   here. We have the extra \001 check in here, because the
+		   write was larger than PIPE_BUF and there's no guarantee
+		   that the full write is sequential. The second line could
+		   be an unrelated line, and the continuation could happen
+		   sometimes after it. */
+		i_zero(&failure);
+		failure.log_type = log->partial_line.log_type;
+		failure.pid = log->partial_line.pid;
+		failure.text = t_strconcat("<line continued> ", line, NULL);
+		if (log->partial_line.log_prefix != NULL)
+			prefix = t_strdup(log->partial_line.log_prefix);
+		if (!partial_line)
+			log_partial_line_free(log);
+	} else {
+		i_failure_parse_line(line, &failure);
+		if (partial_line) {
+			log->partial_line.continues = TRUE;
+			log->partial_line.log_type = failure.log_type;
+			log->partial_line.pid = failure.pid;
+		} else {
+			log_partial_line_free(log);
+		}
+	}
 	switch (failure.log_type) {
 	case LOG_TYPE_FATAL:
 	case LOG_TYPE_PANIC:
@@ -278,6 +323,10 @@ log_it(struct log_connection *log, const char *line,
 		failure_ctx.log_prefix =
 			t_strndup(failure.text, failure.log_prefix_len);
 		failure.text += failure.log_prefix_len;
+		if (partial_line && log->partial_line.log_prefix == NULL) {
+			log->partial_line.log_prefix =
+				i_strdup(failure_ctx.log_prefix);
+		}
 	} else if (failure.disable_log_prefix) {
 		failure_ctx.log_prefix = "";
 	} else {
@@ -298,17 +347,17 @@ static int log_connection_handshake(struct log_connection *log)
 	   full handshake packet immediately. if not, treat it as an error
 	   message that we want to log. */
 	ret = i_stream_read(log->input);
-	if (ret < 0) {
+	if (ret == -1) {
 		i_error("read(log %s) failed: %s", log->default_prefix,
 			i_stream_get_error(log->input));
 		return -1;
 	}
-	if ((size_t)ret < sizeof(handshake)) {
+	data = i_stream_get_data(log->input, &size);
+	if (size < sizeof(handshake)) {
 		/* this isn't a handshake */
 		return 0;
 	}
 
-	data = i_stream_get_data(log->input, &size);
 	i_assert(size >= sizeof(handshake));
 	memcpy(&handshake, data, sizeof(handshake));
 
@@ -363,8 +412,19 @@ static void log_connection_input(struct log_connection *log)
 		now = ioloop_timeval;
 		tm = *localtime(&now.tv_sec);
 
-		while ((line = i_stream_next_line(log->input)) != NULL) T_BEGIN {
-			log_it(log, line, &now, &tm);
+		if (ret != -2) {
+			while ((line = i_stream_next_line(log->input)) != NULL) T_BEGIN {
+				log_it(log, line, &now, &tm, FALSE);
+			} T_END;
+		} else T_BEGIN {
+			/* LF not found, but buffer is full. Just log what we
+			   have for now. */
+			size_t size;
+			const unsigned char *data =
+				i_stream_get_data(log->input, &size);
+			line = t_strndup(data, size);
+			log_it(log, line, &now, &tm, TRUE);
+			i_stream_skip(log->input, size);
 		} T_END;
 		io_loop_time_refresh();
 		if (timeval_diff_msecs(&ioloop_timeval, &start_timeval) > MAX_MSECS_PER_CONNECTION) {
@@ -451,6 +511,7 @@ log_connection_destroy(struct log_connection *log, bool shutting_down)
 	io_remove(&log->io);
 	if (close(log->fd) < 0)
 		i_error("close(log connection fd) failed: %m");
+	log_partial_line_free(log);
 	i_free(log->default_prefix);
 	i_free(log);
 

@@ -135,9 +135,33 @@ static void test_net_str2hostport(void)
 	test_end();
 }
 
+static void test_net_unix_long_paths(void)
+{
+#ifdef ENAMETOOLONG
+	int long_errno = ENAMETOOLONG;
+#else
+	int long_errno = EOVERFLOW;
+#endif
+
+	test_begin("net_*_unix() - long paths");
+
+	char path[PATH_MAX];
+	memset(path, 'x', sizeof(path)-1);
+	path[sizeof(path)-1] = '\0';
+
+	test_assert(net_listen_unix(path, 1) == -1);
+	test_assert(errno == long_errno);
+
+	test_assert(net_connect_unix(path) == -1);
+	test_assert(errno == long_errno);
+
+	test_end();
+}
+
 void test_net(void)
 {
 	test_net_is_in_network();
 	test_net_ip2addr();
 	test_net_str2hostport();
+	test_net_unix_long_paths();
 }

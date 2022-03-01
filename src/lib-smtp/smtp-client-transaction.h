@@ -22,6 +22,7 @@ enum smtp_client_transaction_state {
 	SMTP_CLIENT_TRANSACTION_STATE_RESET,
 	SMTP_CLIENT_TRANSACTION_STATE_FINISHED,
 	SMTP_CLIENT_TRANSACTION_STATE_ABORTED
+	/* NOTE: keep synced with smtp_client_transaction_state_names[] */
 };
 extern const char *const smtp_client_transaction_state_names[];
 

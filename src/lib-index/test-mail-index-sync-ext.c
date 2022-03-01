@@ -3,33 +3,16 @@
 #include "lib.h"
 #include "array.h"
 #include "test-common.h"
+#include "mail-transaction-log-view-private.h"
 #include "mail-index-sync-private.h"
 #include "mail-index-modseq.h"
 
-
-void mail_index_sync_set_corrupted(struct mail_index_sync_map_ctx *ctx ATTR_UNUSED,
-				   const char *fmt ATTR_UNUSED, ...) {}
-struct mail_index_map *
-mail_index_sync_get_atomic_map(struct mail_index_sync_map_ctx *ctx) { return ctx->view->map; }
-uint32_t
-mail_index_map_register_ext(struct mail_index_map *map ATTR_UNUSED,
-			    const char *name ATTR_UNUSED, uint32_t ext_offset ATTR_UNUSED,
-			    const struct mail_index_ext_header *ext_hdr ATTR_UNUSED) { return 0; }
-bool mail_index_ext_lookup(struct mail_index *index ATTR_UNUSED,
-			   const char *name ATTR_UNUSED,
-			   uint32_t *ext_id_r ATTR_UNUSED) { return FALSE; }
-bool mail_index_map_lookup_ext(struct mail_index_map *map ATTR_UNUSED,
-			       const char *name ATTR_UNUSED,
-			       uint32_t *idx_r ATTR_UNUSED) { return FALSE; }
-int mail_index_map_ext_hdr_check(const struct mail_index_header *hdr ATTR_UNUSED,
-				 const struct mail_index_ext_header *ext_hdr ATTR_UNUSED,
-				 const char *name ATTR_UNUSED,
-				 const char **error_r ATTR_UNUSED) { return -1; }
-void mail_index_modseq_hdr_update(struct mail_index_modseq_sync *ctx ATTR_UNUSED) {}
-bool mail_index_lookup_seq(struct mail_index_view *view ATTR_UNUSED,
-			   uint32_t uid, uint32_t *seq_r) {
-	*seq_r = uid;
-	return TRUE;
+static void test_lookup_seq_range(struct mail_index_view *view ATTR_UNUSED,
+				  uint32_t first_uid, uint32_t last_uid,
+				  uint32_t *first_seq_r, uint32_t *last_seq_r)
+{
+	*first_seq_r = first_uid;
+	*last_seq_r = last_uid;
 }
 
 static void test_mail_index_sync_ext_atomic_inc(void)
@@ -43,6 +26,10 @@ static void test_mail_index_sync_ext_atomic_inc(void)
 
 	i_zero(&ctx);
 	ctx.view = t_new(struct mail_index_view, 1);
+	ctx.view->log_view = t_new(struct mail_transaction_log_view, 1);
+	ctx.view->index = t_new(struct mail_index, 1);
+	ctx.view->index->fsck_log_head_file_seq = 10; /* silence errors */
+	ctx.view->v.lookup_seq_range = test_lookup_seq_range;
 	ctx.view->map = t_new(struct mail_index_map, 1);
 	ctx.view->map->hdr.next_uid = 2;
 	ctx.view->map->hdr.record_size = sizeof(struct mail_index_record) + 16;
@@ -85,6 +72,7 @@ static void test_mail_index_sync_ext_atomic_inc(void)
 	u.diff = 0;
 	test_assert(mail_index_sync_ext_atomic_inc(&ctx, &u) == -1);
 
+	i_free(ctx.view->index->need_recreate);
 	test_end();
 }
 

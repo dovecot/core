@@ -195,7 +195,7 @@ struct client *client_create(int fd_in, int fd_out,
 		lmtp_set.capabilities |= SMTP_CAPABILITY_STARTTLS;
 	lmtp_set.hostname = client->unexpanded_lda_set->hostname;
 	lmtp_set.login_greeting = client->lmtp_set->login_greeting;
-	lmtp_set.max_message_size = (uoff_t)-1;
+	lmtp_set.max_message_size = UOFF_T_MAX;
 	lmtp_set.rcpt_param_extensions = rcpt_param_extensions;
 	lmtp_set.rcpt_domain_optional = TRUE;
 	lmtp_set.max_client_idle_time_msecs = CLIENT_IDLE_TIMEOUT_MSECS;
@@ -250,21 +250,23 @@ void client_state_reset(struct client *client)
 	p_clear(client->state_pool);
 }
 
-void client_destroy(struct client *client, const char *enh_code,
+void client_destroy(struct client **_client, const char *enh_code,
 		    const char *reason)
 {
-	client->v.destroy(client, enh_code, reason);
+	struct client *client = *_client;
+
+	*_client = NULL;
+
+	smtp_server_connection_terminate(&client->conn,
+		(enh_code == NULL ? "4.0.0" : enh_code), reason);
 }
 
 static void
-client_default_destroy(struct client *client, const char *enh_code,
-		       const char *reason)
+client_default_destroy(struct client *client)
 {
 	if (client->destroyed)
 		return;
 	client->destroyed = TRUE;
-
-	client_disconnect(client, enh_code, reason);
 
 	clients_count--;
 	DLLIST_REMOVE(&clients, client);
@@ -278,27 +280,6 @@ client_default_destroy(struct client *client, const char *enh_code,
 	pool_unref(&client->pool);
 
 	master_service_client_connection_destroyed(master_service);
-}
-
-void client_disconnect(struct client *client, const char *enh_code,
-		       const char *reason)
-{
-	struct smtp_server_connection *conn = client->conn;
-
-	if (client->disconnected)
-		return;
-	client->disconnected = TRUE;
-
-	if (reason == NULL)
-		reason = "Connection closed";
-	e_info(client->event, "Disconnect from %s: %s (state=%s)",
-	       client_remote_id(client), reason,
-			        smtp_server_state_names[client->state.state]);
-
-	if (conn != NULL) {
-		smtp_server_connection_terminate(
-			&conn, (enh_code == NULL ? "4.0.0" : enh_code), reason);
-	}
 }
 
 static void
@@ -376,14 +357,21 @@ static void client_connection_disconnect(void *context, const char *reason)
 {
 	struct client *client = (struct client *)context;
 
-	client_disconnect(client, NULL, reason);
+	if (client->disconnected)
+		return;
+	client->disconnected = TRUE;
+
+	if (reason == NULL)
+		reason = "Connection closed";
+	e_info(client->event, "Disconnect from %s: %s",
+	       client_remote_id(client), reason);
 }
 
-static void client_connection_destroy(void *context)
+static void client_connection_free(void *context)
 {
 	struct client *client = (struct client *)context;
 
-	client_destroy(client, NULL, NULL);
+	client->v.destroy(client);
 }
 
 static bool client_connection_is_trusted(void *context)
@@ -413,7 +401,8 @@ static bool client_connection_is_trusted(void *context)
 void clients_destroy(void)
 {
 	while (clients != NULL) {
-		client_destroy(clients, "4.3.2", "Shutting down");
+		struct client *client = clients;
+		client_destroy(&client, "4.3.2", "Shutting down");
 	}
 }
 
@@ -431,7 +420,7 @@ static const struct smtp_server_callbacks lmtp_callbacks = {
 	.conn_proxy_data_updated = client_connection_proxy_data_updated,
 
 	.conn_disconnect = client_connection_disconnect,
-	.conn_destroy = client_connection_destroy,
+	.conn_free = client_connection_free,
 
 	.conn_is_trusted = client_connection_is_trusted
 };

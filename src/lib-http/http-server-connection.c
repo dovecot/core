@@ -140,7 +140,8 @@ bool http_server_connection_shut_down(struct http_server_connection *conn)
 {
 	if (conn->request_queue_head == NULL ||
 	    conn->request_queue_head->state == HTTP_SERVER_REQUEST_STATE_NEW) {
-		http_server_connection_close(&conn, "Server shutting down");
+		http_server_connection_close(&conn,
+					     MASTER_SERVICE_SHUTTING_DOWN_MSG);
 		return TRUE;
 	}
 	return FALSE;
@@ -591,12 +592,7 @@ static void http_server_connection_input(struct connection *_conn)
 			conn->http_parser, req->pool, &req->req,
 			&error_code, &error)) > 0) {
 			conn->stats.request_count++;
-			http_server_request_update_event(req);
-			e_debug(conn->event, "Received new request %s "
-				"(%u requests pending; %u maximum)",
-				http_server_request_label(req),
-				conn->request_queue_count,
-				conn->server->set.max_pipelined_requests);
+			http_server_request_received(req);
 
 			http_server_request_immune_ref(req);
 			T_BEGIN {
@@ -948,8 +944,8 @@ bool http_server_connection_pending_payload(
 }
 
 static struct connection_settings http_server_connection_set = {
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.client = FALSE,
 	.log_connection_id = TRUE,
 };

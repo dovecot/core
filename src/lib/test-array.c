@@ -8,6 +8,44 @@ struct foo {
 	unsigned int a, b, c;
 };
 
+static void test_array_elem(void)
+{
+	ARRAY(struct foo *) foos;
+	struct foo *nfoo;
+	struct foo *foo;
+	struct foo local_foo;
+	unsigned int i;
+
+	test_begin("array elem");
+	t_array_init(&foos, 32);
+
+	foo = &local_foo;
+	array_foreach_elem(&foos, foo)
+		test_assert(FALSE);
+	test_assert(foo == &local_foo);
+
+	for (i = 1; i <= 3; i++) {
+		nfoo = t_new(struct foo, 1);
+		nfoo->a = i;
+		array_push_back(&foos, &nfoo);
+	}
+
+	struct foo *const *foo_p = array_idx(&foos, 1);
+	unsigned int idx = 1;
+	foo = array_idx_elem(&foos, idx++);
+	/* make sure idx isn't expanded multiple times in the macro */
+	test_assert(idx == 2);
+	test_assert(*foo_p == foo);
+
+	i = 1;
+	array_foreach_elem(&foos, foo) {
+		test_assert(foo->a == i);
+		i++;
+	}
+	test_assert(foo->a == i-1);
+	test_end();
+}
+
 static void test_array_count(void)
 {
 	ARRAY(struct foo) foos;
@@ -47,30 +85,60 @@ static void test_array_foreach(void)
 		test_assert(foo->b == i);
 		test_assert(foo->c == i);
 	}
+	/* points past the last element */
+	test_assert(foo == array_idx(&foos, i)+1);
 	test_end();
 }
-static void test_array_foreach_elem_struct(void)
+
+static void test_array_foreach_reverse(void)
 {
-	ARRAY(struct foo) foos;
-	struct foo foo;
-	unsigned int i;
+	ARRAY(unsigned int) arr;
+	const unsigned int *i_p;
+	unsigned int i, i2, *imod_p;
 
-	test_begin("array foreach_elem struct");
-	t_array_init(&foos, 32);
-	for (i = 0; i < 10; i++) {
-		foo.a = foo.b = foo.c = i;
-		array_push_back(&foos, &foo);
-	}
+	test_begin("array foreach reverse");
+	t_array_init(&arr, 32);
 
-	i = 0;
-	array_foreach_elem(&foos, foo) {
-		test_assert_idx(foo.a == i, i);
-		test_assert_idx(foo.b == i, i);
-		test_assert_idx(foo.c == i, i);
-		i++;
+	/* first test that array_foreach() + array_delete() doesn't really
+	   work as we might hope.. */
+	for (i = 1; i <= 5; i++)
+		array_push_back(&arr, &i);
+	array_foreach(&arr, i_p) {
+		i = array_foreach_idx(&arr, i_p);
+		array_delete(&arr, i, 1);
 	}
+	test_assert(array_count(&arr) == 2);
+
+	/* but using array_foreach_reverse() + array_delete() does work: */
+	array_clear(&arr);
+	i2 = 5;
+	for (i = 1; i <= i2; i++)
+		array_push_back(&arr, &i);
+	array_foreach_reverse(&arr, i_p) {
+		i = array_foreach_idx(&arr, i_p);
+		test_assert(*i_p == i2);
+		test_assert(*i_p == i + 1);
+		array_delete(&arr, i, 1);
+		i2--;
+	}
+	test_assert(array_count(&arr) == 0);
+
+	/* also array_foreach_reverse_modifiable() + array_delete() works: */
+	i2 = 5;
+	for (i = 1; i <= i2; i++)
+		array_push_back(&arr, &i);
+	array_foreach_reverse_modifiable(&arr, imod_p) {
+		i = array_foreach_idx(&arr, imod_p);
+		test_assert(*imod_p == i2);
+		test_assert(*imod_p == i + 1);
+		array_delete(&arr, i, 1);
+		i2--;
+	}
+	test_assert(array_count(&arr) == 0);
+
 	test_end();
 }
+
 static void test_array_foreach_elem_string(void)
 {
 	ARRAY(char *) blurbs;
@@ -84,7 +152,7 @@ static void test_array_foreach_elem_string(void)
 	t_array_init(&cblurbs, 32);
 	for (i = 0; i < 10; i++) {
 		cstring = t_strdup_printf("x%iy", i);
-		string = (char *)cstring;
+		string = t_strdup_noconst(cstring);
 		array_push_back(&blurbs, &string);
 		array_push_back(&cblurbs, &cstring);
 	}
@@ -99,28 +167,6 @@ static void test_array_foreach_elem_string(void)
 		test_assert_idx(cstring[0] == 'x' && cstring[1]-'0' == i && cstring[2] == 'y', i);
 		i++;
 	}
-	test_end();
-}
-
-static void test_array_swap(void)
-{
-	ARRAY(struct foo) foos[3];
-	struct foo nfoo;
-	int i, j;
-
-	test_begin("array swap");
-	for (i = 1; i <= 3; i++) {
-		t_array_init(&foos[i-1], i);
-		for (j = 1; j <= 2*i+1; j++) {
-			nfoo.a = nfoo.b = nfoo.c = j;
-			array_push_back(&foos[i - 1], &nfoo);
-		}
-	}
-	for (i = 0; i < 1000; i++)
-		array_swap(&foos[i_rand()%3], &foos[i_rand()%3]);
-	/* Just want size 3, 5, and 7 in any order */
-	test_assert(array_count(&foos[0]) * array_count(&foos[1]) * array_count(&foos[2]) == 3*5*7);
-	test_assert(array_count(&foos[0]) + array_count(&foos[1]) + array_count(&foos[2]) == 3+5+7);
 	test_end();
 }
 
@@ -191,7 +237,7 @@ static void test_array_cmp(void)
 	t_array_init(&arr1, NELEMS);
 	t_array_init(&arr2, NELEMS);
 	for (i = 0; i < NELEMS; i++) {
-		elems[i] = i_rand();
+		elems[i] = i_rand_ushort();
 		array_push_back(&arr2, &elems[i]);
 	}
 	array_append(&arr1, elems, NELEMS);
@@ -201,10 +247,11 @@ static void test_array_cmp(void)
 	test_assert(array_equal_fn_ctx(&arr1, &arr2, test_compare_ushort_fuzz, &fuzz) == TRUE);
 
 	for (i = 0; i < 256; i++) {
-		unsigned int j = i_rand() % NELEMS;
+		unsigned int j = i_rand_limit(NELEMS);
 		const unsigned short *ptmp = array_idx(&arr2, j);
 		unsigned short tmp = *ptmp;
-		unsigned short repl = tmp + deltas[i_rand() % N_ELEMENTS(deltas)];
+		unsigned short repl = ((unsigned int)tmp +
+			deltas[i_rand_limit(N_ELEMENTS(deltas))]) & 0xffff;
 
 		array_idx_set(&arr2, j, &repl);
 		test_assert_idx(array_cmp(&arr1, &arr2) == (tmp == repl), i);
@@ -232,10 +279,6 @@ static void test_array_cmp(void)
 	test_end();
 }
 
-static int test_compare_string(const char *const *c1, const char *const *c2)
-{
-	return strcmp(*c1, *c2);
-}
 static void test_array_cmp_str(void)
 {
 #define NELEMS 5u
@@ -252,29 +295,29 @@ static void test_array_cmp_str(void)
 	}
 	array_append(&arr1, elemstrs, NELEMS);
 	test_assert(array_cmp(&arr1, &arr2) == TRUE); /* pointers shared, so identical */
-	test_assert(array_equal_fn(&arr1, &arr2, test_compare_string) == TRUE); /* therefore value same */
+	test_assert(array_equal_fn(&arr1, &arr2, i_strcmp_p) == TRUE); /* therefore value same */
 	for (i = 0; i < 2560; i++) {
-		unsigned int j = i_rand() % NELEMS;
+		unsigned int j = i_rand_limit(NELEMS);
 		const char *const *ostr_p = array_idx(&arr2, j);
 		const char *ostr = *ostr_p;
 		unsigned int olen = strlen(ostr);
-		unsigned int rc = i_rand() % (olen + 1);
+		unsigned int rc = i_rand_limit(olen + 1);
 		char ochar = ostr[rc];
 		char buf[12];
 		const char *bufp = buf;
 		memcpy(buf, ostr, olen+1);
-		buf[rc] = i_rand() % (CHAR_MAX + 1 - CHAR_MIN) + CHAR_MIN;
+		buf[rc] = (int32_t)i_rand_limit(CHAR_MAX + 1 - CHAR_MIN) + CHAR_MIN;
 		if(rc == olen)
 			buf[rc+1] = '\0';
 		array_idx_set(&arr2, j, &bufp);
 		test_assert(array_cmp(&arr1, &arr2) == FALSE); /* pointers now differ */
-		test_assert_idx(array_equal_fn(&arr1, &arr2, test_compare_string)
+		test_assert_idx(array_equal_fn(&arr1, &arr2, i_strcmp_p)
 				== (strcmp(ostr, buf) == 0), i); /* sometimes still the same */
-		test_assert_idx(array_equal_fn(&arr1, &arr2, test_compare_string)
+		test_assert_idx(array_equal_fn(&arr1, &arr2, i_strcmp_p)
 				== (ochar == buf[rc]), i); /* ditto */
 		array_idx_set(&arr2, j, &ostr);
 		test_assert(array_cmp(&arr1, &arr2) == TRUE); /* pointers now same again */
-		test_assert_idx(array_equal_fn(&arr1, &arr2, test_compare_string) == TRUE, i); /* duh! */
+		test_assert_idx(array_equal_fn(&arr1, &arr2, i_strcmp_p) == TRUE, i); /* duh! */
 	}
 	/* length differences being detected are tested in other tests */
 	test_end();
@@ -311,14 +354,14 @@ test_array_free(void)
 
 void test_array(void)
 {
+	test_array_elem();
 	test_array_count();
 	test_array_foreach();
-	test_array_foreach_elem_struct();
+	test_array_foreach_reverse();
 	test_array_foreach_elem_string();
 	test_array_reverse();
 	test_array_cmp();
 	test_array_cmp_str();
-	test_array_swap();
 	test_array_free();
 }
 
@@ -358,6 +401,34 @@ enum fatal_test_state fatal_array(unsigned int stage)
 		/* can't copy different array sizes */
 		test_expect_fatal_string("(array_copy): assertion failed: (dest->element_size == src->element_size)");
 		array_copy(&ad.arr, 1, &as.arr, 0, 4);
+		return FATAL_TEST_FAILURE;
+	}
+	case 3: {
+		ARRAY(uint8_t) arr;
+		/* Allocate value dynamically, so compiler won't know the
+		   allocated memory size and output a warning that it's too
+		   small for array_append(). */
+		uint8_t *value = t_malloc0(1);
+
+		t_array_init(&arr, 2);
+		array_push_back(&arr, value);
+		test_expect_fatal_string("Buffer write out of range");
+		/* this is supposed to assert-crash before it even attempts to
+		   access value */
+		array_append(&arr, value, UINT_MAX);
+		return FATAL_TEST_FAILURE;
+	}
+	case 4: {
+		ARRAY(uint32_t) arr;
+		/* Allocate value dynamically (see above for reasoning). */
+		uint32_t *value = t_malloc0(1);
+
+		t_array_init(&arr, 2);
+		array_push_back(&arr, value);
+		test_expect_fatal_string("Buffer write out of range");
+		/* this is supposed to assert-crash before it even attempts to
+		   access value */
+		array_append(&arr, value, UINT_MAX);
 		return FATAL_TEST_FAILURE;
 	}
 	}

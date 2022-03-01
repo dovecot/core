@@ -2,9 +2,12 @@
 #define MASTER_SERVICE_H
 
 #include "net.h"
+#include "guid.h"
 
 #include <unistd.h> /* for getopt() opt* variables */
 #include <stdio.h> /* for getopt() opt* variables in Solaris */
+
+#define MASTER_SERVICE_SHUTTING_DOWN_MSG "Server shutting down"
 
 enum master_service_flags {
 	/* stdin/stdout already contains a client which we want to serve */
@@ -27,11 +30,12 @@ enum master_service_flags {
 	/* Show number of connections in process title
 	   (only if verbose_proctitle setting is enabled) */
 	MASTER_SERVICE_FLAG_UPDATE_PROCTITLE	= 0x100,
-	/* Always read SSL settings into memory, even if there are no ssl
-	   listeners or _HAVE_STARTTLS flag hasn't been set. This is mainly
-	   intended to be used when SSL client settings are wanted to be
-	   accessed via lib-master. */
-	MASTER_SERVICE_FLAG_USE_SSL_SETTINGS	= 0x200,
+	/* Don't read any SSL settings. This is mainly needed to prevent master
+	   process from trying to pass through huge list of SSL CA certificates
+	   through environment for ssl_ca setting, which could fail. Although
+	   the same problem can still happen with standalone doveadm if it
+	   reads settings via doveconf instead of config socket. */
+	MASTER_SERVICE_FLAG_DISABLE_SSL_SET	= 0x200,
 	/* Don't initialize SSL context automatically. */
 	MASTER_SERVICE_FLAG_NO_SSL_INIT		= 0x400,
 	/* Don't create a data stack frame between master_service_init() and
@@ -46,11 +50,11 @@ enum master_service_flags {
 };
 
 struct master_service_connection_proxy {
-        /* only set if ssl is TRUE */
-        const char *hostname;
-        const char *cert_common_name;
-        const unsigned char *alpn;
-        unsigned int alpn_size;
+	/* only set if ssl is TRUE */
+	const char *hostname;
+	const char *cert_common_name;
+	const unsigned char *alpn;
+	unsigned int alpn_size;
 
 	bool ssl:1;
 	bool ssl_client_cert:1;
@@ -91,8 +95,25 @@ struct master_service_connection {
 	bool accepted:1;
 };
 
+struct master_service_anvil_session {
+	const char *username;
+	/* NULL-terminated array of (field, value) pairs */
+	const char *const *alt_usernames;
+	const char *service_name;
+	struct ip_addr ip;
+	/* Proxy destination IP */
+	struct ip_addr dest_ip;
+};
+
 typedef void
 master_service_connection_callback_t(struct master_service_connection *conn);
+
+/* If kill==TRUE, the callback should kill one of the existing connections
+   (likely the oldest). If kill==FALSE, it's just a request to check what is
+   the creation timestamp for the connection to be killed. Returns TRUE if
+   a connection was/could be killed, FALSE if not. */
+typedef bool
+master_service_avail_overflow_callback_t(bool kill, struct timeval *created_r);
 
 extern struct master_service *master_service;
 
@@ -157,10 +178,9 @@ void master_service_set_die_callback(struct master_service *service,
 void master_service_set_idle_die_callback(struct master_service *service,
 					  bool (*callback)(void));
 /* Call the given callback when there are no available connections and master
-   has indicated that it can't create any more processes to handle requests.
-   The callback could decide to kill one of the existing connections. */
+   has indicated that it can't create any more processes to handle requests. */
 void master_service_set_avail_overflow_callback(struct master_service *service,
-						void (*callback)(void));
+	master_service_avail_overflow_callback_t *callback);
 
 /* Set maximum number of clients we can handle. Default is given by master. */
 void master_service_set_client_limit(struct master_service *service,
@@ -213,13 +233,27 @@ void master_service_stop(struct master_service *service);
 void master_service_stop_new_connections(struct master_service *service);
 /* Returns TRUE if we've received a SIGINT/SIGTERM and we've decided to stop. */
 bool master_service_is_killed(struct master_service *service);
+/* Returns the signal that caused service to stop. */
+int master_service_get_kill_signal(struct master_service *service);
+/* Returns the timestamp when the stop signal was received. */
+void master_service_get_kill_time(struct master_service *service,
+				  struct timeval *tv_r);
 /* Returns TRUE if our master process is already stopped. This process may or
    may not be dying itself. Returns FALSE always if the process was started
    standalone. */
 bool master_service_is_master_stopped(struct master_service *service);
 
-/* Send command to anvil process, if we have fd to it. */
-void master_service_anvil_send(struct master_service *service, const char *cmd);
+/* Send CONNECT command to anvil process, if it's still connected. Returns TRUE
+   and connection GUID if it was successfully sent. If kick_supported=TRUE, the
+   process implements the KICK-USER command in anvil and admin sockets. */
+bool master_service_anvil_connect(struct master_service *service,
+	const struct master_service_anvil_session *session,
+	bool kick_supported, guid_128_t conn_guid_r);
+/* Send DISCONNECT command to anvil process, if it's still connected.
+   The conn_guid must match the guid returned by _connect(). */
+void master_service_anvil_disconnect(struct master_service *service,
+	const struct master_service_anvil_session *session,
+	const guid_128_t conn_guid);
 /* Call to accept the client connection. Otherwise the connection is closed. */
 void master_service_client_connection_accept(struct master_service_connection *conn);
 /* Used to create "extra client connections" outside the common accept()
@@ -246,7 +280,20 @@ bool version_string_verify_full(const char *line, const char *service_name,
 				unsigned major_version,
 				unsigned int *minor_version_r);
 
-/* Returns TRUE if ssl module has been loaded */
-bool master_service_is_ssl_module_loaded(struct master_service *service);
+/* Sets process shutdown filter */
+void master_service_set_process_shutdown_filter(struct master_service *service,
+						struct event_filter *filter);
+/* Unsets process shutdown filter, if it exists */
+void master_service_unset_process_shutdown_filter(struct master_service *service);
+
+/* Change the user being currently handled. Call with user=NULL once done.
+   This is used by SIGTERM handler to prevent doveadm kick from kicking wrong
+   users due to race conditions. */
+void master_service_set_current_user(struct master_service *service,
+				     const char *user);
+/* Set the user that is expected to be kicked by the next SIGTERM. If it
+   doesn't match the current_user, the SIGTERM will be ignored. */
+void master_service_set_last_kick_signal_user(struct master_service *service,
+					      const char *user);
 
 #endif

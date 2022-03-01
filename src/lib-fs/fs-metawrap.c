@@ -33,6 +33,9 @@ struct metawrap_fs_file {
 	bool metadata_changed_since_write;
 };
 
+#define METAWRAP_FS(ptr)	container_of((ptr), struct metawrap_fs, fs)
+#define METAWRAP_FILE(ptr)	container_of((ptr), struct metawrap_fs_file, file)
+
 static struct fs *fs_metawrap_alloc(void)
 {
 	struct metawrap_fs *fs;
@@ -46,7 +49,7 @@ static int
 fs_metawrap_init(struct fs *_fs, const char *args,
 		 const struct fs_settings *set, const char **error_r)
 {
-	struct metawrap_fs *fs = (struct metawrap_fs *)_fs;
+	struct metawrap_fs *fs = METAWRAP_FS(_fs);
 	const char *parent_name, *parent_args;
 
 	if (*args == '\0') {
@@ -69,24 +72,23 @@ fs_metawrap_init(struct fs *_fs, const char *args,
 	return 0;
 }
 
-static void fs_metawrap_deinit(struct fs *_fs)
+static void fs_metawrap_free(struct fs *_fs)
 {
-	struct metawrap_fs *fs = (struct metawrap_fs *)_fs;
+	struct metawrap_fs *fs = METAWRAP_FS(_fs);
 
-	fs_deinit(&_fs->parent);
 	i_free(fs);
 }
 
 static enum fs_properties fs_metawrap_get_properties(struct fs *_fs)
 {
-	const struct metawrap_fs *fs = (const struct metawrap_fs *)_fs;
+	const struct metawrap_fs *fs = METAWRAP_FS(_fs);
 	enum fs_properties props;
 
 	props = fs_get_properties(_fs->parent);
 	if (fs->wrap_metadata) {
 		/* we don't have a quick stat() to see the file's size,
 		   because of the metadata header */
-		props &= ~FS_PROPERTY_STAT;
+		props &= ENUM_NEGATE(FS_PROPERTY_STAT);
 		/* Copying can copy the whole metadata. */
 		props |= FS_PROPERTY_COPY_METADATA;
 	}
@@ -103,23 +105,23 @@ static void
 fs_metawrap_file_init(struct fs_file *_file, const char *path,
 		      enum fs_open_mode mode, enum fs_open_flags flags)
 {
-	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
-	struct metawrap_fs *fs = (struct metawrap_fs *)_file->fs;
+	struct metawrap_fs_file *file = METAWRAP_FILE(_file);
+	struct metawrap_fs *fs = METAWRAP_FS(_file->fs);
 
 	file->file.path = i_strdup(path);
 	file->fs = fs;
 	file->open_mode = mode;
 
 	/* avoid unnecessarily creating two seekable streams */
-	flags &= ~FS_OPEN_FLAG_SEEKABLE;
+	flags &= ENUM_NEGATE(FS_OPEN_FLAG_SEEKABLE);
 
-	file->file.parent = fs_file_init_parent(_file, path, mode | flags);
+	file->file.parent = fs_file_init_parent(_file, path, mode, flags);
 	if (file->fs->wrap_metadata && mode == FS_OPEN_MODE_READONLY &&
 	    (flags & FS_OPEN_FLAG_ASYNC) == 0) {
 		/* use async stream for parent, so fs_read_stream() won't create
 		   another seekable stream needlessly */
 		file->super_read = fs_file_init_parent(_file, path,
-			mode | flags | FS_OPEN_FLAG_ASYNC |
+			mode, flags | FS_OPEN_FLAG_ASYNC |
 			FS_OPEN_FLAG_ASYNC_NOQUEUE);
 	} else {
 		file->super_read = file->file.parent;
@@ -129,7 +131,7 @@ fs_metawrap_file_init(struct fs_file *_file, const char *path,
 
 static void fs_metawrap_file_deinit(struct fs_file *_file)
 {
-	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
+	struct metawrap_fs_file *file = METAWRAP_FILE(_file);
 
 	if (file->super_read != _file->parent)
 		fs_file_deinit(&file->super_read);
@@ -141,7 +143,7 @@ static void fs_metawrap_file_deinit(struct fs_file *_file)
 
 static void fs_metawrap_file_close(struct fs_file *_file)
 {
-	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
+	struct metawrap_fs_file *file = METAWRAP_FILE(_file);
 
 	i_stream_unref(&file->input);
 	fs_file_close(file->super_read);
@@ -152,7 +154,7 @@ static void
 fs_metawrap_set_metadata(struct fs_file *_file, const char *key,
 			 const char *value)
 {
-	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
+	struct metawrap_fs_file *file = METAWRAP_FILE(_file);
 
 	if (!file->fs->wrap_metadata ||
 	    strcmp(key, FS_METADATA_WRITE_FNAME) == 0)
@@ -168,7 +170,7 @@ fs_metawrap_get_metadata(struct fs_file *_file,
 			 enum fs_get_metadata_flags flags,
 			 const ARRAY_TYPE(fs_metadata) **metadata_r)
 {
-	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
+	struct metawrap_fs_file *file = METAWRAP_FILE(_file);
 	ssize_t ret;
 	char c;
 
@@ -206,7 +208,7 @@ fs_metawrap_get_metadata(struct fs_file *_file,
 
 static bool fs_metawrap_prefetch(struct fs_file *_file, uoff_t length)
 {
-	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
+	struct metawrap_fs_file *file = METAWRAP_FILE(_file);
 
 	if (!file->fs->wrap_metadata)
 		return fs_prefetch(_file->parent, length);
@@ -216,7 +218,7 @@ static bool fs_metawrap_prefetch(struct fs_file *_file, uoff_t length)
 
 static ssize_t fs_metawrap_read(struct fs_file *_file, void *buf, size_t size)
 {
-	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
+	struct metawrap_fs_file *file = METAWRAP_FILE(_file);
 
 	if (!file->fs->wrap_metadata)
 		return fs_read(_file->parent, buf, size);
@@ -264,7 +266,7 @@ fs_metawrap_read_stream(struct fs_file *_file, size_t max_buffer_size)
 
 static int fs_metawrap_write(struct fs_file *_file, const void *data, size_t size)
 {
-	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
+	struct metawrap_fs_file *file = METAWRAP_FILE(_file);
 
 	if (!file->fs->wrap_metadata)
 		return fs_write(_file->parent, data, size);
@@ -347,7 +349,7 @@ fs_metawrap_create_updated_istream(struct metawrap_fs_file *file,
 					       str_len(file->metadata_header));
 
 	i_stream_seek(input, file->metadata_write_size);
-	inputs[1] = i_stream_create_limit(input, (uoff_t)-1);
+	inputs[1] = i_stream_create_limit(input, UOFF_T_MAX);
 	inputs[2] = NULL;
 	input2 = i_stream_create_concat(inputs);
 	i_stream_unref(&inputs[0]);
@@ -359,7 +361,7 @@ fs_metawrap_create_updated_istream(struct metawrap_fs_file *file,
 
 static int fs_metawrap_write_stream_finish(struct fs_file *_file, bool success)
 {
-	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
+	struct metawrap_fs_file *file = METAWRAP_FILE(_file);
 	struct istream *input;
 	int ret;
 
@@ -394,15 +396,11 @@ static int fs_metawrap_write_stream_finish(struct fs_file *_file, bool success)
 	/* finish writing the temporary file */
 	if (file->temp_output->offset == 0) {
 		/* empty file - temp_output is already finished,
-		   so we can't write to it. */
-		string_t *str = t_str_new(128);
-
-		o_stream_destroy(&file->temp_output);
-		fs_metawrap_append_metadata(file, str);
-		input = i_stream_create_copy_from_data(str_data(str), str_len(str));
-	} else {
-		input = iostream_temp_finish(&file->temp_output, IO_BLOCK_SIZE);
+		   so we can't write to it. To make sure metadata is still
+		   appended/written to file use metadata_changed_since_write */
+		file->metadata_changed_since_write = TRUE;
 	}
+	input = iostream_temp_finish(&file->temp_output, IO_BLOCK_SIZE);
 	if (file->metadata_changed_since_write) {
 		/* we'll need to recreate the metadata. do this by creating a
 		   new istream combining the new metadata header and the
@@ -425,7 +423,7 @@ static int fs_metawrap_write_stream_finish(struct fs_file *_file, bool success)
 
 static int fs_metawrap_stat(struct fs_file *_file, struct stat *st_r)
 {
-	struct metawrap_fs_file *file = (struct metawrap_fs_file *)_file;
+	struct metawrap_fs_file *file = METAWRAP_FILE(_file);
 	struct istream *input;
 	uoff_t input_size;
 	ssize_t ret;
@@ -480,7 +478,7 @@ static int fs_metawrap_stat(struct fs_file *_file, struct stat *st_r)
 
 static int fs_metawrap_copy(struct fs_file *_src, struct fs_file *_dest)
 {
-	struct metawrap_fs_file *dest = (struct metawrap_fs_file *)_dest;
+	struct metawrap_fs_file *dest = METAWRAP_FILE(_dest);
 
 	if (!dest->fs->wrap_metadata || !_dest->metadata_changed)
 		return fs_wrapper_copy(_src, _dest);
@@ -493,7 +491,8 @@ const struct fs fs_class_metawrap = {
 	.v = {
 		fs_metawrap_alloc,
 		fs_metawrap_init,
-		fs_metawrap_deinit,
+		NULL,
+		fs_metawrap_free,
 		fs_metawrap_get_properties,
 		fs_metawrap_file_alloc,
 		fs_metawrap_file_init,

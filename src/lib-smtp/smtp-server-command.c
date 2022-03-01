@@ -11,9 +11,9 @@
  * Command registry
  */
 
-void smtp_server_command_register(struct smtp_server *server,
-	const char *name, smtp_server_cmd_start_func_t *func,
-	enum smtp_server_command_flags flags)
+void smtp_server_command_register(struct smtp_server *server, const char *name,
+				  smtp_server_cmd_start_func_t *func,
+				  enum smtp_server_command_flags flags)
 {
 	struct smtp_server_command_reg cmd;
 
@@ -26,8 +26,9 @@ void smtp_server_command_register(struct smtp_server *server,
 	server->commands_unsorted = TRUE;
 }
 
-void smtp_server_command_unregister(struct smtp_server *server,
-				    const char *name)
+static bool ATTR_NOWARN_UNUSED_RESULT
+smtp_server_command_do_unregister(struct smtp_server *server,
+				  const char *name)
 {
 	const struct smtp_server_command_reg *cmd;
 	unsigned int i, count;
@@ -36,11 +37,27 @@ void smtp_server_command_unregister(struct smtp_server *server,
 	for (i = 0; i < count; i++) {
 		if (strcasecmp(cmd[i].name, name) == 0) {
 			array_delete(&server->commands_reg, i, 1);
-			return;
+			return TRUE;
 		}
 	}
 
+	return FALSE;
+}
+
+void smtp_server_command_unregister(struct smtp_server *server,
+				    const char *name)
+{
+	if (smtp_server_command_do_unregister(server, name))
+		return;
 	i_panic("smtp-server: Trying to unregister unknown command '%s'", name);
+}
+
+void smtp_server_command_override(struct smtp_server *server, const char *name,
+				  smtp_server_cmd_start_func_t *func,
+				  enum smtp_server_command_flags flags)
+{
+	smtp_server_command_do_unregister(server, name);
+	smtp_server_command_register(server, name, func, flags);
 }
 
 static int
@@ -75,50 +92,46 @@ void smtp_server_commands_init(struct smtp_server *server)
 
 	switch (server->set.protocol) {
 	case SMTP_PROTOCOL_SMTP:
-		smtp_server_command_register(server,
-			"EHLO", smtp_server_cmd_ehlo,
+		smtp_server_command_register(
+			server,	"EHLO", smtp_server_cmd_ehlo,
 			SMTP_SERVER_CMD_FLAG_PRETLS |
 			SMTP_SERVER_CMD_FLAG_PREAUTH);
-		smtp_server_command_register(server,
-			"HELO", smtp_server_cmd_helo,
+		smtp_server_command_register(
+			server, "HELO", smtp_server_cmd_helo,
 			SMTP_SERVER_CMD_FLAG_PREAUTH);
 		break;
 	case SMTP_PROTOCOL_LMTP:
-		smtp_server_command_register(server,
-			"LHLO", smtp_server_cmd_ehlo,
+		smtp_server_command_register(
+			server, "LHLO", smtp_server_cmd_ehlo,
 			SMTP_SERVER_CMD_FLAG_PRETLS |
 			SMTP_SERVER_CMD_FLAG_PREAUTH);
 		break;
 	}
 
-	smtp_server_command_register(server,
-		"AUTH", smtp_server_cmd_auth,
+	smtp_server_command_register(
+		server, "AUTH", smtp_server_cmd_auth,
 		SMTP_SERVER_CMD_FLAG_PREAUTH);
-	smtp_server_command_register(server,
-		"STARTTLS", smtp_server_cmd_starttls,
+	smtp_server_command_register(
+		server, "STARTTLS", smtp_server_cmd_starttls,
 		SMTP_SERVER_CMD_FLAG_PRETLS | SMTP_SERVER_CMD_FLAG_PREAUTH);
-	smtp_server_command_register(server,
-		"MAIL", smtp_server_cmd_mail, 0);
-	smtp_server_command_register(server,
-		"RCPT", smtp_server_cmd_rcpt, 0);
-	smtp_server_command_register(server,
-		"DATA", smtp_server_cmd_data, 0);
-	smtp_server_command_register(server,
-		"BDAT", smtp_server_cmd_bdat, 0);
-	smtp_server_command_register(server,
-		"RSET", smtp_server_cmd_rset,
+	smtp_server_command_register(
+		server, "MAIL", smtp_server_cmd_mail, 0);
+	smtp_server_command_register(server, "RCPT", smtp_server_cmd_rcpt, 0);
+	smtp_server_command_register(server, "DATA", smtp_server_cmd_data, 0);
+	smtp_server_command_register(server, "BDAT", smtp_server_cmd_bdat, 0);
+	smtp_server_command_register(
+		server, "RSET", smtp_server_cmd_rset,
 		SMTP_SERVER_CMD_FLAG_PREAUTH);
-	smtp_server_command_register(server,
-		"VRFY", smtp_server_cmd_vrfy, 0);
-	smtp_server_command_register(server,
-		"NOOP", smtp_server_cmd_noop,
+	smtp_server_command_register(server, "VRFY", smtp_server_cmd_vrfy, 0);
+	smtp_server_command_register(
+		server, "NOOP", smtp_server_cmd_noop,
 		SMTP_SERVER_CMD_FLAG_PRETLS | SMTP_SERVER_CMD_FLAG_PREAUTH);
-	smtp_server_command_register(server,
-		"QUIT", smtp_server_cmd_quit,
+	smtp_server_command_register(
+		server, "QUIT", smtp_server_cmd_quit,
 		SMTP_SERVER_CMD_FLAG_PRETLS | SMTP_SERVER_CMD_FLAG_PREAUTH);
 
-	smtp_server_command_register(server,
-		"XCLIENT", smtp_server_cmd_xclient,
+	smtp_server_command_register(
+		server, "XCLIENT", smtp_server_cmd_xclient,
 		SMTP_SERVER_CMD_FLAG_PREAUTH);
 }
 
@@ -126,8 +139,7 @@ void smtp_server_commands_init(struct smtp_server *server)
  *
  */
 
-static void
-smtp_server_command_update_event(struct smtp_server_command *cmd)
+static void smtp_server_command_update_event(struct smtp_server_command *cmd)
 {
 	struct event *event = cmd->context.event;
 	const char *label = (cmd->context.name == NULL ?
@@ -174,10 +186,7 @@ smtp_server_command_new_invalid(struct smtp_server_connection *conn)
 	cmd = smtp_server_command_alloc(conn);
 	smtp_server_command_update_event(cmd);
 
-	struct event_passthrough *e =
-		event_create_passthrough(cmd->context.event)->
-		set_name("smtp_server_command_started");
-	e_debug(e->event(), "Invalid command");
+	e_debug(cmd->context.event, "Invalid command");
 
 	return cmd;
 }
@@ -195,10 +204,7 @@ smtp_server_command_new(struct smtp_server_connection *conn,
 
 	smtp_server_command_update_event(cmd);
 
-	struct event_passthrough *e =
-		event_create_passthrough(cmd->context.event)->
-		set_name("smtp_server_command_started");
-	e_debug(e->event(), "New command");
+	e_debug(cmd->context.event, "New command");
 
 	return cmd;
 }
@@ -207,6 +213,14 @@ void smtp_server_command_execute(struct smtp_server_command *cmd,
 				 const char *params)
 {
 	struct smtp_server_connection *conn = cmd->context.conn;
+
+	event_add_str(cmd->context.event, "cmd_args", params);
+	event_add_str(cmd->context.event, "cmd_human_args", params);
+
+	struct event_passthrough *e =
+		event_create_passthrough(cmd->context.event)->
+		set_name("smtp_server_command_started");
+	e_debug(e->event(), "Execute command");
 
 	if (cmd->reg == NULL) {
 		/* RFC 5321, Section 4.2.4: Reply Code 502
@@ -305,10 +319,12 @@ bool smtp_server_command_unref(struct smtp_server_command **_cmd)
 		conn->command_queue_count--;
 	}
 
-	/* execute hooks */
+	/* Execute hooks */
 	if (!smtp_server_command_call_hooks(
 		&cmd, SMTP_SERVER_COMMAND_HOOK_DESTROY, TRUE))
 		i_unreached();
+
+	smtp_server_command_pipeline_unblock(&cmd->context);
 
 	smtp_server_reply_free(cmd);
 	event_unref(&cmd->context.event);
@@ -321,7 +337,7 @@ void smtp_server_command_abort(struct smtp_server_command **_cmd)
 	struct smtp_server_command *cmd = *_cmd;
 	struct smtp_server_connection *conn = cmd->context.conn;
 
-	/* preemptively remove command from queue (references may still exist)
+	/* Preemptively remove command from queue (references may still exist)
 	 */
 	if (cmd->state >= SMTP_SERVER_COMMAND_STATE_FINISHED) {
 		e_debug(cmd->context.event, "Abort");
@@ -341,6 +357,7 @@ void smtp_server_command_abort(struct smtp_server_command **_cmd)
 	}
 	smtp_server_reply_free(cmd);
 
+	smtp_server_command_pipeline_unblock(&cmd->context);
 	smtp_server_command_unref(_cmd);
 }
 
@@ -356,7 +373,7 @@ void smtp_server_command_add_hook(struct smtp_server_command *cmd,
 
 	hook = cmd->hooks_head;
 	while (hook != NULL) {
-		/* no double registrations */
+		/* No double registrations */
 		i_assert(hook->type != type || hook->func != func);
 
 		hook = hook->next;
@@ -464,21 +481,25 @@ smtp_server_command_get_reply_count(struct smtp_server_command *cmd)
 	return cmd->replies_expected;
 }
 
-void smtp_server_command_ready_to_reply(struct smtp_server_command *cmd)
-{
-	cmd->state = SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY;
-	e_debug(cmd->context.event, "Ready to reply");
-	smtp_server_connection_trigger_output(cmd->context.conn);
-}
-
 bool smtp_server_command_next_to_reply(struct smtp_server_command **_cmd)
 {
 	struct smtp_server_command *cmd = *_cmd;
 
 	e_debug(cmd->context.event, "Next to reply");
 
-	return smtp_server_command_call_hooks(
-		_cmd, SMTP_SERVER_COMMAND_HOOK_NEXT, TRUE);
+	if (!smtp_server_command_call_hooks(
+		_cmd, SMTP_SERVER_COMMAND_HOOK_NEXT, TRUE))
+		return FALSE;
+
+	smtp_server_command_remove_hooks(cmd, SMTP_SERVER_COMMAND_HOOK_NEXT);
+	return TRUE;
+}
+
+void smtp_server_command_ready_to_reply(struct smtp_server_command *cmd)
+{
+	cmd->state = SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY;
+	e_debug(cmd->context.event, "Ready to reply");
+	smtp_server_connection_trigger_output(cmd->context.conn);
 }
 
 static bool
@@ -510,6 +531,9 @@ bool smtp_server_command_completed(struct smtp_server_command **_cmd)
 
 	e_debug(cmd->context.event, "Completed");
 
+	if (cmd->pipeline_blocked)
+		smtp_server_command_pipeline_unblock(&cmd->context);
+
 	return smtp_server_command_call_hooks(
 		_cmd, SMTP_SERVER_COMMAND_HOOK_COMPLETED, TRUE);
 }
@@ -524,7 +548,10 @@ smtp_server_command_handle_reply(struct smtp_server_command *cmd)
 	if (!smtp_server_command_replied(&cmd))
 		return smtp_server_connection_unref(&conn);
 
-	/* submit reply */
+	if (cmd->input_locked)
+		smtp_server_command_input_unlock(&cmd->context);
+
+	/* Submit reply */
 	switch (cmd->state) {
 	case SMTP_SERVER_COMMAND_STATE_NEW:
 	case SMTP_SERVER_COMMAND_STATE_PROCESSING:
@@ -573,9 +600,7 @@ void smtp_server_command_submit_reply(struct smtp_server_command *cmd)
 
 	i_assert(submitted == cmd->replies_submitted);
 
-	smtp_server_command_remove_hooks(cmd, SMTP_SERVER_COMMAND_HOOK_NEXT);
-
-	/* limit number of consecutive bad commands */
+	/* Limit number of consecutive bad commands */
 	if (is_bad)
 		conn->bad_counter++;
 	else if (cmd->replies_submitted == cmd->replies_expected)
@@ -629,7 +654,7 @@ bool smtp_server_command_reply_is_forwarded(struct smtp_server_command *cmd)
 
 struct smtp_server_reply *
 smtp_server_command_get_reply(struct smtp_server_command *cmd,
-	unsigned int idx)
+			      unsigned int idx)
 {
 	struct smtp_server_reply *reply;
 
@@ -645,7 +670,7 @@ smtp_server_command_get_reply(struct smtp_server_command *cmd,
 }
 
 bool smtp_server_command_reply_status_equals(struct smtp_server_command *cmd,
-	unsigned int status)
+					     unsigned int status)
 {
 	struct smtp_server_reply *reply;
 
@@ -673,6 +698,65 @@ bool smtp_server_command_replied_success(struct smtp_server_command *cmd)
 	}
 
 	return success;
+}
+
+static int
+smtp_server_command_send_more_replies(struct smtp_server_command *cmd)
+{
+	unsigned int i;
+	int ret = 1;
+
+	smtp_server_command_ref(cmd);
+
+	// FIXME: handle LMTP DATA command with enormous number of recipients;
+	// i.e. don't keep filling output stream with replies indefinitely.
+	for (i = 0; i < cmd->replies_expected; i++) {
+		struct smtp_server_reply *reply;
+
+		reply = array_idx_modifiable(&cmd->replies, i);
+
+		if (!reply->submitted) {
+			i_assert(!reply->sent);
+			ret = 0;
+			break;
+		}
+		if (smtp_server_reply_send(reply) < 0) {
+			ret = -1;
+			break;
+		}
+	}
+
+	if (!smtp_server_command_unref(&cmd))
+		return -1;
+	return ret;
+}
+
+bool smtp_server_command_send_replies(struct smtp_server_command *cmd)
+{
+	int ret;
+
+	if (!smtp_server_command_next_to_reply(&cmd))
+		return FALSE;
+	if (cmd->state < SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY)
+		return FALSE;
+
+	i_assert(cmd->state == SMTP_SERVER_COMMAND_STATE_READY_TO_REPLY &&
+		 array_is_created(&cmd->replies));
+
+	if (!smtp_server_command_completed(&cmd))
+		return TRUE;
+
+	/* Send command replies */
+	ret = smtp_server_command_send_more_replies(cmd);
+	if (ret < 0)
+		return FALSE;
+	if (ret == 0) {
+		cmd->state = SMTP_SERVER_COMMAND_STATE_PROCESSING;
+		return FALSE;
+	}
+
+	smtp_server_command_finished(cmd);
+	return TRUE;
 }
 
 void smtp_server_command_finished(struct smtp_server_command *cmd)
@@ -705,17 +789,19 @@ void smtp_server_command_finished(struct smtp_server_command *cmd)
 				"Server closed the connection: %s",
 				smtp_server_reply_get_one_line(reply)));
 
+		} else if (conn->set.auth_optional || conn->authenticated) {
+			smtp_server_connection_close(&conn, "Logged out");
 		} else {
 			smtp_server_connection_close(&conn,
-				"Client has quit the connection");
+				"Aborted login by logging out");
 		}
 		smtp_server_command_unref(&cmd);
 		return;
-	} else if (cmd->input_locked) {
-		if (cmd->input_captured)
-			smtp_server_connection_input_halt(conn);
-		smtp_server_connection_input_resume(conn);
 	}
+	if (cmd->input_locked)
+		smtp_server_command_input_unlock(&cmd->context);
+	if (cmd->pipeline_blocked)
+		smtp_server_command_pipeline_unblock(&cmd->context);
 
 	smtp_server_command_unref(&cmd);
 	smtp_server_connection_trigger_output(conn);
@@ -742,8 +828,8 @@ void smtp_server_command_fail(struct smtp_server_command *cmd,
 				array_idx(&cmd->replies, i);
 			sent = reply->sent;
 		}
-	
-		/* send the same reply for all */
+
+		/* Send the same reply for all */
 		if (!sent) {
 			va_list args_copy;
 			VA_COPY(args_copy, args);
@@ -770,10 +856,15 @@ void smtp_server_command_input_unlock(struct smtp_server_cmd_ctx *cmd)
 	struct smtp_server_connection *conn = cmd->conn;
 
 	command->input_locked = FALSE;
+	if (command->input_captured) {
+		command->input_captured = FALSE;
+		smtp_server_connection_input_halt(conn);
+	}
 	smtp_server_connection_input_resume(conn);
 }
 
-void smtp_server_command_input_capture(struct smtp_server_cmd_ctx *cmd,
+void smtp_server_command_input_capture(
+	struct smtp_server_cmd_ctx *cmd,
 	smtp_server_cmd_input_callback_t *callback)
 {
 	struct smtp_server_command *command = cmd->cmd;
@@ -782,4 +873,29 @@ void smtp_server_command_input_capture(struct smtp_server_cmd_ctx *cmd,
 	smtp_server_connection_input_capture(conn, *callback, cmd);
 	command->input_locked = TRUE;
 	command->input_captured = TRUE;
+}
+
+void smtp_server_command_pipeline_block(struct smtp_server_cmd_ctx *cmd)
+{
+	struct smtp_server_command *command = cmd->cmd;
+	struct smtp_server_connection *conn = cmd->conn;
+
+	e_debug(cmd->event, "Pipeline blocked");
+
+	command->pipeline_blocked = TRUE;
+	smtp_server_connection_input_lock(conn);
+}
+
+void smtp_server_command_pipeline_unblock(struct smtp_server_cmd_ctx *cmd)
+{
+	struct smtp_server_command *command = cmd->cmd;
+	struct smtp_server_connection *conn = cmd->conn;
+
+	if (!command->pipeline_blocked)
+		return;
+
+	command->pipeline_blocked = FALSE;
+	smtp_server_connection_input_unlock(conn);
+
+	e_debug(cmd->event, "Pipeline unblocked");
 }

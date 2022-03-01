@@ -26,11 +26,20 @@ struct replicator_brain {
 
 static void replicator_brain_fill(struct replicator_brain *brain);
 
+static void replicator_brain_timeout(struct replicator_brain *brain)
+{
+	timeout_remove(&brain->to);
+	replicator_brain_fill(brain);
+}
+
 static void replicator_brain_queue_changed(void *context)
 {
 	struct replicator_brain *brain = context;
 
-	replicator_brain_fill(brain);
+	/* Delay a bit filling the replication. We could have gotten here
+	   before the replicator_user change was fully filled out. */
+	timeout_remove(&brain->to);
+	brain->to = timeout_add_short(0, replicator_brain_timeout, brain);
 }
 
 struct replicator_brain *
@@ -55,13 +64,13 @@ replicator_brain_init(struct replicator_queue *queue,
 void replicator_brain_deinit(struct replicator_brain **_brain)
 {
 	struct replicator_brain *brain = *_brain;
-	struct dsync_client **connp;
+	struct dsync_client *conn;
 
 	*_brain = NULL;
 
 	brain->deinitializing = TRUE;
-	array_foreach_modifiable(&brain->dsync_clients, connp)
-		dsync_client_deinit(connp);
+	array_foreach_elem(&brain->dsync_clients, conn)
+		dsync_client_deinit(&conn);
 	timeout_remove(&brain->to);
 	pool_unref(&brain->pool);
 }
@@ -87,11 +96,11 @@ replicator_brain_get_dsync_clients(struct replicator_brain *brain)
 static struct dsync_client *
 get_dsync_client(struct replicator_brain *brain)
 {
-	struct dsync_client *const *connp, *conn = NULL;
+	struct dsync_client *conn;
 
-	array_foreach(&brain->dsync_clients, connp) {
-		if (!dsync_client_is_busy(*connp))
-			return *connp;
+	array_foreach_elem(&brain->dsync_clients, conn) {
+		if (!dsync_client_is_busy(conn))
+			return conn;
 	}
 	if (array_count(&brain->dsync_clients) ==
 	    brain->set->replication_max_conns)
@@ -162,12 +171,6 @@ dsync_replicate(struct replicator_brain *brain, struct replicator_user *user)
 	dsync_client_sync(conn, user->username, user->state, full,
 			  dsync_callback, ctx);
 	return TRUE;
-}
-
-static void replicator_brain_timeout(struct replicator_brain *brain)
-{
-	timeout_remove(&brain->to);
-	replicator_brain_fill(brain);
 }
 
 static bool replicator_brain_fill_next(struct replicator_brain *brain)

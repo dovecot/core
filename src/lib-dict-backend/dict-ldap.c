@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018 Dovecot authors, see the included COPYING memcached */
+/* Copyright (c) 2016-2018 Dovecot authors */
 
 #include "lib.h"
 
@@ -36,7 +36,6 @@ struct ldap_dict {
 	struct dict_ldap_settings *set;
 
 	const char *uri;
-	const char *username;
 	const char *base_dn;
 	enum ldap_scope scope;
 
@@ -51,8 +50,9 @@ struct ldap_dict {
 };
 
 static
-void ldap_dict_lookup_async(struct dict *dict, const char *key,
-			     dict_lookup_callback_t *callback, void *context);
+void ldap_dict_lookup_async(struct dict *dict,
+			    const struct dict_op_settings *set, const char *key,
+			    dict_lookup_callback_t *callback, void *context);
 
 
 static bool
@@ -190,7 +190,8 @@ static const char *ldap_escape(const char *str)
 }
 
 static bool
-ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
+ldap_dict_build_query(const struct dict_op_settings *set,
+		      const struct dict_ldap_map *map,
                       ARRAY_TYPE(const_string) *values, bool priv,
                       string_t *query_r, const char **error_r)
 {
@@ -200,7 +201,7 @@ ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
 
 	t_array_init(&exp, 8);
 	entry.key = '\0';
-	entry.value = ldap_escape(dict->username);
+	entry.value = ldap_escape(set->username);
 	entry.long_key = "username";
 	array_push_back(&exp, &entry);
 
@@ -212,11 +213,11 @@ ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
 
 	for(size_t i = 0; i < array_count(values) && i < array_count(&map->ldap_attributes); i++) {
 		struct var_expand_table entry;
-		const char *const *valuep = array_idx(values, i);
-		const char *const *long_keyp = array_idx(&map->ldap_attributes, i);
+		const char *value = array_idx_elem(values, i);
+		const char *long_key = array_idx_elem(&map->ldap_attributes, i);
 
-		entry.value = ldap_escape(*valuep);
-		entry.long_key = *long_keyp;
+		entry.value = ldap_escape(value);
+		entry.long_key = long_key;
 		array_push_back(&exp, &entry);
 	}
 
@@ -231,14 +232,13 @@ ldap_dict_build_query(struct ldap_dict *dict, const struct dict_ldap_map *map,
 
 static
 int ldap_dict_init(struct dict *dict_driver, const char *uri,
-		   const struct dict_settings *set,
+		   const struct dict_settings *set ATTR_UNUSED,
 		   struct dict **dict_r, const char **error_r)
 {
 	pool_t pool = pool_alloconly_create("ldap dict", 2048);
 	struct ldap_dict *dict = p_new(pool, struct ldap_dict, 1);
 	dict->pool = pool;
 	dict->dict = *dict_driver;
-	dict->username = p_strdup(pool, set->username);
 	dict->uri = p_strdup(pool, uri);
 	dict->set = dict_ldap_settings_read(pool, uri, error_r);
 
@@ -300,7 +300,10 @@ void ldap_dict_lookup_done(const struct dict_lookup_result *result, void *ctx)
 {
 	struct dict_lookup_result *res = ctx;
 	res->ret = result->ret;
-	res->value = t_strdup(result->value);
+	if (result->ret > 0) {
+		res->values = p_strarray_dup(pool_datastack_create(),
+					     result->values);
+	}
 	res->error = t_strdup(result->error);
 }
 
@@ -342,17 +345,24 @@ ldap_dict_lookup_callback(struct ldap_result *result, struct dict_ldap_op *op)
 		}
 		ldap_search_iterator_deinit(&iter);
 	}
+	if (op->dict->dict.prev_ioloop != NULL)
+		io_loop_set_current(op->dict->dict.prev_ioloop);
 	op->callback(&op->res, op->callback_ctx);
+	if (op->dict->dict.prev_ioloop != NULL) {
+		io_loop_set_current(op->dict->dict.ioloop);
+		io_loop_stop(op->dict->dict.ioloop);
+	}
 	pool_unref(&pool);
 }
 
 static int
-ldap_dict_lookup(struct dict *dict, pool_t pool, const char *key,
-		 const char **value_r, const char **error_r)
+ldap_dict_lookup(struct dict *dict, const struct dict_op_settings *set,
+		 pool_t pool, const char *key,
+		 const char *const **values_r, const char **error_r)
 {
 	struct dict_lookup_result res;
 
-	ldap_dict_lookup_async(dict, key, ldap_dict_lookup_done, &res);
+	ldap_dict_lookup_async(dict, set, key, ldap_dict_lookup_done, &res);
 
 	ldap_dict_wait(dict);
 	if (res.ret < 0) {
@@ -360,7 +370,7 @@ ldap_dict_lookup(struct dict *dict, pool_t pool, const char *key,
 		return -1;
 	}
 	if (res.ret > 0)
-		*value_r = p_strdup(pool, res.value);
+		*values_r = p_strarray_dup(pool, res.values);
 	return res.ret;
 }
 
@@ -409,8 +419,10 @@ void ldap_dict_atomic_inc(struct dict_transaction_context *ctx,
 */
 
 static
-void ldap_dict_lookup_async(struct dict *dict, const char *key,
-			     dict_lookup_callback_t *callback, void *context)
+void ldap_dict_lookup_async(struct dict *dict,
+			    const struct dict_op_settings *set,
+			    const char *key,
+			    dict_lookup_callback_t *callback, void *context)
 {
 	struct ldap_search_input input;
 	struct ldap_dict *ctx = (struct ldap_dict*)dict;
@@ -439,7 +451,7 @@ void ldap_dict_lookup_async(struct dict *dict, const char *key,
 		i_zero(&input);
 		input.base_dn = map->base_dn;
 		input.scope = map->scope_val;
-		if (!ldap_dict_build_query(ctx, map, &values, strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE))==0, query, &error)) {
+		if (!ldap_dict_build_query(set, map, &values, strncmp(key, DICT_PATH_PRIVATE, strlen(DICT_PATH_PRIVATE))==0, query, &error)) {
 			op->res.error = error;
 			callback(&op->res, context);
 			pool_unref(&oppool);

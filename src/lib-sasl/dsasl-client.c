@@ -74,11 +74,14 @@ void dsasl_client_free(struct dsasl_client **_client)
 {
 	struct dsasl_client *client = *_client;
 
+	if (client == NULL)
+		return;
 	*_client = NULL;
 
 	if (client->mech->free != NULL)
 		client->mech->free(client);
-	safe_memset(client->password, 0, strlen(client->password));
+	if (client->password != NULL)
+		safe_memset(client->password, 0, strlen(client->password));
 	pool_unref(&client->pool);
 }
 

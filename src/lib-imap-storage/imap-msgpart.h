@@ -34,7 +34,7 @@ bool imap_msgpart_contains_body(const struct imap_msgpart *msgpart);
    with storage error set to MAIL_ERROR_CONVERSION. */
 void imap_msgpart_set_decode_to_binary(struct imap_msgpart *msgpart);
 
-/* Set the fetch to be partial. For unlimited size use (uoff_t)-1. */
+/* Set the fetch to be partial. For unlimited size use UOFF_T_MAX. */
 void imap_msgpart_set_partial(struct imap_msgpart *msgpart,
 			      uoff_t offset, uoff_t size);
 uoff_t imap_msgpart_get_partial_offset(struct imap_msgpart *msgpart);

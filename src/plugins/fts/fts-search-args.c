@@ -31,7 +31,7 @@ fts_search_arg_create_or(const struct mail_search_arg *orig_arg, pool_t pool,
 			 const ARRAY_TYPE(const_string) *tokens)
 {
 	struct mail_search_arg *arg, *or_arg, **argp;
-	const char *const *tokenp;
+	const char *token;
 
 	/* create the OR arg first as the parent */
 	or_arg = p_new(pool, struct mail_search_arg, 1);
@@ -39,12 +39,12 @@ fts_search_arg_create_or(const struct mail_search_arg *orig_arg, pool_t pool,
 
 	/* now create all the child args for the OR */
 	argp = &or_arg->value.subargs;
-	array_foreach(tokens, tokenp) {
+	array_foreach_elem(tokens, token) {
 		arg = p_new(pool, struct mail_search_arg, 1);
 		*arg = *orig_arg;
 		arg->match_not = FALSE; /* we copied this to the root OR */
 		arg->next = NULL;
-		arg->value.str = p_strdup(pool, *tokenp);
+		arg->value.str = p_strdup(pool, token);
 
 		*argp = arg;
 		argp = &arg->next;
@@ -149,7 +149,7 @@ static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 				 struct mail_search_arg **argp)
 {
 	const ARRAY_TYPE(fts_user_language) *languages;
-	struct fts_user_language *const *langp;
+	struct fts_user_language *lang;
 	struct mail_search_arg *or_arg, *orig_arg = *argp;
 	const char *error, *orig_token = orig_arg->value.str;
 
@@ -170,8 +170,8 @@ static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 	or_arg->match_not = orig_arg->match_not;
 	or_arg->next = orig_arg->next;
 
-	array_foreach(languages, langp) {
-		if (fts_backend_dovecot_tokenize_lang(*langp, pool, or_arg,
+	array_foreach_elem(languages, lang) {
+		if (fts_backend_dovecot_tokenize_lang(lang, pool, or_arg,
 						      orig_arg, orig_token, &error) < 0) {
 			i_error("fts: %s", error);
 			return -1;

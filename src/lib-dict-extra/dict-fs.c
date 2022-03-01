@@ -11,16 +11,15 @@
 struct fs_dict {
 	struct dict dict;
 	struct fs *fs;
-	char *username;
 };
 
 struct fs_dict_iterate_context {
 	struct dict_iterate_context ctx;
-	const char **paths;
-	unsigned int path_idx;
+	char *path;
 	enum dict_iterate_flags flags;
 	pool_t value_pool;
 	struct fs_iter *fs_iter;
+	const char *const *values;
 	char *error;
 };
 
@@ -44,7 +43,6 @@ fs_dict_init(struct dict *driver, const char *uri,
 	}
 
 	i_zero(&fs_set);
-	fs_set.username = set->username;
 	fs_set.base_dir = set->base_dir;
 	if (fs_init(fs_driver, fs_args, &fs_set, &fs, error_r) < 0)
 		return -1;
@@ -52,7 +50,6 @@ fs_dict_init(struct dict *driver, const char *uri,
 	dict = i_new(struct fs_dict, 1);
 	dict->dict = *driver;
 	dict->fs = fs;
-	dict->username = i_strdup(set->username);
 
 	*dict_r = &dict->dict;
 	return 0;
@@ -63,24 +60,53 @@ static void fs_dict_deinit(struct dict *_dict)
 	struct fs_dict *dict = (struct fs_dict *)_dict;
 
 	fs_deinit(&dict->fs);
-	i_free(dict->username);
 	i_free(dict);
 }
 
-static const char *fs_dict_get_full_key(struct fs_dict *dict, const char *key)
+/* Remove unsafe paths */
+static const char *fs_dict_escape_key(const char *key)
 {
+	const char *ptr;
+	string_t *new_key = NULL;
+	/* we take the slow path always if we see potential
+	   need for escaping */
+	while ((ptr = strstr(key, "/.")) != NULL) {
+		/* move to the first dot */
+		const char *ptr2 = ptr + 1;
+		/* find position of non-dot */
+		while (*ptr2 == '.') ptr2++;
+		if (new_key == NULL)
+			new_key = t_str_new(strlen(key));
+		str_append_data(new_key, key, ptr - key);
+		/* if ptr2 is / or end of string, escape */
+		if (*ptr2 == '/' || *ptr2 == '\0')
+			str_append(new_key, "/...");
+		else
+			str_append(new_key, "/.");
+		key = ptr + 2;
+	}
+	if (new_key == NULL)
+		return key;
+	str_append(new_key, key);
+	return str_c(new_key);
+}
+
+static const char *fs_dict_get_full_key(const char *username, const char *key)
+{
+	key = fs_dict_escape_key(key);
 	if (str_begins(key, DICT_PATH_SHARED))
 		return key + strlen(DICT_PATH_SHARED);
 	else if (str_begins(key, DICT_PATH_PRIVATE)) {
-		return t_strdup_printf("%s/%s", dict->username,
+		return t_strdup_printf("%s/%s", username,
 				       key + strlen(DICT_PATH_PRIVATE));
 	} else {
 		i_unreached();
 	}
 }
 
-static int fs_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
-			  const char **value_r, const char **error_r)
+static int fs_dict_lookup(struct dict *_dict, const struct dict_op_settings *set,
+			  pool_t pool, const char *key,
+			  const char *const **values_r, const char **error_r)
 {
 	struct fs_dict *dict = (struct fs_dict *)_dict;
 	struct fs_file *file;
@@ -91,7 +117,7 @@ static int fs_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	string_t *str;
 	int ret;
 
-	path = fs_dict_get_full_key(dict, key);
+	path = fs_dict_get_full_key(set->username, key);
 	file = fs_file_init(dict->fs, path, FS_OPEN_MODE_READONLY);
 	input = fs_read_stream(file, IO_BLOCK_SIZE);
 	(void)i_stream_read(input);
@@ -104,10 +130,11 @@ static int fs_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 	i_assert(ret == -1);
 
 	if (input->stream_errno == 0) {
-		*value_r = str_c(str);
+		const char **values = p_new(pool, const char *, 2);
+		values[0] = str_c(str);
+		*values_r = values;
 		ret = 1;
 	} else {
-		*value_r = NULL;
 		if (input->stream_errno == ENOENT)
 			ret = 0;
 		else {
@@ -122,8 +149,8 @@ static int fs_dict_lookup(struct dict *_dict, pool_t pool, const char *key,
 }
 
 static struct dict_iterate_context *
-fs_dict_iterate_init(struct dict *_dict, const char *const *paths,
-		     enum dict_iterate_flags flags)
+fs_dict_iterate_init(struct dict *_dict, const struct dict_op_settings *set,
+		     const char *path, enum dict_iterate_flags flags)
 {
 	struct fs_dict *dict = (struct fs_dict *)_dict;
 	struct fs_dict_iterate_context *iter;
@@ -136,16 +163,16 @@ fs_dict_iterate_init(struct dict *_dict, const char *const *paths,
 
 	iter = i_new(struct fs_dict_iterate_context, 1);
 	iter->ctx.dict = _dict;
-	iter->paths = p_strarray_dup(default_pool, paths);
+	iter->path = i_strdup(path);
 	iter->flags = flags;
 	iter->value_pool = pool_alloconly_create("iterate value pool", 128);
 	iter->fs_iter = fs_iter_init(dict->fs,
-				     fs_dict_get_full_key(dict, paths[0]), 0);
+				     fs_dict_get_full_key(set->username, path), 0);
 	return &iter->ctx;
 }
 
 static bool fs_dict_iterate(struct dict_iterate_context *ctx,
-			    const char **key_r, const char **value_r)
+			    const char **key_r, const char *const **values_r)
 {
 	struct fs_dict_iterate_context *iter =
 		(struct fs_dict_iterate_context *)ctx;
@@ -162,28 +189,33 @@ static bool fs_dict_iterate(struct dict_iterate_context *ctx,
 			iter->error = i_strdup(error);
 			return FALSE;
 		}
-		if (iter->paths[++iter->path_idx] == NULL)
+		if (iter->path == NULL)
 			return FALSE;
-		path = fs_dict_get_full_key(dict, iter->paths[iter->path_idx]);
+		path = fs_dict_get_full_key(ctx->set.username, iter->path);
 		iter->fs_iter = fs_iter_init(dict->fs, path, 0);
-		return fs_dict_iterate(ctx, key_r, value_r);
+		return fs_dict_iterate(ctx, key_r, values_r);
 	}
-	path = t_strconcat(iter->paths[iter->path_idx], *key_r, NULL);
+	path = t_strconcat(iter->path, *key_r, NULL);
 	if ((iter->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0) {
 		*key_r = path;
-		*value_r = NULL;
 		return TRUE;
 	}
 	p_clear(iter->value_pool);
-	if ((ret = fs_dict_lookup(ctx->dict, iter->value_pool, path, value_r, &error)) < 0) {
+	struct dict_op_settings set = {
+		.username = ctx->set.username,
+	};
+	ret = fs_dict_lookup(ctx->dict, &set, iter->value_pool, path,
+			     &iter->values, &error);
+	if (ret < 0) {
 		/* I/O error */
 		iter->error = i_strdup(error);
 		return FALSE;
 	} else if (ret == 0) {
 		/* file was just deleted, just skip to next one */
-		return fs_dict_iterate(ctx, key_r, value_r);
+		return fs_dict_iterate(ctx, key_r, values_r);
 	}
 	*key_r = path;
+	*values_r = iter->values;
 	return TRUE;
 }
 
@@ -202,7 +234,7 @@ static int fs_dict_iterate_deinit(struct dict_iterate_context *ctx,
 	*error_r = t_strdup(iter->error);
 
 	pool_unref(&iter->value_pool);
-	i_free(iter->paths);
+	i_free(iter->path);
 	i_free(iter->error);
 	i_free(iter);
 	return ret;
@@ -230,7 +262,7 @@ static int fs_dict_write_changes(struct dict_transaction_memory_context *ctx,
 	int ret = 0;
 
 	array_foreach(&ctx->changes, change) {
-		key = fs_dict_get_full_key(dict, change->key);
+		key = fs_dict_get_full_key(ctx->ctx.set.username, change->key);
 		switch (change->type) {
 		case DICT_CHANGE_TYPE_SET:
 			file = fs_file_init(dict->fs, key,

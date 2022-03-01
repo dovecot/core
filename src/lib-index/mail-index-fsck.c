@@ -83,10 +83,10 @@ mail_index_fsck_header(struct mail_index *index, struct mail_index_map *map,
 static bool
 array_has_name(const ARRAY_TYPE(const_string) *names, const char *name)
 {
-	const char *const *namep;
+	const char *arr_name;
 
-	array_foreach(names, namep) {
-		if (strcmp(*namep, name) == 0)
+	array_foreach_elem(names, arr_name) {
+		if (strcmp(arr_name, name) == 0)
 			return TRUE;
 	}
 	return FALSE;
@@ -157,7 +157,7 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 
 	hdr_offset = ext_offset +
 		mail_index_map_ext_hdr_offset(sizeof(MAIL_INDEX_EXT_KEYWORDS)-1);
-	kw_hdr = CONST_PTR_OFFSET(map->hdr_base, hdr_offset);
+	kw_hdr = MAIL_INDEX_MAP_HDR_OFFSET(map, hdr_offset);
 	keywords_count = kw_hdr->keywords_count;
 
 	kw_rec = (const void *)(kw_hdr + 1);
@@ -247,8 +247,7 @@ mail_index_fsck_keywords(struct mail_index *index, struct mail_index_map *map,
 
 		diff = dest->used - ext_hdr->hdr_size;
 		buffer_copy(map->hdr_copy_buf, hdr_offset + diff,
-			    map->hdr_copy_buf, hdr_offset, (size_t)-1);
-		map->hdr_base = map->hdr_copy_buf->data;
+			    map->hdr_copy_buf, hdr_offset, SIZE_MAX);
 		hdr->header_size += diff;
 		*offset_p += diff;
 
@@ -319,9 +318,8 @@ mail_index_fsck_extensions(struct mail_index *index, struct mail_index_map *map,
 		/* drop the field */
 		hdr->header_size -= next_offset - offset;
 		buffer_copy(map->hdr_copy_buf, offset,
-			    map->hdr_copy_buf, next_offset, (size_t)-1);
+			    map->hdr_copy_buf, next_offset, SIZE_MAX);
 		buffer_set_used_size(map->hdr_copy_buf, hdr->header_size);
-		map->hdr_base = map->hdr_copy_buf->data;
 	}
 }
 

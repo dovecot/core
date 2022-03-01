@@ -63,7 +63,6 @@ dest_mailbox_open_or_create(struct import_cmd_context *ctx,
 	}
 
 	box = mailbox_alloc(ns->list, name, MAILBOX_FLAG_SAVEONLY);
-	mailbox_set_reason(box, ctx->ctx.cmd->name);
 	if (mailbox_create(box, NULL, FALSE) < 0) {
 		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error != MAIL_ERROR_EXISTS) {
@@ -136,7 +135,8 @@ cmd_import_box(struct import_cmd_context *ctx, struct mail_user *dest_user,
 	struct mail *mail;
 	int ret = 0;
 
-	if (doveadm_mail_iter_init(&ctx->ctx, info, search_args, 0, NULL, TRUE,
+	if (doveadm_mail_iter_init(&ctx->ctx, info, search_args, 0, NULL,
+				   DOVEADM_MAIL_ITER_FLAG_READONLY,
 				   &iter) < 0)
 		return -1;
 
@@ -171,6 +171,7 @@ static void cmd_import_init_source_user(struct import_cmd_context *ctx, struct m
 			 ctx->src_username :
 			 dest_user->username;
 
+	mail_storage_service_io_deactivate_user(ctx->ctx.cur_service_user);
 	input.flags_override_add = MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES |
 		MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS;
 	if (mail_storage_service_lookup_next(ctx->ctx.storage_service, &input,
@@ -180,7 +181,9 @@ static void cmd_import_init_source_user(struct import_cmd_context *ctx, struct m
 		i_fatal("Import namespace initialization failed: %s", error);
 
 	ctx->src_user = user;
+	mail_storage_service_io_deactivate_user(service_user);
 	mail_storage_service_user_unref(&service_user);
+	mail_storage_service_io_activate_user(ctx->ctx.cur_service_user);
 }
 
 static int

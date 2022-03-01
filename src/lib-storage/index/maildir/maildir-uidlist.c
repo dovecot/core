@@ -760,7 +760,7 @@ maildir_uidlist_update_read(struct maildir_uidlist *uidlist,
 							    st.st_size/8));
 	}
 
-	input = i_stream_create_fd(fd, (size_t)-1);
+	input = i_stream_create_fd(fd, SIZE_MAX);
 	i_stream_seek(input, last_read_offset);
 
 	orig_uid_validity = uidlist->uid_validity;
@@ -1249,7 +1249,7 @@ static int maildir_uidlist_write_fd(struct maildir_uidlist *uidlist, int fd,
 
 	i_assert(fd != -1);
 
-	output = o_stream_create_fd_file(fd, (uoff_t)-1, FALSE);
+	output = o_stream_create_fd_file(fd, UOFF_T_MAX, FALSE);
 	o_stream_cork(output);
 	str = t_str_new(512);
 
@@ -1578,7 +1578,7 @@ static void maildir_uidlist_mark_all(struct maildir_uidlist *uidlist,
 			recs[i]->flags |= MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
 	} else {
 		for (i = 0; i < count; i++)
-			recs[i]->flags &= ~MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
+			recs[i]->flags &= ENUM_NEGATE(MAILDIR_UIDLIST_REC_FLAG_NONSYNCED);
 	}
 }
 
@@ -1720,9 +1720,9 @@ maildir_uidlist_sync_next_partial(struct maildir_uidlist_sync_ctx *ctx,
 		}
 	}
 
-	rec->flags &= ~MAILDIR_UIDLIST_REC_FLAG_NEW_DIR;
+	rec->flags &= ENUM_NEGATE(MAILDIR_UIDLIST_REC_FLAG_NEW_DIR);
 	rec->flags = (rec->flags | flags) &
-		~MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
+		ENUM_NEGATE(MAILDIR_UIDLIST_REC_FLAG_NONSYNCED);
 
 	ctx->finished = FALSE;
 	*rec_r = rec;
@@ -1794,8 +1794,8 @@ int maildir_uidlist_sync_next_uid(struct maildir_uidlist_sync_ctx *ctx,
 		/* probably was in new/ and now we're seeing it in cur/.
 		   remove new/moved flags so if this happens again we'll know
 		   to check for duplicates. */
-		rec->flags &= ~(MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
-				MAILDIR_UIDLIST_REC_FLAG_MOVED);
+		rec->flags &= ENUM_NEGATE(MAILDIR_UIDLIST_REC_FLAG_NEW_DIR |
+					  MAILDIR_UIDLIST_REC_FLAG_MOVED);
 		if (strcmp(rec->filename, filename) != 0)
 			rec->filename = p_strdup(ctx->record_pool, filename);
 	} else {
@@ -1826,7 +1826,7 @@ int maildir_uidlist_sync_next_uid(struct maildir_uidlist_sync_ctx *ctx,
 			uidlist->next_uid = uid + 1;
 	}
 
-	rec->flags = (rec->flags | flags) & ~MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
+	rec->flags = (rec->flags | flags) & ENUM_NEGATE(MAILDIR_UIDLIST_REC_FLAG_NONSYNCED);
 	*rec_r = rec;
 	return 1;
 }
@@ -1905,7 +1905,7 @@ void maildir_uidlist_update_fname(struct maildir_uidlist *uidlist,
 	if (rec == NULL)
 		return;
 
-	rec->flags &= ~MAILDIR_UIDLIST_REC_FLAG_NONSYNCED;
+	rec->flags &= ENUM_NEGATE(MAILDIR_UIDLIST_REC_FLAG_NONSYNCED);
 	if (strcmp(rec->filename, filename) != 0)
 		rec->filename = p_strdup(uidlist->record_pool, filename);
 }
@@ -1958,7 +1958,7 @@ static void maildir_uidlist_assign_uids(struct maildir_uidlist_sync_ctx *ctx)
 		i_assert(recs[dest]->uid == (uint32_t)-1);
 		i_assert(ctx->uidlist->next_uid < (uint32_t)-1);
 		recs[dest]->uid = ctx->uidlist->next_uid++;
-		recs[dest]->flags &= ~MAILDIR_UIDLIST_REC_FLAG_MOVED;
+		recs[dest]->flags &= ENUM_NEGATE(MAILDIR_UIDLIST_REC_FLAG_MOVED);
 	}
 
 	if (ctx->uidlist->locked_refresh && ctx->uidlist->initial_read)

@@ -21,6 +21,8 @@ struct fts_search_level {
 	ARRAY_TYPE(fts_score_map) score_map;
 };
 
+HASH_TABLE_DEFINE_TYPE(virtual_last_indexed, const char *, void *);
+
 struct fts_search_context {
 	union mail_search_module_context module_ctx;
 
@@ -36,15 +38,19 @@ struct fts_search_context {
 	buffer_t *orig_matches;
 
 	uint32_t first_unindexed_seq;
+	uint32_t next_unindexed_seq;
+	HASH_TABLE_TYPE(virtual_last_indexed) last_indexed_virtual_uids;
 
 	/* final scores, combined from all levels */
 	struct fts_scores *scores;
 
 	struct fts_indexer_context *indexer_ctx;
+	struct fts_search_state *search_state;
 
 	bool virtual_mailbox:1;
 	bool fts_lookup_success:1;
 	bool indexing_timed_out:1;
+	bool virtual_seen_unindexed_gaps:1;
 };
 
 /* Figure out if we want to use full text search indexes and update
@@ -52,6 +58,10 @@ struct fts_search_context {
 void fts_search_analyze(struct fts_search_context *fctx);
 /* Perform the actual index lookup and update definite_uids and maybe_uids. */
 void fts_search_lookup(struct fts_search_context *fctx);
+/* Returns 1 if everything is already indexed, 0 if not, -1 on error. */
+int fts_search_get_first_missing_uid(struct fts_backend *backend,
+				     struct mailbox *box,
+				     uint32_t *last_indexed_uid_r);
 /* Returns FTS backend for the given mailbox (assumes it has one). */
 struct fts_backend *fts_mailbox_backend(struct mailbox *box);
 /* Returns FTS backend for the given mailbox list, or NULL if it has none. */

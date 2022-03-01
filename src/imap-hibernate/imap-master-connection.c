@@ -20,7 +20,8 @@ static struct connection_list *master_clients;
 
 static void imap_master_connection_timeout(struct imap_master_connection *conn)
 {
-	i_error("Timeout communicating with %s (version %sreceived)",
+	e_error(conn->conn.event,
+		"Timeout communicating with %s (version %sreceived)",
 		conn->conn.name, conn->conn.version_received ? "" : "not ");
 	imap_master_connection_deinit(&conn);
 }
@@ -118,8 +119,8 @@ static struct connection_settings client_set = {
 	.major_version = 1,
 	.minor_version = 0,
 
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.client = TRUE
 };
 

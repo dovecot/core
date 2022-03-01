@@ -1,9 +1,13 @@
 #ifndef ENV_UTIL_H
 #define ENV_UTIL_H
 
-/* Add new environment variable. Wrapper to putenv(). Note that calls to this
-   function allocates memory which isn't free'd until env_clean() is called. */
-void env_put(const char *env);
+/* Add a new environment variable or replace an existing one.
+   Wrapper to setenv(). Note that setenv() often doesn't free memory used by
+   replaced environment, so don't keep repeatedly changing values in
+   environment. */
+void env_put(const char *name, const char *value);
+/* env_put() NULL-terminated array of name=value strings */
+void env_put_array(const char *const *envs);
 /* Remove a single environment. */
 void env_remove(const char *name);
 /* Clear all environment variables. */
@@ -22,8 +26,5 @@ void env_backup_free(struct env_backup **env);
    directly. */
 char ***env_get_environ_p(void);
 
-/* Free all memory used by env_put() function. Environment must not be
-   accessed afterwards. */
-void env_deinit(void);
 
 #endif

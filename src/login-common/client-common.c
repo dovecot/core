@@ -6,6 +6,7 @@
 #include "llist.h"
 #include "istream.h"
 #include "ostream.h"
+#include "iostream.h"
 #include "iostream-ssl.h"
 #include "iostream-proxy.h"
 #include "iostream-rawlog.h"
@@ -23,12 +24,14 @@
 #include "master-service.h"
 #include "master-service-ssl-settings.h"
 #include "master-auth.h"
+#include "anvil-client.h"
 #include "auth-client.h"
 #include "dsasl-client.h"
 #include "login-proxy.h"
 #include "client-common.h"
 
 struct client *clients = NULL;
+struct client *destroyed_clients = NULL;
 static struct client *last_client = NULL;
 static unsigned int clients_count = 0;
 
@@ -101,10 +104,9 @@ static void client_idle_disconnect_timeout(struct client *client)
 	} else if (client->auth_request != NULL) {
 		user_reason =
 			"Disconnected for inactivity during authentication.";
-		destroy_reason =
-			"Disconnected: Inactivity during authentication";
+		destroy_reason = "Inactivity during authentication";
 	} else if (client->login_proxy != NULL) {
-		secs = ioloop_time - client->created;
+		secs = ioloop_time - client->created.tv_sec;
 		user_reason = "Timeout while finishing login.";
 		destroy_reason = t_strdup_printf(
 			"Logging in timed out "
@@ -114,7 +116,7 @@ static void client_idle_disconnect_timeout(struct client *client)
 			"%s", destroy_reason);
 	} else {
 		user_reason = "Disconnected for inactivity.";
-		destroy_reason = "Disconnected: Inactivity";
+		destroy_reason = "Inactivity";
 	}
 	client_notify_disconnect(client, CLIENT_DISCONNECT_TIMEOUT, user_reason);
 	client_destroy(client, destroy_reason);
@@ -168,7 +170,8 @@ struct client *
 client_alloc(int fd, pool_t pool,
 	     const struct master_service_connection *conn,
 	     const struct login_settings *set,
-	     const struct master_service_ssl_settings *ssl_set)
+	     const struct master_service_ssl_settings *ssl_set,
+	     const struct master_service_ssl_server_settings *ssl_server_set)
 {
 	struct client *client;
 
@@ -181,13 +184,14 @@ client_alloc(int fd, pool_t pool,
 	if (client->v.auth_parse_response == NULL)
 		client->v.auth_parse_response = client_auth_parse_response;
 
-	client->created = ioloop_time;
+	client->created = ioloop_timeval;
 	client->refcount = 1;
 
 	client->pool = pool;
 	client->preproxy_pool = pool_alloconly_create(MEMPOOL_GROWING"preproxy pool", 256);
 	client->set = set;
 	client->ssl_set = ssl_set;
+	client->ssl_server_set = ssl_server_set;
 	p_array_init(&client->module_contexts, client->pool, 5);
 
 	client->fd = fd;
@@ -220,6 +224,7 @@ client_alloc(int fd, pool_t pool,
 	event_add_int(client->event, "local_port", conn->local_port);
 	event_add_str(client->event, "remote_ip", net_ip2addr(&conn->remote_ip));
 	event_add_int(client->event, "remote_port", conn->remote_port);
+	event_add_str(client->event, "service", login_binary->protocol);
 	event_set_log_message_callback(client->event, client_log_msg_callback,
 				       client);
 
@@ -231,6 +236,7 @@ void client_init(struct client *client, void **other_sets)
 {
 	if (last_client == NULL)
 		last_client = client;
+	client->list_type = CLIENT_LIST_TYPE_ACTIVE;
 	DLLIST_PREPEND(&clients, client);
 	clients_count++;
 
@@ -250,7 +256,8 @@ void client_init(struct client *client, void **other_sets)
 	login_refresh_proctitle();
 }
 
-void client_disconnect(struct client *client, const char *reason)
+void client_disconnect(struct client *client, const char *reason,
+		       bool add_disconnected_prefix)
 {
 	if (client->disconnected)
 		return;
@@ -267,24 +274,39 @@ void client_disconnect(struct client *client, const char *reason)
 		struct event *event = client->login_proxy == NULL ?
 			client->event :
 			login_proxy_get_event(client->login_proxy);
-		e_info(event, "%s", reason);
+		if (add_disconnected_prefix)
+			e_info(event, "Disconnected: %s", reason);
+		else
+			e_info(event, "%s", reason);
 	}
 
 	if (client->output != NULL)
 		o_stream_uncork(client->output);
 	if (!client->login_success) {
+		bool unref = FALSE;
+
 		io_remove(&client->io);
 		ssl_iostream_destroy(&client->ssl_iostream);
-		iostream_proxy_unref(&client->iostream_fd_proxy);
+		if (client->iostream_fd_proxy != NULL) {
+			iostream_proxy_unref(&client->iostream_fd_proxy);
+			unref = TRUE;
+		}
 		i_stream_close(client->input);
 		o_stream_close(client->output);
 		i_close_fd(&client->fd);
+		if (unref) {
+			i_assert(client->refcount > 1);
+			client_unref(&client);
+		}
 	} else {
 		/* Login was successful. We may now be proxying the connection,
 		   so don't disconnect the client until client_unref(). */
 		if (client->iostream_fd_proxy != NULL) {
+			i_assert(!client->fd_proxying);
 			client->fd_proxying = TRUE;
-			i_assert(client->prev == NULL && client->next == NULL);
+			i_assert(client->list_type == CLIENT_LIST_TYPE_DESTROYED);
+			DLLIST_REMOVE(&destroyed_clients, client);
+			client->list_type = CLIENT_LIST_TYPE_FD_PROXY;
 			DLLIST_PREPEND(&client_fd_proxies, client);
 			client_fd_proxies_count++;
 		}
@@ -301,13 +323,19 @@ void client_destroy(struct client *client, const char *reason)
 
 	if (last_client == client)
 		last_client = client->prev;
-	/* remove from clients linked list before it's added to
-	   client_fd_proxies. */
+	/* move to destroyed_clients linked list before it's potentially
+	   added to client_fd_proxies. */
+	i_assert(!client->fd_proxying);
+	i_assert(client->list_type == CLIENT_LIST_TYPE_ACTIVE);
 	DLLIST_REMOVE(&clients, client);
+	client->list_type = CLIENT_LIST_TYPE_DESTROYED;
+	DLLIST_PREPEND(&destroyed_clients, client);
 
-	client_disconnect(client, reason);
+	client_disconnect(client, reason, !client->login_success);
 
 	pool_unref(&client->preproxy_pool);
+	client->forward_fields = NULL;
+	client->client_id = NULL;
 
 	if (client->master_tag != 0) {
 		i_assert(client->auth_request == NULL);
@@ -316,12 +344,17 @@ void client_destroy(struct client *client, const char *reason)
 		client->authenticating = FALSE;
 		master_auth_request_abort(master_auth, client->master_tag);
 		client->refcount--;
-	} else if (client->auth_request != NULL) {
+	} else if (client->auth_request != NULL ||
+		   client->anvil_query != NULL) {
 		i_assert(client->authenticating);
 		sasl_server_auth_abort(client);
-	} else {
-		i_assert(!client->authenticating);
 	}
+	i_assert(!client->authenticating);
+	i_assert(client->auth_request == NULL);
+	i_assert(client->anvil_query == NULL);
+
+	if (client->reauth_request != NULL)
+		auth_client_request_abort(&client->reauth_request, "Aborted");
 
 	timeout_remove(&client->to_disconnect);
 	timeout_remove(&client->to_auth_waiting);
@@ -333,8 +366,7 @@ void client_destroy(struct client *client, const char *reason)
 		i_free_and_null(client->proxy_password);
 	}
 
-	if (client->proxy_sasl_client != NULL)
-		dsasl_client_free(&client->proxy_sasl_client);
+	dsasl_client_free(&client->proxy_sasl_client);
 	if (client->login_proxy != NULL)
 		login_proxy_free(&client->login_proxy);
 	if (client->v.destroy != NULL)
@@ -349,6 +381,13 @@ void client_destroy(struct client *client, const char *reason)
 	}
 	login_client_destroyed();
 	login_refresh_proctitle();
+}
+
+void client_destroy_iostream_error(struct client *client)
+{
+	const char *reason =
+		io_stream_get_disconnect_reason(client->input, client->output);
+	client_destroy(client, reason);
 }
 
 void client_destroy_success(struct client *client, const char *reason)
@@ -390,10 +429,15 @@ bool client_unref(struct client **_client)
 	ssl_iostream_destroy(&client->ssl_iostream);
 	iostream_proxy_unref(&client->iostream_fd_proxy);
 	if (client->fd_proxying) {
+		i_assert(client->list_type == CLIENT_LIST_TYPE_FD_PROXY);
 		DLLIST_REMOVE(&client_fd_proxies, client);
 		i_assert(client_fd_proxies_count > 0);
 		client_fd_proxies_count--;
+	} else {
+		i_assert(client->list_type == CLIENT_LIST_TYPE_DESTROYED);
+		DLLIST_REMOVE(&destroyed_clients, client);
 	}
+	client->list_type = CLIENT_LIST_TYPE_NONE;
 	i_stream_unref(&client->input);
 	o_stream_unref(&client->output);
 	i_close_fd(&client->fd);
@@ -420,28 +464,37 @@ void client_common_default_free(struct client *client ATTR_UNUSED)
 {
 }
 
-void client_destroy_oldest(void)
+bool client_destroy_oldest(bool kill, struct timeval *created_r)
 {
 	struct client *client;
 
 	if (last_client == NULL) {
 		/* we have no clients */
-		return;
+		return FALSE;
 	}
 
 	/* destroy the last client that hasn't successfully authenticated yet.
 	   this is usually the last client, but don't kill it if it's just
-	   waiting for master to finish its job. */
+	   waiting for master to finish its job. Also prefer to kill clients
+	   that can immediately be killed (i.e. refcount=1) */
 	for (client = last_client; client != NULL; client = client->prev) {
-		if (client->master_tag == 0)
+		if (client->master_tag == 0 && client->refcount == 1)
 			break;
 	}
 	if (client == NULL)
 		client = last_client;
 
+	*created_r = client->created;
+	if (!kill)
+		return TRUE;
+
 	client_notify_disconnect(client, CLIENT_DISCONNECT_RESOURCE_CONSTRAINT,
 				 "Connection queue full");
-	client_destroy(client, "Disconnected: Connection queue full");
+	client_ref(client);
+	client_destroy(client, "Connection queue full");
+	/* return TRUE only if the client was actually freed */
+	i_assert(client->create_finished);
+	return !client_unref(&client);
 }
 
 void clients_destroy_all_reason(const char *reason)
@@ -458,7 +511,7 @@ void clients_destroy_all_reason(const char *reason)
 
 void clients_destroy_all(void)
 {
-	clients_destroy_all_reason("Disconnected: Shutting down");
+	clients_destroy_all_reason("Shutting down");
 }
 
 static int client_sni_callback(const char *name, const char **error_r,
@@ -477,11 +530,11 @@ static int client_sni_callback(const char *name, const char **error_r,
 	client->local_name = p_strdup(client->pool, name);
 	client->set = login_settings_read(client->pool, &client->local_ip,
 					  &client->ip, name,
-					  &client->ssl_set, &other_sets);
+					  &client->ssl_set,
+					  &client->ssl_server_set, &other_sets);
 
-	master_service_ssl_settings_to_iostream_set(client->ssl_set,
-		pool_datastack_create(),
-		MASTER_SERVICE_SSL_SETTINGS_TYPE_SERVER, &ssl_set);
+	master_service_ssl_server_settings_to_iostream_set(client->ssl_set,
+		client->ssl_server_set, pool_datastack_create(), &ssl_set);
 	if (ssl_iostream_server_context_cache_get(&ssl_set, &ssl_ctx, &error) < 0) {
 		*error_r = t_strdup_printf(
 			"Failed to initialize SSL server context: %s", error);
@@ -505,9 +558,8 @@ int client_init_ssl(struct client *client)
 		return -1;
 	}
 
-	master_service_ssl_settings_to_iostream_set(client->ssl_set,
-		pool_datastack_create(),
-		MASTER_SERVICE_SSL_SETTINGS_TYPE_SERVER, &ssl_set);
+	master_service_ssl_server_settings_to_iostream_set(client->ssl_set,
+		client->ssl_server_set, pool_datastack_create(), &ssl_set);
 	/* If the client cert is invalid, we'll reply NO to the login
 	   command. */
 	ssl_set.allow_invalid_cert = TRUE;
@@ -549,8 +601,7 @@ static void client_start_tls(struct client *client)
 		client_notify_disconnect(client,
 			CLIENT_DISCONNECT_INTERNAL_ERROR,
 			"TLS initialization failed.");
-		client_destroy(client,
-			"Disconnected: TLS initialization failed.");
+		client_destroy(client, "TLS initialization failed.");
 		return;
 	}
 	login_refresh_proctitle();
@@ -563,7 +614,7 @@ static int client_output_starttls(struct client *client)
 	int ret;
 
 	if ((ret = o_stream_flush(client->output)) < 0) {
-		client_destroy(client, "Disconnected");
+		client_destroy_iostream_error(client);
 		return 1;
 	}
 
@@ -723,6 +774,10 @@ const char *client_get_session_id(struct client *client)
 	return client->session_id;
 }
 
+/* increment index if new proper login variables are added
+ * make sure the aliases stay in the current order */
+#define VAR_EXPAND_ALIAS_INDEX_START 27
+
 static struct var_expand_table login_var_expand_empty_tab[] = {
 	{ 'u', NULL, "user" },
 	{ 'n', NULL, "username" },
@@ -752,6 +807,21 @@ static struct var_expand_table login_var_expand_empty_tab[] = {
 	{ '\0', NULL, "auth_domain" },
 	{ '\0', NULL, "listener" },
 	{ '\0', NULL, "local_name" },
+
+	/* aliases: */
+	{ '\0', NULL, "local_ip" },
+	{ '\0', NULL, "remote_ip" },
+	{ '\0', NULL, "local_port" },
+	{ '\0', NULL, "remote_port" },
+	{ '\0', NULL, "real_local_ip" },
+	{ '\0', NULL, "real_remote_ip" },
+	{ '\0', NULL, "real_local_port" },
+	{ '\0', NULL, "real_remote_port" },
+	{ '\0', NULL, "mechanism" },
+	{ '\0', NULL, "original_user" },
+	{ '\0', NULL, "original_username" },
+	{ '\0', NULL, "original_domain" },
+
 	{ '\0', NULL, NULL }
 };
 
@@ -781,13 +851,18 @@ get_var_expand_table(struct client *client)
 		get_var_expand_users(tab, client->virtual_user);
 	tab[3].value = login_binary->protocol;
 	tab[4].value = getenv("HOME");
-	tab[5].value = net_ip2addr(&client->local_ip);
-	tab[6].value = net_ip2addr(&client->ip);
+	tab[VAR_EXPAND_ALIAS_INDEX_START].value = tab[5].value =
+		net_ip2addr(&client->local_ip);
+	tab[VAR_EXPAND_ALIAS_INDEX_START + 1].value = tab[6].value =
+		net_ip2addr(&client->ip);
 	tab[7].value = my_pid;
-	tab[8].value = client->auth_mech_name == NULL ? NULL :
-		str_sanitize(client->auth_mech_name, MAX_MECH_NAME);
-	tab[9].value = dec2str(client->local_port);
-	tab[10].value = dec2str(client->remote_port);
+	tab[VAR_EXPAND_ALIAS_INDEX_START + 8].value = tab[8].value =
+		client->auth_mech_name == NULL ? NULL :
+			str_sanitize(client->auth_mech_name, MAX_MECH_NAME);
+	tab[VAR_EXPAND_ALIAS_INDEX_START + 2].value = tab[9].value =
+		dec2str(client->local_port);
+	tab[VAR_EXPAND_ALIAS_INDEX_START + 3].value = tab[10].value =
+		dec2str(client->remote_port);
 	if (!client->tls) {
 		tab[11].value = client->secured ? "secured" : NULL;
 		tab[12].value = "";
@@ -809,16 +884,20 @@ get_var_expand_table(struct client *client)
 	tab[13].value = client->mail_pid == 0 ? "" :
 		dec2str(client->mail_pid);
 	tab[14].value = client_get_session_id(client);
-	tab[15].value = net_ip2addr(&client->real_local_ip);
-	tab[16].value = net_ip2addr(&client->real_remote_ip);
-	tab[17].value = dec2str(client->real_local_port);
-	tab[18].value = dec2str(client->real_remote_port);
+	tab[VAR_EXPAND_ALIAS_INDEX_START + 4].value = tab[15].value =
+		net_ip2addr(&client->real_local_ip);
+	tab[VAR_EXPAND_ALIAS_INDEX_START + 5].value = tab[16].value =
+		net_ip2addr(&client->real_remote_ip);
+	tab[VAR_EXPAND_ALIAS_INDEX_START + 6].value = tab[17].value =
+		dec2str(client->real_local_port);
+	tab[VAR_EXPAND_ALIAS_INDEX_START + 7].value = tab[18].value =
+		dec2str(client->real_remote_port);
 	if (client->virtual_user_orig != NULL)
 		get_var_expand_users(tab+19, client->virtual_user_orig);
 	else {
-		tab[19].value = tab[0].value;
-		tab[20].value = tab[1].value;
-		tab[21].value = tab[2].value;
+		tab[VAR_EXPAND_ALIAS_INDEX_START + 9].value = tab[19].value = tab[0].value;
+		tab[VAR_EXPAND_ALIAS_INDEX_START + 10].value = tab[20].value = tab[1].value;
+		tab[VAR_EXPAND_ALIAS_INDEX_START + 11].value = tab[21].value = tab[2].value;
 	}
 	if (client->virtual_auth_user != NULL)
 		get_var_expand_users(tab+22, client->virtual_auth_user);
@@ -964,7 +1043,7 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 	if (!client->notified_auth_ready)
 		return t_strdup_printf(
 			"(disconnected before auth was ready, waited %u secs)",
-			(unsigned int)(ioloop_time - client->created));
+			(unsigned int)(ioloop_time - client->created.tv_sec));
 
 	if (client->auth_attempts == 0) {
 		if (!client->banner_sent) {
@@ -972,7 +1051,7 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 			return "";
 		}
 		return t_strdup_printf("(no auth attempts in %u secs)",
-			(unsigned int)(ioloop_time - client->created));
+			(unsigned int)(ioloop_time - client->created.tv_sec));
 	}
 
 	/* some auth attempts without SSL/TLS */
@@ -997,6 +1076,8 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 	if (client->auth_process_comm_fail)
 		return "(auth process communication failure)";
 
+	if (client->auth_nologin_referral)
+		return "(auth referral)";
 	if (client->proxy_auth_failed)
 		return "(proxy dest auth failed)";
 	if (client->auth_successes > 0) {
@@ -1090,11 +1171,11 @@ bool client_read(struct client *client)
 		client_notify_disconnect(client,
 			CLIENT_DISCONNECT_RESOURCE_CONSTRAINT,
 			"Input buffer full, aborting");
-		client_destroy(client, "Disconnected: Input buffer full");
+		client_destroy(client, "Input buffer full");
 		return FALSE;
 	case -1:
 		/* disconnected */
-		client_destroy(client, "Disconnected");
+		client_destroy_iostream_error(client);
 		return FALSE;
 	case 0:
 		/* nothing new read */
@@ -1127,5 +1208,6 @@ void client_destroy_fd_proxies(void)
 
 void client_common_deinit(void)
 {
+	i_assert(destroyed_clients == NULL);
 	array_free(&module_hooks);
 }

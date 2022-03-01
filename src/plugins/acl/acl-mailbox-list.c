@@ -4,6 +4,7 @@
 #include "array.h"
 #include "str.h"
 #include "imap-match.h"
+#include "wildcard-match.h"
 #include "mailbox-tree.h"
 #include "mail-namespace.h"
 #include "mailbox-list-iter-private.h"
@@ -63,6 +64,9 @@ int acl_mailbox_list_have_right(struct mailbox_list *list, const char *name,
 	struct acl_object *aclobj;
 	int ret, ret2;
 
+	if (alist->ignore_acls)
+		return 1;
+
 	aclobj = !parent ?
 		acl_object_init_from_name(backend, name) :
 		acl_object_init_from_parent(backend, name);
@@ -105,6 +109,10 @@ acl_mailbox_try_list_fast(struct mailbox_list_iterate_context *_ctx)
 		   someone. we don't benefit from fast listing. */
 		return;
 	}
+
+	/* If ACLs are ignored for this namespace don't try fast listing. */
+	if (alist->ignore_acls)
+		return;
 
 	/* if this namespace's default rights contain LOOKUP, we'll need to
 	   go through all mailboxes in any case. */
@@ -213,7 +221,16 @@ acl_mailbox_list_iter_next_info(struct mailbox_list_iterate_context *_ctx)
 	struct acl_mailbox_list *alist = ACL_LIST_CONTEXT_REQUIRE(_ctx->list);
 	const struct mailbox_info *info;
 
-	while ((info = alist->module_ctx.super.iter_next(_ctx)) != NULL) {
+	for (;;) {
+		/* Normally the data stack frame is in mailbox_list_iter_next(),
+		   but we're bypassing it here by calling super.iter_next()
+		   directly. */
+		T_BEGIN {
+			info = alist->module_ctx.super.iter_next(_ctx);
+		} T_END;
+		if (info == NULL)
+			break;
+
 		/* if we've a list of mailboxes with LOOKUP rights, skip the
 		   mailboxes not in the list (since we know they can't be
 		   visible to us). */
@@ -356,10 +373,10 @@ acl_mailbox_list_info_is_visible(struct mailbox_list_iterate_context *_ctx)
 		if ((_ctx->flags & MAILBOX_LIST_ITER_RETURN_NO_FLAGS) != 0) {
 			/* don't waste time checking if there are visible
 			   children, but also don't return incorrect flags */
-			info->flags &= ~MAILBOX_CHILDREN;
+			info->flags &= ENUM_NEGATE(MAILBOX_CHILDREN);
 		} else if ((info->flags & MAILBOX_CHILDREN) != 0 &&
 			   !iter_mailbox_has_visible_children(_ctx, FALSE, FALSE)) {
-			info->flags &= ~MAILBOX_CHILDREN;
+			info->flags &= ENUM_NEGATE(MAILBOX_CHILDREN);
 			info->flags |= MAILBOX_NOCHILDREN;
 		}
 		return ret;
@@ -523,6 +540,19 @@ static void acl_storage_rights_ctx_init(struct acl_storage_rights_context *ctx,
 	}
 }
 
+static bool acl_namespace_is_ignored(struct mailbox_list *list)
+{
+	const char *value =
+		mail_user_plugin_getenv(list->ns->user, "acl_ignore_namespace");
+	for (unsigned int i = 2; value != NULL; i++) {
+		if (wildcard_match(list->ns->prefix, value))
+			return TRUE;
+		value = mail_user_plugin_getenv(list->ns->user,
+			t_strdup_printf("acl_ignore_namespace%u", i));
+	}
+	return FALSE;
+}
+
 static void acl_mailbox_list_init_default(struct mailbox_list *list)
 {
 	struct mailbox_list_vfuncs *v = list->vlast;
@@ -541,6 +571,8 @@ static void acl_mailbox_list_init_default(struct mailbox_list *list)
 	v->iter_init = acl_mailbox_list_iter_init;
 	v->iter_next = acl_mailbox_list_iter_next;
 	v->iter_deinit = acl_mailbox_list_iter_deinit;
+	if (acl_namespace_is_ignored(list))
+		alist->ignore_acls = TRUE;
 
 	MODULE_CONTEXT_SET(list, acl_mailbox_list_module, alist);
 }

@@ -85,6 +85,7 @@ const char *driver_test_result_get_error(struct sql_result *result);
 
 const struct sql_db driver_test_mysql_db = {
 	.name = "mysql",
+	.flags = SQL_DB_FLAG_BLOCKING | SQL_DB_FLAG_ON_DUPLICATE_KEY,
 
 	.v = {
 		.init = driver_test_mysql_init,
@@ -131,6 +132,7 @@ const struct sql_db driver_test_cassandra_db = {
 
 const struct sql_db driver_test_sqlite_db = {
 	.name = "sqlite",
+	.flags = SQL_DB_FLAG_ON_CONFLICT_DO | SQL_DB_FLAG_BLOCKING,
 
 	.v = {
 		.init = driver_test_sqlite_init,
@@ -254,7 +256,7 @@ static void driver_test_exec(struct sql_db *_db, const char *query)
 /*	i_debug("DUMMY EXECUTE: %s", query);
 	i_debug("DUMMY EXPECT : %s", result->queries[result->cur]); */
 
-	test_assert(strcmp(result->queries[result->cur], query)==0);
+	test_assert_strcmp(result->queries[result->cur], query);
 
 	if (strcmp(result->queries[result->cur], query) != 0) {
 		db->error = "Invalid query";

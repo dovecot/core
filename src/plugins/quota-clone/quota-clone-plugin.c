@@ -38,10 +38,8 @@ struct quota_clone_user {
 
 static void
 quota_clone_dict_commit(const struct dict_commit_result *result,
-			void *context)
+			struct quota_clone_user *quser)
 {
-	struct quota_clone_user *quser = context;
-
 	switch (result->ret) {
 	case DICT_COMMIT_RET_OK:
 	case DICT_COMMIT_RET_NOTFOUND:
@@ -118,7 +116,8 @@ static bool quota_clone_flush_real(struct mail_user *user)
 	   the special case of lookup changing from
 	   RESULT_LIMITED/RESULT_UNLIMITED to RESULT_UNKNOWN_RESOURCE, which
 	   leaves the old value unchanged. */
-	trans = dict_transaction_begin(quser->dict);
+	const struct dict_op_settings *set = mail_user_get_dict_op_settings(user);
+	trans = dict_transaction_begin(quser->dict, set);
 	if (bytes_res == QUOTA_GET_RESULT_LIMITED ||
 	    bytes_res == QUOTA_GET_RESULT_UNLIMITED) {
 		dict_set(trans, DICT_QUOTA_CLONE_BYTES_PATH,
@@ -274,9 +273,8 @@ static void quota_clone_mail_user_created(struct mail_user *user)
 	}
 
 	i_zero(&dict_set);
-	dict_set.username = user->username;
 	dict_set.base_dir = user->set->base_dir;
-	(void)mail_user_get_home(user, &dict_set.home_dir);
+	dict_set.event_parent = user->event;
 	if (dict_init(uri, &dict_set, &dict, &error) < 0) {
 		i_error("quota_clone_dict: Failed to initialize '%s': %s",
 			uri, error);

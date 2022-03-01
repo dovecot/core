@@ -16,7 +16,7 @@
 struct mail_cache_copy_context {
 	struct mail_cache *cache;
 	struct event *event;
-	time_t max_temp_drop_time, max_yes_downgrade_time;
+	struct mail_cache_purge_drop_ctx drop_ctx;
 
 	buffer_t *buffer, *field_seen;
 	ARRAY(unsigned int) bitmask_pos;
@@ -69,7 +69,7 @@ mail_cache_purge_field(struct mail_cache_copy_context *ctx,
 	}
 	*field_seen = ctx->field_seen_value;
 
-	dec = cache_field->decision & ~MAIL_CACHE_DECISION_FORCED;
+	dec = cache_field->decision & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED);
 	if (ctx->new_msg) {
 		if (dec == MAIL_CACHE_DECISION_NO)
 			return;
@@ -157,12 +157,10 @@ mail_cache_purge_check_field(struct mail_cache_copy_context *ctx,
 	struct mail_cache_field_private *priv = &ctx->cache->fields[field];
 	enum mail_cache_decision_type dec = priv->field.decision;
 
-	if ((dec & MAIL_CACHE_DECISION_FORCED) != 0)
-		;
-	else if (dec != MAIL_CACHE_DECISION_NO &&
-		 priv->field.last_used < ctx->max_temp_drop_time) {
-		/* YES or TEMP decision field hasn't been accessed for a long
-		   time now. Drop it. */
+	switch (mail_cache_purge_drop_test(&ctx->drop_ctx, field)) {
+	case MAIL_CACHE_PURGE_DROP_DECISION_NONE:
+		break;
+	case MAIL_CACHE_PURGE_DROP_DECISION_DROP: {
 		const char *dec_str = mail_cache_decision_to_string(dec);
 		struct event_passthrough *e =
 			event_create_passthrough(ctx->event)->
@@ -174,10 +172,9 @@ mail_cache_purge_check_field(struct mail_cache_copy_context *ctx,
 			"(decision=%s, last_used=%"PRIdTIME_T")",
 			priv->field.name, dec_str, priv->field.last_used);
 		dec = MAIL_CACHE_DECISION_NO;
-	} else if (dec == MAIL_CACHE_DECISION_YES &&
-		   priv->field.last_used < ctx->max_yes_downgrade_time) {
-		/* YES decision field hasn't been accessed for a while
-		   now. Change its decision to TEMP. */
+		break;
+	}
+	case MAIL_CACHE_PURGE_DROP_DECISION_TO_TEMP: {
 		struct event_passthrough *e =
 			mail_cache_decision_changed_event(
 				ctx->cache, ctx->event, field)->
@@ -188,11 +185,13 @@ mail_cache_purge_check_field(struct mail_cache_copy_context *ctx,
 			"(last_used=%"PRIdTIME_T")",
 			priv->field.name, priv->field.last_used);
 		dec = MAIL_CACHE_DECISION_TEMP;
+		break;
+	}
 	}
 	priv->field.decision = dec;
 
 	/* drop all fields we don't want */
-	if ((dec & ~MAIL_CACHE_DECISION_FORCED) == MAIL_CACHE_DECISION_NO) {
+	if ((dec & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED)) == MAIL_CACHE_DECISION_NO) {
 		priv->used = FALSE;
 		priv->field.last_used = 0;
 	}
@@ -255,12 +254,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	/* @UNSAFE: drop unused fields and create a field mapping for
 	   used fields */
 	idx_hdr = mail_index_get_header(view);
-	if (idx_hdr->day_stamp != 0) {
-		ctx.max_yes_downgrade_time = idx_hdr->day_stamp -
-			cache->index->optimization_set.cache.unaccessed_field_drop_secs;
-		ctx.max_temp_drop_time = idx_hdr->day_stamp -
-			2 * cache->index->optimization_set.cache.unaccessed_field_drop_secs;
-	}
+	mail_cache_purge_drop_init(cache, idx_hdr, &ctx.drop_ctx);
 
 	orig_fields_count = cache->fields_count;
 	if (cache->file_fields_count == 0) {
@@ -299,7 +293,8 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		ctx.new_msg = seq >= first_new_seq;
 		buffer_set_used_size(ctx.buffer, 0);
 
-		if (++ctx.field_seen_value == 0) {
+		ctx.field_seen_value = (ctx.field_seen_value + 1) & UINT8_MAX;
+		if (ctx.field_seen_value == 0) {
 			memset(buffer_get_modifiable_data(ctx.field_seen, NULL),
 			       0, buffer_get_size(ctx.field_seen));
 			ctx.field_seen_value++;
@@ -340,6 +335,7 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 	buffer_free(&ctx.buffer);
 	buffer_free(&ctx.field_seen);
 
+	*file_size_r = output->offset;
 	(void)o_stream_seek(output, 0);
 	o_stream_nsend(output, &hdr, sizeof(hdr));
 
@@ -352,10 +348,9 @@ mail_cache_copy(struct mail_cache *cache, struct mail_index_transaction *trans,
 		array_free(ext_offsets);
 		return -1;
 	}
-	*file_size_r = output->offset;
 	o_stream_destroy(&output);
 
-	if (cache->index->fsync_mode == FSYNC_MODE_ALWAYS) {
+	if (cache->index->set.fsync_mode == FSYNC_MODE_ALWAYS) {
 		if (fdatasync(fd) < 0) {
 			mail_cache_set_syscall_error(cache, "fdatasync()");
 			array_free(ext_offsets);
@@ -499,7 +494,7 @@ static int mail_cache_purge_locked(struct mail_cache *cache,
 			return -1;
 
 		/* was just purged, forget this */
-		cache->need_purge_file_seq = 0;
+		mail_cache_purge_later_reset(cache);
 
 		if (*unlock) {
 			(void)mail_cache_unlock(cache);
@@ -531,7 +526,7 @@ static int mail_cache_purge_locked(struct mail_cache *cache,
 	if (mail_cache_header_fields_read(cache) < 0)
 		return -1;
 
-	cache->need_purge_file_seq = 0;
+	mail_cache_purge_later_reset(cache);
 	return 0;
 }
 
@@ -636,9 +631,77 @@ int mail_cache_purge(struct mail_cache *cache, uint32_t purge_file_seq,
 	return ret;
 }
 
-bool mail_cache_need_purge(struct mail_cache *cache)
+bool mail_cache_need_purge(struct mail_cache *cache, const char **reason_r)
 {
-	return cache->need_purge_file_seq != 0 &&
-		(cache->index->flags & MAIL_INDEX_OPEN_FLAG_SAVEONLY) == 0 &&
-		!cache->index->readonly;
+	if (cache->need_purge_file_seq == 0)
+		return FALSE; /* delayed purging not requested */
+	if (cache->index->readonly)
+		return FALSE; /* no purging when opened as read-only */
+	if ((cache->index->flags & MAIL_INDEX_OPEN_FLAG_SAVEONLY) != 0) {
+		/* Mail deliveries don't really need to purge, even if there
+		   could be some work to do. Just delay until the next regular
+		   mail access comes before doing any extra work. */
+		return FALSE;
+	}
+
+	i_assert(cache->need_purge_reason != NULL);
+	/* t_strdup() the reason in case it gets freed (or replaced)
+	   before it's used */
+	*reason_r = t_strdup(cache->need_purge_reason);
+	return TRUE;
+}
+
+void mail_cache_purge_later(struct mail_cache *cache, const char *reason)
+{
+	i_assert(cache->hdr != NULL);
+
+	cache->need_purge_file_seq = cache->hdr->file_seq;
+	i_free(cache->need_purge_reason);
+	cache->need_purge_reason = i_strdup(reason);
+}
+
+void mail_cache_purge_later_reset(struct mail_cache *cache)
+{
+	cache->need_purge_file_seq = 0;
+	i_free(cache->need_purge_reason);
+}
+
+void mail_cache_purge_drop_init(struct mail_cache *cache,
+				const struct mail_index_header *hdr,
+				struct mail_cache_purge_drop_ctx *ctx_r)
+{
+	i_zero(ctx_r);
+	ctx_r->cache = cache;
+	if (hdr->day_stamp != 0) {
+		const struct mail_index_cache_optimization_settings *opt =
+			&cache->index->optimization_set.cache;
+		ctx_r->max_yes_downgrade_time = hdr->day_stamp -
+			opt->unaccessed_field_drop_secs;
+		ctx_r->max_temp_drop_time = hdr->day_stamp -
+			2 * opt->unaccessed_field_drop_secs;
+	}
+}
+
+enum mail_cache_purge_drop_decision
+mail_cache_purge_drop_test(struct mail_cache_purge_drop_ctx *ctx,
+			   unsigned int field)
+{
+	struct mail_cache_field_private *priv = &ctx->cache->fields[field];
+	enum mail_cache_decision_type dec = priv->field.decision;
+
+	if ((dec & MAIL_CACHE_DECISION_FORCED) != 0)
+		return MAIL_CACHE_PURGE_DROP_DECISION_NONE;
+	if (dec != MAIL_CACHE_DECISION_NO &&
+	    priv->field.last_used < ctx->max_temp_drop_time) {
+		/* YES or TEMP decision field hasn't been accessed for a long
+		   time now. Drop it. */
+		return MAIL_CACHE_PURGE_DROP_DECISION_DROP;
+	}
+	if (dec == MAIL_CACHE_DECISION_YES &&
+	    priv->field.last_used < ctx->max_yes_downgrade_time) {
+		/* YES decision field hasn't been accessed for a while
+		   now. Change its decision to TEMP. */
+		return MAIL_CACHE_PURGE_DROP_DECISION_TO_TEMP;
+	}
+	return MAIL_CACHE_PURGE_DROP_DECISION_NONE;
 }

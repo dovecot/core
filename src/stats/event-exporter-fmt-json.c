@@ -16,6 +16,40 @@ static void append_str(string_t *dest, const char *str)
 	str_append_c(dest, '"');
 }
 
+static void append_str_max_len(string_t *dest, const char *str,
+			       const struct metric_export_info *info)
+{
+	str_append_c(dest, '"');
+	if (info->exporter->format_max_field_len == 0)
+		json_append_escaped(dest, str);
+	else {
+		size_t len = strlen(str);
+		json_append_escaped_data(dest, (const unsigned char *)str,
+			I_MIN(len, info->exporter->format_max_field_len));
+		if (len > info->exporter->format_max_field_len)
+			str_append(dest, "...");
+	}
+	str_append_c(dest, '"');
+}
+
+static void
+append_strlist(string_t *dest, const ARRAY_TYPE(const_string) *strlist,
+	       const struct metric_export_info *info)
+{
+	const char *value;
+	bool first = TRUE;
+
+	str_append_c(dest, '[');
+	array_foreach_elem(strlist, value) {
+		if (first)
+			first = FALSE;
+		else
+			str_append_c(dest, ',');
+		append_str_max_len(dest, value, info);
+	}
+	str_append_c(dest, ']');
+}
+
 static void append_int(string_t *dest, intmax_t val)
 {
 	str_printfa(dest, "%jd", val);
@@ -43,7 +77,7 @@ static void append_field_value(string_t *dest, const struct event_field *field,
 {
 	switch (field->value_type) {
 	case EVENT_FIELD_VALUE_TYPE_STR:
-		append_str(dest, field->value.str);
+		append_str_max_len(dest, field->value.str, info);
 		break;
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
 		append_int(dest, field->value.intmax);
@@ -51,6 +85,9 @@ static void append_field_value(string_t *dest, const struct event_field *field,
 	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
 		append_time(dest, &field->value.timeval,
 			    info->exporter->time_format);
+		break;
+	case EVENT_FIELD_VALUE_TYPE_STRLIST:
+		append_strlist(dest, &field->value.strlist, info);
 		break;
 	}
 }
@@ -96,23 +133,11 @@ static void json_export_timestamps(string_t *dest, struct event *event,
 	str_append_c(dest, ',');
 }
 
-static void append_category(string_t *dest, struct event_category *cat)
-{
-	/* append parent's categories */
-	if (cat->parent != NULL)
-		append_category(dest, cat->parent);
-
-	/* append this */
-	append_str(dest, cat->name);
-	str_append_c(dest, ',');
-}
-
 static void json_export_categories(string_t *dest, struct event *event,
 				   const struct metric_export_info *info)
 {
 	struct event_category *const *cats;
 	unsigned int count;
-	unsigned int i;
 
 	if ((info->include & EVENT_EXPORTER_INCL_CATEGORIES) == 0)
 		return;
@@ -121,12 +146,8 @@ static void json_export_categories(string_t *dest, struct event *event,
 	str_append(dest, ":[");
 
 	cats = event_get_categories(event, &count);
-	for (i = 0; i < count; i++)
-		append_category(dest, cats[i]);
-
-	/* remove trailing comma */
-	if (count != 0)
-		str_truncate(dest, str_len(dest) - 1);
+	event_export_helper_fmt_categories(dest, cats, count,
+					   append_str, ",");
 
 	str_append(dest, "],");
 }
@@ -166,7 +187,7 @@ static void json_export_fields(string_t *dest, struct event *event,
 			const char *name = fields[i].field_key;
 			const struct event_field *field;
 
-			field = event_find_field(event, name);
+			field = event_find_field_recursive(event, name);
 			if (field == NULL)
 				continue; /* doesn't exist, skip it */
 

@@ -18,8 +18,10 @@
 
 #include <unistd.h>
 
-#define SERVER_MAX_TIMEOUT_MSECS 10*1000
-#define CLIENT_KILL_TIMEOUT_SECS 20
+#define VALGRIND_TIMEOUT_MULTIPLIER (ON_VALGRIND ? 5 : 1)
+
+#define SERVER_MAX_TIMEOUT_MSECS (10 * VALGRIND_TIMEOUT_MULTIPLIER * 1000)
+#define CLIENT_KILL_TIMEOUT_SECS (20 * VALGRIND_TIMEOUT_MULTIPLIER)
 
 static void main_deinit(void);
 
@@ -56,6 +58,7 @@ static bool debug = FALSE;
 static struct smtp_server *smtp_server = NULL;
 static struct io *io_listen;
 static int fd_listen = -1;
+static size_t server_io_buffer_size = 0;
 static struct smtp_server_callbacks server_callbacks;
 static unsigned int server_pending;
 
@@ -612,7 +615,7 @@ test_many_bad_commands_client_connected(struct client_connection *conn)
 	struct _many_bad_commands_client *ctx;
 
 	ctx = p_new(conn->pool, struct _many_bad_commands_client, 1);
-	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
 	conn->context = ctx;
 
 	switch (client_index) {
@@ -822,6 +825,353 @@ static void test_long_command(void)
 }
 
 /*
+ * Long auth line
+ */
+
+/* client */
+
+#define _LONG_AUTH_LINE_DATA \
+	"dXNlcj10ZXN0dXNlcjEBYXV0aD1CZWFyZXIgZXlKaGJHY2lPaUpTVXpJMU5pSXNJ" \
+	"blI1Y0NJZ09pQWlTbGRVSWl3aWEybGtJaUE2SUNKdVRIRlVlRnBXWVhKSlgwWndS" \
+	"a0Z3Umt3MloyUnhiak4xV1VSS2R6WnNWVjlMYVZoa2JWazJialpSSW4wLmV5Smxl" \
+	"SEFpT2pFMk16UTJNemMyTlRFc0ltbGhkQ0k2TVRZek5EWXpOek0xTVN3aWFuUnBJ" \
+	"am9pT1RFM1lUYzFaalF0WTJZME9DMDBOVEEyTFRnNVpXSXRNRE13WldaaU5tSTVO" \
+	"MlZrSWl3aWFYTnpJam9pYUhSMGNEb3ZMekU1TWk0eE5qZ3VNUzR5TVRveE9EQTRN" \
+	"QzloZFhSb0wzSmxZV3h0Y3k5eVpXeDBaWE4wSWl3aVlYVmtJam9pWVdOamIzVnVk" \
+	"Q0lzSW5OMVlpSTZJamhsWVRRME1UWTNMVGN6TTJVdE5EVTBZeTFpT0dJMUxXTmpa" \
+	"bVl3WkRnek1URTVaQ0lzSW5SNWNDSTZJa0psWVhKbGNpSXNJbUY2Y0NJNkltUnZk" \
+	"bVZqYjNRaUxDSnpaWE56YVc5dVgzTjBZWFJsSWpvaU1tTTNPVEUzWldJdE16QTFO" \
+	"UzAwTkRZeExXSXdZell0WTJVeFlUbGlNVEZoTWpReklpd2lZV055SWpvaU1TSXNJ" \
+	"bkpsWVd4dFgyRmpZMlZ6Y3lJNmV5SnliMnhsY3lJNld5SnZabVpzYVc1bFgyRmpZ" \
+	"MlZ6Y3lJc0luVnRZVjloZFhSb2IzSnBlbUYwYVc5dUlsMTlMQ0p5WlhOdmRYSmpa" \
+	"VjloWTJObGMzTWlPbnNpWVdOamIzVnVkQ0k2ZXlKeWIyeGxjeUk2V3lKdFlXNWha" \
+	"MlV0WVdOamIzVnVkQ0lzSW0xaGJtRm5aUzFoWTJOdmRXNTBMV3hwYm10eklpd2lk" \
+	"bWxsZHkxd2NtOW1hV3hsSWwxOWZTd2ljMk52Y0dVaU9pSndjbTltYVd4bElHVnRZ" \
+	"V2xzSWl3aVpXMWhhV3hmZG1WeWFXWnBaV1FpT21aaGJITmxMQ0p1WVcxbElqb2lk" \
+	"R1Z6ZEhWelpYSXhJRUYxZEc5SFpXNWxjbUYwWldRaUxDSndjbVZtWlhKeVpXUmZk" \
+	"WE5sY201aGJXVWlPaUowWlhOMGRYTmxjakVpTENKbmFYWmxibDl1WVcxbElqb2lk" \
+	"R1Z6ZEhWelpYSXhJaXdpWm1GdGFXeDVYMjVoYldVaU9pSkJkWFJ2UjJWdVpYSmhk" \
+	"R1ZrSWl3aVpXMWhhV3dpT2lKMFpYTjBkWE5sY2pGQWJYbGtiMjFoYVc0dWIzZ2lm" \
+	"US5ta2JGSURpT0FhbENCcVMwODRhVHJURjBIdDk1c1Z4cGlSbTFqZnhJd0JiN1hM" \
+	"M2gzWUJkdXVrVXlZdDJqX1pqUFlhMDhDcVVYNWFrLVBOSjdSVWRTUXNmUlgwM1Zi" \
+	"cXA4MHFZZjNGYzJpcDR0YmhHLXFEV0R6NzdhZDhWcEFNei16YWlSamZCclZ2R3hB" \
+	"T3ZsZnFDVWhaZTJDR3ZqWjZ1Q3RKTlFaS0dyazZHOXoxX2pqekZkTjBXWjUxbEZs" \
+	"US1JdE5LREpoTjNIekJ5SW93M19qQU9kWEI0R0w4R3JHM1hqU09rSFVRam5GTEQw" \
+	"QUF1QXY4SkxmTXY1NGc1a2tKaklxRFgxZlgyWVo0Y2JQOWV3TUp6UV84ZWdLeW5T" \
+	"VV9XSk8xRU9Qa1NVZjlMX19RX3FwY0dNbzFtTkxuTURKUlU2dmZFY3JrM2k0cVNz" \
+	"MXRPdHdLaHcBAQ"
+
+struct _long_auth_line_client {
+	struct smtp_reply_parser *parser;
+	unsigned int reply;
+
+	bool replied:1;
+};
+
+static void test_long_auth_line_client_input(struct client_connection *conn)
+{
+	struct _long_auth_line_client *ctx = conn->context;
+	struct smtp_reply *reply;
+	const char *error;
+	int ret;
+
+	while ((ret = smtp_reply_parse_next(ctx->parser, FALSE,
+					    &reply, &error)) > 0) {
+		if (debug)
+			i_debug("REPLY: %s", smtp_reply_log(reply));
+
+		switch (ctx->reply++) {
+		case 0: /* greeting */
+			i_assert(reply->status == 220);
+			break;
+		case 1: /* EHLO reply */
+			i_assert(reply->status == 250);
+			break;
+		case 2: /* AUTH continue */
+			i_assert(reply->status == 334);
+			break;
+		case 3: /* AUTH reply */
+			switch (client_index) {
+			case 0:
+				i_assert(reply->status == 235);
+				break;
+			case 1:
+				i_assert(reply->status == 235);
+				break;
+			case 2:
+				i_assert(reply->status == 500);
+				ctx->replied = TRUE;
+				io_loop_stop(ioloop);
+				connection_disconnect(&conn->conn);
+				return;
+			default:
+				i_unreached();
+			}
+			break;
+		case 4: /* MAIL reply */
+			i_assert(client_index < 2);
+			i_assert(reply->status == 250);
+			break;
+		case 5: /* RCPT reply */
+			i_assert(client_index < 2);
+			i_assert(reply->status == 250);
+			break;
+		case 6: /* DATA initial reply */
+			i_assert(client_index < 2);
+			i_assert(reply->status == 354);
+			break;
+		case 7: /* DATA reply */
+			i_assert(client_index < 2);
+			i_assert(reply->status == 250);
+			break;
+		case 8: /* QUIT reply */
+			i_assert(client_index < 2);
+			i_assert(reply->status == 221);
+			ctx->replied = TRUE;
+			io_loop_stop(ioloop);
+			connection_disconnect(&conn->conn);
+			return;
+		default:
+			i_unreached();
+		}
+	}
+
+	i_assert(ret >= 0);
+}
+
+static void test_long_auth_line_client_connected(struct client_connection *conn)
+{
+	struct _long_auth_line_client *ctx;
+	unsigned int i;
+
+	ctx = p_new(conn->pool, struct _long_auth_line_client, 1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
+	conn->context = ctx;
+
+	o_stream_nsend_str(
+		conn->conn.output,
+		"EHLO frop\r\n"
+		"AUTH XOAUTH2\r\n");
+	for (i = 0; i < (client_index > 1 ? 6 : 1); i++)
+		o_stream_nsend_str(conn->conn.output, _LONG_AUTH_LINE_DATA);
+	o_stream_nsend_str(
+		conn->conn.output,
+		"==");
+	if (client_index == 1) {
+		o_stream_nsend_str(
+			conn->conn.output,
+			"                                      ");
+	}
+	o_stream_nsend_str(
+		conn->conn.output,
+		"\r\n"
+		"MAIL FROM:<user@example.com>\r\n"
+		"RCPT TO:<user@example.com>\r\n"
+		"DATA\r\n"
+		"frop\r\n"
+		".\r\n"
+		"QUIT\r\n");
+}
+
+static void test_long_auth_line_client_deinit(struct client_connection *conn)
+{
+	struct _long_auth_line_client *ctx = conn->context;
+
+	i_assert(ctx->replied);
+	smtp_reply_parser_deinit(&ctx->parser);
+}
+
+static void test_client_long_auth_line(unsigned int index)
+{
+	test_client_input = test_long_auth_line_client_input;
+	test_client_connected = test_long_auth_line_client_connected;
+	test_client_deinit = test_long_auth_line_client_deinit;
+	test_client_run(index);
+}
+
+/* server */
+
+struct _long_auth_line {
+	struct istream *payload_input;
+};
+
+static void
+test_server_long_auth_line_disconnect(void *context ATTR_UNUSED,
+				    const char *reason)
+{
+	if (debug)
+		i_debug("Disconnect: %s", reason);
+}
+
+static int
+test_server_long_auth_line_helo(void *conn_ctx ATTR_UNUSED,
+			      struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+			      struct smtp_server_cmd_helo *data ATTR_UNUSED)
+{
+	return 1;
+}
+
+static int
+test_server_long_auth_line_auth(void *conn_ctx ATTR_UNUSED,
+				struct smtp_server_cmd_ctx *cmd,
+				struct smtp_server_cmd_auth *data ATTR_UNUSED)
+{
+	smtp_server_cmd_auth_send_challenge(cmd, "");
+	return 0;
+}
+
+static int
+test_server_long_auth_line_auth_continue(void *conn_ctx ATTR_UNUSED,
+					 struct smtp_server_cmd_ctx *cmd,
+					 const char *response)
+{
+	if (strcmp(response, _LONG_AUTH_LINE_DATA"==") == 0)
+		smtp_server_cmd_auth_success(cmd, "user", NULL);
+	else {
+		smtp_server_reply(cmd, 535, "5.7.8",
+				  "Authentication credentials invalid");
+	}
+	return 1;
+}
+
+static int
+test_server_long_auth_line_rcpt(void *conn_ctx ATTR_UNUSED,
+			      struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+			      struct smtp_server_recipient *rcpt ATTR_UNUSED)
+{
+	if (debug)
+		i_debug("RCPT");
+	return 1;
+}
+
+static int
+test_server_long_auth_line_data_begin(void *conn_ctx ATTR_UNUSED,
+				struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+				struct smtp_server_transaction *trans,
+				struct istream *data_input)
+{
+	struct _long_auth_line *ctx;
+
+	if (debug)
+		i_debug("DATA");
+
+	ctx = p_new(trans->pool, struct _long_auth_line, 1);
+	trans->context = ctx;
+
+	ctx->payload_input = data_input;
+	return 0;
+}
+
+static int
+test_server_long_auth_line_data_continue(void *conn_ctx ATTR_UNUSED,
+				   struct smtp_server_cmd_ctx *cmd,
+				   struct smtp_server_transaction *trans)
+{
+	struct _long_auth_line *ctx = (struct _long_auth_line *)trans->context;
+	struct istream *data_input = ctx->payload_input;
+	size_t size;
+	ssize_t ret;
+
+	if (debug)
+		i_debug("DATA continue");
+
+	while ((ret = i_stream_read(data_input)) > 0 || ret == -2) {
+		(void)i_stream_get_data(data_input, &size);
+		i_stream_skip(data_input, size);
+		if (!smtp_server_cmd_data_check_size(cmd))
+			return -1;
+	}
+
+	if (ret == 0)
+		return 0;
+	if (ret < 0 && data_input->stream_errno != 0) {
+		/* Client probably disconnected */
+		return -1;
+	}
+
+	smtp_server_reply_all(cmd, 250, "2.0.0", "Accepted");
+	return 1;
+}
+
+static void
+test_server_long_auth_line(const struct smtp_server_settings *server_set)
+{
+	server_callbacks.conn_disconnect =
+		test_server_long_auth_line_disconnect;
+
+	server_callbacks.conn_cmd_helo =
+		test_server_long_auth_line_helo;
+	server_callbacks.conn_cmd_auth =
+		test_server_long_auth_line_auth;
+	server_callbacks.conn_cmd_auth_continue =
+		test_server_long_auth_line_auth_continue;
+	server_callbacks.conn_cmd_rcpt =
+		test_server_long_auth_line_rcpt;
+	server_callbacks.conn_cmd_data_begin =
+		test_server_long_auth_line_data_begin;
+	server_callbacks.conn_cmd_data_continue =
+		test_server_long_auth_line_data_continue;
+	test_server_run(server_set);
+}
+
+static void
+test_server_long_auth_line_small_buf(
+	const struct smtp_server_settings *server_set)
+{
+	server_io_buffer_size = 1024;
+
+	server_callbacks.conn_disconnect =
+		test_server_long_auth_line_disconnect;
+
+	server_callbacks.conn_cmd_helo =
+		test_server_long_auth_line_helo;
+	server_callbacks.conn_cmd_auth =
+		test_server_long_auth_line_auth;
+	server_callbacks.conn_cmd_auth_continue =
+		test_server_long_auth_line_auth_continue;
+	server_callbacks.conn_cmd_rcpt =
+		test_server_long_auth_line_rcpt;
+	server_callbacks.conn_cmd_data_begin =
+		test_server_long_auth_line_data_begin;
+	server_callbacks.conn_cmd_data_continue =
+		test_server_long_auth_line_data_continue;
+	test_server_run(server_set);
+}
+
+/* test */
+
+static void test_long_auth_line(void)
+{
+	struct smtp_server_settings smtp_server_set;
+
+	test_server_defaults(&smtp_server_set);
+	smtp_server_set.capabilities = SMTP_CAPABILITY_AUTH;
+	smtp_server_set.max_client_idle_time_msecs = 1000;
+
+	test_begin("long auth line");
+	test_run_client_server(&smtp_server_set,
+			       test_server_long_auth_line,
+			       test_client_long_auth_line, 3);
+	test_end();
+}
+
+static void test_long_auth_line_small_buf(void)
+{
+	struct smtp_server_settings smtp_server_set;
+
+	test_server_defaults(&smtp_server_set);
+	smtp_server_set.capabilities = SMTP_CAPABILITY_AUTH;
+	smtp_server_set.max_client_idle_time_msecs = 1000;
+
+	test_begin("long auth line (small i/o buffers)");
+	test_run_client_server(&smtp_server_set,
+			       test_server_long_auth_line_small_buf,
+			       test_client_long_auth_line, 3);
+	test_end();
+}
+
+
+/*
  * Big data
  */
 
@@ -933,7 +1283,7 @@ test_server_big_data_data_continue(void *conn_ctx ATTR_UNUSED,
 					"Message too big for system");
 		return -1;
 	}
-		
+
 	if (ret == 0)
 		return 0;
 
@@ -973,26 +1323,114 @@ static void test_big_data(void)
 }
 
 /*
- * Bad EHLO
+ * Bad HELO
  */
 
 /* client */
 
-static void test_bad_ehlo_connected(struct client_connection *conn)
+struct _bad_helo_client {
+	struct smtp_reply_parser *parser;
+	unsigned int reply;
+
+	bool replied:1;
+};
+
+static void test_bad_helo_client_input(struct client_connection *conn)
 {
-	o_stream_nsend_str(conn->conn.output,
-		"EHLO \r\n");
+	struct _bad_helo_client *ctx = conn->context;
+	struct smtp_reply *reply;
+	const char *error;
+	int ret;
+
+	for (;;) {
+		if (ctx->reply != 1 ||
+		    client_index == 0 || client_index == 2) {
+			ret = smtp_reply_parse_next(ctx->parser, FALSE, &reply,
+						    &error);
+		} else {
+			ret = smtp_reply_parse_ehlo(ctx->parser, &reply,
+						    &error);
+		}
+		if (ret <= 0)
+			break;
+
+		if (debug)
+			i_debug("REPLY: %s", smtp_reply_log(reply));
+
+		switch (ctx->reply++) {
+		case 0: /* greeting */
+			i_assert(reply->status == 220);
+			break;
+		case 1: /* bad command reply */
+			switch (client_index) {
+			case 0: case 1:
+				i_assert(reply->status == 501);
+				break;
+			case 2: case 3:
+				i_assert(reply->status == 250);
+				break;
+			default:
+				i_unreached();
+			}
+			if (debug)
+				i_debug("REPLIED");
+			ctx->replied = TRUE;
+			io_loop_stop(ioloop);
+			connection_disconnect(&conn->conn);
+			return;
+		default:
+			i_unreached();
+		}
+	}
+
+	i_assert(ret >= 0);
 }
 
-static void test_client_bad_ehlo(unsigned int index)
+static void test_bad_helo_client_connected(struct client_connection *conn)
 {
-	test_client_connected = test_bad_ehlo_connected;
+	struct _bad_helo_client *ctx;
+
+	ctx = p_new(conn->pool, struct _bad_helo_client, 1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
+	conn->context = ctx;
+
+	switch (client_index) {
+	case 0:
+		o_stream_nsend_str(conn->conn.output, "HELO\r\n");
+		break;
+	case 1:
+		o_stream_nsend_str(conn->conn.output, "EHLO\r\n");
+		break;
+	case 2:
+		o_stream_nsend_str(conn->conn.output, "HELO frop\r\n");
+		break;
+	case 3:
+		o_stream_nsend_str(conn->conn.output, "EHLO frop\r\n");
+		break;
+	default:
+		i_unreached();
+	}
+}
+
+static void test_bad_helo_client_deinit(struct client_connection *conn)
+{
+	struct _bad_helo_client *ctx = conn->context;
+
+	i_assert(ctx->replied);
+	smtp_reply_parser_deinit(&ctx->parser);
+}
+
+static void test_client_bad_helo(unsigned int index)
+{
+	test_client_input = test_bad_helo_client_input;
+	test_client_connected = test_bad_helo_client_connected;
+	test_client_deinit = test_bad_helo_client_deinit;
 	test_client_run(index);
 }
 
 /* server */
 
-struct _bad_ehlo {
+struct _bad_helo {
 	struct istream *payload_input;
 	struct io *io;
 
@@ -1000,24 +1438,22 @@ struct _bad_ehlo {
 };
 
 static void
-test_server_bad_ehlo_disconnect(void *context ATTR_UNUSED, const char *reason)
+test_server_bad_helo_disconnect(void *context ATTR_UNUSED, const char *reason)
 {
 	if (debug)
 		i_debug("Disconnect: %s", reason);
-	io_loop_stop(ioloop);
 }
 
 static int
-test_server_bad_ehlo_helo(void *conn_ctx ATTR_UNUSED,
+test_server_bad_helo_helo(void *conn_ctx ATTR_UNUSED,
 			  struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 			  struct smtp_server_cmd_helo *data ATTR_UNUSED)
 {
-	test_assert(FALSE);
 	return 1;
 }
 
 static int
-test_server_bad_ehlo_rcpt(void *conn_ctx ATTR_UNUSED,
+test_server_bad_helo_rcpt(void *conn_ctx ATTR_UNUSED,
 			  struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
 			  struct smtp_server_recipient *rcpt ATTR_UNUSED)
 {
@@ -1025,7 +1461,7 @@ test_server_bad_ehlo_rcpt(void *conn_ctx ATTR_UNUSED,
 }
 
 static int
-test_server_bad_ehlo_data_begin(
+test_server_bad_helo_data_begin(
 	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd,
 	struct smtp_server_transaction *trans ATTR_UNUSED,
 	struct istream *data_input ATTR_UNUSED)
@@ -1034,33 +1470,33 @@ test_server_bad_ehlo_data_begin(
 	return 1;
 }
 
-static void test_server_bad_ehlo(const struct smtp_server_settings *server_set)
+static void test_server_bad_helo(const struct smtp_server_settings *server_set)
 {
 	server_callbacks.conn_disconnect =
-		test_server_bad_ehlo_disconnect;
+		test_server_bad_helo_disconnect;
 
 	server_callbacks.conn_cmd_helo =
-		test_server_bad_ehlo_helo;
+		test_server_bad_helo_helo;
 	server_callbacks.conn_cmd_rcpt =
-		test_server_bad_ehlo_rcpt;
+		test_server_bad_helo_rcpt;
 	server_callbacks.conn_cmd_data_begin =
-		test_server_bad_ehlo_data_begin;
+		test_server_bad_helo_data_begin;
 	test_server_run(server_set);
 }
 
 /* test */
 
-static void test_bad_ehlo(void)
+static void test_bad_helo(void)
 {
 	struct smtp_server_settings smtp_server_set;
 
 	test_server_defaults(&smtp_server_set);
 	smtp_server_set.max_client_idle_time_msecs = 1000;
 
-	test_begin("bad EHLO");
+	test_begin("bad HELO");
 	test_run_client_server(&smtp_server_set,
-			       test_server_bad_ehlo,
-			       test_client_bad_ehlo, 1);
+			       test_server_bad_helo,
+			       test_client_bad_helo, 4);
 	test_end();
 }
 
@@ -1121,7 +1557,7 @@ static void test_bad_mail_client_connected(struct client_connection *conn)
 	struct _bad_mail_client *ctx;
 
 	ctx = p_new(conn->pool, struct _bad_mail_client, 1);
-	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
 	conn->context = ctx;
 
 	switch (client_index) {
@@ -1308,7 +1744,7 @@ static void test_bad_rcpt_client_connected(struct client_connection *conn)
 	struct _bad_rcpt_client *ctx;
 
 	ctx = p_new(conn->pool, struct _bad_rcpt_client, 1);
-	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
 	conn->context = ctx;
 
 	switch (client_index) {
@@ -1489,7 +1925,7 @@ test_bad_vrfy_client_connected(struct client_connection *conn)
 	struct _bad_vrfy_client *ctx;
 
 	ctx = p_new(conn->pool, struct _bad_vrfy_client, 1);
-	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
 	conn->context = ctx;
 
 	switch (client_index) {
@@ -1644,7 +2080,7 @@ test_bad_noop_client_connected(struct client_connection *conn)
 	struct _bad_noop_client *ctx;
 
 	ctx = p_new(conn->pool, struct _bad_noop_client, 1);
-	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
 	conn->context = ctx;
 
 	switch (client_index) {
@@ -1799,7 +2235,7 @@ test_mail_workarounds_client_connected(struct client_connection *conn)
 	struct _mail_workarounds_client *ctx;
 
 	ctx = p_new(conn->pool, struct _mail_workarounds_client, 1);
-	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
 	conn->context = ctx;
 
 	switch (client_index) {
@@ -2002,7 +2438,7 @@ test_rcpt_workarounds_client_connected(struct client_connection *conn)
 	struct _rcpt_workarounds_client *ctx;
 
 	ctx = p_new(conn->pool, struct _rcpt_workarounds_client, 1);
-	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
 	conn->context = ctx;
 
 	switch (client_index) {
@@ -2411,6 +2847,221 @@ static void test_data_no_rcpt(void)
 }
 
 /*
+ * Bad pipelined DATA
+ */
+
+/* client */
+
+static void test_bad_pipelined_data_connected(struct client_connection *conn)
+{
+	o_stream_nsend_str(conn->conn.output,
+			   "MAIL FROM:<senderp@example.com>\r\n"
+			   "RCPT TO:<<recipient1@example.com>\r\n"
+			   "DATA\r\n"
+			   "FROP!\r\n"
+			   "DATA\r\n"
+			   "FROP!\r\n"
+			   ".\r\n"
+			   "QUIT\r\n");
+}
+
+static void test_client_bad_pipelined_data(unsigned int index)
+{
+	test_client_connected = test_bad_pipelined_data_connected;
+	test_client_run(index);
+}
+
+/* server */
+
+static void
+test_server_bad_pipelined_data_trans_free(
+	void *conn_ctx  ATTR_UNUSED,
+	struct smtp_server_transaction *trans ATTR_UNUSED)
+{
+	io_loop_stop(ioloop);
+}
+
+static int
+test_server_bad_pipelined_data_rcpt(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_recipient *rcpt ATTR_UNUSED)
+{
+	/* not supposed to get here */
+	i_assert(FALSE);
+	return 1;
+}
+
+static int
+test_server_bad_pipelined_data_data_begin(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_transaction *trans ATTR_UNUSED,
+	struct istream *data_input ATTR_UNUSED)
+{
+	/* not supposed to get here */
+	i_assert(FALSE);
+	return 1;
+}
+
+static void
+test_server_bad_pipelined_data(const struct smtp_server_settings *server_set)
+{
+	server_callbacks.conn_trans_free =
+		test_server_bad_pipelined_data_trans_free;
+	server_callbacks.conn_cmd_rcpt =
+		test_server_bad_pipelined_data_rcpt;
+	server_callbacks.conn_cmd_data_begin =
+		test_server_bad_pipelined_data_data_begin;
+	test_server_run(server_set);
+}
+
+/* test */
+
+static void test_bad_pipelined_data(void)
+{
+	struct smtp_server_settings smtp_server_set;
+
+	test_server_defaults(&smtp_server_set);
+	smtp_server_set.capabilities =
+		SMTP_CAPABILITY_BINARYMIME | SMTP_CAPABILITY_CHUNKING;
+	smtp_server_set.max_client_idle_time_msecs = 1000;
+	smtp_server_set.max_recipients = 10;
+	smtp_server_set.max_pipelined_commands = 16;
+
+	test_begin("Bad pipelined DATA");
+	test_run_client_server(&smtp_server_set,
+			       test_server_bad_pipelined_data,
+			       test_client_bad_pipelined_data, 1);
+	test_end();
+}
+
+/*
+ * Bad pipelined DATA #2
+ */
+
+/* client */
+
+static void test_bad_pipelined_data2_connected(struct client_connection *conn)
+{
+	o_stream_nsend_str(conn->conn.output,
+			   "MAIL FROM:<frop@example.com>\r\n"
+			   "DATA\r\n"
+			   "DATA\r\n"
+			   "RCPT TO:<frop@example.com>\r\n"
+			   "BDAT 0\r\n");
+}
+
+static void test_client_bad_pipelined_data2(unsigned int index)
+{
+	test_client_connected = test_bad_pipelined_data2_connected;
+	test_client_run(index);
+}
+
+/* server */
+
+struct _bad_pipelined_data2 {
+	struct istream *payload_input;
+	struct io *io;
+};
+
+static void
+test_server_bad_pipelined_data2_trans_free(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_transaction *trans)
+{
+	struct _bad_pipelined_data2 *ctx = trans->context;
+
+	i_free(ctx);
+	io_loop_stop(ioloop);
+}
+
+static int
+test_server_bad_pipelined_data2_rcpt(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_recipient *rcpt)
+{
+	if (debug) {
+		i_debug("RCPT TO:%s",
+			smtp_address_encode(rcpt->path));
+	}
+	return 1;
+}
+
+static int
+test_server_bad_pipelined_data2_data_begin(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_transaction *trans, struct istream *data_input)
+{
+	struct _bad_pipelined_data2 *ctx;
+
+	if (debug)
+		i_debug("DATA");
+
+	ctx = i_new(struct _bad_pipelined_data2, 1);
+	trans->context = ctx;
+
+	ctx->payload_input = data_input;
+	return 0;
+}
+
+static int
+test_server_bad_pipelined_data2_data_continue(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd,
+	struct smtp_server_transaction *trans ATTR_UNUSED)
+{
+	struct _bad_pipelined_data2 *ctx = trans->context;
+	size_t size;
+	ssize_t ret;
+
+	while ((ret = i_stream_read(ctx->payload_input)) > 0 || ret == -2) {
+		size = i_stream_get_data_size(ctx->payload_input);
+		i_stream_skip(ctx->payload_input, size);
+	}
+
+	if (ret == 0)
+		return 0;
+	if (ret < 0 && ctx->payload_input->stream_errno != 0) {
+		/* Client probably disconnected */
+		return -1;
+	}
+
+	smtp_server_reply_all(cmd, 250, "2.0.0", "Accepted");
+	return 1;
+}
+
+static void
+test_server_bad_pipelined_data2(const struct smtp_server_settings *server_set)
+{
+	server_callbacks.conn_trans_free =
+		test_server_bad_pipelined_data2_trans_free;
+	server_callbacks.conn_cmd_rcpt =
+		test_server_bad_pipelined_data2_rcpt;
+	server_callbacks.conn_cmd_data_begin =
+		test_server_bad_pipelined_data2_data_begin;
+	server_callbacks.conn_cmd_data_continue =
+		test_server_bad_pipelined_data2_data_continue;
+	test_server_run(server_set);
+}
+
+/* test */
+
+static void test_bad_pipelined_data2(void)
+{
+	struct smtp_server_settings smtp_server_set;
+
+	test_server_defaults(&smtp_server_set);
+	smtp_server_set.capabilities =
+		SMTP_CAPABILITY_BINARYMIME | SMTP_CAPABILITY_CHUNKING;
+	smtp_server_set.max_client_idle_time_msecs = 1000;
+	smtp_server_set.max_recipients = 10;
+	smtp_server_set.max_pipelined_commands = 16;
+
+	test_begin("Bad pipelined DATA #2");
+	test_run_client_server(&smtp_server_set,
+			       test_server_bad_pipelined_data2,
+			       test_client_bad_pipelined_data2, 1);
+	test_end();
+}
+
+/*
  * DATA with BINARYMIME
  */
 
@@ -2558,7 +3209,7 @@ test_mail_broken_path_client_connected(struct client_connection *conn)
 	struct _mail_broken_path_client *ctx;
 
 	ctx = p_new(conn->pool, struct _mail_broken_path_client, 1);
-	ctx->parser = smtp_reply_parser_init(conn->conn.input, (size_t)-1);
+	ctx->parser = smtp_reply_parser_init(conn->conn.input, SIZE_MAX);
 	conn->context = ctx;
 
 	switch (client_index) {
@@ -2733,6 +3384,136 @@ static void test_mail_broken_path(void)
 }
 
 /*
+ * Bad pipelined MAIL
+ */
+
+/* client */
+
+static void test_bad_pipelined_mail_connected(struct client_connection *conn)
+{
+	o_stream_nsend_str(conn->conn.output,
+			   "MAIL FROM:<user1@example.com>\r\n"
+			   "RCPT TO:<user2@example.com>\r\n"
+			   "RCPT TO:<user3@example.com>\r\n"
+			   "MAIL FROM:<user4@example.com>\r\n"
+			   "DATA\r\n"
+			   "FROP!\r\n"
+			   ".\r\n"
+			   "QUIT\r\n");
+}
+
+static void test_client_bad_pipelined_mail(unsigned int index)
+{
+	test_client_connected = test_bad_pipelined_mail_connected;
+	test_client_run(index);
+}
+
+/* server */
+
+struct _bad_pipelined_mail {
+	struct istream *payload_input;
+	struct io *io;
+};
+
+static void
+test_server_bad_pipelined_mail_trans_free(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_transaction *trans)
+{
+	struct _bad_pipelined_mail *ctx = trans->context;
+
+	i_free(ctx);
+	io_loop_stop(ioloop);
+}
+
+static int
+test_server_bad_pipelined_mail_rcpt(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_recipient *rcpt)
+{
+	if (debug) {
+		i_debug("RCPT TO:%s",
+			smtp_address_encode(rcpt->path));
+	}
+	return 1;
+}
+
+static int
+test_server_bad_pipelined_mail_data_begin(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd ATTR_UNUSED,
+	struct smtp_server_transaction *trans, struct istream *data_input)
+{
+	struct _bad_pipelined_mail *ctx;
+
+	if (debug)
+		i_debug("DATA");
+
+	ctx = i_new(struct _bad_pipelined_mail, 1);
+	trans->context = ctx;
+
+	ctx->payload_input = data_input;
+	return 0;
+}
+
+static int
+test_server_bad_pipelined_mail_data_continue(
+	void *conn_ctx ATTR_UNUSED, struct smtp_server_cmd_ctx *cmd,
+	struct smtp_server_transaction *trans ATTR_UNUSED)
+{
+	struct _bad_pipelined_mail *ctx = trans->context;
+	size_t size;
+	ssize_t ret;
+
+	while ((ret = i_stream_read(ctx->payload_input)) > 0 || ret == -2) {
+		size = i_stream_get_data_size(ctx->payload_input);
+		i_stream_skip(ctx->payload_input, size);
+	}
+
+	if (ret == 0)
+		return 0;
+	if (ret < 0 && ctx->payload_input->stream_errno != 0) {
+		/* Client probably disconnected */
+		return -1;
+	}
+
+	smtp_server_reply_all(cmd, 250, "2.0.0", "Accepted");
+	return 1;
+}
+
+static void
+test_server_bad_pipelined_mail(const struct smtp_server_settings *server_set)
+{
+	server_callbacks.conn_trans_free =
+		test_server_bad_pipelined_mail_trans_free;
+	server_callbacks.conn_cmd_rcpt =
+		test_server_bad_pipelined_mail_rcpt;
+	server_callbacks.conn_cmd_data_begin =
+		test_server_bad_pipelined_mail_data_begin;
+	server_callbacks.conn_cmd_data_continue =
+		test_server_bad_pipelined_mail_data_continue;
+	test_server_run(server_set);
+}
+
+/* test */
+
+static void test_bad_pipelined_mail(void)
+{
+	struct smtp_server_settings smtp_server_set;
+
+	test_server_defaults(&smtp_server_set);
+	smtp_server_set.capabilities =
+		SMTP_CAPABILITY_BINARYMIME | SMTP_CAPABILITY_CHUNKING;
+	smtp_server_set.max_client_idle_time_msecs = 1000;
+	smtp_server_set.max_recipients = 10;
+	smtp_server_set.max_pipelined_commands = 16;
+
+	test_begin("Bad pipelined MAIL");
+	test_run_client_server(&smtp_server_set,
+			       test_server_bad_pipelined_mail,
+			       test_client_bad_pipelined_mail, 1);
+	test_end();
+}
+
+/*
  * All tests
  */
 
@@ -2743,8 +3524,10 @@ static void (*const test_functions[])(void) = {
 	test_bad_command,
 	test_many_bad_commands,
 	test_long_command,
+	test_long_auth_line,
+	test_long_auth_line_small_buf,
 	test_big_data,
-	test_bad_ehlo,
+	test_bad_helo,
 	test_bad_mail,
 	test_bad_rcpt,
 	test_bad_vrfy,
@@ -2754,8 +3537,11 @@ static void (*const test_functions[])(void) = {
 	test_too_many_recipients,
 	test_data_no_mail,
 	test_data_no_rcpt,
+	test_bad_pipelined_data,
+	test_bad_pipelined_data2,
 	test_data_binarymime,
 	test_mail_broken_path,
+	test_bad_pipelined_mail,
 	NULL
 };
 
@@ -2820,8 +3606,8 @@ static void client_connection_destroy(struct connection *_conn)
 /* */
 
 static struct connection_settings client_connection_set = {
-	.input_max_size = (size_t)-1,
-	.output_max_size = (size_t)-1,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
 	.client = TRUE
 };
 
@@ -2867,12 +3653,12 @@ static void test_server_defaults(struct smtp_server_settings *smtp_set)
 
 /* client connection */
 
-static void server_connection_destroy(void *context)
+static void server_connection_free(void *context)
 {
 	struct server_connection *sconn = (struct server_connection *)context;
 
 	if (debug)
-		i_debug("Connection destroyed");
+		i_debug("Connection freed");
 
 	if (--server_pending == 0)
 		io_loop_stop(ioloop);
@@ -2896,13 +3682,31 @@ static void server_connection_accept(void *context ATTR_UNUSED)
 	if (debug)
 		i_debug("Accepted connection");
 
+	net_set_nonblock(fd, TRUE);
+
 	sconn = i_new(struct server_connection, 1);
 
-	server_callbacks.conn_destroy = server_connection_destroy;
+	server_callbacks.conn_free = server_connection_free;
 
-	conn = smtp_server_connection_create(smtp_server, fd, fd,
-					     NULL, 0, FALSE, NULL,
-					     &server_callbacks, sconn);
+	if (server_io_buffer_size == 0) {
+		conn = smtp_server_connection_create(smtp_server, fd, fd,
+						     NULL, 0, FALSE, NULL,
+						     &server_callbacks, sconn);
+	} else {
+		struct istream *input;
+		struct ostream *output;
+
+		input = i_stream_create_fd(fd, server_io_buffer_size);
+		output = o_stream_create_fd(fd, server_io_buffer_size);
+		o_stream_set_no_error_handling(output, TRUE);
+
+		conn = smtp_server_connection_create_from_streams(
+			smtp_server, input, output, NULL, 0, NULL,
+			&server_callbacks, sconn);
+
+		i_stream_unref(&input);
+		o_stream_unref(&output);
+	}
 	smtp_server_connection_start(conn);
 }
 
@@ -3007,6 +3811,8 @@ test_run_client_server(const struct smtp_server_settings *server_set,
 		       unsigned int client_tests_count)
 {
 	unsigned int i;
+
+	server_io_buffer_size = 0;
 
 	fd_listen = test_open_server_fd();
 

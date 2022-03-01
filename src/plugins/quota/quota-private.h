@@ -12,6 +12,7 @@ extern unsigned int quota_module_id;
 struct quota {
 	struct mail_user *user;
 	struct quota_settings *set;
+	struct event *event;
 
 	ARRAY(struct quota_root *) roots;
 	ARRAY(struct mail_namespace *) namespaces;
@@ -22,6 +23,7 @@ struct quota_settings {
 	pool_t pool;
 
 	ARRAY(struct quota_root_settings *) root_sets;
+	struct event *event;
 	enum quota_alloc_result (*test_alloc)(
 		struct quota_transaction_context *ctx, uoff_t size,
 		const char **error_r);
@@ -84,6 +86,7 @@ struct quota_backend_vfuncs {
 struct quota_backend {
 	/* quota backends equal if backend1.name == backend2.name */
 	const char *name;
+	struct event *event;
 	struct quota_backend_vfuncs v;
 };
 

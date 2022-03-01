@@ -3,11 +3,13 @@
 #include "lib.h"
 #include "buffer.h"
 #include "istream.h"
+#include "iostream-temp.h"
 #include "ostream.h"
 #include "sha1.h"
 #include "randgen.h"
 #include "test-common.h"
 #include "compression.h"
+#include "iostream-lz4.h"
 
 #include "hex-binary.h"
 
@@ -46,7 +48,7 @@ static void test_compression_handler_detect(const struct compression_handler *ha
 	i_stream_seek(test_input, 0);
 	test_assert(handler != NULL);
 	if (handler != NULL) {
-		input = handler->create_istream(test_input, TRUE);
+		input = handler->create_istream(test_input);
 		i_stream_unref(&test_input);
 
 		test_assert(i_stream_read_more(input, &data, &size) > 0);
@@ -62,7 +64,9 @@ static void test_compression_handler_detect(const struct compression_handler *ha
 	test_end();
 }
 
-static void test_compression_handler_short(const struct compression_handler *handler)
+static void
+test_compression_handler_short(const struct compression_handler *handler,
+			       bool autodetect)
 {
 	const unsigned char *data;
 	size_t len, size;
@@ -75,7 +79,8 @@ static void test_compression_handler_short(const struct compression_handler *han
 	struct istream *input;
 
 	/* write some amount of data */
-	test_begin(t_strdup_printf("compression handler %s (small)", handler->name));
+	test_begin(t_strdup_printf("compression handler %s (small, autodetect=%s)",
+				   handler->name, autodetect ? "yes" : "no"));
 	len = i_rand_minmax(1, 1024);
 	test_data = buffer_create_dynamic(default_pool, len);
 	random_fill(buffer_append_space_unsafe(test_data, len), len);
@@ -94,7 +99,8 @@ static void test_compression_handler_short(const struct compression_handler *han
 
 	/* read data at once */
 	test_input = test_istream_create_data(buffer->data, buffer->used);
-	input = handler->create_istream(test_input, TRUE);
+	input = !autodetect ? handler->create_istream(test_input) :
+		i_stream_create_decompress(test_input, 0);
 	i_stream_unref(&test_input);
 
 	test_assert(i_stream_read_more(input, &data, &size) > 0);
@@ -109,7 +115,45 @@ static void test_compression_handler_short(const struct compression_handler *han
 	test_end();
 }
 
-static void test_compression_handler_seek(const struct compression_handler *handler)
+static void
+test_compression_handler_empty(const struct compression_handler *handler,
+			       bool autodetect)
+{
+	buffer_t *buffer;
+	struct ostream *test_output;
+	struct ostream *output;
+
+	struct istream *test_input;
+	struct istream *input;
+
+	/* create stream and finish it without writing anything */
+	test_begin(t_strdup_printf("compression handler %s (empty, autodetect=%s)",
+				   handler->name, autodetect ? "yes" : "no"));
+	buffer = buffer_create_dynamic(default_pool, 128);
+	test_output = test_ostream_create(buffer);
+	output = handler->create_ostream(test_output, 1);
+	o_stream_unref(&test_output);
+	test_assert(o_stream_finish(output) == 1);
+	o_stream_unref(&output);
+
+	/* read the input */
+	test_input = test_istream_create_data(buffer->data, buffer->used);
+	input = !autodetect ? handler->create_istream(test_input) :
+		i_stream_create_decompress(test_input, 0);
+	i_stream_unref(&test_input);
+
+	test_assert(i_stream_read(input) == -1);
+	test_assert(i_stream_get_data_size(input) == 0);
+	i_stream_unref(&input);
+
+	buffer_free(&buffer);
+
+	test_end();
+}
+
+static void
+test_compression_handler_seek(const struct compression_handler *handler,
+			      bool autodetect)
 {
 	const unsigned char *data,*ptr;
 	size_t len, size, pos;
@@ -122,7 +166,8 @@ static void test_compression_handler_seek(const struct compression_handler *hand
 	struct istream *input;
 
 	/* write some amount of data */
-	test_begin(t_strdup_printf("compression handler %s (seek)", handler->name));
+	test_begin(t_strdup_printf("compression handler %s (seek, autodetect=%s)",
+				   handler->name, autodetect ? "yes" : "no"));
 	len = i_rand_minmax(1024, 2048);
 	test_data = buffer_create_dynamic(default_pool, len);
 	random_fill(buffer_append_space_unsafe(test_data, len), len);
@@ -140,7 +185,8 @@ static void test_compression_handler_seek(const struct compression_handler *hand
 	o_stream_unref(&output);
 
 	test_input = test_istream_create_data(buffer->data, buffer->used);
-	input = handler->create_istream(test_input, TRUE);
+	input = !autodetect ? handler->create_istream(test_input) :
+		i_stream_create_decompress(test_input, 0);
 	i_stream_unref(&test_input);
 
 	/* seek forward */
@@ -169,7 +215,9 @@ static void test_compression_handler_seek(const struct compression_handler *hand
 	test_end();
 }
 
-static void test_compression_handler_reset(const struct compression_handler *handler)
+static void
+test_compression_handler_reset(const struct compression_handler *handler,
+			       bool autodetect)
 {
 	const unsigned char *data;
 	size_t len, size;
@@ -182,7 +230,8 @@ static void test_compression_handler_reset(const struct compression_handler *han
 	struct istream *input;
 
 	/* write some amount of data */
-	test_begin(t_strdup_printf("compression handler %s (reset)", handler->name));
+	test_begin(t_strdup_printf("compression handler %s (reset, autodetect=%s)",
+				   handler->name, autodetect ? "yes" : "no"));
 	len = i_rand_minmax(1024, 2048);
 	test_data = buffer_create_dynamic(default_pool, len);
 	random_fill(buffer_append_space_unsafe(test_data, len), len);
@@ -200,7 +249,8 @@ static void test_compression_handler_reset(const struct compression_handler *han
 	o_stream_unref(&output);
 
 	test_input = test_istream_create_data(buffer->data, buffer->used);
-	input = handler->create_istream(test_input, TRUE);
+	input = !autodetect ? handler->create_istream(test_input) :
+		i_stream_create_decompress(test_input, 0);
 	i_stream_unref(&test_input);
 
 	/* seek forward */
@@ -226,7 +276,9 @@ static void test_compression_handler_reset(const struct compression_handler *han
 	test_end();
 }
 
-static void test_compression_handler(const struct compression_handler *handler)
+static void
+test_compression_handler(const struct compression_handler *handler,
+			 bool autodetect)
 {
 	const char *path = "test-compression.tmp";
 	struct istream *file_input, *input;
@@ -241,7 +293,8 @@ static void test_compression_handler(const struct compression_handler *handler)
 	int fd;
 	ssize_t ret;
 
-	test_begin(t_strdup_printf("compression handler %s", handler->name));
+	test_begin(t_strdup_printf("compression handler %s (autodetect=%s)",
+				   handler->name, autodetect ? "yes" : "no"));
 
 	/* write compressed data */
 	fd = open(path, O_TRUNC | O_CREAT | O_RDWR, 0600);
@@ -274,7 +327,7 @@ static void test_compression_handler(const struct compression_handler *handler)
 		if (i_rand_limit(3) == 0)
 			buf[i] = i_rand_limit(4);
 		else
-			buf[i] = i;
+			buf[i] = i & UCHAR_MAX;
 	}
 	for (i = 0; i < 1024*128 / sizeof(buf); i++) {
 		sha1_loop(&sha1, buf, sizeof(buf));
@@ -290,7 +343,8 @@ static void test_compression_handler(const struct compression_handler *handler)
 
 	/* read and uncompress the data */
 	file_input = i_stream_create_fd(fd, IO_BLOCK_SIZE);
-	input = handler->create_istream(file_input, TRUE);
+	input = !autodetect ? handler->create_istream(file_input) :
+		i_stream_create_decompress(file_input, 0);
 
 	test_assert(i_stream_get_size(input, FALSE, &stream_size) == 1);
 	test_assert(stream_size == compressed_size);
@@ -325,9 +379,12 @@ static void test_compression_handler(const struct compression_handler *handler)
 	test_end();
 }
 
-static void test_compression_handler_partial_parent_write(const struct compression_handler *handler)
+static void
+test_compression_handler_partial_parent_write(const struct compression_handler *handler,
+					      bool autodetect)
 {
-	test_begin(t_strdup_printf("compression handler %s (partial parent writes)", handler->name));
+	test_begin(t_strdup_printf("compression handler %s (partial parent writes, autodetect=%s)",
+				   handler->name, autodetect ? "yes" : "no"));
 
 	int ret;
 	buffer_t *buffer = t_buffer_create(64);
@@ -361,7 +418,9 @@ static void test_compression_handler_partial_parent_write(const struct compressi
                 buffer_append(compressed_data, buffer->data, buffer->used);
 
 	struct istream *is = test_istream_create_data(compressed_data->data, compressed_data->used);
-	struct istream *is_decompressed = handler->create_istream(is, TRUE);
+	struct istream *is_decompressed =
+		!autodetect ? handler->create_istream(is) :
+		i_stream_create_decompress(is, 0);
 	i_stream_unref(&is);
 
 	const unsigned char *data;
@@ -385,7 +444,8 @@ static void test_compression_handler_partial_parent_write(const struct compressi
 }
 
 static void
-test_compression_handler_random_io(const struct compression_handler *handler)
+test_compression_handler_random_io(const struct compression_handler *handler,
+				   bool autodetect)
 {
 	unsigned char in_buf[8192];
 	size_t in_buf_size;
@@ -396,8 +456,8 @@ test_compression_handler_random_io(const struct compression_handler *handler)
 	enc_buf = buffer_create_dynamic(default_pool, sizeof(in_buf));
 	dec_buf = buffer_create_dynamic(default_pool, sizeof(in_buf));
 
-	test_begin(t_strdup_printf("compression handler %s (random I/O)",
-				   handler->name));
+	test_begin(t_strdup_printf("compression handler %s (random I/O, autodetect=%s)",
+				   handler->name, autodetect ? "yes" : "no"));
 
 	for (i = 0; !test_has_failed() && i < 300; i++) {
 		struct istream *input1, *input2;
@@ -473,7 +533,8 @@ test_compression_handler_random_io(const struct compression_handler *handler)
 		i_stream_set_name(input1, "[compressed-data]");
 
 		/* Create decompressor stream */
-		input2 = handler->create_istream(input1, TRUE);
+		input2 = !autodetect ? handler->create_istream(input1) :
+			i_stream_create_decompress(input1, 0);
 		i_stream_set_name(input2, "[decompressor]");
 
 		/* Assign random buffer sizes */
@@ -526,13 +587,79 @@ test_compression_handler_random_io(const struct compression_handler *handler)
 	buffer_free(&dec_buf);
 }
 
-static void test_compression_handler_errors(const struct compression_handler *handler)
+static void
+test_compression_handler_large_random_io(const struct compression_handler *handler,
+					 bool autodetect)
 {
-	test_begin(t_strdup_printf("compression handler %s (errors)", handler->name));
+#define RANDOMNESS_SIZE (1024*1024)
+	unsigned char *randomness;
+	struct istream *input, *dec_input;
+	struct ostream *temp_output, *output;
+	const unsigned char *data;
+	size_t size;
+	int ret;
+
+	test_begin(t_strdup_printf("compression handler %s (large random io, autodetect=%s)",
+				   handler->name, autodetect ? "yes" : "no"));
+	randomness = i_malloc(RANDOMNESS_SIZE);
+	random_fill(randomness, RANDOMNESS_SIZE);
+
+	/* write 1 MB of randomness to buffer */
+	input = i_stream_create_from_data(randomness, RANDOMNESS_SIZE);
+
+	temp_output = iostream_temp_create(".temp.", 0);
+	output = handler->create_ostream(temp_output, i_rand_minmax(1, 6));
+
+	switch (o_stream_send_istream(output, input)) {
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
+	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
+		test_assert(FALSE);
+		break;
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
+	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_INPUT:
+		i_unreached();
+	case OSTREAM_SEND_ISTREAM_RESULT_FINISHED:
+		test_assert(o_stream_finish(output) == 1);
+		break;
+	}
+	test_assert(output->offset == RANDOMNESS_SIZE);
+	test_assert(output->stream_errno == 0);
+	i_stream_unref(&input);
+
+	input = iostream_temp_finish(&temp_output, SIZE_MAX);
+	o_stream_unref(&output);
+
+	/* verify that reading the input works */
+
+	dec_input = !autodetect ? handler->create_istream(input) :
+		i_stream_create_decompress(input, 0);
+
+	while ((ret = i_stream_read_more(dec_input, &data, &size)) > 0) {
+		test_assert(memcmp(data, randomness + dec_input->v_offset, size) == 0);
+		i_stream_skip(dec_input, size);
+	}
+	test_assert(ret == -1);
+	test_assert(dec_input->v_offset == RANDOMNESS_SIZE);
+	test_assert(dec_input->stream_errno == 0);
+
+	i_stream_unref(&dec_input);
+	i_stream_unref(&input);
+	i_free(randomness);
+	test_end();
+}
+
+static void
+test_compression_handler_errors(const struct compression_handler *handler,
+				bool autodetect)
+{
+	test_begin(t_strdup_printf("compression handler %s (errors, autodetect=%s)",
+				   handler->name, autodetect ? "yes" : "no"));
 
 	/* test that zero stream reading errors out */
 	struct istream *is = test_istream_create("");
-	struct istream *input = handler->create_istream(is, FALSE);
+	struct istream *input =
+		!autodetect ? handler->create_istream(is) :
+		i_stream_create_decompress(is, 0);
 	i_stream_unref(&is);
 	test_assert(i_stream_read(input) == -1 && input->eof);
 	i_stream_unref(&input);
@@ -541,7 +668,9 @@ static void test_compression_handler_errors(const struct compression_handler *ha
 	is = test_istream_create("dedededededededededededededede"
 				 "dedededeededdedededededededede"
 				 "dedededededededededededededede");
-	input = handler->create_istream(is, FALSE);
+	is->blocking = TRUE;
+	input = !autodetect ? handler->create_istream(is) :
+		i_stream_create_decompress(is, 0);
 	i_stream_unref(&is);
 	test_assert(i_stream_read(input) == -1 && input->eof);
 	i_stream_unref(&input);
@@ -563,7 +692,8 @@ static void test_compression_handler_errors(const struct compression_handler *ha
 
 	/* truncate buffer */
 	is = test_istream_create_data(odata->data, odata->used - sizeof(buf)*2 - 1);
-	input = handler->create_istream(is, FALSE);
+	input = !autodetect ? handler->create_istream(is) :
+		i_stream_create_decompress(is, 0);
 	i_stream_unref(&is);
 
 	const unsigned char *data ATTR_UNUSED;
@@ -574,37 +704,102 @@ static void test_compression_handler_errors(const struct compression_handler *ha
 	test_assert(input->stream_errno == EPIPE);
 	i_stream_unref(&input);
 
+	/* Cannot do the next check if we don't know if it's compressed. */
+	if (handler->is_compressed != NULL) {
+		/* test incrementally reading up to 32 bytes of plaintext data
+		   that should not match any handlers' header */
+		for (size_t i = 0; i < 32; i++) {
+			is = test_istream_create_data("dededededededededededededededede", i);
+			input = !autodetect ? handler->create_istream(is) :
+				i_stream_create_decompress(is, 0);
+			i_stream_unref(&is);
+			while (i_stream_read_more(input, &data, &size) >= 0) {
+				test_assert_idx(size == 0, i);
+				i_stream_skip(input, size);
+			}
+			test_assert_idx(input->stream_errno == EINVAL, i);
+			i_stream_unref(&input);
+		}
+	}
+
 	test_end();
 }
 
-static void test_compression(void)
+static void test_compression_int(bool autodetect)
 {
 	unsigned int i;
 
 	for (i = 0; compression_handlers[i].name != NULL; i++) {
-		if (compression_handlers[i].create_istream != NULL) T_BEGIN {
-			test_compression_handler_short(&compression_handlers[i]);
-			test_compression_handler(&compression_handlers[i]);
-			if (compression_handlers[i].is_compressed != NULL)
+		if (compression_handlers[i].create_istream != NULL &&
+		    compression_handlers[i].create_ostream != NULL &&
+		    (!autodetect ||
+		     compression_handlers[i].is_compressed != NULL)) T_BEGIN {
+			if (compression_handlers[i].is_compressed != NULL &&
+			    !autodetect)
 				test_compression_handler_detect(&compression_handlers[i]);
-			test_compression_handler_seek(&compression_handlers[i]);
-			test_compression_handler_reset(&compression_handlers[i]);
-			test_compression_handler_partial_parent_write(&compression_handlers[i]);
-			test_compression_handler_random_io(&compression_handlers[i]);
-			test_compression_handler_errors(&compression_handlers[i]);
+			test_compression_handler_short(&compression_handlers[i], autodetect);
+			test_compression_handler_empty(&compression_handlers[i], autodetect);
+			test_compression_handler(&compression_handlers[i], autodetect);
+			test_compression_handler_seek(&compression_handlers[i], autodetect);
+			test_compression_handler_reset(&compression_handlers[i], autodetect);
+			test_compression_handler_partial_parent_write(&compression_handlers[i], autodetect);
+			test_compression_handler_random_io(&compression_handlers[i], autodetect);
+			test_compression_handler_large_random_io(&compression_handlers[i], autodetect);
+			test_compression_handler_errors(&compression_handlers[i], autodetect);
 		} T_END;
 	}
 }
 
-static void test_gz(const char *str1, const char *str2)
+static void test_compression(void)
 {
-	const struct compression_handler *gz = compression_lookup_handler("gz");
+	test_compression_int(FALSE);
+	test_compression_int(TRUE);
+}
+
+static void test_istream_decompression_try(void)
+{
+	const char *tests[] = {
+		"",
+		"1",
+		"12",
+		"12345678901234567890123456789012345678901234567890",
+	};
+	struct istream *is, *input;
+	const unsigned char *data;
+	size_t size;
+
+	test_begin("istream-decompression try");
+
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		size_t test_len = strlen(tests[i]);
+		is = i_stream_create_from_data(tests[i], test_len);
+		input = i_stream_create_decompress(is, ISTREAM_DECOMPRESS_FLAG_TRY);
+		i_stream_unref(&is);
+
+		ssize_t ret = i_stream_read(input);
+		test_assert_idx((test_len == 0 && ret == -1) ||
+				(test_len > 0 && ret == (ssize_t)test_len), i);
+		data = i_stream_get_data(input, &size);
+		test_assert_idx(size == test_len &&
+				memcmp(data, tests[i], size) == 0, i);
+
+		i_stream_skip(input, size);
+		test_assert_idx(i_stream_read(input) == -1, i);
+		test_assert_idx(input->stream_errno == 0, i);
+		i_stream_unref(&input);
+	}
+	test_end();
+}
+
+static void test_gz(const char *str1, const char *str2, bool autodetect)
+{
+	const struct compression_handler *gz;
 	struct ostream *buf_output, *output;
 	struct istream *test_input, *input;
 	buffer_t *buf = t_buffer_create(512);
 
-	if (gz == NULL || gz->create_ostream == NULL)
-		return; /* not compiled in */
+	if (compression_lookup_handler("gz", &gz) <= 0 )
+		return; /* not compiled in or unkown*/
 
 	/* write concated output */
 	buf_output = o_stream_create_buffer(buf);
@@ -629,7 +824,8 @@ static void test_gz(const char *str1, const char *str2)
 	size_t size;
 	test_input = test_istream_create_data(buf->data, buf->used);
 	test_istream_set_allow_eof(test_input, FALSE);
-	input = gz->create_istream(test_input, TRUE);
+	input = !autodetect ? gz->create_istream(test_input) :
+		i_stream_create_decompress(test_input, 0);
 	for (size_t i = 0; i <= buf->used; i++) {
 		test_istream_set_size(test_input, i);
 		test_assert(i_stream_read(input) >= 0);
@@ -648,21 +844,29 @@ static void test_gz(const char *str1, const char *str2)
 
 static void test_gz_concat(void)
 {
-	test_begin("gz concat");
-	test_gz("hello", "world");
+	test_begin("gz concat (autodetect=no)");
+	test_gz("hello", "world", FALSE);
+	test_end();
+
+	test_begin("gz concat (autodetect=yes)");
+	test_gz("hello", "world", TRUE);
 	test_end();
 }
 
 static void test_gz_no_concat(void)
 {
-	test_begin("gz no concat");
-	test_gz("hello", "");
+	test_begin("gz no concat (autodetect=no)");
+	test_gz("hello", "", FALSE);
+	test_end();
+
+	test_begin("gz no concat (autodetect=yes)");
+	test_gz("hello", "", TRUE);
 	test_end();
 }
 
-static void test_gz_header(void)
+static void test_gz_header_int(bool autodetect)
 {
-	const struct compression_handler *gz = compression_lookup_handler("gz");
+	const struct compression_handler *gz;
 	const char *input_strings[] = {
 		"\x1F\x8B",
 		"\x1F\x8B\x01\x02"/* GZ_FLAG_FHCRC */"\xFF\xFF\x01\x01\x01\x01",
@@ -672,16 +876,17 @@ static void test_gz_header(void)
 		"\x1F\x8B\x01\x0C"/* GZ_FLAG_FEXTRA | GZ_FLAG_FNAME */"\xFF\xFF\x01\x01\x01\x01",
 	};
 	struct istream *file_input, *input;
+	if (compression_lookup_handler("gz", &gz) <= 0 )
+		return; /* not compiled in or unkown*/
 
-	if (gz == NULL || gz->create_istream == NULL)
-		return; /* not compiled in */
-
-	test_begin("gz header");
+	test_begin(t_strdup_printf(
+		"gz header (autodetect=%s)", autodetect ? "yes" : "no"));
 	for (unsigned int i = 0; i < N_ELEMENTS(input_strings); i++) {
 		file_input = test_istream_create_data(input_strings[i],
 						      strlen(input_strings[i]));
 		file_input->blocking = TRUE;
-		input = gz->create_istream(file_input, FALSE);
+		input = !autodetect ? gz->create_istream(file_input) :
+			i_stream_create_decompress(file_input, 0);
 		test_assert_idx(i_stream_read(input) == -1, i);
 		test_assert_idx(input->stream_errno == EINVAL, i);
 		i_stream_unref(&input);
@@ -690,9 +895,15 @@ static void test_gz_header(void)
 	test_end();
 }
 
-static void test_gz_large_header(void)
+static void test_gz_header(void)
 {
-	const struct compression_handler *gz = compression_lookup_handler("gz");
+	test_gz_header_int(FALSE);
+	test_gz_header_int(TRUE);
+}
+
+static void test_gz_large_header_int(bool autodetect)
+{
+	const struct compression_handler *gz;
 	static const unsigned char gz_input[] = {
 		0x1f, 0x8b, 0x08, 0x08,
 		'a','a','a','a','a','a','a','a','a','a','a',
@@ -701,10 +912,11 @@ static void test_gz_large_header(void)
 	struct istream *file_input, *input;
 	size_t i;
 
-	if (gz == NULL || gz->create_istream == NULL)
-		return; /* not compiled in */
+	if (compression_lookup_handler("gz", &gz) <= 0 )
+		return; /* not compiled in or unkown*/
 
-	test_begin("gz large header");
+	test_begin(t_strdup_printf(
+		"gz large header (autodetect=%s)", autodetect ? "yes" : "no"));
 
 	/* max buffer size smaller than gz header */
 	for (i = 1; i < sizeof(gz_input); i++) {
@@ -712,7 +924,8 @@ static void test_gz_large_header(void)
 		test_istream_set_size(file_input, i);
 		test_istream_set_max_buffer_size(file_input, i);
 
-		input = gz->create_istream(file_input, FALSE);
+		input = !autodetect ? gz->create_istream(file_input) :
+			i_stream_create_decompress(file_input, 0);
 		test_assert_idx(i_stream_read(input) == 0, i);
 		test_assert_idx(i_stream_read(input) == -1 &&
 				input->stream_errno == EINVAL, i);
@@ -722,11 +935,60 @@ static void test_gz_large_header(void)
 
 	/* max buffer size is exactly the gz header */
 	file_input = test_istream_create_data(gz_input, sizeof(gz_input));
-	input = gz->create_istream(file_input, TRUE);
-	test_istream_set_size(input, i);
-	test_istream_set_allow_eof(input, FALSE);
-	test_istream_set_max_buffer_size(input, i);
+	input = !autodetect ? gz->create_istream(file_input) :
+		i_stream_create_decompress(file_input, 0);
+	test_istream_set_size(file_input, i);
+	test_istream_set_allow_eof(file_input, FALSE);
+	test_istream_set_max_buffer_size(file_input, i);
 	test_assert(i_stream_read(input) == 0);
+	i_stream_unref(&input);
+	i_stream_unref(&file_input);
+
+	test_end();
+}
+
+static void test_gz_large_header(void)
+{
+	test_gz_large_header_int(FALSE);
+	test_gz_large_header_int(TRUE);
+}
+
+static void test_lz4_small_header(void)
+{
+	const struct compression_handler *lz4;
+	struct iostream_lz4_header lz4_input;
+	struct istream *file_input, *input;
+
+	if (compression_lookup_handler("lz4", &lz4) <= 0)
+		return; /* not compiled in or unkown */
+
+	test_begin("lz4 small header");
+
+	memcpy(lz4_input.magic, IOSTREAM_LZ4_MAGIC, IOSTREAM_LZ4_MAGIC_LEN);
+	lz4_input.max_uncompressed_chunk_size[0] = 0;
+	lz4_input.max_uncompressed_chunk_size[1] = 1;
+	lz4_input.max_uncompressed_chunk_size[2] = 0;
+	lz4_input.max_uncompressed_chunk_size[3] = 0;
+
+	/* truncated header */
+	file_input = i_stream_create_from_data(&lz4_input, sizeof(lz4_input)-1);
+	input = lz4->create_istream(file_input);
+	test_assert(i_stream_read(input) == -1 &&
+		    input->stream_errno == EINVAL);
+	i_stream_unref(&input);
+	i_stream_unref(&file_input);
+
+	/* partial initial header read */
+	file_input = test_istream_create_data(&lz4_input, sizeof(lz4_input));
+	file_input->blocking = TRUE;
+
+	test_istream_set_max_buffer_size(file_input, sizeof(lz4_input)-1);
+	(void)i_stream_read(file_input);
+	test_istream_set_max_buffer_size(file_input, sizeof(lz4_input));
+
+	input = lz4->create_istream(file_input);
+	test_assert(i_stream_read(input) == -1 &&
+		    input->stream_errno == 0);
 	i_stream_unref(&input);
 	i_stream_unref(&file_input);
 
@@ -739,15 +1001,16 @@ static void test_uncompress_file(const char *path)
 	struct istream *input, *file_input;
 	const unsigned char *data;
 	size_t size;
+	int ret;
 
-	handler = compression_lookup_handler_from_ext(path);
-	if (handler == NULL)
+	ret = compression_lookup_handler_from_ext(path, &handler);
+	if (ret < 0)
 		i_fatal("Can't detect compression algorithm from path %s", path);
-	if (handler->create_istream == NULL)
+	else if (ret == 0)
 		i_fatal("Support not compiled in for %s", handler->name);
 
 	file_input = i_stream_create_file(path, IO_BLOCK_SIZE);
-	input = handler->create_istream(file_input, TRUE);
+	input = handler->create_istream(file_input);
 	while (i_stream_read_more(input, &data, &size) > 0) {
 		if (write(STDOUT_FILENO, data, size) < 0)
 			break;
@@ -766,11 +1029,12 @@ static void test_compress_file(const char *in_path, const char *out_path)
 	unsigned char output_sha1[SHA1_RESULTLEN], input_sha1[SHA1_RESULTLEN];
 	const unsigned char *data;
 	size_t size;
+	int ret;
 
-	handler = compression_lookup_handler_from_ext(out_path);
-	if (handler == NULL)
+	ret = compression_lookup_handler_from_ext(out_path, &handler);
+	if (ret < 0)
 		i_fatal("Can't detect compression algorithm from path %s", out_path);
-	if (handler->create_ostream == NULL)
+	if (ret == 0)
 		i_fatal("Support not compiled in for %s", handler->name);
 
 	/* write the compressed output file */
@@ -802,7 +1066,7 @@ static void test_compress_file(const char *in_path, const char *out_path)
 	/* verify that we can read the compressed file */
 	sha1_init(&sha1);
 	file_input = i_stream_create_fd(fd_out, IO_BLOCK_SIZE);
-	input = handler->create_istream(file_input, TRUE);
+	input = handler->create_istream(file_input);
 	while (i_stream_read_more(input, &data, &size) > 0) {
 		sha1_loop(&sha1, data, size);
 		i_stream_skip(input, size);
@@ -816,14 +1080,34 @@ static void test_compress_file(const char *in_path, const char *out_path)
 	i_close_fd(&fd_out);
 }
 
+static void test_compression_ext(void)
+{
+	const struct compression_handler *handler;
+	test_begin("compression handler by extension");
+
+	for (unsigned int i = 0; compression_handlers[i].name != NULL; i++) {
+		if (compression_handlers[i].ext != NULL) {
+			const char *path =
+				t_strconcat("file", compression_handlers[i].ext, NULL);
+			int ret = compression_lookup_handler_from_ext(path, &handler);
+			test_assert(ret == 0 || handler == &compression_handlers[i]);
+		}
+	}
+
+	test_end();
+}
+
 int main(int argc, char *argv[])
 {
 	static void (*const test_functions[])(void) = {
 		test_compression,
+		test_istream_decompression_try,
 		test_gz_concat,
 		test_gz_no_concat,
 		test_gz_header,
 		test_gz_large_header,
+		test_lz4_small_header,
+		test_compression_ext,
 		NULL
 	};
 	if (argc == 2) {

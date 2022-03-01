@@ -17,6 +17,7 @@
 #include "master-login.h"
 #include "master-service-settings.h"
 #include "master-interface.h"
+#include "master-admin-client.h"
 #include "var-expand.h"
 #include "mail-error.h"
 #include "mail-user.h"
@@ -112,16 +113,46 @@ send_error(int fd_out, const char *hostname, const char *error_code,
 	}
 }
 
+static bool
+extract_input_data_field(const unsigned char **data, size_t *data_len,
+			 const char **value_r)
+{
+	size_t value_len = 0;
+
+	if (*data_len == 0)
+		return FALSE;
+
+	if (**data == '\0') {
+		value_len = 1;
+	} else {
+		*value_r = t_strndup(*data, *data_len);
+		value_len = strlen(*value_r) + 1;
+	}
+
+	if (value_len > *data_len) {
+		*data = &uchar_nul;
+		*data_len = 0;
+	} else {
+		*data = *data + value_len;
+		*data_len = *data_len - value_len;
+	}
+	return TRUE;
+}
+
 static int
 client_create_from_input(const struct mail_storage_service_input *input,
+			 enum mail_auth_request_flags login_flags,
 			 int fd_in, int fd_out, const buffer_t *input_buf,
 			 const char **error_r)
 {
 	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
 	struct submission_settings *set;
+	bool no_greeting = HAS_ALL_BITS(login_flags,
+					MAIL_AUTH_REQUEST_FLAG_IMPLICIT);
 	const char *errstr;
 	const char *helo = NULL;
+	struct smtp_proxy_data proxy_data;
 	const unsigned char *data;
 	size_t data_len;
 
@@ -162,31 +193,25 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	/* parse input data */
 	data = NULL;
 	data_len = 0;
+	i_zero(&proxy_data);
 	if (input_buf != NULL && input_buf->used > 0) {
-		size_t len = input_buf->used, helo_len = 0;
-
 		data = input_buf->data;
+		data_len = input_buf->used;
 
-		if (len > 0) {
-			if (*data == '\0') {
-				helo_len = 1;
-			} else {
-				helo = t_strndup(data, len);
-				helo_len = strlen(helo) + 1;
-			}
+		if (extract_input_data_field(&data, &data_len, &helo) &&
+		    extract_input_data_field(&data, &data_len,
+					     &proxy_data.helo)) {
+			/* nothing to do */
 		}
 
 		/* NOTE: actually, pipelining the AUTH command is stricly
 		         speaking not allowed, but we support it anyway.
 		 */
-		if (len > helo_len) {
-			data = data + helo_len;
-			data_len = len - helo_len;
-		}
 	}
 
 	(void)client_create(fd_in, fd_out, mail_user,
-			    user, set, helo, data, data_len);
+			    user, set, helo, &proxy_data, data, data_len,
+			    no_greeting);
 	return 0;
 }
 
@@ -212,7 +237,7 @@ static void main_stdio_run(const char *username)
 	input_buf = input_base64 == NULL ? NULL :
 		t_base64_decode_str(input_base64);
 
-	if (client_create_from_input(&input, STDIN_FILENO, STDOUT_FILENO,
+	if (client_create_from_input(&input, 0, STDIN_FILENO, STDOUT_FILENO,
 				     input_buf, &error) < 0)
 		i_fatal("%s", error);
 }
@@ -242,7 +267,8 @@ login_client_connected(const struct master_login_client *login_client,
 
 	buffer_create_from_const_data(&input_buf, login_client->data,
 				      login_client->auth_req.data_size);
-	if (client_create_from_input(&input, login_client->fd, login_client->fd,
+	if (client_create_from_input(&input, flags,
+				     login_client->fd, login_client->fd,
 				     &input_buf, &error) < 0) {
 		int fd = login_client->fd;
 		i_error("%s", error);
@@ -263,6 +289,26 @@ static void login_client_failed(const struct master_login_client *client,
 		/* ignored */
 	}
 }
+
+static unsigned int
+master_admin_cmd_kick_user(const char *user, const guid_128_t conn_guid)
+{
+	struct client *client, *next;
+	unsigned int count = 0;
+
+	for (client = submission_clients; client != NULL; client = next) {
+		next = client->next;
+		if (strcmp(client->user->username, user) == 0 &&
+		    (guid_128_is_empty(conn_guid) ||
+		     guid_128_cmp(client->anvil_conn_guid, conn_guid) == 0))
+			client_kick(client);
+	}
+	return count;
+}
+
+static const struct master_admin_client_callback admin_callbacks = {
+	.cmd_kick_user = master_admin_cmd_kick_user,
+};
 
 static void client_connected(struct master_service_connection *conn)
 {
@@ -348,6 +394,7 @@ int main(int argc, char *argv[])
 	login_set.callback = login_client_connected;
 	login_set.failure_callback = login_client_failed;
 
+	master_admin_clients_init(&admin_callbacks);
 	master_service_set_die_callback(master_service, submission_die);
 
 	storage_service =
@@ -360,6 +407,7 @@ int main(int argc, char *argv[])
 	smtp_server_set.protocol = SMTP_PROTOCOL_SMTP;
 	smtp_server_set.max_pipelined_commands = 5;
 	smtp_server_set.debug = submission_debug;
+	smtp_server_set.reason_code_module = "submission";
 	smtp_server = smtp_server_init(&smtp_server_set);
 	smtp_server_command_register(smtp_server, "BURL", cmd_burl, 0);
 

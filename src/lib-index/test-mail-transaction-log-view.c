@@ -8,61 +8,7 @@
 
 static struct mail_transaction_log *log;
 static struct mail_transaction_log_view *view;
-
-void mail_index_set_error(struct mail_index *index ATTR_UNUSED,
-			  const char *fmt ATTR_UNUSED, ...)
-{
-}
-
-void mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file ATTR_UNUSED,
-					     const char *fmt ATTR_UNUSED, ...)
-{
-}
-
-void mail_transaction_logs_clean(struct mail_transaction_log *log ATTR_UNUSED)
-{
-}
-
-int mail_transaction_log_find_file(struct mail_transaction_log *log,
-				   uint32_t file_seq, bool nfs_flush ATTR_UNUSED,
-				   struct mail_transaction_log_file **file_r,
-				   const char **reason_r)
-{
-	struct mail_transaction_log_file *file;
-
-	for (file = log->files; file != NULL; file = file->next) {
-		if (file->hdr.file_seq == file_seq) {
-			*file_r = file;
-			return 1;
-		}
-	}
-	*reason_r = "not found";
-	return 0;
-}
-
-int mail_transaction_log_file_map(struct mail_transaction_log_file *file ATTR_UNUSED,
-				  uoff_t start_offset ATTR_UNUSED, uoff_t end_offset ATTR_UNUSED,
-				  const char **reason_r ATTR_UNUSED)
-{
-	return 1;
-}
-
-int mail_transaction_log_file_get_highest_modseq_at(
-		struct mail_transaction_log_file *file ATTR_UNUSED,
-		uoff_t offset ATTR_UNUSED, uint64_t *highest_modseq_r,
-		const char **error_r ATTR_UNUSED)
-{
-	*highest_modseq_r = 0;
-	return 0;
-}
-
-void mail_transaction_update_modseq(const struct mail_transaction_header *hdr ATTR_UNUSED,
-				    const void *data ATTR_UNUSED,
-				    uint64_t *cur_modseq,
-				    unsigned int version ATTR_UNUSED)
-{
-	*cur_modseq += 1;
-}
+static bool clean_refcount0_files = FALSE;
 
 static void
 test_transaction_log_file_add(uint32_t file_seq)
@@ -88,6 +34,72 @@ test_transaction_log_file_add(uint32_t file_seq)
 	}
 	*p = file;
 	log->head = file;
+}
+
+void mail_index_set_error(struct mail_index *index ATTR_UNUSED,
+			  const char *fmt ATTR_UNUSED, ...)
+{
+}
+
+void mail_transaction_log_file_set_corrupted(struct mail_transaction_log_file *file ATTR_UNUSED,
+					     const char *fmt ATTR_UNUSED, ...)
+{
+}
+
+void mail_transaction_logs_clean(struct mail_transaction_log *log ATTR_UNUSED)
+{
+}
+
+int mail_transaction_log_find_file(struct mail_transaction_log *log,
+				   uint32_t file_seq, bool nfs_flush ATTR_UNUSED,
+				   struct mail_transaction_log_file **file_r,
+				   const char **reason_r)
+{
+	struct mail_transaction_log_file *file, *next;
+
+	for (file = log->files; file != NULL; file = next) {
+		next = file->next;
+		if (file->hdr.file_seq == file_seq) {
+			*file_r = file;
+			return 1;
+		}
+		/* refcount=0 files at the beginning of the list may be freed */
+		if (file->refcount == 0 && file == log->files &&
+		    clean_refcount0_files)
+			log->files = next;
+	}
+	if (clean_refcount0_files && file_seq == 4) {
+		/* "clean refcount=0 files" test autocreates this file */
+		test_transaction_log_file_add(4);
+		*file_r = log->head;
+		return 1;
+	}
+	*reason_r = "not found";
+	return 0;
+}
+
+int mail_transaction_log_file_map(struct mail_transaction_log_file *file ATTR_UNUSED,
+				  uoff_t start_offset ATTR_UNUSED, uoff_t end_offset ATTR_UNUSED,
+				  const char **reason_r ATTR_UNUSED)
+{
+	return 1;
+}
+
+int mail_transaction_log_file_get_highest_modseq_at(
+		struct mail_transaction_log_file *file ATTR_UNUSED,
+		uoff_t offset ATTR_UNUSED, uint64_t *highest_modseq_r,
+		const char **error_r ATTR_UNUSED)
+{
+	*highest_modseq_r = 0;
+	return 1;
+}
+
+void mail_transaction_update_modseq(const struct mail_transaction_header *hdr ATTR_UNUSED,
+				    const void *data ATTR_UNUSED,
+				    uint64_t *cur_modseq,
+				    unsigned int version ATTR_UNUSED)
+{
+	*cur_modseq += 1;
 }
 
 static bool view_is_file_refed(uint32_t file_seq)
@@ -162,7 +174,7 @@ static void test_mail_transaction_log_view(void)
 
 	/* we have files 1-3 opened */
 	test_begin("set all");
-	test_assert(mail_transaction_log_view_set(view, 0, 0, (uint32_t)-1, (uoff_t)-1, &reset, &reason) == 1 &&
+	test_assert(mail_transaction_log_view_set(view, 0, 0, (uint32_t)-1, UOFF_T_MAX, &reset, &reason) == 1 &&
 		    reset && view_is_file_refed(1) && view_is_file_refed(2) &&
 		    view_is_file_refed(3) &&
 		    !mail_transaction_log_view_is_corrupted(view));
@@ -188,7 +200,7 @@ static void test_mail_transaction_log_view(void)
 	test_end();
 
 	test_begin("set end");
-	test_assert(mail_transaction_log_view_set(view, 3, last_log_size, (uint32_t)-1, (uoff_t)-1, &reset, &reason) == 1);
+	test_assert(mail_transaction_log_view_set(view, 3, last_log_size, (uint32_t)-1, UOFF_T_MAX, &reset, &reason) == 1);
 	mail_transaction_log_view_get_prev_pos(view, &seq, &offset);
 	test_assert(seq == 3 && offset == last_log_size);
 	test_assert(mail_transaction_log_view_next(view, &hdr, &data) == 0);
@@ -210,17 +222,29 @@ static void test_mail_transaction_log_view(void)
 	/* --- first file has been removed --- */
 
 	test_begin("set 2-3");
-	test_assert(mail_transaction_log_view_set(view, 2, 0, (uint32_t)-1, (uoff_t)-1, &reset, &reason) == 1);
+	test_assert(mail_transaction_log_view_set(view, 2, 0, (uint32_t)-1, UOFF_T_MAX, &reset, &reason) == 1);
 	test_end();
 
 	test_begin("missing log handing");
-	test_assert(mail_transaction_log_view_set(view, 0, 0, (uint32_t)-1, (uoff_t)-1, &reset, &reason) == 0);
+	test_assert(mail_transaction_log_view_set(view, 0, 0, (uint32_t)-1, UOFF_T_MAX, &reset, &reason) == 0);
 	test_end();
 
 	test_begin("closed log handling");
 	view->log = NULL;
-	test_assert(mail_transaction_log_view_set(view, 0, 0, (uint32_t)-1, (uoff_t)-1, &reset, &reason) == -1);
+	test_assert(mail_transaction_log_view_set(view, 0, 0, (uint32_t)-1, UOFF_T_MAX, &reset, &reason) == 0);
 	view->log = log;
+	test_end();
+
+	test_begin("clean refcount=0 files");
+	oldfile = log->files;
+	/* clear all references */
+	mail_transaction_log_view_clear(view, 0);
+	clean_refcount0_files = TRUE;
+	/* create a new file during mail_transaction_log_view_set(), which
+	   triggers freeing any unreferenced files. */
+	test_assert(mail_transaction_log_view_set(view, 2, 0, 4, UOFF_T_MAX, &reset, &reason) == 1);
+	clean_refcount0_files = FALSE;
+	log->files = oldfile;
 	test_end();
 
 	mail_transaction_log_view_close(&view);

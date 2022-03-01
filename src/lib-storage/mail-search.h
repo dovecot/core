@@ -128,6 +128,21 @@ struct mail_search_arg {
 };
 
 struct mail_search_args {
+	/* There are two types of refcount:
+
+	1) The normal refcount tracks the lifetime of the struct itself.
+	This allows using the same args for multiple search queries, even
+	across different mailboxes.
+
+	2) The init_refcount tracks how many times mail_search_args_init() has
+	been called. This can happen when the same mail_search_args have been
+	shared by referencing them in different parts of the code. Only after
+	each one of them has called mail_search_args_deinit() the init_refcount
+	drops to 0 and it can really be deinitialized.
+
+	Note that all of the inits must be within the same mailbox - attempting
+	to init the same args in different mailboxes at the same time will
+	result in assert-crash. */
 	int refcount, init_refcount;
 
 	pool_t pool;
@@ -153,9 +168,18 @@ struct mail_search_args {
 typedef void mail_search_foreach_callback_t(struct mail_search_arg *arg,
 					    void *context);
 
-/* Allocate keywords for search arguments. If change_sets is TRUE,
-   change uidsets to seqsets and convert "*" in seqsets to the current highest
-   message sequence. */
+/* Fully initialize and optimize the args for searching within the specified
+   mailbox. This should always be called before the args are actually used
+   for searching. After search is finished, the args must be deinitialized.
+   It's possible to initialize the same args multiple times, as long as it's
+   done within the same mailbox. This would allow multiple concurrent searches
+   to be done within the shared search args.
+
+   This will implicitly call mail_search_args_simplify() if it wasn't called
+   yet. It also allocates any necessary per-mailbox data like keywords.
+
+   If change_sets is TRUE, change uidsets to seqsets and convert "*" in seqsets
+   to the current highest message sequence. */
 void mail_search_args_init(struct mail_search_args *args,
 			   struct mailbox *box, bool change_sets,
 			   const ARRAY_TYPE(seq_range) *search_saved_uidset)

@@ -10,6 +10,7 @@ print "   by make. (This file is distributed in the tarball only because some\n"
 print "   systems might not have Perl installed.) */\n";
 print '#include "lib.h"'."\n";
 print '#include "array.h"'."\n";
+print '#include "str.h"'."\n";
 print '#include "ipwd.h"'."\n";
 print '#include "var-expand.h"'."\n";
 print '#include "file-lock.h"'."\n";
@@ -19,6 +20,8 @@ print '#include "net.h"'."\n";
 print '#include "unichar.h"'."\n";
 print '#include "hash-method.h"'."\n";
 print '#include "settings-parser.h"'."\n";
+print '#include "message-header-parser.h"'."\n";
+print '#include "pop3-protocol.h"'."\n";
 print '#include "all-settings.h"'."\n";
 print '#include <stddef.h>'."\n";
 print '#include <unistd.h>'."\n";
@@ -140,12 +143,13 @@ for (my $i = 0; $i < scalar(@services); $i++) {
 }
 print "};\n";
 print "buffer_t config_all_services_buf = {\n";
-print "\tconfig_all_services, sizeof(config_all_services), { NULL, }\n";
+print "\t{ { config_all_services, sizeof(config_all_services) } }\n";
 print "};\n";
 
 print "const struct setting_parser_info *all_default_roots[] = {\n";
 print "\t&master_service_setting_parser_info,\n";
 print "\t&master_service_ssl_setting_parser_info,\n";
+print "\t&master_service_ssl_server_setting_parser_info,\n";
 print "\t&smtp_submit_setting_parser_info,\n";
 foreach my $name (sort(keys %parsers)) {
   my $module = $parsers{$name};

@@ -2,14 +2,22 @@
 
 #include "lib.h"
 #include "ioloop.h"
-#include "mkdir-parents.h"
-#include "unlink-directory.h"
-#include "hex-binary.h"
-#include "randgen.h"
 #include "test-common.h"
 #include "master-service.h"
-#include "mail-storage-service.h"
-#include "mail-storage-private.h"
+#include "test-mail-storage-common.h"
+
+/* globally used test date and appropriate time_t value */
+static struct test_globals {
+	const char *date_str_iso;
+	const char *date_str_imap;
+	const char *date_str_unix;
+	time_t date_time_t;
+} test_globals = {
+	.date_str_iso = "2022-01-21",
+	.date_str_imap = "21-Jan-2022",
+	.date_str_unix = "1642723200",
+	.date_time_t = 1642723200
+};
 
 static void test_init_storage(struct mail_storage *storage_r)
 {
@@ -31,17 +39,9 @@ static void test_deinit_storage(struct mail_storage *storage)
 	event_unref(&storage->user->event);
 }
 
-struct test_mail_storage_ctx {
-	pool_t pool;
-	struct mail_storage_service_ctx *storage_service;
-	struct mail_user *user;
-	struct mail_storage_service_user *service_user;
-	struct ioloop *ioloop;
-	const char *mail_home;
-};
-
 static void test_mail_storage_errors(void)
 {
+	/* NOTE: keep in sync with test-mailbox-list.c */
 	struct mail_storage storage;
 	enum mail_error mail_error;
 	const char *errstr;
@@ -51,26 +51,32 @@ static void test_mail_storage_errors(void)
 
 	/* try a regular error */
 	mail_storage_set_error(&storage, MAIL_ERROR_PERM, "error1");
-	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error), "error1") == 0);
+	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error),
+			   "error1") == 0);
 	test_assert(mail_error == MAIL_ERROR_PERM);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "error1") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "error1") == 0);
 	test_assert(mail_error == MAIL_ERROR_PERM);
 	test_assert(!storage.last_error_is_internal);
 
 	/* set the error to itself */
 	mail_storage_set_error(&storage, MAIL_ERROR_PARAMS,
 		mail_storage_get_last_error(&storage, &mail_error));
-	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error), "error1") == 0);
+	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error),
+			   "error1") == 0);
 	test_assert(mail_error == MAIL_ERROR_PARAMS);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "error1") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "error1") == 0);
 	test_assert(mail_error == MAIL_ERROR_PARAMS);
 	test_assert(!storage.last_error_is_internal);
 
 	/* clear the error - asking for it afterwards is a bug */
 	mail_storage_clear_error(&storage);
-	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error), "BUG: Unknown internal error") == 0);
+	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error),
+			   "BUG: Unknown internal error") == 0);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "BUG: Unknown internal error") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "BUG: Unknown internal error") == 0);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(!storage.last_error_is_internal);
 
@@ -78,18 +84,22 @@ static void test_mail_storage_errors(void)
 	test_expect_error_string("critical0");
 	mail_storage_set_critical(&storage, "critical0");
 	test_expect_no_more_errors();
-	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
+	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error),
+			   MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "critical0") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "critical0") == 0);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(storage.last_error_is_internal);
 
 	/* internal error without specifying what it is. this needs to clear
 	   the previous internal error. */
 	mail_storage_set_internal_error(&storage);
-	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
+	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error),
+			   MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
-	test_assert(strstr(mail_storage_get_last_internal_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
+	test_assert(strstr(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(!storage.last_error_is_internal);
 
@@ -97,9 +107,11 @@ static void test_mail_storage_errors(void)
 	test_expect_error_string("critical1");
 	mail_storage_set_critical(&storage, "critical1");
 	test_expect_no_more_errors();
-	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
+	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error),
+			   MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "critical1") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "critical1") == 0);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(storage.last_error_is_internal);
 
@@ -108,9 +120,11 @@ static void test_mail_storage_errors(void)
 	mail_storage_set_critical(&storage, "critical2: %s",
 		mail_storage_get_last_internal_error(&storage, &mail_error));
 	test_expect_no_more_errors();
-	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
+	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error),
+			   MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "critical2: critical1") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "critical2: critical1") == 0);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(storage.last_error_is_internal);
 
@@ -119,7 +133,8 @@ static void test_mail_storage_errors(void)
 	mail_storage_set_critical(&storage, "critical3: %s",
 		mail_storage_get_last_error(&storage, &mail_error));
 	test_expect_no_more_errors();
-	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
+	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error),
+			   MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	errstr = mail_storage_get_last_internal_error(&storage, &mail_error);
 	test_assert(str_begins(errstr, "critical3: "));
@@ -129,9 +144,11 @@ static void test_mail_storage_errors(void)
 
 	/* clear the error again and check that all is as expected */
 	mail_storage_clear_error(&storage);
-	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error), "BUG: Unknown internal error") == 0);
+	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error),
+			   "BUG: Unknown internal error") == 0);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "BUG: Unknown internal error") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "BUG: Unknown internal error") == 0);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(!storage.last_error_is_internal);
 
@@ -142,9 +159,11 @@ static void test_mail_storage_errors(void)
 	mail_storage_set_error(&storage, MAIL_ERROR_PARAMS,
 		mail_storage_get_last_internal_error(&storage, &mail_error));
 	test_expect_no_more_errors();
-	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error), "critical4") == 0);
+	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error),
+			   "critical4") == 0);
 	test_assert(mail_error == MAIL_ERROR_PARAMS);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "critical4") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "critical4") == 0);
 	test_assert(mail_error == MAIL_ERROR_PARAMS);
 	test_assert(!storage.last_error_is_internal);
 
@@ -154,6 +173,7 @@ static void test_mail_storage_errors(void)
 
 static void test_mail_storage_last_error_push_pop(void)
 {
+	/* NOTE: keep in sync with test-mailbox-list.c */
 	struct mail_storage storage;
 	enum mail_error mail_error;
 
@@ -185,142 +205,46 @@ static void test_mail_storage_last_error_push_pop(void)
 
 	/* critical error 2 pop */
 	mail_storage_last_error_pop(&storage);
-	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
+	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error),
+			   MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "critical error 2") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "critical error 2") == 0);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(storage.last_error_is_internal);
 
 	/* regular error 2 pop */
 	mail_storage_last_error_pop(&storage);
-	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error), "regular error 2") == 0);
+	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error),
+			   "regular error 2") == 0);
 	test_assert(mail_error == MAIL_ERROR_PARAMS);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "regular error 2") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "regular error 2") == 0);
 	test_assert(mail_error == MAIL_ERROR_PARAMS);
 	test_assert(!storage.last_error_is_internal);
 
 	/* critical error 1 pop */
 	mail_storage_last_error_pop(&storage);
-	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error), MAIL_ERRSTR_CRITICAL_MSG) != NULL);
+	test_assert(strstr(mail_storage_get_last_error(&storage, &mail_error),
+			   MAIL_ERRSTR_CRITICAL_MSG) != NULL);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "critical error 1") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "critical error 1") == 0);
 	test_assert(mail_error == MAIL_ERROR_TEMP);
 	test_assert(storage.last_error_is_internal);
 
 	/* regular error 1 pop */
 	mail_storage_last_error_pop(&storage);
-	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error), "regular error 1") == 0);
+	test_assert(strcmp(mail_storage_get_last_error(&storage, &mail_error),
+			   "regular error 1") == 0);
 	test_assert(mail_error == MAIL_ERROR_PERM);
-	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error), "regular error 1") == 0);
+	test_assert(strcmp(mail_storage_get_last_internal_error(&storage, &mail_error),
+			   "regular error 1") == 0);
 	test_assert(mail_error == MAIL_ERROR_PERM);
 	test_assert(!storage.last_error_is_internal);
 
 	test_deinit_storage(&storage);
 	test_end();
-}
-
-static void test_mail_init(struct test_mail_storage_ctx *ctx)
-{
-	const char *error;
-	char path_buf[4096];
-	unsigned char rand[4];
-
-	ctx->pool = pool_allocfree_create("test pool");
-
-	if (getcwd(path_buf, sizeof(path_buf)) == NULL)
-		i_fatal("getcwd() failed: %m");
-
-	random_fill(rand, sizeof(rand));
-	ctx->mail_home = p_strdup_printf(ctx->pool, "%s/.test-dir%s/", path_buf,
-					 binary_to_hex(rand, sizeof(rand)));
-
-	if (unlink_directory(ctx->mail_home, UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0 &&
-	    errno != ENOENT)
-		i_warning("unlink_directory(%s) failed: %s", ctx->mail_home, error);
-
-	ctx->ioloop = io_loop_create();
-
-	ctx->storage_service = mail_storage_service_init(master_service, NULL,
-		MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS |
-		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
-		MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS);
-}
-
-static void test_mail_deinit(struct test_mail_storage_ctx *ctx)
-{
-	const char *error;
-	mail_storage_service_deinit(&ctx->storage_service);
-
-	if (chdir(ctx->mail_home) < 0)
-		i_fatal("chdir(%s) failed: %m", ctx->mail_home);
-	if (chdir("..") < 0)
-		i_fatal("chdir(..) failed: %m");
-
-	if (unlink_directory(ctx->mail_home, UNLINK_DIRECTORY_FLAG_RMDIR,
-			     &error) < 0)
-		i_error("unlink_directory(%s) failed: %s", ctx->mail_home, error);
-
-	io_loop_destroy(&ctx->ioloop);
-
-	pool_unref(&ctx->pool);
-
-	i_zero(ctx);
-}
-
-static int test_mail_init_user(const char *user, const char *driver,
-			       const char *driver_opts, const char *sep,
-			       const char *const *extra_input,
-			       struct test_mail_storage_ctx *ctx)
-{
-	const char *error, *home;
-	ARRAY_TYPE(const_string) opts;
-
-	home = t_strdup_printf("%s%s", ctx->mail_home, user);
-
-	const char *const default_input[] = {
-		t_strdup_printf("mail=%s:~/%s", driver, driver_opts),
-		"postmaster_address=postmaster@localhost",
-		"namespace=inbox",
-		"namespace/inbox/prefix=",
-		"namespace/inbox/inbox=yes",
-		t_strdup_printf("namespace/inbox/separator=%s", sep),
-		t_strdup_printf("home=%s/%s", home, user),
-	};
-
-	if (unlink_directory(home, UNLINK_DIRECTORY_FLAG_RMDIR, &error) < 0)
-		i_error("%s", error);
-	i_assert(mkdir_parents(home, S_IRWXU)==0 || errno == EEXIST);
-
-	t_array_init(&opts, 20);
-	array_append(&opts, default_input, N_ELEMENTS(default_input));
-	if (extra_input != NULL)
-		while(*extra_input != NULL)
-			array_push_back(&opts, extra_input++);
-
-	array_append_zero(&opts);
-	struct mail_storage_service_input input = {
-		.userdb_fields = array_front(&opts),
-		.username = user,
-		.no_userdb_lookup = TRUE,
-		.debug = FALSE,
-	};
-
-	if (mail_storage_service_lookup_next(ctx->storage_service, &input,
-					     &ctx->service_user, &ctx->user,
-					     &error) < 0) {
-		 i_error("mail_storage_service_lookup_next(%s) failed: %s",
-			 user, error);
-		 return -1;
-	}
-
-	return 0;
-}
-
-#define test_mail_init_maildir_user(user) test_mail_init_user(user,"maildir","",NULL)
-static void test_mail_deinit_user(struct test_mail_storage_ctx *ctx)
-{
-	mail_user_deinit(&ctx->user);
-	mail_storage_service_user_unref(&ctx->service_user);
 }
 
 struct mailbox_verify_test_cases {
@@ -338,6 +262,42 @@ struct mailbox_verify_test_cases {
 	{ '.', '.', "INBOX/INBOX", 0 },
 	{ '.', '/', "INBOX/INBOX", -1 },
 	{ '\0', '\0', "/etc/passwd", -1 },
+	{ '.', '.', "foo.bar", 0 },
+	{ '/', '.', "foo.bar", -1 },
+	{ '.', '/', "foo.bar", 0 },
+	{ '/', '/', "foo.bar", 0 },
+	{ '/', '\0', "/foo", -1 },
+	{ '/', '\0', "foo/", -1 },
+	{ '/', '\0', "foo//bar", -1 },
+	{ '.', '/', "/foo", -1 },
+	{ '.', '/', "foo/", -1 },
+	{ '.', '/', "foo//bar", -1 },
+	{ '.', '.', ".foo", -1 },
+	{ '.', '.', "foo.", -1 },
+	{ '.', '.', "foo..bar", -1 },
+	{ '.', '/', ".foo", -1 },
+	{ '.', '/', "foo.", -1 },
+	{ '.', '/', "foo..bar", -1 },
+	{ '.', '/', "/", -1 },
+	{ '.', '.', ".", -1 },
+	{ '/', '\0', "/", -1 },
+	{ '\0', '/', "/", -1 },
+	{ '\0', '\0', "", -1 },
+};
+
+struct mailbox_verify_test_cases layout_index_test_cases[] = {
+	{ '\0', '\0', "INBOX", 0 },
+	{ '/', '/', ".DUMPSTER", 0 },
+	{ '\0', '\0', "DUMPSTER", 0 },
+	{ '\0', '\0', "~DUMPSTER", 0 },
+	{ '\0', '\0', "^DUMPSTER", 0 },
+	{ '\0', '\0', "%DUMPSTER", 0 },
+	{ '/', '.', "INBOX/INBOX", 0 },
+	{ '/', '/', "INBOX/INBOX", 0 },
+	{ '.', '.', "INBOX/INBOX", 0 },
+	{ '.', '/', "INBOX/INBOX", -1 },
+	{ '/', '\0', "/etc/passwd", -1 },
+	{ '.', '\0', "/etc/passwd", 0 },
 	{ '.', '.', "foo.bar", 0 },
 	{ '/', '.', "foo.bar", -1 },
 	{ '.', '/', "foo.bar", 0 },
@@ -450,12 +410,20 @@ static void test_mailbox_verify_name_driver_slash(const char *driver,
 		"namespace/subspace/prefix=SubSpace/",
 		NULL
 	};
-	if (test_mail_init_user("testuser", driver, driver_opts, "/", ns2, ctx) < 0)
-		return;
+	struct test_mail_storage_settings set = {
+		.driver = driver,
+		.driver_opts = driver_opts,
+		.hierarchy_sep = "/",
+		.extra_input = ns2,
+	};
+	test_mail_storage_init_user(ctx, &set);
 
-	test_mailbox_verify_name_continue(test_cases, N_ELEMENTS(test_cases), ctx);
+	if (strcmp(driver_opts, ":LAYOUT=INDEX") == 0)
+		test_mailbox_verify_name_continue(layout_index_test_cases, N_ELEMENTS(layout_index_test_cases), ctx);
+	else
+		test_mailbox_verify_name_continue(test_cases, N_ELEMENTS(test_cases), ctx);
 
-	test_mail_deinit_user(ctx);
+	test_mail_storage_deinit_user(ctx);
 }
 
 static void test_mailbox_verify_name_driver_dot(const char *driver,
@@ -468,12 +436,20 @@ static void test_mailbox_verify_name_driver_dot(const char *driver,
 		"namespace/subspace/prefix=SubSpace.",
 		NULL
 	};
-	if (test_mail_init_user("testuser", driver, driver_opts, ".", ns2, ctx) < 0)
-		return;
+	struct test_mail_storage_settings set = {
+		.driver = driver,
+		.driver_opts = driver_opts,
+		.hierarchy_sep = ".",
+		.extra_input = ns2,
+	};
+	test_mail_storage_init_user(ctx, &set);
 
-	test_mailbox_verify_name_continue(test_cases, N_ELEMENTS(test_cases), ctx);
+	if (strcmp(driver_opts, ":LAYOUT=INDEX") == 0)
+		test_mailbox_verify_name_continue(layout_index_test_cases, N_ELEMENTS(layout_index_test_cases), ctx);
+	else
+		test_mailbox_verify_name_continue(test_cases, N_ELEMENTS(test_cases), ctx);
 
-	test_mail_deinit_user(ctx);
+	test_mail_storage_deinit_user(ctx);
 }
 
 static void test_mailbox_verify_name(void)
@@ -494,20 +470,18 @@ static void test_mailbox_verify_name(void)
 		{ "mdbox LAYOUT=FS", "mdbox", ":LAYOUT=FS" },
 		{ "mdbox LAYOUT=INDEX", "mdbox", ":LAYOUT=INDEX" },
 	};
-	struct test_mail_storage_ctx ctx;
-	i_zero(&ctx);
-	test_mail_init(&ctx);
+	struct test_mail_storage_ctx *ctx = test_mail_storage_init();
 
 	for(unsigned int i = 0; i < N_ELEMENTS(test_cases); i++) T_BEGIN {
 		test_begin(t_strdup_printf("mailbox_verify_name (%s SEP=.)", test_cases[i].name));
-		test_mailbox_verify_name_driver_dot(test_cases[i].driver, test_cases[i].opts, &ctx);
+		test_mailbox_verify_name_driver_dot(test_cases[i].driver, test_cases[i].opts, ctx);
 		test_end();
 		test_begin(t_strdup_printf("mailbox_verify_name (%s SEP=/)", test_cases[i].name));
-		test_mailbox_verify_name_driver_slash(test_cases[i].driver, test_cases[i].opts, &ctx);
+		test_mailbox_verify_name_driver_slash(test_cases[i].driver, test_cases[i].opts, ctx);
 		test_end();
 	} T_END;
 
-	test_mail_deinit(&ctx);
+	test_mail_storage_deinit(&ctx);
 }
 
 static void test_mailbox_list_maildir_continue(struct test_mail_storage_ctx *ctx)
@@ -571,8 +545,13 @@ static void test_mailbox_list_maildir_init(struct test_mail_storage_ctx *ctx,
 		NULL
 	};
 
-	if (test_mail_init_user("testuser", "maildir", driver_opts, sep, ns2, ctx) < 0)
-		i_unreached();
+	struct test_mail_storage_settings set = {
+		.driver = "maildir",
+		.driver_opts = driver_opts,
+		.hierarchy_sep = sep,
+		.extra_input = ns2,
+	};
+	test_mail_storage_init_user(ctx, &set);
 	test_mailbox_list_maildir_continue(ctx);
 
 	struct mail_namespace *ns =
@@ -602,63 +581,168 @@ static void test_mailbox_list_maildir_init(struct test_mail_storage_ctx *ctx,
 #endif
 	mailbox_free(&box);
 
-	test_mail_deinit_user(ctx);
+	test_mail_storage_deinit_user(ctx);
 }
 
 static void test_mailbox_list_maildir(void)
 {
-	struct test_mail_storage_ctx ctx;
-	i_zero(&ctx);
-	test_mail_init(&ctx);
+	struct test_mail_storage_ctx *ctx = test_mail_storage_init();
 
 	test_begin("mailbox_verify_name (maildir SEP=.)");
-	test_mailbox_list_maildir_init(&ctx, "", ".");
+	test_mailbox_list_maildir_init(ctx, "", ".");
 	test_end();
 
 	test_begin("mailbox_verify_name (maildir SEP=/)");
-	test_mailbox_list_maildir_init(&ctx, "", "/");
+	test_mailbox_list_maildir_init(ctx, "", "/");
 	test_end();
 
 	test_begin("mailbox_verify_name (maildir SEP=. LAYOUT=FS)");
-	test_mailbox_list_maildir_init(&ctx, "LAYOUT=FS", ".");
+	test_mailbox_list_maildir_init(ctx, "LAYOUT=FS", ".");
 	test_end();
 
 	test_begin("mailbox_verify_name (maildir SEP=/ LAYOUT=FS)");
-	test_mailbox_list_maildir_init(&ctx, "LAYOUT=FS", "/");
+	test_mailbox_list_maildir_init(ctx, "LAYOUT=FS", "/");
 	test_end();
 
-	test_mail_deinit(&ctx);
+	test_mail_storage_deinit(&ctx);
 }
 
 static void test_mailbox_list_mbox(void)
 {
-	struct test_mail_storage_ctx ctx;
+	struct test_mail_storage_ctx *ctx;
 	struct mailbox_verify_test_cases test_case;
 	struct mail_namespace *ns;
 
-	i_zero(&ctx);
 	test_begin("mailbox_list_mbox");
 
-	test_mail_init(&ctx);
+	ctx = test_mail_storage_init();
 
 	/* check that .lock cannot be used */
-	if (test_mail_init_user("testuser", "mbox", "", ".", NULL, &ctx) < 0)
-		i_unreached();
+	struct test_mail_storage_settings set = {
+		.driver = "mbox",
+		.hierarchy_sep = ".",
+	};
+	test_mail_storage_init_user(ctx, &set);
 
 	test_case.list_sep = '/';
 	test_case.ns_sep = '.';
 	test_case.box = "INBOX/.lock";
 	test_case.ret = -1;
 
-	ns = mail_namespace_find_inbox(ctx.user->namespaces);
+	ns = mail_namespace_find_inbox(ctx->user->namespaces);
 	test_mailbox_verify_name_one(&test_case, ns, 0);
 
-	test_mail_deinit_user(&ctx);
-	test_mail_deinit(&ctx);
+	test_mail_storage_deinit_user(ctx);
+	test_mail_storage_deinit(&ctx);
 
 	test_end();
 }
 
+
+static void test_mail_parse_human_timestamp_iso(void)
+{
+	int ret;
+	time_t timestamp;
+	bool is_utc;
+
+	test_begin("mail_parse_human_timestamp (iso)");
+
+	ret = mail_parse_human_timestamp(test_globals.date_str_iso, &timestamp,
+					 &is_utc);
+
+	test_assert(ret == 0);
+	test_assert(timestamp == test_globals.date_time_t);
+	test_assert(is_utc);
+
+	test_end();
+}
+
+static void test_mail_parse_human_timestamp_imap(void)
+{
+	int ret;
+	time_t timestamp;
+	bool is_utc;
+
+	test_begin("mail_parse_human_timestamp (imap)");
+
+	ret = mail_parse_human_timestamp(test_globals.date_str_imap, &timestamp,
+					 &is_utc);
+
+	test_assert(ret == 0);
+	test_assert(timestamp == test_globals.date_time_t);
+	test_assert(!is_utc);
+
+	test_end();
+}
+
+static void test_mail_parse_human_timestamp_unix(void)
+{
+	int ret;
+	time_t timestamp;
+	bool is_utc;
+
+	test_begin("mail_parse_human_timestamp (unix)");
+
+	ret = mail_parse_human_timestamp(test_globals.date_str_unix, &timestamp,
+					 &is_utc);
+
+	test_assert(ret == 0);
+	test_assert(timestamp == test_globals.date_time_t);
+	test_assert(is_utc);
+
+	test_end();
+}
+
+static void test_mail_parse_human_timestamp_time_interval(void)
+{
+	int ret;
+	time_t timestamp;
+	bool is_utc;
+
+	test_begin("mail_parse_human_timestamp (time interval)");
+
+	/* make sure the time interval of 5 minutes (=300 seconds) is
+	   correctly parsed and reduced from the main ioloop's timestamp */
+	ret = mail_parse_human_timestamp("5 mins", &timestamp, &is_utc);
+
+	test_assert(ret == 0);
+	test_assert(timestamp == ioloop_time - 300);
+	test_assert(is_utc);
+
+	test_end();
+}
+
+static const char *invalid_timestamps[] = {
+	/* ISO format, upper case 's' instead of numeric '5' */
+	"1234-S6-78",
+	/* IMAP format, incorrect month abbreviation "Jam" */
+	"01-Jam-2022",
+	/* IMAP format, missing '-' separators */
+	"02 Feb 2022",
+	/* unix timestamp, upper case 'o' instead of numeric '0' */
+	"148314240O",
+	/* time interval, spelling error */
+	"1minsa",
+	/* time interval, negative value */
+	"-100D",
+	/* Note: for further tests regarding time interval, see
+		 `src/lib-settings/test-settings-parser.c` */
+
+	/* arbitrary string */
+	"invalid timestamp"
+};
+
+static void test_mail_parse_human_timestamp_fail(void)
+{
+	unsigned int i;
+	test_begin("mail_parse_human_timestamp (fail)");
+	for (i = 0; i < N_ELEMENTS(invalid_timestamps); i++) {
+		const char *item = invalid_timestamps[i];
+		test_assert_idx(
+			mail_parse_human_timestamp(item, NULL, NULL) == -1, i);
+	}
+	test_end();
+}
 
 int main(int argc, char **argv)
 {
@@ -669,6 +753,11 @@ int main(int argc, char **argv)
 		test_mailbox_verify_name,
 		test_mailbox_list_maildir,
 		test_mailbox_list_mbox,
+		test_mail_parse_human_timestamp_iso,
+		test_mail_parse_human_timestamp_imap,
+		test_mail_parse_human_timestamp_unix,
+		test_mail_parse_human_timestamp_time_interval,
+		test_mail_parse_human_timestamp_fail,
 		NULL
 	};
 

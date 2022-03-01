@@ -79,6 +79,10 @@ struct client_command_context {
 	struct client_command_context *prev, *next;
 	struct client *client;
 	struct event *event;
+	/* global_event is pushed to the global event stack while the command
+	   is running. It has only the minimal fields that are actually wanted
+	   to be in all the events while it's being run. */
+	struct event *global_event;
 
 	pool_t pool;
 	/* IMAP command tag */
@@ -160,6 +164,7 @@ struct client {
 	struct istream *input;
 	struct ostream *output;
 	struct timeout *to_idle, *to_idle_output, *to_delayed_input;
+	guid_128_t anvil_conn_guid;
 
 	pool_t pool;
 	struct mail_storage_service_user *service_user;
@@ -225,6 +230,7 @@ struct client {
 	bool logged_out:1;
 	bool disconnected:1;
 	bool hibernated:1;
+	bool unhibernated:1; /* client was created by unhibernation */
 	bool destroyed:1;
 	bool handling_input:1;
 	bool syncing:1;
@@ -261,19 +267,23 @@ extern unsigned int imap_feature_qresync;
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
-struct client *client_create(int fd_in, int fd_out,
+struct client *client_create(int fd_in, int fd_out, bool unhibernated,
 			     struct event *event, struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct imap_settings *set,
 			     const struct smtp_submit_settings *smtp_set);
+void client_create_finish_io(struct client *client);
 /* Finish creating the client. Returns 0 if ok, -1 if there's an error. */
 int client_create_finish(struct client *client, const char **error_r);
+void client_add_istream_prefix(struct client *client,
+			       const unsigned char *data, size_t size);
 void client_destroy(struct client *client, const char *reason) ATTR_NULL(2);
 
 /* Disconnect client connection */
 void client_disconnect(struct client *client, const char *reason);
 void client_disconnect_with_error(struct client *client,
 				  const char *client_error);
+void client_kick(struct client *client);
 
 /* Add the given capability to the CAPABILITY reply. If imap_capability setting
    has an explicit capability, nothing is changed. */
@@ -323,8 +333,9 @@ enum mailbox_feature client_enabled_mailbox_features(struct client *client);
 const char *const *client_enabled_features(struct client *client);
 
 /* Send client processing to imap-idle process. If successful, returns TRUE
-   and destroys the client. */
-bool imap_client_hibernate(struct client **client);
+   and destroys the client. If hibernation failed, the exact reason is
+   returned (mainly for unit tests). */
+bool imap_client_hibernate(struct client **client, const char **reason_r);
 
 struct imap_search_update *
 client_search_update_lookup(struct client *client, const char *tag,

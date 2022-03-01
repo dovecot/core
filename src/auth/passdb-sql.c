@@ -60,6 +60,7 @@ static void sql_query_callback(struct sql_result *result,
 	struct sql_passdb_module *module = (struct sql_passdb_module *)_module;
 	enum passdb_result passdb_result;
 	const char *password, *scheme;
+	char *dup_password = NULL;
 	int ret;
 
 	passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
@@ -99,12 +100,14 @@ static void sql_query_callback(struct sql_result *result,
 			e_error(authdb_event(auth_request),
 				"Password query returned multiple matches");
 		} else if (auth_request->passdb_password == NULL &&
-			   !auth_fields_exists(auth_request->extra_fields, "nopassword")) {
+			   !auth_fields_exists(auth_request->fields.extra_fields,
+					       "nopassword")) {
 			passdb_result = auth_request_password_missing(auth_request);
 		} else {
 			/* passdb_password may change on the way,
 			   so we'll need to strdup. */
-			password = t_strdup(auth_request->passdb_password);
+			dup_password = t_strdup_noconst(auth_request->passdb_password);
+			password = dup_password;
 			passdb_result = PASSDB_RESULT_OK;
 		}
 	}
@@ -113,10 +116,12 @@ static void sql_query_callback(struct sql_result *result,
 	/* auth_request_set_field() sets scheme */
 	i_assert(password == NULL || scheme != NULL);
 
-	if (auth_request->credentials_scheme != NULL) {
+	if (auth_request->wanted_credentials_scheme != NULL) {
 		passdb_handle_credentials(passdb_result, password, scheme,
 			sql_request->callback.lookup_credentials,
 			auth_request);
+		if (dup_password != NULL)
+			safe_memset(dup_password, 0, strlen(dup_password));
 		auth_request_unref(&auth_request);
 		return;
 	}
@@ -135,6 +140,8 @@ static void sql_query_callback(struct sql_result *result,
 	sql_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :
 					   PASSDB_RESULT_PASSWORD_MISMATCH,
 					   auth_request);
+	i_assert(dup_password != NULL);
+	safe_memset(dup_password, 0, strlen(dup_password));
 	auth_request_unref(&auth_request);
 }
 

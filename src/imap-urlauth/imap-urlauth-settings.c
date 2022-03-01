@@ -17,7 +17,7 @@ static struct file_listener_settings *imap_urlauth_unix_listeners[] = {
 	&imap_urlauth_unix_listeners_array[0]
 };
 static buffer_t imap_urlauth_unix_listeners_buf = {
-	imap_urlauth_unix_listeners, sizeof(imap_urlauth_unix_listeners), { NULL, }
+	{ { imap_urlauth_unix_listeners, sizeof(imap_urlauth_unix_listeners) } }
 };
 /* </settings checks> */
 
@@ -39,7 +39,7 @@ struct service_settings imap_urlauth_service_settings = {
 	.client_limit = 1,
 	.service_count = 1,
 	.idle_kill = 0,
-	.vsz_limit = (uoff_t)-1,
+	.vsz_limit = UOFF_T_MAX,
 
 	.unix_listeners = { { &imap_urlauth_unix_listeners_buf,
 			      sizeof(imap_urlauth_unix_listeners[0]) } },
@@ -49,18 +49,18 @@ struct service_settings imap_urlauth_service_settings = {
 
 #undef DEF
 #define DEF(type, name) \
-	{ type, #name, offsetof(struct imap_urlauth_settings, name), NULL }
+	SETTING_DEFINE_STRUCT_##type(#name, name, struct imap_urlauth_settings)
 
 static const struct setting_define imap_urlauth_setting_defines[] = {
-	DEF(SET_STR, base_dir),
+	DEF(STR, base_dir),
 
-	DEF(SET_BOOL, mail_debug),
+	DEF(BOOL, mail_debug),
 
-	DEF(SET_BOOL, verbose_proctitle),
+	DEF(BOOL, verbose_proctitle),
 
-	DEF(SET_STR, imap_urlauth_logout_format),
-	DEF(SET_STR, imap_urlauth_submit_user),
-	DEF(SET_STR, imap_urlauth_stream_user),
+	DEF(STR, imap_urlauth_logout_format),
+	DEF(STR, imap_urlauth_submit_user),
+	DEF(STR, imap_urlauth_stream_user),
 
 	SETTING_DEFINE_LIST_END
 };
@@ -85,10 +85,10 @@ const struct setting_parser_info imap_urlauth_setting_parser_info = {
 	.defines = imap_urlauth_setting_defines,
 	.defaults = &imap_urlauth_default_settings,
 
-	.type_offset = (size_t)-1,
+	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct imap_urlauth_settings),
 
-	.parent_offset = (size_t)-1,
+	.parent_offset = SIZE_MAX,
 
 	.dependencies = imap_urlauth_setting_dependencies
 };

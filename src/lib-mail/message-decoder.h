@@ -49,6 +49,6 @@ message_decoder_current_content_type(struct message_decoder_context *ctx);
 void message_decoder_decode_reset(struct message_decoder_context *ctx);
 
 /* Decode Content-Transfer-Encoding header. */
-enum message_cte message_decoder_parse_cte(struct message_header_line *hdr);
+enum message_cte message_decoder_parse_cte(const struct message_header_line *hdr);
 
 #endif

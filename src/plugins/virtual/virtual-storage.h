@@ -13,6 +13,8 @@
 #define VIRTUAL_CONTEXT_REQUIRE(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, virtual_storage_module)
 
+#define VIRTUAL_MAIL_INDEX_EXT2_HEADER_VERSION 1
+
 struct virtual_save_context;
 
 struct virtual_mail_index_header {
@@ -40,6 +42,26 @@ struct virtual_mail_index_mailbox_record {
 	uint32_t next_uid;
 	/* Synced highest modseq value */
 	uint64_t highest_modseq;
+};
+
+struct virtual_mail_index_ext2_header {
+	/* Version compatibility number:
+	   VIRTUAL_MAIL_INDEX_EXT2_HEADER_VERSION */
+	uint8_t version;
+	/* Set to sizeof(struct virtual_mail_index_mailbox_ext2_record) when
+	   writing. */
+	uint8_t ext_record_size;
+	/* Set to sizeof(struct virtual_mail_index_ext2_header) when writing. */
+	uint16_t hdr_size;
+	/* Must be the same as virtual_mail_index_header.change_counter.
+	   If not, it means the header was modified by an older Dovecot version
+	   and this extension header should be ignored/rewritten. */
+	uint32_t change_counter;
+};
+
+struct virtual_mail_index_mailbox_ext2_record {
+	/* Synced GUID value */
+	uint8_t guid[16];
 };
 
 struct virtual_mail_index_record {
@@ -78,6 +100,7 @@ struct virtual_backend_box {
 	uint32_t sync_uid_validity;
 	uint32_t sync_next_uid;
 	uint64_t sync_highest_modseq;
+	guid_128_t sync_guid;
 	/* this value is either 0 or same as sync_highest_modseq. it's kept 0
 	   when there are pending removes that have yet to be expunged */
 	uint64_t ondisk_highest_modseq;
@@ -117,6 +140,7 @@ struct virtual_backend_box {
 	bool search_args_initialized:1;
 	bool deleted:1;
 	bool notify_changes_started:1; /* if the box was opened for notify_changes */
+	bool first_sync:1; /* if this is the first sync after bbox was (re-)created */
 };
 ARRAY_DEFINE_TYPE(virtual_backend_box, struct virtual_backend_box *);
 
@@ -125,6 +149,7 @@ struct virtual_mailbox {
 	struct virtual_storage *storage;
 
 	uint32_t virtual_ext_id;
+	uint32_t virtual_ext2_id;
 	uint32_t virtual_guid_ext_id;
 
 	uint32_t prev_uid_validity;

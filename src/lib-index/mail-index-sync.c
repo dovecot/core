@@ -277,7 +277,8 @@ mail_index_need_sync(struct mail_index *index, enum mail_index_sync_flags flags,
 		return TRUE;
 
 	/* already synced */
-	return mail_cache_need_purge(index->cache);
+	const char *reason;
+	return mail_cache_need_purge(index->cache, &reason);
 }
 
 static int
@@ -317,7 +318,7 @@ int mail_index_sync_begin(struct mail_index *index,
 	int ret;
 
 	ret = mail_index_sync_begin_to(index, ctx_r, view_r, trans_r,
-				       (uint32_t)-1, (uoff_t)-1, flags);
+				       (uint32_t)-1, UOFF_T_MAX, flags);
 	i_assert(ret != 0 ||
 		 (flags & MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES) != 0);
 	return ret;
@@ -375,7 +376,7 @@ mail_index_sync_begin_init(struct mail_index *index,
 	if (!locked) {
 		/* it looks like we have something to sync. lock the file and
 		   check again. */
-		flags &= ~MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
+		flags &= ENUM_NEGATE(MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES);
 		return mail_index_sync_begin_init(index, flags, log_file_seq,
 						  log_file_offset);
 	}
@@ -472,8 +473,6 @@ mail_index_sync_begin_to2(struct mail_index *index,
                 mail_index_sync_rollback(&ctx);
 		return -1;
 	}
-
-	ctx->view->index_sync_view = TRUE;
 
 	/* create the transaction after the view has been updated with
 	   external transactions and marked as sync view */
@@ -834,8 +833,8 @@ static bool mail_index_sync_want_index_write(struct mail_index *index, const cha
 {
 	uint32_t log_diff;
 
-	if (index->last_read_log_file_seq != 0 &&
-	    index->last_read_log_file_seq != index->map->hdr.log_file_seq) {
+	if (index->main_index_hdr_log_file_seq != 0 &&
+	    index->main_index_hdr_log_file_seq != index->map->hdr.log_file_seq) {
 		/* dovecot.index points to an old .log file. we were supposed
 		   to rewrite the dovecot.index when rotating the log, so
 		   we shouldn't usually get here. */
@@ -844,12 +843,12 @@ static bool mail_index_sync_want_index_write(struct mail_index *index, const cha
 	}
 
 	log_diff = index->map->hdr.log_file_tail_offset -
-		index->last_read_log_file_tail_offset;
+		index->main_index_hdr_log_file_tail_offset;
 	if (log_diff > index->optimization_set.index.rewrite_max_log_bytes) {
 		*reason_r = t_strdup_printf(
 			".log read %u..%u > rewrite_max_log_bytes %"PRIuUOFF_T,
 			index->map->hdr.log_file_tail_offset,
-			index->last_read_log_file_tail_offset,
+			index->main_index_hdr_log_file_tail_offset,
 			index->optimization_set.index.rewrite_max_log_bytes);
 		return TRUE;
 	}
@@ -858,7 +857,7 @@ static bool mail_index_sync_want_index_write(struct mail_index *index, const cha
 		*reason_r = t_strdup_printf(
 			".log read %u..%u > rewrite_min_log_bytes %"PRIuUOFF_T,
 			index->map->hdr.log_file_tail_offset,
-			index->last_read_log_file_tail_offset,
+			index->main_index_hdr_log_file_tail_offset,
 			index->optimization_set.index.rewrite_min_log_bytes);
 		return TRUE;
 	}
@@ -906,13 +905,17 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 				&next_uid, sizeof(next_uid), FALSE);
 		}
 	}
-	if (index->pending_log2_rotate_time != 0) {
-		uint32_t log2_rotate_time = index->pending_log2_rotate_time;
+	if (index->hdr_log2_rotate_time_delayed_update != 0) {
+		/* We checked whether .log.2 should be deleted in this same
+		   sync. It resulted in wanting to change the log2_rotate_time
+		   in the header. Do it here as part of the other changes. */
+		uint32_t log2_rotate_time =
+			index->hdr_log2_rotate_time_delayed_update;
 
 		mail_index_update_header(ctx->ext_trans,
 			offsetof(struct mail_index_header, log2_rotate_time),
 			&log2_rotate_time, sizeof(log2_rotate_time), TRUE);
-		index->pending_log2_rotate_time = 0;
+		index->hdr_log2_rotate_time_delayed_update = 0;
 	}
 
 	ret2 = mail_index_transaction_commit(&ctx->ext_trans);
@@ -939,11 +942,11 @@ int mail_index_sync_commit(struct mail_index_sync_ctx **_ctx)
 	/* The previously called expunged handlers will update cache's
 	   record_count and deleted_record_count. That also has a side effect
 	   of updating whether cache needs to be purged. */
-	if (ret == 0 && mail_cache_need_purge(index->cache) &&
+	if (ret == 0 && mail_cache_need_purge(index->cache, &reason) &&
 	    !mail_cache_transactions_have_changes(index->cache)) {
 		if (mail_cache_purge(index->cache,
 				     index->cache->need_purge_file_seq,
-				     "syncing") < 0) {
+				     reason) < 0) {
 			/* can't really do anything if it fails */
 		}
 		/* Make sure the newly committed cache record offsets are
@@ -987,7 +990,7 @@ void mail_index_sync_flags_apply(const struct mail_index_sync_rec *sync_rec,
 {
 	i_assert(sync_rec->type == MAIL_INDEX_SYNC_TYPE_FLAGS);
 
-	*flags = (*flags & ~sync_rec->remove_flags) | sync_rec->add_flags;
+	*flags = (*flags & ENUM_NEGATE(sync_rec->remove_flags)) | sync_rec->add_flags;
 }
 
 bool mail_index_sync_keywords_apply(const struct mail_index_sync_rec *sync_rec,

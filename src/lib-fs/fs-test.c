@@ -24,7 +24,7 @@ fs_test_init(struct fs *_fs ATTR_UNUSED, const char *args ATTR_UNUSED,
 	return 0;
 }
 
-static void fs_test_deinit(struct fs *_fs)
+static void fs_test_free(struct fs *_fs)
 {
 	struct test_fs *fs = (struct test_fs *)_fs;
 
@@ -277,7 +277,7 @@ static int fs_test_copy(struct fs_file *_src, struct fs_file *_dest)
 		return -1;
 	}
 	buffer_set_used_size(dest->contents, 0);
-	buffer_append_buf(dest->contents, src->contents, 0, (size_t)-1);
+	buffer_append_buf(dest->contents, src->contents, 0, SIZE_MAX);
 	dest->exists = TRUE;
 	return 0;
 }
@@ -408,7 +408,8 @@ const struct fs fs_class_test = {
 	.v = {
 		fs_test_alloc,
 		fs_test_init,
-		fs_test_deinit,
+		NULL,
+		fs_test_free,
 		fs_test_get_properties,
 		fs_test_file_alloc,
 		fs_test_file_init,

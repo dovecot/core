@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "array.h"
 #include "str.h"
+#include "strescape.h"
 #include "randgen.h"
 #include "module-dir.h"
 #include "process-title.h"
@@ -15,6 +16,7 @@
 #include "iostream-ssl.h"
 #include "client-common.h"
 #include "access-lookup.h"
+#include "master-admin-client.h"
 #include "anvil-client.h"
 #include "auth-client.h"
 #include "dsasl-client.h"
@@ -52,8 +54,10 @@ bool login_ssl_initialized;
 
 const struct login_settings *global_login_settings;
 const struct master_service_ssl_settings *global_ssl_settings;
+const struct master_service_ssl_server_settings *global_ssl_server_settings;
 void **global_other_settings;
 
+static ARRAY(struct ip_addr) login_source_ips_array;
 const struct ip_addr *login_source_ips;
 unsigned int login_source_ips_idx, login_source_ips_count;
 
@@ -163,14 +167,17 @@ client_connected_finish(const struct master_service_connection *conn)
 	struct client *client;
 	const struct login_settings *set;
 	const struct master_service_ssl_settings *ssl_set;
+	const struct master_service_ssl_server_settings *ssl_server_set;
 	pool_t pool;
 	void **other_sets;
 
 	pool = pool_alloconly_create("login client", 8*1024);
 	set = login_settings_read(pool, &conn->local_ip,
-				  &conn->remote_ip, NULL, &ssl_set, &other_sets);
+				  &conn->remote_ip, NULL,
+				  &ssl_set, &ssl_server_set, &other_sets);
 
-	client = client_alloc(conn->fd, pool, conn, set, ssl_set);
+	client = client_alloc(conn->fd, pool, conn, set,
+			      ssl_set, ssl_server_set);
 	if (ssl_connections || conn->ssl) {
 		if (client_init_ssl(client) < 0) {
 			client_unref(&client);
@@ -248,6 +255,16 @@ static void client_input_error(struct login_access_lookup *lookup)
 	}
 }
 
+static unsigned int
+master_admin_cmd_kick_user(const char *user, const guid_128_t conn_guid)
+{
+	return login_proxy_kick_user_connection(user, conn_guid);
+}
+
+static const struct master_admin_client_callback admin_callbacks = {
+	.cmd_kick_user = master_admin_cmd_kick_user,
+};
+
 static void client_connected(struct master_service_connection *conn)
 {
 	const char *access_sockets =
@@ -255,6 +272,7 @@ static void client_connected(struct master_service_connection *conn)
 	struct login_access_lookup *lookup;
 
 	master_service_client_connection_accept(conn);
+
 	if (conn->remote_ip.family != 0) {
 		/* log the connection's IP address in case we crash. it's of
 		   course possible that another earlier client causes the
@@ -292,7 +310,7 @@ static void auth_connect_notify(struct auth_client *client ATTR_UNUSED,
 		/* auth disconnected without having ever succeeded, so the
 		   auth process is probably misconfigured. no point in
 		   keeping the client connections hanging. */
-		clients_destroy_all_reason("Disconnected: Auth process broken");
+		clients_destroy_all_reason("Auth process broken");
 	}
 }
 
@@ -305,20 +323,54 @@ static bool anvil_reconnect_callback(void)
 	return FALSE;
 }
 
+static void anvil_cmd_input_kick_user(const char *const *args)
+{
+	/* <user> [<conn-guid>] */
+	const char *user = args[0];
+	if (user == NULL) {
+		anvil_client_send_reply(anvil, "-Missing parameters");
+		return;
+	}
+	guid_128_t conn_guid;
+	if (args[1] == NULL)
+		guid_128_empty(conn_guid);
+	else if (guid_128_from_string(args[1], conn_guid) < 0) {
+		anvil_client_send_reply(anvil, "-Invalid conn-guid parameter");
+		return;
+	} else if (args[2] != NULL) {
+		anvil_client_send_reply(anvil, "-Extra parameters");
+		return;
+	}
+	unsigned int count = login_proxy_kick_user_connection(user, conn_guid);
+	anvil_client_send_reply(anvil, t_strdup_printf("+%u", count));
+}
+
+static bool anvil_cmd_input(const char *cmd, const char *const *args)
+{
+	if (strcmp(cmd, "KICK-USER") == 0)
+		anvil_cmd_input_kick_user(args);
+	else
+		return FALSE;
+	return TRUE;
+}
+
 void login_anvil_init(void)
 {
 	if (anvil != NULL)
 		return;
 
-	anvil = anvil_client_init("anvil", anvil_reconnect_callback, 0);
+	const struct anvil_client_callbacks callbacks = {
+		.reconnect = anvil_reconnect_callback,
+		.command = anvil_cmd_input,
+	};
+	anvil = anvil_client_init("anvil", &callbacks, 0);
 	if (anvil_client_connect(anvil, TRUE) < 0)
 		i_fatal("Couldn't connect to anvil");
 }
 
-static const struct ip_addr *
-parse_login_source_ips(const char *ips_str, unsigned int *count_r)
+static void
+parse_login_source_ips(const char *ips_str)
 {
-	ARRAY(struct ip_addr) ips;
 	const char *const *tmp;
 	struct ip_addr *tmp_ips;
 	bool skip_nonworking = FALSE;
@@ -332,7 +384,7 @@ parse_login_source_ips(const char *ips_str, unsigned int *count_r)
 		skip_nonworking = TRUE;
 		ips_str++;
 	}
-	t_array_init(&ips, 4);
+	i_array_init(&login_source_ips_array, 4);
 	for (tmp = t_strsplit_spaces(ips_str, ", "); *tmp != NULL; tmp++) {
 		ret = net_gethostbyname(*tmp, &tmp_ips, &tmp_ips_count);
 		if (ret != 0) {
@@ -343,10 +395,13 @@ parse_login_source_ips(const char *ips_str, unsigned int *count_r)
 		for (i = 0; i < tmp_ips_count; i++) {
 			if (skip_nonworking && net_try_bind(&tmp_ips[i]) < 0)
 				continue;
-			array_push_back(&ips, &tmp_ips[i]);
+			array_push_back(&login_source_ips_array, &tmp_ips[i]);
 		}
 	}
-	return array_get(&ips, count_r);
+
+	/* make the array contents easily accessible */
+	login_source_ips = array_get(&login_source_ips_array,
+				     &login_source_ips_count);
 }
 
 static void login_load_modules(void)
@@ -377,9 +432,8 @@ static void login_ssl_init(void)
 	if (strcmp(global_ssl_settings->ssl, "no") == 0)
 		return;
 
-	master_service_ssl_settings_to_iostream_set(global_ssl_settings,
-		pool_datastack_create(),
-		MASTER_SERVICE_SSL_SETTINGS_TYPE_SERVER, &ssl_set);
+	master_service_ssl_server_settings_to_iostream_set(global_ssl_settings,
+		global_ssl_server_settings, pool_datastack_create(), &ssl_set);
 	if (io_stream_ssl_global_init(&ssl_set, &error) < 0)
 		i_fatal("Failed to initialize SSL library: %s", error);
 	login_ssl_initialized = TRUE;
@@ -394,6 +448,7 @@ static void main_preinit(void)
 	login_ssl_init();
 	dsasl_clients_init();
 	client_common_init();
+	master_admin_clients_init(&admin_callbacks);
 
 	/* set the number of fds we want to use. it may get increased or
 	   decreased. leave a couple of extra fds for auth sockets and such.
@@ -422,8 +477,7 @@ static void main_preinit(void)
 
 	/* read the login_source_ips before chrooting so it can access
 	   /etc/hosts */
-	login_source_ips = parse_login_source_ips(global_login_settings->login_source_ips,
-						  &login_source_ips_count);
+	parse_login_source_ips(global_login_settings->login_source_ips);
 	if (login_source_ips_count > 0) {
 		/* randomize the initial index in case service_count=1
 		   (although in that case it's unlikely this setting is
@@ -487,9 +541,9 @@ static void main_deinit(void)
 	auth_client_deinit(&auth_client);
 	master_auth_deinit(&master_auth);
 
-	char **strp;
-	array_foreach_modifiable(&global_alt_usernames, strp)
-		i_free(*strp);
+	char *str;
+	array_foreach_elem(&global_alt_usernames, str)
+		i_free(str);
 	array_free(&global_alt_usernames);
 
 	if (anvil != NULL)
@@ -507,7 +561,6 @@ int login_binary_run(struct login_binary *binary,
 	enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN |
 		MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE |
-		MASTER_SERVICE_FLAG_USE_SSL_SETTINGS |
 		MASTER_SERVICE_FLAG_HAVE_STARTTLS |
 		MASTER_SERVICE_FLAG_NO_SSL_INIT;
 	pool_t set_pool;
@@ -551,6 +604,7 @@ int login_binary_run(struct login_binary *binary,
 	global_login_settings =
 		login_settings_read(set_pool, NULL, NULL, NULL,
 				    &global_ssl_settings,
+				    &global_ssl_server_settings,
 				    &global_other_settings);
 
 	main_preinit();
@@ -559,6 +613,7 @@ int login_binary_run(struct login_binary *binary,
 	master_service_init_finish(master_service);
 	master_service_run(master_service, client_connected);
 	main_deinit();
+	array_free(&login_source_ips_array);
 	pool_unref(&set_pool);
 	master_service_deinit(&master_service);
         return 0;

@@ -35,18 +35,18 @@ mailbox_flags2str(struct cmd_list_context *ctx, string_t *str,
 
 	if ((flags & MAILBOX_NONEXISTENT) != 0 && !ctx->used_listext) {
 		flags |= MAILBOX_NOSELECT;
-		flags &= ~MAILBOX_NONEXISTENT;
+		flags &= ENUM_NEGATE(MAILBOX_NONEXISTENT);
 	}
 
 	if ((ctx->list_flags & MAILBOX_LIST_ITER_RETURN_CHILDREN) == 0)
-		flags &= ~(MAILBOX_CHILDREN|MAILBOX_NOCHILDREN);
+		flags &= ENUM_NEGATE(MAILBOX_CHILDREN | MAILBOX_NOCHILDREN);
 
 	if ((flags & MAILBOX_CHILD_SUBSCRIBED) != 0 &&
 	    (flags & MAILBOX_SUBSCRIBED) == 0 && !ctx->used_listext) {
 		/* LSUB uses \Noselect for this */
 		flags |= MAILBOX_NOSELECT;
 	} else if ((ctx->list_flags & MAILBOX_LIST_ITER_RETURN_SUBSCRIBED) == 0)
-		flags &= ~MAILBOX_SUBSCRIBED;
+		flags &= ENUM_NEGATE(MAILBOX_SUBSCRIBED);
 	imap_mailbox_flags2str(str, flags);
 
 	if ((ctx->list_flags & MAILBOX_LIST_ITER_RETURN_SPECIALUSE) != 0 &&
@@ -191,7 +191,7 @@ list_send_status(struct cmd_list_context *ctx, const char *name,
 		return;
 	}
 	if ((flags & MAILBOX_SUBSCRIBED) == 0 &&
-	    (flags & MAILBOX_CHILD_SUBSCRIBED) != 0) {
+	    (ctx->list_flags & MAILBOX_LIST_ITER_SELECT_SUBSCRIBED) != 0) {
 		/* listing subscriptions, but only child is subscribed */
 		return;
 	}

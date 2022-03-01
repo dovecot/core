@@ -1,6 +1,10 @@
 #ifndef AUTH_REQUEST_H
 #define AUTH_REQUEST_H
 
+#ifndef AUTH_REQUEST_FIELDS_CONST
+#  define AUTH_REQUEST_FIELDS_CONST const
+#endif
+
 #include "array.h"
 #include "net.h"
 #include "var-expand.h"
@@ -30,16 +34,8 @@ enum auth_request_secured {
 	AUTH_REQUEST_SECURED_TLS,
 };
 
-struct auth_request {
-	int refcount;
-
-	pool_t pool;
-
-	struct event *event;
-	struct event *mech_event;
-	ARRAY(struct event *) authdb_event;
-
-        enum auth_request_state state;
+/* All auth request fields are exported to auth-worker process. */
+struct auth_request_fields {
         /* user contains the user who is being authenticated.
            When master user is logging in as someone else, it gets more
            complicated. Initially user is set to master's username and the
@@ -57,13 +53,55 @@ struct auth_request {
 	const char *translated_username;
 	/* realm for the request, may be specified by some auth mechanisms */
 	const char *realm;
-	char *mech_password; /* set if verify_plain() is called */
-	char *passdb_password; /* set after password lookup if successful */
+
+	const char *service, *mech_name, *session_id, *local_name, *client_id;
+	struct ip_addr local_ip, remote_ip, real_local_ip, real_remote_ip;
+	in_port_t local_port, remote_port, real_local_port, real_remote_port;
+
         /* extra_fields are returned in authentication reply. Fields prefixed
            with "userdb_" are automatically placed to userdb_reply instead. */
         struct auth_fields *extra_fields;
 	/* the whole userdb result reply */
 	struct auth_fields *userdb_reply;
+
+	/* Credentials from the first successful passdb lookup. These are used
+	   as the final credentials, unless overridden by later passdb
+	   lookups. Note that the requests in auth-worker processes see these
+	   only as 1 byte sized \0 strings. */
+	const unsigned char *delayed_credentials;
+	size_t delayed_credentials_size;
+
+	enum auth_request_secured secured;
+
+	/* Authentication was successfully finished, including policy checks
+	   and such. There may still be some final delay or final SASL
+	   response. */
+	bool successful:1;
+	/* Password was verified successfully by a passdb. The following
+	   passdbs shouldn't attempt to verify the password again. Note that
+	   this differs from passdb_success, which may be set to FALSE due to
+	   the result_* rules. */
+	bool skip_password_check:1;
+
+	/* flags received from auth client: */
+	bool final_resp_ok:1;
+	bool no_penalty:1;
+	bool valid_client_cert:1;
+	bool cert_username:1;
+};
+
+struct auth_request {
+	int refcount;
+
+	pool_t pool;
+
+	struct event *event;
+	struct event *mech_event;
+	ARRAY(struct event *) authdb_event;
+
+        enum auth_request_state state;
+	char *mech_password; /* set if verify_plain() is called */
+	char *passdb_password; /* set after password lookup if successful */
 	struct auth_request_proxy_dns_lookup_ctx *dns_lookup_ctx;
 	/* The final result of passdb lookup (delayed due to asynchronous
 	   proxy DNS lookups) */
@@ -74,11 +112,12 @@ struct auth_request {
         struct auth_passdb *passdb;
         struct auth_userdb *userdb;
 
-	struct stats *stats;
-
 	/* passdb lookups have a handler, userdb lookups don't */
 	struct auth_request_handler *handler;
         struct auth_master_connection *master;
+
+	/* FIXME: Remove this once mech-oauth2 correctly does the processing */
+	const char *openid_config_url;
 
 	unsigned int connect_uid;
 	unsigned int client_pid;
@@ -87,9 +126,11 @@ struct auth_request {
 	time_t delay_until;
 	pid_t session_pid;
 
-	const char *service, *mech_name, *session_id, *local_name, *client_id;
-	struct ip_addr local_ip, remote_ip, real_local_ip, real_remote_ip;
-	in_port_t local_port, remote_port, real_local_port, real_remote_port;
+	/* These are const for most of the code, so they don't try to modify
+	   the fields directly. Only auth-request-fields.c and unit tests have
+	   the fields writable. This way it's more difficult to make them
+	   out-of-sync with events. */
+	AUTH_REQUEST_FIELDS_CONST struct auth_request_fields fields;
 
 	struct timeout *to_abort, *to_penalty;
 	unsigned int policy_penalty;
@@ -103,9 +144,17 @@ struct auth_request {
 		set_credentials_callback_t *set_credentials;
                 userdb_callback_t *userdb;
 	} private_callback;
-	const char *credentials_scheme;
-	const unsigned char *delayed_credentials;
-	size_t delayed_credentials_size;
+	/* Used by passdb's credentials lookup to determine which scheme is
+	   wanted by the caller. For example CRAM-MD5 SASL mechanism wants
+	   CRAM-MD5 scheme for passwords.
+
+	   When doing a PASS lookup (without authenticating), this is set to ""
+	   to imply that caller accepts any kind of credentials. After the
+	   credentials lookup is finished, this is set to the scheme that was
+	   actually received.
+
+	   Otherwise, this is kept as NULL. */
+	const char *wanted_credentials_scheme;
 
 	void *context;
 
@@ -117,20 +166,10 @@ struct auth_request {
 	bool userdb_lookup:1;
 	/* DIGEST-MD5 kludge */
 	bool domain_is_realm:1;
-	/* auth_debug is enabled for this request */
-	bool debug:1;
 
-	enum auth_request_secured secured;
-
-	/* flags received from auth client: */
-	bool final_resp_ok:1;
-	bool no_penalty:1;
-	bool valid_client_cert:1;
-	bool cert_username:1;
 	bool request_auth_token:1;
 
 	/* success/failure states: */
-	bool successful:1;
 	bool failed:1; /* overrides any other success */
 	bool internal_failure:1;
 	bool passdbs_seen_user_unknown:1;
@@ -138,8 +177,8 @@ struct auth_request {
 	bool userdbs_seen_internal_failure:1;
 
 	/* current state: */
+	bool handler_pending_reply:1;
 	bool accept_cont_input:1;
-	bool skip_password_check:1;
 	bool prefer_plain_credentials:1;
 	bool in_delayed_failure_queue:1;
 	bool removed_from_handler:1;
@@ -182,7 +221,7 @@ extern const char auth_default_subsystems[2];
 
 struct auth_request *
 auth_request_new(const struct mech_module *mech, struct event *parent_event);
-struct auth_request *auth_request_new_dummy(void);
+struct auth_request *auth_request_new_dummy(struct event *parent_event);
 void auth_request_init(struct auth_request *request);
 struct auth *auth_request_get_auth(struct auth_request *request);
 
@@ -222,9 +261,24 @@ void auth_request_lookup_user(struct auth_request *request,
 
 bool auth_request_set_username(struct auth_request *request,
 			       const char *username, const char **error_r);
+/* Change the username without any translations or checks. */
+void auth_request_set_username_forced(struct auth_request *request,
+				      const char *username);
 bool auth_request_set_login_username(struct auth_request *request,
                                      const char *username,
                                      const char **error_r);
+/* Change the login username without any translations or checks. */
+void auth_request_set_login_username_forced(struct auth_request *request,
+					    const char *username);
+void auth_request_set_realm(struct auth_request *request, const char *realm);
+/* Request was fully successfully authenticated, including policy checks etc. */
+void auth_request_set_auth_successful(struct auth_request *request);
+/* Password was successfully verified by a passdb. */
+void auth_request_set_password_verified(struct auth_request *request);
+/* Save credentials from a successful passdb lookup. */
+void auth_request_set_delayed_credentials(struct auth_request *request,
+					  const unsigned char *credentials,
+					  size_t size);
 
 void auth_request_set_field(struct auth_request *request,
 			    const char *name, const char *value,
@@ -237,7 +291,8 @@ void auth_request_set_fields(struct auth_request *request,
 			     const char *const *fields,
 			     const char *default_scheme) ATTR_NULL(3);
 
-void auth_request_init_userdb_reply(struct auth_request *request);
+void auth_request_init_userdb_reply(struct auth_request *request,
+				    bool add_default_fields);
 void auth_request_set_userdb_field(struct auth_request *request,
 				   const char *name, const char *value);
 void auth_request_set_userdb_field_values(struct auth_request *request,
@@ -305,6 +360,9 @@ bool auth_request_username_accepted(const char *const *filter, const char *usern
 struct event_passthrough *
 auth_request_finished_event(struct auth_request *request, struct event *event);
 void auth_request_log_finished(struct auth_request *request);
+void auth_request_master_user_login_finish(struct auth_request *request);
+const char *auth_request_get_log_prefix_db(struct auth_request *auth_request);
+void auth_request_fields_init(struct auth_request *request);
 
 void auth_request_passdb_lookup_begin(struct auth_request *request);
 void auth_request_passdb_lookup_end(struct auth_request *request,
@@ -316,7 +374,7 @@ void auth_request_userdb_lookup_end(struct auth_request *request,
 /* Fetches the current authdb event, this is done because
    some lookups can recurse into new lookups, requiring new event,
    which will be returned here. */
-static inline struct event *authdb_event(struct auth_request *request)
+static inline struct event *authdb_event(const struct auth_request *request)
 {
 	if (array_count(&request->authdb_event) == 0)
 		return request->event;

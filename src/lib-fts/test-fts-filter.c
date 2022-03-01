@@ -515,8 +515,8 @@ static void test_fts_filter_normalizer_swedish_short(void)
 		"Vem",
 		"\xC3\x85",
 		"\xC3\x85\xC3\x84\xC3\x96",
-		"Vem kan segla f\xC3\xB6rutan vind?\n"
-		"\xC3\x85\xC3\x84\xC3\x96\xC3\xB6\xC3\xA4\xC3\xA5"
+		("Vem kan segla f\xC3\xB6rutan vind?\n"
+		 "\xC3\x85\xC3\x84\xC3\x96\xC3\xB6\xC3\xA4\xC3\xA5")
 	};
 	const char *expected_output[] = {
 		"vem",
@@ -550,8 +550,8 @@ static void test_fts_filter_normalizer_swedish_short_default_id(void)
 		"Vem",
 		"\xC3\x85",
 		"\xC3\x85\xC3\x84\xC3\x96",
-		"Vem kan segla f\xC3\xB6rutan vind?\n"
-		"\xC3\x85\xC3\x84\xC3\x96\xC3\xB6\xC3\xA4\xC3\xA5"
+		("Vem kan segla f\xC3\xB6rutan vind?\n"
+		 "\xC3\x85\xC3\x84\xC3\x96\xC3\xB6\xC3\xA4\xC3\xA5")
 	};
 	const char *expected_output[] = {
 		"vem",

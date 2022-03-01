@@ -24,14 +24,18 @@ int imap_search_get_anyset(struct client_command_context *cmd,
 int imap_search_get_seqset(struct client_command_context *cmd,
 			   const char *set, bool uid,
 			   struct mail_search_args **search_args_r);
+/* Convert search args returned by imap_search_get_anyset() to SEARCH_UIDSET. */
+void imap_search_anyset_to_uidset(struct client_command_context *cmd,
+				  struct mail_search_args *args);
 
 void imap_search_add_changed_since(struct mail_search_args *search_args,
 				   uint64_t modseq);
 
 /* Iterate search_args in batches of messages. The search_args itself is
    modified each time imap_search_seqset_iter_next() is called. Note that
-   search_args is expected to come from imap_search_get_anyset(), i.e. it
-   must contain only SEARCH_SEQSET or SEARCH_ALL arg. */
+   search_args is expected to come from imap_search_get_anyset(), so it should
+   have a single parameter containing SEARCH_ALL, SEARCH_SEQSET or
+   SEARCH_UIDSET. */
 struct imap_search_seqset_iter *
 imap_search_seqset_iter_init(struct mail_search_args *search_args,
 			     uint32_t messages_count, unsigned int batch_size);
