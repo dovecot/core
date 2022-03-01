@@ -72,7 +72,7 @@ struct dsync_brain {
 	const char *lock_path;
 	struct file_lock *lock;
 
-	char hierarchy_sep;
+	char hierarchy_sep, escape_char;
 	struct dsync_mailbox_tree *local_mailbox_tree;
 	struct dsync_mailbox_tree *remote_mailbox_tree;
 	struct dsync_mailbox_tree_iter *local_tree_iter;

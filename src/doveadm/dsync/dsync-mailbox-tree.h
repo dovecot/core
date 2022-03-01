@@ -116,7 +116,8 @@ struct dsync_mailbox_tree_sync_change {
 	const char *rename_dest_name;
 };
 
-struct dsync_mailbox_tree *dsync_mailbox_tree_init(char sep, char alt_char);
+struct dsync_mailbox_tree *
+dsync_mailbox_tree_init(char sep, char escape_char, char alt_char);
 void dsync_mailbox_tree_deinit(struct dsync_mailbox_tree **tree);
 
 /* Lookup a mailbox node by name. Returns NULL if not known. */
@@ -174,8 +175,9 @@ int dsync_mailbox_tree_guid_hash_add(struct dsync_mailbox_tree *tree,
 				     struct dsync_mailbox_node **old_node_r);
 /* Set remote separator used for directory deletions in
    dsync_mailbox_tree_find_delete() */
-void dsync_mailbox_tree_set_remote_sep(struct dsync_mailbox_tree *tree,
-				       char remote_sep);
+void dsync_mailbox_tree_set_remote_chars(struct dsync_mailbox_tree *tree,
+					 char remote_sep,
+					 char remote_escape_char);
 
 /* Iterate through all nodes in a tree (depth-first) */
 struct dsync_mailbox_tree_iter *

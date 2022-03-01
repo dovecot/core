@@ -31,12 +31,14 @@ struct dsync_ibc_vfuncs {
 
 	void (*send_mailbox_deletes)(struct dsync_ibc *ibc,
 				     const struct dsync_mailbox_delete *deletes,
-				     unsigned int count, char hierarchy_sep);
+				     unsigned int count, char hierarchy_sep,
+				     char escape_char);
 	enum dsync_ibc_recv_ret
 		(*recv_mailbox_deletes)(struct dsync_ibc *ibc,
 					const struct dsync_mailbox_delete **deletes_r,
 					unsigned int *count_r,
-					char *hierarchy_sep_r);
+					char *hierarchy_sep_r,
+					char *escape_char_r);
 
 	void (*send_mailbox)(struct dsync_ibc *ibc,
 			     const struct dsync_mailbox *dsync_box);

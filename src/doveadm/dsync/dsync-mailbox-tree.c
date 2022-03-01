@@ -16,7 +16,8 @@ struct dsync_mailbox_tree_iter {
 	string_t *name;
 };
 
-struct dsync_mailbox_tree *dsync_mailbox_tree_init(char sep, char alt_char)
+struct dsync_mailbox_tree *
+dsync_mailbox_tree_init(char sep, char escape_char, char alt_char)
 {
 	struct dsync_mailbox_tree *tree;
 	pool_t pool;
@@ -28,6 +29,7 @@ struct dsync_mailbox_tree *dsync_mailbox_tree_init(char sep, char alt_char)
 	tree = p_new(pool, struct dsync_mailbox_tree, 1);
 	tree->pool = pool;
 	tree->sep = tree->sep_str[0] = sep;
+	tree->escape_char = escape_char;
 	tree->alt_char = alt_char;
 	tree->root.name = "";
 	i_array_init(&tree->deletes, 32);
@@ -381,12 +383,14 @@ dsync_mailbox_tree_find_delete(struct dsync_mailbox_tree *tree,
 	}
 }
 
-void dsync_mailbox_tree_set_remote_sep(struct dsync_mailbox_tree *tree,
-				       char remote_sep)
+void dsync_mailbox_tree_set_remote_chars(struct dsync_mailbox_tree *tree,
+					 char remote_sep, char escape_char)
 {
 	i_assert(tree->remote_sep == '\0');
+	i_assert(tree->remote_escape_char == '\0');
 
 	tree->remote_sep = remote_sep;
+	tree->remote_escape_char = escape_char;
 }
 
 static void
@@ -429,7 +433,8 @@ dsync_mailbox_tree_dup(const struct dsync_mailbox_tree *src)
 	struct dsync_mailbox_tree *dest;
 	string_t *str = t_str_new(128);
 
-	dest = dsync_mailbox_tree_init(src->sep, src->alt_char);
+	dest = dsync_mailbox_tree_init(src->sep, src->escape_char,
+				       src->alt_char);
 	dsync_mailbox_tree_dup_nodes(dest, &src->root, str);
 	return dest;
 }
