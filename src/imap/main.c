@@ -345,7 +345,7 @@ static void main_stdio_run(const char *username)
 
 	client_create_finish_io(client);
 	client_send_login_reply(client->output,
-				str_c(client->capability_string),
+                client_get_capability(client),
 				client->user->username, &request);
 	if (client_create_finish(client, &error) < 0)
 		i_fatal("%s", error);
@@ -409,6 +409,7 @@ login_client_connected(const struct master_login_client *login_client,
 	*/
 	client_create_finish_io(client);
 	client_send_login_reply(client->output,
+                client_get_capability(client),
 				str_c(client->capability_string),
 				NULL, &request);
 	if (client_create_finish(client, &error) < 0) {
