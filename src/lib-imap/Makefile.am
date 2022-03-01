@@ -10,6 +10,7 @@ libimap_la_SOURCES = \
 	imap-arg.c \
 	imap-base-subject.c \
 	imap-bodystructure.c \
+	imap-capability-list.c \
 	imap-date.c \
 	imap-envelope.c \
 	imap-id.c \
@@ -26,6 +27,7 @@ headers = \
 	imap-arg.h \
 	imap-base-subject.h \
 	imap-bodystructure.h \
+	imap-capability-list.h \
 	imap-date.h \
 	imap-envelope.h \
 	imap-id.h \
