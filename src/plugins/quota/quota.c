@@ -679,7 +679,8 @@ bool quota_root_is_namespace_visible(struct quota_root *root,
 	struct mail_storage *storage;
 
 	/* this check works as long as there is only one storage per list */
-	if (mailbox_list_get_storage(&list, "", &storage) == 0 &&
+	const char *vname = "";
+	if (mailbox_list_get_storage(&list, &vname, 0, &storage) == 0 &&
 	    (storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NOQUOTA) != 0)
 		return FALSE;
 	if (root->quota->unwanted_ns == ns)

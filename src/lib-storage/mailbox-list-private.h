@@ -38,7 +38,8 @@ struct mailbox_list_vfuncs {
 	int (*init)(struct mailbox_list *list, const char **error_r);
 	void (*deinit)(struct mailbox_list *list);
 
-	int (*get_storage)(struct mailbox_list **list, const char *vname,
+	int (*get_storage)(struct mailbox_list **list, const char **vname,
+			   enum mailbox_list_get_storage_flags flags,
 			   struct mail_storage **storage_r);
 
 	char (*get_hierarchy_sep)(struct mailbox_list *list);

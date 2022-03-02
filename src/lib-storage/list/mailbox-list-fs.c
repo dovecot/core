@@ -437,7 +437,7 @@ static int fs_list_rename_mailbox(struct mailbox_list *oldlist,
 	bool rmdir_parent = FALSE;
 
 	oldvname = mailbox_list_get_vname(oldlist, oldname);
-	if (mailbox_list_get_storage(&oldlist, oldvname, &oldstorage) < 0)
+	if (mailbox_list_get_storage(&oldlist, &oldvname, 0, &oldstorage) < 0)
 		return -1;
 
 	if (mailbox_list_get_path(oldlist, oldname,

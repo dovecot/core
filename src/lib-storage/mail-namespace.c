@@ -740,7 +740,7 @@ mail_namespace_find_shared(struct mail_namespace *ns, const char *mailbox)
 	struct mailbox_list *list = ns->list;
 	struct mail_storage *storage;
 
-	if (mailbox_list_get_storage(&list, mailbox, &storage) < 0)
+	if (mailbox_list_get_storage(&list, &mailbox, 0, &storage) < 0)
 		return ns;
 
 	return mailbox_list_get_namespace(list);

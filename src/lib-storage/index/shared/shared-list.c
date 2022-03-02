@@ -37,13 +37,14 @@ static void shared_list_copy_error(struct mailbox_list *shared_list,
 }
 
 static int
-shared_get_storage(struct mailbox_list **list, const char *vname,
+shared_get_storage(struct mailbox_list **list, const char **vname,
+		   enum mailbox_list_get_storage_flags flags,
 		   struct mail_storage **storage_r)
 {
 	struct mail_namespace *ns = (*list)->ns;
 	const char *name;
 
-	name = mailbox_list_get_storage_name(*list, vname);
+	name = mailbox_list_get_storage_name(*list, *vname);
 	if (*name == '\0' && (ns->flags & NAMESPACE_FLAG_AUTOCREATED) == 0) {
 		/* trying to access the shared/ prefix itself */
 		*storage_r = ns->storage;
@@ -53,7 +54,7 @@ shared_get_storage(struct mailbox_list **list, const char *vname,
 	if (shared_storage_get_namespace(&ns, &name) < 0)
 		return -1;
 	*list = ns->list;
-	return mailbox_list_get_storage(list, vname, storage_r);
+	return mailbox_list_get_storage(list, vname, flags, storage_r);
 }
 
 static char shared_list_get_hierarchy_sep(struct mailbox_list *list ATTR_UNUSED)

@@ -662,7 +662,8 @@ static bool maildirquota_limits_init(struct maildir_quota_root *root)
 	}
 
 	list = root->maildirsize_ns->list;
-	if (mailbox_list_get_storage(&list, "", &storage) == 0 &&
+	const char *vname = "";
+	if (mailbox_list_get_storage(&list, &vname, 0, &storage) == 0 &&
 	    strcmp(storage->name, MAILDIR_STORAGE_NAME) != 0) {
 		/* non-maildir namespace, skip */
 		if ((storage->class_flags &

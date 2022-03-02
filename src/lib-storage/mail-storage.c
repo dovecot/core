@@ -871,7 +871,11 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 	}
 
 	T_BEGIN {
-		if (mailbox_list_get_storage(&new_list, vname, &storage) < 0) {
+		enum mailbox_list_get_storage_flags storage_flags = 0;
+		if ((flags & MAILBOX_FLAG_SAVEONLY) != 0)
+			storage_flags |= MAILBOX_LIST_GET_STORAGE_FLAG_SAVEONLY;
+		if (mailbox_list_get_storage(&new_list, &vname,
+					     storage_flags, &storage) < 0) {
 			/* do a delayed failure at mailbox_open() */
 			storage = mail_namespace_get_default_storage(list->ns);
 			errstr = mailbox_list_get_last_error(new_list, &open_error);
