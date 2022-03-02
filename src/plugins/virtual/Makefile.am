@@ -15,6 +15,7 @@ module_LTLIBRARIES = \
 
 lib20_virtual_plugin_la_SOURCES = \
 	virtual-config.c \
+	virtual-list.c \
 	virtual-mail.c \
 	virtual-plugin.c \
 	virtual-search.c \
