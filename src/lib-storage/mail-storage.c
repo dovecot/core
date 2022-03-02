@@ -871,6 +871,7 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 	}
 
 	T_BEGIN {
+		const char *orig_vname = vname;
 		enum mailbox_list_get_storage_flags storage_flags = 0;
 		if ((flags & MAILBOX_FLAG_SAVEONLY) != 0)
 			storage_flags |= MAILBOX_LIST_GET_STORAGE_FLAG_SAVEONLY;
@@ -887,6 +888,8 @@ struct mailbox *mailbox_alloc(struct mailbox_list *list, const char *vname,
 		box->open_error = open_error;
 		if (open_error != 0)
 			mail_storage_set_error(storage, open_error, errstr);
+		if (strcmp(orig_vname, vname) != 0)
+			box->mailbox_not_original = TRUE;
 		hook_mailbox_allocated(box);
 	} T_END;
 
@@ -2485,6 +2488,16 @@ int mailbox_transaction_commit_get_changes(
 	   finished */
 	box->transaction_count--;
 	event_reason_end(&reason);
+	if (ret == 0 && box->mailbox_not_original) {
+		/* The mailbox name changed while opening it. This is
+		   intentional when virtual mailbox is opened for saving mails,
+		   which causes the backend mailbox to be opened instead. In
+		   this situation the UIDVALIDITY / UIDs are for the physical
+		   mailbox, not the virtual mailbox. Use this flag to prevent
+		   IMAP APPEND from returning any UIDs in the tagged reply,
+		   since they would be wrong. */
+		changes_r->no_read_perm = TRUE;
+	}
 	if (ret < 0 && changes_r->pool != NULL)
 		pool_unref(&changes_r->pool);
 	return ret;

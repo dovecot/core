@@ -500,6 +500,9 @@ struct mailbox {
 	/* mailbox_open() returned MAIL_ERROR_NOTFOUND because the mailbox
 	   doesn't have the LOOKUP ACL right. */
 	bool acl_no_lookup_right:1;
+	/* mailbox_alloc() opened a different mailbox than asked (e.g. virtual
+	   plugin opened the backend mailbox). */
+	bool mailbox_not_original:1;
 };
 
 struct mail_vfuncs {
