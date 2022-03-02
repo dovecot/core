@@ -218,12 +218,70 @@ dsync_is_valid_name(struct mail_namespace *ns, const char *vname)
 	return ret;
 }
 
+static bool
+dsync_is_valid_name_until(struct mail_namespace *ns, string_t *vname_full,
+			  unsigned int end_pos)
+{
+	const char *vname;
+	if (end_pos == str_len(vname_full))
+		vname = str_c(vname_full);
+	else
+		vname = t_strndup(str_c(vname_full), end_pos);
+	return dsync_is_valid_name(ns, vname);
+}
+
+static bool
+dsync_fix_mailbox_name_until(struct mail_namespace *ns, string_t *vname_full,
+			     char alt_char, unsigned int start_pos,
+			     unsigned int *_end_pos)
+{
+	unsigned int end_pos = *_end_pos;
+	unsigned int i;
+
+	if (dsync_is_valid_name_until(ns, vname_full, end_pos))
+		return TRUE;
+
+	/* 1) change any real separators to alt separators (this
+	   wouldn't be necessary with listescape, but don't bother
+	   detecting it) */
+	char list_sep = mailbox_list_get_hierarchy_sep(ns->list);
+	char ns_sep = mail_namespace_get_sep(ns);
+	if (list_sep != ns_sep) {
+		char *v = str_c_modifiable(vname_full);
+		for (i = start_pos; i < end_pos; i++) {
+			if (v[i] == list_sep)
+				v[i] = alt_char;
+		}
+		if (dsync_is_valid_name_until(ns, vname_full, end_pos))
+			return TRUE;
+	}
+
+	/* 2) '/' characters aren't valid without listescape */
+	if (ns_sep != '/' && list_sep != '/') {
+		char *v = str_c_modifiable(vname_full);
+		for (i = start_pos; i < end_pos; i++) {
+			if (v[i] == '/')
+				v[i] = alt_char;
+		}
+		if (dsync_is_valid_name_until(ns, vname_full, end_pos))
+			return TRUE;
+	}
+
+	/* 3) probably some reserved name (e.g. dbox-Mails or ..) */
+	str_insert(vname_full, start_pos, "_"); end_pos++; *_end_pos += 1;
+	if (dsync_is_valid_name_until(ns, vname_full, end_pos))
+		return TRUE;
+
+	return FALSE;
+}
+
 static void
 dsync_fix_mailbox_name(struct mail_namespace *ns, string_t *vname_str,
 		       char alt_char)
 {
 	const char *old_vname;
-	char *vname, list_sep = mailbox_list_get_hierarchy_sep(ns->list);
+	char *vname;
+	char ns_sep = mail_namespace_get_sep(ns);
 	guid_128_t guid;
 	unsigned int i, start_pos;
 
@@ -250,36 +308,30 @@ dsync_fix_mailbox_name(struct mail_namespace *ns, string_t *vname_str,
 	if (dsync_is_valid_name(ns, vname))
 		return;
 
-	/* 1) change any real separators to alt separators (this wouldn't
-	   be necessary with listescape, but don't bother detecting it) */
-	if (list_sep != mail_namespace_get_sep(ns)) {
-		for (i = start_pos; vname[i] != '\0'; i++) {
-			if (vname[i] == list_sep)
-				vname[i] = alt_char;
-		}
-		if (dsync_is_valid_name(ns, vname))
-			return;
-	}
-	/* 2) '/' characters aren't valid without listescape */
-	if (mail_namespace_get_sep(ns) != '/' && list_sep != '/') {
-		for (i = start_pos; vname[i] != '\0'; i++) {
-			if (vname[i] == '/')
-				vname[i] = alt_char;
-		}
-		if (dsync_is_valid_name(ns, vname))
-			return;
-	}
-	/* 3) probably some reserved name (e.g. dbox-Mails) */
-	str_insert(vname_str, ns->prefix_len, "_");
-	if (dsync_is_valid_name(ns, str_c(vname_str)))
-		return;
+	/* Check/fix each hierarchical name separately */
+	const char *p;
+	do {
+		i_assert(start_pos <= str_len(vname_str));
+		p = strchr(str_c(vname_str) + start_pos, ns_sep);
+		unsigned int end_pos;
+		if (p == NULL)
+			end_pos = str_len(vname_str);
+		else
+			end_pos = p - str_c(vname_str);
 
-	/* 4) name is too long? just give up and generate a unique name */
-	guid_128_generate(guid);
-	str_truncate(vname_str, 0);
-	str_append(vname_str, ns->prefix);
-	str_append(vname_str, guid_128_to_string(guid));
-	i_assert(dsync_is_valid_name(ns, str_c(vname_str)));
+		if (!dsync_fix_mailbox_name_until(ns, vname_str, alt_char,
+						  start_pos, &end_pos)) {
+			/* Couldn't fix it. Name is too long? Just give up and
+			   generate a unique name. */
+			guid_128_generate(guid);
+			str_truncate(vname_str, 0);
+			str_append(vname_str, ns->prefix);
+			str_append(vname_str, guid_128_to_string(guid));
+			i_assert(dsync_is_valid_name(ns, str_c(vname_str)));
+			break;
+		}
+		start_pos = end_pos + 1;
+	} while (p != NULL);
 }
 
 static int
