@@ -475,6 +475,9 @@ void auth_request_master_user_login_finish(struct auth_request *request)
 
 	auth_request_set_username_forced(request,
 					 request->fields.requested_login_user);
+	request->fields.translated_username = request->fields.requested_login_user;
+	event_add_str(request->event, "translated_user",
+		      request->fields.translated_username);
 	request->fields.requested_login_user = NULL;
 	event_field_clear(request->event, "login_user");
 }
