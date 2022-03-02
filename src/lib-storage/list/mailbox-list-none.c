@@ -159,6 +159,7 @@ struct mailbox_list none_mailbox_list = {
 	.v = {
 		.alloc = none_list_alloc,
 		.deinit = none_list_deinit,
+		.get_storage = mailbox_list_default_get_storage,
 		.get_hierarchy_sep = none_list_get_hierarchy_sep,
 		.get_vname = mailbox_list_default_get_vname,
 		.get_storage_name = mailbox_list_default_get_storage_name,

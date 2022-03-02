@@ -554,6 +554,7 @@ struct mailbox_list fs_mailbox_list = {
 	.v = {
 		.alloc = fs_list_alloc,
 		.deinit = fs_list_deinit,
+		.get_storage = mailbox_list_default_get_storage,
 		.get_hierarchy_sep = fs_list_get_hierarchy_sep,
 		.get_vname = mailbox_list_default_get_vname,
 		.get_storage_name = mailbox_list_default_get_storage_name,

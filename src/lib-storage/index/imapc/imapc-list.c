@@ -990,6 +990,7 @@ struct mailbox_list imapc_mailbox_list = {
 		.alloc = imapc_list_alloc,
 		.init = imapc_list_init,
 		.deinit = imapc_list_deinit,
+		.get_storage = mailbox_list_default_get_storage,
 		.get_hierarchy_sep = imapc_list_get_hierarchy_sep,
 		.get_vname = imapc_list_get_vname,
 		.get_storage_name = imapc_list_get_storage_name,

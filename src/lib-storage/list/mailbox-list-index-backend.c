@@ -944,6 +944,7 @@ struct mailbox_list index_mailbox_list = {
 		.alloc = index_list_alloc,
 		.init = index_list_init,
 		.deinit = index_list_deinit,
+		.get_storage = mailbox_list_default_get_storage,
 		.get_hierarchy_sep = index_list_get_hierarchy_sep,
 		.get_vname = mailbox_list_default_get_vname,
 		.get_storage_name = mailbox_list_default_get_storage_name,

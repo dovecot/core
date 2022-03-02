@@ -889,14 +889,12 @@ mailbox_list_get_storage_driver(struct mailbox_list *list, const char *driver,
 	return 0;
 }
 
-int mailbox_list_get_storage(struct mailbox_list **list, const char **vname,
-			     enum mailbox_list_get_storage_flags flags,
-			     struct mail_storage **storage_r)
+int mailbox_list_default_get_storage(struct mailbox_list **list,
+				     const char **vname,
+				     enum mailbox_list_get_storage_flags flags ATTR_UNUSED,
+				     struct mail_storage **storage_r)
 {
 	const struct mailbox_settings *set;
-
-	if ((*list)->v.get_storage != NULL)
-		return (*list)->v.get_storage(list, vname, flags, storage_r);
 
 	set = mailbox_settings_find((*list)->ns, *vname);
 	if (set != NULL && set->driver != NULL && set->driver[0] != '\0') {
@@ -905,6 +903,13 @@ int mailbox_list_get_storage(struct mailbox_list **list, const char **vname,
 	}
 	*storage_r = mail_namespace_get_default_storage((*list)->ns);
 	return 0;
+}
+
+int mailbox_list_get_storage(struct mailbox_list **list, const char **vname,
+			     enum mailbox_list_get_storage_flags flags,
+			     struct mail_storage **storage_r)
+{
+	return (*list)->v.get_storage(list, vname, flags, storage_r);
 }
 
 void mailbox_list_get_default_storage(struct mailbox_list *list,
