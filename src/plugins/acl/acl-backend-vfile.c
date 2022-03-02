@@ -57,11 +57,9 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
 	}
 	if (global_path != NULL) {
 		if (stat(global_path, &st) < 0) {
-			if (errno != ENOENT) {
-				i_error("acl vfile: stat(%s) failed: %m",
-					global_path);
-				return -1;
-			}
+			i_error("acl vfile: stat(%s) failed: %m",
+				global_path);
+			return -1;
 		} else if (S_ISDIR(st.st_mode)) {
 			i_error("acl vfile: Global ACL directories are no longer supported");
 			return -1;
