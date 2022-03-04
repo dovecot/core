@@ -25,11 +25,11 @@
    for the users. And because of buffering this timeout is for handling
    multiple users, not just one. */
 #define AUTH_WORKER_RESUME_TIMEOUT_SECS (30*60)
-#define AUTH_WORKER_MAX_IDLE_SECS (60*5)
+#define AUTH_WORKER_MAX_IDLE_SECS (5*60)
 #define AUTH_WORKER_ABORT_SECS 60
 #define AUTH_WORKER_DELAY_WARN_SECS 3
-#define AUTH_WORKER_DELAY_WARN_MIN_INTERVAL_SECS 300
-#define AUTH_WORKER_CONNECT_RETRY_TIMEOUT_MSECS 5000
+#define AUTH_WORKER_DELAY_WARN_MIN_INTERVAL_SECS (5*60)
+#define AUTH_WORKER_CONNECT_RETRY_TIMEOUT_MSECS (5*1000)
 
 struct auth_worker_request {
 	unsigned int id;
