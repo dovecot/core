@@ -16,12 +16,12 @@ enum file_lock_method {
 struct file_lock_settings {
 	enum file_lock_method lock_method;
 
-	/* When the lock is freed, close the fd automatically. This can
-	   be useful for files that are only created to exist as lock files. */
-	bool unlink_on_free:1;
 	/* When the lock is freed, unlink() the file automatically, unless other
 	   processes are already waiting on the lock. This can be useful for
 	   files that are only created to exist as lock files. */
+	bool unlink_on_free:1;
+	/* When the lock is freed, close the fd automatically. This can
+	   be useful for files that are only created to exist as lock files. */
 	bool close_on_free:1;
 	/* Do not panic when the kernel returns EDEADLK while acquiring the
 	   lock. */
