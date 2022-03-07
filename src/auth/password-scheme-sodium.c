@@ -74,11 +74,21 @@ verify_argon2(const char *plaintext, const struct password_generate_params *para
 
 
 static const struct password_scheme sodium_schemes[] = {
-	{ "ARGON2I", PW_ENCODING_NONE, 0, verify_argon2,
-	  generate_argon2i },
+	{
+		.name = "ARGON2I",
+		.default_encoding = PW_ENCODING_NONE,
+		.raw_password_len = 0,
+		.password_verify = verify_argon2,
+		.password_generate = generate_argon2i,
+	},
 #ifdef crypto_pwhash_ALG_ARGON2ID13
-	{ "ARGON2ID", PW_ENCODING_NONE, 0, verify_argon2,
-	  generate_argon2id },
+	{
+		.name = "ARGON2ID",
+		.default_encoding = PW_ENCODING_NONE,
+		.raw_password_len = 0,
+		.password_verify = verify_argon2,
+		.password_generate = generate_argon2id,
+	},
 #endif
 };
 

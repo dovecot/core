@@ -160,22 +160,43 @@ static const struct {
 
 /* keep in sync with the sample struct above */
 static const struct password_scheme crypt_schemes[] = {
-	{ "DES-CRYPT", PW_ENCODING_NONE, 0, crypt_verify,
-	  crypt_generate_des },
-	{ "SHA256-CRYPT", PW_ENCODING_NONE, 0, crypt_verify,
-	  crypt_generate_sha256 },
-	{ "SHA512-CRYPT", PW_ENCODING_NONE, 0, crypt_verify,
-	  crypt_generate_sha512 }
+	{
+		.name = "DES-CRYPT",
+		.default_encoding = PW_ENCODING_NONE,
+		.raw_password_len = 0,
+		.password_verify = crypt_verify,
+		.password_generate = crypt_generate_des,
+	},
+	{
+		.name = "SHA256-CRYPT",
+		.default_encoding = PW_ENCODING_NONE,
+		.raw_password_len = 0,
+		.password_verify = crypt_verify,
+		.password_generate = crypt_generate_sha256,
+	},
+	{
+		.name = "SHA512-CRYPT",
+		.default_encoding = PW_ENCODING_NONE,
+		.raw_password_len = 0,
+		.password_verify = crypt_verify,
+		.password_generate = crypt_generate_sha512,
+	},
 };
 
 static const struct password_scheme blf_crypt_scheme = {
-	"BLF-CRYPT", PW_ENCODING_NONE, 0, crypt_verify_blowfish,
-		crypt_generate_blowfish
+	.name = "BLF-CRYPT",
+	.default_encoding = PW_ENCODING_NONE,
+	.raw_password_len = 0,
+	.password_verify = crypt_verify_blowfish,
+	.password_generate = crypt_generate_blowfish,
 };
 
 static const struct password_scheme default_crypt_scheme = {
-	"CRYPT", PW_ENCODING_NONE, 0, crypt_verify,
-		crypt_generate_blowfish
+	.name = "CRYPT",
+	.default_encoding = PW_ENCODING_NONE,
+	.raw_password_len = 0,
+	.password_verify = crypt_verify,
+	.password_generate = crypt_generate_blowfish,
 };
 
 void password_scheme_register_crypt(void)
