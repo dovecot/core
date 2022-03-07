@@ -23,6 +23,8 @@ struct password_scheme {
 	   It can be used to automatically detect encoding between
 	   hex and base64 encoded passwords. */
 	unsigned int raw_password_len;
+	/* If set, then this scheme is weak */
+	bool weak;
 
 	int (*password_verify)(const char *plaintext,
 			       const struct password_generate_params *params,
@@ -83,6 +85,7 @@ void password_scheme_register(const struct password_scheme *scheme);
 void password_scheme_unregister(const struct password_scheme *scheme);
 
 void password_schemes_init(void);
+void password_schemes_allow_weak(bool allow);
 void password_schemes_deinit(void);
 
 /* some password schemes/algorithms supports a variable number of

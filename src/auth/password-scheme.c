@@ -22,6 +22,13 @@ static const char salt_chars[] =
 
 static HASH_TABLE(const char*, const struct password_scheme *) password_schemes;
 
+static bool g_allow_weak = FALSE;
+
+void password_schemes_allow_weak(bool allow)
+{
+	g_allow_weak = allow;
+}
+
 static const struct password_scheme *
 password_scheme_lookup_name(const char *name)
 {
