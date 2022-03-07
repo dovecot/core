@@ -164,6 +164,7 @@ static const struct password_scheme crypt_schemes[] = {
 		.name = "DES-CRYPT",
 		.default_encoding = PW_ENCODING_NONE,
 		.raw_password_len = 0,
+		.weak = TRUE,
 		.password_verify = crypt_verify,
 		.password_generate = crypt_generate_des,
 	},
