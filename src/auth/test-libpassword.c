@@ -133,5 +133,6 @@ int main(void)
 		NULL
 	};
 	password_schemes_init();
+	password_schemes_allow_weak(TRUE);
 	return test_run(test_functions);
 }

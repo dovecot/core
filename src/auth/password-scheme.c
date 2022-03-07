@@ -85,6 +85,12 @@ int password_verify(const char *plaintext,
 		return -1;
 	}
 
+	if (s->weak && !g_allow_weak) {
+		*error_r = t_strdup_printf("Weak password scheme '%s' used and refused",
+					   s->name);
+		return -1;
+	}
+
 	if (s->password_verify != NULL) {
 		ret = s->password_verify(plaintext, params, raw_password, size,
 					 error_r);
@@ -323,6 +329,16 @@ int crypt_verify(const char *plaintext, const struct password_generate_params *p
 	if (size == 0) {
 		/* the default mycrypt() handler would return match */
 		return 0;
+	}
+
+	if (size > 1 && !g_allow_weak) {
+		if (raw_password[0] != '$') {
+			*error_r = "Weak password scheme 'DES-CRYPT' used and refused";
+			return -1;
+		} else if (raw_password[1] == '1') {
+			*error_r = "Weak password scheme 'MD5-CRYPT' used and refused";
+			return -1;
+		}
 	}
 
 	password = t_strndup(raw_password, size);

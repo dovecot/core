@@ -30,6 +30,7 @@ static void cmd_pw(struct doveadm_cmd_context *cctx)
 	i_zero(&gen_params);
 
 	password_schemes_init();
+	password_schemes_allow_weak(TRUE);
 
 	i_zero(&mod_set);
 	mod_set.abi_version = DOVECOT_ABI_VERSION;

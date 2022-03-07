@@ -2,6 +2,7 @@
 
 #include "auth-common.h"
 #include "array.h"
+#include "auth-settings.h"
 #include "ioloop.h"
 #include "net.h"
 #include "lib-signals.h"
@@ -241,6 +242,9 @@ static void main_init(void)
 	auth_request_handler_init();
 	auth_policy_init();
 
+	if (global_auth_settings->allow_weak_schemes)
+		password_schemes_allow_weak(TRUE);
+
 	if (worker) {
 		/* workers have only a single connection from the master
 		   auth process */
@@ -252,6 +256,8 @@ static void main_init(void)
 	} else {
 		/* caching is handled only by the main auth process */
 		passdb_cache_init(global_auth_settings);
+		if (global_auth_settings->allow_weak_schemes)
+			i_warning("Weak password schemes are allowed");
 	}
 }
 
