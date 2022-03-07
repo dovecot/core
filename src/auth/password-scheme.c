@@ -901,6 +901,7 @@ static const struct password_scheme builtin_schemes[] = {
 		.name = "PLAIN-MD4",
 		.default_encoding = PW_ENCODING_HEX,
 		.raw_password_len = MD4_RESULTLEN,
+		.weak = TRUE,
 		.password_verify = NULL,
 		.password_generate = plain_md4_generate,
 	},
