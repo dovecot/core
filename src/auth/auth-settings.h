@@ -70,6 +70,7 @@ struct auth_settings {
 	unsigned int policy_hash_truncate;
 
 	bool verbose, debug, debug_passwords;
+	bool allow_weak_schemes;
 	const char *verbose_passwords;
 	bool ssl_require_client_cert;
 	bool ssl_username_from_cert;
