@@ -269,4 +269,17 @@ void mail_search_args_result_deserialize(struct mail_search_args *args,
 					 const unsigned char *data,
 					 size_t size);
 
+/* Iterate search_args in batches of messages. The search_args itself is
+   modified each time imap_search_seqset_iter_next() is called. Note that
+   search_args is expected to come from imap_search_get_anyset(), so it should
+   have a single parameter containing SEARCH_ALL, SEARCH_SEQSET or
+   SEARCH_UIDSET. */
+struct mail_search_seqset_iter *
+mail_search_seqset_iter_init(struct mail_search_args *search_args,
+			     uint32_t messages_count, unsigned int batch_size);
+/* Iterate the next batch. Returns TRUE if the batch was updated, FALSE if
+   all the batches have been iterated. */
+bool mail_search_seqset_iter_next(struct mail_search_seqset_iter *iter);
+void mail_search_seqset_iter_deinit(struct mail_search_seqset_iter **iter);
+
 #endif

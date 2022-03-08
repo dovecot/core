@@ -804,3 +804,86 @@ void mail_search_args_result_deserialize(struct mail_search_args *args,
 	for (arg = args->args; arg != NULL; arg = arg->next)
 		mail_search_args_result_deserialize_arg(arg, &data, &size);
 }
+
+struct mail_search_seqset_iter {
+	struct mail_search_args *search_args;
+	ARRAY_TYPE(seq_range) seqset_left;
+	unsigned int batch_size;
+};
+
+static void mail_search_seqset_next_batch(struct mail_search_seqset_iter *iter)
+{
+	array_clear(&iter->search_args->args->value.seqset);
+	seq_range_array_merge_n(&iter->search_args->args->value.seqset,
+				&iter->seqset_left, iter->batch_size);
+}
+
+struct mail_search_seqset_iter *
+mail_search_seqset_iter_init(struct mail_search_args *search_args,
+			     uint32_t messages_count, unsigned int batch_size)
+{
+	struct mail_search_seqset_iter *iter;
+
+	i_assert(search_args->args->next == NULL);
+
+	iter = i_new(struct mail_search_seqset_iter, 1);
+	iter->search_args = search_args;
+	iter->batch_size = batch_size;
+	mail_search_args_ref(iter->search_args);
+
+	switch (search_args->args->type) {
+	case SEARCH_SEQSET:
+	case SEARCH_UIDSET:
+		break;
+	case SEARCH_ALL:
+		if (search_args->args->match_not) {
+			/* $ used before search result was saved */
+			return iter;
+		}
+		/* 1:* - convert to seqset */
+		search_args->args->type = SEARCH_SEQSET;
+		p_array_init(&search_args->args->value.seqset,
+			     search_args->pool, 1);
+		seq_range_array_add_range(&search_args->args->value.seqset,
+					  1, messages_count);
+		break;
+	default:
+		i_panic("Unexpected search_args type %d",
+			search_args->args->type);
+	}
+
+	i_assert(search_args->args->type == SEARCH_SEQSET ||
+		 search_args->args->type == SEARCH_UIDSET);
+
+	i_array_init(&iter->seqset_left,
+		     array_count(&search_args->args->value.seqset));
+	array_append_array(&iter->seqset_left, &search_args->args->value.seqset);
+	mail_search_seqset_next_batch(iter);
+	return iter;
+}
+
+void mail_search_seqset_iter_deinit(struct mail_search_seqset_iter **_iter)
+{
+	struct mail_search_seqset_iter *iter = *_iter;
+
+	if (iter == NULL)
+		return;
+
+	mail_search_args_unref(&iter->search_args);
+	array_free(&iter->seqset_left);
+	i_free(iter);
+}
+
+bool mail_search_seqset_iter_next(struct mail_search_seqset_iter *iter)
+{
+	if (!array_is_created(&iter->seqset_left) ||
+	    array_count(&iter->seqset_left) == 0)
+		return FALSE;
+
+	/* remove the last batch of searched mails from seqset_left */
+	if (seq_range_array_remove_seq_range(&iter->seqset_left,
+			&iter->search_args->args->value.seqset) == 0)
+		i_unreached();
+	mail_search_seqset_next_batch(iter);
+	return array_count(&iter->search_args->args->value.seqset) > 0;
+}
