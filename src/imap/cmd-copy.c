@@ -261,7 +261,7 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 	struct client *client = cmd->client;
 	struct mailbox *destbox;
 	struct mail_search_args *search_args;
-	struct imap_search_seqset_iter *seqset_iter = NULL;
+	struct mail_search_seqset_iter *seqset_iter = NULL;
 	const char *messageset, *mailbox;
 	enum mailbox_sync_flags sync_flags = 0;
 	enum imap_sync_flags imap_flags = 0;
@@ -321,7 +321,7 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 		/* When moving mails, perform the work in batches of
 		   MOVE_COMMIT_INTERVAL. Each such batch has its own
 		   transaction and search query. */
-		seqset_iter = imap_search_seqset_iter_init(search_args,
+		seqset_iter = mail_search_seqset_iter_init(search_args,
 			client->messages_count, MOVE_COMMIT_INTERVAL);
 	}
 	do {
@@ -333,8 +333,8 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 			break;
 		}
 	} while (seqset_iter != NULL &&
-		 imap_search_seqset_iter_next(seqset_iter));
-	imap_search_seqset_iter_deinit(&seqset_iter);
+		 mail_search_seqset_iter_next(seqset_iter));
+	mail_search_seqset_iter_deinit(&seqset_iter);
 	mail_search_args_unref(&search_args);
 
 	src_uidset = t_str_new(256);

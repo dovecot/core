@@ -6,8 +6,6 @@
 #include "imap-search-args.h"
 #include "imap-expunge.h"
 
-#define IMAP_EXPUNGE_BATCH_SIZE 1000
-
 /* get a seqset of all the mails with \Deleted */
 static int imap_expunge_get_seqset(struct mailbox *box,
 				   struct mail_search_arg *next_search_arg,
@@ -49,7 +47,7 @@ static int imap_expunge_get_seqset(struct mailbox *box,
 int imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg,
 		 unsigned int *expunged_count)
 {
-	struct imap_search_seqset_iter *seqset_iter;
+	struct mail_search_seqset_iter *seqset_iter;
 	struct mail_search_args *search_args;
 	struct mailbox_status status;
 	bool expunges = FALSE;
@@ -87,8 +85,8 @@ int imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg,
 	   b) The caller would have to do batching and sync the mailbox
 	   multiple times. This would require a new kind of cmd_sync() that
 	   would send untagged replies but not the tagged reply. */
-	seqset_iter = imap_search_seqset_iter_init(search_args, status.messages,
-						   IMAP_EXPUNGE_BATCH_SIZE);
+	seqset_iter = mail_search_seqset_iter_init(search_args, status.messages,
+						   MAIL_EXPUNGE_BATCH_SIZE);
 
 	do {
 		struct mailbox_transaction_context *t;
@@ -109,9 +107,9 @@ int imap_expunge(struct mailbox *box, struct mail_search_arg *next_search_arg,
 		   so far. There's no need to rollback. */
 		if (mailbox_transaction_commit(&t) < 0)
 			ret = -1;
-	} while (ret >= 0 && imap_search_seqset_iter_next(seqset_iter));
+	} while (ret >= 0 && mail_search_seqset_iter_next(seqset_iter));
 
-	imap_search_seqset_iter_deinit(&seqset_iter);
+	mail_search_seqset_iter_deinit(&seqset_iter);
 	mail_search_args_unref(&search_args);
 
 	if (ret < 0)
