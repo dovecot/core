@@ -757,32 +757,46 @@ mailbox_delete_all_attributes(struct mailbox_transaction_context *t,
 
 static int mailbox_expunge_all_data(struct mailbox *box)
 {
-	struct mail_search_context *ctx;
 	struct mailbox_transaction_context *t;
-	struct mail *mail;
 	struct mail_search_args *search_args;
+	struct mailbox_status status;
+	struct mail_search_seqset_iter *seqset_iter;
 	int ret;
 
 	(void)mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ);
 
-	t = mailbox_transaction_begin(box, 0, __func__);
+	mailbox_get_open_status(box, STATUS_MESSAGES, &status);
 
 	search_args = mail_search_build_init();
 	mail_search_build_add_all(search_args);
-	ctx = mailbox_search_init(t, search_args, NULL, 0, NULL);
+
+	seqset_iter = mail_search_seqset_iter_init(search_args, status.messages,
+						   MAIL_EXPUNGE_BATCH_SIZE);
+
+	do {
+		struct mail_search_context *ctx;
+		struct mail *mail;
+
+		t = mailbox_transaction_begin(box, 0, __func__);
+		ctx = mailbox_search_init(t, search_args, NULL, 0, NULL);
+		while (mailbox_search_next(ctx, &mail))
+			mail_expunge(mail);
+
+		ret = mailbox_search_deinit(&ctx);
+		if (mailbox_transaction_commit(&t) < 0)
+			ret = -1;
+	} while (ret >= 0 && mail_search_seqset_iter_next(seqset_iter));
+
+	mail_search_seqset_iter_deinit(&seqset_iter);
 	mail_search_args_unref(&search_args);
 
-	while (mailbox_search_next(ctx, &mail))
-		mail_expunge(mail);
-
-	ret = mailbox_search_deinit(&ctx);
-	if (ret == 0) {
-		if (mailbox_delete_all_attributes(t, MAIL_ATTRIBUTE_TYPE_PRIVATE) < 0 ||
-		    mailbox_delete_all_attributes(t, MAIL_ATTRIBUTE_TYPE_SHARED) < 0)
-			ret = -1;
-	}
+	t = mailbox_transaction_begin(box, 0, __func__);
+	if (mailbox_delete_all_attributes(t, MAIL_ATTRIBUTE_TYPE_PRIVATE) < 0 ||
+	    mailbox_delete_all_attributes(t, MAIL_ATTRIBUTE_TYPE_SHARED) < 0)
+		ret = -1;
 	if (mailbox_transaction_commit(&t) < 0)
 		ret = -1;
+
 	/* sync to actually perform the expunges */
 	if (mailbox_sync(box, 0) < 0)
 		ret = -1;
