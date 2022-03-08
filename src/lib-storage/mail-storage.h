@@ -15,6 +15,9 @@ struct message_size;
 
 /* If some operation is taking long, call notify_ok every n seconds. */
 #define MAIL_STORAGE_STAYALIVE_SECS 15
+/* Expunge transactions are to be commited after
+   every MAIL_EXPUNGE_BATCH_SIZE mails */
+#define MAIL_EXPUNGE_BATCH_SIZE 1000
 
 #define MAIL_KEYWORD_HAS_ATTACHMENT "$HasAttachment"
 #define MAIL_KEYWORD_HAS_NO_ATTACHMENT "$HasNoAttachment"
