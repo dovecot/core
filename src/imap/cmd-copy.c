@@ -260,7 +260,7 @@ static bool cmd_copy_full(struct client_command_context *cmd, bool move)
 {
 	struct client *client = cmd->client;
 	struct mailbox *destbox;
-        struct mail_search_args *search_args;
+	struct mail_search_args *search_args;
 	struct imap_search_seqset_iter *seqset_iter = NULL;
 	const char *messageset, *mailbox;
 	enum mailbox_sync_flags sync_flags = 0;
