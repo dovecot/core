@@ -198,7 +198,7 @@ This example demonstrates how to dump a whole configuration section.
 doveconf dict
 .ft P
 dict {
-  quota = pgsql:@pkgsysconfdir@/dovecot\-dict\-sql.conf.ext
+  quota_clone = pgsql:@pkgsysconfdir@/dovecot\-dict\-sql.conf.ext
 }
 .fi
 .PP
@@ -206,9 +206,9 @@ Or how to dump only the quota dict:
 .sp
 .nf
 .ft B
-doveconf dict/quota
+doveconf dict/quota_clone
 .ft P
-dict/quota = pgsql:@pkgsysconfdir@/dovecot\-dict\-sql.conf.ext
+dict/quota_clone = pgsql:@pkgsysconfdir@/dovecot\-dict\-sql.conf.ext
 .fi
 .\"------------------------------------------------------------------------
 @INCLUDE:reporting-bugs@

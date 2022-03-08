@@ -35,7 +35,6 @@ quota_dist_sources = \
 	quota.c \
 	quota-count.c \
 	quota-fs.c \
-	quota-dict.c \
 	quota-dirsize.c \
 	quota-imapc.c \
 	quota-maildir.c \
@@ -47,7 +46,6 @@ quota_common_objects = \
 	quota.lo \
 	quota-count.lo \
 	quota-fs.lo \
-	quota-dict.lo \
 	quota-dirsize.lo \
 	quota-imapc.lo \
 	quota-maildir.lo \
