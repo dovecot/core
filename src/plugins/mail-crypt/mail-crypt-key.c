@@ -434,8 +434,8 @@ int mail_crypt_set_private_key(struct mailbox_transaction_context *t,
 	}
 
 	/* export key */
-	if (!dcrypt_key_store_private(key, DCRYPT_FORMAT_DOVECOT, algo, data,
-				      pw, enc_key, error_r)) {
+	if (!dcrypt_key_store_private(key, MAIL_CRYPT_KEY_ATTRIBUTE_FORMAT,
+				      algo, data, pw, enc_key, error_r)) {
 		return -1;
 	}
 
@@ -671,7 +671,7 @@ int mail_crypt_set_public_key(struct mailbox_transaction_context *t,
 	struct mail_attribute_value value;
 
 	/* export key */
-	if (!dcrypt_key_store_public(key, DCRYPT_FORMAT_DOVECOT, data,
+	if (!dcrypt_key_store_public(key, MAIL_CRYPT_KEY_ATTRIBUTE_FORMAT, data,
 				     error_r)) {
 		return -1;
 	}
