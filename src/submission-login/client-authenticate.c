@@ -22,7 +22,11 @@ static void cmd_helo_reply(struct submission_client *subm_client,
 			   struct smtp_server_cmd_helo *data)
 {
 	struct client *client = &subm_client->common;
+	const struct submission_login_settings *set = subm_client->set;
 	enum smtp_capability backend_caps = subm_client->backend_capabilities;
+	bool exotic_backend =
+		HAS_ALL_BITS(set->parsed_workarounds,
+			     SUBMISSION_LOGIN_WORKAROUND_EXOTIC_BACKEND);
 	struct smtp_server_reply *reply;
 
 	reply = smtp_server_reply_create_ehlo(cmd->cmd);
@@ -50,26 +54,37 @@ static void cmd_helo_reply(struct submission_client *subm_client,
 		if ((backend_caps & SMTP_CAPABILITY_BINARYMIME) != 0 &&
 		    (backend_caps & SMTP_CAPABILITY_CHUNKING) != 0)
 			smtp_server_reply_ehlo_add(reply, "BINARYMIME");
-		smtp_server_reply_ehlo_add_param(reply,
-			"BURL", "imap");
-		smtp_server_reply_ehlo_add(reply,
-			"CHUNKING");
+		if (!exotic_backend ||
+		    (backend_caps & SMTP_CAPABILITY_BURL) != 0) {
+			smtp_server_reply_ehlo_add_param(reply, "BURL", "imap");
+		}
+		if (!exotic_backend ||
+		    (backend_caps & SMTP_CAPABILITY_CHUNKING) != 0) {
+			smtp_server_reply_ehlo_add(reply,
+				"CHUNKING");
+		}
 		if ((backend_caps & SMTP_CAPABILITY_DSN) != 0)
 			smtp_server_reply_ehlo_add(reply, "DSN");
-		smtp_server_reply_ehlo_add(reply,
-			"ENHANCEDSTATUSCODES");
+		if (!exotic_backend ||
+		    (backend_caps & SMTP_CAPABILITY_ENHANCEDSTATUSCODES) != 0) {
+			smtp_server_reply_ehlo_add(
+				reply, "ENHANCEDSTATUSCODES");
+		}
 
 		if (subm_client->set->submission_max_mail_size > 0) {
 			smtp_server_reply_ehlo_add_param(reply,
 				"SIZE", "%"PRIuUOFF_T,
 				subm_client->set->submission_max_mail_size);
-		} else {
+		} else if (!exotic_backend ||
+			   (backend_caps & SMTP_CAPABILITY_SIZE) != 0) {
 			smtp_server_reply_ehlo_add(reply, "SIZE");
 		}
 
 		if (client_is_tls_enabled(client) && !client->tls)
 			smtp_server_reply_ehlo_add(reply, "STARTTLS");
-		smtp_server_reply_ehlo_add(reply, "PIPELINING");
+		if (!exotic_backend ||
+		    (backend_caps & SMTP_CAPABILITY_PIPELINING) != 0)
+			smtp_server_reply_ehlo_add(reply, "PIPELINING");
 		if ((backend_caps & SMTP_CAPABILITY_VRFY) != 0)
 			smtp_server_reply_ehlo_add(reply, "VRFY");
 		smtp_server_reply_ehlo_add_xclient(reply);

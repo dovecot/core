@@ -4,6 +4,7 @@
 /* <settings checks> */
 enum submission_login_client_workarounds {
 	SUBMISSION_LOGIN_WORKAROUND_IMPLICIT_AUTH_EXTERNAL	= BIT(0),
+	SUBMISSION_LOGIN_WORKAROUND_EXOTIC_BACKEND		= BIT(1),
 };
 /* </settings checks> */
 
