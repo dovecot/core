@@ -93,7 +93,7 @@ var_expand_crypt_settings(struct var_expand_crypt_context *ctx,
 	}
 
 	if (ctx->algo == NULL) {
-		ctx->algo = "AES-256-CBC";
+		ctx->algo = VAR_EXPAND_CRYPT_DEFAULT_ALGO;
 	}
 
 	return 0;
