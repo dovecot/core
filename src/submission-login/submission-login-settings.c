@@ -127,6 +127,8 @@ submission_login_client_workaround_list[] = {
 	{ "mailbox-for-path", 0 },
 	{ "implicit-auth-external",
 	  SUBMISSION_LOGIN_WORKAROUND_IMPLICIT_AUTH_EXTERNAL },
+	{ "exotic-backend",
+	  SUBMISSION_LOGIN_WORKAROUND_EXOTIC_BACKEND },
 	{ NULL, 0 }
 };
 
