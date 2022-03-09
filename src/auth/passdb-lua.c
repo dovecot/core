@@ -106,7 +106,7 @@ passdb_lua_verify_plain(struct auth_request *request, const char *password,
 static struct passdb_module *
 passdb_lua_preinit(pool_t pool, const char *args)
 {
-	const char *cache_key = "%u";
+	const char *cache_key = DB_LUA_CACHE_KEY;
 	const char *scheme = "PLAIN";
 	struct dlua_passdb_module *module;
 	bool blocking = TRUE;

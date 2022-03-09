@@ -33,7 +33,7 @@ static struct userdb_module *
 userdb_lua_preinit(pool_t pool, const char *args)
 {
 	struct dlua_userdb_module *module;
-	const char *cache_key = "%u";
+	const char *cache_key = DB_LUA_CACHE_KEY;
 	bool blocking = TRUE;
 
 	module = p_new(pool, struct dlua_userdb_module, 1);
