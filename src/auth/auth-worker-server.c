@@ -277,7 +277,6 @@ static struct auth_worker_connection *auth_worker_find_free(void)
 			return conn;
 	}
 	i_unreached();
-	return NULL;
 }
 
 static bool auth_worker_request_handle(struct auth_worker_connection *conn,
