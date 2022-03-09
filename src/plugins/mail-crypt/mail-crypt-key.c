@@ -137,7 +137,7 @@ int mail_crypt_private_key_id_match(struct dcrypt_private_key *key,
 					   hash, pubid);
 		return 0;
 	}
-	return 1;		
+	return 1;
 }
 
 int mail_crypt_public_key_id_match(struct dcrypt_public_key *key,
@@ -903,7 +903,7 @@ int mail_crypt_box_set_shared_key(struct mailbox_transaction_context *t,
 				      NULL, user_key, error_r)) {
 		return -1;
 	}
-	
+
 	value.value_stream = NULL;
 	value.value = str_c(data);
 	value.last_change = 0;
