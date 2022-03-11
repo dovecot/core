@@ -27,7 +27,7 @@
 
 static bool cmd_stls(struct pop3_client *client)
 {
-	client_cmd_starttls(&client->common);	
+	client_cmd_starttls(&client->common);
 	return TRUE;
 }
 
@@ -320,7 +320,7 @@ void client_send_reply(struct client *client, enum pop3_cmd_reply reply,
 	} T_END;
 }
 
-static void 
+static void
 pop3_client_notify_disconnect(struct client *client,
 			      enum client_disconnect_reason reason,
 			      const char *text)

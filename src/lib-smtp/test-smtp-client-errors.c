@@ -2724,7 +2724,7 @@ test_client_client_deinit_early_reply(
 		i_debug("REPLY: %s", smtp_reply_log(reply));
 
 	/* abort does not trigger callback */
-	test_assert(FALSE); 
+	test_assert(FALSE);
 }
 
 static void
