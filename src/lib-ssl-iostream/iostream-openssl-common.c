@@ -28,21 +28,20 @@ static const struct {
 	int version;
 	long opt;
 } protocol_versions[] = {
-	{ SSL_TXT_ANY,	   TLS_ANY_VERSION,	SSL_OP_NO_SSLv3 },
-	{ SSL_TXT_TLSV1,   TLS1_VERSION,   SSL_OP_NO_SSLv3 },
-	{ SSL_TXT_TLSV1_1, TLS1_1_VERSION, SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 },
-	{ SSL_TXT_TLSV1_2, TLS1_2_VERSION,
-		SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1 },
+	{ SSL_TXT_ANY,	   TLS_ANY_VERSION, SSL_OP_NO_SSLv3 },
+	{ SSL_TXT_TLSV1,   TLS1_VERSION,    SSL_OP_NO_SSLv3 },
+	{ SSL_TXT_TLSV1_1, TLS1_1_VERSION,  SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 },
+	{ SSL_TXT_TLSV1_2, TLS1_2_VERSION,  SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 |
+					    SSL_OP_NO_TLSv1_1 },
 #if defined(TLS1_3_VERSION)
-	{ "TLSv1.3",	   TLS1_3_VERSION,
-		SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1 |
-		SSL_OP_NO_TLSv1_2 },
+	{ "TLSv1.3",	   TLS1_3_VERSION,  SSL_OP_NO_SSLv3   | SSL_OP_NO_TLSv1 |
+					    SSL_OP_NO_TLSv1_1 | SSL_OP_NO_TLSv1_2 },
 #endif
 	/* Use latest protocol version. If this is used on some
 	   ancient system which does not support ssl_min_protocol,
 	   ensure only TLSv1.2 is supported. */
-	{ "LATEST",	   TLS_MAX_VERSION,
-		SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1 },
+	{ "LATEST",	   TLS_MAX_VERSION, SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 |
+					    SSL_OP_NO_TLSv1_1 },
 };
 int openssl_min_protocol_to_options(const char *min_protocol, long *opt_r,
 				    int *version_r)
