@@ -1559,18 +1559,16 @@ get_ldap_fields(struct db_ldap_result_iterate_context *ctx,
 		for (i = 0; i < count; i++)
 			ldap_value->values[i] = p_strdup(ctx->pool, vals[i]);
 
-		if (ctx->debug != NULL) {
-			str_printfa(ctx->debug, " %s%s=", attr, suffix);
-			if (count == 0)
-				str_append(ctx->debug, "<no values>");
-			else if (ldap_field_hide_password(ctx, attr))
-				str_append(ctx->debug, PASSWORD_HIDDEN_STR);
-			else {
-				str_append(ctx->debug, ldap_value->values[0]);
-				for (i = 1; i < count; i++) {
-					str_printfa(ctx->debug, ",%s",
-						    ldap_value->values[0]);
-				}
+		str_printfa(ctx->debug, " %s%s=", attr, suffix);
+		if (count == 0)
+			str_append(ctx->debug, "<no values>");
+		else if (ldap_field_hide_password(ctx, attr))
+			str_append(ctx->debug, PASSWORD_HIDDEN_STR);
+		else {
+			str_append(ctx->debug, ldap_value->values[0]);
+			for (i = 1; i < count; i++) {
+				str_printfa(ctx->debug, ",%s",
+					    ldap_value->values[0]);
 			}
 		}
 		hash_table_insert(ctx->ldap_attrs,
@@ -1604,8 +1602,7 @@ db_ldap_result_iterate_init_full(struct ldap_connection *conn,
 	ctx->iter_dn_values = iter_dn_values;
 	hash_table_create(&ctx->ldap_attrs, pool, 0, strcase_hash, strcasecmp);
 	ctx->var = str_new(ctx->pool, 256);
-	if (event_want_debug(ctx->ldap_request->auth_request->event))
-		ctx->debug = t_str_new(256);
+	ctx->debug = t_str_new(256);
 	ctx->ldap_msg = res;
 	ctx->ld = conn->ld;
 
@@ -1655,8 +1652,7 @@ db_ldap_field_expand(const char *data, void *context,
 	ldap_value = hash_table_lookup(ctx->ldap_attrs, field_name);
 	if (ldap_value == NULL) {
 		/* requested ldap attribute wasn't returned at all */
-		if (ctx->debug != NULL)
-			str_printfa(ctx->debug, "; %s missing", field_name);
+		str_printfa(ctx->debug, "; %s missing", field_name);
 		*value_r = db_ldap_field_get_default(data);
 		return 1;
 	}
@@ -1783,7 +1779,7 @@ bool db_ldap_result_iterate_next(struct db_ldap_result_iterate_context *ctx,
 		hash_table_lookup(ctx->ldap_attrs, field->ldap_attr_name);
 	if (ldap_value != NULL)
 		ldap_value->used = TRUE;
-	else if (ctx->debug != NULL && *field->ldap_attr_name != '\0')
+	else if (*field->ldap_attr_name != '\0')
 		str_printfa(ctx->debug, "; %s missing", field->ldap_attr_name);
 
 	str_truncate(ctx->var, 0);
@@ -1862,8 +1858,7 @@ void db_ldap_result_iterate_deinit(struct db_ldap_result_iterate_context **_ctx)
 
 	*_ctx = NULL;
 
-	if (ctx->debug != NULL)
-		db_ldap_result_finish_debug(ctx);
+	db_ldap_result_finish_debug(ctx);
 	hash_table_destroy(&ctx->ldap_attrs);
 	pool_unref(&ctx->pool);
 }

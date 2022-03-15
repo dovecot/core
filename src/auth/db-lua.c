@@ -120,11 +120,9 @@ static int auth_request_lua_response_from_template(lua_State *L)
 
 static int auth_request_lua_log_debug(lua_State *L)
 {
-	if (global_auth_settings->debug) {
-		struct auth_request *request = auth_lua_check_auth_request(L, 1);
-		const char *msg = luaL_checkstring(L, 2);
-		e_debug(authdb_event(request), "db-lua: %s", msg);
-	}
+	struct auth_request *request = auth_lua_check_auth_request(L, 1);
+	const char *msg = luaL_checkstring(L, 2);
+	e_debug(authdb_event(request), "db-lua: %s", msg);
 	return 0;
 }
 

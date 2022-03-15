@@ -215,24 +215,19 @@ auth_client_handle_line(struct auth_client_connection *conn, const char *line)
 	const char *args;
 
 	if (str_begins(line, "AUTH\t", &args)) {
-		if (conn->auth->set->debug) {
-			e_debug(conn->event, "client in: %s",
-				auth_line_hide_pass(conn, line));
-		}
+		e_debug(conn->event, "client in: %s",
+			auth_line_hide_pass(conn, line));
 		return auth_request_handler_auth_begin(conn->request_handler,
 						       args);
 	}
 	if (str_begins(line, "CONT\t", &args)) {
-		if (conn->auth->set->debug) {
-			e_debug(conn->event, "client in: %s",
-				cont_line_hide_pass(conn, line));
-		}
+		e_debug(conn->event, "client in: %s",
+			cont_line_hide_pass(conn, line));
 		return auth_request_handler_auth_continue(conn->request_handler,
 							  args);
 	}
 	if (str_begins(line, "CANCEL\t", &args)) {
-		if (conn->auth->set->debug)
-			e_debug(conn->event, "client in: %s", line);
+		e_debug(conn->event, "client in: %s", line);
 		return auth_client_cancel(conn, args);
 	}
 
