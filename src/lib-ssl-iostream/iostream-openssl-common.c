@@ -9,6 +9,16 @@
 #include <openssl/err.h>
 #include <arpa/inet.h>
 
+#define SSL_TXT_ANY "ANY"
+
+#ifndef TLS_ANY_VERSION
+#  define TLS_ANY_VERSION TLS1_VERSION
+#endif
+
+#ifndef TLS_MAX_VERSION
+#  define TLS_MAX_VERSION 0
+#endif
+
 /* openssl_min_protocol_to_options() scans this array for name and returns
    version and opt. opt is used with SSL_set_options() and version is used with
    SSL_set_min_proto_version(). Using either method should enable the same
@@ -18,11 +28,7 @@ static const struct {
 	int version;
 	long opt;
 } protocol_versions[] = {
-#ifdef TLS_ANY_VERSION
-	{ "ANY",	   TLS_ANY_VERSION,	0 },
-#else
-	{ "ANY",	   SSL3_VERSION,   0 },
-#endif
+	{ SSL_TXT_ANY,	   TLS_ANY_VERSION,	SSL_OP_NO_SSLv3 },
 	{ SSL_TXT_TLSV1,   TLS1_VERSION,   SSL_OP_NO_SSLv3 },
 	{ SSL_TXT_TLSV1_1, TLS1_1_VERSION, SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 },
 	{ SSL_TXT_TLSV1_2, TLS1_2_VERSION,
@@ -35,11 +41,7 @@ static const struct {
 	/* Use latest protocol version. If this is used on some
 	   ancient system which does not support ssl_min_protocol,
 	   ensure only TLSv1.2 is supported. */
-#ifdef TLS_MAX_VERSION
 	{ "LATEST",	   TLS_MAX_VERSION,
-#else
-	{ "LATEST",	   0,
-#endif
 		SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1 },
 };
 int openssl_min_protocol_to_options(const char *min_protocol, long *opt_r,
