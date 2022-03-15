@@ -9,7 +9,6 @@
 #include "mail-autoexpunge.h"
 
 #define AUTOEXPUNGE_LOCK_FNAME "dovecot.autoexpunge.lock"
-#define AUTOEXPUNGE_BATCH_SIZE 1000
 
 static bool
 mailbox_autoexpunge_lock(struct mail_user *user, struct file_lock **lock)
@@ -79,7 +78,7 @@ mailbox_autoexpunge_batch(struct mailbox *box,
 
 	hdr = mail_index_get_header(box->view);
 
-	for (seq = 1; seq <= I_MIN(hdr->messages_count, AUTOEXPUNGE_BATCH_SIZE); seq++) {
+	for (seq = 1; seq <= I_MIN(hdr->messages_count, MAIL_EXPUNGE_BATCH_SIZE); seq++) {
 		mail_set_seq(mail, seq);
 		if (max_mails > 0 && hdr->messages_count - seq + 1 > max_mails) {
 			/* max_mails is still being reached -> expunge.
