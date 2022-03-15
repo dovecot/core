@@ -23,7 +23,6 @@ static const struct {
 #else
 	{ "ANY",	   SSL3_VERSION,   0 },
 #endif
-	{ SSL_TXT_SSLV3,   SSL3_VERSION,   0 },
 	{ SSL_TXT_TLSV1,   TLS1_VERSION,   SSL_OP_NO_SSLv3 },
 	{ SSL_TXT_TLSV1_1, TLS1_1_VERSION, SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 },
 	{ SSL_TXT_TLSV1_2, TLS1_2_VERSION,
