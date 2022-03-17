@@ -34,6 +34,7 @@ struct quota_clone_user {
 	struct timeout *to_quota_flush;
 	bool quota_changed;
 	bool quota_flushing;
+	bool unset;
 };
 
 static void
@@ -123,11 +124,15 @@ static bool quota_clone_flush_real(struct mail_user *user)
 	trans = dict_transaction_begin(quser->dict, set);
 	if (bytes_res == QUOTA_GET_RESULT_LIMITED ||
 	    bytes_res == QUOTA_GET_RESULT_UNLIMITED) {
+		if (quser->unset)
+			dict_unset(trans, DICT_QUOTA_CLONE_BYTES_PATH);
 		dict_set(trans, DICT_QUOTA_CLONE_BYTES_PATH,
 			 t_strdup_printf("%"PRIu64, bytes_value));
 	}
 	if (count_res == QUOTA_GET_RESULT_LIMITED ||
 	    count_res == QUOTA_GET_RESULT_UNLIMITED) {
+		if (quser->unset)
+			dict_unset(trans, DICT_QUOTA_CLONE_COUNT_PATH);
 		dict_set(trans, DICT_QUOTA_CLONE_COUNT_PATH,
 			 t_strdup_printf("%"PRIu64, count_value));
 	}
@@ -290,6 +295,7 @@ static void quota_clone_mail_user_created(struct mail_user *user)
 	v->deinit_pre = quota_clone_mail_user_deinit_pre;
 	v->deinit = quota_clone_mail_user_deinit;
 	quser->dict = dict;
+	quser->unset = mail_user_plugin_getenv_bool(user, "quota_clone_unset");
 	MODULE_CONTEXT_SET(user, quota_clone_user_module, quser);
 }
 
