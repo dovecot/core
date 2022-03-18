@@ -3,7 +3,9 @@
 #include "lib.h"
 #include "randgen.h"
 #include "istream.h"
+#include "istream-try.h"
 #include "ostream.h"
+#include "dcrypt-iostream.h"
 #include "istream-decrypt.h"
 #include "ostream-encrypt.h"
 #include "iostream-temp.h"
@@ -277,8 +279,26 @@ fs_crypt_read_stream(struct fs_file *_file, size_t max_buffer_size)
 
 	input = fs_read_stream(file->super_read, max_buffer_size);
 
-	file->input = i_stream_create_decrypt_callback(input,
-				fs_crypt_istream_get_key, file);
+	if (file->fs->allow_missing_keys) {
+		struct istream *decrypted_input =
+			i_stream_create_decrypt_callback(input,
+					fs_crypt_istream_get_key, file);
+		struct istream *plaintext_input =
+			i_stream_create_noop(input);
+		/* If the file is not encrypted, fall back to reading
+		 * it as plaintext. */
+		struct istream *inputs[] = {
+			decrypted_input,
+			plaintext_input,
+			NULL
+		};
+		file->input = istream_try_create(inputs, max_buffer_size);
+		i_stream_unref(&decrypted_input);
+		i_stream_unref(&plaintext_input);
+	} else {
+		file->input = i_stream_create_decrypt_callback(input,
+					fs_crypt_istream_get_key, file);
+	}
 	i_stream_unref(&input);
 	i_stream_ref(file->input);
 	return file->input;
