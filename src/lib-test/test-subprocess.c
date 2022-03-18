@@ -95,6 +95,9 @@ void test_subprocess_fork(int (*func)(void *context), void *context,
 	if ((subprocess->pid = fork()) == (pid_t)-1)
 		i_fatal("test: sub-process: fork() failed: %m");
 	if (subprocess->pid == 0) {
+		/* cannot include this in the list to avoid accidental
+		 * kill of PID 0, so just free it here explicitly. */
+		i_free(subprocess);
 		test_subprocess_free_all();
 
 		test_subprocess_child(func, context, continue_test);
