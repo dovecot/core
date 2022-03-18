@@ -18,6 +18,7 @@ struct crypt_fs {
 	struct fs fs;
 	struct mail_crypt_global_keys keys;
 	bool keys_loaded;
+	bool allow_missing_keys;
 
 	char *enc_algo;
 	char *set_prefix;
@@ -77,7 +78,11 @@ fs_crypt_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 		if (p == NULL)
 			break;
 		arg = t_strdup_until(args, p);
-		if ((value = strchr(arg, '=')) == NULL)
+		if (strcmp(arg, "maybe") == 0) {
+			fs->allow_missing_keys = TRUE;
+			args = p + 1;
+			continue;
+		} else if ((value = strchr(arg, '=')) == NULL)
 			break;
 		arg = t_strdup_until(arg, value++);
 		args = p+1;
@@ -293,7 +298,11 @@ static void fs_crypt_write_stream(struct fs_file *_file)
 	}
 
 	if (file->fs->keys.public_key == NULL) {
-		if (_file->fs->set.debug)
+		if (!file->fs->allow_missing_keys) {
+			_file->output = o_stream_create_error_str(EINVAL,
+				"Encryption required, but no public key available");
+			return;
+		} else	if (_file->fs->set.debug)
 			i_debug("No public key provided, "
 				"NOT encrypting stream %s",
 				 fs_file_path(_file));
