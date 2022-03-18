@@ -74,10 +74,8 @@ fs_crypt_init(struct fs *_fs, const char *args, const struct fs_settings *set,
 	enc_algo = "aes-256-gcm-sha256";
 	for (;;) {
 		p = strchr(args, ':');
-		if (p == NULL) {
-			*error_r = "Missing parameters";
-			return -1;
-		}
+		if (p == NULL)
+			break;
 		arg = t_strdup_until(args, p);
 		if ((value = strchr(arg, '=')) == NULL)
 			break;
