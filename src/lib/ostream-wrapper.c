@@ -1155,7 +1155,7 @@ int wrapper_ostream_continue(struct wrapper_ostream *wostream)
 	if (ret == 0)
 		wostream->flush_pending = TRUE;
 
-	if (!stream->ostream.blocking)
+	if (ret >= 0 && !stream->ostream.blocking)
 		wrapper_ostream_output_manage(wostream, FALSE);
 
 	if (ret < 0 || ostream->stream_errno != 0 ||
