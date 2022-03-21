@@ -147,7 +147,7 @@ i_stream_decrypt_read_header_v1(struct decrypt_istream *stream,
 				    "Invalid or corrupted header");
 		/* was it consumed? */
 		stream->istream.istream.stream_errno =
-			mlen > 2 ? EINVAL : EPIPE;
+			mlen > 2 ? EIO : EPIPE;
 		return -1;
 	}
 
@@ -652,7 +652,7 @@ i_stream_decrypt_header_contents(struct decrypt_istream *stream,
 		if (!dcrypt_ctx_hmac_init(stream->ctx_mac, &error)) {
 			io_stream_set_error(&stream->istream.iostream,
 					    "MAC error: %s", error);
-			stream->istream.istream.stream_errno = EINVAL;
+			stream->istream.istream.stream_errno = EIO;
 			failed = TRUE;
 		}
 		stream->ftr = dcrypt_ctx_hmac_get_digest_length(stream->ctx_mac);
@@ -857,7 +857,7 @@ i_stream_decrypt_read(struct istream_private *stream)
 			}
 			io_stream_set_error(&stream->iostream,
 				"MAC error: %s", error);
-			stream->istream.stream_errno = EINVAL;
+			stream->istream.stream_errno = EIO;
 			return -1;
 		}
 
@@ -885,7 +885,7 @@ i_stream_decrypt_read(struct istream_private *stream)
 			if (hret == 0) {
 				/* see if we can get more data */
 				if (ret == -2) {
-					stream->istream.stream_errno = EINVAL;
+					stream->istream.stream_errno = EIO;
 					io_stream_set_error(&stream->iostream,
 						"Header too large "
 						"(more than %zu bytes)",
@@ -911,7 +911,7 @@ i_stream_decrypt_read(struct istream_private *stream)
 					io_stream_set_error(&stream->iostream,
 						"Decryption error: "
 						"footer is longer than data");
-					stream->istream.stream_errno = EINVAL;
+					stream->istream.stream_errno = EIO;
 					return -1;
 				}
 				check_mac = TRUE;
@@ -927,7 +927,7 @@ i_stream_decrypt_read(struct istream_private *stream)
 				    data, decrypt_size, &error)) {
 					io_stream_set_error(&stream->iostream,
 						"MAC error: %s", error);
-					stream->istream.stream_errno = EINVAL;
+					stream->istream.stream_errno = EIO;
 					return -1;
 				}
 			}
@@ -942,14 +942,14 @@ i_stream_decrypt_read(struct istream_private *stream)
 				if (!dcrypt_ctx_hmac_final(dstream->ctx_mac, &db, &error)) {
 					io_stream_set_error(&stream->iostream,
 						"Cannot verify MAC: %s", error);
-					stream->istream.stream_errno = EINVAL;
+					stream->istream.stream_errno = EIO;
 					return -1;
 				}
 				if (memcmp(dgst, data + decrypt_size,
 					dcrypt_ctx_hmac_get_digest_length(dstream->ctx_mac)) != 0) {
 					io_stream_set_error(&stream->iostream,
 						"Cannot verify MAC: mismatch");
-					stream->istream.stream_errno = EINVAL;
+					stream->istream.stream_errno = EIO;
 					return -1;
 				}
 			} else if ((dstream->flags & IO_STREAM_ENC_INTEGRITY_AEAD) ==
@@ -964,7 +964,7 @@ i_stream_decrypt_read(struct istream_private *stream)
 		    data, decrypt_size, dstream->buf, &error)) {
 			io_stream_set_error(&stream->iostream,
 				"Decryption error: %s", error);
-			stream->istream.stream_errno = EINVAL;
+			stream->istream.stream_errno = EIO;
 			return -1;
 		}
 		i_stream_skip(stream->parent, size);
