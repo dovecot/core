@@ -354,6 +354,7 @@ dsync_get_mailbox_name(struct dsync_brain *brain, const char *const *name_parts,
 	char escape_chars[] = {
 		brain->escape_char,
 		ns_sep,
+		'\0'
 	};
 	struct dsync_mailbox_list *dlist = DSYNC_LIST_CONTEXT(ns->list);
 	if (dlist != NULL && !dlist->have_orig_escape_char) {
