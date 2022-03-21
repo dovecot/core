@@ -496,3 +496,27 @@ bool acl_right_names_modify(pool_t pool,
 	return old_rights[i] != NULL || new_rights[i] != NULL;
 }
 
+void acl_rights_sort(ARRAY_TYPE(acl_rights) *rights, pool_t pool)
+{
+	unsigned int count, i, dest;
+	struct acl_rights *_rights;
+
+	array_sort(rights, acl_rights_cmp);
+
+	/* merge identical identifiers */
+	_rights = array_get_modifiable(rights, &count);
+	for (dest = 0, i = 1; i < count; i++) {
+		if (acl_rights_cmp(&_rights[i], &_rights[dest]) == 0) {
+			/* add i's rights to dest and delete i */
+			acl_right_names_merge(pool, &_rights[dest].rights,
+					      _rights[i].rights, FALSE);
+			acl_right_names_merge(pool, &_rights[dest].neg_rights,
+					      _rights[i].neg_rights, FALSE);
+		} else {
+			if (++dest != i)
+				_rights[dest] = _rights[i];
+		}
+	}
+	if (++dest < count)
+		array_delete(rights, dest, count - dest);
+}

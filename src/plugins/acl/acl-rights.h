@@ -145,6 +145,8 @@ void acl_rights_dup(const struct acl_rights *src,
 
 /* Comparison for rights */
 int acl_rights_cmp(const struct acl_rights *r1, const struct acl_rights *r2);
+/* Sort the rights and merge rights with identical identifiers. */
+void acl_rights_sort(ARRAY_TYPE(acl_rights) *rights, pool_t pool);
 
 /* <settings checks> */
 /* Parses acl letter string to names */

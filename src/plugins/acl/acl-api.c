@@ -255,32 +255,10 @@ int acl_backend_nonowner_lookups_rebuild(struct acl_backend *backend)
 
 void acl_object_rights_sort(struct acl_object *aclobj)
 {
-	struct acl_rights *rights;
-	unsigned int i, dest, count;
-
 	if (!array_is_created(&aclobj->rights))
 		return;
 
-	array_sort(&aclobj->rights, acl_rights_cmp);
-
-	/* merge identical identifiers */
-	rights = array_get_modifiable(&aclobj->rights, &count);
-	for (dest = 0, i = 1; i < count; i++) {
-		if (acl_rights_cmp(&rights[i], &rights[dest]) == 0) {
-			/* add i's rights to dest and delete i */
-			acl_right_names_merge(aclobj->rights_pool,
-					      &rights[dest].rights,
-					      rights[i].rights, FALSE);
-			acl_right_names_merge(aclobj->rights_pool,
-					      &rights[dest].neg_rights,
-					      rights[i].neg_rights, FALSE);
-		} else {
-			if (++dest != i)
-				rights[dest] = rights[i];
-		}
-	}
-	if (++dest < count)
-		array_delete(&aclobj->rights, dest, count - dest);
+	acl_rights_sort(&aclobj->rights, aclobj->rights_pool);
 }
 
 static void apply_owner_default_rights(struct acl_object *aclobj)
