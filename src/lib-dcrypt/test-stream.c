@@ -590,6 +590,24 @@ static void test_read_increment(void)
         test_end();
 }
 
+static void test_read_garbage(void)
+{
+	test_begin("test_read_garbage");
+	unsigned char buf[512];
+	for (int i = 0; i < 5; i++) {
+		memcpy(buf, IOSTREAM_CRYPT_MAGIC, sizeof(IOSTREAM_CRYPT_MAGIC));
+		random_fill(buf + 9, sizeof(buf) - 9);
+		struct istream *is = test_istream_create_data(buf, sizeof(buf));
+		struct istream *ds = i_stream_create_decrypt_callback(is,
+					no_op_cb, NULL);
+		i_stream_unref(&is);
+		test_assert(i_stream_read(ds) == -1);
+		test_assert(ds->stream_errno == EIO);
+		i_stream_unref(&ds);
+	}
+	test_end();
+}
+
 static void test_free_keys()
 {
 	dcrypt_key_unref_private(&test_v1_kp.priv);
@@ -632,6 +650,7 @@ int main(void)
 		test_free_keys,
 		test_read_0_to_400_byte_garbage,
 		test_read_large_header,
+		test_read_garbage,
 		NULL
 	};
 
