@@ -105,6 +105,7 @@ liblib_la_SOURCES = \
 	istream-jsonstr.c \
 	istream-limit.c \
 	istream-multiplex.c \
+	istream-noop.c \
 	istream-rawlog.c \
 	istream-seekable.c \
 	istream-sized.c \
@@ -417,6 +418,7 @@ test_lib_SOURCES = \
 	test-istream-failure-at.c \
 	test-istream-jsonstr.c \
 	test-istream-multiplex.c \
+	test-istream-noop.c \
 	test-istream-seekable.c \
 	test-istream-sized.c \
 	test-istream-tee.c \

@@ -60,6 +60,8 @@ i_stream_create_copy_from_data(const void *data, size_t size);
 	i_stream_create_copy_from_data((buf)->data, (buf)->used)
 #define i_stream_create_copy_from_string(str) \
 	i_stream_create_copy_from_data(str_data(str), str_len(str))
+/* Create a no-operation wrapper to allow input to be used as child stream. */
+struct istream *i_stream_create_noop(struct istream *input);
 struct istream *i_stream_create_limit(struct istream *input, uoff_t v_size);
 struct istream *i_stream_create_range(struct istream *input,
 				      uoff_t v_offset, uoff_t v_size);
