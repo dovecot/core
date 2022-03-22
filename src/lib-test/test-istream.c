@@ -135,6 +135,8 @@ static struct test_istream *test_istream_find(struct istream *input)
 {
 	struct istream *in;
 
+	i_assert(input != NULL);
+
 	for (in = input; in != NULL; in = in->real_stream->parent) {
 		if (in->real_stream->read == test_read)
 			return (struct test_istream *)in->real_stream;
