@@ -17,6 +17,7 @@ void i_stream_set_name(struct istream *stream, const char *name)
 
 const char *i_stream_get_name(struct istream *stream)
 {
+	i_assert(stream != NULL);
 	while (stream->real_stream->iostream.name == NULL) {
 		stream = stream->real_stream->parent;
 		if (stream == NULL)
