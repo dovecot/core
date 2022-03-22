@@ -6,6 +6,7 @@
 #include "wildcard-match.h"
 #include "mail-storage-private.h"
 #include "mailbox-match-plugin.h"
+#include "mailbox-list-private.h"
 
 struct mailbox_match_plugin {
 	ARRAY_TYPE(const_string) patterns;
@@ -45,7 +46,7 @@ bool mailbox_match_plugin_exclude(struct mailbox_match_plugin *match,
 {
 	const struct mailbox_settings *set;
 	const char *const *special_use;
-	const char *str;
+	const char *pattern;
 
 	if (!array_is_created(&match->patterns))
 		return FALSE;
@@ -55,15 +56,19 @@ bool mailbox_match_plugin_exclude(struct mailbox_match_plugin *match,
 	special_use = set == NULL ? NULL :
 		t_strsplit_spaces(set->special_use, " ");
 
-	array_foreach_elem(&match->patterns, str) {
-		if (str[0] == '\\') {
+	array_foreach_elem(&match->patterns, pattern) {
+		if (pattern[0] == '\\') {
 			/* \Special-use flag */
 			if (special_use != NULL &&
-			    str_array_icase_find(special_use, str))
+			    str_array_icase_find(special_use, pattern))
 				return TRUE;
 		} else {
-			/* mailbox name with wildcards */
-			if (wildcard_match(box->name, str))
+			if (wildcard_match(box->vname, pattern))
+				return TRUE;
+
+			/* for namespaces with inbox=yes, try to match also without prefix */
+			if (HAS_ALL_BITS(box->list->ns->flags, NAMESPACE_FLAG_INBOX_USER) &&
+			    wildcard_match(box->vname + box->list->ns->prefix_len, pattern))
 				return TRUE;
 		}
 	}
