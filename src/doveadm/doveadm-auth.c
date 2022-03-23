@@ -46,6 +46,19 @@ struct authtest_input {
 
 };
 
+static bool auth_want_log_debug(void)
+{
+	struct event *event_auth = event_create(NULL);
+	event_add_category(event_auth, &event_category_auth);
+
+	bool ret = doveadm_debug || doveadm_settings->auth_debug ||
+		event_want_debug_log(event_auth);
+
+	event_unref(&event_auth);
+
+	return ret;
+}
+
 static void auth_cmd_help(struct doveadm_cmd_context *cctx);
 
 static struct auth_master_connection *
@@ -53,7 +66,7 @@ doveadm_get_auth_master_conn(const char *auth_socket_path)
 {
 	enum auth_master_flags flags = 0;
 
-	if (doveadm_debug)
+	if (auth_want_log_debug())
 		flags |= AUTH_MASTER_FLAG_DEBUG;
 	return auth_master_init(auth_socket_path, flags);
 }
@@ -164,15 +177,12 @@ auth_callback(struct auth_client_request *request ATTR_UNUSED,
 static void auth_connected(struct auth_client *client,
 			   bool connected, void *context)
 {
-	struct event *event_auth;
 	struct authtest_input *input = context;
 	struct auth_request_info info;
 	string_t *init_resp, *base64_resp;
 
 	if (!connected)
 		i_fatal("Couldn't connect to auth socket");
-	event_auth = event_create(NULL);
-	event_add_category(event_auth, &event_category_auth);
 
 	init_resp = t_str_new(128);
 	str_append(init_resp, input->username);
@@ -203,13 +213,11 @@ static void auth_connected(struct auth_client *client,
 	info.extra_fields = input->info.extra_fields;
 	info.forward_fields = input->info.forward_fields;
 	info.initial_resp_base64 = str_c(base64_resp);
-	if (doveadm_settings->auth_debug ||
-	    event_want_debug_log(event_auth))
+	if (auth_want_log_debug())
 		info.flags |= AUTH_REQUEST_FLAG_DEBUG;
 
 	input->request = auth_client_request_new(client, &info,
 						 auth_callback, input);
-	event_unref(&event_auth);
 }
 
 static void
@@ -350,7 +358,7 @@ static void authtest_input_init(struct authtest_input *input)
 {
 	i_zero(input);
 	input->info.service = "doveadm";
-	input->info.debug = doveadm_settings->auth_debug;
+	input->info.debug = auth_want_log_debug();
 }
 
 static void cmd_auth_test(struct doveadm_cmd_context *cctx)
