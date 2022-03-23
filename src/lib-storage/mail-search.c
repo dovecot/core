@@ -840,6 +840,8 @@ mail_search_seqset_iter_init(struct mail_search_args *search_args,
 			/* $ used before search result was saved */
 			return iter;
 		}
+		if (messages_count == 0)
+			return iter;
 		/* 1:* - convert to seqset */
 		search_args->args->type = SEARCH_SEQSET;
 		p_array_init(&search_args->args->value.seqset,
