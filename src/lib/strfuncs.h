@@ -102,7 +102,7 @@ str_begins_icase_with(const char *haystack, const char *needle)
 {
 	return needle[str_match_icase(haystack, needle)] == '\0';
 }
-#if defined(__GNUC__) && (__GNUC__ >= 2)
+#if defined(__GNUC__) && (__GNUC__ >= 2) && !defined(STATIC_CHECKER)
 /* GCC (and Clang) are known to have a compile-time strlen("literal") shortcut, and
    an optimised strncmp(), so use that by default. Macro is multi-evaluation safe. */
 static inline bool
