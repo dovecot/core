@@ -283,6 +283,10 @@ old_settings_handle_root(struct config_parser_context *ctx,
 				  NULL);
 		return TRUE;
 	}
+	if (strcmp(key, "auth_debug") == 0) {
+		obsolete(ctx, "%s will be removed in a future version, consider using log_debug = \"category=auth\" instead", key);
+		return TRUE;
+	}
 	if (strcmp(key, "login_access_sockets") == 0) {
 		if (value != NULL && *value != '\0')
 			i_fatal("%s is no longer supported", key);
