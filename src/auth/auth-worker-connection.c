@@ -236,7 +236,14 @@ static struct auth_worker_connection *auth_worker_create(void)
 	worker->conn.event_parent = auth_event;
 	connection_init_client_unix(connections, &worker->conn,
 				    worker_socket_path);
-	connection_client_connect(&worker->conn);
+	if (connection_client_connect(&worker->conn) < 0) {
+		e_error(worker->conn.event,
+			"Unable to connect worker: net_connect_unix(%s) failed: %m",
+			worker->conn.name);
+		connection_deinit(&worker->conn);
+		i_free(worker);
+		return NULL;
+	}
 
 	event_set_append_log_prefix(worker->conn.event, "auth-worker: ");
 
