@@ -152,7 +152,7 @@ static void login_die(void)
 }
 
 static void
-client_connected_finish(const struct master_service_connection *conn)
+client_connected(struct master_service_connection *conn)
 {
 	struct client *client;
 	const struct login_settings *set;
@@ -160,6 +160,18 @@ client_connected_finish(const struct master_service_connection *conn)
 	const struct master_service_ssl_server_settings *ssl_server_set;
 	pool_t pool;
 	void **other_sets;
+
+	master_service_client_connection_accept(conn);
+
+	if (conn->remote_ip.family != 0) {
+		/* log the connection's IP address in case we crash. it's of
+		   course possible that another earlier client causes the
+		   crash, but this is better than nothing. */
+		i_set_failure_send_ip(&conn->remote_ip);
+	}
+
+	/* make sure we're connected (or attempting to connect) to auth */
+	auth_client_connect(auth_client);
 
 	pool = pool_alloconly_create("login client", 8*1024);
 	set = login_settings_read(pool, &conn->local_ip,
@@ -190,23 +202,6 @@ master_admin_cmd_kick_user(const char *user, const guid_128_t conn_guid)
 static const struct master_admin_client_callback admin_callbacks = {
 	.cmd_kick_user = master_admin_cmd_kick_user,
 };
-
-static void client_connected(struct master_service_connection *conn)
-{
-	master_service_client_connection_accept(conn);
-
-	if (conn->remote_ip.family != 0) {
-		/* log the connection's IP address in case we crash. it's of
-		   course possible that another earlier client causes the
-		   crash, but this is better than nothing. */
-		i_set_failure_send_ip(&conn->remote_ip);
-	}
-
-	/* make sure we're connected (or attempting to connect) to auth */
-	auth_client_connect(auth_client);
-
-	client_connected_finish(conn);
-}
 
 static void auth_connect_notify(struct auth_client *client ATTR_UNUSED,
 				bool connected, void *context ATTR_UNUSED)
