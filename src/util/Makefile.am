@@ -4,7 +4,6 @@ pkglibexec_PROGRAMS = \
 	rawlog \
 	script \
 	script-login \
-	$(TCPWRAP_BIN) \
 	gdbhelper \
 	maildirlock
 
@@ -56,17 +55,6 @@ script_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 script_SOURCES = \
 	script.c \
 	health-check-settings.c
-
-if TCPWRAPPERS
-TCPWRAP_BIN = tcpwrap
-tcpwrap_LDADD = $(LIBDOVECOT) $(LIBWRAP_LIBS) \
-	$(BINARY_LDFLAGS)
-
-tcpwrap_DEPENDENCIES = $(LIBDOVECOT_DEPS)
-tcpwrap_SOURCES = \
-	tcpwrap.c \
-	tcpwrap-settings.c
-endif
 
 gdbhelper_LDADD = $(LIBDOVECOT) \
 	$(BINARY_LDFLAGS)

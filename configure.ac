@@ -184,11 +184,6 @@ AS_HELP_STRING([--with-libcap], [Build with libcap support (Dropping capabilitie
   TEST_WITH(libcap, $withval),
   want_libcap=auto)
 
-AC_ARG_WITH(libwrap,
-AS_HELP_STRING([--with-libwrap], [Build with libwrap, ie. TCP-wrappers]),
-  TEST_WITH(libwrap, $withval),
-  want_libwrap=no)
-
 AC_ARG_WITH(ssl,
 AS_HELP_STRING([--with-ssl=gnutls|openssl], [Build with GNUTLS or OpenSSL (default)]),
 	if test x$withval = xno; then
