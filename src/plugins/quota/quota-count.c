@@ -47,9 +47,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 	if ((box->storage->class_flags & MAIL_STORAGE_CLASS_FLAG_NOQUOTA) != 0) {
 		/* quota doesn't exist for this mailbox/storage */
 		ret = 0;
-	} else if (mailbox_get_metadata(box, root->quota->set->vsizes ?
-					MAILBOX_METADATA_VIRTUAL_SIZE :
-					MAILBOX_METADATA_PHYSICAL_SIZE,
+	} else if (mailbox_get_metadata(box, MAILBOX_METADATA_VIRTUAL_SIZE,
 					&metadata) < 0 ||
 	    mailbox_get_status(box, STATUS_MESSAGES, &status) < 0) {
 		errstr = mailbox_get_last_internal_error(box, &error);
@@ -72,8 +70,7 @@ quota_count_mailbox(struct quota_root *root, struct mail_namespace *ns,
 		}
 	} else {
 		ret = 0;
-		*bytes += root->quota->set->vsizes ?
-			metadata.virtual_size : metadata.physical_size;
+		*bytes += metadata.virtual_size;
 		*count += status.messages;
 	}
 	mailbox_free(&box);
