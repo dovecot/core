@@ -388,6 +388,7 @@ count_quota_update(struct quota_root *root,
 
 struct quota_backend quota_backend_count = {
 	.name = "count",
+	.use_vsize = TRUE,
 
 	.v = {
 		.alloc = count_quota_alloc,

@@ -951,6 +951,7 @@ fs_quota_update(struct quota_root *root ATTR_UNUSED,
 
 struct quota_backend quota_backend_fs = {
 	.name = "fs",
+	.use_vsize = FALSE,
 
 	.v = {
 		.alloc = fs_quota_alloc,

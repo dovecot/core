@@ -480,6 +480,7 @@ imapc_quota_update(struct quota_root *root ATTR_UNUSED,
 
 struct quota_backend quota_backend_imapc = {
 	.name = "imapc",
+	.use_vsize = TRUE,
 
 	.v = {
 		.alloc = imapc_quota_alloc,

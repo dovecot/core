@@ -938,6 +938,7 @@ maildir_quota_update(struct quota_root *_root,
 
 struct quota_backend quota_backend_maildir = {
 	.name = "maildir",
+	.use_vsize = FALSE,
 
 	.v = {
 		.alloc = maildir_quota_alloc,
