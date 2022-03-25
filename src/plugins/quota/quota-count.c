@@ -240,10 +240,6 @@ static struct quota_root *count_quota_alloc(void)
 static int count_quota_init(struct quota_root *root, const char *args,
 			    const char **error_r)
 {
-	if (!root->quota->set->vsizes) {
-		*error_r = "quota count backend requires quota_vsizes=yes";
-		return -1;
-	}
 	event_set_append_log_prefix(root->backend.event, "quota-count: ");
 
 	root->auto_updating = TRUE;
