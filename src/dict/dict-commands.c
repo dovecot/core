@@ -528,12 +528,6 @@ static void cmd_commit_callback(const struct dict_commit_result *result,
 	cmd_commit_finish(cmd, result, FALSE);
 }
 
-static void cmd_commit_callback_async(const struct dict_commit_result *result,
-				      struct dict_connection_cmd *cmd)
-{
-	cmd_commit_finish(cmd, result, TRUE);
-}
-
 static int
 cmd_commit(struct dict_connection_cmd *cmd, const char *const *args)
 {
@@ -546,21 +540,6 @@ cmd_commit(struct dict_connection_cmd *cmd, const char *const *args)
 
 	dict_connection_cmd_async(cmd);
 	dict_transaction_commit_async(&trans->ctx, cmd_commit_callback, cmd);
-	return 1;
-}
-
-static int
-cmd_commit_async(struct dict_connection_cmd *cmd, const char *const *args)
-{
-	struct dict_connection_transaction *trans;
-
-	if (dict_connection_transaction_lookup_parse(cmd->conn, args[0], &trans) < 0)
-		return -1;
-	cmd->trans_id = trans->id;
-	event_add_str(cmd->event, "user", trans->ctx->set.username);
-
-	dict_connection_cmd_async(cmd);
-	dict_transaction_commit_async(&trans->ctx, cmd_commit_callback_async, cmd);
 	return 1;
 }
 
@@ -661,7 +640,6 @@ static const struct dict_cmd_func cmds[] = {
 	{ DICT_PROTOCOL_CMD_ITERATE, cmd_iterate },
 	{ DICT_PROTOCOL_CMD_BEGIN, cmd_begin },
 	{ DICT_PROTOCOL_CMD_COMMIT, cmd_commit },
-	{ DICT_PROTOCOL_CMD_COMMIT_ASYNC, cmd_commit_async },
 	{ DICT_PROTOCOL_CMD_ROLLBACK, cmd_rollback },
 	{ DICT_PROTOCOL_CMD_SET, cmd_set },
 	{ DICT_PROTOCOL_CMD_UNSET, cmd_unset },

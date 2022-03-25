@@ -21,7 +21,6 @@ enum dict_protocol_cmd {
 
 	DICT_PROTOCOL_CMD_BEGIN = 'B', /* <id> */
 	DICT_PROTOCOL_CMD_COMMIT = 'C', /* <id> */
-	DICT_PROTOCOL_CMD_COMMIT_ASYNC = 'D', /* <id> */
 	DICT_PROTOCOL_CMD_ROLLBACK = 'R', /* <id> */
 
 	DICT_PROTOCOL_CMD_SET = 'S', /* <id> <key> <value> */
