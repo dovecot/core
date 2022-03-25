@@ -22,7 +22,8 @@ mail_crypt_load_global_private_keys(struct mail_user *user,
 	while ((key_data = mail_user_plugin_getenv(user, str_c(set_key))) != NULL) {
 		const char *set_pw = t_strconcat(str_c(set_key), "_password", NULL);
 		const char *password = mail_user_plugin_getenv(user, set_pw);
-		if (mail_crypt_load_global_private_key(str_c(set_key), key_data,
+		if (*key_data != '\0' &&
+		    mail_crypt_load_global_private_key(str_c(set_key), key_data,
 							set_pw, password,
 							global_keys,
 							error_r) < 0) {
@@ -51,7 +52,7 @@ int mail_crypt_global_keys_load(struct mail_user *user, const char *set_prefix,
 	const char *key_data = mail_user_plugin_getenv(user, set_key);
 
 	mail_crypt_global_keys_init(global_keys_r);
-	if (key_data != NULL) {
+	if (key_data != NULL && *key_data != '\0') {
 		if (mail_crypt_load_global_public_key(set_key,
 						      key_data,
 						      global_keys_r,
