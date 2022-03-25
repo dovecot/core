@@ -500,8 +500,6 @@ int login_binary_run(struct login_binary *binary,
 			return FATAL_DEFAULT;
 		}
 	}
-	if (argv[optind] != NULL)
-		login_socket = argv[optind];
 
 	login_binary->preinit();
 
@@ -511,6 +509,11 @@ int login_binary_run(struct login_binary *binary,
 				    &global_ssl_settings,
 				    &global_ssl_server_settings,
 				    &global_other_settings);
+
+	if (argv[optind] != NULL)
+		login_socket = argv[optind];
+	else if (global_login_settings->login_auth_socket_path[0] != '\0')
+		login_socket = global_login_settings->login_auth_socket_path;
 
 	main_preinit();
 	main_init(login_socket);
