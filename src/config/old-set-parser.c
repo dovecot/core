@@ -283,6 +283,13 @@ old_settings_handle_root(struct config_parser_context *ctx,
 				  NULL);
 		return TRUE;
 	}
+	if (strcmp(key, "login_access_sockets") == 0) {
+		if (value != NULL && *value != '\0')
+			i_fatal("%s is no longer supported", key);
+		else
+			obsolete(ctx, "%s is no longer supported", key);
+		return TRUE;
+	}
 	if (ctx->old->auth_section == 1) {
 		if (!str_begins_with(key, "auth_"))
 			key = t_strconcat("auth_", key, NULL);

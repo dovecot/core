@@ -28,14 +28,6 @@
 
 #define AUTH_CLIENT_IDLE_TIMEOUT_MSECS (1000*60)
 
-struct login_access_lookup {
-	struct master_service_connection conn;
-	struct io *io;
-
-	char **sockets, **next_socket;
-	struct access_lookup *access;
-};
-
 struct event *event_auth;
 static struct event_category event_category_auth = {
 	.name = "auth",
@@ -67,8 +59,6 @@ static const char *post_login_socket;
 static bool shutting_down = FALSE;
 static bool ssl_connections = FALSE;
 static bool auth_connected_once = FALSE;
-
-static void login_access_lookup_next(struct login_access_lookup *lookup);
 
 static bool get_first_client(struct client **client_r)
 {
@@ -191,70 +181,6 @@ client_connected_finish(const struct master_service_connection *conn)
 	timeout_remove(&auth_client_to);
 }
 
-static void login_access_lookup_free(struct login_access_lookup *lookup)
-{
-	io_remove(&lookup->io);
-	if (lookup->access != NULL)
-		access_lookup_destroy(&lookup->access);
-	if (lookup->conn.fd != -1) {
-		if (close(lookup->conn.fd) < 0)
-			i_error("close(client) failed: %m");
-		master_service_client_connection_destroyed(master_service);
-	}
-
-	p_strsplit_free(default_pool, lookup->sockets);
-	i_free(lookup);
-}
-
-static void login_access_callback(bool success, void *context)
-{
-	struct login_access_lookup *lookup = context;
-
-	if (!success) {
-		i_info("access(%s): Client refused (rip=%s)",
-		       *lookup->next_socket,
-		       net_ip2addr(&lookup->conn.remote_ip));
-		login_access_lookup_free(lookup);
-	} else {
-		lookup->next_socket++;
-		login_access_lookup_next(lookup);
-	}
-}
-
-static void login_access_lookup_next(struct login_access_lookup *lookup)
-{
-	if (*lookup->next_socket == NULL) {
-		/* last one */
-		io_remove(&lookup->io);
-		client_connected_finish(&lookup->conn);
-		lookup->conn.fd = -1;
-		login_access_lookup_free(lookup);
-		return;
-	}
-	lookup->access = access_lookup(*lookup->next_socket, lookup->conn.fd,
-				       login_binary->protocol,
-				       login_access_callback, lookup);
-	if (lookup->access == NULL)
-		login_access_lookup_free(lookup);
-}
-
-static void client_input_error(struct login_access_lookup *lookup)
-{
-	char c;
-	int ret;
-
-	ret = recv(lookup->conn.fd, &c, 1, MSG_PEEK);
-	if (ret <= 0) {
-		i_info("access(%s): Client disconnected during lookup (rip=%s)",
-		       *lookup->next_socket,
-		       net_ip2addr(&lookup->conn.remote_ip));
-		login_access_lookup_free(lookup);
-	} else {
-		/* actual input. stop listening until lookup is done. */
-		io_remove(&lookup->io);
-	}
-}
-
 static unsigned int
 master_admin_cmd_kick_user(const char *user, const guid_128_t conn_guid)
 {
@@ -267,10 +193,6 @@ static const struct master_admin_client_callback admin_callbacks = {
 
 static void client_connected(struct master_service_connection *conn)
 {
-	const char *access_sockets =
-		global_login_settings->login_access_sockets;
-	struct login_access_lookup *lookup;
-
 	master_service_client_connection_accept(conn);
 
 	if (conn->remote_ip.family != 0) {
@@ -283,19 +205,7 @@ static void client_connected(struct master_service_connection *conn)
 	/* make sure we're connected (or attempting to connect) to auth */
 	auth_client_connect(auth_client);
 
-	if (*access_sockets == '\0') {
-		/* no access checks */
-		client_connected_finish(conn);
-		return;
-	}
-
-	lookup = i_new(struct login_access_lookup, 1);
-	lookup->conn = *conn;
-	lookup->io = io_add(conn->fd, IO_READ, client_input_error, lookup);
-	lookup->sockets = p_strsplit_spaces(default_pool, access_sockets, " ");
-	lookup->next_socket = lookup->sockets;
-
-	login_access_lookup_next(lookup);
+	client_connected_finish(conn);
 }
 
 static void auth_connect_notify(struct auth_client *client ATTR_UNUSED,
