@@ -170,11 +170,6 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	while ((opt = *opts++) != NULL) {
 		if (strcasecmp(opt, "compression") == 0) {
 			set->parsed_opts.compression = TRUE;
-		} else if (strcasecmp(opt, "no_compression") == 0) {
-#ifdef CONFIG_BINARY
-			i_warning("DEPRECATED: no_compression is default, "
-				  "so it is redundant in ssl_options");
-#endif
 		} else if (strcasecmp(opt, "no_ticket") == 0) {
 			set->parsed_opts.tickets = FALSE;
 		} else {
