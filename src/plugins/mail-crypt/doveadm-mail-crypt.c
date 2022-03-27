@@ -109,7 +109,8 @@ mcp_update_shared_key(struct mailbox_transaction_context *t,
 	const char *dest_username;
 	int ret = 0;
 
-	bool disallow_insecure = mail_crypt_acl_secure_sharing_enabled(user);
+	bool disallow_insecure =
+		mail_user_plugin_getenv_bool(user, MAIL_CRYPT_ACL_SECURE_SHARE_SETTING);
 
 	ret = mcp_user_create(user, target_uid, &dest_user,
 			      &dest_service_user, &error);

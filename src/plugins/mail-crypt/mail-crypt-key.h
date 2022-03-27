@@ -113,7 +113,4 @@ int mail_crypt_box_get_pvt_digests(struct mailbox *box, pool_t pool,
 				   ARRAY_TYPE(const_string) *digests,
 				   const char **error_r);
 
-/* is secure sharing enabled */
-bool mail_crypt_acl_secure_sharing_enabled(struct mail_user *user);
-
 #endif

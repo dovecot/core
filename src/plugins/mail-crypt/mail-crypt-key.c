@@ -1191,31 +1191,6 @@ mail_crypt_box_get_or_gen_public_key(struct mailbox *box,
 	return 0;
 }
 
-bool mail_crypt_acl_secure_sharing_enabled(struct mail_user *user)
-{
-	const char *env =
-		mail_user_plugin_getenv(user, MAIL_CRYPT_ACL_SECURE_SHARE_SETTING);
-
-	/* disabled by default */
-	bool ret = FALSE;
-
-	if (env != NULL) {
-		/* enable unless specifically
-		     requested not to */
-		ret = TRUE;
-		switch (env[0]) {
-			case 'n':
-			case 'N':
-			case '0':
-			case 'f':
-			case 'F':
-			ret = FALSE;
-		}
-	}
-
-	return ret;
-}
-
 static const struct mailbox_attribute_internal mailbox_internal_attributes[] = {
 	{ .type = MAIL_ATTRIBUTE_TYPE_PRIVATE,
 	  .key = BOX_CRYPT_PREFIX,

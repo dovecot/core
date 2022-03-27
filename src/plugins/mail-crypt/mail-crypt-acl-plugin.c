@@ -10,6 +10,7 @@
 #include "mail-namespace.h"
 #include "mail-storage-hooks.h"
 #include "mail-storage-service.h"
+#include "mail-user.h"
 #include "acl-plugin.h"
 #include "acl-api-private.h"
 #include "mail-crypt-common.h"
@@ -254,7 +255,8 @@ static int mail_crypt_acl_object_update(struct acl_object *aclobj,
 		return -1;
 
 	bool disallow_insecure =
-		mail_crypt_acl_secure_sharing_enabled(aclobj->backend->list->ns->user);
+		mail_user_plugin_getenv_bool(aclobj->backend->list->ns->user,
+					     MAIL_CRYPT_ACL_SECURE_SHARE_SETTING);
 
 	const char *box_name = mailbox_list_get_vname(aclobj->backend->list,
 						      aclobj->name);
