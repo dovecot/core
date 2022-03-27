@@ -710,9 +710,6 @@ static void print_build_options(void)
 #ifdef PASSDB_BSDAUTH
 		" bsdauth"
 #endif
-#ifdef PASSDB_CHECKPASSWORD
-		" checkpassword"
-#endif
 #ifdef PASSDB_LDAP
 		" ldap"
 #endif
@@ -729,9 +726,6 @@ static void print_build_options(void)
 		" sql"
 #endif
 	"\nUserdb:"
-#ifdef USERDB_CHECKPASSWORD
-		" checkpassword"
-#endif
 #ifdef USERDB_LDAP
 		" ldap"
 #ifndef BUILTIN_LDAP

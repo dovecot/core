@@ -110,7 +110,6 @@ doc/example-config/README
 doc/wiki/*.txt
 doc/wiki/Makefile.am
 src/anvil/anvil
-src/auth/checkpassword-reply
 src/auth/auth
 src/config/all-settings.c
 src/config/config

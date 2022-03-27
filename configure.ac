@@ -256,7 +256,6 @@ AM_CONDITIONAL(BUILD_DOCS, test "$want_docs" = "yes")
 dnl always enable all of the passbs and userdbs that don't require extra libs
 want_passwd=yes
 want_passwd_file=yes
-want_checkpassword=yes
 want_prefetch_userdb=yes
 
 AC_ISC_POSIX
@@ -537,7 +536,6 @@ DOVECOT_WANT_LUA
 DOVECOT_WANT_PREFETCH
 DOVECOT_WANT_PASSWD
 DOVECOT_WANT_PAM
-DOVECOT_WANT_CHECKPASSWORD
 DOVECOT_WANT_BSDAUTH
 DOVECOT_WANT_GSSAPI
 DOVECOT_WANT_LDAP

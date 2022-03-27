@@ -33,7 +33,7 @@ auth_module_LTLIBRARIES = \
 
 pkglibexecdir = $(libexecdir)/dovecot
 
-pkglibexec_PROGRAMS = auth checkpassword-reply
+pkglibexec_PROGRAMS = auth
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
@@ -105,7 +105,6 @@ libauth_la_SOURCES = \
 	auth-token.c \
 	auth-worker-connection.c \
 	auth-worker-server.c \
-	db-checkpassword.c \
 	db-dict.c \
 	db-dict-cache-key.c \
 	db-oauth2.c \
@@ -129,7 +128,6 @@ libauth_la_SOURCES = \
 	passdb-blocking.c \
 	passdb-bsdauth.c \
 	passdb-cache.c \
-	passdb-checkpassword.c \
 	passdb-dict.c \
 	passdb-oauth2.c \
 	passdb-passwd.c \
@@ -140,7 +138,6 @@ libauth_la_SOURCES = \
 	passdb-template.c \
 	userdb.c \
 	userdb-blocking.c \
-	userdb-checkpassword.c \
 	userdb-dict.c \
 	userdb-passwd.c \
 	userdb-passwd-file.c \
@@ -176,7 +173,6 @@ headers = \
 	db-ldap.h \
 	db-sql.h \
 	db-passwd-file.h \
-	db-checkpassword.h \
 	db-oauth2.h \
 	mech.h \
 	mycrypt.h \
@@ -222,13 +218,6 @@ libauthdb_imap_la_SOURCES = passdb-imap.c
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
-
-checkpassword_reply_CPPFLAGS = $(AM_CPPFLAGS) $(BINARY_CFLAGS)
-checkpassword_reply_LDADD = $(LIBDOVECOT) $(BINARY_LDFLAGS)
-checkpassword_reply_DEPENDENCIES = $(LIBDOVECOT_DEPS)
-
-checkpassword_reply_sources = \
-	checkpassword-reply.c
 
 test_programs = \
 	test-libpassword \

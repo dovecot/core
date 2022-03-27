@@ -2,7 +2,6 @@ pkgsysconfdir = $(sysconfdir)/dovecot
 
 exampledir = $(docdir)/example-config/conf.d
 example_DATA = \
-	auth-checkpassword.conf.ext \
 	auth-deny.conf.ext \
 	auth-dict.conf.ext \
 	auth-ldap.conf.ext \
