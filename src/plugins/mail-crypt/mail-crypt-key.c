@@ -482,7 +482,10 @@ int mail_crypt_user_set_private_key(struct mail_user *user, const char *pubid,
 		dcrypt_key_unref_private(&env_key);
 	}
 
-	if (mail_user_plugin_getenv(user, MAIL_CRYPT_REQUIRE_ENCRYPTED_USER_KEY) != NULL &&
+	bool require_encrypted_user_key =
+		mail_user_plugin_getenv_bool(user, MAIL_CRYPT_REQUIRE_ENCRYPTED_USER_KEY);
+
+	if (require_encrypted_user_key &&
 	    mail_user_plugin_getenv(user, MAIL_CRYPT_USERENV_PASSWORD) == NULL &&
 	    mail_user_plugin_getenv(user, MAIL_CRYPT_USERENV_KEY) == NULL)
 	{
