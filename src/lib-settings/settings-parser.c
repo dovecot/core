@@ -69,7 +69,7 @@ HASH_TABLE_DEFINE_TYPE(setting_link, struct setting_link *,
 		       struct setting_link *);
 
 static void
-setting_parser_copy_defaults(struct setting_parser_context *ctx, 
+setting_parser_copy_defaults(struct setting_parser_context *ctx,
 			     const struct setting_parser_info *info,
 			     struct setting_link *link);
 static int
@@ -85,7 +85,7 @@ settings_parser_init(pool_t set_pool, const struct setting_parser_info *root,
 }
 
 static void
-copy_unique_defaults(struct setting_parser_context *ctx, 
+copy_unique_defaults(struct setting_parser_context *ctx,
 		     const struct setting_define *def,
 		     struct setting_link *link)
 {
@@ -149,7 +149,7 @@ copy_unique_defaults(struct setting_parser_context *ctx,
 }
 
 static void
-setting_parser_copy_defaults(struct setting_parser_context *ctx, 
+setting_parser_copy_defaults(struct setting_parser_context *ctx,
 			     const struct setting_parser_info *info,
 			     struct setting_link *link)
 {
