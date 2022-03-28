@@ -44,12 +44,6 @@ can be:
 .B fts\-expunge\-log
 Dump the list of expunged mails in
 .IR dovecot\-expunges.log .
-Currently used only by fts\-lucene.
-.TP
-.B fts\-lucene
-Dump the list of indexed mails in
-.I lucene\-indexes
-directory
 .TP
 .B imapzlib
 Uncompress an IMAP traffic log, which contains data compressed using the
