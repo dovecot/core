@@ -433,11 +433,13 @@ static int worker_input_args(struct connection *conn, const char *const *args)
 		return -1;
 	}
 
-	if (worker->restart)
+	if (worker->restart) {
 		auth_worker_deinit(&worker, "Max requests limit", TRUE);
-	else if (worker->shutdown)
+		ret = 0;
+	} else if (worker->shutdown) {
 		auth_worker_deinit(&worker, "Idle kill", FALSE);
-	else if (worker->request != NULL)
+		ret = 0;
+	} else if (worker->request != NULL)
 		auth_worker_request_send_next(worker);
 
 	return ret;
