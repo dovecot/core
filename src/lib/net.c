@@ -137,6 +137,7 @@ sin_set_ip(union sockaddr_union *so, const struct ip_addr *ip)
 	}
 
 	so->sin.sin_family = ip->family;
+	so->sin6.sin6_scope_id = ip->scope_id;
 	if (ip->family == AF_INET6)
 		memcpy(&so->sin6.sin6_addr, &ip->u.ip6, sizeof(ip->u.ip6));
 	else
@@ -152,10 +153,10 @@ sin_get_ip(const union sockaddr_union *so, struct ip_addr *ip)
 
 	ip->family = so->sin.sin_family;
 
-	if (ip->family == AF_INET6)
+	if (ip->family == AF_INET6) {
 		memcpy(&ip->u.ip6, &so->sin6.sin6_addr, sizeof(ip->u.ip6));
-	else
-	if (ip->family == AF_INET)
+		ip->scope_id = so->sin6.sin6_scope_id;
+	} else if (ip->family == AF_INET)
 		memcpy(&ip->u.ip4, &so->sin.sin_addr, sizeof(ip->u.ip4));
 	else
 		i_zero(&ip->u);

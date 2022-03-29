@@ -26,6 +26,7 @@ struct ip_addr {
 		struct in6_addr ip6;
 		struct in_addr ip4;
 	} u;
+	uint32_t scope_id;
 };
 ARRAY_DEFINE_TYPE(ip_addr, struct ip_addr);
 
