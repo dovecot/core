@@ -967,27 +967,31 @@ int net_addr2ip(const char *addr, struct ip_addr *ip)
 	if (net_addr2ip_inet4_fast(addr, ip))
 		return 0;
 
-	if (strchr(addr, ':') != NULL) {
-		/* IPv6 */
-		T_BEGIN {
+	T_BEGIN {
+		if (strchr(addr, ':') != NULL) {
 			if (addr[0] == '[') {
 				/* allow [ipv6 addr] */
 				size_t len = strlen(addr);
 				if (addr[len-1] == ']')
 					addr = t_strndup(addr+1, len-2);
 			}
-			ret = inet_pton(AF_INET6, addr, &ip->u.ip6);
-		} T_END;
-		if (ret == 0)
-			return -1;
-		ip->family = AF_INET6;
- 	} else {
-		/* IPv4 */
-		if (inet_aton(addr, &ip->u.ip4) == 0)
-			return -1;
-		ip->family = AF_INET;
-	}
-	return 0;
+		}
+
+		struct addrinfo *res = NULL;
+		const struct addrinfo hints = {
+			.ai_flags = AI_NUMERICHOST,
+		};
+		if ((ret = getaddrinfo(addr, NULL, &hints, &res)) == 0) {
+			i_assert(res != NULL);
+			union sockaddr_union u;
+			memcpy(&u.sa, res->ai_addr, res->ai_addrlen);
+			sin_get_ip(&u, ip);
+		}
+		if (res != NULL)
+			freeaddrinfo(res);
+		ret = net_handle_gai_error("getaddrinfo", ret, TRUE);
+	} T_END;
+	return ret < 0 ? -1 : 0;
 }
 
 int net_str2port(const char *str, in_port_t *port_r)
