@@ -1169,37 +1169,6 @@ const char *net_getservbyport(in_port_t port)
 	return entry == NULL ? NULL : entry->s_name;
 }
 
-bool is_ipv4_address(const char *addr)
-{
-	while (*addr != '\0') {
-		if (*addr != '.' && !i_isdigit(*addr))
-			return FALSE;
-                addr++;
-	}
-
-	return TRUE;
-}
-
-bool is_ipv6_address(const char *addr)
-{
-	bool have_prefix = FALSE;
-
-	if (*addr == '[') {
-		have_prefix = TRUE;
-		addr++;
-	}
-	while (*addr != '\0') {
-		if (*addr != ':' && !i_isxdigit(*addr)) {
-			if (have_prefix && *addr == ']' && addr[1] == '\0')
-				break;
-			return FALSE;
-		}
-                addr++;
-	}
-
-	return TRUE;
-}
-
 int net_parse_range(const char *network, struct ip_addr *ip_r,
 		    unsigned int *bits_r)
 {

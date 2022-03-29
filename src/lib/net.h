@@ -184,9 +184,6 @@ int net_geterror(int fd);
 /* Get name of TCP service */
 const char *net_getservbyport(in_port_t port) ATTR_CONST;
 
-bool is_ipv4_address(const char *addr) ATTR_PURE;
-bool is_ipv6_address(const char *addr) ATTR_PURE;
-
 /* Parse network as ip/bits. Returns 0 if successful, -1 if invalid input. */
 int net_parse_range(const char *network, struct ip_addr *ip_r,
 		    unsigned int *bits_r);
