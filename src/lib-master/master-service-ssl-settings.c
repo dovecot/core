@@ -136,14 +136,12 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	   and few of those tools care about SSL settings. so don't check
 	   ssl_cert/ssl_key/etc validity here except in doveconf, because it
 	   usually is just an extra annoyance. */
-#ifdef CONFIG_BINARY
-	T_BEGIN {
+	if (is_config_binary()) T_BEGIN {
 		const char *proto = t_str_ucase(set->ssl_min_protocol);
 		if (strstr(proto, "ANY") != NULL)
 			i_warning("ssl_min_protocol=ANY is used - This is "
-					"insecure and intended only for testing");
+				  "insecure and intended only for testing");
 	} T_END;
-#endif
 
 	if (set->ssl_verify_client_cert && *set->ssl_ca == '\0') {
 		*error_r = "ssl_verify_client_cert set, but ssl_ca not";

@@ -280,4 +280,8 @@ int settings_get_size(const char *str, uoff_t *bytes_r,
 /* Parse boolean string, return as boolean */
 int settings_get_bool(const char *value, bool *result_r,
 		      const char **error_r);
+
+void set_config_binary(bool value);
+bool is_config_binary(void);
+
 #endif

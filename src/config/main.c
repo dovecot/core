@@ -30,6 +30,7 @@ int main(int argc, char *argv[])
 	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);
 
+	set_config_binary(TRUE);
 	config_parse_load_modules();
 
 	path = master_service_get_config_path(master_service);

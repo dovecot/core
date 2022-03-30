@@ -2232,3 +2232,15 @@ const char *settings_section_escape(const char *name)
 	return str_c(str);
 }
 
+static bool config_binary = FALSE;
+
+bool is_config_binary(void)
+{
+	return config_binary;
+}
+
+void set_config_binary(bool value)
+{
+	config_binary = value;
+}
+
