@@ -17,8 +17,10 @@ static void test_dict_register(void)
 
 static void test_dict_finished(lua_State *L, struct ioloop *ioloop, int res)
 {
-	if (res < 0)
+	if (res < 0) {
 		i_error("%s", lua_tostring(L, -1));
+		lua_pop(L, 1);
+	}
 	io_loop_stop(ioloop);
 }
 
