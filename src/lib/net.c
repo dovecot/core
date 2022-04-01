@@ -702,7 +702,8 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips,
         /* get number of IPs */
         origai = ai;
 	for (count = 0; ai != NULL; ai = ai->ai_next)
-                count++;
+		count++;
+	i_assert(count > 0);
 
         *ips_count = count;
         *ips = t_new(struct ip_addr, count);

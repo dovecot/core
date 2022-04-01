@@ -126,7 +126,8 @@ int net_accept(int fd, struct ip_addr *addr_r, in_port_t *port_r)
 ssize_t net_receive(int fd, void *buf, size_t len);
 
 /* Get IP addresses for host. ips contains ips_count of IPs, they don't need
-   to be free'd. Returns 0 = ok, others = error code for net_gethosterror() */
+   to be free'd. Returns 0 = ok, others = error code for net_gethosterror().
+   When returning 0, ips_count is guaranteed to be >0. */
 int net_gethostbyname(const char *addr, struct ip_addr **ips,
 		      unsigned int *ips_count);
 /* Return host for the IP address. Returns 0 = ok, others = error code for
