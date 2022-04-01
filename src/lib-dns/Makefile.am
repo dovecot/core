@@ -37,3 +37,22 @@ check-local:
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
+
+# Internally, the dns methods yield via lua_yieldk() as implemented in Lua
+# 5.3 and newer.
+if DLUA_WITH_YIELDS
+noinst_LTLIBRARIES += libdns_lua.la
+
+libdns_lua_la_SOURCES = \
+	dns-lua.c
+libdns_lua_la_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	$(LUA_CFLAGS) \
+	-I$(top_srcdir)/src/lib-lua
+libdns_lua_la_LIBADD =
+libdns_lua_la_DEPENDENCIES = \
+	libdns.la
+
+headers += \
+	dns-lua.h
+endif

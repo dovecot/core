@@ -2,6 +2,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-dict \
+	-I$(top_srcdir)/src/lib-dns \
 	-I$(top_srcdir)/src/lib-http \
 	-I$(top_srcdir)/src/lib-ssl-iostream \
 	-I$(top_srcdir)/src/lib-master \
@@ -23,8 +24,12 @@ test_programs = test-lua
 
 LIBDICT_LUA=
 if DLUA_WITH_YIELDS
-LIBDICT_LUA += ../lib-dict/libdict_lua.la
-test_programs += test-dict-lua
+LIBDICT_LUA += \
+	../lib-dict/libdict_lua.la \
+	../lib-dns/libdns_lua.la
+test_programs += \
+	test-dict-lua \
+	test-dns-lua
 endif
 
 # Note: the only things this lib should depend on are libdovecot and lua.
@@ -61,6 +66,10 @@ test_lua_DEPENDENCIES = $(test_libs)
 test_dict_lua_SOURCES = test-dict-lua.c
 test_dict_lua_LDADD = $(test_libs) $(LUA_LIBS)
 test_dict_lua_DEPENDENCIES = $(test_libs)
+
+test_dns_lua_SOURCES = test-dns-lua.c
+test_dns_lua_LDADD = $(test_libs) $(LUA_LIBS)
+test_dns_lua_DEPENDENCIES = $(test_libs)
 
 check-local:
 	for bin in $(test_programs); do \
