@@ -114,7 +114,7 @@ static void submission_client_create(struct client *client,
 	smtp_set.xclient_extensions = xclient_extensions;
 	smtp_set.command_limits.max_parameters_size = LOGIN_MAX_INBUF_SIZE;
 	smtp_set.command_limits.max_auth_size = LOGIN_MAX_AUTH_BUF_SIZE;
-	smtp_set.debug = client->set->auth_debug;
+	smtp_set.debug = event_want_debug(client->event);
 
 	subm_client->conn = smtp_server_connection_create_from_streams(
 		smtp_server, client->input, client->output,
