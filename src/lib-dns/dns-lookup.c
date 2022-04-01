@@ -306,6 +306,7 @@ static void dns_lookup_callback(struct dns_lookup *lookup)
 		e->add_str("cached", lookup->cached ? "yes" : "no");
 		e_debug(e->event(), "Lookup successful after %u msecs",
 			lookup->result.msecs);
+		i_assert(lookup->ptr_lookup || lookup->result.ips_count > 0);
 	}
 	lookup->callback(&lookup->result, lookup->context);
 }

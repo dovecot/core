@@ -30,7 +30,7 @@ struct dns_lookup_result {
 	unsigned int msecs;
 
 	/* for IP lookup: */
-	unsigned int ips_count;
+	unsigned int ips_count; /* guaranteed to be >0 on success */
 	const struct ip_addr *ips;
 	/* for PTR lookup: */
 	const char *name;
