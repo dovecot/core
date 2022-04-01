@@ -41,6 +41,12 @@ struct dict_op_settings {
 	const char *username;
 	/* home directory for the user, if known */
 	const char *home_dir;
+
+	/* Don't log a warning if the transaction commit took a long time.
+	   This is needed if there are no guarantees that an asynchronous
+	   commit will finish up anytime soon. Mainly useful for transactions
+	   which aren't especially important whether they finish or not. */
+	bool no_slowness_warning;
 };
 
 struct dict_lookup_result {
@@ -155,11 +161,6 @@ int dict_iterate_deinit(struct dict_iterate_context **ctx, const char **error_r)
 /* Start a new dictionary transaction. */
 struct dict_transaction_context *
 dict_transaction_begin(struct dict *dict, const struct dict_op_settings *set);
-/* Don't log a warning if the transaction commit took a long time.
-   This is needed if there are no guarantees that an asynchronous commit will
-   finish up anytime soon. Mainly useful for transactions which aren't
-   especially important whether they finish or not. */
-void dict_transaction_no_slowness_warning(struct dict_transaction_context *ctx);
 /* Set write timestamp for the entire transaction. This must be set before
    any changes are done and can't be changed afterwards. Currently only
    dict-sql with Cassandra backend does anything with this. */

@@ -526,11 +526,6 @@ dict_transaction_begin(struct dict *dict, const struct dict_op_settings *set)
 	return ctx;
 }
 
-void dict_transaction_no_slowness_warning(struct dict_transaction_context *ctx)
-{
-	ctx->no_slowness_warning = TRUE;
-}
-
 void dict_transaction_set_timestamp(struct dict_transaction_context *ctx,
 				    const struct timespec *ts)
 {
@@ -774,6 +769,7 @@ void dict_op_settings_dup(const struct dict_op_settings *source,
 	i_zero(dest_r);
 	dest_r->username = i_strdup(source->username);
 	dest_r->home_dir = i_strdup(source->home_dir);
+	dest_r->no_slowness_warning = source->no_slowness_warning;
 }
 
 void dict_op_settings_private_free(struct dict_op_settings_private *set)

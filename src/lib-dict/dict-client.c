@@ -1335,7 +1335,7 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 		/* include timing info always in error messages */
 		result.error = t_strdup_printf("%s (reply took %s)",
 			result.error, dict_warnings_sec(cmd, diff, extra_args));
-	} else if (!cmd->background && !cmd->trans->ctx.no_slowness_warning &&
+	} else if (!cmd->background && !cmd->trans->ctx.set.no_slowness_warning &&
 		   diff >= (int)dict->warn_slow_msecs) {
 		e_warning(dict->conn.conn.event, "dict commit took %s: "
 			  "%s (%u commands, first: %s)",

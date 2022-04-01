@@ -56,6 +56,7 @@ struct dict_commit_callback_ctx;
 struct dict_op_settings_private {
 	char *username;
 	char *home_dir;
+	bool no_slowness_warning;
 };
 
 struct dict {
@@ -94,7 +95,6 @@ struct dict_transaction_context {
 	struct timespec timestamp;
 
 	bool changed:1;
-	bool no_slowness_warning:1;
 };
 
 void dict_transaction_commit_async_noop_callback(
