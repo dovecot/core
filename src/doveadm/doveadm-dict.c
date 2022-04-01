@@ -73,6 +73,28 @@ cmd_dict_init(struct doveadm_cmd_context *cctx,
 	return cmd_dict_init_full(cctx, cmd, &iter_flags, dict_r, set_r);
 }
 
+static int
+cmd_dict_init_transaction(struct doveadm_cmd_context *cctx,
+			  doveadm_command_ver2_t *cmd, struct dict **dict_r,
+			  struct dict_transaction_context **trans_r)
+{
+	struct dict_op_settings set;
+	int64_t timestamp;
+
+	if (cmd_dict_init(cctx, cmd, dict_r, &set) < 0)
+		return -1;
+
+	*trans_r = dict_transaction_begin(*dict_r, &set);
+	if (doveadm_cmd_param_int64(cctx, "timestamp", &timestamp)) {
+		struct timespec ts = {
+			.tv_sec = timestamp / 1000000000,
+			.tv_nsec = timestamp % 1000000000,
+		};
+		dict_transaction_set_timestamp(*trans_r, &ts);
+	}
+	return 0;
+}
+
 struct doveadm_dict_ctx {
 	pool_t pool;
 	int ret;
@@ -138,7 +160,6 @@ static void cmd_dict_set(struct doveadm_cmd_context *cctx)
 	struct dict_transaction_context *trans;
 	const char *error;
 	const char *key, *value = "";
-	struct dict_op_settings set;
 
 	if (!doveadm_cmd_param_str(cctx, "key", &key) ||
 	    !doveadm_cmd_param_str(cctx, "value", &value)) {
@@ -147,10 +168,9 @@ static void cmd_dict_set(struct doveadm_cmd_context *cctx)
 		return;
 	}
 
-	if (cmd_dict_init(cctx, cmd_dict_set, &dict, &set) < 0)
+	if (cmd_dict_init_transaction(cctx, cmd_dict_set, &dict, &trans) < 0)
 		return;
 
-	trans = dict_transaction_begin(dict, &set);
 	dict_set(trans, key, value);
 	if (dict_transaction_commit(&trans, &error) <= 0) {
 		i_error("dict_transaction_commit() failed: %s", error);
@@ -165,7 +185,6 @@ static void cmd_dict_unset(struct doveadm_cmd_context *cctx)
 	struct dict_transaction_context *trans;
 	const char *error;
 	const char *key;
-	struct dict_op_settings set;
 
 	if (!doveadm_cmd_param_str(cctx, "key", &key)) {
 		i_error("dict unset: Missing key");
@@ -173,10 +192,9 @@ static void cmd_dict_unset(struct doveadm_cmd_context *cctx)
 		return;
 	}
 
-	if (cmd_dict_init(cctx, cmd_dict_unset, &dict, &set) < 0)
+	if (cmd_dict_init_transaction(cctx, cmd_dict_unset, &dict, &trans) < 0)
 		return;
 
-	trans = dict_transaction_begin(dict, &set);
 	dict_unset(trans, key);
 	if (dict_transaction_commit(&trans, &error) <= 0) {
 		i_error("dict_transaction_commit() failed: %s", error);
@@ -193,7 +211,6 @@ static void cmd_dict_inc(struct doveadm_cmd_context *cctx)
 	const char *key;
 	int64_t diff;
 	int ret;
-	struct dict_op_settings set;
 
 	if (!doveadm_cmd_param_str(cctx, "key", &key) ||
 	    !doveadm_cmd_param_int64(cctx, "difference", &diff)) {
@@ -202,10 +219,9 @@ static void cmd_dict_inc(struct doveadm_cmd_context *cctx)
 		return;
 	}
 
-	if (cmd_dict_init(cctx, cmd_dict_inc, &dict, &set) < 0)
+	if (cmd_dict_init_transaction(cctx, cmd_dict_inc, &dict, &trans) < 0)
 		return;
 
-	trans = dict_transaction_begin(dict, &set);
 	dict_atomic_inc(trans, key, diff);
 	ret = dict_transaction_commit(&trans, &error);
 	if (ret < 0) {
@@ -276,9 +292,10 @@ DOVEADM_CMD_PARAMS_END
 {
 	.name = "dict set",
 	.cmd = cmd_dict_set,
-	.usage = "[-u <user>] <dict uri> <key> <value>",
+	.usage = "[-u <user>] [-t <timestamp-nsecs>] <dict uri> <key> <value>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('t', "timestamp", CMD_PARAM_INT64, 0)
 DOVEADM_CMD_PARAM('\0', "dict-uri", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "key", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "value", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
@@ -287,9 +304,10 @@ DOVEADM_CMD_PARAMS_END
 {
 	.name = "dict unset",
 	.cmd = cmd_dict_unset,
-	.usage = "[-u <user>] <dict uri> <key>",
+	.usage = "[-u <user>] [-t <timestamp-nsecs>] <dict uri> <key>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('t', "timestamp", CMD_PARAM_INT64, 0)
 DOVEADM_CMD_PARAM('\0', "dict-uri", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "key", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
@@ -297,9 +315,10 @@ DOVEADM_CMD_PARAMS_END
 {
 	.name = "dict inc",
 	.cmd = cmd_dict_inc,
-	.usage = "[-u <user>] <dict uri> <key> <diff>",
+	.usage = "[-u <user>] [-t <timestamp-nsecs>] <dict uri> <key> <diff>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('t', "timestamp", CMD_PARAM_INT64, 0)
 DOVEADM_CMD_PARAM('\0', "dict-uri", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "key", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAM('\0', "difference", CMD_PARAM_INT64, CMD_PARAM_FLAG_POSITIONAL)
