@@ -460,13 +460,14 @@ int quota_init(struct quota_settings *quota_set, struct mail_user *user,
 			quota_deinit(&quota);
 			return -1;
 		}
-		if (ret > 0)
+		if (ret > 0) {
 			array_push_back(&quota->roots, &root);
-		/* If a quota backend needs virtual size instead of physical
-		   size, use this for all backends. This is not ideal, but
-		   works. */
-		if (root->set->backend->use_vsize)
-			quota->set->vsizes = TRUE;
+			/* If a quota backend needs virtual size instead of physical
+			   size, use this for all backends. This is not ideal, but
+			   works. */
+			if (root->set->backend->use_vsize)
+				quota->set->vsizes = TRUE;
+		}
 	}
 	*quota_r = quota;
 	return 0;
