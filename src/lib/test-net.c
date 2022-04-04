@@ -31,7 +31,8 @@ static void test_net_is_in_network(void)
 		{ "123e::ffff", "123e::0", 15, TRUE },
 		{ "::ffff:1.2.3.4", "1.2.3.4", 32, TRUE },
 		{ "::ffff:1.2.3.4", "1.2.3.3", 32, FALSE },
-		{ "::ffff:1.2.3.4", "::ffff:1.2.3.4", 0, FALSE }
+		{ "::ffff:1.2.3.4", "::ffff:1.2.3.4", 0, FALSE },
+		{ "fe80::1%lo", "fe80::", 8, TRUE },
 	};
 	struct ip_addr ip, net_ip;
 	unsigned int i;
@@ -84,6 +85,10 @@ static void test_net_ip2addr(void)
 	ip.family = 123;
 	test_assert(net_addr2ip("abc", &ip) < 0 &&
 		    ip.family == 123);
+	test_assert(net_addr2ip("fe80::1", &ip) == 0);
+	test_assert_strcmp(net_ip2addr(&ip), "fe80::1");
+	test_assert(net_addr2ip("fe80::1%lo", &ip) == 0);
+	test_assert_strcmp(net_ip2addr(&ip), "fe80::1%lo");
 	test_end();
 }
 
