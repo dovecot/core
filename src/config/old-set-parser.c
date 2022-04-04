@@ -659,10 +659,6 @@ old_settings_handle_path(struct config_parser_context *ctx,
 				t_strdup_printf("plugin/0/imap_compress_deflate_level=%s", value), NULL);
 			return TRUE;
 		}
-		if (strcmp(key, "quota_vsizes") == 0) {
-			obsolete(ctx, "%s is no longer needed", key);
-			return TRUE;
-		}
 	}
 	return FALSE;
 }
