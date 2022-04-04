@@ -923,11 +923,28 @@ int net_getunixcred(int fd, struct net_unix_cred *cred_r)
 
 const char *net_ip2addr(const struct ip_addr *ip)
 {
-	char *addr = t_malloc_no0(MAX_IP_LEN+1);
+	union sockaddr_union u;
+	socklen_t so_len;
 
-	if (inet_ntop(ip->family, &ip->u.ip6, addr, MAX_IP_LEN) == NULL)
+	if (ip->family == AF_INET) {
+		u.sin.sin_addr = ip->u.ip4;
+		u.sin.sin_family = ip->family;
+		so_len = sizeof(u.sin);
+	} else if (ip->family == AF_INET6) {
+		u.sin6.sin6_addr = ip->u.ip6;
+		u.sin6.sin6_family = ip->family;
+		u.sin6.sin6_scope_id = ip->scope_id;
+		so_len = sizeof(u.sin6);
+	} else /* not an IP */
 		return "";
 
+	char *addr = t_malloc_no0(MAX_IP_LEN+1);
+	int ret;
+	if ((ret = getnameinfo(&u.sa, so_len, addr, MAX_IP_LEN+1, NULL, 0,
+			       NI_NUMERICHOST)) < 0) {
+		(void)net_handle_gai_error("getnameinfo", ret, TRUE);
+		return "";
+	}
 	return addr;
 }
 
