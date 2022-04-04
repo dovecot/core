@@ -773,14 +773,18 @@ doveadm_http_server_send_api_v1(struct client_request_http *req)
 	const struct doveadm_cmd_param *par;
 	unsigned int i, k;
 	string_t *tmp;
-	bool sent;
+	bool sent, first_cmd = TRUE;
 
 	tmp = str_new(req->pool, 8);
 
 	o_stream_nsend_str(output,"[\n");
 	for (i = 0; i < array_count(&doveadm_cmds_ver2); i++) {
 		cmd = array_idx(&doveadm_cmds_ver2, i);
-		if (i > 0)
+		if ((cmd->flags & CMD_FLAG_HIDDEN) != 0)
+			continue;
+		if (first_cmd)
+			first_cmd = FALSE;
+		else
 			o_stream_nsend_str(output, ",\n");
 		o_stream_nsend_str(output, "\t{\"command\":\"");
 		json_append_escaped(tmp, cmd->name);

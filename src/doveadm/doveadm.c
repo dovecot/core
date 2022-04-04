@@ -121,8 +121,10 @@ usage_prefix(const char *prefix)
 		fprintf(stderr, "%s ", prefix);
 	fprintf(stderr, "<command> [<args>]\n");
 
-	array_foreach(&doveadm_cmds_ver2, cmd2)
-		str_printfa(str, "%s\t%s\n", cmd2->name, cmd2->usage);
+	array_foreach(&doveadm_cmds_ver2, cmd2) {
+		if ((cmd2->flags & CMD_FLAG_HIDDEN) == 0)
+			str_printfa(str, "%s\t%s\n", cmd2->name, cmd2->usage);
+	}
 
 	doveadm_usage_compress_lines(stderr, str_c(str), prefix);
 
