@@ -177,8 +177,10 @@ proxy_send_xclient(struct submission_client *client, struct ostream *output)
 			t_strdup_printf("%u", client->common.remote_port));
 	}
 	if (str_array_icase_find(client->proxy_xclient, "ADDR")) {
-		proxy_send_xclient_more(client, output, str, "ADDR",
-					net_ip2addr(&client->common.ip));
+		const char *addr = net_ip2addr(&client->common.ip);
+		if (client->common.ip.family == AF_INET6)
+			addr = t_strconcat("IPV6:", addr, NULL);
+		proxy_send_xclient_more(client, output, str, "ADDR", addr);
 	}
 	if (str_array_icase_find(client->proxy_xclient, "SESSION")) {
 		proxy_send_xclient_more(client, output, str, "SESSION",
