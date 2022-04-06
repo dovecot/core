@@ -595,9 +595,9 @@ static void test_read_garbage(void)
 	test_begin("test_read_garbage");
 	unsigned char buf[512];
 	for (int i = 0; i < 5; i++) {
+		random_fill(buf, sizeof(buf));
 		memcpy(buf, IOSTREAM_CRYPT_MAGIC, sizeof(IOSTREAM_CRYPT_MAGIC));
 		buf[sizeof(IOSTREAM_CRYPT_MAGIC)+1] = '\x02';
-		random_fill(buf + 10, sizeof(buf) - 10);
 		struct istream *is = test_istream_create_data(buf, sizeof(buf));
 		struct istream *ds = i_stream_create_decrypt_callback(is,
 					no_op_cb, NULL);
