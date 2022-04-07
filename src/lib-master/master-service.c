@@ -1473,6 +1473,7 @@ static void master_service_free(struct master_service *service)
 	i_free(service->name);
 	i_free(service->config_path);
 	i_free(service->current_user);
+	i_free(service->last_kick_signal_user);
 	i_free(service);
 }
 
