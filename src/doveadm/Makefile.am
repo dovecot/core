@@ -176,10 +176,6 @@ noinst_HEADERS = \
 	client-connection-private.h \
 	doveadm-who.h
 
-install-exec-local:
-	rm -f $(DESTDIR)$(bindir)/dsync
-	$(LN_S) doveadm $(DESTDIR)$(bindir)/dsync
-
 test_programs = \
 	test-doveadm-util
 noinst_PROGRAMS = $(test_programs)
