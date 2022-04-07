@@ -937,12 +937,6 @@ static bool net_addr2ip_inet4_fast(const char *addr, struct ip_addr *ip)
 
 	if (str_parse_uint(addr, &num, &addr) < 0)
 		return FALSE;
-	if (*addr == '\0' && num <= 0xffffffff) {
-		/* single-number IPv4 address */
-		ip->u.ip4.s_addr = htonl(num);
-		ip->family = AF_INET;
-		return TRUE;
-	}
 
 	/* try to parse as a.b.c.d */
 	i = 0;
