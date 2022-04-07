@@ -1,9 +1,9 @@
 .\" Copyright (c) 2014-2018 Dovecot authors, see the included COPYING file
 .TH DOVEADM\-SYNC 1 "2015-08-31" "Dovecot v2.3" "Dovecot"
 .SH NAME
-doveadm\-sync \- Dovecot\(aqs two\-way mailbox synchronization utility
+doveadm\-sync \- Dovecot\(aqs two\-way mailbox synchronization feature
 .br
-doveadm\-backup \- Dovecot\(aqs one\-way mailbox synchronization utility
+doveadm\-backup \- Dovecot\(aqs one\-way mailbox synchronization feature
 .\"------------------------------------------------------------------------
 .SH SYNOPSIS
 .BR doveadm " [" \-Dv "] " sync
@@ -46,7 +46,7 @@ doveadm\-backup \- Dovecot\(aqs one\-way mailbox synchronization utility
 \fB\-d\fP|\fIdestination\fP
 .\"------------------------------------------------------------------------
 .SH DESCRIPTION
-dsync is Dovecot\(aqs mailbox synchronization utility.
+dsync (short for doveadm sync) is Dovecot\(aqs mailbox synchronization feature.
 It can be used for several different use cases: Two\-way synchronization of
 mailboxes, creating backups of mails, and convert mailboxes from/to
 different mailbox formats.
