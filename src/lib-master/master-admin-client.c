@@ -9,6 +9,7 @@
 
 struct master_admin_client {
 	struct connection conn;
+	int refcount;
 
 	struct ioloop *wait_ioloop;
 	bool reply_pending;
@@ -16,6 +17,23 @@ struct master_admin_client {
 
 static struct connection_list *master_admin_clients = NULL;
 static struct master_admin_client_callback master_admin_client_callbacks;
+
+static void master_admin_client_ref(struct master_admin_client *client)
+{
+	i_assert(client->refcount > 0);
+	client->refcount++;
+}
+
+static void master_admin_client_unref(struct master_admin_client **_client)
+{
+	struct master_admin_client *client = *_client;
+
+	i_assert(client->refcount > 0);
+	*_client = NULL;
+
+	if (--client->refcount == 0)
+		i_free(client);
+}
 
 static void
 cmd_kick_user(struct master_admin_client *client, const char *const *args)
@@ -56,6 +74,8 @@ cmd_kick_user_signal(struct master_admin_client *client,
 	   the signal. */
 	master_service_set_last_kick_signal_user(master_service, user);
 	/* Don't send a response back, just like the signal handler won't. */
+	client->reply_pending = FALSE;
+	master_admin_client_unref(&client);
 }
 
 static int
@@ -80,7 +100,10 @@ master_admin_client_input_args(struct connection *conn, const char *const *args)
 		io_loop_stop(client->wait_ioloop);
 	}
 
+	/* Delay freeing the client until reply is sent */
+	master_admin_client_ref(client);
 	client->reply_pending = TRUE;
+
 	if (strcmp(cmd, "KICK-USER") == 0 &&
 	    master_admin_client_callbacks.cmd_kick_user != NULL)
 		cmd_kick_user(client, args);
@@ -91,6 +114,7 @@ master_admin_client_input_args(struct connection *conn, const char *const *args)
 		   !master_admin_client_callbacks.cmd(client, cmd, args)) {
 		client->reply_pending = FALSE;
 		o_stream_nsend_str(conn->output, "-Unknown command\n");
+		master_admin_client_unref(&client);
 	}
 	return 1;
 }
@@ -110,7 +134,7 @@ void master_admin_client_send_reply(struct master_admin_client *client,
 		connection_input_resume(&client->conn);
 	} else {
 		/* client already disconnected */
-		i_free(client);
+		master_admin_client_unref(&client);
 	}
 }
 
@@ -120,9 +144,7 @@ static void master_admin_client_destroy(struct connection *conn)
 		container_of(conn, struct master_admin_client, conn);
 
 	connection_deinit(conn);
-        /* if reply is pending, delay freeing the client until reply is sent */
-	if (!client->reply_pending)
-		i_free(client);
+	master_admin_client_unref(&client);
 }
 
 static const struct connection_settings master_admin_conn_set = {
@@ -167,6 +189,7 @@ void master_admin_client_create(struct master_service_connection *master_conn)
 	}
 
 	client = i_new(struct master_admin_client, 1);
+	client->refcount = 1;
 	connection_init_server(master_admin_clients, &client->conn, master_conn->name,
 			       master_conn->fd, master_conn->fd);
 	if (master_service_get_client_limit(master_service) == 1) {
@@ -175,7 +198,9 @@ void master_admin_client_create(struct master_service_connection *master_conn)
 		   blocking the SIGTERM, so try for a while to read the command
 		   here. This way the command can be handled more reliably
 		   instead of SIGTERM interrupting its handling too early. */
+		master_admin_client_ref(client);
 		master_admin_client_initial_read(client);
+		master_admin_client_unref(&client);
 	}
 }
 
