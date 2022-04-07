@@ -145,8 +145,7 @@ Quota configuration.
 .SH SEE ALSO
 .BR doveadm (1),
 .BR dovecot (1),
-.BR doveconf (1),
-.BR dsync (1)
+.BR doveconf (1)
 .PP
 Related MTA specific documentation:
 .\"-------------------------------------

@@ -8,8 +8,7 @@ dist_man1_MANS = \
 	doveadm-config.1 \
 	doveadm-copy.1 \
 	doveadm-reload.1 \
-	doveadm-stop.1 \
-	dsync.1
+	doveadm-stop.1
 
 dist_man7_MANS = \
 	doveadm-search-query.7

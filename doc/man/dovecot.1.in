@@ -163,5 +163,4 @@ licenses, see <http://dovecot.org/doc/COPYING> for details.
 .SH SEE ALSO
 .BR doveadm (1),
 .BR doveconf (1),
-.BR dovecot\-lda (1),
-.BR dsync (1)
+.BR dovecot\-lda (1)

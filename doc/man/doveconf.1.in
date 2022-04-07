@@ -216,5 +216,4 @@ dict/quota_clone = pgsql:@pkgsysconfdir@/dovecot\-dict\-sql.conf.ext
 .SH SEE ALSO
 .BR doveadm (1),
 .BR dovecot (1),
-.BR dovecot\-lda (1),
-.BR dsync (1)
+.BR dovecot\-lda (1)
