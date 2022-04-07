@@ -204,6 +204,16 @@ client_alloc(int fd, pool_t pool,
 	client->real_remote_ip = conn->real_remote_ip;
 	client->real_remote_port = conn->real_remote_port;
 	client->listener_name = p_strdup(client->pool, conn->name);
+	/* This event must exist before client_is_trusted() is called */
+	client->event = event_create(NULL);
+	event_add_category(client->event, &login_binary->event_category);
+	event_add_str(client->event, "local_ip", net_ip2addr(&conn->local_ip));
+	event_add_int(client->event, "local_port", conn->local_port);
+	event_add_str(client->event, "remote_ip", net_ip2addr(&conn->remote_ip));
+	event_add_int(client->event, "remote_port", conn->remote_port);
+	event_add_str(client->event, "service", login_binary->protocol);
+	event_set_log_message_callback(client->event, client_log_msg_callback,
+				       client);
 	client->trusted = client_is_trusted(client);
 
 	if (conn->proxied) {
@@ -218,15 +228,6 @@ client_alloc(int fd, pool_t pool,
 	}
 	client->proxy_ttl = LOGIN_PROXY_TTL;
 
-	client->event = event_create(NULL);
-	event_add_category(client->event, &login_binary->event_category);
-	event_add_str(client->event, "local_ip", net_ip2addr(&conn->local_ip));
-	event_add_int(client->event, "local_port", conn->local_port);
-	event_add_str(client->event, "remote_ip", net_ip2addr(&conn->remote_ip));
-	event_add_int(client->event, "remote_port", conn->remote_port);
-	event_add_str(client->event, "service", login_binary->protocol);
-	event_set_log_message_callback(client->event, client_log_msg_callback,
-				       client);
 
 	client_open_streams(client);
 	return client;
