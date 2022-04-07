@@ -268,7 +268,6 @@ int main(int argc, char *argv[])
 	cctx.conn_type = DOVEADM_CONNECTION_TYPE_CLI;
 
 	i_set_failure_exit_callback(failure_exit_callback);
-	doveadm_dsync_main(&argc, &argv);
 
 	/* "+" is GNU extension to stop at the first non-option.
 	   others just accept -+ option. */
