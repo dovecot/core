@@ -91,6 +91,16 @@ bool mail_index_have_modseq_tracking(struct mail_index *index)
 	return mail_index_map_get_modseq_header(index->map) != NULL;
 }
 
+void mail_index_modseq_hdr_snapshot_update(struct mail_index_map *map)
+{
+	const struct mail_index_modseq_header *hdr =
+		mail_index_map_get_modseq_header(map);
+	if (hdr != NULL)
+		map->modseq_hdr_snapshot = *hdr;
+	else
+		i_zero(&map->modseq_hdr_snapshot);
+}
+
 const struct mail_index_modseq_header *
 mail_index_map_get_modseq_header(struct mail_index_map *map)
 {

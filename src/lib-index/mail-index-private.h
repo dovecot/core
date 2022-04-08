@@ -113,6 +113,14 @@ struct mail_index_registered_ext {
 	mail_index_expunge_handler_t *expunge_handler;
 };
 
+struct mail_index_modseq_header {
+	/* highest used modseq */
+	uint64_t highest_modseq;
+	/* last tracked log file position */
+	uint32_t log_seq;
+	uint32_t log_offset;
+};
+
 struct mail_index_record_map {
 	ARRAY(struct mail_index_map *) maps;
 
@@ -146,6 +154,8 @@ struct mail_index_map {
 	ARRAY(uint32_t) ext_id_map; /* index -> file */
 
 	ARRAY(unsigned int) keyword_idx_map; /* file -> index */
+
+	struct mail_index_modseq_header modseq_hdr_snapshot;
 
 	struct mail_index_record_map *rec_map;
 };
