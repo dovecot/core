@@ -74,12 +74,18 @@ static int mail_index_recreate(struct mail_index *index)
 	output = o_stream_create_fd_file(fd, 0, FALSE);
 	o_stream_cork(output);
 
-	base_size = I_MIN(map->hdr.base_header_size, sizeof(map->hdr));
-	o_stream_nsend(output, &map->hdr, base_size);
+	struct mail_index_header hdr = map->hdr;
+	/* Write tail_offset the same as head_offset. This function must not
+	   be called unless it's safe to do this. See the explanations in
+	   mail_index_sync_commit(). */
+	hdr.log_file_tail_offset = hdr.log_file_head_offset;
+
+	base_size = I_MIN(hdr.base_header_size, sizeof(hdr));
+	o_stream_nsend(output, &hdr, base_size);
 	o_stream_nsend(output, MAIL_INDEX_MAP_HDR_OFFSET(map, base_size),
-		       map->hdr.header_size - base_size);
+		       hdr.header_size - base_size);
 	o_stream_nsend(output, map->rec_map->records,
-		       map->rec_map->records_count * map->hdr.record_size);
+		       map->rec_map->records_count * hdr.record_size);
 	if (o_stream_finish(output) < 0) {
 		mail_index_file_set_syscall_error(index, path, "write()");
 		ret = -1;
