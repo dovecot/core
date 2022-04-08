@@ -13,15 +13,12 @@ struct mail_index_modseq;
 struct mail_index_map_modseq;
 struct mail_index_sync_map_ctx;
 
-struct mail_index_modseq_header {
-	/* highest used modseq */
-	uint64_t highest_modseq;
-	/* last tracked log file position */
-	uint32_t log_seq;
-	uint32_t log_offset;
-};
-
 void mail_index_modseq_init(struct mail_index *index);
+
+/* Save a copy of the current modseq header to map->modseq_hdr_snapshot. This
+   is expected to be called when reading the dovecot.index header before any
+   changes are applied on top of it from dovecot.index.log. */
+void mail_index_modseq_hdr_snapshot_update(struct mail_index_map *map);
 
 const struct mail_index_modseq_header *
 mail_index_map_get_modseq_header(struct mail_index_map *map);

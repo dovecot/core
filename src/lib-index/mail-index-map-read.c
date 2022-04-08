@@ -8,6 +8,7 @@
 #include "mail-index-private.h"
 #include "mail-index-sync-private.h"
 #include "mail-transaction-log-private.h"
+#include "mail-index-modseq.h"
 #include "ioloop.h"
 
 static void mail_index_map_copy_hdr(struct mail_index_map *map,
@@ -393,6 +394,7 @@ mail_index_map_latest_file(struct mail_index *index, const char **reason_r)
 	index->main_index_hdr_log_file_seq = new_map->hdr.log_file_seq;
 	index->main_index_hdr_log_file_tail_offset =
 		new_map->hdr.log_file_tail_offset;
+	mail_index_modseq_hdr_snapshot_update(new_map);
 
 	mail_index_unmap(&index->map);
 	index->map = new_map;

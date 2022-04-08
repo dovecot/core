@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "mail-index-private.h"
+#include "mail-index-modseq.h"
 #include "mail-transaction-log-private.h"
 
 static struct modseq_cache *
@@ -133,6 +134,19 @@ int mail_transaction_log_file_get_highest_modseq_at(
 		/* use cache to skip over some records */
 		cur_offset = cache->offset;
 		cur_modseq = cache->highest_modseq;
+	}
+
+	/* See if we can use the "modseq" header in dovecot.index to further
+	   reduce how much we have to scan. */
+	const struct mail_index_modseq_header *modseq_hdr =
+		file->log->index->map == NULL ? NULL :
+		&file->log->index->map->modseq_hdr_snapshot;
+	if (modseq_hdr != NULL &&
+	    modseq_hdr->log_seq == file->hdr.file_seq &&
+	    modseq_hdr->log_offset <= offset &&
+	    modseq_hdr->log_offset >= cur_offset) {
+		cur_offset = modseq_hdr->log_offset;
+		cur_modseq = modseq_hdr->highest_modseq;
 	}
 
 	ret = mail_transaction_log_file_map(file, cur_offset, offset, &reason);
