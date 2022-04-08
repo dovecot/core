@@ -170,7 +170,7 @@ select_parse_options(struct imap_select_context *ctx,
 				return FALSE;
 			args++;
 		} else {
-			*error_r = "Unknown FETCH modifier";
+			*error_r = "Unknown SELECT option";
 			return FALSE;
 		}
 	}
