@@ -183,13 +183,7 @@ bool openssl_cert_match_name(SSL *ssl, const char *verify_name,
 	gnames = X509_get_ext_d2i(cert, NID_subject_alt_name, NULL, NULL);
 	count = gnames == NULL ? 0 : sk_GENERAL_NAME_num(gnames);
 
-	i_zero(&ip);
-	/* try to convert verify_name to IP */
-	if (inet_pton(AF_INET6, verify_name, &ip.u.ip6) == 1)
-		ip.family = AF_INET6;
-	else if (inet_pton(AF_INET, verify_name, &ip.u.ip4) == 1)
-		ip.family = AF_INET;
-	else
+	if (net_addr2ip(verify_name, &ip) < 0)
 		i_zero(&ip);
 
 	for (i = 0; i < count; i++) {
