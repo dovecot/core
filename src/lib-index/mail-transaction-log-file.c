@@ -1188,8 +1188,8 @@ mail_transaction_log_file_sync(struct mail_transaction_log_file *file,
 				       file->buffer_offset);
 		trans_size = mail_index_offset_to_uint32(hdr->size);
 		if (trans_size == 0) {
-			/* unfinished */
-			return 1;
+			/* unfinished or corrupted */
+			break;
 		}
 		if (trans_size < sizeof(*hdr)) {
 			*reason_r = t_strdup_printf(
