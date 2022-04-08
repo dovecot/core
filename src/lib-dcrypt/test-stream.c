@@ -603,7 +603,8 @@ static void test_read_garbage(void)
 					no_op_cb, NULL);
 		i_stream_unref(&is);
 		test_assert(i_stream_read(ds) == -1);
-		test_assert(ds->stream_errno == EIO);
+		test_assert(ds->stream_errno == EIO ||
+			    ds->stream_errno == EPIPE);
 		i_stream_unref(&ds);
 	}
 	test_end();
