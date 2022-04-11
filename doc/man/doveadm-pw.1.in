@@ -108,8 +108,9 @@ Supported encoding suffixes are:
 .BR .base64\  and
 .BR .hex .
 .br
-See also http://wiki2.dovecot.org/Authentication/PasswordSchemes for more
-details about password schemes.
+See also
+https://doc.dovecot.org/configuration_manual/authentication/password_schemes/
+for more details about password schemes.
 .\"-------------------------------------
 .TP
 .BI \-t\  hash
@@ -134,7 +135,7 @@ is used, also the
 .I user
 name must be given, because the user name is a part of the generated hash.
 For more information about Digest\-MD5 please read also:
-http://wiki2.dovecot.org/Authentication/Mechanisms/DigestMD5
+https://doc.dovecot.org/configuration_manual/authentication/digest-md5/
 .\"-------------------------------------
 .TP
 .B \-V

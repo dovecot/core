@@ -914,17 +914,16 @@ mail_storage_service_time_moved(const struct timeval *old_time,
 	}
 	diff = -diff;
 
+	const char *doc_ref = "https://doc.dovecot.org/admin_manual/errors/time_moved_backwards/";
 	if ((diff / 1000) > MAX_TIME_BACKWARDS_SLEEP_MSECS) {
 		i_fatal("Time just moved backwards by %lld.%06lld seconds. "
 			"This might cause a lot of problems, "
-			"so I'll just kill myself now. "
-			"http://wiki2.dovecot.org/TimeMovedBackwards",
-			diff / 1000000, diff % 1000000);
+			"so I'll just kill myself now. %s",
+			diff / 1000000, diff % 1000000, doc_ref);
 	} else {
 		i_error("Time just moved backwards by %lld.%06lld seconds. "
-			"I'll sleep now until we're back in present. "
-			"http://wiki2.dovecot.org/TimeMovedBackwards",
-			diff / 1000000, diff % 1000000);
+			"I'll sleep now until we're back in present. %s",
+			diff / 1000000, diff % 1000000, doc_ref);
 
 		i_sleep_usecs(diff);
 	}

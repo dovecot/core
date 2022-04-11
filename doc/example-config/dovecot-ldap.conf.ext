@@ -3,7 +3,7 @@
 
 # This file is opened as root, so it should be owned by root and mode 0600.
 #
-# http://wiki2.dovecot.org/AuthDatabase/LDAP
+# https://doc.dovecot.org/configuration_manual/authentication/ldap/
 #
 # NOTE: If you're not using authentication binds, you'll need to give
 # dovecot-auth read access to userPassword field in the LDAP server.
@@ -105,11 +105,12 @@ base =
 #   mail - Mail location
 #
 # There are also other special fields which can be returned, see
-# http://wiki2.dovecot.org/UserDatabase/ExtraFields
+# https://doc.dovecot.org/configuration_manual/authentication/user_database_extra_fields/
 #user_attrs = homeDirectory=home,uidNumber=uid,gidNumber=gid
 
 # Filter for user lookup. Some variables can be used (see
-# http://wiki2.dovecot.org/Variables for full list):
+# https://doc.dovecot.org/configuration_manual/config_file/config_variables/
+# for full list):
 #   %u - username
 #   %n - user part in user@domain, same as %u if there's no domain
 #   %d - domain part in user@domain, empty if user there's no domain
@@ -120,7 +121,7 @@ base =
 #        user-given username to something else
 #  password: Password, may optionally start with {type}, eg. {crypt}
 # There are also other special fields which can be returned, see
-# http://wiki2.dovecot.org/PasswordDatabase/ExtraFields
+# https://doc.dovecot.org/configuration_manual/authentication/password_database_extra_fields/
 #pass_attrs = uid=user,userPassword=password
 
 # If you wish to avoid two LDAP lookups (passdb + userdb), you can use
@@ -138,7 +139,8 @@ base =
 #iterate_filter = (objectClass=posixAccount)
 
 # Default password scheme. "{scheme}" before password overrides this.
-# List of supported schemes is in: http://wiki2.dovecot.org/Authentication
+# List of supported schemes is in:
+# https://doc.dovecot.org/configuration_manual/authentication/
 #default_pass_scheme = CRYPT
 
 # By default all LDAP lookups are performed by the auth master process.

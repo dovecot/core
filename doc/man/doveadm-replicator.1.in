@@ -120,4 +120,4 @@ Show the replication status for users.
 .PP
 Additional resources:
 .IP "Replication with dsync"
-http://wiki2.dovecot.org/Replication
+https://doc.dovecot.org/configuration_manual/replication/

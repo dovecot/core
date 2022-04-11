@@ -229,7 +229,7 @@ void master_auth_request_full(struct master_auth *auth,
 	if (conn->fd == -1) {
 		conn_error(conn, "net_connect_unix(%s) failed: %m%s",
 			conn->path, errno != EAGAIN ? "" :
-			" - http://wiki2.dovecot.org/SocketUnavailable");
+			" - https://doc.dovecot.org/admin_manual/errors/socket_unavailable/");
 		master_auth_connection_deinit(&conn);
 		return;
 	}

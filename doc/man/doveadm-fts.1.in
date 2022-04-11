@@ -77,4 +77,4 @@ FTS indexes. This may change in the future versions.
 .PP
 Additional resources:
 .IP "Full text search indexing"
-http://wiki2.dovecot.org/Plugins/FTS
+https://doc.dovecot.org/configuration_manual/fts/

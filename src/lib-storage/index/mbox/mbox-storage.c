@@ -191,7 +191,7 @@ mbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	if (stat(ns->list->set.root_dir, &st) == 0 && !S_ISDIR(st.st_mode)) {
 		*error_r = t_strdup_printf(
 			"mbox root directory can't be a file: %s "
-			"(http://wiki2.dovecot.org/MailLocation/Mbox)",
+			"(https://doc.dovecot.org/configuration_manual/mail_location/mbox/)",
 			ns->list->set.root_dir);
 		return -1;
 	}

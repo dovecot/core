@@ -67,5 +67,5 @@ Command specific
 .BR doveadm (1),
 .BR doveadm\-expunge (1)
 .PP
-See http://wiki2.dovecot.org/MailboxFormat/dbox#Multi\-dbox for some
+See https://doc.dovecot.org/admin_manual/mailbox_formats/dbox/ for some
 details.

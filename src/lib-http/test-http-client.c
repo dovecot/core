@@ -231,7 +231,7 @@ static void run_tests(struct http_client *http_client)
 
 	test_req = i_new(struct http_test_request, 1);
 	http_req = http_client_request(http_client,
-		"GET", "wiki2.dovecot.org", "/Pigeonhole",
+		"GET", "doc.dovecot.org", "/configuration_manual/sieve/",
 		got_request_response, test_req);
 	http_client_request_submit(http_req);
 

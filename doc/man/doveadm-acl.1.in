@@ -152,7 +152,7 @@ Mailboxes can be created/renamed directly under this
 .I mailbox
 (but not necessarily under its children, see
 .I ACL Inheritance
-in the wiki).
+at https://doc.dovecot.org/configuration_manual/acl/#acl-inheritance).
 .br
 Note: Renaming also requires the delete right.
 .\"-----------------
@@ -267,4 +267,4 @@ already exists, the existing rights are replaced.
 .PP
 Additional resources:
 .IP "ACL Inheritance"
-http://wiki2.dovecot.org/ACL#ACL_Inheritance
+https://doc.dovecot.org/configuration_manual/acl/#acl-inheritance

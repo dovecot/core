@@ -354,7 +354,7 @@ static int master_login_postlogin(struct master_login_client *client,
 	if (fd == -1) {
 		conn_error(client->conn, "net_connect_unix(%s) failed: %m%s",
 			   socket_path, errno != EAGAIN ? "" :
-			   " - http://wiki2.dovecot.org/SocketUnavailable");
+			   " - https://doc.dovecot.org/admin_manual/errors/socket_unavailable/");
 		return -1;
 	}
 

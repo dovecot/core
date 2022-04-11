@@ -455,4 +455,4 @@ to mdbox and remove the per\-user mail locations from
 .PP
 Additional resources:
 .IP "dsync design"
-http://wiki2.dovecot.org/Design/Dsync
+https://doc.dovecot.org/developer_manual/design/dsync/
