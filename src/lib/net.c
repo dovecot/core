@@ -49,6 +49,38 @@ union sockaddr_union_unix {
    conflict. */
 #define MAX_CONNECT_RETRIES 20
 
+static int net_handle_gai_error(const char *function,
+				int gai_errno, bool log)
+{
+	if (gai_errno == 0)
+		return 0;
+	switch (gai_errno) {
+	/* errors that are not logged */
+#ifdef EAI_ADDRFAMILY
+	case EAI_ADDRFAMILY:
+#endif
+	case EAI_FAMILY:
+#ifdef EAI_NODATA
+	case EAI_NODATA:
+#endif
+	case EAI_NONAME:
+		break;
+	case EAI_MEMORY:
+		i_fatal_status(FATAL_OUTOFMEM, "%s() failed: %s",
+			       function, gai_strerror(gai_errno));
+	case EAI_SYSTEM:
+		if (log)
+			i_error("%s() failed: %m", function);
+		break;
+	default:
+		if (log)
+			i_error("%s() failed: %s", function,
+				gai_strerror(gai_errno));
+		break;
+	}
+	return gai_errno;
+}
+
 bool net_ip_compare(const struct ip_addr *ip1, const struct ip_addr *ip2)
 {
 	return net_ip_cmp(ip1, ip2) == 0;
@@ -663,7 +695,7 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips,
 
 	/* save error to host_error for later use */
 	host_error = getaddrinfo(addr, NULL, &hints, &ai);
-	if (host_error != 0)
+	if (net_handle_gai_error("getaddrinfo", host_error, FALSE) != 0)
 		return host_error;
 
         /* get number of IPs */
@@ -696,7 +728,7 @@ int net_gethostbyaddr(const struct ip_addr *ip, const char **name_r)
 	sin_set_ip(&so, ip);
 	ret = getnameinfo(&so.sa, addrlen, hbuf, sizeof(hbuf), NULL, 0,
 			  NI_NAMEREQD);
-	if (ret != 0)
+	if (net_handle_gai_error("getnameinfo", ret, FALSE) != 0)
 		return ret;
 
 	*name_r = t_strdup(hbuf);
