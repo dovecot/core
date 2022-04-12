@@ -1,12 +1,10 @@
 #ifndef NET_H
 #define NET_H
 
-#ifndef WIN32
-#  include <sys/socket.h>
-#  include <netinet/in.h>
-#  include <netdb.h>
-#  include <arpa/inet.h>
-#endif
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 
 #ifdef HAVE_SOCKS_H
 #include <socks.h>
