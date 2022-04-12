@@ -621,12 +621,7 @@ uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 	/* "[" already verified */
 
 	/* Scan for end of address */
-	for (p = parser->cur+1; p < parser->end; p++) {
-		if (*p == ']')
-			break;
-	}
-
-	if (p >= parser->end || *p != ']') {
+	if ((p = memchr(parser->cur+1, ']', parser->end - parser->cur)) == NULL) {
 		parser->error = "Expecting ']' at end of IP-literal";
 		return -1;
 	}
