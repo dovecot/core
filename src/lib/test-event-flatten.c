@@ -355,7 +355,7 @@ static void test_event_strlist_flatten(void)
 	event_export(event, dest);
 	/* see if it matches .. */
 	const char *reference = t_strdup_printf("%"PRIdTIME_T"\t%u"
-						"\tstest-event-flatten.c"
+						"\ts"__FILE__
 						"\t%u\tLtest\t3\tl3\tl1\tl2",
 					event->tv_created.tv_sec,
 					(unsigned int)event->tv_created.tv_usec,
