@@ -292,7 +292,6 @@ int smtp_parser_parse_address_literal(struct smtp_parser *parser,
 {
 	const unsigned char *pblock;
 	struct in_addr ip4;
-	struct in6_addr ip6;
 	bool ipv6 = FALSE;
 	string_t *value = NULL, *tagbuf;
 	int ret;
@@ -379,16 +378,14 @@ int smtp_parser_parse_address_literal(struct smtp_parser *parser,
 			str_append_data(value, pblock, parser->cur - pblock);
 
 		if (ipv6) {
-			i_zero(&ip6);
-			if (inet_pton(AF_INET6, t_strndup(pblock,
-				parser->cur - pblock), &ip6) <= 0) {
+			struct ip_addr ip;
+			if (net_addr2ip(t_strndup(pblock, parser->cur - pblock),
+					&ip) < 0) {
 				parser->error = "Invalid IPv6 address literal";
 				return -1;
 			}
-			if (ip_r != NULL) {
-				ip_r->family = AF_INET6;
-				ip_r->u.ip6 = ip6;
-			}
+			if (ip_r != NULL)
+				*ip_r = ip;
 		}
 	}
 
