@@ -611,7 +611,7 @@ uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 {
 	const unsigned char *p;
 	const char *address;
-	struct in6_addr ip6;
+	struct ip_addr ip6;
 
 	/* IP-literal    = "[" ( IPv6address / IPvFuture  ) "]"
 	   IPvFuture     = "v" 1*HEXDIG "." 1*( unreserved / sub-delims / ":" )
@@ -646,14 +646,14 @@ uri_parse_ip_literal(struct uri_parser *parser, string_t *literal,
 			"Future IP host address '%s' not supported", address);
 		return -1;
 	}
-	if (inet_pton(AF_INET6, address, &ip6) <= 0) {
+	if (net_addr2ip(address, &ip6) < 0) {
 		parser->error = p_strdup_printf(
 			parser->pool, "Invalid IPv6 host address '%s'",
 			address);
 		return -1;
 	}
 	if (ip6_r != NULL)
-		*ip6_r = ip6;
+		*ip6_r = ip6.u.ip6;
 	return 1;
 }
 
