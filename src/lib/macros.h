@@ -43,17 +43,8 @@
 #define POINTER_CAST_TO(p, type) \
 	((type)(uintptr_t)(p))
 
-/* Define VA_COPY() to do the right thing for copying va_list variables.
-   config.h may have already defined VA_COPY as va_copy or __va_copy. */
 #ifndef VA_COPY
-#  if defined (__GNUC__) && defined (__PPC__) && \
-      (defined (_CALL_SYSV) || defined (_WIN32))
-#    define VA_COPY(ap1, ap2) (*(ap1) = *(ap2))
-#  elif defined (VA_COPY_AS_ARRAY)
-#    define VA_COPY(ap1, ap2) memmove ((ap1), (ap2), sizeof (va_list))
-#  else /* va_list is a pointer */
-#    define VA_COPY(ap1, ap2) ((ap1) = (ap2))
-#  endif /* va_list is a pointer */
+   #error "VA_COPY not defined"
 #endif
 
 /* Provide convenience macros for handling structure
