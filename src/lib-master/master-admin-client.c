@@ -134,8 +134,8 @@ void master_admin_client_send_reply(struct master_admin_client *client,
 		connection_input_resume(&client->conn);
 	} else {
 		/* client already disconnected */
-		master_admin_client_unref(&client);
 	}
+	master_admin_client_unref(&client);
 }
 
 static void master_admin_client_destroy(struct connection *conn)
