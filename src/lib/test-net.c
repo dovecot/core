@@ -98,7 +98,30 @@ static void test_net_str2hostport(void)
 	in_port_t port;
 
 	test_begin("net_str2hostport()");
+	/* IPv4  */
+	test_assert(net_str2hostport("127.0.0.1", 0, &host, &port) == 0 &&
+		    strcmp(host, "127.0.0.1") == 0 && port == 0);
+	test_assert(net_str2hostport("127.0.0.1", 143, &host, &port) == 0 &&
+		    strcmp(host, "127.0.0.1") == 0 && port == 143);
+	test_assert(net_str2hostport("127.0.0.1:993", 143, &host, &port) == 0 &&
+		    strcmp(host, "127.0.0.1") == 0 && port == 993);
+	test_assert(net_str2hostport("127.0.0.1:143", 0, &host, &port) == 0 &&
+		    strcmp(host, "127.0.0.1") == 0 && port == 143);
+	test_assert(net_str2hostport("*", 0, &host, &port) == 0 &&
+		    strcmp(host, "*") == 0 && port == 0);
+	test_assert(net_str2hostport("*:143", 0, &host, &port) == 0 &&
+		    strcmp(host, "*") == 0 && port == 143);
 	/* [IPv6] */
+	test_assert(net_str2hostport("::", 0, &host, &port) == 0 &&
+		    strcmp(host, "::") == 0 && port == 0);
+	test_assert(net_str2hostport("[::]", 0, &host, &port) == 0 &&
+		    strcmp(host, "::") == 0 && port == 0);
+	test_assert(net_str2hostport("[::]:143", 0, &host, &port) == 0 &&
+		    strcmp(host, "::") == 0 && port == 143);
+	test_assert(net_str2hostport("[::]", 143, &host, &port) == 0 &&
+		    strcmp(host, "::") == 0 && port == 143);
+	test_assert(net_str2hostport("[::]:993", 143, &host, &port) == 0 &&
+		    strcmp(host, "::") == 0 && port == 993);
 	test_assert(net_str2hostport("[1::4]", 0, &host, &port) == 0 &&
 		    strcmp(host, "1::4") == 0 && port == 0);
 	test_assert(net_str2hostport("[1::4]", 1234, &host, &port) == 0 &&
