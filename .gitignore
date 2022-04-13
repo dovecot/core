@@ -62,6 +62,10 @@ src/**/test-*
 !src/**/test-*.h
 !src/**/test-*.inc
 
+doc/venv
+doc/documentation*
+doc/html
+
 doc/man/doveadm-acl.1
 doc/man/doveadm-altmove.1
 doc/man/doveadm-auth.1

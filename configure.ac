@@ -243,6 +243,8 @@ DOVECOT_WANT_SYSTEMD
 dovecot_moduledir="$libdir/dovecot"
 DC_DOVECOT_MODULEDIR
 
+DOVECOT_CHECK_PYTHON_VENV
+
 AC_ARG_WITH(docs,
 AS_HELP_STRING([--with-docs], [Install documentation (default)]),
 	if test x$withval = xno; then
