@@ -362,17 +362,16 @@ config_apply_auth_set(struct config_parser_context *ctx,
 static bool listen_has_port(const char *str)
 {
 	const char *const *addrs;
+	const char *host ATTR_UNUSED;
+	in_port_t port ATTR_UNUSED;
 
 	if (strchr(str, ':') == NULL)
 		return FALSE;
 
 	addrs = t_strsplit_spaces(str, ", ");
 	for (; *addrs != NULL; addrs++) {
-		if (strcmp(*addrs, "*") != 0 &&
-		    strcmp(*addrs, "::") != 0 &&
-		    strcmp(*addrs, "[::]") != 0 &&
-		    !is_ipv4_address(*addrs) &&
-		    !is_ipv6_address(*addrs))
+		if (net_str2hostport(*addrs, 0, &host, &port) == 0 &&
+		    port > 0)
 			return TRUE;
 	}
 	return FALSE;
