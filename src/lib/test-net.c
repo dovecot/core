@@ -186,10 +186,50 @@ static void test_net_unix_long_paths(void)
 	test_end();
 }
 
+static void test_net_addr2ip(void)
+{
+	const struct {
+		const char *addr;
+		bool valid;
+		sa_family_t af;
+	} test_cases[] = {
+		/* Potential IPv4 */
+		{ "127.0.0.1", TRUE, AF_INET },
+		{ "256.256.256.256", FALSE, AF_UNSPEC },
+		{ "1.2.3.4", TRUE, AF_INET },
+		{ "0.0.0.0", TRUE, AF_INET },
+		{ "1", TRUE, AF_INET },
+		{ "127.0.0.1:53", FALSE, AF_UNSPEC },
+		{ "16909060", TRUE, AF_INET },
+		/* Potential IPv6 */
+		{ "::1", TRUE, AF_INET6 },
+		{ "2001:6e8::1", TRUE, AF_INET6 },
+		{ "::ffff:1.2.3.4", TRUE, AF_INET6 },
+		{ "fe80:0:0:0:5054:ff:fe0a:fdb3", TRUE, AF_INET6 },
+		{ "fe80:0000:0000:0000:5054:00ff:fe0a:fdb3", TRUE, AF_INET6 },
+		{ "fe80::1%lo", TRUE, AF_INET6 },
+		{ "[fe80::1]", TRUE, AF_INET6 },
+		{ "[fe80::1]:80", FALSE, AF_UNSPEC },
+		/* garbages */
+		{ "hippo", FALSE, AF_UNSPEC },
+		{ "16:34", FALSE, AF_UNSPEC },
+	};
+	test_begin("net_addr2ip()");
+	for (size_t i = 0; i < N_ELEMENTS(test_cases); i++) {
+		struct ip_addr ip;
+		ip.family = AF_UNSPEC;
+		bool valid = net_addr2ip(test_cases[i].addr, &ip) == 0;
+		test_assert_idx(valid == test_cases[i].valid, i);
+		test_assert_idx(ip.family == test_cases[i].af, i);
+	}
+	test_end();
+}
+
 void test_net(void)
 {
 	test_net_is_in_network();
 	test_net_ip2addr();
+	test_net_addr2ip();
 	test_net_str2hostport();
 	test_net_unix_long_paths();
 }
