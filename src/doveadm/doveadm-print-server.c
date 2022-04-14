@@ -87,6 +87,7 @@ static void doveadm_print_server_flush(void)
 	o_stream_nsend(doveadm_print_ostream,
 		       str_data(ctx.str), str_len(ctx.str));
 	str_truncate(ctx.str, 0);
+	o_stream_uncork(doveadm_print_ostream);
 
 	if (o_stream_get_buffer_used_size(doveadm_print_ostream) < IO_BLOCK_SIZE ||
 	    doveadm_print_ostream->stream_errno != 0)
