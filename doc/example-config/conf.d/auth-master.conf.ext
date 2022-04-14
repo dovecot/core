@@ -2,7 +2,7 @@
 
 # By adding master=yes setting inside a passdb you make the passdb a list
 # of "master users", who can log in as anyone else.
-# <doc/wiki/Authentication.MasterUsers.txt>
+# https://doc.dovecot.org/configuration_manual/authentication/master_users/
 
 # Example master user passdb using passwd-file. You can use any passdb though.
 passdb {

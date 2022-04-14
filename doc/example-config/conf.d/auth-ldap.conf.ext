@@ -1,6 +1,6 @@
 # Authentication for LDAP users. Included from 10-auth.conf.
 #
-# <doc/wiki/AuthDatabase.LDAP.txt>
+# https://doc.dovecot.org/configuration_manual/authentication/ldap/
 
 passdb {
   driver = ldap
@@ -11,7 +11,7 @@ passdb {
 
 # "prefetch" user database means that the passdb already provided the
 # needed information and there's no need to do a separate userdb lookup.
-# <doc/wiki/UserDatabase.Prefetch.txt>
+# https://doc.dovecot.org/configuration_manual/authentication/prefetch_userdb/
 #userdb {
 #  driver = prefetch
 #}
@@ -26,7 +26,7 @@ userdb {
 
 # If you don't have any user-specific settings, you can avoid the userdb LDAP
 # lookup by using userdb static instead of userdb ldap, for example:
-# <doc/wiki/UserDatabase.Static.txt>
+# https://doc.dovecot.org/configuration_manual/authentication/static_user_database/
 #userdb {
   #driver = static
   #args = uid=vmail gid=vmail home=/var/vmail/%u

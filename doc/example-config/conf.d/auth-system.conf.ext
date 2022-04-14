@@ -1,12 +1,13 @@
 # Authentication for system users. Included from 10-auth.conf.
 #
-# <doc/wiki/PasswordDatabase.txt>
-# <doc/wiki/UserDatabase.txt>
+# https://doc.dovecot.org/configuration_manual/authentication/password_databases_passdb/
+# https://doc.dovecot.org/configuration_manual/authentication/user_databases_userdb/
 
 # PAM authentication. Preferred nowadays by most systems.
 # PAM is typically used with either userdb passwd or userdb static.
 # REMEMBER: You'll need /etc/pam.d/dovecot file created for PAM
-# authentication to actually work. <doc/wiki/PasswordDatabase.PAM.txt>
+# authentication to actually work.
+# https://doc.dovecot.org/configuration_manual/authentication/pam/
 passdb {
   driver = pam
   # [session=yes] [setcred=yes] [failure_show_msg=yes] [max_requests=<n>]
@@ -16,7 +17,8 @@ passdb {
 
 # System users (NSS, /etc/passwd, or similar).
 # In many systems nowadays this uses Name Service Switch, which is
-# configured in /etc/nsswitch.conf. <doc/wiki/AuthDatabase.Passwd.txt>
+# configured in /etc/nsswitch.conf.
+# https://doc.dovecot.org/configuration_manual/authentication/passwd/
 #passdb {
   #driver = passwd
   # [blocking=no]
@@ -24,7 +26,7 @@ passdb {
 #}
 
 # PAM-like authentication for OpenBSD.
-# <doc/wiki/PasswordDatabase.BSDAuth.txt>
+# https://doc.dovecot.org/configuration_manual/authentication/bsdauth/
 #passdb {
   #driver = bsdauth
   # [blocking=no] [cache_key=<key>]
@@ -38,7 +40,7 @@ passdb {
 # System users (NSS, /etc/passwd, or similar). In many systems nowadays this
 # uses Name Service Switch, which is configured in /etc/nsswitch.conf.
 userdb {
-  # <doc/wiki/AuthDatabase.Passwd.txt>
+  # https://doc.dovecot.org/configuration_manual/authentication/passwd/
   driver = passwd
   # [blocking=no]
   #args = 
@@ -47,7 +49,8 @@ userdb {
   #override_fields = home=/home/virtual/%u
 }
 
-# Static settings generated from template <doc/wiki/UserDatabase.Static.txt>
+# Static settings generated from template
+# https://doc.dovecot.org/configuration_manual/authentication/static_user_database/
 #userdb {
   #driver = static
   # Can return anything a userdb could normally return. For example:

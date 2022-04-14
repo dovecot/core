@@ -1,7 +1,7 @@
 # Authentication for passwd-file users. Included from 10-auth.conf.
 #
 # passwd-like file with specified location.
-# <doc/wiki/AuthDatabase.PasswdFile.txt>
+# https://doc.dovecot.org/configuration_manual/authentication/passwd_file/
 
 passdb {
   driver = passwd-file

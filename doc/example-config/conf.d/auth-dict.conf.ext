@@ -1,6 +1,6 @@
 # Authentication via dict backend. Included from 10-auth.conf.
 #
-# <doc/wiki/AuthDatabase.Dict.txt>
+# https://doc.dovecot.org/configuration_manual/authentication/dict/
 
 passdb {
   driver = dict
