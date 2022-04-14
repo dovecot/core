@@ -19,6 +19,8 @@ struct service_process {
 	   smaller than the correct value. */
 	unsigned int total_count;
 
+	/* Timestamp when the process was created */
+	time_t create_time;
 	/* time when process started idling, or 0 if we're not idling */
 	time_t idle_start;
 	/* kill process if it hits idle timeout */

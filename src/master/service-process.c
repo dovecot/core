@@ -407,6 +407,7 @@ struct service_process *service_process_create(struct service *service)
 	process->refcount = 1;
 	process->pid = pid;
 	process->uid = uid;
+	process->create_time = ioloop_time;
 	if (process_forked) {
 		process->to_status =
 			timeout_add(SERVICE_FIRST_STATUS_TIMEOUT_SECS * 1000,
