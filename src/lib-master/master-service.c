@@ -868,6 +868,17 @@ static void master_status_error(struct master_service *service)
 	master_service_error(service);
 }
 
+static void master_status_update_wait(struct master_service *service)
+{
+	struct ioloop *ioloop = io_loop_create();
+	service->io_status_waiting = TRUE;
+	service->io_status_write = io_loop_move_io(&service->io_status_write);
+	while (service->io_status_write != NULL)
+		io_loop_run(ioloop);
+	service->io_status_waiting = FALSE;
+	io_loop_destroy(&ioloop);
+}
+
 void master_service_init_finish(struct master_service *service)
 {
 	struct stat st;
@@ -921,6 +932,8 @@ void master_service_init_finish(struct master_service *service)
 		service->master_status.available_count--;
 	}
 	master_status_update(service);
+	if (service->io_status_write != NULL)
+		master_status_update_wait(service);
 
 	/* close data stack frame opened by master_service_init() */
 	if ((service->flags & MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME) == 0) {
@@ -1808,6 +1821,13 @@ master_status_send(struct master_service *service, bool important_update)
 				io_add(MASTER_STATUS_FD, IO_WRITE,
 				       master_status_update, service);
 		}
+	}
+	if (service->io_status_waiting &&
+	    service->io_status_write == NULL) {
+		/* Waiting in an inner ioloop in master_status_update_wait()
+		   for the status write to finish (succeed or permanently
+		   fail) */
+		io_loop_stop(current_ioloop);
 	}
 }
 

@@ -98,6 +98,7 @@ struct master_service {
 	bool log_initialized:1;
 	bool init_finished:1;
 	bool killed_signal_logged:1;
+	bool io_status_waiting:1;
 };
 
 void master_service_io_listeners_add(struct master_service *service);
