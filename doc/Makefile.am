@@ -1,11 +1,9 @@
 extra_dist_extra =
 
 SUBDIRS = man example-config
-DOCDIRS = wiki example-config
+DOCDIRS = example-config
 
 docfiles = \
-	documentation.txt \
-	securecoding.txt \
 	thread-refs.txt \
 	mkcert.sh \
 	dovecot-openssl.cnf \

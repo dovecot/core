@@ -817,7 +817,6 @@ AC_CONFIG_FILES([
 Makefile
 doc/Makefile
 doc/man/Makefile
-doc/wiki/Makefile
 doc/example-config/Makefile
 doc/example-config/conf.d/Makefile
 src/Makefile
