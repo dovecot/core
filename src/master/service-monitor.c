@@ -197,6 +197,9 @@ static void service_status_input(struct service *service)
 	count = ret / sizeof(struct master_status);
 	for (i = 0; i < count; i++)
 		service_status_input_one(service, &status[i]);
+	/* If ret==sizeof(status) there may be more input available, but do it
+	   in the next ioloop run. This way a single service can't flood the
+	   master process and cause it to hang entirely. */
 }
 
 static void service_log_drop_warning(struct service *service)
