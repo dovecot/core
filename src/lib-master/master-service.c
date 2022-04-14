@@ -1793,11 +1793,13 @@ master_status_send(struct master_service *service, bool important_update)
 		/* shouldn't happen? */
 		i_error("write(master_status_fd) returned %d", (int)ret);
 		service->master_status.pid = 0;
+		io_remove(&service->io_status_write);
 	} else if (errno != EAGAIN) {
 		/* failure */
 		if (errno != EPIPE)
 			i_error("write(master_status_fd) failed: %m");
 		service->master_status.pid = 0;
+		io_remove(&service->io_status_write);
 	} else if (important_update) {
 		/* reader is busy, but it's important to get this notification
 		   through. send it when possible. */
