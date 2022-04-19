@@ -478,9 +478,8 @@ static const struct connection_vfuncs auth_worker_connection_funcs =
 	.input_args = worker_input_args,
 };
 
-struct auth_worker_connection *
-auth_worker_call(pool_t pool, const char *username, const char *data,
-		 auth_worker_callback_t *callback, void *context)
+void auth_worker_call(pool_t pool, const char *username, const char *data,
+		      auth_worker_callback_t *callback, void *context)
 {
 	struct auth_worker_connection *worker;
 	struct auth_worker_request *request;
@@ -510,7 +509,6 @@ auth_worker_call(pool_t pool, const char *username, const char *data,
 		/* reached the limit, queue the request */
 		aqueue_append(worker_request_queue, &request);
 	}
-	return worker;
 }
 
 void auth_worker_connection_resume_input(struct auth_worker_connection *worker)
