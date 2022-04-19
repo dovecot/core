@@ -213,15 +213,21 @@ cmd_import_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 }
 
 static void cmd_import_init(struct doveadm_mail_cmd_context *_ctx,
-			    const char *const args[])
+			    const char *const _args[] ATTR_UNUSED)
 {
 	struct import_cmd_context *ctx = (struct import_cmd_context *)_ctx;
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
 
-	if (str_array_length(args) < 3)
+	(void)doveadm_cmd_param_str(cctx, "source-user", &ctx->src_username);
+	ctx->subscribe = doveadm_cmd_param_flag(cctx, "subscribe");
+
+	const char *const *query;
+	if (!doveadm_cmd_param_str(cctx, "source-location", &ctx->src_location) ||
+	    !doveadm_cmd_param_str(cctx, "dest-parent-mailbox", &ctx->dest_parent) ||
+	    !doveadm_cmd_param_array(cctx, "query", &query))
 		doveadm_mail_help_name("import");
-	ctx->src_location = p_strdup(_ctx->pool, args[0]);
-	ctx->dest_parent = p_strdup(_ctx->pool, args[1]);
-	ctx->ctx.search_args = doveadm_mail_build_search_args(args+2);
+
+	_ctx->search_args = doveadm_mail_build_search_args(query);
 }
 
 static void cmd_import_deinit(struct doveadm_mail_cmd_context *_ctx)
@@ -232,30 +238,11 @@ static void cmd_import_deinit(struct doveadm_mail_cmd_context *_ctx)
 		mail_user_deinit(&ctx->src_user);
 }
 
-static bool cmd_import_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
-{
-	struct import_cmd_context *ctx = (struct import_cmd_context *)_ctx;
-
-	switch (c) {
-	case 'U':
-		ctx->src_username = p_strdup(_ctx->pool, optarg);
-		break;
-	case 's':
-		ctx->subscribe = TRUE;
-		break;
-	default:
-		return FALSE;
-	}
-	return TRUE;
-}
-
 static struct doveadm_mail_cmd_context *cmd_import_alloc(void)
 {
 	struct import_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct import_cmd_context);
-	ctx->ctx.getopt_args = "s";
-	ctx->ctx.v.parse_arg = cmd_import_parse_arg;
 	ctx->ctx.v.init = cmd_import_init;
 	ctx->ctx.v.deinit = cmd_import_deinit;
 	ctx->ctx.v.run = cmd_import_run;

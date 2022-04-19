@@ -96,29 +96,18 @@ cmd_deduplicate_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user
 	return ret;
 }
 
-static void cmd_deduplicate_init(struct doveadm_mail_cmd_context *ctx,
-				 const char *const args[])
+static void cmd_deduplicate_init(struct doveadm_mail_cmd_context *_ctx,
+				 const char *const _args[] ATTR_UNUSED)
 {
-	if (args[0] == NULL)
+	struct deduplicate_cmd_context *ctx = (struct deduplicate_cmd_context *)_ctx;
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
+
+	const char *const *query;
+	ctx->by_msgid = doveadm_cmd_param_flag(cctx, "by-msgid");
+	if (!doveadm_cmd_param_array(cctx, "query", &query))
 		doveadm_mail_help_name("deduplicate");
 
-	ctx->search_args = doveadm_mail_build_search_args(args);
-}
-
-static bool
-cmd_deduplicate_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
-{
-	struct deduplicate_cmd_context *ctx =
-		(struct deduplicate_cmd_context *)_ctx;
-
-	switch (c) {
-	case 'm':
-		ctx->by_msgid = TRUE;
-		break;
-	default:
-		return FALSE;
-	}
-	return TRUE;
+	_ctx->search_args = doveadm_mail_build_search_args(query);
 }
 
 static struct doveadm_mail_cmd_context *cmd_deduplicate_alloc(void)
@@ -126,8 +115,6 @@ static struct doveadm_mail_cmd_context *cmd_deduplicate_alloc(void)
 	struct deduplicate_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct deduplicate_cmd_context);
-	ctx->ctx.getopt_args = "m";
-	ctx->ctx.v.parse_arg = cmd_deduplicate_parse_arg;
 	ctx->ctx.v.init = cmd_deduplicate_init;
 	ctx->ctx.v.run = cmd_deduplicate_run;
 	return &ctx->ctx;

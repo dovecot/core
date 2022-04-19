@@ -531,9 +531,9 @@ static void print_fetch_fields(void)
 	fprintf(stderr, "\n");
 }
 
-static void parse_fetch_fields(struct fetch_cmd_context *ctx, const char *str)
+static void parse_fetch_fields(struct fetch_cmd_context *ctx, const char *const *fields)
 {
-	const char *const *fields, *name, *section;
+	const char *name, *section;
 	const struct fetch_field *field;
 	struct fetch_field hdr_field, body_field;
 	struct imap_msgpart *msgpart;
@@ -546,7 +546,6 @@ static void parse_fetch_fields(struct fetch_cmd_context *ctx, const char *str)
 
 	t_array_init(&ctx->fields, 32);
 	t_array_init(&ctx->header_fields, 32);
-	fields = t_strsplit_spaces(str, " ");
 	for (; *fields != NULL; fields++) {
 		name = t_str_lcase(*fields);
 
@@ -648,16 +647,25 @@ cmd_fetch_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 }
 
 static void cmd_fetch_init(struct doveadm_mail_cmd_context *_ctx,
-			   const char *const args[])
+			   const char *const _args[] ATTR_UNUSED)
 {
 	struct fetch_cmd_context *ctx = (struct fetch_cmd_context *)_ctx;
-	const char *fetch_fields = args[0];
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
 
-	if (fetch_fields == NULL || args[1] == NULL)
+	const char *const *fields;
+	if (!doveadm_cmd_param_array(cctx, "field", &fields)) {
+		const char *fieldstr;
+		if (!doveadm_cmd_param_str(cctx, "fieldstr", &fieldstr))
+			doveadm_mail_help_name("fetch");
+		fields = t_strsplit_spaces(fieldstr, " ");
+	}
+
+	const char *const *query;
+	if (!doveadm_cmd_param_array(cctx, "query", &query))
 		doveadm_mail_help_name("fetch");
 
-	parse_fetch_fields(ctx, fetch_fields);
-	_ctx->search_args = doveadm_mail_build_search_args(args + 1);
+	parse_fetch_fields(ctx, fields);
+	_ctx->search_args = doveadm_mail_build_search_args(query);
 }
 
 static struct doveadm_mail_cmd_context *cmd_fetch_alloc(void)

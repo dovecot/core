@@ -187,16 +187,27 @@ cmd_mailbox_status_run(struct doveadm_mail_cmd_context *_ctx,
 }
 
 static void cmd_mailbox_status_init(struct doveadm_mail_cmd_context *_ctx,
-				    const char *const args[])
+				    const char *const _args[] ATTR_UNUSED)
 {
 	struct status_cmd_context *ctx = (struct status_cmd_context *)_ctx;
-	const char *fields = args[0];
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
 
-	if (fields == NULL || args[1] == NULL)
+	ctx->total_sum = doveadm_cmd_param_flag(cctx, "total-sum");
+
+	const char *const *fields;
+	if (!doveadm_cmd_param_array(cctx, "field", &fields)) {
+		const char *fieldstr;
+		if (!doveadm_cmd_param_str(cctx, "fieldstr", &fieldstr))
+			doveadm_mail_help_name("mailbox status");
+		fields = t_strsplit_spaces(fieldstr, " ");
+	}
+
+	const char *const *args;
+	if (!doveadm_cmd_param_array(cctx, "mailbox-mask", &args))
 		doveadm_mail_help_name("mailbox status");
 
-	status_parse_fields(ctx, t_strsplit_spaces(fields, " "));
-	ctx->search_args = doveadm_mail_mailbox_search_args_build(args+1);
+	status_parse_fields(ctx, fields);
+	ctx->search_args = doveadm_mail_mailbox_search_args_build(args);
 
 	if (!ctx->total_sum) {
 		doveadm_print_header("mailbox", "mailbox",
@@ -230,30 +241,11 @@ static void cmd_mailbox_status_deinit(struct doveadm_mail_cmd_context *_ctx)
 		mail_search_args_unref(&ctx->search_args);
 }
 
-static bool
-cmd_mailbox_status_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
-{
-	struct status_cmd_context *ctx = (struct status_cmd_context *)_ctx;
-
-	switch (c) {
-	case 't':
-		ctx->total_sum = TRUE;
-		break;
-	case 'f':
-		break;
-	default:
-		return FALSE;
-	}
-	return TRUE;
-}
-
 static struct doveadm_mail_cmd_context *cmd_mailbox_status_alloc(void)
 {
 	struct status_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct status_cmd_context);
-	ctx->ctx.getopt_args = "t";
-	ctx->ctx.v.parse_arg = cmd_mailbox_status_parse_arg;
 	ctx->ctx.v.init = cmd_mailbox_status_init;
 	ctx->ctx.v.deinit = cmd_mailbox_status_deinit;
 	ctx->ctx.v.run = cmd_mailbox_status_run;

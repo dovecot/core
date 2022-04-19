@@ -239,28 +239,21 @@ void expunge_search_args_check(struct mail_search_args *args, const char *cmd)
 	mail_search_args_simplify(args);
 }
 
-static void cmd_expunge_init(struct doveadm_mail_cmd_context *ctx,
-			     const char *const args[])
-{
-	if (args[0] == NULL)
-		doveadm_mail_help_name("expunge");
-
-	ctx->search_args = doveadm_mail_build_search_args(args);
-	expunge_search_args_check(ctx->search_args, "expunge");
-}
-
-static bool cmd_expunge_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
+static void cmd_expunge_init(struct doveadm_mail_cmd_context *_ctx,
+			     const char *const _args[] ATTR_UNUSED)
 {
 	struct expunge_cmd_context *ctx = (struct expunge_cmd_context *)_ctx;
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
 
-	switch (c) {
-	case 'd':
-		ctx->delete_empty_mailbox = TRUE;
-		break;
-	default:
-		return FALSE;
-	}
-	return TRUE;
+	ctx->delete_empty_mailbox =
+		doveadm_cmd_param_flag(cctx, "delete-empty-mailbox");
+
+	const char *const *query;
+	if (!doveadm_cmd_param_array(cctx, "query", &query))
+		doveadm_mail_help_name("expunge");
+
+	_ctx->search_args = doveadm_mail_build_search_args(query);
+	expunge_search_args_check(_ctx->search_args, "expunge");
 }
 
 static struct doveadm_mail_cmd_context *cmd_expunge_alloc(void)
@@ -268,8 +261,6 @@ static struct doveadm_mail_cmd_context *cmd_expunge_alloc(void)
 	struct expunge_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct expunge_cmd_context);
-	ctx->ctx.getopt_args = "d";
-	ctx->ctx.v.parse_arg = cmd_expunge_parse_arg;
 	ctx->ctx.v.init = cmd_expunge_init;
 	ctx->ctx.v.run = cmd_expunge_run;
 	return &ctx->ctx;

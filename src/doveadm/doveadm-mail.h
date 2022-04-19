@@ -147,6 +147,7 @@ struct mailbox *
 doveadm_mailbox_find(struct mail_user *user, const char *mailbox);
 struct mail_search_args *
 doveadm_mail_build_search_args(const char *const args[]);
+void doveadm_mailbox_args_check_array(ARRAY_TYPE(const_string) *args);
 void doveadm_mailbox_args_check(const char *const args[]);
 struct mail_search_args *
 doveadm_mail_mailbox_search_args_build(const char *const args[]);

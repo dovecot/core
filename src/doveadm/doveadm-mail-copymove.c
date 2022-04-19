@@ -143,27 +143,23 @@ cmd_copy_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 }
 
 static void cmd_copy_init(struct doveadm_mail_cmd_context *_ctx,
-			  const char *const args[])
+			  const char *const _args[] ATTR_UNUSED)
 {
 	struct copy_cmd_context *ctx = (struct copy_cmd_context *)_ctx;
-	const char *destname = args[0], *cmdname = ctx->move ? "move" : "copy";
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
 
-	if (destname == NULL || args[1] == NULL)
+	const char *cmdname = ctx->move ? "move" : "copy";
+	const char *const *query;
+
+	if (!doveadm_cmd_param_str(cctx, "destination-mailbox", &ctx->destname) ||
+	    !doveadm_cmd_param_array(cctx, "query", &query))
 		doveadm_mail_help_name(cmdname);
-	args++;
+	_ctx->search_args = doveadm_mail_build_search_args(query);
 
-	if (args[0] != NULL && args[1] != NULL &&
-	    strcasecmp(args[0], "user") == 0) {
-		if ((_ctx->service_flags &
-		     MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0)
-			i_fatal("Use -u parameter to specify destination user");
+	if (doveadm_cmd_param_str(cctx, "source-user", &ctx->source_username) &&
+	    (_ctx->service_flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0)
+		i_fatal("Use -u parameter to specify destination user");
 
-		ctx->source_username = p_strdup(_ctx->pool, args[1]);
-		args += 2;
-	}
-
-	ctx->destname = p_strdup(ctx->ctx.pool, destname);
-	_ctx->search_args = doveadm_mail_build_search_args(args);
 	if (ctx->move)
 		expunge_search_args_check(ctx->ctx.search_args, cmdname);
 }
@@ -206,8 +202,7 @@ struct doveadm_cmd_ver2 doveadm_cmd_copy_ver2 = {
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('\0', "destination-mailbox", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
-DOVEADM_CMD_PARAM('\0', "source-type", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
-DOVEADM_CMD_PARAM('\0', "source-user", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMKV('\0', "source-user", "user", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL|CMD_PARAM_FLAG_KEY_VALUE)
 DOVEADM_CMD_PARAM('\0', "query", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
@@ -219,8 +214,7 @@ struct doveadm_cmd_ver2 doveadm_cmd_move_ver2 = {
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('\0', "destination-mailbox", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
-DOVEADM_CMD_PARAM('\0', "source-type", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
-DOVEADM_CMD_PARAM('\0', "source-user", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
+DOVEADM_CMD_PARAMKV('\0', "source-user", "user", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL|CMD_PARAM_FLAG_KEY_VALUE)
 DOVEADM_CMD_PARAM('\0', "query", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };

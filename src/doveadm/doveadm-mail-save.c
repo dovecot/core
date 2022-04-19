@@ -99,22 +99,11 @@ cmd_save_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 static void cmd_save_init(struct doveadm_mail_cmd_context *_ctx,
 			  const char *const args[] ATTR_UNUSED)
 {
-	doveadm_mail_get_input(_ctx);
-}
-
-static bool
-cmd_mailbox_save_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
-{
 	struct save_cmd_context *ctx = (struct save_cmd_context *)_ctx;
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
 
-	switch (c) {
-	case 'm':
-		ctx->mailbox = optarg;
-		break;
-	default:
-		return FALSE;
-	}
-	return TRUE;
+	(void)doveadm_cmd_param_str(cctx, "mailbox", &ctx->mailbox);
+	doveadm_mail_get_input(_ctx);
 }
 
 static struct doveadm_mail_cmd_context *cmd_save_alloc(void)
@@ -122,8 +111,6 @@ static struct doveadm_mail_cmd_context *cmd_save_alloc(void)
 	struct save_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct save_cmd_context);
-	ctx->ctx.getopt_args = "m:";
-	ctx->ctx.v.parse_arg = cmd_mailbox_save_parse_arg;
 	ctx->ctx.v.init = cmd_save_init;
 	ctx->ctx.v.run = cmd_save_run;
 	ctx->mailbox = "INBOX";

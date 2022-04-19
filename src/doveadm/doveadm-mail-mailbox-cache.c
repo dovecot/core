@@ -46,69 +46,55 @@ static int cmd_mailbox_cache_open_box(struct doveadm_mail_cmd_context *ctx,
 	return 0;
 }
 
-static void cmd_mailbox_cache_decision_init(struct doveadm_mail_cmd_context *_ctx,
-					    const char *const args[])
+static bool
+cmd_mailbox_cache_str_to_make_decision(const char *str,
+				       enum mail_cache_decision_type *decision_r)
 {
+	if (strcmp(str, "no") == 0)
+		*decision_r = MAIL_CACHE_DECISION_NO;
+	else if (strcmp(str, "temp") == 0)
+		*decision_r = MAIL_CACHE_DECISION_TEMP;
+	else if (strcmp(str, "yes") == 0)
+		*decision_r = MAIL_CACHE_DECISION_YES;
+	else
+		return FALSE;
+	return TRUE;
+}
+
+static void cmd_mailbox_cache_decision_init(struct doveadm_mail_cmd_context *_ctx,
+					    const char *const _args[] ATTR_UNUSED)
+{
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
 	struct mailbox_cache_cmd_context *ctx =
 		container_of(_ctx, struct mailbox_cache_cmd_context, ctx);
-	const char *fields;
+
+	if (doveadm_cmd_param_uint64(cctx, "last-used", &ctx->last_used))
+		ctx->set_last_used = TRUE;
+
+	const char *value_str;
+	if (doveadm_cmd_param_str(cctx, "decision", &value_str)) {
+		if (!cmd_mailbox_cache_str_to_make_decision(value_str,
+							    &ctx->decision))
+			i_fatal_status(EX_USAGE, "Invalid decision '%s': "
+			               "must be one of yes, temp, no",
+				       value_str);
+		ctx->set_decision = TRUE;
+	}
+
+	ctx->all_fields = doveadm_cmd_param_flag(cctx, "all");
+	if (!ctx->all_fields) {
+		if (!doveadm_cmd_param_str(cctx, "fieldstr", &value_str))
+			i_fatal_status(EX_USAGE, "Missing fields parameter");
+		ctx->fields = t_strsplit_spaces(value_str, ", ");
+	}
+
+	if (!doveadm_cmd_param_array(cctx, "mailbox", &ctx->boxes))
+		i_fatal_status(EX_USAGE, "Missing mailbox");
 
 	doveadm_print_header("mailbox", "mailbox", DOVEADM_PRINT_HEADER_FLAG_STICKY);
 	doveadm_print_header_simple("field");
 	doveadm_print_header_simple("decision");
 	doveadm_print_header_simple("last-used");
-
-	if (!ctx->all_fields &&
-	    !doveadm_cmd_param_str(_ctx->cctx, "fieldstr", &fields)) {
-		i_fatal("Missing fields parameter");
-	} else if (!ctx->all_fields) {
-		ctx->fields = t_strsplit_spaces(fields, ", ");
-	}
-
-	ctx->boxes = args;
-}
-
-static bool
-cmd_mailbox_cache_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
-{
-	struct mailbox_cache_cmd_context *ctx =
-		container_of(_ctx, struct mailbox_cache_cmd_context, ctx);
-
-	switch(c) {
-	case 'a':
-		ctx->all_fields = TRUE;
-		return TRUE;
-	/* this is handled in doveadm-mail as 'fieldstr' field */
-	case 'f':
-		return TRUE;
-	case 'l':
-		if (str_to_uint64(optarg, &ctx->last_used) < 0) {
-			i_error("Invalid last-used '%s': not a number", optarg);
-			return FALSE;
-		}
-		ctx->set_last_used = TRUE;
-		return TRUE;
-	case 'd':
-		if (ctx->set_decision) {
-			i_error("Only one decision flag allowed");
-			return FALSE;
-		}
-		if (strcmp(optarg, "no") == 0) {
-			ctx->decision = MAIL_CACHE_DECISION_NO;
-		} else if (strcmp(optarg, "temp") == 0) {
-			ctx->decision = MAIL_CACHE_DECISION_TEMP;
-		} else if (strcmp(optarg, "yes") == 0) {
-			ctx->decision = MAIL_CACHE_DECISION_YES;
-		} else {
-			i_error("Invalid decision '%s': " \
-				"must be one of yes, temp, no",
-				optarg);
-			return FALSE;
-		}
-		ctx->set_decision = TRUE;
-		return TRUE;
-	}
-	return FALSE;
 }
 
 static const char *
@@ -312,19 +298,21 @@ static int cmd_mailbox_cache_remove_run(struct doveadm_mail_cmd_context *_ctx,
 }
 
 static void cmd_mailbox_cache_remove_init(struct doveadm_mail_cmd_context *_ctx,
-					  const char *const args[])
+					  const char *const _args[] ATTR_UNUSED)
 {
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
 	struct mailbox_cache_cmd_context *ctx =
 		container_of(_ctx, struct mailbox_cache_cmd_context, ctx);
 
-	if (args[0] == NULL)
+	const char *const *query;
+	if (!doveadm_cmd_param_array(cctx, "query", &query))
 		doveadm_mail_help_name("mailbox cache remove");
 
 	doveadm_print_header_simple("mailbox");
 	doveadm_print_header_simple("uid");
 	doveadm_print_header_simple("result");
 
-	ctx->ctx.search_args = doveadm_mail_build_search_args(args);
+	ctx->ctx.search_args = doveadm_mail_build_search_args(query);
 }
 
 static int cmd_mailbox_cache_purge_run_box(struct mailbox_cache_cmd_context *ctx,
@@ -362,12 +350,14 @@ static int cmd_mailbox_cache_purge_run(struct doveadm_mail_cmd_context *_ctx,
 }
 
 static void cmd_mailbox_cache_purge_init(struct doveadm_mail_cmd_context *_ctx,
-					 const char *const args[])
+					 const char *const _args[] ATTR_UNUSED)
 {
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
 	struct mailbox_cache_cmd_context *ctx =
 		container_of(_ctx, struct mailbox_cache_cmd_context, ctx);
 
-	ctx->boxes = args;
+	if (!doveadm_cmd_param_array(cctx, "mailbox", &ctx->boxes))
+		i_fatal_status(EX_USAGE, "Missing mailbox");
 }
 
 static struct doveadm_mail_cmd_context *cmd_mailbox_cache_decision_alloc(void)
@@ -375,9 +365,7 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_cache_decision_alloc(void)
 	struct mailbox_cache_cmd_context *ctx =
 		doveadm_mail_cmd_alloc(struct mailbox_cache_cmd_context);
 	ctx->ctx.v.init = cmd_mailbox_cache_decision_init;
-	ctx->ctx.v.parse_arg = cmd_mailbox_cache_parse_arg;
 	ctx->ctx.v.run = cmd_mailbox_cache_decision_run;
-	ctx->ctx.getopt_args = "al:f:d:";
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	return &ctx->ctx;
 }
@@ -387,9 +375,7 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_cache_remove_alloc(void)
 	struct mailbox_cache_cmd_context *ctx =
 		doveadm_mail_cmd_alloc(struct mailbox_cache_cmd_context);
 	ctx->ctx.v.init = cmd_mailbox_cache_remove_init;
-	ctx->ctx.v.parse_arg = cmd_mailbox_cache_parse_arg;
 	ctx->ctx.v.run = cmd_mailbox_cache_remove_run;
-	ctx->ctx.getopt_args = "";
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	return &ctx->ctx;
 }
@@ -400,7 +386,6 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_cache_purge_alloc(void)
 		doveadm_mail_cmd_alloc(struct mailbox_cache_cmd_context);
 	ctx->ctx.v.init = cmd_mailbox_cache_purge_init;
 	ctx->ctx.v.run = cmd_mailbox_cache_purge_run;
-	ctx->ctx.getopt_args = "";
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TABLE);
 	return &ctx->ctx;
 }
@@ -415,7 +400,7 @@ DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('a', "all", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('f', "fieldstr", CMD_PARAM_STR, 0)
-DOVEADM_CMD_PARAM('l', "last-used", CMD_PARAM_INT64, 0)
+DOVEADM_CMD_PARAM('l', "last-used", CMD_PARAM_INT64, CMD_PARAM_FLAG_UNSIGNED)
 DOVEADM_CMD_PARAM('d', "decision", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('\0', "mailbox", CMD_PARAM_ARRAY, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END

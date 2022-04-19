@@ -71,12 +71,18 @@ cmd_rebuild_attachment_run(struct doveadm_mail_cmd_context *ctx,
 	return ret;
 }
 
-static void cmd_rebuild_attachment_init(struct doveadm_mail_cmd_context *ctx,
-					const char *const args[])
+static void cmd_rebuild_attachment_init(struct doveadm_mail_cmd_context *_ctx,
+			    const char *const _args[] ATTR_UNUSED)
 {
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
+
+	const char *const *query;
+	if (!doveadm_cmd_param_array(cctx, "query", &query))
+		doveadm_mail_help_name("search");
+	_ctx->search_args = doveadm_mail_build_search_args(query);
+
 	doveadm_print_header_simple("uid");
 	doveadm_print_header_simple("attachment");
-	ctx->search_args = doveadm_mail_build_search_args(args);
 }
 
 
