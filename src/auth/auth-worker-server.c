@@ -442,9 +442,8 @@ static void worker_input_resume(struct auth_worker_connection *conn)
 	worker_input(conn);
 }
 
-struct auth_worker_connection *
-auth_worker_call(pool_t pool, const char *username, const char *data,
-		 auth_worker_callback_t *callback, void *context)
+void auth_worker_call(pool_t pool, const char *username, const char *data,
+		      auth_worker_callback_t *callback, void *context)
 {
 	struct auth_worker_connection *conn;
 	struct auth_worker_request *request;
@@ -474,7 +473,6 @@ auth_worker_call(pool_t pool, const char *username, const char *data,
 		/* reached the limit, queue the request */
 		aqueue_append(worker_request_queue, &request);
 	}
-	return conn;
 }
 
 void auth_worker_server_resume_input(struct auth_worker_connection *conn)
