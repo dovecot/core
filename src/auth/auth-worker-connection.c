@@ -101,7 +101,7 @@ static bool auth_worker_request_send(struct auth_worker_connection *worker,
 			t_strdup_printf("%d", PASSDB_RESULT_INTERNAL_FAILURE),
 			NULL,
 		};
-		request->callback(args, request->context);
+		request->callback(worker, args, request->context);
 		return FALSE;
 	}
 	if (age_secs >= AUTH_WORKER_DELAY_WARN_SECS &&
@@ -278,7 +278,7 @@ static void auth_worker_deinit(struct auth_worker_connection **_worker,
 			t_strdup_printf("%d", PASSDB_RESULT_INTERNAL_FAILURE),
 			NULL,
 		};
-		worker->request->callback(args, worker->request->context);
+		worker->request->callback(worker, args, worker->request->context);
 	}
 
 	timeout_remove(&worker->to_lookup);
@@ -338,7 +338,7 @@ static int auth_worker_request_handle(struct auth_worker_connection *worker,
 		idle_count++;
 	}
 
-	if (!_request->callback(args, _request->context)) {
+	if (!_request->callback(worker, args, _request->context)) {
 		worker->timeout_pending_resume = FALSE;
 		timeout_remove(&worker->to_lookup);
 		return -1;

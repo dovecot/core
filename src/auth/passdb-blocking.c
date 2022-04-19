@@ -72,7 +72,8 @@ passdb_blocking_auth_worker_reply_parse(struct auth_request *request,
 }
 
 static bool
-verify_plain_callback(const char *const *args, void *context)
+verify_plain_callback(struct auth_worker_connection *conn ATTR_UNUSED,
+		      const char *const *args, void *context)
 {
 	struct auth_request *request = context;
 	enum passdb_result result;
@@ -98,7 +99,9 @@ void passdb_blocking_verify_plain(struct auth_request *request)
 			 verify_plain_callback, request);
 }
 
-static bool lookup_credentials_callback(const char *const *args, void *context)
+static bool
+lookup_credentials_callback(struct auth_worker_connection *conn ATTR_UNUSED,
+			    const char *const *args, void *context)
 {
 	struct auth_request *request = context;
 	enum passdb_result result;
@@ -139,7 +142,8 @@ void passdb_blocking_lookup_credentials(struct auth_request *request)
 }
 
 static bool
-set_credentials_callback(const char *const *args, void *context)
+set_credentials_callback(struct auth_worker_connection *conn ATTR_UNUSED,
+			 const char *const *args, void *context)
 {
 	struct auth_request *request = context;
 	bool success;
