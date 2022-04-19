@@ -14,7 +14,8 @@ struct blocking_userdb_iterate_context {
 	bool destroyed;
 };
 
-static bool user_callback(const char *reply, void *context)
+static bool user_callback(struct auth_worker_connection *conn ATTR_UNUSED,
+			  const char *reply, void *context)
 {
 	struct auth_request *request = context;
 	enum userdb_result result;
@@ -70,7 +71,8 @@ void userdb_blocking_lookup(struct auth_request *request)
 			 str_c(str), user_callback, request);
 }
 
-static bool iter_callback(const char *reply, void *context)
+static bool iter_callback(struct auth_worker_connection *conn ATTR_UNUSED,
+			  const char *reply, void *context)
 {
 	struct blocking_userdb_iterate_context *ctx = context;
 

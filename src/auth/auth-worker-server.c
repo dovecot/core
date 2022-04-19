@@ -99,7 +99,7 @@ static bool auth_worker_request_send(struct auth_worker_connection *conn,
 			"Aborting auth request that was queued for %d secs, "
 			"%d left in queue",
 			age_secs, aqueue_count(worker_request_queue));
-		request->callback(t_strdup_printf(
+		request->callback(conn, t_strdup_printf(
 			"FAIL\t%d", PASSDB_RESULT_INTERNAL_FAILURE),
 			request->context);
 		return FALSE;
@@ -243,7 +243,7 @@ static void auth_worker_destroy(struct auth_worker_connection **_conn,
 		e_error(conn->event, "Aborted %s request for %s: %s",
 			t_strcut(conn->request->data, '\t'),
 			conn->request->username, reason);
-		conn->request->callback(t_strdup_printf(
+		conn->request->callback(conn, t_strdup_printf(
 				"FAIL\t%d", PASSDB_RESULT_INTERNAL_FAILURE),
 				conn->request->context);
 	}
@@ -304,7 +304,7 @@ static bool auth_worker_request_handle(struct auth_worker_connection *conn,
 		idle_count++;
 	}
 
-	if (!request->callback(line, request->context) && conn->io != NULL) {
+	if (!request->callback(conn, line, request->context) && conn->io != NULL) {
 		conn->timeout_pending_resume = FALSE;
 		timeout_remove(&conn->to);
 		io_remove(&conn->io);

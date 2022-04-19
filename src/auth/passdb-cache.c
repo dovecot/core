@@ -56,7 +56,9 @@ passdb_cache_lookup(struct auth_request *request, const char *key,
 	return TRUE;
 }
 
-static bool passdb_cache_verify_plain_callback(const char *reply, void *context)
+static bool
+passdb_cache_verify_plain_callback(struct auth_worker_connection *conn ATTR_UNUSED,
+				   const char *reply, void *context)
 {
 	struct auth_request *request = context;
 	enum passdb_result result;
