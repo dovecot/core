@@ -73,11 +73,12 @@ void userdb_blocking_lookup(struct auth_request *request)
 			 str_c(str), user_callback, request);
 }
 
-static bool iter_callback(struct auth_worker_connection *conn ATTR_UNUSED,
+static bool iter_callback(struct auth_worker_connection *conn,
 			  const char *const *args, void *context)
 {
 	struct blocking_userdb_iterate_context *ctx = context;
 
+	ctx->conn = conn;
 	if (strcmp(args[0], "*") == 0 && args[1] != NULL) {
 		if (ctx->destroyed)
 			return TRUE;
@@ -111,8 +112,8 @@ userdb_blocking_iter_init(struct auth_request *request,
 	ctx->ctx.context = context;
 
 	auth_request_ref(request);
-	ctx->conn = auth_worker_call(request->pool, "*",
-				     str_c(str), iter_callback, ctx);
+	auth_worker_call(request->pool, "*",
+			 str_c(str), iter_callback, ctx);
 	return &ctx->ctx;
 }
 
@@ -120,6 +121,8 @@ void userdb_blocking_iter_next(struct userdb_iterate_context *_ctx)
 {
 	struct blocking_userdb_iterate_context *ctx =
 		(struct blocking_userdb_iterate_context *)_ctx;
+
+	i_assert(ctx->conn != NULL);
 
 	ctx->next = TRUE;
 	auth_worker_connection_resume_input(ctx->conn);
@@ -136,6 +139,7 @@ int userdb_blocking_iter_deinit(struct userdb_iterate_context **_ctx)
 	/* iter_callback() may still be called */
 	ctx->destroyed = TRUE;
 
-	auth_worker_connection_resume_input(ctx->conn);
+	if (ctx->conn != NULL)
+		auth_worker_connection_resume_input(ctx->conn);
 	return ret;
 }
