@@ -1001,9 +1001,9 @@ int net_addr2ip(const char *addr, struct ip_addr *ip)
 		};
 		if ((ret = getaddrinfo(addr, NULL, &hints, &res)) == 0) {
 			i_assert(res != NULL);
-			union sockaddr_union u;
-			memcpy(&u.sa, res->ai_addr, res->ai_addrlen);
-			sin_get_ip(&u, ip);
+			const union sockaddr_union *so =
+				(union sockaddr_union *)res->ai_addr;
+			sin_get_ip(so, ip);
 		}
 		if (res != NULL)
 			freeaddrinfo(res);
