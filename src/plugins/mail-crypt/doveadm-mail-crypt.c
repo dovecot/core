@@ -151,7 +151,7 @@ mcp_update_shared_key(struct mailbox_transaction_context *t,
 								dest_username,
 								&keys, error_r);
 		}
-		
+
 	}
 
 	/* logging context swap again */
@@ -195,7 +195,7 @@ static int mcp_update_shared_keys(struct doveadm_mail_cmd_context *ctx,
 
 	struct mailbox_transaction_context *t =
 		mailbox_transaction_begin(box, ctx->transaction_flags, __func__);
-	
+
 	ret = 0;
 
 	/* then perform sharing */

@@ -94,7 +94,7 @@ void client_connection_destroy(struct client_connection **_conn)
 
 	if (doveadm_verbose_proctitle)
 		process_title_set("[idling]");
-	
+
 	pool_unref(&conn->pool);
 }
 

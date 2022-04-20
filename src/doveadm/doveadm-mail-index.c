@@ -125,7 +125,7 @@ cmd_index_box(struct index_cmd_context *ctx, const struct mailbox_info *info)
 			doveadm_mail_failed_mailbox(&ctx->ctx, box);
 			mailbox_free(&box);
 			return -1;
-		} 
+		}
 
 		mailbox_get_open_status(box, STATUS_RECENT, &status);
 		if (status.recent > ctx->max_recent_msgs) {

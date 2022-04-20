@@ -225,7 +225,7 @@ static void cmd_director_status(struct doveadm_cmd_context *cctx)
 			arg_count = str_array_length(args);
 			if (arg_count >= 6) {
 				/* ip vhosts users tag updown updown-ts */
-				doveadm_print(args[0]); 
+				doveadm_print(args[0]);
 				doveadm_print(args[3]);
 				doveadm_print(args[1]);
 				doveadm_print(args[4][0] == 'D' ? "down" : "up");

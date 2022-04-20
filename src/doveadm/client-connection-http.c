@@ -912,7 +912,7 @@ static void doveadm_http_server_send_response(struct client_request_http *req)
 		payload = iostream_temp_finish(&req->output,
 					       IO_BLOCK_SIZE);
 	}
-	
+
 	http_resp = http_server_response_create(http_sreq, 200, "OK");
 	http_server_response_add_header(http_resp, "Content-Type",
 		"application/json; charset=utf-8");

@@ -153,7 +153,7 @@ static void cmd_log_find_syslog_file_messages(struct log_find_file *file)
 	fd = open(file->path, O_RDONLY);
 	if (fd == -1)
 		return;
-	
+
 	input = i_stream_create_fd_autoclose(&fd, 1024);
 	i_stream_seek(input, file->size);
 	while ((line = i_stream_read_next_line(input)) != NULL) {
@@ -289,7 +289,7 @@ static const char *t_cmd_log_error_trim(const char *orig)
 	/* Trim whitespace from suffix and remove ':' if it exists */
 	for (pos = strlen(orig); pos > 0; pos--) {
 		if (orig[pos-1] != ' ') {
-			if (orig[pos-1] == ':') 
+			if (orig[pos-1] == ':')
 				pos--;
 			break;
 		}
