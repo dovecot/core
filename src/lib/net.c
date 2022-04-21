@@ -166,8 +166,10 @@ static inline void sin_set_port(union sockaddr_union *so, in_port_t port)
 {
 	if (so->sin.sin_family == AF_INET6)
                 so->sin6.sin6_port = htons(port);
-	else
+	else if (so->sin.sin_family == AF_INET)
 		so->sin.sin_port = htons(port);
+	else
+		i_unreached();
 }
 
 static inline in_port_t sin_get_port(const union sockaddr_union *so)
