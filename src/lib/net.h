@@ -156,7 +156,7 @@ int net_getunixcred(int fd, struct net_unix_cred *cred_r);
 /* Returns ip_addr as string, or "" if ip isn't valid IPv4 or IPv6 address. */
 const char *net_ip2addr(const struct ip_addr *ip);
 /* char* -> struct ip_addr translation. */
-int net_addr2ip(const char *addr, struct ip_addr *ip);
+int net_addr2ip(const char *addr, struct ip_addr *ip_r);
 /* char* -> in_port_t translation */
 int net_str2port(const char *str, in_port_t *port_r);
 /* char* -> in_port_t translation (allows port zero) */

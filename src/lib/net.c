@@ -980,11 +980,11 @@ static bool net_addr2ip_inet4_fast(const char *addr, struct ip_addr *ip)
 	return TRUE;
 }
 
-int net_addr2ip(const char *addr, struct ip_addr *ip)
+int net_addr2ip(const char *addr, struct ip_addr *ip_r)
 {
 	int ret;
 
-	if (net_addr2ip_inet4_fast(addr, ip))
+	if (net_addr2ip_inet4_fast(addr, ip_r))
 		return 0;
 
 	T_BEGIN {
@@ -1005,7 +1005,7 @@ int net_addr2ip(const char *addr, struct ip_addr *ip)
 			i_assert(res != NULL);
 			const union sockaddr_union *so =
 				(union sockaddr_union *)res->ai_addr;
-			sin_get_ip(so, ip);
+			sin_get_ip(so, ip_r);
 		}
 		if (res != NULL)
 			freeaddrinfo(res);
