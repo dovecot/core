@@ -170,7 +170,7 @@ static inline void sin_set_port(union sockaddr_union *so, in_port_t port)
 		so->sin.sin_port = htons(port);
 }
 
-static inline in_port_t sin_get_port(union sockaddr_union *so)
+static inline in_port_t sin_get_port(const union sockaddr_union *so)
 {
 	if (so->sin.sin_family == AF_INET6)
 		return ntohs(so->sin6.sin6_port);
@@ -674,7 +674,7 @@ int net_gethostbyname(const char *addr, struct ip_addr **ips,
 		      unsigned int *ips_count)
 {
 	/* @UNSAFE */
-	union sockaddr_union *so;
+	const union sockaddr_union *so;
 	struct addrinfo hints, *ai, *origai;
 	struct ip_addr ip;
 	int host_error;
@@ -1086,7 +1086,7 @@ const char *net_ipport2str(const struct ip_addr *ip, in_port_t port)
 int net_ipv6_mapped_ipv4_convert(const struct ip_addr *src,
 				 struct ip_addr *dest)
 {
-	static uint8_t v4_prefix[] =
+	static const uint8_t v4_prefix[] =
 		{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff };
 
 	if (!IPADDR_IS_V6(src))
@@ -1164,7 +1164,7 @@ int net_hosterror_notfound(int error)
 
 const char *net_getservbyport(in_port_t port)
 {
-	struct servent *entry;
+	const struct servent *entry;
 
 	entry = getservbyport(htons(port), "tcp");
 	return entry == NULL ? NULL : entry->s_name;
