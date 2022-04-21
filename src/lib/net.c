@@ -468,8 +468,8 @@ int net_listen_full(const struct ip_addr *my_ip, in_port_t *port,
 	socklen_t len;
 
 	i_zero(&so);
-	sin_set_port(&so, *port);
 	sin_set_ip(&so, my_ip);
+	sin_set_port(&so, *port);
 
 	/* create the socket */
 	fd = socket(so.sin.sin_family, SOCK_STREAM, 0);
