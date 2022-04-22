@@ -154,9 +154,10 @@ doveadm_build_options(const struct doveadm_cmd_param par[],
 	array_append_zero(longopts);
 }
 
-static void
+static int
 doveadm_fill_param(struct doveadm_cmd_param *param,
-		   const char *value, pool_t pool)
+		   const char *value, pool_t pool,
+		   const char **error_r)
 {
 	param->value_set = TRUE;
 	switch (param->type) {
@@ -164,12 +165,20 @@ doveadm_fill_param(struct doveadm_cmd_param *param,
 		param->value.v_bool = TRUE;
 		break;
 	case CMD_PARAM_INT64:
-		if (str_to_int64(value, &param->value.v_int64) != 0)
+		if (str_to_int64(value, &param->value.v_int64) != 0) {
 			param->value_set = FALSE;
+			*error_r = t_strdup_printf(
+					"Invalid number: %s", value);
+			return -1;
+		}
 		break;
 	case CMD_PARAM_IP:
-		if (net_addr2ip(value, &param->value.v_ip) != 0)
+		if (net_addr2ip(value, &param->value.v_ip) != 0) {
 			param->value_set = FALSE;
+			*error_r = t_strdup_printf(
+					"Invalid IP address: %s", value);
+			return -1;
+		}
 		break;
 	case CMD_PARAM_STR:
 		param->value.v_string = p_strdup(pool, value);
@@ -187,9 +196,18 @@ doveadm_fill_param(struct doveadm_cmd_param *param,
 		else
 			is = i_stream_create_file(value, IO_BLOCK_SIZE);
 		param->value.v_istream = is;
+		if (is->stream_errno < 0) {
+			param->value_set = FALSE;
+			*error_r = t_strdup_printf("read(%s) failed: %s",
+				i_stream_get_name(is), i_stream_get_error(is));
+			return -1;
+		}
 		break;
 	}
+	default:
+		i_unreached();
 	}
+	return 0;
 }
 
 static int
@@ -229,24 +247,42 @@ doveadm_cmd_process_options(int argc, const char *const argv[],
 		switch (c) {
 		case 0:
 			for (unsigned int i = 0; i < array_count(pargv); i++) {
+				const char *error;
 				const struct option *opt = array_idx(&opts, li);
 				param = array_idx_modifiable(pargv, i);
-				if (opt->name == param->name)
-					doveadm_fill_param(param, optarg, pool);
+				if (opt->name == param->name &&
+				    doveadm_fill_param(
+					param, optarg, pool, &error) < 0) {
+					i_error("Invalid parameter: %s",
+						error);
+					doveadm_cmd_params_clean(pargv);
+					return -1;
+				}
 			}
 			break;
 		case '?':
+			i_error("Unexpected or incomplete option: -%c", optopt);
+			doveadm_cmd_params_clean(pargv);
+			return -1;
 		case ':':
+			i_error("Option not followed by argument: -%c", optopt);
 			doveadm_cmd_params_clean(pargv);
 			return -1;
 		default:
 			// hunt the option
 			for (unsigned int i = 0; i < pargc; i++) {
+				const char *error;
 				const struct option *longopt =
 					array_idx(&opts, i);
-				if (longopt->val == c)
-					doveadm_fill_param(array_idx_modifiable(pargv, i),
-							   optarg, pool);
+				if (longopt->val == c &&
+				    doveadm_fill_param(
+					array_idx_modifiable(pargv, i),
+					optarg, pool, &error) < 0) {
+					i_error("Invalid parameter: %s",
+						error);
+					doveadm_cmd_params_clean(pargv);
+					return -1;
+				}
 			}
 		}
 	}
@@ -272,7 +308,13 @@ int doveadm_cmdline_run(int argc, const char *const argv[],
 			if ((ptr->flags & CMD_PARAM_FLAG_POSITIONAL) != 0 &&
 			    (ptr->value_set == FALSE ||
 			     ptr->type == CMD_PARAM_ARRAY)) {
-				doveadm_fill_param(ptr, argv[optind], pool);
+				const char *error;
+				if (doveadm_fill_param(ptr, argv[optind], pool, &error) < 0) {
+					i_error("Invalid parameter: %s",
+						t_strarray_join(argv + optind, " "));
+					doveadm_cmd_params_clean(&pargv);
+					return -1;
+				}
 				found = TRUE;
 				break;
 			}
