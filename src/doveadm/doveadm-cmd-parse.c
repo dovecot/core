@@ -40,6 +40,23 @@ bool doveadm_cmd_param_bool(const struct doveadm_cmd_context *cctx,
 	return TRUE;
 }
 
+#define doveadm_cmd_param_int64_cast(type, check) \
+bool doveadm_cmd_param_##type(const struct doveadm_cmd_context *cctx, \
+			      const char *name, type##_t *value_r) \
+{ \
+	int64_t value; \
+	bool ret = doveadm_cmd_param_int64(cctx, name, &value); \
+	if (ret) { \
+		i_assert(check); \
+		*value_r = (type##_t) value; \
+	} \
+	return ret; \
+}
+
+doveadm_cmd_param_int64_cast(uint64, value >= 0)
+doveadm_cmd_param_int64_cast(uint32, value >= 0 && value <= UINT32_MAX)
+doveadm_cmd_param_int64_cast(int32, value >= INT32_MIN && value <= INT32_MAX)
+
 bool doveadm_cmd_param_int64(const struct doveadm_cmd_context *cctx,
 			     const char *name, int64_t *value_r)
 {
@@ -169,6 +186,14 @@ doveadm_fill_param(struct doveadm_cmd_param *param,
 			param->value_set = FALSE;
 			*error_r = t_strdup_printf(
 					"Invalid number: %s", value);
+			return -1;
+		}
+		if ((param->flags & CMD_PARAM_FLAG_UNSIGNED) != 0 &&
+		    param->value.v_int64 < 0) {
+		    	param->value_set = FALSE;
+			*error_r = t_strdup_printf(
+					"Cannot be negative: %s", value);
+		    	param->value_set = FALSE;
 			return -1;
 		}
 		break;

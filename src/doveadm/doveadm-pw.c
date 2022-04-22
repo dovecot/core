@@ -23,8 +23,7 @@ static void cmd_pw(struct doveadm_cmd_context *cctx)
 	const char *scheme = NULL;
 	const char *plaintext = NULL;
 	const char *test_hash = NULL;
-	bool list_schemes = FALSE, reverse_verify = FALSE;
-	int64_t rounds_int64;
+	bool list_schemes = FALSE;
 	struct module_dir_load_settings mod_set;
 	struct password_generate_params gen_params;
 	i_zero(&gen_params);
@@ -43,16 +42,12 @@ static void cmd_pw(struct doveadm_cmd_context *cctx)
 
 	(void)doveadm_cmd_param_bool(cctx, "list", &list_schemes);
 	(void)doveadm_cmd_param_str(cctx, "plaintext", &plaintext);
-	if (doveadm_cmd_param_int64(cctx, "rounds", &rounds_int64)) {
-		if (rounds_int64 > UINT_MAX)
-			i_fatal("Invalid number of rounds: %"PRId64, rounds_int64);
-		gen_params.rounds = rounds_int64;
-	}
+	(void)doveadm_cmd_param_uint32(cctx, "rounds", &gen_params.rounds);
 	(void)doveadm_cmd_param_str(cctx, "scheme", &scheme);
-	if (doveadm_cmd_param_str(cctx, "test-hash", &test_hash))
-		reverse_verify = TRUE;
 	(void)doveadm_cmd_param_str(cctx, "user", &gen_params.user);
-	(void)doveadm_cmd_param_bool(cctx, "reverse-verify", &reverse_verify);
+	bool reverse_verify =
+		doveadm_cmd_param_flag(cctx, "reverse-verify") ||
+		doveadm_cmd_param_str(cctx, "test-hash", &test_hash);
 
 	if (list_schemes) {
 		ARRAY_TYPE(password_scheme_p) arr;
@@ -127,7 +122,7 @@ struct doveadm_cmd_ver2 doveadm_cmd_pw = {
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('l', "list", CMD_PARAM_BOOL, 0)
 DOVEADM_CMD_PARAM('p', "plaintext", CMD_PARAM_STR, 0)
-DOVEADM_CMD_PARAM('r', "rounds", CMD_PARAM_INT64, 0)
+DOVEADM_CMD_PARAM('r', "rounds", CMD_PARAM_INT64, CMD_PARAM_FLAG_UNSIGNED)
 DOVEADM_CMD_PARAM('s', "scheme", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('t', "test-hash", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('u', "user", CMD_PARAM_STR, 0)

@@ -392,7 +392,7 @@ DOVEADM_CMD_PARAMS_END
 	.usage = "[-s <min_timestamp>]",
 	.cmd = cmd_log_errors,
 DOVEADM_CMD_PARAMS_START
-DOVEADM_CMD_PARAM('s', "since", CMD_PARAM_INT64, 0)
+DOVEADM_CMD_PARAM('s', "since", CMD_PARAM_INT64, CMD_PARAM_FLAG_UNSIGNED)
 DOVEADM_CMD_PARAMS_END
 }
 };

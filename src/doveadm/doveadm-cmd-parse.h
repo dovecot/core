@@ -23,6 +23,7 @@ typedef enum {
 	CMD_PARAM_FLAG_NONE		= 0x0,
 	CMD_PARAM_FLAG_POSITIONAL 	= 0x1,
 	CMD_PARAM_FLAG_DO_NOT_EXPOSE	= 0x2,
+	CMD_PARAM_FLAG_UNSIGNED		= 0x4,  /* int64 checked to be non negative */
 } doveadm_cmd_param_flag_t;
 
 typedef enum {
@@ -104,6 +105,12 @@ doveadm_cmd_param_flag(const struct doveadm_cmd_context *cctx, const char *name)
 
 bool doveadm_cmd_param_int64(const struct doveadm_cmd_context *cctx,
 			     const char *name, int64_t *value_r);
+bool doveadm_cmd_param_uint64(const struct doveadm_cmd_context *cctx,
+			      const char *name, uint64_t *value_r);
+bool doveadm_cmd_param_int32(const struct doveadm_cmd_context *cctx,
+			     const char *name, int32_t *value_r);
+bool doveadm_cmd_param_uint32(const struct doveadm_cmd_context *cctx,
+			      const char *name, uint32_t *value_r);
 bool doveadm_cmd_param_str(const struct doveadm_cmd_context *cctx,
 			   const char *name, const char **value_r);
 bool doveadm_cmd_param_ip(const struct doveadm_cmd_context *cctx,
