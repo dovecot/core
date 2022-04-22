@@ -131,6 +131,7 @@ common = \
 	$(doveadm_common_mail_cmds) \
 	$(doveadm_common_dump_cmds) \
 	doveadm-cmd.c \
+	doveadm-cmd-parse.c \
 	doveadm-print.c \
 	doveadm-settings.c \
 	doveadm-util.c \
@@ -160,6 +161,7 @@ pkginc_libdir = $(pkgincludedir)
 pkginc_lib_HEADERS = \
 	doveadm.h \
 	doveadm-cmd.h \
+	doveadm-cmd-parse.h \
 	doveadm-dsync.h \
 	doveadm-dump.h \
 	doveadm-mail.h \
