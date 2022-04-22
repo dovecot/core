@@ -94,6 +94,14 @@ int doveadm_cmdline_run(int argc, const char *const argv[],
 
 bool doveadm_cmd_param_bool(const struct doveadm_cmd_context *cctx,
 			    const char *name, bool *value_r);
+
+static inline bool
+doveadm_cmd_param_flag(const struct doveadm_cmd_context *cctx, const char *name)
+{
+	bool ignore ATTR_UNUSED;
+	return doveadm_cmd_param_bool(cctx, name, &ignore);
+}
+
 bool doveadm_cmd_param_int64(const struct doveadm_cmd_context *cctx,
 			     const char *name, int64_t *value_r);
 bool doveadm_cmd_param_str(const struct doveadm_cmd_context *cctx,
