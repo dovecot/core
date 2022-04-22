@@ -178,6 +178,7 @@ noinst_HEADERS = \
 	doveadm-who.h
 
 test_programs = \
+	test-doveadm-cmd \
 	test-doveadm-util
 noinst_PROGRAMS = $(test_programs)
 
@@ -185,6 +186,10 @@ test_libs = \
 	../lib-test/libtest.la \
 	../lib/liblib.la
 test_deps = $(noinst_LTLIBRARIES) $(test_libs)
+
+test_doveadm_cmd_SOURCES = doveadm-cmd-parse.c test-doveadm-cmd-parse.c
+test_doveadm_cmd_LDADD = $(test_libs) $(MODULE_LIBS)
+test_doveadm_cmd_DEPENDENCIES = $(test_deps)
 
 test_doveadm_util_SOURCES = doveadm-util.c test-doveadm-util.c
 test_doveadm_util_LDADD = $(test_libs) $(MODULE_LIBS)

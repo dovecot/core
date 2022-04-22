@@ -4,7 +4,8 @@
 #include "net.h"
 
 #define DOVEADM_CMD_PARAMS_START .parameters = (const struct doveadm_cmd_param[]){
-#define DOVEADM_CMD_PARAM(optP, nameP, typeP, flagP ) { .short_opt = optP, .name = nameP, .type = typeP, .flags = flagP },
+#define DOVEADM_CMD_PARAM(optP, nameP, typeP, flagP) DOVEADM_CMD_PARAMKV(optP, nameP, nameP, typeP, flagP)
+#define DOVEADM_CMD_PARAMKV(optP, nameP, keyP, typeP, flagP) { .short_opt = optP, .name = nameP, .key = keyP, .type = typeP, .flags = flagP },
 #define DOVEADM_CMD_PARAMS_END { .short_opt = '\0', .name = NULL, .type = CMD_PARAM_BOOL, .flags = CMD_PARAM_FLAG_NONE } }
 
 struct doveadm_cmd_context;
@@ -21,9 +22,31 @@ typedef enum {
 
 typedef enum {
 	CMD_PARAM_FLAG_NONE		= 0x0,
+
+	/* Meaningful only while parsing a command line command */
 	CMD_PARAM_FLAG_POSITIONAL 	= 0x1,
+
 	CMD_PARAM_FLAG_DO_NOT_EXPOSE	= 0x2,
-	CMD_PARAM_FLAG_UNSIGNED		= 0x4,  /* int64 checked to be non negative */
+
+	/* Grant that the parsed int64 is non negative */
+	CMD_PARAM_FLAG_UNSIGNED		= 0x4,
+
+	/* While parsing a command line command,
+	   if the current argument matches the parameter key, the following
+	   argument is consumed as its value. Multiple consecutive key_value
+	   parameters are all evaluated independent of their ordering against
+	   the current argument.
+
+	   The parameter key is by default the same as the parameter name,
+	   unless DOVEADM_CMD_PARAMKV is used to specify a distinct key.
+
+	   If the current argument doesn't match any key_value parameter for
+	   the current position, the next plain positional argument will be
+	   filled (if any).
+
+	   See test-doveadm-cmd-parse.c for more details.
+	  */
+	CMD_PARAM_FLAG_KEY_VALUE	= 0x8,
 } doveadm_cmd_param_flag_t;
 
 typedef enum {
@@ -41,6 +64,7 @@ typedef enum {
 struct doveadm_cmd_param {
 	char short_opt;
 	const char *name;
+	const char *key;
 	doveadm_cmd_param_t type;
 	bool value_set;
 	struct {

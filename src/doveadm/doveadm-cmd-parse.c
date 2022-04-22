@@ -344,28 +344,45 @@ int doveadm_cmdline_run(int argc, const char *const argv[],
 	unsigned int pargc;
 	pool_t pool = pool_datastack_create();
 
+	i_getopt_reset();
 	p_array_init(&pargv, pool, 20);
 	if (doveadm_cmd_process_options(argc, argv, cctx, pool, &pargv) < 0)
 		return -1;
 
+	unsigned int ptr_count;
+	struct doveadm_cmd_param *ptr = array_get_modifiable(&pargv, &ptr_count);
+	struct doveadm_cmd_param *ptr_end = ptr + ptr_count;
+	struct doveadm_cmd_param *ptr_last_non_kv = ptr;
+
 	/* process positional arguments */
 	for (; optind < argc; optind++) {
-		struct doveadm_cmd_param *ptr;
 		bool found = FALSE;
-		array_foreach_modifiable(&pargv, ptr) {
-			if ((ptr->flags & CMD_PARAM_FLAG_POSITIONAL) != 0 &&
-			    (ptr->value_set == FALSE ||
-			     ptr->type == CMD_PARAM_ARRAY)) {
-				const char *error;
-				if (doveadm_fill_param(ptr, argv[optind], pool, &error) < 0) {
-					i_error("Invalid parameter: %s",
-						t_strarray_join(argv + optind, " "));
-					doveadm_cmd_params_clean(&pargv);
-					return -1;
-				}
-				found = TRUE;
-				break;
+		bool is_keyvalue = FALSE;
+		for (; ptr < ptr_end; ptr++) {
+			if ((ptr->flags & CMD_PARAM_FLAG_POSITIONAL) == 0)
+				continue;
+			if ((ptr->flags & CMD_PARAM_FLAG_KEY_VALUE) == 0)
+				ptr_last_non_kv = ptr;
+			if (ptr->value_set && ptr->type != CMD_PARAM_ARRAY)
+				continue;
+			if ((ptr->flags & CMD_PARAM_FLAG_KEY_VALUE) != 0) {
+				if (optind + 1 >= argc)
+					continue;
+				if (strcmp(ptr->key, argv[optind]) != 0)
+					continue;
+				optind++;
+				is_keyvalue = TRUE;
 			}
+
+			const char *error;
+			if (doveadm_fill_param(ptr, argv[optind], pool, &error) < 0) {
+				i_error("Invalid parameter: %s",
+					t_strarray_join(argv + optind, " "));
+				doveadm_cmd_params_clean(&pargv);
+				return -1;
+			}
+			found = TRUE;
+			break;
 		}
 		if (!found) {
 			i_error("Extraneous arguments found: %s",
@@ -373,6 +390,8 @@ int doveadm_cmdline_run(int argc, const char *const argv[],
 			doveadm_cmd_params_clean(&pargv);
 			return -1;
 		}
+		if (is_keyvalue)
+			ptr = ptr_last_non_kv;
 	}
 
 	doveadm_cmd_params_null_terminate_arrays(&pargv);

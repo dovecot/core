@@ -23,6 +23,7 @@ struct ostream *test_ostream_create_nonblocking(buffer_t *output,
 void test_ostream_set_max_output_size(struct ostream *output, size_t max_size);
 
 void test_begin(const char *name);
+#define test_failed(reason) test_assert_failed(reason, __FILE__, __LINE__)
 #define test_assert(code) STMT_START { \
 	if (!(code)) test_assert_failed(#code, __FILE__, __LINE__); \
 	} STMT_END
@@ -50,6 +51,9 @@ void test_begin(const char *name);
 			test_assert_failed_strcmp_idx("strcmp(" #_s1 ","  #_s2 ")", \
 						      __FILE__, __LINE__, _temp_s1, _temp_s2, i); \
 	} STMT_END
+
+#define test_assert_cmp_bool(_bool_value1, _op, _value2) \
+	test_assert_cmp((unsigned int) _bool_value1, _op, (unsigned int _bool_value2))
 
 #define test_assert_cmp(_value1, _op, _value2) \
 	test_assert_cmp_idx(_value1, _op, _value2, LLONG_MIN)
