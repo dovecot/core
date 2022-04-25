@@ -7,8 +7,8 @@ AC_DEFUN([DOVECOT_TM_GMTOFF], [
   [[struct tm *tm; return tm->tm_gmtoff;]])],
   [i_cv_field_tm_gmtoff=yes],
   [i_cv_field_tm_gmtoff=no])])
-  if test $i_cv_field_tm_gmtoff = yes; then
+  AS_IF([test $i_cv_field_tm_gmtoff = yes], [
           AC_DEFINE(HAVE_TM_GMTOFF,, [Define if you have struct tm->tm_gmtoff])
-  fi
+  ])
   AC_MSG_RESULT($i_cv_field_tm_gmtoff)
 ])
