@@ -12,7 +12,7 @@ AC_DEFUN([DOVECOT_TYPEOF_DEV_T], [
       i_cv_dev_t_struct=yes
     ])
   ])
-  if test $i_cv_dev_t_struct = yes; then
+  AS_IF([test $i_cv_dev_t_struct = yes], [
     AC_DEFINE(DEV_T_STRUCT,, [Define if your dev_t is a structure instead of integer type])
-  fi
+  ])
 ]) 
