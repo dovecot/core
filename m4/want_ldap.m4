@@ -31,12 +31,12 @@ AC_DEFUN([DOVECOT_WANT_LDAP], [
                           have_ldap=yes
                   ], [
                     if test $want_ldap != auto; then
-                      AC_ERROR([Can't build with LDAP support: ldap.h not found])
+                      AC_MSG_ERROR(cannot build with LDAP support: ldap.h not found)
                     fi
                   ])
           ], [
             if test $want_ldap != auto; then
-              AC_ERROR([Can't build with LDAP support: libldap not found])
+              AC_MSG_ERROR(cannot build with LDAP support: libldap not found)
             fi
           ])
   fi

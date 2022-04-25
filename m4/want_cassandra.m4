@@ -14,11 +14,11 @@
                           AC_CHECK_DECLS([CASS_SSL_VERIFY_PEER_IDENTITY_DNS], [], [], [[#include <cassandra.h>]])
                   ], [
                     AS_IF([test "$want_cassandra" = yes], [
-                      AC_ERROR([Can't build with Cassandra support: cassandra.h not found])
+                      AC_MSG_ERROR(cannot build with Cassandra support: cassandra.h not found)
                     ])
                   ])
           ], [AS_IF([test "$want_cassandra" = yes], [
-              AC_ERROR([Can't build with Cassandra support: libcassandra not found])
+              AC_MSG_ERROR(cannot build with Cassandra support: libcassandra not found)
           ])
 	])
      ])

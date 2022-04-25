@@ -7,12 +7,12 @@ AC_DEFUN([TEST_WITH], [
     AS_IF([test "$3" = "plugin"], [
       eval $want=plugin
     ], [
-      AC_ERROR([--with-$1=plugin not supported])
+      AC_MSG_ERROR(--with-$1=plugin not supported)
     ])
   ], [test "$(echo $2|grep -c '^/' 2>/dev/null)" -gt 0], [
-    AC_ERROR([--with-$1=path not supported. You may want to use instead:
+    AC_MSG_ERROR(--with-$1=path not supported. You may want to use instead:
 CPPFLAGS=-I$2/include LDFLAGS=-L$2/lib ./configure --with-$1)
   ], [
-    AC_ERROR([--with-$1: Unknown value: $2])
+    AC_MSG_ERROR(--with-$1: Unknown value: $2)
   ])
 ])

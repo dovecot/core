@@ -7,7 +7,7 @@ AC_DEFUN([DOVECOT_WANT_BSDAUTH], [
       have_bsdauth=yes
     ], [
       AS_IF([test "$want_bsdauth" = "yes"], [
-        AC_ERROR([Can't build with BSD authentication support: auth_userokay() not found])
+        AC_MSG_ERROR(cannot build with BSD authentication support: auth_userokay() not found)
       ])
     ])
   ])

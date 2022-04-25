@@ -70,13 +70,13 @@ AC_DEFUN([DOVECOT_WANT_MYSQL], [
   			found_sql_drivers="$found_sql_drivers mysql"
   		], [
   		  AS_IF([test $want_mysql = yes], [
-  		    AC_ERROR([Can't build with MySQL support: mysql.h not found])
+  		    AC_MSG_ERROR(cannot build with MySQL support: mysql.h not found)
   		  ])
   		])
   		CPPFLAGS=$old_CPPFLAGS
     ], [
       AS_IF([$want_mysql = yes], [
-        AC_ERROR([Can't build with MySQL support: libmysqlclient not found])
+        AC_MSG_ERROR(cannot build with MySQL support: libmysqlclient not found)
       ])
     ])
   

@@ -3,7 +3,7 @@ AC_DEFUN([DOVECOT_WANT_NSS], [
   AS_IF([test $want_nss != no], [
     AS_IF([test $have_modules != yes], [
       AS_IF([test $want_nss = yes], [
-        AC_ERROR([Can't build with NSS support: Dynamic modules not supported])
+        AC_MSG_ERROR(cannot build with NSS support: Dynamic modules not supported)
       ])
     ], [
       AC_CACHE_CHECK([for NSS support],i_cv_have_nss,[
@@ -22,7 +22,7 @@ AC_DEFUN([DOVECOT_WANT_NSS], [
         have_nss=yes
       ], [
         AS_IF([test $want_nss = yes], [
-          AC_ERROR([Can't build with NSS support: nss.h not found or not usable])
+          AC_MSG_ERROR(cannot build with NSS support: nss.h not found or not usable)
         ])
       ])
     ])

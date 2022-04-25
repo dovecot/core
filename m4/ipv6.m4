@@ -19,7 +19,7 @@ AC_DEFUN([DOVECOT_IPV6], [
           AC_DEFINE(HAVE_IPV6,, [Build with IPv6 support])
           have_ipv6=yes
   ], [
-          AC_ERROR([Can't build without IPv6 support.])
+          AC_MSG_ERROR(cannot build without IPv6 support.)
   ])
   AC_MSG_RESULT($i_cv_type_in6_addr)
 ])

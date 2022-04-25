@@ -6,7 +6,7 @@ AC_DEFUN([DOVECOT_LIBCAP],[
      AC_SUBST(LIBCAP)
    ], [
      AS_IF([test "$want_libcap" = "yes"], [
-       AC_ERROR([Can't build with libcap support: libcap not found])
+       AC_MSG_ERROR(cannot build with libcap support: libcap not found)
      ])
    ])
  ])

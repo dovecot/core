@@ -81,6 +81,6 @@ AC_DEFUN([DOVECOT_FD_PASSING], [
     AC_DEFINE(BUGGY_CMSG_MACROS,, [Define if you have buggy CMSG macros])
   ])
   AS_IF([test $i_cv_fd_passing = no], [
-    AC_ERROR([fd passing is required for Dovecot to work])
+    AC_MSG_ERROR(fd passing is required for Dovecot to work)
   ])
 ])

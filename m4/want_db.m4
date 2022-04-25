@@ -21,12 +21,12 @@ AC_DEFUN([DOVECOT_WANT_DB], [
         AC_DEFINE(BUILD_DB,, [Build with Berkeley DB support])
       ], [
         AS_IF([test $want_db = yes], [
-          AC_MSG_ERROR(Can't build with db support: db.h not found)
+          AC_MSG_ERROR(cannot build with db support: db.h not found)
         ])
       ])
     ], [
       AS_IF([test $want_db = yes], [
-        AC_ERROR([Can't build with db support: libdb not found])
+        AC_MSG_ERROR(cannot build with db support: libdb not found)
       ])
     ])
   ])

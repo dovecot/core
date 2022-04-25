@@ -14,9 +14,9 @@ AC_DEFUN([DOVECOT_SSL], [
         SSL_LIBS="-lssl -lcrypto $DLLIB"
         AC_SUBST(SSL_LIBS)
         have_openssl=yes
-    ], AC_ERROR([Can't build with OpenSSL: openssl/ssl.h or openssl/err.h not found]))])
+    ], AC_MSG_ERROR(cannot build with OpenSSL: openssl/ssl.h or openssl/err.h not found))])
     AS_IF([test $have_openssl != yes], [
-      AC_ERROR([Can't build with OpenSSL: libssl not found])
+      AC_MSG_ERROR(cannot build with OpenSSL: libssl not found)
     ])
   ])
 

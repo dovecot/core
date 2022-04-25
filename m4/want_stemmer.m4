@@ -5,7 +5,7 @@ AC_DEFUN([DOVECOT_WANT_STEMMER], [
       AC_DEFINE(HAVE_FTS_STEMMER,, [Define if you want stemming support for FTS])
     ], [
       AS_IF([test "$want_stemmer" = "yes"], [
-        AC_ERROR([Can't build with stemmer support: libstemmer not found])
+        AC_MSG_ERROR(cannot build with stemmer support: libstemmer not found)
       ])
     ])
   ])

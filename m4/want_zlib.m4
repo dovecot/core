@@ -7,7 +7,7 @@ AC_DEFUN([DOVECOT_WANT_ZLIB], [
       COMPRESS_LIBS="$COMPRESS_LIBS -lz"
     ], [
       if test "$want_zlib" = "yes"; then
-        AC_ERROR([Can't build with zlib support: zlib.h not found])
+        AC_MSG_ERROR(cannot build with zlib support: zlib.h not found)
       fi
     ])
   fi

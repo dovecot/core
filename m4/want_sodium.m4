@@ -11,7 +11,7 @@ AC_DEFUN([DOVECOT_WANT_SODIUM], [
       LIBS="$OLD_LIBS"
     ], [have_sodium=no])
     AS_IF([test "$want_sodium" = "yes" && test "$have_sodium" != "yes"] , [
-      AC_ERROR([Can't build with libsodium: not found])
+      AC_MSG_ERROR(cannot build with libsodium: not found)
     ])
   ])
   AM_CONDITIONAL(BUILD_LIBSODIUM, test "$have_sodium" = "yes")

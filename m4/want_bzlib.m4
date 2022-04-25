@@ -8,12 +8,12 @@ AC_DEFUN([DOVECOT_WANT_BZLIB], [
         COMPRESS_LIBS="$COMPRESS_LIBS -lbz2"
       ], [
         AS_IF([test "$want_bzlib" = "yes"], [
-          AC_ERROR([Can't build with bzlib support: libbz2 not found])
+          AC_MSG_ERROR(cannot build with bzlib support: libbz2 not found)
         ])
       ])
     ], [
       AS_IF([test "$want_bzlib" = "yes"], [
-        AC_ERROR([Can't build with bzlib support: bzlib.h not found])
+        AC_MSG_ERROR(cannot build with bzlib support: bzlib.h not found)
       ])
     ])
   ])

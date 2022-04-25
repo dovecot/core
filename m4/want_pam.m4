@@ -15,7 +15,7 @@ AC_DEFUN([DOVECOT_WANT_PAM], [
                   ])
           ], [
             AS_IF([test "$want_pam" = "yes"], [
-              AC_ERROR([Can't build with PAM support: libpam not found])
+              AC_MSG_ERROR(cannot build with PAM support: libpam not found)
             ])
           ])
   ])
@@ -29,7 +29,7 @@ AC_DEFUN([DOVECOT_WANT_PAM], [
       AC_DEFINE(HAVE_PAM_SETCRED,, [Define if you have pam_setcred()])
     ])
   ], [test "$want_pam" = "yes"], [
-    AC_ERROR([Can't build with PAM support: pam_appl.h not found])
+    AC_MSG_ERROR(cannot build with PAM support: pam_appl.h not found)
   ], [
     not_passdb="$not_passdb pam"
   ])

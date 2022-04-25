@@ -47,13 +47,13 @@ AC_DEFUN([DOVECOT_WANT_PGSQL], [
   		  found_sql_drivers="$found_sql_drivers pgsql"
   	  ], [
   	    if test $want_pgsql = yes; then
-  	      AC_ERROR([Can't build with PostgreSQL support: libpq-fe.h not found])
+  	      AC_MSG_ERROR(cannot build with PostgreSQL support: libpq-fe.h not found)
   	    fi
   	  ])
   	  CPPFLAGS=$old_CPPFLAGS
     ], [
       if test $want_pgsql = yes; then
-        AC_ERROR([Can't build with PostgreSQL support: libpq not found])
+        AC_MSG_ERROR(cannot build with PostgreSQL support: libpq not found)
       fi
     ])
     LIBS=$old_LIBS

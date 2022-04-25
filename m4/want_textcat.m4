@@ -24,7 +24,7 @@ AC_DEFUN([DOVECOT_WANT_TEXTCAT], [
         ])
       ])
       AS_IF([test "$want_textcat" = "yes" && test "$have_fts_exttextcat" != "yes" && test "$have_fts_textcat" != "yes"], [
-        AC_ERROR([Can't build with textcat support: libtextcat or libexttextcat not found])
+        AC_MSG_ERROR(cannot build with textcat support: libtextcat or libexttextcat not found)
       ])
     ])
     AS_IF([test "$have_fts_exttextcat" = "yes" || test "$have_fts_textcat" = "yes"], [

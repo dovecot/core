@@ -97,14 +97,14 @@ AC_DEFUN([DOVECOT_WANT_GSSAPI], [
   				])
   			], [
   			  AS_IF([test $want_gssapi != auto], [
-  			    AC_ERROR([Can't build with GSSAPI support: gssapi.h not found])
+  			    AC_MSG_ERROR(cannot build with GSSAPI support: gssapi.h not found)
   			  ])
   			])
   			CFLAGS=$old_CFLAGS
   		])
   	], [
   	  AS_IF([test $want_gssapi != auto], [
-  	    AC_ERROR([Can't build with GSSAPI support: krb5-config not found])
+  	    AC_MSG_ERROR(cannot build with GSSAPI support: krb5-config not found)
   	  ])
   	])
   ])

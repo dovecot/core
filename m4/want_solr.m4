@@ -8,12 +8,12 @@ AC_DEFUN([DOVECOT_WANT_SOLR], [
         fts="$fts solr"
       ], [
         if test $want_solr = yes; then
-          AC_ERROR([Can't build with Solr support: expat.h not found])
+          AC_MSG_ERROR(cannot build with Solr support: expat.h not found)
         fi
       ])
     ], [
       if test $want_solr = yes; then
-        AC_ERROR([Can't build with Solr support: libexpat not found])
+        AC_MSG_ERROR(cannot build with Solr support: libexpat not found)
       fi
     ])
   fi

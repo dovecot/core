@@ -8,7 +8,7 @@ AC_DEFUN([DOVECOT_WANT_FLATCURVE], [
       fts="$fts flatcurve"
     ],[
       AS_IF([test $want_flatcurve = yes], [
-        AC_ERROR([Can't build with Flatcurve FTS: $XAPIAN_PKG_ERRORS])
+        AC_MSG_ERROR(cannot build with Flatcurve FTS: $XAPIAN_PKG_ERRORS)
       ])
     ])
   ])
