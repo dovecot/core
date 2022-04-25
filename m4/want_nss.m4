@@ -1,36 +1,36 @@
 AC_DEFUN([DOVECOT_WANT_NSS], [
   have_nss=no
-  if test $want_nss != no; then
-    if test $have_modules != yes; then
-      if test $want_nss = yes; then
+  AS_IF([test $want_nss != no], [
+    AS_IF([test $have_modules != yes], [
+      AS_IF([test $want_nss = yes], [
         AC_ERROR([Can't build with NSS support: Dynamic modules not supported])
-      fi
-    else
+      ])
+    ], [
       AC_CACHE_CHECK([for NSS support],i_cv_have_nss,[
-        AC_TRY_COMPILE([
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
           #include <nss.h>
-        ], [
+        ]], [[
           enum nss_status status = NSS_STATUS_TRYAGAIN;
-        ], [
+        ]])],[
           i_cv_have_nss=yes
         ], [
           i_cv_have_nss=no
         ])
       ])
-      if test $i_cv_have_nss = yes; then
+      AS_IF([test $i_cv_have_nss = yes], [
         AC_DEFINE(USERDB_NSS,, [Build with NSS module support])
         have_nss=yes
-      else
-        if test $want_nss = yes; then
+      ], [
+        AS_IF([test $want_nss = yes], [
           AC_ERROR([Can't build with NSS support: nss.h not found or not usable])
-        fi
-      fi
-    fi
-  fi
+        ])
+      ])
+    ])
+  ])
   
-  if test $have_nss = no; then
+  AS_IF([test $have_nss = no], [
     not_userdb="$not_userdb nss"
-  else
+  ], [
     userdb="$userdb nss"
-  fi
+  ])
 ])
