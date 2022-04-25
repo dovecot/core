@@ -15,9 +15,9 @@ AC_DEFUN([DOVECOT_RLIMIT_AS], [
     ])
   ])
   
-  if test $i_cv_have_rlimit_as = yes; then
+  AS_IF([test $i_cv_have_rlimit_as = yes], [
     AC_DEFINE(HAVE_RLIMIT_AS,, [Define if you have RLIMIT_AS for setrlimit()])
-  fi
+  ])
 ])
 
 dnl * Do we have RLIMIT_NPROC?
@@ -37,9 +37,9 @@ AC_DEFUN([DOVECOT_RLIMIT_NPROC], [
     ])
   ])
   
-  if test $i_cv_have_rlimit_nproc = yes; then
+  AS_IF([test $i_cv_have_rlimit_nproc = yes], [
     AC_DEFINE(HAVE_RLIMIT_NPROC,, [Define if you have RLIMIT_NPROC for setrlimit()])
-  fi
+  ])
 ])
 
 dnl * Do we have RLIMIT_CORE?
@@ -59,7 +59,7 @@ AC_DEFUN([DOVECOT_RLIMIT_CORE], [
     ])
   ])
   
-  if test $i_cv_have_rlimit_core = yes; then
+  AS_IF([test $i_cv_have_rlimit_core = yes], [
     AC_DEFINE(HAVE_RLIMIT_CORE,, [Define if you have RLIMIT_CORE for getrlimit()])
-  fi
+  ])
 ])
