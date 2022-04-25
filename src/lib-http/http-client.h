@@ -117,7 +117,7 @@ struct http_client_settings {
 	   retrying/redirecting requests. if a server sends a response with a
 	   Retry-After header that causes a delay longer than this, the request
 	   is not automatically retried and the response is returned */
-	unsigned int max_auto_retry_delay;
+	unsigned int max_auto_retry_delay_secs;
 
 	/* the kernel send/receive buffer sizes used for the connection sockets.
 	   Configuring this is mainly useful for the test suite. The kernel

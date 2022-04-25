@@ -221,8 +221,8 @@ http_client_init_shared(struct http_client_context *cctx,
 			client->set.socket_send_buffer_size = set->socket_send_buffer_size;
 		if (set->socket_recv_buffer_size > 0)
 			client->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
-		if (set->max_auto_retry_delay > 0)
-			client->set.max_auto_retry_delay = set->max_auto_retry_delay;
+		if (set->max_auto_retry_delay_secs > 0)
+			client->set.max_auto_retry_delay_secs = set->max_auto_retry_delay_secs;
 		client->set.debug = client->set.debug || set->debug;
 	}
 
@@ -503,7 +503,7 @@ http_client_context_create(const struct http_client_settings *set)
 			set->request_timeout_msecs;
 	cctx->set.connect_timeout_msecs = set->connect_timeout_msecs;
 	cctx->set.soft_connect_timeout_msecs = set->soft_connect_timeout_msecs;
-	cctx->set.max_auto_retry_delay = set->max_auto_retry_delay;
+	cctx->set.max_auto_retry_delay_secs = set->max_auto_retry_delay_secs;
 	cctx->set.socket_send_buffer_size = set->socket_send_buffer_size;
 	cctx->set.socket_recv_buffer_size = set->socket_recv_buffer_size;
 	cctx->set.debug = set->debug;
