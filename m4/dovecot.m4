@@ -29,7 +29,28 @@ AC_DEFUN([AC_CC_D_FORTIFY_SOURCE],[
 
 dnl * gcc specific options
 AC_DEFUN([DC_DOVECOT_CFLAGS],[
-  AS_IF([test "x$ac_cv_c_compiler_gnu" = "xyes"], [
+   AC_PROG_CC_C99
+   AS_IF([test "$ac_cv_prog_cc_c99" = "no"], [
+      AC_MSG_ERROR(C99 capable compiler required)
+   ])
+
+   AC_MSG_CHECKING([Which $CC -std flag to use])
+   old_cflags=$CFLAGS
+   std=
+   for mystd in gnu11 gnu99 c11 c99; do
+     CFLAGS="-std=$mystd"
+     AC_COMPILE_IFELSE([AC_LANG_PROGRAM()
+     ], [
+        CFLAGS="$CFLAGS $old_cflags"
+	std=$mystd
+        break
+     ], [
+       CFLAGS="$old_cflags"
+     ])
+   done
+   AC_MSG_RESULT($std)
+
+   AS_IF([test "x$ac_cv_c_compiler_gnu" = "xyes"], [
         dnl -Wcast-qual -Wcast-align -Wconversion -Wunreachable-code # too many warnings
         dnl -Wstrict-prototypes -Wredundant-decls # may give warnings in some systems
         dnl -Wmissing-format-attribute -Wmissing-noreturn -Wwrite-strings # a couple of warnings
@@ -57,16 +78,6 @@ AC_DEFUN([DC_DOVECOT_CFLAGS],[
           dnl gcc4
           CFLAGS="$CFLAGS -Wstrict-aliasing=2"
         ],[])
-
-        dnl Use std=gnu99 if we have new enough gcc
-        old_cflags=$CFLAGS
-        CFLAGS="-std=gnu99"
-        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-        ]], [[]])],[
-          CFLAGS="$CFLAGS $old_cflags"
-        ],[
-          CFLAGS="$old_cflags"
-        ])
 
   ])
 ])
