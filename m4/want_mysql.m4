@@ -1,8 +1,8 @@
 AC_DEFUN([DOVECOT_WANT_MYSQL], [
   have_mysql=no
-  if test $want_mysql != no; then
-    AC_CHECK_PROG(MYSQL_CONFIG, mysql_config, mysql_config, NO)
-    if test $MYSQL_CONFIG = NO; then
+  AS_IF([test $want_mysql != no], [
+    AC_CHECK_PROG(MYSQL_CONFIG, mysql_config, mysql_config, missing)
+    AS_IF([test $MYSQL_CONFIG = missing], [
   	# based on code from PHP
   	MYSQL_LIBS="-lmysqlclient -lz -lm"
   	for i in /usr /usr/local /usr/local/mysql; do
@@ -17,73 +17,73 @@ AC_DEFUN([DOVECOT_WANT_MYSQL], [
   			fi
   		done
   	done
-    else
+    ], [
       MYSQL_INCLUDE="`$MYSQL_CONFIG --include`"
       MYSQL_LIBS="`$MYSQL_CONFIG --libs`"
-    fi
+    ])
   
     old_LIBS=$LIBS
-    if test "$MYSQL_LIBS" != ""; then
+    AS_IF([test "$MYSQL_LIBS" != ""], [
       LIBS="$LIBS $MYSQL_LIBS"
-    fi
+    ])
   
     mysql_lib=""
     LIBS="$LIBS -lz -lm"
     AC_CHECK_LIB(mysqlclient, mysql_init, [
   		old_CPPFLAGS=$CPPFLAGS
-  		if test "$MYSQL_INCLUDE" != ""; then
+  		AS_IF([test "$MYSQL_INCLUDE" != ""], [
   			CPPFLAGS="$CPPFLAGS $MYSQL_INCLUDE"
-  		fi
+  		])
   		AC_CHECK_HEADER(mysql.h, [
-  			if test "$MYSQL_INCLUDE" != ""; then
+  			AS_IF([test "$MYSQL_INCLUDE" != ""], [
   				MYSQL_CFLAGS="$MYSQL_CFLAGS $MYSQL_INCLUDE"
-  			fi
+  			])
   
   			AC_CHECK_LIB(mysqlclient, mysql_ssl_set, [
   				AC_DEFINE(HAVE_MYSQL_SSL,, [Define if your MySQL library has SSL functions])
-  				if test "x$have_openssl" = "yes"; then
+  				AS_IF([test "$have_openssl" = "yes"], [
   				  ssl_define="#define HAVE_OPENSSL"
-  				else
+  				], [
   				  ssl_define=""
-  				fi
-  				AC_TRY_COMPILE([
+  				])
+  				AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
   				  $ssl_define
   				  #include <mysql.h>
-  				], [
+  				]], [[
 				  mysql_ssl_set(0, 0, 0, 0, 0, 0);
-  				], [
+  				]])],[
   					AC_DEFINE(HAVE_MYSQL_SSL_CIPHER,, [Define if your MySQL library supports setting cipher])
   
-  					AC_TRY_COMPILE([
+  					AC_COMPILE_IFELSE([_au_m4_changequote([,])AC_LANG_PROGRAM([[
   					  $ssl_define
   					  #include <mysql.h>
-  					], [
+  					]], [[
   					  int i = MYSQL_OPT_SSL_VERIFY_SERVER_CERT;
-  					], [
+  					]])], [
   						AC_DEFINE(HAVE_MYSQL_SSL_VERIFY_SERVER_CERT,, [Defineif your MySQL library supports verifying the name in the SSL certificate])
-  					])
-  				])
+  					], [], [])
+  				],[])
   			])
   			
   			have_mysql=yes
   			AC_DEFINE(HAVE_MYSQL,, [Build with MySQL support])
   			found_sql_drivers="$found_sql_drivers mysql"
   		], [
-  		  if test $want_mysql = yes; then
+  		  AS_IF([test $want_mysql = yes], [
   		    AC_ERROR([Can't build with MySQL support: mysql.h not found])
-  		  fi
+  		  ])
   		])
   		CPPFLAGS=$old_CPPFLAGS
     ], [
-      if test $want_mysql = yes; then
+      AS_IF([$want_mysql = yes], [
         AC_ERROR([Can't build with MySQL support: libmysqlclient not found])
-      fi
+      ])
     ])
   
-    if test $have_mysql != yes; then
+    AS_IF([test $have_mysql != yes], [
       MYSQL_LIBS=
       MYSQL_CFLAGS=
-    fi
+    ])
     LIBS=$old_LIBS
-  fi
+  ])
 ])
