@@ -1,4 +1,4 @@
-AC_PREREQ([2.59])
+AC_PREREQ([2.69])
 
 m4_define([dovecot_VERSION],
     m4_esyscmd_s([build-aux/git-version-gen]))))
@@ -238,7 +238,6 @@ want_passwd=yes
 want_passwd_file=yes
 want_prefetch_userdb=yes
 
-AC_ISC_POSIX
 AC_PROG_CC
 AC_PROG_CPP
 AC_PROG_CXX # lucene plugin needs this
@@ -252,7 +251,7 @@ AS_IF([test "$FLEX" = ":" && test ! -e "$srcdir/src/lib/event-filter-lexer.c"],
 ])
 AC_HEADER_STDC
 AC_C_INLINE
-AC_PROG_LIBTOOL
+LT_INIT
 AM_ICONV
 
 # SIZE_MAX is missing without this
