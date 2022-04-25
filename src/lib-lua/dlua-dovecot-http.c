@@ -414,6 +414,63 @@ static void dlua_push_http_client(lua_State *L, struct http_client *client)
 	luaL_setfuncs(L, dovecot_http_client_methods, 0);
 }
 
+#define CLIENT_SETTING_STR(field) \
+	if (dlua_table_get_string_by_str(L, -1, #field, &(set->field)) < 0) { \
+		*error_r = t_strdup_printf("%s: string expected", #field); return -1; }
+#define CLIENT_SETTING_UINT(field) \
+	if (dlua_table_get_uint_by_str(L, -1, #field, &(set->field)) < 0) { \
+		*error_r = t_strdup_printf("%s: non-negative number expected", #field); return -1; }
+#define CLIENT_SETTING_BOOL(field) \
+	if (dlua_table_get_bool_by_str(L, -1, #field, &(set->field)) < 0) { \
+		*error_r = t_strdup_printf("%s: boolean expected", #field); return -1; }
+
+static int parse_client_settings(lua_State *L, struct http_client_settings *set,
+				 const char **error_r)
+{
+	struct http_url *parsed_url;
+	const char *proxy_url;
+
+	set->dns_client_socket_path = "dns-client";
+	CLIENT_SETTING_STR(user_agent);
+	CLIENT_SETTING_STR(rawlog_dir);
+	CLIENT_SETTING_UINT(max_idle_time_msecs);
+/* FIXME: Enable when asynchronous calls are supported
+*	CLIENT_SETTING_UINT(max_parallel_connections);
+*	CLIENT_SETTING_UINT(max_pipelined_requests);
+*/
+	CLIENT_SETTING_BOOL(no_auto_redirect);
+	CLIENT_SETTING_BOOL(no_auto_retry);
+	CLIENT_SETTING_UINT(max_redirects);
+	CLIENT_SETTING_UINT(max_attempts);
+	CLIENT_SETTING_UINT(max_connect_attempts);
+	CLIENT_SETTING_UINT(connect_backoff_time_msecs);
+	CLIENT_SETTING_UINT(connect_backoff_max_time_msecs);
+	CLIENT_SETTING_UINT(request_absolute_timeout_msecs);
+	CLIENT_SETTING_UINT(request_timeout_msecs);
+	CLIENT_SETTING_UINT(connect_timeout_msecs);
+	CLIENT_SETTING_UINT(soft_connect_timeout_msecs);
+	CLIENT_SETTING_UINT(max_auto_retry_delay_secs);
+	CLIENT_SETTING_BOOL(debug);
+
+	if (dlua_table_get_string_by_str(L, -1, "proxy_url", &proxy_url) > 0) {
+		if (http_url_parse(proxy_url, NULL, HTTP_URL_ALLOW_USERINFO_PART,
+				   pool_datastack_create(), &parsed_url, error_r) < 0) {
+			*error_r = t_strdup_printf("proxy_url is invalid: %s",
+						   *error_r);
+			return -1;
+		}
+		set->proxy_url = parsed_url;
+		set->proxy_username = parsed_url->user;
+		set->proxy_password = parsed_url->password;
+	}
+
+	lua_getfield(L, -1, "event_parent");
+	if (!lua_isnil(L, -1))
+		set->event_parent = dlua_check_event(L, -1);
+
+	return 0;
+}
+
 static int dlua_http_client_new(lua_State *L)
 {
 	DLUA_REQUIRE_ARGS(L, 1);
@@ -422,29 +479,12 @@ static int dlua_http_client_new(lua_State *L)
 	struct http_client *client;
 	struct http_client_settings http_set;
 	struct ssl_iostream_settings ssl_set;
-	struct dlua_script *script = dlua_script_from_state(L);
-	int max_attempts = 1;
-	int timeout = HTTP_CLIENT_DEFAULT_REQUEST_TIMEOUT_MSECS;
-	bool debug = FALSE;
-
-	lua_getfield(L, -1, "max_attempts");
-	if (!lua_isnil(L, -1))
-		max_attempts = luaL_checkinteger(L, -1);
-	lua_pop(L, 1);
-	lua_getfield(L, -1, "timeout");
-	if (!lua_isnil(L, -1))
-		timeout = luaL_checkinteger(L, -1);
-	lua_pop(L, 1);
-	lua_getfield(L, -1, "debug");
-	if (!lua_isnil(L, -1))
-		debug = lua_toboolean(L, -1);
-	lua_pop(L, 1);
+	const char *error;
 
 	i_zero(&http_set);
-	http_set.max_attempts = max_attempts;
-	http_set.request_timeout_msecs = timeout;
-	http_set.event_parent = script->event;
-	http_set.debug = debug;
+
+	if (parse_client_settings(L, &http_set, &error) < 0)
+		luaL_error(L, "Invalid HTTP client setting: %s", error);
 
 	const struct master_service_ssl_settings *master_ssl_set =
 		master_service_ssl_settings_get(master_service);
