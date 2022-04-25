@@ -1,12 +1,12 @@
 AC_DEFUN([DOVECOT_RPCGEN], [
   RPCGEN=${RPCGEN-rpcgen}
-  if ! $RPCGEN -c /dev/null > /dev/null; then
+  AS_IF([! $RPCGEN -c /dev/null >/dev/null], [
     RPCGEN=
-  fi
+  ])
   AC_SUBST(RPCGEN)
   
   have_rquota=no
-  if test -f /usr/include/rpcsvc/rquota.x && test -n "$RPCGEN"; then
+  AS_IF([test -f /usr/include/rpcsvc/rquota.x && test -n "$RPCGEN"], [
     PKG_CHECK_MODULES(LIBTIRPC, libtirpc, [
       have_rquota=yes
       QUOTA_LIBS="$QUOTA_LIBS \$(LIBTIRPC_LIBS)"
@@ -15,10 +15,10 @@ AC_DEFUN([DOVECOT_RPCGEN], [
 	have_rquota=yes
       ])
     ])
-  fi
-  if test "$have_rquota" = yes; then
+  ])
+  AS_IF([test "$have_rquota" = yes], [
     AC_DEFINE(HAVE_RQUOTA,, [Define if you wish to retrieve quota of NFS mounted mailboxes])
-  fi
+  ])
   AM_CONDITIONAL(HAVE_RQUOTA, test "$have_rquota" = "yes")
 ])
 
