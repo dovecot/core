@@ -1,7 +1,7 @@
 dnl * If mmap() plays nicely with write()
 AC_DEFUN([DOVECOT_MMAP_WRITE], [
   AC_CACHE_CHECK([whether shared mmaps get updated by write()s],i_cv_mmap_plays_with_write,[
-    AC_TRY_RUN([
+    AC_RUN_IFELSE([AC_LANG_PROGRAM([[
       #include <stdio.h>
       #include <sys/types.h>
       #include <sys/stat.h>
@@ -9,7 +9,7 @@ AC_DEFUN([DOVECOT_MMAP_WRITE], [
       #include <fcntl.h>
       #include <sys/mman.h>
       #include <string.h>
-      int main() {
+      ]], [[
         /* return 0 if we're signed */
         int f = open("conftest.mmap", O_RDWR|O_CREAT|O_TRUNC, 0600);
         void *mem;
@@ -31,14 +31,13 @@ AC_DEFUN([DOVECOT_MMAP_WRITE], [
         write(f, "3", 2);
       
         return strcmp(mem, "3") == 0 ? 0 : 1;
-      }
-    ], [
+    ]])],[
       i_cv_mmap_plays_with_write=yes
     ], [
       i_cv_mmap_plays_with_write=no
-    ])
+    ],[])
   ])
-  if test $i_cv_mmap_plays_with_write = no; then
+  AS_IF([test $i_cv_mmap_plays_with_write = no], [
     AC_DEFINE(MMAP_CONFLICTS_WRITE,, [Define if shared mmaps don't get updated by write()s])
-  fi
+  ])
 ])
