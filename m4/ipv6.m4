@@ -15,11 +15,11 @@ AC_DEFUN([DOVECOT_IPV6], [
   [[struct in6_addr i; (void)i;]])],
   [i_cv_type_in6_addr=yes],
   [i_cv_type_in6_addr=no])])
-  if test $i_cv_type_in6_addr = yes; then
+  AS_IF([test $i_cv_type_in6_addr = yes], [
           AC_DEFINE(HAVE_IPV6,, [Build with IPv6 support])
           have_ipv6=yes
-  else
+  ], [
           AC_ERROR([Can't build without IPv6 support.])
-  fi
+  ])
   AC_MSG_RESULT($i_cv_type_in6_addr)
 ])
