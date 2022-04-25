@@ -7,40 +7,40 @@ AC_DEFUN([DOVECOT_SENDFILE], [
     dnl * Linux compatible sendfile() - don't check if Solaris one was found.
     dnl * This seems to pass with Solaris for some reason..
     AC_CACHE_CHECK([Linux compatible sendfile()],i_cv_have_linux_sendfile,[
-      AC_TRY_LINK([
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([[
         #undef _FILE_OFFSET_BITS
         #include <sys/types.h>
         #include <sys/socket.h>
         #include <sys/sendfile.h>
-      ], [
+      ]], [[
         sendfile(0, 0, (void *) 0, 0);
-      ], [
+      ]])],[
         i_cv_have_linux_sendfile=yes
       ], [
         i_cv_have_linux_sendfile=no
       ])
     ])
-    if test $i_cv_have_linux_sendfile = yes; then
+    AS_IF([test $i_cv_have_linux_sendfile = yes], [
       AC_DEFINE(HAVE_LINUX_SENDFILE,, [Define if you have Linux-compatible sendfile()])
-    fi
+    ])
   
     dnl * FreeBSD compatible sendfile()
     AC_CACHE_CHECK([FreeBSD compatible sendfile()],i_cv_have_freebsd_sendfile,[
-      AC_TRY_LINK([
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([[
         #include <sys/types.h>
         #include <sys/socket.h>
         #include <sys/uio.h>
-      ], [
+      ]], [[
         struct sf_hdtr hdtr;
         sendfile(0, 0, 0, 0, &hdtr, (void *) 0, 0);
-      ], [
+      ]])],[
         i_cv_have_freebsd_sendfile=yes
       ], [
         i_cv_have_freebsd_sendfile=no
       ])
     ])
-    if test $i_cv_have_freebsd_sendfile = yes; then
+    AS_IF([test $i_cv_have_freebsd_sendfile = yes], [
       AC_DEFINE(HAVE_FREEBSD_SENDFILE,, [Define if you have FreeBSD-compatible sendfile()])
-    fi
+    ])
   ])
 ])
