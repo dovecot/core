@@ -6,7 +6,7 @@ dnl This file is free software; the authors give
 dnl unlimited permission to copy and/or distribute it, with or without
 dnl modifications, as long as this notice is preserved.
 
-# serial 35
+# serial 36
 
 dnl
 dnl Check for support for D_FORTIFY_SOURCE=2
@@ -36,11 +36,11 @@ AC_DEFUN([DC_DOVECOT_CFLAGS],[
         CFLAGS="$CFLAGS -Wall -W -Wmissing-prototypes -Wmissing-declarations -Wpointer-arith -Wchar-subscripts -Wformat=2 -Wbad-function-cast"
 
         AS_IF([test "$have_clang" = "yes"], [
-          AC_TRY_COMPILE([
+          AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
           #if __clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 3)
           #  error new clang
           #endif
-          ],,,[
+          ]], [[]])],[],[
             dnl clang 3.3+ unfortunately this gives warnings with hash.h
             CFLAGS="$CFLAGS -Wno-duplicate-decl-specifier"
           ])
@@ -49,22 +49,22 @@ AC_DEFUN([DC_DOVECOT_CFLAGS],[
           CFLAGS="$CFLAGS -fno-builtin-strftime"
         ])
 
-        AC_TRY_COMPILE([
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
         #if __GNUC__ < 4
         #  error old gcc
         #endif
-        ],,[
+        ]], [[]])],[
           dnl gcc4
           CFLAGS="$CFLAGS -Wstrict-aliasing=2"
-        ])
+        ],[])
 
         dnl Use std=gnu99 if we have new enough gcc
         old_cflags=$CFLAGS
         CFLAGS="-std=gnu99"
-        AC_TRY_COMPILE([
-        ],, [
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+        ]], [[]])],[
           CFLAGS="$CFLAGS $old_cflags"
-        ], [
+        ],[
           CFLAGS="$old_cflags"
         ])
 
@@ -324,7 +324,7 @@ AC_DEFUN([DC_DOVECOT],[
 	)
 
 	AC_ARG_WITH(dovecot-install-dirs,
-		[AC_HELP_STRING([--with-dovecot-install-dirs],
+		[AS_HELP_STRING([--with-dovecot-install-dirs],
 		[Use install directories configured for Dovecot (default)])],
 	AS_IF([test x$withval = xno], [
 		use_install_dirs=no
