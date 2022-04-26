@@ -1,3 +1,86 @@
+v2.3.19 2022-05-04  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	+ Added mail_user_session_finished event, which is emitted when the mail
+	  user session is finished (e.g. imap, pop3, lmtp). It also includes
+	  fields with some process statistics information.
+	  See https://doc.dovecot.org/admin_manual/list_of_events/ for more
+	  information.
+	+ Added process_shutdown_filter setting. When an event matches the filter,
+	  the process will be shutdown after the current connection(s) have
+	  finished. This is intended to reduce memory usage of long-running imap
+	  processes that keep a lot of memory allocated instead of freeing it to
+	  the OS.
+	+ auth: Add cache hit indicator to auth passdb/userdb finished events.
+	  See https://doc.dovecot.org/admin_manual/list_of_events/ for more
+	  information.
+	+ doveadm deduplicate: Performance is improved significantly.
+	+ imapc: COPY commands were sent one mail at a time to the remote IMAP
+	  server. Now the copying is buffered, so multiple mails can be copied
+	  with a single COPY command.
+	+ lib-lua: Add a Lua interface to Dovecot's HTTP client library. See
+	  https://doc.dovecot.org/admin_manual/lua/ for more information.
+	- auth: Cache lookup would use incorrect cache key after username change.
+	- auth: Improve handling unexpected LDAP connection errors/hangs.
+	  Try to fix up these cases by reconnecting to the LDAP server and
+	  aborting LDAP requests earlier.
+	- auth: Process crashed if userdb iteration was attempted while auth-workers
+	  were already full handling auth requests.
+	- auth: db-oauth2: Using %{oauth2:name} variables caused unnecessary
+	  introspection requests.
+	- dict: Timeouts may have been leaked at deinit.
+	- director: Ring may have become unstable if a backend's tag was changed.
+	  It could also have caused director process to crash.
+	- doveadm kick: Numeric parameter was treated as IP address.
+	- doveadm: Proxying can panic when flushing print output. Fixes
+	  Panic: file ioloop.c: line 865 (io_loop_destroy): assertion failed:
+	  (ioloop == current_ioloop).
+	- doveadm sync: BROKENCHAR was wrongly changed to '_' character when
+	  migrating mailboxes. This was set by default to %, so any mailbox
+	  names containing % characters were modified to "_25".
+	- imapc: Copying or moving mails with doveadm to an imapc mailbox could
+	  have produced "Error: Syncing mailbox '[...]' failed" Errors. The
+	  operation itself succeeded but attempting to sync the destination
+	  mailbox failed.
+	- imapc: Prevent index log synchronization errors when two or more imapc
+	  sessions are adding messages to the same mailbox index files, i.e.
+	  INDEX=MEMORY is not used.
+	- indexer: Process was slowly leaking memory for each indexing request.
+	- lib-fts: fts header filters caused binary content to be sent to the
+	  indexer with non-default configuration.
+	- doveadm-server: Process could hang in some situations when printing
+	  output to TCP client, e.g. when printing doveadm sync state.
+	- lib-index: dovecot.index.log files were often read and parsed entirely,
+	  rather than only the parts that were actually necessary. This mainly
+	  increased CPU usage.
+	- lmtp-proxy: Session ID forwarding would cause same session IDs being
+	  used when delivering same mail to multiple backends.
+	- log: Log prefix update may have been lost if log process was busy.
+	  This could have caused log prefixes to be empty or in some cases
+	  reused between sessions, i.e. log lines could have been logged for the
+	  wrong user/session.
+	- mail_crypt: Plugin crashes if it's loaded only for some users. Fixes
+	  Panic: Module context mail_crypt_user_module missing.
+	- mail_crypt: When LMTP was delivering mails to both recipients with mail
+	  encryption enabled and not enabled, the non-encrypted recipients may
+	  have gotten mails encrypted anyway. This happened when the first
+	  recipient was encrypted (mail_crypt_save_version=2) and the 2nd
+	  recipient was not encrypted (mail_crypt_save_version=0).
+	- pop3: Session would crash if empty line was sent.
+	- stats: HTTP server leaked memory.
+	- submission-login: Long credentials, such as OAUTH2 tokens, were refused
+	  during SASL interactive due to submission server applying line length
+	  limits.
+	- submission-login: When proxying to remote host, authentication was not
+	  using interactive SASL when logging in using long credentials such as
+	  OAUTH2 tokens. This caused authentication to fail due to line length
+	  constraints in SMTP protocol.
+	- submission: Terminating the client connection with QUIT command after
+	  mail transaction is started with MAIL command and before it is
+	  finished with DATA/BDAT can cause a segfault crash.
+	- virtual: doveadm search queries with mailbox-guid as the only parameter
+	  crashes: Panic: file virtual-search.c: line 77 (virtual_search_get_records):
+	  assertion failed: (result != 0)
+
 v2.3.18 2022-02-03  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	* Removed mail_cache_lookup_finished event. This event wasn't especially
