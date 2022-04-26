@@ -9,8 +9,10 @@ int read_full(int fd, void *data, size_t size)
 {
 	ssize_t ret;
 
+	i_assert(size <= SSIZE_T_MAX);
+
 	while (size > 0) {
-		ret = read(fd, data, size < SSIZE_T_MAX ? size : SSIZE_T_MAX);
+		ret = read(fd, data, size);
 		if (ret <= 0)
 			return ret;
 
@@ -25,9 +27,10 @@ int pread_full(int fd, void *data, size_t size, off_t offset)
 {
 	ssize_t ret;
 
+	i_assert(size <= SSIZE_T_MAX);
+
 	while (size > 0) {
-		ret = pread(fd, data, size < SSIZE_T_MAX ?
-			    size : SSIZE_T_MAX, offset);
+		ret = pread(fd, data, size, offset);
 		if (ret <= 0)
 			return ret;
 
