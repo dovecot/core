@@ -9,8 +9,10 @@ int write_full(int fd, const void *data, size_t size)
 {
 	ssize_t ret;
 
+	i_assert(size <= SSIZE_T_MAX);
+
 	while (size > 0) {
-		ret = write(fd, data, size < SSIZE_T_MAX ? size : SSIZE_T_MAX);
+		ret = write(fd, data, size);
 		if (unlikely(ret < 0))
 			return -1;
 
@@ -32,9 +34,10 @@ int pwrite_full(int fd, const void *data, size_t size, off_t offset)
 {
 	ssize_t ret;
 
+	i_assert(size <= SSIZE_T_MAX);
+
 	while (size > 0) {
-		ret = pwrite(fd, data, size < SSIZE_T_MAX ?
-			     size : SSIZE_T_MAX, offset);
+		ret = pwrite(fd, data, size, offset);
 		if (unlikely(ret < 0))
 			return -1;
 
