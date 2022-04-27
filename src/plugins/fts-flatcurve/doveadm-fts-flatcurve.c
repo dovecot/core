@@ -149,10 +149,9 @@ cmd_fts_flatcurve_mailbox_run(struct doveadm_mail_cmd_context *_ctx,
 		(struct fts_flatcurve_mailbox_cmd_context *)_ctx;
 	struct fts_flatcurve_user *fuser =
 		FTS_FLATCURVE_USER_CONTEXT(user);
-	struct flatcurve_fts_backend *backend = fuser->backend;
 
 	if (fuser == NULL) {
-		e_error(backend->event, FTS_FLATCURVE_LABEL " not enabled");
+		e_error(user->event, FTS_FLATCURVE_LABEL " not enabled");
 		doveadm_mail_failed_error(_ctx, MAIL_ERROR_NOTFOUND);
 		_ctx->exit_code = EX_UNAVAILABLE;
 		return -1;
@@ -177,6 +176,7 @@ cmd_fts_flatcurve_mailbox_run(struct doveadm_mail_cmd_context *_ctx,
 		break;
 	}
 
+	struct flatcurve_fts_backend *backend = fuser->backend;
 	int ret = cmd_fts_flatcurve_mailbox_run_do(backend, user, ctx);
 	if (ret < 0)
 		_ctx->exit_code = EX_TEMPFAIL;
