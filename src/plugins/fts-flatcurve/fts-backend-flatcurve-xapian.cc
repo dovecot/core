@@ -1806,10 +1806,10 @@ fts_flatcurve_xapian_optimize_box_do(struct flatcurve_fts_backend *backend,
 	hash_table_iterate_deinit(&hiter);
 
 	/* Create the optimize target. */
-	struct flatcurve_xapian_db_path *oldpath =
+	struct flatcurve_xapian_db_path *dbpath =
 		fts_flatcurve_xapian_create_db_path(
 			backend, FLATCURVE_XAPIAN_DB_OPTIMIZE);
-	if (fts_flatcurve_xapian_delete(backend, oldpath, error_r) < 0)
+	if (fts_flatcurve_xapian_delete(backend, dbpath, error_r) < 0)
 		return -1;
 
 	struct timeval start;
@@ -1818,9 +1818,9 @@ fts_flatcurve_xapian_optimize_box_do(struct flatcurve_fts_backend *backend,
 	bool failed = FALSE;
 	try {
 		(void)db->reopen();
-		db->compact(oldpath->path, Xapian::DBCOMPACT_NO_RENUMBER |
-					Xapian::DBCOMPACT_MULTIPASS |
-					Xapian::Compactor::FULLER);
+		db->compact(dbpath->path, Xapian::DBCOMPACT_NO_RENUMBER |
+					  Xapian::DBCOMPACT_MULTIPASS |
+					  Xapian::Compactor::FULLER);
 	} catch (Xapian::InvalidOperationError &e) {
 		/* This exception is not as specific as it could be...
 		 * but the likely reason it happens is due to
@@ -1836,7 +1836,7 @@ fts_flatcurve_xapian_optimize_box_do(struct flatcurve_fts_backend *backend,
 		 *      documents.
 		 * Let's try to be awesome and do the latter. */
 		failed = fts_flatcurve_xapian_optimize_rebuild(
-				backend, db, oldpath, error_r) < 0;
+				backend, db, dbpath, error_r) < 0;
 		if (!failed)
 			e_debug(backend->event, "Native optimize failed, "
 				"falling back to manual optimization; %s",
@@ -1849,11 +1849,6 @@ fts_flatcurve_xapian_optimize_box_do(struct flatcurve_fts_backend *backend,
 		e_error(backend->event, "Optimize failed: %s", *error_r);
 		return 0;
 	}
-
-	struct flatcurve_xapian_db_path *newpath =
-		p_new(x->pool, struct flatcurve_xapian_db_path, 1);
-	newpath->fname = p_strdup(x->pool, oldpath->fname);
-	newpath->path = p_strdup(x->pool, oldpath->path);
 
 	/* Delete old indexes. */
 	struct flatcurve_xapian_db_iter *iter =
@@ -1882,8 +1877,8 @@ fts_flatcurve_xapian_optimize_box_do(struct flatcurve_fts_backend *backend,
 		return -1;
 
 	/* Rename optimize index to an active index. */
-	if (fts_flatcurve_xapian_rename_db(backend, newpath, NULL, error_r) < 0 ||
-	    fts_flatcurve_xapian_delete(backend, oldpath, error_r) < 0)
+	if (fts_flatcurve_xapian_rename_db(backend, dbpath, NULL, error_r) < 0 ||
+	    fts_flatcurve_xapian_delete(backend, dbpath, error_r) < 0)
 		return -1;
 
 	struct timeval now;
