@@ -35,11 +35,9 @@ bool doveadm_cmd_param_bool(const struct doveadm_cmd_context *cctx,
 	if ((param = doveadm_cmd_param_get(cctx, name)) == NULL)
 		return FALSE;
 
-	if (param->type == CMD_PARAM_BOOL) {
-		*value_r = param->value.v_bool;
-		return TRUE;
-	}
-	return FALSE;
+	i_assert(param->type == CMD_PARAM_BOOL);
+	*value_r = param->value.v_bool;
+	return TRUE;
 }
 
 bool doveadm_cmd_param_int64(const struct doveadm_cmd_context *cctx,
@@ -49,11 +47,9 @@ bool doveadm_cmd_param_int64(const struct doveadm_cmd_context *cctx,
 	if ((param = doveadm_cmd_param_get(cctx, name)) == NULL)
 		return FALSE;
 
-	if (param->type == CMD_PARAM_INT64) {
-		*value_r = param->value.v_int64;
-		return TRUE;
-	}
-	return FALSE;
+	i_assert(param->type == CMD_PARAM_INT64);
+	*value_r = param->value.v_int64;
+	return TRUE;
 }
 
 bool doveadm_cmd_param_str(const struct doveadm_cmd_context *cctx,
@@ -63,11 +59,9 @@ bool doveadm_cmd_param_str(const struct doveadm_cmd_context *cctx,
 	if ((param = doveadm_cmd_param_get(cctx, name)) == NULL)
 		return FALSE;
 
-	if (param->type == CMD_PARAM_STR) {
-		*value_r = param->value.v_string;
-		return TRUE;
-	}
-	return FALSE;
+	i_assert(param->type == CMD_PARAM_STR);
+	*value_r = param->value.v_string;
+	return TRUE;
 }
 
 bool doveadm_cmd_param_ip(const struct doveadm_cmd_context *cctx,
@@ -77,11 +71,9 @@ bool doveadm_cmd_param_ip(const struct doveadm_cmd_context *cctx,
 	if ((param = doveadm_cmd_param_get(cctx, name)) == NULL)
 		return FALSE;
 
-	if (param->type == CMD_PARAM_IP) {
-		memcpy(value_r, &param->value.v_ip, sizeof(struct ip_addr));
-		return TRUE;
-	}
-	return FALSE;
+	i_assert(param->type == CMD_PARAM_IP);
+	memcpy(value_r, &param->value.v_ip, sizeof(struct ip_addr));
+	return TRUE;
 }
 
 bool doveadm_cmd_param_array(const struct doveadm_cmd_context *cctx,
@@ -92,14 +84,13 @@ bool doveadm_cmd_param_array(const struct doveadm_cmd_context *cctx,
 
 	if ((param = doveadm_cmd_param_get(cctx, name)) == NULL)
 		return FALSE;
-	if (param->type == CMD_PARAM_ARRAY) {
-		*value_r = array_get(&param->value.v_array, &count);
-		/* doveadm_cmd_params_null_terminate_arrays() should have been
-		   called, which guarantees that we're NULL-terminated */
-		i_assert((*value_r)[count] == NULL);
-		return TRUE;
-	}
-	return FALSE;
+
+	i_assert(param->type == CMD_PARAM_ARRAY);
+	*value_r = array_get(&param->value.v_array, &count);
+	/* doveadm_cmd_params_null_terminate_arrays() should have been
+	   called, which guarantees that we're NULL-terminated */
+	i_assert((*value_r)[count] == NULL);
+	return TRUE;
 }
 
 bool doveadm_cmd_param_istream(const struct doveadm_cmd_context *cctx,
@@ -109,11 +100,9 @@ bool doveadm_cmd_param_istream(const struct doveadm_cmd_context *cctx,
 	if ((param = doveadm_cmd_param_get(cctx, name)) == NULL)
 		return FALSE;
 
-	if (param->type == CMD_PARAM_ISTREAM) {
-		*value_r = param->value.v_istream;
-		return TRUE;
-	}
-	return FALSE;
+	i_assert(param->type == CMD_PARAM_ISTREAM);
+	*value_r = param->value.v_istream;
+	return TRUE;
 }
 
 void doveadm_cmd_params_clean(ARRAY_TYPE(doveadm_cmd_param_arr_t) *pargv)
