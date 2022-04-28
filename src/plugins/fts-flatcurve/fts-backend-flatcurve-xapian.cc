@@ -463,46 +463,33 @@ fts_flatcurve_xapian_rename_db(struct flatcurve_fts_backend *backend,
 			       struct flatcurve_xapian_db_path **newpath_r,
 			       const char **error_r)
 {
-	unsigned int i;
-	std::string new_fname;
-	struct flatcurve_xapian_db_path *newpath;
-	bool retry = FALSE;
-	std::ostringstream ss;
-
-	for (i = 0; i < 5; ++i) {
-		new_fname.clear();
-		new_fname = FLATCURVE_XAPIAN_DB_PREFIX;
+	struct flatcurve_xapian_db_path *newpath = NULL;
+	for (unsigned int attempts = 0; attempts < 3; attempts++) {
+		std::ostringstream ss;
+		std::string new_fname(FLATCURVE_XAPIAN_DB_PREFIX);
 		ss << i_rand_limit(8192);
 		new_fname += ss.str();
 
 		newpath = fts_flatcurve_xapian_create_db_path(
 				backend, new_fname.c_str());
 
-		if (rename(path->path, newpath->path) < 0) {
-			if (retry ||
-			    (errno != ENOTEMPTY) && (errno != EEXIST)) {
-				*error_r = t_strdup_printf(
-					"rename(%s, %s) failed: %m",
-					path->path, newpath->path);
-				p_free(backend->xapian->pool, newpath);
-				return -1;
-			}
-
-			/* Looks like a naming conflict; try once again with
-			 * a different filename. ss will have additional
-			 * randomness added to the original suffix, so it
-			 * will almost certainly work the second time. */
-			retry = TRUE;
-		} else {
+		if (rename(path->path, newpath->path) == 0) {
 			if (newpath_r != NULL) *newpath_r = newpath;
 			return 0;
 		}
+
+		if (errno != ENOTEMPTY && errno != EEXIST)
+			break;
+		/* Looks like a naming conflict; try again with a different
+		 * filename. ss will have fresh randomness, so it most likely
+		 * work already at the second attempt.
+		 * If after three attempts we still fail, then there's
+		 * something else going on and we just give up*/
 	}
 
-	/* If we still haven't found a valid filename, something is very
-	 * wrong. Exit before we enter an infinite loop and consume all the
-	 * memory. */
-	i_unreached();
+	*error_r = t_strdup_printf("rename(%s, %s) failed: %m",
+				   path->path, newpath->path);
+	return -1;
 }
 
 static bool
