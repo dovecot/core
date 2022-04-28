@@ -4,6 +4,7 @@
 #include "array.h"
 #include "istream.h"
 #include "str.h"
+#include "strescape.h"
 #include "net.h"
 #include "doveadm.h"
 #include "doveadm-cmd-parse.h"
@@ -402,4 +403,69 @@ int doveadm_cmdline_run(int argc, const char *const argv[],
 
 	doveadm_cmd_params_clean(&pargv);
 	return 0;
+}
+
+static const char*
+doveadm_cmd_param_tostring(const struct doveadm_cmd_param *argv)
+{
+	if (!argv->value_set)
+		return "";
+	switch(argv->type) {
+	case CMD_PARAM_ISTREAM:
+		return "stream";
+	case CMD_PARAM_BOOL:
+		return argv->value.v_bool ? "TRUE" : "FALSE";
+	case CMD_PARAM_IP:
+		return net_ip2addr(&argv->value.v_ip);
+	case CMD_PARAM_INT64:
+		return t_strdup_printf("%ld", argv->value.v_int64);
+	case CMD_PARAM_STR: {
+		const char *item = argv->value.v_string;
+		size_t item_len = strlen(item);
+		string_t *value = t_str_new(item_len + 2);
+		str_append_c(value, '"');
+		str_append_escaped(value, item, item_len);
+		str_append_c(value, '"');
+		return str_c(value);
+	}
+	case CMD_PARAM_ARRAY: {
+		string_t *value = t_str_new(64);
+		const char *const *item;
+		array_foreach(&argv->value.v_array, item) {
+			if (str_len(value) > 0) str_append(value, ", ");
+			str_append_c(value, '"');
+			str_append_escaped(value, *item, strlen(*item));
+			str_append_c(value, '"');
+		}
+		return str_c(value);
+	}
+	default:
+		return "";
+	}
+}
+
+void doveadm_cmd_params_dump(const struct doveadm_cmd_context *cctx)
+{
+	i_debug("%s()", __func__);
+	i_assert(cctx != NULL);
+	i_assert(cctx->argv != NULL);
+	const struct doveadm_cmd_param *argv = cctx->argv;
+	for (int index = 0; index < cctx->argc; index++, argv++) T_BEGIN {
+		const char *value = doveadm_cmd_param_tostring(argv);
+		i_debug("    %c%c%c%c %02x/%02x -%c %s: %s",
+			*value != '\0' ? 'S': '-',
+			argv->type == CMD_PARAM_ARRAY ? 'A': '-',
+			(argv->flags & CMD_PARAM_FLAG_POSITIONAL) != 0 ? 'P': '-',
+			(argv->flags & CMD_PARAM_FLAG_KEY_VALUE) != 0 ? 'N': '-',
+			(int)argv->type, (int)argv->flags,
+			argv->short_opt != '\0' ? argv->short_opt : '-',
+			argv->name, value);
+	} T_END;
+}
+
+void doveadm_cmd_args_dump(const char *const *items)
+{
+	i_debug("%s()", __func__);
+	for (; *items != NULL; items++)
+		i_debug("    %s", *items);
 }

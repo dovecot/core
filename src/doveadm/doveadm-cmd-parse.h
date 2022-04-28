@@ -155,4 +155,8 @@ bool doveadm_cmd_param_istream(const struct doveadm_cmd_context *cctx,
 void doveadm_cmd_params_clean(ARRAY_TYPE(doveadm_cmd_param_arr_t) *pargv);
 void doveadm_cmd_params_null_terminate_arrays(ARRAY_TYPE(doveadm_cmd_param_arr_t) *pargv);
 
+/* debug functions */
+void doveadm_cmd_args_dump(const char *const *items);
+void doveadm_cmd_params_dump(const struct doveadm_cmd_context *cctx);
+
 #endif
