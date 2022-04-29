@@ -534,7 +534,7 @@ fts_flatcurve_xapian_db_add(struct flatcurve_fts_backend *backend,
 		return 0;
 	}
 
-	struct flatcurve_xapian_db *o, *xdb;
+	struct flatcurve_xapian_db *xdb;
 	xdb = p_new(x->pool, struct flatcurve_xapian_db, 1);
 	xdb->dbpath = dbpath;
 	xdb->type = type;
@@ -761,7 +761,6 @@ fts_flatcurve_xapian_write_db_current(struct flatcurve_fts_backend *backend,
 		ENUM_EMPTY(flatcurve_xapian_wdb);
 
 	struct flatcurve_xapian *x = backend->xapian;
-	struct flatcurve_xapian_db *xdb;
 
 	if (x->dbw_current != NULL && x->dbw_current->dbw != NULL) {
 		if (dbw_current_r != NULL) *dbw_current_r = x->dbw_current;
@@ -894,7 +893,6 @@ int fts_flatcurve_xapian_mailbox_rotate(struct flatcurve_fts_backend *backend,
 		(enum flatcurve_xapian_db_opts)
 		 	(FLATCURVE_XAPIAN_DB_NOCREATE_CURRENT |
 		  	 FLATCURVE_XAPIAN_DB_IGNORE_EMPTY);
-	struct flatcurve_xapian *x = backend->xapian;
 	struct flatcurve_xapian_db *xdb;
 
 	int ret = fts_flatcurve_xapian_write_db_current(
@@ -947,7 +945,7 @@ static int fts_flatcurve_database_find_dir(const char *path, const char **dir_r,
 	/* Resolve symlinks, . and .. , and repeated path separators
 	   what remains is a cleaned path, either relative or absolute
 	   that is good to parse */
-	const char *normalized, *error;
+	const char *normalized;
 	if (t_realpath(path, &normalized, error_r) < 0)
 		return -1;
 
