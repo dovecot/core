@@ -368,8 +368,10 @@ fts_backend_flatcurve_rescan_box(struct flatcurve_fts_backend *backend,
 	struct mailbox_transaction_context *trans;
 
 	/* Check for non-indexed mails. */
-	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0)
+	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
+		*error_r = mailbox_get_last_internal_error(box, NULL);
 		return -1;
+	}
 
 	trans = mailbox_transaction_begin(box, 0, __func__);
 	search_args = mail_search_build_init();
@@ -460,7 +462,7 @@ fts_backend_flatcurve_rescan_box(struct flatcurve_fts_backend *backend,
 				"expunged=%s", u);
 		}
 	} T_END;
-	return ret;
+	return 0;
 }
 
 static int
