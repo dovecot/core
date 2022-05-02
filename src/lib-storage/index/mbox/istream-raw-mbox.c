@@ -89,7 +89,7 @@ static int mbox_read_from_line(struct raw_mbox_istream *rstream)
 	line_pos = p == NULL ? 0 : (size_t)(p - buf);
 
 	/* beginning of mbox */
-	if (memcmp(buf+skip, "From ", 5) != 0 ||
+	if ((pos < skip+5) || memcmp(buf+skip, "From ", 5) != 0 ||
 	    mbox_from_parse((buf+skip)+5, (pos-skip)-5,
 			    &received_time, &tz, &sender) < 0) {
 		/* broken From - should happen only at beginning of
