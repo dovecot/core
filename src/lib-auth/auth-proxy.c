@@ -77,10 +77,8 @@ int auth_proxy_settings_parse(struct auth_proxy_settings *set, pool_t pool,
 	return 1;
 }
 
-bool auth_proxy_parse_redirect(const char *target,
-			       const char **destuser_r,
-			       const char **host_r, struct ip_addr *ip_r,
-			       in_port_t *port_r)
+bool auth_proxy_parse_redirect(const char *target, const char **destuser_r,
+			       const char **host_r, in_port_t *port_r)
 {
 	const char *p;
 
@@ -92,8 +90,6 @@ bool auth_proxy_parse_redirect(const char *target,
 		target = p+1;
 	}
 	if (net_str2hostport(target, 0, host_r, port_r) < 0)
-		return FALSE;
-	if (net_addr2ip(*host_r, ip_r) < 0)
 		return FALSE;
 	return TRUE;
 }

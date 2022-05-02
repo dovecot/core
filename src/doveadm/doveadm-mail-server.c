@@ -352,7 +352,7 @@ doveadm_cmd_redirect_finish(struct doveadm_mail_server_cmd *servercmd,
 
 static int
 doveadm_cmd_redirect_relookup(struct doveadm_mail_server_cmd *servercmd,
-			      const struct ip_addr *ip, in_port_t port,
+			      const char *host, in_port_t port,
 			      const char *destuser, const char **error_r)
 {
 	struct auth_proxy_settings proxy_set;
@@ -367,8 +367,7 @@ doveadm_cmd_redirect_relookup(struct doveadm_mail_server_cmd *servercmd,
 	str_append(hosts_attempted, "proxy_redirect_host_attempts=");
 	doveadm_proxy_cmd_get_redirect_path(servercmd, hosts_attempted);
 	const char *const extra_fields[] = {
-		t_strdup_printf("proxy_redirect_host_next=%s:%u",
-				net_ip2addr(ip), port),
+		t_strdup_printf("proxy_redirect_host_next=%s:%u", host, port),
 		str_c(hosts_attempted),
 		destuser == NULL ? NULL :
 			t_strdup_printf("destuser=%s", str_tabescape(destuser)),
@@ -410,8 +409,7 @@ static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
 	const char *destuser, *host, *error;
 	int ret;
 
-	if (!auth_proxy_parse_redirect(destination, &destuser,
-				       &host, &ip, &port)) {
+	if (!auth_proxy_parse_redirect(destination, &destuser, &host, &port)) {
 		i_error("%s: Invalid redirect destination: %s",
 			orig_server->name, destination);
 		return -1;
@@ -420,9 +418,14 @@ static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
 		port = client_set->port;
 
 	if (cmd_ctx->cctx->proxy_redirect_reauth) {
-		ret = doveadm_cmd_redirect_relookup(servercmd, &ip, port,
+		ret = doveadm_cmd_redirect_relookup(servercmd, host, port,
 						    destuser, &error);
 	} else {
+		if (net_addr2ip(host, &ip) < 0) {
+			i_error("%s: Redirect destination host is not an IP: %s",
+				orig_server->name, destination);
+			return -1;
+		}
 		ret = doveadm_cmd_redirect_finish(servercmd, &ip, port,
 						  client_set->ssl_flags,
 						  &error);
