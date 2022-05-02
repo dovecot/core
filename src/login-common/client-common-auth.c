@@ -428,13 +428,13 @@ proxy_redirect_reauth_callback(struct auth_client_request *request,
 
 static void
 proxy_redirect_reauth(struct client *client, const char *destuser,
-		      const struct ip_addr *ip, in_port_t port)
+		      const char *host, in_port_t port)
 {
 	struct auth_request_info info;
 	const char *client_error;
 
-	e_debug(client->event, "Reauthenticating user %s (redirect to %s)",
-		destuser, net_ipport2str(ip, port));
+	e_debug(client->event, "Reauthenticating user %s (redirect to %s:%u)",
+		destuser, host, port);
 	if (sasl_server_auth_request_info_fill(client, &info, &client_error) < 0) {
 		const char *error = t_strdup_printf(
 			"Unexpected failure on reauth: %s", client_error);
@@ -449,8 +449,7 @@ proxy_redirect_reauth(struct client *client, const char *destuser,
 	unsigned int connect_timeout_msecs =
 		login_proxy_get_connect_timeout_msecs(client->login_proxy);
 	const char *const extra_fields[] = {
-		t_strdup_printf("proxy_redirect_host_next=%s",
-				net_ipport2str(ip, port)),
+		t_strdup_printf("proxy_redirect_host_next=%s:%u", host, port),
 		str_c(hosts_attempted),
 		t_strdup_printf("destuser=%s", str_tabescape(destuser)),
 		t_strdup_printf("proxy_timeout=%u", connect_timeout_msecs),
@@ -486,18 +485,20 @@ proxy_try_redirect(struct client *client, const char *destination,
 			"Failed to parse host:port '%s'", destination);
 		return FALSE;
 	}
+	/* At least for now we support sending the destuser only for reauth
+	   requests. */
+	if (client->proxy_redirect_reauth) {
+		proxy_redirect_reauth(client, destuser, host, port);
+		return TRUE;
+	}
+
 	if (net_addr2ip(host, &ip) < 0) {
 		*error_r = t_strdup_printf(
 			"Failed to parse IP '%s' (DNS lookups not supported)",
 			host);
 		return FALSE;
 	}
-	/* At least for now we support sending the destuser only for reauth
-	   requests. */
-	if (client->proxy_redirect_reauth)
-		proxy_redirect_reauth(client, destuser, &ip, port);
-	else
-		login_proxy_redirect_finish(client->login_proxy, &ip, port);
+	login_proxy_redirect_finish(client->login_proxy, &ip, port);
 	return TRUE;
 }
 
