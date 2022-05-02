@@ -315,7 +315,7 @@ fts_flatcurve_xapian_db_iter_next(struct flatcurve_xapian_db_iter *iter)
 
 	errno = 0;
 	struct dirent *dir = readdir(iter->dirp);
-	if (errno < 0) {
+	if (errno != 0) {
 		iter->error = i_strdup_printf(
 			"readdir(%s) failed: %m",
 			str_c(iter->backend->db_path));
@@ -1020,7 +1020,7 @@ int fts_flatcurve_database_locate_dir(const char *arg_path,
 	do {
 		errno = 0;
 		struct dirent *entry = readdir(dir);
-		if (errno < 0) {
+		if (errno != 0) {
 			*error_r = t_strdup_printf("readdir(%s) failed: %m", path);
 			if (closedir(dir) < 0)
 				i_error("closedir(%s) failed: %m", path);
