@@ -24,25 +24,18 @@
         result = event_filter_parser_input_proc(buf, max_size, yyscanner)
 static size_t event_filter_parser_input_proc(char *buf, size_t size, yyscan_t scanner);
 
-#ifdef __clang__
-#pragma clang diagnostic push
-/* ignore "unknown warning" warning if we're using unpatched clang */
-#pragma clang diagnostic ignored "-Wunknown-warning-option"
-/* ignore strict bool warnings in generated code */
-#pragma clang diagnostic ignored "-Wstrict-bool"
-/* ignore sign comparison errors (buggy flex) */
-#pragma clang diagnostic ignored "-Wsign-compare"
-/* ignore unused functions */
-#pragma clang diagnostic ignored "-Wunused-function"
-/* ignore unused parameters */
-#pragma clang diagnostic ignored "-Wunused-parameter"
-#else
-/* and same for gcc */
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wsign-compare"
-#pragma GCC diagnostic ignored "-Wunused-function"
-#pragma GCC diagnostic ignored "-Wunused-parameter"
+
+/* ignore strict bool warnings in generated code */
+#ifdef HAVE_STRICT_BOOL
+#  pragma GCC diagnostic ignored "-Wstrict-bool"
 #endif
+/* ignore sign comparison errors (buggy flex) */
+#pragma GCC diagnostic ignored "-Wsign-compare"
+/* ignore unused functions */
+#pragma GCC diagnostic ignored "-Wunused-function"
+/* ignore unused parameters */
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 
 %}
 
@@ -100,9 +93,8 @@ static size_t event_filter_parser_input_proc(char *buf, size_t size, yyscan_t sc
 					return (unsigned char) *yytext;
 				}
 %%
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
+
+#pragma GCC diagnostic pop
 
 void *yyalloc(size_t bytes, void* yyscanner ATTR_UNUSED)
 {

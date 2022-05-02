@@ -129,12 +129,11 @@ static struct event_filter_node *logic(struct event_filter_parser_state *state,
 	return node;
 }
 
-#ifdef __clang__
-/* ignore "unknown warning" warning if we're using unpatched clang */
-#pragma clang diagnostic ignored "-Wunknown-warning-option"
 /* ignore strict bool warnings in generated code */
-#pragma clang diagnostic ignored "-Wstrict-bool"
+#ifdef HAVE_STRICT_BOOL
+#  pragma GCC diagnostic ignored "-Wstrict-bool"
 #endif
+
 %}
 
 %union {
