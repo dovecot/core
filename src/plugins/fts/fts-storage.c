@@ -832,8 +832,11 @@ static void fts_mailbox_virtual_match_mail(struct mail_search_context *ctx,
 		hash_table_lookup(fctx->last_indexed_virtual_uids, box_name);
 	if (uid_value == NULL) {
 		/* This backend's last indexed uid is not yet inserted to the table */
-		if (mailbox_open(backend_mail->box) < 0 ||
-		    fts_backend_get_last_uid(fctx->backend, backend_mail->box,
+		struct fts_mailbox_list *flist =
+			FTS_LIST_CONTEXT(backend_mail->box->list);
+		if (flist == NULL || flist->failed ||
+		    mailbox_open(backend_mail->box) < 0 ||
+		    fts_backend_get_last_uid(flist->backend, backend_mail->box,
 					     &be_last_uid) < 0) {
 			be_last_uid = 0;
 		} else {
