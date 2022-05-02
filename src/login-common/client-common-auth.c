@@ -457,6 +457,8 @@ proxy_redirect_reauth(struct client *client, const char *destuser,
 	t_array_init(&info.extra_fields, N_ELEMENTS(extra_fields));
 	array_append(&info.extra_fields, extra_fields,
 		     N_ELEMENTS(extra_fields));
+	if (client->forward_fields != NULL)
+		info.forward_fields = str_c(client->forward_fields);
 	client->reauth_request =
 		auth_client_request_new(auth_client, &info,
 					proxy_redirect_reauth_callback, client);
