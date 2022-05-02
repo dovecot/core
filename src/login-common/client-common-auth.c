@@ -131,7 +131,7 @@ static void alt_username_set(ARRAY_TYPE(const_string) *alt_usernames, pool_t poo
 }
 
 static bool client_auth_parse_args(const struct client *client, bool success,
-				   const char *const *args,
+				   bool reauth, const char *const *args,
 				   struct client_auth_reply *reply_r)
 {
 	const char *key, *value, *p, *error;
@@ -214,7 +214,7 @@ static bool client_auth_parse_args(const struct client *client, bool success,
 		reply_r->proxy.username = client->virtual_user;
 
 	if (reply_r->proxy.proxy) {
-		if (reply_r->proxy.password == NULL) {
+		if (reply_r->proxy.password == NULL && !reauth) {
 			e_error(client->event, "proxy: pass field is missing");
 			return FALSE;
 		}
@@ -390,7 +390,7 @@ proxy_redirect_reauth_callback(struct auth_client_request *request,
 		error = "Unexpected SASL continuation request received";
 		break;
 	case AUTH_REQUEST_STATUS_OK:
-		if (!client_auth_parse_args(client, FALSE, args, &reply)) {
+		if (!client_auth_parse_args(client, FALSE, TRUE, args, &reply)) {
 			error = "Redirect authentication returned invalid input";
 			break;
 		}
@@ -407,7 +407,7 @@ proxy_redirect_reauth_callback(struct auth_client_request *request,
 		error = "Internal authentication failure";
 		break;
 	case AUTH_REQUEST_STATUS_FAIL:
-		if (!client_auth_parse_args(client, FALSE, args, &reply))
+		if (!client_auth_parse_args(client, FALSE, TRUE, args, &reply))
 			error = "Failed to parse auth reply";
 		else if (reply.reason == NULL || reply.reason[0] == '\0')
 			error = "Redirect authentication unexpectedly failed";
@@ -852,7 +852,7 @@ client_auth_reply_args(struct client *client, enum sasl_server_reply sasl_reply,
 
 	timeout_remove(&client->to_auth_waiting);
 	if (args != NULL) {
-		if (!client_auth_parse_args(client, success, args, reply_r)) {
+		if (!client_auth_parse_args(client, success, FALSE, args, reply_r)) {
 			client_auth_result(client,
 				CLIENT_AUTH_RESULT_AUTHFAILED, reply_r,
 				AUTH_FAILED_MSG);
