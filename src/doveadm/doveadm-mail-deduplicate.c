@@ -26,12 +26,13 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 	pool_t pool;
 	HASH_TABLE(const char *, void *) hash;
 	const char *key, *errstr;
-	int ret = 0;
 
-	if (doveadm_mail_iter_init(_ctx, info, search_args, 0, NULL, 0,
-				   &iter) < 0)
-		return -1;
+	int ret = doveadm_mail_iter_init(_ctx, info, search_args, 0, NULL, 0,
+					 &iter);
+	if (ret <= 0)
+		return ret;
 
+	ret = 0;
 	pool = pool_alloconly_create("deduplicate", 10240);
 	hash_table_create(&hash, pool, 0, str_hash, strcmp);
 	while (doveadm_mail_iter_next(iter, &mail)) {

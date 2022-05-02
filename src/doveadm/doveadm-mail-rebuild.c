@@ -14,14 +14,15 @@ cmd_rebuild_attachment_box(struct doveadm_mail_cmd_context *ctx,
 {
 	struct doveadm_mail_iter *iter;
 	struct mail *mail;
-	int ret = 0;
 
-	if (doveadm_mail_iter_init(ctx, info, ctx->search_args,
-				   MAIL_FETCH_IMAP_BODYSTRUCTURE|
-				   MAIL_FETCH_MESSAGE_PARTS, NULL, 0,
-				   &iter) < 0)
-		return -1;
+	int ret = doveadm_mail_iter_init(ctx, info, ctx->search_args,
+					 MAIL_FETCH_IMAP_BODYSTRUCTURE|
+					 MAIL_FETCH_MESSAGE_PARTS, NULL, 0,
+					 &iter);
+	if (ret <= 0)
+		return ret;
 
+	ret = 0;
 	while (doveadm_mail_iter_next(iter, &mail) && ret >= 0) {
 		T_BEGIN {
 			doveadm_print(dec2str(mail->uid));

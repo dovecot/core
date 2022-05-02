@@ -13,6 +13,7 @@ enum doveadm_mail_iter_flags {
 struct doveadm_mail_iter;
 struct doveadm_mail_cmd_context;
 
+/* Return -1 on error, 0 when mailbox isn't found and 1 when all is ok. */
 int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
 			   const struct mailbox_info *info,
 			   struct mail_search_args *search_args,

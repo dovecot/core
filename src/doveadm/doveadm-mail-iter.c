@@ -45,17 +45,15 @@ int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
 	iter->search_args = search_args;
 
 	if (mailbox_sync(iter->box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
+		*iter_r = NULL;
 		errstr = mailbox_get_last_internal_error(iter->box, &error);
-		if (error == MAIL_ERROR_NOTFOUND) {
-			/* just ignore this mailbox */
-			*iter_r = iter;
-			return 0;
+		if (error != MAIL_ERROR_NOTFOUND) {
+			i_error("Syncing mailbox %s failed: %s", info->vname, errstr);
+			doveadm_mail_failed_mailbox(ctx, iter->box);
 		}
-		i_error("Syncing mailbox %s failed: %s", info->vname, errstr);
-		doveadm_mail_failed_mailbox(ctx, iter->box);
 		mailbox_free(&iter->box);
 		i_free(iter);
-		return -1;
+		return error == MAIL_ERROR_NOTFOUND ? 0 : -1;
 	}
 
 	headers_ctx = wanted_headers == NULL || wanted_headers[0] == NULL ?
@@ -68,7 +66,7 @@ int doveadm_mail_iter_init(struct doveadm_mail_cmd_context *ctx,
 					       wanted_fields, headers_ctx);
 	mailbox_header_lookup_unref(&headers_ctx);
 	*iter_r = iter;
-	return 0;
+	return 1;
 }
 
 static int

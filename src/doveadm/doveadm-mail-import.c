@@ -133,13 +133,14 @@ cmd_import_box(struct import_cmd_context *ctx, struct mail_user *dest_user,
 	struct doveadm_mail_iter *iter;
 	struct mailbox *box;
 	struct mail *mail;
-	int ret = 0;
 
-	if (doveadm_mail_iter_init(&ctx->ctx, info, search_args, 0, NULL,
-				   DOVEADM_MAIL_ITER_FLAG_READONLY,
-				   &iter) < 0)
-		return -1;
+	int ret = doveadm_mail_iter_init(&ctx->ctx, info, search_args, 0, NULL,
+					 DOVEADM_MAIL_ITER_FLAG_READONLY,
+					 &iter);
+	if (ret <= 0)
+		return ret;
 
+	ret = 0;
 	if (doveadm_mail_iter_next(iter, &mail)) {
 		/* at least one mail matches in this mailbox */
 		if (dest_mailbox_open_or_create(ctx, dest_user, info, &box) < 0)

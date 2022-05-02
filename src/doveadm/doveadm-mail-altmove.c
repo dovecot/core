@@ -24,9 +24,10 @@ cmd_altmove_box(struct doveadm_mail_cmd_context *ctx,
 	enum modify_type modify_type =
 		!reverse ? MODIFY_ADD : MODIFY_REMOVE;
 
-	if (doveadm_mail_iter_init(ctx, info, search_args, 0, NULL, 0,
-				   &iter) < 0)
-		return -1;
+	int ret = doveadm_mail_iter_init(ctx, info, search_args, 0, NULL, 0,
+					 &iter);
+	if (ret <= 0)
+		return ret;
 
 	while (doveadm_mail_iter_next(iter, &mail)) {
 		if (doveadm_debug) {

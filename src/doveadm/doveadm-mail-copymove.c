@@ -29,11 +29,12 @@ cmd_copy_box(struct copy_cmd_context *ctx, struct mailbox *destbox,
 	struct mailbox_transaction_context *desttrans;
 	struct mail_save_context *save_ctx;
 	struct mail *mail;
-	int ret = 0, ret2;
+	int ret2;
 
-	if (doveadm_mail_iter_init(&ctx->ctx, info, ctx->ctx.search_args, 0,
-				   NULL, 0, &iter) < 0)
-		return -1;
+	int ret = doveadm_mail_iter_init(&ctx->ctx, info, ctx->ctx.search_args, 0,
+					 NULL, 0, &iter);
+	if (ret <= 0)
+		return ret;
 
 	/* use a separately committed transaction for each mailbox.
 	   this guarantees that mails aren't expunged without actually having
@@ -42,6 +43,7 @@ cmd_copy_box(struct copy_cmd_context *ctx, struct mailbox *destbox,
 					MAILBOX_TRANSACTION_FLAG_EXTERNAL |
 					ctx->ctx.transaction_flags, __func__);
 
+	ret = 0;
 	while (doveadm_mail_iter_next(iter, &mail)) {
 		save_ctx = mailbox_save_alloc(desttrans);
 		mailbox_save_copy_flags(save_ctx, mail);

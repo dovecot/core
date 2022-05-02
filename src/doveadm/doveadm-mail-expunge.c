@@ -24,12 +24,13 @@ cmd_expunge_box(struct doveadm_mail_cmd_context *_ctx,
 	struct mailbox *box;
 	struct mail *mail;
 	enum mail_error error;
-	int ret = 0;
 
-	if (doveadm_mail_iter_init(_ctx, info, search_args, 0, NULL, 0,
-				   &iter) < 0)
-		return -1;
+	int ret = doveadm_mail_iter_init(_ctx, info, search_args, 0, NULL, 0,
+					 &iter);
+	if (ret <= 0)
+		return ret;
 
+	ret = 0;
 	while (doveadm_mail_iter_next(iter, &mail)) {
 		if (doveadm_debug) {
 			i_debug("expunge: box=%s uid=%u",
