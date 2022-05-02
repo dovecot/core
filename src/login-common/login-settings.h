@@ -17,7 +17,6 @@ struct login_settings {
 	unsigned int login_proxy_max_reconnects;
 	unsigned int login_proxy_max_disconnect_delay;
 	const char *login_proxy_rawlog_dir;
-	const char *director_username_hash;
 	const char *login_auth_socket_path;
 
 	bool auth_ssl_require_client_cert;

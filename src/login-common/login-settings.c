@@ -32,7 +32,6 @@ static const struct setting_define login_setting_defines[] = {
 	DEF(UINT, login_proxy_max_reconnects),
 	DEF(TIME, login_proxy_max_disconnect_delay),
 	DEF(STR, login_proxy_rawlog_dir),
-	DEF(STR, director_username_hash),
 	DEF(STR, login_auth_socket_path),
 
 	DEF(BOOL, auth_ssl_require_client_cert),
@@ -61,7 +60,6 @@ static const struct login_settings login_default_settings = {
 	.login_proxy_max_reconnects = 3,
 	.login_proxy_max_disconnect_delay = 0,
 	.login_proxy_rawlog_dir = "",
-	.director_username_hash = "%Lu",
 	.login_auth_socket_path = "",
 
 	.auth_ssl_require_client_cert = FALSE,

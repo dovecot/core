@@ -797,7 +797,6 @@ src/lda/Makefile
 src/log/Makefile
 src/lmtp/Makefile
 src/dict/Makefile
-src/director/Makefile
 src/dns/Makefile
 src/indexer/Makefile
 src/imap/Makefile

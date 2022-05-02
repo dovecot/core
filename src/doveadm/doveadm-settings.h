@@ -29,7 +29,6 @@ struct doveadm_settings {
 	const char *doveadm_allowed_commands;
 	const char *dsync_alt_char;
 	const char *dsync_remote_cmd;
-	const char *director_username_hash;
 	const char *doveadm_api_key;
 	const char *dsync_features;
 	const char *dsync_hashed_headers;

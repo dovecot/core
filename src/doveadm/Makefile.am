@@ -76,7 +76,6 @@ doveadm_server_DEPENDENCIES = \
 doveadm_common_cmds = \
 	doveadm-auth.c \
 	doveadm-dict.c \
-	doveadm-director.c \
 	doveadm-fs.c \
 	doveadm-indexer.c \
 	doveadm-instance.c \

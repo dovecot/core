@@ -10,7 +10,6 @@ extern ARRAY_TYPE(doveadm_cmd_ver2) doveadm_cmds_ver2;
 
 void doveadm_register_auth_commands(void);
 void doveadm_register_auth_server_commands(void);
-void doveadm_register_director_commands(void);
 void doveadm_register_log_commands(void);
 void doveadm_register_instance_commands(void);
 void doveadm_register_mount_commands(void);

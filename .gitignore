@@ -71,7 +71,6 @@ doc/man/doveadm-acl.1
 doc/man/doveadm-altmove.1
 doc/man/doveadm-auth.1
 doc/man/doveadm-deduplicate.1
-doc/man/doveadm-director.1
 doc/man/doveadm-dump.1
 doc/man/doveadm-exec.1
 doc/man/doveadm-expunge.1
@@ -122,8 +121,6 @@ src/config/doveconf
 src/lda/dovecot-lda
 src/dict/dict
 src/dict/dict-expire
-src/director/director
-src/director/director-test
 src/dns/dns-client
 src/doveadm/doveadm
 src/doveadm/doveadm-server

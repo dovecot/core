@@ -11,7 +11,6 @@ example_DATA = \
 	auth-static.conf.ext \
 	auth-system.conf.ext \
 	10-auth.conf \
-	10-director.conf \
 	10-logging.conf \
 	10-mail.conf \
 	10-master.conf \

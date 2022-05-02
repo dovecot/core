@@ -226,7 +226,7 @@ doveadm_cmd_pass_reply_parse(struct doveadm_mail_cmd_context *ctx,
 			auth_socket_path);
 		if (strstr(auth_socket_path, "/auth-userdb") != NULL) {
 			*error_r = t_strdup_printf(
-				"%s (maybe set auth_socket_path=director-userdb)",
+				"%s (maybe set auth_socket_path=cluster-userdb)",
 				*error_r);
 		}
 		return -1;

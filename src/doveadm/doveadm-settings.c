@@ -79,7 +79,6 @@ static const struct setting_define doveadm_setting_defines[] = {
 	DEF(STR, doveadm_allowed_commands),
 	DEF(STR, dsync_alt_char),
 	DEF(STR, dsync_remote_cmd),
-	DEF(STR, director_username_hash),
 	DEF(STR, doveadm_api_key),
 	DEF(STR, dsync_features),
 	DEF(UINT, dsync_commit_msgs_interval),
@@ -112,7 +111,6 @@ const struct doveadm_settings doveadm_default_settings = {
 	.dsync_features = "",
 	.dsync_hashed_headers = "Date Message-ID",
 	.dsync_commit_msgs_interval = 100,
-	.director_username_hash = "%Lu",
 	.doveadm_api_key = "",
 	.doveadm_http_rawlog_dir = "",
 
