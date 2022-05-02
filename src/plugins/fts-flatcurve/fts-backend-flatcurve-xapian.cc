@@ -1021,6 +1021,8 @@ int fts_flatcurve_database_locate_dir(const char *arg_path,
 		struct dirent *entry = readdir(dir);
 		if (errno < 0) {
 			*error_r = t_strdup_printf("readdir(%s) failed: %m", path);
+			if (closedir(dir) < 0)
+				i_error("closedir(%s) failed: %m", path);
 			return -1;
 		}
 
