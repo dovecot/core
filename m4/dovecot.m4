@@ -377,6 +377,7 @@ AC_DEFUN([DC_DOVECOT],[
 	])
 
 	CC_CLANG
+	CC_STRICT_BOOL
 	DC_DOVECOT_CFLAGS
 	DC_DOVECOT_HARDENING
 
@@ -520,6 +521,15 @@ AC_DEFUN([CC_CLANG],[
       AS_VAR_SET([have_clang], [no])
   ])
   AC_MSG_RESULT([$have_clang])
+])
+
+AC_DEFUN([CC_STRICT_BOOL], [
+  AS_IF([test $have_clang = yes], [
+    AC_REQUIRE([gl_UNKNOWN_WARNINGS_ARE_ERRORS])
+    gl_COMPILER_OPTION_IF([-Wstrict-bool], [
+      AC_DEFINE(HAVE_STRICT_BOOL,, [we have strict bool])
+    ])
+  ])
 ])
 
 AC_DEFUN([DOVECOT_WANT_UBSAN], [

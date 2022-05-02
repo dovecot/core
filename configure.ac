@@ -307,6 +307,7 @@ AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h \
   sys/utsname.h glob.h linux/falloc.h ucred.h sys/ucred.h crypt.h)
 
 CC_CLANG
+CC_STRICT_BOOL
 AC_LD_WHOLE_ARCHIVE
 DC_DOVECOT_HARDENING
 DC_DOVECOT_FUZZER
