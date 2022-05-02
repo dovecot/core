@@ -433,6 +433,8 @@ proxy_redirect_reauth(struct client *client, const char *destuser,
 	struct auth_request_info info;
 	const char *client_error;
 
+	e_debug(client->event, "Reauthenticating user %s (redirect to %s)",
+		destuser, net_ipport2str(ip, port));
 	if (sasl_server_auth_request_info_fill(client, &info, &client_error) < 0) {
 		const char *error = t_strdup_printf(
 			"Unexpected failure on reauth: %s", client_error);
