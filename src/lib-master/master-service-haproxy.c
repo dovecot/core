@@ -275,19 +275,22 @@ master_service_haproxy_parse_tlv(struct master_service_haproxy_conn *hpconn,
 	return 0;
 }
 
+/* reasonable max size for haproxy data */
+#define HAPROXY_READ_SIZE 1500
+
 static int
 master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 {
-	/* reasonable max size for haproxy data */
-	unsigned char rbuf[1500];
+	/* Ensure buffer is aligned */
+	uint32_t rbuf[HAPROXY_READ_SIZE/sizeof(uint32_t) + 1];
 	const char *error;
-	static union {
+	static union haproxy_data_union {
 		unsigned char v1_data[HAPROXY_V1_MAX_HEADER_SIZE];
 		struct {
 			const struct haproxy_header_v2 hdr;
 			const struct haproxy_data_v2 data;
 		} v2;
-	} buf;
+	} *buf;
 	struct ip_addr *real_remote_ip = &hpconn->conn.remote_ip;
 	int fd = hpconn->conn.fd;
 	struct ip_addr local_ip, remote_ip;
@@ -302,20 +305,21 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 	 */
 	i_zero(&buf);
 	i_zero(&rbuf);
+	buf = (union haproxy_data_union*)rbuf;
 
 	/* see if there is a HAPROXY protocol command waiting */
-	if ((ret = master_service_haproxy_recv(fd, &buf, sizeof(buf), MSG_PEEK))<=0) {
+	if ((ret = master_service_haproxy_recv(fd, &rbuf, sizeof(*buf), MSG_PEEK))<=0) {
 		if (ret < 0)
 			i_info("haproxy: Client disconnected (rip=%s): %m",
 			       net_ip2addr(real_remote_ip));
 		return ret;
 	/* see if there is a haproxy command, 8 is used later on as well */
-	} else if (ret >= 8 && memcmp(buf.v1_data, "PROXY", 5) == 0) {
+	} else if (ret >= 8 && memcmp(buf->v1_data, "PROXY", 5) == 0) {
 		/* fine */
 		version = HAPROXY_VERSION_1;
-	} else if ((size_t)ret >= sizeof(buf.v2.hdr) &&
-		   memcmp(buf.v2.hdr.sig, haproxy_v2sig, sizeof(haproxy_v2sig)) == 0) {
-		want = ntohs(buf.v2.hdr.len) + sizeof(buf.v2.hdr);
+	} else if ((size_t)ret >= sizeof(buf->v2.hdr) &&
+		   memcmp(buf->v2.hdr.sig, haproxy_v2sig, sizeof(haproxy_v2sig)) == 0) {
+		want = ntohs(buf->v2.hdr.len) + sizeof(buf->v2.hdr);
 		if (want > sizeof(rbuf)) {
 			i_error("haproxy: Client disconnected: Too long header (rip=%s)",
 				net_ip2addr(real_remote_ip));
@@ -334,7 +338,6 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 				net_ip2addr(real_remote_ip));
 			return -1;
 		}
-		memcpy(&buf, rbuf, sizeof(buf));
 		version = HAPROXY_VERSION_2;
 	} else {
 		/* it wasn't haproxy data */
@@ -352,11 +355,11 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 
 	/* protocol version 2 */
 	if (version == HAPROXY_VERSION_2) {
-		const struct haproxy_header_v2 *hdr = &buf.v2.hdr;
-		const struct haproxy_data_v2 *data = &buf.v2.data;
+		const struct haproxy_header_v2 *hdr = &buf->v2.hdr;
+		const struct haproxy_data_v2 *data = &buf->v2.data;
 		size_t hdr_len;
 
-		i_assert(ret >= (ssize_t)sizeof(buf.v2.hdr));
+		i_assert(ret >= (ssize_t)sizeof(buf->v2.hdr));
 
 		if ((hdr->ver_cmd & 0xf0) != 0x20) {
 			i_error("haproxy: Client disconnected: "
@@ -460,7 +463,7 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 				size, i);
 			return -1; /* not a supported command */
 		}
-		if (master_service_haproxy_parse_tlv(hpconn, rbuf+i, size-i, &error) < 0) {
+		if (master_service_haproxy_parse_tlv(hpconn, PTR_OFFSET(rbuf, i), size-i, &error) < 0) {
 			i_error("haproxy(v2): Client disconnected: "
 				"Invalid TLV: %s (cmd=%02x, rip=%s)",
 				error,
@@ -470,7 +473,7 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 		}
 	/* protocol version 1 (soon obsolete) */
 	} else if (version == HAPROXY_VERSION_1) {
-		unsigned char *data = buf.v1_data, *end;
+		unsigned char *data = buf->v1_data, *end;
 		const char *const *fields;
 		unsigned int family = 0;
 
@@ -585,9 +588,9 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 				return -1;
 			}
 		}
-		i_assert(size <= sizeof(buf));
+		i_assert(size <= sizeof(*buf));
 
-		if ((ret = master_service_haproxy_recv(fd, &buf, size, 0))<=0) {
+		if ((ret = master_service_haproxy_recv(fd, &rbuf, size, 0))<=0) {
 			if (ret < 0)
 				i_info("haproxy: Client disconnected (rip=%s): %m",
 				       net_ip2addr(real_remote_ip));
