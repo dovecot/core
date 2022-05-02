@@ -200,12 +200,11 @@ ldap_dict_build_query(const struct dict_op_settings *set,
 	struct var_expand_table entry;
 
 	t_array_init(&exp, 8);
-	entry.key = '\0';
-	entry.value = ldap_escape(set->username);
-	entry.long_key = "username";
-	array_push_back(&exp, &entry);
-
 	if (priv) {
+		entry.key = '\0';
+		entry.value = ldap_escape(set->username);
+		entry.long_key = "username";
+		array_push_back(&exp, &entry);
 		template = t_strdup_printf("(&(%s=%s)%s)", map->username_attribute, "%{username}", map->filter);
 	} else {
 		template = map->filter;
