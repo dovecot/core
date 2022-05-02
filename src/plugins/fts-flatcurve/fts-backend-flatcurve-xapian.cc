@@ -925,6 +925,7 @@ fts_flatcurve_xapian_mailbox_stats(struct flatcurve_fts_backend *backend,
 			return ret;
 		}
 	}
+	i_assert(x->db_read != NULL);
 	stats->messages = x->db_read->get_doccount();
 	stats->shards = x->shards;
 	stats->version = FLATCURVE_XAPIAN_DB_VERSION;
