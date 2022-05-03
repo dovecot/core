@@ -760,7 +760,7 @@ static int rebuild_restore_msg(struct mdbox_storage_rebuild_context *ctx,
 	/* add the new message */
 	i_zero(&dbox_rec);
 	dbox_rec.map_uid = msg->map_uid;
-	dbox_rec.save_date = ioloop_time;
+	dbox_rec.save_date = ioloop_time32;
 	mail_index_append(ctx->prev_msg.trans, ctx->prev_msg.next_uid++, &seq);
 	mail_index_update_ext(ctx->prev_msg.trans, seq, mbox->ext_id,
 			      &dbox_rec, NULL);

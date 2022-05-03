@@ -275,7 +275,7 @@ retry:
 
 	if (hdr->uid_validity == 0) {
 		/* first time indexing, set uidvalidity */
-		uint32_t uid_validity = ioloop_time;
+		uint32_t uid_validity = ioloop_time32;
 
 		mail_index_update_header(trans,
 			offsetof(struct mail_index_header, uid_validity),

@@ -129,7 +129,7 @@ mailbox_autoexpunge(struct mailbox *box, unsigned int interval_time,
 	time_t expire_time;
 	int ret;
 
-	if ((unsigned int)ioloop_time < interval_time)
+	if (ioloop_time32 < interval_time)
 		expire_time = 0;
 	else
 		expire_time = ioloop_time - interval_time;

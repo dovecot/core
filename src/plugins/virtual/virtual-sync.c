@@ -55,7 +55,7 @@ static void virtual_sync_backend_box_deleted(struct virtual_sync_context *ctx,
 
 static void virtual_sync_set_uidvalidity(struct virtual_sync_context *ctx)
 {
-	uint32_t uid_validity = ioloop_time;
+	uint32_t uid_validity = ioloop_time32;
 
 	mail_index_update_header(ctx->trans,
 		offsetof(struct mail_index_header, uid_validity),

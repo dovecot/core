@@ -197,7 +197,7 @@ pop3c_sync_messages(struct pop3c_mailbox *mbox,
 	/* set our uidvalidity */
 	hdr = mail_index_get_header(sync_view);
 	if (hdr->uid_validity == 0) {
-		uint32_t uid_validity = ioloop_time;
+		uint32_t uid_validity = ioloop_time32;
 		mail_index_update_header(sync_trans,
 			offsetof(struct mail_index_header, uid_validity),
 			&uid_validity, sizeof(uid_validity), TRUE);

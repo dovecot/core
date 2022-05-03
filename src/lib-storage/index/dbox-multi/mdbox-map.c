@@ -1323,7 +1323,7 @@ int mdbox_map_append_assign_map_uids(struct mdbox_map_append_context *ctx,
 
 	if (hdr->uid_validity == 0) {
 		/* we don't really care about uidvalidity, but it can't be 0 */
-		uint32_t uid_validity = ioloop_time;
+		uint32_t uid_validity = ioloop_time32;
 		mail_index_update_header(ctx->trans,
 			offsetof(struct mail_index_header, uid_validity),
 			&uid_validity, sizeof(uid_validity), TRUE);
@@ -1477,7 +1477,7 @@ static int mdbox_map_generate_uid_validity(struct mdbox_map *map)
 	if (hdr->uid_validity != 0) {
 		/* someone else beat us to it */
 	} else {
-		uid_validity = ioloop_time;
+		uid_validity = ioloop_time32;
 		mail_index_update_header(trans,
 			offsetof(struct mail_index_header, uid_validity),
 			&uid_validity, sizeof(uid_validity), TRUE);

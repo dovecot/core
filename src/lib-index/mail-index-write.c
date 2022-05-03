@@ -186,7 +186,7 @@ void mail_index_write(struct mail_index *index, bool want_rotate,
 			/* Assume .log.2 was created successfully. If it
 			   wasn't, it just causes an extra stat() and gets
 			   fixed later on. */
-			hdr->log2_rotate_time = ioloop_time;
+			hdr->log2_rotate_time = ioloop_time32;
 			rotated = TRUE;
 		}
 	}

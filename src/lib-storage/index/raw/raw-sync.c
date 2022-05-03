@@ -12,7 +12,7 @@ static int raw_sync(struct raw_mailbox *mbox)
 	struct mail_index_view *sync_view;
 	struct mail_index_sync_rec sync_rec;
 	struct mail_index_transaction *trans;
-	uint32_t seq, uid_validity = ioloop_time;
+	uint32_t seq, uid_validity = ioloop_time32;
 	enum mail_index_sync_flags sync_flags;
 	int ret;
 

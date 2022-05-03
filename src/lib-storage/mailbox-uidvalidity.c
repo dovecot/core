@@ -25,8 +25,8 @@ static uint32_t mailbox_uidvalidity_next_fallback(void)
 	/* we failed to use the uidvalidity file. don't fail the mailbox
 	   creation because of it though, most of the time it's safe enough
 	   to use the current time as the uidvalidity value. */
-	if (uid_validity < (uint32_t)ioloop_time)
-		uid_validity = (uint32_t)ioloop_time;
+	if (uid_validity < ioloop_time32)
+		uid_validity = ioloop_time32;
 	else
 		uid_validity++;
 	if (uid_validity == 0)

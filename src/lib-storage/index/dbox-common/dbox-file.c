@@ -281,7 +281,7 @@ int dbox_file_header_write(struct dbox_file *file, struct ostream *output)
 	str_printfa(hdr, "%u %c%x %c%x\n", DBOX_VERSION,
 		    DBOX_HEADER_MSG_HEADER_SIZE,
 		    (unsigned int)sizeof(struct dbox_message_header),
-		    DBOX_HEADER_CREATE_STAMP, (unsigned int)ioloop_time);
+		    DBOX_HEADER_CREATE_STAMP, ioloop_time32);
 
 	file->file_version = DBOX_VERSION;
 	file->file_header_size = str_len(hdr);

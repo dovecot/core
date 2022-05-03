@@ -594,7 +594,7 @@ static int mail_index_open_files(struct mail_index *index,
 		if (index->indexid == 0) {
 			/* Create a new indexid for us. If we're opening index
 			   into memory, index->map doesn't exist yet. */
-			index->indexid = ioloop_time;
+			index->indexid = ioloop_time32;
 			index->initial_create = TRUE;
 			if (index->map != NULL)
 				index->map->hdr.indexid = index->indexid;

@@ -941,7 +941,7 @@ int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 
 int index_mailbox_update_last_temp_file_scan(struct mailbox *box)
 {
-	uint32_t last_temp_file_scan = ioloop_time;
+	uint32_t last_temp_file_scan = ioloop_time32;
 	struct mail_index_transaction *trans =
 		mail_index_transaction_begin(box->view,
 			MAIL_INDEX_TRANSACTION_FLAG_EXTERNAL);
@@ -1011,7 +1011,7 @@ mail_copy_cache_field(struct mail_save_context *ctx, struct mail *src_mail,
 	buffer_set_used_size(buf, 0);
 	if (strcmp(name, "date.save") == 0) {
 		/* save date must update when mail is copied */
-		t = ioloop_time;
+		t = ioloop_time32;
 		buffer_append(buf, &t, sizeof(t));
 		add = TRUE;
 	} else if (mail_cache_lookup_field(src_mail->transaction->cache_view, buf,

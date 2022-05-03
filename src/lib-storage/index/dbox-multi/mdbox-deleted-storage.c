@@ -66,7 +66,7 @@ mdbox_deleted_mailbox_create_indexes(struct mailbox *box,
 {
 	struct mdbox_mailbox *mbox = MDBOX_MAILBOX(box);
 	struct mail_index_transaction *new_trans = NULL;
-	uint32_t uid_validity = ioloop_time;
+	uint32_t uid_validity = ioloop_time32;
 	uint32_t uid_next = 1;
 
 	if (update != NULL && update->uid_validity != 0)
@@ -184,7 +184,7 @@ static int mdbox_deleted_sync(struct mdbox_mailbox *mbox,
 		return -1;
 
 	i_zero(&rec);
-	rec.save_date = ioloop_time;
+	rec.save_date = ioloop_time32;
 
 	sync_flags = index_storage_get_sync_flags(&mbox->box);
 	if (mail_index_sync_begin(mbox->box.index, &index_sync_ctx,

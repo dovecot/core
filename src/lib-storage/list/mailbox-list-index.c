@@ -978,11 +978,11 @@ mailbox_list_index_set_subscribed(struct mailbox_list *_list,
 	view = mail_index_view_open(ilist->index);
 	mail_index_get_header_ext(view, ilist->subs_hdr_ext_id, &data, &size);
 	if (size != sizeof(counter))
-		counter = ioloop_time;
+		counter = ioloop_time32;
 	else {
 		memcpy(&counter, data, size);
-		if (++counter < (uint32_t)ioloop_time)
-			counter = ioloop_time;
+		if (++counter < ioloop_time32)
+			counter = ioloop_time32;
 	}
 
 	trans = mail_index_transaction_begin(view,

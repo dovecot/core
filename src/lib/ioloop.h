@@ -41,6 +41,7 @@ typedef void io_destroy_callback_t(struct ioloop *ioloop);
    Can be used instead of time(NULL). */
 extern time_t ioloop_time;
 extern struct timeval ioloop_timeval;
+#define ioloop_time32 time_to_uint32(ioloop_time)
 
 extern struct ioloop *current_ioloop;
 /* Number of microseconds spent on all the ioloops waiting for themselves. */

@@ -539,7 +539,7 @@ int mbox_sync_parse_next_mail(struct istream *input,
 				sync_ctx->hdr->uid_validity != 0 &&
 				!sync_ctx->renumber_uids ?
 				sync_ctx->hdr->uid_validity :
-				I_MAX((uint32_t)ioloop_time, 1);
+				I_MAX(ioloop_time32, 1);
 		}
 	}
 

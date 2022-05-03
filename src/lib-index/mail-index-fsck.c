@@ -74,7 +74,7 @@ mail_index_fsck_header(struct mail_index *index, struct mail_index_map *map,
 	/* mail_index_map_check_header() has already checked that the index
 	   isn't completely broken. */
 	if (hdr->uid_validity == 0 && hdr->next_uid != 1)
-		hdr->uid_validity = ioloop_time;
+		hdr->uid_validity = ioloop_time32;
 
 	if (index->log->head != NULL)
 		mail_index_fsck_log_pos(index, map, hdr);

@@ -43,7 +43,7 @@ cmd_log_test(struct doveadm_cmd_context *cctx ATTR_UNUSED)
 		ctx.type = i;
 		i_log_type(&ctx, TEST_LOG_MSG_PREFIX"%s log (%u)",
 			   t_str_lcase(t_strcut(prefix, ':')),
-			   (unsigned int)ioloop_time);
+			   ioloop_time32);
 	}
 }
 
