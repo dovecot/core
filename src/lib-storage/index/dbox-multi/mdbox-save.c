@@ -270,7 +270,7 @@ mdbox_save_set_map_uids(struct mdbox_save_context *ctx,
 		}
 
 		if (mails[i].save_date > 0)
-			rec.save_date = mails[i].save_date;
+			rec.save_date = time_to_uint32_trunc(mails[i].save_date);
 		else
 			rec.save_date = ioloop_time32;
 		rec.map_uid = next_map_uid++;

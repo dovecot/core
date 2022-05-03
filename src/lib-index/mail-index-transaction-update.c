@@ -143,7 +143,7 @@ void mail_index_update_day_headers(struct mail_index_transaction *t,
 	for (i = 1; i < days; i++)
 		hdr.day_first_uid[i] = hdr.day_first_uid[0];
 
-	hdr.day_stamp = stamp;
+	hdr.day_stamp = time_to_uint32_trunc(stamp);
 	hdr.day_first_uid[0] = rec->uid;
 
 	mail_index_update_header(t,
@@ -677,7 +677,7 @@ mail_index_attribute_set_full(struct mail_index_transaction *t,
 			      const char *key, bool pvt, char prefix,
 			      time_t timestamp, uint32_t value_len)
 {
-	uint32_t ts = timestamp;
+	uint32_t ts = time_to_uint32_trunc(timestamp);
 
 	if (t->attribute_updates == NULL) {
 		t->attribute_updates = buffer_create_dynamic(default_pool, 64);

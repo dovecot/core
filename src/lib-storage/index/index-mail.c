@@ -438,7 +438,7 @@ static int index_mail_cache_sent_date(struct index_mail *mail)
 		t = 0;
 		tz = 0;
 	}
-	data->sent_date.time = t;
+	data->sent_date.time = time_to_uint32_trunc(t);
 	data->sent_date.timezone = tz;
 	index_mail_cache_add(mail, MAIL_CACHE_SENT_DATE,
 			     &data->sent_date, sizeof(data->sent_date));
@@ -1048,7 +1048,7 @@ static void index_mail_cache_dates(struct index_mail *mail)
 	for (i = 0; i < N_ELEMENTS(date_fields); i++) {
 		if (dates[i] != (time_t)-1 &&
 		    index_mail_want_cache(mail, date_fields[i])) {
-			t = dates[i];
+			t = time_to_uint32_trunc(dates[i]);
 			index_mail_cache_add(mail, date_fields[i],
 					     &t, sizeof(t));
 		}

@@ -541,7 +541,7 @@ index_list_update_first_saved(struct mailbox *box,
 			mail_set_seq(mail, seq);
 			if (mail_get_save_date(mail, &save_date) >= 0) {
 				first_saved.uid = mail->uid;
-				first_saved.timestamp = save_date;
+				first_saved.timestamp = time_to_uint32_trunc(save_date);
 				break;
 			}
 			if (mailbox_get_last_mail_error(box) != MAIL_ERROR_EXPUNGED) {

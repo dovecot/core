@@ -183,7 +183,7 @@ static int dbox_save_finish_write(struct mail_save_context *_ctx)
 	if (_ctx->data.save_date != (time_t)-1) {
 		/* we can't change ctime, but we can add the date to cache */
 		struct index_mail *mail = (struct index_mail *)_ctx->dest_mail;
-		uint32_t t = _ctx->data.save_date;
+		uint32_t t = time_to_uint32_trunc(_ctx->data.save_date);
 
 		index_mail_cache_add(mail, MAIL_CACHE_SAVE_DATE, &t, sizeof(t));
 	}

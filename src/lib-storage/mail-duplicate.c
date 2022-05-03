@@ -268,7 +268,7 @@ mail_duplicate_read_records(struct mail_duplicate_transaction *trans,
 			i_assert(record_size ==
 				 sizeof(time_t) + sizeof(uint32_t)*2);
 			memcpy(&stamp, data, sizeof(stamp));
-			hdr.stamp = stamp;
+			hdr.stamp = time_to_uint32_trunc(stamp);
 			memcpy(&hdr.id_size, data + sizeof(time_t),
 			       sizeof(hdr.id_size));
 			memcpy(&hdr.user_size,
@@ -659,7 +659,7 @@ void mail_duplicate_transaction_commit(
 	iter = hash_table_iterate_init(trans->hash);
 	while (hash_table_iterate(iter, trans->hash, &d, &d)) {
 		if (d->marked) {
-			rec.stamp = d->time;
+			rec.stamp = time_to_uint32_trunc(d->time);
 			rec.id_size = d->id_size;
 			rec.user_size = strlen(d->user);
 

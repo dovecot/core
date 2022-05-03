@@ -150,7 +150,7 @@ static int mailbox_log_rotate_if_needed(struct mailbox_log *log)
 void mailbox_log_record_set_timestamp(struct mailbox_log_record *rec,
 				      time_t stamp)
 {
-	cpu32_to_be_unaligned(stamp, rec->timestamp);
+	cpu32_to_be_unaligned(time_to_uint32_trunc(stamp), rec->timestamp);
 }
 
 time_t mailbox_log_record_get_timestamp(const struct mailbox_log_record *rec)
