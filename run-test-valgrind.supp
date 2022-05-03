@@ -82,3 +82,27 @@
    obj:*libicuuc*
    ...
 }
+{
+   <iconv_dlopen_origin_path>
+   Memcheck:Addr8
+   fun:strncmp
+   fun:is_dst
+   fun:_dl_dst_count
+   ...
+   fun:decompose_rpath
+   ...
+   fun:_dl_catch_exception
+   ...
+}
+{
+   <iconv_dlopen_origin_path2>
+   Memcheck:Addr8
+   fun:strncmp
+   fun:is_dst
+   fun:_dl_dst_substitute
+   ...
+   fun:decompose_rpath
+   ...
+   fun:_dl_catch_exception
+   ...
+}
