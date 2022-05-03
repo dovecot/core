@@ -450,11 +450,11 @@ maildir_scan_dir(struct maildir_sync_context *ctx, bool new_dir, bool final,
 
 	start_time = time(NULL);
 	if (new_dir) {
-		ctx->mbox->maildir_hdr.new_check_time = start_time;
+		ctx->mbox->maildir_hdr.new_check_time = time_to_uint32(start_time);
 		ctx->mbox->maildir_hdr.new_mtime = st.st_mtime;
 		ctx->mbox->maildir_hdr.new_mtime_nsecs = ST_MTIME_NSEC(st);
 	} else {
-		ctx->mbox->maildir_hdr.cur_check_time = start_time;
+		ctx->mbox->maildir_hdr.cur_check_time = time_to_uint32(start_time);
 		ctx->mbox->maildir_hdr.cur_mtime = st.st_mtime;
 		ctx->mbox->maildir_hdr.cur_mtime_nsecs = ST_MTIME_NSEC(st);
 	}

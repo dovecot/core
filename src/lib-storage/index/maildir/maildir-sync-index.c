@@ -643,7 +643,7 @@ int maildir_sync_index(struct maildir_index_sync_context *ctx,
 	/* check cur/ mtime later. if we came here from saving messages they
 	   could still be moved to cur/ directory. */
 	ctx->update_maildir_hdr_cur = TRUE;
-	mbox->maildir_hdr.cur_check_time = time_before_sync;
+	mbox->maildir_hdr.cur_check_time = time_to_uint32(time_before_sync);
 
 	if (uid_validity == 0) {
 		uid_validity = hdr->uid_validity != 0 ? hdr->uid_validity :
