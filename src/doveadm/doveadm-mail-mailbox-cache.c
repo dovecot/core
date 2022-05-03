@@ -265,8 +265,8 @@ static int cmd_mailbox_cache_remove_box(struct mailbox_cache_cmd_context *ctx,
 		count++;
 		doveadm_print(mailbox_get_vname(box));
 		doveadm_print(dec2str(mail->uid));
-	        /* drop cache pointer */
-	        mail_index_update_ext(t, mail->seq, view->cache->ext_id, &empty, NULL);
+		/* drop cache pointer */
+		mail_index_update_ext(t, mail->seq, view->cache->ext_id, &empty, NULL);
 		doveadm_print("ok");
 	}
 
