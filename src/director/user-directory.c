@@ -158,7 +158,7 @@ user_directory_add(struct user_directory *dir, unsigned int username_hash,
 	user->username_hash = username_hash;
 	user->host = host;
 	user->host->user_count++;
-	user->timestamp = timestamp;
+	user->timestamp = time_to_uint32(timestamp);
 	DLLIST2_APPEND(&dir->head, &dir->tail, user);
 
 	if (dir->to_expire == NULL) {

@@ -752,7 +752,7 @@ director_user_refresh(struct director_connection *conn,
 		e_debug(conn->event, "user refresh: %u refreshed timestamp from %u to %"PRIdTIME_T,
 			username_hash, user->timestamp, timestamp);
 		user_directory_refresh(users, user);
-		user->timestamp = timestamp;
+		user->timestamp = time_to_uint32(timestamp);
 		ret = TRUE;
 	} else {
 		e_debug(conn->event, "user refresh: %u ignored timestamp %"PRIdTIME_T" (we have %u)",
