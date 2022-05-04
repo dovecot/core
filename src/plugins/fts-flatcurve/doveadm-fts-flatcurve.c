@@ -31,7 +31,6 @@ enum fts_flatcurve_cmd_type {
 struct fts_flatcurve_mailbox_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 	enum fts_flatcurve_cmd_type cmd_type;
-	struct mail_search_args *search_args;
 };
 
 static int
@@ -114,7 +113,8 @@ cmd_fts_flatcurve_mailbox_run_do(struct flatcurve_fts_backend *backend,
 
 	struct doveadm_mailbox_list_iter *iter =
 		doveadm_mailbox_list_iter_init(&ctx->ctx, user,
-					       ctx->search_args, iter_flags);
+					       ctx->ctx.search_args,
+					       iter_flags);
 
 	const char *error;
 	const struct mailbox_info *info;
@@ -185,12 +185,14 @@ cmd_fts_flatcurve_mailbox_run(struct doveadm_mail_cmd_context *_ctx,
 
 static void
 cmd_fts_flatcurve_mailbox_init(struct doveadm_mail_cmd_context *_ctx,
-			       const char *const args[])
+			       const char *const _args[] ATTR_UNUSED)
 {
 	struct fts_flatcurve_mailbox_cmd_context *ctx =
 		(struct fts_flatcurve_mailbox_cmd_context *)_ctx;
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
 
-	if (args[0] == NULL) {
+	const char *const *args;
+	if (!doveadm_cmd_param_array(cctx, "mailbox-mask", &args)) {
 		switch (ctx->cmd_type) {
 		case FTS_FLATCURVE_CMD_CHECK:
 			doveadm_mail_help_name(DOVEADM_FLATCURVE_CMD_NAME_CHECK);
@@ -209,17 +211,14 @@ cmd_fts_flatcurve_mailbox_init(struct doveadm_mail_cmd_context *_ctx,
 		}
 	}
 
-	ctx->search_args = doveadm_mail_mailbox_search_args_build(args);
+	_ctx->search_args = doveadm_mail_mailbox_search_args_build(args);
 }
 
 static void
 cmd_fts_flatcurve_mailbox_deinit(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct fts_flatcurve_mailbox_cmd_context *ctx =
-		container_of(_ctx, struct fts_flatcurve_mailbox_cmd_context, ctx);
-
-	if (ctx->search_args != NULL)
-		mail_search_args_unref(&ctx->search_args);
+	if (_ctx->search_args != NULL)
+		mail_search_args_unref(&_ctx->search_args);
 }
 
 static struct doveadm_mail_cmd_context *

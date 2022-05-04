@@ -37,6 +37,7 @@ ARRAY_DEFINE_TYPE(generated_keys, struct generated_key);
 struct mcp_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 
+	const char *mailbox;
 	const char *old_password;
 	const char *new_password;
 
@@ -57,6 +58,15 @@ struct mcp_key_iter_ctx {
 
 void doveadm_mail_crypt_plugin_init(struct module *mod ATTR_UNUSED);
 void doveadm_mail_crypt_plugin_deinit(void);
+
+static const char *const *
+p_as_null_terminated_array(pool_t pool, const char *value)
+{
+  const char **array = p_new(pool, const char *, 2);
+  *array = value;
+  return array;
+
+}
 
 static int
 mcp_user_create(struct mail_user *user, const char *dest_username,
@@ -383,9 +393,8 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 	const char *const *patterns = (const char *const[]){ "*", NULL };
 
 	/* only re-encrypt all folder keys if wanted */
-	if (!ctx->recrypt_box_keys) {
-		patterns = ctx->ctx.args;
-	}
+	if (!ctx->recrypt_box_keys)
+		patterns = p_as_null_terminated_array(_ctx->pool, ctx->mailbox);
 
 	const struct mailbox_info *info;
 	struct mailbox_list_iterate_context *iter =
@@ -448,6 +457,12 @@ static int cmd_mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 {
 	struct mcp_cmd_context *ctx =
 		(struct mcp_cmd_context *)_ctx;
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
+
+	ctx->userkey_only = doveadm_cmd_param_flag(cctx, "user-key-only");
+	ctx->recrypt_box_keys = doveadm_cmd_param_flag(cctx, "re-encrypt-box-keys");
+	ctx->force = doveadm_cmd_param_flag(cctx, "force");
+	(void)doveadm_cmd_param_str(cctx, "mailbox", &ctx->mailbox);
 
 	int ret = 0;
 
@@ -543,12 +558,14 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 
 	const struct mailbox_info *info;
 	struct mailbox_list_iterate_context *iter =
-		mailbox_list_iter_init_namespaces(user->namespaces,
-						  ctx->ctx.args,
-						  MAIL_NAMESPACE_TYPE_PRIVATE,
-						  MAILBOX_LIST_ITER_SKIP_ALIASES |
-						  MAILBOX_LIST_ITER_NO_AUTO_BOXES |
-						  MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
+		mailbox_list_iter_init_namespaces(
+			user->namespaces,
+			p_as_null_terminated_array(ctx->ctx.pool,
+						   ctx->mailbox),
+			MAIL_NAMESPACE_TYPE_PRIVATE,
+			MAILBOX_LIST_ITER_SKIP_ALIASES |
+			MAILBOX_LIST_ITER_NO_AUTO_BOXES |
+			MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 
 	while((info = mailbox_list_iter_next(iter)) != NULL) {
 		if ((info->flags & MAILBOX_NOSELECT) != 0 ||
@@ -613,6 +630,11 @@ static int cmd_mcp_key_list_run(struct doveadm_mail_cmd_context *_ctx,
 {
 	struct mcp_cmd_context *ctx =
 		(struct mcp_cmd_context *)_ctx;
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
+
+	ctx->userkey_only = doveadm_cmd_param_flag(cctx, "user-key");
+	(void)doveadm_cmd_param_str(cctx, "mailbox", &ctx->mailbox);
+
 	struct mcp_key_iter_ctx iter_ctx;
 	i_zero(&iter_ctx);
 	iter_ctx.pool = _ctx->pool;
@@ -680,6 +702,10 @@ static int cmd_mcp_key_export_run(struct doveadm_mail_cmd_context *_ctx,
 	struct mcp_cmd_context *ctx =
 		(struct mcp_cmd_context *)_ctx;
 
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	ctx->userkey_only = doveadm_cmd_param_flag(cctx, "user-key");
+	(void)doveadm_cmd_param_str(cctx, "mailbox", &ctx->mailbox);
+
 	doveadm_print_init(DOVEADM_PRINT_TYPE_PAGER);
 	doveadm_print_header("box", "Folder", 0);
 	doveadm_print_header("name", "Public ID", 0);
@@ -696,7 +722,15 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 {
 	struct mcp_cmd_context *ctx =
 		(struct mcp_cmd_context *)_ctx;
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
+
 	bool cli = (_ctx->cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
+
+	ctx->ask_new_password = doveadm_cmd_param_flag(cctx, "ask-new-password");
+	ctx->ask_old_password = doveadm_cmd_param_flag(cctx, "ask-old-password");
+	ctx->clear_password = doveadm_cmd_param_flag(cctx, "clear-password");
+	(void)doveadm_cmd_param_str(cctx, "old-password", &ctx->old_password);
+	(void)doveadm_cmd_param_str(cctx, "new-password", &ctx->new_password);
 
 	struct raw_key {
 		const char *attr;
@@ -877,79 +911,11 @@ static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 	return ret;
 }
 
-
-static bool cmd_mcp_keypair_generate_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
-{
-	struct mcp_cmd_context *ctx =
-		(struct mcp_cmd_context *)_ctx;
-
-	switch (c) {
-	case 'U':
-		ctx->userkey_only = TRUE;
-		break;
-	case 'R':
-		ctx->recrypt_box_keys = TRUE;
-		break;
-	case 'f':
-		ctx->force = TRUE;
-		break;
-	default:
-		return FALSE;
-	}
-	return TRUE;
-
-}
-
-static bool cmd_mcp_key_password_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
-{
-	struct mcp_cmd_context *ctx =
-		(struct mcp_cmd_context *)_ctx;
-
-	switch (c) {
-	case 'N':
-		ctx->ask_new_password = TRUE;
-		break;
-	case 'O':
-		ctx->ask_old_password = TRUE;
-		break;
-	case 'C':
-		ctx->clear_password = TRUE;
-		break;
-	case 'o':
-		ctx->old_password = p_strdup(_ctx->pool, optarg);
-		break;
-	case 'n':
-		ctx->new_password = p_strdup(_ctx->pool, optarg);
-		break;
-	default:
-		return FALSE;
-	}
-	return TRUE;
-}
-
-static bool cmd_mcp_key_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
-{
-	struct mcp_cmd_context *ctx =
-		(struct mcp_cmd_context *)_ctx;
-
-	switch (c) {
-	case 'U':
-		ctx->userkey_only = TRUE;
-		break;
-	default:
-		return FALSE;
-	}
-	return TRUE;
-
-}
-
 static struct doveadm_mail_cmd_context *cmd_mcp_keypair_generate_alloc(void)
 {
 	struct mcp_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct mcp_cmd_context);
-	ctx->ctx.getopt_args = "URf";
-	ctx->ctx.v.parse_arg = cmd_mcp_keypair_generate_parse_arg;
 	ctx->ctx.v.run = cmd_mcp_keypair_generate_run;
 	return &ctx->ctx;
 }
@@ -959,8 +925,6 @@ static struct doveadm_mail_cmd_context *cmd_mcp_key_list_alloc(void)
 	struct mcp_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct mcp_cmd_context);
-	ctx->ctx.getopt_args = "U";
-	ctx->ctx.v.parse_arg = cmd_mcp_key_parse_arg;
 	ctx->ctx.v.run = cmd_mcp_key_list_run;
 	return &ctx->ctx;
 }
@@ -970,8 +934,6 @@ static struct doveadm_mail_cmd_context *cmd_mcp_key_export_alloc(void)
 	struct mcp_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct mcp_cmd_context);
-	ctx->ctx.getopt_args = "U";
-	ctx->ctx.v.parse_arg = cmd_mcp_key_parse_arg;
 	ctx->ctx.v.run = cmd_mcp_key_export_run;
 	return &ctx->ctx;
 }
@@ -981,8 +943,6 @@ static struct doveadm_mail_cmd_context *cmd_mcp_key_password_alloc(void)
 	struct mcp_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct mcp_cmd_context);
-	ctx->ctx.getopt_args = "NOCo:n:";
-	ctx->ctx.v.parse_arg = cmd_mcp_key_password_parse_arg;
 	ctx->ctx.v.run = cmd_mcp_key_password_run;
 	return &ctx->ctx;
 }
