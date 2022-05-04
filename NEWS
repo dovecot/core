@@ -1,4 +1,4 @@
-v2.3.19 2022-05-04  Aki Tuomi <aki.tuomi@open-xchange.com>
+v2.3.19 2022-05-10  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	+ Added mail_user_session_finished event, which is emitted when the mail
 	  user session is finished (e.g. imap, pop3, lmtp). It also includes
