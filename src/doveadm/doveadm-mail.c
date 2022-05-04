@@ -36,6 +36,7 @@
 
 struct force_resync_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
+	const char *mailbox;
 	bool fsck;
 };
 
@@ -340,9 +341,12 @@ static int cmd_force_resync_prerun(struct doveadm_mail_cmd_context *ctx ATTR_UNU
 	return 0;
 }
 
-static int cmd_force_resync_run(struct doveadm_mail_cmd_context *ctx,
+static int cmd_force_resync_run(struct doveadm_mail_cmd_context *_ctx,
 				struct mail_user *user)
 {
+	struct force_resync_cmd_context *ctx =
+		(struct force_resync_cmd_context *)_ctx;
+
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS |
@@ -352,46 +356,39 @@ static int cmd_force_resync_run(struct doveadm_mail_cmd_context *ctx,
 	const struct mailbox_info *info;
 	int ret = 0;
 
-	iter = mailbox_list_iter_init_namespaces(user->namespaces, ctx->args,
-						 ns_mask, iter_flags);
+	const char *const patterns[] = {
+		ctx->mailbox,
+		NULL
+	};
+	iter = mailbox_list_iter_init_namespaces(
+		user->namespaces, patterns, ns_mask, iter_flags);
 	while ((info = mailbox_list_iter_next(iter)) != NULL) {
 		if ((info->flags & (MAILBOX_NOSELECT |
 				    MAILBOX_NONEXISTENT)) == 0) T_BEGIN {
-			if (cmd_force_resync_box(ctx, info) < 0)
+			if (cmd_force_resync_box(_ctx, info) < 0)
 				ret = -1;
 		} T_END;
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0) {
 		i_error("Listing mailboxes failed: %s",
 			mailbox_list_get_last_internal_error(user->namespaces->list, NULL));
-		doveadm_mail_failed_list(ctx, user->namespaces->list);
+		doveadm_mail_failed_list(_ctx, user->namespaces->list);
 		ret = -1;
 	}
 	return ret;
 }
 
 static void
-cmd_force_resync_init(struct doveadm_mail_cmd_context *_ctx ATTR_UNUSED,
-		      const char *const args[])
-{
-	if (args[0] == NULL)
-		doveadm_mail_help_name("force-resync");
-}
-
-static bool
-cmd_force_resync_parse_arg(struct doveadm_mail_cmd_context *_ctx, int c)
+cmd_force_resync_init(struct doveadm_mail_cmd_context *_ctx,
+		      const char *const _args[] ATTR_UNUSED)
 {
 	struct force_resync_cmd_context *ctx =
 		(struct force_resync_cmd_context *)_ctx;
+	struct doveadm_cmd_context *cctx = _ctx->cctx;
 
-	switch (c) {
-	case 'f':
-		ctx->fsck = TRUE;
-		break;
-	default:
-		return FALSE;
-	}
-	return TRUE;
+	ctx->fsck = doveadm_cmd_param_flag(cctx, "fsck");
+	if (!doveadm_cmd_param_str(cctx, "mailbox-mask", &ctx->mailbox))
+		doveadm_mail_help_name("force-resync");
 }
 
 static struct doveadm_mail_cmd_context *cmd_force_resync_alloc(void)
@@ -399,8 +396,6 @@ static struct doveadm_mail_cmd_context *cmd_force_resync_alloc(void)
 	struct force_resync_cmd_context *ctx;
 
 	ctx = doveadm_mail_cmd_alloc(struct force_resync_cmd_context);
-	ctx->ctx.getopt_args = "f";
-	ctx->ctx.v.parse_arg = cmd_force_resync_parse_arg;
 	ctx->ctx.v.init = cmd_force_resync_init;
 	ctx->ctx.v.run = cmd_force_resync_run;
 	ctx->ctx.v.prerun = cmd_force_resync_prerun;
