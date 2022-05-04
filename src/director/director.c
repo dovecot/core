@@ -424,7 +424,7 @@ bool director_resend_sync(struct director *dir)
 		/* send a new SYNC in case the previous one got dropped */
 		dir->self_host->last_sync_timestamp = ioloop_time;
 		director_sync_send(dir, dir->self_host, dir->sync_seq,
-				   DIRECTOR_VERSION_MINOR, ioloop_time,
+				   DIRECTOR_VERSION_MINOR, ioloop_time32,
 				   mail_hosts_hash(dir->mail_hosts));
 		if (dir->to_sync != NULL)
 			timeout_reset(dir->to_sync);
@@ -490,7 +490,7 @@ static void director_sync(struct director *dir)
 		director_connection_set_synced(dir->left, FALSE);
 	director_connection_set_synced(dir->right, FALSE);
 	director_sync_send(dir, dir->self_host, dir->sync_seq,
-			   DIRECTOR_VERSION_MINOR, ioloop_time,
+			   DIRECTOR_VERSION_MINOR, ioloop_time32,
 			   mail_hosts_hash(dir->mail_hosts));
 }
 
@@ -1160,7 +1160,7 @@ void director_move_user(struct director *dir, struct director_host *src,
 		   didn't think so. We'll need to finish the move without
 		   killing any of our connections. */
 		old_host = user->host;
-		user->timestamp = ioloop_time;
+		user->timestamp = ioloop_time32;
 		e_debug(dir->event, "User %u move forwarded: host is already %s",
 			username_hash, host->ip_str);
 	} else {

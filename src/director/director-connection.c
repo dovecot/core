@@ -314,7 +314,7 @@ static void director_connection_assigned(struct director_connection *conn)
 		dir->sync_seq++;
 		director_set_ring_unsynced(dir);
 		director_sync_send(dir, dir->self_host, dir->sync_seq,
-				   DIRECTOR_VERSION_MINOR, ioloop_time,
+				   DIRECTOR_VERSION_MINOR, ioloop_time32,
 				   mail_hosts_hash(dir->mail_hosts));
 	}
 	director_connection_set_ping_timeout(conn);
@@ -796,11 +796,11 @@ director_handshake_cmd_user(struct director_connection *conn,
 		return FALSE;
 	}
 
-	if ((time_t)timestamp > ioloop_time) {
+	if (timestamp > ioloop_time32) {
 		/* The other director's clock seems to be into the future
 		   compared to us. Don't set any of our users' timestamps into
 		   future though. It's most likely only 1 second difference. */
-		timestamp = ioloop_time;
+		timestamp = ioloop_time32;
 	}
 	conn->dir->num_incoming_requests++;
 	if (director_user_refresh(conn, username_hash, host,
@@ -1706,7 +1706,7 @@ static bool director_connection_sync(struct director_connection *conn,
 	struct director_host *host;
 	struct ip_addr ip;
 	in_port_t port;
-	unsigned int arg_count, seq, minor_version = 0, timestamp = ioloop_time;
+	unsigned int arg_count, seq, minor_version = 0, timestamp = ioloop_time32;
 	unsigned int hosts_hash = 0;
 
 	arg_count = str_array_length(args);

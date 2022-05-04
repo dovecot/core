@@ -174,7 +174,7 @@ void user_directory_refresh(struct user_directory *dir, struct user *user)
 {
 	user_move_iters(dir, user);
 
-	user->timestamp = ioloop_time;
+	user->timestamp = ioloop_time32;
 	DLLIST2_REMOVE(&dir->head, &dir->tail, user);
 	DLLIST2_APPEND(&dir->head, &dir->tail, user);
 }
