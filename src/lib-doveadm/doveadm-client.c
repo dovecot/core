@@ -61,6 +61,7 @@ static bool doveadm_client_input_one(struct doveadm_client *conn);
 static int doveadm_client_init_ssl(struct doveadm_client *conn,
 				   const char **error_r);
 static void doveadm_client_destroy(struct doveadm_client **_conn);
+static void doveadm_client_destroy_conn(struct connection *_conn);
 
 void doveadm_client_settings_dup(const struct doveadm_client_settings *src,
 				 struct doveadm_client_settings *dest_r,
@@ -153,7 +154,11 @@ static void doveadm_client_send_cmd_input(struct doveadm_client *conn)
 		return;
 
 	conn->cmd_output = o_stream_create_dot(conn->conn.output, TRUE);
-	(void)doveadm_client_send_cmd_input_more(conn);
+	if (doveadm_client_send_cmd_input_more(conn) < 0) {
+		i_assert(conn->to_destroy == NULL);
+		conn->to_destroy = timeout_add_short(0,
+			doveadm_client_destroy_conn, &conn->conn);
+	}
 }
 
 static int doveadm_client_output(struct doveadm_client *conn)
