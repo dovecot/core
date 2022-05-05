@@ -294,6 +294,9 @@ doveadm_cmd_redirect_finish(struct doveadm_mail_server_cmd *servercmd,
 
 	i_assert(ip->family != 0);
 
+	if (port == 0)
+		port = doveadm_client_get_settings(servercmd->conn)->port;
+
 	if (doveadm_proxy_cmd_have_connected(servercmd, ip, port)) {
 		*error_r = t_strdup_printf(
 			"Proxying loops - already connected to %s:%u",
@@ -347,7 +350,7 @@ doveadm_cmd_redirect_finish(struct doveadm_mail_server_cmd *servercmd,
 	}
 	doveadm_client_cmd(conn, &cmd_set, servercmd->cmdline, servercmd->input,
 			   doveadm_cmd_callback, servercmd);
-	return 0;
+	return 1;
 }
 
 static int
@@ -389,10 +392,18 @@ doveadm_cmd_redirect_relookup(struct doveadm_mail_server_cmd *servercmd,
 	} else if (doveadm_cmd_pass_reply_parse(cmd_ctx, auth_socket_path, fields,
 						&proxy_set, &nologin, error_r) < 0)
 		ret = -1;
-	else {
+	else if (proxy_set.proxy) {
 		ret = doveadm_cmd_redirect_finish(servercmd, &proxy_set.host_ip,
 						  proxy_set.port,
 						  proxy_set.ssl_flags, error_r);
+	} else if (!nologin || proxy_set.host == NULL) {
+		*error_r = "Redirect authentication is missing proxy or nologin field";
+		ret = -1;
+	} else {
+		/* Send referral back to the TCP client */
+		cmd_ctx->cctx->referral = t_strdup_printf("%s@%s",
+			proxy_set.username, proxy_set.host);
+		ret = 0;
 	}
 	pool_unref(&auth_pool);
 	return ret;
@@ -434,7 +445,7 @@ static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
 		i_error("%s: %s", orig_server->name, error);
 		return -1;
 	}
-	return 0;
+	return ret;
 }
 
 static void
@@ -467,6 +478,7 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 	struct doveadm_client *conn = servercmd->conn;
 	struct doveadm_server *server = servercmd->server;
 	struct doveadm_server_request *request;
+	int ret;
 
 	switch (reply->exit_code) {
 	case 0:
@@ -486,8 +498,10 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 			cmd_ctx->exit_code = EX_NOUSER;
 		break;
 	case DOVEADM_EX_REFERRAL:
-		if (doveadm_cmd_redirect(servercmd, reply->error) < 0) {
-			internal_failure = TRUE;
+		ret = doveadm_cmd_redirect(servercmd, reply->error);
+		if (ret <= 0) {
+			if (ret < 0)
+				internal_failure = TRUE;
 			io_loop_stop(current_ioloop);
 			doveadm_mail_server_cmd_free(&servercmd);
 		}
