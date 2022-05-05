@@ -141,7 +141,7 @@ static int doveadm_client_send_cmd_input_more(struct doveadm_client *conn)
 		}
 	}
 
-	i_stream_destroy(&conn->cmd_input);
+	i_stream_unref(&conn->cmd_input);
 	o_stream_destroy(&conn->cmd_output);
 	return ret;
 }
