@@ -244,7 +244,10 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 	else
 		o_stream_nsend_str(req->output,",");
 
-	if (doveadm_exit_code != 0) {
+	if (cctx.referral != NULL) {
+		i_error("Command requested referral: %s", cctx.referral);
+		doveadm_http_server_json_error(req, "internalError");
+	} else if (doveadm_exit_code != 0) {
 		if (doveadm_exit_code == 0 || doveadm_exit_code == EX_TEMPFAIL)
 			i_error("Command %s failed", req->cmd->name);
 		doveadm_http_server_json_error(req, "exitCode");

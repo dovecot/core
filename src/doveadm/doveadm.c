@@ -369,6 +369,8 @@ int main(int argc, char *argv[])
 		}
 		usage();
 	}
+	if (cctx.referral != NULL)
+		i_fatal("Command requested referral: %s", cctx.referral);
 
 	if (!quick_init) {
 		doveadm_mail_deinit();
