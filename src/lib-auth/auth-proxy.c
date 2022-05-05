@@ -91,5 +91,7 @@ bool auth_proxy_parse_redirect(const char *target, const char **destuser_r,
 	}
 	if (net_str2hostport(target, 0, host_r, port_r) < 0)
 		return FALSE;
+	if ((*host_r)[0] == '\0')
+		return FALSE;
 	return TRUE;
 }
