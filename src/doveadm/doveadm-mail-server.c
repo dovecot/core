@@ -656,6 +656,9 @@ doveadm_mail_server_user_get_host(struct doveadm_mail_cmd_context *ctx,
 			   them. */
 			proxy_set_r->host = orig_host;
 			ret = 0;
+		} else if (proxy_set_r->host[0] == '\0') {
+			*error_r = "Referral host is empty";
+			ret = -1;
 		} else {
 			/* Referral */
 			*referral_r = t_strdup_printf("%s@%s",
