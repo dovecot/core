@@ -22,6 +22,8 @@
 #define AUTH_WAITING_TIMEOUT_MSECS (30*1000)
 #define AUTH_WAITING_WARNING_TIMEOUT_MSECS (10*1000)
 
+#define CLIENT_REFERRAL_NOLOGIN_REASON "Try this server instead."
+
 struct client_auth_fail_code_id {
 	const char *id;
 	enum client_auth_fail_code code;
@@ -132,12 +134,14 @@ static void alt_username_set(ARRAY_TYPE(const_string) *alt_usernames, pool_t poo
 
 static bool client_auth_parse_args(const struct client *client, bool success,
 				   bool reauth, const char *const *args,
-				   struct client_auth_reply *reply_r)
+				   struct client_auth_reply *reply_r,
+				   const char **username_r)
 {
 	const char *key, *value, *p, *error;
 	int ret;
 
 	i_zero(reply_r);
+	*username_r = NULL;
 	t_array_init(&reply_r->alt_usernames, 4);
 	reply_r->proxy_host_immediate_failure_after_secs =
 		LOGIN_PROXY_DEFAULT_HOST_IMMEDIATE_FAILURE_AFTER_SECS;
@@ -189,8 +193,11 @@ static bool client_auth_parse_args(const struct client *client, bool success,
 			} else {
 				reply_r->fail_code = client_auth_fail_code_lookup(value);
 			}
-		} else if (strcmp(key, "user") == 0 ||
-			   strcmp(key, "postlogin_socket") == 0) {
+		} else if (strcmp(key, "user") == 0) {
+			/* Usually this is already handled in sasl-server.c,
+			   but this needs to be saved when handling reauth. */
+			*username_r = value;
+		} else if (strcmp(key, "postlogin_socket") == 0) {
 			/* already handled in sasl-server.c */
 		} else if (str_begins_with(key, "user_")) {
 			if (success) {
@@ -380,7 +387,7 @@ proxy_redirect_reauth_callback(struct auth_client_request *request,
 {
 	struct client *client = context;
 	struct client_auth_reply reply;
-	const char *error = NULL;
+	const char *username, *error = NULL;
 
 	i_assert(client->reauth_request == request);
 
@@ -390,24 +397,40 @@ proxy_redirect_reauth_callback(struct auth_client_request *request,
 		error = "Unexpected SASL continuation request received";
 		break;
 	case AUTH_REQUEST_STATUS_OK:
-		if (!client_auth_parse_args(client, FALSE, TRUE, args, &reply)) {
+		if (!client_auth_parse_args(client, FALSE, TRUE, args,
+					    &reply, &username)) {
 			error = "Redirect authentication returned invalid input";
 			break;
 		}
 
-		if (!reply.proxy.proxy) {
-			error = "Redirect authentication is missing proxy field";
-			break;
+		if (reply.proxy.proxy) {
+			login_proxy_redirect_finish(client->login_proxy,
+						    &reply.proxy.host_ip,
+						    reply.proxy.port);
+			return;
+		} else if (reply.nologin && reply.proxy.host != NULL) {
+			client->auth_nologin_referral = TRUE;
+			/* Update the username */
+			reply.proxy.username = username;
+			/* Send referral to client */
+			client->v.auth_result(client,
+				CLIENT_AUTH_RESULT_REFERRAL_NOLOGIN, &reply,
+				CLIENT_REFERRAL_NOLOGIN_REASON);
+			/* Disconnect from the original backend */
+			login_proxy_failed(client->login_proxy,
+				login_proxy_get_event(client->login_proxy),
+				LOGIN_PROXY_FAILURE_TYPE_AUTH,
+				t_strdup_printf("Redirected to %s", reply.proxy.host));
+			return;
 		}
-		login_proxy_redirect_finish(client->login_proxy,
-					    &reply.proxy.host_ip,
-					    reply.proxy.port);
-		return;
+		error = "Redirect authentication is missing proxy or nologin field";
+		break;
 	case AUTH_REQUEST_STATUS_INTERNAL_FAIL:
 		error = "Internal authentication failure";
 		break;
 	case AUTH_REQUEST_STATUS_FAIL:
-		if (!client_auth_parse_args(client, FALSE, TRUE, args, &reply))
+		if (!client_auth_parse_args(client, FALSE, TRUE, args,
+					    &reply, &username))
 			error = "Failed to parse auth reply";
 		else if (reply.reason == NULL || reply.reason[0] == '\0')
 			error = "Redirect authentication unexpectedly failed";
@@ -687,7 +710,7 @@ client_auth_handle_reply(struct client *client,
 		if (reply->reason != NULL)
 			reason = reply->reason;
 		else if (reply->nologin)
-			reason = "Try this server instead.";
+			reason = CLIENT_REFERRAL_NOLOGIN_REASON;
 		else
 			reason = "Logged in, but you should use this server instead.";
 
@@ -854,10 +877,12 @@ client_auth_reply_args(struct client *client, enum sasl_server_reply sasl_reply,
 		       struct client_auth_reply *reply_r)
 {
 	bool success = sasl_reply == SASL_SERVER_REPLY_SUCCESS;
+	const char *username;
 
 	timeout_remove(&client->to_auth_waiting);
 	if (args != NULL) {
-		if (!client_auth_parse_args(client, success, FALSE, args, reply_r)) {
+		if (!client_auth_parse_args(client, success, FALSE, args,
+					    reply_r, &username)) {
 			client_auth_result(client,
 				CLIENT_AUTH_RESULT_AUTHFAILED, reply_r,
 				AUTH_FAILED_MSG);
