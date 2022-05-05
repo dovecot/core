@@ -124,7 +124,8 @@ static int doveadm_client_send_cmd_input_more(struct doveadm_client *conn)
 	case OSTREAM_SEND_ISTREAM_RESULT_WAIT_OUTPUT:
 		return 0;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
-		e_error(conn->conn.event, "read() failed: %s",
+		e_error(conn->conn.event, "read(%s) failed: %s",
+			i_stream_get_name(conn->cmd_input),
 			i_stream_get_error(conn->cmd_input));
 		break;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_OUTPUT:
