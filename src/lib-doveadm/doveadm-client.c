@@ -262,9 +262,13 @@ doveadm_client_send_cmd(struct doveadm_client *conn,
 	}
 	const char *extra_fields_escaped = str_tabescape(str_c(extra_fields));
 
+	const char flags[] = {
+		DOVEADM_PROTOCOL_CMD_FLAG_EXTRA_FIELDS,
+		'\t'
+	};
 	struct const_iovec iov[] = {
 		{ cmdline, prefix_len },
-		{ "x\t", 2 },
+		{ flags, N_ELEMENTS(flags) },
 		{ extra_fields_escaped, strlen(extra_fields_escaped) },
 		{ cmdline + prefix_len, strlen(cmdline + prefix_len) },
 	};

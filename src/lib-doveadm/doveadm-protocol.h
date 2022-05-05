@@ -20,6 +20,12 @@
 #define DOVEADM_EX_NOREPLICATE 1001
 #define DOVEADM_EX_REFERRAL 1002
 
+enum doveadm_protocol_cmd_flag {
+	DOVEADM_PROTOCOL_CMD_FLAG_DEBUG = 'D',
+	DOVEADM_PROTOCOL_CMD_FLAG_VERBOSE = 'v',
+	DOVEADM_PROTOCOL_CMD_FLAG_EXTRA_FIELDS = 'x',
+};
+
 const char *doveadm_exit_code_to_str(int code);
 int doveadm_str_to_exit_code(const char *reason);
 

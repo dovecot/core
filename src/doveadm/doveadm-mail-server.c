@@ -530,9 +530,9 @@ static void doveadm_mail_server_handle(struct doveadm_server *server,
 	/* <flags> <username> <command> [<args>] */
 	cmd = t_str_new(256);
 	if (doveadm_debug)
-		str_append_c(cmd, 'D');
+		str_append_c(cmd, DOVEADM_PROTOCOL_CMD_FLAG_DEBUG);
 	else if (doveadm_verbose)
-		str_append_c(cmd, 'v');
+		str_append_c(cmd, DOVEADM_PROTOCOL_CMD_FLAG_VERBOSE);
 	str_append_c(cmd, '\t');
 
 	str_append_tabescaped(cmd, username);

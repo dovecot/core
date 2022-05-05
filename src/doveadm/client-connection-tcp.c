@@ -286,14 +286,14 @@ static bool client_handle_command(struct client_connection_tcp *conn,
 
 	for (; *flags != '\0'; flags++) {
 		switch (*flags) {
-		case 'D':
+		case DOVEADM_PROTOCOL_CMD_FLAG_DEBUG:
 			doveadm_debug = TRUE;
 			doveadm_verbose = TRUE;
 			break;
-		case 'v':
+		case DOVEADM_PROTOCOL_CMD_FLAG_VERBOSE:
 			doveadm_verbose = TRUE;
 			break;
-		case 'x':
+		case DOVEADM_PROTOCOL_CMD_FLAG_EXTRA_FIELDS:
 			cctx.extra_fields = t_strsplit_tabescaped(args[0]);
 			args++; argc--;
 			break;

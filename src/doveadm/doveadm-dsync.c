@@ -901,7 +901,7 @@ static void dsync_server_run_command(struct dsync_cmd_context *ctx,
 	/* <flags> <username> <command> [<args>] */
 	string_t *cmd = t_str_new(256);
 	if (doveadm_debug)
-		str_append_c(cmd, 'D');
+		str_append_c(cmd, DOVEADM_PROTOCOL_CMD_FLAG_DEBUG);
 	str_append_c(cmd, '\t');
 	str_append_tabescaped(cmd, cctx->username);
 	str_append(cmd, "\tdsync-server\t-u");
