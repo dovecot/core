@@ -690,14 +690,28 @@ lmtp_proxy_rcpt_redirect_relookup(struct lmtp_proxy_recipient *lprcpt,
 		return;
 	}
 
-	if (lmtp_proxy_rcpt_parse_fields(lprcpt, set, fields, &username) <= 0) {
+	ret = lmtp_proxy_rcpt_parse_fields(lprcpt, set, fields, &username);
+	if (ret == 0 && (!lprcpt->nologin || set->set.host == NULL)) {
+		e_error(lprcpt->rcpt->rcpt->event,
+			"Redirect authentication is missing proxy or nologin field");
+		ret = -1;
+	}
+	if (ret < 0) {
 		smtp_server_recipient_reply(
 			rcpt, 451, "4.3.0",
 			"Redirect lookup yielded invalid result");
-		return;
+	} else if (ret == 0) {
+		/* referral */
+		const struct smtp_proxy_redirect predir = {
+			.username = username,
+			.host = set->set.host,
+			.host_ip = set->set.host_ip,
+			.port = set->set.port,
+		};
+		smtp_server_recipient_reply_redirect(rcpt, 0, &predir);
+	} else {
+		lmtp_proxy_rcpt_redirect_finish(lprcpt, set);
 	}
-
-	lmtp_proxy_rcpt_redirect_finish(lprcpt, set);
 }
 
 static void
