@@ -69,7 +69,6 @@ doc/html
 doc/man/doveadm-acl.1
 doc/man/doveadm-altmove.1
 doc/man/doveadm-auth.1
-doc/man/doveadm-batch.1
 doc/man/doveadm-deduplicate.1
 doc/man/doveadm-director.1
 doc/man/doveadm-dump.1

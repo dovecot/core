@@ -744,7 +744,6 @@ DOVEADM_CMD_PARAMS_END
 };
 
 static struct doveadm_cmd_ver2 *mail_commands_ver2[] = {
-	&doveadm_cmd_batch,
 	&doveadm_cmd_dsync_backup,
 	&doveadm_cmd_dsync_mirror,
 	&doveadm_cmd_dsync_server,

@@ -94,7 +94,6 @@ doveadm_common_mail_cmds = \
 	doveadm-dsync.c \
 	doveadm-mail.c \
 	doveadm-mail-altmove.c \
-	doveadm-mail-batch.c \
 	doveadm-mail-deduplicate.c \
 	doveadm-mail-expunge.c \
 	doveadm-mail-fetch.c \
