@@ -973,10 +973,7 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 	array_append_zero(&pargv);
 	/* All the -parameters need to be included in full_args so that
 	   they're sent to doveadm-server. */
-	unsigned int args_pos = array_count(&full_args);
 	array_append_array(&full_args, &pargv);
-
-	mctx->args = array_idx(&full_args, args_pos);
 	mctx->full_args = array_front(&full_args);
 
 	doveadm_mail_cmd_exec(mctx, wildcard_user);

@@ -63,7 +63,6 @@ struct doveadm_mail_cmd_context {
 	pool_t pool;
 	struct doveadm_cmd_context *cctx;
 	const struct doveadm_mail_cmd *cmd;
-	const char *const *args;
 	/* args including -options */
 	const char *const *full_args;
 
