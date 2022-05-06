@@ -158,8 +158,8 @@ doveadm_cmd_pass_reply_parse(struct doveadm_mail_cmd_context *ctx,
 	proxy_set->username = NULL;
 	proxy_set->host = NULL;
 
-	if (array_is_created(&ctx->proxy_forward_fields))
-		array_clear(&ctx->proxy_forward_fields);
+	if (array_is_created(&ctx->auth_proxy_forward_fields))
+		array_clear(&ctx->auth_proxy_forward_fields);
 
 	*nologin_r = FALSE;
 	for (unsigned int i = 0; fields[i] != NULL; i++) {
@@ -191,13 +191,13 @@ doveadm_cmd_pass_reply_parse(struct doveadm_mail_cmd_context *ctx,
 			if (proxy_set->username == NULL)
 				proxy_set->username = t_strdup(value);
 		} else if (str_begins(key, "forward_", &mend)) {
-			if (!array_is_created(&ctx->proxy_forward_fields)) {
-				p_array_init(&ctx->proxy_forward_fields,
+			if (!array_is_created(&ctx->auth_proxy_forward_fields)) {
+				p_array_init(&ctx->auth_proxy_forward_fields,
 					     ctx->pool, 8);
 			}
 			value = p_strdup_printf(ctx->pool, "%s=%s",
 						mend, value);
-			array_push_back(&ctx->proxy_forward_fields, &value);
+			array_push_back(&ctx->auth_proxy_forward_fields, &value);
 		}
 	}
 	if (proxy_set->username == NULL)
@@ -281,6 +281,25 @@ doveadm_proxy_cmd_have_connected(struct doveadm_mail_server_cmd *servercmd,
 	return FALSE;
 }
 
+static const char *const *
+doveadm_mail_get_all_forward_fields(struct doveadm_mail_cmd_context *ctx)
+{
+	if ((!array_is_created(&ctx->proxy_forward_fields) ||
+	     array_is_empty(&ctx->proxy_forward_fields)) &&
+	    (!array_is_created(&ctx->auth_proxy_forward_fields) ||
+	     array_is_empty(&ctx->auth_proxy_forward_fields)))
+		return NULL;
+
+	ARRAY_TYPE(const_string) merged;
+	t_array_init(&merged, 32);
+	if (array_is_created(&ctx->proxy_forward_fields))
+		array_append_array(&merged, &ctx->proxy_forward_fields);
+	if (array_is_created(&ctx->auth_proxy_forward_fields))
+		array_append_array(&merged, &ctx->auth_proxy_forward_fields);
+	array_append_zero(&merged);
+	return array_front(&merged);
+}
+
 static int
 doveadm_cmd_redirect_finish(struct doveadm_mail_server_cmd *servercmd,
 			    const struct ip_addr *ip, in_port_t port,
@@ -342,12 +361,7 @@ doveadm_cmd_redirect_finish(struct doveadm_mail_server_cmd *servercmd,
 	struct doveadm_client_cmd_settings cmd_set = {
 		.proxy_ttl = cmd_ctx->proxy_ttl,
 	};
-	if (array_is_created(&cmd_ctx->proxy_forward_fields)) {
-		array_append_zero(&cmd_ctx->proxy_forward_fields);
-		cmd_set.forward_fields =
-			array_front(&cmd_ctx->proxy_forward_fields);
-		array_pop_back(&cmd_ctx->proxy_forward_fields);
-	}
+	cmd_set.forward_fields = doveadm_mail_get_all_forward_fields(cmd_ctx);
 	doveadm_client_cmd(conn, &cmd_set, servercmd->cmdline, servercmd->input,
 			   doveadm_cmd_callback, servercmd);
 	return 1;
@@ -571,12 +585,7 @@ static void doveadm_mail_server_handle(struct doveadm_server *server,
 	struct doveadm_client_cmd_settings cmd_set = {
 		.proxy_ttl = cmd_ctx->proxy_ttl,
 	};
-	if (array_is_created(&cmd_ctx->proxy_forward_fields)) {
-		array_append_zero(&cmd_ctx->proxy_forward_fields);
-		cmd_set.forward_fields =
-			array_front(&cmd_ctx->proxy_forward_fields);
-		array_pop_back(&cmd_ctx->proxy_forward_fields);
-	}
+	cmd_set.forward_fields = doveadm_mail_get_all_forward_fields(cmd_ctx);
 	doveadm_client_cmd(conn, &cmd_set, str_c(cmd), cmd_ctx->cmd_input,
 			   doveadm_cmd_callback, servercmd);
 }

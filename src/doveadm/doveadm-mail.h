@@ -78,7 +78,11 @@ struct doveadm_mail_cmd_context {
 	struct mail_search_args *search_args;
 	struct istream *users_list_input;
 	int proxy_ttl;
+	/* forward_fields sent by the connecting doveadm proxy. */
 	ARRAY_TYPE(const_string) proxy_forward_fields;
+	/* forward_fields set by the last passdb lookup. These will be sent to
+	   outgoing proxy connections. */
+	ARRAY_TYPE(const_string) auth_proxy_forward_fields;
 
 	struct mail_storage_service_user *cur_service_user;
 	struct mail_user *cur_mail_user;
