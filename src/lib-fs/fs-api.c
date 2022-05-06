@@ -1211,8 +1211,6 @@ int fs_delete(struct fs_file *file)
 {
 	int ret;
 
-	i_assert(!file->writing_stream);
-
 	fs_file_timing_start(file, FS_OP_DELETE);
 	T_BEGIN {
 		ret = file->fs->v.delete_file(file);
