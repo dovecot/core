@@ -45,8 +45,8 @@ struct lmtp_proxy_recipient {
 
 	struct smtp_address *address;
 
-	const unsigned char *forward_fields;
-	size_t forward_fields_size;
+	const unsigned char *auth_forward_fields;
+	size_t auth_forward_fields_size;
 
 	unsigned int proxy_ttl;
 
@@ -803,7 +803,7 @@ lmtp_proxy_rcpt_login_cb(const struct smtp_reply *proxy_reply, void *context)
 		add_orcpt_param = TRUE;
 
 	/* Add forward fields parameter when passdb returned forward_* fields */
-	if (lprcpt->forward_fields != NULL &&
+	if (lprcpt->auth_forward_fields != NULL &&
 	    lmtp_proxy_connection_has_rcpt_forward(conn))
 		add_xrcptforward_param = TRUE;
 
@@ -824,7 +824,8 @@ lmtp_proxy_rcpt_login_cb(const struct smtp_reply *proxy_reply, void *context)
 	if (add_xrcptforward_param) {
 		smtp_params_rcpt_encode_extra(
 			rcpt_params, param_pool, LMTP_RCPT_FORWARD_PARAMETER,
-			lprcpt->forward_fields, lprcpt->forward_fields_size);
+			lprcpt->auth_forward_fields,
+			lprcpt->auth_forward_fields_size);
 	}
 
 	relay_rcpt = smtp_client_transaction_add_pool_rcpt(
@@ -995,9 +996,9 @@ int lmtp_proxy_rcpt(struct client *client,
 		str_append_tabescaped(fwfields, (*ptr) + 8);
 	}
 	if (fwfields != NULL) {
-		lprcpt->forward_fields = p_memdup(
+		lprcpt->auth_forward_fields = p_memdup(
 			rcpt->pool, str_data(fwfields), str_len(fwfields));
-		lprcpt->forward_fields_size = str_len(fwfields);
+		lprcpt->auth_forward_fields_size = str_len(fwfields);
 	}
 
 	pool_unref(&auth_pool);
