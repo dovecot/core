@@ -971,11 +971,6 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 				array_append_array(&pargv, &arg->value.v_array);
 			else if (arg->type == CMD_PARAM_STR)
 				array_push_back(&pargv, &arg->value.v_string);
-		} else {
-			doveadm_exit_code = EX_USAGE;
-			i_error("invalid parameter: %s", arg->name);
-			doveadm_mail_cmd_free(mctx);
-			return;
 		}
 	}
 
