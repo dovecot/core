@@ -379,8 +379,7 @@ static int cmd_force_resync_run(struct doveadm_mail_cmd_context *_ctx,
 }
 
 static void
-cmd_force_resync_init(struct doveadm_mail_cmd_context *_ctx,
-		      const char *const _args[] ATTR_UNUSED)
+cmd_force_resync_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct force_resync_cmd_context *ctx =
 		(struct force_resync_cmd_context *)_ctx;
@@ -495,7 +494,7 @@ int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 	doveadm_mail_ctx_to_storage_service_input(ctx, &ctx->storage_service_input);
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
 							 ctx->service_flags);
-	ctx->v.init(ctx, ctx->args);
+	ctx->v.init(ctx);
 	if (hook_doveadm_mail_init != NULL)
 		hook_doveadm_mail_init(ctx);
 
@@ -517,7 +516,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
 							 ctx->service_flags);
 
-	ctx->v.init(ctx, ctx->args);
+	ctx->v.init(ctx);
 
 	mail_storage_service_all_init_mask(ctx->storage_service,
 		wildcard_user != NULL ? wildcard_user : "");
@@ -567,8 +566,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 }
 
 static void
-doveadm_mail_cmd_init_noop(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
-			   const char *const args[] ATTR_UNUSED)
+doveadm_mail_cmd_init_noop(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED)
 {
 }
 

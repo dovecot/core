@@ -70,8 +70,7 @@ cmd_quota_get_run(struct doveadm_mail_cmd_context *ctx,
 	return ret;
 }
 
-static void cmd_quota_get_init(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
-			       const char *const args[] ATTR_UNUSED)
+static void cmd_quota_get_init(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED)
 {
 	doveadm_print_header("root", "Quota name", 0);
 	doveadm_print_header("type", "Type", 0);

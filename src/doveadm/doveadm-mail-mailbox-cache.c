@@ -61,8 +61,7 @@ cmd_mailbox_cache_str_to_make_decision(const char *str,
 	return TRUE;
 }
 
-static void cmd_mailbox_cache_decision_init(struct doveadm_mail_cmd_context *_ctx,
-					    const char *const _args[] ATTR_UNUSED)
+static void cmd_mailbox_cache_decision_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
 	struct mailbox_cache_cmd_context *ctx =
@@ -297,8 +296,7 @@ static int cmd_mailbox_cache_remove_run(struct doveadm_mail_cmd_context *_ctx,
 	return ret;
 }
 
-static void cmd_mailbox_cache_remove_init(struct doveadm_mail_cmd_context *_ctx,
-					  const char *const _args[] ATTR_UNUSED)
+static void cmd_mailbox_cache_remove_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
 	struct mailbox_cache_cmd_context *ctx =
@@ -349,8 +347,7 @@ static int cmd_mailbox_cache_purge_run(struct doveadm_mail_cmd_context *_ctx,
 	return ret;
 }
 
-static void cmd_mailbox_cache_purge_init(struct doveadm_mail_cmd_context *_ctx,
-					 const char *const _args[] ATTR_UNUSED)
+static void cmd_mailbox_cache_purge_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
 	struct mailbox_cache_cmd_context *ctx =

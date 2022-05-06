@@ -118,8 +118,7 @@ cmd_acl_get_run(struct doveadm_mail_cmd_context *_ctx,
 	return ret;
 }
 
-static void cmd_acl_get_init(struct doveadm_mail_cmd_context *_ctx,
-			     const char *const _args[] ATTR_UNUSED)
+static void cmd_acl_get_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct doveadm_acl_cmd_context *ctx =
 		(struct doveadm_acl_cmd_context *)_ctx;
@@ -172,8 +171,7 @@ cmd_acl_rights_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user
 	return ret;
 }
 
-static void cmd_acl_rights_init(struct doveadm_mail_cmd_context *_ctx,
-				const char *const args[] ATTR_UNUSED)
+static void cmd_acl_rights_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct doveadm_acl_cmd_context *ctx =
 		(struct doveadm_acl_cmd_context *)_ctx;
@@ -239,8 +237,7 @@ cmd_acl_set_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	return ret;
 }
 
-static void cmd_acl_set_init(struct doveadm_mail_cmd_context *_ctx,
-			     const char *const args[] ATTR_UNUSED)
+static void cmd_acl_set_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct doveadm_acl_cmd_context *ctx =
 		(struct doveadm_acl_cmd_context *)_ctx;
@@ -305,8 +302,7 @@ cmd_acl_delete_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user
 	return ret;
 }
 
-static void cmd_acl_delete_init(struct doveadm_mail_cmd_context *_ctx,
-				const char *const args[] ATTR_UNUSED)
+static void cmd_acl_delete_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct doveadm_acl_cmd_context *ctx =
 		(struct doveadm_acl_cmd_context *)_ctx;
@@ -526,8 +522,7 @@ cmd_acl_debug_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	return 0;
 }
 
-static void cmd_acl_debug_init(struct doveadm_mail_cmd_context *_ctx,
-			       const char *const args[] ATTR_UNUSED)
+static void cmd_acl_debug_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct doveadm_acl_cmd_context *ctx =
 		(struct doveadm_acl_cmd_context *)_ctx;

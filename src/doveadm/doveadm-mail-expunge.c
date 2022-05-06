@@ -239,8 +239,7 @@ void expunge_search_args_check(struct mail_search_args *args, const char *cmd)
 	mail_search_args_simplify(args);
 }
 
-static void cmd_expunge_init(struct doveadm_mail_cmd_context *_ctx,
-			     const char *const _args[] ATTR_UNUSED)
+static void cmd_expunge_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct expunge_cmd_context *ctx = (struct expunge_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;

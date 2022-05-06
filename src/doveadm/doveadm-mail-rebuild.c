@@ -71,8 +71,7 @@ cmd_rebuild_attachment_run(struct doveadm_mail_cmd_context *ctx,
 	return ret;
 }
 
-static void cmd_rebuild_attachment_init(struct doveadm_mail_cmd_context *_ctx,
-			    const char *const _args[] ATTR_UNUSED)
+static void cmd_rebuild_attachment_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
 

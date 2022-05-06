@@ -186,8 +186,7 @@ cmd_mailbox_status_run(struct doveadm_mail_cmd_context *_ctx,
 	return ret;
 }
 
-static void cmd_mailbox_status_init(struct doveadm_mail_cmd_context *_ctx,
-				    const char *const _args[] ATTR_UNUSED)
+static void cmd_mailbox_status_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct status_cmd_context *ctx = (struct status_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;

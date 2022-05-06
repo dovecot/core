@@ -184,8 +184,7 @@ cmd_fts_flatcurve_mailbox_run(struct doveadm_mail_cmd_context *_ctx,
 }
 
 static void
-cmd_fts_flatcurve_mailbox_init(struct doveadm_mail_cmd_context *_ctx,
-			       const char *const _args[] ATTR_UNUSED)
+cmd_fts_flatcurve_mailbox_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct fts_flatcurve_mailbox_cmd_context *ctx =
 		(struct fts_flatcurve_mailbox_cmd_context *)_ctx;

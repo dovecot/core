@@ -212,8 +212,7 @@ cmd_import_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	return ret;
 }
 
-static void cmd_import_init(struct doveadm_mail_cmd_context *_ctx,
-			    const char *const _args[] ATTR_UNUSED)
+static void cmd_import_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct import_cmd_context *ctx = (struct import_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;

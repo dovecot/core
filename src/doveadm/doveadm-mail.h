@@ -28,8 +28,7 @@ struct doveadm_mail_cmd_vfuncs {
 	   do any actual work. The init() is called also when doveadm is
 	   performing the work via doveadm-server, which could be running
 	   remotely with completely different Dovecot configuration. */
-	void (*init)(struct doveadm_mail_cmd_context *ctx,
-		     const char *const args[]);
+	void (*init)(struct doveadm_mail_cmd_context *ctx);
 	/* Usually not needed. When iterating through multiple users, use this
 	   function to get the next username. Overriding this is usually done
 	   only when there's a known username filter, such as the expire

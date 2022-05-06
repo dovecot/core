@@ -1101,8 +1101,7 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 	return 0;
 }
 
-static void cmd_dsync_init(struct doveadm_mail_cmd_context *_ctx,
-			   const char *const args[] ATTR_UNUSED)
+static void cmd_dsync_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 
@@ -1325,8 +1324,7 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 }
 
 static void
-cmd_dsync_server_init(struct doveadm_mail_cmd_context *_ctx,
-		      const char *const _args[] ATTR_UNUSED)
+cmd_dsync_server_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;

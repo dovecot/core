@@ -142,8 +142,7 @@ cmd_copy_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	return ret;
 }
 
-static void cmd_copy_init(struct doveadm_mail_cmd_context *_ctx,
-			  const char *const _args[] ATTR_UNUSED)
+static void cmd_copy_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct copy_cmd_context *ctx = (struct copy_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;

@@ -103,8 +103,7 @@ cmd_fts_lookup_run(struct doveadm_mail_cmd_context *ctx,
 }
 
 static void
-cmd_fts_lookup_init(struct doveadm_mail_cmd_context *_ctx,
-		    const char *const _args[] ATTR_UNUSED)
+cmd_fts_lookup_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
 
@@ -153,8 +152,7 @@ cmd_fts_expand_run(struct doveadm_mail_cmd_context *ctx,
 }
 
 static void
-cmd_fts_expand_init(struct doveadm_mail_cmd_context *_ctx,
-		    const char *const _args[] ATTR_UNUSED)
+cmd_fts_expand_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
 
@@ -268,8 +266,7 @@ cmd_fts_tokenize_run(struct doveadm_mail_cmd_context *_ctx,
 }
 
 static void
-cmd_fts_tokenize_init(struct doveadm_mail_cmd_context *_ctx,
-		      const char *const _args[] ATTR_UNUSED)
+cmd_fts_tokenize_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct fts_tokenize_cmd_context *ctx =
 		(struct fts_tokenize_cmd_context *)_ctx;
@@ -347,8 +344,7 @@ cmd_fts_optimize_run(struct doveadm_mail_cmd_context *_ctx,
 }
 
 static void
-cmd_fts_optimize_init(struct doveadm_mail_cmd_context *_ctx,
-		      const char *const _args[] ATTR_UNUSED)
+cmd_fts_optimize_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct fts_namespace_cmd_context *ctx =
 		(struct fts_namespace_cmd_context *) _ctx;
@@ -391,8 +387,7 @@ cmd_fts_rescan_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user
 }
 
 static void
-cmd_fts_rescan_init(struct doveadm_mail_cmd_context *_ctx,
-		    const char *const _args[] ATTR_UNUSED)
+cmd_fts_rescan_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct fts_namespace_cmd_context *ctx =
 		(struct fts_namespace_cmd_context *) _ctx;
