@@ -41,6 +41,11 @@ struct auth_passdb {
 	struct passdb_template *default_fields_tmpl;
 	struct passdb_template *override_fields_tmpl;
 
+	/* Supported authentication mechanisms, NULL is all, {NULL} is none */
+	const char *const *mechanisms;
+	/* Username filter, NULL is no filter */
+	const char *const *username_filter;
+
 	enum auth_passdb_skip skip;
 	enum auth_db_rule result_success;
 	enum auth_db_rule result_failure;

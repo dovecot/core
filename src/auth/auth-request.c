@@ -534,8 +534,8 @@ auth_request_want_skip_passdb(struct auth_request *request,
 			      struct auth_passdb *passdb)
 {
 	/* if mechanism is not supported, skip */
-	const char *const *mechs = passdb->passdb->mechanisms;
-	const char *const *username_filter = passdb->passdb->username_filter;
+	const char *const *mechs = passdb->mechanisms;
+	const char *const *username_filter = passdb->username_filter;
 	const char *username;
 
 	username = request->fields.user;
@@ -548,7 +548,7 @@ auth_request_want_skip_passdb(struct auth_request *request,
 		return TRUE;
 	}
 
-	if (passdb->passdb->username_filter != NULL &&
+	if (passdb->username_filter != NULL &&
 	    !auth_request_username_accepted(username_filter, username)) {
 		auth_request_log_debug(request,
 				       request->mech != NULL ? AUTH_SUBSYS_MECH

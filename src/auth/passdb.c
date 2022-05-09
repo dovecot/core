@@ -224,19 +224,8 @@ passdb_preinit(pool_t pool, const struct auth_passdb_settings *set)
 	passdb->id = ++auth_passdb_id;
 	passdb->iface = *iface;
 	passdb->args = p_strdup(pool, set->args);
-	if (*set->mechanisms == '\0') {
-		passdb->mechanisms = NULL;
-	} else if (strcasecmp(set->mechanisms, "none") == 0) {
-		passdb->mechanisms = (const char *const[]){NULL};
-	} else {
-		passdb->mechanisms = (const char* const*)p_strsplit_spaces(pool, set->mechanisms, " ,");
-	}
-
-	if (*set->username_filter == '\0') {
-		passdb->username_filter = NULL;
-	} else {
-		passdb->username_filter = (const char* const*)p_strsplit_spaces(pool, set->username_filter, " ,");
-	}
+	/* NOTE: if anything else than driver & args are added here,
+	   passdb_find() also needs to be updated. */
 	array_push_back(&passdb_modules, &passdb);
 	return passdb;
 }
