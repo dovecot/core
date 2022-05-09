@@ -1,4 +1,4 @@
-if BUILD_DOCS
+if INSTALL_DOCS
 DOCDIRS = wiki example-config
 endif
 
@@ -14,7 +14,7 @@ docfiles = \
 	solr-schema-7.7.0.xml \
 	solr-config-7.7.0.xml
 
-if BUILD_DOCS
+if INSTALL_DOCS
 doc_DATA = $(docfiles)
 endif
 

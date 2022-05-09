@@ -251,7 +251,7 @@ AS_HELP_STRING([--with-docs], [Install documentation (default)]),
 		want_docs=yes
 	fi,
 	want_docs=yes)
-AM_CONDITIONAL(BUILD_DOCS, test "$want_docs" = "yes")
+AM_CONDITIONAL(INSTALL_DOCS, test "$want_docs" = "yes")
 
 dnl always enable all of the passbs and userdbs that don't require extra libs
 want_passwd=yes
