@@ -282,7 +282,8 @@ static int
 master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 {
 	/* Ensure buffer is aligned */
-	uint32_t rbuf[HAPROXY_READ_SIZE/sizeof(uint32_t) + 1];
+	unsigned char rbuf_full[HAPROXY_READ_SIZE + sizeof(uint32_t)];
+	unsigned char *rbuf = (unsigned char*)(((uintptr_t)rbuf_full + sizeof(uint32_t)-1) & ~(sizeof(uint32_t)-1));
 	const char *error;
 	static union haproxy_data_union {
 		unsigned char v1_data[HAPROXY_V1_MAX_HEADER_SIZE];
@@ -303,11 +304,11 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 	   must be sent as one TCP frame, meaning that we will get it in full
 	   with the first recv() call.
 	 */
-	i_zero(&rbuf);
+	i_zero(&rbuf_full);
 	buf = (union haproxy_data_union*)rbuf;
 
 	/* see if there is a HAPROXY protocol command waiting */
-	if ((ret = master_service_haproxy_recv(fd, &rbuf, sizeof(*buf), MSG_PEEK))<=0) {
+	if ((ret = master_service_haproxy_recv(fd, rbuf, sizeof(*buf), MSG_PEEK))<=0) {
 		if (ret < 0)
 			i_info("haproxy: Client disconnected (rip=%s): %m",
 			       net_ip2addr(real_remote_ip));
@@ -319,7 +320,7 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 	} else if ((size_t)ret >= sizeof(buf->v2.hdr) &&
 		   memcmp(buf->v2.hdr.sig, haproxy_v2sig, sizeof(haproxy_v2sig)) == 0) {
 		want = ntohs(buf->v2.hdr.len) + sizeof(buf->v2.hdr);
-		if (want > sizeof(rbuf)) {
+		if (want > sizeof(rbuf_full)) {
 			i_error("haproxy: Client disconnected: Too long header (rip=%s)",
 				net_ip2addr(real_remote_ip));
 			return -1;
@@ -589,7 +590,7 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 		}
 		i_assert(size <= sizeof(*buf));
 
-		if ((ret = master_service_haproxy_recv(fd, &rbuf, size, 0))<=0) {
+		if ((ret = master_service_haproxy_recv(fd, rbuf, size, 0))<=0) {
 			if (ret < 0)
 				i_info("haproxy: Client disconnected (rip=%s): %m",
 				       net_ip2addr(real_remote_ip));
