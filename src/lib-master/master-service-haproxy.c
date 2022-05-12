@@ -303,7 +303,6 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 	   must be sent as one TCP frame, meaning that we will get it in full
 	   with the first recv() call.
 	 */
-	i_zero(&buf);
 	i_zero(&rbuf);
 	buf = (union haproxy_data_union*)rbuf;
 
