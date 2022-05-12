@@ -28,6 +28,8 @@ void drop_capabilities(void)
 		     N_ELEMENTS(suidcaps), suidcaps, CAP_SET);
 	cap_set_flag(caps, CAP_EFFECTIVE,
 		     N_ELEMENTS(suidcaps), suidcaps, CAP_SET);
+	cap_set_flag(caps, CAP_INHERITABLE,
+		     N_ELEMENTS(suidcaps), suidcaps, CAP_SET);
 	cap_set_proc(caps);
 	cap_free(caps);
 }
