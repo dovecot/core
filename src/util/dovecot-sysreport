@@ -182,8 +182,8 @@ doveadm $conf_flag service status > $SRTEMP/service_status || :
 doveadm $conf_flag process status > $SRTEMP/process_status || :
 uptime > $SRTEMP/uptime_output
 doveadm $conf_flag stats dump > $SRTEMP/stats_dump || :
-sleep 1
-echo -e "\n\n###################### AFTER ONE SECOND ######################\n\n" | \
+sleep 3
+echo -e "\n\n###################### AFTER 3 SECONDS ######################\n\n" | \
   tee -a $SRTEMP/ps_output $SRTEMP/service_status $SRTEMP/process_status \
   $SRTEMP/uptime_output $SRTEMP/stats_dump > /dev/null
 ps auxwww | grep '[d]ovecot' >> $SRTEMP/ps_output
