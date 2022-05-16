@@ -158,7 +158,8 @@ userdb_preinit(pool_t pool, const struct auth_userdb_settings *set)
 	userdb->id = ++auth_userdb_id;
 	userdb->iface = iface;
 	userdb->args = p_strdup(pool, set->args);
-
+	/* NOTE: if anything else than driver & args are added here,
+	   userdb_find() also needs to be updated. */
 	array_push_back(&userdb_modules, &userdb);
 	return userdb;
 }
