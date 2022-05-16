@@ -177,7 +177,9 @@ unwrap_and_hide_pass $SRTEMP/conf/dovecot.conf
 
 echo "Gathering system informations ..."
 doveadm $conf_flag log errors > $SRTEMP/log_errors || :
-ps auxwww | grep '[d]ovecot' > $SRTEMP/ps_output
+(printf "# Start: "; date) >$SRTEMP/ps_output
+ps auxwww | grep '[d]ovecot' >> $SRTEMP/ps_output
+(printf "# End: "; date) >>$SRTEMP/ps_output
 doveadm $conf_flag service status > $SRTEMP/service_status || :
 doveadm $conf_flag process status > $SRTEMP/process_status || :
 uptime > $SRTEMP/uptime_output
@@ -186,7 +188,9 @@ sleep 3
 echo -e "\n\n###################### AFTER 3 SECONDS ######################\n\n" | \
   tee -a $SRTEMP/ps_output $SRTEMP/service_status $SRTEMP/process_status \
   $SRTEMP/uptime_output $SRTEMP/stats_dump > /dev/null
+(printf "# Start: "; date) >>$SRTEMP/ps_output
 ps auxwww | grep '[d]ovecot' >> $SRTEMP/ps_output
+(printf "# End: "; date) >>$SRTEMP/ps_output
 doveadm $conf_flag service status >> $SRTEMP/service_status || :
 doveadm $conf_flag process status >> $SRTEMP/process_status || :
 uptime >> $SRTEMP/uptime_output
