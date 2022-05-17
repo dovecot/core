@@ -206,7 +206,6 @@ static void master_service_ssl_common_settings_to_iostream_set(
 
 	set_r->verbose = ssl_set->verbose_ssl;
 	set_r->verbose_invalid_cert = ssl_set->verbose_ssl;
-	set_r->skip_crl_check = !ssl_set->ssl_require_crl;
 	set_r->prefer_server_ciphers = ssl_set->ssl_prefer_server_ciphers;
 	set_r->compression = ssl_set->parsed_opts.compression;
 	set_r->tickets = ssl_set->parsed_opts.tickets;
@@ -225,6 +224,8 @@ void master_service_ssl_client_settings_to_iostream_set(
 	set_r->cert.key = p_strdup_empty(pool, ssl_set->ssl_client_key);
 	set_r->verify_remote_cert = ssl_set->ssl_client_require_valid_cert;
 	set_r->allow_invalid_cert = !set_r->verify_remote_cert;
+	/* client-side CRL checking not supported currently */
+	set_r->skip_crl_check = TRUE;
 }
 
 void master_service_ssl_server_settings_to_iostream_set(
@@ -246,4 +247,7 @@ void master_service_ssl_server_settings_to_iostream_set(
 	set_r->dh = p_strdup(pool, ssl_server_set->ssl_dh);
 	set_r->verify_remote_cert = ssl_set->ssl_verify_client_cert;
 	set_r->allow_invalid_cert = !set_r->verify_remote_cert;
+	/* ssl_require_crl is used only for checking client-provided SSL
+	   certificate's CRL. */
+	set_r->skip_crl_check = !ssl_set->ssl_require_crl;
 }
