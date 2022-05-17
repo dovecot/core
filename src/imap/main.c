@@ -213,7 +213,8 @@ client_send_login_reply(struct ostream *output, const char *capability_string,
 	}
 	o_stream_nsend(output, str_data(reply), str_len(reply));
 	if (o_stream_uncork_flush(output) < 0 &&
-	    output->stream_errno != EPIPE)
+	    output->stream_errno != EPIPE &&
+	    output->stream_errno != ECONNRESET)
 		i_error("write(client) failed: %s", o_stream_get_error(output));
 }
 
@@ -412,7 +413,8 @@ login_client_connected(const struct master_login_client *login_client,
 	if (client_create_finish(client, &error) < 0) {
 		if (write_full(login_client->fd, MSG_BYE_INTERNAL_ERROR,
 			       strlen(MSG_BYE_INTERNAL_ERROR)) < 0)
-			if (errno != EAGAIN && errno != EPIPE)
+			if (errno != EAGAIN && errno != EPIPE &&
+			    errno != ECONNRESET)
 				e_error(client->event,
 					"write_full(client) failed: %m");
 
