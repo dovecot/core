@@ -108,7 +108,7 @@ send_error(int fd_out, const char *hostname, const char *error_code,
 		"421 4.3.2 %s Shutting down due to fatal error\r\n",
 		error_code, error_msg, hostname);
 	if (write(fd_out, msg, strlen(msg)) < 0) {
-		if (errno != EAGAIN && errno != EPIPE)
+		if (errno != EAGAIN && errno != EPIPE && errno != ECONNRESET)
 			i_error("write(client) failed: %m");
 	}
 }
