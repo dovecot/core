@@ -16,8 +16,6 @@ struct mail_user;
 struct doveadm_mail_cmd_context;
 
 struct doveadm_mail_cmd_vfuncs {
-	/* Parse one getopt() parameter. This is called for each parameter. */
-	bool (*parse_arg)(struct doveadm_mail_cmd_context *ctx, int c);
 	/* Usually not needed. The preinit() is called just after parsing all
 	   parameters, but before any userdb lookups are done. This allows the
 	   preinit() to alter the userdb lookup behavior (especially

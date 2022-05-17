@@ -809,60 +809,12 @@ void doveadm_mail_deinit(void)
 	module_dir_unload(&mail_storage_service_modules);
 }
 
-static int doveadm_cmd_parse_arg(struct doveadm_mail_cmd_context *mctx,
-				 const struct doveadm_cmd_param *arg,
-				 ARRAY_TYPE(const_string) *full_args)
-{
-	const char *short_opt_str =
-		p_strdup_printf(mctx->pool, "-%c", arg->short_opt);
-	const char *arg_value = NULL;
-
-	switch (arg->type) {
-	case CMD_PARAM_BOOL:
-		break;
-	case CMD_PARAM_INT64:
-		arg_value = dec2str(arg->value.v_int64);
-		break;
-	case CMD_PARAM_IP:
-		arg_value = net_ip2addr(&arg->value.v_ip);
-		break;
-	case CMD_PARAM_STR:
-		arg_value = arg->value.v_string;
-		break;
-	case CMD_PARAM_ARRAY: {
-		const char *str;
-
-		array_foreach_elem(&arg->value.v_array, str) {
-			optarg = (char *)str;
-			if (!mctx->v.parse_arg(mctx, arg->short_opt))
-				return -1;
-			array_push_back(full_args, &short_opt_str);
-			array_push_back(full_args, &str);
-		}
-		return 0;
-	}
-	default:
-		i_panic("Cannot convert parameter %s to short opt", arg->name);
-	}
-
-	optarg = (char *)arg_value;
-	if (!mctx->v.parse_arg(mctx, arg->short_opt))
-		return -1;
-
-	array_push_back(full_args, &short_opt_str);
-	if (arg_value != NULL)
-		array_push_back(full_args, &arg_value);
-	return 0;
-}
-
 void
 doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 {
 	struct doveadm_mail_cmd_context *mctx;
 	const char *wildcard_user;
-	const char *fieldstr;
 	ARRAY_TYPE(const_string) pargv, full_args;
-	int i;
 	bool cli = (cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
 	bool tcp_server = (cctx->conn_type == DOVEADM_CONNECTION_TYPE_TCP);
 	struct doveadm_mail_cmd mail_cmd = {
@@ -882,89 +834,107 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 	p_array_init(&full_args, mctx->pool, 8);
 	p_array_init(&pargv, mctx->pool, 8);
 
-	for(i=0;i<cctx->argc;i++) {
-		const struct doveadm_cmd_param *arg = &cctx->argv[i];
+	const char *value_str;
 
-		if (!arg->value_set)
-			continue;
+	if (doveadm_cmd_param_flag(cctx, "all-users")) {
+		if (tcp_server)
+			mctx->add_username_header = TRUE;
+		else
+			mctx->iterate_all_users = TRUE;
+	}
 
-		if (strcmp(arg->name, "all-users") == 0) {
+	if (doveadm_cmd_param_str(cctx, "socket-path",
+				  &doveadm_settings->doveadm_socket_path) &&
+	    doveadm_settings->doveadm_worker_count == 0)
+				doveadm_settings->doveadm_worker_count = 1;
+
+	if (doveadm_cmd_param_str(cctx, "user", &value_str)) {
+		mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
+		if (!tcp_server)
+			cctx->username = value_str;
+
+		if (strchr(value_str, '*') != NULL ||
+		    strchr(value_str, '?') != NULL) {
 			if (tcp_server)
 				mctx->add_username_header = TRUE;
-			else
-				mctx->iterate_all_users = arg->value.v_bool;
-			fieldstr = "-A";
-			array_push_back(&full_args, &fieldstr);
-		} else if (strcmp(arg->name, "socket-path") == 0) {
-			doveadm_settings->doveadm_socket_path = arg->value.v_string;
-			if (doveadm_settings->doveadm_worker_count == 0)
-				doveadm_settings->doveadm_worker_count = 1;
-		} else if (strcmp(arg->name, "user") == 0) {
-			mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
-			if (!tcp_server)
-				cctx->username = arg->value.v_string;
-
-			fieldstr = "-u";
-			array_push_back(&full_args, &fieldstr);
-			array_push_back(&full_args, &arg->value.v_string);
-			if (strchr(arg->value.v_string, '*') != NULL ||
-			    strchr(arg->value.v_string, '?') != NULL) {
-				if (tcp_server)
-					mctx->add_username_header = TRUE;
-				else {
-					wildcard_user = arg->value.v_string;
-					cctx->username = NULL;
-				}
+			else {
+				wildcard_user = value_str;
+				cctx->username = NULL;
 			}
-		} else if (strcmp(arg->name, "user-file") == 0) {
-			mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
-			wildcard_user = "*";
-			mctx->users_list_input = arg->value.v_istream;
-			fieldstr = "-F";
-			array_push_back(&full_args, &fieldstr);
-			fieldstr = ""; /* value doesn't really matter */
-			array_push_back(&full_args, &fieldstr);
-			i_stream_ref(mctx->users_list_input);
-		} else if (strcmp(arg->name, "field") == 0 ||
-			   strcmp(arg->name, "flag") == 0) {
-			/* mailbox status, fetch, flags: convert an array into a
-			   single space-separated parameter (alternative to
-			   fieldstr) */
-			fieldstr = p_array_const_string_join(mctx->pool,
-					&arg->value.v_array, " ");
-			array_push_back(&pargv, &fieldstr);
-		} else if (strcmp(arg->name, "file") == 0) {
-			/* input for doveadm_mail_get_input(),
-			   used by e.g. save */
-			if (mctx->cmd_input != NULL) {
-				i_error("Only one file input allowed: %s", arg->name);
-				doveadm_mail_cmd_free(mctx);
-				doveadm_exit_code = EX_USAGE;
-				return;
-			}
-			mctx->cmd_input = arg->value.v_istream;
-			i_stream_ref(mctx->cmd_input);
-
-		} else if (strcmp(arg->name, "trans-flags") == 0) {
-			/* This parameter allows to set additional
-			 * mailbox transaction flags. */
-			mctx->transaction_flags = arg->value.v_int64;
-
-		/* Keep all named special parameters above this line */
-
-		} else if (mctx->v.parse_arg != NULL && arg->short_opt != '\0') {
-			if (doveadm_cmd_parse_arg(mctx, arg, &full_args) < 0) {
-				i_error("Invalid parameter %c", arg->short_opt);
-				doveadm_mail_cmd_free(mctx);
-				doveadm_exit_code = EX_USAGE;
-			}
-		} else if ((arg->flags & CMD_PARAM_FLAG_POSITIONAL) != 0) {
-			/* feed this into pargv */
-			if (arg->type == CMD_PARAM_ARRAY)
-				array_append_array(&pargv, &arg->value.v_array);
-			else if (arg->type == CMD_PARAM_STR)
-				array_push_back(&pargv, &arg->value.v_string);
 		}
+	}
+
+	if (doveadm_cmd_param_istream(cctx, "user-file", &mctx->users_list_input)) {
+		i_stream_ref(mctx->users_list_input);
+		mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
+		wildcard_user = "*";
+	}
+
+	if (doveadm_cmd_param_istream(cctx, "file", &mctx->cmd_input))
+		i_stream_ref(mctx->cmd_input);
+
+	(void)doveadm_cmd_param_uint32(cctx, "trans-flags", &mctx->transaction_flags);
+
+
+	for (int index = 0; index < cctx->argc; index++) {
+		const struct doveadm_cmd_param *arg = cctx->argv + index;
+
+		if (!arg->value_set ||
+  		    strcmp(arg->name, "socket-path") == 0 ||
+		    strcmp(arg->name, "trans-flags") == 0 ||
+		    strcmp(arg->name, "file") == 0)
+			continue;
+
+		if (strcmp(arg->name, "field") == 0 ||
+		    strcmp(arg->name, "flag") == 0) {
+			const char *value = p_array_const_string_join(
+				mctx->pool, &arg->value.v_array, " ");
+			array_push_back(&pargv, &value);
+			continue;
+		    }
+
+		ARRAY_TYPE(const_string) *dest;
+		const char *opt = NULL;
+
+		if ((arg->flags & CMD_PARAM_FLAG_POSITIONAL) == 0) {
+			dest = &full_args;
+			opt = arg->short_opt != '\0' ?
+				p_strdup_printf(mctx->pool, "-%c", arg->short_opt) :
+				p_strdup_printf(mctx->pool, "--%s", arg->name);
+		} else {
+			dest = &pargv;
+			if ((arg->flags & CMD_PARAM_FLAG_KEY_VALUE) != 0)
+				opt = arg->name;
+		}
+
+		if (arg->type == CMD_PARAM_ARRAY) {
+			const char *const *entry = NULL;
+			array_foreach(&arg->value.v_array, entry) {
+				if (opt != NULL) array_push_back(dest, &opt);
+				array_push_back(dest, entry);
+			}
+			continue;
+		}
+
+		const char *value = NULL;
+		switch (arg->type) {
+		case CMD_PARAM_BOOL:
+			break;
+		case CMD_PARAM_INT64:
+			value = dec2str(arg->value.v_int64);
+			break;
+		case CMD_PARAM_IP:
+			value = net_ip2addr(&arg->value.v_ip);
+			break;
+		case CMD_PARAM_STR:
+			value = arg->value.v_string;
+			break;
+		default:
+			i_panic("Cannot convert parameter %s to short opt", arg->name);
+		}
+
+		if (opt   != NULL) array_push_back(dest, &opt);
+		if (value != NULL) array_push_back(dest, &value);
 	}
 
 	const char *dashdash = "--";
