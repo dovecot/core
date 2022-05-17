@@ -38,7 +38,7 @@ html:
 endif # if HAVE_VENV
 
 # hack to build pages only if they're missing
-all-hook: html
+all-local: html
 	if [ ! -e html/index.html ]; then $(MAKE) html; fi
 
 # explicit hook for make dist
