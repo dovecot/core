@@ -514,7 +514,6 @@ static void master_input_list_callback(const char *user, void *context)
 		ctx->auth_request->userdb = userdb;
 		ctx->iter = userdb_blocking_iter_init(ctx->auth_request,
 					master_input_list_callback, ctx);
-		userdb_blocking_iter_next(ctx->iter);
 		return;
 	}
 
