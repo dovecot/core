@@ -553,7 +553,6 @@ static void doveadm_mail_server_handle(struct doveadm_server *server,
 {
 	struct doveadm_mail_server_cmd *servercmd;
 	string_t *cmd;
-	unsigned int i;
 
 	/* <flags> <username> <command> [<args>] */
 	cmd = t_str_new(256);
@@ -566,9 +565,11 @@ static void doveadm_mail_server_handle(struct doveadm_server *server,
 	str_append_tabescaped(cmd, username);
 	str_append_c(cmd, '\t');
 	str_append_tabescaped(cmd, cmd_ctx->cmd->name);
-	for (i = 0; cmd_ctx->full_args[i] != NULL; i++) {
-		str_append_c(cmd, '\t');
-		str_append_tabescaped(cmd, cmd_ctx->full_args[i]);
+
+	const char *const *args = doveadm_cmdv2_wrapper_generate_args(cmd_ctx);
+	for (; *args != NULL; args++) {
+	 	str_append_c(cmd, '\t');
+	 	str_append_tabescaped(cmd, *args);
 	}
 	str_append_c(cmd, '\n');
 

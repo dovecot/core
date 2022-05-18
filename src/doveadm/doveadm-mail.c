@@ -922,23 +922,23 @@ doveadm_cmdv2_wrapper_generate_full_arg(struct doveadm_mail_cmd_context *mctx,
 	if (value != NULL) array_push_back(dest, &value);
 }
 
-static void
-doveadm_cmdv2_wrapper_generate_full_args(struct doveadm_mail_cmd_context *mctx)
+const char *const *
+doveadm_cmdv2_wrapper_generate_args(struct doveadm_mail_cmd_context *ctx)
 {
-	struct doveadm_cmd_context *cctx =  mctx->cctx;
+	struct doveadm_cmd_context *cctx =  ctx->cctx;
 	ARRAY_TYPE(const_string) pos_args, all_args;
-	p_array_init(&all_args, mctx->pool, 8);
-	p_array_init(&pos_args, mctx->pool, 8);
+	p_array_init(&all_args, ctx->pool, 8);
+	p_array_init(&pos_args, ctx->pool, 8);
 
 	for (int index = 0; index < cctx->argc; index++)
 		doveadm_cmdv2_wrapper_generate_full_arg(
-			mctx, &cctx->argv[index], &all_args, &pos_args);
+			ctx, &cctx->argv[index], &all_args, &pos_args);
 
 	const char *dashdash = "--";
 	array_push_back(&all_args, &dashdash);
 	array_append_array(&all_args, &pos_args);
 	array_append_zero(&all_args);
-	mctx->full_args = array_front(&all_args);
+	return array_front(&all_args);
 }
 
 void
@@ -963,8 +963,6 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 
 	const char *wildcard_user;
 	doveadm_cmdv2_wrapper_parse_common_options(mctx, &wildcard_user);
-	doveadm_cmdv2_wrapper_generate_full_args(mctx);
-
 	doveadm_mail_cmd_exec(mctx, wildcard_user);
 	doveadm_mail_cmd_free(mctx);
 }

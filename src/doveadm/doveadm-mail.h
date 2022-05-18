@@ -61,9 +61,6 @@ struct doveadm_mail_cmd_context {
 	pool_t pool;
 	struct doveadm_cmd_context *cctx;
 	const struct doveadm_mail_cmd *cmd;
-	/* args including -options */
-	const char *const *full_args;
-
 	const struct doveadm_settings *set;
 	enum mail_storage_service_flags service_flags;
 	enum mailbox_transaction_flags transaction_flags;

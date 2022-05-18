@@ -21,6 +21,8 @@ void doveadm_register_fs_commands(void);
 void doveadm_cmds_init(void);
 void doveadm_cmds_deinit(void);
 
+const char *const *
+doveadm_cmdv2_wrapper_generate_args(struct doveadm_mail_cmd_context *ctx);
 void doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx);
 
 void doveadm_cmd_register_ver2(struct doveadm_cmd_ver2 *cmd);
