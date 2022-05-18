@@ -42,7 +42,12 @@ all-local: html
 	if [ ! -e html/index.html ]; then $(MAKE) html; fi
 
 # explicit hook for make dist
+# remove all the build artifacts before packaging
 dist-hook: html
+	-rm -rf $(distdir)/html/.buildinfo
+	-rm -rf $(distdir)/html/.doctrees
+	-rm -rf $(distdir)/html/_sources
+	-rm -rf $(distdir)/html/objects.inv
 
 install-data-local:
 	if [ ! -e html/index.html ]; then $(MAKE) html; fi
