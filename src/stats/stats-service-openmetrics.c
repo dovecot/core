@@ -595,6 +595,8 @@ openmetrics_export_continue(struct openmetrics_request *req, string_t *out)
 		/* Export the HELP/TYPE header for the current metric */
 		str_truncate(req->labels, req->labels_pos);
 		req->has_submetric = FALSE;
+		if (array_is_created(&req->sub_metric_stack))
+			array_clear(&req->sub_metric_stack);
 		openmetrics_export_metric_header(req, out);
 		req->state = OPENMETRICS_REQUEST_STATE_SUB_METRICS;
 		break;
