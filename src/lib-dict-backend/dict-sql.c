@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "array.h"
+#include "ioloop.h"
 #include "istream.h"
 #include "hex-binary.h"
 #include "hash.h"
@@ -468,8 +469,10 @@ sql_lookup_get_query(struct sql_dict *dict,
 	string_t *query = t_str_new(256);
 	ARRAY_TYPE(sql_dict_param) params;
 	t_array_init(&params, 4);
-	str_printfa(query, "SELECT %s FROM %s",
-		    map->value_field, map->table);
+	str_append(query, "SELECT ");
+	if (map->expire_field != NULL)
+		str_printfa(query, "%s,", map->expire_field);
+	str_printfa(query, "%s FROM %s", map->value_field, map->table);
 	if (sql_dict_where_build(set->username, map, &pattern_values,
 				 key[0] == DICT_PATH_PRIVATE[0],
 				 SQL_DICT_RECURSE_NONE, query,
@@ -513,12 +516,17 @@ sql_dict_result_unescape_values(const struct dict_sql_map *map, pool_t pool,
 				struct sql_result *result)
 {
 	const char **values;
-	unsigned int i;
+	unsigned int i, first_sql_idx = 0;
 
 	values = p_new(pool, const char *, map->values_count + 1);
+	if (map->expire_field != NULL) {
+		/* don't include expire_field in results */
+		first_sql_idx++;
+	}
 	for (i = 0; i < map->values_count; i++) {
 		values[i] = sql_dict_result_unescape(map->value_types[i],
-						     pool, result, i);
+						     pool, result,
+						     first_sql_idx + i);
 	}
 	return values;
 }
@@ -535,6 +543,27 @@ sql_dict_result_unescape_field(const struct dict_sql_map *map, pool_t pool,
 					result, result_idx);
 }
 
+static int
+sql_dict_result_next_row(const struct dict_sql_map *map,
+			 struct sql_result *result)
+{
+	int ret;
+
+	while ((ret = sql_result_next_row(result)) == SQL_RESULT_NEXT_OK &&
+	       map->expire_field != NULL) {
+		const char *expire_value =
+			sql_result_get_field_value(result, 0);
+		time_t expire_timestamp;
+
+		if (expire_value == NULL ||
+		    str_to_time(expire_value, &expire_timestamp) < 0 ||
+		    expire_timestamp > ioloop_time)
+			break;
+		/* expired - jump to the next row */
+	}
+	return ret;
+}
+
 static int sql_dict_lookup(struct dict *_dict, const struct dict_op_settings *set,
 			   pool_t pool, const char *key,
 			   const char *const **values_r, const char **error_r)
@@ -549,7 +578,7 @@ static int sql_dict_lookup(struct dict *_dict, const struct dict_op_settings *se
 		return -1;
 
 	result = sql_statement_query_s(&stmt);
-	ret = sql_result_next_row(result);
+	ret = sql_dict_result_next_row(map, result);
 	if (ret < 0) {
 		*error_r = t_strdup_printf("dict sql lookup failed: %s",
 					   sql_result_get_error(result));
@@ -574,7 +603,7 @@ sql_dict_lookup_async_callback(struct sql_result *sql_result,
 	struct dict_lookup_result result;
 
 	i_zero(&result);
-	result.ret = sql_result_next_row(sql_result);
+	result.ret = sql_dict_result_next_row(ctx->map, sql_result);
 	if (result.ret < 0)
 		result.error = sql_result_get_error(sql_result);
 	else if (result.ret > 0) {
@@ -681,6 +710,8 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 
 	string_t *query = t_str_new(256);
 	str_append(query, "SELECT ");
+	if (map->expire_field != NULL)
+		str_printfa(query, "%s,", map->expire_field);
 	if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) == 0)
 		str_printfa(query, "%s,", map->value_field);
 
@@ -824,7 +855,7 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 		return FALSE;
 	}
 
-	ret = sql_result_next_row(ctx->result);
+	ret = sql_dict_result_next_row(ctx->map, ctx->result);
 	while (ret == SQL_RESULT_NEXT_MORE) {
 		if ((ctx->flags & DICT_ITERATE_FLAG_ASYNC) == 0)
 			sql_result_more_s(&ctx->result);
@@ -839,7 +870,7 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 				return FALSE;
 			}
 		}
-		ret = sql_result_next_row(ctx->result);
+		ret = sql_dict_result_next_row(ctx->map, ctx->result);
 	}
 	if (ret == 0) {
 		/* see if there are more results in the next map.
@@ -1072,9 +1103,14 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 	const char *const *pattern_values;
 	unsigned int i, field_count, count, count2;
 	string_t *prefix, *suffix;
+	time_t expire_timestamp = 0;
 
 	fields = array_get(&build->fields, &field_count);
 	i_assert(field_count > 0);
+
+	if (fields[0].map->expire_field != NULL &&
+	    ctx->ctx.set.expire_secs > 0)
+		expire_timestamp = ioloop_time + ctx->ctx.set.expire_secs;
 
 	t_array_init(&params, 4);
 	prefix = t_str_new(64);
@@ -1107,6 +1143,13 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 		str_append(suffix, ",?");
 		param->value_type = DICT_SQL_TYPE_STRING;
 		param->value_str = ctx->ctx.set.username;
+	}
+	if (expire_timestamp != 0) {
+		struct sql_dict_param *param = array_append_space(&params);
+		str_printfa(prefix, ",%s", fields[0].map->expire_field);
+		str_append(suffix, ",?");
+		param->value_type = DICT_SQL_TYPE_UINT;
+		param->value_int64 = expire_timestamp;
 	}
 
 	/* add the variable fields that were parsed from the path */
@@ -1164,6 +1207,12 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 				       value_type, "value", fields[i].value,
 				       "", &params, error_r) < 0)
 			return -1;
+	}
+	if (expire_timestamp != 0) {
+		str_printfa(prefix, ",%s=?", fields[0].map->expire_field);
+		struct sql_dict_param *param = array_append_space(&params);
+		param->value_type = DICT_SQL_TYPE_UINT;
+		param->value_int64 = expire_timestamp;
 	}
 	*stmt_r = sql_dict_transaction_stmt_init(ctx, str_c(prefix), &params);
 	return 0;
@@ -1517,7 +1566,7 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 
 static struct dict sql_dict = {
 	.name = "sql",
-
+	.flags = DICT_DRIVER_FLAG_SUPPORT_EXPIRE_SECS,
 	.v = {
 		.init = sql_dict_init,
 		.deinit = sql_dict_deinit,

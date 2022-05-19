@@ -38,6 +38,7 @@ static const struct setting_def dict_sql_map_setting_defs[] = {
 	DEF_STR(username_field),
 	DEF_STR(value_field),
 	DEF_STR(value_type),
+	DEF_STR(expire_field),
 	DEF_BOOL(value_hexblob),
 
 	{ 0, NULL, 0 }
@@ -160,6 +161,9 @@ static const char *dict_sql_map_finish(struct setting_parser_ctx *ctx)
 	if (ctx->cur_map.value_field == NULL)
 		return "Missing setting: value_field";
 
+	if (ctx->cur_map.expire_field != NULL &&
+	    ctx->cur_map.expire_field[0] == '\0')
+		ctx->cur_map.expire_field = NULL;
 	ctx->cur_map.value_fields = (const char *const *)
 		p_strsplit_spaces(ctx->pool, ctx->cur_map.value_field, ",");
 	ctx->cur_map.values_count = str_array_length(ctx->cur_map.value_fields);
