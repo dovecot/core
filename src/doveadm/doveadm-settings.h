@@ -8,6 +8,7 @@ struct ssl_iostream_settings;
 /* <settings checks> */
 enum dsync_features {
 	DSYNC_FEATURE_EMPTY_HDR_WORKAROUND = 0x1,
+	DSYNC_FEATURE_NO_HEADER_HASHES = 0x2,
 };
 /* </settings checks> */
 
