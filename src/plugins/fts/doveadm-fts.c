@@ -178,7 +178,8 @@ cmd_fts_tokenize_run(struct doveadm_mail_cmd_context *_ctx,
 		     struct mail_user *user)
 {
 	struct fts_tokenize_cmd_context *ctx =
-		(struct fts_tokenize_cmd_context *)_ctx;
+		container_of(_ctx, struct fts_tokenize_cmd_context, ctx);
+
 	struct mail_namespace *ns = mail_namespace_find_inbox(user->namespaces);
 	struct fts_backend *backend;
 	struct fts_user_language *user_lang;
@@ -268,9 +269,9 @@ cmd_fts_tokenize_run(struct doveadm_mail_cmd_context *_ctx,
 static void
 cmd_fts_tokenize_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct fts_tokenize_cmd_context *ctx =
-		(struct fts_tokenize_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct fts_tokenize_cmd_context *ctx =
+		container_of(_ctx, struct fts_tokenize_cmd_context, ctx);
 
 	(void)doveadm_cmd_param_str(cctx, "language", &ctx->language);
 
@@ -325,7 +326,8 @@ cmd_fts_optimize_run(struct doveadm_mail_cmd_context *_ctx,
 		     struct mail_user *user)
 {
 	struct fts_namespace_cmd_context *ctx =
-		(struct fts_namespace_cmd_context *) _ctx;
+		container_of(_ctx, struct fts_namespace_cmd_context, ctx);
+
 	const char *ns_prefix = ctx->namespace;
 	struct mail_namespace *ns;
 	struct fts_backend *backend;
@@ -346,9 +348,9 @@ cmd_fts_optimize_run(struct doveadm_mail_cmd_context *_ctx,
 static void
 cmd_fts_optimize_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct fts_namespace_cmd_context *ctx =
-		(struct fts_namespace_cmd_context *) _ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct fts_namespace_cmd_context *ctx =
+		container_of(_ctx, struct fts_namespace_cmd_context, ctx);
 
 	(void)doveadm_cmd_param_str(cctx, "namespace", &ctx->namespace);
 }
@@ -367,7 +369,8 @@ static int
 cmd_fts_rescan_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
 	struct fts_namespace_cmd_context *ctx =
-		(struct fts_namespace_cmd_context *) _ctx;
+		container_of(_ctx, struct fts_namespace_cmd_context, ctx);
+
 
 	const char *ns_prefix = ctx->namespace;
 	struct mail_namespace *ns;
@@ -389,9 +392,9 @@ cmd_fts_rescan_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user
 static void
 cmd_fts_rescan_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct fts_namespace_cmd_context *ctx =
-		(struct fts_namespace_cmd_context *) _ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct fts_namespace_cmd_context *ctx =
+		container_of(_ctx, struct fts_namespace_cmd_context, ctx);
 
 	(void)doveadm_cmd_param_str(cctx, "namespace", &ctx->namespace);
 }

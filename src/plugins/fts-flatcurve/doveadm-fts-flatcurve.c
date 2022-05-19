@@ -146,7 +146,7 @@ cmd_fts_flatcurve_mailbox_run(struct doveadm_mail_cmd_context *_ctx,
 			      struct mail_user *user)
 {
 	struct fts_flatcurve_mailbox_cmd_context *ctx =
-		(struct fts_flatcurve_mailbox_cmd_context *)_ctx;
+		container_of(_ctx, struct fts_flatcurve_mailbox_cmd_context, ctx);
 	struct fts_flatcurve_user *fuser =
 		FTS_FLATCURVE_USER_CONTEXT(user);
 
@@ -186,9 +186,9 @@ cmd_fts_flatcurve_mailbox_run(struct doveadm_mail_cmd_context *_ctx,
 static void
 cmd_fts_flatcurve_mailbox_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct fts_flatcurve_mailbox_cmd_context *ctx =
-		(struct fts_flatcurve_mailbox_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct fts_flatcurve_mailbox_cmd_context *ctx =
+		container_of(_ctx, struct fts_flatcurve_mailbox_cmd_context, ctx);
 
 	const char *const *args;
 	if (!doveadm_cmd_param_array(cctx, "mailbox-mask", &args)) {

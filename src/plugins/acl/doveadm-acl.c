@@ -106,7 +106,7 @@ cmd_acl_get_run(struct doveadm_mail_cmd_context *_ctx,
 		struct mail_user *user)
 {
 	struct doveadm_acl_cmd_context *ctx =
-		(struct doveadm_acl_cmd_context *)_ctx;
+		container_of(_ctx, struct doveadm_acl_cmd_context, ctx);
 	struct mailbox *box;
 	int ret;
 
@@ -121,7 +121,7 @@ cmd_acl_get_run(struct doveadm_mail_cmd_context *_ctx,
 static void cmd_acl_get_init(struct doveadm_mail_cmd_context *_ctx)
 {
 	struct doveadm_acl_cmd_context *ctx =
-		(struct doveadm_acl_cmd_context *)_ctx;
+		container_of(_ctx, struct doveadm_acl_cmd_context, ctx);
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
 
 	ctx->get_match_me = doveadm_cmd_param_flag(cctx, "match-me");
@@ -148,7 +148,7 @@ static int
 cmd_acl_rights_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
 	struct doveadm_acl_cmd_context *ctx =
-		(struct doveadm_acl_cmd_context *)_ctx;
+		container_of(_ctx, struct doveadm_acl_cmd_context, ctx);
 
 	struct mailbox *box;
 	struct acl_object *aclobj;
@@ -173,9 +173,9 @@ cmd_acl_rights_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user
 
 static void cmd_acl_rights_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct doveadm_acl_cmd_context *ctx =
-		(struct doveadm_acl_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct doveadm_acl_cmd_context *ctx =
+		container_of(_ctx, struct doveadm_acl_cmd_context, ctx);
 
 	if (!doveadm_cmd_param_str(cctx, "mailbox", &ctx->mailbox))
 		doveadm_mail_help_name("acl rights");
@@ -214,7 +214,8 @@ static int
 cmd_acl_set_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
 	struct doveadm_acl_cmd_context *ctx =
-		(struct doveadm_acl_cmd_context *)_ctx;
+		container_of(_ctx, struct doveadm_acl_cmd_context, ctx);
+
 	struct mailbox *box;
 	struct acl_rights_update update;
 	const char *error;
@@ -239,9 +240,9 @@ cmd_acl_set_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 static void cmd_acl_set_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct doveadm_acl_cmd_context *ctx =
-		(struct doveadm_acl_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct doveadm_acl_cmd_context *ctx =
+		container_of(_ctx, struct doveadm_acl_cmd_context, ctx);
 
 	if (!doveadm_cmd_param_str(cctx, "mailbox", &ctx->mailbox) ||
 	    !doveadm_cmd_param_str(cctx, "id", &ctx->id) ||
@@ -280,7 +281,7 @@ static int
 cmd_acl_delete_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
 	struct doveadm_acl_cmd_context *ctx =
-		(struct doveadm_acl_cmd_context *)_ctx;
+		container_of(_ctx, struct doveadm_acl_cmd_context, ctx);
 
 	struct mailbox *box;
 	struct acl_rights_update update;
@@ -304,9 +305,9 @@ cmd_acl_delete_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user
 
 static void cmd_acl_delete_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct doveadm_acl_cmd_context *ctx =
-		(struct doveadm_acl_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct doveadm_acl_cmd_context *ctx =
+		container_of(_ctx, struct doveadm_acl_cmd_context, ctx);
 
 	if (!doveadm_cmd_param_str(cctx, "mailbox", &ctx->mailbox) ||
 	    !doveadm_cmd_param_str(cctx, "id", &ctx->id))
@@ -501,7 +502,7 @@ static int
 cmd_acl_debug_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
 	struct doveadm_acl_cmd_context *ctx =
-		(struct doveadm_acl_cmd_context *)_ctx;
+		container_of(_ctx, struct doveadm_acl_cmd_context, ctx);
 
 	struct mailbox *box;
 	bool ret, retry;
@@ -524,9 +525,9 @@ cmd_acl_debug_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 static void cmd_acl_debug_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct doveadm_acl_cmd_context *ctx =
-		(struct doveadm_acl_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct doveadm_acl_cmd_context *ctx =
+		container_of(_ctx, struct doveadm_acl_cmd_context, ctx);
 
 	if (!doveadm_cmd_param_str(cctx, "mailbox", &ctx->mailbox))
 		doveadm_mail_help_name("acl debug");

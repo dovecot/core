@@ -305,11 +305,12 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 				    struct mail_user *user,
 				    ARRAY_TYPE(generated_keys) *result)
 {
+	struct mcp_cmd_context *ctx =
+		container_of(_ctx, struct mcp_cmd_context, ctx);
+
 	const char *error;
 	int ret;
 	struct dcrypt_public_key *user_key;
-	struct mcp_cmd_context *ctx =
-		(struct mcp_cmd_context *)_ctx;
 	const char *pubid;
 	bool user_key_generated = FALSE;
 	struct generated_key *res;
@@ -455,9 +456,9 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 static int cmd_mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 					struct mail_user *user)
 {
-	struct mcp_cmd_context *ctx =
-		(struct mcp_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct mcp_cmd_context *ctx =
+		container_of(_ctx, struct mcp_cmd_context, ctx);
 
 	ctx->userkey_only = doveadm_cmd_param_flag(cctx, "user-key-only");
 	ctx->recrypt_box_keys = doveadm_cmd_param_flag(cctx, "re-encrypt-box-keys");
@@ -628,9 +629,9 @@ static void cmd_mcp_key_list_cb(const struct generated_key *_key, void *context)
 static int cmd_mcp_key_list_run(struct doveadm_mail_cmd_context *_ctx,
 				struct mail_user *user)
 {
-	struct mcp_cmd_context *ctx =
-		(struct mcp_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct mcp_cmd_context *ctx =
+		container_of(_ctx, struct mcp_cmd_context, ctx);
 
 	ctx->userkey_only = doveadm_cmd_param_flag(cctx, "user-key");
 	(void)doveadm_cmd_param_str(cctx, "mailbox", &ctx->mailbox);
@@ -699,10 +700,10 @@ static void cmd_mcp_key_export_cb(const struct generated_key *key,
 static int cmd_mcp_key_export_run(struct doveadm_mail_cmd_context *_ctx,
 				  struct mail_user *user)
 {
-	struct mcp_cmd_context *ctx =
-		(struct mcp_cmd_context *)_ctx;
-
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct mcp_cmd_context *ctx =
+		container_of(_ctx, struct mcp_cmd_context, ctx);
+
 	ctx->userkey_only = doveadm_cmd_param_flag(cctx, "user-key");
 	(void)doveadm_cmd_param_str(cctx, "mailbox", &ctx->mailbox);
 
@@ -720,9 +721,9 @@ static int cmd_mcp_key_export_run(struct doveadm_mail_cmd_context *_ctx,
 static int cmd_mcp_key_password_run(struct doveadm_mail_cmd_context *_ctx,
 				    struct mail_user *user)
 {
-	struct mcp_cmd_context *ctx =
-		(struct mcp_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct mcp_cmd_context *ctx =
+		container_of(_ctx, struct mcp_cmd_context, ctx);
 
 	bool cli = (_ctx->cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
 
