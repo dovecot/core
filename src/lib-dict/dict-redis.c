@@ -724,13 +724,15 @@ redis_append_expire(struct redis_dict_transaction_context *ctx,
 		    string_t *cmd, const char *key)
 {
 	struct redis_dict *dict = (struct redis_dict *)ctx->ctx.dict;
+	const char *expire_value = dict->expire_value;
 
-	if (dict->expire_value == NULL)
+	if (ctx->ctx.set.expire_secs > 0)
+		expire_value = dec2str(ctx->ctx.set.expire_secs);
+	if (expire_value == NULL)
 		return;
 
 	str_printfa(cmd, "*3\r\n$6\r\nEXPIRE\r\n$%zu\r\n%s\r\n$%zu\r\n%s\r\n",
-		    strlen(key), key, strlen(dict->expire_value),
-		    dict->expire_value);
+		    strlen(key), key, strlen(expire_value), expire_value);
 	redis_input_state_add(dict, REDIS_INPUT_STATE_MULTI);
 	ctx->cmd_count++;
 }
@@ -812,6 +814,7 @@ static void redis_atomic_inc(struct dict_transaction_context *_ctx,
 
 struct dict dict_driver_redis = {
 	.name = "redis",
+	.flags = DICT_DRIVER_FLAG_SUPPORT_EXPIRE_SECS,
 	.v = {
 		.init = redis_dict_init,
 		.deinit = redis_dict_deinit,
