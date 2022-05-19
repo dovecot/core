@@ -111,6 +111,7 @@ struct dsync_cmd_context {
 	bool replicator_notify:1;
 	bool exited:1;
 	bool empty_hdr_workaround:1;
+	bool no_header_hashes:1;
 	bool err_line_continues:1;
 };
 
@@ -769,6 +770,8 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		brain_flags |= DSYNC_BRAIN_FLAG_NO_BACKUP_OVERWRITE;
 	if (ctx->empty_hdr_workaround)
 		brain_flags |= DSYNC_BRAIN_FLAG_EMPTY_HDR_WORKAROUND;
+	if (ctx->no_header_hashes)
+		brain_flags |= DSYNC_BRAIN_FLAG_NO_HEADER_HASHES;
 	if (doveadm_debug)
 		brain_flags |= DSYNC_BRAIN_FLAG_DEBUG;
 
@@ -1248,6 +1251,8 @@ static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
 	p_array_init(&ctx->namespace_prefixes, ctx->ctx.pool, 4);
         if ((doveadm_settings->parsed_features & DSYNC_FEATURE_EMPTY_HDR_WORKAROUND) != 0)
                 ctx->empty_hdr_workaround = TRUE;
+        if ((doveadm_settings->parsed_features & DSYNC_FEATURE_NO_HEADER_HASHES) != 0)
+                ctx->no_header_hashes = TRUE;
 	ctx->import_commit_msgs_interval = doveadm_settings->dsync_commit_msgs_interval;
 	return &ctx->ctx;
 }

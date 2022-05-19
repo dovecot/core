@@ -34,6 +34,12 @@ enum dsync_brain_flags {
 	DSYNC_BRAIN_FLAG_NO_NOTIFY		= 0x400,
 	/* Workaround missing Date/Message-ID headers */
 	DSYNC_BRAIN_FLAG_EMPTY_HDR_WORKAROUND	= 0x800,
+	/* If mail GUIDs aren't supported, don't emulate them with header
+	   hashes either. This trusts that all the existing mails with
+	   identical UIDs have the same email content. This makes it slightly
+	   less safe, but can have huge performance improvement with imapc
+	   if the remote server doesn't have a fast header cache. */
+	DSYNC_BRAIN_FLAG_NO_HEADER_HASHES	= 0x1000,
 };
 
 enum dsync_brain_sync_type {

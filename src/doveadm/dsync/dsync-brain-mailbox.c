@@ -222,6 +222,8 @@ dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_NO_NOTIFY;
 	if (brain->empty_hdr_workaround)
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_EMPTY_HDR_WORKAROUND;
+	if (brain->no_header_hashes)
+		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_NO_HEADER_HASHES;
 
 	brain->box_importer = brain->backup_send ? NULL :
 		dsync_mailbox_import_init(brain->box, brain->virtual_all_box,
@@ -337,7 +339,8 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_TIMESTAMPS;
 	if (brain->sync_max_size > 0)
 		exporter_flags |= DSYNC_MAILBOX_EXPORTER_FLAG_VSIZES;
-	if (remote_dsync_box->messages_count == 0) {
+	if (remote_dsync_box->messages_count == 0 ||
+	    brain->no_header_hashes) {
 		/* remote mailbox is empty - we don't really need to export
 		   header hashes since they're not going to match anything
 		   anyway. */

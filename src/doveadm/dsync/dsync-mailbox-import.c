@@ -130,6 +130,7 @@ struct dsync_mailbox_importer {
 	bool mails_use_guid128:1;
 	bool delete_mailbox:1;
 	bool empty_hdr_workaround:1;
+	bool no_header_hashes:1;
 };
 
 static const char *dsync_mail_change_type_names[] = {
@@ -300,7 +301,8 @@ dsync_mailbox_import_init(struct mailbox *box,
 	importer->hdr_hash_version = hdr_hash_version;
 	importer->empty_hdr_workaround =
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_EMPTY_HDR_WORKAROUND) != 0;
-
+	importer->no_header_hashes =
+		(flags & DSYNC_MAILBOX_IMPORT_FLAG_NO_HEADER_HASHES) != 0;
 	mailbox_get_open_status(importer->box, STATUS_UIDNEXT |
 				STATUS_HIGHESTMODSEQ | STATUS_HIGHESTPVTMODSEQ,
 				&status);
@@ -814,6 +816,11 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 	     dsync_mail_hdr_hash_is_empty(m2.guid))) {
 		/* one of the headers is empty. assume it's broken and that
 		   the header matches what we have currently. */
+		diff = 0;
+	} else if (importer->no_header_hashes && !importer->mails_have_guids &&
+		   importer->cur_mail != NULL && save_change != NULL &&
+		   (m1.guid[0] == '\0' || m2.guid[0] == '\0')) {
+		/* Header hashes aren't known. Assume that the mails match. */
 		diff = 0;
 	} else {
 		diff = importer_mail_cmp(&m1, &m2);
@@ -1597,6 +1604,10 @@ dsync_mailbox_import_match_msg(struct dsync_mailbox_importer *importer,
 	    (dsync_mail_hdr_hash_is_empty(change->hdr_hash) ||
 	     dsync_mail_hdr_hash_is_empty(hdr_hash))) {
 		*result_r = "Empty headers found with workaround enabled - assuming a match";
+		return 1;
+	} else if (importer->no_header_hashes &&
+		   (change->hdr_hash[0] == '\0' || hdr_hash[0] == '\0')) {
+		*result_r = "Header hashing disabled - assuming a match";
 		return 1;
 	} else if (strcmp(change->hdr_hash, hdr_hash) == 0) {
 		*result_r = "Headers hashes match";
