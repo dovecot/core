@@ -42,6 +42,10 @@ struct dict_op_settings {
 	/* home directory for the user, if known */
 	const char *home_dir;
 
+	/* If non-zero, number of seconds until the added keys expire. See the
+	   documentation how this is implemented for different drivers. */
+	unsigned int expire_secs;
+
 	/* Don't log a warning if the transaction commit took a long time.
 	   This is needed if there are no guarantees that an asynchronous
 	   commit will finish up anytime soon. Mainly useful for transactions

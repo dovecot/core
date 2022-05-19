@@ -7,6 +7,10 @@
 
 struct ioloop;
 
+enum dict_driver_flags {
+	DICT_DRIVER_FLAG_SUPPORT_EXPIRE_SECS	= BIT(0),
+};
+
 struct dict_vfuncs {
 	int (*init)(struct dict *dict_driver, const char *uri,
 		    const struct dict_settings *set,
@@ -56,11 +60,13 @@ struct dict_commit_callback_ctx;
 struct dict_op_settings_private {
 	char *username;
 	char *home_dir;
+	unsigned int expire_secs;
 	bool no_slowness_warning;
 };
 
 struct dict {
 	const char *name;
+	enum dict_driver_flags flags;
 
 	struct dict_vfuncs v;
 	unsigned int iter_count;

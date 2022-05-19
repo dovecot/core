@@ -538,6 +538,9 @@ dict_transaction_begin(struct dict *dict, const struct dict_op_settings *set)
 	/* the dict in context can differ from the dict
 	   passed as parameter, e.g. it can be dict-fail when
 	   transactions are not supported. */
+	if (set->expire_secs > 0 &&
+	    (dict->flags & DICT_DRIVER_FLAG_SUPPORT_EXPIRE_SECS) == 0)
+		ctx->error = "Expiration not supported by dict driver";
 	ctx->dict->transaction_count++;
 	DLLIST_PREPEND(&ctx->dict->transactions, ctx);
 	ctx->event = dict_event_create(dict, set);
@@ -800,6 +803,7 @@ void dict_op_settings_dup(const struct dict_op_settings *source,
 	i_zero(dest_r);
 	dest_r->username = i_strdup(source->username);
 	dest_r->home_dir = i_strdup(source->home_dir);
+	dest_r->expire_secs = source->expire_secs;
 	dest_r->no_slowness_warning = source->no_slowness_warning;
 }
 
