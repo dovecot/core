@@ -19,7 +19,8 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 		    struct mail_search_args *search_args)
 {
 	struct deduplicate_cmd_context *ctx =
-		(struct deduplicate_cmd_context *)_ctx;
+		container_of(_ctx, struct deduplicate_cmd_context, ctx);
+
 	struct doveadm_mail_iter *iter;
 	struct mail *mail;
 	enum mail_error error;
@@ -98,8 +99,9 @@ cmd_deduplicate_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user
 
 static void cmd_deduplicate_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct deduplicate_cmd_context *ctx = (struct deduplicate_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct deduplicate_cmd_context *ctx =
+		container_of(_ctx, struct deduplicate_cmd_context, ctx);
 
 	const char *const *query;
 	ctx->by_msgid = doveadm_cmd_param_flag(cctx, "by-msgid");

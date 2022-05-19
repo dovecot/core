@@ -669,8 +669,10 @@ static void dsync_errors_finish(struct dsync_cmd_context *ctx)
 static int
 cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
-	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct dsync_cmd_context *ctx =
+		container_of(_ctx, struct dsync_cmd_context, ctx);
+
 	struct dsync_ibc *ibc, *ibc2 = NULL;
 	struct dsync_brain *brain;
 	struct dsync_brain_settings set;
@@ -1042,8 +1044,10 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 			    struct mail_storage_service_user *service_user,
 			    const char **error_r)
 {
-	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct dsync_cmd_context *ctx =
+		container_of(_ctx, struct dsync_cmd_context, ctx);
+
 	const char *const *remote_cmd_args = NULL;
 	const struct mail_user_settings *user_set;
 	const struct master_service_ssl_settings *ssl_set;
@@ -1103,7 +1107,8 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 
 static void cmd_dsync_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
+	struct dsync_cmd_context *ctx =
+		container_of(_ctx, struct dsync_cmd_context, ctx);
 
 	if (ctx->default_replica_location) {
 		if (*ctx->destination != NULL)
@@ -1120,8 +1125,9 @@ static void cmd_dsync_init(struct doveadm_mail_cmd_context *_ctx)
 
 static void cmd_dsync_preinit(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct dsync_cmd_context *ctx =
+		container_of(_ctx, struct dsync_cmd_context, ctx);
 
 	const char *value_str, *error;
 	bool utc ATTR_UNUSED;
@@ -1231,11 +1237,10 @@ static struct doveadm_mail_cmd_context *cmd_dsync_alloc(void)
 
 static struct doveadm_mail_cmd_context *cmd_dsync_backup_alloc(void)
 {
-	struct doveadm_mail_cmd_context *_ctx;
-	struct dsync_cmd_context *ctx;
+	struct doveadm_mail_cmd_context *_ctx = cmd_dsync_alloc();
+	struct dsync_cmd_context *ctx =
+		container_of(_ctx, struct dsync_cmd_context, ctx);
 
-	_ctx = cmd_dsync_alloc();
-	ctx = (struct dsync_cmd_context *)_ctx;
 	ctx->backup = TRUE;
 	return _ctx;
 }
@@ -1244,8 +1249,10 @@ static int
 cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 		     struct mail_user *user)
 {
-	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct dsync_cmd_context *ctx =
+		container_of(_ctx, struct dsync_cmd_context, ctx);
+
 	bool cli = (cctx->conn_type == DOVEADM_CONNECTION_TYPE_CLI);
 	struct dsync_ibc *ibc;
 	struct dsync_brain *brain;
@@ -1326,8 +1333,9 @@ cmd_dsync_server_run(struct doveadm_mail_cmd_context *_ctx,
 static void
 cmd_dsync_server_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct dsync_cmd_context *ctx = (struct dsync_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct dsync_cmd_context *ctx =
+		container_of(_ctx, struct dsync_cmd_context, ctx);
 
 	legacy_dsync = legacy_dsync ||
 		       doveadm_cmd_param_flag(cctx, "legacy-dsync");

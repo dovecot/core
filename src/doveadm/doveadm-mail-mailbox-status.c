@@ -157,7 +157,8 @@ static int
 cmd_mailbox_status_run(struct doveadm_mail_cmd_context *_ctx,
 		       struct mail_user *user)
 {
-	struct status_cmd_context *ctx = (struct status_cmd_context *)_ctx;
+	struct status_cmd_context *ctx =
+		container_of(_ctx, struct status_cmd_context, ctx);
 	enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
@@ -188,8 +189,9 @@ cmd_mailbox_status_run(struct doveadm_mail_cmd_context *_ctx,
 
 static void cmd_mailbox_status_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct status_cmd_context *ctx = (struct status_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct status_cmd_context *ctx =
+		container_of(_ctx, struct status_cmd_context, ctx);
 
 	ctx->total_sum = doveadm_cmd_param_flag(cctx, "total-sum");
 
@@ -234,7 +236,8 @@ static void cmd_mailbox_status_init(struct doveadm_mail_cmd_context *_ctx)
 
 static void cmd_mailbox_status_deinit(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct status_cmd_context *ctx = (struct status_cmd_context *)_ctx;
+	struct status_cmd_context *ctx =
+		container_of(_ctx, struct status_cmd_context, ctx);
 
 	if (ctx->search_args != NULL)
 		mail_search_args_unref(&ctx->search_args);

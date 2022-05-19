@@ -98,7 +98,8 @@ cmd_copy_alloc_source_user(struct copy_cmd_context *ctx)
 static int
 cmd_copy_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
-	struct copy_cmd_context *ctx = (struct copy_cmd_context *)_ctx;
+	struct copy_cmd_context *ctx =
+		container_of(_ctx, struct copy_cmd_context, ctx);
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
@@ -144,8 +145,9 @@ cmd_copy_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 static void cmd_copy_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct copy_cmd_context *ctx = (struct copy_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct copy_cmd_context *ctx =
+		container_of(_ctx, struct copy_cmd_context, ctx);
 
 	const char *cmdname = ctx->move ? "move" : "copy";
 	const char *const *query;
@@ -165,7 +167,8 @@ static void cmd_copy_init(struct doveadm_mail_cmd_context *_ctx)
 
 static void cmd_copy_deinit(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct copy_cmd_context *ctx = (struct copy_cmd_context *)_ctx;
+	struct copy_cmd_context *ctx =
+		container_of(_ctx, struct copy_cmd_context, ctx);
 
 	if (ctx->source_user != NULL) {
 		mail_storage_service_user_unref(&ctx->source_service_user);

@@ -84,7 +84,8 @@ cmd_save_to_mailbox(struct save_cmd_context *ctx, struct mailbox *box,
 static int
 cmd_save_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
-	struct save_cmd_context *ctx = (struct save_cmd_context *)_ctx;
+	struct save_cmd_context *ctx =
+		container_of(_ctx, struct save_cmd_context, ctx);
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	int ret;
@@ -98,8 +99,9 @@ cmd_save_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 static void cmd_save_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct save_cmd_context *ctx = (struct save_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct save_cmd_context *ctx =
+		container_of(_ctx, struct save_cmd_context, ctx);
 
 	(void)doveadm_cmd_param_str(cctx, "mailbox", &ctx->mailbox);
 	doveadm_mail_get_input(_ctx);

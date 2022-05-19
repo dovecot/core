@@ -201,7 +201,8 @@ static void cmd_index_queue(struct index_cmd_context *ctx,
 static int
 cmd_index_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
-	struct index_cmd_context *ctx = (struct index_cmd_context *)_ctx;
+	struct index_cmd_context *ctx =
+		container_of(_ctx, struct index_cmd_context, ctx);
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS |
@@ -243,8 +244,9 @@ cmd_index_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 static void cmd_index_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct index_cmd_context *ctx = (struct index_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct index_cmd_context *ctx =
+		container_of(_ctx, struct index_cmd_context, ctx);
 
 	ctx->queue = doveadm_cmd_param_flag(cctx, "queue");
 	(void)doveadm_cmd_param_uint32(cctx, "max-recent", &ctx->max_recent_msgs);
@@ -261,7 +263,8 @@ static void cmd_index_init(struct doveadm_mail_cmd_context *_ctx)
 
 static void cmd_index_deinit(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct index_cmd_context *ctx = (struct index_cmd_context *)_ctx;
+	struct index_cmd_context *ctx =
+		container_of(_ctx, struct index_cmd_context, ctx);
 
 	o_stream_destroy(&ctx->queue_output);
 	i_stream_destroy(&ctx->queue_input);

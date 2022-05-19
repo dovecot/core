@@ -304,7 +304,8 @@ static int cmd_force_resync_box(struct doveadm_mail_cmd_context *_ctx,
 				const struct mailbox_info *info)
 {
 	struct force_resync_cmd_context *ctx =
-		(struct force_resync_cmd_context *)_ctx;
+		container_of(_ctx, struct force_resync_cmd_context, ctx);
+
 	enum mailbox_flags flags = MAILBOX_FLAG_IGNORE_ACLS;
 	struct mailbox *box;
 	int ret = 0;
@@ -345,7 +346,7 @@ static int cmd_force_resync_run(struct doveadm_mail_cmd_context *_ctx,
 				struct mail_user *user)
 {
 	struct force_resync_cmd_context *ctx =
-		(struct force_resync_cmd_context *)_ctx;
+		container_of(_ctx, struct force_resync_cmd_context, ctx);
 
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
@@ -381,9 +382,9 @@ static int cmd_force_resync_run(struct doveadm_mail_cmd_context *_ctx,
 static void
 cmd_force_resync_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct force_resync_cmd_context *ctx =
-		(struct force_resync_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct force_resync_cmd_context *ctx =
+		container_of(_ctx, struct force_resync_cmd_context, ctx);
 
 	ctx->fsck = doveadm_cmd_param_flag(cctx, "fsck");
 	if (!doveadm_cmd_param_str(cctx, "mailbox-mask", &ctx->mailbox))

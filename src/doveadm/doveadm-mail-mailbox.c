@@ -94,7 +94,9 @@ static int
 cmd_mailbox_list_run(struct doveadm_mail_cmd_context *_ctx,
 		     struct mail_user *user)
 {
-	struct list_cmd_context *ctx = (struct list_cmd_context *)_ctx;
+	struct list_cmd_context *ctx =
+		container_of(_ctx, struct list_cmd_context, ctx.ctx);
+
 	enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
 	struct doveadm_mailbox_list_iter *iter;
@@ -152,8 +154,9 @@ doveadm_mail_mailbox_search_args_build(const char *const args[])
 
 static void cmd_mailbox_list_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct list_cmd_context *ctx = (struct list_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct list_cmd_context *ctx =
+		container_of(_ctx, struct list_cmd_context, ctx.ctx);
 
 	ctx->ctx.subscriptions = doveadm_cmd_param_flag(cctx, "subscriptions");
 	ctx->mutf7 = doveadm_cmd_param_flag(cctx, "mutf7");
@@ -168,7 +171,8 @@ static void cmd_mailbox_list_init(struct doveadm_mail_cmd_context *_ctx)
 
 static void cmd_mailbox_list_deinit(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct list_cmd_context *ctx = (struct list_cmd_context *)_ctx;
+	struct list_cmd_context *ctx =
+		container_of(_ctx, struct list_cmd_context, ctx.ctx);
 
 	if (ctx->search_args != NULL)
 		mail_search_args_unref(&ctx->search_args);
@@ -190,7 +194,9 @@ static int
 cmd_mailbox_create_run(struct doveadm_mail_cmd_context *_ctx,
 		       struct mail_user *user)
 {
-	struct create_cmd_context *ctx = (struct create_cmd_context *)_ctx;
+	struct create_cmd_context *ctx =
+		container_of(_ctx, struct create_cmd_context, ctx.ctx);
+
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	const char *name;
@@ -229,8 +235,9 @@ cmd_mailbox_create_run(struct doveadm_mail_cmd_context *_ctx,
 
 static void cmd_mailbox_create_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct create_cmd_context *ctx = (struct create_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct create_cmd_context *ctx =
+		container_of(_ctx, struct create_cmd_context, ctx.ctx);
 
 	ctx->ctx.subscriptions = doveadm_cmd_param_flag(cctx, "subscriptions");
 
@@ -286,7 +293,9 @@ static int
 cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 		       struct mail_user *user)
 {
-	struct delete_cmd_context *ctx = (struct delete_cmd_context *)_ctx;
+	struct delete_cmd_context *ctx =
+		container_of(_ctx, struct delete_cmd_context, ctx.ctx);
+
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	struct mail_storage *storage;
@@ -340,8 +349,9 @@ cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 
 static void cmd_mailbox_delete_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct delete_cmd_context *ctx = (struct delete_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct delete_cmd_context *ctx =
+		container_of(_ctx, struct delete_cmd_context, ctx.ctx);
 
 	ctx->recursive = doveadm_cmd_param_flag(cctx, "recursive");
 	ctx->require_empty = doveadm_cmd_param_flag(cctx, "require-empty");
@@ -370,7 +380,9 @@ static int
 cmd_mailbox_rename_run(struct doveadm_mail_cmd_context *_ctx,
 		       struct mail_user *user)
 {
-	struct rename_cmd_context *ctx = (struct rename_cmd_context *)_ctx;
+	struct rename_cmd_context *ctx =
+		container_of(_ctx, struct rename_cmd_context, ctx.ctx);
+
 	struct mail_namespace *oldns, *newns;
 	struct mailbox *oldbox, *newbox;
 	const char *oldname = ctx->oldname;
@@ -409,8 +421,9 @@ cmd_mailbox_rename_run(struct doveadm_mail_cmd_context *_ctx,
 
 static void cmd_mailbox_rename_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct rename_cmd_context *ctx = (struct rename_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct rename_cmd_context *ctx =
+		container_of(_ctx, struct rename_cmd_context, ctx.ctx);
 
 	ctx->ctx.subscriptions = doveadm_cmd_param_flag(cctx, "subscriptions");
 	if (!doveadm_cmd_param_str(cctx, "mailbox", &ctx->oldname) ||
@@ -434,7 +447,9 @@ static int
 cmd_mailbox_subscribe_run(struct doveadm_mail_cmd_context *_ctx,
 			  struct mail_user *user)
 {
-	struct mailbox_cmd_context *ctx = (struct mailbox_cmd_context *)_ctx;
+	struct mailbox_cmd_context *ctx =
+		container_of(_ctx, struct mailbox_cmd_context, ctx.ctx);
+
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	const char *name;
@@ -458,8 +473,9 @@ cmd_mailbox_subscribe_run(struct doveadm_mail_cmd_context *_ctx,
 
 static void cmd_mailbox_subscribe_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct mailbox_cmd_context *ctx = (struct mailbox_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct mailbox_cmd_context *ctx =
+		container_of(_ctx, struct mailbox_cmd_context, ctx.ctx);
 
 	if (!doveadm_cmd_param_array_append(cctx, "mailbox", &ctx->mailboxes))
 		doveadm_mail_help_name(ctx->ctx.subscriptions ?
@@ -496,8 +512,9 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_unsubscribe_alloc(void)
 static
 void cmd_mailbox_update_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct update_cmd_context *ctx = (struct update_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct update_cmd_context *ctx =
+		container_of(_ctx, struct update_cmd_context, ctx.ctx);
 
 	const char *value_str;
 	if (doveadm_cmd_param_str(cctx, "mailbox-guid", &value_str) &&
@@ -523,7 +540,9 @@ static
 int cmd_mailbox_update_run(struct doveadm_mail_cmd_context *_ctx,
 			   struct mail_user *user)
 {
-	struct update_cmd_context *ctx = (struct update_cmd_context *)_ctx;
+	struct update_cmd_context *ctx =
+		container_of(_ctx, struct update_cmd_context, ctx.ctx);
+
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	enum mail_error mail_error;
@@ -572,8 +591,9 @@ mailbox_list_path_type_name_parse(const char *name,
 static void
 cmd_mailbox_path_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct path_cmd_context *ctx = (struct path_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct path_cmd_context *ctx =
+		container_of(_ctx, struct path_cmd_context, ctx.ctx);
 
 	const char *value_str;
 	if (doveadm_cmd_param_str(cctx, "type", &value_str) &&
@@ -594,7 +614,9 @@ static int
 cmd_mailbox_path_run(struct doveadm_mail_cmd_context *_ctx,
 		     struct mail_user *user)
 {
-	struct path_cmd_context *ctx = (struct path_cmd_context *)_ctx;
+	struct path_cmd_context *ctx =
+		container_of(_ctx, struct path_cmd_context, ctx.ctx);
+
 	struct mail_namespace *ns;
 	enum mail_error mail_error;
 	const char *storage_name, *path;

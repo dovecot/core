@@ -19,7 +19,9 @@ cmd_expunge_box(struct doveadm_mail_cmd_context *_ctx,
 		const struct mailbox_info *info,
 		struct mail_search_args *search_args)
 {
-	struct expunge_cmd_context *ctx = (struct expunge_cmd_context *)_ctx;
+	struct expunge_cmd_context *ctx =
+		container_of(_ctx, struct expunge_cmd_context, ctx);
+
 	struct doveadm_mail_iter *iter;
 	struct mailbox *box;
 	struct mail *mail;
@@ -241,8 +243,9 @@ void expunge_search_args_check(struct mail_search_args *args, const char *cmd)
 
 static void cmd_expunge_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct expunge_cmd_context *ctx = (struct expunge_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct expunge_cmd_context *ctx =
+		container_of(_ctx, struct expunge_cmd_context, ctx);
 
 	ctx->delete_empty_mailbox =
 		doveadm_cmd_param_flag(cctx, "delete-empty-mailbox");

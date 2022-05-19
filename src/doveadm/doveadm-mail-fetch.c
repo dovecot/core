@@ -627,7 +627,8 @@ cmd_fetch_box(struct fetch_cmd_context *ctx, const struct mailbox_info *info)
 static int
 cmd_fetch_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
-	struct fetch_cmd_context *ctx = (struct fetch_cmd_context *)_ctx;
+	struct fetch_cmd_context *ctx =
+		container_of(_ctx, struct fetch_cmd_context, ctx);
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
@@ -648,8 +649,9 @@ cmd_fetch_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 static void cmd_fetch_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct fetch_cmd_context *ctx = (struct fetch_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct fetch_cmd_context *ctx =
+		container_of(_ctx, struct fetch_cmd_context, ctx);
 
 	const char *const *fields;
 	if (!doveadm_cmd_param_array(cctx, "field", &fields)) {

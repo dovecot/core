@@ -83,7 +83,9 @@ static int
 cmd_mailbox_metadata_set_run(struct doveadm_mail_cmd_context *_ctx,
 			     struct mail_user *user)
 {
-	struct metadata_cmd_context *ctx = (struct metadata_cmd_context *)_ctx;
+	struct metadata_cmd_context *ctx =
+		container_of(_ctx, struct metadata_cmd_context, ctx);
+
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	struct mailbox_transaction_context *trans;
@@ -143,8 +145,9 @@ cmd_mailbox_metadata_parse_key(const char *arg,
 static void
 parse_args_common(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct metadata_cmd_context *ctx = (struct metadata_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct metadata_cmd_context *ctx =
+		container_of(_ctx, struct metadata_cmd_context, ctx);
 
 	ctx->allow_empty_mailbox_name =
 		doveadm_cmd_param_flag(cctx, "allow-empty-mailbox-name");
@@ -155,8 +158,9 @@ static bool
 parse_args_key(struct doveadm_mail_cmd_context *_ctx,
 				    const char *field, const char **value_r)
 {
-	struct metadata_cmd_context *ctx = (struct metadata_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct metadata_cmd_context *ctx =
+		container_of(_ctx, struct metadata_cmd_context, ctx);
 
 	const char *value;
 	*value_r = "";
@@ -172,8 +176,9 @@ parse_args_key(struct doveadm_mail_cmd_context *_ctx,
 static void
 cmd_mailbox_metadata_set_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct metadata_cmd_context *ctx = (struct metadata_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct metadata_cmd_context *ctx =
+		container_of(_ctx, struct metadata_cmd_context, ctx);
 
 	parse_args_common(_ctx);
 	if (!doveadm_cmd_param_str(cctx, "mailbox", &ctx->mailbox) ||
@@ -195,8 +200,9 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_metadata_set_alloc(void)
 static void
 cmd_mailbox_metadata_unset_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct metadata_cmd_context *ctx = (struct metadata_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct metadata_cmd_context *ctx =
+		container_of(_ctx, struct metadata_cmd_context, ctx);
 
 	parse_args_common(_ctx);
 	if (!doveadm_cmd_param_str(cctx, "mailbox", &ctx->mailbox) ||
@@ -218,7 +224,9 @@ static int
 cmd_mailbox_metadata_get_run(struct doveadm_mail_cmd_context *_ctx,
 			     struct mail_user *user)
 {
-	struct metadata_cmd_context *ctx = (struct metadata_cmd_context *)_ctx;
+	struct metadata_cmd_context *ctx =
+		container_of(_ctx, struct metadata_cmd_context, ctx);
+
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	struct mail_attribute_value value;
@@ -255,8 +263,9 @@ cmd_mailbox_metadata_get_run(struct doveadm_mail_cmd_context *_ctx,
 static void
 cmd_mailbox_metadata_get_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct metadata_cmd_context *ctx = (struct metadata_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct metadata_cmd_context *ctx =
+		container_of(_ctx, struct metadata_cmd_context, ctx);
 
 	parse_args_common(_ctx);
 	if (!doveadm_cmd_param_str(cctx, "mailbox", &ctx->mailbox) ||
@@ -316,7 +325,9 @@ static int
 cmd_mailbox_metadata_list_run(struct doveadm_mail_cmd_context *_ctx,
 			      struct mail_user *user)
 {
-	struct metadata_cmd_context *ctx = (struct metadata_cmd_context *)_ctx;
+	struct metadata_cmd_context *ctx =
+		container_of(_ctx, struct metadata_cmd_context, ctx);
+
 	struct mail_namespace *ns;
 	struct mailbox *box;
 	int ret = 0;
@@ -345,8 +356,9 @@ cmd_mailbox_metadata_list_run(struct doveadm_mail_cmd_context *_ctx,
 static void
 cmd_mailbox_metadata_list_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct metadata_cmd_context *ctx = (struct metadata_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct metadata_cmd_context *ctx =
+		container_of(_ctx, struct metadata_cmd_context, ctx);
 
 	parse_args_common(_ctx);
 	if (!doveadm_cmd_param_str(cctx, "mailbox", &ctx->mailbox))

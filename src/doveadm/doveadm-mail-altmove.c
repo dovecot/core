@@ -56,7 +56,8 @@ ns_purge(struct doveadm_mail_cmd_context *ctx, struct mail_namespace *ns,
 static int
 cmd_altmove_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
-	struct altmove_cmd_context *ctx = (struct altmove_cmd_context *)_ctx;
+	struct altmove_cmd_context *ctx =
+		container_of(_ctx, struct altmove_cmd_context, ctx);
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
@@ -118,10 +119,11 @@ cmd_altmove_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 static void cmd_altmove_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct altmove_cmd_context *ctx = (struct altmove_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct altmove_cmd_context *ctx =
+		container_of(_ctx, struct altmove_cmd_context, ctx);
 
-	 ctx->reverse = doveadm_cmd_param_flag(cctx, "reverse");
+	ctx->reverse = doveadm_cmd_param_flag(cctx, "reverse");
 
 	const char *const *query;
 	if (!doveadm_cmd_param_array(cctx, "query", &query))

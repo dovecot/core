@@ -190,7 +190,8 @@ static void cmd_import_init_source_user(struct import_cmd_context *ctx, struct m
 static int
 cmd_import_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
-	struct import_cmd_context *ctx = (struct import_cmd_context *)_ctx;
+	struct import_cmd_context *ctx =
+		container_of(_ctx, struct import_cmd_context, ctx);
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
@@ -214,7 +215,9 @@ cmd_import_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 static void cmd_import_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct import_cmd_context *ctx = (struct import_cmd_context *)_ctx;
+	struct import_cmd_context *ctx =
+		container_of(_ctx, struct import_cmd_context, ctx);
+
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
 
 	(void)doveadm_cmd_param_str(cctx, "source-user", &ctx->src_username);
@@ -231,7 +234,8 @@ static void cmd_import_init(struct doveadm_mail_cmd_context *_ctx)
 
 static void cmd_import_deinit(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct import_cmd_context *ctx = (struct import_cmd_context *)_ctx;
+	struct import_cmd_context *ctx =
+		container_of(_ctx, struct import_cmd_context, ctx);
 
 	if (ctx->src_user != NULL)
 		mail_user_deinit(&ctx->src_user);

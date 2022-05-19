@@ -54,7 +54,8 @@ cmd_flags_run_box(struct flags_cmd_context *ctx,
 static int
 cmd_flags_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
-	struct flags_cmd_context *ctx = (struct flags_cmd_context *)_ctx;
+	struct flags_cmd_context *ctx =
+		container_of(_ctx, struct flags_cmd_context, ctx);
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS;
@@ -75,8 +76,9 @@ cmd_flags_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 static void cmd_flags_init(struct doveadm_mail_cmd_context *_ctx)
 {
-	struct flags_cmd_context *ctx = (struct flags_cmd_context *)_ctx;
 	struct doveadm_cmd_context *cctx = _ctx->cctx;
+	struct flags_cmd_context *ctx =
+		container_of(_ctx, struct flags_cmd_context, ctx);
 
 	enum mail_flags flag;
 	ARRAY_TYPE(const_string) keywords;
