@@ -1647,6 +1647,8 @@ fts_flatcurve_xapian_index_header(struct flatcurve_fts_backend_update_context *c
 	if (ret <= 0)
 		return ret;
 
+	i_assert(uni_utf8_data_is_valid(data, size));
+
 	T_BEGIN {
 		char *hdr_name =
 			str_lcase(t_strdup_noconst(str_c(ctx->hdr_name)));
@@ -1659,23 +1661,37 @@ fts_flatcurve_xapian_index_header(struct flatcurve_fts_backend_update_context *c
 		if (ctx->indexed_hdr)
 			hdr_name = str_ucase(hdr_name);
 
-		i_assert(uni_utf8_data_is_valid(data, size));
+
+		string_t *all_term = t_str_new(size);
+		string_t *hdr_term = t_str_new(size + strlen(hdr_name));
+		str_append(hdr_term, FLATCURVE_XAPIAN_HEADER_PREFIX);
+		str_append(hdr_term, hdr_name);
+		size_t hdr_term_start = str_len(hdr_term);
+
 		const unsigned char *end = data + size;
 		for(; end > data; data += uni_utf8_char_bytes((unsigned char) *data)) {
 			size_t len = end - data;
-			if (len == 0 || len < fuser->set.min_term_size)
+			if (len < fuser->set.min_term_size)
 				break;
 
-			T_BEGIN {
-				x->doc->add_term(t_strdup_printf(
-					FLATCURVE_XAPIAN_ALL_HEADERS_PREFIX
-					"%s", data));
-				if (ctx->indexed_hdr)
-					x->doc->add_term(t_strdup_printf(
-						FLATCURVE_XAPIAN_HEADER_PREFIX
-						"%s%s",	hdr_name,
-						(const char*) data));
-			} T_END;
+			/* Capital ASCII letters at the beginning of a Xapian
+			   term are treated as a "term prefix". Force to non-
+			   -uppercase the first letter of the header value to
+			   ensure the term is not confused with a
+			   "term prefix". */
+
+			str_truncate(all_term, 0);
+			str_append(all_term, FLATCURVE_XAPIAN_ALL_HEADERS_PREFIX);
+			str_append_c(all_term, i_tolower(*data));
+			str_append_data(all_term, data + 1, len - 1);
+			x->doc->add_term(str_c(all_term));
+
+			if (ctx->indexed_hdr) {
+				str_truncate(hdr_term, hdr_term_start);
+				str_append_c(hdr_term, i_tolower(*data));
+				str_append_data(hdr_term, data + 1, len - 1);
+				x->doc->add_term(str_c(hdr_term));
+			}
 
 			if (!fuser->set.substring_search)
 				break;
@@ -1686,7 +1702,7 @@ fts_flatcurve_xapian_index_header(struct flatcurve_fts_backend_update_context *c
 
 int
 fts_flatcurve_xapian_index_body(struct flatcurve_fts_backend_update_context *ctx,
-				const unsigned char *data, size_t size,
+				const unsigned char *data_ro, size_t size,
 				const char **error_r)
 {
 	struct fts_flatcurve_user *fuser = ctx->backend->fuser;
@@ -1696,17 +1712,31 @@ fts_flatcurve_xapian_index_body(struct flatcurve_fts_backend_update_context *ctx
 	if (ret <= 0)
 		return ret;
 
-	i_assert(uni_utf8_data_is_valid(data, size));
-	const unsigned char *end = data + size;
-	for(; end > data; data += uni_utf8_char_bytes((unsigned char) *data)) {
-		size_t len = end - data;
-		if (len == 0 || len < fuser->set.min_term_size)
-			break;
+	i_assert(uni_utf8_data_is_valid(data_ro, size));
 
-		x->doc->add_term((const char*) data);
-		if (!fuser->set.substring_search)
-			break;
-	}
+	T_BEGIN {
+		string_t *term = t_str_new(size);
+		str_append_data(term, data_ro, size);
+
+		char *data = str_c_modifiable(term);
+		const char *end = data + str_len(term);
+		for(; end > data; data += uni_utf8_char_bytes(*data)) {
+			size_t len = end - data;
+			if (len < fuser->set.min_term_size)
+				break;
+
+			/* Capital ASCII letters at the beginning of a Xapian term are
+			treated as a "term prefix". Check for a leading ASCII
+			capital, and temporary lowercase it in place if necessary,
+			to ensure the term is not confused with a "term prefix". */
+			*data = i_tolower(*data);
+			x->doc->add_term(data);
+
+			if (!fuser->set.substring_search)
+				break;
+		}
+	} T_END;
+
 	return 1;
 }
 
