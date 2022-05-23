@@ -93,21 +93,44 @@ bool doveadm_cmd_param_ip(const struct doveadm_cmd_context *cctx,
 	return TRUE;
 }
 
-bool doveadm_cmd_param_array(const struct doveadm_cmd_context *cctx,
-			     const char *name, const char *const **value_r)
+bool doveadm_cmd_param_array_get(const struct doveadm_cmd_context *cctx,
+				 const char *name,
+				 ARRAY_TYPE(const_string) *value_r)
 {
 	const struct doveadm_cmd_param *param;
-	unsigned int count;
-
 	if ((param = doveadm_cmd_param_get(cctx, name)) == NULL)
 		return FALSE;
 
 	i_assert(param->type == CMD_PARAM_ARRAY);
-	*value_r = array_get(&param->value.v_array, &count);
-	/* doveadm_cmd_params_null_terminate_arrays() should have been
-	   called, which guarantees that we're NULL-terminated */
-	i_assert((*value_r)[count] == NULL);
+	*value_r = param->value.v_array;
 	return TRUE;
+}
+
+
+bool doveadm_cmd_param_array_append(const struct doveadm_cmd_context *cctx,
+				    const char *name,
+				    ARRAY_TYPE(const_string) *dest)
+{
+	ARRAY_TYPE(const_string) array;
+	bool found = doveadm_cmd_param_array_get(cctx, name, &array);
+	if (found) array_append_array(dest, &array);
+	return found;
+}
+
+bool doveadm_cmd_param_array(const struct doveadm_cmd_context *cctx,
+			     const char *name, const char *const **value_r)
+{
+	ARRAY_TYPE(const_string) array;
+	bool found = doveadm_cmd_param_array_get(cctx, name, &array);
+	if (found) {
+		unsigned int count;
+		*value_r = array_get(&array, &count);
+
+		/* doveadm_cmd_params_null_terminate_arrays() should have been
+		   called, which guarantees that we're NULL-terminated */
+		i_assert((*value_r)[count] == NULL);
+	}
+	return found;
 }
 
 bool doveadm_cmd_param_istream(const struct doveadm_cmd_context *cctx,
