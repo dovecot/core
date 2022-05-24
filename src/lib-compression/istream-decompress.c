@@ -249,6 +249,10 @@ i_stream_create_decompress(struct istream *input,
 	zstream->istream.istream.blocking = input->blocking;
 	zstream->istream.istream.seekable = input->seekable;
 
-	return i_stream_create(&zstream->istream, NULL,
-			       i_stream_get_fd(input), 0);
+	struct istream *ret = i_stream_create(&zstream->istream, NULL,
+					      i_stream_get_fd(input), 0);
+	/* input isn't used as our parent istream, so need to copy the stream
+	   name to preserve it. */
+	i_stream_set_name(ret, i_stream_get_name(input));
+	return ret;
 }
