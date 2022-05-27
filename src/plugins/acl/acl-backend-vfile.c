@@ -473,7 +473,7 @@ static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 					      &validity.local_validity) < 0)
 		return -1;
 
-	acl_rights_sort(_aclobj);
+	acl_object_rights_sort(_aclobj);
 	/* update cache only after we've successfully read everything */
 	acl_object_rebuild_cache(_aclobj);
 	acl_cache_set_validity(_aclobj->backend->cache,

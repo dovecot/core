@@ -642,16 +642,16 @@ static void test_acl_rights_sort(void)
 	};
 	const struct acl_rights *rights;
 
-	test_begin("acl_rights_sort");
+	test_begin("acl_object_rights_sort");
 	t_array_init(&obj.rights, 8);
 
 	/* try with zero rights */
-	acl_rights_sort(&obj);
+	acl_object_rights_sort(&obj);
 	test_assert_cmp(array_count(&obj.rights), ==, 0);
 
 	/* try with just one right */
 	array_push_back(&obj.rights, &rights1);
-	acl_rights_sort(&obj);
+	acl_object_rights_sort(&obj);
 	test_assert_cmp(array_count(&obj.rights), ==, 1);
 	rights = array_idx(&obj.rights, 0);
 	test_assert(acl_rights_cmp(rights, &rights1) == 0);
@@ -660,7 +660,7 @@ static void test_acl_rights_sort(void)
 	struct acl_rights rights1_id2 = rights1;
 	rights1_id2.identifier = "id2";
 	array_push_back(&obj.rights, &rights1_id2);
-	acl_rights_sort(&obj);
+	acl_object_rights_sort(&obj);
 	test_assert_cmp(array_count(&obj.rights), ==, 2);
 	rights = array_idx(&obj.rights, 0);
 	test_assert(acl_rights_cmp(&rights[0], &rights1) == 0);
@@ -668,7 +668,7 @@ static void test_acl_rights_sort(void)
 
 	/* try with 3 rights where first has equal ID */
 	array_push_back(&obj.rights, &rights2);
-	acl_rights_sort(&obj);
+	acl_object_rights_sort(&obj);
 	test_assert_cmp(array_count(&obj.rights), ==, 2);
 	rights = array_idx(&obj.rights, 0);
 	test_assert_strcmp(t_strarray_join(rights[0].rights, " "), "a b c d x");

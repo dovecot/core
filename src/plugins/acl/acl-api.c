@@ -253,7 +253,7 @@ int acl_backend_nonowner_lookups_rebuild(struct acl_backend *backend)
 	return backend->v->nonowner_lookups_rebuild(backend);
 }
 
-void acl_rights_sort(struct acl_object *aclobj)
+void acl_object_rights_sort(struct acl_object *aclobj)
 {
 	struct acl_rights *rights;
 	unsigned int i, dest, count;

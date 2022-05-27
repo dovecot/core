@@ -96,7 +96,7 @@ acl_backend_mask_get_names(struct acl_backend *backend,
 struct acl_object *acl_backend_get_default_object(struct acl_backend *backend);
 int acl_backend_get_default_rights(struct acl_backend *backend,
 				   const struct acl_mask **mask_r);
-void acl_rights_sort(struct acl_object *aclobj);
+void acl_object_rights_sort(struct acl_object *aclobj);
 void acl_object_rebuild_cache(struct acl_object *aclobj);
 void acl_object_remove_all_access(struct acl_object *aclobj);
 
