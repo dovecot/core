@@ -408,9 +408,9 @@ static struct doveadm_mail_cmd_context *cmd_mailbox_cache_purge_alloc(void)
 struct doveadm_cmd_ver2 doveadm_cmd_mailbox_cache_decision = {
 	.name = "mailbox cache decision",
 	.mail_cmd = cmd_mailbox_cache_decision_alloc,
-	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX"--all --fields <fields> " \
-			"--last-used <timestamp> --decision <decision> " \
-			"<mailbox> [<mailbox> ... ]",
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX
+		"(--all | --fields <fields>)  [--last-used <timestamp>] "
+		"[--decision <decision>] <mailbox> [<mailbox> ... ]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('a', "all", CMD_PARAM_BOOL, 0)
