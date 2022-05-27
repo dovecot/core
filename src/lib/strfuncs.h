@@ -7,6 +7,7 @@
 
 extern const unsigned char uchar_nul; /* (const unsigned char *)"" */
 extern const unsigned char *uchar_empty_ptr; /* non-NULL pointer that shouldn't be dereferenced. */
+extern const char *const empty_str_array[];
 
 /* Returns -1 if dest wasn't large enough, 0 if not. */
 int i_snprintf(char *dest, size_t max_chars, const char *format, ...)

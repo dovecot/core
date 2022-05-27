@@ -21,6 +21,7 @@ enum _str_trim_sides {
 
 const unsigned char uchar_nul = '\0';
 const unsigned char *uchar_empty_ptr = &uchar_nul;
+const char *const empty_str_array[] = { NULL };
 
 volatile int timing_safety_unoptimization;
 

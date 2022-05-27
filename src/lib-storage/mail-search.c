@@ -563,7 +563,6 @@ const char *const *
 mail_search_args_analyze(struct mail_search_arg *args,
 			 bool *have_headers, bool *have_body)
 {
-	const char *null = NULL;
 	buffer_t *headers;
 	bool have_text;
 
@@ -578,7 +577,7 @@ mail_search_args_analyze(struct mail_search_arg *args,
 	if (headers->used == 0)
 		return NULL;
 
-	buffer_append(headers, &null, sizeof(const char *));
+	buffer_append(headers, empty_str_array, sizeof(const char *));
 	return headers->data;
 }
 

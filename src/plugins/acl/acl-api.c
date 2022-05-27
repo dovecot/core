@@ -668,7 +668,6 @@ bool acl_right_names_modify(pool_t pool,
 {
 	const char *const *old_rights = *rightsp;
 	const char *const *new_rights = NULL;
-	const char *null = NULL;
 	ARRAY_TYPE(const_string) rights;
 	unsigned int i, j;
 
@@ -692,7 +691,7 @@ bool acl_right_names_modify(pool_t pool,
 			if (modify_rights[j] == NULL)
 				array_push_back(&rights, &old_rights[i]);
 		}
-		new_rights = &null;
+		new_rights = empty_str_array;
 		modify_rights = array_count(&rights) == 0 ? NULL :
 			array_front(&rights);
 		acl_right_names_merge(pool, &new_rights, modify_rights, TRUE);
@@ -702,7 +701,7 @@ bool acl_right_names_modify(pool_t pool,
 		acl_right_names_merge(pool, &new_rights, modify_rights, TRUE);
 		break;
 	case ACL_MODIFY_MODE_REPLACE:
-		new_rights = &null;
+		new_rights = empty_str_array;
 		acl_right_names_merge(pool, &new_rights, modify_rights, TRUE);
 		break;
 	case ACL_MODIFY_MODE_CLEAR:
@@ -730,14 +729,13 @@ bool acl_right_names_modify(pool_t pool,
 static void apply_owner_default_rights(struct acl_object *aclobj)
 {
 	struct acl_rights_update ru;
-	const char *null = NULL;
 
 	i_zero(&ru);
 	ru.modify_mode = ACL_MODIFY_MODE_REPLACE;
 	ru.neg_modify_mode = ACL_MODIFY_MODE_REPLACE;
 	ru.rights.id_type = ACL_ID_OWNER;
 	ru.rights.rights = aclobj->backend->default_rights;
-	ru.rights.neg_rights = &null;
+	ru.rights.neg_rights = empty_str_array;
 	acl_cache_update(aclobj->backend->cache, aclobj->name, &ru);
 }
 
@@ -818,16 +816,15 @@ void acl_object_rebuild_cache(struct acl_object *aclobj)
 
 void acl_object_remove_all_access(struct acl_object *aclobj)
 {
-	static const char *null = NULL;
 	struct acl_rights rights;
 
 	i_zero(&rights);
 	rights.id_type = ACL_ID_ANYONE;
-	rights.rights = &null;
+	rights.rights = empty_str_array;
 	array_push_back(&aclobj->rights, &rights);
 
 	rights.id_type = ACL_ID_OWNER;
-	rights.rights = &null;
+	rights.rights = empty_str_array;
 	array_push_back(&aclobj->rights, &rights);
 }
 

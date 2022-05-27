@@ -194,12 +194,10 @@ static void
 dict_cmd_callback_error(struct client_dict_cmd *cmd, const char *error,
 			bool disconnected)
 {
-	const char *null_arg = NULL;
-
 	cmd->unfinished = FALSE;
 	if (cmd->callback != NULL) {
 		cmd->callback(cmd, DICT_PROTOCOL_REPLY_ERROR,
-			      "", &null_arg, error, disconnected);
+			      "", empty_str_array, error, disconnected);
 	}
 	i_assert(!cmd->unfinished);
 }

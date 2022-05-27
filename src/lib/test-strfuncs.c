@@ -335,13 +335,12 @@ static struct {
 
 static void test_t_strarray_join(void)
 {
-	const char *null = NULL;
 	unsigned int i;
 
 	test_begin("t_strarray_join()");
 
 	/* empty array -> empty string */
-	test_assert(strcmp(t_strarray_join(&null, " "), "") == 0);
+	test_assert(strcmp(t_strarray_join(empty_str_array, " "), "") == 0);
 
 	for (i = 0; i < N_ELEMENTS(test_strarray_outputs); i++) {
 		test_assert_idx(strcmp(t_strarray_join(test_strarray_input,
