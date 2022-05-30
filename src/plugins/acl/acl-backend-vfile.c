@@ -403,12 +403,7 @@ acl_backend_vfile_read_with_retry(struct acl_object *aclobj,
 		if (ret != 0)
 			break;
 
-		if (is_dir) {
-			/* opened a directory. use dir/.DEFAULT instead */
-			path = t_strconcat(path, "/.DEFAULT", NULL);
-		} else {
-			/* ESTALE - try again */
-		}
+		/* ESTALE - try again */
 	}
 
 	return ret <= 0 ? -1 : 0;
