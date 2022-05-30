@@ -453,12 +453,6 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 
 	validity->last_check = ioloop_time;
 	ret = stat(path, &st);
-	if (ret == 0 && S_ISDIR(st.st_mode)) {
-		/* it's a directory. use dir/.DEFAULT instead */
-		path = t_strconcat(path, "/.DEFAULT", NULL);
-		ret = stat(path, &st);
-	}
-
 	if (ret < 0) {
 		if (errno == ENOENT || errno == ENOTDIR) {
 			/* if the file used to exist, we have to re-read it */
