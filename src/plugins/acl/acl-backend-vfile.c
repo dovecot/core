@@ -270,7 +270,7 @@ static void acl_backend_vfile_object_deinit(struct acl_object *_aclobj)
 }
 
 static int
-acl_backend_vfile_read(struct acl_object *aclobj, bool global, const char *path,
+acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 		       struct acl_vfile_validity *validity, bool try_retry,
 		       bool *is_dir_r)
 {
@@ -336,7 +336,6 @@ acl_backend_vfile_read(struct acl_object *aclobj, bool global, const char *path,
 		T_BEGIN {
 			ret = acl_rights_parse_line(line, aclobj->rights_pool,
 						    &rights, &error);
-			rights.global = global;
 			if (ret < 0) {
 				i_error("ACL file %s line %u: %s",
 					path, linenum, error);
@@ -387,7 +386,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, bool global, const char *path,
 
 static int
 acl_backend_vfile_read_with_retry(struct acl_object *aclobj,
-				  bool global, const char *path,
+				  const char *path,
 				  struct acl_vfile_validity *validity)
 {
 	unsigned int i;
@@ -398,7 +397,7 @@ acl_backend_vfile_read_with_retry(struct acl_object *aclobj,
 		return 0;
 
 	for (i = 0;; i++) {
-		ret = acl_backend_vfile_read(aclobj, global, path, validity,
+		ret = acl_backend_vfile_read(aclobj, path, validity,
 					     i < ACL_ESTALE_RETRY_COUNT,
 					     &is_dir);
 		if (ret != 0)
@@ -551,7 +550,7 @@ static int acl_backend_vfile_object_refresh_cache(struct acl_object *_aclobj)
 		validity.global_validity.last_mtime = st.st_mtime;
 		validity.global_validity.last_size = st.st_size;
 	}
-	if (acl_backend_vfile_read_with_retry(_aclobj, FALSE, aclobj->local_path,
+	if (acl_backend_vfile_read_with_retry(_aclobj, aclobj->local_path,
 					      &validity.local_validity) < 0)
 		return -1;
 
