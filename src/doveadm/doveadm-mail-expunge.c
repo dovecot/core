@@ -278,7 +278,7 @@ static struct doveadm_mail_cmd_context *cmd_expunge_alloc(void)
 struct doveadm_cmd_ver2 doveadm_cmd_expunge_ver2 = {
 	.name = "expunge",
 	.mail_cmd = cmd_expunge_alloc,
-	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "[-m] <search query>",
+	.usage = DOVEADM_CMD_MAIL_USAGE_PREFIX "[-d] <search query>",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('d', "delete-empty-mailbox", CMD_PARAM_BOOL, 0)
