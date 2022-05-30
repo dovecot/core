@@ -464,7 +464,7 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 		if (errno == ENOENT || errno == ENOTDIR) {
 			/* if the file used to exist, we have to re-read it */
 			return validity->last_mtime != ACL_VFILE_VALIDITY_MTIME_NOTFOUND ? 1 : 0;
-		} 
+		}
 		if (errno == EACCES)
 			return validity->last_mtime != ACL_VFILE_VALIDITY_MTIME_NOACCESS ? 1 : 0;
 		i_error("stat(%s) failed: %m", path);
