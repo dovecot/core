@@ -271,8 +271,7 @@ static void acl_backend_vfile_object_deinit(struct acl_object *_aclobj)
 
 static int
 acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
-		       struct acl_vfile_validity *validity, bool try_retry,
-		       bool *is_dir_r)
+		       struct acl_vfile_validity *validity, bool try_retry)
 {
 	struct istream *input;
 	struct stat st;
@@ -280,8 +279,6 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 	const char *line, *error;
 	unsigned int linenum;
 	int fd, ret = 0;
-
-	*is_dir_r = FALSE;
 
 	fd = nfs_safe_open(path, O_RDONLY);
 	if (fd == -1) {
@@ -315,12 +312,6 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 		i_error("fstat(%s) failed: %m", path);
 		i_close_fd(&fd);
 		return -1;
-	}
-	if (S_ISDIR(st.st_mode)) {
-		/* we opened a directory. */
-		*is_dir_r = TRUE;
-		i_close_fd(&fd);
-		return 0;
 	}
 
 	if (aclobj->backend->debug)
@@ -391,15 +382,13 @@ acl_backend_vfile_read_with_retry(struct acl_object *aclobj,
 {
 	unsigned int i;
 	int ret;
-	bool is_dir;
 
 	if (path == NULL)
 		return 0;
 
 	for (i = 0;; i++) {
 		ret = acl_backend_vfile_read(aclobj, path, validity,
-					     i < ACL_ESTALE_RETRY_COUNT,
-					     &is_dir);
+					     i < ACL_ESTALE_RETRY_COUNT);
 		if (ret != 0)
 			break;
 
