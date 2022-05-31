@@ -193,11 +193,12 @@ static int lua_dict_unset(lua_State *L)
 }
 
 /*
- * Start a dict transaction [-(1|2),+1,e]
+ * Start a dict transaction [-(1|2|3),+1,e]
  *
  * Args:
  *   1) userdata: struct dict *
  *   2*) string: username
+ *   3*) integer: expire_secs
  *
  * Returns:
  *   Returns a new transaction object.
@@ -207,14 +208,17 @@ int lua_dict_transaction_begin(lua_State *L)
 {
 	struct lua_dict_txn *txn;
 	struct dict *dict;
+	lua_Integer expire_secs = 0;
 	const char *username = NULL;
 	pool_t pool;
 
-	DLUA_REQUIRE_ARGS_IN(L, 1, 2);
+	DLUA_REQUIRE_ARGS_IN(L, 1, 3);
 
 	dict = dlua_check_dict(L, 1);
 	if (lua_gettop(L) >= 2)
 		username = luaL_checkstring(L, 2);
+	if (lua_gettop(L) >= 3)
+		expire_secs = luaL_checkinteger(L, 3);
 
 	pool = pool_alloconly_create("lua dict txn", 128);
 	txn = p_new(pool, struct lua_dict_txn, 1);
@@ -222,6 +226,7 @@ int lua_dict_transaction_begin(lua_State *L)
 
 	struct dict_op_settings set = {
 		.username = username,
+		.expire_secs = expire_secs,
 	};
 	txn->txn = dict_transaction_begin(dict, &set);
 	txn->state = STATE_OPEN;
