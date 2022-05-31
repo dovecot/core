@@ -721,6 +721,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 					user->input.session_id,
 					session_id_suffix);
 	event_add_str(user->event, "session", mail_user->session_id);
+	event_add_str(user->event, "service", service_name);
 
 	mail_user->userdb_fields = user->input.userdb_fields == NULL ? NULL :
 		p_strarray_dup(mail_user->pool, user->input.userdb_fields);
@@ -1334,9 +1335,13 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	event_set_forced_debug(user->event,
 			       user->service_ctx->debug ||
 			       (flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0);
+	const char *service_name = user->input.service != NULL ?
+				   user->input.service :
+				   user->service_ctx->service->name;
 	event_add_fields(user->event, (const struct event_add_field []){
 		{ .key = "user", .value = user->input.username },
 		{ .key = "session", .value = user->input.session_id },
+		{ .key = "service", .value = service_name },
 		{ .key = NULL }
 	});
 
