@@ -108,7 +108,7 @@ maildir_storage_find_root_dir(const struct mail_namespace *ns)
 			if (debug)
 				i_debug("maildir: root exists (%s)", path);
 			return path;
-		} 
+		}
 		if (debug)
 			i_debug("maildir: access(%s, rwx): failed: %m", path);
 	} else {

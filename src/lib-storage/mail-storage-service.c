@@ -718,7 +718,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 
 	mail_user->userdb_fields = user->input.userdb_fields == NULL ? NULL :
 		p_strarray_dup(mail_user->pool, user->input.userdb_fields);
-	
+
 	string_t *str = t_str_new(64);
 
 	str_printfa(str, "Effective uid=%s, gid=%s, home=%s",

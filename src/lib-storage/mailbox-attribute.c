@@ -457,7 +457,7 @@ int mailbox_attribute_get_stream(struct mailbox *box,
 	return 1;
 }
 
-struct mailbox_attribute_internal_iter { 
+struct mailbox_attribute_internal_iter {
 	struct mailbox_attribute_iter iter;
 	pool_t pool;
 

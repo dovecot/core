@@ -126,7 +126,7 @@ libstorage_la_LIBADD = $(shlibs)
 libstorage_la_DEPENDENCIES = $(shlibs)
 
 pkglib_LTLIBRARIES = libdovecot-storage.la
-libdovecot_storage_la_SOURCES = 
+libdovecot_storage_la_SOURCES =
 libdovecot_storage_la_LIBADD = \
 	libstorage.la \
 	../lib-dovecot/libdovecot.la \

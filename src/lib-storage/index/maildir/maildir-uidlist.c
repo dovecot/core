@@ -464,7 +464,7 @@ static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
 		return FALSE;
 	}
 	if (uid <= uidlist->prev_read_uid) {
-		maildir_uidlist_set_corrupted(uidlist, 
+		maildir_uidlist_set_corrupted(uidlist,
 					      "UIDs not ordered (%u >= %u)",
 					      uid, uidlist->prev_read_uid);
 		return FALSE;
@@ -483,7 +483,7 @@ static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
         uidlist->last_seen_uid = uid;
 
 	if (uid >= uidlist->next_uid && uidlist->version == 1) {
-		maildir_uidlist_set_corrupted(uidlist, 
+		maildir_uidlist_set_corrupted(uidlist,
 			"UID larger than next_uid (%u >= %u)",
 			uid, uidlist->next_uid);
 		return FALSE;
@@ -504,14 +504,14 @@ static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
 							    rec);
 		} T_END;
 		if (!ret) {
-			maildir_uidlist_set_corrupted(uidlist, 
+			maildir_uidlist_set_corrupted(uidlist,
 				"Invalid extended fields: %s", line);
 			return FALSE;
 		}
 	}
 
 	if (strchr(line, '/') != NULL) {
-		maildir_uidlist_set_corrupted(uidlist, 
+		maildir_uidlist_set_corrupted(uidlist,
 			"%s: Broken filename at line %u: %s",
 			uidlist->path, uidlist->read_line_count, line);
 		return FALSE;

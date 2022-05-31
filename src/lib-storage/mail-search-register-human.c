@@ -99,13 +99,13 @@ arg_new_human_size(struct mail_search_build_context *ctx,
 
 static struct mail_search_arg *
 human_search_larger(struct mail_search_build_context *ctx)
-{ 
+{
 	return arg_new_human_size(ctx, SEARCH_LARGER);
 }
 
 static struct mail_search_arg *
 human_search_smaller(struct mail_search_build_context *ctx)
-{ 
+{
 	return arg_new_human_size(ctx, SEARCH_SMALLER);
 }
 

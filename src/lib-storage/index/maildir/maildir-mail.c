@@ -591,7 +591,7 @@ maildir_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		return index_mail_get_special(_mail, field, value_r);
 	}
 }
-							
+
 static int
 maildir_mail_get_stream(struct mail *_mail, bool get_body ATTR_UNUSED,
 			struct message_size *hdr_size,

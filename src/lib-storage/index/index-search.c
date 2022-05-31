@@ -823,7 +823,7 @@ static int search_arg_match_text(struct mail_search_arg *args,
 		   update access_parts for prefetching */
 		if (have_body)
 			imail->data.access_part |= READ_HDR | READ_BODY;
-		else 
+		else
 			imail->data.access_part |= READ_HDR;
 		return -1;
 	}

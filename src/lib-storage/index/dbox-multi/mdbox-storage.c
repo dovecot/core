@@ -99,7 +99,7 @@ mdbox_storage_find_root_dir(const struct mail_namespace *ns)
 			if (debug)
 				i_debug("mdbox: root exists (%s)", path);
 			return path;
-		} 
+		}
 		if (debug)
 			i_debug("mdbox: access(%s, rwx): failed: %m", path);
 	}

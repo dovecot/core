@@ -79,7 +79,7 @@ imap_search_##_func(struct mail_search_build_context *ctx) \
 }
 static struct mail_search_arg *
 imap_search_all(struct mail_search_build_context *ctx)
-{ 
+{
 	return mail_search_build_new(ctx, SEARCH_ALL);
 }
 
@@ -221,13 +221,13 @@ arg_new_size(struct mail_search_build_context *ctx,
 
 static struct mail_search_arg *
 imap_search_larger(struct mail_search_build_context *ctx)
-{ 
+{
 	return arg_new_size(ctx, SEARCH_LARGER);
 }
 
 static struct mail_search_arg *
 imap_search_smaller(struct mail_search_build_context *ctx)
-{ 
+{
 	return arg_new_size(ctx, SEARCH_SMALLER);
 }
 

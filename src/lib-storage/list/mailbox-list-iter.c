@@ -39,7 +39,7 @@ struct ns_list_iterate_context {
 };
 
 static void mailbox_list_ns_iter_failed(struct ns_list_iterate_context *ctx);
-static bool ns_match_next(struct ns_list_iterate_context *ctx, 
+static bool ns_match_next(struct ns_list_iterate_context *ctx,
 			  struct mail_namespace *ns, const char *pattern);
 static int mailbox_list_match_anything(struct ns_list_iterate_context *ctx,
 				       struct mail_namespace *ns,
@@ -183,7 +183,7 @@ ns_match_simple(struct ns_list_iterate_context *ctx, struct mail_namespace *ns)
 }
 
 static bool
-ns_is_match_within_ns(struct ns_list_iterate_context *ctx, 
+ns_is_match_within_ns(struct ns_list_iterate_context *ctx,
 		      struct mail_namespace *ns, const char *prefix_without_sep,
 		      const char *pattern, enum imap_match_result result)
 {
@@ -239,7 +239,7 @@ static bool list_pattern_has_wildcards(const char *pattern)
 	return FALSE;
 }
 
-static bool ns_match_next(struct ns_list_iterate_context *ctx, 
+static bool ns_match_next(struct ns_list_iterate_context *ctx,
 			  struct mail_namespace *ns, const char *pattern)
 {
 	struct imap_match_glob *glob;

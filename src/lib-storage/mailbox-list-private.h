@@ -170,7 +170,7 @@ struct mailbox_list_iterate_context {
 struct mailbox_list_iter_update_context {
 	struct mailbox_list_iterate_context *iter_ctx;
 	struct mailbox_tree_context *tree_ctx;
-			      
+
 	struct imap_match_glob *glob;
 	enum mailbox_info_flags leaf_flags, parent_flags;
 

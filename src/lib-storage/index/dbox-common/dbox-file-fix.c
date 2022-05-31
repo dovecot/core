@@ -222,7 +222,7 @@ dbox_file_find_next_magic(struct dbox_file *file, uoff_t *offset_r, bool *pre_r)
 		else {
 			ret = 0;
 			*offset_r = input->v_offset;
-		} 
+		}
 	}
 	i_stream_seek(input, orig_offset);
 	return ret <= 0 ? ret : 1;

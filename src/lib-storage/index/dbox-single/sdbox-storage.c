@@ -69,7 +69,7 @@ sdbox_storage_find_root_dir(const struct mail_namespace *ns)
 			if (debug)
 				i_debug("sdbox: root exists (%s)", path);
 			return path;
-		} 
+		}
 		if (debug)
 			i_debug("sdbox: access(%s, rwx): failed: %m", path);
 	}
