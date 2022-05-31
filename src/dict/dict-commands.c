@@ -382,18 +382,23 @@ dict_connection_transaction_array_remove(struct dict_connection *conn,
 static int cmd_begin(struct dict_connection_cmd *cmd, const char *const *args)
 {
 	struct dict_connection_transaction *trans;
-	unsigned int id;
-	const char *username;
+	unsigned int id, args_count = str_array_length(args);
 
-	if (str_array_length(args) < 1) {
+	if (args_count < 1) {
 		e_error(cmd->event, "BEGIN: broken input");
 		return -1;
 	}
-	username = args[1];
+	struct dict_op_settings set = {
+		.username = args[1],
+	};
 
-	/* <id> [<username>] */
+	/* <id> [<username> [<expire secs>]] */
 	if (str_to_uint(args[0], &id) < 0) {
 		e_error(cmd->event, "Invalid transaction ID %s", args[0]);
+		return -1;
+	}
+	if (args_count >= 3 && str_to_uint(args[2], &set.expire_secs) < 0) {
+		e_error(cmd->event, "Invalid expire_secs %s", args[2]);
 		return -1;
 	}
 	if (dict_connection_transaction_lookup(cmd->conn, id) != NULL) {
@@ -404,9 +409,6 @@ static int cmd_begin(struct dict_connection_cmd *cmd, const char *const *args)
 	if (!array_is_created(&cmd->conn->transactions))
 		i_array_init(&cmd->conn->transactions, 4);
 
-	struct dict_op_settings set = {
-		.username = username,
-	};
 	trans = array_append_space(&cmd->conn->transactions);
 	trans->id = id;
 	trans->conn = cmd->conn;

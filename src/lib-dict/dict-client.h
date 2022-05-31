@@ -17,7 +17,7 @@ enum dict_protocol_cmd {
 	DICT_PROTOCOL_CMD_LOOKUP = 'L', /* <key> */
 	DICT_PROTOCOL_CMD_ITERATE = 'I', /* <flags> <path> */
 
-	DICT_PROTOCOL_CMD_BEGIN = 'B', /* <id> */
+	DICT_PROTOCOL_CMD_BEGIN = 'B', /* <id> <user> <expire secs> */
 	DICT_PROTOCOL_CMD_COMMIT = 'C', /* <id> */
 	DICT_PROTOCOL_CMD_ROLLBACK = 'R', /* <id> */
 

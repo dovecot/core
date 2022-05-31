@@ -353,9 +353,10 @@ client_dict_transaction_send_begin(struct client_dict_transaction_context *ctx,
 	ctx->sent_begin = TRUE;
 
 	/* transactions commands don't have replies. only COMMIT has. */
-	query = t_strdup_printf("%c%u\t%s", DICT_PROTOCOL_CMD_BEGIN,
+	query = t_strdup_printf("%c%u\t%s\t%u", DICT_PROTOCOL_CMD_BEGIN,
 				ctx->id,
-				set->username == NULL ? "" : str_tabescape(set->username));
+				set->username == NULL ? "" : str_tabescape(set->username),
+				set->expire_secs);
 	cmd = client_dict_cmd_init(dict, query);
 	cmd->no_replies = TRUE;
 	cmd->retry_errors = TRUE;
@@ -1472,7 +1473,7 @@ static void client_dict_set_timestamp(struct dict_transaction_context *_ctx,
 
 struct dict dict_driver_client = {
 	.name = "proxy",
-
+	.flags = DICT_DRIVER_FLAG_SUPPORT_EXPIRE_SECS,
 	.v = {
 		.init = client_dict_init,
 		.deinit = client_dict_deinit,
