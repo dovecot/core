@@ -258,10 +258,10 @@ client_handle_options(struct client_connection_tcp *conn,
 	}
 }
 
-static bool client_handle_command(struct client_connection_tcp *conn,
-				  const char *const *args)
+static bool client_handle_command_ctx(struct client_connection_tcp *conn,
+				      struct doveadm_cmd_context *cctx,
+				      const char *const *args)
 {
-	struct doveadm_cmd_context cctx;
 	const char *flags, *cmd_name;
 	unsigned int argc = str_array_length(args);
 
@@ -269,14 +269,6 @@ static bool client_handle_command(struct client_connection_tcp *conn,
 		i_error("doveadm client: No command given");
 		return FALSE;
 	}
-	i_zero(&cctx);
-	cctx.conn_type = conn->conn.type;
-	cctx.input = conn->input;
-	cctx.output = conn->output;
-	cctx.local_ip = conn->conn.local_ip;
-	cctx.remote_ip = conn->conn.remote_ip;
-	cctx.local_port = conn->conn.local_port;
-	cctx.remote_port = conn->conn.remote_port;
 	doveadm_exit_code = 0;
 
 	flags = args[0]; args++; argc--;
@@ -294,7 +286,7 @@ static bool client_handle_command(struct client_connection_tcp *conn,
 			doveadm_verbose = TRUE;
 			break;
 		case DOVEADM_PROTOCOL_CMD_FLAG_EXTRA_FIELDS:
-			cctx.extra_fields = t_strsplit_tabescaped(args[0]);
+			cctx->extra_fields = t_strsplit_tabescaped(args[0]);
 			args++; argc--;
 			break;
 		default:
@@ -302,7 +294,7 @@ static bool client_handle_command(struct client_connection_tcp *conn,
 			return FALSE;
 		}
 	}
-	cctx.username = args[0]; args++; argc--;
+	cctx->username = args[0]; args++; argc--;
 	cmd_name = args[0];
 
 	if (strcmp(cmd_name, "OPTION") == 0) {
@@ -321,7 +313,7 @@ static bool client_handle_command(struct client_connection_tcp *conn,
 	/* Disable IO while running a command. This is required for commands
 	   that do IO themselves (e.g. dsync-server). */
 	io_remove(&conn->io);
-	if (doveadm_cmd_handle(conn, cmd_name, argc, args, &cctx) < 0)
+	if (doveadm_cmd_handle(conn, cmd_name, argc, args, cctx) < 0)
 		o_stream_nsend(conn->output, "\n-\n", 3);
 	o_stream_uncork(conn->output);
 	conn->io = io_add_istream(conn->input, client_connection_tcp_input, conn);
@@ -330,6 +322,22 @@ static bool client_handle_command(struct client_connection_tcp *conn,
 	/* Try to flush the output. It might finish later. */
 	(void)o_stream_flush(conn->output);
 	return TRUE;
+}
+
+static bool client_handle_command(struct client_connection_tcp *conn,
+				  const char *const *args)
+{
+	struct doveadm_cmd_context cctx;
+
+	i_zero(&cctx);
+	cctx.conn_type = conn->conn.type;
+	cctx.input = conn->input;
+	cctx.output = conn->output;
+	cctx.local_ip = conn->conn.local_ip;
+	cctx.remote_ip = conn->conn.remote_ip;
+	cctx.local_port = conn->conn.local_port;
+	cctx.remote_port = conn->conn.remote_port;
+	return client_handle_command_ctx(conn, &cctx, args);
 }
 
 static int
