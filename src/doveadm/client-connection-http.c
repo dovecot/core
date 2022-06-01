@@ -195,6 +195,7 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 
 	prev_ioloop = current_ioloop;
 	i_zero(&cctx);
+	cctx.pool = pool_alloconly_create("doveadm cmd", 256);
 	cctx.conn_type = conn->conn.type;
 	cctx.input = req->input;
 	cctx.output = req->output;
@@ -255,6 +256,7 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 		doveadm_http_server_json_success(req, is);
 	}
 	i_stream_unref(&is);
+	pool_unref(&cctx.pool);
 }
 
 static int

@@ -265,6 +265,7 @@ int main(int argc, char *argv[])
 	int c;
 
 	i_zero(&cctx);
+	cctx.pool = pool_alloconly_create("doveadm cmd", 256);
 	cctx.conn_type = DOVEADM_CONNECTION_TYPE_CLI;
 
 	i_set_failure_exit_callback(failure_exit_callback);
@@ -371,6 +372,7 @@ int main(int argc, char *argv[])
 	}
 	if (cctx.referral != NULL)
 		i_fatal("Command requested referral: %s", cctx.referral);
+	pool_unref(&cctx.pool);
 
 	if (!quick_init) {
 		doveadm_mail_deinit();

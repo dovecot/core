@@ -330,6 +330,7 @@ static bool client_handle_command(struct client_connection_tcp *conn,
 	struct doveadm_cmd_context cctx;
 
 	i_zero(&cctx);
+	cctx.pool = pool_alloconly_create("doveadm cmd", 256);
 	cctx.conn_type = conn->conn.type;
 	cctx.input = conn->input;
 	cctx.output = conn->output;
@@ -337,7 +338,9 @@ static bool client_handle_command(struct client_connection_tcp *conn,
 	cctx.remote_ip = conn->conn.remote_ip;
 	cctx.local_port = conn->conn.local_port;
 	cctx.remote_port = conn->conn.remote_port;
-	return client_handle_command_ctx(conn, &cctx, args);
+	bool ret = client_handle_command_ctx(conn, &cctx, args);
+	pool_unref(&cctx.pool);
+	return ret;
 }
 
 static int

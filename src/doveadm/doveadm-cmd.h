@@ -71,6 +71,7 @@ struct doveadm_cmd_ver2 {
 struct doveadm_cmd_context {
 	const struct doveadm_cmd_ver2 *cmd; /* for help */
 
+	pool_t pool;
 	int argc;
 	const struct doveadm_cmd_param *argv;
 
