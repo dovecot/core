@@ -163,6 +163,7 @@ doveadm_cmd_server_post(struct client_connection_tcp *conn,
 	const char *str = NULL;
 
 	if (cctx->referral != NULL) {
+		i_assert(cctx->referral[0] != '\0');
 		o_stream_nsend_str(conn->output, t_strdup_printf(
 			"\n-REFERRAL %s\n", cctx->referral));
 		return;
