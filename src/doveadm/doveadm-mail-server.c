@@ -415,8 +415,8 @@ doveadm_cmd_redirect_relookup(struct doveadm_mail_server_cmd *servercmd,
 		ret = -1;
 	} else {
 		/* Send referral back to the TCP client */
-		cmd_ctx->cctx->referral = t_strdup_printf("%s@%s",
-			proxy_set.username, proxy_set.host);
+		cmd_ctx->cctx->referral = p_strdup_printf(cmd_ctx->cctx->pool,
+			"%s@%s", proxy_set.username, proxy_set.host);
 		ret = 0;
 	}
 	pool_unref(&auth_pool);
@@ -750,7 +750,7 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 		return -1;
 	}
 	if (referral != NULL) {
-		ctx->cctx->referral = referral;
+		ctx->cctx->referral = p_strdup(ctx->cctx->pool, referral);
 		return 1;
 	}
 	i_assert(proxy_set.host != NULL || socket_path != NULL);
