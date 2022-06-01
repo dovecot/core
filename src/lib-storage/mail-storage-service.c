@@ -1057,7 +1057,7 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 		set_input.remote_ip = input->remote_ip;
 	}
 	if (input == NULL) {
-		/* global settings read - don't create a cache for thi */
+		/* global settings read - don't create a cache for this */
 	} else if (ctx->set_cache == NULL) {
 		ctx->set_cache_module = p_strdup(ctx->pool, set_input.module);
 		ctx->set_cache_service = p_strdup(ctx->pool, set_input.service);
