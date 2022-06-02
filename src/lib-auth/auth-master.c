@@ -857,25 +857,14 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 
 	auth_master_event_create(conn, "auth cache flush: ");
 
-	struct event_passthrough *e =
-		event_create_passthrough(conn->event)->
-		set_name("auth_client_cache_flush_started");
-	e_debug(e->event(), "Started cache flush");
+	e_debug(conn->event, "Started cache flush");
 
 	(void)auth_master_run_cmd(conn, str_c(str));
 
-	if (ctx.failed) {
-		struct event_passthrough *e =
-			event_create_passthrough(conn->event)->
-			set_name("auth_client_cache_flush_finished");
-		e->add_str("error", "Cache flush failed");
-		e_debug(e->event(), "Cache flush failed");
-	} else {
-		struct event_passthrough *e =
-			event_create_passthrough(conn->event)->
-			set_name("auth_client_cache_flush_finished");
-		e_debug(e->event(), "Finished cache flush");
-	}
+	if (ctx.failed)
+		e_debug(conn->event, "Cache flush failed");
+	else
+		e_debug(conn->event, "Finished cache flush");
 	auth_master_event_finish(conn);
 
 	conn->reply_context = NULL;
