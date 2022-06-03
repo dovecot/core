@@ -13,7 +13,6 @@
 #  include <sys/utsname.h>
 #endif
 
-#ifdef HAVE_UNAME
 static struct utsname utsname_result;
 static bool utsname_set = FALSE;
 
@@ -33,7 +32,6 @@ static const char *imap_id_get_uname(const char *key)
 		return utsname_result.release;
 	return NULL;
 }
-#endif
 
 static const char *imap_id_get_default(const char *key)
 {
@@ -47,9 +45,7 @@ static const char *imap_id_get_default(const char *key)
 		return PACKAGE_WEBPAGE;
 	if (strcasecmp(key, "support-email") == 0)
 		return PACKAGE_BUGREPORT;
-#ifdef HAVE_UNAME
 	return imap_id_get_uname(key);
-#endif
 }
 
 static const char *

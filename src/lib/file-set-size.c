@@ -4,9 +4,6 @@
 #  include "config.h"
 #endif
 
-#ifdef HAVE_POSIX_FALLOCATE
-#  define _XOPEN_SOURCE 600 /* Required by glibc, breaks Solaris 9 */
-#endif
 #define _GNU_SOURCE /* for fallocate() */
 #include "lib.h"
 #include "file-set-size.h"

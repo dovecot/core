@@ -38,7 +38,6 @@ void restrict_process_count(rlim_t count ATTR_UNUSED)
 
 void restrict_fd_limit(rlim_t count)
 {
-#ifdef HAVE_SETRLIMIT
 	struct rlimit rlim;
 
 	rlim.rlim_cur = rlim.rlim_max = count;
@@ -46,7 +45,6 @@ void restrict_fd_limit(rlim_t count)
 		i_error("setrlimit(RLIMIT_NOFILE, %llu): %m",
 			(unsigned long long)count);
 	}
-#endif
 }
 
 int restrict_get_process_size(rlim_t *limit_r)

@@ -3,12 +3,6 @@
 #include "config.h"
 #undef HAVE_CONFIG_H
 
-/* Linux needs the _XOPEN_SOURCE define, but others don't. It needs to be
-   defined before unistd.h, so we need the above config.h include hack.. */
-#ifdef PREAD_WRAPPERS
-#  define _XOPEN_SOURCE 500 /* Linux */
-#endif
-
 #define IN_COMPAT_C
 #include "lib.h"
 
@@ -18,74 +12,6 @@
 #include <syslog.h>
 #include <time.h>
 #include <sys/time.h>
-
-#ifndef INADDR_NONE
-#  define INADDR_NONE INADDR_BROADCAST
-#endif
-
-#ifndef HAVE_INET_ATON
-int i_my_inet_aton(const char *cp, struct in_addr *inp)
-{
-	in_addr_t addr;
-
-	addr = inet_addr(cp);
-	if (addr == INADDR_NONE)
-		return 0;
-
-	inp->s_addr = addr;
-        return 1;
-}
-#endif
-
-#ifndef HAVE_VSYSLOG
-void i_my_vsyslog(int priority, const char *format, va_list args)
-{
-	T_BEGIN {
-		syslog(priority, "%s", t_strdup_vprintf(format, args));
-	} T_END;
-}
-#endif
-
-#ifndef HAVE_GETPAGESIZE
-int i_my_getpagesize(void)
-{
-#ifdef _SC_PAGESIZE
-	return sysconf(_SC_PAGESIZE);
-#else
-#  ifdef __GNUC__
-#    warning Guessing page size to be 4096
-#  endif
-	return 4096;
-#endif
-}
-#endif
-
-#ifndef HAVE_WRITEV
-ssize_t i_my_writev(int fd, const struct iovec *iov, int iov_len)
-{
-	size_t written;
-	ssize_t ret;
-	int i;
-
-	written = 0;
-	for (i = 0; i < iov_len; i++, iov++) {
-		ret = write(fd, iov->iov_base, iov->iov_len);
-		if (ret < 0)
-			return -1;
-
-		written += ret;
-		if ((size_t)ret != iov->iov_len)
-			break;
-	}
-
-	if (written > SSIZE_T_MAX) {
-		errno = ERANGE;
-		return -1;
-	}
-
-	return (ssize_t)written;
-}
-#endif
 
 #if !defined(HAVE_PREAD) || defined(PREAD_BROKEN)
 ssize_t i_my_pread(int fd, void *buf, size_t count, off_t offset)
@@ -142,45 +68,5 @@ ssize_t i_my_pread(int fd, void *buf, size_t count, off_t offset)
 ssize_t i_my_pwrite(int fd, const void *buf, size_t count, off_t offset)
 {
 	return pwrite(fd, buf, count, offset);
-}
-#endif
-
-#ifndef HAVE_SETEUID
-int i_my_seteuid(uid_t euid)
-{
-#ifdef HAVE_SETREUID
-	/* HP-UX at least doesn't have seteuid() but has setreuid() */
-	return setreuid(-1, euid);
-#else
-#  error Missing seteuid functionality
-#endif
-}
-#endif
-
-#ifndef HAVE_SETEGID
-int i_my_setegid(gid_t egid)
-{
-#ifdef HAVE_SETRESGID
-	/* HP-UX at least doesn't have setegid() but has setresgid() */
-	return setresgid(-1, egid, -1);
-#else
-#  error Missing setegid functionality
-#endif
-}
-#endif
-
-#ifndef HAVE_CLOCK_GETTIME
-int i_my_clock_gettime(int clk_id, struct timespec *tp)
-{
-	struct timeval tv;
-
-	i_assert(clk_id == CLOCK_REALTIME);
-
-	/* fallback to using microseconds */
-	if (gettimeofday(&tv, NULL) < 0)
-		return -1;
-	tp->tv_sec = tv.tv_sec;
-	tp->tv_nsec = tv.tv_usec * 1000;
-	return 0;
 }
 #endif

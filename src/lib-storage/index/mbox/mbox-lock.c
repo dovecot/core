@@ -69,12 +69,8 @@ static int mbox_lock_flock(struct mbox_lock_context *ctx, int lock_type,
 #else
 #  define mbox_lock_flock NULL
 #endif
-#ifdef HAVE_LOCKF
 static int mbox_lock_lockf(struct mbox_lock_context *ctx, int lock_type,
 			   time_t max_wait_time);
-#else
-#  define mbox_lock_lockf NULL
-#endif
 
 static struct mbox_lock_data lock_data[] = {
 	{ MBOX_LOCK_DOTLOCK, "dotlock", mbox_lock_dotlock },
@@ -527,7 +523,6 @@ static int mbox_lock_flock(struct mbox_lock_context *ctx, int lock_type,
 }
 #endif
 
-#ifdef HAVE_LOCKF
 static int mbox_lock_lockf(struct mbox_lock_context *ctx, int lock_type,
 			   time_t max_wait_time)
 {
@@ -588,7 +583,6 @@ static int mbox_lock_lockf(struct mbox_lock_context *ctx, int lock_type,
 	alarm(0);
 	return 1;
 }
-#endif
 
 static int mbox_lock_fcntl(struct mbox_lock_context *ctx, int lock_type,
 			   time_t max_wait_time)

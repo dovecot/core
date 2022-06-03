@@ -298,7 +298,6 @@ DC_DOVECOT_FUZZER
 DC_DOVECOT_CFLAGS
 
 DOVECOT_NSL
-DOVECOT_FDATASYNC
 DOVECOT_LIBCAP
 
 DOVECOT_RANDOM
@@ -306,10 +305,7 @@ DOVECOT_ARC4RANDOM
 
 AC_DEFINE(PACKAGE_WEBPAGE, "http://www.dovecot.org/", [Support URL])
 
-dnl * after -lsocket and -lnsl tests, inet_aton() may be in them
-AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
-               vsyslog writev pread uname \
-	       setrlimit setproctitle seteuid setreuid setegid setresgid \
+AC_CHECK_FUNCS(flock madvise pread setproctitle setresgid \
 	       getmntinfo setpriority quotactl getmntent kqueue kevent \
 	       backtrace_symbols walkcontext dirfd clearenv \
 	       malloc_usable_size glob fallocate posix_fadvise \
@@ -402,11 +398,6 @@ AC_DEFINE_UNQUOTED(SSIZE_T_MAX, $ssizet_max, [Maximum value of ssize_t])
 
 dnl we require inttypes.h for PRIu{8,16,32,64} macros
 AC_CHECK_HEADER(inttypes.h,,AC_MSG_ERROR([inttypes.h missing but required]))
-
-AC_CHECKTYPE2(socklen_t, [#include <sys/socket.h>])
-if test $i_cv_type_socklen_t = yes; then
-  AC_DEFINE(HAVE_SOCKLEN_T,, [Define to 'int' if you don't have socklen_t])
-fi
 
 AC_DEFINE_UNQUOTED(MEM_ALIGN_SIZE, $mem_align, [Required memory alignment])
 

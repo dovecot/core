@@ -1,6 +1,16 @@
 #ifndef LIB_H
 #define LIB_H
 
+#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
+#  define __BSD_VISIBLE
+#elif defined(__APPLE__)
+#  define _DARWIN_C_SOURCE
+#endif
+#define _BSD_SOURCE 1
+#define _DEFAULT_SOURCE 1
+#define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700
+
 /* default lib includes */
 #ifdef HAVE_CONFIG_H
 #  include "config.h"

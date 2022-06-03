@@ -66,10 +66,6 @@ typedef unsigned long long uoff_t;
 #  error uoff_t size not set
 #endif
 
-#ifndef HAVE_SOCKLEN_T
-typedef int socklen_t;
-#endif
-
 /* WORDS_BIGENDIAN needs to be undefined if not enabled */
 #if defined(WORDS_BIGENDIAN) && WORDS_BIGENDIAN == 0
 #  undef WORDS_BIGENDIAN
@@ -128,39 +124,10 @@ typedef int socklen_t;
 	((st1)->st_ctime == (st2)->st_ctime && \
 	 ST_NTIMES_EQUAL(ST_CTIME_NSEC(*(st1)), ST_CTIME_NSEC(*(st2))))
 
-#ifndef HAVE_INET_ATON
-#  include <sys/socket.h>
-#  include <netinet/in.h>
-#  include <arpa/inet.h>
-#  define inet_aton i_my_inet_aton
-int i_my_inet_aton(const char *cp, struct in_addr *inp);
-#endif
-
-#ifndef HAVE_VSYSLOG
-#  define vsyslog i_my_vsyslog
-void i_my_vsyslog(int priority, const char *format, va_list args);
-#endif
-
-#ifndef HAVE_GETPAGESIZE
-#  define getpagesize i_my_getpagesize
-int i_my_getpagesize(void);
-#endif
-
-#ifndef HAVE_FDATASYNC
-#  define fdatasync fsync
-#endif
-
 struct const_iovec {
 	const void *iov_base;
 	size_t iov_len;
 };
-
-#ifndef HAVE_STRUCT_IOVEC
-struct iovec {
-	void *iov_base;
-	size_t iov_len;
-};
-#endif
 
 /*
  *
@@ -183,12 +150,6 @@ struct iovec {
 #  endif
 #endif
 
-#ifndef HAVE_WRITEV
-#  define writev i_my_writev
-struct iovec;
-ssize_t i_my_writev(int fd, const struct iovec *iov, int iov_len);
-#endif
-
 /*
  *
  *
@@ -205,35 +166,6 @@ ssize_t i_my_writev(int fd, const struct iovec *iov, int iov_len);
 #  endif
 ssize_t i_my_pread(int fd, void *buf, size_t count, off_t offset);
 ssize_t i_my_pwrite(int fd, const void *buf, size_t count, off_t offset);
-#endif
-
-#ifndef HAVE_SETEUID
-#  define seteuid i_my_seteuid
-int i_my_seteuid(uid_t euid);
-#endif
-
-#ifndef HAVE_SETEGID
-#  define setegid i_my_setegid
-int i_my_setegid(gid_t egid);
-#endif
-
-/*
- *
- *
- *
- * this searches the rt-library for a clock_gettime() function
- * gnu99/gnu11 do not specific linking with -lrt
- * compiling this with strict c99/c11 requires linking with -lrt
- *
- *
- *
- */
-#ifndef HAVE_CLOCK_GETTIME
-#  include <time.h>
-#  undef CLOCK_REALTIME
-#  define CLOCK_REALTIME 1
-#  define clock_gettime i_my_clock_gettime
-int i_my_clock_gettime(int clk_id, struct timespec *tp);
 #endif
 
 /* ctype.h isn't safe with signed chars,

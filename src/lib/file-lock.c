@@ -178,11 +178,6 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 
 	switch (set->lock_method) {
 	case FILE_LOCK_METHOD_FCNTL: {
-#ifndef HAVE_FCNTL
-		*error_r = t_strdup_printf(
-			"Can't lock file %s: fcntl() locks not supported", path);
-		return -1;
-#else
 		struct flock fl;
 
 		fl.l_type = lock_type;
@@ -226,7 +221,6 @@ static int file_lock_do(int fd, const char *path, int lock_type,
 					       lock_type));
 		}
 		return -1;
-#endif
 	}
 	case FILE_LOCK_METHOD_FLOCK: {
 #ifndef HAVE_FLOCK
