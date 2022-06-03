@@ -22,6 +22,9 @@
 #ifdef HAVE_STDINT_H
 #  include <stdint.h> /* C99 int types, we mostly need uintmax_t */
 #endif
+#ifndef __cplusplus
+#  include <stdbool.h>
+#endif
 
 #include "compat.h"
 #include "macros.h"

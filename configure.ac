@@ -348,7 +348,6 @@ AC_CHECK_SIZEOF(void *)
 AC_CHECK_SIZEOF(long long)
 
 AC_SYS_LARGEFILE
-AC_CHECK_TYPES(_Bool)
 
 AC_CHECK_TYPE(uoff_t, [
   have_uoff_t=yes
