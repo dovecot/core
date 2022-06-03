@@ -236,8 +236,6 @@ static void test_file_cache_errors(void)
 {
 	test_begin("file_cache_errors");
 
-	size_t page_size = getpagesize();
-
 	test_assert(access(TEST_FILENAME, F_OK) == -1 && errno == ENOENT);
 	int fd = open(TEST_FILENAME, O_RDONLY);
 	struct file_cache *cache = file_cache_new_path(fd, TEST_FILENAME);
@@ -251,6 +249,8 @@ static void test_file_cache_errors(void)
 	test_assert(size == 0);
 	test_assert(map == NULL);
 
+#ifdef HAVE_RLIMIT_AS
+	size_t page_size = getpagesize();
 	/* temporarily set a small memory limit to make mmap attempt fail */
 	struct rlimit rl_cur;
 	test_assert(getrlimit(RLIMIT_AS, &rl_cur) == 0);
@@ -274,6 +274,7 @@ static void test_file_cache_errors(void)
 	test_expect_error_string(errstr);
 	test_assert(file_cache_set_size(cache, page_size*2) == -1);
 	test_assert(setrlimit(RLIMIT_AS, &rl_cur) == 0);
+#endif
 
 	file_cache_free(&cache);
 	i_close_fd(&fd);
