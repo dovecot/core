@@ -1,6 +1,18 @@
 #ifndef COMPAT_H
 #define COMPAT_H
 
+/*
+ *
+ *
+ *
+ * This block decides whether 32 or 64 bit pointers are used.
+ * Shallow research indicates, that ILP32 is used for x32 and arm64ilp32 modes
+ * but is it still necessary?
+ * https://en.wikipedia.org/wiki/64-bit_computing#64-bit_data_models
+ *
+ *
+ *
+ */
 /* _ILP32 and _LP64 are common but not universal, make sure that exactly one
    of them is defined. */
 #if !defined(_ILP32) && \
@@ -93,6 +105,15 @@ typedef int socklen_t;
 #  undef WORDS_BIGENDIAN
 #endif
 
+/*
+ *
+ *
+ *
+ * POSIX.1-2001
+ *
+ *
+ *
+ */
 #ifdef HAVE_SYS_SYSMACROS_H
 #  include <sys/sysmacros.h>
 #  ifdef HAVE_SYS_MKDEV_H
@@ -171,6 +192,15 @@ struct iovec {
 };
 #endif
 
+/*
+ *
+ *
+ *
+ * the following comment still holds in 2022 (Linux v5.17.6)
+ *
+ *
+ *
+ */
 /* IOV_MAX should be in limits.h nowadays. Linux still (2005) requires
    defining _XOPEN_SOURCE to get that value. UIO_MAXIOV works with it though,
    so use it instead. 16 is the lowest acceptable value for all OSes. */
@@ -189,6 +219,15 @@ struct iovec;
 ssize_t i_my_writev(int fd, const struct iovec *iov, int iov_len);
 #endif
 
+/*
+ *
+ *
+ *
+ * POSIX.1-2008 (for glibc>=2.12)
+ *
+ *
+ *
+ */
 #if !defined(HAVE_PREAD) || defined(PREAD_WRAPPERS) || defined(PREAD_BROKEN)
 #  ifndef IN_COMPAT_C
 #    define pread i_my_pread
@@ -219,6 +258,17 @@ char *i_my_basename(char *path);
 int i_my_vsnprintf(char *str, size_t size, const char *format, va_list ap);
 #endif
 
+/*
+ *
+ *
+ *
+ * this searches the rt-library for a clock_gettime() function
+ * gnu99/gnu11 do not specific linking with -lrt
+ * compiling this with strict c99/c11 requires linking with -lrt
+ *
+ *
+ *
+ */
 #ifndef HAVE_CLOCK_GETTIME
 #  include <time.h>
 #  undef CLOCK_REALTIME
