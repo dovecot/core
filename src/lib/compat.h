@@ -72,22 +72,6 @@ typedef unsigned long long uoff_t;
 #  error uoff_t size not set
 #endif
 
-#ifndef HAVE_UINTMAX_T
-#  if SIZEOF_LONG_LONG > 0
-typedef unsigned long long uintmax_t;
-#  else
-typedef unsigned long uintmax_t;
-#  endif
-#endif
-
-#ifndef HAVE_UINT_FAST32_T
-#  if SIZEOF_INT >= 4
-typedef unsigned int uint_fast32_t;
-#  else
-typedef unsigned long uint_fast32_t;
-#  endif
-#endif
-
 #ifndef HAVE_SOCKLEN_T
 typedef int socklen_t;
 #endif

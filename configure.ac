@@ -403,23 +403,6 @@ AC_DEFINE_UNQUOTED(SSIZE_T_MAX, $ssizet_max, [Maximum value of ssize_t])
 dnl we require inttypes.h for PRIu{8,16,32,64} macros
 AC_CHECK_HEADER(inttypes.h,,AC_MSG_ERROR([inttypes.h missing but required]))
 
-dnl some systems don't have stdint.h, but still have some of the types
-dnl defined elsewhere
-AC_CHECK_HEADER(stdint.h, [
-  stdint_include="#include <stdint.h>"
-])
-
-AC_CHECKTYPE2(uintmax_t, [$stdint_include])
-if test $i_cv_type_uintmax_t = yes; then
-  AC_DEFINE(HAVE_UINTMAX_T,, [Define if you have uintmax_t (C99 type)])
-fi
-
-dnl use separate check, eg. Solaris 8 has uintmax_t but not uint_fast32_t
-AC_CHECKTYPE2(uint_fast32_t, [$stdint_include])
-if test $i_cv_type_uint_fast32_t = yes; then
-  AC_DEFINE(HAVE_UINT_FAST32_T,, [Define if you have uint_fast32_t (C99 type)])
-fi
-
 AC_CHECKTYPE2(socklen_t, [#include <sys/socket.h>])
 if test $i_cv_type_socklen_t = yes; then
   AC_DEFINE(HAVE_SOCKLEN_T,, [Define to 'int' if you don't have socklen_t])

@@ -17,11 +17,8 @@
 #include <limits.h> /* INT_MAX, etc. */
 #include <errno.h> /* error checking is good */
 #include <sys/types.h> /* many other includes want this */
+#include <stdint.h> /* C99 int types, we mostly need uintmax_t */
 #include <inttypes.h> /* PRI* macros */
-
-#ifdef HAVE_STDINT_H
-#  include <stdint.h> /* C99 int types, we mostly need uintmax_t */
-#endif
 #ifndef __cplusplus
 #  include <stdbool.h>
 #endif
