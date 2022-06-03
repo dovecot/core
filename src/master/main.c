@@ -685,9 +685,7 @@ static void print_build_options(void)
 #ifdef HAVE_GNUTLS
 		" gnutls"
 #endif
-#ifdef HAVE_OPENSSL
 		" openssl"
-#endif
 	        " io_block_size=%u"
 #ifdef SQL_DRIVER_PLUGINS
 	"\nSQL driver plugins:"

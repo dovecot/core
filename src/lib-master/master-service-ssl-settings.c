@@ -39,11 +39,7 @@ static const struct setting_define master_service_ssl_setting_defines[] = {
 };
 
 static const struct master_service_ssl_settings master_service_ssl_default_settings = {
-#ifdef HAVE_SSL
 	.ssl = "yes:no:required",
-#else
-	.ssl = "no:yes:required",
-#endif
 	.ssl_ca = "",
 	.ssl_client_ca_file = "",
 	.ssl_client_ca_dir = "",
@@ -127,11 +123,6 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		/* disabled */
 		return TRUE;
 	}
-#ifndef HAVE_SSL
-	*error_r = t_strdup_printf("SSL support not compiled in but ssl=%s",
-				   set->ssl);
-	return FALSE;
-#else
 	/* we get called from many different tools, possibly with -O parameter,
 	   and few of those tools care about SSL settings. so don't check
 	   ssl_cert/ssl_key/etc validity here except in doveconf, because it
@@ -175,9 +166,7 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		return FALSE;
 	}
 #endif
-
 	return TRUE;
-#endif
 }
 /* </settings checks> */
 

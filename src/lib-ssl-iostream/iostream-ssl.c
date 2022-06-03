@@ -25,18 +25,14 @@ static const size_t ssl_iostream_settings_string_offsets[] = {
 };
 
 static bool ssl_module_loaded = FALSE;
-#ifdef HAVE_SSL
 static struct module *ssl_module = NULL;
-#endif
 static const struct iostream_ssl_vfuncs *ssl_vfuncs = NULL;
 
-#ifdef HAVE_SSL
 static void ssl_module_unload(void)
 {
 	ssl_iostream_context_cache_free();
 	module_dir_unload(&ssl_module);
 }
-#endif
 
 void iostream_ssl_module_init(const struct iostream_ssl_vfuncs *vfuncs)
 {
@@ -46,7 +42,6 @@ void iostream_ssl_module_init(const struct iostream_ssl_vfuncs *vfuncs)
 
 int ssl_module_load(const char **error_r)
 {
-#ifdef HAVE_SSL
 	const char *plugin_name = "ssl_iostream_openssl";
 	struct module_dir_load_settings mod_set;
 
@@ -72,10 +67,6 @@ int ssl_module_load(const char **error_r)
 	   atexit-callbacks. */
 	lib_atexit_priority(ssl_module_unload, LIB_ATEXIT_PRIORITY_LOW);
 	return 0;
-#else
-	*error_r = "SSL support not compiled in";
-	return -1;
-#endif
 }
 
 int io_stream_ssl_global_init(const struct ssl_iostream_settings *set,
