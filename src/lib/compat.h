@@ -29,12 +29,6 @@
 #  error "Must have one of _ILP32 and _LP64 defined"
 #endif
 
-/* well, this is obviously wrong since it assumes it's 64bit, but older
-   GCCs don't define it and we really want it. */
-#ifndef LLONG_MAX
-#  define LLONG_MAX 9223372036854775807LL
-#endif
-
 #if ((__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ > 3)) && \
 	defined(HAVE_TYPEOF)) && !defined(__cplusplus)
 #  define HAVE_TYPE_CHECKS
