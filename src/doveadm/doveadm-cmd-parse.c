@@ -418,7 +418,7 @@ doveadm_cmd_param_tostring(const struct doveadm_cmd_param *argv)
 	case CMD_PARAM_IP:
 		return net_ip2addr(&argv->value.v_ip);
 	case CMD_PARAM_INT64:
-		return t_strdup_printf("%ld", argv->value.v_int64);
+		return t_strdup_printf("%"PRId64, argv->value.v_int64);
 	case CMD_PARAM_STR: {
 		const char *item = argv->value.v_string;
 		size_t item_len = strlen(item);
