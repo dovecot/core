@@ -21,7 +21,7 @@ documentation_sources = documentation-main
 $(documentation_sources)/requirements.txt:
 	$(AM_V_GEN)wget -O - \
 		https://github.com/dovecot/documentation/archive/refs/heads/main.tar.gz | \
-	  tar xz
+	  gunzip | $(am__untar)
 
 venv: $(documentation_sources)/requirements.txt
 	$(AM_V_GEN)$(PYTHON) -m venv venv && \
