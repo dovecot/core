@@ -118,6 +118,7 @@ static void passwd_lookup(struct auth_request *auth_request,
 		e_error(authdb_event(auth_request),
 			"Failed to expand template: %s", error);
 		callback(USERDB_RESULT_INTERNAL_FAILURE, auth_request);
+		return;
 	}
 
 	callback(USERDB_RESULT_OK, auth_request);
