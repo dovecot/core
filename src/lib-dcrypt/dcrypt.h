@@ -90,7 +90,7 @@ struct dcrypt_raw_key {
 ARRAY_DEFINE_TYPE(dcrypt_raw_key, struct dcrypt_raw_key);
 
 /**
- * load and initialize dcrypt backend, use either openssl or gnutls
+ * load and initialize dcrypt backend, use either openssl or custom backend
  */
 bool dcrypt_initialize(const char *backend, const struct dcrypt_settings *set,
 		       const char **error_r);

@@ -189,28 +189,6 @@ AS_HELP_STRING([--with-libcap], [Build with libcap support (Dropping capabilitie
   TEST_WITH(libcap, $withval),
   want_libcap=auto)
 
-AC_ARG_WITH(ssl,
-AS_HELP_STRING([--with-ssl=gnutls|openssl], [Build with GNUTLS or OpenSSL (default)]),
-	if test x$withval = xno; then
-		want_gnutls=no
-		want_openssl=no
-	elif test x$withval = xgnutls; then
-		AC_ERROR([GNUTLS support is broken currently])
-		want_gnutls=yes
-		want_openssl=no
-	elif test x$withval = xopenssl; then
-		want_gnutls=no
-		want_openssl=yes
-	elif test x$withval = xyes; then
-		want_gnutls=no
-		want_openssl=yes
-	else
-		AC_ERROR([--with-ssl: Invalid value: $withval])
-	fi, [
-		want_gnutls=no
-		want_openssl=auto
-	])
-
 AC_ARG_WITH(ssldir,
 AS_HELP_STRING([--with-ssldir=DIR], [SSL base directory for certificates (/etc/ssl)]),
 	ssldir="$withval",
@@ -943,7 +921,7 @@ echo "Install prefix . : $prefix"
 echo "File offsets ... : ${offt_bits}bit"
 echo "I/O polling .... : $ioloop"
 echo "I/O notifys .... : $have_notify"
-echo "SSL ............ : $have_ssl"
+echo "SSL ............ : openssl"
 echo "GSSAPI ......... : $have_gssapi"
 echo "passdbs ........ :$passdb"
 if test "$not_passdb" != ""; then

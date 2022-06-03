@@ -201,9 +201,7 @@ struct dcrypt_vfs {
 void dcrypt_set_vfs(struct dcrypt_vfs *vfs);
 
 void dcrypt_openssl_init(struct module *module ATTR_UNUSED);
-void dcrypt_gnutls_init(struct module *module ATTR_UNUSED);
 void dcrypt_openssl_deinit(void);
-void dcrypt_gnutls_deinit(void);
 
 int parse_jwk_key(const char *key_data, struct json_tree **tree_r,
 		  const char **error_r);

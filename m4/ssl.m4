@@ -239,24 +239,4 @@ AC_DEFUN([DOVECOT_SSL], [
 
   AM_CONDITIONAL(BUILD_DCRYPT_OPENSSL, test "$build_dcrypt_openssl" = "yes")
   AM_CONDITIONAL([SSL_VERSION_GE_102], [test x$ssl_version_ge_102 = xtrue])
-
-  AS_IF([test $want_gnutls != no && test $have_ssl = no], [
-    AC_CHECK_LIB(gnutls, gnutls_global_init, [
-      AC_CHECK_HEADER(gnutls/gnutls.h, [
-        AC_DEFINE(HAVE_GNUTLS,, [Build with GNUTLS support])
-        SSL_LIBS="-lgnutls -lgcrypt"
-        AC_SUBST(SSL_LIBS)
-        have_ssl="yes (GNUTLS)"
-        have_gnutls=yes
-      ], [
-        AS_IF([test $want_gnutls = yes], [
-        AC_MSG_ERROR(Can't build with GNUTLS: gnutls/gnutls.h not found)
-        ])
-      ])
-    ], [
-      AS_IF([test $want_gnutls = yes], [
-        AC_MSG_ERROR(Can't build with GNUTLS: libgnutls not found)
-      ])
-    ], -lgcrypt)
-  ])
 ])
