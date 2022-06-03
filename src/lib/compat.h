@@ -247,12 +247,6 @@ int i_my_seteuid(uid_t euid);
 int i_my_setegid(gid_t egid);
 #endif
 
-#ifdef HAVE_OLD_VSNPRINTF
-#  include <stdio.h>
-#  define vsnprintf i_my_vsnprintf
-int i_my_vsnprintf(char *str, size_t size, const char *format, va_list ap);
-#endif
-
 /*
  *
  *

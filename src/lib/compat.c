@@ -169,55 +169,6 @@ int i_my_setegid(gid_t egid)
 }
 #endif
 
-#ifdef HAVE_OLD_VSNPRINTF
-#undef vsnprintf
-int i_my_vsnprintf(char *str, size_t size, const char *format, va_list ap)
-{
-	size_t tmp_size;
-	char *tmp;
-	int ret;
-
-	/* On overflow HP-UX returns -1, IRIX and Tru64 return size-1. */
-	ret = vsnprintf(str, size, format, ap);
-	if (ret >= 0 && (size_t)ret+1 != size)
-		return ret;
-
-	/* see if data stack has enough available space for it */
-	tmp_size = t_get_bytes_available();
-	if (tmp_size > size) {
-		tmp = t_buffer_get(tmp_size);
-		ret = vsnprintf(tmp, tmp_size, format, ap);
-		if (ret >= 0 && (size_t)ret+1 != tmp_size) {
-			if (size > 0) {
-				memcpy(str, tmp, size-1);
-				str[size-1] = '\0';
-			}
-			return ret;
-		}
-	} else {
-		tmp_size = size;
-	}
-
-	/* try to allocate enough memory to get it to fit. */
-	do {
-		tmp_size = nearest_power(tmp_size+1);
-		tmp = i_malloc(tmp_size);
-		ret = vsnprintf(tmp, tmp_size, format, ap);
-		if (ret >= 0 && (size_t)ret+1 != tmp_size) {
-			if (size > 0) {
-				memcpy(str, tmp, size-1);
-				str[size-1] = '\0';
-			}
-			i_free(tmp);
-			return ret;
-		}
-		i_free(tmp);
-	} while (tmp_size < 1024*1024);
-
-	i_panic("my_vsnprintf(): Output string too big");
-}
-#endif
-
 #ifndef HAVE_CLOCK_GETTIME
 int i_my_clock_gettime(int clk_id, struct timespec *tp)
 {
