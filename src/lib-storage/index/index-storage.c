@@ -923,7 +923,7 @@ int index_storage_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 		struct mail_index_transaction *t =
 			mail_index_transaction_begin(dest->view, 0);
 
-		uint32_t stamp = ioloop_time;
+		uint32_t stamp = ioloop_time32;
 
 		mail_index_update_header_ext(t, dest->box_last_rename_stamp_ext_id,
 					     0, &stamp, sizeof(stamp));

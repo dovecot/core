@@ -1747,7 +1747,7 @@ static bool director_connection_sync(struct director_connection *conn,
 	   causes unnecessary error logging and hosts-resending. */
 	if ((host == NULL || !host->self) &&
 	    dir->last_sync_sent_ring_change_counter != dir->ring_change_counter &&
-	    (time_t)dir->self_host->last_sync_timestamp != ioloop_time)
+	    dir->self_host->last_sync_timestamp != ioloop_time32)
 		(void)director_resend_sync(dir);
 	return TRUE;
 }

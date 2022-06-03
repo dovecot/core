@@ -422,7 +422,7 @@ bool director_resend_sync(struct director *dir)
 		}
 	} else if (dir->left != NULL) {
 		/* send a new SYNC in case the previous one got dropped */
-		dir->self_host->last_sync_timestamp = ioloop_time;
+		dir->self_host->last_sync_timestamp = ioloop_time32;
 		director_sync_send(dir, dir->self_host, dir->sync_seq,
 				   DIRECTOR_VERSION_MINOR, ioloop_time32,
 				   mail_hosts_hash(dir->mail_hosts));
@@ -1172,7 +1172,7 @@ void director_move_user(struct director *dir, struct director_host *src,
 		user->host->user_count--;
 		user->host = host;
 		user->host->user_count++;
-		user->timestamp = ioloop_time;
+		user->timestamp = ioloop_time32;
 		e_debug(dir->event, "User %u move started: host %s -> %s",
 			username_hash, old_host->ip_str,
 			host->ip_str);
