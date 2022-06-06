@@ -419,11 +419,14 @@ get_var_expand_table(struct master_service *service,
 		auth_domain = i_strchr_to_next(user->auth_user, '@');
 	}
 
+	const char *service_name = input->service != NULL ?
+				   input->service : service->name;
+
 	const struct var_expand_table stack_tab[] = {
 		{ 'u', input->username, "user" },
 		{ 'n', username, "username" },
 		{ 'd', domain, "domain" },
-		{ 's', service->name, "service" },
+		{ 's', service_name, "service" },
 		{ 'l', net_ip2addr(&input->local_ip), "lip" },
 		{ 'r', net_ip2addr(&input->remote_ip), "rip" },
 		{ 'p', my_pid, "pid" },
@@ -670,6 +673,9 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	struct mail_user *mail_user;
 	int ret;
 
+	const char *service_name = user->input.service != NULL ?
+				   user->input.service : ctx->service->name;
+
 	i_zero(&conn_data);
 	conn_data.local_ip = &user->input.local_ip;
 	conn_data.remote_ip = &user->input.remote_ip;
@@ -685,7 +691,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	mail_user->_service_user = user;
 	mail_storage_service_user_ref(user);
 	mail_user_set_home(mail_user, *home == '\0' ? NULL : home);
-	mail_user_set_vars(mail_user, ctx->service->name, &conn_data);
+	mail_user_set_vars(mail_user, service_name, &conn_data);
 	mail_user->uid = priv->uid == (uid_t)-1 ? geteuid() : priv->uid;
 	mail_user->gid = priv->gid == (gid_t)-1 ? getegid() : priv->gid;
 	mail_user->anonymous = user->anonymous;
