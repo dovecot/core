@@ -181,7 +181,7 @@ static void test_net_unix_long_paths(void)
 
 	test_begin("net_*_unix() - long paths");
 
-	char path[PATH_MAX];
+	char path[4096];
 	memset(path, 'x', sizeof(path)-1);
 	path[sizeof(path)-1] = '\0';
 
