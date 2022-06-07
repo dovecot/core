@@ -197,7 +197,7 @@ int dlua_script_init(struct dlua_script *script, const char **error_r)
 static int dlua_atpanic(lua_State *L)
 {
 	struct dlua_script *script = dlua_script_from_state(L);
-	const char *error = lua_tostring(script->L, -1);
+	const char *error = lua_tostring(L, -1);
 	i_panic("Lua script '%s': %s", script->filename, error);
 }
 
