@@ -395,7 +395,7 @@ db_oauth2_have_all_fields(struct db_oauth2_request *req)
 				ptr = ptr+idx;
 				field = t_strndup(ptr,size);
 				if (str_begins(field, "oauth2:") &&
-				    !auth_fields_exists(req->fields, ptr+7))
+				    !auth_fields_exists(req->fields, field+7))
 					return FALSE;
 				ptr = ptr+size;
 			}
