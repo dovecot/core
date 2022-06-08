@@ -53,6 +53,30 @@ static void test_indexer_queue(void)
 	test_end();
 }
 
+static void test_indexer_queue_repeated_prepend(void)
+{
+	struct indexer_queue *queue;
+	struct indexer_request *request;
+
+	test_begin("indexer queue");
+	queue = indexer_queue_init(indexer_queue_status_callback);
+
+	indexer_queue_append(queue, FALSE, "user1", "mailbox1", "session1", 0, NULL);
+	indexer_queue_append(queue, FALSE, "user1", "mailbox1", "session1", 0, NULL);
+
+	test_assert_cmp(indexer_queue_count(queue), ==, 1);
+
+	request = indexer_queue_request_peek(queue);
+	indexer_queue_request_remove(queue);
+	indexer_queue_request_finish(queue, &request, TRUE);
+
+	test_assert(indexer_queue_request_peek(queue) == NULL);
+
+	/* this used to assert crash before the fix */
+	indexer_queue_deinit(&queue);
+	test_end();
+}
+
 static void test_indexer_queue_reindex(void)
 {
 	struct indexer_queue *queue;
@@ -237,6 +261,7 @@ int main(void)
 {
 	static void (*const test_functions[])(void) = {
 		test_indexer_queue,
+		test_indexer_queue_repeated_prepend,
 		test_indexer_queue_reindex,
 		test_indexer_queue_cancel,
 		test_indexer_queue_iter,

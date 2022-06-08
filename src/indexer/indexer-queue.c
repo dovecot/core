@@ -129,6 +129,8 @@ indexer_queue_append_request(struct indexer_queue *queue, bool append,
 		}
 		/* move request to beginning of the queue */
 		DLLIST2_REMOVE(&queue->head, &queue->tail, request);
+		DLLIST2_PREPEND(&queue->head, &queue->tail, request);
+		return request;
 	}
 
 	if (!hash_table_lookup_full(queue->users, username,
