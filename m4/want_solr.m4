@@ -1,21 +1,21 @@
 AC_DEFUN([DOVECOT_WANT_SOLR], [
+  have_expat=no
   have_solr=no
-  if test "$want_solr" != "no"; then
-    dnl need libexpat
-    AC_CHECK_LIB(expat, XML_Parse, [
-      AC_CHECK_HEADER(expat.h, [
-        have_solr=yes
-        fts="$fts solr"
-      ], [
-        if test $want_solr = yes; then
-          AC_MSG_ERROR(cannot build with Solr support: expat.h not found)
-        fi
+
+  AS_IF([test "$want_solr" != "no"], [
+    PKG_CHECK_MODULES([EXPAT], [expat], [have_expat=yes], [
+      have_expat=no
+
+      AS_IF([test "$want_solr" = "yes"], [
+        AC_MSG_ERROR([cannot build with Solr support: expat library not found])
       ])
-    ], [
-      if test $want_solr = yes; then
-        AC_MSG_ERROR(cannot build with Solr support: libexpat not found)
-      fi
     ])
-  fi
+  ])
+
+  AS_IF([test "$have_expat" != "no"], [
+    have_solr=yes
+    fts="$fts solr"
+  ])
+
   AM_CONDITIONAL(BUILD_SOLR, test "$have_solr" = "yes")
 ])

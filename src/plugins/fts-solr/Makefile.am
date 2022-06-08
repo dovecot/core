@@ -20,7 +20,7 @@ endif
 
 lib21_fts_solr_plugin_la_LIBADD = \
 	$(fts_plugin_dep) \
-	-lexpat
+	$(EXPAT_LIBS)
 
 lib21_fts_solr_plugin_la_SOURCES = \
 	fts-backend-solr.c \
@@ -52,7 +52,7 @@ test_solr_response_SOURCES = \
 	solr-response.c \
 	test-solr-response.c
 test_solr_response_LDADD = \
-	$(test_libs) -lexpat
+	$(test_libs) $(EXPAT_LIBS)
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
