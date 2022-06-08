@@ -1,20 +1,18 @@
 AC_DEFUN([DOVECOT_WANT_SQLITE], [
-  if test $want_sqlite != no; then
-          AC_CHECK_LIB(sqlite3, sqlite3_open, [
-                  AC_CHECK_HEADER(sqlite3.h, [
-                          SQLITE_LIBS="$SQLITE_LIBS -lsqlite3"
-  
-                          AC_DEFINE(HAVE_SQLITE,, [Build with SQLite3 support])
-                          found_sql_drivers="$found_sql_drivers sqlite"
-                  ], [
-                    if test $want_sqlite = yes; then
-                      AC_MSG_ERROR(cannot build with SQLite support: sqlite3.h not found)
-                    fi
-                  ])
-          ], [
-            if test $want_sqlite = yes; then
-              AC_MSG_ERROR(cannot build with SQLite support: libsqlite3 not found)
-            fi
-          ])
-  fi
+  have_sqlite=no
+
+  AS_IF([test "$want_sqlite" != "no"], [
+    PKG_CHECK_MODULES([SQLITE], [sqlite3], [have_sqlite=yes], [
+      have_sqlite=no
+
+      AS_IF([test "$want_sqlite" = "yes"], [
+        AC_MSG_ERROR([cannot build with SQLite support: sqlite3 library not found])
+      ])
+    ])
+  ])
+
+  AS_IF([test "$have_sqlite" != "no"], [
+    found_sql_drivers="$found_sql_drivers sqlite"
+    AC_DEFINE(HAVE_SQLITE,, [Build with SQLite3 support])
+  ])
 ])
