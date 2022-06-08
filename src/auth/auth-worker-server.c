@@ -305,6 +305,7 @@ auth_worker_handle_passw(struct auth_worker_command *cmd,
 {
 	struct auth_worker_server *server = cmd->server;
 	struct auth_request *request;
+	struct auth_passdb *passdb;
 	string_t *str;
 	const char *password;
 	const char *crypted, *scheme, *error;
@@ -330,6 +331,25 @@ auth_worker_handle_passw(struct auth_worker_command *cmd,
 	}
 	request->mech_password =
 		p_strdup(request->pool, password);
+
+	passdb = request->passdb;
+	while (passdb != NULL && passdb->passdb->id != passdb_id)
+		passdb = passdb->next;
+
+	if (passdb == NULL) {
+		/* could be a masterdb */
+		passdb = auth_request_get_auth(request)->masterdbs;
+		while (passdb != NULL && passdb->passdb->id != passdb_id)
+			passdb = passdb->next;
+
+		if (passdb == NULL) {
+			*error_r = "BUG: PASSW had invalid passdb ID";
+			auth_request_unref(&request);
+			return FALSE;
+		}
+	}
+
+	request->passdb = passdb;
 
 	ret = auth_request_password_verify(request, password,
 					   crypted, scheme, "cache");
