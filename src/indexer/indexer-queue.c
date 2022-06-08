@@ -103,15 +103,7 @@ indexer_queue_append_request(struct indexer_queue *queue, bool append,
 	char *first_username;
 
 	request = indexer_queue_lookup(queue, username, mailbox);
-	if (request == NULL) {
-		request = i_new(struct indexer_request, 1);
-		request->username = i_strdup(username);
-		request->mailbox = i_strdup(mailbox);
-		request->session_id = i_strdup(session_id);
-		request->max_recent_msgs = max_recent_msgs;
-		request_add_context(request, context);
-		hash_table_insert(queue->requests, request, request);
-	} else {
+	if (request != NULL) {
 		if (request->max_recent_msgs > max_recent_msgs)
 			request->max_recent_msgs = max_recent_msgs;
 		request_add_context(request, context);
@@ -121,17 +113,25 @@ indexer_queue_append_request(struct indexer_queue *queue, bool append,
 				request->reindex_tail = TRUE;
 			else
 				request->reindex_head = TRUE;
-			return request;
+		} else {
+			if (append) {
+				/* keep the request in its old position */
+			} else {
+				/* move request to beginning of the queue */
+				DLLIST2_REMOVE(&queue->head, &queue->tail, request);
+				DLLIST2_PREPEND(&queue->head, &queue->tail, request);
+			}
 		}
-		if (append) {
-			/* keep the request in its old position */
-			return request;
-		}
-		/* move request to beginning of the queue */
-		DLLIST2_REMOVE(&queue->head, &queue->tail, request);
-		DLLIST2_PREPEND(&queue->head, &queue->tail, request);
 		return request;
 	}
+
+	request = i_new(struct indexer_request, 1);
+	request->username = i_strdup(username);
+	request->mailbox = i_strdup(mailbox);
+	request->session_id = i_strdup(session_id);
+	request->max_recent_msgs = max_recent_msgs;
+	request_add_context(request, context);
+	hash_table_insert(queue->requests, request, request);
 
 	if (!hash_table_lookup_full(queue->users, username,
 				    &first_username, &first_request)) {
