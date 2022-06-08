@@ -46,7 +46,7 @@ void indexer_queue_deinit(struct indexer_queue **queue);
 /* The callback is called whenever a new request is added to the queue. */
 void indexer_queue_set_listen_callback(struct indexer_queue *queue,
 				       void (*callback)(struct indexer_queue *));
-	
+
 void indexer_queue_append(struct indexer_queue *queue, bool append,
 			  const char *username, const char *mailbox,
 			  const char *session_id, unsigned int max_recent_msgs,

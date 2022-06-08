@@ -42,7 +42,7 @@ struct indexer_queue *
 indexer_queue_init(indexer_queue_callback_t *callback)
 {
 	struct indexer_queue *queue;
-	
+
 	queue = i_new(struct indexer_queue, 1);
 	queue->callback = callback;
 	hash_table_create(&queue->requests, default_pool, 0,
