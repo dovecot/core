@@ -58,8 +58,8 @@ void indexer_queue_deinit(struct indexer_queue **_queue)
 	*_queue = NULL;
 
 	i_assert(indexer_queue_is_empty(queue));
-	i_assert(hash_table_count(queue->users) == 0);
 	i_assert(hash_table_count(queue->requests) == 0);
+	i_assert(hash_table_count(queue->users) == 0);
 
 	hash_table_destroy(&queue->users);
 	hash_table_destroy(&queue->requests);
