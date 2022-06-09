@@ -3,9 +3,14 @@ AC_DEFUN([DOVECOT_WANT_MYSQL], [
   have_mariadb=no
 
   dnl Check mysql driver to use:
-  dnl - use mysqlclient library by default, fall back to mariadb (in which
-  dnl   case print a message that mariadb is used),
-  dnl - if neither can be found print error.
+  dnl - use mysqlclient library by default, this might be libmariadb in
+  dnl   which case the library and headers are wrappers and can be used by
+  dnl   the "incorrect" name of mysql,
+  dnl - use libmariadb as a fallback and print a message that this
+  dnl   alternative is used for transparency reasons,
+  dnl - if neither can be found check manually, (which is currently necessary
+  dnl   on CentOS7),
+  dnl - if all else fails, print error and exit.
   mysql_driver=""
   AS_IF([test "$want_mysql" != "no"], [
     PKG_CHECK_MODULES([MYSQL], [mysqlclient], [have_mysql=yes], [have_mysql=no])
@@ -22,6 +27,43 @@ AC_DEFUN([DOVECOT_WANT_MYSQL], [
         mysql_driver="libmariadb"
         MYSQL_LIBS="$MARIADB_LIBS"
         MYSQL_CFLAGS="$MARIADB_CFLAGS"
+      ])
+    ])
+
+    dnl Obsolete manual check for library/header location, currently
+    dnl only necessary for CentOS7.
+    dnl TODO: Make sure to remove this next block as soon as this is not
+    dnl       officially supported anymore.
+    dnl Based on code from PHP.
+    AS_IF([test "$have_mysql" = "no"], [
+      AC_MSG_CHECKING([for libmysqlclient library in expected file paths])
+
+      AC_SUBST(MYSQL_CFLAGS)
+      AC_SUBST(MYSQL_LIBS)
+      for i in /usr /usr/local /usr/local/mysql; do
+        for j in include include/mysql ""; do
+          if test -r "$i/$j/mysql.h"; then
+            MYSQL_INCLUDE="-I$i/$j"
+          fi
+        done
+        for j in lib lib/mysql lib64 lib64/mysql ""; do
+          if test -f "$i/$j/libmysqlclient.so" || test -f "$i/$j/libmysqlclient.a"; then
+            MYSQL_LIBS="-L$i/$j -lmysqlclient"
+          fi
+        done
+      done
+
+      AS_IF([test "$MYSQL_INCLUDE" != "" && test "$MYSQL_LIBS" != ""], [
+        AC_MSG_RESULT([using MYSQL_CFLAGS="$MYSQL_CFLAGS" and MYSQL_LIBS="$MYSQL_LIBS"])
+
+        AC_CHECK_LIB(mysqlclient, mysql_init, [
+          have_mysql=yes
+
+          MYSQL_CFLAGS="$MYSQL_CFLAGS $MYSQL_INCLUDE"
+        ],, $MYSQL_LIBS)
+      ], [
+        AC_MSG_RESULT([none found])
+      ])
     ])
 
     AS_IF([test "$want_mysql" = "yes" && test "$have_mysql" = no], [
