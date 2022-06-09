@@ -1,14 +1,19 @@
 AC_DEFUN([DOVECOT_WANT_ZLIB], [
-  if test "$want_zlib" != "no"; then
-    AC_CHECK_HEADER(zlib.h, [
-      have_zlib=yes
-      have_compress_lib=yes
-      AC_DEFINE(HAVE_ZLIB,, [Define if you have zlib library])
-      COMPRESS_LIBS="$COMPRESS_LIBS -lz"
-    ], [
-      if test "$want_zlib" = "yes"; then
-        AC_MSG_ERROR(cannot build with zlib support: zlib.h not found)
-      fi
+  have_zlib=no
+
+  AS_IF([test "$want_zlib" != "no"], [
+    PKG_CHECK_MODULES([ZLIB], [zlib], [have_zlib=yes], [
+      have_zlib=no
+
+      AS_IF([test "$want_zlib" = "yes"], [
+        AC_MSG_ERROR([cannot build with zlib support: zlib library not found])
+      ])
     ])
-  fi
+  ])
+
+  AS_IF([test "$have_zlib" != "no"], [
+    have_compress_lib=yes
+    COMPRESS_LIBS="$COMPRESS_LIBS $ZLIB_LIBS"
+    AC_DEFINE(HAVE_ZLIB,, [Define if you have zlib library])
+  ])
 ])
