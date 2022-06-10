@@ -25,7 +25,7 @@ $(documentation_sources)/requirements.txt:
 
 venv: $(documentation_sources)/requirements.txt
 	$(AM_V_GEN)$(PYTHON) -m venv venv && \
-		venv/bin/pip install -r $<
+		venv/bin/pip install -r "$(documentation_sources)/requirements.txt"
 
 html: venv
 	$(AM_V_GEN)venv/bin/python -msphinx -b html $(documentation_sources)/source html
