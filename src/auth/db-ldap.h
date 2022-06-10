@@ -2,8 +2,9 @@
 #define DB_LDAP_H
 
 /* Functions like ldap_bind() have been deprecated in OpenLDAP 2.3
-   This define enables them until the code here can be refactored */
-#define LDAP_DEPRECATED 1
+   This define enables them until the code here can be refactored
+   It is now set in m4/want_ldap.m4 if ldap is enabled. */
+/* #define LDAP_DEPRECATED 1 */
 
 /* Maximum number of pending requests before delaying new requests. */
 #define DB_LDAP_MAX_PENDING_REQUESTS 8
