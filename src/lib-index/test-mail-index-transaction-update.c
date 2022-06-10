@@ -6,6 +6,7 @@
 #include "test-common.h"
 #include "mail-index-private.h"
 #include "mail-index-transaction-private.h"
+#include "utc-offset.h"
 
 #include <time.h>
 
@@ -630,7 +631,9 @@ static void test_mail_index_update_day_first_uid(void)
 
 	/* daylight savings times were confusing these tests, so we'll now
 	   just assume that TZ=UTC */
-	test_assert(timezone == 0);
+	time_t now = time(NULL);
+	struct tm *local_time = localtime(&now);
+	test_assert(utc_offset(local_time, now) == 0);
 
 	hdr.messages_count = 10;
 	t = mail_index_transaction_new();
