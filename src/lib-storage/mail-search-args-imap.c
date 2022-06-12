@@ -284,7 +284,7 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 			return FALSE;
 		break;
 	case SEARCH_GUID:
-		str_append(dest, "X-GUID ");
+		str_append(dest, "EMAILID ");
 		imap_append_astring(dest, arg->value.str);
 		break;
 	case SEARCH_MAILBOX:
