@@ -6,8 +6,6 @@
 #include "dlua-script-private.h"
 #include "dict-lua.h"
 
-#include <libgen.h>
-
 #define LUA_SCRIPT_DOVECOT "dovecot"
 #define DLUA_EVENT_PASSTHROUGH "struct event_passthrough"
 #define DLUA_EVENT "struct event"

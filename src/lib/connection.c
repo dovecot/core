@@ -15,7 +15,6 @@
 #include "connection.h"
 
 #include <unistd.h>
-#include <libgen.h>
 
 static void connection_handshake_ready(struct connection *conn)
 {
