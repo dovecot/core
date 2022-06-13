@@ -1,3 +1,11 @@
+v2.3.19.1 2022-06-14  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	- doveadm deduplicate: Non-duplicate mails were deleted.
+	  v2.3.19 regression.
+	- auth: Crash would occur when iterating multiple backends.
+	  Fixes: Panic: file userdb-blocking.c:
+	  line 125 (userdb_blocking_iter_next): assertion failed: (ctx->conn != NULL)
+
 v2.3.19 2022-05-10  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	+ Added mail_user_session_finished event, which is emitted when the mail
