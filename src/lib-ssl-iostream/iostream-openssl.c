@@ -171,7 +171,6 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 			return -1;
 		}
 	}
-#ifdef HAVE_SSL_CTX_SET1_CURVES_LIST
 	if (set->curve_list != NULL && strlen(set->curve_list) > 0 &&
 		(ctx_set->curve_list == NULL || strcmp(ctx_set->curve_list, set->curve_list) != 0)) {
 		if (SSL_set1_curves_list(ssl_io->ssl, set->curve_list) == 0) {
@@ -181,7 +180,6 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 			return -1;
 		}
 	}
-#endif
 #ifdef HAVE_SSL_CTX_SET_CIPHERSUITES
         if (set->ciphersuites != NULL &&
 	    strcmp(ctx_set->ciphersuites, set->ciphersuites) != 0) {
@@ -306,9 +304,7 @@ openssl_iostream_create(struct ssl_iostream_context *ctx, const char *host,
 	/* bio_int will be freed by SSL_free() */
 	SSL_set_bio(ssl_io->ssl, bio_int, bio_int);
         SSL_set_ex_data(ssl_io->ssl, dovecot_ssl_extdata_index, ssl_io);
-#ifdef HAVE_SSL_GET_SERVERNAME
 	SSL_set_tlsext_host_name(ssl_io->ssl, host);
-#endif
 
 	if (openssl_iostream_set(ssl_io, set, error_r) < 0) {
 		openssl_iostream_free(ssl_io);
@@ -816,7 +812,7 @@ static const char *openssl_iostream_get_server_name(struct ssl_iostream *ssl_io)
 static const char *
 openssl_iostream_get_compression(struct ssl_iostream *ssl_io)
 {
-#if defined(HAVE_SSL_COMPRESSION) && !defined(OPENSSL_NO_COMP)
+#if !defined(OPENSSL_NO_COMP)
 	const COMP_METHOD *comp;
 
 	comp = SSL_get_current_compression(ssl_io->ssl);
@@ -830,7 +826,7 @@ static const char *
 openssl_iostream_get_security_string(struct ssl_iostream *ssl_io)
 {
 	const SSL_CIPHER *cipher;
-#if defined(HAVE_SSL_COMPRESSION) && !defined(OPENSSL_NO_COMP)
+#if !defined(OPENSSL_NO_COMP)
 	const COMP_METHOD *comp;
 #endif
 	const char *comp_str;
@@ -841,7 +837,7 @@ openssl_iostream_get_security_string(struct ssl_iostream *ssl_io)
 
 	cipher = SSL_get_current_cipher(ssl_io->ssl);
 	bits = SSL_CIPHER_get_bits(cipher, &alg_bits);
-#if defined(HAVE_SSL_COMPRESSION) && !defined(OPENSSL_NO_COMP)
+#if !defined(OPENSSL_NO_COMP)
 	comp = SSL_get_current_compression(ssl_io->ssl);
 	comp_str = comp == NULL ? "" :
 		t_strconcat(" ", SSL_COMP_get_name(comp), NULL);

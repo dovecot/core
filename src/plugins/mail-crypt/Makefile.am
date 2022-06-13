@@ -14,12 +14,6 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/doveadm \
 	-I$(top_srcdir)/src/plugins/acl
 
-if SSL_VERSION_GE_102
-test_options =
-else !SSL_VERSION_GE_102
-test_options = NOUNDEF=1
-endif !SSL_VERSION_GE_102
-
 doveadm_moduledir = $(moduledir)/doveadm
 
 NOPLUGIN_LDFLAGS =
@@ -126,7 +120,7 @@ noinst_HEADERS = \
 
 check-local:
 	for bin in $(test_programs); do \
-	  if ! env $(test_options) $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
 	done
 
 noinst_PROGRAMS = $(test_programs)

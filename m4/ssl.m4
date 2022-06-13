@@ -79,25 +79,6 @@ AC_DEFUN([DOVECOT_SSL], [
     AC_DEFINE(HAVE_SSL_NEW_MEM_FUNCS,, [Define if CRYPTO_set_mem_functions has new style parameters])
   ])
 
-  dnl * SSL_CTX_set1_curves_list is a macro so plain AC_CHECK_LIB fails here.
-  AC_CACHE_CHECK([whether SSL_CTX_set1_curves_list exists],i_cv_have_ssl_ctx_set1_curves_list,[
-    old_LIBS=$LIBS
-    LIBS="$LIBS -lssl"
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-      #include <openssl/ssl.h>
-    ]], [[
-      SSL_CTX_set1_curves_list((void*)0, "");
-    ]])],[
-      i_cv_have_ssl_ctx_set1_curves_list=yes
-    ],[
-      i_cv_have_ssl_ctx_set1_curves_list=no
-    ])
-    LIBS=$old_LIBS
-  ])
-  AS_IF([test $i_cv_have_ssl_ctx_set1_curves_list = yes], [
-    AC_DEFINE(HAVE_SSL_CTX_SET1_CURVES_LIST,, [Define if you have SSL_CTX_set1_curves_list])
-  ])
-
   dnl * SSL_CTX_set_min_proto_version is also a macro so AC_CHECK_LIB fails here.
   AC_CACHE_CHECK([whether SSL_CTX_set_min_proto_version exists],i_cv_have_ssl_ctx_set_min_proto_version,[
     old_LIBS=$LIBS
@@ -115,25 +96,6 @@ AC_DEFUN([DOVECOT_SSL], [
   ])
   AS_IF([test $i_cv_have_ssl_ctx_set_min_proto_version = yes], [
     AC_DEFINE(HAVE_SSL_CTX_SET_MIN_PROTO_VERSION,, [Define if you have SSL_CTX_set_min_proto_version])
-  ])
-
-  dnl * SSL_CTX_add0_chain_cert is also a macro so AC_CHECK_LIB fails here.
-  AC_CACHE_CHECK([whether SSL_CTX_add0_chain_cert exists],i_cv_have_ssl_ctx_add0_chain_cert,[
-    old_LIBS=$LIBS
-    LIBS="$LIBS -lssl"
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-      #include <openssl/ssl.h>
-    ]], [[
-      SSL_CTX_add0_chain_cert((void*)0, 0);
-    ]])],[
-      i_cv_have_ssl_ctx_add0_chain_cert=yes
-    ],[
-      i_cv_have_ssl_ctx_add0_chain_cert=no
-    ])
-    LIBS=$old_LIBS
-  ])
-  AS_IF([test $i_cv_have_ssl_ctx_add0_chain_cert = yes], [
-    AC_DEFINE(HAVE_SSL_CTX_ADD0_CHAIN_CERT,, [Define if you have SSL_CTX_add0_chain_cert])
   ])
 
   dnl * SSL_CTX_set_current_cert is also a macro so AC_CHECK_LIB fails here.
@@ -168,18 +130,6 @@ AC_DEFUN([DOVECOT_SSL], [
   ],, $SSL_LIBS)
   AC_CHECK_LIB(ssl, OPENSSL_cleanup, [
     AC_DEFINE(HAVE_OPENSSL_CLEANUP,, [OpenSSL supports OPENSSL_cleanup()])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, SSL_get_current_compression, [
-    AC_DEFINE(HAVE_SSL_COMPRESSION,, [Build with OpenSSL compression])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, SSL_get_servername, [
-    AC_DEFINE(HAVE_SSL_GET_SERVERNAME,, [Build with TLS hostname support])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, SSL_COMP_free_compression_methods, [
-    AC_DEFINE(HAVE_SSL_COMP_FREE_COMPRESSION_METHODS,, [Build with SSL_COMP_free_compression_methods() support])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, RSA_generate_key_ex, [
-    AC_DEFINE(HAVE_RSA_GENERATE_KEY_EX,, [Build with RSA_generate_key_ex() support])
   ],, $SSL_LIBS)
   AC_CHECK_LIB(ssl, ASN1_STRING_get0_data, [
     AC_DEFINE(HAVE_ASN1_STRING_GET0_DATA,, [Build with ASN1_STRING_get0_data() support])
@@ -220,23 +170,4 @@ AC_DEFUN([DOVECOT_SSL], [
   AC_CHECK_LIB(ssl, EC_GROUP_order_bits, [
     AC_DEFINE(HAVE_EC_GROUP_order_bits,, [Build with EC_GROUP_order_bits support])
   ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, X509_check_host, [
-    AC_DEFINE(HAVE_X509_CHECK_HOST,, [OpenSSL supports X509_check_host()])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, X509_check_ip, [
-    AC_DEFINE(HAVE_X509_CHECK_IP,, [OpenSSL supports X509_check_ip()])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, X509_check_ip_asc, [
-    AC_DEFINE(HAVE_X509_CHECK_IP_ASC,, [OpenSSL supports X509_check_ip_asc()])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, [EVP_PKEY_CTX_new_id], [have_evp_pkey_ctx_new_id="yes"],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, [EC_KEY_new], [have_ec_key_new="yes"],, $SSL_LIBS)
-  AS_IF([test "$have_evp_pkey_ctx_new_id" = "yes" && test "$have_ec_key_new" = "yes"], [
-    build_dcrypt_openssl="yes"
-  ], [
-    AC_MSG_WARN([No ECC support in OpenSSL - not enabling dcrypt])
-  ])
-
-  AM_CONDITIONAL(BUILD_DCRYPT_OPENSSL, test "$build_dcrypt_openssl" = "yes")
-  AM_CONDITIONAL([SSL_VERSION_GE_102], [test x$ssl_version_ge_102 = xtrue])
 ])

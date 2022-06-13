@@ -82,7 +82,7 @@ bool dovecot_openssl_common_global_unref(void)
 	/* OBJ_cleanup() is called automatically by EVP_cleanup() in
 	   newer versions. Doesn't hurt to call it anyway. */
 	OBJ_cleanup();
-#ifdef HAVE_SSL_COMP_FREE_COMPRESSION_METHODS
+#if !defined(OPENSSL_NO_COMP)
 	SSL_COMP_free_compression_methods();
 #endif
 	ENGINE_cleanup();

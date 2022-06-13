@@ -159,13 +159,6 @@ master_service_ssl_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 		}
 	}
 
-#ifndef HAVE_SSL_CTX_SET1_CURVES_LIST
-	if (*set->ssl_curve_list != '\0') {
-		*error_r = "ssl_curve_list is set, but the linked openssl "
-			   "version does not support it";
-		return FALSE;
-	}
-#endif
 	return TRUE;
 }
 /* </settings checks> */
