@@ -159,7 +159,7 @@ struct const_iovec {
  *
  *
  */
-#if !defined(HAVE_PREAD) || defined(PREAD_WRAPPERS)
+#if !defined(HAVE_PREAD)
 #  ifndef IN_COMPAT_C
 #    define pread i_my_pread
 #    define pwrite i_my_pwrite

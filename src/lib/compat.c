@@ -56,18 +56,4 @@ ssize_t i_my_pwrite(int fd, const void *buf, size_t count, off_t offset)
 		return -1;
 	return ret;
 }
-#elif defined(PREAD_WRAPPERS)
-
-ssize_t i_my_pread(int fd, void *buf, size_t count, off_t offset)
-{
-	ssize_t ret;
-
-	ret = pread(fd, buf, count, offset);
-	return ret;
-}
-
-ssize_t i_my_pwrite(int fd, const void *buf, size_t count, off_t offset)
-{
-	return pwrite(fd, buf, count, offset);
-}
 #endif

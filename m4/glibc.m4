@@ -1,19 +1,4 @@
 AC_DEFUN([DOVECOT_GLIBC], [
-  AC_CACHE_CHECK([whether we have glibc],i_cv_have_glibc,[
-    AC_EGREP_CPP([we have glibc], [
-      #include <features.h>
-      #ifdef __GNU_LIBRARY__
-        we have glibc
-      #endif
-    ], [
-      i_cv_have_glibc=yes
-    ], [
-      i_cv_have_glibc=no
-    ])
-  ])
-  AS_IF([test "$i_cv_have_glibc" = "yes"], [
-    AC_DEFINE(PREAD_WRAPPERS,, [Define if pread/pwrite needs _XOPEN_SOURCE 500])
-  ])
   dnl * Old glibcs have broken posix_fallocate(). Make sure not to use it.
   dnl * It may also be broken in AIX.
   AC_CACHE_CHECK([whether posix_fallocate() works],i_cv_posix_fallocate_works,[
