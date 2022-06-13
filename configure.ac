@@ -324,13 +324,6 @@ DOVECOT_GLIBC
 dnl * OS specific options
 DC_PLUGIN_DEPS
 case "$host_os" in
-	hpux*)
-		CFLAGS="$CFLAGS -D_XOPEN_SOURCE -D_XOPEN_SOURCE_EXTENDED"
-		# for getting fd_send/fd_recv working:
-		LDFLAGS="$LDFLAGS -Wl,+b,:"
-		LIBS="-lxnet $LIBS"
-		AC_DEFINE(PREAD_BROKEN,, [Define if pread/pwrite implementation is broken])
-		;;
 	linux*|darwin*)
 		AC_DEFINE(PROCTITLE_HACK,, [Define if process title can be changed by modifying argv])
 		;;

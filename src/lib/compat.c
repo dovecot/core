@@ -13,7 +13,8 @@
 #include <time.h>
 #include <sys/time.h>
 
-#if !defined(HAVE_PREAD) || defined(PREAD_BROKEN)
+
+#if !defined(HAVE_PREAD)
 ssize_t i_my_pread(int fd, void *buf, size_t count, off_t offset)
 {
 	ssize_t ret;
