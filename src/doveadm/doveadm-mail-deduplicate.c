@@ -61,8 +61,10 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 		if (key != NULL && *key != '\0') {
 			if (hash_table_lookup(hash, key) != NULL)
 				mail_expunge(mail);
-			else
+			else {
+				key = p_strdup(pool, key);
 				hash_table_insert(hash, key, POINTER_CAST(1));
+			}
 		}
 	}
 
