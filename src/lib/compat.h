@@ -71,26 +71,10 @@ typedef unsigned long long uoff_t;
 #  undef WORDS_BIGENDIAN
 #endif
 
-/*
- *
- *
- *
- * POSIX.1-2001
- *
- *
- *
- */
 #ifdef HAVE_SYS_SYSMACROS_H
 #  include <sys/sysmacros.h>
-#  ifdef HAVE_SYS_MKDEV_H
-#    include <sys/mkdev.h> /* UnixWare */
-#  endif
-#  define CMP_DEV_T(a, b) (major(a) == major(b) && minor(a) == minor(b))
-#elif !defined (DEV_T_STRUCT)
-#  define CMP_DEV_T(a, b) ((a) == (b))
-#else
-#  error I do not know how to compare dev_t
 #endif
+#define CMP_DEV_T(a, b) (major(a) == major(b) && minor(a) == minor(b))
 
 #ifdef HAVE_STAT_XTIM
 #  define HAVE_ST_NSECS
