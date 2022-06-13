@@ -8,6 +8,8 @@
 struct save_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 	const char *mailbox;
+	const char *guid;
+	uint32_t uid;
 };
 
 static int
@@ -39,6 +41,10 @@ cmd_save_to_mailbox(struct save_cmd_context *ctx, struct mailbox *box,
 	trans = mailbox_transaction_begin(box, MAILBOX_TRANSACTION_FLAG_EXTERNAL |
 					  ctx->ctx.transaction_flags, __func__);
 	save_ctx = mailbox_save_alloc(trans);
+	if (ctx->uid != 0)
+		mailbox_save_set_uid(save_ctx, ctx->uid);
+	if (ctx->guid != NULL)
+		mailbox_save_set_guid(save_ctx, ctx->guid);
 	if (mailbox_save_begin(&save_ctx, input) < 0) {
 		e_error(ctx->ctx.cctx->event, "Saving failed: %s",
 			mailbox_get_last_internal_error(box, NULL));
@@ -106,6 +112,8 @@ static void cmd_save_init(struct doveadm_mail_cmd_context *_ctx)
 		container_of(_ctx, struct save_cmd_context, ctx);
 
 	(void)doveadm_cmd_param_str(cctx, "mailbox", &ctx->mailbox);
+	(void)doveadm_cmd_param_uint32(cctx, "uid", &ctx->uid);
+	(void)doveadm_cmd_param_str(cctx, "guid", &ctx->guid);
 	doveadm_mail_get_input(_ctx);
 }
 
@@ -127,6 +135,8 @@ struct doveadm_cmd_ver2 doveadm_cmd_save_ver2 = {
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_MAIL_COMMON
 DOVEADM_CMD_PARAM('m', "mailbox", CMD_PARAM_STR, 0)
+DOVEADM_CMD_PARAM('U', "uid", CMD_PARAM_INT64, CMD_PARAM_FLAG_UNSIGNED)
+DOVEADM_CMD_PARAM('g', "guid", CMD_PARAM_STR, 0)
 DOVEADM_CMD_PARAM('\0', "file", CMD_PARAM_ISTREAM, CMD_PARAM_FLAG_POSITIONAL)
 DOVEADM_CMD_PARAMS_END
 };
