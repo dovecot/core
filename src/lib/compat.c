@@ -169,18 +169,6 @@ int i_my_setegid(gid_t egid)
 }
 #endif
 
-#ifndef HAVE_LIBGEN_H
-char *i_my_basename(char *path)
-{
-	char *p;
-
-	/* note that this isn't POSIX-compliant basename() replacement.
-	   too much trouble without any gain. */
-	p = strrchr(path, '/');
-	return p == NULL ? path : p + 1;
-}
-#endif
-
 #ifdef HAVE_OLD_VSNPRINTF
 #undef vsnprintf
 int i_my_vsnprintf(char *str, size_t size, const char *format, va_list ap)

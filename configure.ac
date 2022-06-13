@@ -283,7 +283,7 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([
 ])], [], AC_MSG_ERROR([Version macros broken]))
 
 AC_CHECK_HEADERS(strings.h stdint.h unistd.h dirent.h malloc.h \
-  sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h libgen.h \
+  sys/uio.h sys/sysmacros.h sys/resource.h sys/select.h \
   sys/quota.h sys/fs/ufs_quota.h ufs/ufs/quota.h jfs/quota.h \
   quota.h sys/fs/quota_common.h \
   mntent.h sys/mnttab.h sys/event.h sys/time.h sys/mkdev.h linux/dqblk_xfs.h \

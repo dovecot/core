@@ -247,11 +247,6 @@ int i_my_seteuid(uid_t euid);
 int i_my_setegid(gid_t egid);
 #endif
 
-#ifndef HAVE_LIBGEN_H
-#  define basename i_my_basename
-char *i_my_basename(char *path);
-#endif
-
 #ifdef HAVE_OLD_VSNPRINTF
 #  include <stdio.h>
 #  define vsnprintf i_my_vsnprintf
