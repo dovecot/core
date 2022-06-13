@@ -49,7 +49,6 @@ liblib_la_SOURCES = \
 	buffer.c \
 	buffer-istream.c \
 	child-wait.c \
-	compat.c \
 	connection.c \
 	cpu-limit.c \
 	crc32.c \
