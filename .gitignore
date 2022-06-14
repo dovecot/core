@@ -119,6 +119,7 @@ src/config/config
 src/config/doveconf
 src/lda/dovecot-lda
 src/dict/dict
+src/dict/dict-expire
 src/director/director
 src/director/director-test
 src/dns/dns-client

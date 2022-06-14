@@ -80,6 +80,31 @@ struct service_settings dict_async_service_settings = {
 	.inet_listeners = ARRAY_INIT
 };
 
+struct service_settings dict_expire_service_settings = {
+	.name = "dict-expire",
+	.protocol = "",
+	.type = "",
+	.executable = "dict-expire",
+	.user = "$default_internal_user",
+	.group = "",
+	.privileged_group = "",
+	.extra_groups = "",
+	.chroot = "",
+
+	.drop_priv_before_exec = FALSE,
+
+	.process_min_avail = 0,
+	.process_limit = 1,
+	.client_limit = 1,
+	.service_count = 0,
+	.idle_kill = 0,
+	.vsz_limit = UOFF_T_MAX,
+
+	.unix_listeners = ARRAY_INIT,
+	.fifo_listeners = ARRAY_INIT,
+	.inet_listeners = ARRAY_INIT
+};
+
 #undef DEF
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct dict_server_settings)
