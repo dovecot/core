@@ -12,7 +12,7 @@ AC_DEFUN([DOVECOT_RPCGEN], [
       QUOTA_LIBS="$QUOTA_LIBS \$(LIBTIRPC_LIBS)"
     ], [
       AC_CHECK_HEADER([rpc/rpc.h], [
-	have_rquota=yes
+        have_rquota=yes
       ])
     ])
   ])
