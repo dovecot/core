@@ -15,6 +15,8 @@
 
 #define DLUA_TABLE_STRING(n, val) { .name = (n),\
 				    .type = DLUA_TABLE_VALUE_STRING, .v.s = (val) }
+#define DLUA_TABLE_STRING_SELF(n) { .name = #n,\
+				    .type = DLUA_TABLE_VALUE_STRING, .v.s = (n) }
 #define DLUA_TABLE_INTEGER(n, val) { .name = (n), \
 				    .type = DLUA_TABLE_VALUE_INTEGER, .v.i = (val) }
 #define DLUA_TABLE_ENUM(n) { .name = #n, \
