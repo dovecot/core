@@ -255,7 +255,7 @@ static int cdb_dict_iterate_deinit(struct dict_iterate_context *_ctx,
 
 struct dict dict_driver_cdb = {
 	.name = "cdb",
-	{
+	.v = {
 		.init = cdb_dict_init,
 		.deinit = cdb_dict_deinit,
 		.lookup = cdb_dict_lookup,

@@ -1518,7 +1518,7 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 static struct dict sql_dict = {
 	.name = "sql",
 
-	{
+	.v = {
 		.init = sql_dict_init,
 		.deinit = sql_dict_deinit,
 		.wait = sql_dict_wait,

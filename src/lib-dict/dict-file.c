@@ -699,7 +699,7 @@ file_dict_transaction_commit(struct dict_transaction_context *_ctx,
 
 struct dict dict_driver_file = {
 	.name = "file",
-	{
+	.v = {
 		.init = file_dict_init,
 		.deinit = file_dict_deinit,
 		.lookup = file_dict_lookup,

@@ -312,7 +312,7 @@ fs_dict_transaction_commit(struct dict_transaction_context *_ctx,
 
 struct dict dict_driver_fs = {
 	.name = "fs",
-	{
+	.v = {
 		.init = fs_dict_init,
 		.deinit = fs_dict_deinit,
 		.lookup = fs_dict_lookup,

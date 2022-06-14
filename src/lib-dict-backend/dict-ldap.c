@@ -470,7 +470,7 @@ void ldap_dict_lookup_async(struct dict *dict,
 
 struct dict dict_driver_ldap = {
 	.name = "ldap",
-	{
+	.v = {
 		.init = ldap_dict_init,
 		.deinit = ldap_dict_deinit,
 		.wait = ldap_dict_wait,

@@ -815,7 +815,7 @@ static void redis_atomic_inc(struct dict_transaction_context *_ctx,
 
 struct dict dict_driver_redis = {
 	.name = "redis",
-	{
+	.v = {
 		.init = redis_dict_init,
 		.deinit = redis_dict_deinit,
 		.wait = redis_dict_wait,

@@ -1473,7 +1473,7 @@ static void client_dict_set_timestamp(struct dict_transaction_context *_ctx,
 struct dict dict_driver_client = {
 	.name = "proxy",
 
-	{
+	.v = {
 		.init = client_dict_init,
 		.deinit = client_dict_deinit,
 		.wait = client_dict_wait,
