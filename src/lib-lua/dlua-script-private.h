@@ -19,6 +19,8 @@
 				    .type = DLUA_TABLE_VALUE_INTEGER, .v.i = (val) }
 #define DLUA_TABLE_ENUM(n) { .name = #n, \
 			     .type = DLUA_TABLE_VALUE_INTEGER, .v.i = (n) }
+#define DLUA_TABLE_ENUM_NOPREFIX(prefix, n) { .name = #n, \
+			     .type = DLUA_TABLE_VALUE_INTEGER, .v.i = (prefix ## n) }
 #define DLUA_TABLE_DOUBLE(n, val) { .name = (n), \
 				    .type = DLUA_TABLE_VALUE_DOUBLE, .v.d = (val) }
 #define DLUA_TABLE_BOOLEAN(n, val) { .name = (n), \
