@@ -17,6 +17,7 @@ struct dict_vfuncs {
 		    struct dict **dict_r, const char **error_r);
 	void (*deinit)(struct dict *dict);
 	void (*wait)(struct dict *dict);
+	int (*expire_scan)(struct dict *dict, const char **error_r);
 
 	int (*lookup)(struct dict *dict, const struct dict_op_settings *set,
 		      pool_t pool, const char *key, const char *const **values_r,

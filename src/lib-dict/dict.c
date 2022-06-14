@@ -204,6 +204,14 @@ bool dict_switch_ioloop(struct dict *dict)
 	return ret;
 }
 
+int dict_expire_scan(struct dict *dict, const char **error_r)
+{
+	if (dict->v.expire_scan == NULL)
+		return 0;
+	else
+		return dict->v.expire_scan(dict, error_r);
+}
+
 static bool dict_key_prefix_is_valid(const char *key, const char *username)
 {
 	if (str_begins_with(key, DICT_PATH_SHARED))

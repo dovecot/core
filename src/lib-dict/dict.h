@@ -110,6 +110,12 @@ bool dict_have_async_operations(struct dict *dict);
    be waited on. */
 bool dict_switch_ioloop(struct dict *dict) ATTR_NOWARN_UNUSED_RESULT;
 
+/* Scan the dict for expired entries and delete them. Returns 0 if dict does
+   not support expire scanning (and there is no need to call this function
+   again), 1 if expire scanning was run successfully, -1 if expire scanning
+   failed. */
+int dict_expire_scan(struct dict *dict, const char **error_r);
+
 /* Lookup the first value for the key. Set it to NULL if it's not found.
    Returns 1 if found, 0 if not found and -1 if lookup failed. */
 int dict_lookup(struct dict *dict, const struct dict_op_settings *set, pool_t pool,
