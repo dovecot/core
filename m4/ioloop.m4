@@ -7,7 +7,7 @@ AC_DEFUN([DOVECOT_IOLOOP], [
       AC_RUN_IFELSE([AC_LANG_PROGRAM([[
         #include <sys/epoll.h>
       ]], [[
-  	return epoll_create(5) < 1;
+        return epoll_create(5) < 1;
       ]])],[
         i_cv_epoll_works=yes
       ], [
