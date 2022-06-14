@@ -9,22 +9,22 @@ AC_DEFUN([DOVECOT_GMTIME_MAX], [
         int bits;
     
         for (bits = 1; bits < sizeof(time_t)*8; bits++) {
-  	time_t t = ((time_t)1 << bits) - 1;
-  	if (gmtime(&t) == NULL) {
-  	  bits--;
-  	  break;
-  	}
+          time_t t = ((time_t)1 << bits) - 1;
+          if (gmtime(&t) == NULL) {
+            bits--;
+            break;
+          }
         }
         if (bits > 40) {
-  	/* Solaris 9 breaks after 55 bits. Perhaps other systems break earlier.
-  	   Let's just do the same as Cyrus folks and limit it to 40 bits. */
-  	bits = 40;
+          /* Solaris 9 breaks after 55 bits. Perhaps other systems break earlier.
+             Let's just do the same as Cyrus folks and limit it to 40 bits. */
+          bits = 40;
         }
     
         f = fopen("conftest.temp", "w");
         if (f == NULL) {
-  	perror("fopen()");
-  	return 1;
+          perror("fopen()");
+          return 1;
         }
         fprintf(f, "%d", bits);
         fclose(f);
