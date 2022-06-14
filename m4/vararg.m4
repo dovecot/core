@@ -62,7 +62,7 @@ AC_DEFUN([DOVECOT_VA_COPY_BYVAL], [
             exit (1);
           va_end (args1); va_end (args2);
           }
-	  ]], [[
+          ]], [[
             f (0, 42);
             return 0;
           ]])],
