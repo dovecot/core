@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "str.h"
 #include "dlua-script-private.h"
+#include "dict-lua.h"
 
 #include <libgen.h>
 
@@ -659,8 +660,11 @@ void dlua_dovecot_register(struct dlua_script *script)
 	/* register table as global */
 	lua_setglobal(script->L, LUA_SCRIPT_DOVECOT);
 
-	/* register http methods */
+	/* register other libraries */
 	dlua_dovecot_http_register(script);
+#ifdef DLUA_WITH_YIELDS
+	dlua_dovecot_dict_register(script);
+#endif
 }
 
 #undef event_want_level

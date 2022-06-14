@@ -6,6 +6,8 @@
 #include "dict-lua-private.h"
 #include "dlua-wrapper.h"
 
+#define DICT_LUA_DOVECOT_DICT "dovecot_dict"
+
 static int lua_dict_lookup(lua_State *);
 
 static luaL_Reg lua_dict_methods[] = {
@@ -114,4 +116,41 @@ void dlua_push_dict(lua_State *L, struct dict *dict)
 struct dict *dlua_check_dict(lua_State *L, int idx)
 {
 	return xlua_dict_getptr(L, idx, NULL);
+}
+
+static struct dlua_table_values dict_lua_values[] = {
+	DLUA_TABLE_ENUM_NOPREFIX(DICT_, ITERATE_FLAG_RECURSE),
+	DLUA_TABLE_ENUM_NOPREFIX(DICT_, ITERATE_FLAG_SORT_BY_KEY),
+	DLUA_TABLE_ENUM_NOPREFIX(DICT_, ITERATE_FLAG_SORT_BY_VALUE),
+	DLUA_TABLE_ENUM_NOPREFIX(DICT_, ITERATE_FLAG_NO_VALUE),
+	DLUA_TABLE_ENUM_NOPREFIX(DICT_, ITERATE_FLAG_EXACT_KEY),
+	DLUA_TABLE_ENUM_NOPREFIX(DICT_, ITERATE_FLAG_ASYNC),
+
+	DLUA_TABLE_END
+};
+
+void dlua_dovecot_dict_register(struct dlua_script *script)
+{
+	lua_State *L = script->L;
+
+	dlua_get_dovecot(L);
+	/* Create new table for holding values */
+	lua_newtable(L);
+
+	/* register constants */
+	dlua_set_members(L, dict_lua_values, -1);
+
+	/* push new metatable to stack */
+	luaL_newmetatable(L, DICT_LUA_DOVECOT_DICT);
+	/* point __index to self */
+	lua_pushvalue(L, -1);
+	lua_setfield(L, -1, "__index");
+	/* set table's metatable, pops stack */
+	lua_setmetatable(L, -2);
+
+	/* put this as "dovecot.dict" */
+	lua_setfield(L, -2, "dict");
+
+	/* pop dovecot */
+	lua_pop(L, 1);
 }
