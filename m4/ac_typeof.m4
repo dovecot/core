@@ -18,44 +18,44 @@ AC_DEFUN([AC_TYPEOF], [
     for type in $order; do
       case "$type" in
         int)
-	  fmt="%d"
-	  ;;
+          fmt="%d"
+          ;;
         unsigned-int)
-	  fmt="%u"
-	  ;;
+          fmt="%u"
+          ;;
         long)
-	  fmt="%ld"
-	  ;;
+          fmt="%ld"
+          ;;
         unsigned-long)
-	  fmt="%lu"
-	  ;;
+          fmt="%lu"
+          ;;
         long-long)
-	  fmt="%lld"
-	  ;;
+          fmt="%lld"
+          ;;
         unsigned-long-long)
-	  fmt="%llu"
-	  ;;
-	*)
-	  fmt=""
-	  ;;
+          fmt="%llu"
+          ;;
+        *)
+          fmt=""
+          ;;
       esac
 
       AS_IF([test "$fmt" != ""], [
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-	  #include <sys/types.h>
-	  #include <stdio.h>
-	]], [[
-	  printf("$fmt", ($1)0);
-	]])],[
-	  AS_IF([test "$result" != ""], [
-	    dnl * warning check isn't working
-	    result=""
-	    visible="unknown"
-	    break
-	  ])
-	  result="`echo $type|sed 's/-/ /g'`"
-	  visible="$result"
-	],[])
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+          #include <sys/types.h>
+          #include <stdio.h>
+        ]], [[
+          printf("$fmt", ($1)0);
+        ]])],[
+          AS_IF([test "$result" != ""], [
+            dnl * warning check isn't working
+            result=""
+            visible="unknown"
+            break
+          ])
+          result="`echo $type|sed 's/-/ /g'`"
+          visible="$result"
+        ],[])
       ])
     done
     CFLAGS="$old_CFLAGS"
@@ -65,17 +65,17 @@ AC_DEFUN([AC_TYPEOF], [
     for type in $order; do
       type="`echo $type|sed 's/-/ /g'`"
       AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-	#include <sys/types.h>
-	typedef $type $1;
+        #include <sys/types.h>
+        typedef $type $1;
       ]], [[]])],[
-	AS_IF([test "$result" != ""], [
-	  dnl * compiler allows redefining to anything
-	  result=""
-	  visible="unknown"
-	  break
-	])
-	result="$type"
-	visible="$type"
+        AS_IF([test "$result" != ""], [
+          dnl * compiler allows redefining to anything
+          result=""
+          visible="unknown"
+          break
+        ])
+        result="$type"
+        visible="$type"
       ],[])
     done
   ])
@@ -88,10 +88,10 @@ AC_DEFUN([AC_TYPEOF], [
       #include <stdio.h>
       #include <sys/types.h>
       ]], [[
-	FILE *f=fopen("conftestval", "w");
-	if (!f) exit(1);
-	fprintf(f, "%d\n", sizeof($1));
-	exit(0);
+        FILE *f=fopen("conftestval", "w");
+        if (!f) exit(1);
+        fprintf(f, "%d\n", sizeof($1));
+        exit(0);
     ]])],[
       size=`cat conftestval`
       rm -f conftestval
@@ -99,14 +99,14 @@ AC_DEFUN([AC_TYPEOF], [
       for type in $order; do
         actype="ac_cv_sizeof_`echo $type|sed 's/-/_/g'`"
         AS_IF([test "$size" = "`eval echo \\$$actype`"], [
-	  result="`echo $type|sed 's/-/ /g'`"
-	  visible="`expr $size \* 8`bit (using $result)"
-	  break
-	])
+          result="`echo $type|sed 's/-/ /g'`"
+          visible="`expr $size \* 8`bit (using $result)"
+          break
+        ])
       done
       AS_IF([test "$result" = ""], [
         result=unknown
-	visible="`expr $size \* 8`bit (unknown type)"
+        visible="`expr $size \* 8`bit (unknown type)"
       ])
     ],[],[])
   ])
