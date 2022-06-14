@@ -1564,6 +1564,50 @@ static void sql_dict_atomic_inc(struct dict_transaction_context *_ctx,
 	prev_inc->value.diff = diff;
 }
 
+static int
+sql_dict_expire_map(struct sql_dict *dict, const struct dict_sql_map *map,
+		    const char **error_r)
+{
+	ARRAY_TYPE(sql_dict_param) params;
+	const char *error;
+
+	t_array_init(&params, 1);
+	struct sql_dict_param *param = array_append_space(&params);
+	param->value_type = DICT_SQL_TYPE_INT;
+	param->value_int64 = ioloop_timeval.tv_sec * 1000000 +
+		ioloop_timeval.tv_usec;
+
+	struct sql_transaction_context *trans =
+		sql_transaction_begin(dict->db);
+	const char *query = t_strdup_printf(
+		"DELETE FROM %s WHERE %s <= ?", map->table, map->expire_field);
+	struct sql_statement *stmt =
+		sql_dict_statement_init(dict, query, &params);
+	sql_update_stmt(trans, &stmt);
+	if (sql_transaction_commit_s(&trans, &error) < 0) {
+		*error_r = t_strdup_printf(
+			"sql dict: commit failed: %s", error);
+		return -1;
+	}
+	return 0;
+}
+
+static int sql_dict_expire_scan(struct dict *_dict, const char **error_r)
+{
+	struct sql_dict *dict = (struct sql_dict *)_dict;
+	const struct dict_sql_map *map;
+	bool found = FALSE;
+
+	array_foreach(&dict->set->maps, map) {
+		if (map->expire_field != NULL) {
+			if (sql_dict_expire_map(dict, map, error_r) < 0)
+				return -1;
+			found = TRUE;
+		}
+	}
+	return found ? 1 : 0;
+}
+
 static struct dict sql_dict = {
 	.name = "sql",
 	.flags = DICT_DRIVER_FLAG_SUPPORT_EXPIRE_SECS,
@@ -1571,6 +1615,7 @@ static struct dict sql_dict = {
 		.init = sql_dict_init,
 		.deinit = sql_dict_deinit,
 		.wait = sql_dict_wait,
+		.expire_scan = sql_dict_expire_scan,
 		.lookup = sql_dict_lookup,
 		.iterate_init = sql_dict_iterate_init,
 		.iterate = sql_dict_iterate,
