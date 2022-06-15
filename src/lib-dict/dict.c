@@ -275,6 +275,16 @@ dict_lookup_callback(const struct dict_lookup_result *result,
 	i_free(ctx);
 }
 
+static void dict_transaction_rollback_run(struct dict_transaction_context *ctx)
+{
+	struct event *event = ctx->event;
+	struct dict_op_settings_private set_copy = ctx->set;
+	ctx->dict->v.transaction_rollback(ctx);
+	dict_transaction_finished(event, DICT_COMMIT_RET_OK, TRUE, NULL);
+	dict_op_settings_private_free(&set_copy);
+	event_unref(&event);
+}
+
 static void
 dict_commit_async_timeout(struct dict_commit_callback_ctx *ctx)
 {
@@ -633,17 +643,12 @@ void dict_transaction_rollback(struct dict_transaction_context **_ctx)
 	if (ctx == NULL)
 		return;
 
-	struct event *event = ctx->event;
-
 	*_ctx = NULL;
 	i_assert(ctx->dict->transaction_count > 0);
 	ctx->dict->transaction_count--;
 	DLLIST_REMOVE(&ctx->dict->transactions, ctx);
-	struct dict_op_settings_private set_copy = ctx->set;
-	ctx->dict->v.transaction_rollback(ctx);
-	dict_transaction_finished(event, DICT_COMMIT_RET_OK, TRUE, NULL);
-	dict_op_settings_private_free(&set_copy);
-	event_unref(&event);
+
+	dict_transaction_rollback_run(ctx);
 }
 
 void dict_set(struct dict_transaction_context *ctx,
