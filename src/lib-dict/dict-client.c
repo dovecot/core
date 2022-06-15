@@ -108,6 +108,7 @@ struct client_dict_iterate_context {
 
 	bool cmd_sent;
 	bool seen_results;
+	bool iterating;
 	bool finished;
 	bool deinit;
 };
@@ -1073,13 +1074,17 @@ client_dict_iter_api_callback(struct client_dict_iterate_context *ctx,
 				  cmd->query);
 		}
 	}
-	if (ctx->ctx.async_callback != NULL) {
+	if (ctx->ctx.async_callback == NULL) {
+		/* synchronous lookup */
+		io_loop_stop(dict->dict.ioloop);
+	} else if (ctx->iterating) {
+		/* We're already in client_dict_iterate(). Don't call the
+		   async callback, because it would just recurse and possibly
+		   break. */
+	} else {
 		dict_pre_api_callback(&dict->dict);
 		ctx->ctx.async_callback(ctx->ctx.async_context);
 		dict_post_api_callback(&dict->dict);
-	} else {
-		/* synchronous lookup */
-		io_loop_stop(dict->dict.ioloop);
 	}
 }
 
@@ -1220,7 +1225,9 @@ static bool client_dict_iterate(struct dict_iterate_context *_ctx,
 	}
 	if (!ctx->cmd_sent) {
 		ctx->cmd_sent = TRUE;
+		ctx->iterating = TRUE;
 		client_dict_iterate_cmd_send(ctx);
+		ctx->iterating = FALSE;
 		return client_dict_iterate(_ctx, key_r, values_r);
 	}
 	ctx->ctx.has_more = !ctx->finished;
