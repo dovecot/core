@@ -650,6 +650,7 @@ redis_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 		redis_disconnected(&dict->conn, ctx->error);
 		result.ret = -1;
 		result.error = ctx->error;
+		callback(&result, context);
 	} else if (_ctx->changed) {
 		i_assert(ctx->cmd_count > 0);
 
@@ -667,8 +668,9 @@ redis_transaction_commit(struct dict_transaction_context *_ctx, bool async,
 			return;
 		}
 		redis_wait(dict);
+	} else {
+		callback(&result, context);
 	}
-	callback(&result, context);
 	i_free(ctx->error);
 	i_free(ctx);
 }
