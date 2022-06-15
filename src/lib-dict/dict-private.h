@@ -70,6 +70,7 @@ struct dict {
 	struct event *event;
 	struct ioloop *ioloop, *prev_ioloop;
 	struct dict_commit_callback_ctx *commits;
+	struct dict_transaction_context *rollbacks;
 };
 
 struct dict_iterate_context {
@@ -93,6 +94,9 @@ struct dict_transaction_context {
 
 	struct event *event;
 	struct timespec timestamp;
+
+	struct timeout *to_rollback;
+	const char *error;
 
 	bool changed:1;
 };

@@ -33,6 +33,7 @@ static ARRAY(struct dict *) dict_drivers;
 
 static void
 dict_commit_async_timeout(struct dict_commit_callback_ctx *ctx);
+static void dict_rollback_async_timeout(struct dict_transaction_context *ctx);
 
 static struct event_category event_category_dict = {
 	.name = "dict",
@@ -165,6 +166,7 @@ void dict_deinit(struct dict **_dict)
 void dict_wait(struct dict *dict)
 {
 	struct dict_commit_callback_ctx *commit, *next;
+	struct dict_transaction_context *rollback, *next_rollback;
 
 	e_debug(dict->event, "Waiting for dict to finish pending operations");
 	if (dict->v.wait != NULL)
@@ -172,6 +174,10 @@ void dict_wait(struct dict *dict)
 	for (commit = dict->commits; commit != NULL; commit = next) {
 		next = commit->next;
 		dict_commit_async_timeout(commit);
+	}
+	for (rollback = dict->rollbacks; rollback != NULL; rollback = next_rollback) {
+		next_rollback = rollback->next;
+		dict_rollback_async_timeout(rollback);
 	}
 }
 
@@ -283,6 +289,13 @@ static void dict_transaction_rollback_run(struct dict_transaction_context *ctx)
 	dict_transaction_finished(event, DICT_COMMIT_RET_OK, TRUE, NULL);
 	dict_op_settings_private_free(&set_copy);
 	event_unref(&event);
+}
+
+static void dict_rollback_async_timeout(struct dict_transaction_context *ctx)
+{
+	DLLIST_REMOVE(&ctx->dict->rollbacks, ctx);
+	timeout_remove(&ctx->to_rollback);
+	dict_transaction_rollback_run(ctx);
 }
 
 static void
@@ -575,13 +588,20 @@ dict_transaction_commit_sync_callback(const struct dict_commit_result *result,
 int dict_transaction_commit(struct dict_transaction_context **_ctx,
 			    const char **error_r)
 {
-	pool_t pool = pool_alloconly_create("dict_commit_callback_ctx", 64);
-	struct dict_commit_callback_ctx *cctx =
-		p_new(pool, struct dict_commit_callback_ctx, 1);
 	struct dict_transaction_context *ctx = *_ctx;
 	struct dict_commit_sync_result result;
 
+	if (ctx->error != NULL) {
+		*error_r = t_strdup(ctx->error);
+		dict_transaction_rollback(_ctx);
+		return -1;
+	}
+
 	*_ctx = NULL;
+
+	pool_t pool = pool_alloconly_create("dict_commit_callback_ctx", 64);
+	struct dict_commit_callback_ctx *cctx =
+		p_new(pool, struct dict_commit_callback_ctx, 1);
 	cctx->pool = pool;
 	i_zero(&result);
 	i_assert(ctx->dict->transaction_count > 0);
@@ -606,15 +626,21 @@ void dict_transaction_commit_async(struct dict_transaction_context **_ctx,
 				   dict_transaction_commit_callback_t *callback,
 				   void *context)
 {
-	pool_t pool = pool_alloconly_create("dict_commit_callback_ctx", 64);
-	struct dict_commit_callback_ctx *cctx =
-		p_new(pool, struct dict_commit_callback_ctx, 1);
 	struct dict_transaction_context *ctx = *_ctx;
 
 	*_ctx = NULL;
 	i_assert(ctx->dict->transaction_count > 0);
 	ctx->dict->transaction_count--;
 	DLLIST_REMOVE(&ctx->dict->transactions, ctx);
+
+	if (ctx->error != NULL) {
+		ctx->to_rollback = timeout_add_short(0,
+			dict_rollback_async_timeout, ctx);
+		return;
+	}
+	pool_t pool = pool_alloconly_create("dict_commit_callback_ctx", 64);
+	struct dict_commit_callback_ctx *cctx =
+		p_new(pool, struct dict_commit_callback_ctx, 1);
 	DLLIST_PREPEND(&ctx->dict->commits, cctx);
 	if (callback == NULL)
 		callback = dict_transaction_commit_async_noop_callback;
