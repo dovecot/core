@@ -508,8 +508,8 @@ static void redis_dict_auth(struct redis_dict *dict)
 	if (*dict->password == '\0')
 		return;
 
-	cmd = t_strdup_printf("*2\r\n$4\r\nAUTH\r\n$%d\r\n%s\r\n",
-	                      (int)strlen(dict->password), dict->password);
+	cmd = t_strdup_printf("*2\r\n$4\r\nAUTH\r\n$%zu\r\n%s\r\n",
+	                      strlen(dict->password), dict->password);
 	o_stream_nsend_str(dict->conn.conn.output, cmd);
 	redis_input_state_add(dict, REDIS_INPUT_STATE_AUTH);
 }
@@ -526,8 +526,8 @@ static void redis_dict_select_db(struct redis_dict *dict)
 		return;
 	}
 	db_str = dec2str(dict->db_id);
-	cmd = t_strdup_printf("*2\r\n$6\r\nSELECT\r\n$%d\r\n%s\r\n",
-			      (int)strlen(db_str), db_str);
+	cmd = t_strdup_printf("*2\r\n$6\r\nSELECT\r\n$%zu\r\n%s\r\n",
+			      strlen(db_str), db_str);
 	o_stream_nsend_str(dict->conn.conn.output, cmd);
 	redis_input_state_add(dict, REDIS_INPUT_STATE_SELECT);
 }
@@ -567,8 +567,8 @@ static int redis_dict_lookup(struct dict *_dict,
 
 		if (dict->connected) {
 			redis_dict_select_db(dict);
-			cmd = t_strdup_printf("*2\r\n$3\r\nGET\r\n$%d\r\n%s\r\n",
-					      (int)strlen(key), key);
+			cmd = t_strdup_printf("*2\r\n$3\r\nGET\r\n$%zu\r\n%s\r\n",
+					      strlen(key), key);
 			o_stream_nsend_str(dict->conn.conn.output, cmd);
 
 			str_truncate(dict->conn.last_reply, 0);
@@ -728,9 +728,8 @@ redis_append_expire(struct redis_dict_transaction_context *ctx,
 	if (dict->expire_value == NULL)
 		return;
 
-	str_printfa(cmd, "*3\r\n$6\r\nEXPIRE\r\n$%u\r\n%s\r\n$%u\r\n%s\r\n",
-		    (unsigned int)strlen(key), key,
-		    (unsigned int)strlen(dict->expire_value),
+	str_printfa(cmd, "*3\r\n$6\r\nEXPIRE\r\n$%zu\r\n%s\r\n$%zu\r\n%s\r\n",
+		    strlen(key), key, strlen(dict->expire_value),
 		    dict->expire_value);
 	redis_input_state_add(dict, REDIS_INPUT_STATE_MULTI);
 	ctx->cmd_count++;
@@ -750,9 +749,8 @@ static void redis_set(struct dict_transaction_context *_ctx,
 
 	key = redis_dict_get_full_key(dict, set->username, key);
 	cmd = t_str_new(128);
-	str_printfa(cmd, "*3\r\n$3\r\nSET\r\n$%u\r\n%s\r\n$%u\r\n%s\r\n",
-		    (unsigned int)strlen(key), key,
-		    (unsigned int)strlen(value), value);
+	str_printfa(cmd, "*3\r\n$3\r\nSET\r\n$%zu\r\n%s\r\n$%zu\r\n%s\r\n",
+		    strlen(key), key, strlen(value), value);
 	redis_input_state_add(dict, REDIS_INPUT_STATE_MULTI);
 	ctx->cmd_count++;
 	redis_append_expire(ctx, cmd, key);
@@ -775,8 +773,8 @@ static void redis_unset(struct dict_transaction_context *_ctx,
 		return;
 
 	key = redis_dict_get_full_key(dict, set->username, key);
-	cmd = t_strdup_printf("*2\r\n$3\r\nDEL\r\n$%u\r\n%s\r\n",
-			      (unsigned int)strlen(key), key);
+	cmd = t_strdup_printf("*2\r\n$3\r\nDEL\r\n$%zu\r\n%s\r\n",
+			      strlen(key), key);
 	if (o_stream_send_str(dict->conn.conn.output, cmd) < 0) {
 		ctx->error = i_strdup_printf("write() failed: %s",
 			o_stream_get_error(dict->conn.conn.output));
@@ -801,9 +799,8 @@ static void redis_atomic_inc(struct dict_transaction_context *_ctx,
 	key = redis_dict_get_full_key(dict, set->username, key);
 	diffstr = t_strdup_printf("%lld", diff);
 	cmd = t_str_new(128);
-	str_printfa(cmd, "*3\r\n$6\r\nINCRBY\r\n$%u\r\n%s\r\n$%u\r\n%s\r\n",
-		    (unsigned int)strlen(key), key,
-		    (unsigned int)strlen(diffstr), diffstr);
+	str_printfa(cmd, "*3\r\n$6\r\nINCRBY\r\n$%zu\r\n%s\r\n$%zu\r\n%s\r\n",
+		    strlen(key), key, strlen(diffstr), diffstr);
 	redis_input_state_add(dict, REDIS_INPUT_STATE_MULTI);
 	ctx->cmd_count++;
 	redis_append_expire(ctx, cmd, key);
