@@ -48,29 +48,3 @@ AC_DEFUN([DOVECOT_VA_COPY], [
     AC_DEFINE_UNQUOTED(VA_COPY,$va_copy_func,[A 'va_copy' style function])
   ])
 ])
-
-AC_DEFUN([DOVECOT_VA_COPY_BYVAL], [
-  AC_CACHE_CHECK([whether va_lists can be copied by value],lib_cv_va_val_copy,[
-          AC_RUN_IFELSE([AC_LANG_PROGRAM([[
-          #include <stdarg.h>
-          #include <stdlib.h>
-          void f (int i, ...) {
-          va_list args1, args2;
-          va_start (args1, i);
-          args2 = args1;
-          if (va_arg (args2, int) != 42 || va_arg (args1, int) != 42)
-            exit (1);
-          va_end (args1); va_end (args2);
-          }
-          ]], [[
-            f (0, 42);
-            return 0;
-          ]])],
-          [lib_cv_va_val_copy=yes],
-          [lib_cv_va_val_copy=no],[])
-  ])
-  
-  AS_IF([test "$lib_cv_va_val_copy" = "no"], [
-    AC_DEFINE(VA_COPY_AS_ARRAY,1, ['va_lists' cannot be copied as values])
-  ])
-])
