@@ -313,7 +313,6 @@ AC_CHECK_FUNCS(fcntl flock lockf inet_aton sigaction getpagesize madvise \
 AC_CHECK_HEADERS([valgrind/valgrind.h])
 
 DOVECOT_SOCKPEERCRED
-DOVECOT_CLOCK_GETTIME
 
 DOVECOT_TYPEOF
 DOVECOT_IOLOOP

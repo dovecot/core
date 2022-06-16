@@ -244,7 +244,6 @@ static void sig_die_delayed(struct master_service *service, const siginfo_t *si)
 	/* WARNING: We are in a (non-delayed) signal handler context.
 	   Be VERY careful what functions you call. */
 	if (service->killed_time.tv_sec == 0) {
-#ifdef HAVE_CLOCK_GETTIME
 		struct timespec ts;
 		if (clock_gettime(CLOCK_REALTIME, &ts) < 0) {
 			lib_signals_syscall_error("clock_gettime() failed: ");
@@ -254,10 +253,6 @@ static void sig_die_delayed(struct master_service *service, const siginfo_t *si)
 			service->killed_time.tv_sec = ts.tv_sec;
 			service->killed_time.tv_usec = ts.tv_nsec/1000;
 		}
-#else
-		service->killed_time.tv_sec = time(NULL);
-		service->killed_time.tv_usec = 0;
-#endif
 	}
 	service->killed_signal_info = *si;
 	/* set killed_signal after killed_time */
