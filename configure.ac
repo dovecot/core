@@ -216,6 +216,11 @@ AC_ARG_WITH([systemd],
    want_systemd="auto"
 )
 
+AC_ARG_WITH([lua],
+AS_HELP_STRING([--with-lua=yes|plugin], [Build with Lua bindings]),
+  TEST_WITH(lua, $withval, plugin),
+  want_lua=no)
+
 DOVECOT_WANT_SYSTEMD
 
 dovecot_moduledir="$libdir/dovecot"
@@ -525,15 +530,6 @@ DOVECOT_WANT_CASSANDRA
 
 DOVECOT_SQL
 
-AM_CONDITIONAL([AUTH_LUA_PLUGIN], [test "x$with_lua_plugin" = "xyes"])
-AM_CONDITIONAL([HAVE_LUA], [test "x$with_lua" = "xyes"])
-AS_IF([test "x$with_lua" = "xyes"],
-  AS_IF([test "x$with_lua_plugin" = "xyes"],
-      [userdb="$userdb lua (plugin)"; passdb="$passdb lua (plugin)"],
-      [userdb="$userdb lua"; passdb="$passdb lua"],
-  ), [])
-AM_CONDITIONAL([DLUA_WITH_YIELDS], [test "$dlua_with_yields" = "yes"])
-
 if test $have_modules = yes; then
   AC_DEFINE(HAVE_MODULES,, [Define if you have dynamic module support])
   AC_SUBST(MODULE_LIBS)
@@ -625,7 +621,7 @@ LIBDOVECOT_SQL='$(top_builddir)/src/lib-sql/libsql.la'
 LIBDOVECOT_COMPRESS='$(top_builddir)/src/lib-compression/libcompression.la'
 LIBDOVECOT_LIBFTS='$(top_builddir)/src/lib-fts/libfts.la'
 
-if test $with_lua != no; then
+if test $want_lua != no; then
   LIBDOVECOT_LUA='$(top_builddir)/src/lib-lua/libdovecot-lua.la'
 else
   LIBDOVECOT_LUA=''
