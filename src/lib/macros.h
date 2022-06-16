@@ -232,8 +232,9 @@
 	 DOVECOT_VERSION_MICRO >= ((maj) << 24) + ((min) << 16) + (micro))
 
 #ifdef __cplusplus
-#  undef STATIC_ARRAY
 #  define STATIC_ARRAY
+#else
+#  define STATIC_ARRAY static
 #endif
 
 /* Convenience wrappers for initializing a struct with zeros, although it can
