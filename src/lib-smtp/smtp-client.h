@@ -74,10 +74,10 @@ struct smtp_client_settings {
 
 	/* Timeout for SMTP commands. Reset every time more data is being
 	   sent or received.
-	   (default = unlimited) */
+	   (default = 5 minutes) */
 	unsigned int command_timeout_msecs;
-	/* Timeout for logging in
-		(default = cmd_timeout_msecs) */
+	/* Timeout for connecting (DNS lookup, TCP connect, TLS handshake).
+	   (default = 30 seconds) */
 	unsigned int connect_timeout_msecs;
 
 	/* Max total size of reply */

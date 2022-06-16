@@ -1754,8 +1754,6 @@ smtp_client_connection_do_connect(struct smtp_client_connection *conn)
 	/* don't use connection.h timeout because we want this timeout
 	   to include also the SSL handshake */
 	msecs = conn->set.connect_timeout_msecs;
-	if (msecs == 0)
-		msecs = conn->set.command_timeout_msecs;
 	i_assert(conn->to_connect == NULL);
 	if (msecs > 0) {
 		conn->to_connect = timeout_add(
