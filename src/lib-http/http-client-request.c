@@ -375,20 +375,23 @@ void http_client_request_destroy(struct http_client_request **_req)
 void http_client_request_set_port(struct http_client_request *req,
 				  in_port_t port)
 {
-	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
+	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
+		 req->state == HTTP_REQUEST_STATE_ABORTED);
 	req->origin_url.port = port;
 	event_add_int(req->event, "port", port);
 }
 
 void http_client_request_set_ssl(struct http_client_request *req, bool ssl)
 {
-	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
+	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
+		 req->state == HTTP_REQUEST_STATE_ABORTED);
 	req->origin_url.have_ssl = ssl;
 }
 
 void http_client_request_set_urgent(struct http_client_request *req)
 {
-	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
+	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
+		 req->state == HTTP_REQUEST_STATE_ABORTED);
 	req->urgent = TRUE;
 }
 
@@ -534,7 +537,8 @@ const char *http_client_request_lookup_header(struct http_client_request *req,
 
 void http_client_request_set_date(struct http_client_request *req, time_t date)
 {
-	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
+	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
+		 req->state == HTTP_REQUEST_STATE_ABORTED);
 	req->date = date;
 }
 
@@ -542,6 +546,9 @@ void http_client_request_set_payload(struct http_client_request *req,
 				     struct istream *input, bool sync)
 {
 	int ret;
+
+	if (req->state == HTTP_REQUEST_STATE_ABORTED)
+		return;
 
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW);
 	i_assert(req->payload_input == NULL);
@@ -575,6 +582,8 @@ void http_client_request_set_payload_data(struct http_client_request *req,
 	struct istream *input;
 	unsigned char *payload_data;
 
+	if (req->state == HTTP_REQUEST_STATE_ABORTED)
+		return;
 	if (size == 0)
 		return;
 
@@ -595,7 +604,8 @@ void http_client_request_set_timeout_msecs(struct http_client_request *req,
 					   unsigned int msecs)
 {
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
-		 req->state == HTTP_REQUEST_STATE_GOT_RESPONSE);
+		 req->state == HTTP_REQUEST_STATE_GOT_RESPONSE ||
+		 req->state == HTTP_REQUEST_STATE_ABORTED);
 
 	req->timeout_msecs = msecs;
 }
@@ -604,7 +614,8 @@ void http_client_request_set_timeout(struct http_client_request *req,
 				     const struct timeval *time)
 {
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
-		 req->state == HTTP_REQUEST_STATE_GOT_RESPONSE);
+		 req->state == HTTP_REQUEST_STATE_GOT_RESPONSE ||
+		 req->state == HTTP_REQUEST_STATE_ABORTED);
 
 	req->timeout_time = *time;
 	req->timeout_msecs = 0;
@@ -614,7 +625,8 @@ void http_client_request_set_attempt_timeout_msecs(
 	struct http_client_request *req, unsigned int msecs)
 {
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
-		 req->state == HTTP_REQUEST_STATE_GOT_RESPONSE);
+		 req->state == HTTP_REQUEST_STATE_GOT_RESPONSE ||
+		 req->state == HTTP_REQUEST_STATE_ABORTED);
 
 	req->attempt_timeout_msecs = msecs;
 }
@@ -623,7 +635,8 @@ void http_client_request_set_max_attempts(struct http_client_request *req,
 					  unsigned int max_attempts)
 {
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
-		 req->state == HTTP_REQUEST_STATE_GOT_RESPONSE);
+		 req->state == HTTP_REQUEST_STATE_GOT_RESPONSE ||
+		 req->state == HTTP_REQUEST_STATE_ABORTED);
 
 	req->max_attempts = max_attempts;
 }
@@ -646,7 +659,8 @@ void http_client_request_set_proxy_url(struct http_client_request *req,
 				       const struct http_url *proxy_url)
 {
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
-		 req->state == HTTP_REQUEST_STATE_GOT_RESPONSE);
+		 req->state == HTTP_REQUEST_STATE_GOT_RESPONSE ||
+		 req->state == HTTP_REQUEST_STATE_ABORTED);
 
 	req->host_url = http_url_clone_authority(req->pool, proxy_url);
 	req->host_socket = NULL;
@@ -656,7 +670,8 @@ void http_client_request_set_proxy_socket(struct http_client_request *req,
 					  const char *proxy_socket)
 {
 	i_assert(req->state == HTTP_REQUEST_STATE_NEW ||
-		 req->state == HTTP_REQUEST_STATE_GOT_RESPONSE);
+		 req->state == HTTP_REQUEST_STATE_GOT_RESPONSE ||
+		 req->state == HTTP_REQUEST_STATE_ABORTED);
 
 	req->host_socket = p_strdup(req->pool, proxy_socket);
 	req->host_url = NULL;

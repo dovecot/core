@@ -268,6 +268,7 @@ test_client_invalid_url_response(const struct http_response *resp,
 static bool
 test_client_invalid_url(const struct http_client_settings *client_set)
 {
+	static const unsigned char data[] = "FROP";
 	struct http_client_request *hreq;
 	struct _invalid_url *ctx;
 
@@ -279,11 +280,15 @@ test_client_invalid_url(const struct http_client_settings *client_set)
 	hreq = http_client_request_url_str(
 		http_client, "GET", "imap://example.com/INBOX",
 		test_client_invalid_url_response, ctx);
+	http_client_request_add_header(hreq, "X-Frop", "frop");
+	http_client_request_set_payload_data(hreq, data, sizeof(data) - 1);
 	http_client_request_submit(hreq);
 
 	hreq = http_client_request_url_str(
 		http_client, "GET", "http:/www.example.com",
 		test_client_invalid_url_response, ctx);
+	http_client_request_add_header(hreq, "X-Frop", "frop");
+	http_client_request_set_payload_data(hreq, data, sizeof(data) - 1);
 	http_client_request_submit(hreq);
 
 	return TRUE;
