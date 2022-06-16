@@ -1741,12 +1741,20 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 		}
 		if (ret > 0) {
 			importer->last_common_uid = change->uid;
+			imp_debug(importer, "Last UID matched - "
+				  "last_common_uid=%u",
+				  importer->last_common_uid);
 		} else if (!importer->revert_local_changes) {
 			/* mismatch - found the first non-common UID */
+			imp_debug(importer, "Last UID mismatch - "
+				  "last_common_uid=%u",
+				  importer->last_common_uid);
 			dsync_mailbox_common_uid_found(importer);
 		} else {
 			/* mismatch and we want to revert local changes -
 			   need to delete the mailbox. */
+			imp_debug(importer, "Last UID %u mismatch - "
+				  "revert local changes", change->uid);
 			dsync_mailbox_revert_existing_uid(importer, change->uid, *result_r);
 		}
 		return;
