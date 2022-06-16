@@ -1161,39 +1161,6 @@ mail_crypt_user_get_or_gen_public_key(struct mail_user *user,
 	return 0;
 }
 
-int
-mail_crypt_box_get_or_gen_public_key(struct mailbox *box,
-				     struct dcrypt_public_key **pub_r,
-				     const char **error_r)
-{
-	i_assert(box != NULL);
-	i_assert(pub_r != NULL);
-	i_assert(error_r != NULL);
-
-	struct mail_user *user =
-		mail_storage_get_user(mailbox_get_storage(box));
-	int ret;
-	if ((ret = mail_crypt_box_get_public_key(box, pub_r, error_r)) == 0) {
-		struct dcrypt_public_key *user_key;
-		if (mail_crypt_user_get_or_gen_public_key(user, &user_key,
-							  error_r) < 0) {
-			return -1;
-		}
-
-		struct dcrypt_keypair pair;
-		const char *pubid = NULL;
-		if (mail_crypt_box_generate_keypair(box, &pair, user_key,
-						    &pubid, error_r) < 0) {
-			return -1;
-		}
-		*pub_r = pair.pub;
-		dcrypt_key_unref_public(&user_key);
-		dcrypt_key_unref_private(&pair.priv);
-	} else
-		return ret;
-	return 0;
-}
-
 static const struct mailbox_attribute_internal mailbox_internal_attributes[] = {
 	{ .type = MAIL_ATTRIBUTE_TYPE_PRIVATE,
 	  .key = BOX_CRYPT_PREFIX,

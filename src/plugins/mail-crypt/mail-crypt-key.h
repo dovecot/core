@@ -103,9 +103,6 @@ int mail_crypt_box_share_private_keys(struct mailbox_transaction_context *t,
 int mail_crypt_user_get_or_gen_public_key(struct mail_user *user,
 					  struct dcrypt_public_key **pub_key_r,
 					  const char **error_r);
-int mail_crypt_box_get_or_gen_public_key(struct mailbox *box,
-					 struct dcrypt_public_key **pub_key_r,
-					 const char **error_r);
 
 /* Lookup all private keys' digests. Returns 0 if ok, -1 on error. */
 int mail_crypt_box_get_pvt_digests(struct mailbox *box, pool_t pool,
