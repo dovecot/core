@@ -466,9 +466,6 @@ int mail_crypt_user_set_private_key(struct mail_user *user, const char *pubid,
 				    struct dcrypt_private_key *key,
 				    const char **error_r)
 {
-	struct mail_namespace *ns = mail_namespace_find_inbox(user->namespaces);
-	struct mailbox *box = mailbox_alloc(ns->list, "INBOX",
-					    MAILBOX_FLAG_READONLY);
 	struct dcrypt_private_key *env_key = NULL;
 	struct dcrypt_public_key *enc_key = NULL;
 	struct mailbox_transaction_context *t;
@@ -494,6 +491,9 @@ int mail_crypt_user_set_private_key(struct mail_user *user, const char *pubid,
 		return -1;
 	}
 
+	struct mail_namespace *ns = mail_namespace_find_inbox(user->namespaces);
+	struct mailbox *box = mailbox_alloc(ns->list, "INBOX",
+					    MAILBOX_FLAG_READONLY);
 	if (mailbox_open(box) < 0) {
 		*error_r = t_strdup_printf("mailbox_open(%s) failed: %s",
 					   "INBOX",
