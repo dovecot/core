@@ -817,10 +817,12 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 		/* one of the headers is empty. assume it's broken and that
 		   the header matches what we have currently. */
 		diff = 0;
-	} else if (importer->no_header_hashes && !importer->mails_have_guids &&
+	} else if (importer->no_header_hashes && m1.uid == m2.uid &&
+		   !importer->mails_have_guids &&
 		   importer->cur_mail != NULL && save_change != NULL &&
 		   (m1.guid[0] == '\0' || m2.guid[0] == '\0')) {
-		/* Header hashes aren't known. Assume that the mails match. */
+		/* Header hashes aren't known. Assume that the mails match if
+		   their UIDs match. */
 		diff = 0;
 	} else {
 		diff = importer_mail_cmp(&m1, &m2);
