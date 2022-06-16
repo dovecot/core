@@ -433,18 +433,6 @@ _DC_EOF
   ])
 ])
 
-AC_DEFUN([DC_PANDOC], [
-  AC_ARG_VAR(PANDOC, [Path to pandoc program])
-
-  dnl Optional tool for making documentation
-  AC_CHECK_PROGS(PANDOC, [pandoc], [true])
-
-  AS_IF([test "$PANDOC" = "true"], [
-   AS_IF([test ! -e README], [
-     AC_MSG_ERROR([Cannot produce documentation without pandoc - disable with PANDOC=false ./configure])
-   ])
-  ])
-])
 # warnings.m4 serial 11
 dnl Copyright (C) 2008-2015 Free Software Foundation, Inc.
 dnl This file is free software; the Free Software Foundation

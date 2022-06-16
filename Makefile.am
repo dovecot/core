@@ -13,9 +13,7 @@ EXTRA_DIST = \
 	COPYING.LGPL \
 	COPYING.MIT \
 	ChangeLog \
-	README \
 	README.md \
-	INSTALL \
 	INSTALL.md \
 	update-version.sh \
 	run-test-valgrind.supp \
@@ -30,12 +28,6 @@ nodist_pkginclude_HEADERS = config.h
 
 version:
 	$(AM_V_GEN)$(top_srcdir)/build-aux/git-version-gen > $@
-
-README: README.md
-	$(AM_V_GEN)$(PANDOC) -f markdown_github -t plain -o $@ $<
-
-INSTALL: INSTALL.md
-	$(AM_V_GEN)$(PANDOC) -f markdown_github -t plain -o $@ $<
 
 ChangeLog:
 	$(AM_V_GEN)git log --name-status --pretty="format:%ai %aN <%aE> (%h)%n%n%w(80,4,4)%s%n%n%b" 5d5c4f2bfb812c767084c0338dae692db476da10^.. > ChangeLog || rm -f ChangeLog

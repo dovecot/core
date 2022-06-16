@@ -761,7 +761,6 @@ LDFLAGS="\$(NOPLUGIN_LDFLAGS) $LDFLAGS $EXTRA_LDFLAGS"
 AC_SUBST(NOPLUGIN_LDFLAGS)
 
 DC_CC_WRAPPER
-DC_PANDOC
 
 if test "$docdir" = ""; then
   dnl docdir supported only by autoconf v2.59c and later
