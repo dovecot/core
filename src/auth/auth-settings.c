@@ -228,7 +228,7 @@ const struct setting_parser_info auth_userdb_setting_parser_info = {
 static const struct setting_define auth_setting_defines[] = {
 	DEF(STR, mechanisms),
 	DEF(STR, realms),
-	DEF(STR, default_realm),
+	DEF(STR, default_domain),
 	DEF(SIZE, cache_size),
 	DEF(TIME, cache_ttl),
 	DEF(TIME, cache_negative_ttl),
@@ -285,7 +285,7 @@ static const struct setting_define auth_setting_defines[] = {
 static const struct auth_settings auth_default_settings = {
 	.mechanisms = "plain",
 	.realms = "",
-	.default_realm = "",
+	.default_domain = "",
 	.cache_size = 0,
 	.cache_ttl = 60*60,
 	.cache_negative_ttl = 60*60,

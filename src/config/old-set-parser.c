@@ -245,6 +245,10 @@ old_settings_handle_root(struct config_parser_context *ctx,
 		set_rename(ctx, key, new_key, value);
 		return TRUE;
 	}
+	if (strcmp(key, "auth_default_realm") == 0) {
+		set_rename(ctx, key, "auth_default_domain", value);
+		return TRUE;
+	}
 	if (strcmp(key, "imap_client_workarounds") == 0) {
 		char **args, **arg;
 

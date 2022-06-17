@@ -10,7 +10,7 @@
 
 static struct auth_settings test_lua_auth_set = {
 	.master_user_separator = "",
-	.default_realm = "",
+	.default_domain = "",
 	.username_format = "",
 };
 

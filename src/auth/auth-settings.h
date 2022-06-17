@@ -40,7 +40,7 @@ struct auth_userdb_settings {
 struct auth_settings {
 	const char *mechanisms;
 	const char *realms;
-	const char *default_realm;
+	const char *default_domain;
 	uoff_t cache_size;
 	unsigned int cache_ttl;
 	unsigned int cache_negative_ttl;

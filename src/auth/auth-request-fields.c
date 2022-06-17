@@ -293,10 +293,10 @@ auth_request_fix_username(struct auth_request *request, const char **username,
 	unsigned char *p;
 	char *user;
 
-	if (*set->default_realm != '\0' &&
+	if (*set->default_domain != '\0' &&
 	    strchr(*username, '@') == NULL) {
 		user = p_strconcat(unsafe_data_stack_pool, *username, "@",
-				   set->default_realm, NULL);
+				   set->default_domain, NULL);
 	} else {
 		user = t_strdup_noconst(*username);
 	}
