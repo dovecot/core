@@ -20,9 +20,16 @@ raw_storage_create_from_set(const struct setting_parser_info *set_info,
 	struct mail_namespace *ns;
 	struct mail_namespace_settings *ns_set;
 	struct mail_storage_settings *mail_set;
+	struct event *event;
 	const char *error;
 
-	user = mail_user_alloc(NULL, "raw mail user", set_info, set);
+	event = event_create(NULL);
+	/* Don't include raw user's events in statistics or anything else.
+	   They would just cause confusion. */
+	event_disable_callbacks(event);
+	user = mail_user_alloc(event, "raw mail user", set_info, set);
+	event_unref(&event);
+
 	user->autocreated = TRUE;
 	mail_user_set_home(user, "/");
 	if (mail_user_init(user, &error) < 0)
