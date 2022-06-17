@@ -277,6 +277,11 @@ event_set_log_message_callback(struct event *event,
 			const char *(*)(typeof(context), enum log_type, \
 					const char *)))
 
+/* Disable calling all callbacks for the event and its children. This
+   effectively allows the event to be used only for logging, but nothing else
+   (no stats or other filters). */
+void event_disable_callbacks(struct event *event);
+
 /* Set the event's name. The name is specific to a single sending of an event,
    and it'll be automatically cleared once the event is sent. This should
    typically be used only in a parameter to e_debug(), etc. */

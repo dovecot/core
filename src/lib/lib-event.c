@@ -98,6 +98,7 @@ static void event_copy_parent_defaults(struct event *event,
 	event->passthrough = parent->passthrough;
 	event->min_log_level = parent->min_log_level;
 	event->forced_debug = parent->forced_debug;
+	event->disable_callbacks = parent->disable_callbacks;
 }
 
 static bool
@@ -119,6 +120,9 @@ event_call_callbacks(struct event *event, enum event_callback_type type,
 		     struct failure_context *ctx, const char *fmt, va_list args)
 {
 	event_callback_t *callback;
+
+	if (event->disable_callbacks)
+		return TRUE;
 
 	array_foreach_elem(&event_handlers, callback) {
 		bool ret;
@@ -682,6 +686,11 @@ event_set_log_message_callback(struct event *event,
 	event->log_message_callback = callback;
 	event->log_message_callback_context = context;
 	return event;
+}
+
+void event_disable_callbacks(struct event *event)
+{
+	event->disable_callbacks = TRUE;
 }
 
 struct event *
