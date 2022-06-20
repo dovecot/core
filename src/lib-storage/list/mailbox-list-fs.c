@@ -272,7 +272,7 @@ static int fs_list_delete_mailbox(struct mailbox_list *list, const char *name)
 	} else {
 		ret = fs_list_delete_maildir(list, name);
 	}
-	if (ret == 0 && list->set.no_noselect)
+	if (ret == 0 && !list->set.keep_noselect)
 		mailbox_list_delete_until_root(list, path, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 
 	i_assert(ret <= 0);

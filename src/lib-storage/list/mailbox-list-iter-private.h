@@ -30,7 +30,7 @@ mailbox_list_iter_try_delete_noselect(struct mailbox_list_iterate_context *ctx,
 {
 	if ((info->flags & (MAILBOX_NOSELECT|MAILBOX_NOCHILDREN)) ==
 	    (MAILBOX_NOSELECT|MAILBOX_NOCHILDREN) &&
-	    ctx->list->set.no_noselect) {
+	    !ctx->list->set.keep_noselect) {
 		/* Try to rmdir() all \NoSelect mailbox leafs and
 		   afterwards their parents. */
 		mailbox_list_delete_mailbox_until_root(ctx->list, storage_name);

@@ -174,8 +174,8 @@ struct mailbox_list_settings {
 	   faster storage. This could perhaps be made the default at some point,
 	   but for now since it's less tested it's optional. */
 	bool iter_from_index_dir:1;
-	/* Avoid creating or listing \NoSelect mailboxes. */
-	bool no_noselect:1;
+	/* Control creation and listing of \NoSelect mailboxes. */
+	bool keep_noselect:1;
 	/* Do not validate names as fs names (allows weird names) */
 	bool no_fs_validation:1;
 };
