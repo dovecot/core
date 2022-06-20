@@ -110,11 +110,11 @@ static bool verify_credentials(struct digest_auth_request *request,
 		":", nonce-value, ":", cnonce-value }
 
 	   If the "qop" directive's value is "auth", then A2 is:
-	
+
 	      A2       = { "AUTHENTICATE:", digest-uri-value }
-	
+
 	   If the "qop" value is "auth-int" or "auth-conf" then A2 is:
-	
+
 	      A2       = { "AUTHENTICATE:", digest-uri-value,
 		       ":00000000000000000000000000000000" }
 	*/
@@ -339,7 +339,7 @@ static bool auth_handle_response(struct digest_auth_request *request,
 		if (request->qop == 0) {
 			*error = "Nonallowed QoP requested";
 			return FALSE;
-		} 
+		}
 
 		request->qop_value = p_strdup(request->pool, value);
 		return TRUE;

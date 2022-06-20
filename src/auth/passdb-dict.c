@@ -179,7 +179,7 @@ struct passdb_module_interface passdb_dict = {
 	passdb_dict_preinit,
 	NULL,
 	passdb_dict_deinit,
-       
+
 	dict_verify_plain,
 	dict_lookup_credentials,
 	NULL

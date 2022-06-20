@@ -15,7 +15,7 @@
 #include "otp.h"
 #include "mech-otp-common.h"
 
-static void 
+static void
 otp_send_challenge(struct auth_request *auth_request,
 		   const unsigned char *credentials, size_t size)
 {

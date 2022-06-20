@@ -46,7 +46,7 @@ struct passdb_module_interface {
 
 	/* Return authentication credentials, set in
 	   auth_request->credentials. */
-	void (*lookup_credentials)(struct auth_request *request, 
+	void (*lookup_credentials)(struct auth_request *request,
 				   lookup_credentials_callback_t *callback);
 
 	/* Update credentials */

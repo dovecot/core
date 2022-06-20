@@ -1017,7 +1017,6 @@ sasl_interact(LDAP *ld ATTR_UNUSED, unsigned flags ATTR_UNUSED,
 			in->len = strlen(str);
 			in->result = str;
 		}
-		
 	}
 	return LDAP_SUCCESS;
 }
@@ -1051,7 +1050,7 @@ static int db_ldap_bind_sasl(struct ldap_connection *conn)
 					   sasl_interact, &context);
 	if (db_ldap_connect_finish(conn, ret) < 0)
 		return -1;
-	
+
 	conn->conn_state = LDAP_CONN_STATE_BOUND_DEFAULT;
 
 	return 0;

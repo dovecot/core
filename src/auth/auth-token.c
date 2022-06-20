@@ -37,7 +37,7 @@ auth_token_read_secret(const char *path,
 		       unsigned char secret_r[AUTH_TOKEN_SECRET_LEN])
 {
 	struct stat st, lst;
-	int fd, ret;		
+	int fd, ret;
 
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
@@ -64,7 +64,7 @@ auth_token_read_secret(const char *path,
 	if (lstat(path, &lst) < 0) {
 		i_error("lstat(%s) failed: %m", path);
 		i_close_fd(&fd);
-		return -1;		
+		return -1;
 	}
 
 	/* check security parameters for compromise */

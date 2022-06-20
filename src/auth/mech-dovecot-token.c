@@ -38,7 +38,7 @@ mech_dovecot_token_auth_continue(struct auth_request *request,
 			else
 				break;
 		}
-	}	
+	}
 
 	if (count != 4) {
 		/* invalid input */

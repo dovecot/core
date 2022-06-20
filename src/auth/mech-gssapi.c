@@ -4,7 +4,7 @@
  * Copyright (c) 2005 Jelmer Vernooij <jelmer@samba.org>
  *
  * Related standards:
- * - draft-ietf-sasl-gssapi-03 
+ * - draft-ietf-sasl-gssapi-03
  * - RFC2222
  *
  * Some parts inspired by an older patch from Colin Walters
@@ -62,15 +62,15 @@ struct gssapi_auth_request {
 	gss_ctx_id_t gss_ctx;
 	gss_cred_id_t service_cred;
 
-	enum { 
-		GSS_STATE_SEC_CONTEXT, 
-		GSS_STATE_WRAP, 
+	enum {
+		GSS_STATE_SEC_CONTEXT,
+		GSS_STATE_WRAP,
 		GSS_STATE_UNWRAP
 	} sasl_gssapi_state;
 
 	gss_name_t authn_name;
 	gss_name_t authz_name;
-		
+
 	pool_t pool;
 };
 
@@ -173,7 +173,7 @@ obtain_service_credentials(struct auth_request *request, gss_cred_id_t *ret_r)
 	inbuf.length = str_len(principal_name);
 	inbuf.value = str_c_modifiable(principal_name);
 
-	major_status = gss_import_name(&minor_status, &inbuf, 
+	major_status = gss_import_name(&minor_status, &inbuf,
 				       GSS_C_NT_HOSTBASED_SERVICE,
 				       &gss_principal);
 	str_free(&principal_name);
@@ -184,7 +184,7 @@ obtain_service_credentials(struct auth_request *request, gss_cred_id_t *ret_r)
 		return major_status;
 	}
 
-	major_status = gss_acquire_cred(&minor_status, gss_principal, 0, 
+	major_status = gss_acquire_cred(&minor_status, gss_principal, 0,
 					GSS_C_NULL_OID_SET, GSS_C_ACCEPT,
 					ret_r, NULL, NULL);
 	if (GSS_ERROR(major_status) != 0) {
@@ -297,7 +297,7 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 		request->service_cred,
 		&inbuf,
 		GSS_C_NO_CHANNEL_BINDINGS,
-		&request->authn_name, 
+		&request->authn_name,
 		&mech_type,
 		&output_token,
 		NULL, /* ret_flags */
@@ -313,7 +313,7 @@ mech_gssapi_sec_context(struct gssapi_auth_request *request,
 				      GSS_C_MECH_CODE,
 				      "processing incoming data");
 		return -1;
-	} 
+	}
 
 	switch (major_status) {
 	case GSS_S_COMPLETE:
@@ -369,7 +369,7 @@ mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 	unsigned char ret[4];
 
 	/* The client's return data should be empty here */
-	
+
 	/* Only authentication, no integrity or confidentiality
 	   protection (yet?) */
 	ret[0] = (SASL_GSSAPI_QOP_UNSPECIFIED |
@@ -380,7 +380,7 @@ mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 
 	inbuf.length = 4;
 	inbuf.value = ret;
-	
+
 	major_status = gss_wrap(&minor_status, request->gss_ctx, 0,
 				GSS_C_QOP_DEFAULT, &inbuf, NULL, &outbuf);
 
@@ -390,7 +390,7 @@ mech_gssapi_wrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 		mech_gssapi_log_error(&request->auth_request, minor_status,
 			GSS_C_MECH_CODE, "sending security layer negotiation");
 		return -1;
-	} 
+	}
 
 	e_debug(request->auth_request.mech_event,
 		"Negotiated security layer");
@@ -516,7 +516,7 @@ mech_gssapi_userok(struct gssapi_auth_request *request, const char *login_user)
 		mech_gssapi_log_error(auth_request, major_status,
 				      GSS_C_GSS_CODE, "__gss_userok failed");
 		return -1;
-	} 
+	}
 
 	if (login_ok == 0) {
 		e_info(auth_request->mech_event,
@@ -595,7 +595,7 @@ mech_gssapi_unwrap(struct gssapi_auth_request *request, gss_buffer_desc inbuf)
 				      GSS_C_GSS_CODE,
 				      "final negotiation: gss_unwrap");
 		return -1;
-	} 
+	}
 
 	/* outbuf[0] contains bitmask for selected security layer,
 	   outbuf[1..3] contains maximum output_message size */
@@ -654,7 +654,7 @@ static void
 mech_gssapi_auth_continue(struct auth_request *request,
 			  const unsigned char *data, size_t data_size)
 {
-	struct gssapi_auth_request *gssapi_request = 
+	struct gssapi_auth_request *gssapi_request =
 		(struct gssapi_auth_request *)request;
 	gss_buffer_desc inbuf;
 	int ret = -1;
@@ -683,10 +683,10 @@ static void
 mech_gssapi_auth_initial(struct auth_request *request,
 			 const unsigned char *data, size_t data_size)
 {
-	struct gssapi_auth_request *gssapi_request = 
+	struct gssapi_auth_request *gssapi_request =
 		(struct gssapi_auth_request *)request;
 	OM_uint32 major_status;
-	
+
 	major_status =
 		obtain_service_credentials(request,
 					   &gssapi_request->service_cred);

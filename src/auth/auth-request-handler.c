@@ -308,7 +308,7 @@ auth_request_handler_reply_failure_finish(struct auth_request *request)
 	if (request->fields.user != NULL)
 		auth_str_add_keyvalue(str, "user", request->fields.user);
 	else if (request->fields.original_username != NULL) {
-		auth_str_add_keyvalue(str, "user", 
+		auth_str_add_keyvalue(str, "user",
 				      request->fields.original_username);
 	}
 

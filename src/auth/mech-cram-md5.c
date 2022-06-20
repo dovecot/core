@@ -49,7 +49,6 @@ static const char *get_cram_challenge(void)
 static bool verify_credentials(struct cram_auth_request *request,
 			       const unsigned char *credentials, size_t size)
 {
-	
 	unsigned char digest[MD5_RESULTLEN];
         struct hmac_context ctx;
 	const char *response_hex;

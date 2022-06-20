@@ -306,7 +306,7 @@ struct passdb_module_interface passdb_sql = {
 	passdb_sql_preinit,
 	passdb_sql_init,
 	passdb_sql_deinit,
-       
+
 	sql_verify_plain,
 	sql_lookup_credentials,
 	sql_set_credentials

@@ -248,7 +248,7 @@ static void set_pam_items(struct auth_request *request, pam_handle_t *pamh)
 	(void)pam_set_item(pamh, PAM_TTY, "dovecot");
 }
 
-static enum passdb_result 
+static enum passdb_result
 pam_verify_plain_call(struct auth_request *request, const char *service,
 		      const char *password)
 {
