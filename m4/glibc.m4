@@ -1,14 +1,14 @@
 AC_DEFUN([DOVECOT_GLIBC], [
   AC_CACHE_CHECK([whether we have glibc],i_cv_have_glibc,[
-    AC_TRY_COMPILE([
-      #include <stdlib.h>
-      #ifdef __GLIBC__
+    AC_EGREP_CPP([we have glibc], [
+      #include <features.h>
+      #ifdef __GNU_LIBRARY__
         we have glibc
       #endif
-    ],, [
-      i_cv_have_glibc=no
     ], [
       i_cv_have_glibc=yes
+    ], [
+      i_cv_have_glibc=no
     ])
   ])
   AS_IF([test "$i_cv_have_glibc" = "yes"], [
