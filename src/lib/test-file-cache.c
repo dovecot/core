@@ -4,6 +4,7 @@
 #include "istream.h"
 #include "ostream.h"
 #include "file-cache.h"
+#include "mmap-util.h"
 
 #include <sys/resource.h>
 #include <sys/types.h>
@@ -129,7 +130,7 @@ static void test_file_cache_multipage(void)
 {
 	test_begin("file_cache_multipage");
 
-	size_t page_size = getpagesize();
+	size_t page_size = mmap_get_page_size();
 	struct ostream *os = o_stream_create_file(TEST_FILENAME, 0, 0600, 0);
 	size_t total_size = 0;
 	for (size_t i = 0; i < page_size * 3 + 100; i += 12) {
@@ -250,7 +251,7 @@ static void test_file_cache_errors(void)
 	test_assert(map == NULL);
 
 #ifdef HAVE_RLIMIT_AS
-	size_t page_size = getpagesize();
+	size_t page_size = mmap_get_page_size();
 	/* temporarily set a small memory limit to make mmap attempt fail */
 	struct rlimit rl_cur;
 	test_assert(getrlimit(RLIMIT_AS, &rl_cur) == 0);

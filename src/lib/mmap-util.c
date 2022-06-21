@@ -58,6 +58,6 @@ size_t mmap_get_page_size(void)
 
 	if (size != 0)
 		return size;
-	size = getpagesize();
+	size = sysconf(_SC_PAGESIZE);
 	return size;
 }

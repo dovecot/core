@@ -43,7 +43,7 @@ static void movable_mmap_init(void)
 	fd_close_on_exec(zero_fd, TRUE);
 #endif
 
-	page_size = getpagesize();
+	page_size = mmap_get_page_size();
 	header_size = page_size;
 }
 
