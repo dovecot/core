@@ -162,22 +162,22 @@ struct mailbox_list_settings {
 	   conversion. */
 	char vname_escape_char;
 	/* Use UTF-8 mailbox names on filesystem instead of mUTF-7 */
-	bool utf8;
+	bool utf8:1;
 	/* Don't check/create the alt-dir symlink. */
-	bool alt_dir_nocheck;
+	bool alt_dir_nocheck:1;
 	/* Use maildir_name also for index/control directories. This should
 	   have been the default since the beginning, but for backwards
 	   compatibility it had to be made an option. */
-	bool index_control_use_maildir_name;
+	bool index_control_use_maildir_name:1;
 	/* Perform mailbox iteration using the index directory instead of the
 	   mail root directory. This can be helpful if the indexes are on a
 	   faster storage. This could perhaps be made the default at some point,
 	   but for now since it's less tested it's optional. */
-	bool iter_from_index_dir;
+	bool iter_from_index_dir:1;
 	/* Avoid creating or listing \NoSelect mailboxes. */
-	bool no_noselect;
+	bool no_noselect:1;
 	/* Do not validate names as fs names (allows weird names) */
-	bool no_fs_validation;
+	bool no_fs_validation:1;
 };
 
 struct mailbox_permissions {
