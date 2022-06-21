@@ -29,8 +29,7 @@
 #  error "Must have one of _ILP32 and _LP64 defined"
 #endif
 
-#if ((__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ > 3)) && \
-	defined(HAVE_TYPEOF)) && !defined(__cplusplus)
+#if defined(HAVE_TYPEOF) && !defined(__cplusplus)
 #  define HAVE_TYPE_CHECKS
 #endif
 
