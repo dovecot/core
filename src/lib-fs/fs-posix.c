@@ -688,22 +688,22 @@ fs_posix_lock(struct fs_file *_file, unsigned int secs, struct fs_lock **lock_r)
 	struct posix_fs *fs = container_of(_file->fs, struct posix_fs, fs);
 	struct dotlock_settings dotlock_set;
 	struct posix_fs_lock fs_lock, *ret_lock;
-	const char *error;
 	int ret = -1;
 
 	i_zero(&fs_lock);
 	fs_lock.lock.file = _file;
 
-	struct file_lock_settings lock_set = {
-		.lock_method = FILE_LOCK_METHOD_FLOCK,
-	};
 	switch (fs->lock_method) {
-	case FS_POSIX_LOCK_METHOD_FLOCK:
+	case FS_POSIX_LOCK_METHOD_FLOCK: {
 #ifndef HAVE_FLOCK
 		fs_set_error(_file->event, ENOTSUP,
 			     "flock() not supported by OS (for file %s)",
 			     file->full_path);
 #else
+		const char *error;
+		struct file_lock_settings lock_set = {
+			.lock_method = FILE_LOCK_METHOD_FLOCK,
+		};
 		if (secs == 0) {
 			ret = file_try_lock(file->fd, file->full_path, F_WRLCK,
 					    &lock_set, &fs_lock.file_lock,
@@ -719,6 +719,7 @@ fs_posix_lock(struct fs_file *_file, unsigned int secs, struct fs_lock **lock_r)
 		}
 #endif
 		break;
+	}
 	case FS_POSIX_LOCK_METHOD_DOTLOCK:
 		i_zero(&dotlock_set);
 		dotlock_set.stale_timeout = FS_POSIX_DOTLOCK_STALE_TIMEOUT_SECS;
