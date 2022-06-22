@@ -14,18 +14,6 @@
 #  define MREMAP_MAYMOVE 1
 #endif
 
-#define madvise my_madvise
-int my_madvise(void *start, size_t length, int advice);
-#ifndef HAVE_MADVISE
-#  ifndef MADV_NORMAL
-#    define MADV_NORMAL 0
-#    define MADV_RANDOM 0
-#    define MADV_SEQUENTIAL 0
-#    define MADV_WILLNEED 0
-#    define MADV_DONTNEED 0
-#  endif
-#endif
-
 void *mmap_file(int fd, size_t *length, int prot);
 void *mmap_ro_file(int fd, size_t *length);
 void *mmap_rw_file(int fd, size_t *length);

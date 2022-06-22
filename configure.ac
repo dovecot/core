@@ -305,7 +305,7 @@ DOVECOT_ARC4RANDOM
 
 AC_DEFINE(PACKAGE_WEBPAGE, "http://www.dovecot.org/", [Support URL])
 
-AC_CHECK_FUNCS(flock madvise pread setproctitle setresgid \
+AC_CHECK_FUNCS(flock pread setproctitle setresgid \
 	       getmntinfo setpriority quotactl getmntent kqueue kevent \
 	       backtrace_symbols walkcontext dirfd clearenv \
 	       malloc_usable_size glob fallocate posix_fadvise \
