@@ -18,7 +18,6 @@
 #include "push-notification-txn-msg.h"
 
 #define PUSH_NOTIFICATION_CONFIG "push_notification_driver"
-#define PUSH_NOTIFICATION_CONFIG_OLD "push_notification_backend"
 #define PUSH_NOTIFICATION_EVENT_FINISHED "push_notification_finished"
 
 #define PUSH_NOTIFICATION_USER_CONTEXT(obj) \
@@ -286,13 +285,6 @@ push_notification_driver_list_init(struct mail_user *user)
 	p_array_init(&dlist->drivers, user->pool, 4);
 
 	push_notification_config_init(PUSH_NOTIFICATION_CONFIG, user, dlist);
-
-	if (array_is_empty(&dlist->drivers)) {
-		/* Support old configuration (it was available at time initial
-		   OX driver was first released). */
-		push_notification_config_init(PUSH_NOTIFICATION_CONFIG_OLD,
-					      user, dlist);
-	}
 	return dlist;
 }
 

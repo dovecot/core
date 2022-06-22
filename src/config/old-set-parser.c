@@ -670,6 +670,14 @@ old_settings_handle_path(struct config_parser_context *ctx,
 				index, value), NULL);
 			return TRUE;
 		}
+
+		if (strcmp(key, "push_notification_backend") == 0) {
+			obsolete(ctx, "%s has been replaced by push_notification_driver", key);
+			config_apply_line(ctx, key, t_strdup_printf(
+				"plugin/%d/push_notification_driver=%s",
+				index, value), NULL);
+			return TRUE;
+		}
 	}
 	return FALSE;
 }
