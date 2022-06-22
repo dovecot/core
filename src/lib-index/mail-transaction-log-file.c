@@ -1483,9 +1483,10 @@ mail_transaction_log_file_mmap(struct mail_transaction_log_file *file,
 	}
 
 	if (file->mmap_size > mmap_get_page_size()) {
-		if (madvise(file->mmap_base, file->mmap_size,
-			    MADV_SEQUENTIAL) < 0)
-			log_file_set_syscall_error(file, "madvise()");
+		errno = posix_madvise(file->mmap_base, file->mmap_size,
+					POSIX_MADV_SEQUENTIAL);
+		if (errno != 0)
+			log_file_set_syscall_error(file, "posix_madvise()");
 	}
 
 	buffer_create_from_const_data(&file->mmap_buffer,

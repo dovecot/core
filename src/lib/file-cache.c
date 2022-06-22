@@ -308,8 +308,8 @@ void file_cache_invalidate(struct file_cache *cache, uoff_t offset, uoff_t size)
 		   and it may free it. don't bother to do it for single pages,
 		   there's a good chance that they get re-read back
 		   immediately. */
-		(void)madvise(PTR_OFFSET(cache->mmap_base, offset * page_size),
-			      size * page_size, MADV_DONTNEED);
+		(void)posix_madvise(PTR_OFFSET(cache->mmap_base, offset * page_size),
+				    size * page_size, POSIX_MADV_DONTNEED);
 	}
 
 	bits = buffer_get_space_unsafe(cache->page_bitmask, offset / CHAR_BIT,
