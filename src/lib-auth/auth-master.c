@@ -324,6 +324,8 @@ auth_master_input_args(struct connection *_conn, const char *const *args)
 
 	wanted_id = dec2str(conn->request_counter);
 	if (strcmp(id, wanted_id) == 0) {
+		e_debug(conn->conn.event, "auth input: %s",
+			t_strarray_join(args, "\t"));
 		return (conn->reply_callback(cmd, args, conn->reply_context) ?
 			0 : 1);
 	}
