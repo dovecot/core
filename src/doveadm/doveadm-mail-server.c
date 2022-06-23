@@ -282,22 +282,15 @@ doveadm_proxy_cmd_have_connected(struct doveadm_mail_server_cmd *servercmd,
 }
 
 static const char *const *
-doveadm_mail_get_all_forward_fields(struct doveadm_mail_cmd_context *ctx)
+doveadm_mail_get_outgoing_forward_fields(struct doveadm_mail_cmd_context *ctx)
 {
-	if ((!array_is_created(&ctx->proxy_forward_fields) ||
-	     array_is_empty(&ctx->proxy_forward_fields)) &&
-	    (!array_is_created(&ctx->auth_proxy_forward_fields) ||
-	     array_is_empty(&ctx->auth_proxy_forward_fields)))
+	if (!array_is_created(&ctx->auth_proxy_forward_fields) ||
+	    array_is_empty(&ctx->auth_proxy_forward_fields))
 		return NULL;
 
-	ARRAY_TYPE(const_string) merged;
-	t_array_init(&merged, 32);
-	if (array_is_created(&ctx->proxy_forward_fields))
-		array_append_array(&merged, &ctx->proxy_forward_fields);
-	if (array_is_created(&ctx->auth_proxy_forward_fields))
-		array_append_array(&merged, &ctx->auth_proxy_forward_fields);
-	array_append_zero(&merged);
-	return array_front(&merged);
+	array_append_zero(&ctx->auth_proxy_forward_fields);
+	array_pop_back(&ctx->auth_proxy_forward_fields);
+	return array_front(&ctx->auth_proxy_forward_fields);
 }
 
 static int
@@ -361,7 +354,7 @@ doveadm_cmd_redirect_finish(struct doveadm_mail_server_cmd *servercmd,
 	struct doveadm_client_cmd_settings cmd_set = {
 		.proxy_ttl = cmd_ctx->proxy_ttl,
 	};
-	cmd_set.forward_fields = doveadm_mail_get_all_forward_fields(cmd_ctx);
+	cmd_set.forward_fields = doveadm_mail_get_outgoing_forward_fields(cmd_ctx);
 	doveadm_client_cmd(conn, &cmd_set, servercmd->cmdline, servercmd->input,
 			   doveadm_cmd_callback, servercmd);
 	return 1;
@@ -586,7 +579,7 @@ static void doveadm_mail_server_handle(struct doveadm_server *server,
 	struct doveadm_client_cmd_settings cmd_set = {
 		.proxy_ttl = cmd_ctx->proxy_ttl,
 	};
-	cmd_set.forward_fields = doveadm_mail_get_all_forward_fields(cmd_ctx);
+	cmd_set.forward_fields = doveadm_mail_get_outgoing_forward_fields(cmd_ctx);
 	doveadm_client_cmd(conn, &cmd_set, str_c(cmd), cmd_ctx->cmd_input,
 			   doveadm_cmd_callback, servercmd);
 }
