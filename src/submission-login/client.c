@@ -193,16 +193,7 @@ client_connection_cmd_xclient(void *context,
 		const char *value = data->extra_fields[i].value;
 
 		if (strcasecmp(name, "FORWARD") == 0) {
-			size_t value_len = strlen(value);
-			if (client->common.forward_fields != NULL) {
-				str_truncate(client->common.forward_fields, 0);
-			} else {
-				client->common.forward_fields =	str_new(
-					client->common.preproxy_pool,
-					MAX_BASE64_DECODED_SIZE(value_len));
-			}
-			if (base64_decode(value, value_len,
-					  client->common.forward_fields) < 0) {
+			if (!client_forward_decode_base64(&client->common, value)) {
 				smtp_server_reply(cmd, 501, "5.5.4",
 						  "Invalid FORWARD parameter");
 			}

@@ -301,6 +301,7 @@ struct client *clients_get_first_fd_proxy(void);
 
 void client_add_forward_field(struct client *client, const char *key,
 			      const char *value);
+bool client_forward_decode_base64(struct client *client, const char *value);
 void client_set_title(struct client *client);
 const char *client_get_extra_disconnect_reason(struct client *client);
 

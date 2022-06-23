@@ -749,6 +749,18 @@ void client_add_forward_field(struct client *client, const char *key,
 	str_append_tabescaped(client->forward_fields, value);
 }
 
+bool client_forward_decode_base64(struct client *client, const char *value)
+{
+	size_t value_len = strlen(value);
+	string_t *str = str_new(client->preproxy_pool,
+				MAX_BASE64_DECODED_SIZE(value_len));
+	if (base64_decode(value, value_len, str) < 0)
+		return FALSE;
+
+	client->forward_fields = str;
+	return TRUE;
+}
+
 const char *client_get_session_id(struct client *client)
 {
 	buffer_t *buf, *base64_buf;
