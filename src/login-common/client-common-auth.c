@@ -404,6 +404,9 @@ proxy_redirect_reauth_callback(struct auth_client_request *request,
 			break;
 		}
 
+		/* Replace the saved passdb args with the reauth reply. This
+		   way reauth can replace (all of) the forward_* fields. */
+		client->auth_passdb_args = p_strarray_dup(client->pool, args);
 		if (reply.proxy.proxy) {
 			login_proxy_redirect_finish(client->login_proxy,
 						    &reply.proxy.host_ip,
