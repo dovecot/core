@@ -394,6 +394,7 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_recipient *lprcpt,
 	struct smtp_server_recipient *rcpt = lprcpt->rcpt->rcpt;
 	const char *p, *key, *value, *error;
 	in_port_t orig_port = set->set.port;
+	string_t *fwfields = NULL;
 	int ret;
 
 	set->set.proxy = FALSE;
@@ -438,6 +439,15 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_recipient *lprcpt,
 		} else if (strcmp(key, "user") == 0) {
 			/* Changing the username */
 			*address = value;
+		} else if (str_begins_icase(key, "forward_", &key)) {
+			if (fwfields == NULL)
+				fwfields = t_str_new(128);
+			else
+				str_append_c(fwfields, '\t');
+
+			str_append_tabescaped(fwfields, key);
+			str_append_c(fwfields, '=');
+			str_append_tabescaped(fwfields, value);
 		} else {
 			/* Just ignore it */
 		}
@@ -457,6 +467,13 @@ lmtp_proxy_rcpt_parse_fields(struct lmtp_proxy_recipient *lprcpt,
 	}
 	if (set->set.redirect_reauth)
 		lprcpt->proxy_redirect_reauth = TRUE;
+
+	/* Copy forward fields returned from passdb */
+	if (fwfields != NULL) {
+		lprcpt->auth_forward_fields = p_memdup(
+			rcpt->pool, str_data(fwfields), str_len(fwfields));
+		lprcpt->auth_forward_fields_size = str_len(fwfields);
+	}
 	return 1;
 }
 
@@ -896,7 +913,6 @@ int lmtp_proxy_rcpt(struct client *client,
 	struct mail_storage_service_input input;
 	const char *const *fields, *errstr, *username, *orig_username;
 	struct smtp_address *user;
-	string_t *fwfields;
 	pool_t auth_pool;
 	int ret;
 
@@ -1000,25 +1016,6 @@ int lmtp_proxy_rcpt(struct client *client,
 	smtp_server_recipient_add_hook(
 		rcpt, SMTP_SERVER_RECIPIENT_HOOK_APPROVED,
 		lmtp_proxy_rcpt_approved, lprcpt);
-
-	/* Copy forward fields returned from passdb */
-	fwfields = NULL;
-	for (const char *const *ptr = fields; *ptr != NULL; ptr++) {
-		if (!str_begins_icase_with(*ptr, "forward_"))
-			continue;
-
-		if (fwfields == NULL)
-			fwfields = t_str_new(128);
-		else
-			str_append_c(fwfields, '\t');
-
-		str_append_tabescaped(fwfields, (*ptr) + 8);
-	}
-	if (fwfields != NULL) {
-		lprcpt->auth_forward_fields = p_memdup(
-			rcpt->pool, str_data(fwfields), str_len(fwfields));
-		lprcpt->auth_forward_fields_size = str_len(fwfields);
-	}
 
 	pool_unref(&auth_pool);
 
