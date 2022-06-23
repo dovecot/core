@@ -241,7 +241,8 @@ cmd_auth_input(const char *auth_socket_path, struct authtest_input *input)
 }
 
 static void
-auth_user_info_parse_arg(struct auth_user_info *info, const char *arg)
+auth_user_info_parse_arg(struct auth_user_info *info, const char *arg,
+			 ARRAY_TYPE(const_string) *forward_fields)
 {
 	const char *key, *value;
 
@@ -276,21 +277,7 @@ auth_user_info_parse_arg(struct auth_user_info *info, const char *arg)
 		if (net_str2port(value, &info->real_remote_port) < 0)
 			i_fatal("real_rport: Invalid port number");
 	} else if (str_begins(arg, "forward_", &key)) {
-		value = strchr(key, '=');
-
-		if (value == NULL)
-			value = "";
-		else
-			key = t_strdup_until(key, value++);
-		key = str_tabescape(key);
-		value = str_tabescape(value);
-		if (info->forward_fields == NULL) {
-			info->forward_fields =
-				t_strdup_printf("%s=%s", key, value);
-		} else {
-			info->forward_fields =
-				t_strdup_printf("%s\t%s=%s", info->forward_fields, key, value);
-		}
+		array_push_back(forward_fields, &key);
 	} else {
 		if (!array_is_created(&info->extra_fields))
 			t_array_init(&info->extra_fields, 4);
@@ -301,8 +288,14 @@ auth_user_info_parse_arg(struct auth_user_info *info, const char *arg)
 static void
 auth_user_info_parse(struct auth_user_info *info, const char *const *args)
 {
+	ARRAY_TYPE(const_string) forward_fields;
+	t_array_init(&forward_fields, 8);
 	for (unsigned int i = 0; args[i] != NULL; i++)
-		auth_user_info_parse_arg(info, args[i]);
+		auth_user_info_parse_arg(info, args[i], &forward_fields);
+	if (array_count(&forward_fields) > 0) {
+		array_append_zero(&forward_fields);
+		info->forward_fields = array_front(&forward_fields);
+	}
 }
 
 static void

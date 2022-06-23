@@ -45,7 +45,7 @@ struct auth_request_info {
 	const char *cert_username;
 	const char *local_name;
 	const char *client_id;
-	const char *forward_fields;
+	const char *const *forward_fields;
 	ARRAY_TYPE(const_string) extra_fields;
 
 	unsigned int ssl_cipher_bits;

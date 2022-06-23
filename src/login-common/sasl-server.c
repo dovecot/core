@@ -1,6 +1,7 @@
 /* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "login-common.h"
+#include "array.h"
 #include "str.h"
 #include "base64.h"
 #include "buffer.h"
@@ -476,8 +477,11 @@ int sasl_server_auth_request_info_fill(struct client *client,
 	info_r->real_remote_port = client->real_remote_port;
 	if (client->client_id != NULL)
 		info_r->client_id = str_c(client->client_id);
-	if (client->forward_fields != NULL)
-		info_r->forward_fields = str_c(client->forward_fields);
+	if (array_is_created(&client->forward_fields)) {
+		array_append_zero(&client->forward_fields);
+		array_pop_back(&client->forward_fields);
+		info_r->forward_fields = array_front(&client->forward_fields);
+	}
 	return 0;
 }
 

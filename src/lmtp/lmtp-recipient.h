@@ -24,7 +24,7 @@ struct lmtp_recipient {
 	void *backend_context;
 
 	const char *session_id;
-	const char *forward_fields;
+	const char *const *forward_fields;
 
 	/* Module-specific contexts. */
 	ARRAY(union lmtp_recipient_module_context *) module_contexts;

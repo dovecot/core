@@ -126,10 +126,15 @@ static void auth_server_send_new_request(struct auth_client_connection *conn,
 		str_append_tabescaped(str, info->client_id);
 		event_add_str(request->event, "client_id", info->client_id);
 	}
-	if (info->forward_fields != NULL &&
-	    *info->forward_fields != '\0') {
+	if (info->forward_fields != NULL && info->forward_fields[0] != NULL) {
+		string_t *forward = t_str_new(64);
+		str_append_tabescaped(forward, info->forward_fields[0]);
+		for (unsigned int i = 1; info->forward_fields[i] != NULL; i++) {
+			str_append_c(forward, '\t');
+			str_append_tabescaped(forward, info->forward_fields[i]);
+		}
 		str_append(str, "\tforward_fields=");
-		str_append_tabescaped(str, info->forward_fields);
+		str_append_tabescaped(str, str_c(forward));
 	}
 	if (array_is_created(&info->extra_fields)) {
 		const char *const *fieldp;

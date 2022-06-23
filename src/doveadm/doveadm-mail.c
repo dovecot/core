@@ -253,22 +253,15 @@ void doveadm_mail_get_input(struct doveadm_mail_cmd_context *ctx)
 	doveadm_mail_cmd_input_read(ctx);
 }
 
-const char *
+const char *const *
 doveadm_mail_get_forward_fields(struct doveadm_mail_cmd_context *ctx)
 {
-	const char *field;
-	string_t *str;
-
 	if (!array_is_created(&ctx->proxy_forward_fields))
 		return NULL;
 
-	str = t_str_new(128);
-	array_foreach_elem(&ctx->proxy_forward_fields, field) {
-		if (str_len(str) > 0)
-			str_append_c(str, '\t');
-		str_append_tabescaped(str, field);
-	}
-	return str_c(str);
+	array_append_zero(&ctx->proxy_forward_fields);
+	array_pop_back(&ctx->proxy_forward_fields);
+	return array_front(&ctx->proxy_forward_fields);
 }
 
 struct mailbox *

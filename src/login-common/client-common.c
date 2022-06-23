@@ -335,7 +335,7 @@ void client_destroy(struct client *client, const char *reason)
 	client_disconnect(client, reason, !client->login_success);
 
 	pool_unref(&client->preproxy_pool);
-	client->forward_fields = NULL;
+	i_zero(&client->forward_fields);
 	client->client_id = NULL;
 
 	if (client->master_tag != 0) {
@@ -739,25 +739,28 @@ struct client *clients_get_first_fd_proxy(void)
 void client_add_forward_field(struct client *client, const char *key,
 			      const char *value)
 {
-	if (client->forward_fields == NULL)
-		client->forward_fields = str_new(client->preproxy_pool, 32);
-	else
-		str_append_c(client->forward_fields, '\t');
+	if (!array_is_created(&client->forward_fields))
+		p_array_init(&client->forward_fields, client->preproxy_pool, 8);
 	/* prefixing is done by auth process */
-	str_append_tabescaped(client->forward_fields, key);
-	str_append_c(client->forward_fields, '=');
-	str_append_tabescaped(client->forward_fields, value);
+	const char *entry =
+		p_strdup_printf(client->preproxy_pool, "%s=%s", key, value);
+	array_push_back(&client->forward_fields, &entry);
 }
 
 bool client_forward_decode_base64(struct client *client, const char *value)
 {
 	size_t value_len = strlen(value);
-	string_t *str = str_new(client->preproxy_pool,
-				MAX_BASE64_DECODED_SIZE(value_len));
+	string_t *str = t_str_new(MAX_BASE64_DECODED_SIZE(value_len));
 	if (base64_decode(value, value_len, str) < 0)
 		return FALSE;
 
-	client->forward_fields = str;
+	char **_fields = p_strsplit_tabescaped(client->preproxy_pool,
+					       str_c(str));
+	const char *const *fields = (const char *const *)_fields;
+	unsigned int fields_count = str_array_length(fields);
+	p_array_init(&client->forward_fields,
+		     client->preproxy_pool, fields_count);
+	array_append(&client->forward_fields, fields, fields_count);
 	return TRUE;
 }
 

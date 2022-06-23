@@ -172,7 +172,7 @@ struct client {
 	const char *client_cert_common_name;
 
 	string_t *client_id;
-	string_t *forward_fields;
+	ARRAY_TYPE(const_string) forward_fields;
 
 	int fd;
 	struct istream *input;

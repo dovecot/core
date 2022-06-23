@@ -2,6 +2,7 @@
 
 #include "lmtp-common.h"
 #include "str.h"
+#include "strescape.h"
 #include "istream.h"
 #include "istream-concat.h"
 #include "ostream.h"
@@ -81,7 +82,8 @@ cmd_rcpt_handle_forward_fields(struct smtp_server_cmd_ctx *cmd,
 		return -1;
 	}
 
-	lrcpt->forward_fields = p_strdup(rcpt->pool, str_c(xforward));
+	char **fields = p_strsplit_tabescaped(rcpt->pool, str_c(xforward));
+	lrcpt->forward_fields = (const char *const *)fields;
 	return 0;
 }
 

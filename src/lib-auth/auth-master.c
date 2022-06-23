@@ -559,10 +559,15 @@ void auth_user_info_export(string_t *str, const struct auth_user_info *info)
 		str_printfa(str, "\treal_rport=%d", info->real_remote_port);
 	if (info->debug)
 		str_append(str, "\tdebug");
-	if (info->forward_fields != NULL &&
-	    *info->forward_fields != '\0') {
+	if (info->forward_fields != NULL && info->forward_fields[0] != NULL) {
+		string_t *forward = t_str_new(64);
+		str_append_tabescaped(forward, info->forward_fields[0]);
+		for (unsigned int i = 1; info->forward_fields[i] != NULL; i++) {
+			str_append_c(forward, '\t');
+			str_append_tabescaped(forward, info->forward_fields[i]);
+		}
 		str_append(str, "\tforward_fields=");
-		str_append_tabescaped(str, info->forward_fields);
+		str_append_tabescaped(str, str_c(forward));
 	}
 	if (array_is_created(&info->extra_fields)) {
 		array_foreach(&info->extra_fields, fieldp) {
