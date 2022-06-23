@@ -391,7 +391,8 @@ proxy_redirect_reauth_callback(struct auth_client_request *request,
 
 	i_assert(client->reauth_request == request);
 
-	client->reauth_request = NULL;
+	if (status != AUTH_REQUEST_STATUS_CONTINUE)
+		client->reauth_request = NULL;
 	switch (status) {
 	case AUTH_REQUEST_STATUS_CONTINUE:
 		error = "Unexpected SASL continuation request received";
@@ -440,6 +441,8 @@ proxy_redirect_reauth_callback(struct auth_client_request *request,
 				reply.reason);
 		break;
 	case AUTH_REQUEST_STATUS_ABORT:
+		if (client->login_proxy == NULL)
+			return;
 		error = "Redirect authentication aborted";
 		break;
 	}

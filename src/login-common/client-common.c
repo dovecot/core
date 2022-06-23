@@ -355,8 +355,13 @@ void client_destroy(struct client *client, const char *reason)
 	i_assert(client->auth_request == NULL);
 	i_assert(client->anvil_query == NULL);
 
-	if (client->reauth_request != NULL)
-		auth_client_request_abort(&client->reauth_request, "Aborted");
+	if (client->reauth_request != NULL) {
+		struct auth_client_request *reauth_request =
+			client->reauth_request;
+		auth_client_request_abort(&reauth_request, "Aborted");
+		/* callback sets this to NULL */
+		i_assert(client->reauth_request == NULL);
+	}
 
 	timeout_remove(&client->to_disconnect);
 	timeout_remove(&client->to_auth_waiting);
