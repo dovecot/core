@@ -6,7 +6,7 @@
  * We could use bits_required64() unconditionally, but that's unnecessary
  * and way more heavy weight on 32-bit systems.
  */
-#ifdef _LP64
+#if SIZEOF_SIZE_T > 4
 #define BITS_REQUIRED(x)	bits_required64(x)
 #else
 #define BITS_REQUIRED(x)	bits_required32(x)

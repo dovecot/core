@@ -73,7 +73,7 @@ enum fatal_test_state fatal_mempool_alloconly(unsigned int stage)
 		(void)p_malloc(pool, POOL_MAX_ALLOC_SIZE + 1ULL);
 		return FATAL_TEST_FAILURE;
 
-#ifdef _LP64 /* malloc(POOL_MAX_ALLOC_SIZE) may succeed with 32bit */
+#if SIZEOF_SIZE_T > 4 /* malloc(POOL_MAX_ALLOC_SIZE) may succeed with 32bit */
 	case 2: /* physically impossible size */
 		test_expect_fatal_string("Out of memory");
 		(void)p_malloc(pool, POOL_MAX_ALLOC_SIZE);

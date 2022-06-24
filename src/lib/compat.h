@@ -1,34 +1,6 @@
 #ifndef COMPAT_H
 #define COMPAT_H
 
-/*
- *
- *
- *
- * This block decides whether 32 or 64 bit pointers are used.
- * Shallow research indicates, that ILP32 is used for x32 and arm64ilp32 modes
- * but is it still necessary?
- * https://en.wikipedia.org/wiki/64-bit_computing#64-bit_data_models
- *
- *
- *
- */
-/* _ILP32 and _LP64 are common but not universal, make sure that exactly one
-   of them is defined. */
-#if !defined(_ILP32) && \
-	(SIZEOF_INT == 4) && (SIZEOF_LONG == 4) && (SIZEOF_VOID_P == 4)
-#  define _ILP32
-#endif
-#if !defined(_LP64) && \
-	(SIZEOF_INT == 4) && (SIZEOF_LONG == 8) && (SIZEOF_VOID_P == 8)
-#  define _LP64
-#endif
-#if defined(_ILP32) && defined(_LP64)
-#  error "Cannot have both _ILP32 and _LP64 defined"
-#elif !defined(_ILP32) && !defined(_LP64)
-#  error "Must have one of _ILP32 and _LP64 defined"
-#endif
-
 #if defined(HAVE_TYPEOF) && !defined(__cplusplus)
 #  define HAVE_TYPE_CHECKS
 #endif

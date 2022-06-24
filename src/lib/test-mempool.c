@@ -10,7 +10,7 @@ typedef char uint32max_array_t[65535];
 
 #define BIG_MAX			POOL_MAX_ALLOC_SIZE
 
-#if defined(_LP64)
+#if SIZEOF_SIZE_T > 4
 #define LITTLE_MAX		((unsigned long long) INT32_MAX)
 #else
 #define LITTLE_MAX		((unsigned long long) INT16_MAX)
