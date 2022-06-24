@@ -20,10 +20,10 @@ void event_export_helper_fmt_rfc3339_time(string_t *dest,
 
 	tm = gmtime(&time->tv_sec);
 
-	str_printfa(dest, "%04d-%02d-%02dT%02d:%02d:%02d.%06luZ",
+	str_printfa(dest, "%04d-%02d-%02dT%02d:%02d:%02d.%06uZ",
 		    tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
 		    tm->tm_hour, tm->tm_min, tm->tm_sec,
-		    time->tv_usec);
+		    (unsigned int) time->tv_usec);
 }
 
 HASH_TABLE_DEFINE_TYPE(category_set, void *, const struct event_category *);
