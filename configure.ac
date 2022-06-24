@@ -331,10 +331,7 @@ case "$host_os" in
 		;;
 esac
 
-AC_CHECK_SIZEOF(int)
-AC_CHECK_SIZEOF(long)
 AC_CHECK_SIZEOF(void *)
-AC_CHECK_SIZEOF(long long)
 AC_CHECK_SIZEOF(size_t)
 
 AC_SYS_LARGEFILE
