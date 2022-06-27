@@ -7,6 +7,7 @@
 #include "old-set-parser.h"
 #include "istream.h"
 #include "base64.h"
+#include <stdio.h>
 
 #define config_apply_line (void)config_apply_line
 
@@ -659,11 +660,14 @@ static bool
 old_settings_handle_path(struct config_parser_context *ctx,
 			 const char *key, const char *value)
 {
-	if (strcmp(str_c(ctx->str), "plugin/0/") == 0) {
+	char end;
+	int index;
+	if (sscanf(str_c(ctx->str), "plugin/%d%c]", &index, &end) == 2 && end == '/') {
 		if (strcmp(key, "imap_zlib_compress_level") == 0) {
 			obsolete(ctx, "%s has been replaced by imap_compress_deflate_level", key);
-			config_apply_line(ctx, key,
-				t_strdup_printf("plugin/0/imap_compress_deflate_level=%s", value), NULL);
+			config_apply_line(ctx, key, t_strdup_printf(
+				"plugin/%d/imap_compress_deflate_level=%s",
+				index, value), NULL);
 			return TRUE;
 		}
 	}
