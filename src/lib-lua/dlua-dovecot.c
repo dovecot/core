@@ -5,6 +5,7 @@
 #include "str.h"
 #include "dlua-script-private.h"
 #include "dict-lua.h"
+#include "doveadm-client-lua.h"
 
 #define LUA_SCRIPT_DOVECOT "dovecot"
 #define DLUA_EVENT_PASSTHROUGH "struct event_passthrough"
@@ -662,6 +663,7 @@ void dlua_dovecot_register(struct dlua_script *script)
 	dlua_dovecot_http_register(script);
 #ifdef DLUA_WITH_YIELDS
 	dlua_dovecot_dict_register(script);
+	dlua_dovecot_doveadm_client_register(script);
 #endif
 }
 
