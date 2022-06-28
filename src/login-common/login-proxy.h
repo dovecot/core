@@ -10,7 +10,7 @@
    keep connecting to each others, both thinking the other one is supposed to
    handle the user. This only works if both proxies support the Dovecot
    TTL extension feature. */
-#define LOGIN_PROXY_TTL 5
+#define LOGIN_PROXY_TTL 7
 #define LOGIN_PROXY_DEFAULT_HOST_IMMEDIATE_FAILURE_AFTER_SECS 30
 
 #define LOGIN_PROXY_FAILURE_MSG "Account is temporarily unavailable."
