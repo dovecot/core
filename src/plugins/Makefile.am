@@ -30,7 +30,6 @@ SUBDIRS = \
 	push-notification \
 	mail-log \
 	$(MAIL_LUA) \
-	mailbox-alias \
 	quota \
 	quota-clone \
 	imap-quota \
