@@ -34,6 +34,10 @@
 /* Don't even try to reconnect if proxying will timeout in less than this. */
 #define PROXY_CONNECT_RETRY_MIN_MSECS (PROXY_CONNECT_RETRY_MSECS + 100)
 #define PROXY_DISCONNECT_INTERVAL_MSECS 100
+/* How many times the same ip:port can be connected to before proxying decides
+   that it's a loop and fails. The first time isn't necessarily a loop, just
+   a reversed dynamic decision that it was actually the proper destination. */
+#define PROXY_REDIRECT_LOOP_MIN_COUNT 2
 
 #define LOGIN_PROXY_SIDE_CLIENT IOSTREAM_PROXY_SIDE_LEFT
 #define LOGIN_PROXY_SIDE_SERVER IOSTREAM_PROXY_SIDE_RIGHT
@@ -45,6 +49,7 @@ enum login_proxy_free_flags {
 struct login_proxy_redirect {
 	struct ip_addr ip;
 	in_port_t port;
+	unsigned int count;
 };
 
 struct login_proxy {
@@ -290,22 +295,26 @@ static bool proxy_try_reconnect(struct login_proxy *proxy)
 	return TRUE;
 }
 
-static bool
-proxy_have_connected(struct login_proxy *proxy,
-		     const struct ip_addr *ip, in_port_t port)
+static bool proxy_is_self(struct login_proxy *proxy,
+			  const struct ip_addr *ip, in_port_t port)
 {
-	const struct login_proxy_redirect *redirect;
+	return net_ip_compare(&proxy->ip, ip) && proxy->port == port;
+}
 
-	if (net_ip_compare(&proxy->ip, ip) && proxy->port == port)
-		return TRUE;
+static struct login_proxy_redirect *
+login_proxy_redirect_find(struct login_proxy *proxy,
+			  const struct ip_addr *ip, in_port_t port)
+{
+	struct login_proxy_redirect *redirect;
+
 	if (!array_is_created(&proxy->redirect_path))
-		return FALSE;
+		return NULL;
 
-	array_foreach(&proxy->redirect_path, redirect) {
+	array_foreach_modifiable(&proxy->redirect_path, redirect) {
 		if (net_ip_compare(&redirect->ip, ip) && redirect->port == port)
-			return TRUE;
+			return redirect;
 	}
-	return FALSE;
+	return NULL;
 }
 
 static bool proxy_connect_failed(struct login_proxy *proxy)
@@ -781,10 +790,21 @@ void login_proxy_redirect_finish(struct login_proxy *proxy,
 				 const struct ip_addr *ip, in_port_t port)
 {
 	struct login_proxy_redirect *redirect;
+	bool looping;
 
 	i_assert(port != 0);
 
-	if (proxy_have_connected(proxy, ip, port)) {
+	/* If proxy destination is the socket's local IP/port, it's a definite
+	   immediate loop. */
+	looping = proxy_is_self(proxy, ip, port);
+	if (!looping) {
+		/* If the proxy destination has already been connected too
+		   many times, assume it's a loop. */
+		redirect = login_proxy_redirect_find(proxy, ip, port);
+		looping = redirect != NULL &&
+			redirect->count >= PROXY_REDIRECT_LOOP_MIN_COUNT;
+	}
+	if (looping) {
 		const char *error = t_strdup_printf(
 			"Proxying loops - already connected to %s:%d",
 			net_ip2addr(ip), port);
@@ -795,12 +815,15 @@ void login_proxy_redirect_finish(struct login_proxy *proxy,
 	i_assert(proxy->client->proxy_ttl > 0);
 	proxy->client->proxy_ttl--;
 
-	/* add current ip/port to redirect path */
-	if (!array_is_created(&proxy->redirect_path))
-		i_array_init(&proxy->redirect_path, 2);
-	redirect = array_append_space(&proxy->redirect_path);
-	redirect->ip = proxy->ip;
-	redirect->port = proxy->port;
+	if (redirect == NULL) {
+		/* add current ip/port to redirect path */
+		if (!array_is_created(&proxy->redirect_path))
+			i_array_init(&proxy->redirect_path, 2);
+		redirect = array_append_space(&proxy->redirect_path);
+		redirect->ip = proxy->ip;
+		redirect->port = proxy->port;
+	}
+	redirect->count++;
 
 	/* disconnect from current backend */
 	login_proxy_disconnect(proxy);
