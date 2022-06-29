@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "str.h"
+#include "time-util.h"
 #include "dlua-script-private.h"
 #include "dict-lua.h"
 #include "doveadm-client-lua.h"
@@ -619,6 +620,31 @@ static int dlua_restrict_global_variables(lua_State *L)
 	return 0;
 }
 
+static int dlua_gettimeofday(lua_State *L)
+{
+	struct timeval tv;
+
+	i_gettimeofday(&tv);
+	lua_newtable(L);
+	lua_pushinteger(L, tv.tv_sec);
+	lua_setfield(L, -2, "tv_sec");
+	lua_pushinteger(L, tv.tv_usec);
+	lua_setfield(L, -2, "tv_usec");
+	return 1;
+}
+
+static int dlua_nanoseconds(lua_State *L)
+{
+	lua_pushinteger(L, i_nanoseconds());
+	return 1;
+}
+
+static int dlua_microseconds(lua_State *L)
+{
+	lua_pushinteger(L, i_microseconds());
+	return 1;
+}
+
 static luaL_Reg lua_dovecot_methods[] = {
 	{ "i_debug", dlua_i_debug },
 	{ "i_info", dlua_i_info },
@@ -629,6 +655,9 @@ static luaL_Reg lua_dovecot_methods[] = {
 	{ "set_flag", dlua_set_flag },
 	{ "clear_flag", dlua_clear_flag },
 	{ "restrict_global_variables", dlua_restrict_global_variables },
+	{ "gettimeofday", dlua_gettimeofday },
+	{ "nanoseconds", dlua_nanoseconds },
+	{ "microseconds", dlua_microseconds },
 	{ NULL, NULL }
 };
 
