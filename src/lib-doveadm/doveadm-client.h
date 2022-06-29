@@ -68,6 +68,7 @@ void doveadm_client_settings_dup(const struct doveadm_client_settings *src,
 int doveadm_client_create(const struct doveadm_client_settings *set,
 			  struct doveadm_client **conn_r,
 			  const char **error_r);
+void doveadm_client_unref(struct doveadm_client **conn);
 
 void doveadm_client_get_dest(struct doveadm_client *conn,
 			     struct ip_addr *ip_r, in_port_t *port_r);

@@ -988,6 +988,7 @@ dsync_connect_tcp(struct dsync_cmd_context *ctx,
 		}
 
 		dsync_server_run_command(ctx, conn);
+		doveadm_client_unref(&conn);
 	}
 
 	doveadm_clients_destroy_all();

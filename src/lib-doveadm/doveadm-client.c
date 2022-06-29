@@ -28,6 +28,7 @@ enum doveadm_client_reply_state {
 struct doveadm_client {
 	struct connection conn;
 
+	int refcount;
 	struct doveadm_client_settings set;
 
 	pool_t pool;
@@ -48,6 +49,7 @@ struct doveadm_client {
 
 	enum doveadm_client_reply_state state;
 
+	bool destroyed:1;
 	bool authenticate_sent:1;
 	bool authenticated:1;
 	bool ssl_done:1;
@@ -656,6 +658,7 @@ int doveadm_client_create(const struct doveadm_client_settings *set,
 	pool = pool_alloconly_create("doveadm server connection", 1024*16);
 	conn = p_new(pool, struct doveadm_client, 1);
 	conn->pool = pool;
+	conn->refcount = 1;
 	doveadm_client_settings_dup(set, &conn->set, pool);
 
 	if (set->socket_path != NULL) {
@@ -701,12 +704,9 @@ void doveadm_client_set_print(struct doveadm_client *conn,
 	conn->print_context = context;
 }
 
-static void doveadm_client_destroy(struct doveadm_client **_conn)
+static void doveadm_client_destroy_int(struct doveadm_client *conn)
 {
-	struct doveadm_client *conn = *_conn;
 	const char *error;
-
-	*_conn = NULL;
 
 	if (conn->callback != NULL) {
 		error = conn->ssl_iostream == NULL ? NULL :
@@ -737,6 +737,30 @@ static void doveadm_client_destroy(struct doveadm_client **_conn)
 
 	connection_deinit(&conn->conn);
 	ssl_iostream_context_unref(&conn->set.ssl_ctx);
+}
+
+static void doveadm_client_destroy(struct doveadm_client **_conn)
+{
+	struct doveadm_client *conn = *_conn;
+
+	*_conn = NULL;
+
+	conn->destroyed = TRUE;
+	doveadm_client_destroy_int(conn);
+	doveadm_client_unref(&conn);
+}
+
+void doveadm_client_unref(struct doveadm_client **_conn)
+{
+	struct doveadm_client *conn = *_conn;
+
+	*_conn = NULL;
+
+	i_assert(conn->refcount > 0);
+	if (--conn->refcount > 0)
+		return;
+	if (!conn->destroyed)
+		doveadm_client_destroy_int(conn);
 	pool_unref(&conn->pool);
 }
 
@@ -790,6 +814,8 @@ void doveadm_client_cmd(struct doveadm_client *conn,
 	}
 	conn->callback = callback;
 	conn->context = context;
+	/* doveadm_client_destroy() will be called to unreference */
+	conn->refcount++;
 }
 
 void doveadm_client_extract(struct doveadm_client *conn,

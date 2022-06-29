@@ -357,6 +357,7 @@ doveadm_cmd_redirect_finish(struct doveadm_mail_server_cmd *servercmd,
 	cmd_set.forward_fields = doveadm_mail_get_outgoing_forward_fields(cmd_ctx);
 	doveadm_client_cmd(conn, &cmd_set, servercmd->cmdline, servercmd->input,
 			   doveadm_cmd_callback, servercmd);
+	doveadm_client_unref(&conn);
 	return 1;
 }
 
@@ -602,6 +603,7 @@ static int doveadm_mail_server_request_queue_handle_next(const char **error_r)
 	doveadm_mail_server_handle(request_copy.server, conn,
 				   request_copy.username);
 	doveadm_server_request_free(&request_copy);
+	doveadm_client_unref(&conn);
 	return 0;
 }
 
@@ -802,6 +804,7 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 		} else {
 			doveadm_mail_server_handle(server, conn,
 						   proxy_set.username);
+			doveadm_client_unref(&conn);
 		}
 	} else {
 		request = array_append_space(&doveadm_server_request_queue);
