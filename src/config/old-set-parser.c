@@ -5,10 +5,12 @@
 #include "settings-parser.h"
 #include "config-parser-private.h"
 #include "old-set-parser.h"
+#include "event-filter.h"
 #include "istream.h"
 #include "base64.h"
 #include <stdio.h>
 
+#define LOG_DEBUG_KEY "log_debug"
 #define config_apply_line (void)config_apply_line
 
 struct socket_set {
@@ -18,12 +20,14 @@ struct socket_set {
 
 struct old_set_parser {
 	const char *base_dir;
+	const char *post_log_debug;
 	/* 1 when in auth {} section, >1 when inside auth { .. { .. } } */
 	unsigned int auth_section;
 	/* 1 when in socket listen {}, >1 when inside more of its sections */
 	unsigned int socket_listen_section;
-	bool seen_auth_section;
 	struct socket_set socket_set;
+	bool seen_auth_section:1;
+	bool post_auth_debug:1;
 };
 
 static const struct config_filter any_filter = {
@@ -289,8 +293,19 @@ old_settings_handle_root(struct config_parser_context *ctx,
 		return TRUE;
 	}
 	if (strcmp(key, "auth_debug") == 0) {
-		obsolete(ctx, "%s will be removed in a future version, consider using log_debug = \"category=auth\" instead", key);
+		const char *error ATTR_UNUSED;
+		bool auth_debug;
+		if (settings_get_bool(value, &auth_debug, &error) == 0 &&
+		    auth_debug)
+			ctx->old->post_auth_debug = auth_debug;
+		obsolete(ctx, "%s will be removed in a future version%s",
+			 key, ctx->old->post_auth_debug ?
+				", consider using log_debug = \"category=auth\" instead" : "");
 		return TRUE;
+	}
+	if (strcmp(key, LOG_DEBUG_KEY) == 0) {
+		ctx->old->post_log_debug = p_strdup(ctx->pool, value);
+		return FALSE;
 	}
 	if (strcmp(key, "login_access_sockets") == 0) {
 		if (value != NULL && *value != '\0')
@@ -759,6 +774,48 @@ bool old_settings_handle(struct config_parser_context *ctx,
 		break;
 	}
 	return FALSE;
+}
+
+static void old_settings_handle_post_log_debug(struct config_parser_context *ctx)
+{
+	static const char *category_auth = "category=auth";
+	const char *error ATTR_UNUSED;
+	const char *prev = ctx->old->post_log_debug;
+
+	if (!ctx->old->post_auth_debug)
+		return;
+
+	if (prev == NULL || *prev == '\0') {
+		config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE,
+					 LOG_DEBUG_KEY, category_auth);
+		return;
+	}
+
+	struct event_filter *filter = event_filter_create();
+	if (event_filter_parse(prev, filter, &error) != 0) {
+		/* ignore, it will be handled later when actually
+		   parsing/applying the configuration */
+		event_filter_unref(&filter);
+		return;
+	}
+
+	struct event_filter *auth_filter = event_filter_create();
+	if (event_filter_parse(category_auth, auth_filter, &error) != 0)
+		i_unreached();
+
+	string_t *merged = t_str_new(128);
+	event_filter_merge(auth_filter, filter);
+	event_filter_export(filter, merged);
+	event_filter_unref(&auth_filter);
+	event_filter_unref(&filter);
+
+	config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE,
+				 LOG_DEBUG_KEY, str_c(merged));
+}
+
+void old_settings_handle_post(struct config_parser_context *ctx)
+{
+	old_settings_handle_post_log_debug(ctx);
 }
 
 void old_settings_init(struct config_parser_context *ctx)

@@ -1089,6 +1089,7 @@ prevfile:
 	if (line == NULL && ctx.cur_input != NULL)
 		goto prevfile;
 
+	old_settings_handle_post(&ctx);
 	hash_table_destroy(&ctx.seen_settings);
 	str_free(&full_line);
 	if (ret == 0)
