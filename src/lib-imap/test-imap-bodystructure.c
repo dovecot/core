@@ -718,6 +718,31 @@ static void test_imap_bodystructure_truncation(void)
 	test_end();
 }
 
+static void test_imap_bodystructure_nesting(void)
+{
+	test_begin("imap bodystructure nesting");
+	size_t run_length = 16384; // fuzzer caught it with 10129 nestings
+
+	pool_t pool = pool_alloconly_create(
+		MEMPOOL_GROWING"fuzz bodystructure", run_length * 4);
+
+	char *str = p_new(pool, char, run_length * 2 + 1);
+	memset(str, '(', run_length);
+	memset(str + run_length, ')', run_length);
+
+	struct message_part *parts = NULL;
+	const char *error;
+
+	int ret = imap_bodystructure_parse_full(str, pool, &parts, &error);
+	/* The actual test is that the code does NOT stack overflow,
+	   but we also expect a proper error to be returned */
+	test_assert_cmp(ret, ==, -1);
+	test_assert_strcmp(error, "Parts hierarchy nested too deep");
+
+	pool_unref(&pool);
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -727,6 +752,7 @@ int main(void)
 		test_imap_bodystructure_normalize,
 		test_imap_bodystructure_parse_full,
 		test_imap_bodystructure_truncation,
+		test_imap_bodystructure_nesting,
 		NULL
 	};
 	return test_run(test_functions);
