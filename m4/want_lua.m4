@@ -20,12 +20,12 @@ AC_DEFUN([DOVECOT_WANT_LUA], [
   AS_IF([test "$have_lua" != "no"], [
     AC_DEFINE([HAVE_LUA], [1], [Define to 1 if you have Lua])
 
-    AS_IF([test "$want_lua" = "yes"], [
+    AS_IF([test "$want_lua" != "plugin"], [
       AC_DEFINE([BUILTIN_LUA],, [Lua support is builtin])
     ])
 
-    dnl at this point $want_lua is either "plugin", or "yes", so add
-    dnl values to userdb and passdb accordingly
+    dnl at this point $want_lua is either "plugin", "auto", or "yes", so
+    dnl add values to userdb and passdb accordingly
     AS_IF([test "$want_lua" = "plugin"], [
       with_lua_plugin=yes
       userdb="$userdb lua (plugin)"

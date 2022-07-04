@@ -217,9 +217,9 @@ AC_ARG_WITH([systemd],
 )
 
 AC_ARG_WITH([lua],
-AS_HELP_STRING([--with-lua=yes|plugin], [Build with Lua bindings]),
+AS_HELP_STRING([--with-lua=yes|auto|plugin], [Build with Lua bindings (default=auto)]),
   TEST_WITH(lua, $withval, plugin),
-  want_lua=no)
+  want_lua=auto)
 
 DOVECOT_WANT_SYSTEMD
 
