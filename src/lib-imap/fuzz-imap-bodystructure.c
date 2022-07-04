@@ -10,7 +10,7 @@ static const char *str_sanitize_binary(const char *input)
 {
 	string_t *dest = t_str_new(strlen(input));
 	for (;*input != '\0';input++) {
-		if (i_isprint(*input) == 0)
+		if (!i_isprint(*input))
 			str_printfa(dest, "<%02x>", (unsigned char)*input);
 		else
 			str_append_c(dest, *input);
