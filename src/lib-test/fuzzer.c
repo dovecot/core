@@ -85,3 +85,15 @@ int fuzzer_io_as_fd(struct fuzzer_context *fuzz_ctx,
 	iostream_pump_start(fuzz_ctx->pump);
 	return sfd[1];
 }
+
+
+const char *fuzzer_t_strndup_replace_zero(
+	const uint8_t *data, size_t size, char subst)
+{
+	char *out = t_malloc_no0(size + 1);
+	for (size_t index = 0; index < size; ++index) {
+		uint8_t ch = data[index];
+		out[index] = ch == 0 ? subst : (char)ch;
+	}
+	return out;
+}

@@ -16,9 +16,12 @@ struct fuzzer_context {
 		struct fuzzer_context fuzz_ctx; \
 		fuzzer_init(&fuzz_ctx); T_BEGIN {
 
+const char *fuzzer_t_strndup_replace_zero(
+	const uint8_t *_param_data, size_t _param_size, char subst);
+
 #define FUZZ_BEGIN_STR(str_arg) \
 	FUZZ_BEGIN_DATA(const uint8_t *_param_data, size_t _param_size) \
-	str_arg = t_strndup(_param_data, _param_size);
+	str_arg = fuzzer_t_strndup_replace_zero(_param_data, _param_size, '\\');
 
 #define FUZZ_BEGIN_FD \
 	FUZZ_BEGIN_DATA(const uint8_t *_param_data, size_t _param_size) \
