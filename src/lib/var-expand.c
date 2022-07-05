@@ -414,7 +414,8 @@ var_expand_try_extension(struct var_expand_context *ctx,
 	}
 	if ((ret = var_expand_func(ctx->func_table, key, data,
 				   ctx->context, var_r, error_r)) == 0) {
-		*error_r = t_strdup_printf("Unknown variable '%%%s'", key);
+		if (*error_r == NULL)
+			*error_r = t_strdup_printf("Unknown variables in function %%%s", key);
 	}
 	return ret;
 }
