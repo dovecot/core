@@ -113,8 +113,8 @@ nodist_EXTRA_fuzz_imap_bodystructure_SOURCES = force-cxx-linking.cxx
 fuzz_imap_bodystructure_SOURCES = fuzz-imap-bodystructure.c
 fuzz_imap_bodystructure_CPPFLAGS = $(FUZZER_CPPFLAGS)
 fuzz_imap_bodystructure_LDFLAGS = $(FUZZER_LDFLAGS)
-fuzz_imap_bodystructure_LDADD = libimap.la $(test_libs)
-fuzz_imap_bodystructure_DEPENDENCIES = libimap.la $(test_deps)
+fuzz_imap_bodystructure_LDADD = libimap.la ../lib-mail/libmail.la $(test_libs)
+fuzz_imap_bodystructure_DEPENDENCIES = libimap.la $(test_deps) ../lib-mail/libmail.la
 
 
 endif

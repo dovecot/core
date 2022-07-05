@@ -4,6 +4,8 @@
 #include "str.h"
 #include "fuzzer.h"
 
+#include "message-part.h"
+#include "message-part-data.h"
 #include "imap-bodystructure.h"
 
 #include <ctype.h>
@@ -20,33 +22,73 @@ static const char *str_sanitize_binary(const char *input)
 	return str_c(dest);
 }
 
-FUZZ_BEGIN_STR(const char *str)
+/* Check additional strings beside parts scanned by message_part_is_equal(),
+   to give the fuzzer a chance to explore the outcomes of the parenthesized
+   lists string parser. */
+static bool message_part_check_strings(const struct message_part *p1,
+				       const struct message_part *p2)
+{
+	struct message_part_data *d1 = p1->data;
+	struct message_part_data *d2 = p2->data;
+
+	/* In some cases (parts truncation et al) the content-type can
+		be replaced with application/octet-stream. If the reparsed
+		type is octect/stream, ignore the mismatch. */
+	if ((null_strcmp(d1->content_type, d2->content_type) != 0 ||
+		null_strcmp(d1->content_subtype, d2->content_subtype) != 0) &&
+		(null_strcmp(d2->content_type, "application") != 0 ||
+		null_strcmp(d2->content_subtype, "octet-stream") != 0))
+		return FALSE;
+
+	if (null_strcmp(d1->content_transfer_encoding, d2->content_transfer_encoding) != 0 ||
+		null_strcmp(d1->content_id, d2->content_id) != 0 ||
+		null_strcmp(d1->content_description, d2->content_description) != 0 ||
+		null_strcmp(d1->content_disposition, d2->content_disposition) != 0 ||
+		null_strcmp(d1->content_md5, d2->content_md5) != 0 ||
+		null_strcmp(d1->content_location, d2->content_location) != 0)
+		return FALSE;
+
+	return TRUE;
+}
+
+FUZZ_BEGIN_STR(const char *bodystruct_orig)
 {
 	pool_t pool =
 		pool_alloconly_create(MEMPOOL_GROWING"fuzz bodystructure", 1024);
-	struct message_part *parts = NULL;
-	string_t *dest = str_new(pool, 32);
+	string_t *buffer = str_new(pool, 32);
+	struct message_part *parts_orig  = NULL;
+	struct message_part *parts_regen = NULL;
+	const char *bodystruct_regen;
 	const char *error ATTR_UNUSED;
 
-	if (imap_bodystructure_parse_full(str, pool, &parts, &error) == 0) {
-		if (imap_bodystructure_write(parts, dest, TRUE, &error) < 0)
+	/* Non parsable is fine, this will be the most likely outcome as we
+	   receive random sequences of bytes and not what we expect to parse. */
+	if (imap_bodystructure_parse_full(
+		bodystruct_orig, pool, &parts_orig, &error) == 0) {
+		if (imap_bodystructure_write(
+			parts_orig, buffer, TRUE, &error) != 0)
 			i_panic("Failed to write bodystructure: %s", error);
-		/* The written bodystructure must be parseable *and*
-		   it must come out exactly the same again */
-		if (imap_bodystructure_parse(str_c(dest), pool, parts, &error) != 0) {
-			i_panic("Failed to reparse bodystructure '%s'",
-				str_sanitize_binary(str_c(dest)));
-		} else {
-			const char *new_str = t_strdup(str_c(dest));
-			str_truncate(dest, 0);
-			if (imap_bodystructure_write(parts, dest, TRUE, &error) < 0)
-				i_panic("Failed to write reparsed bodystructure: %s", error);
-			if (strcmp(str_c(dest), new_str) != 0) {
-				i_panic("Parsed bodystructure '%s' does not match '%s'",
-					str_sanitize_binary(new_str),
-					str_sanitize_binary(str_c(dest)));
-			}
-		}
+		bodystruct_regen = t_strdup(str_c(buffer));
+
+		/* The regenerated bodystructure must be parseable again.
+		   In theory, it should produce the same result as the
+		   first pass. In practice, however, some fields are altered
+		   by imap_append_string_for_humans(). Therefore, the output
+		   string MAY be slightly different but it must at least
+		   retain the same parts topology and basic metadata as
+		   checked by message_part_is_equal() (see Subject and
+		   Addresses fields). */
+		if (imap_bodystructure_parse_full(
+			bodystruct_regen, pool, &parts_regen, &error) != 0)
+			i_panic("Failed to reparse bodystructure\n'%s'\n'%s'",
+				str_sanitize_binary(bodystruct_orig),
+				str_sanitize_binary(bodystruct_regen));
+
+		if (!message_part_is_equal_ex(
+			parts_orig, parts_regen, message_part_check_strings))
+			i_panic("Reparsed part fails message_part_is_equal()\n'%s'\n'%s'",
+				str_sanitize_binary(bodystruct_orig),
+				str_sanitize_binary(bodystruct_regen));
 	}
 	pool_unref(&pool);
 }
