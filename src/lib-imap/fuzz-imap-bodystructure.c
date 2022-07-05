@@ -3,7 +3,9 @@
 #include "lib.h"
 #include "str.h"
 #include "fuzzer.h"
-#include "imap-bodystructure.c"
+
+#include "imap-bodystructure.h"
+
 #include <ctype.h>
 
 static const char *str_sanitize_binary(const char *input)
