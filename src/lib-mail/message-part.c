@@ -60,8 +60,9 @@ message_part_by_idx(struct message_part *parts, unsigned int idx)
 	return message_sub_part_by_idx(parts, idx);
 }
 
-bool message_part_is_equal(const struct message_part *p1,
-			   const struct message_part *p2)
+bool message_part_is_equal_ex(const struct message_part *p1,
+			      const struct message_part *p2,
+			      message_part_comparator_t *equals_ex)
 {
 	/* This cannot be p1 && p2, because then we would return
 	   TRUE when either part is NULL, and we should return FALSE */
@@ -93,6 +94,9 @@ bool message_part_is_equal(const struct message_part *p1,
 		    p1->flags != p2->flags)
 			return FALSE;
 
+		if (equals_ex != NULL && !equals_ex(p1, p2))
+			return FALSE;
+
 		/* Move forward */
 		p1 = p1->next;
 		p2 = p2->next;
@@ -100,4 +104,10 @@ bool message_part_is_equal(const struct message_part *p1,
 
 	/* Parts are equal */
 	return TRUE;
+}
+
+bool message_part_is_equal(const struct message_part *p1,
+			   const struct message_part *p2) ATTR_NULL(1, 2)
+{
+	return message_part_is_equal_ex(p1, p2, NULL);
 }

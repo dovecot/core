@@ -54,6 +54,9 @@ unsigned int message_part_to_idx(const struct message_part *part);
 struct message_part *
 message_part_by_idx(struct message_part *parts, unsigned int idx);
 
+typedef bool message_part_comparator_t(
+	const struct message_part *p1, const struct message_part *p2);
+
 /* Returns TRUE when message parts are considered equal. Equality is determined
    to be TRUE, when
 
@@ -63,5 +66,11 @@ message_part_by_idx(struct message_part *parts, unsigned int idx);
     - both parts have same position, sizes, line counts and flags. */
 bool message_part_is_equal(const struct message_part *p1,
 			   const struct message_part *p2) ATTR_NULL(1, 2);
+
+/* Same as message_part_is_equal(), but it allows to invoke an additional
+   comparator on each incountered part */
+bool message_part_is_equal_ex(const struct message_part *p1,
+			      const struct message_part *p2,
+			      message_part_comparator_t *equals_ex) ATTR_NULL(1, 2, 3);
 
 #endif
