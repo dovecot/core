@@ -40,10 +40,11 @@ AC_DEFUN([DOVECOT_WANT_LDAP], [
       AUTH_LIBS="$AUTH_LIBS $LDAP_LIBS"
       DICT_LIBS="$DICT_LIBS $LDAP_LIBS"
       AC_DEFINE(BUILTIN_LDAP,, [LDAP support is built in])
-      AC_DEFINE(LDAP_DEPRECATED, [1], [
-        Functions like ldap_bind() have been deprecated in OpenLDAP 2.3
-        This define enables them until the code here can be refactored
-      ])
+    ])
+
+    AC_DEFINE(LDAP_DEPRECATED, [1], [
+      Functions like ldap_bind() have been deprecated in OpenLDAP 2.3
+      This define enables them until the code here can be refactored
     ])
 
     AC_CHECK_LIB(ldap, ldap_initialize, [
