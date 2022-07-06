@@ -190,6 +190,26 @@ int dlua_table_get_by_str(lua_State *L, int idx, int type, const char *field);
 int dlua_table_get_by_int(lua_State *L, int idx, int type, lua_Integer field);
 int dlua_table_get_by_thread(lua_State *L, int idx, int type);
 
+/* Return the table containing string keys and values convertible to strings as
+ * a NULL-terminated array of [key1, value2, key2, value2, ...] strings. The
+ * array and the strings are allocated from the given pool.
+ *
+ * Returns:
+ *   -1 = keys/values aren't types that can be converted to strings
+ *    0 = success */
+
+int dlua_strtable_to_kvarray(lua_State *L, int idx, pool_t pool,
+			     const char *const **arr_r, const char **error_r);
+/* Return the table containing values convertible to strings as a
+ * NULL-terminated array of [value1, value2, ...] strings. The array and the
+ * strings are allocated from the given pool.
+ *
+ * Returns:
+ *   -1 = values aren't types that can be converted to strings
+ *    0 = success */
+int dlua_table_to_array(lua_State *L, int idx, pool_t pool,
+			const char *const **arr_r, const char **error_r);
+
 /* call a function in a script.
 
   **NOTE**: This function works differently than lua_pcall:

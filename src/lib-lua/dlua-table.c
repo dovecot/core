@@ -1,6 +1,7 @@
 /* Copyright (c) 2021 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "array.h"
 #include "dlua-script-private.h"
 
 /*
@@ -301,3 +302,67 @@ GET_GENERIC(dlua_table_get_number, lua_Number, LUA_TNUMBER, lua_tonumber);
 GET_GENERIC(dlua_table_get_bool, bool, LUA_TBOOLEAN, lua_toboolean);
 GET_GENERIC(dlua_table_get_string, const char *, LUA_TSTRING, lua_tostring);
 GET_DATAPTR(dlua_table_get_data);
+
+int dlua_strtable_to_kvarray(lua_State *L, int idx, pool_t pool,
+			     const char *const **arr_r, const char **error_r)
+{
+	ARRAY_TYPE(const_string) arr;
+	p_array_init(&arr, pool, 8);
+
+	lua_pushnil(L);
+	if (idx < 0)
+		idx--;
+	while (lua_next(L, idx) != 0) {
+		/* lua_tostring() modifies the value if its type isn't already
+		   a string, which confuses lua_next(). So make a copy of it
+		   first. */
+		lua_pushvalue(L, -2);
+		const char *key = p_strdup(pool, lua_tostring(L, -1));
+		i_assert(key != NULL);
+
+		const char *value = p_strdup(pool, lua_tostring(L, -2));
+		if (value == NULL) {
+			*error_r = t_strdup_printf(
+				"Table key '%s' value has invalid type: %s",
+				key, lua_typename(L, lua_type(L, -2)));
+			lua_pop(L, 3);
+			return -1;
+		}
+
+		array_push_back(&arr, &key);
+		array_push_back(&arr, &value);
+		lua_pop(L, 2);
+	}
+
+	array_append_zero(&arr);
+	*arr_r = array_front(&arr);
+	return 0;
+}
+
+int dlua_table_to_array(lua_State *L, int idx, pool_t pool,
+			const char *const **arr_r, const char **error_r)
+{
+	ARRAY_TYPE(const_string) arr;
+	p_array_init(&arr, pool, 8);
+
+	lua_pushnil(L);
+	if (idx < 0)
+		idx--;
+	while (lua_next(L, idx) != 0) {
+		const char *value = p_strdup(pool, lua_tostring(L, -1));
+		if (value == NULL) {
+			*error_r = t_strdup_printf(
+				"Table value has invalid type: %s",
+				lua_typename(L, lua_type(L, -1)));
+			lua_pop(L, 2);
+			return -1;
+		}
+
+		array_push_back(&arr, &value);
+		lua_pop(L, 1);
+	}
+
+	array_append_zero(&arr);
+	*arr_r = array_front(&arr);
+	return 0;
+}

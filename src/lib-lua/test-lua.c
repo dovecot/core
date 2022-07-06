@@ -180,7 +180,20 @@ static void test_lua(void)
 "  t[\"str\"] = \"string\"\n"
 "  t[6] = \"string\"\n"
 "  return t\n"
-"end\n";
+"end\n"
+"function lua_test_get_strtable()\n"
+"  return {\n"
+"    ['key1'] = 'value1',\n"
+"    [2] = 123\n"
+"  }\n"
+"end\n"
+"function lua_test_get_strtable_badvalue()\n"
+"  return {\n"
+"    ['key1'] = 'value1',\n"
+"    ['key2'] = {}\n"
+"  }\n"
+"end\n"
+;
 
 	const char *error = NULL;
 	struct dlua_script *script = NULL;
@@ -297,6 +310,45 @@ static void test_lua(void)
 
 	check_table_missing(script, -1, "missing", -10);
 
+	lua_pop(script->L, 1);
+
+	/* strtable */
+	lua_getglobal(script->L, "lua_test_get_strtable");
+	test_assert(lua_pcall(script->L, 0, 1, 0) == 0);
+	const char *const *arr;
+	test_assert(dlua_strtable_to_kvarray(script->L, -1,
+					     pool_datastack_create(),
+					     &arr, &error) == 0);
+	/* the keys could be in any order */
+	if (strcmp(arr[0], "key1") == 0) {
+		test_assert_strcmp(arr[1], "value1");
+		test_assert_strcmp(arr[2], "2");
+		test_assert_strcmp(arr[3], "123");
+	} else {
+		test_assert_strcmp(arr[0], "2");
+		test_assert_strcmp(arr[1], "123");
+		test_assert_strcmp(arr[2], "key1");
+		test_assert_strcmp(arr[3], "value1");
+	}
+	test_assert(arr[4] == NULL);
+	test_assert(dlua_table_to_array(script->L, -1, pool_datastack_create(),
+					&arr, &error) == 0);
+	if (strcmp(arr[0], "value1") == 0)
+		test_assert_strcmp(arr[1], "123");
+	else {
+		test_assert_strcmp(arr[0], "123");
+		test_assert_strcmp(arr[1], "value1");
+	}
+	lua_pop(script->L, 1);
+
+	/* strtable - bad value */
+	lua_getglobal(script->L, "lua_test_get_strtable_badvalue");
+	test_assert(lua_pcall(script->L, 0, 1, 0) == 0);
+	test_assert(dlua_strtable_to_kvarray(script->L, -1,
+					     pool_datastack_create(),
+					     &arr, &error) == -1);
+	test_assert(dlua_table_to_array(script->L, -1, pool_datastack_create(),
+					&arr, &error) == -1);
 	lua_pop(script->L, 1);
 
 	dlua_script_unref(&script);
