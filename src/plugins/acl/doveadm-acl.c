@@ -34,7 +34,7 @@ cmd_acl_mailbox_open(struct doveadm_mail_cmd_context *ctx,
 	struct mailbox *box;
 
 	if (auser == NULL) {
-		i_error("ACL not enabled for %s", user->username);
+		e_error(user->event, "ACL not enabled for %s", user->username);
 		doveadm_mail_failed_error(ctx, MAIL_ERROR_NOTFOUND);
 		return -1;
 	}
@@ -43,7 +43,7 @@ cmd_acl_mailbox_open(struct doveadm_mail_cmd_context *ctx,
 	box = mailbox_alloc(ns->list, mailbox,
 			    MAILBOX_FLAG_READONLY | MAILBOX_FLAG_IGNORE_ACLS);
 	if (mailbox_open(box) < 0) {
-		i_error("Can't open mailbox %s: %s", mailbox,
+		e_error(box->event, "Can't open mailbox: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(ctx, box);
 		mailbox_free(&box);
@@ -95,7 +95,7 @@ static int cmd_acl_get_mailbox(struct doveadm_acl_cmd_context *ctx,
 	} T_END;
 
 	if ((ret = acl_object_list_deinit(&iter))<0) {
-		i_error("ACL iteration failed");
+		e_error(box->event, "ACL iteration failed");
 		doveadm_mail_failed_error(&ctx->ctx, MAIL_ERROR_TEMP);
 	}
 	return ret;
@@ -162,7 +162,7 @@ cmd_acl_rights_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user
 	if (acl_object_get_my_rights(aclobj, pool_datastack_create(),
 				     &rights) < 0) {
 		doveadm_mail_failed_error(_ctx, MAIL_ERROR_TEMP);
-		i_error("Failed to get rights");
+		e_error(box->event, "Failed to get rights");
 		ret = -1;
 	} else {
 		doveadm_print(t_strarray_join(rights, " "));
@@ -230,7 +230,7 @@ cmd_acl_set_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 	if (acl_rights_update_import(&update, ctx->id, ctx->rights, &error) < 0)
 		i_fatal_status(EX_USAGE, "%s", error);
 	if ((ret = cmd_acl_mailbox_update(&ctx->ctx, box, &update)) < 0) {
-		i_error("Failed to set ACL: %s",
+		e_error(box->event, "Failed to set ACL: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_error(_ctx, MAIL_ERROR_TEMP);
 	}
@@ -295,7 +295,7 @@ cmd_acl_delete_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user
 	if (acl_rights_update_import(&update, ctx->id, NULL, &error) < 0)
 		i_fatal_status(EX_USAGE, "%s", error);
 	if ((ret = cmd_acl_mailbox_update(_ctx, box, &update)) < 0) {
-		i_error("Failed to delete ACL: %s",
+		e_error(box->event, "Failed to delete ACL: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_error(_ctx, MAIL_ERROR_TEMP);
 	}
@@ -331,12 +331,12 @@ cmd_acl_recalc_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 	struct acl_user *auser = ACL_USER_CONTEXT(user);
 
 	if (auser == NULL) {
-		i_error("ACL not enabled for %s", user->username);
+		e_error(user->event, "ACL not enabled for %s", user->username);
 		doveadm_mail_failed_error(ctx, MAIL_ERROR_NOTFOUND);
 		return -1;
 	}
 	if (acl_lookup_dict_rebuild(auser->acl_lookup_dict) < 0) {
-		i_error("Failed to recalculate ACL dicts");
+		e_error(user->event, "Failed to recalculate ACL dicts");
 		doveadm_mail_failed_error(ctx, MAIL_ERROR_TEMP);
 		return -1;
 	}
@@ -375,9 +375,11 @@ cmd_acl_debug_mailbox_open(struct doveadm_mail_cmd_context *ctx,
 		if (error != MAIL_ERROR_NOTFOUND ||
 		    mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX,
 					&path) <= 0)
-			i_error("Can't open mailbox %s: %s", mailbox, errstr);
+			e_error(box->event,
+				"Can't open mailbox %s: %s", mailbox, errstr);
 		else {
-			i_error("Mailbox '%s' in namespace '%s' doesn't exist in %s",
+			e_error(box->event,
+				"Mailbox '%s' in namespace '%s' doesn't exist in %s",
 				box->name, ns->prefix, path);
 		}
 		mailbox_free(&box);
@@ -385,7 +387,8 @@ cmd_acl_debug_mailbox_open(struct doveadm_mail_cmd_context *ctx,
 	}
 
 	if (auser == NULL) {
-		i_info("ACL not enabled for user %s, mailbox can be accessed",
+		e_info(box->event,
+		       "ACL not enabled for user %s, mailbox can be accessed",
 		       user->username);
 		doveadm_mail_failed_error(ctx, MAIL_ERROR_NOTFOUND);
 		mailbox_free(&box);
@@ -412,18 +415,18 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 
 	*retry_r = FALSE;
 
-	i_info("Mailbox '%s' is in namespace '%s'",
+	e_info(box->event, "Mailbox '%s' is in namespace '%s'",
 	       box->name, box->list->ns->prefix);
 	if (mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_MAILBOX, &path) > 0)
-		i_info("Mailbox path: %s", path);
+		e_info(box->event, "Mailbox path: %s", path);
 
 	private_flags_mask = mailbox_get_private_flags_mask(box);
 	if (private_flags_mask == 0)
-		i_info("All message flags are shared across users in mailbox");
+		e_info(box->event, "All message flags are shared across users in mailbox");
 	else {
 		str = t_str_new(64);
 		imap_write_flags(str, private_flags_mask, NULL);
-		i_info("Per-user private flags in mailbox: %s", str_c(str));
+		e_info(box->event, "Per-user private flags in mailbox: %s", str_c(str));
 	}
 
 	/* check if user has lookup right */
@@ -432,20 +435,20 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 		i_fatal("Failed to get rights");
 
 	if (rights[0] == NULL)
-		i_info("User %s has no rights for mailbox", ns->user->username);
+		e_info(box->event, "User %s has no rights for mailbox", ns->user->username);
 	else {
-		i_info("User %s has rights: %s",
+		e_info(box->event, "User %s has rights: %s",
 		       ns->user->username, t_strarray_join(rights, " "));
 	}
 	if (!str_array_find(rights, MAIL_ACL_LOOKUP)) {
-		i_error("User %s is missing 'lookup' right",
+		e_error(box->event, "User %s is missing 'lookup' right",
 			ns->user->username);
 		return FALSE;
 	}
 
 	/* check if mailbox is listable */
 	if (ns->type == MAIL_NAMESPACE_TYPE_PRIVATE) {
-		i_info("Mailbox in user's private namespace");
+		e_info(box->event, "Mailbox in user's private namespace");
 		return TRUE;
 	}
 
@@ -457,22 +460,22 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 	if ((ret = acl_backend_nonowner_lookups_iter_deinit(&iter))<0)
 		i_fatal("ACL non-owner iteration failed");
 	if (ret == 0) {
-		i_error("Mailbox not found from dovecot-acl-list, rebuilding");
+		e_error(box->event, "Mailbox not found from dovecot-acl-list, rebuilding");
 		if (acl_backend_nonowner_lookups_rebuild(backend) < 0)
 			i_fatal("dovecot-acl-list rebuilding failed");
 		all_ok = FALSE;
 		*retry_r = TRUE;
 	} else {
-		i_info("Mailbox found from dovecot-acl-list");
+		e_info(box->event, "Mailbox found from dovecot-acl-list");
 	}
 
 	if (ns->type == MAIL_NAMESPACE_TYPE_PUBLIC) {
-		i_info("Mailbox is in public namespace");
+		e_info(box->event, "Mailbox is in public namespace");
 		return TRUE;
 	}
 
 	if (!acl_lookup_dict_is_enabled(auser->acl_lookup_dict)) {
-		i_error("acl_lookup_dict not enabled");
+		e_error(box->event, "acl_lookup_dict not enabled");
 		return FALSE;
 	}
 
@@ -485,14 +488,14 @@ static bool cmd_acl_debug_mailbox(struct mailbox *box, bool *retry_r)
 	if (acl_lookup_dict_iterate_visible_deinit(&diter) < 0)
 		i_fatal("ACL shared dict iteration failed");
 	if (name == NULL) {
-		i_error("User %s not found from ACL shared dict, rebuilding",
+		e_error(box->event, "User %s not found from ACL shared dict, rebuilding",
 			ns->owner->username);
 		if (acl_lookup_dict_rebuild(auser->acl_lookup_dict) < 0)
 			i_fatal("ACL lookup dict rebuild failed");
 		all_ok = FALSE;
 		*retry_r = TRUE;
 	} else {
-		i_info("User %s found from ACL shared dict",
+		e_info(box->event, "User %s found from ACL shared dict",
 		       ns->owner->username);
 	}
 	return all_ok;
@@ -512,13 +515,13 @@ cmd_acl_debug_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 
 	ret = cmd_acl_debug_mailbox(box, &retry);
 	if (!ret && retry) {
-		i_info("Retrying after rebuilds:");
+		e_info(box->event, "Retrying after rebuilds:");
 		ret = cmd_acl_debug_mailbox(box, &retry);
 	}
 	if (ret)
-		i_info("Mailbox %s is visible in LIST", box->vname);
+		e_info(box->event, "Mailbox %s is visible in LIST", box->vname);
 	else
-		i_info("Mailbox %s is NOT visible in LIST", box->vname);
+		e_info(box->event, "Mailbox %s is NOT visible in LIST", box->vname);
 	mailbox_free(&box);
 	return 0;
 }

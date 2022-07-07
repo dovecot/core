@@ -24,25 +24,25 @@ struct acl_global_parse_rights {
 struct acl_global_file {
 	char *path;
 	struct stat prev_st;
+	struct event *event;
 	time_t last_refresh_time;
 
 	pool_t rights_pool;
 	ARRAY(struct acl_global_rights) rights;
 
 	unsigned int refresh_interval_secs;
-	bool debug;
 };
 
 struct acl_global_file *
 acl_global_file_init(const char *path, unsigned int refresh_interval_secs,
-		     bool debug)
+		     struct event *event)
 {
 	struct acl_global_file *file;
 
 	file = i_new(struct acl_global_file, 1);
 	file->path = i_strdup(path);
 	file->refresh_interval_secs = refresh_interval_secs;
-	file->debug = debug;
+	file->event = event_create(event);
 	i_array_init(&file->rights, 32);
 	file->rights_pool = pool_alloconly_create("acl global file rights", 1024);
 	return file;
@@ -55,6 +55,7 @@ void acl_global_file_deinit(struct acl_global_file **_file)
 	*_file = NULL;
 
 	array_free(&file->rights);
+	event_unref(&file->event);
 	pool_unref(&file->rights_pool);
 	i_free(file->path);
 	i_free(file);
@@ -138,7 +139,8 @@ static int acl_global_file_read(struct acl_global_file *file)
 		T_BEGIN {
 			ret = acl_global_file_parse_line(&ctx, line, &error);
 			if (ret < 0) {
-				i_error("Global ACL file %s line %u: %s",
+				e_error(file->event,
+					"Global ACL file %s line %u: %s",
 					file->path, linenum, error);
 			}
 		} T_END;
@@ -146,7 +148,8 @@ static int acl_global_file_read(struct acl_global_file *file)
 			break;
 	}
 	if (ret == 0 && input->stream_errno != 0) {
-		i_error("Couldn't read global ACL file %s: %s",
+		e_error(file->event,
+			"Couldn't read global ACL file %s: %s",
 			file->path, i_stream_get_error(input));
 		ret = -1;
 	}
@@ -154,7 +157,8 @@ static int acl_global_file_read(struct acl_global_file *file)
 		const struct stat *st;
 
 		if (i_stream_stat(input, TRUE, &st) < 0) {
-			i_error("Couldn't stat global ACL file %s: %s",
+			e_error(file->event,
+				"Couldn't stat global ACL file %s: %s",
 				file->path, i_stream_get_error(input));
 			ret = -1;
 		} else {
@@ -189,7 +193,7 @@ int acl_global_file_refresh(struct acl_global_file *file)
 		return 0;
 	if (file->last_refresh_time != 0) {
 		if (stat(file->path, &st) < 0) {
-			i_error("stat(%s) failed: %m", file->path);
+			e_error(file->event, "stat(%s) failed: %m", file->path);
 			return -1;
 		}
 		if (st.st_ino == file->prev_st.st_ino &&
@@ -221,10 +225,8 @@ void acl_global_file_get(struct acl_global_file *file, const char *vname,
 	array_foreach_modifiable(&file->rights, global_rights) {
 		if (!wildcard_match(vname, global_rights->vpattern))
 			continue;
-		if (file->debug) {
-			i_debug("Mailbox '%s' matches global ACL pattern '%s'",
-				vname, global_rights->vpattern);
-		}
+		e_debug(file->event, "Mailbox '%s' matches global ACL pattern '%s'",
+			vname, global_rights->vpattern);
 		array_foreach(&global_rights->rights, rights) {
 			new_rights = array_append_space(rights_r);
 			acl_rights_dup(rights, pool, new_rights);

@@ -75,7 +75,7 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 			p_new(backend->pool, const char *, group_count);
 		for (i = 0; i < group_count; i++) {
 			backend->groups[i] = p_strdup(backend->pool, groups[i]);
-			e_debug(user->event, "acl: group added: %s", groups[i]);
+			e_debug(backend->event, "acl: group added: %s", groups[i]);
 		}
 		i_qsort(backend->groups, group_count, sizeof(const char *),
 			i_strcmp_p);

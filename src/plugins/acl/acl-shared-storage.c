@@ -55,7 +55,8 @@ acl_shared_namespace_add(struct mail_namespace *ns,
 
 	str = t_str_new(128);
 	if (var_expand(str, sstorage->ns_prefix_pattern, tab, &error) <= 0) {
-		i_error("Failed to expand namespace prefix %s: %s",
+		e_error(storage->event,
+			"Failed to expand namespace prefix %s: %s",
 			sstorage->ns_prefix_pattern, error);
 		return;
 	}

@@ -24,11 +24,13 @@ static int acl_backend_vfile_update_begin(struct acl_object_vfile *aclobj,
 					  struct dotlock **dotlock_r)
 {
 	struct acl_object *_aclobj = &aclobj->aclobj;
+	struct event *event = _aclobj->backend->event;
 	struct mailbox_permissions perm;
 	int fd;
 
 	if (aclobj->local_path == NULL) {
-		i_error("Can't update acl object '%s': No local acl file path",
+		e_error(event,
+			"Can't update acl object '%s': No local acl file path",
 			aclobj->aclobj.name);
 		return -1;
 	}
@@ -41,7 +43,8 @@ static int acl_backend_vfile_update_begin(struct acl_object_vfile *aclobj,
 				     perm.file_create_gid,
 				     perm.file_create_gid_origin, dotlock_r);
 	if (fd == -1) {
-		i_error("file_dotlock_open(%s) failed: %m", aclobj->local_path);
+		e_error(event,
+			"file_dotlock_open(%s) failed: %m", aclobj->local_path);
 		return -1;
 	}
 
@@ -132,6 +135,7 @@ static int
 acl_backend_vfile_update_write(struct acl_object *aclobj,
 			       int fd, const char *path)
 {
+	struct event *event = aclobj->backend->event;
 	struct ostream *output;
 	string_t *str;
 	const struct acl_rights *rights;
@@ -159,7 +163,7 @@ acl_backend_vfile_update_write(struct acl_object *aclobj,
 	}
 	str_free(&str);
 	if (o_stream_finish(output) < 0) {
-		i_error("write(%s) failed: %s", path,
+		e_error(event, "write(%s) failed: %s", path,
 			o_stream_get_error(output));
 		ret = -1;
 	}
@@ -167,7 +171,7 @@ acl_backend_vfile_update_write(struct acl_object *aclobj,
 	/* we really don't want to lose ACL files' contents, so fsync() always
 	   before renaming */
 	if (fsync(fd) < 0) {
-		i_error("fsync(%s) failed: %m", path);
+		e_error(event, "fsync(%s) failed: %m", path);
 		ret = -1;
 	}
 	return ret;
@@ -198,6 +202,7 @@ int acl_backend_vfile_object_update(struct acl_object *_aclobj,
 		(struct acl_object_vfile *)_aclobj;
 	struct acl_backend_vfile *backend =
 		(struct acl_backend_vfile *)_aclobj->backend;
+	struct event *event = backend->backend.event;
 	struct acl_backend_vfile_validity *validity;
 	struct dotlock *dotlock;
 	struct utimbuf ut;
@@ -243,7 +248,7 @@ int acl_backend_vfile_object_update(struct acl_object *_aclobj,
 		ut.actime = ioloop_time;
 		ut.modtime = update->last_change;
 		if (utime(path, &ut) < 0)
-			i_error("utime(%s) failed: %m", path);
+			e_error(event, "utime(%s) failed: %m", path);
 	}
 	acl_backend_vfile_update_cache(_aclobj, fd);
 	if (file_dotlock_replace(&dotlock, 0) < 0) {

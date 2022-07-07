@@ -14,9 +14,12 @@
 
 #define DICT_SHARED_BOXES_PATH "shared-boxes/"
 
+extern struct event_category event_category_acl;
+
 struct acl_lookup_dict {
 	struct mail_user *user;
 	struct dict *dict;
+	struct event *event;
 };
 
 struct acl_lookup_dict_iter {
@@ -38,6 +41,9 @@ struct acl_lookup_dict *acl_lookup_dict_init(struct mail_user *user)
 
 	dict = i_new(struct acl_lookup_dict, 1);
 	dict->user = user;
+	dict->event = event_create(user->event);
+	event_add_category(dict->event, &event_category_acl);
+	event_set_append_log_prefix(dict->event, "acl: ");
 
 	uri = mail_user_plugin_getenv(user, "acl_shared_dict");
 	if (uri != NULL) {
@@ -47,9 +53,9 @@ struct acl_lookup_dict *acl_lookup_dict_init(struct mail_user *user)
 		dict_set.base_dir = user->set->base_dir;
 		dict_set.event_parent = user->event;
 		if (dict_init(uri, &dict_set, &dict->dict, &error) < 0)
-			i_error("acl: dict_init(%s) failed: %s", uri, error);
+			e_error(dict->event, "dict_init(%s) failed: %s", uri, error);
 	} else {
-		e_debug(user->event, "acl: No acl_shared_dict setting - "
+		e_debug(dict->event, "No acl_shared_dict setting - "
 			"shared mailbox listing is disabled");
 	}
 	return dict;
@@ -62,6 +68,7 @@ void acl_lookup_dict_deinit(struct acl_lookup_dict **_dict)
 	*_dict = NULL;
 	if (dict->dict != NULL)
 		dict_deinit(&dict->dict);
+	event_unref(&dict->event);
 	i_free(dict);
 }
 
@@ -150,6 +157,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			       const ARRAY_TYPE(const_string) *new_ids_arr,
 			       bool no_removes)
 {
+	struct event *event = dict->event;
 	const char *username = dict->user->username;
 	struct dict_iterate_context *iter;
 	struct dict_transaction_context *dt = NULL;
@@ -181,7 +189,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 		}
 	}
 	if (dict_iterate_deinit(&iter, &error) < 0) {
-		i_error("acl: dict iteration failed: %s - can't update dict", error);
+		e_error(event, "dict iteration failed: %s - can't update dict", error);
 		return -1;
 	}
 
@@ -218,7 +226,7 @@ acl_lookup_dict_rebuild_update(struct acl_lookup_dict *dict,
 			oldi++;
 		}
 		if (dt != NULL && dict_transaction_commit(&dt, &error) < 0) {
-			i_error("acl: dict commit failed: %s", error);
+			e_error(event, "dict commit failed: %s", error);
 			return -1;
 		}
 		i_assert(dt == NULL);
@@ -266,6 +274,7 @@ int acl_lookup_dict_rebuild(struct acl_lookup_dict *dict)
 
 static void acl_lookup_dict_iterate_read(struct acl_lookup_dict_iter *iter)
 {
+	struct event *event = iter->dict->event;
 	struct dict_iterate_context *dict_iter;
 	const char *id, *prefix, *key, *value, *error;
 	size_t prefix_len;
@@ -293,7 +302,7 @@ static void acl_lookup_dict_iterate_read(struct acl_lookup_dict_iter *iter)
 		array_push_back(&iter->iter_values, &key);
 	}
 	if (dict_iterate_deinit(&dict_iter, &error) < 0) {
-		i_error("%s", error);
+		e_error(event, "%s", error);
 		iter->failed = TRUE;
 	}
 }

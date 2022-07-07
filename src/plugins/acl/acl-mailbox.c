@@ -700,7 +700,7 @@ int acl_mailbox_update_acl(struct mailbox_transaction_context *t,
 			      acl_rights_get_id(&update->rights));
 	aclobj = acl_mailbox_get_aclobj(t->box);
 	if (acl_object_update(aclobj, update) < 0) {
-		mailbox_set_critical(t->box, "Failed to set ACL");
+		mailbox_set_critical(t->box, "Failed to update ACL object");
 		return -1;
 	}
 

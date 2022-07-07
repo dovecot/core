@@ -87,6 +87,7 @@ static bool acl_list_get_path(struct acl_backend_vfile *backend,
 
 static int acl_backend_vfile_acllist_read(struct acl_backend_vfile *backend)
 {
+	struct event *event = backend->backend.event;
 	struct acl_backend_vfile_acllist acllist;
 	struct istream *input;
 	struct stat st;
@@ -107,7 +108,7 @@ static int acl_backend_vfile_acllist_read(struct acl_backend_vfile *backend)
 			if (errno == ENOENT)
 				backend->acllist_mtime = 0;
 			else
-				i_error("stat(%s) failed: %m", path);
+				e_error(event, "stat(%s) failed: %m", path);
 			return -1;
 		}
 		if (st.st_mtime == backend->acllist_mtime)
@@ -120,11 +121,11 @@ static int acl_backend_vfile_acllist_read(struct acl_backend_vfile *backend)
 			backend->acllist_mtime = 0;
 			return -1;
 		}
-		i_error("open(%s) failed: %m", path);
+		e_error(event, "open(%s) failed: %m", path);
 		return -1;
 	}
 	if (fstat(fd, &st) < 0) {
-		i_error("fstat(%s) failed: %m", path);
+		e_error(event, "fstat(%s) failed: %m", path);
 		i_close_fd(&fd);
 		return -1;
 	}
@@ -138,7 +139,7 @@ static int acl_backend_vfile_acllist_read(struct acl_backend_vfile *backend)
 			acllist.mtime = acllist.mtime * 10 + (*p - '0');
 
 		if (p == line || *p != ' ' || p[1] == '\0') {
-			i_error("Broken acllist file: %s", path);
+			e_error(event, "Broken acllist file: %s", path);
 			i_unlink_if_exists(path);
 			i_close_fd(&fd);
 			return -1;
@@ -151,7 +152,7 @@ static int acl_backend_vfile_acllist_read(struct acl_backend_vfile *backend)
 	i_stream_destroy(&input);
 
 	if (close(fd) < 0)
-		i_error("close(%s) failed: %m", path);
+		e_error(event, "close(%s) failed: %m", path);
 	return ret;
 }
 
@@ -210,6 +211,7 @@ static int
 acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 {
 	struct mailbox_list *list = backend->backend.list;
+	struct event *event = backend->backend.event;
 	struct mail_namespace *ns;
 	struct mailbox_list_iterate_context *iter;
 	enum mailbox_list_path_type type;
@@ -255,7 +257,7 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 			/* Ignore silently if we can't create it */
 			return 0;
 		}
-		i_error("dovecot-acl-list creation failed: "
+		e_error(event, "dovecot-acl-list creation failed: "
 			"safe_mkstemp(%s) failed: %m", str_c(path));
 		return -1;
 	}
@@ -274,7 +276,7 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 	} T_END;
 
 	if (o_stream_finish(output) < 0) {
-		i_error("write(%s) failed: %s", str_c(path),
+		e_error(event, "write(%s) failed: %s", str_c(path),
 			o_stream_get_error(output));
 		ret = -1;
 	}
@@ -284,12 +286,12 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 
 	if (ret == 0) {
 		if (fstat(fd, &st) < 0) {
-			i_error("fstat(%s) failed: %m", str_c(path));
+			e_error(event, "fstat(%s) failed: %m", str_c(path));
 			ret = -1;
 		}
 	}
 	if (close(fd) < 0) {
-		i_error("close(%s) failed: %m", str_c(path));
+		e_error(event, "close(%s) failed: %m", str_c(path));
 		ret = -1;
 	}
 
@@ -297,7 +299,7 @@ acl_backend_vfile_acllist_try_rebuild(struct acl_backend_vfile *backend)
 		if (!acl_list_get_path(backend, &acllist_path))
 			i_unreached();
 		if (rename(str_c(path), acllist_path) < 0) {
-			i_error("rename(%s, %s) failed: %m",
+			e_error(event, "rename(%s, %s) failed: %m",
 				str_c(path), acllist_path);
 			ret = -1;
 		}

@@ -5,7 +5,7 @@
 #include "array.h"
 #include "istream.h"
 #include "nfs-workarounds.h"
-#include "mail-storage-private.h"
+#include "mailbox-list-private.h"
 #include "acl-global-file.h"
 #include "acl-cache.h"
 #include "acl-backend-vfile.h"
@@ -31,6 +31,7 @@ static struct acl_backend *acl_backend_vfile_alloc(void)
 static int
 acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
 {
+	struct event *event = _backend->event;
 	struct acl_backend_vfile *backend =
 		(struct acl_backend_vfile *)_backend;
 	struct stat st;
@@ -46,37 +47,34 @@ acl_backend_vfile_init(struct acl_backend *_backend, const char *data)
 	for (; *tmp != NULL; tmp++) {
 		if (str_begins(*tmp, "cache_secs=", &value)) {
 			if (str_to_uint(value, &backend->cache_secs) < 0) {
-				i_error("acl vfile: Invalid cache_secs value: %s",
+				e_error(event,
+					"acl vfile: Invalid cache_secs value: %s",
 					*tmp + 11);
 				return -1;
 			}
 		} else {
-			i_error("acl vfile: Unknown parameter: %s", *tmp);
+			e_error(event, "acl vfile: Unknown parameter: %s", *tmp);
 			return -1;
 		}
 	}
 	if (global_path != NULL) {
 		if (stat(global_path, &st) < 0) {
-			i_error("acl vfile: stat(%s) failed: %m",
-				global_path);
+			e_error(event,
+				"acl vfile: stat(%s) failed: %m", global_path);
 			return -1;
 		} else if (S_ISDIR(st.st_mode)) {
-			i_error("acl vfile: Global ACL directories are no longer supported");
+			e_error(event,
+				"acl vfile: Global ACL directories are no longer supported");
 			return -1;
 		} else {
-			_backend->global_file =
-				acl_global_file_init(global_path, backend->cache_secs,
-						     _backend->debug);
+			_backend->global_file =	acl_global_file_init(
+				global_path, backend->cache_secs, event);
 		}
 	}
-	if (_backend->debug) {
-		if (_backend->global_file == NULL)
-			i_debug("acl vfile: Global ACLs disabled");
-		else {
-			i_debug("acl vfile: Global ACL file: %s",
-				global_path);
-		}
-	}
+	if (_backend->global_file == NULL)
+		e_debug(event, "acl vfile: Global ACLs disabled");
+	else
+		e_debug(event, "acl vfile: Global ACL file: %s", global_path);
 
 	_backend->cache =
 		acl_cache_init(_backend,
@@ -273,6 +271,7 @@ static int
 acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 		       struct acl_vfile_validity *validity, bool try_retry)
 {
+	struct event *event = aclobj->backend->event;
 	struct istream *input;
 	struct stat st;
 	struct acl_rights rights;
@@ -283,18 +282,15 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 	fd = nfs_safe_open(path, O_RDONLY);
 	if (fd == -1) {
 		if (errno == ENOENT || errno == ENOTDIR) {
-			if (aclobj->backend->debug)
-				i_debug("acl vfile: file %s not found", path);
+			e_debug(event, "acl vfile: file %s not found", path);
 			validity->last_mtime = ACL_VFILE_VALIDITY_MTIME_NOTFOUND;
 		} else if (errno == EACCES) {
-			if (aclobj->backend->debug)
-				i_debug("acl vfile: no access to file %s",
-					path);
+			e_debug(event, "acl vfile: no access to file %s", path);
 
 			acl_object_remove_all_access(aclobj);
 			validity->last_mtime = ACL_VFILE_VALIDITY_MTIME_NOACCESS;
 		} else {
-			i_error("open(%s) failed: %m", path);
+			e_error(event, "open(%s) failed: %m", path);
 			return -1;
 		}
 
@@ -309,13 +305,12 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 			return 0;
 		}
 
-		i_error("fstat(%s) failed: %m", path);
+		e_error(event, "fstat(%s) failed: %m", path);
 		i_close_fd(&fd);
 		return -1;
 	}
 
-	if (aclobj->backend->debug)
-		i_debug("acl vfile: reading file %s", path);
+	e_debug(event, "acl vfile: reading file %s", path);
 
 	input = i_stream_create_fd(fd, SIZE_MAX);
 	i_stream_set_return_partial_line(input, TRUE);
@@ -328,7 +323,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 			ret = acl_rights_parse_line(line, aclobj->rights_pool,
 						    &rights, &error);
 			if (ret < 0) {
-				i_error("ACL file %s line %u: %s",
+				e_error(event, "ACL file %s line %u: %s",
 					path, linenum, error);
 			} else {
 				array_push_back(&aclobj->rights, &rights);
@@ -345,7 +340,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 			ret = 0;
 		else {
 			ret = -1;
-			i_error("read(%s) failed: %s", path,
+			e_error(event, "read(%s) failed: %s", path,
 				i_stream_get_error(input));
 		}
 	} else {
@@ -354,7 +349,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 				ret = 0;
 			else {
 				ret = -1;
-				i_error("fstat(%s) failed: %m", path);
+				e_error(event, "fstat(%s) failed: %m", path);
 			}
 		} else {
 			ret = 1;
@@ -369,7 +364,7 @@ acl_backend_vfile_read(struct acl_object *aclobj, const char *path,
 		if (errno == ESTALE && try_retry)
 			return 0;
 
-		i_error("close(%s) failed: %m", path);
+		e_error(event, "close(%s) failed: %m", path);
 		return -1;
 	}
 	return ret;
@@ -426,6 +421,7 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 {
 	struct acl_backend_vfile *backend =
 		(struct acl_backend_vfile *)aclobj->backend;
+	struct event *event = backend->backend.event;
 	struct stat st;
 	int ret;
 
@@ -444,7 +440,7 @@ acl_backend_vfile_refresh(struct acl_object *aclobj, const char *path,
 		}
 		if (errno == EACCES)
 			return validity->last_mtime != ACL_VFILE_VALIDITY_MTIME_NOACCESS ? 1 : 0;
-		i_error("stat(%s) failed: %m", path);
+		e_error(event, "stat(%s) failed: %m", path);
 		return -1;
 	}
 	return acl_vfile_validity_has_changed(backend, validity, &st) ? 1 : 0;
