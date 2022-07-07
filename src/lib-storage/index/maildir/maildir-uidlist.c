@@ -447,6 +447,7 @@ maildir_uidlist_read_extended(struct maildir_uidlist *uidlist,
 static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
 				 const char *line)
 {
+	struct event *event = uidlist->box->event;
 	struct maildir_uidlist_rec *rec, *old_rec, *const *recs;
 	unsigned int count;
 	uint32_t uid;
@@ -539,7 +540,8 @@ static bool maildir_uidlist_next(struct maildir_uidlist *uidlist,
 	} else {
 		/* This can happen if expunged file is moved back and the file
 		   was appended to uidlist. */
-		i_warning("%s: Duplicate file entry at line %u: "
+		e_warning(event,
+			  "%s: Duplicate file entry at line %u: "
 			  "%s (uid %u -> %u)%s",
 			  uidlist->path, uidlist->read_line_count, line,
 			  old_rec->uid, uid, uidlist->retry_rewind ?
@@ -1524,6 +1526,7 @@ static bool maildir_uidlist_want_recreate(struct maildir_uidlist_sync_ctx *ctx)
 static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 {
 	struct maildir_uidlist *uidlist = ctx->uidlist;
+	struct event *event = uidlist->box->event;
 	struct stat st;
 	uoff_t file_size;
 
@@ -1556,7 +1559,7 @@ static int maildir_uidlist_sync_update(struct maildir_uidlist_sync_ctx *ctx)
 		return -1;
 	}
 	if ((uoff_t)st.st_size != file_size) {
-		i_warning("%s: file size changed unexpectedly after write",
+		e_warning(event, "%s: file size changed unexpectedly after write",
 			  uidlist->path);
 	} else if (uidlist->locked_refresh) {
 		uidlist->fd_size = st.st_size;
@@ -1763,6 +1766,7 @@ int maildir_uidlist_sync_next_uid(struct maildir_uidlist_sync_ctx *ctx,
 				  struct maildir_uidlist_rec **rec_r)
 {
 	struct maildir_uidlist *uidlist = ctx->uidlist;
+	struct event *event = uidlist->box->event;
 	struct maildir_uidlist_rec *rec, *old_rec;
 	const char *p;
 
@@ -1772,8 +1776,8 @@ int maildir_uidlist_sync_next_uid(struct maildir_uidlist_sync_ctx *ctx,
 		return -1;
 	for (p = filename; *p != '\0'; p++) {
 		if (*p == 13 || *p == 10) {
-			i_warning("Maildir %s: Ignoring a file with #0x%x: %s",
-				  mailbox_get_path(uidlist->box), *p, filename);
+			e_warning(event, "Ignoring a file with #0x%x: %s",
+				  *p, filename);
 			return 1;
 		}
 	}
