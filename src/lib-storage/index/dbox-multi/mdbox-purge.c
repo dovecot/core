@@ -130,6 +130,7 @@ static int
 mdbox_metadata_get_extrefs(struct dbox_file *file, pool_t ext_refs_pool,
 			   ARRAY_TYPE(mail_attachment_extref) *extrefs)
 {
+	struct event *event = file->storage->storage.event;
 	struct dbox_metadata_header meta_hdr;
 	const char *line;
 	size_t buf_size;
@@ -150,7 +151,7 @@ mdbox_metadata_get_extrefs(struct dbox_file *file, pool_t ext_refs_pool,
 		if (*line == DBOX_METADATA_EXT_REF) T_BEGIN {
 			if (!index_attachment_parse_extrefs(line+1, ext_refs_pool,
 							    extrefs)) {
-				i_warning("%s: Ignoring corrupted extref: %s",
+				e_warning(event, "%s: Ignoring corrupted extref: %s",
 					  file->cur_path, line);
 			}
 		} T_END;

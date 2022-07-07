@@ -102,6 +102,7 @@ mdbox_file_init_paths(struct mdbox_file *file, const char *fname, bool alt)
 static int mdbox_file_create(struct mdbox_file *file)
 {
 	struct dbox_file *_file = &file->file;
+	struct event *event = _file->storage->storage.event;
 	bool create_parents;
 	int ret;
 
@@ -121,7 +122,7 @@ static int mdbox_file_create(struct mdbox_file *file)
 				/* ignore */
 				break;
 			default:
-				i_error("file_preallocate(%s) failed: %m",
+				e_error(event, "file_preallocate(%s) failed: %m",
 					_file->cur_path);
 				break;
 			}

@@ -71,6 +71,12 @@ mdbox_map_init(struct mdbox_storage *storage, struct mailbox_list *root_list)
 				sizeof(uint32_t));
 	map->ref_ext_id = mail_index_ext_register(map->index, "ref", 0,
 				sizeof(uint16_t), sizeof(uint16_t));
+
+	map->event = event_create(storage->storage.storage.event);
+	event_drop_parent_log_prefixes(map->event, 1);
+	event_set_append_log_prefix(map->event, t_strdup_printf(
+		"mdbox(%s): ", map->path));
+
 	return map;
 }
 
@@ -85,6 +91,7 @@ void mdbox_map_deinit(struct mdbox_map **_map)
 		mail_index_close(map->index);
 	}
 	mail_index_free(&map->index);
+	event_unref(&map->event);
 	i_free(map->index_path);
 	i_free(map->path);
 	i_free(map);
@@ -477,6 +484,7 @@ static void
 mdbox_map_sync_handle(struct mdbox_map *map,
 		      struct mail_index_sync_ctx *sync_ctx)
 {
+	struct event *event = map->event;
 	struct mail_index_sync_rec sync_rec;
 	uint32_t seq1, seq2;
 	uoff_t offset1, offset2;
@@ -484,9 +492,9 @@ mdbox_map_sync_handle(struct mdbox_map *map,
 	mail_index_sync_get_offsets(sync_ctx, &seq1, &offset1, &seq2, &offset2);
 	if (offset1 != offset2 || seq1 != seq2) {
 		/* something had crashed. need a full resync. */
-		i_warning("mdbox %s: Inconsistency in map index "
+		e_warning(event, "Inconsistency in map index "
 			  "(%u,%"PRIuUOFF_T" != %u,%"PRIuUOFF_T")",
-			  map->path, seq1, offset1, seq2, offset2);
+			  seq1, offset1, seq2, offset2);
 		mdbox_storage_set_corrupted(map->storage);
 	}
 	while (mail_index_sync_next(sync_ctx, &sync_rec)) ;
@@ -844,6 +852,7 @@ mdbox_map_file_try_append(struct mdbox_map_append_context *ctx,
 {
 	struct mdbox_map *map = ctx->map;
 	struct mdbox_storage *storage = map->storage;
+	struct event *event = map->event;
 	struct dbox_file *file;
 	struct dbox_file_append_context *file_append;
 	struct stat st;
@@ -867,7 +876,7 @@ mdbox_map_file_try_append(struct mdbox_map_append_context *ctx,
 		*retry_later_r = ret == 0;
 	} else if (stat(file->cur_path, &st) < 0) {
 		if (errno != ENOENT)
-			i_error("stat(%s) failed: %m", file->cur_path);
+			e_error(event, "stat(%s) failed: %m", file->cur_path);
 		/* the file was unlinked between opening and locking it. */
 	} else if (st.st_size != rec->offset + rec->size &&
 		   /* check if there's any garbage at the end of file.
@@ -1187,6 +1196,7 @@ void mdbox_map_append_abort(struct mdbox_map_append_context *ctx)
 static int
 mdbox_find_highest_file_id(struct mdbox_map *map, uint32_t *file_id_r)
 {
+	struct event *event = map->event;
 	const size_t prefix_len = strlen(MDBOX_MAIL_FILE_PREFIX);
 	DIR *dir;
 	struct dirent *d;
@@ -1194,7 +1204,7 @@ mdbox_find_highest_file_id(struct mdbox_map *map, uint32_t *file_id_r)
 
 	dir = opendir(map->path);
 	if (dir == NULL) {
-		i_error("opendir(%s) failed: %m", map->path);
+		e_error(event, "opendir(%s) failed: %m", map->path);
 		return -1;
 	}
 	while ((d = readdir(dir)) != NULL) {

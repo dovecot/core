@@ -11,6 +11,7 @@ struct dbox_mail_lookup_rec {
 
 struct mdbox_map {
 	struct mdbox_storage *storage;
+	struct event *event;
 	const struct mdbox_settings *set;
 	char *path, *index_path;
 

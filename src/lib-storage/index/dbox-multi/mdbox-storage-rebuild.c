@@ -142,6 +142,7 @@ static void rebuild_scan_metadata(struct mdbox_storage_rebuild_context *ctx,
 static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 			      struct dbox_file *file, uint32_t file_id)
 {
+	struct event *event = file->storage->storage.event;
 	const char *guid;
 	uint8_t *guid_p;
 	struct mdbox_rebuild_msg *rec, *old_rec;
@@ -217,12 +218,12 @@ static int rebuild_file_mails(struct mdbox_storage_rebuild_context *ctx,
 			rec->seen_zero_ref_in_map = TRUE;
 		} else {
 			/* duplicate GUID, but not a duplicate message. */
-			i_error("mdbox %s: Duplicate GUID %s in "
+			e_error(event, "Duplicate GUID %s in "
 				"m.%u:%u (size=%"PRIuUOFF_T") and m.%u:%u "
 				"(size=%"PRIuUOFF_T")",
-				ctx->storage->storage_dir, guid,
-				old_rec->file_id, old_rec->offset, old_rec->mail_size,
-				rec->file_id, rec->offset, rec->mail_size);
+				guid, old_rec->file_id, old_rec->offset,
+				old_rec->mail_size, rec->file_id, rec->offset,
+				rec->mail_size);
 			rec->guid_hash_next = old_rec->guid_hash_next;
 			old_rec->guid_hash_next = rec;
 		}
@@ -239,6 +240,7 @@ static int
 rebuild_rename_file(struct mdbox_storage_rebuild_context *ctx,
 		    const char *dir, const char **fname_p, uint32_t *file_id_r)
 {
+	struct event *event = ctx->storage->storage.storage.event;
 	const char *old_path, *new_path, *fname = *fname_p;
 
 	old_path = t_strconcat(dir, "/", fname, NULL);
@@ -255,13 +257,14 @@ rebuild_rename_file(struct mdbox_storage_rebuild_context *ctx,
 		}
 	} while (errno == EEXIST);
 
-	i_error("link(%s, %s) failed: %m", old_path, new_path);
+	e_error(event, "link(%s, %s) failed: %m", old_path, new_path);
 	return -1;
 }
 
 static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
 			    const char *dir, const char *fname)
 {
+	struct event *event = ctx->storage->storage.storage.event;
 	struct dbox_file *file;
 	uint32_t file_id;
 	const char *id_str, *ext;
@@ -275,8 +278,8 @@ static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
 		ext = strrchr(id_str, '.');
 		if (ext == NULL || (strcmp(ext, ".broken") != 0 &&
 				    strcmp(ext, ".lock") != 0)) {
-			i_warning("mdbox rebuild: "
-				  "Skipping file with missing ID: %s/%s",
+			e_warning(event,
+				  "rebuild: Skipping file with missing ID: %s/%s",
 				  dir, fname);
 		}
 		return 0;
@@ -298,7 +301,7 @@ static int rebuild_add_file(struct mdbox_storage_rebuild_context *ctx,
 	if ((ret = dbox_file_open(file, &deleted)) > 0 && !deleted)
 		ret = rebuild_file_mails(ctx, file, file_id);
 	if (ret == 0)
-		i_error("mdbox rebuild: Failed to fix file %s/%s", dir, fname);
+		e_error(event, "rebuild: Failed to fix file %s/%s", dir, fname);
 	dbox_file_unref(&file);
 	return ret < 0 ? -1 : 0;
 }
@@ -563,8 +566,8 @@ rebuild_mailbox(struct mdbox_storage_rebuild_context *ctx,
 	}
 	if (mailbox_open(box) < 0) {
 		error = mailbox_get_last_mail_error(box);
-		i_error("Couldn't open mailbox '%s': %s",
-			vname, mailbox_get_last_internal_error(box, NULL));
+		e_error(box->event, "Couldn't open mailbox: %s",
+			mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
 		if (error == MAIL_ERROR_TEMP)
 			return -1;
@@ -941,7 +944,8 @@ mdbox_storage_rebuild_scan_prepare(struct mdbox_storage_rebuild_context *ctx)
 
 static int mdbox_storage_rebuild_scan(struct mdbox_storage_rebuild_context *ctx)
 {
-	i_warning("mdbox %s: rebuilding indexes", ctx->storage->storage_dir);
+	struct event *event = ctx->storage->storage.storage.event;
+	e_warning(event, "rebuilding indexes");
 
 	if (mdbox_storage_rebuild_scan_dir(ctx, ctx->storage->storage_dir,
 					   FALSE) < 0)
