@@ -233,10 +233,11 @@ trash_quota_test_alloc(struct quota_transaction_context *ctx,
 		enum quota_alloc_result ret;
 		ret = trash_next_quota_test_alloc(ctx, size, error_r);
 		if (ret != QUOTA_ALLOC_RESULT_OVER_QUOTA) {
-			if (ret == QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT &&
-			    ctx->quota->user->mail_debug)
-				i_debug("trash plugin: Mail is larger than "
+			if (ret == QUOTA_ALLOC_RESULT_OVER_QUOTA_LIMIT) {
+				e_debug(ctx->quota->user->event,
+					"trash plugin: Mail is larger than "
 					"quota, won't even try to handle");
+			}
 			return ret;
 		}
 
@@ -296,7 +297,7 @@ static int read_configuration(struct mail_user *user, const char *path)
 
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
-		i_error("trash plugin: open(%s) failed: %m", path);
+		e_error(user->event, "trash plugin: open(%s) failed: %m", path);
 		return -1;
 	}
 
@@ -314,18 +315,21 @@ static int read_configuration(struct mail_user *user, const char *path)
 		trash->name = p_strdup(user->pool, name+1);
 		if (str_to_int(t_strdup_until(line, name),
 			       &trash->priority) < 0) {
-			i_error("trash: Invalid priority for mailbox '%s'",
+			e_error(user->event,
+				"trash: Invalid priority for mailbox '%s'",
 				trash->name);
 			ret = -1;
 		}
 
 		if (!uni_utf8_str_is_valid(trash->name)) {
-			i_error("trash: Mailbox name not UTF-8: %s",
+			e_error(user->event,
+				"trash: Mailbox name not UTF-8: %s",
 				trash->name);
 			ret = -1;
 		}
 		if (!trash_find_storage(user, trash)) {
-			i_error("trash: Namespace not found for mailbox '%s'",
+			e_error(user->event,
+				"trash: Namespace not found for mailbox '%s'",
 				trash->name);
 			ret = -1;
 		}
@@ -349,9 +353,11 @@ trash_mail_user_created(struct mail_user *user)
 
 	env = mail_user_plugin_getenv(user, "trash");
 	if (env == NULL) {
-		e_debug(user->event, "trash: No trash setting - plugin disabled");
+		e_debug(user->event,
+			"trash: No trash setting - plugin disabled");
 	} else if (quser == NULL) {
-		i_error("trash plugin: quota plugin not initialized");
+		e_error(user->event,
+			"trash plugin: quota plugin not initialized");
 	} else {
 		tuser = p_new(user->pool, struct trash_user, 1);
 		tuser->config_file = env;
