@@ -45,10 +45,13 @@ static RSA *ssl_gen_rsa_key(SSL *ssl ATTR_UNUSED,
 	return NULL;
 }
 
-static DH *ssl_tmp_dh_callback(SSL *ssl ATTR_UNUSED,
+static DH *ssl_tmp_dh_callback(SSL *ssl,
 			       int is_export ATTR_UNUSED, int keylength ATTR_UNUSED)
 {
-	i_error("Diffie-Hellman key exchange requested, "
+	struct ssl_iostream *ssl_io =
+		SSL_get_ex_data(ssl, dovecot_ssl_extdata_index);
+
+	e_error(ssl_io->event, "Diffie-Hellman key exchange requested, "
 		"but no DH parameters provided. Set ssl_dh=</path/to/dh.pem");
 	return NULL;
 }
@@ -332,8 +335,8 @@ static int ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
 	if (SSL_get_servername_type(ssl) != -1) {
 		i_free(ssl_io->sni_host);
 		ssl_io->sni_host = i_strdup(host);
-	} else if (ssl_io->verbose) {
-		i_debug("SSL_get_servername() failed");
+	} else {
+		e_debug(ssl_io->event, "SSL_get_servername() failed");
 	}
 
 	if (ssl_io->sni_callback != NULL) {

@@ -28,17 +28,15 @@ void openssl_iostream_set_error(struct ssl_iostream *ssl_io, const char *str)
 {
 	char *new_str;
 
-	/* i_debug() may sometimes be overridden, making it write to this very
+	/* e_debug() may sometimes be overridden, making it write to this very
 	   same SSL stream, in which case the provided str may be invalidated
 	   before it is even used. Therefore, we duplicate it immediately. */
 	new_str = i_strdup(str);
 
-	if (ssl_io->verbose) {
-		/* This error should normally be logged by lib-ssl-iostream's
-		   caller. But if verbose=TRUE, log it here as well to make
-		   sure that the error is always logged. */
-		i_debug("%sSSL error: %s", ssl_io->log_prefix, new_str);
-	}
+	/* This error should normally be logged by lib-ssl-iostream's caller.
+	   But, log it here as well to make sure that the error is always logged.
+	*/
+	e_debug(ssl_io->event, "SSL error: %s", new_str);
 	i_free(ssl_io->last_error);
 	ssl_io->last_error = new_str;
 }
@@ -51,23 +49,22 @@ static void openssl_info_callback(const SSL *ssl, int where, int ret)
 	if ((where & SSL_CB_ALERT) != 0) {
 		switch (ret & 0xff) {
 		case SSL_AD_CLOSE_NOTIFY:
-			i_debug("%sSSL alert: %s",
-				ssl_io->log_prefix,
+			e_debug(ssl_io->event, "SSL alert: %s",
 				SSL_alert_desc_string_long(ret));
 			break;
 		default:
-			i_debug("%sSSL alert: where=0x%x, ret=%d: %s %s",
-				ssl_io->log_prefix, where, ret,
+			e_debug(ssl_io->event, "SSL alert: where=0x%x, ret=%d: %s %s",
+				where, ret,
 				SSL_alert_type_string_long(ret),
 				SSL_alert_desc_string_long(ret));
 			break;
 		}
 	} else if (ret == 0) {
-		i_debug("%sSSL failed: where=0x%x: %s",
-			ssl_io->log_prefix, where, SSL_state_string_long(ssl));
+		e_debug(ssl_io->event, "SSL failed: where=0x%x: %s",
+			where, SSL_state_string_long(ssl));
 	} else {
-		i_debug("%sSSL: where=0x%x, ret=%d: %s",
-			ssl_io->log_prefix, where, ret,
+		e_debug(ssl_io->event, "SSL: where=0x%x, ret=%d: %s",
+			where, ret,
 			SSL_state_string_long(ssl));
 	}
 }
@@ -151,9 +148,9 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 				"ssl_client_ca_* settings?" :
 				"ssl_ca setting?"));
 		if (ssl_io->verbose_invalid_cert)
-			i_warning("%s", ssl_io->last_error);
-	} else if (ssl_io->verbose) {
-		i_info("Received valid SSL certificate: %s", certname);
+			e_warning(ssl_io->event, "%s", ssl_io->last_error);
+	} else {
+		e_info(ssl_io->event, "Received valid SSL certificate: %s", certname);
 	}
 	if (preverify_ok == 0) {
 		ssl_io->cert_broken = TRUE;
@@ -173,8 +170,7 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 	const struct ssl_iostream_settings *ctx_set = &ssl_io->ctx->set;
 	int verify_flags;
 
-	if (set->verbose)
-		SSL_set_info_callback(ssl_io->ssl, openssl_info_callback);
+	SSL_set_info_callback(ssl_io->ssl, openssl_info_callback);
 
        if (set->cipher_list != NULL &&
 	    strcmp(ctx_set->cipher_list, set->cipher_list) != 0) {
@@ -264,8 +260,13 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 		ssl_io->username_nid = ssl_io->ctx->username_nid;
 	}
 
-	ssl_io->verbose = set->verbose;
-	ssl_io->verbose_invalid_cert = set->verbose_invalid_cert || set->verbose;
+	if (set->verbose)
+		event_set_forced_debug(ssl_io->event, TRUE);
+	else
+		event_set_min_log_level(ssl_io->event, LOG_TYPE_WARNING);
+	ssl_io->verbose_invalid_cert =
+		set->verbose_invalid_cert ||
+		event_want_debug(ssl_io->event);
 	ssl_io->allow_invalid_cert = set->allow_invalid_cert;
 	return 0;
 }
@@ -323,8 +324,6 @@ openssl_iostream_create(struct ssl_iostream_context *ctx,
 		event_set_append_log_prefix(ssl_io->event,
 					    i_strdup_printf("%s: ", host));
 	}
-	ssl_io->log_prefix = host == NULL ? i_strdup("") :
-		i_strdup_printf("%s: ", host);
 	/* bio_int will be freed by SSL_free() */
 	SSL_set_bio(ssl_io->ssl, bio_int, bio_int);
         SSL_set_ex_data(ssl_io->ssl, dovecot_ssl_extdata_index, ssl_io);
@@ -365,7 +364,6 @@ static void openssl_iostream_free(struct ssl_iostream *ssl_io)
 	i_free(ssl_io->last_error);
 	i_free(ssl_io->connected_host);
 	i_free(ssl_io->sni_host);
-	i_free(ssl_io->log_prefix);
 	event_unref(&ssl_io->event);
 	i_free(ssl_io);
 }
@@ -537,7 +535,7 @@ openssl_iostream_bio_input(struct ssl_iostream *ssl_io,
 	}
 	if (bytes == 0 && !bytes_read && ssl_io->want_read) {
 		/* shouldn't happen */
-		i_error("SSL BIO buffer size too small");
+		e_error(ssl_io->event, "SSL BIO buffer size too small");
 		i_free(ssl_io->plain_stream_errstr);
 		ssl_io->plain_stream_errstr =
 			i_strdup("SSL BIO buffer size too small");
@@ -768,8 +766,7 @@ openssl_iostream_change_context(struct ssl_iostream *ssl_io,
 static void openssl_iostream_set_log_prefix(struct ssl_iostream *ssl_io,
 					    const char *prefix)
 {
-	i_free(ssl_io->log_prefix);
-	ssl_io->log_prefix = i_strdup(prefix);
+	event_set_append_log_prefix(ssl_io->event, prefix);
 }
 
 static bool openssl_iostream_is_handshaked(const struct ssl_iostream *ssl_io)

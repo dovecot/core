@@ -46,12 +46,11 @@ struct ssl_iostream {
 	/* SSL servers: host requested by the client via SNI */
 	char *sni_host;
 	char *last_error;
-	char *log_prefix;
 	char *plain_stream_errstr;
 	int plain_stream_errno;
 
 	/* copied settings */
-	bool verbose, verbose_invalid_cert, allow_invalid_cert;
+	bool verbose_invalid_cert, allow_invalid_cert;
 	int username_nid;
 
 	ssl_iostream_handshake_callback_t *handshake_callback;
