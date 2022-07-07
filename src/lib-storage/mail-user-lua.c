@@ -135,7 +135,7 @@ static int lua_storage_mail_user_var_expand(lua_State *L)
 	const struct var_expand_table *table = mail_user_var_expand_table(user);
 	string_t *str = t_str_new(128);
 	if (var_expand_with_funcs(str, format, table, mail_user_var_expand_func_table,
-				  user, &error) < 0) {
+				  user, &error) <= 0) {
 		return luaL_error(L, "var_expand(%s) failed: %s",
 				  format, error);
 	}
