@@ -11,6 +11,7 @@
 #include "ioloop-private.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
+#include "mail-storage-private.h"
 #include "mail-storage-settings.h"
 #include "mailbox-attribute.h"
 #include "mail-crypt-common.h"
@@ -131,7 +132,7 @@ mcp_update_shared_key(struct mailbox_transaction_context *t,
 	mail_storage_service_io_activate_user(user->_service_user);
 
 	if (ret <= 0) {
-		i_error("Cannot initialize destination user %s: %s",
+		e_error(user->event, "Cannot initialize destination user %s: %s",
 			target_uid, error);
 		return ret;
 	} else {
@@ -193,8 +194,7 @@ static int mcp_update_shared_keys(struct doveadm_mail_cmd_context *ctx,
 	if (mail_crypt_box_get_pvt_digests(box, pool_datastack_create(),
 					   MAIL_ATTRIBUTE_TYPE_SHARED,
 					   &ids, &error) < 0) {
-		i_error("mail_crypt_box_get_pvt_digests(%s, /shared) failed: %s",
-			mailbox_get_vname(box),
+		e_error(box->event, "mail_crypt_box_get_pvt_digests() failed: %s",
 			error);
 		return -1;
 	}
@@ -216,20 +216,18 @@ static int mcp_update_shared_keys(struct doveadm_mail_cmd_context *ctx,
 			hex_to_binary(hexuid, uid);
 			if (mcp_update_shared_key(t, user, str_c(uid), key,
 						  &error) < 0) {
-				i_error("mcp_update_shared_key(%s, %s) failed: %s",
-					mailbox_get_vname(box),
-					str_c(uid),
-					error);
+				e_error(box->event,
+					"mcp_update_shared_key(%s) failed: %s",
+					str_c(uid), error);
 				ret = -1;
 				break;
 			}
 		} else if (!found) {
 			found = TRUE;
-			if (mail_crypt_box_set_shared_key(t, pubid, key,
-							  NULL, NULL,
-							  &error) < 0) {
-				i_error("mail_crypt_box_set_shared_key(%s) failed: %s",
-					mailbox_get_vname(box),
+			if (mail_crypt_box_set_shared_key(t, pubid, key, NULL,
+							  NULL, &error) < 0) {
+				e_error(box->event,
+					"mail_crypt_box_set_shared_key() failed: %s",
 					error);
 				ret = -1;
 				break;
@@ -240,9 +238,7 @@ static int mcp_update_shared_keys(struct doveadm_mail_cmd_context *ctx,
 	if (ret < 0) {
 		mailbox_transaction_rollback(&t);
 	} else if (mailbox_transaction_commit(&t) < 0) {
-		i_error("mailbox_transaction_commit(%s) failed: %s",
-			mailbox_get_vname(box),
-			error);
+		e_error(box->event, "mailbox_transaction_commit() failed: %s", error);
 		ret = -1;
 	}
 
@@ -261,13 +257,13 @@ static int mcp_keypair_generate(struct mcp_cmd_context *ctx,
 	if ((ret = mail_crypt_box_get_public_key(box, &pair.pub, error_r)) < 0) {
 		ret = -1;
 	} else if (ret == 1 && !ctx->force) {
-		i_info("Folder key exists. Use -f to generate a new one");
+		e_info(box->event, "Folder key exists. Use -f to generate a new one");
 		buffer_t *key_id = t_str_new(MAIL_CRYPT_HASH_BUF_SIZE);
 		const char *error;
 		if (!dcrypt_key_id_public(pair.pub,
 					MAIL_CRYPT_KEY_ID_ALGORITHM,
 					key_id, &error)) {
-			i_error("dcrypt_key_id_public() failed: %s",
+			e_error(box->event, "dcrypt_key_id_public() failed: %s",
 				error);
 			return -1;
 		}
@@ -319,13 +315,15 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 						  &error)) <= 0) {
 		struct dcrypt_keypair pair;
 		if (ret < 0) {
-			i_error("mail_crypt_user_get_public_key(%s) failed: %s",
+			e_error(user->event,
+				"mail_crypt_user_get_public_key(%s) failed: %s",
 				user->username,
 				error);
 		} else if (mail_crypt_user_generate_keypair(user, &pair,
 							     &pubid, &error) < 0) {
 			ret = -1;
-			i_error("mail_crypt_user_generate_keypair(%s) failed: %s",
+			e_error(user->event,
+				"mail_crypt_user_generate_keypair(%s) failed: %s",
 				user->username,
 				error);
 			res = array_append_space(result);
@@ -348,12 +346,14 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 	}
 	if (ret == 1 && ctx->userkey_only && !user_key_generated) {
 		if (!ctx->force) {
-			i_info("userkey exists. Use -f to generate a new one");
+			e_info(user->event,
+			       "userkey exists. Use -f to generate a new one");
 			buffer_t *key_id = t_str_new(MAIL_CRYPT_HASH_BUF_SIZE);
 			if (!dcrypt_key_id_public(user_key,
 						MAIL_CRYPT_KEY_ID_ALGORITHM,
 						key_id, &error)) {
-				i_error("dcrypt_key_id_public() failed: %s",
+				e_error(user->event,
+					"dcrypt_key_id_public() failed: %s",
 					error);
 				dcrypt_key_unref_public(&user_key);
 				return -1;
@@ -496,7 +496,8 @@ static int cmd_mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 	}
 
 	if (ctx->matched_keys == 0)
-		i_warning("mailbox cryptokey generate: Nothing was matched. "
+		e_warning(user->event,
+			  "mailbox cryptokey generate: Nothing was matched. "
 			  "Use -U or specify mask?");
 	return ret;
 }
@@ -527,8 +528,8 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 		if (mailbox_attribute_get(box, MAIL_ATTRIBUTE_TYPE_SHARED,
 					  USER_CRYPT_PREFIX ACTIVE_KEY_NAME,
 					  &value) < 0) {
-			i_error("mailbox_get_attribute(%s, %s) failed: %s",
-				mailbox_get_vname(box),
+			e_error(user->event,
+				"mailbox_get_attribute(%s) failed: %s",
 				USER_CRYPT_PREFIX ACTIVE_KEY_NAME,
 				mailbox_get_last_internal_error(box, NULL));
 		}
@@ -550,8 +551,8 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 			ctx->matched_keys++;
 		}
 		if (mailbox_attribute_iter_deinit(&iter) < 0)
-			i_error("mailbox_attribute_iter_deinit(%s) failed: %s",
-				mailbox_get_vname(box),
+			e_error(user->event,
+				"mailbox_attribute_iter_deinit failed: %s",
 				mailbox_get_last_internal_error(box, NULL));
 		mailbox_free(&box);
 		return;
@@ -583,15 +584,15 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 		if (mailbox_attribute_get(box, MAIL_ATTRIBUTE_TYPE_SHARED,
 					  BOX_CRYPT_PREFIX ACTIVE_KEY_NAME,
 					  &value) < 0) {
-			i_error("mailbox_get_attribute(%s, %s) failed: %s",
-				mailbox_get_vname(box),
+			e_error(user->event,
+				"mailbox_get_attribute(%s) failed: %s",
 				BOX_CRYPT_PREFIX ACTIVE_KEY_NAME,
 				mailbox_get_last_internal_error(box, NULL));
 		} else if (mail_crypt_box_get_pvt_digests(box, pool_datastack_create(),
 							  MAIL_ATTRIBUTE_TYPE_PRIVATE,
 							  &ids, &error) < 0) {
-			i_error("mail_crypt_box_get_pvt_digests(%s) failed: %s",
-				mailbox_get_vname(box),
+			e_error(user->event,
+				"mail_crypt_box_get_pvt_digests() failed: %s",
 				error);
 		} else {
 			const char *id;
@@ -656,7 +657,8 @@ static int cmd_mcp_key_list_run(struct doveadm_mail_cmd_context *_ctx,
 	}
 
 	if (ctx->matched_keys == 0)
-		i_warning("mailbox cryptokey list: Nothing was matched. "
+		e_warning(user->event,
+			  "mailbox cryptokey list: Nothing was matched. "
 			  "Use -U or specify mask?");
 
 	return 0;

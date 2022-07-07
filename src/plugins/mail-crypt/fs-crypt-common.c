@@ -307,6 +307,7 @@ fs_crypt_read_stream(struct fs_file *_file, size_t max_buffer_size)
 static void fs_crypt_write_stream(struct fs_file *_file)
 {
 	struct crypt_fs_file *file = CRYPT_FILE(_file);
+	struct event *event = _file->event;
 	const char *error;
 
 	i_assert(_file->output == NULL);
@@ -322,10 +323,11 @@ static void fs_crypt_write_stream(struct fs_file *_file)
 			_file->output = o_stream_create_error_str(EINVAL,
 				"Encryption required, but no public key available");
 			return;
-		} else	if (_file->fs->set.debug)
-			i_debug("No public key provided, "
-				"NOT encrypting stream %s",
+		} else {
+			e_debug(event,
+				"No public key provided, NOT encrypting stream %s",
 				 fs_file_path(_file));
+		}
 		file->super_output = fs_write_stream(_file->parent);
 		_file->output = file->super_output;
 		return;
