@@ -232,7 +232,7 @@ var_expand_hash(struct var_expand_context *ctx,
 	string_t *tmp = t_str_new(method->digest_size);
 
 	if ((ret = var_expand_long(ctx, field, strlen(field),
-				   &value, error_r)) < 1) {
+				   &value, error_r)) <= 0) {
 		return ret;
 	}
 
