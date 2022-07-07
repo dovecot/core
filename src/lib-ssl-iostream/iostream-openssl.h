@@ -39,6 +39,7 @@ struct ssl_iostream {
 	struct ostream *plain_output;
 	struct istream *ssl_input;
 	struct ostream *ssl_output;
+	struct event *event;
 
 	/* SSL clients: host where we connected to */
 	char *connected_host;

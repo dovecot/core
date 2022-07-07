@@ -8,6 +8,20 @@
 #include <openssl/rand.h>
 #include <openssl/err.h>
 
+static struct event_category event_category_ssl = {
+	.name = "ssl",
+};
+
+static struct event_category event_category_ssl_client = {
+	.parent = &event_category_ssl,
+	.name = "ssl-client",
+};
+
+static struct event_category event_category_ssl_server = {
+	.parent = &event_category_ssl,
+	.name = "ssl-server",
+};
+
 static void openssl_iostream_free(struct ssl_iostream *ssl_io);
 
 void openssl_iostream_set_error(struct ssl_iostream *ssl_io, const char *str)
@@ -257,8 +271,9 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 }
 
 static int
-openssl_iostream_create(struct ssl_iostream_context *ctx, const char *host,
-			const struct ssl_iostream_settings *set, bool client ATTR_UNUSED,
+openssl_iostream_create(struct ssl_iostream_context *ctx,
+			struct event *event_parent, const char *host,
+			const struct ssl_iostream_settings *set, bool client,
 			struct istream **input, struct ostream **output,
 			struct ssl_iostream **iostream_r,
 			const char **error_r)
@@ -299,6 +314,15 @@ openssl_iostream_create(struct ssl_iostream_context *ctx, const char *host,
 	ssl_io->plain_input = *input;
 	ssl_io->plain_output = *output;
 	ssl_io->connected_host = i_strdup(host);
+	ssl_io->event = event_create(event_parent);
+	if (client)
+		event_add_category(ssl_io->event, &event_category_ssl_client);
+	else
+		event_add_category(ssl_io->event, &event_category_ssl_server);
+	if (host != NULL) {
+		event_set_append_log_prefix(ssl_io->event,
+					    i_strdup_printf("%s: ", host));
+	}
 	ssl_io->log_prefix = host == NULL ? i_strdup("") :
 		i_strdup_printf("%s: ", host);
 	/* bio_int will be freed by SSL_free() */
@@ -342,6 +366,7 @@ static void openssl_iostream_free(struct ssl_iostream *ssl_io)
 	i_free(ssl_io->connected_host);
 	i_free(ssl_io->sni_host);
 	i_free(ssl_io->log_prefix);
+	event_unref(&ssl_io->event);
 	i_free(ssl_io);
 }
 

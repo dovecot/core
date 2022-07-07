@@ -15,8 +15,11 @@ struct iostream_ssl_vfuncs {
 	void (*context_ref)(struct ssl_iostream_context *ctx);
 	void (*context_unref)(struct ssl_iostream_context *ctx);
 
-	int (*create)(struct ssl_iostream_context *ctx, const char *host,
-		      const struct ssl_iostream_settings *set, bool client,
+	int (*create)(struct ssl_iostream_context *ctx,
+		      struct event *event_parent,
+		      const char *host,
+		      const struct ssl_iostream_settings *set,
+		      bool client,
 		      struct istream **input, struct ostream **output,
 		      struct ssl_iostream **iostream_r, const char **error_r);
 	void (*unref)(struct ssl_iostream *ssl_io);
