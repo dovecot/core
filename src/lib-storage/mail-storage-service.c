@@ -1223,7 +1223,6 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 				 const char **error_r)
 {
 	enum mail_storage_service_flags flags;
-	struct mail_storage_service_user *user;
 	const char *username = input->username;
 	const struct setting_parser_info *user_info;
 	const struct mail_user_settings *user_set;
@@ -1288,10 +1287,34 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		ctx->userdb_next_pool = NULL;
 		pool_ref(temp_pool);
 	}
+
+	/* Create an event that will be used as the default event for logging.
+	   This event won't be a parent to any other events - mail_user.event
+	   will be used for that. */
+	struct event *event = event_create(input->event_parent);
+	event_set_forced_debug(event,
+		ctx->debug || (flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0);
+
+	const char *session_id = input->session_id != NULL ?
+		p_strdup(user_pool, input->session_id) :
+		mail_storage_service_generate_session_id(
+			user_pool, input->session_id_prefix);
+
+	const char *service_name =
+		input->service != NULL ? input->service : ctx->service->name;
+
+	event_add_fields(event, (const struct event_add_field []){
+		{ .key = "user", .value = input->username },
+		{ .key = "session", .value = session_id },
+		{ .key = "service", .value = service_name },
+		{ .key = NULL }
+	});
+
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0) {
 		ret = service_auth_userdb_lookup(ctx, input, temp_pool,
 			&username, &userdb_fields, error_r);
 		if (ret <= 0) {
+			event_unref(&event);
 			pool_unref(&temp_pool);
 			pool_unref(&user_pool);
 			return ret;
@@ -1302,7 +1325,9 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		userdb_fields = input->userdb_fields;
 	}
 
-	user = p_new(user_pool, struct mail_storage_service_user, 1);
+	struct mail_storage_service_user *user =
+		p_new(user_pool, struct mail_storage_service_user, 1);
+
 	user->refcount = 1;
 	user->service_ctx = ctx;
 	user->pool = user_pool;
@@ -1310,12 +1335,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	user->input.userdb_fields = userdb_fields == NULL ? NULL :
 		p_strarray_dup(user_pool, userdb_fields);
 	user->input.username = p_strdup(user_pool, username);
-	user->input.session_id = p_strdup(user_pool, input->session_id);
-	if (user->input.session_id == NULL) {
-		user->input.session_id =
-			mail_storage_service_generate_session_id(user_pool,
-				input->session_id_prefix);
-	}
+	user->input.session_id = session_id; /* already allocated on user_pool */
+	user->event = event;
 	user->input.session_create_time = input->session_create_time;
 	user->user_info = user_info;
 	user->flags = flags;
@@ -1328,22 +1349,6 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	user->ssl_set = master_service_ssl_settings_get_from_parser(user->set_parser);
 	user->gid_source = "mail_gid setting";
 	user->uid_source = "mail_uid setting";
-	/* Create an event that will be used as the default event for logging.
-	   This event won't be a parent to any other events - mail_user.event
-	   will be used for that. */
-	user->event = event_create(input->event_parent);
-	event_set_forced_debug(user->event,
-			       user->service_ctx->debug ||
-			       (flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0);
-	const char *service_name = user->input.service != NULL ?
-				   user->input.service :
-				   user->service_ctx->service->name;
-	event_add_fields(user->event, (const struct event_add_field []){
-		{ .key = "user", .value = user->input.username },
-		{ .key = "session", .value = user->input.session_id },
-		{ .key = "service", .value = service_name },
-		{ .key = NULL }
-	});
 
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0)
 		(void)settings_parse_line(user->set_parser, "mail_debug=yes");
