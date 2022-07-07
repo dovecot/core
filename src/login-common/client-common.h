@@ -157,6 +157,7 @@ struct client {
 	struct timeval created;
 	int refcount;
 	struct event *event;
+	struct event *event_auth;
 
 	struct ip_addr local_ip;
 	struct ip_addr ip;

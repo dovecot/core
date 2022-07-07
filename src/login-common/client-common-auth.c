@@ -207,7 +207,8 @@ static bool client_auth_parse_args(const struct client *client, bool success,
 		} else if (str_begins_with(key, "forward_")) {
 			/* these are passed to upstream */
 		} else
-			e_debug(event_auth, "Ignoring unknown passdb extra field: %s", key);
+			e_debug(client->event_auth,
+				"Ignoring unknown passdb extra field: %s", key);
 	}
 	if (reply_r->proxy.port == 0) {
 		if ((reply_r->proxy.ssl_flags & AUTH_PROXY_SSL_FLAG_YES) != 0 &&
@@ -1009,10 +1010,8 @@ client_auth_begin_common(struct client *client, const char *mech_name,
 			 const char *init_resp)
 {
 	if (!client->secured && strcmp(client->ssl_set->ssl, "required") == 0) {
-		if (client->set->auth_verbose) {
-			e_info(client->event, "Login failed: "
-			       "SSL required for authentication");
-		}
+		e_info(client->event_auth, "Login failed: "
+			"SSL required for authentication");
 		client->auth_attempts++;
 		client_auth_result(client, CLIENT_AUTH_RESULT_SSL_REQUIRED, NULL,
 			"Authentication not allowed until SSL/TLS is enabled.");
@@ -1064,10 +1063,8 @@ bool client_check_plaintext_auth(struct client *client, bool pass_sent)
 				!ssl_required))
 		return TRUE;
 
-	if (client->set->auth_verbose) {
-		e_info(client->event, "Login failed: "
-		       "Cleartext authentication disabled");
-	}
+	e_info(client->event_auth, "Login failed: "
+		"Cleartext authentication disabled");
 	if (pass_sent) {
 		client_notify_status(client, TRUE,
 			 "cleartext authentication not allowed "

@@ -489,7 +489,7 @@ static void auth_request_timeout(struct auth_request *request)
 			"Request %u.%u timed out after %u secs, state=%d",
 			request->handler->client_pid, request->id,
 			secs, request->state);
-	} else if (request->set->verbose) {
+	} else {
 		e_info(request->mech_event,
 		       "Request timed out waiting for client to continue authentication "
 		       "(%u secs)", secs);

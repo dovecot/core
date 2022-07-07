@@ -9,14 +9,10 @@ mech_anonymous_auth_continue(struct auth_request *request,
 {
 	i_assert(*request->set->anonymous_username != '\0');
 
-	if (request->set->verbose) {
-		/* temporarily set the user to the one that was given,
-		   so that the log message goes right */
-		auth_request_set_username_forced(request,
-			t_strndup(data, data_size));
-		e_info(request->mech_event, "login");
-	}
-
+	/* temporarily set the user to the one that was given, so that the log
+	   message goes right */
+	auth_request_set_username_forced(request, t_strndup(data, data_size));
+	e_info(request->mech_event, "login");
 	auth_request_set_username_forced(request,
 					 request->set->anonymous_username);
 

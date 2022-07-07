@@ -549,10 +549,10 @@ sasl_server_auth_cancel(struct client *client, const char *reason,
 {
 	i_assert(client->authenticating);
 
-	if (client->set->auth_verbose && reason != NULL) {
+	if (reason != NULL) {
 		const char *auth_name =
 			str_sanitize(client->auth_mech_name, MAX_MECH_NAME);
-		e_info(client->event, "Authenticate %s failed: %s",
+		e_info(client->event_auth, "Authenticate %s failed: %s",
 		       auth_name, reason);
 	}
 

@@ -423,6 +423,7 @@ bool client_unref(struct client **_client)
 		o_stream_unref(&client->output);
 		pool_unref(&client->preproxy_pool);
 		event_unref(&client->event);
+		event_unref(&client->event_auth);
 		pool_unref(&client->pool);
 		return FALSE;
 	}
@@ -449,6 +450,7 @@ bool client_unref(struct client **_client)
 	o_stream_unref(&client->output);
 	i_close_fd(&client->fd);
 	event_unref(&client->event);
+	event_unref(&client->event_auth);
 
 	i_free(client->proxy_user);
 	i_free(client->proxy_master_user);

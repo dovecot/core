@@ -367,7 +367,7 @@ void auth_policy_parse_response(struct policy_lookup_ctx *context)
 			"Policy response %d", context->result);
 	}
 
-	if (context->request->policy_refusal == TRUE && context->set->verbose == TRUE) {
+	if (context->request->policy_refusal) {
 		e_info(context->event, "Authentication failure due to policy server refusal%s%s",
 		       (context->message!=NULL?": ":""),
 		       (context->message!=NULL?context->message:""));
