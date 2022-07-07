@@ -331,7 +331,13 @@ case "$host_os" in
 		;;
 esac
 
+dnl these macros - additionally to the HAVE_<type> values - cache the
+dnl result in `$ac_cv_sizeof_<type>`, which are used in the AC_TYPEOF
+dnl macro and the off_t-specific checks
+AC_CHECK_SIZEOF(int)
+AC_CHECK_SIZEOF(long)
 AC_CHECK_SIZEOF(void *)
+AC_CHECK_SIZEOF(long long)
 AC_CHECK_SIZEOF(size_t)
 
 AC_SYS_LARGEFILE
