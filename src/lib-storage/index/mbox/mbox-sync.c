@@ -1007,13 +1007,14 @@ static void mbox_sync_hdr_update(struct mbox_sync_context *sync_ctx,
 static bool mbox_sync_imapbase(struct mbox_sync_context *sync_ctx,
 			       struct mbox_sync_mail_context *mail_ctx)
 {
+	struct event *event = sync_ctx->mbox->box.event;
 	if (sync_ctx->base_uid_validity != 0 &&
 	    sync_ctx->hdr->uid_validity != 0 &&
 	    sync_ctx->base_uid_validity != sync_ctx->hdr->uid_validity) {
-		i_warning("UIDVALIDITY changed (%u -> %u) in mbox file %s",
+		e_warning(event,
+			  "UIDVALIDITY changed (%u -> %u)",
 			  sync_ctx->hdr->uid_validity,
-			  sync_ctx->base_uid_validity,
-			  mailbox_get_path(&sync_ctx->mbox->box));
+			  sync_ctx->base_uid_validity);
 		sync_ctx->index_reset = TRUE;
 		return TRUE;
 	}

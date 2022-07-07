@@ -178,6 +178,7 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 {
 	struct index_mail *mail = INDEX_MAIL(_mail);
 	struct mbox_mailbox *mbox = MBOX_MAILBOX(_mail->box);
+	struct event *event = mbox->box.event;
 	uoff_t offset;
 	bool move_offset;
 	int ret;
@@ -212,15 +213,13 @@ mbox_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		if (move_offset) {
 			if (istream_raw_mbox_seek(mbox->mbox_stream,
 						  offset) < 0) {
-				i_error("mbox %s sync lost during MD5 syncing",
-					_mail->box->name);
+				e_error(event, "sync lost during MD5 syncing");
 				return -1;
 			}
 		}
 
 		if ((ret = mbox_mail_get_md5_header(mail, value_r)) == 0) {
-			i_error("mbox %s resyncing didn't save header MD5 values",
-				_mail->box->name);
+			e_error(event, "resyncing didn't save header MD5 values");
 			return -1;
 		}
 		return ret < 0 ? -1 : 0;
@@ -339,11 +338,9 @@ static int mbox_mail_init_stream(struct index_mail *mail)
 		if (mbox_mail_seek(mail) < 0)
 			return -1;
 		ret = mbox_mail_get_next_offset(mail, &next_offset);
-		if (ret < 0) {
-			i_warning("mbox %s: Can't find next message offset "
-				  "for uid=%u", mailbox_get_path(&mbox->box),
-				  mail->mail.mail.uid);
-		}
+		if (ret < 0)
+			e_warning(mail_event(&mail->mail.mail),
+				  "Can't find next message offset");
 	}
 
 	raw_stream = mbox->mbox_stream;
