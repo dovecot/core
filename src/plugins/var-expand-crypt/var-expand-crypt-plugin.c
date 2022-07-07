@@ -164,7 +164,7 @@ var_expand_encrypt(struct var_expand_context *_ctx,
 	string_t *tmp = t_str_new(128);
 
 	if ((ret = var_expand_long(_ctx, field, strlen(field),
-				   &value, error_r)) < 1) {
+				   &value, error_r)) <= 0) {
 		return ret;
 	}
 
@@ -244,7 +244,7 @@ var_expand_decrypt(struct var_expand_context *_ctx,
 	string_t *tmp = t_str_new(128);
 
 	if ((ret = var_expand_long(_ctx, field, strlen(field),
-				   &value, error_r)) < 1) {
+				   &value, error_r)) <= 0) {
 		return ret;
 	}
 
