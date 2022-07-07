@@ -46,7 +46,8 @@ sdbox_sync_add_file_index(struct index_rebuild_context *ctx,
 		if (ret < 0)
 			return -1;
 
-		i_warning("sdbox: Skipping unfixable file: %s", file->cur_path);
+		e_warning(ctx->box->event, "Skipping unfixable file: %s",
+			  file->cur_path);
 		return 0;
 	}
 
@@ -77,8 +78,7 @@ sdbox_sync_add_file(struct index_rebuild_context *ctx,
 		return 0;
 
 	if (str_to_uint32(fname, &uid) < 0 || uid == 0) {
-		i_warning("sdbox %s: Ignoring invalid filename %s",
-			  mailbox_get_path(ctx->box), fname);
+		e_warning(mbox->box.event, "Ignoring invalid filename %s", fname);
 		return 0;
 	}
 
@@ -188,7 +188,7 @@ int sdbox_sync_index_rebuild(struct sdbox_mailbox *mbox, bool force)
 			return 0;
 		}
 	}
-	i_warning("sdbox %s: Rebuilding index", mailbox_get_path(&mbox->box));
+	e_warning(mbox->box.event, "Rebuilding index");
 
 	if (dbox_verify_alt_storage(mbox->box.list) < 0) {
 		mailbox_set_critical(&mbox->box,

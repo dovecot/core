@@ -59,19 +59,19 @@ static int sdbox_storage_create(struct mail_storage *_storage,
 static const char *
 sdbox_storage_find_root_dir(const struct mail_namespace *ns)
 {
-	bool debug = ns->mail_set->mail_debug;
+	struct event *event = ns->user->event;
 	const char *home, *path;
 
 	if (ns->owner != NULL &&
 	    mail_user_get_home(ns->owner, &home) > 0) {
 		path = t_strconcat(home, "/sdbox", NULL);
 		if (access(path, R_OK|W_OK|X_OK) == 0) {
-			if (debug)
-				i_debug("sdbox: root exists (%s)", path);
+			e_debug(event,
+				"sdbox autodetect: root exists (%s)", path);
 			return path;
 		}
-		if (debug)
-			i_debug("sdbox: access(%s, rwx): failed: %m", path);
+		e_debug(event,
+			"sdbox autodetect: access(%s, rwx): failed: %m", path);
 	}
 	return NULL;
 }
@@ -79,7 +79,7 @@ sdbox_storage_find_root_dir(const struct mail_namespace *ns)
 static bool sdbox_storage_autodetect(const struct mail_namespace *ns,
 				     struct mailbox_list_settings *set)
 {
-	bool debug = ns->mail_set->mail_debug;
+	struct event *event = ns->user->event;
 	struct stat st;
 	const char *path, *root_dir;
 
@@ -88,8 +88,8 @@ static bool sdbox_storage_autodetect(const struct mail_namespace *ns,
 	else {
 		root_dir = sdbox_storage_find_root_dir(ns);
 		if (root_dir == NULL) {
-			if (debug)
-				i_debug("sdbox: couldn't find root dir");
+			e_debug(event,
+				"sdbox autodetect: couldn't find root dir");
 			return FALSE;
 		}
 	}
@@ -98,14 +98,12 @@ static bool sdbox_storage_autodetect(const struct mail_namespace *ns,
 	   autodetect ordering to catch mdbox before we get here. */
 	path = t_strconcat(root_dir, "/"DBOX_MAILBOX_DIR_NAME, NULL);
 	if (stat(path, &st) < 0) {
-		if (debug)
-			i_debug("sdbox autodetect: stat(%s) failed: %m", path);
+		e_debug(event, "sdbox autodetect: stat(%s) failed: %m", path);
 		return FALSE;
 	}
 
 	if (!S_ISDIR(st.st_mode)) {
-		if (debug)
-			i_debug("sdbox autodetect: %s not a directory", path);
+		e_debug(event, "sdbox autodetect: %s not a directory", path);
 		return FALSE;
 	}
 

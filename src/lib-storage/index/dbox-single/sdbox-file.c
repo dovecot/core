@@ -417,6 +417,7 @@ sdbox_unlink_attachments(struct sdbox_file *sfile,
 
 int sdbox_file_unlink_with_attachments(struct sdbox_file *sfile)
 {
+	struct event *event = sfile->mbox->box.event;
 	ARRAY_TYPE(mail_attachment_extref) extrefs;
 	const char *extrefs_line;
 	pool_t pool;
@@ -433,7 +434,7 @@ int sdbox_file_unlink_with_attachments(struct sdbox_file *sfile)
 	pool = pool_alloconly_create("sdbox attachments unlink", 1024);
 	p_array_init(&extrefs, pool, 16);
 	if (!index_attachment_parse_extrefs(extrefs_line, pool, &extrefs)) {
-		i_warning("%s: Ignoring corrupted extref: %s",
+		e_warning(event, "%s: Ignoring corrupted extref: %s",
 			  sfile->file.cur_path, extrefs_line);
 		array_clear(&extrefs);
 	}
