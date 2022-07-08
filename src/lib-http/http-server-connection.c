@@ -373,6 +373,7 @@ http_server_connection_ssl_init(struct http_server_connection *conn)
 	} else {
 		ret = io_stream_create_ssl_server(server->ssl_ctx,
 						  server->set.ssl,
+						  server->event,
 						  &conn->conn.input,
 						  &conn->conn.output,
 						  &conn->ssl_iostream, &error);

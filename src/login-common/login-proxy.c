@@ -1038,6 +1038,7 @@ int login_proxy_starttls(struct login_proxy *proxy)
 	}
 
 	if (io_stream_create_ssl_client(ssl_ctx, proxy->host, &ssl_set,
+					proxy->event,
 					&proxy->server_input,
 					&proxy->server_output,
 					&proxy->server_ssl_iostream,

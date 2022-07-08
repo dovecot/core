@@ -576,8 +576,9 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 	}
 
 	if (io_stream_create_ssl_client(client->ssl_ctx, client->set.host,
-					&client->set.ssl_set, &client->input,
-					&client->output, &client->ssl_iostream, &error) < 0) {
+					&client->set.ssl_set, client->event,
+					&client->input, &client->output,
+					&client->ssl_iostream, &error) < 0) {
 		i_error("pop3c(%s): Couldn't initialize SSL client: %s",
 			client->set.host, error);
 		return -1;

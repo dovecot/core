@@ -568,6 +568,7 @@ static int doveadm_client_init_ssl(struct doveadm_client *conn,
 		conn->set.hostname != NULL ? conn->set.hostname : "";
 	connection_input_halt(&conn->conn);
 	if (io_stream_create_ssl_client(conn->set.ssl_ctx, hostname, &ssl_set,
+					conn->conn.event,
 					&conn->conn.input, &conn->conn.output,
 					&conn->ssl_iostream, &error) < 0) {
 		*error_r = t_strdup_printf(

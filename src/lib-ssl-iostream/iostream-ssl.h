@@ -57,11 +57,13 @@ int io_stream_ssl_global_init(const struct ssl_iostream_settings *set,
 
 int io_stream_create_ssl_client(struct ssl_iostream_context *ctx, const char *host,
 				const struct ssl_iostream_settings *set,
+				struct event *event_parent,
 				struct istream **input, struct ostream **output,
 				struct ssl_iostream **iostream_r,
 				const char **error_r);
 int io_stream_create_ssl_server(struct ssl_iostream_context *ctx,
 				const struct ssl_iostream_settings *set,
+				struct event *event_parent,
 				struct istream **input, struct ostream **output,
 				struct ssl_iostream **iostream_r,
 				const char **error_r);

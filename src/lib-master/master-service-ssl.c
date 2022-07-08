@@ -33,7 +33,7 @@ int master_service_ssl_init(struct master_service *service,
 	i_zero(&ssl_set);
 	ssl_set.verbose = set->verbose_ssl;
 	ssl_set.verify_remote_cert = set->ssl_verify_client_cert;
-	return io_stream_create_ssl_server(service->ssl_ctx, &ssl_set,
+	return io_stream_create_ssl_server(service->ssl_ctx, &ssl_set, NULL,
 					   input, output, ssl_iostream_r, error_r);
 }
 

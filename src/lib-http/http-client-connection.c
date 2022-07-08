@@ -1515,7 +1515,7 @@ http_client_connection_ssl_init(struct http_client_connection *conn,
 
 	connection_input_halt(&conn->conn);
 	if (io_stream_create_ssl_client(ssl_ctx, pshared->addr.a.tcp.https_name,
-					&ssl_set,
+					&ssl_set, conn->event,
 					&conn->conn.input, &conn->conn.output,
 					&conn->ssl_iostream, &error) < 0) {
 		*error_r = t_strdup_printf(

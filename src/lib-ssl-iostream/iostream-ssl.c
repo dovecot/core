@@ -123,24 +123,26 @@ void ssl_iostream_context_unref(struct ssl_iostream_context **_ctx)
 
 int io_stream_create_ssl_client(struct ssl_iostream_context *ctx, const char *host,
 				const struct ssl_iostream_settings *set,
+				struct event *event_parent,
 				struct istream **input, struct ostream **output,
 				struct ssl_iostream **iostream_r,
 				const char **error_r)
 {
 	struct ssl_iostream_settings set_copy = *set;
 	set_copy.verify_remote_cert = TRUE;
-	return ssl_vfuncs->create(ctx, host, &set_copy, TRUE, input, output,
-				  iostream_r, error_r);
+	return ssl_vfuncs->create(ctx, event_parent, host, &set_copy, TRUE,
+				  input, output, iostream_r, error_r);
 }
 
 int io_stream_create_ssl_server(struct ssl_iostream_context *ctx,
 				const struct ssl_iostream_settings *set,
+				struct event *event_parent,
 				struct istream **input, struct ostream **output,
 				struct ssl_iostream **iostream_r,
 				const char **error_r)
 {
-	return ssl_vfuncs->create(ctx, NULL, set, FALSE, input, output,
-				  iostream_r, error_r);
+	return ssl_vfuncs->create(ctx, event_parent, NULL, set, TRUE,
+				  input, output, iostream_r, error_r);
 }
 
 void ssl_iostream_unref(struct ssl_iostream **_ssl_io)

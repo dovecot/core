@@ -575,7 +575,7 @@ int client_init_ssl(struct client *client)
 			"Failed to initialize SSL server context: %s", error);
 		return -1;
 	}
-	if (io_stream_create_ssl_server(ssl_ctx, &ssl_set,
+	if (io_stream_create_ssl_server(ssl_ctx, &ssl_set, client->event,
 					&client->input, &client->output,
 					&client->ssl_iostream, &error) < 0) {
 		e_error(client->event,

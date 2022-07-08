@@ -3952,7 +3952,7 @@ server_connection_init_ssl(struct server_connection *conn)
 		return -1;
 	}
 
-	if (io_stream_create_ssl_server(server_ssl_ctx, &ssl_set,
+	if (io_stream_create_ssl_server(server_ssl_ctx, &ssl_set, conn->conn.event,
 					&conn->conn.input, &conn->conn.output,
 					&conn->ssl_iostream, &error) < 0) {
 		i_error("SSL init failed: %s", error);

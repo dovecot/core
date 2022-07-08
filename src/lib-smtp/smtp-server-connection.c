@@ -395,7 +395,7 @@ int smtp_server_connection_ssl_init(struct smtp_server_connection *conn)
 			&conn->ssl_iostream, &error);
 	} else {
 		ret = io_stream_create_ssl_server(
-			conn->ssl_ctx, conn->set.ssl,
+			conn->ssl_ctx, conn->set.ssl, conn->event,
 			&conn->conn.input, &conn->conn.output,
 			&conn->ssl_iostream, &error);
 	}
