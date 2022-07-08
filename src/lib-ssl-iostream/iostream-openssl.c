@@ -258,7 +258,7 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 
 static int
 openssl_iostream_create(struct ssl_iostream_context *ctx, const char *host,
-			const struct ssl_iostream_settings *set,
+			const struct ssl_iostream_settings *set, bool client ATTR_UNUSED,
 			struct istream **input, struct ostream **output,
 			struct ssl_iostream **iostream_r,
 			const char **error_r)

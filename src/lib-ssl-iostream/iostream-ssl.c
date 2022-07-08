@@ -129,7 +129,7 @@ int io_stream_create_ssl_client(struct ssl_iostream_context *ctx, const char *ho
 {
 	struct ssl_iostream_settings set_copy = *set;
 	set_copy.verify_remote_cert = TRUE;
-	return ssl_vfuncs->create(ctx, host, &set_copy, input, output,
+	return ssl_vfuncs->create(ctx, host, &set_copy, TRUE, input, output,
 				  iostream_r, error_r);
 }
 
@@ -139,7 +139,7 @@ int io_stream_create_ssl_server(struct ssl_iostream_context *ctx,
 				struct ssl_iostream **iostream_r,
 				const char **error_r)
 {
-	return ssl_vfuncs->create(ctx, NULL, set, input, output,
+	return ssl_vfuncs->create(ctx, NULL, set, FALSE, input, output,
 				  iostream_r, error_r);
 }
 
