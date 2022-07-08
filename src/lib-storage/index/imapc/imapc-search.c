@@ -289,13 +289,14 @@ int imapc_search_deinit(struct mail_search_context *ctx)
 void imapc_search_reply_search(const struct imap_arg *args,
 			       struct imapc_mailbox *mbox)
 {
+	struct event *event = mbox->box.event;
 	struct imapc_msgmap *msgmap =
 		imapc_client_mailbox_get_msgmap(mbox->client_box);
 	const char *atom;
 	uint32_t uid, rseq;
 
 	if (mbox->search_ctx == NULL) {
-		i_error("Unexpected SEARCH reply");
+		e_error(event, "Unexpected SEARCH reply");
 		return;
 	}
 
@@ -303,7 +304,7 @@ void imapc_search_reply_search(const struct imap_arg *args,
 	for (unsigned int i = 0; args[i].type != IMAP_ARG_EOL; i++) {
 		if (!imap_arg_get_atom(&args[i], &atom) ||
 		    str_to_uint32(atom, &uid) < 0 || uid == 0) {
-			i_error("Invalid SEARCH reply");
+			e_error(event, "Invalid SEARCH reply");
 			break;
 		}
 		if (imapc_msgmap_uid_to_rseq(msgmap, uid, &rseq))
@@ -314,10 +315,11 @@ void imapc_search_reply_search(const struct imap_arg *args,
 void imapc_search_reply_esearch(const struct imap_arg *args,
 				struct imapc_mailbox *mbox)
 {
+	struct event *event = mbox->box.event;
 	const char *atom;
 
 	if (mbox->search_ctx == NULL) {
-		i_error("Unexpected ESEARCH reply");
+		e_error(event, "Unexpected ESEARCH reply");
 		return;
 	}
 
@@ -326,5 +328,5 @@ void imapc_search_reply_esearch(const struct imap_arg *args,
 	    (!imap_arg_atom_equals(&args[0], "ALL") ||
 	     !imap_arg_get_atom(&args[1], &atom) ||
 	     imap_seq_set_nostar_parse(atom, &mbox->search_ctx->rseqs) < 0))
-		i_error("Invalid ESEARCH reply");
+		e_error(event, "Invalid ESEARCH reply");
 }

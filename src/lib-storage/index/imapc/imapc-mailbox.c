@@ -767,6 +767,7 @@ static void
 imapc_untagged_esearch_gmail_pop3(const struct imap_arg *args,
 				  struct imapc_mailbox *mbox)
 {
+	struct event *event = mbox->box.event;
 	struct imapc_msgmap *msgmap;
 	const char *atom;
 	struct seq_range_iter iter;
@@ -786,7 +787,7 @@ imapc_untagged_esearch_gmail_pop3(const struct imap_arg *args,
 	if (!imap_arg_atom_equals(&args[0], "ALL") ||
 	    !imap_arg_get_atom(&args[1], &atom) ||
 	    imap_seq_set_nostar_parse(atom, &rseqs) < 0) {
-		i_error("Invalid gmail-pop3 ESEARCH reply");
+		e_error(event, "Invalid gmail-pop3 ESEARCH reply");
 		return;
 	}
 

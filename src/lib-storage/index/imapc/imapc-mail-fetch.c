@@ -638,6 +638,7 @@ imapc_fetch_stream(struct imapc_mail *mail,
 {
 	struct index_mail *imail = &mail->imail;
 	struct imapc_mailbox *mbox = IMAPC_MAILBOX(imail->mail.mail.box);
+	struct event *event = mbox->box.event;
 	struct istream *hdr_stream = NULL;
 	const char *value;
 	int fd;
@@ -658,7 +659,7 @@ imapc_fetch_stream(struct imapc_mail *mail,
 			   header stream. we'll need to recreate the stream
 			   with autoclosed fd. */
 			if (lseek(mail->fd, 0, SEEK_SET) < 0)
-				i_error("lseek(imapc) failed: %m");
+				e_error(event, "lseek(imapc) failed: %m");
 			hdr_stream = i_stream_create_fd_autoclose(&mail->fd, 0);
 		}
 		index_mail_close_streams(imail);
@@ -677,7 +678,7 @@ imapc_fetch_stream(struct imapc_mail *mail,
 			return;
 		}
 		if ((fd = dup(fd)) == -1) {
-			i_error("dup() failed: %m");
+			e_error(event, "dup() failed: %m");
 			i_stream_unref(&hdr_stream);
 			return;
 		}
