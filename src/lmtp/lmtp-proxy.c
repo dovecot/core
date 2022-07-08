@@ -670,7 +670,6 @@ lmtp_proxy_rcpt_redirect_relookup(struct lmtp_proxy_recipient *lprcpt,
 {
 	struct lmtp_recipient *lrcpt = lprcpt->rcpt;
 	struct smtp_server_recipient *rcpt = lrcpt->rcpt;
-	const struct ip_addr *ip = &set->set.host_ip;
 	in_port_t port = set->set.port;
 	struct auth_master_connection *auth_conn;
 	struct auth_user_info info;
@@ -685,7 +684,7 @@ lmtp_proxy_rcpt_redirect_relookup(struct lmtp_proxy_recipient *lprcpt,
 	lmtp_proxy_rcpt_get_redirect_path(lprcpt, hosts_attempted);
 	const char *const extra_fields[] = {
 		t_strdup_printf("proxy_redirect_host_next=%s:%u",
-				net_ip2addr(ip), port),
+				set->set.host, port),
 		str_c(hosts_attempted),
 		t_strdup_printf("destuser=%s", str_tabescape(destuser)),
 		t_strdup_printf("proxy_timeout=%u", lprcpt->conn->set.set.timeout_msecs),
