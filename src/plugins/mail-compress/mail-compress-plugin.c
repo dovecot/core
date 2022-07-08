@@ -143,7 +143,7 @@ static int mail_compress_istream_opened(struct mail *_mail, struct istream **str
 	if (handler != NULL) {
 		if (handler->create_istream == NULL) {
 			mail_set_critical(_mail,
-				"zlib plugin: Detected %s compression "
+				"mail_compress plugin: Detected %s compression "
 				"but support not compiled in", handler->ext);
 			return -1;
 		}
@@ -350,7 +350,7 @@ static void mail_compress_mail_user_created(struct mail_user *user)
 		ret = compression_lookup_handler(name, &zuser->save_handler);
 		if (ret <= 0) {
 			e_error(user->event,
-				"zlib_save: %s: %s", ret == 0 ?
+				"mail_compress_save: %s: %s", ret == 0 ?
 				"Support not compiled in for handler" :
 				"Unknown handler", name);
 			zuser->save_handler = NULL;
@@ -363,7 +363,7 @@ static void mail_compress_mail_user_created(struct mail_user *user)
 		    zuser->save_level < zuser->save_handler->get_min_level() ||
 		    zuser->save_level > zuser->save_handler->get_max_level()) {
 			e_error(user->event,
-				"zlib_save_level: Level must be between %d..%d",
+				"mail_compress_save_level: Level must be between %d..%d",
 				zuser->save_handler->get_min_level(),
 				zuser->save_handler->get_max_level());
 			zuser->save_level =
