@@ -513,7 +513,7 @@ proxy_try_redirect(struct client *client, const char *destination,
 	}
 	if (net_str2hostport(destination,
 			     login_proxy_get_port(client->login_proxy),
-			     &host, &port) < 0) {
+			     &host, &port) < 0 || host[0] == '\0') {
 		*error_r = t_strdup_printf(
 			"Failed to parse host:port '%s'", destination);
 		return FALSE;
