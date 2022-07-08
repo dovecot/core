@@ -837,7 +837,7 @@ src/plugins/replication/Makefile
 src/plugins/trash/Makefile
 src/plugins/virtual/Makefile
 src/plugins/welcome/Makefile
-src/plugins/zlib/Makefile
+src/plugins/mail-compress/Makefile
 src/plugins/mail-crypt/Makefile
 src/plugins/var-expand-crypt/Makefile
 src/plugins/apparmor/Makefile

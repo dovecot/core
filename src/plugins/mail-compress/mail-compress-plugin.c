@@ -10,7 +10,7 @@
 #include "index-storage.h"
 #include "index-mail.h"
 #include "compression.h"
-#include "zlib-plugin.h"
+#include "mail-compress-plugin.h"
 
 #include <fcntl.h>
 
@@ -379,12 +379,12 @@ static struct mail_storage_hooks zlib_mail_storage_hooks = {
 	.mail_allocated = zlib_mail_allocated
 };
 
-void zlib_plugin_init(struct module *module)
+void mail_compress_plugin_init(struct module *module)
 {
 	mail_storage_hooks_add(module, &zlib_mail_storage_hooks);
 }
 
-void zlib_plugin_deinit(void)
+void mail_compress_plugin_deinit(void)
 {
 	mail_storage_hooks_remove(&zlib_mail_storage_hooks);
 }

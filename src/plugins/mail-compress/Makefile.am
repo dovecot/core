@@ -9,16 +9,16 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-storage/index/dbox-common
 
 NOPLUGIN_LDFLAGS =
-lib20_zlib_plugin_la_LDFLAGS = -module -avoid-version
+lib20_mail_compress_plugin_la_LDFLAGS = -module -avoid-version
 
 module_LTLIBRARIES = \
-	lib20_zlib_plugin.la
+	lib20_mail_compress_plugin.la
 
-lib20_zlib_plugin_la_LIBADD = \
+lib20_mail_compress_plugin_la_LIBADD = \
 	../../lib-compression/libcompression.la
 
-lib20_zlib_plugin_la_SOURCES = \
-	zlib-plugin.c
+lib20_mail_compress_plugin_la_SOURCES = \
+	mail-compress-plugin.c
 
 noinst_HEADERS = \
-	zlib-plugin.h
+	mail-compress-plugin.h

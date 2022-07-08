@@ -31,11 +31,11 @@ SUBDIRS = \
 	imap-quota \
 	pop3-migration \
 	replication \
+	mail-compress \
 	mail-crypt \
 	trash \
 	virtual \
 	welcome \
-	zlib \
 	$(FTS_SOLR) \
 	$(FTS_FLATCURVE) \
 	$(DICT_LDAP) \
