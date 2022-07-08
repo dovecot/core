@@ -14,22 +14,22 @@
 
 #include <fcntl.h>
 
-#define ZLIB_CONTEXT(obj) \
-	MODULE_CONTEXT_REQUIRE(obj, zlib_storage_module)
-#define ZLIB_MAIL_CONTEXT(obj) \
-	MODULE_CONTEXT_REQUIRE(obj, zlib_mail_module)
-#define ZLIB_USER_CONTEXT(obj) \
-	MODULE_CONTEXT_REQUIRE(obj, zlib_user_module)
+#define MAIL_COMPRESS_CONTEXT(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, mail_compress_storage_module)
+#define MAIL_COMPRESS_MAIL_CONTEXT(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, mail_compress_mail_module)
+#define MAIL_COMPRESS_USER_CONTEXT(obj) \
+	MODULE_CONTEXT_REQUIRE(obj, mail_compress_user_module)
 
 #define MAX_INBUF_SIZE (1024*1024)
-#define ZLIB_MAIL_CACHE_EXPIRE_MSECS (60*1000)
+#define MAIL_COMPRESS_MAIL_CACHE_EXPIRE_MSECS (60*1000)
 
-struct zlib_mail {
+struct mail_compress_mail {
 	union mail_module_context module_ctx;
 	bool verifying_save;
 };
 
-struct zlib_mail_cache {
+struct mail_compress_mail_cache {
 	struct timeout *to;
 	struct mailbox *box;
 	uint32_t uid;
@@ -37,24 +37,24 @@ struct zlib_mail_cache {
 	struct istream *input;
 };
 
-struct zlib_user {
+struct mail_compress_user {
 	union mail_user_module_context module_ctx;
 
-	struct zlib_mail_cache cache;
+	struct mail_compress_mail_cache cache;
 
 	const struct compression_handler *save_handler;
 	int save_level;
 };
 
-const char *zlib_plugin_version = DOVECOT_ABI_VERSION;
+const char *mail_compress_plugin_version = DOVECOT_ABI_VERSION;
 
-static MODULE_CONTEXT_DEFINE_INIT(zlib_user_module,
+static MODULE_CONTEXT_DEFINE_INIT(mail_compress_user_module,
 				  &mail_user_module_register);
-static MODULE_CONTEXT_DEFINE_INIT(zlib_storage_module,
+static MODULE_CONTEXT_DEFINE_INIT(mail_compress_storage_module,
 				  &mail_storage_module_register);
-static MODULE_CONTEXT_DEFINE_INIT(zlib_mail_module, &mail_module_register);
+static MODULE_CONTEXT_DEFINE_INIT(mail_compress_mail_module, &mail_module_register);
 
-static bool zlib_mailbox_is_permail(struct mailbox *box)
+static bool mail_compress_mailbox_is_permail(struct mailbox *box)
 {
 	enum mail_storage_class_flags class_flags = box->storage->class_flags;
 
@@ -62,9 +62,9 @@ static bool zlib_mailbox_is_permail(struct mailbox *box)
 		(class_flags & MAIL_STORAGE_CLASS_FLAG_BINARY_DATA) != 0;
 }
 
-static void zlib_mail_cache_close(struct zlib_user *zuser)
+static void mail_compress_mail_cache_close(struct mail_compress_user *zuser)
 {
-	struct zlib_mail_cache *cache = &zuser->cache;
+	struct mail_compress_mail_cache *cache = &zuser->cache;
 
 	timeout_remove(&cache->to);
 	i_stream_unref(&cache->input);
@@ -72,23 +72,24 @@ static void zlib_mail_cache_close(struct zlib_user *zuser)
 }
 
 static struct istream *
-zlib_mail_cache_open(struct zlib_user *zuser, struct mail *mail,
-		     struct istream *input, bool do_cache)
+mail_compress_mail_cache_open(struct mail_compress_user *zuser,
+			      struct mail *mail, struct istream *input,
+			      bool do_cache)
 {
-	struct zlib_mail_cache *cache = &zuser->cache;
+	struct mail_compress_mail_cache *cache = &zuser->cache;
 	struct istream *inputs[2];
 	string_t *temp_prefix = t_str_new(128);
 
 	if (do_cache)
-		zlib_mail_cache_close(zuser);
+		mail_compress_mail_cache_close(zuser);
 
-	/* zlib istream is seekable, but very slow. create a seekable istream
-	   which we can use to quickly seek around in the stream that's been
-	   read so far. usually the partial IMAP FETCHes continue from where
-	   the previous left off, so this isn't strictly necessary, but with
-	   the way lib-imap-storage's CRLF-cache works it has to seek backwards
-	   somewhat, which causes a zlib stream reset. And the CRLF-cache isn't
-	   easy to fix.. */
+	/* compress istream is seekable, but very slow. create a seekable
+	   istream which we can use to quickly seek around in the stream that's
+	   been read so far. usually the partial IMAP FETCHes continue from
+	   where the previous left off, so this isn't strictly necessary, but
+	   with the way lib-imap-storage's CRLF-cache works it has to seek
+	   backwards somewhat, which causes a compress stream reset. And the
+	   CRLF-cache isn't easy to fix.. */
 	input->seekable = FALSE;
 	inputs[0] = input;
 	inputs[1] = NULL;
@@ -101,8 +102,8 @@ zlib_mail_cache_open(struct zlib_user *zuser, struct mail *mail,
 	i_stream_unref(&inputs[0]);
 
 	if (do_cache) {
-		cache->to = timeout_add(ZLIB_MAIL_CACHE_EXPIRE_MSECS,
-					zlib_mail_cache_close, zuser);
+		cache->to = timeout_add(MAIL_COMPRESS_MAIL_CACHE_EXPIRE_MSECS,
+					mail_compress_mail_cache_close, zuser);
 		cache->box = mail->box;
 		cache->uid = mail->uid;
 		cache->input = input;
@@ -114,17 +115,17 @@ zlib_mail_cache_open(struct zlib_user *zuser, struct mail *mail,
 	}
 }
 
-static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
+static int mail_compress_istream_opened(struct mail *_mail, struct istream **stream)
 {
-	struct zlib_user *zuser = ZLIB_USER_CONTEXT(_mail->box->storage->user);
-	struct zlib_mail_cache *cache = &zuser->cache;
+	struct mail_compress_user *zuser = MAIL_COMPRESS_USER_CONTEXT(_mail->box->storage->user);
+	struct mail_compress_mail_cache *cache = &zuser->cache;
 	struct mail_private *mail = (struct mail_private *)_mail;
-	struct zlib_mail *zmail = ZLIB_MAIL_CONTEXT(mail);
+	struct mail_compress_mail *zmail = MAIL_COMPRESS_MAIL_CONTEXT(mail);
 	struct istream *input;
 	const struct compression_handler *handler;
 
 	if (zmail->verifying_save) {
-		/* zlib_mail_save_finish() is verifying that the user-given
+		/* mail_compress_mail_save_finish() is verifying that the user-given
 		   input doesn't look compressed. */
 		return zmail->module_ctx.super.istream_opened(_mail, stream);
 	}
@@ -151,17 +152,18 @@ static int zlib_istream_opened(struct mail *_mail, struct istream **stream)
 		*stream = handler->create_istream(input);
 		i_stream_unref(&input);
 		/* dont cache the stream if _mail->uid is 0 */
-		*stream = zlib_mail_cache_open(zuser, _mail, *stream, (_mail->uid > 0));
+		*stream = mail_compress_mail_cache_open(zuser, _mail, *stream,
+							(_mail->uid > 0));
 	}
 	return zmail->module_ctx.super.istream_opened(_mail, stream);
 }
 
-static void zlib_mail_close(struct mail *_mail)
+static void mail_compress_mail_close(struct mail *_mail)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
-	struct zlib_mail *zmail = ZLIB_MAIL_CONTEXT(mail);
-	struct zlib_user *zuser = ZLIB_USER_CONTEXT(_mail->box->storage->user);
-	struct zlib_mail_cache *cache = &zuser->cache;
+	struct mail_compress_mail *zmail = MAIL_COMPRESS_MAIL_CONTEXT(mail);
+	struct mail_compress_user *zuser = MAIL_COMPRESS_USER_CONTEXT(_mail->box->storage->user);
+	struct mail_compress_mail_cache *cache = &zuser->cache;
 	uoff_t size;
 
 	if (_mail->uid > 0 && cache->uid == _mail->uid && cache->box == _mail->box) {
@@ -170,35 +172,35 @@ static void zlib_mail_close(struct mail *_mail)
 		   unrefed). we can't safely keep the original input stream
 		   open after the mail is closed. */
 		if (i_stream_get_size(cache->input, TRUE, &size) < 0)
-			zlib_mail_cache_close(zuser);
+			mail_compress_mail_cache_close(zuser);
 	}
 	zmail->module_ctx.super.close(_mail);
 }
 
-static void zlib_mail_allocated(struct mail *_mail)
+static void mail_compress_mail_allocated(struct mail *_mail)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
 	struct mail_vfuncs *v = mail->vlast;
-	struct zlib_mail *zmail;
+	struct mail_compress_mail *zmail;
 
-	if (!zlib_mailbox_is_permail(_mail->box))
+	if (!mail_compress_mailbox_is_permail(_mail->box))
 		return;
 
-	zmail = p_new(mail->pool, struct zlib_mail, 1);
+	zmail = p_new(mail->pool, struct mail_compress_mail, 1);
 	zmail->module_ctx.super = *v;
 	mail->vlast = &zmail->module_ctx.super;
 
-	v->istream_opened = zlib_istream_opened;
-	v->close = zlib_mail_close;
-	MODULE_CONTEXT_SET(mail, zlib_mail_module, zmail);
+	v->istream_opened = mail_compress_istream_opened;
+	v->close = mail_compress_mail_close;
+	MODULE_CONTEXT_SET(mail, mail_compress_mail_module, zmail);
 }
 
-static int zlib_mail_save_finish(struct mail_save_context *ctx)
+static int mail_compress_mail_save_finish(struct mail_save_context *ctx)
 {
 	struct mailbox *box = ctx->transaction->box;
-	union mailbox_module_context *zbox = ZLIB_CONTEXT(box);
+	union mailbox_module_context *zbox = MAIL_COMPRESS_CONTEXT(box);
 	struct mail_private *mail = (struct mail_private *)ctx->dest_mail;
-	struct zlib_mail *zmail = ZLIB_MAIL_CONTEXT(mail);
+	struct mail_compress_mail *zmail = MAIL_COMPRESS_MAIL_CONTEXT(mail);
 	struct istream *input;
 	int ret;
 
@@ -220,12 +222,12 @@ static int zlib_mail_save_finish(struct mail_save_context *ctx)
 }
 
 static int
-zlib_mail_save_compress_begin(struct mail_save_context *ctx,
-			      struct istream *input)
+mail_compress_mail_save_compress_begin(struct mail_save_context *ctx,
+				       struct istream *input)
 {
 	struct mailbox *box = ctx->transaction->box;
-	struct zlib_user *zuser = ZLIB_USER_CONTEXT(box->storage->user);
-	union mailbox_module_context *zbox = ZLIB_CONTEXT(box);
+	struct mail_compress_user *zuser = MAIL_COMPRESS_USER_CONTEXT(box->storage->user);
+	union mailbox_module_context *zbox = MAIL_COMPRESS_CONTEXT(box);
 	struct ostream *output;
 
 	if (zbox->super.save_begin(ctx, input) < 0)
@@ -240,18 +242,18 @@ zlib_mail_save_compress_begin(struct mail_save_context *ctx,
 }
 
 static void
-zlib_permail_alloc_init(struct mailbox *box, struct mailbox_vfuncs *v)
+mail_compress_permail_alloc_init(struct mailbox *box, struct mailbox_vfuncs *v)
 {
-	struct zlib_user *zuser = ZLIB_USER_CONTEXT(box->storage->user);
+	struct mail_compress_user *zuser = MAIL_COMPRESS_USER_CONTEXT(box->storage->user);
 
 	if (zuser->save_handler == NULL) {
-		v->save_finish = zlib_mail_save_finish;
+		v->save_finish = mail_compress_mail_save_finish;
 	} else {
-		v->save_begin = zlib_mail_save_compress_begin;
+		v->save_begin = mail_compress_mail_save_compress_begin;
 	}
 }
 
-static void zlib_mailbox_open_input(struct mailbox *box)
+static void mail_compress_mailbox_open_input(struct mailbox *box)
 {
 	const struct compression_handler *handler;
 	struct istream *input;
@@ -284,29 +286,29 @@ static void zlib_mailbox_open_input(struct mailbox *box)
 	}
 }
 
-static int zlib_mailbox_open(struct mailbox *box)
+static int mail_compress_mailbox_open(struct mailbox *box)
 {
-	union mailbox_module_context *zbox = ZLIB_CONTEXT(box);
+	union mailbox_module_context *zbox = MAIL_COMPRESS_CONTEXT(box);
 
 	if (box->input == NULL &&
 	    (box->storage->class_flags &
 	     MAIL_STORAGE_CLASS_FLAG_OPEN_STREAMS) != 0)
-		zlib_mailbox_open_input(box);
+		mail_compress_mailbox_open_input(box);
 
 	return zbox->super.open(box);
 }
 
-static void zlib_mailbox_close(struct mailbox *box)
+static void mail_compress_mailbox_close(struct mailbox *box)
 {
-	union mailbox_module_context *zbox = ZLIB_CONTEXT(box);
-	struct zlib_user *zuser = ZLIB_USER_CONTEXT(box->storage->user);
+	union mailbox_module_context *zbox = MAIL_COMPRESS_CONTEXT(box);
+	struct mail_compress_user *zuser = MAIL_COMPRESS_USER_CONTEXT(box->storage->user);
 
 	if (zuser->cache.box == box)
-		zlib_mail_cache_close(zuser);
+		mail_compress_mail_cache_close(zuser);
 	zbox->super.close(box);
 }
 
-static void zlib_mailbox_allocated(struct mailbox *box)
+static void mail_compress_mailbox_allocated(struct mailbox *box)
 {
 	struct mailbox_vfuncs *v = box->vlast;
 	union mailbox_module_context *zbox;
@@ -314,34 +316,34 @@ static void zlib_mailbox_allocated(struct mailbox *box)
 	zbox = p_new(box->pool, union mailbox_module_context, 1);
 	zbox->super = *v;
 	box->vlast = &zbox->super;
-	v->open = zlib_mailbox_open;
-	v->close = zlib_mailbox_close;
+	v->open = mail_compress_mailbox_open;
+	v->close = mail_compress_mailbox_close;
 
-	MODULE_CONTEXT_SET_SELF(box, zlib_storage_module, zbox);
+	MODULE_CONTEXT_SET_SELF(box, mail_compress_storage_module, zbox);
 
-	if (zlib_mailbox_is_permail(box))
-		zlib_permail_alloc_init(box, v);
+	if (mail_compress_mailbox_is_permail(box))
+		mail_compress_permail_alloc_init(box, v);
 }
 
-static void zlib_mail_user_deinit(struct mail_user *user)
+static void mail_compress_mail_user_deinit(struct mail_user *user)
 {
-	struct zlib_user *zuser = ZLIB_USER_CONTEXT(user);
+	struct mail_compress_user *zuser = MAIL_COMPRESS_USER_CONTEXT(user);
 
-	zlib_mail_cache_close(zuser);
+	mail_compress_mail_cache_close(zuser);
 	zuser->module_ctx.super.deinit(user);
 }
 
-static void zlib_mail_user_created(struct mail_user *user)
+static void mail_compress_mail_user_created(struct mail_user *user)
 {
 	struct mail_user_vfuncs *v = user->vlast;
-	struct zlib_user *zuser;
+	struct mail_compress_user *zuser;
 	const char *name;
 	int ret;
 
-	zuser = p_new(user->pool, struct zlib_user, 1);
+	zuser = p_new(user->pool, struct mail_compress_user, 1);
 	zuser->module_ctx.super = *v;
 	user->vlast = &zuser->module_ctx.super;
-	v->deinit = zlib_mail_user_deinit;
+	v->deinit = mail_compress_mail_user_deinit;
 
 	name = mail_user_plugin_getenv(user, "zlib_save");
 	if (name != NULL && *name != '\0') {
@@ -370,21 +372,21 @@ static void zlib_mail_user_created(struct mail_user *user)
 	} else if (zuser->save_handler != NULL) {
 		zuser->save_level = zuser->save_handler->get_default_level();
 	}
-	MODULE_CONTEXT_SET(user, zlib_user_module, zuser);
+	MODULE_CONTEXT_SET(user, mail_compress_user_module, zuser);
 }
 
-static struct mail_storage_hooks zlib_mail_storage_hooks = {
-	.mail_user_created = zlib_mail_user_created,
-	.mailbox_allocated = zlib_mailbox_allocated,
-	.mail_allocated = zlib_mail_allocated
+static struct mail_storage_hooks mail_compress_mail_storage_hooks = {
+	.mail_user_created = mail_compress_mail_user_created,
+	.mailbox_allocated = mail_compress_mailbox_allocated,
+	.mail_allocated = mail_compress_mail_allocated
 };
 
 void mail_compress_plugin_init(struct module *module)
 {
-	mail_storage_hooks_add(module, &zlib_mail_storage_hooks);
+	mail_storage_hooks_add(module, &mail_compress_mail_storage_hooks);
 }
 
 void mail_compress_plugin_deinit(void)
 {
-	mail_storage_hooks_remove(&zlib_mail_storage_hooks);
+	mail_storage_hooks_remove(&mail_compress_mail_storage_hooks);
 }
