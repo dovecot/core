@@ -345,7 +345,7 @@ static void mail_compress_mail_user_created(struct mail_user *user)
 	user->vlast = &zuser->module_ctx.super;
 	v->deinit = mail_compress_mail_user_deinit;
 
-	name = mail_user_plugin_getenv(user, "zlib_save");
+	name = mail_user_plugin_getenv(user, "mail_compress_save");
 	if (name != NULL && *name != '\0') {
 		ret = compression_lookup_handler(name, &zuser->save_handler);
 		if (ret <= 0) {
@@ -357,7 +357,7 @@ static void mail_compress_mail_user_created(struct mail_user *user)
 		}
 	}
 	name = zuser->save_handler == NULL ? NULL :
-		mail_user_plugin_getenv(user, "zlib_save_level");
+		mail_user_plugin_getenv(user, "mail_compress_save_level");
 	if (name != NULL && name[0] != '\0') {
 		if (str_to_int(name, &zuser->save_level) < 0 ||
 		    zuser->save_level < zuser->save_handler->get_min_level() ||
