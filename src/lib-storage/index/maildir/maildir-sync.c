@@ -333,7 +333,7 @@ static int maildir_fix_duplicate(struct maildir_sync_context *ctx,
 
 	new_fname = maildir_filename_generate();
 	/* preserve S= and W= sizes if they're available.
-	   (S=size is required for zlib plugin to work) */
+	   (S=size is required for mail-compress plugin to work) */
 	if (maildir_filename_get_size(fname2, MAILDIR_EXTRA_FILE_SIZE, &size)) {
 		new_fname = t_strdup_printf("%s,%c=%"PRIuUOFF_T,
 			new_fname, MAILDIR_EXTRA_FILE_SIZE, size);

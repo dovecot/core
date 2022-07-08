@@ -1,8 +1,8 @@
 /* Copyright (c) 2015-2018 Dovecot authors, see the included COPYING file */
 
 /* FIXME: cache handling could be useful to move to Dovecot core, so that if
-   we're using this plugin together with zlib plugin there would be just one
-   cache. */
+   we're using this plugin together with compress plugin there would be just
+   one cache. */
 
 #include "lib.h"
 #include "ioloop.h"
@@ -173,7 +173,7 @@ mail_crypt_istream_opened(struct mail *_mail, struct istream **stream)
 	}
 
 	/* decryption is the outmost stream, so add it before others
-	   (e.g. zlib) */
+	   (e.g. mail-compress) */
 	if (!mail_crypt_is_stream_encrypted(*stream))
 		return mmail->super.istream_opened(_mail, stream);
 
@@ -323,7 +323,7 @@ mail_crypt_mail_save_begin(struct mail_save_context *ctx,
 		mbox->pub_key = pub_key;
 	}
 
-	/* encryption is the outermost layer (zlib etc. are inside) */
+	/* encryption is the outermost layer (mail-compress etc. are inside) */
 	struct ostream *output = o_stream_create_encrypt(ctx->data.output,
 			MAIL_CRYPT_ENC_ALGORITHM, pub_key, enc_flags);
 

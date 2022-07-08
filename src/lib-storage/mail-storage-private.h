@@ -102,7 +102,7 @@ enum mail_storage_class_flags {
 	   mailbox_status.have_save_guids=TRUE) */
 	MAIL_STORAGE_CLASS_FLAG_HAVE_MAIL_SAVE_GUIDS	= 0x80,
 	/* message content can be unstructured binary data
-	   (e.g. zlib plugin is allowed to compress/decompress mails) */
+	   (e.g. mail-compress plugin is allowed to compress/decompress mails) */
 	MAIL_STORAGE_CLASS_FLAG_BINARY_DATA	= 0x100,
 	/* Message GUIDs can only be 128bit (always set
 	   mailbox_status.have_only_guid128) */

@@ -95,7 +95,7 @@ void dbox_save_end(struct dbox_save_context *ctx)
 			ctx->failed = TRUE;
 	}
 	if (mdata->output != dbox_output) {
-		/* e.g. zlib plugin had changed this. make sure we
+		/* e.g. mail-compress plugin had changed this. make sure we
 		   successfully write the trailer. */
 		ret = o_stream_finish(mdata->output);
 	} else {
