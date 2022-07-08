@@ -102,6 +102,8 @@ pop3c_client_init(const struct pop3c_client_settings *set,
 	client = p_new(pool, struct pop3c_client, 1);
 	client->pool = pool;
 	client->event = event_create(event_parent);
+	event_set_forced_debug(client->event, set->debug);
+
 	client->fd = -1;
 	p_array_init(&client->commands, pool, 16);
 
@@ -123,8 +125,8 @@ pop3c_client_init(const struct pop3c_client_settings *set,
 		if (ssl_iostream_client_context_cache_get(&set->ssl_set,
 							  &client->ssl_ctx,
 							  &error) < 0) {
-			i_error("pop3c(%s:%u): Couldn't initialize SSL context: %s",
-				set->host, set->port, error);
+			e_error(client->event,
+				"Couldn't initialize SSL context: %s", error);
 		}
 	}
 	return client;
@@ -231,17 +233,20 @@ static void pop3c_client_timeout(struct pop3c_client *client)
 {
 	switch (client->state) {
 	case POP3C_CLIENT_STATE_CONNECTING:
-		i_error("pop3c(%s): connect(%s, %u) timed out after %u seconds",
-			client->set.host, net_ip2addr(&client->ip),
-			client->set.port, POP3C_CONNECT_TIMEOUT_MSECS/1000);
+		e_error(client->event,
+			"connect(%s, %u) timed out after %u seconds",
+			net_ip2addr(&client->ip), client->set.port,
+			POP3C_CONNECT_TIMEOUT_MSECS/1000);
 		break;
 	case POP3C_CLIENT_STATE_DONE:
-		i_error("pop3c(%s): Command timed out after %u seconds",
-			client->set.host, POP3C_COMMAND_TIMEOUT_MSECS/1000);
+		e_error(client->event,
+			"Command timed out after %u seconds",
+			POP3C_COMMAND_TIMEOUT_MSECS/1000);
 		break;
 	default:
-		i_error("pop3c(%s): Authentication timed out after %u seconds",
-			client->set.host, POP3C_CONNECT_TIMEOUT_MSECS/1000);
+		e_error(client->event,
+			"Authentication timed out after %u seconds",
+			POP3C_CONNECT_TIMEOUT_MSECS/1000);
 		break;
 	}
 	pop3c_client_disconnect(client);
@@ -260,8 +265,9 @@ static int pop3c_client_dns_lookup(struct pop3c_client *client)
 
 		ret = net_gethostbyname(client->set.host, &ips, &ips_count);
 		if (ret != 0) {
-			i_error("pop3c(%s): net_gethostbyname() failed: %s",
-				client->set.host, net_gethosterror(ret));
+			e_error(client->event,
+				"net_gethostbyname() failed: %s",
+				net_gethosterror(ret));
 			return -1;
 		}
 		i_assert(ips_count > 0);
@@ -337,15 +343,15 @@ static void pop3c_client_authenticate1(struct pop3c_client *client)
 {
 	const struct pop3c_client_settings *set = &client->set;
 
-	if (client->set.debug) {
-		if (set->master_user == NULL) {
-			i_debug("pop3c(%s): Authenticating as '%s' (with USER+PASS)",
-				client->set.host, set->username);
-		} else {
-			i_debug("pop3c(%s): Authenticating as master user '%s' for user '%s' (with SASL PLAIN)",
-				client->set.host, set->master_user,
-				set->username);
-		}
+	if (set->master_user == NULL) {
+		e_debug(client->event,
+			"Authenticating as '%s' (with USER+PASS)",
+			set->username);
+	} else {
+		e_debug(client->event,
+			"Authenticating as master user '%s'"
+			" for user '%s' (with SASL PLAIN)",
+			set->master_user, set->username);
 	}
 
 	if (set->master_user == NULL) {
@@ -403,8 +409,8 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 	switch (client->state) {
 	case POP3C_CLIENT_STATE_CONNECTING:
 		if (!success) {
-			i_error("pop3c(%s): Server sent invalid banner: %s",
-				client->set.host, line);
+			e_error(client->event,
+				"Server sent invalid banner: %s", line);
 			return -1;
 		}
 		if (client->set.ssl_mode == POP3C_CLIENT_SSL_MODE_STARTTLS)
@@ -414,8 +420,7 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 		break;
 	case POP3C_CLIENT_STATE_STARTTLS:
 		if (!success) {
-			i_error("pop3c(%s): STLS failed: %s",
-				client->set.host, line);
+			e_error(client->event, "STLS failed: %s", line);
 			return -1;
 		}
 		if (pop3c_client_ssl_init(client) < 0)
@@ -423,8 +428,7 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 		break;
 	case POP3C_CLIENT_STATE_USER:
 		if (!success) {
-			i_error("pop3c(%s): USER failed: %s",
-				client->set.host, line);
+			e_error(client->event, "USER failed: %s", line);
 			return -1;
 		}
 
@@ -441,8 +445,7 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 		break;
 	case POP3C_CLIENT_STATE_AUTH:
 		if (line[0] != '+') {
-			i_error("pop3c(%s): AUTH PLAIN failed: %s",
-				client->set.host, line);
+			e_error(client->event, "AUTH PLAIN failed: %s", line);
 			return -1;
 		}
 		o_stream_nsend_str(client->output,
@@ -459,8 +462,9 @@ pop3c_client_prelogin_input_line(struct pop3c_client *client, const char *line)
 					      POP3C_COMMAND_STATE_OK :
 					      POP3C_COMMAND_STATE_ERR, reply);
 		} else if (!success) {
-			i_error("pop3c(%s): Authentication via %s failed: %s",
-				client->set.host, client->auth_mech, line);
+			e_error(client->event,
+				"Authentication via %s failed: %s",
+				client->auth_mech, line);
 		}
 		if (!success)
 			return -1;
@@ -513,16 +517,14 @@ static void pop3c_client_prelogin_input(struct pop3c_client *client)
 	    client->input->stream_errno != 0) {
 		/* disconnected */
 		if (client->ssl_iostream == NULL) {
-			i_error("pop3c(%s): Server disconnected unexpectedly",
-				client->set.host);
+			e_error(client->event, "Server disconnected unexpectedly");
 		} else {
 			errstr = ssl_iostream_get_last_error(client->ssl_iostream);
 			if (errstr == NULL) {
 				errstr = client->input->stream_errno == 0 ? "EOF" :
 					strerror(client->input->stream_errno);
 			}
-			i_error("pop3c(%s): Server disconnected: %s",
-				client->set.host, errstr);
+			e_error(client->event, "Server disconnected: %s", errstr);
 		}
 		pop3c_client_disconnect(client);
 	}
@@ -535,17 +537,13 @@ static int pop3c_client_ssl_handshaked(const char **error_r, void *context)
 
 	if (ssl_iostream_check_cert_validity(client->ssl_iostream,
 					     client->set.host, &error) == 0) {
-		if (client->set.debug) {
-			i_debug("pop3c(%s): SSL handshake successful",
-				client->set.host);
-		}
+		e_debug(client->event, "SSL handshake successful");
 		return 0;
 	} else if (client->set.ssl_set.allow_invalid_cert) {
-		if (client->set.debug) {
-			i_debug("pop3c(%s): SSL handshake successful, "
-				"ignoring invalid certificate: %s",
-				client->set.host, error);
-		}
+		e_debug(client->event,
+			"SSL handshake successful, "
+			"ignoring invalid certificate: %s",
+			error);
 		return 0;
 	} else {
 		*error_r = error;
@@ -558,12 +556,11 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 	const char *error;
 
 	if (client->ssl_ctx == NULL) {
-		i_error("pop3c(%s): No SSL context", client->set.host);
+		e_error(client->event, "No SSL context");
 		return -1;
 	}
 
-	if (client->set.debug)
-		i_debug("pop3c(%s): Starting SSL handshake", client->set.host);
+	e_debug(client->event, "Starting SSL handshake");
 
 	if (client->raw_input != client->input) {
 		/* recreate rawlog after STARTTLS */
@@ -579,15 +576,15 @@ static int pop3c_client_ssl_init(struct pop3c_client *client)
 					&client->set.ssl_set, client->event,
 					&client->input, &client->output,
 					&client->ssl_iostream, &error) < 0) {
-		i_error("pop3c(%s): Couldn't initialize SSL client: %s",
-			client->set.host, error);
+		e_error(client->event,
+			"Couldn't initialize SSL client: %s", error);
 		return -1;
 	}
 	ssl_iostream_set_handshake_callback(client->ssl_iostream,
 					    pop3c_client_ssl_handshaked,
 					    client);
 	if (ssl_iostream_handshake(client->ssl_iostream) < 0) {
-		i_error("pop3c(%s): SSL handshake failed: %s", client->set.host,
+		e_error(client->event, "SSL handshake failed: %s",
 			ssl_iostream_get_last_error(client->ssl_iostream));
 		return -1;
 	}
@@ -605,9 +602,8 @@ static void pop3c_client_connected(struct pop3c_client *client)
 
 	err = net_geterror(client->fd);
 	if (err != 0) {
-		i_error("pop3c(%s): connect(%s, %u) failed: %s",
-			client->set.host, net_ip2addr(&client->ip),
-			client->set.port, strerror(err));
+		e_error(client->event, "connect(%s, %u) failed: %s",
+			net_ip2addr(&client->ip), client->set.port, strerror(err));
 		pop3c_client_disconnect(client);
 		return;
 	}
@@ -644,10 +640,8 @@ static void pop3c_client_connect_ip(struct pop3c_client *client)
 			    pop3c_client_connected, client);
 	client->to = timeout_add(POP3C_CONNECT_TIMEOUT_MSECS,
 				 pop3c_client_timeout, client);
-	if (client->set.debug) {
-		i_debug("pop3c(%s): Connecting to %s:%u", client->set.host,
-			net_ip2addr(&client->ip), client->set.port);
-	}
+	e_debug(client->event, "Connecting to %s:%u",
+		net_ip2addr(&client->ip), client->set.port);
 }
 
 static void
@@ -657,8 +651,7 @@ pop3c_dns_callback(const struct dns_lookup_result *result,
 	client->dns_lookup = NULL;
 
 	if (result->ret != 0) {
-		i_error("pop3c(%s): dns_lookup() failed: %s",
-			client->set.host, result->error);
+		e_error(client->event, "dns_lookup() failed: %s", result->error);
 		pop3c_client_disconnect(client);
 		return;
 	}
@@ -680,8 +673,7 @@ void pop3c_client_login(struct pop3c_client *client,
 	client->login_context = context;
 	client->state = POP3C_CLIENT_STATE_CONNECTING;
 
-	if (client->set.debug)
-		i_debug("pop3c(%s): Looking up IP address", client->set.host);
+	e_debug(client->event, "Looking up IP address");
 }
 
 bool pop3c_client_is_connected(struct pop3c_client *client)
@@ -738,15 +730,15 @@ pop3c_client_input_next_reply(struct pop3c_client *client)
 	else if (str_begins_icase(line, "-ERR", &line))
 		state = POP3C_COMMAND_STATE_ERR;
 	else {
-		i_error("pop3c(%s): Server sent unrecognized line: %s",
-			client->set.host, line);
+		e_error(client->event,
+			"Server sent unrecognized line: %s", line);
 		state = POP3C_COMMAND_STATE_ERR;
 	}
 	if (line[0] == ' ')
 		line++;
 	if (array_count(&client->commands) == 0) {
-		i_error("pop3c(%s): Server sent line when no command was running: %s",
-			client->set.host, line);
+		e_error(client->event,
+			"Server sent line when no command was running: %s", line);
 	} else {
 		pop3c_client_async_callback(client, state, line);
 	}
@@ -770,8 +762,7 @@ static void pop3c_client_input(struct pop3c_client *client)
 	} while (ret > 0);
 
 	if (ret < 0) {
-		i_error("pop3c(%s): Server disconnected unexpectedly",
-			client->set.host);
+		e_error(client->event, "Server disconnected unexpectedly");
 		pop3c_client_disconnect(client);
 	}
 }
@@ -838,7 +829,8 @@ static int seekable_fd_callback(const char **path_r, void *context)
 	str_append(path, client->set.temp_path_prefix);
 	fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
 	if (fd == -1) {
-		i_error("safe_mkstemp(%s) failed: %m", str_c(path));
+		e_error(client->event,
+			"safe_mkstemp(%s) failed: %m", str_c(path));
 		return -1;
 	}
 

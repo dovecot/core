@@ -49,6 +49,9 @@ pop3c_storage_create(struct mail_storage *_storage,
 		*error_r = "missing pop3c_password";
 		return -1;
 	}
+	event_set_append_log_prefix(_storage->event, t_strdup_printf(
+		"pop3c(%s:%u): ",
+		storage->set->pop3c_host, storage->set->pop3c_port));
 
 	return 0;
 }
