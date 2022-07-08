@@ -137,7 +137,7 @@ openssl_iostream_verify_client_cert(int preverify_ok, X509_STORE_CTX *ctx)
 				"ssl_client_ca_* settings?" :
 				"ssl_ca setting?"));
 		if (ssl_io->verbose_invalid_cert)
-			i_info("%s", ssl_io->last_error);
+			i_warning("%s", ssl_io->last_error);
 	} else if (ssl_io->verbose) {
 		i_info("Received valid SSL certificate: %s", certname);
 	}
