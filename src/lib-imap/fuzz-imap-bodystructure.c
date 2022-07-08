@@ -31,21 +31,29 @@ static bool message_part_check_strings(const struct message_part *p1,
 	struct message_part_data *d1 = p1->data;
 	struct message_part_data *d2 = p2->data;
 
-	/* In some cases (parts truncation et al) the content-type can
-		be replaced with application/octet-stream. If the reparsed
-		type is octect/stream, ignore the mismatch. */
-	if ((null_strcmp(d1->content_type, d2->content_type) != 0 ||
-		null_strcmp(d1->content_subtype, d2->content_subtype) != 0) &&
-		(null_strcmp(d2->content_type, "application") != 0 ||
-		null_strcmp(d2->content_subtype, "octet-stream") != 0))
+	/* case sensitivity is determined for each field by the following RFCs:
+	   RFC-1864: content_md5
+	   RFC-2183: content_disposition
+	   RFC-2045: content_type, content_subtype, content_transfer_encoding,
+		     content_id, content_description
+	   RFC-2110: content_location */
+
+	/* In some cases (parts truncation et al) the content-type can be
+	   replaced with application/octet-stream. If the reparsed type is
+	   octect/stream, ignore the mismatch. */
+
+	if ((null_strcasecmp(d1->content_type, d2->content_type) != 0 ||
+	     null_strcasecmp(d1->content_subtype, d2->content_subtype) != 0) &&
+	    (null_strcasecmp(d2->content_type, "application") != 0 ||
+	     null_strcasecmp(d2->content_subtype, "octet-stream") != 0))
 		return FALSE;
 
-	if (null_strcmp(d1->content_transfer_encoding, d2->content_transfer_encoding) != 0 ||
-		null_strcmp(d1->content_id, d2->content_id) != 0 ||
-		null_strcmp(d1->content_description, d2->content_description) != 0 ||
-		null_strcmp(d1->content_disposition, d2->content_disposition) != 0 ||
-		null_strcmp(d1->content_md5, d2->content_md5) != 0 ||
-		null_strcmp(d1->content_location, d2->content_location) != 0)
+	if (null_strcasecmp(d1->content_transfer_encoding, d2->content_transfer_encoding) != 0 ||
+	    null_strcmp    (d1->content_id, d2->content_id) != 0 ||
+	    null_strcmp    (d1->content_description, d2->content_description) != 0 ||
+	    null_strcasecmp(d1->content_disposition, d2->content_disposition) != 0 ||
+	    null_strcmp    (d1->content_md5, d2->content_md5) != 0 ||
+	    null_strcmp    (d1->content_location, d2->content_location) != 0)
 		return FALSE;
 
 	return TRUE;
