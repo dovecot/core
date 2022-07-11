@@ -446,6 +446,7 @@ dbox_file_fix_write_stream(struct dbox_file *file, uoff_t start_offset,
 
 int dbox_file_fix(struct dbox_file *file, uoff_t start_offset)
 {
+	struct event *event = file->storage->storage.event;
 	struct ostream *output;
 	const char *dir, *p, *temp_path, *broken_path;
 	bool deleted, have_messages;
@@ -490,7 +491,7 @@ int dbox_file_fix(struct dbox_file *file, uoff_t start_offset)
 					  "link(%s, %s) failed: %m",
 					  file->cur_path, broken_path);
 	} else {
-		i_warning("dbox: Copy of the broken file saved to %s",
+		e_warning(event, "Copy of the broken file saved to %s",
 			  broken_path);
 	}
 	if (!have_messages) {

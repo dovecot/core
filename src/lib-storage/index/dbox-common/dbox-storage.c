@@ -31,20 +31,22 @@ void dbox_storage_get_list_settings(const struct mail_namespace *ns ATTR_UNUSED,
 
 static bool
 dbox_alt_path_has_changed(const char *root_dir, const char *alt_path,
-			  const char *alt_path2, const char *alt_symlink_path)
+			  const char *alt_path2, const char *alt_symlink_path,
+			  struct event *event)
 {
 	const char *linkpath, *error;
 
 	if (t_readlink(alt_symlink_path, &linkpath, &error) < 0) {
 		if (errno == ENOENT)
 			return alt_path != NULL;
-		i_error("t_readlink(%s) failed: %s", alt_symlink_path, error);
+		e_error(event, "t_readlink(%s) failed: %s", alt_symlink_path, error);
 		return FALSE;
 	}
 
 	if (alt_path == NULL) {
-		i_warning("dbox %s: Original ALT=%s, "
-			  "but currently no ALT path set", root_dir, linkpath);
+		e_warning(event,
+			  "%s: Original ALT=%s, but currently no ALT path set",
+			  root_dir, linkpath);
 		return TRUE;
 	} else if (strcmp(linkpath, alt_path) != 0) {
 		if (strcmp(linkpath, alt_path2) == 0) {
@@ -54,14 +56,14 @@ dbox_alt_path_has_changed(const char *root_dir, const char *alt_path,
 			   mdbox. we'll silently replace the symlink. */
 			return TRUE;
 		}
-		i_warning("dbox %s: Original ALT=%s, "
-			  "but currently ALT=%s", root_dir, linkpath, alt_path);
+		e_warning(event, "%s: Original ALT=%s, but currently ALT=%s",
+			  root_dir, linkpath, alt_path);
 		return TRUE;
 	}
 	return FALSE;
 }
 
-static void dbox_verify_alt_path(struct mailbox_list *list)
+static void dbox_verify_alt_path(struct mailbox_list *list, struct event *event)
 {
 	const char *root_dir, *alt_symlink_path, *alt_path, *alt_path2;
 
@@ -73,7 +75,7 @@ static void dbox_verify_alt_path(struct mailbox_list *list)
 	(void)mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_ALT_MAILBOX,
 					 &alt_path2);
 	if (!dbox_alt_path_has_changed(root_dir, alt_path, alt_path2,
-				       alt_symlink_path))
+				       alt_symlink_path, event))
 		return;
 
 	/* unlink/create the current alt path symlink */
@@ -88,7 +90,7 @@ static void dbox_verify_alt_path(struct mailbox_list *list)
 			ret = symlink(alt_path, alt_symlink_path);
 		}
 		if (ret < 0 && errno != EEXIST) {
-			i_error("symlink(%s, %s) failed: %m",
+			e_error(event, "symlink(%s, %s) failed: %m",
 				alt_path, alt_symlink_path);
 		}
 	}
@@ -135,7 +137,7 @@ int dbox_storage_create(struct mail_storage *_storage,
 	}
 
 	if (!ns->list->set.alt_dir_nocheck)
-		dbox_verify_alt_path(ns->list);
+		dbox_verify_alt_path(ns->list, _storage->event);
 	return 0;
 }
 
@@ -172,10 +174,11 @@ void dbox_notify_changes(struct mailbox *box)
 }
 
 static bool
-dbox_cleanup_temp_files(struct mailbox_list *list, const char *path,
+dbox_cleanup_temp_files(struct mailbox *box, const char *path,
 			time_t last_scan_time, time_t last_change_time)
 {
-	unsigned int interval = list->mail_set->mail_temp_scan_interval;
+	struct event *event = box->event;
+	unsigned int interval = box->list->mail_set->mail_temp_scan_interval;
 
 	/* check once in a while if there are temp files to clean up */
 	if (interval == 0) {
@@ -192,7 +195,7 @@ dbox_cleanup_temp_files(struct mailbox_list *list, const char *path,
 
 			if (stat(path, &st) < 0) {
 				if (errno == ENOENT)
-					i_error("stat(%s) failed: %m", path);
+					e_error(event, "stat(%s) failed: %m", path);
 				return FALSE;
 			}
 			last_change_time = st.st_ctime;
@@ -206,7 +209,7 @@ dbox_cleanup_temp_files(struct mailbox_list *list, const char *path,
 			return stated;
 		}
 		const char *prefix =
-			mailbox_list_get_global_temp_prefix(list);
+			mailbox_list_get_global_temp_prefix(box->list);
 		(void)unlink_old_files(path, prefix,
 				       ioloop_time - DBOX_TMP_DELETE_SECS);
 		return TRUE;
@@ -273,7 +276,7 @@ int dbox_mailbox_open(struct mailbox *box, time_t path_ctime)
 				  MAIL_INDEX_FSYNC_MASK_EXPUNGES);
 
 	const struct mail_index_header *hdr = mail_index_get_header(box->view);
-	if (dbox_cleanup_temp_files(box->list, box_path,
+	if (dbox_cleanup_temp_files(box, box_path,
 				    hdr->last_temp_file_scan, path_ctime)) {
 		/* temp files were scanned. update the last scan timestamp. */
 		index_mailbox_update_last_temp_file_scan(box);
@@ -379,6 +382,7 @@ int dbox_mailbox_create_indexes(struct mailbox *box,
 
 int dbox_verify_alt_storage(struct mailbox_list *list)
 {
+	struct event *event = list->ns->user->event;
 	const char *alt_path;
 	struct stat st;
 
@@ -390,7 +394,7 @@ int dbox_verify_alt_storage(struct mailbox_list *list)
 	if (stat(alt_path, &st) == 0)
 		return 0;
 	if (errno != ENOENT) {
-		i_error("stat(%s) failed: %m", alt_path);
+		e_error(event, "stat(%s) failed: %m", alt_path);
 		return -1;
 	}
 
