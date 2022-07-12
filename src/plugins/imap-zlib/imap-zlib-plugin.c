@@ -108,7 +108,7 @@ static bool cmd_compress(struct client_command_context *cmd)
 	} else if (str_to_int(value, &level) < 0 ||
 		   level < handler->get_min_level() ||
 		   level > handler->get_max_level()) {
-		i_error("%s: Level must be between %d..%d",
+		e_error(cmd->client->event, "%s: Level must be between %d..%d",
 			setting,
 			handler->get_min_level(),
 			handler->get_max_level());
