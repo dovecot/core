@@ -92,6 +92,7 @@ struct mail_log_message {
 
 struct mail_log_mail_txn_context {
 	pool_t pool;
+	struct event *event;
 	struct mail_log_message *messages, *messages_tail;
 };
 
@@ -355,6 +356,7 @@ mail_log_mail_transaction_begin(struct mailbox_transaction_context *t ATTR_UNUSE
 	pool = pool_alloconly_create("mail-log", 2048);
 	ctx = p_new(pool, struct mail_log_mail_txn_context, 1);
 	ctx->pool = pool;
+	ctx->event = event_create(t->box->event);
 	return ctx;
 }
 
@@ -427,16 +429,17 @@ mail_log_mail_update_keywords(void *txn, struct mail *mail,
 				     "flag_change");
 }
 
-static void mail_log_save(const struct mail_log_message *msg, uint32_t uid)
+static void mail_log_save(const struct mail_log_message *msg, uint32_t uid,
+			  struct event *event)
 {
 	if (msg->ignore) {
 		/* not logging this save/copy */
 	} else if (msg->pretext == NULL)
-		i_info("%s", msg->text);
+		e_info(event, "%s", msg->text);
 	else if (uid != 0)
-		i_info("%s%u%s", msg->pretext, uid, msg->text);
+		e_info(event, "%s%u%s", msg->pretext, uid, msg->text);
 	else
-		i_info("%serror%s", msg->pretext, msg->text);
+		e_info(event, "%serror%s", msg->pretext, msg->text);
 }
 
 static void
@@ -456,14 +459,15 @@ mail_log_mail_transaction_commit(void *txn,
 		    msg->event == MAIL_LOG_EVENT_COPY) {
 			if (!seq_range_array_iter_nth(&iter, n++, &uid))
 				uid = 0;
-			mail_log_save(msg, uid);
+			mail_log_save(msg, uid, ctx->event);
 		} else {
 			i_assert(msg->pretext == NULL);
-			i_info("%s", msg->text);
+			e_info(ctx->event, "%s", msg->text);
 		}
 	}
 	i_assert(!seq_range_array_iter_nth(&iter, n, &uid));
 
+	event_unref(&ctx->event);
 	pool_unref(&ctx->pool);
 }
 
@@ -472,6 +476,7 @@ static void mail_log_mail_transaction_rollback(void *txn)
 	struct mail_log_mail_txn_context *ctx =
 		(struct mail_log_mail_txn_context *)txn;
 
+	event_unref(&ctx->event);
 	pool_unref(&ctx->pool);
 }
 
@@ -483,8 +488,7 @@ mail_log_mailbox_create(struct mailbox *box)
 	if ((muser->events & MAIL_LOG_EVENT_MAILBOX_CREATE) == 0)
 		return;
 
-	i_info("Mailbox created: %s",
-	       str_sanitize(mailbox_get_vname(box), MAILBOX_NAME_LOG_LEN));
+	e_info(box->event, "Mailbox created");
 }
 
 static void
@@ -495,8 +499,7 @@ mail_log_mailbox_delete_commit(void *txn ATTR_UNUSED, struct mailbox *box)
 	if ((muser->events & MAIL_LOG_EVENT_MAILBOX_DELETE) == 0)
 		return;
 
-	i_info("Mailbox deleted: %s",
-	       str_sanitize(mailbox_get_vname(box), MAILBOX_NAME_LOG_LEN));
+	e_info(box->event, "Mailbox deleted");
 }
 
 static void
@@ -507,7 +510,7 @@ mail_log_mailbox_rename(struct mailbox *src, struct mailbox *dest)
 	if ((muser->events & MAIL_LOG_EVENT_MAILBOX_RENAME) == 0)
 		return;
 
-	i_info("Mailbox renamed: %s -> %s",
+	e_info(src->event, "Mailbox renamed: %s -> %s",
 	       str_sanitize(mailbox_get_vname(src), MAILBOX_NAME_LOG_LEN),
 	       str_sanitize(mailbox_get_vname(dest), MAILBOX_NAME_LOG_LEN));
 }
