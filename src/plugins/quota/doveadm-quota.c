@@ -12,8 +12,9 @@ const char *doveadm_quota_plugin_version = DOVECOT_ABI_VERSION;
 void doveadm_quota_plugin_init(struct module *module);
 void doveadm_quota_plugin_deinit(void);
 
-static int cmd_quota_get_root(struct quota_root *root)
+static int cmd_quota_get_root(struct quota_root *root, struct mail_user *user)
 {
+	struct event *event = user->event;
 	const char *const *res;
 	const char *error;
 	uint64_t value, limit;
@@ -37,7 +38,8 @@ static int cmd_quota_get_root(struct quota_root *root)
 			doveadm_print("-");
 			doveadm_print("0");
 		} else {
-			i_error("Failed to get quota resource %s: %s",
+			e_error(event,
+				"Failed to get quota resource %s: %s",
 				*res, error);
 			doveadm_print("error");
 			doveadm_print("error");
@@ -56,14 +58,14 @@ cmd_quota_get_run(struct doveadm_mail_cmd_context *ctx,
 	struct quota_root *const *root;
 
 	if (quser == NULL) {
-		i_error("Quota not enabled");
+		e_error(user->event, "Quota not enabled");
 		doveadm_mail_failed_error(ctx, MAIL_ERROR_NOTFOUND);
 		return -1;
 	}
 
 	int ret = 0;
 	array_foreach(&quser->quota->roots, root)
-		if (cmd_quota_get_root(*root) < 0)
+		if (cmd_quota_get_root(*root, user) < 0)
 			ret = -1;
 	if (ret < 0)
 		doveadm_mail_failed_error(ctx, MAIL_ERROR_TEMP);
@@ -103,7 +105,7 @@ cmd_quota_recalc_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 	struct quota_transaction_context trans;
 
 	if (quser == NULL) {
-		i_error("Quota not enabled");
+		e_error(user->event, "Quota not enabled");
 		doveadm_mail_failed_error(ctx, MAIL_ERROR_NOTFOUND);
 		return -1;
 	}
@@ -115,7 +117,8 @@ cmd_quota_recalc_run(struct doveadm_mail_cmd_context *ctx ATTR_UNUSED,
 	array_foreach(&quser->quota->roots, root) {
 		const char *error;
 		if ((*root)->backend.v.update(*root, &trans, &error) < 0)
-			i_error("Recalculating quota failed: %s", error);
+			e_error(user->event,
+				"Recalculating quota failed: %s", error);
 		if ((*root)->backend.v.flush != NULL)
 			(*root)->backend.v.flush(*root);
 	}
