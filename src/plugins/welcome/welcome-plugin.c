@@ -6,6 +6,7 @@
 #include "llist.h"
 #include "str.h"
 #include "program-client.h"
+#include "program-client-private.h"
 #include "strescape.h"
 #include "eacces-error.h"
 #include "write-full.h"
@@ -38,10 +39,10 @@ static void welcome_client_destroy(struct welcome_client_list **_wclient) {
 }
 
 static void script_finish(enum program_client_exit_status ret,
-			  struct program_client *client ATTR_UNUSED)
+			  struct program_client *client)
 {
 	if (ret != PROGRAM_CLIENT_EXIT_STATUS_SUCCESS)
-		i_error("welcome: Execution failed: %d", ret);
+		e_error(client->event, "welcome: Execution failed: %d", ret);
 }
 
 static void script_execute(struct mail_user *user, const char *cmd, bool wait)
