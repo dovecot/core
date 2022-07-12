@@ -42,9 +42,10 @@ static void test_pop3_migration_get_hdr_sha1(void)
 	test_begin("pop3 migration get hdr sha1");
 
 	for (i = 0; i < N_ELEMENTS(tests); i++) {
+		const char *error;
 		input = i_stream_create_from_data(tests[i].input,
 						  strlen(tests[i].input));
-		test_assert_idx(pop3_migration_get_hdr_sha1(1, input, digest, &have_eoh) == 0, i);
+		test_assert_idx(pop3_migration_get_hdr_sha1(1, input, digest, &have_eoh, &error) == 0, i);
 		test_assert_idx(strcasecmp(binary_to_hex(digest, sizeof(digest)), tests[i].sha1) == 0, i);
 		test_assert_idx(tests[i].have_eoh == have_eoh, i);
 		i_stream_unref(&input);
