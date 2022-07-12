@@ -106,14 +106,18 @@ static bool notify_status_mailbox_enabled(struct mailbox *box)
 }
 
 static void notify_update_callback(const struct dict_commit_result *result,
-				   void *context ATTR_UNUSED)
+				   struct event *event)
 {
 	if (result->ret == DICT_COMMIT_RET_OK ||
-	    result->ret == DICT_COMMIT_RET_NOTFOUND)
+	    result->ret == DICT_COMMIT_RET_NOTFOUND) {
+		event_unref(&event);
 		return;
+	}
 
-	i_error("notify-status: dict_transaction_commit failed: %s",
+	e_error(event, "notify-status: dict_transaction_commit failed: %s",
 		result->error == NULL ? "" : result->error);
+
+	event_unref(&event);
 }
 
 #define MAILBOX_STATUS_NOTIFY (STATUS_MESSAGES|STATUS_UNSEEN|\
@@ -135,18 +139,14 @@ static void notify_update_mailbox_status(struct mailbox *box)
 			   mailbox_get_vname(box), MAILBOX_FLAG_READONLY);
 
 	if (mailbox_open(box) < 0) {
-		i_error("notify-status: mailbox_open(%s) failed: %s",
-			  mailbox_get_vname(box),
-			  mailbox_get_last_error(box, NULL));
+		e_error(box->event, "notify-status: mailbox_open() failed: %s",
+			mailbox_get_last_error(box, NULL));
 	} else if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
-		i_error("notify-status: mailbox_sync(%s) failed: %s",
-			  mailbox_get_vname(box),
-			  mailbox_get_last_error(box, NULL));
-	} else if (mailbox_get_status(box, MAILBOX_STATUS_NOTIFY,
-				      &status) < 0) {
-		i_error("notify-status: mailbox_get_status(%s) failed: %s",
-			  mailbox_get_vname(box),
-			  mailbox_get_last_error(box, NULL));
+		e_error(box->event, "notify-status: mailbox_sync() failed: %s",
+			mailbox_get_last_error(box, NULL));
+	} else if (mailbox_get_status(box, MAILBOX_STATUS_NOTIFY, &status) < 0) {
+		e_error(box->event, "notify-status: mailbox_get_status() failed: %s",
+			mailbox_get_last_error(box, NULL));
 	} else {
 		string_t *username = t_str_new(strlen(user->username));
 		string_t *mboxname = t_str_new(64);
@@ -172,13 +172,14 @@ static void notify_update_mailbox_status(struct mailbox *box)
 			t_strdup_printf(NOTIFY_STATUS_KEY, mailbox_get_vname(box));
 		string_t *dest = t_str_new(64);
 		if (var_expand(dest, nuser->value_template, values, &error) <= 0) {
-			i_error("notify-status: var_expand(%s) failed: %s",
+			e_error(box->event, "notify-status: var_expand(%s) failed: %s",
 				nuser->value_template, error);
 		} else {
 			const struct dict_op_settings *set = mail_user_get_dict_op_settings(user);
 			t = dict_transaction_begin(nuser->dict, set);
 			dict_set(t, key, str_c(dest));
-			dict_transaction_commit_async(&t, notify_update_callback, NULL) ;
+			dict_transaction_commit_async(&t, notify_update_callback,
+						      event_create(box->event));
 		}
 	}
 
@@ -200,7 +201,8 @@ static void notify_remove_mailbox_status(struct mailbox *box)
 	const struct dict_op_settings *set = mail_user_get_dict_op_settings(user);
 	t = dict_transaction_begin(nuser->dict, set);
 	dict_unset(t, key);
-	dict_transaction_commit_async(&t, notify_update_callback, NULL) ;
+	dict_transaction_commit_async(&t, notify_update_callback,
+				      event_create(box->event));
 }
 
 static void *notify_status_mail_transaction_begin(struct mailbox_transaction_context *t)
@@ -319,7 +321,7 @@ static void notify_status_mail_user_created(struct mail_user *user)
 		template = NOTIFY_STATUS_SETTING_VALUE_TEMPLATE_DEFAULT;
 
 	if (notify_status_dict_init(user, uri, &dict, &error) < 0) {
-		i_error("notify-status: %s", error);
+		e_error(user->event, "notify-status: %s", error);
 		return;
 	}
 
