@@ -34,6 +34,7 @@ static int
 cmd_search_box(struct doveadm_mail_cmd_context *ctx,
 	       const struct mailbox_info *info)
 {
+	struct event *event = info->ns->user->event;
 	struct mailbox *box;
 	struct fts_backend *backend;
 	struct fts_result result;
@@ -41,7 +42,7 @@ cmd_search_box(struct doveadm_mail_cmd_context *ctx,
 
 	backend = fts_list_backend(info->ns->list);
 	if (backend == NULL) {
-		i_error("fts not enabled for %s", info->vname);
+		e_error(event, "fts not enabled for %s", info->vname);
 		ctx->exit_code = EX_CONFIG;
 		return -1;
 	}
@@ -54,7 +55,7 @@ cmd_search_box(struct doveadm_mail_cmd_context *ctx,
 	box = mailbox_alloc(info->ns->list, info->vname, 0);
 	if (fts_backend_lookup(backend, box, ctx->search_args->args,
 				      FTS_LOOKUP_FLAG_AND_ARGS, &result) < 0) {
-		i_error("fts lookup failed");
+		e_error(event, "fts lookup failed");
 		doveadm_mail_failed_error(ctx, MAIL_ERROR_TEMP);
 		ret = -1;
 	} else {
@@ -135,7 +136,7 @@ cmd_fts_expand_run(struct doveadm_mail_cmd_context *ctx,
 
 	backend = fts_list_backend(ns->list);
 	if (backend == NULL) {
-		i_error("fts not enabled for INBOX");
+		e_error(user->event, "fts not enabled for INBOX");
 		ctx->exit_code = EX_CONFIG;
 		return -1;
 	}
@@ -189,7 +190,7 @@ cmd_fts_tokenize_run(struct doveadm_mail_cmd_context *_ctx,
 
 	backend = fts_list_backend(ns->list);
 	if (backend == NULL) {
-		i_error("fts not enabled for INBOX");
+		e_error(user->event, "fts not enabled for INBOX");
 		_ctx->exit_code = EX_CONFIG;
 		return -1;
 	}
@@ -207,15 +208,21 @@ cmd_fts_tokenize_run(struct doveadm_mail_cmd_context *_ctx,
 			lang = fts_language_list_get_first(lang_list);
 		switch (result) {
 		case FTS_LANGUAGE_RESULT_SHORT:
-			i_warning("Text too short, can't detect its language - assuming %s", lang->name);
+			e_warning(user->event,
+				  "Text too short, can't detect its language - assuming %s",
+				  lang->name);
 			break;
 		case FTS_LANGUAGE_RESULT_UNKNOWN:
-			i_warning("Can't detect its language - assuming %s", lang->name);
+			e_warning(user->event,
+				  "Can't detect its language - assuming %s",
+				  lang->name);
 			break;
 		case FTS_LANGUAGE_RESULT_OK:
 			break;
 		case FTS_LANGUAGE_RESULT_ERROR:
-			i_error("Language detection library initialization failed: %s", error);
+			e_error(user->event,
+				"Language detection library initialization failed: %s",
+				error);
 			_ctx->exit_code = EX_CONFIG;
 			return -1;
 		default:
@@ -224,14 +231,16 @@ cmd_fts_tokenize_run(struct doveadm_mail_cmd_context *_ctx,
 	} else {
 		lang = fts_language_find(ctx->language);
 		if (lang == NULL) {
-			i_error("Unknown language: %s", ctx->language);
+			e_error(user->event,
+				"Unknown language: %s", ctx->language);
 			_ctx->exit_code = EX_USAGE;
 			return -1;
 		}
 	}
 	user_lang = fts_user_language_find(user, lang);
 	if (user_lang == NULL) {
-		i_error("Language not enabled for user: %s", ctx->language);
+		e_error(user->event,
+			"Language not enabled for user: %s", ctx->language);
 		_ctx->exit_code = EX_USAGE;
 		return -1;
 	}
@@ -255,7 +264,9 @@ cmd_fts_tokenize_run(struct doveadm_mail_cmd_context *_ctx,
 			if (ret2 > 0)
 				doveadm_print(token);
 			else if (ret2 < 0)
-				i_error("Couldn't create indexable tokens: %s", error);
+				e_error(user->event,
+					"Couldn't create indexable tokens: %s",
+					error);
 		}
 		if (ret == 0) {
 			if (final)
@@ -307,13 +318,14 @@ fts_namespace_find(struct mail_user *user, const char *ns_prefix,
 	else {
 		ns = mail_namespace_find_prefix(user->namespaces, ns_prefix);
 		if (ns == NULL) {
-			i_error("Namespace prefix not found: %s", ns_prefix);
+			e_error(user->event,
+				"Namespace prefix not found: %s", ns_prefix);
 			return -1;
 		}
 	}
 
 	if (fts_list_backend(ns->list) == NULL) {
-		i_error("fts not enabled for user's namespace %s",
+		e_error(user->event, "fts not enabled for user's namespace %s",
 			ns_prefix != NULL ? ns_prefix : "INBOX");
 		return -1;
 	}
@@ -338,7 +350,7 @@ cmd_fts_optimize_run(struct doveadm_mail_cmd_context *_ctx,
 	}
 	backend = fts_list_backend(ns->list);
 	if (fts_backend_optimize(backend) < 0) {
-		i_error("fts optimize failed");
+		e_error(user->event, "fts optimize failed");
 		doveadm_mail_failed_error(_ctx, MAIL_ERROR_TEMP);
 		return -1;
 	}
@@ -382,7 +394,7 @@ cmd_fts_rescan_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user
 	}
 	backend = fts_list_backend(ns->list);
 	if (fts_backend_rescan(backend) < 0) {
-		i_error("fts rescan failed");
+		e_error(user->event, "fts rescan failed");
 		doveadm_mail_failed_error(_ctx, MAIL_ERROR_TEMP);
 		return -1;
 	}

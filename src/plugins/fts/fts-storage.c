@@ -622,6 +622,7 @@ static int fts_transaction_end(struct mailbox_transaction_context *t, const char
 {
 	struct fts_transaction_context *ft = FTS_CONTEXT_REQUIRE(t);
 	struct fts_mailbox_list *flist = FTS_LIST_CONTEXT_REQUIRE(t->box->list);
+	struct event *event = flist->backend->event;
 	int ret = 0;
 
 	if (ft->failure_reason != NULL) {
@@ -648,10 +649,12 @@ static int fts_transaction_end(struct mailbox_transaction_context *t, const char
 		fts_scores_unref(&ft->scores);
 	if (ft->precache_extra_count > 0) {
 		if (ret < 0) {
-			i_error("fts: Failed after indexing %u extra mails internally in %s: %s",
-			       ft->precache_extra_count, t->box->vname, *error_r);
+			e_error(event,
+				"Failed after indexing %u extra mails internally in %s: %s",
+			        ft->precache_extra_count, t->box->vname, *error_r);
 		} else {
-			i_info("fts: Indexed %u extra mails internally in %s",
+			e_info(event,
+			       "Indexed %u extra mails internally in %s",
 			       ft->precache_extra_count, t->box->vname);
 		}
 	}
@@ -680,7 +683,7 @@ static void fts_queue_index(struct mailbox *box)
 	path = t_strconcat(user->set->base_dir, "/"INDEXER_SOCKET_NAME, NULL);
 	fd = net_connect_unix(path);
 	if (fd == -1) {
-		i_error("net_connect_unix(%s) failed: %m", path);
+		e_error(box->event, "net_connect_unix(%s) failed: %m", path);
 		return;
 	}
 
@@ -698,7 +701,7 @@ static void fts_queue_index(struct mailbox *box)
 	str_append_tabescaped(str, box->storage->user->session_id);
 	str_append_c(str, '\n');
 	if (write_full(fd, str_data(str), str_len(str)) < 0)
-		i_error("write(%s) failed: %m", path);
+		e_error(box->event, "write(%s) failed: %m", path);
 	i_close_fd(&fd);
 }
 
@@ -936,7 +939,8 @@ void fts_mail_namespaces_added(struct mail_namespace *ns)
 
 		if (flist != NULL && !flist->failed && flist->backend == NULL &&
 		    fts_init_namespace(flist, ns, &error) < 0) {
-			i_error("fts: Failed to initialize backend '%s': %s",
+			e_error(ns->user->event,
+				"fts: Failed to initialize backend '%s': %s",
 				flist->backend_name, error);
 		}
 		ns = ns->next;

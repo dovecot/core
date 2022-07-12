@@ -36,8 +36,10 @@ static MODULE_CONTEXT_DEFINE_INIT(fts_parser_tika_user_module,
 				  &mail_user_module_register);
 
 static int
-tika_get_http_client_url(struct mail_user *user, struct http_url **http_url_r)
+tika_get_http_client_url(struct fts_parser_context *parser_context, struct http_url **http_url_r)
 {
+	struct mail_user *user = parser_context->user;
+	struct event *event = parser_context->event;
 	struct fts_parser_tika_user *tuser = TIKA_USER_CONTEXT(user);
 	struct http_client_settings http_set;
 	struct ssl_iostream_settings ssl_set;
@@ -59,7 +61,7 @@ tika_get_http_client_url(struct mail_user *user, struct http_url **http_url_r)
 
 	if (http_url_parse(url, NULL, 0, user->pool,
 			   &tuser->http_url, &error) < 0) {
-		i_error("fts_tika: Failed to parse HTTP url %s: %s", url, error);
+		e_error(event, "fts_tika: Failed to parse HTTP url %s: %s", url, error);
 		return -1;
 	}
 
@@ -95,6 +97,7 @@ fts_tika_parser_response(const struct http_response *response,
 			 struct tika_fts_parser *parser)
 {
 	i_assert(parser->payload == NULL);
+	struct event *event = parser->user->event;
 
 	switch (response->status) {
 	case 200:
@@ -128,7 +131,7 @@ fts_tika_parser_response(const struct http_response *response,
 						http_response_get_message(response));
 			parser->payload = i_stream_create_from_data("", 0);
 		} else {
-			i_error("fts_tika: PUT %s failed: %s",
+			e_error(event, "fts_tika: PUT %s failed: %s",
 				mail_user_plugin_getenv(parser->user, "fts_tika"),
 				http_response_get_message(response));
 			parser->failed = TRUE;
@@ -146,7 +149,7 @@ fts_parser_tika_try_init(struct fts_parser_context *parser_context)
 	struct http_url *http_url;
 	struct http_client_request *http_req;
 
-	if (tika_get_http_client_url(parser_context->user, &http_url) < 0)
+	if (tika_get_http_client_url(parser_context, &http_url) < 0)
 		return NULL;
 	if (http_url->path == NULL)
 		http_url->path = "/";
@@ -177,6 +180,7 @@ static void fts_parser_tika_more(struct fts_parser *_parser,
 				 struct message_block *block)
 {
 	struct tika_fts_parser *parser = (struct tika_fts_parser *)_parser;
+	struct event *event = parser->user->event;
 	struct ioloop *prev_ioloop = current_ioloop;
 	const unsigned char *data;
 	size_t size;
@@ -233,7 +237,7 @@ static void fts_parser_tika_more(struct fts_parser *_parser,
 		/* finished */
 		i_assert(ret == -1);
 		if (parser->payload->stream_errno != 0) {
-			i_error("read(%s) failed: %s",
+			e_error(event, "read(%s) failed: %s",
 				i_stream_get_name(parser->payload),
 				i_stream_get_error(parser->payload));
 			parser->failed = TRUE;

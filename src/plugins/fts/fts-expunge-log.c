@@ -102,11 +102,11 @@ static int fts_expunge_log_open(struct fts_expunge_log *log, bool create)
 		if (errno == ENOENT && !create)
 			return 0;
 
-		i_error("open(%s) failed: %m", log->path);
+		e_error(log->event, "open(%s) failed: %m", log->path);
 		return -1;
 	}
 	if (fstat(fd, &log->st) < 0) {
-		i_error("fstat(%s) failed: %m", log->path);
+		e_error(log->event, "fstat(%s) failed: %m", log->path);
 		i_close_fd(&fd);
 		return -1;
 	}
@@ -132,11 +132,11 @@ fts_expunge_log_reopen_if_needed(struct fts_expunge_log *log, bool create)
 	} else if (errno == ENOENT) {
 		/* recreate the file */
 	} else {
-		i_error("stat(%s) failed: %m", log->path);
+		e_error(log->event, "stat(%s) failed: %m", log->path);
 		return -1;
 	}
 	if (close(log->fd) < 0)
-		i_error("close(%s) failed: %m", log->path);
+		e_error(log->event, "close(%s) failed: %m", log->path);
 	log->fd = -1;
 	return fts_expunge_log_open(log, create);
 }
@@ -150,7 +150,7 @@ fts_expunge_log_read_expunge_count(struct fts_expunge_log *log,
 	i_assert(log->fd != -1);
 
 	if (fstat(log->fd, &log->st) < 0) {
-		i_error("fstat(%s) failed: %m", log->path);
+		e_error(log->event, "fstat(%s) failed: %m", log->path);
 		return -1;
 	}
 	if ((uoff_t)log->st.st_size < sizeof(*expunge_count_r)) {
@@ -164,11 +164,11 @@ fts_expunge_log_read_expunge_count(struct fts_expunge_log *log,
 	ret = pread(log->fd, expunge_count_r, sizeof(*expunge_count_r),
 		    log->st.st_size - 4);
 	if (ret < 0) {
-		i_error("pread(%s) failed: %m", log->path);
+		e_error(log->event, "pread(%s) failed: %m", log->path);
 		return -1;
 	}
 	if (ret != sizeof(*expunge_count_r)) {
-		i_error("pread(%s) read only %d of %d bytes", log->path,
+		e_error(log->event, "pread(%s) read only %d of %d bytes", log->path,
 			(int)ret, (int)sizeof(*expunge_count_r));
 		return -1;
 	}
@@ -326,9 +326,9 @@ fts_expunge_log_write(struct fts_expunge_log_append_ctx *ctx)
 	   appended atomically without any need for locking. */
 	for (;;) {
 		if (write_full(log->fd, buf->data, buf->used) < 0) {
-			i_error("write(%s) failed: %m", log->path);
+			e_error(log->event, "write(%s) failed: %m", log->path);
 			if (ftruncate(log->fd, log->st.st_size) < 0)
-				i_error("ftruncate(%s) failed: %m", log->path);
+				e_error(log->event, "ftruncate(%s) failed: %m", log->path);
 		}
 		if ((ret = fts_expunge_log_reopen_if_needed(log, TRUE)) <= 0)
 			break;
@@ -350,7 +350,7 @@ fts_expunge_log_write(struct fts_expunge_log_append_ctx *ctx)
 		if (close(log->fd) < 0) {
 			/* FIXME: we should ftruncate() in case there
 			   were partial writes.. */
-			i_error("close(%s) failed: %m", log->path);
+			e_error(log->event, "close(%s) failed: %m", log->path);
 			ret = -1;
 		}
 		log->fd = -1;
@@ -429,12 +429,12 @@ fts_expunge_log_read_failure(struct fts_expunge_log_read_ctx *ctx,
 
 	if (ctx->input->stream_errno != 0) {
 		ctx->failed = TRUE;
-		i_error("read(%s) failed: %s", ctx->log->path,
+		e_error(ctx->log->event, "read(%s) failed: %s", ctx->log->path,
 			i_stream_get_error(ctx->input));
 	} else {
 		size = i_stream_get_data_size(ctx->input);
 		ctx->corrupted = TRUE;
-		i_error("Corrupted fts expunge log %s: "
+		e_error(ctx->log->event, "Corrupted fts expunge log %s: "
 			"Unexpected EOF (read %zu / %u bytes)",
 			ctx->log->path, size, wanted_size);
 	}
@@ -476,7 +476,7 @@ fts_expunge_log_read_next(struct fts_expunge_log_read_ctx *ctx)
 
 	if (!fts_expunge_log_record_size_is_valid(rec, &uids_size)) {
 		ctx->corrupted = TRUE;
-		i_error("Corrupted fts expunge log %s: "
+		e_error(ctx->log->event, "Corrupted fts expunge log %s: "
 			"Invalid record size: %u",
 			ctx->log->path, rec->record_size);
 		return NULL;
@@ -496,7 +496,7 @@ fts_expunge_log_read_next(struct fts_expunge_log_read_ctx *ctx)
 			      rec->record_size - sizeof(rec->checksum));
 	if (checksum != rec->checksum) {
 		ctx->corrupted = TRUE;
-		i_error("Corrupted fts expunge log %s: "
+		e_error(ctx->log->event, "Corrupted fts expunge log %s: "
 			"Record checksum mismatch: %u != %u",
 			ctx->log->path, checksum, rec->checksum);
 		return NULL;
@@ -592,7 +592,8 @@ int fts_expunge_log_subtract(struct fts_expunge_log_append_ctx *from,
 			failures++;
 	}
 	if (failures > 0)
-		i_warning("fts: Expunge log subtract ignored %u nonexistent mailbox GUIDs",
+		e_warning(from->log->event,
+			  "Expunge log subtract ignored %u nonexistent mailbox GUIDs",
 			  failures);
 	return fts_expunge_log_read_end(&read_ctx);
 }

@@ -275,7 +275,7 @@ int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
 #define INDEXER_HANDSHAKE "VERSION\tindexer-client\t1\t0\n"
 
 int fts_indexer_cmd(struct mail_user *user, const char *cmd,
-		    struct event *event ATTR_UNUSED, const char **path_r)
+		    struct event *event, const char **path_r)
 {
 	const char *path;
 	int fd;
@@ -284,13 +284,13 @@ int fts_indexer_cmd(struct mail_user *user, const char *cmd,
 	                   "/"INDEXER_SOCKET_NAME, NULL);
 	fd = net_connect_unix_with_retries(path, 1000);
 	if (fd == -1) {
-	        i_error("net_connect_unix(%s) failed: %m", path);
+	        e_error(event, "net_connect_unix(%s) failed: %m", path);
 	        return -1;
 	}
 
 	cmd = t_strconcat(INDEXER_HANDSHAKE, cmd, NULL);
 	if (write_full(fd, cmd, strlen(cmd)) < 0) {
-	        i_error("write(%s) failed: %m", path);
+	        e_error(event, "write(%s) failed: %m", path);
 	        i_close_fd(&fd);
 	        return -1;
 	}

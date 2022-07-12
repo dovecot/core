@@ -703,6 +703,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 int fts_build_mail(struct fts_backend_update_context *update_ctx,
 		   struct mail *mail)
 {
+	struct event *event = update_ctx->backend->event;
 	int ret;
 	/* Number of attempts to be taken if retry is needed */
 	unsigned int attempts = 2;
@@ -719,7 +720,10 @@ int fts_build_mail(struct fts_backend_update_context *update_ctx,
 				   because e.g. Tika doesn't differentiate
 				   between temporary errors and invalid
 				   document input. */
-				i_info("%s - ignoring", retriable_err_msg);
+				e_info(event,
+				       "Mailbox %s: UID %u: %s - ignoring",
+				       mailbox_get_vname(mail->box), mail->uid,
+				       retriable_err_msg);
 				ret = 0;
 				break;
 			}

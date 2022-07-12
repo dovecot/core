@@ -148,6 +148,7 @@ fts_backend_dovecot_tokenize_lang(struct fts_user_language *user_lang,
 static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 				 struct mail_search_arg **argp)
 {
+	struct event *event = backend->event;
 	const ARRAY_TYPE(fts_user_language) *languages;
 	struct fts_user_language *lang;
 	struct mail_search_arg *or_arg, *orig_arg = *argp;
@@ -173,7 +174,7 @@ static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 	array_foreach_elem(languages, lang) {
 		if (fts_backend_dovecot_tokenize_lang(lang, pool, or_arg,
 						      orig_arg, orig_token, &error) < 0) {
-			i_error("fts: %s", error);
+			e_error(event, "%s", error);
 			return -1;
 		}
 	}
