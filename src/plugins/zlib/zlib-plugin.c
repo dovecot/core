@@ -347,7 +347,8 @@ static void zlib_mail_user_created(struct mail_user *user)
 	if (name != NULL && *name != '\0') {
 		ret = compression_lookup_handler(name, &zuser->save_handler);
 		if (ret <= 0) {
-			i_error("zlib_save: %s: %s", ret == 0 ?
+			e_error(user->event,
+				"zlib_save: %s: %s", ret == 0 ?
 				"Support not compiled in for handler" :
 				"Unknown handler", name);
 			zuser->save_handler = NULL;
@@ -359,7 +360,8 @@ static void zlib_mail_user_created(struct mail_user *user)
 		if (str_to_int(name, &zuser->save_level) < 0 ||
 		    zuser->save_level < zuser->save_handler->get_min_level() ||
 		    zuser->save_level > zuser->save_handler->get_max_level()) {
-			i_error("zlib_save_level: Level must be between %d..%d",
+			e_error(user->event,
+				"zlib_save_level: Level must be between %d..%d",
 				zuser->save_handler->get_min_level(),
 				zuser->save_handler->get_max_level());
 			zuser->save_level =
