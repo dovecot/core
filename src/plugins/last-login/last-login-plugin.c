@@ -57,11 +57,13 @@ last_login_dict_commit(const struct dict_commit_result *result,
 	case DICT_COMMIT_RET_NOTFOUND:
 		break;
 	case DICT_COMMIT_RET_FAILED:
-		i_error("last_login_dict: Failed to write value: %s",
+		e_error(user->event,
+			"last_login_dict: Failed to write value: %s",
 			result->error);
 		break;
 	case DICT_COMMIT_RET_WRITE_UNCERTAIN:
-		i_error("last_login_dict: Write was unconfirmed (timeout or disconnect): %s",
+		e_error(user->event,
+			"last_login_dict: Write was unconfirmed (timeout or disconnect): %s",
 			result->error);
 		break;
 	}
@@ -97,7 +99,8 @@ static void last_login_mail_user_created(struct mail_user *user)
 	set.base_dir = user->set->base_dir;
 	set.event_parent = user->event;
 	if (dict_init(dict_value, &set, &dict, &error) < 0) {
-		i_error("last_login_dict: dict_init(%s) failed: %s",
+		e_error(user->event,
+			"last_login_dict: dict_init(%s) failed: %s",
 			dict_value, error);
 		return;
 	}
@@ -137,7 +140,9 @@ static void last_login_mail_user_created(struct mail_user *user)
 			"%ld%06u000", (long)ioloop_timeval.tv_sec,
 			(unsigned int)ioloop_timeval.tv_usec));
 	} else {
-		i_error("last_login_dict: Invalid last_login_precision '%s'", precision);
+		e_error(user->event,
+			"last_login_dict: Invalid last_login_precision '%s'",
+			precision);
 	}
 	dict_transaction_commit_async(&trans, last_login_dict_commit, user);
 }
