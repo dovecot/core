@@ -151,6 +151,7 @@ virtual_mailbox_ext2_header_read(struct virtual_mailbox *mbox,
 				 struct mail_index_view *view,
 				 const struct virtual_mail_index_header *ext_hdr)
 {
+	struct event *event = mbox->box.event;
 	const char *box_path = mailbox_get_path(&mbox->box);
 	const struct virtual_mail_index_ext2_header *ext2_hdr;
 	const struct virtual_mail_index_mailbox_ext2_record *ext2_rec;
@@ -166,23 +167,27 @@ virtual_mailbox_ext2_header_read(struct virtual_mailbox *mbox,
 		return FALSE;
 	}
 	if (ext2_size < sizeof(*ext2_hdr)) {
-		i_error("virtual index %s: Invalid ext2 header size: %zu",
+		e_error(event,
+			"virtual index %s: Invalid ext2 header size: %zu",
 			box_path, ext2_size);
 		return FALSE;
 	}
 	if (ext2_hdr->hdr_size > ext2_size) {
-		i_error("virtual index %s: ext2 header size too large: %u > %zu",
+		e_error(event,
+			"virtual index %s: ext2 header size too large: %u > %zu",
 			box_path, ext2_hdr->hdr_size, ext2_size);
 		return FALSE;
 	}
 	if (ext2_hdr->ext_record_size < sizeof(*ext2_rec)) {
-		i_error("virtual index %s: Invalid ext2 record size: %u",
+		e_error(event,
+			"virtual index %s: Invalid ext2 record size: %u",
 			box_path, ext2_hdr->ext_record_size);
 		return FALSE;
 	}
 
 	if (ext_hdr->change_counter != ext2_hdr->change_counter) {
-		i_warning("virtual index %s: "
+		e_warning(event,
+			  "virtual index %s: "
 			  "Extension header change_counter mismatch (%u != %u) - "
 			  "Index was modified by an older version?",
 			  box_path, ext_hdr->change_counter,
@@ -192,7 +197,8 @@ virtual_mailbox_ext2_header_read(struct virtual_mailbox *mbox,
 	size_t mailboxes_size = ext2_size - ext2_hdr->hdr_size;
 	if (mailboxes_size % ext2_hdr->ext_record_size != 0 ||
 	    mailboxes_size / ext2_hdr->ext_record_size != ext_hdr->mailbox_count) {
-		i_error("virtual index %s: Invalid ext2 size: "
+		e_error(event,
+			"virtual index %s: Invalid ext2 size: "
 			"hdr_size=%u record_size=%u total_size=%zu mailbox_count=%u",
 			box_path, ext2_hdr->hdr_size, ext2_hdr->ext_record_size,
 			ext2_size, ext_hdr->mailbox_count);
@@ -214,6 +220,7 @@ int virtual_mailbox_ext_header_read(struct virtual_mailbox *mbox,
 				    struct mail_index_view *view,
 				    bool *broken_r)
 {
+	struct event *event = mbox->box.event;
 	const char *box_path = mailbox_get_path(&mbox->box);
 	const struct virtual_mail_index_header *ext_hdr;
 	const struct mail_index_header *hdr;
@@ -260,7 +267,8 @@ int virtual_mailbox_ext_header_read(struct virtual_mailbox *mbox,
 			ext_hdr->mailbox_count * sizeof(*mailboxes);
 		if (ext_name_offset >= ext_size ||
 		    ext_hdr->mailbox_count > INT_MAX/sizeof(*mailboxes)) {
-			i_error("virtual index %s: Broken mailbox_count header",
+			e_error(event,
+				"virtual index %s: Broken mailbox_count header",
 				box_path);
 			*broken_r = TRUE;
 			ext_mailbox_count = 0;
@@ -275,18 +283,21 @@ int virtual_mailbox_ext_header_read(struct virtual_mailbox *mbox,
 	for (i = 0; i < ext_mailbox_count; i++) {
 		if (mailboxes[i].id > ext_hdr->highest_mailbox_id ||
 		    mailboxes[i].id <= prev_mailbox_id) {
-			i_error("virtual index %s: Broken mailbox id",
+			e_error(event,
+				"virtual index %s: Broken mailbox id",
 				box_path);
 			break;
 		}
 		if (mailboxes[i].name_len == 0 ||
 		    mailboxes[i].name_len > ext_size) {
-			i_error("virtual index %s: Broken mailbox name_len",
+			e_error(event,
+				"virtual index %s: Broken mailbox name_len",
 				box_path);
 			break;
 		}
 		if (ext_name_offset + mailboxes[i].name_len > ext_size) {
-			i_error("virtual index %s: Broken mailbox list",
+			e_error(event,
+				"virtual index %s: Broken mailbox list",
 				box_path);
 			break;
 		}
@@ -1860,6 +1871,7 @@ static void virtual_sync_backend_boxes_finish(struct virtual_sync_context *ctx)
 
 static int virtual_sync_finish(struct virtual_sync_context *ctx, bool success)
 {
+	struct event *event = ctx->mbox->box.event;
 	int ret = success ? 0 : -1;
 
 	virtual_sync_backend_boxes_finish(ctx);
@@ -1874,7 +1886,8 @@ static int virtual_sync_finish(struct virtual_sync_context *ctx, bool success)
 			/* make sure we don't complain about the same errors
 			   over and over again. */
 			if (mail_index_unlink(ctx->index) < 0) {
-				i_error("virtual index %s: Failed to unlink() "
+				e_error(event,
+					"virtual index %s: Failed to unlink() "
 					"broken indexes: %m",
 					mailbox_get_path(&ctx->mbox->box));
 			}
