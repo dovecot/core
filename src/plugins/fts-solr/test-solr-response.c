@@ -185,8 +185,9 @@ test_solr_result(const struct solr_response_test_result *test_results,
 
 static void test_solr_response_parser(void)
 {
-	unsigned int i;
+	struct event *event = event_create(NULL);
 
+	unsigned int i;
 	for (i = 0; i < tests_count; i++) T_BEGIN {
 		const struct solr_response_test *test;
 		const char *text;
@@ -206,7 +207,7 @@ static void test_solr_response_parser(void)
 
 		input = test_istream_create_data(text, text_len);
 		pool = pool_alloconly_create("solr response", 4096);
-		parser = solr_response_parser_init(pool, input);
+		parser = solr_response_parser_init(pool, event, input);
 
 		ret = solr_response_parse(parser, &box_results);
 
@@ -220,7 +221,7 @@ static void test_solr_response_parser(void)
 
 		input = test_istream_create_data(text, text_len);
 		pool = pool_alloconly_create("solr response", 4096);
-		parser = solr_response_parser_init(pool, input);
+		parser = solr_response_parser_init(pool, event, input);
 
 		ret = 0;
 		for (pos = 0; pos <= text_len && ret == 0; pos++) {
@@ -239,10 +240,12 @@ static void test_solr_response_parser(void)
 		test_end();
 
 	} T_END;
+	event_unref(&event);
 }
 
 static void test_solr_response_file(const char *file)
 {
+	struct event *event = event_create(NULL);
 	pool_t pool;
 	struct istream *input;
 	struct solr_response_parser *parser;
@@ -251,7 +254,7 @@ static void test_solr_response_file(const char *file)
 
 	pool = pool_alloconly_create("solr response", 4096);
 	input = i_stream_create_file(file, 1024);
-	parser = solr_response_parser_init(pool, input);
+	parser = solr_response_parser_init(pool, event, input);
 
 	while ((ret = solr_response_parse(parser, &box_results)) == 0);
 
@@ -261,6 +264,7 @@ static void test_solr_response_file(const char *file)
 	solr_response_parser_deinit(&parser);
 	i_stream_unref(&input);
 	pool_unref(&pool);
+	event_unref(&event);
 }
 
 int main(int argc, char *argv[])

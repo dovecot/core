@@ -32,6 +32,7 @@ enum solr_xml_content_state {
 struct solr_response_parser {
 	XML_Parser xml_parser;
 	struct istream *input;
+	struct event *event;
 
 	enum solr_xml_response_state state;
 	enum solr_xml_content_state content_state;
@@ -67,7 +68,8 @@ solr_xml_parse(struct solr_response_parser *parser,
 	if (err != XML_ERROR_FINISHED) {
 		line = XML_GetCurrentLineNumber(parser->xml_parser);
 		col = XML_GetCurrentColumnNumber(parser->xml_parser);
-		i_error("fts_solr: Invalid XML input at %d:%d: %s "
+		e_error(parser->event,
+			"fts-solr: Invalid XML input at %d:%d: %s "
 			"(near: %.*s)", line, col, XML_ErrorString(err),
 			(int)I_MIN(size, 128), (const char *)data);
 		parser->xml_failed = TRUE;
@@ -169,7 +171,7 @@ static int solr_lookup_add_doc(struct solr_response_parser *parser)
 	const char *box_id;
 
 	if (parser->uid == 0) {
-		i_error("fts_solr: uid missing from inside doc");
+		e_error(parser->event, "fts-solr: uid missing from inside doc");
 		return -1;
 	}
 
@@ -212,7 +214,8 @@ static void solr_lookup_xml_end(void *context, const char *name ATTR_UNUSED)
 	case SOLR_XML_CONTENT_STATE_UID:
 		if (str_to_uint32(str_c(buf), &parser->uid) < 0 ||
 		    parser->uid == 0) {
-			i_error("fts_solr: received invalid uid '%s'",
+			e_error(parser->event,
+				"fts-solr: received invalid uid '%s'",
 				str_c(buf));
 			parser->content_state = SOLR_XML_CONTENT_STATE_ERROR;
 		}
@@ -228,7 +231,8 @@ static void solr_lookup_xml_end(void *context, const char *name ATTR_UNUSED)
 		break;
 	case SOLR_XML_CONTENT_STATE_UIDVALIDITY:
 		if (str_to_uint32(str_c(buf), &parser->uidvalidity) < 0)
-			i_error("fts_solr: received invalid uidvalidity");
+			e_error(parser->event,
+				"fts-solr: received invalid uidvalidity");
 		break;
 	case SOLR_XML_CONTENT_STATE_ERROR:
 		return;
@@ -277,7 +281,8 @@ static void solr_lookup_xml_data(void *context, const char *str, int len)
 	}
 
 	if (str_len(parser->buffer) + len > MAX_VALUE_LEN) {
-		i_error("fts_solr: XML element data length out of range");
+		e_error(parser->event,
+			"fts-solr: XML element data length out of range");
 		parser->content_state = SOLR_XML_CONTENT_STATE_ERROR;
 		return;
 	}
@@ -286,16 +291,18 @@ static void solr_lookup_xml_data(void *context, const char *str, int len)
 }
 
 struct solr_response_parser *
-solr_response_parser_init(pool_t result_pool, struct istream *input)
+solr_response_parser_init(pool_t result_pool, struct event *event,
+			  struct istream *input)
 {
 	struct solr_response_parser *parser;
 
 	parser = i_new(struct solr_response_parser, 1);
+	parser->event = event_create(event);
 
 	parser->xml_parser = XML_ParserCreate("UTF-8");
 	if (parser->xml_parser == NULL) {
 		i_fatal_status(FATAL_OUTOFMEM,
-			       "fts_solr: Failed to allocate XML parser");
+			       "fts-solr: Failed to allocate XML parser");
 	}
 
 	parser->buffer = str_new(default_pool, 256);
@@ -327,6 +334,7 @@ void solr_response_parser_deinit(struct solr_response_parser **_parser)
 	if (parser == NULL)
 		return;
 
+	event_unref(&parser->event);
 	str_free(&parser->buffer);
 	hash_table_destroy(&parser->mailboxes);
 	XML_ParserFree(parser->xml_parser);

@@ -173,6 +173,7 @@ static void solr_quote_http(string_t *dest, const char *str)
 static void fts_solr_set_default_ns(struct solr_fts_backend *backend)
 {
 	struct mail_namespace *ns = backend->backend.ns;
+	struct event *event = backend->backend.event;
 	struct fts_solr_user *fuser = FTS_SOLR_USER_CONTEXT_REQUIRE(ns->user);
 	const struct fts_solr_settings *set = &fuser->set;
 	const char *str;
@@ -185,8 +186,8 @@ static void fts_solr_set_default_ns(struct solr_fts_backend *backend)
 			mail_namespace_find_prefix(ns->user->namespaces,
 						   set->default_ns_prefix);
 		if (backend->default_ns == NULL) {
-			i_error("fts_solr: default_ns setting points to "
-				"nonexistent namespace");
+			e_error(event,
+				"default_ns setting points to nonexistent namespace");
 		}
 	}
 	if (backend->default_ns == NULL) {
@@ -345,7 +346,8 @@ fts_backend_solr_get_last_uid_fallback(struct solr_fts_backend *backend,
 		if (count == 1 && uidvals[0].seq1 == uidvals[0].seq2) {
 			*last_uid_r = uidvals[0].seq1;
 		} else {
-			i_error("fts_solr: Last UID lookup returned multiple rows");
+			e_error(backend->backend.event,
+				"Last UID lookup returned multiple rows");
 			ret = -1;
 		}
 	}
@@ -757,6 +759,7 @@ solr_search_multi(struct solr_fts_backend *backend, string_t *str,
 		  enum fts_lookup_flags flags,
 		  struct fts_multi_result *result)
 {
+	struct event *event = backend->backend.ns->user->event;
 	struct solr_result **solr_results;
 	struct fts_result *fts_result;
 	ARRAY(struct fts_result) fts_results;
@@ -806,7 +809,8 @@ solr_search_multi(struct solr_fts_backend *backend, string_t *str,
 	for (i = 0; solr_results[i] != NULL; i++) {
 		box = hash_table_lookup(mailboxes, solr_results[i]->box_id);
 		if (box == NULL) {
-			i_warning("fts_solr: Lookup returned unexpected mailbox "
+			e_warning(event,
+				  "Lookup returned unexpected mailbox "
 				  "with id=%s", solr_results[i]->box_id);
 			continue;
 		}

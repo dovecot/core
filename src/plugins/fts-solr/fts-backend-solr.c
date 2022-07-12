@@ -244,7 +244,8 @@ get_last_uid_fallback(struct fts_backend *_backend, struct mailbox *box,
 		if (count == 1 && uidvals[0].seq1 == uidvals[0].seq2) {
 			*last_uid_r = uidvals[0].seq1;
 		} else {
-			i_error("fts_solr: Last UID lookup returned multiple rows");
+			e_error(backend->backend.event,
+				"Last UID lookup returned multiple rows");
 			ret = -1;
 		}
 	}
@@ -621,9 +622,8 @@ fts_backend_solr_update_build_more(struct fts_backend_update_context *_ctx,
 	    str_len(ctx->cur_value) >= SOLR_HEADER_MAX_SIZE) {
 		/* a large header */
 		i_assert(ctx->cur_value != ctx->cmd);
-
-		i_warning("fts-solr(%s): Mailbox %s UID=%u header size is huge, truncating",
-			  ctx->cur_box->storage->user->username,
+		e_warning(ctx->ctx.backend->event,
+			  "Mailbox %s UID=%u header size is huge, truncating",
 			  mailbox_get_vname(ctx->cur_box), ctx->prev_uid);
 		ctx->truncate_header = TRUE;
 	}
@@ -862,6 +862,7 @@ solr_search_multi(struct fts_backend *_backend, string_t *str,
 		  struct mailbox *const boxes[], enum fts_lookup_flags flags,
 		  struct fts_multi_result *result)
 {
+	struct event *event = _backend->ns->user->event;
 	struct solr_fts_backend *backend = (struct solr_fts_backend *)_backend;
 	struct solr_result **solr_results;
 	struct fts_result *fts_result;
@@ -914,7 +915,8 @@ solr_search_multi(struct fts_backend *_backend, string_t *str,
 		box = hash_table_lookup(mailboxes, solr_results[i]->box_id);
 		if (box == NULL) {
 			if (!search_all_mailboxes) {
-				i_warning("fts_solr: Lookup returned unexpected mailbox "
+				e_warning(event,
+					  "fts-solr: Lookup returned unexpected mailbox "
 					  "with guid=%s", solr_results[i]->box_id);
 			}
 			continue;

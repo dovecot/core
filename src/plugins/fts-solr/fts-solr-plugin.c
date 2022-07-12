@@ -43,7 +43,8 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 		} else if (str_begins(*tmp, "batch_size=", &value)) {
 			if (str_to_uint(value, &set->batch_size) < 0 ||
 			    set->batch_size == 0) {
-				i_error("fts_solr: batch_size must be a positive integer");
+				e_error(user->event,
+					"fts-solr: batch_size must be a positive integer");
 					return -1;
 			}
 		} else if (str_begins(*tmp, "soft_commit=", &value)) {
@@ -52,16 +53,19 @@ fts_solr_plugin_init_settings(struct mail_user *user,
 			} else if (strcmp(value, "no") == 0) {
 				set->soft_commit = FALSE;
 			} else {
-				i_error("fts_solr: Invalid setting for soft_commit: %s", *tmp+12);
+				e_error(user->event,
+					"fts-solr: Invalid setting for soft_commit: %s",
+					*tmp+12);
 				return -1;
 			}
 		} else {
-			i_error("fts_solr: Invalid setting: %s", *tmp);
+			e_error(user->event,
+				"fts-solr: Invalid setting: %s", *tmp);
 			return -1;
 		}
 	}
 	if (set->url == NULL) {
-		i_error("fts_solr: url setting missing");
+		e_error(user->event, "fts-solr: url setting missing");
 		return -1;
 	}
 	return 0;
@@ -87,7 +91,7 @@ static void fts_solr_mail_user_create(struct mail_user *user, const char *env)
 		return;
 	}
 	if (fts_mail_user_init(user, fuser->set.use_libfts, &error) < 0) {
-		i_error("fts-solr: %s", error);
+		e_error(user->event, "fts-solr: %s", error);
 		return;
 	}
 

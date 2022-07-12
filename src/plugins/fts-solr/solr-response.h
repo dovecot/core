@@ -14,7 +14,8 @@ struct solr_result {
 };
 
 struct solr_response_parser *
-solr_response_parser_init(pool_t result_pool, struct istream *input);
+solr_response_parser_init(pool_t result_pool, struct event *event,
+			  struct istream *input);
 void solr_response_parser_deinit(struct solr_response_parser **_parser);
 
 int solr_response_parse(struct solr_response_parser *parser,

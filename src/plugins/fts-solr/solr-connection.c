@@ -16,6 +16,7 @@
 
 struct solr_lookup_context {
 	pool_t result_pool;
+	struct event *event;
 	struct istream *payload;
 	struct io *io;
 
@@ -75,7 +76,7 @@ int solr_connection_init(const struct fts_solr_settings *solr_set,
 	if (http_url_parse(solr_set->url, NULL, HTTP_URL_ALLOW_USERINFO_PART,
 			   pool_datastack_create(), &http_url, &error) < 0) {
 		*error_r = t_strdup_printf(
-			"fts_solr: Failed to parse HTTP url: %s", error);
+			"fts-solr: Failed to parse HTTP url: %s", error);
 		return -1;
 	}
 
@@ -146,7 +147,7 @@ static void solr_connection_payload_input(struct solr_lookup_context *lctx)
 	} else {
 		if (lctx->payload->stream_errno != 0) {
 			i_assert(ret < 0);
-			i_error("fts_solr: "
+			e_error(lctx->event, "fts-solr: "
 				"failed to read payload from HTTP server: %s",
 				i_stream_get_error(lctx->payload));
 		}
@@ -162,20 +163,20 @@ solr_connection_select_response(const struct http_response *response,
 				struct solr_lookup_context *lctx)
 {
 	if (response->status / 100 != 2) {
-		i_error("fts_solr: Lookup failed: %s",
+		e_error(lctx->event, "fts-solr: Lookup failed: %s",
 			http_response_get_message(response));
 		lctx->request_status = -1;
 		return;
 	}
 
 	if (response->payload == NULL) {
-		i_error("fts_solr: Lookup failed: Empty response payload");
+		e_error(lctx->event, "fts-solr: Lookup failed: Empty response payload");
 		lctx->request_status = -1;
 		return;
 	}
 
-	lctx->parser = solr_response_parser_init(lctx->result_pool,
-						 response->payload);
+	lctx->parser = solr_response_parser_init(
+		lctx->result_pool, lctx->event, response->payload);
 	lctx->payload = response->payload;
 	lctx->io = io_add_istream(response->payload,
 				  solr_connection_payload_input, lctx);
@@ -191,6 +192,7 @@ int solr_connection_select(struct solr_connection *conn, const char *query,
 
 	i_zero(&lctx);
 	lctx.result_pool = pool;
+	lctx.event = conn->event;
 
 	i_free_and_null(conn->http_failure);
 	url = t_strconcat(conn->http_base_url, "select?", query, NULL);
@@ -222,7 +224,8 @@ solr_connection_update_response(const struct http_response *response,
 				struct solr_connection_post *post)
 {
 	if (response->status / 100 != 2) {
-		i_error("fts_solr: Indexing failed: %s",
+		e_error(post->conn->event,
+			"fts-solr: Indexing failed: %s",
 			http_response_get_message(response));
 		post->request_status = -1;
 	}
