@@ -113,12 +113,14 @@ static unsigned int charset_aliases_init(struct mail_user *user, pool_t pool, co
 	for (i = 0; keyvalues[i] != NULL; i++) {
 		value = strchr(keyvalues[i], '=');
 		if (value == NULL) {
-			i_error("charset_alias: Missing '=' in charset_aliases setting");
+			e_error(user->event,
+				"charset_alias: Missing '=' in charset_aliases setting");
 			continue;
 		}
 		key = t_strdup_until(keyvalues[i], value++);
 		if (key[0] == '\0' || value[0] == '\0') {
-			i_error("charset_alias: charset or alias missing in charset_aliases setting");
+			e_error(user->event,
+				"charset_alias: charset or alias missing in charset_aliases setting");
 			continue;
 		}
 		if (strcasecmp(key, value) != 0) {
