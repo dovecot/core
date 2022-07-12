@@ -51,7 +51,8 @@ quota_reply_write(string_t *str, struct mail_user *user,
 	for (i = 0; *list != NULL; list++) {
 		ret = quota_get_resource(root, "", *list, &value, &limit, &error);
 		if (ret == QUOTA_GET_RESULT_INTERNAL_ERROR) {
-			i_error("Failed to get quota resource %s: %s",
+			e_error(user->event,
+				"Failed to get quota resource %s: %s",
 				*list, error);
 			break;
 		}
