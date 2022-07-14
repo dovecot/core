@@ -23,7 +23,7 @@ struct login_settings {
 	bool auth_ssl_require_client_cert;
 	bool auth_ssl_username_from_cert;
 
-	bool disable_plaintext_auth;
+	bool auth_allow_cleartext;
 	bool auth_verbose;
 	bool auth_debug;
 	bool auth_debug_passwords;

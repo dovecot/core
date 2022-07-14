@@ -38,7 +38,7 @@ static const struct setting_define login_setting_defines[] = {
 	DEF(BOOL, auth_ssl_require_client_cert),
 	DEF(BOOL, auth_ssl_username_from_cert),
 
-	DEF(BOOL, disable_plaintext_auth),
+	DEF(BOOL, auth_allow_cleartext),
 	DEF(BOOL, auth_verbose),
 	DEF(BOOL, auth_debug),
 	DEF(BOOL, verbose_proctitle),
@@ -67,7 +67,7 @@ static const struct login_settings login_default_settings = {
 	.auth_ssl_require_client_cert = FALSE,
 	.auth_ssl_username_from_cert = FALSE,
 
-	.disable_plaintext_auth = TRUE,
+	.auth_allow_cleartext = FALSE,
 	.auth_verbose = FALSE,
 	.auth_debug = FALSE,
 	.verbose_proctitle = FALSE,

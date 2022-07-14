@@ -68,7 +68,7 @@ sasl_server_get_advertised_mechs(struct client *client, unsigned int *count_r)
 		   c) we allow insecure authentication
 		*/
 		if ((fmech.flags & MECH_SEC_PRIVATE) == 0 &&
-		    (client->secured || !client->set->disable_plaintext_auth ||
+		    (client->secured || client->set->auth_allow_cleartext ||
 		     (fmech.flags & MECH_SEC_PLAINTEXT) == 0))
 			ret_mech[j++] = fmech;
 	}
@@ -519,7 +519,7 @@ void sasl_server_auth_begin(struct client *client, const char *mech_name,
 
 	i_assert(!private || (mech->flags & MECH_SEC_PRIVATE) != 0);
 
-	if (!client->secured && client->set->disable_plaintext_auth &&
+	if (!client->secured && !client->set->auth_allow_cleartext &&
 	    (mech->flags & MECH_SEC_PLAINTEXT) != 0) {
 		sasl_server_auth_failed(client,
 			"Plaintext authentication disabled.",

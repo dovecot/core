@@ -1060,7 +1060,7 @@ bool client_check_plaintext_auth(struct client *client, bool pass_sent)
 {
 	bool ssl_required = (strcmp(client->ssl_set->ssl, "required") == 0);
 
-	if (client->secured || (!client->set->disable_plaintext_auth &&
+	if (client->secured || (client->set->auth_allow_cleartext &&
 				!ssl_required))
 		return TRUE;
 
