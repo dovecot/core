@@ -299,6 +299,17 @@ old_settings_handle_root(struct config_parser_context *ctx,
 			obsolete(ctx, "%s is no longer supported", key);
 		return TRUE;
 	}
+	if (strcmp(key, "disable_plaintext_auth") == 0) {
+		const char *error;
+		bool b;
+		if (settings_get_bool(value, &b, &error) < 0)
+			i_fatal("%s has bad value '%s': %s", key, value, error);
+		obsolete(ctx, "%s = %s has been replaced with auth_allow_cleartext = %s",
+			 key, value, b ? "no" : "yes");
+		config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE,
+					 "auth_allow_cleartext", b ? "no" : "yes");
+		return TRUE;
+	}
 	if (ctx->old->auth_section == 1) {
 		if (!str_begins_with(key, "auth_"))
 			key = t_strconcat("auth_", key, NULL);
