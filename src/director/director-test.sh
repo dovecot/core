@@ -29,7 +29,7 @@ log_timestamp = "%b %d %H:%M:%S.%{usecs} "
 director_servers =$dirs
 director_mail_servers = 127.0.0.1-127.0.0.255
 director_user_expire = 15s
-disable_plaintext_auth = no
+auth_allow_cleartext = yes
 
 ssl = no
 service director {
