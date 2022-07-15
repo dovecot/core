@@ -95,7 +95,7 @@ static void remove_newlines_and_append(string_t *dest, const char *src)
 	size_t src_len;
 	string_t *src_nolf;
 	src_len = strlen(src);
-	src_nolf = t_str_new(src_len + 1);
+	src_nolf = t_str_new(src_len);
 	for (size_t i = 0; i < src_len; ++i) {
 		if (src[i] != '\r' && src[i] != '\n') {
 			/* other than CRs and LFS just copy */
