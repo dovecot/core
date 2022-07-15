@@ -522,7 +522,7 @@ void sasl_server_auth_begin(struct client *client, const char *mech_name,
 	if (!client->secured && !client->set->auth_allow_cleartext &&
 	    (mech->flags & MECH_SEC_PLAINTEXT) != 0) {
 		sasl_server_auth_failed(client,
-			"Plaintext authentication disabled.",
+			"Cleartext authentication disabled.",
 			 AUTH_CLIENT_FAIL_CODE_MECH_SSL_REQUIRED);
 		return;
 	}

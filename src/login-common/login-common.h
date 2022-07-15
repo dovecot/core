@@ -11,7 +11,7 @@
 #define AUTH_FAILED_MSG "Authentication failed."
 #define AUTH_TEMP_FAILED_MSG "Temporary authentication failure."
 #define AUTH_PLAINTEXT_DISABLED_MSG \
-	"Plaintext authentication disallowed on non-secure (SSL/TLS) connections."
+	"Cleartext authentication disallowed on non-secure (SSL/TLS) connections."
 
 #define LOGIN_DEFAULT_SOCKET "login"
 #define LOGIN_TOKEN_DEFAULT_SOCKET "tokenlogin"

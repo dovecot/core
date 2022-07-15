@@ -1066,11 +1066,11 @@ bool client_check_plaintext_auth(struct client *client, bool pass_sent)
 
 	if (client->set->auth_verbose) {
 		e_info(client->event, "Login failed: "
-		       "Plaintext authentication disabled");
+		       "Cleartext authentication disabled");
 	}
 	if (pass_sent) {
 		client_notify_status(client, TRUE,
-			 "Plaintext authentication not allowed "
+			 "cleartext authentication not allowed "
 			 "without SSL/TLS, but your client did it anyway. "
 			 "If anyone was listening, the password was exposed.");
 	}
