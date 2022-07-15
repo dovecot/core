@@ -36,7 +36,6 @@ SUBDIRS = \
 	virtual \
 	welcome \
 	zlib \
-	imap-zlib \
 	$(FTS_SOLR) \
 	$(FTS_FLATCURVE) \
 	$(DICT_LDAP) \

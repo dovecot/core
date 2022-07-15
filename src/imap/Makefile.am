@@ -16,6 +16,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib-imap-storage \
 	-I$(top_srcdir)/src/lib-index \
 	-I$(top_srcdir)/src/lib-storage \
+	-I$(top_srcdir)/src/lib-compression \
 	$(BINARY_CFLAGS)
 
 imap_LDFLAGS = -export-dynamic \
@@ -23,6 +24,7 @@ imap_LDFLAGS = -export-dynamic \
 
 imap_LDADD = \
 	../lib-imap-urlauth/libimap-urlauth.la \
+	../lib-compression/libcompression.la \
 	$(LIBDOVECOT_STORAGE) \
 	$(LIBDOVECOT)
 imap_DEPENDENCIES = \
@@ -65,7 +67,8 @@ cmds = \
 	cmd-thread.c \
 	cmd-unselect.c \
 	cmd-unsubscribe.c \
-	cmd-urlfetch.c
+	cmd-urlfetch.c \
+	cmd-compress.c
 
 common_sources = \
 	$(cmds) \

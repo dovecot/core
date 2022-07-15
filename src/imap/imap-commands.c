@@ -77,6 +77,7 @@ static const struct command imap_ext_commands[] = {
 	{ "UID THREAD",		cmd_thread,      COMMAND_FLAG_BREAKS_SEQS },
 	{ "UNSELECT",		cmd_unselect,    COMMAND_FLAG_BREAKS_MAILBOX },
 	{ "XLIST",		cmd_list,        0 },
+	{ "COMPRESS",           cmd_compress,    0 },
 	/* IMAP URLAUTH (RFC4467): */
 	{ "GENURLAUTH",		cmd_genurlauth,  0 },
 	{ "RESETKEY",		cmd_resetkey,    0 },
