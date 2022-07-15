@@ -47,6 +47,7 @@ struct acl_backend {
 	const char **groups;
 	unsigned int group_count;
 
+	struct event *event;
 	struct mailbox_list *list;
 	struct acl_cache *cache;
 	struct acl_global_file *global_file;
@@ -91,7 +92,7 @@ struct acl_object_list_iter {
 };
 
 extern const char *const all_mailbox_rights[];
-
+extern struct event_category event_category_acl;
 struct acl_object_list_iter *
 acl_default_object_list_init(struct acl_object *aclobj);
 bool acl_default_object_list_next(struct acl_object_list_iter *iter,
