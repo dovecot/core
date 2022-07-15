@@ -22,6 +22,62 @@ static const char *str_sanitize_binary(const char *input)
 	return str_c(dest);
 }
 
+/* See imap_append_nstring_nolf() and remove_newlines_and_append(),
+   we need to do this to compensate for the changes made emitting the
+   re-encoded output to parse on the 2nd pass. */
+static const char* suppress_crlfs(const char *src)
+{
+	if (src == NULL)
+		return NULL;
+
+	const char *ptr = strpbrk(src, "\r\n");
+	if (ptr == NULL)
+		return src;
+
+	string_t *dst = t_str_new(strlen(src));
+	str_append_data(dst, src, ptr - src);
+	for (; *ptr != '\0'; ptr++) {
+		switch(ptr[0]) {
+		/* handle CRs and LFs ... */
+		case '\r':
+		case '\n':
+			switch(ptr[1]) {
+			/* ... CRs and LFs followed by a whitespace
+			   OR at the end of the string are discarded */
+			case ' ':
+			case '\t':
+			case '\r':
+			case '\n':
+			case '\0':
+				break;
+			default:
+			/* .. CRs and LFs followed by a non-whitespace
+			   are replaced themselves with a space */
+				str_append_c(dst, ' ');
+			}
+			break;
+		/* other characters are just copied */
+		default:
+			str_append_c(dst, ptr[0]);
+		}
+	}
+	return str_c(dst);
+}
+
+static int compare_field(const char *s1, const char *s2)
+{
+	s1 = suppress_crlfs(s1);
+	s2 = suppress_crlfs(s2);
+	return null_strcasecmp(s1, s2);
+}
+
+static int case_compare_field(const char *s1, const char *s2)
+{
+	s1 = suppress_crlfs(s1);
+	s2 = suppress_crlfs(s2);
+	return null_strcmp(s1, s2);
+}
+
 /* Check additional strings beside parts scanned by message_part_is_equal(),
    to give the fuzzer a chance to explore the outcomes of the parenthesized
    lists string parser. */
@@ -42,18 +98,18 @@ static bool message_part_check_strings(const struct message_part *p1,
 	   replaced with application/octet-stream. If the reparsed type is
 	   octect/stream, ignore the mismatch. */
 
-	if ((null_strcasecmp(d1->content_type, d2->content_type) != 0 ||
-	     null_strcasecmp(d1->content_subtype, d2->content_subtype) != 0) &&
-	    (null_strcasecmp(d2->content_type, "application") != 0 ||
-	     null_strcasecmp(d2->content_subtype, "octet-stream") != 0))
+	if ((case_compare_field(d1->content_type, d2->content_type) != 0 ||
+	     case_compare_field(d1->content_subtype, d2->content_subtype) != 0) &&
+	    (case_compare_field(d2->content_type, "application") != 0 ||
+	     case_compare_field(d2->content_subtype, "octet-stream") != 0))
 		return FALSE;
 
-	if (null_strcasecmp(d1->content_transfer_encoding, d2->content_transfer_encoding) != 0 ||
-	    null_strcmp    (d1->content_id, d2->content_id) != 0 ||
-	    null_strcmp    (d1->content_description, d2->content_description) != 0 ||
-	    null_strcasecmp(d1->content_disposition, d2->content_disposition) != 0 ||
-	    null_strcmp    (d1->content_md5, d2->content_md5) != 0 ||
-	    null_strcmp    (d1->content_location, d2->content_location) != 0)
+	if (case_compare_field(d1->content_transfer_encoding, d2->content_transfer_encoding) != 0 ||
+	    compare_field     (d1->content_id, d2->content_id) != 0 ||
+	    compare_field     (d1->content_description, d2->content_description) != 0 ||
+	    case_compare_field(d1->content_disposition, d2->content_disposition) != 0 ||
+	    compare_field     (d1->content_md5, d2->content_md5) != 0 ||
+	    compare_field     (d1->content_location, d2->content_location) != 0)
 		return FALSE;
 
 	return TRUE;
