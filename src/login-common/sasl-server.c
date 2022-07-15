@@ -521,6 +521,10 @@ void sasl_server_auth_begin(struct client *client, const char *mech_name,
 
 	if (!client->secured && !client->set->auth_allow_cleartext &&
 	    (mech->flags & MECH_SEC_PLAINTEXT) != 0) {
+		client_notify_status(client, TRUE,
+			 "cleartext authentication not allowed "
+			 "without SSL/TLS, but your client did it anyway. "
+			 "If anyone was listening, the password was exposed.");
 		sasl_server_auth_failed(client,
 			"Cleartext authentication disabled.",
 			 AUTH_CLIENT_FAIL_CODE_MECH_SSL_REQUIRED);
