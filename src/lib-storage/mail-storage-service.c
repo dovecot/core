@@ -317,9 +317,8 @@ user_reply_handle(struct mail_storage_service_ctx *ctx,
 static int
 service_auth_userdb_lookup(struct mail_storage_service_ctx *ctx,
 			   const struct mail_storage_service_input *input,
-			   pool_t pool, const char **user,
-			   const char *const **fields_r,
-			   const char **error_r)
+			   pool_t pool, struct event *event, const char **user,
+			   const char *const **fields_r, const char **error_r)
 {
 	struct auth_user_info info;
 	const char *new_username;
@@ -339,8 +338,7 @@ service_auth_userdb_lookup(struct mail_storage_service_ctx *ctx,
 				      &new_username, fields_r);
 	if (ret > 0) {
 		if (strcmp(*user, new_username) != 0) {
-			if (ctx->debug)
-				i_debug("changed username to %s", new_username);
+			e_debug(event, "changed username to %s", new_username);
 			*user = t_strdup(new_username);
 		}
 		*user = new_username;
@@ -1311,7 +1309,8 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	});
 
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0) {
-		ret = service_auth_userdb_lookup(ctx, input, temp_pool,
+		ret = service_auth_userdb_lookup(
+			ctx, input, temp_pool, event,
 			&username, &userdb_fields, error_r);
 		if (ret <= 0) {
 			event_unref(&event);
