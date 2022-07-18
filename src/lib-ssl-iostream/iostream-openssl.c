@@ -322,7 +322,7 @@ openssl_iostream_create(struct ssl_iostream_context *ctx,
 		event_add_category(ssl_io->event, &event_category_ssl_server);
 	if (host != NULL) {
 		event_set_append_log_prefix(ssl_io->event,
-					    i_strdup_printf("%s: ", host));
+					    t_strdup_printf("%s: ", host));
 	}
 	/* bio_int will be freed by SSL_free() */
 	SSL_set_bio(ssl_io->ssl, bio_int, bio_int);
