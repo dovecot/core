@@ -122,7 +122,7 @@ static int lua_doveadm_client_cmd(lua_State *L)
 
 	luaL_checktype(L, 2, LUA_TTABLE);
 	if (lua_doveadm_get_strescaped_str(L, 2, &line, &error) < 0)
-		luaL_error(L, "Invalid command line parameter: %s", error);
+		return luaL_error(L, "Invalid command line parameter: %s", error);
 
 	if (lua_gettop(L) < 3)
 		set.proxy_ttl = DOVEADM_PROXY_TTL;
