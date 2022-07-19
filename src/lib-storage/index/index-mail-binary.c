@@ -214,7 +214,8 @@ static int fd_callback(const char **path_r, void *context)
 	mail_user_set_get_temp_prefix(path, _mail->box->storage->user->set);
 	fd = safe_mkstemp_hostpid(path, 0600, (uid_t)-1, (gid_t)-1);
 	if (fd == -1) {
-		i_error("Temp file creation to %s failed: %m", str_c(path));
+		e_error(mail_event(_mail),
+			"Temp file creation to %s failed: %m", str_c(path));
 		return -1;
 	}
 

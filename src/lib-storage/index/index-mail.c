@@ -2204,7 +2204,8 @@ bool index_mail_prefetch(struct mail *_mail)
 		else
 			len = MAIL_READ_HDR_BLOCK_SIZE;
 		if (posix_fadvise(fd, 0, len, POSIX_FADV_WILLNEED) < 0) {
-			i_error("posix_fadvise(%s) failed: %m",
+			e_error(mail_event(_mail),
+				"posix_fadvise(%s) failed: %m",
 				i_stream_get_name(mail->data.stream));
 		}
 		mail->data.prefetch_sent = TRUE;

@@ -32,10 +32,11 @@
 struct index_storage_module index_storage_module =
 	MODULE_CONTEXT_INIT(&mail_storage_module_register);
 
-static void set_cache_decisions(struct mail_cache *cache,
+static void set_cache_decisions(struct mailbox *box,
 				const char *set, const char *fields,
 				enum mail_cache_decision_type dec)
 {
+	struct mail_cache *cache = box->cache;
 	struct mail_cache_field field;
 	const char *const *arr;
 	unsigned int idx;
@@ -59,12 +60,14 @@ static void set_cache_decisions(struct mail_cache *cache,
 				field.name = name;
 				field.type = MAIL_CACHE_FIELD_HEADER;
 			} else {
-				i_error("%s: Header name '%s' has invalid character, ignoring",
+				e_error(box->event,
+					"%s: Header name '%s' has invalid character, ignoring",
 					set, name);
 				continue;
 			}
 		} else {
-			i_error("%s: Unknown cache field name '%s', ignoring",
+			e_error(box->event,
+				"%s: Unknown cache field name '%s', ignoring",
 				set, *arr);
 			continue;
 		}
@@ -92,14 +95,14 @@ static void index_cache_register_defaults(struct mailbox *box)
 		return;
 	}
 
-	set_cache_decisions(cache, "mail_cache_fields",
+	set_cache_decisions(box, "mail_cache_fields",
 			    set->mail_cache_fields,
 			    MAIL_CACHE_DECISION_TEMP);
-	set_cache_decisions(cache, "mail_always_cache_fields",
+	set_cache_decisions(box, "mail_always_cache_fields",
 			    set->mail_always_cache_fields,
 			    MAIL_CACHE_DECISION_YES |
 			    MAIL_CACHE_DECISION_FORCED);
-	set_cache_decisions(cache, "mail_never_cache_fields",
+	set_cache_decisions(box, "mail_never_cache_fields",
 			    set->mail_never_cache_fields,
 			    MAIL_CACHE_DECISION_NO |
 			    MAIL_CACHE_DECISION_FORCED);

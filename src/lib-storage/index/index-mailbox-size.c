@@ -455,16 +455,16 @@ int index_mailbox_get_physical_size(struct mailbox *box,
 
 			errstr = mailbox_get_last_internal_error(box, &error);
 			if (error != MAIL_ERROR_EXPUNGED) {
-				i_error("Couldn't get size of mail UID %u in %s: %s",
-					mail->uid, box->vname, errstr);
+				e_error(mail_event(mail),
+					"Couldn't get size of mail: %s", errstr);
 				ret = -1;
 				break;
 			}
 		}
 	}
 	if (mailbox_search_deinit(&ctx) < 0) {
-		i_error("Listing mails in %s failed: %s",
-			box->vname, mailbox_get_last_internal_error(box, NULL));
+		e_error(mail_event(mail), "Listing mails failed: %s",
+			mailbox_get_last_internal_error(box, NULL));
 		ret = -1;
 	}
 	(void)mailbox_transaction_commit(&trans);
