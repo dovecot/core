@@ -912,6 +912,9 @@ static inline const char *mailbox_name_sanitize(const char *name)
 	return str_sanitize(name, 128);
 }
 
+struct event *
+mail_storage_mailbox_create_event(struct event *parent, const char *vname);
+
 /* for unit testing */
 int mailbox_verify_name(struct mailbox *box);
 

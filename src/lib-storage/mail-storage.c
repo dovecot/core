@@ -430,6 +430,8 @@ int mail_storage_create_full(struct mail_namespace *ns, const char *driver,
 	storage->event = event_create(ns->user->event);
 	if (storage_class->event_category != NULL)
 		event_add_category(storage->event, storage_class->event_category);
+	event_set_append_log_prefix(
+		storage->event, t_strdup_printf("%s: ", storage_class->name));
 	p_array_init(&storage->module_contexts, storage->pool, 5);
 
 	if (storage->v.create != NULL &&
@@ -573,12 +575,11 @@ void mail_storage_set_internal_error(struct mail_storage *storage)
 	i_free(storage->last_internal_error);
 }
 
-void mail_storage_set_critical(struct mail_storage *storage,
-			       const char *fmt, ...)
+static void
+mail_storage_set_critical_error(struct mail_storage *storage, const char *str)
 {
 	char *old_error = storage->error_string;
 	char *old_internal_error = storage->last_internal_error;
-	va_list va;
 
 	storage->error_string = NULL;
 	storage->last_internal_error = NULL;
@@ -587,16 +588,27 @@ void mail_storage_set_critical(struct mail_storage *storage,
 	   easier to look from log files the actual error message. */
 	mail_storage_set_internal_error(storage);
 
-	va_start(va, fmt);
-	storage->last_internal_error = i_strdup_vprintf(fmt, va);
-	va_end(va);
+	storage->last_internal_error = i_strdup(str);
 	storage->last_error_is_internal = TRUE;
-	e_error(storage->event, "%s", storage->last_internal_error);
 
 	/* free the old_error and old_internal_error only after the new error
 	   is generated, because they may be one of the parameters. */
 	i_free(old_error);
 	i_free(old_internal_error);
+}
+
+void mail_storage_set_critical(struct mail_storage *storage,
+			       const char *fmt, ...)
+{
+	va_list va;
+
+	va_start(va, fmt);
+	T_BEGIN {
+		const char *str = t_strdup_vprintf(fmt, va);
+		mail_storage_set_critical_error(storage, str);
+		e_error(storage->event, "%s", str);
+	} T_END;
+	va_end(va);
 }
 
 void mailbox_set_critical(struct mailbox *box, const char *fmt, ...)
@@ -605,9 +617,11 @@ void mailbox_set_critical(struct mailbox *box, const char *fmt, ...)
 
 	va_start(va, fmt);
 	T_BEGIN {
-		mail_storage_set_critical(box->storage, "Mailbox %s: %s",
-			mailbox_name_sanitize(box->vname),
-			t_strdup_vprintf(fmt, va));
+		const char *str = t_strdup_vprintf(fmt, va);
+		mail_storage_set_critical_error(box->storage,
+			t_strdup_printf("Mailbox %s: %s",
+					mailbox_name_sanitize(box->vname), str));
+		e_error(box->event, "%s", str);
 	} T_END;
 	va_end(va);
 }
@@ -3139,6 +3153,19 @@ mail_storage_settings_to_index_flags(const struct mail_storage_settings *set)
 	if (set->mail_nfs_index)
 		index_flags |= MAIL_INDEX_OPEN_FLAG_NFS_FLUSH;
 	return index_flags;
+}
+
+
+struct event *
+mail_storage_mailbox_create_event(struct event *parent, const char* vname)
+{
+	struct event *event = event_create(parent);
+	event_add_category(event, &event_category_mailbox);
+	event_add_str(event, "mailbox", vname);
+	event_drop_parent_log_prefixes(event, 1);
+	event_set_append_log_prefix(event, t_strdup_printf(
+		"Mailbox %s: ", mailbox_name_sanitize(vname)));
+	return event;
 }
 
 int mail_parse_human_timestamp(const char *str, time_t *timestamp_r,
