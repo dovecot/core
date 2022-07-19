@@ -10,7 +10,7 @@
 
 #define AUTH_FAILED_MSG "Authentication failed."
 #define AUTH_TEMP_FAILED_MSG "Temporary authentication failure."
-#define AUTH_PLAINTEXT_DISABLED_MSG \
+#define AUTH_CLEARTEXT_DISABLED_MSG \
 	"Cleartext authentication disallowed on non-secure (SSL/TLS) connections."
 
 #define LOGIN_DEFAULT_SOCKET "login"

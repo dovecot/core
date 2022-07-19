@@ -526,7 +526,7 @@ void sasl_server_auth_begin(struct client *client, const char *mech_name,
 			 "without SSL/TLS, but your client did it anyway. "
 			 "If anyone was listening, the password was exposed.");
 		sasl_server_auth_failed(client,
-			 AUTH_PLAINTEXT_DISABLED_MSG,
+			 AUTH_CLEARTEXT_DISABLED_MSG,
 			 AUTH_CLIENT_FAIL_CODE_MECH_SSL_REQUIRED);
 		return;
 	}

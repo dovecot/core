@@ -1077,10 +1077,10 @@ bool client_check_plaintext_auth(struct client *client, bool pass_sent)
 
 	if (ssl_required) {
 		client_auth_result(client, CLIENT_AUTH_RESULT_SSL_REQUIRED, NULL,
-			   AUTH_PLAINTEXT_DISABLED_MSG);
+			   AUTH_CLEARTEXT_DISABLED_MSG);
 	} else {
 		client_auth_result(client, CLIENT_AUTH_RESULT_MECH_SSL_REQUIRED, NULL,
-			   AUTH_PLAINTEXT_DISABLED_MSG);
+			   AUTH_CLEARTEXT_DISABLED_MSG);
 	}
 	client->auth_attempts++;
 	return FALSE;
