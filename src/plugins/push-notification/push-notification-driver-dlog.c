@@ -3,17 +3,44 @@
 #include "lib.h"
 #include "array.h"
 
+#include "mail-storage-private.h"
+#include "push-notification-plugin.h"
 #include "push-notification-drivers.h"
 #include "push-notification-events.h"
 #include "push-notification-txn-mbox.h"
 #include "push-notification-txn-msg.h"
 
+#define DLOG_PREFIX "dlog: "
+
+struct dlog_push_notification_context {
+	struct event *event;
+};
+
+struct dlog_push_notification_txn_context {
+	struct event *event;
+};
+
+static struct event *create_dlog_event(struct event *parent)
+{
+	struct event *event = event_create(parent);
+	event_add_category(event, push_notification_get_event_category());
+	event_set_append_log_prefix(event, DLOG_PREFIX);
+	event_set_forced_debug(event, TRUE);
+	return event;
+}
+
 static int
 push_notification_driver_dlog_init(
 	struct push_notification_driver_config *config,
-	struct mail_user *user ATTR_UNUSED, pool_t pool ATTR_UNUSED,
-	void **context ATTR_UNUSED, const char **error_r ATTR_UNUSED)
+	struct mail_user *user, pool_t pool,
+	void **context, const char **error_r ATTR_UNUSED)
 {
+	struct event *log_event = create_dlog_event(user->event);
+	struct dlog_push_notification_txn_context *ctx = p_new(
+		pool, struct dlog_push_notification_txn_context, 1);
+	ctx->event = log_event;
+	*context = ctx;
+
 	i_debug("Called init push_notification plugin hook.");
 
 	if (config->raw_config != NULL) {
@@ -28,6 +55,12 @@ static bool
 push_notification_driver_dlog_begin_txn(
 	struct push_notification_driver_txn *dtxn)
 {
+	struct event *log_event = create_dlog_event(dtxn->ptxn->mbox->event);
+	struct dlog_push_notification_txn_context *tctx = p_new(
+		dtxn->ptxn->pool, struct dlog_push_notification_txn_context, 1);
+	tctx->event = log_event;
+	dtxn->context = tctx;
+
 	const struct push_notification_event *event;
 
 	i_debug("Called begin_txn push_notification plugin hook.");
@@ -78,17 +111,21 @@ push_notification_driver_dlog_process_msg(
 
 static void
 push_notification_driver_dlog_end_txn(
-	struct push_notification_driver_txn *dtxn ATTR_UNUSED,
+	struct push_notification_driver_txn *dtxn,
 	bool success ATTR_UNUSED)
 {
 	i_debug("Called end_txn push_notification plugin hook.");
+	struct dlog_push_notification_txn_context *tctx = dtxn->context;
+	event_unref(&tctx->event);
 }
 
 static void
 push_notification_driver_dlog_deinit(
-	struct push_notification_driver_user *duser ATTR_UNUSED)
+	struct push_notification_driver_user *duser)
 {
 	i_debug("Called deinit push_notification plugin hook.");
+	struct dlog_push_notification_context *ctx = duser->context;
+	event_unref(&ctx->event);
 }
 
 static void push_notification_driver_dlog_cleanup(void)
