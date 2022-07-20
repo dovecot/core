@@ -15,8 +15,9 @@ push_notification_event_mailboxrename_debug_mbox(
 	struct push_notification_txn_event *event)
 {
 	struct push_notification_event_mailboxrename_data *data = event->data;
+	struct event *log_event = event->event->log_event;
 
-	i_debug("%s: Mailbox was renamed (old name: %s)",
+	e_debug(log_event, "%s: Mailbox was renamed (old name: %s)",
 		EVENT_NAME, data->old_mbox);
 }
 

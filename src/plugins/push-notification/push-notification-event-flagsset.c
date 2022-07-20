@@ -27,22 +27,23 @@ static void
 push_notification_event_flagsset_debug_msg(
 	struct push_notification_txn_event *event)
 {
+	struct event *log_event = event->event->log_event;
 	struct push_notification_event_flagsset_data *data = event->data;
 	const char *keyword;
 
 	if ((data->flags_set & MAIL_ANSWERED) != 0)
-		i_debug("%s: Answered flag set", EVENT_NAME);
+		e_debug(log_event, "%s: Answered flag set", EVENT_NAME);
 	if ((data->flags_set & MAIL_FLAGGED) != 0)
-		i_debug("%s: Flagged flag set", EVENT_NAME);
+		e_debug(log_event, "%s: Flagged flag set", EVENT_NAME);
 	if ((data->flags_set & MAIL_DELETED) != 0)
-		i_debug("%s: Deleted flag set", EVENT_NAME);
+		e_debug(log_event, "%s: Deleted flag set", EVENT_NAME);
 	if ((data->flags_set & MAIL_SEEN) != 0)
-		i_debug("%s: Seen flag set", EVENT_NAME);
+		e_debug(log_event, "%s: Seen flag set", EVENT_NAME);
 	if ((data->flags_set & MAIL_DRAFT) != 0)
-		i_debug("%s: Draft flag set", EVENT_NAME);
+		e_debug(log_event, "%s: Draft flag set", EVENT_NAME);
 
 	array_foreach_elem(&data->keywords_set, keyword)
-		i_debug("%s: Keyword set [%s]", EVENT_NAME, keyword);
+		e_debug(log_event, "%s: Keyword set [%s]", EVENT_NAME, keyword);
 }
 
 static struct push_notification_event_flagsset_data *

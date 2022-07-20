@@ -15,10 +15,11 @@ static void
 push_notification_event_messageexpunge_debug_msg(
 	struct push_notification_txn_event *event)
 {
+	struct event *log_event = event->event->log_event;
 	struct push_notification_event_messageexpunge_data *data = event->data;
 
 	if (data != NULL)
-		i_debug("%s: Message was expunged", EVENT_NAME);
+		e_debug(log_event, "%s: Message was expunged", EVENT_NAME);
 }
 
 static void

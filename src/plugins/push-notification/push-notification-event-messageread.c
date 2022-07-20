@@ -13,9 +13,10 @@
 
 static void
 push_notification_event_messageread_debug_msg(
-	struct push_notification_txn_event *event ATTR_UNUSED)
+	struct push_notification_txn_event *event)
 {
-	i_debug("%s: Message was flagged as seen", EVENT_NAME);
+	struct event *log_event = event->event->log_event;
+	e_debug(log_event, "%s: Message was flagged as seen", EVENT_NAME);
 }
 
 static void

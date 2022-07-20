@@ -12,9 +12,10 @@
 
 static void
 push_notification_event_mailboxcreate_debug_mbox(
-	struct push_notification_txn_event *event ATTR_UNUSED)
+	struct push_notification_txn_event *event)
 {
-	i_debug("%s: Mailbox was created", EVENT_NAME);
+	struct event *log_event = event->event->log_event;
+	e_debug(log_event, "%s: Mailbox was created", EVENT_NAME);
 }
 
 static void
@@ -27,7 +28,8 @@ push_notification_event_mailboxcreate_event(
 	struct mailbox_status status;
 
 	if (mailbox_get_status(ptxn->mbox, STATUS_UIDVALIDITY, &status) < 0) {
-		i_error(EVENT_NAME
+		e_error(ptxn->muser->event,
+			EVENT_NAME
 			"Failed to get created mailbox '%s' uidvalidity: %s",
 			mailbox_get_vname(ptxn->mbox),
 			mailbox_get_last_internal_error(ptxn->mbox, NULL));

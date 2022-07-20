@@ -30,23 +30,24 @@ static void
 push_notification_event_messagenew_debug_msg(
 	struct push_notification_txn_event *event)
 {
+	struct event *log_event = event->event->log_event;
 	struct push_notification_event_messagenew_data *data = event->data;
 	struct tm *tm;
 
 	if (data->date != -1) {
 		tm = gmtime(&data->date);
-		i_debug("%s: Date [%s]", EVENT_NAME,
+		e_debug(log_event, "%s: Date [%s]", EVENT_NAME,
 			iso8601_date_create_tm(tm, data->date_tz));
 	}
 
 	if (data->from != NULL)
-		i_debug("%s: From [%s]", EVENT_NAME, data->from);
+		e_debug(log_event, "%s: From [%s]", EVENT_NAME, data->from);
 	if (data->snippet != NULL)
-		i_debug("%s: Snippet [%s]", EVENT_NAME, data->snippet);
+		e_debug(log_event, "%s: Snippet [%s]", EVENT_NAME, data->snippet);
 	if (data->subject != NULL)
-		i_debug("%s: Subject [%s]", EVENT_NAME, data->subject);
+		e_debug(log_event, "%s: Subject [%s]", EVENT_NAME, data->subject);
 	if (data->to != NULL)
-		i_debug("%s: To [%s]", EVENT_NAME, data->to);
+		e_debug(log_event, "%s: To [%s]", EVENT_NAME, data->to);
 }
 
 static void

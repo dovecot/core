@@ -89,7 +89,8 @@ int push_notification_driver_init(
 
 	driver = push_notification_driver_find_class(driver_name);
 	if (driver == NULL) {
-		i_error("Unknown push notification driver: %s", driver_name);
+		e_error(user->event,
+			"Unknown push notification driver: %s", driver_name);
 		return -1;
 	}
 
@@ -102,7 +103,8 @@ int push_notification_driver_init(
 			ret = driver->v.init(config, user, pool,
 					     &context, &error_r);
 			if (ret < 0)
-				i_error("%s: %s", driver_name, error_r);
+				e_error(user->event, "%s: %s",
+					driver_name, error_r);
 			hash_table_destroy(&config->config);
 		} T_END;
 

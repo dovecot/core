@@ -11,9 +11,10 @@
 
 static void
 push_notification_event_mailboxdelete_debug_mbox(
-	struct push_notification_txn_event *event ATTR_UNUSED)
+	struct push_notification_txn_event *event)
 {
-	i_debug("%s: Mailbox was deleted", EVENT_NAME);
+	struct event *log_event = event->event->log_event;
+	e_debug(log_event, "%s: Mailbox was deleted", EVENT_NAME);
 }
 
 static void

@@ -41,10 +41,10 @@ push_notification_driver_dlog_init(
 	ctx->event = log_event;
 	*context = ctx;
 
-	i_debug("Called init push_notification plugin hook.");
-
+	e_debug(log_event, "Called init push_notification plugin hook.");
 	if (config->raw_config != NULL) {
-		i_debug("Config string for dlog push_notification driver: %s",
+		e_debug(log_event,
+			"Config string for dlog push_notification driver: %s",
 			config->raw_config);
 	}
 
@@ -61,10 +61,9 @@ push_notification_driver_dlog_begin_txn(
 	tctx->event = log_event;
 	dtxn->context = tctx;
 
+	e_debug(log_event, "Called begin_txn push_notification plugin hook.");
+
 	const struct push_notification_event *event;
-
-	i_debug("Called begin_txn push_notification plugin hook.");
-
 	array_foreach_elem(&push_notification_events, event)
 		push_notification_event_init(dtxn, event->name, NULL, log_event);
 	return TRUE;
@@ -72,15 +71,14 @@ push_notification_driver_dlog_begin_txn(
 
 static void
 push_notification_driver_dlog_process_mbox(
-	struct push_notification_driver_txn *dtxn ATTR_UNUSED,
+	struct push_notification_driver_txn *dtxn,
 	struct push_notification_txn_mbox *mbox)
 {
+	struct dlog_push_notification_txn_context *tctx = dtxn->context;
+	e_debug(tctx->event, "Called process_mbox push_notification plugin hook.");
+	e_debug(tctx->event, "Mailbox data: Mailbox [%s]", mbox->mailbox);
+
 	struct push_notification_txn_event *event;
-
-	i_debug("Called process_mbox push_notification plugin hook.");
-
-	i_debug("Mailbox data: Mailbox [%s]", mbox->mailbox);
-
 	if (array_is_created(&mbox->eventdata)) {
 		array_foreach_elem(&mbox->eventdata, event) {
 			if (event->event->event->mbox.debug_mbox != NULL)
@@ -94,13 +92,12 @@ push_notification_driver_dlog_process_msg(
 	struct push_notification_driver_txn *dtxn ATTR_UNUSED,
 	struct push_notification_txn_msg *msg)
 {
-	struct push_notification_txn_event *event;
-
-	i_debug("Called process_msg push_notification plugin hook.");
-
-	i_debug("Message data: Mailbox [%s], UID [%u], UIDVALIDITY [%u]",
+	struct dlog_push_notification_txn_context *tctx = dtxn->context;
+	e_debug(tctx->event, "Called process_msg push_notification plugin hook.");
+	e_debug(tctx->event, "Message data: Mailbox [%s], UID [%u], UIDVALIDITY [%u]",
 		msg->mailbox, msg->uid, msg->uid_validity);
 
+	struct push_notification_txn_event *event;
 	if (array_is_created(&msg->eventdata)) {
 		array_foreach_elem(&msg->eventdata, event) {
 			if (event->event->event->msg.debug_msg != NULL)
@@ -114,8 +111,8 @@ push_notification_driver_dlog_end_txn(
 	struct push_notification_driver_txn *dtxn,
 	bool success ATTR_UNUSED)
 {
-	i_debug("Called end_txn push_notification plugin hook.");
 	struct dlog_push_notification_txn_context *tctx = dtxn->context;
+	e_debug(tctx->event, "Called end_txn push_notification plugin hook.");
 	event_unref(&tctx->event);
 }
 
@@ -123,8 +120,8 @@ static void
 push_notification_driver_dlog_deinit(
 	struct push_notification_driver_user *duser)
 {
-	i_debug("Called deinit push_notification plugin hook.");
 	struct dlog_push_notification_context *ctx = duser->context;
+	e_debug(ctx->event, "Called deinit push_notification plugin hook.");
 	event_unref(&ctx->event);
 }
 
