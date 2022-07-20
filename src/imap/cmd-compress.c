@@ -45,7 +45,7 @@ bool cmd_compress(struct client_command_context *cmd)
 	const struct imap_arg *args;
 	struct istream *old_input;
 	struct ostream *old_output;
-	const char *mechanism, *value;
+	const char *mechanism;
 	int level;
 
 	/* <mechanism> */
@@ -70,20 +70,7 @@ bool cmd_compress(struct client_command_context *cmd)
 	client_skip_line(client);
 	client_send_tagline(cmd, "OK Begin compression.");
 
-	const char *setting = t_strdup_printf("imap_compress_%s_level",
-					      handler->name);
-	value = mail_user_plugin_getenv(client->user, setting);
-	if (value == NULL) {
-		level = handler->get_default_level();
-	} else if (str_to_int(value, &level) < 0 ||
-		   level < handler->get_min_level() ||
-		   level > handler->get_max_level()) {
-		i_error("%s: Level must be between %d..%d",
-			setting,
-			handler->get_min_level(),
-			handler->get_max_level());
-		level = handler->get_default_level();
-	}
+	level = handler->get_default_level();
 	old_input = client->input;
 	old_output = client->output;
 	client->input = handler->create_istream(old_input);
