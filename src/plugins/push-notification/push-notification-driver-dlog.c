@@ -66,7 +66,7 @@ push_notification_driver_dlog_begin_txn(
 	i_debug("Called begin_txn push_notification plugin hook.");
 
 	array_foreach_elem(&push_notification_events, event)
-		push_notification_event_init(dtxn, event->name, NULL);
+		push_notification_event_init(dtxn, event->name, NULL, log_event);
 	return TRUE;
 }
 

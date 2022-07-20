@@ -88,6 +88,7 @@ struct push_notification_event_vfuncs_msg_triggers {
 
 struct push_notification_event_config {
 	const struct push_notification_event *event;
+	struct event *log_event;
 	void *config;
 };
 
@@ -113,7 +114,8 @@ ARRAY_TYPE(push_notification_event) *push_notification_get_events(void);
 
 
 void push_notification_event_init(struct push_notification_driver_txn *dtxn,
-				  const char *event_name, void *config);
+				  const char *event_name, void *config,
+				  struct event *event);
 
 void push_notification_event_register(
 	const struct push_notification_event *event);

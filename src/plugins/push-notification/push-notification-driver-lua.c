@@ -155,24 +155,18 @@ push_notification_driver_lua_init_events(
 
 		e_debug(ctx->event, "Found %s, handling %s event", fn, name);
 
-		if (strcmp(name, "MessageNew") == 0) {
-			push_notification_event_init(dtxn, name,
-						     &ctx->config_mn);
-		} else if (strcmp(name, "MessageAppend") == 0) {
-			push_notification_event_init(dtxn, name,
-						     &ctx->config_ma);
-		} else if (strcmp(name, "FlagsSet") == 0) {
-			push_notification_event_init(dtxn, name,
-						     &ctx->config_fs);
-		} else if (strcmp(name, "FlagsClear") == 0) {
-			push_notification_event_init(dtxn, name,
-						     &ctx->config_fc);
-		} else if (event->init.default_config != NULL) {
-			void *config = event->init.default_config();
-			push_notification_event_init(dtxn, name, config);
-		} else {
-			push_notification_event_init(dtxn, name, NULL);
-		}
+		void *config = NULL;
+		if (strcmp(name, "MessageNew") == 0)
+			config = &ctx->config_mn;
+		else if (strcmp(name, "MessageAppend") == 0)
+			config = &ctx->config_ma;
+		else if (strcmp(name, "FlagsSet") == 0)
+			config = &ctx->config_fs;
+		else if (strcmp(name, "FlagsClear") == 0)
+			config = &ctx->config_fc;
+		else if (event->init.default_config != NULL)
+			config = event->init.default_config();
+		push_notification_event_init(dtxn, name, config, ctx->event);
 	}
 
 	return found_one;

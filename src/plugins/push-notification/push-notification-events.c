@@ -42,7 +42,8 @@ push_notification_event_find_class(const char *driver)
 }
 
 void push_notification_event_init(struct push_notification_driver_txn *dtxn,
-				  const char *event_name, void *config)
+				  const char *event_name, void *config,
+				  struct event *log_event)
 {
 	const struct push_notification_event *event;
 	struct push_notification_event_config *ec;
@@ -60,6 +61,7 @@ void push_notification_event_init(struct push_notification_driver_txn *dtxn,
 			   struct push_notification_event_config, 1);
 		ec->config = config;
 		ec->event = event;
+		ec->log_event = log_event;
 
 		array_push_back(&dtxn->ptxn->events, &ec);
 	}

@@ -281,7 +281,7 @@ push_notification_driver_ox_begin_txn(struct push_notification_driver_txn *dtxn)
 					PUSH_NOTIFICATION_MESSAGE_HDR_SUBJECT |
 					PUSH_NOTIFICATION_MESSAGE_BODY_SNIPPET;
 			push_notification_event_init(
-				dtxn, "MessageNew", config);
+				dtxn, "MessageNew", config, dconfig->event);
 			e_debug(dconfig->event, "Handling MessageNew event");
 		}
 	}
