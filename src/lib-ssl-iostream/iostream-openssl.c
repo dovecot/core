@@ -682,7 +682,8 @@ static int openssl_iostream_handshake(struct ssl_iostream *ssl_io)
 	const char *reason, *error = NULL;
 	int ret;
 
-	i_assert(!ssl_io->handshaked);
+	if (ssl_io->handshaked)
+		return openssl_iostream_bio_sync(ssl_io, OPENSSL_IOSTREAM_SYNC_TYPE_HANDSHAKE);
 
 	/* we are being destroyed, so do not do any more handshaking */
 	if (ssl_io->destroyed)
@@ -921,6 +922,13 @@ openssl_iostream_get_protocol_name(struct ssl_iostream *ssl_io)
 	return SSL_get_version(ssl_io->ssl);
 }
 
+static const char *
+openssl_iostream_get_ja3(struct ssl_iostream *ssl_io)
+{
+	if (!ssl_io->handshaked)
+		return NULL;
+	return ssl_io->ja3_str;
+}
 
 static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.global_init = openssl_iostream_global_init,
@@ -952,6 +960,7 @@ static const struct iostream_ssl_vfuncs ssl_vfuncs = {
 	.get_cipher = openssl_iostream_get_cipher,
 	.get_pfs = openssl_iostream_get_pfs,
 	.get_protocol_name = openssl_iostream_get_protocol_name,
+	.get_ja3 = openssl_iostream_get_ja3,
 };
 
 void ssl_iostream_openssl_init(void)

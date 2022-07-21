@@ -125,6 +125,7 @@ AC_DEFUN([DOVECOT_SSL], [
   DOVECOT_CHECK_SSL_FUNC([RSA_set0_key])
   DOVECOT_CHECK_SSL_FUNC([SSL_CIPHER_get_kx_nid])
   DOVECOT_CHECK_SSL_FUNC([SSL_clear_options])
+  DOVECOT_CHECK_SSL_FUNC([SSL_client_hello_get0_ciphers])
   DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set0_tmp_dh_pkey])
   DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_ciphersuites])
   DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_ecdh_auto])

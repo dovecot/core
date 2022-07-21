@@ -1,6 +1,8 @@
 /* Copyright (c) 2009-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "str.h"
+#include "hex-binary.h"
 #include "safe-memset.h"
 #include "iostream-openssl.h"
 #include "dovecot-openssl-common.h"
@@ -13,6 +15,7 @@
 #include <openssl/pem.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <arpa/inet.h>
 
 #ifndef HAVE_EVP_PKEY_get0_DH
 #  define EVP_PKEY_get0_DH(x) ((x)->pkey.dh)
@@ -368,6 +371,169 @@ static int ssl_servername_callback(SSL *ssl, int *al ATTR_UNUSED,
 	return SSL_TLSEXT_ERR_OK;
 }
 
+#ifdef HAVE_SSL_client_hello_get0_ciphers
+
+static const int ssl_ja3_grease[] = {
+	0x0a0a,
+	0x1a1a,
+	0x2a2a,
+	0x3a3a,
+	0x4a4a,
+	0x5a5a,
+	0x6a6a,
+	0x7a7a,
+	0x8a8a,
+	0x9a9a,
+	0xaaaa,
+	0xbaba,
+	0xcaca,
+	0xdada,
+	0xeaea,
+	0xfafa,
+};
+
+static bool
+ssl_ja3_is_ext_greased(int id)
+{
+	for (size_t i = 0; i < N_ELEMENTS(ssl_ja3_grease); ++i)
+		if (id == ssl_ja3_grease[i])
+			return TRUE;
+	return FALSE;
+}
+
+static const int ssl_ja3_nid_list[] = {
+	NID_sect163k1,        /* sect163k1 (1) */
+	NID_sect163r1,        /* sect163r1 (2) */
+	NID_sect163r2,        /* sect163r2 (3) */
+	NID_sect193r1,        /* sect193r1 (4) */
+	NID_sect193r2,        /* sect193r2 (5) */
+	NID_sect233k1,        /* sect233k1 (6) */
+	NID_sect233r1,        /* sect233r1 (7) */
+	NID_sect239k1,        /* sect239k1 (8) */
+	NID_sect283k1,        /* sect283k1 (9) */
+	NID_sect283r1,        /* sect283r1 (10) */
+	NID_sect409k1,        /* sect409k1 (11) */
+	NID_sect409r1,        /* sect409r1 (12) */
+	NID_sect571k1,        /* sect571k1 (13) */
+	NID_sect571r1,        /* sect571r1 (14) */
+	NID_secp160k1,        /* secp160k1 (15) */
+	NID_secp160r1,        /* secp160r1 (16) */
+	NID_secp160r2,        /* secp160r2 (17) */
+	NID_secp192k1,        /* secp192k1 (18) */
+	NID_X9_62_prime192v1, /* secp192r1 (19) */
+	NID_secp224k1,        /* secp224k1 (20) */
+	NID_secp224r1,        /* secp224r1 (21) */
+	NID_secp256k1,        /* secp256k1 (22) */
+	NID_X9_62_prime256v1, /* secp256r1 (23) */
+	NID_secp384r1,        /* secp384r1 (24) */
+	NID_secp521r1,        /* secp521r1 (25) */
+	NID_brainpoolP256r1,  /* brainpoolP256r1 (26) */
+	NID_brainpoolP384r1,  /* brainpoolP384r1 (27) */
+	NID_brainpoolP512r1,  /* brainpool512r1 (28) */
+	NID_X25519,           /* X25519 (29) */
+	NID_X448,             /* X448 (30) */
+};
+
+static int ssl_ja3_nid_to_cid(int nid)
+{
+	for (size_t i = 0; i < N_ELEMENTS(ssl_ja3_nid_list); i++)
+		if (nid == ssl_ja3_nid_list[i])
+			return ((int)i)+1;
+
+	if (nid == NID_ffdhe2048)
+		return 0x100;
+	else if (nid == NID_ffdhe3072)
+		return 0x101;
+	else if (nid == NID_ffdhe4096)
+		return 0x102;
+	else if (nid == NID_ffdhe6144)
+		return 0x103;
+	else if (nid == NID_ffdhe8192)
+	        return 0x104;
+	return nid;
+}
+
+static int ssl_clienthello_callback(SSL *ssl, int *al ATTR_UNUSED,
+				    void *context ATTR_UNUSED)
+{
+	struct ssl_iostream *ssl_io =
+		SSL_get_ex_data(ssl, dovecot_ssl_extdata_index);
+
+	int ver = SSL_version(ssl)-1;
+	const unsigned char *ciphers = NULL;
+	size_t nciphers = 0;
+	string_t *ja3 = str_new(ssl_io->ctx->pool, 64);
+
+	str_printfa(ja3, "%d,", ver);
+	nciphers = SSL_client_hello_get0_ciphers(ssl, &ciphers);
+
+	for (size_t i = 0; i < nciphers; i += 2) {
+		if (i > 0)
+			str_append_c(ja3, '-');
+		uint16_t cipher = be16_to_cpu_unaligned(&ciphers[i]);
+		str_printfa(ja3, "%u", cipher);
+	}
+	str_append_c(ja3, ',');
+
+	int *exts = NULL;
+	size_t nexts = 0;
+	if (SSL_client_hello_get1_extensions_present(ssl, &exts, &nexts) == 1) {
+		bool first = TRUE;
+		for (size_t i = 0; i < nexts; i++) {
+			if (ssl_ja3_is_ext_greased(exts[i]))
+				continue;
+			if (first)
+				first = FALSE;
+			else
+				str_append_c(ja3, '-');
+			str_printfa(ja3, "%d", exts[i]);
+		}
+		OPENSSL_free(exts);
+	}
+	str_append_c(ja3, ',');
+
+	const unsigned char *ext = NULL;
+	size_t extlen;
+
+	/* Process extension 10 - groups */
+	if (SSL_client_hello_get0_ext(ssl, 10, &ext, &extlen) == 1 &&
+	    extlen > 0) {
+		bool first = TRUE;
+		unsigned short veclen = be16_to_cpu_unaligned(ext);
+		if (veclen+2 == extlen) {
+			for (size_t i = 2; i < extlen; i+=2) {
+				uint16_t group = be16_to_cpu_unaligned(&ext[i]);
+				if (ssl_ja3_is_ext_greased(group))
+					continue;
+				if (first)
+					first = FALSE;
+				else
+					str_append_c(ja3, '-');
+				str_printfa(ja3, "%u", ssl_ja3_nid_to_cid(group));
+			}
+		}
+	}
+	str_append_c(ja3, ',');
+
+	/* Process extension 11 - ec point formats */
+	ext = NULL;
+	if (SSL_client_hello_get0_ext(ssl, 11, &ext, &extlen) == 1 &&
+	    extlen > 0 && extlen == ext[0]+1) {
+		for (size_t i = 1; i < extlen; i++) {
+			if (i > 1)
+				str_append_c(ja3, '-');
+			str_printfa(ja3, "%u", ext[i]);
+		}
+	}
+
+	/* Store ja3 string */
+	ssl_io->ja3_str = str_c(ja3);
+
+	return SSL_CLIENT_HELLO_SUCCESS;
+}
+
+#endif
+
 static int
 ssl_iostream_context_load_ca(struct ssl_iostream_context *ctx,
 			     const struct ssl_iostream_settings *set,
@@ -510,6 +676,9 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			if (set->verbose)
 				i_debug("OpenSSL library doesn't support SNI");
 		}
+#ifdef HAVE_SSL_client_hello_get0_ciphers
+		SSL_CTX_set_client_hello_cb(ctx->ssl_ctx, ssl_clienthello_callback, ctx);
+#endif
 	}
 	return 0;
 }

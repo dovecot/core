@@ -126,6 +126,12 @@ const char *ssl_iostream_get_peer_name(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_compression(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_server_name(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_security_string(struct ssl_iostream *ssl_io);
+
+/* Returns ClientHello based JA3 string. Will return NULL
+   if it is not available due to no handshake performed, or
+   OpenSSL version is earlier than 1.1. */
+const char *ssl_iostream_get_ja3(struct ssl_iostream *ssl_io);
+
 /* Returns SSL context's current used cipher algorithm. Returns NULL
    if SSL handshake has not been performed.
 
