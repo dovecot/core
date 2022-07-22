@@ -535,6 +535,7 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 			doveadm_mail_server_handle(server, conn,
 						   request_copy.username);
 			doveadm_server_request_free(&request_copy);
+			doveadm_client_unref(&conn);
 			break;
 		}
 	}
