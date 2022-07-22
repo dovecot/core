@@ -734,6 +734,7 @@ lmtp_proxy_rcpt_redirect_relookup(struct lmtp_proxy_recipient *lprcpt,
 	} else {
 		lmtp_proxy_rcpt_redirect_finish(lprcpt, set);
 	}
+	pool_unref(&auth_pool);
 }
 
 static void
