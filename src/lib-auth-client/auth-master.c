@@ -357,11 +357,13 @@ void auth_master_set_io(struct auth_master_connection *conn)
 
 void auth_master_unset_io(struct auth_master_connection *conn)
 {
+	if (conn->ioloop == NULL)
+		return;
+
 	if (conn->prev_ioloop != NULL) {
 		io_loop_set_current(conn->prev_ioloop);
 	}
-	if (conn->ioloop != NULL &&
-	    (conn->flags & AUTH_MASTER_FLAG_NO_INNER_IOLOOP) == 0) {
+	if ((conn->flags & AUTH_MASTER_FLAG_NO_INNER_IOLOOP) == 0) {
 		io_loop_set_current(conn->ioloop);
 		connection_switch_ioloop_to(&conn->conn, conn->ioloop);
 		connection_input_halt(&conn->conn);
