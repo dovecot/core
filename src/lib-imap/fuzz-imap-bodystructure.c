@@ -68,14 +68,14 @@ static int compare_field(const char *s1, const char *s2)
 {
 	s1 = suppress_crlfs(s1);
 	s2 = suppress_crlfs(s2);
-	return null_strcasecmp(s1, s2);
+	return null_strcmp(s1, s2);
 }
 
-static int case_compare_field(const char *s1, const char *s2)
+static int compare_ignorecase(const char *s1, const char *s2)
 {
 	s1 = suppress_crlfs(s1);
 	s2 = suppress_crlfs(s2);
-	return null_strcmp(s1, s2);
+	return null_strcasecmp(s1, s2);
 }
 
 /* Check additional strings beside parts scanned by message_part_is_equal(),
@@ -98,16 +98,16 @@ static bool message_part_check_strings(const struct message_part *p1,
 	   replaced with application/octet-stream. If the reparsed type is
 	   octect/stream, ignore the mismatch. */
 
-	if ((case_compare_field(d1->content_type, d2->content_type) != 0 ||
-	     case_compare_field(d1->content_subtype, d2->content_subtype) != 0) &&
-	    (case_compare_field(d2->content_type, "application") != 0 ||
-	     case_compare_field(d2->content_subtype, "octet-stream") != 0))
+	if ((compare_ignorecase(d1->content_type, d2->content_type) != 0 ||
+	     compare_ignorecase(d1->content_subtype, d2->content_subtype) != 0) &&
+	    (compare_ignorecase(d2->content_type, "application") != 0 ||
+	     compare_ignorecase(d2->content_subtype, "octet-stream") != 0))
 		return FALSE;
 
-	if (case_compare_field(d1->content_transfer_encoding, d2->content_transfer_encoding) != 0 ||
+	if (compare_ignorecase(d1->content_transfer_encoding, d2->content_transfer_encoding) != 0 ||
 	    compare_field     (d1->content_id, d2->content_id) != 0 ||
 	    compare_field     (d1->content_description, d2->content_description) != 0 ||
-	    case_compare_field(d1->content_disposition, d2->content_disposition) != 0 ||
+	    compare_ignorecase(d1->content_disposition, d2->content_disposition) != 0 ||
 	    compare_field     (d1->content_md5, d2->content_md5) != 0 ||
 	    compare_field     (d1->content_location, d2->content_location) != 0)
 		return FALSE;
