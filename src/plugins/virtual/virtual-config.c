@@ -485,12 +485,9 @@ int virtual_config_read(struct virtual_mailbox *mbox)
 		} else if (errno != ENOENT) {
 			mailbox_set_critical(&mbox->box,
 					     "open(%s) failed: %m", path);
-		} else if (errno == ENOENT) {
+		} else {
 			mail_storage_set_error(storage, MAIL_ERROR_NOTFOUND,
 				T_MAIL_ERR_MAILBOX_NOT_FOUND(mbox->box.vname));
-		} else {
-			mailbox_set_critical(&mbox->box,
-				"stat(%s) failed: %m", box_path);
 		}
 		return -1;
 	}
