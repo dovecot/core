@@ -367,6 +367,10 @@ static bool catenate_args_can_stop(struct cmd_append_context *ctx,
 			return TRUE;
 		}
 		args++;
+		if (args->type == IMAP_ARG_EOL) {
+			/* error - handle it later */
+			return TRUE;
+		}
 		if (args->type == IMAP_ARG_LITERAL_SIZE ||
 		    args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC) {
 			if (args->type == IMAP_ARG_LITERAL_SIZE) {
