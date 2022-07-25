@@ -79,9 +79,12 @@ test_programs = \
 noinst_PROGRAMS = $(test_programs)
 
 test_libs = \
-	mail-index-util.lo \
 	../lib-test/libtest.la \
 	../lib/liblib.la
+
+test_minimal_libs = \
+	mail-index-util.lo \
+	$(test_libs)
 
 test_deps = $(noinst_LTLIBRARIES) $(test_libs)
 
@@ -114,19 +117,19 @@ test_mail_index_sync_ext_LDADD = $(noinst_LTLIBRARIES) $(test_libs)
 test_mail_index_sync_ext_DEPENDENCIES = $(test_deps)
 
 test_mail_index_transaction_finish_SOURCES = test-mail-index-transaction-finish.c
-test_mail_index_transaction_finish_LDADD = mail-index-transaction-finish.lo $(test_libs)
+test_mail_index_transaction_finish_LDADD = mail-index-transaction-finish.lo $(test_minimal_libs)
 test_mail_index_transaction_finish_DEPENDENCIES = $(test_deps)
 
 test_mail_index_transaction_update_SOURCES = test-mail-index-transaction-update.c
-test_mail_index_transaction_update_LDADD = mail-index-transaction-update.lo $(test_libs)
+test_mail_index_transaction_update_LDADD = mail-index-transaction-update.lo $(test_minimal_libs)
 test_mail_index_transaction_update_DEPENDENCIES = $(test_deps)
 
 test_mail_index_write_SOURCES = test-mail-index-write.c
-test_mail_index_write_LDADD = mail-index-write.lo $(test_libs)
+test_mail_index_write_LDADD = mail-index-write.lo $(test_minimal_libs)
 test_mail_index_write_DEPENDENCIES = $(test_deps)
 
 test_mail_transaction_log_append_SOURCES = test-mail-transaction-log-append.c
-test_mail_transaction_log_append_LDADD = mail-transaction-log-append.lo $(test_libs)
+test_mail_transaction_log_append_LDADD = mail-transaction-log-append.lo $(test_minimal_libs)
 test_mail_transaction_log_append_DEPENDENCIES = $(test_deps)
 
 test_mail_transaction_log_file_SOURCES = test-mail-transaction-log-file.c
@@ -134,7 +137,7 @@ test_mail_transaction_log_file_LDADD = $(noinst_LTLIBRARIES) $(test_libs)
 test_mail_transaction_log_file_DEPENDENCIES = $(test_deps)
 
 test_mail_transaction_log_view_SOURCES = test-mail-transaction-log-view.c
-test_mail_transaction_log_view_LDADD = mail-transaction-log-view.lo $(test_libs)
+test_mail_transaction_log_view_LDADD = mail-transaction-log-view.lo $(test_minimal_libs)
 test_mail_transaction_log_view_DEPENDENCIES = $(test_deps)
 
 check-local:
