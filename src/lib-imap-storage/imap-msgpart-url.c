@@ -95,7 +95,7 @@ int imap_msgpart_url_parse(struct mail_user *user, struct mailbox *selected_box,
 		return 0;
 	}
 	if (imap_msgpart_url_create(user, url, mpurl_r, client_error_r) < 0)
-		return -1;
+		return 0;
 	(*mpurl_r)->selected_box = selected_box;
 	return 1;
 }
