@@ -287,6 +287,7 @@ cmd_append_catenate(struct client_command_context *cmd,
 {
 	struct cmd_append_context *ctx = cmd->context;
 	const char *catpart;
+	bool invalid_arg = FALSE;
 
 	*nonsync_r = FALSE;
 
@@ -297,8 +298,10 @@ cmd_append_catenate(struct client_command_context *cmd,
 		if (strcasecmp(catpart, "URL") == 0 ) {
 			/* URL <url> */ 
 			args++;
-			if (!imap_arg_get_astring(args, &caturl))
+			if (!imap_arg_get_astring(args, &caturl)) {
+				invalid_arg = TRUE;
 				break;
+			}
 			if (cmd_append_catenate_url(cmd, caturl) < 0) {
 				/* delay failure until we can stop
 				   parsing input */
@@ -307,8 +310,10 @@ cmd_append_catenate(struct client_command_context *cmd,
 		} else if (strcasecmp(catpart, "TEXT") == 0) {
 			/* TEXT <literal> */
 			args++;
-			if (!imap_arg_get_literal_size(args, &ctx->literal_size))
+			if (!imap_arg_get_literal_size(args, &ctx->literal_size)) {
+				invalid_arg = TRUE;
 				break;
+			}
 			if (args->literal8 && !ctx->binary_input &&
 			    !ctx->failed) {
 				client_send_tagline(cmd,
@@ -325,7 +330,7 @@ cmd_append_catenate(struct client_command_context *cmd,
 		args++;
 	}
 
-	if (IMAP_ARG_IS_EOL(args)) {
+	if (!invalid_arg && IMAP_ARG_IS_EOL(args)) {
 		/* ")" */
 		return 0;
 	}
