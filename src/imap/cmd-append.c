@@ -334,6 +334,7 @@ cmd_append_catenate(struct client_command_context *cmd,
 		/* ")" */
 		return 0;
 	}
+	ctx->client->input_skip_line = TRUE;
 	if (!ctx->failed)
 		client_send_command_error(cmd, "Invalid arguments.");
 	return -1;
