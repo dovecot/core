@@ -76,7 +76,7 @@ cmd_dump_imapzlib(const char *path, const char *const *args ATTR_UNUSED)
 		i_stream_skip(input2, size);
 	}
 	if (input2->stream_errno != 0)
-		i_error("read(%s) failed: %s", path, i_stream_get_error(input));
+		i_error("read(%s) failed: %s", path, i_stream_get_error(input2));
 	i_stream_unref(&input2);
 	fflush(stdout);
 }
