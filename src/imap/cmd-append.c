@@ -237,13 +237,8 @@ cmd_append_catenate_url(struct client_command_context *cmd, const char *caturl)
 	if (ctx->failed)
 		return -1;
 
-	ret = imap_msgpart_url_parse(cmd->client->user, cmd->client->mailbox,
-				     caturl, &mpurl, &client_error);
-	if (ret < 0) {
-		client_send_box_error(cmd, ctx->box);
-		return -1;
-	}
-	if (ret == 0) {
+	if (imap_msgpart_url_parse(cmd->client->user, cmd->client->mailbox,
+				   caturl, &mpurl, &client_error) < 0) {
 		/* invalid url, abort */
 		client_send_tagline(cmd,
 			t_strdup_printf("NO [BADURL %s] %s.",

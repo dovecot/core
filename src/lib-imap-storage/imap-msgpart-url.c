@@ -88,16 +88,16 @@ int imap_msgpart_url_parse(struct mail_user *user, struct mailbox *selected_box,
 	if (imap_url_parse(urlstr, &base_url,
 			   IMAP_URL_PARSE_REQUIRE_RELATIVE, &url, &error) < 0) {
 		*client_error_r = t_strconcat("Invalid IMAP URL: ", error, NULL);
-		return 0;
+		return -1;
 	}
 	if (url->mailbox == NULL) {
 		*client_error_r = "Mailbox-relative IMAP URL, but no mailbox selected";
-		return 0;
+		return -1;
 	}
 	if (imap_msgpart_url_create(user, url, mpurl_r, client_error_r) < 0)
-		return 0;
+		return -1;
 	(*mpurl_r)->selected_box = selected_box;
-	return 1;
+	return 0;
 }
 
 struct mailbox *imap_msgpart_url_get_mailbox(struct imap_msgpart_url *mpurl)

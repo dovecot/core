@@ -7,16 +7,17 @@ struct imap_url;
 struct imap_msgpart;
 struct imap_msgpart_url;
 
-/* Functions returning int return 1 on success, 0 if URL doesn't point to
-   valid mail, -1 on storage error. */
-
+/* Returns 0 = success, -1 = invalid URL */
 int imap_msgpart_url_create(struct mail_user *user, const struct imap_url *url,
 			    struct imap_msgpart_url **url_r,
 			    const char **client_error_r);
+/* Returns 0 = success, -1 = invalid URL */
 int imap_msgpart_url_parse(struct mail_user *user, struct mailbox *selected_box,
 			   const char *urlstr, struct imap_msgpart_url **url_r,
 			   const char **client_error_r);
 
+/* The following functions returning int return 1 on success, 0 if URL doesn't
+   point to valid mailbox/mail, -1 on storage error. */
 int imap_msgpart_url_open_mailbox(struct imap_msgpart_url *mpurl,
 				  struct mailbox **box_r, enum mail_error *error_code_r,
 				  const char **client_error_r);
