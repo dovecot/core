@@ -45,6 +45,9 @@ size_t mmap_get_page_size(void)
 
 	if (size != 0)
 		return size;
-	size = sysconf(_SC_PAGESIZE);
+	long ret = sysconf(_SC_PAGESIZE);
+	i_assert(ret > 0);
+	i_assert(ret <= SSIZE_T_MAX);
+	size = (size_t)ret;
 	return size;
 }
