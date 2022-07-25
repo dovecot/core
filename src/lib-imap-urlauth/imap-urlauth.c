@@ -301,12 +301,12 @@ int imap_urlauth_generate(struct imap_urlauth_context *uctx,
 		return 0;
 
 	/* validate mailbox */
-	if ((ret = imap_msgpart_url_create(user, url, &mpurl, &error)) < 0 ||
+	if (imap_msgpart_url_create(user, url, &mpurl, &error) < 0 ||
 	    imap_msgpart_url_verify(mpurl, &error) <= 0) {
 		*client_error_r = t_strdup_printf("Invalid URL: %s", error);
 		if (mpurl != NULL)
 			imap_msgpart_url_free(&mpurl);
-		return ret;
+		return -1;
 	}
 	box = imap_msgpart_url_get_mailbox(mpurl);
 
@@ -402,10 +402,10 @@ int imap_urlauth_fetch_parsed(struct imap_urlauth_context *uctx,
 	}
 
 	/* validate mailbox */
-	if ((ret = imap_msgpart_url_create(user, url, &mpurl, &error)) < 0) {
+	if (imap_msgpart_url_create(user, url, &mpurl, &error) < 0) {
 		*error_r = t_strdup_printf("Invalid URLAUTH: %s", error);
 		*error_code_r = MAIL_ERROR_PARAMS;
-		return ret;
+		return -1;
 	}
 
 	if ((ret = imap_msgpart_url_open_mailbox(mpurl, &box, error_code_r,
