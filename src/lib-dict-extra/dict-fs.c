@@ -183,15 +183,7 @@ static bool fs_dict_iterate(struct dict_iterate_context *ctx,
 
 	*key_r = fs_iter_next(iter->fs_iter);
 	if (*key_r == NULL) {
-		if (fs_iter_deinit(&iter->fs_iter, &error) < 0) {
-			iter->error = i_strdup(error);
-			return FALSE;
-		}
-		if (iter->path == NULL)
-			return FALSE;
-		path = fs_dict_get_full_key(ctx->set.username, iter->path);
-		iter->fs_iter = fs_iter_init(dict->fs, path, 0);
-		return fs_dict_iterate(ctx, key_r, values_r);
+		return FALSE;
 	}
 	path = t_strconcat(iter->path, *key_r, NULL);
 	if ((iter->flags & DICT_ITERATE_FLAG_NO_VALUE) != 0) {
