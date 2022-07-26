@@ -47,17 +47,19 @@ static char *fifo_path;
 
 static int
 replication_fifo_notify(struct mail_user *user,
-			enum replication_priority priority)
+			enum replication_priority priority, const char **error_r)
 {
 	string_t *str;
 	ssize_t ret;
 
-	if (fifo_failed)
+	if (fifo_failed) {
+		*error_r = "";
 		return -1;
+	}
 	if (fifo_fd == -1) {
 		fifo_fd = open(fifo_path, O_WRONLY | O_NONBLOCK);
 		if (fifo_fd == -1) {
-			i_error("open(%s) failed: %m", fifo_path);
+			*error_r = t_strdup_printf("open(%s) failed: %m", fifo_path);
 			fifo_failed = TRUE;
 			return -1;
 		}
@@ -83,18 +85,21 @@ replication_fifo_notify(struct mail_user *user,
 	if (ret == (ssize_t)str_len(str))
 		return 1;
 
-	if (ret > 0)
-		i_error("write(%s) wrote partial data", fifo_path);
-	else if (errno == EAGAIN) {
+	if (ret > 0) {
+		*error_r = t_strdup_printf(
+			"write(%s) wrote partial data", fifo_path);
+	} else if (errno == EAGAIN) {
 		/* busy, try again later */
 		return 0;
 	} else if (errno != EPIPE) {
-		i_error("write(%s) failed: %m", fifo_path);
+		*error_r = t_strdup_printf("write(%s) failed: %m", fifo_path);
 	} else {
+		*error_r = "";
 		/* server was probably restarted, don't bother logging this. */
 	}
-	if (close(fifo_fd) < 0)
-		i_error("close(%s) failed: %m", fifo_path);
+
+	if (close(fifo_fd) < 0 && **error_r == '\0')
+		*error_r = t_strdup_printf("close(%s) failed: %m", fifo_path);
 	fifo_fd = -1;
 	return -1;
 }
@@ -102,17 +107,20 @@ replication_fifo_notify(struct mail_user *user,
 static void replication_notify_now(struct mail_user *user)
 {
 	struct replication_user *ruser = REPLICATION_USER_CONTEXT(user);
+	const char *error;
 	int ret;
 
 	i_assert(ruser != NULL);
 	i_assert(ruser->priority != REPLICATION_PRIORITY_NONE);
 	i_assert(ruser->priority != REPLICATION_PRIORITY_SYNC);
 
-	if ((ret = replication_fifo_notify(user, ruser->priority)) < 0 &&
+	if ((ret = replication_fifo_notify(user, ruser->priority, &error)) < 0 &&
 	    !fifo_failed) {
 		/* retry once, in case replication server was restarted */
-		ret = replication_fifo_notify(user, ruser->priority);
+		ret = replication_fifo_notify(user, ruser->priority, &error);
 	}
+	if (ret < 0 && *error != '\0')
+		e_error(user->event, "replication: %s", error);
 	if (ret != 0) {
 		timeout_remove(&ruser->to);
 		ruser->priority = REPLICATION_PRIORITY_NONE;
@@ -132,7 +140,8 @@ static int replication_notify_sync(struct mail_user *user)
 
 	fd = net_connect_unix(ruser->socket_path);
 	if (fd == -1) {
-		i_error("net_connect_unix(%s) failed: %m", ruser->socket_path);
+		e_error(user->event,
+			"net_connect_unix(%s) failed: %m", ruser->socket_path);
 		return -1;
 	}
 	net_set_nonblock(fd, FALSE);
@@ -143,37 +152,40 @@ static int replication_notify_sync(struct mail_user *user)
 	str_append(str, "\tsync\n");
 	alarm(ruser->sync_secs);
 	if (write_full(fd, str_data(str), str_len(str)) < 0) {
-		i_error("write(%s) failed: %m", ruser->socket_path);
+		e_error(user->event, "write(%s) failed: %m", ruser->socket_path);
 	} else {
 		/* + | - */
 		ret = read(fd, buf, sizeof(buf));
 		if (ret < 0) {
 			if (errno != EINTR) {
-				i_error("read(%s) failed: %m",
+				e_error(user->event, "read(%s) failed: %m",
 					ruser->socket_path);
 			} else {
-				i_warning("replication(%s): Sync failure: "
+				e_warning(user->event,
+					  "replication(%s): Sync failure: "
 					  "Timeout in %u secs",
 					  user->username, ruser->sync_secs);
 			}
 		} else if (ret == 0) {
-			i_error("read(%s) failed: EOF", ruser->socket_path);
+			e_error(user->event,
+				"read(%s) failed: EOF", ruser->socket_path);
 		} else if (buf[0] == '+') {
 			/* success */
 			success = TRUE;
 		} else if (buf[0] == '-') {
 			/* failure */
 			if (buf[ret-1] == '\n') ret--;
-			i_warning("replication(%s): Sync failure: %s",
+			e_warning(user->event,
+				  "replication(%s): Sync failure: %s",
 				  user->username, t_strndup(buf+1, ret-1));
-			i_warning("replication(%s): "
+			e_warning(user->event, "replication(%s): "
 				  "Remote sent invalid input: %s",
 				  user->username, t_strndup(buf, ret));
 		}
 	}
 	alarm(0);
 	if (close(fd) < 0)
-		i_error("close(%s) failed: %m", ruser->socket_path);
+		e_error(user->event, "close(%s) failed: %m", ruser->socket_path);
 	return success ? 0 : -1;
 }
 
@@ -316,7 +328,8 @@ static void replication_user_deinit(struct mail_user *user)
 	if (ruser->to != NULL) {
 		replication_notify_now(user);
 		if (ruser->to != NULL) {
-			i_warning("%s: Couldn't send final notification "
+			e_warning(user->event,
+				  "%s: Couldn't send final notification "
 				  "due to fifo being busy", fifo_path);
 			timeout_remove(&ruser->to);
 		}
@@ -360,7 +373,7 @@ static void replication_user_created(struct mail_user *user)
 					 "/"REPLICATION_SOCKET_NAME, NULL);
 	value = mail_user_plugin_getenv(user, "replication_sync_timeout");
 	if (value != NULL && str_to_uint(value, &ruser->sync_secs) < 0) {
-		i_error("replication(%s): "
+		e_error(user->event, "replication(%s): "
 			"Invalid replication_sync_timeout value: %s",
 			user->username, value);
 	}
