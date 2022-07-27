@@ -58,7 +58,7 @@ fts_backend_flatcurve_init(struct fts_backend *_backend, const char **error_r)
 
 	fts_flatcurve_xapian_init(backend);
 
-	backend->event = event_create(_backend->ns->user->event);
+	backend->event = event_create(_backend->event);
 	event_add_category(backend->event, &event_category_fts_flatcurve);
 
 	return fts_backend_flatcurve_close_mailbox(backend, error_r);

@@ -194,8 +194,7 @@ fts_backend_solr_init(struct fts_backend *_backend, const char **error_r)
 	}
 
 	mail_user_init_ssl_client_settings(_backend->ns->user, &ssl_set);
-	return solr_connection_init(&fuser->set, &ssl_set,
-				    _backend->ns->user->event,
+	return solr_connection_init(&fuser->set, &ssl_set, _backend->event,
 				    &backend->solr_conn, error_r);
 }
 

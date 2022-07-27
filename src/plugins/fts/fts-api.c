@@ -94,6 +94,11 @@ int fts_backend_init(const char *backend_name, struct mail_namespace *ns,
 		return -1;
 	}
 
+	backend->event = event_create(ns->user->event);
+	event_add_category(backend->event, &event_category_fts);
+	event_set_append_log_prefix(backend->event, t_strdup_printf(
+		"fts-%s: ", backend->name));
+
 	fts_header_filters_init(backend);
 	*backend_r = backend;
 	return 0;
@@ -102,9 +107,10 @@ int fts_backend_init(const char *backend_name, struct mail_namespace *ns,
 void fts_backend_deinit(struct fts_backend **_backend)
 {
 	struct fts_backend *backend = *_backend;
+	*_backend = NULL;
 
 	fts_header_filters_deinit(backend);
-	*_backend = NULL;
+	event_unref(&backend->event);
 	backend->v.deinit(backend);
 }
 

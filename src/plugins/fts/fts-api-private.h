@@ -85,6 +85,7 @@ struct fts_backend {
 	enum fts_backend_flags flags;
 
 	struct fts_backend_vfuncs v;
+	struct event *event;
 	struct mail_namespace *ns;
 	struct fts_header_filters header_filters;
 
