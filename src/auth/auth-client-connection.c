@@ -348,7 +348,7 @@ void auth_client_connection_create(struct auth *auth, int fd,
 
 	if (token_auth) {
 		mechanisms = t_strconcat("MECH\t",
-			mech_dovecot_token.mech_name, "\n", NULL);
+			mech_dovecot_token.mech_name, "\tprivate\n", NULL);
 	} else {
 		mechanisms = str_c(auth->reg->handshake);
 	}
