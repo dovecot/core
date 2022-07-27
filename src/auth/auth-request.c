@@ -180,6 +180,10 @@ void auth_request_success(struct auth_request *request,
 {
 	i_assert(request->state == AUTH_REQUEST_STATE_MECH_CONTINUE);
 
+	/* preserve userdb fields set by mechanisms that don't use a passdb */
+	if (request->fields.userdb_reply != NULL)
+		auth_fields_snapshot(request->fields.userdb_reply);
+
 	if (!request->set->policy_check_after_auth) {
 		struct auth_policy_check_ctx *ctx =
 			p_new(request->pool, struct auth_policy_check_ctx, 1);
