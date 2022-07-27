@@ -17,6 +17,6 @@ int fts_indexer_more(struct fts_indexer_context *ctx);
 
 /* Returns fd, which you can either read from or close. */
 int fts_indexer_cmd(struct mail_user *user, const char *cmd,
-		    const char **path_r);
+		    struct event *event, const char **path_r);
 
 #endif

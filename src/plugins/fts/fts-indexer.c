@@ -275,7 +275,7 @@ int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
 #define INDEXER_HANDSHAKE "VERSION\tindexer-client\t1\t0\n"
 
 int fts_indexer_cmd(struct mail_user *user, const char *cmd,
-	            const char **path_r)
+		    struct event *event ATTR_UNUSED, const char **path_r)
 {
 	const char *path;
 	int fd;
