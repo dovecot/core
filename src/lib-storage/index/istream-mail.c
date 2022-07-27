@@ -18,10 +18,17 @@ struct mail_istream {
 static bool i_stream_mail_try_get_cached_size(struct mail_istream *mstream)
 {
 	struct mail *mail = mstream->mail;
+	struct index_mail *imail = INDEX_MAIL(mail);
 	enum mail_lookup_abort orig_lookup_abort;
 
 	if (mstream->expected_size != UOFF_T_MAX)
 		return TRUE;
+
+	/* If the stream was marked as broken earlier do not try to verify the
+	   mail size. If a cached mail size exists, it's not going to match
+	   the istream size. */
+	if (imail->data.istream_broken)
+		return FALSE;
 
 	/* make sure this call doesn't change any existing error message,
 	   just in case there's already something important in it. */
