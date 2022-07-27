@@ -254,7 +254,6 @@ AS_IF([test "$BISON" = ":" && test ! -e "$srcdir/src/lib/event-filter-parser.h"]
 AS_IF([test "$FLEX" = ":" && test ! -e "$srcdir/src/lib/event-filter-lexer.c"],
   AC_MSG_ERROR([flex is required when building from git])
 ])
-AC_HEADER_STDC
 AC_C_INLINE
 LT_INIT
 AM_ICONV
