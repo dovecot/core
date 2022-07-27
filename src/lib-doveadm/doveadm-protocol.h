@@ -19,6 +19,7 @@
 
 #define DOVEADM_EX_NOREPLICATE 1001
 #define DOVEADM_EX_REFERRAL 1002
+#define DOVEADM_EX_EXPIRED 1003
 
 enum doveadm_protocol_cmd_flag {
 	DOVEADM_PROTOCOL_CMD_FLAG_DEBUG = 'D',
