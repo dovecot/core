@@ -6,7 +6,7 @@ dnl This file is free software; the authors give
 dnl unlimited permission to copy and/or distribute it, with or without
 dnl modifications, as long as this notice is preserved.
 
-# serial 36
+# serial 37
 
 dnl
 dnl Check for support for D_FORTIFY_SOURCE=2
@@ -30,8 +30,9 @@ AC_DEFUN([AC_CC_D_FORTIFY_SOURCE],[
 
 dnl * gcc specific options
 AC_DEFUN([DC_DOVECOT_CFLAGS],[
-  AC_PROG_CC_C99
-  AS_IF([test "$ac_cv_prog_cc_c99" = "no"], [
+  m4_version_prereq(2.70, [AC_PROG_CC], [AC_PROG_CC_C99])
+
+  AS_IF([test "$ac_prog_cc_stdc" = "c89" || test "$ac_prog_cc_std" = "no" || test "$ac_cv_prog_cc_c99" = "no"], [
     AC_MSG_ERROR(C99 capable compiler required)
   ])
 
