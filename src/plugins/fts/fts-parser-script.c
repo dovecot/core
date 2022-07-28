@@ -11,6 +11,7 @@
 #include "message-parser.h"
 #include "mail-user.h"
 #include "fts-parser.h"
+#include "fts-api.h"
 
 #define SCRIPT_USER_CONTEXT(obj) \
 	MODULE_CONTEXT(obj, fts_parser_script_user_module)
@@ -30,6 +31,7 @@ struct fts_parser_script_user {
 
 struct script_fts_parser {
 	struct fts_parser parser;
+	struct event *event;
 
 	int fd;
 	char *path;
@@ -200,6 +202,7 @@ static void parse_content_disposition(const char *content_disposition,
 static struct fts_parser *
 fts_parser_script_try_init(struct fts_parser_context *parser_context)
 {
+	struct event *event = parser_context->user->event;
 	struct script_fts_parser *parser;
 	const char *filename, *path, *cmd;
 	int fd;
@@ -220,6 +223,8 @@ fts_parser_script_try_init(struct fts_parser_context *parser_context)
 
 	parser = i_new(struct script_fts_parser, 1);
 	parser->parser.v = fts_parser_script;
+	parser->event = event_create(event);
+	event_add_category(parser->event, &event_category_fts);
 	parser->path = i_strdup(path);
 	parser->fd = fd;
 	return &parser->parser;
@@ -264,6 +269,8 @@ static int fts_parser_script_deinit(struct fts_parser *_parser,
 
 	if (close(parser->fd) < 0)
 		i_error("close(%s) failed: %m", parser->path);
+
+	event_unref(&parser->event);
 	i_free(parser->path);
 	i_free(parser);
 	return ret;
