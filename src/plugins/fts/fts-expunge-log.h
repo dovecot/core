@@ -9,7 +9,8 @@ struct fts_expunge_log_read_record {
 	ARRAY_TYPE(seq_range) uids;
 };
 
-struct fts_expunge_log *fts_expunge_log_init(const char *path);
+struct fts_expunge_log *fts_expunge_log_init(const char *path,
+					     struct event *event);
 void fts_expunge_log_deinit(struct fts_expunge_log **log);
 
 struct fts_expunge_log_append_ctx *
@@ -44,7 +45,7 @@ int fts_expunge_log_read_end(struct fts_expunge_log_read_ctx **ctx);
 
 /* Read an entire log file, and flatten it into one hash of arrays.
    The struct it returns cannot be written, as it has no backing store */
-int fts_expunge_log_flatten(const char *path,
+int fts_expunge_log_flatten(const char *path, struct event *event,
 			    struct fts_expunge_log_append_ctx **flattened_r);
 bool fts_expunge_log_contains(const struct fts_expunge_log_append_ctx *ctx,
 			      const guid_128_t mailbox_guid, uint32_t uid);

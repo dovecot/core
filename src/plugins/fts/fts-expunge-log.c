@@ -9,6 +9,7 @@
 #include "seq-range-array.h"
 #include "mail-storage.h"
 #include "fts-expunge-log.h"
+#include "fts-api-private.h"
 
 #include <sys/stat.h>
 #include <unistd.h>
@@ -34,6 +35,7 @@ struct fts_expunge_log {
 
 	int fd;
 	struct stat st;
+	struct event *event;
 };
 
 struct fts_expunge_log_mailbox {
@@ -64,11 +66,14 @@ struct fts_expunge_log_read_ctx {
 	bool unlink;
 };
 
-struct fts_expunge_log *fts_expunge_log_init(const char *path)
+struct fts_expunge_log *
+fts_expunge_log_init(const char *path, struct event *event)
 {
 	struct fts_expunge_log *log;
 
 	log = i_new(struct fts_expunge_log, 1);
+	log->event = event_create(event);
+	event_add_category(log->event, &event_category_fts);
 	log->path = i_strdup(path);
 	log->fd = -1;
 	return log;
@@ -81,6 +86,7 @@ void fts_expunge_log_deinit(struct fts_expunge_log **_log)
 	*_log = NULL;
 	i_close_fd(&log->fd);
 	i_free(log->path);
+	event_unref(&log->event);
 	i_free(log);
 }
 
@@ -525,7 +531,7 @@ int fts_expunge_log_read_end(struct fts_expunge_log_read_ctx **_ctx)
 	return ret;
 }
 
-int fts_expunge_log_flatten(const char *path,
+int fts_expunge_log_flatten(const char *path, struct event *event,
 			    struct fts_expunge_log_append_ctx **flattened_r)
 {
 	struct fts_expunge_log *read;
@@ -535,7 +541,7 @@ int fts_expunge_log_flatten(const char *path,
 	int ret;
 
 	i_assert(path != NULL && flattened_r != NULL);
-	read = fts_expunge_log_init(path);
+	read = fts_expunge_log_init(path, event);
 
 	read_ctx = fts_expunge_log_read_begin(read);
 	read_ctx->unlink = FALSE;
@@ -598,7 +604,7 @@ int fts_expunge_log_flat_write(const struct fts_expunge_log_append_ctx *read_log
 			       const char *path)
 {
 	int ret;
-	struct fts_expunge_log *nlog = fts_expunge_log_init(path);
+	struct fts_expunge_log *nlog = fts_expunge_log_init(path, read_log->log->event);
 	struct fts_expunge_log_append_ctx *nappend = fts_expunge_log_append_begin(nlog);
 
 	struct hash_iterate_context *iter;
