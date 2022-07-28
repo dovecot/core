@@ -95,5 +95,6 @@ const char *fuzzer_t_strndup_replace_zero(
 		uint8_t ch = data[index];
 		out[index] = ch == 0 ? subst : (char)ch;
 	}
+	out[size] = '\0';
 	return out;
 }
