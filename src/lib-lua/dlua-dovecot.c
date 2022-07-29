@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "ioloop.h"
+#include "net.h"
 #include "str.h"
 #include "time-util.h"
 #include "dlua-script-private.h"
@@ -645,6 +646,22 @@ static int dlua_microseconds(lua_State *L)
 	return 1;
 }
 
+static int net_ip_family(lua_State *L)
+{
+	DLUA_REQUIRE_ARGS(L, 1);
+
+	struct ip_addr ip;
+	if (net_addr2ip(luaL_checkstring(L, 1), &ip) < 0)
+		lua_pushinteger(L, 0);
+	else if (IPADDR_IS_V4(&ip))
+		lua_pushinteger(L, 4);
+	else {
+		i_assert(IPADDR_IS_V6(&ip));
+		lua_pushinteger(L, 6);
+	}
+	return 1;
+}
+
 static luaL_Reg lua_dovecot_methods[] = {
 	{ "i_debug", dlua_i_debug },
 	{ "i_info", dlua_i_info },
@@ -658,6 +675,7 @@ static luaL_Reg lua_dovecot_methods[] = {
 	{ "gettimeofday", dlua_gettimeofday },
 	{ "nanoseconds", dlua_nanoseconds },
 	{ "microseconds", dlua_microseconds },
+	{ "net_ip_family", net_ip_family },
 	{ NULL, NULL }
 };
 
