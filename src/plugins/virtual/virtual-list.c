@@ -49,7 +49,7 @@ virtual_get_storage(struct mailbox_list **list, const char **vname,
 			ret = -1;
 	}
 	mailbox_free(&vbox);
-	return 0;
+	return ret;
 }
 
 void virtual_mailbox_list_created(struct mailbox_list *list)
