@@ -92,18 +92,20 @@ struct imap_urlauth_connection {
 
 #define IMAP_URLAUTH_MAX_INLINE_LITERAL_SIZE (1024*32)
 
-static void imap_urlauth_connection_disconnect
-	(struct imap_urlauth_connection *conn, const char *reason);
-static void imap_urlauth_connection_abort
-	(struct imap_urlauth_connection *conn, const char *reason);
-static void imap_urlauth_connection_reconnect
-	(struct imap_urlauth_connection *conn);
-static void imap_urlauth_connection_idle_disconnect
-	(struct imap_urlauth_connection *conn);
-static void imap_urlauth_connection_timeout_abort
-	(struct imap_urlauth_connection *conn);
-static void imap_urlauth_connection_fail
-	(struct imap_urlauth_connection *conn);
+static void
+imap_urlauth_connection_disconnect(struct imap_urlauth_connection *conn,
+				   const char *reason);
+static void
+imap_urlauth_connection_abort(struct imap_urlauth_connection *conn,
+			      const char *reason);
+static void
+imap_urlauth_connection_reconnect(struct imap_urlauth_connection *conn);
+static void
+imap_urlauth_connection_idle_disconnect(struct imap_urlauth_connection *conn);
+static void
+imap_urlauth_connection_timeout_abort(struct imap_urlauth_connection *conn);
+static void
+imap_urlauth_connection_fail(struct imap_urlauth_connection *conn);
 
 struct imap_urlauth_connection *
 imap_urlauth_connection_init(const char *path, const char *service,
@@ -319,15 +321,16 @@ static void imap_urlauth_request_free(struct imap_urlauth_request *urlreq)
 	i_free(urlreq);
 }
 
-static void imap_urlauth_request_drop(struct imap_urlauth_connection *conn,
-				struct imap_urlauth_request *urlreq)
+static void
+imap_urlauth_request_drop(struct imap_urlauth_connection *conn,
+			  struct imap_urlauth_request *urlreq)
 {
 	if ((conn->state == IMAP_URLAUTH_STATE_REQUEST_PENDING ||
-			conn->state == IMAP_URLAUTH_STATE_REQUEST_WAIT) &&
+	     conn->state == IMAP_URLAUTH_STATE_REQUEST_WAIT) &&
 	    conn->targets_head != NULL &&
 	    conn->targets_head->requests_head == urlreq) {
-		/* cannot just drop pending request without breaking
-		   protocol state */
+		/* Cannot just drop pending request without breaking protocol
+		   state */
 		return;
 	}
 	imap_urlauth_request_free(urlreq);
@@ -424,7 +427,7 @@ imap_urlauth_target_abort_by_context(struct imap_urlauth_connection *conn,
 {
 	struct imap_urlauth_request *urlreq, *next;
 
-	/* abort all matching requests */
+	/* Abort all matching requests */
 	urlreq = target->requests_head;
 	while (urlreq != NULL) {
 		next = urlreq->next;
@@ -447,7 +450,7 @@ imap_urlauth_connection_abort(struct imap_urlauth_connection *conn,
 		reason = "Aborting due to error";
 	imap_urlauth_connection_disconnect(conn, reason);
 
-	/* abort all requests */
+	/* Abort all requests */
 	target = conn->targets_head;
 	while (target != NULL) {
 		next = target->next;
@@ -461,7 +464,7 @@ void imap_urlauth_request_abort_by_context(struct imap_urlauth_connection *conn,
 {
 	struct imap_urlauth_target *target, *next;
 
-	/* abort all matching requests */
+	/* Abort all matching requests */
 	target = conn->targets_head;
 	while (target != NULL) {
 		next = target->next;
@@ -516,13 +519,13 @@ imap_urlauth_connection_read_literal_init(struct imap_urlauth_connection *conn,
 	i_assert(conn->literal_fd == -1 && conn->literal_buf == NULL);
 
 	if (size <= IMAP_URLAUTH_MAX_INLINE_LITERAL_SIZE) {
-		/* read the literal directly */
+		/* Read the literal directly */
 		if (size > 0) {
 			conn->literal_buf =
 				buffer_create_dynamic(default_pool, size);
 		}
 	} else {
-		/* read it into a file */
+		/* Read it into a file */
 		conn->literal_fd =
 			imap_urlauth_connection_create_temp_fd(conn, &path);
 		if (conn->literal_fd == -1)
@@ -556,12 +559,12 @@ imap_urlauth_connection_read_literal_data(struct imap_urlauth_connection *conn)
 	const unsigned char *data;
 	size_t size;
 
-	/* read data */
+	/* Read data */
 	data = i_stream_get_data(conn->input, &size);
 	if (size > conn->literal_bytes_left)
 		size = conn->literal_bytes_left;
 
-	/* write to buffer or file */
+	/* Write to buffer or file */
 	if (size > 0) {
 		if (conn->literal_fd >= 0) {
 			if (write_full(conn->literal_fd, data, size) < 0) {
@@ -577,16 +580,16 @@ imap_urlauth_connection_read_literal_data(struct imap_urlauth_connection *conn)
 		conn->literal_bytes_left -= size;
 	}
 
-	/* exit if not finished */
+	/* Exit if not finished */
 	if (conn->literal_bytes_left > 0)
 		return 0;
 
-	/* read LF guard */
+	/* Read LF guard */
 	data = i_stream_get_data(conn->input, &size);
 	if (size < 1)
 		return 0;
 
-	/* check LF guard */
+	/* Check LF guard */
 	if (data[0] != '\n') {
 		e_error(conn->event, "no LF at end of literal (found 0x%x)",
 			data[0]);
@@ -602,8 +605,9 @@ static void literal_stream_destroy(buffer_t *buffer)
 }
 
 static int
-imap_urlauth_fetch_reply_set_literal_stream(struct imap_urlauth_connection *conn,
-					    struct imap_urlauth_fetch_reply *reply)
+imap_urlauth_fetch_reply_set_literal_stream(
+	struct imap_urlauth_connection *conn,
+	struct imap_urlauth_fetch_reply *reply)
 {
 	const unsigned char *data;
 	size_t size;
@@ -651,7 +655,7 @@ imap_urlauth_connection_read_literal(struct imap_urlauth_connection *conn)
 	}
 	i_assert(conn->literal_bytes_left == 0);
 
-	/* reply */
+	/* Reply */
 	i_zero(&reply);
 	reply.url = urlreq->url;
 	reply.flags = urlreq->flags;
@@ -659,7 +663,8 @@ imap_urlauth_connection_read_literal(struct imap_urlauth_connection *conn)
 	reply.binary_has_nuls = urlreq->binary_has_nuls ? 1 : 0;
 
 	if (conn->literal_size > 0) {
-		if (imap_urlauth_fetch_reply_set_literal_stream(conn, &reply) < 0)
+		if (imap_urlauth_fetch_reply_set_literal_stream(
+			conn, &reply) < 0)
 			return -1;
 	}
 	reply.succeeded = TRUE;
@@ -685,7 +690,7 @@ imap_urlauth_connection_read_literal(struct imap_urlauth_connection *conn)
 	if (ret != 0)
 		imap_urlauth_connection_continue(conn);
 
-	/* finished */
+	/* Finished */
 	i_free_and_null(conn->literal_temp_path);
 	conn->literal_fd = -1;
 	conn->literal_buf = NULL;
@@ -739,7 +744,7 @@ static int imap_urlauth_input_pending(struct imap_urlauth_connection *conn)
 		return -1;
 	}
 
-	/* read metadata */
+	/* Read metadata */
 	args++;
 	for (; args[1] != NULL; args++) {
 		const char *param = args[0];
@@ -752,7 +757,7 @@ static int imap_urlauth_input_pending(struct imap_urlauth_connection *conn)
 		}
 	}
 
-	/* read literal size */
+	/* Read literal size */
 	if (str_to_uoff(args[0], &literal_size) < 0) {
 		e_error(conn->event,
 			"Overflowing unsigned integer value for literal size: %s",
@@ -760,7 +765,7 @@ static int imap_urlauth_input_pending(struct imap_urlauth_connection *conn)
 		return -1;
 	}
 
-	/* read literal */
+	/* Read literal */
 	if (imap_urlauth_connection_read_literal_init(conn, literal_size) < 0)
 		return -1;
 
@@ -781,16 +786,17 @@ static int imap_urlauth_input_next(struct imap_urlauth_connection *conn)
 		imap_urlauth_stop_response_timeout(conn);
 
 		if (strcasecmp(response, "OK") != 0) {
-			if (conn->state == IMAP_URLAUTH_STATE_AUTHENTICATING)
+			if (conn->state == IMAP_URLAUTH_STATE_AUTHENTICATING) {
 				e_error(conn->event,
 					"Failed to authenticate to service: "
 					"Got unexpected response: %s",
 					str_sanitize(response, 80));
-			else
+			} else {
 				e_error(conn->event,
 					"Failed to unselect target user: "
 					"Got unexpected response: %s",
 					str_sanitize(response, 80));
+			}
 			imap_urlauth_connection_abort(conn, NULL);
 			return -1;
 		}
@@ -816,7 +822,8 @@ static int imap_urlauth_input_next(struct imap_urlauth_connection *conn)
 		if (strcasecmp(response, "NO") == 0) {
 			e_debug(conn->event, "Failed to select target user %s",
 				conn->targets_head->userid);
-			imap_urlauth_target_fail(conn, conn->targets_head, NULL);
+			imap_urlauth_target_fail(conn, conn->targets_head,
+						 NULL);
 
 			conn->state = IMAP_URLAUTH_STATE_AUTHENTICATED;
 			imap_urlauth_connection_select_target(conn);
@@ -825,7 +832,8 @@ static int imap_urlauth_input_next(struct imap_urlauth_connection *conn)
 		if (strcasecmp(response, "OK") != 0) {
 			e_error(conn->event,
 				"Failed to select target user %s: "
-				"Got unexpected response: %s", conn->targets_head->userid,
+				"Got unexpected response: %s",
+				conn->targets_head->userid,
 				str_sanitize(response, 80));
 			imap_urlauth_connection_abort(conn, NULL);
 			return -1;
@@ -862,7 +870,7 @@ static void imap_urlauth_input(struct imap_urlauth_connection *conn)
 	i_assert(conn->state != IMAP_URLAUTH_STATE_DISCONNECTED);
 
 	if (conn->input->closed) {
-		/* disconnected */
+		/* Disconnected */
 		e_error(conn->event, "Service disconnected unexpectedly");
 		imap_urlauth_connection_fail(conn);
 		return;
@@ -870,12 +878,12 @@ static void imap_urlauth_input(struct imap_urlauth_connection *conn)
 
 	switch (i_stream_read(conn->input)) {
 	case -1:
-		/* disconnected */
+		/* Disconnected */
 		e_error(conn->event, "Service disconnected unexpectedly");
 		imap_urlauth_connection_fail(conn);
 		return;
 	case -2:
-		/* input buffer full */
+		/* Input buffer full */
 		e_error(conn->event, "Service sent too large input");
 		imap_urlauth_connection_abort(conn, NULL);
 		return;
@@ -975,10 +983,10 @@ static void imap_urlauth_connection_disconnect
 	conn->reading_literal = FALSE;
 
 	if (conn->literal_fd != -1) {
-		if (close(conn->literal_fd) < 0)
+		if (close(conn->literal_fd) < 0) {
 			e_error(conn->event, "close(%s) failed: %m",
 				conn->literal_temp_path);
-
+		}
 		i_free_and_null(conn->literal_temp_path);
 		conn->literal_fd = -1;
 	}
@@ -998,7 +1006,8 @@ imap_urlauth_connection_do_reconnect(struct imap_urlauth_connection *conn)
 		return;
 	}
 
-	if (ioloop_time - conn->last_reconnect < IMAP_URLAUTH_RECONNECT_MIN_SECS) {
+	if (ioloop_time - conn->last_reconnect <
+	    IMAP_URLAUTH_RECONNECT_MIN_SECS) {
 		e_debug(conn->event, "Scheduling reconnect");
 		timeout_remove(&conn->to_reconnect);
 		conn->to_reconnect =
@@ -1016,7 +1025,7 @@ imap_urlauth_connection_reconnect(struct imap_urlauth_connection *conn)
 {
 	imap_urlauth_connection_disconnect(conn, NULL);
 
-	/* don't reconnect if there are no requests */
+	/* Don't reconnect if there are no requests */
 	if (conn->targets_head == NULL)
 		return;
 
@@ -1037,5 +1046,6 @@ imap_urlauth_connection_timeout_abort(struct imap_urlauth_connection *conn)
 
 bool imap_urlauth_connection_is_connected(struct imap_urlauth_connection *conn)
 {
-	return conn->fd != -1 && conn->state != IMAP_URLAUTH_STATE_DISCONNECTED;
+	return (conn->fd != -1 &&
+		conn->state != IMAP_URLAUTH_STATE_DISCONNECTED);
 }
