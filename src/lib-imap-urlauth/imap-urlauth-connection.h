@@ -1,6 +1,9 @@
 #ifndef IMAP_URLAUTH_CONNECTION_H
 #define IMAP_URLAUTH_CONNECTION_H
 
+#define IMAP_URLAUTH_PROTOCOL_MAJOR_VERSION 2
+#define IMAP_URLAUTH_PROTOCOL_MINOR_VERSION 0
+
 struct imap_urlauth_request;
 struct imap_urlauth_fetch_reply;
 
