@@ -4,6 +4,7 @@
 #include "module-context.h"
 #include "unichar.h"
 #include "file-lock.h"
+#include "str-sanitize.h"
 #include "mail-storage.h"
 #include "mail-storage-hooks.h"
 #include "mail-storage-settings.h"
@@ -905,6 +906,11 @@ void mailbox_save_context_deinit(struct mail_save_context *ctx);
 /* Notify that a sync should be done. */
 void mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 			 enum mailbox_sync_type sync_type);
+
+static inline const char *mailbox_name_sanitize(const char *name)
+{
+	return str_sanitize(name, 128);
+}
 
 /* for unit testing */
 int mailbox_verify_name(struct mailbox *box);

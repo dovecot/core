@@ -154,7 +154,7 @@ mail_storage_list_remove_duplicate(struct mail_storage_list_index_rebuild_ctx *c
 
 	e_debug(ctx->storage->event,
 		"Removing duplicate mailbox '%s' in favor of mailbox '%s'",
-		str_sanitize(delete_name, 128), str_sanitize(keep_name, 128));
+		mailbox_name_sanitize(delete_name), mailbox_name_sanitize(keep_name));
 
 	if (mailbox_list_index_sync_delete(rebuild_ns->list_sync_ctx,
 					   delete_name, TRUE) < 0) {

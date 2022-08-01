@@ -6,7 +6,6 @@
 #include "llist.h"
 #include "mail-storage.h"
 #include "str.h"
-#include "str-sanitize.h"
 #include "sha1.h"
 #include "unichar.h"
 #include "hex-binary.h"
@@ -607,7 +606,8 @@ void mailbox_set_critical(struct mailbox *box, const char *fmt, ...)
 	va_start(va, fmt);
 	T_BEGIN {
 		mail_storage_set_critical(box->storage, "Mailbox %s: %s",
-			box->vname, t_strdup_vprintf(fmt, va));
+			mailbox_name_sanitize(box->vname),
+			t_strdup_vprintf(fmt, va));
 	} T_END;
 	va_end(va);
 }
@@ -1250,7 +1250,7 @@ static int mailbox_verify_name_int(struct mailbox *box)
 	if (!mailbox_verify_name_prefix(box->list->ns, &vname, &error)) {
 		mail_storage_set_error(box->storage, MAIL_ERROR_PARAMS,
 			t_strdup_printf("Invalid mailbox name '%s': %s",
-					str_sanitize(vname, 80), error));
+					mailbox_name_sanitize(vname), error));
 		return -1;
 	}
 

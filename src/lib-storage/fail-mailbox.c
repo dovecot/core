@@ -2,7 +2,6 @@
 
 #include "lib.h"
 #include "array.h"
-#include "str-sanitize.h"
 #include "mail-storage-private.h"
 #include "mailbox-list-private.h"
 #include "fail-mail-storage.h"
