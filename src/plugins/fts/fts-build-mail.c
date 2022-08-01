@@ -222,6 +222,11 @@ fts_build_body_begin(struct fts_mail_build_context *ctx,
 	storage = mailbox_get_storage(ctx->mail->box);
 	parser_context.user = mail_storage_get_user(storage);
 	parser_context.content_disposition = ctx->content_disposition;
+	parser_context.event = event_create(ctx->mail->box->event);
+	event_add_category(parser_context.event, &event_category_fts);
+	event_set_append_log_prefix(
+		parser_context.event,
+		t_strdup_printf("fts-%s: ", ctx->update_ctx->backend->name));
 
 	if (fts_parser_init(&parser_context, &ctx->body_parser)) {
 		/* extract text using the the returned parser */
@@ -235,8 +240,10 @@ fts_build_body_begin(struct fts_mail_build_context *ctx,
 	} else {
 		/* possibly binary */
 		if ((ctx->update_ctx->backend->flags &
-		     FTS_BACKEND_FLAG_BINARY_MIME_PARTS) == 0)
+		     FTS_BACKEND_FLAG_BINARY_MIME_PARTS) == 0) {
+			event_unref(&parser_context.event);
 			return FALSE;
+		     }
 		*binary_body_r = TRUE;
 		key.type = FTS_BACKEND_BUILD_KEY_BODY_PART_BINARY;
 	}
@@ -246,8 +253,11 @@ fts_build_body_begin(struct fts_mail_build_context *ctx,
 	if (!fts_backend_update_set_build_key(ctx->update_ctx, &key)) {
 		if (ctx->body_parser != NULL)
 			(void)fts_parser_deinit(&ctx->body_parser, NULL);
+		event_unref(&parser_context.event);
 		return FALSE;
 	}
+
+	event_unref(&parser_context.event);
 	return TRUE;
 }
 

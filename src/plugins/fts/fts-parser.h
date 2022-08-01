@@ -10,6 +10,7 @@ struct fts_parser_context {
 	/* Can't be NULL */
 	const char *content_type;
 	const char *content_disposition;
+	struct event *event;
 };
 
 struct fts_parser_vfuncs {

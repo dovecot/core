@@ -6,13 +6,23 @@
 
 #include <unistd.h>
 
+static struct event_category event_category_fts = {
+	.name = "fts",
+};
+
 int main(void)
 {
 	struct fts_parser *parser;
 	unsigned char buf[IO_BLOCK_SIZE];
 	struct message_block block;
 	ssize_t ret;
-	struct fts_parser_context parser_context = {.content_type = "text/html"};
+
+	struct fts_parser_context parser_context = {
+		.content_type = "text/html",
+		.event = event_create(NULL)
+	};
+	event_add_category(parser_context.event, &event_category_fts);
+	event_set_append_log_prefix(parser_context.event, "fts-xml2text: ");
 
 	lib_init();
 
@@ -40,5 +50,6 @@ int main(void)
 	}
 
 	lib_deinit();
+	event_unref(&parser_context.event);
 	return 0;
 }
