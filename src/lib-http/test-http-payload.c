@@ -1426,6 +1426,10 @@ test_client_echo_nonblocking(struct test_client_request *tcreq ATTR_UNUSED,
 	http_client_request_set_payload(hreq, fstream,
 					tset.request_100_continue);
 	http_client_request_submit(hreq);
+	if (fstream->seekable) {
+		/* seeking the payload stream shouldn't affect lib-http */
+		i_stream_seek(fstream, 1);
+	}
 }
 
 static void
