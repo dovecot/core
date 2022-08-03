@@ -16,11 +16,58 @@
 /* max. length of input lines (URLs) */
 #define MAX_INBUF_SIZE 2048
 
-static void client_worker_input(struct client *wclient);
+enum imap_urlauth_worker_state {
+	IMAP_URLAUTH_WORKER_STATE_INACTIVE = 0,
+	IMAP_URLAUTH_WORKER_STATE_CONNECTED,
+	IMAP_URLAUTH_WORKER_STATE_ACTIVE,
+};
 
-int imap_urlauth_worker_client_connect(struct client *wclient)
+struct imap_urlauth_worker_client {
+	struct client *client;
+	int fd_ctrl;
+	struct io *ctrl_io;
+	struct ostream *ctrl_output;
+	struct istream *ctrl_input;
+	struct event *event;
+
+	enum imap_urlauth_worker_state worker_state;
+
+	bool disconnected:1;
+};
+
+static void client_worker_input(struct imap_urlauth_worker_client *wclient);
+
+struct imap_urlauth_worker_client *
+imap_urlauth_worker_client_init(struct client *client)
 {
-	struct client *client = wclient;
+	struct imap_urlauth_worker_client *wclient;
+
+	wclient = i_new(struct imap_urlauth_worker_client, 1);
+	wclient->client = client;
+	wclient->fd_ctrl = -1;
+
+	wclient->event = client->event;
+	
+	return wclient;
+}
+
+void imap_urlauth_worker_client_deinit(
+	struct imap_urlauth_worker_client **_wclient)
+{
+	struct imap_urlauth_worker_client *wclient = *_wclient;
+
+	if (wclient == NULL)
+		return;
+	*_wclient = NULL;
+
+	imap_urlauth_worker_client_disconnect(wclient);
+	i_free(wclient);
+}
+
+int imap_urlauth_worker_client_connect(
+	struct imap_urlauth_worker_client *wclient)
+{
+	struct client *client = wclient->client;
 	static const char handshake[] = "VERSION\timap-urlauth-worker\t2\t0\n";
 	const char *socket_path;
 	ssize_t ret;
@@ -85,7 +132,8 @@ int imap_urlauth_worker_client_connect(struct client *wclient)
 	return 0;
 }
 
-void imap_urlauth_worker_client_disconnect(struct client *wclient)
+void imap_urlauth_worker_client_disconnect(
+	struct imap_urlauth_worker_client *wclient)
 {
 	wclient->worker_state = IMAP_URLAUTH_WORKER_STATE_INACTIVE;
 
@@ -99,15 +147,18 @@ void imap_urlauth_worker_client_disconnect(struct client *wclient)
 }
 
 static void
-imap_urlauth_worker_client_error(struct client *wclient, const char *error)
+imap_urlauth_worker_client_error(struct imap_urlauth_worker_client *wclient,
+				 const char *error)
 {
-	client_disconnect(wclient, error);
+	client_disconnect(wclient->client, error);
+	imap_urlauth_worker_client_disconnect(wclient);
 }
 
 static int
-client_worker_input_line(struct client *wclient, const char *response)
+client_worker_input_line(struct imap_urlauth_worker_client *wclient,
+			 const char *response)
 {
-	struct client *client = wclient;
+	struct client *client = wclient->client;
 	const char *const *apps;
 	unsigned int count, i;
 	bool restart;
@@ -197,7 +248,7 @@ client_worker_input_line(struct client *wclient, const char *response)
 	return 0;
 }
 
-static void client_worker_input(struct client *wclient)
+static void client_worker_input(struct imap_urlauth_worker_client *wclient)
 {
 	struct istream *input = wclient->ctrl_input;
 	const char *line;

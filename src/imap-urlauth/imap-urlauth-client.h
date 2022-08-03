@@ -4,19 +4,11 @@
 struct client;
 struct mail_storage;
 
-enum imap_urlauth_worker_state {
-	IMAP_URLAUTH_WORKER_STATE_INACTIVE = 0,
-	IMAP_URLAUTH_WORKER_STATE_CONNECTED,
-	IMAP_URLAUTH_WORKER_STATE_ACTIVE,
-};
-
 struct client {
 	struct client *prev, *next;
 
-	int fd_in, fd_out, fd_ctrl;
-	struct io *ctrl_io;
-	struct ostream *output, *ctrl_output;
-	struct istream *ctrl_input;
+	int fd_in, fd_out;
+	struct ostream *output;
 	struct timeout *to_destroy;
 	struct event *event;
 
@@ -26,7 +18,7 @@ struct client {
 	/* settings: */
 	const struct imap_urlauth_settings *set;
 
-	enum imap_urlauth_worker_state worker_state;
+	struct imap_urlauth_worker_client *worker_client;
 
 	bool disconnected:1;
 };

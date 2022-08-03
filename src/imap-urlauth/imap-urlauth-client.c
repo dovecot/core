@@ -54,7 +54,6 @@ int client_create(const char *service, const char *username,
 	client = i_new(struct client, 1);
 	client->fd_in = fd_in;
 	client->fd_out = fd_out;
-	client->fd_ctrl = -1;
 	client->set = set;
 
 	client->event = event_create(NULL);
@@ -63,7 +62,8 @@ int client_create(const char *service, const char *username,
 	event_set_append_log_prefix(client->event, t_strdup_printf(
 		"user %s: ", username));
 
-	if (imap_urlauth_worker_client_connect(client) < 0) {
+	client->worker_client = imap_urlauth_worker_client_init(client);
+	if (imap_urlauth_worker_client_connect(client->worker_client) < 0) {
 		event_unref(&client->event);
 		i_free(client);
 		return -1;
@@ -138,7 +138,7 @@ void client_destroy(struct client *client, const char *reason)
 
 	timeout_remove(&client->to_destroy);
 
-	imap_urlauth_worker_client_disconnect(client);
+	imap_urlauth_worker_client_deinit(&client->worker_client);
 
 	o_stream_destroy(&client->output);
 
