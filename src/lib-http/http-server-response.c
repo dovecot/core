@@ -178,7 +178,8 @@ void http_server_response_set_date(struct http_server_response *resp,
 	resp->date = date;
 }
 
-void http_server_response_set_payload(struct http_server_response *resp,
+static void
+http_server_response_set_payload_real(struct http_server_response *resp,
 				      struct istream *input)
 {
 	int ret;
@@ -204,6 +205,14 @@ void http_server_response_set_payload(struct http_server_response *resp,
 	resp->payload_offset = input->v_offset;
 }
 
+void http_server_response_set_payload(struct http_server_response *resp,
+				      struct istream *input)
+{
+	input = i_stream_create_limit(input, UOFF_T_MAX);
+	http_server_response_set_payload_real(resp, input);
+	i_stream_unref(&input);
+}
+
 void http_server_response_set_payload_data(struct http_server_response *resp,
 					   const unsigned char *data,
 					   size_t size)
@@ -222,7 +231,7 @@ void http_server_response_set_payload_data(struct http_server_response *resp,
 	memcpy(payload_data, data, size);
 	input = i_stream_create_from_data(payload_data, size);
 
-	http_server_response_set_payload(resp, input);
+	http_server_response_set_payload_real(resp, input);
 	i_stream_unref(&input);
 }
 

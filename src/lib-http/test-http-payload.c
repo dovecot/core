@@ -328,6 +328,8 @@ client_handle_download_request(struct client_request *creq,
 	} else {
 		http_server_response_set_payload(resp, fstream);
 		http_server_response_submit(resp);
+		/* seeking the payload stream shouldn't affect lib-http */
+		i_stream_seek(fstream, 1);
 	}
 	i_stream_unref(&fstream);
 }
@@ -548,6 +550,8 @@ static void client_request_finish_payload_in(struct client_request *creq)
 	} else {
 		http_server_response_set_payload(resp, payload_input);
 		http_server_response_submit(resp);
+		/* seeking the payload stream shouldn't affect lib-http */
+		i_stream_seek(payload_input, 1);
 	}
 
 	i_stream_unref(&payload_input);
