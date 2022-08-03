@@ -161,8 +161,8 @@ struct client {
 
 	int fd_in, fd_out;
 	struct io *io;
-	struct istream *input;
-	struct ostream *output;
+	struct istream *input, *pre_rawlog_input, *post_rawlog_input;
+	struct ostream *output, *pre_rawlog_output, *post_rawlog_output;
 	struct timeout *to_idle, *to_idle_output, *to_delayed_input;
 	guid_128_t anvil_conn_guid;
 

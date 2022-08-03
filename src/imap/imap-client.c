@@ -221,8 +221,20 @@ struct client *client_create(int fd_in, int fd_out, bool unhibernated,
 void client_create_finish_io(struct client *client)
 {
 	if (client->set->rawlog_dir[0] != '\0') {
+		client->pre_rawlog_input = client->input;
+		client->pre_rawlog_output = client->output;
 		(void)iostream_rawlog_create(client->set->rawlog_dir,
 					     &client->input, &client->output);
+		if (client->input != client->pre_rawlog_input) {
+			/* rawlog enabled */
+			client->post_rawlog_input = client->input;
+			client->post_rawlog_output = client->output;
+		} else {
+			/* rawlog setting is set, but rawlog wasn't actually
+			   started. */
+			client->pre_rawlog_input = NULL;
+			client->pre_rawlog_output = NULL;
+		}
 	}
 	client->io = io_add_istream(client->input, client_input, client);
 }
