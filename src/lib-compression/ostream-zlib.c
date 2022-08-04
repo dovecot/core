@@ -1,9 +1,6 @@
 /* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-
-#ifdef HAVE_ZLIB
-
 #include "crc32.h"
 #include "ostream-private.h"
 #include "ostream-zlib.h"
@@ -389,4 +386,3 @@ struct ostream *o_stream_create_deflate(struct ostream *output, int level)
 {
 	return o_stream_create_zlib(output, level, FALSE);
 }
-#endif

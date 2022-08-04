@@ -7,15 +7,6 @@
 #include "iostream-lz4.h"
 #include "compression.h"
 
-#ifndef HAVE_ZLIB
-#  define i_stream_create_gz NULL
-#  define o_stream_create_gz NULL
-#  define i_stream_create_deflate NULL
-#  define o_stream_create_deflate NULL
-#  define compression_get_min_level_gz NULL
-#  define compression_get_default_level_gz NULL
-#  define compression_get_max_level_gz NULL
-#endif
 #ifndef HAVE_BZLIB
 #  define i_stream_create_bz2 NULL
 #  define o_stream_create_bz2 NULL

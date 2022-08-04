@@ -41,7 +41,6 @@ static bool test_dump_imapzlib(const char *path)
 	return match;
 }
 
-#ifdef HAVE_ZLIB
 static void
 cmd_dump_imapzlib(const char *path, const char *const *args ATTR_UNUSED)
 {
@@ -268,19 +267,6 @@ static void cmd_zlibconnect(struct doveadm_cmd_context *cctx)
 	if (close(fd) < 0)
 		i_fatal("close() failed: %m");
 }
-#else
-static void
-cmd_dump_imapzlib(const char *path ATTR_UNUSED,
-		  const char *const *args ATTR_UNUSED)
-{
-	i_fatal("Dovecot compiled without zlib support");
-}
-
-static void cmd_zlibconnect(struct doveadm_cmd_context *cctx ATTR_UNUSED)
-{
-	i_fatal("Dovecot compiled without zlib support");
-}
-#endif
 
 struct doveadm_cmd_dump doveadm_cmd_dump_zlib = {
 	"imapzlib",

@@ -1,9 +1,6 @@
 /* Copyright (c) 2010-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-
-#ifdef HAVE_ZLIB
-
 #include "crc32.h"
 #include "istream-private.h"
 #include "istream-zlib.h"
@@ -428,4 +425,3 @@ struct istream *i_stream_create_deflate(struct istream *input)
 {
 	return i_stream_create_zlib(input, FALSE);
 }
-#endif

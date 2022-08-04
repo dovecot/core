@@ -164,11 +164,6 @@ AS_HELP_STRING([--with-sodium], [Build with libsodium support (enables argon2, d
   TEST_WITH(sodium, $withval),
   want_sodium=auto)
 
-AC_ARG_WITH(zlib,
-AS_HELP_STRING([--with-zlib], [Build with zlib compression support (auto)]),
-  TEST_WITH(zlib, $withval),
-  want_zlib=auto)
-
 AC_ARG_WITH(bzlib,
 AS_HELP_STRING([--with-bzlib], [Build with bzlib compression support (auto)]),
   TEST_WITH(bzlib, $withval),
@@ -657,14 +652,12 @@ dnl **
 
 COMPRESS_LIBS=
 
-DOVECOT_WANT_ZLIB
+DOVECOT_ZLIB
 DOVECOT_WANT_BZLIB
 DOVECOT_WANT_LZ4
 DOVECOT_WANT_ZSTD
 
 AC_SUBST(COMPRESS_LIBS)
-
-AM_CONDITIONAL(BUILD_ZLIB_PLUGIN, test "$have_compress_lib" = "yes")
 
 DOVECOT_RPCGEN
 DOVECOT_QUOTA
