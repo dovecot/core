@@ -61,6 +61,8 @@ static ssize_t i_stream_rawlog_read(struct istream_private *stream)
 	} while (pos <= stream->pos && ret > 0);
 	if (ret == -2)
 		return -2;
+	if (ret == -1)
+		iostream_rawlog_flush(&rstream->riostream);
 
 	if (pos <= stream->pos)
 		ret = ret == 0 ? 0 : -1;

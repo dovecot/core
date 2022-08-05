@@ -18,6 +18,7 @@ void iostream_rawlog_init(struct rawlog_iostream *rstream,
 			  enum iostream_rawlog_flags flags, bool input);
 void iostream_rawlog_write(struct rawlog_iostream *rstream,
 			   const unsigned char *data, size_t size);
+void iostream_rawlog_flush(struct rawlog_iostream *rstream);
 void iostream_rawlog_close(struct rawlog_iostream *rstream);
 
 #endif

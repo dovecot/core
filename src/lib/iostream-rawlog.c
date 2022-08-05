@@ -52,6 +52,23 @@ void iostream_rawlog_init(struct rawlog_iostream *rstream,
 }
 
 static void
+iostream_rawlog_write_flush(struct rawlog_iostream *rstream,
+			    const unsigned char *data, size_t size,
+			    bool line_ends)
+{
+	rawlog_write_timestamp(rstream, line_ends);
+	if (rstream->buffer->used > 0) {
+		o_stream_nsend(rstream->rawlog_output,
+			       rstream->buffer->data,
+			       rstream->buffer->used);
+		buffer_set_used_size(rstream->buffer, 0);
+	}
+	o_stream_nsend(rstream->rawlog_output, data, size);
+	if (!line_ends)
+		o_stream_nsend(rstream->rawlog_output, "\n", 1);
+}
+
+static void
 iostream_rawlog_write_buffered(struct rawlog_iostream *rstream,
 			       const unsigned char *data, size_t size)
 {
@@ -72,14 +89,7 @@ iostream_rawlog_write_buffered(struct rawlog_iostream *rstream,
 			pos = size;
 		}
 
-		rawlog_write_timestamp(rstream, line_ends);
-		if (rstream->buffer->used > 0) {
-			o_stream_nsend(rstream->rawlog_output,
-				       rstream->buffer->data,
-				       rstream->buffer->used);
-			buffer_set_used_size(rstream->buffer, 0);
-		}
-		o_stream_nsend(rstream->rawlog_output, data, pos);
+		iostream_rawlog_write_flush(rstream, data, pos, line_ends);
 
 		data += pos;
 		size -= pos;
@@ -110,6 +120,16 @@ iostream_rawlog_write_unbuffered(struct rawlog_iostream *rstream,
 	rstream->line_continued = data[size-1] != '\n';
 }
 
+static void iostream_rawlog_flush_output(struct rawlog_iostream *rstream)
+{
+	if (o_stream_flush(rstream->rawlog_output) < 0) {
+		i_error("write(%s) failed: %s",
+			o_stream_get_name(rstream->rawlog_output),
+			o_stream_get_error(rstream->rawlog_output));
+		iostream_rawlog_close(rstream);
+	}
+}
+
 void iostream_rawlog_write(struct rawlog_iostream *rstream,
 			   const unsigned char *data, size_t size)
 {
@@ -124,12 +144,14 @@ void iostream_rawlog_write(struct rawlog_iostream *rstream,
 	else
 		iostream_rawlog_write_unbuffered(rstream, data, size);
 	o_stream_uncork(rstream->rawlog_output);
+	iostream_rawlog_flush_output(rstream);
+}
 
-	if (o_stream_flush(rstream->rawlog_output) < 0) {
-		i_error("write(%s) failed: %s",
-			o_stream_get_name(rstream->rawlog_output),
-			o_stream_get_error(rstream->rawlog_output));
-		iostream_rawlog_close(rstream);
+void iostream_rawlog_flush(struct rawlog_iostream *rstream)
+{
+	if (rstream->buffer != NULL && rstream->buffer->used > 0) {
+		iostream_rawlog_write_flush(rstream, &uchar_nul, 0, FALSE);
+		iostream_rawlog_flush_output(rstream);
 	}
 }
 
