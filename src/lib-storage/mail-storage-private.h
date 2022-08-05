@@ -129,6 +129,7 @@ struct mail_storage_error {
 	char *error_string;
 	enum mail_error error;
 	char *last_internal_error;
+	char *last_internal_error_mailbox;
 	bool last_error_is_internal;
 };
 
@@ -164,6 +165,7 @@ struct mail_storage {
 
 	/* Last error set in mail_storage_set_critical(). */
 	char *last_internal_error;
+	char *last_internal_error_mailbox;
 
 	char *error_string;
 	enum mail_error error;

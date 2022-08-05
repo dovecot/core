@@ -573,28 +573,34 @@ void mail_storage_set_internal_error(struct mail_storage *storage)
 	   last_error_is_internal can't be TRUE. */
 	storage->last_error_is_internal = FALSE;
 	i_free(storage->last_internal_error);
+	i_free(storage->last_internal_error_mailbox);
 }
 
 static void
-mail_storage_set_critical_error(struct mail_storage *storage, const char *str)
+mail_storage_set_critical_error(struct mail_storage *storage, const char *str,
+				const char *mailbox_vname)
 {
 	char *old_error = storage->error_string;
 	char *old_internal_error = storage->last_internal_error;
+	char *old_internal_error_mailbox = storage->last_internal_error_mailbox;
 
 	storage->error_string = NULL;
 	storage->last_internal_error = NULL;
+	storage->last_internal_error_mailbox = NULL;
 	/* critical errors may contain sensitive data, so let user
 	   see only "Internal error" with a timestamp to make it
 	   easier to look from log files the actual error message. */
 	mail_storage_set_internal_error(storage);
 
 	storage->last_internal_error = i_strdup(str);
+	storage->last_internal_error_mailbox = i_strdup(mailbox_vname);
 	storage->last_error_is_internal = TRUE;
 
 	/* free the old_error and old_internal_error only after the new error
 	   is generated, because they may be one of the parameters. */
 	i_free(old_error);
 	i_free(old_internal_error);
+	i_free(old_internal_error_mailbox);
 }
 
 void mail_storage_set_critical(struct mail_storage *storage,
@@ -605,7 +611,7 @@ void mail_storage_set_critical(struct mail_storage *storage,
 	va_start(va, fmt);
 	T_BEGIN {
 		const char *str = t_strdup_vprintf(fmt, va);
-		mail_storage_set_critical_error(storage, str);
+		mail_storage_set_critical_error(storage, str, NULL);
 		e_error(storage->event, "%s", str);
 	} T_END;
 	va_end(va);
@@ -618,9 +624,7 @@ void mailbox_set_critical(struct mailbox *box, const char *fmt, ...)
 	va_start(va, fmt);
 	T_BEGIN {
 		const char *str = t_strdup_vprintf(fmt, va);
-		mail_storage_set_critical_error(box->storage,
-			t_strdup_printf("Mailbox %s: %s",
-					mailbox_name_sanitize(box->vname), str));
+		mail_storage_set_critical_error(box->storage, str, box->vname);
 		e_error(box->event, "%s", str);
 	} T_END;
 	va_end(va);
@@ -643,6 +647,9 @@ void mail_set_critical(struct mail *mail, const char *fmt, ...)
 	va_end(va);
 }
 
+/* Note: mail_storage_get_last_internal_error() will always include
+         the mailbox prefix, while mailbox_get_last_internal_error()
+	 usually will not. */
 const char *mail_storage_get_last_internal_error(struct mail_storage *storage,
 						 enum mail_error *error_r)
 {
@@ -650,16 +657,38 @@ const char *mail_storage_get_last_internal_error(struct mail_storage *storage,
 		*error_r = storage->error;
 	if (storage->last_error_is_internal) {
 		i_assert(storage->last_internal_error != NULL);
-		return storage->last_internal_error;
+		if (storage->last_internal_error_mailbox == NULL)
+			return storage->last_internal_error;
+		else {
+			return t_strdup_printf(
+				"Mailbox %s: %s",
+				mailbox_name_sanitize(storage->last_internal_error_mailbox),
+				storage->last_internal_error);
+		}
 	}
 	return mail_storage_get_last_error(storage, error_r);
 }
 
+/* Note: mailbox_get_last_internal_error() will include the mailbox prefix only
+	 when when mailbox->vname does not match last_internal_error_mailbox,
+	 which might happen with e.g. virtual mailboxes logging about physical
+	 mailboxes, while mail_storage_get_last_internal_error() always does. */
 const char *mailbox_get_last_internal_error(struct mailbox *box,
 					    enum mail_error *error_r)
 {
-	return mail_storage_get_last_internal_error(mailbox_get_storage(box),
-						    error_r);
+	struct mail_storage *storage = mailbox_get_storage(box);
+	const char *last_mailbox = storage->last_internal_error_mailbox;
+	if (last_mailbox != NULL &&
+	    strcmp(last_mailbox, box->vname) != 0)
+		return mail_storage_get_last_internal_error(storage, error_r);
+
+	if (error_r != NULL)
+		*error_r = storage->error;
+	if (storage->last_error_is_internal) {
+		i_assert(storage->last_internal_error != NULL);
+		return storage->last_internal_error;
+	}
+	return mail_storage_get_last_error(storage, error_r);
 }
 
 void mail_storage_copy_error(struct mail_storage *dest,
@@ -691,6 +720,7 @@ void mailbox_set_index_error(struct mailbox *box)
 		mailbox_set_deleted(box);
 		mail_index_reset_error(box->index);
 	} else {
+		box->storage->last_internal_error_mailbox = i_strdup(box->vname);
 		mail_storage_set_index_error(box->storage, box->index);
 	}
 }
@@ -784,8 +814,11 @@ void mail_storage_last_error_push(struct mail_storage *storage)
 	err->error_string = i_strdup(storage->error_string);
 	err->error = storage->error;
 	err->last_error_is_internal = storage->last_error_is_internal;
-	if (err->last_error_is_internal)
+	if (err->last_error_is_internal) {
 		err->last_internal_error = i_strdup(storage->last_internal_error);
+		err->last_internal_error_mailbox =
+			i_strdup(storage->last_internal_error_mailbox);
+	}
 }
 
 void mail_storage_last_error_pop(struct mail_storage *storage)
@@ -796,10 +829,12 @@ void mail_storage_last_error_pop(struct mail_storage *storage)
 
 	i_free(storage->error_string);
 	i_free(storage->last_internal_error);
+	i_free(storage->last_internal_error_mailbox);
 	storage->error_string = err->error_string;
 	storage->error = err->error;
 	storage->last_error_is_internal = err->last_error_is_internal;
 	storage->last_internal_error = err->last_internal_error;
+	storage->last_internal_error_mailbox = err->last_internal_error_mailbox;
 	array_delete(&storage->error_stack, count-1, 1);
 }
 
