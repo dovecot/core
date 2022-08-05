@@ -782,7 +782,7 @@ virtual_get_virtual_uids(struct mailbox *box,
 		while (i < count && uids[i].real_uid < uid) i++;
 		if (i < count && uids[i].real_uid == uid) {
 			i_assert(uids[i].virtual_uid > 0);
-			seq_range_array_add(virtual_uids_r, 
+			seq_range_array_add(virtual_uids_r,
 					    uids[i].virtual_uid);
 			i++;
 		}

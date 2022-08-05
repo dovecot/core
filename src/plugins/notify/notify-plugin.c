@@ -40,7 +40,7 @@ void notify_contexts_mail_transaction_begin(struct mailbox_transaction_context *
 {
 	struct notify_context *ctx;
 	struct notify_mail_txn *mail_txn;
-	
+
 	for (ctx = ctx_list; ctx != NULL; ctx = ctx->next) {
 		mail_txn = i_new(struct notify_mail_txn, 1);
 		mail_txn->parent_mailbox_txn = t;

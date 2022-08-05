@@ -240,7 +240,7 @@ fts_user_language_find(struct mail_user *user,
 {
 	struct fts_user_language *user_lang;
 	struct fts_user *fuser = FTS_USER_CONTEXT(user);
-		
+
 	i_assert(fuser != NULL);
 	array_foreach_elem(&fuser->languages, user_lang) {
 		if (strcmp(user_lang->lang->name, lang->name) == 0)

@@ -21,7 +21,7 @@ notify_mail_expunge(struct mail *_mail)
 {
 	struct mail_private *mail = (struct mail_private *)_mail;
 	union mail_module_context *lmail = NOTIFY_MAIL_CONTEXT(mail);
-	
+
 	notify_contexts_mail_expunge(_mail);
 	lmail->super.expunge(_mail);
 }
@@ -38,9 +38,9 @@ notify_mail_update_flags(struct mail *_mail, enum modify_type modify_type,
 	lmail->super.update_flags(_mail, modify_type, flags);
 	new_flags = mail_get_flags(_mail);
 
-	if ((old_flags ^ new_flags) == 0) 
+	if ((old_flags ^ new_flags) == 0)
 		return;
-	
+
 	notify_contexts_mail_update_flags(_mail, old_flags);
 }
 
@@ -62,7 +62,7 @@ notify_mail_update_keywords(struct mail *_mail, enum modify_type modify_type,
 			break;
 	}
 
-	if (old_keywords[i] == NULL && new_keywords[i] == NULL) 
+	if (old_keywords[i] == NULL && new_keywords[i] == NULL)
 		return;
 
 	notify_contexts_mail_update_keywords(_mail, old_keywords);
@@ -130,7 +130,7 @@ notify_transaction_begin(struct mailbox *box,
 {
 	union mailbox_module_context *lbox = NOTIFY_CONTEXT(box);
 	struct mailbox_transaction_context *t;
-	
+
 	t = lbox->super.transaction_begin(box, flags, reason);
 
 	if ((t->flags & MAILBOX_TRANSACTION_FLAG_NO_NOTIFY) == 0)

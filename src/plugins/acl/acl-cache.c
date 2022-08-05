@@ -321,7 +321,7 @@ void acl_cache_set_validity(struct acl_cache *cache, const char *objname,
 	if (created) {
 		/* negative cache entry */
 		obj_cache->my_current_rights = &negative_cache_entry;
-	} 
+	}
 }
 
 void *acl_cache_get_validity(struct acl_cache *cache, const char *objname)

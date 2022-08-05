@@ -805,7 +805,7 @@ static void virtual_sync_backend_boxes_sort_uids(struct virtual_mailbox *mbox)
 	}
 }
 
-static void 
+static void
 virtual_sync_backend_add_vmsgs_results(struct virtual_sync_context *ctx,
 				       struct virtual_backend_box *bbox,
                                        uint32_t real_uid,
@@ -1765,7 +1765,7 @@ virtual_sync_apply_existing_expunges(struct virtual_mailbox *mbox,
 			if (!array_is_created(&bbox->sync_outside_expunges))
 				i_array_init(&bbox->sync_outside_expunges, 32);
 		}
-		seq_range_array_add(&bbox->sync_outside_expunges, 
+		seq_range_array_add(&bbox->sync_outside_expunges,
 				    vrec->real_uid);
 	}
 }
@@ -1811,7 +1811,7 @@ static int virtual_sync_backend_boxes(struct virtual_sync_context *ctx)
 
 	i_array_init(&ctx->all_adds, 128);
 	bboxes = array_get(&ctx->mbox->backend_boxes, &count);
-	
+
 	/* we have different optimizations depending on whether the virtual
 	   mailbox consists of multiple backend boxes or just one */
 	if (count > 1)

@@ -447,7 +447,7 @@ fts_flatcurve_xapian_write_db_get(struct flatcurve_fts_backend *backend,
 
 	if (xdb->type == FLATCURVE_XAPIAN_DB_TYPE_CURRENT &&
 	    fts_flatcurve_xapian_check_db_version(backend, xdb, error_r) < 0)
-	    	return -1;
+		return -1;
 
 	e_debug(backend->event, "Opened DB (RW, %s) messages=%u version=%u",
 		xdb->dbpath->fname, xdb->dbw->get_doccount(),
@@ -853,7 +853,7 @@ fts_flatcurve_xapian_mailbox_check(struct flatcurve_fts_backend *backend,
 	static const enum flatcurve_xapian_db_opts opts =
 		(enum flatcurve_xapian_db_opts)
 			(FLATCURVE_XAPIAN_DB_NOCREATE_CURRENT |
-		  	 FLATCURVE_XAPIAN_DB_IGNORE_EMPTY);
+			 FLATCURVE_XAPIAN_DB_IGNORE_EMPTY);
 	struct flatcurve_xapian *x = backend->xapian;
 
 	i_zero(check);
@@ -893,8 +893,8 @@ int fts_flatcurve_xapian_mailbox_rotate(struct flatcurve_fts_backend *backend,
 {
 	static const enum flatcurve_xapian_db_opts opts =
 		(enum flatcurve_xapian_db_opts)
-		 	(FLATCURVE_XAPIAN_DB_NOCREATE_CURRENT |
-		  	 FLATCURVE_XAPIAN_DB_IGNORE_EMPTY);
+			(FLATCURVE_XAPIAN_DB_NOCREATE_CURRENT |
+			 FLATCURVE_XAPIAN_DB_IGNORE_EMPTY);
 	struct flatcurve_xapian_db *xdb;
 
 	int ret = fts_flatcurve_xapian_write_db_current(
@@ -914,8 +914,8 @@ fts_flatcurve_xapian_mailbox_stats(struct flatcurve_fts_backend *backend,
 {
 	static const enum flatcurve_xapian_db_opts opts =
 		(enum flatcurve_xapian_db_opts)
-		 	(FLATCURVE_XAPIAN_DB_NOCREATE_CURRENT |
-		  	 FLATCURVE_XAPIAN_DB_IGNORE_EMPTY);
+			(FLATCURVE_XAPIAN_DB_NOCREATE_CURRENT |
+			 FLATCURVE_XAPIAN_DB_IGNORE_EMPTY);
 	struct flatcurve_xapian *x = backend->xapian;
 
 	if (x->db_read == NULL) {
@@ -1059,8 +1059,8 @@ fts_flatcurve_database_terms_fetch(bool headers,
 {
 	static const enum flatcurve_xapian_db_opts opts =
 		(enum flatcurve_xapian_db_opts)
-		 	(FLATCURVE_XAPIAN_DB_NOCREATE_CURRENT |
-		  	 FLATCURVE_XAPIAN_DB_IGNORE_EMPTY);
+			(FLATCURVE_XAPIAN_DB_NOCREATE_CURRENT |
+			 FLATCURVE_XAPIAN_DB_IGNORE_EMPTY);
 
 	Xapian::Database *db;
 	Xapian::TermIterator iter, end;
@@ -1086,7 +1086,7 @@ fts_flatcurve_database_terms_fetch(bool headers,
 			if (*key == *FLATCURVE_XAPIAN_ALL_HEADERS_PREFIX)
 				++key;
 			else if (*key == *FLATCURVE_XAPIAN_BOOLEAN_FIELD_PREFIX ||
-			   	 *key == *FLATCURVE_XAPIAN_HEADER_PREFIX)
+				 *key == *FLATCURVE_XAPIAN_HEADER_PREFIX)
 				continue;
 		}
 
@@ -1435,7 +1435,7 @@ fts_flatcurve_xapian_close_db(struct flatcurve_fts_backend *backend,
 
 	if (xdb->db != NULL &&
 	    HAS_ANY_BITS(opts, FLATCURVE_XAPIAN_DB_CLOSE_DB |
-	    		       FLATCURVE_XAPIAN_DB_CLOSE_MBOX)) {
+			       FLATCURVE_XAPIAN_DB_CLOSE_MBOX)) {
 		delete(xdb->db);
 		xdb->db = NULL;
 	}
@@ -1526,7 +1526,7 @@ int fts_flatcurve_xapian_get_last_uid(struct flatcurve_fts_backend *backend,
 	static const enum flatcurve_xapian_db_opts opts =
 		(enum flatcurve_xapian_db_opts)
 			(FLATCURVE_XAPIAN_DB_NOCREATE_CURRENT |
-		 	 FLATCURVE_XAPIAN_DB_IGNORE_EMPTY);
+			 FLATCURVE_XAPIAN_DB_IGNORE_EMPTY);
 
 	Xapian::Database *db;
 	int ret = fts_flatcurve_xapian_read_db(backend, opts, &db, error_r);
@@ -1561,7 +1561,7 @@ int fts_flatcurve_xapian_uid_exists(struct flatcurve_fts_backend *backend,
 	static const enum flatcurve_xapian_db_opts opts =
 		(enum flatcurve_xapian_db_opts)
 			(FLATCURVE_XAPIAN_DB_NOCREATE_CURRENT |
-		 	 FLATCURVE_XAPIAN_DB_IGNORE_EMPTY);
+			 FLATCURVE_XAPIAN_DB_IGNORE_EMPTY);
 
 	if (fts_flatcurve_xapian_read_db(backend, opts, NULL, error_r) <= 0)
 		return -1;
@@ -1772,7 +1772,7 @@ fts_flatcurve_xapian_optimize_rebuild(struct flatcurve_fts_backend *backend,
 	xdb->type = FLATCURVE_XAPIAN_DB_TYPE_OPTIMIZE;
 
 	if (fts_flatcurve_xapian_write_db_get(
-	    	backend, xdb, FLATCURVE_XAPIAN_WDB_CREATE, error_r) < 0)
+		backend, xdb, FLATCURVE_XAPIAN_WDB_CREATE, error_r) < 0)
 		return -1;
 
 	Xapian::Enquire enquire(*db);
@@ -1918,7 +1918,7 @@ int fts_flatcurve_xapian_optimize_box(struct flatcurve_fts_backend *backend,
 	static const enum flatcurve_xapian_db_opts opts =
 		(enum flatcurve_xapian_db_opts)
 			(FLATCURVE_XAPIAN_DB_NOCREATE_CURRENT |
-		 	 FLATCURVE_XAPIAN_DB_IGNORE_EMPTY);
+			 FLATCURVE_XAPIAN_DB_IGNORE_EMPTY);
 
 	Xapian::Database *db;
 	int ret;

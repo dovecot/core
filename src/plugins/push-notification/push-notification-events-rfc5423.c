@@ -7,7 +7,7 @@
 
 /* These are the RFC 5423 Mail Store Events currently handled within the core
    push-notification code.
-  
+
    @todo: These events are not currently handled:
      - Login
      - Logout

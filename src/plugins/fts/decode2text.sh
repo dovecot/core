@@ -60,7 +60,7 @@ xmlunzip() {
   name=$1
 
   tempdir=`mktemp -d`
-  if [ "$tempdir" = "" ]; then 
+  if [ "$tempdir" = "" ]; then
     exit 1
   fi
   trap "rm -rf $path $tempdir" 0 1 2 3 14 15

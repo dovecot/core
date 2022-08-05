@@ -76,7 +76,7 @@ struct quota_backend_vfuncs {
 					      uint64_t *value_r,
 					      const char **error_r);
 
-	int (*update)(struct quota_root *root, 
+	int (*update)(struct quota_root *root,
 		      struct quota_transaction_context *ctx,
 		      const char **error_r);
 	bool (*match_box)(struct quota_root *root, struct mailbox *box);

@@ -560,7 +560,7 @@ bool fts_expunge_log_contains(const struct fts_expunge_log_append_ctx *ctx,
 	mailbox = hash_table_lookup(ctx->mailboxes, guid_p);
 	if (mailbox == NULL)
 		return FALSE;
-	return seq_range_exists(&mailbox->uids, uid);	
+	return seq_range_exists(&mailbox->uids, uid);
 }
 int fts_expunge_log_append_remove(struct fts_expunge_log_append_ctx *from,
 				   const struct fts_expunge_log_read_record *record)

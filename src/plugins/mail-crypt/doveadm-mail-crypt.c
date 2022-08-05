@@ -400,9 +400,9 @@ static int mcp_keypair_generate_run(struct doveadm_mail_cmd_context *_ctx,
 	const struct mailbox_info *info;
 	struct mailbox_list_iterate_context *iter =
 		mailbox_list_iter_init_namespaces(user->namespaces,
-				 		  patterns,
+						  patterns,
 						  MAIL_NAMESPACE_TYPE_PRIVATE,
-			 			  MAILBOX_LIST_ITER_SKIP_ALIASES |
+						  MAILBOX_LIST_ITER_SKIP_ALIASES |
 						  MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 						  MAILBOX_LIST_ITER_RETURN_NO_FLAGS);
 	while((info = mailbox_list_iter_next(iter)) != NULL) {
@@ -535,7 +535,7 @@ static void mcp_key_list(struct mcp_cmd_context *ctx,
 
 		iter = mailbox_attribute_iter_init(box,
 						   MAIL_ATTRIBUTE_TYPE_PRIVATE,
-					  	   USER_CRYPT_PREFIX
+						   USER_CRYPT_PREFIX
 						   PRIVKEYS_PREFIX);
 		const char *key_id;
 		if (value.value == NULL)

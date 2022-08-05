@@ -416,7 +416,7 @@ static void mail_log_mail_update_flags(void *txn, struct mail *mail,
 }
 
 static void
-mail_log_mail_update_keywords(void *txn, struct mail *mail, 
+mail_log_mail_update_keywords(void *txn, struct mail *mail,
 			      const char *const *old_keywords ATTR_UNUSED)
 {
 	struct mail_log_mail_txn_context *ctx =

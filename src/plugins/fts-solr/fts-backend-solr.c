@@ -853,7 +853,7 @@ fts_backend_solr_lookup(struct fts_backend *_backend, struct mailbox *box,
 		if (solr_search(_backend, str, box_guid,
 				&result->maybe_uids, &result->scores) < 0)
 			return -1;
-	}               
+	}
 	result->scores_sorted = TRUE;
 	return 0;
 }
