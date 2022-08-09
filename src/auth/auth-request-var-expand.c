@@ -10,6 +10,8 @@ struct auth_request_var_expand_ctx {
 	auth_request_escape_func_t *escape_func;
 };
 
+/* Update this offset when you add new values */
+#define ALIAS(x) ((x)+35)
 const struct var_expand_table
 auth_request_var_expand_static_tab[] = {
 	{ 'u', NULL, "user" },
@@ -118,10 +120,10 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	tab[3].value = escape_func(fields->service, auth_request);
 	/* tab[4] = we have no home dir */
 	if (fields->local_ip.family != 0)
-		tab[5].value = tab[35].value =
+		tab[5].value = tab[ALIAS(0)].value =
 			net_ip2addr(&fields->local_ip);
 	if (fields->remote_ip.family != 0)
-		tab[6].value = tab[36].value =
+		tab[6].value = tab[ALIAS(1)].value =
 			net_ip2addr(&fields->remote_ip);
 	tab[7].value = dec2str(auth_request->client_pid);
 	if (auth_request->mech_password != NULL) {
@@ -135,7 +137,7 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 		tab[9].value = auth_request->passdb == NULL ? "" :
 			dec2str(auth_request->passdb->passdb->id);
 	}
-	tab[10].value = tab[43].value = fields->mech_name == NULL ? "" :
+	tab[10].value = tab[ALIAS(8)].value = fields->mech_name == NULL ? "" :
 		escape_func(fields->mech_name, auth_request);
 	switch (fields->conn_secured) {
 	case AUTH_REQUEST_CONN_SECURED_NONE: tab[11].value = ""; break;
@@ -143,8 +145,8 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	case AUTH_REQUEST_CONN_SECURED_TLS: tab[11].value = "TLS"; break;
 	default: tab[11].value = ""; break;
 	};
-	tab[12].value = tab[37].value = dec2str(fields->local_port);
-	tab[13].value = tab[38].value = dec2str(fields->remote_port);
+	tab[12].value = tab[ALIAS(2)].value = dec2str(fields->local_port);
+	tab[13].value = tab[ALIAS(3)].value = dec2str(fields->remote_port);
 	tab[14].value = fields->valid_client_cert ? "valid" : "";
 
 	if (fields->requested_login_user != NULL) {
@@ -162,13 +164,13 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	tab[18].value = fields->session_id == NULL ? NULL :
 		escape_func(fields->session_id, auth_request);
 	if (fields->real_local_ip.family != 0)
-		tab[19].value = tab[39].value =
+		tab[19].value = tab[ALIAS(4)].value =
 			net_ip2addr(&fields->real_local_ip);
 	if (fields->real_remote_ip.family != 0)
-		tab[20].value = tab[40].value =
+		tab[20].value = tab[ALIAS(5)].value =
 			net_ip2addr(&fields->real_remote_ip);
-	tab[21].value = tab[41].value = dec2str(fields->real_local_port);
-	tab[22].value = tab[42].value = dec2str(fields->real_remote_port);
+	tab[21].value = tab[ALIAS(6)].value = dec2str(fields->real_local_port);
+	tab[22].value = tab[ALIAS(7)].value = dec2str(fields->real_remote_port);
 	tab[23].value = i_strchr_to_next(username, '@');
 	if (tab[23].value != NULL) {
 		tab[23].value = escape_func(t_strcut(tab[23].value, '@'),
@@ -184,11 +186,11 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 
 	orig_user = fields->original_username != NULL ?
 		fields->original_username : username;
-	tab[27].value = tab[44].value = escape_func(orig_user, auth_request);
-	tab[28].value = tab[45].value = escape_func(t_strcut(orig_user, '@'), auth_request);
-	tab[29].value = tab[46].value = i_strchr_to_next(orig_user, '@');
+	tab[27].value = tab[ALIAS(9)].value = escape_func(orig_user, auth_request);
+	tab[28].value = tab[ALIAS(10)].value = escape_func(t_strcut(orig_user, '@'), auth_request);
+	tab[29].value = tab[ALIAS(11)].value = i_strchr_to_next(orig_user, '@');
 	if (tab[29].value != NULL)
-		tab[29].value = tab[46].value =
+		tab[29].value = tab[ALIAS(12)].value =
 			escape_func(tab[29].value, auth_request);
 
 	if (fields->master_user != NULL)
