@@ -47,6 +47,7 @@ struct fts_expunge_log_mailbox {
 struct fts_expunge_log_append_ctx {
 	struct fts_expunge_log *log;
 	pool_t pool;
+	struct event *event;
 
 	HASH_TABLE(uint8_t *, struct fts_expunge_log_mailbox *) mailboxes;
 	struct fts_expunge_log_mailbox *prev_mailbox;
@@ -176,7 +177,7 @@ fts_expunge_log_read_expunge_count(struct fts_expunge_log *log,
 }
 
 struct fts_expunge_log_append_ctx *
-fts_expunge_log_append_begin(struct fts_expunge_log *log)
+fts_expunge_log_append_begin(struct fts_expunge_log *log, struct event *event)
 {
 	struct fts_expunge_log_append_ctx *ctx;
 	pool_t pool;
@@ -185,6 +186,7 @@ fts_expunge_log_append_begin(struct fts_expunge_log *log)
 	ctx = p_new(pool, struct fts_expunge_log_append_ctx, 1);
 	ctx->log = log;
 	ctx->pool = pool;
+	ctx->event = event_create(event);
 	hash_table_create(&ctx->mailboxes, pool, 0, guid_128_hash, guid_128_cmp);
 
 	if (log != NULL && fts_expunge_log_reopen_if_needed(log, TRUE) < 0)
@@ -326,9 +328,9 @@ fts_expunge_log_write(struct fts_expunge_log_append_ctx *ctx)
 	   appended atomically without any need for locking. */
 	for (;;) {
 		if (write_full(log->fd, buf->data, buf->used) < 0) {
-			e_error(log->event, "write(%s) failed: %m", log->path);
+			e_error(ctx->event, "write(%s) failed: %m", log->path);
 			if (ftruncate(log->fd, log->st.st_size) < 0)
-				e_error(log->event, "ftruncate(%s) failed: %m", log->path);
+				e_error(ctx->event, "ftruncate(%s) failed: %m", log->path);
 		}
 		if ((ret = fts_expunge_log_reopen_if_needed(log, TRUE)) <= 0)
 			break;
@@ -350,7 +352,7 @@ fts_expunge_log_write(struct fts_expunge_log_append_ctx *ctx)
 		if (close(log->fd) < 0) {
 			/* FIXME: we should ftruncate() in case there
 			   were partial writes.. */
-			e_error(log->event, "close(%s) failed: %m", log->path);
+			e_error(ctx->event, "close(%s) failed: %m", log->path);
 			ret = -1;
 		}
 		log->fd = -1;
@@ -369,6 +371,7 @@ static int fts_expunge_log_append_finalize(struct fts_expunge_log_append_ctx **_
 		ret = fts_expunge_log_write(ctx);
 
 	hash_table_destroy(&ctx->mailboxes);
+	event_unref(&ctx->event);
 	pool_unref(&ctx->pool);
 	return ret;
 }
@@ -546,7 +549,7 @@ int fts_expunge_log_flatten(const char *path, struct event *event,
 	read_ctx = fts_expunge_log_read_begin(read);
 	read_ctx->unlink = FALSE;
 
-	append = fts_expunge_log_append_begin(NULL);
+	append = fts_expunge_log_append_begin(NULL, event);
 	while((record = fts_expunge_log_read_next(read_ctx)) != NULL) {
 		fts_expunge_log_append_record(append, record);
 	}
@@ -592,7 +595,7 @@ int fts_expunge_log_subtract(struct fts_expunge_log_append_ctx *from,
 			failures++;
 	}
 	if (failures > 0)
-		e_warning(from->log->event,
+		e_warning(from->event,
 			  "Expunge log subtract ignored %u nonexistent mailbox GUIDs",
 			  failures);
 	return fts_expunge_log_read_end(&read_ctx);
@@ -604,9 +607,11 @@ int fts_expunge_log_subtract(struct fts_expunge_log_append_ctx *from,
 int fts_expunge_log_flat_write(const struct fts_expunge_log_append_ctx *read_log,
 			       const char *path)
 {
+	/* NOTE: read_log->log may be NULL here */
 	int ret;
-	struct fts_expunge_log *nlog = fts_expunge_log_init(path, read_log->log->event);
-	struct fts_expunge_log_append_ctx *nappend = fts_expunge_log_append_begin(nlog);
+	struct fts_expunge_log *nlog = fts_expunge_log_init(path, read_log->event);
+	struct fts_expunge_log_append_ctx *nappend =
+		fts_expunge_log_append_begin(nlog, read_log->event);
 
 	struct hash_iterate_context *iter;
 	uint8_t *guid_p;

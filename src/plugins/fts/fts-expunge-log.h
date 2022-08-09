@@ -14,7 +14,7 @@ struct fts_expunge_log *fts_expunge_log_init(const char *path,
 void fts_expunge_log_deinit(struct fts_expunge_log **log);
 
 struct fts_expunge_log_append_ctx *
-fts_expunge_log_append_begin(struct fts_expunge_log *log);
+fts_expunge_log_append_begin(struct fts_expunge_log *log, struct event *event);
 void fts_expunge_log_append_next(struct fts_expunge_log_append_ctx *ctx,
 				 const guid_128_t mailbox_guid,
 				 uint32_t uid);
