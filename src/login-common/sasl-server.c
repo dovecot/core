@@ -2,6 +2,7 @@
 
 #include "login-common.h"
 #include "array.h"
+#include "md5.h"
 #include "str.h"
 #include "base64.h"
 #include "buffer.h"
@@ -456,12 +457,20 @@ int sasl_server_auth_request_info_fill(struct client *client,
 	}
 
 	if (client->ssl_iostream != NULL) {
+		unsigned char hash[MD5_RESULTLEN];
 		info_r->cert_username = ssl_iostream_get_peer_name(client->ssl_iostream);
 		info_r->ssl_cipher = ssl_iostream_get_cipher(client->ssl_iostream,
 							 &info_r->ssl_cipher_bits);
 		info_r->ssl_pfs = ssl_iostream_get_pfs(client->ssl_iostream);
 		info_r->ssl_protocol =
 			ssl_iostream_get_protocol_name(client->ssl_iostream);
+		const char *ja3 = ssl_iostream_get_ja3(client->ssl_iostream);
+		/* See https://github.com/salesforce/ja3#how-it-works for reason
+		   why md5 is used. */
+		if (ja3 != NULL) {
+			md5_get_digest(ja3, strlen(ja3), hash);
+			info_r->ssl_ja3_hash = binary_to_hex(hash, sizeof(hash));
+		}
 	}
 	info_r->flags = client_get_auth_flags(client);
 	info_r->local_ip = client->local_ip;
