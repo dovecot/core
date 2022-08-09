@@ -830,6 +830,8 @@ void doveadm_client_extract(struct doveadm_client *conn,
 	*ostream_r = conn->conn.output;
 	*ssl_iostream_r = conn->ssl_iostream;
 
+	o_stream_unset_flush_callback(conn->conn.output);
+
 	conn->conn.input = NULL;
 	conn->log_input = NULL;
 	conn->conn.output = NULL;
