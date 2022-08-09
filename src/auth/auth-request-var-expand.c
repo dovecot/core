@@ -11,7 +11,7 @@ struct auth_request_var_expand_ctx {
 };
 
 /* Update this offset when you add new values */
-#define ALIAS(x) ((x)+35)
+#define ALIAS(x) ((x)+36)
 const struct var_expand_table
 auth_request_var_expand_static_tab[] = {
 	{ 'u', NULL, "user" },
@@ -49,6 +49,7 @@ auth_request_var_expand_static_tab[] = {
 	{ '\0', NULL, "auth_domain" },
 	{ '\0', NULL, "local_name" },
 	{ '\0', NULL, "client_id" },
+	{ '\0', NULL, "ssl_ja3_hash" },
 
 	/* aliases: */
 	{ '\0', NULL, "local_ip" },
