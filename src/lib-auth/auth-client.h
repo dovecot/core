@@ -57,6 +57,7 @@ struct auth_request_info {
 	const char *ssl_cipher;
 	const char *ssl_pfs;
 	const char *ssl_protocol;
+	const char *ssl_ja3_hash;
 
 	enum auth_request_flags flags;
 

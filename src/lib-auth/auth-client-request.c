@@ -70,6 +70,11 @@ static void auth_server_send_new_request(struct auth_client_connection *conn,
 		str_printfa(str, "\trport=%u", info->remote_port);
 		event_add_int(request->event, "remote_port", info->remote_port);
 	}
+	if (info->ssl_ja3_hash != 0) {
+		str_append(str, "\tssl_ja3_hash=");
+		str_append_tabescaped(str,info->ssl_ja3_hash);
+		event_add_str(request->event, "ssl_ja3_hash", info->ssl_ja3_hash);
+	}
 	if (info->real_local_ip.family != 0) {
 		event_add_str(request->event, "real_local_ip",
 			      net_ip2addr(&info->real_local_ip));
