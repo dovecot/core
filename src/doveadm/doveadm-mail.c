@@ -515,8 +515,10 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 
 	ctx->v.init(ctx);
 
-	mail_storage_service_all_init_mask(ctx->storage_service,
-		wildcard_user != NULL ? wildcard_user : "");
+	if (wildcard_user != NULL) {
+		mail_storage_service_all_init_mask(ctx->storage_service,
+						   wildcard_user);
+	}
 
 	if (hook_doveadm_mail_init != NULL)
 		hook_doveadm_mail_init(ctx);
@@ -633,7 +635,7 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 	if (ctx->v.preinit != NULL)
 		ctx->v.preinit(ctx);
 
-	ctx->iterate_single_user = wildcard_user == NULL;
+	ctx->iterate_single_user = wildcard_user == NULL && ctx->users_list_input == NULL;
 	if (doveadm_print_is_initialized() && !ctx->iterate_single_user) {
 		doveadm_print_header("username", "Username",
 				     DOVEADM_PRINT_HEADER_FLAG_STICKY |
@@ -823,7 +825,6 @@ doveadm_cmdv2_wrapper_parse_common_options(struct doveadm_mail_cmd_context *mctx
 	if (doveadm_cmd_param_istream(cctx, "user-file", &mctx->users_list_input)) {
 		i_stream_ref(mctx->users_list_input);
 		mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
-		*wildcard_user_r = "*";
 	}
 
 	if (doveadm_cmd_param_str(cctx, "user", &value_str)) {
