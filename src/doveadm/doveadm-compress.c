@@ -220,7 +220,7 @@ static void server_input(struct client *client)
 	i_stream_skip(client->input, size);
 }
 
-static void cmd_zlibconnect(struct doveadm_cmd_context *cctx)
+static void cmd_compress_connect(struct doveadm_cmd_context *cctx)
 {
 	struct client client;
 	const char *host;
@@ -231,7 +231,7 @@ static void cmd_zlibconnect(struct doveadm_cmd_context *cctx)
 	int fd, ret;
 
 	if (!doveadm_cmd_param_str(cctx, "host", &host))
-		help_ver2(&doveadm_cmd_zlibconnect);
+		help_ver2(&doveadm_cmd_compress_connect);
 	if (doveadm_cmd_param_int64(cctx, "port", &port_int64)) {
 		if (port_int64 == 0 || port_int64 > 65535)
 			i_fatal("Invalid port: %"PRId64, port_int64);
@@ -274,9 +274,9 @@ struct doveadm_cmd_dump doveadm_cmd_dump_zlib = {
 	cmd_dump_imapzlib
 };
 
-struct doveadm_cmd_ver2 doveadm_cmd_zlibconnect = {
-	.name = "zlibconnect",
-	.cmd = cmd_zlibconnect,
+struct doveadm_cmd_ver2 doveadm_cmd_compress_connect = {
+	.name = "compress-connect",
+	.cmd = cmd_compress_connect,
 	.usage = "<host> [<port>]",
 DOVEADM_CMD_PARAMS_START
 DOVEADM_CMD_PARAM('\0', "host", CMD_PARAM_STR, CMD_PARAM_FLAG_POSITIONAL)
