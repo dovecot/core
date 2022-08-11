@@ -633,8 +633,7 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 	if (ctx->v.preinit != NULL)
 		ctx->v.preinit(ctx);
 
-	ctx->iterate_single_user =
-		!ctx->iterate_all_users && wildcard_user == NULL;
+	ctx->iterate_single_user = wildcard_user == NULL;
 	if (doveadm_print_is_initialized() && !ctx->iterate_single_user) {
 		doveadm_print_header("username", "Username",
 				     DOVEADM_PRINT_HEADER_FLAG_STICKY |
@@ -810,9 +809,10 @@ doveadm_cmdv2_wrapper_parse_common_options(struct doveadm_mail_cmd_context *mctx
 	bool tcp_server = cctx->conn_type == DOVEADM_CONNECTION_TYPE_TCP;
 	const char *value_str;
 
+	*wildcard_user_r = NULL;
 	if (doveadm_cmd_param_flag(cctx, "all-users")) {
-		if (!tcp_server)
-			mctx->iterate_all_users = TRUE;
+		mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
+		*wildcard_user_r = "*";
 	}
 
 	if (doveadm_cmd_param_str(cctx, "socket-path",
@@ -820,7 +820,6 @@ doveadm_cmdv2_wrapper_parse_common_options(struct doveadm_mail_cmd_context *mctx
 	    doveadm_settings->doveadm_worker_count == 0)
 				doveadm_settings->doveadm_worker_count = 1;
 
-	*wildcard_user_r = NULL;
 	if (doveadm_cmd_param_istream(cctx, "user-file", &mctx->users_list_input)) {
 		i_stream_ref(mctx->users_list_input);
 		mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
@@ -857,6 +856,7 @@ doveadm_cmdv2_wrapper_generate_full_arg(struct doveadm_mail_cmd_context *mctx,
 	    strcmp(arg->name, "socket-path") == 0 ||
 	    strcmp(arg->name, "trans-flags") == 0 ||
 	    strcmp(arg->name, "file") == 0 ||
+	    strcmp(arg->name, "all-users") == 0 ||
 	    strcmp(arg->name, "user-file") == 0)
 		return;
 
@@ -949,7 +949,6 @@ doveadm_cmd_ver2_to_mail_cmd_wrapper(struct doveadm_cmd_context *cctx)
 		mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 	}
 	mctx->cctx = cctx;
-	mctx->iterate_all_users = FALSE;
 
 	const char *wildcard_user;
 	doveadm_cmdv2_wrapper_parse_common_options(mctx, &wildcard_user);

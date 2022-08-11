@@ -92,8 +92,6 @@ struct doveadm_mail_cmd_context {
 	bool proxying:1;
 	/* We're handling only a single user */
 	bool iterate_single_user:1;
-	/* We're going through all users (not set for wildcard usernames) */
-	bool iterate_all_users:1;
 };
 
 struct doveadm_mail_cmd {
