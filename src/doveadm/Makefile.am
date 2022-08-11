@@ -125,7 +125,7 @@ doveadm_common_dump_cmds = \
 	doveadm-dump-thread.c \
 	doveadm-dump-dcrypt-file.c \
 	doveadm-dump-dcrypt-key.c \
-	doveadm-zlib.c
+	doveadm-compress.c
 
 common = \
 	$(doveadm_common_cmds) \
