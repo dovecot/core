@@ -11,9 +11,7 @@
 #include "ostream.h"
 #include "iostream-ssl.h"
 #include "iostream-ssl-test.h"
-#ifdef HAVE_OPENSSL
-#  include "iostream-openssl.h"
-#endif
+#include "iostream-openssl.h"
 #include "time-util.h"
 #include "sleep.h"
 #include "connection.h"
@@ -3693,9 +3691,6 @@ static void test_transaction_timeout(void)
 /*
  * Invalid SSL certificate
  */
-
-#ifdef HAVE_OPENSSL
-
 /* dns */
 
 static void
@@ -3839,8 +3834,6 @@ static void test_invalid_ssl_certificate(void)
 	test_end();
 }
 
-#endif
-
 /*
  * All tests
  */
@@ -3868,9 +3861,7 @@ static void (*const test_functions[])(void) = {
 	test_dns_lookup_failure,
 	test_authentication,
 	test_transaction_timeout,
-#ifdef HAVE_OPENSSL
 	test_invalid_ssl_certificate,
-#endif
 	NULL
 };
 
@@ -4326,17 +4317,13 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 
 static void main_init(void)
 {
-#ifdef HAVE_OPENSSL
 	ssl_iostream_openssl_init();
-#endif
 }
 
 static void main_deinit(void)
 {
 	ssl_iostream_context_cache_free();
-#ifdef HAVE_OPENSSL
 	ssl_iostream_openssl_deinit();
-#endif
 }
 
 int main(int argc, char *argv[])

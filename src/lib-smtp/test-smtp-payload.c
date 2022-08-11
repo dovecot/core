@@ -14,9 +14,7 @@
 #include "iostream-temp.h"
 #include "iostream-ssl.h"
 #include "iostream-ssl-test.h"
-#ifdef HAVE_OPENSSL
 #include "iostream-openssl.h"
-#endif
 #include "connection.h"
 #include "test-common.h"
 #include "test-subprocess.h"
@@ -1025,7 +1023,6 @@ test_run_scenarios(
 
 	test_out_reason("unknown payload size", (failure == NULL), failure);
 
-#ifdef HAVE_OPENSSL
 	smtp_server_set.max_pipelined_commands = 5;
 	smtp_server_set.capabilities |= SMTP_CAPABILITY_PIPELINING;
 	test_max_pending = MAX_PARALLEL_PENDING;
@@ -1047,7 +1044,6 @@ test_run_scenarios(
 
 	test_out_reason("parallel pipelining startls",
 			(failure == NULL), failure);
-#endif
 }
 
 static void test_smtp_normal(void)
@@ -1098,17 +1094,13 @@ static void (*const test_functions[])(void) = {
 
 static void main_init(void)
 {
-#ifdef HAVE_OPENSSL
 	ssl_iostream_openssl_init();
-#endif
 }
 
 static void main_deinit(void)
 {
 	ssl_iostream_context_cache_free();
-#ifdef HAVE_OPENSSL
 	ssl_iostream_openssl_deinit();
-#endif
 }
 
 int main(int argc, char *argv[])
