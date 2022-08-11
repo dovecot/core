@@ -83,17 +83,11 @@ AC_DEFUN([DOVECOT_WANT_MYSQL], [
       ])
     ],, $MYSQL_LIBS)
 
-    ssl_define=""
-    AS_IF([test "$have_openssl" = "yes"], [
-      ssl_define="#define HAVE_OPENSSL"
-    ])
-
     dnl add mysql-specific flags to the global CPPFLAGS to compile the
     dnl mysql-test programs
     tmp_CPPFLAGS="$CPPFLAGS"
     CPPFLAGS="$MYSQL_CFLAGS"
     AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
-      $ssl_define
       #include <mysql.h>
     ]], [[
       mysql_ssl_set(0, 0, 0, 0, 0, 0);
@@ -104,7 +98,6 @@ AC_DEFUN([DOVECOT_WANT_MYSQL], [
     ])
 
     AC_COMPILE_IFELSE([_au_m4_changequote([,])AC_LANG_PROGRAM([[
-      $ssl_define
       #include <mysql.h>
     ]], [[
       int i = MYSQL_OPT_SSL_VERIFY_SERVER_CERT;
