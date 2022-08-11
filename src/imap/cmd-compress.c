@@ -71,6 +71,7 @@ bool cmd_compress(struct client_command_context *cmd)
 	client_skip_line(client);
 	client_send_tagline(cmd, "OK Begin compression.");
 
+	uoff_t prev_out_offset = client->output->offset;
 	if (client->pre_rawlog_input != NULL) {
 		/* Rawlogging is currently enabled. Stop it. */
 		i_assert(client->pre_rawlog_output != NULL);
@@ -113,6 +114,9 @@ bool cmd_compress(struct client_command_context *cmd)
 					     &client->input, &client->output);
 		client->post_rawlog_input = client->input;
 		client->post_rawlog_output = client->output;
+		/* retain previous output offset, used in command_stats_flush()
+		   to correctly calculate the already written bytes */
+		client->prev_output_size = prev_out_offset;
 		client_add_missing_io(client);
 	}
 

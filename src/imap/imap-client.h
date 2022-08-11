@@ -178,6 +178,7 @@ struct client {
         struct mailbox_keywords keywords;
 	unsigned int sync_counter;
 	uint32_t messages_count, recent_count, uidvalidity;
+	uoff_t prev_output_size;
 	ARRAY(bool) enabled_features;
 
 	time_t last_input, last_output;

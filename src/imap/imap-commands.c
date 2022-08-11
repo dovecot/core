@@ -177,8 +177,8 @@ void command_stats_flush(struct client_command_context *cmd)
 		cmd->stats_start.lock_wait_usecs;
 	cmd->stats.bytes_in += i_stream_get_absolute_offset(cmd->client->input) -
 		cmd->stats_start.bytes_in;
-	cmd->stats.bytes_out += cmd->client->output->offset -
-		cmd->stats_start.bytes_out;
+	cmd->stats.bytes_out += cmd->client->prev_output_size +
+		cmd->client->output->offset - cmd->stats_start.bytes_out;
 	/* allow flushing multiple times */
 	command_stats_start(cmd);
 }
