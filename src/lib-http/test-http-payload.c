@@ -12,9 +12,7 @@
 #include "iostream-temp.h"
 #include "iostream-ssl.h"
 #include "iostream-ssl-test.h"
-#ifdef HAVE_OPENSSL
 #include "iostream-openssl.h"
-#endif
 #include "connection.h"
 #include "test-common.h"
 #include "test-subprocess.h"
@@ -2310,7 +2308,6 @@ static void test_echo_client_shared(void)
 	test_end();
 }
 
-#ifdef HAVE_OPENSSL
 static void test_echo_ssl(void)
 {
 	test_begin("http payload echo (ssl)");
@@ -2340,7 +2337,6 @@ static void test_echo_ssl(void)
 	test_run_parallel(test_client_echo);
 	test_end();
 }
-#endif
 
 static void test_echo_client_blocking(void)
 {
@@ -2390,9 +2386,7 @@ static void (*const test_functions[])(void) = {
 	test_download_client_partial,
 	test_download_client_nested_ioloop,
 	test_echo_client_shared,
-#ifdef HAVE_OPENSSL
 	test_echo_ssl,
-#endif
 	test_echo_client_blocking,
 	NULL
 };
@@ -2403,17 +2397,13 @@ static void (*const test_functions[])(void) = {
 
 static void main_init(void)
 {
-#ifdef HAVE_OPENSSL
 	ssl_iostream_openssl_init();
-#endif
 }
 
 static void main_deinit(void)
 {
 	ssl_iostream_context_cache_free();
-#ifdef HAVE_OPENSSL
 	ssl_iostream_openssl_deinit();
-#endif
 }
 
 int main(int argc, char *argv[])
