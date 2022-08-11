@@ -51,8 +51,8 @@ Dump the keywords indexed in
 .I fts\-flatcurve
 indexes directory and their frequencies.
 .TP
-.B imapzlib
-Uncompress an IMAP traffic log, which contains data compressed using the
+.B imap\-compress
+Decompress an IMAP traffic log, which contains data compressed using the
 IMAP COMPRESSION extension.
 .TP
 .B dcrypt-file

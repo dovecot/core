@@ -14,7 +14,7 @@ extern struct doveadm_cmd_dump doveadm_cmd_dump_index;
 extern struct doveadm_cmd_dump doveadm_cmd_dump_log;
 extern struct doveadm_cmd_dump doveadm_cmd_dump_mailboxlog;
 extern struct doveadm_cmd_dump doveadm_cmd_dump_thread;
-extern struct doveadm_cmd_dump doveadm_cmd_dump_zlib;
+extern struct doveadm_cmd_dump doveadm_cmd_dump_imap_compress;
 extern struct doveadm_cmd_dump doveadm_cmd_dump_dcrypt_file;
 extern struct doveadm_cmd_dump doveadm_cmd_dump_dcrypt_key;
 
