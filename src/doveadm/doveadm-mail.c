@@ -856,7 +856,8 @@ doveadm_cmdv2_wrapper_generate_full_arg(struct doveadm_mail_cmd_context *mctx,
 	if (!arg->value_set ||
 	    strcmp(arg->name, "socket-path") == 0 ||
 	    strcmp(arg->name, "trans-flags") == 0 ||
-	    strcmp(arg->name, "file") == 0)
+	    strcmp(arg->name, "file") == 0 ||
+	    strcmp(arg->name, "user-file") == 0)
 		return;
 
 	if (strcmp(arg->name, "field") == 0 ||
