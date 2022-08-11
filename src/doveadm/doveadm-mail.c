@@ -447,6 +447,9 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 		return ret;
 	}
 
+	if (doveadm_print_is_initialized() && !ctx->iterate_single_user)
+		doveadm_print_sticky("username", cctx->username);
+
 	if (ctx->v.prerun != NULL) {
 		if (ctx->v.prerun(ctx, ctx->cur_service_user, error_r) < 0) {
 			mail_storage_service_user_unref(&ctx->cur_service_user);
@@ -525,7 +528,6 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 				continue;
 		}
 		cctx->username = user;
-		doveadm_print_sticky("username", user);
 		T_BEGIN {
 			ret = doveadm_mail_next_user(ctx, &error);
 			if (ret < 0)
@@ -633,8 +635,7 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 
 	ctx->iterate_single_user =
 		!ctx->iterate_all_users && wildcard_user == NULL;
-	if (doveadm_print_is_initialized() &&
-	    (!ctx->iterate_single_user || ctx->add_username_header)) {
+	if (doveadm_print_is_initialized() && !ctx->iterate_single_user) {
 		doveadm_print_header("username", "Username",
 				     DOVEADM_PRINT_HEADER_FLAG_STICKY |
 				     DOVEADM_PRINT_HEADER_FLAG_HIDE_TITLE);
@@ -648,8 +649,6 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 			ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
 		}
 
-		if (ctx->add_username_header)
-			doveadm_print_sticky("username", cctx->username);
 		ret = doveadm_mail_single_user(ctx, &error);
 		if (ret < 0) {
 			/* user lookup/init failed somehow */
@@ -812,9 +811,7 @@ doveadm_cmdv2_wrapper_parse_common_options(struct doveadm_mail_cmd_context *mctx
 	const char *value_str;
 
 	if (doveadm_cmd_param_flag(cctx, "all-users")) {
-		if (tcp_server)
-			mctx->add_username_header = TRUE;
-		else
+		if (!tcp_server)
 			mctx->iterate_all_users = TRUE;
 	}
 
@@ -837,9 +834,7 @@ doveadm_cmdv2_wrapper_parse_common_options(struct doveadm_mail_cmd_context *mctx
 
 		if (strchr(value_str, '*') != NULL ||
 		    strchr(value_str, '?') != NULL) {
-			if (tcp_server)
-				mctx->add_username_header = TRUE;
-			else {
+			if (!tcp_server) {
 				*wildcard_user_r = value_str;
 				cctx->username = NULL;
 			}

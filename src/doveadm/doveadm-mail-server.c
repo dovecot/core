@@ -44,6 +44,7 @@ struct doveadm_mail_server_cmd {
 	char *cmdline;
 	struct istream *input;
 	bool streaming;
+	bool print_username;
 };
 
 struct doveadm_server_request {
@@ -51,6 +52,7 @@ struct doveadm_server_request {
 	struct doveadm_server *server;
 	struct doveadm_client_settings set;
 	const char *username;
+	bool print_username;
 };
 
 static HASH_TABLE(char *, struct doveadm_server *) servers;
@@ -63,7 +65,8 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 				 void *context);
 static void doveadm_mail_server_handle(struct doveadm_server *server,
 				       struct doveadm_client *conn,
-				       const char *username);
+				       const char *username,
+				       bool print_username);
 
 static void doveadm_server_request_free(struct doveadm_server_request *request)
 {
@@ -462,6 +465,10 @@ doveadm_cmd_print_callback(const unsigned char *data,
 			   struct doveadm_mail_server_cmd *servercmd)
 {
 	string_t *str = t_str_new(size);
+	if (servercmd->print_username) {
+		doveadm_print_sticky("username", servercmd->username);
+		servercmd->print_username = FALSE;
+	}
 	if (!finished) {
 		servercmd->streaming = TRUE;
 		str_append_tabunescaped(str, data, size);
@@ -533,7 +540,8 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 			array_delete(&doveadm_server_request_queue, idx, 1);
 
 			doveadm_mail_server_handle(server, conn,
-						   request_copy.username);
+						   request_copy.username,
+						   request_copy.print_username);
 			doveadm_server_request_free(&request_copy);
 			doveadm_client_unref(&conn);
 			break;
@@ -544,7 +552,8 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 
 static void doveadm_mail_server_handle(struct doveadm_server *server,
 				       struct doveadm_client *conn,
-				       const char *username)
+				       const char *username,
+				       bool print_username)
 {
 	struct doveadm_mail_server_cmd *servercmd;
 	string_t *cmd;
@@ -574,6 +583,7 @@ static void doveadm_mail_server_handle(struct doveadm_server *server,
 	servercmd->username = i_strdup(username);
 	servercmd->cmdline = i_strdup(str_c(cmd));
 	servercmd->input = cmd_ctx->cmd_input;
+	servercmd->print_username = print_username;
 	if (servercmd->input != NULL)
 		i_stream_ref(servercmd->input);
 	doveadm_client_set_print(conn, doveadm_cmd_print_callback,
@@ -602,7 +612,8 @@ static int doveadm_mail_server_request_queue_handle_next(const char **error_r)
 		return -1;
 	}
 	doveadm_mail_server_handle(request_copy.server, conn,
-				   request_copy.username);
+				   request_copy.username,
+				   request_copy.print_username);
 	doveadm_server_request_free(&request_copy);
 	doveadm_client_unref(&conn);
 	return 0;
@@ -727,6 +738,8 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	struct doveadm_server_request *request;
 	struct auth_proxy_settings proxy_set;
 	const char *server_name, *socket_path, *referral;
+	bool print_username =
+		doveadm_print_is_initialized() && !ctx->iterate_single_user;
 	int ret;
 
 	i_assert(cmd_ctx == ctx || cmd_ctx == NULL);
@@ -755,10 +768,6 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 	i_assert(proxy_set.username != NULL);
 
 	ctx->cctx->proxy_redirect_reauth = proxy_set.redirect_reauth;
-
-	/* server sends the sticky headers for each row as well,
-	   so undo any sticks we might have added already */
-	doveadm_print_unstick_headers();
 
 	struct doveadm_client_settings conn_set = {
 		.socket_path = socket_path,
@@ -804,7 +813,8 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 			return -1;
 		} else {
 			doveadm_mail_server_handle(server, conn,
-						   proxy_set.username);
+						   proxy_set.username,
+						   print_username);
 			doveadm_client_unref(&conn);
 		}
 	} else {
@@ -812,6 +822,7 @@ int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 		request->pool = pool_alloconly_create("doveadm server request", 256);
 		request->server = server;
 		request->username = p_strdup(request->pool, proxy_set.username);
+		request->print_username = print_username;
 		doveadm_client_settings_dup(&conn_set, &request->set, request->pool);
 	}
 	*error_r = "doveadm server failure";
