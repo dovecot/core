@@ -90,7 +90,7 @@ static void cmd_mailbox_cache_decision_init(struct doveadm_mail_cmd_context *_ct
 	if (!doveadm_cmd_param_array(cctx, "mailbox", &ctx->boxes))
 		i_fatal_status(EX_USAGE, "Missing mailbox");
 
-	doveadm_print_header("mailbox", "mailbox", DOVEADM_PRINT_HEADER_FLAG_STICKY);
+	doveadm_print_header_simple("mailbox");
 	doveadm_print_header_simple("field");
 	doveadm_print_header_simple("decision");
 	doveadm_print_header_simple("last-used");
@@ -134,10 +134,12 @@ cmd_mailbox_cache_decision_process_field(struct mailbox_cache_cmd_context *ctx,
 
 static void
 cmd_mailbox_cache_decision_run_per_field(struct mailbox_cache_cmd_context *ctx,
+					 struct mailbox *box,
 					 struct mail_cache *cache)
 {
 	const char *const *field_name;
 	for(field_name = ctx->fields; *field_name != NULL; field_name++) {
+		doveadm_print(mailbox_get_vname(box));
 		doveadm_print(*field_name);
 		/* see if the field exists */
 		unsigned int idx = mail_cache_register_lookup(cache,
@@ -154,10 +156,12 @@ cmd_mailbox_cache_decision_run_per_field(struct mailbox_cache_cmd_context *ctx,
 
 static void
 cmd_mailbox_cache_decision_run_all_fields(struct mailbox_cache_cmd_context *ctx,
+					  struct mailbox *box,
 					  struct mail_cache *cache)
 {
 	/* get all fields */
 	for(unsigned int i = 0; i < cache->fields_count; i++) {
+		doveadm_print(mailbox_get_vname(box));
 		doveadm_print(cache->fields[i].field.name);
 		cmd_mailbox_cache_decision_process_field(ctx, &cache->fields[i]);
 	}
@@ -183,9 +187,9 @@ static int cmd_mailbox_cache_decision_run_box(struct mailbox_cache_cmd_context *
 	view = mail_cache_view_open(cache, t->box->view);
 
 	if (ctx->all_fields)
-		cmd_mailbox_cache_decision_run_all_fields(ctx, cache);
+		cmd_mailbox_cache_decision_run_all_fields(ctx, t->box, cache);
 	else
-		cmd_mailbox_cache_decision_run_per_field(ctx, cache);
+		cmd_mailbox_cache_decision_run_per_field(ctx, t->box, cache);
 
 	/* update headers */
 	if (ctx->set_decision || ctx->set_last_used)
@@ -217,7 +221,6 @@ static int cmd_mailbox_cache_decision_run(struct doveadm_mail_cmd_context *_ctx,
 		struct mailbox *box;
 		if ((ret = cmd_mailbox_cache_open_box(_ctx, user, *boxname, &box)) < 0)
 			break;
-		doveadm_print_sticky("mailbox", mailbox_get_vname(box));
 		ret = cmd_mailbox_cache_decision_run_box(ctx, box);
 		mailbox_free(&box);
 	}
