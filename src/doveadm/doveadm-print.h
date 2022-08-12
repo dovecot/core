@@ -41,7 +41,6 @@ void doveadm_print_stream(const void *value, size_t size);
 int doveadm_print_istream(struct istream *input);
 void doveadm_print_sticky(const char *key, const char *value);
 void doveadm_print_flush(void);
-void doveadm_print_unstick_headers(void);
 
 void doveadm_print_init(const char *name);
 void doveadm_print_deinit(void);

@@ -154,16 +154,6 @@ void doveadm_print_flush(void)
 	o_stream_cork(doveadm_print_ostream);
 }
 
-void doveadm_print_unstick_headers(void)
-{
-	struct doveadm_print_header_context *hdr;
-
-	if (ctx != NULL) {
-		array_foreach_modifiable(&ctx->headers, hdr)
-			hdr->sticky = FALSE;
-	}
-}
-
 void doveadm_print_init(const char *name)
 {
 	pool_t pool;
