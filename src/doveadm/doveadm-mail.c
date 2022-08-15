@@ -815,13 +815,10 @@ doveadm_cmdv2_wrapper_parse_common_options(struct doveadm_mail_cmd_context *mctx
 	if (doveadm_cmd_param_flag(cctx, "all-users")) {
 		mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 		*wildcard_user_r = "*";
-	}
-	if (doveadm_cmd_param_istream(cctx, "user-file", &mctx->users_list_input)) {
+	} else if (doveadm_cmd_param_istream(cctx, "user-file", &mctx->users_list_input)) {
 		i_stream_ref(mctx->users_list_input);
 		mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
-	}
-
-	if (doveadm_cmd_param_str(cctx, "user", &value_str)) {
+	} else if (doveadm_cmd_param_str(cctx, "user", &value_str)) {
 		mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 		if (!tcp_server)
 			cctx->username = value_str;
@@ -833,6 +830,11 @@ doveadm_cmdv2_wrapper_parse_common_options(struct doveadm_mail_cmd_context *mctx
 				cctx->username = NULL;
 			}
 		}
+	} else if (doveadm_server) {
+		/* Protocol sets this in correct place, don't require a
+		   command line parameter */
+	} else {
+		i_fatal("One of -u, -F, or -A must be provided");
 	}
 
 	if (doveadm_cmd_param_str(cctx, "socket-path",
