@@ -816,12 +816,6 @@ doveadm_cmdv2_wrapper_parse_common_options(struct doveadm_mail_cmd_context *mctx
 		mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 		*wildcard_user_r = "*";
 	}
-
-	if (doveadm_cmd_param_str(cctx, "socket-path",
-				  &doveadm_settings->doveadm_socket_path) &&
-	    doveadm_settings->doveadm_worker_count == 0)
-				doveadm_settings->doveadm_worker_count = 1;
-
 	if (doveadm_cmd_param_istream(cctx, "user-file", &mctx->users_list_input)) {
 		i_stream_ref(mctx->users_list_input);
 		mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
@@ -840,6 +834,11 @@ doveadm_cmdv2_wrapper_parse_common_options(struct doveadm_mail_cmd_context *mctx
 			}
 		}
 	}
+
+	if (doveadm_cmd_param_str(cctx, "socket-path",
+				  &doveadm_settings->doveadm_socket_path) &&
+	    doveadm_settings->doveadm_worker_count == 0)
+		doveadm_settings->doveadm_worker_count = 1;
 
 	if (doveadm_cmd_param_istream(cctx, "file", &mctx->cmd_input))
 		i_stream_ref(mctx->cmd_input);
