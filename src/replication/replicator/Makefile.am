@@ -4,6 +4,7 @@ pkglibexec_PROGRAMS = replicator
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-settings \
 	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-master \
@@ -35,3 +36,26 @@ noinst_HEADERS = \
 	replicator-queue-private.h \
 	replicator-settings.h \
 	notify-connection.h
+
+test_programs = \
+	test-replicator-queue
+
+noinst_PROGRAMS = $(test_programs)
+
+test_libs = \
+	../../lib-test/libtest.la \
+	../../lib/liblib.la
+
+test_deps = $(test_libs)
+
+test_replicator_queue_SOURCES = \
+	replicator-queue.c \
+	replicator-settings.c \
+	test-replicator-queue.c
+test_replicator_queue_LDADD = $(test_libs)
+test_replicator_queue_DEPENDENCIES = $(test_deps)
+
+check-local:
+	for bin in $(test_programs); do \
+	  if ! $(RUN_TEST) ./$$bin; then exit 1; fi; \
+	done
