@@ -18,6 +18,7 @@ void submission_backend_init(struct submission_backend *backend,
 			     const struct submission_backend_vfuncs *vfunc)
 {
 	backend->pool = pool;
+	backend->event = event_create(client->event);
 	backend->client = client;
 	backend->v = *vfunc;
 
@@ -38,6 +39,8 @@ static void submission_backend_destroy(struct submission_backend *backend)
 
 	DLLIST_REMOVE(&client->backends, backend);
 	backend->v.destroy(backend);
+
+	event_unref(&backend->event);
 	pool_unref(&backend->pool);
 }
 

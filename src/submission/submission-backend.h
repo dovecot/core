@@ -83,6 +83,7 @@ struct submission_backend_vfuncs {
 struct submission_backend {
 	pool_t pool;
 	struct client *client;
+	struct event *event;
 
 	struct submission_backend *prev, *next;
 
