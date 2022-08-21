@@ -43,7 +43,8 @@ client_parse_backend_capabilities(struct submission_client *subm_client )
 		enum smtp_capability cap = smtp_capability_find_by_name(*str);
 
 		if (cap == SMTP_CAPABILITY_NONE) {
-			i_warning("Unknown SMTP capability in submission_backend_capabilities: "
+			e_warning(subm_client->common.event,
+				  "Unknown SMTP capability in submission_backend_capabilities: "
 				  "%s", *str);
 			continue;
 		}
