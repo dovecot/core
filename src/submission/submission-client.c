@@ -77,7 +77,8 @@ static void client_parse_backend_capabilities(struct client *client)
 		enum smtp_capability cap = smtp_capability_find_by_name(*str);
 
 		if (cap == SMTP_CAPABILITY_NONE) {
-			i_warning("Unknown SMTP capability in submission_backend_capabilities: "
+			e_warning(client->event,
+				  "Unknown SMTP capability in submission_backend_capabilities: "
 				  "%s", *str);
 			continue;
 		}
@@ -416,7 +417,8 @@ static const char *client_stats(struct client *client)
 	if (var_expand_with_funcs(str, client->set->submission_logout_format,
 				  tab, mail_user_var_expand_func_table,
 				  client->user, &error) <= 0) {
-		i_error("Failed to expand submission_logout_format=%s: %s",
+		e_error(client->event,
+			"Failed to expand submission_logout_format=%s: %s",
 			client->set->submission_logout_format, error);
 	}
 	return str_c(str);
@@ -441,7 +443,8 @@ static void client_connection_disconnect(void *context, const char *reason)
 		log_reason = "Connection closed";
 	else
 		log_reason = t_str_oneline(reason);
-	i_info("Disconnected: %s %s", log_reason, client_stats(client));
+	e_info(client->event, "Disconnected: %s %s",
+	       log_reason, client_stats(client));
 }
 
 static void client_connection_free(void *context)
