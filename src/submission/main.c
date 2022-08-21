@@ -103,8 +103,8 @@ static void submission_die(void)
 }
 
 static void
-send_error(int fd_out, const char *hostname, const char *error_code,
-	   const char *error_msg)
+send_error(int fd_out, struct event *event, const char *hostname,
+	   const char *error_code, const char *error_msg)
 {
 	const char *msg;
 
@@ -113,7 +113,7 @@ send_error(int fd_out, const char *hostname, const char *error_code,
 		error_code, error_msg, hostname);
 	if (write(fd_out, msg, strlen(msg)) < 0) {
 		if (errno != EAGAIN && errno != EPIPE && errno != ECONNRESET)
-			i_error("write(client) failed: %m");
+			e_error(event, "write(client) failed: %m");
 	}
 }
 
@@ -181,7 +181,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	service_input.event_parent = event;
 	if (mail_storage_service_lookup_next(storage_service, &service_input,
 					     &user, &mail_user, error_r) <= 0) {
-		send_error(fd_out, my_hostname,
+		send_error(fd_out, event, my_hostname,
 			"4.7.0", MAIL_ERRSTR_CRITICAL_MSG);
 		event_unref(&event);
 		return -1;
@@ -200,8 +200,8 @@ client_create_from_input(const struct mail_storage_service_input *input,
 				mail_user->pool, mail_user_var_expand_table(mail_user),
 				&errstr) <= 0) {
 		*error_r = t_strdup_printf("Failed to expand settings: %s", errstr);
-		send_error(fd_out, set->hostname,
-			"4.3.5", MAIL_ERRSTR_CRITICAL_MSG);
+		send_error(fd_out, event, set->hostname,
+			   "4.3.5", MAIL_ERRSTR_CRITICAL_MSG);
 		mail_user_deinit(&mail_user);
 		mail_storage_service_user_unref(&user);
 		event_unref(&event);
@@ -212,8 +212,8 @@ client_create_from_input(const struct mail_storage_service_input *input,
 		*set->submission_relay_host == '\0') {
 		*error_r = "No relay host configured for submission proxy "
 			"(submission_relay_host is unset)";
-		send_error(fd_out, set->hostname,
-			"4.3.5", MAIL_ERRSTR_CRITICAL_MSG);
+		send_error(fd_out, event, set->hostname,
+			   "4.3.5", MAIL_ERRSTR_CRITICAL_MSG);
 		mail_user_deinit(&mail_user);
 		mail_storage_service_user_unref(&user);
 		event_unref(&event);
