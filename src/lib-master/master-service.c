@@ -120,7 +120,12 @@ static void sig_delayed_die(const siginfo_t *si, void *context)
 	}
 
 	service->killed_signal = si->si_signo;
-	io_loop_stop(service->ioloop);
+	/* Stop the ioloop only if we're in master_service_run(). Otherwise we
+	   might be in e.g. doveadm which is using the main ioloop for all
+	   kinds of random purposes, and things can break strangely if it's
+	   stopped in the middle. */
+	if (service->callback != NULL)
+		io_loop_stop(service->ioloop);
 }
 
 static bool sig_term_buf_get_kick_user(char *buf, const char **user_r)
