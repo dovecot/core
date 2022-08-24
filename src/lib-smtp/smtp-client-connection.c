@@ -2203,6 +2203,7 @@ smtp_client_connection_do_create(struct smtp_client *client, const char *name,
 				smtp_protocol_name(conn->protocol)));
 	event_add_str(conn_event, "protocol",
 		      smtp_protocol_name(conn->protocol));
+	event_add_category(conn_event, &event_category_smtp_client);
 	event_set_forced_debug(conn_event, (set != NULL && set->debug));
 
 	conn->conn.event_parent = conn_event;

@@ -15,7 +15,7 @@
 
 #include "smtp-client-private.h"
 
-static struct event_category event_category_smtp_client = {
+struct event_category event_category_smtp_client = {
 	.name = "smtp-client"
 };
 

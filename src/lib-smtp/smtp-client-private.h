@@ -257,6 +257,8 @@ struct smtp_client {
 	struct connection_list *conn_list;
 };
 
+extern struct event_category event_category_smtp_client;
+
 /*
  * Command
  */
