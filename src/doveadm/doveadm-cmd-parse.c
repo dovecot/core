@@ -428,7 +428,13 @@ int doveadm_cmdline_run(int argc, const char *const argv[],
 	cctx->argv = array_get_modifiable(&pargv, &pargc);
 	cctx->argc = pargc;
 
-	cctx->cmd->cmd(cctx);
+	if (cctx->cmd->name != NULL) {
+		const char * prefix = t_strdup_printf("cmd %s: ", cctx->cmd->name);
+		event_set_append_log_prefix(cctx->event, prefix);
+		cctx->cmd->cmd(cctx);
+		event_drop_parent_log_prefixes(cctx->event, 1);
+	} else
+		cctx->cmd->cmd(cctx);
 
 	doveadm_cmd_params_clean(&pargv);
 	return 0;

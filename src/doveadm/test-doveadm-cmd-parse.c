@@ -39,6 +39,7 @@ static void test_case(const char *name, int expected_rc,
 		cmd->cmd = assertfn;
 		cmds[0] = *cmd;
 		cctx->cmd = cmds;
+		cctx->event = event_create(NULL);
 
 		if (expected_rc < 0)
 			test_expect_errors(1);
@@ -47,6 +48,7 @@ static void test_case(const char *name, int expected_rc,
 			str_array_length(argv), argv, cctx);
 
 		test_assert_cmp(expected_rc, ==, actual_rc);
+		event_unref(&cctx->event);
 		test_end();
 	} T_END;
 }

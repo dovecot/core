@@ -218,12 +218,17 @@ doveadm_http_server_command_execute(struct client_request_http *req)
 	cctx->remote_ip = conn->conn.remote_ip;
 	cctx->remote_port = conn->conn.remote_port;
 
-	if (doveadm_cmd_param_str(cctx, "user", &user))
-		i_info("Executing command '%s' as '%s'", cctx->cmd->name, user);
-	else
-		i_info("Executing command '%s'", cctx->cmd->name);
 	client_connection_set_proctitle(&conn->conn, cctx->cmd->name);
+	event_set_append_log_prefix(cctx->event, t_strdup_printf(
+		"cmd %s: ", cctx->cmd->name));
+
+	if (doveadm_cmd_param_str(cctx, "user", &user))
+		e_info(cctx->event, "Executing command as '%s'", user);
+	else
+		e_info(cctx->event, "Executing command");
 	cctx->cmd->cmd(cctx);
+
+	event_drop_parent_log_prefixes(cctx->event, 1);
 	client_connection_set_proctitle(&conn->conn, "");
 
 	o_stream_switch_ioloop_to(req->output, prev_ioloop);
