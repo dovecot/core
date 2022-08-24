@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "net.h"
+#include "passdb.h"
 #include "str.h"
 #include "istream.h"
 #include "ioloop.h"
@@ -461,11 +462,39 @@ const char *auth_policy_escape_function(const char *string,
 }
 
 static
+const char* auth_policy_fail_type(struct auth_request *request)
+{
+	if (request->policy_refusal)
+		return "policy";
+	/* wait until it's finished */
+	if (request->state != AUTH_REQUEST_STATE_FINISHED)
+		return "";
+	switch (request->passdb_result) {
+	case PASSDB_RESULT_OK:
+	case PASSDB_RESULT_NEXT:
+		return "";
+	case PASSDB_RESULT_SCHEME_NOT_AVAILABLE:
+	case PASSDB_RESULT_INTERNAL_FAILURE:
+		return "internal";
+	case PASSDB_RESULT_PASSWORD_MISMATCH:
+		return "credentials";
+	case PASSDB_RESULT_PASS_EXPIRED:
+		return "expired";
+	case PASSDB_RESULT_USER_DISABLED:
+		return "disabled";
+	case PASSDB_RESULT_USER_UNKNOWN:
+		return "account";
+	}
+	i_unreached();
+}
+
+
+static
 const struct var_expand_table *policy_get_var_expand_table(struct auth_request *auth_request,
 	const char *hashed_password, const char *requested_username)
 {
 	struct var_expand_table *table;
-	unsigned int count = 2;
+	unsigned int count = 3;
 
 	table = auth_request_get_var_expand_table_full(auth_request,
 		auth_request->fields.user, auth_policy_escape_function, &count);
@@ -475,6 +504,9 @@ const struct var_expand_table *policy_get_var_expand_table(struct auth_request *
 	table[1].key = '\0';
 	table[1].long_key = "requested_username";
 	table[1].value = requested_username;
+	table[2].key = '\0';
+	table[2].long_key = "fail_type";
+	table[2].value = auth_policy_fail_type(auth_request);
 	if (table[0].value != NULL)
 		table[0].value = auth_policy_escape_function(table[0].value, auth_request);
 	if (table[1].value != NULL)
