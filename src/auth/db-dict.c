@@ -5,6 +5,7 @@
 #include "array.h"
 #include "istream.h"
 #include "str.h"
+#include "str-sanitize.h"
 #include "json-parser.h"
 #include "settings.h"
 #include "dict.h"
@@ -374,7 +375,7 @@ static int db_dict_iter_lookup_key_values(struct db_dict_value_iter *iter)
 		if (ret > 0) {
 			e_debug(authdb_event(iter->auth_request),
 				"Lookup: %s = %s", str_c(path),
-				key->value);
+				str_sanitize(key->value, UINT_MAX));
 		} else if (ret < 0) {
 			e_error(authdb_event(iter->auth_request),
 				"Failed to lookup key %s: %s", str_c(path), error);
@@ -382,7 +383,7 @@ static int db_dict_iter_lookup_key_values(struct db_dict_value_iter *iter)
 		} else if (key->key->default_value != NULL) {
 			e_debug(authdb_event(iter->auth_request),
 				"Lookup: %s not found, using default value %s",
-				str_c(path), key->key->default_value);
+				str_c(path), str_sanitize(key->key->default_value, UINT_MAX));
 			key->value = key->key->default_value;
 		} else {
 			return 0;
