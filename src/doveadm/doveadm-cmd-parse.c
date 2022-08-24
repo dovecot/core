@@ -15,6 +15,35 @@
 
 ARRAY_DEFINE_TYPE(getopt_option_array, struct option);
 
+static struct event_category event_category_doveadm = {
+	.name = "doveadm",
+};
+
+struct doveadm_cmd_context*
+doveadm_cmd_context_create(enum doveadm_client_type conn_type, bool forced_debug)
+{
+	pool_t pool = pool_alloconly_create("doveadm cmd", 256);
+	struct event *event = event_create(NULL);
+	event_set_append_log_prefix(event, "doveadm: ");
+	event_set_forced_debug(event, forced_debug);
+	event_add_category(event, &event_category_doveadm);
+
+	struct doveadm_cmd_context *cctx = p_new(pool, struct doveadm_cmd_context, 1);
+	cctx->pool = pool;
+	cctx->event = event;
+	cctx->conn_type = conn_type;
+	return cctx;
+}
+
+void doveadm_cmd_context_unref(struct doveadm_cmd_context **_cctx)
+{
+	struct doveadm_cmd_context *cctx = *_cctx;
+	*_cctx = NULL;
+
+	event_unref(&cctx->event);
+	pool_unref(&cctx->pool);
+}
+
 static const struct doveadm_cmd_param *
 doveadm_cmd_param_get(const struct doveadm_cmd_context *cctx,
 		      const char *name)

@@ -106,12 +106,17 @@ struct doveadm_cmd_context {
 	enum doveadm_client_type conn_type;
 	struct istream *input;
 	struct ostream *output;
+	struct event *event;
 
 	/* non-NULL if doveadm-server should return referral to another
 	   server instead. */
 	const char *referral;
 	bool proxy_redirect_reauth;
 };
+
+struct doveadm_cmd_context*
+doveadm_cmd_context_create(enum doveadm_client_type conn_type, bool forced_debug);
+void doveadm_cmd_context_unref(struct doveadm_cmd_context **cctx);
 
 /* Returns 0 if success, -1 if parameters were invalid. */
 int doveadm_cmdline_run(int argc, const char *const argv[],

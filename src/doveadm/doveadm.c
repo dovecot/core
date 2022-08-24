@@ -258,22 +258,20 @@ int main(int argc, char *argv[])
 		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN |
 		MASTER_SERVICE_FLAG_NO_SSL_INIT |
 		MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME;
-	struct doveadm_cmd_context cctx;
 	const char *cmd_name;
 	unsigned int i;
 	bool quick_init = FALSE;
 	int c;
 
-	i_zero(&cctx);
-	cctx.pool = pool_alloconly_create("doveadm cmd", 256);
-	cctx.conn_type = DOVEADM_CONNECTION_TYPE_CLI;
-
-	i_set_failure_exit_callback(failure_exit_callback);
-
 	/* "+" is GNU extension to stop at the first non-option.
 	   others just accept -+ option. */
 	master_service = master_service_init("doveadm", service_flags,
 					     &argc, &argv, "+Df:hv");
+	struct doveadm_cmd_context *cctx = doveadm_cmd_context_create(
+		DOVEADM_CONNECTION_TYPE_CLI, doveadm_verbose || doveadm_debug);
+
+	i_set_failure_exit_callback(failure_exit_callback);
+
 	while ((c = master_getopt(master_service)) > 0) {
 		switch (c) {
 		case 'D':
@@ -358,9 +356,9 @@ int main(int argc, char *argv[])
 
 	/* this has to be done here because proctitle hack can break
 	   the env pointer */
-	cctx.username = getenv("USER");
+	cctx->username = getenv("USER");
 
-	if (!doveadm_cmdline_try_run(cmd_name, argc, (const char**)argv, &cctx)) {
+	if (!doveadm_cmdline_try_run(cmd_name, argc, (const char**)argv, cctx)) {
 		if (doveadm_has_subcommands(cmd_name))
 			usage_prefix(cmd_name);
 		if (doveadm_has_unloaded_plugin(cmd_name)) {
@@ -370,10 +368,10 @@ int main(int argc, char *argv[])
 		}
 		usage();
 	}
-	if (cctx.referral != NULL)
-		i_fatal("Command requested referral: %s", cctx.referral);
-	pool_unref(&cctx.pool);
+	if (cctx->referral != NULL)
+		i_fatal("Command requested referral: %s", cctx->referral);
 
+	doveadm_cmd_context_unref(&cctx);
 	if (!quick_init) {
 		doveadm_mail_deinit();
 		doveadm_dump_deinit();

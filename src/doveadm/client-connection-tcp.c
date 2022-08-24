@@ -328,19 +328,16 @@ static bool client_handle_command_ctx(struct client_connection_tcp *conn,
 static bool client_handle_command(struct client_connection_tcp *conn,
 				  const char *const *args)
 {
-	struct doveadm_cmd_context cctx;
-
-	i_zero(&cctx);
-	cctx.pool = pool_alloconly_create("doveadm cmd", 256);
-	cctx.conn_type = conn->conn.type;
-	cctx.input = conn->input;
-	cctx.output = conn->output;
-	cctx.local_ip = conn->conn.local_ip;
-	cctx.remote_ip = conn->conn.remote_ip;
-	cctx.local_port = conn->conn.local_port;
-	cctx.remote_port = conn->conn.remote_port;
-	bool ret = client_handle_command_ctx(conn, &cctx, args);
-	pool_unref(&cctx.pool);
+	struct doveadm_cmd_context *cctx = doveadm_cmd_context_create(
+		conn->conn.type, doveadm_verbose || doveadm_debug);
+	cctx->input = conn->input;
+	cctx->output = conn->output;
+	cctx->local_ip = conn->conn.local_ip;
+	cctx->remote_ip = conn->conn.remote_ip;
+	cctx->local_port = conn->conn.local_port;
+	cctx->remote_port = conn->conn.remote_port;
+	bool ret = client_handle_command_ctx(conn, cctx, args);
+	doveadm_cmd_context_unref(&cctx);
 	return ret;
 }
 
