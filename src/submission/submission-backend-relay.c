@@ -64,12 +64,13 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *rbackend,
 	case SMTP_CLIENT_COMMAND_ERROR_CONNECT_FAILED:
 	case SMTP_CLIENT_COMMAND_ERROR_AUTH_FAILED:
 		enh_code = "4.4.0";
+		log_msg = "Failed to connect to server";
 		msg = "Failed to connect to relay server";
 		result = FALSE;
 		break;
 	case SMTP_CLIENT_COMMAND_ERROR_CONNECTION_CLOSED:
 		enh_code = smtp_reply_get_enh_code(reply);
-		log_msg = "Lost connection to relay server";
+		log_msg = "Lost connection to server";
 		reply_lines = smtp_reply_get_text_lines_omit_prefix(reply);
 		msg = t_strconcat("Lost connection to relay server:\n",
 				  t_strarray_join(reply_lines, "\n"), NULL);
@@ -79,7 +80,8 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *rbackend,
 	case SMTP_CLIENT_COMMAND_ERROR_BAD_REPLY:
 	case SMTP_CLIENT_COMMAND_ERROR_TIMED_OUT:
 		enh_code = "4.4.0";
-		log_msg = msg = "Lost connection to relay server";
+		log_msg = "Lost connection to server";
+		msg = "Lost connection to relay server";
 		result = FALSE;
 		break;
 	/* RFC 4954, Section 6: 530 5.7.0 Authentication required
@@ -89,7 +91,7 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *rbackend,
 	   authentication in order to perform the requested action and
 	   authentication is not currently in force. */
 	case 530:
-		log_msg = "Relay server requires authentication";
+		log_msg = "Server requires authentication";
 		enh_code = "4.3.5",
 		msg = "Internal error occurred. "
 		      "Refer to server log for more information.";
@@ -1086,6 +1088,8 @@ submission_backend_relay_create(
 	submission_backend_init(&rbackend->backend, pool, client,
 				&backend_relay_vfuncs);
 
+	event_set_append_log_prefix(rbackend->backend.event, "relay: ");
+
 	mail_user_init_ssl_client_settings(user, &ssl_set);
 	if (set->ssl_verify)
 		ssl_set.verbose_invalid_cert = TRUE;
@@ -1186,8 +1190,7 @@ static void backend_relay_ready_cb(const struct smtp_reply *reply,
 	if (!backend_relay_handle_relay_reply(rbackend, NULL, reply, &dummy))
 		return;
 	if (!smtp_reply_is_success(reply)) {
-		e_error(backend->event,
-			"Failed to establish relay connection: %s",
+		e_error(backend->event, "Failed to establish connection: %s",
 			smtp_reply_log(reply));
 		submission_backend_fail(backend, NULL, "4.4.0",
 					"Failed to establish relay connection");
