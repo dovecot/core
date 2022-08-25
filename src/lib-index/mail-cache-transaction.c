@@ -785,8 +785,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	i_assert(field_idx < ctx->cache->fields_count);
 	i_assert(data_size < (uint32_t)-1);
 
-	if (ctx->cache->fields[field_idx].field.decision ==
-	    (MAIL_CACHE_DECISION_NO | MAIL_CACHE_DECISION_FORCED))
+	if (!mail_cache_field_can_add(ctx, seq, field_idx))
 		return;
 
 	if (seq >= ctx->trans->first_new_seq)
