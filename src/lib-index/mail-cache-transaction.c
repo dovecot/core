@@ -875,7 +875,7 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 
 	buffer_append(ctx->cache_data, data, data_size);
 	if ((data_size & 3) != 0)
-                buffer_append_zero(ctx->cache_data, 4 - (data_size & 3));
+		buffer_append_zero(ctx->cache_data, 4 - (data_size & 3));
 }
 
 bool mail_cache_field_want_add(struct mail_cache_transaction_ctx *ctx,
