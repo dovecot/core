@@ -48,6 +48,7 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *rbackend,
 				 const struct smtp_reply *reply,
 				 struct smtp_reply *reply_r) ATTR_NULL(2)
 {
+	struct submission_backend *backend = &rbackend->backend;
 	struct client *client = rbackend->backend.client;
 	struct mail_user *user = client->user;
 	const char *enh_code, *msg, *log_msg = NULL;
@@ -133,15 +134,14 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *rbackend,
 		smtp_client_transaction_destroy(&rbackend->trans);
 		if (log_msg != NULL) {
 			if (smtp_reply_is_remote(reply)) {
-				i_error("%s: %s",
+				e_error(backend->event, "%s: %s",
 					log_msg, smtp_reply_log(reply));
 			} else if (user->mail_debug) {
-				i_debug("%s: %s",
+				e_debug(backend->event, "%s: %s",
 					log_msg, smtp_reply_log(reply));
 			}
 		}
-		submission_backend_fail(&rbackend->backend, cmd,
-					enh_code, reason);
+		submission_backend_fail(backend, cmd, enh_code, reason);
 		return FALSE;
 	}
 
@@ -398,6 +398,7 @@ relay_cmd_mail_parameter_auth(struct submission_backend_relay *rbackend,
 			      enum smtp_capability relay_caps,
 			      struct smtp_server_cmd_mail *data)
 {
+	struct submission_backend *backend = &rbackend->backend;
 	struct client *client = rbackend->backend.client;
 	struct smtp_params_mail *params = &data->params;
 	struct smtp_address *auth_addr;
@@ -409,7 +410,8 @@ relay_cmd_mail_parameter_auth(struct submission_backend_relay *rbackend,
 	auth_addr = NULL;
 	if (smtp_address_parse_username(cmd->pool, client->user->username,
 					&auth_addr, &error) < 0) {
-		i_warning("Username `%s' is not a valid SMTP address: %s",
+		e_warning(backend->event,
+			  "Username `%s' is not a valid SMTP address: %s",
 			  client->user->username, error);
 	}
 
@@ -675,7 +677,7 @@ relay_cmd_data_rcpt_callback(const struct smtp_reply *relay_reply,
 		return;
 
 	if (smtp_reply_is_success(&reply)) {
-		i_info("Successfully relayed message: "
+		e_info(backend->event, "Successfully relayed message: "
 		       "from=<%s>, to=<%s>, size=%"PRIuUOFF_T", "
 		       "id=%s, rcpt=%u/%u, reply=`%s'",
 		       smtp_address_encode(trans->mail_from),
@@ -685,7 +687,7 @@ relay_cmd_data_rcpt_callback(const struct smtp_reply *relay_reply,
 		       str_sanitize(smtp_reply_log(&reply), 128));
 
 	} else {
-		i_info("Failed to relay message: "
+		e_info(backend->event, "Failed to relay message: "
 		       "from=<%s>, to=<%s>, size=%"PRIuUOFF_T", "
 		       "rcpt=%u/%u, reply=`%s'",
 		       smtp_address_encode(trans->mail_from),
@@ -707,7 +709,8 @@ relay_cmd_data_callback(const struct smtp_reply *relay_reply,
 	struct smtp_server_cmd_ctx *cmd = data_ctx->cmd;
 	struct smtp_server_transaction *trans = data_ctx->trans;
 	struct submission_backend_relay *rbackend = data_ctx->backend;
-	struct client *client = rbackend->backend.client;
+	struct submission_backend *backend = &rbackend->backend;
+	struct client *client = backend->client;
 	struct smtp_reply reply;
 
 	/* finished relaying message to relay server */
@@ -724,7 +727,7 @@ relay_cmd_data_callback(const struct smtp_reply *relay_reply,
 		return;
 
 	if (smtp_reply_is_success(&reply)) {
-		i_info("Successfully relayed message: "
+		e_info(backend->event, "Successfully relayed message: "
 		       "from=<%s>, size=%"PRIuUOFF_T", "
 		       "id=%s, nrcpt=%u, reply=`%s'",
 		       smtp_address_encode(trans->mail_from),
@@ -733,7 +736,7 @@ relay_cmd_data_callback(const struct smtp_reply *relay_reply,
 		       str_sanitize(smtp_reply_log(&reply), 128));
 
 	} else {
-		i_info("Failed to relay message: "
+		e_info(backend->event, "Failed to relay message: "
 		       "from=<%s>, size=%"PRIuUOFF_T", nrcpt=%u, reply=`%s'",
 		       smtp_address_encode(trans->mail_from),
 		       client->state.data_size, array_count(&trans->rcpt_to),
@@ -1176,23 +1179,24 @@ static void backend_relay_ready_cb(const struct smtp_reply *reply,
 				   void *context)
 {
 	struct submission_backend_relay *rbackend = context;
+	struct submission_backend *backend = &rbackend->backend;
 	struct smtp_reply dummy;
 
 	/* check relay status */
 	if (!backend_relay_handle_relay_reply(rbackend, NULL, reply, &dummy))
 		return;
 	if (!smtp_reply_is_success(reply)) {
-		i_error("Failed to establish relay connection: %s",
+		e_error(backend->event,
+			"Failed to establish relay connection: %s",
 			smtp_reply_log(reply));
-		submission_backend_fail(
-			&rbackend->backend, NULL, "4.4.0",
-			"Failed to establish relay connection");
+		submission_backend_fail(backend, NULL, "4.4.0",
+					"Failed to establish relay connection");
 		return;
 	}
 
 	/* notify the backend API about the fact that we're ready and propagate
 	   our capabilities */
-	submission_backend_started(&rbackend->backend,
+	submission_backend_started(backend,
 		smtp_client_connection_get_capabilities(rbackend->conn));
 }
 
