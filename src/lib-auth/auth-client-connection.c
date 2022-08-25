@@ -345,7 +345,10 @@ static void
 auth_client_connection_remove_requests(struct auth_client_connection *conn,
 				       const char *disconnect_reason)
 {
-	static const char *const temp_failure_args[] = { "temp", NULL };
+	static const char *const temp_failure_args[] = {
+		"code="AUTH_CLIENT_FAIL_CODE_TEMPFAIL,
+		NULL
+	};
 	struct hash_iterate_context *iter;
 	void *key;
 	struct auth_client_request *request;
