@@ -703,6 +703,8 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
 void login_proxy_free(struct login_proxy **_proxy)
 {
 	struct login_proxy *proxy = *_proxy;
+	if (proxy == NULL)
+		return;
 
 	i_assert(!proxy->detached || proxy->client->destroyed);
 	/* Note: The NULL error is never even attempted to be used here. */
