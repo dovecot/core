@@ -49,7 +49,7 @@ static int client_connection_read_settings(struct client_connection *conn)
 
 	if (master_service_settings_read(master_service, &input,
 					 &output, &error) < 0) {
-		i_error("Error reading configuration: %s", error);
+		e_error(conn->event, "Error reading configuration: %s", error);
 		return -1;
 	}
 	set = master_service_settings_get_others(master_service)[0];

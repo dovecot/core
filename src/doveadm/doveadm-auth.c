@@ -74,7 +74,8 @@ doveadm_get_auth_master_conn(const char *auth_socket_path)
 static int
 cmd_user_input(struct auth_master_connection *conn,
 	       const struct authtest_input *input,
-	       const char *show_field, bool userdb)
+	       const char *show_field, bool userdb,
+	       struct event *event)
 {
 	const char *lookup_name = userdb ? "userdb lookup" : "passdb lookup";
 	pool_t pool;
@@ -92,9 +93,11 @@ cmd_user_input(struct auth_master_connection *conn,
 	}
 	if (ret < 0) {
 		if (fields[0] == NULL)
-			i_error("%s failed for %s", lookup_name, input->username);
+			e_error(event,
+				"%s failed for %s", lookup_name, input->username);
 		else {
-			i_error("%s failed for %s: %s", lookup_name,
+			e_error(event,
+				"%s failed for %s: %s", lookup_name,
 				input->username, fields[0]);
 		}
 		ret = -1;
@@ -339,7 +342,7 @@ static void cmd_auth_cache_flush(struct doveadm_cmd_context *cctx)
 
 	conn = doveadm_get_auth_master_conn(master_socket_path);
 	if (auth_master_cache_flush(conn, users, &count) < 0) {
-		i_error("Cache flush failed");
+		e_error(cctx->event, "Cache flush failed");
 		doveadm_exit_code = EX_TEMPFAIL;
 	} else {
 		printf("%u cache entries flushed\n", count);
@@ -498,7 +501,7 @@ static void cmd_auth_lookup(struct doveadm_cmd_context *cctx)
 		else
 			putchar('\n');
 
-		ret = cmd_user_input(conn, &input, show_field, FALSE);
+		ret = cmd_user_input(conn, &input, show_field, FALSE, cctx->event);
 		switch (ret) {
 		case -1:
 			doveadm_exit_code = EX_TEMPFAIL;
@@ -562,7 +565,8 @@ cmd_user_mail_print_fields(const struct authtest_input *input,
 static int
 cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 		    const struct authtest_input *input,
-		    const char *show_field, const char *expand_field)
+		    const char *show_field, const char *expand_field,
+		    struct event *event)
 {
 	struct mail_storage_service_input service_input;
 	struct mail_storage_service_user *service_user;
@@ -605,7 +609,7 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 					  mail_user_var_expand_table(user),
 					  mail_user_var_expand_func_table, user,
 					  &error) <= 0) {
-			i_error("Failed to expand %s: %s", expand_field, error);
+			e_error(event, "Failed to expand %s: %s", expand_field, error);
 		} else {
 			printf("%s\n", str_c(str));
 		}
@@ -641,12 +645,12 @@ static void cmd_user(struct doveadm_cmd_context *cctx)
 		auth_cmd_help(cctx);
 
 	if (expand_field != NULL && userdb_only) {
-		i_error("-e can't be used with -u");
+		e_error(cctx->event, "-e can't be used with -u");
 		doveadm_exit_code = EX_USAGE;
 		return;
 	}
 	if (expand_field != NULL && show_field != NULL) {
-		i_error("-e can't be used with -f");
+		e_error(cctx->event, "-e can't be used with -f");
 		doveadm_exit_code = EX_USAGE;
 		return;
 	}
@@ -693,8 +697,9 @@ static void cmd_user(struct doveadm_cmd_context *cctx)
 			putchar('\n');
 
 		ret = !userdb_only ?
-			cmd_user_mail_input(storage_service, &input, show_field, expand_field) :
-			cmd_user_input(conn, &input, show_field, TRUE);
+			cmd_user_mail_input(storage_service, &input, show_field,
+					    expand_field, cctx->event) :
+			cmd_user_input(conn, &input, show_field, TRUE, cctx->event);
 		switch (ret) {
 		case -1:
 			doveadm_exit_code = EX_TEMPFAIL;

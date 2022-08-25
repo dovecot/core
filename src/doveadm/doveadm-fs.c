@@ -70,11 +70,11 @@ static void cmd_fs_get(struct doveadm_cmd_context *cctx)
 	doveadm_print_stream("", 0);
 	i_assert(ret == -1);
 	if (input->stream_errno == ENOENT) {
-		i_error("%s doesn't exist: %s", fs_file_path(file),
+		e_error(cctx->event, "%s doesn't exist: %s", fs_file_path(file),
 			i_stream_get_error(input));
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 	} else if (input->stream_errno != 0) {
-		i_error("read(%s) failed: %s", fs_file_path(file),
+		e_error(cctx->event, "read(%s) failed: %s", fs_file_path(file),
 			i_stream_get_error(input));
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
@@ -124,7 +124,7 @@ static void cmd_fs_put(struct doveadm_cmd_context *cctx)
 	o_stream_nsend_istream(output, input);
 	i_stream_destroy(&input);
 	if (fs_write_stream_finish(file, &output) < 0) {
-		i_error("fs_write_stream_finish() failed: %s",
+		e_error(cctx->event, "fs_write_stream_finish() failed: %s",
 			fs_file_last_error(file));
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
@@ -147,11 +147,11 @@ static void cmd_fs_copy(struct doveadm_cmd_context *cctx)
 	dest_file = fs_file_init(fs, dest_path, FS_OPEN_MODE_REPLACE);
 	if (fs_copy(src_file, dest_file) == 0) ;
 	else if (errno == ENOENT) {
-		i_error("%s doesn't exist: %s", src_path,
+		e_error(cctx->event, "%s doesn't exist: %s", src_path,
 			fs_file_last_error(dest_file));
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 	} else {
-		i_error("fs_copy(%s, %s) failed: %s",
+		e_error(cctx->event, "fs_copy(%s, %s) failed: %s",
 			src_path, dest_path, fs_file_last_error(dest_file));
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
@@ -182,11 +182,12 @@ static void cmd_fs_stat(struct doveadm_cmd_context *cctx)
 		doveadm_print(fs_file_path(file));
 		doveadm_print(dec2str(st.st_size));
 	} else if (errno == ENOENT) {
-		i_error("%s doesn't exist: %s", fs_file_path(file),
+		e_error(cctx->event,
+			"%s doesn't exist: %s", fs_file_path(file),
 			fs_file_last_error(file));
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 	} else {
-		i_error("fs_stat(%s) failed: %s",
+		e_error(cctx->event, "fs_stat(%s) failed: %s",
 			fs_file_path(file), fs_file_last_error(file));
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
@@ -219,11 +220,12 @@ static void cmd_fs_metadata(struct doveadm_cmd_context *cctx)
 			doveadm_print(m->value);
 		}
 	} else if (errno == ENOENT) {
-		i_error("%s doesn't exist: %s", fs_file_path(file),
+		e_error(cctx->event,
+			"%s doesn't exist: %s", fs_file_path(file),
 			fs_file_last_error(file));
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 	} else {
-		i_error("fs_stat(%s) failed: %s",
+		e_error(cctx->event, "fs_stat(%s) failed: %s",
 			fs_file_path(file), fs_file_last_error(file));
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
@@ -489,7 +491,8 @@ static void cmd_fs_iter_full(struct doveadm_cmd_context *cctx,
 		doveadm_print(fname);
 	}
 	if (fs_iter_deinit(&iter, &error) < 0) {
-		i_error("fs_iter_deinit(%s) failed: %s", path, error);
+		e_error(cctx->event,
+			"fs_iter_deinit(%s) failed: %s", path, error);
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 	fs_deinit(&fs);

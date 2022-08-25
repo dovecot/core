@@ -86,7 +86,7 @@ static void stats_exec_cmd(struct doveadm_cmd_context *cctx,
 	const char *build_cmd_error;
 	ctx.cctx = cctx;
 	if (vfuncs->build_cmd(&ctx, &build_cmd_error) < 0) {
-		i_error("%s", build_cmd_error);
+		e_error(cctx->event, "%s", build_cmd_error);
 		return;
 	}
 	stats_send_cmd(&ctx);
@@ -96,7 +96,7 @@ static void stats_exec_cmd(struct doveadm_cmd_context *cctx,
 
 static void handle_disconnection(struct stats_cmd_context *ctx)
 {
-	i_error("read(%s) failed: %s", ctx->path,
+	e_error(ctx->cctx->event, "read(%s) failed: %s", ctx->path,
 		i_stream_get_disconnect_reason(ctx->input));
 }
 
@@ -267,9 +267,9 @@ static void stats_modify_process_response(struct stats_cmd_context *ctx)
 		return;
 	}
 	if (line[0] == '-')
-		i_error("%s", ++line);
+		e_error(ctx->cctx->event, "%s", ++line);
 	else if (line[0] != '+')
-		i_error("Invalid response: %s", line);
+		e_error(ctx->cctx->event, "Invalid response: %s", line);
 }
 
 static int build_stats_remove_cmd(struct stats_cmd_context *ctx,

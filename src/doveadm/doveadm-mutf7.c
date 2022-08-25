@@ -29,13 +29,15 @@ static void cmd_mailbox_mutf7(struct doveadm_cmd_context *cctx)
 		str_truncate(str, 0);
 		if (from_utf8) {
 			if (imap_utf8_to_utf7(names[i], str) < 0) {
-				i_error("Mailbox name not valid UTF-8: %s",
+				e_error(cctx->event,
+					"Mailbox name not valid UTF-8: %s",
 					names[i]);
 				doveadm_exit_code = EX_DATAERR;
 			}
 		} else {
 			if (imap_utf7_to_utf8(names[i], str) < 0) {
-				i_error("Mailbox name not valid mUTF-7: %s",
+				e_error(cctx->event,
+					"Mailbox name not valid mUTF-7: %s",
 					names[i]);
 				doveadm_exit_code = EX_DATAERR;
 			}

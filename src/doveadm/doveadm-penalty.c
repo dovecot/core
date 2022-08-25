@@ -107,7 +107,7 @@ static void cmd_penalty(struct doveadm_cmd_context *cctx)
 	if (doveadm_cmd_param_str(cctx, "netmask", &netmask)) {
 		if (net_parse_range(netmask, &ctx.net_ip, &ctx.net_bits) != 0) {
 			doveadm_exit_code = EX_USAGE;
-			i_error("Invalid netmask '%s' given", netmask);
+			e_error(cctx->event, "Invalid netmask '%s' given", netmask);
 			return;
 		}
 	}

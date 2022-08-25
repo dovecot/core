@@ -161,7 +161,8 @@ static void auth_user_info_parse(struct auth_user_info *info, const char *arg)
 }
 
 static void
-cmd_user_list(struct auth_master_connection *conn,
+cmd_user_list(struct doveadm_cmd_context *cctx,
+	      struct auth_master_connection *conn,
 	      const struct authtest_input *input,
 	      char *const *users)
 {
@@ -195,7 +196,7 @@ cmd_user_list(struct auth_master_connection *conn,
 		}
 	}
 	if (auth_master_user_list_deinit(&ctx) < 0) {
-		i_error("user listing failed");
+		e_error(cctx->event, "user listing failed");
 		doveadm_exit_code = EX_DATAERR;
 	}
 
@@ -217,7 +218,7 @@ static void cmd_auth_cache_flush(struct doveadm_cmd_context *cctx)
 
 	conn = doveadm_get_auth_master_conn(master_socket_path);
 	if (auth_master_cache_flush(conn, users, &count) < 0) {
-		i_error("Cache flush failed");
+		e_error(cctx->event, "Cache flush failed");
 		doveadm_exit_code = EX_TEMPFAIL;
 	} else {
 		doveadm_print_init("formatted");
@@ -388,17 +389,17 @@ static void cmd_user_ver2(struct doveadm_cmd_context *cctx)
 
 	if (!doveadm_cmd_param_array(cctx, "user-mask", &optval)) {
 		doveadm_exit_code = EX_USAGE;
-		i_error("No user(s) specified");
+		e_error(cctx->event, "No user(s) specified");
 		return;
 	}
 
 	if (expand_field != NULL && userdb_only) {
-		i_error("-e can't be used with -u");
+		e_error(cctx->event, "-e can't be used with -u");
 		doveadm_exit_code = EX_USAGE;
 		return;
 	}
 	if (expand_field != NULL && show_field != NULL) {
-		i_error("-e can't be used with -f");
+		e_error(cctx->event, "-e can't be used with -f");
 		doveadm_exit_code = EX_USAGE;
 		return;
 	}
@@ -416,7 +417,7 @@ static void cmd_user_ver2(struct doveadm_cmd_context *cctx)
 	}
 
 	if (have_wildcards) {
-		cmd_user_list(conn, &input, (char*const*)optval);
+		cmd_user_list(cctx, conn, &input, (char*const*)optval);
 		auth_master_deinit(&conn);
 		return;
 	}

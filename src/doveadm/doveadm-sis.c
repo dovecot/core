@@ -315,7 +315,7 @@ static void cmd_sis_find(struct doveadm_cmd_context *cctx)
 		}
 	}
 	if (closedir(dir) < 0)
-		i_error("closedir(%s) failed: %m", path);
+		e_error(cctx->event, "closedir(%s) failed: %m", path);
 }
 
 struct doveadm_cmd_ver2 doveadm_cmd_sis_deduplicate = {

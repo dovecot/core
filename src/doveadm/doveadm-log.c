@@ -47,9 +47,9 @@ cmd_log_test(struct doveadm_cmd_context *cctx ATTR_UNUSED)
 	}
 }
 
-static void cmd_log_reopen(struct doveadm_cmd_context *cctx ATTR_UNUSED)
+static void cmd_log_reopen(struct doveadm_cmd_context *cctx)
 {
-	doveadm_master_send_signal(SIGUSR1);
+	doveadm_master_send_signal(SIGUSR1, cctx->event);
 }
 
 struct log_find_file {

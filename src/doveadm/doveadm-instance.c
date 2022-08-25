@@ -15,7 +15,7 @@ extern struct doveadm_cmd_ver2 doveadm_cmd_instance[];
 
 static void instance_cmd_help(const struct doveadm_cmd_ver2 *cmd) ATTR_NORETURN;
 
-static bool pid_file_read(const char *path)
+static bool pid_file_read(const char *path, struct event *event)
 {
 	char buf[32];
 	int fd;
@@ -26,13 +26,13 @@ static bool pid_file_read(const char *path)
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
 		if (errno != ENOENT)
-			i_error("open(%s) failed: %m", path);
+			e_error(event, "open(%s) failed: %m", path);
 		return FALSE;
 	}
 
 	ret = read(fd, buf, sizeof(buf));
 	if (ret < 0)
-		i_error("read(%s) failed: %m", path);
+		e_error(event, "read(%s) failed: %m", path);
 	else if (ret > 0 && buf[ret-1] == '\n') {
 		buf[ret-1] = '\0';
 		if (str_to_pid(buf, &pid) == 0) {
@@ -81,7 +81,7 @@ static void cmd_instance_list(struct doveadm_cmd_context *cctx)
 		doveadm_print(inst->name);
 		doveadm_print(unixdate2str(inst->last_used));
 		pidfile_path = t_strconcat(inst->base_dir, "/master.pid", NULL);
-		if (pid_file_read(pidfile_path))
+		if (pid_file_read(pidfile_path, cctx->event))
 			doveadm_print("yes");
 		else
 			doveadm_print("no");
@@ -106,10 +106,10 @@ static void cmd_instance_remove(struct doveadm_cmd_context *cctx)
 	inst = master_instance_list_find_by_name(list, name);
 	base_dir = inst != NULL ? inst->base_dir : name;
 	if ((ret = master_instance_list_remove(list, base_dir)) < 0) {
-		i_error("Failed to remove instance");
+		e_error(cctx->event, "Failed to remove instance");
 		doveadm_exit_code = EX_TEMPFAIL;
 	} else if (ret == 0) {
-		i_error("Instance already didn't exist");
+		e_error(cctx->event, "Instance already didn't exist");
 		doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 	}
 	master_instance_list_deinit(&list);

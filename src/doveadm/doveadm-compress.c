@@ -251,7 +251,7 @@ static void cmd_compress_connect(struct doveadm_cmd_context *cctx)
 	if ((fd = net_connect_ip(&ips[0], port, NULL)) == -1)
 		i_fatal("connect(%s, %u) failed: %m", host, port);
 
-	i_info("Connected to %s port %u.", net_ip2addr(&ips[0]), port);
+	e_info(cctx->event, "Connected to %s port %u.", net_ip2addr(&ips[0]), port);
 
 	i_zero(&client);
 	client.event = event_create(cctx->event);

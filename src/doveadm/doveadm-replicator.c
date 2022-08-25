@@ -169,7 +169,7 @@ static void cmd_replicator_status(struct doveadm_cmd_context *cctx)
 		} T_END;
 	}
 	if (line == NULL) {
-		i_error("Replicator disconnected unexpectedly");
+		e_error(cctx->event, "Replicator disconnected unexpectedly");
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 	replicator_disconnect(ctx);
@@ -238,10 +238,10 @@ static void cmd_replicator_replicate(struct doveadm_cmd_context *cctx)
 
 	line = i_stream_read_next_line(ctx->input);
 	if (line == NULL) {
-		i_error("Replicator disconnected unexpectedly");
+		e_error(cctx->event, "Replicator disconnected unexpectedly");
 		doveadm_exit_code = EX_TEMPFAIL;
 	} else if (line[0] != '+') {
-		i_error("Replicator failed: %s", line+1);
+		e_error(cctx->event, "Replicator failed: %s", line+1);
 		doveadm_exit_code = EX_USAGE;
 	} else {
 		doveadm_print(t_strdup_printf("%s users updated", line+1));
@@ -267,10 +267,10 @@ static void cmd_replicator_add(struct doveadm_cmd_context *cctx)
 
 	line = i_stream_read_next_line(ctx->input);
 	if (line == NULL) {
-		i_error("Replicator disconnected unexpectedly");
+		e_error(cctx->event, "Replicator disconnected unexpectedly");
 		doveadm_exit_code = EX_TEMPFAIL;
 	} else if (line[0] != '+') {
-		i_error("Replicator failed: %s", line+1);
+		e_error(cctx->event, "Replicator failed: %s", line+1);
 		doveadm_exit_code = EX_USAGE;
 	}
 	replicator_disconnect(ctx);
@@ -294,10 +294,10 @@ static void cmd_replicator_remove(struct doveadm_cmd_context *cctx)
 
 	line = i_stream_read_next_line(ctx->input);
 	if (line == NULL) {
-		i_error("Replicator disconnected unexpectedly");
+		e_error(cctx->event, "Replicator disconnected unexpectedly");
 		doveadm_exit_code = EX_TEMPFAIL;
 	} else if (line[0] != '+') {
-		i_error("Replicator failed: %s", line+1);
+		e_error(cctx->event, "Replicator failed: %s", line+1);
 		doveadm_exit_code = EX_USAGE;
 	}
 	replicator_disconnect(ctx);

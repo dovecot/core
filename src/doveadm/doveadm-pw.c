@@ -75,7 +75,7 @@ static void cmd_pw(struct doveadm_cmd_context *cctx)
 		plaintext = t_askpass("Enter new password: ");
 		check = t_askpass("Retype new password: ");
 		if (strcmp(plaintext, check) != 0) {
-			i_error("Passwords don't match!");
+			e_error(cctx->event, "Passwords don't match!");
 			if (--lives == 0)
 				lib_exit(1);
 			plaintext = NULL;
