@@ -39,7 +39,8 @@ dsync_mailbox_import_init(struct mailbox *box,
 			  unsigned int commit_msgs_interval,
 			  enum dsync_mailbox_import_flags flags,
 			  unsigned int hdr_hash_version,
-			  const char *const *hashed_headers);
+			  const char *const *hashed_headers,
+			  struct event *event);
 int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
 				   const struct dsync_mailbox_attribute *attr);
 int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,

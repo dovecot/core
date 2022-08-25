@@ -240,7 +240,8 @@ dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 					  brain->sync_flag,
 					  brain->import_commit_msgs_interval,
 					  import_flags, brain->hdr_hash_version,
-					  brain->hashed_headers);
+					  brain->hashed_headers,
+					  brain->event);
 }
 
 int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,

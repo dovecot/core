@@ -56,6 +56,7 @@ HASH_TABLE_DEFINE_TYPE(uid_new_mail, void *, struct importer_new_mail *);
 
 struct dsync_mailbox_importer {
 	pool_t pool;
+	struct event *event;
 	struct mailbox *box;
 	uint32_t last_common_uid;
 	uint64_t last_common_modseq, last_common_pvt_modseq;
@@ -233,7 +234,8 @@ dsync_mailbox_import_init(struct mailbox *box,
 			  unsigned int commit_msgs_interval,
 			  enum dsync_mailbox_import_flags flags,
 			  unsigned int hdr_hash_version,
-			  const char *const *hashed_headers)
+			  const char *const *hashed_headers,
+			  struct event *parent_event)
 {
 	struct dsync_mailbox_importer *importer;
 	struct mailbox_status status;
@@ -243,6 +245,7 @@ dsync_mailbox_import_init(struct mailbox *box,
 				     10240);
 	importer = p_new(pool, struct dsync_mailbox_importer, 1);
 	importer->pool = pool;
+	importer->event = event_create(parent_event);
 	importer->box = box;
 	importer->virtual_all_box = virtual_all_box;
 	importer->last_common_uid = last_common_uid;
@@ -3009,6 +3012,7 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 	i_assert(importer->failed == (importer->mail_error != 0));
 	ret = importer->failed ? -1 : 0;
 	*error_r = importer->mail_error;
+	event_unref(&importer->event);
 	pool_unref(&importer->pool);
 	return ret;
 }
