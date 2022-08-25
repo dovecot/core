@@ -653,7 +653,7 @@ static bool dsync_brain_finish(struct dsync_brain *brain)
 				      brain->require_full_resync);
 		brain->state = DSYNC_STATE_DONE;
 		return TRUE;
-	} 
+	}
 	ret = dsync_ibc_recv_finish(brain->ibc, &error, &mail_error,
 				    &require_full_resync);
 	if (ret == DSYNC_IBC_RECV_RET_TRYAGAIN)

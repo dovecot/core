@@ -183,7 +183,7 @@ exporter_get_guids(struct dsync_mailbox_exporter *exporter,
 	} else {
 		/* GUIDs are required, we don't need header hash */
 		return 1;
-	} 
+	}
 }
 
 static int

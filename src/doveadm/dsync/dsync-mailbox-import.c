@@ -644,7 +644,7 @@ importer_try_next_mail(struct dsync_mailbox_importer *importer,
 			/* this message exists locally, but remote didn't send
 			   expunge-change for it. if the message's
 			   uid <= last-common-uid, it should be deleted */
-			seq_range_array_add(&importer->maybe_expunge_uids, 
+			seq_range_array_add(&importer->maybe_expunge_uids,
 					    importer->cur_mail->uid);
 		}
 
@@ -673,7 +673,7 @@ importer_try_next_mail(struct dsync_mailbox_importer *importer,
 			dsync_mail_error(importer, importer->cur_mail,
 					 "header hash");
 			return 0;
-		} 
+		}
 		pmail = (struct mail_private *)importer->cur_mail;
 		importer->cur_hdr_hash = p_strdup(pmail->pool, hdr_hash);
 		importer->cur_guid = "";
@@ -1002,7 +1002,7 @@ merge_flags(uint32_t local_final, uint32_t local_add, uint32_t local_remove,
 		else
 			remote_add &= ~conflict_pvt_flags;
 	}
-	
+
 	combined_add = local_add|remote_add;
 	combined_remove = local_remove|remote_remove;
 	i_assert((combined_add & combined_remove) == 0);
