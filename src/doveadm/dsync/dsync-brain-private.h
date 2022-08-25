@@ -50,6 +50,7 @@ enum dsync_box_state {
 
 struct dsync_brain {
 	pool_t pool;
+	struct event *event;
 	struct mail_user *user;
 	struct dsync_ibc *ibc;
 	const char *process_title_prefix;

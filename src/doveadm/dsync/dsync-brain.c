@@ -40,6 +40,9 @@ static const char *dsync_state_names[] = {
 	"done"
 };
 
+#define BRAIN_MASTER TRUE
+#define BRAIN_SLAVE  FALSE
+
 struct dsync_mailbox_list_module dsync_mailbox_list_module =
 	MODULE_CONTEXT_INIT(&mailbox_list_module_register);
 
@@ -125,7 +128,8 @@ static void dsync_brain_run_io(void *context)
 }
 
 static struct dsync_brain *
-dsync_brain_common_init(struct mail_user *user, struct dsync_ibc *ibc)
+dsync_brain_common_init(struct mail_user *user, struct dsync_ibc *ibc,
+			bool master_brain)
 {
 	struct dsync_brain *brain;
 	const struct master_service_settings *service_set;
@@ -139,12 +143,17 @@ dsync_brain_common_init(struct mail_user *user, struct dsync_ibc *ibc)
 	brain->pool = pool;
 	brain->user = user;
 	brain->ibc = ibc;
+	brain->master_brain = master_brain;
 	brain->sync_type = DSYNC_BRAIN_SYNC_TYPE_UNKNOWN;
 	brain->lock_fd = -1;
 	brain->verbose_proctitle = service_set->verbose_proctitle;
 	hash_table_create(&brain->mailbox_states, pool, 0,
 			  guid_128_hash, guid_128_cmp);
 	p_array_init(&brain->remote_mailbox_states, pool, 64);
+
+	brain->event = event_create(user->event);
+	event_set_append_log_prefix(brain->event, t_strdup_printf(
+		"brain %c: ", master_brain ? 'M': 'S'));
 	return brain;
 }
 
@@ -166,6 +175,8 @@ dsync_brain_set_flags(struct dsync_brain *brain, enum dsync_brain_flags flags)
 	brain->no_notify = (flags & DSYNC_BRAIN_FLAG_NO_NOTIFY) != 0;
 	brain->empty_hdr_workaround = (flags & DSYNC_BRAIN_FLAG_EMPTY_HDR_WORKAROUND) != 0;
 	brain->no_header_hashes = (flags & DSYNC_BRAIN_FLAG_NO_HEADER_HASHES) != 0;
+
+	event_set_forced_debug(brain->event, brain->debug);
 }
 
 static void
@@ -196,7 +207,7 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 		 (set->state != NULL && *set->state != '\0'));
 	i_assert(N_ELEMENTS(dsync_state_names) == DSYNC_STATE_DONE+1);
 
-	brain = dsync_brain_common_init(user, ibc);
+	brain = dsync_brain_common_init(user, ibc, BRAIN_MASTER);
 	brain->process_title_prefix =
 		p_strdup(brain->pool, set->process_title_prefix);
 	brain->sync_type = sync_type;
@@ -229,7 +240,6 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 		brain->mailbox_lock_timeout_secs =
 			DSYNC_MAILBOX_DEFAULT_LOCK_TIMEOUT_SECS;
 	brain->import_commit_msgs_interval = set->import_commit_msgs_interval;
-	brain->master_brain = TRUE;
 	brain->hashed_headers =
 		(const char*const*)p_strarray_dup(brain->pool, set->hashed_headers);
 	dsync_brain_set_flags(brain, flags);
@@ -300,7 +310,7 @@ dsync_brain_slave_init(struct mail_user *user, struct dsync_ibc *ibc,
 
 	i_assert(default_alt_char != '\0');
 
-	brain = dsync_brain_common_init(user, ibc);
+	brain = dsync_brain_common_init(user, ibc, BRAIN_SLAVE);
 	brain->alt_char = default_alt_char;
 	brain->process_title_prefix =
 		p_strdup(brain->pool, process_title_prefix);
@@ -395,6 +405,7 @@ int dsync_brain_deinit(struct dsync_brain **_brain, enum mail_error *error_r)
 
 	*error_r = !brain->failed ? 0 :
 		(brain->mail_error == 0 ? MAIL_ERROR_TEMP : brain->mail_error);
+	event_unref(&brain->event);
 	pool_unref(&brain->pool);
 	return ret;
 }
