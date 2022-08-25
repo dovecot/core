@@ -29,7 +29,8 @@ static const char *sis_get_dir(const char *rootdir, const char *hash)
 }
 
 static int
-file_contents_equal(const char *path1, const char *path2, ino_t *path2_inode_r)
+file_contents_equal(const char *path1, const char *path2, ino_t *path2_inode_r,
+		    const char **error_r)
 {
 	struct stat st1, st2;
 	int fd1, fd2, ret = -1;
@@ -41,21 +42,21 @@ file_contents_equal(const char *path1, const char *path2, ino_t *path2_inode_r)
 	fd1 = open(path1, O_RDONLY);
 	if (fd1 == -1) {
 		if (errno != ENOENT)
-			i_error("open(%s) failed: %m", path1);
+			*error_r = t_strdup_printf("open(%s) failed: %m", path1);
 		return -1;
 	}
 	fd2 = open(path2, O_RDONLY);
 	if (fd2 == -1) {
 		if (errno != ENOENT)
-			i_error("open(%s) failed: %m", path2);
+			*error_r = t_strdup_printf("open(%s) failed: %m", path2);
 		i_close_fd(&fd1);
 		return -1;
 	}
 
 	if (fstat(fd1, &st1) < 0)
-		i_error("fstat(%s) failed: %m", path1);
+		*error_r = t_strdup_printf("fstat(%s) failed: %m", path1);
 	else if (fstat(fd2, &st2) < 0)
-		i_error("fstat(%s) failed: %m", path1);
+		*error_r = t_strdup_printf("fstat(%s) failed: %m", path1);
 	else if (st1.st_size != st2.st_size)
 		ret = 0;
 	else {
@@ -68,7 +69,7 @@ file_contents_equal(const char *path1, const char *path2, ino_t *path2_inode_r)
 			i_assert((size_t)ret1 <= sizeof(buf2));
 			if ((ret2 = read_full(fd2, buf2, ret1)) <= 0) {
 				if (ret2 < 0)
-					i_error("read(%s) failed: %m", path2);
+					*error_r = t_strdup_printf("read(%s) failed: %m", path2);
 				else
 					ret = 0;
 				break;
@@ -79,22 +80,23 @@ file_contents_equal(const char *path1, const char *path2, ino_t *path2_inode_r)
 			}
 		}
 		if (ret1 < 0)
-			i_error("read(%s) failed: %m", path1);
+			*error_r = t_strdup_printf("read(%s) failed: %m", path1);
 		else if (ret1 == 0)
 			ret = 1;
 		*path2_inode_r = st2.st_ino;
 	}
 
 	if (close(fd1) < 0)
-		i_error("close(%s) failed: %m", path1);
+		*error_r = t_strdup_printf("close(%s) failed: %m", path1);
 	if (close(fd2) < 0)
-		i_error("close(%s) failed: %m", path2);
+		*error_r = t_strdup_printf("close(%s) failed: %m", path2);
 
 	return ret;
 }
 
 static int
-hardlink_replace(const char *src, const char *dest, ino_t src_inode)
+hardlink_replace(const char *src, const char *dest, ino_t src_inode,
+		 const char **error_r)
 {
 	const char *p, *destdir, *tmppath;
 	unsigned char randbuf[8];
@@ -111,11 +113,11 @@ hardlink_replace(const char *src, const char *dest, ino_t src_inode)
 	if (link(src, tmppath) < 0) {
 		if (errno == EMLINK)
 			return 0;
-		i_error("link(%s, %s) failed: %m", src, tmppath);
+		*error_r = t_strdup_printf("link(%s, %s) failed: %m", src, tmppath);
 		return -1;
 	}
 	if (stat(tmppath, &st) < 0) {
-		i_error("stat(%s) failed: %m", tmppath);
+		*error_r = t_strdup_printf("stat(%s) failed: %m", tmppath);
 		return -1;
 	}
 	if (st.st_ino != src_inode) {
@@ -123,14 +125,15 @@ hardlink_replace(const char *src, const char *dest, ino_t src_inode)
 		return 0;
 	}
 	if (rename(tmppath, dest) < 0) {
-		i_error("rename(%s, %s) failed: %m", src, tmppath);
+		*error_r = t_strdup_printf("rename(%s, %s) failed: %m", src, tmppath);
 		i_unlink(tmppath);
 		return -1;
 	}
 	return 1;
 }
 
-static int sis_try_deduplicate(const char *rootdir, const char *fname)
+static int sis_try_deduplicate(const char *rootdir, const char *fname,
+			       const char **error_r)
 {
 	const char *p, *hash, *hashdir, *path, *hashes_dir, *hashes_path;
 	struct stat st;
@@ -157,7 +160,8 @@ static int sis_try_deduplicate(const char *rootdir, const char *fname)
 		if (mkdir(hashes_dir, 0700) < 0) {
 			if (errno == EEXIST)
 				return 0;
-			i_error("mkdir(%s) failed: %m", hashes_dir);
+			*error_r = t_strdup_printf(
+				"mkdir(%s) failed: %m", hashes_dir);
 			return -1;
 		}
 		/* try again */
@@ -165,7 +169,8 @@ static int sis_try_deduplicate(const char *rootdir, const char *fname)
 			return 0;
 	}
 	if (errno != EEXIST) {
-		i_error("link(%s, %s) failed: %m", path, hashes_path);
+		*error_r = t_strdup_printf(
+			"link(%s, %s) failed: %m", path, hashes_path);
 		return -1;
 	}
 
@@ -176,7 +181,7 @@ static int sis_try_deduplicate(const char *rootdir, const char *fname)
 			/* just got deleted */
 			return 0;
 		}
-		i_error("stat(%s) failed: %m", path);
+		*error_r = t_strdup_printf("stat(%s) failed: %m", path);
 		return -1;
 	}
 	if (st.st_nlink > 1) {
@@ -184,17 +189,17 @@ static int sis_try_deduplicate(const char *rootdir, const char *fname)
 		return 0;
 	}
 
-	ret = file_contents_equal(path, hashes_path, &inode);
+	ret = file_contents_equal(path, hashes_path, &inode, error_r);
 	if (ret < 0) {
 		if (errno == ENOENT) {
 			/* either path or hashes_path was deleted. */
-			return sis_try_deduplicate(rootdir, fname);
+			return sis_try_deduplicate(rootdir, fname, error_r);
 		}
 		return -1;
 	}
 	if (ret > 0) {
 		/* equal, replace with hard link */
-		ret = hardlink_replace(hashes_path, path, inode);
+		ret = hardlink_replace(hashes_path, path, inode, error_r);
 		if (ret > 0)
 			return 0;
 		else if (ret < 0)
@@ -203,7 +208,7 @@ static int sis_try_deduplicate(const char *rootdir, const char *fname)
 	}
 
 	/* replace hashes link with this  */
-	return hardlink_replace(path, hashes_path, st.st_ino) < 0 ? -1 : 0;
+	return hardlink_replace(path, hashes_path, st.st_ino, error_r) < 0 ? -1 : 0;
 }
 
 static void cmd_sis_deduplicate(struct doveadm_cmd_context *cctx)
@@ -253,13 +258,16 @@ static void cmd_sis_deduplicate(struct doveadm_cmd_context *cctx)
 		}
 
 		T_BEGIN {
-			ret = sis_try_deduplicate(rootdir, d->d_name);
+			const char *error;
+			ret = sis_try_deduplicate(rootdir, d->d_name, &error);
+			if (ret < 0)
+				e_error(cctx->event, "%s", error);
 		} T_END;
 		if (ret == 0)
 			i_unlink(str_c(path));
 	}
 	if (closedir(dir) < 0)
-		i_error("closedir(%s) failed: %m", queuedir);
+		e_error(cctx->event, "closedir(%s) failed: %m", queuedir);
 }
 
 static void cmd_sis_find(struct doveadm_cmd_context *cctx)
