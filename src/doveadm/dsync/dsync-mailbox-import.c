@@ -833,8 +833,11 @@ static bool dsync_mailbox_try_save_cur(struct dsync_mailbox_importer *importer,
 		if (importer->revert_local_changes) {
 			if (save_change == NULL &&
 			    importer->cur_mail->uid >= importer->remote_uid_next) {
-				dsync_mailbox_revert_existing_uid(importer, importer->cur_mail->uid,
-					t_strdup_printf("higher than remote's UIDs (remote UIDNEXT=%u)", importer->remote_uid_next));
+				dsync_mailbox_revert_existing_uid(
+					importer, importer->cur_mail->uid,
+					t_strdup_printf(
+						"higher than remote's UIDs (remote UIDNEXT=%u)",
+						importer->remote_uid_next));
 				return TRUE;
 			}
 			mail_expunge(importer->cur_mail);
@@ -2304,8 +2307,8 @@ int dsync_mailbox_import_changes_finish(struct dsync_mailbox_importer *importer)
 		if (mailbox_search_deinit(&importer->search_ctx) < 0) {
 			i_error("Mailbox %s: Search failed: %s",
 				mailbox_get_vname(importer->box),
-				mailbox_get_last_internal_error(importer->box,
-								&importer->mail_error));
+				mailbox_get_last_internal_error(
+					importer->box, &importer->mail_error));
 			importer->failed = TRUE;
 		}
 	}
@@ -2530,8 +2533,8 @@ dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 	if (mailbox_save_begin(&save_ctx, input) < 0) {
 		i_error("Mailbox %s: Saving failed: %s",
 			mailbox_get_vname(importer->box),
-			mailbox_get_last_internal_error(importer->box,
-							&importer->mail_error));
+			mailbox_get_last_internal_error(
+				importer->box, &importer->mail_error));
 		importer->failed = TRUE;
 		return TRUE;
 	}
@@ -2554,8 +2557,8 @@ dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 	} else if (save_failed) {
 		i_error("Mailbox %s: Saving failed: %s",
 			mailbox_get_vname(importer->box),
-			mailbox_get_last_internal_error(importer->box,
-							&importer->mail_error));
+			mailbox_get_last_internal_error(
+				importer->box, &importer->mail_error));
 		mailbox_save_cancel(&save_ctx);
 		importer->failed = TRUE;
 	} else {
@@ -2785,7 +2788,8 @@ dsync_mailbox_import_commit(struct dsync_mailbox_importer *importer, bool final)
 						   &changes) < 0) {
 		i_error("Mailbox %s: Save commit failed: %s",
 			mailbox_get_vname(importer->box),
-			mailbox_get_last_internal_error(importer->box, &importer->mail_error));
+			mailbox_get_last_internal_error(
+				importer->box, &importer->mail_error));
 		/* removed wanted_uids that weren't actually saved */
 		array_delete(&importer->wanted_uids,
 			     array_count(&importer->saved_uids),
@@ -2809,8 +2813,8 @@ dsync_mailbox_import_commit(struct dsync_mailbox_importer *importer, bool final)
 		if (mailbox_transaction_commit(&importer->trans) < 0) {
 			i_error("Mailbox %s: Commit failed: %s",
 				mailbox_get_vname(importer->box),
-				mailbox_get_last_internal_error(importer->box,
-								&importer->mail_error));
+				mailbox_get_last_internal_error(
+					importer->box, &importer->mail_error));
 			ret = -1;
 		}
 	}
