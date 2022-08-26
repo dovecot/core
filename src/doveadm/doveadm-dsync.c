@@ -263,7 +263,8 @@ mirror_get_remote_cmd_line(const char *const *argv,
 }
 
 static const char *const *
-get_ssh_cmd_args(const char *host, const char *login, const char *mail_user)
+get_ssh_cmd_args(const char *host, const char *login, const char *mail_user,
+		 struct event *event)
 {
 	static struct var_expand_table static_tab[] = {
 		{ 'u', NULL, "user" },
@@ -298,7 +299,8 @@ get_ssh_cmd_args(const char *host, const char *login, const char *mail_user)
 			str_truncate(str2, 0);
 			if (var_expand(str, *args, tab, &error) <= 0 ||
 			    var_expand(str2, *args, static_tab, &error) <= 0) {
-				i_error("Failed to expand dsync_remote_cmd=%s: %s",
+				e_error(event,
+					"Failed to expand dsync_remote_cmd=%s: %s",
 					*args, error);
 			}
 			if (strcmp(str_c(str), str_c(str2)) == 0 &&
@@ -314,6 +316,7 @@ get_ssh_cmd_args(const char *host, const char *login, const char *mail_user)
 
 static bool mirror_get_remote_cmd(struct dsync_cmd_context *ctx,
 				  const char *user,
+				  struct event *event,
 				  const char *const **cmd_args_r)
 {
 	const char *p, *host, *const *argv = ctx->destination;
@@ -353,7 +356,7 @@ static bool mirror_get_remote_cmd(struct dsync_cmd_context *ctx,
 
 	/* we'll assume virtual users, so in user@host it really means not to
 	   give ssh a username, but to give dsync -u user parameter. */
-	*cmd_args_r = get_ssh_cmd_args(host, "", user);
+	*cmd_args_r = get_ssh_cmd_args(host, "", user, event);
 	return TRUE;
 }
 
@@ -546,21 +549,27 @@ static void cmd_dsync_wait_remote(struct dsync_cmd_context *ctx)
 }
 
 static void cmd_dsync_log_remote_status(int status, bool remote_errors_logged,
-					const char *const *remote_cmd_args)
+					const char *const *remote_cmd_args,
+					struct event *event)
 {
 	if (status == -1)
 		;
 	else if (WIFSIGNALED(status)) {
-		i_error("Remote command died with signal %d: %s", WTERMSIG(status),
+		e_error(event,
+			"Remote command died with signal %d: %s",
+			WTERMSIG(status),
 			t_strarray_join(remote_cmd_args, " "));
 	} else if (!WIFEXITED(status)) {
-		i_error("Remote command failed with status %d: %s", status,
+		e_error(event,
+			"Remote command failed with status %d: %s", status,
 			t_strarray_join(remote_cmd_args, " "));
 	} else if (WEXITSTATUS(status) == EX_TEMPFAIL && remote_errors_logged) {
 		/* remote most likely already logged the error.
 		   don't bother logging another line about it */
 	} else if (WEXITSTATUS(status) != 0) {
-		i_error("Remote command returned error %d: %s", WEXITSTATUS(status),
+		e_error(event,
+			"Remote command returned error %d: %s",
+			WEXITSTATUS(status),
 			t_strarray_join(remote_cmd_args, " "));
 	}
 }
@@ -572,7 +581,7 @@ static void cmd_dsync_run_remote(struct mail_user *user)
 }
 
 static const char *const *
-parse_ssh_location(const char *location, const char *username)
+parse_ssh_location(const char *location, const char *username, struct event *event)
 {
 	const char *host, *login;
 
@@ -583,7 +592,7 @@ parse_ssh_location(const char *location, const char *username)
 		host = location;
 		login = "";
 	}
-	return get_ssh_cmd_args(host, login, username);
+	return get_ssh_cmd_args(host, login, username, event);
 }
 
 static struct dsync_ibc *
@@ -661,7 +670,7 @@ static void dsync_errors_finish(struct dsync_cmd_context *ctx)
 	bool remote_errors_logged = ctx->err_stream->v_offset > 0;
 	i_stream_destroy(&ctx->err_stream);
 	cmd_dsync_log_remote_status(ctx->exit_status, remote_errors_logged,
-				    ctx->remote_cmd_args);
+				    ctx->remote_cmd_args, ctx->ctx.cctx->event);
 	io_remove(&ctx->io_err);
 	i_close_fd(&ctx->fd_err);
 }
@@ -887,7 +896,8 @@ static void dsync_connected_callback(const struct doveadm_server_reply *reply,
 		break;
 	case DOVEADM_EX_NOREPLICATE:
 		if (doveadm_debug)
-			i_debug("user is disabled for replication");
+			e_debug(ctx->ctx.cctx->event,
+				"user is disabled for replication");
 		break;
 	default:
 		ctx->error = p_strdup_printf(ctx->ctx.pool,
@@ -1037,7 +1047,7 @@ parse_location(struct dsync_cmd_context *ctx,
 		return 0;
 	}
 	*remote_cmd_args_r =
-		parse_ssh_location(ctx->remote_name, cctx->username);
+		parse_ssh_location(ctx->remote_name, cctx->username, cctx->event);
 	return 0;
 }
 
@@ -1078,7 +1088,7 @@ static int cmd_dsync_prerun(struct doveadm_mail_cmd_context *_ctx,
 		if ((_ctx->service_flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) != 0)
 			username = cctx->username;
 
-		if (!mirror_get_remote_cmd(ctx, username, &remote_cmd_args)) {
+		if (!mirror_get_remote_cmd(ctx, username, cctx->event, &remote_cmd_args)) {
 			/* it's a mail_location */
 			if (ctx->destination[1] != NULL)
 				doveadm_mail_help_name(_ctx->cmd->name);

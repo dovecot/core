@@ -331,19 +331,21 @@ doveadm_cmd_process_options(int argc, const char *const argv[],
 				if (opt->name == param->name &&
 				    doveadm_fill_param(
 					param, optarg, pool, &error) < 0) {
-					i_error("Invalid parameter: %s",
-						error);
+					e_error(cctx->event,
+						"Invalid parameter: %s", error);
 					doveadm_cmd_params_clean(pargv);
 					return -1;
 				}
 			}
 			break;
 		case '?':
-			i_error("Unexpected or incomplete option: -%c", optopt);
+			e_error(cctx->event,
+				"Unexpected or incomplete option: -%c", optopt);
 			doveadm_cmd_params_clean(pargv);
 			return -1;
 		case ':':
-			i_error("Option not followed by argument: -%c", optopt);
+			e_error(cctx->event,
+				"Option not followed by argument: -%c", optopt);
 			doveadm_cmd_params_clean(pargv);
 			return -1;
 		default:
@@ -356,8 +358,8 @@ doveadm_cmd_process_options(int argc, const char *const argv[],
 				    doveadm_fill_param(
 					array_idx_modifiable(pargv, i),
 					optarg, pool, &error) < 0) {
-					i_error("Invalid parameter: %s",
-						error);
+					e_error(cctx->event,
+						"Invalid parameter: %s", error);
 					doveadm_cmd_params_clean(pargv);
 					return -1;
 				}
@@ -406,7 +408,7 @@ int doveadm_cmdline_run(int argc, const char *const argv[],
 
 			const char *error;
 			if (doveadm_fill_param(ptr, argv[optind], pool, &error) < 0) {
-				i_error("Invalid parameter: %s",
+				e_error(cctx->event, "Invalid parameter: %s",
 					t_strarray_join(argv + optind, " "));
 				doveadm_cmd_params_clean(&pargv);
 				return -1;
@@ -415,7 +417,7 @@ int doveadm_cmdline_run(int argc, const char *const argv[],
 			break;
 		}
 		if (!found) {
-			i_error("Extraneous arguments found: %s",
+			e_error(cctx->event, "Extraneous arguments found: %s",
 				t_strarray_join(argv + optind, " "));
 			doveadm_cmd_params_clean(&pargv);
 			return -1;
@@ -481,13 +483,13 @@ doveadm_cmd_param_tostring(const struct doveadm_cmd_param *argv)
 
 void doveadm_cmd_params_dump(const struct doveadm_cmd_context *cctx)
 {
-	i_debug("%s()", __func__);
+	e_debug(cctx->event, "%s()", __func__);
 	i_assert(cctx != NULL);
 	i_assert(cctx->argv != NULL);
 	const struct doveadm_cmd_param *argv = cctx->argv;
 	for (int index = 0; index < cctx->argc; index++, argv++) T_BEGIN {
 		const char *value = doveadm_cmd_param_tostring(argv);
-		i_debug("    %c%c%c%c %02x/%02x -%c %s: %s",
+		e_debug(cctx->event, "    %c%c%c%c %02x/%02x -%c %s: %s",
 			*value != '\0' ? 'S': '-',
 			argv->type == CMD_PARAM_ARRAY ? 'A': '-',
 			(argv->flags & CMD_PARAM_FLAG_POSITIONAL) != 0 ? 'P': '-',
