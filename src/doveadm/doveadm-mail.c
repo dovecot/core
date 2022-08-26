@@ -148,7 +148,8 @@ cmd_purge_run(struct doveadm_mail_cmd_context *ctx, struct mail_user *user)
 
 		storage = mail_namespace_get_default_storage(ns);
 		if (mail_storage_purge(storage) < 0) {
-			i_error("Purging namespace '%s' failed: %s", ns->prefix,
+			e_error(ctx->cctx->event,
+				"Purging namespace '%s' failed: %s", ns->prefix,
 				mail_storage_get_last_internal_error(storage, NULL));
 			doveadm_mail_failed_storage(ctx, storage);
 			ret = -1;
@@ -177,7 +178,7 @@ static void doveadm_mail_cmd_input_input(struct doveadm_mail_cmd_context *ctx)
 		return;
 
 	if (ctx->cmd_input->stream_errno != 0) {
-		i_error("read(%s) failed: %s",
+		e_error(ctx->cctx->event, "read(%s) failed: %s",
 			i_stream_get_name(ctx->cmd_input),
 			i_stream_get_error(ctx->cmd_input));
 	}
@@ -308,13 +309,15 @@ static int cmd_force_resync_box(struct doveadm_mail_cmd_context *_ctx,
 
 	box = mailbox_alloc(info->ns->list, info->vname, flags);
 	if (mailbox_open(box) < 0) {
-		i_error("Opening mailbox %s failed: %s", info->vname,
+		e_error(ctx->ctx.cctx->event,
+			"Opening mailbox %s failed: %s", info->vname,
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(_ctx, box);
 		ret = -1;
 	} else if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FORCE_RESYNC |
 				MAILBOX_SYNC_FLAG_FIX_INCONSISTENT) < 0) {
-		i_error("Forcing a resync on mailbox %s failed: %s",
+		e_error(ctx->ctx.cctx->event,
+			"Forcing a resync on mailbox %s failed: %s",
 			info->vname, mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(_ctx, box);
 		ret = -1;
@@ -364,7 +367,8 @@ static int cmd_force_resync_run(struct doveadm_mail_cmd_context *_ctx,
 		} T_END;
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0) {
-		i_error("Listing mailboxes failed: %s",
+		e_error(ctx->ctx.cctx->event,
+			"Listing mailboxes failed: %s",
 			mailbox_list_get_last_internal_error(user->namespaces->list, NULL));
 		doveadm_mail_failed_list(_ctx, user->namespaces->list);
 		ret = -1;
@@ -541,9 +545,10 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 		T_BEGIN {
 			ret = doveadm_mail_next_user(ctx, &error);
 			if (ret < 0)
-				i_error("%s", error);
+				e_error(ctx->cctx->event, "%s", error);
 			else if (ret == 0)
-				i_info("User no longer exists, skipping");
+				e_info(ctx->cctx->event,
+				       "User no longer exists, skipping");
 		} T_END;
 		if (ret == -1)
 			break;
@@ -566,7 +571,7 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 	else
 		i_set_failure_prefix("doveadm(%s): ", ip);
 	if (ret < 0) {
-		i_error("Failed to iterate through some users");
+		e_error(ctx->cctx->event, "Failed to iterate through some users");
 		ctx->exit_code = EX_TEMPFAIL;
 	}
 }
@@ -585,7 +590,7 @@ doveadm_mail_cmd_get_next_user(struct doveadm_mail_cmd_context *ctx,
 
 	*username_r = i_stream_read_next_line(ctx->users_list_input);
 	if (ctx->users_list_input->stream_errno != 0) {
-		i_error("read(%s) failed: %s",
+		e_error(ctx->cctx->event, "read(%s) failed: %s",
 			i_stream_get_name(ctx->users_list_input),
 			i_stream_get_error(ctx->users_list_input));
 		return -1;
@@ -662,10 +667,10 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 		if (ret < 0) {
 			/* user lookup/init failed somehow */
 			doveadm_exit_code = EX_TEMPFAIL;
-			i_error("%s", error);
+			e_error(ctx->cctx->event, "%s", error);
 		} else if (ret == 0) {
 			doveadm_exit_code = EX_NOUSER;
-			i_error("User doesn't exist");
+			e_error(ctx->cctx->event, "User doesn't exist");
 		}
 	} else {
 		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;

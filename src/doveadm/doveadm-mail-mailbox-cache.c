@@ -33,7 +33,7 @@ static int cmd_mailbox_cache_open_box(struct doveadm_mail_cmd_context *ctx,
 	struct mailbox *box = doveadm_mailbox_find(user, boxname);
 
 	if (mailbox_open(box) < 0 || mailbox_sync(box, 0) < 0) {
-		i_error("Cannot open mailbox %s: %s",
+		e_error(ctx->cctx->event, "Cannot open mailbox %s: %s",
 			mailbox_get_vname(box),
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(ctx, box);
@@ -179,7 +179,7 @@ static int cmd_mailbox_cache_decision_run_box(struct mailbox_cache_cmd_context *
 	if (mail_cache_open_and_verify(cache) < 0 ||
 	    MAIL_CACHE_IS_UNUSABLE(cache)) {
 		mailbox_transaction_rollback(&t);
-		i_error("Cache is unusable");
+		e_error(ctx->ctx.cctx->event, "Cache is unusable");
 		ctx->ctx.exit_code = EX_TEMPFAIL;
 		return -1;
 	}
@@ -198,7 +198,7 @@ static int cmd_mailbox_cache_decision_run_box(struct mailbox_cache_cmd_context *
 	mail_cache_view_close(&view);
 
 	if (mailbox_transaction_commit(&t) < 0) {
-		i_error("mailbox_transaction_commit() failed: %s",
+		e_error(ctx->ctx.cctx->event, "mailbox_transaction_commit() failed: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(&ctx->ctx, box);
 		return -1;
@@ -260,7 +260,7 @@ static int cmd_mailbox_cache_remove_box(struct mailbox_cache_cmd_context *ctx,
 
 	ret = 0;
 	if (mail_index_transaction_commit(&t) < 0) {
-		i_error("mail_index_transaction_commit() failed: %s",
+		e_error(ctx->ctx.cctx->event, "mail_index_transaction_commit() failed: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(&ctx->ctx, box);
 		ret = -1;

@@ -30,10 +30,7 @@ cmd_altmove_box(struct doveadm_mail_cmd_context *ctx,
 		return ret;
 
 	while (doveadm_mail_iter_next(iter, &mail)) {
-		if (doveadm_debug) {
-			i_debug("altmove: box=%s uid=%u",
-				info->vname, mail->uid);
-		}
+		e_debug(mail_event(mail), "altmove");
 		mail_update_flags(mail, modify_type,
 			(enum mail_flags)MAIL_INDEX_MAIL_FLAG_BACKEND);
 	}
@@ -45,7 +42,8 @@ ns_purge(struct doveadm_mail_cmd_context *ctx, struct mail_namespace *ns,
 	 struct mail_storage *storage)
 {
 	if (mail_storage_purge(storage) < 0) {
-		i_error("Purging namespace '%s' failed: %s", ns->prefix,
+		e_error(ns->user->event,
+			"Purging namespace '%s' failed: %s", ns->prefix,
 			mail_storage_get_last_internal_error(storage, NULL));
 		doveadm_mail_failed_storage(ctx, storage);
 		return -1;

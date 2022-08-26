@@ -42,7 +42,8 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 				errstr = mailbox_get_last_internal_error(mail->box, &error);
 				if (error == MAIL_ERROR_NOTFOUND)
 					continue;
-				i_error("Couldn't lookup Message-ID: for UID=%u: %s",
+				e_error(ctx->ctx.cctx->event,
+					"Couldn't lookup Message-ID: for UID=%u: %s",
 					mail->uid, errstr);
 				doveadm_mail_failed_error(_ctx, error);
 				ret = -1;
@@ -53,7 +54,8 @@ cmd_deduplicate_box(struct doveadm_mail_cmd_context *_ctx,
 				errstr = mailbox_get_last_internal_error(mail->box, &error);
 				if (error == MAIL_ERROR_NOTFOUND)
 					continue;
-				i_error("Couldn't lookup GUID: for UID=%u: %s",
+				e_error(ctx->ctx.cctx->event,
+					"Couldn't lookup GUID: for UID=%u: %s",
 					mail->uid, errstr);
 				doveadm_mail_failed_error(_ctx, error);
 				ret = -1;

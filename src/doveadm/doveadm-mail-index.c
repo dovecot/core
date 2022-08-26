@@ -31,6 +31,7 @@ struct index_cmd_context {
 static int cmd_index_box_precache(struct doveadm_mail_cmd_context *dctx,
 				  struct mailbox *box)
 {
+	struct event *event = dctx->cctx->event;
 	struct mailbox_status status;
 	struct mailbox_transaction_context *trans;
 	struct mail_search_args *search_args;
@@ -43,13 +44,13 @@ static int cmd_index_box_precache(struct doveadm_mail_cmd_context *dctx,
 
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_PRECACHE_FIELDS,
 				 &metadata) < 0) {
-		i_error("Mailbox %s: Precache-fields lookup failed: %s",
+		e_error(event, "Mailbox %s: Precache-fields lookup failed: %s",
 			mailbox_get_vname(box),
 			mailbox_get_last_internal_error(box, NULL));
 	}
 	if (mailbox_get_status(box, STATUS_MESSAGES | STATUS_LAST_CACHED_SEQ,
 			       &status) < 0) {
-		i_error("Mailbox %s: Status lookup failed: %s",
+		e_error(event, "Mailbox %s: Status lookup failed: %s",
 			mailbox_get_vname(box),
 			mailbox_get_last_internal_error(box, NULL));
 		return -1;
@@ -58,13 +59,13 @@ static int cmd_index_box_precache(struct doveadm_mail_cmd_context *dctx,
 	seq = status.last_cached_seq + 1;
 	if (seq > status.messages) {
 		if (doveadm_verbose) {
-			i_info("%s: Cache is already up to date",
+			e_info(event, "%s: Cache is already up to date",
 			       mailbox_get_vname(box));
 		}
 		return 0;
 	}
 	if (doveadm_verbose) {
-		i_info("%s: Caching mails seq=%u..%u",
+		e_info(event, "%s: Caching mails seq=%u..%u",
 		       mailbox_get_vname(box), seq, status.messages);
 	}
 
@@ -79,7 +80,8 @@ static int cmd_index_box_precache(struct doveadm_mail_cmd_context *dctx,
 	max = status.messages - seq + 1;
 	while (mailbox_search_next(ctx, &mail)) {
 		if (mail_precache(mail) < 0) {
-			i_error("Mailbox %s: Precache for UID=%u failed: %s",
+			e_error(event,
+				"Mailbox %s: Precache for UID=%u failed: %s",
 				mailbox_get_vname(box), mail->uid,
 				mailbox_get_last_internal_error(box, NULL));
 			ret = -1;
@@ -93,13 +95,13 @@ static int cmd_index_box_precache(struct doveadm_mail_cmd_context *dctx,
 	if (doveadm_verbose)
 		printf("\r%u/%u\n", counter, max);
 	if (mailbox_search_deinit(&ctx) < 0) {
-		i_error("Mailbox %s: Mail search failed: %s",
+		e_error(event, "Mailbox %s: Mail search failed: %s",
 			mailbox_get_vname(box),
 			mailbox_get_last_internal_error(box, NULL));
 		ret = -1;
 	}
 	if (mailbox_transaction_commit(&trans) < 0) {
-		i_error("Mailbox %s: Transaction commit failed: %s",
+		e_error(event, "Mailbox %s: Transaction commit failed: %s",
 			mailbox_get_vname(box),
 			mailbox_get_last_internal_error(box, NULL));
 		ret = -1;
@@ -110,6 +112,7 @@ static int cmd_index_box_precache(struct doveadm_mail_cmd_context *dctx,
 static int
 cmd_index_box(struct index_cmd_context *ctx, const struct mailbox_info *info)
 {
+	struct event *event = ctx->ctx.cctx->event;
 	struct mailbox *box;
 	struct mailbox_status status;
 	int ret = 0;
@@ -121,7 +124,8 @@ cmd_index_box(struct index_cmd_context *ctx, const struct mailbox_info *info)
 		   don't bother syncing the mailbox, that alone can take a
 		   while with large maildirs. */
 		if (mailbox_open(box) < 0) {
-			i_error("Opening mailbox %s failed: %s", info->vname,
+			e_error(event,
+				"Opening mailbox %s failed: %s", info->vname,
 				mailbox_get_last_internal_error(box, NULL));
 			doveadm_mail_failed_mailbox(&ctx->ctx, box);
 			mailbox_free(&box);
@@ -136,7 +140,7 @@ cmd_index_box(struct index_cmd_context *ctx, const struct mailbox_info *info)
 	}
 
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
-		i_error("Syncing mailbox %s failed: %s", info->vname,
+		e_error(event, "Syncing mailbox %s failed: %s", info->vname,
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(&ctx->ctx, box);
 		ret = -1;
@@ -203,6 +207,7 @@ cmd_index_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 {
 	struct index_cmd_context *ctx =
 		container_of(_ctx, struct index_cmd_context, ctx);
+	struct event *event = ctx->ctx.cctx->event;
 	const enum mailbox_list_iter_flags iter_flags =
 		MAILBOX_LIST_ITER_NO_AUTO_BOXES |
 		MAILBOX_LIST_ITER_RETURN_NO_FLAGS |
@@ -234,7 +239,7 @@ cmd_index_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 		} T_END;
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0) {
-		i_error("Listing mailboxes failed: %s",
+		e_error(event, "Listing mailboxes failed: %s",
 			mailbox_list_get_last_internal_error(user->namespaces->list, NULL));
 		doveadm_mail_failed_error(_ctx, MAIL_ERROR_TEMP);
 		ret = -1;

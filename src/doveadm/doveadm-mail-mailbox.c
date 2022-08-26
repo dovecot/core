@@ -215,14 +215,16 @@ cmd_mailbox_create_run(struct doveadm_mail_cmd_context *_ctx,
 
 		box = mailbox_alloc(ns->list, name, 0);
 		if (mailbox_create(box, &ctx->update, directory) < 0) {
-			i_error("Can't create mailbox %s: %s", name,
+			e_error(ctx->ctx.ctx.cctx->event,
+				"Can't create mailbox %s: %s", name,
 				mailbox_get_last_internal_error(box, NULL));
 			doveadm_mail_failed_mailbox(_ctx, box);
 			ret = -1;
 		}
 		if (ctx->ctx.subscriptions) {
 			if (mailbox_set_subscribed(box, TRUE) < 0) {
-				i_error("Can't subscribe to mailbox %s: %s", name,
+				e_error(ctx->ctx.ctx.cctx->event,
+					"Can't subscribe to mailbox %s: %s", name,
 					mailbox_get_last_internal_error(box, NULL));
 				doveadm_mail_failed_mailbox(_ctx, box);
 				ret = -1;
@@ -329,14 +331,16 @@ cmd_mailbox_delete_run(struct doveadm_mail_cmd_context *_ctx,
 		ret2 = ctx->require_empty ? mailbox_delete_empty(box) :
 			mailbox_delete(box);
 		if (ret2 < 0) {
-			i_error("Can't delete mailbox %s: %s", name,
+			e_error(ctx->ctx.ctx.cctx->event,
+				"Can't delete mailbox %s: %s", name,
 				mailbox_get_last_internal_error(box, NULL));
 			doveadm_mail_failed_mailbox(_ctx, box);
 			ret = -1;
 		}
 		if (ctx->ctx.subscriptions) {
 			if (mailbox_set_subscribed(box, FALSE) < 0) {
-				i_error("Can't unsubscribe mailbox %s: %s", name,
+				e_error(ctx->ctx.ctx.cctx->event,
+					"Can't unsubscribe mailbox %s: %s", name,
 					mail_storage_get_last_internal_error(storage, NULL));
 				doveadm_mail_failed_mailbox(_ctx, box);
 				ret = -1;
@@ -394,20 +398,23 @@ cmd_mailbox_rename_run(struct doveadm_mail_cmd_context *_ctx,
 	oldbox = mailbox_alloc(oldns->list, oldname, 0);
 	newbox = mailbox_alloc(newns->list, newname, 0);
 	if (mailbox_rename(oldbox, newbox) < 0) {
-		i_error("Can't rename mailbox %s to %s: %s", oldname, newname,
+		e_error(ctx->ctx.ctx.cctx->event,
+			"Can't rename mailbox %s to %s: %s", oldname, newname,
 			mailbox_get_last_internal_error(oldbox, NULL));
 		doveadm_mail_failed_mailbox(_ctx, oldbox);
 		ret = -1;
 	}
 	if (ctx->ctx.subscriptions) {
 		if (mailbox_set_subscribed(oldbox, FALSE) < 0) {
-			i_error("Can't unsubscribe mailbox %s: %s", ctx->oldname,
+			e_error(ctx->ctx.ctx.cctx->event,
+				"Can't unsubscribe mailbox %s: %s", ctx->oldname,
 				mailbox_get_last_internal_error(oldbox, NULL));
 			doveadm_mail_failed_mailbox(_ctx, oldbox);
 			ret = -1;
 		}
 		if (mailbox_set_subscribed(newbox, TRUE) < 0) {
-			i_error("Can't subscribe to mailbox %s: %s", ctx->newname,
+			e_error(ctx->ctx.ctx.cctx->event,
+				"Can't subscribe to mailbox %s: %s", ctx->newname,
 				mailbox_get_last_internal_error(newbox, NULL));
 			doveadm_mail_failed_mailbox(_ctx, newbox);
 			ret = -1;
@@ -459,9 +466,10 @@ cmd_mailbox_subscribe_run(struct doveadm_mail_cmd_context *_ctx,
 		ns = mail_namespace_find(user->namespaces, name);
 		box = mailbox_alloc(ns->list, name, 0);
 		if (mailbox_set_subscribed(box, ctx->ctx.subscriptions) < 0) {
-			i_error("Can't %s mailbox %s: %s", name,
-				ctx->ctx.subscriptions ? "subscribe to" :
-				"unsubscribe",
+			e_error(ctx->ctx.ctx.cctx->event,
+				"Can't %s mailbox %s: %s", name,
+				ctx->ctx.subscriptions ?
+					"subscribe to" : "unsubscribe",
 				mailbox_get_last_internal_error(box, NULL));
 			doveadm_mail_failed_mailbox(_ctx, box);
 			ret = -1;
@@ -552,9 +560,10 @@ int cmd_mailbox_update_run(struct doveadm_mail_cmd_context *_ctx,
 	box = mailbox_alloc(ns->list, ctx->mailbox, 0);
 
 	if ((ret = mailbox_update(box, &(ctx->update))) != 0) {
-		i_error("Cannot update %s: %s",
-			ctx->mailbox,
-			mailbox_get_last_internal_error(box, &mail_error));
+		const char *error = mailbox_get_last_internal_error(
+			box, &mail_error);
+		e_error(ctx->ctx.ctx.cctx->event,
+			"Cannot update %s: %s", ctx->mailbox, error);
 		doveadm_mail_failed_error(_ctx, mail_error);
 	}
 
@@ -626,9 +635,11 @@ cmd_mailbox_path_run(struct doveadm_mail_cmd_context *_ctx,
 	storage_name = mailbox_list_get_storage_name(ns->list, ctx->mailbox);
 	ret = mailbox_list_get_path(ns->list, storage_name, ctx->path_type, &path);
 	if (ret < 0) {
-		i_error("Failed to lookup mailbox %s path: %s",
-			ctx->mailbox,
-			mailbox_list_get_last_internal_error(ns->list, &mail_error));
+		const char *error = mailbox_list_get_last_internal_error(
+			ns->list, &mail_error);
+		e_error(ctx->ctx.ctx.cctx->event,
+			"Failed to lookup mailbox %s path: %s",
+			ctx->mailbox, error);
 		doveadm_mail_failed_error(_ctx, mail_error);
 	} else if (ret > 0) {
 		doveadm_print(path);

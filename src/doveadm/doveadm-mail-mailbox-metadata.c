@@ -45,7 +45,7 @@ cmd_mailbox_metadata_get_mailbox(struct metadata_cmd_context *mctx,
 	if (mctx->empty_mailbox_name) {
 		if (!mctx->allow_empty_mailbox_name) {
 			const char *op_str = doveadm_metadata_op_names[op];
-			i_error("Failed to %s: %s", op_str,
+			e_error(mctx->ctx.cctx->event, "Failed to %s: %s", op_str,
 				"mailbox name cannot be empty");
 			mctx->ctx.exit_code = EX_USAGE;
 			return -1;
@@ -69,7 +69,7 @@ cmd_mailbox_metadata_get_mailbox(struct metadata_cmd_context *mctx,
 
 	if (op == DOVEADM_METADATA_OP_SET &&
 	    mailbox_open(*box_r) < 0) {
-		i_error("Failed to open mailbox: %s",
+		e_error(mctx->ctx.cctx->event, "Failed to open mailbox: %s",
 		        mailbox_get_last_internal_error(*box_r, NULL));
 		doveadm_mail_failed_mailbox(&mctx->ctx, *box_r);
 		mailbox_free(box_r);
@@ -104,12 +104,12 @@ cmd_mailbox_metadata_set_run(struct doveadm_mail_cmd_context *_ctx,
 		mailbox_attribute_unset(trans, ctx->key_type, ctx->key) :
 		mailbox_attribute_set(trans, ctx->key_type, ctx->key, &ctx->value);
 	if (ret < 0) {
-		i_error("Failed to set attribute: %s",
+		e_error(ctx->ctx.cctx->event, "Failed to set attribute: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(_ctx, box);
 		mailbox_transaction_rollback(&trans);
 	} else if (mailbox_transaction_commit(&trans) < 0) {
-		i_error("Failed to commit transaction: %s",
+		e_error(ctx->ctx.cctx->event, "Failed to commit transaction: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(_ctx, box);
 		ret = -1;
@@ -239,7 +239,7 @@ cmd_mailbox_metadata_get_run(struct doveadm_mail_cmd_context *_ctx,
 
 	ret = mailbox_attribute_get_stream(box, ctx->key_type, ctx->key, &value);
 	if (ret < 0) {
-		i_error("Failed to get attribute: %s",
+		e_error(ctx->ctx.cctx->event, "Failed to get attribute: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(_ctx, box);
 	} else if (ret == 0) {
@@ -247,7 +247,7 @@ cmd_mailbox_metadata_get_run(struct doveadm_mail_cmd_context *_ctx,
 		doveadm_print("");
 	} else if (value.value_stream != NULL) {
 		if (doveadm_print_istream(value.value_stream) < 0) {
-			i_error("read(%s) failed: %s",
+			e_error(ctx->ctx.cctx->event, "read(%s) failed: %s",
 				i_stream_get_name(value.value_stream),
 				i_stream_get_error(value.value_stream));
 			ret = -1;
@@ -313,7 +313,7 @@ cmd_mailbox_metadata_list_run_iter(struct metadata_cmd_context *ctx,
 		}
 	}
 	if (mailbox_attribute_iter_deinit(&iter) < 0) {
-		i_error("Mailbox %s: Failed to iterate mailbox attributes: %s",
+		e_error(ctx->ctx.cctx->event, "Mailbox %s: Failed to iterate mailbox attributes: %s",
 			mailbox_get_vname(box),
 			mailbox_get_last_internal_error(box, NULL));
 		return -1;

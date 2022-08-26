@@ -312,7 +312,8 @@ static int fetch_text_utf8(struct fetch_cmd_context *ctx)
 
 	doveadm_print_stream("", 0);
 	if (input->stream_errno != 0) {
-		i_error("read(%s) failed: %s", i_stream_get_name(input),
+		e_error(ctx->ctx.cctx->event,
+			"read(%s) failed: %s", i_stream_get_name(input),
 			i_stream_get_error(input));
 		return -1;
 	}
@@ -585,7 +586,8 @@ static int cmd_fetch_mail(struct fetch_cmd_context *ctx)
 	array_foreach(&ctx->fields, field) {
 		ctx->cur_field = field;
 		if (field->print(ctx) < 0) {
-			i_error("fetch(%s) failed for box=%s uid=%u: %s",
+			e_error(ctx->ctx.cctx->event,
+				"fetch(%s) failed for box=%s uid=%u: %s",
 				field->name, mailbox_get_vname(mail->box),
 				mail->uid,
 				ctx->print_error != NULL ? ctx->print_error :

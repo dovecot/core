@@ -432,7 +432,8 @@ static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
 	int ret;
 
 	if (!auth_proxy_parse_redirect(destination, &destuser, &host, &port)) {
-		i_error("%s: Invalid redirect destination: %s",
+		e_error(cmd_ctx->cctx->event,
+			"%s: Invalid redirect destination: %s",
 			orig_server->name, destination);
 		return -1;
 	}
@@ -444,7 +445,8 @@ static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
 						    destuser, &error);
 	} else {
 		if (net_addr2ip(host, &ip) < 0) {
-			i_error("%s: Redirect destination host is not an IP: %s",
+			e_error(cmd_ctx->cctx->event,
+				"%s: Redirect destination host is not an IP: %s",
 				orig_server->name, destination);
 			return -1;
 		}
@@ -453,7 +455,8 @@ static int doveadm_cmd_redirect(struct doveadm_mail_server_cmd *servercmd,
 						  &error);
 	}
 	if (ret < 0) {
-		i_error("%s: %s", orig_server->name, error);
+		e_error(cmd_ctx->cctx->event,
+			"%s: %s", orig_server->name, error);
 		return -1;
 	}
 	return ret;
@@ -499,7 +502,8 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 	case 0:
 		break;
 	case DOVEADM_CLIENT_EXIT_CODE_DISCONNECTED:
-		i_error("%s: Command %s failed for %s: %s",
+		e_error(cmd_ctx->cctx->event,
+			"%s: Command %s failed for %s: %s",
 			server->name, cmd_ctx->cmd->name, servercmd->username,
 			reply->error);
 		internal_failure = TRUE;
@@ -507,7 +511,8 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 		doveadm_mail_server_cmd_free(&servercmd);
 		return;
 	case EX_NOUSER:
-		i_error("%s: No such user: %s", server->name,
+		e_error(cmd_ctx->cctx->event,
+			"%s: No such user: %s", server->name,
 			servercmd->username);
 		if (cmd_ctx->exit_code == 0)
 			cmd_ctx->exit_code = EX_NOUSER;
@@ -718,7 +723,8 @@ doveadm_mail_cmd_extra_fields_parse(struct doveadm_mail_cmd_context *ctx)
 		if (strcmp(key, "proxy-ttl") == 0) {
 			if (str_to_int(value, &ctx->proxy_ttl) < 0 ||
 			    ctx->proxy_ttl <= 0)
-				i_error("Invalid proxy-ttl value: %s", value);
+				e_error(ctx->cctx->event,
+					"Invalid proxy-ttl value: %s", value);
 		} else if (strcmp(key, "forward") == 0) {
 			if (!array_is_created(&ctx->proxy_forward_fields)) {
 				p_array_init(&ctx->proxy_forward_fields,
@@ -852,7 +858,7 @@ void doveadm_mail_server_flush(void)
 		if (array_count(&doveadm_server_request_queue) == 0)
 			break;
 		if (doveadm_mail_server_request_queue_handle_next(&error) < 0) {
-			i_error("%s", error);
+			e_error(cmd_ctx->cctx->event, "%s", error);
 			break;
 		}
 	}
@@ -863,7 +869,7 @@ void doveadm_mail_server_flush(void)
 
 	doveadm_clients_destroy_all();
 	if (master_service_is_killed(master_service))
-		i_error("Aborted");
+		e_error(cmd_ctx->cctx->event, "Aborted");
 	if (DOVEADM_MAIL_SERVER_FAILED())
 		doveadm_mail_failed_error(cmd_ctx, MAIL_ERROR_TEMP);
 

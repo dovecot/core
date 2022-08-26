@@ -34,17 +34,15 @@ cmd_expunge_box(struct doveadm_mail_cmd_context *_ctx,
 
 	ret = 0;
 	while (doveadm_mail_iter_next(iter, &mail)) {
-		if (doveadm_debug) {
-			i_debug("expunge: box=%s uid=%u",
-				info->vname, mail->uid);
-		}
+		e_debug(mail_event(mail), "expunge");
 		mail_expunge(mail);
 	}
 
 	if (doveadm_mail_iter_deinit_keep_box(&iter, &box) < 0)
 		ret = -1;
 	else if (mailbox_sync(box, 0) < 0) {
-		i_error("Syncing mailbox '%s' failed: %s",
+		e_debug(ctx->ctx.cctx->event,
+			"Syncing mailbox '%s' failed: %s",
 			mailbox_get_vname(box),
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(_ctx, box);
@@ -55,7 +53,8 @@ cmd_expunge_box(struct doveadm_mail_cmd_context *_ctx,
 		if (mailbox_delete_empty(box) < 0) {
 			error = mailbox_get_last_mail_error(box);
 			if (error != MAIL_ERROR_EXISTS) {
-				i_error("Deleting mailbox '%s' failed: %s",
+				e_debug(ctx->ctx.cctx->event,
+					"Deleting mailbox '%s' failed: %s",
 					mailbox_get_vname(box),
 					mailbox_get_last_internal_error(box, NULL));
 				doveadm_mail_failed_mailbox(_ctx, box);
@@ -63,7 +62,8 @@ cmd_expunge_box(struct doveadm_mail_cmd_context *_ctx,
 			}
 		} else {
 			if (mailbox_set_subscribed(box, FALSE) < 0) {
-				i_error("Unsubscribing mailbox '%s' failed: %s",
+				e_debug(ctx->ctx.cctx->event,
+					"Unsubscribing mailbox '%s' failed: %s",
 					mailbox_get_vname(box),
 					mailbox_get_last_internal_error(box, NULL));
 				doveadm_mail_failed_mailbox(_ctx, box);

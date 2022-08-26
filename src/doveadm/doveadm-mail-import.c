@@ -66,7 +66,8 @@ dest_mailbox_open_or_create(struct import_cmd_context *ctx,
 	if (mailbox_create(box, NULL, FALSE) < 0) {
 		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error != MAIL_ERROR_EXISTS) {
-			i_error("Couldn't create mailbox %s: %s", name, errstr);
+			e_error(user->event,
+				"Couldn't create mailbox %s: %s", name, errstr);
 			doveadm_mail_failed_mailbox(&ctx->ctx, box);
 			mailbox_free(&box);
 			return -1;
@@ -74,12 +75,14 @@ dest_mailbox_open_or_create(struct import_cmd_context *ctx,
 	}
 	if (ctx->subscribe) {
 		if (mailbox_set_subscribed(box, TRUE) < 0) {
-			i_error("Couldn't subscribe to mailbox %s: %s",
+			e_error(user->event,
+				"Couldn't subscribe to mailbox %s: %s",
 				name, mailbox_get_last_internal_error(box, NULL));
 		}
 	}
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
-		i_error("Syncing mailbox %s failed: %s", name,
+		e_error(user->event,
+			"Syncing mailbox %s failed: %s", name,
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_mailbox(&ctx->ctx, box);
 		mailbox_free(&box);
@@ -96,29 +99,26 @@ cmd_import_box_contents(struct doveadm_mail_cmd_context *ctx,
 {
 	struct mail_save_context *save_ctx;
 	struct mailbox_transaction_context *dest_trans;
-	const char *mailbox = mailbox_get_vname(dest_box);
 	int ret = 0;
 
 	dest_trans = mailbox_transaction_begin(dest_box,
 					MAILBOX_TRANSACTION_FLAG_EXTERNAL |
 					ctx->transaction_flags,	__func__);
 	do {
-		if (doveadm_debug) {
-			i_debug("import: box=%s uid=%u",
-				mailbox, src_mail->uid);
-		}
+		e_debug(mail_event(src_mail), "import");
 		save_ctx = mailbox_save_alloc(dest_trans);
 		mailbox_save_copy_flags(save_ctx, src_mail);
 		if (mailbox_copy(&save_ctx, src_mail) < 0) {
-			i_error("Copying box=%s uid=%u failed: %s",
-				mailbox, src_mail->uid,
+			e_error(mail_event(src_mail),
+				"Copying failed: %s",
 				mailbox_get_last_internal_error(dest_box, NULL));
 			ret = -1;
 		}
 	} while (doveadm_mail_iter_next(iter, &src_mail));
 
 	if (mailbox_transaction_commit(&dest_trans) < 0) {
-		i_error("Committing copied mails to %s failed: %s", mailbox,
+		e_error(ctx->cctx->event,
+			"Committing copied mails failed: %s",
 			mailbox_get_last_internal_error(dest_box, NULL));
 		ret = -1;
 	}

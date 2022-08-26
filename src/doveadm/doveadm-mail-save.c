@@ -21,7 +21,7 @@ cmd_save_to_mailbox(struct save_cmd_context *ctx, struct mailbox *box,
 	bool save_failed = FALSE;
 
 	if (input->stream_errno != 0) {
-		i_error("open(%s) failed: %s",
+		e_error(ctx->ctx.cctx->event, "open(%s) failed: %s",
 			i_stream_get_name(input),
 			i_stream_get_error(input));
 		ctx->ctx.exit_code = EX_TEMPFAIL;
@@ -29,7 +29,7 @@ cmd_save_to_mailbox(struct save_cmd_context *ctx, struct mailbox *box,
 	}
 
 	if (mailbox_open(box) < 0) {
-		i_error("Failed to open mailbox %s: %s",
+		e_error(ctx->ctx.cctx->event, "Failed to open mailbox %s: %s",
 			mailbox_get_vname(box),
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_storage(&ctx->ctx, storage);
@@ -40,7 +40,7 @@ cmd_save_to_mailbox(struct save_cmd_context *ctx, struct mailbox *box,
 					  ctx->ctx.transaction_flags, __func__);
 	save_ctx = mailbox_save_alloc(trans);
 	if (mailbox_save_begin(&save_ctx, input) < 0) {
-		i_error("Saving failed: %s",
+		e_error(ctx->ctx.cctx->event, "Saving failed: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_storage(&ctx->ctx, storage);
 		mailbox_transaction_rollback(&trans);
@@ -56,18 +56,20 @@ cmd_save_to_mailbox(struct save_cmd_context *ctx, struct mailbox *box,
 	i_assert(ret == -1);
 
 	if (input->stream_errno != 0) {
-		i_error("read(msg input) failed: %s", i_stream_get_error(input));
+		e_error(ctx->ctx.cctx->event,
+			"read(msg input) failed: %s", i_stream_get_error(input));
 		doveadm_mail_failed_error(&ctx->ctx, MAIL_ERROR_TEMP);
 	} else if (save_failed) {
-		i_error("Saving failed: %s",
+		e_error(ctx->ctx.cctx->event, "Saving failed: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_storage(&ctx->ctx, storage);
 	} else if (mailbox_save_finish(&save_ctx) < 0) {
-		i_error("Saving failed: %s",
+		e_error(ctx->ctx.cctx->event, "Saving failed: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_storage(&ctx->ctx, storage);
 	} else if (mailbox_transaction_commit(&trans) < 0) {
-		i_error("Save transaction commit failed: %s",
+		e_error(ctx->ctx.cctx->event,
+			"Save transaction commit failed: %s",
 			mailbox_get_last_internal_error(box, NULL));
 		doveadm_mail_failed_storage(&ctx->ctx, storage);
 	} else {
