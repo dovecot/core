@@ -264,12 +264,11 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 	last_common_pvt_modseq = brain->mailbox_state.last_common_pvt_modseq;
 	highest_wanted_uid = last_common_uid == 0 ?
 		(uint32_t)-1 : last_common_uid;
-	ret = dsync_transaction_log_scan_init(brain->box->view,
-					      brain->box->view_pvt,
+	ret = dsync_transaction_log_scan_init(brain,
 					      highest_wanted_uid,
 					      last_common_modseq,
 					      last_common_pvt_modseq,
-					      &brain->log_scan, &pvt_too_old);
+					      &pvt_too_old);
 	if (ret < 0) {
 		i_error("Failed to read transaction log for mailbox %s",
 			mailbox_get_vname(brain->box));

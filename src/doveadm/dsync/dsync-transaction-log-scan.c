@@ -7,9 +7,11 @@
 #include "dsync-mail.h"
 #include "dsync-mailbox.h"
 #include "dsync-transaction-log-scan.h"
+#include "dsync-brain-private.h"
 
 struct dsync_transaction_log_scan {
 	pool_t pool;
+	struct event *event;
 	HASH_TABLE_TYPE(dsync_uid_mail_change) changes;
 	HASH_TABLE_TYPE(dsync_attr_change) attr_changes;
 	struct mail_index_view *view;
@@ -391,7 +393,8 @@ dsync_log_set(struct dsync_transaction_log_scan *ctx,
 		/* we shouldn't get here. _view_set_all() already
 		   reserved all the log files, the _view_set() only
 		   removed unwanted ones. */
-		i_error("%s: Couldn't set transaction log view (seq %u..%u): %s",
+		e_error(ctx->event,
+			"%s: Couldn't set transaction log view (seq %u..%u): %s",
 			view->index->filepath, log_seq, end_seq, reason);
 		ret = -1;
 	}
@@ -498,13 +501,15 @@ dsync_mailbox_attribute_hash(const struct dsync_mailbox_attribute *attr)
 	return str_hash(attr->key) ^ attr->type;
 }
 
-int dsync_transaction_log_scan_init(struct mail_index_view *view,
-				    struct mail_index_view *pvt_view,
+int dsync_transaction_log_scan_init(struct dsync_brain *brain,
 				    uint32_t highest_wanted_uid,
 				    uint64_t modseq, uint64_t pvt_modseq,
-				    struct dsync_transaction_log_scan **scan_r,
 				    bool *pvt_too_old_r)
 {
+	struct mail_index_view *view = brain->box->view;
+	struct mail_index_view *pvt_view = brain->box->view_pvt;
+	struct dsync_transaction_log_scan **scan_r = &brain->log_scan;
+
 	struct dsync_transaction_log_scan *ctx;
 	pool_t pool;
 	int ret, ret2;
@@ -515,6 +520,7 @@ int dsync_transaction_log_scan_init(struct mail_index_view *view,
 				     10240);
 	ctx = p_new(pool, struct dsync_transaction_log_scan, 1);
 	ctx->pool = pool;
+	ctx->event = event_create(brain->event);
 	hash_table_create_direct(&ctx->changes, pool, 0);
 	hash_table_create(&ctx->attr_changes, pool, 0,
 			  dsync_mailbox_attribute_hash,
@@ -604,5 +610,6 @@ void dsync_transaction_log_scan_deinit(struct dsync_transaction_log_scan **_scan
 
 	hash_table_destroy(&scan->changes);
 	hash_table_destroy(&scan->attr_changes);
+	event_unref(&scan->event);
 	pool_unref(&scan->pool);
 }
