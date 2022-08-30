@@ -43,12 +43,15 @@ kick_user_anvil_callback(const char *reply, struct kick_context *ctx)
 
 static void kick_users_get_via_who(struct kick_context *ctx)
 {
+	const char *error;
+
 	/* get a list of all user+sessions matching the filter */
 	p_array_init(&ctx->kicks, ctx->who.pool, 64);
 	struct doveadm_who_iter *iter =
 		doveadm_who_iter_init(ctx->who.anvil_path);
 	if (!doveadm_who_iter_init_filter(iter, &ctx->who.filter)) {
-		doveadm_who_iter_deinit(&iter);
+		if (doveadm_who_iter_deinit(&iter, &error) < 0)
+			e_error(ctx->event, "%s", error);
 		return;
 	}
 	struct who_line who_line;
@@ -59,8 +62,10 @@ static void kick_users_get_via_who(struct kick_context *ctx)
 		session->username = p_strdup(ctx->who.pool, who_line.username);
 		guid_128_copy(session->conn_guid, who_line.conn_guid);
 	}
-	if (doveadm_who_iter_deinit(&iter) < 0)
+	if (doveadm_who_iter_deinit(&iter, &error) < 0) {
 		doveadm_exit_code = EX_TEMPFAIL;
+		e_error(ctx->event, "%s", error);
+	}
 }
 
 static void kick_users_via_anvil(struct kick_context *ctx)

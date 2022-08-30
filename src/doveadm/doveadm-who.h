@@ -31,6 +31,7 @@ struct who_context {
 	struct who_filter filter;
 
 	pool_t pool;
+	struct event *event;
 	HASH_TABLE(struct who_user *, struct who_user *) users;
 };
 
@@ -49,6 +50,7 @@ bool doveadm_who_iter_init_filter(struct doveadm_who_iter *iter,
 				  struct who_filter *filter);
 bool doveadm_who_iter_next(struct doveadm_who_iter *iter,
 			   struct who_line *who_line_r);
-int doveadm_who_iter_deinit(struct doveadm_who_iter **_iter);
+int doveadm_who_iter_deinit(struct doveadm_who_iter **_iter,
+			    const char **error_r);
 
 #endif /* DOVEADM_WHO_H */

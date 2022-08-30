@@ -30,8 +30,7 @@ struct doveadm_who_iter {
 
 	unsigned int alt_username_fields_count;
 	const char **alt_username_fields;
-
-	bool failed;
+	const char *error;
 };
 
 static void who_user_ip(const struct who_user *user, struct ip_addr *ip_r)
@@ -166,7 +165,8 @@ who_parse_masks(struct who_context *ctx, const char *const *masks)
 		if (!str_is_numeric(masks[i], '\0') &&
 		    net_parse_range(masks[i], &net_ip, &net_bits) == 0) {
 			if (ctx->filter.net_bits != 0) {
-				i_error("Multiple network masks not supported");
+				e_error(ctx->event,
+					"Multiple network masks not supported");
 				doveadm_exit_code = EX_USAGE;
 				return -1;
 			}
@@ -174,7 +174,8 @@ who_parse_masks(struct who_context *ctx, const char *const *masks)
 			ctx->filter.net_bits = net_bits;
 		} else {
 			if (ctx->filter.username != NULL) {
-				i_error("Multiple username masks not supported");
+				e_error(ctx->event,
+					"Multiple username masks not supported");
 				doveadm_exit_code = EX_USAGE;
 				return -1;
 			}
@@ -195,7 +196,8 @@ int who_parse_args(struct who_context *ctx, const char *alt_username_field,
 			return -1;
 	}
 	if (alt_username_field != NULL && ctx->filter.username == NULL) {
-		i_error("Username must be given with passdb-field parameter");
+		e_error(ctx->event,
+			"Username must be given with passdb-field parameter");
 		doveadm_exit_code = EX_USAGE;
 		return -1;
 	}
@@ -221,23 +223,23 @@ struct doveadm_who_iter *doveadm_who_iter_init(const char *anvil_path)
 	fd = doveadm_connect(anvil_path);
 	net_set_nonblock(fd, FALSE);
 	if (write(fd, ANVIL_CMD, strlen(ANVIL_CMD)) < 0) {
-		i_error("write(%s) failed: %m", anvil_path);
+		iter->error = p_strdup_printf(iter->pool,
+					      "write(%s) failed: %m", anvil_path);
 		i_close_fd(&fd);
-		iter->failed = TRUE;
 		return iter;
 	}
 
 	iter->input = i_stream_create_fd_autoclose(&fd, SIZE_MAX);
 	i_stream_set_name(iter->input, anvil_path);
 	if ((line = i_stream_read_next_line(iter->input)) == NULL) {
-		i_error("anvil didn't send VERSION line");
-		iter->failed = TRUE;
+		iter->error = p_strdup_printf(iter->pool,
+					      "anvil didn't send VERSION line");
 	} else if (!version_string_verify(line, "anvil-server", 2)) {
-		i_error("Invalid VERSION line: %s", line);
-		iter->failed = TRUE;
+		iter->error = p_strdup_printf(iter->pool,
+					      "Invalid VERSION line: %s", line);
 	} else if ((line = i_stream_read_next_line(iter->input)) == NULL) {
-		i_error("anvil didn't send header line");
-		iter->failed = TRUE;
+		iter->error = p_strdup_printf(iter->pool,
+					      "anvil didn't send header line");
 	} else {
 		iter->alt_username_fields =
 			(const char **)p_strsplit_tabescaped(iter->pool, line);
@@ -269,7 +271,7 @@ bool doveadm_who_iter_next(struct doveadm_who_iter *iter,
 	const char *line;
 	int ret;
 
-	if (iter->failed)
+	if (iter->error != NULL)
 		return FALSE;
 
 	if ((line = i_stream_read_next_line(iter->input)) != NULL) {
@@ -279,29 +281,33 @@ bool doveadm_who_iter_next(struct doveadm_who_iter *iter,
 			ret = who_parse_line(iter, line, who_line_r);
 		} T_END;
 		if (ret < 0) {
-			i_error("Invalid input: %s", line);
-			iter->failed = TRUE;
+			iter->error = p_strdup_printf(iter->pool,
+						      "Invalid input: %s", line);
 			return FALSE;
 		}
 		return TRUE;
 	}
 	if (iter->input->stream_errno != 0) {
-		i_error("read(%s) failed: %s", i_stream_get_name(iter->input),
+		iter->error = p_strdup_printf(iter->pool,
+			"read(%s) failed: %s", i_stream_get_name(iter->input),
 			i_stream_get_error(iter->input));
 	} else {
-		i_error("read(%s) failed: Unexpected EOF",
+		iter->error = p_strdup_printf(iter->pool,
+			"read(%s) failed: Unexpected EOF",
 			i_stream_get_name(iter->input));
 	}
-	iter->failed = TRUE;
 	return FALSE;
 }
 
-int doveadm_who_iter_deinit(struct doveadm_who_iter **_iter)
+int doveadm_who_iter_deinit(struct doveadm_who_iter **_iter,
+			    const char **error_r)
 {
 	struct doveadm_who_iter *iter = *_iter;
-	bool failed = iter->failed;
-
 	*_iter = NULL;
+
+	bool failed = iter->error != NULL;
+	if (failed)
+		*error_r = t_strdup(iter->error);
 	i_stream_destroy(&iter->input);
 	pool_unref(&iter->line_pool);
 	pool_unref(&iter->pool);
@@ -453,6 +459,7 @@ static void cmd_who(struct doveadm_cmd_context *cctx)
 	(void)doveadm_cmd_param_bool(cctx, "separate-connections", &separate_connections);
 
 	ctx.pool = pool_alloconly_create("who users", 10240);
+	ctx.event = cctx->event;
 	hash_table_create(&ctx.users, ctx.pool, 0, who_user_hash, who_user_cmp);
 
 	if (doveadm_cmd_param_array(cctx, "mask", &masks)) {
@@ -484,8 +491,11 @@ static void cmd_who(struct doveadm_cmd_context *cctx)
 				who_print_line(&ctx, iter, &who_line);
 		}
 	}
-	if (doveadm_who_iter_deinit(&iter) < 0)
+	const char *error;
+	if (doveadm_who_iter_deinit(&iter, &error) < 0) {
+		e_error(cctx->event, "%s", error);
 		doveadm_exit_code = EX_TEMPFAIL;
+	}
 
 	hash_table_destroy(&ctx.users);
 	pool_unref(&ctx.pool);
