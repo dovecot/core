@@ -156,10 +156,8 @@ sync_delete_mailbox_node(struct dsync_mailbox_tree_sync_ctx *ctx,
 	struct dsync_mailbox_tree_sync_change *change;
 	const char *name;
 
-	if ((ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_DEBUG) != 0 &&
-	    tree == ctx->local_tree) {
-		i_debug("brain %c: Deleting mailbox '%s' (GUID %s): %s",
-			(ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_MASTER_BRAIN) != 0 ? 'M' : 'S',
+	if (tree == ctx->local_tree) {
+		e_debug(ctx->event, "Deleting mailbox '%s' (GUID %s): %s",
 			dsync_mailbox_node_get_full_name(tree, node),
 			guid_128_to_string(node->mailbox_guid), reason);
 	}
@@ -907,11 +905,8 @@ static bool sync_rename_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 						       remote_node, &reason);
 		}
 		/* handle children, if there are any */
-		if (debug != NULL) {
-			i_debug("brain %c: %s: %s",
-				(ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_MASTER_BRAIN) != 0 ? 'M' : 'S',
-				str_c(debug), reason);
-		}
+		if (debug != NULL)
+			e_debug(ctx->event, "%s: %s", str_c(debug), reason);
 
 		if (!changed) T_BEGIN {
 			changed = sync_rename_mailboxes(ctx, local_node,
@@ -1052,23 +1047,17 @@ sync_rename_temp_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 			    !node_has_existent_children(node, FALSE))) {
 			/* we can just delete this directory and
 			   any child directories it may have */
-			if ((ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_DEBUG) != 0) {
-				i_debug("brain %c: %s mailbox %s: Delete directory-only tree",
-					(ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_MASTER_BRAIN) != 0 ? 'M' : 'S',
-					tree == ctx->local_tree ? "local" : "remote",
-					dsync_mailbox_node_get_full_name(tree, node));
-			}
+			e_debug(ctx->event, "%s mailbox %s: Delete directory-only tree",
+				tree == ctx->local_tree ? "local" : "remote",
+				dsync_mailbox_node_get_full_name(tree, node));
 			sync_rename_delete_node_dirs(ctx, tree, node);
 		} else {
 			T_BEGIN {
 				*renames_r = TRUE;
 				sync_rename_temp_mailbox_node(tree, node, &reason);
-				if ((ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_DEBUG) != 0) {
-					i_debug("brain %c: %s mailbox %s: %s",
-						(ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_MASTER_BRAIN) != 0 ? 'M' : 'S',
-						tree == ctx->local_tree ? "local" : "remote",
-						dsync_mailbox_node_get_full_name(tree, node), reason);
-				}
+				e_debug(ctx->event, "%s mailbox %s: %s",
+					tree == ctx->local_tree ? "local" : "remote",
+					dsync_mailbox_node_get_full_name(tree, node), reason);
 			} T_END;
 			return TRUE;
 		}
@@ -1091,15 +1080,14 @@ dsync_mailbox_tree_handle_renames(struct dsync_mailbox_tree_sync_ctx *ctx,
 			changed = sync_rename_mailboxes(ctx, &ctx->local_tree->root,
 							&ctx->remote_tree->root);
 		} T_END;
-		if ((ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_DEBUG) != 0 &&
-		    changed) {
-			i_debug("brain %c: -- Mailbox renamed, restart sync --",
-				(ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_MASTER_BRAIN) != 0 ? 'M' : 'S');
-		}
+		if (changed)
+			e_debug(ctx->event, "-- Mailbox renamed, restart sync --");
+
 	} while (changed && ++count <= max_renames);
 
 	if (changed) {
-		i_error("BUG: Mailbox renaming algorithm got into a potentially infinite loop, aborting");
+		e_debug(ctx->event,
+			"BUG: Mailbox renaming algorithm got into a potentially infinite loop, aborting");
 		return -1;
 	}
 

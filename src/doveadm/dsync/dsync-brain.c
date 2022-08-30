@@ -252,15 +252,13 @@ dsync_brain_master_init(struct mail_user *user, struct dsync_ibc *ibc,
 	else if (dsync_mailbox_states_import(brain->mailbox_states, brain->pool,
 					     set->state, &error) < 0) {
 		hash_table_clear(brain->mailbox_states, FALSE);
-		i_error("Saved sync state is invalid, "
+		e_error(brain->event,
+			"Saved sync state is invalid, "
 			"falling back to full sync: %s", error);
 		brain->sync_type = sync_type = DSYNC_BRAIN_SYNC_TYPE_FULL;
 	} else {
-		if (brain->debug) {
-			i_debug("brain %c: Imported mailbox states:",
-				brain->master_brain ? 'M' : 'S');
-			dsync_brain_mailbox_states_dump(brain);
-		}
+		e_debug(brain->event, "Imported mailbox states:");
+		dsync_brain_mailbox_states_dump(brain);
 	}
 	dsync_brain_mailbox_trees_init(brain);
 
@@ -344,7 +342,8 @@ static void dsync_brain_purge(struct dsync_brain *brain)
 
 		storage = mail_namespace_get_default_storage(ns);
 		if (mail_storage_purge(storage) < 0) {
-			i_error("Purging namespace '%s' failed: %s", ns->prefix,
+			e_error(brain->event,
+				"Purging namespace '%s' failed: %s", ns->prefix,
 				mail_storage_get_last_internal_error(storage, NULL));
 		}
 	}
@@ -358,7 +357,7 @@ int dsync_brain_deinit(struct dsync_brain **_brain, enum mail_error *error_r)
 	*_brain = NULL;
 
 	if (dsync_ibc_has_timed_out(brain->ibc)) {
-		i_error("Timeout during state=%s%s",
+		e_error(brain->event, "Timeout during state=%s%s",
 			dsync_state_names[brain->state],
 			brain->state != DSYNC_STATE_SYNC_MAILS ? "" :
 			t_strdup_printf(" (send=%s recv=%s)",
@@ -391,11 +390,7 @@ int dsync_brain_deinit(struct dsync_brain **_brain, enum mail_error *error_r)
 	if (brain->lock_fd != -1) {
 		/* unlink the lock file before it gets unlocked */
 		i_unlink(brain->lock_path);
-		if (brain->debug) {
-			i_debug("brain %c: Unlocked %s",
-				brain->master_brain ? 'M' : 'S',
-				brain->lock_path);
-		}
+		e_debug(brain->event, "Unlocked %s", brain->lock_path);
 		file_lock_free(&brain->lock);
 		i_close_fd(&brain->lock_fd);
 	}
@@ -425,32 +420,26 @@ dsync_brain_lock(struct dsync_brain *brain, const char *remote_hostname)
 
 	if ((ret = strcmp(remote_hostname, local_hostname)) < 0) {
 		/* locking done by remote */
-		if (brain->debug) {
-			i_debug("brain %c: Locking done by remote "
-				"(local hostname=%s, remote hostname=%s)",
-				brain->master_brain ? 'M' : 'S',
-				local_hostname, remote_hostname);
-		}
+		e_debug(brain->event,
+			"Locking done by remote (local hostname=%s, remote hostname=%s)",
+			local_hostname, remote_hostname);
 		return 0;
 	}
 	if (ret == 0 && !brain->master_brain) {
 		/* running dsync within the same server.
 		   locking done by master brain. */
-		if (brain->debug) {
-			i_debug("brain %c: Locking done by local master-brain "
-				"(local hostname=%s, remote hostname=%s)",
-				brain->master_brain ? 'M' : 'S',
-				local_hostname, remote_hostname);
-		}
+		e_debug(brain->event,
+			"Locking done by local master-brain (local hostname=%s, remote hostname=%s)",
+			local_hostname, remote_hostname);
 		return 0;
 	}
 
 	if ((ret = mail_user_get_home(brain->user, &home)) < 0) {
-		i_error("Couldn't look up user's home dir");
+		e_error(brain->event, "Couldn't look up user's home dir");
 		return -1;
 	}
 	if (ret == 0) {
-		i_error("User has no home directory");
+		e_error(brain->event, "User has no home directory");
 		return -1;
 	}
 
@@ -468,11 +457,10 @@ dsync_brain_lock(struct dsync_brain *brain, const char *remote_hostname)
 			&brain->lock, &created, &error);
 	}
 	if (brain->lock_fd == -1)
-		i_error("Couldn't lock %s: %s", brain->lock_path, error);
-	else if (brain->debug) {
-		i_debug("brain %c: Locking done locally in %s "
-			"(local hostname=%s, remote hostname=%s)",
-			brain->master_brain ? 'M' : 'S',
+		e_error(brain->event, "Couldn't lock %s: %s", brain->lock_path, error);
+	else {
+		e_debug(brain->event,
+			"Locking done locally in %s (local hostname=%s, remote hostname=%s)",
 			brain->lock_path, local_hostname, remote_hostname);
 	}
 	if (brain->verbose_proctitle)
@@ -552,7 +540,7 @@ static bool dsync_brain_slave_recv_handshake(struct dsync_brain *brain)
 			ns = mail_namespace_find(brain->user->namespaces,
 						 *prefixes);
 			if (ns == NULL) {
-				i_error("Namespace not found: '%s'", *prefixes);
+				e_error(brain->event, "Namespace not found: '%s'", *prefixes);
 				brain->failed = TRUE;
 				return FALSE;
 			}
@@ -670,7 +658,7 @@ static bool dsync_brain_finish(struct dsync_brain *brain)
 	if (ret == DSYNC_IBC_RECV_RET_TRYAGAIN)
 		return FALSE;
 	if (error != NULL) {
-		i_error("Remote dsync failed: %s", error);
+		e_error(brain->event, "Remote dsync failed: %s", error);
 		brain->failed = TRUE;
 		if (mail_error != 0 &&
 		    (brain->mail_error == 0 || brain->mail_error == MAIL_ERROR_TEMP))
@@ -772,10 +760,13 @@ static void dsync_brain_mailbox_states_dump(struct dsync_brain *brain)
 	struct dsync_mailbox_state *state;
 	uint8_t *guid;
 
+	if (!event_want_debug(brain->event)) return;
+
 	iter = hash_table_iterate_init(brain->mailbox_states);
 	while (hash_table_iterate(iter, brain->mailbox_states, &guid, &state)) {
-		i_debug("brain %c: Mailbox %s state: uidvalidity=%u uid=%u modseq=%"PRIu64" pvt_modseq=%"PRIu64" messages=%u changes_during_sync=%d",
-			brain->master_brain ? 'M' : 'S',
+		e_debug(brain->event,
+			"Mailbox %s state: uidvalidity=%u uid=%u modseq=%"PRIu64" "
+			"pvt_modseq=%"PRIu64" messages=%u changes_during_sync=%d",
 			guid_128_to_string(guid),
 			state->last_uidvalidity,
 			state->last_common_uid,
@@ -816,21 +807,16 @@ void dsync_brain_get_state(struct dsync_brain *brain, string_t *output)
 						      guid);
 		if (node == NULL ||
 		    node->existence != DSYNC_MAILBOX_NODE_EXISTS) {
-			if (brain->debug) {
-				i_debug("brain %c: Removed state for deleted mailbox %s",
-					brain->master_brain ? 'M' : 'S',
-					guid_128_to_string(guid));
-			}
+			e_debug(brain->event,
+				"Removed state for deleted mailbox %s",
+				guid_128_to_string(guid));
 			hash_table_remove(brain->mailbox_states, guid);
 		}
 	}
 	hash_table_iterate_deinit(&iter);
 
-	if (brain->debug) {
-		i_debug("brain %c: Exported mailbox states:",
-			brain->master_brain ? 'M' : 'S');
-		dsync_brain_mailbox_states_dump(brain);
-	}
+	e_debug(brain->event, "Exported mailbox states:");
+	dsync_brain_mailbox_states_dump(brain);
 	dsync_mailbox_states_export(brain->mailbox_states, output);
 }
 
@@ -904,10 +890,7 @@ bool dsync_brain_want_namespace(struct dsync_brain *brain,
 void dsync_brain_set_changes_during_sync(struct dsync_brain *brain,
 					 const char *reason)
 {
-	if (brain->debug) {
-		i_debug("brain %c: Change during sync: %s",
-			brain->master_brain ? 'M' : 'S', reason);
-	}
+	e_debug(brain->event, "Change during sync: %s", reason);
 	if (brain->changes_during_sync == NULL)
 		brain->changes_during_sync = p_strdup(brain->pool, reason);
 }

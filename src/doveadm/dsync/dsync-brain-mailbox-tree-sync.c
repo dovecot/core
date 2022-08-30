@@ -24,7 +24,7 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 	if (mailbox_create(box, &update, FALSE) < 0) {
 		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error != MAIL_ERROR_EXISTS) {
-			i_error("Can't create mailbox %s: %s",
+			e_error(brain->event, "Can't create mailbox %s: %s",
 				mailbox_get_vname(box), errstr);
 			*error_r = error;
 			return -1;
@@ -37,7 +37,7 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 	}
 	/* sync the mailbox so we can look up its latest status */
 	if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FULL_READ) < 0) {
-		i_error("Can't sync mailbox %s: %s",
+		e_error(brain->event, "Can't sync mailbox %s: %s",
 			mailbox_get_vname(box),
 			mailbox_get_last_internal_error(box, error_r));
 		return -1;
@@ -50,7 +50,7 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 	   mismatching UIDVALIDITY is handled later, because we choose it by
 	   checking which mailbox has more messages */
 	if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID, &metadata) < 0) {
-		i_error("Can't get mailbox GUID %s: %s",
+		e_error(brain->event, "Can't get mailbox GUID %s: %s",
 			mailbox_get_vname(box),
 			mailbox_get_last_internal_error(box, error_r));
 		return -1;
@@ -65,18 +65,15 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 
 	if ((ret > 0 && !brain->backup_recv &&
 	     !brain->backup_send) || (ret != 0 && brain->backup_recv)) {
-		if (brain->debug) {
-			i_debug("brain %c: Changing mailbox %s GUID %s -> %s",
-				brain->master_brain ? 'M' : 'S',
-				mailbox_get_vname(box),
-				guid_128_to_string(metadata.guid),
-				guid_128_to_string(mailbox_guid));
-		}
+		e_debug(brain->event, "Changing mailbox %s GUID %s -> %s",
+			mailbox_get_vname(box),
+			guid_128_to_string(metadata.guid),
+			guid_128_to_string(mailbox_guid));
 		i_zero(&update);
 		memcpy(update.mailbox_guid, mailbox_guid,
 		       sizeof(update.mailbox_guid));
 		if (mailbox_update(box, &update) < 0) {
-			i_error("Can't update mailbox GUID %s: %s",
+			e_error(brain->event, "Can't update mailbox GUID %s: %s",
 				mailbox_get_vname(box),
 				mailbox_get_last_internal_error(box, error_r));
 			return -1;
@@ -84,27 +81,25 @@ sync_create_box(struct dsync_brain *brain, struct mailbox *box,
 		/* verify that the update worked */
 		if (mailbox_get_metadata(box, MAILBOX_METADATA_GUID,
 					 &metadata) < 0) {
-			i_error("Can't get mailbox GUID %s: %s",
+			e_error(brain->event, "Can't get mailbox GUID %s: %s",
 				mailbox_get_vname(box),
 				mailbox_get_last_internal_error(box, error_r));
 			return -1;
 		}
 		if (memcmp(mailbox_guid, metadata.guid,
 			   sizeof(metadata.guid)) != 0) {
-			i_error("Backend didn't update mailbox %s GUID",
+			e_error(brain->event,
+				"Backend didn't update mailbox %s GUID",
 				mailbox_get_vname(box));
 			*error_r = MAIL_ERROR_TEMP;
 			return -1;
 		}
 	} else if (ret < 0) {
-		if (brain->debug) {
-			i_debug("brain %c: Other brain should change mailbox "
-				"%s GUID %s -> %s",
-				brain->master_brain ? 'M' : 'S',
-				mailbox_get_vname(box),
-				guid_128_to_string(mailbox_guid),
-				guid_128_to_string(metadata.guid));
-		}
+		e_debug(brain->event,
+			"Other brain should change mailbox %s GUID %s -> %s",
+			mailbox_get_vname(box),
+			guid_128_to_string(mailbox_guid),
+			guid_128_to_string(metadata.guid));
 	}
 	return 0;
 }
@@ -129,7 +124,8 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 		ret = dsync_brain_mailbox_alloc(brain, change->mailbox_guid,
 						&box, &errstr, error_r);
 		if (ret < 0) {
-			i_error("Mailbox sync: Couldn't allocate mailbox %s GUID %s: %s",
+			e_error(brain->event,
+				"Mailbox sync: Couldn't allocate mailbox %s GUID %s: %s",
 				change->full_name,
 				guid_128_to_string(change->mailbox_guid), errstr);
 			return -1;
@@ -156,7 +152,8 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 				change->full_name, errstr));
 			return 0;
 		} else {
-			i_error("Mailbox sync: mailbox_list_delete_dir failed: %s",
+			e_error(brain->event,
+				"Mailbox sync: mailbox_list_delete_dir failed: %s",
 				errstr);
 			*error_r = error;
 			return -1;
@@ -219,7 +216,8 @@ int dsync_brain_mailbox_tree_sync_change(struct dsync_brain *brain,
 				mailbox_get_vname(box), func_name, errstr));
 			ret = 0;
 		} else {
-			i_error("Mailbox %s sync: %s failed: %s",
+			e_error(brain->event,
+				"Mailbox %s sync: %s failed: %s",
 				mailbox_get_vname(box), func_name, errstr);
 			*error_r = error;
 		}

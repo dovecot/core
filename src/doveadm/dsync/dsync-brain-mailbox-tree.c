@@ -66,10 +66,8 @@ void dsync_brain_mailbox_trees_init(struct dsync_brain *brain)
 	for (ns = brain->user->namespaces; ns != NULL; ns = ns->next) {
 		if (!dsync_brain_want_namespace(brain, ns))
 			continue;
-		if (brain->debug)
-			i_debug("brain %c: Namespace %s has location %s",
-				brain->master_brain ? 'M' : 'S',
-				ns->prefix, ns->set->location);
+		e_debug(brain->event, "Namespace %s has location %s",
+			ns->prefix, ns->set->location);
 		if (dsync_mailbox_tree_fill(brain->local_mailbox_tree, ns,
 					    brain->sync_box,
 					    brain->sync_box_guid,
@@ -119,11 +117,8 @@ void dsync_brain_send_mailbox_tree(struct dsync_brain *brain)
 		T_BEGIN {
 			const char *const *parts;
 
-			if (brain->debug) {
-				i_debug("brain %c: Local mailbox tree: %s %s",
-					brain->master_brain ? 'M' : 'S', full_name,
-					dsync_mailbox_node_to_string(node));
-			}
+			e_debug(brain->event, "Local mailbox tree: %s %s",
+				full_name, dsync_mailbox_node_to_string(node));
 
 			parts = dsync_brain_mailbox_to_parts(brain, full_name);
 			ret = dsync_ibc_send_mailbox_tree_node(brain->ibc,
@@ -434,12 +429,9 @@ dsync_brain_recv_mailbox_tree_add(struct dsync_brain *brain,
 
 	if (dsync_get_mailbox_name(brain, parts, &name, &ns) < 0)
 		return -1;
-	if (brain->debug) {
-		i_debug("brain %c: Remote mailbox tree: %s %s",
-			brain->master_brain ? 'M' : 'S',
-			t_strarray_join(parts, sep),
-			dsync_mailbox_node_to_string(remote_node));
-	}
+	e_debug(brain->event, "Remote mailbox tree: %s %s",
+		t_strarray_join(parts, sep),
+		dsync_mailbox_node_to_string(remote_node));
 	node = dsync_mailbox_tree_get(brain->remote_mailbox_tree, name);
 	node->ns = ns;
 	dsync_mailbox_node_copy_data(node, remote_node);
@@ -464,7 +456,8 @@ bool dsync_brain_recv_mailbox_tree(struct dsync_brain *brain)
 					brain, parts, remote_node, sep);
 		} T_END;
 		if (ret2 < 0) {
-			i_error("Couldn't find namespace for mailbox %s",
+			e_error(brain->event,
+				"Couldn't find namespace for mailbox %s",
 				t_strarray_join(parts, sep));
 			brain->failed = TRUE;
 			return TRUE;
@@ -475,7 +468,8 @@ bool dsync_brain_recv_mailbox_tree(struct dsync_brain *brain)
 
 	if (dsync_mailbox_tree_build_guid_hash(brain->remote_mailbox_tree,
 					       &dup_node1, &dup_node2) < 0) {
-		i_error("Remote sent duplicate mailbox GUID %s for mailboxes %s and %s",
+		e_error(brain->event,
+			"Remote sent duplicate mailbox GUID %s for mailboxes %s and %s",
 			guid_128_to_string(dup_node1->mailbox_guid),
 			dsync_mailbox_node_get_full_name(brain->remote_mailbox_tree,
 							 dup_node1),
@@ -593,8 +587,9 @@ bool dsync_brain_recv_mailbox_tree_deletes(struct dsync_brain *brain)
 		if (brain->debug) {
 			const char *node_name = node == NULL ? "" :
 				dsync_mailbox_node_get_full_name(brain->local_mailbox_tree, node);
-			i_debug("brain %c: Remote mailbox tree deletion: guid=%s type=%s timestamp=%ld name=%s local update=%s",
-				brain->master_brain ? 'M' : 'S',
+			e_debug(brain->event,
+				"Remote mailbox tree deletion: guid=%s type=%s "
+				"timestamp=%ld name=%s local update=%s",
 				guid_128_to_string(deletes[i].guid),
 				dsync_mailbox_delete_type_to_string(deletes[i].type),
 				deletes[i].timestamp, node_name, status);

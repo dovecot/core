@@ -30,23 +30,21 @@ static bool dsync_brain_master_sync_recv_mailbox(struct dsync_brain *brain)
 	if ((ret = dsync_ibc_recv_mailbox(brain->ibc, &dsync_box)) == 0)
 		return FALSE;
 	if (ret == DSYNC_IBC_RECV_RET_FINISHED) {
-		i_error("Remote sent end-of-list instead of a mailbox");
+		e_error(brain->event, "Remote sent end-of-list instead of a mailbox");
 		brain->failed = TRUE;
 		return TRUE;
 	}
 	if (memcmp(dsync_box->mailbox_guid, brain->local_dsync_box.mailbox_guid,
 		   sizeof(dsync_box->mailbox_guid)) != 0) {
-		i_error("Remote sent mailbox with a wrong GUID");
+		e_error(brain->event, "Remote sent mailbox with a wrong GUID");
 		brain->failed = TRUE;
 		return TRUE;
 	}
 
 	if (dsync_box->mailbox_ignore) {
 		/* ignore this box */
-		if (brain->debug)
-			i_debug("brain %c: Ignoring missing remote box GUID %s",
-				brain->master_brain ? 'M' : 'S',
-			        guid_128_to_string(dsync_box->mailbox_guid));
+		e_debug(brain->event, "Ignoring missing remote box GUID %s",
+			guid_128_to_string(dsync_box->mailbox_guid));
 		dsync_brain_sync_mailbox_deinit(brain);
 		return TRUE;
 	}
@@ -70,11 +68,8 @@ static bool dsync_brain_master_sync_recv_mailbox(struct dsync_brain *brain)
 		dsync_brain_sync_mailbox_deinit(brain);
 		return TRUE;
 	}
-	if (brain->debug) {
-		i_debug("brain %c: Syncing mailbox %s: %s",
-			brain->master_brain ? 'M' : 'S',
-			guid_128_to_string(dsync_box->mailbox_guid), reason);
-	}
+	e_debug(brain->event, "Syncing mailbox %s: %s",
+		guid_128_to_string(dsync_box->mailbox_guid), reason);
 	if ((ret = dsync_brain_sync_mailbox_open(brain, dsync_box)) < 0)
 		return TRUE;
 	if (resync)
@@ -122,7 +117,7 @@ static int dsync_brain_export_deinit(struct dsync_brain *brain)
 
 	if (dsync_mailbox_export_deinit(&brain->box_exporter,
 					&errstr, &error) < 0) {
-		i_error("Exporting mailbox %s failed: %s",
+		e_error(brain->event, "Exporting mailbox %s failed: %s",
 			mailbox_get_vname(brain->box), errstr);
 		brain->mail_error = error;
 		brain->failed = TRUE;
@@ -308,10 +303,8 @@ static bool dsync_brain_recv_mail(struct dsync_brain *brain)
 		dsync_brain_sync_half_finished(brain);
 		return TRUE;
 	}
-	if (brain->debug) {
-		i_debug("brain %c: import mail uid %u guid %s",
-			brain->master_brain ? 'M' : 'S', mail->uid, mail->guid);
-	}
+		e_debug(brain->event, "import mail uid %u guid %s",
+			mail->uid, mail->guid);
 	if (dsync_mailbox_import_mail(brain->box_importer, mail) < 0)
 		brain->failed = TRUE;
 	i_stream_unref(&mail->input);
@@ -354,7 +347,8 @@ static bool dsync_brain_recv_last_common(struct dsync_brain *brain)
 	if ((ret = dsync_ibc_recv_mailbox_state(brain->ibc, &state)) == 0)
 		return FALSE;
 	if (ret == DSYNC_IBC_RECV_RET_FINISHED) {
-		i_error("Remote sent end-of-list instead of a mailbox state");
+		e_error(brain->event,
+			"Remote sent end-of-list instead of a mailbox state");
 		brain->failed = TRUE;
 		return TRUE;
 	}
