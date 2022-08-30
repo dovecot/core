@@ -405,7 +405,8 @@ static void dsync_brain_mailbox_trees_sync(struct dsync_brain *brain)
 
 	ctx = dsync_mailbox_trees_sync_init(brain->local_mailbox_tree,
 					    brain->remote_mailbox_tree,
-					    sync_type, sync_flags);
+					    sync_type, sync_flags,
+					    brain->event);
 	while ((change = dsync_mailbox_trees_sync_next(ctx)) != NULL) {
 		T_BEGIN {
 			ret = dsync_brain_mailbox_tree_sync_change(

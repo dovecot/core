@@ -184,6 +184,8 @@ static void test_trees_nofree(struct dsync_mailbox_tree *tree1,
 	struct dsync_mailbox_tree_sync_ctx *ctx;
 	struct dsync_mailbox_node *dup_node1, *dup_node2;
 
+	struct event *event = event_create(NULL);
+
 	orig_tree1 = dsync_mailbox_tree_dup(tree1);
 	orig_tree2 = dsync_mailbox_tree_dup(tree2);
 
@@ -192,7 +194,8 @@ static void test_trees_nofree(struct dsync_mailbox_tree *tree1,
 	dsync_mailbox_tree_build_guid_hash(tree2, &dup_node1, &dup_node2);
 	ctx = dsync_mailbox_trees_sync_init(tree1, tree2,
 					    DSYNC_MAILBOX_TREES_SYNC_TYPE_TWOWAY,
-					    DSYNC_MAILBOX_TREES_SYNC_FLAG_DEBUG);
+					    DSYNC_MAILBOX_TREES_SYNC_FLAG_DEBUG,
+					    event);
 	while (dsync_mailbox_trees_sync_next(ctx) != NULL) {
 	}
 	dsync_mailbox_trees_sync_deinit(&ctx);
@@ -207,7 +210,8 @@ static void test_trees_nofree(struct dsync_mailbox_tree *tree1,
 	dsync_mailbox_tree_build_guid_hash(orig_tree1, &dup_node1, &dup_node2);
 	dsync_mailbox_tree_build_guid_hash(orig_tree2, &dup_node1, &dup_node2);
 	ctx = dsync_mailbox_trees_sync_init(orig_tree2, orig_tree1,
-					    DSYNC_MAILBOX_TREES_SYNC_TYPE_TWOWAY, 0);
+					    DSYNC_MAILBOX_TREES_SYNC_TYPE_TWOWAY, 0,
+					    event);
 	while (dsync_mailbox_trees_sync_next(ctx) != NULL) {
 	}
 	dsync_mailbox_trees_sync_deinit(&ctx);
@@ -223,6 +227,8 @@ static void test_trees_nofree(struct dsync_mailbox_tree *tree1,
 		test_assert(FALSE);
 		trees_dump(tree1, orig_tree1);
 	}
+
+	event_unref(&event);
 
 	dsync_mailbox_tree_deinit(_tree2);
 	dsync_mailbox_tree_deinit(&orig_tree1);

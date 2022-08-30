@@ -193,7 +193,8 @@ struct dsync_mailbox_tree_sync_ctx *
 dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 			      struct dsync_mailbox_tree *remote_tree,
 			      enum dsync_mailbox_trees_sync_type sync_type,
-			      enum dsync_mailbox_trees_sync_flags sync_flags);
+			      enum dsync_mailbox_trees_sync_flags sync_flags,
+			      struct event *parent_event);
 const struct dsync_mailbox_tree_sync_change *
 dsync_mailbox_trees_sync_next(struct dsync_mailbox_tree_sync_ctx *ctx);
 int dsync_mailbox_trees_sync_deinit(struct dsync_mailbox_tree_sync_ctx **ctx);

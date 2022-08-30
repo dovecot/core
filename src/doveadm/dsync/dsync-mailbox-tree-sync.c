@@ -25,6 +25,7 @@ struct dsync_mailbox_tree_bfs_iter {
 
 struct dsync_mailbox_tree_sync_ctx {
 	pool_t pool;
+	struct event *event;
 	struct dsync_mailbox_tree *local_tree, *remote_tree;
 	enum dsync_mailbox_trees_sync_type sync_type;
 	enum dsync_mailbox_trees_sync_flags sync_flags;
@@ -1391,7 +1392,8 @@ struct dsync_mailbox_tree_sync_ctx *
 dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 			      struct dsync_mailbox_tree *remote_tree,
 			      enum dsync_mailbox_trees_sync_type sync_type,
-			      enum dsync_mailbox_trees_sync_flags sync_flags)
+			      enum dsync_mailbox_trees_sync_flags sync_flags,
+			      struct event *parent_event)
 {
 	struct dsync_mailbox_tree_sync_ctx *ctx;
 	unsigned int rename_counter = 0;
@@ -1409,6 +1411,13 @@ dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 	ctx->remote_tree = remote_tree;
 	ctx->sync_type = sync_type;
 	ctx->sync_flags = sync_flags;
+
+	bool brain_master = (ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_MASTER_BRAIN) != 0;
+	bool force_debug = (ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_DEBUG) != 0;
+	ctx->event = event_create(parent_event);
+	event_set_forced_debug(ctx->event, force_debug);
+	event_set_append_log_prefix(ctx->event, t_strdup_printf(
+		"brain %c: ", brain_master ? 'M' : 'S'));
 	i_array_init(&ctx->changes, 128);
 
 again:
@@ -1468,6 +1477,7 @@ int dsync_mailbox_trees_sync_deinit(struct dsync_mailbox_tree_sync_ctx **_ctx)
 	*_ctx = NULL;
 
 	array_free(&ctx->changes);
+	event_unref(&ctx->event);
 	pool_unref(&ctx->pool);
 	return ret;
 }
