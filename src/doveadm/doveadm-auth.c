@@ -31,6 +31,7 @@ static struct event_category event_category_auth = {
 
 struct authtest_input {
 	pool_t pool;
+	struct event *event;
 	const char *username;
 	const char *master_user;
 	const char *password;
@@ -383,7 +384,7 @@ login_server_auth_callback(const char *const *auth_args,
 
 	io_loop_stop(current_ioloop);
 	if (errormsg != NULL) {
-		i_error("userdb lookup failed: %s", errormsg);
+		e_error(input->event, "userdb lookup failed: %s", errormsg);
 		return;
 	}
 	printf("userdb extra fields:\n");
@@ -452,6 +453,7 @@ static void cmd_auth_login(struct doveadm_cmd_context *cctx)
 		input.password = t_askpass("Password: ");
 
 	input.pool = pool_alloconly_create("auth login", 256);
+	input.event = event_create(cctx->event);
 	/* authenticate */
 	auth_client = auth_client_init(auth_login_socket_path, getpid(), FALSE);
 	auth_client_connect(auth_client);
@@ -465,6 +467,7 @@ static void cmd_auth_login(struct doveadm_cmd_context *cctx)
 	if (!input.success)
 		doveadm_exit_code = EX_NOPERM;
 	auth_client_deinit(&auth_client);
+	event_unref(&input.event);
 	pool_unref(&input.pool);
 }
 
