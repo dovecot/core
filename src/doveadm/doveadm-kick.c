@@ -19,6 +19,7 @@ struct kick_session {
 };
 
 struct kick_context {
+	struct event *event;
 	struct who_context who;
 	enum doveadm_client_type conn_type;
 	ARRAY(struct kick_session) kicks;
@@ -32,7 +33,8 @@ kick_user_anvil_callback(const char *reply, struct kick_context *ctx)
 
 	if (reply != NULL) {
 		if (str_to_uint(reply, &count) < 0)
-			i_error("Unexpected reply from anvil: %s", reply);
+			e_error(ctx->event,
+				"Unexpected reply from anvil: %s", reply);
 		else
 			ctx->kicked_count += count;
 	}
@@ -126,6 +128,7 @@ static void cmd_kick(struct doveadm_cmd_context *cctx)
 		return;
 	}
 	ctx.conn_type = cctx->conn_type;
+	ctx.event = cctx->event;
 	ctx.who.pool = pool_alloconly_create("kick pids", 10240);
 
 	if (who_parse_args(&ctx.who, passdb_field, &dest_ip, masks) != 0) {
