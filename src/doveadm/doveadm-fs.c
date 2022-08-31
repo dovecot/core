@@ -232,6 +232,7 @@ static void cmd_fs_metadata(struct doveadm_cmd_context *cctx)
 }
 
 struct fs_delete_ctx {
+	struct doveadm_cmd_context *cctx;
 	struct fs *fs;
 	const char *path_prefix;
 
@@ -253,12 +254,14 @@ static int cmd_fs_delete_ctx_run(struct fs_delete_ctx *ctx)
 			if (ret == 0)
 				ret = 1;
 		} else if (errno == ENOENT) {
-			i_error("%s doesn't exist: %s", fs_file_path(ctx->files[i]),
+			e_error(ctx->cctx->event,
+				"%s doesn't exist: %s", fs_file_path(ctx->files[i]),
 				fs_file_last_error(ctx->files[i]));
 			doveadm_exit_code = DOVEADM_EX_NOTFOUND;
 			ret = -1;
 		} else {
-			i_error("fs_delete(%s) failed: %s",
+			e_error(ctx->cctx->event,
+				"fs_delete(%s) failed: %s",
 				fs_file_path(ctx->files[i]),
 				fs_file_last_error(ctx->files[i]));
 			doveadm_exit_code = EX_TEMPFAIL;
@@ -308,7 +311,8 @@ static void doveadm_fs_delete_async_finish(struct fs_delete_ctx *ctx)
 }
 
 static void
-cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
+cmd_fs_delete_dir_recursive(struct doveadm_cmd_context *cctx,
+			    struct fs *fs, unsigned int async_count,
 			    const char *path_prefix)
 {
 	struct fs_iter *iter;
@@ -318,6 +322,7 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 	int ret;
 
 	i_zero(&ctx);
+	ctx.cctx = cctx;
 	ctx.fs = fs;
 	ctx.path_prefix = path_prefix;
 	ctx.files_count = I_MAX(async_count, 1);
@@ -335,12 +340,12 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 		array_push_back(&fnames, &fname);
 	}
 	if (fs_iter_deinit(&iter, &error) < 0) {
-		i_error("fs_iter_deinit(%s) failed: %s",
+		e_error(cctx->event, "fs_iter_deinit(%s) failed: %s",
 			path_prefix, error);
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
 	array_foreach_elem(&fnames, fname) T_BEGIN {
-		cmd_fs_delete_dir_recursive(fs, async_count,
+		cmd_fs_delete_dir_recursive(cctx, fs, async_count,
 			t_strdup_printf("%s%s", path_prefix, fname));
 	} T_END;
 
@@ -357,7 +362,7 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 		array_push_back(&fnames, &fname);
 	}
 	if (fs_iter_deinit(&iter, &error) < 0) {
-		i_error("fs_iter_deinit(%s) failed: %s",
+		e_error(cctx->event, "fs_iter_deinit(%s) failed: %s",
 			path_prefix, error);
 		doveadm_exit_code = EX_TEMPFAIL;
 	}
@@ -372,7 +377,8 @@ cmd_fs_delete_dir_recursive(struct fs *fs, unsigned int async_count,
 	doveadm_fs_delete_async_finish(&ctx);
 }
 
-static void cmd_fs_delete_recursive_path(struct fs *fs, const char *path,
+static void cmd_fs_delete_recursive_path(struct doveadm_cmd_context *cctx,
+					 struct fs *fs, const char *path,
 					 unsigned int async_count)
 {
 	struct fs_file *file;
@@ -382,12 +388,12 @@ static void cmd_fs_delete_recursive_path(struct fs *fs, const char *path,
 	if (path_len > 0 && path[path_len-1] != '/')
 		path = t_strconcat(path, "/", NULL);
 
-	cmd_fs_delete_dir_recursive(fs, async_count, path);
+	cmd_fs_delete_dir_recursive(cctx, fs, async_count, path);
 	if ((fs_get_properties(fs) & FS_PROPERTY_DIRECTORIES) != 0) {
 		/* delete the root itself */
 		file = fs_file_init(fs, path, FS_OPEN_MODE_READONLY);
 		if (fs_delete(file) < 0) {
-			i_error("fs_delete(%s) failed: %s",
+			e_error(cctx->event, "fs_delete(%s) failed: %s",
 				fs_file_path(file), fs_file_last_error(file));
 			doveadm_exit_code = EX_TEMPFAIL;
 		}
@@ -408,7 +414,7 @@ cmd_fs_delete_recursive(struct doveadm_cmd_context *cctx,
 		fs_cmd_help(cctx);
 
 	for (i = 0; paths[i] != NULL; i++)
-		cmd_fs_delete_recursive_path(fs, paths[i], async_count);
+		cmd_fs_delete_recursive_path(cctx, fs, paths[i], async_count);
 	fs_deinit(&fs);
 }
 
@@ -426,6 +432,7 @@ static void cmd_fs_delete_paths(struct doveadm_cmd_context *cctx,
 		fs_cmd_help(cctx);
 
 	i_zero(&ctx);
+	ctx.cctx = cctx;
 	ctx.fs = fs;
 	ctx.path_prefix = "";
 	ctx.files_count = I_MAX(async_count, 1);
