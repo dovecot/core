@@ -353,7 +353,8 @@ int dsync_brain_sync_mailbox_open(struct dsync_brain *brain,
 					  last_common_uid,
 					  exporter_flags,
 					  brain->hdr_hash_version,
-					  brain->hashed_headers);
+					  brain->hashed_headers,
+					  brain->event);
 	dsync_brain_sync_mailbox_init_remote(brain, remote_dsync_box);
 	return 1;
 }

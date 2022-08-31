@@ -16,7 +16,8 @@ dsync_mailbox_export_init(struct mailbox *box,
 			  uint32_t last_common_uid,
 			  enum dsync_mailbox_exporter_flags flags,
 			  unsigned int hdr_hash_version,
-			  const char *const *hashed_headers);
+			  const char *const *hashed_headers,
+			  struct event *parent_event);
 /* Returns 1 if attribute was returned, 0 if no more attributes, -1 on error */
 int dsync_mailbox_export_next_attr(struct dsync_mailbox_exporter *exporter,
 				   const struct dsync_mailbox_attribute **attr_r);

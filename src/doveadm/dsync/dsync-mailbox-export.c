@@ -20,6 +20,7 @@ struct dsync_mail_guid_instances {
 
 struct dsync_mailbox_exporter {
 	pool_t pool;
+	struct event *event;
 	struct mailbox *box;
 	struct dsync_transaction_log_scan *log_scan;
 	uint32_t last_common_uid;
@@ -504,7 +505,8 @@ dsync_mailbox_export_init(struct mailbox *box,
 			  uint32_t last_common_uid,
 			  enum dsync_mailbox_exporter_flags flags,
 			  unsigned int hdr_hash_version,
-			  const char *const *hashed_headers)
+			  const char *const *hashed_headers,
+			  struct event *parent_event)
 {
 	struct dsync_mailbox_exporter *exporter;
 	pool_t pool;
@@ -530,6 +532,7 @@ dsync_mailbox_export_init(struct mailbox *box,
 	exporter->no_hdr_hashes =
 		(flags & DSYNC_MAILBOX_EXPORTER_FLAG_NO_HDR_HASHES) != 0;
 	exporter->hashed_headers = hashed_headers;
+	exporter->event = event_create(parent_event);
 
 	p_array_init(&exporter->requested_uids, pool, 16);
 	p_array_init(&exporter->search_uids, pool, 16);
@@ -641,7 +644,8 @@ dsync_mailbox_export_iter_next_attr(struct dsync_mailbox_exporter *exporter)
 		if (attr_change != NULL && attr_change->exported) {
 			/* duplicate attribute returned.
 			   shouldn't normally happen, but don't crash. */
-			i_warning("Ignoring duplicate attributes '%s'", key);
+			e_warning(exporter->event,
+				  "Ignoring duplicate attributes '%s'", key);
 			continue;
 		}
 
@@ -948,6 +952,7 @@ int dsync_mailbox_export_deinit(struct dsync_mailbox_exporter **_exporter,
 
 	*error_r = exporter->mail_error;
 	*errstr_r = t_strdup(exporter->error);
+	event_unref(&exporter->event);
 	pool_unref(&exporter->pool);
 	return *errstr_r != NULL ? -1 : 0;
 }
