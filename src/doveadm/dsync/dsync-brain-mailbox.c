@@ -226,7 +226,8 @@ dsync_brain_sync_mailbox_init_remote(struct dsync_brain *brain,
 		import_flags |= DSYNC_MAILBOX_IMPORT_FLAG_NO_HEADER_HASHES;
 
 	brain->box_importer = brain->backup_send ? NULL :
-		dsync_mailbox_import_init(brain->box, brain->virtual_all_box,
+		dsync_mailbox_import_init(brain->box,
+					  brain->virtual_all_box,
 					  brain->log_scan,
 					  last_common_uid, last_common_modseq,
 					  last_common_pvt_modseq,
@@ -522,17 +523,16 @@ dsync_brain_try_next_mailbox(struct dsync_brain *brain, struct mailbox **box_r,
 		/* if mailbox's last_common_* state equals the current state,
 		   we can skip the mailbox */
 		if (!dsync_brain_has_mailbox_state_changed(brain, &dsync_box)) {
-			if (brain->debug) {
-				i_debug("brain %c: Skipping mailbox %s with unchanged state "
-					"uidvalidity=%u uidnext=%u highestmodseq=%"PRIu64" highestpvtmodseq=%"PRIu64" messages=%u",
-					brain->master_brain ? 'M' : 'S',
-					guid_128_to_string(dsync_box.mailbox_guid),
-					dsync_box.uid_validity,
-					dsync_box.uid_next,
-					dsync_box.highest_modseq,
-					dsync_box.highest_pvt_modseq,
-					dsync_box.messages_count);
-			}
+			e_debug(brain->event,
+				"Skipping mailbox %s with unchanged state "
+				"uidvalidity=%u uidnext=%u highestmodseq=%"PRIu64" "
+				"highestpvtmodseq=%"PRIu64" messages=%u",
+				guid_128_to_string(dsync_box.mailbox_guid),
+				dsync_box.uid_validity,
+				dsync_box.uid_next,
+				dsync_box.highest_modseq,
+				dsync_box.highest_pvt_modseq,
+				dsync_box.messages_count);
 			mailbox_free(&box);
 			file_lock_free(&lock);
 			return 0;

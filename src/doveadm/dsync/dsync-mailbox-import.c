@@ -117,7 +117,6 @@ struct dsync_mailbox_importer {
 
 	bool failed:1;
 	bool require_full_resync:1;
-	bool debug:1;
 	bool stateful_import:1;
 	bool last_common_uid_found:1;
 	bool cur_uid_has_change:1;
@@ -145,32 +144,17 @@ static bool dsync_mailbox_save_newmails(struct dsync_mailbox_importer *importer,
 static int dsync_mailbox_import_commit(struct dsync_mailbox_importer *importer,
 				       bool final);
 
-static void ATTR_FORMAT(2, 3)
-imp_debug(struct dsync_mailbox_importer *importer, const char *fmt, ...)
-{
-	va_list args;
-
-	if (importer->debug) T_BEGIN {
-		va_start(args, fmt);
-		i_debug("brain %c: Import %s: %s",
-			importer->master_brain ? 'M' : 'S',
-			mailbox_get_vname(importer->box),
-			t_strdup_vprintf(fmt, args));
-		va_end(args);
-	} T_END;
-}
-
 static void
 dsync_import_unexpected_state(struct dsync_mailbox_importer *importer,
 			      const char *error)
 {
 	if (!importer->stateful_import) {
-		i_error("Mailbox %s: %s", mailbox_get_vname(importer->box),
-			error);
+		e_error(importer->event, "%s", error);
 	} else {
-		i_warning("Mailbox %s doesn't match previous state: %s "
+		e_warning(importer->event,
+			  "Mailbox doesn't match previous state: %s "
 			  "(dsync must be run again without the state)",
-			  mailbox_get_vname(importer->box), error);
+			  error);
 	}
 	importer->require_full_resync = TRUE;
 }
@@ -246,6 +230,10 @@ dsync_mailbox_import_init(struct mailbox *box,
 	importer = p_new(pool, struct dsync_mailbox_importer, 1);
 	importer->pool = pool;
 	importer->event = event_create(parent_event);
+	event_set_forced_debug(importer->event, (flags & DSYNC_MAILBOX_IMPORT_FLAG_DEBUG) != 0);
+	event_set_append_log_prefix(importer->event, t_strdup_printf(
+		"Import mailbox %s: ", mailbox_get_vname(box)));
+
 	importer->box = box;
 	importer->virtual_all_box = virtual_all_box;
 	importer->last_common_uid = last_common_uid;
@@ -296,7 +284,6 @@ dsync_mailbox_import_init(struct mailbox *box,
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_MASTER_BRAIN) != 0;
 	importer->revert_local_changes =
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_REVERT_LOCAL_CHANGES) != 0;
-	importer->debug = (flags & DSYNC_MAILBOX_IMPORT_FLAG_DEBUG) != 0;
 	importer->mails_have_guids =
 		(flags & DSYNC_MAILBOX_IMPORT_FLAG_MAILS_HAVE_GUIDS) != 0;
 	importer->mails_use_guid128 =
@@ -351,10 +338,10 @@ dsync_mailbox_import_lookup_attr(struct dsync_mailbox_importer *importer,
 	*attr_r = NULL;
 
 	if (mailbox_attribute_get_stream(importer->box, type, key, &value) < 0) {
-		i_error("Mailbox %s: Failed to get attribute %s: %s",
-			mailbox_get_vname(importer->box), key,
-			mailbox_get_last_internal_error(importer->box,
-							&importer->mail_error));
+		e_error(importer->event,
+			"Failed to get attribute %s: %s", key,
+			mailbox_get_last_internal_error(
+				importer->box, &importer->mail_error));
 		importer->failed = TRUE;
 		return -1;
 	}
@@ -385,7 +372,8 @@ dsync_mailbox_import_lookup_attr(struct dsync_mailbox_importer *importer,
 }
 
 static int
-dsync_istreams_cmp(struct istream *input1, struct istream *input2, int *cmp_r)
+dsync_istreams_cmp(struct istream *input1, struct istream *input2,
+		   int *cmp_r, const char **error_r)
 {
 	const unsigned char *data1, *data2;
 	size_t size1, size2, size;
@@ -406,13 +394,15 @@ dsync_istreams_cmp(struct istream *input1, struct istream *input2, int *cmp_r)
 		i_stream_skip(input2, size);
 	}
 	if (input1->stream_errno != 0) {
-		i_error("read(%s) failed: %s", i_stream_get_name(input1),
-			i_stream_get_error(input1));
+		* error_r = t_strdup_printf("read(%s) failed: %s",
+					    i_stream_get_name(input1),
+					    i_stream_get_error(input1));
 		return -1;
 	}
 	if (input2->stream_errno != 0) {
-		i_error("read(%s) failed: %s", i_stream_get_name(input2),
-			i_stream_get_error(input2));
+		*error_r = t_strdup_printf("read(%s) failed: %s",
+					    i_stream_get_name(input2),
+					    i_stream_get_error(input2));
 		return -1;
 	}
 	if (size1 == 0 && size2 == 0)
@@ -425,7 +415,7 @@ dsync_istreams_cmp(struct istream *input1, struct istream *input2, int *cmp_r)
 static int
 dsync_attributes_cmp_values(const struct dsync_mailbox_attribute *attr1,
 			    const struct dsync_mailbox_attribute *attr2,
-			    int *cmp_r)
+			    int *cmp_r, const char **error_r)
 {
 	struct istream *input1, *input2;
 	int ret;
@@ -444,7 +434,7 @@ dsync_attributes_cmp_values(const struct dsync_mailbox_attribute *attr1,
 		i_stream_create_from_data(attr2->value, strlen(attr2->value));
 	i_stream_seek(input1, 0);
 	i_stream_seek(input2, 0);
-	ret = dsync_istreams_cmp(input1, input2, cmp_r);
+	ret = dsync_istreams_cmp(input1, input2, cmp_r, error_r);
 	if (attr1->value_stream == NULL)
 		i_stream_unref(&input1);
 	if (attr2->value_stream == NULL)
@@ -455,7 +445,7 @@ dsync_attributes_cmp_values(const struct dsync_mailbox_attribute *attr1,
 static int
 dsync_attributes_cmp(const struct dsync_mailbox_attribute *attr,
 		     const struct dsync_mailbox_attribute *local_attr,
-		     int *cmp_r)
+		     int *cmp_r, const char **error_r)
 {
 	if (DSYNC_ATTR_HAS_VALUE(attr) &&
 	    !DSYNC_ATTR_HAS_VALUE(local_attr)) {
@@ -469,7 +459,7 @@ dsync_attributes_cmp(const struct dsync_mailbox_attribute *attr,
 		return 0;
 	}
 
-	return dsync_attributes_cmp_values(attr, local_attr, cmp_r);
+	return dsync_attributes_cmp_values(attr, local_attr, cmp_r, error_r);
 }
 
 static int
@@ -519,7 +509,9 @@ dsync_mailbox_import_attribute_real(struct dsync_mailbox_importer *importer,
 		   so check that first. next try to use modseqs, but if even
 		   they are the same, fallback to just picking one based on the
 		   value. */
-		if (dsync_attributes_cmp(attr, local_attr, &cmp) < 0) {
+		const char *error;
+		if (dsync_attributes_cmp(attr, local_attr, &cmp, &error) < 0) {
+			e_error(importer->event, "%s", error);
 			importer->mail_error = MAIL_ERROR_TEMP;
 			importer->failed = TRUE;
 			return -1;
@@ -553,8 +545,8 @@ dsync_mailbox_import_attribute_real(struct dsync_mailbox_importer *importer,
 	value.last_change = attr->last_change;
 	if (mailbox_attribute_set(importer->trans, attr->type,
 				  attr->key, &value) < 0) {
-		i_error("Mailbox %s: Failed to set attribute %s: %s",
-			mailbox_get_vname(importer->box), attr->key,
+		e_error(importer->event,
+			"Failed to set attribute %s: %s", attr->key,
 			mailbox_get_last_internal_error(importer->box, NULL));
 		/* the attributes aren't vital, don't fail everything just
 		   because of them. */
@@ -578,8 +570,8 @@ int dsync_mailbox_import_attribute(struct dsync_mailbox_importer *importer,
 		if (local_attr != NULL && local_attr->value_stream != NULL)
 			i_stream_unref(&local_attr->value_stream);
 	}
-	imp_debug(importer, "Import attribute %s: %s", attr->key,
-		  ret < 0 ? "failed" : result);
+	e_debug(importer->event, "Import attribute %s: %s",
+		attr->key, ret < 0 ? "failed" : result);
 	return ret;
 }
 
@@ -593,8 +585,8 @@ static void dsync_mail_error(struct dsync_mailbox_importer *importer,
 	if (error == MAIL_ERROR_EXPUNGED)
 		return;
 
-	i_error("Mailbox %s: Can't lookup %s for UID=%u: %s",
-		mailbox_get_vname(mail->box), field, mail->uid, errstr);
+	e_error(importer->event, "Can't lookup %s for UID=%u: %s",
+		field, mail->uid, errstr);
 	importer->mail_error = error;
 	importer->failed = TRUE;
 }
@@ -784,8 +776,9 @@ dsync_mailbox_revert_existing_uid(struct dsync_mailbox_importer *importer,
 
 	/* UID either already exists or UIDNEXT is too high. we can't set the
 	   wanted UID, so we'll need to delete the whole mailbox and resync */
-	i_warning("Deleting mailbox '%s': UID=%u already exists locally for a different mail: %s",
-		  mailbox_get_vname(importer->box), uid, reason);
+	e_warning(importer->event,
+		 "Deleting: UID=%u already exists locally for a different mail: %s",
+		  uid, reason);
 	importer->delete_mailbox = TRUE;
 	importer->mail_error = MAIL_ERROR_TEMP;
 	importer->failed = TRUE;
@@ -1525,12 +1518,11 @@ dsync_mailbox_common_uid_found(struct dsync_mailbox_importer *importer)
 	unsigned int n, i, count;
 	uint32_t uid;
 
-	if (importer->debug) T_BEGIN {
+	if (event_want_debug(importer->event)) T_BEGIN {
 		string_t *expunges = t_str_new(64);
-
 		imap_write_seq_range(expunges, &importer->maybe_expunge_uids);
-		imp_debug(importer, "Last common UID=%u. Delayed expunges=%s",
-			  importer->last_common_uid, str_c(expunges));
+		e_debug(importer->event, "Last common UID=%u. Delayed expunges=%s",
+			importer->last_common_uid, str_c(expunges));
 	} T_END;
 
 	importer->last_common_uid_found = TRUE;
@@ -1553,12 +1545,12 @@ dsync_mailbox_common_uid_found(struct dsync_mailbox_importer *importer)
 	saves = array_get(&importer->maybe_saves, &count);
 	for (i = 0; i < count; i++) {
 		if (saves[i]->uid > importer->last_common_uid) {
-			imp_debug(importer, "Delayed save UID=%u: Save",
-				  saves[i]->uid);
+			e_debug(importer->event,
+				"Delayed save UID=%u: Save", saves[i]->uid);
 			dsync_mailbox_save(importer, saves[i]);
 		} else {
-			imp_debug(importer, "Delayed save UID=%u: Ignore",
-				  saves[i]->uid);
+			e_debug(importer->event,
+				"Delayed save UID=%u: Ignore", saves[i]->uid);
 		}
 	}
 }
@@ -1592,9 +1584,8 @@ dsync_mailbox_import_match_msg(struct dsync_mailbox_importer *importer,
 			*result_r = "Unknown match for expunge";
 			return -1;
 		}
-		i_error("Mailbox %s: GUIDs not supported, "
-			"sync with header hashes instead",
-			mailbox_get_vname(importer->box));
+		e_error(importer->event,
+			"GUIDs not supported, sync with header hashes instead");
 		importer->mail_error = MAIL_ERROR_TEMP;
 		importer->failed = TRUE;
 		*result_r = "Error, invalid parameters";
@@ -1680,8 +1671,8 @@ dsync_mailbox_revert_missing(struct dsync_mailbox_importer *importer,
 	/* mail exists on remote, but not locally. we'll need to
 	   insert this mail back, which means deleting the whole
 	   mailbox and resyncing. */
-	i_warning("Deleting mailbox '%s': UID=%u GUID=%s is missing locally",
-		  mailbox_get_vname(importer->box),
+	e_warning(importer->event,
+		  "Deleting UID=%u GUID=%s is missing locally",
 		  change->uid, change->guid);
 	importer->delete_mailbox = TRUE;
 	importer->mail_error = MAIL_ERROR_TEMP;
@@ -1747,20 +1738,21 @@ dsync_mailbox_find_common_uid(struct dsync_mailbox_importer *importer,
 		}
 		if (ret > 0) {
 			importer->last_common_uid = change->uid;
-			imp_debug(importer, "Last UID matched - "
-				  "last_common_uid=%u",
-				  importer->last_common_uid);
+			e_debug(importer->event,
+				"Last UID matched - last_common_uid=%u",
+				importer->last_common_uid);
 		} else if (!importer->revert_local_changes) {
 			/* mismatch - found the first non-common UID */
-			imp_debug(importer, "Last UID mismatch - "
-				  "last_common_uid=%u",
-				  importer->last_common_uid);
+			e_debug(importer->event,
+				"Last UID mismatch - last_common_uid=%u",
+				importer->last_common_uid);
 			dsync_mailbox_common_uid_found(importer);
 		} else {
 			/* mismatch and we want to revert local changes -
 			   need to delete the mailbox. */
-			imp_debug(importer, "Last UID %u mismatch - "
-				  "revert local changes", change->uid);
+			e_debug(importer->event,
+				"Last UID %u mismatch - revert local changes",
+				change->uid);
 			dsync_mailbox_revert_existing_uid(importer, change->uid, *result_r);
 		}
 		return;
@@ -1802,10 +1794,11 @@ int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
 		result = "New mail";
 	}
 
-	imp_debug(importer, "Import change type=%s GUID=%s UID=%u hdr_hash=%s result=%s",
-		  dsync_mail_change_type_names[change->type],
-		  change->guid != NULL ? change->guid : "<unknown>", change->uid,
-		  change->hdr_hash != NULL ? change->hdr_hash : "", result);
+	e_debug(importer->event,
+		"Import change type=%s GUID=%s UID=%u hdr_hash=%s result=%s",
+		dsync_mail_change_type_names[change->type],
+		change->guid != NULL ? change->guid : "<unknown>", change->uid,
+		change->hdr_hash != NULL ? change->hdr_hash : "", result);
 
 	if (importer->failed)
 		return -1;
@@ -1902,8 +1895,9 @@ dsync_mailbox_import_assign_new_uids(struct dsync_mailbox_importer *importer)
 		} else {
 			i_assert(!importer->revert_local_changes);
 			new_uid = common_uid_next++;
-			imp_debug(importer, "UID %u isn't usable, assigning new UID %u",
-				  newmail->final_uid, new_uid);
+			e_debug(importer->event,
+				"UID %u isn't usable, assigning new UID %u",
+				newmail->final_uid, new_uid);
 		}
 
 		newmail->final_uid = new_uid;
@@ -1937,8 +1931,7 @@ dsync_mailbox_import_local_uid(struct dsync_mailbox_importer *importer,
 		if (error == MAIL_ERROR_EXPUNGED)
 			return 0;
 
-		i_error("Mailbox %s: Can't lookup %s for UID=%u: %s",
-			mailbox_get_vname(importer->box),
+		e_error(importer->event, "Can't lookup %s for UID=%u: %s",
 			error_field, uid, errstr);
 		return -1;
 	}
@@ -2218,7 +2211,8 @@ dsync_mailbox_import_find_virtual_uids(struct dsync_mailbox_importer *importer)
 	const char *guid;
 
 	if (mailbox_sync(importer->virtual_all_box, 0) < 0) {
-		i_error("Couldn't sync \\All mailbox '%s': %s",
+		e_error(importer->event,
+			"Couldn't sync \\All mailbox '%s': %s",
 			mailbox_get_vname(importer->virtual_all_box),
 			mailbox_get_last_internal_error(importer->virtual_all_box, NULL));
 		return;
@@ -2245,7 +2239,8 @@ dsync_mailbox_import_find_virtual_uids(struct dsync_mailbox_importer *importer)
 			newmail->virtual_all_uid = mail->uid;
 	}
 	if (mailbox_search_deinit(&search_ctx) < 0) {
-		i_error("Couldn't search \\All mailbox '%s': %s",
+		e_error(importer->event,
+			"Couldn't search \\All mailbox '%s': %s",
 			mailbox_get_vname(importer->virtual_all_box),
 			mailbox_get_last_internal_error(importer->virtual_all_box, NULL));
 	}
@@ -2308,8 +2303,7 @@ int dsync_mailbox_import_changes_finish(struct dsync_mailbox_importer *importer)
 
 	if (importer->search_ctx != NULL) {
 		if (mailbox_search_deinit(&importer->search_ctx) < 0) {
-			i_error("Mailbox %s: Search failed: %s",
-				mailbox_get_vname(importer->box),
+			e_error(importer->event, "Search failed: %s",
 				mailbox_get_last_internal_error(
 					importer->box, &importer->mail_error));
 			importer->failed = TRUE;
@@ -2407,9 +2401,10 @@ dsync_msg_try_copy(struct dsync_mailbox_importer *importer,
 
 				errstr = mailbox_get_last_internal_error(importer->box, &error);
 				if (error != MAIL_ERROR_EXPUNGED) {
-					i_warning("Failed to copy mail from UID=%u: "
+					e_warning(importer->event,
+						  "Failed to copy mail from UID=%u: "
 						  "%s - falling back to other means",
-						 inst->local_uid, errstr);
+						  inst->local_uid, errstr);
 				}
 				inst->copy_failed = TRUE;
 				return -1;
@@ -2482,7 +2477,8 @@ dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 
 			errstr = mailbox_get_last_internal_error(importer->box, &error);
 			if (error != MAIL_ERROR_EXPUNGED) {
-				i_warning("Failed to copy source UID=%u mail: "
+				e_warning(importer->event,
+					  "Failed to copy source UID=%u mail: "
 					  "%s - falling back to regular saving",
 					  mail->input_mail->uid, errstr);
 			}
@@ -2511,8 +2507,8 @@ dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 
 		if (dsync_mail_fill_nonminimal(mail->input_mail, &mail2,
 					       &error_field) < 0) {
-			i_error("Mailbox %s: Failed to read mail %s uid=%u: %s",
-				mailbox_get_vname(importer->box),
+			e_error(importer->event,
+				"Failed to read mail %s uid=%u: %s",
 				error_field, mail->uid,
 				mailbox_get_last_internal_error(importer->box,
 								&importer->mail_error));
@@ -2534,8 +2530,7 @@ dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 
 	i_stream_seek(input, 0);
 	if (mailbox_save_begin(&save_ctx, input) < 0) {
-		i_error("Mailbox %s: Saving failed: %s",
-			mailbox_get_vname(importer->box),
+		e_error(importer->event, "Saving failed: %s",
 			mailbox_get_last_internal_error(
 				importer->box, &importer->mail_error));
 		importer->failed = TRUE;
@@ -2551,15 +2546,13 @@ dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 	i_assert(ret == -1);
 
 	if (input->stream_errno != 0) {
-		i_error("Mailbox %s: read(msg input) failed: %s",
-			mailbox_get_vname(importer->box),
+		e_error(importer->event, "read(msg input) failed: %s",
 			i_stream_get_error(input));
 		mailbox_save_cancel(&save_ctx);
 		importer->mail_error = MAIL_ERROR_TEMP;
 		importer->failed = TRUE;
 	} else if (save_failed) {
-		i_error("Mailbox %s: Saving failed: %s",
-			mailbox_get_vname(importer->box),
+		e_error(importer->event, "Saving failed: %s",
 			mailbox_get_last_internal_error(
 				importer->box, &importer->mail_error));
 		mailbox_save_cancel(&save_ctx);
@@ -2567,10 +2560,9 @@ dsync_mailbox_save_body(struct dsync_mailbox_importer *importer,
 	} else {
 		i_assert(input->eof);
 		if (mailbox_save_finish(&save_ctx) < 0) {
-			i_error("Mailbox %s: Saving failed: %s",
-				mailbox_get_vname(importer->box),
-				mailbox_get_last_internal_error(importer->box,
-								&importer->mail_error));
+			e_error(importer->event, "Saving failed: %s",
+				mailbox_get_last_internal_error(
+					importer->box, &importer->mail_error));
 			importer->failed = TRUE;
 		} else {
 			dsync_mailbox_import_saved_newmail(importer, newmail);
@@ -2616,21 +2608,21 @@ int dsync_mailbox_import_mail(struct dsync_mailbox_importer *importer,
 	if (importer->require_full_resync)
 		return 0;
 
-	imp_debug(importer, "Import mail body for GUID=%s UID=%u",
-		  mail->guid, mail->uid);
+	e_debug(importer->event, "Import mail body for GUID=%s UID=%u",
+		mail->guid, mail->uid);
 
 	all_newmails = *mail->guid != '\0' ?
 		hash_table_lookup(importer->import_guids, mail->guid) :
 		hash_table_lookup(importer->import_uids, POINTER_CAST(mail->uid));
 	if (all_newmails == NULL) {
 		if (importer->want_mail_requests) {
-			i_error("Mailbox %s: Remote sent unwanted message body for "
-				"GUID=%s UID=%u",
-				mailbox_get_vname(importer->box),
+			e_error(importer->event,
+				"Remote sent unwanted message body for GUID=%s UID=%u",
 				mail->guid, mail->uid);
 		} else {
-			imp_debug(importer, "Skip unwanted mail body for "
-				  "GUID=%s UID=%u", mail->guid, mail->uid);
+			e_debug(importer->event,
+				"Skip unwanted mail body for GUID=%s UID=%u",
+				mail->guid, mail->uid);
 		}
 		return 0;
 	}
@@ -2667,10 +2659,10 @@ reassign_uids_in_seq_range(struct dsync_mailbox_importer *importer,
 	if (array_count(unwanted_uids) == 0)
 		return 1;
 
-	if (importer->debug) T_BEGIN {
+	if (event_want_debug(importer->event)) T_BEGIN {
 		string_t *str = t_str_new(256);
 		imap_write_seq_range(str, unwanted_uids);
-		imp_debug(importer, "Reassign UIDs: %s", str_c(str));
+		e_debug(importer->event, "Reassign UIDs: %s", str_c(str));
 	} T_END;
 
 	search_args = mail_search_build_init();
@@ -2687,9 +2679,10 @@ reassign_uids_in_seq_range(struct dsync_mailbox_importer *importer,
 		save_ctx = mailbox_save_alloc(trans);
 		mailbox_save_copy_flags(save_ctx, mail);
 		if (mailbox_move(&save_ctx, mail) < 0) {
-			i_error("Mailbox %s: Couldn't move mail within mailbox: %s",
-				mailbox_get_vname(box),
-				mailbox_get_last_internal_error(box, &importer->mail_error));
+			e_error(importer->event,
+				"Couldn't move mail within mailbox: %s",
+				mailbox_get_last_internal_error(
+					box, &importer->mail_error));
 			ret = -1;
 		} else if (ret > 0) {
 			ret = 0;
@@ -2697,23 +2690,20 @@ reassign_uids_in_seq_range(struct dsync_mailbox_importer *importer,
 		renumber_count++;
 	}
 	if (mailbox_search_deinit(&search_ctx) < 0) {
-		i_error("Mailbox %s: mail search failed: %s",
-			mailbox_get_vname(box),
+		e_error(importer->event, "mail search failed: %s",
 			mailbox_get_last_internal_error(box, &importer->mail_error));
 		ret = -1;
 	}
 
 	if (mailbox_transaction_commit(&trans) < 0) {
-		i_error("Mailbox %s: UID reassign commit failed: %s",
-			mailbox_get_vname(box),
+		e_error(importer->event, "UID reassign commit failed: %s",
 			mailbox_get_last_internal_error(box, &importer->mail_error));
 		ret = -1;
 	}
 	if (ret == 0) {
-		imp_debug(importer, "Mailbox %s: Change during sync: "
-			  "Renumbered %u of %u unwanted UIDs",
-			  mailbox_get_vname(box),
-			  renumber_count, array_count(unwanted_uids));
+		e_debug(importer->event,
+			"Change during sync: Renumbered %u of %u unwanted UIDs",
+			renumber_count, array_count(unwanted_uids));
 	}
 	return ret;
 }
@@ -2789,8 +2779,7 @@ dsync_mailbox_import_commit(struct dsync_mailbox_importer *importer, bool final)
 	/* commit saves */
 	if (mailbox_transaction_commit_get_changes(&importer->ext_trans,
 						   &changes) < 0) {
-		i_error("Mailbox %s: Save commit failed: %s",
-			mailbox_get_vname(importer->box),
+		e_error(importer->event, "Save commit failed: %s",
 			mailbox_get_last_internal_error(
 				importer->box, &importer->mail_error));
 		/* removed wanted_uids that weren't actually saved */
@@ -2802,10 +2791,10 @@ dsync_mailbox_import_commit(struct dsync_mailbox_importer *importer, bool final)
 		ret = -1;
 	} else {
 		/* remember the UIDs that were successfully saved */
-		if (importer->debug) T_BEGIN {
+		if (event_want_debug(importer->event)) T_BEGIN {
 			string_t *str = t_str_new(256);
 			imap_write_seq_range(str, &changes.saved_uids);
-			imp_debug(importer, "Saved UIDs: %s", str_c(str));
+			e_debug(importer->event, "Saved UIDs: %s", str_c(str));
 		} T_END;
 		seq_range_array_iter_init(&iter, &changes.saved_uids); n = 0;
 		while (seq_range_array_iter_nth(&iter, n++, &uid))
@@ -2814,8 +2803,7 @@ dsync_mailbox_import_commit(struct dsync_mailbox_importer *importer, bool final)
 
 		/* commit flag changes and expunges */
 		if (mailbox_transaction_commit(&importer->trans) < 0) {
-			i_error("Mailbox %s: Commit failed: %s",
-				mailbox_get_vname(importer->box),
+			e_error(importer->event, "Commit failed: %s",
 				mailbox_get_last_internal_error(
 					importer->box, &importer->mail_error));
 			ret = -1;
@@ -2846,7 +2834,7 @@ static int dsync_mailbox_import_finish(struct dsync_mailbox_importer *importer,
 		update.min_highest_modseq = importer->remote_highest_modseq;
 		update.min_highest_pvt_modseq = importer->remote_highest_pvt_modseq;
 
-		imp_debug(importer, "Finish update: min_next_uid=%u "
+		e_debug(importer->event, "Finish update: min_next_uid=%u "
 			  "min_first_recent_uid=%u min_highest_modseq=%"PRIu64" "
 			  "min_highest_pvt_modseq=%"PRIu64,
 			  update.min_next_uid, update.min_first_recent_uid,
@@ -2854,20 +2842,18 @@ static int dsync_mailbox_import_finish(struct dsync_mailbox_importer *importer,
 			  update.min_highest_pvt_modseq);
 
 		if (mailbox_update(importer->box, &update) < 0) {
-			i_error("Mailbox %s: Update failed: %s",
-				mailbox_get_vname(importer->box),
-				mailbox_get_last_internal_error(importer->box,
-								&importer->mail_error));
+			e_error(importer->event, "Update failed: %s",
+				mailbox_get_last_internal_error(
+					importer->box, &importer->mail_error));
 			ret = -1;
 		}
 	}
 
 	/* sync mailbox to finish flag changes and expunges. */
 	if (mailbox_sync(importer->box, 0) < 0) {
-		i_error("Mailbox %s: Sync failed: %s",
-			mailbox_get_vname(importer->box),
-			mailbox_get_last_internal_error(importer->box,
-							&importer->mail_error));
+		e_error(importer->event, "Sync failed: %s",
+			mailbox_get_last_internal_error(
+				importer->box, &importer->mail_error));
 		ret = -1;
 	}
 	if (ret == 0) {
@@ -2892,8 +2878,8 @@ dsync_mailbox_import_check_missing_guid_imports(struct dsync_mailbox_importer *i
 			if (mail->skip)
 				continue;
 
-			i_error("Mailbox %s: Remote didn't send mail GUID=%s (UID=%u)",
-				mailbox_get_vname(importer->box),
+			e_error(importer->event,
+				"Remote didn't send mail GUID=%s (UID=%u)",
 				mail->guid, mail->remote_uid);
 			importer->mail_error = MAIL_ERROR_TEMP;
 			importer->failed = TRUE;
@@ -2915,8 +2901,8 @@ dsync_mailbox_import_check_missing_uid_imports(struct dsync_mailbox_importer *im
 			if (mail->skip)
 				continue;
 
-			i_error("Mailbox %s: Remote didn't send mail UID=%u",
-				mailbox_get_vname(importer->box),
+			e_error(importer->event,
+				"Remote didn't send mail UID=%u",
 				mail->remote_uid);
 			importer->mail_error = MAIL_ERROR_TEMP;
 			importer->failed = TRUE;
@@ -2958,10 +2944,9 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 
 	if (importer->search_ctx != NULL) {
 		if (mailbox_search_deinit(&importer->search_ctx) < 0) {
-			i_error("Mailbox %s: Search failed: %s",
-				mailbox_get_vname(importer->box),
-				mailbox_get_last_internal_error(importer->box,
-								&importer->mail_error));
+			e_error(importer->event, "Search failed: %s",
+				mailbox_get_last_internal_error(
+					importer->box, &importer->mail_error));
 			importer->failed = TRUE;
 		}
 	}
@@ -2997,10 +2982,9 @@ int dsync_mailbox_import_deinit(struct dsync_mailbox_importer **_importer,
 	}
 	if (importer->delete_mailbox) {
 		if (mailbox_delete(importer->box) < 0) {
-			i_error("Couldn't delete mailbox %s: %s",
-				mailbox_get_vname(importer->box),
-				mailbox_get_last_internal_error(importer->box,
-								&importer->mail_error));
+			e_error(importer->event, "Couldn't delete mailbox: %s",
+				mailbox_get_last_internal_error(
+					importer->box, &importer->mail_error));
 			importer->failed = TRUE;
 		}
 		*last_messages_count_r = 0;
