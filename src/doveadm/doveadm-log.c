@@ -82,7 +82,8 @@ static void cmd_log_find_add(struct log_find_context *ctx,
 }
 
 static void
-cmd_log_find_syslog_files(struct log_find_context *ctx, const char *path)
+cmd_log_find_syslog_files(struct log_find_context *ctx, const char *path,
+			  struct event *event)
 {
 	struct log_find_file *file;
 	DIR *dir;
@@ -94,7 +95,7 @@ cmd_log_find_syslog_files(struct log_find_context *ctx, const char *path)
 
 	dir = opendir(path);
 	if (dir == NULL) {
-		i_error("opendir(%s) failed: %m", path);
+		e_error(event, "opendir(%s) failed: %m", path);
 		return;
 	}
 
@@ -114,7 +115,7 @@ cmd_log_find_syslog_files(struct log_find_context *ctx, const char *path)
 
 		if (S_ISDIR(st.st_mode)) {
 			/* recursively go through all subdirectories */
-			cmd_log_find_syslog_files(ctx, str_c(full_path));
+			cmd_log_find_syslog_files(ctx, str_c(full_path), event);
 		} else if (hash_table_lookup(ctx->files,
 					     str_c(full_path)) == NULL) {
 			file = p_new(ctx->pool, struct log_find_file, 1);
@@ -206,7 +207,7 @@ cmd_log_find_syslog(struct log_find_context *ctx,
 		return;
 
 	printf("Looking for log files from %s\n", log_dir);
-	cmd_log_find_syslog_files(ctx, log_dir);
+	cmd_log_find_syslog_files(ctx, log_dir, cctx->event);
 	cmd_log_test(cctx);
 
 	/* give syslog some time to write the messages to files */
@@ -297,7 +298,8 @@ static const char *t_cmd_log_error_trim(const char *orig)
 	return orig[pos] == '\0' ? orig : t_strndup(orig, pos);
 }
 
-static void cmd_log_error_write(const char *const *args, time_t min_timestamp)
+static void cmd_log_error_write(const char *const *args, time_t min_timestamp,
+				struct event *event)
 {
 	/* <type> <timestamp> <prefix> <text> */
 	const char *type_prefix = "?";
@@ -313,7 +315,7 @@ static void cmd_log_error_write(const char *const *args, time_t min_timestamp)
 	}
 
 	if (str_to_time(args[1], &t) < 0) {
-		i_error("Invalid timestamp: %s", args[1]);
+		e_error(event, "Invalid timestamp: %s", args[1]);
 		t = 0;
 	}
 	if (t >= min_timestamp) {
@@ -355,9 +357,9 @@ static void cmd_log_errors(struct doveadm_cmd_context *cctx)
 	while ((line = i_stream_read_next_line(input)) != NULL) T_BEGIN {
 		args = t_strsplit_tabescaped(line);
 		if (str_array_length(args) == 4)
-			cmd_log_error_write(args, min_timestamp);
+			cmd_log_error_write(args, min_timestamp, cctx->event);
 		else {
-			i_error("Invalid input from log: %s", line);
+			e_error(cctx->event, "Invalid input from log: %s", line);
 			doveadm_exit_code = EX_PROTOCOL;
 		}
 	} T_END;
