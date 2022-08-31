@@ -69,7 +69,7 @@ read_next_line(struct istream *input)
 	return (const void *)p_read_next_line(pool_datastack_create(), input);
 }
 
-static void stats_dump(const char *path, const char *cmd)
+static void stats_dump(const char *path, const char *cmd, struct event *event)
 {
 	struct istream *input;
 	const char *const *args;
@@ -88,7 +88,7 @@ static void stats_dump(const char *path, const char *cmd)
 	if (args == NULL)
 		i_fatal("read(%s) unexpectedly disconnected", path);
 	if (*args == NULL)
-		i_info("no statistics available");
+		e_info(event, "no statistics available");
 	else {
 		for (; *args != NULL; args++)
 			doveadm_print_header_simple(*args);
@@ -121,7 +121,7 @@ doveadm_cmd_stats_dump(struct doveadm_cmd_context* cctx)
 		path = t_strconcat(doveadm_settings->base_dir, "/old-stats", NULL);
 
 	if (!doveadm_cmd_param_str(cctx, "type", &args[0])) {
-		i_error("Missing type parameter");
+		e_error(cctx->event, "Missing type parameter");
 		doveadm_exit_code = EX_USAGE;
 		return;
 	}
@@ -133,7 +133,7 @@ doveadm_cmd_stats_dump(struct doveadm_cmd_context* cctx)
 	cmd = t_strdup_printf("EXPORT\t%s\n", t_strarray_join(args, "\t"));
 
 	doveadm_print_init(DOVEADM_PRINT_TYPE_TAB);
-	stats_dump(path, cmd);
+	stats_dump(path, cmd, cctx->event);
 	return;
 }
 
@@ -493,7 +493,7 @@ static void stats_top(const char *path, const char *sort_type)
 	i_close_fd(&ctx.fd);
 }
 
-static void stats_reset(const char *path)
+static void stats_reset(const char *path, struct event *event)
 {
 	const char **ptr ATTR_UNUSED;
 	int fd,ret;
@@ -521,18 +521,19 @@ static void stats_reset(const char *path)
 
 	if (ret < 0) {
 		i_close_fd(&fd);
-		i_error("write(%s) failed: %m", path);
+		e_error(event, "write(%s) failed: %m", path);
 		return;
 	}
 
 	line = i_stream_read_next_line(input);
 
 	if (line == NULL) {
-		i_error("read(%s) failed: %s", path, i_stream_get_error(input));
+		e_error(event,
+			"read(%s) failed: %s", path, i_stream_get_error(input));
 	} else if (!str_begins_with(line, "OK")) {
-		i_error("%s",line);
+		e_error(event, "%s",line);
 	} else {
-		i_info("Stats reset");
+		e_info(event, "Stats reset");
 	}
 
 	i_stream_destroy(&input);
@@ -568,7 +569,7 @@ static void cmd_stats_reset(struct doveadm_cmd_context *cctx)
 				   "/old-stats", NULL);
 	}
 
-	stats_reset(path);
+	stats_reset(path, cctx->event);
 }
 
 struct doveadm_cmd_ver2 doveadm_cmd_oldstats_dump_ver2 = {
