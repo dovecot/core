@@ -918,6 +918,11 @@ bool mail_cache_field_can_add(struct mail_cache_transaction_ctx *ctx,
 	if (decision == (MAIL_CACHE_DECISION_FORCED | MAIL_CACHE_DECISION_NO))
 		return FALSE;
 
+	/* fields of bitmask type can be added multiple times */
+	const struct mail_cache_field *field = mail_cache_register_get_field(ctx->view->cache, field_idx);
+	if (field->type == MAIL_CACHE_FIELD_BITMASK)
+		return TRUE;
+
 	return mail_cache_field_exists(ctx->view, seq, field_idx) == 0;
 }
 
