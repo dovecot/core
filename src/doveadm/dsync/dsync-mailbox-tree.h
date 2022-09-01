@@ -150,6 +150,7 @@ int dsync_mailbox_tree_fill(struct dsync_mailbox_tree *tree,
 			    struct mail_namespace *ns, const char *box_name,
 			    const guid_128_t box_guid,
 			    const char *const *exclude_mailboxes,
+			    struct event *event,
 			    enum mail_error *error_r);
 
 /* Return all known deleted mailboxes and directories. */
