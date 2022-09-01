@@ -41,7 +41,8 @@ static void dcrypt_istream_dump_metadata(const struct istream *stream)
 	}
 }
 
-static bool dcrypt_file_dump_metadata(const char *filename, bool print)
+static bool dcrypt_file_dump_metadata(struct doveadm_cmd_context *cctx,
+				      const char *filename, bool print)
 {
 	bool ret = FALSE;
 	struct istream *is = i_stream_create_file(filename, IO_BLOCK_SIZE);
@@ -59,9 +60,8 @@ static bool dcrypt_file_dump_metadata(const char *filename, bool print)
 			printf("decrypt key digest: %s\n", key_digest);
 		}
 	} else if (print && ds->stream_errno != 0) {
-		i_error("read(%s) failed: %s",
-			i_stream_get_name(ds),
-			i_stream_get_error(ds));
+		e_error(cctx->event, "read(%s) failed: %s",
+			i_stream_get_name(ds), i_stream_get_error(ds));
 	}
 
 	i_stream_unref(&ds);
@@ -69,23 +69,23 @@ static bool dcrypt_file_dump_metadata(const char *filename, bool print)
 	return ret;
 }
 
-static bool test_dump_dcrypt_file(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+static bool test_dump_dcrypt_file(struct doveadm_cmd_context *cctx,
 				  const char *path)
 {
 	if (!dcrypt_initialize("openssl", NULL, NULL))
 		return FALSE;
-	bool ret = dcrypt_file_dump_metadata(path, FALSE);
+	bool ret = dcrypt_file_dump_metadata(cctx, path, FALSE);
 	return ret;
 }
 
 static void
-cmd_dump_dcrypt_file(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+cmd_dump_dcrypt_file(struct doveadm_cmd_context *cctx,
 		     const char *path, const char *const *args ATTR_UNUSED)
 {
 	const char *error = NULL;
 	if (!dcrypt_initialize("openssl", NULL, &error))
 		i_fatal("dcrypt_initialize failed: %s", error);
-	(void)dcrypt_file_dump_metadata(path, TRUE);
+	(void)dcrypt_file_dump_metadata(cctx, path, TRUE);
 }
 
 struct doveadm_cmd_dump doveadm_cmd_dump_dcrypt_file = {

@@ -43,7 +43,7 @@ static bool test_dump_imap_compress(struct doveadm_cmd_context *cctx ATTR_UNUSED
 }
 
 static void
-cmd_dump_imap_compress(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+cmd_dump_imap_compress(struct doveadm_cmd_context *cctx,
 		       const char *path, const char *const *args ATTR_UNUSED)
 {
 	struct istream *input, *input2;
@@ -78,13 +78,15 @@ cmd_dump_imap_compress(struct doveadm_cmd_context *cctx ATTR_UNUSED,
 		i_stream_skip(input2, size);
 	}
 	if (input2->stream_errno != 0)
-		i_error("read(%s) failed: %s", path, i_stream_get_error(input2));
+		e_error(cctx->event,
+			"read(%s) failed: %s", path, i_stream_get_error(input2));
 	i_stream_unref(&input2);
 	fflush(stdout);
 }
 
 struct client {
 	int fd;
+	struct event *event;
 	struct io *io_client, *io_server;
 	struct istream *input, *stdin_input;
 	struct ostream *output;
@@ -194,7 +196,7 @@ static void server_input(struct client *client)
 				i_stream_get_error(client->input));
 		}
 
-		i_info("Server disconnected");
+		e_info(client->event, "Server disconnected");
 		master_service_stop(master_service);
 		return;
 	}
@@ -204,7 +206,7 @@ static void server_input(struct client *client)
 		struct istream *input;
 		struct ostream *output;
 
-		i_info("<Compression started>");
+		e_info(client->event, "<Compression started>");
 		input = client->handler->create_istream(client->input);
 		output = client->handler->create_ostream(client->output, 6);
 		i_stream_unref(&client->input);
@@ -252,6 +254,7 @@ static void cmd_compress_connect(struct doveadm_cmd_context *cctx)
 	i_info("Connected to %s port %u.", net_ip2addr(&ips[0]), port);
 
 	i_zero(&client);
+	client.event = event_create(cctx->event);
 	client.fd = fd;
 	fd_set_nonblock(STDIN_FILENO, TRUE);
 	client.stdin_input = i_stream_create_fd(STDIN_FILENO, SIZE_MAX);
@@ -266,6 +269,7 @@ static void cmd_compress_connect(struct doveadm_cmd_context *cctx)
 	i_stream_unref(&client.stdin_input);
 	i_stream_unref(&client.input);
 	o_stream_unref(&client.output);
+	event_unref(&client.event);
 	if (close(fd) < 0)
 		i_fatal("close() failed: %m");
 }

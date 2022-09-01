@@ -80,7 +80,7 @@ DOVEADM_CMD_PARAMS_END
 };
 
 static void
-cmd_dump_multiplex(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+cmd_dump_multiplex(struct doveadm_cmd_context *cctx,
 		   const char *path, const char *const *args ATTR_UNUSED)
 {
 	const unsigned int channels_count = 256;
@@ -115,7 +115,7 @@ cmd_dump_multiplex(struct doveadm_cmd_context *cctx ATTR_UNUSED,
 	} while (have_input);
 
 	if (channels[0]->stream_errno != 0)
-		i_error("read() failed: %s", i_stream_get_error(channels[0]));
+		e_error(cctx->event, "read() failed: %s", i_stream_get_error(channels[0]));
 	for (i = 0; i < channels_count; i++)
 		i_stream_unref(&channels[i]);
 }
