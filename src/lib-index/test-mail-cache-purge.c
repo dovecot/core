@@ -405,7 +405,7 @@ static void test_mail_cache_delete_too_large_int(bool exceed_on_first_write)
 
 		/* adding anything more will delete the cache. */
 		test_expect_error_string("Cache file too large");
-		test_mail_cache_add_field(&ctx, 1, ctx.cache_field2.idx, "bar1");
+		test_mail_cache_add_field(&ctx, 1, ctx.cache_field3.idx, "bar1");
 		test_expect_no_more_errors();
 	}
 	test_assert(stat(ctx.index->cache->filepath, &st) < 0 && errno == ENOENT);
