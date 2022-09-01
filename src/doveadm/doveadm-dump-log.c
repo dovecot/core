@@ -518,7 +518,8 @@ static int dump_record(struct istream *input, uint64_t *modseq,
 	return 1;
 }
 
-static void cmd_dump_log(const char *path, const char *const *args ATTR_UNUSED)
+static void cmd_dump_log(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+			 const char *path, const char *const *args ATTR_UNUSED)
 {
 	struct istream *input;
 	uint64_t modseq;
@@ -535,7 +536,8 @@ static void cmd_dump_log(const char *path, const char *const *args ATTR_UNUSED)
 	i_stream_unref(&input);
 }
 
-static bool test_dump_log(const char *path)
+static bool test_dump_log(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+			  const char *path)
 {
 	struct mail_transaction_log_header hdr;
 	const char *p;

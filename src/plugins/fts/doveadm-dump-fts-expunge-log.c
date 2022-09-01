@@ -74,7 +74,8 @@ static int dump_record(int fd, buffer_t *buf)
 }
 
 static void
-cmd_dump_fts_expunge_log(const char *path, const char *const *args ATTR_UNUSED)
+cmd_dump_fts_expunge_log(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+			 const char *path, const char *const *args ATTR_UNUSED)
 {
 	buffer_t *buf;
 	int fd, ret;
@@ -93,7 +94,8 @@ cmd_dump_fts_expunge_log(const char *path, const char *const *args ATTR_UNUSED)
 	i_close_fd(&fd);
 }
 
-static bool test_dump_fts_expunge_log(const char *path)
+static bool test_dump_fts_expunge_log(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+				      const char *path)
 {
 	const char *p;
 

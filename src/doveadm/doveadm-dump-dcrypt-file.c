@@ -69,7 +69,8 @@ static bool dcrypt_file_dump_metadata(const char *filename, bool print)
 	return ret;
 }
 
-static bool test_dump_dcrypt_file(const char *path)
+static bool test_dump_dcrypt_file(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+				  const char *path)
 {
 	if (!dcrypt_initialize("openssl", NULL, NULL))
 		return FALSE;
@@ -78,7 +79,8 @@ static bool test_dump_dcrypt_file(const char *path)
 }
 
 static void
-cmd_dump_dcrypt_file(const char *path, const char *const *args ATTR_UNUSED)
+cmd_dump_dcrypt_file(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+		     const char *path, const char *const *args ATTR_UNUSED)
 {
 	const char *error = NULL;
 	if (!dcrypt_initialize("openssl", NULL, &error))

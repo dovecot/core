@@ -764,7 +764,8 @@ static struct mail_index *path_open_index(const char *path)
 }
 
 static void
-cmd_dump_index(const char *path, const char *const *args)
+cmd_dump_index(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+	       const char *path, const char *const *args)
 {
 	struct mail_index *index;
 	struct mail_index_view *view;
@@ -809,7 +810,8 @@ cmd_dump_index(const char *path, const char *const *args)
 	mail_index_free(&index);
 }
 
-static bool test_dump_index(const char *path)
+static bool test_dump_index(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+			    const char *path)
 {
 	struct mail_index *index;
 	bool ret;

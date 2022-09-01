@@ -90,7 +90,8 @@ cmd_dump_fts_flatcurve_print_terms(ARRAY_TYPE(fts_flatcurve_dump_term) *terms)
 }
 
 static void
-cmd_dump_fts_flatcurve_bundle(const char *arg_path,
+cmd_dump_fts_flatcurve_bundle(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+			      const char *arg_path,
 			      const char *const *args ATTR_UNUSED)
 {
 	T_BEGIN {
@@ -117,7 +118,8 @@ cmd_dump_fts_flatcurve_bundle(const char *arg_path,
 }
 
 static bool
-test_dump_fts_flatcurve_bundle(const char *arg_path)
+test_dump_fts_flatcurve_bundle(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+			       const char *arg_path)
 {
 	bool located;
 	T_BEGIN {

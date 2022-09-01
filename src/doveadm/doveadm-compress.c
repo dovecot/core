@@ -15,7 +15,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-static bool test_dump_imap_compress(const char *path)
+static bool test_dump_imap_compress(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+				    const char *path)
 {
 	const char *p;
 	char buf[4096];
@@ -42,7 +43,8 @@ static bool test_dump_imap_compress(const char *path)
 }
 
 static void
-cmd_dump_imap_compress(const char *path, const char *const *args ATTR_UNUSED)
+cmd_dump_imap_compress(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+		       const char *path, const char *const *args ATTR_UNUSED)
 {
 	struct istream *input, *input2;
 	const unsigned char *data;

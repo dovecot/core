@@ -58,7 +58,8 @@ static int dump_record(int fd)
 }
 
 static void
-cmd_dump_mailboxlog(const char *path, const char *const *args ATTR_UNUSED)
+cmd_dump_mailboxlog(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+		    const char *path, const char *const *args ATTR_UNUSED)
 {
 	int fd, ret;
 
@@ -74,7 +75,8 @@ cmd_dump_mailboxlog(const char *path, const char *const *args ATTR_UNUSED)
 	i_close_fd(&fd);
 }
 
-static bool test_dump_mailboxlog(const char *path)
+static bool test_dump_mailboxlog(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+			 	 const char *path)
 {
 	const char *p;
 	int fd;

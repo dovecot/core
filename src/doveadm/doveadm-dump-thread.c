@@ -92,7 +92,8 @@ static int dump_block(const uint8_t *data, const uint8_t *end, uint32_t *uid)
 }
 
 static void
-cmd_dump_thread(const char *path, const char *const *args ATTR_UNUSED)
+cmd_dump_thread(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+		const char *path, const char *const *args ATTR_UNUSED)
 {
 	unsigned int pos;
 	const void *map, *end;
@@ -124,7 +125,8 @@ cmd_dump_thread(const char *path, const char *const *args ATTR_UNUSED)
 	i_close_fd(&fd);
 }
 
-static bool test_dump_thread(const char *path)
+static bool test_dump_thread(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+			     const char *path)
 {
 	const char *p;
 

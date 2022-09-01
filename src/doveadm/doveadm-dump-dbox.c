@@ -189,7 +189,8 @@ static bool dump_msg(struct istream *input, unsigned int hdr_size)
 	return TRUE;
 }
 
-static void cmd_dump_dbox(const char *path, const char *const *args ATTR_UNUSED)
+static void cmd_dump_dbox(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+			  const char *path, const char *const *args ATTR_UNUSED)
 {
 	struct istream *input;
 	int fd;
@@ -212,7 +213,8 @@ static void cmd_dump_dbox(const char *path, const char *const *args ATTR_UNUSED)
 	i_stream_destroy(&input);
 }
 
-static bool test_dump_dbox(const char *path)
+static bool test_dump_dbox(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+			   const char *path)
 {
 	const char *p;
 

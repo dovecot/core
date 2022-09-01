@@ -191,7 +191,8 @@ static bool dcrypt_key_dump_metadata(const char *filename, bool print)
 	return TRUE;
 }
 
-static bool test_dump_dcrypt_key(const char *path)
+static bool test_dump_dcrypt_key(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+				 const char *path)
 {
 	if (!dcrypt_initialize("openssl", NULL, NULL))
 		return FALSE;
@@ -200,7 +201,8 @@ static bool test_dump_dcrypt_key(const char *path)
 }
 
 static void
-cmd_dump_dcrypt_key(const char *path, const char *const *args ATTR_UNUSED)
+cmd_dump_dcrypt_key(struct doveadm_cmd_context *cctx ATTR_UNUSED,
+		    const char *path, const char *const *args ATTR_UNUSED)
 {
 	const char *error = NULL;
 	if (!dcrypt_initialize("openssl", NULL, &error))
