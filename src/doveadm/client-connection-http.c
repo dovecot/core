@@ -1183,6 +1183,8 @@ client_connection_http_create(int fd, bool ssl)
 
 	pool = pool_alloconly_create("doveadm client", 1024);
 	conn = p_new(pool, struct client_connection_http, 1);
+	conn->conn.event = event_create(NULL);
+	event_set_append_log_prefix(conn->conn.event, "http: ");
 
 	if (client_connection_init(&conn->conn,
 		DOVEADM_CONNECTION_TYPE_HTTP, pool, fd) < 0) {

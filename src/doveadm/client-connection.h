@@ -7,6 +7,7 @@
 
 struct client_connection {
 	pool_t pool;
+	struct event *event;
 	enum doveadm_client_type type;
 	const char *name;
 
