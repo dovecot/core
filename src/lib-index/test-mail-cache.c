@@ -745,6 +745,62 @@ static void test_mail_cache_size_corruption(void)
 	test_end();
 }
 
+static void test_mail_cache_duplicate_fields(void)
+{
+	enum {
+		TEST_FIELD_FIXED,
+	};
+	struct mail_cache_field cache_fields[] = {
+		{
+			.name = "fixed",
+			.type = MAIL_CACHE_FIELD_FIXED_SIZE,
+			.field_size = 4,
+			.decision = MAIL_CACHE_DECISION_YES,
+		},
+	};
+	struct test_mail_cache_ctx ctx;
+	struct mail_index_transaction *trans;
+	struct mail_cache_view *cache_view;
+	struct mail_cache_transaction_ctx *cache_trans;
+
+	test_begin("mail cache duplicate fields");
+	test_mail_cache_init(test_mail_index_init(), &ctx);
+	mail_cache_register_fields(ctx.cache, cache_fields,
+				   N_ELEMENTS(cache_fields));
+
+	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
+
+	/* add the cache fields */
+	cache_view = mail_cache_view_open(ctx.cache, ctx.view);
+	trans = mail_index_transaction_begin(ctx.view, 0);
+	cache_trans = mail_cache_get_transaction(cache_view, trans);
+
+	const uint8_t fixed_data[] = { 0x12, 0x34, 0x56, 0x78 };
+	mail_cache_add(cache_trans, 1, cache_fields[TEST_FIELD_FIXED].idx,
+		       fixed_data, sizeof(fixed_data));
+
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+
+	struct stat st;
+	stat(ctx.cache->filepath, &st);
+	off_t cache_size = st.st_size;
+
+	trans = mail_index_transaction_begin(ctx.view, 0);
+	cache_trans = mail_cache_get_transaction(cache_view, trans);
+	mail_cache_add(cache_trans, 1, cache_fields[TEST_FIELD_FIXED].idx,
+		       fixed_data, sizeof(fixed_data));
+	test_assert(mail_index_transaction_commit(&trans) == 0);
+
+	stat(ctx.cache->filepath, &st);
+	test_assert(cache_size == st.st_size);
+
+	test_mail_cache_view_sync(&ctx);
+	mail_cache_view_close(&cache_view);
+	test_mail_cache_deinit(&ctx);
+	test_mail_index_delete();
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -758,6 +814,7 @@ int main(void)
 		test_mail_cache_lookup_decisions2,
 		test_mail_cache_in_memory,
 		test_mail_cache_size_corruption,
+		test_mail_cache_duplicate_fields,
 		NULL
 	};
 	return test_run(test_functions);
