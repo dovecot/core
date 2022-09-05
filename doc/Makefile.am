@@ -1,6 +1,6 @@
 extra_dist_extra =
 
-SUBDIRS = man example-config
+SUBDIRS = . man example-config
 DOCDIRS = example-config
 
 docfiles = \
