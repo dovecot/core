@@ -397,7 +397,7 @@ do_rquota_user(struct fs_quota_root *root,
 		host, path, dec2str(root->uid));
 
 	/* clnt_create() polls for a while to establish a connection */
-	cl = clnt_create(host, RQUOTAPROG, RQUOTAVERS, "udp");
+	cl = clnt_create((char *)host, RQUOTAPROG, RQUOTAVERS, "udp");
 	if (cl == NULL) {
 		*error_r = t_strdup_printf(
 			"could not contact RPC service on %s", host);
