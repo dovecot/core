@@ -84,9 +84,11 @@ clean-local:
 	-rm -rf venv
 	-rm -rf $(documentation_sources)
 
-distclean-local: clean-local
+rebuild:
 	-rm -rf html
 	$(MAKE) -C man $@
+
+distclean-local: clean-local rebuild
 
 maintainer-clean: distclean-local
 
