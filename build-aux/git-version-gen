@@ -8,7 +8,7 @@ elif test -s version; then
   VN=`cat version`
 elif test -e .git; then
  VN="0.0.0-`git rev-list --count HEAD`+`git describe --always`"
- git update-index -q --refresh
+ git update-index -q --refresh >/dev/null 2>&1
  test x = x"`git diff-index --name-only HEAD --`" || VN="${VN}-dirty"
 else
   echo "Cannot determine version number">&2
