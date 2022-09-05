@@ -11,6 +11,11 @@ docfiles = \
 	solr-schema-7.7.0.xml \
 	solr-config-7.7.0.xml
 
+AM_V_Q = $(am__v_Q_$(V))
+am__v_Q_ = $(am__v_Q_$(AM_DEFAULT_VERBOSITY))
+am__v_Q_0 = -q
+am__v_Q_1 =
+
 if INSTALL_DOCS
 if HAVE_VENV
 extra_dist_extra += html
@@ -19,16 +24,16 @@ documentation_sources = documentation-main
 # extracting the documentation tarball from github yields the
 # "documentation-main" directory
 $(documentation_sources)/requirements.txt:
-	$(AM_V_GEN)wget -O - \
+	$(AM_V_GEN)wget $(AM_V_Q) -O - \
 		https://github.com/dovecot/documentation/archive/refs/heads/main.tar.gz | \
 	  gunzip | $(am__untar)
 
 venv: $(documentation_sources)/requirements.txt
 	$(AM_V_GEN)$(PYTHON) -m venv venv && \
-		venv/bin/pip install -r "$(documentation_sources)/requirements.txt"
+		venv/bin/pip $(AM_V_Q) install -r "$(documentation_sources)/requirements.txt"
 
 html: venv
-	$(AM_V_GEN)venv/bin/python -msphinx -b html $(documentation_sources)/source html
+	$(AM_V_GEN)venv/bin/python -msphinx $(AM_V_Q) -b html $(documentation_sources)/source html
 
 else # if HAVE_VENV
 
