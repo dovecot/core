@@ -30,6 +30,7 @@ $(documentation_sources)/requirements.txt:
 
 venv: $(documentation_sources)/requirements.txt
 	$(AM_V_GEN)$(PYTHON) -m venv venv && \
+		venv/bin/pip $(AM_V_Q) install wheel && \
 		venv/bin/pip $(AM_V_Q) install -r "$(documentation_sources)/requirements.txt"
 
 html: venv
