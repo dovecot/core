@@ -359,9 +359,8 @@ static int fetch_date_sent(struct fetch_cmd_context *ctx)
 		return -1;
 
 	chr = tz < 0 ? '-' : '+';
-	if (tz < 0) tz = -tz;
-	doveadm_print(t_strdup_printf("%s (%c%02u%02u)", unixdate2str(t),
-				      chr, tz/60, tz%60));
+	doveadm_print(t_strdup_printf("%s (%c%02u%02u)",
+		unixdate2tzstr(t, tz), chr, abs(tz) / 60, abs(tz) % 60));
 	return 0;
 }
 

@@ -83,6 +83,11 @@ const char *unixdate2str(time_t timestamp)
 	return t_strflocaltime("%Y-%m-%d %H:%M:%S", timestamp);
 }
 
+const char *unixdate2tzstr(time_t timestamp, int tz_mins)
+{
+	return t_strfgmtime("%Y-%m-%d %H:%M:%S", timestamp + tz_mins * 60);
+}
+
 const char *doveadm_plugin_getenv(const char *name)
 {
 	const char *const *envs;
