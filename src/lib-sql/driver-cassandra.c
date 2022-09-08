@@ -84,7 +84,7 @@ struct cassandra_callback {
 struct cassandra_db {
 	struct sql_db api;
 
-	char *hosts, *keyspace, *user, *password;
+	char *hosts, *keyspace, *table_prefix, *user, *password;
 	CassConsistency read_consistency, write_consistency, delete_consistency;
 	CassConsistency read_fallback_consistency, write_fallback_consistency;
 	CassConsistency delete_fallback_consistency;
@@ -552,6 +552,12 @@ static void connect_callback(CassFuture *future, void *context)
 	driver_cassandra_send_queries(db);
 }
 
+static const char *driver_cassandra_table_prefix(struct sql_db *_db)
+{
+	struct cassandra_db *db = (struct cassandra_db *)_db;
+	return db->table_prefix == NULL ? "" : db->table_prefix;
+}
+
 static int driver_cassandra_connect(struct sql_db *_db)
 {
 	struct cassandra_db *db = (struct cassandra_db *)_db;
@@ -844,6 +850,9 @@ static int driver_cassandra_parse_connect_string(struct cassandra_db *db,
 	if (db->keyspace == NULL) {
 		*error_r = t_strdup_printf("No dbname given in connect string");
 		return -1;
+	} else {
+		i_free(db->table_prefix);
+		db->table_prefix = i_strdup_printf("%s.", db->keyspace);
 	}
 
 	if ((db->ssl_cert_file != NULL && db->ssl_private_key_file == NULL) ||
@@ -943,6 +952,7 @@ static void driver_cassandra_free(struct cassandra_db **_db)
 	i_free(db->metrics_path);
 	i_free(db->hosts);
 	i_free(db->error);
+	i_free(db->table_prefix);
 	i_free(db->keyspace);
 	i_free(db->user);
 	i_free(db->password);
@@ -2597,6 +2607,7 @@ const struct sql_db driver_cassandra_db = {
 		.statement_query = driver_cassandra_statement_query,
 		.statement_query_s = driver_cassandra_statement_query_s,
 		.update_stmt = driver_cassandra_update_stmt,
+		.table_prefix = driver_cassandra_table_prefix,
 	}
 };
 

@@ -124,6 +124,11 @@ struct sql_db_vfuncs {
 	void (*update_stmt)(struct sql_transaction_context *ctx,
 			    struct sql_statement *stmt,
 			    unsigned int *affected_rows);
+
+	/* Returns a schema/keyspace followed by a dot '.' OR an empty string
+	   if none is required (in order remove the requirement for further
+	   checks down the line in format strings et al.) */
+	const char *(*table_prefix)(struct sql_db *db);
 };
 
 struct sql_db {
@@ -240,6 +245,10 @@ int driver_sqlpool_init_full(const struct sql_settings *set, const struct sql_db
 			     struct sql_db **db_r, const char **error_r);
 
 void sql_db_set_state(struct sql_db *db, enum sql_db_state state);
+
+inline static const char *sql_db_table_prefix(struct sql_db *db) {
+	return db->v.table_prefix == NULL ? "" : db->v.table_prefix(db);
+}
 
 void sql_transaction_add_query(struct sql_transaction_context *ctx, pool_t pool,
 			       const char *query, unsigned int *affected_rows);
