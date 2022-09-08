@@ -2602,17 +2602,17 @@ const struct sql_db driver_cassandra_db = {
 
 const struct sql_result driver_cassandra_result = {
 	.v = {
-		driver_cassandra_result_free,
-		driver_cassandra_result_next_row,
-		driver_cassandra_result_get_fields_count,
-		driver_cassandra_result_get_field_name,
-		driver_cassandra_result_find_field,
-		driver_cassandra_result_get_field_value,
-		driver_cassandra_result_get_field_value_binary,
-		driver_cassandra_result_find_field_value,
-		driver_cassandra_result_get_values,
-		driver_cassandra_result_get_error,
-		driver_cassandra_result_more,
+		.free = driver_cassandra_result_free,
+		.next_row = driver_cassandra_result_next_row,
+		.get_fields_count = driver_cassandra_result_get_fields_count,
+		.get_field_name = driver_cassandra_result_get_field_name,
+		.find_field = driver_cassandra_result_find_field,
+		.get_field_value = driver_cassandra_result_get_field_value,
+		.get_field_value_binary = driver_cassandra_result_get_field_value_binary,
+		.find_field_value = driver_cassandra_result_find_field_value,
+		.get_values = driver_cassandra_result_get_values,
+		.get_error = driver_cassandra_result_get_error,
+		.more = driver_cassandra_result_more,
 	}
 };
 
