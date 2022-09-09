@@ -573,8 +573,7 @@ static int driver_cassandra_connect(struct sql_db *_db)
 			     driver_cassandra_input, db);
 	driver_cassandra_set_state(db, SQL_DB_STATE_CONNECTING);
 
-	future = cass_session_connect_keyspace(db->session, db->cluster,
-					       db->keyspace);
+	future = cass_session_connect(db->session, db->cluster);
 	driver_cassandra_set_callback(future, db, connect_callback, db);
 	return 0;
 }
