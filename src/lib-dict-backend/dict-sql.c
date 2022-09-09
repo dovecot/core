@@ -472,7 +472,8 @@ sql_lookup_get_query(struct sql_dict *dict,
 	str_append(query, "SELECT ");
 	if (map->expire_field != NULL)
 		str_printfa(query, "%s,", map->expire_field);
-	str_printfa(query, "%s FROM %s", map->value_field, map->table);
+	str_printfa(query, "%s FROM %s%s",
+		    map->value_field, sql_db_table_prefix(dict->db), map->table);
 	if (sql_dict_where_build(set->username, map, &pattern_values,
 				 key[0] == DICT_PATH_PRIVATE[0],
 				 SQL_DICT_RECURSE_NONE, query,
@@ -729,7 +730,7 @@ sql_dict_iterate_build_next_query(struct sql_dict_iterate_context *ctx,
 		str_printfa(query, "%s,", pattern_fields[i].name);
 	str_truncate(query, str_len(query)-1);
 
-	str_printfa(query, " FROM %s", map->table);
+	str_printfa(query, " FROM %s%s", sql_db_table_prefix(dict->db), map->table);
 
 	if ((ctx->flags & DICT_ITERATE_FLAG_RECURSE) != 0)
 		recurse_type = SQL_DICT_RECURSE_FULL;
@@ -1119,7 +1120,8 @@ static int sql_dict_set_query(struct sql_dict_transaction_context *ctx,
 	   Build all the SQL field names into prefix and '?' placeholders for
 	   each value into the suffix. The actual field values will be added
 	   into params[]. */
-	str_printfa(prefix, "INSERT INTO %s", fields[0].map->table);
+	str_printfa(prefix, "INSERT INTO %s%s",
+		    sql_db_table_prefix(dict->db), fields[0].map->table);
 	str_append(prefix, " (");
 	str_append(suffix, ") VALUES (");
 	for (i = 0; i < field_count; i++) {
@@ -1232,7 +1234,8 @@ sql_dict_update_query(const struct dict_sql_build_query *build,
 	i_assert(field_count > 0);
 
 	query = t_str_new(64);
-	str_printfa(query, "UPDATE %s SET ", fields[0].map->table);
+	str_printfa(query, "UPDATE %s%s SET ",
+		    sql_db_table_prefix(build->dict->db), fields[0].map->table);
 	for (i = 0; i < field_count; i++) {
 		const char *first_value_field =
 			t_strcut(fields[i].map->value_field, ',');
@@ -1345,7 +1348,7 @@ static void sql_dict_unset(struct dict_transaction_context *_ctx,
 		return;
 	}
 
-	str_printfa(query, "DELETE FROM %s", map->table);
+	str_printfa(query, "DELETE FROM %s%s", sql_db_table_prefix(dict->db), map->table);
 	t_array_init(&params, 4);
 	if (sql_dict_where_build(set->username, map, &pattern_values,
 				 key[0] == DICT_PATH_PRIVATE[0],
@@ -1580,7 +1583,8 @@ sql_dict_expire_map(struct sql_dict *dict, const struct dict_sql_map *map,
 	struct sql_transaction_context *trans =
 		sql_transaction_begin(dict->db);
 	const char *query = t_strdup_printf(
-		"DELETE FROM %s WHERE %s <= ?", map->table, map->expire_field);
+		"DELETE FROM %s%s WHERE %s <= ?",
+		sql_db_table_prefix(dict->db), map->table, map->expire_field);
 	struct sql_statement *stmt =
 		sql_dict_statement_init(dict, query, &params);
 	sql_update_stmt(trans, &stmt);
