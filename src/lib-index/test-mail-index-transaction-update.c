@@ -648,13 +648,13 @@ static void test_mail_index_update_day_first_uid(void)
 		i_zero(&hdr);
 		for (j = 0; j < N_ELEMENTS(hdr.day_first_uid); j++)
 			hdr.day_first_uid[j] = 8-j;
-		hdr.day_stamp = tests[i].old_day_stamp + timezone;
+		hdr.day_stamp = tests[i].old_day_stamp;
 		memcpy(t->post_hdr_change, &hdr, sizeof(hdr));
-		mail_index_update_day_headers(t, tests[i].now + timezone);
+		mail_index_update_day_headers(t, tests[i].now);
 
 		struct mail_index_header new_hdr;
 		memcpy(&new_hdr, t->post_hdr_change, sizeof(new_hdr));
-		test_assert_idx(new_hdr.day_stamp == tests[i].new_day_stamp + timezone, i);
+		test_assert_idx(new_hdr.day_stamp == tests[i].new_day_stamp, i);
 		test_assert_idx(memcmp(new_hdr.day_first_uid,
 				       tests[i].new_day_first_uid,
 				       sizeof(uint32_t) * 8) == 0, i);
