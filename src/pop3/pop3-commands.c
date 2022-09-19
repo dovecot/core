@@ -218,7 +218,8 @@ static int client_verify_ordering(struct client *client,
 
 	seq = msgnum_to_seq(client, msgnum);
 	if (seq != mail->seq) {
-		i_error("Message ordering changed unexpectedly "
+		e_error(client->event,
+			"Message ordering changed unexpectedly "
 			"(msg #%u: storage seq %u -> %u)",
 			msgnum+1, seq, mail->seq);
 		return -1;
@@ -622,11 +623,13 @@ pop3_get_uid(struct client *client, struct mail *mail, string_t *str,
 	if ((client->uidl_keymask & UIDL_MD5) != 0) {
 		if (mail_get_special(mail, MAIL_FETCH_HEADER_MD5,
 				     &hdr_md5) < 0) {
-			i_error("UIDL: Header MD5 lookup failed: %s",
+			e_error(client->event,
+				"UIDL: Header MD5 lookup failed: %s",
 				mailbox_get_last_internal_error(mail->box, NULL));
 			return -1;
 		} else if (hdr_md5[0] == '\0') {
-			i_error("UIDL: Header MD5 not found "
+			e_error(client->event,
+				"UIDL: Header MD5 not found "
 				"(pop3_uidl_format=%%m not supported by storage?)");
 			return -1;
 		}
@@ -634,11 +637,13 @@ pop3_get_uid(struct client *client, struct mail *mail, string_t *str,
 	if ((client->uidl_keymask & UIDL_FILE_NAME) != 0) {
 		if (mail_get_special(mail, MAIL_FETCH_STORAGE_ID,
 				     &filename) < 0) {
-			i_error("UIDL: File name lookup failed: %s",
+			e_error(client->event,
+				"UIDL: File name lookup failed: %s",
 				mailbox_get_last_internal_error(mail->box, NULL));
 			return -1;
 		} else if (filename[0] == '\0') {
-			i_error("UIDL: File name not found "
+			e_error(client->event,
+				"UIDL: File name not found "
 				"(pop3_uidl_format=%%f not supported by storage?)");
 			return -1;
 		}
@@ -646,11 +651,13 @@ pop3_get_uid(struct client *client, struct mail *mail, string_t *str,
 	if ((client->uidl_keymask & UIDL_GUID) != 0) {
 		if (mail_get_special(mail, MAIL_FETCH_GUID,
 				     &guid) < 0) {
-			i_error("UIDL: Message GUID lookup failed: %s",
+			e_error(client->event,
+				"UIDL: Message GUID lookup failed: %s",
 				mailbox_get_last_internal_error(mail->box, NULL));
 			return -1;
 		} else if (guid[0] == '\0') {
-			i_error("UIDL: Message GUID not found "
+			e_error(client->event,
+				"UIDL: Message GUID not found "
 				"(pop3_uidl_format=%%g not supported by storage?)");
 			return -1;
 		}
@@ -668,7 +675,8 @@ pop3_get_uid(struct client *client, struct mail *mail, string_t *str,
 
 	if (var_expand(str, client->mail_set->pop3_uidl_format,
 		       tab, &error) <= 0) {
-		i_error("UIDL: Failed to expand pop3_uidl_format=%s: %s",
+		e_error(client->event,
+			"UIDL: Failed to expand pop3_uidl_format=%s: %s",
 			client->mail_set->pop3_uidl_format, error);
 		return -1;
 	}

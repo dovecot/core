@@ -194,7 +194,7 @@ static int init_namespaces(struct client *client, bool already_logged_in)
 		if (!already_logged_in)
 			client_send_line(client, MSG_BYE_INTERNAL_ERROR);
 
-		i_error("%s", error);
+		e_error(client->event, "%s", error);
 		client_destroy(client, error);
 		return -1;
 	}
@@ -247,7 +247,7 @@ static void client_init_session(struct client *client)
 	event_reason_end(&reason);
 
 	if (ret < 0) {
-		i_error("%s", error);
+		e_error(client->event, "%s", error);
 		client_destroy(client, error);
 	}
 }

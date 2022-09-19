@@ -351,12 +351,14 @@ int pop3_lock_session(struct client *client)
 					      MAILBOX_LIST_PATH_TYPE_DIR, &dir)) {
 		type = MAILBOX_LIST_PATH_TYPE_DIR;
 	} else {
-		i_error("pop3_lock_session: Storage has no root/index directory, "
+		e_error(client->event,
+			"pop3_lock_session: Storage has no root/index directory, "
 			"can't create a POP3 session lock file");
 		return -1;
 	}
 	if (mailbox_list_mkdir_root(client->inbox_ns->list, dir, type) < 0) {
-		i_error("pop3_lock_session: Couldn't create root directory %s: %s",
+		e_error(client->event,
+			"pop3_lock_session: Couldn't create root directory %s: %s",
 			dir, mailbox_list_get_last_internal_error(client->inbox_ns->list, NULL));
 		return -1;
 	}
@@ -369,7 +371,8 @@ int pop3_lock_session(struct client *client)
 	ret = file_dotlock_create(&dotlock_set, path, 0,
 				  &client->session_dotlock);
 	if (ret < 0)
-		i_error("file_dotlock_create(%s) failed: %m", path);
+		e_error(client->event,
+			"file_dotlock_create(%s) failed: %m", path);
 	else if (ret > 0) {
 		client->to_session_dotlock_refresh =
 			timeout_add(POP3_SESSION_DOTLOCK_STALE_TIMEOUT_SECS*1000,
@@ -556,7 +559,8 @@ static const char *client_stats(struct client *client)
 	if (var_expand_with_funcs(str, client->set->pop3_logout_format,
 				  tab, mail_user_var_expand_func_table,
 				  client->user, &error) <= 0) {
-		i_error("Failed to expand pop3_logout_format=%s: %s",
+		e_error(client->event,
+			"Failed to expand pop3_logout_format=%s: %s",
 			client->set->pop3_logout_format, error);
 	}
 	return str_c(str);
@@ -583,7 +587,8 @@ static void client_default_destroy(struct client *client, const char *reason)
 			reason = io_stream_get_disconnect_reason(client->input,
 								 client->output);
 		}
-		i_info("Disconnected: %s %s", reason, client_stats(client));
+		e_info(client->event,
+		       "Disconnected: %s %s", reason, client_stats(client));
 	}
 
 	if (client->cmd != NULL) {
