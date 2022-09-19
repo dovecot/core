@@ -554,13 +554,13 @@ static void connect_callback(CassFuture *future, void *context)
 
 static const char *driver_cassandra_table_prefix(struct sql_db *_db)
 {
-	struct cassandra_db *db = (struct cassandra_db *)_db;
+	struct cassandra_db *db = container_of(_db, struct cassandra_db, api);
 	return db->table_prefix == NULL ? "" : db->table_prefix;
 }
 
 static int driver_cassandra_connect(struct sql_db *_db)
 {
-	struct cassandra_db *db = (struct cassandra_db *)_db;
+	struct cassandra_db *db = container_of(_db, struct cassandra_db, api);
 	CassFuture *future;
 
 	i_assert(db->api.state == SQL_DB_STATE_DISCONNECTED);
@@ -580,7 +580,7 @@ static int driver_cassandra_connect(struct sql_db *_db)
 
 static void driver_cassandra_disconnect(struct sql_db *_db)
 {
-	struct cassandra_db *db = (struct cassandra_db *)_db;
+	struct cassandra_db *db = container_of(_db, struct cassandra_db, api);
 
 	driver_cassandra_close(db, "Disconnected");
 }
@@ -1114,7 +1114,7 @@ static int driver_cassandra_init_full_v(const struct sql_settings *set,
 
 static void driver_cassandra_deinit_v(struct sql_db *_db)
 {
-	struct cassandra_db *db = (struct cassandra_db *)_db;
+	struct cassandra_db *db = container_of(_db, struct cassandra_db, api);
 
 	driver_cassandra_close(db, "Deinitialized");
 
@@ -1152,7 +1152,7 @@ static void driver_cassandra_result_unlink(struct cassandra_db *db,
 static void driver_cassandra_log_result(struct cassandra_result *result,
 					bool all_pages, long long reply_usecs)
 {
-	struct cassandra_db *db = (struct cassandra_db *)result->api.db;
+	struct cassandra_db *db = container_of(result->api.db, struct cassandra_db, api);
 	struct timeval now;
 	unsigned int row_count;
 
@@ -1195,7 +1195,7 @@ static void driver_cassandra_log_result(struct cassandra_result *result,
 
 static void driver_cassandra_result_free(struct sql_result *_result)
 {
-	struct cassandra_db *db = (struct cassandra_db *)_result->db;
+	struct cassandra_db *db = container_of(_result->db,struct cassandra_db, api);
 	struct cassandra_result *result = (struct cassandra_result *)_result;
 	long long reply_usecs;
 
@@ -1232,7 +1232,7 @@ static void driver_cassandra_result_free(struct sql_result *_result)
 
 static void result_finish(struct cassandra_result *result)
 {
-	struct cassandra_db *db = (struct cassandra_db *)result->api.db;
+	struct cassandra_db *db = container_of(result->api.db, struct cassandra_db, api);
 	bool free_result = TRUE;
 
 	result->finished = TRUE;
@@ -1259,7 +1259,7 @@ static void result_finish(struct cassandra_result *result)
 
 static void query_resend_with_fallback(struct cassandra_result *result)
 {
-	struct cassandra_db *db = (struct cassandra_db *)result->api.db;
+	struct cassandra_db *db = container_of(result->api.db, struct cassandra_db, api);
 	time_t last_warning =
 		ioloop_time - db->last_fallback_warning[result->query_type];
 
@@ -1366,7 +1366,7 @@ driver_cassandra_error_is_uncertain(CassError error)
 static void query_callback(CassFuture *future, void *context)
 {
 	struct cassandra_result *result = context;
-	struct cassandra_db *db = (struct cassandra_db *)result->api.db;
+	struct cassandra_db *db = container_of(result->api.db, struct cassandra_db, api);
 	CassError error = cass_future_error_code(future);
 
 	if (error != CASS_OK) {
@@ -1414,7 +1414,7 @@ static void query_callback(CassFuture *future, void *context)
 
 static void driver_cassandra_init_statement(struct cassandra_result *result)
 {
-	struct cassandra_db *db = (struct cassandra_db *)result->api.db;
+	struct cassandra_db *db = container_of(result->api.db, struct cassandra_db, api);
 
 	cass_statement_set_consistency(result->statement, result->consistency);
 
@@ -1427,7 +1427,7 @@ static void driver_cassandra_init_statement(struct cassandra_result *result)
 
 static void driver_cassandra_result_send_query(struct cassandra_result *result)
 {
-	struct cassandra_db *db = (struct cassandra_db *)result->api.db;
+	struct cassandra_db *db = container_of(result->api.db, struct cassandra_db, api);
 	CassFuture *future;
 
 	i_assert(result->statement != NULL);
@@ -1443,7 +1443,7 @@ static void driver_cassandra_result_send_query(struct cassandra_result *result)
 static bool
 driver_cassandra_want_fallback_query(struct cassandra_result *result)
 {
-	struct cassandra_db *db = (struct cassandra_db *)result->api.db;
+	struct cassandra_db *db = container_of(result->api.db, struct cassandra_db, api);
 	unsigned int failure_count = db->fallback_failures[result->query_type];
 	unsigned int i, msecs = CASSANDRA_FALLBACK_FIRST_RETRY_MSECS;
 	struct timeval tv;
@@ -1477,7 +1477,7 @@ driver_cassandra_want_fallback_query(struct cassandra_result *result)
 
 static int driver_cassandra_send_query(struct cassandra_result *result)
 {
-	struct cassandra_db *db = (struct cassandra_db *)result->api.db;
+	struct cassandra_db *db = container_of(result->api.db, struct cassandra_db, api);
 	int ret;
 
 	if (!SQL_DB_IS_READY(&db->api)) {
@@ -1571,7 +1571,7 @@ driver_cassandra_query_full(struct sql_db *_db, const char *query,
 			    enum cassandra_query_type query_type,
 			    sql_query_callback_t *callback, void *context)
 {
-	struct cassandra_db *db = (struct cassandra_db *)_db;
+	struct cassandra_db *db = container_of(_db, struct cassandra_db, api);
 	struct cassandra_result *result;
 
 	result = driver_cassandra_query_init(db, query, query_type, FALSE,
@@ -1668,7 +1668,7 @@ driver_cassandra_sync_query(struct cassandra_db *db, const char *query,
 static struct sql_result *
 driver_cassandra_query_s(struct sql_db *_db, const char *query)
 {
-	struct cassandra_db *db = (struct cassandra_db *)_db;
+	struct cassandra_db *db = container_of(_db, struct cassandra_db, api);
 	struct sql_result *result;
 
 	driver_cassandra_sync_init(db);
@@ -1753,7 +1753,7 @@ driver_cassandra_get_value(struct cassandra_result *result,
 
 static int driver_cassandra_result_next_page(struct cassandra_result *result)
 {
-	struct cassandra_db *db = (struct cassandra_db *)result->api.db;
+	struct cassandra_db *db = container_of(result->api.db, struct cassandra_db, api);
 
 	if (db->page_size == 0) {
 		/* no paging */
@@ -1808,7 +1808,7 @@ static void
 driver_cassandra_result_more(struct sql_result **_result, bool async,
 			     sql_query_callback_t *callback, void *context)
 {
-	struct cassandra_db *db = (struct cassandra_db *)(*_result)->db;
+	struct cassandra_db *db = container_of((*_result)->db, struct cassandra_db, api);
 	struct cassandra_result *new_result;
 	struct cassandra_result *old_result =
 		(struct cassandra_result *)*_result;
@@ -1992,7 +1992,7 @@ driver_cassandra_transaction_commit(struct sql_transaction_context *_ctx,
 {
 	struct cassandra_transaction_context *ctx =
 		(struct cassandra_transaction_context *)_ctx;
-	struct cassandra_db *db = (struct cassandra_db *)_ctx->db;
+	struct cassandra_db *db = container_of(_ctx->db, struct cassandra_db, api);
 	enum cassandra_query_type query_type;
 	struct sql_commit_result result;
 
@@ -2051,7 +2051,7 @@ static void
 driver_cassandra_try_commit_s(struct cassandra_transaction_context *ctx)
 {
 	struct sql_transaction_context *_ctx = &ctx->ctx;
-	struct cassandra_db *db = (struct cassandra_db *)_ctx->db;
+	struct cassandra_db *db = container_of(_ctx->db, struct cassandra_db, api);
 	struct sql_result *result = NULL;
 	enum cassandra_query_type query_type;
 
@@ -2264,7 +2264,7 @@ static void prepare_callback(CassFuture *future, void *context)
 
 static void prepare_start(struct cassandra_sql_prepared_statement *prep_stmt)
 {
-	struct cassandra_db *db = (struct cassandra_db *)prep_stmt->prep_stmt.db;
+	struct cassandra_db *db = container_of(prep_stmt->prep_stmt.db, struct cassandra_db, api);
 	CassFuture *future;
 
 	if (!SQL_DB_IS_READY(&db->api)) {
@@ -2485,7 +2485,7 @@ driver_cassandra_statement_query(struct sql_statement *_stmt,
 {
 	struct cassandra_sql_statement *stmt =
 		(struct cassandra_sql_statement *)_stmt;
-	struct cassandra_db *db = (struct cassandra_db *)_stmt->db;
+	struct cassandra_db *db = container_of(_stmt->db, struct cassandra_db, api);
 	const char *query = sql_statement_get_query(_stmt);
 	bool is_prepared = stmt->cass_stmt != NULL || stmt->prep != NULL;
 
@@ -2552,7 +2552,7 @@ static bool driver_cassandra_have_work(struct cassandra_db *db)
 
 static void driver_cassandra_wait(struct sql_db *_db)
 {
-	struct cassandra_db *db = (struct cassandra_db *)_db;
+	struct cassandra_db *db = container_of(_db, struct cassandra_db, api);
 
 	if (!driver_cassandra_have_work(db))
 		return;
