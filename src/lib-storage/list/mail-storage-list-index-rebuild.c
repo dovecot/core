@@ -11,6 +11,7 @@
 #include "mailbox-list-index.h"
 #include "mailbox-list-index-sync.h"
 #include "mail-storage-private.h"
+#include "strfuncs.h"
 
 struct mail_storage_list_index_rebuild_mailbox {
 	guid_128_t guid;
@@ -26,7 +27,7 @@ struct mail_storage_list_index_rebuild_ctx {
 	struct mail_storage *storage;
 	pool_t pool;
 	struct mailbox_list *first_list;
-	HASH_TABLE(uint8_t *, struct mail_storage_list_index_rebuild_mailbox *) mailboxes;
+	HASH_TABLE(char*, struct mail_storage_list_index_rebuild_mailbox *) mailboxes;
 	ARRAY(struct mail_storage_list_index_rebuild_ns) rebuild_namespaces;
 };
 
@@ -96,16 +97,15 @@ mail_storage_list_index_rebuild_unlock_lists(struct mail_storage_list_index_rebu
 }
 
 static int
-mail_storage_list_index_fill_storage_mailboxes(struct mail_storage_list_index_rebuild_ctx *ctx)
+mail_storage_list_index_fill_storage_mailboxes(struct mail_storage_list_index_rebuild_ctx *ctx,
+					       struct mailbox_list *list)
 {
 	struct mail_storage_list_index_rebuild_mailbox *box;
 	struct fs_iter *iter;
 	const char *path, *fname, *error;
 	guid_128_t guid;
-	uint8_t *guid_p;
 
-	path = mailbox_list_get_root_forced(ctx->first_list,
-					    MAILBOX_LIST_PATH_TYPE_MAILBOX);
+	path = mailbox_list_get_root_forced(list, MAILBOX_LIST_PATH_TYPE_MAILBOX);
 	iter = fs_iter_init_with_event(ctx->storage->mailboxes_fs,
 				       ctx->storage->event, path,
 				       FS_ITER_FLAG_DIRS | FS_ITER_FLAG_NOCACHE);
@@ -115,8 +115,9 @@ mail_storage_list_index_fill_storage_mailboxes(struct mail_storage_list_index_re
 
 		box = p_new(ctx->pool, struct mail_storage_list_index_rebuild_mailbox, 1);
 		guid_128_copy(box->guid, guid);
-		guid_p = box->guid;
-		hash_table_update(ctx->mailboxes, guid_p, box);
+		char *hk = p_strdup_printf(ctx->pool, "%s%s", list->ns->prefix,
+					   guid_128_to_string(guid));
+		hash_table_update(ctx->mailboxes, hk, box);
 	}
 
 	if (fs_iter_deinit(&iter, &error) < 0) {
@@ -177,7 +178,6 @@ mail_storage_list_index_find_indexed_mailbox(struct mail_storage_list_index_rebu
 	struct mail_storage_list_index_rebuild_mailbox *rebuild_box;
 	struct mailbox *box;
 	struct mailbox_metadata metadata;
-	const uint8_t *guid_p;
 	int ret = 0;
 
 	if ((info->flags & (MAILBOX_NOSELECT | MAILBOX_NONEXISTENT)) != 0)
@@ -190,21 +190,22 @@ mail_storage_list_index_find_indexed_mailbox(struct mail_storage_list_index_rebu
 			info->vname, mailbox_get_last_internal_error(box, NULL));
 		ret = -1;
 	} else {
-		guid_p = metadata.guid;
-		rebuild_box = hash_table_lookup(ctx->mailboxes, guid_p);
+		const char *hk = t_strdup_printf("%s%s", info->ns->prefix,
+						 guid_128_to_string(metadata.guid));
+		rebuild_box = hash_table_lookup(ctx->mailboxes, hk);
 		if (rebuild_box == NULL) {
 			/* indexed but doesn't exist in storage. shouldn't
 			   happen normally, but it'll be created when it gets
 			   accessed. */
 			e_debug(box->event,
 				"Mailbox GUID %s exists in list index, but not in storage",
-				guid_128_to_string(guid_p));
+				guid_128_to_string(metadata.guid));
 		} else if (rebuild_box->index_name == NULL) {
 			rebuild_box->index_name =
 				p_strdup(ctx->pool, box->name);
 			e_debug(box->event,
 				"Mailbox GUID %s exists in list index and in storage",
-				guid_128_to_string(guid_p));
+				guid_128_to_string(metadata.guid));
 		} else {
 			/* duplicate GUIDs in index. in theory this could be
 			   possible because of mailbox aliases, but we don't
@@ -360,14 +361,14 @@ static int mail_storage_list_index_add_missing(struct mail_storage_list_index_re
 {
 	struct hash_iterate_context *iter;
 	struct mail_storage_list_index_rebuild_mailbox *box;
-	uint8_t *guid_p;
+	char *key ATTR_UNUSED;
 	unsigned int num_created = 0;
 	int ret = 0;
 
 	iter = hash_table_iterate_init(ctx->mailboxes);
-	while (hash_table_iterate(iter, ctx->mailboxes, &guid_p, &box)) T_BEGIN {
+	while (hash_table_iterate(iter, ctx->mailboxes, &key, &box)) T_BEGIN {
 		if (box->index_name == NULL) {
-			if (mail_storage_list_index_create(ctx, guid_p) < 0)
+			if (mail_storage_list_index_create(ctx, box->guid) < 0)
 				ret = -1;
 			else
 				num_created++;
@@ -386,13 +387,12 @@ static int mail_storage_list_index_rebuild_ctx(struct mail_storage_list_index_re
 {
 	struct mail_storage_list_index_rebuild_ns *rebuild_ns;
 
-	if (mail_storage_list_index_fill_storage_mailboxes(ctx) < 0)
-		return -1;
-
 	array_foreach_modifiable(&ctx->rebuild_namespaces, rebuild_ns) {
 		e_debug(ctx->storage->event,
 			"Rebuilding list index for namespace '%s'",
 			rebuild_ns->ns->prefix);
+		if (mail_storage_list_index_fill_storage_mailboxes(ctx, rebuild_ns->ns->list) < 0)
+			return -1;
 		if (mail_storage_list_index_find_indexed_mailboxes(ctx, rebuild_ns) < 0)
 			return -1;
 	}
@@ -427,7 +427,7 @@ static int mail_storage_list_index_rebuild_int(struct mail_storage *storage)
 	i_zero(&ctx);
 	ctx.storage = storage;
 	ctx.pool = pool_alloconly_create("mailbox list index rebuild", 10240);
-	hash_table_create(&ctx.mailboxes, ctx.pool, 0, guid_128_hash, guid_128_cmp);
+	hash_table_create(&ctx.mailboxes, ctx.pool, 0, str_hash, strcmp);
 
 	/* if no namespaces are found, do nothing */
 	if (!mail_storage_list_index_rebuild_get_namespaces(&ctx)) {
