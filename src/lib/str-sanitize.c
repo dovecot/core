@@ -4,6 +4,7 @@
 #include "unichar.h"
 #include "str.h"
 #include "str-sanitize.h"
+#include <ctype.h>
 
 static size_t str_sanitize_skip_start(const char *src, size_t max_bytes)
 {
@@ -14,7 +15,7 @@ static size_t str_sanitize_skip_start(const char *src, size_t max_bytes)
 		int len = uni_utf8_get_char_n(src+i, max_bytes-i, &chr);
 		if (len <= 0)
 			break;
-		if ((unsigned char)src[i] < 32)
+		if (i_iscntrl(src[i]))
 			break;
 		i += len;
 	}
@@ -34,7 +35,7 @@ str_sanitize_skip_start_utf8(const char *src, uintmax_t max_chars)
 		int len = uni_utf8_get_char(src+i, &chr);
 		if (len <= 0)
 			break;
-		if ((unsigned char)src[i] < 32)
+		if (i_iscntrl(src[i]))
 			break;
 		c++;
 		i += len;
@@ -75,7 +76,7 @@ void str_sanitize_append(string_t *dest, const char *src, size_t max_bytes)
 			i++;
 			continue;
 		}
-		if ((unsigned char)src[i] < 32)
+		if (i_iscntrl(src[i]))
 			str_append_c(dest, '?');
 		else
 			str_append_data(dest, src+i, len);
@@ -115,7 +116,7 @@ void str_sanitize_append_utf8(string_t *dest, const char *src,
 			i++;
 			continue;
 		}
-		if ((unsigned char)src[i] < 32)
+		if (i_iscntrl(src[i]))
 			str_append(dest, UNICODE_REPLACEMENT_CHAR_UTF8);
 		else
 			str_append_data(dest, src+i, len);

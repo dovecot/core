@@ -31,7 +31,8 @@ static void test_str_sanitize_max_bytes(void)
 		{ "\xC3\xA4\xC3\xA4zyxa", 6, "\xC3\xA4..." },
 		{ "\xC3\xA4\xC3\xA4zyxa", 7, "\xC3\xA4\xC3\xA4..." },
 		{ "\xC3\xA4\xC3\xA4zyxa", 8, "\xC3\xA4\xC3\xA4zyxa" },
-		{ "\001x\x1fy\x81", 10, "?x?y?" }
+		{ "\001x\x1fy\x81", 10, "?x?y?" },
+		{ "-\x7F-", 3, "-?-" },
 	};
 	const char *str;
 	string_t *str2;
@@ -86,7 +87,8 @@ static void test_str_sanitize_max_codepoints(void)
 		{ "\xC3\xA4\xC3\xA4zyxa", 6, "\xC3\xA4\xC3\xA4zyxa" },
 		{ "\xC3\xA4\xC3\xA4zyxa", 7, "\xC3\xA4\xC3\xA4zyxa" },
 		{ "\xC3\xA4\xC3\xA4zyxa", 8, "\xC3\xA4\xC3\xA4zyxa" },
-		{ "\001x\x1fy\x81", 10, "\xEF\xBF\xBDx\xEF\xBF\xBDy\xEF\xBF\xBD" }
+		{ "\001x\x1fy\x81", 10, "\xEF\xBF\xBDx\xEF\xBF\xBDy\xEF\xBF\xBD" },
+		{ "-\x7F-", 3, "-\xEF\xBF\xBD-" },
 	};
 	const char *str;
 	string_t *str2;
