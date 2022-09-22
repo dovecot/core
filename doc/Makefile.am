@@ -75,6 +75,7 @@ dist-hook:
 
 install-data-local:
 	if [ ! -e html/index.html ]; then $(MAKE) html; fi
+	$(MKDIR_P) "$(DESTDIR)$(docdir)"
 	cp -nrf html "$(DESTDIR)$(docdir)"
 
 uninstall-local:
