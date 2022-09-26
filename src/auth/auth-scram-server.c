@@ -197,3 +197,44 @@ get_scram_server_first(struct scram_auth_request *request,
 		    salt, iter);
 	return str_c(str);
 }
+
+static bool verify_credentials(struct scram_auth_request *request)
+{
+	const struct hash_method *hmethod = request->hash_method;
+	struct hmac_context ctx;
+	const char *auth_message;
+	unsigned char client_key[hmethod->digest_size];
+	unsigned char client_signature[hmethod->digest_size];
+	unsigned char stored_key[hmethod->digest_size];
+	size_t i;
+
+	/* RFC 5802, Section 3:
+
+	   AuthMessage     := client-first-message-bare + "," +
+	                      server-first-message + "," +
+	                      client-final-message-without-proof
+	   ClientSignature := HMAC(StoredKey, AuthMessage)
+	 */
+	auth_message = t_strconcat(request->client_first_message_bare, ",",
+			request->server_first_message, ",",
+			request->client_final_message_without_proof, NULL);
+
+	hmac_init(&ctx, request->stored_key, hmethod->digest_size, hmethod);
+	hmac_update(&ctx, auth_message, strlen(auth_message));
+	hmac_final(&ctx, client_signature);
+
+	/* ClientProof     := ClientKey XOR ClientSignature */
+	const unsigned char *proof_data = request->proof->data;
+	for (i = 0; i < sizeof(client_signature); i++)
+		client_key[i] = proof_data[i] ^ client_signature[i];
+
+	/* StoredKey       := H(ClientKey) */
+	hash_method_get_digest(hmethod, client_key, sizeof(client_key),
+			       stored_key);
+
+	safe_memset(client_key, 0, sizeof(client_key));
+	safe_memset(client_signature, 0, sizeof(client_signature));
+
+	return mem_equals_timing_safe(stored_key, request->stored_key,
+				      sizeof(stored_key));
+}
