@@ -17,6 +17,7 @@
 #include "sha1.h"
 #include "sha2.h"
 #include "str.h"
+#include "auth-scram.h"
 #include "password-scheme.h"
 
 /* SCRAM allowed iteration count range. RFC says it SHOULD be at least 4096 */
@@ -24,8 +25,6 @@
 #define SCRAM_MAX_ITERATE_COUNT INT_MAX
 
 #define SCRAM_DEFAULT_ITERATE_COUNT 4096
-
-#include "auth-scram.c"
 
 int scram_scheme_parse(const struct hash_method *hmethod, const char *name,
 		       const unsigned char *credentials, size_t size,
@@ -97,8 +96,9 @@ int scram_verify(const struct hash_method *hmethod, const char *scheme_name,
 	salt = buffer_get_data(t_base64_decode_str(salt_base64), &salt_len);
 
 	/* FIXME: credentials should be SASLprepped UTF8 data here */
-	Hi(hmethod, (const unsigned char *)plaintext, strlen(plaintext),
-	   salt, salt_len, iter_count, salted_password);
+	auth_scram_hi(hmethod,
+		      (const unsigned char *)plaintext, strlen(plaintext),
+		      salt, salt_len, iter_count, salted_password);
 
 	/* Calculate ClientKey */
 	hmac_init(&ctx, salted_password, sizeof(salted_password), hmethod);
@@ -143,8 +143,9 @@ void scram_generate(const struct hash_method *hmethod, const char *plaintext,
 	base64_encode(salt, sizeof(salt), str);
 
 	/* FIXME: credentials should be SASLprepped UTF8 data here */
-	Hi(hmethod, (const unsigned char *)plaintext, strlen(plaintext), salt,
-	   sizeof(salt), rounds, salted_password);
+	auth_scram_hi(hmethod,
+		      (const unsigned char *)plaintext, strlen(plaintext),
+		      salt, sizeof(salt), rounds, salted_password);
 
 	/* Calculate ClientKey */
 	hmac_init(&ctx, salted_password, sizeof(salted_password), hmethod);

@@ -63,6 +63,7 @@ auth_LDFLAGS = -export-dynamic
 libpassword_la_SOURCES = \
 	crypt-blowfish.c \
 	mycrypt.c \
+	auth-scram.c \
 	password-scheme.c \
 	password-scheme-crypt.c \
 	password-scheme-md5crypt.c \
@@ -181,6 +182,7 @@ headers = \
 	passdb-blocking.h \
 	passdb-cache.h \
 	passdb-template.h \
+	auth-scram.h \
 	password-scheme.h \
 	userdb.h \
 	userdb-blocking.h \
