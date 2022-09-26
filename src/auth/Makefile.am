@@ -64,6 +64,7 @@ libpassword_la_SOURCES = \
 	crypt-blowfish.c \
 	mycrypt.c \
 	auth-scram.c \
+	auth-scram-server.c \
 	password-scheme.c \
 	password-scheme-crypt.c \
 	password-scheme-md5crypt.c \
@@ -183,6 +184,7 @@ headers = \
 	passdb-cache.h \
 	passdb-template.h \
 	auth-scram.h \
+	auth-scram-server.h \
 	password-scheme.h \
 	userdb.h \
 	userdb-blocking.h \

@@ -2,6 +2,7 @@
 #define AUTH_SCRAM_H
 
 struct auth_scram_key_data {
+	pool_t pool;
 	const struct hash_method *hmethod;
 
 	unsigned int iter_count;

@@ -1,24 +1,9 @@
-/*
- * SCRAM-SHA-1 SASL authentication, see RFC-5802
- *
- * Copyright (c) 2011-2016 Florian Zeitz <florob@babelmonkeys.de>
- *
- * This software is released under the MIT license.
- */
+/* Copyright (c) 2011-2023 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
-#include "base64.h"
-#include "buffer.h"
-#include "hmac.h"
 #include "sha1.h"
 #include "sha2.h"
-#include "randgen.h"
-#include "safe-memset.h"
-#include "str.h"
-#include "strfuncs.h"
-#include "strnum.h"
-#include "password-scheme.h"
-#include "auth-scram.h"
+#include "auth-scram-server.h"
 #include "mech.h"
 #include "mech-scram.h"
 
@@ -29,26 +14,11 @@ struct scram_auth_request {
 	struct auth_request auth_request;
 
 	pool_t pool;
-
-	const struct hash_method *hash_method;
 	const char *password_scheme;
 
-	/* sent: */
-	const char *server_first_message;
-	const char *snonce;
-
-	/* received: */
-	const char *gs2_header;
-	const char *cnonce;
-	const char *client_first_message_bare;
-	const char *client_final_message_without_proof;
-	buffer_t *proof;
-
-	/* looked up: */
-	struct auth_scram_key_data key_data;
+	struct auth_scram_server scram_server;
+	struct auth_scram_key_data *key_data;
 };
-
-#include "auth-scram-server.c"
 
 static void
 credentials_callback(enum passdb_result result,
@@ -58,8 +28,11 @@ credentials_callback(enum passdb_result result,
 	struct scram_auth_request *request =
 		container_of(auth_request, struct scram_auth_request,
 			     auth_request);
-	struct auth_scram_key_data *key_data = &request->key_data;
+	struct auth_scram_key_data *key_data = request->key_data;
 	const char *error;
+	const unsigned char *output;
+	size_t output_len;
+	bool end;
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
@@ -76,12 +49,11 @@ credentials_callback(enum passdb_result result,
 			break;
 		}
 
-		request->server_first_message = p_strdup(request->pool,
-			str_c(auth_scram_get_server_first(request)));
-
+		end = auth_scram_server_output(&request->scram_server,
+					       &output, &output_len);
+		i_assert(!end);
 		auth_request_handler_reply_continue(auth_request,
-					request->server_first_message,
-					strlen(request->server_first_message));
+						    output, output_len);
 		break;
 	case PASSDB_RESULT_INTERNAL_FAILURE:
 		auth_request_internal_failure(auth_request);
@@ -92,47 +64,85 @@ credentials_callback(enum passdb_result result,
 	}
 }
 
+static bool
+mech_scram_set_username(struct auth_scram_server *asserver,
+			const char *username, const char **error_r)
+{
+	struct scram_auth_request *request =
+		container_of(asserver, struct scram_auth_request, scram_server);
+
+	return auth_request_set_username(&request->auth_request,
+					 username, error_r);
+}
+
+static bool
+mech_scram_set_login_username(struct auth_scram_server *asserver,
+			      const char *username, const char **error_r)
+{
+	struct scram_auth_request *request =
+		container_of(asserver, struct scram_auth_request, scram_server);
+
+	return auth_request_set_login_username(&request->auth_request,
+					       username, error_r);
+}
+
+static int
+mech_scram_credentials_lookup(struct auth_scram_server *asserver,
+			      struct auth_scram_key_data *key_data)
+{
+	struct scram_auth_request *request =
+		container_of(asserver, struct scram_auth_request, scram_server);
+
+	request->key_data = key_data;
+	auth_request_lookup_credentials(&request->auth_request,
+					request->password_scheme,
+					credentials_callback);
+	return 0;
+}
+
+static const struct auth_scram_server_backend scram_server_backend = {
+	.set_username = mech_scram_set_username,
+	.set_login_username = mech_scram_set_login_username,
+
+	.credentials_lookup = mech_scram_credentials_lookup,
+};
+
 void mech_scram_auth_continue(struct auth_request *auth_request,
-			      const unsigned char *data, size_t data_size)
+			      const unsigned char *input, size_t input_len)
 {
 	struct scram_auth_request *request =
 		container_of(auth_request, struct scram_auth_request,
 			     auth_request);
+	enum auth_scram_server_error error_code;
 	const char *error = NULL;
-	const char *server_final_message;
-	size_t len;
+	const unsigned char *output;
+	size_t output_len;
+	int ret;
 
-	if (request->client_first_message_bare == NULL) {
-		/* Received client-first-message */
-		if (auth_scram_parse_client_first(request, data,
-						  data_size, &error) >= 0) {
-			auth_request_lookup_credentials(
-				&request->auth_request,
-				request->password_scheme,
-				credentials_callback);
-			return;
+	ret = auth_scram_server_input(&request->scram_server, input, input_len,
+				      &error_code, &error);
+	if (ret < 0) {
+		i_assert(error != NULL);
+		if (error_code == AUTH_SCRAM_SERVER_ERROR_VERIFICATION_FAILED) {
+			e_info(auth_request->mech_event,
+			       AUTH_LOG_MSG_PASSWORD_MISMATCH);
+		} else {
+			e_info(auth_request->mech_event, "%s", error);
 		}
-	} else {
-		/* Received client-final-message */
-		if (auth_scram_parse_client_final(request, data, data_size,
-						  &error) >= 0) {
-			if (!auth_scram_server_verify_credentials(request)) {
-				e_info(auth_request->mech_event,
-				       AUTH_LOG_MSG_PASSWORD_MISMATCH);
-			} else {
-				server_final_message =
-					str_c(auth_scram_get_server_final(request));
-				len = strlen(server_final_message);
-				auth_request_success(auth_request,
-						     server_final_message, len);
-				return;
-			}
-		}
+		auth_request_fail(auth_request);
+		return;
+	}
+	if (ret == 0)
+		return;
+
+	if (!auth_scram_server_output(&request->scram_server,
+				      &output, &output_len)) {
+		auth_request_handler_reply_continue(auth_request,
+						    output, output_len);
+		return;
 	}
 
-	if (error != NULL)
-		e_info(auth_request->mech_event, "%s", error);
-	auth_request_fail(auth_request);
+	auth_request_success(auth_request, output, output_len);
 }
 
 struct auth_request *
@@ -145,14 +155,10 @@ mech_scram_auth_new(const struct hash_method *hash_method,
 	pool = pool_alloconly_create(MEMPOOL_GROWING"scram_auth_request", 2048);
 	request = p_new(pool, struct scram_auth_request, 1);
 	request->pool = pool;
-
-	request->hash_method = hash_method;
 	request->password_scheme = password_scheme;
 
-	i_zero(&request->key_data);
-	request->key_data.hmethod = hash_method;
-	request->key_data.stored_key = p_malloc(pool, hash_method->digest_size);
-	request->key_data.server_key = p_malloc(pool, hash_method->digest_size);
+	auth_scram_server_init(&request->scram_server, pool,
+			       hash_method, &scram_server_backend);
 
 	request->auth_request.pool = pool;
 	return &request->auth_request;
@@ -170,6 +176,11 @@ static struct auth_request *mech_scram_sha256_auth_new(void)
 
 static void mech_scram_auth_free(struct auth_request *auth_request)
 {
+	struct scram_auth_request *request =
+		container_of(auth_request, struct scram_auth_request,
+			     auth_request);
+
+	auth_scram_server_deinit(&request->scram_server);
 	pool_unref(&auth_request->pool);
 }
 

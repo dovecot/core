@@ -1,3 +1,77 @@
+/*
+ * SCRAM-SHA-1 SASL authentication, see RFC-5802
+ *
+ * Copyright (c) 2011-2016 Florian Zeitz <florob@babelmonkeys.de>
+ * Copyright (c) 2022-2023 Dovecot Oy
+ *
+ * This software is released under the MIT license.
+ */
+
+#include "lib.h"
+#include "base64.h"
+#include "buffer.h"
+#include "hmac.h"
+#include "randgen.h"
+#include "safe-memset.h"
+#include "str.h"
+#include "strfuncs.h"
+#include "strnum.h"
+
+#include "auth-scram.h"
+#include "auth-scram-server.h"
+
+/* s-nonce length */
+#define SCRAM_SERVER_NONCE_LEN 64
+
+static bool
+auth_scram_server_set_username(struct auth_scram_server *server,
+			       const char *username, const char **error_r)
+{
+	return server->backend->set_username(server, username, error_r);
+}
+static bool
+auth_scram_server_set_login_username(struct auth_scram_server *server,
+				     const char *username, const char **error_r)
+{
+	return server->backend->set_login_username(server, username,
+						   error_r);
+}
+
+static int
+auth_scram_server_credentials_lookup(struct auth_scram_server *server)
+{
+	const struct hash_method *hmethod = server->hash_method;
+	struct auth_scram_key_data *kdata = &server->key_data;
+	pool_t pool = server->pool;
+
+	i_zero(kdata);
+	kdata->pool = pool;
+	kdata->hmethod = hmethod;
+	kdata->stored_key = p_malloc(pool, hmethod->digest_size);
+	kdata->server_key = p_malloc(pool, hmethod->digest_size);
+
+	return server->backend->credentials_lookup(server, kdata);
+}
+
+void auth_scram_server_init(struct auth_scram_server *server_r, pool_t pool,
+			    const struct hash_method *hmethod,
+			    const struct auth_scram_server_backend *backend)
+{
+	pool_ref(pool);
+
+	i_zero(server_r);
+	server_r->pool = pool;
+	server_r->hash_method = hmethod;
+
+	server_r->backend = backend;
+}
+
+void auth_scram_server_deinit(struct auth_scram_server *server)
+{
+	i_assert(server->hash_method != NULL);
+	pool_unref(&server->pool);
+}
+
 static const char *auth_scram_unescape_username(const char *in)
 {
 	string_t *out;
@@ -30,8 +104,10 @@ static const char *auth_scram_unescape_username(const char *in)
 }
 
 static int
-auth_scram_parse_client_first(struct scram_auth_request *server,
+auth_scram_parse_client_first(struct auth_scram_server *server,
 			      const unsigned char *data, size_t size,
+			      const char **username_r,
+			      const char **login_username_r,
 			      const char **error_r)
 {
 	const char *login_username = NULL;
@@ -137,17 +213,9 @@ auth_scram_parse_client_first(struct scram_auth_request *server,
 			*error_r = "Username escaping is invalid";
 			return -1;
 		}
-		if (!auth_request_set_username(&server->auth_request,
-					       username, error_r))
-			return -1;
 	} else {
 		*error_r = "Invalid username field";
 		return -1;
-	}
-	if (login_username != NULL) {
-		if (!auth_request_set_login_username(&server->auth_request,
-						     login_username, error_r))
-			return -1;
 	}
 
 	/* nonce           = "r=" c-nonce [s-nonce] */
@@ -158,6 +226,9 @@ auth_scram_parse_client_first(struct scram_auth_request *server,
 		return -1;
 	}
 
+	*username_r = username;
+	*login_username_r = login_username;
+
 	server->gs2_header = p_strdup(server->pool, gs2_header);
 	server->client_first_message_bare =
 		p_strdup(server->pool, cfm_bare);
@@ -165,7 +236,7 @@ auth_scram_parse_client_first(struct scram_auth_request *server,
 }
 
 static string_t *
-auth_scram_get_server_first(struct scram_auth_request *server)
+auth_scram_get_server_first(struct auth_scram_server *server)
 {
 	const struct hash_method *hmethod = server->hash_method;
 	struct auth_scram_key_data *kdata = &server->key_data;
@@ -187,6 +258,7 @@ auth_scram_get_server_first(struct scram_auth_request *server)
 	                     ;; A positive number.
 	 */
 
+	i_assert(kdata->pool == server->pool);
 	i_assert(kdata->hmethod == hmethod);
 	i_assert(kdata->salt != NULL);
 	i_assert(kdata->iter_count != 0);
@@ -206,11 +278,14 @@ auth_scram_get_server_first(struct scram_auth_request *server)
 			strlen(kdata->salt));
 	str_printfa(str, "r=%s%s,s=%s,i=%d", server->cnonce, server->snonce,
 		    kdata->salt, kdata->iter_count);
+
+	server->server_first_message = p_strdup(server->pool, str_c(str));
+
 	return str;
 }
 
 static bool
-auth_scram_server_verify_credentials(struct scram_auth_request *server)
+auth_scram_server_verify_credentials(struct auth_scram_server *server)
 {
 	const struct hash_method *hmethod = server->hash_method;
 	struct auth_scram_key_data *kdata = &server->key_data;
@@ -221,6 +296,7 @@ auth_scram_server_verify_credentials(struct scram_auth_request *server)
 	unsigned char stored_key[hmethod->digest_size];
 	size_t i;
 
+	i_assert(kdata->pool == server->pool);
 	i_assert(kdata->hmethod == hmethod);
 
 	/* RFC 5802, Section 3:
@@ -255,7 +331,7 @@ auth_scram_server_verify_credentials(struct scram_auth_request *server)
 }
 
 static int
-auth_scram_parse_client_final(struct scram_auth_request *server,
+auth_scram_parse_client_final(struct auth_scram_server *server,
 			      const unsigned char *data, size_t size,
 			      const char **error_r)
 {
@@ -338,7 +414,7 @@ auth_scram_parse_client_final(struct scram_auth_request *server,
 }
 
 static string_t *
-auth_scram_get_server_final(struct scram_auth_request *server)
+auth_scram_get_server_final(struct auth_scram_server *server)
 {
 	const struct hash_method *hmethod = server->hash_method;
 	struct auth_scram_key_data *kdata = &server->key_data;
@@ -376,4 +452,207 @@ auth_scram_get_server_final(struct scram_auth_request *server)
 	base64_encode(server_signature, sizeof(server_signature), str);
 
 	return str;
+}
+
+static int
+auth_scram_parse_client_finish(struct auth_scram_server *server ATTR_UNUSED,
+			       const unsigned char *data ATTR_UNUSED,
+			       size_t size, const char **error_r)
+{
+	if (size != 0) {
+		*error_r = "Spurious extra client message";
+		return -1;
+	}
+	return 0;
+}
+
+bool auth_scram_server_acces_granted(struct auth_scram_server *server)
+{
+	return (server->state == AUTH_SCRAM_SERVER_STATE_SERVER_FINAL);
+}
+
+static int
+auth_scram_server_input_client_first(struct auth_scram_server *server,
+				     const unsigned char *input,
+				     size_t input_len,
+				     enum auth_scram_server_error *error_code_r,
+				     const char **error_r)
+{
+	const char *username, *login_username;
+	int ret;
+
+	username = login_username = NULL;
+	
+	/* Parse client-first message */
+	ret = auth_scram_parse_client_first(server, input, input_len,
+					    &username, &login_username,
+					    error_r);
+	if (ret < 0) {
+		*error_code_r = AUTH_SCRAM_SERVER_ERROR_PROTOCOL_VIOLATION;
+		return -1;
+	}
+
+	/* Pass usernames to backend */
+	i_assert(username != NULL);
+	if (!auth_scram_server_set_username(server, username, error_r)) {
+		*error_code_r =	AUTH_SCRAM_SERVER_ERROR_BAD_USERNAME;
+		return -1;
+	}
+	if (login_username != NULL &&
+	    !auth_scram_server_set_login_username(server, login_username,
+						  error_r)) {
+		*error_code_r = AUTH_SCRAM_SERVER_ERROR_BAD_LOGIN_USERNAME;
+		return -1;
+	}
+	
+	return 0;
+}
+
+static int
+auth_scram_server_input_client_final(struct auth_scram_server *server,
+				     const unsigned char *input,
+				     size_t input_len,
+				     enum auth_scram_server_error *error_code_r,
+				     const char **error_r)
+{
+	int ret;
+	
+	/* Parse client-final message */
+	ret = auth_scram_parse_client_final(server, input, input_len, error_r);
+	if (ret < 0) {
+		*error_code_r = AUTH_SCRAM_SERVER_ERROR_PROTOCOL_VIOLATION;
+		return -1;
+	}
+
+	/* Verify client credentials */
+	if (!auth_scram_server_verify_credentials(server)) {
+		*error_code_r = AUTH_SCRAM_SERVER_ERROR_VERIFICATION_FAILED;
+		*error_r = "Password mismatch";
+		return -1;
+	}
+
+	return 0;
+}
+
+int auth_scram_server_input(struct auth_scram_server *server,
+			    const unsigned char *input, size_t input_len,
+			    enum auth_scram_server_error *error_code_r,
+			    const char **error_r)
+{
+	struct auth_scram_key_data *kdata = &server->key_data;
+	int ret = 0;
+
+	*error_code_r =	AUTH_SCRAM_SERVER_ERROR_NONE;
+	*error_r = NULL;
+
+	switch (server->state) {
+	case AUTH_SCRAM_SERVER_STATE_INIT:
+		server->state = AUTH_SCRAM_SERVER_STATE_CLIENT_FIRST;
+		/* Fall through */
+	case AUTH_SCRAM_SERVER_STATE_CLIENT_FIRST:
+		/* Handle client-first message */
+		ret = auth_scram_server_input_client_first(
+			server, input, input_len, error_code_r, error_r);
+		if (ret < 0) {
+			server->state = AUTH_SCRAM_SERVER_STATE_ERROR;
+			ret = -1;
+			break;
+		}
+
+		/* Initiate credentials lookup */
+		server->state = AUTH_SCRAM_SERVER_STATE_CREDENTIALS_LOOKUP;
+		if (auth_scram_server_credentials_lookup(server) < 0) {
+			*error_code_r = AUTH_SCRAM_SERVER_ERROR_LOOKUP_FAILED;
+			*error_r = "Credentials lookup failed";
+			server->state = AUTH_SCRAM_SERVER_STATE_ERROR;
+			ret = -1;
+			break;
+		}
+		if (server->state ==
+		    AUTH_SCRAM_SERVER_STATE_CREDENTIALS_LOOKUP) {
+			server->state = AUTH_SCRAM_SERVER_STATE_SERVER_FIRST;
+			ret = (kdata->salt != NULL ? 1 : 0);
+			break;
+		}
+		i_assert(server->state >= AUTH_SCRAM_SERVER_STATE_SERVER_FIRST);
+		ret = 0;
+		break;
+	case AUTH_SCRAM_SERVER_STATE_CREDENTIALS_LOOKUP:
+	case AUTH_SCRAM_SERVER_STATE_SERVER_FIRST:
+		i_unreached();
+	case AUTH_SCRAM_SERVER_STATE_CLIENT_FINAL:
+		/* Handle client-final message */
+		ret = auth_scram_server_input_client_final(
+			server, input, input_len, error_code_r, error_r);
+		if (ret < 0) {
+			server->state = AUTH_SCRAM_SERVER_STATE_ERROR;
+			break;
+		}
+		server->state = AUTH_SCRAM_SERVER_STATE_SERVER_FINAL;
+		ret = 1;
+		break;
+	case AUTH_SCRAM_SERVER_STATE_SERVER_FINAL:
+		i_unreached();
+	case AUTH_SCRAM_SERVER_STATE_CLIENT_FINISH:
+		server->state = AUTH_SCRAM_SERVER_STATE_END;
+		ret = auth_scram_parse_client_finish(server, input, input_len,
+						     error_r);
+		if (ret < 0) {
+			*error_code_r =
+				AUTH_SCRAM_SERVER_ERROR_PROTOCOL_VIOLATION;
+			server->state = AUTH_SCRAM_SERVER_STATE_ERROR;
+		}
+		break;
+	case AUTH_SCRAM_SERVER_STATE_END:
+	case AUTH_SCRAM_SERVER_STATE_ERROR:
+		i_unreached();
+	}
+
+	return ret;
+}
+
+bool auth_scram_server_output(struct auth_scram_server *server,
+			      const unsigned char **output_r,
+			      size_t *output_len_r)
+{
+	struct auth_scram_key_data *kdata = &server->key_data;
+	string_t *output;
+	bool result = FALSE;
+
+	switch (server->state) {
+	case AUTH_SCRAM_SERVER_STATE_INIT:
+		*output_r = uchar_empty_ptr;
+		*output_len_r = 0;
+		server->state = AUTH_SCRAM_SERVER_STATE_CLIENT_FIRST;
+		break;
+	case AUTH_SCRAM_SERVER_STATE_CLIENT_FIRST:
+		i_unreached();
+	case AUTH_SCRAM_SERVER_STATE_CREDENTIALS_LOOKUP:
+		i_assert(kdata->salt != NULL);
+		server->state = AUTH_SCRAM_SERVER_STATE_SERVER_FIRST;
+		/* Fall through */
+	case AUTH_SCRAM_SERVER_STATE_SERVER_FIRST:
+		/* Compose server-first message */
+		output = auth_scram_get_server_first(server);
+		*output_r = str_data(output);
+		*output_len_r = str_len(output);
+		server->state = AUTH_SCRAM_SERVER_STATE_CLIENT_FINAL;
+		break;
+	case AUTH_SCRAM_SERVER_STATE_CLIENT_FINAL:
+		i_unreached();
+	case AUTH_SCRAM_SERVER_STATE_SERVER_FINAL:
+		/* Compose server-final message */
+		output = auth_scram_get_server_final(server);
+		*output_r = str_data(output);
+		*output_len_r = str_len(output);
+		server->state = AUTH_SCRAM_SERVER_STATE_CLIENT_FINISH;
+		result = TRUE;
+		break;
+	case AUTH_SCRAM_SERVER_STATE_CLIENT_FINISH:
+	case AUTH_SCRAM_SERVER_STATE_END:
+	case AUTH_SCRAM_SERVER_STATE_ERROR:
+		i_unreached();
+	}
+
+	return result;
 }
