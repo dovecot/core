@@ -1,14 +1,16 @@
-noinst_LTLIBRARIES = libauth.la
+noinst_LTLIBRARIES = libauth-common.la
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test
 
-libauth_la_SOURCES = \
-	auth-scram.c
+libauth_common_la_SOURCES = \
+	auth-scram.c \
+	auth-scram-server.c
 
 headers = \
-	auth-scram.h
+	auth-scram.h \
+	auth-scram-server.h
 
 pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
