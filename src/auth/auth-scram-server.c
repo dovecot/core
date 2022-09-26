@@ -157,3 +157,43 @@ parse_scram_client_first(struct scram_auth_request *request,
 	request->client_first_message_bare = p_strdup(request->pool, cfm_bare);
 	return TRUE;
 }
+
+static const char *
+get_scram_server_first(struct scram_auth_request *request,
+		       int iter, const char *salt)
+{
+	unsigned char snonce[SCRAM_SERVER_NONCE_LEN+1];
+	string_t *str;
+	size_t i;
+
+	/* RFC 5802, Section 7:
+
+	   server-first-message =
+	                     [reserved-mext ","] nonce "," salt ","
+	                     iteration-count ["," extensions]
+
+	   nonce           = "r=" c-nonce [s-nonce]
+
+	   salt            = "s=" base64
+
+	   iteration-count = "i=" posit-number
+	                     ;; A positive number.
+	 */
+
+	random_fill(snonce, sizeof(snonce)-1);
+
+	/* Make sure snonce is printable and does not contain ',' */
+	for (i = 0; i < sizeof(snonce)-1; i++) {
+		snonce[i] = (snonce[i] % ('~' - '!')) + '!';
+		if (snonce[i] == ',')
+			snonce[i] = '~';
+	}
+	snonce[sizeof(snonce)-1] = '\0';
+	request->snonce = p_strndup(request->pool, snonce, sizeof(snonce));
+
+	str = t_str_new(32 + strlen(request->cnonce) + sizeof(snonce) +
+			strlen(salt));
+	str_printfa(str, "r=%s%s,s=%s,i=%d", request->cnonce, request->snonce,
+		    salt, iter);
+	return str_c(str);
+}
