@@ -10,6 +10,7 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-settings \
+	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-auth-client \
 	-I$(top_srcdir)/src/lib-compression \
 	-I$(top_srcdir)/src/lib-dict \
@@ -39,6 +40,7 @@ AM_CPPFLAGS = \
 
 cmd_pw_libs = \
 	../auth/libpassword.la \
+	../lib-auth/libauth.la \
 	../lib-otp/libotp.la
 
 libs = \

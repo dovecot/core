@@ -37,6 +37,7 @@ pkglibexec_PROGRAMS = auth
 
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
+	-I$(top_srcdir)/src/lib-auth \
 	-I$(top_srcdir)/src/lib-auth-client \
 	-I$(top_srcdir)/src/lib-test \
 	-I$(top_srcdir)/src/lib-dict \
@@ -63,7 +64,6 @@ auth_LDFLAGS = -export-dynamic
 libpassword_la_SOURCES = \
 	crypt-blowfish.c \
 	mycrypt.c \
-	auth-scram.c \
 	auth-scram-server.c \
 	password-scheme.c \
 	password-scheme-crypt.c \
@@ -77,6 +77,7 @@ libpassword_la_CFLAGS = $(AM_CPPFLAGS) $(LIBSODIUM_CFLAGS)
 auth_libs = \
 	libauth.la \
 	libpassword.la \
+	../lib-auth/libauth.la \
 	../lib-otp/libotp.la \
 	$(AUTH_LUA_LIBS) \
 	$(LIBDOVECOT_SQL)
@@ -183,7 +184,6 @@ headers = \
 	passdb-blocking.h \
 	passdb-cache.h \
 	passdb-template.h \
-	auth-scram.h \
 	auth-scram-server.h \
 	password-scheme.h \
 	userdb.h \
@@ -240,6 +240,7 @@ test_libs = \
 test_libpassword_SOURCES = test-libpassword.c
 test_libpassword_LDADD = \
 	libpassword.la \
+	../lib-auth/libauth.la \
         ../lib-otp/libotp.la \
 	$(CRYPT_LIBS) \
 	$(LIBDOVECOT_SQL) \
