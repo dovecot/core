@@ -321,3 +321,42 @@ parse_scram_client_final(struct scram_auth_request *request,
 
 	return TRUE;
 }
+
+static const char *get_scram_server_final(struct scram_auth_request *request)
+{
+	const struct hash_method *hmethod = request->hash_method;
+	struct hmac_context ctx;
+	const char *auth_message;
+	unsigned char server_signature[hmethod->digest_size];
+	string_t *str;
+
+	/* RFC 5802, Section 3:
+
+	   AuthMessage     := client-first-message-bare + "," +
+	                      server-first-message + "," +
+	                      client-final-message-without-proof
+	   ServerSignature := HMAC(ServerKey, AuthMessage)
+	 */
+	auth_message = t_strconcat(request->client_first_message_bare, ",",
+			request->server_first_message, ",",
+			request->client_final_message_without_proof, NULL);
+
+	hmac_init(&ctx, request->server_key, hmethod->digest_size, hmethod);
+	hmac_update(&ctx, auth_message, strlen(auth_message));
+	hmac_final(&ctx, server_signature);
+
+	/* RFC 5802, Section 7:
+
+	   server-final-message = (server-error / verifier)
+	                     ["," extensions]
+
+	   verifier        = "v=" base64
+	                     ;; base-64 encoded ServerSignature.
+
+	 */
+	str = t_str_new(2 + MAX_BASE64_ENCODED_SIZE(sizeof(server_signature)));
+	str_append(str, "v=");
+	base64_encode(server_signature, sizeof(server_signature), str);
+
+	return str_c(str);
+}
