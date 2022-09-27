@@ -3,19 +3,23 @@
 #include "lib.h"
 #include "hash.h"
 #include "guid.h"
+#include "mail-namespace.h"
 #include "str.h"
 #include "str-sanitize.h"
 #include "hex-binary.h"
 #include "randgen.h"
 #include "fs-api.h"
+#include "mail-index.h"
 #include "mailbox-list-index.h"
 #include "mailbox-list-index-sync.h"
+#include "mailbox-tree.h"
 #include "mail-storage-private.h"
 #include "strfuncs.h"
 
 struct mail_storage_list_index_rebuild_mailbox {
 	guid_128_t guid;
 	const char *index_name;
+	const char *storage_name;
 	struct mailbox_list *list;
 };
 
@@ -92,6 +96,69 @@ mail_storage_list_index_rebuild_unlock_lists(struct mail_storage_list_index_rebu
 	}
 }
 
+static bool try_get_mailbox_name(struct mail_storage_list_index_rebuild_ctx *ctx,
+				 struct mailbox_list *list, const char *path,
+				 const char **name_r)
+{
+	struct mail_index *index =
+		mail_index_alloc(ctx->storage->event, path, MAIL_INDEX_PREFIX);
+	struct mail_index_view *view;
+	uint32_t box_name_hdr_ext_id;
+	bool ret = FALSE;
+	int rc;
+	if ((rc = mail_index_open(index, MAIL_INDEX_OPEN_FLAG_READONLY)) > 0) {
+		if (mail_index_ext_lookup(index, "box-name", &box_name_hdr_ext_id)) {
+			view = mail_index_view_open(index);
+			const void *name_hdr;
+			size_t name_hdr_size;
+			mail_index_get_header_ext(view, box_name_hdr_ext_id,
+						  &name_hdr, &name_hdr_size);
+			*name_r = mailbox_name_hdr_decode_storage_name(list,
+							name_hdr, name_hdr_size);
+			ret = TRUE;
+			mail_index_view_close(&view);
+		} else {
+			e_debug(ctx->storage->event,
+				"Cannot find box-name extension in mailbox index at %s", path);
+		}
+		mail_index_close(index);
+	} else if (rc == 0) {
+		e_debug(ctx->storage->event, "Cannot open mailbox index at %s: Not found", path);
+	} else if (rc < 0) {
+		e_debug(ctx->storage->event, "Cannot open mailbox index at %s: %s",
+			path, mail_index_get_error_message(index));
+	}
+	mail_index_free(&index);
+	return ret;
+}
+
+static const char *get_box_name(struct mail_storage_list_index_rebuild_ctx *ctx,
+				struct mail_storage_list_index_rebuild_mailbox *box)
+{
+	const char *path =
+		t_strdup_printf("%s/%s",
+				mailbox_list_get_root_forced(box->list, MAILBOX_LIST_PATH_TYPE_MAILBOX),
+				guid_128_to_string(box->guid));
+	const char *box_name;
+	bool inbox_ns = (box->list->ns->flags & NAMESPACE_FLAG_INBOX_USER) != 0;
+
+	if (try_get_mailbox_name(ctx, box->list, path, &box_name)) {
+		/* special case handling */
+		if (inbox_ns && strcmp(box_name, "INBOX") == 0)
+			box_name = "INBOX";
+		e_debug(ctx->storage->event, "Found '%s' from storage %s",
+			box_name, path);
+	} else {
+		e_debug(ctx->storage->event, "Found GUID '%s' from storage %s, "
+					     "but could not recover mailbox name",
+			guid_128_to_string(box->guid), path);
+		box_name = t_strdup_printf("%s%s",
+					   ctx->storage->lost_mailbox_prefix,
+					   guid_128_to_string(box->guid));
+	}
+	return box_name;
+}
+
 static int
 mail_storage_list_index_fill_storage_mailboxes(struct mail_storage_list_index_rebuild_ctx *ctx,
 					       struct mailbox_list *list)
@@ -105,17 +172,18 @@ mail_storage_list_index_fill_storage_mailboxes(struct mail_storage_list_index_re
 	iter = fs_iter_init_with_event(ctx->storage->mailboxes_fs,
 				       ctx->storage->event, path,
 				       FS_ITER_FLAG_DIRS | FS_ITER_FLAG_NOCACHE);
-	while ((fname = fs_iter_next(iter)) != NULL) {
+	while ((fname = fs_iter_next(iter)) != NULL) T_BEGIN {
 		if (guid_128_from_string(fname, guid) < 0)
 			continue;
-
 		box = p_new(ctx->pool, struct mail_storage_list_index_rebuild_mailbox, 1);
 		guid_128_copy(box->guid, guid);
+		e_debug(ctx->storage->event, "Found GUID '%s' from storage %s",
+			guid_128_to_string(guid), path);
 		char *hk = p_strdup_printf(ctx->pool, "%s%s", list->ns->prefix,
 					   guid_128_to_string(guid));
 		box->list = list;
 		hash_table_update(ctx->mailboxes, hk, box);
-	}
+	} T_END;
 
 	if (fs_iter_deinit(&iter, &error) < 0) {
 		mail_storage_set_critical(ctx->storage,
@@ -283,8 +351,7 @@ mail_storage_list_index_try_create(struct mail_storage_list_index_rebuild_ctx *c
 	i_zero(&update);
 	guid_128_copy(update.mailbox_guid, guid_p);
 
-	str_printfa(name, "%s%s%s", list->ns->prefix,
-		    storage->lost_mailbox_prefix, boxname);
+	str_append(name, boxname);
 	if (retry) {
 		random_fill(randomness, sizeof(randomness));
 		str_append_c(name, '-');
@@ -334,15 +401,16 @@ mail_storage_list_index_try_create(struct mail_storage_list_index_rebuild_ctx *c
 static int
 mail_storage_list_index_create(struct mail_storage_list_index_rebuild_ctx *ctx,
 			       struct mailbox_list *list,
+			       const char *boxname,
 			       const uint8_t *guid_p)
 {
 	int i, ret = 0;
 	/* FIXME: we should find out the mailbox's original namespace from the
 	   mailbox index's header. */
-	const char *boxname = guid_128_to_string(guid_p);
 	for (i = 0; i < 100; i++) {
 		T_BEGIN {
-			ret = mail_storage_list_index_try_create(ctx, list, guid_p, boxname, i > 0);
+			ret = mail_storage_list_index_try_create(ctx, list, guid_p,
+								 boxname, i > 0);
 		} T_END;
 		if (ret != 0)
 			return ret;
@@ -354,29 +422,72 @@ mail_storage_list_index_create(struct mail_storage_list_index_rebuild_ctx *ctx,
 	return -1;
 }
 
+struct mailbox_sort_node {
+	struct mailbox_node node;
+	struct mail_storage_list_index_rebuild_mailbox *box;
+};
+
 static int mail_storage_list_index_add_missing(struct mail_storage_list_index_rebuild_ctx *ctx)
 {
 	struct hash_iterate_context *iter;
 	struct mail_storage_list_index_rebuild_mailbox *box;
 	char *key ATTR_UNUSED;
+	struct mailbox_node *_node;
 	unsigned int num_created = 0;
+	char sep = mail_namespaces_get_root_sep(ctx->storage->user->namespaces);
 	int ret = 0;
 
 	iter = hash_table_iterate_init(ctx->mailboxes);
-	while (hash_table_iterate(iter, ctx->mailboxes, &key, &box)) T_BEGIN {
-		if (box->index_name == NULL) {
-			if (mail_storage_list_index_create(ctx, box->list, box->guid) < 0)
+	/* we need to sort the boxes so that they end up created in right order
+	   in case we have total loss of indexes */
+
+	e_debug(ctx->storage->event, "Sorting mailbox tree");
+	struct mailbox_tree_context *tree =
+		mailbox_tree_init_size(sep, sizeof(struct mailbox_sort_node));
+	while (hash_table_iterate(iter, ctx->mailboxes, &key, &box)) {
+		bool created;
+		const char *name = box->index_name;
+		if (name == NULL)
+			name = get_box_name(ctx, box);
+		const char *vname =
+			t_strconcat(box->list->ns->prefix, name, NULL);
+		_node =	mailbox_tree_get(tree, vname, &created);
+		struct mailbox_sort_node *node =
+			container_of(_node, struct mailbox_sort_node, node);
+		node->box = box;
+	}
+	hash_table_iterate_deinit(&iter);
+
+	mailbox_tree_sort(tree);
+
+	struct mailbox_tree_iterate_context *tree_iter =
+		mailbox_tree_iterate_init(tree, NULL, 0);
+	const char *box_name;
+	e_debug(ctx->storage->event, "Recovering lost mailboxes");
+	while ((_node = mailbox_tree_iterate_next(tree_iter, &box_name)) != NULL) {
+		struct mailbox_sort_node *node =
+			container_of(_node, struct mailbox_sort_node, node);
+		/* skip any intermediate levels that might get created
+		   into the tree  */
+		if (node->box == NULL)
+			continue;
+		/* this node needs to be created */
+		if (node->box->index_name == NULL) {
+			if (mail_storage_list_index_create(ctx, node->box->list,
+							   box_name,
+							   node->box->guid) < 0)
 				ret = -1;
 			else
 				num_created++;
 		}
-	} T_END;
-	hash_table_iterate_deinit(&iter);
+	}
+	mailbox_tree_iterate_deinit(&tree_iter);
 	if (num_created > 0) {
 		e_warning(ctx->storage->event,
 			  "Mailbox list rescan found %u lost mailboxes",
 			  num_created);
 	}
+	mailbox_tree_deinit(&tree);
 	return ret;
 }
 
