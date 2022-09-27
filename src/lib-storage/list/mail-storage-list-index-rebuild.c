@@ -16,6 +16,7 @@
 struct mail_storage_list_index_rebuild_mailbox {
 	guid_128_t guid;
 	const char *index_name;
+	struct mailbox_list *list;
 };
 
 struct mail_storage_list_index_rebuild_ns {
@@ -26,7 +27,6 @@ struct mail_storage_list_index_rebuild_ns {
 struct mail_storage_list_index_rebuild_ctx {
 	struct mail_storage *storage;
 	pool_t pool;
-	struct mailbox_list *first_list;
 	HASH_TABLE(char*, struct mail_storage_list_index_rebuild_mailbox *) mailboxes;
 	ARRAY(struct mail_storage_list_index_rebuild_ns) rebuild_namespaces;
 };
@@ -46,10 +46,6 @@ mail_storage_list_index_rebuild_get_namespaces(struct mail_storage_list_index_re
 		/* ignore any non-INDEX layout */
 		if (strcmp(ns->list->name, MAILBOX_LIST_NAME_INDEX) != 0)
 			continue;
-
-		/* track first list */
-		if (ctx->first_list == NULL)
-			ctx->first_list = ns->list;
 
 		rebuild_ns = array_append_space(&ctx->rebuild_namespaces);
 		rebuild_ns->ns = ns;
@@ -117,6 +113,7 @@ mail_storage_list_index_fill_storage_mailboxes(struct mail_storage_list_index_re
 		guid_128_copy(box->guid, guid);
 		char *hk = p_strdup_printf(ctx->pool, "%s%s", list->ns->prefix,
 					   guid_128_to_string(guid));
+		box->list = list;
 		hash_table_update(ctx->mailboxes, hk, box);
 	}
 
@@ -270,11 +267,12 @@ mail_storage_list_mailbox_create(struct mailbox *box,
 
 static int
 mail_storage_list_index_try_create(struct mail_storage_list_index_rebuild_ctx *ctx,
+				   struct mailbox_list *list,
 				   const uint8_t *guid_p,
+				   const char *boxname,
 				   bool retry)
 {
 	struct mail_storage *storage = ctx->storage;
-	struct mailbox_list *list;
 	struct mailbox *box;
 	struct mailbox_update update;
 	enum mailbox_existence existence;
@@ -282,15 +280,11 @@ mail_storage_list_index_try_create(struct mail_storage_list_index_rebuild_ctx *c
 	unsigned char randomness[8];
 	int ret;
 
-	/* FIXME: we should find out the mailbox's original namespace from the
-	   mailbox index's header. */
-	list = ctx->first_list;
-
 	i_zero(&update);
 	guid_128_copy(update.mailbox_guid, guid_p);
 
 	str_printfa(name, "%s%s%s", list->ns->prefix,
-		    storage->lost_mailbox_prefix, guid_128_to_string(guid_p));
+		    storage->lost_mailbox_prefix, boxname);
 	if (retry) {
 		random_fill(randomness, sizeof(randomness));
 		str_append_c(name, '-');
@@ -339,13 +333,16 @@ mail_storage_list_index_try_create(struct mail_storage_list_index_rebuild_ctx *c
 
 static int
 mail_storage_list_index_create(struct mail_storage_list_index_rebuild_ctx *ctx,
+			       struct mailbox_list *list,
 			       const uint8_t *guid_p)
 {
 	int i, ret = 0;
-
+	/* FIXME: we should find out the mailbox's original namespace from the
+	   mailbox index's header. */
+	const char *boxname = guid_128_to_string(guid_p);
 	for (i = 0; i < 100; i++) {
 		T_BEGIN {
-			ret = mail_storage_list_index_try_create(ctx, guid_p, i > 0);
+			ret = mail_storage_list_index_try_create(ctx, list, guid_p, boxname, i > 0);
 		} T_END;
 		if (ret != 0)
 			return ret;
@@ -368,7 +365,7 @@ static int mail_storage_list_index_add_missing(struct mail_storage_list_index_re
 	iter = hash_table_iterate_init(ctx->mailboxes);
 	while (hash_table_iterate(iter, ctx->mailboxes, &key, &box)) T_BEGIN {
 		if (box->index_name == NULL) {
-			if (mail_storage_list_index_create(ctx, box->guid) < 0)
+			if (mail_storage_list_index_create(ctx, box->list, box->guid) < 0)
 				ret = -1;
 			else
 				num_created++;
