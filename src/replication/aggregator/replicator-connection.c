@@ -18,6 +18,7 @@
 
 struct replicator_connection {
 	char *path;
+	struct event *event;
 	struct ip_addr *ips;
 	unsigned int ips_count, ip_idx;
 	in_port_t port;
@@ -46,13 +47,13 @@ replicator_input_line(struct replicator_connection *conn, const char *line)
 	/* <+|-> \t <id> */
 	if ((line[0] != '+' && line[0] != '-') || line[1] != '\t' ||
 	    str_to_uint(line+2, &id) < 0 || id == 0) {
-		i_error("Replicator sent invalid input: %s", line);
+		e_error(conn->event, "Replicator sent invalid input: %s", line);
 		return -1;
 	}
 
 	context = hash_table_lookup(conn->requests, POINTER_CAST(id));
 	if (context == NULL) {
-		i_error("Replicator sent invalid ID: %u", id);
+		e_error(conn->event, "Replicator sent invalid ID: %u", id);
 		return -1;
 	}
 	hash_table_remove(conn->requests, POINTER_CAST(id));
@@ -67,7 +68,7 @@ static void replicator_input(struct replicator_connection *conn)
 	switch (i_stream_read(conn->input)) {
 	case -2:
 		/* buffer full */
-		i_error("Replicator sent too long line");
+		e_error(conn->event, "Replicator sent too long line");
 		replicator_connection_disconnect(conn);
 		return;
 	case -1:
@@ -144,7 +145,8 @@ static void replicator_connection_connect(struct replicator_connection *conn)
 	if (conn->port == 0) {
 		fd = net_connect_unix(conn->path);
 		if (fd == -1)
-			i_error("net_connect_unix(%s) failed: %m", conn->path);
+			e_error(conn->event, "net_connect_unix(%s) failed: %m",
+				conn->path);
 	} else {
 		for (n = 0; n < conn->ips_count; n++) {
 			unsigned int idx = conn->ip_idx;
@@ -153,7 +155,7 @@ static void replicator_connection_connect(struct replicator_connection *conn)
 			fd = net_connect_ip(&conn->ips[idx], conn->port, NULL);
 			if (fd != -1)
 				break;
-			i_error("connect(%s, %u) failed: %m",
+			e_error(conn->event, "connect(%s, %u) failed: %m",
 				net_ip2addr(&conn->ips[idx]), conn->port);
 		}
 	}
@@ -209,6 +211,7 @@ static struct replicator_connection *replicator_connection_create(void)
 
 	conn = i_new(struct replicator_connection, 1);
 	conn->fd = -1;
+	conn->event = event_create(NULL);
 	hash_table_create_direct(&conn->requests, default_pool, 0);
 	for (i = REPLICATION_PRIORITY_LOW; i <= REPLICATION_PRIORITY_SYNC; i++)
 		conn->queue[i] = buffer_create_dynamic(default_pool, 1024);
@@ -256,6 +259,7 @@ void replicator_connection_destroy(struct replicator_connection **_conn)
 
 	timeout_remove(&conn->to);
 	hash_table_destroy(&conn->requests);
+	event_unref(&conn->event);
 	i_free(conn->ips);
 	i_free(conn->path);
 	i_free(conn);
