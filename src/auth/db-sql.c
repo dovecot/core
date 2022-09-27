@@ -7,6 +7,7 @@
 #include "settings.h"
 #include "auth-request.h"
 #include "auth-worker-server.h"
+#include "auth-common.h"
 #include "db-sql.h"
 
 #include <stddef.h>
@@ -162,13 +163,15 @@ void db_sql_check_userdb_warning(struct db_sql_connection *conn)
 
 	if (strcmp(conn->set.user_query,
 		   default_db_sql_settings.user_query) != 0) {
-		i_warning("sql: Ignoring changed user_query in %s, "
+		e_warning(auth_event,
+			  "sql: Ignoring changed user_query in %s, "
 			  "because userdb sql not used. "
 			  "(If this is intentional, set userdb_warning_disable=yes)",
 			  conn->config_path);
 	} else if (strcmp(conn->set.iterate_query,
 			  default_db_sql_settings.iterate_query) != 0) {
-		i_warning("sql: Ignoring changed iterate_query in %s, "
+		e_warning(auth_event,
+			  "sql: Ignoring changed iterate_query in %s, "
 			  "because userdb sql not used. "
 			  "(If this is intentional, set userdb_warning_disable=yes)",
 			  conn->config_path);

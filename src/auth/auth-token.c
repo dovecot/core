@@ -42,19 +42,19 @@ auth_token_read_secret(const char *path,
 	fd = open(path, O_RDONLY);
 	if (fd == -1) {
 		if (errno != ENOENT)
-			i_error("open(%s) failed: %m", path);
+			e_error(auth_event, "open(%s) failed: %m", path);
 		return -1;
 	}
 
 	if (fstat(fd, &st) < 0) {
-		i_error("fstat(%s) failed: %m", path);
+		e_error(auth_event, "fstat(%s) failed: %m", path);
 		i_close_fd(&fd);
 		return -1;
 	}
 
 	/* check secret len and file type */
 	if (st.st_size != AUTH_TOKEN_SECRET_LEN || !S_ISREG(st.st_mode)) {
-		i_error("Corrupted token secret file: %s", path);
+		e_error(auth_event, "Corrupted token secret file: %s", path);
 		i_close_fd(&fd);
 		i_unlink(path);
 		return -1;
@@ -62,7 +62,7 @@ auth_token_read_secret(const char *path,
 
 	/* verify that we're not dealing with a symbolic link */
 	if (lstat(path, &lst) < 0) {
-		i_error("lstat(%s) failed: %m", path);
+		e_error(auth_event, "lstat(%s) failed: %m", path);
 		i_close_fd(&fd);
 		return -1;
 	}
@@ -72,7 +72,7 @@ auth_token_read_secret(const char *path,
 	    st.st_uid != geteuid() || st.st_nlink > 1 ||
 	    !S_ISREG(lst.st_mode) || st.st_ino != lst.st_ino ||
 	    !CMP_DEV_T(st.st_dev, lst.st_dev)) {
-		i_error("Compromised token secret file: %s", path);
+		e_error(auth_event, "Compromised token secret file: %s", path);
 		i_close_fd(&fd);
 		i_unlink(path);
 		return -1;
@@ -82,13 +82,13 @@ auth_token_read_secret(const char *path,
 
 	ret = read_full(fd, secret_r, AUTH_TOKEN_SECRET_LEN);
 	if (ret < 0)
-		i_error("read(%s) failed: %m", path);
+		e_error(auth_event, "read(%s) failed: %m", path);
 	else if (ret == 0) {
-		i_error("Token secret file unexpectedly shrank: %s", path);
+		e_error(auth_event, "Token secret file unexpectedly shrank: %s", path);
 		ret = -1;
 	}
 	if (close(fd) < 0)
-		i_error("close(%s) failed: %m", path);
+		e_error(auth_event, "close(%s) failed: %m", path);
 
 	e_debug(auth_event, "Read auth token secret from %s", path);
 	return ret;
@@ -109,15 +109,15 @@ auth_token_write_secret(const char *path,
 	umask(old_mask);
 
 	if (fd == -1) {
-		i_error("open(%s) failed: %m", temp_path);
+		e_error(auth_event, "open(%s) failed: %m", temp_path);
 		return -1;
 	}
 
 	ret = write_full(fd, secret, AUTH_TOKEN_SECRET_LEN);
 	if (ret < 0)
-		i_error("write(%s) failed: %m", temp_path);
+		e_error(auth_event, "write(%s) failed: %m", temp_path);
 	if (close(fd) < 0) {
-		i_error("close(%s) failed: %m", temp_path);
+		e_error(auth_event, "close(%s) failed: %m", temp_path);
 		ret = -1;
 	}
 
@@ -127,7 +127,7 @@ auth_token_write_secret(const char *path,
 	}
 
 	if (rename(temp_path, path) < 0) {
-		i_error("rename(%s, %s) failed: %m", temp_path, path);
+		e_error(auth_event, "rename(%s, %s) failed: %m", temp_path, path);
 		i_unlink(temp_path);
 		return -1;
 	}
@@ -146,7 +146,8 @@ void auth_token_init(void)
 		random_fill(auth_token_secret, sizeof(auth_token_secret));
 
 		if (auth_token_write_secret(secret_path, auth_token_secret) < 0) {
-			i_error("Failed to write auth token secret file; "
+			e_error(auth_event,
+				"Failed to write auth token secret file; "
 				"returned tokens will be invalid once auth restarts");
 		}
 	}

@@ -8,12 +8,14 @@
 #include "var-expand.h"
 #include "auth-request.h"
 #include "auth-cache.h"
+#include "auth-common.h"
 
 #include <time.h>
 
 struct auth_cache {
 	HASH_TABLE(char *, struct auth_cache_node *) hash;
 	struct auth_cache_node *head, *tail;
+	struct event *event;
 
 	size_t max_size, size_left;
 	unsigned int ttl_secs, neg_ttl_secs;
@@ -191,7 +193,7 @@ static void sig_auth_cache_clear(const siginfo_t *si ATTR_UNUSED, void *context)
 {
 	struct auth_cache *cache = context;
 
-	i_info("SIGHUP received, %u cache entries flushed",
+	e_info(cache->event, "SIGHUP received, %u cache entries flushed",
 	       auth_cache_clear(cache));
 }
 
@@ -202,18 +204,18 @@ static void sig_auth_cache_stats(const siginfo_t *si ATTR_UNUSED, void *context)
 	size_t cache_used;
 
 	total_count = cache->hit_count + cache->miss_count;
-	i_info("Authentication cache hits %u/%u (%u%%)",
+	e_info(cache->event, "Authentication cache hits %u/%u (%u%%)",
 	       cache->hit_count, total_count,
 	       total_count == 0 ? 100 : (cache->hit_count * 100 / total_count));
 
-	i_info("Authentication cache inserts: "
+	e_info(cache->event, "Authentication cache inserts: "
 	       "positive: %u entries %llu bytes, "
 	       "negative: %u entries %llu bytes",
 	       cache->pos_entries, cache->pos_size,
 	       cache->neg_entries, cache->neg_size);
 
 	cache_used = cache->max_size - cache->size_left;
-	i_info("Authentication cache current size: "
+	e_info(cache->event, "Authentication cache current size: "
 	       "%zu bytes used of %zu bytes (%u%%)",
 	       cache_used, cache->max_size,
 	       (unsigned int)(cache_used * 100ULL / cache->max_size));
@@ -236,6 +238,7 @@ struct auth_cache *auth_cache_new(size_t max_size, unsigned int ttl_secs,
 	cache->size_left = max_size;
 	cache->ttl_secs = ttl_secs;
 	cache->neg_ttl_secs = neg_ttl_secs;
+	cache->event = event_create(auth_event);
 
 	lib_signals_set_handler(SIGHUP, LIBSIG_FLAGS_SAFE,
 				sig_auth_cache_clear, cache);
@@ -254,6 +257,7 @@ void auth_cache_free(struct auth_cache **_cache)
 
 	auth_cache_clear(cache);
 	hash_table_destroy(&cache->hash);
+	event_unref(&cache->event);
 	i_free(cache);
 }
 

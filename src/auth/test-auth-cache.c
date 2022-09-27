@@ -19,6 +19,8 @@ auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT + 1] = {
 	{ '\0', NULL, NULL }
 };
 
+struct event *auth_event;
+
 struct var_expand_table *
 auth_request_get_var_expand_table_full(const struct auth_request *auth_request ATTR_UNUSED,
 				       const char *username ATTR_UNUSED,
@@ -74,9 +76,13 @@ static void test_auth_cache_parse_key(void)
 
 int main(void)
 {
+	lib_init();
+	auth_event = event_create(NULL);
 	static void (*const test_functions[])(void) = {
 		test_auth_cache_parse_key,
 		NULL
 	};
-	return test_run(test_functions);
+	int ret = test_run(test_functions);
+	event_unref(&auth_event);
+	return ret;
 }

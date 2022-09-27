@@ -311,7 +311,8 @@ static void main_deinit(void)
 static void worker_connected(struct master_service_connection *conn)
 {
 	if (auth_worker_has_connections()) {
-		i_error("Auth workers can handle only a single client");
+		e_error(auth_event,
+			"Auth workers can handle only a single client");
 		return;
 	}
 
