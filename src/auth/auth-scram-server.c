@@ -30,7 +30,7 @@ static const char *scram_unescape_username(const char *in)
 }
 
 static bool
-parse_scram_client_first(struct scram_auth_request *request,
+parse_scram_client_first(struct scram_auth_request *server,
 			 const unsigned char *data, size_t size,
 			 const char **error_r)
 {
@@ -132,7 +132,7 @@ parse_scram_client_first(struct scram_auth_request *request,
 			*error_r = "Username escaping is invalid";
 			return FALSE;
 		}
-		if (!auth_request_set_username(&request->auth_request,
+		if (!auth_request_set_username(&server->auth_request,
 					       username, error_r))
 			return FALSE;
 	} else {
@@ -140,26 +140,27 @@ parse_scram_client_first(struct scram_auth_request *request,
 		return FALSE;
 	}
 	if (login_username != NULL) {
-		if (!auth_request_set_login_username(&request->auth_request,
+		if (!auth_request_set_login_username(&server->auth_request,
 						     login_username, error_r))
 			return FALSE;
 	}
 
 	/* nonce           = "r=" c-nonce [s-nonce] */
 	if (nonce[0] == 'r' && nonce[1] == '=')
-		request->cnonce = p_strdup(request->pool, nonce+2);
+		server->cnonce = p_strdup(server->pool, nonce+2);
 	else {
 		*error_r = "Invalid client nonce";
 		return FALSE;
 	}
 
-	request->gs2_header = p_strdup(request->pool, gs2_header);
-	request->client_first_message_bare = p_strdup(request->pool, cfm_bare);
+	server->gs2_header = p_strdup(server->pool, gs2_header);
+	server->client_first_message_bare =
+		p_strdup(server->pool, cfm_bare);
 	return TRUE;
 }
 
 static const char *
-get_scram_server_first(struct scram_auth_request *request,
+get_scram_server_first(struct scram_auth_request *server,
 		       int iter, const char *salt)
 {
 	unsigned char snonce[SCRAM_SERVER_NONCE_LEN+1];
@@ -189,18 +190,18 @@ get_scram_server_first(struct scram_auth_request *request,
 			snonce[i] = '~';
 	}
 	snonce[sizeof(snonce)-1] = '\0';
-	request->snonce = p_strndup(request->pool, snonce, sizeof(snonce));
+	server->snonce = p_strndup(server->pool, snonce, sizeof(snonce));
 
-	str = t_str_new(32 + strlen(request->cnonce) + sizeof(snonce) +
+	str = t_str_new(32 + strlen(server->cnonce) + sizeof(snonce) +
 			strlen(salt));
-	str_printfa(str, "r=%s%s,s=%s,i=%d", request->cnonce, request->snonce,
+	str_printfa(str, "r=%s%s,s=%s,i=%d", server->cnonce, server->snonce,
 		    salt, iter);
 	return str_c(str);
 }
 
-static bool verify_credentials(struct scram_auth_request *request)
+static bool verify_credentials(struct scram_auth_request *server)
 {
-	const struct hash_method *hmethod = request->hash_method;
+	const struct hash_method *hmethod = server->hash_method;
 	struct hmac_context ctx;
 	const char *auth_message;
 	unsigned char client_key[hmethod->digest_size];
@@ -215,16 +216,16 @@ static bool verify_credentials(struct scram_auth_request *request)
 	                      client-final-message-without-proof
 	   ClientSignature := HMAC(StoredKey, AuthMessage)
 	 */
-	auth_message = t_strconcat(request->client_first_message_bare, ",",
-			request->server_first_message, ",",
-			request->client_final_message_without_proof, NULL);
+	auth_message = t_strconcat(server->client_first_message_bare, ",",
+			server->server_first_message, ",",
+			server->client_final_message_without_proof, NULL);
 
-	hmac_init(&ctx, request->stored_key, hmethod->digest_size, hmethod);
+	hmac_init(&ctx, server->stored_key, hmethod->digest_size, hmethod);
 	hmac_update(&ctx, auth_message, strlen(auth_message));
 	hmac_final(&ctx, client_signature);
 
 	/* ClientProof     := ClientKey XOR ClientSignature */
-	const unsigned char *proof_data = request->proof->data;
+	const unsigned char *proof_data = server->proof->data;
 	for (i = 0; i < sizeof(client_signature); i++)
 		client_key[i] = proof_data[i] ^ client_signature[i];
 
@@ -235,16 +236,16 @@ static bool verify_credentials(struct scram_auth_request *request)
 	safe_memset(client_key, 0, sizeof(client_key));
 	safe_memset(client_signature, 0, sizeof(client_signature));
 
-	return mem_equals_timing_safe(stored_key, request->stored_key,
+	return mem_equals_timing_safe(stored_key, server->stored_key,
 				      sizeof(stored_key));
 }
 
 static bool
-parse_scram_client_final(struct scram_auth_request *request,
+parse_scram_client_final(struct scram_auth_request *server,
 			 const unsigned char *data, size_t size,
 			 const char **error_r)
 {
-	const struct hash_method *hmethod = request->hash_method;
+	const struct hash_method *hmethod = server->hash_method;
 	const char **fields, *cbind_input, *nonce_str;
 	unsigned int field_count;
 	string_t *str;
@@ -273,7 +274,7 @@ parse_scram_client_final(struct scram_auth_request *request,
 	                     ;; gs2-cbind-flag of "p" and MUST be absent
 	                     ;; for "y" or "n".
 	 */
-	cbind_input = request->gs2_header;
+	cbind_input = server->gs2_header;
 	str = t_str_new(2 + MAX_BASE64_ENCODED_SIZE(strlen(cbind_input)));
 	str_append(str, "c=");
 	base64_encode(cbind_input, strlen(cbind_input), str);
@@ -288,7 +289,7 @@ parse_scram_client_final(struct scram_auth_request *request,
 	   c-nonce         = printable
 	   s-nonce         = printable
 	 */
-	nonce_str = t_strconcat("r=", request->cnonce, request->snonce, NULL);
+	nonce_str = t_strconcat("r=", server->cnonce, server->snonce, NULL);
 	if (strcmp(fields[1], nonce_str) != 0) {
 		*error_r = "Wrong nonce";
 		return FALSE;
@@ -299,14 +300,14 @@ parse_scram_client_final(struct scram_auth_request *request,
 	if (fields[field_count-1][0] == 'p') {
 		size_t len = strlen(&fields[field_count-1][2]);
 
-		request->proof = buffer_create_dynamic(request->pool,
+		server->proof = buffer_create_dynamic(server->pool,
 					MAX_BASE64_DECODED_SIZE(len));
 		if (base64_decode(&fields[field_count-1][2], len,
-				  request->proof) < 0) {
+				  server->proof) < 0) {
 			*error_r = "Invalid base64 encoding";
 			return FALSE;
 		}
-		if (request->proof->used != hmethod->digest_size) {
+		if (server->proof->used != hmethod->digest_size) {
 			*error_r = "Invalid ClientProof length";
 			return FALSE;
 		}
@@ -316,15 +317,15 @@ parse_scram_client_final(struct scram_auth_request *request,
 	}
 
 	(void)str_array_remove(fields, fields[field_count-1]);
-	request->client_final_message_without_proof =
-		p_strdup(request->pool, t_strarray_join(fields, ","));
+	server->client_final_message_without_proof =
+		p_strdup(server->pool, t_strarray_join(fields, ","));
 
 	return TRUE;
 }
 
-static const char *get_scram_server_final(struct scram_auth_request *request)
+static const char *get_scram_server_final(struct scram_auth_request *server)
 {
-	const struct hash_method *hmethod = request->hash_method;
+	const struct hash_method *hmethod = server->hash_method;
 	struct hmac_context ctx;
 	const char *auth_message;
 	unsigned char server_signature[hmethod->digest_size];
@@ -337,11 +338,11 @@ static const char *get_scram_server_final(struct scram_auth_request *request)
 	                      client-final-message-without-proof
 	   ServerSignature := HMAC(ServerKey, AuthMessage)
 	 */
-	auth_message = t_strconcat(request->client_first_message_bare, ",",
-			request->server_first_message, ",",
-			request->client_final_message_without_proof, NULL);
+	auth_message = t_strconcat(server->client_first_message_bare, ",",
+			server->server_first_message, ",",
+			server->client_final_message_without_proof, NULL);
 
-	hmac_init(&ctx, request->server_key, hmethod->digest_size, hmethod);
+	hmac_init(&ctx, server->server_key, hmethod->digest_size, hmethod);
 	hmac_update(&ctx, auth_message, strlen(auth_message));
 	hmac_final(&ctx, server_signature);
 
