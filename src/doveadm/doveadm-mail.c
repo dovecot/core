@@ -465,19 +465,27 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 		return ret;
 	}
 
+	/* Create the event outside the active ioloop context, so if run()
+	   switches the ioloop context it won't try to pop out the event_reason
+	   from global events. */
+	struct ioloop_context *cur_ctx =
+		io_loop_get_current_context(current_ioloop);
+	io_loop_context_deactivate(cur_ctx);
 	struct event_reason *reason =
 		event_reason_begin(event_reason_code_prefix("doveadm", "cmd_",
 							    ctx->cmd->name));
+	io_loop_context_activate(cur_ctx);
+
 	T_BEGIN {
 		if (ctx->v.run(ctx, ctx->cur_mail_user) < 0) {
 			i_assert(ctx->exit_code != 0);
 		}
 	} T_END;
 	mail_user_deinit(&ctx->cur_mail_user);
-	/* user deinit may still do some work, so finish the reason after it */
-	event_reason_end(&reason);
-
 	mail_storage_service_user_unref(&ctx->cur_service_user);
+	/* User deinit may still do some work, so finish the reason after it.
+	   Also, this needs to be after the ioloop context is deactivated. */
+	event_reason_end(&reason);
 	return 1;
 }
 
