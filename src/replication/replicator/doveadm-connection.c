@@ -162,7 +162,7 @@ client_input_replicate(struct doveadm_connection *client, const char *const *arg
 
 	/* <priority> <flags> <username>|<mask> */
 	if (str_array_length(args) != 3) {
-		i_error("%s: REPLICATE: Invalid parameters", client->conn.name);
+		e_error(client->conn.event, "REPLICATE: Invalid parameters");
 		return -1;
 	}
 	if (replication_priority_parse(args[0], &priority) < 0) {
@@ -205,7 +205,7 @@ client_input_add(struct doveadm_connection *client, const char *const *args)
 
 	/* <usermask> */
 	if (str_array_length(args) != 1) {
-		i_error("%s: ADD: Invalid parameters", client->conn.name);
+		e_error(client->conn.event, "ADD: Invalid parameters");
 		return -1;
 	}
 
@@ -229,7 +229,7 @@ client_input_remove(struct doveadm_connection *client, const char *const *args)
 
 	/* <username> */
 	if (str_array_length(args) != 1) {
-		i_error("%s: REMOVE: Invalid parameters", client->conn.name);
+		e_error(client->conn.event, "REMOVE: Invalid parameters");
 		return -1;
 	}
 	user = replicator_queue_lookup(queue, args[0]);
@@ -251,7 +251,7 @@ client_input_notify(struct doveadm_connection *client, const char *const *args)
 
 	/* <username> <flags> <state> */
 	if (str_array_length(args) < 3) {
-		i_error("%s: NOTIFY: Invalid parameters", client->conn.name);
+		e_error(client->conn.event, "NOTIFY: Invalid parameters");
 		return -1;
 	}
 
@@ -275,7 +275,7 @@ static int client_input_args(struct connection *conn, const char *const *args)
 	const char *cmd = args[0];
 
 	if (cmd == NULL) {
-		i_error("%s: Empty command", conn->name);
+		e_error(client->conn.event, "Empty command");
 		return 0;
 	}
 	args++;
@@ -292,7 +292,7 @@ static int client_input_args(struct connection *conn, const char *const *args)
 		return client_input_remove(client, args);
 	else if (strcmp(cmd, "NOTIFY") == 0)
 		return client_input_notify(client, args);
-	i_error("%s: Unknown command: %s", conn->name, cmd);
+	e_error(client->conn.event, "Unknown command: %s", cmd);
 	return -1;
 }
 

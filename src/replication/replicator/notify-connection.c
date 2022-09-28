@@ -6,7 +6,7 @@
 #include "ostream.h"
 #include "strescape.h"
 #include "master-service.h"
-#include "replicator-queue.h"
+#include "replicator-queue-private.h"
 #include "notify-connection.h"
 
 #include <unistd.h>
@@ -23,6 +23,7 @@ struct notify_connection {
 	struct io *io;
 	struct istream *input;
 	struct ostream *output;
+	struct event *event;
 
 	struct replicator_queue *queue;
 
@@ -61,21 +62,25 @@ notify_connection_input_line(struct notify_connection *conn, const char *line)
 	/* U \t <username> \t <priority> [\t <sync id>] */
 	args = t_strsplit_tabescaped(line);
 	if (str_array_length(args) < 2) {
-		i_error("notify client sent invalid input: %s", line);
+		e_error(conn->event,
+			"notify client sent invalid input: %s", line);
 		return -1;
 	}
 	if (strcmp(args[0], "U") != 0) {
-		i_error("notify client sent unknown command: %s", args[0]);
+		e_error(conn->event, "notify client sent unknown command: %s",
+			args[0]);
 		return -1;
 	}
 	if (replication_priority_parse(args[2], &priority) < 0) {
-		i_error("notify client sent invalid priority: %s", args[2]);
+		e_error(conn->event, "notify client sent invalid priority: %s",
+			args[2]);
 		return -1;
 	}
 	if (priority != REPLICATION_PRIORITY_SYNC)
 		(void)replicator_queue_add(conn->queue, args[1], priority);
 	else if (args[3] == NULL || str_to_uint(args[3], &id) < 0) {
-		i_error("notify client sent invalid sync id: %s", line);
+		e_error(conn->event, "notify client sent invalid sync id: %s",
+			line);
 		return -1;
 	} else {
 		request = i_new(struct notify_sync_request, 1);
@@ -95,7 +100,8 @@ static void notify_connection_input(struct notify_connection *conn)
 
 	switch (i_stream_read(conn->input)) {
 	case -2:
-		i_error("BUG: Client connection sent too much data");
+		e_error(conn->event,
+			"BUG: Client connection sent too much data");
 		notify_connection_destroy(conn);
 		return;
 	case -1:
@@ -109,7 +115,8 @@ static void notify_connection_input(struct notify_connection *conn)
 
 		if (!version_string_verify(line, "replicator-notify",
 				NOTIFY_CLIENT_PROTOCOL_MAJOR_VERSION)) {
-			i_error("Notify client not compatible with this server "
+			e_error(conn->event,
+				"Notify client not compatible with this server "
 				"(mixed old and new binaries?)");
 			notify_connection_destroy(conn);
 			return;
@@ -137,6 +144,7 @@ notify_connection_create(int fd, struct replicator_queue *queue)
 
 	conn = i_new(struct notify_connection, 1);
 	conn->refcount = 1;
+	conn->event = event_create(queue->event);
 	conn->queue = queue;
 	conn->fd = fd;
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
@@ -160,9 +168,7 @@ static void notify_connection_destroy(struct notify_connection *conn)
 	io_remove(&conn->io);
 	i_stream_close(conn->input);
 	o_stream_close(conn->output);
-	if (close(conn->fd) < 0)
-		i_error("close(notify connection) failed: %m");
-	conn->fd = -1;
+	i_close_fd(&conn->fd);
 
 	notify_connection_unref(&conn);
 	master_service_client_connection_destroyed(master_service);
@@ -188,6 +194,7 @@ void notify_connection_unref(struct notify_connection **_conn)
 	notify_connection_destroy(conn);
 	i_stream_unref(&conn->input);
 	o_stream_unref(&conn->output);
+	event_unref(&conn->event);
 	i_free(conn);
 }
 

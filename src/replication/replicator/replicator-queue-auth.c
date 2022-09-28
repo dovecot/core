@@ -2,7 +2,7 @@
 
 #include "lib.h"
 #include "auth-master.h"
-#include "replicator-queue.h"
+#include "replicator-queue-private.h"
 
 #define REPLICATOR_AUTH_SERVICE_NAME "replicator"
 
@@ -31,6 +31,7 @@ void replicator_queue_add_auth_users(struct replicator_queue *queue,
 		user->last_update = last_update;
 	}
 	if (auth_master_user_list_deinit(&ctx) < 0)
-		i_error("listing users failed, can't replicate existing data");
+		e_error(queue->event,
+			"listing users failed, can't replicate existing data");
 	auth_master_deinit(&auth_conn);
 }

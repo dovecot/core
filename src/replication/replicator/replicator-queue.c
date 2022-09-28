@@ -77,6 +77,7 @@ replicator_queue_init(unsigned int full_sync_interval,
 	hash_table_create(&queue->user_hash, default_pool, 1024,
 			  str_hash, strcmp);
 	i_array_init(&queue->sync_lookups, 32);
+	queue->event = event_create(NULL);
 	return queue;
 }
 
@@ -100,6 +101,7 @@ void replicator_queue_deinit(struct replicator_queue **_queue)
 	hash_table_destroy(&queue->user_hash);
 	i_assert(array_count(&queue->sync_lookups) == 0);
 	array_free(&queue->sync_lookups);
+	event_unref(&queue->event);
 	i_free(queue);
 }
 
@@ -370,7 +372,7 @@ int replicator_queue_import(struct replicator_queue *queue, const char *path)
 	if (fd == -1) {
 		if (errno == ENOENT)
 			return 0;
-		i_error("open(%s) failed: %m", path);
+		e_error(queue->event, "open(%s) failed: %m", path);
 		return -1;
 	}
 
@@ -380,13 +382,13 @@ int replicator_queue_import(struct replicator_queue *queue, const char *path)
 			ret = replicator_queue_import_line(queue, line);
 		} T_END;
 		if (ret < 0) {
-			i_error("Corrupted replicator record in %s: %s",
-				path, line);
+			e_error(queue->event,
+				"Corrupted replicator record in %s: %s", path, line);
 			break;
 		}
 	}
 	if (input->stream_errno != 0) {
-		i_error("read(%s) failed: %s", path, i_stream_get_error(input));
+		e_error(queue->event, "read(%s) failed: %s", path, i_stream_get_error(input));
 		ret = -1;
 	}
 	i_stream_destroy(&input);
@@ -417,7 +419,7 @@ int replicator_queue_export(struct replicator_queue *queue, const char *path)
 
 	fd = creat(path, 0600);
 	if (fd == -1) {
-		i_error("creat(%s) failed: %m", path);
+		e_error(queue->event, "creat(%s) failed: %m", path);
 		return -1;
 	}
 	output = o_stream_create_fd_file_autoclose(&fd, 0);
@@ -433,7 +435,7 @@ int replicator_queue_export(struct replicator_queue *queue, const char *path)
 	}
 	replicator_queue_iter_deinit(&iter);
 	if (o_stream_finish(output) < 0) {
-		i_error("write(%s) failed: %s", path, o_stream_get_error(output));
+		e_error(queue->event, "write(%s) failed: %s", path, o_stream_get_error(output));
 		ret = -1;
 	}
 	o_stream_destroy(&output);

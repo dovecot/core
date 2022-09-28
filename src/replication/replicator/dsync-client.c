@@ -21,6 +21,7 @@ struct dsync_client {
 	struct istream *input;
 	struct ostream *output;
 	struct timeout *to;
+	struct event *event;
 
 	char *dsync_params;
 	char *username;
@@ -43,6 +44,9 @@ dsync_client_init(const char *path, const char *dsync_params)
 	client->path = i_strdup(path);
 	client->fd = -1;
 	client->dsync_params = i_strdup(dsync_params);
+	client->event = event_create(NULL);
+	event_set_append_log_prefix(client->event, t_strdup_printf(
+		"%s: ", client->path));
 	return client;
 }
 
@@ -78,9 +82,7 @@ static void dsync_close(struct dsync_client *client)
 	io_remove(&client->io);
 	o_stream_destroy(&client->output);
 	i_stream_destroy(&client->input);
-	if (close(client->fd) < 0)
-		i_error("close(dsync) failed: %m");
-	client->fd = -1;
+	i_close_fd(&client->fd);
 }
 
 static void dsync_disconnect(struct dsync_client *client)
@@ -97,6 +99,7 @@ void dsync_client_deinit(struct dsync_client **_client)
 	*_client = NULL;
 
 	dsync_disconnect(client);
+	event_unref(&client->event);
 	i_free(client->dsync_params);
 	i_free(client->path);
 	i_free(client);
@@ -108,15 +111,14 @@ static int dsync_input_line(struct dsync_client *client, const char *line)
 
 	if (!client->handshaked) {
 		if (strcmp(line, "+") != 0) {
-			i_error("%s: Unexpected handshake: %s",
-				client->path, line);
+			e_error(client->event, "Unexpected handshake: %s", line);
 			return -1;
 		}
 		client->handshaked = TRUE;
 		return 0;
 	}
 	if (client->callback == NULL) {
-		i_error("%s: Unexpected input: %s", client->path, line);
+		e_error(client->event, "Unexpected input: %s", line);
 		return -1;
 	}
 	if (client->state == NULL) {
@@ -137,7 +139,7 @@ static int dsync_input_line(struct dsync_client *client, const char *line)
 		else
 			dsync_callback(client, "", DSYNC_REPLY_FAIL);
 	} else {
-		i_error("%s: Invalid input: %s", client->path, line);
+		e_error(client->event, "Invalid input: %s", line);
 		return -1;
 	}
 	/* FIXME: disconnect after each request for now.
@@ -170,7 +172,7 @@ static int dsync_connect(struct dsync_client *client)
 
 	client->fd = net_connect_unix(client->path);
 	if (client->fd == -1) {
-		i_error("net_connect_unix(%s) failed: %m", client->path);
+		e_error(client->event, "net_connect_unix() failed: %m");
 		client->last_connect_failure = ioloop_time;
 		return -1;
 	}
