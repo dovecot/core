@@ -25,21 +25,24 @@ documentation_sources = documentation-main
 # "documentation-main" directory
 $(documentation_sources)/requirements.txt:
 	$(AM_V_GEN)wget $(AM_V_Q) -O - \
-		https://github.com/dovecot/documentation/archive/refs/heads/main.tar.gz | \
+	  https://github.com/dovecot/documentation/archive/refs/heads/main.tar.gz | \
 	  gunzip | $(am__untar)
 
 venv: $(documentation_sources)/requirements.txt
 	$(AM_V_GEN)$(PYTHON) -m venv venv && \
-		venv/bin/pip $(AM_V_Q) install wheel && \
-		venv/bin/pip $(AM_V_Q) install -r "$(documentation_sources)/requirements.txt"
+	  venv/bin/pip $(AM_V_Q) install wheel && \
+	  venv/bin/pip $(AM_V_Q) install -r "$(documentation_sources)/requirements.txt"
 
 html: venv
-	$(AM_V_GEN)venv/bin/python -msphinx $(AM_V_Q) -b html $(documentation_sources)/source html
+	$(AM_V_GEN)venv/bin/python -msphinx $(AM_V_Q) -b html \
+	  $(documentation_sources)/source html
 
 else # if HAVE_VENV
 
 html:
-	if [ ! -e html/index.html ]; then echo "Building html documentation needs python installed"; fi
+	if [ ! -e html/index.html ]; then \
+	  echo "Building html documentation needs python installed";
+	fi
 
 endif # if HAVE_VENV
 
