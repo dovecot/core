@@ -1765,6 +1765,11 @@ int mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		return -1;
 	}
 	box->creating = TRUE;
+	if ((box->list->props & MAILBOX_LIST_PROP_NO_NOSELECT) != 0) {
+		/* Layout doesn't support creating \NoSelect mailboxes.
+		   Switch to creating a selectable mailbox */
+		directory = FALSE;
+	}
 	T_BEGIN {
 		ret = box->v.create_box(box, update, directory);
 	} T_END;
