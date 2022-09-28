@@ -798,14 +798,14 @@ void mail_storage_service_io_deactivate_user(struct mail_storage_service_user *u
 static void
 mail_storage_service_io_activate_user_cb(struct mail_storage_service_user *user)
 {
-	if (user->log_prefix != NULL)
+	if (user->service_ctx->log_initialized && user->log_prefix != NULL)
 		i_set_failure_prefix("%s", user->log_prefix);
 }
 
 static void
 mail_storage_service_io_deactivate_user_cb(struct mail_storage_service_user *user)
 {
-	if (user->log_prefix != NULL)
+	if (user->service_ctx->log_initialized && user->log_prefix != NULL)
 		i_set_failure_prefix("%s", user->service_ctx->default_log_prefix);
 }
 
