@@ -55,11 +55,13 @@ else # if HAVE_VENV
 
 html:
 	if [ ! -e html/index.html ]; then \
-	  echo "Building html documentation needs python installed";
+	  echo "Building html documentation needs python installed"; \
 	fi
 
 mans:
-	if [ ! -e man/dovecot.1 ]; then echo "Building manpages needs python installed"; fi
+	if [ ! -e man/dovecot.1 ]; then \
+	  echo "Building manpages needs python installed"; \
+	fi
 
 endif # if HAVE_VENV
 
@@ -73,10 +75,11 @@ dist-hook:
 	-rm -rf $(distdir)/html/objects.inv
 	-rm -rf $(distdir)/man/.doctrees
 
-install-data-local:
-	if [ ! -e html/index.html ]; then $(MAKE) html; fi
-	$(MKDIR_P) "$(DESTDIR)$(docdir)"
-	cp -nrf html "$(DESTDIR)$(docdir)"
+install-data-local: html
+	if [ -e html/index.html ]; then       \
+	  $(MKDIR_P) "$(DESTDIR)$(docdir)";   \
+	  cp -nrf html "$(DESTDIR)$(docdir)"; \
+	fi
 
 uninstall-local:
 	-rm -rf "$(DESTDIR)$(docdir)/html"
