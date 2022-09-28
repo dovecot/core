@@ -319,7 +319,7 @@ mail_storage_match_class(struct mail_storage *storage,
 
 	if ((storage->class_flags & MAIL_STORAGE_CLASS_FLAG_UNIQUE_ROOT) != 0 &&
 	    strcmp(storage->unique_root_dir,
-	    	(set->root_dir != NULL ? set->root_dir : "")) != 0)
+		(set->root_dir != NULL ? set->root_dir : "")) != 0)
 		return FALSE;
 
 	if (strcmp(storage->name, "shared") == 0) {
@@ -977,7 +977,7 @@ str_contains_special_use(const char *str, const char *special_use)
 
 static int
 namespace_find_special_use(struct mail_namespace *ns, const char *special_use,
-		           const char **vname_r, enum mail_error *error_code_r)
+			   const char **vname_r, enum mail_error *error_code_r)
 {
 	struct mailbox_list *list = ns->list;
 	struct mailbox_list_iterate_context *ctx;
@@ -1703,7 +1703,7 @@ bool mailbox_equals(const struct mailbox *box1,
 	if (ns1 != ns2)
 		return FALSE;
 
-        name1 = mailbox_get_vname(box1);
+	name1 = mailbox_get_vname(box1);
 	if (strcmp(name1, vname2) == 0)
 		return TRUE;
 
