@@ -653,9 +653,9 @@ static int fts_transaction_end(struct mailbox_transaction_context *t, const char
 				"Failed after indexing %u extra mails internally in %s: %s",
 			        ft->precache_extra_count, t->box->vname, *error_r);
 		} else {
-			e_info(event,
-			       "Indexed %u extra mails internally in %s",
-			       ft->precache_extra_count, t->box->vname);
+			e_debug(event,
+				"Indexed %u extra mails internally in %s",
+				ft->precache_extra_count, t->box->vname);
 		}
 	}
 	event_reason_end(&reason);
