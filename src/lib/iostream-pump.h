@@ -9,7 +9,7 @@
    The pump requires you to provide completion callback. The completion
    callback is called with success parameter to indicate whether it ended
    with error.
-   
+
    The istream and ostream are reffed on creation and unreffed
    on unref.
  */

@@ -360,8 +360,8 @@ test_smtp_mail_params_extensions(const struct smtp_params_mail *test,
 
 	for (i = 0; i < array_count(&test->extra_params); i++) {
 		tparam = array_idx(&test->extra_params, i);
-		pparam = array_idx(&parsed->extra_params, i);		
-	
+		pparam = array_idx(&parsed->extra_params, i);
+
 		test_out(t_strdup_printf("params.extra_params[%u] = [\"%s\"=\"%s\"]",
 					 i, pparam->keyword, pparam->value),
 			 strcmp(pparam->keyword, tparam->keyword) == 0 &&
@@ -657,7 +657,7 @@ test_smtp_rcpt_params_orcpt(const struct smtp_params_rcpt *test,
 			test->orcpt.addr == NULL);
 		return;
 	}
-		
+
 	if (parsed->orcpt.addr->localpart == NULL ||
 	    test->orcpt.addr->localpart == NULL) {
 		test_out(t_strdup_printf("params.orcpt.addr->localpart = %s",
@@ -751,8 +751,8 @@ test_smtp_rcpt_params_extensions(const struct smtp_params_rcpt *test,
 
 	for (i = 0; i < array_count(&test->extra_params); i++) {
 		tparam = array_idx(&test->extra_params, i);
-		pparam = array_idx(&parsed->extra_params, i);		
-	
+		pparam = array_idx(&parsed->extra_params, i);
+
 		test_out(t_strdup_printf("params.extra_params[%u] = [\"%s\"=\"%s\"]",
 					 i, pparam->keyword, pparam->value),
 			 strcmp(pparam->keyword, tparam->keyword) == 0 &&

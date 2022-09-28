@@ -341,7 +341,7 @@ replicator_queue_import_line(struct replicator_queue *queue, const char *line)
 	tmp_user.priority = priority;
 	tmp_user.last_sync_failed = args[5][0] != '0';
 
-	if (str_array_length(args) >= 8) { 
+	if (str_array_length(args) >= 8) {
 		if (str_to_time(args[7], &tmp_user.last_successful_sync) < 0)
 			return -1;
 	} else {

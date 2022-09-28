@@ -155,7 +155,7 @@ imap_msgpart_get_header_fields(pool_t pool, const char *header_list,
 	    args[1].type == IMAP_ARG_EOL &&
 	    list_count > 0) {
 		const char *value;
-		
+
 		p_array_init(fields, pool, list_count);
 		for (i = 0; i < list_count; i++) {
 			if (!imap_arg_get_astring(&hdr_list[i], &value)) {

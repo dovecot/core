@@ -486,7 +486,7 @@ imap_client_notify_status(struct client *client, bool bad, const char *text)
 		client_send_reply_raw(client, "OK", NULL, text, FALSE);
 }
 
-static void 
+static void
 imap_client_notify_disconnect(struct client *client,
 			      enum client_disconnect_reason reason,
 			      const char *text)

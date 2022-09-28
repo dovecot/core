@@ -2,7 +2,7 @@
 #define HTTP_REQUEST_PARSER_H
 
 #include "http-request.h"
- 
+
 enum http_request_parse_error {
 	HTTP_REQUEST_PARSE_ERROR_NONE = 0,           /* no error */
 	HTTP_REQUEST_PARSE_ERROR_BROKEN_STREAM,      /* stream error */

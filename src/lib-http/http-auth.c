@@ -47,7 +47,7 @@ http_parse_token68(struct http_parser *parser, const char **token68_r)
 	/* *"=" */
 	while (parser->cur < parser->end && *parser->cur == '=')
 		parser->cur++;
-	
+
 	*token68_r = t_strndup(first, parser->cur - first);
 	return 1;
 }
@@ -106,7 +106,7 @@ http_parse_auth_params(struct http_parser *parser,
 
 		last = parser->cur;
 
-		/* OWS "," OWS 
+		/* OWS "," OWS
 		   --> also allow empty elements
 		 */
 		for (;;) {
@@ -116,7 +116,7 @@ http_parse_auth_params(struct http_parser *parser,
 			parser->cur++;
 		}
 	}
-	
+
 	parser->cur = last;
 	if (ret < 0)
 		return -1;
@@ -177,7 +177,7 @@ int http_auth_parse_challenges(const unsigned char *data, size_t size,
 			t_array_init(chlngs, 4);
 		array_push_back(chlngs, &chlng);
 
-		/* OWS "," OWS 
+		/* OWS "," OWS
 		   --> also allow empty elements
 		 */
 		for (;;) {
@@ -335,7 +335,7 @@ void http_auth_create_challenges(string_t *out,
 		if (i > 0)
 			str_append(out, ", ");
 		http_auth_create_challenge(out, &chlgs[i]);
-	}	
+	}
 }
 
 void http_auth_create_credentials(string_t *out,
@@ -465,7 +465,7 @@ void http_auth_basic_credentials_init(struct http_auth_credentials *crdts,
 
 	i_assert(username != NULL && *username != '\0');
 	i_assert(strchr(username, ':') == NULL);
- 
+
 	data = t_str_new(64);
 	auth = t_strconcat(username, ":", password, NULL);
 	base64_encode(auth, strlen(auth), data);

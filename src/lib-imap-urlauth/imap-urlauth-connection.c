@@ -33,7 +33,7 @@ enum imap_urlauth_state {
 struct imap_urlauth_request {
 	struct imap_urlauth_target *target;
 	struct imap_urlauth_request *prev, *next;
-	
+
 	char *url;
 	enum imap_urlauth_fetch_flags flags;
 
@@ -239,7 +239,7 @@ imap_urlauth_connection_send_request(struct imap_urlauth_connection *conn)
 	if (urlreq == NULL) {
 		if (conn->targets_head->next == NULL)
 			return;
-		
+
 		conn->state = IMAP_URLAUTH_STATE_UNSELECTING_TARGET;
 		imap_urlauth_target_free(conn, conn->targets_head);
 
@@ -249,7 +249,7 @@ imap_urlauth_connection_send_request(struct imap_urlauth_connection *conn)
 		}
 		imap_urlauth_start_response_timeout(conn);
 		return;
-	}	
+	}
 
 	e_debug(conn->user->event,
 		"imap-urlauth: Fetching URL `%s'", urlreq->url);
@@ -285,7 +285,7 @@ imap_urlauth_request_new(struct imap_urlauth_connection *conn,
 	struct imap_urlauth_target *target;
 
 	target = imap_urlauth_connection_get_target(conn, target_user);
-	
+
 	urlreq = i_new(struct imap_urlauth_request, 1);
 	urlreq->url = i_strdup(url);
 	urlreq->flags = flags;
@@ -296,7 +296,7 @@ imap_urlauth_request_new(struct imap_urlauth_connection *conn,
 	DLLIST2_APPEND(&target->requests_head, &target->requests_tail, urlreq);
 
 	timeout_remove(&conn->to_idle);
-	
+
 	e_debug(conn->user->event,
 		"imap-urlauth: Added request for URL `%s' from user `%s'",
 		url, target_user);
@@ -438,7 +438,7 @@ imap_urlauth_connection_abort(struct imap_urlauth_connection *conn,
 			      const char *reason)
 {
 	struct imap_urlauth_target *target, *next;
-	
+
 	if (reason == NULL)
 		reason = "Aborting due to error";
 	imap_urlauth_connection_disconnect(conn, reason);

@@ -238,7 +238,7 @@ http_message_parse_hdr_location(struct http_message_parser *parser,
 {
 	/* RFC 7231, Section 7.1.2: Location
 
-	   Location = URI-reference 
+	   Location = URI-reference
 
 	   -> not parsed here
 	 */
@@ -263,7 +263,7 @@ http_message_parse_hdr_transfer_encoding(struct http_message_parser *parser,
 
 	/* RFC 7230, Section 3.3.1: Transfer-Encoding
 
-	   Transfer-Encoding  = 1#transfer-coding 
+	   Transfer-Encoding  = 1#transfer-coding
 
 	   RFC 7230, Section 4: Transfer Codings
 
@@ -334,7 +334,7 @@ http_message_parse_hdr_transfer_encoding(struct http_message_parser *parser,
 			}
 			if (parse_error)
 				break;
-			
+
 		} else {
 			/* RFC 7230, Section 7: ABNF List Extension: #rule
 
@@ -472,7 +472,7 @@ int http_message_parse_headers(struct http_message_parser *parser)
 	}
 
 	if (ret < 0) {
-		if (parser->input->eof || parser->input->stream_errno != 0)  {			
+		if (parser->input->eof || parser->input->stream_errno != 0)  {
 			parser->error_code =
 				HTTP_MESSAGE_PARSE_ERROR_BROKEN_STREAM;
 			parser->error = "Broken stream";
@@ -482,7 +482,7 @@ int http_message_parse_headers(struct http_message_parser *parser)
 			parser->error = t_strdup_printf(
 				"Failed to parse header: %s", error);
 		}
-	
+
 	}
 	return ret;
 }
@@ -547,7 +547,7 @@ http_message_parse_body_encoded(struct http_message_parser *parser,
 			return -1;
 	}
 
-	if (seen_chunked) {	
+	if (seen_chunked) {
 		parser->payload = http_transfer_chunked_istream_create(
 			parser->input, parser->max_payload_size);
 	} else if (!request) {
@@ -556,7 +556,7 @@ http_message_parse_body_encoded(struct http_message_parser *parser,
 		   If a Transfer-Encoding header field is present in a response
 		   and the chunked transfer coding is not the final encoding,
 		   the message body length is determined by reading the
-		   connection until it is closed by the server. 
+		   connection until it is closed by the server.
 		 */
 		/* FIXME: enforce max payload size (relevant to http-client
 		   only) */
@@ -641,7 +641,7 @@ int http_message_parse_body(struct http_message_parser *parser, bool request)
 
 	parser->error_code = HTTP_MESSAGE_PARSE_ERROR_NONE;
 	parser->error = NULL;
- 
+
 	if (array_is_created(&parser->msg.transfer_encoding)) {
 		if (http_message_parse_body_encoded(parser, request) < 0)
 			return -1;

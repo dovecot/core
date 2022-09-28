@@ -7,7 +7,7 @@
 
 #include <ctype.h>
 
-/* RFC 7231, Section 7.1.1.1: Date/Time Formats	
+/* RFC 7231, Section 7.1.1.1: Date/Time Formats
 
 	The defined syntax is as follows:
 
@@ -167,7 +167,7 @@ http_date_parse_month(struct http_date_parser *parser)
 
 	if (http_date_parse_word(parser, 3, &month) <= 0 || str_len(month) != 3)
 		return -1;
-	
+
 	for (i = 0; i < 12; i++) {
 		if (strcmp(month_names[i], str_c(month)) == 0) {
 			break;
@@ -175,7 +175,7 @@ http_date_parse_month(struct http_date_parser *parser)
 	}
 	if (i >= 12)
 		return -1;
-	
+
 	parser->tm.tm_mon = i;
 	return 1;
 }
@@ -255,7 +255,7 @@ http_date_parse_format_imf_fixdate(struct http_date_parser *parser)
 		            ; see Section 3.3 of [RFC5322]
 	 date1        = day SP month SP year
 	              ; e.g., 02 Jun 1982
-	 
+
 	 Remaining: 	 {...} SP day SP month SP year SP time-of-day SP GMT
 
 	 */
@@ -285,7 +285,7 @@ http_date_parse_format_imf_fixdate(struct http_date_parser *parser)
 static int
 http_date_parse_format_rfc850(struct http_date_parser *parser)
 {
-	/* 
+	/*
 	 rfc850-date  = day-name-l "," SP date2 SP time-of-day SP GMT
 	 date2        = day "-" month "-" 2DIGIT
 		              ; day-month-year (e.g., 02-Jun-82)
@@ -302,7 +302,7 @@ http_date_parse_format_rfc850(struct http_date_parser *parser)
 
 	/* day */
 	if (http_date_parse_day(parser) <= 0)
-		return -1;	
+		return -1;
 
 	/* "-" */
 	if (parser->cur >= parser->end || parser->cur[0] != '-')
@@ -311,7 +311,7 @@ http_date_parse_format_rfc850(struct http_date_parser *parser)
 
 	/* month */
 	if (http_date_parse_month(parser) <= 0)
-		return -1;	
+		return -1;
 
 	/* "-" */
 	if (parser->cur >= parser->end || parser->cur[0] != '-')
@@ -391,7 +391,7 @@ http_date_parse_format_any(struct http_date_parser *parser)
 
 	if (http_date_parse_word(parser, 9, &dayname) <= 0)
 		return -1;
-	
+
 	if (str_len(dayname) > 3) {
 		/* rfc850-date */
 		for (i = 0; i < 7; i++) {
@@ -433,7 +433,7 @@ bool http_date_parse(const unsigned char *data, size_t size,
 {
 	struct http_date_parser parser;
 	time_t timestamp;
-	
+
 	i_zero(&parser);
 	parser.cur = data;
 	parser.end = data + size;

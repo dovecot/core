@@ -6,7 +6,7 @@
 #include "test-common.h"
 #include "smtp-address.h"
 
-/* 
+/*
  * Valid mailbox parse tests
  */
 

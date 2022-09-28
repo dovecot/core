@@ -238,7 +238,7 @@ int mail_transaction_log_view_set(struct mail_transaction_log_view *view,
 			view_set_failed_unref(head, tail);
 			seq = file->hdr.file_seq;
 			tail = NULL;
-		} 
+		}
 
 		if (tail == NULL)
 			tail = file;
@@ -517,7 +517,7 @@ mail_transaction_log_view_get_last(struct mail_transaction_log_view *view,
 				cur_offset = cur->hdr.hdr_size;
 				continue;
 			}
-		} 
+		}
 
 		/* not EOF */
 		break;

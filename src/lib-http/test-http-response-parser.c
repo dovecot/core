@@ -30,24 +30,24 @@ struct valid_parse_test {
 /* Valid response tests */
 
 static const struct valid_parse_test_response valid_responses1[] = {
-	{ 
+	{
 		.status = 200,
 		.payload = "This is a piece of stupid text.\r\n"
 	}
 };
 
 static const struct valid_parse_test_response valid_responses2[] = {
-	{ 
+	{
 		.status = 200,
 		.payload = "This is a piece of stupid text.\r\n"
-	},{ 
+	},{
 		.status = 200,
 		.payload = "This is a piece of even more stupid text.\r\n"
 	}
 };
 
 static const struct valid_parse_test_response valid_responses3[] = {
-	{ 
+	{
 		.status = 401,
 		.payload = "Frop!"
 	}
@@ -201,7 +201,7 @@ static void test_http_response_parse_valid(void)
 			if (presponse.payload != NULL) {
 				buffer_set_used_size(payload_buffer, 0);
 				output = o_stream_create_buffer(payload_buffer);
-				test_out("payload receive", 
+				test_out("payload receive",
 					o_stream_send_istream(output, presponse.payload)
 						== OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
 				o_stream_destroy(&output);
@@ -228,7 +228,7 @@ static void test_http_response_parse_valid(void)
 					str_sanitize(payload, 80)),
 					strcmp(payload, tresponse->payload) == 0);
 			}
-		
+
 			ret = http_response_parse_next(parser,
 				HTTP_RESPONSE_PAYLOAD_TYPE_ALLOWED, &presponse, &error);
 			if (++j == test->responses_count)

@@ -291,7 +291,7 @@ cmd_append_catenate(struct client_command_context *cmd,
 		const char *caturl;
 
 		if (strcasecmp(catpart, "URL") == 0 ) {
-			/* URL <url> */ 
+			/* URL <url> */
 			args++;
 			if (!imap_arg_get_astring(args, &caturl)) {
 				invalid_arg = TRUE;

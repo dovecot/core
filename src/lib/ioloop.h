@@ -15,7 +15,7 @@ enum io_condition {
 	/* IO_ERROR can be used to check when writable pipe's reader side
 	   closes the pipe. For other uses IO_READ should work just as well. */
 	IO_ERROR	= 0x04,
-	
+
 	/* internal */
 	IO_NOTIFY	= 0x08
 };

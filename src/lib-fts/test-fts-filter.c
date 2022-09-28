@@ -285,7 +285,7 @@ static void test_fts_filter_stopwords_fra(void)
 	                       "l\xE2\x80\x99""av\xC3\xA8nement",
 	                       NULL};
 	const char *output[] = {NULL, NULL, NULL, "peut", NULL,
-	                        "quelconque", NULL, 
+	                        "quelconque", NULL,
 	                        "l\xE2\x80\x99""av\xC3\xA8nement",};
 	const char **ip, **op;
 	const char *token;

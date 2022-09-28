@@ -146,7 +146,7 @@ void auth_master_set_timeout(struct auth_master_connection *conn,
 			     unsigned int msecs)
 {
 	conn->timeout_msecs = msecs;
-}			     
+}
 
 const char *auth_master_get_socket_path(struct auth_master_connection *conn)
 {

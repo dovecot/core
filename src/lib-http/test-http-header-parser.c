@@ -96,7 +96,7 @@ static const struct http_header_parse_result valid_header_parse_result7[] = {
 };
 
 static const struct http_header_parse_test valid_header_parse_tests[] = {
-	{ .header = 
+	{ .header =
 			"Date: Sat, 06 Oct 2012 16:01:44 GMT\r\n"
 			"Server: Apache/2.2.16 (Debian)\r\n"
 			"Last-Modified: Mon, 30 Jul 2012 11:09:28 GMT\r\n"
@@ -138,7 +138,7 @@ static const struct http_header_parse_test valid_header_parse_tests[] = {
 			"\r\n",
 		.fields = valid_header_parse_result3
 	},{
-		.header = 
+		.header =
 			"Age: 58        \r\n"
 			"Date: Sun, 04 Aug 2013 09:33:09 GMT\r\n"
 			"Expires: Sun, 04 Aug 2013 09:34:08 GMT\r\n"
@@ -241,49 +241,49 @@ static void test_http_header_parse_valid(void)
 
 static const struct http_header_parse_test invalid_header_parse_tests[] = {
 	{
-		.header = 
+		.header =
 			"Date: Sat, 06 Oct 2012 16:01:44 GMT\r\n"
 			"Server : Apache/2.2.16 (Debian)\r\n"
 			"Last-Modified: Mon, 30 Jul 2012 11:09:28 GMT\r\n"
 			"\r\n"
 	},{
-		.header = 
+		.header =
 			"Date: Sat, 06 Oct 2012 17:18:22 GMT\r\n"
 			"Server: Apache/2.2.3 (CentOS)\r\n"
 			"X Powered By: PHP/5.3.6\r\n"
 			"\r\n"
 	},{
-		.header = 
+		.header =
 			"Host: www.example.com\n\r"
 			"Accept: image/png,image/*;q=0.8,*/*;q=0.5\n\r"
 			"Accept-Language: en-us,en;q=0.5\n\r"
 			"Accept-Encoding: gzip, deflate\n\r"
 			"\n\r"
 	},{
-		.header = 
+		.header =
 			"Host: p5-lrqzb4yavu4l7nagydw-428649-i2-v6exp3-ds.metric.example.com\n"
 			"User-Agent:Mozilla/5.0 (Windows NT 6.1; WOW64; rv:15.0)\n"
 			"Accept:\t\timage/png,image/*;q=0.8,*/\1;q=0.5\n"
 			"\n",
 		.flags = HTTP_HEADER_PARSE_FLAG_STRICT
 	},{
-		.header = 
+		.header =
 			"Date: Sat, 06 Oct 2012 17:18:22 GMT\r\n"
 			"Server: Apache/2.2.3\177 (CentOS)\r\n"
 			"\r\n",
 		.flags = HTTP_HEADER_PARSE_FLAG_STRICT
 	},{
-		.header = 
+		.header =
 			"Date: Sat, 06 Oct 2012 17:12:37 GMT\r\n"
 			"Server: Apache/2.2.16 (Debian) PHP/5.3.3-7+squeeze14 with\r\n"
 			"Suhosin-Patch proxy_html/3.0.1 mod_python/3.3.1 Python/2.6.6\r\n"
 			"mod_ssl/2.2.16 OpenSSL/0.9.8o mod_perl/2.0.4 Perl/v5.10.1\r\n"
 			"\r\n"
 	},{
-		.header = 
+		.header =
 			"Date: Sat, 06 Oct 2012 17:12:37 GMT\r\n"
 	},{
-		.header = 
+		.header =
 			"Age: 58        \r\n"
 			"Date: Sun, 04 Aug 2013 09:33:09 GMT\r\n"
 			"Expires: Sun, 04 Aug 2013 09:34:08 GMT\r\n"
@@ -299,7 +299,7 @@ static const struct http_header_parse_test invalid_header_parse_tests[] = {
 			"\r\n",
 		.limits = { .max_size = 339 }
 	},{
-		.header = 
+		.header =
 			"Age: 58        \r\n"
 			"Date: Sun, 04 Aug 2013 09:33:09 GMT\r\n"
 			"Expires: Sun, 04 Aug 2013 09:34:08 GMT\r\n"
@@ -316,7 +316,7 @@ static const struct http_header_parse_test invalid_header_parse_tests[] = {
 		.fields = valid_header_parse_result4,
 		.limits = { .max_field_size = 45 }
 	},{
-		.header = 
+		.header =
 			"Age: 58        \r\n"
 			"Date: Sun, 04 Aug 2013 09:33:09 GMT\r\n"
 			"Expires: Sun, 04 Aug 2013 09:34:08 GMT\r\n"

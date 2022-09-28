@@ -207,7 +207,7 @@ void mail_index_append_finish_uids_full(struct mail_index_transaction *t,
 	unsigned int i, count;
 	struct seq_range *range;
 	uint32_t next_uid;
-	
+
 	if (!array_is_created(&t->appends))
 		return;
 

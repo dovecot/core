@@ -214,7 +214,7 @@ static void test_http_transfer_chunked_input_invalid(void)
 /* Valid transfer_chunked output tests */
 static const char *valid_transfer_chunked_output_tests[] = {
 	/* The maximum chunk size is set to 16. These tests are tuned to some border
-	   cases 
+	   cases
 	*/
 	"A small payload",  // 15 bytes
 	"A longer payload", // 16 bytes
@@ -241,7 +241,7 @@ static const char *valid_transfer_chunked_output_tests[] = {
 	"This a very long repetitive payload. This a very long repetitive payload. "
 	"This a very long repetitive payload. This a very long repetitive payload. "
 	"This a very long repetitive payload. This a very long repetitive payload. "
-}; 
+};
 
 static unsigned int valid_transfer_chunked_output_test_count =
 	N_ELEMENTS(valid_transfer_chunked_output_tests);
@@ -284,7 +284,7 @@ static void test_http_transfer_chunked_output_valid(void)
 					ret = 1;
 				break;
 			}
-			if (rsize == 0) 
+			if (rsize == 0)
 				break;
 			if (rsize > 16)
 				rsize = 16;
@@ -307,7 +307,7 @@ static void test_http_transfer_chunked_output_valid(void)
 		o_stream_destroy(&ochunked);
 		o_stream_destroy(&output);
 		i_stream_destroy(&input);
-		
+
 		/* create chunked input stream */
 		input = i_stream_create_from_data
 			(chunked_buffer->data, chunked_buffer->used);

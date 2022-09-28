@@ -171,7 +171,7 @@ smtp_server_cmd_ehlo_reply_create(struct smtp_server_cmd_ctx *cmd)
 
 	i = j = 0;
 	while (i < standard_caps_count || j < extra_caps_count) {
-		if (i < standard_caps_count && 
+		if (i < standard_caps_count &&
 		    (j >= extra_caps_count ||
 		     strcasecmp(standard_caps[i].name,
 				extra_caps[j].name) < 0)) {

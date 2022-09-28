@@ -202,7 +202,7 @@ static bool dcrypt_openssl_error(const char **error_r)
 
 	if (error_r == NULL) {
 		/* caller is not really interested */
-		return FALSE; 
+		return FALSE;
 	}
 
 	ec = ERR_get_error();

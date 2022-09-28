@@ -249,7 +249,7 @@ test_server_hanging_request_payload_input(struct _hanging_request_payload *ctx)
 	}
 
 	i_assert(ctx->payload_input->eof);
-		
+
 	resp = http_server_response_create(req, 200, "OK");
 	http_server_response_submit(resp);
 	ctx->serviced = TRUE;
@@ -754,7 +754,7 @@ static void (*const test_functions[])(void) = {
 static void client_connection_input(struct connection *_conn)
 {
 	struct client_connection *conn = (struct client_connection *)_conn;
-	
+
 	if (test_client_input != NULL)
 		test_client_input(conn);
 }
@@ -1030,13 +1030,13 @@ int main(int argc, char *argv[])
 	/* listen on localhost */
 	i_zero(&bind_ip);
 	bind_ip.family = AF_INET;
-	bind_ip.u.ip4.s_addr = htonl(INADDR_LOOPBACK);	
+	bind_ip.u.ip4.s_addr = htonl(INADDR_LOOPBACK);
 
 	ret = test_run(test_functions);
 
 	test_subprocesses_deinit();
 	main_deinit();
 	lib_deinit();
-	
+
 	return ret;
 }

@@ -391,7 +391,7 @@ o_stream_encrypt_keydata_create_v2(struct encrypt_ostream *stream,
 	/* key data length for internal use */
 	if ((stream->flags & IO_STREAM_ENC_INTEGRITY_HMAC) ==
 		IO_STREAM_ENC_INTEGRITY_HMAC) {
-		tagsize = IOSTREAM_TAG_SIZE; 
+		tagsize = IOSTREAM_TAG_SIZE;
 	} else if ((stream->flags & IO_STREAM_ENC_INTEGRITY_AEAD) ==
 		IO_STREAM_ENC_INTEGRITY_AEAD) {
 		tagsize = IOSTREAM_TAG_SIZE;

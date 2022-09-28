@@ -126,7 +126,7 @@ void i_set_failure_ignore_errors(bool ignore);
    functions modify the info file too, so call this function after them. */
 void i_set_info_file(const char *path);
 
-/* Send debug-level message to the given log file. The i_set_info_file() 
+/* Send debug-level message to the given log file. The i_set_info_file()
    function modifies also the debug log file, so call this function after it. */
 void i_set_debug_file(const char *path);
 

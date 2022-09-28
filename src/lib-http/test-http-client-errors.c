@@ -694,7 +694,7 @@ static void test_invalid_redirect_input3(struct server_connection *conn)
 	string_t *resp;
 
 	resp = t_str_new(512);
-	str_printfa(resp, 
+	str_printfa(resp,
 		    "HTTP/1.1 302 Redirect\r\n"
 		    "Location: http://%s:%u/friep.txt\r\n"
 		    "\r\n",
@@ -769,7 +769,7 @@ static void test_invalid_redirect(void)
 	test_end();
 }
 
-/* 
+/*
  * Unseekable redirect
  */
 
@@ -780,7 +780,7 @@ static void test_unseekable_redirect_input(struct server_connection *conn)
 	string_t *resp;
 
 	resp = t_str_new(512);
-	str_printfa(resp, 
+	str_printfa(resp,
 		    "HTTP/1.1 302 Redirect\r\n"
 		    "Location: http://%s:%u/frml.txt\r\n"
 		    "\r\n",
@@ -972,7 +972,7 @@ test_client_broken_payload(const struct http_client_settings *client_set)
 	http_client_request_submit(hreq);
 
 	i_stream_unref(&input);
-	return TRUE;	
+	return TRUE;
 }
 
 /* test */
@@ -1593,7 +1593,7 @@ test_client_early_success(const struct http_client_settings *client_set)
 
 	ctx = i_new(struct _early_success_ctx, 1);
 	ctx->count = 2;
-	
+
 	http_client = http_client_init(client_set);
 
 	hreq = http_client_request(
@@ -1972,7 +1972,7 @@ test_client_request_aborted_early_response(
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
 
 	/* abort does not trigger callback */
-	test_assert(FALSE); 
+	test_assert(FALSE);
 }
 
 static void
@@ -1985,7 +1985,7 @@ test_client_request_aborted_early_timeout(
 		/* abort early */
 		http_client_request_abort(&ctx->req1); /* sent */
 		http_client_request_abort(&ctx->req2); /* only queued */
-	
+
 		/* wait a little for server to actually respond to an
 		   already aborted request */
 		ctx->to = timeout_add_short(
@@ -2171,7 +2171,7 @@ test_client_client_deinit_early_response(
 		i_debug("RESPONSE: %u %s", resp->status, resp->reason);
 
 	/* abort does not trigger callback */
-	test_assert(FALSE); 
+	test_assert(FALSE);
 }
 
 static void
@@ -2181,7 +2181,7 @@ test_client_client_deinit_early_timeout(struct _client_deinit_early_ctx *ctx)
 
 	/* deinit early */
 	http_client_deinit(&http_client);
-	
+
 	/* all done */
 	i_free(ctx);
 	io_loop_stop(ioloop);
@@ -2984,7 +2984,7 @@ test_client_reconnect_failure(const struct http_client_settings *client_set)
 	struct _reconnect_failure_ctx *ctx;
 
 	ctx = i_new(struct _reconnect_failure_ctx, 1);
-	
+
 	http_client = http_client_init(client_set);
 
 	hreq = http_client_request(
@@ -3669,7 +3669,7 @@ test_client_run(test_client_init_t client_test,
 static void server_connection_input(struct connection *_conn)
 {
 	struct server_connection *conn = (struct server_connection *)_conn;
-	
+
 	test_server_input(conn);
 }
 
@@ -3937,7 +3937,7 @@ int main(int argc, char *argv[])
 	/* listen on localhost */
 	i_zero(&bind_ip);
 	bind_ip.family = AF_INET;
-	bind_ip.u.ip4.s_addr = htonl(INADDR_LOOPBACK);	
+	bind_ip.u.ip4.s_addr = htonl(INADDR_LOOPBACK);
 
 	ret = test_run(test_functions);
 

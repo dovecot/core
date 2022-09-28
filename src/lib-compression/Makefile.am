@@ -30,7 +30,7 @@ noinst_HEADERS = \
 	iostream-zstd-private.h
 
 pkglib_LTLIBRARIES = libdovecot-compression.la
-libdovecot_compression_la_SOURCES = 
+libdovecot_compression_la_SOURCES =
 libdovecot_compression_la_LIBADD = libcompression.la ../lib-dovecot/libdovecot.la $(COMPRESS_LIBS)
 libdovecot_compression_la_DEPENDENCIES = libcompression.la ../lib-dovecot/libdovecot.la
 libdovecot_compression_la_LDFLAGS = -export-dynamic

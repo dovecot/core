@@ -427,7 +427,7 @@ http_client_peer_shared_connect_backoff(struct http_client_peer_shared *pshared)
 	peer = pshared->peers_list;
 	while (peer != NULL) {
 		struct http_client_peer *peer_next = peer->shared_next;
-		
+
 		http_client_peer_connect_backoff(peer);
 		peer = peer_next;
 	}

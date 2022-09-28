@@ -211,7 +211,7 @@ static struct valid_http_url_test valid_url_tests[] = {
 			.enc_fragment = "Status%20of%20development",
 		},
 	},
-	/* RFC 3986, Section 5.4. Reference Resolution Examples 
+	/* RFC 3986, Section 5.4. Reference Resolution Examples
 	 *
 	 * Within a representation with a well defined base URI of
 	 *

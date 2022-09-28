@@ -304,7 +304,7 @@ static void
 test_iostream_pump_real(void)
 {
 	for(int i = 0; i < 3; i++) {
-		bool in_block = ((i & BIT(0)) != 0); 
+		bool in_block = ((i & BIT(0)) != 0);
 		bool out_block = ((i & BIT(1)) != 0);
 
 		test_iostream_pump_simple(in_block, out_block);

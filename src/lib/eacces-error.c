@@ -122,7 +122,7 @@ static int test_access(const char *path, int access_mode, string_t *errmsg)
 				    path, access_mode);
 		}
 		return -1;
-	} 
+	}
 
 	/* access() uses real uid, not effective uid.
 	   we'll have to do these checks manually. */
@@ -291,7 +291,7 @@ const char *eperm_error_get_chgrp(const char *func, const char *path,
 	int orig_errno = errno;
 
 	errmsg = t_str_new(256);
-	
+
 	str_printfa(errmsg, "%s(%s, group=%s", func, path, dec2str(gid));
 	group = getgrgid(gid);
 	if (group != NULL)

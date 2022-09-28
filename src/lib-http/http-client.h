@@ -37,7 +37,7 @@ struct http_client_settings {
 
 	/* proxy on unix socket */
 	const char *proxy_socket_path;
-	/* URL for normal proxy (ignored if proxy_socket_path is set) */   
+	/* URL for normal proxy (ignored if proxy_socket_path is set) */
 	const struct http_url *proxy_url;
 	/* credentials for proxy */
 	const char *proxy_username;
@@ -68,7 +68,7 @@ struct http_client_settings {
 	bool no_ssl_tunnel;
 
 	/* maximum number of redirects for a request
-	   (default = 0; redirects refused) 
+	   (default = 0; redirects refused)
    */
 	unsigned int max_redirects;
 
@@ -331,7 +331,7 @@ void http_client_request_set_payload(struct http_client_request *req,
  */
 void http_client_request_set_payload_data(struct http_client_request *req,
 				     const unsigned char *data, size_t size);
-/* send an empty payload for this request. This means that a Content-Length 
+/* send an empty payload for this request. This means that a Content-Length
    header is generated with zero size. Calling this function is not necessary
    for the standard POST and PUT methods, for which this is done implicitly if
    there is no payload set. */

@@ -319,7 +319,7 @@ struct http_client_queue {
 
 	/* All requests associated to this queue
 	   (ordered by earliest timeout first) */
-	ARRAY_TYPE(http_client_request) requests; 
+	ARRAY_TYPE(http_client_request) requests;
 
 	/* Delayed requests waiting to be released after delay */
 	ARRAY_TYPE(http_client_request) delayed_requests;

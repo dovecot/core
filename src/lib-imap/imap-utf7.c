@@ -186,7 +186,7 @@ static int utf16buf_to_utf8(string_t *dest, const unsigned char output[4],
 
 	if (len % 2 != 0)
 		return -1;
-	
+
 	high = (output[pos % 4] << 8) | output[(pos+1) % 4];
 	if (high < UTF16_SURROGATE_HIGH_FIRST ||
 	    high > UTF16_SURROGATE_HIGH_MAX) {

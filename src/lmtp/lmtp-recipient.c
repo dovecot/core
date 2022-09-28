@@ -21,7 +21,7 @@ lmtp_recipient_create(struct client *client,
 	char delim = '\0';
 
 	lrcpt = p_new(rcpt->pool, struct lmtp_recipient, 1);
-	lrcpt->rcpt = rcpt;	
+	lrcpt->rcpt = rcpt;
 	lrcpt->client = client;
 
 	smtp_address_detail_parse_temp(

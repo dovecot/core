@@ -220,7 +220,7 @@ struct client {
 	struct client_command_context *mailbox_change_lock;
 
 	/* IMAP URLAUTH context (RFC4467) */
-	struct imap_urlauth_context *urlauth_ctx;	
+	struct imap_urlauth_context *urlauth_ctx;
 
 	/* Module-specific contexts. */
 	ARRAY(union imap_module_context *) module_contexts;

@@ -94,7 +94,7 @@ libdriver_test_la_SOURCES = driver-test.c
 noinst_HEADERS = driver-test.h
 
 pkglib_LTLIBRARIES = libdovecot-sql.la
-libdovecot_sql_la_SOURCES = 
+libdovecot_sql_la_SOURCES =
 libdovecot_sql_la_LIBADD = libsql.la $(deplibs)
 libdovecot_sql_la_DEPENDENCIES = libsql.la
 libdovecot_sql_la_LDFLAGS = -export-dynamic

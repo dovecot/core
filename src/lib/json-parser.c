@@ -147,7 +147,7 @@ int json_parser_deinit(struct json_parser **_parser, const char **error_r)
 	} else {
 		*error_r = NULL;
 	}
-	
+
 	i_stream_unref(&parser->input);
 	array_free(&parser->nesting);
 	str_free(&parser->value);

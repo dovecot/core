@@ -83,9 +83,9 @@ iso8601_date_parse_secfrac(struct iso8601_date_parser *parser)
 static int is08601_date_parse_time_offset(struct iso8601_date_parser *parser)
 {
 	int tz_sign = 1, tz_hour = 0, tz_min = 0;
-	
+
 	/* time-offset     = "Z" / time-numoffset
-	   time-numoffset  = ("+" / "-") time-hour ":" time-minute 
+	   time-numoffset  = ("+" / "-") time-hour ":" time-minute
 	   time-hour       = 2DIGIT  ; 00-23
 	   time-minute     = 2DIGIT  ; 00-59
 	 */
@@ -133,7 +133,7 @@ static int is08601_date_parse_time_offset(struct iso8601_date_parser *parser)
 static int is08601_date_parse_full_time(struct iso8601_date_parser *parser)
 {
 	/* full-time       = partial-time time-offset
-	   partial-time    = time-hour ":" time-minute ":" time-second [time-secfrac]	   
+	   partial-time    = time-hour ":" time-minute ":" time-second [time-secfrac]
 	   time-hour       = 2DIGIT  ; 00-23
 	   time-minute     = 2DIGIT  ; 00-59
 	   time-second     = 2DIGIT  ; 00-58, 00-59, 00-60 based on leap second
@@ -180,7 +180,7 @@ static int is08601_date_parse_full_date(struct iso8601_date_parser *parser)
 	   date-mday       = 2DIGIT  ; 01-28, 01-29, 01-30, 01-31 based on
 	                             ; month/year
 	 */
-	
+
 	/* date-fullyear = 4DIGIT */
 	if (iso8601_date_parse_number(parser, 4, &parser->tm.tm_year) <= 0)
 		return -1;
@@ -286,7 +286,7 @@ const char *iso8601_date_create_tm(struct tm *tm, int timezone_offset)
 		if (timezone_offset < 0) {
 			timezone_offset = -timezone_offset;
 			sign = '-';
-		} 
+		}
 		time_offset = t_strdup_printf("%c%02d:%02d", sign,
 					      timezone_offset / 60,
 					      timezone_offset % 60);
@@ -304,6 +304,6 @@ const char *iso8601_date_create(time_t timestamp)
 
 	tm = localtime(&timestamp);
 	timezone_offset = utc_offset(tm, timestamp);
-	
+
 	return iso8601_date_create_tm(tm, timezone_offset);
 }

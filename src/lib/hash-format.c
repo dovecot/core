@@ -165,7 +165,7 @@ hash_format_digest(string_t *dest, const struct hash_format_list *list,
 		   const unsigned char *digest)
 {
 	unsigned int i, orig_len, size = list->bits / 8;
-	
+
 	i_assert(list->bits % 8 == 0);
 
 	switch (list->encoding) {

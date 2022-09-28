@@ -578,7 +578,7 @@ static void io_loop_timeouts_start_new(struct ioloop *ioloop)
 
 	if (array_count(&ioloop->timeouts_new) == 0)
 		return;
-	
+
 	io_loop_time_refresh();
 
 	array_foreach_elem(&ioloop->timeouts_new, timeout) {

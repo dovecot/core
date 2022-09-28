@@ -41,7 +41,7 @@ struct decrypt_istream {
 	enum io_stream_encrypt_flags flags;
 
 	/* original iv, in case seeking is done, future feature */
-	unsigned char *iv;  
+	unsigned char *iv;
 
 	struct dcrypt_context_symmetric *ctx_sym;
 	struct dcrypt_context_hmac *ctx_mac;

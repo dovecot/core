@@ -692,7 +692,7 @@ void connection_init_from_streams(struct connection_list *list,
 	o_stream_set_no_error_handling(conn->output, TRUE);
 
 	connection_update_stream_names(conn);
-	
+
 	conn->disconnected = FALSE;
 	connection_input_resume_full(conn, FALSE);
 

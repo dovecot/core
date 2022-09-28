@@ -432,7 +432,7 @@ static void test_http_request_parse_valid(void)
 			if (request.payload != NULL) {
 				buffer_set_used_size(payload_buffer, 0);
 				output = o_stream_create_buffer(payload_buffer);
-				test_out("payload receive", 
+				test_out("payload receive",
 					 o_stream_send_istream(
 						output, request.payload) ==
 					 OSTREAM_SEND_ISTREAM_RESULT_FINISHED);
@@ -447,7 +447,7 @@ static void test_http_request_parse_valid(void)
 		}
 
 		test_out_reason("parse success", ret == 0, error);
-		
+
 		if (ret == 0) {
 			/* verify last request only */
 			test_http_request_equal(test, request, payload);

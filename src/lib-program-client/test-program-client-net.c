@@ -332,7 +332,7 @@ static void test_program_success(void)
 		"test_program_success", "hello", "world", NULL
 	};
 
-	test_begin("test_program_success");	
+	test_begin("test_program_success");
 
 	pc = program_client_net_create("127.0.0.1", test_globals.port, args,
 				       &pc_set, FALSE);
@@ -493,7 +493,7 @@ static void test_program_refused(void)
 	    net_addr2ip("127.0.0.1", &ips[3]) < 0) {
 		i_fatal("Cannot convert addresses");
 	}
-	
+
 	pc = program_client_net_create_ips(ips, N_ELEMENTS(ips),
 					   test_globals.port, args,
 					   &pc_set, TRUE);

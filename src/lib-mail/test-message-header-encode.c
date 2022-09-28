@@ -254,7 +254,7 @@ static void test_message_header_encode(void)
 		"\xC3\xC3\xC3\xA4-\xC3\xC3\xA4\xC3-\xC3\xA4\xC3\xC3-",
 			"=?utf-8?b?LcOk77+9Le+/vcOk77+9Le+/"
 			"vcOkLe+/vcOkLe+/vcOk77+9LcOk77+9LQ==?=",
-	};                          
+	};
 	string_t *str = t_str_new(128);
 	unsigned int i;
 

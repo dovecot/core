@@ -101,7 +101,7 @@ struct master_service_haproxy_conn {
 	pool_t pool;
 
 	struct master_service_haproxy_conn *prev, *next;
-	
+
 	struct master_service *service;
 
 	struct io *io;

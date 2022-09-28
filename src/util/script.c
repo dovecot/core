@@ -95,7 +95,7 @@ parse_input(ARRAY_TYPE(const_string)* envs, const char *const **args_r,
 	   This is quite a horrible protocol. If alarm is specified, it MUST be
 	   before "noreply". If "noreply" isn't given, something other string
 	   (typically "-") must be given which is eaten away.
-	*/		
+	*/
 	alarm(SCRIPT_READ_TIMEOUT_SECS);
 	scanpos = 1;
 	while (!header_complete) {

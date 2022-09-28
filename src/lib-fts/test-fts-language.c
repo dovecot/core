@@ -3,7 +3,7 @@
 #include "lib.h"
 #include "test-common.h"
 #include "fts-language.h"
-/* TODO: These checks will not work without proper libtextcat configuration. 
+/* TODO: These checks will not work without proper libtextcat configuration.
    As such, they are not really unit test to be coupled with the build. */
 
 const char *const settings[] =

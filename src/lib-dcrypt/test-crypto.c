@@ -26,12 +26,12 @@ static void test_cipher_test_vectors(void)
 		const char *pt;
 		const char *ct;
 	} vectors[] = {
-		{ 
+		{
 			"2b7e151628aed2a6abf7158809cf4f3c",
 			"000102030405060708090a0b0c0d0e0f",
 			"6bc1bee22e409f96e93d7e117393172a",
 			"7649abac8119b246cee98e9b12e9197d"
-		}, { 
+		}, {
 			"2b7e151628aed2a6abf7158809cf4f3c",
 			"7649ABAC8119B246CEE98E9B12E9197D",
 			"ae2d8a571e03ac9c9eb76fac45af8e51",
@@ -69,7 +69,7 @@ static void test_cipher_test_vectors(void)
 
 		if (!dcrypt_ctx_sym_create("AES-128-CBC", DCRYPT_MODE_ENCRYPT,
 					   &ctx, NULL)) {
-			test_assert_failed("dcrypt_ctx_sym_create", 
+			test_assert_failed("dcrypt_ctx_sym_create",
 					   __FILE__, __LINE__-1);
 			continue;
 		}
@@ -227,7 +227,7 @@ static void test_load_v1_keys(void)
 	test_begin("test_load_v1_keys");
 
 	const char *error = NULL;
-	const char *data1 = 
+	const char *data1 =
 		"1\t716\t1\t0567e6bf9579813ae967314423b0fceb14bda24"
 		"749303923de9a9bb9370e0026f995901a57e63113eeb2baf0c"
 		"940e978d00686cbb52bd5014bc318563375876255\t0300E46"
@@ -262,7 +262,7 @@ static void test_load_v1_keys(void)
 		"7c9a1039ea2e4fed73e81dd3ffc3fa22"
 		"ea4a28352939adde7bf8ea858b00fa4f") == 0);
 
-	const char* data2 = 
+	const char* data2 =
 		"1\t716\t0301EB00973C4EFC8FCECA4EA33E941F50B561199A"
 		"5159BCB6C2EED9DD1D62D65E38A254979D89E28F0C28883E71"
 		"EE2AD264CD16B863FA094A8F6F69A56B62E8918040\t7c9a10"
@@ -343,7 +343,7 @@ static void test_load_v1_key(void)
 	struct dcrypt_private_key *pkey = NULL, *pkey2 = NULL;
 	const char *error = NULL;
 
-	test_assert(dcrypt_key_load_private(&pkey, 
+	test_assert(dcrypt_key_load_private(&pkey,
 		"1\t716\t0\t048FD04FD3612B22D32790C592CF21CEF417EFD"
 		"2EA34AE5F688FA5B51BED29E05A308B68DA78E16E90B47A11E"
 		"133BD9A208A2894FD01B0BEE865CE339EA3FB17AC\td0cfaca"

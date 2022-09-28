@@ -296,7 +296,7 @@ void smtp_client_command_fail_reply(struct smtp_client_command **_cmd,
 	if (cmd == NULL)
 		return;
 	*_cmd = NULL;
-	
+
 	struct smtp_client_connection *conn = cmd->conn;
 	enum smtp_client_command_state state = cmd->state;
 	smtp_client_command_callback_t *callback = cmd->callback;
@@ -1495,7 +1495,7 @@ smtp_client_command_data_submit_after(struct smtp_client_connection *conn,
 	struct smtp_client_command *cmd, *cmd_data;
 
 	/* Create the final command early for reference by the caller;
-	   it will not be submitted for now. The DATA command is handled in 
+	   it will not be submitted for now. The DATA command is handled in
 	   two stages (== command submissions), the BDAT command in one or more.
 	 */
 	cmd = cmd_data = smtp_client_command_create(conn, flags,

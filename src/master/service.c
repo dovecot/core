@@ -518,7 +518,7 @@ unsigned int service_signal(struct service *service, int signo,
 			*uninitialized_count_r += 1;
 			continue;
 		}
-		    
+
 		if (kill(process->pid, signo) == 0)
 			count++;
 		else if (errno != ESRCH) {

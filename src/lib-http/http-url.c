@@ -453,7 +453,7 @@ int http_url_request_target_parse(const char *request_target,
 	i_zero(&base);
 	if (host_header != NULL && *host_header != '\0') {
 		struct uri_parser *parser;
-		
+
 		i_zero(&url_parser);
 		parser = &url_parser.parser;
 		uri_parser_init(parser, pool, host_header);

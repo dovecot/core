@@ -112,7 +112,7 @@ base32_encode_with_alphabet(const char *alph,
 	}
 
 	/* encode last < 5 bytes if any */
-	if (src_pos < src_size) {	
+	if (src_pos < src_size) {
 		tmp[0] = alph[src_c[src_pos] >> 3];
 		switch (src_size - src_pos) {
 		case 1:
@@ -211,7 +211,7 @@ base32_decode_with_alphabet(const unsigned char *alph,
 			output[1] = (input & 0x03) << 6;
 			opos = 1;
 			break;
-		case 3: 
+		case 3:
 		 	output[1] |= input << 1;
 			opos = 1;
 			break;

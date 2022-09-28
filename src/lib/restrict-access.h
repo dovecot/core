@@ -63,7 +63,7 @@ const char *restrict_access_get_current_chroot(void);
 
 /*
    Checks if PR_SET_DUMPABLE environment variable is set, and if it is,
-   calls restrict_access_set_dumpable(allow). 
+   calls restrict_access_set_dumpable(allow).
 */
 void restrict_access_allow_coredumps(bool allow);
 

@@ -165,7 +165,7 @@ static int test_input_file(const char *path)
 	lib_init();
 
 	file_input = i_stream_create_file(path, 64);
-	
+
 	/* get hash when directly reading input */
 	input = i_stream_create_crlf(file_input);
 	sha1_init(&hash);

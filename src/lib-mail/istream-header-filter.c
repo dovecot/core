@@ -716,7 +716,7 @@ i_stream_create_header_filter(struct istream *input,
 		if (ret == 0) {
 			/* drop duplicate */
 			continue;
-		} 
+		}
 		i_assert(ret < 0);
 		mstream->headers[j++] = p_strdup(mstream->pool, headers[i]);
 	}

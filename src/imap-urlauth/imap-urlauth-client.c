@@ -191,7 +191,7 @@ static int client_worker_connect(struct client *client)
 	client->ctrl_input =
 		i_stream_create_fd(client->fd_ctrl, MAX_INBUF_SIZE);
 	client->ctrl_io =
-		io_add(client->fd_ctrl, IO_READ, client_worker_input, client);  
+		io_add(client->fd_ctrl, IO_READ, client_worker_input, client);
 	return 0;
 }
 
@@ -339,7 +339,7 @@ void client_destroy(struct client *client, const char *reason)
 	timeout_remove(&client->to_idle);
 
 	client_worker_disconnect(client);
-	
+
 	o_stream_destroy(&client->output);
 
 	fd_close_maybe_stdio(&client->fd_in, &client->fd_out);

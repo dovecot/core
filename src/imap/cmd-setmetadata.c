@@ -264,7 +264,7 @@ static bool cmd_setmetadata_continue(struct client_command_context *cmd)
 			(ctx->trans, &error);
 		client_send_tagline(cmd,
 			imap_get_error_string(cmd, client_error, error));
-	} else if (imap_metadata_transaction_commit(&ctx->trans, 
+	} else if (imap_metadata_transaction_commit(&ctx->trans,
 						&error, &client_error) < 0) {
 		if (ctx->box == NULL)
 			client_disconnect_if_inconsistent(cmd->client);

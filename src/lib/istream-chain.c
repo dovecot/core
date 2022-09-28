@@ -29,7 +29,7 @@ struct chain_istream {
 	   the beginning of the current link's stream. */
 	size_t prev_stream_left;
 	size_t prev_skip;
-	
+
 	struct istream_chain chain;
 };
 
@@ -47,7 +47,7 @@ i_stream_chain_append_internal(struct istream_chain *chain,
 	link->eof = stream == NULL;
 
 	if (stream != NULL)
-		i_stream_ref(stream);	
+		i_stream_ref(stream);
 
 	if (chain->head == NULL && stream != NULL) {
 		i_stream_set_max_buffer_size(stream,

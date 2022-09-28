@@ -333,7 +333,7 @@ imap_urlauth_fetch_request_callback(struct imap_urlauth_fetch_reply *reply,
 		ufetch->waiting_service = TRUE;
 		ufetch->pending_requests++;
 	}
-	
+
 	imap_urlauth_fetch_unref(&ufetch);
 	return ret;
 }
@@ -481,7 +481,7 @@ static bool imap_urlauth_fetch_do_continue(struct imap_urlauth_fetch *ufetch)
 		if (ret < 0) {
 			imap_urlauth_fetch_fail(ufetch);
 			return FALSE;
-		} 
+		}
 
 		if (ret == 0) {
 			ufetch->waiting_service = TRUE;
@@ -505,7 +505,7 @@ static bool imap_urlauth_fetch_do_continue(struct imap_urlauth_fetch *ufetch)
 			       &ufetch->local_urls_tail, url);
 		i_free(url->url);
 		i_free(url);
-		if (ufetch->waiting_local) 
+		if (ufetch->waiting_local)
 			return TRUE;
 		url = url_next;
 	}

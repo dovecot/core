@@ -240,7 +240,7 @@ static bool fts_language_match_lists(struct fts_language_list *list,
 	const char *name;
 
 	for (int i = 0; i < candp_len; i++) {
-		/* name is <lang>-<optional country or characterset>-<encoding> 
+		/* name is <lang>-<optional country or characterset>-<encoding>
 		   eg, fi--utf8 or pt-PT-utf8 */
 		name = t_strcut(candp[i].name, '-');
 

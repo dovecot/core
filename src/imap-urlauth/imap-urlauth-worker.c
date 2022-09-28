@@ -466,7 +466,7 @@ static int client_fetch_url(struct client *client, const char *url,
 			client_abort(client,
 				"Session aborted: Fatal failure while transferring URL");
 			return 0;
-		}		
+		}
 	}
 
 	if (client->url != NULL) {
@@ -498,7 +498,7 @@ client_handle_command(struct client *client, const char *cmd,
 		}
 
 		url = *args;
-	
+
 		args++;
 		while (*args != NULL) {
 			if (strcasecmp(*args, "body") == 0)
@@ -637,7 +637,7 @@ client_handle_user_command(struct client *client, const char *cmd,
 	config.access_anonymous = client->access_anonymous;
 	config.access_applications =
 		(const void *)array_get(&client->access_apps, &count);
-		
+
 	client->urlauth_ctx = imap_urlauth_init(client->mail_user, &config);
 	if (client->debug) {
 		i_debug("Providing access to user account `%s' on behalf of user `%s' "
@@ -899,7 +899,7 @@ static void client_ctrl_input(struct client *client)
 			i_error("Invalid ACCESS parameter: %s", str_sanitize(*args, 80));
 			client_abort(client, "Control session aborted: Invalid command");
 			return;
-		} 
+		}
 		args++;
 	}
 

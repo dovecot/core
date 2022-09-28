@@ -1,6 +1,6 @@
 pkglib_LTLIBRARIES = libdovecot.la
 
-libdovecot_la_SOURCES = 
+libdovecot_la_SOURCES =
 
 libdovecot_la_LIBADD = \
 	$(LIBDOVECOT_LA_LIBS) \

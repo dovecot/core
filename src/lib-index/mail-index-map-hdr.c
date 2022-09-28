@@ -125,7 +125,7 @@ int mail_index_map_parse_keywords(struct mail_index_map *map)
 	}
 
 	/* create file -> index mapping */
-	if (!array_is_created(&map->keyword_idx_map)) 
+	if (!array_is_created(&map->keyword_idx_map))
 		i_array_init(&map->keyword_idx_map, kw_hdr->keywords_count);
 
 	size_t name_offset = 0;

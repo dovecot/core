@@ -77,7 +77,7 @@ int net_connect_ip(const struct ip_addr *ip, in_port_t port,
 /* Like net_connect_ip(), but do a blocking connect(). */
 int net_connect_ip_blocking(const struct ip_addr *ip, in_port_t port,
 			    const struct ip_addr *my_ip) ATTR_NULL(3);
-/* Like net_connect_ip(), but open a UDP socket. */ 
+/* Like net_connect_ip(), but open a UDP socket. */
 int net_connect_udp(const struct ip_addr *ip, in_port_t port,
 		    const struct ip_addr *my_ip);
 /* Returns 0 if we can bind() as given IP, -1 if not. */

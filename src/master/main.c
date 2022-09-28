@@ -151,7 +151,7 @@ master_fatal_callback(const struct failure_context *ctx,
 	va_list args2;
 	pid_t pid;
 	int fd;
-	
+
 	/* if we already forked a child process, this isn't fatal for the
 	   main process and there's no need to write the fatal file. */
 	if (str_to_pid(my_pid, &pid) < 0)
@@ -352,7 +352,7 @@ static void instance_update_now(struct master_instance_list *list)
 		/* duplicate instance names. allow without warning.. */
 		(void)master_instance_list_update(list, services->set->base_dir);
 	}
-	
+
 	timeout_remove(&to_instance);
 	to_instance = timeout_add((3600 * 12 + i_rand_limit(60 * 30)) * 1000,
 				  instance_update_now, list);
@@ -717,7 +717,7 @@ static void print_build_options(void)
 #ifdef PASSDB_PASSWD_FILE
 		" passwd-file"
 #endif
-#ifdef PASSDB_SQL 
+#ifdef PASSDB_SQL
 		" sql"
 #endif
 	"\nUserdb:"
@@ -739,10 +739,10 @@ static void print_build_options(void)
 #ifdef USERDB_PASSWD_FILE
 		" passwd-file"
 #endif
-#ifdef USERDB_SQL 
+#ifdef USERDB_SQL
 		" sql"
 #endif
-#ifdef USERDB_STATIC 
+#ifdef USERDB_STATIC
 		" static"
 #endif
 	"\n", IO_BLOCK_SIZE);

@@ -43,7 +43,7 @@ bool str_is_float(const char *str, char end_char)
 	return num_seen;
 }
 
-/* 
+/*
  * Unsigned decimal
  */
 
@@ -123,7 +123,7 @@ bool str_uint_equals(const char *str, uintmax_t num)
 	return l == num;
 }
 
-/* 
+/*
  * Unsigned hexadecimal
  */
 
@@ -209,7 +209,7 @@ int str_to_uintmax_hex(const char *str, uintmax_t *num_r)
 	return 0;
 }
 
-/* 
+/*
  * Unsigned octal
  */
 
@@ -274,7 +274,7 @@ int str_to_uintmax_oct(const char *str, uintmax_t *num_r)
 	return 0;
 }
 
-/* 
+/*
  * Signed
  */
 
@@ -349,7 +349,7 @@ int str_to_intmax(const char *str, intmax_t *num_r)
 	return 0;
 }
 
-/* 
+/*
  * Special numeric types
  */
 

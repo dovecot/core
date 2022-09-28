@@ -21,12 +21,12 @@ struct http_auth_challenges_test {
 /* Valid auth challenges tests */
 static const struct http_auth_challenges_test
 valid_auth_challenges_tests[] = {
-	{ 
+	{
 		.challenges_in = "Basic realm=\"WallyWorld\"",
 		.challenges = (struct http_auth_challenge_test []) {
 			{ .scheme = "Basic",
 				.data = NULL,
-				.params = (struct http_auth_param []) { 
+				.params = (struct http_auth_param []) {
 					{ "realm", "WallyWorld" }, { NULL, NULL }
 				}
 			},{
@@ -42,7 +42,7 @@ valid_auth_challenges_tests[] = {
 		.challenges = (struct http_auth_challenge_test []) {
 			{ .scheme = "Digest",
 				.data = NULL,
-				.params = (struct http_auth_param []) { 
+				.params = (struct http_auth_param []) {
 					{ "realm", "testrealm@host.com" },
 					{ "qop", "auth,auth-int" },
 					{ "nonce", "dcd98b7102dd2f0e8b11d0f600bfb0c093" },
@@ -59,7 +59,7 @@ valid_auth_challenges_tests[] = {
 		.challenges = (struct http_auth_challenge_test []) {
 			{ .scheme = "Newauth",
 				.data = NULL,
-				.params = (struct http_auth_param []) { 
+				.params = (struct http_auth_param []) {
 					{ "realm", "apps" },
 					{ "type", "1" },
 					{ "title", "Login to \"apps\"" },
@@ -68,7 +68,7 @@ valid_auth_challenges_tests[] = {
 			},{
 				.scheme = "Basic",
 				.data = NULL,
-				.params = (struct http_auth_param []) { 
+				.params = (struct http_auth_param []) {
 					{ "realm", "simple" },
 					{ NULL, NULL }
 				}
@@ -99,7 +99,7 @@ static void test_http_auth_challenges_valid(void)
 
 		i_zero(&out);
 		result = (http_auth_parse_challenges
-			((const unsigned char *)challenges_in, strlen(challenges_in), 
+			((const unsigned char *)challenges_in, strlen(challenges_in),
 				&out) > 0);
 		test_out(t_strdup_printf("parse `%s'", challenges_in), result);
 		if (result) {
@@ -166,7 +166,7 @@ struct http_auth_credentials_test {
 /* Valid auth credentials tests */
 static const struct http_auth_credentials_test
 valid_auth_credentials_tests[] = {
-	{ 
+	{
 		.credentials_in = "Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ==",
 		.scheme = "Basic",
 		.data = "QWxhZGRpbjpvcGVuIHNlc2FtZQ==",
@@ -217,7 +217,7 @@ static void test_http_auth_credentials_valid(void)
 		test_begin(t_strdup_printf("http auth credentials valid [%d]", i));
 
 		result = (http_auth_parse_credentials
-			((const unsigned char *)credentials_in, strlen(credentials_in), 
+			((const unsigned char *)credentials_in, strlen(credentials_in),
 				&out) > 0);
 		test_out(t_strdup_printf("parse `%s'", credentials_in), result);
 		if (result) {

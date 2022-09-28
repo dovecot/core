@@ -12,7 +12,7 @@
 
 #include <unistd.h>
 
-static const char *pclient_test_io_string = 
+static const char *pclient_test_io_string =
 	"Lorem ipsum dolor sit amet, consectetur adipiscing elit.\n"
 	"Praesent vehicula ac leo vel placerat. Nullam placerat \n"
 	"volutpat leo, sed ultricies felis pulvinar quis. Nam \n"

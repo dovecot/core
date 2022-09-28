@@ -487,7 +487,7 @@ void seq_range_array_invert(ARRAY_TYPE(seq_range) *array,
 	else {
 		range = NULL;
 		count = 0;
-	} 
+	}
 	if (count == 0) {
 		/* empty -> full */
 		if (!array_is_created(array))

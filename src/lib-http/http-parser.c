@@ -20,14 +20,14 @@
                 / "]" / "?" / "=" / "{" / "}"
  qdtext         = OWS / %x21 / %x23-5B / %x5D-7E / obs-text
  qdtext-nf      = HTAB / SP / %x21 / %x23-5B / %x5D-7E / obs-text
- ctext          = OWS / %x21-27 / %x2A-5B / %x5D-7E / obs-text 
+ ctext          = OWS / %x21-27 / %x2A-5B / %x5D-7E / obs-text
  obs-text       = %x80-FF
  OWS            = *( SP / HTAB )
  VCHAR          =  %x21-7E
  't68char'      = ALPHA / DIGIT / "-" / "." / "_" / "~" / "+" / "/"
 
  'text'         = ( HTAB / SP / VCHAR / obs-text )
- 
+
  Character bit mappings:
 
  (1<<0) => ALPHA / DIGIT / "-" / "." / "_" / "~" / "+"
@@ -129,7 +129,7 @@ int http_parse_token_list_next(struct http_parser *parser,
 	   1#element => *( "," OWS ) element *( OWS "," [ OWS element ] )
 	*/
 
-	for (;;) {	
+	for (;;) {
 		if (http_parse_token(parser, token_r) > 0)
 			break;
 		http_parse_ows(parser);
@@ -182,7 +182,7 @@ int http_parse_quoted_string(struct http_parser *parser, const char **str_r)
 		/* "\" */
 		} else if (*parser->cur == '\\') {
 			parser->cur++;
-			
+
 			if (parser->cur >= parser->end || !http_char_is_text(*parser->cur))
 				return -1;
 			str_append_c(str, *parser->cur);

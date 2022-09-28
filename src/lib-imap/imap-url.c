@@ -335,11 +335,11 @@ imap_url_parse_urlauth(struct imap_url_parser *url_parser, const char *urlext)
 		if (len == 0) {
 			parser->error = "Missing URLAUTH access specifier";
 			return -1;
-		}	
+		}
 		p = urlext+len;
 	} else if (p == urlext) {
 		parser->error = "Empty URLAUTH access specifier";
-		return -1;	
+		return -1;
 	}
 
 	/* parse access */
@@ -495,7 +495,7 @@ imap_url_parse_path(struct imap_url_parser *url_parser,
 			p = base->section + strlen(base->section);
 			/* determine what to retain from base section path */
 			for (; p > base->section && rel > 0; p--) {
-				if (*p =='/' && --rel <= 0) break; 
+				if (*p =='/' && --rel <= 0) break;
 			}
 			if (--rel <= 0 && p > base->section) {
 				if (p[-1] == '/') section_endslash = TRUE;
@@ -726,7 +726,7 @@ imap_url_parse_path(struct imap_url_parser *url_parser,
 		}
 	}
 
-	/* ";" {...} at end of URL */ 
+	/* ";" {...} at end of URL */
 	if (urlext != NULL) {
 		/* [iurlauth] */
 		if ((ret = imap_url_parse_urlauth(url_parser, urlext)) < 0)

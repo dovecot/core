@@ -16,62 +16,62 @@ struct http_date_test {
 /* Valid date tests */
 static const struct http_date_test valid_date_tests[] = {
 	/* Preferred format: */
-	{ 
+	{
 		.date_in = "Sun, 11 Nov 2007 09:42:43 GMT",
 		.tm = {
 			.tm_year = 107, .tm_mon = 10, .tm_mday = 11,
 			.tm_hour = 9, .tm_min = 42, .tm_sec = 43 },
-	},{ 
+	},{
 		.date_in = "Mon, 17 Aug 1992 13:06:27 GMT",
 		.tm = {
 			.tm_year = 92, .tm_mon = 7, .tm_mday = 17,
 			.tm_hour = 13, .tm_min = 06, .tm_sec = 27 },
-	},{ 
+	},{
 		.date_in = "Tue, 03 Sep 1974 04:38:08 GMT",
 		.tm = {
 			.tm_year = 74, .tm_mon = 8, .tm_mday = 3,
 			.tm_hour = 4, .tm_min = 38, .tm_sec = 8 },
-	},{ 
+	},{
 		.date_in = "Wed, 07 May 1980 06:20:42 GMT",
 		.tm = {
 			.tm_year = 80, .tm_mon = 4, .tm_mday = 7,
 			.tm_hour = 6, .tm_min = 20, .tm_sec = 42 },
-	},{ 
+	},{
 		.date_in = "Thu, 15 Oct 1987 18:30:14 GMT",
 		.tm = {
 			.tm_year = 87, .tm_mon = 9, .tm_mday = 15,
 			.tm_hour = 18, .tm_min = 30, .tm_sec = 14 },
-	},{ 
+	},{
 		.date_in = "Fri, 20 Dec 1996 00:20:07 GMT",
 		.tm = {
 			.tm_year = 96, .tm_mon = 11, .tm_mday = 20,
 			.tm_hour = 0, .tm_min = 20, .tm_sec = 7 },
-	},{ 
+	},{
 		.date_in = "Sat, 19 Jan 2036 19:52:18 GMT",
 		.tm = {
 			.tm_year = 136, .tm_mon = 0, .tm_mday = 19,
 			.tm_hour = 19, .tm_min = 52, .tm_sec = 18 },
-	},{ 
+	},{
 		.date_in = "Mon, 17 Apr 2006 14:41:45 GMT",
 		.tm = {
 			.tm_year = 106, .tm_mon = 3, .tm_mday = 17,
 			.tm_hour = 14, .tm_min = 41, .tm_sec = 45 },
-	},{ 
+	},{
 		.date_in = "Sun, 06 Mar 2011 16:18:41 GMT",
 		.tm = {
 			.tm_year = 111, .tm_mon = 2, .tm_mday = 6,
 			.tm_hour = 16, .tm_min = 18, .tm_sec = 41 },
-	},{ 
+	},{
 		.date_in = "Sat, 14 Jun 1975 16:09:30 GMT",
 		.tm = {
 			.tm_year = 75, .tm_mon = 5, .tm_mday = 14,
 			.tm_hour = 16, .tm_min = 9, .tm_sec = 30 },
-	},{ 
+	},{
 		.date_in = "Fri, 05 Feb 2027 06:53:58 GMT",
 		.tm = {
 			.tm_year = 127, .tm_mon = 1, .tm_mday = 5,
 			.tm_hour = 6, .tm_min = 53, .tm_sec = 58 },
-	},{ 
+	},{
 		.date_in = "Mon, 09 Jul 2018 02:24:29 GMT",
 		.tm = {
 			.tm_year = 118, .tm_mon = 6, .tm_mday = 9,

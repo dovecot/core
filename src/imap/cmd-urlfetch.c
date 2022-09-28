@@ -27,7 +27,7 @@ struct cmd_urlfetch_context {
 
 struct cmd_urlfetch_url {
 	const char *url;
-	
+
 	enum imap_urlauth_fetch_flags flags;
 };
 
@@ -371,7 +371,7 @@ bool cmd_urlfetch(struct client_command_context *cmd)
 		client_send_command_error(cmd, "Invalid arguments.");
 		return TRUE;
 	}
-	
+
 	t_array_init(&urls, 32);
 
 	/* parse url arguments and group them per userid */
@@ -406,5 +406,5 @@ bool cmd_urlfetch(struct client_command_context *cmd)
 
 	if (cmd->client->output_cmd_lock != cmd)
 		cmd->state = CLIENT_COMMAND_STATE_WAIT_EXTERNAL;
-	return FALSE;	
+	return FALSE;
 }

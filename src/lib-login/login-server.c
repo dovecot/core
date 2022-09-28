@@ -422,7 +422,7 @@ login_server_auth_callback(const char *const *auth_args, const char *errormsg,
 	const char *postlogin_socket_path;
 
 	i_assert(errormsg != NULL || auth_args != NULL);
-	
+
 	i_zero(&reply);
 	reply.tag = request->auth_req.tag;
 	reply.status = errormsg == NULL ? LOGIN_REPLY_STATUS_OK :

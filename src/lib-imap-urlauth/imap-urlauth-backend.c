@@ -147,7 +147,7 @@ static int imap_urlauth_backend_mailbox_reset_key(struct mailbox *box)
 }
 
 int imap_urlauth_backend_reset_all_keys(struct mail_user *user)
-{ 
+{
 	const char *const patterns[] = { "*", NULL };
 	struct mailbox_list_iterate_context *iter;
 	const struct mailbox_info *info;

@@ -107,12 +107,12 @@ static int preparsed_parse_prologue_more(struct message_parser_ctx *ctx,
 		block_r->size = end_offset - ctx->input->v_offset;
 		cur = block_r->data + block_r->size - 1;
 
-		/* [\r]\n--boundary[\r]\n */ 
+		/* [\r]\n--boundary[\r]\n */
 		if (block_r->size < 5 || *cur != '\n') {
 			ctx->broken_reason = "Prologue boundary end not at expected position";
 			return -1;
 		}
-		
+
 		cur--;
 		if (*cur == '\r') cur--;
 
@@ -129,13 +129,13 @@ static int preparsed_parse_prologue_more(struct message_parser_ctx *ctx,
 		if (cur != block_r->data && cur[-1] == '\r') cur--;
 
 		/* clip boundary */
-		block_r->size = cur - block_r->data;			
+		block_r->size = cur - block_r->data;
 
 		ctx->parse_next_block = preparsed_parse_prologue_finish;
 		ctx->skip = block_r->size;
 		return 1;
 	}
-		
+
 	/* retain enough data in the stream buffer to contain initial boundary */
 	if (end_offset > BOUNDARY_END_MAX_LEN)
 		boundary_min_start = end_offset - BOUNDARY_END_MAX_LEN;

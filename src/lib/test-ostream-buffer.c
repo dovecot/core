@@ -80,7 +80,7 @@ static void test_ostream_buffer_size(void)
 	test_assert(ret == 10);
 	test_assert(o_stream_get_buffer_used_size(output) == 10);
 	test_assert(o_stream_get_buffer_avail_size(output) == 0);
-	
+
 	/* increase max buffer size so that it can hold the whole message */
 	o_stream_set_max_buffer_size(output, 100);
 	test_assert(o_stream_get_buffer_used_size(output) == 10);

@@ -169,7 +169,7 @@ int smtp_parser_parse_domain(struct smtp_parser *parser,
 	   sub-domain = Let-dig [Ldh-str]
 	   Let-dig    = ALPHA / DIGIT
 	   Ldh-str    = *( ALPHA / DIGIT / "-" ) Let-dig
-	  
+
 	   NOTE: A more generic syntax is accepted to be lenient towards
 	         systems that don't adhere to the standards. It allows
 	         '-' and '_' to occur anywhere in a sub-domain.

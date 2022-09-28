@@ -118,7 +118,7 @@ service_dup_fds(struct service *service)
 				if (listeners[i]->set.inetset.set->haproxy)
 					str_append(listener_settings, "\thaproxy");
 			}
-			
+
 			dup2_append(&dups, listeners[i]->fd, fd++);
 
 			env_put(t_strdup_printf("SOCKET%d_SETTINGS",

@@ -118,7 +118,7 @@ static void test_dns_server_listen(int *fd_listenp)
 		return;
 	}
 	net_set_nonblock(fd_client, TRUE);
- 
+
 	const char *handshake = "VERSION\tdns\t1\t0\n";
 	if (write_full(fd_client, handshake, strlen(handshake)) < 0) {
 		i_error("write(dns-client) failed: %m");

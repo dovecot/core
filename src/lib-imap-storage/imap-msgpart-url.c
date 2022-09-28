@@ -24,7 +24,7 @@ struct imap_msgpart_url {
 	struct mailbox *box;
 	struct mailbox_transaction_context *trans;
 	struct mail *mail;
-	
+
 	struct imap_msgpart_open_result result;
 
 	bool decode_cte_to_binary:1;
@@ -181,7 +181,7 @@ int imap_msgpart_url_open_mail(struct imap_msgpart_url *mpurl,
 	if (!mail_set_uid(mail, mpurl->uid)) {
 		*client_error_r = "Message not found";
 		mail_free(&mail);
-		mailbox_transaction_rollback(&t);	
+		mailbox_transaction_rollback(&t);
 		return 0;
 	}
 
@@ -279,7 +279,7 @@ void imap_msgpart_url_free(struct imap_msgpart_url **_mpurl)
 	if (mpurl->trans != NULL)
 		mailbox_transaction_rollback(&mpurl->trans);
 	if (mpurl->box != NULL && mpurl->box != mpurl->selected_box)
-		mailbox_free(&mpurl->box);	
+		mailbox_free(&mpurl->box);
 	if (mpurl->section != NULL)
 		i_free(mpurl->section);
 	i_free(mpurl->mailbox);

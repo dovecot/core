@@ -101,7 +101,7 @@ http_client_request_result_event(struct http_client_request *req)
 }
 
 static struct http_client_request *
-http_client_request_new(struct http_client *client, const char *method, 
+http_client_request_new(struct http_client *client, const char *method,
 			http_client_request_callback_t *callback, void *context)
 {
 	static unsigned int id_counter = 0;
@@ -1118,7 +1118,7 @@ http_client_request_continue_payload(struct http_client_request **_req,
 		req->payload_input = NULL;
 		if (req->state == HTTP_REQUEST_STATE_PAYLOAD_OUT)
 			(void)http_client_request_finish_payload_out(req);
-	} else { 
+	} else {
 		req->payload_input = i_stream_create_from_data(data, size);
 		i_stream_set_name(req->payload_input, "<HTTP request payload>");
 	}

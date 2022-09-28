@@ -117,7 +117,7 @@ otp_read_words(const char *data, const char **endptr, unsigned char *hash)
 				str_truncate(word, 0);
 				space = TRUE;
 				continue;
-			}		
+			}
 		}
 		break;
 	}

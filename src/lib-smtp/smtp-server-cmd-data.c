@@ -309,7 +309,7 @@ static int cmd_data_do_handle_input(struct smtp_server_cmd_ctx *cmd)
 		/* command is waiting for external event or it failed */
 		i_assert(smtp_server_command_is_replied(command));
 	}
-	
+
 	return 1;
 }
 
@@ -327,7 +327,7 @@ static int cmd_data_handle_input(struct smtp_server_cmd_ctx *cmd)
 
 	/* continue reading from client */
 	ret = cmd_data_do_handle_input(cmd);
-	
+
 	smtp_server_command_unref(&command);
 	smtp_server_connection_unref(&conn);
 

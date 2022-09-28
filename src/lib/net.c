@@ -828,7 +828,7 @@ int net_getunixcred(int fd, struct net_unix_cred *cred_r)
 		i_error("getsockopt(LOCAL_PEEREID) failed: %m");
 		return -1;
 	}
-	
+
 	cred_r->uid = ucred.unp_euid;
 	cred_r->gid = ucred.unp_egid;
 	cred_r->pid = ucred.unp_pid;

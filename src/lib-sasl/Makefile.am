@@ -9,7 +9,7 @@ libsasl_la_SOURCES = \
 	mech-login.c \
 	mech-plain.c \
 	mech-oauthbearer.c \
-	dsasl-client.c 
+	dsasl-client.c
 
 headers = \
 	dsasl-client.h \

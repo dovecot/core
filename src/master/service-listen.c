@@ -316,7 +316,7 @@ static int services_verify_systemd(struct service_list *service_list)
 			in_port_t port;
 			sa_family_t family;
 			get_socket_info(fd, &family, &port);
-			
+
 			array_foreach_elem(&service_list->services, service) {
 				struct service_listener *l;
 

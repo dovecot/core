@@ -388,7 +388,7 @@ int http_client_init_ssl_ctx(struct http_client *client, const char **error_r)
 
 static void
 http_client_handle_request_errors(struct http_client *client)
-{		
+{
 	struct http_client_request *req;
 
 	timeout_remove(&client->to_failing_requests);

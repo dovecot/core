@@ -79,7 +79,7 @@ int mbox_from_parse(const unsigned char *msg, size_t size,
 			msg++;
 		}
 		msg++;
-	} 
+	}
 
 	while (msg < msg_end && *msg != ' ') {
 		if (*msg == '\r' || *msg == '\n')

@@ -148,7 +148,7 @@ buffer_get_used_size(const buffer_t *buf)
 void buffer_verify_pool(buffer_t *buf);
 
 /* This will truncate your byte buffer to contain at most
-   given number of bits. 
+   given number of bits.
 
  1 bits:    01 00000001
  2 bits:    03 00000011

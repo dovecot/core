@@ -16,36 +16,36 @@ struct iso8601_date_test {
 
 /* Valid date tests */
 struct iso8601_date_test valid_date_tests[] = {
-	{ 
+	{
 		.date_in = "2007-11-07T23:05:34+00:00",
 		.tm = {
 			.tm_year = 107, .tm_mon = 10, .tm_mday = 7,
 			.tm_hour = 23, .tm_min = 5, .tm_sec = 34 },
-	},{ 
+	},{
 		.date_in = "2011-01-07T21:03:31+00:30",
 		.tm = {
 			.tm_year = 111, .tm_mon = 0, .tm_mday = 7,
 			.tm_hour = 21, .tm_min = 3, .tm_sec = 31 },
 		.zone_offset = 30
-	},{ 
+	},{
 		.date_in = "2006-05-09T18:04:12+05:30",
 		.tm = {
 			.tm_year = 106, .tm_mon = 4, .tm_mday = 9,
 			.tm_hour = 18, .tm_min = 4, .tm_sec = 12 },
 		.zone_offset = 5*60+30
-	},{ 
+	},{
 		.date_in = "1975-10-30T06:33:29Z",
 		.date_out = "1975-10-30T06:33:29+00:00",
 		.tm = {
 			.tm_year = 75, .tm_mon = 9, .tm_mday = 30,
 			.tm_hour = 6, .tm_min = 33, .tm_sec = 29 },
-	},{ 
+	},{
 		.date_in = "1988-04-24t15:02:12z",
 		.date_out = "1988-04-24T15:02:12+00:00",
 		.tm = {
 			.tm_year = 88, .tm_mon = 3, .tm_mday = 24,
 			.tm_hour = 15, .tm_min = 2, .tm_sec = 12 },
-	},{ 
+	},{
 		.date_in = "2012-02-29T08:12:34.23198Z",
 		.date_out = "2012-02-29T08:12:34+00:00",
 		.tm = {
