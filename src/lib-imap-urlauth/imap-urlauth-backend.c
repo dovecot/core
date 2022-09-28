@@ -5,7 +5,7 @@
 #include "hex-binary.h"
 #include "randgen.h"
 #include "mail-user.h"
-#include "mail-storage.h"
+#include "mail-storage-private.h"
 #include "mailbox-list-iter.h"
 #include "imap-urlauth-private.h"
 #include "imap-urlauth-backend.h"
@@ -56,7 +56,6 @@ imap_urlauth_backend_trans_get_mailbox_key(struct mailbox *box,
 					   const char **client_error_r,
 					   enum mail_error *error_code_r)
 {
-	struct mail_user *user = mail_storage_get_user(mailbox_get_storage(box));
 	struct mail_attribute_value urlauth_key;
 	const char *mailbox_key_hex = NULL;
 	buffer_t key_buf;
@@ -70,8 +69,8 @@ imap_urlauth_backend_trans_get_mailbox_key(struct mailbox *box,
 	if (ret < 0)
 		return -1;
 
-	e_debug(user->event, "imap-urlauth: %skey found for mailbox %s",
-		(ret > 0 ? "" : "no "), mailbox_get_vname(box));
+	e_debug(box->event, "imap-urlauth: %skey found for mailbox",
+		ret > 0 ? "" : "no ");
 
 	if (ret == 0) {
 		if (!create)
@@ -84,8 +83,7 @@ imap_urlauth_backend_trans_get_mailbox_key(struct mailbox *box,
 
 		if (ret < 0)
 			return -1;
-		e_debug(user->event, "imap-urlauth: created key for mailbox %s",
-			mailbox_get_vname(box));
+		e_debug(box->event, "imap-urlauth: created key for mailbox");
 	} else {
 		/* read existing key */
 		buffer_create_from_data(&key_buf, mailbox_key_r,
@@ -94,8 +92,8 @@ imap_urlauth_backend_trans_get_mailbox_key(struct mailbox *box,
 		if (strlen(mailbox_key_hex) != 2*IMAP_URLAUTH_KEY_LEN ||
 		    hex_to_binary(mailbox_key_hex, &key_buf) < 0 ||
 		    key_buf.used != IMAP_URLAUTH_KEY_LEN) {
-			i_error("imap-urlauth: key found for mailbox %s is invalid",
-				mailbox_get_vname(box));
+			e_error(box->event,
+				"imap-urlauth: key found for mailbox is invalid");
 			return -1;
 		}
 	}
@@ -139,8 +137,8 @@ static int imap_urlauth_backend_mailbox_reset_key(struct mailbox *box)
 		errstr = mailbox_get_last_internal_error(box, &error);
 		if (error == MAIL_ERROR_NOTFOUND || error == MAIL_ERROR_PERM)
 			return 0;
-		i_error("urlauth key reset: Couldn't open mailbox %s: %s",
-			mailbox_get_vname(box), errstr);
+		e_error(box->event,
+			"urlauth key reset: Couldn't open mailbox: %s", errstr);
 		return -1;
 	}
 	return imap_urlauth_backend_reset_mailbox_key(box);
@@ -166,7 +164,8 @@ int imap_urlauth_backend_reset_all_keys(struct mail_user *user)
 		mailbox_free(&box);
 	}
 	if (mailbox_list_iter_deinit(&iter) < 0) {
-		i_error("urlauth key reset: Couldn't iterate mailboxes: %s",
+		e_error(user->event,
+			"urlauth key reset: Couldn't iterate mailboxes: %s",
 			mailbox_list_get_last_internal_error(user->namespaces->list, NULL));
 		ret = -1;
 	}

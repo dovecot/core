@@ -55,6 +55,7 @@ struct imap_urlauth_target {
 
 struct imap_urlauth_connection {
 	int refcount;
+	struct event *event;
 
 	char *path, *service, *session_id;
 	struct mail_user *user;
@@ -121,6 +122,8 @@ imap_urlauth_connection_init(const char *path, const char *service,
 	conn->fd = -1;
 	conn->literal_fd = -1;
 	conn->idle_timeout_msecs = idle_timeout_msecs;
+	conn->event = event_create(user->event);
+	event_set_append_log_prefix(conn->event, "imap-urlauth: ");
 	return conn;
 }
 
@@ -141,6 +144,7 @@ void imap_urlauth_connection_deinit(struct imap_urlauth_connection **_conn)
 	i_assert(conn->to_reconnect == NULL);
 	i_assert(conn->to_response == NULL);
 
+	event_unref(&conn->event);
 	i_free(conn);
 }
 
@@ -194,13 +198,13 @@ imap_urlauth_connection_select_target(struct imap_urlauth_connection *conn)
 	if (target == NULL || conn->state != IMAP_URLAUTH_STATE_AUTHENTICATED)
 		return;
 
-	e_debug(conn->user->event,
-		"imap-urlauth: Selecting target user `%s'", target->userid);
+	e_debug(conn->event, "Selecting target user `%s'", target->userid);
 
 	conn->state = IMAP_URLAUTH_STATE_SELECTING_TARGET;
 	cmd = t_strdup_printf("USER\t%s\n", str_tabescape(target->userid));
 	if (o_stream_send_str(conn->output, cmd) < 0) {
-		i_warning("Error sending USER request to imap-urlauth server: %m");
+		e_warning(conn->event,
+			  "Error sending USER request to imap-urlauth server: %m");
 		imap_urlauth_connection_fail(conn);
 	}
 
@@ -217,8 +221,8 @@ imap_urlauth_connection_send_request(struct imap_urlauth_connection *conn)
 	    (conn->targets_head->requests_head == NULL &&
 	     conn->targets_head->next == NULL &&
 	     conn->state == IMAP_URLAUTH_STATE_READY)) {
-		e_debug(conn->user->event,
-			"imap-urlauth: No more requests pending; scheduling disconnect");
+		e_debug(conn->event,
+			"No more requests pending; scheduling disconnect");
 		timeout_remove(&conn->to_idle);
 		if (conn->idle_timeout_msecs > 0) {
 			conn->to_idle =	timeout_add(conn->idle_timeout_msecs,
@@ -244,15 +248,15 @@ imap_urlauth_connection_send_request(struct imap_urlauth_connection *conn)
 		imap_urlauth_target_free(conn, conn->targets_head);
 
 		if (o_stream_send_str(conn->output, "END\n") < 0) {
-			i_warning("Error sending END request to imap-urlauth server: %m");
+			e_warning(conn->event,
+				  "Error sending END request to imap-urlauth server: %m");
 			imap_urlauth_connection_fail(conn);
 		}
 		imap_urlauth_start_response_timeout(conn);
 		return;
 	}
 
-	e_debug(conn->user->event,
-		"imap-urlauth: Fetching URL `%s'", urlreq->url);
+	e_debug(conn->event, "Fetching URL `%s'", urlreq->url);
 
 	cmd = t_str_new(128);
 	str_append(cmd, "URL\t");
@@ -267,7 +271,8 @@ imap_urlauth_connection_send_request(struct imap_urlauth_connection *conn)
 
 	conn->state = IMAP_URLAUTH_STATE_REQUEST_PENDING;
 	if (o_stream_send(conn->output, str_data(cmd), str_len(cmd)) < 0) {
-		i_warning("Error sending URL request to imap-urlauth server: %m");
+		e_warning(conn->event,
+			  "Error sending URL request to imap-urlauth server: %m");
 		imap_urlauth_connection_fail(conn);
 	}
 
@@ -297,8 +302,7 @@ imap_urlauth_request_new(struct imap_urlauth_connection *conn,
 
 	timeout_remove(&conn->to_idle);
 
-	e_debug(conn->user->event,
-		"imap-urlauth: Added request for URL `%s' from user `%s'",
+	e_debug(conn->event, "Added request for URL `%s' from user `%s'",
 		url, target_user);
 
 	imap_urlauth_connection_send_request(conn);
@@ -487,7 +491,8 @@ imap_urlauth_connection_create_temp_fd(struct imap_urlauth_connection *conn,
 	mail_user_set_get_temp_prefix(path, conn->user->set);
 	fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
 	if (fd == -1) {
-		i_error("safe_mkstemp(%s) failed: %m", str_c(path));
+		e_error(conn->event,
+			"safe_mkstemp(%s) failed: %m", str_c(path));
 		return -1;
 	}
 
@@ -560,7 +565,7 @@ imap_urlauth_connection_read_literal_data(struct imap_urlauth_connection *conn)
 	if (size > 0) {
 		if (conn->literal_fd >= 0) {
 			if (write_full(conn->literal_fd, data, size) < 0) {
-				i_error("imap-urlauth: write(%s) failed: %m",
+				e_error(conn->event, "write(%s) failed: %m",
 					conn->literal_temp_path);
 				return -1;
 			}
@@ -583,7 +588,7 @@ imap_urlauth_connection_read_literal_data(struct imap_urlauth_connection *conn)
 
 	/* check LF guard */
 	if (data[0] != '\n') {
-		i_error("imap-urlauth: no LF at end of literal (found 0x%x)",
+		e_error(conn->event, "no LF at end of literal (found 0x%x)",
 			data[0]);
 		return -1;
 	}
@@ -610,7 +615,8 @@ imap_urlauth_fetch_reply_set_literal_stream(struct imap_urlauth_connection *conn
 		if (i_stream_get_size(reply->input, TRUE, &fd_size) < 1 ||
 		    fd_size != conn->literal_size) {
 			i_stream_unref(&reply->input);
-			i_error("imap-urlauth: Failed to obtain proper size from literal stream");
+			e_error(conn->event,
+				"Failed to obtain proper size from literal stream");
 			imap_urlauth_connection_abort(conn,
 				"Failed during literal transfer");
 			return -1;
@@ -708,7 +714,7 @@ static int imap_urlauth_input_pending(struct imap_urlauth_connection *conn)
 
 	args = t_strsplit_tabescaped(response);
 	if (args[0] == NULL) {
-		i_error("imap-urlauth: Empty URL response: %s",
+		e_error(conn->event, "Empty URL response: %s",
 			str_sanitize(response, 80));
 		return -1;
 	}
@@ -726,7 +732,7 @@ static int imap_urlauth_input_pending(struct imap_urlauth_connection *conn)
 				conn->targets_head->requests_head, error);
 			return 1;
 		}
-		i_error("imap-urlauth: Unexpected URL response: %s",
+		e_error(conn->event, "Unexpected URL response: %s",
 			str_sanitize(response, 80));
 		return -1;
 	}
@@ -746,7 +752,7 @@ static int imap_urlauth_input_pending(struct imap_urlauth_connection *conn)
 
 	/* read literal size */
 	if (str_to_uoff(args[0], &literal_size) < 0) {
-		i_error("imap-urlauth: "
+		e_error(conn->event,
 			"Overflowing unsigned integer value for literal size: %s",
 			args[1]);
 		return -1;
@@ -774,21 +780,25 @@ static int imap_urlauth_input_next(struct imap_urlauth_connection *conn)
 
 		if (strcasecmp(response, "OK") != 0) {
 			if (conn->state == IMAP_URLAUTH_STATE_AUTHENTICATING)
-				i_error("imap-urlauth: Failed to authenticate to service: "
-					"Got unexpected response: %s", str_sanitize(response, 80));
+				e_error(conn->event,
+					"Failed to authenticate to service: "
+					"Got unexpected response: %s",
+					str_sanitize(response, 80));
 			else
-				i_error("imap-urlauth: Failed to unselect target user: "
-					"Got unexpected response: %s", str_sanitize(response, 80));
+				e_error(conn->event,
+					"Failed to unselect target user: "
+					"Got unexpected response: %s",
+					str_sanitize(response, 80));
 			imap_urlauth_connection_abort(conn, NULL);
 			return -1;
 		}
 
 		if (conn->state == IMAP_URLAUTH_STATE_AUTHENTICATING) {
-			e_debug(conn->user->event,
-				"imap-urlauth: Successfully authenticated to service");
+			e_debug(conn->event,
+				"Successfully authenticated to service");
 		} else {
-			e_debug(conn->user->event,
-				"imap-urlauth: Successfully unselected target user");
+			e_debug(conn->event,
+				"Successfully unselected target user");
 		}
 
 		conn->state = IMAP_URLAUTH_STATE_AUTHENTICATED;
@@ -802,8 +812,7 @@ static int imap_urlauth_input_next(struct imap_urlauth_connection *conn)
 		i_assert(conn->targets_head != NULL);
 
 		if (strcasecmp(response, "NO") == 0) {
-			e_debug(conn->user->event,
-				"imap-urlauth: Failed to select target user %s",
+			e_debug(conn->event, "Failed to select target user %s",
 				conn->targets_head->userid);
 			imap_urlauth_target_fail(conn, conn->targets_head, NULL);
 
@@ -812,15 +821,15 @@ static int imap_urlauth_input_next(struct imap_urlauth_connection *conn)
 			return 0;
 		}
 		if (strcasecmp(response, "OK") != 0) {
-			i_error("imap-urlauth: Failed to select target user %s: "
+			e_error(conn->event,
+				"Failed to select target user %s: "
 				"Got unexpected response: %s", conn->targets_head->userid,
 				str_sanitize(response, 80));
 			imap_urlauth_connection_abort(conn, NULL);
 			return -1;
 		}
 
-		e_debug(conn->user->event,
-			"imap-urlauth: Successfully selected target user %s",
+		e_debug(conn->event, "Successfully selected target user %s",
 			conn->targets_head->userid);
 		conn->state = IMAP_URLAUTH_STATE_READY;
 		imap_urlauth_connection_send_request(conn);
@@ -831,7 +840,8 @@ static int imap_urlauth_input_next(struct imap_urlauth_connection *conn)
 		if ((response = i_stream_next_line(conn->input)) == NULL)
 			return 0;
 
-		i_error("imap-urlauth: Received input while no requests were pending: %s",
+		e_error(conn->event,
+			"Received input while no requests were pending: %s",
 			str_sanitize(response, 80));
 		imap_urlauth_connection_abort(conn, NULL);
 		return -1;
@@ -851,7 +861,7 @@ static void imap_urlauth_input(struct imap_urlauth_connection *conn)
 
 	if (conn->input->closed) {
 		/* disconnected */
-		i_error("imap-urlauth: Service disconnected unexpectedly");
+		e_error(conn->event, "Service disconnected unexpectedly");
 		imap_urlauth_connection_fail(conn);
 		return;
 	}
@@ -859,12 +869,12 @@ static void imap_urlauth_input(struct imap_urlauth_connection *conn)
 	switch (i_stream_read(conn->input)) {
 	case -1:
 		/* disconnected */
-		i_error("imap-urlauth: Service disconnected unexpectedly");
+		e_error(conn->event, "Service disconnected unexpectedly");
 		imap_urlauth_connection_fail(conn);
 		return;
 	case -2:
 		/* input buffer full */
-		i_error("imap-urlauth: Service sent too large input");
+		e_error(conn->event, "Service sent too large input");
 		imap_urlauth_connection_abort(conn, NULL);
 		return;
 	}
@@ -887,18 +897,19 @@ imap_urlauth_connection_do_connect(struct imap_urlauth_connection *conn)
 	}
 
 	if (conn->user->auth_token == NULL) {
-		i_error("imap-urlauth: cannot authenticate because no auth token "
+		e_error(conn->event,
+			"cannot authenticate because no auth token "
 			"is available for this session (running standalone?).");
 		imap_urlauth_connection_abort(conn, NULL);
 		return -1;
 	}
 
-	e_debug(conn->user->event, "imap-urlauth: Connecting to service at %s", conn->path);
+	e_debug(conn->event, "Connecting to service at %s", conn->path);
 
 	i_assert(conn->fd == -1);
 	fd = net_connect_unix(conn->path);
 	if (fd == -1) {
-		i_error("imap-urlauth: net_connect_unix(%s) failed: %m",
+		e_error(conn->event, "net_connect_unix(%s) failed: %m",
 			conn->path);
 		imap_urlauth_connection_abort(conn, NULL);
 		return -1;
@@ -923,7 +934,8 @@ imap_urlauth_connection_do_connect(struct imap_urlauth_connection *conn)
 	str_append_tabescaped(str, conn->user->auth_token);
 	str_append_c(str, '\n');
 	if (o_stream_send(conn->output, str_data(str), str_len(str)) < 0) {
-		i_warning("Error sending handshake to imap-urlauth server: %m");
+		e_warning(conn->event,
+			  "Error sending handshake to imap-urlauth server: %m");
 		imap_urlauth_connection_abort(conn, NULL);
 		return -1;
 	}
@@ -948,9 +960,9 @@ static void imap_urlauth_connection_disconnect
 
 	if (conn->fd != -1) {
 		if (reason == NULL)
-			e_debug(conn->user->event, "imap-urlauth: Disconnecting from service");
+			e_debug(conn->event, "Disconnecting from service");
 		else
-			e_debug(conn->user->event, "imap-urlauth: Disconnected: %s", reason);
+			e_debug(conn->event, "Disconnected: %s", reason);
 
 		io_remove(&conn->io);
 		i_stream_destroy(&conn->input);
@@ -962,7 +974,8 @@ static void imap_urlauth_connection_disconnect
 
 	if (conn->literal_fd != -1) {
 		if (close(conn->literal_fd) < 0)
-			i_error("imap-urlauth: close(%s) failed: %m", conn->literal_temp_path);
+			e_error(conn->event, "close(%s) failed: %m",
+				conn->literal_temp_path);
 
 		i_free_and_null(conn->literal_temp_path);
 		conn->literal_fd = -1;
@@ -984,7 +997,7 @@ imap_urlauth_connection_do_reconnect(struct imap_urlauth_connection *conn)
 	}
 
 	if (ioloop_time - conn->last_reconnect < IMAP_URLAUTH_RECONNECT_MIN_SECS) {
-		e_debug(conn->user->event, "imap-urlauth: Scheduling reconnect");
+		e_debug(conn->event, "Scheduling reconnect");
 		timeout_remove(&conn->to_reconnect);
 		conn->to_reconnect =
 			timeout_add(IMAP_URLAUTH_RECONNECT_MIN_SECS*1000,
