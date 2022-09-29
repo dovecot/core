@@ -63,6 +63,8 @@ imapc_client_init(const struct imapc_client_settings *set,
 	client->refcount = 1;
 	client->event = event_create(event_parent);
 	event_set_forced_debug(client->event, set->debug);
+	event_set_append_log_prefix(client->event, t_strdup_printf(
+		"imapc(%s:%u): ", set->host, set->port));
 
 	client->set.debug = set->debug;
 	client->set.host = p_strdup(pool, set->host);
@@ -104,8 +106,7 @@ imapc_client_init(const struct imapc_client_settings *set,
 		if (ssl_iostream_client_context_cache_get(&client->set.ssl_set,
 							  &client->ssl_ctx,
 							  &error) < 0) {
-			i_error("imapc(%s:%u): Couldn't initialize SSL context: %s",
-				set->host, set->port, error);
+			e_error(client->event, "Couldn't initialize SSL context: %s", error);
 		}
 	}
 	client->untagged_callback = default_untagged_callback;
@@ -490,7 +491,8 @@ bool imapc_client_mailbox_is_opened(struct imapc_client_mailbox *box)
 	selected_box = imapc_connection_get_mailbox(box->conn);
 	if (selected_box != box) {
 		if (selected_box != NULL)
-			i_error("imapc: Selected mailbox changed unexpectedly");
+			e_error(imapc_connection_get_event(box->conn),
+				"Selected mailbox changed unexpectedly");
 		return FALSE;
 	}
 	return TRUE;
@@ -540,8 +542,8 @@ int imapc_client_create_temp_fd(struct imapc_client *client,
 	int fd;
 
 	if (client->set.temp_path_prefix == NULL) {
-		i_error("imapc: temp_path_prefix not set, "
-			"can't create temp file");
+		e_error(client->event,
+			"temp_path_prefix not set, can't create temp file");
 		return -1;
 	}
 
@@ -549,7 +551,8 @@ int imapc_client_create_temp_fd(struct imapc_client *client,
 	str_append(path, client->set.temp_path_prefix);
 	fd = safe_mkstemp(path, 0600, (uid_t)-1, (gid_t)-1);
 	if (fd == -1) {
-		i_error("safe_mkstemp(%s) failed: %m", str_c(path));
+		e_error(client->event,
+			"safe_mkstemp(%s) failed: %m", str_c(path));
 		return -1;
 	}
 

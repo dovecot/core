@@ -201,10 +201,6 @@ imapc_connection_init(struct imapc_client *client,
 	conn->login_callback = login_callback;
 	conn->login_context = login_context;
 	conn->fd = -1;
-	event_set_append_log_prefix(conn->event,
-				    t_strdup_printf("imapc(%s:%u): ",
-					    	    client->set.host,
-						    client->set.port));
 	conn->literal.fd = -1;
 	conn->reconnect_ok = (client->set.connect_retry_count>0);
 	i_array_init(&conn->cmd_send_queue, 8);
@@ -2073,7 +2069,7 @@ static int imapc_command_try_send_stream(struct imapc_connection *conn,
 		i_assert(stream->input->v_offset < stream->size);
 		return 0;
 	case OSTREAM_SEND_ISTREAM_RESULT_ERROR_INPUT:
-		e_error(conn->event, "imapc: read(%s) failed: %s",
+		e_error(conn->event, "read(%s) failed: %s",
 			i_stream_get_name(stream->input),
 			i_stream_get_error(stream->input));
 		return -1;
