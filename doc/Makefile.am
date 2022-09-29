@@ -25,34 +25,39 @@ BUILT_SOURCES = html mans
 extra_dist_extra += html man
 documentation_sources = $(top_srcdir)/doc/documentation-main
 
-.NOTPARALLEL: html mans
+.PHONY: mans prep-mans
 
 # extracting the documentation tarball from github yields the
 # "documentation-main" directory
-$(documentation_sources)/requirements.txt:
+documentation-main:
 	$(AM_V_GEN)wget $(AM_V_Q) -O - \
 	  https://github.com/dovecot/documentation/archive/refs/heads/main.tar.gz | \
 	  gunzip | $(am__untar)
+
+$(documentation_sources)/requirements.txt: documentation-main
 
 venv: $(documentation_sources)/requirements.txt
 	$(AM_V_GEN)$(PYTHON) -m venv venv && \
 	  venv/bin/pip $(AM_V_Q) install wheel && \
 	  venv/bin/pip $(AM_V_Q) install -r "$(documentation_sources)/requirements.txt"
 
-prep-mans:
+prep-mans: venv
 	-$(AM_V_at)$(MAKE) -C $(documentation_sources)/source/man \
 	  V=$(V) pkgsysconfdir=$(sysconfdir) \
 	  rundir=$(rundir) \
 	  pkglibexecdir=$(pkglibexecdir) \
 	  AM_DEFAULT_VERBOSITY=$(AM_DEFAULT_VERBOSITY)
 
-mans: venv prep-mans
+man/dovecot.1:
+	$(MAKE) prep-mans
+
+mans: man/dovecot.1
 	$(AM_V_GEN)test -f man/dovecot.1 || venv/bin/python -msphinx $(AM_V_Q) \
 	  -b man $(documentation_sources)/source man
 
-html: venv prep-mans
+html: man/dovecot.1
 	$(AM_V_GEN)test -f html/index.html || venv/bin/python -msphinx $(AM_V_Q) \
-	  -b html $(documentation_sources)/source html
+	    -b html $(documentation_sources)/source html
 
 else # if HAVE_VENV
 
