@@ -75,15 +75,6 @@ dist-hook:
 	-rm -rf $(distdir)/html/objects.inv
 	-rm -rf $(distdir)/man/.doctrees
 
-install-data-local: html
-	if [ -e html/index.html ]; then       \
-	  $(MKDIR_P) "$(DESTDIR)$(docdir)";   \
-	  cp -nrf html "$(DESTDIR)$(docdir)"; \
-	fi
-
-uninstall-local:
-	-rm -rf "$(DESTDIR)$(docdir)/html"
-
 clean-local:
 	-rm -rf venv
 	-rm -rf $(documentation_sources)
@@ -97,6 +88,17 @@ distclean-local: clean-local rebuild
 maintainer-clean: distclean-local
 
 endif # if INSTALL_DOCS
+
+install-data-local:
+	$(MKDIR_P) $(DESTDIR)$(docdir); \
+	for dir in $(DOCDIRS); do \
+	  cp -nrf $$dir $(DESTDIR)$(docdir); \
+	done
+
+uninstall-local:
+	-for dir in $(DOCDIRS); do \
+	  rm -rf $(DESTDIR)$(docdir)/$$dir; \
+	done
 
 doc_DATA = $(docfiles)
 
