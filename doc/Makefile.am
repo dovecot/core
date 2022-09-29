@@ -1,8 +1,7 @@
 extra_dist_extra =
 
-SUBDIRS = . man example-config
+SUBDIRS = . example-config
 DOCDIRS = example-config
-BUILT_SOURCES = html mans
 
 docfiles = \
 	thread-refs.txt \
@@ -18,7 +17,11 @@ am__v_Q_0 = -q
 am__v_Q_1 =
 
 if INSTALL_DOCS
+SUBDIRS += man
+DOCDIRS += html
+
 if HAVE_VENV
+BUILT_SOURCES = html mans
 extra_dist_extra += html man
 documentation_sources = $(top_srcdir)/doc/documentation-main
 
