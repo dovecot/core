@@ -43,13 +43,18 @@ EXTRA_DIST = \
 	word-break-data.c \
 	stopwords/stopwords_malformed.txt
 
+AM_V_Q = $(am__v_Q_$(V))
+am__v_Q_ = $(am__v_Q_$(AM_DEFAULT_VERBOSITY))
+am__v_Q_0 = -q
+am__v_Q_1 =
+
 $(srcdir)/WordBreakProperty.txt:
-	$(AM_V_GEN)test -f $@ || $(WGET) -qO $@ https://dovecot.org/res/WordBreakProperty.txt
+	$(AM_V_GEN)test -f $@ || $(WGET) $(AM_V_Q) -O $@ https://dovecot.org/res/WordBreakProperty.txt
 $(srcdir)/word-boundary-data.c: $(srcdir)/word-properties.pl $(srcdir)/WordBreakProperty.txt
 	$(AM_V_GEN)perl $(srcdir)/word-properties.pl boundaries $(srcdir)/WordBreakProperty.txt > $@
 
 $(srcdir)/PropList.txt:
-	$(AM_V_GEN)test -f $@ || $(WGET) -qO $@ https://dovecot.org/res/PropList.txt
+	$(AM_V_GEN)test -f $@ || $(WGET) $(AM_V_Q) -O $@ https://dovecot.org/res/PropList.txt
 $(srcdir)/word-break-data.c: $(srcdir)/word-properties.pl $(srcdir)/PropList.txt
 	$(AM_V_GEN)perl $(srcdir)/word-properties.pl breaks $(srcdir)/PropList.txt > $@
 
