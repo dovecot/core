@@ -36,7 +36,7 @@ am__v_Q_1 =
 event-filter-parser.h: event-filter-parser.c
 
 $(srcdir)/UnicodeData.txt:
-	$(AM_V_GEN)test -f $@ || wget $(AM_V_Q) -O $@ https://dovecot.org/res/UnicodeData.txt
+	$(AM_V_GEN)test -f $@ || $(WGET) $(AM_V_Q) -O $@ https://dovecot.org/res/UnicodeData.txt
 
 $(srcdir)/unicodemap.c: $(srcdir)/unicodemap.pl $(srcdir)/UnicodeData.txt
 	$(AM_V_GEN)perl $(srcdir)/unicodemap.pl < $(srcdir)/UnicodeData.txt > $@

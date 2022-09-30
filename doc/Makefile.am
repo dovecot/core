@@ -30,7 +30,7 @@ documentation_sources = $(top_srcdir)/doc/documentation-main
 # extracting the documentation tarball from github yields the
 # "documentation-main" directory
 documentation-main:
-	$(AM_V_GEN)wget $(AM_V_Q) -O - \
+	$(AM_V_GEN)$(WGET) $(AM_V_Q) -O - \
 	  https://github.com/dovecot/documentation/archive/refs/heads/main.tar.gz | \
 	  gunzip | $(am__untar)
 
