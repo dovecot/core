@@ -197,8 +197,9 @@ static int service_get_groups(const char *groups, pool_t pool,
 }
 
 static struct service *
-service_create(pool_t pool, const struct service_settings *set,
-	       struct service_list *service_list, const char **error_r)
+service_create_real(pool_t pool, struct event *event,
+		    const struct service_settings *set,
+	            struct service_list *service_list, const char **error_r)
 {
 	struct file_listener_settings *const *unix_listeners;
 	struct file_listener_settings *const *fifo_listeners;
@@ -209,6 +210,7 @@ service_create(pool_t pool, const struct service_settings *set,
 
 	service = p_new(pool, struct service, 1);
 	service->list = service_list;
+	service->event = event;
 	service->set = set;
 	service->throttle_msecs = SERVICE_STARTUP_FAILURE_THROTTLE_MIN_MSECS;
 
@@ -362,6 +364,22 @@ service_create(pool_t pool, const struct service_settings *set,
 					   t_strcut(service->executable, ' '));
 		return NULL;
 	}
+
+	return service;
+}
+
+static struct service *
+service_create(pool_t pool, const struct service_settings *set,
+	       struct service_list *service_list, const char **error_r)
+{
+	struct event *event = event_create(service_list->event);
+	event_set_append_log_prefix(event, t_strdup_printf(
+		"service(%s): ", set->name));
+
+	struct service *service = service_create_real(
+		pool, event, set, service_list, error_r);
+	if (service == NULL)
+		event_unref(&event);
 	return service;
 }
 
@@ -412,7 +430,8 @@ static bool service_want(struct service_settings *set)
 
 static int
 services_create_real(const struct master_settings *set, pool_t pool,
-		     struct service_list **services_r, const char **error_r)
+		     struct event *event, struct service_list **services_r,
+		     const char **error_r)
 {
 	struct service_list *service_list;
 	struct service *service;
@@ -423,6 +442,7 @@ services_create_real(const struct master_settings *set, pool_t pool,
 	service_list = p_new(pool, struct service_list, 1);
 	service_list->refcount = 1;
 	service_list->pool = pool;
+	service_list->event = event;
 	service_list->service_set = master_service_settings_get(master_service);
 	service_list->set_pool = master_service_settings_detach(master_service);
 	service_list->set = set;
@@ -492,10 +512,10 @@ services_create_real(const struct master_settings *set, pool_t pool,
 int services_create(const struct master_settings *set,
 		    struct service_list **services_r, const char **error_r)
 {
-	pool_t pool;
-
-	pool = pool_alloconly_create("services pool", 32768);
-	if (services_create_real(set, pool, services_r, error_r) < 0) {
+	pool_t pool = pool_alloconly_create("services pool", 32768);
+	struct event *event = event_create(NULL);
+	if (services_create_real(set, pool, event, services_r, error_r) < 0) {
+		event_unref(&event);
 		pool_unref(&pool);
 		return -1;
 	}
@@ -667,10 +687,12 @@ void service_list_unref(struct service_list *service_list)
 	array_foreach_elem(&service_list->services, service) {
 		array_foreach_elem(&service->listeners, listener)
 			i_close_fd(&listener->fd);
+		event_unref(&service->event);
 	}
 	i_close_fd(&service_list->master_fd);
 
 	timeout_remove(&service_list->to_kill);
+	event_unref(&service_list->event);
 	pool_unref(&service_list->set_pool);
 	pool_unref(&service_list->pool);
 }

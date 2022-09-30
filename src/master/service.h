@@ -44,6 +44,7 @@ struct service_listener {
 
 struct service {
 	struct service_list *list;
+	struct event *event;
 
 	enum service_type type;
 
@@ -137,6 +138,7 @@ struct service_list {
 	int refcount;
 	struct timeout *to_kill;
 	unsigned int fork_counter;
+	struct event *event;
 
 	const struct master_settings *set;
 	const struct master_service_settings *service_set;
