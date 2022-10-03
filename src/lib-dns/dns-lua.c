@@ -31,7 +31,7 @@ static int
 lua_dns_client_async_continue(lua_State *L, int status ATTR_UNUSED,
 			      lua_KContext ctx ATTR_UNUSED)
 {
-	if (lua_isnil(L, -1))
+	if (lua_isnil(L, -3))
 		return 3;
 	else
 		return 1;
@@ -56,7 +56,7 @@ lua_dns_client_lookup_callback(const struct dns_lookup_result *result,
 	}
 
 	if (lua_lookup->resume)
-		dlua_pcall_yieldable_resume(L, 1);
+		dlua_pcall_yieldable_resume(L, result->ret == 0 ? 1 : 3);
 	i_free(lua_lookup);
 }
 
