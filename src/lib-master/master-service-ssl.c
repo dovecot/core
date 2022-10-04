@@ -90,7 +90,8 @@ void master_service_ssl_ctx_init(struct master_service *service)
 
 	if (ssl_iostream_context_init_server(&ssl_set, &service->ssl_ctx,
 					     &error) < 0) {
-		i_error("SSL context initialization failed, disabling SSL: %s",
+		e_error(service->event,
+			"SSL context initialization failed, disabling SSL: %s",
 			error);
 		master_service_ssl_io_listeners_remove(service);
 		return;

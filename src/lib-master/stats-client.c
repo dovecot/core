@@ -55,7 +55,8 @@ stats_client_handshake(struct stats_client *client, const char *const *args)
 	const char *error;
 
 	if (client_handshake_filter(args, &filter, &error) < 0) {
-		i_error("stats: Received invalid handshake: %s (input: %s)",
+		e_error(client->conn.event,
+			"stats: Received invalid handshake: %s (input: %s)",
 			error, t_strarray_join(args, "\t"));
 		return -1;
 	}
@@ -338,7 +339,8 @@ static void stats_client_connect(struct stats_client *client)
 			stats_client_wait_handshake(client);
 	} else if (!client->silent_notfound_errors ||
 		   (errno != ENOENT && errno != ECONNREFUSED)) {
-		i_error("net_connect_unix(%s) failed: %m", client->conn.name);
+		e_error(client->conn.event,
+			"net_connect_unix(%s) failed: %m", client->conn.name);
 	}
 }
 

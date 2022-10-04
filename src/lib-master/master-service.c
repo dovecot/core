@@ -55,7 +55,8 @@ static struct event_category master_service_category = {
 static char *master_service_category_name;
 
 static void master_service_io_listeners_close(struct master_service *service);
-static int master_service_get_login_state(enum master_login_state *state_r);
+static int master_service_get_login_state(struct master_service *service,
+					  enum master_login_state *state_r);
 static void master_service_refresh_login_state(struct master_service *service);
 static void
 master_status_send(struct master_service *service, bool important_update);
@@ -86,7 +87,8 @@ log_killed_signal(struct master_service *service, const siginfo_t *si)
 	if (service->killed_signal_logged)
 		return;
 
-	i_warning("Killed with signal %d (by pid=%s uid=%s code=%s)",
+	e_warning(service->event,
+		  "Killed with signal %d (by pid=%s uid=%s code=%s)",
 		  si->si_signo, dec2str(si->si_pid), dec2str(si->si_uid),
 		  lib_signal_code_to_str(si->si_signo, si->si_code));
 	service->killed_signal_logged = TRUE;
@@ -486,6 +488,14 @@ master_service_init(const char *name, enum master_service_flags flags,
 	service->argv = *argv;
 	service->name = i_strdup(name);
 	service->configured_name = i_strdup(service_configured_name);
+
+	master_service_category_name =
+		i_strdup_printf("service:%s", service->configured_name);
+	master_service_category.name = master_service_category_name;
+	event_register_callback(master_service_event_callback);
+
+	service->event = event_create(NULL);
+
 	/* keep getopt_str first in case it contains "+" */
 	service->getopt_str = *getopt_str == '\0' ?
 		i_strdup(master_service_getopt_string()) :
@@ -536,11 +546,6 @@ master_service_init(const char *name, enum master_service_flags flags,
 		i_set_failure_prefix("%s: ", service->configured_name);
 	}
 
-	master_service_category_name =
-		i_strdup_printf("service:%s", service->configured_name);
-	master_service_category.name = master_service_category_name;
-	event_register_callback(master_service_event_callback);
-
 	/* Initialize debug logging */
 	value = getenv(DOVECOT_LOG_DEBUG_ENV);
 	if (value != NULL) {
@@ -548,7 +553,8 @@ master_service_init(const char *name, enum master_service_flags flags,
 		const char *error;
 		filter = event_filter_create();
 		if (event_filter_parse(value, filter, &error) < 0) {
-			i_error("Invalid "DOVECOT_LOG_DEBUG_ENV" - ignoring: %s",
+			e_error(service->event,
+				"Invalid "DOVECOT_LOG_DEBUG_ENV" - ignoring: %s",
 				error);
 		} else {
 			event_set_global_debug_log_filter(filter);
@@ -1182,7 +1188,8 @@ void master_service_get_kill_time(struct master_service *service,
 
 	if (sigterm_blocked) {
 		if (sigprocmask(SIG_SETMASK, &oldmask, NULL) < 0)
-			i_error("sigprocmask(SIG_SETMASK) failed: %m");
+			e_error(service->event,
+				"sigprocmask(SIG_SETMASK) failed: %m");
 	}
 }
 
@@ -1207,10 +1214,10 @@ master_service_anvil_send(struct master_service *service, const char *cmd)
 			   logging an error about losing connection to it */
 			return FALSE;
 		}
-		i_error("write(anvil) failed: %m");
+		e_error(service->event, "write(anvil) failed: %m");
 		return FALSE;
 	} else if (ret == 0) {
-		i_error("write(anvil) failed: EOF");
+		e_error(service->event, "write(anvil) failed: EOF");
 		return FALSE;
 	} else {
 		i_assert((size_t)ret == strlen(cmd));
@@ -1314,7 +1321,7 @@ void master_service_client_connection_handled(struct master_service *service,
 {
 	if (!conn->accepted) {
 		if (close(conn->fd) < 0)
-			i_error("close(service connection) failed: %m");
+			e_error(service->event, "close(service connection) failed: %m");
 		master_service_client_connection_destroyed(service);
 	} else if (conn->fifo) {
 		/* reading FIFOs stays open forever, don't count them
@@ -1419,16 +1426,17 @@ static void master_service_set_login_state(struct master_service *service,
 		master_service_io_listeners_add(service);
 		return;
 	}
-	i_error("Invalid master login state: %d", state);
+	e_error(service->event, "Invalid master login state: %d", state);
 }
 
-static int master_service_get_login_state(enum master_login_state *state_r)
+static int master_service_get_login_state(struct master_service *service,
+					  enum master_login_state *state_r)
 {
 	off_t ret;
 
 	ret = lseek(MASTER_LOGIN_NOTIFY_FD, 0, SEEK_CUR);
 	if (ret < 0) {
-		i_error("lseek(login notify fd) failed: %m");
+		e_error(service->event, "lseek(login notify fd) failed: %m");
 		return -1;
 	}
 	*state_r = ret == MASTER_LOGIN_STATE_FULL ?
@@ -1440,7 +1448,7 @@ static void master_service_refresh_login_state(struct master_service *service)
 {
 	enum master_login_state state;
 
-	if (master_service_get_login_state(&state) == 0)
+	if (master_service_get_login_state(service, &state) == 0)
 		master_service_set_login_state(service, state);
 }
 
@@ -1507,6 +1515,7 @@ static void master_service_free(struct master_service *service)
 	i_free(service->config_path);
 	i_free(service->current_user);
 	i_free(service->last_kick_signal_user);
+	event_unref(&service->event);
 	i_free(service);
 }
 
@@ -1542,7 +1551,7 @@ static void master_service_overflow(struct master_service *service)
 
 	timeout_remove(&service->to_overflow_call);
 
-	if (master_service_get_login_state(&state) < 0 ||
+	if (master_service_get_login_state(service, &state) < 0 ||
 	    state != MASTER_LOGIN_STATE_FULL) {
 		/* service is no longer full (or we couldn't check if it is) */
 		return;
@@ -1654,7 +1663,7 @@ master_service_accept(struct master_service_listener *l, const char *conn_name,
 			/* BSDI fails accept(fifo) with EINVAL. */
 		} else {
 			errno = orig_errno;
-			i_error("net_accept() failed: %m");
+			e_error(service->event, "net_accept() failed: %m");
 			/* try again later after one of the existing
 			   connections has died */
 			master_service_io_listeners_remove(service);
@@ -1723,7 +1732,8 @@ static void master_service_listen(struct master_service_listener *l)
 	master_service_accept(l, conn_name, master_admin_conn);
 	if (sigterm_blocked) {
 		if (sigprocmask(SIG_SETMASK, &oldmask, NULL) < 0)
-			i_error("sigprocmask(SIG_SETMASK) failed: %m");
+			e_error(service->event,
+				"sigprocmask(SIG_SETMASK) failed: %m");
 	}
 }
 
@@ -1779,7 +1789,8 @@ static void master_service_io_listeners_close(struct master_service *service)
 		if (service->listeners[i].fd != -1 &&
 		    !master_admin_client_can_accept(service->listeners[i].name)) {
 			if (close(service->listeners[i].fd) < 0) {
-				i_error("close(listener %d) failed: %m",
+				e_error(service->event,
+					"close(listener %d) failed: %m",
 					service->listeners[i].fd);
 			}
 			service->listeners[i].fd = -1;
@@ -1824,13 +1835,16 @@ master_status_send(struct master_service *service, bool important_update)
 		service->initial_status_sent = TRUE;
 	} else if (ret >= 0) {
 		/* shouldn't happen? */
-		i_error("write(master_status_fd) returned %d", (int)ret);
+		e_error(service->event,
+			"write(master_status_fd) returned %d", (int)ret);
 		service->master_status.pid = 0;
 		io_remove(&service->io_status_write);
 	} else if (errno != EAGAIN) {
 		/* failure */
-		if (errno != EPIPE)
-			i_error("write(master_status_fd) failed: %m");
+		if (errno != EPIPE) {
+			e_error(service->event,
+				"write(master_status_fd) failed: %m");
+		}
 		service->master_status.pid = 0;
 		io_remove(&service->io_status_write);
 	} else if (important_update) {
@@ -1953,9 +1967,9 @@ void master_service_set_current_user(struct master_service *service,
 	service->current_user = i_strdup(user);
 	i_free(old_user);
 
-	if (sigterm_blocked) {
-		if (sigprocmask(SIG_SETMASK, &oldmask, NULL) < 0)
-			i_error("sigprocmask(SIG_SETMASK) failed: %m");
+	if (sigterm_blocked && sigprocmask(SIG_SETMASK, &oldmask, NULL) < 0) {
+		e_error(service->event,
+			"sigprocmask(SIG_SETMASK) failed: %m");
 	}
 }
 
@@ -1970,8 +1984,8 @@ void master_service_set_last_kick_signal_user(struct master_service *service,
 	service->last_kick_signal_user = i_strdup(user);
 	service->last_kick_signal_user_accessed = 0;
 
-	if (sigterm_blocked) {
-		if (sigprocmask(SIG_SETMASK, &oldmask, NULL) < 0)
-			i_error("sigprocmask(SIG_SETMASK) failed: %m");
+	if (sigterm_blocked && sigprocmask(SIG_SETMASK, &oldmask, NULL) < 0) {
+		e_error(service->event,
+			"sigprocmask(SIG_SETMASK) failed: %m");
 	}
 }

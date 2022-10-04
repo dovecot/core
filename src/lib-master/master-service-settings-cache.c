@@ -91,7 +91,8 @@ int master_service_settings_cache_init_filter(struct master_service_settings_cac
 	if (cache->filters != NULL)
 		return 0;
 	if (master_service_settings_get_filters(cache->service, &filters, &error) < 0) {
-		i_error("master-service: cannot get filters: %s", error);
+		e_error(cache->service->event,
+			"master-service: cannot get filters: %s", error);
 		return -1;
 	}
 

@@ -24,6 +24,7 @@ struct master_service_listener {
 
 struct master_service {
 	struct ioloop *ioloop;
+	struct event *event;
 
 	char *name;
 	char *configured_name;
