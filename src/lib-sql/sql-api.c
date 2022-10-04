@@ -557,13 +557,15 @@ static void sql_result_fetch(struct sql_result *result)
 		case SQL_TYPE_UINT: {
 			if (value != NULL &&
 			    str_to_uint(value, (unsigned int *)ptr) < 0)
-				i_error("sql: Value not uint: %s", value);
+				e_error(result->event,
+					"Value not uint: %s", value);
 			break;
 		}
 		case SQL_TYPE_ULLONG: {
 			if (value != NULL &&
 			    str_to_ullong(value, (unsigned long long *)ptr) < 0)
-				i_error("sql: Value not ullong: %s", value);
+				e_error(result->event,
+					"Value not ullong: %s", value);
 			break;
 		}
 		case SQL_TYPE_BOOL: {
