@@ -1015,7 +1015,7 @@ client_auth_begin_common(struct client *client, const char *mech_name,
 			"SSL required for authentication");
 		client->auth_attempts++;
 		client_auth_result(client, CLIENT_AUTH_RESULT_SSL_REQUIRED, NULL,
-			"Authentication not allowed until SSL/TLS is enabled.");
+			"Authentication disallowed on non-secure (SSL/TLS) connections.");
 		return 1;
 	}
 
