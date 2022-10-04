@@ -1005,7 +1005,7 @@ sql_dict_transaction_commit_callback(const struct sql_commit_result *sql_result,
 	if (ctx->async_callback != NULL)
 		ctx->async_callback(&result, ctx->async_context);
 	else if (result.ret < 0)
-		i_error("%s", result.error);
+		e_error(ctx->ctx.event, "%s", result.error);
 	sql_dict_transaction_free(ctx);
 }
 
