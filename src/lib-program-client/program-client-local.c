@@ -49,7 +49,7 @@ program_client_local_exited(struct program_client_local *plclient);
 static void
 exec_child(const char *bin_path, const char *const *args,
 	   ARRAY_TYPE(const_string) *envs, int in_fd, int out_fd,
-	   int *extra_fds, bool drop_stderr)
+	   int *extra_fds, bool drop_stderr, struct event *event)
 {
 	ARRAY_TYPE(const_string) exec_args;
 
@@ -66,10 +66,10 @@ exec_child(const char *bin_path, const char *const *args,
 		i_fatal("program %s: dup2(stdout) failed: %m", bin_path);
 
 	if (in_fd != STDIN_FILENO && in_fd != dev_null_fd && close(in_fd) < 0)
-		i_error("program %s: close(in_fd) failed: %m", bin_path);
+		e_error(event, "close(in_fd) failed: %m");
 	if (out_fd != STDOUT_FILENO && out_fd != dev_null_fd &&
 	    (out_fd != in_fd) && close(out_fd) < 0)
-		i_error("program %s: close(out_fd) failed: %m", bin_path);
+		e_error(event, "close(out_fd) failed: %m");
 
 	/* Drop stderr if requested */
 	if (drop_stderr) {
@@ -99,9 +99,9 @@ exec_child(const char *bin_path, const char *const *args,
 			    efd[0] != STDOUT_FILENO &&
 			    efd[0] != STDERR_FILENO) {
 				if (close(efd[0]) < 0) {
-					i_error("program %s"
+					e_error(event,
 						"close(extra_fd=%d) failed: %m",
-						bin_path, efd[1]);
+						efd[1]);
 				}
 			}
 		}
@@ -235,18 +235,21 @@ program_client_local_connect(struct program_client *pclient)
 	}
 
 	if (plclient->pid == 0) {
+		struct event *event = event_create(pclient->event);
+		event_disable_callbacks(event);
+		event_set_append_log_prefix(event, t_strdup_printf(
+			"program %s: ", plclient->bin_path));
+
 		/* child */
 		if (fd_in[1] >= 0 && close(fd_in[1]) < 0) {
-			e_error(pclient->event,
-				"close(pipe:in:wr) failed: %m");
+			e_error(event, "close(pipe:in:wr) failed: %m");
 		}
 		if (fd_out[0] >= 0 && close(fd_out[0]) < 0) {
-			e_error(pclient->event,
-				"close(pipe:out:rd) failed: %m");
+			e_error(event, "close(pipe:out:rd) failed: %m");
 		}
 		for(i = 0; i < xfd_count; i++) {
 			if (close(parent_extra_fds[i]) < 0) {
-				e_error(pclient->event,
+				e_error(event,
 					"close(pipe:extra=%d:rd) failed: %m",
 					child_extra_fds[i * 2 + 1]);
 			}
@@ -261,7 +264,7 @@ program_client_local_connect(struct program_client *pclient)
 
 		exec_child(plclient->bin_path, pclient->args, &pclient->envs,
 			   fd_in[0], fd_out[1], child_extra_fds,
-			   pclient->set.drop_stderr);
+			   pclient->set.drop_stderr, event);
 		i_unreached();
 	}
 
