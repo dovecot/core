@@ -343,7 +343,6 @@ mail_storage_list_index_try_create(struct mail_storage_list_index_rebuild_ctx *c
 	struct mail_storage *storage = ctx->storage;
 	struct mailbox *box;
 	struct mailbox_update update;
-	enum mailbox_existence existence;
 	string_t *name = t_str_new(128);
 	unsigned char randomness[8];
 	int ret;
@@ -363,14 +362,7 @@ mail_storage_list_index_try_create(struct mail_storage_list_index_rebuild_ctx *c
 		guid_128_to_string(guid_p));
 
 	box->corrupted_mailbox_name = TRUE;
-	if (mailbox_exists(box, FALSE, &existence) < 0) {
-		mail_storage_set_critical(storage,
-			"List rebuild: Couldn't lookup mailbox %s existence: %s",
-			str_c(name), mailbox_get_last_internal_error(box, NULL));
-		ret = -1;
-	} else if (existence != MAILBOX_EXISTENCE_NONE) {
-		ret = 0;
-	} else if ((ret = mail_storage_list_mailbox_create(box, &update)) <= 0)
+	if ((ret = mail_storage_list_mailbox_create(box, &update)) <= 0)
 		;
 	else if (mailbox_sync(box, MAILBOX_SYNC_FLAG_FORCE_RESYNC) < 0) {
 		mail_storage_set_critical(storage,
