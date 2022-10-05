@@ -558,7 +558,7 @@ http_client_request_set_payload_real(struct http_client_request *req,
 	req->payload_input = input;
 	if ((ret = i_stream_get_size(input, TRUE, &req->payload_size)) <= 0) {
 		if (ret < 0) {
-			i_error("i_stream_get_size(%s) failed: %s",
+			e_error(req->event, "i_stream_get_size(%s) failed: %s",
 				i_stream_get_name(input),
 				i_stream_get_error(input));
 		}
