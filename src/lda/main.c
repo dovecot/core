@@ -117,7 +117,8 @@ create_raw_stream(struct mail_deliver_input *dinput,
 		if (smtp_address_parse_mailbox(pool_datastack_create(),
 					       sender, 0, &mail_from,
 					       &error) < 0) {
-			i_warning("Failed to parse address from `From_'-line: %s",
+			e_warning(dinput->event_parent,
+				  "Failed to parse address from `From_'-line: %s",
 				  error);
 		}
 		dinput->mail_from = mail_from;
