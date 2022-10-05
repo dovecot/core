@@ -436,20 +436,16 @@ static int mail_storage_list_index_rebuild_int(struct mail_storage *storage)
 		return 0;
 	}
 
-	/* Only perform this for INDEX layout */
-	if (strcmp(ctx.first_list->name, MAILBOX_LIST_NAME_INDEX) == 0) {
-		/* do this operation while keeping mailbox list index locked.
-		   this avoids race conditions between other list rebuilds and also
-		   makes sure that other processes creating/deleting mailboxes can't
-		   cause confusion with race conditions. */
-		struct event_reason *reason =
-			event_reason_begin("storage:mailbox_list_rebuild");
-		if ((ret = mail_storage_list_index_rebuild_lock_lists(&ctx)) == 0)
-			ret = mail_storage_list_index_rebuild_ctx(&ctx);
-		mail_storage_list_index_rebuild_unlock_lists(&ctx);
-		event_reason_end(&reason);
-	} else
-		ret = 0;
+	/* do this operation while keeping mailbox list index locked.
+	   this avoids race conditions between other list rebuilds and also
+	   makes sure that other processes creating/deleting mailboxes can't
+	   cause confusion with race conditions. */
+	struct event_reason *reason =
+		event_reason_begin("storage:mailbox_list_rebuild");
+	if ((ret = mail_storage_list_index_rebuild_lock_lists(&ctx)) == 0)
+		ret = mail_storage_list_index_rebuild_ctx(&ctx);
+	mail_storage_list_index_rebuild_unlock_lists(&ctx);
+	event_reason_end(&reason);
 
 	hash_table_destroy(&ctx.mailboxes);
 	pool_unref(&ctx.pool);
