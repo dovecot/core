@@ -220,7 +220,7 @@ ldap_connection_result_failure(struct ldap_connection *conn,
 	if (req->result_callback != NULL)
 		req->result_callback(&res, req->result_callback_ctx);
 	else
-		i_error("%s", error);
+		e_error(conn->event, "%s", error);
 	ldap_connection_kill(conn);
 }
 
@@ -374,7 +374,8 @@ ldap_connection_connect_parse(struct ldap_connection *conn,
 				}
 			} else {
 				if (conn->set.debug > 0)
-					i_debug("Using TLS connection to remote LDAP server");
+					e_debug(conn->event,
+						"Using TLS connection to remote LDAP server");
 			}
 			ldap_memfree(retoid);
 		}
@@ -524,7 +525,7 @@ int ldap_connection_connect(struct ldap_connection *conn)
 	if (conn->conn == NULL) {
 		/* try to reconnect after disconnection */
 		if (ldap_connection_setup(conn, &error) < 0)
-			i_error("%s", error);
+			e_error(conn->event, "%s", error);
 	}
 
 	pool_t pool = pool_alloconly_create(MEMPOOL_GROWING "ldap bind", 128);
@@ -690,9 +691,11 @@ void ldap_connection_read_more(struct ldap_connection *conn)
 		if (ldap_get_option(conn->conn, LDAP_OPT_RESULT_CODE, &ret) != LDAP_SUCCESS)
 			i_unreached();
 		if (ret != LDAP_SERVER_DOWN)
-			i_error("ldap_result() failed: %s", ldap_err2string(ret));
+			e_error(conn->event,
+				"ldap_result() failed: %s", ldap_err2string(ret));
 		else
-			i_error("Connection lost to LDAP server, reconnecting");
+			e_error(conn->event,
+				"Connection lost to LDAP server, reconnecting");
 		/* kill me */
 		ldap_connection_kill(conn);
 	} else if (ret != 0) {
