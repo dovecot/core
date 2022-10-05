@@ -69,7 +69,8 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 
 	if (mail_get_first_header(mail, "Auto-Submitted", &value) > 0 &&
 		strcasecmp(value, "no") != 0) {
-		i_info("msgid=%s: Auto-submitted message discarded: %s",
+		e_info(ctx->event,
+			"msgid=%s: Auto-submitted message discarded: %s",
 			orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80),
 			str_sanitize(reason, 512));
 		return 0;
@@ -77,14 +78,16 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 
 	return_addr = mail_deliver_get_return_address(ctx);
 	if (smtp_address_isnull(return_addr)) {
-		i_info("msgid=%s: Return-Path missing, rejection reason: %s",
+		e_info(ctx->event,
+			"msgid=%s: Return-Path missing, rejection reason: %s",
 			orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80),
 			str_sanitize(reason, 512));
 		return 0;
 	}
 
 	if (!mail_user_get_postmaster_address(user, &postmaster_addr, &error)) {
-		i_error("msgid=%s: Invalid postmaster_address - can't send rejection: %s",
+		e_error(ctx->event,
+			"msgid=%s: Invalid postmaster_address - can't send rejection: %s",
 			orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80), error);
 		return -1;
 	}
@@ -122,7 +125,8 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 	str_append(str, "Subject: ");
 	if (var_expand(str, ctx->set->rejection_subject,
 		vtable, &error) <= 0) {
-		i_error("Failed to expand rejection_subject=%s: %s",
+		e_error(ctx->event,
+			"Failed to expand rejection_subject=%s: %s",
 			ctx->set->rejection_subject, error);
 	}
 	str_append(str, "\r\n");
@@ -139,7 +143,8 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 
 	if (var_expand(str, ctx->set->rejection_reason,
 		vtable, &error) <= 0) {
-		i_error("Failed to expand rejection_reason=%s: %s",
+		e_error(ctx->event,
+			"Failed to expand rejection_reason=%s: %s",
 			ctx->set->rejection_reason, error);
 	}
 	str_append(str, "\r\n");
@@ -203,11 +208,13 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 	str_printfa(str, "\r\n\r\n--%s--\r\n", boundary);
 	o_stream_nsend(output, str_data(str), str_len(str));
 	if ((ret = smtp_submit_run(smtp_submit, &error)) < 0) {
-		i_error("msgid=%s: Temporarily failed to send rejection: %s",
+		e_error(ctx->event,
+			"msgid=%s: Temporarily failed to send rejection: %s",
 			orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80),
 			str_sanitize(error, 512));
 	} else if (ret == 0) {
-		i_info("msgid=%s: Permanently failed to send rejection: %s",
+		e_info(ctx->event,
+			"msgid=%s: Permanently failed to send rejection: %s",
 			orig_msgid == NULL ? "" : str_sanitize(orig_msgid, 80),
 			str_sanitize(error, 512));
 	}
