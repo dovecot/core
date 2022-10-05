@@ -421,7 +421,8 @@ void mail_transaction_log_file_unlock(struct mail_transaction_log_file *file,
 
 	lock_time = time(NULL) - file->lock_create_time;
 	if (lock_time >= MAIL_TRANSACTION_LOG_LOCK_WARN_SECS && lock_reason != NULL) {
-		i_warning("Transaction log file %s was locked for %u seconds (%s)",
+		e_warning(file->log->index->event,
+			  "Transaction log file %s was locked for %u seconds (%s)",
 			  file->filepath, lock_time, lock_reason);
 	}
 

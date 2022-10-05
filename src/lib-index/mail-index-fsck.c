@@ -445,7 +445,7 @@ int mail_index_fsck(struct mail_index *index)
 	uint32_t file_seq;
 	uoff_t file_offset;
 
-	i_warning("fscking index file %s", index->filepath);
+	e_warning(index->event, "fscking index file %s", index->filepath);
 
 	index->fscked = TRUE;
 
