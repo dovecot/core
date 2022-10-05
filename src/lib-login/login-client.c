@@ -5,6 +5,7 @@
 #include "fdpass.h"
 #include "buffer.h"
 #include "hash.h"
+#include "str.h"
 #include "time-util.h"
 #include "master-service-private.h"
 #include "login-client.h"
@@ -34,6 +35,7 @@ struct login_connection {
 
 	login_client_request_callback_t *callback;
 	void *context;
+	struct event *event;
 };
 
 struct login_client_list {
@@ -79,22 +81,23 @@ login_connection_deinit(struct login_connection **_conn)
 	timeout_remove(&conn->to);
 	io_remove(&conn->io);
 	i_close_fd(&conn->fd);
+	event_unref(&conn->event);
 	i_free(conn->path);
 	i_free(conn);
 }
 
-static void ATTR_FORMAT(2, 3)
-conn_error(struct login_connection *conn, const char *fmt, ...)
+static const char *
+login_connection_event_callback(struct login_connection *conn,
+				enum log_type log_type ATTR_UNUSED,
+				const char *message)
 {
-	va_list args;
-
-	va_start(args, fmt);
-	i_error("master(%s): %s (client-pid=%u, client-id=%u, rip=%s, created %u msecs ago, received %u/%zu bytes)",
-		conn->path, t_strdup_vprintf(fmt, args),
-		conn->client_pid, conn->auth_id, net_ip2addr(&conn->remote_ip),
+	string_t *str = t_str_new(128);
+	str_printfa(str, "%s (client-pid=%u, client-id=%u, rip=%s, created %u msecs ago, received %u/%zu bytes)",
+		message, conn->client_pid, conn->auth_id,
+		net_ip2addr(&conn->remote_ip),
 		timeval_diff_msecs(&ioloop_timeval, &conn->create_time),
 		conn->buf_pos, sizeof(conn->buf_pos));
-	va_end(args);
+	return str_c(str);
 }
 
 void login_client_list_deinit(struct login_client_list **_list)
@@ -125,12 +128,12 @@ static void login_connection_input(struct login_connection *conn)
 		   sizeof(conn->buf) - conn->buf_pos);
 	if (ret <= 0) {
 		if (ret == 0 || errno == ECONNRESET) {
-			conn_error(conn, "read() failed: Remote closed connection "
+			e_error(conn->event, "read() failed: Remote closed connection "
 				"(destination service { process_limit } reached?)");
 		} else {
 			if (errno == EAGAIN)
 				return;
-			conn_error(conn, "read() failed: %m");
+			e_error(conn->event, "read() failed: %m");
 		}
 		login_connection_deinit(&conn);
 		return;
@@ -145,7 +148,7 @@ static void login_connection_input(struct login_connection *conn)
 	conn->buf_pos = 0;
 
 	if (conn->tag != reply->tag)
-		conn_error(conn, "Received reply with unknown tag %u", reply->tag);
+		e_error(conn->event, "Received reply with unknown tag %u", reply->tag);
 	else if (conn->callback == NULL) {
 		/* request aborted */
 	} else {
@@ -157,7 +160,7 @@ static void login_connection_input(struct login_connection *conn)
 
 static void login_connection_timeout(struct login_connection *conn)
 {
-	conn_error(conn, "Login request timed out");
+	e_error(conn->event, "Login request timed out");
 	login_connection_deinit(&conn);
 }
 
@@ -182,6 +185,10 @@ void login_client_request(struct login_client_list *list,
 	conn->context = context;
 	conn->path = params->socket_path != NULL ?
 		i_strdup(params->socket_path) : i_strdup(list->default_path);
+
+	conn->event = event_create(NULL);
+	event_set_append_log_prefix(conn->event, t_strdup_printf("master(%s): ", conn->path));
+	event_set_log_message_callback(conn->event, login_connection_event_callback, conn);
 
 	req = params->request;
 	req.tag = ++list->tag_counter;
@@ -216,14 +223,15 @@ void login_client_request(struct login_client_list *list,
 		if (conn->fd != -1 &&
 		    ioloop_time - list->last_connect_warning >=
 		    SOCKET_CONNECT_RETRY_WARNING_INTERVAL_SECS) {
-			i_warning("net_connect_unix(%s) succeeded only after retrying - "
+			e_warning(conn->event,
+				  "net_connect_unix(%s) succeeded only after retrying - "
 				  "took %lld us", conn->path,
 				  timeval_diff_usecs(&ioloop_timeval, &start_time));
 			list->last_connect_warning = ioloop_time;
 		}
 	}
 	if (conn->fd == -1) {
-		conn_error(conn, "net_connect_unix(%s) failed: %m%s",
+		e_error(conn->event, "net_connect_unix(%s) failed: %m%s",
 			conn->path, errno != EAGAIN ? "" :
 			" - https://doc.dovecot.org/admin_manual/errors/socket_unavailable/");
 		login_connection_deinit(&conn);
@@ -232,10 +240,10 @@ void login_client_request(struct login_client_list *list,
 
 	ret = fd_send(conn->fd, params->client_fd, buf->data, buf->used);
 	if (ret < 0) {
-		conn_error(conn, "fd_send(fd=%d) failed: %m",
+		e_error(conn->event, "fd_send(fd=%d) failed: %m",
 			   params->client_fd);
 	} else if ((size_t)ret != buf->used) {
-		conn_error(conn, "fd_send() sent only %d of %d bytes",
+		e_error(conn->event, "fd_send() sent only %d of %d bytes",
 			   (int)ret, (int)buf->used);
 		ret = -1;
 	}

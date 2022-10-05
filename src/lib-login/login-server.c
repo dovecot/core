@@ -97,15 +97,14 @@ void login_server_deinit(struct login_server **_server)
 	i_free(server);
 }
 
-static void ATTR_FORMAT(2, 3)
-conn_error(struct login_server_connection *conn, const char *fmt, ...)
+static const char *
+login_server_event_log_callback(struct login_server_connection *conn,
+			        enum log_type log_type ATTR_UNUSED,
+			        const char *message)
 {
 	string_t *str = t_str_new(128);
-	va_list args;
-
-	va_start(args, fmt);
-	str_printfa(str, "connection created %d msecs ago",
-		    timeval_diff_msecs(&ioloop_timeval, &conn->create_time));
+	str_printfa(str, "%s (connection created %d msecs ago", message,
+		timeval_diff_msecs(&ioloop_timeval, &conn->create_time));
 	if (conn->requests != NULL) {
 		struct login_server_request *request = conn->requests;
 
@@ -131,8 +130,8 @@ conn_error(struct login_server_connection *conn, const char *fmt, ...)
 						       &pl->create_time));
 		}
 	}
-	i_error("%s (%s)", t_strdup_vprintf(fmt, args), str_c(str));
-	va_end(args);
+	str_append(str, ")");
+	return str_c(str);
 }
 
 static int
@@ -151,23 +150,24 @@ login_server_conn_read_request(struct login_server_connection *conn,
 		if (ret == 0) {
 			/* disconnected */
 			if (login_server_conn_has_requests(conn))
-				conn_error(conn, "Login client disconnected too early");
+				e_error(conn->event,
+					"Login client disconnected too early");
 		} else if (ret > 0) {
 			/* request wasn't fully read */
-			conn_error(conn, "fd_read() partial input (%d/%d)",
+			e_error(conn->event, "fd_read() partial input (%d/%d)",
 				   (int)ret, (int)sizeof(*req_r));
 		} else {
 			if (errno == EAGAIN)
 				return 0;
 
-			conn_error(conn, "fd_read() failed: %m");
+			e_error(conn->event, "fd_read() failed: %m");
 		}
 		return -1;
 	}
 
 	if (req_r->data_size != 0) {
 		if (req_r->data_size > LOGIN_REQUEST_MAX_DATA_SIZE) {
-			conn_error(conn, "Too large auth data_size sent");
+			e_error(conn->event, "Too large auth data_size sent");
 			return -1;
 		}
 		/* @UNSAFE */
@@ -176,31 +176,32 @@ login_server_conn_read_request(struct login_server_connection *conn,
 			if (ret == 0) {
 				/* disconnected */
 				if (login_server_conn_has_requests(conn)) {
-					conn_error(conn, "Login client disconnected too early "
+					e_error(conn->event,
+						"Login client disconnected too early "
 						"(while reading data)");
 				}
 			} else if (ret > 0) {
 				/* request wasn't fully read */
-				conn_error(conn, "Data read partially %d/%u",
+				e_error(conn->event, "Data read partially %d/%u",
 					(int)ret, req_r->data_size);
 			} else {
-				conn_error(conn, "read(data) failed: %m");
+				e_error(conn->event, "read(data) failed: %m");
 			}
 			return -1;
 		}
 	}
 
 	if (*client_fd_r == -1) {
-		conn_error(conn, "Auth request missing a file descriptor");
+		e_error(conn->event, "Auth request missing a file descriptor");
 		return -1;
 	}
 
 	if (fstat(*client_fd_r, &st) < 0) {
-		conn_error(conn, "fstat(fd_read client) failed: %m");
+		e_error(conn->event, "fstat(fd_read client) failed: %m");
 		return -1;
 	}
 	if (st.st_ino != req_r->ino) {
-		conn_error(conn, "Auth request inode mismatch: %s != %s",
+		e_error(conn->event, "Auth request inode mismatch: %s != %s",
 			   dec2str(st.st_ino), dec2str(req_r->ino));
 		return -1;
 	}
@@ -301,13 +302,15 @@ static void login_server_postlogin_input(struct login_server_postlogin *pl)
 			if (errno == EAGAIN)
 				return;
 
-			conn_error(conn, "fd_read(%s) failed: %m", pl->socket_path);
+			e_error(conn->event,
+				"fd_read(%s) failed: %m", pl->socket_path);
 		} else if (str_len(pl->input) > 0) {
-			conn_error(conn, "fd_read(%s) failed: disconnected",
-				   pl->socket_path);
+			e_error(conn->event,  "fd_read(%s) failed: disconnected",
+				pl->socket_path);
 		} else {
-			conn_error(conn, "Post-login script denied access to user %s",
-				   pl->username);
+			e_error(conn->event,
+				"Post-login script denied access to user %s",
+				pl->username);
 		}
 		login_server_postlogin_free(pl);
 		return;
@@ -323,7 +326,7 @@ static void login_server_postlogin_input(struct login_server_postlogin *pl)
 
 static void login_server_postlogin_timeout(struct login_server_postlogin *pl)
 {
-	conn_error(pl->request->conn,
+	e_error(pl->request->conn->event,
 		   "Timeout waiting for post-login script to finish, aborting");
 
 	login_server_postlogin_free(pl);
@@ -342,7 +345,7 @@ static int login_server_postlogin(struct login_server_request *request,
 
 	fd = net_connect_unix_with_retries(socket_path, 1000);
 	if (fd == -1) {
-		conn_error(request->conn, "net_connect_unix(%s) failed: %m%s",
+		e_error(request->conn->event, "net_connect_unix(%s) failed: %m%s",
 			   socket_path, errno != EAGAIN ? "" :
 			   " - https://doc.dovecot.org/admin_manual/errors/socket_unavailable/");
 		return -1;
@@ -360,9 +363,11 @@ static int login_server_postlogin(struct login_server_request *request,
 	ret = fd_send(fd, request->fd, str_data(str), str_len(str));
 	if (ret != (ssize_t)str_len(str)) {
 		if (ret < 0) {
-			conn_error(request->conn, "write(%s) failed: %m", socket_path);
+			e_error(request->conn->event,
+				"write(%s) failed: %m", socket_path);
 		} else {
-			conn_error(request->conn, "write(%s) failed: partial write", socket_path);
+			e_error(request->conn->event,
+				"write(%s) failed: partial write", socket_path);
 		}
 		i_close_fd(&fd);
 		return -1;
@@ -418,7 +423,8 @@ login_server_auth_callback(const char *const *auth_args, const char *errormsg,
 
 	if (errormsg != NULL || auth_args[0] == NULL) {
 		if (auth_args != NULL) {
-			i_error("login client: Username missing from auth reply");
+			e_error(conn->event,
+				"login client: Username missing from auth reply");
 			errormsg = LOGIN_REQUEST_ERRMSG_INTERNAL_FAILURE;
 		}
 		conn->server->failure_callback(request, errormsg);
@@ -509,6 +515,9 @@ void login_server_add(struct login_server *server, int fd)
 	conn->output = o_stream_create_fd(fd, SIZE_MAX);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 
+	conn->event = event_create(server->service->event);
+	event_set_log_message_callback(conn->event, login_server_event_log_callback, conn);
+
 	DLLIST_PREPEND(&server->conns, conn);
 
 	/* NOTE: currently there's a separate connection for each request. */
@@ -542,6 +551,7 @@ static void login_server_conn_unref(struct login_server_connection **_conn)
 
 	if (!conn->login_success)
 		master_service_client_connection_destroyed(conn->server->service);
+	event_unref(&conn->event);
 	i_free(conn);
 }
 
