@@ -265,6 +265,13 @@ mail_storage_list_index_find_indexed_mailbox(struct mail_storage_list_index_rebu
 			e_debug(box->event,
 				"Mailbox GUID %s exists in list index, but not in storage",
 				guid_128_to_string(metadata.guid));
+			/* Add it there so we can delete the duplicate */
+			char *hk_dup = p_strdup(ctx->pool, hk);
+			rebuild_box = p_new(ctx->pool, struct mail_storage_list_index_rebuild_mailbox, 1);
+			rebuild_box->list = info->ns->list;
+			rebuild_box->index_name = p_strdup(ctx->pool, box->name);
+			guid_128_copy(rebuild_box->guid, metadata.guid);
+			hash_table_insert(ctx->mailboxes, hk_dup, rebuild_box);
 		} else if (rebuild_box->index_name == NULL) {
 			rebuild_box->index_name =
 				p_strdup(ctx->pool, box->name);
