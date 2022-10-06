@@ -8,7 +8,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "hash.h"
-#include "replicator-queue.h"
+#include "replicator-queue-private.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -20,20 +20,6 @@ struct replicator_sync_lookup {
 	void *context;
 
 	bool wait_for_next_push;
-};
-
-struct replicator_queue {
-	struct priorityq *user_queue;
-	/* username => struct replicator_user* */
-	HASH_TABLE(char *, struct replicator_user *) user_hash;
-
-	ARRAY(struct replicator_sync_lookup) sync_lookups;
-
-	unsigned int full_sync_interval;
-	unsigned int failure_resync_interval;
-
-	void (*change_callback)(void *context);
-	void *change_context;
 };
 
 struct replicator_queue_iter {

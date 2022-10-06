@@ -32,5 +32,6 @@ noinst_HEADERS = \
 	dsync-client.h \
 	replicator-brain.h \
 	replicator-queue.h \
+	replicator-queue-private.h \
 	replicator-settings.h \
 	notify-connection.h
