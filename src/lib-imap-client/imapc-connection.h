@@ -59,5 +59,6 @@ struct imapc_client_mailbox *
 imapc_connection_get_mailbox(struct imapc_connection *conn);
 
 void imapc_connection_idle(struct imapc_connection *conn);
+struct event *imapc_connection_get_event(struct imapc_connection *conn);
 
 #endif

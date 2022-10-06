@@ -2500,3 +2500,8 @@ void imapc_connection_idle(struct imapc_connection *conn)
 	cmd->idle = TRUE;
 	imapc_command_send(cmd, "IDLE");
 }
+
+struct event *imapc_connection_get_event(struct imapc_connection *conn)
+{
+	return conn->event;
+}
