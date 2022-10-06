@@ -239,7 +239,7 @@ int ldap_dict_init(struct dict *dict_driver, const char *uri,
 	pool_t pool = pool_alloconly_create("ldap dict", 2048);
 	struct ldap_dict *dict = p_new(pool, struct ldap_dict, 1);
 	dict->pool = pool;
-	dict->event = event_create(NULL);
+	dict->event = event_create(dict_driver->event);
 	dict->dict = *dict_driver;
 	dict->uri = p_strdup(pool, uri);
 	dict->set = dict_ldap_settings_read(pool, uri, error_r);
@@ -331,7 +331,8 @@ ldap_dict_lookup_callback(struct ldap_result *result, struct dict_ldap_op *op)
 			e_debug(op->event, "ldap_dict_lookup_callback got dn %s",
 				ldap_entry_dn(entry));
 			/* try extract value */
-			const char *const *values = ldap_entry_get_attribute(entry, op->map->value_attribute);
+			const char *const *values = ldap_entry_get_attribute(
+				entry, op->map->value_attribute);
 			if (values != NULL) {
 				const char **new_values;
 
