@@ -3,6 +3,7 @@
 /* @UNSAFE: whole file */
 
 #include "lib.h"
+#include "safe-memset.h"
 #include "buffer.h"
 
 struct real_buffer {
@@ -411,6 +412,14 @@ void buffer_set_used_size(buffer_t *_buf, size_t used_size)
 		buf->dirty = buf->used;
 
 	buf->used = used_size;
+}
+
+void buffer_clear_safe(buffer_t *_buf)
+{
+	struct real_buffer *buf = container_of(_buf, struct real_buffer, buf);
+
+	safe_memset(buf->w_buffer, 0, I_MAX(buf->used, buf->dirty));
+	buffer_clear(_buf);
 }
 
 size_t buffer_get_size(const buffer_t *_buf)

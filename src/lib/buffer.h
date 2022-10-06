@@ -116,6 +116,8 @@ static inline void buffer_clear(buffer_t *buf)
 {
 	buffer_set_used_size(buf, 0);
 }
+/* Clear the buffer, but also make sure any contents is zeroed out. */
+void buffer_clear_safe(buffer_t *_buf);
 
 /* Returns the current buffer size. */
 size_t buffer_get_size(const buffer_t *buf) ATTR_PURE;
