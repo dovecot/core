@@ -78,8 +78,7 @@ static void doveadm_connection_destroy(struct doveadm_connection **_conn)
 	*_conn = NULL;
 
 	o_stream_destroy(&conn->output);
-	if (close(conn->fd) < 0)
-		i_error("close(doveadm connection) failed: %m");
+	i_close_fd(&conn->fd);
 	i_free(conn);
 
 	master_service_client_connection_destroyed(master_service);

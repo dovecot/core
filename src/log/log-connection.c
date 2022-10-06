@@ -39,6 +39,7 @@ struct log_line_metadata {
 
 struct log_connection {
 	struct log_connection *prev, *next;
+	struct event *event;
 
 	struct log_error_buffer *errorbuf;
 	int fd;
@@ -190,7 +191,7 @@ client_log_fatal(struct log_connection *log, struct log_client *client,
 
 static void
 log_parse_master_line(const char *line, const struct timeval *log_time,
-		      const struct tm *tm)
+		      const struct tm *tm, struct event *event)
 {
 	struct log_connection *const *logs, *log;
 	struct log_client *client;
@@ -202,12 +203,12 @@ log_parse_master_line(const char *line, const struct timeval *log_time,
 	p = strchr(line, ' ');
 	if (p == NULL || (p2 = strchr(++p, ' ')) == NULL ||
 	    str_to_uint(t_strcut(line, ' '), &service_fd) < 0) {
-		i_error("Received invalid input from master: %s", line);
+		e_error(event, "Received invalid input from master: %s", line);
 		return;
 	}
 	pidstr = t_strcut(p, ' ');
 	if (str_to_pid(pidstr, &pid) < 0) {
-		i_error("Received invalid pid from master: %s", pidstr);
+		e_error(event, "Received invalid pid from master: %s", pidstr);
 		return;
 	}
 	cmd = p2 + 1;
@@ -219,7 +220,8 @@ log_parse_master_line(const char *line, const struct timeval *log_time,
 			   noticed the log fd closing */
 			return;
 		}
-		i_error("Received master input for invalid service_fd %u: %s",
+		e_error(event,
+			"Received master input for invalid service_fd %u: %s",
 			service_fd, line);
 		return;
 	}
@@ -241,7 +243,8 @@ log_parse_master_line(const char *line, const struct timeval *log_time,
 		if (client == NULL || !client->fatal_logged)
 			client_log_fatal(log, client, args, log_time, tm);
 	} else {
-		i_error("Received unknown command from master: %s", cmd);
+		e_error(log->event,
+			"Received unknown command from master: %s", cmd);
 	}
 }
 
@@ -265,9 +268,10 @@ log_it(struct log_connection *log, const char *line,
 	if (log->master) {
 		if (partial_line) {
 			/* really not expected */
-			i_error("Received partial line from master: %s", line);
+			e_error(log->event,
+				"Received partial line from master: %s", line);
 		}
-		log_parse_master_line(line, log_time, tm);
+		log_parse_master_line(line, log_time, tm, log->event);
 		return;
 	}
 
@@ -348,7 +352,8 @@ static int log_connection_handshake(struct log_connection *log)
 	   message that we want to log. */
 	ret = i_stream_read(log->input);
 	if (ret == -1) {
-		i_error("read(log %s) failed: %s", log->default_prefix,
+		e_error(log->event,
+			"read(log %s) failed: %s", log->default_prefix,
 			i_stream_get_error(log->input));
 		return -1;
 	}
@@ -367,7 +372,8 @@ static int log_connection_handshake(struct log_connection *log)
 	}
 
 	if (handshake.prefix_len > size - sizeof(handshake)) {
-		i_error("Missing prefix data in handshake");
+		e_error(log->event,
+			"Missing prefix data in handshake");
 		return -1;
 	}
 	i_free(log->default_prefix);
@@ -377,7 +383,8 @@ static int log_connection_handshake(struct log_connection *log)
 
 	if (strcmp(log->default_prefix, MASTER_LOG_PREFIX_NAME) == 0) {
 		if (log->listen_fd != MASTER_LISTEN_FD_FIRST) {
-			i_error("Received master prefix in handshake "
+			e_error(log->event,
+				"Received master prefix in handshake "
 				"from non-master fd %d", log->fd);
 			return -1;
 		}
@@ -435,7 +442,8 @@ static void log_connection_input(struct log_connection *log)
 
 	if (log->input->eof) {
 		if (log->input->stream_errno != 0)
-			i_error("read(log %s) failed: %m", log->default_prefix);
+			e_error(log->event,
+				"read(log %s) failed: %m", log->default_prefix);
 		log_connection_destroy(log, FALSE);
 	} else {
 		i_assert(!log->input->closed);
@@ -457,7 +465,9 @@ static void log_connection_input(struct log_connection *log)
 		}
 		if (log->pending_count == LOG_WARN_PENDING_COUNT ||
 		    (log->pending_count % LOG_WARN_PENDING_INTERVAL) == 0) {
-			i_warning("Log connection fd %d listen_fd %d prefix '%s' is sending input faster than we can write",
+			e_warning(log->event,
+				  "Log connection fd %d listen_fd %d prefix '%s' "
+				  "is sending input faster than we can write",
 				  log->fd, log->listen_fd, log->default_prefix);
 		}
 	}
@@ -469,6 +479,7 @@ void log_connection_create(struct log_error_buffer *errorbuf,
 	struct log_connection *log;
 
 	log = i_new(struct log_connection, 1);
+	log->event = event_create(NULL);
 	log->errorbuf = errorbuf;
 	log->fd = fd;
 	log->listen_fd = listen_fd;
@@ -503,15 +514,18 @@ log_connection_destroy(struct log_connection *log, bool shutting_down)
 	hash_table_destroy(&log->clients);
 
 	if (client_count > 0 && shutting_down) {
-		i_warning("Shutting down logging for '%s' with %u clients",
+		e_warning(log->event,
+			  "Shutting down logging for '%s' with %u clients",
 			  log->default_prefix, client_count);
 	}
 
 	i_stream_unref(&log->input);
 	io_remove(&log->io);
 	if (close(log->fd) < 0)
-		i_error("close(log connection fd) failed: %m");
+		e_error(log->event,
+			"close(log connection fd) failed: %m");
 	log_partial_line_free(log);
+	event_unref(&log->event);
 	i_free(log->default_prefix);
 	i_free(log);
 
