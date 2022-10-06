@@ -16,6 +16,7 @@ struct login_proxy_state {
 	HASH_TABLE(struct login_proxy_record *,
 		   struct login_proxy_record *) hash;
 	pool_t pool;
+	struct event *event;
 
 	const char *notify_path;
 	int notify_fd;
@@ -46,6 +47,7 @@ struct login_proxy_state *login_proxy_state_init(const char *notify_path)
 
 	state = i_new(struct login_proxy_state, 1);
 	state->pool = pool_alloconly_create("login proxy state", 1024);
+	state->event = event_create(NULL);
 	hash_table_create(&state->hash, state->pool, 0,
 			  login_proxy_record_hash, login_proxy_record_cmp);
 	state->notify_path = p_strdup(state->pool, notify_path);
@@ -75,6 +77,7 @@ void login_proxy_state_deinit(struct login_proxy_state **_state)
 	timeout_remove(&state->to_reopen);
 	login_proxy_state_close(state);
 	hash_table_destroy(&state->hash);
+	event_unref(&state->event);
 	pool_unref(&state->pool);
 	i_free(state);
 }
@@ -114,7 +117,7 @@ static int login_proxy_state_notify_open(struct login_proxy_state *state)
 
 	state->notify_fd = open(state->notify_path, O_WRONLY);
 	if (state->notify_fd == -1) {
-		i_error("open(%s) failed: %m", state->notify_path);
+		e_error(state->event, "open(%s) failed: %m", state->notify_path);
 		state->to_reopen = timeout_add(NOTIFY_RETRY_REOPEN_MSECS,
 					       login_proxy_state_reopen, state);
 		return -1;
@@ -145,9 +148,10 @@ static bool login_proxy_state_try_notify(struct login_proxy_state *state,
 
 	if (ret != (ssize_t)len) {
 		if (ret < 0)
-			i_error("write(%s) failed: %m", state->notify_path);
+			e_error(state->event, "write(%s) failed: %m",
+				state->notify_path);
 		else {
-			i_error("write(%s) wrote partial update",
+			e_error(state->event, "write(%s) wrote partial update",
 				state->notify_path);
 		}
 		login_proxy_state_close(state);
