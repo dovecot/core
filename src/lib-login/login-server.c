@@ -20,20 +20,6 @@
 #define login_server_conn_has_requests(conn) \
 	((conn)->refcount > 1)
 
-struct login_server_connection {
-	struct login_server_connection *prev, *next;
-
-	struct login_server *server;
-	struct login_server_request *requests;
-	struct timeval create_time;
-	int refcount;
-	int fd;
-	struct io *io;
-	struct ostream *output;
-
-	bool login_success:1;
-};
-
 struct login_server_postlogin {
 	struct login_server_request *request;
 

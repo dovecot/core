@@ -8,6 +8,21 @@
 
 #define LOGIN_SERVER_POSTLOGIN_TIMEOUT_DEFAULT 60
 
+struct login_server_connection {
+	struct login_server_connection *prev, *next;
+	struct event *event;
+
+	struct login_server *server;
+	struct login_server_request *requests;
+	struct timeval create_time;
+	int refcount;
+	int fd;
+	struct io *io;
+	struct ostream *output;
+
+	bool login_success:1;
+};
+
 struct login_server_request {
 	/* parent connection */
 	struct login_server_connection *conn;
