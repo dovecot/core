@@ -186,7 +186,8 @@ client_parse_imap_login_request(const unsigned char *data, size_t len,
 static void
 client_send_login_reply(struct ostream *output, const char *capability_string,
 			const char *preauth_username,
-			const struct imap_login_request *request)
+			const struct imap_login_request *request,
+			struct event *event)
 {
 	string_t *reply = t_str_new(256);
 
@@ -215,7 +216,7 @@ client_send_login_reply(struct ostream *output, const char *capability_string,
 	if (o_stream_uncork_flush(output) < 0 &&
 	    output->stream_errno != EPIPE &&
 	    output->stream_errno != ECONNRESET)
-		i_error("write(client) failed: %s", o_stream_get_error(output));
+		e_error(event, "write(client) failed: %s", o_stream_get_error(output));
 }
 
 static void
@@ -345,7 +346,8 @@ static void main_stdio_run(const char *username)
 	client_create_finish_io(client);
 	client_send_login_reply(client->output,
 				str_c(client->capability_string),
-				client->user->username, &request);
+				client->user->username, &request,
+				client->event);
 	if (client_create_finish(client, &error) < 0)
 		i_fatal("%s", error);
 	client_add_input_finalize(client);
@@ -386,7 +388,8 @@ login_request_finished(const struct login_server_request *request,
 		int fd = request->fd;
 		struct ostream *output =
 			o_stream_create_fd_autoclose(&fd, IO_BLOCK_SIZE);
-		client_send_login_reply(output, NULL, NULL, &imap_request);
+		client_send_login_reply(output, NULL, NULL, &imap_request,
+					request->conn->event);
 		o_stream_destroy(&output);
 
 		i_error("%s", error);
@@ -409,7 +412,7 @@ login_request_finished(const struct login_server_request *request,
 	client_create_finish_io(client);
 	client_send_login_reply(client->output,
 				str_c(client->capability_string),
-				NULL, &imap_request);
+				NULL, &imap_request, client->event);
 	if (client_create_finish(client, &error) < 0) {
 		if (write_full(request->fd, MSG_BYE_INTERNAL_ERROR,
 			       strlen(MSG_BYE_INTERNAL_ERROR)) < 0)
