@@ -211,7 +211,7 @@ reader_client_input_args(struct connection *conn, const char *const *args)
 	const char *cmd = args[0];
 
 	if (cmd == NULL) {
-		i_error("Client sent empty line");
+		e_error(conn->event, "Client sent empty line");
 		return 1;
 	}
 	args++;

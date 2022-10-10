@@ -299,7 +299,7 @@ writer_client_input_args(struct connection *conn, const char *const *args)
 	bool ret;
 
 	if (cmd == NULL) {
-		i_error("Client sent empty line");
+		e_error(conn->event, "Client sent empty line");
 		return 1;
 	}
 	if (strcmp(cmd, "EVENT") == 0)
@@ -317,7 +317,8 @@ writer_client_input_args(struct connection *conn, const char *const *args)
 		ret = FALSE;
 	}
 	if (!ret) {
-		i_error("Client sent invalid input for %s: %s (input: %s)",
+		e_error(conn->event,
+			"Client sent invalid input for %s: %s (input: %s)",
 			cmd, error, t_strarray_join(args, "\t"));
 		return -1;
 	}
