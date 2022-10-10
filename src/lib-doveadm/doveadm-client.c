@@ -643,13 +643,35 @@ static struct connection_settings doveadm_client_set = {
 	.client_connect_timeout_msecs = DOVEADM_TCP_CONNECT_TIMEOUT_SECS*1000,
 };
 
+static int
+doveadm_client_resolve_hostname(struct doveadm_client *conn,
+				const char **error_r)
+{
+	struct ip_addr *ips;
+	unsigned int ips_count;
+	int ret;
+
+	ret = net_gethostbyname(conn->set.hostname, &ips, &ips_count);
+	if (ret == 0) {
+		conn->ips = p_new(conn->pool, struct ip_addr, 1);
+		conn->ips[0] = ips[0];
+		conn->ips_count = 1;
+		return 0;
+	} else {
+		*error_r = t_strdup_printf("Lookup of host %s failed: %s",
+					   conn->set.hostname,
+					   net_gethosterror(ret));
+		return -1;
+	}
+}
+
 int doveadm_client_create(const struct doveadm_client_settings *set,
 			  struct doveadm_client **conn_r,
 			  const char **error_r)
 {
 	struct doveadm_client *conn;
+	const char *error;
 	pool_t pool;
-	int ret;
 
 	i_assert(set->username != NULL);
 	i_assert(set->password != NULL);
@@ -673,20 +695,11 @@ int doveadm_client_create(const struct doveadm_client_settings *set,
 		connection_init_client_ip(doveadm_clients, &conn->conn,
 					  set->hostname, &set->ip, set->port);
 	} else {
-		struct ip_addr *ips;
-		unsigned int ips_count;
-
-		ret = net_gethostbyname(set->hostname, &ips, &ips_count);
-		if (ret != 0) {
-			*error_r = t_strdup_printf(
-				"Lookup of host %s failed: %s",
-				set->hostname, net_gethosterror(ret));
+		if (doveadm_client_resolve_hostname(conn, &error) != 0) {
+			*error_r = t_strdup(error);
 			pool_unref(&pool);
 			return -1;
 		}
-		conn->ips = p_new(conn->pool, struct ip_addr, 1);
-		conn->ips[0] = ips[0];
-		conn->ips_count = 1;
 
 		connection_init_client_ip(doveadm_clients, &conn->conn,
 					  set->hostname, &conn->ips[0],
