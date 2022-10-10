@@ -42,6 +42,10 @@ struct doveadm_client {
 	const char *delayed_cmd;
 	struct doveadm_client_cmd_settings delayed_set;
 	doveadm_client_cmd_callback_t *callback;
+
+	unsigned int ips_count;
+	struct ip_addr *ips;
+
 	void *context;
 
 	doveadm_client_print_t *print_callback;
@@ -680,8 +684,13 @@ int doveadm_client_create(const struct doveadm_client_settings *set,
 			pool_unref(&pool);
 			return -1;
 		}
+		conn->ips = p_new(conn->pool, struct ip_addr, 1);
+		conn->ips[0] = ips[0];
+		conn->ips_count = 1;
+
 		connection_init_client_ip(doveadm_clients, &conn->conn,
-					  set->hostname, &ips[0], set->port);
+					  set->hostname, &conn->ips[0],
+					  set->port);
 	}
 	if (connection_client_connect(&conn->conn) < 0) {
 		*error_r = t_strdup_printf(
