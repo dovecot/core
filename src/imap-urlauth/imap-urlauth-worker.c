@@ -45,6 +45,7 @@
 
 struct client {
 	struct client *prev, *next;
+	struct event *event;
 
 	int fd_in, fd_out, fd_ctrl;
 
@@ -69,7 +70,6 @@ struct client {
 	const struct imap_urlauth_worker_settings *set;
 	const struct mail_storage_settings *mail_set;
 
-	bool debug:1;
 	bool finished:1;
 	bool waiting_input:1;
 	bool version_received:1;
@@ -148,6 +148,8 @@ static struct client *client_create(int fd)
 	client->fd_ctrl = fd;
 	client->access_anonymous = TRUE; /* default until overridden */
 
+	client->event = event_create(NULL);
+
 	client->ctrl_io = io_add(fd, IO_READ, client_ctrl_input, client);
 	client->to_idle = timeout_add(CLIENT_IDLE_TIMEOUT_MSECS,
 				      client_idle_timeout, client);
@@ -189,7 +191,8 @@ client_create_standalone(const char *access_user,
 			array_push_back(&client->access_apps, &app);
 		}
 	}
-	client->debug = debug;
+	client->event = event_create(NULL);
+	event_set_forced_debug(client->event, debug);
 
 	client->input = i_stream_create_fd(fd_in, MAX_INBUF_SIZE);
 	client->output = o_stream_create_fd(fd_out, SIZE_MAX);
@@ -209,7 +212,7 @@ client_create_standalone(const char *access_user,
 
 static void client_abort(struct client *client, const char *reason)
 {
-	i_error("%s", reason);
+	e_error(client->event, "%s", reason);
 	client_destroy(client);
 }
 
@@ -345,10 +348,9 @@ client_fetch_urlpart(struct client *client, const char *url,
 	if (ret <= 0) {
 		if (ret < 0)
 			return -1;
-		error = t_strdup_printf("Failed to fetch URLAUTH \"%s\": %s",
-					url, error);
-		if (client->debug)
-			i_debug("%s", error);
+		error = t_strdup_printf(
+			"Failed to fetch URLAUTH \"%s\": %s", url, error);
+		e_debug(client->event, "%s", error);
 		/* don't leak info about existence/accessibility
 		   of mailboxes */
 		if (error_code == MAIL_ERROR_PARAMS)
@@ -364,8 +366,7 @@ client_fetch_urlpart(struct client *client, const char *url,
 		if (ret <= 0) {
 			*errormsg_r = t_strdup_printf(
 				"Failed to read URLAUTH \"%s\": %s", url, error);
-			if (client->debug)
-				i_debug("%s", *errormsg_r);
+			e_debug(client->event, "%s", *errormsg_r);
 			return ret;
 		}
 	}
@@ -377,8 +378,7 @@ client_fetch_urlpart(struct client *client, const char *url,
 		if (ret <= 0) {
 			*errormsg_r = t_strdup_printf(
 				"Failed to read URLAUTH \"%s\": %s", url, error);
-			if (client->debug)
-				i_debug("%s", *errormsg_r);
+			e_debug(client->event, "%s", *errormsg_r);
 			return ret;
 		}
 		client->msg_part_size = mpresult.size;
@@ -401,8 +401,7 @@ static int client_fetch_url(struct client *client, const char *url,
 	client->msg_part_size = 0;
 	client->msg_part_input = NULL;
 
-	if (client->debug)
-		i_debug("Fetching URLAUTH %s", url);
+	e_debug(client->event, "Fetching URLAUTH %s", url);
 
 	/* fetch URL */
 	ret = client_fetch_urlpart(client, url, url_flags, &bpstruct,
@@ -434,10 +433,8 @@ static int client_fetch_url(struct client *client, const char *url,
 	if (bpstruct != NULL) {
 		str_append(response, "\tbpstruct=");
 		str_append(response, str_tabescape(bpstruct));
-		if (client->debug) {
-			i_debug("Fetched URLAUTH yielded BODYPARTSTRUCTURE (%s)",
-				bpstruct);
-		}
+		e_debug(client->event,
+			"Fetched URLAUTH yielded BODYPARTSTRUCTURE (%s)", bpstruct);
 	}
 
 	/* return content */
@@ -449,19 +446,17 @@ static int client_fetch_url(struct client *client, const char *url,
 
 		imap_msgpart_url_free(&client->url);
 		client->url = NULL;
-		if (client->debug)
-			i_debug("Fetched URLAUTH yielded empty result");
+		e_debug(client->event, "Fetched URLAUTH yielded empty result");
 	} else {
 
 		/* actual content */
 		str_printfa(response, "\t%"PRIuUOFF_T, client->msg_part_size);
 		client_send_line(client, "%s", str_c(response));
 
-		if (client->debug) {
-			i_debug("Fetched URLAUTH yielded %"PRIuUOFF_T" bytes "
-				"of %smessage data", client->msg_part_size,
-				(binary_with_nuls ? "binary " : ""));
-		}
+		e_debug(client->event,
+			"Fetched URLAUTH yielded %"PRIuUOFF_T" bytes "
+			"of %smessage data", client->msg_part_size,
+			binary_with_nuls ? "binary " : "");
 		if (client_run_url(client) < 0) {
 			client_abort(client,
 				"Session aborted: Fatal failure while transferring URL");
@@ -571,26 +566,24 @@ client_handle_user_command(struct client *client, const char *cmd,
 	input.module = "imap-urlauth-worker";
 	input.service = "imap-urlauth-worker";
 	input.username = args[0];
+	input.event_parent = client->event;
 
-	if (client->debug)
-		i_debug("Looking up user %s", input.username);
+	e_debug(client->event, "Looking up user %s", input.username);
 
 	ret = mail_storage_service_lookup_next(storage_service, &input,
 					       &user, &mail_user, &error);
 	if (ret < 0) {
-		i_error("Failed to lookup user %s: %s", input.username, error);
+		e_error(client->event,
+			"Failed to lookup user %s: %s", input.username, error);
 		client_abort(client, "Session aborted: Failed to lookup user");
 		return 0;
 	} else if (ret == 0) {
-		if (client->debug)
-			i_debug("User %s doesn't exist", input.username);
-
+		e_debug(client->event, "User %s doesn't exist", input.username);
 		client_send_line(client, "NO");
 		return 1;
 	}
 
-	client->debug = mail_user->mail_debug =
-		client->debug || mail_user->mail_debug;
+	event_set_forced_debug(client->event, mail_user->mail_debug);
 
 	/* drop privileges */
 	restrict_access_allow_coredumps(TRUE);
@@ -615,14 +608,13 @@ client_handle_user_command(struct client *client, const char *cmd,
 	client->mail_user = mail_user;
 	client->set = set;
 
-	if (client->debug) {
-		i_debug("Found user account `%s' on behalf of user `%s'",
-			mail_user->username, client->access_user);
-	}
+	e_debug(client->event, "Found user account `%s' on behalf of user `%s'",
+		mail_user->username, client->access_user);
 
 	/* initialize urlauth context */
 	if (*set->imap_urlauth_host == '\0') {
-		i_error("imap_urlauth_host setting is not configured for user %s",
+		e_error(client->event,
+			"imap_urlauth_host setting is not configured for user %s",
 			mail_user->username);
 		client_send_line(client, "NO");
 		client_abort(client, "Session aborted: URLAUTH not configured");
@@ -639,11 +631,9 @@ client_handle_user_command(struct client *client, const char *cmd,
 		(const void *)array_get(&client->access_apps, &count);
 
 	client->urlauth_ctx = imap_urlauth_init(client->mail_user, &config);
-	if (client->debug) {
-		i_debug("Providing access to user account `%s' on behalf of user `%s' "
-			"using service `%s'", mail_user->username, client->access_user,
-			client->access_service);
-	}
+	e_debug(client->event,
+		"Providing access to user account `%s' on behalf of user `%s' using service `%s'",
+		mail_user->username, client->access_user, client->access_service);
 
 	i_set_failure_prefix("imap-urlauth[%s](%s->%s): ",
 			     my_pid, client->access_user, mail_user->username);
@@ -701,7 +691,8 @@ static bool client_handle_input(struct client *client)
 		if (ret <= 0) {
 			if (ret == 0)
 				break;
-			i_error("Client input error: %s", error);
+			e_error(client->event,
+				"Client input error: %s", error);
 			client_abort(client, "Session aborted: Unexpected input");
 			return FALSE;
 		}
@@ -773,15 +764,18 @@ client_ctrl_read_fds(struct client *client)
 	} else if (ret < 0) {
 		if (errno == EAGAIN)
 			return 0;
-		i_error("fd_read() failed: %m");
+		e_error(client->event,
+			"fd_read() failed: %m");
 		return -1;
 	} else if (data != '0') {
-		i_error("fd_read() returned invalid byte 0x%2x", data);
+		e_error(client->event,
+			"fd_read() returned invalid byte 0x%2x", data);
 		return -1;
 	}
 
 	if (client->fd_in == -1 || client->fd_out == -1) {
-		i_error("Handshake is missing a file descriptor");
+		e_error(client->event,
+			"Handshake is missing a file descriptor");
 		return -1;
 	}
 
@@ -826,7 +820,8 @@ static void client_ctrl_input(struct client *client)
 
 		if (!version_string_verify(line, "imap-urlauth-worker",
 				IMAP_URLAUTH_WORKER_PROTOCOL_MAJOR_VERSION)) {
-			i_error("imap-urlauth-worker client not compatible with this server "
+			e_error(client->event,
+				"imap-urlauth-worker client not compatible with this server "
 				"(mixed old and new binaries?) %s", line);
 			client_abort(client, "Control session aborted: Version mismatch");
 			return;
@@ -849,13 +844,15 @@ static void client_ctrl_input(struct client *client)
 
 	args = t_strsplit_tabescaped(line);
 	if (*args == NULL || strcmp(*args, "ACCESS") != 0) {
-		i_error("Invalid control command: %s", str_sanitize(line, 80));
+		e_error(client->event,
+			"Invalid control command: %s", str_sanitize(line, 80));
 		client_abort(client, "Control session aborted: Invalid command");
 		return;
 	}
 	args++;
 	if (args[0] == NULL || args[1] == NULL) {
-		i_error("Invalid ACCESS command: %s", str_sanitize(line, 80));
+		e_error(client->event,
+			"Invalid ACCESS command: %s", str_sanitize(line, 80));
 		client_abort(client, "Control session aborted: Invalid command");
 		return;
 	}
@@ -879,7 +876,8 @@ static void client_ctrl_input(struct client *client)
 	while (*args != NULL) {
 		/* debug */
 		if (strcasecmp(*args, "debug") == 0) {
-			client->debug = TRUE;
+			event_set_forced_debug(client->event, TRUE);
+
 		/* apps=<access-application>[,<access-application,...] */
 		} else if (str_begins_icase(*args, "apps=", &value) &&
 			   value[0] != '\0') {
@@ -889,14 +887,14 @@ static void client_ctrl_input(struct client *client)
 				char *app = i_strdup(*apps);
 
 				array_push_back(&client->access_apps, &app);
-				if (client->debug) {
-					i_debug("User %s has URLAUTH %s access",
-						client->access_user, app);
-				}
+				e_debug(client->event,
+					"User %s has URLAUTH %s access",
+					client->access_user, app);
 				apps++;
 			}
 		} else {
-			i_error("Invalid ACCESS parameter: %s", str_sanitize(*args, 80));
+			e_error(client->event,
+				"Invalid ACCESS parameter: %s", str_sanitize(*args, 80));
 			client_abort(client, "Control session aborted: Invalid command");
 			return;
 		}
@@ -916,10 +914,9 @@ static void client_ctrl_input(struct client *client)
 	o_stream_set_no_error_handling(client->output, TRUE);
 	o_stream_set_flush_callback(client->output, client_output, client);
 
-	if (client->debug) {
-		i_debug("Worker activated for access by user `%s' using service `%s'",
-			client->access_user, client->access_service);
-	}
+	e_debug(client->event,
+		"Worker activated for access by user `%s' using service `%s'",
+		client->access_user, client->access_service);
 }
 
 static void imap_urlauth_worker_die(void)
