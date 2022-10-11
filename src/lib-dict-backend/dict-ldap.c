@@ -40,6 +40,7 @@ struct ldap_dict {
 	enum ldap_scope scope;
 
 	pool_t pool;
+	struct event *event;
 
 	struct ldap_client *client;
 
@@ -237,16 +238,19 @@ int ldap_dict_init(struct dict *dict_driver, const char *uri,
 	pool_t pool = pool_alloconly_create("ldap dict", 2048);
 	struct ldap_dict *dict = p_new(pool, struct ldap_dict, 1);
 	dict->pool = pool;
+	dict->event = event_create(NULL);
 	dict->dict = *dict_driver;
 	dict->uri = p_strdup(pool, uri);
 	dict->set = dict_ldap_settings_read(pool, uri, error_r);
 
 	if (dict->set == NULL) {
+		event_unref(&dict->event);
 		pool_unref(&pool);
 		return -1;
 	}
 
 	if (dict_ldap_connect(dict, error_r) < 0) {
+		event_unref(&dict->event);
 		pool_unref(&pool);
 		return -1;
 	}
@@ -262,6 +266,7 @@ void ldap_dict_deinit(struct dict *dict)
 	struct ldap_dict *ctx = (struct ldap_dict *)dict;
 
 	ldap_client_deinit(&ctx->client);
+	event_unref(&dict->event);
 	pool_unref(&ctx->pool);
 }
 
