@@ -719,8 +719,8 @@ int auth_master_user_lookup(struct auth_master_connection *conn,
 	return ctx.return_value;
 }
 
-void auth_user_fields_parse(const char *const *fields, pool_t pool,
-			    struct auth_user_reply *reply_r)
+int auth_user_fields_parse(const char *const *fields, pool_t pool,
+			   struct auth_user_reply *reply_r, const char **error_r)
 {
 	const char *value;
 
@@ -731,11 +731,15 @@ void auth_user_fields_parse(const char *const *fields, pool_t pool,
 
 	for (; *fields != NULL; fields++) {
 		if (str_begins(*fields, "uid=", &value)) {
-			if (str_to_uid(value, &reply_r->uid) < 0)
-				i_error("Invalid uid in reply");
+			if (str_to_uid(value, &reply_r->uid) < 0) {
+				*error_r = "Invalid uid in reply";
+				return -1;
+			}
 		} else if (str_begins(*fields, "gid=", &value)) {
-			if (str_to_gid(value, &reply_r->gid) < 0)
-				i_error("Invalid gid in reply");
+			if (str_to_gid(value, &reply_r->gid) < 0) {
+				*error_r = "Invalid gid in reply";
+				return -1;
+			}
 		} else if (str_begins(*fields, "home=", &value))
 			reply_r->home = p_strdup(pool, value);
 		else if (str_begins(*fields, "chroot=", &value))
@@ -747,6 +751,7 @@ void auth_user_fields_parse(const char *const *fields, pool_t pool,
 			array_push_back(&reply_r->extra_fields, &field);
 		}
 	}
+	return 0;
 }
 
 int auth_master_pass_lookup(struct auth_master_connection *conn,

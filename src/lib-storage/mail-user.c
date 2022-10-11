@@ -433,8 +433,14 @@ static int mail_user_userdb_lookup_home(struct mail_user *user)
 				      user->username, &info, userdb_pool,
 				      &username, &fields);
 	if (ret > 0) {
-		auth_user_fields_parse(fields, userdb_pool, &reply);
-		user->_home = p_strdup(user->pool, reply.home);
+		const char *error;
+		if (auth_user_fields_parse(fields, userdb_pool,
+					   &reply, &error) < 0) {
+			e_error(user->event,
+				"Failed to parse credentials due to %s", error);
+			ret = -1;
+		} else
+			user->_home = p_strdup(user->pool, reply.home);
 	}
 	pool_unref(&userdb_pool);
 	return ret;

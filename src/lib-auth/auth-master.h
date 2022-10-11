@@ -57,8 +57,8 @@ int auth_master_cache_flush(struct auth_master_connection *conn,
 			    const char *const *users, unsigned int *count_r);
 
 /* Parse userdb extra fields into auth_user_reply structure. */
-void auth_user_fields_parse(const char *const *fields, pool_t pool,
-			    struct auth_user_reply *reply_r);
+int auth_user_fields_parse(const char *const *fields, pool_t pool,
+			   struct auth_user_reply *reply_r, const char **error_r);
 
 /* Iterate through all users. If user_mask is non-NULL, it contains a string
    with wildcards ('*', '?') that the auth server MAY use to limit what users

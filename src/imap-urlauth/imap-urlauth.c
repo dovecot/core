@@ -138,8 +138,18 @@ login_request_finished(const struct login_server_request *request,
 	const char *const *fields;
 	const char *service = NULL;
 	unsigned int count, i;
+	const char *error;
 
-	auth_user_fields_parse(extra_fields, pool_datastack_create(), &reply);
+	if (auth_user_fields_parse(extra_fields, pool_datastack_create(),
+			       	   &reply, &error) < 0) {
+		e_error(request->conn->event,
+			"Invalid settings in userdb: %s", error);
+		if (write(request->fd, msg, strlen(msg)) < 0) {
+			/* ignored */
+		}
+		net_disconnect(request->fd);
+		return;
+	}
 
 	/* check peer credentials if possible */
 	if (reply.uid != (uid_t)-1 && net_getunixcred(request->fd, &cred) == 0 &&

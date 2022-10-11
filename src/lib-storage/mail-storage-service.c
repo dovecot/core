@@ -1359,9 +1359,14 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	}
 
 	if (userdb_fields != NULL) {
-		auth_user_fields_parse(userdb_fields, temp_pool, &reply);
-		array_sort(&reply.extra_fields, extra_field_key_cmp_p);
-		if (user_reply_handle(ctx, user, &reply, &error) < 0) {
+		int ret2 = auth_user_fields_parse(userdb_fields, temp_pool,
+						  &reply, &error);
+		if (ret2 == 0) {
+			array_sort(&reply.extra_fields, extra_field_key_cmp_p);
+			ret2 = user_reply_handle(ctx, user, &reply, &error);
+		}
+
+		if (ret2 < 0) {
 			*error_r = t_strdup_printf(
 				"Invalid settings in userdb: %s", error);
 			ret = -2;
