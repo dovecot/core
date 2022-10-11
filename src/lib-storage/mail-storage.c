@@ -505,8 +505,7 @@ void mail_storage_unref(struct mail_storage **_storage)
 	DLLIST_REMOVE(&storage->user->storages, storage);
 
 	storage->v.destroy(storage);
-	i_free(storage->last_internal_error);
-	i_free(storage->error_string);
+	mail_storage_clear_error(storage);
 	if (array_is_created(&storage->error_stack)) {
 		i_assert(array_count(&storage->error_stack) == 0);
 		array_free(&storage->error_stack);
@@ -544,6 +543,7 @@ void mail_storage_clear_error(struct mail_storage *storage)
 	i_free_and_null(storage->error_string);
 
 	i_free(storage->last_internal_error);
+	i_free(storage->last_internal_error_mailbox);
 	storage->last_error_is_internal = FALSE;
 	storage->error = MAIL_ERROR_NONE;
 }
