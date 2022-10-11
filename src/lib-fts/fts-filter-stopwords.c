@@ -50,8 +50,12 @@ static int fts_filter_stopwords_read_list(struct fts_filter_stopwords *filter,
 		ret = -1;
 	}
 
-	if (ret == 0 && hash_table_count(filter->stopwords) == 0)
-		i_warning("Stopwords list \"%s\" seems empty. Is the file correctly formatted?", path);
+	if (ret == 0 && hash_table_count(filter->stopwords) == 0) {
+		*error_r = t_strdup_printf("Stopwords list \"%s\" seems empty. "
+					   "Is the file correctly formatted?",
+					   path);
+		ret = -1;
+	}
 
 	i_stream_destroy(&input);
 	return ret;

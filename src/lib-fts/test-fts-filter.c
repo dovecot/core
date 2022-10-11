@@ -385,8 +385,8 @@ static void test_fts_filter_stopwords_malformed(void)
 
 	test_begin("fts filter stopwords, malformed list");
 	test_assert(fts_filter_create(fts_filter_stopwords, NULL, &malformed, stopword_settings, &filter, &error) == 0);
-	test_expect_error_string("seems empty. Is the file correctly formatted?");
-	test_assert(fts_filter_filter(filter, &token, &error) > 0);
+	test_assert(fts_filter_filter(filter, &token, &error) < 0);
+	test_assert(strstr(error, "seems empty. Is the file correctly formatted?") != NULL);
 	test_expect_no_more_errors();
 	fts_filter_unref(&filter);
 	test_end();
