@@ -167,6 +167,7 @@ int dict_ldap_connect(struct ldap_dict *dict, const char **error_r)
 	set.debug = dict->set->debug;
 	set.require_ssl = dict->set->require_ssl;
 	set.start_tls = dict->set->start_tls;
+	set.event_parent = dict->event;
 	return ldap_client_init(&set, &dict->client, error_r);
 }
 

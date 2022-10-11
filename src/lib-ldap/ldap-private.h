@@ -45,6 +45,7 @@ struct ldap_op_queue_entry {
 
 struct ldap_connection {
 	pool_t pool;
+	struct event *event;
 	struct ldap_client *client;
 
 	LDAP *conn;
