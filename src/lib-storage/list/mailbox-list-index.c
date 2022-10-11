@@ -521,6 +521,70 @@ int mailbox_list_index_parse(struct mailbox_list *list,
 	return 0;
 }
 
+const unsigned char *
+mailbox_name_hdr_encode(struct mailbox_list *list, const char *storage_name,
+			size_t *name_len_r)
+{
+	const char sep[] = {
+		mailbox_list_get_hierarchy_sep(list),
+		'\0'
+	};
+	const char **name_parts =
+		(const char **)p_strsplit(unsafe_data_stack_pool, storage_name, sep);
+	if (list->set.storage_name_escape_char != '\0') {
+		for (unsigned int i = 0; name_parts[i] != NULL; i++) {
+			mailbox_list_name_unescape(&name_parts[i],
+				list->set.storage_name_escape_char);
+		}
+	}
+
+	string_t *str = t_str_new(64);
+	str_append(str, name_parts[0]);
+	for (unsigned int i = 1; name_parts[i] != NULL; i++) {
+		str_append_c(str, '\0');
+		str_append(str, name_parts[i]);
+	}
+	*name_len_r = str_len(str);
+	return str_data(str);
+}
+
+const char *
+mailbox_name_hdr_decode_storage_name(struct mailbox_list *list,
+				     const unsigned char *name_hdr,
+				     size_t name_hdr_size)
+{
+	const char list_sep = mailbox_list_get_hierarchy_sep(list);
+	const char escape_char = list->set.storage_name_escape_char;
+	string_t *storage_name = t_str_new(name_hdr_size);
+	while (name_hdr_size > 0) {
+		const unsigned char *p = memchr(name_hdr, '\0', name_hdr_size);
+		size_t name_part_len;
+		if (p == NULL) {
+			name_part_len = name_hdr_size;
+			name_hdr_size = 0;
+		} else {
+			name_part_len = p - name_hdr;
+			i_assert(name_hdr_size > name_part_len);
+			name_hdr_size -= name_part_len + 1;
+		}
+
+		if (escape_char == '\0')
+			str_append_data(storage_name, name_hdr, name_part_len);
+		else {
+			const char *name_part =
+				t_strndup(name_hdr, name_part_len);
+			str_append(storage_name,
+				   mailbox_list_escape_name_params(name_part,
+					"", '\0', list_sep, escape_char,
+					list->set.maildir_name));
+		}
+
+		if (p != NULL)
+			name_hdr += name_part_len + 1;
+	}
+	return str_c(storage_name);
+}
+
 bool mailbox_list_index_need_refresh(struct mailbox_list_index *ilist,
 				     struct mail_index_view *view)
 {

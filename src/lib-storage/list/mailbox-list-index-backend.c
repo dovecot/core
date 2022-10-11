@@ -553,14 +553,10 @@ static int index_list_mailbox_open(struct mailbox *box)
 	   we don't keep rewriting the name just in case some backend switches
 	   between separators when accessed different ways. */
 
-	/* Get the current mailbox name with \0 separators. */
-	char sep = mailbox_list_get_hierarchy_sep(box->list);
-	char *box_zerosep_name = t_strdup_noconst(box->name);
-	size_t box_name_len = strlen(box_zerosep_name);
-	for (size_t i = 0; i < box_name_len; i++) {
-		if (box_zerosep_name[i] == sep)
-			box_zerosep_name[i] = '\0';
-	}
+	/* Get the current mailbox name with \0 separators and unesacped. */
+	size_t box_name_len;
+	const unsigned char *box_zerosep_name =
+		mailbox_name_hdr_encode(box->list, box->name, &box_name_len);
 
 	/* Does it match what's in the header now? */
 	mail_index_get_header_ext(box->view, box->box_name_hdr_ext_id,
@@ -584,14 +580,9 @@ static int index_list_mailbox_open(struct mailbox *box)
 		(void)mail_index_transaction_commit(&trans);
 	} else if (name_hdr_size > 0) {
 		/* Mailbox name is corrupted. Rename it to the previous name. */
-		char sep = mailbox_list_get_hierarchy_sep(box->list);
-		char *newname = t_malloc0(name_hdr_size + 1);
-		memcpy(newname, name_hdr, name_hdr_size);
-		for (size_t i = 0; i < name_hdr_size; i++) {
-			if (newname[i] == '\0')
-				newname[i] = sep;
-		}
-
+		const char *newname =
+			mailbox_name_hdr_decode_storage_name(
+				box->list, name_hdr, name_hdr_size);
 		index_list_rename_corrupted(box, newname);
 	}
 	return 0;
