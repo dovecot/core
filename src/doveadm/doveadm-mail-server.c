@@ -63,11 +63,6 @@ static ARRAY(struct doveadm_server_request) doveadm_server_request_queue;
 
 static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 				 void *context);
-static void doveadm_mail_server_handle(struct doveadm_server *server,
-				       struct doveadm_client *conn,
-				       struct doveadm_mail_cmd_context *cmd_ctx,
-				       const char *username,
-				       bool print_username);
 
 static void doveadm_server_request_free(struct doveadm_server_request *request)
 {
@@ -75,7 +70,7 @@ static void doveadm_server_request_free(struct doveadm_server_request *request)
 	pool_unref(&request->pool);
 }
 
-static struct doveadm_server *doveadm_server_get(const char *name)
+struct doveadm_server *doveadm_server_get(const char *name)
 {
 	struct doveadm_server *server;
 	char *dup_name;
@@ -113,11 +108,10 @@ static void doveadm_mail_server_cmd_free(struct doveadm_mail_server_cmd **_cmd)
 	i_free(cmd);
 }
 
-static int
-doveadm_cmd_pass_lookup(struct doveadm_mail_cmd_context *ctx,
-			const char *const *extra_fields, pool_t pool,
-			const char *const **fields_r,
-			const char **auth_socket_path_r)
+int doveadm_cmd_pass_lookup(struct doveadm_mail_cmd_context *ctx,
+			    const char *const *extra_fields, pool_t pool,
+			    const char *const **fields_r,
+			    const char **auth_socket_path_r)
 {
 	struct auth_master_connection *auth_conn;
 	struct auth_user_info info;
@@ -148,12 +142,11 @@ doveadm_cmd_pass_lookup(struct doveadm_mail_cmd_context *ctx,
 				       pool, fields_r);
 }
 
-static int
-doveadm_cmd_pass_reply_parse(struct doveadm_mail_cmd_context *ctx,
-			     const char *auth_socket_path,
-			     const char *const *fields,
-			     struct auth_proxy_settings *proxy_set,
-			     bool *nologin_r, const char **error_r)
+int doveadm_cmd_pass_reply_parse(struct doveadm_mail_cmd_context *ctx,
+				 const char *auth_socket_path,
+				 const char *const *fields,
+				 struct auth_proxy_settings *proxy_set,
+				 bool *nologin_r, const char **error_r)
 {
 	const char *orig_user = proxy_set->username;
 	const char *error, *mend;
@@ -560,11 +553,10 @@ static void doveadm_cmd_callback(const struct doveadm_server_reply *reply,
 	io_loop_stop(current_ioloop);
 }
 
-static void doveadm_mail_server_handle(struct doveadm_server *server,
-				       struct doveadm_client *conn,
-				       struct doveadm_mail_cmd_context *cmd_ctx,
-				       const char *username,
-				       bool print_username)
+void doveadm_mail_server_handle(struct doveadm_server *server,
+				struct doveadm_client *conn,
+				struct doveadm_mail_cmd_context *cmd_ctx,
+				const char *username, bool print_username)
 {
 	struct doveadm_mail_server_cmd *servercmd;
 	string_t *cmd;
