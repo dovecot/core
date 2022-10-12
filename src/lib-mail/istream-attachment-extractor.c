@@ -338,7 +338,7 @@ static void astream_add_body(struct attachment_istream *astream,
 }
 
 static int astream_decode_base64(struct attachment_istream *astream,
-				 buffer_t **extra_buf_r)
+				 buffer_t **extra_buf_r, const char **error_r)
 {
 	struct attachment_istream_part *part = &astream->part;
 	struct base64_decoder b64dec;
@@ -357,7 +357,7 @@ static int astream_decode_base64(struct attachment_istream *astream,
 	    part->temp_output->offset > part->base64_bytes +
 	    				BASE64_ATTACHMENT_MAX_EXTRA_BYTES) {
 		/* only a small part of the MIME part is base64-encoded. */
-		return -1;
+		return 0;
 	}
 
 	if (part->base64_line_blocks == 0) {
@@ -368,8 +368,11 @@ static int astream_decode_base64(struct attachment_istream *astream,
 
 	/* decode base64 data and write it to another temp file */
 	outfd = astream->set.open_temp_fd(astream->context);
-	if (outfd == -1)
+	if (outfd == -1) {
+		*error_r = "Decoding of Attachment base64 data failed: "
+			   "could not write to temp file";
 		return -1;
+	}
 
 	buf = buffer_create_dynamic(default_pool, 1024);
 	input = i_stream_create_fd(part->temp_fd, IO_BLOCK_SIZE);
@@ -384,9 +387,11 @@ static int astream_decode_base64(struct attachment_istream *astream,
 					  bytes_needed)) > 0) {
 		buffer_set_used_size(buf, 0);
 		if (base64_decode_more(&b64dec, data, size, &size, buf) < 0) {
-			i_error("istream-attachment: BUG: "
-				"Attachment base64 data unexpectedly broke");
-			failed = TRUE;
+			if (!failed) {
+				*error_r = "istream-attachment: BUG: "
+					   "Attachment base64 data unexpectedly broke";
+				failed = TRUE;
+			}
 			break;
 		}
 		i_stream_skip(base64_input, size);
@@ -398,20 +403,30 @@ static int astream_decode_base64(struct attachment_istream *astream,
 	if (ret != -1) {
 		i_assert(failed);
 	} else if (base64_input->stream_errno != 0) {
-		i_error("istream-attachment: read(%s) failed: %s",
-			i_stream_get_name(base64_input),
-			i_stream_get_error(base64_input));
-		failed = TRUE;
+		if (!failed) {
+			*error_r = t_strdup_printf(
+				"istream-attachment: read(%s) failed: %s",
+				i_stream_get_name(base64_input),
+				i_stream_get_error(base64_input));
+			failed = TRUE;
+		}
 	}
 	if (base64_decode_finish(&b64dec) < 0) {
-		i_error("istream-attachment: BUG: "
-			"Attachment base64 data unexpectedly broke");
-		failed = TRUE;
+		if (!failed) {
+			*error_r =
+				"istream-attachment: BUG: "
+				"Attachment base64 data unexpectedly broke";
+			failed = TRUE;
+		}
 	}
 	if (o_stream_finish(output) < 0) {
-		i_error("istream-attachment: write(%s) failed: %s",
-			o_stream_get_name(output), o_stream_get_error(output));
-		failed = TRUE;
+		if (!failed) {
+			*error_r = t_strdup_printf(
+				"istream-attachment: write(%s) failed: %s",
+				o_stream_get_name(output),
+				o_stream_get_error(output));
+			failed = TRUE;
+		}
 	}
 
 	buffer_free(&buf);
@@ -427,10 +442,13 @@ static int astream_decode_base64(struct attachment_istream *astream,
 		}
 		i_assert(ret == -1);
 		if (input->stream_errno != 0) {
-			i_error("istream-attachment: read(%s) failed: %s",
-				i_stream_get_name(input),
-				i_stream_get_error(input));
-			failed = TRUE;
+			if (!failed) {
+				*error_r = t_strdup_printf(
+					"istream-attachment: read(%s) failed: %s",
+					i_stream_get_name(input),
+					i_stream_get_error(input));
+				failed = TRUE;
+			}
 		}
 	}
 	i_stream_unref(&input);
@@ -444,7 +462,7 @@ static int astream_decode_base64(struct attachment_istream *astream,
 	o_stream_destroy(&part->temp_output);
 	i_close_fd(&part->temp_fd);
 	part->temp_fd = outfd;
-	return 0;
+	return 1;
 }
 
 static int
@@ -490,8 +508,13 @@ astream_part_finish(struct attachment_istream *astream, const char **error_r)
 		}
 		if (part->base64_state == BASE64_STATE_EOM) {
 			/* base64 data looks ok. */
-			if (astream_decode_base64(astream, &extra_buf) < 0)
+			int ret2 = astream_decode_base64(astream, &extra_buf, error_r);
+			if (ret2 == 0)
 				part->base64_failed = TRUE;
+			else if (ret2 < 0) {
+				buffer_free(&extra_buf);
+				return -1;
+			}
 		} else {
 			part->base64_failed = TRUE;
 		}
