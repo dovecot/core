@@ -1093,6 +1093,15 @@ static int imapc_mailbox_get_status(struct mailbox *box,
 	} else {
 		if (imapc_mailbox_run_status(box, items, status_r) < 0)
 			return -1;
+		/* If this mailbox has private indexes make sure to check
+		   STATUS_UNSEEN from there. */
+		if (box->list->set.index_pvt_dir != NULL &&
+		    (items & (STATUS_UNSEEN)) != 0) {
+			struct mailbox_status pvt_idx_status;
+			index_storage_get_status(box, STATUS_UNSEEN,
+						 &pvt_idx_status);
+			status_r->unseen = pvt_idx_status.unseen;
+		}
 	}
 
 	if (box->opened && !box->deleting && (items & STATUS_UIDNEXT) != 0 &&
