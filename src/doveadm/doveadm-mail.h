@@ -123,7 +123,7 @@ int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 			     const char **error_r);
 int doveadm_mail_server_user(struct doveadm_mail_cmd_context *ctx,
 			     const char **error_r);
-void doveadm_mail_server_flush(void);
+void doveadm_mail_server_flush(struct doveadm_mail_cmd_context *ctx);
 
 /* Request input stream to be read (from stdin). This must be called from
    the command's init() function. */

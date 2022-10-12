@@ -676,7 +676,7 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 		ctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP;
 		doveadm_mail_all_users(ctx, wildcard_user);
 	}
-	doveadm_mail_server_flush();
+	doveadm_mail_server_flush(ctx);
 	doveadm_mail_cmd_deinit(ctx);
 	doveadm_print_flush();
 
