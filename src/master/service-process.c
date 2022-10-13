@@ -332,13 +332,13 @@ service_process_setup_environment(struct service *service, unsigned int uid,
 
 static void service_process_status_timeout(struct service_process *process)
 {
-	service_error(process->service,
-		      "Initial status notification not received in %d "
-		      "seconds, killing the process",
-		      SERVICE_FIRST_STATUS_TIMEOUT_SECS);
+	e_error(process->service->event,
+		"Initial status notification not received in %d "
+		"seconds, killing the process",
+		SERVICE_FIRST_STATUS_TIMEOUT_SECS);
 	if (kill(process->pid, SIGKILL) < 0 && errno != ESRCH) {
-		service_error(process->service, "kill(%s, SIGKILL) failed: %m",
-			      dec2str(process->pid));
+		e_error(process->service->event, "kill(%s, SIGKILL) failed: %m",
+			dec2str(process->pid));
 	}
 	timeout_remove(&process->to_status);
 }
@@ -389,7 +389,7 @@ struct service_process *service_process_create(struct service *service)
 						    (unsigned long long)limit);
 		}
 		errno = fork_errno;
-		service_error(service, "fork() failed: %m%s", limit_str);
+		e_error(service->event, "fork() failed: %m%s", limit_str);
 		return NULL;
 	}
 	if (pid == 0) {

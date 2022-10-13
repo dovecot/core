@@ -45,8 +45,8 @@ static void service_process_kill_idle(struct service_process *process)
 		/* we don't have any extra idling processes anymore. */
 		timeout_remove(&process->to_idle);
 	} else if (process->last_kill_sent > process->last_status_update+1) {
-		service_error(service, "Process %s is ignoring idle SIGINT",
-			      dec2str(process->pid));
+		e_error(service->event, "Process %s is ignoring idle SIGINT",
+			dec2str(process->pid));
 
 		/* assume this process is busy */
 		i_zero(&status);
@@ -54,8 +54,8 @@ static void service_process_kill_idle(struct service_process *process)
 		process->available_count = 0;
 	} else {
 		if (kill(process->pid, SIGINT) < 0 && errno != ESRCH) {
-			service_error(service, "kill(%s, SIGINT) failed: %m",
-				      dec2str(process->pid));
+			e_error(service->event, "kill(%s, SIGINT) failed: %m",
+				dec2str(process->pid));
 		}
 		process->last_kill_sent = ioloop_time;
 	}
@@ -149,7 +149,7 @@ service_status_input_one(struct service *service,
 		   randomness here, but the worst they can do is DoS and there
 		   are already more serious problems if someone is able to do
 		   this.. */
-		service_error(service, "Ignoring invalid update from child %s "
+		e_error(service->event, "Ignoring invalid update from child %s "
 			      "(UID=%u)", dec2str(status->pid), status->uid);
 		return;
 	}
@@ -180,9 +180,9 @@ static void service_status_input(struct service *service)
 	ret = read(service->status_fd[0], &status, sizeof(status));
 	if (ret <= 0) {
 		if (ret == 0)
-			service_error(service, "read(status) failed: EOF");
+			e_error(service->event, "read(status) failed: EOF");
 		else if (errno != EAGAIN)
-			service_error(service, "read(status) failed: %m");
+			e_error(service->event, "read(status) failed: %m");
 		else
 			return;
 		service_monitor_stop(service);
@@ -190,7 +190,7 @@ static void service_status_input(struct service *service)
 	}
 
 	if ((ret % sizeof(struct master_status)) != 0) {
-		service_error(service, "service sent partial status update "
+		e_error(service->event, "service sent partial status update "
 			      "(%d bytes)", (int)ret);
 		return;
 	}
@@ -235,7 +235,7 @@ static void service_monitor_throttle(struct service *service)
 
 	i_assert(service->throttle_msecs > 0);
 
-	service_error(service,
+	e_error(service->event,
 		      "command startup failed, throttling for %u.%03u secs",
 		      service->throttle_msecs / 1000,
 		      service->throttle_msecs % 1000);
@@ -457,10 +457,10 @@ static int service_login_create_notify_fd(struct service *service)
 		path = str_c(prefix);
 
 		if (fd == -1) {
-			service_error(service, "safe_mkstemp(%s) failed: %m",
+			e_error(service->event, "safe_mkstemp(%s) failed: %m",
 				      path);
 		} else if (unlink(path) < 0) {
-			service_error(service, "unlink(%s) failed: %m", path);
+			e_error(service->event, "unlink(%s) failed: %m", path);
 		} else {
 			fd_close_on_exec(fd, TRUE);
 			service->login_notify_fd = fd;
@@ -497,7 +497,7 @@ void services_monitor_start(struct service_list *service_list)
 		}
 		if (service->master_dead_pipe_fd[0] == -1) {
 			if (pipe(service->master_dead_pipe_fd) < 0) {
-				service_error(service, "pipe() failed: %m");
+				e_error(service->event, "pipe() failed: %m");
 				continue;
 			}
 			fd_close_on_exec(service->master_dead_pipe_fd[0], TRUE);
@@ -506,7 +506,7 @@ void services_monitor_start(struct service_list *service_list)
 		if (service->status_fd[0] == -1) {
 			/* we haven't yet created status pipe */
 			if (pipe(service->status_fd) < 0) {
-				service_error(service, "pipe() failed: %m");
+				e_error(service->event, "pipe() failed: %m");
 				continue;
 			}
 
@@ -561,7 +561,7 @@ void service_monitor_stop(struct service *service)
 	    service->type != SERVICE_TYPE_ANVIL) {
 		for (i = 0; i < 2; i++) {
 			if (close(service->status_fd[i]) < 0) {
-				service_error(service,
+				e_error(service->event,
 					      "close(status fd) failed: %m");
 			}
 			service->status_fd[i] = -1;
@@ -570,7 +570,7 @@ void service_monitor_stop(struct service *service)
 	service_monitor_close_dead_pipe(service);
 	if (service->login_notify_fd != -1) {
 		if (close(service->login_notify_fd) < 0) {
-			service_error(service,
+			e_error(service->event,
 				      "close(login notify fd) failed: %m");
 		}
 		service->login_notify_fd = -1;
@@ -627,7 +627,7 @@ static bool service_processes_close_listeners(struct service *service)
 		if (kill(process->pid, SIGQUIT) == 0)
 			ret = TRUE;
 		else if (errno != ESRCH) {
-			service_error(service, "kill(%s, SIGQUIT) failed: %m",
+			e_error(service->event, "kill(%s, SIGQUIT) failed: %m",
 				      dec2str(process->pid));
 		}
 	}

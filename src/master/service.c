@@ -22,16 +22,6 @@
 
 HASH_TABLE_TYPE(pid_process) service_pids;
 
-void service_error(struct service *service, const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	i_error("service(%s): %s", service->set->name,
-		t_strdup_vprintf(format, args));
-	va_end(args);
-}
-
 static struct service_listener *
 service_create_file_listener(struct service *service,
 			     enum service_listener_type type,
@@ -542,8 +532,8 @@ unsigned int service_signal(struct service *service, int signo,
 		if (kill(process->pid, signo) == 0)
 			count++;
 		else if (errno != ESRCH) {
-			service_error(service, "kill(%s, %d) failed: %m",
-				      dec2str(process->pid), signo);
+			e_error(service->event, "kill(%s, %d) failed: %m",
+				dec2str(process->pid), signo);
 		}
 	}
 	if (count > 0 && signo != SIGUSR1) {
@@ -583,7 +573,7 @@ void service_login_notify(struct service *service, bool all_processes_full)
 	state = all_processes_full ? MASTER_LOGIN_STATE_FULL :
 		MASTER_LOGIN_STATE_NONFULL;
 	if (lseek(service->login_notify_fd, state, SEEK_SET) < 0)
-		service_error(service, "lseek(notify fd) failed: %m");
+		e_error(service->event, "lseek(notify fd) failed: %m");
 
 	/* but don't send signal to processes too often */
 	diff = ioloop_time - service->last_login_notify_time;

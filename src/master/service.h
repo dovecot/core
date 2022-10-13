@@ -204,9 +204,6 @@ service_lookup(struct service_list *service_list, const char *name);
 struct service *
 service_lookup_type(struct service_list *service_list, enum service_type type);
 
-void service_error(struct service *service, const char *format, ...)
-	ATTR_FORMAT(2, 3);
-
 void service_pids_init(void);
 void service_pids_deinit(void);
 

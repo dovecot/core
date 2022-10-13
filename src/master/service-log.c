@@ -123,12 +123,12 @@ void services_log_deinit(struct service_list *service_list)
 	for (i = 0; i < count; i++) {
 		if (services[i]->log_fd[0] != -1) {
 			if (close(services[i]->log_fd[0]) < 0) {
-				service_error(services[i],
-					      "close(log_fd) failed: %m");
+				e_error(services[i]->event,
+					"close(log_fd) failed: %m");
 			}
 			if (close(services[i]->log_fd[1]) < 0) {
-				service_error(services[i],
-					      "close(log_fd) failed: %m");
+				e_error(services[i]->event,
+					"close(log_fd) failed: %m");
 			}
 			services[i]->log_fd[0] = -1;
 			services[i]->log_fd[1] = -1;

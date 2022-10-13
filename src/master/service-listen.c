@@ -236,7 +236,7 @@ int service_listener_listen(struct service_listener *l)
 		i_unreached();
 	}
 	if (ret <= 0)
-		service_error(l->service, "%s", error);
+		e_error(l->service->event, "%s", error);
 	return ret;
 }
 

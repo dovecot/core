@@ -112,7 +112,7 @@ void service_anvil_process_created(struct service_process *process)
 
 	if (anvil_send_handshake(anvil->blocking_fd[1], &error) < 0 ||
 	    anvil_send_handshake(anvil->nonblocking_fd[1], &error) < 0)
-		service_error(process->service, "%s", error);
+		e_error(process->service->event, "%s", error);
 }
 
 void service_anvil_process_destroyed(struct service_process *process)
