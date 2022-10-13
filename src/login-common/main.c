@@ -15,7 +15,6 @@
 #include "master-interface.h"
 #include "iostream-ssl.h"
 #include "client-common.h"
-#include "access-lookup.h"
 #include "master-admin-client.h"
 #include "anvil-client.h"
 #include "auth-client.h"
