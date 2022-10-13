@@ -521,19 +521,21 @@ get_exit_status_message(struct service *service, enum fatal_exit_status status)
 	return NULL;
 }
 
-static bool linux_proc_fs_suid_is_dumpable(unsigned int *value_r)
+static bool linux_proc_fs_suid_is_dumpable(struct event *event, unsigned int *value_r)
 {
 	int fd = open(LINUX_PROC_FS_SUID_DUMPABLE, O_RDONLY);
 	if (fd == -1) {
 		/* we already checked that it exists - shouldn't get here */
-		i_error("open(%s) failed: %m", LINUX_PROC_FS_SUID_DUMPABLE);
+		e_error(event,
+			"open(%s) failed: %m", LINUX_PROC_FS_SUID_DUMPABLE);
 		have_proc_fs_suid_dumpable = FALSE;
 		return FALSE;
 	}
 	char buf[10];
 	ssize_t ret = read(fd, buf, sizeof(buf)-1);
 	if (ret < 0) {
-		i_error("read(%s) failed: %m", LINUX_PROC_FS_SUID_DUMPABLE);
+		e_error(event,
+			"read(%s) failed: %m", LINUX_PROC_FS_SUID_DUMPABLE);
 		have_proc_fs_suid_dumpable = FALSE;
 		*value_r = 0;
 	} else {
@@ -547,19 +549,21 @@ static bool linux_proc_fs_suid_is_dumpable(unsigned int *value_r)
 	return *value_r != 0;
 }
 
-static bool linux_is_absolute_core_pattern(void)
+static bool linux_is_absolute_core_pattern(struct event *event)
 {
 	int fd = open(LINUX_PROC_SYS_KERNEL_CORE_PATTERN, O_RDONLY);
 	if (fd == -1) {
 		/* we already checked that it exists - shouldn't get here */
-		i_error("open(%s) failed: %m", LINUX_PROC_SYS_KERNEL_CORE_PATTERN);
+		e_error(event,
+			"open(%s) failed: %m", LINUX_PROC_SYS_KERNEL_CORE_PATTERN);
 		have_proc_sys_kernel_core_pattern = FALSE;
 		return FALSE;
 	}
 	char buf[10];
 	ssize_t ret = read(fd, buf, sizeof(buf)-1);
 	if (ret < 0) {
-		i_error("read(%s) failed: %m", LINUX_PROC_SYS_KERNEL_CORE_PATTERN);
+		e_error(event,
+			"read(%s) failed: %m", LINUX_PROC_SYS_KERNEL_CORE_PATTERN);
 		have_proc_sys_kernel_core_pattern = FALSE;
 		buf[0] = '\0';
 	}
@@ -595,11 +599,11 @@ log_coredump(struct service *service, string_t *str, int status)
 	   path. */
 	if (!have_proc_fs_suid_dumpable)
 		;
-	else if (!linux_proc_fs_suid_is_dumpable(&dumpable)) {
+	else if (!linux_proc_fs_suid_is_dumpable(service->event, &dumpable)) {
 		str_printfa(str, " - set %s to 2)", LINUX_PROC_FS_SUID_DUMPABLE);
 		return;
 	} else if (dumpable == 2 && have_proc_sys_kernel_core_pattern &&
-		   !linux_is_absolute_core_pattern()) {
+		   !linux_is_absolute_core_pattern(service->event)) {
 		str_printfa(str, " - set %s to absolute path)",
 			    LINUX_PROC_SYS_KERNEL_CORE_PATTERN);
 		return;
@@ -680,7 +684,7 @@ static void service_process_log(struct service_process *process,
 	const char *data;
 
 	if (process->service->log_fd[1] == -1) {
-		i_error("%s", str);
+		e_error(process->service->event, "%s", str);
 		return;
 	}
 
@@ -692,8 +696,8 @@ static void service_process_log(struct service_process *process,
 			       default_fatal ? "DEFAULT-FATAL" : "FATAL", str);
 	if (write(process->service->list->master_log_fd[1],
 		  data, strlen(data)) < 0) {
-		i_error("write(log process) failed: %m");
-		i_error("%s", str);
+		e_error(process->service->event, "write(log process) failed: %m");
+		e_error(process->service->event, "%s", str);
 	}
 }
 

@@ -109,7 +109,7 @@ master_client_input_args(struct connection *conn, const char *const *args)
 	const char *cmd = args[0];
 
 	if (cmd == NULL) {
-		i_error("%s: Empty command", conn->name);
+		e_error(conn->event, "Empty command");
 		return 0;
 	}
 	args++;
@@ -120,7 +120,7 @@ master_client_input_args(struct connection *conn, const char *const *args)
 		return master_client_process_status(client, args);
 	if (strcmp(cmd, "STOP") == 0)
 		return master_client_stop(client, args);
-	i_error("%s: Unknown command: %s", conn->name, cmd);
+	e_error(conn->event, "Unknown command: %s", cmd);
 	return -1;
 }
 
@@ -158,7 +158,7 @@ void master_client_connected(struct service_list *service_list)
 	fd = net_accept(service_list->master_fd, NULL, NULL);
 	if (fd < 0) {
 		if (fd == -2)
-			i_error("net_accept() failed: %m");
+			e_error(service_list->event, "net_accept() failed: %m");
 		return;
 	}
 	fd_close_on_exec(fd, TRUE);

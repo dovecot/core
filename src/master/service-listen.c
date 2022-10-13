@@ -304,7 +304,8 @@ static int services_verify_systemd(struct service_list *service_list)
 	if (sd_fds < 0) {
 		sd_fds = sd_listen_fds(0);
 		if (sd_fds == -1) {
-			i_error("sd_listen_fds() failed: %m");
+			e_error(service_list->event,
+				"sd_listen_fds() failed: %m");
 			return -1;
 		}
 	}
@@ -333,14 +334,17 @@ static int services_verify_systemd(struct service_list *service_list)
 					break;
 			}
 			if (!found) {
-				i_error("systemd listens on port %d, "
+				e_error(service_list->event,
+					"systemd listens on port %d, "
 					"but it's not configured in Dovecot. "
 					"Closing.", port);
 				if (shutdown(fd, SHUT_RDWR) < 0 &&
 				    errno != ENOTCONN)
-					i_error("shutdown(%d) failed: %m", fd);
+					e_error(service_list->event,
+						"shutdown(%d) failed: %m", fd);
 				if (dup2(dev_null_fd, fd) < 0)
-					i_error("dup2(%d, %d) failed: %m",
+					e_error(service_list->event,
+						"dup2(%d, %d) failed: %m",
 						dev_null_fd, fd);
 			}
 		}
@@ -369,7 +373,8 @@ static int services_listen_master(struct service_list *service_list)
 	umask(old_umask);
 
 	if (service_list->master_fd == -1) {
-		i_error("net_listen_unix(%s) failed: %m", path);
+		e_error(service_list->event,
+			"net_listen_unix(%s) failed: %m", path);
 		return 0;
 	}
 	fd_close_on_exec(service_list->master_fd, TRUE);
@@ -449,7 +454,8 @@ int services_listen_using(struct service_list *new_service_list,
 				break;
 		}
 		if (i != new_count && i != old_count) {
-			i_error("Can't change anvil's listeners on the fly");
+			e_error(old_service_list->event,
+				"Can't change anvil's listeners on the fly");
 			return -1;
 		}
 		for (i = 0; i < new_count; i++) {

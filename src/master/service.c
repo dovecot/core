@@ -537,7 +537,7 @@ unsigned int service_signal(struct service *service, int signo,
 		}
 	}
 	if (count > 0 && signo != SIGUSR1) {
-		i_warning("Sent %s to %u %s processes",
+		e_warning(service->event, "Sent %s to %u %s processes",
 			  signo == SIGTERM ? "SIGTERM" : "SIGKILL",
 			  count, service->set->name);
 	}
@@ -636,7 +636,7 @@ static void services_kill_timeout(struct service_list *service_list)
 			str_printfa(str, " (%u processes still uninitialized)",
 				    uninitialized_count);
 		}
-		i_warning("%s", str_c(str));
+		e_warning(service_list->event, "%s", str_c(str));
 	}
 }
 

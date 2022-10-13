@@ -222,9 +222,9 @@ static void service_log_drop_warning(struct service *service)
 			limit_name = "client_limit";
 			limit = service->client_limit;
 		}
-		i_warning("service(%s): %s (%u) reached, "
-			  "client connections are being dropped",
-			  service->set->name, limit_name, limit);
+		e_warning(service->event,
+			  "%s (%u) reached, client connections are being dropped",
+			  limit_name, limit);
 	}
 }
 

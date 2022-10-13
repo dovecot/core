@@ -63,7 +63,8 @@ service_process_write_log_bye(int fd, struct service_process *process)
 			       dec2str(process->pid));
 	if (write(fd, data, strlen(data)) < 0) {
 		if (errno != EAGAIN)
-			i_error("write(log process) failed: %m");
+			e_error(process->service->event,
+				"write(log process) failed: %m");
 		return -1;
 	}
 	return 0;
@@ -139,9 +140,11 @@ void services_log_deinit(struct service_list *service_list)
 		service_process_notify_deinit(&service_list->log_byes);
 	if (service_list->master_log_fd[0] != -1) {
 		if (close(service_list->master_log_fd[0]) < 0)
-			i_error("close(master log fd) failed: %m");
+			e_error(service_list->event,
+				"close(master log fd) failed: %m");
 		if (close(service_list->master_log_fd[1]) < 0)
-			i_error("close(master log fd) failed: %m");
+			e_error(service_list->event,
+				"close(master log fd) failed: %m");
 		service_list->master_log_fd[0] = -1;
 		service_list->master_log_fd[1] = -1;
 	}
