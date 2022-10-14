@@ -28,6 +28,10 @@
 #define IS_STANDALONE() \
         (getenv(MASTER_IS_PARENT_ENV) == NULL)
 
+struct event_category event_category_pop3 = {
+	.name = "pop3",
+};
+
 static bool verbose_proctitle = FALSE;
 static struct mail_storage_service_ctx *storage_service;
 static struct login_server *login_server = NULL;
@@ -117,7 +121,25 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	struct pop3_settings *set;
 	const char *errstr;
 
-	if (mail_storage_service_lookup_next(storage_service, input,
+	struct event *event = event_create(NULL);
+	event_add_category(event, &event_category_pop3);
+	event_add_fields(event, (const struct event_add_field []){
+		{ .key = "user", .value = input->username },
+		{ .key = NULL }
+	});
+	if (input->local_ip.family != 0)
+		event_add_str(event, "local_ip", net_ip2addr(&input->local_ip));
+	if (input->local_port != 0)
+		event_add_int(event, "local_port", input->local_port);
+	if (input->remote_ip.family != 0)
+		event_add_str(event, "remote_ip", net_ip2addr(&input->remote_ip));
+	if (input->remote_port != 0)
+		event_add_int(event, "remote_port", input->remote_port);
+
+	struct mail_storage_service_input service_input = *input;
+	service_input.event_parent = event;
+
+	if (mail_storage_service_lookup_next(storage_service, &service_input,
 					     &user, &mail_user, error_r) <= 0) {
 		if (write(fd_out, lookup_error_str, strlen(lookup_error_str)) < 0) {
 			/* ignored */
@@ -139,7 +161,8 @@ client_create_from_input(const struct mail_storage_service_input *input,
 		return -1;
 	}
 
-	*client_r = client_create(fd_in, fd_out, mail_user, user, set);
+	*client_r = client_create(fd_in, fd_out, event, mail_user, user, set);
+	event_unref(&event);
 	return 0;
 }
 

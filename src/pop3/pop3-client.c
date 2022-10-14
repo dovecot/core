@@ -379,7 +379,7 @@ int pop3_lock_session(struct client *client)
 }
 
 struct client *client_create(int fd_in, int fd_out,
-			     struct mail_user *user,
+			     struct event *event, struct mail_user *user,
 			     struct mail_storage_service_user *service_user,
 			     const struct pop3_settings *set)
 {
@@ -393,6 +393,8 @@ struct client *client_create(int fd_in, int fd_out,
 	pool = pool_alloconly_create("pop3 client", 256);
 	client = p_new(pool, struct client, 1);
 	client->pool = pool;
+	client->event = event;
+	event_ref(client->event);
 	client->service_user = service_user;
 	client->v = pop3_client_vfuncs;
 	client->set = set;
@@ -562,7 +564,9 @@ static const char *client_stats(struct client *client)
 
 void client_destroy(struct client *client, const char *reason)
 {
+	struct event *event = client->event;
 	client->v.destroy(client, reason);
+	event_unref(&event);
 }
 
 static void client_default_destroy(struct client *client, const char *reason)
@@ -657,7 +661,7 @@ void client_disconnect(struct client *client, const char *reason)
 		return;
 
 	client->disconnected = TRUE;
-	i_info("Disconnected: %s %s", reason, client_stats(client));
+	e_info(client->event, "Disconnected: %s %s", reason, client_stats(client));
 
 	(void)o_stream_flush(client->output);
 
