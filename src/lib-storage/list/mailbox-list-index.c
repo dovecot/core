@@ -538,6 +538,7 @@ mailbox_name_hdr_encode(struct mailbox_list *list, const char *storage_name,
 		}
 	}
 
+	i_assert(name_parts[0] != NULL);
 	string_t *str = t_str_new(64);
 	str_append(str, name_parts[0]);
 	for (unsigned int i = 1; name_parts[i] != NULL; i++) {
