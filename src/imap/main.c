@@ -299,6 +299,8 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 			       event, mail_user, user, imap_set, smtp_set);
 	client->userdb_fields = input->userdb_fields == NULL ? NULL :
 		p_strarray_dup(client->pool, input->userdb_fields);
+    client->secured = input->conn_secured;
+    client->ssl_secured = input->conn_ssl_secured;
 	event_unref(&event);
 	*client_r = client;
 	return 0;
@@ -344,7 +346,7 @@ static void main_stdio_run(const char *username)
 
 	client_create_finish_io(client);
 	client_send_login_reply(client->output,
-				str_c(client->capability_string),
+                client_get_capability(client),
 				client->user->username, &request);
 	if (client_create_finish(client, &error) < 0)
 		i_fatal("%s", error);
@@ -408,6 +410,7 @@ login_request_finished(const struct login_server_request *request,
 	*/
 	client_create_finish_io(client);
 	client_send_login_reply(client->output,
+                client_get_capability(client),
 				str_c(client->capability_string),
 				NULL, &imap_request);
 	if (client_create_finish(client, &error) < 0) {
