@@ -41,14 +41,12 @@ file_contents_equal(const char *path1, const char *path2, ino_t *path2_inode_r,
 	   the same or if this is a hash collision */
 	fd1 = open(path1, O_RDONLY);
 	if (fd1 == -1) {
-		if (errno != ENOENT)
-			*error_r = t_strdup_printf("open(%s) failed: %m", path1);
+		*error_r = t_strdup_printf("open(%s) failed: %m", path1);
 		return -1;
 	}
 	fd2 = open(path2, O_RDONLY);
 	if (fd2 == -1) {
-		if (errno != ENOENT)
-			*error_r = t_strdup_printf("open(%s) failed: %m", path2);
+		*error_r = t_strdup_printf("open(%s) failed: %m", path2);
 		i_close_fd(&fd1);
 		return -1;
 	}
