@@ -1,3 +1,4 @@
+ - add UTF8 LMTP server support to be compatible with Postfix SMTPUTF8 (https://unix.stackexchange.com/questions/320091/configure-postfix-and-dovecot-lmtp-to-receive-mail-via-smtputf8)
  - remove mail_deliver_session after all, do all the stuff transparently
    by hooking into mailbox_copy().
      - use this hook also to do the mail deduplication: 1) sort all destination
