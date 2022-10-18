@@ -210,7 +210,10 @@ static void cmd_id_finish(struct imap_client *client)
 	client_send_raw(&client->common,
 		t_strdup_printf("* ID %s\r\n",
 			imap_id_reply_generate(client->set->imap_id_send)));
-	client_send_reply(&client->common, IMAP_CMD_REPLY_OK, "ID completed.");
+	const char *msg = "ID completed.";
+	if (client->common.trusted)
+		msg = "Trusted ID completed.";
+	client_send_reply(&client->common, IMAP_CMD_REPLY_OK, msg);
 }
 
 static void cmd_id_free(struct imap_client *client)
