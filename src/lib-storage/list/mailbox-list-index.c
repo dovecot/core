@@ -580,8 +580,10 @@ mailbox_name_hdr_decode_storage_name(struct mailbox_list *list,
 					list->set.maildir_name));
 		}
 
-		if (p != NULL)
+		if (p != NULL) {
 			name_hdr += name_part_len + 1;
+			str_append_c(storage_name, list_sep);
+		}
 	}
 	return str_c(storage_name);
 }
