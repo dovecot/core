@@ -720,6 +720,7 @@ void mailbox_set_index_error(struct mailbox *box)
 		mailbox_set_deleted(box);
 		mail_index_reset_error(box->index);
 	} else {
+		i_free(box->storage->last_internal_error_mailbox);
 		box->storage->last_internal_error_mailbox = i_strdup(box->vname);
 		mail_storage_set_index_error(box->storage, box->index);
 	}
