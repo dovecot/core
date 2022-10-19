@@ -173,16 +173,18 @@ mail_storage_list_index_fill_storage_mailboxes(struct mail_storage_list_index_re
 				       ctx->storage->event, path,
 				       FS_ITER_FLAG_DIRS | FS_ITER_FLAG_NOCACHE);
 	while ((fname = fs_iter_next(iter)) != NULL) T_BEGIN {
-		if (guid_128_from_string(fname, guid) < 0)
-			continue;
-		box = p_new(ctx->pool, struct mail_storage_list_index_rebuild_mailbox, 1);
-		guid_128_copy(box->guid, guid);
-		e_debug(ctx->storage->event, "Found GUID '%s' from storage %s",
-			guid_128_to_string(guid), path);
-		char *hk = p_strdup_printf(ctx->pool, "%s%s", list->ns->prefix,
-					   guid_128_to_string(guid));
-		box->list = list;
-		hash_table_update(ctx->mailboxes, hk, box);
+		if (guid_128_from_string(fname, guid) == 0) {
+			box = p_new(ctx->pool, struct mail_storage_list_index_rebuild_mailbox, 1);
+			guid_128_copy(box->guid, guid);
+			e_debug(ctx->storage->event,
+				"Found GUID '%s' from storage %s",
+				guid_128_to_string(guid), path);
+			char *hk = p_strdup_printf(ctx->pool, "%s%s",
+						   list->ns->prefix,
+						   guid_128_to_string(guid));
+			box->list = list;
+			hash_table_update(ctx->mailboxes, hk, box);
+		}
 	} T_END;
 
 	if (fs_iter_deinit(&iter, &error) < 0) {
