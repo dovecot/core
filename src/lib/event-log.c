@@ -16,6 +16,10 @@ void e_error(struct event *event,
 	     const char *source_filename, unsigned int source_linenum,
 	     const char *fmt, ...)
 {
+	if (!event_want_level(event, LOG_TYPE_ERROR)) {
+		event_send_abort(event);
+		return;
+	}
 	struct event_log_params params = {
 		.log_type = LOG_TYPE_ERROR,
 		.source_filename = source_filename,
@@ -35,6 +39,10 @@ void e_warning(struct event *event,
 	       const char *source_filename, unsigned int source_linenum,
 	       const char *fmt, ...)
 {
+	if (!event_want_level(event, LOG_TYPE_WARNING)) {
+		event_send_abort(event);
+		return;
+	}
 	struct event_log_params params = {
 		.log_type = LOG_TYPE_WARNING,
 		.source_filename = source_filename,
@@ -54,6 +62,10 @@ void e_info(struct event *event,
 	    const char *source_filename, unsigned int source_linenum,
 	    const char *fmt, ...)
 {
+	if (!event_want_level(event, LOG_TYPE_INFO)) {
+		event_send_abort(event);
+		return;
+	}
 	struct event_log_params params = {
 		.log_type = LOG_TYPE_INFO,
 		.source_filename = source_filename,

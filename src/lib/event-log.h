@@ -39,33 +39,22 @@ extern unsigned int event_filter_replace_counter;
 void e_error(struct event *event,
 	     const char *source_filename, unsigned int source_linenum,
 	     const char *fmt, ...) ATTR_FORMAT(4, 5);
-#define e_error(_event, ...) STMT_START { \
-	struct event *_tmp_event = (_event); \
-	if (event_want_level(_tmp_event, LOG_TYPE_ERROR)) \
-		e_error(_tmp_event, __FILE__, __LINE__, __VA_ARGS__); \
-	else \
-		event_send_abort(_tmp_event); \
-	} STMT_END
+#define e_error(_event, ...) \
+	e_error(_event, __FILE__, __LINE__, __VA_ARGS__)
 void e_warning(struct event *event,
 	       const char *source_filename, unsigned int source_linenum,
 	       const char *fmt, ...) ATTR_FORMAT(4, 5);
-#define e_warning(_event, ...) STMT_START { \
-	struct event *_tmp_event = (_event); \
-	 if (event_want_level(_tmp_event, LOG_TYPE_WARNING)) \
-		e_warning(_tmp_event, __FILE__, __LINE__, __VA_ARGS__); \
-	else \
-		event_send_abort(_tmp_event); \
-	} STMT_END
+#define e_warning(_event, ...) \
+	e_warning(_event, __FILE__, __LINE__, __VA_ARGS__)
 void e_info(struct event *event,
 	    const char *source_filename, unsigned int source_linenum,
 	    const char *fmt, ...) ATTR_FORMAT(4, 5);
-#define e_info(_event, ...) STMT_START { \
-	struct event *_tmp_event = (_event); \
-	if (event_want_level(_tmp_event, LOG_TYPE_INFO)) \
-		e_info(_tmp_event, __FILE__, __LINE__, __VA_ARGS__); \
-	else \
-		event_send_abort(_tmp_event); \
-	} STMT_END
+#define e_info(_event, ...) \
+	e_info(_event, __FILE__, __LINE__, __VA_ARGS__)
+/* For better performance, avoid evaluating e_debug() parameters if debug level
+   is disabled for this event. Don't do this for other log levels, since
+   they're pretty much always logged and it can be unexpected that their
+   parameters wouldn't be evaluated in some situations. */
 void e_debug(struct event *event,
 	     const char *source_filename, unsigned int source_linenum,
 	     const char *fmt, ...) ATTR_FORMAT(4, 5);
@@ -80,13 +69,8 @@ void e_debug(struct event *event,
 void e_log(struct event *event, enum log_type level,
 	   const char *source_filename, unsigned int source_linenum,
 	   const char *fmt, ...) ATTR_FORMAT(5, 6);
-#define e_log(_event, level, ...) STMT_START { \
-	struct event *_tmp_event = (_event); \
-	if (event_want_level(_tmp_event, level)) \
-		e_log(_tmp_event, level, __FILE__, __LINE__, __VA_ARGS__); \
-	else \
-		event_send_abort(_tmp_event); \
-	} STMT_END
+#define e_log(_event, level, ...) \
+	e_log(_event, level, __FILE__, __LINE__, __VA_ARGS__)
 
 /* Returns TRUE if event should be logged. Typically event_want_debug_log()
    could be used in deciding whether to build an expensive debug log message
