@@ -145,6 +145,8 @@ imapc_build_search_query_arg(struct imapc_mailbox *mbox,
 	case SEARCH_MIMEPART:
 		/* not supported for now */
 		break;
+	case SEARCH_NIL:
+		i_unreached();
 	}
 	return FALSE;
 }

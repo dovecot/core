@@ -229,6 +229,87 @@ static const struct {
 	{ "( OR BODY z BODY y ) ( OR BODY z BODY w ) BODY x BODY y BODY w",  "BODY x BODY y BODY w" },
 
 	{ "subject y", "SUBJECT y"},
+
+	/* NIL cases */
+	{ "NIL", ""},
+	{ "NOT NIL", ""},
+	{ "( ( NIL ) )", ""},
+	{ "( ( NOT NIL ) )", ""},
+
+	{ "NIL NIL", "" },
+	{ "( ( NIL NIL ) )", "" },
+	{ "OR NIL NIL", "" },
+
+	{ "OR ( NIL NIL ) OR NIL NIL", "" },
+	{ "( NIL NIL ) OR NIL NIL", "" },
+
+	{ "NIL LARGER 0", "NOT ALL"},
+	{ "NOT NIL LARGER 0", "NOT ALL"},
+	{ "NIL NOT LARGER 0", "NOT ALL"},
+	{ "NOT NIL NOT LARGER 0", "NOT ALL"},
+
+	{ "( NIL NIL ) TEXT uno", "TEXT uno" },
+	{ "OR NIL NIL TEXT uno", "TEXT uno" },
+
+	{ "TEXT foo NIL", "TEXT foo"},
+	{ "NIL TEXT foo", "TEXT foo"},
+
+	{ "NOT ( TEXT foo NIL )", "NOT TEXT foo"},
+	{ "NOT ( NIL TEXT foo )", "NOT TEXT foo"},
+
+	{ "TEXT foo NOT NIL", "TEXT foo"},
+	{ "NOT NIL TEXT foo", "TEXT foo"},
+
+	{ "NOT TEXT foo NIL", "NOT TEXT foo"},
+	{ "NIL NOT TEXT foo", "NOT TEXT foo"},
+
+	{ "OR TEXT foo NIL", "TEXT foo"},
+	{ "OR NIL TEXT foo", "TEXT foo"},
+
+	{ "NOT OR TEXT foo NIL", "NOT TEXT foo"},
+	{ "NOT OR NIL TEXT foo", "NOT TEXT foo"},
+
+	{ "OR TEXT foo NOT NIL", "TEXT foo"},
+	{ "OR NOT NIL TEXT foo", "TEXT foo"},
+
+	{ "OR NOT TEXT foo NIL", "NOT TEXT foo"},
+	{ "OR NIL NOT TEXT foo", "NOT TEXT foo"},
+
+	// avec & and & uno & due
+	// -> {en}(avec & NIL & uno & due) | {fr}(NIL & and & uno & (du | due)
+	{ "OR ( TEXT avec NIL TEXT uno TEXT due ) ( NIL TEXT and TEXT uno OR TEXT du TEXT due )",
+	  "OR (TEXT avec TEXT due) (TEXT and OR TEXT du TEXT due) TEXT uno" },
+
+	// avec | and | uno | due
+	// -> {en}(avec | NIL | uno | due) | {fr}(NIL | and | uno | (du | due)
+	{ "OR ( OR TEXT avec OR NIL OR TEXT uno TEXT due ) ( OR NIL OR TEXT and OR TEXT uno OR TEXT du TEXT due )",
+	  "OR TEXT avec OR TEXT uno OR TEXT due OR TEXT and TEXT du" },
+
+	// (avec | and) & (uno | due)
+	// -> {en}((avec | NIL) & (uno | due)) | {fr}((NIL | and) & (uno | (du | due)))
+	{ "OR ( OR TEXT avec NIL OR TEXT uno TEXT due ) ( OR NIL TEXT and OR TEXT uno ( OR TEXT du TEXT due ) )",
+	  "OR (TEXT avec OR TEXT uno TEXT due) (TEXT and OR TEXT uno OR TEXT du TEXT due)" },
+
+	// (avec | uno) & (and | due)
+	// -> {en}((avec | uno) & (NIL | due)) | {fr}((NIL | uno) & (and | (du | due)))
+	{ "OR ( OR TEXT avec TEXT uno OR NIL TEXT due ) ( OR NIL TEXT uno OR TEXT and OR TEXT du TEXT due )",
+	  "OR (OR TEXT avec TEXT uno TEXT due) (TEXT uno OR TEXT and OR TEXT du TEXT due)"},
+
+	// (uno | due) & ( tre | NIL)
+	{ "OR TEXT uno TEXT due OR TEXT tre NIL",
+	  "OR TEXT uno TEXT due TEXT tre" },
+
+	// (uno & due) | ( tre & NIL)
+	{ "OR ( TEXT uno TEXT due ) ( TEXT tre NIL )",
+	  "OR (TEXT uno TEXT due) TEXT tre" },
+
+	// (uno | due) & ( uno | NIL)
+	{ "OR TEXT uno TEXT due OR TEXT uno NIL",
+	  "TEXT uno" },
+
+	// (uno & due) | ( uno & NIL)
+	{ "OR ( TEXT uno TEXT due ) ( TEXT uno NIL )",
+	  "TEXT uno" },
 };
 
 static struct mail_search_args *

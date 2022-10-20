@@ -82,6 +82,11 @@ imap_search_all(struct mail_search_build_context *ctx)
 { 
 	return mail_search_build_new(ctx, SEARCH_ALL);
 }
+static struct mail_search_arg *
+imap_search_nil(struct mail_search_build_context *ctx)
+{
+	return mail_search_build_new(ctx, SEARCH_NIL);
+}
 
 static struct mail_search_arg *
 imap_search_uid(struct mail_search_build_context *ctx)
@@ -539,6 +544,7 @@ static const struct mail_search_register_arg imap_register_args[] = {
 	/* argument set operations */
 	{ "NOT", imap_search_not },
 	{ "OR", imap_search_or },
+	{ "NIL", imap_search_nil },
 
 	/* message sets */
 	{ "ALL", imap_search_all },

@@ -374,6 +374,8 @@ mail_search_arg_dup_one(pool_t pool, const struct mail_search_arg *arg)
 		new_arg->value.mime_part =
 			mail_search_mime_part_dup(pool, arg->value.mime_part);
 		break;
+	case SEARCH_NIL:
+		i_unreached();
 	}
 	return new_arg;
 }
@@ -651,6 +653,8 @@ bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
 		return FALSE;
 
 	switch (arg1->type) {
+	case SEARCH_NIL:
+		return TRUE;
 	case SEARCH_OR:
 	case SEARCH_SUB:
 		return mail_search_arg_equals(arg1->value.subargs,

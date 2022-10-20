@@ -307,6 +307,9 @@ bool mail_search_arg_to_imap(string_t *dest, const struct mail_search_arg *arg,
 			arg->value.mime_part, error_r))
 			return FALSE;
 		break;
+	case SEARCH_NIL:
+		str_append(dest, "NIL ");
+		break;
 	}
 	return TRUE;
 }

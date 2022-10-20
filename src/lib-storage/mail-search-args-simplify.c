@@ -535,6 +535,118 @@ mail_search_args_simplify_extract_common(struct mail_search_args *all_args,
 	return TRUE;
 }
 
+static bool mail_search_args_nils_removable(enum mail_search_arg_type type) {
+	switch(type) {
+		case SEARCH_FLAGS:
+		case SEARCH_KEYWORDS:
+		case SEARCH_BEFORE:
+		case SEARCH_ON:
+		case SEARCH_SINCE:
+		case SEARCH_SMALLER:
+		case SEARCH_LARGER:
+		case SEARCH_GUID:
+		case SEARCH_MAILBOX:
+		case SEARCH_MAILBOX_GUID:
+		case SEARCH_MAILBOX_GLOB:
+		case SEARCH_MODSEQ:
+		case SEARCH_REAL_UID:
+		case SEARCH_SEQSET:
+		case SEARCH_UIDSET:
+		case SEARCH_MIMEPART:
+		case SEARCH_SAVEDATESUPPORTED:
+			/* these want NILs to become NOT ALL */
+			return FALSE;
+
+		case SEARCH_ALL:
+		case SEARCH_NIL:
+		case SEARCH_HEADER:
+		case SEARCH_HEADER_ADDRESS:
+		case SEARCH_HEADER_COMPRESS_LWSP:
+		case SEARCH_BODY:
+		case SEARCH_TEXT:
+			/* these allow to remove NILs */
+			return TRUE;
+
+		case SEARCH_INTHREAD:
+		case SEARCH_SUB:
+		case SEARCH_OR:
+			/* these are handled in the caller as they need
+			   insight on the tree under that expression */
+			i_unreached();
+
+		default:
+			i_unreached();
+	}
+}
+
+static bool
+mail_search_args_handle_nils(struct mail_search_arg **argsp, bool *remove_nils_r) {
+	/* allow_remove + deny_remove + NILs count = args count */
+	int allow_remove = 0;
+	int deny_remove = 0;
+	bool changed = FALSE;
+
+	for (struct mail_search_arg *arg = *argsp; arg != NULL; arg = arg->next) {
+
+		switch(arg->type) {
+			case SEARCH_INTHREAD:
+			case SEARCH_SUB:
+			case SEARCH_OR: {
+				bool term_remove_nils;
+				if (mail_search_args_handle_nils(
+					&arg->value.subargs, &term_remove_nils))
+					changed = TRUE;
+
+				if (arg->value.subargs == NULL)
+					arg->type = SEARCH_NIL;
+				else if (term_remove_nils)
+				 	allow_remove++;
+				else
+					deny_remove++;
+				break;
+			}
+
+			case SEARCH_NIL:
+				break;
+
+			default:
+				if (mail_search_args_nils_removable(arg->type))
+					allow_remove++;
+				else
+					deny_remove++;
+		}
+	}
+
+	/* The NILs can be removed if either:
+	   (a) no other terms deny the removal
+	   (b) or at least one other term allows the removal
+	   otherwise, they are replaced with NOT ALL
+
+	   [DENY, NIL]        -> [DENY, NOT ALL] -- NIL replaced with NOT ALL
+	   [DENY, ALLOW, NIL] -> [DENY ALLOW]    -- NIL removed
+	   [ALLOW, NIL]       -> [ALLOW]         -- NIL removed
+	   [NIL]	      -> []              -- NIL removed */
+	bool remove_nils = deny_remove == 0 || allow_remove > 0;
+	if (remove_nils_r != NULL) *remove_nils_r = remove_nils;
+
+	while (*argsp != NULL) {
+		bool is_nil = (*argsp)->type == SEARCH_NIL;
+		if (is_nil && remove_nils) {
+			changed = TRUE;
+			*argsp = (*argsp)->next;
+		} else if (is_nil) {
+			changed = TRUE;
+			(*argsp)->type = SEARCH_ALL;
+			(*argsp)->match_not = TRUE;
+			argsp = &(*argsp)->next;
+		} else {
+			argsp = &(*argsp)->next;
+		}
+	}
+
+	return changed;
+}
+
 static bool
 mail_search_args_simplify_sub(struct mail_search_args *all_args, pool_t pool,
 			      struct mail_search_arg **argsp, bool parent_and)
@@ -781,11 +893,11 @@ mail_search_args_unnest_inthreads(struct mail_search_args *args,
 
 void mail_search_args_simplify(struct mail_search_args *args)
 {
-	bool removals;
-
 	args->simplified = TRUE;
 
-	removals = mail_search_args_simplify_sub(args, args->pool, &args->args, TRUE);
+	bool removals = mail_search_args_handle_nils(&args->args, NULL);
+	if (mail_search_args_simplify_sub(args, args->pool, &args->args, TRUE))
+		removals = TRUE;
 	if (mail_search_args_unnest_inthreads(args, &args->args,
 					      FALSE, TRUE)) {
 		/* we may have added some extra SUBs that could be dropped */

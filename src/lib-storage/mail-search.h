@@ -47,7 +47,11 @@ enum mail_search_arg_type {
 	SEARCH_MAILBOX_GUID,
 	SEARCH_MAILBOX_GLOB,
 	SEARCH_REAL_UID,
-	SEARCH_MIMEPART
+	SEARCH_MIMEPART,
+
+	/* This term is allowed only in SEARCH_OR and SEARCH_SUB sublists.
+	   When it is encountered during the simplification, it must be removed */
+	SEARCH_NIL,
 };
 
 enum mail_search_date_type {

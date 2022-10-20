@@ -1456,6 +1456,7 @@ static bool search_arg_is_static(struct mail_search_arg *arg)
 	case SEARCH_MAILBOX_GLOB:
 	case SEARCH_REAL_UID:
 	case SEARCH_MIMEPART:
+	case SEARCH_NIL:
 		return TRUE;
 	}
 	return FALSE;
