@@ -42,6 +42,8 @@ static const struct setting_define login_setting_defines[] = {
 	DEF(BOOL, auth_debug),
 	DEF(BOOL, verbose_proctitle),
 
+	DEF(ENUM, ssl),
+
 	DEF(UINT, mail_max_userip_connections),
 
 	SETTING_DEFINE_LIST_END
@@ -70,6 +72,8 @@ static const struct login_settings login_default_settings = {
 	.auth_debug = FALSE,
 	.verbose_proctitle = FALSE,
 
+	.ssl = "yes:no:required",
+
 	.mail_max_userip_connections = 10
 };
 
@@ -97,12 +101,17 @@ static struct master_service_settings_cache *set_cache;
 
 /* <settings checks> */
 static bool login_settings_check(void *_set, pool_t pool,
-				 const char **error_r ATTR_UNUSED)
+				 const char **error_r)
 {
 	struct login_settings *set = _set;
 
 	set->log_format_elements_split =
 		p_strsplit(pool, set->login_log_format_elements, " ");
+
+	if (strcmp(set->ssl, "required") == 0 && set->auth_allow_cleartext) {
+		*error_r = "auth_allow_cleartext=yes has no effect with ssl=required";
+		return FALSE;
+	}
 
 	return TRUE;
 }

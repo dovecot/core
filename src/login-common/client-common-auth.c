@@ -1060,8 +1060,10 @@ bool client_check_plaintext_auth(struct client *client, bool pass_sent)
 {
 	bool ssl_required = (strcmp(client->ssl_set->ssl, "required") == 0);
 
-	if (client->connection_secured ||
-	    (client->set->auth_allow_cleartext && !ssl_required))
+	i_assert(!ssl_required || !client->set->auth_allow_cleartext);
+
+	if (client->set->auth_allow_cleartext ||
+	    client->connection_secured)
 		return TRUE;
 
 	e_info(client->event_auth, "Login failed: "
