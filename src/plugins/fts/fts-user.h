@@ -15,8 +15,6 @@ struct fts_language_list *fts_user_get_language_list(struct mail_user *user);
 const ARRAY_TYPE(fts_user_language) *
 fts_user_get_all_languages(struct mail_user *user);
 struct fts_user_language *fts_user_get_data_lang(struct mail_user *user);
-const ARRAY_TYPE(fts_user_language) *
-fts_user_get_data_languages(struct mail_user *user);
 
 bool fts_user_autoindex_exclude(struct mailbox *box);
 

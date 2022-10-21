@@ -19,7 +19,7 @@ struct fts_user {
 
 	struct fts_language_list *lang_list;
 	struct fts_user_language *data_lang;
-	ARRAY_TYPE(fts_user_language) languages, data_languages;
+	ARRAY_TYPE(fts_user_language) languages;
 
 	struct mailbox_match_plugin *autoindex_exclude;
 };
@@ -298,8 +298,6 @@ fts_user_init_data_language(struct mail_user *user, struct fts_user *fuser,
 		i_unreached();
 	i_assert(user_lang->filter != NULL);
 
-	p_array_init(&fuser->data_languages, user->pool, 1);
-	array_push_back(&fuser->data_languages, &user_lang);
 	array_push_back(&fuser->languages, &user_lang);
 
 	fuser->data_lang = user_lang;
@@ -321,15 +319,6 @@ fts_user_get_all_languages(struct mail_user *user)
 
 	i_assert(fuser != NULL);
 	return &fuser->languages;
-}
-
-const ARRAY_TYPE(fts_user_language) *
-fts_user_get_data_languages(struct mail_user *user)
-{
-	struct fts_user *fuser = FTS_USER_CONTEXT(user);
-
-	i_assert(fuser != NULL);
-	return &fuser->data_languages;
 }
 
 struct fts_user_language *fts_user_get_data_lang(struct mail_user *user)
