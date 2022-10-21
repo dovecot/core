@@ -121,6 +121,6 @@ SMTP/LMTP extensions
 Contact info
 ============
 
-Timo Sirainen tss@iki.fi, [https://www.dovecot.org/](https://www.dovecot.org/)
+[https://www.dovecot.org/](https://www.dovecot.org/)
 
 Please use the Dovecot mailing list dovecot@dovecot.org for questions about Dovecot. You can post to the list without subscribing, the mail then waits in a moderator queue for a while. See [https://www.dovecot.org/mailinglists.html](https://www.dovecot.org/mailinglists.html)
