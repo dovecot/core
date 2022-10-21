@@ -653,9 +653,8 @@ static bool mailbox_special_use_exists(const char *name)
 	return FALSE;
 }
 
-static bool
-mailbox_special_use_check(struct mailbox_settings *set, pool_t pool,
-			  const char **error_r)
+static void
+mailbox_special_use_check(struct mailbox_settings *set, pool_t pool)
 {
 	const char *const *uses, *str;
 	unsigned int i;
@@ -663,17 +662,15 @@ mailbox_special_use_check(struct mailbox_settings *set, pool_t pool,
 	uses = t_strsplit_spaces(set->special_use, " ");
 	for (i = 0; uses[i] != NULL; i++) {
 		if (!mailbox_special_use_exists(uses[i])) {
-			*error_r = t_strdup_printf(
-				"mailbox %s: unknown special_use: %s",
-				set->name, uses[i]);
-			return FALSE;
+			i_warning("mailbox %s: special_use label %s is not an "
+				  "RFC-defined label - allowing anyway",
+				  set->name, uses[i]);
 		}
 	}
 	/* make sure there are no extra spaces */
 	str = t_strarray_join(uses, " ");
 	if (strcmp(str, set->special_use) != 0)
 		set->special_use = p_strdup(pool, str);
-	return TRUE;
 }
 
 static bool mailbox_settings_check(void *_set, pool_t pool,
@@ -687,8 +684,7 @@ static bool mailbox_settings_check(void *_set, pool_t pool,
 		return FALSE;
 	}
 	if (*set->special_use != '\0') {
-		if (!mailbox_special_use_check(set, pool, error_r))
-			return FALSE;
+		mailbox_special_use_check(set, pool);
 	}
 	return TRUE;
 }
