@@ -413,7 +413,7 @@ struct mail {
 	   can't become TRUE. */
 	bool mail_stream_accessed:1;
 	/* Mail's fast metadata was accessed within this request, e.g. the mail
-	   file was stat()ed. If mail_stream_opened==TRUE, this value isn't
+	   file was stat()ed. If mail_stream_accessed==TRUE, this value isn't
 	   accurate anymore, because some backends may always set this when
 	   stream is opened and some don't. If lookup_abort is
 	   MAIL_LOOKUP_ABORT_NOT_IN_CACHE, this can't become TRUE. */
