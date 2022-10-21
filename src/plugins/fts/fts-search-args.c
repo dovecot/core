@@ -6,9 +6,12 @@
 #include "mail-search.h"
 #include "fts-api-private.h"
 #include "fts-tokenizer.h"
-#include "fts-filter.h"
+#include "fts-filter-private.h"
 #include "fts-user.h"
 #include "fts-search-args.h"
+#include "fts-language.h"
+
+#define STOPWORDS_WORKAROUND_KEY "fts_stopwords_workaround"
 
 static void strings_deduplicate(ARRAY_TYPE(const_string) *arr)
 {
@@ -97,11 +100,16 @@ fts_backend_dovecot_expand_tokens(struct fts_filter *filter,
 	return 0;
 }
 
+#define BOTTOM_LANGUAGE_EXPANSION TRUE
+#define TOP_LANGUAGE_EXPANSION FALSE
+
 static int
 fts_backend_dovecot_tokenize_lang(struct fts_user_language *user_lang,
 				  pool_t pool, struct mail_search_arg *or_arg,
 				  struct mail_search_arg *orig_arg,
-				  const char *orig_token, const char **error_r)
+				  const char *orig_token,
+				  bool bottom_language_expansion,
+				  const char **error_r)
 {
 	size_t orig_token_len = strlen(orig_token);
 	struct mail_search_arg *and_arg, *orig_or_args = or_arg->value.subargs;
@@ -139,27 +147,53 @@ fts_backend_dovecot_tokenize_lang(struct fts_user_language *user_lang,
 		return -1;
 	}
 	if (and_arg->value.subargs == NULL) {
-		/* nothing was actually expanded, remove the empty and_arg */
-		or_arg->value.subargs = orig_or_args;
+		if (bottom_language_expansion) {
+			/* remove this empty term entirely */
+			or_arg->value.subargs = orig_or_args;
+		} else {
+			/* The simplifier will propagate the NIL to the
+			   upper operators, if required, and remove it at
+			   the appropriate level */
+			and_arg->type = SEARCH_NIL;
+		}
 	}
 	return 0;
 }
 
 static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
+				 struct fts_user_language *lang,
+				 bool bottom_language_expansion,
 				 struct mail_search_arg **argp)
 {
 	const ARRAY_TYPE(fts_user_language) *languages;
-	struct fts_user_language *lang;
+	ARRAY_TYPE(fts_user_language) langs;
 	struct mail_search_arg *or_arg, *orig_arg = *argp;
 	const char *error, *orig_token = orig_arg->value.str;
+
+	/* If we are invoked with no lang (null), we are operating in a bottom
+	   language expansion, which is iterated here. In this case we also expect
+	   to be removing NILs terms.
+
+	   Otherwise, if we are invoked with a specific lang, we are working in
+	   a top level language expansion (done above us), and we do NOT want to
+	   remove the NIL terms. */
+	i_assert(bottom_language_expansion == (lang == NULL));
 
 	if (((*argp)->type == SEARCH_HEADER ||
 	     (*argp)->type == SEARCH_HEADER_ADDRESS ||
 	     (*argp)->type == SEARCH_HEADER_COMPRESS_LWSP) &&
 	    !fts_header_has_language((*argp)->hdr_field_name)) {
 		/* use only the data-language */
-		languages = fts_user_get_data_languages(backend->ns->user);
+		lang = fts_user_get_data_lang(backend->ns->user);
+	}
+	if (lang != NULL) {
+		/* getting here either in case of bottom language expansion OR
+		   in case of language-less headers ... */
+		t_array_init(&langs, 1);
+		array_push_back(&langs, &lang);
+		languages = &langs;
 	} else {
+		/* ... otherwise getting here in case of top language expansion */
 		languages = fts_user_get_all_languages(backend->ns->user);
 	}
 
@@ -170,16 +204,23 @@ static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 	or_arg->match_not = orig_arg->match_not;
 	or_arg->next = orig_arg->next;
 
+	/* this reduces to one single iteration on top language expansion or
+	   languageless headers */
 	array_foreach_elem(languages, lang) {
 		if (fts_backend_dovecot_tokenize_lang(lang, pool, or_arg,
-						      orig_arg, orig_token, &error) < 0) {
+						      orig_arg, orig_token,
+						      bottom_language_expansion,
+						      &error) < 0) {
 			i_error("fts: %s", error);
 			return -1;
 		}
 	}
 
 	if (or_arg->value.subargs == NULL) {
-		/* we couldn't parse any tokens from the input */
+		/* We couldn't parse any tokens from the input.
+		   This can happen only in bottom level expansion,
+		   as in top level we grant that expansion always
+		   produces at least a NIL term */
 		or_arg->type = SEARCH_ALL;
 		or_arg->match_not = !or_arg->match_not;
 	}
@@ -189,6 +230,8 @@ static int fts_search_arg_expand(struct fts_backend *backend, pool_t pool,
 
 static int
 fts_search_args_expand_tree(struct fts_backend *backend, pool_t pool,
+			    struct fts_user_language *lang,
+			    bool bottom_language_expansion,
 			    struct mail_search_arg **argp)
 {
 	int ret;
@@ -198,7 +241,8 @@ fts_search_args_expand_tree(struct fts_backend *backend, pool_t pool,
 		case SEARCH_OR:
 		case SEARCH_SUB:
 		case SEARCH_INTHREAD:
-			if (fts_search_args_expand_tree(backend, pool,
+			if (fts_search_args_expand_tree(backend, pool, lang,
+							bottom_language_expansion,
 							&(*argp)->value.subargs) < 0)
 				return -1;
 			break;
@@ -214,7 +258,9 @@ fts_search_args_expand_tree(struct fts_backend *backend, pool_t pool,
 		case SEARCH_BODY:
 		case SEARCH_TEXT:
 			T_BEGIN {
-				ret = fts_search_arg_expand(backend, pool, argp);
+				ret = fts_search_arg_expand(backend, pool, lang,
+							    bottom_language_expansion,
+							    argp);
 			} T_END;
 			if (ret < 0)
 				return -1;
@@ -224,6 +270,120 @@ fts_search_args_expand_tree(struct fts_backend *backend, pool_t pool,
 		}
 	}
 	return 0;
+}
+
+/* Takes in input the whole expression tree, as an implicit AND of argp-list terms.
+   Replaces the input expression tree with a single OR term, containing one AND
+   entry for each language, each AND entry containing a copy of the original
+   argp-list of terms, Then it expands each AND subargs-list according to the language.
+
+   Input: implicit-AND(argp-list)
+   Output: OR(lang1(AND(argp-list-copy), lang2(AND(argp-list-copy)) ...) */
+static int
+fts_search_args_expand_languages(struct fts_backend *backend, pool_t pool,
+			         struct mail_search_arg **argp)
+{
+	if (*argp == NULL)
+		return 0;
+
+	/* ensure there is an explicit top node wich has onyl a single term,
+	   be it either an AND or an OR node */
+	bool top_is_or = (*argp)->type == SEARCH_OR && (*argp)->next == NULL;
+	struct mail_search_arg *top_arg;
+	if (top_is_or) {
+		/* we already have a single top entry of type OR, reuse it */
+		top_arg = (*argp);
+	} else {
+		/* create a single top entry of type AND with the original args */
+		top_arg = p_new(pool, struct mail_search_arg, 1);
+		top_arg->value.subargs = (*argp);
+	}
+
+	/* the top node will be populated from scratch with the language expansions */
+	struct mail_search_arg *top_subargs = top_arg->value.subargs;
+	top_arg->value.subargs = NULL;
+
+	int direct = 0, negated = 0;
+	for (struct mail_search_arg *arg = top_subargs; arg != NULL; arg = arg->next, ++direct)
+		if (arg->match_not) ++negated, --direct;
+
+	#define XOR != /* '!=' is the boolean equivalent of bitwise xor '^' */
+
+	/* likely we might want a simplification that pushes all the negations
+	   toward the root of the node before doing this, rather than the current
+	   one that pushes them toward the leaves ? */
+
+	/* THIS CASE IS THE GREY ZONE ---------------------------------|______________| */
+	bool want_invert = negated == 0 ? FALSE : direct == 0 ? TRUE : negated > direct;
+	bool invert = want_invert XOR top_arg->match_not;
+
+	if (invert) {
+		top_arg->type = top_arg->type != SEARCH_OR ? SEARCH_OR : SEARCH_SUB;
+		for (struct mail_search_arg *arg = top_subargs; arg != NULL; arg = arg->next)
+			arg->match_not = !arg->match_not;
+	}
+
+	const ARRAY_TYPE(fts_user_language) *languages =
+		fts_user_get_all_languages(backend->ns->user);
+	struct fts_user_language *lang;
+	array_foreach_elem(languages, lang) {
+		struct mail_search_arg *lang_arg = p_new(pool, struct mail_search_arg, 1);
+		lang_arg->type = top_is_or XOR invert ? SEARCH_OR : SEARCH_SUB;
+		lang_arg->match_not = invert;
+		lang_arg->value.subargs = mail_search_arg_dup(pool, top_subargs);
+
+		if (fts_search_args_expand_tree(backend, pool, lang,
+						TOP_LANGUAGE_EXPANSION,
+						&lang_arg->value.subargs) < 0)
+			return -1;
+
+		lang_arg->next = top_arg->value.subargs;
+		top_arg->value.subargs = lang_arg;
+	}
+
+	*argp = top_arg;
+	return 0;
+}
+
+
+static bool fts_lang_has_stopwords(const struct fts_user_language *lang)
+{
+	struct fts_filter *filter;
+	for (filter = lang->filter; filter != NULL; filter = filter->parent)
+		if (strcmp(filter->class_name, "stopwords") == 0)
+			return TRUE;
+	return FALSE;
+}
+
+static bool
+fts_search_args_expand_language_top_level(struct fts_backend *backend)
+{
+	const char *setting = mail_user_plugin_getenv(
+		backend->ns->user, STOPWORDS_WORKAROUND_KEY);
+
+	if (setting != NULL) {
+		if (strcasecmp(setting, "no") == 0) return FALSE;
+		if (strcasecmp(setting, "yes") == 0) return TRUE;
+		/* otherwise we imply auto */
+	}
+
+	struct fts_user_language *lang;
+	const ARRAY_TYPE(fts_user_language) *languages =
+		fts_user_get_all_languages(backend->ns->user);
+
+	unsigned int langs_count = 0;
+	bool stopwords = FALSE;
+	array_foreach_elem(languages, lang) {
+		if (strcmp(lang->lang->name, "data") == 0)
+			continue;
+
+		if (fts_lang_has_stopwords(lang))
+			stopwords = TRUE;
+
+		if (stopwords && ++langs_count > 1)
+			return TRUE;
+	}
+	return FALSE;
 }
 
 int fts_search_args_expand(struct fts_backend *backend,
@@ -242,8 +402,16 @@ int fts_search_args_expand(struct fts_backend *backend,
 	   anything */
 	args_dup = mail_search_arg_dup(args->pool, args->args);
 
-	if (fts_search_args_expand_tree(backend, args->pool, &args_dup) < 0)
-		return -1;
+	if (fts_search_args_expand_language_top_level(backend)) {
+		if (fts_search_args_expand_languages(
+			backend, args->pool, &args_dup) < 0)
+			return -1;
+	} else {
+		if (fts_search_args_expand_tree(
+			backend, args->pool, NULL, BOTTOM_LANGUAGE_EXPANSION,
+			&args_dup) < 0)
+			return -1;
+	}
 
 	/* we'll need to re-simplify the args if we changed anything */
 	args->simplified = FALSE;
