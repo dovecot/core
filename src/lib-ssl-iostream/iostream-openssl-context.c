@@ -14,6 +14,10 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
+#ifndef HAVE_EVP_PKEY_get0_DH
+#  define EVP_PKEY_get0_DH(x) ((x)->pkey.dh)
+#endif
+
 struct ssl_iostream_password_context {
 	const char *password;
 	const char *error;
@@ -22,6 +26,7 @@ struct ssl_iostream_password_context {
 static bool ssl_global_initialized = FALSE;
 int dovecot_ssl_extdata_index;
 
+#ifdef HAVE_SSL_CTX_set_tmp_rsa_callback
 static RSA *ssl_gen_rsa_key(SSL *ssl ATTR_UNUSED,
 			    int is_export ATTR_UNUSED, int keylength)
 {
@@ -40,7 +45,9 @@ static RSA *ssl_gen_rsa_key(SSL *ssl ATTR_UNUSED,
 		RSA_free(rsa);
 	return NULL;
 }
+#endif
 
+#ifdef HAVE_SSL_CTX_set_tmp_dh_callback
 static DH *ssl_tmp_dh_callback(SSL *ssl,
 			       int is_export ATTR_UNUSED, int keylength ATTR_UNUSED)
 {
@@ -51,6 +58,7 @@ static DH *ssl_tmp_dh_callback(SSL *ssl,
 		"but no DH parameters provided. Set ssl_dh=</path/to/dh.pem");
 	return NULL;
 }
+#endif
 
 static int
 pem_password_callback(char *buf, int size, int rwflag ATTR_UNUSED,
@@ -127,6 +135,12 @@ int openssl_iostream_load_dh(const struct ssl_iostream_settings *set,
 		return -1;
 	}
 
+#ifdef HAVE_PEM_read_bio_Parameters
+	if ((pkey = PEM_read_bio_Parameters(bio, &pkey)) == NULL) {
+		*error_r = t_strdup_printf("Couldn't parse DH parameters: %s",
+					   openssl_iostream_error());
+	}
+#else
 	DH *dh = NULL;
 	dh = PEM_read_bio_DHparams(bio, &dh, NULL, NULL);
 
@@ -138,6 +152,7 @@ int openssl_iostream_load_dh(const struct ssl_iostream_settings *set,
 		EVP_PKEY_set1_DH(pkey, dh);
 		DH_free(dh);
 	}
+#endif
 	BIO_free(bio);
 	*pkey_r = pkey;
 	return pkey == NULL ? -1 : 0;
@@ -175,8 +190,12 @@ ssl_iostream_ctx_use_dh(struct ssl_iostream_context *ctx,
 	}
 	if (openssl_iostream_load_dh(set, &pkey_dh, error_r) < 0)
 		return -1;
+#ifdef HAVE_SSL_CTX_set0_tmp_dh_pkey
+	if (SSL_CTX_set0_tmp_dh_pkey(ctx->ssl_ctx, pkey_dh) == 0)
+#else
 	DH *dh = EVP_PKEY_get0_DH(pkey_dh);
 	if (SSL_CTX_set_tmp_dh(ctx->ssl_ctx, dh) == 0)
+#endif
 	{
 		 *error_r = t_strdup_printf(
 			"Can't load DH parameters (ssl_dh setting): %s",
@@ -498,10 +517,14 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 				const struct ssl_iostream_settings *set ATTR_UNUSED,
 				const char **error_r ATTR_UNUSED)
 {
+#ifdef HAVE_SSL_CTX_set_tmp_rsa_callback
 	if (SSL_CTX_need_tmp_RSA(ssl_ctx) != 0)
 		SSL_CTX_set_tmp_rsa_callback(ssl_ctx, ssl_gen_rsa_key);
+#endif
+#ifdef HAVE_SSL_CTX_set_tmp_dh_callback
 	if (set->dh == NULL || *set->dh == '\0')
 		SSL_CTX_set_tmp_dh_callback(ssl_ctx, ssl_tmp_dh_callback);
+#endif
 #ifndef OPENSSL_NO_ECDH
 	/* In the non-recommended situation where ECDH cipher suites are being
 	   used instead of ECDHE, do not reuse the same ECDH key pair for

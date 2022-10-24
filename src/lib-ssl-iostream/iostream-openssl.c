@@ -802,7 +802,11 @@ openssl_iostream_get_peer_name(struct ssl_iostream *ssl_io)
 	if (!ssl_iostream_has_valid_client_cert(ssl_io))
 		return NULL;
 
+#ifdef HAVE_SSL_get1_peer_certificate
+	x509 = SSL_get1_peer_certificate(ssl_io->ssl);
+#else
 	x509 = SSL_get_peer_certificate(ssl_io->ssl);
+#endif
 	i_assert(x509 != NULL);
 
 	len = X509_NAME_get_text_by_NID(X509_get_subject_name(x509),

@@ -19,6 +19,14 @@
 #  define TLS_MAX_VERSION 0
 #endif
 
+#ifdef HAVE_ERR_get_error_all
+# define openssl_get_error_data(data, flags) \
+	ERR_get_error_all(NULL, NULL, NULL, data, flags)
+#else
+# define openssl_get_error_data(data, flags) \
+	ERR_get_error_line_data(NULL, NULL, data, flags)
+#endif
+
 /* openssl_min_protocol_to_options() scans this array for name and returns
    version and opt. opt is used with SSL_set_options() and version is used with
    SSL_set_min_proto_version(). Using either method should enable the same
@@ -69,7 +77,11 @@ bool openssl_cert_match_name(SSL *ssl, const char *verify_name,
 
 	*reason_r = NULL;
 
+#ifdef HAVE_SSL_get1_peer_certificate
+	cert = SSL_get1_peer_certificate(ssl);
+#else
 	cert = SSL_get_peer_certificate(ssl);
+#endif
 	i_assert(cert != NULL);
 
 	char *peername;
@@ -120,7 +132,7 @@ const char *openssl_iostream_error(void)
 	const char *data, *final_error;
 	int flags;
 
-	while ((err = ERR_get_error_line_data(NULL, NULL, &data, &flags)) != 0) {
+	while ((err = openssl_get_error_data(&data, &flags)) != 0) {
 		if (ERR_GET_REASON(err) == ERR_R_MALLOC_FAILURE)
 			i_fatal_status(FATAL_OUTOFMEM, "OpenSSL malloc() failed");
 		if (ERR_peek_error() == 0)

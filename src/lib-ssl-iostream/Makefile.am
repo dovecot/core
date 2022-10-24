@@ -5,7 +5,8 @@ NOPLUGIN_LDFLAGS =
 AM_CPPFLAGS = \
 	-I$(top_srcdir)/src/lib \
 	-I$(top_srcdir)/src/lib-test \
-	-DMODULE_DIR=\""$(moduledir)"\"
+	-DMODULE_DIR=\""$(moduledir)"\" \
+	$(SSL_CFLAGS)
 
 module_LTLIBRARIES = libssl_iostream_openssl.la
 
