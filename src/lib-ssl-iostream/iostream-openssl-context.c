@@ -205,7 +205,7 @@ static int ssl_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
 		ret = 0;
 
 	if (ret != 0) {
-#ifdef HAVE_SSL_CTX_SET_CURRENT_CERT
+#ifdef HAVE_SSL_CTX_set_current_cert
 		SSL_CTX_select_current_cert(ctx, x);
 #endif
 		/* If we could set up our certificate, now proceed to
@@ -234,7 +234,7 @@ static int ssl_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
 end:
 	if (x != NULL) X509_free(x);
 	BIO_free(in);
-#ifdef HAVE_SSL_CTX_SET_CURRENT_CERT
+#ifdef HAVE_SSL_CTX_set_current_cert
 	SSL_CTX_set_current_cert(ctx, SSL_CERT_SET_FIRST);
 #endif
 	return ret;
@@ -412,7 +412,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			set->curve_list);
 		return -1;
 	}
-#ifdef HAVE_SSL_CTX_SET_CIPHERSUITES
+#ifdef HAVE_SSL_CTX_set_ciphersuites
 	if (set->ciphersuites != NULL &&
 	    SSL_CTX_set_ciphersuites(ctx->ssl_ctx, set->ciphersuites) == 0) {
 		*error_r = t_strdup_printf("Can't set ciphersuites to '%s': %s",
@@ -434,7 +434,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 					set->min_protocol);
 			return -1;
 		}
-#ifdef HAVE_SSL_CTX_SET_MIN_PROTO_VERSION
+#ifdef HAVE_SSL_CTX_SET_min_proto_version
 		SSL_CTX_set_min_proto_version(ctx->ssl_ctx, min_protocol);
 #else
 		SSL_CTX_set_options(ctx->ssl_ctx, opts);

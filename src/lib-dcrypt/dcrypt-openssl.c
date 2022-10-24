@@ -73,21 +73,23 @@
   2<tab>key algo oid<tab>1<tab>symmetric algo name<tab>salt<tab>hash algo<tab>rounds<tab>E(RSA = i2d_PrivateKey, EC=Private Point)<tab>key id
 **/
 
-#ifndef HAVE_EVP_PKEY_get0
+#ifndef HAVE_EVP_PKEY_get0_EC_KEY
 #define EVP_PKEY_get0_EC_KEY(x) x->pkey.ec
+#endif
+#ifndef HAVE_EVP_PKEY_get0_RSA
 #define EVP_PKEY_get0_RSA(x) x->pkey.rsa
 #endif
 
-#ifndef HAVE_OBJ_LENGTH
+#ifndef HAVE_OBJ_length
 #define OBJ_length(o) ((o)->length)
 #endif
 
-#ifndef HAVE_EVP_MD_CTX_NEW
+#ifndef HAVE_EVP_MD_CTX_new
 #  define EVP_MD_CTX_new() EVP_MD_CTX_create()
 #  define EVP_MD_CTX_free(ctx) EVP_MD_CTX_destroy(ctx)
 #endif
 
-#ifndef HAVE_HMAC_CTX_NEW
+#ifndef HAVE_HMAC_CTX_new
 #  define HMAC_Init_ex(ctx, key, key_len, md, impl) \
 	HMAC_Init_ex(&(ctx), key, key_len, md, impl)
 #  define HMAC_Update(ctx, data, len) HMAC_Update(&(ctx), data, len)
@@ -99,7 +101,7 @@
 #endif
 
 /* Not always present */
-#ifndef HAVE_BN_SECURE_NEW
+#ifndef HAVE_BN_secure_new
 #  define BN_secure_new BN_new
 #endif
 
@@ -125,7 +127,7 @@ struct dcrypt_context_symmetric {
 struct dcrypt_context_hmac {
 	pool_t pool;
 	const EVP_MD *md;
-#ifdef HAVE_HMAC_CTX_NEW
+#ifdef HAVE_HMAC_CTX_new
 	HMAC_CTX *ctx;
 #else
 	HMAC_CTX ctx;
@@ -627,7 +629,7 @@ dcrypt_openssl_ctx_hmac_init(struct dcrypt_context_hmac *ctx,
 	int ec;
 
 	i_assert(ctx->md != NULL);
-#ifdef HAVE_HMAC_CTX_NEW
+#ifdef HAVE_HMAC_CTX_new
 	ctx->ctx = HMAC_CTX_new();
 	if (ctx->ctx == NULL)
 		return dcrypt_openssl_error(error_r);
@@ -1593,7 +1595,7 @@ static bool load_jwk_ec_key(EVP_PKEY **key_r, bool want_private_key,
 }
 
 /* RSA helpers */
-#if !defined(HAVE_RSA_SET0_KEY)
+#if !defined(HAVE_RSA_set0_key)
 static int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d)
 {
 	if (n == NULL || e == NULL) {
@@ -1609,7 +1611,7 @@ static int RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d)
 	return 1;
 }
 #endif
-#if !defined(HAVE_RSA_SET0_FACTORS)
+#if !defined(HAVE_RSA_set0_factors)
 static int RSA_set0_factors(RSA *r, BIGNUM *p, BIGNUM *q)
 {
 	if (p == NULL || q == NULL) {
@@ -1623,7 +1625,7 @@ static int RSA_set0_factors(RSA *r, BIGNUM *p, BIGNUM *q)
 	return 1;
 }
 #endif
-#if !defined(HAVE_RSA_SET0_CRT_PARAMS)
+#if !defined(HAVE_RSA_set0_crt_params)
 static int RSA_set0_crt_params(RSA *r, BIGNUM *dmp1, BIGNUM *dmq1, BIGNUM *iqmp)
 {
 	if (dmp1 == NULL || dmq1 == NULL || iqmp == NULL) {
@@ -3123,7 +3125,7 @@ dcrypt_openssl_digest(const char *algorithm, const void *data, size_t data_len,
 	return ret;
 }
 
-#ifndef HAVE_ECDSA_SIG_GET0
+#ifndef HAVE_ECDSA_SIG_get0
 static void ECDSA_SIG_get0(const ECDSA_SIG *sig, const BIGNUM **pr, const BIGNUM **ps)
 {
 	i_assert(sig != NULL);
@@ -3131,7 +3133,7 @@ static void ECDSA_SIG_get0(const ECDSA_SIG *sig, const BIGNUM **pr, const BIGNUM
 	*ps = sig->s;
 }
 #endif
-#ifndef HAVE_ECDSA_SIG_SET0
+#ifndef HAVE_ECDSA_SIG_set0
 static int ECDSA_SIG_set0(ECDSA_SIG *sig, BIGNUM *r, BIGNUM *s)
 {
 	if (sig == NULL || r == NULL || s == NULL) {

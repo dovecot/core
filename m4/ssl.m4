@@ -1,3 +1,25 @@
+dnl DOVECOT_CHECK_SSL_FUNC(function)
+AC_DEFUN([DOVECOT_CHECK_SSL_FUNC], [
+   AC_CHECK_DECL([$1], AC_DEFINE(HAVE_$1,, [Define if you have $1]),,
+[[#include <openssl/opensslv.h>
+#include <openssl/pem.h>
+#include <openssl/evp.h>
+#include <openssl/rsa.h>
+#include <openssl/ec.h>
+#include <openssl/ssl.h>
+#include <openssl/hmac.h>
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+#include <openssl/encoder.h>
+#include <openssl/decoder.h>
+#include <openssl/params.h>
+#include <openssl/provider.h>
+#include <openssl/core.h>
+#endif
+#include <openssl/objects.h>
+#include <openssl/err.h>
+]])
+])
+
 AC_DEFUN([DOVECOT_SSL], [
   build_dcrypt_openssl=no
   have_openssl=no
@@ -34,28 +56,10 @@ AC_DEFUN([DOVECOT_SSL], [
     AC_MSG_ERROR([OpenSSL v1.0.2 or better required to build Dovecot])
   ])
 
-  dnl * SSL_clear_options introduced in openssl 0.9.8m but may be backported to
-  dnl * older versions in "enterprise" OS releases; originally implemented as a
-  dnl * macro but as a function in more recent openssl versions
-  AC_CACHE_CHECK([whether SSL_clear_options exists],i_cv_have_ssl_clear_options,[
-    old_LIBS=$LIBS
-    LIBS="$LIBS -lssl"
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-      #include <openssl/ssl.h>
-    ]], [[
-      SSL *ssl;
-      long options;
-      SSL_clear_options(ssl, options);
-    ]])], [
-      i_cv_have_ssl_clear_options=yes
-    ],[
-      i_cv_have_ssl_clear_options=no
-    ])
-    LIBS=$old_LIBS
-  ])
-  AS_IF([test $i_cv_have_ssl_clear_options = yes], [
-    AC_DEFINE(HAVE_SSL_CLEAR_OPTIONS,, [Define if you have SSL_clear_options])
-  ])
+  SSL_CFLAGS="$SSL_CFLAGS -DOPENSSL_NO_DEPRECATED -DOPENSSL_API_COMPAT=0x1000200L"
+
+  old_CFLAGS="$CFLAGS"
+  CFLAGS="$old_CFLAGS $SSL_CFLAGS"
 
   dnl * New style mem functions? Should be in v1.1+
   AC_CACHE_CHECK([whether CRYPTO_set_mem_functions has new style parameters],i_cv_have_ssl_new_mem_funcs,[
@@ -79,95 +83,45 @@ AC_DEFUN([DOVECOT_SSL], [
     AC_DEFINE(HAVE_SSL_NEW_MEM_FUNCS,, [Define if CRYPTO_set_mem_functions has new style parameters])
   ])
 
-  dnl * SSL_CTX_set_min_proto_version is also a macro so AC_CHECK_LIB fails here.
-  AC_CACHE_CHECK([whether SSL_CTX_set_min_proto_version exists],i_cv_have_ssl_ctx_set_min_proto_version,[
-    old_LIBS=$LIBS
-    LIBS="$LIBS -lssl"
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-      #include <openssl/ssl.h>
-    ]], [[
-      SSL_CTX_set_min_proto_version((void*)0, 0);
-    ]])],[
-      i_cv_have_ssl_ctx_set_min_proto_version=yes
-    ],[
-      i_cv_have_ssl_ctx_set_min_proto_version=no
-    ])
-    LIBS=$old_LIBS
-  ])
-  AS_IF([test $i_cv_have_ssl_ctx_set_min_proto_version = yes], [
-    AC_DEFINE(HAVE_SSL_CTX_SET_MIN_PROTO_VERSION,, [Define if you have SSL_CTX_set_min_proto_version])
-  ])
+  DOVECOT_CHECK_SSL_FUNC([ASN1_STRING_get0_data])
+  DOVECOT_CHECK_SSL_FUNC([BN_secure_new])
+  DOVECOT_CHECK_SSL_FUNC([ECDSA_SIG_get0])
+  DOVECOT_CHECK_SSL_FUNC([ECDSA_SIG_set0])
+  DOVECOT_CHECK_SSL_FUNC([EC_GROUP_order_bits])
+  DOVECOT_CHECK_SSL_FUNC([ERR_get_error_all])
+  DOVECOT_CHECK_SSL_FUNC([ERR_get_error_line_data])
+  DOVECOT_CHECK_SSL_FUNC([ERR_remove_state])
+  DOVECOT_CHECK_SSL_FUNC([ERR_remove_thread_state])
+  DOVECOT_CHECK_SSL_FUNC([EVP_EC_gen])
+  DOVECOT_CHECK_SSL_FUNC([EVP_MAC_CTX_new])
+  DOVECOT_CHECK_SSL_FUNC([EVP_MD_CTX_new])
+  DOVECOT_CHECK_SSL_FUNC([EVP_PKEY_get0_RSA])
+  DOVECOT_CHECK_SSL_FUNC([EVP_PKEY_get0_EC_KEY])
+  DOVECOT_CHECK_SSL_FUNC([EVP_PKEY_get0_DH])
+  DOVECOT_CHECK_SSL_FUNC([EVP_PKEY_set1_encoded_public_key])
+  DOVECOT_CHECK_SSL_FUNC([EVP_PKEY_EC])
+  DOVECOT_CHECK_SSL_FUNC([HMAC_CTX_init])
+  DOVECOT_CHECK_SSL_FUNC([HMAC_CTX_new])
+  DOVECOT_CHECK_SSL_FUNC([OBJ_cleanup])
+  DOVECOT_CHECK_SSL_FUNC([OBJ_length])
+  DOVECOT_CHECK_SSL_FUNC([OPENSSL_cleanup])
+  DOVECOT_CHECK_SSL_FUNC([OPENSSL_init_ssl])
+  DOVECOT_CHECK_SSL_FUNC([OPENSSL_thread_stop])
+  DOVECOT_CHECK_SSL_FUNC([OSSL_PROVIDER_try_load])
+  DOVECOT_CHECK_SSL_FUNC([PEM_read_bio_Parameters])
+  DOVECOT_CHECK_SSL_FUNC([RSA_set0_crt_params])
+  DOVECOT_CHECK_SSL_FUNC([RSA_set0_factors])
+  DOVECOT_CHECK_SSL_FUNC([RSA_set0_key])
+  DOVECOT_CHECK_SSL_FUNC([SSL_CIPHER_get_kx_nid])
+  DOVECOT_CHECK_SSL_FUNC([SSL_clear_options])
+  DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set0_tmp_dh_pkey])
+  DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_ciphersuites])
+  DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_current_cert])
+  DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_min_proto_version])
+  DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_tmp_dh_callback])
+  DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_tmp_rsa_callback])
+  DOVECOT_CHECK_SSL_FUNC([SSL_get1_peer_certificate])
+  DOVECOT_CHECK_SSL_FUNC([SSL_load_error_strings])
 
-  dnl * SSL_CTX_set_current_cert is also a macro so AC_CHECK_LIB fails here.
-  AC_CACHE_CHECK([whether SSL_CTX_set_current_cert exists],i_cv_have_ssl_ctx_set_current_cert,[
-    old_LIBS=$LIBS
-    LIBS="$LIBS -lssl"
-    AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-      #include <openssl/ssl.h>
-    ]], [[
-      SSL_CTX_set_current_cert((void*)0, 0);
-    ]])],[
-      i_cv_have_ssl_ctx_set_current_cert=yes
-    ],[
-      i_cv_have_ssl_ctx_set_current_cert=no
-    ])
-    LIBS=$old_LIBS
-  ])
-  AS_IF([test $i_cv_have_ssl_ctx_set_current_cert = yes], [
-    AC_DEFINE(HAVE_SSL_CTX_SET_CURRENT_CERT,, [Define if you have SSL_CTX_set_current_cert])
-  ])
-
-
-  AC_CHECK_LIB(ssl, SSL_CIPHER_get_kx_nid, [
-    AC_DEFINE(HAVE_SSL_CIPHER_get_kx_nid,, [Define if you have SSL_CIPHER_get_kx_nid])
-  ],, $SSL_LIBS)
-
-  AC_CHECK_LIB(ssl, ERR_remove_thread_state, [
-    AC_DEFINE(HAVE_OPENSSL_ERR_REMOVE_THREAD_STATE,, [Define if you have ERR_remove_thread_state])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, OPENSSL_thread_stop, [
-    AC_DEFINE(HAVE_OPENSSL_AUTO_THREAD_DEINIT,, [Define if OpenSSL performs thread cleanup automatically])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, OPENSSL_cleanup, [
-    AC_DEFINE(HAVE_OPENSSL_CLEANUP,, [OpenSSL supports OPENSSL_cleanup()])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, ASN1_STRING_get0_data, [
-    AC_DEFINE(HAVE_ASN1_STRING_GET0_DATA,, [Build with ASN1_STRING_get0_data() support])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, HMAC_CTX_new, [
-    AC_DEFINE(HAVE_HMAC_CTX_NEW,, [Build with HMAC_CTX_new() support])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, EVP_MD_CTX_new, [
-    AC_DEFINE(HAVE_EVP_MD_CTX_NEW,, [Build with EVP_MD_CTX_new() support])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, OBJ_length, [
-    AC_DEFINE(HAVE_OBJ_LENGTH,, [Build with OBJ_length() support])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, EVP_PKEY_get0_RSA, [
-    AC_DEFINE(HAVE_EVP_PKEY_get0,, [Build with EVP_PKEY_get0_*() support])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, SSL_CTX_set_ciphersuites, [
-    AC_DEFINE(HAVE_SSL_CTX_SET_CIPHERSUITES,, [Build with SSL_CTX_set_ciphersuites() support])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, BN_secure_new, [
-    AC_DEFINE(HAVE_BN_SECURE_NEW,, [Build with BN_secure_new support])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, RSA_set0_key, [
-    AC_DEFINE(HAVE_RSA_SET0_KEY,, [Build with RSA_set0_key support])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, RSA_set0_factors, [
-    AC_DEFINE(HAVE_RSA_SET0_FACTORS,, [Build with RSA_set0_factors support])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, RSA_set0_crt_params, [
-    AC_DEFINE(HAVE_RSA_SET0_CRT_PARAMS,, [Build with RSA_set0_crt_params support])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, ECDSA_SIG_get0, [
-    AC_DEFINE(HAVE_ECDSA_SIG_GET0,, [Build with ECDSA_SIG_get0 support])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, ECDSA_SIG_set0, [
-    AC_DEFINE(HAVE_ECDSA_SIG_SET0,, [Build with ECDSA_SIG_set0 support])
-  ],, $SSL_LIBS)
-  AC_CHECK_LIB(ssl, EC_GROUP_order_bits, [
-    AC_DEFINE(HAVE_EC_GROUP_order_bits,, [Build with EC_GROUP_order_bits support])
-  ],, $SSL_LIBS)
+  CFLAGS="$old_CFLAGS"
 ])

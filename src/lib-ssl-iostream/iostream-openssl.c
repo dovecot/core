@@ -190,7 +190,7 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 			return -1;
 		}
 	}
-#ifdef HAVE_SSL_CTX_SET_CIPHERSUITES
+#ifdef HAVE_SSL_CTX_set_ciphersuites
         if (set->ciphersuites != NULL &&
 	    strcmp(ctx_set->ciphersuites, set->ciphersuites) != 0) {
 		if (SSL_set_ciphersuites(ssl_io->ssl, set->ciphersuites) == 0) {
@@ -204,7 +204,7 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 	if (set->prefer_server_ciphers)
 		SSL_set_options(ssl_io->ssl, SSL_OP_CIPHER_SERVER_PREFERENCE);
 	if (set->min_protocol != NULL) {
-#if defined(HAVE_SSL_CLEAR_OPTIONS)
+#if defined(HAVE_SSL_clear_options)
 		SSL_clear_options(ssl_io->ssl, OPENSSL_ALL_PROTOCOL_OPTIONS);
 #endif
 		long opts;
@@ -216,7 +216,7 @@ openssl_iostream_set(struct ssl_iostream *ssl_io,
 					set->min_protocol);
 			return -1;
 		}
-#ifdef HAVE_SSL_CTX_SET_MIN_PROTO_VERSION
+#ifdef HAVE_SSL_CTX_set_min_proto_version
 		SSL_set_min_proto_version(ssl_io->ssl, min_protocol);
 #else
 		SSL_set_options(ssl_io->ssl, opts);
