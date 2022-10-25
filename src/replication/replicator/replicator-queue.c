@@ -174,8 +174,8 @@ void replicator_queue_update(struct replicator_queue *queue ATTR_UNUSED,
 			     struct replicator_user *user,
 			     enum replication_priority priority)
 {
-	if (user->priority > priority) {
-		/* user already has a higher priority than this */
+	if (user->priority >= priority) {
+		/* user already has at least this high priority */
 		return;
 	}
 	user->priority = priority;
