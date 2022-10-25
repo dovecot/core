@@ -92,14 +92,19 @@ cmd_replicator_init(struct doveadm_cmd_context *cctx)
 	return ctx;
 }
 
+static const char *time_formatted_hms(unsigned int secs)
+{
+	return t_strdup_printf("%02d:%02d:%02d", secs/3600,
+			       (secs/60)%60, secs%60);
+}
+
 static const char *time_ago(time_t t)
 {
 	int diff = ioloop_time - t;
 
 	if (t == 0)
 		return "-";
-	return t_strdup_printf("%02d:%02d:%02d", diff/3600,
-			       (diff/60)%60, diff%60);
+	return time_formatted_hms(diff);
 }
 
 static void cmd_replicator_status_overview(struct replicator_context *ctx)
@@ -132,6 +137,7 @@ static void cmd_replicator_status(struct doveadm_cmd_context *cctx)
 	struct replicator_context *ctx;
 	const char *line, *const *args;
 	time_t last_fast, last_full, last_success;
+	unsigned int next_secs;
 
 	ctx = cmd_replicator_init(cctx);
 	if (ctx->user_mask == NULL) {
@@ -147,6 +153,7 @@ static void cmd_replicator_status(struct doveadm_cmd_context *cctx)
 	doveadm_print_header_simple("full sync");
 	doveadm_print_header_simple("success sync");
 	doveadm_print_header_simple("failed");
+	doveadm_print_header_simple("next sync secs");
 
 	replicator_send(ctx, t_strdup_printf("STATUS\t%s\n",
 					     str_tabescape(ctx->user_mask)));
@@ -155,16 +162,18 @@ static void cmd_replicator_status(struct doveadm_cmd_context *cctx)
 			break;
 		T_BEGIN {
 			args = t_strsplit_tabescaped(line);
-			if (str_array_length(args) >= 5 &&
+			if (str_array_length(args) >= 6 &&
 			    str_to_time(args[2], &last_fast) == 0 &&
 			    str_to_time(args[3], &last_full) == 0 &&
-			    str_to_time(args[5], &last_success) == 0) {
+			    str_to_time(args[5], &last_success) == 0 &&
+			    str_to_uint(args[6], &next_secs) == 0) {
 				doveadm_print(args[0]);
 				doveadm_print(args[1]);
 				doveadm_print(time_ago(last_fast));
 				doveadm_print(time_ago(last_full));
 				doveadm_print(time_ago(last_success));
 				doveadm_print(args[4][0] == '0' ? "-" : "y");
+				doveadm_print(time_formatted_hms(next_secs));
 			}
 		} T_END;
 	}
