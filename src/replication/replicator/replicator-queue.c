@@ -140,9 +140,8 @@ replicator_queue_lookup(struct replicator_queue *queue, const char *username)
 	return hash_table_lookup(queue->user_hash, username);
 }
 
-static struct replicator_user *
-replicator_queue_add_int(struct replicator_queue *queue, const char *username,
-			 enum replication_priority priority)
+struct replicator_user *
+replicator_queue_get(struct replicator_queue *queue, const char *username)
 {
 	struct replicator_user *user;
 
@@ -151,33 +150,35 @@ replicator_queue_add_int(struct replicator_queue *queue, const char *username,
 		user = i_new(struct replicator_user, 1);
 		user->refcount = 1;
 		user->username = i_strdup(username);
+		user->last_update = ioloop_time;
 		hash_table_insert(queue->user_hash, user->username, user);
-	} else {
-		if (user->priority > priority) {
-			/* user already has a higher priority than this */
-			return user;
-		}
 		if (!user->popped)
-			priorityq_remove(queue->user_queue, &user->item);
+			priorityq_add(queue->user_queue, &user->item);
 	}
-	user->priority = priority;
-	user->last_update = ioloop_time;
-
-	if (!user->popped)
-		priorityq_add(queue->user_queue, &user->item);
 	return user;
 }
 
-struct replicator_user *
-replicator_queue_add(struct replicator_queue *queue, const char *username,
-		     enum replication_priority priority)
+void replicator_queue_update(struct replicator_queue *queue ATTR_UNUSED,
+			     struct replicator_user *user,
+			     enum replication_priority priority)
 {
-	struct replicator_user *user;
+	if (user->priority > priority) {
+		/* user already has a higher priority than this */
+		return;
+	}
+	user->priority = priority;
+	user->last_update = ioloop_time;
+}
 
-	user = replicator_queue_add_int(queue, username, priority);
+void replicator_queue_add(struct replicator_queue *queue,
+			  struct replicator_user *user)
+{
+	if (!user->popped) {
+		priorityq_remove(queue->user_queue, &user->item);
+		priorityq_add(queue->user_queue, &user->item);
+	}
 	if (queue->change_callback != NULL)
 		queue->change_callback(queue->change_context);
-	return user;
 }
 
 void replicator_queue_add_sync(struct replicator_queue *queue,
@@ -188,8 +189,8 @@ void replicator_queue_add_sync(struct replicator_queue *queue,
 	struct replicator_user *user;
 	struct replicator_sync_lookup *lookup;
 
-	user = replicator_queue_add_int(queue, username,
-					REPLICATION_PRIORITY_SYNC);
+	user = replicator_queue_get(queue, username);
+	replicator_queue_update(queue, user, REPLICATION_PRIORITY_SYNC);
 
 	lookup = array_append_space(&queue->sync_lookups);
 	lookup->user = user;
@@ -197,8 +198,7 @@ void replicator_queue_add_sync(struct replicator_queue *queue,
 	lookup->context = context;
 	lookup->wait_for_next_push = user->popped;
 
-	if (queue->change_callback != NULL)
-		queue->change_callback(queue->change_context);
+	replicator_queue_add(queue, user);
 }
 
 void replicator_queue_remove(struct replicator_queue *queue,
@@ -350,8 +350,7 @@ replicator_queue_import_line(struct replicator_queue *queue, const char *line)
 				return 0;
 		}
 	}
-	user = replicator_queue_add(queue, username,
-				    tmp_user.priority);
+	user->priority = tmp_user.priority;
 	user->last_update = tmp_user.last_update;
 	user->last_fast_sync = tmp_user.last_fast_sync;
 	user->last_full_sync = tmp_user.last_full_sync;
@@ -359,6 +358,7 @@ replicator_queue_import_line(struct replicator_queue *queue, const char *line)
 	user->last_sync_failed = tmp_user.last_sync_failed;
 	i_free(user->state);
 	user->state = i_strdup(state);
+	replicator_queue_add(queue, user);
 	return 0;
 }
 

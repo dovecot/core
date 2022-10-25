@@ -46,11 +46,16 @@ bool replicator_user_unref(struct replicator_user **user);
 /* Lookup an existing user */
 struct replicator_user *
 replicator_queue_lookup(struct replicator_queue *queue, const char *username);
-/* Add a user to queue and return it. If the user already exists, it's updated
-   only if the new priority is higher. */
+/* Lookup or create a user and return it. Afterwards replicator_queue_add()
+   must be called to add/move the user to the proper place in the queue. */
 struct replicator_user *
-replicator_queue_add(struct replicator_queue *queue, const char *username,
-		     enum replication_priority priority);
+replicator_queue_get(struct replicator_queue *queue, const char *username);
+/* Update user's priority, if it isn't already higher. */
+void replicator_queue_update(struct replicator_queue *queue,
+			     struct replicator_user *user,
+			     enum replication_priority priority);
+void replicator_queue_add(struct replicator_queue *queue,
+			  struct replicator_user *user);
 void replicator_queue_add_sync(struct replicator_queue *queue,
 			       const char *username,
 			       replicator_sync_callback_t *callback,

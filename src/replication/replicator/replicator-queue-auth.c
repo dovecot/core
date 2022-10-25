@@ -26,8 +26,9 @@ void replicator_queue_add_auth_users(struct replicator_queue *queue,
 	   full syncs for everyone whose state can't be found */
 	ctx = auth_master_user_list_init(auth_conn, usermask, &user_info);
 	while ((username = auth_master_user_list_next(ctx)) != NULL) {
-		user = replicator_queue_add(queue, username,
-					    REPLICATION_PRIORITY_NONE);
+		user = replicator_queue_get(queue, username);
+		replicator_queue_update(queue, user, REPLICATION_PRIORITY_NONE);
+		replicator_queue_add(queue, user);
 		user->last_update = last_update;
 	}
 	if (auth_master_user_list_deinit(&ctx) < 0)
