@@ -41,40 +41,62 @@ struct replicator_queue_iter {
 	struct hash_iterate_context *iter;
 };
 
+static unsigned int replicator_full_sync_interval = 0;
+static unsigned int replicator_failure_resync_interval = 0;
+
+static time_t replicator_user_next_sync_time(const struct replicator_user *user)
+{
+	/* The idea is that the higher the priority, the more likely it will
+	   be prioritized over low priority syncs. However, to avoid permanent
+	   starvation of lower priority users, the priority boost is only
+	   temporary.
+
+	   The REPLICATION_PRIORITY_*_SECS macros effectively specify how long
+	   lower priority requests are allowed to be waiting. */
+#define REPLICATION_PRIORITY_LOW_SECS (60*15)
+#define REPLICATION_PRIORITY_HIGH_SECS (60*30)
+#define REPLICATION_PRIORITY_SYNC_SECS (60*45)
+	/* When priority != none, user needs to be replicated ASAP.
+	   The question is just whether the queue is already busy and other
+	   users need to be synced even more faster. */
+	if (user->last_fast_sync == 0) {
+		/* User has never been synced yet. These will be replicated
+		   first. Still, try to replicate higher priority users faster
+		   than lower priority users. */
+		if (user->priority != REPLICATION_PRIORITY_NONE)
+			return REPLICATION_PRIORITY_SYNC - user->priority;
+	}
+	switch (user->priority) {
+	case REPLICATION_PRIORITY_NONE:
+		break;
+	case REPLICATION_PRIORITY_LOW:
+		i_assert(user->last_update >= REPLICATION_PRIORITY_LOW_SECS);
+		return user->last_update - REPLICATION_PRIORITY_LOW_SECS;
+	case REPLICATION_PRIORITY_HIGH:
+		i_assert(user->last_update >= REPLICATION_PRIORITY_HIGH_SECS);
+		return user->last_update - REPLICATION_PRIORITY_HIGH_SECS;
+	case REPLICATION_PRIORITY_SYNC:
+		i_assert(user->last_update >= REPLICATION_PRIORITY_HIGH_SECS);
+		return user->last_update - REPLICATION_PRIORITY_SYNC_SECS;
+	}
+	if (user->last_sync_failed) {
+		/* failures need to be retried at specific intervals */
+		return user->last_fast_sync +
+			replicator_failure_resync_interval;
+	}
+	/* full resyncs should be done at configured intervals */
+	return user->last_full_sync + replicator_full_sync_interval;
+}
+
 static int user_priority_cmp(const void *p1, const void *p2)
 {
 	const struct replicator_user *user1 = p1, *user2 = p2;
-
-	if (user1->priority > user2->priority)
+	time_t next_sync1 = replicator_user_next_sync_time(user1);
+	time_t next_sync2 = replicator_user_next_sync_time(user2);
+	if (next_sync1 < next_sync2)
 		return -1;
-	if (user1->priority < user2->priority)
+	if (next_sync1 > next_sync2)
 		return 1;
-
-	if (user1->priority != REPLICATION_PRIORITY_NONE) {
-		/* there is something to replicate */
-		if (user1->last_fast_sync < user2->last_fast_sync)
-			return -1;
-		if (user1->last_fast_sync > user2->last_fast_sync)
-			return 1;
-	} else if (user1->last_sync_failed != user2->last_sync_failed) {
-		/* resync failures first */
-		if (user1->last_sync_failed)
-			return -1;
-		else
-			return 1;
-	} else if (user1->last_sync_failed) {
-		/* both have failed. resync failures with fast-sync timestamp */
-		if (user1->last_fast_sync < user2->last_fast_sync)
-			return -1;
-		if (user1->last_fast_sync > user2->last_fast_sync)
-			return 1;
-	} else {
-		/* nothing to replicate, but do still periodic full syncs */
-		if (user1->last_full_sync < user2->last_full_sync)
-			return -1;
-		if (user1->last_full_sync > user2->last_full_sync)
-			return 1;
-	}
 	return 0;
 }
 
@@ -83,6 +105,15 @@ replicator_queue_init(unsigned int full_sync_interval,
 		      unsigned int failure_resync_interval)
 {
 	struct replicator_queue *queue;
+
+	/* priorityq callback needs to access these */
+	i_assert(replicator_full_sync_interval == 0 ||
+		 replicator_full_sync_interval == full_sync_interval);
+	replicator_full_sync_interval = full_sync_interval;
+	i_assert(replicator_failure_resync_interval == 0 ||
+		 replicator_failure_resync_interval == failure_resync_interval);
+	replicator_full_sync_interval = full_sync_interval;
+	replicator_failure_resync_interval = failure_resync_interval;
 
 	queue = i_new(struct replicator_queue, 1);
 	queue->full_sync_interval = full_sync_interval;
@@ -226,24 +257,12 @@ void replicator_queue_remove(struct replicator_queue *queue,
 		queue->change_callback(queue->change_context);
 }
 
-bool replicator_queue_want_sync_now(struct replicator_queue *queue,
-				    struct replicator_user *user,
+bool replicator_queue_want_sync_now(struct replicator_user *user,
 				    unsigned int *next_secs_r)
 {
-	time_t next_sync;
-
-	if (user->priority != REPLICATION_PRIORITY_NONE)
-		return TRUE;
-
-	if (user->last_sync_failed) {
-		next_sync = user->last_fast_sync +
-			queue->failure_resync_interval;
-	} else {
-		next_sync = user->last_full_sync + queue->full_sync_interval;
-	}
+	time_t next_sync = replicator_user_next_sync_time(user);
 	if (next_sync <= ioloop_time)
 		return TRUE;
-
 	*next_secs_r = next_sync - ioloop_time;
 	return FALSE;
 }
@@ -262,7 +281,7 @@ replicator_queue_pop(struct replicator_queue *queue,
 		return NULL;
 	}
 	user = (struct replicator_user *)item;
-	if (!replicator_queue_want_sync_now(queue, user, next_secs_r)) {
+	if (!replicator_queue_want_sync_now(user, next_secs_r)) {
 		/* we don't want to sync the user yet */
 		return NULL;
 	}

@@ -80,8 +80,7 @@ int replicator_queue_export(struct replicator_queue *queue, const char *path);
 
 /* Returns TRUE if user replication can be started now, FALSE if not. When
    returning FALSE, next_secs_r is set to user's next replication time. */
-bool replicator_queue_want_sync_now(struct replicator_queue *queue,
-				    struct replicator_user *user,
+bool replicator_queue_want_sync_now(struct replicator_user *user,
 				    unsigned int *next_secs_r);
 /* Iterate through all users in the queue. */
 struct replicator_queue_iter *
