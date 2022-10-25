@@ -56,10 +56,11 @@ void replicator_queue_update(struct replicator_queue *queue,
 			     enum replication_priority priority);
 void replicator_queue_add(struct replicator_queue *queue,
 			  struct replicator_user *user);
-void replicator_queue_add_sync(struct replicator_queue *queue,
-			       const char *username,
-			       replicator_sync_callback_t *callback,
-			       void *context);
+/* Call the callback when user with SYNC priority has finished syncing. */
+void replicator_queue_add_sync_callback(struct replicator_queue *queue,
+					struct replicator_user *user,
+					replicator_sync_callback_t *callback,
+					void *context);
 /* Remove user from replication queue and free it. */
 void replicator_queue_remove(struct replicator_queue *queue,
 			     struct replicator_user **user);

@@ -181,16 +181,14 @@ void replicator_queue_add(struct replicator_queue *queue,
 		queue->change_callback(queue->change_context);
 }
 
-void replicator_queue_add_sync(struct replicator_queue *queue,
-			       const char *username,
-			       replicator_sync_callback_t *callback,
-			       void *context)
+void replicator_queue_add_sync_callback(struct replicator_queue *queue,
+					struct replicator_user *user,
+					replicator_sync_callback_t *callback,
+					void *context)
 {
-	struct replicator_user *user;
 	struct replicator_sync_lookup *lookup;
 
-	user = replicator_queue_get(queue, username);
-	replicator_queue_update(queue, user, REPLICATION_PRIORITY_SYNC);
+	i_assert(user->priority == REPLICATION_PRIORITY_SYNC);
 
 	lookup = array_append_space(&queue->sync_lookups);
 	lookup->user = user;
