@@ -50,7 +50,7 @@ replicator_queue_lookup(struct replicator_queue *queue, const char *username);
    must be called to add/move the user to the proper place in the queue. */
 struct replicator_user *
 replicator_queue_get(struct replicator_queue *queue, const char *username);
-/* Update user's priority, if it isn't already higher. */
+/* Update user's priority if it's currently lower. */
 void replicator_queue_update(struct replicator_queue *queue,
 			     struct replicator_user *user,
 			     enum replication_priority priority);
