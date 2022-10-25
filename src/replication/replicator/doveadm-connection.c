@@ -46,7 +46,7 @@ static int client_input_status_overview(struct doveadm_connection *client)
 	while ((user = replicator_queue_iter_next(iter)) != NULL) {
 		if (user->priority != REPLICATION_PRIORITY_NONE)
 			pending_counts[user->priority]++;
-		else if (replicator_queue_want_sync_now(queue, user, &next_secs)) {
+		else if (replicator_queue_want_sync_now(user, &next_secs)) {
 			if (user->last_sync_failed)
 				pending_failed_count++;
 			else
