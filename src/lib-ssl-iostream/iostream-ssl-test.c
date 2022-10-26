@@ -141,12 +141,23 @@ static const char *test_server_key =
 	"z+M/zgztKqdrSKhr64g/3Dbbe+XqdeGe8MIx+P+QN+SrJNNaNZ1r\n"
 	"-----END RSA PRIVATE KEY-----\n";
 
+static const char *test_server_dh =
+	"-----BEGIN DH PARAMETERS-----\n"
+	"MIIBCAKCAQEA/muURoAR4sDHCMSibIwduxRDFA+rizt6TQC6OhNfZ6sOtX+mANdx\n"
+	"otSZIca/q37dQs34ph+/9AHnL3li7I9aUC9XzThFyq7eoKrMs9VlDlA0z1gc+gMG\n"
+	"FS+S4Dp4bjNmQ8lJz13+8CS6jKV2RVcqY5Qfjz4QYIk7bcF3PK8d/kJxnGtihhKh\n"
+	"90Cu4ZiMqpcvkfKRxommk9HvN9ceeHn5Heey2TdAQ9ngF43Z+g++DPt7lYiedh/X\n"
+	"N5SFUcR8ZRCzrccPhXIBUd9uZtgJTlxg2ZQ/WL0MKbJd+DeP/kUK+DPK+VDVUIwT\n"
+	"UE2GG5y3YCQ4i2PEahXYpaJGk6tn2oMd2wIBAg==\n"
+	"-----END DH PARAMETERS-----\n";
+
 void ssl_iostream_test_settings_server(struct ssl_iostream_settings *test_set)
 {
 	i_zero(test_set);
 	test_set->ca = test_ca_cert;
 	test_set->cert.cert = test_server_cert;
 	test_set->cert.key = test_server_key;
+	test_set->dh = test_server_dh;
 	test_set->skip_crl_check = TRUE;
 }
 
