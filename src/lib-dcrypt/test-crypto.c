@@ -1220,6 +1220,8 @@ static void test_jwk_keys(void)
 		str_append_c(pem, '\n');
 	test_assert_strcmp(str_c(pem), pem_key);
 
+	i_assert(pair.priv != NULL);
+
 	str_truncate(pem, 0);
 	test_assert(dcrypt_key_store_private(pair.priv, DCRYPT_FORMAT_JWK, NULL, pem, NULL, NULL, &error));
 	test_assert_strcmp(str_c(pem), jwk_key_json);

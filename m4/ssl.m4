@@ -56,7 +56,22 @@ AC_DEFUN([DOVECOT_SSL], [
     AC_MSG_ERROR([OpenSSL v1.0.2 or better required to build Dovecot])
   ])
 
-  SSL_CFLAGS="$SSL_CFLAGS -DOPENSSL_NO_DEPRECATED -DOPENSSL_API_COMPAT=0x1000200L"
+  AC_MSG_CHECKING([if OpenSSL version is 3.0.0 or better])
+
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+      #include <openssl/opensslv.h>
+      #if OPENSSL_VERSION_NUMBER < 0x30000000L
+      #error "fail-compile"
+      #endif]], [[ return 0; ]])],
+    [ssl_version_ge_300=true], [ssl_version_ge_300=false])
+  AC_MSG_RESULT([$ssl_version_ge_300])
+
+  AS_IF([test $ssl_version_ge_300 = true], [
+    SSL_CFLAGS="$SSL_CFLAGS -DOPENSSL_NO_DEPRECATED -DOPENSSL_API_COMPAT=30000 -DDOVECOT_USE_OPENSSL3"
+    dcrypt_openssl_ver=3
+  ], [
+    SSL_CFLAGS="$SSL_CFLAGS -DOPENSSL_NO_DEPRECATED -DOPENSSL_API_COMPAT=0x1000200L"
+  ])
 
   old_CFLAGS="$CFLAGS"
   CFLAGS="$old_CFLAGS $SSL_CFLAGS"

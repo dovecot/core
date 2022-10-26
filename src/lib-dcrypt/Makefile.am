@@ -19,7 +19,7 @@ libdcrypt_la_CFLAGS = $(AM_CPPFLAGS) \
 
 pkglib_LTLIBRARIES += libdcrypt_openssl.la
 
-libdcrypt_openssl_la_SOURCES = dcrypt-openssl1.c
+libdcrypt_openssl_la_SOURCES = dcrypt-openssl1.c dcrypt-openssl3.c
 libdcrypt_openssl_la_LDFLAGS = -module -avoid-version ../lib-ssl-iostream/libssl_iostream_openssl.la
 libdcrypt_openssl_la_LIBADD = $(SSL_LIBS)
 libdcrypt_openssl_la_DEPENDENCIES = ../lib-ssl-iostream/libssl_iostream_openssl.la
