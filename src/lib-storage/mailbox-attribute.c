@@ -364,6 +364,11 @@ mailbox_attribute_get_common(struct mailbox *box,
 	const struct mailbox_attribute_internal *iattr;
 	int ret;
 
+	if (key[0] == '\0') {
+		/* never exists, and may cause dict lookup errors */
+		return 0;
+	}
+
 	iattr = mailbox_internal_attribute_get(type_flags, key);
 
 	/* allow internal server attributes only for the inbox */
