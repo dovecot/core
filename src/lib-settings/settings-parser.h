@@ -1,6 +1,8 @@
 #ifndef SETTINGS_PARSER_H
 #define SETTINGS_PARSER_H
 
+#include "str-parse.h"
+
 struct var_expand_table;
 struct var_expand_func_table;
 
