@@ -1104,6 +1104,42 @@ static void test_sign_verify_ecdsa(void)
 	test_end();
 }
 
+static void test_sign_verify_x962(void)
+{
+	const char *error = NULL;
+	bool valid;
+	struct dcrypt_private_key *priv_key = NULL;
+	struct dcrypt_public_key *pub_key = NULL;
+
+	buffer_t *signature =
+		buffer_create_dynamic(pool_datastack_create(), 128);
+	const char *data = "signed data";
+
+	test_begin("sign and verify (x9.62)");
+	const char *key = "-----BEGIN PRIVATE KEY-----\n"
+"MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgZ4AMMyJ9XDl5lKM2\n"
+"vusbT1OQ6VzBWBkB3/4syovaKtyhRANCAAQHTR+6L2qMh5fdcMZF+Y1rctBsq8Oy\n"
+"7jZ4uV+MiuaoGNQ5sTxlcv6ETX/XrEDq4S/DUhFKzQ6u9VXYZImvRCT1\n"
+"-----END PRIVATE KEY-----";
+
+	test_assert(dcrypt_key_load_private(&priv_key,
+		key, NULL, NULL, &error));
+	if (priv_key == NULL)
+		i_fatal("%s", error);
+	dcrypt_key_convert_private_to_public(priv_key, &pub_key);
+	test_assert(dcrypt_sign(priv_key, "sha256", DCRYPT_SIGNATURE_FORMAT_X962,
+		data, strlen(data), signature, 0, &error));
+	/* verify signature */
+	test_assert(dcrypt_verify(pub_key, "sha256", DCRYPT_SIGNATURE_FORMAT_X962,
+		data, strlen(data), signature->data,
+		signature->used, &valid, 0, &error) && valid);
+
+	dcrypt_key_unref_public(&pub_key);
+	dcrypt_key_unref_private(&priv_key);
+
+	test_end();
+}
+
 static void test_static_verify_ecdsa(void)
 {
 	test_begin("static verify (ecdsa)");
@@ -1305,6 +1341,7 @@ int main(void)
 		test_jwk_keys,
 		test_sign_verify_rsa,
 		test_sign_verify_ecdsa,
+		test_sign_verify_x962,
 		test_static_verify_ecdsa,
 		test_static_verify_rsa,
 		test_static_verify_ecdsa_x962,
