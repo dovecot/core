@@ -305,7 +305,6 @@
  - ssl
     - add setting: ssl_options = bitmask. by default we enable all openssl
       workarounds, this could be used to disable some of them
-    - gnutls support isn't working
 
  - search
     - message header search: we should ignore LWSP between two MIME blocks(?)
