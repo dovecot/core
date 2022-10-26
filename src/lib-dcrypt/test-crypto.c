@@ -661,7 +661,8 @@ static void test_get_info_rsa_private_key(void)
 {
 	test_begin("test_get_info_rsa_private_key");
 
-	const char *key = "-----BEGIN RSA PRIVATE KEY-----\n"
+	const char *key =
+"-----BEGIN RSA PRIVATE KEY-----\n"
 "MIICXQIBAAKBgQC89q02I9NezBLQ+otn5XLYE7S+GsKUz59ogr45DA/6MI9jey0W\n"
 "56SeWQ1FJD1vDhAx/TRBMfOmhcIPsBjc5sakYOawPdoiqLjOIlO+iHwnbbmLuMsq\n"
 "ue09vgvZsKjuTr2F5DOFQY43Bq/Nd+4bjHJItdOM58+xwA2I/8vDbtI8jwIDAQAB\n"
@@ -1033,7 +1034,8 @@ static void test_sign_verify_rsa(void)
 	const char *data = "signed data";
 
 	test_begin("sign and verify (rsa)");
-	const char *key = "-----BEGIN PRIVATE KEY-----\n"
+	const char *key =
+"-----BEGIN PRIVATE KEY-----\n"
 "MIICdwIBADANBgkqhkiG9w0BAQEFAASCAmEwggJdAgEAAoGBALz2rTYj017MEtD6\n"
 "i2flctgTtL4awpTPn2iCvjkMD/owj2N7LRbnpJ5ZDUUkPW8OEDH9NEEx86aFwg+w\n"
 "GNzmxqRg5rA92iKouM4iU76IfCdtuYu4yyq57T2+C9mwqO5OvYXkM4VBjjcGr813\n"
@@ -1080,7 +1082,8 @@ static void test_sign_verify_ecdsa(void)
 	const char *data = "signed data";
 
 	test_begin("sign and verify (ecdsa)");
-	const char *key = "-----BEGIN PRIVATE KEY-----\n"
+	const char *key =
+"-----BEGIN PRIVATE KEY-----\n"
 "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgZ4AMMyJ9XDl5lKM2\n"
 "vusbT1OQ6VzBWBkB3/4syovaKtyhRANCAAQHTR+6L2qMh5fdcMZF+Y1rctBsq8Oy\n"
 "7jZ4uV+MiuaoGNQ5sTxlcv6ETX/XrEDq4S/DUhFKzQ6u9VXYZImvRCT1\n"
@@ -1116,7 +1119,8 @@ static void test_sign_verify_x962(void)
 	const char *data = "signed data";
 
 	test_begin("sign and verify (x9.62)");
-	const char *key = "-----BEGIN PRIVATE KEY-----\n"
+	const char *key =
+"-----BEGIN PRIVATE KEY-----\n"
 "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgZ4AMMyJ9XDl5lKM2\n"
 "vusbT1OQ6VzBWBkB3/4syovaKtyhRANCAAQHTR+6L2qMh5fdcMZF+Y1rctBsq8Oy\n"
 "7jZ4uV+MiuaoGNQ5sTxlcv6ETX/XrEDq4S/DUhFKzQ6u9VXYZImvRCT1\n"
@@ -1145,16 +1149,16 @@ static void test_static_verify_ecdsa(void)
 	test_begin("static verify (ecdsa)");
 	const char *input = "hello, world";
 	const char *priv_key_pem =
-	   "-----BEGIN PRIVATE KEY-----\n"
-	   "MGcCAQAwEwYHKoZIzj0CAQYIKoZIzj0DAQcETTBLAgEBBCC25AkD65uhlZXCAdwN\n"
-	   "yLJV2ui8A/CUyqyEMrezvwgMO6EkAyIAAybRUR3MsH0+0PQcDwkrXOJ9aePwzTQV\n"
-	   "DN51+n1JCxbI\n"
-	   "-----END PRIVATE KEY-----";
+"-----BEGIN PRIVATE KEY-----\n"
+"MGcCAQAwEwYHKoZIzj0CAQYIKoZIzj0DAQcETTBLAgEBBCC25AkD65uhlZXCAdwN\n"
+"yLJV2ui8A/CUyqyEMrezvwgMO6EkAyIAAybRUR3MsH0+0PQcDwkrXOJ9aePwzTQV\n"
+"DN51+n1JCxbI\n"
+"-----END PRIVATE KEY-----";
 	const char *pub_key_pem =
-	   "-----BEGIN PUBLIC KEY-----\n"
-	   "MDkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDIgADJtFRHcywfT7Q9BwPCStc4n1p4/DN\n"
-	   "NBUM3nX6fUkLFsg=\n"
-	   "-----END PUBLIC KEY-----";
+"-----BEGIN PUBLIC KEY-----\n"
+"MDkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDIgADJtFRHcywfT7Q9BwPCStc4n1p4/DN\n"
+"NBUM3nX6fUkLFsg=\n"
+"-----END PUBLIC KEY-----";
 
 	const unsigned char sig[] = {
 		0x30,0x45,0x02,0x20,0x2c,0x76,0x20,0x5e,0xfc,0xa6,0x9e,0x16,
@@ -1196,10 +1200,10 @@ static void test_jwk_keys(void)
 	  "\"d\":\"Po2z9rs86J2Qb_xWprr4idsWNPlgKf3G8-mftnE2ync\"}";
 	/* Acquired using another tool */
 	const char *pem_key =
-	  "-----BEGIN PUBLIC KEY-----\n"
-	  "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEKp0Y4+Wpt+D9t/2XenFIj0LmvaZB\n"
-	  "yLG69yOisek4aMLCMQ8HkGEflJE/DVwI3mCtassKmGtbX18IVHyntz07mg==\n"
-	  "-----END PUBLIC KEY-----\n";
+"-----BEGIN PUBLIC KEY-----\n"
+"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEKp0Y4+Wpt+D9t/2XenFIj0LmvaZB\n"
+"yLG69yOisek4aMLCMQ8HkGEflJE/DVwI3mCtassKmGtbX18IVHyntz07mg==\n"
+"-----END PUBLIC KEY-----\n";
 	test_begin("test_jwk_keys");
 	const char *error ATTR_UNUSED;
 	struct dcrypt_keypair pair;
@@ -1254,7 +1258,8 @@ static void test_static_verify_rsa(void)
 		0x7f,0xe5,0x66,0x6f,0xcd,0x2b,0x0c,0x02,0x2a,0x12,
 		0x96,0x86,0x66,0x00,0xff,0x12,0x8a,0x79
 	};
-	const char *key = "-----BEGIN PUBLIC KEY-----\n"
+	const char *key =
+"-----BEGIN PUBLIC KEY-----\n"
 "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC89q02I9NezBLQ+otn5XLYE7S+\n"
 "GsKUz59ogr45DA/6MI9jey0W56SeWQ1FJD1vDhAx/TRBMfOmhcIPsBjc5sakYOaw\n"
 "PdoiqLjOIlO+iHwnbbmLuMsque09vgvZsKjuTr2F5DOFQY43Bq/Nd+4bjHJItdOM\n"
