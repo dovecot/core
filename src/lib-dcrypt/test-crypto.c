@@ -1199,7 +1199,7 @@ static void test_jwk_keys(void)
 	  "-----BEGIN PUBLIC KEY-----\n"
 	  "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEKp0Y4+Wpt+D9t/2XenFIj0LmvaZB\n"
 	  "yLG69yOisek4aMLCMQ8HkGEflJE/DVwI3mCtassKmGtbX18IVHyntz07mg==\n"
-	  "-----END PUBLIC KEY-----";
+	  "-----END PUBLIC KEY-----\n";
 	test_begin("test_jwk_keys");
 	const char *error ATTR_UNUSED;
 	struct dcrypt_keypair pair;
@@ -1215,6 +1215,9 @@ static void test_jwk_keys(void)
 
 	/* make sure we got the right key */
 	test_assert(dcrypt_key_store_public(pair.pub, DCRYPT_FORMAT_PEM, pem, &error));
+	const char *pem_result = str_c(pem);
+	if (pem_result[strlen(pem_result)-1] != '\n')
+		str_append_c(pem, '\n');
 	test_assert_strcmp(str_c(pem), pem_key);
 
 	str_truncate(pem, 0);
