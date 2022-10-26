@@ -7,7 +7,7 @@
 #include "hex-binary.h"
 #include "sql-api-private.h"
 #include "strfuncs.h"
-#include "settings-parser.h"
+#include "str-parse.h"
 
 #ifdef BUILD_SQLITE
 #include <sqlite3.h>
@@ -112,7 +112,7 @@ static int driver_sqlite_parse_connect_string(struct sqlite_db *db,
 				return -1;
 			}
 		} else if (str_begins(*params, "readonly=", &arg)) {
-			 if (settings_get_bool(arg, &val, error_r) < 0) {
+			 if (str_parse_get_bool(arg, &val, error_r) < 0) {
 				*error_r = t_strdup_printf("readonly: %s", *error_r);
 				return -1;
 			}

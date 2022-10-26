@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "str.h"
+#include "str-parse.h"
 #include "settings-parser.h"
 #include "config-parser-private.h"
 #include "old-set-parser.h"
@@ -295,7 +296,7 @@ old_settings_handle_root(struct config_parser_context *ctx,
 	if (strcmp(key, "auth_debug") == 0) {
 		const char *error ATTR_UNUSED;
 		bool auth_debug;
-		if (settings_get_bool(value, &auth_debug, &error) == 0 &&
+		if (str_parse_get_bool(value, &auth_debug, &error) == 0 &&
 		    auth_debug)
 			ctx->old->post_auth_debug = auth_debug;
 		obsolete(ctx, "%s will be removed in a future version%s",
@@ -317,7 +318,7 @@ old_settings_handle_root(struct config_parser_context *ctx,
 	if (strcmp(key, "disable_plaintext_auth") == 0) {
 		const char *error;
 		bool b;
-		if (settings_get_bool(value, &b, &error) < 0)
+		if (str_parse_get_bool(value, &b, &error) < 0)
 			i_fatal("%s has bad value '%s': %s", key, value, error);
 		obsolete(ctx, "%s = %s has been replaced with auth_allow_cleartext = %s",
 			 key, value, b ? "no" : "yes");

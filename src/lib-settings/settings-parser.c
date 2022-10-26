@@ -299,17 +299,11 @@ setting_define_find(const struct setting_parser_info *info, const char *key)
 	return NULL;
 }
 
-int settings_get_bool(const char *value, bool *result_r,
-		      const char **error_r)
-{
-	return str_parse_get_bool(value, result_r, error_r);
-}
-
 static int
 get_bool(struct setting_parser_context *ctx, const char *value, bool *result_r)
 {
 	int ret;
-	if ((ret = settings_get_bool(value, result_r, &ctx->error)) < 0)
+	if ((ret = str_parse_get_bool(value, result_r, &ctx->error)) < 0)
 		ctx->error = p_strdup(ctx->parser_pool, ctx->error);
 	return ret;
 }

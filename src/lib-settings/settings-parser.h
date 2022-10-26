@@ -276,9 +276,6 @@ int settings_get_time(const char *str, unsigned int *secs_r,
 /* Parse time interval string, return as milliseconds. */
 int settings_get_time_msecs(const char *str, unsigned int *msecs_r,
 			    const char **error_r);
-/* Parse boolean string, return as boolean */
-int settings_get_bool(const char *value, bool *result_r,
-		      const char **error_r);
 
 void set_config_binary(bool value);
 bool is_config_binary(void);
