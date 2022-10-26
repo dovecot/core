@@ -6,12 +6,12 @@
 #include "http-url.h"
 #include "ioloop.h"
 #include "istream.h"
-#include "settings-parser.h"
 #include "json-parser.h"
 #include "mailbox-attribute.h"
 #include "mail-storage-private.h"
 #include "str.h"
 #include "strescape.h"
+#include "str-parse.h"
 #include "iostream-ssl.h"
 
 #include "push-notification-plugin.h"
@@ -117,7 +117,7 @@ push_notification_driver_ox_init(struct push_notification_driver_config *config,
 	if (tmp == NULL) {
 		dconfig->cached_ox_metadata_lifetime_secs =
 			DEFAULT_CACHE_LIFETIME_SECS;
-	} else if (settings_get_time(
+	} else if (str_parse_get_interval(
 		tmp, &dconfig->cached_ox_metadata_lifetime_secs, &error) < 0) {
 		event_unref(&dconfig->event);
 		*error_r = t_strdup_printf(

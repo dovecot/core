@@ -339,18 +339,6 @@ get_octal(struct setting_parser_context *ctx, const char *value,
 	return 0;
 }
 
-int settings_get_time(const char *str, unsigned int *secs_r,
-		      const char **error_r)
-{
-	return str_parse_get_interval(str, secs_r, error_r);
-}
-
-int settings_get_time_msecs(const char *str, unsigned int *msecs_r,
-			    const char **error_r)
-{
-	return str_parse_get_interval_msecs(str, msecs_r, error_r);
-}
-
 static int get_enum(struct setting_parser_context *ctx, const char *value,
 		    char **result_r, const char *allowed_values)
 {
@@ -525,13 +513,13 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 			return -1;
 		break;
 	case SET_TIME:
-		if (settings_get_time(value, (unsigned int *)ptr, &error) < 0) {
+		if (str_parse_get_interval(value, (unsigned int *)ptr, &error) < 0) {
 			ctx->error = p_strdup(ctx->parser_pool, error);
 			return -1;
 		}
 		break;
 	case SET_TIME_MSECS:
-		if (settings_get_time_msecs(value, (unsigned int *)ptr, &error) < 0) {
+		if (str_parse_get_interval_msecs(value, (unsigned int *)ptr, &error) < 0) {
 			ctx->error = p_strdup(ctx->parser_pool, error);
 			return -1;
 		}

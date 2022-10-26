@@ -8,7 +8,7 @@
 #include "ostream.h"
 #include "strescape.h"
 #include "time-util.h"
-#include "settings-parser.h"
+#include "str-parse.h"
 #include "mail-user.h"
 #include "mail-storage-private.h"
 #include "fts-api.h"
@@ -231,7 +231,7 @@ int fts_indexer_init(struct fts_backend *backend, struct mailbox *box,
 
 	value = mail_user_plugin_getenv(box->storage->user, "fts_index_timeout");
 	if (value != NULL) {
-		if (settings_get_time(value, &timeout_secs, &error) < 0) {
+		if (str_parse_get_interval(value, &timeout_secs, &error) < 0) {
 			e_error(box->storage->user->event,
 				"Invalid fts_index_timeout setting: %s",
 				error);

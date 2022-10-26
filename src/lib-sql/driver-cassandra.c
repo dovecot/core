@@ -6,13 +6,13 @@
 #include "hostpid.h"
 #include "hex-binary.h"
 #include "str.h"
+#include "str-parse.h"
 #include "ioloop.h"
 #include "net.h"
 #include "write-full.h"
 #include "time-util.h"
 #include "var-expand.h"
 #include "safe-memset.h"
-#include "settings-parser.h"
 #include "sql-api-private.h"
 
 #ifdef BUILD_CASSANDRA
@@ -721,43 +721,43 @@ static int driver_cassandra_parse_connect_string(struct cassandra_db *db,
 				return -1;
 			}
 		} else if (strcmp(key, "heartbeat_interval") == 0) {
-			if (settings_get_time(value, &db->heartbeat_interval_secs,
-					      &error) < 0) {
+			if (str_parse_get_interval(value, &db->heartbeat_interval_secs,
+						   &error) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid heartbeat_interval '%s': %s",
 					value, error);
 				return -1;
 			}
 		} else if (strcmp(key, "idle_timeout") == 0) {
-			if (settings_get_time(value, &db->idle_timeout_secs,
-					      &error) < 0) {
+			if (str_parse_get_interval(value, &db->idle_timeout_secs,
+						   &error) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid idle_timeout '%s': %s",
 					value, error);
 				return -1;
 			}
 		} else if (strcmp(key, "connect_timeout") == 0) {
-			if (settings_get_time_msecs(value,
-						    &db->connect_timeout_msecs,
-						    &error) < 0) {
+			if (str_parse_get_interval_msecs(value,
+							 &db->connect_timeout_msecs,
+							 &error) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid connect_timeout '%s': %s",
 					value, error);
 				return -1;
 			}
 		} else if (strcmp(key, "request_timeout") == 0) {
-			if (settings_get_time_msecs(value,
-						    &db->request_timeout_msecs,
-						    &error) < 0) {
+			if (str_parse_get_interval_msecs(value,
+							 &db->request_timeout_msecs,
+							 &error) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid request_timeout '%s': %s",
 					value, error);
 				return -1;
 			}
 		} else if (strcmp(key, "warn_timeout") == 0) {
-			if (settings_get_time_msecs(value,
-						    &db->warn_timeout_msecs,
-						    &error) < 0) {
+			if (str_parse_get_interval_msecs(value,
+							 &db->warn_timeout_msecs,
+							 &error) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid warn_timeout '%s': %s",
 					value, error);
@@ -767,9 +767,9 @@ static int driver_cassandra_parse_connect_string(struct cassandra_db *db,
 			i_free(db->metrics_path);
 			db->metrics_path = i_strdup(value);
 		} else if (strcmp(key, "execution_retry_interval") == 0) {
-			if (settings_get_time_msecs(value,
-						    &db->execution_retry_interval_msecs,
-						    &error) < 0) {
+			if (str_parse_get_interval_msecs(value,
+							 &db->execution_retry_interval_msecs,
+							 &error) < 0) {
 				*error_r = t_strdup_printf(
 					"Invalid execution_retry_interval '%s': %s",
 					value, error);

@@ -8,9 +8,9 @@
 #include "ostream.h"
 #include "str.h"
 #include "strescape.h"
+#include "str-parse.h"
 #include "safe-memset.h"
 #include "time-util.h"
-#include "settings-parser.h"
 #include "login-proxy.h"
 #include "auth-client.h"
 #include "dsasl-client.h"
@@ -171,7 +171,7 @@ static bool client_auth_parse_args(const struct client *client, bool success,
 		} else if (strcmp(key, "reason") == 0)
 			reply_r->reason = value;
 		else if (strcmp(key, "proxy_host_immediate_failure_after") == 0) {
-			if (settings_get_time(value,
+			if (str_parse_get_interval(value,
 				&reply_r->proxy_host_immediate_failure_after_secs,
 				&error) < 0) {
 				e_error(client->event,

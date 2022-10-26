@@ -6,6 +6,7 @@
 #include "llist.h"
 #include "mail-storage.h"
 #include "str.h"
+#include "str-parse.h"
 #include "sha1.h"
 #include "unichar.h"
 #include "hex-binary.h"
@@ -20,7 +21,6 @@
 #include "var-expand.h"
 #include "dsasl-client.h"
 #include "imap-date.h"
-#include "settings-parser.h"
 #include "mail-index-private.h"
 #include "mail-index-alloc-cache.h"
 #include "mailbox-tree.h"
@@ -3237,7 +3237,7 @@ int mail_parse_human_timestamp(const char *str, time_t *timestamp_r,
 		/* unix timestamp */
 		*utc_r = TRUE;
 		return 0;
-	} else if (settings_get_time(str, &secs, &error) == 0) {
+	} else if (str_parse_get_interval(str, &secs, &error) == 0) {
 		*timestamp_r = ioloop_time - secs;
 		*utc_r = TRUE;
 		return 0;

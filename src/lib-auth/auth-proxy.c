@@ -1,7 +1,7 @@
 /* Copyright (c) 2021 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
-#include "settings-parser.h"
+#include "str-parse.h"
 #include "auth-proxy.h"
 
 static const char *maybe_strdup(pool_t pool, const char *str)
@@ -60,7 +60,7 @@ int auth_proxy_settings_parse(struct auth_proxy_settings *set, pool_t pool,
 		/* backwards compatibility: plain number is seconds */
 		if (str_to_uint(value, &set->timeout_msecs) == 0)
 			set->timeout_msecs *= 1000;
-		else if (settings_get_time_msecs(value,
+		else if (str_parse_get_interval_msecs(value,
 				&set->timeout_msecs, error_r) < 0) {
 			return -1;
 		}

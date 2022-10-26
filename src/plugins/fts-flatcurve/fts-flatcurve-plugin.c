@@ -3,7 +3,7 @@
 
 #include "lib.h"
 #include "mail-storage-hooks.h"
-#include "settings-parser.h"
+#include "str-parse.h"
 #include "fts-user.h"
 #include "fts-backend-flatcurve.h"
 #include "fts-backend-flatcurve-xapian.h"
@@ -111,7 +111,7 @@ fts_flatcurve_plugin_init_settings(struct mail_user *user,
 	pset = mail_user_plugin_getenv(user, FTS_FLATCURVE_PLUGIN_ROTATE_TIME);
 	if (pset != NULL) {
 		const char *error;
-		if (settings_get_time_msecs(pset, &val, &error) < 0) {
+		if (str_parse_get_interval_msecs(pset, &val, &error) < 0) {
 			*error_r = t_strdup_printf("Invalid %s: %s",
 				FTS_FLATCURVE_PLUGIN_ROTATE_TIME, error);
 			return -1;
