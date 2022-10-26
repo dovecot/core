@@ -357,12 +357,6 @@ int settings_get_time_msecs(const char *str, unsigned int *msecs_r,
 	return str_parse_get_interval_msecs(str, msecs_r, error_r);
 }
 
-int settings_get_size(const char *str, uoff_t *bytes_r,
-		      const char **error_r)
-{
-	return str_parse_get_size(str, bytes_r, error_r);
-}
-
 static int get_enum(struct setting_parser_context *ctx, const char *value,
 		    char **result_r, const char *allowed_values)
 {
@@ -549,7 +543,7 @@ settings_parse(struct setting_parser_context *ctx, struct setting_link *link,
 		}
 		break;
 	case SET_SIZE:
-		if (settings_get_size(value, (uoff_t *)ptr, &error) < 0) {
+		if (str_parse_get_size(value, (uoff_t *)ptr, &error) < 0) {
 			ctx->error = p_strdup(ctx->parser_pool, error);
 			return -1;
 		}

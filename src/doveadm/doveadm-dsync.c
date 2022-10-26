@@ -13,6 +13,7 @@
 #include "write-full.h"
 #include "str.h"
 #include "strescape.h"
+#include "str-parse.h"
 #include "var-expand.h"
 #include "process-title.h"
 #include "settings-parser.h"
@@ -1224,7 +1225,7 @@ static void cmd_dsync_preinit(struct doveadm_mail_cmd_context *_ctx)
 				       &utc) < 0)
 		i_fatal("Invalid -e parameter: %s", value_str);
 	if (doveadm_cmd_param_str(cctx, "sync-max-size", &value_str) &&
-	    settings_get_size(value_str, &ctx->sync_max_size, &error) < 0)
+	    str_parse_get_size(value_str, &ctx->sync_max_size, &error) < 0)
 		i_fatal("Invalid -I parameter '%s': %s", value_str, error);
 
 	(void)doveadm_cmd_param_uint32(cctx, "timeout", &ctx->io_timeout_secs);

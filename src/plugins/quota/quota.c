@@ -15,7 +15,7 @@
 #include "quota-fs.h"
 #include "llist.h"
 #include "program-client.h"
-#include "settings-parser.h"
+#include "str-parse.h"
 
 #include <sys/wait.h>
 
@@ -316,8 +316,8 @@ int quota_user_read_settings(struct mail_user *user,
 						       "quota_max_mail_size");
 	if (max_size != NULL) {
 		const char *error = NULL;
-		if (settings_get_size(max_size, &quota_set->max_mail_size,
-					&error) < 0) {
+		if (str_parse_get_size(max_size, &quota_set->max_mail_size,
+				       &error) < 0) {
 			*error_r = t_strdup_printf("quota_max_mail_size: %s",
 					error);
 			return -1;
