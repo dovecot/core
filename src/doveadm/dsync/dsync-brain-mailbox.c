@@ -841,8 +841,8 @@ bool dsync_brain_slave_recv_mailbox(struct dsync_brain *brain)
 		}
 		//FIXME: verify this from log, and if not log an error.
 		dsync_brain_set_changes_during_sync(brain, t_strdup_printf(
-			"Mailbox GUID %s was lost",
-			guid_128_to_string(dsync_box->mailbox_guid)));
+			"Mailbox GUID %s was lost: %s",
+			guid_128_to_string(dsync_box->mailbox_guid), errstr));
 		dsync_brain_slave_send_mailbox_lost(brain, dsync_box, FALSE);
 		return TRUE;
 	}
