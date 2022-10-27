@@ -9,6 +9,7 @@
 #include "strescape.h"
 #include "hash.h"
 #include "replicator-queue-private.h"
+#include "replicator-settings.h"
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -109,6 +110,7 @@ replicator_queue_init(unsigned int full_sync_interval,
 			  str_hash, strcmp);
 	i_array_init(&queue->sync_lookups, 32);
 	queue->event = event_create(NULL);
+	event_add_category(queue->event, &event_category_replication);
 	return queue;
 }
 

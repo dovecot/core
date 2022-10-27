@@ -12,5 +12,6 @@ struct replicator_settings {
 
 extern const struct setting_parser_info replicator_setting_parser_info;
 extern const struct replicator_settings *replicator_settings;
+extern struct event_category event_category_replication;
 
 #endif

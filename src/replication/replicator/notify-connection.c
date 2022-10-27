@@ -6,6 +6,7 @@
 #include "ostream.h"
 #include "strescape.h"
 #include "master-service.h"
+#include "replicator-settings.h"
 #include "replicator-queue-private.h"
 #include "notify-connection.h"
 
@@ -153,6 +154,7 @@ notify_connection_create(int fd, struct replicator_queue *queue)
 	conn = i_new(struct notify_connection, 1);
 	conn->refcount = 1;
 	conn->event = event_create(queue->event);
+	event_add_category(conn->event, &event_category_replication);
 	conn->queue = queue;
 	conn->fd = fd;
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);

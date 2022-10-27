@@ -7,6 +7,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "strescape.h"
+#include "replicator-settings.h"
 #include "dsync-client.h"
 
 #include <unistd.h>
@@ -45,6 +46,7 @@ dsync_client_init(const char *path, const char *dsync_params)
 	client->fd = -1;
 	client->dsync_params = i_strdup(dsync_params);
 	client->event = event_create(NULL);
+	event_add_category(client->event, &event_category_replication);
 	event_set_append_log_prefix(client->event, t_strdup_printf(
 		"%s: ", client->path));
 	return client;

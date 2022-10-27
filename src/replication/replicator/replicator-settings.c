@@ -6,6 +6,10 @@
 #include "service-settings.h"
 #include "replicator-settings.h"
 
+struct event_category event_category_replication = {
+	.name = "replication"
+};
+
 /* <settings checks> */
 static struct file_listener_settings replicator_unix_listeners_array[] = {
 	{ "replicator", 0600, "$default_internal_user", "" },
