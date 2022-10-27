@@ -836,7 +836,7 @@ cmd_dsync_run(struct doveadm_mail_cmd_context *_ctx, struct mail_user *user)
 				  (remote_only_changes && changes_during_sync2 != NULL) ?
 				  changes_during_sync2 : changes_during_sync);
 		}
-		ctx->ctx.exit_code = 2;
+		ctx->ctx.exit_code = DOVEADM_EX_CHANGED;
 	}
 	if (dsync_brain_deinit(&brain, &mail_error2) < 0)
 		ret = -1;
