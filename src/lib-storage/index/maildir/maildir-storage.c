@@ -544,7 +544,7 @@ maildir_mailbox_create(struct mailbox *box, const struct mailbox_update *update,
 		if (maildir_create_shared(box) < 0)
 			ret = -1;
 	}
-	if (update != NULL) {
+	if (ret == 0 && update != NULL) {
 		if (maildir_mailbox_update(box, update) < 0)
 			ret = -1;
 	}
