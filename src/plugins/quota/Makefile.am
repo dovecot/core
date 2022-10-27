@@ -79,32 +79,35 @@ quota_status_DEPENDENCIES = \
 	$(LIBDOVECOT_DEPS)
 
 if HAVE_RQUOTA
+
+BUILT_SOURCES = rquota_xdr.c rquota.h
+
 RQUOTA_XDR = rquota_xdr.c
 RQUOTA_XDR_LO = rquota_xdr.lo
-RQUOTA_X = $(srcdir)/rquota.x
-RQUOTA_PRAGMAS_H = $(srcdir)/rquota-pragmas.h
-rquota_xdr.c: Makefile rquota.h
-	$(AM_V_GEN)if [ "$(top_srcdir)" != "$(top_builddir)" ]; then \
-	  cp $(RQUOTA_X) $(top_builddir)/src/plugins/quota/; \
-	fi; \
-	(echo '#include "lib.h"'; \
+
+rquota_xdr.c: rquota.h rquota.x
+	$(AM_V_GEN)(echo '#include "lib.h"'; \
 	 echo '#undef FALSE'; \
 	 echo '#undef TRUE'; \
+	 echo '#ifdef HAVE_STRICT_BOOL'; \
+	 echo '#  pragma GCC diagnostic ignored "-Wstrict-bool"'; \
+	 echo '#endif'; \
 	 echo '#include <rpc/rpc.h>'; \
-	 $(RPCGEN) -c $(top_builddir)/src/plugins/quota/rquota.x | \
-	  sed \
+	 $(RPCGEN) -c $(abs_srcdir)/rquota.x | sed \
 	    -e 's/IXDR_PUT/(void)IXDR_PUT/g' \
 	    -e 's,!xdr_,0 == xdr_,' \
 	    -e 's,/usr/include/rpcsvc/rquota.h,rquota.h,' \
 	    -e 's/int32_t \*buf/int32_t *buf ATTR_UNUSED/' \
-	    -e 's/^static char rcsid.*//' ) > rquota_xdr.c.tmp
-	$(AM_V_at) cat $(RQUOTA_PRAGMAS_H) rquota_xdr.c.tmp > rquota_xdr.c
+	    -e 's/^static char rcsid.*//' \
+	    -e "s@$(abs_srcdir)/@@g"; \
+	 ) > $@.tmp && cat $@.tmp > $@; \
+	rm -f $@.tmp
 
-rquota.h: Makefile $(RQUOTA_X)
-	$(AM_V_GEN)$(RPCGEN) -h $(RQUOTA_X) > rquota.h.tmp
-	$(AM_V_at) cat $(RQUOTA_PRAGMAS_H) rquota.h.tmp > rquota.h
+rquota.h: rquota.x
+	$(AM_V_GEN)$(RPCGEN) -h $(srcdir)/rquota.x > $@.tmp && cat $@.tmp > $@; \
+	rm -f $@.tmp
 
-quota-fs.lo: rquota.h
+quota-fs.lo: rquota_xdr.lo
 
 endif
 
