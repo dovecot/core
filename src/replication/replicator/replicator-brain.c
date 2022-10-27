@@ -142,13 +142,13 @@ static void dsync_callback(enum dsync_reply reply, const char *state,
 		replicator_queue_remove(ctx->brain->queue, &ctx->user);
 	} else {
 		i_free(ctx->user->state);
-		ctx->user->state = i_strdup_empty(state);
 		ctx->user->last_sync_failed = reply != DSYNC_REPLY_OK;
 		if (reply == DSYNC_REPLY_OK) {
 			e_debug(ctx->event, "User was successfully synced");
+			ctx->user->state = i_strdup_empty(state);
 			ctx->user->last_successful_sync = ioloop_time;
 		} else {
-			e_debug(ctx->event, "User sync failed");
+			e_debug(ctx->event, "User sync failed: %s", state);
 		}
 		replicator_queue_push(ctx->brain->queue, ctx->user);
 	}

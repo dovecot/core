@@ -139,7 +139,7 @@ static int dsync_input_line(struct dsync_client *client, const char *line)
 		else if (strcmp(line+1, "NOREPLICATE") == 0)
 			dsync_callback(client, "", DSYNC_REPLY_NOREPLICATE);
 		else
-			dsync_callback(client, "", DSYNC_REPLY_FAIL);
+			dsync_callback(client, line+1, DSYNC_REPLY_FAIL);
 	} else {
 		e_error(client->event, "Invalid input: %s", line);
 		return -1;
