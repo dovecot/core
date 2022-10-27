@@ -25,6 +25,7 @@
 struct replication_user {
 	union mail_user_module_context module_ctx;
 
+	struct event *event;
 	const char *socket_path;
 
 	struct timeout *to;
@@ -37,6 +38,10 @@ struct replication_mail_txn_context {
 	bool new_messages;
 	bool sync_trans;
 	char *reason;
+};
+
+static struct event_category event_category_replication = {
+	.name = "replication"
 };
 
 static MODULE_CONTEXT_DEFINE_INIT(replication_user_module,
@@ -120,7 +125,7 @@ static void replication_notify_now(struct mail_user *user)
 		ret = replication_fifo_notify(user, ruser->priority, &error);
 	}
 	if (ret < 0 && *error != '\0')
-		e_error(user->event, "replication: %s", error);
+		e_error(ruser->event, "replication: %s", error);
 	if (ret != 0) {
 		timeout_remove(&ruser->to);
 		ruser->priority = REPLICATION_PRIORITY_NONE;
@@ -140,7 +145,7 @@ static int replication_notify_sync(struct mail_user *user)
 
 	fd = net_connect_unix(ruser->socket_path);
 	if (fd == -1) {
-		e_error(user->event,
+		e_error(ruser->event,
 			"net_connect_unix(%s) failed: %m", ruser->socket_path);
 		return -1;
 	}
@@ -152,22 +157,22 @@ static int replication_notify_sync(struct mail_user *user)
 	str_append(str, "\tsync\n");
 	alarm(ruser->sync_secs);
 	if (write_full(fd, str_data(str), str_len(str)) < 0) {
-		e_error(user->event, "write(%s) failed: %m", ruser->socket_path);
+		e_error(ruser->event, "write(%s) failed: %m", ruser->socket_path);
 	} else {
 		/* + | - */
 		ret = read(fd, buf, sizeof(buf));
 		if (ret < 0) {
 			if (errno != EINTR) {
-				e_error(user->event, "read(%s) failed: %m",
+				e_error(ruser->event, "read(%s) failed: %m",
 					ruser->socket_path);
 			} else {
-				e_warning(user->event,
+				e_warning(ruser->event,
 					  "replication(%s): Sync failure: "
 					  "Timeout in %u secs",
 					  user->username, ruser->sync_secs);
 			}
 		} else if (ret == 0) {
-			e_error(user->event,
+			e_error(ruser->event,
 				"read(%s) failed: EOF", ruser->socket_path);
 		} else if (buf[0] == '+') {
 			/* success */
@@ -175,17 +180,17 @@ static int replication_notify_sync(struct mail_user *user)
 		} else if (buf[0] == '-') {
 			/* failure */
 			if (buf[ret-1] == '\n') ret--;
-			e_warning(user->event,
+			e_warning(ruser->event,
 				  "replication(%s): Sync failure: %s",
 				  user->username, t_strndup(buf+1, ret-1));
-			e_warning(user->event, "replication(%s): "
+			e_warning(ruser->event, "replication(%s): "
 				  "Remote sent invalid input: %s",
 				  user->username, t_strndup(buf, ret));
 		}
 	}
 	alarm(0);
 	if (close(fd) < 0)
-		e_error(user->event, "close(%s) failed: %m", ruser->socket_path);
+		e_error(ruser->event, "close(%s) failed: %m", ruser->socket_path);
 	return success ? 0 : -1;
 }
 
@@ -199,7 +204,7 @@ static void replication_notify(struct mail_namespace *ns,
 	if (ruser == NULL)
 		return;
 
-	e_debug(ns->user->event,
+	e_debug(ruser->event,
 		"replication: Replication requested by '%s', priority=%d",
 		event, priority);
 
@@ -328,13 +333,14 @@ static void replication_user_deinit(struct mail_user *user)
 	if (ruser->to != NULL) {
 		replication_notify_now(user);
 		if (ruser->to != NULL) {
-			e_warning(user->event,
+			e_warning(ruser->event,
 				  "%s: Couldn't send final notification "
 				  "due to fifo being busy", fifo_path);
 			timeout_remove(&ruser->to);
 		}
 	}
 
+	event_unref(&ruser->event);
 	ruser->module_ctx.super.deinit(user);
 }
 
@@ -342,23 +348,30 @@ static void replication_user_created(struct mail_user *user)
 {
 	struct mail_user_vfuncs *v = user->vlast;
 	struct replication_user *ruser;
+	struct event *event;
 	const char *value;
+
+	event = event_create(user->event);
+	event_add_category(event, &event_category_replication);
 
 	value = mail_user_plugin_getenv(user, "mail_replica");
 	if (value == NULL || value[0] == '\0') {
-		e_debug(user->event, "replication: No mail_replica setting - replication disabled");
+		e_debug(event, "replication: No mail_replica setting - replication disabled");
+		event_unref(&event);
 		return;
 	}
 
 	if (user->dsyncing) {
 		/* we're running dsync, which means that the remote is telling
 		   us about a change. don't trigger a replication back to it */
-		e_debug(user->event, "replication: We're running dsync - replication disabled");
+		e_debug(event, "replication: We're running dsync - replication disabled");
+		event_unref(&event);
 		return;
 	}
 
 	ruser = p_new(user->pool, struct replication_user, 1);
 	ruser->module_ctx.super = *v;
+	ruser->event = event;
 	user->vlast = &ruser->module_ctx.super;
 	v->deinit = replication_user_deinit;
 	MODULE_CONTEXT_SET(user, replication_user_module, ruser);
@@ -373,7 +386,7 @@ static void replication_user_created(struct mail_user *user)
 					 "/"REPLICATION_SOCKET_NAME, NULL);
 	value = mail_user_plugin_getenv(user, "replication_sync_timeout");
 	if (value != NULL && str_to_uint(value, &ruser->sync_secs) < 0) {
-		e_error(user->event, "replication(%s): "
+		e_error(event, "replication(%s): "
 			"Invalid replication_sync_timeout value: %s",
 			user->username, value);
 	}
