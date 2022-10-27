@@ -118,8 +118,7 @@ pkginc_lib_HEADERS = \
 	quota-plugin.h \
 	quota-private.h
 noinst_HEADERS = \
-	quota-status-settings.h \
-	rquota-pragmas.h
+	quota-status-settings.h
 
 EXTRA_DIST = rquota.x
 
