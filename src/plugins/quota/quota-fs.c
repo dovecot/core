@@ -25,7 +25,14 @@
 #endif
 
 #ifdef HAVE_RQUOTA
+#  ifdef HAVE_STRICT_BOOL
+#    pragma clang diagnostic push
+#    pragma clang diagnostic ignored "-Wstrict-bool"
+#  endif
 #  include "rquota.h"
+#  ifdef HAVE_STRICT_BOOL
+#    pragma clang diagnostic pop
+#  endif
 #  define RQUOTA_GETQUOTA_TIMEOUT_SECS 10
 #endif
 
