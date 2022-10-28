@@ -245,19 +245,26 @@ void replicator_queue_remove(struct replicator_queue *queue,
 		queue->change_callback(queue->change_context);
 }
 
+unsigned int replicator_queue_count(struct replicator_queue *queue)
+{
+	return priorityq_count(queue->user_queue);
+}
+
 bool replicator_queue_want_sync_now(struct replicator_user *user,
 				    unsigned int *next_secs_r)
 {
 	time_t next_sync = replicator_user_next_sync_time(user);
-	if (next_sync <= ioloop_time)
+	if (next_sync <= ioloop_time) {
+		*next_secs_r = 0;
 		return TRUE;
+	}
 	*next_secs_r = next_sync - ioloop_time;
 	return FALSE;
 }
 
 struct replicator_user *
-replicator_queue_pop(struct replicator_queue *queue,
-		     unsigned int *next_secs_r)
+replicator_queue_peek(struct replicator_queue *queue,
+		      unsigned int *next_secs_r)
 {
 	struct priorityq_item *item;
 	struct replicator_user *user;
@@ -269,12 +276,25 @@ replicator_queue_pop(struct replicator_queue *queue,
 		return NULL;
 	}
 	user = (struct replicator_user *)item;
-	if (!replicator_queue_want_sync_now(user, next_secs_r)) {
+	(void)replicator_queue_want_sync_now(user, next_secs_r);
+	return user;
+}
+
+struct replicator_user *
+replicator_queue_pop(struct replicator_queue *queue,
+		     unsigned int *next_secs_r)
+{
+	struct replicator_user *user;
+
+	user = replicator_queue_peek(queue, next_secs_r);
+	if (*next_secs_r > 0) {
 		/* we don't want to sync the user yet */
 		return NULL;
 	}
-	priorityq_remove(queue->user_queue, &user->item);
-	user->popped = TRUE;
+	if (user != NULL) {
+		priorityq_remove(queue->user_queue, &user->item);
+		user->popped = TRUE;
+	}
 	return user;
 }
 
