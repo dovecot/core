@@ -386,8 +386,7 @@ static void dsync_brain_mailbox_trees_sync(struct dsync_brain *brain)
 	const struct dsync_mailbox_tree_sync_change *change;
 	enum dsync_mailbox_trees_sync_type sync_type;
 	enum dsync_mailbox_trees_sync_flags sync_flags =
-		(brain->debug ? DSYNC_MAILBOX_TREES_SYNC_FLAG_DEBUG : 0) |
-		(brain->master_brain ? DSYNC_MAILBOX_TREES_SYNC_FLAG_MASTER_BRAIN : 0);
+		(brain->debug ? DSYNC_MAILBOX_TREES_SYNC_FLAG_DEBUG : 0);
 	int ret;
 
 	if (brain->no_backup_overwrite)
