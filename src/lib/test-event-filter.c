@@ -662,6 +662,92 @@ static void test_event_filter_numbers(void)
 	test_end();
 }
 
+static void test_event_filter_size_values(void)
+{
+	const char *error;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG,
+	};
+
+	test_begin("event filter: sizes with different units");
+
+	const struct {
+		const char *filter;
+		intmax_t value;
+		bool match;
+	} test_cases[] = {
+		/* Make sure negative values do not interfere with the
+		   existing event filtering. */
+		{ "field = -1", -1, TRUE },
+
+		{ "field = 1", 1, TRUE },
+		{ "field = 1b", 1, TRUE },
+		{ "field = 1B", 1, TRUE },
+		{ "field < 1B", 1, FALSE },
+		{ "field > 1B", 1, FALSE },
+
+		{ "field = 1k", 1024, TRUE },
+		{ "field = 1KB", 1024, TRUE },
+		{ "field = 1Kb", 1024, TRUE },
+		{ "field = 1kB", 1024, TRUE },
+		{ "field = 1kb", 1024, TRUE },
+		{ "field = 1KIB", 1024, TRUE },
+		{ "field = 1KiB", 1024, TRUE },
+		{ "field >= 1KB", 1024, TRUE },
+		{ "field <= 1KB", 1024, TRUE },
+		{ "field > 1B", 1024, TRUE },
+		{ "field > 1000", 1024, TRUE },
+		{ "field < 1KB", 1024, FALSE },
+		{ "field > 1KB", 1024, FALSE },
+
+		{ "field = 1m", 1024 * 1024, TRUE },
+		{ "field = 1MB", 1024 * 1024, TRUE },
+		{ "field >= 1MB", 1024 * 1024, TRUE },
+		{ "field <= 1MB", 1024 * 1024, TRUE },
+		{ "field > 1KB", 1024 * 1024, TRUE },
+		{ "field > 1000000", 1024 * 1024, TRUE },
+		{ "field < 1MB", 1024 * 1024, FALSE },
+		{ "field > 1MB", 1024 * 1024, FALSE },
+
+		{ "field = 1g", 1024 * 1024 * 1024, TRUE },
+		{ "field = 1GB", 1024 * 1024 * 1024, TRUE },
+		{ "field >= 1GB", 1024 * 1024 * 1024, TRUE },
+		{ "field <= 1GB", 1024 * 1024 * 1024, TRUE },
+		{ "field < 1TB", 1024 * 1024 * 1024, TRUE },
+		{ "field > 1000000000", 1024 * 1024 * 1024, TRUE },
+		{ "field < 1GB", 1024 * 1024 * 1024, FALSE },
+		{ "field > 1GB", 1024 * 1024 * 1024, FALSE },
+
+		{ "field = 1t", 1024ULL * 1024 * 1024 * 1024, TRUE },
+		{ "field = 1TB", 1024ULL * 1024 * 1024 * 1024, TRUE },
+		{ "field >= 1TB", 1024ULL * 1024 * 1024 * 1024, TRUE },
+		{ "field <= 1TB", 1024ULL * 1024 * 1024 * 1024, TRUE },
+		{ "field > 1GB", 1024ULL * 1024 * 1024 * 1024, TRUE },
+		{ "field > 1000000000000", 1024ULL * 1024 * 1024 * 1024, TRUE },
+		{ "field < 1TB", 1024ULL * 1024 * 1024 * 1024, FALSE },
+		{ "field > 1TB", 1024ULL * 1024 * 1024 * 1024, FALSE },
+	};
+
+	struct event_filter *filter;
+	struct event *e;
+
+	for (unsigned int i = 0; i < N_ELEMENTS(test_cases); i++) {
+		e = event_create(NULL);
+		filter = event_filter_create();
+
+		event_add_int(e, "field", test_cases[i].value);
+		test_assert_idx(event_filter_parse(test_cases[i].filter, filter,
+						   &error) == 0, i);
+		bool result = event_filter_match(filter, e, &failure_ctx);
+		test_assert_idx(result == test_cases[i].match, i);
+
+		event_filter_unref(&filter);
+		event_unref(&e);
+	}
+
+	test_end();
+}
+
 void test_event_filter(void)
 {
 	test_event_filter_override_parent_fields();
@@ -678,4 +764,5 @@ void test_event_filter(void)
 	test_event_filter_named_separate_from_str();
 	test_event_filter_duration();
 	test_event_filter_numbers();
+	test_event_filter_size_values();
 }
