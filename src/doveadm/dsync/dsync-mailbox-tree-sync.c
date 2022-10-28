@@ -853,7 +853,7 @@ static bool sync_rename_mailboxes(struct dsync_mailbox_tree_sync_ctx *ctx,
 	string_t *debug = NULL;
 	bool changed;
 
-	if ((ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_DEBUG) != 0)
+	if (event_want_debug(ctx->event))
 		debug = t_str_new(128);
 
 	/* the nodes are sorted by their names. */
