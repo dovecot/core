@@ -230,7 +230,6 @@ dsync_mailbox_import_init(struct mailbox *box,
 	importer = p_new(pool, struct dsync_mailbox_importer, 1);
 	importer->pool = pool;
 	importer->event = event_create(parent_event);
-	event_set_forced_debug(importer->event, (flags & DSYNC_MAILBOX_IMPORT_FLAG_DEBUG) != 0);
 	event_set_append_log_prefix(importer->event, t_strdup_printf(
 		"Import mailbox %s: ", mailbox_get_vname(box)));
 
