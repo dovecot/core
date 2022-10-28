@@ -17,8 +17,6 @@ enum dsync_mailbox_trees_sync_type {
 };
 
 enum dsync_mailbox_trees_sync_flags {
-	/* Enable debugging */
-	DSYNC_MAILBOX_TREES_SYNC_FLAG_DEBUG		= 0x01,
 	/* Disable mailbox renaming logic. This is just a kludge that should
 	   be removed once the renaming logic has no more bugs.. */
 	DSYNC_MAILBOX_TREES_SYNC_FLAG_NO_RENAMES	= 0x04

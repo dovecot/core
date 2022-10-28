@@ -1400,9 +1400,7 @@ dsync_mailbox_trees_sync_init(struct dsync_mailbox_tree *local_tree,
 	ctx->sync_type = sync_type;
 	ctx->sync_flags = sync_flags;
 
-	bool force_debug = (ctx->sync_flags & DSYNC_MAILBOX_TREES_SYNC_FLAG_DEBUG) != 0;
 	ctx->event = event_create(parent_event);
-	event_set_forced_debug(ctx->event, force_debug);
 	i_array_init(&ctx->changes, 128);
 
 again:
