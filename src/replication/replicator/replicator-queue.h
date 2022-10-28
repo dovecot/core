@@ -64,7 +64,15 @@ void replicator_queue_add_sync_callback(struct replicator_queue *queue,
 /* Remove user from replication queue and free it. */
 void replicator_queue_remove(struct replicator_queue *queue,
 			     struct replicator_user **user);
+/* Return the number of users in the queue. */
+unsigned int replicator_queue_count(struct replicator_queue *queue);
 
+/* Return the next user from replication queue and how many seconds from now
+   the returned user should be synced (0 = immediately). Returns NULL only if
+   there are no users in the queue. */
+struct replicator_user *
+replicator_queue_peek(struct replicator_queue *queue,
+		      unsigned int *next_secs_r);
 /* Return the next user from replication queue, and remove it from the queue.
    If there's nothing to be replicated currently, returns NULL and sets
    next_secs_r to when there should be more work to do. */
