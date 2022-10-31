@@ -463,7 +463,7 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 			return -1;
 	}
 
-	if (set->dh != NULL) {
+	if (set->dh != NULL && *set->dh != '\0') {
 		if (ssl_iostream_ctx_use_dh(ctx, set, error_r) < 0)
 			return -1;
 	}
