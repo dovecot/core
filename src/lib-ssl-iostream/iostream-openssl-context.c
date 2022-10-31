@@ -112,11 +112,11 @@ int openssl_iostream_load_key(const struct ssl_iostream_cert *set,
 
 static
 int openssl_iostream_load_dh(const struct ssl_iostream_settings *set,
-			     DH **dh_r, const char **error_r)
+			     EVP_PKEY **pkey_r, const char **error_r)
 {
-	DH *dh;
 	BIO *bio;
 	char *dhvalue;
+	EVP_PKEY *pkey = NULL;
 
 	dhvalue = t_strdup_noconst(set->dh);
 	bio = BIO_new_mem_buf(dhvalue, strlen(dhvalue));
@@ -127,16 +127,20 @@ int openssl_iostream_load_dh(const struct ssl_iostream_settings *set,
 		return -1;
 	}
 
-	dh = NULL;
+	DH *dh = NULL;
 	dh = PEM_read_bio_DHparams(bio, &dh, NULL, NULL);
 
 	if (dh == NULL) {
 		*error_r = t_strdup_printf("Couldn't parse DH parameters: %s",
 					   openssl_iostream_error());
+	} else {
+		pkey = EVP_PKEY_new();
+		EVP_PKEY_set1_DH(pkey, dh);
+		DH_free(dh);
 	}
 	BIO_free(bio);
-	*dh_r = dh;
-	return dh == NULL ? -1 : 0;
+	*pkey_r = pkey;
+	return pkey == NULL ? -1 : 0;
 }
 
 static int
@@ -164,20 +168,22 @@ ssl_iostream_ctx_use_dh(struct ssl_iostream_context *ctx,
 			const struct ssl_iostream_settings *set,
 			const char **error_r)
 {
-	DH *dh;
+	EVP_PKEY *pkey_dh;
 	int ret = 0;
 	if (*set->dh == '\0') {
 		return 0;
 	}
-	if (openssl_iostream_load_dh(set, &dh, error_r) < 0)
+	if (openssl_iostream_load_dh(set, &pkey_dh, error_r) < 0)
 		return -1;
-	if (SSL_CTX_set_tmp_dh(ctx->ssl_ctx, dh) == 0) {
+	DH *dh = EVP_PKEY_get0_DH(pkey_dh);
+	if (SSL_CTX_set_tmp_dh(ctx->ssl_ctx, dh) == 0)
+	{
 		 *error_r = t_strdup_printf(
 			"Can't load DH parameters (ssl_dh setting): %s",
 			openssl_iostream_key_load_error());
 		ret = -1;
 	}
-	DH_free(dh);
+	EVP_PKEY_free(pkey_dh);
 	return ret;
 }
 
