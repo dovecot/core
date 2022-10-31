@@ -37,9 +37,6 @@ ns_mailbox_try_alloc(struct dsync_brain *brain, struct mail_namespace *ns,
 	}
 	if (existence != MAILBOX_EXISTENCE_SELECT) {
 		mailbox_free(&box);
-		*errstr_r = existence == MAILBOX_EXISTENCE_NONE ?
-			"Mailbox was already deleted" :
-			"Mailbox is no longer selectable";
 		return 0;
 	}
 	*box_r = box;
