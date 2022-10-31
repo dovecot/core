@@ -14,10 +14,6 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-#if !defined(OPENSSL_NO_ECDH) && OPENSSL_VERSION_NUMBER >= 0x10000000L
-#  define HAVE_ECDH
-#endif
-
 struct ssl_iostream_password_context {
 	const char *password;
 	const char *error;
@@ -205,9 +201,7 @@ static int ssl_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
 		ret = 0;
 
 	if (ret != 0) {
-#ifdef HAVE_SSL_CTX_set_current_cert
 		SSL_CTX_select_current_cert(ctx, x);
-#endif
 		/* If we could set up our certificate, now proceed to
 		 * the CA certificates.
 		 */
@@ -234,9 +228,7 @@ static int ssl_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
 end:
 	if (x != NULL) X509_free(x);
 	BIO_free(in);
-#ifdef HAVE_SSL_CTX_set_current_cert
 	SSL_CTX_set_current_cert(ctx, SSL_CERT_SET_FIRST);
-#endif
 	return ret;
 }
 
@@ -495,68 +487,21 @@ ssl_iostream_context_set(struct ssl_iostream_context *ctx,
 	return 0;
 }
 
-#if defined(HAVE_ECDH) && !defined(SSL_CTX_set_ecdh_auto)
-static int
-ssl_proxy_ctx_get_pkey_ec_curve_name(const struct ssl_iostream_settings *set,
-				     int *nid_r, const char **error_r)
-{
-	int nid = 0;
-	EVP_PKEY *pkey;
-	EC_KEY *eckey;
-	const EC_GROUP *ecgrp;
-
-	if (set->cert.key != NULL) {
-		if (openssl_iostream_load_key(&set->cert, "ssl_key", &pkey, error_r) < 0)
-			return -1;
-
-		if ((eckey = EVP_PKEY_get1_EC_KEY(pkey)) != NULL &&
-		    (ecgrp = EC_KEY_get0_group(eckey)) != NULL)
-			nid = EC_GROUP_get_curve_name(ecgrp);
-		else {
-			/* clear errors added by the above calls */
-			openssl_iostream_clear_errors();
-		}
-		EVP_PKEY_free(pkey);
-	}
-	if (nid == 0 && set->alt_cert.key != NULL) {
-		if (openssl_iostream_load_key(&set->alt_cert, "ssl_alt_key", &pkey, error_r) < 0)
-			return -1;
-
-		if ((eckey = EVP_PKEY_get1_EC_KEY(pkey)) != NULL &&
-		    (ecgrp = EC_KEY_get0_group(eckey)) != NULL)
-			nid = EC_GROUP_get_curve_name(ecgrp);
-		else {
-			/* clear errors added by the above calls */
-			openssl_iostream_clear_errors();
-		}
-		EVP_PKEY_free(pkey);
-	}
-
-	*nid_r = nid;
-	return 0;
-}
-#endif
-
 static int
 ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
-				const struct ssl_iostream_settings *set,
+				const struct ssl_iostream_settings *set ATTR_UNUSED,
 				const char **error_r ATTR_UNUSED)
 {
-#if defined(HAVE_ECDH) && !defined(SSL_CTX_set_ecdh_auto)
-	EC_KEY *ecdh;
-	int nid;
-	const char *curve_name;
-#endif
 	if (SSL_CTX_need_tmp_RSA(ssl_ctx) != 0)
 		SSL_CTX_set_tmp_rsa_callback(ssl_ctx, ssl_gen_rsa_key);
 	if (set->dh == NULL || *set->dh == '\0')
 		SSL_CTX_set_tmp_dh_callback(ssl_ctx, ssl_tmp_dh_callback);
-#ifdef HAVE_ECDH
+#ifndef OPENSSL_NO_ECDH
 	/* In the non-recommended situation where ECDH cipher suites are being
 	   used instead of ECDHE, do not reuse the same ECDH key pair for
 	   different sessions. This option improves forward secrecy. */
 	SSL_CTX_set_options(ssl_ctx, SSL_OP_SINGLE_ECDH_USE);
-#ifdef SSL_CTX_set_ecdh_auto
+#  ifdef HAVE_SSL_CTX_set_ecdh_auto
 	/* OpenSSL >= 1.0.2 automatically handles ECDH temporary key parameter
 	   selection. The return value of this function changes is changed to
 	   bool in OpenSSL 1.1 and is int in OpenSSL 1.0.2+ */
@@ -564,33 +509,7 @@ ssl_proxy_ctx_set_crypto_params(SSL_CTX *ssl_ctx,
 		/* shouldn't happen */
 		i_unreached();
 	}
-#else
-	/* For OpenSSL < 1.0.2, ECDH temporary key parameter selection must be
-	   performed manually. Attempt to select the same curve as that used
-	   in the server's private EC key file. Otherwise fall back to the
-	   NIST P-384 (secp384r1) curve to be compliant with RFC 6460 when
-	   AES-256 TLS cipher suites are in use. This fall back option does
-	   however make Dovecot non-compliant with RFC 6460 which requires
-	   curve NIST P-256 (prime256v1) be used when AES-128 TLS cipher
-	   suites are in use. At least the non-compliance is in the form of
-	   providing too much security rather than too little. */
-	if (ssl_proxy_ctx_get_pkey_ec_curve_name(set, &nid, error_r) < 0)
-		return -1;
-	ecdh = EC_KEY_new_by_curve_name(nid);
-	if (ecdh == NULL) {
-		/* Fall back option */
-		nid = NID_secp384r1;
-		ecdh = EC_KEY_new_by_curve_name(nid);
-	}
-	if ((curve_name = OBJ_nid2sn(nid)) != NULL && set->verbose) {
-		i_debug("SSL: elliptic curve %s will be used for ECDH and"
-			" ECDHE key exchanges", curve_name);
-	}
-	if (ecdh != NULL) {
-		SSL_CTX_set_tmp_ecdh(ssl_ctx, ecdh);
-		EC_KEY_free(ecdh);
-	}
-#endif
+#  endif
 #endif
 #ifdef SSL_OP_SINGLE_DH_USE
 	/* Improves forward secrecy with DH parameters, especially if the

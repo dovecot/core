@@ -116,7 +116,7 @@ AC_DEFUN([DOVECOT_SSL], [
   DOVECOT_CHECK_SSL_FUNC([SSL_clear_options])
   DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set0_tmp_dh_pkey])
   DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_ciphersuites])
-  DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_current_cert])
+  DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_ecdh_auto])
   DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_min_proto_version])
   DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_tmp_dh_callback])
   DOVECOT_CHECK_SSL_FUNC([SSL_CTX_set_tmp_rsa_callback])
