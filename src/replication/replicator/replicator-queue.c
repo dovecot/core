@@ -398,6 +398,8 @@ replicator_queue_import_line(struct replicator_queue *queue, const char *line)
 			if (user->priority > tmp_user.priority)
 				return 0;
 		}
+	} else {
+		user = replicator_queue_get(queue, username);
 	}
 	user->priority = tmp_user.priority;
 	user->last_update = tmp_user.last_update;
