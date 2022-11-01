@@ -363,8 +363,9 @@ static void test_setup(void)
 	struct dcrypt_settings set = {
 		.module_dir = top_builddir "/src/lib-dcrypt/.libs"
 	};
-	if (!dcrypt_initialize(NULL, &set, NULL)) {
-		i_info("No functional dcrypt backend found - skipping tests");
+	const char *error;
+	if (!dcrypt_initialize(NULL, &set, &error)) {
+		i_info("No functional dcrypt backend found - skipping tests: %s", error);
 		test_exit(0);
 	}
 	test_ctx = test_mail_storage_init();

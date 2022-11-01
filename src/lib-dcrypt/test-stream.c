@@ -632,11 +632,11 @@ int main(void)
 	}
 
 	test_assert(dcrypt_key_load_private(&test_v1_kp.priv, key_v1_priv,
-					    NULL, NULL, NULL));
-	test_assert(dcrypt_key_load_public(&test_v1_kp.pub, key_v1_pub, NULL));
+					    NULL, NULL, &error));
+	test_assert(dcrypt_key_load_public(&test_v1_kp.pub, key_v1_pub, &error));
 	test_assert(dcrypt_key_load_private(&test_v2_kp.priv, key_v2_priv,
-					    NULL, NULL, NULL));
-	test_assert(dcrypt_key_load_public(&test_v2_kp.pub, key_v2_pub, NULL));
+					    NULL, NULL, &error));
+	test_assert(dcrypt_key_load_public(&test_v2_kp.pub, key_v2_pub, &error));
 
 	static void (*const test_functions[])(void) = {
 		test_static_v1_input,

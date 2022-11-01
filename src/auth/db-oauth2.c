@@ -302,7 +302,7 @@ struct db_oauth2 *db_oauth2_init(const char *config_path)
 			i_fatal("Cannot initialize key dict: %s", error);
 		/* failure to initialize dcrypt is not fatal - we can still
 		   validate HMAC based keys */
-		(void)dcrypt_initialize(NULL, NULL, NULL);
+		(void)dcrypt_initialize(NULL, NULL, &error);
 		/* initialize key cache */
 		db->oauth2_set.key_cache = oauth2_validation_key_cache_init();
 	}

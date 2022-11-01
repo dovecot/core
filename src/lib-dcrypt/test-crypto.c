@@ -20,6 +20,8 @@
 
 static void test_cipher_test_vectors(void)
 {
+	const char *error ATTR_UNUSED;
+
 	static const struct {
 		const char *key;
 		const char *iv;
@@ -79,11 +81,11 @@ static void test_cipher_test_vectors(void)
 		dcrypt_ctx_sym_set_key(ctx, key->data, key->used);
 		dcrypt_ctx_sym_set_iv(ctx, iv->data, iv->used);
 
-		test_assert_idx(dcrypt_ctx_sym_init(ctx, NULL), i);
+		test_assert_idx(dcrypt_ctx_sym_init(ctx, &error), i);
 
 		test_assert_idx(dcrypt_ctx_sym_update(ctx,
-			pt->data, pt->used, res_enc, NULL), i);
-		test_assert_idx(dcrypt_ctx_sym_final(ctx, res_enc, NULL), i);
+			pt->data, pt->used, res_enc, &error), i);
+		test_assert_idx(dcrypt_ctx_sym_final(ctx, res_enc, &error), i);
 
 		test_assert_idx(buffer_cmp(ct, res_enc), i);
 
@@ -101,10 +103,10 @@ static void test_cipher_test_vectors(void)
 		dcrypt_ctx_sym_set_key(ctx, key->data, key->used);
 		dcrypt_ctx_sym_set_iv(ctx, iv->data, iv->used);
 
-		test_assert_idx(dcrypt_ctx_sym_init(ctx, NULL), i);
+		test_assert_idx(dcrypt_ctx_sym_init(ctx, &error), i);
 		test_assert_idx(dcrypt_ctx_sym_update(ctx,
-			res_enc->data, res_enc->used, res_dec, NULL), i);
-		test_assert_idx(dcrypt_ctx_sym_final(ctx, res_dec, NULL), i);
+			res_enc->data, res_enc->used, res_dec, &error), i);
+		test_assert_idx(dcrypt_ctx_sym_final(ctx, res_dec, &error), i);
 
 		test_assert_idx(buffer_cmp(pt, res_dec), i);
 
@@ -193,6 +195,7 @@ static void test_hmac_test_vectors(void)
 {
 	test_begin("test_hmac_test_vectors");
 
+	const char *error ATTR_UNUSED;
 	buffer_t *pt, *ct, *key, *res;
 	pt = t_buffer_create(50);
 	key = t_buffer_create(20);
@@ -206,15 +209,15 @@ static void test_hmac_test_vectors(void)
 		      "2959098b3ef8c122d9635514ced565fe", res);
 
 	struct dcrypt_context_hmac *hctx;
-	if (!dcrypt_ctx_hmac_create("sha256", &hctx, NULL)) {
+	if (!dcrypt_ctx_hmac_create("sha256", &hctx, &error)) {
 		test_assert_failed("dcrypt_ctx_hmac_create",
 				   __FILE__, __LINE__-1);
 	} else {
 		dcrypt_ctx_hmac_set_key(hctx, key->data, key->used);
-		test_assert(dcrypt_ctx_hmac_init(hctx, NULL));
+		test_assert(dcrypt_ctx_hmac_init(hctx, &error));
 		test_assert(dcrypt_ctx_hmac_update(hctx,
 			pt->data, pt->used, NULL));
-		test_assert(dcrypt_ctx_hmac_final(hctx, ct, NULL));
+		test_assert(dcrypt_ctx_hmac_final(hctx, ct, &error));
 		test_assert(buffer_cmp(ct, res));
 		dcrypt_ctx_hmac_destroy(&hctx);
 	}
@@ -600,7 +603,7 @@ static void test_gen_and_get_info_rsa_pem(void)
 	struct dcrypt_keypair pair;
 	string_t* buf = str_new(default_pool, 4096);
 
-	ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_RSA, 1024, NULL, NULL);
+	ret = dcrypt_keypair_generate(&pair, DCRYPT_KEY_RSA, 1024, NULL, &error);
 	test_assert(ret == TRUE);
 
 	/* test public key */
@@ -909,6 +912,7 @@ static void test_raw_keys(void)
 
 	test_begin("test_raw_keys");
 
+	const char *error;
 	ARRAY_TYPE(dcrypt_raw_key) priv_key;
 	ARRAY_TYPE(dcrypt_raw_key) pub_key;
 	pool_t pool = pool_datastack_create();
@@ -920,7 +924,7 @@ static void test_raw_keys(void)
 
 	/* generate ECC key */
 	struct dcrypt_keypair pair;
-	i_assert(dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "prime256v1", NULL));
+	i_assert(dcrypt_keypair_generate(&pair, DCRYPT_KEY_EC, 0, "prime256v1", &error));
 
 	/* store it */
 	test_assert(dcrypt_key_store_private_raw(pair.priv, pool, &t, &priv_key,
@@ -953,7 +957,7 @@ static void test_raw_keys(void)
 
 	/* Add OID */
 	buffer_t *buf = t_buffer_create(32);
-	test_assert(dcrypt_name2oid(curve, buf, NULL));
+	test_assert(dcrypt_name2oid(curve, buf, &error));
 	item = array_append_space(&static_key);
 	item->parameter = buf->data;
 	item->len = buf->used;
@@ -992,7 +996,7 @@ static void test_raw_keys(void)
 
 	/* Add OID */
 	buf = t_buffer_create(32);
-	test_assert(dcrypt_name2oid(curve, buf, NULL));
+	test_assert(dcrypt_name2oid(curve, buf, &error));
 	item = array_append_space(&static_key);
 	item->parameter = buf->data;
 	item->len = buf->used;
@@ -1131,8 +1135,8 @@ static void test_static_verify_ecdsa(void)
 
 	i_zero(&pair);
 	/* static key test */
-	test_assert(dcrypt_key_load_public(&pair.pub, pub_key_pem, NULL));
-	test_assert(dcrypt_key_load_private(&pair.priv, priv_key_pem, NULL, NULL, NULL));
+	test_assert(dcrypt_key_load_public(&pair.pub, pub_key_pem, &error));
+	test_assert(dcrypt_key_load_private(&pair.priv, priv_key_pem, NULL, NULL, &error));
 	/* validate signature */
 	test_assert(dcrypt_verify(pair.pub, "sha256", DCRYPT_SIGNATURE_FORMAT_DSS,
 				  input, strlen(input),
@@ -1161,23 +1165,24 @@ static void test_jwk_keys(void)
 	  "yLG69yOisek4aMLCMQ8HkGEflJE/DVwI3mCtassKmGtbX18IVHyntz07mg==\n"
 	  "-----END PUBLIC KEY-----";
 	test_begin("test_jwk_keys");
+	const char *error ATTR_UNUSED;
 	struct dcrypt_keypair pair;
 	buffer_t *pem = t_buffer_create(256);
 	i_zero(&pair);
 
-	test_assert(dcrypt_key_load_public(&pair.pub, jwk_key_json, NULL));
-	test_assert(dcrypt_key_load_private(&pair.priv, jwk_key_json, NULL, NULL, NULL));
+	test_assert(dcrypt_key_load_public(&pair.pub, jwk_key_json, &error));
+	test_assert(dcrypt_key_load_private(&pair.priv, jwk_key_json, NULL, NULL, &error));
 
 	/* test accessors */
 	test_assert_strcmp(dcrypt_key_get_id_public(pair.pub), "123");
 	test_assert(dcrypt_key_get_usage_public(pair.pub) == DCRYPT_KEY_USAGE_SIGN);
 
 	/* make sure we got the right key */
-	test_assert(dcrypt_key_store_public(pair.pub, DCRYPT_FORMAT_PEM, pem, NULL));
+	test_assert(dcrypt_key_store_public(pair.pub, DCRYPT_FORMAT_PEM, pem, &error));
 	test_assert_strcmp(str_c(pem), pem_key);
 
 	str_truncate(pem, 0);
-	test_assert(dcrypt_key_store_private(pair.priv, DCRYPT_FORMAT_JWK, NULL, pem, NULL, NULL, NULL));
+	test_assert(dcrypt_key_store_private(pair.priv, DCRYPT_FORMAT_JWK, NULL, pem, NULL, NULL, &error));
 	test_assert_strcmp(str_c(pem), jwk_key_json);
 
 	dcrypt_keypair_unref(&pair);

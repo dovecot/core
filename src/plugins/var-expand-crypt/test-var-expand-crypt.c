@@ -90,9 +90,12 @@ int main(void)
 	struct dcrypt_settings set = {
 		.module_dir = DCRYPT_BUILD_DIR"/.libs"
 	};
+	const char *error;
 
-	if (!dcrypt_initialize(NULL, &set, NULL))
+	if (!dcrypt_initialize(NULL, &set, &error)) {
+		i_info("No functional dcrypt backend found - skipping tests: %s", error);
 		return 0;
+	}
 
 	ret = test_run(test_functions);
 

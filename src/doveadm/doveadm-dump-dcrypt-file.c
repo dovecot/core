@@ -72,8 +72,11 @@ static bool dcrypt_file_dump_metadata(struct doveadm_cmd_context *cctx,
 static bool test_dump_dcrypt_file(struct doveadm_cmd_context *cctx,
 				  const char *path)
 {
-	if (!dcrypt_initialize("openssl", NULL, NULL))
+	const char *error;
+	if (!dcrypt_initialize("openssl", NULL, &error)) {
+		e_error(cctx->event, "%s", error);
 		return FALSE;
+	}
 	bool ret = dcrypt_file_dump_metadata(cctx, path, FALSE);
 	return ret;
 }

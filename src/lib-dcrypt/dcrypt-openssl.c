@@ -1470,8 +1470,10 @@ dcrypt_openssl_load_private_key_dovecot_v2(struct dcrypt_private_key **key_r,
 	}
 
 	/* finally compare key to key id */
-	dcrypt_openssl_private_key_id(*key_r, "sha256", key_data, NULL);
-
+	if (!dcrypt_openssl_private_key_id(*key_r, "sha256", key_data, error_r)) {
+		dcrypt_openssl_unref_private_key(key_r);
+		return FALSE;
+	}
 	if (strcmp(binary_to_hex(key_data->data, key_data->used),
 		   input[len-1]) != 0) {
 		dcrypt_openssl_unref_private_key(key_r);
@@ -2123,7 +2125,10 @@ dcrypt_openssl_load_public_key_dovecot_v1(struct dcrypt_public_key **key_r,
 		struct dcrypt_public_key tmp;
 		i_zero(&tmp);
 		tmp.key = key;
-		dcrypt_openssl_public_key_id_old(&tmp, dgst, NULL);
+		if (!dcrypt_openssl_public_key_id_old(&tmp, dgst, error_r)) {
+			EVP_PKEY_free(key);
+			return FALSE;
+		}
 		if (strcmp(binary_to_hex(dgst->data, dgst->used),
 			   input[len-1]) != 0) {
 			DCRYPT_SET_ERROR("Key id mismatch after load");
@@ -2165,7 +2170,10 @@ dcrypt_openssl_load_public_key_dovecot_v2(struct dcrypt_public_key **key_r,
 	struct dcrypt_public_key tmpkey;
 	i_zero(&tmpkey);
 	tmpkey.key = pkey;
-	dcrypt_openssl_public_key_id(&tmpkey, "sha256", dgst, NULL);
+	if (!dcrypt_openssl_public_key_id(&tmpkey, "sha256", dgst, error_r)) {
+		EVP_PKEY_free(pkey);
+		return FALSE;
+	}
 	if (strcmp(binary_to_hex(dgst->data, dgst->used), input[len-1]) != 0) {
 		DCRYPT_SET_ERROR("Key id mismatch after load");
 		EVP_PKEY_free(pkey);
