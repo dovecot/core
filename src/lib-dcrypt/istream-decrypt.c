@@ -299,29 +299,31 @@ get_msb32(const unsigned char **_data, const unsigned char *end,
 	return TRUE;
 }
 
-static bool
+static int
 i_stream_decrypt_der(const unsigned char **_data, const unsigned char *end,
-		     const char **str_r)
+		     const char **str_r, const char **error_r)
 {
 	const unsigned char *data = *_data;
 	unsigned int len;
 
 	if (end-data < 2)
-		return FALSE;
+		return 0;
 	/* get us DER encoded length */
 	if ((data[1] & 0x80) != 0) {
 		/* two byte length */
 		if (end-data < 3)
-			return FALSE;
+			return 0;
 		len = ((data[1] & 0x7f) << 8) + data[2] + 3;
 	} else {
 		len = data[1] + 2;
 	}
 	if ((size_t)(end-data) < len)
-		return FALSE;
-	*str_r = dcrypt_oid2name(data, len, NULL);
+		return 0;
+	*str_r = dcrypt_oid2name(data, len, error_r);
+	if (*str_r == NULL)
+		return -1;
 	*_data += len;
-	return TRUE;
+	return 1;
 }
 
 static ssize_t
@@ -569,26 +571,30 @@ i_stream_decrypt_header_contents(struct decrypt_istream *stream,
 
 	/* read cipher OID */
 	const char *calg;
-	if (!i_stream_decrypt_der(&data, end, &calg))
+	const char *error;
+	int ret;
+
+	if ((ret = i_stream_decrypt_der(&data, end, &calg, &error)) == 0)
 		return 0;
-	if (calg == NULL ||
-	    !dcrypt_ctx_sym_create(calg, DCRYPT_MODE_DECRYPT,
-				   &stream->ctx_sym, NULL)) {
+	else if (ret < 0 || calg == NULL ||
+		 !dcrypt_ctx_sym_create(calg, DCRYPT_MODE_DECRYPT,
+					&stream->ctx_sym, &error)) {
 		io_stream_set_error(&stream->istream.iostream,
 				    "Decryption error: "
-				    "unsupported/invalid cipher: %s", calg);
+				    "unsupported/invalid cipher '%s': %s", calg, error);
 		return -1;
 	}
 
 	/* read MAC oid (MAC is used for PBKDF2 and key data digest, too) */
 	const char *malg;
-	if (!i_stream_decrypt_der(&data, end, &malg))
+	if ((ret = i_stream_decrypt_der(&data, end, &malg, &error)) == 0)
 		return 0;
-	if (malg == NULL || !dcrypt_ctx_hmac_create(malg, &stream->ctx_mac, NULL)) {
-		io_stream_set_error(&stream->istream.iostream,
-				    "Decryption error: "
-				    "unsupported/invalid MAC algorithm: %s",
-				    malg);
+	else if (ret < 0 || malg == NULL ||
+		 !dcrypt_ctx_hmac_create(malg, &stream->ctx_mac, &error)) {
+		 io_stream_set_error(&stream->istream.iostream,
+				     "Decryption error: "
+				     "unsupported/invalid MAC algorithm '%s': %s",
+				     malg, error);
 		return -1;
 	}
 
@@ -619,7 +625,6 @@ i_stream_decrypt_header_contents(struct decrypt_istream *stream,
 	buffer_t *keydata = t_buffer_create(kl);
 
 	/* try to decrypt the keydata with a private key */
-	int ret;
 	if ((ret = i_stream_decrypt_key(stream, malg, rounds, data,
 					end, keydata, kl)) <= 0)
 		return ret;
