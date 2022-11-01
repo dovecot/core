@@ -110,6 +110,14 @@
 
 #define t_base64url_decode_str(x) t_base64url_decode_str(BASE64_DECODE_FLAG_IGNORE_PADDING, (x))
 
+#ifdef HAVE_ERR_get_error_all
+# define openssl_get_error_data(data, flags) \
+	ERR_get_error_all(NULL, NULL, NULL, data, flags)
+#else
+# define openssl_get_error_data(data, flags) \
+	ERR_get_error_line_data(NULL, NULL, data, flags)
+#endif
+
 struct dcrypt_context_symmetric {
 	pool_t pool;
 	const EVP_CIPHER *cipher;
@@ -198,17 +206,59 @@ static int EC_GROUP_order_bits(const EC_GROUP *grp)
 }
 #endif
 
+static const char *ssl_err2str(unsigned long err, const char *data, int flags)
+{
+	const char *ret;
+	char *buf;
+	const size_t err_size = 256;
+
+	buf = t_malloc_no0(err_size);
+	/* will add \0 and the end */
+	ERR_error_string_n(err, buf, err_size);
+	ret = buf;
+
+	if ((flags & ERR_TXT_STRING) != 0)
+		ret = t_strdup_printf("%s: %s", buf, data);
+	return ret;
+}
+
 static bool dcrypt_openssl_error(const char **error_r)
 {
-	unsigned long ec;
+	string_t *errstr = NULL;
+	unsigned long err;
+	const char *data, *final_error;
+	int flags;
 
-	if (error_r == NULL) {
-		/* caller is not really interested */
+	while ((err = openssl_get_error_data(&data, &flags)) != 0) {
+		if (ERR_GET_REASON(err) == ERR_R_MALLOC_FAILURE)
+			i_fatal_status(FATAL_OUTOFMEM, "OpenSSL malloc() failed");
+		if (ERR_peek_error() == 0)
+			break;
+		if (error_r == NULL)
+			continue;
+		if (errstr == NULL)
+			errstr = t_str_new(128);
+		else
+			str_append(errstr, ", ");
+		str_append(errstr, ssl_err2str(err, data, flags));
+	}
+	if (error_r == NULL)
 		return FALSE;
+	if (err == 0) {
+		if (errno != 0)
+			final_error = strerror(errno);
+		else
+			final_error = "Unknown error";
+	} else {
+		final_error = ssl_err2str(err, data, flags);
+	}
+	if (errstr == NULL)
+		*error_r = final_error;
+	else {
+		str_printfa(errstr, ", %s", final_error);
+		*error_r = str_c(errstr);
 	}
 
-	ec = ERR_get_error();
-	DCRYPT_SET_ERROR(t_strdup_printf("%s", ERR_error_string(ec, NULL)));
 	return FALSE;
 }
 
