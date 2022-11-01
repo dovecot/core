@@ -251,13 +251,13 @@ void replicator_queue_remove(struct replicator_queue *queue,
 	if (!user->popped)
 		priorityq_remove(queue->user_queue, &user->item);
 	hash_table_remove(queue->user_hash, user->username);
-	replicator_user_unref(&user);
 
 	if (queue->change_callback != NULL) {
 		e_debug(queue->event, "user %s: Queue changed - calling callback",
 			user->username);
 		queue->change_callback(queue->change_context);
 	}
+	replicator_user_unref(&user);
 }
 
 unsigned int replicator_queue_count(struct replicator_queue *queue)
