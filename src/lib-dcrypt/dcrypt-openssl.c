@@ -3720,18 +3720,21 @@ dcrypt_openssl_key_get_curve_public(struct dcrypt_public_key *key,
 static const char *
 dcrypt_openssl_key_get_id_public(struct dcrypt_public_key *key)
 {
+	i_assert(key != NULL);
 	return key->key_id;
 }
 
 static const char *
 dcrypt_openssl_key_get_id_private(struct dcrypt_private_key *key)
 {
+	i_assert(key != NULL);
 	return key->key_id;
 }
 
 static void
 dcrypt_openssl_key_set_id_public(struct dcrypt_public_key *key, const char *id)
 {
+	i_assert(key != NULL);
 	i_free(key->key_id);
 	key->key_id = i_strdup_empty(id);
 }
@@ -3739,6 +3742,7 @@ dcrypt_openssl_key_set_id_public(struct dcrypt_public_key *key, const char *id)
 static void
 dcrypt_openssl_key_set_id_private(struct dcrypt_private_key *key, const char *id)
 {
+	i_assert(key != NULL);
 	i_free(key->key_id);
 	key->key_id = i_strdup_empty(id);
 }
@@ -3746,12 +3750,14 @@ dcrypt_openssl_key_set_id_private(struct dcrypt_private_key *key, const char *id
 static enum dcrypt_key_usage
 dcrypt_openssl_key_get_usage_public(struct dcrypt_public_key *key)
 {
+	i_assert(key != NULL);
 	return key->usage;
 }
 
 static enum dcrypt_key_usage
 dcrypt_openssl_key_get_usage_private(struct dcrypt_private_key *key)
 {
+	i_assert(key != NULL);
 	return key->usage;
 }
 
@@ -3759,6 +3765,7 @@ static void
 dcrypt_openssl_key_set_usage_public(struct dcrypt_public_key *key,
 				    enum dcrypt_key_usage usage)
 {
+	i_assert(key != NULL);
 	key->usage = usage;
 }
 
@@ -3766,6 +3773,7 @@ static void
 dcrypt_openssl_key_set_usage_private(struct dcrypt_private_key *key,
 				     enum dcrypt_key_usage usage)
 {
+	i_assert(key != NULL);
 	key->usage = usage;
 }
 
