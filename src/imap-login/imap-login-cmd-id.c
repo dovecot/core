@@ -112,7 +112,8 @@ client_try_update_info(struct imap_client *client,
 
 	/* do not try to process NIL values as client-info,
 	   but store them for non-reserved keys */
-	if (client->common.trusted && !client->id_logged && value != NULL)
+	if (client->common.connection_trusted &&
+	    !client->id_logged && value != NULL)
 		handler->callback(client, key, value);
 	return TRUE;
 }
@@ -211,7 +212,7 @@ static void cmd_id_finish(struct imap_client *client)
 		t_strdup_printf("* ID %s\r\n",
 			imap_id_reply_generate(client->set->imap_id_send)));
 	const char *msg = "ID completed.";
-	if (client->common.trusted)
+	if (client->common.connection_trusted)
 		msg = "Trusted ID completed.";
 	client_send_reply(&client->common, IMAP_CMD_REPLY_OK, msg);
 }

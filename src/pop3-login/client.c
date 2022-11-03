@@ -44,7 +44,7 @@ static bool cmd_xclient(struct pop3_client *client, const char *args)
 	in_port_t remote_port;
 	bool args_ok = TRUE;
 
-	if (!client->common.trusted) {
+	if (!client->common.connection_trusted) {
 		client_send_reply(&client->common, POP3_CMD_REPLY_OK,
 				  "You are not from trusted IP - ignoring");
 		return TRUE;
@@ -251,7 +251,7 @@ static void pop3_client_notify_auth_ready(struct client *client)
 	client->io = io_add_istream(client->input, client_input, client);
 
 	str = t_str_new(128);
-	if (client->trusted) {
+	if (client->connection_trusted) {
 		/* Dovecot extension to avoid extra roundtrip for CAPA */
 		str_append(str, "[XCLIENT] ");
 	}

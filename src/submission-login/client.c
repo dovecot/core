@@ -225,7 +225,7 @@ static bool client_connection_is_trusted(void *context)
 {
 	struct submission_client *client = context;
 
-	return client->common.trusted;
+	return client->common.connection_trusted;
 }
 
 static void submission_login_die(void)

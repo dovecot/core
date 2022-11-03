@@ -247,7 +247,10 @@ struct client {
 	   TLS secured, not whether the original client connection is TLS
 	   secured. */
 	bool end_client_tls_secured:1;
-	bool trusted:1;
+	/* Connection is from a trusted client/proxy, which is allowed to e.g.
+	   forward the original client IP address. Note that a trusted
+	   connection is not necessarily considered secured. */
+	bool connection_trusted:1;
 	bool ssl_servername_settings_read:1;
 	bool banner_sent:1;
 	bool authenticating:1;

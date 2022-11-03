@@ -214,16 +214,17 @@ client_alloc(int fd, pool_t pool,
 	event_add_str(client->event, "service", login_binary->protocol);
 	event_set_log_message_callback(client->event, client_log_msg_callback,
 				       client);
-	client->trusted = client_is_trusted(client);
+	client->connection_trusted = client_is_trusted(client);
 
 	if (conn->haproxied) {
 		client->haproxy_terminated_tls = conn->haproxy.ssl;
-		client->connection_secured = conn->haproxy.ssl || client->trusted;
+		client->connection_secured = conn->haproxy.ssl ||
+			client->connection_trusted;
 		client->end_client_tls_secured = conn->haproxy.ssl;
 		client->local_name = conn->haproxy.hostname;
 		client->client_cert_common_name = conn->haproxy.cert_common_name;
 	} else {
-		client->connection_secured = client->trusted ||
+		client->connection_secured = client->connection_trusted ||
 			net_ip_compare(&conn->real_remote_ip, &conn->real_local_ip);
 	}
 	client->proxy_ttl = LOGIN_PROXY_TTL;
