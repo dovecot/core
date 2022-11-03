@@ -1852,7 +1852,7 @@ dcrypt_openssl_load_private_key_jwk(struct dcrypt_private_key **key_r,
 	const char *error;
 	const struct json_tree_node *root, *node;
 	struct json_tree *key_tree;
-	EVP_PKEY *pkey;
+	EVP_PKEY *pkey = NULL;
 	bool ret;
 
 	if (parse_jwk_key(data, &key_tree, &error) != 0) {
@@ -1910,7 +1910,7 @@ dcrypt_openssl_load_public_key_jwk(struct dcrypt_public_key **key_r,
 	const char *error;
 	const struct json_tree_node *root, *node;
 	struct json_tree *key_tree;
-	EVP_PKEY *pkey;
+	EVP_PKEY *pkey = NULL;
 	bool ret;
 
 	if (parse_jwk_key(data, &key_tree, &error) != 0) {
