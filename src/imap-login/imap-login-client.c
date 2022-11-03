@@ -74,7 +74,7 @@ bool client_handle_parser_error(struct imap_client *client,
 
 static bool is_login_cmd_disabled(struct client *client)
 {
-	if (client->secured) {
+	if (client->connection_secured) {
 		if (sasl_server_find_available_mech(client, "PLAIN") == NULL) {
 			/* no PLAIN authentication, can't use LOGIN command */
 			return TRUE;

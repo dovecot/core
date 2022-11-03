@@ -218,12 +218,12 @@ client_alloc(int fd, pool_t pool,
 
 	if (conn->proxied) {
 		client->proxied_ssl = conn->proxy.ssl;
-		client->secured = conn->proxy.ssl || client->trusted;
+		client->connection_secured = conn->proxy.ssl || client->trusted;
 		client->ssl_secured = conn->proxy.ssl;
 		client->local_name = conn->proxy.hostname;
 		client->client_cert_common_name = conn->proxy.cert_common_name;
 	} else {
-		client->secured = client->trusted ||
+		client->connection_secured = client->trusted ||
 			net_ip_compare(&conn->real_remote_ip, &conn->real_local_ip);
 	}
 	client->proxy_ttl = LOGIN_PROXY_TTL;
@@ -590,7 +590,7 @@ int client_init_ssl(struct client *client)
 				      client_sni_callback, client);
 
 	client->tls = TRUE;
-	client->secured = TRUE;
+	client->connection_secured = TRUE;
 	client->ssl_secured = TRUE;
 
 	if (client->starttls) {
@@ -888,7 +888,7 @@ get_var_expand_table(struct client *client)
 	tab[VAR_EXPAND_ALIAS_INDEX_START + 3].value = tab[10].value =
 		dec2str(client->remote_port);
 	if (!client->tls) {
-		tab[11].value = client->secured ? "secured" : NULL;
+		tab[11].value = client->connection_secured ? "secured" : NULL;
 		tab[12].value = "";
 	} else if (client->proxied_ssl) {
 		tab[11].value = "TLS";

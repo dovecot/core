@@ -34,7 +34,7 @@ bool cmd_capa(struct pop3_client *client, const char *args ATTR_UNUSED)
 	if (client_is_tls_enabled(&client->common) && !client->common.tls)
 		str_append(str, "STLS\r\n");
 	if (client->common.set->auth_allow_cleartext ||
-	    client->common.secured)
+	    client->common.connection_secured)
 		str_append(str, "USER\r\n");
 
 	str_append(str, "SASL");

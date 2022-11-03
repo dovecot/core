@@ -231,7 +231,12 @@ struct client {
 	bool starttls:1;
 	bool tls:1;
 	bool proxied_ssl:1;
-	bool secured:1;
+	/* Connection from the previous hop (client, proxy, haproxy) is
+	   considered secured. Either because TLS is used, or because the
+	   connection is otherwise considered not to need TLS. Note that this
+	   doesn't necessarily mean that the client connection behind the
+	   previous hop is secured. */
+	bool connection_secured:1;
 	bool ssl_secured:1;
 	bool trusted:1;
 	bool ssl_servername_settings_read:1;

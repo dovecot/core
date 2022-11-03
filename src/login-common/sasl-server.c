@@ -50,7 +50,7 @@ sasl_server_get_advertised_mechs(struct client *client, unsigned int *count_r)
 	unsigned int i, j, count;
 
 	mech = auth_client_get_available_mechs(auth_client, &count);
-	if (count == 0 || (!client->secured &&
+	if (count == 0 || (!client->connection_secured &&
 			   strcmp(client->ssl_set->ssl, "required") == 0)) {
 		*count_r = 0;
 		return NULL;
@@ -68,7 +68,7 @@ sasl_server_get_advertised_mechs(struct client *client, unsigned int *count_r)
 		   c) we allow insecure authentication
 		*/
 		if ((fmech.flags & MECH_SEC_PRIVATE) == 0 &&
-		    (client->secured || client->set->auth_allow_cleartext ||
+		    (client->connection_secured || client->set->auth_allow_cleartext ||
 		     (fmech.flags & MECH_SEC_PLAINTEXT) == 0))
 			ret_mech[j++] = fmech;
 	}
@@ -108,7 +108,7 @@ client_get_auth_flags(struct client *client)
 		auth_flags |= AUTH_REQUEST_FLAG_VALID_CLIENT_CERT;
 	if (client->tls || client->proxied_ssl)
 		auth_flags |= AUTH_REQUEST_FLAG_TRANSPORT_SECURITY_TLS;
-	if (client->secured)
+	if (client->connection_secured)
 		auth_flags |= AUTH_REQUEST_FLAG_SECURED;
 	if (login_binary->sasl_support_final_reply)
 		auth_flags |= AUTH_REQUEST_FLAG_SUPPORT_FINAL_RESP;
@@ -181,7 +181,7 @@ static int master_send_request(struct anvil_request *anvil_request)
 	if (client->ssl_iostream != NULL &&
 	    ssl_iostream_get_compression(client->ssl_iostream) != NULL)
 		req.flags |= LOGIN_REQUEST_FLAG_TLS_COMPRESSION;
-	if (client->secured)
+	if (client->connection_secured)
 		req.flags |= LOGIN_REQUEST_FLAG_CONN_SECURED;
 	if (client->ssl_secured)
 		req.flags |= LOGIN_REQUEST_FLAG_CONN_SSL_SECURED;
@@ -519,7 +519,7 @@ void sasl_server_auth_begin(struct client *client, const char *mech_name,
 
 	i_assert(!private || (mech->flags & MECH_SEC_PRIVATE) != 0);
 
-	if (!client->secured && !client->set->auth_allow_cleartext &&
+	if (!client->connection_secured && !client->set->auth_allow_cleartext &&
 	    (mech->flags & MECH_SEC_PLAINTEXT) != 0) {
 		client_notify_status(client, TRUE,
 			 "cleartext authentication not allowed "
