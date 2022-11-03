@@ -80,7 +80,8 @@ static void cmd_helo_reply(struct submission_client *subm_client,
 			smtp_server_reply_ehlo_add(reply, "SIZE");
 		}
 
-		if (client_is_tls_enabled(client) && !client->tls)
+		if (client_is_tls_enabled(client) &&
+		    !client->connection_tls_secured)
 			smtp_server_reply_ehlo_add(reply, "STARTTLS");
 		if (!exotic_backend ||
 		    (backend_caps & SMTP_CAPABILITY_PIPELINING) != 0)

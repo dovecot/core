@@ -589,7 +589,7 @@ int client_init_ssl(struct client *client)
 	ssl_iostream_set_sni_callback(client->ssl_iostream,
 				      client_sni_callback, client);
 
-	client->tls = TRUE;
+	client->connection_tls_secured = TRUE;
 	client->connection_secured = TRUE;
 	client->end_client_tls_secured = TRUE;
 
@@ -636,7 +636,7 @@ static int client_output_starttls(struct client *client)
 
 void client_cmd_starttls(struct client *client)
 {
-	if (client->tls) {
+	if (client->connection_tls_secured) {
 		client->v.notify_starttls(client, FALSE, "TLS is already active.");
 		return;
 	}
@@ -681,7 +681,7 @@ int client_get_plaintext_fd(struct client *client, int *fd_r, bool *close_fd_r)
 {
 	int fds[2];
 
-	if (!client->tls) {
+	if (!client->connection_tls_secured) {
 		/* Plaintext connection - We can send the fd directly to
 		   the post-login process without any proxying. */
 		*fd_r = client->fd;
@@ -887,7 +887,7 @@ get_var_expand_table(struct client *client)
 		dec2str(client->local_port);
 	tab[VAR_EXPAND_ALIAS_INDEX_START + 3].value = tab[10].value =
 		dec2str(client->remote_port);
-	if (!client->tls) {
+	if (!client->connection_tls_secured) {
 		tab[11].value = client->connection_secured ? "secured" : NULL;
 		tab[12].value = "";
 	} else if (client->proxied_ssl) {

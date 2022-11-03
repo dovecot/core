@@ -229,7 +229,9 @@ struct client {
 	bool login_success:1;
 	bool no_extra_disconnect_reason:1;
 	bool starttls:1;
-	bool tls:1;
+	/* Client/proxy connection is using TLS. Dovecot has terminated the
+	   TLS connection (not haproxy). */
+	bool connection_tls_secured:1;
 	bool proxied_ssl:1;
 	/* Connection from the previous hop (client, proxy, haproxy) is
 	   considered secured. Either because TLS is used, or because the
