@@ -217,7 +217,7 @@ client_alloc(int fd, pool_t pool,
 	client->trusted = client_is_trusted(client);
 
 	if (conn->haproxied) {
-		client->proxied_ssl = conn->haproxy.ssl;
+		client->haproxy_terminated_tls = conn->haproxy.ssl;
 		client->connection_secured = conn->haproxy.ssl || client->trusted;
 		client->end_client_tls_secured = conn->haproxy.ssl;
 		client->local_name = conn->haproxy.hostname;
@@ -890,7 +890,7 @@ get_var_expand_table(struct client *client)
 	if (!client->connection_tls_secured) {
 		tab[11].value = client->connection_secured ? "secured" : NULL;
 		tab[12].value = "";
-	} else if (client->proxied_ssl) {
+	} else if (client->haproxy_terminated_tls) {
 		tab[11].value = "TLS";
 		tab[12].value = "(proxied)";
 	} else if (client->ssl_iostream != NULL) {
