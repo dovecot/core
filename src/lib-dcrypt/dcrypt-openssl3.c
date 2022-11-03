@@ -1831,7 +1831,7 @@ dcrypt_openssl_load_private_key_jwk(struct dcrypt_private_key **key_r,
 
 	if (!ret)
 		*error_r = t_strdup_printf("Cannot load JWK private key: %s", error);
-	else if (ret) {
+	else {
 		*key_r = i_new(struct dcrypt_private_key, 1);
 		(*key_r)->key = pkey;
 		(*key_r)->ref++;
@@ -1889,7 +1889,7 @@ dcrypt_openssl_load_public_key_jwk(struct dcrypt_public_key **key_r,
 
 	if (!ret)
 		*error_r = t_strdup_printf("Cannot load JWK public key: %s", error);
-	else if (ret) {
+	else {
 		*key_r = i_new(struct dcrypt_public_key, 1);
 		(*key_r)->key = pkey;
 		(*key_r)->ref++;
