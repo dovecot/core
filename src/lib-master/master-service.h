@@ -49,7 +49,7 @@ enum master_service_flags {
 	MASTER_SERVICE_FLAG_HAVE_STARTTLS	= 0x2000,
 };
 
-struct master_service_connection_proxy {
+struct master_service_connection_haproxy {
 	/* only set if ssl is TRUE */
 	const char *hostname;
 	const char *cert_common_name;
@@ -78,10 +78,10 @@ struct master_service_connection {
 	in_port_t real_remote_port, real_local_port;
 
 	/* filled if connection is proxied */
-	struct master_service_connection_proxy proxy;
+	struct master_service_connection_haproxy haproxy;
 
 	/* This is a connection proxied wit HAproxy (or similar) */
-	bool proxied:1;
+	bool haproxied:1;
 
 	/* This is a FIFO fd. Only a single "connection" is ever received from
 	   a FIFO after the first writer sends something to it. */

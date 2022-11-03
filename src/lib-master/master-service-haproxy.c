@@ -209,7 +209,7 @@ master_service_haproxy_parse_ssl_tlv(struct master_service_haproxy_conn *hpconn,
 				     const struct haproxy_pp2_tlv_ssl *ssl_kv,
 				     const char **error_r)
 {
-	hpconn->conn.proxy.ssl = (ssl_kv->client & (PP2_CLIENT_SSL)) != 0;
+	hpconn->conn.haproxy.ssl = (ssl_kv->client & (PP2_CLIENT_SSL)) != 0;
 
 	/* try parse some more */
 	for(size_t i = 0; i < ssl_kv->len;) {
@@ -227,7 +227,7 @@ master_service_haproxy_parse_ssl_tlv(struct master_service_haproxy_conn *hpconn,
 		case PP2_SUBTYPE_SSL_KEY_ALG:
 			break;
 		case PP2_SUBTYPE_SSL_CN:
-			hpconn->conn.proxy.cert_common_name =
+			hpconn->conn.haproxy.cert_common_name =
 				p_strndup(hpconn->pool, kv.data, kv.len);
 			break;
 		}
@@ -253,13 +253,13 @@ master_service_haproxy_parse_tlv(struct master_service_haproxy_conn *hpconn,
                 /* skip unsupported values */
                 switch(kv.type) {
 		case PP2_TYPE_ALPN:
-			hpconn->conn.proxy.alpn_size = kv.len;
-			hpconn->conn.proxy.alpn =
+			hpconn->conn.haproxy.alpn_size = kv.len;
+			hpconn->conn.haproxy.alpn =
 				p_memdup(hpconn->pool, kv.data, kv.len);
 			break;
                 case PP2_TYPE_AUTHORITY:
                         /* store hostname somewhere */
-                        hpconn->conn.proxy.hostname =
+                        hpconn->conn.haproxy.hostname =
 				p_strndup(hpconn->pool, kv.data, kv.len);
                         break;
                 case PP2_TYPE_SSL:
@@ -622,7 +622,7 @@ master_service_haproxy_read(struct master_service_haproxy_conn *hpconn)
 	hpconn->conn.remote_ip = remote_ip;
 	hpconn->conn.local_port = local_port;
 	hpconn->conn.remote_port = remote_port;
-	hpconn->conn.proxied = TRUE;
+	hpconn->conn.haproxied = TRUE;
 
 	return 1;
 }
