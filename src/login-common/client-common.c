@@ -637,7 +637,7 @@ static int client_output_starttls(struct client *client)
 
 void client_cmd_starttls(struct client *client)
 {
-	if (client->connection_tls_secured) {
+	if (client->connection_tls_secured || client->haproxy_terminated_tls) {
 		client->v.notify_starttls(client, FALSE, "TLS is already active.");
 		return;
 	}

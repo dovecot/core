@@ -112,7 +112,8 @@ static const char *get_capability(struct client *client)
 			str_append(cap_str, " LITERAL+");
 	}
 
-	if (client_is_tls_enabled(client) && !client->connection_tls_secured)
+	if (client_is_tls_enabled(client) && !client->connection_tls_secured &&
+	    !client->haproxy_terminated_tls)
 		str_append(cap_str, " STARTTLS");
 	if (is_login_cmd_disabled(client))
 		str_append(cap_str, " LOGINDISABLED");
