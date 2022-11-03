@@ -237,7 +237,12 @@ struct client {
 	   doesn't necessarily mean that the client connection behind the
 	   previous hop is secured. */
 	bool connection_secured:1;
-	bool ssl_secured:1;
+	/* End client is using TLS connection. The TLS termination may be either
+	   on Dovecot side or HAProxy side. FIXME: This is broken on a proxying
+	   setup, because it indicates whether the previous hop connection is
+	   TLS secured, not whether the original client connection is TLS
+	   secured. */
+	bool end_client_tls_secured:1;
 	bool trusted:1;
 	bool ssl_servername_settings_read:1;
 	bool banner_sent:1;

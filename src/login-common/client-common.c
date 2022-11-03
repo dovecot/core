@@ -219,7 +219,7 @@ client_alloc(int fd, pool_t pool,
 	if (conn->haproxied) {
 		client->proxied_ssl = conn->haproxy.ssl;
 		client->connection_secured = conn->haproxy.ssl || client->trusted;
-		client->ssl_secured = conn->haproxy.ssl;
+		client->end_client_tls_secured = conn->haproxy.ssl;
 		client->local_name = conn->haproxy.hostname;
 		client->client_cert_common_name = conn->haproxy.cert_common_name;
 	} else {
@@ -591,7 +591,7 @@ int client_init_ssl(struct client *client)
 
 	client->tls = TRUE;
 	client->connection_secured = TRUE;
-	client->ssl_secured = TRUE;
+	client->end_client_tls_secured = TRUE;
 
 	if (client->starttls) {
 		io_remove(&client->io);

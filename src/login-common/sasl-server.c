@@ -183,7 +183,7 @@ static int master_send_request(struct anvil_request *anvil_request)
 		req.flags |= LOGIN_REQUEST_FLAG_TLS_COMPRESSION;
 	if (client->connection_secured)
 		req.flags |= LOGIN_REQUEST_FLAG_CONN_SECURED;
-	if (client->ssl_secured)
+	if (client->end_client_tls_secured)
 		req.flags |= LOGIN_REQUEST_FLAG_CONN_SSL_SECURED;
 	if (HAS_ALL_BITS(client->auth_flags, SASL_SERVER_AUTH_FLAG_IMPLICIT))
 		req.flags |= LOGIN_REQUEST_FLAG_IMPLICIT;
