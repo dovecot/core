@@ -83,6 +83,7 @@ static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
 {
 	struct dsync_mailbox_node *node;
 	struct mailbox *box;
+	enum mailbox_existence existence;
 	struct mailbox_metadata metadata;
 	struct mailbox_status status;
 	const char *errstr;
@@ -99,8 +100,23 @@ static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
 
 	/* get GUID and UIDVALIDITY for selectable mailbox */
 	box = mailbox_alloc(info->ns->list, info->vname, MAILBOX_FLAG_READONLY);
-	if (dsync_mailbox_tree_get_selectable(box, &metadata, &status) < 0) {
+	ret = mailbox_exists(box, FALSE, &existence);
+	if (ret == 0 && existence != MAILBOX_EXISTENCE_SELECT) {
+		/* autocreated mailbox doesn't exist yet */
+		mailbox_free(&box);
+		if (existence == MAILBOX_EXISTENCE_NOSELECT) {
+			return !guid_128_is_empty(box_guid) ? 0 :
+				dsync_mailbox_tree_add_exists_node(
+					tree, info, &node, event, error_r);
+		} else {
+			return 0;
+		}
+	}
+	if (ret == 0)
+		ret = dsync_mailbox_tree_get_selectable(box, &metadata, &status);
+	if (ret < 0) {
 		errstr = mailbox_get_last_internal_error(box, &error);
+		ret = 0;
 		switch (error) {
 		case MAIL_ERROR_NOTFOUND:
 			/* mailbox was just deleted? */
