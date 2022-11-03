@@ -593,7 +593,7 @@ int client_init_ssl(struct client *client)
 	client->connection_secured = TRUE;
 	client->end_client_tls_secured = TRUE;
 
-	if (client->starttls) {
+	if (client->connection_used_starttls) {
 		io_remove(&client->io);
 		if (!client_does_custom_io(client)) {
 			client->io = io_add_istream(client->input,
@@ -605,7 +605,7 @@ int client_init_ssl(struct client *client)
 
 static void client_start_tls(struct client *client)
 {
-	client->starttls = TRUE;
+	client->connection_used_starttls = TRUE;
 	if (client_init_ssl(client) < 0) {
 		client_notify_disconnect(client,
 			CLIENT_DISCONNECT_INTERNAL_ERROR,

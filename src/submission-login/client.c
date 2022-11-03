@@ -66,7 +66,7 @@ static int submission_login_start_tls(void *conn_ctx,
 	struct submission_client *subm_client = conn_ctx;
 	struct client *client = &subm_client->common;
 
-	client->starttls = TRUE;
+	client->connection_used_starttls = TRUE;
 	if (client_init_ssl(client) < 0) {
 		client_notify_disconnect(client,
 			CLIENT_DISCONNECT_INTERNAL_ERROR,
