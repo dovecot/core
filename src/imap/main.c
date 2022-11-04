@@ -374,8 +374,6 @@ login_request_finished(const struct login_server_request *request,
 	input.username = username;
 	input.userdb_fields = extra_fields;
 	input.session_id = request->session_id;
-	if ((flags & LOGIN_REQUEST_FLAG_CONN_SECURED) != 0)
-		input.conn_secured = TRUE;
 	if ((flags & LOGIN_REQUEST_FLAG_CONN_SSL_SECURED) != 0)
 		input.conn_ssl_secured = TRUE;
 

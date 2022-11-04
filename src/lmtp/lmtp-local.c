@@ -307,8 +307,6 @@ int lmtp_local_rcpt(struct client *client,
 	input.session_id = lrcpt->session_id;
 	input.conn_ssl_secured =
 		smtp_server_connection_is_ssl_secured(client->conn);
-	input.conn_secured = input.conn_ssl_secured ||
-		smtp_server_connection_is_trusted(client->conn);
 	input.forward_fields = lrcpt->forward_fields;
 	input.event_parent = rcpt->event;
 

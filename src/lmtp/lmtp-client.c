@@ -121,7 +121,6 @@ static void client_read_settings(struct client *client, bool ssl)
 	input.remote_ip = client->remote_ip;
 	input.local_port = client->local_port;
 	input.remote_port = client->remote_port;
-	input.conn_secured = ssl;
 	input.conn_ssl_secured = ssl;
 	input.username = "";
 
