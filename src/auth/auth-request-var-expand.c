@@ -135,10 +135,10 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 	}
 	tab[10].value = tab[43].value = fields->mech_name == NULL ? "" :
 		escape_func(fields->mech_name, auth_request);
-	switch (fields->secured) {
-	case AUTH_REQUEST_SECURED_NONE: tab[11].value = ""; break;
-	case AUTH_REQUEST_SECURED: tab[11].value = "secured"; break;
-	case AUTH_REQUEST_SECURED_TLS: tab[11].value = "TLS"; break;
+	switch (fields->conn_secured) {
+	case AUTH_REQUEST_CONN_SECURED_NONE: tab[11].value = ""; break;
+	case AUTH_REQUEST_CONN_SECURED: tab[11].value = "secured"; break;
+	case AUTH_REQUEST_CONN_SECURED_TLS: tab[11].value = "TLS"; break;
 	default: tab[11].value = ""; break;
 	};
 	tab[12].value = tab[37].value = dec2str(fields->local_port);

@@ -100,10 +100,10 @@ void auth_request_export(struct auth_request *request, string_t *dest)
 	}
 	if (event_want_debug(request->event))
 		str_append(dest, "\tdebug");
-	switch (fields->secured) {
-	case AUTH_REQUEST_SECURED_NONE: break;
-	case AUTH_REQUEST_SECURED: str_append(dest, "\tsecured"); break;
-	case AUTH_REQUEST_SECURED_TLS: str_append(dest, "\tsecured=tls"); break;
+	switch (fields->conn_secured) {
+	case AUTH_REQUEST_CONN_SECURED_NONE: break;
+	case AUTH_REQUEST_CONN_SECURED: str_append(dest, "\tsecured"); break;
+	case AUTH_REQUEST_CONN_SECURED_TLS: str_append(dest, "\tsecured=tls"); break;
 	default: break;
 	}
 	if (fields->skip_password_check)
@@ -213,10 +213,10 @@ bool auth_request_import_auth(struct auth_request *request,
 	/* auth client may set these */
 	if (strcmp(key, "secured") == 0) {
 		if (strcmp(value, "tls") == 0) {
-			fields->secured = AUTH_REQUEST_SECURED_TLS;
+			fields->conn_secured = AUTH_REQUEST_CONN_SECURED_TLS;
 			event_add_str(request->event, "transport", "TLS");
 		} else {
-			fields->secured = AUTH_REQUEST_SECURED;
+			fields->conn_secured = AUTH_REQUEST_CONN_SECURED;
 			event_add_str(request->event, "transport", "trusted");
 		}
 	}
