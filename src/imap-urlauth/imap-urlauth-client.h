@@ -17,7 +17,7 @@ struct client {
 	struct io *ctrl_io;
 	struct ostream *output, *ctrl_output;
 	struct istream *ctrl_input;
-	struct timeout *to_idle;
+	struct timeout *to_destroy;
 	struct event *event;
 
 	char *username, *service;
