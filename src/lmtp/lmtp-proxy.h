@@ -10,6 +10,9 @@
 #define LMTP_PROXY_DEFAULT_TTL 5
 #define LMTP_PROXY_DEFAULT_PORT 24
 
+#define CLIENT_TRANSPORT_TLS "TLS"
+#define CLIENT_TRANSPORT_INSECURE "insecure"
+
 struct smtp_server_cmd_ctx;
 struct smtp_server_cmd_rcpt;
 struct lmtp_proxy;

@@ -347,6 +347,12 @@ client_connection_proxy_data_updated(void *context,
 
 	client->remote_ip = data->source_ip;
 	client->remote_port = data->source_port;
+	if (data->client_transport != NULL) {
+		client->end_client_tls_secured = TRUE;
+		client->end_client_tls_secured =
+			str_begins_with(data->client_transport,
+					CLIENT_TRANSPORT_TLS);
+	}
 
 	if (clients_count == 1)
 		refresh_proctitle();

@@ -125,6 +125,12 @@ lmtp_proxy_init(struct client *client,
 					      &lmtp_set.proxy_data);
 	lmtp_set.proxy_data.source_ip = client->remote_ip;
 	lmtp_set.proxy_data.source_port = client->remote_port;
+	bool end_client_tls_secured =
+		client->end_client_tls_secured_set ?
+		client->end_client_tls_secured :
+		smtp_server_connection_is_ssl_secured(client->conn);
+	lmtp_set.proxy_data.client_transport = end_client_tls_secured ?
+		CLIENT_TRANSPORT_TLS : CLIENT_TRANSPORT_INSECURE;
 	/* This initial session_id is used only locally by lib-smtp. Each LMTP
 	   proxy connection gets a more specific updated session_id. */
 	lmtp_set.proxy_data.session = trans->id;
