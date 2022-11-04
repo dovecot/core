@@ -888,12 +888,12 @@ get_var_expand_table(struct client *client)
 		dec2str(client->local_port);
 	tab[VAR_EXPAND_ALIAS_INDEX_START + 3].value = tab[10].value =
 		dec2str(client->remote_port);
-	if (!client->connection_tls_secured) {
-		tab[11].value = client->connection_secured ? "secured" : NULL;
-		tab[12].value = "";
-	} else if (client->haproxy_terminated_tls) {
+	if (client->haproxy_terminated_tls) {
 		tab[11].value = "TLS";
 		tab[12].value = "(proxied)";
+	} else if (!client->connection_tls_secured) {
+		tab[11].value = client->connection_secured ? "secured" : NULL;
+		tab[12].value = "";
 	} else if (client->ssl_iostream != NULL) {
 		const char *ssl_state =
 			ssl_iostream_is_handshaked(client->ssl_iostream) ?
