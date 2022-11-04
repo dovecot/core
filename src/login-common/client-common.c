@@ -217,9 +217,10 @@ client_alloc(int fd, pool_t pool,
 	client->connection_trusted = client_is_trusted(client);
 
 	if (conn->haproxied) {
+		/* haproxy connections are always coming from
+		   haproxy_trusted_networks, so we consider them secured. */
+		client->connection_secured = TRUE;
 		client->haproxy_terminated_tls = conn->haproxy.ssl;
-		client->connection_secured = conn->haproxy.ssl ||
-			client->connection_trusted;
 		client->end_client_tls_secured = conn->haproxy.ssl;
 		client->local_name = conn->haproxy.hostname;
 		client->client_cert_common_name = conn->haproxy.cert_common_name;
