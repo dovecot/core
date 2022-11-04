@@ -754,7 +754,9 @@ imapc_list_iter_next(struct mailbox_list_iterate_context *_ctx)
 		if (node == NULL)
 			return mailbox_list_iter_default_next(_ctx);
 	} while ((node->flags & MAILBOX_MATCHED) == 0 ||
-		 imapc_list_is_ns_root(ctx, node));
+		 (imapc_list_is_ns_root(ctx, node) &&
+		  (strcasecmp(vname, "INBOX") != 0 ||
+		   (ctx->info.ns->flags & NAMESPACE_FLAG_INBOX_ANY) == 0)));
 
 	if (ctx->info.ns->prefix_len > 0 &&
 	    strcasecmp(vname, "INBOX") != 0 &&
