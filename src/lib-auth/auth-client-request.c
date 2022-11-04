@@ -24,7 +24,7 @@ static void auth_server_send_new_request(struct auth_client_connection *conn,
 
 	if ((info->flags & AUTH_REQUEST_FLAG_SUPPORT_FINAL_RESP) != 0)
 		str_append(str, "\tfinal-resp-ok");
-	if ((info->flags & AUTH_REQUEST_FLAG_SECURED) != 0) {
+	if ((info->flags & AUTH_REQUEST_FLAG_CONN_SECURED) != 0) {
 		str_append(str, "\tsecured");
 		if ((info->flags & AUTH_REQUEST_FLAG_TRANSPORT_SECURITY_TLS) != 0) {
 			str_append(str, "=tls");

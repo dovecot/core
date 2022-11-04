@@ -1003,7 +1003,7 @@ test_client_auth_parallel(const char *mech, const char *username,
 	info.mech = mech;
 	info.service = "test";
 	info.session_id = "23423dfd243daaa223";
-	info.flags = AUTH_REQUEST_FLAG_SECURED;
+	info.flags = AUTH_REQUEST_FLAG_CONN_SECURED;
 
 	(void)net_addr2ip("10.0.0.15", &info.local_ip);
 	info.local_port = 143;

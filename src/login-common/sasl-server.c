@@ -109,7 +109,7 @@ client_get_auth_flags(struct client *client)
 	if (client->connection_tls_secured || client->haproxy_terminated_tls)
 		auth_flags |= AUTH_REQUEST_FLAG_TRANSPORT_SECURITY_TLS;
 	if (client->connection_secured)
-		auth_flags |= AUTH_REQUEST_FLAG_SECURED;
+		auth_flags |= AUTH_REQUEST_FLAG_CONN_SECURED;
 	if (login_binary->sasl_support_final_reply)
 		auth_flags |= AUTH_REQUEST_FLAG_SUPPORT_FINAL_RESP;
 	return auth_flags;
