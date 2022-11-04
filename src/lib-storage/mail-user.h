@@ -22,7 +22,7 @@ struct mail_user_connection_data {
 	struct ip_addr *local_ip, *remote_ip;
 	in_port_t local_port, remote_port;
 
-	bool ssl_secured:1;
+	bool end_client_tls_secured:1;
 };
 
 struct mail_user {

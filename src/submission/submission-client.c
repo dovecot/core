@@ -238,7 +238,8 @@ client_create(int fd_in, int fd_out, struct event *event,
 		FALSE, &smtp_set, &smtp_callbacks, client);
 	smtp_server_connection_set_proxy_data(client->conn, proxy_data);
 	smtp_server_connection_login(client->conn, client->user->username, helo,
-				     pdata, pdata_len, user->conn.ssl_secured);
+				     pdata, pdata_len,
+				     user->conn.end_client_tls_secured);
 
 	client_create_backend_default(client, set);
 
