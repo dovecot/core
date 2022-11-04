@@ -233,9 +233,14 @@ client_alloc(int fd, pool_t pool,
 		client->end_client_tls_secured = conn->haproxy.ssl;
 		client->local_name = conn->haproxy.hostname;
 		client->client_cert_common_name = conn->haproxy.cert_common_name;
-	} else {
-		client->connection_secured = client->connection_trusted ||
-			net_ip_compare(&conn->real_remote_ip, &conn->real_local_ip);
+	} else if (net_ip_compare(&conn->real_remote_ip, &conn->real_local_ip)) {
+		/* localhost connections are always secured */
+		client->connection_secured = TRUE;
+	} else if (client->connection_trusted &&
+		   strcmp(client->ssl_set->ssl, "required") != 0) {
+		/* Connections from login_trusted_networks are assumed to be
+		   secured, except if ssl=required. */
+		client->connection_secured = TRUE;
 	}
 	client->proxy_ttl = LOGIN_PROXY_TTL;
 
