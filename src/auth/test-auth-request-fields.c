@@ -126,7 +126,7 @@ static void test_auth_request_fields_secured(void)
 
 	test_assert(auth_request_import(request, "secured", ""));
 	test_assert(test_auth_request_export_cmp(request, "secured", ""));
-	test_assert(null_strcmp(event_find_field_recursive_str(request->event, "transport"), "trusted") == 0);
+	test_assert(null_strcmp(event_find_field_recursive_str(request->event, "transport"), "secured") == 0);
 
 	test_assert(auth_request_import(request, "secured", "tls"));
 	test_assert(test_auth_request_export_cmp(request, "secured", "tls"));
@@ -134,7 +134,7 @@ static void test_auth_request_fields_secured(void)
 
 	test_assert(auth_request_import(request, "secured", "blah"));
 	test_assert(test_auth_request_export_cmp(request, "secured", ""));
-	test_assert(null_strcmp(event_find_field_recursive_str(request->event, "transport"), "trusted") == 0);
+	test_assert(null_strcmp(event_find_field_recursive_str(request->event, "transport"), "secured") == 0);
 	test_auth_request_deinit(request);
 }
 

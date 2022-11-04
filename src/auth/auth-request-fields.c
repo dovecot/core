@@ -217,7 +217,7 @@ bool auth_request_import_auth(struct auth_request *request,
 			event_add_str(request->event, "transport", "TLS");
 		} else {
 			fields->conn_secured = AUTH_REQUEST_CONN_SECURED;
-			event_add_str(request->event, "transport", "trusted");
+			event_add_str(request->event, "transport", "secured");
 		}
 	}
 	else if (strcmp(key, "final-resp-ok") == 0)
