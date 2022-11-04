@@ -202,7 +202,9 @@ ssl_iostream_ctx_use_dh(struct ssl_iostream_context *ctx,
 			openssl_iostream_key_load_error());
 		ret = -1;
 	}
+#ifndef HAVE_SSL_CTX_set0_tmp_dh_pkey
 	EVP_PKEY_free(pkey_dh);
+#endif
 	return ret;
 }
 
