@@ -188,6 +188,12 @@ client_connection_cmd_xclient(void *context,
 		client->common.session_id =
 			p_strdup(client->common.pool, data->session);
 	}
+	if (data->client_transport != NULL) {
+		client->common.end_client_tls_secured_set = TRUE;
+		client->common.end_client_tls_secured =
+			str_begins_with(data->client_transport,
+					CLIENT_TRANSPORT_TLS);
+	}
 
 	for (i = 0; i < data->extra_fields_count; i++) {
 		const char *name = data->extra_fields[i].name;

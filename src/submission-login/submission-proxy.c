@@ -186,6 +186,11 @@ proxy_send_xclient(struct submission_client *client, struct ostream *output)
 		proxy_send_xclient_more(client, output, str, "SESSION",
 					client_get_session_id(&client->common));
 	}
+	if (str_array_icase_find(client->proxy_xclient, "CLIENT-TRANSPORT")) {
+		proxy_send_xclient_more(client, output, str, "CLIENT-TRANSPORT",
+			client->common.end_client_tls_secured ?
+			CLIENT_TRANSPORT_TLS : CLIENT_TRANSPORT_INSECURE);
+	}
 	if (str_array_icase_find(client->proxy_xclient, "FORWARD")) {
 		buffer_t *fwd = proxy_compose_xclient_forward(client);
 

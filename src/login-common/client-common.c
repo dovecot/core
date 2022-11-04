@@ -228,6 +228,8 @@ client_alloc(int fd, pool_t pool,
 		   TLS secured anyway. */
 		client->connection_tls_secured = conn->haproxy.ssl;
 		client->haproxy_terminated_tls = conn->haproxy.ssl;
+		/* Start by assuming this is the end client connection.
+		   Later on this can be overwritten. */
 		client->end_client_tls_secured = conn->haproxy.ssl;
 		client->local_name = conn->haproxy.hostname;
 		client->client_cert_common_name = conn->haproxy.cert_common_name;
@@ -600,7 +602,8 @@ int client_init_ssl(struct client *client)
 
 	client->connection_tls_secured = TRUE;
 	client->connection_secured = TRUE;
-	client->end_client_tls_secured = TRUE;
+	if (!client->end_client_tls_secured_set)
+		client->end_client_tls_secured = TRUE;
 
 	if (client->connection_used_starttls) {
 		io_remove(&client->io);

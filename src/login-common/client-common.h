@@ -41,6 +41,9 @@ struct module;
 #define CLIENT_UNAUTHENTICATED_LOGOUT_MSG \
 	"Aborted login by logging out"
 
+#define CLIENT_TRANSPORT_TLS "TLS"
+#define CLIENT_TRANSPORT_INSECURE "insecure"
+
 struct master_service_connection;
 
 enum client_disconnect_reason {
@@ -242,11 +245,12 @@ struct client {
 	   previous hop is secured. */
 	bool connection_secured:1;
 	/* End client is using TLS connection. The TLS termination may be either
-	   on Dovecot side or HAProxy side. FIXME: This is broken on a proxying
-	   setup, because it indicates whether the previous hop connection is
-	   TLS secured, not whether the original client connection is TLS
-	   secured. */
+	   on Dovecot side or HAProxy side. This value is forwarded through
+	   trusted Dovecot proxies. */
 	bool end_client_tls_secured:1;
+	/* TRUE if end_client_tls_secured is set via ID/XCLIENT and must not
+	   be changed anymore. */
+	bool end_client_tls_secured_set:1;
 	/* Connection is from a trusted client/proxy, which is allowed to e.g.
 	   forward the original client IP address. Note that a trusted
 	   connection is not necessarily considered secured. */

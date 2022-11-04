@@ -63,6 +63,17 @@ cmd_id_x_session_id(struct imap_client *client,
 }
 
 static void
+cmd_id_x_client_transport(struct imap_client *client,
+			  const char *key ATTR_UNUSED, const char *value)
+{
+	/* for now values are either "insecure" or "TLS", but plan ahead already
+	   in case we want to transfer e.g. the TLS security string */
+	client->common.end_client_tls_secured_set = TRUE;
+	client->common.end_client_tls_secured =
+		str_begins_with(value, CLIENT_TRANSPORT_TLS);
+}
+
+static void
 cmd_id_x_forward_(struct imap_client *client,
 		  const char *key, const char *value)
 {
@@ -81,6 +92,7 @@ static const struct imap_id_param_handler imap_login_id_params[] = {
 	{ "x-proxy-ttl", FALSE, cmd_id_x_proxy_ttl },
 	{ "x-session-id", FALSE, cmd_id_x_session_id },
 	{ "x-session-ext-id", FALSE, cmd_id_x_session_id },
+	{ "x-client-transport", FALSE, cmd_id_x_client_transport },
 	{ "x-forward-", TRUE, cmd_id_x_forward_ },
 
 	{ NULL, FALSE, NULL }

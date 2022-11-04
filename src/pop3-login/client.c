@@ -66,6 +66,10 @@ static bool cmd_xclient(struct pop3_client *client, const char *args)
 		} else if (str_begins_icase(*tmp, "TTL=", &value)) {
 			if (str_to_uint(value, &client->common.proxy_ttl) < 0)
 				args_ok = FALSE;
+		} else if (str_begins_icase(*tmp, "CLIENT-TRANSPORT=", &value)) {
+			client->common.end_client_tls_secured_set = TRUE;
+			client->common.end_client_tls_secured =
+				str_begins_with(value, CLIENT_TRANSPORT_TLS);
 		} else if (str_begins_icase(*tmp, "FORWARD=", &value)) {
 			if (!client_forward_decode_base64(&client->common, value))
 				args_ok = FALSE;

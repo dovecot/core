@@ -41,13 +41,16 @@ static void proxy_write_id(struct imap_client *client, string_t *str)
 		    "\"x-originating-port\" \"%u\" "
 		    "\"x-connected-ip\" \"%s\" "
 		    "\"x-connected-port\" \"%u\" "
-		    "\"x-proxy-ttl\" \"%u\"",
+		    "\"x-proxy-ttl\" \"%u\" "
+		    "\"x-client-transport\" \"%s\"",
 		    client_get_session_id(&client->common),
 		    net_ip2addr(&client->common.ip),
 		    client->common.remote_port,
 		    net_ip2addr(&client->common.local_ip),
 		    client->common.local_port,
-		    client->common.proxy_ttl - 1);
+		    client->common.proxy_ttl - 1,
+		    client->common.end_client_tls_secured ?
+		    CLIENT_TRANSPORT_TLS : CLIENT_TRANSPORT_INSECURE);
 
 	/* append any forward_ variables to request */
 	for(const char *const *ptr = client->common.auth_passdb_args; *ptr != NULL; ptr++) {
