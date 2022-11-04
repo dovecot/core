@@ -228,8 +228,8 @@ struct client {
 	bool input_blocked:1;
 	bool login_success:1;
 	bool no_extra_disconnect_reason:1;
-	/* Client/proxy connection is using TLS. Dovecot has terminated the
-	   TLS connection (not haproxy). */
+	/* Client/proxy connection is using TLS. Either Dovecot or HAProxy
+	   has terminated the TLS connection. */
 	bool connection_tls_secured:1;
 	/* connection_tls_secured=TRUE was started via STARTTLS command. */
 	bool connection_used_starttls:1;

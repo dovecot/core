@@ -220,6 +220,13 @@ client_alloc(int fd, pool_t pool,
 		/* haproxy connections are always coming from
 		   haproxy_trusted_networks, so we consider them secured. */
 		client->connection_secured = TRUE;
+		/* Assume that the connection is also TLS secured if client
+		   terminated TLS connections on haproxy. If haproxy isn't
+		   running on localhost, the haproxy-Dovecot connection isn't
+		   TLS secured. However, that's most likely an intentional
+		   configuration and we should just consider the connection
+		   TLS secured anyway. */
+		client->connection_tls_secured = conn->haproxy.ssl;
 		client->haproxy_terminated_tls = conn->haproxy.ssl;
 		client->end_client_tls_secured = conn->haproxy.ssl;
 		client->local_name = conn->haproxy.hostname;
@@ -638,7 +645,7 @@ static int client_output_starttls(struct client *client)
 
 void client_cmd_starttls(struct client *client)
 {
-	if (client->connection_tls_secured || client->haproxy_terminated_tls) {
+	if (client->connection_tls_secured) {
 		client->v.notify_starttls(client, FALSE, "TLS is already active.");
 		return;
 	}
@@ -683,7 +690,7 @@ int client_get_plaintext_fd(struct client *client, int *fd_r, bool *close_fd_r)
 {
 	int fds[2];
 
-	if (!client->connection_tls_secured) {
+	if (client->ssl_iostream == NULL) {
 		/* Plaintext connection - We can send the fd directly to
 		   the post-login process without any proxying. */
 		*fd_r = client->fd;
