@@ -21,8 +21,8 @@ enum auth_request_flags {
 	AUTH_REQUEST_FLAG_SUPPORT_FINAL_RESP	= 0x08,
 	/* Enable auth_debug=yes logging for this request */
 	AUTH_REQUEST_FLAG_DEBUG			= 0x10,
-	/* If TLS was used */
-	AUTH_REQUEST_FLAG_TRANSPORT_SECURITY_TLS = 0x20,
+	/* Connection from the previous hop is secured by TLS. */
+	AUTH_REQUEST_FLAG_CONN_SECURED_TLS	= 0x20,
 };
 
 enum auth_request_status {

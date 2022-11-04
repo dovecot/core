@@ -26,14 +26,14 @@ static void auth_server_send_new_request(struct auth_client_connection *conn,
 		str_append(str, "\tfinal-resp-ok");
 	if ((info->flags & AUTH_REQUEST_FLAG_CONN_SECURED) != 0) {
 		str_append(str, "\tsecured");
-		if ((info->flags & AUTH_REQUEST_FLAG_TRANSPORT_SECURITY_TLS) != 0) {
+		if ((info->flags & AUTH_REQUEST_FLAG_CONN_SECURED_TLS) != 0) {
 			str_append(str, "=tls");
 			event_add_str(request->event, "transport", "TLS");
 		} else {
 			event_add_str(request->event, "transport", "trusted");
 		}
 	} else {
-		i_assert((info->flags & AUTH_REQUEST_FLAG_TRANSPORT_SECURITY_TLS) == 0);
+		i_assert((info->flags & AUTH_REQUEST_FLAG_CONN_SECURED_TLS) == 0);
 		event_add_str(request->event, "transport", "insecure");
 	}
 	if ((info->flags & AUTH_REQUEST_FLAG_NO_PENALTY) != 0)

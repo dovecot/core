@@ -107,7 +107,7 @@ client_get_auth_flags(struct client *client)
 	    ssl_iostream_has_valid_client_cert(client->ssl_iostream))
 		auth_flags |= AUTH_REQUEST_FLAG_VALID_CLIENT_CERT;
 	if (client->connection_tls_secured || client->haproxy_terminated_tls)
-		auth_flags |= AUTH_REQUEST_FLAG_TRANSPORT_SECURITY_TLS;
+		auth_flags |= AUTH_REQUEST_FLAG_CONN_SECURED_TLS;
 	if (client->connection_secured)
 		auth_flags |= AUTH_REQUEST_FLAG_CONN_SECURED;
 	if (login_binary->sasl_support_final_reply)
