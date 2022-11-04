@@ -657,6 +657,13 @@ void smtp_client_connection_send_xclient(struct smtp_client_connection *conn)
 						   "SESSION", xclient->session);
 	}
 
+	/* CLIENT-TRANSPORT */
+	if (xclient->client_transport != NULL &&
+	    str_array_icase_find(xclient_args, "CLIENT-TRANSPORT")) {
+		smtp_client_connection_xclient_add(conn, str, offset,
+			"CLIENT-TRANSPORT", xclient->client_transport);
+	}
+
 	/* TTL */
 	if (xclient->ttl_plus_1 > 0 &&
 	    str_array_icase_find(xclient_args, "TTL")) {

@@ -856,7 +856,7 @@ void smtp_server_reply_ehlo_add_vrfy(struct smtp_server_reply *reply)
 void smtp_server_reply_ehlo_add_xclient(struct smtp_server_reply *reply)
 {
 	static const char *base_fields =
-		"ADDR PORT PROTO HELO LOGIN SESSION TTL TIMEOUT";
+		"ADDR PORT PROTO HELO LOGIN SESSION CLIENT-TRANSPORT TTL TIMEOUT";
 	struct smtp_server_cmd_ctx *cmd = &reply->command->context;
 	struct smtp_server_connection *conn = cmd->conn;
 

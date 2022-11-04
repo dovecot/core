@@ -157,6 +157,7 @@ struct smtp_server_connection {
 	unsigned int proxy_ttl_plus_1;
 	unsigned int proxy_timeout_secs;
 	char *proxy_helo;
+	char *client_transport;
 
 	struct smtp_server_helo_data helo, *pending_helo;
 	char *helo_domain, *username;

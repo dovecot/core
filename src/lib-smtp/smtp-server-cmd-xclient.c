@@ -185,6 +185,11 @@ void smtp_server_cmd_xclient(struct smtp_server_cmd_ctx *cmd,
 			if (strcasecmp(param.value, "[UNAVAILABLE]") == 0)
 				continue;
 			proxy_data->session = p_strdup(cmd->pool, param.value);
+		} else if (strcmp(param.keyword, "CLIENT-TRANSPORT") == 0) {
+			if (strcasecmp(param.value, "[UNAVAILABLE]") == 0)
+				continue;
+			proxy_data->client_transport =
+				p_strdup(cmd->pool, param.value);
 		} else if (strcmp(param.keyword, "TIMEOUT") == 0) {
 			if (str_to_uint(param.value,
 				&proxy_data->timeout_secs) < 0) {
