@@ -305,7 +305,7 @@ int lmtp_local_rcpt(struct client *client,
 	input.local_port = client->local_port;
 	input.remote_port = client->remote_port;
 	input.session_id = lrcpt->session_id;
-	input.conn_ssl_secured =
+	input.end_client_tls_secured =
 		client->end_client_tls_secured_set ?
 		client->end_client_tls_secured :
 		smtp_server_connection_is_ssl_secured(client->conn);

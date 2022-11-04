@@ -743,7 +743,7 @@ test_client_request_parallel(pid_t client_pid, unsigned int concurrency,
 	login_req.local_port = 143;
 	(void)net_addr2ip("10.0.0.211", &login_req.remote_ip);
 	login_req.remote_port = 45546;
-	login_req.flags = LOGIN_REQUEST_FLAG_CONN_SSL_SECURED;
+	login_req.flags = LOGIN_REQUEST_FLAG_END_CLIENT_SECURED_TLS;
 
 	ioloop = io_loop_create();
 

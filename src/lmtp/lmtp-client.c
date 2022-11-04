@@ -121,7 +121,7 @@ static void client_read_settings(struct client *client, bool ssl)
 	input.remote_ip = client->remote_ip;
 	input.local_port = client->local_port;
 	input.remote_port = client->remote_port;
-	input.conn_ssl_secured = ssl;
+	input.end_client_tls_secured = ssl;
 	input.username = "";
 
 	if (mail_storage_service_read_settings(storage_service, &input,

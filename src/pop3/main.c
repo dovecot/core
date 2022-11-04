@@ -304,8 +304,8 @@ login_request_finished(const struct login_server_request *login_client,
 	input.username = username;
 	input.userdb_fields = extra_fields;
 	input.session_id = login_client->session_id;
-	if ((flags & LOGIN_REQUEST_FLAG_CONN_SSL_SECURED) != 0)
-		input.conn_ssl_secured = TRUE;
+	if ((flags & LOGIN_REQUEST_FLAG_END_CLIENT_SECURED_TLS) != 0)
+		input.end_client_tls_secured = TRUE;
 
 	buffer_create_from_const_data(&input_buf, login_client->data,
 				      login_client->auth_req.data_size);

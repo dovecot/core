@@ -19,8 +19,9 @@
 enum login_request_flags {
 	/* Connection has TLS compression enabled */
 	LOGIN_REQUEST_FLAG_TLS_COMPRESSION	= BIT(0),
-	/* Connection is secured using SSL specifically */
-	LOGIN_REQUEST_FLAG_CONN_SSL_SECURED	= BIT(2),
+	/* The end client connection (not just the previous hop proxy
+	   connection) is using TLS. */
+	LOGIN_REQUEST_FLAG_END_CLIENT_SECURED_TLS = BIT(2),
 	/* This login is implicit; no command reply is expected */
 	LOGIN_REQUEST_FLAG_IMPLICIT		= BIT(3),
 };

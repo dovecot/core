@@ -68,8 +68,9 @@ struct mail_storage_service_input {
 	bool no_userdb_lookup:1;
 	/* Enable auth_debug=yes for this lookup */
 	bool debug:1;
-	/* Connection is secured using SSL specifically */
-	bool conn_ssl_secured:1;
+	/* The end client connection (not just the previous hop proxy
+	   connection) is using TLS. */
+	bool end_client_tls_secured:1;
 };
 
 extern struct module *mail_storage_service_modules;
