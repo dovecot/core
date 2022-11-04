@@ -4,7 +4,6 @@
 #include "array.h"
 #include "ioloop.h"
 #include "net.h"
-#include "fdpass.h"
 #include "istream.h"
 #include "ostream.h"
 #include "str.h"
@@ -19,16 +18,13 @@
 #include "master-service.h"
 #include "master-interface.h"
 
+#include "imap-urlauth-worker-client.h"
+
 #include <unistd.h>
 #include <sys/wait.h>
 
 #define IMAP_URLAUTH_PROTOCOL_MAJOR_VERSION 1
 #define IMAP_URLAUTH_PROTOCOL_MINOR_VERSION 0
-
-#define IMAP_URLAUTH_WORKER_SOCKET "imap-urlauth-worker"
-
-/* max. length of input lines (URLs) */
-#define MAX_INBUF_SIZE 2048
 
 /* Disconnect client after idling this many milliseconds */
 #define CLIENT_IDLE_TIMEOUT_MSECS (10*60*1000)
@@ -42,10 +38,6 @@ static struct event_category event_category_urlauth = {
 
 struct client *imap_urlauth_clients;
 unsigned int imap_urlauth_client_count;
-
-static int client_worker_connect(struct client *client);
-static void client_worker_disconnect(struct client *client);
-static void client_worker_input(struct client *client);
 
 int client_create(const char *service, const char *username,
 		  int fd_in, int fd_out,
@@ -133,8 +125,6 @@ void client_send_line(struct client *client, const char *fmt, ...)
 
 	va_end(va);
 }
-
-#include "imap-urlauth-worker-client.c"
 
 void client_destroy(struct client *client, const char *reason)
 {

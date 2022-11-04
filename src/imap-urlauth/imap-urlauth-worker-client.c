@@ -1,4 +1,24 @@
-static int client_worker_connect(struct client *client)
+/* Copyright (c) 2023 Dovecot authors, see the included COPYING file */
+
+#include "lib.h"
+#include "array.h"
+#include "net.h"
+#include "istream.h"
+#include "ostream.h"
+#include "str.h"
+#include "strescape.h"
+#include "fdpass.h"
+#include "eacces-error.h"
+
+#include "imap-urlauth-common.h"
+#include "imap-urlauth-worker-client.h"
+
+/* max. length of input lines (URLs) */
+#define MAX_INBUF_SIZE 2048
+
+static void client_worker_input(struct client *client);
+
+int client_worker_connect(struct client *client)
 {
 	static const char handshake[] = "VERSION\timap-urlauth-worker\t2\t0\n";
 	const char *socket_path;
@@ -167,7 +187,7 @@ client_worker_input_line(struct client *client, const char *response)
 	return 0;
 }
 
-void client_worker_input(struct client *client)
+static void client_worker_input(struct client *client)
 {
 	struct istream *input = client->ctrl_input;
 	const char *line;

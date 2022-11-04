@@ -46,6 +46,7 @@ imap_urlauth_LDADD = $(LIBDOVECOT) \
 imap_urlauth_DEPENDENCIES = $(LIBDOVECOT_DEPS)
 
 imap_urlauth_SOURCES = \
+	imap-urlauth-worker-client.c \
 	imap-urlauth.c \
 	imap-urlauth-client.c \
 	imap-urlauth-settings.c
@@ -82,5 +83,7 @@ noinst_HEADERS = \
 	imap-urlauth-common.h \
 	imap-urlauth-settings.h \
 	imap-urlauth-login-settings.h \
+	imap-urlauth-worker-common.h \
+	imap-urlauth-worker-client.h \
 	imap-urlauth-worker-settings.h
 
