@@ -11,6 +11,8 @@ struct auth_scram_key_data {
 	unsigned char *server_key;
 };
 
+void auth_scram_key_data_clear(struct auth_scram_key_data *data);
+
 void auth_scram_hi(const struct hash_method *hmethod,
 		   const unsigned char *str, size_t str_size,
 		   const unsigned char *salt, size_t salt_size, unsigned int i,

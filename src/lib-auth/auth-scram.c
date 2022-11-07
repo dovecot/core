@@ -1,9 +1,27 @@
 /* Copyright (c) 2022-2023 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "safe-memset.h"
 #include "hmac.h"
 
 #include "auth-scram.h"
+
+void auth_scram_key_data_clear(struct auth_scram_key_data *data)
+{
+	if (data->hmethod != NULL) {
+		if (data->stored_key != NULL) {
+			safe_memset(data->stored_key, 0,
+				    data->hmethod->digest_size);
+		}
+		if (data->server_key != NULL) {
+			safe_memset(data->server_key, 0,
+				    data->hmethod->digest_size);
+		}
+	} else {
+		i_assert(data->stored_key == NULL);
+		i_assert(data->server_key == NULL);
+	}
+}
 
 void auth_scram_hi(const struct hash_method *hmethod,
 		   const unsigned char *str, size_t str_size,

@@ -69,6 +69,9 @@ void auth_scram_server_init(struct auth_scram_server *server_r, pool_t pool,
 void auth_scram_server_deinit(struct auth_scram_server *server)
 {
 	i_assert(server->hash_method != NULL);
+	if (server->proof != NULL)
+		buffer_clear_safe(server->proof);
+	auth_scram_key_data_clear(&server->key_data);
 	pool_unref(&server->pool);
 }
 
@@ -318,6 +321,7 @@ auth_scram_server_verify_credentials(struct auth_scram_server *server)
 	const unsigned char *proof_data = server->proof->data;
 	for (i = 0; i < sizeof(client_signature); i++)
 		client_key[i] = proof_data[i] ^ client_signature[i];
+	buffer_clear_safe(server->proof);
 
 	/* StoredKey       := H(ClientKey) */
 	hash_method_get_digest(hmethod, client_key, sizeof(client_key),
