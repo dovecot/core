@@ -34,8 +34,9 @@
 #ifndef SHA2_H
 #define SHA2_H
 
-#include "hash-method.h"
 #include "sha-common.h"
+
+struct hash_method;
 
 struct sha256_ctx {
 	uint64_t tot_len;

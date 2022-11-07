@@ -2,6 +2,9 @@
 #define HASH_METHOD_H
 
 #include "buffer.h"
+#include "sha2.h"
+
+#define HASH_METHOD_MAX_CONTEXT_SIZE sizeof(struct sha512_ctx)
 
 struct hash_method {
 	const char *name;
@@ -17,10 +20,39 @@ struct hash_method {
 	void (*result)(void *context, unsigned char *digest_r);
 };
 
+struct hash_method_context {
+	char ctx[HASH_METHOD_MAX_CONTEXT_SIZE];
+	const struct hash_method *hash;
+};
+
 const struct hash_method *hash_method_lookup(const char *name);
 
 /* NULL-terminated list of all hash methods */
 extern const struct hash_method *hash_methods[];
+
+static inline void
+hash_method_init(struct hash_method_context *ctx,
+		 const struct hash_method *meth)
+{
+	i_assert(meth->context_size <= HASH_METHOD_MAX_CONTEXT_SIZE);
+
+	i_zero(ctx);
+	ctx->hash = meth;
+
+	ctx->hash->init(ctx->ctx);
+}
+
+static inline void
+hash_method_loop(struct hash_method_context *ctx, const void *data, size_t size)
+{
+	ctx->hash->loop(ctx->ctx, data, size);
+}
+
+static inline void
+hash_method_result(struct hash_method_context *ctx, unsigned char *digest_r)
+{
+	ctx->hash->result(ctx->ctx, digest_r);
+}
 
 void hash_method_get_digest(const struct hash_method *meth,
 			    const void *data, size_t data_len,

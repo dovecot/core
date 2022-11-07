@@ -32,6 +32,7 @@
  */
 
 #include "lib.h"
+#include "hash-method.h"
 #include "sha2.h"
 
 #define SHFR(x, n)    (x >> n)
