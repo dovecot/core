@@ -383,62 +383,73 @@ mail_search_args_have_all_equal(struct mail_search_arg *parent_arg,
 	return TRUE;
 }
 
-static unsigned int
-mail_search_args_count(const struct mail_search_arg *args)
-{
-	unsigned int count;
+/* Absorptive Law - This law enables a reduction in a complicated expression to
+   a simpler one by absorbing like terms.
 
-	for (count = 0; args != NULL; count++)
-		args = args->next;
-	return count;
-}
+   A + (A.B) =  (A.1) + (A.B)  = A(1 + B)  = A  (OR Absorption Law)
+   A(A + B)  = (A + 0).(A + B) = A + (0.B) = A  (AND Absorption Law)
 
+   Cases with multiple shared terms (duals appy as well)
+
+   A + B + (A.C) + (B.C) = (A + (A.C)) + (B + B.C))  (apply law to sides of external sum))
+                         = A + B
+   A + B + (A.B.C) = (A + (A.(B.C))) + B 	     (X = B.C)
+                   = (A + (A.(X)) + B                (apply law to X)
+		   = A + B
+*/
 static bool
 mail_search_args_simplify_drop_redundant_args(struct mail_search_args *all_args,
 					      struct mail_search_arg **argsp,
 					      bool and_arg)
 {
-	struct mail_search_arg *arg, **argp, one_arg, *lowest_arg = NULL;
-	enum mail_search_arg_type child_subargs_type;
-	unsigned int count, lowest_count = UINT_MAX;
-	bool ret = FALSE;
-
-	if (*argsp == NULL)
+	if (*argsp == NULL || (*argsp)->next == NULL)
 		return FALSE;
 
+	struct mail_search_arg *arg, **argp;
+	enum mail_search_arg_type child_subargs_type;
+	bool changed = FALSE;
+
+	ARRAY(const struct mail_search_arg *) candidates;
+	t_array_init(&candidates, 1);
+
 	child_subargs_type = and_arg ? SEARCH_OR : SEARCH_SUB;
-
-	/* find the arg which has the lowest number of child args */
 	for (arg = *argsp; arg != NULL; arg = arg->next) {
-		if (arg->type != child_subargs_type) {
-			one_arg = *arg;
-			one_arg.next = NULL;
-			lowest_arg = &one_arg;
-			break;
-		}
-		count = mail_search_args_count(arg->value.subargs);
-		if (count < lowest_count) {
-			lowest_arg = arg->value.subargs;
-			lowest_count = count;
-		}
-	}
-	i_assert(lowest_arg != NULL);
-
-	/* if there are any args that include lowest_arg, drop the arg since
-	   it's redundant. (non-SUB duplicates are dropped elsewhere.) */
-	for (argp = argsp; *argp != NULL; ) {
-		if (*argp != lowest_arg && (*argp)->type == child_subargs_type &&
-		    (*argp)->value.subargs != lowest_arg &&
-		    mail_search_args_have_all_equal(*argp, lowest_arg)) {
-			if (all_args->init_refcount > 0)
-				mail_search_arg_one_deinit(*argp);
-			*argp = (*argp)->next;
-			ret = TRUE;
+		if (arg->type == child_subargs_type) {
+			const struct mail_search_arg *entry = arg->value.subargs;
+			if (entry == NULL ||
+			    array_lsearch(&candidates, &entry,
+			    		  mail_search_arg_equals_p) != NULL)
+				continue;
+			array_push_back(&candidates, &entry);
 		} else {
-			argp = &(*argp)->next;
+			struct mail_search_arg *copy = t_new(struct mail_search_arg, 1);
+			*copy = *arg;
+			copy->next = NULL;
+			const struct mail_search_arg *entry = copy;
+			array_push_back(&candidates, &entry);
 		}
 	}
-	return ret;
+
+	const struct mail_search_arg *candidate;
+	array_foreach_elem(&candidates, candidate) {
+		/* if there are any args that include the candidate - EXCEPT the
+		   one that originally contained it - drop the arg, since it is
+		   redundant. (non-SUB duplicates are dropped elsewhere.) */
+		for (argp = argsp; *argp != NULL; ) {
+			if (*argp != candidate &&
+			   (*argp)->type == child_subargs_type &&
+			   (*argp)->value.subargs != candidate &&
+			   mail_search_args_have_all_equal(*argp, candidate)) {
+				if (all_args->init_refcount > 0)
+					mail_search_arg_one_deinit(*argp);
+				*argp = (*argp)->next;
+				changed = TRUE;
+			} else {
+				argp = &(*argp)->next;
+			}
+		}
+	}
+	return changed;
 }
 
 static bool

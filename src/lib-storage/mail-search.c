@@ -732,6 +732,14 @@ bool mail_search_arg_equals(const struct mail_search_arg *arg1,
 	return arg1 == NULL && arg2 == NULL;
 }
 
+int mail_search_arg_equals_p(const struct mail_search_arg *const *arg1,
+			     const struct mail_search_arg *const *arg2)
+{
+	if (arg1 == NULL && arg2 == NULL) return 0;
+	if (arg1 == NULL) return 1;
+	return mail_search_arg_equals(*arg1, *arg2) ? 0 : 1;
+}
+
 bool mail_search_args_equal(const struct mail_search_args *args1,
 			    const struct mail_search_args *args2)
 {
