@@ -218,6 +218,17 @@ static const struct {
 	{ "( OR TEXT unique1 TEXT unique2 ) ( OR TEXT unique3 TEXT unique4 )", "OR TEXT unique1 TEXT unique2 OR TEXT unique3 TEXT unique4" },
 	{ "( OR TEXT common1 TEXT unique1 ) ( OR TEXT common1 TEXT unique2 ) TEXT unique3", "OR TEXT common1 TEXT unique1 OR TEXT common1 TEXT unique2 TEXT unique3" },
 	{ "( OR TEXT common1 TEXT unique1 ) ( OR TEXT common1 TEXT common2 ) ( OR TEXT common2 TEXT unique2 )", "OR TEXT common1 TEXT unique1 OR TEXT common1 TEXT common2 OR TEXT common2 TEXT unique2" },
+
+	/* extra for simplifications on 2nd and later terms */
+	{ "( OR BODY z BODY x ) BODY x BODY y",  "BODY x BODY y" },
+	{ "( OR BODY x BODY y ) ( OR BODY x BODY z )",  "OR (BODY y BODY z) BODY x" },
+	{ "( OR BODY z BODY x ) BODY x BODY y",  "BODY x BODY y" },
+	{ "( OR BODY z NOT BODY x ) BODY x BODY y",  "OR BODY z NOT BODY x BODY x BODY y" },
+
+	{ "( OR BODY z BODY y ) BODY x BODY y",  "BODY x BODY y" },
+	{ "( OR BODY z BODY y ) ( OR BODY z BODY w ) BODY x BODY y BODY w",  "BODY x BODY y BODY w" },
+
+	{ "subject y", "SUBJECT y"},
 };
 
 static struct mail_search_args *

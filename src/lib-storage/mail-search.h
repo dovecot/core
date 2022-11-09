@@ -207,6 +207,8 @@ bool mail_search_args_equal(const struct mail_search_args *args1,
    structs. All the siblings of arg1 and arg2 are also compared. */
 bool mail_search_arg_equals(const struct mail_search_arg *arg1,
 			    const struct mail_search_arg *arg2);
+int mail_search_arg_equals_p(const struct mail_search_arg *const *arg1,
+			     const struct mail_search_arg *const *arg2);
 /* Same as mail_search_arg_equals(), but don't compare siblings. */
 bool mail_search_arg_one_equals(const struct mail_search_arg *arg1,
 				const struct mail_search_arg *arg2);
