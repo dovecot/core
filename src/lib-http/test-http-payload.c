@@ -759,6 +759,8 @@ client_handle_request(void *context,
 	struct client *client = (struct client *)context;
 	struct client_request *creq;
 
+	i_assert(hreq->target.url->have_ssl == tset.ssl);
+
 	if (debug) {
 		i_debug("test server: request method=`%s' path=`%s'",
 			hreq->method, path);

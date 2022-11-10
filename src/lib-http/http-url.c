@@ -450,7 +450,10 @@ int http_url_request_target_parse(const char *request_target,
 	struct uri_authority auth;
 	struct http_url base;
 
-	i_zero(&base);
+	if (default_base == NULL)
+		i_zero(&base);
+	else
+		http_url_init_authority_from(&base, default_base);
 	if (host_header != NULL && *host_header != '\0') {
 		struct uri_parser *parser;
 
@@ -484,7 +487,6 @@ int http_url_request_target_parse(const char *request_target,
 		return -1;
 	} else {
 		i_assert(default_base != NULL);
-		base = *default_base;
 	}
 
 	if (request_target[0] == '*' && request_target[1] == '\0') {
