@@ -535,6 +535,29 @@ event_match_strlist(struct event *event, const struct event_field *wanted_field,
 }
 
 static bool
+event_filter_handle_numeric_operation(enum event_filter_node_op op,
+				      intmax_t a, intmax_t b)
+{
+	switch (op) {
+	case EVENT_FILTER_OP_CMP_EQ:
+		return a == b;
+	case EVENT_FILTER_OP_CMP_GT:
+		return a > b;
+	case EVENT_FILTER_OP_CMP_LT:
+		return a < b;
+	case EVENT_FILTER_OP_CMP_GE:
+		return a >= b;
+	case EVENT_FILTER_OP_CMP_LE:
+		return a <= b;
+	case EVENT_FILTER_OP_AND:
+	case EVENT_FILTER_OP_OR:
+	case EVENT_FILTER_OP_NOT:
+		i_unreached();
+	}
+	i_unreached();
+}
+
+static bool
 event_match_field(struct event *event, const struct event_field *wanted_field,
 		  enum event_filter_node_op op, bool use_strcmp)
 {
@@ -575,23 +598,8 @@ event_match_field(struct event *event, const struct event_field *wanted_field,
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
 		if (wanted_field->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX) {
 			/* compare against an integer */
-			switch (op) {
-			case EVENT_FILTER_OP_CMP_EQ:
-				return field->value.intmax == wanted_field->value.intmax;
-			case EVENT_FILTER_OP_CMP_GT:
-				return field->value.intmax > wanted_field->value.intmax;
-			case EVENT_FILTER_OP_CMP_LT:
-				return field->value.intmax < wanted_field->value.intmax;
-			case EVENT_FILTER_OP_CMP_GE:
-				return field->value.intmax >= wanted_field->value.intmax;
-			case EVENT_FILTER_OP_CMP_LE:
-				return field->value.intmax <= wanted_field->value.intmax;
-			case EVENT_FILTER_OP_AND:
-			case EVENT_FILTER_OP_OR:
-			case EVENT_FILTER_OP_NOT:
-				i_unreached();
-			}
-			i_unreached();
+			return event_filter_handle_numeric_operation(
+				op, field->value.intmax, wanted_field->value.intmax);
 		} else if (op != EVENT_FILTER_OP_CMP_EQ) {
 			/* we only support string equality comparisons */
 			return FALSE;
