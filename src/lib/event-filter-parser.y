@@ -114,6 +114,21 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 			if (ret == 0 && bytes <= INTMAX_MAX) {
 				node->field.value.intmax = (intmax_t) bytes;
 				node->field.value_type = EVENT_FIELD_VALUE_TYPE_INTMAX;
+				node->type = EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT;
+				break;
+			}
+
+			/* As a second step try to parse the value as an
+			   interval. The string-parser returns values as
+			   milliseconds, but the events usually report values
+			   as microseconds, which needs to be accounted for. */
+			unsigned int intval;
+			ret = str_parse_get_interval_msecs(b, &intval, &error);
+			if (ret == 0) {
+				node->field.value.intmax = (intmax_t) intval * 1000;
+				node->field.value_type = EVENT_FIELD_VALUE_TYPE_INTMAX;
+				node->type = EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT;
+				break;
 			}
 		}
 
