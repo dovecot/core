@@ -156,7 +156,6 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	bool no_greeting = HAS_ALL_BITS(login_flags,
 					LOGIN_REQUEST_FLAG_IMPLICIT);
 	struct event *event;
-	const char *errstr;
 	const char *helo = NULL;
 	struct smtp_proxy_data proxy_data;
 	const unsigned char *data;
@@ -196,17 +195,6 @@ client_create_from_input(const struct mail_storage_service_input *input,
 			&submission_setting_parser_info);
 	if (set->verbose_proctitle)
 		verbose_proctitle = TRUE;
-
-	if (mail_user_var_expand(mail_user, &submission_setting_parser_info,
-				 set, &errstr) <= 0) {
-		*error_r = t_strdup_printf("Failed to expand settings: %s", errstr);
-		send_error(fd_out, event, set->hostname,
-			   "4.3.5", MAIL_ERRSTR_CRITICAL_MSG);
-		mail_user_deinit(&mail_user);
-		mail_storage_service_user_unref(&user);
-		event_unref(&event);
-		return -1;
-	}
 
 	if (set->submission_relay_host == NULL ||
 		*set->submission_relay_host == '\0') {

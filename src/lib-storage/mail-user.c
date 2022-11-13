@@ -170,11 +170,24 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 
 	i_assert(!user->initialized);
 
-	if (mail_user_var_expand(user, user->set_info, user->set,
-				 &error) <= 0) {
-		user->error = p_strdup_printf(user->pool,
-			"Failed to expand settings: %s", error);
+	struct mail_storage_service_ctx *service_ctx =
+		user->_service_user != NULL ?
+		mail_storage_service_user_get_service_ctx(user->_service_user) :
+		mail_storage_service_get_global();
+	const struct setting_parser_info *const *set_roots =
+		mail_storage_service_get_set_roots(service_ctx);
+	for (unsigned int i = 0; set_roots[i] != NULL; i++) {
+		if (user->error != NULL)
+			break;
+
+		void *set = settings_parser_get_root_set(user->set_parser, set_roots[i]);
+		if (mail_user_var_expand(user, set_roots[i], set, &error) <= 0) {
+			user->error = p_strdup_printf(user->pool,
+				"Failed to expand settings: %s", error);
+			break;
+		}
 	}
+
 	user->settings_expanded = TRUE;
 	mail_user_expand_plugins_envs(user);
 

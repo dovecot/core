@@ -590,13 +590,6 @@ client_handle_user_command(struct client *client, const char *cmd,
 
 	set = settings_parser_get_root_set(mail_user->set_parser,
 			&imap_urlauth_worker_setting_parser_info);
-	if (mail_user_var_expand(mail_user, &imap_urlauth_worker_setting_parser_info,
-				 set, &error) <= 0) {
-		client_send_line(client, "NO");
-		client_abort(client, t_strdup_printf(
-			"Session aborted: Failed to expand settings: %s", error));
-		return 0;
-	}
 
 	if (set->verbose_proctitle) {
 		verbose_proctitle = TRUE;

@@ -419,9 +419,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 	struct mail_user *rcpt_user;
 	const struct mail_storage_service_input *input;
 	const struct mail_storage_settings *mail_set;
-	struct smtp_submit_settings *smtp_set;
 	struct smtp_proxy_data proxy_data;
-	struct lda_settings *lda_set;
 	struct mail_namespace *ns;
 	struct setting_parser_context *set_parser;
 	const char *line, *error, *username;
@@ -468,31 +466,16 @@ lmtp_local_deliver(struct lmtp_local *local,
 	}
 	local->rcpt_user = rcpt_user;
 
-	smtp_set = settings_parser_get_root_set(rcpt_user->set_parser,
-			&smtp_submit_setting_parser_info);
-	lda_set = settings_parser_get_root_set(rcpt_user->set_parser,
-			&lda_setting_parser_info);
-	ret = mail_user_var_expand(rcpt_user, &smtp_submit_setting_parser_info,
-				   smtp_set, &error);
-	if (ret > 0) {
-		ret = mail_user_var_expand(rcpt_user, &lda_setting_parser_info,
-					   lda_set, &error);
-	}
-	if (ret <= 0) {
-		e_error(rcpt->event, "Failed to expand settings: %s", error);
-		smtp_server_recipient_reply(rcpt, 451, "4.3.0",
-					    "Temporary internal error");
-		return -1;
-	}
-
 	/* Set the log prefix for the user. The default log prefix is
 	   automatically restored later when user context gets deactivated. */
 	i_set_failure_prefix("%s",
 		mail_storage_service_user_get_log_prefix(service_user));
 
 	lldctx.rcpt_user = rcpt_user;
-	lldctx.smtp_set = smtp_set;
-	lldctx.lda_set = lda_set;
+	lldctx.smtp_set = settings_parser_get_root_set(rcpt_user->set_parser,
+			&smtp_submit_setting_parser_info);
+	lldctx.lda_set = settings_parser_get_root_set(rcpt_user->set_parser,
+			&lda_setting_parser_info);
 
 	if (*lrcpt->detail == '\0' ||
 	    !client->lmtp_set->lmtp_save_to_detail_mailbox)

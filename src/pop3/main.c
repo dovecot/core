@@ -119,7 +119,6 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
 	struct pop3_settings *set;
-	const char *errstr;
 
 	struct event *event = event_create(NULL);
 	event_add_category(event, &event_category_pop3);
@@ -152,14 +151,6 @@ client_create_from_input(const struct mail_storage_service_input *input,
 			&pop3_setting_parser_info);
 	if (set->verbose_proctitle)
 		verbose_proctitle = TRUE;
-
-	if (mail_user_var_expand(mail_user, &pop3_setting_parser_info, set,
-				 &errstr) <= 0) {
-		*error_r = t_strdup_printf("Failed to expand settings: %s", errstr);
-		mail_user_deinit(&mail_user);
-		mail_storage_service_user_unref(&user);
-		return -1;
-	}
 
 	*client_r = client_create(fd_in, fd_out, event, mail_user, user, set);
 	event_unref(&event);

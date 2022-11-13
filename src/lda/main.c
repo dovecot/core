@@ -284,26 +284,12 @@ lda_deliver(struct mail_deliver_input *dinput,
 	    bool stderr_rejection)
 {
 	struct mail_deliver_context ctx;
-	struct lda_settings *lda_set;
-	struct smtp_submit_settings *smtp_set;
-	const char *errstr;
 	int ret;
 
-	lda_set = settings_parser_get_root_set(dinput->rcpt_user->set_parser,
+	dinput->set = settings_parser_get_root_set(dinput->rcpt_user->set_parser,
 						   &lda_setting_parser_info);
-	smtp_set = settings_parser_get_root_set(dinput->rcpt_user->set_parser,
-						&smtp_submit_setting_parser_info);
-	ret = mail_user_var_expand(dinput->rcpt_user, &lda_setting_parser_info,
-				   lda_set, &errstr);
-	if (ret > 0) {
-		ret = mail_user_var_expand(dinput->rcpt_user,
-			&smtp_submit_setting_parser_info,
-			smtp_set, &errstr);
-	}
-	if (ret <= 0)
-		i_fatal("Failed to expand settings: %s", errstr);
-	dinput->set = lda_set;
-	dinput->smtp_set = smtp_set;
+	dinput->smtp_set = settings_parser_get_root_set(dinput->rcpt_user->set_parser,
+							&smtp_submit_setting_parser_info);
 
 	dinput->src_mail = lda_raw_mail_open(dinput, path);
 	lda_set_rcpt_to(dinput, rcpt_to, user, rcpt_to_source);

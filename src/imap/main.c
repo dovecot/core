@@ -248,7 +248,6 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 	struct imap_settings *imap_set;
 	struct smtp_submit_settings *smtp_set;
 	struct event *event;
-	const char *errstr;
 
 	event = event_create(NULL);
 	event_add_category(event, &event_category_imap);
@@ -284,17 +283,6 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 			&imap_setting_parser_info);
 	if (imap_set->verbose_proctitle)
 		verbose_proctitle = TRUE;
-
-	if (mail_user_var_expand(mail_user, &smtp_submit_setting_parser_info,
-				 smtp_set, &errstr) <= 0 ||
-	    mail_user_var_expand(mail_user, &imap_setting_parser_info,
-				 imap_set, &errstr) <= 0) {
-		*error_r = t_strdup_printf("Failed to expand settings: %s", errstr);
-		mail_user_deinit(&mail_user);
-		mail_storage_service_user_unref(&user);
-		event_unref(&event);
-		return -1;
-	}
 
 	client = client_create(fd_in, fd_out, unhibernated,
 			       event, mail_user, user, imap_set, smtp_set);
