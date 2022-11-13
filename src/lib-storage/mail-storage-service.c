@@ -55,7 +55,7 @@ struct mail_storage_service_ctx {
 
 	struct auth_master_connection *conn, *iter_conn;
 	struct auth_master_user_list_ctx *auth_list;
-	const struct setting_parser_info **set_roots;
+	ARRAY(const struct setting_parser_info *) set_roots;
 	enum mail_storage_service_flags flags;
 
 	const char *set_cache_module, *set_cache_service;
@@ -977,13 +977,10 @@ mail_storage_service_init(struct master_service *service,
 		count = 0;
 	else
 		for (count = 0; set_roots[count] != NULL; count++) ;
-	ctx->set_roots =
-		p_new(pool, const struct setting_parser_info *, count + 2);
-	ctx->set_roots[0] = &mail_user_setting_parser_info;
-	if (set_roots != NULL) {
-		memcpy(ctx->set_roots + 1, set_roots,
-		       sizeof(*ctx->set_roots) * count);
-	}
+	p_array_init(&ctx->set_roots, pool, count + 1);
+	const struct setting_parser_info *info = &mail_user_setting_parser_info;
+	array_push_back(&ctx->set_roots, &info);
+	array_append(&ctx->set_roots, set_roots, count);
 
 	/* note: we may not have read any settings yet, so this logging
 	   may still be going to wrong location */
@@ -1024,6 +1021,15 @@ mail_storage_service_input_get_flags(struct mail_storage_service_ctx *ctx,
 	return flags;
 }
 
+const struct setting_parser_info *const *
+mail_storage_service_get_set_roots(struct mail_storage_service_ctx *ctx)
+{
+	/* Make sure the array is NULL-terminated */
+	array_append_zero(&ctx->set_roots);
+	array_pop_back(&ctx->set_roots);
+	return array_front(&ctx->set_roots);
+}
+
 int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 				       const struct mail_storage_service_input *input,
 				       pool_t pool,
@@ -1044,7 +1050,7 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 		mail_storage_service_input_get_flags(ctx, input);
 
 	i_zero(&set_input);
-	set_input.roots = ctx->set_roots;
+	set_input.roots = mail_storage_service_get_set_roots(ctx);
 	set_input.preserve_user = TRUE;
 	/* settings reader may exec doveconf, which is going to clear
 	   environment, and if we're not doing a userdb lookup we want to
