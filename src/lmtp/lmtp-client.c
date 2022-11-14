@@ -154,6 +154,7 @@ struct client *client_create(int fd_in, int fd_out,
 	struct smtp_server_settings lmtp_set;
 	struct client *client;
 	pool_t pool;
+	bool conn_tls = conn->ssl || (conn->haproxied && conn->haproxy.ssl);
 
 	pool = pool_alloconly_create("lmtp client", 2048);
 	client = p_new(pool, struct client, 1);
@@ -172,7 +173,7 @@ struct client *client_create(int fd_in, int fd_out,
 	client->event = event_create(NULL);
 	event_add_category(client->event, &event_category_lmtp);
 
-	client_read_settings(client, conn->ssl);
+	client_read_settings(client, conn_tls);
 	client_raw_user_create(client);
 	client_load_modules(client);
 	client->my_domain = client->unexpanded_lda_set->hostname;
@@ -190,7 +191,7 @@ struct client *client_create(int fd_in, int fd_out,
 		SMTP_CAPABILITY_CHUNKING |
 		SMTP_CAPABILITY_XCLIENT |
 		SMTP_CAPABILITY__ORCPT;
-	if (!conn->ssl && master_service_ssl_is_enabled(master_service))
+	if (!conn_tls && master_service_ssl_is_enabled(master_service))
 		lmtp_set.capabilities |= SMTP_CAPABILITY_STARTTLS;
 	lmtp_set.hostname = client->unexpanded_lda_set->hostname;
 	lmtp_set.login_greeting = client->lmtp_set->login_greeting;
