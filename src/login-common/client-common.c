@@ -218,8 +218,13 @@ client_alloc(int fd, pool_t pool,
 
 	if (conn->haproxied) {
 		/* haproxy connections are always coming from
-		   haproxy_trusted_networks, so we consider them secured. */
-		client->connection_secured = TRUE;
+		   haproxy_trusted_networks, so we consider them secured.
+		   However, ssl=required implies that the client connection is
+		   expected to be secured either via TLS or because the client
+		   is coming from localhost.  */
+		client->connection_secured = conn->haproxy.ssl ||
+			net_ip_compare(&conn->remote_ip, &conn->local_ip) ||
+			strcmp(client->ssl_set->ssl, "required") != 0;
 		/* Assume that the connection is also TLS secured if client
 		   terminated TLS connections on haproxy. If haproxy isn't
 		   running on localhost, the haproxy-Dovecot connection isn't
