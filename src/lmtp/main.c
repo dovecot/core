@@ -126,7 +126,6 @@ int main(int argc, char *argv[])
 	enum mail_storage_service_flags storage_service_flags =
 		MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP |
 		MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP |
-		MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
 		MAIL_STORAGE_SERVICE_FLAG_NO_IDLE_TIMEOUT;
 	const char *tmp_base_dir;
 	int c;
