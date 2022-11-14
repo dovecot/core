@@ -748,6 +748,108 @@ static void test_event_filter_size_values(void)
 	test_end();
 }
 
+static void test_event_filter_interval_values(void)
+{
+	const char *error;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG,
+	};
+
+	test_begin("event filter: sizes with different units");
+
+	const struct {
+		const char *filter;
+		intmax_t value;
+		bool match;
+	} test_cases[] = {
+		/* Make sure negative values do not interfere with the
+		   existing event filtering. */
+		{ "field = -1", -1, TRUE },
+
+		/* Make sure that ambiguous "m" defaults to sizes (as it's the
+		   first parsing-branch). */
+		{ "field = 1m", 1000, FALSE },
+		{ "field = 1m", 1024 * 1024, TRUE },
+
+		{ "field = 1milliseconds", 1000, TRUE },
+		{ "field = 1millisecs", 1000, TRUE },
+		{ "field = 1mseconds", 1000, TRUE },
+		{ "field = 1msecs", 1000, TRUE },
+		{ "field = 1ms", 1000, TRUE },
+		{ "field = 1000", 1000, TRUE },
+		{ "field >= 1msecs", 1000, TRUE },
+		{ "field <= 1msecs", 1000, TRUE },
+		{ "field > 1", 1000, TRUE },
+		{ "field > 1msecs", 1000, FALSE },
+		{ "field < 1msecs", 1000, FALSE },
+
+		{ "field = 1seconds", 1000 * 1000, TRUE },
+		{ "field = 1secs", 1000 * 1000, TRUE },
+		{ "field = 1s", 1000 * 1000, TRUE },
+		{ "field = 1000000", 1000 * 1000, TRUE },
+		{ "field >= 1secs", 1000 * 1000, TRUE },
+		{ "field <= 1secs", 1000 * 1000, TRUE },
+		{ "field > 1msecs", 1000 * 1000, TRUE },
+		{ "field > 1secs", 1000 * 1000, FALSE },
+		{ "field < 1secs", 1000 * 1000, FALSE },
+
+		{ "field = 1minutes", 60 * 1000 * 1000, TRUE },
+		{ "field = 1mins", 60 * 1000 * 1000, TRUE },
+		{ "field = 60000000", 60 * 1000 * 1000, TRUE },
+		{ "field >= 1mins", 60 * 1000 * 1000, TRUE },
+		{ "field <= 1mins", 60 * 1000 * 1000, TRUE },
+		{ "field > 1secs", 60 * 1000 * 1000, TRUE },
+		{ "field > 1mins", 60 * 1000 * 1000, FALSE },
+		{ "field < 1mins", 60 * 1000 * 1000, FALSE },
+
+		{ "field = 1hours", 60L * 60 * 1000 * 1000, TRUE },
+		{ "field = 1h", 60L * 60 * 1000 * 1000, TRUE },
+		{ "field = 3600000000", 60L * 60 * 1000 * 1000, TRUE },
+		{ "field >= 1hours", 60L * 60 * 1000 * 1000, TRUE },
+		{ "field <= 1hours", 60L * 60 * 1000 * 1000, TRUE },
+		{ "field > 1mins", 60L * 60 * 1000 * 1000, TRUE },
+		{ "field > 1hours", 60L * 60 * 1000 * 1000, FALSE },
+		{ "field < 1hours", 60L * 60 * 1000 * 1000, FALSE },
+
+		{ "field = 1days", 24L * 60 * 60 * 1000 * 1000, TRUE },
+		{ "field = 1d", 24L * 60 * 60 * 1000 * 1000, TRUE },
+		{ "field = 86400000000", 24L * 60 * 60 * 1000 * 1000, TRUE },
+		{ "field >= 1days", 24L * 60 * 60 * 1000 * 1000, TRUE },
+		{ "field <= 1days", 24L * 60 * 60 * 1000 * 1000, TRUE },
+		{ "field > 1hours", 24L * 60 * 60 * 1000 * 1000, TRUE },
+		{ "field > 1days", 24L * 60 * 60 * 1000 * 1000, FALSE },
+		{ "field < 1days", 24L * 60 * 60 * 1000 * 1000, FALSE },
+
+		{ "field = 1weeks", 7L * 24 * 60 * 60 * 1000 * 1000, TRUE },
+		{ "field = 1w", 7L * 24 * 60 * 60 * 1000 * 1000, TRUE },
+		{ "field = 604800000000", 7L * 24 * 60 * 60 * 1000 * 1000, TRUE },
+		{ "field >= 1weeks", 7L * 24 * 60 * 60 * 1000 * 1000, TRUE },
+		{ "field <= 1weeks", 7L * 24 * 60 * 60 * 1000 * 1000, TRUE },
+		{ "field > 1days", 7L * 24 * 60 * 60 * 1000 * 1000, TRUE },
+		{ "field > 1weeks", 7L * 24 * 60 * 60 * 1000 * 1000, FALSE },
+		{ "field < 1weeks", 7L * 24 * 60 * 60 * 1000 * 1000, FALSE },
+	};
+
+	struct event_filter *filter;
+	struct event *e;
+
+	for (unsigned int i = 0; i < N_ELEMENTS(test_cases); i++) {
+		e = event_create(NULL);
+		filter = event_filter_create();
+
+		event_add_int(e, "field", test_cases[i].value);
+		test_assert_idx(event_filter_parse(test_cases[i].filter, filter,
+						   &error) == 0, i);
+		bool result = event_filter_match(filter, e, &failure_ctx);
+		test_assert_idx(result == test_cases[i].match, i);
+
+		event_filter_unref(&filter);
+		event_unref(&e);
+	}
+
+	test_end();
+}
+
 void test_event_filter(void)
 {
 	test_event_filter_override_parent_fields();
@@ -765,4 +867,5 @@ void test_event_filter(void)
 	test_event_filter_duration();
 	test_event_filter_numbers();
 	test_event_filter_size_values();
+	test_event_filter_interval_values();
 }
