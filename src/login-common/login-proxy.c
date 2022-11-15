@@ -654,8 +654,10 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
 		set_name("proxy_session_finished");
 
 	if (proxy->detached) {
+		struct timeval proxy_tv = proxy_last_io_timeval(proxy);
+		intmax_t idle_usecs = timeval_diff_usecs(&ioloop_timeval, &proxy_tv);
 		i_assert(proxy->connected);
-		e->add_int("idle_secs", ioloop_time - proxy_last_io(proxy));
+		e->add_int("idle_usecs", idle_usecs);
 		e->add_int("bytes_in", proxy->server_output->offset);
 		e->add_int("bytes_out", proxy->client_output->offset);
 	}
