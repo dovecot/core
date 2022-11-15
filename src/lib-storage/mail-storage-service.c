@@ -108,14 +108,12 @@ mail_storage_service_var_expand(struct mail_storage_service_ctx *ctx,
 				const char **error_r);
 
 static bool
-mail_user_set_get_mail_debug(const struct setting_parser_context *set_parser,
-			     const struct setting_parser_info *user_info,
-			     const struct mail_user_settings *user_set)
+mail_user_set_get_mail_debug(const struct setting_parser_context *set_parser)
 {
 	const struct mail_storage_settings *mail_set;
 
-	mail_set = mail_user_set_get_driver_settings(set_parser, user_info,
-			user_set, &mail_storage_setting_parser_info);
+	mail_set = settings_parser_get_root_set(set_parser,
+			&mail_storage_setting_parser_info);
 	return mail_set->mail_debug;
 }
 
@@ -1156,13 +1154,12 @@ void mail_storage_service_set_auth_conn(struct mail_storage_service_ctx *ctx,
 static void
 mail_storage_service_first_init(struct mail_storage_service_ctx *ctx,
 				const struct setting_parser_context *set_parser,
-				const struct setting_parser_info *user_info,
 				const struct mail_user_settings *user_set,
 				enum mail_storage_service_flags service_flags)
 {
 	enum auth_master_flags flags = 0;
 
-	ctx->debug = mail_user_set_get_mail_debug(set_parser, user_info, user_set) ||
+	ctx->debug = mail_user_set_get_mail_debug(set_parser) ||
 		     (service_flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0;
 	if (ctx->debug)
 		flags |= AUTH_MASTER_FLAG_DEBUG;
@@ -1175,7 +1172,6 @@ mail_storage_service_first_init(struct mail_storage_service_ctx *ctx,
 static int
 mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 				  const struct setting_parser_context *set_parser,
-				  const struct setting_parser_info *user_info,
 				  const struct mail_user_settings *user_set,
 				  const char **error_r)
 {
@@ -1191,7 +1187,7 @@ mail_storage_service_load_modules(struct mail_storage_service_ctx *ctx,
 	mod_set.binary_name = master_service_get_name(ctx->service);
 	mod_set.setting_name = "mail_plugins";
 	mod_set.require_init_funcs = TRUE;
-	mod_set.debug = mail_user_set_get_mail_debug(set_parser, user_info, user_set);
+	mod_set.debug = mail_user_set_get_mail_debug(set_parser);
 
 	return module_dir_try_load_missing(&mail_storage_service_modules,
 					   user_set->mail_plugin_dir,
@@ -1305,9 +1301,9 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		mail_storage_service_set_log_prefix(ctx, user_set, NULL, input, NULL);
 
 	if (ctx->conn == NULL)
-		mail_storage_service_first_init(ctx, set_parser, user_info, user_set, flags);
+		mail_storage_service_first_init(ctx, set_parser, user_set, flags);
 	/* load global plugins */
-	if (mail_storage_service_load_modules(ctx, set_parser, user_info, user_set, error_r) < 0) {
+	if (mail_storage_service_load_modules(ctx, set_parser, user_set, error_r) < 0) {
 		pool_unref(&user_pool);
 		return -1;
 	}
@@ -1416,7 +1412,6 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	/* load per-user plugins */
 	if (ret > 0) {
 		if (mail_storage_service_load_modules(ctx, user->set_parser,
-						      user_info,
 						      user->user_set,
 						      error_r) < 0) {
 			ret = -2;
@@ -1719,7 +1714,7 @@ void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 	user_set = settings_parser_get_root_set(set_parser,
 						&mail_user_setting_parser_info);
 
-	mail_storage_service_first_init(ctx, set_parser, user_info, user_set, ctx->flags);
+	mail_storage_service_first_init(ctx, set_parser, user_set, ctx->flags);
 	pool_unref(&temp_pool);
 }
 
@@ -1802,8 +1797,7 @@ void *mail_storage_service_user_get_set(struct mail_storage_service_user *user,
 const struct mail_storage_settings *
 mail_storage_service_user_get_mail_set(struct mail_storage_service_user *user)
 {
-	return mail_user_set_get_driver_settings(user->set_parser,
-				user->user_info, user->user_set,
+	return settings_parser_get_root_set(user->set_parser,
 				&mail_storage_setting_parser_info);
 }
 

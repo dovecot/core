@@ -154,12 +154,6 @@ extern const struct mailbox_settings mailbox_default_settings;
 
 struct ssl_iostream_settings;
 
-const void *
-mail_user_set_get_driver_settings(const struct setting_parser_context *set_parser,
-				  const struct setting_parser_info *base_info,
-				  const struct mail_user_settings *set,
-				  const struct setting_parser_info *info);
-
 const struct mail_storage_settings *
 mail_user_set_get_storage_set(struct mail_user *user);
 

@@ -31,6 +31,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "str.h"
+#include "settings-parser.h"
 #include "imap-arg.h"
 #include "imap-match.h"
 #include "imap-utf7.h"
@@ -94,10 +95,8 @@ static int imapc_list_init(struct mailbox_list *_list, const char **error_r)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
 
-	list->set = mail_user_set_get_driver_settings(_list->ns->user->set_parser,
-						      _list->ns->user->set_info,
-						      _list->ns->user_set,
-						      imapc_get_setting_parser_info());
+	list->set = settings_parser_get_root_set(_list->ns->user->set_parser,
+						 imapc_get_setting_parser_info());
 	if (imapc_storage_client_create(_list->ns, list->set, _list->mail_set,
 					&list->client, error_r) < 0)
 		return -1;

@@ -348,20 +348,10 @@ const struct setting_parser_info mail_user_setting_parser_info = {
 #endif
 };
 
-const void *
-mail_user_set_get_driver_settings(const struct setting_parser_context *set_parser,
-				  const struct setting_parser_info *base_info ATTR_UNUSED,
-				  const struct mail_user_settings *set ATTR_UNUSED,
-				  const struct setting_parser_info *info)
-{
-	return settings_parser_get_root_set(set_parser, info);
-}
-
 const struct mail_storage_settings *
 mail_user_set_get_storage_set(struct mail_user *user)
 {
-	return mail_user_set_get_driver_settings(user->set_parser,
-						 user->set_info, user->set,
+	return settings_parser_get_root_set(user->set_parser,
 		&mail_storage_setting_parser_info);
 }
 
