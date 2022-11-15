@@ -882,7 +882,7 @@ bool dsync_brain_want_namespace(struct dsync_brain *brain,
 			return TRUE;
 		return FALSE;
 	} else {
-		return strcmp(ns->unexpanded_set->location,
+		return strcmp(ns->set->unexpanded_location,
 			      SETTING_STRVAR_UNEXPANDED) == 0;
 	}
 }

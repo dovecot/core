@@ -69,6 +69,7 @@ struct mail_storage_settings {
 
 	enum file_lock_method parsed_lock_method;
 	enum fsync_mode parsed_fsync_mode;
+	const char *unexpanded_mail_location;
 
 	const char *const *parsed_mail_attachment_content_type_filter;
 	bool parsed_mail_attachment_exclude_inlined;
@@ -94,6 +95,7 @@ struct mail_namespace_settings {
 
 	ARRAY(struct mailbox_settings *) mailboxes;
 	struct mail_user_settings *user_set;
+	const char *unexpanded_location;
 };
 
 /* <settings checks> */

@@ -440,6 +440,12 @@ static bool mail_storage_settings_check(void *_set, pool_t pool,
 	bool uidl_format_ok;
 	char c;
 
+#ifndef CONFIG_BINARY
+	i_assert(set->mail_location[0] == SETTING_STRVAR_UNEXPANDED[0] ||
+		 set->mail_location[0] == SETTING_STRVAR_EXPANDED[0]);
+	set->unexpanded_mail_location = set->mail_location;
+#endif
+
 	if (set->mailbox_idle_check_interval == 0) {
 		*error_r = "mailbox_idle_check_interval must not be 0";
 		return FALSE;
@@ -589,6 +595,12 @@ static bool namespace_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	unsigned int i, count;
 
 	name = ns->prefix != NULL ? ns->prefix : "";
+
+#ifndef CONFIG_BINARY
+	i_assert(ns->location[0] == SETTING_STRVAR_UNEXPANDED[0] ||
+		 ns->location[0] == SETTING_STRVAR_EXPANDED[0]);
+	ns->unexpanded_location = ns->location;
+#endif
 
 	if (ns->separator[0] != '\0' && ns->separator[1] != '\0') {
 		*error_r = t_strdup_printf("Namespace '%s': "

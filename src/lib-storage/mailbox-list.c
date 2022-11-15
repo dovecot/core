@@ -423,7 +423,7 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 					     enum mailbox_list_path_type type)
 {
 	const struct mail_storage_settings *mail_set;
-	const char *location = list->ns->unexpanded_set->location;
+	const char *location = list->ns->set->unexpanded_location;
 	struct mail_user *user = list->ns->user;
 	struct mailbox_list_settings set;
 	const char *p, *path, *error;
@@ -437,11 +437,8 @@ const char *mailbox_list_get_unexpanded_path(struct mailbox_list *list,
 	location++;
 
 	if (*location == '\0') {
-		mail_set = mail_user_set_get_driver_settings(user->set_parser,
-			user->set_info, user->unexpanded_set,
-			&mail_storage_setting_parser_info);
-		i_assert(mail_set != NULL);
-		location = mail_set->mail_location;
+		mail_set = mail_user_set_get_storage_set(user);
+		location = mail_set->unexpanded_mail_location;
 		if (*location == SETTING_STRVAR_EXPANDED[0])
 			return "";
 		i_assert(*location == SETTING_STRVAR_UNEXPANDED[0]);

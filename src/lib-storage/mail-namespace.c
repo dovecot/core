@@ -15,8 +15,9 @@ static struct mail_namespace_settings prefixless_ns_unexpanded_set = {
 	.name = "",
 	.type = "private",
 	.separator = "",
-	.prefix = "0",
-	.location = "0fail::LAYOUT=none",
+	.prefix = "",
+	.location = "fail::LAYOUT=none",
+	.unexpanded_location = "0fail::LAYOUT=none",
 	.alias_for = NULL,
 
 	.inbox = FALSE,

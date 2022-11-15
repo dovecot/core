@@ -45,7 +45,7 @@ shared_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	driver = t_strdup_until(ns->set->location, p);
 	storage->location = p_strdup(_storage->pool, ns->set->location);
 	storage->unexpanded_location =
-		p_strdup(_storage->pool, ns->unexpanded_set->location);
+		p_strdup(_storage->pool, ns->set->unexpanded_location);
 	storage->storage_class_name = p_strdup(_storage->pool, driver);
 
 	if (mail_user_get_storage_class(_storage->user, driver) == NULL &&
