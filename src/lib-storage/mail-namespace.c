@@ -11,7 +11,7 @@
 #include "mail-namespace.h"
 
 
-static struct mail_namespace_settings prefixless_ns_unexpanded_set = {
+static struct mail_namespace_settings prefixless_ns_set = {
 	.name = "",
 	.type = "private",
 	.separator = "",
@@ -29,7 +29,6 @@ static struct mail_namespace_settings prefixless_ns_unexpanded_set = {
 
 	.mailboxes = ARRAY_INIT
 };
-static struct mail_namespace_settings prefixless_ns_set;
 
 void mail_namespace_add_storage(struct mail_namespace *ns,
 				struct mail_storage *storage)
@@ -401,11 +400,6 @@ int mail_namespaces_init_finish(struct mail_namespace *namespaces,
 			prefixless_found = TRUE;
 	}
 	if (!prefixless_found) {
-		prefixless_ns_set = prefixless_ns_unexpanded_set;
-		/* a pretty evil way to expand the values */
-		prefixless_ns_set.prefix++;
-		prefixless_ns_set.location++;
-
 		if (mail_namespaces_init_add(namespaces->user,
 					     &prefixless_ns_set,
 					     &ns, error_r) < 0)
