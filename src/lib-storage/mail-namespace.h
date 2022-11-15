@@ -76,7 +76,7 @@ struct mail_namespace {
 	   mail_user. */
 	struct mail_user_settings *user_set;
 
-	const struct mail_namespace_settings *set, *unexpanded_set;
+	const struct mail_namespace_settings *set;
 	const struct mail_storage_settings *mail_set;
 
 	bool special_use_mailboxes:1;
@@ -102,7 +102,6 @@ static inline bool mail_namespace_is_removable(const struct mail_namespace *ns)
 int mail_namespace_alloc(struct mail_user *user,
 			 void *user_all_settings,
 			 struct mail_namespace_settings *ns_set,
-			 struct mail_namespace_settings *unexpanded_set,
 			 struct mail_namespace **ns_r,
 			 const char **error_r);
 
@@ -121,7 +120,6 @@ void mail_namespaces_deinit(struct mail_namespace **namespaces);
    mail_namespaces_init(). */
 int mail_namespaces_init_add(struct mail_user *user,
 			     struct mail_namespace_settings *ns_set,
-			     struct mail_namespace_settings *unexpanded_ns_set,
 			     struct mail_namespace **ns_p, const char **error_r);
 int mail_namespaces_init_finish(struct mail_namespace *namespaces,
 				const char **error_r);

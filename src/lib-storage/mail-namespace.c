@@ -86,7 +86,6 @@ namespace_has_special_use_mailboxes(struct mail_namespace_settings *ns_set)
 int mail_namespace_alloc(struct mail_user *user,
 			 void *user_all_settings,
 			 struct mail_namespace_settings *ns_set,
-			 struct mail_namespace_settings *unexpanded_set,
 			 struct mail_namespace **ns_r,
 			 const char **error_r)
 {
@@ -97,7 +96,6 @@ int mail_namespace_alloc(struct mail_user *user,
 	ns->user = user;
 	ns->prefix = i_strdup(ns_set->prefix);
 	ns->set = ns_set;
-	ns->unexpanded_set = unexpanded_set;
 	ns->user_set = user_all_settings;
 	ns->mail_set = mail_user_set_get_driver_settings(user->set_parser,
 		user->set_info, ns->user_set, &mail_storage_setting_parser_info);
@@ -144,7 +142,6 @@ int mail_namespace_alloc(struct mail_user *user,
 
 int mail_namespaces_init_add(struct mail_user *user,
 			     struct mail_namespace_settings *ns_set,
-			     struct mail_namespace_settings *unexpanded_ns_set,
 			     struct mail_namespace **ns_p, const char **error_r)
 {
 	const struct mail_storage_settings *mail_set =
@@ -167,8 +164,7 @@ int mail_namespaces_init_add(struct mail_user *user,
 		ns_set->subscriptions ? "yes" : "no", ns_set->location);
 
 	if ((ret = mail_namespace_alloc(user, user->set,
-					ns_set, unexpanded_ns_set,
-					&ns, error_r)) < 0)
+					ns_set, &ns, error_r)) < 0)
 		return ret;
 
 	if (ns_set == &prefixless_ns_set) {
@@ -412,7 +408,6 @@ int mail_namespaces_init_finish(struct mail_namespace *namespaces,
 
 		if (mail_namespaces_init_add(namespaces->user,
 					     &prefixless_ns_set,
-					     &prefixless_ns_unexpanded_set,
 					     &ns, error_r) < 0)
 			i_unreached();
 		ns->next = namespaces;
@@ -452,21 +447,17 @@ int mail_namespaces_init_finish(struct mail_namespace *namespaces,
 int mail_namespaces_init(struct mail_user *user, const char **error_r)
 {
 	struct mail_namespace_settings *const *ns_set;
-	struct mail_namespace_settings *const *unexpanded_ns_set;
 	struct mail_namespace *namespaces, **ns_p;
-	unsigned int i, count, count2;
+	unsigned int i, count;
 
 	i_assert(user->initialized);
 
         namespaces = NULL; ns_p = &namespaces;
 
-	if (array_is_created(&user->set->namespaces)) {
+	if (array_is_created(&user->set->namespaces))
 		ns_set = array_get(&user->set->namespaces, &count);
-		unexpanded_ns_set =
-			array_get(&user->unexpanded_set->namespaces, &count2);
-		i_assert(count == count2);
-	} else {
-		ns_set = unexpanded_ns_set = NULL;
+	else {
+		ns_set = NULL;
 		count = 0;
 	}
 	for (i = 0; i < count; i++) {
@@ -474,7 +465,6 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 			continue;
 
 		if (mail_namespaces_init_add(user, ns_set[i],
-					     unexpanded_ns_set[i],
 					     ns_p, error_r) < 0) {
 			if (!ns_set[i]->ignore_on_failure) {
 				mail_namespaces_deinit(&namespaces);
@@ -497,7 +487,7 @@ int mail_namespaces_init(struct mail_user *user, const char **error_r)
 int mail_namespaces_init_location(struct mail_user *user, const char *location,
 				  const char **error_r)
 {
-	struct mail_namespace_settings *inbox_set, *unexpanded_inbox_set;
+	struct mail_namespace_settings *inbox_set;
 	struct mail_namespace *ns;
 	const struct mail_storage_settings *mail_set;
 	const char *error, *driver, *location_source;
@@ -512,9 +502,6 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 	/* enums must be changed */
 	inbox_set->type = "private";
 	inbox_set->list = "yes";
-
-	unexpanded_inbox_set = p_new(user->pool, struct mail_namespace_settings, 1);
-	*unexpanded_inbox_set = *inbox_set;
 
 	driver = NULL;
 	mail_set = mail_user_set_get_storage_set(user);
@@ -543,16 +530,15 @@ int mail_namespaces_init_location(struct mail_user *user, const char *location,
 		/* treat this the same as if a namespace was created with
 		   default settings. dsync relies on finding a namespace
 		   without explicit location setting. */
-		unexpanded_inbox_set->location = SETTING_STRVAR_UNEXPANDED;
+		inbox_set->unexpanded_location = SETTING_STRVAR_UNEXPANDED;
 	} else {
-		unexpanded_inbox_set->location =
+		inbox_set->unexpanded_location =
 			p_strconcat(user->pool, SETTING_STRVAR_EXPANDED,
 				    inbox_set->location, NULL);
 	}
 
 	if ((ret = mail_namespace_alloc(user, user->set,
-					inbox_set, unexpanded_inbox_set,
-					&ns, error_r)) < 0)
+					inbox_set, &ns, error_r)) < 0)
 		return ret;
 
 	if (mail_storage_create(ns, driver, 0, &error) < 0) {
