@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "str.h"
+#include "settings-parser.h"
 #include "imap-arg.h"
 #include "imap-resp-code.h"
 #include "mailbox-tree.h"
@@ -414,7 +415,8 @@ imapc_storage_create(struct mail_storage *_storage,
 	struct imapc_storage *storage = IMAPC_STORAGE(_storage);
 	struct imapc_mailbox_list *imapc_list = NULL;
 
-	storage->set = mail_namespace_get_driver_settings(ns, _storage);
+	storage->set = settings_parser_get_root_set(_storage->user->set_parser,
+		imapc_get_setting_parser_info());
 
 	/* serialize all the settings */
 	_storage->unique_root_dir = p_strdup_printf(_storage->pool,

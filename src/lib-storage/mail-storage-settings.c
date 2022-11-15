@@ -365,14 +365,6 @@ mail_user_set_get_storage_set(struct mail_user *user)
 		&mail_storage_setting_parser_info);
 }
 
-const void *mail_namespace_get_driver_settings(struct mail_namespace *ns,
-					       struct mail_storage *storage)
-{
-	return mail_user_set_get_driver_settings(storage->user->set_parser,
-		storage->user->set_info,
-		ns->user_set, storage->v.get_setting_parser_info());
-}
-
 const struct dynamic_settings_parser *
 mail_storage_get_dynamic_parsers(pool_t pool)
 {

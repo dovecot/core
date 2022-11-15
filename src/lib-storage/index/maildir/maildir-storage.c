@@ -5,6 +5,7 @@
 #include "mkdir-parents.h"
 #include "eacces-error.h"
 #include "unlink-old-files.h"
+#include "settings-parser.h"
 #include "mailbox-uidvalidity.h"
 #include "mailbox-list-private.h"
 #include "maildir-storage.h"
@@ -56,7 +57,8 @@ maildir_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	struct mailbox_list *list = ns->list;
 	const char *dir;
 
-	storage->set = mail_namespace_get_driver_settings(ns, _storage);
+	storage->set = settings_parser_get_root_set(_storage->user->set_parser,
+		maildir_get_setting_parser_info());
 
 	storage->temp_prefix = p_strdup(_storage->pool,
 					mailbox_list_get_temp_prefix(list));
@@ -612,7 +614,8 @@ static void maildir_storage_add_list(struct mail_storage *storage,
 
 	mlist = p_new(list->pool, struct maildir_mailbox_list_context, 1);
 	mlist->module_ctx.super = list->v;
-	mlist->set = mail_namespace_get_driver_settings(list->ns, storage);
+	mlist->set = settings_parser_get_root_set(storage->user->set_parser,
+		maildir_get_setting_parser_info());
 
 	list->v.is_internal_name = maildir_is_internal_name;
 	MODULE_CONTEXT_SET(list, maildir_mailbox_list_module, mlist);

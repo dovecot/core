@@ -6,6 +6,7 @@
 #include "ostream.h"
 #include "restrict-access.h"
 #include "master-service.h"
+#include "settings-parser.h"
 #include "mailbox-list-private.h"
 #include "mbox-storage.h"
 #include "mbox-lock.h"
@@ -182,7 +183,8 @@ mbox_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 		return -1;
 	}
 
-	storage->set = mail_namespace_get_driver_settings(ns, _storage);
+	storage->set = settings_parser_get_root_set(_storage->user->set_parser,
+		mbox_get_setting_parser_info());
 
 	if (mailbox_list_get_root_path(ns->list, MAILBOX_LIST_PATH_TYPE_INDEX, &dir)) {
 		_storage->temp_path_prefix = p_strconcat(_storage->pool, dir,
@@ -715,7 +717,8 @@ static void mbox_storage_add_list(struct mail_storage *storage,
 
 	mlist = p_new(list->pool, struct mbox_mailbox_list, 1);
 	mlist->module_ctx.super = list->v;
-	mlist->set = mail_namespace_get_driver_settings(list->ns, storage);
+	mlist->set = settings_parser_get_root_set(storage->user->set_parser,
+		mbox_get_setting_parser_info());
 
 	if (*list->set.maildir_name == '\0') {
 		/* have to use .imap/ directories */

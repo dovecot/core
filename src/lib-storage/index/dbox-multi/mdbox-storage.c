@@ -5,6 +5,7 @@
 #include "ioloop.h"
 #include "mkdir-parents.h"
 #include "master-service.h"
+#include "settings-parser.h"
 #include "mail-index-modseq.h"
 #include "mail-index-alloc-cache.h"
 #include "mailbox-log.h"
@@ -45,7 +46,8 @@ int mdbox_storage_create(struct mail_storage *_storage,
 	struct mdbox_storage *storage = MDBOX_STORAGE(_storage);
 	const char *dir;
 
-	storage->set = mail_namespace_get_driver_settings(ns, _storage);
+	storage->set = settings_parser_get_root_set(_storage->user->set_parser,
+		mdbox_get_setting_parser_info());
 	storage->preallocate_space = storage->set->mdbox_preallocate_space;
 
 	if (*ns->list->set.mailbox_dir_name == '\0') {

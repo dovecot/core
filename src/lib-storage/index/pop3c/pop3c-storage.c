@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "str.h"
+#include "settings-parser.h"
 #include "mail-copy.h"
 #include "mail-user.h"
 #include "mailbox-list-private.h"
@@ -35,12 +36,13 @@ static struct mail_storage *pop3c_storage_alloc(void)
 
 static int
 pop3c_storage_create(struct mail_storage *_storage,
-		     struct mail_namespace *ns,
+		     struct mail_namespace *ns ATTR_UNUSED,
 		     const char **error_r)
 {
 	struct pop3c_storage *storage = POP3C_STORAGE(_storage);
 
-	storage->set = mail_namespace_get_driver_settings(ns, _storage);
+	storage->set = settings_parser_get_root_set(_storage->user->set_parser,
+		pop3c_get_setting_parser_info());
 	if (storage->set->pop3c_host[0] == '\0') {
 		*error_r = "missing pop3c_host";
 		return -1;
