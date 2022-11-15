@@ -573,7 +573,7 @@ event_match_field(struct event *event, const struct event_field *wanted_field,
 		else
 			return wildcard_match_icase(field->value.str, wanted_field->value.str);
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
-		if (wanted_field->value.intmax > INT_MIN) {
+		if (wanted_field->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX) {
 			/* compare against an integer */
 			switch (op) {
 			case EVENT_FILTER_OP_CMP_EQ:
@@ -592,18 +592,18 @@ event_match_field(struct event *event, const struct event_field *wanted_field,
 				i_unreached();
 			}
 			i_unreached();
+		} else if (op != EVENT_FILTER_OP_CMP_EQ) {
+			/* we only support string equality comparisons */
+			return FALSE;
+		} else if (use_strcmp) {
+			/* If the matched value was a number, it was already matched
+			   in the previous branch. So here we have a non-wildcard
+			   string, which can never be a match to a number. */
+			return FALSE;
 		} else {
-			/* compare against an "integer" with wildcards */
-			if (op != EVENT_FILTER_OP_CMP_EQ) {
-				/* we only support string equality comparisons */
-				return FALSE;
-			}
 			char tmp[MAX_INT_STRLEN];
 			i_snprintf(tmp, sizeof(tmp), "%jd", field->value.intmax);
-			if (use_strcmp)
-				return strcasecmp(field->value.str, wanted_field->value.str) == 0;
-			else
-				return wildcard_match_icase(tmp, wanted_field->value.str);
+			return wildcard_match_icase(tmp, wanted_field->value.str);
 		}
 	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
 		/* there's no point to support matching exact timestamps */

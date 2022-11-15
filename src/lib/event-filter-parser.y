@@ -93,6 +93,7 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD:
 		node->field.key = p_strdup(state->pool, a);
 		node->field.value.str = p_strdup(state->pool, b);
+		node->field.value_type = EVENT_FIELD_VALUE_TYPE_STR;
 
 		/* Filter currently supports only comparing strings
 		   and numbers. */
@@ -100,6 +101,9 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 			/* not a number - no problem
 			   Either we have a string, or a number with wildcards */
 			node->field.value.intmax = INT_MIN;
+		} else {
+			/* leave a hint that this is in fact a valid number */
+			node->field.value_type = EVENT_FIELD_VALUE_TYPE_INTMAX;
 		}
 
 		if (wildcard_is_literal(node->field.value.str))

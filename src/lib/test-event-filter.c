@@ -603,6 +603,65 @@ static void test_event_filter_duration(void)
 	test_end();
 }
 
+static void test_event_filter_numbers(void)
+{
+	struct event_filter *filter;
+	const char *error;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+
+	test_begin("event filter: event numeric matching");
+
+	/* we check that we can actually match duration field */
+	filter = event_filter_create();
+	test_assert(event_filter_parse("number > 0", filter, &error) == 0);
+
+	struct event *e = event_create(NULL);
+	event_add_int(e, "number", 1);
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	event_add_int(e, "number", 0);
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	event_add_int(e, "number", -1);
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	event_filter_unref(&filter);
+
+	filter = event_filter_create();
+	test_assert(event_filter_parse("number < 0", filter, &error) == 0);
+	event_add_int(e, "number", 1);
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	event_add_int(e, "number", 0);
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	event_add_int(e, "number", -1);
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	event_filter_unref(&filter);
+
+	event_add_int(e, "number", 0);
+
+	filter = event_filter_create();
+	test_assert(event_filter_parse("number > *", filter, &error) == 0);
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	event_filter_unref(&filter);
+
+	filter = event_filter_create();
+	test_assert(event_filter_parse("number=0", filter, &error) == 0);
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	event_filter_unref(&filter);
+
+	filter = event_filter_create();
+	test_assert(event_filter_parse("number=*", filter, &error) == 0);
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	event_filter_unref(&filter);
+
+	filter = event_filter_create();
+	test_assert(event_filter_parse("number=fish", filter, &error) == 0);
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	event_filter_unref(&filter);
+
+	event_unref(&e);
+	test_end();
+}
+
 void test_event_filter(void)
 {
 	test_event_filter_override_parent_fields();
@@ -618,4 +677,5 @@ void test_event_filter(void)
 	test_event_filter_named_or_str();
 	test_event_filter_named_separate_from_str();
 	test_event_filter_duration();
+	test_event_filter_numbers();
 }
