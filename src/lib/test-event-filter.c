@@ -581,6 +581,28 @@ static void test_event_filter_named_separate_from_str(void)
 	test_end();
 }
 
+static void test_event_filter_duration(void)
+{
+	struct event_filter *filter;
+	const char *error;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+
+	test_begin("event filter: event duration");
+
+	/* we check that we can actually match duration field */
+	filter = event_filter_create();
+	test_assert(event_filter_parse("duration < 1000", filter, &error) == 0);
+
+	struct event *e = event_create(NULL);
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+
+	event_filter_unref(&filter);
+	event_unref(&e);
+	test_end();
+}
+
 void test_event_filter(void)
 {
 	test_event_filter_override_parent_fields();
@@ -595,4 +617,5 @@ void test_event_filter(void)
 	test_event_filter_named_and_str();
 	test_event_filter_named_or_str();
 	test_event_filter_named_separate_from_str();
+	test_event_filter_duration();
 }

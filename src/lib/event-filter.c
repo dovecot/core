@@ -539,9 +539,20 @@ event_match_field(struct event *event, const struct event_field *wanted_field,
 		  enum event_filter_node_op op, bool use_strcmp)
 {
 	const struct event_field *field;
+	struct event_field duration;
 
-	/* wanted_field has the value in all available formats */
-	field = event_find_field_recursive(event, wanted_field->key);
+	if (strcmp(wanted_field->key, "duration") == 0) {
+		uintmax_t duration_value;
+		i_zero(&duration);
+		duration.key = "duration";
+		duration.value_type = EVENT_FIELD_VALUE_TYPE_INTMAX;
+		event_get_last_duration(event, &duration_value);
+		duration.value.intmax = (intmax_t)duration_value;
+		field = &duration;
+	} else {
+		/* wanted_field has the value in all available formats */
+		field = event_find_field_recursive(event, wanted_field->key);
+	}
 	if (field == NULL) {
 		/* field="" matches nonexistent field */
 		return wanted_field->value.str[0] == '\0';
