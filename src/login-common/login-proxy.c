@@ -113,15 +113,26 @@ login_proxy_free_full(struct login_proxy **_proxy, const char *log_msg,
 		      const char *disconnect_reason,
 		      enum login_proxy_free_flags flags);
 
-static time_t proxy_last_io(struct login_proxy *proxy)
+static struct timeval
+proxy_last_io_timeval(struct login_proxy *proxy)
 {
-	struct timeval tv1, tv2, tv3, tv4;
+	struct timeval max_tv, tv1, tv2, tv3, tv4;
 
 	i_stream_get_last_read_time(proxy->client_input, &tv1);
 	i_stream_get_last_read_time(proxy->server_input, &tv2);
 	o_stream_get_last_write_time(proxy->client_output, &tv3);
 	o_stream_get_last_write_time(proxy->server_output, &tv4);
-	return I_MAX(tv1.tv_sec, I_MAX(tv2.tv_sec, I_MAX(tv3.tv_sec, tv4.tv_sec)));
+
+	max_tv = timeval_cmp(&tv3, &tv4) > 0 ? tv3 : tv4;
+	max_tv = timeval_cmp(&max_tv, &tv2) > 0 ? max_tv : tv2;
+	max_tv = timeval_cmp(&max_tv, &tv1) > 0 ? max_tv : tv1;
+
+	return max_tv;
+}
+
+static time_t proxy_last_io(struct login_proxy *proxy)
+{
+	return proxy_last_io_timeval(proxy).tv_sec;
 }
 
 static void login_proxy_free_errstr(struct login_proxy **_proxy,
