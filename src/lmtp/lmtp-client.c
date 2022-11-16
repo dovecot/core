@@ -101,13 +101,9 @@ static void
 client_raw_user_create(struct client *client,
 		       const struct setting_parser_context *set_parser)
 {
-	const struct mail_user_settings *user_set;
-
-	user_set = settings_parser_get_root_set(client->set_parser,
-			&mail_user_setting_parser_info);
 	client->raw_mail_user =
 		raw_storage_create_from_set(set_parser,
-					    client->user_set_info, user_set);
+					    client->user_set_info);
 }
 
 static void client_read_settings(struct client *client, bool ssl)

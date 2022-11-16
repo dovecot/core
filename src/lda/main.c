@@ -150,15 +150,11 @@ lda_raw_mail_open(struct mail_deliver_input *dinput, const char *path)
 	struct mailbox_header_lookup_ctx *headers_ctx;
 	const struct smtp_address *mail_from;
 	struct istream *input;
-	const struct mail_user_settings *user_set;
 	time_t mtime;
 	int ret;
 
-	user_set = settings_parser_get_root_set(dinput->rcpt_user->unexpanded_set_parser,
-			&mail_user_setting_parser_info);
-	raw_mail_user = raw_storage_create_from_set(dinput->rcpt_user->set_parser,
-						    dinput->rcpt_user->set_info,
-						    user_set);
+	raw_mail_user = raw_storage_create_from_set(dinput->rcpt_user->unexpanded_set_parser,
+						    dinput->rcpt_user->set_info);
 
 	mail_from = (dinput->mail_from != NULL ?
 		     dinput->mail_from : &default_envelope_sender);
