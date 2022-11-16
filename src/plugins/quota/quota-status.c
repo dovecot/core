@@ -280,7 +280,6 @@ static void main_init(void)
 		NULL
 	};
 	struct mail_storage_service_input input;
-	const struct setting_parser_info *user_info;
 	const struct setting_parser_context *set_parser;
 	const struct mail_user_settings *user_set;
 	const char *value, *error;
@@ -300,7 +299,7 @@ static void main_init(void)
 
 	quota_status_pool = pool_alloconly_create("quota status settings", 512);
 	if (mail_storage_service_read_settings(storage_service, &input,
-					       &user_info, &set_parser,
+					       &set_parser,
 					       &error) < 0)
 		i_fatal("%s", error);
 	user_set = settings_parser_get_root_set(set_parser,

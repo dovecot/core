@@ -1057,15 +1057,12 @@ mail_storage_service_add_storage_set_roots(struct mail_storage_service_ctx *ctx)
 
 int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 				       const struct mail_storage_service_input *input,
-				       const struct setting_parser_info **user_info_r,
 				       const struct setting_parser_context **parser_r,
 				       const char **error_r)
 {
 	struct master_service_settings_input set_input;
-	const struct setting_parser_info *const *roots;
 	struct master_service_settings_output set_output;
 	enum mail_storage_service_flags flags;
-	unsigned int i;
 
 	ctx->config_permission_denied = FALSE;
 
@@ -1127,16 +1124,7 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 		}
 		*parser_r = ctx->service->set_parser;
 	}
-
-	roots = settings_parser_get_roots(*parser_r);
-	for (i = 0; roots[i] != NULL; i++) {
-		if (strcmp(roots[i]->module_name,
-			   mail_user_setting_parser_info.module_name) == 0) {
-			*user_info_r = roots[i];
-			return 0;
-		}
-	}
-	i_unreached();
+	return 0;
 }
 
 void mail_storage_service_set_auth_conn(struct mail_storage_service_ctx *ctx,
@@ -1252,7 +1240,6 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 {
 	enum mail_storage_service_flags flags;
 	const char *username = input->username;
-	const struct setting_parser_info *user_info;
 	const struct mail_user_settings *user_set;
 	const char *const *userdb_fields, *error;
 	struct auth_user_reply reply;
@@ -1271,7 +1258,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		mail_storage_service_seteuid_root();
 	}
 
-	if (mail_storage_service_read_settings(ctx, input, &user_info,
+	if (mail_storage_service_read_settings(ctx, input,
 					       &set_parser, error_r) < 0) {
 		if (ctx->config_permission_denied) {
 			/* just restart and maybe next time we will open the
@@ -1693,7 +1680,6 @@ void mail_storage_service_user_unref(struct mail_storage_service_user **_user)
 void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 					const struct mail_storage_service_input *input)
 {
-	const struct setting_parser_info *user_info;
 	const struct mail_user_settings *user_set;
 	const struct setting_parser_context *set_parser;
 	const char *error;
@@ -1701,7 +1687,7 @@ void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 	if (ctx->conn != NULL)
 		return;
 
-	if (mail_storage_service_read_settings(ctx, input, &user_info,
+	if (mail_storage_service_read_settings(ctx, input,
 					       &set_parser, &error) < 0)
 		i_fatal("%s", error);
 	user_set = settings_parser_get_root_set(set_parser,

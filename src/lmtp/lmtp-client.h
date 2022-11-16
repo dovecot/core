@@ -73,7 +73,6 @@ struct client {
 	struct lmtp_client_vfuncs v;
 	struct event *event;
 
-	const struct setting_parser_info *user_set_info;
 	const struct lda_settings *unexpanded_lda_set;
 	const struct lmtp_settings *lmtp_set;
 	const struct master_service_settings *service_set;
