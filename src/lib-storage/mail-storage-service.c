@@ -86,7 +86,6 @@ struct mail_storage_service_user {
 	const char *chdir_path;
 	const struct mail_user_settings *user_set;
 	const struct master_service_ssl_settings *ssl_set;
-	const struct setting_parser_info *user_info;
 	struct setting_parser_context *set_parser;
 
 	unsigned int session_id_counter;
@@ -1365,7 +1364,6 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	user->input.session_id = session_id; /* already allocated on user_pool */
 	user->event = event;
 	user->input.session_create_time = input->session_create_time;
-	user->user_info = user_info;
 	user->flags = flags;
 
 	user->set_parser = settings_parser_dup(set_parser, user_pool);
