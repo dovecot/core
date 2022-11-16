@@ -97,15 +97,6 @@ static void client_load_modules(struct client *client)
 	module_dir_init(mail_storage_service_modules);
 }
 
-static void
-client_raw_user_create(struct client *client,
-		       const struct setting_parser_context *set_parser)
-{
-	client->raw_mail_user =
-		raw_storage_create_from_set(set_parser,
-					    client->user_set_info);
-}
-
 static void client_read_settings(struct client *client, bool ssl)
 {
 	struct mail_storage_service_input input;
@@ -129,7 +120,7 @@ static void client_read_settings(struct client *client, bool ssl)
 		i_fatal("%s", error);
 
 	/* create raw user before duplicating the settings parser */
-	client_raw_user_create(client, set_parser);
+	client->raw_mail_user = raw_storage_create_from_set(set_parser);
 
 	set_parser = settings_parser_dup(set_parser, client->pool);
 	lmtp_settings_get(set_parser, client->pool, &lmtp_set, &lda_set);

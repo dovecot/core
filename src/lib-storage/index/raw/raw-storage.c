@@ -13,8 +13,7 @@ extern struct mail_storage raw_storage;
 extern struct mailbox raw_mailbox;
 
 struct mail_user *
-raw_storage_create_from_set(const struct setting_parser_context *unexpanded_set_parser,
-			    const struct setting_parser_info *set_info)
+raw_storage_create_from_set(const struct setting_parser_context *unexpanded_set_parser)
 {
 	struct mail_user *user;
 	struct mail_namespace *ns;
@@ -27,7 +26,7 @@ raw_storage_create_from_set(const struct setting_parser_context *unexpanded_set_
 	/* Don't include raw user's events in statistics or anything else.
 	   They would just cause confusion. */
 	event_disable_callbacks(event);
-	user = mail_user_alloc(event, "raw mail user", unexpanded_set_parser, set_info);
+	user = mail_user_alloc(event, "raw mail user", unexpanded_set_parser);
 	event_unref(&event);
 
 	user->autocreated = TRUE;

@@ -30,8 +30,7 @@ struct raw_mailbox {
 extern struct mail_vfuncs raw_mail_vfuncs;
 
 struct mail_user *
-raw_storage_create_from_set(const struct setting_parser_context *unexpanded_set_parser,
-			    const struct setting_parser_info *set_info);
+raw_storage_create_from_set(const struct setting_parser_context *unexpanded_set_parser);
 
 int raw_mailbox_alloc_stream(struct mail_user *user, struct istream *input,
 			     time_t received_time, const char *envelope_sender,
