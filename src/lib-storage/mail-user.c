@@ -56,7 +56,6 @@ mail_user_alloc_int(struct event *parent_event,
 		    pool_t pool)
 {
 	struct mail_user *user;
-	const char *error;
 
 	i_assert(username != NULL);
 	i_assert(*username != '\0');
@@ -79,11 +78,6 @@ mail_user_alloc_int(struct event *parent_event,
 	user->event = event_create(parent_event);
 	event_add_category(user->event, &event_category_storage);
 	event_add_str(user->event, "user", username);
-
-	/* check settings so that the duplicated structure will again
-	   contain the parsed fields */
-	if (!settings_check(set_info, pool, user->set, &error))
-		i_panic("Settings check unexpectedly failed: %s", error);
 
 	user->v.deinit = mail_user_deinit_base;
 	user->v.deinit_pre = mail_user_deinit_pre_base;
@@ -181,6 +175,13 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 			break;
 
 		void *set = settings_parser_get_root_set(user->set_parser, set_roots[i]);
+		/* check settings so that the duplicated structure will again
+		   contain the parsed fields */
+		if (!settings_check(set_roots[i], user->pool, set, &error)) {
+			user->error = p_strdup_printf(user->pool,
+				"Settings check unexpectedly failed: %s", error);
+			break;
+		}
 		if (mail_user_var_expand(user, set_roots[i], set, &error) <= 0) {
 			user->error = p_strdup_printf(user->pool,
 				"Failed to expand settings: %s", error);
