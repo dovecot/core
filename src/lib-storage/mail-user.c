@@ -160,6 +160,8 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 	const struct mail_storage_settings *mail_set;
 	const char *error;
 
+	i_assert(!user->initialized);
+
 	if (mail_user_var_expand(user, user->set_info, user->set,
 				 &error) <= 0) {
 		user->error = p_strdup_printf(user->pool,
