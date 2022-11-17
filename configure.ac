@@ -221,8 +221,6 @@ DOVECOT_WANT_SYSTEMD
 dovecot_moduledir="$libdir/dovecot"
 DC_DOVECOT_MODULEDIR
 
-DOVECOT_CHECK_PYTHON_VENV
-
 AC_ARG_WITH(docs,
 AS_HELP_STRING([--with-docs], [Install documentation (default)]),
 	if test x$withval = xno; then
@@ -243,7 +241,8 @@ AC_PROG_CPP
 AC_PROG_CXX # lucene plugin needs this
 AC_CHECK_TOOL([FLEX],[flex],[:])
 AC_CHECK_TOOL([BISON],[bison],[:])
-AC_PATH_TOOL([WGET], [wget], [missing])
+AM_MISSING_PROG([WGET], [wget])
+
 AS_IF([test "$BISON" = ":" && test ! -e "$srcdir/src/lib/event-filter-parser.h"],
   AC_MSG_ERROR([Bison is required when building from git])
 ])
