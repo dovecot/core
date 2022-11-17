@@ -153,18 +153,8 @@ struct flatcurve_xapian {
 	bool deinit:1;
 };
 
-ARRAY_DEFINE_TYPE(flatcurve_fts_query_arg, struct flatcurve_fts_query_arg);
-struct flatcurve_fts_query_arg {
-	string_t *value;
-
-	bool is_and:1;
-	bool is_not:1;
-};
-
 struct flatcurve_fts_query_xapian {
 	Xapian::Query *query;
-	Xapian::QueryParser *qp;
-	ARRAY_TYPE(flatcurve_fts_query_arg) args;
 };
 
 struct flatcurve_xapian_db_iter {
@@ -1958,28 +1948,40 @@ fts_flatcurve_build_query_arg_term(struct flatcurve_fts_query *query,
 				   struct mail_search_arg *arg,
 				   const char *term)
 {
+	const char *hdr;
+	Xapian::Query::op op = Xapian::Query::OP_INVALID;
+	Xapian::Query *oldq, q;
 	struct flatcurve_fts_query_xapian *x = query->xapian;
 
-	struct flatcurve_fts_query_arg *qarg = array_append_space(&x->args);
-	qarg->value = str_new(query->pool, 64);
+	if (x->query != NULL) {
+		if ((query->flags & FTS_LOOKUP_FLAG_AND_ARGS) != 0) {
+			op = Xapian::Query::OP_AND;
+			str_append(query->qtext, " AND ");
+		} else {
+			op = Xapian::Query::OP_OR;
+			str_append(query->qtext, " OR ");
+		}
+	}
 
-	/* Absence of NOT or AND flags means an OR search. */
 	if (arg->match_not)
-		qarg->is_not = TRUE;
-	if ((query->flags & FTS_LOOKUP_FLAG_AND_ARGS) != 0)
-		qarg->is_and = TRUE;
+		str_append(query->qtext, "NOT ");
 
 	switch (arg->type) {
 	case SEARCH_TEXT:
-		x->qp->add_prefix(FLATCURVE_XAPIAN_ALL_HEADERS_QP,
-				  FLATCURVE_XAPIAN_ALL_HEADERS_PREFIX);
-		str_printfa(qarg->value, "(%s:%s OR %s:%s)",
+		q = Xapian::Query(Xapian::Query::OP_OR,
+			Xapian::Query(Xapian::Query::OP_WILDCARD,
+				t_strdup_printf("%s%s",
+					FLATCURVE_XAPIAN_ALL_HEADERS_PREFIX,
+					term)),
+			Xapian::Query(Xapian::Query::OP_WILDCARD, term));
+		str_printfa(query->qtext, "(%s:%s* OR %s:%s*)",
 			    FLATCURVE_XAPIAN_ALL_HEADERS_QP, term,
 			    FLATCURVE_XAPIAN_BODY_QP, term);
 		break;
 
 	case SEARCH_BODY:
-		str_printfa(qarg->value, "%s:%s",
+		q = Xapian::Query(Xapian::Query::OP_WILDCARD, term);
+		str_printfa(query->qtext, "%s:%s*",
 			    FLATCURVE_XAPIAN_BODY_QP, term);
 		break;
 
@@ -1988,22 +1990,23 @@ fts_flatcurve_build_query_arg_term(struct flatcurve_fts_query *query,
 	case SEARCH_HEADER_COMPRESS_LWSP:
 		if (*term != '\0') {
 			if (fts_header_want_indexed(arg->hdr_field_name)) {
-				string_t *hdr = str_new(query->pool, 32);
-				str_printfa(hdr, "%s%s",
+				q = Xapian::Query(
+					Xapian::Query::OP_WILDCARD,
+					t_strdup_printf("%s%s%s",
+						FLATCURVE_XAPIAN_HEADER_PREFIX,
+						t_str_ucase(arg->hdr_field_name),
+						term));
+				str_printfa(query->qtext, "%s%s:%s*",
 					    FLATCURVE_XAPIAN_HEADER_QP,
-					    t_str_lcase(arg->hdr_field_name));
-				string_t *hdr2 = str_new(query->pool, 32);
-				str_printfa(hdr2, "%s%s",
-					    FLATCURVE_XAPIAN_HEADER_PREFIX,
-					    t_str_ucase(arg->hdr_field_name));
-				x->qp->add_prefix(str_c(hdr), str_c(hdr2));
-				str_printfa(qarg->value, "%s:%s", str_c(hdr),
+					    t_str_lcase(arg->hdr_field_name),
 					    term);
 			} else {
-				x->qp->add_prefix(
-					FLATCURVE_XAPIAN_ALL_HEADERS_QP,
-					FLATCURVE_XAPIAN_ALL_HEADERS_PREFIX);
-				str_printfa(qarg->value, "%s:%s",
+				q = Xapian::Query(
+					Xapian::Query::OP_WILDCARD,
+					t_strdup_printf("%s%s",
+						FLATCURVE_XAPIAN_ALL_HEADERS_PREFIX,
+						term));
+				str_printfa(query->qtext, "%s:%s*",
 					    FLATCURVE_XAPIAN_ALL_HEADERS_QP,
 					    term);
 				/* Non-indexed headers only match if it
@@ -2013,16 +2016,27 @@ fts_flatcurve_build_query_arg_term(struct flatcurve_fts_query *query,
 				query->maybe = TRUE;
 			}
 		} else {
-			x->qp->add_boolean_prefix(
-				FLATCURVE_XAPIAN_HEADER_BOOL_QP,
-				FLATCURVE_XAPIAN_BOOLEAN_FIELD_PREFIX);
-			str_printfa(qarg->value, "%s:%s",
-				    FLATCURVE_XAPIAN_HEADER_BOOL_QP,
-				    t_str_lcase(arg->hdr_field_name));
+			hdr = t_str_lcase(arg->hdr_field_name);
+			q = Xapian::Query(t_strdup_printf("%s%s",
+				FLATCURVE_XAPIAN_BOOLEAN_FIELD_PREFIX, hdr));
+			str_printfa(query->qtext, "%s:%s",
+				    FLATCURVE_XAPIAN_HEADER_BOOL_QP, hdr);
 		}
 		break;
 	default:
 		i_unreached();
+	}
+
+	if (arg->match_not)
+		q = Xapian::Query(Xapian::Query::OP_AND_NOT,
+				  Xapian::Query::MatchAll, q);
+
+	if (x->query == NULL)
+		x->query = new Xapian::Query(q);
+	else {
+		oldq = x->query;
+		x->query = new Xapian::Query(op, *(x->query), q);
+		delete(oldq);
 	}
 }
 
@@ -2067,106 +2081,37 @@ fts_flatcurve_build_query_arg(struct flatcurve_fts_query *query,
 		return;
 	}
 
-	if (*arg->value.str == '\0') {
-		/* This is an existence search. */
-		fts_flatcurve_build_query_arg_term(query, arg, "");
-	} else if (strchr(arg->value.str, ' ') != NULL) {
+	if (strchr(arg->value.str, ' ') == NULL) {
+		/* Prepare search term.
+		 * This includes existence searches where arg is "" */
+		fts_flatcurve_build_query_arg_term(query, arg, arg->value.str);
+	} else {
 		/* Phrase searching is not supported natively, so we can only do
 		 * single term searching with Xapian (FTS core provides index
 		 * terms without positional context).
 
-		 * As of v2.3.19, FTS core will send both the phrase search and
-		 * individual search terms separately as part of the same query.
-		 * Therefore, If we do see a multi-term search, just ignore it */
-	} else {
-		/* Prepare search term. */
-		fts_flatcurve_build_query_arg_term(query, arg,
-			t_strdup_printf("%s*", arg->value.str));
+		 * FTS core will send both the phrase search and individual search
+		 * terms separately as part of the same query. Therefore, if we
+		 * encounter a multi-term search, just ignore it */
 	}
-}
-
-static void
-fts_flatcurve_xapian_build_query_deinit(struct flatcurve_fts_query *query)
-{
-	array_free(&query->xapian->args);
-	delete(query->xapian->qp);
 }
 
 void
 fts_flatcurve_xapian_build_query_match_all(struct flatcurve_fts_query *query)
 {
-	struct flatcurve_fts_query_xapian *x = query->xapian =
-		p_new(query->pool, struct flatcurve_fts_query_xapian, 1);
+	query->xapian = p_new(query->pool, struct flatcurve_fts_query_xapian, 1);
 	query->qtext = str_new_const(query->pool, "[Match All]", 11);
-	x->query = new Xapian::Query(Xapian::Query::MatchAll);
+	query->xapian->query = new Xapian::Query(Xapian::Query::MatchAll);
 }
 
 /* Returns: 0 on success, -1 on error */
-int fts_flatcurve_xapian_build_query(struct flatcurve_fts_query *query,
-				     const char **error_r)
+void fts_flatcurve_xapian_build_query(struct flatcurve_fts_query *query)
 {
-	struct flatcurve_fts_query_xapian *x = query->xapian =
-		p_new(query->pool, struct flatcurve_fts_query_xapian, 1);
-	p_array_init(&x->args, query->pool, 4);
-
-	x->qp = new Xapian::QueryParser();
-	x->qp->add_prefix(FLATCURVE_XAPIAN_BODY_QP, "");
-	x->qp->set_stemming_strategy(Xapian::QueryParser::STEM_NONE);
-
 	struct mail_search_arg *args;
+
+	query->xapian = p_new(query->pool, struct flatcurve_fts_query_xapian, 1);
 	for (args = query->args; args != NULL ; args = args->next)
 		fts_flatcurve_build_query_arg(query, args);
-
-	/* Empty Query. Optimize by not creating a query and returning no
-	 * results when we go through the iteration later. */
-	if (array_is_empty(&x->args)) {
-		fts_flatcurve_xapian_build_query_deinit(query);
-		return 0;
-	}
-
-	std::string str;
-	const struct flatcurve_fts_query_arg *arg, *prev;
-	/* Generate the query. */
-	prev = NULL;
-	array_foreach(&x->args, arg) {
-		if (arg->is_not) {
-			if (prev != NULL)
-				str += " ";
-			str += "NOT ";
-		}
-		if (arg->is_not || (prev == NULL)) {
-			str += str_c(arg->value);
-		} else if (!str_equals(arg->value, prev->value)) {
-			if (arg->is_and)
-				str += " AND ";
-			else
-				str += " OR ";
-			str += str_c(arg->value);
-		}
-		prev = arg;
-	}
-
-	query->qtext = str_new(query->pool, 64);
-	str_append(query->qtext, str.c_str());
-
-	int ret = 0;
-	try {
-		x->query = new Xapian::Query(x->qp->parse_query(
-			str,
-			Xapian::QueryParser::FLAG_BOOLEAN |
-			Xapian::QueryParser::FLAG_PHRASE |
-			Xapian::QueryParser::FLAG_PURE_NOT |
-			Xapian::QueryParser::FLAG_WILDCARD
-		));
-	} catch (Xapian::QueryParserError &e) {
-		*error_r = t_strdup_printf(
-			"Parsing query failed (query: %s); %s",
-			str.c_str(), e.get_description().c_str());
-		ret = -1;
-	}
-
-	fts_flatcurve_xapian_build_query_deinit(query);
-	return ret;
 }
 
 struct fts_flatcurve_xapian_query_iter *

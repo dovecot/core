@@ -349,6 +349,19 @@ fts_backend_flatcurve_seq_range_string(ARRAY_TYPE(seq_range) *uids)
 	return str_c(dest);
 }
 
+static struct flatcurve_fts_query *
+fts_backend_flatcurve_create_query(struct flatcurve_fts_backend *backend,
+				   pool_t pool)
+{
+	struct flatcurve_fts_query *query =
+		p_new(pool, struct flatcurve_fts_query, 1);
+
+	query->pool = pool;
+	query->backend = backend;
+	query->qtext = str_new(pool, 128);
+	return query;
+}
+
 static int
 fts_backend_flatcurve_rescan_box(struct flatcurve_fts_backend *backend,
 				 struct mailbox *box, pool_t pool,
@@ -419,9 +432,7 @@ fts_backend_flatcurve_rescan_box(struct flatcurve_fts_backend *backend,
 		i_assert(ret1);
 	}
 
-	query = p_new(pool, struct flatcurve_fts_query, 1);
-	query->backend = backend;
-	query->pool = pool;
+	query = fts_backend_flatcurve_create_query(backend, pool);
 	fts_flatcurve_xapian_build_query_match_all(query);
 
 	p_array_init(&expunged, pool, 256);
@@ -558,16 +569,10 @@ fts_backend_flatcurve_lookup_multi(struct fts_backend *_backend,
 	int ret = 0;
 
 	/* Create query */
-	query = p_new(result->pool, struct flatcurve_fts_query, 1);
+	query = fts_backend_flatcurve_create_query(backend, result->pool);
 	query->args = args;
-	query->backend = backend;
 	query->flags = flags;
-	query->pool = result->pool;
-	if (fts_flatcurve_xapian_build_query(query, &error) < 0) {
-		fts_flatcurve_xapian_destroy_query(query);
-		e_error(backend->event, "%s", error);
-		return -1;
-	}
+	fts_flatcurve_xapian_build_query(query);
 
 	p_array_init(&box_results, result->pool, 8);
 	for (i = 0; boxes[i] != NULL; i++) {
@@ -595,9 +600,10 @@ fts_backend_flatcurve_lookup_multi(struct fts_backend *_backend,
 			r->definite_uids = fresult->uids;
 		r->scores = fresult->scores;
 
-		/* This was an empty query - skip output of debug info. */
-		if (query->qtext == NULL)
+		if (str_len(query->qtext) == 0) {
+			/* This was an empty query - skip output of debug info. */
 			continue;
+		}
 
 		T_BEGIN {
 			const char *u = fts_backend_flatcurve_seq_range_string(&fresult->uids);

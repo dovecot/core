@@ -53,8 +53,7 @@ int fts_flatcurve_xapian_optimize_box(struct flatcurve_fts_backend *backend,
 				      const char **error_r);
 void
 fts_flatcurve_xapian_build_query_match_all(struct flatcurve_fts_query *query);
-int fts_flatcurve_xapian_build_query(struct flatcurve_fts_query *query,
-				     const char **error_r);
+void fts_flatcurve_xapian_build_query(struct flatcurve_fts_query *query);
 int fts_flatcurve_xapian_run_query(struct flatcurve_fts_query *query,
 				   struct flatcurve_fts_result *r,
 				   const char **error_r);
