@@ -462,6 +462,7 @@ static bool mail_user_get_mail_home(struct mail_user *user)
 		user->_home = home[0] != '\0' ? home : NULL;
 		return TRUE;
 	}
+	home = user->unexpanded_set->mail_home;
 	/* we're still initializing user. need to do the expansion ourself. */
 	i_assert(home[0] == SETTING_STRVAR_UNEXPANDED[0]);
 	home++;
