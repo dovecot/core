@@ -524,10 +524,8 @@ int fts_expunge_log_read_end(struct fts_expunge_log_read_ctx **_ctx)
 
 	*_ctx = NULL;
 
-	if (ctx->corrupted) {
-		if (ctx->unlink)
-			i_unlink_if_exists(ctx->log->path);
-	}
+	if (ctx->corrupted)
+		i_unlink_if_exists(ctx->log->path);
 
 	i_stream_unref(&ctx->input);
 	i_free(ctx);
