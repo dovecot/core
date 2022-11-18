@@ -1,10 +1,12 @@
 /* Copyright (c) 2002-2018 Dovecot authors, see the included COPYING file */
 
 #include "login-common.h"
+#include "hex-binary.h"
 #include "array.h"
 #include "hostpid.h"
 #include "llist.h"
 #include "istream.h"
+#include "md5.h"
 #include "ostream.h"
 #include "iostream.h"
 #include "iostream-ssl.h"
@@ -822,7 +824,7 @@ const char *client_get_session_id(struct client *client)
 
 /* increment index if new proper login variables are added
  * make sure the aliases stay in the current order */
-#define VAR_EXPAND_ALIAS_INDEX_START 27
+#define VAR_EXPAND_ALIAS_INDEX_START 28
 
 static struct var_expand_table login_var_expand_empty_tab[] = {
 	{ 'u', NULL, "user" },
@@ -853,6 +855,7 @@ static struct var_expand_table login_var_expand_empty_tab[] = {
 	{ '\0', NULL, "auth_domain" },
 	{ '\0', NULL, "listener" },
 	{ '\0', NULL, "local_name" },
+	{ '\0', NULL, "ssl_ja3" },
 
 	/* aliases: */
 	{ '\0', NULL, "local_ip" },
@@ -926,6 +929,8 @@ get_var_expand_table(struct client *client)
 			t_strdup_printf("%s: %s", ssl_state, ssl_error);
 		tab[12].value =
 			ssl_iostream_get_security_string(client->ssl_iostream);
+		tab[27].value =
+			ssl_iostream_get_ja3(client->ssl_iostream);
 	} else {
 		tab[11].value = "TLS";
 		tab[12].value = "";
@@ -1002,11 +1007,35 @@ client_var_expand_func_passdb(const char *data, void *context,
 	return 1;
 }
 
+static int client_var_expand_func_ssl_ja3_hash(const char *data ATTR_UNUSED,
+					       void *context,
+					       const char **value_r,
+					       const char **error_r ATTR_UNUSED)
+{
+	struct client *client = context;
+
+	if (client->ssl_iostream == NULL) {
+		*value_r = NULL;
+		return 1;
+	}
+
+	unsigned char hash[MD5_RESULTLEN];
+	const char *ja3 = ssl_iostream_get_ja3(client->ssl_iostream);
+	if (ja3 == NULL) {
+		*value_r = NULL;
+	} else {
+		md5_get_digest(ja3, strlen(ja3), hash);
+		*value_r = binary_to_hex(hash, sizeof(hash));
+	}
+	return 1;
+}
+
 static const char *
 client_get_log_str(struct client *client, const char *msg)
 {
 	static const struct var_expand_func_table func_table[] = {
 		{ "passdb", client_var_expand_func_passdb },
+		{ "ssl_ja3_hash", client_var_expand_func_ssl_ja3_hash },
 		{ NULL, NULL }
 	};
 	static bool expand_error_logged = FALSE;

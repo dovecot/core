@@ -207,6 +207,8 @@ auth_request_get_var_expand_table_full(const struct auth_request *auth_request,
 		tab[33].value = escape_func(fields->local_name, auth_request);
 	if (fields->client_id != NULL)
 		tab[34].value = escape_func(fields->client_id, auth_request);
+	if (fields->ssl_ja3_hash != NULL)
+		tab[35].value = escape_func(fields->ssl_ja3_hash, auth_request);
 	return ret_tab;
 }
 
