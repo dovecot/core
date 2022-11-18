@@ -39,18 +39,27 @@
 
 enum auth_socket_type {
 	AUTH_SOCKET_UNKNOWN = 0,
-	AUTH_SOCKET_CLIENT,
-	AUTH_SOCKET_LOGIN_CLIENT,
+	AUTH_SOCKET_AUTH,
+	AUTH_SOCKET_LOGIN,
 	AUTH_SOCKET_MASTER,
 	AUTH_SOCKET_USERDB,
 	AUTH_SOCKET_TOKEN,
-	AUTH_SOCKET_TOKEN_LOGIN
+	AUTH_SOCKET_TOKEN_LOGIN,
 };
 
 struct auth_socket_listener {
-	enum auth_socket_type type;
 	struct stat st;
 	char *path;
+};
+
+static const char *const auth_socket_type_names[] = {
+	[AUTH_SOCKET_UNKNOWN]       = "",
+	[AUTH_SOCKET_AUTH]          = "auth",
+	[AUTH_SOCKET_LOGIN]         = "login",
+	[AUTH_SOCKET_MASTER]        = "master",
+	[AUTH_SOCKET_USERDB]        = "userdb",
+	[AUTH_SOCKET_TOKEN]         = "token",
+	[AUTH_SOCKET_TOKEN_LOGIN]   = "token-login",
 };
 
 bool worker = FALSE, worker_restart_request = FALSE;
@@ -97,35 +106,20 @@ static const char *const *read_global_settings(void)
 	return services;
 }
 
-static enum auth_socket_type
-auth_socket_type_get(const char *path)
+static enum auth_socket_type auth_socket_type_get(const char *typename)
 {
-	const char *name, *suffix;
+	unsigned int i;
 
-	name = strrchr(path, '/');
-	if (name == NULL)
-		name = path;
-	else
-		name++;
+	for (i = 0; i < N_ELEMENTS(auth_socket_type_names); i++) {
+		if (null_strcmp(typename, auth_socket_type_names[i]) == 0)
+			return (enum auth_socket_type)i;
+	}
 
-	suffix = strrchr(name, '-');
-	if (suffix == NULL)
-		suffix = name;
-	else
-		suffix++;
-
-	if (strcmp(suffix, "login") == 0)
-		return AUTH_SOCKET_LOGIN_CLIENT;
-	else if (strcmp(suffix, "master") == 0)
-		return AUTH_SOCKET_MASTER;
-	else if (strcmp(suffix, "userdb") == 0)
-		return AUTH_SOCKET_USERDB;
-	else if (strcmp(suffix, "token") == 0)
-		return AUTH_SOCKET_TOKEN;
-	else if (strcmp(suffix, "tokenlogin") == 0)
+	/* Deprecated name suffixes */
+	if (strcmp(typename, "tokenlogin") == 0)
 		return AUTH_SOCKET_TOKEN_LOGIN;
-	else
-		return AUTH_SOCKET_CLIENT;
+
+	return AUTH_SOCKET_AUTH;
 }
 
 static void listeners_init(void)
@@ -143,14 +137,11 @@ static void listeners_init(void)
 		if (net_getunixname(fd, &path) < 0) {
 			if (errno != ENOTSOCK)
 				i_fatal("getunixname(%d) failed: %m", fd);
-			/* not a unix socket, set its name and type lazily */
+			/* not a unix socket */
 		} else {
-			l->type = auth_socket_type_get(path);
 			l->path = i_strdup(path);
-			if (l->type == AUTH_SOCKET_USERDB) {
-				if (stat(path, &l->st) < 0)
-					i_error("stat(%s) failed: %m", path);
-			}
+			if (stat(path, &l->st) < 0)
+				i_error("stat(%s) failed: %m", path);
 		}
 	}
 }
@@ -324,16 +315,15 @@ static void client_connected(struct master_service_connection *conn)
 {
 	struct auth_socket_listener *l;
 	struct auth *auth;
+	const char *type;
 
 	l = array_idx_modifiable(&listeners, conn->listen_fd);
-	if (l->type == AUTH_SOCKET_UNKNOWN) {
-		/* first connection from inet socket, figure out its type
-		   from the listener name */
-		l->type = auth_socket_type_get(conn->name);
+	if (l->path == NULL)
 		l->path = i_strdup(conn->name);
-	}
+
+	type = master_service_connection_get_type(conn);
 	auth = auth_default_service();
-	switch (l->type) {
+	switch (auth_socket_type_get(type)) {
 	case AUTH_SOCKET_MASTER:
 		(void)auth_master_connection_create(auth, conn->fd,
 						    l->path, NULL, FALSE);
@@ -342,10 +332,10 @@ static void client_connected(struct master_service_connection *conn)
 		(void)auth_master_connection_create(auth, conn->fd,
 						    l->path, &l->st, TRUE);
 		break;
-	case AUTH_SOCKET_LOGIN_CLIENT:
+	case AUTH_SOCKET_LOGIN:
 		auth_client_connection_create(auth, conn->fd, TRUE, FALSE);
 		break;
-	case AUTH_SOCKET_CLIENT:
+	case AUTH_SOCKET_AUTH:
 		auth_client_connection_create(auth, conn->fd, FALSE, FALSE);
 		break;
 	case AUTH_SOCKET_TOKEN_LOGIN:

@@ -19,36 +19,42 @@ static bool auth_userdb_settings_check(void *_set, pool_t pool, const char **err
 static struct file_listener_settings auth_unix_listeners_array[] = {
 	{
 		.path = "login/login",
+		.type = "login",
 		.mode = 0666,
 		.user = "",
 		.group = "",
 	},
 	{
 		.path = "token-login/tokenlogin",
+		.type = "token-login",
 		.mode = 0666,
 		.user = "",
 		.group = "",
 	},
 	{
 		.path = "auth-login",
+		.type = "login",
 		.mode = 0600,
 		.user = "$default_internal_user",
 		.group = "",
 	},
 	{
 		.path = "auth-client",
+		.type = "auth",
 		.mode = 0600,
 		.user = "$default_internal_user",
 		.group = "",
 	},
 	{
 		.path = "auth-userdb",
+		.type = "userdb",
 		.mode = 0666,
 		.user = "$default_internal_user",
 		.group = "",
 	},
 	{
 		.path = "auth-master",
+		.type = "master",
 		.mode = 0600,
 		.user = "",
 		.group = "",
