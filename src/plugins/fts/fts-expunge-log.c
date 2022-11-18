@@ -556,6 +556,8 @@ int fts_expunge_log_flatten(const char *path, struct event *event,
 
 	if ((ret = fts_expunge_log_read_end(&read_ctx)) > 0)
 		*flattened_r = append;
+	else
+		fts_expunge_log_append_abort(&append);
 	fts_expunge_log_deinit(&read);
 
 	return ret;
