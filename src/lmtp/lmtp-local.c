@@ -468,9 +468,9 @@ lmtp_local_deliver(struct lmtp_local *local,
 	}
 	local->rcpt_user = rcpt_user;
 
-	smtp_set = mail_storage_service_user_get_set(service_user,
+	smtp_set = settings_parser_get_root_set(rcpt_user->set_parser,
 			&smtp_submit_setting_parser_info);
-	lda_set = mail_storage_service_user_get_set(service_user,
+	lda_set = settings_parser_get_root_set(rcpt_user->set_parser,
 			&lda_setting_parser_info);
 	ret = mail_user_var_expand(rcpt_user, &smtp_submit_setting_parser_info,
 				   smtp_set, &error);

@@ -283,7 +283,6 @@ lda_do_deliver(struct mail_deliver_context *ctx, bool stderr_rejection)
 
 static int
 lda_deliver(struct mail_deliver_input *dinput,
-	    struct mail_storage_service_user *service_user,
 	    const char *user, const char *path,
 	    struct smtp_address *rcpt_to, const char *rcpt_to_source,
 	    bool stderr_rejection)
@@ -294,10 +293,10 @@ lda_deliver(struct mail_deliver_input *dinput,
 	const char *errstr;
 	int ret;
 
-	smtp_set = mail_storage_service_user_get_set(service_user,
-			&smtp_submit_setting_parser_info);
-	lda_set = mail_storage_service_user_get_set(service_user,
-			&lda_setting_parser_info);
+	lda_set = settings_parser_get_root_set(dinput->rcpt_user->set_parser,
+						   &lda_setting_parser_info);
+	smtp_set = settings_parser_get_root_set(dinput->rcpt_user->set_parser,
+						&smtp_submit_setting_parser_info);
 	ret = mail_user_var_expand(dinput->rcpt_user, &lda_setting_parser_info,
 				   lda_set, &errstr);
 	if (ret > 0) {
@@ -572,7 +571,7 @@ int main(int argc, char *argv[])
 				mail_from_error);
 		}
 
-		ret = lda_deliver(&dinput, service_user, user, path,
+		ret = lda_deliver(&dinput, user, path,
 				  rcpt_to, rcpt_to_source, stderr_rejection);
 
 		struct mailbox_transaction_context *t =

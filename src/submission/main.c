@@ -192,7 +192,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 
 	restrict_access_allow_coredumps(TRUE);
 
-	set = mail_storage_service_user_get_set(user,
+	set = settings_parser_get_root_set(mail_user->set_parser,
 			&submission_setting_parser_info);
 	if (set->verbose_proctitle)
 		verbose_proctitle = TRUE;

@@ -278,9 +278,9 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 
 	restrict_access_allow_coredumps(TRUE);
 
-	smtp_set = mail_storage_service_user_get_set(user,
+	smtp_set = settings_parser_get_root_set(mail_user->set_parser,
 			&smtp_submit_setting_parser_info);
-	imap_set = mail_storage_service_user_get_set(user,
+	imap_set = settings_parser_get_root_set(mail_user->set_parser,
 			&imap_setting_parser_info);
 	if (imap_set->verbose_proctitle)
 		verbose_proctitle = TRUE;
