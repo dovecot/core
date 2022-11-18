@@ -19,12 +19,14 @@ static bool imap_settings_verify(void *_set, pool_t pool,
 static struct file_listener_settings imap_unix_listeners_array[] = {
 	{
 		.path = "login/imap",
+		.type = "login",
 		.mode = 0666,
 		.user = "",
 		.group = "",
 	},
 	{
 		.path = "imap-master",
+		.type = "master",
 		.mode = 0600,
 		.user = "",
 		.group = "",

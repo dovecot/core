@@ -454,11 +454,14 @@ static const struct master_admin_client_callback admin_callbacks = {
 
 static void client_connected(struct master_service_connection *conn)
 {
+	const char *type;
+
 	/* when running standalone, we shouldn't even get here */
 	i_assert(login_server != NULL);
 
 	master_service_client_connection_accept(conn);
-	if (strcmp(conn->name, "imap-master") == 0) {
+	type = master_service_connection_get_type(conn);
+	if (strcmp(type, "master") == 0) {
 		/* restoring existing IMAP connection (e.g. from imap-idle) */
 		imap_master_client_create(conn->fd);
 		return;
