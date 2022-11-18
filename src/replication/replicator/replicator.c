@@ -25,8 +25,11 @@ static struct timeout *to_dump;
 
 static void client_connected(struct master_service_connection *conn)
 {
+	const char *type;
+
 	master_service_client_connection_accept(conn);
-	if (strcmp(conn->name, "replicator-doveadm") == 0)
+	type = master_service_connection_get_type(conn);
+	if (strcmp(type, "doveadm") == 0)
 		doveadm_connection_create(brain, conn->fd);
 	else
 		(void)notify_connection_create(conn->fd, queue);

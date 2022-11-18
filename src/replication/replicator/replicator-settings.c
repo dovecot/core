@@ -20,6 +20,7 @@ static struct file_listener_settings replicator_unix_listeners_array[] = {
 	},
 	{
 		.path = "replicator-doveadm",
+		.type = "doveadm",
 		.mode = 0,
 		.user = "$default_internal_user",
 		.group = "",
