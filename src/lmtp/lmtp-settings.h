@@ -44,7 +44,7 @@ struct lmtp_settings {
 
 extern const struct setting_parser_info lmtp_setting_parser_info;
 
-void lmtp_settings_dup(const struct setting_parser_context *set_parser,
+void lmtp_settings_get(const struct setting_parser_context *set_parser,
 		       pool_t pool,
 		       struct lmtp_settings **lmtp_set_r,
 		       struct lda_settings **lda_set_r);
