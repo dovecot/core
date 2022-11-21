@@ -4,8 +4,6 @@
 struct dict_server_settings {
 	const char *base_dir;
 	bool verbose_proctitle;
-
-	const char *dict_db_config;
 	ARRAY(const char *) dicts;
 };
 

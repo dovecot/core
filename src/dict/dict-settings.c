@@ -112,8 +112,6 @@ struct service_settings dict_expire_service_settings = {
 static const struct setting_define dict_setting_defines[] = {
 	DEF(STR, base_dir),
 	DEF(BOOL, verbose_proctitle),
-
-	DEF(STR, dict_db_config),
 	{ .type = SET_STRLIST, .key = "dict",
 	  .offset = offsetof(struct dict_server_settings, dicts) },
 
@@ -123,8 +121,6 @@ static const struct setting_define dict_setting_defines[] = {
 const struct dict_server_settings dict_default_settings = {
 	.base_dir = PKG_RUNDIR,
 	.verbose_proctitle = FALSE,
-
-	.dict_db_config = "",
 	.dicts = ARRAY_INIT
 };
 

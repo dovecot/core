@@ -95,13 +95,6 @@ AS_HELP_STRING([--with-libunwind], [Build with libunwind support (auto)]),
   TEST_WITH(libunwind, $withval),
   want_libunwind=auto)
 
-# Berkeley DB support is more or less broken. Disabled for now.
-#AC_ARG_WITH(db,
-#AS_HELP_STRING([--with-db], [Build with Berkeley DB support]),
-#  TEST_WITH(db, $withval),
-#  want_db=no)
-want_db=no
-
 AC_ARG_WITH(cdb,
 AS_HELP_STRING([--with-cdb], [Build with CDB support]),
   TEST_WITH(cdb, $withval),
@@ -480,7 +473,6 @@ DOVECOT_WANT_PAM
 DOVECOT_WANT_BSDAUTH
 DOVECOT_WANT_GSSAPI
 DOVECOT_WANT_LDAP
-DOVECOT_WANT_DB
 DOVECOT_WANT_CDB
 DOVECOT_WANT_PGSQL
 DOVECOT_WANT_MYSQL
