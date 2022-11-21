@@ -18,6 +18,7 @@ static struct file_listener_settings imap_hibernate_unix_listeners_array[] = {
 	},
 	{
 		.path = "srv.imap-hibernate/%{pid}",
+		.type = "admin",
 		.mode = 0600,
 		.user = "",
 		.group = "",

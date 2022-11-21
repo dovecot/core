@@ -17,6 +17,7 @@ static struct file_listener_settings indexer_worker_unix_listeners_array[] = {
 	},
 	{
 		.path = "srv.indexer-worker/%{pid}",
+		.type = "admin",
 		.mode = 0600,
 		.user = "",
 		.group = "",

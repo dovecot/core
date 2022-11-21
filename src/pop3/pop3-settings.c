@@ -23,6 +23,7 @@ static struct file_listener_settings pop3_unix_listeners_array[] = {
 	},
 	{
 		.path = "srv.pop3/%{pid}",
+		.type = "admin",
 		.mode = 0600,
 		.user = "",
 		.group = "",

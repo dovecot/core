@@ -17,6 +17,7 @@ submission_login_settings_check(void *_set, pool_t pool, const char **error_r);
 static struct file_listener_settings submission_login_unix_listeners_array[] = {
 	{
 		.path = "srv.submission-login/%{pid}",
+		.type = "admin",
 		.mode = 0600,
 		.user = "",
 		.group = "",

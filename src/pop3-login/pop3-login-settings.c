@@ -14,6 +14,7 @@
 static struct file_listener_settings pop3_login_unix_listeners_array[] = {
 	{
 		.path = "srv.pop3-login/%{pid}",
+		.type = "admin",
 		.mode = 0600,
 		.user = "",
 		.group = "",

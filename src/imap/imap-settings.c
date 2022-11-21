@@ -31,6 +31,7 @@ static struct file_listener_settings imap_unix_listeners_array[] = {
 	},
 	{
 		.path = "srv.imap/%{pid}",
+		.type = "admin",
 		.mode = 0600,
 		.user = "",
 		.group = "",

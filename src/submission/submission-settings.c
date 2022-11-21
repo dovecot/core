@@ -24,6 +24,7 @@ static struct file_listener_settings submission_unix_listeners_array[] = {
 	},
 	{
 		.path = "srv.submission/%{pid}",
+		.type = "admin",
 		.mode = 0600,
 		.user = "",
 		.group = "",
