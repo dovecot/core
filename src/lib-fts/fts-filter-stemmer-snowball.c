@@ -87,7 +87,19 @@ fts_filter_stemmer_snowball_filter(struct fts_filter *filter,
 			       "sb_stemmer_stem(len=%zu) failed: Out of memory",
 			       strlen(*token));
 	}
-	*token = t_strndup(base, sb_stemmer_length(sp->stemmer));
+	int len = sb_stemmer_length(sp->stemmer);
+	if (len > 0)
+		*token = t_strndup(base, len);
+	else {
+		/* If the stemmer returns an empty token, the return value
+		 * should be 0 instead of 1 (otherwise it causes an assertion
+		 * fault in fts_filter_filter() ).
+		 * However, removing tokens may bring the same kind of issues
+		 * and inconsistencies that stopwords cause when used with
+		 * multiple languages and negations.
+		 * So, when the stemmer asks to remove a token,
+		 * keep the original token unchanged instead. */
+	}
 	return 1;
 }
 
