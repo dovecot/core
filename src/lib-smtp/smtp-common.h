@@ -50,6 +50,7 @@ enum smtp_capability {
 	SMTP_CAPABILITY_VRFY                = BIT(10),
 	SMTP_CAPABILITY_ETRN                = BIT(11),
 	SMTP_CAPABILITY_XCLIENT             = BIT(12),
+	SMTP_CAPABILITY_SMTPUTF8            = BIT(13),
 
 	SMTP_CAPABILITY__ORCPT              = BIT(24),
 };

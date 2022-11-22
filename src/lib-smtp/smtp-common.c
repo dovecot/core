@@ -21,6 +21,7 @@ const struct smtp_capability_name smtp_capability_names[] = {
 	{ "VRFY", SMTP_CAPABILITY_VRFY },
 	{ "ETRN", SMTP_CAPABILITY_ETRN },
 	{ "XCLIENT", SMTP_CAPABILITY_XCLIENT },
+	{ "SMTPUTF8", SMTP_CAPABILITY_SMTPUTF8 },
 	{ NULL, 0 }
 };
 
