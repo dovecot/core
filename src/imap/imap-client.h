@@ -265,6 +265,7 @@ extern unsigned int imap_client_count;
 
 extern unsigned int imap_feature_condstore;
 extern unsigned int imap_feature_qresync;
+extern unsigned int imap_feature_utf8accept;
 
 /* Create new client with specified input/output handles. socket specifies
    if the handle is a socket. */
