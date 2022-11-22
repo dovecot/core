@@ -89,6 +89,13 @@ static const struct password_scheme sodium_schemes[] = {
 		.password_verify = verify_argon2,
 		.password_generate = generate_argon2id,
 	},
+	{
+		.name = "ARGON2",
+		.default_encoding = PW_ENCODING_NONE,
+		.raw_password_len = 0,
+		.password_verify = verify_argon2,
+		.password_generate = generate_argon2id,
+	},
 #endif
 };
 
