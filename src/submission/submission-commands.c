@@ -68,6 +68,10 @@ void submission_helo_reply_submit(struct smtp_server_cmd_ctx *cmd,
 
 		if ((backend_caps & SMTP_CAPABILITY_8BITMIME) != 0)
 			smtp_server_reply_ehlo_add(reply, "8BITMIME");
+#ifdef EXPERIMENTAL_MAIL_UTF8
+		if ((backend_caps & SMTP_CAPABILITY_SMTPUTF8) != 0)
+			smtp_server_reply_ehlo_add(reply, "SMTPUTF8");
+#endif
 		smtp_server_reply_ehlo_add(reply, "AUTH");
 		if ((backend_caps & SMTP_CAPABILITY_BINARYMIME) != 0 &&
 		    (backend_caps & SMTP_CAPABILITY_CHUNKING) != 0)

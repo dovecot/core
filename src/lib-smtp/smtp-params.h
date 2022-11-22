@@ -50,6 +50,8 @@ struct smtp_params_mail {
 	enum smtp_param_mail_ret ret;
 	/* SIZE: RFC 1870 */
 	uoff_t size;
+	/* SMTPUTF8: RFC 6531 */
+	bool smtputf8;
 	/* extra parameters */
 	ARRAY_TYPE(smtp_param) extra_params;
 };

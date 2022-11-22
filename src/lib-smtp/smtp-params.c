@@ -541,6 +541,17 @@ int smtp_params_mail_parse(pool_t pool, const char *args,
 				ret = -1;
 				break;
 			}
+#ifdef EXPERIMENTAL_MAIL_UTF8
+		} else if (strcmp(param.keyword, "SMTPUTF8") == 0) {
+			if ((caps & SMTP_CAPABILITY_SMTPUTF8) != 0) {
+				params_r->smtputf8 = TRUE;
+			} else {
+				*error_r = "Message requires SMTPUTF8, "
+					   "but next-hop server does not support that";
+				*error_code_r = SMTP_PARAM_PARSE_ERROR_NOT_SUPPORTED;
+				return -1;
+			}
+#endif
 		} else if ((caps & SMTP_CAPABILITY_SIZE) != 0 &&
 			   strcmp(param.keyword, "SIZE") == 0) {
 			if (smtp_params_mail_parse_size(&pmparser,
@@ -589,6 +600,7 @@ void smtp_params_mail_copy(pool_t pool, struct smtp_params_mail *dst,
 	dst->envid = p_strdup(pool, src->envid);
 	dst->ret = src->ret;
 	dst->size = src->size;
+	dst->smtputf8 = src->smtputf8;
 
 	smtp_params_copy(pool, &dst->extra_params, &src->extra_params);
 }
@@ -726,6 +738,17 @@ smtp_params_mail_write_size(string_t *buffer, enum smtp_capability caps,
 	str_printfa(buffer, "SIZE=%"PRIuUOFF_T" ", params->size);
 }
 
+#ifdef EXPERIMENTAL_MAIL_UTF8
+static void
+smtp_params_mail_write_smtputf8(string_t *buffer,
+				const struct smtp_params_mail *params)
+{
+	/* SMTPUTF8: RFC 6531 */
+	if (params->smtputf8)
+		str_append(buffer, "SMTPUTF8 ");
+}
+#endif
+
 void smtp_params_mail_write(string_t *buffer, enum smtp_capability caps,
 			    const char *const *extra_params,
 			    const struct smtp_params_mail *params)
@@ -737,6 +760,9 @@ void smtp_params_mail_write(string_t *buffer, enum smtp_capability caps,
 	smtp_params_mail_write_envid(buffer, caps, params);
 	smtp_params_mail_write_ret(buffer, caps, params);
 	smtp_params_mail_write_size(buffer, caps, params);
+#ifdef EXPERIMENTAL_MAIL_UTF8
+	smtp_params_mail_write_smtputf8(buffer, params);
+#endif
 
 	smtp_params_write(buffer, extra_params, &params->extra_params);
 
