@@ -11,6 +11,7 @@
 static struct file_listener_settings log_unix_listeners_array[] = {
 	{
 		.path = "log-errors",
+		.type = "errors",
 		.mode = 0600,
 		.user = "",
 		.group = "",

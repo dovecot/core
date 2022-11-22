@@ -48,11 +48,15 @@ static void client_connected(struct master_service_connection *conn)
 		   but here we want log process to stay open until all writers
 		   have closed */
 		conn->fifo = FALSE;
-	} else if (strcmp(conn->name, "log-errors") == 0)
-		doveadm_connection_create(errorbuf, conn->fd);
-	else {
-		i_error("Unknown listener name: %s", conn->name);
-		return;
+	} else {
+		const char *type = master_service_connection_get_type(conn);
+
+		if (strcmp(type, "errors") == 0)
+			doveadm_connection_create(errorbuf, conn->fd);
+		else {
+			i_error("Unknown listener type/name: %s", type);
+			return;
+		}
 	}
 
 	master_service_client_connection_accept(conn);
