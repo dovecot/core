@@ -20,18 +20,21 @@ static bool stats_settings_check(void *_set, pool_t pool, const char **error_r);
 static struct file_listener_settings stats_unix_listeners_array[] = {
 	{
 		.path = "stats-reader",
+		.type = "reader",
 		.mode = 0600,
 		.user = "",
 		.group = "",
 	},
 	{
 		.path = "stats-writer",
+		.type = "writer",
 		.mode = 0660,
 		.user = "",
 		.group = "$default_internal_group",
 	},
 	{
 		.path = "login/stats-writer",
+		.type = "writer",
 		.mode = 0600,
 		.user = "$default_login_user",
 		.group = "",
