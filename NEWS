@@ -1,3 +1,56 @@
+v2.3.20 2022-12-22  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	+ Add dsync_features=no-header-hashes. When this setting is enabled and
+	  one dsync side doesn't support mail GUIDs (i.e. imapc), there is no
+	  fallback to using header hashes. Instead, dsync assumes that all mails
+	  with identical IMAP UIDs contains the same mail contents. This can
+	  significantly improve dsync performance with some IMAP servers that
+	  don't support caching Date/Message-ID headers.
+	+ lua: HTTP client has more settings now, see
+	  https://doc.dovecot.org/admin_manual/lua/#dovecot.http.client
+	+ replicator: "doveadm replicator status" command now outputs when the
+	  next sync is expected for the user.
+	- LAYOUT=index: duplicate GUIDs were not cleaned out. Also the list
+	  recovery was not optimal.
+	- auth: Assert crash would occur when iterating multiple userdb
+	  backends.
+	- director: Logging into director using master user with
+	  auth_master_user_separator character redirected user to a wrong
+	  backend, unless master_user_separator setting was also set to the same
+	  value. Merged these into auth_master_user_separator.
+	- dsync: Couldn't always fix folder GUID conflicts automatically with
+	  Maildir format. This resulted in replication repeatedly failing
+	  with "Remote lost mailbox GUID".
+	- dsync: Failed to migrate INBOX when using namespace prefix=INBOX/,
+	  resulting in "Remote lost mailbox GUID" errors.
+	- dsync: INBOX was created too early with namespace prefix=INBOX/,
+	  resulting a GUID conflict. This may have been resolved automatically,
+	  but not always.
+	- dsync: v2.3.18 regression: Wrong imapc password with dsync caused
+	  Panic: file lib-event.c: line 506 (event_pop_global):
+	  assertion failed: (event == current_global_event)
+	- imapc: Requesting STATUS for a mailbox with imapc and INDEXPVT
+	  configured did not return correct (private) unseen counts.
+	- lib-dict: Process would crash when committing data to redis without
+	  dict proxy.
+	- lib-mail: Corrupted cached BODYSTRUCTURE caused panic during FETCH.
+	  Fixes: Panic: file message-part-data.c: line 579 (message_part_is_attachment):
+	  assertion failed: (data != NULL). v2.3.13 regression.
+	- lib-storage: mail_attribute_dict with dict-sql failed when it tried to
+	  lookup empty dict keys.
+	- lib: ioloop-kqueue was missing include breaking some BSD builds.
+	- lua-http: Dovecot Lua HTTP client could not resolve DNS names in mail
+	  processes, because it expected "dns-client" socket to exist in the
+	  current directory.
+	- oauth2: Using %{oauth2:name} variables could cause useless
+	  introspections.
+	- pop3: Sending POP3 command with ':' character caused an assert-crash.
+	  v2.3.18 regression.
+	- replicator: Replication queue had various issues, potentially causing
+	  replication requests to become stuck.
+	- stats: Invalid Prometheus label names were created with specific
+	  histogram group_by configurations. Prometheus rejected these labels.
+
 v2.3.19.1 2022-06-14  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	- doveadm deduplicate: Non-duplicate mails were deleted.
