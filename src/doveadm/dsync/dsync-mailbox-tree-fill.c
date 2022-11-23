@@ -112,6 +112,7 @@ static int dsync_mailbox_tree_add(struct dsync_mailbox_tree *tree,
 			return 0;
 		}
 	}
+	i_assert(ret <= 0);
 	if (ret == 0)
 		ret = dsync_mailbox_tree_get_selectable(box, &metadata, &status);
 	if (ret < 0) {
