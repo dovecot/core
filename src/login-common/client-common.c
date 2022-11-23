@@ -1027,8 +1027,7 @@ client_get_log_str(struct client *client, const char *msg)
 		    !expand_error_logged) {
 			/* NOTE: Don't log via client->event - it would cause
 			   recursion */
-			e_error(client->event,
-				"Failed to expand log_format_elements=%s: %s",
+			i_error("Failed to expand log_format_elements=%s: %s",
 				*e, error);
 			expand_error_logged = TRUE;
 		}
@@ -1065,8 +1064,7 @@ client_get_log_str(struct client *client, const char *msg)
 	if (var_expand(str, client->set->login_log_format, tab, &error) <= 0) {
 		/* NOTE: Don't log via client->event - it would cause
 		   recursion */
-		e_error(client->event,
-			"Failed to expand login_log_format=%s: %s",
+		i_error("Failed to expand login_log_format=%s: %s",
 			client->set->login_log_format, error);
 		expand_error_logged = TRUE;
 	}
