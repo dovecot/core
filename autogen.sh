@@ -13,5 +13,3 @@ if ! test -f build-aux/config.rpath; then
 fi
 
 autoreconf -i
-
-rm -f ChangeLog

@@ -40,7 +40,6 @@ compile_commands.json
 /stamp-h2
 /build-aux/ylwrap
 /autom4te.cache
-/ChangeLog
 /cc-wrapper.sh
 /dovecot-config
 /dovecot-config.in
