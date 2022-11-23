@@ -33,9 +33,6 @@ README: README.md
 INSTALL: INSTALL.md
 	$(PANDOC) -f markdown_github -t plain -o $@ $<
 
-ChangeLog:
-	git log --name-status --pretty="format:%ai %aN <%aE> (%h)%n%n%w(80,4,4)%s%n%n%b" 5d5c4f2bfb812c767084c0338dae692db476da10^.. > ChangeLog || rm -f ChangeLog
-
 aclocal_DATA = m4/dovecot.m4
 
 dovecot-version.h: noop
