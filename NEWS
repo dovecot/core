@@ -1,3 +1,247 @@
+v2.3.20 2022-12-22  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	+ Add dsync_features=no-header-hashes. When this setting is enabled and
+	  one dsync side doesn't support mail GUIDs (i.e. imapc), there is no
+	  fallback to using header hashes. Instead, dsync assumes that all mails
+	  with identical IMAP UIDs contains the same mail contents. This can
+	  significantly improve dsync performance with some IMAP servers that
+	  don't support caching Date/Message-ID headers.
+	+ lua: HTTP client has more settings now, see
+	  https://doc.dovecot.org/admin_manual/lua/#dovecot.http.client
+	+ replicator: "doveadm replicator status" command now outputs when the
+	  next sync is expected for the user.
+	- LAYOUT=index: duplicate GUIDs were not cleaned out. Also the list
+	  recovery was not optimal.
+	- auth: Assert crash would occur when iterating multiple userdb
+	  backends.
+	- director: Logging into director using master user with
+	  auth_master_user_separator character redirected user to a wrong
+	  backend, unless master_user_separator setting was also set to the same
+	  value. Merged these into auth_master_user_separator.
+	- dsync: Couldn't always fix folder GUID conflicts automatically with
+	  Maildir format. This resulted in replication repeatedly failing
+	  with "Remote lost mailbox GUID".
+	- dsync: Failed to migrate INBOX when using namespace prefix=INBOX/,
+	  resulting in "Remote lost mailbox GUID" errors.
+	- dsync: INBOX was created too early with namespace prefix=INBOX/,
+	  resulting a GUID conflict. This may have been resolved automatically,
+	  but not always.
+	- dsync: v2.3.18 regression: Wrong imapc password with dsync caused
+	  Panic: file lib-event.c: line 506 (event_pop_global):
+	  assertion failed: (event == current_global_event)
+	- imapc: Requesting STATUS for a mailbox with imapc and INDEXPVT
+	  configured did not return correct (private) unseen counts.
+	- lib-dict: Process would crash when committing data to redis without
+	  dict proxy.
+	- lib-mail: Corrupted cached BODYSTRUCTURE caused panic during FETCH.
+	  Fixes: Panic: file message-part-data.c: line 579 (message_part_is_attachment):
+	  assertion failed: (data != NULL). v2.3.13 regression.
+	- lib-storage: mail_attribute_dict with dict-sql failed when it tried to
+	  lookup empty dict keys.
+	- lib: ioloop-kqueue was missing include breaking some BSD builds.
+	- lua-http: Dovecot Lua HTTP client could not resolve DNS names in mail
+	  processes, because it expected "dns-client" socket to exist in the
+	  current directory.
+	- oauth2: Using %{oauth2:name} variables could cause useless
+	  introspections.
+	- pop3: Sending POP3 command with ':' character caused an assert-crash.
+	  v2.3.18 regression.
+	- replicator: Replication queue had various issues, potentially causing
+	  replication requests to become stuck.
+	- stats: Invalid Prometheus label names were created with specific
+	  histogram group_by configurations. Prometheus rejected these labels.
+
+v2.3.19.1 2022-06-14  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	- doveadm deduplicate: Non-duplicate mails were deleted.
+	  v2.3.19 regression.
+	- auth: Crash would occur when iterating multiple backends.
+	  Fixes: Panic: file userdb-blocking.c:
+	  line 125 (userdb_blocking_iter_next): assertion failed: (ctx->conn != NULL)
+
+v2.3.19 2022-05-10  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	+ Added mail_user_session_finished event, which is emitted when the mail
+	  user session is finished (e.g. imap, pop3, lmtp). It also includes
+	  fields with some process statistics information.
+	  See https://doc.dovecot.org/admin_manual/list_of_events/ for more
+	  information.
+	+ Added process_shutdown_filter setting. When an event matches the filter,
+	  the process will be shutdown after the current connection(s) have
+	  finished. This is intended to reduce memory usage of long-running imap
+	  processes that keep a lot of memory allocated instead of freeing it to
+	  the OS.
+	+ auth: Add cache hit indicator to auth passdb/userdb finished events.
+	  See https://doc.dovecot.org/admin_manual/list_of_events/ for more
+	  information.
+	+ doveadm deduplicate: Performance is improved significantly.
+	+ imapc: COPY commands were sent one mail at a time to the remote IMAP
+	  server. Now the copying is buffered, so multiple mails can be copied
+	  with a single COPY command.
+	+ lib-lua: Add a Lua interface to Dovecot's HTTP client library. See
+	  https://doc.dovecot.org/admin_manual/lua/ for more information.
+	- auth: Cache lookup would use incorrect cache key after username change.
+	- auth: Improve handling unexpected LDAP connection errors/hangs.
+	  Try to fix up these cases by reconnecting to the LDAP server and
+	  aborting LDAP requests earlier.
+	- auth: Process crashed if userdb iteration was attempted while auth-workers
+	  were already full handling auth requests.
+	- auth: db-oauth2: Using %{oauth2:name} variables caused unnecessary
+	  introspection requests.
+	- dict: Timeouts may have been leaked at deinit.
+	- director: Ring may have become unstable if a backend's tag was changed.
+	  It could also have caused director process to crash.
+	- doveadm kick: Numeric parameter was treated as IP address.
+	- doveadm: Proxying can panic when flushing print output. Fixes
+	  Panic: file ioloop.c: line 865 (io_loop_destroy): assertion failed:
+	  (ioloop == current_ioloop).
+	- doveadm sync: BROKENCHAR was wrongly changed to '_' character when
+	  migrating mailboxes. This was set by default to %, so any mailbox
+	  names containing % characters were modified to "_25".
+	- imapc: Copying or moving mails with doveadm to an imapc mailbox could
+	  have produced "Error: Syncing mailbox '[...]' failed" Errors. The
+	  operation itself succeeded but attempting to sync the destination
+	  mailbox failed.
+	- imapc: Prevent index log synchronization errors when two or more imapc
+	  sessions are adding messages to the same mailbox index files, i.e.
+	  INDEX=MEMORY is not used.
+	- indexer: Process was slowly leaking memory for each indexing request.
+	- lib-fts: fts header filters caused binary content to be sent to the
+	  indexer with non-default configuration.
+	- doveadm-server: Process could hang in some situations when printing
+	  output to TCP client, e.g. when printing doveadm sync state.
+	- lib-index: dovecot.index.log files were often read and parsed entirely,
+	  rather than only the parts that were actually necessary. This mainly
+	  increased CPU usage.
+	- lmtp-proxy: Session ID forwarding would cause same session IDs being
+	  used when delivering same mail to multiple backends.
+	- log: Log prefix update may have been lost if log process was busy.
+	  This could have caused log prefixes to be empty or in some cases
+	  reused between sessions, i.e. log lines could have been logged for the
+	  wrong user/session.
+	- mail_crypt: Plugin crashes if it's loaded only for some users. Fixes
+	  Panic: Module context mail_crypt_user_module missing.
+	- mail_crypt: When LMTP was delivering mails to both recipients with mail
+	  encryption enabled and not enabled, the non-encrypted recipients may
+	  have gotten mails encrypted anyway. This happened when the first
+	  recipient was encrypted (mail_crypt_save_version=2) and the 2nd
+	  recipient was not encrypted (mail_crypt_save_version=0).
+	- pop3: Session would crash if empty line was sent.
+	- stats: HTTP server leaked memory.
+	- submission-login: Long credentials, such as OAUTH2 tokens, were refused
+	  during SASL interactive due to submission server applying line length
+	  limits.
+	- submission-login: When proxying to remote host, authentication was not
+	  using interactive SASL when logging in using long credentials such as
+	  OAUTH2 tokens. This caused authentication to fail due to line length
+	  constraints in SMTP protocol.
+	- submission: Terminating the client connection with QUIT command after
+	  mail transaction is started with MAIL command and before it is
+	  finished with DATA/BDAT can cause a segfault crash.
+	- virtual: doveadm search queries with mailbox-guid as the only parameter
+	  crashes: Panic: file virtual-search.c: line 77 (virtual_search_get_records):
+	  assertion failed: (result != 0)
+
+v2.3.18 2022-02-03  Aki Tuomi <aki.tuomi@open-xchange.com>
+
+	* Removed mail_cache_lookup_finished event. This event wasn't especially
+	  useful, but it increased CPU usage significantly.
+	* fts: Don't index inline base64 encoded content in FTS indexes using
+	  the generic tokenizer. This reduces the FTS index sizes by removing
+	  input that is very unlikely to be searched for. See
+	  https://doc.dovecot.org/configuration_manual/fts/tokenization for
+	  details on how base64 is detected. Only applies when using libfts.
+	* lmtp: Session IDs are now preserved through proxied connections, so
+	  LMTP sessions can be tracked. This slightly changes the LMTP session
+	  ID format by appending ":Tn" (transaction), ":Pn" (proxy connection)
+	  and ":Rn" (recipient) counters after the session ID prefix.
+	+ Events now have "reason_code" field, which can provide a list of
+	  reasons why the event is happening. See
+	  https://doc.dovecot.org/admin_manual/event_reasons/
+	+ New events are added. See https://doc.dovecot.org/admin_manual/list_of_events/
+	+ fts: Added fts_header_excludes and fts_header_includes settings to
+	  specify which headers to index. See
+	  https://doc.dovecot.org/settings/plugin/fts-plugin#plugin-fts-setting-fts-header-excludes
+	  for configuration details.
+	+ fts: Initialize the textcat language detection library only once per
+	  process. This can reduce CPU usage if fts_languages setting has multiple
+	  languages listed and service indexer-worker { service_count } isn't 1.
+	  Only applies when using libfts.
+	+ lib-storage: Reduced CPU usage significantly for some operations that
+	  accessed lots of emails (e.g. fetching all flags in a folder, SORT, ...)
+	+ lib: DOVECOT_PREREQ() - Add micro version which enables compiling
+	  external plugins against different versions of Dovecot.
+	+ lmtp: Added new lmtp_verbose_replies setting that makes errors sent to
+	  the LMTP client much more verbose with details about why exactly
+	  backend proxy connections or commands are failing.
+	+ submission: Support implicit SASL EXTERNAL with
+	  submission_client_workarounds=implicit-auth-external. This allows
+	  automatically logging in when SSL client certificate is present.
+	- *-login: Statistics were disabled if stats process connection was lost.
+	- auth: Authentication master user login fails with SCRAM-* SASL mechanisms.
+	- auth: With auth_cache_verify_password_with_worker=yes, passdb extra
+	  fields in the auth cache got lost.
+	- doveadm: Fixed crash if zlib_save_level setting was specified,
+	  but zlib_save was unset. v2.3.15 regression.
+	- doveadm: Proxying can panic when flushing print output. v2.3.17
+	  regression. Fixes:
+	  Panic: file ioloop.c: line 865 (io_loop_destroy): assertion failed:
+	  (ioloop == current_ioloop)
+	- doveadm: stats add --group-by parameter didn't work.
+	- fts: Using email-address fts tokenizer could result in excessive memory
+	  usage with garbage email input. This could cause the indexer-worker
+	  processes to fail due to reaching the VSZ memory size limit.
+	  Only applies when using libfts.
+	- imap: A SEARCH command timing out while fts returns indexes may timeout
+	  returning "NO [SERVERBUG]", while it should return "NO [INUSE]" instead.
+	- imap: LIST-EXTENDED doesn't return STATUS for all folders. Sending
+	  LIST .. RETURN (SUBSCRIBED STATUS (...)) did not return STATUS for
+	  folders that are not subscribed when they have a child folder that is
+	  subscribed as mandated by IMAP RFCs.
+	- imapc: Mailbox vsize calculation crashed with
+	  Panic: file index-mailbox-size.c: line 344 (index_mailbox_vsize_hdr_add_missing):
+	  assertion failed: (mails_left > 0)
+	- indexer: If indexer-worker crashes, the request it was processing gets
+	  stuck in the indexer process. This stops indexing for the folder until
+	  indexer process is restarted. v2.3.14 regression.
+	- indexer: Process was slowly leaking memory for each indexing request.
+	- lib-event: Unnamed events were wrongly filtered out for event/metric
+	  filters like "event=abc OR something_independent_of_event_name".
+	- lib-index: 64-bit big endian CPUs handle last_used field in
+	  dovecot.index.cache wrong.
+	- lib-ssl-iostream: Fix buggy OpenSSL error handling without assert-crashing.
+	  If there is no error available, log it as an error instead of crashing.
+	  The previous fix for this in v2.3.11 was incomplete. Fixes
+	  Panic: file istream-openssl.c: line 51 (i_stream_ssl_read_real):
+	  assertion failed: (errno != 0)
+	- lmtp: Out-of-memory issues can happen when proxying large messages to
+	  LMTP backend servers that accept the message data too slow.
+	- master: HAProxy header parsing has read buffer overflow if provided
+	  header size is invalid. This happens only if inet_listener
+	  { haproxy=yes } is configured and only if the remote IP address is in
+	  haproxy_trusted_networks.
+	- old_stats: Plugin kept increasing memory usage, which became
+	  noticeable with long-running imap sessions.
+	- stats: Dynamically adding same metric multiple times causes multiple stats.
+	- submission-login: Authentication does not accept OAUTH2 token (or
+	  other very long credentials) because it considers the line to be too long.
+	- submission-login: Process can crash if HELO is pipelined with an
+	  invalid domain.
+	- submission-proxy: Don't use SASL-IR if it would make the AUTH command
+	  line longer than 512 bytes.
+	- submission: Service would crash if relay server authentication failed.
+	- virtual: FTS search in a virtual folder could crash if there are
+	  duplicate mailbox GUIDs. This mainly happened when user had both INBOX
+	  and INBOX/INBOX folders and the namespace prefix was INBOX/. Fixes
+	  Panic: file hash.c: line 252 (hash_table_insert_node):
+	  assertion failed: (opcode == HASH_TABLE_OP_UPDATE)
+	- virtual: If mailbox opening fails, the backend mailbox is leaked and
+	  process crashes when client disconnects. Fixes
+	  Panic: file mail-user.c: line 232 (mail_user_deinit):
+	  assertion failed: ((*user)->refcount == 1)
+	- virtual: Searching headers in virtual folders didn't always use
+	  full-text search indexes, if fts_enforced=no or body.
+
 v2.3.17.1 2021-12-07  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	- dsync: Add back accidentically removed parameters.
