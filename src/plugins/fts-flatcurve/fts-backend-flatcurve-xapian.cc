@@ -1710,7 +1710,7 @@ fts_flatcurve_xapian_index_body(struct flatcurve_fts_backend_update_context *ctx
 
 		char *data = str_c_modifiable(term);
 		const char *end = data + str_len(term);
-		for(; end > data; data += uni_utf8_char_bytes(*data)) {
+		for(; end > data; data += uni_utf8_char_bytes((unsigned char) *data)) {
 			size_t len = end - data;
 			if (len < fuser->set.min_term_size)
 				break;
