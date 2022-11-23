@@ -267,6 +267,13 @@ void master_service_client_connection_accept(struct master_service_connection *c
 void master_service_client_connection_created(struct master_service *service);
 /* Call whenever a client connection is destroyed. */
 void master_service_client_connection_destroyed(struct master_service *service);
+/* Returns the listener type for this connection. If the type is unassigned, the
+   connection name is parsed for a "-suffix" which is returned instead to easily
+   implement backwards compatibility for custom listeners that are still
+   configured without an explicit type. */
+const char *
+master_service_connection_get_type(
+	const struct master_service_connection *conn);
 
 /* Deinitialize the service. */
 void master_service_deinit(struct master_service **service);

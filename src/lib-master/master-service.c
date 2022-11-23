@@ -1426,6 +1426,30 @@ void master_service_client_connection_destroyed(struct master_service *service)
 	}
 }
 
+const char *
+master_service_connection_get_type(const struct master_service_connection *conn)
+{
+	i_assert(conn->type != NULL);
+	if (*conn->type != '\0')
+		return conn->type;
+
+	const char *name, *suffix;
+
+	name = strrchr(conn->name, '/');
+	if (name == NULL)
+		name = conn->name;
+	else
+		name++;
+
+	suffix = strrchr(name, '-');
+	if (suffix == NULL)
+		suffix = name;
+	else
+		suffix++;
+
+	return suffix;
+}
+
 static void master_service_set_login_state(struct master_service *service,
 					   enum master_login_state state)
 {
