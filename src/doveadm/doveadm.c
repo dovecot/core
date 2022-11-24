@@ -246,7 +246,6 @@ static struct doveadm_cmd_ver2 *doveadm_cmdline_commands_ver2[] = {
 	&doveadm_cmd_dump,
 	&doveadm_cmd_exec,
 	&doveadm_cmd_help,
-	&doveadm_cmd_oldstats_top_ver2,
 	&doveadm_cmd_pw,
 	&doveadm_cmd_compress_connect,
 };

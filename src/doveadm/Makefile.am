@@ -87,7 +87,6 @@ doveadm_common_cmds = \
 	doveadm-replicator.c \
 	doveadm-sis.c \
 	doveadm-stats.c \
-	doveadm-oldstats.c \
 	doveadm-who.c
 
 doveadm_common_mail_cmds = \

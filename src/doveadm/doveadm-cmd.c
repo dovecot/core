@@ -24,8 +24,6 @@ static struct doveadm_cmd_ver2 *doveadm_commands_ver2[] = {
 	&doveadm_cmd_stats_dump_ver2,
 	&doveadm_cmd_stats_add_ver2,
 	&doveadm_cmd_stats_remove_ver2,
-	&doveadm_cmd_oldstats_dump_ver2,
-	&doveadm_cmd_oldstats_reset_ver2,
 	&doveadm_cmd_penalty_ver2,
 	&doveadm_cmd_kick_ver2,
 	&doveadm_cmd_proxy_kick_ver2,
