@@ -513,7 +513,17 @@ request_json_parse_param_value(struct client_request_http *req)
 	req->cmd_param->value_set = TRUE;
 	switch(req->cmd_param->type) {
 	case CMD_PARAM_BOOL:
-		req->cmd_param->value.v_bool = (strcmp(value, "true") == 0);
+		if (strcmp(value, "true") == 0) {
+			req->cmd_param->value.v_bool = TRUE;
+		} else if (strcmp(value, "false") == 0) {
+			req->cmd_param->value.v_bool = FALSE;
+		} else {
+			http_server_request_fail_text(http_sreq,
+				400, "Bad Request",
+				"Parameter `%s' must be `true' or `false', not `%s'",
+				req->cmd_param->name, value);
+			return -1;
+		}
 		break;
 	case CMD_PARAM_INT64:
 		if (str_to_int64(value, &req->cmd_param->value.v_int64) != 0) {
