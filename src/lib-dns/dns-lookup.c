@@ -170,6 +170,7 @@ static void dns_client_cache_entry_refresh(struct dns_client *client,
 			i_unreached();
 		ctx = i_new(struct dns_cache_lookup, 1);
 		ctx->key = i_strdup(entry->cache_key);
+		ctx->client = client;
 		if (dns_client_lookup_ptr(client, &ip, client->conn.event,
 					  dns_client_cache_callback,
 					  ctx, &lookup) < 0) {
@@ -185,6 +186,7 @@ static void dns_client_cache_entry_refresh(struct dns_client *client,
 	} else if (*entry->cache_key == 'N') {
 		ctx = i_new(struct dns_cache_lookup, 1);
 		ctx->key = i_strdup(entry->cache_key);
+		ctx->client = client;
 		if (dns_client_lookup(client, entry->cache_key + 1,
 				      client->conn.event,
 				      dns_client_cache_callback,
