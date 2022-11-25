@@ -21,6 +21,7 @@ static const struct {
 } replies[] = {
 	{ "localhost", "0\t127.0.0.1\t::1\n" },
 	{ "127.0.0.1", "0\tlocalhost\n" },
+	{ "once-host", "0\t127.0.0.2\n" },
 };
 
 static struct test_server {
@@ -29,6 +30,7 @@ static struct test_server {
 	struct timeout *to;
 	int fd;
 	unsigned int lookup_counter;
+	bool once_host_seen;
 } test_server;
 
 struct test_expect_result {
@@ -63,6 +65,13 @@ test_dns_client_input_args(struct connection *client, const char *const *args)
 		test_server.to =
 			timeout_add_short(msecs, server_handle_timeout, client);
 		return 1;
+	}
+	if (strcmp(args[1], "once-host") == 0) {
+		if (test_server.once_host_seen) {
+			o_stream_nsend_str(client->output, "-1\tUnresolved\n");
+			return 1;
+		}
+		test_server.once_host_seen = TRUE;
 	}
 	for (size_t i = 0; i < N_ELEMENTS(replies); i++) {
 		if (strcmp(args[1], replies[i].name) == 0) {
@@ -323,6 +332,49 @@ static void test_dns_lookup_cached(void)
 				      test_callback_ips, &ctx, &lookup) == 0);
 	io_loop_run(current_ioloop);
 	test_assert_cmp(test_server.lookup_counter, ==, 5);
+
+	/* Test that lookup failures do not crash client */
+	ctx.result = "127.0.0.2";
+	ctx.ret = 0;
+
+	/* should cause only one lookup */
+	test_assert(dns_client_lookup(client, "once-host", event,
+				      test_callback_ips, &ctx, &lookup) == 0);
+	io_loop_run(current_ioloop);
+	test_assert(dns_client_lookup(client, "once-host", event,
+				      test_callback_ips, &ctx, &lookup) == 0);
+	io_loop_run(current_ioloop);
+	test_assert_cmp(test_server.lookup_counter, ==, 6);
+
+	to = timeout_add(3*1000, io_loop_stop, test_server.loop);
+	io_loop_run(current_ioloop);
+	timeout_remove(&to);
+
+	/* Ensure failure does not crash anything (it will not be returned yet) */
+	test_assert(dns_client_lookup(client, "once-host", event,
+				      test_callback_ips, &ctx, &lookup) == 0);
+	io_loop_run(current_ioloop);
+	while (dns_client_has_pending_queries(client)) {
+		io_loop_handler_run(current_ioloop);
+		io_loop_set_running(current_ioloop);
+	}
+	test_assert_cmp(test_server.lookup_counter, ==, 7);
+
+	to = timeout_add(3*1000, io_loop_stop, test_server.loop);
+	io_loop_run(current_ioloop);
+	timeout_remove(&to);
+
+	ctx.result = NULL;
+	ctx.ret = -1;
+	/* Now it finally returns error */
+	test_assert(dns_client_lookup(client, "once-host", event,
+				      test_callback_ips, &ctx, &lookup) == 0);
+	io_loop_run(current_ioloop);
+	while (dns_client_has_pending_queries(client)) {
+		io_loop_handler_run(current_ioloop);
+		io_loop_set_running(current_ioloop);
+	}
+	test_assert_cmp(test_server.lookup_counter, ==, 8);
 
 	dns_client_deinit(&client);
 	destroy_dns_server(&test_server);
