@@ -12,6 +12,7 @@
 #include "config-request.h"
 #include "config-parser.h"
 #include "config-connection.h"
+#include "config-dump-full.h"
 
 #include <unistd.h>
 
@@ -72,6 +73,7 @@ static int config_connection_request(struct config_connection *conn,
 	struct config_filter filter;
 	unsigned int section_idx = 0;
 	const char *path, *value, *error, *module, *const *wanted_modules;
+	const char *import_environment;
 	ARRAY(const char *) modules;
 	ARRAY(const char *) exclude_settings;
 	bool is_master = FALSE;
@@ -103,6 +105,12 @@ static int config_connection_request(struct config_connection *conn,
 					IPADDR_IS_V4(&filter.remote_net) ?
 					32 : 128;
 			}
+		} else if (strcmp(*args, "full") == 0) {
+			if (config_dump_full(conn->output, &import_environment) < 0) {
+				config_connection_destroy(conn);
+				return -1;
+			}
+			return 0;
 		}
 	}
 	array_append_zero(&modules);

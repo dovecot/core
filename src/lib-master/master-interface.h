@@ -82,6 +82,10 @@ enum master_login_state {
    be used to initialize debug logging immediately at startup. */
 #define DOVECOT_LOG_DEBUG_ENV "LOG_DEBUG"
 
+/* getenv(DOVECOT_CONFIG_FD_ENV) returns the configuration fd provided by
+   doveconf. */
+#define DOVECOT_CONFIG_FD_ENV "DOVECOT_CONFIG_FD"
+
 /* getenv(DOVECOT_STATS_WRITER_SOCKET_PATH) returns path to the stats-writer
    socket. */
 #define DOVECOT_STATS_WRITER_SOCKET_PATH "STATS_WRITER_SOCKET_PATH"

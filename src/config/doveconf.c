@@ -11,12 +11,14 @@
 #include "ostream.h"
 #include "str.h"
 #include "strescape.h"
+#include "safe-mkstemp.h"
 #include "settings-parser.h"
 #include "master-interface.h"
 #include "master-service.h"
 #include "all-settings.h"
 #include "sysinfo-get.h"
 #include "old-set-parser.h"
+#include "config-dump-full.h"
 #include "config-connection.h"
 #include "config-parser.h"
 #include "config-request.h"
@@ -871,13 +873,13 @@ int main(int argc, char *argv[])
 	const char *orig_config_path, *config_path, *module;
 	ARRAY(const char *) module_names;
 	struct config_filter filter;
-	const char *const *wanted_modules, *error;
+	const char *const *wanted_modules, *import_environment, *error;
 	char **exec_args = NULL, **setting_name_filters = NULL;
 	unsigned int i;
 	int c, ret, ret2;
 	bool config_path_specified, expand_vars = FALSE, hide_key = FALSE;
 	bool parse_full_config = FALSE, simple_output = FALSE;
-	bool dump_defaults = FALSE, host_verify = FALSE;
+	bool dump_defaults = FALSE, host_verify = FALSE, dump_full = FALSE;
 	bool print_plugin_banner = FALSE, hide_passwords = TRUE;
 
 	if (getenv("USE_SYSEXITS") != NULL) {
@@ -887,7 +889,7 @@ int main(int argc, char *argv[])
 
 	i_zero(&filter);
 	master_service = master_service_init("config", master_service_flags,
-					     &argc, &argv, "adf:hHm:nNpPexsS");
+					     &argc, &argv, "adf:FhHm:nNpPexsS");
 	orig_config_path = t_strdup(master_service_get_config_path(master_service));
 
 	i_set_failure_prefix("doveconf: ");
@@ -905,6 +907,11 @@ int main(int argc, char *argv[])
 			break;
 		case 'f':
 			filter_parse_arg(&filter, optarg);
+			break;
+		case 'F':
+			dump_full = TRUE;
+			simple_output = TRUE;
+			expand_vars = TRUE;
 			break;
 		case 'h':
 			hide_key = TRUE;
@@ -953,9 +960,9 @@ int main(int argc, char *argv[])
 	if (host_verify)
 		hostname_verify_format(argv[optind]);
 
-	if (c == 'e') {
+	if (c == 'e' || (dump_full && argv[optind] != NULL)) {
 		if (argv[optind] == NULL)
-			i_fatal("Missing command for -e");
+			i_fatal("Missing command for -%c", c == 'e' ? 'e' : 'F');
 		exec_args = &argv[optind];
 	} else if (argv[optind] != NULL) {
 		/* print only a single config setting */
@@ -995,7 +1002,42 @@ int main(int argc, char *argv[])
 	if ((ret == -1 && exec_args != NULL) || ret == 0 || ret == -2)
 		i_fatal("%s", error);
 
-	if (simple_output) {
+	if (dump_full && exec_args == NULL) {
+		struct ostream *output = o_stream_create_fd(STDOUT_FILENO, 0);
+		o_stream_set_no_error_handling(output, TRUE);
+		ret2 = config_dump_full(output, &import_environment);
+		o_stream_destroy(&output);
+	} else if (dump_full) {
+		/* create an unlinked file to /tmp */
+		string_t *path = t_str_new(128);
+		str_append(path, "/tmp/doveconf.");
+		int temp_fd = safe_mkstemp(path, 0700, (uid_t)-1, (gid_t)-1);
+		if (temp_fd == -1)
+			i_fatal("safe_mkstemp(%s) failed: %m", str_c(path));
+		i_unlink(str_c(path));
+		struct ostream *output =
+			o_stream_create_fd(temp_fd, IO_BLOCK_SIZE);
+		if (config_dump_full(output, &import_environment) < 0)
+			i_fatal("Invalid configuration");
+		if (o_stream_finish(output) < 0) {
+			i_fatal("write(%s) failed: %s",
+				str_c(path), o_stream_get_error(output));
+		}
+		o_stream_destroy(&output);
+
+		if (getenv(DOVECOT_PRESERVE_ENVS_ENV) != NULL) {
+			/* Standalone binary is getting its configuration via
+			   doveconf. Clean the environment before calling it.
+			   Do this only if the environment exists, because
+			   lib-master doesn't set it if it doesn't want the
+			   environment to be cleaned (e.g. -k parameter). */
+			master_service_import_environment(import_environment);
+			master_service_env_clean();
+		}
+		env_put(DOVECOT_CONFIG_FD_ENV, dec2str(temp_fd));
+		execvp(exec_args[0], exec_args);
+		i_fatal("execvp(%s) failed: %m", exec_args[0]);
+	} else if (simple_output) {
 		struct config_export_context *ctx;
 		unsigned int section_idx = 0;
 
