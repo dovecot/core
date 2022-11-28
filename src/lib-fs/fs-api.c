@@ -1405,3 +1405,8 @@ fs_iter_init_parent(struct fs_iter *parent,
 	return fs_iter_init_with_event(parent->fs->parent, parent->event,
 				       path, flags);
 }
+
+struct event *fs_get_event(struct fs *fs)
+{
+	return fs->event;
+}
