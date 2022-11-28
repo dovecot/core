@@ -224,6 +224,8 @@ struct fs *fs_get_parent(struct fs *fs);
 const char *fs_get_driver(struct fs *fs);
 /* Returns the root fs's driver name (bypassing all wrapper fses) */
 const char *fs_get_root_driver(struct fs *fs);
+/* Returns the fs's event. */
+struct event *fs_get_event(struct fs *fs);
 
 struct fs_file *fs_file_init(struct fs *fs, const char *path, int mode_flags);
 struct fs_file *fs_file_init_with_event(struct fs *fs, struct event *event,
