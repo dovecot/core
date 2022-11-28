@@ -135,7 +135,7 @@ static void prefix_stack_reset_str(ARRAY_TYPE(prefix_stack) *stack)
 
 static struct config_dump_human_context *
 config_dump_human_init(const char *const *modules, enum config_dump_scope scope,
-		       bool check_settings, bool in_section)
+		       bool check_settings)
 {
 	struct config_dump_human_context *ctx;
 	enum config_dump_flags flags;
@@ -152,8 +152,6 @@ config_dump_human_init(const char *const *modules, enum config_dump_scope scope,
 		CONFIG_DUMP_FLAG_CALLBACK_ERRORS;
 	if (check_settings)
 		flags |= CONFIG_DUMP_FLAG_CHECK_SETTINGS;
-	if (in_section)
-		flags |= CONFIG_DUMP_FLAG_IN_SECTION;
 	ctx->export_ctx = config_export_init(modules, NULL, scope, flags,
 					     config_request_get_strings, ctx);
 	return ctx;
@@ -570,7 +568,7 @@ config_dump_human_sections(struct ostream *output,
 
 	for (; *filters != NULL; filters++) {
 		ctx = config_dump_human_init(modules, CONFIG_DUMP_SCOPE_SET,
-					     FALSE, TRUE);
+					     FALSE);
 		indent = config_dump_filter_begin(ctx->list_prefix,
 						  &(*filters)->filter);
 		config_export_parsers(ctx->export_ctx, (*filters)->parsers);
@@ -596,7 +594,7 @@ config_dump_human(const struct config_filter *filter, const char *const *modules
 	o_stream_set_no_error_handling(output, TRUE);
 	o_stream_cork(output);
 
-	ctx = config_dump_human_init(modules, scope, TRUE, FALSE);
+	ctx = config_dump_human_init(modules, scope, TRUE);
 	config_export_by_filter(ctx->export_ctx, filter);
 	ret = config_dump_human_output(ctx, output, 0, setting_name_filter, hide_passwords);
 	config_dump_human_deinit(ctx);
@@ -619,7 +617,7 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 	size_t len;
 	bool dump_section = FALSE;
 
-	ctx = config_dump_human_init(NULL, scope, FALSE, FALSE);
+	ctx = config_dump_human_init(NULL, scope, FALSE);
 	config_export_by_filter(ctx->export_ctx, filter);
 	if (config_export_finish(&ctx->export_ctx) < 0)
 		return -1;
