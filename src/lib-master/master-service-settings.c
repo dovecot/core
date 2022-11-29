@@ -455,8 +455,7 @@ config_read_reply_header(struct istream *istream, const char *path, pool_t pool,
 			break;
 	}
 	if (ret <= 0) {
-		if (ret == 0)
-			return 1;
+		i_assert(ret < 0);
 		*error_r = istream->stream_errno != 0 ?
 			t_strdup_printf("read(%s) failed: %s", path,
 					i_stream_get_error(istream)) :
@@ -574,7 +573,6 @@ int master_service_settings_read(struct master_service *service,
 	const char *path = NULL, *error;
 	unsigned int i;
 	int ret, fd = -1;
-	time_t now, timeout;
 	bool use_environment, retry;
 
 	i_zero(output_r);
@@ -633,36 +631,21 @@ int master_service_settings_read(struct master_service *service,
 
 	if (fd != -1) {
 		istream = i_stream_create_fd(fd, SIZE_MAX);
-		now = time(NULL);
-		timeout = now + CONFIG_READ_TIMEOUT_SECS;
-		do {
-			alarm(timeout - now);
-			ret = config_read_reply_header(istream, path,
-						       service->set_pool, input,
-						       output_r, error_r);
-			if (ret == 0) {
-				ret = settings_parse_stream_read(parser,
-								 istream);
-				if (ret < 0)
-					*error_r = t_strdup(
-						settings_parser_get_error(parser));
-			}
-			alarm(0);
-			if (ret <= 0)
-				break;
-
-			/* most likely timed out, but just in case some other
-			   signal was delivered early check if we need to
-			   continue */
-			now = time(NULL);
-		} while (now < timeout);
+		alarm(CONFIG_READ_TIMEOUT_SECS);
+		ret = config_read_reply_header(istream, path,
+					       service->set_pool, input,
+					       output_r, error_r);
+		if (ret == 0) {
+			ret = settings_parse_stream_read(parser, istream);
+			i_assert(ret <= 0);
+			if (ret < 0)
+				*error_r = t_strdup(
+					settings_parser_get_error(parser));
+		}
+		alarm(0);
 		i_stream_unref(&istream);
 
-		if (ret != 0) {
-			if (ret > 0) {
-				*error_r = t_strdup_printf(
-					"Timeout reading config from %s", path);
-			}
+		if (ret < 0) {
 			i_close_fd(&fd);
 			config_exec_fallback(service, input, error_r);
 			settings_parser_unref(&parser);
