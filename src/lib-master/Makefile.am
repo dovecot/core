@@ -22,7 +22,6 @@ libmaster_la_SOURCES = \
 	master-service.c \
 	master-service-haproxy.c \
 	master-service-settings.c \
-	master-service-settings-cache.c \
 	master-service-ssl.c \
 	master-service-ssl-settings.c \
 	stats-client.c \
@@ -37,7 +36,6 @@ headers = \
 	master-service.h \
 	master-service-private.h \
 	master-service-settings.h \
-	master-service-settings-cache.h \
 	master-service-ssl.h \
 	master-service-ssl-settings.h \
 	service-settings.h \
@@ -48,7 +46,6 @@ pkginc_libdir=$(pkgincludedir)
 pkginc_lib_HEADERS = $(headers)
 
 test_programs = \
-	test-master-service-settings-cache \
 	test-event-stats
 
 noinst_PROGRAMS = $(test_programs)
@@ -62,10 +59,6 @@ test_event_stats_libs = \
 	libmaster.la
 
 test_deps = $(noinst_LTLIBRARIES) $(test_libs)
-
-test_master_service_settings_cache_SOURCES = test-master-service-settings-cache.c
-test_master_service_settings_cache_LDADD = master-service-settings-cache.lo ../lib-settings/libsettings.la $(test_libs)
-test_master_service_settings_cache_DEPENDENCIES = $(test_deps) ../lib-settings/libsettings.la
 
 test_event_stats_SOURCES = test-event-stats.c
 test_event_stats_LDADD = $(test_event_stats_libs) $(test_libs)
