@@ -210,35 +210,10 @@ master_service_exec_config(struct master_service *service,
 
 	t_array_init(&conf_argv, 11 + (service->argc + 1) + 1);
 	strarr_push(&conf_argv, DOVECOT_CONFIG_BIN_PATH);
-	if (input->service != NULL) {
-		strarr_push(&conf_argv, "-f");
-		strarr_push(&conf_argv,
-			    t_strconcat("service=", input->service, NULL));
-	}
 	strarr_push(&conf_argv, "-c");
 	strarr_push(&conf_argv, service->config_path);
-	if (input->module != NULL) {
-		strarr_push(&conf_argv, "-m");
-		strarr_push(&conf_argv, input->module);
-	}
-	if (input->extra_modules != NULL) {
-		for (unsigned int i = 0; input->extra_modules[i] != NULL; i++) {
-			strarr_push(&conf_argv, "-m");
-			strarr_push(&conf_argv, input->extra_modules[i]);
-		}
-	}
-	if ((service->flags & MASTER_SERVICE_FLAG_DISABLE_SSL_SET) == 0 &&
-	    (input->module != NULL || input->extra_modules != NULL)) {
-		strarr_push(&conf_argv, "-m");
-		if (service->want_ssl_server)
-			strarr_push(&conf_argv, "ssl-server");
-		else
-			strarr_push(&conf_argv, "ssl");
-	}
-	if (input->parse_full_config)
-		strarr_push(&conf_argv, "-p");
 
-	strarr_push(&conf_argv, "-e");
+	strarr_push(&conf_argv, "-F");
 	strarr_push(&conf_argv, binary_path);
 	array_append(&conf_argv, (const char *const *)service->argv + 1,
 		     service->argc);
@@ -405,6 +380,7 @@ void master_service_config_socket_try_open(struct master_service *service)
 	   ignore it later on. (unfortunately there isn't a master_service_*()
 	   call where this function would be better called.) */
 	if (getenv("DOVECONF_ENV") != NULL ||
+	    getenv(DOVECOT_CONFIG_FD_ENV) != NULL ||
 	    (service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) != 0)
 		return;
 
@@ -521,15 +497,25 @@ int master_service_settings_read(struct master_service *service,
 	const struct setting_parser_info *tmp_root;
 	struct setting_parser_context *parser;
 	struct istream *istream;
-	const char *path = NULL, *error;
+	const char *path = NULL, *value, *error;
 	unsigned int i;
 	int ret, fd = -1;
-	bool use_environment, retry;
+	bool use_environment = FALSE, retry;
 
 	i_zero(output_r);
 
-	if (getenv("DOVECONF_ENV") == NULL &&
-	    (service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0) {
+	value = getenv(DOVECOT_CONFIG_FD_ENV);
+	if (value != NULL) {
+		/* doveconf -F parameter already executed us back.
+		   The configuration is in DOVECOT_CONFIG_FD. */
+		if (str_to_int(value, &fd) < 0 || fd < 0)
+			i_fatal("Invalid "DOVECOT_CONFIG_FD_ENV": %s", value);
+	} else if (getenv("DOVECONF_ENV") != NULL) {
+		use_environment = (service->flags &
+				   MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0;
+	} else if ((service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0) {
+		/* Open config via socket if possible. If it doesn't work,
+		   execute doveconf -F. */
 		retry = service->config_fd != -1;
 		for (;;) {
 			fd = master_service_open_config(service, input,
@@ -596,6 +582,10 @@ int master_service_settings_read(struct master_service *service,
 		i_stream_unref(&istream);
 
 		if (ret < 0) {
+			if (getenv(DOVECOT_CONFIG_FD_ENV) != NULL) {
+				i_fatal("Failed to read config from fd %d: %s",
+					fd, *error_r);
+			}
 			i_close_fd(&fd);
 			config_exec_fallback(service, input, error_r);
 			settings_parser_unref(&parser);
@@ -604,14 +594,12 @@ int master_service_settings_read(struct master_service *service,
 		}
 
 		if ((service->flags & MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN) != 0 &&
-		    service->config_fd == -1 && input->config_path == NULL)
+		    service->config_fd == -1 && input->config_path == NULL &&
+		    getenv(DOVECOT_CONFIG_FD_ENV) == NULL)
 			service->config_fd = fd;
 		else
 			i_close_fd(&fd);
-		use_environment = FALSE;
-	} else {
-		use_environment = (service->flags &
-				   MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0;
+		env_remove(DOVECOT_CONFIG_FD_ENV);
 	}
 	event_unref(&event);
 
