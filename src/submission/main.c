@@ -239,7 +239,7 @@ static void main_stdio_run(const char *username)
 	const char *value, *error, *input_base64;
 
 	i_zero(&input);
-	input.module = input.service = "submission";
+	input.service = "submission";
 	input.username = username != NULL ? username : getenv("USER");
 	if (input.username == NULL && IS_STANDALONE())
 		input.username = getlogin();
@@ -269,7 +269,7 @@ login_request_finished(const struct login_server_request *request,
 	buffer_t input_buf;
 
 	i_zero(&input);
-	input.module = input.service = "submission";
+	input.service = "submission";
 	input.local_ip = request->auth_req.local_ip;
 	input.remote_ip = request->auth_req.remote_ip;
 	input.local_port = request->auth_req.local_port;

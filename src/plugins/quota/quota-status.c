@@ -292,7 +292,6 @@ static void main_init(void)
 
 	i_zero(&input);
 	input.service = "quota-status";
-	input.module = "mail";
 	input.username = "";
 
 	quota_status_pool = pool_alloconly_create("quota status settings", 512);

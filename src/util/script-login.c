@@ -91,7 +91,6 @@ static void client_connected(struct master_service_connection *conn)
 
 	i = 0;
 	i_zero(&input);
-	input.module = "mail"; /* need to get mail_uid, mail_gid */
 	input.service = "script-login";
 	(void)net_addr2ip(args[i++], &input.local_ip);
 	(void)net_addr2ip(args[i++], &input.remote_ip);

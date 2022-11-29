@@ -68,7 +68,7 @@ imap_master_client_parse_input(const char *const *args, pool_t pool,
 	master_input_r->client_output = buffer_create_dynamic(pool, 16);
 	master_input_r->state = buffer_create_dynamic(pool, 512);
 
-	input_r->module = input_r->service = "imap";
+	input_r->service = "imap";
 	/* we never want to do userdb lookup again when restoring the client.
 	   we have the userdb_fields cached already. */
 	input_r->flags_override_remove = MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;

@@ -302,7 +302,6 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 	int ret;
 
 	i_zero(&service_input);
-	service_input.module = "mail";
 	service_input.service = input->info.service;
 	service_input.username = input->username;
 	service_input.local_ip = input->info.local_ip;

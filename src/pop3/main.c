@@ -250,7 +250,7 @@ static void main_stdio_run(const char *username)
 	const char *value, *error, *input_base64;
 
 	i_zero(&input);
-	input.module = input.service = "pop3";
+	input.service = "pop3";
 	input.username = username != NULL ? username : getenv("USER");
 	if (input.username == NULL && IS_STANDALONE())
 		input.username = getlogin();
@@ -286,7 +286,7 @@ login_request_finished(const struct login_server_request *login_client,
 	buffer_t input_buf;
 
 	i_zero(&input);
-	input.module = input.service = "pop3";
+	input.service = "pop3";
 	input.local_ip = login_client->auth_req.local_ip;
 	input.remote_ip = login_client->auth_req.remote_ip;
 	input.local_port = login_client->auth_req.local_port;

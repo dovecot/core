@@ -931,7 +931,7 @@ int lmtp_proxy_rcpt(struct client *client,
 	lrcpt->backend_context = lprcpt;
 
 	i_zero(&input);
-	input.module = input.service = "lmtp";
+	input.service = "lmtp";
 	mail_storage_service_init_settings(storage_service, &input);
 
 	lmtp_proxy_rcpt_init_auth_user_info(lrcpt, &info);

@@ -519,7 +519,6 @@ int main(int argc, char *argv[])
 	dinput.event_parent = event;
 
 	i_zero(&service_input);
-	service_input.module = "lda";
 	service_input.service = "lda";
 	service_input.username = user;
 	service_input.event_parent = event;

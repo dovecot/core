@@ -106,7 +106,7 @@ static void client_read_settings(struct client *client, bool ssl)
 	const char *error;
 
 	i_zero(&input);
-	input.module = input.service = "lmtp";
+	input.service = "lmtp";
 	input.local_ip = client->local_ip;
 	input.remote_ip = client->remote_ip;
 	input.local_port = client->local_port;

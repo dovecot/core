@@ -157,7 +157,6 @@ mail_crypt_acl_user_create(struct mail_user *user, const char *dest_username,
 		io_loop_context_deactivate(cur_ioloop_ctx);
 
 	i_zero(&input);
-	input.module = old_input->module;
 	input.service = old_input->service;
 	input.username = dest_username;
 	input.session_id_prefix = user->session_id;

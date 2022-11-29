@@ -166,7 +166,6 @@ static void cmd_import_init_source_user(struct import_cmd_context *ctx, struct m
 
 	/* create a user for accessing the source storage */
 	i_zero(&input);
-	input.module = "mail";
 	input.username = ctx->src_username != NULL ?
 			 ctx->src_username :
 			 dest_user->username;

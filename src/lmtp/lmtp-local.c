@@ -299,7 +299,7 @@ int lmtp_local_rcpt(struct client *client,
 	int ret = 0;
 
 	i_zero(&input);
-	input.module = input.service = "lmtp";
+	input.service = "lmtp";
 	input.username = username;
 	input.local_ip = client->local_ip;
 	input.remote_ip = client->remote_ip;

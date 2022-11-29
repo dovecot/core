@@ -262,7 +262,6 @@ master_connection_cmd_index(struct master_connection *conn,
 	int ret;
 
 	i_zero(&input);
-	input.module = "mail";
 	input.service = "indexer-worker";
 	input.username = username;
 	/* if session-id is given, use it as a prefix to a unique session ID.
