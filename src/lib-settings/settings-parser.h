@@ -184,9 +184,6 @@ int settings_parse_stream(struct setting_parser_context *ctx,
    0 = done, 1 = not finished yet (stream is non-blocking) */
 int settings_parse_stream_read(struct setting_parser_context *ctx,
          		       struct istream *input);
-/* Open file and parse it. */
-int settings_parse_file(struct setting_parser_context *ctx,
-			const char *path, size_t max_line_length);
 int settings_parse_environ(struct setting_parser_context *ctx);
 /* Call all check_func()s to see if currently parsed settings are valid. */
 bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,

@@ -914,27 +914,6 @@ int settings_parse_stream_read(struct setting_parser_context *ctx,
 	return -1;
 }
 
-int settings_parse_file(struct setting_parser_context *ctx,
-			const char *path, size_t max_line_length)
-{
-	struct istream *input;
-	int fd, ret;
-
-	fd = open(path, O_RDONLY);
-	if (fd < 0) {
-		ctx->error = p_strdup_printf(ctx->parser_pool,
-					     "open(%s) failed: %m", path);
-		return -1;
-	}
-
-	input = i_stream_create_fd_autoclose(&fd, max_line_length);
-	i_stream_set_name(input, path);
-	ret = settings_parse_stream_read(ctx, input);
-	i_stream_unref(&input);
-
-	return ret;
-}
-
 static int environ_cmp(char *const *s1, char *const *s2)
 {
 	return -strcmp(*s1, *s2);
