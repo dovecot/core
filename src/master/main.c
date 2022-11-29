@@ -499,7 +499,6 @@ static struct master_settings *master_settings_read(void)
 	i_zero(&input);
 	input.roots = set_roots;
 	input.module = "master";
-	input.parse_full_config = TRUE;
 	input.preserve_environment = TRUE;
 	input.always_exec = TRUE;
 	if (master_service_settings_read(master_service, &input, &output,
