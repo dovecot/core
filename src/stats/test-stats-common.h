@@ -3,7 +3,6 @@
 
 #include "stats-common.h"
 #include "event-filter.h"
-#include "istream.h"
 #include "settings-parser.h"
 #include "str.h"
 #include "test-common.h"
@@ -21,7 +20,7 @@ bool test_stats_callback(struct event *event,
 			 struct failure_context *ctx, const char *fmt ATTR_UNUSED,
 			 va_list args ATTR_UNUSED);
 
-void test_init(const char *settings_blob);
+void test_init(const char *const settings_blob[]);
 void test_deinit(void);
 
 void test_event_send(struct event *event);

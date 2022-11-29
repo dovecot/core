@@ -97,11 +97,12 @@ bool test_stats_callback(struct event *event,
 	return TRUE;
 }
 
-static const char *settings_blob_1 =
-"metric=test\n"
-"metric/test/metric_name=test\n"
-"metric/test/filter=event=test\n"
-"\n";
+static const char *const settings_blob_1[] = {
+	"metric=test",
+	"metric/test/metric_name=test",
+	"metric/test/filter=event=test",
+	NULL
+};
 
 static void test_client_writer(void)
 {

@@ -19,25 +19,25 @@ time_t stats_startup_time;
 
 static bool callback_added = FALSE;
 
-static struct stats_settings *read_settings(const char *settings)
+static struct stats_settings *read_settings(const char *const settings[])
 {
-	struct istream *is = test_istream_create(settings);
 	const char *error;
 	struct setting_parser_context *ctx =
 		settings_parser_init(test_pool, &stats_setting_parser_info, 0);
-	if (settings_parse_stream_read(ctx, is) < 0)
-		i_fatal("Failed to parse settings: %s",
-			settings_parser_get_error(ctx));
+	for (unsigned int i = 0; settings[i] != NULL; i++) {
+		if (settings_parse_line(ctx, settings[i]) <= 0)
+			i_fatal("Failed to parse settings: %s",
+				settings_parser_get_error(ctx));
+	}
 	if (!settings_parser_check(ctx, test_pool, &error))
 		i_fatal("Failed to parse settings: %s",
 			error);
 	struct stats_settings *set = settings_parser_get(ctx);
 	settings_parser_unref(&ctx);
-	i_stream_unref(&is);
 	return set;
 }
 
-void test_init(const char *settings_blob)
+void test_init(const char *const settings_blob[])
 {
 	if (!callback_added) {
 		event_register_callback(test_stats_callback);
