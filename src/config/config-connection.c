@@ -18,7 +18,7 @@
 
 #define MAX_INBUF_SIZE 1024
 
-#define CONFIG_CLIENT_PROTOCOL_MAJOR_VERSION 2
+#define CONFIG_CLIENT_PROTOCOL_MAJOR_VERSION 3
 #define CONFIG_CLIENT_PROTOCOL_MINOR_VERSION 0
 
 struct config_connection {
@@ -47,122 +47,15 @@ config_connection_next_line(struct config_connection *conn)
 	return t_strsplit_tabescaped(line);
 }
 
-static void
-config_request_output(const char *key, const char *value,
-		      enum config_key_type type ATTR_UNUSED, void *context)
-{
-	struct ostream *output = context;
-	const char *p;
-
-	o_stream_nsend_str(output, key);
-	o_stream_nsend_str(output, "=");
-	while ((p = strchr(value, '\n')) != NULL) {
-		o_stream_nsend(output, value, p-value);
-		o_stream_nsend(output, SETTING_STREAM_LF_CHAR, 1);
-		value = p+1;
-	}
-	o_stream_nsend_str(output, value);
-	o_stream_nsend_str(output, "\n");
-}
-
 static int config_connection_request(struct config_connection *conn,
-				     const char *const *args)
+				     const char *const *args ATTR_UNUSED)
 {
-	struct config_export_context *ctx;
-	struct master_service_settings_output output;
-	struct config_filter filter;
-	unsigned int section_idx = 0;
-	const char *path, *value, *error, *module, *const *wanted_modules;
 	const char *import_environment;
-	ARRAY(const char *) modules;
-	ARRAY(const char *) exclude_settings;
-	bool is_master = FALSE;
 
-	/* [<args>] */
-	t_array_init(&modules, 4);
-	t_array_init(&exclude_settings, 4);
-	i_zero(&filter);
-	for (; *args != NULL; args++) {
-		if (str_begins(*args, "service=", &filter.service))
-			;
-		else if (str_begins(*args, "module=", &module)) {
-			if (strcmp(module, "master") == 0)
-				is_master = TRUE;
-			array_push_back(&modules, &module);
-		} else if (str_begins(*args, "exclude=", &value))
-			array_push_back(&exclude_settings, &value);
-		else if (str_begins(*args, "lname=", &filter.local_name))
-			;
-		else if (str_begins(*args, "lip=", &value)) {
-			if (net_addr2ip(value, &filter.local_net) == 0) {
-				filter.local_bits =
-					IPADDR_IS_V4(&filter.local_net) ?
-					32 : 128;
-			}
-		} else if (str_begins(*args, "rip=", &value)) {
-			if (net_addr2ip(value, &filter.remote_net) == 0) {
-				filter.remote_bits =
-					IPADDR_IS_V4(&filter.remote_net) ?
-					32 : 128;
-			}
-		} else if (strcmp(*args, "full") == 0) {
-			if (config_dump_full(conn->output, &import_environment) < 0) {
-				config_connection_destroy(conn);
-				return -1;
-			}
-			return 0;
-		}
-	}
-	array_append_zero(&modules);
-	wanted_modules = array_count(&modules) == 1 ? NULL :
-		array_front(&modules);
-	array_append_zero(&exclude_settings);
-
-	if (is_master) {
-		/* master reads configuration only when reloading settings */
-		path = master_service_get_config_path(master_service);
-		if (config_parse_file(path, TRUE, NULL, &error) <= 0) {
-			o_stream_nsend_str(conn->output,
-				t_strconcat("\nERROR ", error, "\n", NULL));
-			config_connection_destroy(conn);
-			return -1;
-		}
-	}
-
-	o_stream_cork(conn->output);
-
-	ctx = config_export_init(wanted_modules,
-				 array_count(&exclude_settings) == 1 ? NULL :
-				 array_front(&exclude_settings),
-				 CONFIG_DUMP_SCOPE_SET, 0,
-				 config_request_output, conn->output);
-	config_export_by_filter(ctx, &filter);
-	config_export_get_output(ctx, &output);
-
-	if (output.specific_services != NULL) {
-		const char *const *s;
-
-		for (s = output.specific_services; *s != NULL; s++) {
-			o_stream_nsend_str(conn->output,
-				t_strdup_printf("service=%s\t", *s));
-		}
-	}
-	if (output.service_uses_local)
-		o_stream_nsend_str(conn->output, "service-uses-local\t");
-	if (output.service_uses_remote)
-		o_stream_nsend_str(conn->output, "service-uses-remote\t");
-	if (output.used_local)
-		o_stream_nsend_str(conn->output, "used-local\t");
-	if (output.used_remote)
-		o_stream_nsend_str(conn->output, "used-remote\t");
-	o_stream_nsend_str(conn->output, "\n");
-
-	if (config_export_finish(&ctx, &section_idx) < 0) {
+	if (config_dump_full(conn->output, &import_environment) < 0) {
 		config_connection_destroy(conn);
 		return -1;
 	}
-	o_stream_nsend_str(conn->output, "\n");
-	o_stream_uncork(conn->output);
 	return 0;
 }
 

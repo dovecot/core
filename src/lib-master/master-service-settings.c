@@ -27,7 +27,7 @@
 #define DOVECOT_CONFIG_SOCKET_PATH PKG_RUNDIR"/config"
 
 #define CONFIG_READ_TIMEOUT_SECS 10
-#define CONFIG_HANDSHAKE "VERSION\tconfig\t2\t0\n"
+#define CONFIG_HANDSHAKE "VERSION\tconfig\t3\t0\n"
 
 #undef DEF
 #define DEF(type, name) \
@@ -335,7 +335,7 @@ config_send_request(int fd, const char *path, const char **error_r)
 	int ret;
 
 	T_BEGIN {
-		const char *str = CONFIG_HANDSHAKE"REQ\tfull\n";
+		const char *str = CONFIG_HANDSHAKE"REQ\n";
 		ret = write_full(fd, str, strlen(str));
 	} T_END;
 	if (ret < 0) {
