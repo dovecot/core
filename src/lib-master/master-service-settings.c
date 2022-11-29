@@ -676,7 +676,8 @@ int master_service_settings_read(struct master_service *service,
 			i_close_fd(&fd);
 		use_environment = FALSE;
 	} else {
-		use_environment = TRUE;
+		use_environment = (service->flags &
+				   MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0;
 	}
 
 	if (use_environment || service->keep_environment) {
