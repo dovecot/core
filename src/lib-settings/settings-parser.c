@@ -914,49 +914,6 @@ int settings_parse_stream_read(struct setting_parser_context *ctx,
 	return -1;
 }
 
-static int environ_cmp(char *const *s1, char *const *s2)
-{
-	return -strcmp(*s1, *s2);
-}
-
-int settings_parse_environ(struct setting_parser_context *ctx)
-{
-	char **environ = *env_get_environ_p();
-	ARRAY_TYPE(string) sorted_envs_arr;
-	const char *key, *value;
-	char *const *sorted_envs;
-	unsigned int i, count;
-	int ret = 0;
-
-	if (environ == NULL)
-		return 0;
-
-	/* sort the settings first. this is necessary for putenv()
-	   implementations (e.g. valgrind) which change the order of strings
-	   in environ[] */
-	i_array_init(&sorted_envs_arr, 128);
-	for (i = 0; environ[i] != NULL; i++)
-		array_push_back(&sorted_envs_arr, &environ[i]);
-	array_sort(&sorted_envs_arr, environ_cmp);
-	sorted_envs = array_get(&sorted_envs_arr, &count);
-
-	for (i = 0; i < count && ret == 0; i++) {
-		value = strchr(sorted_envs[i], '=');
-		if (value != NULL) T_BEGIN {
-			key = t_strdup_until(sorted_envs[i], value++);
-			key = t_str_lcase(key);
-			if (settings_parse_keyvalue(ctx, key, value) < 0) {
-				ctx->error = p_strdup_printf(ctx->parser_pool,
-					"Invalid setting %s: %s",
-					key, ctx->error);
-				ret = -1;
-			}
-		} T_END;
-	}
-	array_free(&sorted_envs_arr);
-	return ret;
-}
-
 bool settings_check(const struct setting_parser_info *info, pool_t pool,
 		    void *set, const char **error_r)
 {
