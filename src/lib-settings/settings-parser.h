@@ -177,13 +177,6 @@ int settings_parse_line(struct setting_parser_context *ctx, const char *line);
 /* Parse key/value pair. Returns 1 if OK, 0 if key is unknown, -1 if error. */
 int settings_parse_keyvalue(struct setting_parser_context *ctx,
 			    const char *key, const char *value);
-/* Parse data already read in input stream. */
-int settings_parse_stream(struct setting_parser_context *ctx,
-			  struct istream *input);
-/* Read data from input stream and parser it. returns -1 = error,
-   0 = done, 1 = not finished yet (stream is non-blocking) */
-int settings_parse_stream_read(struct setting_parser_context *ctx,
-         		       struct istream *input);
 /* Call all check_func()s to see if currently parsed settings are valid. */
 bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
 			   const char **error_r);

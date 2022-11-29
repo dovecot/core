@@ -4,7 +4,6 @@
 #include "array.h"
 #include "hash.h"
 #include "net.h"
-#include "istream.h"
 #include "env-util.h"
 #include "execv-const.h"
 #include "str.h"
@@ -817,101 +816,6 @@ const struct setting_parser_info *
 settings_parse_get_prev_info(struct setting_parser_context *ctx)
 {
 	return ctx->prev_info;
-}
-
-static const char *settings_translate_lf(const char *value)
-{
-	char *dest, *p;
-
-	if (strchr(value, SETTING_STREAM_LF_CHAR[0]) == NULL)
-		return value;
-
-	dest = t_strdup_noconst(value);
-	for (p = dest; *p != '\0'; p++) {
-		if (*p == SETTING_STREAM_LF_CHAR[0])
-			*p = '\n';
-	}
-	return dest;
-}
-
-int settings_parse_stream(struct setting_parser_context *ctx,
-			  struct istream *input)
-{
-	bool ignore_unknown_keys =
-		(ctx->flags & SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS) != 0;
-	const char *line;
-	int ret;
-
-	while ((line = i_stream_next_line(input)) != NULL) {
-		if (*line == '\0') {
-			/* empty line finishes it */
-			return 0;
-		}
-		ctx->linenum++;
-		if (ctx->linenum == 1 && str_begins(line, "ERROR ", &line)) {
-			ctx->error = p_strdup(ctx->parser_pool, line);
-			return -1;
-		}
-
-		T_BEGIN {
-			line = settings_translate_lf(line);
-			ret = settings_parse_line(ctx, line);
-		} T_END;
-
-		if (ret < 0 || (ret == 0 && !ignore_unknown_keys)) {
-			ctx->error = p_strdup_printf(ctx->parser_pool,
-				"Line %u: %s", ctx->linenum, ctx->error);
-			return -1;
-		}
-	}
-	return 1;
-}
-
-int settings_parse_stream_read(struct setting_parser_context *ctx,
-			       struct istream *input)
-{
-	int ret;
-
-	do {
-		if ((ret = settings_parse_stream(ctx, input)) < 0)
-			return -1;
-		if (ret == 0) {
-			/* empty line read */
-			return 0;
-		}
-	} while ((ret = i_stream_read(input)) > 0);
-
-	switch (ret) {
-	case -1:
-		if (ctx->error != NULL)
-			break;
-		if (input->stream_errno != 0) {
-			ctx->error = p_strdup_printf(ctx->parser_pool,
-				"read(%s) failed: %s", i_stream_get_name(input),
-				i_stream_get_error(input));
-		} else if (input->v_offset == 0) {
-			ctx->error = p_strdup_printf(ctx->parser_pool,
-				"read(%s) disconnected before receiving any data",
-				i_stream_get_name(input));
-		} else {
-			ctx->error = p_strdup_printf(ctx->parser_pool,
-				"read(%s) disconnected before receiving "
-				"end-of-settings line",
-				i_stream_get_name(input));
-		}
-		break;
-	case -2:
-		ctx->error = p_strdup_printf(ctx->parser_pool,
-					     "Line %u: line too long",
-					     ctx->linenum);
-		break;
-	case 0:
-		/* blocks */
-		return 1;
-	default:
-		i_unreached();
-	}
-	return -1;
 }
 
 bool settings_check(const struct setting_parser_info *info, pool_t pool,
