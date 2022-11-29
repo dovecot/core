@@ -188,10 +188,6 @@ int settings_parse_stream_read(struct setting_parser_context *ctx,
 int settings_parse_file(struct setting_parser_context *ctx,
 			const char *path, size_t max_line_length);
 int settings_parse_environ(struct setting_parser_context *ctx);
-/* Execute the given binary and wait for it to return the configuration. */
-int settings_parse_exec(struct setting_parser_context *ctx,
-			const char *bin_path, const char *config_path,
-			const char *service);
 /* Call all check_func()s to see if currently parsed settings are valid. */
 bool settings_parser_check(struct setting_parser_context *ctx, pool_t pool,
 			   const char **error_r);

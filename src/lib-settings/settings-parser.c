@@ -978,60 +978,6 @@ int settings_parse_environ(struct setting_parser_context *ctx)
 	return ret;
 }
 
-int settings_parse_exec(struct setting_parser_context *ctx,
-			const char *bin_path, const char *config_path,
-			const char *service)
-{
-	struct istream *input;
-	pid_t pid;
-	int ret, fd[2], status;
-
-	if (pipe(fd) < 0) {
-		i_error("pipe() failed: %m");
-		return -1;
-	}
-
-	pid = fork();
-	if (pid == (pid_t)-1) {
-		i_error("fork() failed: %m");
-		i_close_fd(&fd[0]);
-		i_close_fd(&fd[1]);
-		return -1;
-	}
-	if (pid == 0) {
-		/* child */
-		static const char *argv[] = {
-			NULL,
-			"-c", NULL,
-			"-p", NULL,
-			NULL
-		};
-		argv[0] = bin_path;
-		argv[2] = config_path;
-		argv[4] = service;
-		i_close_fd(&fd[0]);
-		if (dup2(fd[1], STDOUT_FILENO) < 0)
-			i_fatal("dup2() failed: %m");
-
-		execv_const(argv[0], argv);
-	}
-	i_close_fd(&fd[1]);
-
-	input = i_stream_create_fd_autoclose(&fd[0], SIZE_MAX);
-	i_stream_set_name(input, bin_path);
-	ret = settings_parse_stream_read(ctx, input);
-	i_stream_destroy(&input);
-
-	if (waitpid(pid, &status, 0) < 0) {
-		i_error("waitpid() failed: %m");
-		ret = -1;
-	} else if (status != 0) {
-		i_error("%s returned failure: %d", bin_path, status);
-		ret = -1;
-	}
-	return ret;
-}
-
 bool settings_check(const struct setting_parser_info *info, pool_t pool,
 		    void *set, const char **error_r)
 {
