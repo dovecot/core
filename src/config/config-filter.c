@@ -231,17 +231,8 @@ config_filter_find_all(struct config_filter_context *ctx, pool_t pool,
 			continue;
 		}
 
-		if (mask->local_bits > 0 || mask->local_name != NULL)
-			output_r->service_uses_local = TRUE;
-		if (mask->remote_bits > 0)
-			output_r->service_uses_remote = TRUE;
-		if (config_filter_match_rest(mask, filter)) {
-			if (mask->local_bits > 0 || mask->local_name != NULL)
-				output_r->used_local = TRUE;
-			if (mask->remote_bits > 0)
-				output_r->used_remote = TRUE;
+		if (config_filter_match_rest(mask, filter))
 			array_push_back(&matches, &ctx->parsers[i]);
-		}
 	}
 	if (filter->service == NULL) {
 		array_append_zero(&service_names);

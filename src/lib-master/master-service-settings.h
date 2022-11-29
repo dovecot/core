@@ -63,15 +63,6 @@ struct master_service_settings_output {
 	   that have more specific settings */
 	const char *const *specific_services;
 
-	/* some settings for this service (or if service was not given,
-	   all services) contain local/remote ip/host specific settings
-	   (but this lookup didn't necessarily return any of them). */
-	bool service_uses_local:1;
-	bool service_uses_remote:1;
-	/* returned settings contain settings specific to given
-	   local/remote ip/host */
-	bool used_local:1;
-	bool used_remote:1;
 	/* Config couldn't be read because we don't have enough permissions.
 	   The process probably should be restarted and the settings read
 	   before dropping privileges. */
