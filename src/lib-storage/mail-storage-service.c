@@ -19,7 +19,6 @@
 #include "master-service-private.h"
 #include "master-service-settings.h"
 #include "master-service-ssl-settings.h"
-#include "master-service-settings-cache.h"
 #include "mail-user.h"
 #include "mail-namespace.h"
 #include "mail-storage.h"
@@ -59,15 +58,13 @@ struct mail_storage_service_ctx {
 	ARRAY(const struct setting_parser_info *) set_roots;
 	enum mail_storage_service_flags flags;
 
-	const char *set_cache_module, *set_cache_service;
-	struct master_service_settings_cache *set_cache;
-
 	pool_t userdb_next_pool;
 	const char *const **userdb_next_fieldsp;
 
 	bool debug:1;
 	bool log_initialized:1;
 	bool config_permission_denied:1;
+	bool settings_looked_up:1;
 };
 
 struct mail_storage_service_user {
@@ -1101,40 +1098,21 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 		set_input.local_ip = input->local_ip;
 		set_input.remote_ip = input->remote_ip;
 	}
-	if (input == NULL) {
-		/* global settings read - don't create a cache for this */
-	} else if (ctx->set_cache == NULL) {
-		ctx->set_cache_module = p_strdup(ctx->pool, set_input.module);
-		ctx->set_cache_service = p_strdup(ctx->pool, set_input.service);
-		ctx->set_cache = master_service_settings_cache_init(
-			ctx->service, set_input.module, set_input.service);
-	} else {
+	if (ctx->settings_looked_up) {
 		/* already looked up settings at least once.
 		   we really shouldn't be execing anymore. */
 		set_input.never_exec = TRUE;
 	}
 
-	if (null_strcmp(set_input.module, ctx->set_cache_module) == 0 &&
-	    null_strcmp(set_input.service, ctx->set_cache_service) == 0 &&
-	    ctx->set_cache != NULL) {
-		if (master_service_settings_cache_read(ctx->set_cache,
-						       &set_input,
-						       parser_r, error_r) < 0) {
-			*error_r = t_strdup_printf(
-				"Error reading configuration: %s", *error_r);
-			return -1;
-		}
-	} else {
-		if (master_service_settings_read(ctx->service, &set_input,
-						 &set_output, error_r) < 0) {
-			*error_r = t_strdup_printf(
-				"Error reading configuration: %s", *error_r);
-			ctx->config_permission_denied =
-				set_output.permission_denied;
-			return -1;
-		}
-		*parser_r = ctx->service->set_parser;
+	if (master_service_settings_read(ctx->service, &set_input,
+					 &set_output, error_r) < 0) {
+		*error_r = t_strdup_printf("Error reading configuration: %s",
+					   *error_r);
+		ctx->config_permission_denied = set_output.permission_denied;
+		return -1;
 	}
+	ctx->settings_looked_up = TRUE;
+	*parser_r = ctx->service->set_parser;
 	return 0;
 }
 
@@ -1758,8 +1736,6 @@ void mail_storage_service_deinit(struct mail_storage_service_ctx **_ctx)
 			mail_user_auth_master_conn = NULL;
 		auth_master_deinit(&ctx->conn);
 	}
-	if (ctx->set_cache != NULL)
-		master_service_settings_cache_deinit(&ctx->set_cache);
 
 	pool_unref(&ctx->pool);
 
