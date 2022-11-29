@@ -46,6 +46,5 @@ login_settings_read(pool_t pool,
 		    const struct master_service_ssl_settings **ssl_set_r,
 		    const struct master_service_ssl_server_settings **ssl_server_set_r,
 		    void ***other_settings_r) ATTR_NULL(2, 3, 4);
-void login_settings_deinit(void);
 
 #endif

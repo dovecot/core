@@ -455,7 +455,6 @@ static void main_deinit(void)
 	timeout_remove(&auth_client_to);
 	client_common_deinit();
 	dsasl_clients_deinit();
-	login_settings_deinit();
 }
 
 int login_binary_run(struct login_binary *binary,

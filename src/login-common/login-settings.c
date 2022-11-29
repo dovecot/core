@@ -7,7 +7,6 @@
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "master-service-ssl-settings.h"
-#include "master-service-settings-cache.h"
 #include "login-settings.h"
 
 #include <stddef.h>
@@ -97,8 +96,6 @@ static const struct setting_parser_info *default_login_set_roots[] = {
 
 const struct setting_parser_info **login_set_roots = default_login_set_roots;
 
-static struct master_service_settings_cache *set_cache;
-
 /* <settings checks> */
 static bool login_settings_check(void *_set, pool_t pool,
 				 const char **error_r)
@@ -168,6 +165,7 @@ login_settings_read(pool_t pool,
 		    void ***other_settings_r)
 {
 	struct master_service_settings_input input;
+	struct master_service_settings_output output;
 	const char *error;
 	struct setting_parser_context *parser;
 	void **sets;
@@ -184,23 +182,10 @@ login_settings_read(pool_t pool,
 	if (remote_ip != NULL)
 		input.remote_ip = *remote_ip;
 
-	if (set_cache == NULL) {
-		set_cache = master_service_settings_cache_init(master_service,
-							       input.module,
-							       input.service);
-		/* lookup filters
-
-		   this is only enabled if service_count > 1 because otherwise
-		   login process will process only one request and this is only
-		   useful when more than one request is processed.
-		*/
-		if (master_service_get_service_count(master_service) > 1)
-			master_service_settings_cache_init_filter(set_cache);
-	}
-
-	if (master_service_settings_cache_read(set_cache, &input,
-					       &parser, &error) < 0)
+	if (master_service_settings_read(master_service, &input,
+					 &output, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
+	parser = master_service_get_settings_parser(master_service);
 
 	for (count = 0; input.roots[count] != NULL; count++) ;
 	sets = p_new(pool, void *, count + 1);
@@ -219,10 +204,4 @@ login_settings_read(pool_t pool,
 				  parser);
 	*other_settings_r = sets + 1;
 	return sets[0];
-}
-
-void login_settings_deinit(void)
-{
-	if (set_cache != NULL)
-		master_service_settings_cache_deinit(&set_cache);
 }
