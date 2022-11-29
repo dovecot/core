@@ -67,6 +67,9 @@ struct master_service_connection {
 	int listen_fd;
 	/* listener name as in configuration file, or "" if unnamed. */
 	const char *name;
+	/* listener type as in configuration file, or "" if no type is
+	   specified */
+	const char *type;
 
 	/* Original client/server IP/port. Both of these may have been changed
 	   by the haproxy protocol. */
@@ -209,6 +212,9 @@ unsigned int master_service_get_socket_count(struct master_service *service);
 /* Returns the name of the listener socket, or "" if none is specified. */
 const char *master_service_get_socket_name(struct master_service *service,
 					   int listen_fd);
+/* Returns the type of the listener socket, or "" if none is specified. */
+const char *
+master_service_get_socket_type(struct master_service *service, int listen_fd);
 
 /* Returns configuration file path. */
 const char *master_service_get_config_path(struct master_service *service);

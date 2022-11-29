@@ -11,6 +11,7 @@ struct master_service_haproxy_conn;
 struct master_service_listener {
 	struct master_service *service;
 	char *name;
+	char *type;
 
 	/* settings */
 	bool ssl;

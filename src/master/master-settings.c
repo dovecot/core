@@ -30,6 +30,7 @@ extern const struct setting_parser_info service_setting_parser_info;
 
 static const struct setting_define file_listener_setting_defines[] = {
 	DEF(STR, path),
+	DEF(STR, type),
 	DEF(UINT_OCT, mode),
 	DEF(STR, user),
 	DEF(STR, group),
@@ -61,6 +62,7 @@ static const struct setting_parser_info file_listener_setting_parser_info = {
 
 static const struct setting_define inet_listener_setting_defines[] = {
 	DEF(STR, name),
+	DEF(STR, type),
 	DEF(STR, address),
 	DEF(IN_PORT, port),
 	DEF(BOOL, ssl),

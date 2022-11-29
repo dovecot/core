@@ -398,11 +398,24 @@ static void master_service_init_socket_listeners(struct master_service *service)
 				settings++;
 			}
 			while (*settings != NULL) {
-				if (strcmp(*settings, "ssl") == 0) {
+				const char *sname, *svalue;
+
+				svalue = strchr(*settings, '=');
+				if (svalue != NULL) {
+					sname = t_strdup_until(*settings,
+							       svalue++);
+				} else {
+					sname = *settings;
+					svalue = "";
+				}
+				if (strcmp(sname, "ssl") == 0) {
 					l->ssl = TRUE;
 					have_ssl_sockets = TRUE;
-				} else if (strcmp(*settings, "haproxy") == 0) {
+				} else if (strcmp(sname, "haproxy") == 0) {
 					l->haproxy = TRUE;
+				} else if (strcmp(sname, "type") == 0) {
+					i_free(l->type);
+					l->type = i_strdup_empty(svalue);
 				}
 				settings++;
 			}
@@ -1076,6 +1089,19 @@ const char *master_service_get_socket_name(struct master_service *service,
 		service->listeners[i].name : "";
 }
 
+const char *
+master_service_get_socket_type(struct master_service *service, int listen_fd)
+{
+	unsigned int i;
+
+	i_assert(listen_fd >= MASTER_LISTEN_FD_FIRST);
+
+	i = listen_fd - MASTER_LISTEN_FD_FIRST;
+	i_assert(i < service->socket_count);
+	return service->listeners[i].type != NULL ?
+		service->listeners[i].type : "";
+}
+
 void master_service_set_avail_overflow_callback(struct master_service *service,
 	master_service_avail_overflow_callback_t *callback)
 {
@@ -1506,8 +1532,10 @@ static void master_service_free(struct master_service *service)
 {
 	unsigned int i;
 
-	for (i = 0; i < service->socket_count; i++)
+	for (i = 0; i < service->socket_count; i++) {
 		i_free(service->listeners[i].name);
+		i_free(service->listeners[i].type);
+	}
 	i_free(service->listeners);
 	i_free(service->getopt_str);
 	i_free(service->configured_name);
@@ -1680,6 +1708,7 @@ master_service_accept(struct master_service_listener *l, const char *conn_name,
 	}
 	conn.ssl = l->ssl;
 	conn.name = conn_name;
+	conn.type = (l->type != NULL ? l->type : "");
 
 	(void)net_getsockname(conn.fd, &conn.local_ip, &conn.local_port);
 	conn.real_remote_ip = conn.remote_ip;

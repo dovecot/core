@@ -117,6 +117,23 @@ service_dup_fds(struct service *service)
 					str_append(listener_settings, "\tssl");
 				if (listeners[i]->set.inetset.set->haproxy)
 					str_append(listener_settings, "\thaproxy");
+				if (listeners[i]->set.inetset.set->type != NULL &&
+				    *listeners[i]->set.inetset.set->type != '\0') {
+					str_append(listener_settings, "\ttype=");
+					str_append_tabescaped(
+						listener_settings,
+						listeners[i]->set.inetset.set->type);
+				}
+			}
+			if (listeners[i]->type == SERVICE_LISTENER_FIFO ||
+			    listeners[i]->type == SERVICE_LISTENER_UNIX) {
+				if (listeners[i]->set.fileset.set->type != NULL &&
+				    *listeners[i]->set.fileset.set->type != '\0') {
+					str_append(listener_settings, "\ttype=");
+					str_append_tabescaped(
+						listener_settings,
+						listeners[i]->set.fileset.set->type);
+				}
 			}
 
 			dup2_append(&dups, listeners[i]->fd, fd++);

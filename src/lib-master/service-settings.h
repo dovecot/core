@@ -26,6 +26,7 @@ enum service_type {
 
 struct file_listener_settings {
 	const char *path;
+	const char *type;
 	unsigned int mode;
 	const char *user;
 	const char *group;
@@ -34,6 +35,7 @@ ARRAY_DEFINE_TYPE(file_listener_settings, struct file_listener_settings *);
 
 struct inet_listener_settings {
 	const char *name;
+	const char *type;
 	const char *address;
 	in_port_t port;
 	bool ssl;
