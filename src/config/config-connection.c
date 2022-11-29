@@ -5,6 +5,7 @@
 #include "llist.h"
 #include "istream.h"
 #include "ostream.h"
+#include "ostream-unix.h"
 #include "strescape.h"
 #include "settings-parser.h"
 #include "master-service.h"
@@ -34,6 +35,7 @@ struct config_connection {
 };
 
 static struct config_connection *config_connections = NULL;
+static int global_config_fd = -1;
 
 static const char *const *
 config_connection_next_line(struct config_connection *conn)
@@ -52,10 +54,31 @@ static int config_connection_request(struct config_connection *conn,
 {
 	const char *import_environment;
 
-	if (config_dump_full(conn->output, &import_environment) < 0) {
-		config_connection_destroy(conn);
-		return -1;
+	if (null_strcmp(*args, "reload") == 0) {
+		const char *path, *error;
+
+		path = master_service_get_config_path(master_service);
+		if (config_parse_file(path, TRUE, NULL, &error) <= 0) {
+			o_stream_nsend_str(conn->output,
+				t_strconcat("-", error, "\n", NULL));
+			return 0;
+		}
+		i_close_fd(&global_config_fd);
 	}
+
+	if (global_config_fd == -1) {
+		int fd = config_dump_full(CONFIG_DUMP_FULL_DEST_RUNDIR,
+					  &import_environment);
+		if (fd == -1) {
+			o_stream_nsend_str(conn->output, "-Failed\n");
+			return 0;
+		}
+		global_config_fd = fd;
+	}
+	if (!o_stream_unix_write_fd(conn->output, global_config_fd))
+		i_unreached();
+
+	o_stream_nsend_str(conn->output, "+\n");
 	return 0;
 }
 
@@ -105,7 +128,7 @@ struct config_connection *config_connection_create(int fd)
 	conn = i_new(struct config_connection, 1);
 	conn->fd = fd;
 	conn->input = i_stream_create_fd(fd, MAX_INBUF_SIZE);
-	conn->output = o_stream_create_fd(fd, SIZE_MAX);
+	conn->output = o_stream_create_unix(fd, SIZE_MAX);
 	o_stream_set_no_error_handling(conn->output, TRUE);
 	conn->io = io_add(fd, IO_READ, config_connection_input, conn);
 	DLLIST_PREPEND(&config_connections, conn);
@@ -130,4 +153,5 @@ void config_connections_destroy_all(void)
 {
 	while (config_connections != NULL)
 		config_connection_destroy(config_connections);
+	i_close_fd(&global_config_fd);
 }

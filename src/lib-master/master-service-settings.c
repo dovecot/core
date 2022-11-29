@@ -5,6 +5,7 @@
 #include "event-filter.h"
 #include "path-util.h"
 #include "istream.h"
+#include "fdpass.h"
 #include "write-full.h"
 #include "str.h"
 #include "strescape.h"
@@ -275,7 +276,7 @@ master_service_open_config(struct master_service *service,
 {
 	struct stat st;
 	const char *path;
-	int fd;
+	int fd = -1;
 
 	*path_r = path = input->config_path != NULL ? input->config_path :
 		master_service_get_config_path(service);
@@ -297,52 +298,75 @@ master_service_open_config(struct master_service *service,
 		   this fails because the socket is 0600. it's useful for
 		   developers though. :) */
 		fd = net_connect_unix(DOVECOT_CONFIG_SOCKET_PATH);
-		if (fd >= 0) {
+		if (fd >= 0)
 			*path_r = DOVECOT_CONFIG_SOCKET_PATH;
-			net_set_nonblock(fd, FALSE);
-			return fd;
+		else {
+			/* fallback to executing doveconf */
 		}
-		/* fallback to executing doveconf */
 	}
 
-	if (stat(path, &st) < 0) {
-		*error_r = errno == EACCES ? eacces_error_get("stat", path) :
-			t_strdup_printf("stat(%s) failed: %m", path);
-		config_error_update_path_source(service, input, error_r);
-		return -1;
-	}
+	if (fd == -1) {
+		if (stat(path, &st) < 0) {
+			*error_r = errno == EACCES ?
+				eacces_error_get("stat", path) :
+				t_strdup_printf("stat(%s) failed: %m", path);
+			config_error_update_path_source(service, input, error_r);
+			return -1;
+		}
 
-	if (!S_ISSOCK(st.st_mode) && !S_ISFIFO(st.st_mode)) {
-		/* it's not an UNIX socket, don't even try to connect */
-		fd = -1;
-		errno = ENOTSOCK;
-	} else {
-		fd = net_connect_unix_with_retries(path, 1000);
+		if (!S_ISSOCK(st.st_mode) && !S_ISFIFO(st.st_mode)) {
+			/* it's not an UNIX socket, don't even try to connect */
+			fd = -1;
+			errno = ENOTSOCK;
+		} else {
+			fd = net_connect_unix_with_retries(path, 1000);
+		}
+		if (fd < 0) {
+			*error_r = t_strdup_printf(
+				"net_connect_unix(%s) failed: %m", path);
+			config_exec_fallback(service, input, error_r);
+			return -1;
+		}
 	}
-	if (fd < 0) {
-		*error_r = t_strdup_printf("net_connect_unix(%s) failed: %m",
-					   path);
+	net_set_nonblock(fd, FALSE);
+	const char *str = !input->reload_config ?
+		CONFIG_HANDSHAKE"REQ\n" :
+		CONFIG_HANDSHAKE"REQ\treload\n";
+	alarm(CONFIG_READ_TIMEOUT_SECS);
+	int ret = write_full(fd, str, strlen(str));
+	if (ret < 0)
+		*error_r = t_strdup_printf("write_full(%s) failed: %m", path);
+
+	int config_fd = -1;
+	if (ret == 0) {
+		/* read the config fd as reply */
+		char buf[1024];
+		ret = fd_read(fd, buf, sizeof(buf)-1, &config_fd);
+		if (ret < 0)
+			*error_r = t_strdup_printf("fd_read() failed: %m");
+		else if (ret > 0 && buf[0] == '+' && buf[1] == '\n')
+			; /* success */
+		else if (ret > 0 && buf[0] == '-') {
+			buf[ret] = '\0';
+			*error_r = t_strdup_printf("Failed to read config: %s",
+						   t_strcut(buf+1, '\n'));
+			i_close_fd(&config_fd);
+		} else {
+			buf[ret] = '\0';
+			*error_r = t_strdup_printf(
+				"Failed to read config: Unexpected reply '%s'",
+				t_strcut(buf, '\n'));
+			i_close_fd(&config_fd);
+		}
+	}
+	alarm(0);
+	i_close_fd(&fd);
+
+	if (config_fd == -1) {
 		config_exec_fallback(service, input, error_r);
 		return -1;
 	}
-	net_set_nonblock(fd, FALSE);
-	return fd;
-}
-
-static int
-config_send_request(int fd, const char *path, const char **error_r)
-{
-	int ret;
-
-	T_BEGIN {
-		const char *str = CONFIG_HANDSHAKE"REQ\n";
-		ret = write_full(fd, str, strlen(str));
-	} T_END;
-	if (ret < 0) {
-		*error_r = t_strdup_printf("write_full(%s) failed: %m", path);
-		return -1;
-	}
-	return 0;
+	return config_fd;
 }
 
 static int
@@ -387,8 +411,10 @@ void master_service_config_socket_try_open(struct master_service *service)
 	i_zero(&input);
 	input.never_exec = TRUE;
 	fd = master_service_open_config(service, &input, &path, &error);
-	if (fd != -1)
+	if (fd != -1) {
 		service->config_fd = fd;
+		fd_close_on_exec(service->config_fd, TRUE);
+	}
 }
 
 static void
@@ -434,10 +460,6 @@ master_service_settings_read_stream(struct setting_parser_context *parser,
 			return 0;
 		}
 		linenum++;
-		if (linenum == 1 && str_begins(line, "ERROR ", &line)) {
-			*error_r = t_strdup(line);
-			return -1;
-		}
 		if (str_begins(line, ":FILTER ", &filter_string)) {
 			struct event_filter *filter = event_filter_create();
 			filter_string_parse_protocol(filter_string, &protocols);
@@ -478,11 +500,11 @@ master_service_settings_read_stream(struct setting_parser_context *parser,
 					   i_stream_get_error(input));
 	} else if (input->v_offset == 0) {
 		*error_r = t_strdup_printf(
-			"read(%s) disconnected before receiving any data",
+			"read(%s) returned EOF before receiving any data",
 			i_stream_get_name(input));
 	} else {
 		*error_r = t_strdup_printf(
-			"read(%s) disconnected before receiving end-of-settings line",
+			"read(%s) returned EOF before receiving end-of-settings line",
 			i_stream_get_name(input));
 	}
 	return -1;
@@ -500,41 +522,33 @@ int master_service_settings_read(struct master_service *service,
 	const char *path = NULL, *value, *error;
 	unsigned int i;
 	int ret, fd = -1;
-	bool use_environment = FALSE, retry;
+	bool use_environment = FALSE;
 
 	i_zero(output_r);
 
-	value = getenv(DOVECOT_CONFIG_FD_ENV);
-	if (value != NULL) {
+	if (service->config_fd != -1 && !input->reload_config) {
+		/* config was already read once */
+		fd = service->config_fd;
+		if (lseek(fd, 0, SEEK_SET) < 0)
+			i_fatal("lseek(config fd) failed: %m");
+		path = "<config fd>";
+	} else if ((value = getenv(DOVECOT_CONFIG_FD_ENV)) != NULL) {
 		/* doveconf -F parameter already executed us back.
 		   The configuration is in DOVECOT_CONFIG_FD. */
 		if (str_to_int(value, &fd) < 0 || fd < 0)
 			i_fatal("Invalid "DOVECOT_CONFIG_FD_ENV": %s", value);
+		path = t_strdup_printf("<"DOVECOT_CONFIG_FD_ENV" %d>", fd);
 	} else if (getenv("DOVECONF_ENV") != NULL) {
 		use_environment = (service->flags &
 				   MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0;
 	} else if ((service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0) {
 		/* Open config via socket if possible. If it doesn't work,
 		   execute doveconf -F. */
-		retry = service->config_fd != -1;
-		for (;;) {
-			fd = master_service_open_config(service, input,
-							&path, error_r);
-			if (fd == -1) {
-				if (errno == EACCES)
-					output_r->permission_denied = TRUE;
-				return -1;
-			}
-
-			if (config_send_request(fd, path, error_r) == 0)
-				break;
-			i_close_fd(&fd);
-			if (!retry) {
-				config_exec_fallback(service, input, error_r);
-				return -1;
-			}
-			/* config process died, retry connecting */
-			retry = FALSE;
+		fd = master_service_open_config(service, input, &path, error_r);
+		if (fd == -1) {
+			if (errno == EACCES)
+				output_r->permission_denied = TRUE;
+			return -1;
 		}
 	}
 
@@ -575,10 +589,9 @@ int master_service_settings_read(struct master_service *service,
 
 	if (fd != -1) {
 		istream = i_stream_create_fd(fd, SIZE_MAX);
-		alarm(CONFIG_READ_TIMEOUT_SECS);
+		i_stream_set_name(istream, path);
 		ret = master_service_settings_read_stream(parser, event,
 				istream, output_r, error_r);
-		alarm(0);
 		i_stream_unref(&istream);
 
 		if (ret < 0) {
@@ -593,12 +606,14 @@ int master_service_settings_read(struct master_service *service,
 			return -1;
 		}
 
-		if ((service->flags & MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN) != 0 &&
-		    service->config_fd == -1 && input->config_path == NULL &&
-		    getenv(DOVECOT_CONFIG_FD_ENV) == NULL)
+		if (input->config_path == NULL) {
+			i_assert(service->config_fd == -1 ||
+				 service->config_fd == fd);
 			service->config_fd = fd;
-		else
+			fd_close_on_exec(service->config_fd, TRUE);
+		} else {
 			i_close_fd(&fd);
+		}
 		env_remove(DOVECOT_CONFIG_FD_ENV);
 	}
 	event_unref(&event);

@@ -11,7 +11,6 @@
 #include "ostream.h"
 #include "str.h"
 #include "strescape.h"
-#include "safe-mkstemp.h"
 #include "settings-parser.h"
 #include "master-interface.h"
 #include "master-service.h"
@@ -24,7 +23,6 @@
 #include "config-request.h"
 #include "dovecot-version.h"
 
-#include <stdio.h>
 #include <ctype.h>
 #include <unistd.h>
 #include <sysexits.h>
@@ -979,28 +977,11 @@ int main(int argc, char *argv[])
 		i_fatal("%s", error);
 
 	if (dump_full && exec_args == NULL) {
-		struct ostream *output = o_stream_create_fd(STDOUT_FILENO, 0);
-		o_stream_set_no_error_handling(output, TRUE);
-		ret2 = config_dump_full(output, &import_environment);
-		o_stream_destroy(&output);
+		ret2 = config_dump_full(CONFIG_DUMP_FULL_DEST_STDOUT,
+					&import_environment);
 	} else if (dump_full) {
-		/* create an unlinked file to /tmp */
-		string_t *path = t_str_new(128);
-		str_append(path, "/tmp/doveconf.");
-		int temp_fd = safe_mkstemp(path, 0700, (uid_t)-1, (gid_t)-1);
-		if (temp_fd == -1)
-			i_fatal("safe_mkstemp(%s) failed: %m", str_c(path));
-		i_unlink(str_c(path));
-		struct ostream *output =
-			o_stream_create_fd(temp_fd, IO_BLOCK_SIZE);
-		if (config_dump_full(output, &import_environment) < 0)
-			i_fatal("Invalid configuration");
-		if (o_stream_finish(output) < 0) {
-			i_fatal("write(%s) failed: %s",
-				str_c(path), o_stream_get_error(output));
-		}
-		o_stream_destroy(&output);
-
+		int temp_fd = config_dump_full(CONFIG_DUMP_FULL_DEST_TEMPDIR,
+					       &import_environment);
 		if (getenv(DOVECOT_PRESERVE_ENVS_ENV) != NULL) {
 			/* Standalone binary is getting its configuration via
 			   doveconf. Clean the environment before calling it.
@@ -1010,9 +991,12 @@ int main(int argc, char *argv[])
 			master_service_import_environment(import_environment);
 			master_service_env_clean();
 		}
-		env_put(DOVECOT_CONFIG_FD_ENV, dec2str(temp_fd));
-		execvp(exec_args[0], exec_args);
-		i_fatal("execvp(%s) failed: %m", exec_args[0]);
+		if (temp_fd != -1) {
+			env_put(DOVECOT_CONFIG_FD_ENV, dec2str(temp_fd));
+			execvp(exec_args[0], exec_args);
+			i_fatal("execvp(%s) failed: %m", exec_args[0]);
+		}
+		ret2 = -1;
 	} else if (simple_output) {
 		struct config_export_context *ctx;
 		unsigned int section_idx = 0;

@@ -3,6 +3,7 @@
 #include "lib.h"
 #include "str.h"
 #include "strescape.h"
+#include "safe-mkstemp.h"
 #include "ostream.h"
 #include "config-parser.h"
 #include "config-request.h"
@@ -70,7 +71,7 @@ config_dump_full_write_filter(struct ostream *output,
 	o_stream_nsend(output, str_data(str), str_len(str));
 }
 
-static int
+static bool
 config_dump_full_sections(struct ostream *output, unsigned int section_idx)
 {
 	struct config_filter_parser *const *filters;
@@ -98,22 +99,20 @@ config_dump_full_sections(struct ostream *output, unsigned int section_idx)
 		config_export_parsers(export_ctx, (*filters)->parsers);
 		ret = config_export_finish(&export_ctx, &section_idx);
 	} T_END;
-	return 0;
+	return ret == 0;
 }
 
-int config_dump_full(struct ostream *output, const char **import_environment_r)
+int config_dump_full(enum config_dump_full_dest dest,
+		     const char **import_environment_r)
 {
 	struct config_export_context *export_ctx;
 	struct config_filter empty_filter;
 	enum config_dump_flags flags;
 	unsigned int section_idx = 0;
-	int ret;
-
-	i_zero(&empty_filter);
-	o_stream_cork(output);
+	int fd = -1;
+	bool failed = FALSE;
 
 	struct dump_context dump_ctx = {
-		.output = output,
 		.delayed_output = str_new(default_pool, 256),
 	};
 
@@ -123,12 +122,51 @@ int config_dump_full(struct ostream *output, const char **import_environment_r)
 	i_zero(&empty_filter);
 	config_export_by_filter(export_ctx, &empty_filter);
 
+	string_t *path = t_str_new(128);
+	const char *final_path = NULL;
+	switch (dest) {
+	case CONFIG_DUMP_FULL_DEST_RUNDIR: {
+		const char *base_dir = config_export_get_base_dir(export_ctx);
+		final_path = t_strdup_printf("%s/dovecot.conf.binary", base_dir);
+		str_append(path, final_path);
+		str_append_c(path, '.');
+		break;
+	}
+	case CONFIG_DUMP_FULL_DEST_TEMPDIR:
+		/* create an unlinked file to /tmp */
+		str_append(path, "/tmp/doveconf.");
+		break;
+	case CONFIG_DUMP_FULL_DEST_STDOUT:
+		dump_ctx.output = o_stream_create_fd(STDOUT_FILENO, IO_BLOCK_SIZE);
+		o_stream_set_name(dump_ctx.output, "<stdout>");
+		fd = 0;
+		break;
+	}
+
+	if (dump_ctx.output == NULL) {
+		fd = safe_mkstemp(path, 0700, (uid_t)-1, (gid_t)-1);
+		if (fd == -1) {
+			i_error("safe_mkstemp(%s) failed: %m", str_c(path));
+			(void)config_export_finish(&export_ctx, &section_idx);
+			str_free(&dump_ctx.delayed_output);
+			return -1;
+		}
+		if (dest == CONFIG_DUMP_FULL_DEST_TEMPDIR)
+			i_unlink(str_c(path));
+		dump_ctx.output = o_stream_create_fd(fd, IO_BLOCK_SIZE);
+		o_stream_set_name(dump_ctx.output, str_c(path));
+	}
+	struct ostream *output = dump_ctx.output;
+
+	i_zero(&empty_filter);
+	o_stream_cork(output);
+
 	*import_environment_r =
 		t_strdup(config_export_get_import_environment(export_ctx));
 	if (config_export_finish(&export_ctx, &section_idx) < 0)
-		ret = -1;
+		failed = TRUE;
 	else
-		ret = config_dump_full_sections(output, section_idx);
+		failed = !config_dump_full_sections(output, section_idx);
 
 	if (dump_ctx.delayed_output != NULL &&
 	    str_len(dump_ctx.delayed_output) > 0) {
@@ -139,6 +177,30 @@ int config_dump_full(struct ostream *output, const char **import_environment_r)
 	str_free(&dump_ctx.delayed_output);
 
 	o_stream_nsend_str(output, "\n");
-	o_stream_uncork(output);
-	return ret;
+	if (o_stream_finish(output) < 0) {
+		i_error("write(%s) failed: %s",
+			o_stream_get_name(output), o_stream_get_error(output));
+		failed = TRUE;
+	}
+
+	if (final_path != NULL && !failed) {
+		if (rename(str_c(path), final_path) < 0) {
+			i_error("rename(%s, %s) failed: %m",
+				str_c(path), final_path);
+			/* the fd is still readable, so don't return failure */
+		}
+	}
+	if (!failed && dest != CONFIG_DUMP_FULL_DEST_STDOUT &&
+	    lseek(fd, 0, SEEK_SET) < 0) {
+		i_error("lseek(%s, 0) failed: %m", o_stream_get_name(output));
+		failed = TRUE;
+	}
+	if (failed) {
+		if (dest == CONFIG_DUMP_FULL_DEST_STDOUT)
+			fd = -1;
+		else
+			i_close_fd(&fd);
+	}
+	o_stream_destroy(&output);
+	return fd;
 }
