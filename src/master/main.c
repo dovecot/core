@@ -417,7 +417,6 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 
 	i_zero(&input);
 	input.roots = set_roots;
-	input.module = MASTER_SERVICE_NAME;
 	input.config_path = services_get_config_socket_path(services);
 	input.never_exec = TRUE;
 	if (master_service_settings_read(master_service, &input,
@@ -498,7 +497,6 @@ static struct master_settings *master_settings_read(void)
 
 	i_zero(&input);
 	input.roots = set_roots;
-	input.module = "master";
 	input.preserve_environment = TRUE;
 	input.always_exec = TRUE;
 	if (master_service_settings_read(master_service, &input, &output,

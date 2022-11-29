@@ -1090,7 +1090,6 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 		(flags & MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS) != 0;
 
 	if (input != NULL) {
-		set_input.module = input->module;
 		set_input.service = input->service;
 		set_input.username = input->username;
 		set_input.local_ip = input->local_ip;

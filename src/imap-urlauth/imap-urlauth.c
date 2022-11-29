@@ -254,7 +254,6 @@ int main(int argc, char *argv[])
 
 	i_zero(&input);
 	input.roots = set_roots;
-	input.module = "imap-urlauth";
 	input.service = "imap-urlauth";
 	if (master_service_settings_read(master_service, &input, &output,
 						&error) < 0)

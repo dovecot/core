@@ -242,25 +242,18 @@ void doveadm_read_settings(void)
 	const struct doveadm_settings *set;
 	struct doveadm_setting_root *root;
 	ARRAY(const struct setting_parser_info *) set_roots;
-	ARRAY_TYPE(const_string) module_names;
 	const char *error;
 
 	t_array_init(&set_roots, N_ELEMENTS(default_set_roots) +
 		     array_count(&doveadm_setting_roots) + 1);
 	array_append(&set_roots, default_set_roots,
 		     N_ELEMENTS(default_set_roots));
-	t_array_init(&module_names, 4);
-	array_foreach_modifiable(&doveadm_setting_roots, root) {
-		array_push_back(&module_names, &root->info->module_name);
+	array_foreach_modifiable(&doveadm_setting_roots, root)
 		array_push_back(&set_roots, &root->info);
-	}
-	array_append_zero(&module_names);
 	array_append_zero(&set_roots);
 
 	i_zero(&input);
 	input.roots = array_front(&set_roots);
-	input.module = "doveadm";
-	input.extra_modules = array_front(&module_names);
 	input.service = "doveadm";
 	input.preserve_user = TRUE;
 	input.preserve_home = TRUE;

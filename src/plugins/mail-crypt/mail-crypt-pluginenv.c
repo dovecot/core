@@ -22,7 +22,6 @@ fs_crypt_load_settings(void)
 
 	i_zero(&input);
 	input.roots = set_roots;
-	input.module = "fs-crypt";
 	input.service = "fs-crypt";
 	if (master_service_settings_read(master_service, &input,
 					 &output, &error) < 0)

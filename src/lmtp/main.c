@@ -68,7 +68,6 @@ static void drop_privileges(void)
 	struct master_service_settings_output output;
 
 	i_zero(&input);
-	input.module = "lmtp";
 	input.service = "lmtp";
 	if (master_service_settings_read(master_service,
 					 &input, &output, &error) < 0)

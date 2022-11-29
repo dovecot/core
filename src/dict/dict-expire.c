@@ -156,7 +156,6 @@ int main(int argc, char *argv[])
 
 	const struct master_service_settings_input set_input = {
 		.roots = set_roots,
-		.module = "dict",
 	};
 	struct master_service_settings_output output;
 	if (master_service_settings_read(master_service, &set_input,

@@ -661,7 +661,6 @@ int master_service_settings_read_simple(struct master_service *service,
 
 	i_zero(&input);
 	input.roots = roots;
-	input.module = service->name;
 	return master_service_settings_read(service, &input, &output, error_r);
 }
 

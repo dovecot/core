@@ -566,7 +566,6 @@ auth_settings_read(const char *service, pool_t pool,
 
 	i_zero(&input);
 	input.roots = set_roots;
-	input.module = "auth";
 	input.service = service;
 	if (master_service_settings_read(master_service, &input,
 					 output_r, &error) < 0)

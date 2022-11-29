@@ -34,7 +34,6 @@ static void drop_privileges(void)
 		struct master_service_settings_output output;
 
 		i_zero(&input);
-		input.module = "mail";
 		input.service = "indexer-worker";
 		(void)master_service_settings_read(master_service,
 						   &input, &output, &error);

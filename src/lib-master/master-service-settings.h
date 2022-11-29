@@ -42,10 +42,6 @@ struct master_service_settings_input {
 	bool always_exec;
 	bool use_sysexits;
 
-	/* Either/both module and extra_modules can be set. Usually just one
-	   is needed, so module is simpler to set. */
-	const char *module;
-	const char *const *extra_modules;
 	const char *service;
 	const char *username;
 	struct ip_addr local_ip, remote_ip;
