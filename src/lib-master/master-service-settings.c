@@ -354,51 +354,14 @@ master_service_open_config(struct master_service *service,
 	return fd;
 }
 
-static void
-config_build_request(struct master_service *service, string_t *str,
-		     const struct master_service_settings_input *input)
-{
-	str_append(str, "REQ");
-	if (input->module != NULL)
-		str_printfa(str, "\tmodule=%s", input->module);
-	if (input->extra_modules != NULL) {
-		for (unsigned int i = 0; input->extra_modules[i] != NULL; i++)
-			str_printfa(str, "\tmodule=%s", input->extra_modules[i]);
-	}
-	if ((service->flags & MASTER_SERVICE_FLAG_DISABLE_SSL_SET) == 0 &&
-	    (input->module != NULL || input->extra_modules != NULL)) {
-		str_printfa(str, "\tmodule=%s",
-			    service->want_ssl_server ? "ssl-server" : "ssl");
-	}
-	if (input->no_ssl_ca)
-		str_append(str, "\texclude=ssl_ca\texclude=ssl_verify_client_cert");
-	if (input->service != NULL)
-		str_printfa(str, "\tservice=%s", input->service);
-	if (input->username != NULL)
-		str_printfa(str, "\tuser=%s", input->username);
-	if (input->local_ip.family != 0)
-		str_printfa(str, "\tlip=%s", net_ip2addr(&input->local_ip));
-	if (input->remote_ip.family != 0)
-		str_printfa(str, "\trip=%s", net_ip2addr(&input->remote_ip));
-	if (input->local_name != NULL)
-		str_printfa(str, "\tlname=%s", input->local_name);
-	str_append_c(str, '\n');
-}
-
 static int
-config_send_request(struct master_service *service,
-		    const struct master_service_settings_input *input,
-		    int fd, const char *path, const char **error_r)
+config_send_request(int fd, const char *path, const char **error_r)
 {
 	int ret;
 
 	T_BEGIN {
-		string_t *str;
-
-		str = t_str_new(128);
-		str_append(str, CONFIG_HANDSHAKE);
-		config_build_request(service, str, input);
-		ret = write_full(fd, str_data(str), str_len(str));
+		const char *str = CONFIG_HANDSHAKE"REQ\tfull\n";
+		ret = write_full(fd, str, strlen(str));
 	} T_END;
 	if (ret < 0) {
 		*error_r = t_strdup_printf("write_full(%s) failed: %m", path);
@@ -429,56 +392,6 @@ master_service_apply_config_overrides(struct master_service *service,
 	return 0;
 }
 
-static int
-config_read_reply_header(struct istream *istream, const char *path, pool_t pool,
-			 const struct master_service_settings_input *input,
-			 struct master_service_settings_output *output_r,
-			 const char **error_r)
-{
-	const char *line;
-	ssize_t ret;
-
-	while ((ret = i_stream_read(istream)) > 0) {
-		line = i_stream_next_line(istream);
-		if (line != NULL)
-			break;
-	}
-	if (ret <= 0) {
-		i_assert(ret < 0);
-		*error_r = istream->stream_errno != 0 ?
-			t_strdup_printf("read(%s) failed: %s", path,
-					i_stream_get_error(istream)) :
-			t_strdup_printf("read(%s) failed: EOF", path);
-		return -1;
-	}
-
-	T_BEGIN {
-		const char *value, *const *arg = t_strsplit_tabescaped(line);
-		ARRAY_TYPE(const_string) services;
-
-		p_array_init(&services, pool, 8);
-		for (; *arg != NULL; arg++) {
-			if (strcmp(*arg, "service-uses-local") == 0)
-				output_r->service_uses_local = TRUE;
-			else if (strcmp(*arg, "service-uses-remote") == 0)
-				output_r->service_uses_remote = TRUE;
-			if (strcmp(*arg, "used-local") == 0)
-				output_r->used_local = TRUE;
-			else if (strcmp(*arg, "used-remote") == 0)
-				output_r->used_remote = TRUE;
-			else if (str_begins(*arg, "service=", &value)) {
-				const char *name = p_strdup(pool, value);
-				array_push_back(&services, &name);
-			 }
-		}
-		if (input->service == NULL) {
-			array_append_zero(&services);
-			output_r->specific_services = array_front(&services);
-		}
-	} T_END;
-	return 0;
-}
-
 void master_service_config_socket_try_open(struct master_service *service)
 {
 	struct master_service_settings_input input;
@@ -500,6 +413,103 @@ void master_service_config_socket_try_open(struct master_service *service)
 	fd = master_service_open_config(service, &input, &path, &error);
 	if (fd != -1)
 		service->config_fd = fd;
+}
+
+static void
+filter_string_parse_protocol(const char *filter_string,
+			     ARRAY_TYPE(const_string) *protocols)
+{
+	const char *p = strstr(filter_string, "protocol=\"");
+	if (p == NULL)
+		return;
+	const char *p2 = strchr(p + 10, '"');
+	if (p2 == NULL)
+		return;
+	const char *protocol = t_strdup_until(p + 10, p2);
+	if (p - filter_string > 4 && strcmp(p - 4, "NOT ") == 0)
+		protocol = t_strconcat("!", protocol, NULL);
+	array_push_back(protocols, &protocol);
+}
+
+static int
+master_service_settings_read_stream(struct setting_parser_context *parser,
+				    struct event *event, struct istream *input,
+				    struct master_service_settings_output *output_r,
+				    const char **error_r)
+{
+	const char *line, *filter_string, *error;
+	unsigned int linenum = 0;
+	ARRAY_TYPE(const_string) protocols;
+	bool filter_match = TRUE;
+	int ret;
+
+	t_array_init(&protocols, 8);
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG,
+	};
+	while ((line = i_stream_read_next_line(input)) != NULL) {
+		if (*line == '\0') {
+			/* empty line finishes it */
+			if (array_count(&protocols) > 0) {
+				array_append_zero(&protocols);
+				output_r->specific_services =
+					array_front(&protocols);
+			}
+			return 0;
+		}
+		linenum++;
+		if (linenum == 1 && str_begins(line, "ERROR ", &line)) {
+			*error_r = t_strdup(line);
+			return -1;
+		}
+		if (str_begins(line, ":FILTER ", &filter_string)) {
+			struct event_filter *filter = event_filter_create();
+			filter_string_parse_protocol(filter_string, &protocols);
+			if (event_filter_parse(filter_string, filter, &error) < 0) {
+				*error_r = t_strdup_printf(
+					"Line %u: Received invalid FILTER %s: %s",
+					linenum, filter_string, error);
+				ret = -1;
+			} else {
+				ret = 0;
+				filter_match = filter_string[0] == '\0' ||
+					event_filter_match(filter, event,
+							   &failure_ctx);
+			}
+			event_filter_unref(&filter);
+			if (ret < 0)
+				return -1;
+			continue;
+		}
+		if (!filter_match)
+			continue;
+
+		T_BEGIN {
+			line = t_str_tabunescape(line);
+			ret = settings_parse_line(parser, line);
+		} T_END;
+
+		if (ret < 0) {
+			*error_r = t_strdup_printf("Line %u: %s", linenum,
+				settings_parser_get_error(parser));
+			return -1;
+		}
+	}
+
+	if (input->stream_errno != 0) {
+		*error_r = t_strdup_printf("read(%s) failed: %s",
+					   i_stream_get_name(input),
+					   i_stream_get_error(input));
+	} else if (input->v_offset == 0) {
+		*error_r = t_strdup_printf(
+			"read(%s) disconnected before receiving any data",
+			i_stream_get_name(input));
+	} else {
+		*error_r = t_strdup_printf(
+			"read(%s) disconnected before receiving end-of-settings line",
+			i_stream_get_name(input));
+	}
+	return -1;
 }
 
 int master_service_settings_read(struct master_service *service,
@@ -530,8 +540,7 @@ int master_service_settings_read(struct master_service *service,
 				return -1;
 			}
 
-			if (config_send_request(service, input, fd,
-						path, error_r) == 0)
+			if (config_send_request(fd, path, error_r) == 0)
 				break;
 			i_close_fd(&fd);
 			if (!retry) {
@@ -551,6 +560,14 @@ int master_service_settings_read(struct master_service *service,
 		service->set_pool =
 			pool_alloconly_create("master service settings", 16384);
 	}
+
+	/* Create event for matching config filters */
+	struct event *event = event_create(NULL);
+	event_add_str(event, "protocol", input->service);
+	event_add_str(event, "user", input->username);
+	event_add_str(event, "local_name", input->local_name);
+	event_add_ip(event, "local_ip", &input->local_ip);
+	event_add_ip(event, "remote_ip", &input->remote_ip);
 
 	p_array_init(&all_roots, service->set_pool, 8);
 	tmp_root = &master_service_setting_parser_info;
@@ -573,16 +590,8 @@ int master_service_settings_read(struct master_service *service,
 	if (fd != -1) {
 		istream = i_stream_create_fd(fd, SIZE_MAX);
 		alarm(CONFIG_READ_TIMEOUT_SECS);
-		ret = config_read_reply_header(istream, path,
-					       service->set_pool, input,
-					       output_r, error_r);
-		if (ret == 0) {
-			ret = settings_parse_stream_read(parser, istream);
-			i_assert(ret <= 0);
-			if (ret < 0)
-				*error_r = t_strdup(
-					settings_parser_get_error(parser));
-		}
+		ret = master_service_settings_read_stream(parser, event,
+				istream, output_r, error_r);
 		alarm(0);
 		i_stream_unref(&istream);
 
@@ -590,6 +599,7 @@ int master_service_settings_read(struct master_service *service,
 			i_close_fd(&fd);
 			config_exec_fallback(service, input, error_r);
 			settings_parser_unref(&parser);
+			event_unref(&event);
 			return -1;
 		}
 
@@ -603,6 +613,7 @@ int master_service_settings_read(struct master_service *service,
 		use_environment = (service->flags &
 				   MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0;
 	}
+	event_unref(&event);
 
 	if (use_environment || service->keep_environment) {
 		if (settings_parse_environ(parser) < 0) {
