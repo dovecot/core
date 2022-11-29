@@ -16,9 +16,6 @@ struct var_expand_func_table;
 #define SETTING_STRVAR_UNEXPANDED "0"
 #define SETTING_STRVAR_EXPANDED "1"
 
-/* When parsing streams, this character is translated to LF. */
-#define SETTING_STREAM_LF_CHAR "\003"
-
 enum setting_type {
 	SET_BOOL,
 	SET_UINT,
