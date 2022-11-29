@@ -5,27 +5,25 @@
 #include "net.h"
 #include "var-expand.h"
 #include "settings-parser.h"
-#include "istream.h"
 #include "test-common.h"
 
-static const char *test_settings_blobs[] =
+static const char *const test_settings_blobs[] =
 {
 /* Blob 0 */
-	"bool_true=yes\n"
-	"bool_false=no\n"
-	"uint=15\n"
-	"uint_oct=0700\n"
-	"secs=5s\n"
-	"msecs=5ms\n"
-	"size=1k\n"
-	"port=2205\n"
-	"str=test string\n"
-	"expand_str=test %{string}\n"
-	"strlist=\n"
-	"strlist/x=a\n"
-	"strlist/y=b\n"
-	"strlist/z=c\n"
-	"\n",
+	"bool_true=yes",
+	"bool_false=no",
+	"uint=15",
+	"uint_oct=0700",
+	"secs=5s",
+	"msecs=5ms",
+	"size=1k",
+	"port=2205",
+	"str=test string",
+	"expand_str=test %{string}",
+	"strlist=",
+	"strlist/x=a",
+	"strlist/y=b",
+	"strlist/z=c",
 };
 
 static void test_settings_parser_get(void)
@@ -88,15 +86,15 @@ static void test_settings_parser_get(void)
 	pool_t pool = pool_alloconly_create("settings parser", 1024);
 	struct setting_parser_context *ctx =
 		settings_parser_init(pool, &root, 0);
-	struct istream *is = test_istream_create(test_settings_blobs[0]);
 	const char *error = NULL;
-	int ret;
-	while((ret = settings_parse_stream_read(ctx, is)) > 0);
-	test_assert(ret == 0);
+	int ret = 1;
+	for (unsigned int i = 0; i < N_ELEMENTS(test_settings_blobs); i++) {
+		ret = settings_parse_line(ctx, test_settings_blobs[i]);
+		test_assert_idx(ret == 1, i);
+	}
 	if (ret < 0)
-		i_error("settings_parse_stream failed: %s",
+		i_error("settings_parse_line() failed: %s",
 			settings_parser_get_error(ctx));
-	i_stream_unref(&is);
 	test_assert(settings_parser_check(ctx, pool, NULL));
 
 	/* check what we got */
