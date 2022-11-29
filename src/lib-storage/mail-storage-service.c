@@ -1088,8 +1088,6 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 		(flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0;
 	set_input.use_sysexits =
 		(flags & MAIL_STORAGE_SERVICE_FLAG_USE_SYSEXITS) != 0;
-	set_input.no_ssl_ca =
-		(flags & MAIL_STORAGE_SERVICE_FLAG_NO_SSL_CA) != 0;
 
 	if (input != NULL) {
 		set_input.module = input->module;
