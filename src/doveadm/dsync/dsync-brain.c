@@ -882,8 +882,13 @@ bool dsync_brain_want_namespace(struct dsync_brain *brain,
 			return TRUE;
 		return FALSE;
 	} else {
+		/* By default sync only namespaces that have empty location.
+		   The unexpanded_location can be already expanded if it
+		   came from userdb or -o parameter. */
 		return strcmp(ns->set->unexpanded_location,
-			      SETTING_STRVAR_UNEXPANDED) == 0;
+			      SETTING_STRVAR_UNEXPANDED) == 0 ||
+			strcmp(ns->set->unexpanded_location,
+			       SETTING_STRVAR_EXPANDED) == 0;
 	}
 }
 
