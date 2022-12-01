@@ -250,6 +250,8 @@ default_sql_statement_init_prepared(struct sql_prepared_statement *stmt)
 
 const char *sql_statement_get_log_query(struct sql_statement *stmt)
 {
+	if (stmt->no_log_expanded_values)
+		return stmt->query_template;
 	return sql_statement_get_query(stmt);
 }
 
@@ -389,6 +391,12 @@ void sql_statement_set_timestamp(struct sql_statement *stmt,
 {
 	if (stmt->db->v.statement_set_timestamp != NULL)
 		stmt->db->v.statement_set_timestamp(stmt, ts);
+}
+
+void sql_statement_set_no_log_expanded_values(struct sql_statement *stmt,
+					      bool no_expand)
+{
+	stmt->no_log_expanded_values = no_expand;
 }
 
 void sql_statement_bind_str(struct sql_statement *stmt,
