@@ -3,7 +3,7 @@
 
 #include "imap-urlauth-worker-common.h"
 
-int client_worker_connect(struct client *wclient);
-void client_worker_disconnect(struct client *wclient);
+int imap_urlauth_worker_client_connect(struct client *wclient);
+void imap_urlauth_worker_client_disconnect(struct client *wclient);
 
 #endif

@@ -18,7 +18,7 @@
 
 static void client_worker_input(struct client *wclient);
 
-int client_worker_connect(struct client *wclient)
+int imap_urlauth_worker_client_connect(struct client *wclient)
 {
 	struct client *client = wclient;
 	static const char handshake[] = "VERSION\timap-urlauth-worker\t2\t0\n";
@@ -64,7 +64,7 @@ int client_worker_connect(struct client *wclient)
 				"fd_send(%s, %d) failed to send byte",
 				socket_path, wclient->fd_ctrl);
 		}
-		client_worker_disconnect(wclient);
+		imap_urlauth_worker_client_disconnect(wclient);
 		return -1;
 	}
 
@@ -74,7 +74,7 @@ int client_worker_connect(struct client *wclient)
 	if (o_stream_send_str(wclient->ctrl_output, handshake) < 0) {
 		e_error(wclient->event,
 			"Error sending handshake to imap-urlauth worker: %m");
-		client_worker_disconnect(wclient);
+		imap_urlauth_worker_client_disconnect(wclient);
 		return -1;
 	}
 
@@ -85,7 +85,7 @@ int client_worker_connect(struct client *wclient)
 	return 0;
 }
 
-void client_worker_disconnect(struct client *wclient)
+void imap_urlauth_worker_client_disconnect(struct client *wclient)
 {
 	wclient->worker_state = IMAP_URLAUTH_WORKER_STATE_INACTIVE;
 
@@ -96,6 +96,12 @@ void client_worker_disconnect(struct client *wclient)
 		net_disconnect(wclient->fd_ctrl);
 		wclient->fd_ctrl = -1;
 	}
+}
+
+static void
+imap_urlauth_worker_client_error(struct client *wclient, const char *error)
+{
+	client_disconnect(wclient, error);
 }
 
 static int
@@ -111,7 +117,8 @@ client_worker_input_line(struct client *wclient, const char *response)
 	switch (wclient->worker_state) {
 	case IMAP_URLAUTH_WORKER_STATE_INACTIVE:
 		if (strcasecmp(response, "OK") != 0) {
-			client_disconnect(wclient, "Worker handshake failed");
+			imap_urlauth_worker_client_error(
+				wclient, "Worker handshake failed");
 			return -1;
 		}
 		wclient->worker_state = IMAP_URLAUTH_WORKER_STATE_CONNECTED;
@@ -139,7 +146,7 @@ client_worker_input_line(struct client *wclient, const char *response)
 				    str_data(str), str_len(str));
 		i_assert(ret < 0 || (size_t)ret == str_len(str));
 		if (ret < 0) {
-			client_disconnect(wclient,
+			imap_urlauth_worker_client_error(wclient,
 				"Failed to send ACCESS control command to worker");
 			return -1;
 		}
@@ -147,7 +154,7 @@ client_worker_input_line(struct client *wclient, const char *response)
 
 	case IMAP_URLAUTH_WORKER_STATE_CONNECTED:
 		if (strcasecmp(response, "OK") != 0) {
-			client_disconnect(wclient,
+			imap_urlauth_worker_client_error(wclient,
 				"Failed to negotiate access parameters");
 			return -1;
 		}
@@ -161,7 +168,7 @@ client_worker_input_line(struct client *wclient, const char *response)
 			restart = FALSE;
 		} else if (strcasecmp(response, "FINISHED") != 0) {
 			/* unknown response */
-			client_disconnect(wclient,
+			imap_urlauth_worker_client_error(wclient,
 				"Worker finished with unknown response");
 			return -1;
 		}
@@ -170,9 +177,9 @@ client_worker_input_line(struct client *wclient, const char *response)
 
 		if (restart) {
 			/* connect to new worker for accessing different user */
-			client_worker_disconnect(wclient);
-			if (client_worker_connect(wclient) < 0) {
-				client_disconnect(wclient,
+			imap_urlauth_worker_client_disconnect(wclient);
+			if (imap_urlauth_worker_client_connect(wclient) < 0) {
+				imap_urlauth_worker_client_error(wclient,
 					"Failed to connect to new worker");
 				return -1;
 			}
@@ -180,7 +187,8 @@ client_worker_input_line(struct client *wclient, const char *response)
 			/* indicate success of "END" command */
 			client_send_line(client, "OK");
 		} else {
-			client_disconnect(wclient, "Client disconnected");
+			imap_urlauth_worker_client_error(
+				wclient, "Client disconnected");
 		}
 		return -1;
  	default:
@@ -196,18 +204,21 @@ static void client_worker_input(struct client *wclient)
 
 	if (input->closed) {
 		/* disconnected */
-		client_disconnect(wclient, "Worker disconnected unexpectedly");
+		imap_urlauth_worker_client_error(
+			wclient, "Worker disconnected unexpectedly");
 		return;
 	}
 
 	switch (i_stream_read(input)) {
 	case -1:
 		/* disconnected */
-		client_disconnect(wclient, "Worker disconnected unexpectedly");
+		imap_urlauth_worker_client_error(
+			wclient, "Worker disconnected unexpectedly");
 		return;
 	case -2:
 		/* input buffer full */
-		client_disconnect(wclient, "Worker sent too large input");
+		imap_urlauth_worker_client_error(
+			wclient, "Worker sent too large input");
 		return;
 	}
 
