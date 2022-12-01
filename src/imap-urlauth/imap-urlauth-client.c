@@ -48,7 +48,8 @@ static void client_worker_disconnect(struct client *client);
 static void client_worker_input(struct client *client);
 
 int client_create(const char *service, const char *username,
-		  int fd_in, int fd_out, const struct imap_urlauth_settings *set,
+		  int fd_in, int fd_out,
+		  const struct imap_urlauth_settings *set,
 		  struct client **client_r)
 {
 	struct client *client;
@@ -81,13 +82,15 @@ int client_create(const char *service, const char *username,
 	if (username != NULL) {
 		if (set->imap_urlauth_submit_user != NULL &&
 		    strcmp(set->imap_urlauth_submit_user, username) == 0) {
-			e_debug(client->event, "User has URLAUTH submit access");
+			e_debug(client->event,
+				"User has URLAUTH submit access");
 			app = "submit+";
 			array_push_back(&client->access_apps, &app);
 		}
 		if (set->imap_urlauth_stream_user != NULL &&
 		    strcmp(set->imap_urlauth_stream_user, username) == 0) {
-			e_debug(client->event, "User has URLAUTH stream access");
+			e_debug(client->event,
+				"User has URLAUTH stream access");
 			app = "stream";
 			array_push_back(&client->access_apps, &app);
 		}
@@ -168,10 +171,12 @@ static int client_worker_connect(struct client *client)
 
 	if (ret <= 0) {
 		if (ret < 0) {
-			e_error(client->event, "fd_send(%s, %d) failed: %m",
+			e_error(client->event,
+				"fd_send(%s, %d) failed: %m",
 				socket_path, client->fd_ctrl);
 		} else {
-			e_error(client->event, "fd_send(%s, %d) failed to send byte",
+			e_error(client->event,
+				"fd_send(%s, %d) failed to send byte",
 				socket_path, client->fd_ctrl);
 		}
 		client_worker_disconnect(client);
