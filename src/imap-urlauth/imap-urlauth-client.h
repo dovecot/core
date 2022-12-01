@@ -35,12 +35,13 @@ extern struct client *imap_urlauth_clients;
 extern unsigned int imap_urlauth_client_count;
 
 int client_create(const char *service, const char *username,
-		  int fd_in, int fd_out, const struct imap_urlauth_settings *set,
+		  int fd_in, int fd_out,
+		  const struct imap_urlauth_settings *set,
 		  struct client **client_r);
 void client_destroy(struct client *client, const char *reason);
 
 void client_send_line(struct client *client, const char *fmt, ...)
-	ATTR_FORMAT(2, 3);
+		      ATTR_FORMAT(2, 3);
 
 void client_disconnect(struct client *client, const char *reason);
 
