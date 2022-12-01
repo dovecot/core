@@ -1478,6 +1478,21 @@ static void client_dict_set_timestamp(struct dict_transaction_context *_ctx,
 	client_dict_send_transaction_query(ctx, query);
 }
 
+static void client_dict_set_hide_log_values(struct dict_transaction_context *_ctx,
+					    bool hide_log_values)
+{
+       struct client_dict_transaction_context *ctx =
+               container_of(_ctx, struct client_dict_transaction_context, ctx);
+       const char *query;
+
+       query = t_strdup_printf("%c%u\t%s",
+                               DICT_PROTOCOL_CMD_HIDE_LOG_VALUES,
+                               ctx->id,
+                               hide_log_values ? "yes" : "no");
+
+        client_dict_send_transaction_query(ctx, query);
+}
+
 struct dict dict_driver_client = {
 	.name = "proxy",
 	.flags = DICT_DRIVER_FLAG_SUPPORT_EXPIRE_SECS,
@@ -1498,5 +1513,6 @@ struct dict dict_driver_client = {
 		.lookup_async = client_dict_lookup_async,
 		.switch_ioloop = client_dict_switch_ioloop,
 		.set_timestamp = client_dict_set_timestamp,
+		.set_hide_log_values = client_dict_set_hide_log_values,
 	}
 };

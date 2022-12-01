@@ -5,6 +5,7 @@
 #include "ostream.h"
 #include "str.h"
 #include "strescape.h"
+#include "str-parse.h"
 #include "stats-dist.h"
 #include "time-util.h"
 #include "dict-private.h"
@@ -597,6 +598,27 @@ static int cmd_timestamp(struct dict_connection_cmd *cmd, const char *const *arg
 	return 0;
 }
 
+static int
+cmd_hide_log_values(struct dict_connection_cmd *cmd, const char *const *args)
+{
+	struct dict_connection_transaction *trans;
+	const char *error;
+	bool value;
+
+	/* <id> <hide_log_values> */
+	if (str_array_length(args) != 2 ||
+	    str_parse_get_bool(args[1], &value, &error) < 0) {
+		e_error(cmd->event, "HIDE_LOG_VALUES: broken input");
+		return -1;
+	}
+
+	if (dict_connection_transaction_lookup_parse(cmd->conn, args[0], &trans) < 0)
+		return -1;
+
+	dict_transaction_set_hide_log_values(trans->ctx, value);
+	return 0;
+}
+
 static const struct dict_cmd_func cmds[] = {
 	{ DICT_PROTOCOL_CMD_LOOKUP, cmd_lookup },
 	{ DICT_PROTOCOL_CMD_ITERATE, cmd_iterate },
@@ -607,6 +629,7 @@ static const struct dict_cmd_func cmds[] = {
 	{ DICT_PROTOCOL_CMD_UNSET, cmd_unset },
 	{ DICT_PROTOCOL_CMD_ATOMIC_INC, cmd_atomic_inc },
 	{ DICT_PROTOCOL_CMD_TIMESTAMP, cmd_timestamp },
+	{ DICT_PROTOCOL_CMD_HIDE_LOG_VALUES, cmd_hide_log_values },
 
 	{ 0, NULL }
 };
