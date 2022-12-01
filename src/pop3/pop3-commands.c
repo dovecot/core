@@ -948,14 +948,9 @@ const struct pop3_command *pop3_command_find(const char *name)
 }
 
 int client_command_execute(struct client *client,
-			   const char *name, const char *args)
+			   const struct pop3_command *cmd, const char *args)
 {
 	while (*args == ' ') args++;
 
-	const struct pop3_command *cmd = pop3_command_find(name);
-	if (cmd != NULL)
-		return cmd->func(client, args);
-
-	client_send_line(client, "-ERR Unknown command: %s", name);
-	return -1;
+	return cmd->func(client, args);
 }

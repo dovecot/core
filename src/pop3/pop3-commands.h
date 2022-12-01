@@ -8,6 +8,6 @@ struct pop3_command {
 
 const struct pop3_command *pop3_command_find(const char *name);
 int client_command_execute(struct client *client,
-			   const char *name, const char *args);
+			   const struct pop3_command *cmd, const char *args);
 
 #endif
