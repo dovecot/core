@@ -176,7 +176,10 @@ static int cmd_list(struct client *client, const char *args)
 
 static int cmd_last(struct client *client, const char *args ATTR_UNUSED)
 {
-	client_send_line(client, "+OK %u", client->last_seen_pop3_msn);
+	if (client->set->pop3_enable_last)
+		client_send_line(client, "+OK %u", client->last_seen_pop3_msn);
+	else
+		client_send_line(client, "-ERR LAST command not enabled");
 	return 1;
 }
 
@@ -929,56 +932,37 @@ static int cmd_uidl(struct client *client, const char *args)
 	return 1;
 }
 
+static const struct pop3_command pop3_commands[] = {
+	{ "capa", cmd_capa },
+	{ "dele", cmd_dele },
+	{ "list", cmd_list },
+	{ "last", cmd_last },
+	{ "noop", cmd_noop },
+	{ "quit", cmd_quit },
+	{ "retr", cmd_retr },
+	{ "rset", cmd_rset },
+	{ "stat", cmd_stat },
+	{ "top", cmd_top },
+	{ "uidl", cmd_uidl },
+};
+
+const struct pop3_command *pop3_command_find(const char *name)
+{
+	for (unsigned int i = 0; i < N_ELEMENTS(pop3_commands); i++) {
+		if (strcasecmp(pop3_commands[i].name, name) == 0)
+			return &pop3_commands[i];
+	}
+	return NULL;
+}
+
 int client_command_execute(struct client *client,
 			   const char *name, const char *args)
 {
-	/* keep the command uppercased */
-	name = t_str_ucase(name);
-
 	while (*args == ' ') args++;
 
-	switch (*name) {
-	case 'C':
-		if (strcmp(name, "CAPA") == 0)
-			return cmd_capa(client, args);
-		break;
-	case 'D':
-		if (strcmp(name, "DELE") == 0)
-			return cmd_dele(client, args);
-		break;
-	case 'L':
-		if (strcmp(name, "LIST") == 0)
-			return cmd_list(client, args);
-		if (strcmp(name, "LAST") == 0 && client->set->pop3_enable_last)
-			return cmd_last(client, args);
-		break;
-	case 'N':
-		if (strcmp(name, "NOOP") == 0)
-			return cmd_noop(client, args);
-		break;
-	case 'Q':
-		if (strcmp(name, "QUIT") == 0)
-			return cmd_quit(client, args);
-		break;
-	case 'R':
-		if (strcmp(name, "RETR") == 0)
-			return cmd_retr(client, args);
-		if (strcmp(name, "RSET") == 0)
-			return cmd_rset(client, args);
-		break;
-	case 'S':
-		if (strcmp(name, "STAT") == 0)
-			return cmd_stat(client, args);
-		break;
-	case 'T':
-		if (strcmp(name, "TOP") == 0)
-			return cmd_top(client, args);
-		break;
-	case 'U':
-		if (strcmp(name, "UIDL") == 0)
-			return cmd_uidl(client, args);
-		break;
-	}
+	const struct pop3_command *cmd = pop3_command_find(name);
+	if (cmd != NULL)
+		return cmd->func(client, args);
 
 	client_send_line(client, "-ERR Unknown command: %s", name);
 	return -1;
