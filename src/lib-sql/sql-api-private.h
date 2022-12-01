@@ -199,6 +199,9 @@ struct sql_statement {
 	pool_t pool;
 	const char *query_template;
 	ARRAY_TYPE(const_string) args;
+
+	/* Tell the driver to not log this query with expanded values. */
+	bool no_log_expanded_values;
 };
 
 struct sql_field_map {
