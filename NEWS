@@ -41,6 +41,8 @@ v2.3.20 2022-12-12  Aki Tuomi <aki.tuomi@open-xchange.com>
 	- lib: ioloop-kqueue was missing include breaking some BSD builds.
 	- oauth2: Using %{oauth2:name} variables could cause useless
 	  introspections.
+	- pop3: Sending POP3 command with ':' character caused an assert-crash.
+	  v2.3.18 regression.
 	- replicator: Replication queue had various issues, potentially causing
 	  replication requests to become stuck.
 	- stats: Invalid Prometheus label names were created with specific
