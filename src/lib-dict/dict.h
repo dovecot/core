@@ -41,6 +41,9 @@ struct dict_op_settings {
 	const char *username;
 	/* home directory for the user, if known */
 	const char *home_dir;
+
+	/* Hide values when logging about this transaction. */
+	bool hide_log_values;
 };
 
 struct dict_lookup_result {
@@ -157,6 +160,11 @@ void dict_transaction_no_slowness_warning(struct dict_transaction_context *ctx);
    dict-sql with Cassandra backend does anything with this. */
 void dict_transaction_set_timestamp(struct dict_transaction_context *ctx,
 				    const struct timespec *ts);
+
+/* Set hide_log_values for the transaction. Currently only
+   dict-sql with Cassandra backend does anything with this. */
+void dict_transaction_set_hide_log_values(struct dict_transaction_context *ctx,
+					  bool hide_log_values);
 /* Commit the transaction. Returns 1 if ok, 0 if dict_atomic_inc() was used
    on a nonexistent key, -1 if failed. */
 int dict_transaction_commit(struct dict_transaction_context **ctx,
