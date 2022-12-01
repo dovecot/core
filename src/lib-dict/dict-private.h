@@ -54,6 +54,8 @@ struct dict_vfuncs {
 	bool (*switch_ioloop)(struct dict *dict);
 	void (*set_timestamp)(struct dict_transaction_context *ctx,
 			      const struct timespec *ts);
+	void (*set_hide_log_values)(struct dict_transaction_context *ctx,
+			            bool hide_log_values);
 };
 
 struct dict_commit_callback_ctx;
@@ -63,6 +65,7 @@ struct dict_op_settings_private {
 	char *home_dir;
 	unsigned int expire_secs;
 	bool no_slowness_warning;
+	bool hide_log_values;
 };
 
 struct dict {

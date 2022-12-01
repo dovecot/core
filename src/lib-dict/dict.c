@@ -560,6 +560,15 @@ dict_transaction_begin(struct dict *dict, const struct dict_op_settings *set)
 	return ctx;
 }
 
+void dict_transaction_set_hide_log_values(struct dict_transaction_context *ctx,
+					  bool hide_log_values)
+{
+	/* Apply hide_log_values to the current transactions dict op settings */
+	ctx->set.hide_log_values = hide_log_values;
+	if (ctx->dict->v.set_hide_log_values != NULL)
+		ctx->dict->v.set_hide_log_values(ctx, hide_log_values);
+}
+
 void dict_transaction_set_timestamp(struct dict_transaction_context *ctx,
 				    const struct timespec *ts)
 {
@@ -813,6 +822,7 @@ void dict_op_settings_dup(const struct dict_op_settings *source,
 	dest_r->home_dir = i_strdup(source->home_dir);
 	dest_r->expire_secs = source->expire_secs;
 	dest_r->no_slowness_warning = source->no_slowness_warning;
+	dest_r->hide_log_values = source->hide_log_values;
 }
 
 void dict_op_settings_private_free(struct dict_op_settings_private *set)

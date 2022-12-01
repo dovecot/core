@@ -51,6 +51,8 @@ struct dict_op_settings {
 	   commit will finish up anytime soon. Mainly useful for transactions
 	   which aren't especially important whether they finish or not. */
 	bool no_slowness_warning;
+	/* Hide values when logging about this transaction. */
+	bool hide_log_values;
 };
 
 struct dict_lookup_result {
@@ -176,6 +178,11 @@ dict_transaction_begin(struct dict *dict, const struct dict_op_settings *set);
    dict-sql with Cassandra backend does anything with this. */
 void dict_transaction_set_timestamp(struct dict_transaction_context *ctx,
 				    const struct timespec *ts);
+
+/* Set hide_log_values for the transaction. Currently only
+   dict-sql with Cassandra backend does anything with this. */
+void dict_transaction_set_hide_log_values(struct dict_transaction_context *ctx,
+					  bool hide_log_values);
 /* Commit the transaction. Returns 1 if ok, 0 if dict_atomic_inc() was used
    on a nonexistent key, -1 if failed. */
 int dict_transaction_commit(struct dict_transaction_context **ctx,
