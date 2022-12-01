@@ -284,7 +284,8 @@ cmd_urlfetch_url_callback(struct imap_urlauth_fetch_reply *reply,
 	if ((last && cmd->state == CLIENT_COMMAND_STATE_WAIT_EXTERNAL) ||
 	    ret < 0) {
 		cmd_urlfetch_finish(cmd);
-		client_command_free(&cmd);
+		if (!cmd->executing)
+			client_command_free(&cmd);
 	}
 	if (!in_io_handler)
 		o_stream_uncork(client->output);
