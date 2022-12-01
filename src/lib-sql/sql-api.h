@@ -143,6 +143,8 @@ sql_statement_init_prepared(struct sql_prepared_statement *prep_stmt);
 void sql_statement_abort(struct sql_statement **stmt);
 void sql_statement_set_timestamp(struct sql_statement *stmt,
 				 const struct timespec *ts);
+void sql_statement_set_no_log_expanded_values(struct sql_statement *stmt,
+					      bool no_expand);
 void sql_statement_bind_str(struct sql_statement *stmt,
 			    unsigned int column_idx, const char *value);
 void sql_statement_bind_binary(struct sql_statement *stmt,

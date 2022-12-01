@@ -1039,6 +1039,8 @@ sql_dict_transaction_stmt_init(struct sql_dict_transaction_context *ctx,
 
 	if (ctx->ctx.timestamp.tv_sec != 0)
 		sql_statement_set_timestamp(stmt, &ctx->ctx.timestamp);
+	if (ctx->ctx.set.hide_log_values)
+		sql_statement_set_no_log_expanded_values(stmt, ctx->ctx.set.hide_log_values);
 	return stmt;
 }
 
