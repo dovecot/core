@@ -42,6 +42,7 @@ struct setting_link {
 
 struct setting_parser_context {
 	pool_t set_pool, parser_pool;
+	int refcount;
         enum settings_parser_flags flags;
 	bool str_vars_are_expanded;
 
@@ -204,6 +205,7 @@ settings_parser_init_list(pool_t set_pool,
 	parser_pool = pool_alloconly_create(MEMPOOL_GROWING"settings parser",
 					    1024);
 	ctx = p_new(parser_pool, struct setting_parser_context, 1);
+	ctx->refcount = 1;
 	ctx->set_pool = set_pool;
 	ctx->parser_pool = parser_pool;
 	ctx->flags = flags;
@@ -235,14 +237,29 @@ settings_parser_init_list(pool_t set_pool,
 	return ctx;
 }
 
-void settings_parser_deinit(struct setting_parser_context **_ctx)
+void settings_parser_ref(struct setting_parser_context *ctx)
+{
+	i_assert(ctx->refcount > 0);
+	ctx->refcount++;
+}
+
+void settings_parser_unref(struct setting_parser_context **_ctx)
 {
 	struct setting_parser_context *ctx = *_ctx;
 
 	*_ctx = NULL;
+
+	i_assert(ctx->refcount > 0);
+	if (--ctx->refcount > 0)
+		return;
 	hash_table_destroy(&ctx->links);
 	pool_unref(&ctx->set_pool);
 	pool_unref(&ctx->parser_pool);
+}
+
+void settings_parser_deinit(struct setting_parser_context **ctx)
+{
+	settings_parser_unref(ctx);
 }
 
 void *settings_parser_get(struct setting_parser_context *ctx)
@@ -1511,6 +1528,7 @@ settings_parser_dup(const struct setting_parser_context *old_ctx,
 	parser_pool = pool_alloconly_create(MEMPOOL_GROWING"dup settings parser",
 					    1024);
 	new_ctx = p_new(parser_pool, struct setting_parser_context, 1);
+	new_ctx->refcount = 1;
 	new_ctx->set_pool = new_pool;
 	new_ctx->parser_pool = parser_pool;
 	new_ctx->flags = old_ctx->flags;

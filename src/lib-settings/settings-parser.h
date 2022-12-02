@@ -132,6 +132,8 @@ struct setting_parser_context *
 settings_parser_init_list(pool_t set_pool,
 			  const struct setting_parser_info *const *roots,
 			  unsigned int count, enum settings_parser_flags flags);
+void settings_parser_ref(struct setting_parser_context *ctx);
+void settings_parser_unref(struct setting_parser_context **ctx);
 void settings_parser_deinit(struct setting_parser_context **ctx);
 
 /* Return pointer to root setting structure. */
