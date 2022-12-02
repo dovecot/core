@@ -18,6 +18,10 @@
   #define __has_extension(x) 0  // Compatibility with non-clang compilers.
 #endif
 
+#ifndef static_assert /* C23 */
+#  define static_assert _Static_assert
+#endif
+
 #if (defined(__GNUC__) && __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 5)) || \
     (defined(__clang__) && (__has_extension(attribute_deprecated_with_message)))
 #  define HAVE_ATTR_DEPRECATED
