@@ -280,7 +280,7 @@ static void main_init(void)
 		NULL
 	};
 	struct mail_storage_service_input input;
-	const struct setting_parser_context *set_parser;
+	struct setting_parser_context *set_parser;
 	const struct mail_user_settings *user_set;
 	const char *value, *error;
 

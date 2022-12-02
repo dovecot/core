@@ -13,7 +13,7 @@ extern struct mail_storage raw_storage;
 extern struct mailbox raw_mailbox;
 
 struct mail_user *
-raw_storage_create_from_set(const struct setting_parser_context *unexpanded_set_parser)
+raw_storage_create_from_set(struct setting_parser_context *unexpanded_set_parser)
 {
 	struct mail_user *user;
 	struct mail_namespace *ns;

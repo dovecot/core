@@ -100,7 +100,7 @@ static void client_load_modules(struct client *client)
 static void client_read_settings(struct client *client, bool ssl)
 {
 	struct mail_storage_service_input input;
-	const struct setting_parser_context *set_parser;
+	struct setting_parser_context *set_parser;
 	struct lmtp_settings *lmtp_set;
 	struct lda_settings *lda_set;
 	const char *error;

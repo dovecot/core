@@ -1057,7 +1057,7 @@ mail_storage_service_add_storage_set_roots(struct mail_storage_service_ctx *ctx)
 
 int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 				       const struct mail_storage_service_input *input,
-				       const struct setting_parser_context **parser_r,
+				       struct setting_parser_context **parser_r,
 				       const char **error_r)
 {
 	struct master_service_settings_input set_input;
@@ -1106,15 +1106,13 @@ int mail_storage_service_read_settings(struct mail_storage_service_ctx *ctx,
 	if (null_strcmp(set_input.module, ctx->set_cache_module) == 0 &&
 	    null_strcmp(set_input.service, ctx->set_cache_service) == 0 &&
 	    ctx->set_cache != NULL) {
-		struct setting_parser_context *parser;
 		if (master_service_settings_cache_read(ctx->set_cache,
 						       &set_input,
-						       &parser, error_r) < 0) {
+						       parser_r, error_r) < 0) {
 			*error_r = t_strdup_printf(
 				"Error reading configuration: %s", *error_r);
 			return -1;
 		}
-		*parser_r = parser;
 	} else {
 		if (master_service_settings_read(ctx->service, &set_input,
 						 &set_output, error_r) < 0) {
@@ -1245,7 +1243,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	const struct mail_user_settings *user_set;
 	const char *const *userdb_fields, *error;
 	struct auth_user_reply reply;
-	const struct setting_parser_context *set_parser;
+	struct setting_parser_context *set_parser;
 	pool_t user_pool, temp_pool;
 	int ret = 1;
 
@@ -1683,7 +1681,7 @@ void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 					const struct mail_storage_service_input *input)
 {
 	const struct mail_user_settings *user_set;
-	const struct setting_parser_context *set_parser;
+	struct setting_parser_context *set_parser;
 	const char *error;
 
 	if (ctx->conn != NULL)

@@ -58,8 +58,8 @@ struct mail_user {
 	   This could be set by plugins that need to fail the initialization. */
 	const char *error;
 
-	const struct setting_parser_context *unexpanded_set_parser;
-	const struct setting_parser_context *set_parser;
+	struct setting_parser_context *unexpanded_set_parser;
+	struct setting_parser_context *set_parser;
 	const struct mail_user_settings *unexpanded_set;
 	struct mail_user_settings *set;
 	struct mail_namespace *namespaces;
@@ -129,11 +129,11 @@ extern const struct var_expand_func_table *mail_user_var_expand_func_table;
 
 struct mail_user *mail_user_alloc(struct event *parent_event,
 				  const char *username,
-				  const struct setting_parser_context *unexpanded_set_parser);
+				  struct setting_parser_context *unexpanded_set_parser);
 struct mail_user *
 mail_user_alloc_nodup_set(struct event *parent_event,
 			  const char *username,
-			  const struct setting_parser_context *set_parser);
+			  struct setting_parser_context *set_parser);
 /* Returns -1 if settings were invalid. */
 int mail_user_init(struct mail_user *user, const char **error_r);
 

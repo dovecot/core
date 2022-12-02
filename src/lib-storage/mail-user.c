@@ -51,7 +51,7 @@ static void mail_user_deinit_pre_base(struct mail_user *user ATTR_UNUSED)
 static struct mail_user *
 mail_user_alloc_int(struct event *parent_event,
 		    const char *username,
-		    const struct setting_parser_context *unexpanded_set_parser,
+		    struct setting_parser_context *unexpanded_set_parser,
 		    pool_t pool)
 {
 	struct mail_user *user;
@@ -86,7 +86,7 @@ mail_user_alloc_int(struct event *parent_event,
 struct mail_user *
 mail_user_alloc_nodup_set(struct event *parent_event,
 			  const char *username,
-			  const struct setting_parser_context *unexpanded_set_parser)
+			  struct setting_parser_context *unexpanded_set_parser)
 {
 	pool_t pool;
 
@@ -97,7 +97,7 @@ mail_user_alloc_nodup_set(struct event *parent_event,
 
 struct mail_user *mail_user_alloc(struct event *parent_event,
 				  const char *username,
-				  const struct setting_parser_context *unexpanded_set_parser)
+				  struct setting_parser_context *unexpanded_set_parser)
 {
 	pool_t pool;
 
