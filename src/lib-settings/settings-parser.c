@@ -257,11 +257,6 @@ void settings_parser_unref(struct setting_parser_context **_ctx)
 	pool_unref(&ctx->parser_pool);
 }
 
-void settings_parser_deinit(struct setting_parser_context **ctx)
-{
-	settings_parser_unref(ctx);
-}
-
 void *settings_parser_get(struct setting_parser_context *ctx)
 {
 	i_assert(ctx->root_count == 1);
