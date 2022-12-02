@@ -21,7 +21,7 @@ enum {
 	TEST_FIELD_YES_FORCED,
 	TEST_FIELD_COUNT,
 };
-static const struct mail_cache_field decision_cache_fields[TEST_FIELD_COUNT] = {
+static const struct mail_cache_field decision_cache_fields[] = {
 	{
 		.name = "no",
 		.type = MAIL_CACHE_FIELD_STRING,
@@ -53,6 +53,7 @@ static const struct mail_cache_field decision_cache_fields[TEST_FIELD_COUNT] = {
 		.decision = MAIL_CACHE_DECISION_YES | MAIL_CACHE_DECISION_FORCED,
 	},
 };
+static_assert_array_size(decision_cache_fields, TEST_FIELD_COUNT);
 
 static void test_mail_cache_fields(void)
 {

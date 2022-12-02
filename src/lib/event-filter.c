@@ -33,6 +33,7 @@ static const struct log_type_map {
 	[LOG_TYPE_FATAL]   = { EVENT_FILTER_LOG_TYPE_FATAL, "fatal" },
 	[LOG_TYPE_PANIC]   = { EVENT_FILTER_LOG_TYPE_PANIC, "panic" },
 };
+static_assert_array_size(event_filter_log_type_map, LOG_TYPE_COUNT);
 
 struct event_filter_query_internal {
 	struct event_filter_node *expr;

@@ -65,6 +65,7 @@ static const char *mailbox_list_path_type_names[] = {
 	"dir", "alt-dir", "mailbox", "alt-mailbox",
 	"control", "index", "index-private", "index-cache", "list-index",
 };
+static_assert_array_size(mailbox_list_path_type_names, MAILBOX_LIST_PATH_TYPE_COUNT);
 
 static void doveadm_mailbox_arg_check(const char *arg)
 {

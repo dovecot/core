@@ -47,7 +47,7 @@ enum cassandra_counter_type {
 
 	CASSANDRA_COUNTER_COUNT
 };
-static const char *counter_names[CASSANDRA_COUNTER_COUNT] = {
+static const char *counter_names[] = {
 	"sent",
 	"recv_ok",
 	"recv_err_no_hosts",
@@ -58,6 +58,7 @@ static const char *counter_names[CASSANDRA_COUNTER_COUNT] = {
 	"recv_err_other",
 	"slow",
 };
+static_assert_array_size(counter_names, CASSANDRA_COUNTER_COUNT);
 
 enum cassandra_query_type {
 	CASSANDRA_QUERY_TYPE_READ,
@@ -68,9 +69,11 @@ enum cassandra_query_type {
 	CASSANDRA_QUERY_TYPE_COUNT
 };
 
-static const char *cassandra_query_type_names[CASSANDRA_QUERY_TYPE_COUNT] = {
+static const char *cassandra_query_type_names[] = {
 	"read", "read-more", "write", "delete"
 };
+static_assert_array_size(cassandra_query_type_names,
+			 CASSANDRA_QUERY_TYPE_COUNT);
 
 struct cassandra_callback {
 	unsigned int id;

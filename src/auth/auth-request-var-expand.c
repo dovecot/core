@@ -11,7 +11,7 @@ struct auth_request_var_expand_ctx {
 };
 
 const struct var_expand_table
-auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT+1] = {
+auth_request_var_expand_static_tab[] = {
 	{ 'u', NULL, "user" },
 	{ 'n', NULL, "username" },
 	{ 'd', NULL, "domain" },
@@ -65,6 +65,8 @@ auth_request_var_expand_static_tab[AUTH_REQUEST_VAR_TAB_COUNT+1] = {
 	/* be sure to update AUTH_REQUEST_VAR_TAB_COUNT */
 	{ '\0', NULL, NULL }
 };
+static_assert_array_size(auth_request_var_expand_static_tab,
+			 AUTH_REQUEST_VAR_TAB_COUNT+1);
 
 static const char *
 escape_none(const char *string,

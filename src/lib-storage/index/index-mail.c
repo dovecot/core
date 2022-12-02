@@ -26,7 +26,7 @@
 #define BODY_SNIPPET_ALGO_V1 "1"
 #define BODY_SNIPPET_MAX_CHARS 200
 
-static struct mail_cache_field global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT] = {
+static struct mail_cache_field global_cache_fields[] = {
 	{ .name = "flags",
 	  .type = MAIL_CACHE_FIELD_BITMASK,
 	  .field_size = sizeof(uint32_t) },
@@ -68,6 +68,7 @@ static struct mail_cache_field global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT]
 	   index-status.c when adding more fields. those fields should probably
 	   just be moved here to the same struct. */
 };
+static_assert_array_size(global_cache_fields, MAIL_INDEX_CACHE_FIELD_COUNT);
 
 static void index_mail_init_data(struct index_mail *mail);
 static int index_mail_parse_body(struct index_mail *mail,

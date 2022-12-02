@@ -12,10 +12,11 @@
 
 #define RANDOMFAIL_ERROR "Random failure injection"
 
-static const char *fs_op_names[FS_OP_COUNT] = {
+static const char *fs_op_names[] = {
 	"wait", "metadata", "prefetch", "read", "write", "lock", "exists",
 	"stat", "copy", "rename", "delete", "iter"
 };
+static_assert_array_size(fs_op_names, FS_OP_COUNT);
 
 struct randomfail_fs {
 	struct fs fs;

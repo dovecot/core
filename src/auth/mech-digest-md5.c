@@ -19,6 +19,7 @@
 #define IS_LWS(c) ((c) == ' ' || (c) == '\t')
 
 static const char *qop_names[] = { "auth", "auth-int", "auth-conf" };
+static_assert_array_size(qop_names, QOP_COUNT);
 
 static string_t *get_digest_challenge(struct digest_auth_request *request)
 {

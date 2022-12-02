@@ -14,9 +14,10 @@
 #include "client.h"
 #include "pop3-proxy.h"
 
-static const char *pop3_proxy_state_names[POP3_PROXY_STATE_COUNT] = {
+static const char *pop3_proxy_state_names[] = {
 	"banner", "starttls", "xclient", "login1", "login2"
 };
+static_assert_array_size(pop3_proxy_state_names, POP3_PROXY_STATE_COUNT);
 
 static int proxy_send_login(struct pop3_client *client, struct ostream *output)
 {

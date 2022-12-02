@@ -17,9 +17,11 @@
 
 #include <ctype.h>
 
-static const char *submission_proxy_state_names[SUBMISSION_PROXY_STATE_COUNT] = {
+static const char *submission_proxy_state_names[] = {
 	"banner", "ehlo", "starttls", "tls-ehlo", "xclient", "xclient-ehlo", "authenticate"
 };
+static_assert_array_size(submission_proxy_state_names,
+			 SUBMISSION_PROXY_STATE_COUNT);
 
 static void
 submission_proxy_success_reply_sent(

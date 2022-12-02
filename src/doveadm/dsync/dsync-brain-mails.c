@@ -8,7 +8,7 @@
 #include "dsync-mailbox-export.h"
 #include "dsync-brain-private.h"
 
-const char *dsync_box_state_names[DSYNC_BOX_STATE_DONE+1] = {
+const char *dsync_box_state_names[] = {
 	"mailbox",
 	"changes",
 	"attributes",
@@ -17,6 +17,7 @@ const char *dsync_box_state_names[DSYNC_BOX_STATE_DONE+1] = {
 	"recv_last_common",
 	"done"
 };
+static_assert_array_size(dsync_box_state_names, DSYNC_BOX_STATE_DONE+1);
 
 static bool dsync_brain_master_sync_recv_mailbox(struct dsync_brain *brain)
 {

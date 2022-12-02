@@ -25,7 +25,7 @@ struct acl_mailbox_list_iterate_context {
 	bool autocreate_acls_checked:1;
 };
 
-static const char *acl_storage_right_names[ACL_STORAGE_RIGHT_COUNT] = {
+static const char *acl_storage_right_names[] = {
 	MAIL_ACL_LOOKUP,
 	MAIL_ACL_READ,
 	MAIL_ACL_WRITE,
@@ -38,6 +38,7 @@ static const char *acl_storage_right_names[ACL_STORAGE_RIGHT_COUNT] = {
 	MAIL_ACL_DELETE,
 	MAIL_ACL_ADMIN
 };
+static_assert_array_size(acl_storage_right_names, ACL_STORAGE_RIGHT_COUNT);
 
 #define ACL_LIST_ITERATE_CONTEXT(obj) \
 	MODULE_CONTEXT_REQUIRE(obj, acl_mailbox_list_module)

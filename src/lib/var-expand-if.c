@@ -34,7 +34,7 @@ enum var_expand_if_op {
 
 static enum var_expand_if_op var_expand_if_str_to_comp(const char *op)
 {
-	const char *ops[OP_COUNT] = {
+	const char *ops[] = {
 		NULL,
 		"==",
 		"<",
@@ -53,6 +53,7 @@ static enum var_expand_if_op var_expand_if_str_to_comp(const char *op)
 		"~",
 		"!~",
 	};
+	static_assert_array_size(ops, OP_COUNT);
 	for(enum var_expand_if_op i = 1; i < OP_COUNT; i++) {
 		i_assert(ops[i] != NULL);
 		if (strcmp(op, ops[i]) == 0)

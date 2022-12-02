@@ -39,6 +39,7 @@ static const char *dsync_state_names[] = {
 	"finish",
 	"done"
 };
+static_assert_array_size(dsync_state_names, DSYNC_STATE_DONE+1);
 
 #define BRAIN_MASTER TRUE
 #define BRAIN_SLAVE  FALSE

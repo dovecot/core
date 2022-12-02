@@ -17,14 +17,19 @@
 #include "imap-quote.h"
 #include "imap-proxy.h"
 
-static const char *imap_proxy_sent_state_names[IMAP_PROXY_SENT_STATE_COUNT] = {
+static const char *imap_proxy_sent_state_names[] = {
 	"id", "starttls", "capability",
 	"authenticate", "auth-continue", "login"
 };
-static const char *imap_proxy_rcvd_state_names[IMAP_PROXY_RCVD_STATE_COUNT] = {
+static_assert_array_size(imap_proxy_sent_state_names,
+			 IMAP_PROXY_SENT_STATE_COUNT);
+
+static const char *imap_proxy_rcvd_state_names[] = {
 	"none", "banner", "id", "starttls", "capability",
 	"auth-continue", "login"
 };
+static_assert_array_size(imap_proxy_rcvd_state_names,
+			 IMAP_PROXY_RCVD_STATE_COUNT);
 
 static void proxy_write_id(struct imap_client *client, string_t *str)
 {
@@ -575,6 +580,7 @@ const char *imap_proxy_get_state(struct client *client)
 		}
 	}
 	str_append_c(str, '/');
+
 	str_append(str, imap_proxy_rcvd_state_names[imap_client->proxy_rcvd_state]);
 	return str_c(str);
 }

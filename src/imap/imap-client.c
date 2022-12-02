@@ -44,7 +44,7 @@ unsigned int imap_client_count = 0;
 unsigned int imap_feature_condstore = UINT_MAX;
 unsigned int imap_feature_qresync = UINT_MAX;
 
-static const char *client_command_state_names[CLIENT_COMMAND_STATE_DONE+1] = {
+static const char *client_command_state_names[] = {
 	"wait-input",
 	"wait-output",
 	"wait-external",
@@ -52,6 +52,8 @@ static const char *client_command_state_names[CLIENT_COMMAND_STATE_DONE+1] = {
 	"wait-sync",
 	"done"
 };
+static_assert_array_size(client_command_state_names,
+			 CLIENT_COMMAND_STATE_DONE+1);
 
 static void client_idle_timeout(struct client *client)
 {
