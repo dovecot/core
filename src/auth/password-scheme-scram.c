@@ -144,7 +144,8 @@ int scram_verify(const struct hash_method *hmethod, const char *scheme_name,
 }
 
 void scram_generate(const struct hash_method *hmethod, const char *plaintext,
-		    const unsigned char **raw_password_r, size_t *size_r)
+		    unsigned int rounds, const unsigned char **raw_password_r,
+		    size_t *size_r)
 {
 	string_t *str;
 	struct hmac_context ctx;
@@ -154,15 +155,21 @@ void scram_generate(const struct hash_method *hmethod, const char *plaintext,
 	unsigned char server_key[hmethod->digest_size];
 	unsigned char stored_key[hmethod->digest_size];
 
+	if (rounds == 0)
+		rounds = SCRAM_DEFAULT_ITERATE_COUNT;
+	else {
+		rounds = I_MAX(I_MIN(SCRAM_MAX_ITERATE_COUNT, rounds),
+			       SCRAM_MIN_ITERATE_COUNT);
+	}
 	random_fill(salt, sizeof(salt));
 
 	str = t_str_new(MAX_BASE64_ENCODED_SIZE(sizeof(salt)));
-	str_printfa(str, "%d,", SCRAM_DEFAULT_ITERATE_COUNT);
+	str_printfa(str, "%d,", rounds);
 	base64_encode(salt, sizeof(salt), str);
 
 	/* FIXME: credentials should be SASLprepped UTF8 data here */
 	Hi(hmethod, (const unsigned char *)plaintext, strlen(plaintext), salt,
-	   sizeof(salt), SCRAM_DEFAULT_ITERATE_COUNT, salted_password);
+	   sizeof(salt), rounds, salted_password);
 
 	/* Calculate ClientKey */
 	hmac_init(&ctx, salted_password, sizeof(salted_password), hmethod);
@@ -201,10 +208,11 @@ int scram_sha1_verify(const char *plaintext,
 }
 
 void scram_sha1_generate(const char *plaintext,
-			 const struct password_generate_params *params ATTR_UNUSED,
+			 const struct password_generate_params *params,
                          const unsigned char **raw_password_r, size_t *size_r)
 {
-	scram_generate(&hash_method_sha1, plaintext, raw_password_r, size_r);
+	scram_generate(&hash_method_sha1, plaintext, params->rounds,
+		       raw_password_r, size_r);
 }
 
 int scram_sha256_verify(const char *plaintext,
@@ -217,8 +225,9 @@ int scram_sha256_verify(const char *plaintext,
 }
 
 void scram_sha256_generate(const char *plaintext,
-			   const struct password_generate_params *params ATTR_UNUSED,
+			   const struct password_generate_params *params,
 			   const unsigned char **raw_password_r, size_t *size_r)
 {
-	scram_generate(&hash_method_sha256, plaintext, raw_password_r, size_r);
+	scram_generate(&hash_method_sha256, plaintext, params->rounds,
+		       raw_password_r, size_r);
 }

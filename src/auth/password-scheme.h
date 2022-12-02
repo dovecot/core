@@ -113,7 +113,8 @@ int scram_verify(const struct hash_method *hmethod, const char *scheme_name,
 		 const char *plaintext, const unsigned char *raw_password,
 		 size_t size, const char **error_r);
 void scram_generate(const struct hash_method *hmethod, const char *plaintext,
-		    const unsigned char **raw_password_r, size_t *size_r);
+		    unsigned int rounds, const unsigned char **raw_password_r,
+		    size_t *size_r);
 
 int scram_sha1_verify(const char *plaintext,
 		      const struct password_generate_params *params ATTR_UNUSED,
