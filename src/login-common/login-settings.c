@@ -169,7 +169,7 @@ login_settings_read(pool_t pool,
 {
 	struct master_service_settings_input input;
 	const char *error;
-	const struct setting_parser_context *parser;
+	struct setting_parser_context *parser;
 	void **sets;
 	unsigned int i, count;
 

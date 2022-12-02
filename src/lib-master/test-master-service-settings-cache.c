@@ -69,7 +69,7 @@ master_service_settings_get(struct master_service *service ATTR_UNUSED)
 
 static void test_master_service_settings_cache_once(void)
 {
-	const struct setting_parser_context *parser;
+	struct setting_parser_context *parser;
 	const char *error;
 
 	output.used_local = output.service_uses_local && i_rand_limit(2) != 0;

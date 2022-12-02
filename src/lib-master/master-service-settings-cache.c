@@ -214,7 +214,7 @@ cache_can_return_global(struct master_service_settings_cache *cache,
 static bool
 cache_find(struct master_service_settings_cache *cache,
 	   const struct master_service_settings_input *input,
-	   const struct setting_parser_context **parser_r)
+	   struct setting_parser_context **parser_r)
 {
 	struct settings_entry *entry = NULL;
 
@@ -358,7 +358,7 @@ cache_add(struct master_service_settings_cache *cache,
 
 int master_service_settings_cache_read(struct master_service_settings_cache *cache,
 				       const struct master_service_settings_input *input,
-				       const struct setting_parser_context **parser_r,
+				       struct setting_parser_context **parser_r,
 				       const char **error_r)
 {
 	struct master_service_settings_output output;
