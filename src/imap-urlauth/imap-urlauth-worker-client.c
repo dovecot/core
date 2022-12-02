@@ -46,8 +46,9 @@ imap_urlauth_worker_client_init(struct client *client)
 	wclient->client = client;
 	wclient->fd_ctrl = -1;
 
-	wclient->event = client->event;
-	
+	wclient->event = event_create(client->event);
+	event_set_append_log_prefix(wclient->event, "worker: ");
+
 	return wclient;
 }
 
@@ -61,6 +62,7 @@ void imap_urlauth_worker_client_deinit(
 	*_wclient = NULL;
 
 	imap_urlauth_worker_client_disconnect(wclient);
+	event_unref(&wclient->event);
 	i_free(wclient);
 }
 
