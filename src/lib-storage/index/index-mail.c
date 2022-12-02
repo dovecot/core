@@ -26,7 +26,7 @@
 #define BODY_SNIPPET_ALGO_V1 "1"
 #define BODY_SNIPPET_MAX_CHARS 200
 
-struct mail_cache_field global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT] = {
+static struct mail_cache_field global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT] = {
 	{ .name = "flags",
 	  .type = MAIL_CACHE_FIELD_BITMASK,
 	  .field_size = sizeof(uint32_t) },
@@ -73,6 +73,11 @@ static void index_mail_init_data(struct index_mail *mail);
 static int index_mail_parse_body(struct index_mail *mail,
 				 enum index_cache_field field);
 static int index_mail_write_body_snippet(struct index_mail *mail);
+
+struct mail_cache_field *index_mail_global_cache_fields_dup(void)
+{
+	return i_memdup(global_cache_fields, sizeof(global_cache_fields));
+}
 
 int index_mail_cache_lookup_field(struct index_mail *mail, buffer_t *buf,
 				  unsigned int field_idx)

@@ -27,8 +27,6 @@ enum index_cache_field {
 
 	MAIL_INDEX_CACHE_FIELD_COUNT
 };
-extern struct mail_cache_field
-	global_cache_fields[MAIL_INDEX_CACHE_FIELD_COUNT];
 
 #define IMAP_BODY_PLAIN_7BIT_ASCII \
 	"\"text\" \"plain\" (\"charset\" \"us-ascii\") NIL NIL \"7bit\""
@@ -163,6 +161,8 @@ struct index_mail {
 };
 
 #define INDEX_MAIL(s)	container_of(s, struct index_mail, mail.mail)
+
+struct mail_cache_field *index_mail_global_cache_fields_dup(void);
 
 struct mail *
 index_mail_alloc(struct mailbox_transaction_context *t,

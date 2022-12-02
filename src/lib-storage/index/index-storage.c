@@ -83,9 +83,7 @@ static void index_cache_register_defaults(struct mailbox *box)
 	const struct mail_storage_settings *set = box->storage->set;
 	struct mail_cache *cache = box->cache;
 
-	ibox->cache_fields = i_malloc(sizeof(global_cache_fields));
-	memcpy(ibox->cache_fields, global_cache_fields,
-	       sizeof(global_cache_fields));
+	ibox->cache_fields = index_mail_global_cache_fields_dup();
 	mail_cache_register_fields(cache, ibox->cache_fields,
 				   MAIL_INDEX_CACHE_FIELD_COUNT);
 
