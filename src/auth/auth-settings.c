@@ -538,6 +538,6 @@ auth_settings_read(const char *service, pool_t pool,
 
 	struct auth_settings *set =
 		settings_parser_get_root_set(set_parser, &auth_setting_parser_info);
-	settings_parser_deinit(&set_parser);
+	settings_parser_unref(&set_parser);
 	return set;
 }

@@ -1493,7 +1493,7 @@ static void master_service_deinit_real(struct master_service **_service)
 		array_free(&service->config_overrides);
 
 	if (service->set_parser != NULL) {
-		settings_parser_deinit(&service->set_parser);
+		settings_parser_unref(&service->set_parser);
 		pool_unref(&service->set_pool);
 	}
 	i_free(master_service_category_name);

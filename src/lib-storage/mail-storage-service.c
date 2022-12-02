@@ -1672,7 +1672,7 @@ void mail_storage_service_user_unref(struct mail_storage_service_user **_user)
 	if (user->master_service_user_set)
 		master_service_set_current_user(master_service, NULL);
 
-	settings_parser_deinit(&user->set_parser);
+	settings_parser_unref(&user->set_parser);
 	event_unref(&user->event);
 	pool_unref(&user->pool);
 }

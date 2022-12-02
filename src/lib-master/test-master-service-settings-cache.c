@@ -119,7 +119,7 @@ int main(void)
 		settings_parser_init(pool, &test_setting_parser_info, 0);
 	master_service = &test_master_service;
 	ret = test_run(test_functions);
-	settings_parser_deinit(&test_master_service.set_parser);
+	settings_parser_unref(&test_master_service.set_parser);
 	pool_unref(&pool);
 	return ret;
 }

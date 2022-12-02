@@ -130,7 +130,7 @@ static void test_settings_parser_get(void)
 	/* check that the setting got expanded */
 	test_assert_strcmp(settings->expand_str, "test value");
 
-	settings_parser_deinit(&ctx);
+	settings_parser_unref(&ctx);
 	pool_unref(&pool);
 	test_end();
 }

@@ -32,7 +32,7 @@ static struct stats_settings *read_settings(const char *settings)
 		i_fatal("Failed to parse settings: %s",
 			error);
 	struct stats_settings *set = settings_parser_get(ctx);
-	settings_parser_deinit(&ctx);
+	settings_parser_unref(&ctx);
 	i_stream_unref(&is);
 	return set;
 }

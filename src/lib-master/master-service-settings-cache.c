@@ -186,13 +186,13 @@ void master_service_settings_cache_deinit(struct master_service_settings_cache *
 	for (entry = cache->oldest; entry != NULL; entry = next) {
 		next = entry->next;
 		i_assert(entry->parser != cache->global_parser);
-		settings_parser_deinit(&entry->parser);
+		settings_parser_unref(&entry->parser);
 		pool_unref(&entry->pool);
 	}
 	hash_table_destroy(&cache->local_name_hash);
 	hash_table_destroy(&cache->local_ip_hash);
 	if (cache->global_parser != NULL)
-		settings_parser_deinit(&cache->global_parser);
+		settings_parser_unref(&cache->global_parser);
 	pool_unref(&cache->pool);
 }
 
@@ -269,7 +269,7 @@ setting_entry_detach(struct master_service_settings_cache *cache,
 		hash_table_remove(cache->local_name_hash, entry->local_name);
 	else if (entry->local_ip.family != 0)
 		hash_table_remove(cache->local_ip_hash, &entry->local_ip);
-	settings_parser_deinit(&entry->parser);
+	settings_parser_unref(&entry->parser);
 }
 
 static struct setting_parser_context *
