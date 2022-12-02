@@ -123,6 +123,7 @@ static void client_read_settings(struct client *client, bool ssl)
 
 	set_parser = settings_parser_dup(set_parser, client->pool);
 	lmtp_settings_get(set_parser, client->pool, &lmtp_set, &lda_set);
+	settings_parser_unref(&set_parser);
 	const struct var_expand_table *tab =
 		mail_storage_service_get_var_expand_table(storage_service, &input);
 	if (settings_var_expand(&lmtp_setting_parser_info, lmtp_set,
