@@ -64,6 +64,7 @@ mail_user_alloc_int(struct event *parent_event,
 	user->refcount = 1;
 	user->username = p_strdup(pool, username);
 	user->unexpanded_set_parser = unexpanded_set_parser;
+	settings_parser_ref(user->unexpanded_set_parser);
 	user->set_parser = settings_parser_dup(unexpanded_set_parser, pool);
 	user->unexpanded_set =
 		settings_parser_get_root_set(unexpanded_set_parser,
@@ -102,9 +103,12 @@ struct mail_user *mail_user_alloc(struct event *parent_event,
 	pool_t pool;
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"mail user", 16*1024);
-	return mail_user_alloc_int(parent_event, username,
-				   settings_parser_dup(unexpanded_set_parser, pool),
-				   pool);
+	struct setting_parser_context *set_parser =
+		settings_parser_dup(unexpanded_set_parser, pool);
+	struct mail_user *user =
+		mail_user_alloc_int(parent_event, username, set_parser, pool);
+	settings_parser_unref(&set_parser);
+	return user;
 }
 
 static void
@@ -233,6 +237,8 @@ void mail_user_unref(struct mail_user **_user)
 		user->v.deinit_pre(user);
 		user->v.deinit(user);
 	} T_END;
+	settings_parser_unref(&user->set_parser);
+	settings_parser_unref(&user->unexpanded_set_parser);
 	event_unref(&user->event);
 	i_assert(user->refcount == 1);
 	pool_unref(&user->pool);
