@@ -63,7 +63,7 @@ struct path_cmd_context {
 
 static const char *mailbox_list_path_type_names[] = {
 	"dir", "alt-dir", "mailbox", "alt-mailbox",
-	"control", "index", "index-private"
+	"control", "index", "index-private", "index-cache", "list-index",
 };
 
 static void doveadm_mailbox_arg_check(const char *arg)
