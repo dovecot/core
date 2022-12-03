@@ -136,6 +136,8 @@ struct dsync_mailbox_importer {
 static const char *dsync_mail_change_type_names[] = {
 	"save", "expunge", "flag-change"
 };
+static_assert_array_size(dsync_mail_change_type_names,
+			 DSYNC_MAIL_CHANGE_TYPE_COUNT);
 
 static bool dsync_mailbox_save_newmails(struct dsync_mailbox_importer *importer,
 					const struct dsync_mail *mail,
@@ -1852,6 +1854,8 @@ int dsync_mailbox_import_change(struct dsync_mailbox_importer *importer,
 		i_assert(importer->last_common_uid_found);
 		dsync_mailbox_import_flag_change(importer, change);
 		break;
+	case DSYNC_MAIL_CHANGE_TYPE_COUNT:
+		i_unreached();
 	}
 	return importer->failed ? -1 : 0;
 }

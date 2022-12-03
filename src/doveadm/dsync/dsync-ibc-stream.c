@@ -1654,6 +1654,8 @@ dsync_ibc_stream_send_change(struct dsync_ibc *_ibc,
 	case DSYNC_MAIL_CHANGE_TYPE_FLAG_CHANGE:
 		type[0] = 'f';
 		break;
+	case DSYNC_MAIL_CHANGE_TYPE_COUNT:
+		i_unreached();
 	}
 	i_assert(type[0] != '\0');
 	dsync_serializer_encode_add(encoder, "type", type);
