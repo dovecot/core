@@ -17,6 +17,7 @@ static const char *imap_notify_event_names[] = {
 	"MailboxName", "SubscriptionChange", "MailboxMetadataChange",
 	"ServerMetadataChange"
 };
+static_assert_array_size(imap_notify_event_names, IMAP_NOTIFY_EVENT_COUNT);
 
 static int
 cmd_notify_parse_event(const struct imap_arg *arg,
