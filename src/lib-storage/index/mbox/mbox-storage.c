@@ -153,6 +153,8 @@ mbox_list_get_path(struct mailbox_list *list, const char *name,
 	case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
 		*path_r = path;
 		break;
+	case MAILBOX_LIST_PATH_TYPE_COUNT:
+		i_unreached();
 	}
 	return 1;
 }

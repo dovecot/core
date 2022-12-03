@@ -159,6 +159,7 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 					_list->set.index_pvt_dir, name);
 		return 1;
 	case MAILBOX_LIST_PATH_TYPE_LIST_INDEX:
+	case MAILBOX_LIST_PATH_TYPE_COUNT:
 		i_unreached();
 	}
 

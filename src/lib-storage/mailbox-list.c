@@ -1488,6 +1488,8 @@ bool mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
 	case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
 		path = set->index_pvt_dir;
 		break;
+	case MAILBOX_LIST_PATH_TYPE_COUNT:
+		i_unreached();
 	}
 	*path_r = path;
 	return path != NULL;

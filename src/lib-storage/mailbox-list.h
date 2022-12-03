@@ -95,6 +95,8 @@ enum mailbox_list_path_type {
 	/* Return mailbox list index directory (usually same as
 	   MAILBOX_LIST_PATH_TYPE_INDEX) */
 	MAILBOX_LIST_PATH_TYPE_LIST_INDEX,
+
+	MAILBOX_LIST_PATH_TYPE_COUNT
 };
 
 enum mailbox_list_file_type {
