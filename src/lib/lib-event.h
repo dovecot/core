@@ -277,6 +277,14 @@ event_set_log_message_callback(struct event *event,
 			const char *(*)(typeof(context), enum log_type, \
 					const char *)))
 
+/* Unsets the event message amendment callback. */
+void event_unset_log_message_callback(struct event *event,
+				      event_log_message_callback_t *callback,
+				      void *context);
+#define event_unset_log_message_callback(event, callback, context) \
+	event_unset_log_message_callback(event, \
+		(event_log_message_callback_t*)callback, context)
+
 /* Disable calling all callbacks for the event and its children. This
    effectively allows the event to be used only for logging, but nothing else
    (no stats or other filters). */
