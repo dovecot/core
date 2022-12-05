@@ -252,6 +252,7 @@ inline static const char *sql_db_table_prefix(struct sql_db *db) {
 
 void sql_transaction_add_query(struct sql_transaction_context *ctx, pool_t pool,
 			       const char *query, unsigned int *affected_rows);
+const char *sql_statement_get_log_query(struct sql_statement *stmt);
 const char *sql_statement_get_query(struct sql_statement *stmt);
 
 void sql_connection_log_finished(struct sql_db *db);

@@ -248,6 +248,11 @@ default_sql_statement_init_prepared(struct sql_prepared_statement *stmt)
 	return sql_statement_init(stmt->db, stmt->query_template);
 }
 
+const char *sql_statement_get_log_query(struct sql_statement *stmt)
+{
+	return sql_statement_get_query(stmt);
+}
+
 const char *sql_statement_get_query(struct sql_statement *stmt)
 {
 	string_t *query = t_str_new(128);
