@@ -684,6 +684,18 @@ event_set_log_message_callback(struct event *event,
 	return event;
 }
 
+#undef event_unset_log_message_callback
+void event_unset_log_message_callback(struct event *event,
+				      event_log_message_callback_t *callback,
+				      void *context)
+{
+	i_assert(event->log_message_callback == callback);
+	i_assert(event->log_message_callback_context == context);
+
+	event->log_message_callback = NULL;
+	event->log_message_callback_context = NULL;
+}
+
 struct event *
 event_set_name(struct event *event, const char *name)
 {

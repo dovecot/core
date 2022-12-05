@@ -277,6 +277,14 @@ event_set_log_message_callback(struct event *event,
 			const char *(*)(typeof(context), enum log_type, \
 					const char *)))
 
+/* Unsets the event message amendment callback. */
+void event_unset_log_message_callback(struct event *event,
+				      event_log_message_callback_t *callback,
+				      void *context);
+#define event_unset_log_message_callback(event, callback, context) \
+	event_unset_log_message_callback(event, \
+		(event_log_message_callback_t*)callback, context)
+
 /* Set the event's name. The name is specific to a single sending of an event,
    and it'll be automatically cleared once the event is sent. This should
    typically be used only in a parameter to e_debug(), etc. */
