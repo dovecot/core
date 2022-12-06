@@ -795,7 +795,12 @@ void mail_cache_add(struct mail_cache_transaction_ctx *ctx, uint32_t seq,
 	   read. */
 	mail_cache_transaction_refresh_decisions(ctx);
 
-	mail_cache_decision_add(ctx->view, seq, field_idx);
+	/* The decision to reject a field may come last minute during actual add,
+	   for example if the header count limit has been reached */
+	bool rejected;
+	mail_cache_decision_add(ctx->view, seq, field_idx, &rejected);
+	if (rejected)
+		return;
 
 	fixed_size = ctx->cache->fields[field_idx].field.field_size;
 	i_assert(fixed_size == UINT_MAX || fixed_size == data_size);

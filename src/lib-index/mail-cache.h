@@ -162,9 +162,10 @@ enum mail_cache_decision_type
 mail_cache_field_get_decision(struct mail_cache *cache, unsigned int field_idx);
 /* Notify the decision handling code when field is committed to cache.
    If this is the first time the field is added to cache, its caching decision
-   is updated to TEMP. */
+   is updated to TEMP. Sets rejected to true if header count limit has been
+   reached and the field has NOT been switched to TEMP */
 void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
-			     unsigned int field);
+			     unsigned int field, bool *rejected_r);
 
 /* Set data_r and size_r to point to wanted field in cache file.
    Returns 1 if field was found, 0 if not, -1 if error. */

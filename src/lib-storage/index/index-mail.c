@@ -95,8 +95,9 @@ int index_mail_cache_lookup_field(struct index_mail *mail, buffer_t *buf,
 	if (_mail->lookup_abort == MAIL_LOOKUP_ABORT_NOT_IN_CACHE_START_CACHING &&
 	    mail_cache_field_get_decision(_mail->box->cache, field_idx) ==
 	    MAIL_CACHE_DECISION_NO) {
+		bool rejected ATTR_UNUSED;
 		mail_cache_decision_add(_mail->transaction->cache_view,
-					_mail->seq, field_idx);
+					_mail->seq, field_idx, &rejected);
 	}
 
 	return ret;

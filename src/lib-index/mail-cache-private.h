@@ -219,6 +219,8 @@ struct mail_cache {
 	   larger parts of it). This is used with MAIL_INDEX_OPEN_FLAG_SAVEONLY
 	   to avoid unnecessary cache reads. */
 	bool map_with_read:1;
+	/* Cache headers count has been capped */
+	bool headers_capped:1;
 };
 
 struct mail_cache_loop_track {
@@ -394,6 +396,8 @@ const char *mail_cache_decision_to_string(enum mail_cache_decision_type dec);
 struct event_passthrough *
 mail_cache_decision_changed_event(struct mail_cache *cache, struct event *event,
 				  unsigned int field);
+
+bool mail_cache_headers_check_capped(struct mail_cache *cache);
 
 struct mail_cache_purge_drop_ctx {
 	struct mail_cache *cache;

@@ -289,6 +289,7 @@ int index_storage_mailbox_alloc_index(struct mailbox *box)
 		.cache = {
 			.unaccessed_field_drop_secs = set->mail_cache_unaccessed_field_drop,
 			.record_max_size = set->mail_cache_record_max_size,
+			.max_headers_count = set->mail_cache_max_headers_count,
 			.max_size = set->mail_cache_max_size,
 			.purge_min_size = set->mail_cache_purge_min_size,
 			.purge_delete_percentage = set->mail_cache_purge_delete_percentage,

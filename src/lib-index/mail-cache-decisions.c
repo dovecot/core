@@ -173,14 +173,52 @@ void mail_cache_decision_state_update(struct mail_cache_view *view,
 	}
 }
 
+static unsigned int mail_cache_count_alive_headers(struct mail_cache *cache)
+{
+	unsigned int count = 0;
+	for (unsigned int index = 0; index < cache->fields_count; ++index) {
+		if (cache->fields[index].field.type == MAIL_CACHE_FIELD_HEADER &&
+		    (cache->fields[index].field.decision &
+		     ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED)) !=
+						MAIL_CACHE_DECISION_NO)
+			++count;
+	}
+	return count;
+}
+
+bool mail_cache_headers_check_capped(struct mail_cache *cache)
+{
+	struct mail_index_cache_optimization_settings *set =
+		&cache->index->optimization_set.cache;
+
+	if (set->max_headers_count == 0) return FALSE;
+	if (cache->headers_capped) return TRUE;
+
+	unsigned int count = mail_cache_count_alive_headers(cache);
+	cache->headers_capped = count >= set->max_headers_count;
+	return cache->headers_capped;
+}
+
+static struct event_passthrough *
+mail_cache_decision_rejected_event(struct mail_cache *cache, unsigned int field,
+				   const char *reason)
+{
+	return event_create_passthrough(cache->event)->
+		set_name("mail_cache_decision_rejected")->
+		add_str("field", cache->fields[field].field.name)->
+		add_str("reason", reason);
+}
+
 void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
-			     unsigned int field)
+			     unsigned int field, bool *rejected_r)
 {
 	struct mail_cache *cache = view->cache;
 	struct mail_cache_field_private *priv;
 	uint32_t uid;
 
 	i_assert(field < cache->fields_count);
+
+	*rejected_r = FALSE;
 
 	if (view->no_decision_updates)
 		return;
@@ -194,8 +232,22 @@ void mail_cache_decision_add(struct mail_cache_view *view, uint32_t seq,
 	}
 
 	/* field used the first time */
-	if (priv->field.decision == MAIL_CACHE_DECISION_NO)
+	if (priv->field.decision == MAIL_CACHE_DECISION_NO) {
+		if (mail_cache_headers_check_capped(view->cache)) {
+			*rejected_r = TRUE;
+
+			const char *reason = "too_many_headers";
+			struct event_passthrough *e =
+				mail_cache_decision_rejected_event(
+					cache, field, reason);
+			e_debug(e->event(),
+				"Cache rejected header '%s': %s",
+				priv->field.name, reason);
+			return;
+		}
+
 		priv->field.decision = MAIL_CACHE_DECISION_TEMP;
+	}
 	priv->field.last_used = ioloop_time;
 	priv->decision_dirty = TRUE;
 	cache->field_header_write_pending = TRUE;

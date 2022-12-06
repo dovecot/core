@@ -78,6 +78,12 @@ mail_cache_field_update(struct mail_cache *cache,
 	   internal fields and for mail_*cache_fields settings? */
 	initial_registering = cache->file_fields_count == 0;
 
+	if (newfield->decision == MAIL_CACHE_DECISION_NO) {
+		/* reset the cached flag, it will be set again anyway on first
+		   access if that is the case */
+		cache->headers_capped = FALSE;
+	}
+
 	orig = &cache->fields[newfield->idx];
 	if ((newfield->decision & MAIL_CACHE_DECISION_FORCED) != 0 ||
 	    ((orig->field.decision & MAIL_CACHE_DECISION_FORCED) == 0 &&
@@ -345,6 +351,10 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 		mail_cache_set_corrupted(cache, "invalid field header size");
 		return -1;
 	}
+
+	/* reset the cached flag, it will be set again anyway on first access if
+	   that is the case */
+	cache->headers_capped = FALSE;
 
 	new_fields_count = field_hdr->fields_count;
 	if (new_fields_count != 0) {
