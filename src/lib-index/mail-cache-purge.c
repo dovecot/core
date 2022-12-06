@@ -675,10 +675,16 @@ void mail_cache_purge_drop_init(struct mail_cache *cache,
 	if (hdr->day_stamp != 0) {
 		const struct mail_index_cache_optimization_settings *opt =
 			&cache->index->optimization_set.cache;
-		ctx_r->max_yes_downgrade_time = hdr->day_stamp -
-			opt->unaccessed_field_drop_secs;
-		ctx_r->max_temp_drop_time = hdr->day_stamp -
-			2 * opt->unaccessed_field_drop_secs;
+		long threshold = opt->unaccessed_field_drop_secs;
+
+		/* While cache max headers count is saturated, shrink the actual
+		   value of this parameter to 1/4, so that the cache can return
+		   quicker to the intended state. */
+		if (mail_cache_headers_check_capped(cache))
+			threshold /= 4;
+
+		ctx_r->max_yes_downgrade_time = hdr->day_stamp - threshold;
+		ctx_r->max_temp_drop_time     = hdr->day_stamp - 2 * threshold;
 	}
 }
 

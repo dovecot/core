@@ -1042,6 +1042,42 @@ static void test_mail_cache_update_need_purge_deleted_records2(void)
 	test_end();
 }
 
+static void test_mail_cache_purge_deadlines(void)
+{
+	static const uint32_t BASE_TIME = 1000;
+	static const uint32_t DROP_SECS =  100;
+
+	struct mail_cache cache;
+	struct mail_index index;
+	struct mail_index_header hdr;
+	struct mail_cache_purge_drop_ctx ctx;
+
+	i_zero(&cache);
+	i_zero(&index);
+	i_zero(&hdr);
+	i_zero(&ctx);
+
+	hdr.day_stamp = BASE_TIME;
+	index.optimization_set.cache.unaccessed_field_drop_secs = DROP_SECS;
+	index.optimization_set.cache.max_headers_count = 1;
+	cache.index = &index;
+
+	test_begin("mail cache purge deadlines");
+
+	mail_cache_purge_drop_init(&cache, &hdr, &ctx);
+	test_assert_cmp(cache.headers_capped, ==, FALSE);
+	test_assert_cmp(ctx.max_yes_downgrade_time, ==, BASE_TIME - DROP_SECS);
+	test_assert_cmp(ctx.max_temp_drop_time, ==, BASE_TIME - DROP_SECS - DROP_SECS);
+
+	cache.headers_capped = TRUE;
+	mail_cache_purge_drop_init(&cache, &hdr, &ctx);
+	test_assert_cmp(cache.headers_capped, ==, TRUE);
+	test_assert_cmp(ctx.max_yes_downgrade_time, ==, BASE_TIME - DROP_SECS/4);
+	test_assert_cmp(ctx.max_temp_drop_time, ==, BASE_TIME - DROP_SECS/4 - DROP_SECS/4);
+
+	test_end();
+}
+
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
@@ -1070,6 +1106,7 @@ int main(void)
 		test_mail_cache_update_need_purge_continued_records2,
 		test_mail_cache_update_need_purge_deleted_records,
 		test_mail_cache_update_need_purge_deleted_records2,
+		test_mail_cache_purge_deadlines,
 		NULL
 	};
 	return test_run(test_functions);
