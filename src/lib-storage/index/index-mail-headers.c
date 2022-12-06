@@ -157,7 +157,8 @@ get_header_field_idx(struct mailbox *box, const char *field)
 	header_field.decision = MAIL_CACHE_DECISION_NO;
 	T_BEGIN {
 		header_field.name = t_strconcat("hdr.", field, NULL);
-		mail_cache_register_fields(box->cache, &header_field, 1);
+		mail_cache_register_fields(box->cache, &header_field, 1,
+					   unsafe_data_stack_pool);
 	} T_END;
 	return header_field.idx;
 }

@@ -23,11 +23,13 @@ static void test_mail_cache_fields_read_write(void)
 	test_begin("mail cache fields read-write");
 
 	test_mail_cache_init(test_mail_index_init(), &ctx);
-	mail_cache_register_fields(ctx.cache, &cache_field, 1);
+	mail_cache_register_fields(ctx.cache, &cache_field, 1,
+				   unsafe_data_stack_pool);
 	test_assert(mail_cache_purge(ctx.cache, (uint32_t)-1, "test") == 0);
 	/* after writing the initial cache file, register another cache field
 	   that doesn't exist in it. */
-	mail_cache_register_fields(ctx.cache, &cache_field2, 1);
+	mail_cache_register_fields(ctx.cache, &cache_field2, 1,
+				   unsafe_data_stack_pool);
 
 	struct mail_cache_field_private *priv =
 		&ctx.cache->fields[cache_field.idx];

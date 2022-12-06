@@ -279,7 +279,8 @@ int mail_cache_decisions_copy(struct mail_cache *src, struct mail_cache *dst)
 		mail_cache_register_get_list(src, pool_datastack_create(), &count);
 	i_assert(fields != NULL || count == 0);
 	if (count > 0)
-		mail_cache_register_fields(dst, fields, count);
+		mail_cache_register_fields(dst, fields, count,
+					   unsafe_data_stack_pool);
 
 	/* Destination cache isn't expected to exist yet, so use purging
 	   to create it. Setting field_header_write_pending also guarantees

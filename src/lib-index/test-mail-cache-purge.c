@@ -707,7 +707,8 @@ static void test_mail_cache_purge_field_changes_int(enum test_drop drop)
 	   by purging (which is called to auto-create the cache). */
 	test_assert(mail_cache_purge(ctx.cache, (uint32_t)-1, "test") == 0);
 	mail_cache_register_fields(ctx.cache, cache_fields,
-				   N_ELEMENTS(cache_fields));
+				   N_ELEMENTS(cache_fields),
+				   unsafe_data_stack_pool);
 
 	trans = mail_index_transaction_begin(ctx.view, 0);
 	cache_view = mail_cache_view_open(ctx.cache, ctx.view);
@@ -891,7 +892,8 @@ static void test_mail_cache_purge_bitmask(void)
 	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
 	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
 	test_assert(mail_cache_purge(ctx.cache, (uint32_t)-1, "test") == 0);
-	mail_cache_register_fields(ctx.cache, &bitmask_field, 1);
+	mail_cache_register_fields(ctx.cache, &bitmask_field, 1,
+				   unsafe_data_stack_pool);
 
 	test_mail_cache_update_day_first_uid7(&ctx, 3);
 

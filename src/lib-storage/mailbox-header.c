@@ -40,7 +40,8 @@ mailbox_header_lookup_init_real(struct mailbox *box,
 		fields[j++] = header_field;
 	}
 	count = j;
-	mail_cache_register_fields(box->cache, fields, count);
+	mail_cache_register_fields(box->cache, fields, count,
+				   unsafe_data_stack_pool);
 
 	pool = pool_alloconly_create("mailbox_header_lookup_ctx", 1024);
 	ctx = p_new(pool, struct mailbox_header_lookup_ctx, 1);

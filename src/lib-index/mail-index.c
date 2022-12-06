@@ -227,6 +227,7 @@ void mail_index_set_optimization_settings(struct mail_index *index,
 	if (set->cache.record_max_size != 0)
 		dest->cache.record_max_size = set->cache.record_max_size;
 
+	dest->cache.max_header_name_length = set->cache.max_header_name_length;
 	dest->cache.max_headers_count = set->cache.max_headers_count;
 }
 

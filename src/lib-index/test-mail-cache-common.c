@@ -35,14 +35,15 @@ void test_mail_cache_init(struct mail_index *index,
 	   by randomizing the registration order. This only works for the 2nd
 	   index that is opened, because the initial cache is always created
 	   with all cache fields in the same order. */
+	pool_t pool = MAIL_CACHE_TRUNCATE_NAME_FAIL;
 	if (i_rand_limit(2) == 0) {
-		mail_cache_register_fields(ctx_r->cache, &ctx_r->cache_field, 1);
-		mail_cache_register_fields(ctx_r->cache, &ctx_r->cache_field2, 1);
-		mail_cache_register_fields(ctx_r->cache, &ctx_r->cache_field3, 1);
+		mail_cache_register_fields(ctx_r->cache, &ctx_r->cache_field, 1, pool);
+		mail_cache_register_fields(ctx_r->cache, &ctx_r->cache_field2, 1, pool);
+		mail_cache_register_fields(ctx_r->cache, &ctx_r->cache_field3, 1, pool);
 	} else {
-		mail_cache_register_fields(ctx_r->cache, &ctx_r->cache_field3, 1);
-		mail_cache_register_fields(ctx_r->cache, &ctx_r->cache_field2, 1);
-		mail_cache_register_fields(ctx_r->cache, &ctx_r->cache_field, 1);
+		mail_cache_register_fields(ctx_r->cache, &ctx_r->cache_field3, 1, pool);
+		mail_cache_register_fields(ctx_r->cache, &ctx_r->cache_field2, 1, pool);
+		mail_cache_register_fields(ctx_r->cache, &ctx_r->cache_field, 1, pool);
 	}
 }
 

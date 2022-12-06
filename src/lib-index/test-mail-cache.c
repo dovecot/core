@@ -108,7 +108,8 @@ static void test_mail_cache_fields(void)
 	test_begin("mail cache uncommitted lookups");
 	test_mail_cache_init(test_mail_index_init(), &ctx);
 	mail_cache_register_fields(ctx.cache, cache_fields,
-				   N_ELEMENTS(cache_fields));
+				   N_ELEMENTS(cache_fields),
+				   unsafe_data_stack_pool);
 
 	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
 
@@ -401,7 +402,8 @@ static void test_mail_cache_add_decisions(void)
 
 	test_mail_cache_init(test_mail_index_init(), &ctx);
 	memcpy(cache_fields, decision_cache_fields, sizeof(cache_fields));
-	mail_cache_register_fields(ctx.cache, cache_fields, TEST_FIELD_COUNT);
+	mail_cache_register_fields(ctx.cache, cache_fields, TEST_FIELD_COUNT,
+				   unsafe_data_stack_pool);
 	for (i = 0; i < TEST_FIELD_COUNT; i++)
 		expected_decisions[i] = cache_fields[i].decision;
 
@@ -478,7 +480,8 @@ static void test_mail_cache_lookup_decisions_int(bool header_lookups)
 
 	/* register fields after the initial purge create the cache */
 	memcpy(cache_fields, decision_cache_fields, sizeof(cache_fields));
-	mail_cache_register_fields(ctx.cache, cache_fields, TEST_FIELD_COUNT);
+	mail_cache_register_fields(ctx.cache, cache_fields, TEST_FIELD_COUNT,
+				   unsafe_data_stack_pool);
 	for (i = 0; i < TEST_FIELD_COUNT; i++) {
 		expected_decisions[i] = cache_fields[i].decision;
 		expected_uid_highwater[i] = 0;
@@ -767,7 +770,8 @@ static void test_mail_cache_duplicate_fields(void)
 	test_begin("mail cache duplicate fields");
 	test_mail_cache_init(test_mail_index_init(), &ctx);
 	mail_cache_register_fields(ctx.cache, cache_fields,
-				   N_ELEMENTS(cache_fields));
+				   N_ELEMENTS(cache_fields),
+				   unsafe_data_stack_pool);
 
 	test_mail_cache_add_mail(&ctx, UINT_MAX, NULL);
 

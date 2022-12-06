@@ -331,6 +331,8 @@ struct mail_index_cache_optimization_settings {
 	/* If cache record becomes larger than this, don't add it. */
 	unsigned int record_max_size;
 
+	/* Maximum length for cacheable headers */
+	unsigned int max_header_name_length;
 	/* Maximum number of headers to cache */
 	unsigned int max_headers_count;
 

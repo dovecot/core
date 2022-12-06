@@ -106,12 +106,33 @@ mail_cache_field_update(struct mail_cache *cache,
 
 void mail_cache_register_fields(struct mail_cache *cache,
 				struct mail_cache_field *fields,
-				unsigned int fields_count)
+				unsigned int fields_count,
+				pool_t fields_modify_pool)
 {
 	char *name;
 	void *value;
 	unsigned int new_idx;
 	unsigned int i, j, registered_count;
+
+	struct mail_index_cache_optimization_settings *set =
+		&cache->index->optimization_set.cache;
+
+	if (set->max_header_name_length > 0) {
+		if (fields_modify_pool == NULL)
+			fields_modify_pool = cache->field_pool;
+
+		unsigned int maxlen = strlen("hdr.") + set->max_header_name_length;
+		for (i = 0; i < fields_count; i++) {
+			if (fields[i].type == MAIL_CACHE_FIELD_HEADER &&
+			    strlen(fields[i].name) > maxlen) {
+				i_assert(fields_modify_pool !=
+					 MAIL_CACHE_TRUNCATE_NAME_FAIL);
+				fields[i].name = p_strndup(
+					fields_modify_pool,
+					fields[i].name, maxlen);
+			}
+		}
+	}
 
 	new_idx = cache->fields_count;
 	for (i = 0; i < fields_count; i++) {
@@ -176,6 +197,16 @@ mail_cache_register_lookup(struct mail_cache *cache, const char *name)
 {
 	char *key;
 	void *value;
+
+	struct mail_index_cache_optimization_settings *set =
+		&cache->index->optimization_set.cache;
+
+	if (set->max_header_name_length > 0) {
+		unsigned int maxlen = strlen("hdr.") + set->max_header_name_length;
+		if (str_begins_icase_with(name, "hdr.") &&
+		    strlen(name) > maxlen)
+			name = t_strndup(name, maxlen);
+	}
 
 	if (hash_table_lookup_full(cache->field_name_hash, name, &key, &value))
 		return POINTER_CAST_TO(value, unsigned int);
@@ -434,7 +465,8 @@ int mail_cache_header_fields_read(struct mail_cache *cache)
 			field.type = types[i];
 			field.field_size = sizes[i];
 			field.decision = file_dec;
-			mail_cache_register_fields(cache, &field, 1);
+			mail_cache_register_fields(cache, &field, 1,
+						   cache->field_pool);
 			fidx = field.idx;
 		}
 		if (cache->field_file_map[fidx] != (uint32_t)-1) {

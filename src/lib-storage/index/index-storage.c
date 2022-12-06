@@ -73,7 +73,8 @@ static void set_cache_decisions(struct mailbox *box,
 		}
 
 		field.decision = dec;
-		mail_cache_register_fields(cache, &field, 1);
+		mail_cache_register_fields(cache, &field, 1,
+					   unsafe_data_stack_pool);
 	}
 }
 
@@ -85,7 +86,8 @@ static void index_cache_register_defaults(struct mailbox *box)
 
 	ibox->cache_fields = index_mail_global_cache_fields_dup();
 	mail_cache_register_fields(cache, ibox->cache_fields,
-				   MAIL_INDEX_CACHE_FIELD_COUNT);
+				   MAIL_INDEX_CACHE_FIELD_COUNT,
+				   MAIL_CACHE_TRUNCATE_NAME_FAIL);
 
 	if (strcmp(set->mail_never_cache_fields, "*") == 0) {
 		/* all caching disabled for now */
@@ -289,6 +291,7 @@ int index_storage_mailbox_alloc_index(struct mailbox *box)
 		.cache = {
 			.unaccessed_field_drop_secs = set->mail_cache_unaccessed_field_drop,
 			.record_max_size = set->mail_cache_record_max_size,
+			.max_header_name_length = set->mail_cache_max_header_name_length,
 			.max_headers_count = set->mail_cache_max_headers_count,
 			.max_size = set->mail_cache_max_size,
 			.purge_min_size = set->mail_cache_purge_min_size,
@@ -518,7 +521,8 @@ index_storage_mailbox_update_cache(struct mailbox *box,
 	if (array_count(&new_fields) > 0) {
 		mail_cache_register_fields(box->cache,
 					   array_front_modifiable(&new_fields),
-					   array_count(&new_fields));
+					   array_count(&new_fields),
+					   unsafe_data_stack_pool);
 	}
 }
 

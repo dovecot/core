@@ -254,7 +254,8 @@ static unsigned int get_cache_idx(struct mail *mail)
 	mbox->cache_field.name = "pop3-migration.hdr";
 	mbox->cache_field.type = MAIL_CACHE_FIELD_FIXED_SIZE;
 	mbox->cache_field.field_size = SHA1_RESULTLEN;
-	mail_cache_register_fields(mail->box->cache, &mbox->cache_field, 1);
+	mail_cache_register_fields(mail->box->cache, &mbox->cache_field, 1,
+				   MAIL_CACHE_TRUNCATE_NAME_FAIL);
 	mbox->cache_field_registered = TRUE;
 	return mbox->cache_field.idx;
 }
