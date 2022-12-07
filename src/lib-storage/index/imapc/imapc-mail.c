@@ -180,7 +180,7 @@ static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 		return 0;
 	}
 
-	if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE) &&
+	if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_SIZE) &&
 	    data->stream == NULL) {
 		/* Trust RFC822.SIZE to be correct enough to present to the
 		   IMAP client. However, it can be wrong in some implementation
@@ -390,7 +390,7 @@ void imapc_mail_update_access_parts(struct index_mail *mail)
 	if ((data->wanted_fields & (MAIL_FETCH_PHYSICAL_SIZE |
 				    MAIL_FETCH_VIRTUAL_SIZE)) != 0) {
 		if (index_mail_get_physical_size(_mail, &size) < 0 &&
-		    !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE))
+		    !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_SIZE))
 			data->access_part |= READ_HDR | READ_BODY;
 	}
 	if ((data->wanted_fields & MAIL_FETCH_GUID) != 0)
@@ -426,7 +426,7 @@ static void imapc_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
 
 	index_mail_set_seq(_mail, seq, saving);
-	if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_RFC822_SIZE)) {
+	if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_SIZE)) {
 		/* RFC822.SIZE may be read from vsize record or cache. It may
 		   not be exactly correct. */
 		mail->data.inexact_total_sizes = TRUE;
