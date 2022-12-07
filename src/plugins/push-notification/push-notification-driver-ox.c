@@ -49,6 +49,8 @@ struct push_notification_driver_ox_config {
 
 	char *cached_ox_metadata;
 	time_t cached_ox_metadata_timestamp;
+
+	bool skip_ssl_verify;
 };
 
 /* This is data specific to an OX driver transaction. */
@@ -74,6 +76,8 @@ push_notification_driver_ox_init_global(
 		http_set.request_timeout_msecs = config->http_timeout_msecs;
 		http_set.event_parent = user->event;
 		mail_user_init_ssl_client_settings(user, &ssl_set);
+		if (config->skip_ssl_verify)
+			ssl_set.verify_remote_cert = FALSE;
 		http_set.ssl = &ssl_set;
 
 		ox_global->http_client = http_client_init(&http_set);
@@ -110,6 +114,9 @@ push_notification_driver_ox_init(struct push_notification_driver_config *config,
 	dconfig->use_unsafe_username =
 		hash_table_lookup(config->config,
 				  (const char *)"user_from_metadata") != NULL;
+	dconfig->skip_ssl_verify =
+		hash_table_lookup(config->config,
+				  (const char*)"skip_ssl_verify") != NULL;
 
 	e_debug(dconfig->event, "Using URL %s", tmp);
 
