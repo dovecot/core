@@ -173,7 +173,7 @@ static bool imapc_build_search_query(struct imapc_mailbox *mbox,
 {
 	string_t *str = t_str_new(128);
 
-	if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_SEARCH)) {
+	if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_SEARCH)) {
 		/* SEARCH command passthrough not enabled */
 		return FALSE;
 	}

@@ -213,7 +213,7 @@ imapc_mail_send_fetch(struct mail *_mail, enum mail_fetch_field fields,
 	unsigned int i;
 
 	i_assert(headers == NULL ||
-		 IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_HEADERS));
+		 !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_FETCH_HEADERS));
 
 	if (!mbox->selected) {
 		mail_storage_set_error(_mail->box->storage,
@@ -359,15 +359,15 @@ imapc_mail_get_wanted_fetch_fields(struct imapc_mail *mail)
 	if ((data->wanted_fields & (MAIL_FETCH_PHYSICAL_SIZE |
 				    MAIL_FETCH_VIRTUAL_SIZE)) != 0 &&
 	    data->physical_size == UOFF_T_MAX &&
-	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_SIZE))
+	    !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_FETCH_SIZE))
 		fields |= MAIL_FETCH_PHYSICAL_SIZE | MAIL_FETCH_VIRTUAL_SIZE;
 	if ((data->wanted_fields & MAIL_FETCH_IMAP_BODY) != 0 &&
 	    data->body == NULL &&
-	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_BODYSTRUCTURE))
+	    !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_FETCH_BODYSTRUCTURE))
 		fields |= MAIL_FETCH_IMAP_BODY;
 	if ((data->wanted_fields & MAIL_FETCH_IMAP_BODYSTRUCTURE) != 0 &&
 	    data->bodystructure == NULL &&
-	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_BODYSTRUCTURE))
+	    !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_FETCH_BODYSTRUCTURE))
 		fields |= MAIL_FETCH_IMAP_BODYSTRUCTURE;
 	if ((data->wanted_fields & MAIL_FETCH_GUID) != 0 &&
 	    data->guid == NULL && mbox->guid_fetch_field_name != NULL)
@@ -411,7 +411,7 @@ bool imapc_mail_prefetch(struct mail *_mail)
 	    (fields & MAIL_FETCH_STREAM_HEADER) == 0 &&
 	    !imapc_mail_has_headers_in_cache(&mail->imail, data->wanted_headers)) {
 		/* fetch specific headers */
-		if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_HEADERS))
+		if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_FETCH_HEADERS))
 			headers = data->wanted_headers->name;
 		else
 			fields |= MAIL_FETCH_STREAM_HEADER;
@@ -590,7 +590,7 @@ void imapc_mail_init_stream(struct imapc_mail *mail)
 			  t_strdup_printf("imapc mail uid=%u", _mail->uid));
 	index_mail_set_read_buffer_size(_mail, imail->data.stream);
 
-	if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_SIZE)) {
+	if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_FETCH_SIZE)) {
 		/* enable filtering only when we're not passing through
 		   RFC822.SIZE. otherwise we'll get size mismatches. */
 		imapc_stream_filter(&imail->data.stream);
@@ -877,13 +877,13 @@ void imapc_mail_fetch_update(struct imapc_mail *mail,
 			}
 			match = TRUE;
 		} else if (strcasecmp(key, "BODY") == 0) {
-			if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_BODYSTRUCTURE)) {
+			if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_FETCH_BODYSTRUCTURE)) {
 				mail->imail.data.body =
 					imapc_args_to_bodystructure(mail, &args[i+1], FALSE);
 			}
 			match = TRUE;
 		} else if (strcasecmp(key, "BODYSTRUCTURE") == 0) {
-			if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_BODYSTRUCTURE)) {
+			if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_FETCH_BODYSTRUCTURE)) {
 				mail->imail.data.bodystructure =
 					imapc_args_to_bodystructure(mail, &args[i+1], TRUE);
 			}
@@ -891,7 +891,7 @@ void imapc_mail_fetch_update(struct imapc_mail *mail,
 		} else if (strcasecmp(key, "RFC822.SIZE") == 0) {
 			if (imap_arg_get_atom(&args[i+1], &value) &&
 			    str_to_uoff(value, &size) == 0 &&
-			    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_SIZE)) {
+			    !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_FETCH_SIZE)) {
 				mail->imail.data.physical_size = size;
 				mail->imail.data.virtual_size = size;
 				mail->imail.data.inexact_total_sizes = TRUE;

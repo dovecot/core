@@ -539,7 +539,7 @@ static bool imap_acl_proxy_cmd(struct mailbox *box,
 	}
 
 	struct imapc_mailbox *mbox = IMAPC_MAILBOX(box);
-	if (!IMAPC_HAS_FEATURE(mbox->storage, IMAPC_FEATURE_ACL)) {
+	if (IMAPC_HAS_FEATURE(mbox->storage, IMAPC_FEATURE_NO_ACL)) {
 		/* Storage is "imapc" but no proxying of ACL commands should
 		   be done. */
 		return FALSE;

@@ -89,23 +89,23 @@ struct imapc_feature_list {
 };
 
 static const struct imapc_feature_list imapc_feature_list[] = {
-	{ "fetch-size", IMAPC_FEATURE_FETCH_SIZE },
+	{ "no-fetch-size", IMAPC_FEATURE_NO_FETCH_SIZE },
 	{ "guid-forced", IMAPC_FEATURE_GUID_FORCED },
-	{ "fetch-headers", IMAPC_FEATURE_FETCH_HEADERS },
+	{ "no-fetch-headers", IMAPC_FEATURE_NO_FETCH_HEADERS },
 	{ "gmail-migration", IMAPC_FEATURE_GMAIL_MIGRATION },
-	{ "search", IMAPC_FEATURE_SEARCH },
+	{ "no-search", IMAPC_FEATURE_NO_SEARCH },
 	{ "zimbra-workarounds", IMAPC_FEATURE_ZIMBRA_WORKAROUNDS },
 	{ "no-examine", IMAPC_FEATURE_NO_EXAMINE },
 	{ "proxyauth", IMAPC_FEATURE_PROXYAUTH },
 	{ "fetch-msn-workarounds", IMAPC_FEATURE_FETCH_MSN_WORKAROUNDS },
 	{ "fetch-fix-broken-mails", IMAPC_FEATURE_FETCH_FIX_BROKEN_MAILS },
-	{ "modseq", IMAPC_FEATURE_MODSEQ },
-	{ "delay-login", IMAPC_FEATURE_DELAY_LOGIN },
-	{ "fetch-bodystructure", IMAPC_FEATURE_FETCH_BODYSTRUCTURE },
+	{ "no-modseq", IMAPC_FEATURE_NO_MODSEQ },
+	{ "no-delay-login", IMAPC_FEATURE_NO_DELAY_LOGIN },
+	{ "no-fetch-bodystructure", IMAPC_FEATURE_NO_FETCH_BODYSTRUCTURE },
 	{ "send-id", IMAPC_FEATURE_SEND_ID },
 	{ "fetch-empty-is-expunged", IMAPC_FEATURE_FETCH_EMPTY_IS_EXPUNGED },
 	{ "no-msn-updates", IMAPC_FEATURE_NO_MSN_UPDATES },
-	{ "acl", IMAPC_FEATURE_ACL },
+	{ "no-acl", IMAPC_FEATURE_NO_ACL },
 	{ NULL, 0 }
 };
 

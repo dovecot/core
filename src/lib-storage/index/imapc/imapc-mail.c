@@ -180,7 +180,7 @@ static int imapc_mail_get_physical_size(struct mail *_mail, uoff_t *size_r)
 		return 0;
 	}
 
-	if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_SIZE) &&
+	if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_FETCH_SIZE) &&
 	    data->stream == NULL) {
 		/* Trust RFC822.SIZE to be correct enough to present to the
 		   IMAP client. However, it can be wrong in some implementation
@@ -238,7 +238,7 @@ imapc_mail_get_header_stream(struct mail *_mail,
 	int ret;
 
 	if (mail->imail.data.access_part != 0 ||
-	    !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_HEADERS)) {
+	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_FETCH_HEADERS)) {
 		/* we're going to be reading the header/body anyway */
 		return index_mail_get_header_stream(_mail, headers, stream_r);
 	}
@@ -390,7 +390,7 @@ void imapc_mail_update_access_parts(struct index_mail *mail)
 	if ((data->wanted_fields & (MAIL_FETCH_PHYSICAL_SIZE |
 				    MAIL_FETCH_VIRTUAL_SIZE)) != 0) {
 		if (index_mail_get_physical_size(_mail, &size) < 0 &&
-		    !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_SIZE))
+		    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_FETCH_SIZE))
 			data->access_part |= READ_HDR | READ_BODY;
 	}
 	if ((data->wanted_fields & MAIL_FETCH_GUID) != 0)
@@ -401,14 +401,14 @@ void imapc_mail_update_access_parts(struct index_mail *mail)
 		(void)index_mail_get_cached_bodystructure(mail, &str);
 
 	if (data->access_part == 0 && data->wanted_headers != NULL &&
-	    !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_HEADERS)) {
+	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_FETCH_HEADERS)) {
 		/* see if all wanted headers exist in cache */
 		if (!imapc_mail_has_headers_in_cache(mail, data->wanted_headers))
 			data->access_part |= PARSE_HDR;
 	}
 	if (data->access_part == 0 &&
 	    (data->wanted_fields & MAIL_FETCH_IMAP_ENVELOPE) != 0 &&
-	    !IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_HEADERS)) {
+	    IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_FETCH_HEADERS)) {
 		/* the common code already checked this partially,
 		   but we need a guaranteed correct answer */
 		header_ctx = mailbox_header_lookup_init(_mail->box,
@@ -426,7 +426,7 @@ static void imapc_mail_set_seq(struct mail *_mail, uint32_t seq, bool saving)
 	struct imapc_mailbox *mbox = (struct imapc_mailbox *)_mail->box;
 
 	index_mail_set_seq(_mail, seq, saving);
-	if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_SIZE)) {
+	if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_FETCH_SIZE)) {
 		/* RFC822.SIZE may be read from vsize record or cache. It may
 		   not be exactly correct. */
 		mail->data.inexact_total_sizes = TRUE;
@@ -602,7 +602,7 @@ imapc_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 					   "GmailId%"PRIx64, num);
 		return 0;
 	case MAIL_FETCH_IMAP_BODY:
-		if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_BODYSTRUCTURE))
+		if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_FETCH_BODYSTRUCTURE))
 			break;
 
 		if (index_mail_get_cached_body(imail, value_r))
@@ -616,7 +616,7 @@ imapc_mail_get_special(struct mail *_mail, enum mail_fetch_field field,
 		*value_r = imail->data.body;
 		return 0;
 	case MAIL_FETCH_IMAP_BODYSTRUCTURE:
-		if (!IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_FETCH_BODYSTRUCTURE))
+		if (IMAPC_BOX_HAS_FEATURE(mbox, IMAPC_FEATURE_NO_FETCH_BODYSTRUCTURE))
 			break;
 
 		if (index_mail_get_cached_bodystructure(imail, value_r))
