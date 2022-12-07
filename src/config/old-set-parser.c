@@ -333,6 +333,30 @@ old_settings_handle_root(struct config_parser_context *ctx,
 					 key, value);
 		return TRUE;
 	}
+	if (strcmp(key, "imapc_features") == 0) {
+		char **args = p_strsplit_spaces(
+			pool_datastack_create(), value, " ");
+		for (char **arg = args; *arg != NULL; arg++) {
+			if (strcmp(*arg, "rfc822.size") == 0 ||
+			    strcmp(*arg, "fetch-headers") == 0 ||
+			    strcmp(*arg, "search") == 0 ||
+			    strcmp(*arg, "modseq") == 0 ||
+			    strcmp(*arg, "delay-login") == 0 ||
+			    strcmp(*arg, "fetch-bodystructure") == 0 ||
+			    strcmp(*arg, "acl") == 0) {
+				obsolete(ctx,
+					 "The imapc feature '%s' is no longer necessary, "
+					 "it is enabled by default.",
+					 *arg);
+				*arg = "";
+			}
+		}
+		value = t_strarray_join((void *)args, " ");
+		config_parser_apply_line(ctx, CONFIG_LINE_TYPE_KEYVALUE, key,
+					 value);
+		return TRUE;
+	}
+
 	return FALSE;
 }
 
