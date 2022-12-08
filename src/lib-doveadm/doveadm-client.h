@@ -38,6 +38,9 @@ struct doveadm_client_settings {
 	/* Port to use for TCP connections. */
 	in_port_t port;
 
+	/* UNIX socket path to connect to for dns lookups. */
+	const char *dns_client_socket_path;
+
 	/* Username and password for authentication */
 	const char *username, *password;
 
