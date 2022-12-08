@@ -650,6 +650,17 @@ static void doveadm_client_connect_init(struct doveadm_client *conn)
 				  conn->set.port);
 }
 
+static int doveadm_client_connect(struct doveadm_client *conn,
+				   const char **error_r)
+{
+	if (connection_client_connect(&conn->conn) < 0) {
+		*error_r = t_strdup_printf("net_connect(%s) failed: %m",
+					   conn->conn.name);
+		return -1;
+	}
+	return 0;
+}
+
 static int
 doveadm_client_resolve_hostname(struct doveadm_client *conn,
 				const char **error_r)
@@ -709,9 +720,7 @@ int doveadm_client_create(const struct doveadm_client_settings *set,
 		return -1;
 	}
 
-	if (connection_client_connect(&conn->conn) < 0) {
-		*error_r = t_strdup_printf(
-			"net_connect(%s) failed: %m", conn->conn.name);
+	if (doveadm_client_connect(conn, error_r) < 0) {
 		connection_deinit(&conn->conn);
 		pool_unref(&pool);
 		return -1;
