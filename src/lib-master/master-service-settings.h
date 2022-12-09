@@ -39,6 +39,7 @@ struct master_service_settings_input {
 	bool preserve_user;
 	bool preserve_home;
 	bool never_exec;
+	bool always_exec;
 	bool use_sysexits;
 	bool parse_full_config;
 

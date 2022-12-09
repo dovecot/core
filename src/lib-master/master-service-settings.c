@@ -315,6 +315,7 @@ master_service_open_config(struct master_service *service,
 
 	if (!service->config_path_from_master &&
 	    !service->config_path_changed_with_param &&
+	    !input->always_exec &&
 	    input->config_path == NULL) {
 		/* first try to connect to the default config socket.
 		   configuration may contain secrets, so in default config
