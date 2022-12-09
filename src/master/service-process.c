@@ -218,6 +218,18 @@ service_dup_fds(struct service *service)
 		i_set_failure_internal();
 	}
 
+	if (service->type == SERVICE_TYPE_LOG) {
+		/* Pass our config fd to the log process, so it won't depend
+		   on config process. Note that we don't want to do this for
+		   other processes, since it prevents config reload. */
+		i_assert(global_config_fd != -1);
+		fd_close_on_exec(global_config_fd, FALSE);
+		if (lseek(global_config_fd, 0, SEEK_SET) < 0)
+			i_fatal("lseek(config fd, 0) failed: %m");
+		dup2_append(&dups, global_config_fd, MASTER_CONFIG_FD);
+		env_put(DOVECOT_CONFIG_FD_ENV, dec2str(MASTER_CONFIG_FD));
+	}
+
 	/* Switch log writing back to stderr before the log fds are closed.
 	   There's no guarantee that writing to stderr is visible anywhere, but
 	   it's better than the process just dying with FATAL_LOGWRITE. */
@@ -270,25 +282,9 @@ drop_privileges(struct service *service)
 
 static void service_process_setup_config_environment(struct service *service)
 {
-	const struct master_service_settings *set = service->list->service_set;
-
 	switch (service->type) {
 	case SERVICE_TYPE_CONFIG:
 		env_put(MASTER_CONFIG_FILE_ENV, service->config_file_path);
-		break;
-	case SERVICE_TYPE_LOG:
-		/* give the log's configuration directly, so it won't depend
-		   on config process */
-		env_put("DOVECONF_ENV", "1");
-		env_put("LOG_PATH", set->log_path);
-		env_put("INFO_LOG_PATH", set->info_log_path);
-		env_put("DEBUG_LOG_PATH", set->debug_log_path);
-		env_put("LOG_TIMESTAMP", set->log_timestamp);
-		env_put("SYSLOG_FACILITY", set->syslog_facility);
-		env_put("INSTANCE_NAME", set->instance_name);
-		if (set->verbose_proctitle)
-			env_put("VERBOSE_PROCTITLE", "1");
-		env_put("SSL", "no");
 		break;
 	default:
 		env_put(MASTER_CONFIG_FILE_ENV,

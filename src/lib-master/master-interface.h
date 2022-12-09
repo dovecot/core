@@ -102,13 +102,15 @@ enum master_login_state {
 /* Pipe to master, used to detect when it dies. (MASTER_STATUS_FD would have
    been fine for this, except it's inefficient in Linux) */
 #define MASTER_DEAD_FD 6
+/* Configuration file descriptor. */
+#define MASTER_CONFIG_FD 7
 /* First file descriptor where process is expected to be listening.
    The file descriptor count is given in -s parameter, defaulting to 1.
 
    master_status.available_count reports how many accept()s we're still
    accepting. Once no children are listening, master will do it and create
    new child processes when needed. */
-#define MASTER_LISTEN_FD_FIRST 7
+#define MASTER_LISTEN_FD_FIRST 8
 
 /* Timeouts: base everything on how long we can wait for login clients. */
 #define MASTER_LOGIN_TIMEOUT_SECS (3*60)

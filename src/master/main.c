@@ -62,6 +62,7 @@ bool have_proc_sys_kernel_core_pattern;
 const char *ssl_manual_key_password;
 int global_master_dead_pipe_fd[2];
 struct log_error_buffer *log_error_buffer;
+int global_config_fd = -1;
 struct service_list *services;
 bool startup_finished = FALSE;
 
@@ -420,12 +421,16 @@ sig_settings_reload(const siginfo_t *si ATTR_UNUSED,
 	input.config_path = services_get_config_socket_path(services);
 	input.never_exec = TRUE;
 	input.reload_config = TRUE;
+	input.return_config_fd = TRUE;
 	if (master_service_settings_read(master_service, &input,
 					 &output, &error) < 0) {
 		i_error("Error reading configuration: %s", error);
 		i_sd_notify(0, "READY=1");
 		return;
 	}
+	i_close_fd(&global_config_fd);
+	global_config_fd = output.config_fd;
+	fd_close_on_exec(global_config_fd, TRUE);
 	set = master_service_settings_get_root_set(master_service,
 						   &master_setting_parser_info);
 
@@ -500,9 +505,12 @@ static struct master_settings *master_settings_read(void)
 	input.roots = set_roots;
 	input.preserve_environment = TRUE;
 	input.always_exec = TRUE;
+	input.return_config_fd = TRUE;
 	if (master_service_settings_read(master_service, &input, &output,
 					 &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
+	global_config_fd = output.config_fd;
+	fd_close_on_exec(global_config_fd, TRUE);
 	return master_service_settings_get_root_set(master_service,
 						    &master_setting_parser_info);
 }
