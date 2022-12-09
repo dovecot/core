@@ -691,6 +691,53 @@ event_match_field(struct event *event, struct event_filter_node *node,
 		}
 		return FALSE;
 	}
+	case EVENT_FIELD_VALUE_TYPE_IP:
+		if (node->op != EVENT_FILTER_OP_CMP_EQ) {
+			/* we only support IP equality comparisons */
+			if (!node->warned_ip_inequality) {
+				const char *name = event->sending_name;
+				/* Use i_warning to prevent event filter recursions. */
+				i_warning("Event filter for IP field '%s' "
+					  "only supports equality operation "
+					  "'=' not '%s'. (event=%s, source=%s:%u)",
+					  wanted_field->key,
+					  event_filter_export_query_expr_op(node->op),
+					  name != NULL ? name : "",
+					  source_filename, source_linenum);
+				node->warned_ip_inequality = TRUE;
+			}
+			return FALSE;
+		}
+		if (wanted_field->value_type == EVENT_FIELD_VALUE_TYPE_IP) {
+			return net_is_in_network(&field->value.ip,
+						 &wanted_field->value.ip,
+						 wanted_field->value.ip_bits);
+		}
+		if (use_strcmp) {
+			/* If the matched value was a number, it was already
+			   matched in the previous branch. So here we have a
+			   non-wildcard IP, which can never be a match to an
+			   IP. */
+			if (!node->warned_type_mismatch) {
+				const char *name = event->sending_name;
+				/* Use i_warning to prevent event filter recursions. */
+				i_warning("Event filter matches IP field "
+					  "'%s' against non-IP value '%s'. "
+					  "(event=%s, source=%s:%u)",
+					  wanted_field->key,
+					  wanted_field->value.str,
+					  name != NULL ? name : "",
+					  source_filename, source_linenum);
+				node->warned_type_mismatch = TRUE;
+			}
+			return FALSE;
+		}
+		bool ret;
+		T_BEGIN {
+			ret = wildcard_match_icase(net_ip2addr(&field->value.ip),
+						   wanted_field->value.str);
+		} T_END;
+		return ret;
 	case EVENT_FIELD_VALUE_TYPE_STRLIST:
 		/* check if the value is (or is not) on the list,
 		   only string matching makes sense here. */

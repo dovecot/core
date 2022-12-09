@@ -340,6 +340,11 @@ stats_metric_find_sub_metric(struct metric *metric,
 			if (sub_metrics->group_value.intmax == value->intmax)
 				return sub_metrics;
 			break;
+		case METRIC_VALUE_TYPE_IP:
+			if (net_ip_compare(&sub_metrics->group_value.ip,
+					   &value->ip))
+				return sub_metrics;
+			break;
 		case METRIC_VALUE_TYPE_BUCKET_INDEX:
 			if (sub_metrics->group_value.intmax == value->intmax)
 				return sub_metrics;
@@ -383,6 +388,10 @@ stats_metric_group_by_discrete(const struct event_field *field,
 		return TRUE;
 	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
 		return FALSE;
+	case EVENT_FIELD_VALUE_TYPE_IP:
+		value_r->type = METRIC_VALUE_TYPE_IP;
+		value_r->ip = field->value.ip;
+		return TRUE;
 	case EVENT_FIELD_VALUE_TYPE_STRLIST:
 		return FALSE;
 	}
@@ -399,6 +408,7 @@ stats_metric_group_by_quantized(const struct event_field *field,
 	switch (field->value_type) {
 	case EVENT_FIELD_VALUE_TYPE_STR:
 	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
+	case EVENT_FIELD_VALUE_TYPE_IP:
 	case EVENT_FIELD_VALUE_TYPE_STRLIST:
 		return FALSE;
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
@@ -433,6 +443,7 @@ stats_metric_group_by_quantized_label(const struct event_field *field,
 	switch (field->value_type) {
 	case EVENT_FIELD_VALUE_TYPE_STR:
 	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
+	case EVENT_FIELD_VALUE_TYPE_IP:
 	case EVENT_FIELD_VALUE_TYPE_STRLIST:
 		i_unreached();
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
@@ -495,6 +506,8 @@ stats_metric_group_by_value_label(const struct event_field *field,
 		return field->value.str;
 	case METRIC_VALUE_TYPE_INT:
 		return dec2str(field->value.intmax);
+	case METRIC_VALUE_TYPE_IP:
+		return net_ip2addr(&field->value.ip);
 	case METRIC_VALUE_TYPE_BUCKET_INDEX:
 		return stats_metric_group_by_get_label(field, group_by, value);
 	}
@@ -526,6 +539,7 @@ stats_metric_get_sub_metric(struct metric *metric,
 	}
 	sub_metric->group_value.type = value->type;
 	sub_metric->group_value.intmax = value->intmax;
+	sub_metric->group_value.ip = value->ip;
 	memcpy(sub_metric->group_value.hash, value->hash, SHA1_RESULTLEN);
 	return sub_metric;
 }
@@ -622,6 +636,7 @@ stats_metric_event_field(struct event *event, const char *fieldname,
 	switch (field->value_type) {
 	case EVENT_FIELD_VALUE_TYPE_STR:
 	case EVENT_FIELD_VALUE_TYPE_STRLIST:
+	case EVENT_FIELD_VALUE_TYPE_IP:
 		break;
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
 		num = field->value.intmax;

@@ -52,6 +52,13 @@ static const char *values_single[] = {
 	"foo.c",
 	"foo.c:123",
 
+	"0",
+	"123",
+	"123*",
+
+	"127.0.0.1",
+	"127.0.0.*",
+
 	/* wildcards */
 	"*foo",
 	"f*o",

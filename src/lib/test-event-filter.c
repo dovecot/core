@@ -693,6 +693,131 @@ static void test_event_filter_numbers(void)
 	test_end();
 }
 
+static struct ip_addr test_addr2ip(const char *addr)
+{
+	struct ip_addr ip;
+	if (net_addr2ip(addr, &ip) < 0)
+		i_unreached();
+	return ip;
+}
+
+static void test_event_filter_ips(void)
+{
+	struct event_filter *filter;
+	const char *error;
+	struct ip_addr ip;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG
+	};
+
+	test_begin("event filter: event ip matching");
+
+	filter = event_filter_create();
+	test_assert(event_filter_parse("ip = 127.0.0.1", filter, &error) == 0);
+
+	struct event *e = event_create(NULL);
+	/* ip match */
+	test_assert(net_addr2ip("127.0.0.1", &ip) == 0);
+	event_add_ip(e, "ip", &ip);
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	/* ip mismatch */
+	test_assert(net_addr2ip("127.0.0.2", &ip) == 0);
+	event_add_ip(e, "ip", &ip);
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	/* string ip match */
+	event_add_str(e, "ip", "127.0.0.1");
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	/* numeric ip mismatch */
+	event_add_int(e, "ip", 2130706433);
+	test_expect_error_string("Event filter matches integer field 'ip' "
+				 "against non-integer value '127.0.0.1'");
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	test_expect_no_more_errors();
+	event_filter_unref(&filter);
+
+	filter = event_filter_create();
+	test_assert(event_filter_parse("ip = 127.0.0.*", filter, &error) == 0);
+	/* wildcard match */
+	test_assert(net_addr2ip("127.0.0.1", &ip) == 0);
+	event_add_ip(e, "ip", &ip);
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	/* wildcard mismatch */
+	test_assert(net_addr2ip("127.0.1.1", &ip) == 0);
+	event_add_ip(e, "ip", &ip);
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	/* wildcard match as string */
+	event_add_str(e, "ip", "127.0.0.3");
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	event_filter_unref(&filter);
+
+	filter = event_filter_create();
+	test_assert(event_filter_parse("ip = \"127.0.0.0/16\"", filter, &error) == 0);
+	/* network mask match */
+	test_assert(net_addr2ip("127.0.255.255", &ip) == 0);
+	event_add_ip(e, "ip", &ip);
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	/* network mask mismatch */
+	test_assert(net_addr2ip("127.1.255.255", &ip) == 0);
+	event_add_ip(e, "ip", &ip);
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	/* network mask mismatch as string */
+	event_add_str(e, "ip", "127.0.123.45");
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	/* network mask match as string */
+	event_add_str(e, "ip", "127.0.0.0/16");
+	test_assert(event_filter_match(filter, e, &failure_ctx));
+	event_filter_unref(&filter);
+
+	filter = event_filter_create();
+	test_assert(event_filter_parse("ip = fish", filter, &error) == 0);
+	event_add_ip(e, "ip", &ip);
+	test_expect_error_string("Event filter matches IP field 'ip' "
+				 "against non-IP value 'fish'");
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	test_expect_no_more_errors();
+	event_filter_unref(&filter);
+
+	const struct {
+		const char *filter;
+		struct ip_addr ip;
+		bool match;
+	} tests[] = {
+		{ "ip = ::1", test_addr2ip("::1"), TRUE },
+		{ "ip = ::2", test_addr2ip("::1"), FALSE },
+
+		{ "ip = \"::1/128\"", test_addr2ip("::1"), TRUE },
+		{ "ip = \"::1/126\"", test_addr2ip("::2"), TRUE },
+		{ "ip = \"::1/126\"", test_addr2ip("::3"), TRUE },
+		{ "ip = \"::1/126\"", test_addr2ip("::4"), FALSE },
+
+		{ "ip = \"2001::/8\"", test_addr2ip("2001::1"), TRUE },
+		{ "ip = \"2001::/8\"", test_addr2ip("20ff:ffff::1"), TRUE },
+		{ "ip = \"2001::/8\"", test_addr2ip("2100::1"), FALSE },
+
+		{ "ip = 2001::1", test_addr2ip("2001::1"), TRUE },
+		{ "ip = \"2001::1\"", test_addr2ip("2001::1"), TRUE },
+		{ "ip = 2001:0:0:0:0:0:0:1", test_addr2ip("2001::1"), TRUE },
+		{ "ip = 2001::1", test_addr2ip("2001::2"), FALSE },
+
+		{ "ip = 2000:1190:c02a:130:a87a:ad7:5b76:3310",
+		  test_addr2ip("2000:1190:c02a:130:a87a:ad7:5b76:3310"), TRUE },
+		{ "ip = 2001:1190:c02a:130:a87a:ad7:5b76:3310",
+		  test_addr2ip("2000:1190:c02a:130:a87a:ad7:5b76:3310"), FALSE },
+
+		{ "ip = \"fe80::1%lo\"", test_addr2ip("fe80::1%lo"), TRUE },
+	};
+	for (unsigned int i = 0; i < N_ELEMENTS(tests); i++) {
+		filter = event_filter_create();
+		test_assert_idx(event_filter_parse(tests[i].filter, filter, &error) == 0, i);
+		event_add_ip(e, "ip", &tests[i].ip);
+		test_assert_idx(event_filter_match(filter, e, &failure_ctx) == tests[i].match, i);
+		event_filter_unref(&filter);
+	}
+
+	event_unref(&e);
+	test_end();
+}
+
 static void test_event_filter_size_values(void)
 {
 	const char *error;
@@ -963,6 +1088,7 @@ void test_event_filter(void)
 	test_event_filter_named_separate_from_str();
 	test_event_filter_duration();
 	test_event_filter_numbers();
+	test_event_filter_ips();
 	test_event_filter_size_values();
 	test_event_filter_interval_values();
 	test_event_filter_ambiguous_units();

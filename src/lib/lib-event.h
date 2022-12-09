@@ -3,6 +3,7 @@
 /* event.h name is probably a bit too generic, so lets avoid using it. */
 
 #include <sys/time.h>
+#include "net.h"
 
 /* Field name for the reason_code string list. */
 #define EVENT_REASON_CODE "reason_code"
@@ -32,6 +33,7 @@ enum event_field_value_type {
 	EVENT_FIELD_VALUE_TYPE_STR,
 	EVENT_FIELD_VALUE_TYPE_INTMAX,
 	EVENT_FIELD_VALUE_TYPE_TIMEVAL,
+	EVENT_FIELD_VALUE_TYPE_IP,
 	EVENT_FIELD_VALUE_TYPE_STRLIST,
 };
 
@@ -42,6 +44,8 @@ struct event_field {
 		const char *str;
 		intmax_t intmax;
 		struct timeval timeval;
+		struct ip_addr ip;
+		unsigned int ip_bits; /* set for event filters */
 		ARRAY_TYPE(const_string) strlist;
 	} value;
 };
@@ -52,6 +56,7 @@ struct event_add_field {
 	const char *value;
 	intmax_t value_intmax;
 	struct timeval value_timeval;
+	struct ip_addr value_ip;
 };
 
 struct event_passthrough {
@@ -85,6 +90,8 @@ struct event_passthrough {
 		(*add_int_nonzero)(const char *key, intmax_t num);
 	struct event_passthrough *
 		(*add_timeval)(const char *key, const struct timeval *tv);
+	struct event_passthrough *
+		(*add_ip)(const char *key, const struct ip_addr *ip);
 
 	struct event_passthrough *
 		(*inc_int)(const char *key, intmax_t num);
@@ -354,6 +361,8 @@ event_inc_int(struct event *event, const char *key, intmax_t num);
 struct event *
 event_add_timeval(struct event *event, const char *key,
 		  const struct timeval *tv);
+struct event *
+event_add_ip(struct event *event, const char *key, const struct ip_addr *ip);
 /* Append new value to list. If the key is not a list, it will
    be cleared first. NULL values are ignored. Duplicate values are ignored. */
 struct event *

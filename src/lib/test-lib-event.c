@@ -8,8 +8,11 @@ static void test_event_fields(void)
 	test_begin("event fields");
 	struct event *event = event_create(NULL);
 	struct event_field *field;
+	struct ip_addr ip = { .family = 0 };
 
 	event_add_str(event, "key", NULL);
+	test_assert(event_find_field_nonrecursive(event, "key") == NULL);
+	event_add_ip(event, "key", &ip);
 	test_assert(event_find_field_nonrecursive(event, "key") == NULL);
 
 	event_add_str(event, "key", "value1");
@@ -33,6 +36,19 @@ static void test_event_fields(void)
 	test_assert(field != NULL && field->value_type == EVENT_FIELD_VALUE_TYPE_TIMEVAL &&
 		    field->value.timeval.tv_sec == tv.tv_sec &&
 		    field->value.timeval.tv_usec == tv.tv_usec);
+
+	if (net_addr2ip("1002::4301:6", &ip) < 0)
+		i_unreached();
+	event_add_ip(event, "key", &ip);
+	field = event_find_field_nonrecursive(event, "key");
+	test_assert(field != NULL && field->value_type == EVENT_FIELD_VALUE_TYPE_IP &&
+		    net_ip_compare(&field->value.ip, &ip));
+
+	ip.family = 0;
+	event_add_ip(event, "key", &ip);
+	field = event_find_field_nonrecursive(event, "key");
+	test_assert(field != NULL && field->value_type == EVENT_FIELD_VALUE_TYPE_STR &&
+		    field->value.str[0] == '\0');
 
 	event_strlist_append(event, "key", "strlist1");
 	field = event_find_field_nonrecursive(event, "key");

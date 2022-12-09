@@ -22,6 +22,7 @@ enum event_code {
 	EVENT_CODE_FIELD_INTMAX		= 'I',
 	EVENT_CODE_FIELD_STR		= 'S',
 	EVENT_CODE_FIELD_TIMEVAL	= 'T',
+	EVENT_CODE_FIELD_IP		= 'P',
 	EVENT_CODE_FIELD_STRLIST	= 'L',
 };
 
@@ -179,6 +180,9 @@ void event_copy_fields(struct event *to, struct event *from)
 			break;
 		case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
 			event_add_timeval(to, fld->key, &fld->value.timeval);
+			break;
+		case EVENT_FIELD_VALUE_TYPE_IP:
+			event_add_ip(to, fld->key, &fld->value.ip);
 			break;
 		case EVENT_FIELD_VALUE_TYPE_STRLIST:
 			values = array_get(&fld->value.strlist, &count);
@@ -1014,6 +1018,8 @@ event_find_field_recursive_str(const struct event *event, const char *key)
 		return t_strdup_printf("%"PRIdTIME_T".%u",
 			field->value.timeval.tv_sec,
 			(unsigned int)field->value.timeval.tv_usec);
+	case EVENT_FIELD_VALUE_TYPE_IP:
+		return net_ip2addr(&field->value.ip);
 	case EVENT_FIELD_VALUE_TYPE_STRLIST: {
 		ARRAY_TYPE(const_string) list;
 		t_array_init(&list, 8);
@@ -1159,6 +1165,25 @@ event_add_timeval(struct event *event, const char *key,
 }
 
 struct event *
+event_add_ip(struct event *event, const char *key, const struct ip_addr *ip)
+{
+	struct event_field *field;
+
+	if (ip->family == 0) {
+		/* ignore nonexistent IP (similar to
+		   event_add_str(value=NULL)) */
+		if (event_find_field_recursive(event, key) != NULL)
+			event_field_clear(event, key);
+		return event;
+	}
+
+	field = event_get_field(event, key, TRUE);
+	field->value_type = EVENT_FIELD_VALUE_TYPE_IP;
+	field->value.ip = *ip;
+	return event;
+}
+
+struct event *
 event_add_fields(struct event *event,
 		 const struct event_add_field *fields)
 {
@@ -1168,6 +1193,8 @@ event_add_fields(struct event *event,
 		else if (fields[i].value_timeval.tv_sec != 0) {
 			event_add_timeval(event, fields[i].key,
 					  &fields[i].value_timeval);
+		} else if (fields[i].value_ip.family != 0) {
+			event_add_ip(event, fields[i].key, &fields[i].value_ip);
 		} else {
 			event_add_int(event, fields[i].key,
 				      fields[i].value_intmax);
@@ -1292,6 +1319,11 @@ event_export_field_value(string_t *dest, const struct event_field *field)
 		str_printfa(dest, "\t%"PRIdTIME_T"\t%u",
 			    field->value.timeval.tv_sec,
 			    (unsigned int)field->value.timeval.tv_usec);
+		break;
+	case EVENT_FIELD_VALUE_TYPE_IP:
+		str_append_c(dest, EVENT_CODE_FIELD_IP);
+		str_append_tabescaped(dest, field->key);
+		str_printfa(dest, "\t%s", net_ip2addr(&field->value.ip));
 		break;
 	case EVENT_FIELD_VALUE_TYPE_STRLIST: {
 		unsigned int count;
@@ -1456,6 +1488,15 @@ event_import_field(struct event *event, enum event_code code, const char *arg,
 		}
 		args++;
 		break;
+	case EVENT_CODE_FIELD_IP:
+		field->value_type = EVENT_FIELD_VALUE_TYPE_IP;
+		if (net_addr2ip(*args, &field->value.ip) < 0) {
+			*error_r = t_strdup_printf(
+				"Invalid field value '%s' IP for '%s'",
+				*args, field->key);
+			return FALSE;
+		}
+		break;
 	case EVENT_CODE_FIELD_STRLIST:
 		if (!event_import_strlist(event, field, &args, error_r))
 			return FALSE;
@@ -1526,7 +1567,8 @@ event_import_arg(struct event *event, const char *const **_args,
 	case EVENT_CODE_FIELD_INTMAX:
 	case EVENT_CODE_FIELD_STR:
 	case EVENT_CODE_FIELD_STRLIST:
-	case EVENT_CODE_FIELD_TIMEVAL: {
+	case EVENT_CODE_FIELD_TIMEVAL:
+	case EVENT_CODE_FIELD_IP: {
 		args++;
 		if (!event_import_field(event, code, arg, &args, error_r))
 			return FALSE;
@@ -1711,6 +1753,13 @@ event_passthrough_add_timeval(const char *key, const struct timeval *tv)
 }
 
 static struct event_passthrough *
+event_passthrough_add_ip(const char *key, const struct ip_addr *ip)
+{
+	event_add_ip(last_passthrough_event(), key, ip);
+	return &event_passthrough_vfuncs;
+}
+
+static struct event_passthrough *
 event_passthrough_inc_int(const char *key, intmax_t num)
 {
 	event_inc_int(last_passthrough_event(), key, num);
@@ -1744,6 +1793,7 @@ struct event_passthrough event_passthrough_vfuncs = {
 	.add_int = event_passthrough_add_int,
 	.add_int_nonzero = event_passthrough_add_int_nonzero,
 	.add_timeval = event_passthrough_add_timeval,
+	.add_ip = event_passthrough_add_ip,
 	.inc_int = event_passthrough_inc_int,
 	.strlist_append = event_passthrough_strlist_append,
 	.strlist_replace = event_passthrough_strlist_replace,

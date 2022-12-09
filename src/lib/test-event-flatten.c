@@ -59,6 +59,10 @@ static void check_event_diff_fields(const struct event_field *got, unsigned int 
 			test_assert(timeval_cmp(&exp[i].value.timeval,
 						&got[i].value.timeval) == 0);
 			break;
+		case EVENT_FIELD_VALUE_TYPE_IP:
+			test_assert(net_ip_compare(&exp[i].value.ip,
+						   &got[i].value.ip));
+			break;
 		case EVENT_FIELD_VALUE_TYPE_STRLIST:
 			got_str = t_array_const_string_join(&got[i].value.strlist, ",");
 			test_assert_strcmp(exp[i].value.str, got_str);

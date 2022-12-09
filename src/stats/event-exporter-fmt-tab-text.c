@@ -47,6 +47,11 @@ static void append_time(string_t *dest, const struct timeval *time,
 	}
 }
 
+static void append_ip(string_t *dest, const struct ip_addr *ip)
+{
+	str_append(dest, net_ip2addr(ip));
+}
+
 static void append_field_str(string_t *dest, const char *str,
 			     const struct metric_export_info *info)
 {
@@ -74,6 +79,9 @@ static void append_field_value(string_t *dest, const struct event_field *field,
 	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
 		append_time(dest, &field->value.timeval,
 			    info->exporter->time_format);
+		break;
+	case EVENT_FIELD_VALUE_TYPE_IP:
+		append_ip(dest, &field->value.ip);
 		break;
 	case EVENT_FIELD_VALUE_TYPE_STRLIST:
 		append_strlist(dest, &field->value.strlist);

@@ -104,6 +104,11 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 			/* Leave a hint that this is in fact a valid number. */
 			node->field.value_type = EVENT_FIELD_VALUE_TYPE_INTMAX;
 			node->type = EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT;
+		} else if (net_parse_range(b, &node->field.value.ip,
+					   &node->field.value.ip_bits) == 0) {
+			/* Leave a hint that this is in fact a valid IP. */
+			node->field.value_type = EVENT_FIELD_VALUE_TYPE_IP;
+			node->type = EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT;
 		} else {
 			/* This field contains no valid number.
 			   Either this is a string that contains a size unit, a

@@ -61,6 +61,7 @@ struct metric_field {
 enum metric_value_type {
 	METRIC_VALUE_TYPE_STR,
 	METRIC_VALUE_TYPE_INT,
+	METRIC_VALUE_TYPE_IP,
 	METRIC_VALUE_TYPE_BUCKET_INDEX,
 };
 
@@ -68,6 +69,7 @@ struct metric_value {
 	enum metric_value_type type;
 	unsigned char hash[SHA1_RESULTLEN];
 	intmax_t intmax;
+	struct ip_addr ip;
 };
 
 struct metric {

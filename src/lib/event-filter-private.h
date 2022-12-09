@@ -88,6 +88,7 @@ struct event_filter_node {
 	bool ambiguous_unit:1;
 	bool warned_ambiguous_unit:1;
 	bool warned_string_inequality:1;
+	bool warned_ip_inequality:1;
 	bool warned_type_mismatch:1;
 	bool warned_timeval_not_implemented:1;
 };
