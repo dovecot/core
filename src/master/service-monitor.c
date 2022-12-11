@@ -641,8 +641,17 @@ service_list_processes_close_listeners(struct service_list *service_list)
 	bool ret = FALSE;
 
 	array_foreach_elem(&service_list->services, service) {
-		if (service_processes_close_listeners(service))
-			ret = TRUE;
+		if (service_processes_close_listeners(service)) {
+			if (service->type != SERVICE_TYPE_LOG)
+				ret = TRUE;
+			else {
+				/* The log process won't stop until we close its
+				   fds later on. Send a SIGQUIT to it anyway
+				   just in case it's stuck for some reason, but
+				   don't wait for it to be processed. This way
+				   there is no unnecessary 1sec wait. */
+			}
+		}
 	}
 	return ret;
 }
