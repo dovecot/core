@@ -4,11 +4,9 @@
 #include "array.h"
 #include "event-filter.h"
 #include "path-util.h"
-#include "istream.h"
+#include "mmap-util.h"
 #include "fdpass.h"
 #include "write-full.h"
-#include "str.h"
-#include "strescape.h"
 #include "syslog-util.h"
 #include "eacces-error.h"
 #include "env-util.h"
@@ -434,80 +432,139 @@ filter_string_parse_protocol(const char *filter_string,
 }
 
 static int
-master_service_settings_read_stream(struct setting_parser_context *parser,
-				    struct event *event, struct istream *input,
-				    struct master_service_settings_output *output_r,
-				    const char **error_r)
+master_service_settings_read_mmap(struct setting_parser_context *parser,
+				  struct event *event,
+				  const unsigned char *mmap_base,
+				  size_t mmap_size,
+				  struct master_service_settings_output *output_r,
+				  const char **error_r)
 {
-	const char *line, *filter_string, *error;
-	unsigned int linenum = 0;
+	/*
+	   DOVECOT-CONFIG <TAB> 1.0 <LF>
+
+	   <64bit big-endian global settings blob size>
+	   [ key <NUL> value <NUL>, ... ]
+
+	   <64bit big-endian filter settings blob size>
+	   filter_string <NUL>
+	   [ key <NUL> value <NUL>, ... ]
+
+	   ... more filters ...
+
+	   Settings are read until the blob size is reached. There is no
+	   padding/alignment. The mmaped data comes from a trusted source
+	   (if we can't trust the config, what can we trust?), so for
+	   performance and simplicity we trust the mmaped data to be properly
+	   NUL-terminated. If it's not, it can cause a segfault. */
 	ARRAY_TYPE(const_string) protocols;
-	bool filter_match = TRUE;
-	int ret;
 
 	t_array_init(&protocols, 8);
 	const struct failure_context failure_ctx = {
 		.type = LOG_TYPE_DEBUG,
 	};
-	while ((line = i_stream_read_next_line(input)) != NULL) {
-		if (*line == '\0') {
-			/* empty line finishes it */
-			if (array_count(&protocols) > 0) {
-				array_append_zero(&protocols);
-				output_r->specific_services =
-					array_front(&protocols);
-			}
-			return 0;
+
+	const char *magic_prefix = "DOVECOT-CONFIG\t";
+	const unsigned int magic_prefix_len = strlen(magic_prefix);
+	const unsigned char *eol = memchr(mmap_base, '\n', mmap_size);
+	if (mmap_size < magic_prefix_len ||
+	    memcmp(magic_prefix, mmap_base, magic_prefix_len) != 0 ||
+	    eol == NULL) {
+		*error_r = "File header doesn't begin with DOVECOT-CONFIG line";
+		return -1;
+	}
+	if (mmap_base[magic_prefix_len] != '1' ||
+	    mmap_base[magic_prefix_len+1] != '.') {
+		*error_r = t_strdup_printf(
+			"Unsupported config file version '%s'",
+			t_strdup_until(mmap_base + magic_prefix_len, eol));
+		return -1;
+	}
+
+	size_t start_offset = eol - mmap_base + 1;
+	uoff_t offset = start_offset;
+	do {
+		/* <blob size> */
+		uint64_t blob_size;
+		if (offset + sizeof(blob_size) > mmap_size) {
+			*error_r = t_strdup_printf(
+				"Config file size too small "
+				"(offset=%zu, file_size=%zu)", offset, mmap_size);
+			return -1;
 		}
-		linenum++;
-		if (str_begins(line, ":FILTER ", &filter_string)) {
+		blob_size = be64_to_cpu_unaligned(mmap_base + offset);
+		if (offset + blob_size > mmap_size) {
+			*error_r = t_strdup_printf(
+				"Settings blob points outside file "
+				"(offset=%zu, blob_size=%"PRIu64", file_size=%zu)",
+				offset, blob_size, mmap_size);
+			return -1;
+		}
+		size_t end_offset = offset + blob_size;
+		offset += sizeof(blob_size);
+
+		/* <filter> */
+		if (offset > start_offset + sizeof(blob_size)) {
+			const char *filter_string =
+				(const char *)mmap_base + offset;
+			offset += strlen(filter_string) + 1;
+			if (offset > end_offset) {
+				*error_r = t_strdup_printf(
+					"Filter points outside blob "
+					"(offset=%zu, end_offset=%zu, file_size=%zu)",
+					offset, end_offset, mmap_size);
+				return -1;
+			}
+
 			struct event_filter *filter = event_filter_create();
+			const char *error;
 			filter_string_parse_protocol(filter_string, &protocols);
 			if (event_filter_parse(filter_string, filter, &error) < 0) {
 				*error_r = t_strdup_printf(
-					"Line %u: Received invalid FILTER %s: %s",
-					linenum, filter_string, error);
-				ret = -1;
-			} else {
-				ret = 0;
-				filter_match = filter_string[0] == '\0' ||
-					event_filter_match(filter, event,
-							   &failure_ctx);
+					"Received invalid filter '%s': %s",
+					filter_string, error);
+				event_filter_unref(&filter);
+				return -1;
 			}
+			bool match = filter_string[0] == '\0' ||
+				event_filter_match(filter, event,
+						   &failure_ctx);
 			event_filter_unref(&filter);
+			if (!match) {
+				/* Filter didn't match. Jump to the next one. */
+				offset = end_offset;
+				continue;
+			}
+		}
+
+		/* list of settings: key, value, ... */
+		while (offset < end_offset) {
+			const char *key = (const char *)mmap_base + offset;
+			offset += strlen(key)+1;
+			const char *value = (const char *)mmap_base + offset;
+			offset += strlen(value)+1;
+			if (offset > end_offset) {
+				*error_r = t_strdup_printf(
+					"Settings key/value points outside blob "
+					"(offset=%zu, end_offset=%zu, file_size=%zu)",
+					offset, end_offset, mmap_size);
+				return -1;
+			}
+			int ret;
+			T_BEGIN {
+				ret = settings_parse_keyvalue(parser, key, value);
+				if (ret < 0)
+					*error_r = t_strdup(settings_parser_get_error(parser));
+			} T_END_PASS_STR_IF(ret < 0, error_r);
 			if (ret < 0)
 				return -1;
-			continue;
 		}
-		if (!filter_match)
-			continue;
+	} while (offset < mmap_size);
 
-		T_BEGIN {
-			line = t_str_tabunescape(line);
-			ret = settings_parse_line(parser, line);
-		} T_END;
-
-		if (ret < 0) {
-			*error_r = t_strdup_printf("Line %u: %s", linenum,
-				settings_parser_get_error(parser));
-			return -1;
-		}
+	if (array_count(&protocols) > 0) {
+		array_append_zero(&protocols);
+		output_r->specific_services = array_front(&protocols);
 	}
-
-	if (input->stream_errno != 0) {
-		*error_r = t_strdup_printf("read(%s) failed: %s",
-					   i_stream_get_name(input),
-					   i_stream_get_error(input));
-	} else if (input->v_offset == 0) {
-		*error_r = t_strdup_printf(
-			"read(%s) returned EOF before receiving any data",
-			i_stream_get_name(input));
-	} else {
-		*error_r = t_strdup_printf(
-			"read(%s) returned EOF before receiving end-of-settings line",
-			i_stream_get_name(input));
-	}
-	return -1;
+	return 0;
 }
 
 int master_service_settings_read(struct master_service *service,
@@ -518,7 +575,6 @@ int master_service_settings_read(struct master_service *service,
 	ARRAY(const struct setting_parser_info *) all_roots;
 	const struct setting_parser_info *tmp_root;
 	struct setting_parser_context *parser;
-	struct istream *istream;
 	const char *path = NULL, *value, *error;
 	unsigned int i;
 	int ret, fd = -1;
@@ -529,8 +585,6 @@ int master_service_settings_read(struct master_service *service,
 	if (service->config_fd != -1 && !input->reload_config) {
 		/* config was already read once */
 		fd = service->config_fd;
-		if (lseek(fd, 0, SEEK_SET) < 0)
-			i_fatal("lseek(config fd) failed: %m");
 		path = "<config fd>";
 	} else if ((value = getenv(DOVECOT_CONFIG_FD_ENV)) != NULL) {
 		/* doveconf -F parameter already executed us back.
@@ -584,20 +638,27 @@ int master_service_settings_read(struct master_service *service,
 			array_front(&all_roots), array_count(&all_roots),
 			SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
 
+	/* fd is unset only if MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS is used */
 	if (fd != -1) {
-		istream = i_stream_create_fd(fd, SIZE_MAX);
-		i_stream_set_name(istream, path);
-		ret = master_service_settings_read_stream(parser, event,
-				istream, output_r, error_r);
-		i_stream_unref(&istream);
+		size_t mmap_size;
+		void *mmap_base = mmap_ro_file(fd, &mmap_size);
+		if (mmap_base == MAP_FAILED)
+			i_fatal("mmap(%s) failed: %m", path);
+		if (mmap_size == 0)
+			i_fatal("%s file size is empty", path);
+
+		ret = master_service_settings_read_mmap(parser, event,
+							mmap_base, mmap_size,
+							output_r, error_r);
+		if (munmap(mmap_base, mmap_size) < 0)
+			i_fatal("munmap(%s) failed: %m", path);
 
 		if (ret < 0) {
 			if (getenv(DOVECOT_CONFIG_FD_ENV) != NULL) {
-				i_fatal("Failed to read config from fd %d: %s",
+				i_fatal("Failed to parse config from fd %d: %s",
 					fd, *error_r);
 			}
 			i_close_fd(&fd);
-			config_exec_fallback(service, input, error_r);
 			settings_parser_unref(&parser);
 			event_unref(&event);
 			return -1;
