@@ -614,7 +614,7 @@ static void services_monitor_wait(struct service_list *service_list)
 		if (finished ||
 		    timeval_diff_msecs(&ioloop_timeval, &tv_start) > MAX_DIE_WAIT_MSECS)
 			break;
-		i_sleep_msecs(100);
+		i_sleep_msecs(10);
 	}
 }
 
