@@ -45,6 +45,8 @@ enum auth_socket_type {
 	AUTH_SOCKET_USERDB,
 	AUTH_SOCKET_TOKEN,
 	AUTH_SOCKET_TOKEN_LOGIN,
+
+	AUTH_SOCKET_TOKEN_COUNT
 };
 
 struct auth_socket_listener {
@@ -53,14 +55,15 @@ struct auth_socket_listener {
 };
 
 static const char *const auth_socket_type_names[] = {
-	[AUTH_SOCKET_UNKNOWN]       = "",
-	[AUTH_SOCKET_AUTH]          = "auth",
-	[AUTH_SOCKET_LOGIN]         = "login",
-	[AUTH_SOCKET_MASTER]        = "master",
-	[AUTH_SOCKET_USERDB]        = "userdb",
-	[AUTH_SOCKET_TOKEN]         = "token",
-	[AUTH_SOCKET_TOKEN_LOGIN]   = "token-login",
+	"",
+	"auth",
+	"login",
+	"master",
+	"userdb",
+	"token",
+	"token-login",
 };
+static_assert_array_size(auth_socket_type_names, AUTH_SOCKET_TOKEN_COUNT);
 
 bool worker = FALSE, worker_restart_request = FALSE;
 time_t process_start_time;
@@ -111,7 +114,7 @@ static enum auth_socket_type auth_socket_type_get(const char *typename)
 	unsigned int i;
 
 	for (i = 0; i < N_ELEMENTS(auth_socket_type_names); i++) {
-		if (null_strcmp(typename, auth_socket_type_names[i]) == 0)
+		if (strcmp(typename, auth_socket_type_names[i]) == 0)
 			return (enum auth_socket_type)i;
 	}
 
