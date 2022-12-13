@@ -559,12 +559,13 @@ event_filter_handle_numeric_operation(enum event_filter_node_op op,
 }
 
 static bool
-event_match_field(struct event *event, const struct event_field *wanted_field,
-		  enum event_filter_node_op op, bool use_strcmp)
+event_match_field(struct event *event, struct event_filter_node *node,
+		  bool use_strcmp)
 {
 	const struct event_field *field;
 	struct event_field duration;
 
+	const struct event_field *wanted_field = &node->field;
 	if (strcmp(wanted_field->key, "duration") == 0) {
 		uintmax_t duration_value;
 		i_zero(&duration);
@@ -584,7 +585,7 @@ event_match_field(struct event *event, const struct event_field *wanted_field,
 
 	switch (field->value_type) {
 	case EVENT_FIELD_VALUE_TYPE_STR:
-		if (op != EVENT_FILTER_OP_CMP_EQ) {
+		if (node->op != EVENT_FILTER_OP_CMP_EQ) {
 			/* we only support string equality comparisons */
 			return FALSE;
 		}
@@ -600,8 +601,8 @@ event_match_field(struct event *event, const struct event_field *wanted_field,
 		if (wanted_field->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX) {
 			/* compare against an integer */
 			return event_filter_handle_numeric_operation(
-				op, field->value.intmax, wanted_field->value.intmax);
-		} else if (op != EVENT_FILTER_OP_CMP_EQ) {
+				node->op, field->value.intmax, wanted_field->value.intmax);
+		} else if (node->op != EVENT_FILTER_OP_CMP_EQ) {
 			/* we only support string equality comparisons */
 			return FALSE;
 		} else if (use_strcmp) {
@@ -620,7 +621,7 @@ event_match_field(struct event *event, const struct event_field *wanted_field,
 	case EVENT_FIELD_VALUE_TYPE_STRLIST:
 		/* check if the value is (or is not) on the list,
 		   only string matching makes sense here. */
-		if (op != EVENT_FILTER_OP_CMP_EQ)
+		if (node->op != EVENT_FILTER_OP_CMP_EQ)
 			return FALSE;
 		return event_match_strlist(event, wanted_field, use_strcmp);
 	}
@@ -656,11 +657,9 @@ event_filter_query_match_cmp(struct event_filter_node *node,
 		case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:
 			return event_has_category(event, node, log_type);
 		case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT:
-			return event_match_field(event, &node->field, node->op,
-						 TRUE);
+			return event_match_field(event, node, TRUE);
 		case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD:
-			return event_match_field(event, &node->field, node->op,
-						 FALSE);
+			return event_match_field(event, node, FALSE);
 	}
 
 	i_unreached();
