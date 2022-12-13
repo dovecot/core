@@ -883,14 +883,15 @@ const char *connection_disconnect_reason(struct connection *conn)
 	case CONNECTION_DISCONNECT_CONNECT_TIMEOUT: {
 		unsigned int msecs =
 			conn->list->set.client_connect_timeout_msecs;
-		return t_strdup_printf("connect() timed out in %u.%03u secs",
-				       msecs/1000, msecs%1000);
+		return t_strdup_printf("connect(%s) timed out in %u.%03u secs",
+				       conn->name, msecs/1000, msecs%1000);
 	}
 	case CONNECTION_DISCONNECT_IDLE_TIMEOUT:
 		return "Idle timeout";
 	case CONNECTION_DISCONNECT_CONN_CLOSED:
 		if (conn->input == NULL)
-			return t_strdup_printf("connect() failed: %m");
+			return t_strdup_printf("connect(%s) failed: %m",
+						conn->name);
 		/* fall through */
 	case CONNECTION_DISCONNECT_NOT:
 	case CONNECTION_DISCONNECT_BUFFER_FULL:
@@ -917,8 +918,8 @@ const char *connection_input_timeout_reason(struct connection *conn)
 	} else {
 		int diff = timeval_diff_msecs(&ioloop_timeval,
 					      &conn->connect_started);
-		return t_strdup_printf("connect() timed out after %u.%03u secs",
-				       diff/1000, diff%1000);
+		return t_strdup_printf("connect(%s) timed out after %u.%03u secs",
+				       conn->name, diff/1000, diff%1000);
 	}
 }
 
