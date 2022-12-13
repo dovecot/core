@@ -18,7 +18,7 @@
   #define __has_extension(x) 0  // Compatibility with non-clang compilers.
 #endif
 
-#ifndef static_assert /* C23 */
+#if !defined(static_assert) /* C23 */ && !defined(__cplusplus)
 #  define static_assert _Static_assert
 #endif
 
