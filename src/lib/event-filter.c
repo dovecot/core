@@ -562,7 +562,8 @@ event_filter_handle_numeric_operation(enum event_filter_node_op op,
 
 static bool
 event_match_field(struct event *event, struct event_filter_node *node,
-		  bool use_strcmp)
+		  bool use_strcmp, const char *source_filename,
+		  unsigned int source_linenum)
 {
 	const struct event_field *field;
 	struct event_field duration;
@@ -607,10 +608,11 @@ event_match_field(struct event *event, struct event_filter_node *node,
 				/* Use i_warning to prevent event filter recursions. */
 				i_warning("Event filter matches integer field "
 					  "'%s' against non-integer value '%s'. "
-					  "(event=%s)",
+					  "(event=%s, source=%s:%u)",
 					  wanted_field->key,
 					  wanted_field->value.str,
-					  name != NULL ? name : "");
+					  name != NULL ? name : "",
+					  source_filename, source_linenum);
 				node->warned_type_mismatch = TRUE;
 			}
 			return FALSE;
@@ -673,10 +675,10 @@ event_filter_query_match_cmp(struct event_filter_node *node,
 		case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:
 			return event_has_category(event, node, log_type);
 		case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT:
-			return event_match_field(event, node, TRUE);
+			return event_match_field(event, node, TRUE, source_filename, source_linenum);
 		case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD:
 		case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_NUMERIC_WILDCARD:
-			return event_match_field(event, node, FALSE);
+			return event_match_field(event, node, FALSE, source_filename, source_linenum);
 	}
 
 	i_unreached();
