@@ -15,6 +15,7 @@
 #include "auth-request.h"
 #include "userdb-template.h"
 #include "auth-worker-server.h"
+#include "db-oauth2.h"
 
 
 #define AUTH_WORKER_WARN_DISCONNECTED_LONG_CMD_SECS 30
@@ -33,6 +34,7 @@ struct auth_worker_server {
 
 	struct auth *auth;
 	struct event *event;
+	struct db_oauth2 *oauth2;
 	time_t cmd_start;
 
 	bool error_sent:1;
@@ -154,6 +156,7 @@ bool auth_worker_auth_request_new(struct auth_worker_command *cmd, unsigned int 
 	if (auth_request->fields.user == NULL ||
 	    auth_request->fields.protocol == NULL) {
 		auth_request_unref(&auth_request);
+		e_debug(cmd->event, "Invalid auth request: Missing user or service");
 		return FALSE;
 	}
 
@@ -762,6 +765,81 @@ static bool auth_worker_verify_db_hash(const char *passdb_hash, const char *user
 	return strcmp(str_c(str), userdb_hash) == 0;
 };
 
+static void auth_worker_handle_token_continue(struct db_oauth2_request *db_request,
+					      enum passdb_result result,
+					      const char *error,
+					      struct auth_request *auth_request)
+{
+	struct auth_worker_command *cmd = auth_request->context;
+	struct auth_worker_server *server = cmd->server;
+
+	/* send result */
+	string_t *str = t_str_new(128);
+	str_printfa(str, "%u\t", auth_request->id);
+
+	if (result != PASSDB_RESULT_OK && result != PASSDB_RESULT_NEXT)
+		str_printfa(str, "FAIL\t%d", result);
+	else {
+		str_printfa(str, "OK\t%d\t%s\t", result, db_request->username);
+		auth_request_set_field(auth_request, "token", db_request->token, "PLAIN");
+		reply_append_extra_fields(str, auth_request);
+	}
+	str_append_c(str, '\n');
+	auth_worker_send_reply(server, auth_request, str);
+	connection_input_resume(&cmd->server->conn);
+	auth_request_unref(&auth_request);
+	pool_unref(&db_request->pool);
+	if (error != NULL)
+		error = t_strconcat("oauth2 failed: ", error, NULL);
+	auth_worker_request_finished(cmd, error);
+}
+
+static bool
+auth_worker_handler_oauth2_token(struct auth_worker_command *cmd, unsigned int id,
+				 const char *const *args, const char **error_r)
+{
+	if (cmd->server->oauth2 == NULL) {
+		*error_r = "BUG: oauth2 not available";
+		return FALSE;
+	}
+
+	const char *token = *args;
+	pool_t pool = pool_alloconly_create(MEMPOOL_GROWING"oauth2 request", 256);
+	struct db_oauth2_request *db_req =
+		p_new(pool, struct db_oauth2_request, 1);
+	db_req->pool = pool;
+
+	if (!auth_worker_auth_request_new(cmd, id, args + 1, &db_req->auth_request)) {
+		*error_r = "BUG: Auth server sent us invalid TOKEN request";
+		pool_unref(&pool);
+		return FALSE;
+	}
+	connection_input_halt(&cmd->server->conn);
+
+	db_oauth2_lookup(cmd->server->oauth2, db_req, token, db_req->auth_request,
+			 auth_worker_handle_token_continue, db_req->auth_request);
+	return TRUE;
+}
+
+static bool
+auth_worker_handle_token(struct auth_worker_command *cmd, unsigned int id,
+			 const char *const *args, const char **error_r)
+{
+	if (args[0] == NULL) {
+		*error_r = "Invalid TOKEN request";
+		return FALSE;
+	}
+
+	if (strcmp(args[0], "OAUTH2") == 0)
+		return auth_worker_handler_oauth2_token(cmd, id, args + 1, error_r);
+	else {
+		*error_r =
+			t_strdup_printf("Invalid TOKEN request: Unsupported token type '%s'",
+					args[0]);
+	}
+	return FALSE;
+}
+
 static int auth_worker_server_handshake_args(struct connection *conn, const char *const *args)
 {
 	if (!conn->version_received) {
@@ -837,6 +915,8 @@ auth_worker_server_input_args(struct connection *conn, const char *const *args)
 		ret = auth_worker_handle_user(cmd, id, args + 2, &error);
 	else if (strcmp(args[1], "LIST") == 0)
 		ret = auth_worker_handle_list(cmd, id, args + 2, &error);
+	else if (strcmp(args[1], "TOKEN") == 0)
+		ret = auth_worker_handle_token(cmd, id, args + 2, &error);
 	else {
 		error = t_strdup_printf("BUG: Auth-worker received unknown command: %s",
 			args[1]);
@@ -942,6 +1022,8 @@ auth_worker_server_create(struct auth *auth,
 
 	auth_worker_refresh_proctitle(WORKER_STATE_HANDSHAKE);
 
+	if (*auth->protocol_set->oauth2_config_file != '\0')
+		server->oauth2 = db_oauth2_init(auth->protocol_set->oauth2_config_file);
 	if (auth_worker_server_error)
 		auth_worker_server_send_error();
 	return server;
