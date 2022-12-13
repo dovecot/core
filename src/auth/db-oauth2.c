@@ -68,6 +68,7 @@ struct passdb_oauth2_settings {
 	/* Should we send service and local/remote endpoints as X-Dovecot-Auth headers */
 	bool send_auth_headers;
 	bool use_grant_password;
+	bool blocking;
 };
 
 struct db_oauth2 {
@@ -113,7 +114,7 @@ static struct setting_def setting_defs[] = {
 	DEF_STR(openid_configuration_url),
 	DEF_BOOL(send_auth_headers),
 	DEF_BOOL(use_grant_password),
-
+	DEF_BOOL(blocking),
 	DEF_BOOL(debug),
 
 	{ 0, NULL, 0 }
@@ -138,8 +139,13 @@ static struct passdb_oauth2_settings default_oauth2_settings = {
 	.local_validation_key_dict = "",
 	.send_auth_headers = FALSE,
 	.use_grant_password = FALSE,
+	.blocking = TRUE,
 	.debug = FALSE,
 };
+
+static void db_oauth2_callback(struct db_oauth2_request *req,
+			       enum passdb_result result,
+			       const char *error_prefix, const char *error);
 
 static const char *parse_setting(const char *key, const char *value,
 				 struct db_oauth2 *db)
@@ -263,9 +269,16 @@ static void db_oauth2_free(struct db_oauth2 **_db)
 	i_assert(ptr != NULL && ptr == db);
 
 	/* make sure all requests are aborted */
-	while (db->head != NULL)
-		oauth2_request_abort(&db->head->req);
-
+	while (db->head != NULL) {
+		if (db->head->req != NULL)
+			oauth2_request_abort(&db->head->req);
+		else {
+			struct db_oauth2_request *req = db->head;
+			DLLIST_REMOVE(&db->head, req);
+			db_oauth2_callback(req, PASSDB_RESULT_INTERNAL_FAILURE,
+					   "", "aborted");
+		}
+	}
 	http_client_deinit(&db->client);
 	if (db->oauth2_set.key_dict != NULL)
 		dict_deinit(&db->oauth2_set.key_dict);
@@ -823,6 +836,11 @@ void db_oauth2_lookup(struct db_oauth2 *db, struct db_oauth2_request *req,
 bool db_oauth2_uses_password_grant(const struct db_oauth2 *db)
 {
 	return db->set.use_grant_password;
+}
+
+bool db_oauth2_is_blocking(const struct db_oauth2 *db)
+{
+	return db->set.blocking;
 }
 
 void db_oauth2_deinit(void)

@@ -47,6 +47,7 @@ verify_plain_continue_mock_callback(struct auth_request *request,
 {
 	request->passdb_success = TRUE;
 	callback(PASSDB_RESULT_OK, request);
+	io_loop_stop(current_ioloop);
 }
 
 static void
@@ -102,7 +103,6 @@ static void test_mech_prepare_request(struct auth_request **request_r,
 	handler->refcount = 1;
 
 	request->failure_nodelay = TRUE;
-	auth_request_ref(request);
 	auth_request_state_count[AUTH_REQUEST_STATE_NEW] = 1;
 
 	if (test_case->set_username_before_test || test_case->set_cert_username)
@@ -333,14 +333,13 @@ static void test_mechs(void)
 		else
 			test_assert_idx(request->failed == TRUE, running_test);
 
-		event_unref(&request->event);
-		event_unref(&request->mech_event);
 		i_free(input_dup);
-		mech->auth_free(request);
+		auth_request_unref(&request);
 
 		test_end();
 	} T_END;
 
+	test_expect_error_string("Token verification failed: aborted");
 	test_auth_deinit();
 }
 
