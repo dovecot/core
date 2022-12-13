@@ -33,6 +33,7 @@ struct db_oauth2_request {
 struct db_oauth2 *db_oauth2_init(const char *config_path);
 
 bool db_oauth2_uses_password_grant(const struct db_oauth2 *db);
+bool db_oauth2_is_blocking(const struct db_oauth2 *db);
 
 const char *db_oauth2_get_openid_configuration_url(const struct db_oauth2 *db);
 

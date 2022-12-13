@@ -1,6 +1,7 @@
 /* Copyright (c) 2024 Dovecot authors, see the included COPYING file */
 
 #include "test-auth.h"
+#include "ostream.h"
 #include "auth-common.h"
 #include "settings-parser.h"
 #include "auth-settings.h"
@@ -18,10 +19,19 @@
 struct auth_settings test_auth_set;
 static struct mechanisms_register *mech_reg;
 
+#define TEST_OAUTH2_CONFIG_FILE "test-oauth2-config"
+
 void test_auth_init(void)
 {
 	const char *const protocols[] = {NULL};
 	process_start_time = time(NULL);
+
+	/* create oauth2 config file */
+	struct ostream *os =
+		o_stream_create_file(TEST_OAUTH2_CONFIG_FILE, 0, 0600, 0);
+	o_stream_nsend_str(os, "tokeninfo_url = http://localhost\nclient_id=foo\nblocking=no\n");
+	test_assert(o_stream_finish(os) == 1);
+	o_stream_unref(&os);
 
 	/* Copy default settings */
 	test_auth_set = *(const struct auth_settings *)auth_setting_parser_info.defaults;
@@ -51,6 +61,8 @@ void test_auth_init(void)
 	test_auth_set.realms_arr = t_strsplit_spaces("example.com ", " ");
 	/* For tests of mech-anonymous. */
 	test_auth_set.anonymous_username = "anonuser";
+	/* For oauth2 tests */
+	test_auth_set.oauth2_config_file = TEST_OAUTH2_CONFIG_FILE;
 
 	mech_init(global_auth_settings);
 	mech_reg = mech_register_init(global_auth_settings);
@@ -71,6 +83,7 @@ void test_auth_deinit(void)
 {
 	auth_penalty_deinit(&auth_penalty);
 	mech_otp_deinit();
+	db_oauth2_deinit();
 	auths_deinit();
 	auth_token_deinit();
 	password_schemes_deinit();
@@ -83,4 +96,5 @@ void test_auth_deinit(void)
 	auths_free();
 	pool_unref(&test_auth_set.pool);
 	i_unlink_if_exists("auth-token-secret.dat");
+	i_unlink_if_exists(TEST_OAUTH2_CONFIG_FILE);
 }

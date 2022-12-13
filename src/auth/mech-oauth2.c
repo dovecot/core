@@ -1,7 +1,10 @@
 /* Copyright (c) 2017-2018 Dovecot authors, see the included COPYING file */
 
 #include "auth-common.h"
+#include "auth-fields.h"
+#include "auth-worker-connection.h"
 #include "str.h"
+#include "strescape.h"
 #include "json-generator.h"
 #include "mech.h"
 #include "passdb.h"
@@ -103,29 +106,94 @@ oauth2_verify_callback(enum passdb_result result,
 }
 
 static void
-mech_oauth2_verify_token_continue(struct db_oauth2_request *db_request,
-				  enum passdb_result result,
-				  const char *error,
-				  struct oauth2_auth_request *oauth2_req)
+mech_oauth2_verify_token_continue(struct oauth2_auth_request *oauth2_req,
+				  const char *const *args)
 {
-	struct auth_request *auth_request = &oauth2_req->auth;
-	if (result != PASSDB_RESULT_OK) {
-		e_error(auth_request->mech_event, "%s", error);
-		oauth2_verify_callback(result, NULL, 0, auth_request);
+	struct auth_request *request = &oauth2_req->auth;
+	int parsed;
+	enum passdb_result result;
+
+	/* OK result user fields */
+	if (args[0] == NULL || args[1] == NULL) {
+		result = PASSDB_RESULT_INTERNAL_FAILURE;
+		e_error(request->mech_event, "BUG: Invalid auth worker response: empty");
+	} else if (str_to_int(args[1], &parsed) < 0) {
+		result = PASSDB_RESULT_INTERNAL_FAILURE;
+		e_error(request->mech_event, "BUG: Invalid auth worker response: cannot parse '%s'", args[1]);
+	} else if (args[2] == NULL) {
+		result = PASSDB_RESULT_INTERNAL_FAILURE;
+		e_error(request->mech_event, "BUG: Invalid auth worker response: cannot parse '%s'", args[1]);
+	} else {
+		result = parsed;
+	}
+
+	if (result == PASSDB_RESULT_OK) {
+		request->passdb_success = TRUE;
+		auth_request_set_password_verified(request);
+		auth_request_set_fields(request, args + 3, NULL);
+		auth_request_lookup_credentials(request, "", oauth2_verify_callback);
+		auth_request_unref(&request);
 		return;
 	}
-	db_request->auth_request->passdb_success = TRUE;
 
-	auth_request_set_field(auth_request, "token", db_request->token, NULL);
-	auth_request_lookup_credentials(auth_request, "", oauth2_verify_callback);
+	oauth2_verify_callback(result, uchar_empty_ptr, 0, request);
+	auth_request_unref(&request);
+}
+
+static bool
+mech_oauth2_verify_token_input_args(struct auth_worker_connection *conn ATTR_UNUSED,
+				     const char *const *args, void *context)
+{
+	struct oauth2_auth_request *oauth2_req = context;
+	mech_oauth2_verify_token_continue(oauth2_req, args);
+	return TRUE;
+}
+
+static void
+mech_oauth2_verify_token_local_continue(struct db_oauth2_request *db_req,
+					enum passdb_result result,
+					const char *error,
+					struct oauth2_auth_request *oauth2_req)
+{
+	struct auth_request *request = &oauth2_req->auth;
+	if (result == PASSDB_RESULT_OK) {
+		auth_request_set_password_verified(request);
+		auth_request_set_field(request, "token", db_req->token, NULL);
+		auth_request_lookup_credentials(request, "", oauth2_verify_callback);
+		auth_request_unref(&request);
+		pool_unref(&db_req->pool);
+		return;
+	} else {
+		e_error(request->mech_event, "Token verification failed: %s", error);
+	}
+	oauth2_verify_callback(result, uchar_empty_ptr, 0, request);
+	auth_request_unref(&request);
+	pool_unref(&db_req->pool);
 }
 
 static void
 mech_oauth2_verify_token(struct oauth2_auth_request *oauth2_req, const char *token)
 {
-	/* decode token */
-	db_oauth2_lookup(oauth2_req->db, &oauth2_req->db_req, token, &oauth2_req->auth,
-			 mech_oauth2_verify_token_continue, oauth2_req);
+	struct auth_request *auth_request = &oauth2_req->auth;
+	auth_request_ref(auth_request);
+
+	if (!db_oauth2_is_blocking(oauth2_req->db)) {
+		pool_t pool = pool_alloconly_create(MEMPOOL_GROWING"oauth2 request", 256);
+		struct db_oauth2_request *db_req =
+			p_new(pool, struct db_oauth2_request, 1);
+		db_req->pool = pool;
+		db_req->auth_request = auth_request;
+		db_oauth2_lookup(oauth2_req->db, db_req, token, db_req->auth_request,
+				 mech_oauth2_verify_token_local_continue, oauth2_req);
+	} else {
+		string_t *str = t_str_new(128);
+		str_append(str, "TOKEN\tOAUTH2\t");
+		str_append_tabescaped(str, token);
+		str_append_c(str, '\t');
+		auth_request_export(auth_request, str);
+		auth_worker_call(oauth2_req->db_req.pool, auth_request->fields.user,
+				 str_c(str), mech_oauth2_verify_token_input_args, oauth2_req);
+	}
 }
 
 static void oauth2_init_db(struct oauth2_auth_request *oauth2_req)
