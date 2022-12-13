@@ -54,6 +54,7 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 	node = p_new(state->pool, struct event_filter_node, 1);
 	node->type = type;
 	node->op = op;
+	node->warned_type_mismatch = FALSE;
 
 	switch (type) {
 	case EVENT_FILTER_NODE_TYPE_LOGIC:
@@ -101,6 +102,7 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 		if (str_to_intmax(b, &node->field.value.intmax) == 0) {
 			/* Leave a hint that this is in fact a valid number. */
 			node->field.value_type = EVENT_FIELD_VALUE_TYPE_INTMAX;
+			node->type = EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT;
 		} else {
 			/* This field contains no valid number.
 			   Either this is a string that contains a size unit, a
@@ -130,13 +132,17 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 				node->type = EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT;
 				break;
 			}
+
+			if (wildcard_is_literal(node->field.value.str))
+				node->type = EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT;
+			else if (strspn(b, "0123456789*?") == strlen(b))
+				node->type = EVENT_FILTER_NODE_TYPE_EVENT_FIELD_NUMERIC_WILDCARD;
 		}
 
-		if (wildcard_is_literal(node->field.value.str))
-			node->type = EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT;
 		break;
 	case EVENT_FILTER_NODE_TYPE_EVENT_NAME_EXACT:
 	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT:
+	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_NUMERIC_WILDCARD:
 		i_unreached();
 	}
 

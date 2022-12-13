@@ -251,6 +251,7 @@ clone_expr(pool_t pool, struct event_filter_node *old)
 	new->field.value.str = p_strdup(pool, old->field.value.str);
 	new->field.value.intmax = old->field.value.intmax;
 	new->field.value.timeval = old->field.value.timeval;
+	new->warned_type_mismatch = old->warned_type_mismatch;
 
 	return new;
 }
@@ -387,6 +388,7 @@ event_filter_export_query_expr(const struct event_filter_query_internal *query,
 		break;
 	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT:
 	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD:
+	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_NUMERIC_WILDCARD:
 		str_append_c(dest, '"');
 		event_filter_append_escaped(dest, node->field.key);
 		str_append_c(dest, '"');
@@ -598,7 +600,21 @@ event_match_field(struct event *event, struct event_filter_node *node,
 		else
 			return wildcard_match_icase(field->value.str, wanted_field->value.str);
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
-		if (wanted_field->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX) {
+		if ((wanted_field->value_type != EVENT_FIELD_VALUE_TYPE_INTMAX) &&
+		    (node->type != EVENT_FILTER_NODE_TYPE_EVENT_FIELD_NUMERIC_WILDCARD)) {
+			if (!node->warned_type_mismatch) {
+				const char *name = event->sending_name;
+				/* Use i_warning to prevent event filter recursions. */
+				i_warning("Event filter matches integer field "
+					  "'%s' against non-integer value '%s'. "
+					  "(event=%s)",
+					  wanted_field->key,
+					  wanted_field->value.str,
+					  name != NULL ? name : "");
+				node->warned_type_mismatch = TRUE;
+			}
+			return FALSE;
+		} else if (wanted_field->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX) {
 			/* compare against an integer */
 			return event_filter_handle_numeric_operation(
 				node->op, field->value.intmax, wanted_field->value.intmax);
@@ -659,6 +675,7 @@ event_filter_query_match_cmp(struct event_filter_node *node,
 		case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT:
 			return event_match_field(event, node, TRUE);
 		case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD:
+		case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_NUMERIC_WILDCARD:
 			return event_match_field(event, node, FALSE);
 	}
 
@@ -830,6 +847,7 @@ event_filter_query_update_category(struct event_filter_query_internal *query,
 	case EVENT_FILTER_NODE_TYPE_EVENT_SOURCE_LOCATION:
 	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT:
 	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD:
+	case EVENT_FILTER_NODE_TYPE_EVENT_FIELD_NUMERIC_WILDCARD:
 		break;
 	case EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY:
 		if (node->category.name == NULL)

@@ -655,7 +655,10 @@ static void test_event_filter_numbers(void)
 
 	filter = event_filter_create();
 	test_assert(event_filter_parse("number=fish", filter, &error) == 0);
+	test_expect_error_string("Event filter matches integer field 'number' "
+				 "against non-integer value 'fish'");
 	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	test_expect_no_more_errors();
 	event_filter_unref(&filter);
 
 	event_unref(&e);

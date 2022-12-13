@@ -39,6 +39,7 @@ enum event_filter_node_type {
 	EVENT_FILTER_NODE_TYPE_EVENT_CATEGORY, /* cat */
 	EVENT_FILTER_NODE_TYPE_EVENT_FIELD_EXACT, /* field */
 	EVENT_FILTER_NODE_TYPE_EVENT_FIELD_WILDCARD, /* field */
+	EVENT_FILTER_NODE_TYPE_EVENT_FIELD_NUMERIC_WILDCARD, /* field */
 };
 
 enum event_filter_log_type {
@@ -83,6 +84,8 @@ struct event_filter_node {
 		struct event_category *ptr;
 	} category;
 	struct event_field field;
+
+	bool warned_type_mismatch:1;
 };
 
 bool event_filter_category_to_log_type(const char *name,
