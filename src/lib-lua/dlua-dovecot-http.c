@@ -10,6 +10,7 @@
 #include "istream.h"
 #include "iostream-ssl.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "master-service-ssl-settings.h"
 
 #define DLUA_DOVECOT_HTTP "http"
@@ -429,8 +430,10 @@ static int parse_client_settings(lua_State *L, struct http_client_settings *set,
 {
 	struct http_url *parsed_url;
 	const char *proxy_url;
-
-	set->dns_client_socket_path = "dns-client";
+	const struct master_service_settings *master_set =
+		master_service_settings_get(master_service);
+	/* need to figure out socket dir */
+	set->dns_client_socket_path = t_strconcat(master_set->base_dir, "/dns-client", NULL);
 	CLIENT_SETTING_STR(user_agent);
 	CLIENT_SETTING_STR(rawlog_dir);
 	CLIENT_SETTING_UINT(max_idle_time_msecs);
