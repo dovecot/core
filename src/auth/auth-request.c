@@ -1125,12 +1125,6 @@ auth_request_finish_passdb_lookup(enum passdb_result *result,
 		}
 		*next_passdb_r = next_passdb;
 		return 0;
-	} else if (*result == PASSDB_RESULT_NEXT) {
-		/* admin forgot to put proper passdb last */
-		e_error(authdb_event(request),
-			"Last passdb had noauthenticate field, "
-			"cannot authenticate user");
-		*result = PASSDB_RESULT_INTERNAL_FAILURE;
 	} else if (request->passdb_success) {
 		/* either this or a previous passdb lookup succeeded. */
 		*result = PASSDB_RESULT_OK;
@@ -1138,6 +1132,12 @@ auth_request_finish_passdb_lookup(enum passdb_result *result,
 		/* last passdb lookup returned internal failure. it may have
 		   had the correct password, so return internal failure
 		   instead of plain failure. */
+		*result = PASSDB_RESULT_INTERNAL_FAILURE;
+	} else if (*result == PASSDB_RESULT_NEXT) {
+		/* admin forgot to put proper passdb last */
+		e_error(authdb_event(request),
+			"Last passdb had noauthenticate field, "
+			"cannot authenticate user");
 		*result = PASSDB_RESULT_INTERNAL_FAILURE;
 	}
 
