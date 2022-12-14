@@ -374,6 +374,11 @@ db_oauth2_add_openid_config_url(struct db_oauth2_request *req)
 			       req->db->set.openid_configuration_url);
 }
 
+const char *db_oauth2_get_openid_configuration_url(const struct db_oauth2 *db)
+{
+	return db->set.openid_configuration_url;
+}
+
 static bool
 db_oauth2_have_all_fields(struct db_oauth2_request *req)
 {
