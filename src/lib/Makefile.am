@@ -15,11 +15,6 @@ EXTRA_DIST = unicodemap.c unicodemap.pl UnicodeData.txt
 LEX=/bin/false
 YACC=/bin/false
 
-AM_V_Q = $(am__v_Q_$(V))
-am__v_Q_ = $(am__v_Q_$(AM_DEFAULT_VERBOSITY))
-am__v_Q_0 = -q
-am__v_Q_1 =
-
 # We use custom rules here because we want to use flex and bison instead
 # of lex and yacc (or bison in yacc-compatibility mode).  Both flex and
 # bison can handle properly naming the generated files, and it is simpler
@@ -36,7 +31,7 @@ am__v_Q_1 =
 event-filter-parser.h: event-filter-parser.c
 
 $(srcdir)/UnicodeData.txt:
-	$(AM_V_GEN)test -f $@ || $(WGET) $(AM_V_Q) -O $@ https://dovecot.org/res/UnicodeData.txt
+	$(AM_V_at)test -f $@ || $(WGET) -nv -O $@ https://dovecot.org/res/UnicodeData.txt
 
 $(srcdir)/unicodemap.c: $(srcdir)/unicodemap.pl $(srcdir)/UnicodeData.txt
 	$(AM_V_GEN)perl $(srcdir)/unicodemap.pl < $(srcdir)/UnicodeData.txt > $@

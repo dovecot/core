@@ -19,16 +19,6 @@ am__v_Q_ = $(am__v_Q_$(AM_DEFAULT_VERBOSITY))
 am__v_Q_0 = -q
 am__v_Q_1 =
 
-AM_V_DL_DOCS = $(am__v_DL_DOCS_$(V))
-am__v_DL_DOCS_ = $(am__v_DL_DOCS_$(AM_DEFAULT_VERBOSITY))
-am__v_DL_DOCS_0 = @echo "  DL     " $(DOCS_URL);
-am__v_DL_DOCS_1 =
-
-AM_V_DL_MAN = $(am__v_DL_MAN_$(V))
-am__v_DL_MAN_ = $(am__v_DL_MAN_$(AM_DEFAULT_VERBOSITY))
-am__v_DL_MAN_0 = @echo "  DL     " $(MAN_URL);
-am__v_DL_MAN_1 =
-
 if INSTALL_DOCS
 SUBDIRS += man
 DOCDIRS += html
@@ -37,10 +27,10 @@ endif
 extra_dist_extra += html
 
 html-dl:
-	$(AM_V_DL_DOCS)$(WGET) $(AM_V_Q) -O- $(DOCS_URL) | xz -d | $(am__untar)
+	$(AM_V_at)$(WGET) -nv -O- $(DOCS_URL) | xz -d | $(am__untar)
 
 man-dl:
-	$(AM_V_DL_MAN)$(WGET) $(AM_V_Q) -O- $(MAN_URL) | xz -d | $(am__untar)
+	$(AM_V_at)$(WGET) -nv -O- $(MAN_URL) | xz -d | $(am__untar)
 
 all-local: html
 
