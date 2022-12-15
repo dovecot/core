@@ -672,7 +672,7 @@ static void test_event_filter_size_values(void)
 		.type = LOG_TYPE_DEBUG,
 	};
 
-	test_begin("event filter: sizes with different units");
+	test_begin("event filter: sizes with different size units");
 
 	const struct {
 		const char *filter;
@@ -758,7 +758,7 @@ static void test_event_filter_interval_values(void)
 		.type = LOG_TYPE_DEBUG,
 	};
 
-	test_begin("event filter: sizes with different units");
+	test_begin("event filter: sizes with different interval units");
 
 	const struct {
 		const char *filter;
