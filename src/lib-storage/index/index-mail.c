@@ -995,7 +995,6 @@ static void index_mail_save_finish_make_snippet(struct index_mail *mail)
 static void index_mail_cache_sizes(struct index_mail *mail)
 {
 	struct mail *_mail = &mail->mail.mail;
-	struct mail_index_view *view = _mail->transaction->view;
 
 	static enum index_cache_field size_fields[] = {
 		MAIL_CACHE_VIRTUAL_FULL_SIZE,
@@ -1016,10 +1015,7 @@ static void index_mail_cache_sizes(struct index_mail *mail)
 		size is not cached or
 		cached size differs
 	*/
-	if ((mail_index_map_get_ext_idx(view->index->map, _mail->box->mail_vsize_ext_id, &idx) ||
-	     mail_index_map_get_ext_idx(view->index->map, _mail->box->vsize_hdr_ext_id, &idx)) &&
-	    (sizes[0] != UOFF_T_MAX &&
-	     sizes[0] < (uint32_t)-1)) {
+	if ((sizes[0] != UOFF_T_MAX && sizes[0] < (uint32_t)-1)) {
 		const uint32_t *vsize_ext =
 			index_mail_get_vsize_extension(_mail);
 		/* vsize = 0 means it's not present in index, consult cache.
