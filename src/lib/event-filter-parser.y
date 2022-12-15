@@ -9,6 +9,8 @@
 %defines
 
 %{
+#include <ctype.h>
+
 #include "lib.h"
 #include "str-parse.h"
 #include "wildcard-match.h"
@@ -55,6 +57,7 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 	node->type = type;
 	node->op = op;
 	node->warned_type_mismatch = FALSE;
+	node->ambiguous_unit = FALSE;
 
 	switch (type) {
 	case EVENT_FILTER_NODE_TYPE_LOGIC:
@@ -113,6 +116,14 @@ static struct event_filter_node *key_value(struct event_filter_parser_state *sta
 			uoff_t bytes;
 			const char *error;
 			int ret = str_parse_get_size(b, &bytes, &error);
+			if (ret == 0 && i_toupper(b[strlen(b)-1]) == 'M') {
+				/* Don't accept <num>M, since it's ambiguous
+				   whether it's MB or minutes. A warning will
+				   be logged later on about this. */
+				node->field.value_type = EVENT_FIELD_VALUE_TYPE_STR;
+				node->ambiguous_unit = TRUE;
+				break;
+			}
 			if (ret == 0 && bytes <= INTMAX_MAX) {
 				node->field.value.intmax = (intmax_t) bytes;
 				node->field.value_type = EVENT_FIELD_VALUE_TYPE_INTMAX;

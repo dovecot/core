@@ -85,6 +85,8 @@ struct event_filter_node {
 	} category;
 	struct event_field field;
 
+	bool ambiguous_unit:1;
+	bool warned_ambiguous_unit:1;
 	bool warned_type_mismatch:1;
 };
 

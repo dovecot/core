@@ -703,7 +703,6 @@ static void test_event_filter_size_values(void)
 		{ "field < 1KB", 1024, FALSE },
 		{ "field > 1KB", 1024, FALSE },
 
-		{ "field = 1m", 1024 * 1024, TRUE },
 		{ "field = 1MB", 1024 * 1024, TRUE },
 		{ "field >= 1MB", 1024 * 1024, TRUE },
 		{ "field <= 1MB", 1024 * 1024, TRUE },
@@ -768,11 +767,6 @@ static void test_event_filter_interval_values(void)
 		/* Make sure negative values do not interfere with the
 		   existing event filtering. */
 		{ "field = -1", -1, TRUE },
-
-		/* Make sure that ambiguous "m" defaults to sizes (as it's the
-		   first parsing-branch). */
-		{ "field = 1m", 1000, FALSE },
-		{ "field = 1m", 1024 * 1024, TRUE },
 
 		{ "field = 1milliseconds", 1000, TRUE },
 		{ "field = 1millisecs", 1000, TRUE },
@@ -853,6 +847,40 @@ static void test_event_filter_interval_values(void)
 	test_end();
 }
 
+static void test_event_filter_ambiguous_units(void)
+{
+	const char *error;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG,
+	};
+
+	test_begin("event filter: ambiguous units");
+
+	struct event_filter *filter = event_filter_create();
+
+	/* Make sure an ambiguous unit creates a warning. */
+	struct event *e_int = event_create(NULL);
+	event_add_int(e_int, "field", 1000);
+	test_assert(event_filter_parse("field = 1m", filter, &error) == 0);
+	test_expect_error_string("Event filter matches integer field 'field' "
+				 "with value that has an ambiguous unit '1m'. "
+				 "Please use either 'mins' or 'MB' to specify "
+				 "interval or size respectively.");
+	test_assert(!event_filter_match(filter, e_int, &failure_ctx));
+	test_expect_no_more_errors();
+	event_unref(&e_int);
+
+	/* String values should not be considered for ambiguous units. */
+	struct event *e_str = event_create(NULL);
+	event_add_str(e_str, "field", "1m");
+	test_assert(event_filter_parse("field = 1m", filter, &error) == 0);
+	test_assert(event_filter_match(filter, e_str, &failure_ctx));
+	event_unref(&e_str);
+
+	event_filter_unref(&filter);
+	test_end();
+}
+
 void test_event_filter(void)
 {
 	test_event_filter_override_parent_fields();
@@ -871,4 +899,5 @@ void test_event_filter(void)
 	test_event_filter_numbers();
 	test_event_filter_size_values();
 	test_event_filter_interval_values();
+	test_event_filter_ambiguous_units();
 }

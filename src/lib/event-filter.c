@@ -251,6 +251,8 @@ clone_expr(pool_t pool, struct event_filter_node *old)
 	new->field.value.str = p_strdup(pool, old->field.value.str);
 	new->field.value.intmax = old->field.value.intmax;
 	new->field.value.timeval = old->field.value.timeval;
+	new->ambiguous_unit = old->ambiguous_unit;
+	new->warned_ambiguous_unit = old->warned_ambiguous_unit;
 	new->warned_type_mismatch = old->warned_type_mismatch;
 
 	return new;
@@ -601,7 +603,24 @@ event_match_field(struct event *event, struct event_filter_node *node,
 		else
 			return wildcard_match_icase(field->value.str, wanted_field->value.str);
 	case EVENT_FIELD_VALUE_TYPE_INTMAX:
-		if ((wanted_field->value_type != EVENT_FIELD_VALUE_TYPE_INTMAX) &&
+		if (node->ambiguous_unit) {
+			if (!node->warned_ambiguous_unit) {
+				const char *name = event->sending_name;
+				/* Use i_warning to prevent event filter recursions. */
+				i_warning("Event filter matches integer field "
+					  "'%s' with value that has an "
+					  "ambiguous unit '%s'. Please use "
+					  "either 'mins' or 'MB' to specify "
+					  "interval or size respectively. "
+					  "(event=%s, source=%s:%u)",
+					  wanted_field->key,
+					  wanted_field->value.str,
+					  name != NULL ? name : "",
+					  source_filename, source_linenum);
+				node->warned_ambiguous_unit = TRUE;
+			}
+			return FALSE;
+		} else if ((wanted_field->value_type != EVENT_FIELD_VALUE_TYPE_INTMAX) &&
 		    (node->type != EVENT_FILTER_NODE_TYPE_EVENT_FIELD_NUMERIC_WILDCARD)) {
 			if (!node->warned_type_mismatch) {
 				const char *name = event->sending_name;
