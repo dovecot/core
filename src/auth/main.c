@@ -38,7 +38,6 @@
 #define AUTH_PENALTY_ANVIL_PATH "anvil-auth-penalty"
 
 enum auth_socket_type {
-	AUTH_SOCKET_UNKNOWN = 0,
 	AUTH_SOCKET_AUTH,
 	AUTH_SOCKET_LOGIN,
 	AUTH_SOCKET_MASTER,
@@ -55,7 +54,6 @@ struct auth_socket_listener {
 };
 
 static const char *const auth_socket_type_names[] = {
-	"",
 	"auth",
 	"login",
 	"master",
