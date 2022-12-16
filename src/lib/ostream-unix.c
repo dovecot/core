@@ -13,11 +13,6 @@ struct unix_ostream {
 static void
 o_stream_unix_close(struct iostream_private *stream, bool close_parent)
 {
-	struct unix_ostream *ustream =
-		container_of(stream, struct unix_ostream,
-			     fstream.ostream.iostream);
-
-	i_close_fd(&ustream->write_fd);
 	o_stream_file_close(stream, close_parent);
 }
 
