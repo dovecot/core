@@ -259,7 +259,6 @@ int main(int argc, char *argv[])
 {
 	enum master_service_flags service_flags =
 		MASTER_SERVICE_FLAG_STANDALONE |
-		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN |
 		MASTER_SERVICE_FLAG_NO_SSL_INIT |
 		MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME;
 	const char *cmd_name;

@@ -100,7 +100,6 @@ static void main_deinit(void)
 int main(int argc, char *argv[])
 {
 	enum master_service_flags service_flags =
-		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN |
 		MASTER_SERVICE_FLAG_HAVE_STARTTLS;
 	int c;
 

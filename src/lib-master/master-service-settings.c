@@ -279,14 +279,6 @@ master_service_open_config(struct master_service *service,
 	*path_r = path = input->config_path != NULL ? input->config_path :
 		master_service_get_config_path(service);
 
-	if (service->config_fd != -1 && input->config_path == NULL &&
-	    !service->config_path_changed_with_param) {
-		/* use the already opened config socket */
-		fd = service->config_fd;
-		service->config_fd = -1;
-		return fd;
-	}
-
 	if (!service->config_path_from_master &&
 	    !service->config_path_changed_with_param &&
 	    !input->always_exec &&
@@ -387,32 +379,6 @@ master_service_apply_config_overrides(struct master_service *service,
 						t_strcut(overrides[i], '='));
 	}
 	return 0;
-}
-
-void master_service_config_socket_try_open(struct master_service *service)
-{
-	struct master_service_settings_input input;
-	const char *path, *error;
-	int fd;
-
-	/* we'll get here before command line parameters have been parsed,
-	   so -O, -c and -i parameters haven't been handled yet at this point.
-	   this means we could end up opening config socket connection
-	   unnecessarily, but this isn't a problem. we'll just have to
-	   ignore it later on. (unfortunately there isn't a master_service_*()
-	   call where this function would be better called.) */
-	if (getenv("DOVECONF_ENV") != NULL ||
-	    getenv(DOVECOT_CONFIG_FD_ENV) != NULL ||
-	    (service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) != 0)
-		return;
-
-	i_zero(&input);
-	input.never_exec = TRUE;
-	fd = master_service_open_config(service, &input, &path, &error);
-	if (fd != -1) {
-		service->config_fd = fd;
-		fd_close_on_exec(service->config_fd, TRUE);
-	}
 }
 
 static void

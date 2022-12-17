@@ -319,8 +319,7 @@ static void main_deinit(void)
 
 int main(int argc, char *argv[])
 {
-	enum master_service_flags service_flags =
-		MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN;
+	enum master_service_flags service_flags = 0;
 	int c;
 
 	protocol = QUOTA_PROTOCOL_UNKNOWN;

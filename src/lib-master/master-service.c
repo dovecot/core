@@ -615,12 +615,6 @@ master_service_init(const char *name, enum master_service_flags flags,
 		master_service_set_client_limit(service, 1);
 		master_service_set_service_count(service, 1);
 	}
-	if ((flags & MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN) != 0) {
-		/* since we're going to keep the config socket open anyway,
-		   open it now so we can read settings even after privileges
-		   are dropped. */
-		master_service_config_socket_try_open(service);
-	}
 	if ((flags & MASTER_SERVICE_FLAG_DONT_SEND_STATS) == 0) {
 		/* Initialize stats-client early so it can see all events. */
 		value = getenv(DOVECOT_STATS_WRITER_SOCKET_PATH);

@@ -17,10 +17,6 @@ enum master_service_flags {
 	/* Log to configured log file instead of stderr. By default when
 	   _FLAG_STANDALONE is set, logging is done to stderr. */
 	MASTER_SERVICE_FLAG_DONT_LOG_TO_STDERR	= 0x04,
-	/* Service is going to do multiple configuration lookups,
-	   keep the connection to config service open. Also opens the config
-	   socket before dropping privileges. */
-	MASTER_SERVICE_FLAG_KEEP_CONFIG_OPEN	= 0x08,
 	/* Don't read settings, but use whatever is in environment */
 	MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS	= 0x10,
 	/* Use MASTER_LOGIN_NOTIFY_FD to track login overflow state */

@@ -65,9 +65,6 @@ struct master_service_settings_output {
 
 extern const struct setting_parser_info master_service_setting_parser_info;
 
-/* Try to open the config socket if it's going to be needed later by
-   master_service_settings_read*() */
-void master_service_config_socket_try_open(struct master_service *service);
 int master_service_settings_read(struct master_service *service,
 				 const struct master_service_settings_input *input,
 				 struct master_service_settings_output *output_r,
