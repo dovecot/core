@@ -38,7 +38,8 @@ struct master_service {
 	const char *version_string;
 	char *config_path;
 	ARRAY_TYPE(const_string) config_overrides;
-	int config_fd;
+	void *config_mmap_base;
+	size_t config_mmap_size;
 	int syslog_facility;
 	data_stack_frame_t datastack_frame_id;
 

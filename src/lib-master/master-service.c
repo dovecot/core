@@ -12,6 +12,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "env-util.h"
+#include "mmap-util.h"
 #include "home-expand.h"
 #include "process-title.h"
 #include "time-util.h"
@@ -516,7 +517,6 @@ master_service_init(const char *name, enum master_service_flags flags,
 	service->flags = flags;
 	service->ioloop = io_loop_create();
 	service->service_count_left = UINT_MAX;
-	service->config_fd = -1;
 	service->datastack_frame_id = datastack_frame_id;
 
 	service->config_path = i_strdup(getenv(MASTER_CONFIG_FILE_ENV));
@@ -1521,7 +1521,6 @@ static void master_service_deinit_real(struct master_service **_service)
 
 	if (service->stats_client != NULL)
 		stats_client_deinit(&service->stats_client);
-	i_close_fd(&service->config_fd);
 	timeout_remove(&service->to_overflow_call);
 	timeout_remove(&service->to_die);
 	timeout_remove(&service->to_overflow_state);
@@ -1534,6 +1533,11 @@ static void master_service_deinit_real(struct master_service **_service)
 	if (service->set_parser != NULL) {
 		settings_parser_unref(&service->set_parser);
 		pool_unref(&service->set_pool);
+	}
+	if (service->config_mmap_base != NULL) {
+		if (munmap(service->config_mmap_base,
+			   service->config_mmap_size) < 0)
+			i_error("munmap(<config>) failed: %m");
 	}
 	i_free(master_service_category_name);
 	master_service_category.name = NULL;

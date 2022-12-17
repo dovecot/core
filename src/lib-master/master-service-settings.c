@@ -548,10 +548,8 @@ int master_service_settings_read(struct master_service *service,
 	i_zero(output_r);
 	output_r->config_fd = -1;
 
-	if (service->config_fd != -1 && !input->reload_config) {
+	if (service->config_mmap_base != NULL && !input->reload_config) {
 		/* config was already read once */
-		fd = service->config_fd;
-		path = "<config fd>";
 	} else if ((value = getenv(DOVECOT_CONFIG_FD_ENV)) != NULL) {
 		/* doveconf -F parameter already executed us back.
 		   The configuration is in DOVECOT_CONFIG_FD. */
@@ -567,6 +565,27 @@ int master_service_settings_read(struct master_service *service,
 				output_r->permission_denied = TRUE;
 			return -1;
 		}
+	}
+	if (fd != -1) {
+		if (service->config_mmap_base != NULL) {
+			i_assert(input->reload_config);
+			if (munmap(service->config_mmap_base,
+				   service->config_mmap_size) < 0)
+				i_error("munmap(<config>) failed: %m");
+		}
+
+		service->config_mmap_base =
+			mmap_ro_file(fd, &service->config_mmap_size);
+		if (service->config_mmap_base == MAP_FAILED)
+			i_fatal("Failed to read config: mmap(%s) failed: %m", path);
+		if (service->config_mmap_size == 0)
+			i_fatal("Failed to read config: %s file size is empty", path);
+
+		if (input->return_config_fd)
+			output_r->config_fd = fd;
+		else
+			i_close_fd(&fd);
+		env_remove(DOVECOT_CONFIG_FD_ENV);
 	}
 
 	if (service->set_pool != NULL) {
@@ -604,46 +623,22 @@ int master_service_settings_read(struct master_service *service,
 			array_front(&all_roots), array_count(&all_roots),
 			SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
 
-	/* fd is unset only if MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS is used */
-	if (fd != -1) {
-		size_t mmap_size;
-		void *mmap_base = mmap_ro_file(fd, &mmap_size);
-		if (mmap_base == MAP_FAILED)
-			i_fatal("mmap(%s) failed: %m", path);
-		if (mmap_size == 0)
-			i_fatal("%s file size is empty", path);
-
+	/* config_mmap_base is NULL only if
+	   MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS is used */
+	if (service->config_mmap_base != NULL) {
 		ret = master_service_settings_read_mmap(parser, event,
-							mmap_base, mmap_size,
-							output_r, error_r);
-		if (munmap(mmap_base, mmap_size) < 0)
-			i_fatal("munmap(%s) failed: %m", path);
+			service->config_mmap_base, service->config_mmap_size,
+			output_r, error_r);
 
 		if (ret < 0) {
 			if (getenv(DOVECOT_CONFIG_FD_ENV) != NULL) {
 				i_fatal("Failed to parse config from fd %d: %s",
 					fd, *error_r);
 			}
-			i_close_fd(&fd);
 			settings_parser_unref(&parser);
 			event_unref(&event);
 			return -1;
 		}
-
-		if (input->return_config_fd) {
-			output_r->config_fd = dup(fd);
-			if (output_r->config_fd == -1)
-				i_fatal("dup(%s) failed: %m", path);
-		}
-		if (input->config_path == NULL) {
-			i_assert(service->config_fd == -1 ||
-				 service->config_fd == fd);
-			service->config_fd = fd;
-			fd_close_on_exec(service->config_fd, TRUE);
-		} else {
-			i_close_fd(&fd);
-		}
-		env_remove(DOVECOT_CONFIG_FD_ENV);
 	}
 	event_unref(&event);
 
