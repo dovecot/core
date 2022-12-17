@@ -249,8 +249,6 @@ static void login_server_auth_finish(struct login_server_request *request,
 		/* we're dying as soon as this connection closes. */
 		i_assert(login_server_auth_request_count(server->auth) == 0);
 		login_server_auth_disconnect(server->auth);
-
-		master_service_close_config_fd(service);
 	} else if (server->stopping) {
 		/* try stopping again */
 		login_server_stop(server);
@@ -558,8 +556,6 @@ static void login_server_conn_unref(struct login_server_connection **_conn)
 void login_server_stop(struct login_server *server)
 {
 	server->stopping = TRUE;
-	if (login_server_auth_request_count(server->auth) == 0) {
+	if (login_server_auth_request_count(server->auth) == 0)
 		login_server_auth_disconnect(server->auth);
-		master_service_close_config_fd(server->service);
-	}
 }

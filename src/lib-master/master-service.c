@@ -1496,11 +1496,6 @@ static void master_service_refresh_login_state(struct master_service *service)
 		master_service_set_login_state(service, state);
 }
 
-void master_service_close_config_fd(struct master_service *service)
-{
-	i_close_fd(&service->config_fd);
-}
-
 static void master_service_deinit_real(struct master_service **_service)
 {
 	struct master_service *service = *_service;
@@ -1526,7 +1521,7 @@ static void master_service_deinit_real(struct master_service **_service)
 
 	if (service->stats_client != NULL)
 		stats_client_deinit(&service->stats_client);
-	master_service_close_config_fd(service);
+	i_close_fd(&service->config_fd);
 	timeout_remove(&service->to_overflow_call);
 	timeout_remove(&service->to_die);
 	timeout_remove(&service->to_overflow_state);
