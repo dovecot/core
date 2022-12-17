@@ -525,6 +525,7 @@ int master_service_settings_read(struct master_service *service,
 	bool use_environment = FALSE;
 
 	i_zero(output_r);
+	output_r->config_fd = -1;
 
 	if (service->config_fd != -1 && !input->reload_config) {
 		/* config was already read once */
@@ -606,6 +607,11 @@ int master_service_settings_read(struct master_service *service,
 			return -1;
 		}
 
+		if (input->return_config_fd) {
+			output_r->config_fd = dup(fd);
+			if (output_r->config_fd == -1)
+				i_fatal("dup(%s) failed: %m", path);
+		}
 		if (input->config_path == NULL) {
 			i_assert(service->config_fd == -1 ||
 				 service->config_fd == fd);

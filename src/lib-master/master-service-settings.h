@@ -41,6 +41,7 @@ struct master_service_settings_input {
 	bool reload_config;
 	bool never_exec;
 	bool always_exec;
+	bool return_config_fd;
 	bool use_sysexits;
 
 	const char *service;
@@ -53,6 +54,8 @@ struct master_service_settings_output {
 	/* if service was not given for lookup, this contains names of services
 	   that have more specific settings */
 	const char *const *specific_services;
+	/* Configuration file fd. Returned if input.return_config_fd=TRUE. */
+	int config_fd;
 
 	/* Config couldn't be read because we don't have enough permissions.
 	   The process probably should be restarted and the settings read
