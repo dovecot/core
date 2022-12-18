@@ -91,7 +91,7 @@ config_dump_full_sections(struct ostream *output, unsigned int section_idx)
 
 	for (; *filters != NULL && ret == 0; filters++) T_BEGIN {
 		config_dump_full_write_filter(output, &(*filters)->filter);
-		export_ctx = config_export_init(NULL, NULL,
+		export_ctx = config_export_init(NULL,
 			CONFIG_DUMP_SCOPE_SET,
 			CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS,
 			config_dump_full_callback, &dump_ctx);
@@ -118,7 +118,7 @@ int config_dump_full(struct ostream *output, const char **import_environment_r)
 	};
 
 	flags = CONFIG_DUMP_FLAG_CHECK_SETTINGS;
-	export_ctx = config_export_init(NULL, NULL,
+	export_ctx = config_export_init(NULL,
 					CONFIG_DUMP_SCOPE_CHANGED, flags,
 					config_dump_full_callback, &dump_ctx);
 	i_zero(&empty_filter);
