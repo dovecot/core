@@ -136,8 +136,7 @@ static void prefix_stack_reset_str(ARRAY_TYPE(prefix_stack) *stack)
 }
 
 static struct config_dump_human_context *
-config_dump_human_init(const char *const *modules, enum config_dump_scope scope,
-		       bool check_settings)
+config_dump_human_init(enum config_dump_scope scope, bool check_settings)
 {
 	struct config_dump_human_context *ctx;
 	enum config_dump_flags flags;
@@ -154,7 +153,7 @@ config_dump_human_init(const char *const *modules, enum config_dump_scope scope,
 		CONFIG_DUMP_FLAG_CALLBACK_ERRORS;
 	if (check_settings)
 		flags |= CONFIG_DUMP_FLAG_CHECK_SETTINGS;
-	ctx->export_ctx = config_export_init(modules, scope, flags,
+	ctx->export_ctx = config_export_init(NULL, scope, flags,
 					     config_request_get_strings, ctx);
 	return ctx;
 }
@@ -556,7 +555,7 @@ config_dump_filter_end(struct ostream *output, unsigned int indent)
 static int
 config_dump_human_sections(struct ostream *output,
 			   const struct config_filter *filter,
-			   const char *const *modules, bool hide_passwords)
+			   bool hide_passwords)
 {
 	struct config_filter_parser *const *filters;
 	static struct config_dump_human_context *ctx;
@@ -570,8 +569,7 @@ config_dump_human_sections(struct ostream *output,
 	filters++;
 
 	for (; *filters != NULL; filters++) {
-		ctx = config_dump_human_init(modules, CONFIG_DUMP_SCOPE_SET,
-					     FALSE);
+		ctx = config_dump_human_init(CONFIG_DUMP_SCOPE_SET, FALSE);
 		indent = config_dump_filter_begin(ctx->list_prefix,
 						  &(*filters)->filter);
 		config_export_parsers(ctx->export_ctx, (*filters)->parsers);
@@ -585,7 +583,7 @@ config_dump_human_sections(struct ostream *output,
 }
 
 static int ATTR_NULL(4)
-config_dump_human(const struct config_filter *filter, const char *const *modules,
+config_dump_human(const struct config_filter *filter,
 		  enum config_dump_scope scope, const char *setting_name_filter,
 		  bool hide_passwords)
 {
@@ -597,13 +595,13 @@ config_dump_human(const struct config_filter *filter, const char *const *modules
 	o_stream_set_no_error_handling(output, TRUE);
 	o_stream_cork(output);
 
-	ctx = config_dump_human_init(modules, scope, TRUE);
+	ctx = config_dump_human_init(scope, TRUE);
 	config_export_by_filter(ctx->export_ctx, filter);
 	ret = config_dump_human_output(ctx, output, 0, setting_name_filter, hide_passwords);
 	config_dump_human_deinit(ctx);
 
 	if (setting_name_filter == NULL)
-		ret = config_dump_human_sections(output, filter, modules, hide_passwords);
+		ret = config_dump_human_sections(output, filter, hide_passwords);
 
 	o_stream_uncork(output);
 	o_stream_destroy(&output);
@@ -621,7 +619,7 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 	unsigned int section_idx = 0;
 	bool dump_section = FALSE;
 
-	ctx = config_dump_human_init(NULL, scope, FALSE);
+	ctx = config_dump_human_init(scope, FALSE);
 	config_export_by_filter(ctx->export_ctx, filter);
 	if (config_export_finish(&ctx->export_ctx, &section_idx) < 0)
 		return -1;
@@ -647,7 +645,7 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 	config_dump_human_deinit(ctx);
 
 	if (dump_section)
-		(void)config_dump_human(filter, NULL, scope, setting_name_filter, hide_passwords);
+		(void)config_dump_human(filter, scope, setting_name_filter, hide_passwords);
 	return 0;
 }
 
@@ -870,15 +868,14 @@ int main(int argc, char *argv[])
 		MASTER_SERVICE_FLAG_STANDALONE |
 		MASTER_SERVICE_FLAG_NO_INIT_DATASTACK_FRAME;
 	enum config_dump_scope scope = CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN;
-	const char *orig_config_path, *config_path, *module;
-	ARRAY(const char *) module_names;
+	const char *orig_config_path, *config_path;
 	struct config_filter filter;
-	const char *const *wanted_modules, *import_environment, *error;
+	const char *import_environment, *error;
 	char **exec_args = NULL, **setting_name_filters = NULL;
 	unsigned int i;
 	int c, ret, ret2;
 	bool config_path_specified, expand_vars = FALSE, hide_key = FALSE;
-	bool parse_full_config = FALSE, simple_output = FALSE;
+	bool simple_output = FALSE;
 	bool dump_defaults = FALSE, host_verify = FALSE, dump_full = FALSE;
 	bool print_plugin_banner = FALSE, hide_passwords = TRUE;
 
@@ -893,7 +890,6 @@ int main(int argc, char *argv[])
 	orig_config_path = t_strdup(master_service_get_config_path(master_service));
 
 	i_set_failure_prefix("doveconf: ");
-	t_array_init(&module_names, 4);
 	while ((c = master_getopt(master_service)) > 0) {
 		if (c == 'e') {
 			expand_vars = TRUE;
@@ -920,17 +916,14 @@ int main(int argc, char *argv[])
 			host_verify = TRUE;
 			break;
 		case 'm':
-			module = t_strdup(optarg);
-			array_push_back(&module_names, &module);
+		case 'p':
+			/* not supported anymore - ignore */
 			break;
 		case 'n':
 			scope = CONFIG_DUMP_SCOPE_CHANGED;
 			break;
 		case 'N':
 			scope = CONFIG_DUMP_SCOPE_SET;
-			break;
-		case 'p':
-			parse_full_config = TRUE;
 			break;
 		case 'P':
 			hide_passwords = FALSE;
@@ -948,9 +941,6 @@ int main(int argc, char *argv[])
 			return FATAL_DEFAULT;
 		}
 	}
-	array_append_zero(&module_names);
-	wanted_modules = array_count(&module_names) == 1 ? NULL :
-		array_front(&module_names);
 
 	config_path = master_service_get_config_path(master_service);
 	/* use strcmp() instead of !=, because dovecot -n always gives us
@@ -991,8 +981,7 @@ int main(int argc, char *argv[])
 	}
 
 	if ((ret = config_parse_file(dump_defaults ? NULL : config_path,
-				     expand_vars,
-				     parse_full_config ? NULL : wanted_modules,
+				     expand_vars, NULL,
 				     &error)) == 0 &&
 	    access(EXAMPLE_CONFIG_DIR, X_OK) == 0) {
 		i_fatal("%s (copy example configs from "EXAMPLE_CONFIG_DIR"/)",
@@ -1041,7 +1030,7 @@ int main(int argc, char *argv[])
 		struct config_export_context *ctx;
 		unsigned int section_idx = 0;
 
-		ctx = config_export_init(wanted_modules, scope,
+		ctx = config_export_init(NULL, scope,
 					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
 					 config_request_simple_stdout,
 					 setting_name_filters);
@@ -1071,12 +1060,12 @@ int main(int argc, char *argv[])
 		if (scope == CONFIG_DUMP_SCOPE_ALL_WITHOUT_HIDDEN)
 			printf("# NOTE: Send doveconf -n output instead when asking for help.\n");
 		fflush(stdout);
-		ret2 = config_dump_human(&filter, wanted_modules, scope, NULL, hide_passwords);
+		ret2 = config_dump_human(&filter, scope, NULL, hide_passwords);
 	} else {
 		struct config_export_context *ctx;
 		unsigned int section_idx = 0;
 
-		ctx = config_export_init(wanted_modules, CONFIG_DUMP_SCOPE_SET,
+		ctx = config_export_init(NULL, CONFIG_DUMP_SCOPE_SET,
 					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
 					 config_request_putenv, NULL);
 		config_export_by_filter(ctx, &filter);
