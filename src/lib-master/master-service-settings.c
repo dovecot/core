@@ -522,7 +522,6 @@ int master_service_settings_read(struct master_service *service,
 	const char *path = NULL, *value, *error;
 	unsigned int i;
 	int ret, fd = -1;
-	bool use_environment = FALSE;
 
 	i_zero(output_r);
 	output_r->config_fd = -1;
@@ -539,9 +538,6 @@ int master_service_settings_read(struct master_service *service,
 		if (str_to_int(value, &fd) < 0 || fd < 0)
 			i_fatal("Invalid "DOVECOT_CONFIG_FD_ENV": %s", value);
 		path = t_strdup_printf("<"DOVECOT_CONFIG_FD_ENV" %d>", fd);
-	} else if (getenv("DOVECONF_ENV") != NULL) {
-		use_environment = (service->flags &
-				   MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0;
 	} else if ((service->flags & MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS) == 0) {
 		/* Open config via socket if possible. If it doesn't work,
 		   execute doveconf -F. */
@@ -623,14 +619,6 @@ int master_service_settings_read(struct master_service *service,
 		env_remove(DOVECOT_CONFIG_FD_ENV);
 	}
 	event_unref(&event);
-
-	if (use_environment || service->keep_environment) {
-		if (settings_parse_environ(parser) < 0) {
-			*error_r = t_strdup(settings_parser_get_error(parser));
-			settings_parser_unref(&parser);
-			return -1;
-		}
-	}
 
 	if (array_is_created(&service->config_overrides)) {
 		if (master_service_apply_config_overrides(service, parser,
