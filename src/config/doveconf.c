@@ -670,15 +670,6 @@ static void config_request_simple_stdout(const char *key, const char *value,
 	}
 }
 
-static void config_request_putenv(const char *key, const char *value,
-				  enum config_key_type type ATTR_UNUSED,
-				  void *context ATTR_UNUSED)
-{
-	T_BEGIN {
-		env_put(t_str_ucase(key), value);
-	} T_END;
-}
-
 static const char *get_setting(const char *module, const char *name)
 {
 	struct config_module_parser *l;
@@ -891,10 +882,6 @@ int main(int argc, char *argv[])
 
 	i_set_failure_prefix("doveconf: ");
 	while ((c = master_getopt(master_service)) > 0) {
-		if (c == 'e') {
-			expand_vars = TRUE;
-			break;
-		}
 		switch (c) {
 		case 'a':
 			break;
@@ -950,9 +937,9 @@ int main(int argc, char *argv[])
 	if (host_verify)
 		hostname_verify_format(argv[optind]);
 
-	if (c == 'e' || (dump_full && argv[optind] != NULL)) {
+	if (dump_full && argv[optind] != NULL) {
 		if (argv[optind] == NULL)
-			i_fatal("Missing command for -%c", c == 'e' ? 'e' : 'F');
+			i_fatal("Missing command for -F");
 		exec_args = &argv[optind];
 	} else if (argv[optind] != NULL) {
 		/* print only a single config setting */
@@ -1048,7 +1035,7 @@ int main(int argc, char *argv[])
 					    setting_name_filters[i], hide_passwords) < 0)
 				ret2 = -1;
 		}
-	} else if (exec_args == NULL) {
+	} else {
 		const char *info;
 
 		info = sysinfo_get(get_setting("mail", "mail_location"));
@@ -1061,32 +1048,6 @@ int main(int argc, char *argv[])
 			printf("# NOTE: Send doveconf -n output instead when asking for help.\n");
 		fflush(stdout);
 		ret2 = config_dump_human(&filter, scope, NULL, hide_passwords);
-	} else {
-		struct config_export_context *ctx;
-		unsigned int section_idx = 0;
-
-		ctx = config_export_init(CONFIG_DUMP_SCOPE_SET,
-					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
-					 config_request_putenv, NULL);
-		config_export_by_filter(ctx, &filter);
-
-		if (getenv(DOVECOT_PRESERVE_ENVS_ENV) != NULL) {
-			/* Standalone binary is getting its configuration via
-			   doveconf. Clean the environment before calling it.
-			   Do this only if the environment exists, because
-			   lib-master doesn't set it if it doesn't want the
-			   environment to be cleaned (e.g. -k parameter). */
-			const char *import_environment =
-				config_export_get_import_environment(ctx);
-			master_service_import_environment(import_environment);
-			master_service_env_clean();
-		}
-
-		env_put("DOVECONF_ENV", "1");
-		if (config_export_finish(&ctx, &section_idx) < 0)
-			i_fatal("Invalid configuration");
-		execvp(exec_args[0], exec_args);
-		i_fatal("execvp(%s) failed: %m", exec_args[0]);
 	}
 
 	if (ret < 0) {
