@@ -433,7 +433,7 @@ config_all_parsers_check(struct config_parser_context *ctx,
 
 	global_ssl_set = get_str_setting(parsers[0], "ssl", "");
 	for (i = 0; i < count && ret == 0; i++) {
-		if (config_filter_parsers_get(new_filter, tmp_pool, NULL,
+		if (config_filter_parsers_get(new_filter, tmp_pool,
 					      &parsers[i]->filter,
 					      &tmp_parsers, &output,
 					      error_r) < 0) {

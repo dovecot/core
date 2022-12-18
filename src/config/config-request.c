@@ -403,8 +403,7 @@ void config_export_by_filter(struct config_export_context *ctx,
 {
 	const char *error;
 
-	if (config_filter_parsers_get(config_filter, ctx->pool,
-				      NULL, filter,
+	if (config_filter_parsers_get(config_filter, ctx->pool, filter,
 				      &ctx->dup_parsers, &ctx->output,
 				      &error) < 0) {
 		i_error("%s", error);
