@@ -153,7 +153,7 @@ config_dump_human_init(enum config_dump_scope scope, bool check_settings)
 		CONFIG_DUMP_FLAG_CALLBACK_ERRORS;
 	if (check_settings)
 		flags |= CONFIG_DUMP_FLAG_CHECK_SETTINGS;
-	ctx->export_ctx = config_export_init(NULL, scope, flags,
+	ctx->export_ctx = config_export_init(scope, flags,
 					     config_request_get_strings, ctx);
 	return ctx;
 }
@@ -1030,7 +1030,7 @@ int main(int argc, char *argv[])
 		struct config_export_context *ctx;
 		unsigned int section_idx = 0;
 
-		ctx = config_export_init(NULL, scope,
+		ctx = config_export_init(scope,
 					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
 					 config_request_simple_stdout,
 					 setting_name_filters);
@@ -1065,7 +1065,7 @@ int main(int argc, char *argv[])
 		struct config_export_context *ctx;
 		unsigned int section_idx = 0;
 
-		ctx = config_export_init(NULL, CONFIG_DUMP_SCOPE_SET,
+		ctx = config_export_init(CONFIG_DUMP_SCOPE_SET,
 					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
 					 config_request_putenv, NULL);
 		config_export_by_filter(ctx, &filter);

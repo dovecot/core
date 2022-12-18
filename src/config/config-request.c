@@ -22,7 +22,6 @@ struct config_export_context {
 	config_request_callback_t *callback;
 	void *context;
 
-	const char *const *modules;
 	enum config_dump_flags flags;
 	const struct config_module_parser *parsers;
 	struct config_module_parser *dup_parsers;
@@ -378,8 +377,7 @@ settings_export(struct config_export_context *ctx,
 }
 
 struct config_export_context *
-config_export_init(const char *const *modules,
-		   enum config_dump_scope scope,
+config_export_init(enum config_dump_scope scope,
 		   enum config_dump_flags flags,
 		   config_request_callback_t *callback, void *context)
 {
@@ -390,7 +388,6 @@ config_export_init(const char *const *modules,
 	ctx = p_new(pool, struct config_export_context, 1);
 	ctx->pool = pool;
 
-	ctx->modules = modules == NULL ? NULL : p_strarray_dup(pool, modules);
 	ctx->flags = flags;
 	ctx->callback = callback;
 	ctx->context = context;
@@ -407,7 +404,7 @@ void config_export_by_filter(struct config_export_context *ctx,
 	const char *error;
 
 	if (config_filter_parsers_get(config_filter, ctx->pool,
-				      ctx->modules, filter,
+				      NULL, filter,
 				      &ctx->dup_parsers, &ctx->output,
 				      &error) < 0) {
 		i_error("%s", error);
@@ -473,9 +470,6 @@ int config_export_finish(struct config_export_context **_ctx,
 	ctx->section_idx = *section_idx;
 	for (i = 0; ctx->parsers[i].root != NULL; i++) {
 		parser = &ctx->parsers[i];
-		if (!config_module_want_parser(config_module_parsers,
-					       ctx->modules, parser->root))
-			continue;
 
 		T_BEGIN {
 			settings_export(ctx, parser->root, FALSE,
