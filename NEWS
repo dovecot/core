@@ -1,4 +1,4 @@
-v2.3.20 2022-12-12  Aki Tuomi <aki.tuomi@open-xchange.com>
+v2.3.20 2022-12-22  Aki Tuomi <aki.tuomi@open-xchange.com>
 
 	+ Add dsync_features=no-header-hashes. When this setting is enabled and
 	  one dsync side doesn't support mail GUIDs (i.e. imapc), there is no
@@ -39,6 +39,9 @@ v2.3.20 2022-12-12  Aki Tuomi <aki.tuomi@open-xchange.com>
 	- lib-storage: mail_attribute_dict with dict-sql failed when it tried to
 	  lookup empty dict keys.
 	- lib: ioloop-kqueue was missing include breaking some BSD builds.
+	- lua-http: Dovecot Lua HTTP client could not resolve DNS names in mail
+	  processes, because it expected "dns-client" socket to exist in the
+	  current directory.
 	- oauth2: Using %{oauth2:name} variables could cause useless
 	  introspections.
 	- pop3: Sending POP3 command with ':' character caused an assert-crash.
