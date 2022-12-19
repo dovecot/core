@@ -254,6 +254,7 @@ clone_expr(pool_t pool, struct event_filter_node *old)
 	new->ambiguous_unit = old->ambiguous_unit;
 	new->warned_ambiguous_unit = old->warned_ambiguous_unit;
 	new->warned_type_mismatch = old->warned_type_mismatch;
+	new->warned_string_inequality = old->warned_string_inequality;
 
 	return new;
 }
@@ -590,8 +591,21 @@ event_match_field(struct event *event, struct event_filter_node *node,
 
 	switch (field->value_type) {
 	case EVENT_FIELD_VALUE_TYPE_STR:
+		/* We only support string equality comparisons. */
 		if (node->op != EVENT_FILTER_OP_CMP_EQ) {
-			/* we only support string equality comparisons */
+			/* Warn about non-equality comparisons. */
+			if (!node->warned_string_inequality) {
+				const char *name = event->sending_name;
+				/* Use i_warning to prevent event filter recursions. */
+				i_warning("Event filter for string field '%s' "
+					  "only supports equality operation "
+					  "'=' not '%s'. (event=%s, source=%s:%u)",
+					  wanted_field->key,
+					  event_filter_export_query_expr_op(node->op),
+					  name != NULL ? name : "",
+					  source_filename, source_linenum);
+				node->warned_string_inequality = TRUE;
+			}
 			return FALSE;
 		}
 		if (field->value.str[0] == '\0') {
