@@ -185,9 +185,9 @@ AS_HELP_STRING([--with-ssldir=DIR], [SSL base directory for certificates (/etc/s
 AC_SUBST(ssldir)
 
 AC_ARG_WITH(rundir,
-AS_HELP_STRING([--with-rundir=DIR], [Runtime data directory (LOCALSTATEDIR/run/dovecot)]),
+AS_HELP_STRING([--with-rundir=DIR], [Runtime data directory (/run/dovecot)]),
 	rundir="$withval",
-	rundir=$localstatedir/run/$PACKAGE
+	rundir=/run/$PACKAGE
 )
 AC_SUBST(rundir)
 

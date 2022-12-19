@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 
 	i_zero(&set);
 	i_zero(&opset);
-	set.base_dir = "/var/run/dovecot";
+	set.base_dir = "/run/dovecot";
 	opset.username = "testuser";
 
 	if (dict_init(uri, &set, &dict, &error) < 0)

@@ -906,7 +906,7 @@ void master_settings_do_fixes(const struct master_settings *set)
 	const char *empty_dir;
 	struct stat st;
 
-	/* since base dir is under /var/run by default, it may have been
+	/* since base dir is under /run by default, it may have been
 	   deleted. */
 	if (mkdir_parents(set->base_dir, 0755) < 0 && errno != EEXIST)
 		i_fatal("mkdir(%s) failed: %m", set->base_dir);

@@ -674,7 +674,7 @@ static void test_invalid_redirect_input2(struct server_connection *conn)
 {
 	static const char *resp =
 		"HTTP/1.1 302 Redirect\r\n"
-		"Location: unix:/var/run/dovecot/auth-master\r\n"
+		"Location: unix:/run/dovecot/auth-master\r\n"
 		"\r\n";
 
 	o_stream_nsend_str(conn->conn.output, resp);

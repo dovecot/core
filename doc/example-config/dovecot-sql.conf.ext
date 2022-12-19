@@ -60,7 +60,7 @@
 #                              the default my.cnf location
 #     option_group           - Read options from the given group (default: client)
 # 
-#   You can connect to UNIX sockets by using host: host=/var/run/mysql.sock
+#   You can connect to UNIX sockets by using host: host=/run/mysql.sock
 #   Note that currently you can't use spaces in parameters.
 #
 # sqlite:
