@@ -333,12 +333,13 @@ config_dump_human_output(struct config_dump_human_context *ctx,
 	unsigned int i, j, count, prefix_count;
 	unsigned int prefix_idx = UINT_MAX;
 	size_t len, skip_len, setting_name_filter_len;
+	unsigned int section_idx = 0;
 	bool unique_key;
 	int ret = 0;
 
 	setting_name_filter_len = setting_name_filter == NULL ? 0 :
 		strlen(setting_name_filter);
-	if (config_export_finish(&ctx->export_ctx) < 0)
+	if (config_export_finish(&ctx->export_ctx, &section_idx) < 0)
 		return -1;
 
 	array_sort(&ctx->strings, config_string_cmp);
@@ -615,11 +616,12 @@ config_dump_one(const struct config_filter *filter, bool hide_key,
 	static struct config_dump_human_context *ctx;
 	const char *str;
 	size_t len;
+	unsigned int section_idx = 0;
 	bool dump_section = FALSE;
 
 	ctx = config_dump_human_init(NULL, scope, FALSE);
 	config_export_by_filter(ctx->export_ctx, filter);
-	if (config_export_finish(&ctx->export_ctx) < 0)
+	if (config_export_finish(&ctx->export_ctx, &section_idx) < 0)
 		return -1;
 
 	len = strlen(setting_name_filter);
@@ -995,13 +997,14 @@ int main(int argc, char *argv[])
 
 	if (simple_output) {
 		struct config_export_context *ctx;
+		unsigned int section_idx = 0;
 
 		ctx = config_export_init(wanted_modules, NULL, scope,
 					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
 					 config_request_simple_stdout,
 					 setting_name_filters);
 		config_export_by_filter(ctx, &filter);
-		ret2 = config_export_finish(&ctx);
+		ret2 = config_export_finish(&ctx, &section_idx);
 	} else if (setting_name_filters != NULL) {
 		ret2 = 0;
 		/* ignore settings-check failures in configuration. this allows
@@ -1029,6 +1032,7 @@ int main(int argc, char *argv[])
 		ret2 = config_dump_human(&filter, wanted_modules, scope, NULL, hide_passwords);
 	} else {
 		struct config_export_context *ctx;
+		unsigned int section_idx = 0;
 
 		ctx = config_export_init(wanted_modules, NULL, CONFIG_DUMP_SCOPE_SET,
 					 CONFIG_DUMP_FLAG_CHECK_SETTINGS,
@@ -1048,7 +1052,7 @@ int main(int argc, char *argv[])
 		}
 
 		env_put("DOVECONF_ENV", "1");
-		if (config_export_finish(&ctx) < 0)
+		if (config_export_finish(&ctx, &section_idx) < 0)
 			i_fatal("Invalid configuration");
 		execvp(exec_args[0], exec_args);
 		i_fatal("execvp(%s) failed: %m", exec_args[0]);

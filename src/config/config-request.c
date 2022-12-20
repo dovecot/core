@@ -28,6 +28,7 @@ struct config_export_context {
 	const struct config_module_parser *parsers;
 	struct config_module_parser *dup_parsers;
 	struct master_service_settings_output output;
+	unsigned int section_idx;
 
 	bool failed;
 };
@@ -301,7 +302,8 @@ settings_export(struct config_export_context *ctx,
 			for (i = 0; i < count; i++) {
 				if (i > 0)
 					str_append_c(ctx->value, ' ');
-				setting_export_section_name(ctx->value, def, children[i], i);
+				setting_export_section_name(ctx->value, def, children[i],
+							    ctx->section_idx + i);
 			}
 			change_children = array_get(change_val, &count2);
 			i_assert(count == count2);
@@ -363,10 +365,13 @@ settings_export(struct config_export_context *ctx,
 
 		i_assert(count == 0 || children != NULL);
 		prefix_len = str_len(ctx->prefix);
+		unsigned int section_start_idx = ctx->section_idx;
+		ctx->section_idx += count;
 		for (i = 0; i < count; i++) {
 			str_append(ctx->prefix, def->key);
 			str_append_c(ctx->prefix, SETTINGS_SEPARATOR);
-			setting_export_section_name(ctx->prefix, def, children[i], i);
+			setting_export_section_name(ctx->prefix, def, children[i],
+						    section_start_idx + i);
 			str_append_c(ctx->prefix, SETTINGS_SEPARATOR);
 			settings_export(ctx, def->list_info,
 					def->type == SET_DEFLIST_UNIQUE,
@@ -457,7 +462,8 @@ static void config_export_free(struct config_export_context *ctx)
 	pool_unref(&ctx->pool);
 }
 
-int config_export_finish(struct config_export_context **_ctx)
+int config_export_finish(struct config_export_context **_ctx,
+			 unsigned int *section_idx)
 {
 	struct config_export_context *ctx = *_ctx;
 	const struct config_module_parser *parser;
@@ -472,6 +478,7 @@ int config_export_finish(struct config_export_context **_ctx)
 		return -1;
 	}
 
+	ctx->section_idx = *section_idx;
 	for (i = 0; ctx->parsers[i].root != NULL; i++) {
 		parser = &ctx->parsers[i];
 		if (!config_module_want_parser(config_module_parsers,
@@ -499,6 +506,7 @@ int config_export_finish(struct config_export_context **_ctx)
 			}
 		}
 	}
+	*section_idx = ctx->section_idx;
 	config_export_free(ctx);
 	return ret;
 }

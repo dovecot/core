@@ -54,6 +54,7 @@ void config_export_get_output(struct config_export_context *ctx,
 			      struct master_service_settings_output *output_r);
 const char *
 config_export_get_import_environment(struct config_export_context *ctx);
-int config_export_finish(struct config_export_context **ctx);
+int config_export_finish(struct config_export_context **ctx,
+			 unsigned int *section_idx);
 
 #endif

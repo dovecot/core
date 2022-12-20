@@ -70,6 +70,7 @@ static int config_connection_request(struct config_connection *conn,
 	struct config_export_context *ctx;
 	struct master_service_settings_output output;
 	struct config_filter filter;
+	unsigned int section_idx = 0;
 	const char *path, *value, *error, *module, *const *wanted_modules;
 	ARRAY(const char *) modules;
 	ARRAY(const char *) exclude_settings;
@@ -148,7 +149,7 @@ static int config_connection_request(struct config_connection *conn,
 		o_stream_nsend_str(conn->output, "used-remote\t");
 	o_stream_nsend_str(conn->output, "\n");
 
-	if (config_export_finish(&ctx) < 0) {
+	if (config_export_finish(&ctx, &section_idx) < 0) {
 		config_connection_destroy(conn);
 		return -1;
 	}
