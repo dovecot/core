@@ -226,6 +226,7 @@ void fts_flatcurve_xapian_init(struct flatcurve_fts_backend *backend)
 void fts_flatcurve_xapian_deinit(struct flatcurve_fts_backend *backend)
 {
 	struct flatcurve_xapian *x = backend->xapian;
+	const char *error;
 
 	x->deinit = TRUE;
 	if (hash_table_is_created(x->optimize)) {
@@ -237,7 +238,6 @@ void fts_flatcurve_xapian_deinit(struct flatcurve_fts_backend *backend)
 			str_append(backend->boxname, (const char *)key);
 			str_append(backend->db_path, (const char *)val);
 
-			const char *error;
 			if (fts_flatcurve_xapian_optimize_box(
 				backend, &error) < 0)
 				e_error(backend->event, "%s", error);
@@ -246,6 +246,8 @@ void fts_flatcurve_xapian_deinit(struct flatcurve_fts_backend *backend)
 		hash_table_iterate_deinit(&iter);
 		hash_table_destroy(&x->optimize);
 	}
+	if (fts_flatcurve_xapian_close(backend, &error) < 0)
+		e_error(backend->event, "Failed to close Xapian: %s", error);
 	hash_table_destroy(&x->dbs);
 	pool_unref(&x->pool);
 	x->deinit = FALSE;
