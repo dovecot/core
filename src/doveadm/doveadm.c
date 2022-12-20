@@ -216,6 +216,11 @@ static void cmd_exec(struct doveadm_cmd_context *cctx)
 	if (!doveadm_cmd_param_array(cctx, "args", &args))
 		args = NULL;
 
+	/* Avoid re-executing doveconf after the binary is executed */
+	int config_fd = doveadm_settings_get_config_fd();
+	fd_close_on_exec(config_fd, FALSE);
+	env_put(DOVECOT_CONFIG_FD_ENV, dec2str(config_fd));
+
 	path = t_strdup_printf("%s/%s", doveadm_settings->libexec_dir, binary);
 
 	unsigned int len = str_array_length(args);

@@ -16,6 +16,7 @@ ARRAY_TYPE(doveadm_setting_root) doveadm_setting_roots;
 bool doveadm_verbose_proctitle;
 
 static pool_t doveadm_settings_pool = NULL;
+static int global_config_fd = -1;
 
 static bool doveadm_settings_check(void *_set, pool_t pool, const char **error_r);
 
@@ -257,9 +258,13 @@ void doveadm_read_settings(void)
 	input.service = "doveadm";
 	input.preserve_user = TRUE;
 	input.preserve_home = TRUE;
+	input.return_config_fd = TRUE; /* for doveadm exec */
 	if (master_service_settings_read(master_service, &input,
 					 &output, &error) < 0)
 		i_fatal("Error reading configuration: %s", error);
+	i_assert(global_config_fd == -1);
+	global_config_fd = output.config_fd;
+	fd_close_on_exec(output.config_fd, TRUE);
 
 	doveadm_settings_pool = pool_alloconly_create("doveadm settings", 1024);
 	service_set = master_service_settings_get_root_set_dup(master_service,
@@ -280,6 +285,12 @@ void doveadm_read_settings(void)
 		root->settings = master_service_settings_get_root_set_dup(
 			master_service, root->info, doveadm_settings_pool);
 	}
+}
+
+int doveadm_settings_get_config_fd(void)
+{
+	i_assert(global_config_fd != -1);
+	return global_config_fd;
 }
 
 void doveadm_setting_roots_add(const struct setting_parser_info *info)

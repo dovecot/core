@@ -58,6 +58,7 @@ void doveadm_setting_roots_add(const struct setting_parser_info *info);
 void *doveadm_setting_roots_get_settings(const struct setting_parser_info *info);
 
 void doveadm_read_settings(void);
+int doveadm_settings_get_config_fd(void);
 
 void doveadm_settings_init(void);
 void doveadm_settings_deinit(void);
