@@ -654,7 +654,23 @@ event_match_field(struct event *event, struct event_filter_node *node,
 			}
 			return FALSE;
 		} else if (node->op != EVENT_FILTER_OP_CMP_EQ) {
-			/* we only support string equality comparisons */
+			/* In this branch a numeric value is matched against a
+			   wildcard, which requires an equality operation. */
+			if (!node->warned_type_mismatch) {
+				const char *name = event->sending_name;
+				/* Use i_warning to prevent event filter recursions. */
+				i_warning("Event filter matches integer field "
+					  "'%s' against wildcard value '%s' "
+					  "with an incompatible operation '%s', "
+					  "please use '='. (event=%s, "
+					  "source=%s:%u)",
+					  wanted_field->key,
+					  wanted_field->value.str,
+					  event_filter_export_query_expr_op(node->op),
+					  name != NULL ? name : "",
+					  source_filename, source_linenum);
+				node->warned_type_mismatch = TRUE;
+			}
 			return FALSE;
 		} else {
 			char tmp[MAX_INT_STRLEN];

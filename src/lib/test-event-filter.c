@@ -639,11 +639,6 @@ static void test_event_filter_numbers(void)
 	event_add_int(e, "number", 0);
 
 	filter = event_filter_create();
-	test_assert(event_filter_parse("number > *", filter, &error) == 0);
-	test_assert(!event_filter_match(filter, e, &failure_ctx));
-	event_filter_unref(&filter);
-
-	filter = event_filter_create();
 	test_assert(event_filter_parse("number=0", filter, &error) == 0);
 	test_assert(event_filter_match(filter, e, &failure_ctx));
 	event_filter_unref(&filter);
@@ -667,6 +662,23 @@ static void test_event_filter_numbers(void)
 				 "against non-integer value 'fish'");
 	test_assert(!event_filter_match(filter, e, &failure_ctx));
 	test_expect_no_more_errors();
+	event_filter_unref(&filter);
+
+	event_add_int(e, "status_code", 204);
+
+	filter = event_filter_create();
+	test_assert(event_filter_parse("status_code > 2*", filter, &error) == 0);
+	test_expect_error_string("Event filter matches integer field "
+				 "'status_code' against wildcard value '2*' "
+				 "with an incompatible operation '>', please "
+				 "use '='.");
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	test_expect_no_more_errors();
+	event_filter_unref(&filter);
+
+	filter = event_filter_create();
+	test_assert(event_filter_parse("status_code = 2*", filter, &error) == 0);
+	test_assert(event_filter_match(filter, e, &failure_ctx));
 	event_filter_unref(&filter);
 
 	event_unref(&e);
