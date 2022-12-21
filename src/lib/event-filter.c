@@ -634,8 +634,12 @@ event_match_field(struct event *event, struct event_filter_node *node,
 				node->warned_ambiguous_unit = TRUE;
 			}
 			return FALSE;
-		} else if ((wanted_field->value_type != EVENT_FIELD_VALUE_TYPE_INTMAX) &&
-		    (node->type != EVENT_FILTER_NODE_TYPE_EVENT_FIELD_NUMERIC_WILDCARD)) {
+		} else if (wanted_field->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX) {
+			/* compare against an integer */
+			return event_filter_handle_numeric_operation(
+				node->op, field->value.intmax, wanted_field->value.intmax);
+		} else if (use_strcmp ||
+			   (node->type != EVENT_FILTER_NODE_TYPE_EVENT_FIELD_NUMERIC_WILDCARD)) {
 			if (!node->warned_type_mismatch) {
 				const char *name = event->sending_name;
 				/* Use i_warning to prevent event filter recursions. */
@@ -649,17 +653,8 @@ event_match_field(struct event *event, struct event_filter_node *node,
 				node->warned_type_mismatch = TRUE;
 			}
 			return FALSE;
-		} else if (wanted_field->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX) {
-			/* compare against an integer */
-			return event_filter_handle_numeric_operation(
-				node->op, field->value.intmax, wanted_field->value.intmax);
 		} else if (node->op != EVENT_FILTER_OP_CMP_EQ) {
 			/* we only support string equality comparisons */
-			return FALSE;
-		} else if (use_strcmp) {
-			/* If the matched value was a number, it was already matched
-			   in the previous branch. So here we have a non-wildcard
-			   string, which can never be a match to a number. */
 			return FALSE;
 		} else {
 			char tmp[MAX_INT_STRLEN];
