@@ -500,7 +500,7 @@ static int ssl_clienthello_callback(SSL *ssl, int *al ATTR_UNUSED,
 	    extlen > 0) {
 		bool first = TRUE;
 		unsigned short veclen = be16_to_cpu_unaligned(ext);
-		if (veclen+2 == extlen) {
+		if (veclen+2U == extlen) {
 			for (size_t i = 2; i < extlen; i+=2) {
 				uint16_t group = be16_to_cpu_unaligned(&ext[i]);
 				if (ssl_ja3_is_ext_greased(group))
@@ -518,7 +518,7 @@ static int ssl_clienthello_callback(SSL *ssl, int *al ATTR_UNUSED,
 	/* Process extension 11 - ec point formats */
 	ext = NULL;
 	if (SSL_client_hello_get0_ext(ssl, 11, &ext, &extlen) == 1 &&
-	    extlen > 0 && extlen == ext[0]+1) {
+	    extlen > 0 && extlen == ext[0]+1U) {
 		for (size_t i = 1; i < extlen; i++) {
 			if (i > 1)
 				str_append_c(ja3, '-');
