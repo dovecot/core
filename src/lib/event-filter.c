@@ -683,8 +683,21 @@ event_match_field(struct event *event, struct event_filter_node *node,
 	case EVENT_FIELD_VALUE_TYPE_STRLIST:
 		/* check if the value is (or is not) on the list,
 		   only string matching makes sense here. */
-		if (node->op != EVENT_FILTER_OP_CMP_EQ)
+		if (node->op != EVENT_FILTER_OP_CMP_EQ) {
+			if (!node->warned_string_inequality) {
+				const char *name = event->sending_name;
+				i_warning("Event filter for string list field "
+					  "'%s' only supports equality "
+					  "operation '=' not '%s'. (event=%s, "
+					  "source=%s:%u)",
+					  wanted_field->key,
+					  event_filter_export_query_expr_op(node->op),
+					  name != NULL ? name : "",
+					  source_filename, source_linenum);
+				node->warned_string_inequality = TRUE;
+			}
 			return FALSE;
+		}
 		return event_match_strlist(event, wanted_field, use_strcmp);
 	}
 	i_unreached();

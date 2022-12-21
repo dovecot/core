@@ -327,6 +327,14 @@ static void test_event_filter_strlist(void)
 	test_assert(event_filter_match(filter, e, &failure_ctx));
 	event_filter_unref(&filter);
 
+	filter = event_filter_create();
+	event_filter_parse("abc>one", filter, NULL);
+	test_expect_error_string("Event filter for string field 'abc' only "
+				 "supports equality operation '=' not '>'.");
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	test_expect_no_more_errors();
+	event_filter_unref(&filter);
+
 	event_unref(&e);
 	test_end();
 }
