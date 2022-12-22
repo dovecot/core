@@ -334,7 +334,7 @@ authenticate_callback(struct auth_client_request *request,
 		i_assert(status < 0);
 		return;
 	}
-	client->auth_waiting = FALSE;
+	client->auth_client_continue_pending = FALSE;
 
 	i_assert(client->auth_request == request);
 	switch (status) {

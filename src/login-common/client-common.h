@@ -258,6 +258,8 @@ struct client {
 	bool ssl_servername_settings_read:1;
 	bool banner_sent:1;
 	bool authenticating:1;
+	/* SASL authentication is waiting for client to send a continuation */
+	bool auth_client_continue_pending:1;
 	bool auth_try_aborted:1;
 	bool auth_initializing:1;
 	bool auth_process_comm_fail:1;
@@ -268,7 +270,6 @@ struct client {
 	bool proxy_nopipelining:1;
 	bool proxy_not_trusted:1;
 	bool proxy_redirect_reauth:1;
-	bool auth_waiting:1;
 	bool notified_auth_ready:1;
 	bool notified_disconnect:1;
 	bool fd_proxying:1;

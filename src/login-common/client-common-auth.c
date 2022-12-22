@@ -800,7 +800,7 @@ client_auth_handle_reply(struct client *client,
 
 void client_auth_respond(struct client *client, const char *response)
 {
-	client->auth_waiting = FALSE;
+	client->auth_client_continue_pending = FALSE;
 	client_set_auth_waiting(client);
 	auth_client_request_continue(client->auth_request, response);
 	if (!client_does_custom_io(client))
@@ -995,7 +995,7 @@ sasl_callback(struct client *client, enum sasl_server_reply sasl_reply,
 			str_truncate(client->auth_response, 0);
 
 		i_assert(client->io == NULL);
-		client->auth_waiting = TRUE;
+		client->auth_client_continue_pending = TRUE;
 		if (!client_does_custom_io(client)) {
 			client->io = io_add_istream(client->input,
 						    client_auth_input, client);

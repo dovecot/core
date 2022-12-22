@@ -1137,7 +1137,7 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 	    client->ssl_iostream == NULL)
 		return "(cert required, client didn't start TLS)";
 
-	if (client->auth_waiting && client->auth_attempts == 1) {
+	if (client->auth_client_continue_pending && client->auth_attempts == 1) {
 		return t_strdup_printf("(client didn't finish SASL auth, "
 				       "waited %u secs)", auth_secs);
 	}
