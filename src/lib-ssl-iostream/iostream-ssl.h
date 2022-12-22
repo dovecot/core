@@ -127,6 +127,9 @@ bool ssl_iostream_cert_match_name(struct ssl_iostream *ssl_io, const char *name,
 const char *ssl_iostream_get_peer_name(struct ssl_iostream *ssl_io);
 /* Returns used compression, if any. Returns NULL if not available. */
 const char *ssl_iostream_get_compression(struct ssl_iostream *ssl_io);
+/* Returns TLS extension server_name(0) requested by client, or NULL if not
+   provided.
+ */
 const char *ssl_iostream_get_server_name(struct ssl_iostream *ssl_io);
 const char *ssl_iostream_get_security_string(struct ssl_iostream *ssl_io);
 
