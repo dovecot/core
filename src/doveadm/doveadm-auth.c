@@ -26,8 +26,6 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#define DOVEADM_CHECK_INTERRUPT_INTERVAL_MS 1000
-
 static struct event_category event_category_auth = {
 	.name = "auth",
 };
@@ -68,14 +66,6 @@ static bool auth_want_log_debug(void)
 
 static void auth_cmd_help(struct doveadm_cmd_context *cctx);
 
-static void auth_is_interrupted(struct authtest_input *input)
-{
-	if (master_service_is_killed(master_service)) {
-		auth_client_request_abort(&input->request, "cancelled");
-		timeout_remove(&input->to);
-	}
-}
-
 static struct auth_master_connection *
 doveadm_get_auth_master_conn(const char *auth_socket_path)
 {
@@ -86,9 +76,20 @@ doveadm_get_auth_master_conn(const char *auth_socket_path)
 	return auth_master_init(auth_socket_path, flags);
 }
 
+static void cancel_auth(struct authtest_input *input)
+{
+	io_loop_stop(current_ioloop);
+	auth_client_request_abort(&input->request, "User cancelled request");
+}
+
+static void cancel_login(struct login_server_auth *auth)
+{
+	login_server_auth_disconnect(auth);
+}
+
 static int
 cmd_user_input(struct auth_master_connection *conn,
-	       const struct authtest_input *input,
+	       struct authtest_input *input,
 	       const char *show_field, bool userdb,
 	       struct event *event)
 {
@@ -228,8 +229,11 @@ static void auth_connected(struct auth_client *client,
 	string_t *sasl_output_base64;
 	const char *error;
 
-	if (!connected)
+	if (!connected) {
+		if (master_service_is_killed(master_service))
+			return;
 		i_fatal("Couldn't connect to auth socket");
+	}
 	if (auth_client_find_mech(client, mech) == NULL)
 		i_fatal("SASL mechanism '%s' not supported by server", mech);
 
@@ -261,8 +265,6 @@ static void auth_connected(struct auth_client *client,
 
 	input->request = auth_client_request_new(client, &info,
 						 auth_callback, input);
-	input->to = timeout_add(DOVEADM_CHECK_INTERRUPT_INTERVAL_MS,
-				auth_is_interrupted, input);
 }
 
 static void cmd_auth_init_sasl_client(struct authtest_input *input)
@@ -309,14 +311,15 @@ cmd_auth_input(const char *auth_socket_path, struct authtest_input *input)
 
 	client = auth_client_init(auth_socket_path, getpid(),
 				  auth_want_log_debug());
+
 	auth_client_connect(client);
 	auth_client_set_connect_notify(client, auth_connected, input);
+	master_service_set_killed_callback(master_service, cancel_auth, input);
 
 	if (!auth_client_is_disconnected(client))
 		io_loop_run(current_ioloop);
 
 	auth_client_set_connect_notify(client, NULL, NULL);
-	timeout_remove(&input->to);
 	auth_client_deinit(&client);
 
 	cmd_auth_deinit_sasl_client(input);
@@ -502,6 +505,8 @@ cmd_auth_master_input(const char *auth_master_socket_path,
 
 	input->success = FALSE;
 	auth = login_server_auth_init(auth_master_socket_path, FALSE);
+	master_service_set_killed_callback(master_service, cancel_login,
+					   auth);
 	io_loop_set_running(current_ioloop);
 	login_server_auth_request(auth, &login_req,
 				  login_server_auth_callback, input);
@@ -546,12 +551,12 @@ static void cmd_auth_login(struct doveadm_cmd_context *cctx)
 	/* authenticate */
 	auth_client = auth_client_init(auth_login_socket_path, getpid(),
 				       auth_want_log_debug());
+	master_service_set_killed_callback(master_service, cancel_auth, &input);
 	auth_client_connect(auth_client);
 	auth_client_set_connect_notify(auth_client, auth_connected, &input);
 	if (!auth_client_is_disconnected(auth_client))
 		io_loop_run(current_ioloop);
 	auth_client_set_connect_notify(auth_client, NULL, NULL);
-	timeout_remove(&input.to);
 	/* finish login with userdb lookup */
 	if (input.success)
 		cmd_auth_master_input(auth_master_socket_path, &input);
