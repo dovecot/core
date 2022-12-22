@@ -1136,6 +1136,9 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 			(unsigned int)(ioloop_time - client->created.tv_sec));
 	}
 
+	if (client->auth_process_comm_fail)
+		return "auth process communication failure";
+
 	if (client->auth_client_continue_pending && client->auth_attempts == 1) {
 		return t_strdup_printf("client didn't finish SASL auth, "
 				       "waited %u secs", auth_secs);
@@ -1150,8 +1153,6 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 	}
 	if (client->auth_aborted_by_client && client->auth_attempts == 1)
 		return "auth aborted by client";
-	if (client->auth_process_comm_fail)
-		return "auth process communication failure";
 
 	if (client->auth_nologin_referral)
 		return "auth referral";
