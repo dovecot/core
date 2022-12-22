@@ -1110,18 +1110,22 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 	unsigned int auth_secs = client->auth_first_started == 0 ? 0 :
 		ioloop_time - client->auth_first_started;
 
-	if (client->set->auth_ssl_require_client_cert &&
-	    client->ssl_iostream != NULL) {
+	if (!client->notified_auth_ready)
+		return t_strdup_printf(
+			"disconnected before auth was ready, waited %u secs",
+			(unsigned int)(ioloop_time - client->created.tv_sec));
+
+	/* Check for missing client SSL certificates before auth attempts.
+	   We may have advertised LOGINDISABLED, which would have prevented
+	   client from even attempting to authenticate. */
+	if (client->set->auth_ssl_require_client_cert) {
+		if (client->ssl_iostream == NULL)
+			return "cert required, client didn't start TLS";
 		if (ssl_iostream_has_broken_client_cert(client->ssl_iostream))
 			return "client sent an invalid cert";
 		if (!ssl_iostream_has_valid_client_cert(client->ssl_iostream))
 			return "client didn't send a cert";
 	}
-
-	if (!client->notified_auth_ready)
-		return t_strdup_printf(
-			"disconnected before auth was ready, waited %u secs",
-			(unsigned int)(ioloop_time - client->created.tv_sec));
 
 	if (client->auth_attempts == 0) {
 		if (!client->banner_sent) {
@@ -1131,11 +1135,6 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 		return t_strdup_printf("no auth attempts in %u secs",
 			(unsigned int)(ioloop_time - client->created.tv_sec));
 	}
-
-	/* some auth attempts without SSL/TLS */
-	if (client->set->auth_ssl_require_client_cert &&
-	    client->ssl_iostream == NULL)
-		return "cert required, client didn't start TLS";
 
 	if (client->auth_client_continue_pending && client->auth_attempts == 1) {
 		return t_strdup_printf("client didn't finish SASL auth, "
