@@ -292,7 +292,7 @@ void client_disconnect(struct client *client, const char *reason,
 		const char *extra_reason =
 			client_get_extra_disconnect_reason(client);
 		if (extra_reason[0] != '\0')
-			reason = t_strconcat(reason, " ", extra_reason, NULL);
+			reason = t_strdup_printf("%s (%s)", reason, extra_reason);
 	}
 	if (reason != NULL) {
 		struct event *event = client->login_proxy == NULL ?
@@ -1113,14 +1113,14 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 	if (client->set->auth_ssl_require_client_cert &&
 	    client->ssl_iostream != NULL) {
 		if (ssl_iostream_has_broken_client_cert(client->ssl_iostream))
-			return "(client sent an invalid cert)";
+			return "client sent an invalid cert";
 		if (!ssl_iostream_has_valid_client_cert(client->ssl_iostream))
-			return "(client didn't send a cert)";
+			return "client didn't send a cert";
 	}
 
 	if (!client->notified_auth_ready)
 		return t_strdup_printf(
-			"(disconnected before auth was ready, waited %u secs)",
+			"disconnected before auth was ready, waited %u secs",
 			(unsigned int)(ioloop_time - client->created.tv_sec));
 
 	if (client->auth_attempts == 0) {
@@ -1128,65 +1128,65 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 			/* disconnected by a plugin */
 			return "";
 		}
-		return t_strdup_printf("(no auth attempts in %u secs)",
+		return t_strdup_printf("no auth attempts in %u secs",
 			(unsigned int)(ioloop_time - client->created.tv_sec));
 	}
 
 	/* some auth attempts without SSL/TLS */
 	if (client->set->auth_ssl_require_client_cert &&
 	    client->ssl_iostream == NULL)
-		return "(cert required, client didn't start TLS)";
+		return "cert required, client didn't start TLS";
 
 	if (client->auth_client_continue_pending && client->auth_attempts == 1) {
-		return t_strdup_printf("(client didn't finish SASL auth, "
-				       "waited %u secs)", auth_secs);
+		return t_strdup_printf("client didn't finish SASL auth, "
+				       "waited %u secs", auth_secs);
 	}
 	if (client->auth_request != NULL && client->auth_attempts == 1) {
-		return t_strdup_printf("(disconnected while authenticating, "
-				       "waited %u secs)", auth_secs);
+		return t_strdup_printf("disconnected while authenticating, "
+				       "waited %u secs", auth_secs);
 	}
 	if (client->authenticating && client->auth_attempts == 1) {
-		return t_strdup_printf("(disconnected while finishing login, "
-				       "waited %u secs)", auth_secs);
+		return t_strdup_printf("disconnected while finishing login, "
+				       "waited %u secs", auth_secs);
 	}
 	if (client->auth_try_aborted && client->auth_attempts == 1)
-		return "(aborted authentication)";
+		return "aborted authentication";
 	if (client->auth_process_comm_fail)
-		return "(auth process communication failure)";
+		return "auth process communication failure";
 
 	if (client->auth_nologin_referral)
-		return "(auth referral)";
+		return "auth referral";
 	if (client->proxy_auth_failed)
-		return "(proxy dest auth failed)";
+		return "proxy dest auth failed";
 	if (client->auth_successes > 0) {
-		return t_strdup_printf("(internal failure, %u successful auths)",
+		return t_strdup_printf("internal failure, %u successful auths",
 				       client->auth_successes);
 	}
 
 	switch (client->last_auth_fail) {
 	case CLIENT_AUTH_FAIL_CODE_AUTHZFAILED:
 		return t_strdup_printf(
-			"(authorization failed, %u attempts in %u secs)",
+			"authorization failed, %u attempts in %u secs",
 			client->auth_attempts, auth_secs);
 	case CLIENT_AUTH_FAIL_CODE_TEMPFAIL:
-		return "(auth service reported temporary failure)";
+		return "auth service reported temporary failure";
 	case CLIENT_AUTH_FAIL_CODE_USER_DISABLED:
-		return "(user disabled)";
+		return "user disabled";
 	case CLIENT_AUTH_FAIL_CODE_PASS_EXPIRED:
-		return "(password expired)";
+		return "password expired";
 	case CLIENT_AUTH_FAIL_CODE_INVALID_BASE64:
-		return "(sent invalid base64 in response)";
+		return "sent invalid base64 in response";
 	case CLIENT_AUTH_FAIL_CODE_LOGIN_DISABLED:
-		return "(login disabled)";
+		return "login disabled";
 	case CLIENT_AUTH_FAIL_CODE_MECH_INVALID:
-		return "(tried to use unsupported auth mechanism)";
+		return "tried to use unsupported auth mechanism";
 	case CLIENT_AUTH_FAIL_CODE_MECH_SSL_REQUIRED:
-		return "(tried to use disallowed cleartext auth)";
+		return "tried to use disallowed cleartext auth";
 	default:
 		break;
 	}
 
-	return t_strdup_printf("(auth failed, %u attempts in %u secs)",
+	return t_strdup_printf("auth failed, %u attempts in %u secs",
 			       client->auth_attempts, auth_secs);
 }
 
