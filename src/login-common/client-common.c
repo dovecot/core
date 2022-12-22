@@ -1148,8 +1148,8 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 		return t_strdup_printf("disconnected while finishing login, "
 				       "waited %u secs", auth_secs);
 	}
-	if (client->auth_try_aborted && client->auth_attempts == 1)
-		return "aborted authentication";
+	if (client->auth_aborted_by_client && client->auth_attempts == 1)
+		return "auth aborted by client";
 	if (client->auth_process_comm_fail)
 		return "auth process communication failure";
 

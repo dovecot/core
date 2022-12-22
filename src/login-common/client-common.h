@@ -260,7 +260,9 @@ struct client {
 	bool authenticating:1;
 	/* SASL authentication is waiting for client to send a continuation */
 	bool auth_client_continue_pending:1;
-	bool auth_try_aborted:1;
+	/* Client asked for SASL authentication to be aborted by sending
+	   "*" line. */
+	bool auth_aborted_by_client:1;
 	bool auth_initializing:1;
 	bool auth_process_comm_fail:1;
 	bool auth_anonymous:1;
@@ -327,6 +329,8 @@ void client_set_title(struct client *client);
 const char *client_get_extra_disconnect_reason(struct client *client);
 
 void client_auth_respond(struct client *client, const char *response);
+/* Called when client asks for SASL authentication to be aborted by sending
+   "*" line. */
 void client_auth_abort(struct client *client);
 bool client_is_tls_enabled(struct client *client);
 void client_auth_fail(struct client *client, const char *text);

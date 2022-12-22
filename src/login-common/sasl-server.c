@@ -511,7 +511,7 @@ void sasl_server_auth_begin(struct client *client, const char *mech_name,
 	i_assert(auth_client_is_connected(auth_client));
 
 	client->auth_attempts++;
-	client->auth_try_aborted = FALSE;
+	client->auth_aborted_by_client = FALSE;
 	client->authenticating = TRUE;
 	client->master_auth_id = 0;
 	if (client->auth_first_started == 0)
@@ -596,7 +596,7 @@ void sasl_server_auth_failed(struct client *client, const char *reason,
 
 void sasl_server_auth_abort(struct client *client)
 {
-	client->auth_try_aborted = TRUE;
+	client->auth_aborted_by_client = TRUE;
 	if (client->anvil_query != NULL) {
 		anvil_client_query_abort(anvil, &client->anvil_query);
 		i_free(client->anvil_request);

@@ -39,6 +39,8 @@ void sasl_server_auth_begin(struct client *client, const char *mech_name,
 			    sasl_server_callback_t *callback);
 void sasl_server_auth_failed(struct client *client, const char *reason,
 	const char *code) ATTR_NULL(3);
+/* Called when client asks for SASL authentication to be aborted by sending
+   "*" line. */
 void sasl_server_auth_abort(struct client *client);
 
 #endif
