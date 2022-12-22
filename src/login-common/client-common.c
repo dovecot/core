@@ -1136,7 +1136,7 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 		if (client->ssl_iostream == NULL)
 			return "cert required, client didn't start TLS";
 		if (ssl_iostream_has_broken_client_cert(client->ssl_iostream))
-			return "client sent an invalid cert";
+			return "client sent an untrusted cert";
 		if (!ssl_iostream_has_valid_client_cert(client->ssl_iostream))
 			return "client didn't send a cert";
 	}
