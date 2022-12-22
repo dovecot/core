@@ -337,7 +337,9 @@ void client_add_forward_field(struct client *client, const char *key,
 			      const char *value);
 bool client_forward_decode_base64(struct client *client, const char *value);
 void client_set_title(struct client *client);
-const char *client_get_extra_disconnect_reason(struct client *client);
+bool client_get_extra_disconnect_reason(struct client *client,
+					const char **human_reason_r,
+					const char **event_reason_r);
 
 void client_auth_respond(struct client *client, const char *response);
 /* Called when client asks for SASL authentication to be aborted by sending
