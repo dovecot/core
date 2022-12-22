@@ -89,6 +89,7 @@ struct event_filter_node {
 	bool warned_ambiguous_unit:1;
 	bool warned_string_inequality:1;
 	bool warned_type_mismatch:1;
+	bool warned_timeval_not_implemented:1;
 };
 
 bool event_filter_category_to_log_type(const char *name,

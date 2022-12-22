@@ -255,6 +255,7 @@ clone_expr(pool_t pool, struct event_filter_node *old)
 	new->warned_ambiguous_unit = old->warned_ambiguous_unit;
 	new->warned_type_mismatch = old->warned_type_mismatch;
 	new->warned_string_inequality = old->warned_string_inequality;
+	new->warned_timeval_not_implemented = old->warned_timeval_not_implemented;
 
 	return new;
 }
@@ -677,9 +678,19 @@ event_match_field(struct event *event, struct event_filter_node *node,
 			i_snprintf(tmp, sizeof(tmp), "%jd", field->value.intmax);
 			return wildcard_match_icase(tmp, wanted_field->value.str);
 		}
-	case EVENT_FIELD_VALUE_TYPE_TIMEVAL:
-		/* there's no point to support matching exact timestamps */
+	case EVENT_FIELD_VALUE_TYPE_TIMEVAL: {
+		/* Filtering for timeval fields is not implemented. */
+		if (!node->warned_timeval_not_implemented) {
+		     const char *name = event->sending_name;
+		     i_warning("Event filter for timeval field '%s' is "
+			       "currently not implemented. (event=%s, "
+			       "source=%s:%u)",
+			       wanted_field->key, name != NULL ? name : "",
+			       source_filename, source_linenum);
+			node->warned_timeval_not_implemented = TRUE;
+		}
 		return FALSE;
+	}
 	case EVENT_FIELD_VALUE_TYPE_STRLIST:
 		/* check if the value is (or is not) on the list,
 		   only string matching makes sense here. */

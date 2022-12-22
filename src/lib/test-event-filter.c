@@ -329,7 +329,7 @@ static void test_event_filter_strlist(void)
 
 	filter = event_filter_create();
 	event_filter_parse("abc>one", filter, NULL);
-	test_expect_error_string("Event filter for string field 'abc' only "
+	test_expect_error_string("Event filter for string list field 'abc' only "
 				 "supports equality operation '=' not '>'.");
 	test_assert(!event_filter_match(filter, e, &failure_ctx));
 	test_expect_no_more_errors();
@@ -909,6 +909,44 @@ static void test_event_filter_ambiguous_units(void)
 	test_end();
 }
 
+static void test_event_filter_timeval_values(void)
+{
+	struct event_filter *filter;
+	const char *error;
+	const struct failure_context failure_ctx = {
+		.type = LOG_TYPE_DEBUG,
+	};
+
+	test_begin("event filter: timeval filters");
+
+	struct event *e = event_create(NULL);
+
+	struct timeval tv = (struct timeval){ .tv_sec = 0, .tv_usec = 0 };
+	event_add_timeval(e, "last_run_time", &tv);
+
+	filter = event_filter_create();
+	test_assert(event_filter_parse("last_run_time = 0", filter, &error) == 0);
+	test_expect_error_string("Event filter for timeval field "
+				 "'last_run_time' is currently not implemented.");
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	test_expect_no_more_errors();
+	event_filter_unref(&filter);
+
+	tv = (struct timeval){ .tv_sec = 1, .tv_usec = 1 };
+	event_add_timeval(e, "last_run_time", &tv);
+
+	filter = event_filter_create();
+	test_assert(event_filter_parse("last_run_time > 1000000", filter, &error) == 0);
+	test_expect_error_string("Event filter for timeval field "
+				 "'last_run_time' is currently not implemented.");
+	test_assert(!event_filter_match(filter, e, &failure_ctx));
+	test_expect_no_more_errors();
+	event_filter_unref(&filter);
+
+	event_unref(&e);
+	test_end();
+}
+
 void test_event_filter(void)
 {
 	test_event_filter_override_parent_fields();
@@ -928,4 +966,5 @@ void test_event_filter(void)
 	test_event_filter_size_values();
 	test_event_filter_interval_values();
 	test_event_filter_ambiguous_units();
+	test_event_filter_timeval_values();
 }
