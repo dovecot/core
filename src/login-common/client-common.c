@@ -1139,6 +1139,11 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 	if (client->auth_process_comm_fail)
 		return "auth process communication failure";
 
+	/* The reasons below are returned only when there is a single
+	   authentication attempt. The main reason is to avoid confusion in
+	   case the client sends tons of auth attempts and disconnection just
+	   happens to be on the last attempt. In that case it's more important
+	   to know the total number of auth attempts instead. */
 	if (client->auth_client_continue_pending && client->auth_attempts == 1) {
 		return t_strdup_printf("client didn't finish SASL auth, "
 				       "waited %u secs", auth_secs);
@@ -1154,10 +1159,16 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 	if (client->auth_aborted_by_client && client->auth_attempts == 1)
 		return "auth aborted by client";
 
-	if (client->auth_nologin_referral)
+	if (client->auth_nologin_referral) {
+		/* Referral was sent to the connecting client, which is
+		   expected to be a trusted Dovecot proxy. There should be no
+		   further auth attempts. */
 		return "auth referral";
-	if (client->proxy_auth_failed)
+	}
+	if (client->proxy_auth_failed) {
+		/* Authentication to the next hop failed. */
 		return "proxy dest auth failed";
+	}
 	if (client->auth_successes > 0) {
 		return t_strdup_printf("internal failure, %u successful auths",
 				       client->auth_successes);

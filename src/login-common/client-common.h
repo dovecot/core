@@ -197,6 +197,8 @@ struct client {
 
 	char *auth_mech_name;
 	enum sasl_server_auth_flags auth_flags;
+	/* Auth request set while the client is authenticating.
+	   During this time authenticating=TRUE also. */
 	struct auth_client_request *auth_request;
 	struct auth_client_request *reauth_request;
 	string_t *auth_response;
@@ -207,6 +209,9 @@ struct client {
 	struct anvil_request *anvil_request;
 
 	unsigned int master_auth_id;
+	/* Tag that can be used with login_client_request_abort() to abort
+	   sending client fd to mail process. authenticating is always TRUE
+	   while this is non-zero. */
 	unsigned int master_tag;
 	sasl_server_callback_t *sasl_callback;
 
@@ -257,6 +262,10 @@ struct client {
 	bool connection_trusted:1;
 	bool ssl_servername_settings_read:1;
 	bool banner_sent:1;
+	/* Authentication is going on. This is set a bit before auth_request is
+	   created, and it can fail early e.g. due to unknown SASL mechanism.
+	   Also this is still TRUE while the client fd is being sent to the
+	   mail process (master_tag != 0). */
 	bool authenticating:1;
 	/* SASL authentication is waiting for client to send a continuation */
 	bool auth_client_continue_pending:1;
