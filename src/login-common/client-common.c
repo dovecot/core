@@ -46,6 +46,20 @@ struct login_client_module_hooks {
 };
 
 static ARRAY(struct login_client_module_hooks) module_hooks = ARRAY_INIT;
+static const char *client_auth_fail_code_reasons[] = {
+	NULL,
+	"authorization failed",
+	"auth service reported temporary failure",
+	"user disabled",
+	"password expired",
+	"sent invalid base64 in response",
+	"login disabled",
+	"tried to use unsupported auth mechanism",
+	"tried to use disallowed cleartext auth",
+	"anonymous logins disabled",
+};
+static_assert_array_size(client_auth_fail_code_reasons,
+			 CLIENT_AUTH_FAIL_CODE_COUNT);
 
 static const char *client_get_log_str(struct client *client, const char *msg);
 
@@ -1175,28 +1189,14 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 	}
 
 	switch (client->last_auth_fail) {
+	case CLIENT_AUTH_FAIL_CODE_NONE:
+		break;
 	case CLIENT_AUTH_FAIL_CODE_AUTHZFAILED:
 		return t_strdup_printf(
 			"authorization failed, %u attempts in %u secs",
 			client->auth_attempts, auth_secs);
-	case CLIENT_AUTH_FAIL_CODE_TEMPFAIL:
-		return "auth service reported temporary failure";
-	case CLIENT_AUTH_FAIL_CODE_USER_DISABLED:
-		return "user disabled";
-	case CLIENT_AUTH_FAIL_CODE_PASS_EXPIRED:
-		return "password expired";
-	case CLIENT_AUTH_FAIL_CODE_INVALID_BASE64:
-		return "sent invalid base64 in response";
-	case CLIENT_AUTH_FAIL_CODE_LOGIN_DISABLED:
-		return "login disabled";
-	case CLIENT_AUTH_FAIL_CODE_MECH_INVALID:
-		return "tried to use unsupported auth mechanism";
-	case CLIENT_AUTH_FAIL_CODE_MECH_SSL_REQUIRED:
-		return "tried to use disallowed cleartext auth";
-	case CLIENT_AUTH_FAIL_CODE_ANONYMOUS_DENIED:
-		return "anonymous logins disabled";
 	default:
-		break;
+		return client_auth_fail_code_reasons[client->last_auth_fail];
 	}
 
 	return t_strdup_printf("auth failed, %u attempts in %u secs",
