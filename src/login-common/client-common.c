@@ -1193,6 +1193,8 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 		return "tried to use unsupported auth mechanism";
 	case CLIENT_AUTH_FAIL_CODE_MECH_SSL_REQUIRED:
 		return "tried to use disallowed cleartext auth";
+	case CLIENT_AUTH_FAIL_CODE_ANONYMOUS_DENIED:
+		return "anonymous logins disabled";
 	default:
 		break;
 	}
