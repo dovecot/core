@@ -511,6 +511,7 @@ void sasl_server_auth_begin(struct client *client, const char *mech_name,
 	i_assert(auth_client_is_connected(auth_client));
 
 	client->auth_attempts++;
+	client->auth_try_aborted = FALSE;
 	client->authenticating = TRUE;
 	client->master_auth_id = 0;
 	if (client->auth_first_started == 0)
