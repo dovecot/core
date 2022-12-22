@@ -1150,57 +1150,49 @@ const char *client_get_extra_disconnect_reason(struct client *client)
 			(unsigned int)(ioloop_time - client->created.tv_sec));
 	}
 
+	const char *last_reason = NULL;
 	if (client->auth_process_comm_fail)
-		return "auth process communication failure";
-
-	/* The reasons below are returned only when there is a single
-	   authentication attempt. The main reason is to avoid confusion in
-	   case the client sends tons of auth attempts and disconnection just
-	   happens to be on the last attempt. In that case it's more important
-	   to know the total number of auth attempts instead. */
-	if (client->auth_client_continue_pending && client->auth_attempts == 1) {
-		return t_strdup_printf("client didn't finish SASL auth, "
-				       "waited %u secs", auth_secs);
-	}
-	if (client->auth_request != NULL && client->auth_attempts == 1) {
-		return t_strdup_printf("disconnected while authenticating, "
-				       "waited %u secs", auth_secs);
-	}
-	if (client->authenticating && client->auth_attempts == 1) {
-		return t_strdup_printf("disconnected while finishing login, "
-				       "waited %u secs", auth_secs);
-	}
-	if (client->auth_aborted_by_client && client->auth_attempts == 1)
-		return "auth aborted by client";
-
-	if (client->auth_nologin_referral) {
+		last_reason = "auth process communication failure";
+	else if (client->auth_client_continue_pending)
+		last_reason = "client didn't finish SASL auth";
+	else if (client->auth_request != NULL)
+		last_reason = "disconnected while authenticating";
+	else if (client->authenticating)
+		last_reason = "disconnected while finishing login";
+	else if (client->auth_aborted_by_client)
+		last_reason = "auth aborted by client";
+	else if (client->auth_nologin_referral) {
 		/* Referral was sent to the connecting client, which is
 		   expected to be a trusted Dovecot proxy. There should be no
 		   further auth attempts. */
-		return "auth referral";
-	}
-	if (client->proxy_auth_failed) {
+		last_reason = "auth referral";
+	} else if (client->proxy_auth_failed) {
 		/* Authentication to the next hop failed. */
-		return "proxy dest auth failed";
+		last_reason = "proxy dest auth failed";
+	} else {
+		last_reason = client_auth_fail_code_reasons[client->last_auth_fail];
 	}
+
+	if (last_reason != NULL)
+		;
+	else if (client->auth_successes > 0) {
+		/* ideally we wouldn't get here with such an ambiguous reason */
+		last_reason = "internal failure";
+	} else {
+		last_reason = "auth failed";
+	}
+
+	string_t *str = t_str_new(128);
+	str_append(str, last_reason);
 	if (client->auth_successes > 0) {
-		return t_strdup_printf("internal failure, %u successful auths",
-				       client->auth_successes);
+		str_printfa(str, ", %u/%u successful auths ",
+			    client->auth_successes, client->auth_attempts);
+	} else {
+		str_printfa(str, ", %u attempts ", client->auth_attempts);
 	}
 
-	switch (client->last_auth_fail) {
-	case CLIENT_AUTH_FAIL_CODE_NONE:
-		break;
-	case CLIENT_AUTH_FAIL_CODE_AUTHZFAILED:
-		return t_strdup_printf(
-			"authorization failed, %u attempts in %u secs",
-			client->auth_attempts, auth_secs);
-	default:
-		return client_auth_fail_code_reasons[client->last_auth_fail];
-	}
-
-	return t_strdup_printf("auth failed, %u attempts in %u secs",
-			       client->auth_attempts, auth_secs);
+	str_printfa(str, "in %u secs", auth_secs);
+	return str_c(str);
 }
 
 void client_notify_disconnect(struct client *client,
