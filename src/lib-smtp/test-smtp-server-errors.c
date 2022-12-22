@@ -16,6 +16,7 @@
 #include "smtp-reply-parser.h"
 #include "smtp-server.h"
 
+#include <sys/signal.h>
 #include <unistd.h>
 
 #define VALGRIND_TIMEOUT_MULTIPLIER (ON_VALGRIND ? 5 : 1)
@@ -3769,8 +3770,13 @@ static int test_run_client(struct test_client_data *data)
 	if (debug)
 		i_debug("PID=%s", my_pid);
 
-	/* wait a little for server setup */
-	i_sleep_msecs(100);
+	test_subprocess_notify_signal_reset(SIGUSR1);
+
+	/* signal server that we started */
+	test_subprocess_notify_signal_send_parent(SIGUSR1);
+
+	/* wait server to be ready */
+	test_subprocess_notify_signal_wait(SIGUSR1, TEST_SIGNALS_DEFAULT_TIMEOUT_MS);
 
 	ioloop = io_loop_create();
 	data->client_test(data->index);
@@ -3796,6 +3802,9 @@ test_run_server(const struct smtp_server_settings *server_set,
 	i_zero(&server_callbacks);
 
 	server_pending = client_tests_count;
+
+	/* signal clients that server is ready */
+	test_subprocess_notify_signal_all(SIGUSR1);
 	ioloop = io_loop_create();
 	server_test(server_set);
 	io_loop_destroy(&ioloop);
@@ -3824,8 +3833,10 @@ test_run_client_server(const struct smtp_server_settings *server_set,
 		data.client_test = client_test;
 
 		/* Fork client */
+		test_subprocess_notify_signal_reset(SIGUSR1);
 		test_subprocess_fork(test_run_client, &data, FALSE);
-
+		test_subprocess_notify_signal_wait(
+			SIGUSR1, TEST_SIGNALS_DEFAULT_TIMEOUT_MS);
 	}
 
 	/* Run server */

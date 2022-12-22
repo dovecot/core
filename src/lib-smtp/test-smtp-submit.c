@@ -22,6 +22,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/signal.h>
 #include <fcntl.h>
 
 #define SERVER_KILL_TIMEOUT_SECS    20
@@ -2070,6 +2071,7 @@ static int test_run_server(struct test_server_data *data)
 	if (debug)
 		i_debug("PID=%s", my_pid);
 
+	test_subprocess_notify_signal_send_parent(SIGUSR1);
 	ioloop = io_loop_create();
 	data->server_test(data->index);
 	io_loop_destroy(&ioloop);
@@ -2131,7 +2133,10 @@ test_run_client_server(const struct smtp_submit_settings *submit_set,
 
 			/* Fork server */
 			fd_listen = fds[i];
+			test_subprocess_notify_signal_reset(SIGUSR1);
 			test_subprocess_fork(test_run_server, &data, FALSE);
+			test_subprocess_notify_signal_wait(
+				SIGUSR1, TEST_SIGNALS_DEFAULT_TIMEOUT_MS);
 			i_close_fd(&fd_listen);
 		}
 	}

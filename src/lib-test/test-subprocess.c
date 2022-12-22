@@ -23,6 +23,8 @@ static volatile bool test_subprocess_notification_signal_received[SIGUSR1 + 1];
 static struct event *test_subprocess_event = NULL;
 static ARRAY(struct test_subprocess *) test_subprocesses = ARRAY_INIT;
 static void (*test_subprocess_cleanup_callback)(void) = NULL;
+static void
+test_subprocess_notification_signal(const siginfo_t *si, void *context);
 
 static void
 test_subprocess_signal(const siginfo_t *si ATTR_UNUSED,
@@ -63,6 +65,8 @@ test_subprocess_child(int (*func)(void *context), void *context,
 	lib_signals_set_handler(SIGINT,
 		LIBSIG_FLAG_DELAYED | LIBSIG_FLAG_IOLOOP_AUTOMOVE,
 		test_subprocess_signal, NULL);
+	lib_signals_set_handler(SIGUSR1, LIBSIG_FLAG_RESTART,
+		test_subprocess_notification_signal, NULL);
 
 	ret = func(context);
 
@@ -312,12 +316,19 @@ void test_subprocess_set_cleanup_callback(void (*callback)(void))
 void test_subprocess_notify_signal_send(int signo, pid_t pid)
 {
 	if (kill(pid, signo) < 0)
-		i_fatal("kill(%ld, SIGHUP) failed: %m", (long)pid);
+		i_fatal("kill(%ld, SIG %d) failed: %m", (long)pid, signo);
 }
 
 void test_subprocess_notify_signal_send_parent(int signo)
 {
 	test_subprocess_notify_signal_send(signo, getppid());
+}
+
+void test_subprocess_notify_signal_all(int signo)
+{
+	struct test_subprocess *subprocess;
+	array_foreach_elem(&test_subprocesses, subprocess)
+		test_subprocess_notify_signal_send(signo, subprocess->pid);
 }
 
 void test_subprocess_notify_signal_reset(int signo)

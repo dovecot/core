@@ -21,6 +21,7 @@
 #include "smtp-client-connection.h"
 #include "smtp-client-transaction.h"
 
+#include <sys/signal.h>
 #include <unistd.h>
 
 #define CLIENT_PROGRESS_TIMEOUT     10
@@ -4204,6 +4205,7 @@ static int test_run_server(struct test_server_data *data)
 
 	server_ssl_ctx = NULL;
 
+	test_subprocess_notify_signal_send_parent(SIGUSR1);
 	ioloop = io_loop_create();
 	data->server_test(data->index);
 	io_loop_destroy(&ioloop);
@@ -4224,6 +4226,7 @@ static int test_run_dns(test_dns_init_t dns_test)
 	if (debug)
 		i_debug("PID=%s", my_pid);
 
+	test_subprocess_notify_signal_send_parent(SIGUSR1);
 	ioloop = io_loop_create();
 	dns_test();
 	io_loop_destroy(&ioloop);
@@ -4281,7 +4284,10 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 
 			/* Fork server */
 			fd_listen = fds[i];
+			test_subprocess_notify_signal_reset(SIGUSR1);
 			test_subprocess_fork(test_run_server, &data, FALSE);
+			test_subprocess_notify_signal_wait(
+				SIGUSR1, TEST_SIGNALS_DEFAULT_TIMEOUT_MS);
 			i_close_fd(&fd_listen);
 		}
 	}
@@ -4297,7 +4303,10 @@ test_run_client_server(const struct smtp_client_settings *client_set,
 
 		/* Fork DNS service */
 		fd_listen = fd;
+		test_subprocess_notify_signal_reset(SIGUSR1);
 		test_subprocess_fork(test_run_dns, dns_test, FALSE);
+		test_subprocess_notify_signal_wait(SIGUSR1,
+			TEST_SIGNALS_DEFAULT_TIMEOUT_MS);
 		i_close_fd(&fd_listen);
 	}
 

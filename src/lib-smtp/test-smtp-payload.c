@@ -25,6 +25,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/signal.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <dirent.h>
@@ -868,6 +869,7 @@ static int test_run_server(struct test_server_data *data)
 	if (debug)
 		i_debug("PID=%s", my_pid);
 
+	test_subprocess_notify_signal_send_parent(SIGUSR1);
 	ioloop = io_loop_create();
 	test_server_init(server_set);
 	io_loop_run(ioloop);
@@ -929,7 +931,9 @@ test_run_client_server(
 
 	/* Fork server */
 	test_open_server_fd();
+	test_subprocess_notify_signal_reset(SIGUSR1);
 	test_subprocess_fork(test_run_server, &data, FALSE);
+	test_subprocess_notify_signal_wait(SIGUSR1, TEST_SIGNALS_DEFAULT_TIMEOUT_MS);
 	i_close_fd(&fd_listen);
 
 	/* Run client */
