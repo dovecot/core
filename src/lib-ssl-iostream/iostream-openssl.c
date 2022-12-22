@@ -860,7 +860,7 @@ openssl_iostream_get_security_string(struct ssl_iostream *ssl_io)
 	int bits, alg_bits;
 
 	if (!ssl_io->handshaked)
-		return "";
+		return NULL;
 
 	cipher = SSL_get_current_cipher(ssl_io->ssl);
 	bits = SSL_CIPHER_get_bits(cipher, &alg_bits);

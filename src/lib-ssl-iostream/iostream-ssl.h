@@ -131,6 +131,8 @@ const char *ssl_iostream_get_compression(struct ssl_iostream *ssl_io);
    provided.
  */
 const char *ssl_iostream_get_server_name(struct ssl_iostream *ssl_io);
+/* Returns textual representation of the security parameters for the connection,
+   or NULL if handshake has not been done. */
 const char *ssl_iostream_get_security_string(struct ssl_iostream *ssl_io);
 
 /* Returns ClientHello based JA3 string. Will return NULL
