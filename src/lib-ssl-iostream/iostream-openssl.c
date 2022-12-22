@@ -813,22 +813,22 @@ openssl_iostream_get_peer_name(struct ssl_iostream *ssl_io)
 	len = X509_NAME_get_text_by_NID(X509_get_subject_name(x509),
 					ssl_io->username_nid, NULL, 0);
 	if (len < 0)
-		name = "";
+		name = NULL;
 	else {
 		name = t_malloc0(len + 1);
 		if (X509_NAME_get_text_by_NID(X509_get_subject_name(x509),
 					      ssl_io->username_nid,
 					      name, len + 1) < 0)
-			name = "";
+			name = NULL;
 		else if (strlen(name) != (size_t)len) {
 			/* NUL characters in name. Someone's trying to fake
 			   being another user? Don't allow it. */
-			name = "";
+			name = NULL;
 		}
 	}
 	X509_free(x509);
 
-	return *name == '\0' ? NULL : name;
+	return name;
 }
 
 static const char *openssl_iostream_get_server_name(struct ssl_iostream *ssl_io)
