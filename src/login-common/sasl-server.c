@@ -458,7 +458,6 @@ int sasl_server_auth_request_info_fill(struct client *client,
 
 	if (client->ssl_iostream != NULL) {
 		unsigned char hash[MD5_RESULTLEN];
-		info_r->cert_username = ssl_iostream_get_peer_name(client->ssl_iostream);
 		info_r->ssl_cipher = ssl_iostream_get_cipher(client->ssl_iostream,
 							 &info_r->ssl_cipher_bits);
 		info_r->ssl_pfs = ssl_iostream_get_pfs(client->ssl_iostream);
