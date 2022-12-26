@@ -867,6 +867,7 @@ int main(int argc, char *argv[])
 	bool simple_output = FALSE;
 	bool dump_defaults = FALSE, host_verify = FALSE, dump_full = FALSE;
 	bool print_plugin_banner = FALSE, hide_passwords = TRUE;
+	bool disable_check_settings = FALSE;
 
 	if (getenv("USE_SYSEXITS") != NULL) {
 		/* we're coming from (e.g.) LDA */
@@ -875,7 +876,7 @@ int main(int argc, char *argv[])
 
 	i_zero(&filter);
 	master_service = master_service_init("config", master_service_flags,
-					     &argc, &argv, "adf:FhHm:nNpPexsS");
+					     &argc, &argv, "adEf:FhHm:nNpPexsS");
 	orig_config_path = t_strdup(master_service_get_config_path(master_service));
 
 	i_set_failure_prefix("doveconf: ");
@@ -885,6 +886,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'd':
 			dump_defaults = TRUE;
+			break;
+		case 'E':
+			disable_check_settings = TRUE;
 			break;
 		case 'f':
 			filter_parse_arg(&filter, optarg);
@@ -968,6 +972,8 @@ int main(int argc, char *argv[])
 	enum config_parse_flags flags = 0;
 	if (expand_vars)
 		flags |= CONFIG_PARSE_FLAG_EXPAND_VALUES;
+	if (disable_check_settings)
+		flags |= CONFIG_PARSE_FLAG_HIDE_ERRORS;
 	if ((ret = config_parse_file(dump_defaults ? NULL : config_path,
 				     flags, &error)) == 0 &&
 	    access(EXAMPLE_CONFIG_DIR, X_OK) == 0) {
@@ -978,11 +984,15 @@ int main(int argc, char *argv[])
 	if ((ret == -1 && exec_args != NULL) || ret == 0 || ret == -2)
 		i_fatal("%s", error);
 
+	enum config_dump_flags dump_flags = disable_check_settings ? 0 :
+		CONFIG_DUMP_FLAG_CHECK_SETTINGS;
 	if (dump_full && exec_args == NULL) {
 		ret2 = config_dump_full(CONFIG_DUMP_FULL_DEST_STDOUT,
+					dump_flags,
 					&import_environment);
 	} else if (dump_full) {
 		int temp_fd = config_dump_full(CONFIG_DUMP_FULL_DEST_TEMPDIR,
+					       dump_flags,
 					       &import_environment);
 		if (getenv(DOVECOT_PRESERVE_ENVS_ENV) != NULL) {
 			/* Standalone binary is getting its configuration via

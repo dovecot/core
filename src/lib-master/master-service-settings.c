@@ -7,6 +7,7 @@
 #include "mmap-util.h"
 #include "fdpass.h"
 #include "write-full.h"
+#include "str.h"
 #include "syslog-util.h"
 #include "eacces-error.h"
 #include "env-util.h"
@@ -212,6 +213,8 @@ master_service_exec_config(struct master_service *service,
 	strarr_push(&conf_argv, "-c");
 	strarr_push(&conf_argv, service->config_path);
 
+	if (input->disable_check_settings)
+		strarr_push(&conf_argv, "-E");
 	strarr_push(&conf_argv, "-F");
 	strarr_push(&conf_argv, binary_path);
 	array_append(&conf_argv, (const char *const *)service->argv + 1,
@@ -319,11 +322,15 @@ master_service_open_config(struct master_service *service,
 		}
 	}
 	net_set_nonblock(fd, FALSE);
-	const char *str = !input->reload_config ?
-		CONFIG_HANDSHAKE"REQ\n" :
-		CONFIG_HANDSHAKE"REQ\treload\n";
+	string_t *str = t_str_new(128);
+	str_append(str, CONFIG_HANDSHAKE"REQ");
+	if (input->reload_config)
+		str_append(str, "\treload");
+	if (input->disable_check_settings)
+		str_append(str, "\tdisable-check-settings");
+	str_append_c(str, '\n');
 	alarm(CONFIG_READ_TIMEOUT_SECS);
-	int ret = write_full(fd, str, strlen(str));
+	int ret = write_full(fd, str_data(str), str_len(str));
 	if (ret < 0)
 		*error_r = t_strdup_printf("write_full(%s) failed: %m", path);
 
@@ -650,10 +657,12 @@ int master_service_settings_read(struct master_service *service,
 		}
 	}
 
-	if (!settings_parser_check(parser, service->set_pool, &error)) {
-		*error_r = t_strdup_printf("Invalid settings: %s", error);
-		settings_parser_unref(&parser);
-		return -1;
+	if (!input->disable_check_settings) {
+		if (!settings_parser_check(parser, service->set_pool, &error)) {
+			*error_r = t_strdup_printf("Invalid settings: %s", error);
+			settings_parser_unref(&parser);
+			return -1;
+		}
 	}
 
 	service->set = settings_parser_get_root_set(parser,

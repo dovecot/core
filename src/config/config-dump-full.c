@@ -148,6 +148,7 @@ config_dump_full_sections(struct ostream *output,
 }
 
 int config_dump_full(enum config_dump_full_dest dest,
+		     enum config_dump_flags flags,
 		     const char **import_environment_r)
 {
 	struct config_export_context *export_ctx;
@@ -162,11 +163,11 @@ int config_dump_full(enum config_dump_full_dest dest,
 
 	if (dest == CONFIG_DUMP_FULL_DEST_STDOUT) {
 		export_ctx = config_export_init(
-				CONFIG_DUMP_SCOPE_CHANGED, 0,
+				CONFIG_DUMP_SCOPE_CHANGED, flags,
 				config_dump_full_stdout_callback, &dump_ctx);
 	} else {
 		export_ctx = config_export_init(
-				CONFIG_DUMP_SCOPE_CHANGED, 0,
+				CONFIG_DUMP_SCOPE_CHANGED, flags,
 				config_dump_full_callback, &dump_ctx);
 	}
 	i_zero(&empty_filter);

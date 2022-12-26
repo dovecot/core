@@ -998,7 +998,8 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	i_zero(&ctx);
 	ctx.pool = pool_alloconly_create(MEMPOOL_GROWING"config file parser", 1024*256);
 	ctx.path = path;
-	ctx.hide_errors = fd == -1;
+	ctx.hide_errors = fd == -1 ||
+		(flags & CONFIG_PARSE_FLAG_HIDE_ERRORS) != 0;
 
 	for (count = 0; all_roots[count] != NULL; count++) ;
 	ctx.root_parsers =

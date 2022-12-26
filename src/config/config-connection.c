@@ -53,22 +53,31 @@ static int config_connection_request(struct config_connection *conn,
 				     const char *const *args ATTR_UNUSED)
 {
 	const char *import_environment;
+	enum config_dump_flags flags = CONFIG_DUMP_FLAG_CHECK_SETTINGS;
 
-	if (null_strcmp(*args, "reload") == 0) {
-		const char *path, *error;
+	while (*args != NULL) {
+		if (strcmp(*args, "disable-check-settings") == 0)
+			flags &= ENUM_NEGATE(CONFIG_DUMP_FLAG_CHECK_SETTINGS);
+		else if (strcmp(*args, "reload") == 0) {
+			const char *path, *error;
 
-		path = master_service_get_config_path(master_service);
-		if (config_parse_file(path, CONFIG_PARSE_FLAG_EXPAND_VALUES, &error) <= 0) {
-			o_stream_nsend_str(conn->output,
-				t_strconcat("-", error, "\n", NULL));
+			path = master_service_get_config_path(master_service);
+			if (config_parse_file(path, CONFIG_PARSE_FLAG_EXPAND_VALUES, &error) <= 0) {
+				o_stream_nsend_str(conn->output,
+						   t_strconcat("-", error, "\n", NULL));
+				return 0;
+			}
+			i_close_fd(&global_config_fd);
+		} else {
+			o_stream_nsend_str(conn->output, "-Unknown parameters\n");
 			return 0;
 		}
-		i_close_fd(&global_config_fd);
+		args++;
 	}
 
 	if (global_config_fd == -1) {
 		int fd = config_dump_full(CONFIG_DUMP_FULL_DEST_RUNDIR,
-					  &import_environment);
+					  flags, &import_environment);
 		if (fd == -1) {
 			o_stream_nsend_str(conn->output, "-Failed\n");
 			return 0;

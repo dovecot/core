@@ -43,6 +43,7 @@ struct master_service_settings_input {
 	bool always_exec;
 	bool return_config_fd;
 	bool use_sysexits;
+	bool disable_check_settings;
 
 	const char *service;
 	const char *username;
