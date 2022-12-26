@@ -160,7 +160,7 @@ mailbox_list_index_update_next(struct mailbox_list_index_iterate_context *ctx,
 	} else {
 		while (node->next == NULL) {
 			node = node->parent;
-			if (node != NULL) {
+			if (node != NULL) T_BEGIN {
 				/* The storage name kept in the iteration context
 				   is escaped. To calculate the right truncation
 				   margin, the length of the name must be
@@ -173,7 +173,7 @@ mailbox_list_index_update_next(struct mailbox_list_index_iterate_context *ctx,
 				ctx->parent_len -= str_len(escaped_name);
 				if (node->parent != NULL)
 					ctx->parent_len--;
-			}
+			} T_END;
 			if (node == NULL) {
 				/* last one */
 				ctx->next_node = NULL;
