@@ -445,7 +445,9 @@ cassandra_callback_detach(struct cassandra_db *db, unsigned int id)
 static void cassandra_callback_run(struct cassandra_callback *cb)
 {
 	timeout_remove(&cb->to);
-	cb->callback(cb->future, cb->context);
+	T_BEGIN {
+		cb->callback(cb->future, cb->context);
+	} T_END;
 	cass_future_free(cb->future);
 	i_free(cb);
 }
