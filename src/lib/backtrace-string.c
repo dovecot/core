@@ -83,8 +83,18 @@ static int backtrace_append_libc(string_t *str)
 			/* out of memory case */
 			str_printfa(str, "0x%p", stack[i]);
 		} else if (str_len(str) != str_orig_size ||
-			   !str_begins_with(strings[i], BACKTRACE_SKIP_PREFIX))
-			str_append(str, strings[i]);
+			   !str_begins_with(strings[i], BACKTRACE_SKIP_PREFIX)) {
+			/* String often contains a full path to the binary,
+			   followed by the function name. The path causes the
+			   backtrace to be excessively large and we don't
+			   especially care about it, so just skip over it. */
+			const char *suffix = strrchr(strings[i], '/');
+			if (suffix != NULL)
+				suffix++;
+			else
+				suffix = strings[i];
+			str_append(str, suffix);
+		}
 	}
 	free(strings);
 	return 0;
