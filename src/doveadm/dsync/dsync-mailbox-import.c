@@ -2283,10 +2283,10 @@ dsync_mailbox_import_handle_local_mails(struct dsync_mailbox_importer *importer)
 	}
 	hash_table_iterate_deinit(&iter);
 	if (!importer->mails_have_guids) {
-		array_foreach_elem(&importer->newmails, mail) {
+		array_foreach_elem(&importer->newmails, mail) T_BEGIN {
 			if (mail->uid_in_local)
 				(void)dsync_mailbox_import_handle_mail(importer, mail);
-		}
+		} T_END;
 	}
 }
 
