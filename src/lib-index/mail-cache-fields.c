@@ -223,7 +223,7 @@ mail_cache_register_get_field(struct mail_cache *cache, unsigned int field_idx)
 }
 
 struct mail_cache_field *
-mail_cache_register_get_list(struct mail_cache *cache, pool_t pool,
+mail_cache_register_get_list(struct mail_cache *cache, pool_t *pool_r,
 			     unsigned int *count_r)
 {
         struct mail_cache_field *list;
@@ -232,11 +232,12 @@ mail_cache_register_get_list(struct mail_cache *cache, pool_t pool,
 	if (!cache->opened)
 		(void)mail_cache_open_and_verify(cache);
 
+	*pool_r = pool_alloconly_create("mail cache register fields", 1024);
 	list = cache->fields_count == 0 ? NULL :
-		p_new(pool, struct mail_cache_field, cache->fields_count);
+		p_new(*pool_r, struct mail_cache_field, cache->fields_count);
 	for (i = 0; i < cache->fields_count; i++) {
 		list[i] = cache->fields[i].field;
-		list[i].name = p_strdup(pool, list[i].name);
+		list[i].name = p_strdup(*pool_r, list[i].name);
 	}
 
 	*count_r = cache->fields_count;

@@ -488,9 +488,9 @@ index_storage_mailbox_update_cache(struct mailbox *box,
 	const struct mail_cache_field *old_fields;
 	struct mail_cache_field field;
 	unsigned int i, j, old_count;
+	pool_t pool;
 
-	old_fields = mail_cache_register_get_list(box->cache,
-						  pool_datastack_create(),
+	old_fields = mail_cache_register_get_list(box->cache, &pool,
 						  &old_count);
 
 	/* There shouldn't be many fields, so don't worry about O(n^2). */
@@ -524,6 +524,7 @@ index_storage_mailbox_update_cache(struct mailbox *box,
 					   array_count(&new_fields),
 					   unsafe_data_stack_pool);
 	}
+	pool_unref(&pool);
 }
 
 static int

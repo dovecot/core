@@ -431,6 +431,7 @@ static void dump_cache_hdr(struct mail_cache *cache)
 	const struct mail_cache_header *hdr;
 	const struct mail_cache_field *fields, *field;
 	unsigned int i, count, cache_idx;
+	pool_t pool;
 
 	(void)mail_cache_open_and_verify(cache);
 	if (MAIL_CACHE_IS_UNUSABLE(cache)) {
@@ -454,8 +455,7 @@ static void dump_cache_hdr(struct mail_cache *cache)
 	       hdr->field_header_offset);
 
 	printf("-- Cache fields --\n");
-	fields = mail_cache_register_get_list(cache, pool_datastack_create(),
-					      &count);
+	fields = mail_cache_register_get_list(cache, &pool, &count);
 	printf(
 " #  Name                                         Type Size Dec  Last used\n");
 	for (i = 0; i < cache->file_fields_count; i++) {
@@ -473,6 +473,7 @@ static void dump_cache_hdr(struct mail_cache *cache)
 		       cache_decision2str(field->decision),
 		       unixdate2str(field->last_used));
 	}
+	pool_unref(&pool);
 }
 
 static void dump_message_part(string_t *str, const struct message_part *part)

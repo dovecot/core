@@ -198,9 +198,9 @@ get_metadata_cache_fields(struct mailbox *box,
 	ARRAY_TYPE(mailbox_cache_field) *cache_fields;
 	struct mailbox_cache_field *cf;
 	unsigned int i, count;
+	pool_t pool;
 
-	fields = mail_cache_register_get_list(box->cache,
-					      pool_datastack_create(), &count);
+	fields = mail_cache_register_get_list(box->cache, &pool, &count);
 
 	cache_fields = t_new(ARRAY_TYPE(mailbox_cache_field), 1);
 	t_array_init(cache_fields, count);
@@ -208,12 +208,13 @@ get_metadata_cache_fields(struct mailbox *box,
 		dec = fields[i].decision & ENUM_NEGATE(MAIL_CACHE_DECISION_FORCED);
 		if (dec != MAIL_CACHE_DECISION_NO) {
 			cf = array_append_space(cache_fields);
-			cf->name = fields[i].name;
+			cf->name = t_strdup(fields[i].name);
 			cf->decision = fields[i].decision;
 			cf->last_used = fields[i].last_used;
 		}
 	}
 	metadata_r->cache_fields = cache_fields;
+	pool_unref(&pool);
 }
 
 static void get_metadata_precache_fields(struct mailbox *box,
@@ -222,9 +223,9 @@ static void get_metadata_precache_fields(struct mailbox *box,
 	const struct mail_cache_field *fields;
 	unsigned int i, count;
 	enum mail_fetch_field cache = 0;
+	pool_t pool;
 
-	fields = mail_cache_register_get_list(box->cache,
-					      pool_datastack_create(), &count);
+	fields = mail_cache_register_get_list(box->cache, &pool, &count);
 	for (i = 0; i < count; i++) {
 		const char *name = fields[i].name;
 
@@ -259,6 +260,7 @@ static void get_metadata_precache_fields(struct mailbox *box,
 				"Ignoring unknown cache field: %s", name);
 	}
 	metadata_r->precache_fields = cache;
+	pool_unref(&pool);
 }
 
 static int

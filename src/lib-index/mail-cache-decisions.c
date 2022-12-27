@@ -274,9 +274,10 @@ int mail_cache_decisions_copy(struct mail_cache *src, struct mail_cache *dst)
 	if (MAIL_CACHE_IS_UNUSABLE(src))
 		return 0; /* no caching decisions */
 
+	pool_t pool;
 	unsigned int count = 0;
 	struct mail_cache_field *fields =
-		mail_cache_register_get_list(src, pool_datastack_create(), &count);
+		mail_cache_register_get_list(src, &pool, &count);
 	i_assert(fields != NULL || count == 0);
 	if (count > 0)
 		mail_cache_register_fields(dst, fields, count,
@@ -287,5 +288,6 @@ int mail_cache_decisions_copy(struct mail_cache *src, struct mail_cache *dst)
 	   that the fields are updated even if the cache was already created
 	   and no purging was done. */
 	dst->field_header_write_pending = TRUE;
+	pool_unref(&pool);
 	return mail_cache_purge(dst, 0, "copy cache decisions");
 }

@@ -180,10 +180,10 @@ static void index_mail_parse_header_register_all_wanted(struct index_mail *mail)
 	struct mail *_mail = &mail->mail.mail;
 	const struct mail_cache_field *all_cache_fields;
 	unsigned int i, count;
+	pool_t pool;
 
 	all_cache_fields =
-		mail_cache_register_get_list(_mail->box->cache,
-					     pool_datastack_create(), &count);
+		mail_cache_register_get_list(_mail->box->cache, &pool, &count);
 	for (i = 0; i < count; i++) {
 		if (!str_begins_icase_with(all_cache_fields[i].name, "hdr."))
 			continue;
@@ -194,6 +194,7 @@ static void index_mail_parse_header_register_all_wanted(struct index_mail *mail)
 		array_idx_set(&mail->header_match, all_cache_fields[i].idx,
 			      &mail->header_match_value);
 	}
+	pool_unref(&pool);
 }
 
 void index_mail_parse_header_init(struct index_mail *mail,
