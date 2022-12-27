@@ -238,22 +238,24 @@ static int dbox_save_assign_uids(struct sdbox_save_context *ctx,
 	struct seq_range_iter iter;
 	unsigned int i, count, n = 0;
 	uint32_t uid;
-	bool ret;
+	int ret = 0;
 
 	seq_range_array_iter_init(&iter, uids);
 	files = array_get(&ctx->files, &count);
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < count && ret == 0; i++) T_BEGIN {
 		struct sdbox_file *sfile = (struct sdbox_file *)files[i];
 
-		ret = seq_range_array_iter_nth(&iter, n++, &uid);
-		i_assert(ret);
-		if (sdbox_file_assign_uid(sfile, uid) < 0)
-			return -1;
-		if (ctx->ctx.highest_pop3_uidl_seq == i+1) {
+		bool more = seq_range_array_iter_nth(&iter, n++, &uid);
+		i_assert(more);
+		ret = sdbox_file_assign_uid(sfile, uid);
+		if (ret == 0 && ctx->ctx.highest_pop3_uidl_seq == i+1) {
 			index_pop3_uidl_set_max_uid(&ctx->mbox->box,
 				ctx->ctx.trans, uid);
 		}
-	}
+	} T_END;
+	if (ret < 0)
+		return -1;
+
 	i_assert(!seq_range_array_iter_nth(&iter, n, &uid));
 	return 0;
 }
