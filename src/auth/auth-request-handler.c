@@ -951,7 +951,7 @@ void auth_request_handler_flush_failures(bool flush_all)
 	}
 
 	/* flush the requests */
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < count; i++) T_BEGIN {
 		auth_request = auth_requests[aqueue_idx(auth_failures, 0)];
 		aqueue_delete_tail(auth_failures);
 
@@ -961,7 +961,7 @@ void auth_request_handler_flush_failures(bool flush_all)
 					   AUTH_CLIENT_RESULT_FAILURE,
 					   uchar_empty_ptr, 0);
 		auth_request_unref(&auth_request);
-	}
+	} T_END;
 }
 
 static void auth_failure_timeout(void *context ATTR_UNUSED)
