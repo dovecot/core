@@ -622,8 +622,10 @@ lmtp_local_deliver_to_rcpts(struct lmtp_local *local,
 			continue;
 		}
 
-		ret = lmtp_local_deliver(local, cmd,
-			trans, llrcpt, src_mail, session);
+		T_BEGIN {
+			ret = lmtp_local_deliver(local, cmd, trans, llrcpt,
+						 src_mail, session);
+		} T_END;
 		client_update_data_state(client, NULL);
 
 		/* succeeded and mail_user is not saved in first_saved_mail */
