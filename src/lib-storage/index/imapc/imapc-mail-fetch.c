@@ -782,8 +782,9 @@ imapc_fetch_header_stream(struct imapc_mail *mail,
 	index_mail_parse_header_init(&mail->imail, headers_ctx);
 
 	parser = message_parse_header_init(input, NULL, hdr_parser_flags);
-	while ((ret = message_parse_header_next(parser, &hdr)) > 0)
+	while ((ret = message_parse_header_next(parser, &hdr)) > 0) T_BEGIN {
 		index_mail_parse_header(NULL, hdr, &mail->imail);
+	} T_END;
 	i_assert(ret != 0);
 	index_mail_parse_header(NULL, NULL, &mail->imail);
 	message_parse_header_deinit(&parser);
