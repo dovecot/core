@@ -84,7 +84,7 @@ static void cmd_mailbox_cache_decision_init(struct doveadm_mail_cmd_context *_ct
 	if (!ctx->all_fields) {
 		if (!doveadm_cmd_param_str(cctx, "fieldstr", &value_str))
 			i_fatal_status(EX_USAGE, "Missing fields parameter");
-		ctx->fields = t_strsplit_spaces(value_str, ", ");
+		ctx->fields = (const char *const *)p_strsplit_spaces(_ctx->pool, value_str, ", ");
 	}
 
 	if (!doveadm_cmd_param_array(cctx, "mailbox", &ctx->boxes))

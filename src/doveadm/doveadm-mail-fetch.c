@@ -544,8 +544,8 @@ static void parse_fetch_fields(struct fetch_cmd_context *ctx, const char *const 
 	i_zero(&body_field);
 	body_field.print = fetch_body_field;
 
-	t_array_init(&ctx->fields, 32);
-	t_array_init(&ctx->header_fields, 32);
+	p_array_init(&ctx->fields, ctx->ctx.pool, 32);
+	p_array_init(&ctx->header_fields, ctx->ctx.pool, 32);
 	for (; *fields != NULL; fields++) {
 		name = t_str_lcase(*fields);
 
@@ -554,13 +554,14 @@ static void parse_fetch_fields(struct fetch_cmd_context *ctx, const char *const 
 			ctx->wanted_fields |= field->wanted_fields;
 			array_push_back(&ctx->fields, field);
 		} else if (str_begins(name, "hdr.", &name)) {
-			hdr_field.name = name;
+			hdr_field.name = p_strdup(ctx->ctx.pool, name);
 			array_push_back(&ctx->fields, &hdr_field);
-			name = t_strcut(name, '.');
+			name = p_strdup(ctx->ctx.pool, t_strcut(name, '.'));
 			array_push_back(&ctx->header_fields, &name);
 		} else if (str_begins(name, "body.", &section) ||
 			   str_begins(name, "binary.", &section)) {
-			body_field.name = t_strarray_join(t_strsplit(name, ","), " ");
+			body_field.name = p_strdup(ctx->ctx.pool,
+				t_strarray_join(t_strsplit(name, ","), " "));
 
 			if (imap_msgpart_parse(section, &msgpart) < 0) {
 				print_fetch_fields();
