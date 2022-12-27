@@ -89,14 +89,11 @@ int openssl_iostream_load_key(const struct ssl_iostream_cert *set,
 	struct ssl_iostream_password_context ctx;
 	EVP_PKEY *pkey;
 	BIO *bio;
-	char *key;
 
-	key = t_strdup_noconst(set->key);
-	bio = BIO_new_mem_buf(key, strlen(key));
+	bio = BIO_new_mem_buf(set->key, strlen(set->key));
 	if (bio == NULL) {
 		*error_r = t_strdup_printf("BIO_new_mem_buf() failed: %s",
 					   openssl_iostream_error());
-		safe_memset(key, 0, strlen(key));
 		return -1;
 	}
 
@@ -115,7 +112,6 @@ int openssl_iostream_load_key(const struct ssl_iostream_cert *set,
 	}
 	BIO_free(bio);
 
-	safe_memset(key, 0, strlen(key));
 	*pkey_r = pkey;
 	*error_r = ctx.error;
 	return pkey == NULL ? -1 : 0;
@@ -126,11 +122,9 @@ int openssl_iostream_load_dh(const struct ssl_iostream_settings *set,
 			     EVP_PKEY **pkey_r, const char **error_r)
 {
 	BIO *bio;
-	char *dhvalue;
 	EVP_PKEY *pkey = NULL;
 
-	dhvalue = t_strdup_noconst(set->dh);
-	bio = BIO_new_mem_buf(dhvalue, strlen(dhvalue));
+	bio = BIO_new_mem_buf(set->dh, strlen(set->dh));
 
 	if (bio == NULL) {
 		*error_r = t_strdup_printf("BIO_new_mem_buf() failed: %s",
@@ -218,7 +212,7 @@ static int ssl_ctx_use_certificate_chain(SSL_CTX *ctx, const char *cert)
 	X509 *x;
 	int ret = 0;
 
-	in = BIO_new_mem_buf(t_strdup_noconst(cert), strlen(cert));
+	in = BIO_new_mem_buf(cert, strlen(cert));
 	if (in == NULL)
 		i_fatal("BIO_new_mem_buf() failed");
 
@@ -273,7 +267,7 @@ static int load_ca(X509_STORE *store, const char *ca,
 	BIO *bio;
 	int i;
 
-	bio = BIO_new_mem_buf(t_strdup_noconst(ca), strlen(ca));
+	bio = BIO_new_mem_buf(ca, strlen(ca));
 	if (bio == NULL)
 		i_fatal("BIO_new_mem_buf() failed");
 	inf = PEM_X509_INFO_read_bio(bio, NULL, NULL, NULL);
