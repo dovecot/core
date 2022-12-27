@@ -45,6 +45,7 @@ struct sql_dict_iterate_context {
 
 	struct sql_result *result;
 	string_t *key;
+	pool_t value_pool;
 	const struct dict_sql_map *map;
 	size_t key_prefix_len, pattern_prefix_len;
 	unsigned int sql_fields_start_idx, next_map_idx;
@@ -828,6 +829,7 @@ sql_dict_iterate_init(struct dict *_dict,
 	ctx->path = p_strdup(pool, path);
 
 	ctx->key = str_new(pool, 256);
+	ctx->value_pool = pool_alloconly_create("sql dict iterate value", 256);
 	return &ctx->ctx;
 }
 
@@ -917,8 +919,9 @@ static bool sql_dict_iterate(struct dict_iterate_context *_ctx,
 
 	*key_r = str_c(ctx->key);
 	if ((ctx->flags & DICT_ITERATE_FLAG_NO_VALUE) == 0) {
+		p_clear(ctx->value_pool);
 		*values_r = sql_dict_result_unescape_values(ctx->map,
-			pool_datastack_create(), ctx->result);
+				ctx->value_pool, ctx->result);
 	}
 	return TRUE;
 }
@@ -935,6 +938,7 @@ static int sql_dict_iterate_deinit(struct dict_iterate_context *_ctx,
 		sql_result_unref(ctx->result);
 	ctx->destroyed = TRUE;
 
+	pool_unref(&ctx->value_pool);
 	pool_t pool_copy = ctx->pool;
 	pool_unref(&pool_copy);
 	return ret;
