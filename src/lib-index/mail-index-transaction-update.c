@@ -1192,11 +1192,11 @@ void mail_index_update_keywords(struct mail_index_transaction *t, uint32_t seq,
 	case MODIFY_REPLACE:
 		/* split this into add+remove. remove all existing keywords not
 		   included in the keywords list */
-		if (seq < t->first_new_seq) {
+		if (seq < t->first_new_seq) T_BEGIN {
 			/* remove the ones currently in index */
 			remove_keywords = keyword_update_remove_existing(t, seq);
 			unref_keywords = remove_keywords;
-		}
+		} T_END;
 		/* remove from all changes we've done in this transaction */
 		array_foreach_modifiable(&t->keyword_updates, u)
 			seq_range_array_remove(&u->add_seq, seq);
