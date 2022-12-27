@@ -171,10 +171,10 @@ fts_backend_update_init(struct fts_backend *backend)
 static void fts_backend_set_cur_mailbox(struct fts_backend_update_context *ctx)
 {
 	fts_backend_update_unset_build_key(ctx);
-	if (ctx->backend_box != ctx->cur_box) {
+	if (ctx->backend_box != ctx->cur_box) T_BEGIN {
 		ctx->backend->v.update_set_mailbox(ctx, ctx->cur_box);
 		ctx->backend_box = ctx->cur_box;
-	}
+	} T_END;
 }
 
 int fts_backend_update_deinit(struct fts_backend_update_context **_ctx)
@@ -196,11 +196,11 @@ int fts_backend_update_deinit(struct fts_backend_update_context **_ctx)
 void fts_backend_update_set_mailbox(struct fts_backend_update_context *ctx,
 				    struct mailbox *box)
 {
-	if (ctx->backend_box != NULL && box != ctx->backend_box) {
+	if (ctx->backend_box != NULL && box != ctx->backend_box) T_BEGIN {
 		/* make sure we don't reference the backend box anymore */
 		ctx->backend->v.update_set_mailbox(ctx, NULL);
 		ctx->backend_box = NULL;
-	}
+	} T_END;
 	ctx->cur_box = box;
 }
 
@@ -208,17 +208,24 @@ void fts_backend_update_expunge(struct fts_backend_update_context *ctx,
 				uint32_t uid)
 {
 	fts_backend_set_cur_mailbox(ctx);
-	ctx->backend->v.update_expunge(ctx, uid);
+	T_BEGIN {
+		ctx->backend->v.update_expunge(ctx, uid);
+	} T_END;
 }
 
 bool fts_backend_update_set_build_key(struct fts_backend_update_context *ctx,
 				      const struct fts_backend_build_key *key)
 {
+	bool ret;
+
 	fts_backend_set_cur_mailbox(ctx);
 
 	i_assert(ctx->cur_box != NULL);
 
-	if (!ctx->backend->v.update_set_build_key(ctx, key))
+	T_BEGIN {
+		ret = ctx->backend->v.update_set_build_key(ctx, key);
+	} T_END;
+	if (!ret)
 		return FALSE;
 	ctx->build_key_open = TRUE;
 	return TRUE;
@@ -226,18 +233,23 @@ bool fts_backend_update_set_build_key(struct fts_backend_update_context *ctx,
 
 void fts_backend_update_unset_build_key(struct fts_backend_update_context *ctx)
 {
-	if (ctx->build_key_open) {
+	if (ctx->build_key_open) T_BEGIN {
 		ctx->backend->v.update_unset_build_key(ctx);
 		ctx->build_key_open = FALSE;
-	}
+	} T_END;
 }
 
 int fts_backend_update_build_more(struct fts_backend_update_context *ctx,
 				  const unsigned char *data, size_t size)
 {
+	int ret;
+
 	i_assert(ctx->build_key_open);
 
-	return ctx->backend->v.update_build_more(ctx, data, size);
+	T_BEGIN {
+		ret = ctx->backend->v.update_build_more(ctx, data, size);
+	} T_END;
+	return ret;
 }
 
 int fts_backend_refresh(struct fts_backend *backend)
