@@ -398,13 +398,10 @@ mail_search_args_have_all_equal(struct mail_search_arg *parent_arg,
 		   = A + B
 */
 static bool
-mail_search_args_simplify_drop_redundant_args(struct mail_search_args *all_args,
-					      struct mail_search_arg **argsp,
-					      bool and_arg)
+mail_search_args_simplify_drop_redundant_args_real(struct mail_search_args *all_args,
+						   struct mail_search_arg **argsp,
+						   bool and_arg)
 {
-	if (*argsp == NULL || (*argsp)->next == NULL)
-		return FALSE;
-
 	struct mail_search_arg *arg, **argp;
 	enum mail_search_arg_type child_subargs_type;
 	bool changed = FALSE;
@@ -450,6 +447,22 @@ mail_search_args_simplify_drop_redundant_args(struct mail_search_args *all_args,
 		}
 	}
 	return changed;
+}
+
+static bool
+mail_search_args_simplify_drop_redundant_args(struct mail_search_args *all_args,
+					      struct mail_search_arg **argsp,
+					      bool and_arg)
+{
+	if (*argsp == NULL || (*argsp)->next == NULL)
+		return FALSE;
+
+	bool ret;
+	T_BEGIN {
+		ret = mail_search_args_simplify_drop_redundant_args_real(
+			all_args, argsp, and_arg);
+	} T_END;
+	return ret;
 }
 
 static bool
