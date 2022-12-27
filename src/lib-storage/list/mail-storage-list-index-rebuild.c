@@ -445,7 +445,7 @@ static int mail_storage_list_index_add_missing(struct mail_storage_list_index_re
 	e_debug(ctx->storage->event, "Sorting mailbox tree");
 	struct mailbox_tree_context *tree =
 		mailbox_tree_init_size(sep, sizeof(struct mailbox_sort_node));
-	while (hash_table_iterate(iter, ctx->mailboxes, &key, &box)) {
+	while (hash_table_iterate(iter, ctx->mailboxes, &key, &box)) T_BEGIN {
 		bool created;
 		const char *name = box->index_name;
 		if (name == NULL)
@@ -456,7 +456,7 @@ static int mail_storage_list_index_add_missing(struct mail_storage_list_index_re
 		struct mailbox_sort_node *node =
 			container_of(_node, struct mailbox_sort_node, node);
 		node->box = box;
-	}
+	} T_END;
 	hash_table_iterate_deinit(&iter);
 
 	mailbox_tree_sort(tree);
