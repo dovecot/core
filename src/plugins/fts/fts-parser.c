@@ -34,7 +34,9 @@ bool fts_parser_init(struct fts_parser_context *parser_context,
 	}
 
 	for (i = 0; i < N_ELEMENTS(parsers); i++) {
-		*parser_r = parsers[i]->try_init(parser_context);
+		T_BEGIN {
+			*parser_r = parsers[i]->try_init(parser_context);
+		} T_END;
 		if (*parser_r != NULL)
 			return TRUE;
 	}
