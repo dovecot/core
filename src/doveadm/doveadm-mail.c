@@ -455,7 +455,10 @@ doveadm_mail_next_user(struct doveadm_mail_cmd_context *ctx,
 		doveadm_print_sticky("username", cctx->username);
 
 	if (ctx->v.prerun != NULL) {
-		if (ctx->v.prerun(ctx, ctx->cur_service_user, error_r) < 0) {
+		T_BEGIN {
+			ret = ctx->v.prerun(ctx, ctx->cur_service_user, error_r);
+		} T_END;
+		if (ret < 0) {
 			mail_storage_service_user_unref(&ctx->cur_service_user);
 			return -1;
 		}
@@ -503,7 +506,9 @@ int doveadm_mail_single_user(struct doveadm_mail_cmd_context *ctx,
 	doveadm_mail_ctx_to_storage_service_input(ctx, &ctx->storage_service_input);
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
 							 ctx->service_flags);
-	ctx->v.init(ctx);
+	T_BEGIN {
+		ctx->v.init(ctx);
+	} T_END;
 	if (hook_doveadm_mail_init != NULL)
 		hook_doveadm_mail_init(ctx);
 
@@ -525,7 +530,9 @@ doveadm_mail_all_users(struct doveadm_mail_cmd_context *ctx,
 	ctx->storage_service = mail_storage_service_init(master_service, NULL,
 							 ctx->service_flags);
 
-	ctx->v.init(ctx);
+	T_BEGIN {
+		ctx->v.init(ctx);
+	} T_END;
 
 	if (wildcard_user != NULL) {
 		mail_storage_service_all_init_mask(ctx->storage_service,
@@ -645,8 +652,9 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 	int ret;
 	const char *error;
 
-	if (ctx->v.preinit != NULL)
+	if (ctx->v.preinit != NULL) T_BEGIN {
 		ctx->v.preinit(ctx);
+	} T_END;
 
 	ctx->iterate_single_user = wildcard_user == NULL && ctx->users_list_input == NULL;
 	if (doveadm_print_is_initialized() && !ctx->iterate_single_user) {
@@ -689,7 +697,9 @@ doveadm_mail_cmd_exec(struct doveadm_mail_cmd_context *ctx,
 
 void doveadm_mail_cmd_deinit(struct doveadm_mail_cmd_context *ctx)
 {
-	ctx->v.deinit(ctx);
+	T_BEGIN {
+		ctx->v.deinit(ctx);
+	} T_END;
 	if (ctx->search_args != NULL)
 		mail_search_args_unref(&ctx->search_args);
 }
