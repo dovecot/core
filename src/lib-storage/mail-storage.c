@@ -343,10 +343,11 @@ mail_storage_find(struct mail_user *user,
 	return NULL;
 }
 
-int mail_storage_create_full(struct mail_namespace *ns, const char *driver,
-			     const char *data, enum mail_storage_flags flags,
-			     struct mail_storage **storage_r,
-			     const char **error_r)
+static int
+mail_storage_create_full_real(struct mail_namespace *ns, const char *driver,
+			      const char *data, enum mail_storage_flags flags,
+			      struct mail_storage **storage_r,
+			      const char **error_r)
 {
 	struct mail_storage *storage_class, *storage = NULL;
 	struct mailbox_list *list;
@@ -471,6 +472,19 @@ int mail_storage_create_full(struct mail_namespace *ns, const char *driver,
 	mail_namespace_add_storage(ns, storage);
 	*storage_r = storage;
 	return 0;
+}
+
+int mail_storage_create_full(struct mail_namespace *ns, const char *driver,
+			     const char *data, enum mail_storage_flags flags,
+			     struct mail_storage **storage_r,
+			     const char **error_r)
+{
+	int ret;
+	T_BEGIN {
+		ret = mail_storage_create_full_real(ns, driver, data, flags,
+						    storage_r, error_r);
+	} T_END_PASS_STR_IF(ret < 0, error_r);
+	return ret;
 }
 
 int mail_storage_create(struct mail_namespace *ns, const char *driver,
@@ -762,8 +776,14 @@ void mail_storage_set_callbacks(struct mail_storage *storage,
 
 int mail_storage_purge(struct mail_storage *storage)
 {
-	return storage->v.purge == NULL ? 0 :
-		storage->v.purge(storage);
+	if (storage->v.purge == NULL)
+		return 0;
+
+	int ret;
+	T_BEGIN {
+		ret = storage->v.purge(storage);
+	} T_END;
+	return ret;
 }
 
 const char *mail_storage_get_last_error(struct mail_storage *storage,
@@ -1487,7 +1507,11 @@ int mailbox_exists(struct mailbox *box, bool auto_boxes,
 		return 0;
 	}
 
-	if (box->v.exists(box, auto_boxes, existence_r) < 0)
+	int ret;
+	T_BEGIN {
+		ret = box->v.exists(box, auto_boxes, existence_r);
+	} T_END;
+	if (ret < 0)
 		return -1;
 
 	if (!box->inbox_user && *existence_r == MAILBOX_EXISTENCE_NOSELECT &&
@@ -1542,10 +1566,7 @@ mailbox_open_full(struct mailbox *box, struct istream *input)
 		i_stream_ref(box->input);
 	}
 
-	T_BEGIN {
-		ret = box->v.open(box);
-	} T_END;
-
+	ret = box->v.open(box);
 	if (ret < 0 && box->storage->error == MAIL_ERROR_NOTFOUND &&
 	    !box->deleting && !box->creating &&
 	    box->input == NULL && mailbox_is_autocreated(box)) T_BEGIN {
@@ -1591,7 +1612,12 @@ static bool mailbox_try_undelete(struct mailbox *box)
 
 int mailbox_open(struct mailbox *box)
 {
-	if (mailbox_open_full(box, NULL) < 0) {
+	int ret;
+
+	T_BEGIN {
+		ret = mailbox_open_full(box, NULL);
+	} T_END;
+	if (ret < 0) {
 		if (!box->mailbox_deleted || box->mailbox_undeleting)
 			return -1;
 
@@ -1606,7 +1632,10 @@ int mailbox_open(struct mailbox *box)
 		   may not have fully opened the mailbox while it was being
 		   undeleted. */
 		mailbox_close(box);
-		if (mailbox_open_full(box, NULL) < 0)
+		T_BEGIN {
+			ret = mailbox_open_full(box, NULL);
+		} T_END;
+		if (ret < 0)
 			return -1;
 	}
 	return 0;
@@ -1670,7 +1699,12 @@ int mailbox_enable(struct mailbox *box, enum mailbox_feature features)
 {
 	if (mailbox_verify_name(box) < 0)
 		return -1;
-	return box->v.enable(box, features);
+
+	int ret;
+	T_BEGIN {
+		ret = box->v.enable(box, features);
+	} T_END;
+	return ret;
 }
 
 enum mailbox_feature mailbox_get_enabled_features(struct mailbox *box)
@@ -1697,7 +1731,9 @@ void mailbox_close(struct mailbox *box)
 		i_panic("Trying to close mailbox %s with open transactions",
 			box->name);
 	}
-	box->v.close(box);
+	T_BEGIN {
+		box->v.close(box);
+	} T_END;
 
 	if (box->storage->binary_cache.box == box)
 		mail_storage_free_binary_cache(box->storage);
@@ -1840,7 +1876,9 @@ int mailbox_update(struct mailbox *box, const struct mailbox_update *update)
 		return -1;
 
 	struct event_reason *reason = event_reason_begin("mailbox:update");
-	ret = box->v.update_box(box, update);
+	T_BEGIN {
+		ret = box->v.update_box(box, update);
+	} T_END;
 	if (!guid_128_is_empty(update->mailbox_guid))
 		box->list->guid_cache_invalidated = TRUE;
 	event_reason_end(&reason);
@@ -2154,8 +2192,9 @@ int mailbox_set_subscribed(struct mailbox *box, bool set)
 		ret = -1;
 	} else if (mailbox_is_subscribed(box) == set)
 		ret = 0;
-	else
+	else T_BEGIN {
 		ret = box->v.set_subscribed(box, set);
+	} T_END;
 	event_reason_end(&reason);
 	return ret;
 }
@@ -2239,7 +2278,11 @@ int mailbox_get_status(struct mailbox *box,
 	if (mailbox_verify_existing_name(box) < 0)
 		return -1;
 
-	if (box->v.get_status(box, items, status_r) < 0)
+	int ret;
+	T_BEGIN {
+		ret = box->v.get_status(box, items, status_r);
+	} T_END;
+	if (ret < 0)
 		return -1;
 	i_assert(status_r->have_guids || !status_r->have_save_guids);
 	return 0;
@@ -2253,8 +2296,10 @@ void mailbox_get_open_status(struct mailbox *box,
 	i_assert((items & MAILBOX_STATUS_FAILING_ITEMS) == 0);
 
 	mailbox_get_status_set_defaults(box, status_r);
-	if (box->v.get_status(box, items, status_r) < 0)
-		i_unreached();
+	T_BEGIN {
+		if (box->v.get_status(box, items, status_r) < 0)
+			i_unreached();
+	} T_END;
 }
 
 int mailbox_get_metadata(struct mailbox *box, enum mailbox_metadata_items items,
@@ -2264,6 +2309,8 @@ int mailbox_get_metadata(struct mailbox *box, enum mailbox_metadata_items items,
 	if (mailbox_verify_existing_name(box) < 0)
 		return -1;
 
+	/* NOTE: metadata_r->cache_fields is currently returned from
+	   data stack, so can't use a data stack frame here. */
 	if (box->v.get_metadata(box, items, metadata_r) < 0)
 		return -1;
 
@@ -2311,7 +2358,12 @@ bool mailbox_sync_next(struct mailbox_sync_context *ctx,
 {
 	if (ctx->open_failed)
 		return FALSE;
-	return ctx->box->v.sync_next(ctx, sync_rec_r);
+
+	bool ret;
+	T_BEGIN {
+		ret = ctx->box->v.sync_next(ctx, sync_rec_r);
+	} T_END;
+	return ret;
 }
 
 int mailbox_sync_deinit(struct mailbox_sync_context **_ctx,
@@ -2327,9 +2379,11 @@ int mailbox_sync_deinit(struct mailbox_sync_context **_ctx,
 
 	i_zero(status_r);
 
-	if (!ctx->open_failed)
-		ret = box->v.sync_deinit(ctx, status_r);
-	else {
+	if (!ctx->open_failed) {
+		T_BEGIN {
+			ret = box->v.sync_deinit(ctx, status_r);
+		} T_END;
+	} else {
 		i_free(ctx);
 		ret = -1;
 	}
@@ -2370,7 +2424,9 @@ void mailbox_notify_changes(struct mailbox *box,
 	box->notify_callback = callback;
 	box->notify_context = context;
 
-	box->v.notify_changes(box);
+	T_BEGIN {
+		box->v.notify_changes(box);
+	} T_END;
 }
 
 void mailbox_notify_changes_stop(struct mailbox *box)
@@ -2380,7 +2436,9 @@ void mailbox_notify_changes_stop(struct mailbox *box)
 	box->notify_callback = NULL;
 	box->notify_context = NULL;
 
-	box->v.notify_changes(box);
+	T_BEGIN {
+		box->v.notify_changes(box);
+	} T_END;
 }
 
 struct mail_search_context *
@@ -2395,8 +2453,13 @@ mailbox_search_init(struct mailbox_transaction_context *t,
 	mail_search_args_ref(args);
 	if (!args->simplified)
 		mail_search_args_simplify(args);
-	return t->box->v.search_init(t, args, sort_program,
-				     wanted_fields, wanted_headers);
+
+	struct mail_search_context *ctx;
+	T_BEGIN {
+		ctx = t->box->v.search_init(t, args, sort_program,
+					    wanted_fields, wanted_headers);
+	} T_END;
+	return ctx;
 }
 
 int mailbox_search_deinit(struct mail_search_context **_ctx)
@@ -2407,7 +2470,9 @@ int mailbox_search_deinit(struct mail_search_context **_ctx)
 
 	*_ctx = NULL;
 	mailbox_search_results_initial_done(ctx);
-	ret = ctx->transaction->box->v.search_deinit(ctx);
+	T_BEGIN {
+		ret = ctx->transaction->box->v.search_deinit(ctx);
+	} T_END;
 	mail_search_args_unref(&args);
 	return ret;
 }
@@ -2491,7 +2556,9 @@ mailbox_transaction_begin(struct mailbox *box,
 	i_assert(box->opened);
 
 	box->transaction_count++;
-	trans = box->v.transaction_begin(box, flags, reason);
+	T_BEGIN {
+		trans = box->v.transaction_begin(box, flags, reason);
+	} T_END;
 	i_assert(trans->reason != NULL);
 	return trans;
 }
@@ -2564,7 +2631,9 @@ void mailbox_transaction_rollback(struct mailbox_transaction_context **_t)
 	struct mailbox *box = t->box;
 
 	*_t = NULL;
-	box->v.transaction_rollback(t);
+	T_BEGIN {
+		box->v.transaction_rollback(t);
+	} T_END;
 	box->transaction_count--;
 }
 
@@ -2590,7 +2659,9 @@ static void mailbox_save_dest_mail_close(struct mail_save_context *ctx)
 {
 	struct mail_private *mail = (struct mail_private *)ctx->dest_mail;
 
-	mail->v.close(&mail->mail);
+	T_BEGIN {
+		mail->v.close(&mail->mail);
+	} T_END;
 }
 
 struct mail_save_context *
@@ -3361,8 +3432,9 @@ int mailbox_lock_file_create(struct mailbox *box, const char *lock_fname,
 void mailbox_sync_notify(struct mailbox *box, uint32_t uid,
 			 enum mailbox_sync_type sync_type)
 {
-	if (box->v.sync_notify != NULL)
+	if (box->v.sync_notify != NULL) T_BEGIN {
 		box->v.sync_notify(box, uid, sync_type);
+	} T_END;
 
 	/* Send an event for expunged mail. */
 	if (sync_type == MAILBOX_SYNC_TYPE_EXPUNGE) {
