@@ -533,12 +533,12 @@ void clients_destroy_all_reason(const char *reason)
 {
 	struct client *client, *next;
 
-	for (client = clients; client != NULL; client = next) {
+	for (client = clients; client != NULL; client = next) T_BEGIN {
 		next = client->next;
 		client_notify_disconnect(client,
 			CLIENT_DISCONNECT_SYSTEM_SHUTDOWN, reason);
 		client_destroy(client, reason);
-	}
+	} T_END;
 }
 
 void clients_destroy_all(void)
