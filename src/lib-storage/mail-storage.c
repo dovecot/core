@@ -2492,11 +2492,15 @@ bool mailbox_search_next_nonblock(struct mail_search_context *ctx,
 				  struct mail **mail_r, bool *tryagain_r)
 {
 	struct mailbox *box = ctx->transaction->box;
+	bool ret;
 
 	*mail_r = NULL;
 	*tryagain_r = FALSE;
 
-	if (!box->v.search_next_nonblock(ctx, mail_r, tryagain_r))
+	T_BEGIN {
+		ret = box->v.search_next_nonblock(ctx, mail_r, tryagain_r);
+	} T_END;
+	if (!ret)
 		return FALSE;
 	else {
 		mailbox_search_results_add(ctx, (*mail_r)->uid);

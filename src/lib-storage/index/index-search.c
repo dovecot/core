@@ -1676,10 +1676,18 @@ static int search_more_with_mail(struct index_search_context *ctx,
 
 	cost1 = search_get_cost(mail->transaction);
 	ret = -1;
-	while (box->v.search_next_update_seq(_ctx)) {
+	for (;;) {
+		bool more;
+		T_BEGIN {
+			more = box->v.search_next_update_seq(_ctx);
+		} T_END;
+		if (!more)
+			break;
 		mail_set_seq(mail, _ctx->seq);
 
-		ret = box->v.search_next_match_mail(_ctx, mail);
+		T_BEGIN {
+			ret = box->v.search_next_match_mail(_ctx, mail);
+		} T_END;
 		if (ret != 0)
 			break;
 
@@ -1772,7 +1780,9 @@ static int search_more_with_prefetching(struct index_search_context *ctx,
 		array_pop_front(&ctx->mail_ctx.mails);
 		array_push_back(&ctx->mail_ctx.mails, mail_r);
 	}
-	index_mail_update_access_parts_post(*mail_r);
+	T_BEGIN {
+		index_mail_update_access_parts_post(*mail_r);
+	} T_END;
 	return 1;
 }
 
@@ -1870,8 +1880,9 @@ bool index_storage_search_next_nonblock(struct mail_search_context *_ctx,
 	}
 
 	if (!ctx->sorted) {
-		while ((ret = search_more(ctx, &mail)) > 0)
+		while ((ret = search_more(ctx, &mail)) > 0) T_BEGIN {
 			index_sort_list_add(_ctx->sort_program, mail);
+		} T_END;
 
 		if (ret == 0) {
 			*tryagain_r = TRUE;
