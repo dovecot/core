@@ -491,8 +491,8 @@ void mail_expunge(struct mail *mail)
 
 	T_BEGIN {
 		p->v.expunge(mail);
+		mail_expunge_requested_event(mail);
 	} T_END;
-	mail_expunge_requested_event(mail);
 }
 
 void mail_autoexpunge(struct mail *mail)
