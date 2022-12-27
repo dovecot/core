@@ -873,7 +873,7 @@ maildir_save_move_files_to_newcur(struct maildir_save_context *ctx)
 	/* put files into an array sorted by the destination filename.
 	   this way we can easily check if there are duplicate destination
 	   filenames within this transaction. */
-	t_array_init(&files, ctx->files_count);
+	p_array_init(&files, ctx->pool, ctx->files_count);
 	for (mf = ctx->files; mf != NULL; mf = mf->next)
 		array_push_back(&files, &mf);
 	array_sort(&files, maildir_filename_dest_basename_cmp);

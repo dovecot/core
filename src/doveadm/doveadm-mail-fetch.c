@@ -27,6 +27,7 @@ struct fetch_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 
 	struct mail *mail;
+	pool_t temp_pool;
 
 	ARRAY(struct fetch_field) fields;
 	ARRAY_TYPE(const_string) header_fields;
@@ -136,9 +137,10 @@ static int fetch_hdr(struct fetch_cmd_context *ctx)
 static int fetch_hdr_field(struct fetch_cmd_context *ctx)
 {
 	const char *const *value, *filter, *name = ctx->cur_field->name;
-	string_t *str = t_str_new(256);
+	string_t *str;
 	bool add_lf = FALSE;
 
+	p_clear(ctx->temp_pool);
 	filter = strchr(name, '.');
 	if (filter != NULL)
 		name = t_strdup_until(name, filter++);
@@ -151,6 +153,7 @@ static int fetch_hdr_field(struct fetch_cmd_context *ctx)
 			return -1;
 	}
 
+	str = str_new(ctx->temp_pool, 256);
 	for (; *value != NULL; value++) {
 		if (add_lf)
 			str_append_c(str, '\n');
@@ -165,7 +168,7 @@ static int fetch_hdr_field(struct fetch_cmd_context *ctx)
 		   strcmp(filter, "address_name.utf8") == 0) {
 		struct message_address *addr;
 
-		addr = message_address_parse(pool_datastack_create(),
+		addr = message_address_parse(ctx->temp_pool,
 					     str_data(str), str_len(str),
 					     UINT_MAX, 0);
 		str_truncate(str, 0);
@@ -667,8 +670,17 @@ static void cmd_fetch_init(struct doveadm_mail_cmd_context *_ctx)
 	if (!doveadm_cmd_param_array(cctx, "query", &query))
 		doveadm_mail_help_name("fetch");
 
+	ctx->temp_pool = pool_alloconly_create("doveadm fetch", 1024);
 	parse_fetch_fields(ctx, fields);
 	_ctx->search_args = doveadm_mail_build_search_args(query);
+}
+
+static void cmd_fetch_deinit(struct doveadm_mail_cmd_context *_ctx)
+{
+	struct fetch_cmd_context *ctx =
+		container_of(_ctx, struct fetch_cmd_context, ctx);
+
+	pool_unref(&ctx->temp_pool);
 }
 
 static struct doveadm_mail_cmd_context *cmd_fetch_alloc(void)
@@ -677,6 +689,7 @@ static struct doveadm_mail_cmd_context *cmd_fetch_alloc(void)
 
 	ctx = doveadm_mail_cmd_alloc(struct fetch_cmd_context);
 	ctx->ctx.v.init = cmd_fetch_init;
+	ctx->ctx.v.deinit = cmd_fetch_deinit;
 	ctx->ctx.v.run = cmd_fetch_run;
 	doveadm_print_init(DOVEADM_PRINT_TYPE_PAGER);
 	return &ctx->ctx;

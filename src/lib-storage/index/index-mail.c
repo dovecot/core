@@ -817,12 +817,12 @@ static void index_mail_body_parsed_cache_message_parts(struct index_mail *mail)
 		return;
 	}
 
-	T_BEGIN {
-		buffer = t_buffer_create(1024);
-		message_part_serialize(mail->data.parts, buffer);
-		index_mail_cache_add_idx(mail, cache_field,
-					 buffer->data, buffer->used);
-	} T_END;
+	pool_t pool = pool_alloconly_create("mail parts", 2048);
+	buffer = buffer_create_dynamic(pool, 1024);
+	message_part_serialize(mail->data.parts, buffer);
+	index_mail_cache_add_idx(mail, cache_field,
+				 buffer->data, buffer->used);
+	pool_unref(&pool);
 
 	data->messageparts_saved_to_cache = TRUE;
 }

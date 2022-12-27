@@ -126,7 +126,7 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 					 NULL, 0, NULL);
 	mail_search_args_unref(&search_args);
 
-	t_array_init(&src_uids, 64);
+	i_array_init(&src_uids, 64);
 	ret = 1;
 	while (mailbox_search_next(search_ctx, &mail) && ret > 0) {
 		if (mail->expunged) {
@@ -218,6 +218,7 @@ static int fetch_and_copy(struct cmd_copy_context *copy_ctx,
 		copy_update_trashed(client, copy_ctx->destbox, copy_ctx->copy_count);
 		pool_unref(&changes.pool);
 	}
+	array_free(&src_uids);
 
 	if (!copy_ctx->move ||
 	    copy_ctx->srcbox == copy_ctx->destbox) {

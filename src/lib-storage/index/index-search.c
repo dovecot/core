@@ -528,6 +528,23 @@ static void compress_lwsp(string_t *dest, const unsigned char *src,
 	}
 }
 
+static pool_t
+search_context_temp_pool(struct index_search_context *ctx, size_t size)
+{
+	if (ctx->temp_pool != NULL) {
+		p_clear(ctx->temp_pool);
+		return ctx->temp_pool;
+	}
+
+	if (size <= 1024)
+		return pool_datastack_create();
+	/* This could just as well be allocated from data stack, but it
+	   makes it more difficult to track bad data_stack_grow events.
+	   Use a temporary memory pool instead. */
+	ctx->temp_pool = pool_alloconly_create("search context temp", size);
+	return ctx->temp_pool;
+}
+
 static void search_header_arg(struct mail_search_arg *arg,
 			      struct search_header_context *ctx)
 {
@@ -601,25 +618,31 @@ static void search_header_arg(struct mail_search_arg *arg,
 		case SEARCH_HEADER:
 			/* simple match */
 			break;
-		case SEARCH_HEADER_ADDRESS:
+		case SEARCH_HEADER_ADDRESS: {
 			/* we have to match against normalized address */
-			addr = message_address_parse(pool_datastack_create(),
+			pool_t pool = search_context_temp_pool(ctx->index_ctx,
+						ctx->hdr->full_value_len);
+			addr = message_address_parse(pool,
 						     ctx->hdr->full_value,
 						     ctx->hdr->full_value_len,
 						     UINT_MAX,
 						     MESSAGE_ADDRESS_PARSE_FLAG_FILL_MISSING);
-			str = t_str_new(ctx->hdr->value_len);
+			str = str_new(pool, ctx->hdr->value_len);
 			message_address_write(str, addr);
 			hdr.value = hdr.full_value = str_data(str);
 			hdr.value_len = hdr.full_value_len = str_len(str);
 			break;
-		case SEARCH_HEADER_COMPRESS_LWSP:
+		}
+		case SEARCH_HEADER_COMPRESS_LWSP: {
 			/* convert LWSP to single spaces */
-			str = t_str_new(hdr.full_value_len);
+			pool_t pool = search_context_temp_pool(ctx->index_ctx,
+						hdr.full_value_len);
+			str = str_new(pool, hdr.full_value_len);
 			compress_lwsp(str, hdr.full_value, hdr.full_value_len);
 			hdr.value = hdr.full_value = str_data(str);
 			hdr.value_len = hdr.full_value_len = str_len(str);
 			break;
+		}
 		default:
 			i_unreached();
 		}
@@ -1392,6 +1415,7 @@ int index_storage_search_deinit(struct mail_search_context *_ctx)
 	if (ctx->failed)
 		mail_storage_last_error_pop(ctx->box->storage);
 	array_free(&ctx->mail_ctx.mails);
+	pool_unref(&ctx->temp_pool);
 	i_free(ctx);
 	return ret;
 }

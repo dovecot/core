@@ -191,10 +191,9 @@ void message_search_reset(struct message_search_context *ctx)
 	message_decoder_decode_reset(ctx->decoder);
 }
 
-static int
-message_search_msg_real(struct message_search_context *ctx,
-			struct istream *input, struct message_part *parts,
-			const char **error_r)
+int message_search_msg(struct message_search_context *ctx,
+		       struct istream *input, struct message_part *parts,
+		       const char **error_r)
 {
 	const struct message_parser_settings parser_set = {
 		.hdr_flags = MESSAGE_HEADER_PARSER_FLAG_CLEAN_ONELINE,
@@ -202,6 +201,7 @@ message_search_msg_real(struct message_search_context *ctx,
 	struct message_parser_ctx *parser_ctx;
 	struct message_block raw_block;
 	struct message_part *new_parts;
+	pool_t pool = NULL;
 	int ret;
 
 	message_search_reset(ctx);
@@ -210,8 +210,8 @@ message_search_msg_real(struct message_search_context *ctx,
 		parser_ctx = message_parser_init_from_parts(parts,
 						input, &parser_set);
 	} else {
-		parser_ctx = message_parser_init(pool_datastack_create(),
-						 input, &parser_set);
+		pool = pool_alloconly_create("message search parts", 1024);
+		parser_ctx = message_parser_init(pool, input, &parser_set);
 	}
 
 	while ((ret = message_parser_parse_next_block(parser_ctx,
@@ -230,17 +230,6 @@ message_search_msg_real(struct message_search_context *ctx,
 		/* broken parts */
 		ret = -1;
 	}
-	return ret;
-}
-
-int message_search_msg(struct message_search_context *ctx,
-		       struct istream *input, struct message_part *parts,
-		       const char **error_r)
-{
-	int ret;
-
-	T_BEGIN {
-		ret = message_search_msg_real(ctx, input, parts, error_r);
-	} T_END_PASS_STR_IF(ret < 0, error_r);
+	pool_unref(&pool);
 	return ret;
 }

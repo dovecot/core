@@ -56,7 +56,8 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 	lines = array_get(&mail->header_lines, &count);
 	match = array_get(&mail->header_match, &match_count);
 	header = mail->header_data->data;
-	buf = t_buffer_create(256);
+	pool_t pool = pool_alloconly_create("index mail header", 512);
+	buf = buffer_create_dynamic(pool, 256);
 
 	/* go through all the header lines we found */
 	for (i = match_idx = 0; i < count; i = j) {
@@ -142,6 +143,7 @@ static void index_mail_parse_header_finish(struct index_mail *mail)
 
 	mail->data.dont_cache_field_idx = UINT_MAX;
 	index_mail_parse_header_deinit(mail);
+	pool_unref(&pool);
 }
 
 static unsigned int
@@ -799,13 +801,15 @@ index_mail_headers_decode(struct index_mail *mail, const char *const **_list,
 		count = max_count;
 	decoded_list = p_new(mail->mail.data_pool, const char *, count + 1);
 
-	str = t_str_new(512);
+	str = str_new(default_pool, 512);
 	for (i = 0; i < count; i++) {
 		str_truncate(str, 0);
 		input = list[i];
 		/* unfold all lines into a single line */
-		if (unfold_header(mail->mail.data_pool, &input) < 0)
+		if (unfold_header(mail->mail.data_pool, &input) < 0) {
+			str_free(&str);
 			return -1;
+		}
 
 		/* decode MIME encoded-words. decoding may also add new LFs. */
 		message_header_decode_utf8((const unsigned char *)input,
@@ -819,6 +823,7 @@ index_mail_headers_decode(struct index_mail *mail, const char *const **_list,
 		}
 		decoded_list[i] = input;
 	}
+	str_free(&str);
 	*_list = decoded_list;
 	return 0;
 }

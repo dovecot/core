@@ -1083,12 +1083,13 @@ void index_copy_cache_fields(struct mail_save_context *ctx,
 					 &dest_metadata) < 0)
 			i_unreached();
 
-		buf = t_buffer_create(1024);
+		buf = buffer_create_dynamic(default_pool, 1024);
 		array_foreach(src_metadata.cache_fields, field) {
 			mail_copy_cache_field(ctx, src_mail, dest_seq,
 					      field->name, buf);
 		}
 		index_copy_vsize_extension(ctx, src_mail, dest_seq);
+		buffer_free(&buf);
 	} T_END;
 }
 

@@ -454,7 +454,7 @@ message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
 	rfc822_parser_init(&ctx.parser, data, size, t_str_new(128));
 	ctx.parser.nul_replacement_str = RFC822_NUL_REPLACEMENT_STR;
 	ctx.pool = pool;
-	ctx.str = t_str_new(128);
+	ctx.str = str_new(default_pool, 128);
 	ctx.fill_missing = (flags & MESSAGE_ADDRESS_PARSE_FLAG_FILL_MISSING) != 0;
 	ctx.non_strict_dots = (flags & MESSAGE_ADDRESS_PARSE_FLAG_STRICT_DOTS) == 0;
 
@@ -464,6 +464,7 @@ message_address_parse_real(pool_t pool, const unsigned char *data, size_t size,
 		(void)parse_address_list(&ctx, max_addresses);
 	}
 	rfc822_parser_deinit(&ctx.parser);
+	str_free(&ctx.str);
 	return ctx.first_addr;
 }
 
@@ -479,11 +480,12 @@ message_address_parse_path_real(pool_t pool, const unsigned char *data,
 
 	rfc822_parser_init(&ctx.parser, data, size, NULL);
 	ctx.pool = pool;
-	ctx.str = t_str_new(128);
+	ctx.str = str_new(default_pool, 128);
 
 	ret = parse_path(&ctx);
 
 	rfc822_parser_deinit(&ctx.parser);
+	str_free(&ctx.str);
 	*addr_r = ctx.first_addr;
 	return (ret < 0 ? -1 : 0);
 }

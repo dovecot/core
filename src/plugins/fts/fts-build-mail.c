@@ -602,7 +602,8 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 		ctx.pending_input = buffer_create_dynamic(default_pool, 128);
 
 	prev_part = NULL;
-	parser = message_parser_init(pool_datastack_create(), input, &parser_set);
+	pool_t parts_pool = pool_alloconly_create("fts message parts", 512);
+	parser = message_parser_init(parts_pool, input, &parser_set);
 
 	decoder = message_decoder_init(update_ctx->normalizer, 0);
 	for (;;) {
@@ -699,6 +700,7 @@ fts_build_mail_real(struct fts_backend_update_context *update_ctx,
 	i_free(ctx.content_disposition);
 	buffer_free(&ctx.word_buf);
 	buffer_free(&ctx.pending_input);
+	pool_unref(&parts_pool);
 	return ret < 0 ? -1 : 1;
 }
 
