@@ -682,7 +682,14 @@ static bool dict_connection_cmds_try_output_more(struct dict_connection *conn)
 	array_foreach_elem(&conn->cmds, cmd) {
 		if (cmd->iter == NULL) {
 			/* not an iterator */
-		} else if (cmd_iterate_flush(cmd) == 0) {
+			continue;
+		}
+
+		int ret;
+		T_BEGIN {
+			ret = cmd_iterate_flush(cmd);
+		} T_END;
+		if (ret == 0) {
 			/* unfinished */
 		} else {
 			dict_connection_cmd_try_flush(&cmd);
