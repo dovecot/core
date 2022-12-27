@@ -137,11 +137,13 @@ void mail_event_create(struct mail *mail)
 	if (index_mail_get_age_days(mail, &age_days))
 		event_add_int(p->_event, "mail_age_days", age_days);
 
-	char uid_buf[MAX_INT_STRLEN];
-	const char *prefix = t_strconcat(
-		p->mail.saving ? "saving UID " : "UID ",
-		dec2str_buf(uid_buf, p->mail.uid), ": ", NULL);
-	event_set_append_log_prefix(p->_event, prefix);
+	T_BEGIN {
+		char uid_buf[MAX_INT_STRLEN];
+		const char *prefix = t_strconcat(
+			p->mail.saving ? "saving UID " : "UID ",
+			dec2str_buf(uid_buf, p->mail.uid), ": ", NULL);
+		event_set_append_log_prefix(p->_event, prefix);
+	} T_END;
 }
 
 struct event *mail_event(struct mail *mail)
