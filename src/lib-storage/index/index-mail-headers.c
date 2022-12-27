@@ -670,7 +670,7 @@ index_mail_get_raw_headers(struct index_mail *mail, const char *field,
 
 	field_idx = get_header_field_idx(_mail->box, field);
 
-	dest = t_str_new(128);
+	dest = str_new(mail->mail.data_pool, 128);
 	if (mail_cache_lookup_headers(_mail->transaction->cache_view, dest,
 				      _mail->seq, &field_idx, 1) <= 0) {
 		/* not in cache / error - first see if it's already parsed */
