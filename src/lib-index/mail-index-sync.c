@@ -429,8 +429,10 @@ mail_index_sync_begin_to2(struct mail_index *index,
 	if (log_file_seq != (uint32_t)-1)
 		flags |= MAIL_INDEX_SYNC_FLAG_REQUIRE_CHANGES;
 
-	ret = mail_index_sync_begin_init(index, flags, log_file_seq,
-					 log_file_offset);
+	T_BEGIN {
+		ret = mail_index_sync_begin_init(index, flags, log_file_seq,
+						 log_file_offset);
+	} T_END;
 	if (ret <= 0)
 		return ret;
 

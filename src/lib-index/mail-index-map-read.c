@@ -464,8 +464,9 @@ mail_index_map_latest_sync(struct mail_index *index,
 	return ret;
 }
 
-int mail_index_map(struct mail_index *index,
-		   enum mail_index_sync_handler_type type)
+static int
+mail_index_map_real(struct mail_index *index,
+		    enum mail_index_sync_handler_type type)
 {
 	const char *reason;
 	int ret;
@@ -515,5 +516,15 @@ int mail_index_map(struct mail_index *index,
 	if (ret >= 0)
 		index->initial_mapped = TRUE;
 	index->mapping = FALSE;
+	return ret;
+}
+
+int mail_index_map(struct mail_index *index,
+		   enum mail_index_sync_handler_type type)
+{
+	int ret;
+	T_BEGIN {
+		ret = mail_index_map_real(index, type);
+	} T_END;
 	return ret;
 }

@@ -230,9 +230,12 @@ static int mail_index_transaction_commit_v(struct mail_index_transaction *t,
 		 mail_index_view_get_messages_count(t->view));
 
 	changed = MAIL_INDEX_TRANSACTION_HAS_CHANGES(t) || t->reset;
-	ret = !changed ? 0 :
-		mail_index_transaction_commit_real(t, &result_r->commit_size,
-						   &result_r->changes_mask);
+	if (!changed)
+		ret = 0;
+	else T_BEGIN {
+		ret = mail_index_transaction_commit_real(t,
+			&result_r->commit_size, &result_r->changes_mask);
+	} T_END;
 	mail_transaction_log_get_head(index->log, &result_r->log_file_seq,
 				      &result_r->log_file_offset);
 
