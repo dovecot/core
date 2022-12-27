@@ -212,12 +212,32 @@ mailbox_autoexpunge_wildcards(struct mail_namespace *ns,
 	}
 }
 
+static void
+mailbox_autoexpunge_name(struct mail_namespace *ns,
+			 struct mailbox_settings *box_set,
+			 unsigned int *expunged_count)
+{
+	const char *vname;
+
+	if (strpbrk(box_set->name, "*?") != NULL)
+		mailbox_autoexpunge_wildcards(ns, box_set, expunged_count);
+	else {
+		if (box_set->name[0] == '\0' && ns->prefix_len > 0 &&
+		    ns->prefix[ns->prefix_len-1] == mail_namespace_get_sep(ns))
+			vname = t_strndup(ns->prefix, ns->prefix_len - 1);
+		else
+			vname = t_strconcat(ns->prefix, box_set->name, NULL);
+		mailbox_autoexpunge_set(ns, vname, box_set->autoexpunge,
+					box_set->autoexpunge_max_mails,
+					expunged_count);
+	}
+}
+
 static bool
 mail_namespace_autoexpunge(struct mail_namespace *ns, struct file_lock **lock,
 			   unsigned int *expunged_count)
 {
 	struct mailbox_settings *box_set;
-	const char *vname;
 
 	if (!array_is_created(&ns->set->mailboxes))
 		return TRUE;
@@ -230,18 +250,9 @@ mail_namespace_autoexpunge(struct mail_namespace *ns, struct file_lock **lock,
 		if (!mailbox_autoexpunge_lock(ns->user, lock))
 			return FALSE;
 
-		if (strpbrk(box_set->name, "*?") != NULL)
-			mailbox_autoexpunge_wildcards(ns, box_set, expunged_count);
-		else {
-			if (box_set->name[0] == '\0' && ns->prefix_len > 0 &&
-			    ns->prefix[ns->prefix_len-1] == mail_namespace_get_sep(ns))
-				vname = t_strndup(ns->prefix, ns->prefix_len - 1);
-			else
-				vname = t_strconcat(ns->prefix, box_set->name, NULL);
-			mailbox_autoexpunge_set(ns, vname, box_set->autoexpunge,
-						box_set->autoexpunge_max_mails,
-						expunged_count);
-		}
+		T_BEGIN {
+			mailbox_autoexpunge_name(ns, box_set, expunged_count);
+		} T_END;
 	}
 	return TRUE;
 }
