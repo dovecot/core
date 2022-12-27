@@ -1829,7 +1829,10 @@ static int virtual_sync_backend_boxes(struct virtual_sync_context *ctx)
 		virtual_sync_bboxes_get_mails(ctx);
 
 	for (i = 0; i < count; i++) {
-		if (virtual_sync_backend_box(ctx, bboxes[i]) < 0) {
+		T_BEGIN {
+			ret = virtual_sync_backend_box(ctx, bboxes[i]);
+		} T_END;
+		if (ret < 0) {
 			/* backend failed, copy the error */
 			virtual_box_copy_error(&ctx->mbox->box,
 					       bboxes[i]->box);
