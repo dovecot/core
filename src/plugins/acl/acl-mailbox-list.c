@@ -422,7 +422,7 @@ acl_mailbox_list_iter_check_autocreate_acls(struct mailbox_list_iterate_context 
 		ACL_LIST_ITERATE_CONTEXT(_ctx);
 	struct mailbox_settings *const *box_sets;
 	unsigned int i, count;
-	int ret;
+	int ret = 0;
 
 	ctx->autocreate_acls_checked = TRUE;
 	if (_ctx->autocreate_ctx == NULL)
@@ -435,24 +435,22 @@ acl_mailbox_list_iter_check_autocreate_acls(struct mailbox_list_iterate_context 
 	box_sets = array_get(&_ctx->autocreate_ctx->box_sets, &count);
 	i_assert(array_count(&_ctx->autocreate_ctx->boxes) == count);
 
-	for (i = 0; i < count; ) {
+	for (i = 0; i < count && ret >= 0; ) T_BEGIN {
 		const char *acl_name =
 			acl_mailbox_list_iter_get_name(_ctx, box_sets[i]->name);
 		ret = acl_mailbox_list_have_right(_ctx->list, acl_name, FALSE,
 						  ACL_STORAGE_RIGHT_LOOKUP,
 						  NULL);
-		if (ret < 0)
-			return -1;
 		if (ret > 0)
 			i++;
-		else {
+		else if (ret == 0) {
 			/* no list right - remove the whole autobox */
 			array_delete(&_ctx->autocreate_ctx->box_sets, i, 1);
 			array_delete(&_ctx->autocreate_ctx->boxes, i, 1);
 			box_sets = array_get(&_ctx->autocreate_ctx->box_sets, &count);
 		}
-	}
-	return 0;
+	} T_END;
+	return ret < 0 ? -1 : 0;
 }
 
 static const struct mailbox_info *
