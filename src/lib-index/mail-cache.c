@@ -269,7 +269,7 @@ static void mail_cache_update_need_purge(struct mail_cache *cache)
 			return;
 		}
 		if ((uoff_t)st.st_size >= set->purge_min_size)
-			mail_cache_purge_later(cache, want_purge_reason);
+			mail_cache_purge_later(cache, "%s", want_purge_reason);
 	}
 
 }

@@ -651,13 +651,19 @@ bool mail_cache_need_purge(struct mail_cache *cache, const char **reason_r)
 	return TRUE;
 }
 
-void mail_cache_purge_later(struct mail_cache *cache, const char *reason)
+void mail_cache_purge_later(struct mail_cache *cache,
+			    const char *reason_format, ...)
 {
+	va_list args;
+
 	i_assert(cache->hdr != NULL);
 
+	va_start(args, reason_format);
 	cache->need_purge_file_seq = cache->hdr->file_seq;
 	i_free(cache->need_purge_reason);
-	cache->need_purge_reason = i_strdup(reason);
+	cache->need_purge_reason = i_strdup_vprintf(reason_format, args);
+
+	va_end(args);
 }
 
 void mail_cache_purge_later_reset(struct mail_cache *cache)
