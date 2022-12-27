@@ -405,13 +405,16 @@ void message_parse_header(struct istream *input, struct message_size *hdr_size,
 	int ret;
 
 	hdr_ctx = message_parse_header_init(input, hdr_size, flags);
-	while ((ret = message_parse_header_next(hdr_ctx, &hdr)) > 0)
+	while ((ret = message_parse_header_next(hdr_ctx, &hdr)) > 0) T_BEGIN {
 		callback(hdr, context);
+	} T_END;
 	i_assert(ret != 0);
 	message_parse_header_deinit(&hdr_ctx);
 
 	/* call after the final skipping */
-	callback(NULL, context);
+	T_BEGIN {
+		callback(NULL, context);
+	} T_END;
 }
 
 void message_header_line_write(buffer_t *output,

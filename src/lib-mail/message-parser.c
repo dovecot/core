@@ -874,7 +874,9 @@ void message_parser_parse_header(struct message_parser_ctx *ctx,
 	int ret;
 
 	while ((ret = message_parser_parse_next_block(ctx, &block)) > 0) {
-		callback(block.part, block.hdr, context);
+		T_BEGIN {
+			callback(block.part, block.hdr, context);
+		} T_END;
 
 		if (block.hdr == NULL)
 			break;
@@ -882,10 +884,10 @@ void message_parser_parse_header(struct message_parser_ctx *ctx,
 	i_assert(ret != 0);
 	i_assert(ctx->part != NULL);
 
-	if (ret < 0) {
+	if (ret < 0) T_BEGIN {
 		/* well, can't return error so fake end of headers */
 		callback(ctx->part, NULL, context);
-	}
+	} T_END;
 
         *hdr_size = ctx->part->header_size;
 }
@@ -899,8 +901,9 @@ void message_parser_parse_body(struct message_parser_ctx *ctx,
 	int ret;
 
 	while ((ret = message_parser_parse_next_block(ctx, &block)) > 0) {
-		if (block.size == 0 && hdr_callback != NULL)
+		if (block.size == 0 && hdr_callback != NULL) T_BEGIN {
 			hdr_callback(block.part, block.hdr, context);
+		} T_END;
 	}
 	i_assert(ret != 0);
 }
