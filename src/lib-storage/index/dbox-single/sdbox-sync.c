@@ -92,10 +92,10 @@ static void sdbox_sync_add(struct sdbox_sync_context *ctx,
 		return;
 	}
 
-	for (seq = seq1; seq <= seq2; seq++) {
+	for (seq = seq1; seq <= seq2; seq++) T_BEGIN {
 		mail_index_lookup_uid(ctx->sync_view, seq, &uid);
 		sdbox_sync_file(ctx, seq, uid, type);
-	}
+	} T_END;
 }
 
 static int sdbox_sync_index(struct sdbox_sync_context *ctx)
