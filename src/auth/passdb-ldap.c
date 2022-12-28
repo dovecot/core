@@ -70,7 +70,6 @@ ldap_lookup_finish(struct auth_request *auth_request,
 {
 	enum passdb_result passdb_result;
 	const char *password = NULL, *scheme;
-	int ret;
 
 	if (res == NULL) {
 		passdb_result = PASSDB_RESULT_INTERNAL_FAILURE;
@@ -102,11 +101,10 @@ ldap_lookup_finish(struct auth_request *auth_request,
 			auth_request);
 	} else {
 		if (password != NULL) {
-			ret = auth_request_password_verify(auth_request,
+			passdb_result =
+				auth_request_password_verify(auth_request,
 					auth_request->mech_password,
 					password, scheme, AUTH_SUBSYS_DB);
-			passdb_result = ret > 0 ? PASSDB_RESULT_OK :
-				PASSDB_RESULT_PASSWORD_MISMATCH;
 		}
 
 		ldap_request->callback.verify_plain(passdb_result,

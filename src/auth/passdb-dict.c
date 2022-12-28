@@ -85,7 +85,6 @@ static void passdb_dict_lookup_pass(struct passdb_dict_request *dict_request)
 		(struct dict_passdb_module *)_module;
 	const char *password = NULL, *scheme = NULL;
 	enum passdb_result passdb_result;
-	int ret;
 
 	if (array_count(&module->conn->set.passdb_fields) == 0 &&
 	    array_count(&module->conn->set.parsed_passdb_objects) == 0) {
@@ -111,11 +110,10 @@ static void passdb_dict_lookup_pass(struct passdb_dict_request *dict_request)
 			auth_request);
 	} else {
 		if (password != NULL) {
-			ret = auth_request_password_verify(auth_request,
+			passdb_result =
+				auth_request_password_verify(auth_request,
 					auth_request->mech_password,
 					password, scheme, AUTH_SUBSYS_DB);
-			passdb_result = ret > 0 ? PASSDB_RESULT_OK :
-				PASSDB_RESULT_PASSWORD_MISMATCH;
 		}
 
 		dict_request->callback.verify_plain(passdb_result,

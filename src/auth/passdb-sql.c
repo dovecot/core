@@ -133,13 +133,11 @@ static void sql_query_callback(struct sql_result *result,
 		return;
 	}
 
-	ret = auth_request_password_verify(auth_request,
-					   auth_request->mech_password,
-					   password, scheme, AUTH_SUBSYS_DB);
+	passdb_result = auth_request_password_verify(auth_request,
+						     auth_request->mech_password,
+						     password, scheme, AUTH_SUBSYS_DB);
 
-	sql_request->callback.verify_plain(ret > 0 ? PASSDB_RESULT_OK :
-					   PASSDB_RESULT_PASSWORD_MISMATCH,
-					   auth_request);
+	sql_request->callback.verify_plain(passdb_result, auth_request);
 	i_assert(dup_password != NULL);
 	safe_memset(dup_password, 0, strlen(dup_password));
 	auth_request_unref(&auth_request);

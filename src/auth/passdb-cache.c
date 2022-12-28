@@ -74,7 +74,7 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 {
 	const char *value, *cached_pw, *scheme, *const *list;
 	struct auth_cache_node *node;
-	int ret;
+	enum passdb_result ret;
 	bool neg_expired;
 
 	if (passdb_cache == NULL || key == NULL)
@@ -99,7 +99,7 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 		/* NULL password */
 		e_info(authdb_event(request),
 		       "Cached NULL password access");
-		ret = 1;
+		ret = PASSDB_RESULT_OK;
 	} else if (request->set->cache_verify_password_with_worker) {
 		string_t *str;
 
@@ -129,7 +129,8 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 						   scheme, AUTH_SUBSYS_DB,
 						   !(node->last_success || neg_expired));
 
-		if (ret == 0 && (node->last_success || neg_expired)) {
+		if (ret == PASSDB_RESULT_PASSWORD_MISMATCH &&
+		    (node->last_success || neg_expired)) {
 			/* a) the last authentication was successful. assume
 			   that the password was changed and cache is expired.
 			   b) negative TTL reached, use it for password
@@ -138,14 +139,13 @@ bool passdb_cache_verify_plain(struct auth_request *request, const char *key,
 			return FALSE;
 		}
 	}
-	node->last_success = ret > 0;
+	node->last_success = ret == PASSDB_RESULT_OK;
 
 	/* save the extra_fields only after we know we're using the
 	   cached data */
 	auth_request_set_fields(request, list + 1, NULL);
 
-	*result_r = ret > 0 ? PASSDB_RESULT_OK :
-		PASSDB_RESULT_PASSWORD_MISMATCH;
+	*result_r = ret;
 
 	auth_request_verify_plain_callback_finish(*result_r, request);
 	return TRUE;
