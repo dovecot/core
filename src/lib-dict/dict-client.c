@@ -943,6 +943,10 @@ client_dict_lookup_async_callback(struct client_dict_cmd *cmd,
 		result.error = t_strdup_printf(
 			"dict-client: Invalid lookup '%s' reply: %c%s",
 			cmd->query, reply, value);
+		/* This is already the command's callback being called.
+		   Make sure it is not called again by
+		   dict_cmd_callback_error() */
+		cmd->callback = NULL;
 		client_dict_disconnect(dict, result.error);
 		result.ret = -1;
 		break;
@@ -1332,6 +1336,10 @@ client_dict_transaction_commit_callback(struct client_dict_cmd *cmd,
 		result.error = t_strdup_printf(
 			"dict-client: Invalid commit reply: %c%s",
 			reply, value);
+		/* This is already the command's callback being called.
+		   Make sure it is not called again by
+		   dict_cmd_callback_error() */
+		cmd->callback = NULL;
 		client_dict_disconnect(dict, result.error);
 		break;
 	}
