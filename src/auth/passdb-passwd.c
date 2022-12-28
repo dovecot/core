@@ -44,7 +44,6 @@ passwd_verify_plain(struct auth_request *request, const char *password,
 {
 	struct passwd pw;
 	enum passdb_result res;
-	int ret;
 
 	res = passwd_lookup(request, &pw);
 	if (res != PASSDB_RESULT_OK) {
@@ -52,21 +51,21 @@ passwd_verify_plain(struct auth_request *request, const char *password,
 		return;
 	}
 	/* check if the password is valid */
-	ret = auth_request_password_verify(request, password, pw.pw_passwd,
+	res = auth_request_password_verify(request, password, pw.pw_passwd,
 					   PASSWD_PASS_SCHEME, AUTH_SUBSYS_DB);
 
 	/* clear the passwords from memory */
 	safe_memset(pw.pw_passwd, 0, strlen(pw.pw_passwd));
 
-	if (ret <= 0) {
-		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
+	if (res != PASSDB_RESULT_OK) {
+		callback(res, request);
 		return;
 	}
 
 	/* make sure we're using the username exactly as it's in the database */
         auth_request_set_field(request, "user", pw.pw_name, NULL);
 
-	callback(PASSDB_RESULT_OK, request);
+	callback(res, request);
 }
 
 static void

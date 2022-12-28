@@ -62,22 +62,15 @@ static_verify_plain(struct auth_request *request, const char *password,
 	const char *static_password;
 	const char *static_scheme;
 
-	int ret;
-
 	result = static_save_fields(request, &static_password, &static_scheme);
 	if (result != PASSDB_RESULT_OK) {
 		callback(result, request);
 		return;
 	}
 
-	ret = auth_request_password_verify(request, password, static_password,
-					   static_scheme, AUTH_SUBSYS_DB);
-	if (ret <= 0) {
-		callback(PASSDB_RESULT_PASSWORD_MISMATCH, request);
-		return;
-	}
-
-	callback(PASSDB_RESULT_OK, request);
+	result = auth_request_password_verify(request, password, static_password,
+					      static_scheme, AUTH_SUBSYS_DB);
+	callback(result, request);
 }
 
 static void

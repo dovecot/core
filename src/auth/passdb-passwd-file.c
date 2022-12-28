@@ -79,6 +79,7 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 		(struct passwd_file_passdb_module *)_module;
 	struct passwd_user *pu;
 	const char *scheme, *crypted_pass;
+	enum passdb_result result;
         int ret;
 
 	ret = db_passwd_file_lookup(module->pwf, request,
@@ -94,11 +95,10 @@ passwd_file_verify_plain(struct auth_request *request, const char *password,
 		return;
 	}
 
-	ret = auth_request_password_verify(request, password, crypted_pass,
-					   scheme, AUTH_SUBSYS_DB);
+	result = auth_request_password_verify(request, password, crypted_pass,
+					      scheme, AUTH_SUBSYS_DB);
 
-	callback(ret > 0 ? PASSDB_RESULT_OK : PASSDB_RESULT_PASSWORD_MISMATCH,
-		 request);
+	callback(result, request);
 }
 
 static void

@@ -310,7 +310,7 @@ auth_worker_handle_passw(struct auth_worker_command *cmd,
 	const char *password;
 	const char *crypted, *scheme, *error;
 	unsigned int passdb_id;
-	int ret;
+	enum passdb_result ret;
 
 	if (str_to_uint(args[0], &passdb_id) < 0 || args[1] == NULL ||
 	    args[2] == NULL) {
@@ -337,15 +337,12 @@ auth_worker_handle_passw(struct auth_worker_command *cmd,
 	str = t_str_new(128);
 	str_printfa(str, "%u\t", request->id);
 
-	if (ret == 1) {
+	if (ret == PASSDB_RESULT_OK) {
 		str_printfa(str, "OK\t\t");
 		error = NULL;
-	} else if (ret == 0) {
-		str_printfa(str, "FAIL\t%d", PASSDB_RESULT_PASSWORD_MISMATCH);
-		error = passdb_result_to_string(PASSDB_RESULT_PASSWORD_MISMATCH);
 	} else {
-		str_printfa(str, "FAIL\t%d", PASSDB_RESULT_INTERNAL_FAILURE);
-		error = passdb_result_to_string(PASSDB_RESULT_INTERNAL_FAILURE);
+		str_printfa(str, "FAIL\t%d", ret);
+		error = passdb_result_to_string(ret);
 	}
 
 	str_append_c(str, '\n');
