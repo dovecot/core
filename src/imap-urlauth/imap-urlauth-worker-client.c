@@ -5,10 +5,12 @@
 #include "net.h"
 #include "istream.h"
 #include "ostream.h"
+#include "ostream-unix.h"
 #include "str.h"
 #include "strescape.h"
 #include "fdpass.h"
 #include "eacces-error.h"
+#include "connection.h"
 
 #include "imap-urlauth-common.h"
 #include "imap-urlauth-settings.h"
@@ -25,31 +27,64 @@ enum imap_urlauth_worker_state {
 };
 
 struct imap_urlauth_worker_client {
+	struct connection conn;
 	struct client *client;
-	int fd_ctrl;
-	struct io *ctrl_io;
-	struct ostream *ctrl_output;
-	struct istream *ctrl_input;
 	struct event *event;
 
-	enum imap_urlauth_worker_state worker_state;
+	char *path;
 
-	bool disconnected:1;
+	enum imap_urlauth_worker_state worker_state;
 };
 
-static void client_worker_input(struct imap_urlauth_worker_client *wclient);
+static struct connection_list *imap_urlauth_worker_connections = NULL;
+
+static void
+imap_urlauth_worker_client_connected(struct connection *_conn, bool success);
+static void imap_urlauth_worker_connection_input(struct connection *_conn);
+static void imap_urlauth_worker_connection_destroy(struct connection *_conn);
+
+static const struct connection_vfuncs client_worker_connection_vfuncs = {
+	.destroy = imap_urlauth_worker_connection_destroy,
+	.input = imap_urlauth_worker_connection_input,
+	.client_connected = imap_urlauth_worker_client_connected,
+};
+
+static const struct connection_settings client_worker_connection_set = {
+	.service_name_in = IMAP_URLAUTH_WORKER_SOCKET,
+	.service_name_out = IMAP_URLAUTH_WORKER_SOCKET,
+	.major_version = IMAP_URLAUTH_WORKER_PROTOCOL_MAJOR_VERSION,
+	.minor_version = IMAP_URLAUTH_WORKER_PROTOCOL_MINOR_VERSION,
+	.unix_client_connect_msecs = 1000,
+	.input_max_size = SIZE_MAX,
+	.output_max_size = SIZE_MAX,
+	.dont_send_version = TRUE,
+	.client = TRUE,
+};
 
 struct imap_urlauth_worker_client *
 imap_urlauth_worker_client_init(struct client *client)
 {
 	struct imap_urlauth_worker_client *wclient;
 
+	if (imap_urlauth_worker_connections == NULL) {
+		imap_urlauth_worker_connections =
+			connection_list_init(&client_worker_connection_set,
+					     &client_worker_connection_vfuncs);
+	}
+
+
 	wclient = i_new(struct imap_urlauth_worker_client, 1);
 	wclient->client = client;
-	wclient->fd_ctrl = -1;
+
+	wclient->path = i_strconcat(client->set->base_dir,
+				    "/"IMAP_URLAUTH_WORKER_SOCKET, NULL);
 
 	wclient->event = event_create(client->event);
 	event_set_append_log_prefix(wclient->event, "worker: ");
+
+	wclient->conn.event_parent = wclient->event;
+	connection_init_client_unix(imap_urlauth_worker_connections,
+				    &wclient->conn, wclient->path);
 
 	return wclient;
 }
@@ -64,78 +99,94 @@ void imap_urlauth_worker_client_deinit(
 	*_wclient = NULL;
 
 	imap_urlauth_worker_client_disconnect(wclient);
+	connection_deinit(&wclient->conn);
 	event_unref(&wclient->event);
+	i_free(wclient->path);
 	i_free(wclient);
+
+	if (imap_urlauth_worker_connections->connections == NULL)
+		connection_list_deinit(&imap_urlauth_worker_connections);
 }
 
-int imap_urlauth_worker_client_connect(
-	struct imap_urlauth_worker_client *wclient)
+static void
+imap_urlauth_worker_client_connected(struct connection *_conn, bool success)
 {
+	struct imap_urlauth_worker_client *wclient =
+		container_of(_conn, struct imap_urlauth_worker_client, conn);
 	struct client *client = wclient->client;
-	const char *socket_path;
 	ssize_t ret;
 	unsigned char data;
 
-	socket_path = t_strconcat(client->set->base_dir,
-				  "/"IMAP_URLAUTH_WORKER_SOCKET, NULL);
-
-	e_debug(wclient->event, "Connecting to worker socket %s", socket_path);
-
-	wclient->fd_ctrl = net_connect_unix_with_retries(socket_path, 1000);
-	if (wclient->fd_ctrl < 0) {
-		if (errno == EACCES) {
-			e_error(wclient->event, "imap-urlauth-client: %s",
-				eacces_error_get("net_connect_unix",
-						 socket_path));
-		} else {
-			e_error(wclient->event, "imap-urlauth-client: "
-				"net_connect_unix(%s) failed: %m",
-				socket_path);
-		}
-		return -1;
-	}
+	/* Cannot get here unless UNIX socket connect() was successful */
+	i_assert(success);
 
 	/* transfer one or two fds */
-	data = (client->fd_in == client->fd_out ? '0' : '1');
-	ret = fd_send(wclient->fd_ctrl, client->fd_in, &data, sizeof(data));
-	if (ret > 0 && client->fd_in != client->fd_out) {
-		data = '0';
-		ret = fd_send(wclient->fd_ctrl, client->fd_out,
-			      &data, sizeof(data));
+	ret = (o_stream_unix_write_fd(wclient->conn.output,
+				      client->fd_in) ? 1 : 0);
+	if (ret > 0) {
+		data = (client->fd_in == client->fd_out ? '0' : '1');
+		ret = o_stream_send(wclient->conn.output, &data, sizeof(data));
 	}
-
+	if (client->fd_in != client->fd_out) {
+		if (ret > 0) {
+			ret = (o_stream_unix_write_fd(wclient->conn.output,
+						      client->fd_out) ?
+			       1 : 0);
+		}
+		if (ret > 0) {
+			data = '0';
+			ret = o_stream_send(wclient->conn.output,
+					    &data, sizeof(data));
+		}
+	}
 	if (ret <= 0) {
 		if (ret < 0) {
 			e_error(wclient->event,
-				"fd_send(%s, %d) failed: %m",
-				socket_path, wclient->fd_ctrl);
+				"write(%s) failed: %s", wclient->path,
+				o_stream_get_error(wclient->conn.output));
 		} else {
 			e_error(wclient->event,
-				"fd_send(%s, %d) failed to send byte",
-				socket_path, wclient->fd_ctrl);
+				"write(%s) failed: failed to send byte",
+				wclient->path);
 		}
 		imap_urlauth_worker_client_disconnect(wclient);
-		return -1;
+		return;
 	}
-
-	wclient->ctrl_output = o_stream_create_fd(wclient->fd_ctrl, SIZE_MAX);
 
 	/* send protocol version handshake */
 	const char *handshake = t_strdup_printf(
 		"VERSION\timap-urlauth-worker\t%u\t%u\n",
 		IMAP_URLAUTH_WORKER_PROTOCOL_MAJOR_VERSION,
 		IMAP_URLAUTH_WORKER_PROTOCOL_MINOR_VERSION);
-	if (o_stream_send_str(wclient->ctrl_output, handshake) < 0) {
+	if (o_stream_send_str(wclient->conn.output, handshake) < 0) {
 		e_error(wclient->event,
 			"Error sending handshake to imap-urlauth worker: %m");
 		imap_urlauth_worker_client_disconnect(wclient);
+		return;
+	}
+}
+
+int imap_urlauth_worker_client_connect(
+	struct imap_urlauth_worker_client *wclient)
+{
+	if (!wclient->conn.disconnected)
+               return 1;
+
+	e_debug(wclient->event, "Connecting to worker socket %s", wclient->path);
+
+	if (connection_client_connect(&wclient->conn) < 0) {
+		if (errno == EACCES) {
+			e_error(wclient->event, "imap-urlauth-client: %s",
+				eacces_error_get("net_connect_unix",
+						 wclient->path));
+		} else {
+			e_error(wclient->event, "imap-urlauth-client: "
+				"net_connect_unix(%s) failed: %m",
+				wclient->path);
+		}
 		return -1;
 	}
 
-	wclient->ctrl_input =
-		i_stream_create_fd(wclient->fd_ctrl, MAX_INBUF_SIZE);
-	wclient->ctrl_io =
-		io_add(wclient->fd_ctrl, IO_READ, client_worker_input, wclient);
 	return 0;
 }
 
@@ -144,13 +195,7 @@ void imap_urlauth_worker_client_disconnect(
 {
 	wclient->worker_state = IMAP_URLAUTH_WORKER_STATE_INACTIVE;
 
-	io_remove(&wclient->ctrl_io);
-	o_stream_destroy(&wclient->ctrl_output);
-	i_stream_destroy(&wclient->ctrl_input);
-	if (wclient->fd_ctrl >= 0) {
-		net_disconnect(wclient->fd_ctrl);
-		wclient->fd_ctrl = -1;
-	}
+        connection_disconnect(&wclient->conn);
 }
 
 static void
@@ -159,6 +204,24 @@ imap_urlauth_worker_client_error(struct imap_urlauth_worker_client *wclient,
 {
 	client_disconnect(wclient->client, error);
 	imap_urlauth_worker_client_disconnect(wclient);
+}
+
+static void imap_urlauth_worker_connection_destroy(struct connection *_conn)
+{
+	struct imap_urlauth_worker_client *wclient =
+		container_of(_conn, struct imap_urlauth_worker_client, conn);
+
+	switch (_conn->disconnect_reason) {
+	case CONNECTION_DISCONNECT_HANDSHAKE_FAILED:
+		imap_urlauth_worker_client_error(wclient,
+			"Handshake with imap-urlauth-worker service failed");
+		break;
+	case CONNECTION_DISCONNECT_BUFFER_FULL:
+		i_unreached();
+	default:
+		/* Disconnected */
+		imap_urlauth_worker_client_disconnect(wclient);
+	}
 }
 
 static int
@@ -200,7 +263,7 @@ client_worker_input_line(struct imap_urlauth_worker_client *wclient,
 		}
 		str_append(str, "\n");
 
-		ret = o_stream_send(wclient->ctrl_output,
+		ret = o_stream_send(wclient->conn.output,
 				    str_data(str), str_len(str));
 		i_assert(ret < 0 || (size_t)ret == str_len(str));
 		if (ret < 0) {
@@ -255,9 +318,11 @@ client_worker_input_line(struct imap_urlauth_worker_client *wclient,
 	return 0;
 }
 
-static void client_worker_input(struct imap_urlauth_worker_client *wclient)
+static void imap_urlauth_worker_connection_input(struct connection *_conn)
 {
-	struct istream *input = wclient->ctrl_input;
+	struct imap_urlauth_worker_client *wclient =
+		container_of(_conn, struct imap_urlauth_worker_client, conn);
+	struct istream *input = wclient->conn.input;
 	const char *line;
 
 	if (input->closed) {
