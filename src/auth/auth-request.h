@@ -314,15 +314,19 @@ void auth_request_proxy_finish_failure(struct auth_request *request);
 
 void auth_request_log_password_mismatch(struct auth_request *request,
 					const char *subsystem);
-int auth_request_password_verify(struct auth_request *request,
-				 const char *plain_password,
-				 const char *crypted_password,
-				 const char *scheme, const char *subsystem);
-int auth_request_password_verify_log(struct auth_request *request,
+enum passdb_result
+auth_request_password_verify(struct auth_request *request,
+			     const char *plain_password,
+			     const char *crypted_password,
+			     const char *scheme, const char *subsystem)
+			     ATTR_WARN_UNUSED_RESULT;
+enum passdb_result
+auth_request_password_verify_log(struct auth_request *request,
 				 const char *plain_password,
 				 const char *crypted_password,
 				 const char *scheme, const char *subsystem,
-				 bool log_password_mismatch);
+				 bool log_password_mismatch)
+				 ATTR_WARN_UNUSED_RESULT;
 enum passdb_result auth_request_password_missing(struct auth_request *request);
 
 void auth_request_get_log_prefix(string_t *str, struct auth_request *auth_request,
