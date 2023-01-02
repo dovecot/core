@@ -336,11 +336,6 @@ auth_request_handler_reply_failure_finish(struct auth_request *request)
 		}
 	}
 
-	if (auth_fields_exists(request->fields.extra_fields, "nodelay")) {
-		/* this is normally a hidden field, need to add it explicitly */
-		str_append(str, "\tnodelay");
-	}
-
 	if (code != NULL) {
 		str_append(str, "\tcode=");
 		str_append(str, code);
