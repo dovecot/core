@@ -544,6 +544,12 @@ static bool mail_index_sync_view_have_any(struct mail_index_view *view,
 		return TRUE;
 
 	mail_transaction_log_get_head(view->index->log, &log_seq, &log_offset);
+	if (log_seq < view->map->hdr.log_file_seq ||
+	    ((log_seq == view->map->hdr.log_file_seq &&
+	      log_offset < view->map->hdr.log_file_tail_offset))) {
+		/* invalid offsets - let the syncing handle the error */
+		return TRUE;
+	}
 	if (mail_transaction_log_view_set(view->log_view,
 					  view->map->hdr.log_file_seq,
 					  view->map->hdr.log_file_tail_offset,
