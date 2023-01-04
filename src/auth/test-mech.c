@@ -94,8 +94,8 @@ static void test_mechs_init(void)
 
 	/* Copy default settings */
 	set = *(const struct auth_settings *)auth_setting_parser_info.defaults;
+	set.base_dir = ".";
 	global_auth_settings = &set;
-	global_auth_settings->base_dir = ".";
 	memset((&set)->username_chars_map, 1, sizeof((&set)->username_chars_map));
 	set.username_format = "";
 
@@ -133,7 +133,7 @@ static void test_mech_prepare_request(struct auth_request **request_r,
 				      unsigned int running_test,
 				      const struct test_case *test_case)
 {
-	global_auth_settings->ssl_username_from_cert = test_case->set_cert_username;
+	set.ssl_username_from_cert = test_case->set_cert_username;
 	struct auth *auth = auth_default_service();
 
 	struct auth_request *request = auth_request_new(mech,  NULL);

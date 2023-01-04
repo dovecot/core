@@ -98,9 +98,9 @@ struct auth_settings {
 };
 
 extern const struct setting_parser_info auth_setting_parser_info;
-extern struct auth_settings *global_auth_settings;
+extern const struct auth_settings *global_auth_settings;
 
-struct auth_settings *
+const struct auth_settings *
 auth_settings_read(const char *service, pool_t pool,
 		   struct master_service_settings_output *output_r)
 	ATTR_NULL(1);
