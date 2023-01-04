@@ -149,12 +149,8 @@ const struct setting_parser_info mail_storage_setting_parser_info = {
 	.defines = mail_storage_setting_defines,
 	.defaults = &mail_storage_default_settings,
 
-	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct mail_storage_settings),
-
-	.parent_offset = SIZE_MAX,
 	.parent = &mail_user_setting_parser_info,
-
 	.check_func = mail_storage_settings_check,
 };
 
@@ -191,10 +187,8 @@ const struct setting_parser_info mailbox_setting_parser_info = {
 	.defines = mailbox_setting_defines,
 	.defaults = &mailbox_default_settings,
 
-	.type_offset = offsetof(struct mailbox_settings, name),
+	.type_offset1 = 1 + offsetof(struct mailbox_settings, name),
 	.struct_size = sizeof(struct mailbox_settings),
-
-	.parent_offset = SIZE_MAX,
 	.parent = &mail_user_setting_parser_info,
 
 	.check_func = mailbox_settings_check
@@ -255,10 +249,10 @@ const struct setting_parser_info mail_namespace_setting_parser_info = {
 	.defines = mail_namespace_setting_defines,
 	.defaults = &mail_namespace_default_settings,
 
-	.type_offset = offsetof(struct mail_namespace_settings, name),
+	.type_offset1 = 1 + offsetof(struct mail_namespace_settings, name),
 	.struct_size = sizeof(struct mail_namespace_settings),
 
-	.parent_offset = offsetof(struct mail_namespace_settings, user_set),
+	.parent_offset1 = 1 + offsetof(struct mail_namespace_settings, user_set),
 	.parent = &mail_user_setting_parser_info,
 
 	.check_func = namespace_settings_check
@@ -341,11 +335,7 @@ const struct setting_parser_info mail_user_setting_parser_info = {
 	.defines = mail_user_setting_defines,
 	.defaults = &mail_user_default_settings,
 
-	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct mail_user_settings),
-
-	.parent_offset = SIZE_MAX,
-
 	.check_func = mail_user_settings_check,
 #ifndef CONFIG_BINARY
 	.expand_check_func = mail_user_settings_expand_check,

@@ -42,10 +42,7 @@ static const struct setting_parser_info mbox_setting_parser_info = {
 	.defines = mbox_setting_defines,
 	.defaults = &mbox_default_settings,
 
-	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct mbox_settings),
-
-	.parent_offset = SIZE_MAX,
 	.parent = &mail_user_setting_parser_info
 };
 

@@ -110,10 +110,7 @@ const struct setting_parser_info master_service_setting_parser_info = {
 	.defines = master_service_setting_defines,
 	.defaults = &master_service_default_settings,
 
-	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct master_service_settings),
-
-	.parent_offset = SIZE_MAX,
 	.check_func = master_service_settings_check
 };
 

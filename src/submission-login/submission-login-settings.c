@@ -112,10 +112,7 @@ const struct setting_parser_info submission_login_setting_parser_info = {
 	.defines = submission_login_setting_defines,
 	.defaults = &submission_login_default_settings,
 
-	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct submission_login_settings),
-	.parent_offset = SIZE_MAX,
-
 	.check_func = submission_login_settings_check,
 	.dependencies = submission_login_setting_dependencies
 };

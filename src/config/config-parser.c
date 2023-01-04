@@ -52,10 +52,10 @@ static const char *info_type_name_find(const struct setting_parser_info *info)
 	unsigned int i;
 
 	for (i = 0; info->defines[i].key != NULL; i++) {
-		if (info->defines[i].offset == info->type_offset)
+		if (info->defines[i].offset + 1 == info->type_offset1)
 			return info->defines[i].key;
 	}
-	i_panic("setting parser: Invalid type_offset value");
+	i_panic("setting parser: Invalid type_offset1 value");
 	return NULL;
 }
 
@@ -72,7 +72,7 @@ static int config_add_type(struct setting_parser_context *parser,
 		/* section inside strlist */
 		return -1;
 	}
-	if (info->type_offset == SIZE_MAX)
+	if (info->type_offset1 == 0)
 		return 0;
 
 	str = t_str_new(256);

@@ -119,11 +119,7 @@ const struct setting_parser_info pop3_setting_parser_info = {
 	.defines = pop3_setting_defines,
 	.defaults = &pop3_default_settings,
 
-	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct pop3_settings),
-
-	.parent_offset = SIZE_MAX,
-
 	.check_func = pop3_settings_verify,
 	.dependencies = pop3_setting_dependencies
 };

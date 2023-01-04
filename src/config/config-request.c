@@ -192,17 +192,17 @@ setting_export_section_name(string_t *str, const struct setting_define *def,
 			    const void *set, unsigned int idx)
 {
 	const char *const *name;
-	size_t name_offset;
+	size_t name_offset1;
 
 	if (def->type != SET_DEFLIST_UNIQUE) {
 		/* not unique, use the index */
 		str_printfa(str, "%u", idx);
 		return;
 	}
-	name_offset = def->list_info->type_offset;
-	i_assert(name_offset != SIZE_MAX);
+	name_offset1 = def->list_info->type_offset1;
+	i_assert(name_offset1 != 0);
 
-	name = CONST_PTR_OFFSET(set, name_offset);
+	name = CONST_PTR_OFFSET(set, name_offset1 - 1);
 	if (*name == NULL || **name == '\0') {
 		/* no name, this one isn't unique. use the index. */
 		str_printfa(str, "%u", idx);
@@ -254,7 +254,7 @@ settings_export(struct config_export_context *ctx,
 		    (ctx->flags & CONFIG_DUMP_FLAG_HIDE_LIST_DEFAULTS) == 0) {
 			/* .. */
 		} else if (*((const char *)change_value) == 0 &&
-			   def->offset != info->type_offset) {
+			   def->offset + 1 != info->type_offset1) {
 			/* this is mainly for service {} blocks. if value
 			   hasn't changed, it's the default. even if
 			   info->defaults has a different value. */
@@ -344,7 +344,7 @@ settings_export(struct config_export_context *ctx,
 			if (hash_table_lookup(ctx->keys, key) == NULL) {
 				enum config_key_type type;
 
-				if (def->offset == info->type_offset &&
+				if (def->offset + 1 == info->type_offset1 &&
 				    parent_unique_deflist)
 					type = CONFIG_KEY_UNIQUE_KEY;
 				else if (SETTING_TYPE_IS_DEFLIST(def->type))

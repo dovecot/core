@@ -30,10 +30,7 @@ static const struct setting_parser_info mdbox_setting_parser_info = {
 	.defines = mdbox_setting_defines,
 	.defaults = &mdbox_default_settings,
 
-	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct mdbox_settings),
-
-	.parent_offset = SIZE_MAX,
 	.parent = &mail_user_setting_parser_info
 };
 

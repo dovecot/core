@@ -106,10 +106,8 @@ const struct setting_parser_info stats_exporter_setting_parser_info = {
 	.defines = stats_exporter_setting_defines,
 	.defaults = &stats_exporter_default_settings,
 
-	.type_offset = offsetof(struct stats_exporter_settings, name),
+	.type_offset1 = 1 + offsetof(struct stats_exporter_settings, name),
 	.struct_size = sizeof(struct stats_exporter_settings),
-
-	.parent_offset = SIZE_MAX,
 	.check_func = stats_exporter_settings_check,
 };
 
@@ -146,10 +144,8 @@ const struct setting_parser_info stats_metric_setting_parser_info = {
 	.defines = stats_metric_setting_defines,
 	.defaults = &stats_metric_default_settings,
 
-	.type_offset = offsetof(struct stats_metric_settings, metric_name),
+	.type_offset1 = 1 + offsetof(struct stats_metric_settings, metric_name),
 	.struct_size = sizeof(struct stats_metric_settings),
-
-	.parent_offset = SIZE_MAX,
 	.check_func = stats_metric_settings_check,
 };
 
@@ -186,10 +182,7 @@ const struct setting_parser_info stats_setting_parser_info = {
 	.defines = stats_setting_defines,
 	.defaults = &stats_default_settings,
 
-	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct stats_settings),
-
-	.parent_offset = SIZE_MAX,
 	.check_func = stats_settings_check,
 };
 

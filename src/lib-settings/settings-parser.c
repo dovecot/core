@@ -59,10 +59,7 @@ static const struct setting_parser_info strlist_info = {
 	.defines = NULL,
 	.defaults = NULL,
 
-	.type_offset = SIZE_MAX,
 	.struct_size = 0,
-
-	.parent_offset = SIZE_MAX
 };
 
 HASH_TABLE_DEFINE_TYPE(setting_link, struct setting_link *,
@@ -124,7 +121,7 @@ copy_unique_defaults(struct setting_parser_context *ctx,
 			array_push_back(carr, &new_changes);
 		}
 
-		keyp = CONST_PTR_OFFSET(children[i], info.type_offset);
+		keyp = CONST_PTR_OFFSET(children[i], info.type_offset1-1);
 		key = settings_section_escape(*keyp);
 
 		new_link = p_new(ctx->set_pool, struct setting_link, 1);
@@ -386,9 +383,9 @@ setting_link_init_set_struct(struct setting_parser_context *ctx,
 	setting_parser_copy_defaults(ctx, link->info, link);
 	array_push_back(link->array, &link->set_struct);
 
-	if (link->info->parent_offset != SIZE_MAX && link->parent != NULL) {
+	if (link->info->parent_offset1 != 0 && link->parent != NULL) {
 		ptr = STRUCT_MEMBER_P(link->set_struct,
-				      link->info->parent_offset);
+				      link->info->parent_offset1-1);
 		*((void **)ptr) = link->parent->set_struct;
 	}
 }
@@ -1023,10 +1020,10 @@ static void settings_set_parent(const struct setting_parser_info *info,
 {
 	void **ptr;
 
-	if (info->parent_offset == SIZE_MAX)
+	if (info->parent_offset1 == 0)
 		return;
 
-	ptr = PTR_OFFSET(child, info->parent_offset);
+	ptr = PTR_OFFSET(child, info->parent_offset1-1);
 	*ptr = parent;
 }
 
@@ -1427,7 +1424,7 @@ settings_copy_deflist_unique(const struct setting_define *def,
 	unsigned int i, j, src_count, dest_count, ccount;
 	unsigned int type_offset;
 
-	i_assert(def->list_info->type_offset != SIZE_MAX);
+	i_assert(def->list_info->type_offset1 != 0);
 
 	src_arr = CONST_PTR_OFFSET(src_link->set_struct, def->offset);
 	src_carr = CONST_PTR_OFFSET(src_link->change_struct, def->offset);
@@ -1436,7 +1433,7 @@ settings_copy_deflist_unique(const struct setting_define *def,
 
 	if (!array_is_created(src_arr))
 		return 0;
-	type_offset = def->list_info->type_offset;
+	type_offset = def->list_info->type_offset1-1;
 
 	i_zero(&child_dest_link);
 	i_zero(&child_src_link);

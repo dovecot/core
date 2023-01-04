@@ -102,10 +102,10 @@ struct setting_parser_info {
 	const struct setting_define *defines;
 	const void *defaults;
 
-	size_t type_offset;
+	size_t type_offset1; /* type_offset+1. 0=nonexistent. */
 	size_t struct_size;
 
-	size_t parent_offset;
+	size_t parent_offset1; /* parent_offset+1. 0=nonexistent. */
 	const struct setting_parser_info *parent;
 
 	bool (*check_func)(void *set, pool_t pool, const char **error_r);

@@ -65,10 +65,7 @@ const struct setting_parser_info test_settings_root = {
 	.defines = test_settings_defs,
 	.defaults = &test_settings_defaults,
 
-	.type_offset = SIZE_MAX,
 	.struct_size = sizeof(struct test_settings),
-
-	.parent_offset = SIZE_MAX,
 	.parent = NULL,
 };
 

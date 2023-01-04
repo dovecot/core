@@ -75,10 +75,7 @@ static void test_settings_parser(void)
 		.defines = defs,
 		.defaults = &test_defaults,
 
-		.type_offset = SIZE_MAX,
 		.struct_size = sizeof(struct test_settings),
-
-		.parent_offset = SIZE_MAX,
 	};
 
 	test_begin("settings_parser");
