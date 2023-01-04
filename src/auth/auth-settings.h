@@ -38,6 +38,7 @@ struct auth_userdb_settings {
 };
 
 struct auth_settings {
+	pool_t pool;
 	const char *mechanisms;
 	const char *realms;
 	const char *default_domain;
@@ -101,7 +102,7 @@ extern const struct setting_parser_info auth_setting_parser_info;
 extern const struct auth_settings *global_auth_settings;
 
 const struct auth_settings *
-auth_settings_read(const char *service, pool_t pool,
+auth_settings_read(const char *service,
 		   struct master_service_settings_output *output_r)
 	ATTR_NULL(1);
 

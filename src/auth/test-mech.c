@@ -122,7 +122,7 @@ static void test_mechs_init(void)
 	password_schemes_init();
 	password_schemes_allow_weak(TRUE);
 
-	auths_preinit(&set, pool_datastack_create(), mech_reg, services);
+	auths_preinit(&set, mech_reg, services);
 	auths_init();
 	auth_token_init();
 }

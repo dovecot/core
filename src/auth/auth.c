@@ -256,7 +256,7 @@ static void auth_mech_list_verify_passdb(const struct auth *auth)
 }
 
 static struct auth * ATTR_NULL(2)
-auth_preinit(const struct auth_settings *set, const char *service, pool_t pool,
+auth_preinit(const struct auth_settings *set, const char *service,
 	     const struct mechanisms_register *reg)
 {
 	struct auth_passdb_settings *const *passdbs;
@@ -264,6 +264,7 @@ auth_preinit(const struct auth_settings *set, const char *service, pool_t pool,
 	struct auth *auth;
 	unsigned int i, count, db_count, passdb_count, last_passdb = 0;
 
+	pool_t pool = pool_alloconly_create("auth", 128);
 	auth = p_new(pool, struct auth, 1);
 	auth->pool = pool;
 	auth->service = p_strdup(pool, service);
@@ -402,7 +403,7 @@ struct auth *auth_default_service(void)
 	return a[0];
 }
 
-void auths_preinit(const struct auth_settings *set, pool_t pool,
+void auths_preinit(const struct auth_settings *set,
 		   const struct mechanisms_register *reg,
 		   const char *const *services)
 {
@@ -418,7 +419,7 @@ void auths_preinit(const struct auth_settings *set, pool_t pool,
 	event_add_category(auth_event, &event_category_auth);
 	i_array_init(&auths, 8);
 
-	auth = auth_preinit(set, NULL, pool, reg);
+	auth = auth_preinit(set, NULL, reg);
 	array_push_back(&auths, &auth);
 
 	for (i = 0; services[i] != NULL; i++) {
@@ -430,9 +431,8 @@ void auths_preinit(const struct auth_settings *set, pool_t pool,
 			}
 			not_service = services[i];
 		}
-		service_set = auth_settings_read(services[i], pool,
-						 &set_output);
-		auth = auth_preinit(service_set, services[i], pool, reg);
+		service_set = auth_settings_read(services[i], &set_output);
+		auth = auth_preinit(service_set, services[i], reg);
 		array_push_back(&auths, &auth);
 	}
 
@@ -473,13 +473,11 @@ void auths_deinit(void)
 
 void auths_free(void)
 {
-	struct auth **auth;
-	unsigned int i, count;
+	struct auth *auth;
 
-	/* deinit in reverse order, because modules have been allocated by
-	   the first auth pool that used them */
-	auth = array_get_modifiable(&auths, &count);
-	for (i = count; i > 0; i--)
-		pool_unref(&auth[i-1]->pool);
+	array_foreach_elem(&auths, auth) {
+		master_service_settings_free(auth->set);
+		pool_unref(&auth->pool);
+	}
 	array_free(&auths);
 }

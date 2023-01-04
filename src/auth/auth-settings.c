@@ -379,6 +379,7 @@ const struct setting_parser_info auth_setting_parser_info = {
 	.defaults = &auth_default_settings,
 
 	.struct_size = sizeof(struct auth_settings),
+	.pool_offset1 = 1 + offsetof(struct auth_settings, pool),
 	.check_func = auth_settings_check
 };
 
@@ -544,7 +545,7 @@ auth_userdb_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 const struct auth_settings *global_auth_settings;
 
 const struct auth_settings *
-auth_settings_read(const char *service, pool_t pool,
+auth_settings_read(const char *service,
 		   struct master_service_settings_output *output_r)
 {
 	static const struct setting_parser_info *set_roots[] = {
@@ -552,23 +553,21 @@ auth_settings_read(const char *service, pool_t pool,
 		NULL
 	};
 	struct master_service_settings_input input;
-	struct setting_parser_context *set_parser;
 	const char *error;
 
 	i_zero(&input);
 	input.roots = set_roots;
 	input.service = service;
+	input.disable_check_settings = TRUE;
 	if (master_service_settings_read(master_service, &input,
 					 output_r, &error) < 0)
 		i_fatal("%s", error);
 
-	pool_ref(pool);
-	set_parser = settings_parser_dup(master_service->set_parser, pool);
-	if (!settings_parser_check(set_parser, pool, &error))
-		i_unreached();
-
-	struct auth_settings *set =
-		settings_parser_get_root_set(set_parser, &auth_setting_parser_info);
-	settings_parser_unref(&set_parser);
+	struct event *event = event_create(NULL);
+	event_add_str(event, "protocol", service);
+	const struct auth_settings *set =
+		master_service_settings_get_or_fatal(event,
+						     &auth_setting_parser_info);
+	event_unref(&event);
 	return set;
 }

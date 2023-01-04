@@ -67,7 +67,6 @@ bool worker = FALSE, worker_restart_request = FALSE;
 time_t process_start_time;
 struct auth_penalty *auth_penalty;
 
-static pool_t auth_set_pool;
 static struct module *modules = NULL;
 static struct mechanisms_register *mech_reg;
 static ARRAY(struct auth_socket_listener) listeners;
@@ -89,22 +88,11 @@ void auth_refresh_proctitle(void)
 static const char *const *read_global_settings(void)
 {
 	struct master_service_settings_output set_output;
-	const char **services;
-	unsigned int i, count;
 
-	auth_set_pool = pool_alloconly_create("auth settings", 8192);
-	global_auth_settings =
-		auth_settings_read(NULL, auth_set_pool, &set_output);
-
-	/* strdup() the service names, because they're allocated from
-	   set parser pool, and we'll later clear it. */
-	count = str_array_length(set_output.specific_services);
-	services = p_new(auth_set_pool, const char *, count + 1);
-	for (i = 0; i < count; i++) {
-		services[i] = p_strdup(auth_set_pool,
-				       set_output.specific_services[i]);
-	}
-	return services;
+	global_auth_settings = auth_settings_read(NULL, &set_output);
+	if (set_output.specific_services == NULL)
+		return t_new(const char *, 1);
+	return set_output.specific_services;
 }
 
 static enum auth_socket_type auth_socket_type_get(const char *typename)
@@ -189,8 +177,7 @@ static void main_preinit(void)
 	mech_init(global_auth_settings);
 	mech_reg = mech_register_init(global_auth_settings);
 	dict_drivers_register_builtin();
-	auths_preinit(global_auth_settings, auth_set_pool,
-		      mech_reg, services);
+	auths_preinit(global_auth_settings, mech_reg, services);
 
 	listeners_init();
 	if (!worker)
@@ -297,7 +284,6 @@ static void main_deinit(void)
 	array_foreach_modifiable(&listeners, l)
 		i_free(l->path);
 	array_free(&listeners);
-	pool_unref(&auth_set_pool);
 }
 
 static void worker_connected(struct master_service_connection *conn)

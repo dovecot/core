@@ -155,7 +155,7 @@ auth_policy_open_and_close_to_key(struct json_ostream *json_output,
 void auth_policy_init(void)
 {
 	const struct master_service_ssl_settings *master_ssl_set =
-		master_service_settings_get_root_set(master_service,
+		master_service_settings_get_or_fatal(NULL,
 			&master_service_ssl_setting_parser_info);
 	struct ssl_iostream_settings ssl_set;
 	i_zero(&ssl_set);
@@ -170,6 +170,7 @@ void auth_policy_init(void)
 	http_client_set.ssl = &ssl_set;
 	http_client_set.event_parent = auth_event;
 	http_client = http_client_init(&http_client_set);
+	master_service_settings_free(master_ssl_set);
 
 	/* prepare template */
 
