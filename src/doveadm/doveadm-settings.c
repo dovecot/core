@@ -143,7 +143,6 @@ const struct setting_parser_info doveadm_setting_parser_info = {
 };
 
 struct doveadm_settings *doveadm_settings;
-const struct master_service_settings *service_set;
 
 static void
 fix_base_path(struct doveadm_settings *set, pool_t pool, const char **str)
@@ -267,9 +266,7 @@ void doveadm_read_settings(void)
 	fd_close_on_exec(output.config_fd, TRUE);
 
 	doveadm_settings_pool = pool_alloconly_create("doveadm settings", 1024);
-	service_set = master_service_settings_get_root_set_dup(master_service,
-		&master_service_setting_parser_info, doveadm_settings_pool);
-	doveadm_verbose_proctitle = service_set->verbose_proctitle;
+	doveadm_verbose_proctitle = master_service_get_service_settings(master_service)->verbose_proctitle;
 
 	set = master_service_settings_get_root_set(
 		master_service, &doveadm_setting_parser_info);

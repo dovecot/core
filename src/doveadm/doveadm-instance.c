@@ -2,6 +2,7 @@
 
 #include "lib.h"
 #include "master-instance.h"
+#include "master-service.h"
 #include "master-service-settings.h"
 #include "doveadm.h"
 #include "doveadm-print.h"
@@ -64,7 +65,7 @@ static void cmd_instance_list(struct doveadm_cmd_context *cctx)
 		doveadm_print_header_simple("running");
 	}
 
-	instance_path = t_strconcat(service_set->state_dir,
+	instance_path = t_strconcat(master_service_get_service_settings(master_service)->state_dir,
 				    "/"MASTER_INSTANCE_FNAME, NULL);
 	list = master_instance_list_init(instance_path);
 	iter = master_instance_list_iterate_init(list);
@@ -100,7 +101,7 @@ static void cmd_instance_remove(struct doveadm_cmd_context *cctx)
 	if (!doveadm_cmd_param_str(cctx, "name", &name))
 		instance_cmd_help(cctx->cmd);
 
-	instance_path = t_strconcat(service_set->state_dir,
+	instance_path = t_strconcat(master_service_get_service_settings(master_service)->state_dir,
 				    "/"MASTER_INSTANCE_FNAME, NULL);
 	list = master_instance_list_init(instance_path);
 	inst = master_instance_list_find_by_name(list, name);

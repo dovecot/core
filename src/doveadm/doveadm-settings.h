@@ -46,7 +46,6 @@ ARRAY_DEFINE_TYPE(doveadm_setting_root, struct doveadm_setting_root);
 
 extern const struct setting_parser_info doveadm_setting_parser_info;
 extern struct doveadm_settings *doveadm_settings;
-extern const struct master_service_settings *service_set;
 extern const struct master_service_ssl_settings *doveadm_ssl_set;
 extern ARRAY_TYPE(doveadm_setting_root) doveadm_setting_roots;
 extern bool doveadm_verbose_proctitle;
