@@ -29,6 +29,12 @@
 #define CONFIG_READ_TIMEOUT_SECS 10
 #define CONFIG_HANDSHAKE "VERSION\tconfig\t3\t0\n"
 
+struct master_settings_mmap {
+	int refcount;
+	void *mmap_base;
+	size_t mmap_size;
+};
+
 #undef DEF
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct master_service_settings)
@@ -544,6 +550,28 @@ master_service_settings_read_mmap(struct setting_parser_context *parser,
 	return 0;
 }
 
+void master_settings_mmap_ref(struct master_settings_mmap *mmap)
+{
+	i_assert(mmap->refcount > 0);
+
+	mmap->refcount++;
+}
+
+void master_settings_mmap_unref(struct master_settings_mmap **_mmap)
+{
+	struct master_settings_mmap *mmap = *_mmap;
+	if (mmap == NULL)
+		return;
+	i_assert(mmap->refcount > 0);
+
+	*_mmap = NULL;
+	if (--mmap->refcount > 0)
+		return;
+	if (munmap(mmap->mmap_base, mmap->mmap_size) < 0)
+		i_error("munmap(<config>) failed: %m");
+	i_free(mmap);
+}
+
 int master_service_settings_read(struct master_service *service,
 				 const struct master_service_settings_input *input,
 				 struct master_service_settings_output *output_r,
@@ -552,6 +580,7 @@ int master_service_settings_read(struct master_service *service,
 	ARRAY(const struct setting_parser_info *) all_roots;
 	const struct setting_parser_info *tmp_root;
 	struct setting_parser_context *parser;
+	struct master_settings_mmap *config_mmap = NULL;
 	const char *path = NULL, *value, *error;
 	unsigned int i;
 	int ret, fd = -1;
@@ -559,7 +588,7 @@ int master_service_settings_read(struct master_service *service,
 	i_zero(output_r);
 	output_r->config_fd = -1;
 
-	if (service->config_mmap_base != NULL && !input->reload_config) {
+	if (service->config_mmap != NULL && !input->reload_config) {
 		/* config was already read once */
 	} else if ((value = getenv(DOVECOT_CONFIG_FD_ENV)) != NULL) {
 		/* doveconf -F parameter already executed us back.
@@ -583,18 +612,19 @@ int master_service_settings_read(struct master_service *service,
 		}
 	}
 	if (fd != -1) {
-		if (service->config_mmap_base != NULL) {
+		if (service->config_mmap != NULL) {
 			i_assert(input->reload_config);
-			if (munmap(service->config_mmap_base,
-				   service->config_mmap_size) < 0)
-				i_error("munmap(<config>) failed: %m");
+			master_settings_mmap_unref(&service->config_mmap);
 		}
 
-		service->config_mmap_base =
-			mmap_ro_file(fd, &service->config_mmap_size);
-		if (service->config_mmap_base == MAP_FAILED)
+		config_mmap = i_new(struct master_settings_mmap, 1);
+		service->config_mmap = config_mmap;
+		config_mmap->refcount = 1;
+		config_mmap->mmap_base =
+			mmap_ro_file(fd, &config_mmap->mmap_size);
+		if (config_mmap->mmap_base == MAP_FAILED)
 			i_fatal("Failed to read config: mmap(%s) failed: %m", path);
-		if (service->config_mmap_size == 0)
+		if (config_mmap->mmap_size == 0)
 			i_fatal("Failed to read config: %s file size is empty", path);
 
 		if (input->return_config_fd)
@@ -639,11 +669,11 @@ int master_service_settings_read(struct master_service *service,
 			array_front(&all_roots), array_count(&all_roots),
 			SETTINGS_PARSER_FLAG_IGNORE_UNKNOWN_KEYS);
 
-	/* config_mmap_base is NULL only if
-	   MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS is used */
-	if (service->config_mmap_base != NULL) {
+	/* config_mmap is NULL only if MASTER_SERVICE_FLAG_NO_CONFIG_SETTINGS
+	   is used */
+	if (config_mmap != NULL) {
 		ret = master_service_settings_read_mmap(parser, event,
-			service->config_mmap_base, service->config_mmap_size,
+			config_mmap->mmap_base, config_mmap->mmap_size,
 			output_r, &error);
 		if (ret < 0) {
 			if (getenv(DOVECOT_CONFIG_FD_ENV) != NULL) {

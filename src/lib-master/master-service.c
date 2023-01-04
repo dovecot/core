@@ -1591,11 +1591,7 @@ static void master_service_deinit_real(struct master_service **_service)
 		settings_parser_unref(&service->set_parser);
 		pool_unref(&service->set_pool);
 	}
-	if (service->config_mmap_base != NULL) {
-		if (munmap(service->config_mmap_base,
-			   service->config_mmap_size) < 0)
-			i_error("munmap(<config>) failed: %m");
-	}
+	master_settings_mmap_unref(&service->config_mmap);
 	i_free(master_service_category_name);
 	master_service_category.name = NULL;
 	event_unregister_callback(master_service_event_callback);
