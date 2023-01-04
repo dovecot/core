@@ -26,7 +26,7 @@ static const char *const test_settings_blobs[] =
 	"strlist/z=c",
 };
 
-static void test_settings_parser_get(void)
+static void test_settings_parser(void)
 {
 	struct test_settings {
 		bool bool_true;
@@ -81,7 +81,7 @@ static void test_settings_parser_get(void)
 		.parent_offset = SIZE_MAX,
 	};
 
-	test_begin("settings_parser_get");
+	test_begin("settings_parser");
 
 	pool_t pool = pool_alloconly_create("settings parser", 1024);
 	struct setting_parser_context *ctx =
@@ -98,7 +98,8 @@ static void test_settings_parser_get(void)
 	test_assert(settings_parser_check(ctx, pool, NULL));
 
 	/* check what we got */
-	struct test_settings *settings = settings_parser_get(ctx);
+	struct test_settings *settings =
+		settings_parser_get_root_set(ctx, &root);
 	test_assert(settings != NULL);
 
 	test_assert(settings->bool_true == TRUE);
@@ -136,7 +137,7 @@ static void test_settings_parser_get(void)
 int main(void)
 {
 	static void (*const test_functions[])(void) = {
-		test_settings_parser_get,
+		test_settings_parser,
 		NULL
 	};
 	return test_run(test_functions);

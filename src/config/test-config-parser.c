@@ -123,7 +123,8 @@ static void test_config_parser(void)
 
 	/* get the parsed output */
 	const struct test_settings *set =
-		settings_parser_get(config_module_parsers[0].parser);
+		settings_parser_get_root_set(config_module_parsers[0].parser,
+					     config_module_parsers[0].root);
 	test_assert_strcmp(set->key, "value");
 	test_assert_strcmp(set->key2, "\\$escape \\escape \\\"escape\\\"");
 	test_assert_strcmp(set->key3, "yetanother value value nothervalue right here");
@@ -139,7 +140,8 @@ static void test_config_parser(void)
 
 	/* try again unexpanded */
 	test_assert(config_parse_file(TEST_CONFIG_FILE, 0, &error) == 1);
-	set = settings_parser_get(config_module_parsers[0].parser);
+	set = settings_parser_get_root_set(config_module_parsers[0].parser,
+					   config_module_parsers[0].root);
 
 	test_assert_strcmp(set->key, "value");
 	test_assert_strcmp(set->key2, "\\$escape \\escape \\\"escape\\\"");

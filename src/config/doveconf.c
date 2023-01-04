@@ -679,7 +679,7 @@ static const char *get_setting(const char *module, const char *name)
 		if (strcmp(l->root->module_name, module) != 0)
 			continue;
 
-		set = settings_parser_get(l->parser);
+		set = settings_parser_get_root_set(l->parser, l->root);
 		for (def = l->root->defines; def->key != NULL; def++) {
 			if (strcmp(def->key, name) == 0) {
 				value = CONST_PTR_OFFSET(set, def->offset);

@@ -32,7 +32,8 @@ static struct stats_settings *read_settings(const char *const settings[])
 	if (!settings_parser_check(ctx, test_pool, &error))
 		i_fatal("Failed to parse settings: %s",
 			error);
-	struct stats_settings *set = settings_parser_get(ctx);
+	struct stats_settings *set =
+		settings_parser_get_root_set(ctx, &stats_setting_parser_info);
 	settings_parser_unref(&ctx);
 	return set;
 }
