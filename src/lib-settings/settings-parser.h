@@ -108,6 +108,8 @@ struct setting_parser_info {
 	size_t parent_offset1; /* parent_offset+1. 0=nonexistent. */
 	const struct setting_parser_info *parent;
 
+	size_t pool_offset1; /* pool_offset+1. 0=nonexistent. */
+
 	bool (*check_func)(void *set, pool_t pool, const char **error_r);
 	bool (*expand_check_func)(void *set, pool_t pool, const char **error_r);
 	const struct setting_parser_info *const *dependencies;

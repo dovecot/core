@@ -12,6 +12,7 @@
 #include "eacces-error.h"
 #include "env-util.h"
 #include "execv-const.h"
+#include "var-expand.h"
 #include "settings-parser.h"
 #include "stats-client.h"
 #include "master-service-private.h"
@@ -865,6 +866,108 @@ static pool_t master_settings_pool_create(struct master_settings_mmap *mmap)
 	if (mmap != NULL)
 		master_settings_mmap_ref(mmap);
 	return &mpool->pool;
+}
+
+static void
+master_service_var_expand_init(struct event *event,
+			       const struct var_expand_table **tab_r,
+			       const struct var_expand_func_table **func_tab_r,
+			       void **func_context_r)
+{
+	*tab_r = NULL;
+	*func_tab_r = NULL;
+
+	while (event != NULL) {
+		master_service_settings_var_expand_t *callback =
+			event_get_ptr(event, MASTER_SERVICE_VAR_EXPAND_CALLBACK);
+		if (callback != NULL) {
+			callback(event, tab_r, func_tab_r);
+			break;
+		}
+
+		*tab_r = event_get_ptr(event, MASTER_SERVICE_VAR_EXPAND_TABLE);
+		*func_tab_r = event_get_ptr(event, MASTER_SERVICE_VAR_EXPAND_FUNC_TABLE);
+		if (*tab_r != NULL || *func_tab_r != NULL)
+			break;
+		event = event_get_parent(event);
+	}
+	if (*tab_r == NULL)
+		*tab_r = t_new(struct var_expand_table, 1);
+	*func_context_r = event == NULL ? NULL :
+		event_get_ptr(event, MASTER_SERVICE_VAR_EXPAND_FUNC_CONTEXT);
+}
+
+#undef master_service_settings_parser_get
+int master_service_settings_parser_get(struct event *event,
+				       struct setting_parser_context *set_parser,
+				       const struct setting_parser_info *info,
+				       enum master_service_settings_get_flags flags,
+				       const void **set_r, const char **error_r)
+{
+	int ret;
+
+	i_assert(info->pool_offset1 != 0);
+
+	pool_t set_pool = pool_alloconly_create("master service settings parser", 1024);
+	void *set = settings_parser_get_root_set(set_parser, info);
+	set = settings_dup_with_pointers(info, set, set_pool);
+
+	pool_t *pool_p = PTR_OFFSET(set, info->pool_offset1 - 1);
+	*pool_p = set_pool;
+	pool_ref(*pool_p);
+
+	if ((flags & MASTER_SERVICE_SETTINGS_GET_FLAG_NO_CHECK) == 0) {
+		if (!settings_check(info, *pool_p, set, error_r)) {
+			*error_r = t_strdup_printf("Invalid %s settings: %s",
+						   info->module_name, *error_r);
+			return -1;
+		}
+	}
+
+	if ((flags & MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND) != 0)
+		ret = 1;
+	else T_BEGIN {
+		const struct var_expand_table *tab;
+		const struct var_expand_func_table *func_tab;
+		void *func_context;
+
+		master_service_var_expand_init(event, &tab, &func_tab,
+					       &func_context);
+		ret = settings_var_expand_with_funcs(info, set, *pool_p, tab,
+						     func_tab, func_context,
+						     error_r);
+	} T_END_PASS_STR_IF(ret <= 0, error_r);
+	if (ret <= 0) {
+		*error_r = t_strdup_printf(
+			"Failed to expand %s setting variables: %s",
+			info->module_name, *error_r);
+		return -1;
+	}
+
+	*set_r = set;
+	return 0;
+}
+
+#undef master_service_settings_get
+int master_service_settings_get(struct event *event,
+				const struct setting_parser_info *info,
+				enum master_service_settings_get_flags flags,
+				const void **set_r, const char **error_r)
+{
+	return master_service_settings_parser_get(event,
+		master_service->set_parser, info, flags, set_r, error_r);
+}
+
+const void *
+master_service_settings_get_or_fatal(struct event *event,
+				     const struct setting_parser_info *info)
+{
+	const void *set;
+	const char *error;
+
+	if (master_service_settings_get(event, info, 0, &set, &error) < 0)
+		i_fatal("%s", error);
+	return set;
 }
 
 void *master_service_settings_get_root_set(struct master_service *service,
