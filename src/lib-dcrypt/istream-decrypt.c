@@ -941,7 +941,8 @@ i_stream_decrypt_read(struct istream_private *stream)
 		if (check_mac) {
 			if ((dstream->flags & IO_STREAM_ENC_INTEGRITY_HMAC) ==
 				IO_STREAM_ENC_INTEGRITY_HMAC) {
-				unsigned char dgst[dcrypt_ctx_hmac_get_digest_length(dstream->ctx_mac)];
+				size_t maclen = dcrypt_ctx_hmac_get_digest_length(dstream->ctx_mac);
+				unsigned char dgst[maclen];
 				buffer_t db;
 				buffer_create_from_data(&db, dgst, sizeof(dgst));
 				if (!dcrypt_ctx_hmac_final(dstream->ctx_mac, &db, &error)) {
@@ -950,8 +951,7 @@ i_stream_decrypt_read(struct istream_private *stream)
 					stream->istream.stream_errno = EIO;
 					return -1;
 				}
-				if (memcmp(dgst, data + decrypt_size,
-					dcrypt_ctx_hmac_get_digest_length(dstream->ctx_mac)) != 0) {
+				if (memcmp(dgst, data + decrypt_size, maclen) != 0) {
 					io_stream_set_error(&stream->iostream,
 						"Cannot verify MAC: mismatch");
 					stream->istream.stream_errno = EIO;
