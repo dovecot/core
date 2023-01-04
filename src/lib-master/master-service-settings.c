@@ -35,6 +35,8 @@ struct master_settings_mmap {
 	size_t mmap_size;
 };
 
+static pool_t master_settings_pool_create(struct master_settings_mmap *mmap);
+
 #undef DEF
 #define DEF(type, name) \
 	SETTING_DEFINE_STRUCT_##type(#name, name, struct master_service_settings)
@@ -612,13 +614,8 @@ int master_service_settings_read(struct master_service *service,
 		}
 	}
 	if (fd != -1) {
-		if (service->config_mmap != NULL) {
-			i_assert(input->reload_config);
-			master_settings_mmap_unref(&service->config_mmap);
-		}
-
+		master_settings_mmap_unref(&service->config_mmap);
 		config_mmap = i_new(struct master_settings_mmap, 1);
-		service->config_mmap = config_mmap;
 		config_mmap->refcount = 1;
 		config_mmap->mmap_base =
 			mmap_ro_file(fd, &config_mmap->mmap_size);
@@ -627,21 +624,23 @@ int master_service_settings_read(struct master_service *service,
 		if (config_mmap->mmap_size == 0)
 			i_fatal("Failed to read config: %s file size is empty", path);
 
+		service->config_mmap = config_mmap;
+		master_settings_mmap_ref(config_mmap);
+
 		if (input->return_config_fd)
 			output_r->config_fd = fd;
 		else
 			i_close_fd(&fd);
 		env_remove(DOVECOT_CONFIG_FD_ENV);
+	} else if (service->config_mmap != NULL) {
+		config_mmap = service->config_mmap;
+		master_settings_mmap_ref(config_mmap);
 	}
 
-	if (service->set_pool != NULL) {
-		if (service->set_parser != NULL)
-			settings_parser_unref(&service->set_parser);
-		p_clear(service->set_pool);
-	} else {
-		service->set_pool =
-			pool_alloconly_create("master service settings", 16384);
-	}
+	pool_unref(&service->set_pool);
+	if (service->set_parser != NULL)
+		settings_parser_unref(&service->set_parser);
+	service->set_pool = master_settings_pool_create(config_mmap);
 
 	/* Create event for matching config filters */
 	struct event *event = event_create(NULL);
@@ -683,10 +682,12 @@ int master_service_settings_read(struct master_service *service,
 			*error_r = t_strdup_printf(
 				"Failed to parse configuration: %s", error);
 			settings_parser_unref(&parser);
+			master_settings_mmap_unref(&config_mmap);
 			event_unref(&event);
 			return -1;
 		}
 	}
+	master_settings_mmap_unref(&config_mmap);
 	event_unref(&event);
 
 	if (array_is_created(&service->config_overrides)) {
@@ -758,6 +759,115 @@ master_service_get_service_settings(struct master_service *service)
 {
 	return settings_parser_get_root_set(service->set_parser,
 		&master_service_setting_parser_info);
+}
+
+struct master_settings_pool {
+	struct pool pool;
+	int refcount;
+
+	pool_t parent_pool;
+	struct master_settings_mmap *mmap;
+};
+
+static const char *pool_master_settings_get_name(pool_t pool)
+{
+	struct master_settings_pool *mpool =
+		container_of(pool, struct master_settings_pool, pool);
+
+	return pool_get_name(mpool->parent_pool);
+}
+
+static void pool_master_settings_ref(pool_t pool)
+{
+	struct master_settings_pool *mpool =
+		container_of(pool, struct master_settings_pool, pool);
+
+	i_assert(mpool->refcount > 0);
+	mpool->refcount++;
+}
+
+static void pool_master_settings_unref(pool_t *pool)
+{
+	struct master_settings_pool *mpool =
+		container_of(*pool, struct master_settings_pool, pool);
+
+	i_assert(mpool->refcount > 0);
+	*pool = NULL;
+	if (--mpool->refcount > 0)
+		return;
+
+	master_settings_mmap_unref(&mpool->mmap);
+	pool_unref(&mpool->parent_pool);
+}
+
+static void *pool_master_settings_malloc(pool_t pool, size_t size)
+{
+	struct master_settings_pool *mpool =
+		container_of(pool, struct master_settings_pool, pool);
+
+	return p_malloc(mpool->parent_pool, size);
+}
+
+static void pool_master_settings_free(pool_t pool, void *mem)
+{
+	struct master_settings_pool *mpool =
+		container_of(pool, struct master_settings_pool, pool);
+
+	p_free(mpool->parent_pool, mem);
+}
+
+static void *pool_master_settings_realloc(pool_t pool, void *mem,
+					  size_t old_size, size_t new_size)
+{
+	struct master_settings_pool *mpool =
+		container_of(pool, struct master_settings_pool, pool);
+
+	return p_realloc(mpool->parent_pool, mem, old_size, new_size);
+}
+
+static void pool_master_settings_clear(pool_t pool ATTR_UNUSED)
+{
+	i_panic("pool_master_settings_clear() must not be called");
+}
+
+static size_t pool_master_settings_get_max_easy_alloc_size(pool_t pool)
+{
+	struct master_settings_pool *mpool =
+		container_of(pool, struct master_settings_pool, pool);
+
+	return p_get_max_easy_alloc_size(mpool->parent_pool);
+}
+
+static struct pool_vfuncs static_master_settings_pool_vfuncs = {
+	pool_master_settings_get_name,
+
+	pool_master_settings_ref,
+	pool_master_settings_unref,
+
+	pool_master_settings_malloc,
+	pool_master_settings_free,
+
+	pool_master_settings_realloc,
+
+	pool_master_settings_clear,
+	pool_master_settings_get_max_easy_alloc_size
+};
+
+static pool_t master_settings_pool_create(struct master_settings_mmap *mmap)
+{
+	struct master_settings_pool *mpool;
+	pool_t parent_pool =
+		pool_alloconly_create("master service settings", 256);
+
+	mpool = p_new(parent_pool, struct master_settings_pool, 1);
+	mpool->pool.v = &static_master_settings_pool_vfuncs;
+	mpool->pool.alloconly_pool = TRUE;
+	mpool->refcount = 1;
+	mpool->parent_pool = parent_pool;
+	mpool->mmap = mmap;
+	if (mmap != NULL)
+		master_settings_mmap_ref(mmap);
+	return &mpool->pool;
 }
 
 void *master_service_settings_get_root_set(struct master_service *service,

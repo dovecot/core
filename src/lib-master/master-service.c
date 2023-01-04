@@ -1587,11 +1587,9 @@ static void master_service_deinit_real(struct master_service **_service)
 	if (array_is_created(&service->config_overrides))
 		array_free(&service->config_overrides);
 
-	if (service->set_parser != NULL) {
+	if (service->set_parser != NULL)
 		settings_parser_unref(&service->set_parser);
-		pool_unref(&service->set_pool);
-	}
-	master_settings_mmap_unref(&service->config_mmap);
+	pool_unref(&service->set_pool); /* frees service->config_mmap */
 	i_free(master_service_category_name);
 	master_service_category.name = NULL;
 	event_unregister_callback(master_service_event_callback);
