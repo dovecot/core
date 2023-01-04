@@ -132,8 +132,6 @@ settings_parser_init_list(pool_t set_pool,
 void settings_parser_ref(struct setting_parser_context *ctx);
 void settings_parser_unref(struct setting_parser_context **ctx);
 
-/* Return pointer to root setting structure. */
-void *settings_parser_get(struct setting_parser_context *ctx);
 /* Returns settings for a specific root. The root is expected to exist, and it
    must be the same pointer as given to settings_parser_init*(). If it doesn't,
    the function panics. */
@@ -143,7 +141,7 @@ void *settings_parser_get_root_set(const struct setting_parser_context *ctx,
 void *settings_parser_get_root_set_dup(const struct setting_parser_context *ctx,
 				       const struct setting_parser_info *root,
 				       pool_t pool);
-/* Like settings_parser_get(), but return change struct. */
+/* Return pointer to changes in the root setting structure. */
 void *settings_parser_get_changes(struct setting_parser_context *ctx);
 /* Returns the setting parser's roots (same as given to init()). */
 const struct setting_parser_info *const *
