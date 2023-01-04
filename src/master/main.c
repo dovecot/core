@@ -924,7 +924,7 @@ int main(int argc, char *argv[])
 	fatal_log_check(set);
 
 	const struct master_service_settings *service_set =
-		master_service_settings_get(master_service);
+		master_service_get_service_settings(master_service);
 	master_service_import_environment(service_set->import_environment);
 	master_service_env_clean();
 

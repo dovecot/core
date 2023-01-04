@@ -228,7 +228,7 @@ static void cmd_log_find(struct doveadm_cmd_context *cctx)
 	hash_table_create(&ctx.files, ctx.pool, 0, str_hash, strcmp);
 
 	/* first get the paths that we know are used */
-	set = master_service_settings_get(master_service);
+	set = master_service_get_service_settings(master_service);
 	log_file_path = set->log_path;
 	if (strcmp(log_file_path, "syslog") == 0)
 		log_file_path = "";

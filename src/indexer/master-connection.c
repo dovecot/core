@@ -40,7 +40,7 @@ static void ATTR_NULL(1, 2)
 indexer_worker_refresh_proctitle(const char *username, const char *mailbox,
 				 uint32_t seq1, uint32_t seq2)
 {
-	if (!master_service_settings_get(master_service)->verbose_proctitle)
+	if (!master_service_get_service_settings(master_service)->verbose_proctitle)
 		return;
 
 	if (username == NULL)

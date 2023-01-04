@@ -262,7 +262,7 @@ static bool imap_client_try_move_back(struct imap_client *client)
 		return TRUE;
 	}
 
-	master_set = master_service_settings_get(master_service);
+	master_set = master_service_get_service_settings(master_service);
 	path = t_strconcat(master_set->base_dir,
 			   "/"IMAP_MASTER_SOCKET_NAME, NULL);
 	ret = imap_master_connection_init(path,

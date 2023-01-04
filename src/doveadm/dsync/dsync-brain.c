@@ -136,7 +136,7 @@ dsync_brain_common_init(struct mail_user *user, struct dsync_ibc *ibc,
 	const struct master_service_settings *service_set;
 	pool_t pool;
 
-	service_set = master_service_settings_get(master_service);
+	service_set = master_service_get_service_settings(master_service);
 	mail_user_ref(user);
 
 	pool = pool_alloconly_create("dsync brain", 10240);

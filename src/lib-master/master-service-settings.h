@@ -77,7 +77,7 @@ int master_service_settings_read_simple(struct master_service *service,
 pool_t master_service_settings_detach(struct master_service *service);
 
 const struct master_service_settings *
-master_service_settings_get(struct master_service *service);
+master_service_get_service_settings(struct master_service *service);
 void *master_service_settings_get_root_set(struct master_service *service,
 					   const struct setting_parser_info *root);
 void *master_service_settings_get_root_set_dup(struct master_service *service,

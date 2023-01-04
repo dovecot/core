@@ -720,7 +720,7 @@ pool_t master_service_settings_detach(struct master_service *service)
 }
 
 const struct master_service_settings *
-master_service_settings_get(struct master_service *service)
+master_service_get_service_settings(struct master_service *service)
 {
 	return settings_parser_get_root_set(service->set_parser,
 		&master_service_setting_parser_info);

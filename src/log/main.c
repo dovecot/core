@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 		i_fatal("Error reading configuration: %s", error);
 	master_service_init_log_with_prefix(master_service, global_log_prefix);
 
-	verbose_proctitle = master_service_settings_get(master_service)->verbose_proctitle;
+	verbose_proctitle = master_service_get_service_settings(master_service)->verbose_proctitle;
 
 	restrict_access_by_env(RESTRICT_ACCESS_FLAG_ALLOW_ROOT, NULL);
 	restrict_access_allow_coredumps(TRUE);

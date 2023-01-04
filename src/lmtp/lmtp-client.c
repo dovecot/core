@@ -130,7 +130,7 @@ static void client_read_settings(struct client *client, bool ssl)
 	if (settings_var_expand(&lmtp_setting_parser_info, lmtp_set,
 				client->pool, tab, &error) <= 0)
 		i_fatal("Failed to expand settings: %s", error);
-	client->service_set = master_service_settings_get(master_service);
+	client->service_set = master_service_get_service_settings(master_service);
 	client->lmtp_set = lmtp_set;
 	client->unexpanded_lda_set = lda_set;
 }

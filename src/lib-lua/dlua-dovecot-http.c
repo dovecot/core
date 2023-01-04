@@ -431,7 +431,7 @@ static int parse_client_settings(lua_State *L, struct http_client_settings *set,
 	struct http_url *parsed_url;
 	const char *proxy_url;
 	const struct master_service_settings *master_set =
-		master_service_settings_get(master_service);
+		master_service_get_service_settings(master_service);
 	/* need to figure out socket dir */
 	set->dns_client_socket_path = t_strconcat(master_set->base_dir, "/dns-client", NULL);
 	CLIENT_SETTING_STR(user_agent);

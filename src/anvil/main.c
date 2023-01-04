@@ -123,7 +123,7 @@ log_fdpass_input(void *context ATTR_UNUSED)
 static void main_init(void)
 {
 	const struct master_service_settings *set =
-		master_service_settings_get(master_service);
+		master_service_get_service_settings(master_service);
 
 	/* delay dying until all of our clients are gone */
 	master_service_set_die_with_master(master_service, FALSE);

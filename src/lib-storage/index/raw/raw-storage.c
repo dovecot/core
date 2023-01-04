@@ -34,7 +34,7 @@ raw_storage_create_from_set(struct mail_storage_service_ctx *ctx,
 	event_disable_callbacks(event);
 
 	const struct master_service_settings *service_set =
-		master_service_settings_get(master_service);
+		master_service_get_service_settings(master_service);
 	const char *const userdb_fields[] = {
 		/* use unwritable home directory */
 		t_strdup_printf("home=%s/empty", service_set->base_dir),

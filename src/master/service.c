@@ -433,7 +433,7 @@ services_create_real(const struct master_settings *set, pool_t pool,
 	service_list->refcount = 1;
 	service_list->pool = pool;
 	service_list->event = event;
-	service_list->service_set = master_service_settings_get(master_service);
+	service_list->service_set = master_service_get_service_settings(master_service);
 	service_list->set_pool = master_service_settings_detach(master_service);
 	service_list->set = set;
 	service_list->master_log_fd[0] = -1;
