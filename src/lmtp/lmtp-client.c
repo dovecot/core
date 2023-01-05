@@ -130,7 +130,6 @@ static void client_read_settings(struct client *client, bool ssl)
 	if (settings_var_expand(&lmtp_setting_parser_info, lmtp_set,
 				client->pool, tab, &error) <= 0)
 		i_fatal("Failed to expand settings: %s", error);
-	client->service_set = master_service_get_service_settings(master_service);
 	client->lmtp_set = lmtp_set;
 	client->unexpanded_lda_set = lda_set;
 }
@@ -169,7 +168,7 @@ struct client *client_create(int fd_in, int fd_out,
 	client_load_modules(client);
 	client->my_domain = client->unexpanded_lda_set->hostname;
 
-	if (client->service_set->verbose_proctitle)
+	if (master_service_get_service_settings(master_service)->verbose_proctitle)
 		verbose_proctitle = TRUE;
 
 	p_array_init(&client->module_contexts, client->pool, 5);

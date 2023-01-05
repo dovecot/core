@@ -75,7 +75,6 @@ struct client {
 
 	const struct lda_settings *unexpanded_lda_set;
 	const struct lmtp_settings *lmtp_set;
-	const struct master_service_settings *service_set;
 
 	struct smtp_server_connection *conn;
 
