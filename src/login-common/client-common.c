@@ -285,7 +285,7 @@ client_alloc(int fd, pool_t pool,
 	return client;
 }
 
-void client_init(struct client *client, void **other_sets)
+int client_init(struct client *client, void **other_sets)
 {
 	if (last_client == NULL)
 		last_client = client;
@@ -298,7 +298,8 @@ void client_init(struct client *client, void **other_sets)
 			    client_idle_disconnect_timeout, client);
 
 	hook_login_client_allocated(client);
-	client->v.create(client, other_sets);
+	if (client->v.create(client, other_sets) < 0)
+		return -1;
 	client->create_finished = TRUE;
 
 	if (auth_client_is_connected(auth_client))
@@ -307,6 +308,7 @@ void client_init(struct client *client, void **other_sets)
 		client_set_auth_waiting(client);
 
 	login_refresh_proctitle();
+	return 0;
 }
 
 static void client_disconnected_log(struct event *event, const char *reason,

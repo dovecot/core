@@ -143,7 +143,7 @@ static struct client *imap_urlauth_client_alloc(pool_t pool)
 	return &uauth_client->common;
 }
 
-static void imap_urlauth_client_create
+static int imap_urlauth_client_create
 (struct client *client, void **other_sets)
 {
 	struct imap_urlauth_client *uauth_client =
@@ -151,6 +151,7 @@ static void imap_urlauth_client_create
 
 	uauth_client->set = other_sets[0];
 	client->io = io_add_istream(client->input, client_input, client);
+	return 0;
 }
 
 static void imap_urlauth_client_notify_auth_ready(struct client *client)

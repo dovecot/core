@@ -90,8 +90,8 @@ static struct client *submission_client_alloc(pool_t pool)
 	return &subm_client->common;
 }
 
-static void submission_client_create(struct client *client,
-				     void **other_sets)
+static int submission_client_create(struct client *client,
+				    void **other_sets)
 {
 	static const char *const xclient_extensions[] =
 		{ "FORWARD", NULL };
@@ -122,6 +122,7 @@ static void submission_client_create(struct client *client,
 		smtp_server, client->input, client->output,
 		&client->real_remote_ip, client->real_remote_port,
 		&smtp_set, &smtp_callbacks, subm_client);
+	return 0;
 }
 
 static void submission_client_destroy(struct client *client)

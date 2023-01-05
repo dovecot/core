@@ -119,7 +119,7 @@ struct client_auth_reply {
 
 struct client_vfuncs {
 	struct client *(*alloc)(pool_t pool);
-	void (*create)(struct client *client, void **other_sets);
+	int (*create)(struct client *client, void **other_sets);
 	void (*destroy)(struct client *client);
 	void (*notify_auth_ready)(struct client *client);
 	void (*notify_disconnect)(struct client *client,
@@ -319,7 +319,7 @@ client_alloc(int fd, pool_t pool,
 	     const struct login_settings *set,
 	     const struct master_service_ssl_settings *ssl_set,
 	     const struct master_service_ssl_server_settings *ssl_server_set);
-void client_init(struct client *client, void **other_sets);
+int client_init(struct client *client, void **other_sets);
 void client_disconnect(struct client *client, const char *reason,
 		       bool add_disconnected_prefix);
 void client_destroy(struct client *client, const char *reason);

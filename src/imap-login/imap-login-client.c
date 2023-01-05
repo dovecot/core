@@ -376,7 +376,7 @@ static struct client *imap_client_alloc(pool_t pool)
 	return &imap_client->common;
 }
 
-static void imap_client_create(struct client *client, void **other_sets)
+static int imap_client_create(struct client *client, void **other_sets)
 {
 	struct imap_client *imap_client = (struct imap_client *)client;
 
@@ -388,6 +388,7 @@ static void imap_client_create(struct client *client, void **other_sets)
 	if (imap_client->set->imap_literal_minus)
 		imap_parser_enable_literal_minus(imap_client->parser);
 	client->io = io_add_istream(client->input, client_input, client);
+	return 0;
 }
 
 static void imap_client_destroy(struct client *client)

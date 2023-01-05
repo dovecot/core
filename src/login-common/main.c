@@ -186,7 +186,10 @@ client_connected(struct master_service_connection *conn)
 			return;
 		}
 	}
-	client_init(client, other_sets);
+	if (client_init(client, other_sets) < 0) {
+		client_destroy(client, "Failed to initialize client");
+		return;
+	}
 	client->event_auth = event_create(client->event);
 	event_add_category(client->event_auth, &event_category_auth);
 	event_set_min_log_level(client->event_auth, set->auth_verbose ?
