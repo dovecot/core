@@ -14,10 +14,12 @@
 #include "time-util.h"
 #include "var-expand.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "imap-resp-code.h"
 #include "imap-util.h"
 #include "imap-urlauth.h"
 #include "mail-error.h"
+#include "smtp-submit-settings.h"
 #include "mail-namespace.h"
 #include "mail-storage-service.h"
 #include "mail-autoexpunge.h"
@@ -557,6 +559,8 @@ static void client_default_destroy(struct client *client, const char *reason)
 	imap_client_count--;
 	DLLIST_REMOVE(&imap_clients, client);
 
+	master_service_settings_free(client->set);
+	master_service_settings_free(client->smtp_set);
 	event_unref(&client->event);
 	i_free(client->last_cmd_name);
 	pool_unref(&client->pool);

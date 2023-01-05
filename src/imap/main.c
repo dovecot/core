@@ -14,6 +14,7 @@
 #include "settings-parser.h"
 #include "master-interface.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "master-admin-client.h"
 #include "login-server.h"
 #include "mail-user.h"
@@ -249,7 +250,7 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 	struct mail_user *mail_user;
 	struct client *client;
 	struct imap_settings *imap_set;
-	struct smtp_submit_settings *smtp_set;
+	struct smtp_submit_settings *smtp_set = NULL;
 	struct event *event;
 
 	event = event_create(NULL);
@@ -280,10 +281,21 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 
 	restrict_access_allow_coredumps(TRUE);
 
-	smtp_set = settings_parser_get_root_set(mail_user->set_parser,
-			&smtp_submit_setting_parser_info);
-	imap_set = settings_parser_get_root_set(mail_user->set_parser,
-			&imap_setting_parser_info);
+	if (master_service_settings_parser_get(mail_user->event,
+			mail_user->set_parser,
+			&smtp_submit_setting_parser_info,
+			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			&smtp_set, error_r) < 0 ||
+	   master_service_settings_parser_get(mail_user->event,
+			mail_user->set_parser,
+			&imap_setting_parser_info,
+			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			&imap_set, error_r) < 0) {
+		master_service_settings_free(smtp_set);
+		mail_user_deinit(&mail_user);
+		event_unref(&event);
+		return -1;
+	}
 	if (imap_set->verbose_proctitle)
 		verbose_proctitle = TRUE;
 

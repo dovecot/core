@@ -20,6 +20,7 @@ enum imap_client_fetch_failure {
 /* </settings checks> */
 
 struct imap_settings {
+	pool_t pool;
 	bool verbose_proctitle;
 	const char *rawlog_dir;
 

@@ -142,6 +142,7 @@ const struct setting_parser_info imap_setting_parser_info = {
 	.defaults = &imap_default_settings,
 
 	.struct_size = sizeof(struct imap_settings),
+	.pool_offset1 = 1 + offsetof(struct imap_settings, pool),
 	.check_func = imap_settings_verify,
 	.dependencies = imap_setting_dependencies
 };
