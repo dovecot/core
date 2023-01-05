@@ -839,7 +839,7 @@ doveadm_cmdv2_wrapper_parse_common_options(struct doveadm_mail_cmd_context *mctx
 {
 	struct doveadm_cmd_context *cctx = mctx->cctx;
 	bool tcp_server = cctx->conn_type == DOVEADM_CONNECTION_TYPE_TCP;
-	const char *value_str;
+	const char *socket_path, *value_str;
 
 	mctx->service_flags |= MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP;
 	*wildcard_user_r = NULL;
@@ -865,10 +865,15 @@ doveadm_cmdv2_wrapper_parse_common_options(struct doveadm_mail_cmd_context *mctx
 		i_fatal("One of -u, -F, or -A must be provided");
 	}
 
-	if (doveadm_cmd_param_str(cctx, "socket-path",
-				  &doveadm_settings->doveadm_socket_path) &&
-	    doveadm_settings->doveadm_worker_count == 0)
-		doveadm_settings->doveadm_worker_count = 1;
+	if (doveadm_cmd_param_str(cctx, "socket-path", &socket_path)) {
+		struct doveadm_settings *set =
+			p_memdup(doveadm_settings->pool, doveadm_settings,
+				 sizeof(*doveadm_settings));
+		set->doveadm_socket_path = p_strdup(set->pool, socket_path);
+		if (set->doveadm_worker_count == 0)
+			set->doveadm_worker_count = 1;
+		doveadm_settings = mctx->set = set;
+	}
 
 	if (doveadm_cmd_param_istream(cctx, "file", &mctx->cmd_input))
 		i_stream_ref(mctx->cmd_input);

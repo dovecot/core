@@ -320,7 +320,6 @@ int main(int argc, char *argv[])
 	}
 	master_service_init_log(master_service);
 
-	doveadm_settings_init();
 	doveadm_cmds_init();
 	for (i = 0; i < N_ELEMENTS(doveadm_cmdline_commands_ver2); i++)
 		doveadm_cmd_register_ver2(doveadm_cmdline_commands_ver2[i]);

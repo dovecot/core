@@ -47,12 +47,13 @@ static int client_connection_read_settings(struct client_connection *conn)
 	input.remote_ip = conn->remote_ip;
 
 	if (master_service_settings_read(master_service, &input,
-					 &output, &error) < 0) {
+					 &output, &error) < 0 ||
+	    master_service_settings_get(conn->event,
+					&doveadm_setting_parser_info, 0,
+					&conn->set, &error) < 0) {
 		e_error(conn->event, "%s", error);
 		return -1;
 	}
-	conn->set = master_service_settings_get_root_set_dup(master_service,
-				&doveadm_setting_parser_info, conn->pool);
 	return 0;
 }
 
@@ -94,6 +95,7 @@ void client_connection_destroy(struct client_connection **_conn)
 	if (doveadm_verbose_proctitle)
 		process_title_set("[idling]");
 
+	master_service_settings_free(conn->set);
 	event_unref(&conn->event);
 	pool_unref(&conn->pool);
 }

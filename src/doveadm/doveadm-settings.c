@@ -14,7 +14,6 @@
 
 bool doveadm_verbose_proctitle;
 
-static pool_t doveadm_settings_pool = NULL;
 static int global_config_fd = -1;
 
 static bool doveadm_settings_check(void *_set, pool_t pool, const char **error_r);
@@ -134,11 +133,12 @@ const struct setting_parser_info doveadm_setting_parser_info = {
 	.defaults = &doveadm_default_settings,
 
 	.struct_size = sizeof(struct doveadm_settings),
+	.pool_offset1 = 1 + offsetof(struct doveadm_settings, pool),
 	.check_func = doveadm_settings_check,
 	.dependencies = doveadm_setting_dependencies
 };
 
-struct doveadm_settings *doveadm_settings;
+const struct doveadm_settings *doveadm_settings;
 
 static void
 fix_base_path(struct doveadm_settings *set, pool_t pool, const char **str)
@@ -217,16 +217,6 @@ void doveadm_get_ssl_settings(struct ssl_iostream_settings *set_r, pool_t pool)
 							   pool, set_r);
 }
 
-void doveadm_settings_expand(struct doveadm_settings *set, pool_t pool)
-{
-	struct var_expand_table tab[] = { { '\0', NULL, NULL } };
-	const char *error;
-
-	if (settings_var_expand(&doveadm_setting_parser_info, set,
-				pool, tab, &error) <= 0)
-		i_fatal("Failed to expand settings: %s", error);
-}
-
 void doveadm_read_settings(void)
 {
 	static const struct setting_parser_info *set_roots[] = {
@@ -236,7 +226,6 @@ void doveadm_read_settings(void)
 	};
 	struct master_service_settings_input input;
 	struct master_service_settings_output output;
-	const struct doveadm_settings *set;
 	const char *error;
 
 	i_zero(&input);
@@ -252,18 +241,12 @@ void doveadm_read_settings(void)
 	global_config_fd = output.config_fd;
 	fd_close_on_exec(output.config_fd, TRUE);
 
-	doveadm_settings_pool = pool_alloconly_create("doveadm settings", 1024);
 	doveadm_verbose_proctitle = master_service_get_service_settings(master_service)->verbose_proctitle;
 
-	set = master_service_settings_get_root_set(
-		master_service, &doveadm_setting_parser_info);
-	doveadm_settings = settings_dup(&doveadm_setting_parser_info, set,
-					doveadm_settings_pool);
-	doveadm_ssl_set = master_service_settings_get_root_set_dup(
-		master_service, &master_service_ssl_setting_parser_info,
-		doveadm_settings_pool);
-	doveadm_settings_expand(doveadm_settings, doveadm_settings_pool);
-	doveadm_settings->parsed_features = set->parsed_features; /* copy this value by hand */
+	doveadm_settings = master_service_settings_get_or_fatal(
+		NULL, &doveadm_setting_parser_info);
+	doveadm_ssl_set = master_service_settings_get_or_fatal(
+		NULL, &master_service_ssl_setting_parser_info);
 }
 
 int doveadm_settings_get_config_fd(void)
@@ -272,11 +255,8 @@ int doveadm_settings_get_config_fd(void)
 	return global_config_fd;
 }
 
-void doveadm_settings_init(void)
-{
-}
-
 void doveadm_settings_deinit(void)
 {
-	pool_unref(&doveadm_settings_pool);
+	master_service_settings_free(doveadm_settings);
+	master_service_settings_free(doveadm_ssl_set);
 }
