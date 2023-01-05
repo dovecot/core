@@ -114,6 +114,7 @@ struct mailbox_settings {
 };
 
 struct mail_user_settings {
+	pool_t pool;
 	const char *base_dir;
 	const char *auth_socket_path;
 	const char *mail_temp_dir;

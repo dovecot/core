@@ -336,6 +336,7 @@ const struct setting_parser_info mail_user_setting_parser_info = {
 	.defaults = &mail_user_default_settings,
 
 	.struct_size = sizeof(struct mail_user_settings),
+	.pool_offset1 = 1 + offsetof(struct mail_user_settings, pool),
 	.check_func = mail_user_settings_check,
 #ifndef CONFIG_BINARY
 	.expand_check_func = mail_user_settings_expand_check,
