@@ -23,11 +23,12 @@ fs_crypt_load_settings(void)
 	i_zero(&input);
 	input.roots = set_roots;
 	input.service = "fs-crypt";
+	input.disable_check_settings = TRUE;
 	if (master_service_settings_read(master_service, &input,
 					 &output, &error) < 0)
 		i_fatal("%s", error);
 
-	return master_service_settings_get_root_set(master_service,
+	return master_service_settings_get_or_fatal(NULL,
 				&fs_crypt_setting_parser_info);
 }
 
@@ -103,5 +104,6 @@ int mail_crypt_global_keys_load_pluginenv(const char *set_prefix,
 
 	if (ret != 0)
 		mail_crypt_global_keys_free(global_keys_r);
+	master_service_settings_free(set);
 	return ret;
 }

@@ -28,5 +28,6 @@ const struct setting_parser_info fs_crypt_setting_parser_info = {
 	.defaults = &fs_crypt_default_settings,
 
 	.struct_size = sizeof(struct fs_crypt_settings),
+	.pool_offset1 = 1 + offsetof(struct fs_crypt_settings, pool),
 	.dependencies = fs_crypt_setting_dependencies
 };

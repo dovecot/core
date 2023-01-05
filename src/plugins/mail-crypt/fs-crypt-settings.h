@@ -2,6 +2,7 @@
 #define FS_CRYPT_SETTINGS_H
 
 struct fs_crypt_settings {
+	pool_t pool;
 	ARRAY(const char *) plugin_envs;
 };
 
