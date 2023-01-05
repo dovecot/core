@@ -6,6 +6,8 @@ struct setting_parser_context;
 struct ssl_iostream_settings;
 
 struct master_service_ssl_settings {
+	pool_t pool;
+
 	const char *ssl;
 	const char *ssl_ca;
 	const char *ssl_client_ca_file;
@@ -34,6 +36,8 @@ struct master_service_ssl_settings {
 };
 
 struct master_service_ssl_server_settings {
+	pool_t pool;
+
 	const char *ssl_cert;
 	const char *ssl_alt_cert;
 	const char *ssl_key;

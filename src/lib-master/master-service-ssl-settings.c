@@ -64,6 +64,7 @@ const struct setting_parser_info master_service_ssl_setting_parser_info = {
 	.defines = master_service_ssl_setting_defines,
 	.defaults = &master_service_ssl_default_settings,
 
+	.pool_offset1 = 1 + offsetof(struct master_service_ssl_settings, pool),
 	.struct_size = sizeof(struct master_service_ssl_settings),
 	.check_func = master_service_ssl_settings_check
 };
@@ -102,6 +103,7 @@ const struct setting_parser_info master_service_ssl_server_setting_parser_info =
 	.defines = master_service_ssl_server_setting_defines,
 	.defaults = &master_service_ssl_server_default_settings,
 
+	.pool_offset1 = 1 + offsetof(struct master_service_ssl_server_settings, pool),
 	.struct_size = sizeof(struct master_service_ssl_server_settings),
 	.dependencies = master_service_ssl_server_setting_dependencies,
 };
