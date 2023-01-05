@@ -207,8 +207,7 @@ static struct client *pop3_client_alloc(pool_t pool)
 	return &pop3_client->common;
 }
 
-static int pop3_client_create(struct client *client ATTR_UNUSED,
-			      void **other_sets ATTR_UNUSED)
+static int pop3_client_create(struct client *client ATTR_UNUSED)
 {
 	return 0;
 }

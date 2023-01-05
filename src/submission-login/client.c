@@ -12,6 +12,7 @@
 #include "str.h"
 #include "strescape.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "master-service-ssl-settings.h"
 #include "client.h"
 #include "client-authenticate.h"
@@ -90,16 +91,22 @@ static struct client *submission_client_alloc(pool_t pool)
 	return &subm_client->common;
 }
 
-static int submission_client_create(struct client *client,
-				    void **other_sets)
+static int submission_client_create(struct client *client)
 {
 	static const char *const xclient_extensions[] =
 		{ "FORWARD", NULL };
 	struct submission_client *subm_client =
 		container_of(client, struct submission_client, common);
 	struct smtp_server_settings smtp_set;
+	const char *error;
 
-	subm_client->set = other_sets[0];
+	if (master_service_settings_get(client->event,
+					&submission_login_setting_parser_info,
+					0, &subm_client->set, &error) < 0) {
+		e_error(client->event, "%s", error);
+		return -1;
+	}
+
 	client_parse_backend_capabilities(subm_client);
 
 	i_zero(&smtp_set);
@@ -132,6 +139,7 @@ static void submission_client_destroy(struct client *client)
 
 	if (subm_client->conn != NULL)
 		smtp_server_connection_close(&subm_client->conn, NULL);
+	master_service_settings_free(subm_client->set);
 	i_free_and_null(subm_client->proxy_xclient);
 }
 

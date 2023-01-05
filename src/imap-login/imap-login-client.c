@@ -11,6 +11,7 @@
 #include "imap-id.h"
 #include "imap-resp-code.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "master-service-ssl-settings.h"
 #include "login-client.h"
 #include "imap-login-client.h"
@@ -376,11 +377,18 @@ static struct client *imap_client_alloc(pool_t pool)
 	return &imap_client->common;
 }
 
-static int imap_client_create(struct client *client, void **other_sets)
+static int imap_client_create(struct client *client)
 {
 	struct imap_client *imap_client = (struct imap_client *)client;
+	const char *error;
 
-	imap_client->set = other_sets[0];
+	if (master_service_settings_get(client->event,
+					&imap_login_setting_parser_info, 0,
+					&imap_client->set, &error) < 0) {
+		e_error(client->event, "%s", error);
+		return -1;
+	}
+
 	imap_client->parser =
 		imap_parser_create(imap_client->common.input,
 				   imap_client->common.output,
@@ -402,6 +410,7 @@ static void imap_client_destroy(struct client *client)
 		cmd_id_free(imap_client);
 	}
 
+	master_service_settings_free(imap_client->set);
 	i_free_and_null(imap_client->proxy_backend_capability);
 	imap_parser_unref(&imap_client->parser);
 }

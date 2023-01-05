@@ -24,6 +24,7 @@
 #include "var-expand.h"
 #include "master-interface.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "master-service-ssl-settings.h"
 #include "login-client.h"
 #include "anvil-client.h"
@@ -77,6 +78,8 @@ static_assert_array_size(client_auth_fail_code_event_reasons,
 			 CLIENT_AUTH_FAIL_CODE_COUNT);
 
 static const char *client_get_log_str(struct client *client, const char *msg);
+static const struct var_expand_table *
+get_var_expand_table(struct client *client);
 
 void login_client_hooks_add(struct module *module,
 			    const struct login_client_hooks *hooks)
@@ -197,17 +200,47 @@ static bool client_is_trusted(struct client *client)
 	return FALSE;
 }
 
-struct client *
-client_alloc(int fd, pool_t pool,
-	     const struct master_service_connection *conn,
-	     const struct login_settings *set,
-	     const struct master_service_ssl_settings *ssl_set,
-	     const struct master_service_ssl_server_settings *ssl_server_set)
+static void
+client_var_expand_callback(struct event *event,
+			   const struct var_expand_table **tab_r,
+			   const struct var_expand_func_table **func_tab_r ATTR_UNUSED)
+{
+	struct client *client = event_get_ptr(event, "client");
+
+	*tab_r = get_var_expand_table(client);
+}
+
+static int client_settings_read(struct client *client, const char **error_r)
+{
+	i_assert(client->set == NULL);
+
+	if (login_settings_read(&client->local_ip, &client->ip,
+				client->local_name, error_r) < 0 ||
+	    master_service_settings_get(client->event,
+					&login_setting_parser_info,
+					0, &client->set, error_r) < 0 ||
+	    master_service_settings_get(client->event,
+					&master_service_ssl_setting_parser_info,
+					0, &client->ssl_set, error_r) < 0 ||
+	    master_service_settings_get(client->event,
+					&master_service_ssl_server_setting_parser_info,
+					0, &client->ssl_server_set, error_r) < 0) {
+		master_service_settings_free(client->set);
+		master_service_settings_free(client->ssl_set);
+		return -1;
+	}
+	return 0;
+}
+
+int client_alloc(int fd, const struct master_service_connection *conn,
+		 struct client **client_r)
 {
 	struct client *client;
+	const char *error;
 
 	i_assert(fd != -1);
 
+	pool_t pool = pool_alloconly_create("login client", 8*1024);
 	client = login_binary->client_vfuncs->alloc(pool);
 	client->v = *login_binary->client_vfuncs;
 	if (client->v.auth_send_challenge == NULL)
@@ -220,9 +253,6 @@ client_alloc(int fd, pool_t pool,
 
 	client->pool = pool;
 	client->preproxy_pool = pool_alloconly_create(MEMPOOL_GROWING"preproxy pool", 256);
-	client->set = set;
-	client->ssl_set = ssl_set;
-	client->ssl_server_set = ssl_server_set;
 	p_array_init(&client->module_contexts, client->pool, 5);
 
 	client->fd = fd;
@@ -243,6 +273,18 @@ client_alloc(int fd, pool_t pool,
 	event_add_ip(client->event, "remote_ip", &conn->remote_ip);
 	event_add_int(client->event, "remote_port", conn->remote_port);
 	event_add_str(client->event, "service", login_binary->protocol);
+
+	/* Get settings before using log callback */
+	event_set_ptr(client->event, MASTER_SERVICE_VAR_EXPAND_CALLBACK,
+		      client_var_expand_callback);
+	event_set_ptr(client->event, "client", client);
+	if (client_settings_read(client, &error) < 0) {
+		e_error(client->event, "%s", error);
+		event_unref(&client->event);
+		pool_unref(&client->pool);
+		return -1;
+	}
+
 	event_set_log_message_callback(client->event, client_log_msg_callback,
 				       client);
 	client->connection_trusted = client_is_trusted(client);
@@ -282,10 +324,11 @@ client_alloc(int fd, pool_t pool,
 
 
 	client_open_streams(client);
-	return client;
+	*client_r = client;
+	return 0;
 }
 
-int client_init(struct client *client, void **other_sets)
+int client_init(struct client *client)
 {
 	if (last_client == NULL)
 		last_client = client;
@@ -298,7 +341,7 @@ int client_init(struct client *client, void **other_sets)
 			    client_idle_disconnect_timeout, client);
 
 	hook_login_client_allocated(client);
-	if (client->v.create(client, other_sets) < 0)
+	if (client->v.create(client) < 0)
 		return -1;
 	client->create_finished = TRUE;
 
@@ -494,6 +537,13 @@ void client_ref(struct client *client)
 	client->refcount++;
 }
 
+static void client_settings_free(struct client *client)
+{
+	master_service_settings_free(client->set);
+	master_service_settings_free(client->ssl_set);
+	master_service_settings_free(client->ssl_server_set);
+}
+
 bool client_unref(struct client **_client)
 {
 	struct client *client = *_client;
@@ -505,6 +555,7 @@ bool client_unref(struct client **_client)
 		return TRUE;
 
 	if (!client->create_finished) {
+		client_settings_free(client);
 		i_stream_unref(&client->input);
 		o_stream_unref(&client->output);
 		pool_unref(&client->preproxy_pool);
@@ -537,6 +588,7 @@ bool client_unref(struct client **_client)
 	i_close_fd(&client->fd);
 	event_unref(&client->event);
 	event_unref(&client->event_auth);
+	client_settings_free(client);
 
 	i_free(client->proxy_user);
 	i_free(client->proxy_master_user);
@@ -615,18 +667,30 @@ static int client_sni_callback(const char *name, const char **error_r,
 	struct client *client = context;
 	struct ssl_iostream_context *ssl_ctx;
 	struct ssl_iostream_settings ssl_set;
-	void **other_sets;
 	const char *error;
 
 	if (client->ssl_servername_settings_read)
 		return 0;
 	client->ssl_servername_settings_read = TRUE;
 
+	const struct login_settings *old_set = client->set;
+	const struct master_service_ssl_settings *old_ssl_set = client->ssl_set;
+	const struct master_service_ssl_server_settings *old_ssl_server_set =
+		client->ssl_server_set;
+	client->set = NULL;
+	client->ssl_set = NULL;
+	client->ssl_server_set = NULL;
+
 	client->local_name = p_strdup(client->pool, name);
-	client->set = login_settings_read(client->pool, &client->local_ip,
-					  &client->ip, name,
-					  &client->ssl_set,
-					  &client->ssl_server_set, &other_sets);
+	if (client_settings_read(client, error_r) < 0) {
+		client->set = old_set;
+		client->ssl_set = old_ssl_set;
+		client->ssl_server_set = old_ssl_server_set;
+		return -1;
+	}
+	master_service_settings_free(old_set);
+	master_service_settings_free(old_ssl_set);
+	master_service_settings_free(old_ssl_server_set);
 
 	master_service_ssl_server_settings_to_iostream_set(client->ssl_set,
 		client->ssl_server_set, pool_datastack_create(), &ssl_set);

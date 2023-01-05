@@ -2,6 +2,7 @@
 #define IMAP_LOGIN_SETTINGS_H
 
 struct imap_login_settings {
+	pool_t pool;
 	const char *imap_capability;
 	const char *imap_id_send;
 	bool imap_literal_minus;
@@ -9,5 +10,6 @@ struct imap_login_settings {
 };
 
 extern const struct setting_parser_info *imap_login_setting_roots[];
+extern const struct setting_parser_info imap_login_setting_parser_info;
 
 #endif

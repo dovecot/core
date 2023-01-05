@@ -82,6 +82,7 @@ const struct setting_parser_info login_setting_parser_info = {
 	.defaults = &login_default_settings,
 
 	.struct_size = sizeof(struct login_settings),
+	.pool_offset1 = 1 + offsetof(struct login_settings, pool),
 	.check_func = login_settings_check
 };
 
@@ -110,112 +111,24 @@ static bool login_settings_check(void *_set, pool_t pool,
 }
 /* </settings checks> */
 
-static const struct var_expand_table *
-login_set_var_expand_table(const struct master_service_settings_input *input)
-{
-	const struct var_expand_table stack_tab[] = {
-		{ 'l', net_ip2addr(&input->local_ip), "lip" },
-		{ 'r', net_ip2addr(&input->remote_ip), "rip" },
-		{ 'p', my_pid, "pid" },
-		{ 's', input->service, "service" },
-		{ '\0', input->local_name, "local_name" },
-		/* aliases */
-		{ '\0', net_ip2addr(&input->local_ip), "local_ip" },
-		{ '\0', net_ip2addr(&input->remote_ip), "remote_ip" },
-		/* NOTE: Make sure login_log_format_elements_split has all these
-		   variables (in client-common.c:get_var_expand_table()). */
-		{ '\0', NULL, NULL }
-	};
-	struct var_expand_table *tab;
-
-	tab = t_malloc_no0(sizeof(stack_tab));
-	memcpy(tab, stack_tab, sizeof(stack_tab));
-	return tab;
-}
-
-static void *
-login_setting_dup(pool_t pool, const struct setting_parser_info *info,
-		  const struct setting_parser_context *parser)
-{
-	const char *error;
-	void *src_set, *dest;
-
-	src_set = settings_parser_get_root_set(parser, info);
-	dest = settings_dup(info, src_set, pool);
-	if (!settings_check(info, pool, dest, &error)) {
-		const char *name = info->module_name;
-
-		i_fatal("settings_check(%s) failed: %s",
-			name != NULL ? name : "unknown", error);
-	}
-	return dest;
-}
-
-static struct login_settings *
-login_settings_read_real(
-	pool_t pool, const struct ip_addr *local_ip,
-	const struct ip_addr *remote_ip, const char *local_name,
-	const struct master_service_ssl_settings **ssl_set_r,
-	const struct master_service_ssl_server_settings **ssl_server_set_r,
-	void ***other_settings_r)
+int login_settings_read(const struct ip_addr *local_ip,
+			const struct ip_addr *remote_ip,
+			const char *local_name, const char **error_r)
 {
 	struct master_service_settings_input input;
 	struct master_service_settings_output output;
-	const char *error;
-	struct setting_parser_context *parser;
-	void **sets;
-	unsigned int i, count;
 
 	i_zero(&input);
 	input.roots = login_set_roots;
 	input.service = login_binary->protocol;
 	input.local_name = local_name;
+	input.disable_check_settings = TRUE;
 
 	if (local_ip != NULL)
 		input.local_ip = *local_ip;
 	if (remote_ip != NULL)
 		input.remote_ip = *remote_ip;
 
-	if (master_service_settings_read(master_service, &input,
-					 &output, &error) < 0)
-		i_fatal("%s", error);
-	parser = master_service_get_settings_parser(master_service);
-
-	for (count = 0; input.roots[count] != NULL; count++) ;
-	sets = p_new(pool, void *, count + 1);
-	for (i = 0; i < count; i++)
-		sets[i] = login_setting_dup(pool, input.roots[i], parser);
-
-	if (settings_var_expand(&login_setting_parser_info, sets[0], pool,
-				login_set_var_expand_table(&input), &error) <= 0)
-		i_fatal("Failed to expand settings: %s", error);
-
-	*ssl_set_r =
-		login_setting_dup(pool, &master_service_ssl_setting_parser_info,
-				  parser);
-	*ssl_server_set_r =
-		login_setting_dup(pool, &master_service_ssl_server_setting_parser_info,
-				  parser);
-	*other_settings_r = sets + 1;
-	return sets[0];
-}
-
-struct login_settings *
-login_settings_read(
-	pool_t pool, const struct ip_addr *local_ip,
-	const struct ip_addr *remote_ip, const char *local_name,
-	const struct master_service_ssl_settings **ssl_set_r,
-	const struct master_service_ssl_server_settings **ssl_server_set_r,
-	void ***other_settings_r)
-{
-	struct login_settings *login_set;
-
-	T_BEGIN {
-		login_set = login_settings_read_real(pool, local_ip, remote_ip,
-						     local_name, ssl_set_r,
-						     ssl_server_set_r,
-						     other_settings_r);
-	} T_END;
-
-	return login_set;
+	return master_service_settings_read(master_service, &input,
+					    &output, error_r);
 }

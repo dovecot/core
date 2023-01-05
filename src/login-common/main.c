@@ -19,6 +19,7 @@
 #include "anvil-client.h"
 #include "auth-client.h"
 #include "dsasl-client.h"
+#include "master-service-settings.h"
 #include "master-service-ssl-settings.h"
 #include "login-proxy.h"
 
@@ -153,11 +154,6 @@ static void
 client_connected(struct master_service_connection *conn)
 {
 	struct client *client;
-	const struct login_settings *set;
-	const struct master_service_ssl_settings *ssl_set;
-	const struct master_service_ssl_server_settings *ssl_server_set;
-	pool_t pool;
-	void **other_sets;
 
 	master_service_client_connection_accept(conn);
 
@@ -171,13 +167,11 @@ client_connected(struct master_service_connection *conn)
 	/* make sure we're connected (or attempting to connect) to auth */
 	auth_client_connect(auth_client);
 
-	pool = pool_alloconly_create("login client", 8*1024);
-	set = login_settings_read(pool, &conn->local_ip,
-				  &conn->remote_ip, NULL,
-				  &ssl_set, &ssl_server_set, &other_sets);
-
-	client = client_alloc(conn->fd, pool, conn, set,
-			      ssl_set, ssl_server_set);
+	if (client_alloc(conn->fd, conn, &client) < 0) {
+		net_disconnect(conn->fd);
+		master_service_client_connection_destroyed(master_service);
+		return;
+	}
 	if (ssl_connections || conn->ssl) {
 		if (client_init_ssl(client) < 0) {
 			client_unref(&client);
@@ -186,13 +180,13 @@ client_connected(struct master_service_connection *conn)
 			return;
 		}
 	}
-	if (client_init(client, other_sets) < 0) {
+	if (client_init(client) < 0) {
 		client_destroy(client, "Failed to initialize client");
 		return;
 	}
 	client->event_auth = event_create(client->event);
 	event_add_category(client->event_auth, &event_category_auth);
-	event_set_min_log_level(client->event_auth, set->auth_verbose ?
+	event_set_min_log_level(client->event_auth, client->set->auth_verbose ?
 					LOG_TYPE_INFO : LOG_TYPE_WARNING);
 
 	timeout_remove(&auth_client_to);
@@ -458,6 +452,10 @@ static void main_deinit(void)
 	timeout_remove(&auth_client_to);
 	client_common_deinit();
 	dsasl_clients_deinit();
+
+	master_service_settings_free(global_login_settings);
+	master_service_settings_free(global_ssl_settings);
+	master_service_settings_free(global_ssl_server_settings);
 }
 
 int login_binary_run(struct login_binary *binary,
@@ -467,8 +465,7 @@ int login_binary_run(struct login_binary *binary,
 		MASTER_SERVICE_FLAG_TRACK_LOGIN_STATE |
 		MASTER_SERVICE_FLAG_HAVE_STARTTLS |
 		MASTER_SERVICE_FLAG_NO_SSL_INIT;
-	pool_t set_pool;
-	const char *login_socket;
+	const char *login_socket, *error;
 	int c;
 
 	login_binary = binary;
@@ -502,12 +499,15 @@ int login_binary_run(struct login_binary *binary,
 
 	login_binary->preinit();
 
-	set_pool = pool_alloconly_create("global login settings", 4096);
-	global_login_settings =
-		login_settings_read(set_pool, NULL, NULL, NULL,
-				    &global_ssl_settings,
-				    &global_ssl_server_settings,
-				    &global_other_settings);
+	if (login_settings_read(NULL, NULL, NULL, &error) < 0 ||
+	    master_service_settings_get(NULL, &login_setting_parser_info,
+					MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+					&global_login_settings, &error) < 0)
+		i_fatal("%s", error);
+	global_ssl_settings = master_service_settings_get_or_fatal(NULL,
+		&master_service_ssl_setting_parser_info);
+	global_ssl_server_settings = master_service_settings_get_or_fatal(NULL,
+		&master_service_ssl_server_setting_parser_info);
 
 	if (argv[optind] != NULL)
 		login_socket = argv[optind];
@@ -521,7 +521,6 @@ int login_binary_run(struct login_binary *binary,
 	master_service_run(master_service, client_connected);
 	main_deinit();
 	array_free(&login_source_ips_array);
-	pool_unref(&set_pool);
 	master_service_deinit(&master_service);
         return 0;
 }

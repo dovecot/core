@@ -100,12 +100,13 @@ static const struct setting_parser_info *imap_login_setting_dependencies[] = {
 	NULL
 };
 
-static const struct setting_parser_info imap_login_setting_parser_info = {
+const struct setting_parser_info imap_login_setting_parser_info = {
 	.module_name = "imap-login",
 	.defines = imap_login_setting_defines,
 	.defaults = &imap_login_default_settings,
 
 	.struct_size = sizeof(struct imap_login_settings),
+	.pool_offset1 = 1 + offsetof(struct imap_login_settings, pool),
 	.dependencies = imap_login_setting_dependencies
 };
 
