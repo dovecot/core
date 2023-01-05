@@ -18,24 +18,30 @@ int master_service_ssl_init(struct master_service *service,
 {
 	const struct master_service_ssl_settings *set;
 	struct ssl_iostream_settings ssl_set;
+	int ret;
 
 	i_assert(service->ssl_ctx_initialized);
 
-	set = master_service_settings_get_root_set(service,
-			&master_service_ssl_setting_parser_info);
+	if (master_service_settings_get(service->event,
+			&master_service_ssl_setting_parser_info, 0,
+			&set, error_r) < 0)
+		return -1;
 	if (service->ssl_ctx == NULL) {
 		if (strcmp(set->ssl, "no") == 0)
 			*error_r = "SSL is disabled (ssl=no)";
 		else
 			*error_r = "Failed to initialize SSL context";
+		master_service_settings_free(set);
 		return -1;
 	}
 
 	i_zero(&ssl_set);
 	ssl_set.verbose = set->verbose_ssl;
 	ssl_set.verify_remote_cert = set->ssl_verify_client_cert;
-	return io_stream_create_ssl_server(service->ssl_ctx, &ssl_set, NULL,
-					   input, output, ssl_iostream_r, error_r);
+	ret = io_stream_create_ssl_server(service->ssl_ctx, &ssl_set, NULL,
+					  input, output, ssl_iostream_r, error_r);
+	master_service_settings_free(set);
+	return ret;
 }
 
 bool master_service_ssl_is_enabled(struct master_service *service)
@@ -45,7 +51,7 @@ bool master_service_ssl_is_enabled(struct master_service *service)
 
 void master_service_ssl_ctx_init(struct master_service *service)
 {
-	const struct master_service_ssl_settings *set;
+	const struct master_service_ssl_settings *set = NULL;
 	const struct master_service_ssl_server_settings *server_set;
 	struct ssl_iostream_settings ssl_set;
 	const char *error;
@@ -58,12 +64,21 @@ void master_service_ssl_ctx_init(struct master_service *service)
 	   initialization fails we can close the SSL listeners */
 	i_assert(service->listeners != NULL || service->socket_count == 0);
 
-	set = master_service_settings_get_root_set(service,
-			&master_service_ssl_setting_parser_info);
-	server_set = master_service_settings_get_root_set(service,
-			&master_service_ssl_server_setting_parser_info);
+	if (master_service_settings_get(service->event,
+			&master_service_ssl_setting_parser_info, 0,
+			&set, &error) < 0 ||
+	    master_service_settings_get(service->event,
+			&master_service_ssl_server_setting_parser_info, 0,
+			&server_set, &error) < 0) {
+		e_error(service->event, "%s - disabling SSL", error);
+		master_service_settings_free(set);
+		master_service_ssl_io_listeners_remove(service);
+		return;
+	}
 	if (strcmp(set->ssl, "no") == 0) {
 		/* SSL disabled, don't use it */
+		master_service_settings_free(set);
+		master_service_settings_free(server_set);
 		return;
 	}
 
@@ -97,8 +112,9 @@ void master_service_ssl_ctx_init(struct master_service *service)
 			"SSL context initialization failed, disabling SSL: %s",
 			error);
 		master_service_ssl_io_listeners_remove(service);
-		return;
 	}
+	master_service_settings_free(set);
+	master_service_settings_free(server_set);
 }
 
 void master_service_ssl_ctx_deinit(struct master_service *service)
