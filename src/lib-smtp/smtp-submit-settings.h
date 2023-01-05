@@ -2,6 +2,7 @@
 #define SMTP_SUBMIT_SETTINGS_H
 
 struct smtp_submit_settings {
+	pool_t pool;
 	const char *hostname;
 	bool mail_debug;
 

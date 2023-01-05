@@ -48,6 +48,7 @@ const struct setting_parser_info smtp_submit_setting_parser_info = {
 	.defaults = &smtp_submit_default_settings,
 
 	.struct_size = sizeof(struct smtp_submit_settings),
+	.pool_offset1 = 1 + offsetof(struct smtp_submit_settings, pool),
 
 #ifndef CONFIG_BINARY
 	.check_func = smtp_submit_settings_check,
