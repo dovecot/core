@@ -962,19 +962,6 @@ master_service_settings_get_or_fatal(struct event *event,
 	return set;
 }
 
-void *master_service_settings_get_root_set(struct master_service *service,
-					   const struct setting_parser_info *root)
-{
-	return settings_parser_get_root_set(service->set_parser,  root);
-}
-
-void *master_service_settings_get_root_set_dup(struct master_service *service,
-	const struct setting_parser_info *root, pool_t pool)
-{
-	return settings_dup(root,
-		master_service_settings_get_root_set(service, root), pool);
-}
-
 struct setting_parser_context *
 master_service_get_settings_parser(struct master_service *service)
 {

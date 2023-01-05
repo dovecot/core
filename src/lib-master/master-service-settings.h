@@ -190,10 +190,6 @@ master_service_settings_get_or_fatal(struct event *event,
 			(set) = NULL; \
 		} \
 	} STMT_END
-void *master_service_settings_get_root_set(struct master_service *service,
-					   const struct setting_parser_info *root);
-void *master_service_settings_get_root_set_dup(struct master_service *service,
-	const struct setting_parser_info *root, pool_t pool);
 struct setting_parser_context *
 master_service_get_settings_parser(struct master_service *service);
 
