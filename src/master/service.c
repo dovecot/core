@@ -433,7 +433,6 @@ services_create_real(const struct master_settings *set, pool_t pool,
 	service_list->refcount = 1;
 	service_list->pool = pool;
 	service_list->event = event;
-	service_list->service_set = master_service_get_service_settings(master_service);
 	service_list->set_pool = master_service_settings_detach(master_service);
 	service_list->set = set;
 	service_list->master_log_fd[0] = -1;
@@ -658,14 +657,15 @@ static void services_kill_timeout(struct service_list *service_list)
 
 void services_destroy(struct service_list *service_list, bool wait)
 {
+	const struct master_service_settings *service_set =
+		master_service_get_service_settings(master_service);
 	/* make sure we log if child processes died unexpectedly */
 	service_list->destroying = TRUE;
 	services_monitor_reap_children();
 
 	services_monitor_stop(service_list, wait);
 
-	if (service_list->refcount > 1 &&
-	    service_list->service_set->shutdown_clients) {
+	if (service_list->refcount > 1 && service_set->shutdown_clients) {
 		service_list->to_kill =
 			timeout_add(SERVICE_DIE_TIMEOUT_MSECS,
 				    services_kill_timeout, service_list);

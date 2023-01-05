@@ -298,7 +298,7 @@ service_process_setup_environment(struct service *service, unsigned int uid,
 				  const char *hostdomain)
 {
 	const struct master_service_settings *service_set =
-		service->list->service_set;
+		master_service_get_service_settings(master_service);
 	master_service_env_clean();
 
 	env_put(MASTER_IS_PARENT_ENV, "1");

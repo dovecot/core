@@ -152,7 +152,6 @@ struct service_list {
 	struct event *event;
 
 	const struct master_settings *set;
-	const struct master_service_settings *service_set;
 
 	struct service *config;
 	struct service *log;
