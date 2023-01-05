@@ -4,6 +4,7 @@
 struct mail_user_settings;
 
 struct lda_settings {
+	pool_t pool;
 	const char *hostname;
 	const char *rejection_subject;
 	const char *rejection_reason;

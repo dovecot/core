@@ -59,6 +59,7 @@ const struct setting_parser_info lda_setting_parser_info = {
 	.defaults = &lda_default_settings,
 
 	.struct_size = sizeof(struct lda_settings),
+	.pool_offset1 = 1 + offsetof(struct lda_settings, pool),
 #ifndef CONFIG_BINARY
 	.check_func = lda_settings_check,
 #endif
