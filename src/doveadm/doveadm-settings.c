@@ -12,7 +12,6 @@
 #include "iostream-ssl.h"
 #include "doveadm-settings.h"
 
-ARRAY_TYPE(doveadm_setting_root) doveadm_setting_roots;
 bool doveadm_verbose_proctitle;
 
 static pool_t doveadm_settings_pool = NULL;
@@ -230,27 +229,18 @@ void doveadm_settings_expand(struct doveadm_settings *set, pool_t pool)
 
 void doveadm_read_settings(void)
 {
-	static const struct setting_parser_info *default_set_roots[] = {
+	static const struct setting_parser_info *set_roots[] = {
 		&master_service_ssl_setting_parser_info,
 		&doveadm_setting_parser_info,
+		NULL
 	};
 	struct master_service_settings_input input;
 	struct master_service_settings_output output;
 	const struct doveadm_settings *set;
-	struct doveadm_setting_root *root;
-	ARRAY(const struct setting_parser_info *) set_roots;
 	const char *error;
 
-	t_array_init(&set_roots, N_ELEMENTS(default_set_roots) +
-		     array_count(&doveadm_setting_roots) + 1);
-	array_append(&set_roots, default_set_roots,
-		     N_ELEMENTS(default_set_roots));
-	array_foreach_modifiable(&doveadm_setting_roots, root)
-		array_push_back(&set_roots, &root->info);
-	array_append_zero(&set_roots);
-
 	i_zero(&input);
-	input.roots = array_front(&set_roots);
+	input.roots = set_roots;
 	input.service = "doveadm";
 	input.preserve_user = TRUE;
 	input.preserve_home = TRUE;
@@ -274,11 +264,6 @@ void doveadm_read_settings(void)
 		doveadm_settings_pool);
 	doveadm_settings_expand(doveadm_settings, doveadm_settings_pool);
 	doveadm_settings->parsed_features = set->parsed_features; /* copy this value by hand */
-
-	array_foreach_modifiable(&doveadm_setting_roots, root) {
-		root->settings = master_service_settings_get_root_set_dup(
-			master_service, root->info, doveadm_settings_pool);
-	}
 }
 
 int doveadm_settings_get_config_fd(void)
@@ -287,32 +272,11 @@ int doveadm_settings_get_config_fd(void)
 	return global_config_fd;
 }
 
-void doveadm_setting_roots_add(const struct setting_parser_info *info)
-{
-	struct doveadm_setting_root *root;
-
-	root = array_append_space(&doveadm_setting_roots);
-	root->info = info;
-}
-
-void *doveadm_setting_roots_get_settings(const struct setting_parser_info *info)
-{
-	const struct doveadm_setting_root *root;
-
-	array_foreach(&doveadm_setting_roots, root) {
-		if (root->info == info)
-			return root->settings;
-	}
-	i_panic("Failed to find settings for module %s", info->module_name);
-}
-
 void doveadm_settings_init(void)
 {
-	i_array_init(&doveadm_setting_roots, 8);
 }
 
 void doveadm_settings_deinit(void)
 {
-	array_free(&doveadm_setting_roots);
 	pool_unref(&doveadm_settings_pool);
 }
