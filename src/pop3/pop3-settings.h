@@ -15,6 +15,7 @@ enum pop3_delete_type {
 /* </settings checks> */
 
 struct pop3_settings {
+	pool_t pool;
 	bool verbose_proctitle;
 	const char *rawlog_dir;
 

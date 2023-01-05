@@ -16,6 +16,7 @@
 #include "file-dotlock.h"
 #include "var-expand.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
 #include "mail-autoexpunge.h"
@@ -650,6 +651,7 @@ static void client_default_destroy(struct client *client, const char *reason)
 	pop3_refresh_proctitle();
 	mail_user_autoexpunge(client->user);
 	mail_user_deinit(&client->user);
+	master_service_settings_free(client->set);
 
 	pop3_client_count--;
 	DLLIST_REMOVE(&pop3_clients, client);

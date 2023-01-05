@@ -120,6 +120,7 @@ const struct setting_parser_info pop3_setting_parser_info = {
 	.defaults = &pop3_default_settings,
 
 	.struct_size = sizeof(struct pop3_settings),
+	.pool_offset1 = 1 + offsetof(struct pop3_settings, pool),
 	.check_func = pop3_settings_verify,
 	.dependencies = pop3_setting_dependencies
 };

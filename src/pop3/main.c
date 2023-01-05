@@ -13,6 +13,7 @@
 #include "restrict-access.h"
 #include "settings-parser.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "login-server.h"
 #include "master-interface.h"
 #include "master-admin-client.h"
@@ -146,8 +147,17 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	}
 	restrict_access_allow_coredumps(TRUE);
 
-	set = settings_parser_get_root_set(mail_user->set_parser,
-			&pop3_setting_parser_info);
+	if (master_service_settings_parser_get(mail_user->event,
+			mail_user->set_parser, &pop3_setting_parser_info,
+			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			&set, error_r) < 0) {
+		if (write(fd_out, lookup_error_str, strlen(lookup_error_str)) < 0) {
+			/* ignored */
+		}
+		mail_user_deinit(&mail_user);
+		event_unref(&event);
+		return -1;
+	}
 	if (set->verbose_proctitle)
 		verbose_proctitle = TRUE;
 
