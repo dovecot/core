@@ -2,6 +2,7 @@
 #define DICT_SETTINGS_H
 
 struct dict_server_settings {
+	pool_t pool;
 	const char *base_dir;
 	bool verbose_proctitle;
 	ARRAY(const char *) dicts;

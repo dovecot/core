@@ -106,7 +106,7 @@ static void main_init(void)
 {
 	struct module_dir_load_settings mod_set;
 
-	dict_settings = master_service_settings_get_root_set(master_service,
+	dict_settings = master_service_settings_get_or_fatal(NULL,
 				&dict_setting_parser_info);
 
 	i_zero(&mod_set);
@@ -138,6 +138,7 @@ static void main_deinit(void)
 
 	sql_drivers_deinit();
 	timeout_remove(&to_expire);
+	master_service_settings_free(dict_settings);
 }
 
 int main(int argc, char *argv[])
@@ -156,6 +157,7 @@ int main(int argc, char *argv[])
 
 	const struct master_service_settings_input set_input = {
 		.roots = set_roots,
+		.disable_check_settings = TRUE,
 	};
 	struct master_service_settings_output output;
 	if (master_service_settings_read(master_service, &set_input,

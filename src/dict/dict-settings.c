@@ -140,6 +140,7 @@ const struct setting_parser_info dict_setting_parser_info = {
 	.defaults = &dict_default_settings,
 
 	.struct_size = sizeof(struct dict_server_settings),
+	.pool_offset1 = 1 + offsetof(struct dict_server_settings, pool),
 };
 
 const struct dict_server_settings *dict_settings;
