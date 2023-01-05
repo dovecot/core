@@ -286,12 +286,19 @@ lda_deliver(struct mail_deliver_input *dinput,
 	    bool stderr_rejection)
 {
 	struct mail_deliver_context ctx;
+	const char *error;
 	int ret;
 
-	dinput->set = settings_parser_get_root_set(dinput->rcpt_user->set_parser,
-						   &lda_setting_parser_info);
-	dinput->smtp_set = settings_parser_get_root_set(dinput->rcpt_user->set_parser,
-							&smtp_submit_setting_parser_info);
+	if (master_service_settings_parser_get(dinput->rcpt_user->event,
+			dinput->rcpt_user->set_parser, &lda_setting_parser_info,
+			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			&dinput->set, &error) < 0 ||
+	    master_service_settings_parser_get(dinput->rcpt_user->event,
+			dinput->rcpt_user->set_parser,
+			&smtp_submit_setting_parser_info,
+			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			&dinput->smtp_set, &error) < 0)
+		i_fatal("%s", error);
 
 	dinput->src_mail = lda_raw_mail_open(dinput, path);
 	lda_set_rcpt_to(dinput, rcpt_to, user, rcpt_to_source);
@@ -568,6 +575,8 @@ int main(int argc, char *argv[])
 	}
 
 	mail_deliver_session_deinit(&dinput.session);
+	master_service_settings_free(dinput.set);
+	master_service_settings_free(dinput.smtp_set);
 	mail_storage_service_deinit(&storage_service);
 
 	event_unref(&event);
