@@ -11,6 +11,7 @@
 #include "restrict-access.h"
 #include "anvil-client.h"
 #include "settings-parser.h"
+#include "master-service-settings.h"
 #include "mail-storage.h"
 #include "mail-storage-service.h"
 #include "mail-namespace.h"
@@ -477,10 +478,20 @@ lmtp_local_deliver(struct lmtp_local *local,
 		mail_storage_service_user_get_log_prefix(service_user));
 
 	lldctx.rcpt_user = rcpt_user;
-	lldctx.smtp_set = settings_parser_get_root_set(rcpt_user->set_parser,
-			&smtp_submit_setting_parser_info);
-	lldctx.lda_set = settings_parser_get_root_set(rcpt_user->set_parser,
-			&lda_setting_parser_info);
+	if (master_service_settings_parser_get(rcpt_user->event,
+			rcpt_user->set_parser, &smtp_submit_setting_parser_info,
+			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			&lldctx.smtp_set, &error) < 0 ||
+	    master_service_settings_parser_get(rcpt_user->event,
+			rcpt_user->set_parser, &lda_setting_parser_info,
+			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			&lldctx.lda_set, &error) < 0) {
+		master_service_settings_free(lldctx.smtp_set);
+		e_error(rcpt->event, "%s", error);
+		smtp_server_recipient_reply(rcpt, 451, "4.3.0",
+					    "Temporary internal error");
+		return -1;
+	}
 
 	if (*lrcpt->detail == '\0' ||
 	    !client->lmtp_set->lmtp_save_to_detail_mailbox)
@@ -494,6 +505,9 @@ lmtp_local_deliver(struct lmtp_local *local,
 	ret = client->v.local_deliver(client, lrcpt, cmd, trans, &lldctx);
 
 	lmtp_local_rcpt_anvil_disconnect(llrcpt);
+
+	master_service_settings_free(lldctx.smtp_set);
+	master_service_settings_free(lldctx.lda_set);
 	return ret;
 }
 

@@ -193,10 +193,11 @@ static void lmtp_proxy_connection_finish(struct lmtp_proxy_connection *conn)
 	conn->lmtp_trans = NULL;
 }
 
-static void
+static int
 lmtp_proxy_connection_init_ssl(struct lmtp_proxy_connection *conn,
 			       struct ssl_iostream_settings *ssl_set_r,
-			       enum smtp_client_connection_ssl_mode *ssl_mode_r)
+			       enum smtp_client_connection_ssl_mode *ssl_mode_r,
+			       const char **error_r)
 {
 	const struct master_service_ssl_settings *master_ssl_set;
 
@@ -204,11 +205,13 @@ lmtp_proxy_connection_init_ssl(struct lmtp_proxy_connection *conn,
 
 	if ((conn->set.set.ssl_flags & AUTH_PROXY_SSL_FLAG_YES) == 0) {
 		i_zero(ssl_set_r);
-		return;
+		return 0;
 	}
 
-	master_ssl_set = master_service_settings_get_root_set(master_service,
-			&master_service_ssl_setting_parser_info);
+	if (master_service_settings_get(conn->proxy->client->event,
+			&master_service_ssl_setting_parser_info, 0,
+			&master_ssl_set, error_r) < 0)
+		return -1;
 	master_service_ssl_client_settings_to_iostream_set(
 		master_ssl_set, pool_datastack_create(), ssl_set_r);
 	if ((conn->set.set.ssl_flags & AUTH_PROXY_SSL_FLAG_ANY_CERT) != 0)
@@ -218,6 +221,8 @@ lmtp_proxy_connection_init_ssl(struct lmtp_proxy_connection *conn,
 		*ssl_mode_r = SMTP_CLIENT_SSL_MODE_IMMEDIATE;
 	else
 		*ssl_mode_r = SMTP_CLIENT_SSL_MODE_STARTTLS;
+	master_service_settings_free(master_ssl_set);
+	return 0;
 }
 
 static bool
@@ -230,9 +235,11 @@ lmtp_proxy_connection_has_rcpt_forward(struct lmtp_proxy_connection *conn)
 	return (cap_extra != NULL);
 }
 
-static struct lmtp_proxy_connection *
+static int
 lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
-			  const struct lmtp_proxy_rcpt_settings *set)
+			  const struct lmtp_proxy_rcpt_settings *set,
+			  struct lmtp_proxy_connection **conn_r,
+			  const char **error_r)
 {
 	static const char *rcpt_param_extensions[] =
 		{ LMTP_RCPT_FORWARD_PARAMETER, NULL };
@@ -256,8 +263,10 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 		    (set->set.host_ip.family == 0 ||
 		     net_ip_compare(&conn->set.set.host_ip, &set->set.host_ip)) &&
 		    net_ip_compare(&conn->set.set.source_ip, &set->set.source_ip) &&
-		    conn->set.set.ssl_flags == set->set.ssl_flags)
-			return conn;
+		    conn->set.set.ssl_flags == set->set.ssl_flags) {
+			*conn_r = conn;
+			return 0;
+		}
 	}
 
 	conn = i_new(struct lmtp_proxy_connection, 1);
@@ -272,7 +281,8 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 	conn->set.set.timeout_msecs = set->set.timeout_msecs;
 	array_push_back(&proxy->connections, &conn);
 
-	lmtp_proxy_connection_init_ssl(conn, &ssl_set, &ssl_mode);
+	if (lmtp_proxy_connection_init_ssl(conn, &ssl_set, &ssl_mode, error_r) < 0)
+		return -1;
 
 	i_zero(&lmtp_set);
 	lmtp_set.my_ip = conn->set.set.source_ip;
@@ -311,7 +321,8 @@ lmtp_proxy_get_connection(struct lmtp_proxy *proxy,
 
 	if (proxy->max_timeout_msecs < set->set.timeout_msecs)
 		proxy->max_timeout_msecs = set->set.timeout_msecs;
-	return conn;
+	*conn_r = conn;
+	return 0;
 }
 
 static void
@@ -558,6 +569,7 @@ lmtp_proxy_rcpt_get_connection(struct lmtp_proxy_recipient *lprcpt,
 	struct smtp_server_transaction *trans;
 	struct lmtp_proxy_connection *conn;
 	struct smtp_proxy_data proxy_data;
+	const char *error;
 
 	smtp_server_connection_get_proxy_data(rcpt->conn, &proxy_data);
 	if (proxy_data.ttl_plus_1 == 1 ||
@@ -580,7 +592,13 @@ lmtp_proxy_rcpt_get_connection(struct lmtp_proxy_recipient *lprcpt,
 	if (lprcpt->conn == NULL)
 		lprcpt->proxy_ttl = client->proxy->initial_ttl;
 
-	conn = lmtp_proxy_get_connection(client->proxy, set);
+	if (lmtp_proxy_get_connection(client->proxy, set, &conn, &error) < 0) {
+		e_error(rcpt->event,
+			"Failed to get proxy connection: %s", error);
+		smtp_server_recipient_reply(rcpt, 451, "4.3.0",
+					    "Temporary internal proxy error");
+		return -1;
+	}
 	i_assert(conn != lprcpt->conn);
 
 	event_add_str(lprcpt->rcpt->rcpt->event, "dest_host", set->set.host);

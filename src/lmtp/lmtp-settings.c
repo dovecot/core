@@ -116,6 +116,7 @@ const struct setting_parser_info lmtp_setting_parser_info = {
 	.defaults = &lmtp_default_settings,
 
 	.struct_size = sizeof(struct lmtp_settings),
+	.pool_offset1 = 1 + offsetof(struct lmtp_settings, pool),
 	.check_func = lmtp_settings_check,
 	.dependencies = lmtp_setting_dependencies
 };
@@ -186,18 +187,3 @@ static bool lmtp_settings_check(void *_set, pool_t pool ATTR_UNUSED,
 	return TRUE;
 }
 /* </settings checks> */
-
-void lmtp_settings_get(const struct setting_parser_context *set_parser,
-		       pool_t pool,
-		       struct lmtp_settings **lmtp_set_r,
-		       struct lda_settings **lda_set_r)
-{
-	const char *error;
-
-	*lda_set_r = settings_parser_get_root_set(set_parser,
-				&lda_setting_parser_info);
-	*lmtp_set_r = settings_parser_get_root_set(set_parser,
-				&lmtp_setting_parser_info);
-	if (!lmtp_settings_check(*lmtp_set_r, pool, &error))
-		i_unreached();
-}

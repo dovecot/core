@@ -101,8 +101,6 @@ static void client_read_settings(struct client *client, bool ssl)
 {
 	struct mail_storage_service_input input;
 	struct setting_parser_context *set_parser;
-	struct lmtp_settings *lmtp_set;
-	struct lda_settings *lda_set;
 	const char *error;
 
 	i_zero(&input);
@@ -122,16 +120,20 @@ static void client_read_settings(struct client *client, bool ssl)
 	client->raw_mail_user =
 		raw_storage_create_from_set(storage_service, set_parser);
 
-	set_parser = settings_parser_dup(set_parser, client->pool);
-	lmtp_settings_get(set_parser, client->pool, &lmtp_set, &lda_set);
-	settings_parser_unref(&set_parser);
 	const struct var_expand_table *tab =
 		mail_storage_service_get_var_expand_table(storage_service, &input);
-	if (settings_var_expand(&lmtp_setting_parser_info, lmtp_set,
-				client->pool, tab, &error) <= 0)
-		i_fatal("Failed to expand settings: %s", error);
-	client->lmtp_set = lmtp_set;
-	client->unexpanded_lda_set = lda_set;
+
+	struct event *event = event_create(client->event);
+	event_set_ptr(event, MASTER_SERVICE_VAR_EXPAND_TABLE, (void *)tab);
+	if (master_service_settings_parser_get(event, set_parser,
+			&lda_setting_parser_info,
+			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			&client->unexpanded_lda_set, &error) < 0 ||
+	    master_service_settings_parser_get(event, set_parser,
+			&lmtp_setting_parser_info, 0,
+			&client->lmtp_set, &error) < 0)
+		i_fatal("%s", error);
+	event_unref(&event);
 }
 
 struct client *client_create(int fd_in, int fd_out,
@@ -166,7 +168,8 @@ struct client *client_create(int fd_in, int fd_out,
 
 	client_read_settings(client, conn_tls);
 	client_load_modules(client);
-	client->my_domain = client->unexpanded_lda_set->hostname;
+	client->my_domain = p_strdup(client->pool,
+				     client->unexpanded_lda_set->hostname);
 
 	if (master_service_get_service_settings(master_service)->verbose_proctitle)
 		verbose_proctitle = TRUE;
@@ -265,6 +268,9 @@ client_default_destroy(struct client *client)
 		mail_user_deinit(&client->raw_mail_user);
 
 	client_state_reset(client);
+
+	master_service_settings_free(client->unexpanded_lda_set);
+	master_service_settings_free(client->lmtp_set);
 	event_unref(&client->event);
 	pool_unref(&client->state_pool);
 	pool_unref(&client->pool);
