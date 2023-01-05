@@ -2,6 +2,7 @@
 #define QUOTA_STATUS_SETTINGS_H 1
 
 struct quota_status_settings {
+	pool_t pool;
 	const char *recipient_delimiter;
 };
 

@@ -30,5 +30,6 @@ const struct setting_parser_info quota_status_setting_parser_info = {
 	.defaults = &quota_status_default_settings,
 
 	.struct_size = sizeof(struct quota_status_settings),
+	.pool_offset1 = 1 + offsetof(struct quota_status_settings, pool),
 	.dependencies = quota_status_setting_dependencies
 };

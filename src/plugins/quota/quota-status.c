@@ -39,8 +39,7 @@ static struct event_category event_category_quota_status = {
 	.name = "quota-status"
 };
 
-static struct quota_status_settings *quota_status_settings;
-static pool_t quota_status_pool;
+static const struct quota_status_settings *quota_status_settings;
 static enum quota_protocol protocol;
 static struct mail_storage_service_ctx *storage_service;
 static struct connection_list *clients;
@@ -306,25 +305,28 @@ static void main_init(void)
 	input.service = "quota-status";
 	input.username = "";
 
-	quota_status_pool = pool_alloconly_create("quota status settings", 512);
 	if (mail_storage_service_read_settings(storage_service, &input,
 					       &set_parser,
 					       &error) < 0)
 		i_fatal("%s", error);
-	user_set = settings_parser_get_root_set(set_parser,
-			&mail_user_setting_parser_info);
-	quota_status_settings = master_service_settings_get_root_set_dup(
-		master_service, &quota_status_setting_parser_info,
-		quota_status_pool);
+
+	if (master_service_settings_parser_get(NULL, set_parser,
+			&mail_user_setting_parser_info,
+			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			&user_set, &error) < 0)
+		i_fatal("%s", error);
+	quota_status_settings = master_service_settings_get_or_fatal(NULL,
+		&quota_status_setting_parser_info);
 
 	value = mail_user_set_plugin_getenv(user_set, "quota_status_nouser");
-	nouser_reply = p_strdup(quota_status_pool,
-				value != NULL ? value : "REJECT Unknown user");
+	nouser_reply = i_strdup(value != NULL ? value : "REJECT Unknown user");
+	master_service_settings_free(user_set);
 }
 
 static void main_deinit(void)
 {
-	pool_unref(&quota_status_pool);
+	master_service_settings_free(quota_status_settings);
+	i_free(nouser_reply);
 	connection_list_deinit(&clients);
 	mail_storage_service_deinit(&storage_service);
 }
