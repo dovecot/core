@@ -14,6 +14,7 @@
 #include "fd-util.h"
 #include "settings-parser.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "login-server.h"
 #include "master-service-settings.h"
 #include "master-interface.h"
@@ -190,8 +191,16 @@ client_create_from_input(const struct mail_storage_service_input *input,
 
 	restrict_access_allow_coredumps(TRUE);
 
-	set = settings_parser_get_root_set(mail_user->set_parser,
-			&submission_setting_parser_info);
+	if (master_service_settings_parser_get(mail_user->event,
+			mail_user->set_parser, &submission_setting_parser_info,
+			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			&set, error_r) < 0) {
+		send_error(fd_out, event, my_hostname,
+			"4.7.0", MAIL_ERRSTR_CRITICAL_MSG);
+		mail_user_deinit(&mail_user);
+		event_unref(&event);
+		return -1;
+	}
 	if (set->verbose_proctitle)
 		verbose_proctitle = TRUE;
 

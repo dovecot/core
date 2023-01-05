@@ -162,6 +162,7 @@ const struct setting_parser_info submission_setting_parser_info = {
 	.defaults = &submission_default_settings,
 
 	.struct_size = sizeof(struct submission_settings),
+	.pool_offset1 = 1 + offsetof(struct submission_settings, pool),
 	.check_func = submission_settings_verify,
 	.dependencies = submission_setting_dependencies
 };

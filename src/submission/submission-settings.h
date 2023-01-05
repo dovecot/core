@@ -11,6 +11,7 @@ enum submission_client_workarounds {
 /* </settings checks> */
 
 struct submission_settings {
+	pool_t pool;
 	bool verbose_proctitle;
 	const char *rawlog_dir;
 
