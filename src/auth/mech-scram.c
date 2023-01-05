@@ -74,7 +74,7 @@ get_scram_server_first(struct scram_auth_request *request,
 
 	random_fill(snonce, sizeof(snonce)-1);
 
-	/* make sure snonce is printable and does not contain ',' */
+	/* Make sure snonce is printable and does not contain ',' */
 	for (i = 0; i < sizeof(snonce)-1; i++) {
 		snonce[i] = (snonce[i] % ('~' - '!')) + '!';
 		if (snonce[i] == ',')
