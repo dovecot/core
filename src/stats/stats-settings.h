@@ -124,6 +124,7 @@ struct stats_metric_settings {
 };
 
 struct stats_settings {
+	pool_t pool;
 	const char *stats_http_rawlog_dir;
 
 	ARRAY(struct stats_exporter_settings *) exporters;

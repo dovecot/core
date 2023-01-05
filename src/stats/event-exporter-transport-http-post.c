@@ -9,6 +9,7 @@
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "master-service-ssl-settings.h"
+#include "stats-common.h"
 
 /* the http client used to export all events with exporter=http-post */
 static struct http_client *exporter_http_client;
@@ -50,9 +51,6 @@ void event_export_transport_http_post(const struct exporter *exporter,
 	struct http_client_request *req;
 
 	if (exporter_http_client == NULL) {
-		const struct master_service_ssl_settings *master_ssl_set =
-			master_service_settings_get_root_set(master_service,
-				&master_service_ssl_setting_parser_info);
 		struct ssl_iostream_settings ssl_set;
 
 		struct http_client_settings set = {

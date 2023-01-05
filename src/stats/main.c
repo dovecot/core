@@ -5,6 +5,7 @@
 #include "ioloop.h"
 #include "master-service.h"
 #include "master-service-settings.h"
+#include "master-service-ssl-settings.h"
 #include "stats-settings.h"
 #include "stats-event-category.h"
 #include "stats-metrics.h"
@@ -13,6 +14,7 @@
 #include "client-reader.h"
 #include "client-http.h"
 
+const struct master_service_ssl_settings *master_ssl_set;
 struct stats_metrics *stats_metrics;
 time_t stats_startup_time;
 
@@ -44,8 +46,10 @@ static void main_preinit(void)
 
 static void main_init(void)
 {
-	stats_settings = master_service_settings_get_root_set(master_service,
-				&stats_setting_parser_info);
+	stats_settings = master_service_settings_get_or_fatal(NULL,
+			&stats_setting_parser_info);
+	master_ssl_set = master_service_settings_get_or_fatal(NULL,
+			&master_service_ssl_setting_parser_info);
 
 	stats_startup_time = ioloop_time;
 	stats_metrics = stats_metrics_init(stats_settings);
@@ -64,6 +68,8 @@ static void main_deinit(void)
 	client_http_deinit();
 	stats_event_categories_deinit();
 	stats_metrics_deinit(&stats_metrics);
+	master_service_settings_free(stats_settings);
+	master_service_settings_free(master_ssl_set);
 }
 
 int main(int argc, char *argv[])
@@ -83,8 +89,14 @@ int main(int argc, char *argv[])
 					     &argc, &argv, "");
 	if (master_getopt(master_service) > 0)
 		return FATAL_DEFAULT;
-	if (master_service_settings_read_simple(master_service, set_roots,
-						&error) < 0)
+
+	const struct master_service_settings_input set_input = {
+		.roots = set_roots,
+		.disable_check_settings = TRUE,
+	};
+	struct master_service_settings_output output;
+	if (master_service_settings_read(master_service, &set_input,
+					 &output, &error) < 0)
 		i_fatal("%s", error);
 	master_service_init_log(master_service);
 	master_service_set_die_callback(master_service, stats_die);

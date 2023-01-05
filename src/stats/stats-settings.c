@@ -183,6 +183,7 @@ const struct setting_parser_info stats_setting_parser_info = {
 	.defaults = &stats_default_settings,
 
 	.struct_size = sizeof(struct stats_settings),
+	.pool_offset1 = 1 + offsetof(struct stats_settings, pool),
 	.check_func = stats_settings_check,
 };
 
