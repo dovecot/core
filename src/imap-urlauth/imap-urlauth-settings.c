@@ -91,5 +91,6 @@ const struct setting_parser_info imap_urlauth_setting_parser_info = {
 	.defaults = &imap_urlauth_default_settings,
 
 	.struct_size = sizeof(struct imap_urlauth_settings),
+	.pool_offset1 = 1 + offsetof(struct imap_urlauth_settings, pool),
 	.dependencies = imap_urlauth_setting_dependencies
 };

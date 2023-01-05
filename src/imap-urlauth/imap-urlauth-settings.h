@@ -4,6 +4,7 @@
 struct mail_user_settings;
 
 struct imap_urlauth_settings {
+	pool_t pool;
 	const char *base_dir;
 
 	bool mail_debug;

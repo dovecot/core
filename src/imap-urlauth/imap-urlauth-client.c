@@ -15,6 +15,7 @@
 #include "var-expand.h"
 #include "restrict-access.h"
 #include "master-service.h"
+#include "master-service-settings.h"
 #include "master-interface.h"
 
 #include "imap-urlauth-worker-client.h"
@@ -48,6 +49,7 @@ int client_create(const char *service, const char *username,
 
 	client = i_new(struct client, 1);
 	client->set = set;
+	pool_ref(client->set->pool);
 
 	client->event = event_create(NULL);
 	event_set_forced_debug(client->event, set->mail_debug);
@@ -131,6 +133,7 @@ void client_destroy(struct client *client, const char *reason)
 
 	connection_deinit(&client->conn);
 	event_unref(&client->event);
+	master_service_settings_free(client->set);
 
 	i_free(client->username);
 	i_free(client->service);

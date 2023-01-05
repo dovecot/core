@@ -4,6 +4,7 @@
 struct mail_user_settings;
 
 struct imap_urlauth_worker_settings {
+	pool_t pool;
 	bool verbose_proctitle;
 
 	/* imap_urlauth: */

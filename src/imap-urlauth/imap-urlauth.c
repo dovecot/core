@@ -255,12 +255,13 @@ int main(int argc, char *argv[])
 	i_zero(&input);
 	input.roots = set_roots;
 	input.service = "imap-urlauth";
+	input.disable_check_settings = TRUE;
 	if (master_service_settings_read(master_service, &input, &output,
 						&error) < 0)
 		i_fatal("%s", error);
 
 	imap_urlauth_settings = 
-		master_service_settings_get_root_set(master_service,
+		master_service_settings_get_or_fatal(NULL,
 			&imap_urlauth_setting_parser_info);
 
 	if (imap_urlauth_settings->verbose_proctitle)
@@ -299,6 +300,7 @@ int main(int argc, char *argv[])
 
 	if (login_server != NULL)
 		login_server_deinit(&login_server);
+	master_service_settings_free(imap_urlauth_settings);
 	master_service_deinit(&master_service);
 	return 0;
 }
