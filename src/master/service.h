@@ -145,7 +145,6 @@ struct service {
 
 struct service_list {
 	pool_t pool;
-	pool_t set_pool;
 	int refcount;
 	struct timeout *to_kill;
 	unsigned int fork_counter;

@@ -433,7 +433,6 @@ services_create_real(const struct master_settings *set, pool_t pool,
 	service_list->refcount = 1;
 	service_list->pool = pool;
 	service_list->event = event;
-	service_list->set_pool = master_service_settings_detach(master_service);
 	service_list->set = set;
 	service_list->master_log_fd[0] = -1;
 	service_list->master_log_fd[1] = -1;
@@ -508,6 +507,7 @@ int services_create(const struct master_settings *set,
 		pool_unref(&pool);
 		return -1;
 	}
+	pool_ref(set->pool);
 	return 0;
 }
 
@@ -699,7 +699,7 @@ void service_list_unref(struct service_list *service_list)
 
 	timeout_remove(&service_list->to_kill);
 	event_unref(&service_list->event);
-	pool_unref(&service_list->set_pool);
+	master_service_settings_free(service_list->set);
 	pool_unref(&service_list->pool);
 }
 

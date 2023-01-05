@@ -4,6 +4,7 @@
 #include "service-settings.h"
 
 struct master_settings {
+	pool_t pool;
 	const char *base_dir;
 	const char *state_dir;
 	const char *libexec_dir;

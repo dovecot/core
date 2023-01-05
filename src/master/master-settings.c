@@ -237,6 +237,7 @@ const struct setting_parser_info master_setting_parser_info = {
 	.defaults = &master_default_settings,
 
 	.struct_size = sizeof(struct master_settings),
+	.pool_offset1 = 1 + offsetof(struct master_settings, pool),
 	.check_func = master_settings_verify
 };
 
