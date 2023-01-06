@@ -160,9 +160,10 @@ auth_scram_parse_client_first(struct scram_auth_request *server,
 }
 
 static string_t *
-auth_scram_get_server_first(struct scram_auth_request *server,
-			    int iter, const char *salt)
+auth_scram_get_server_first(struct scram_auth_request *server)
 {
+	const struct hash_method *hmethod = server->hash_method;
+	struct auth_scram_key_data *kdata = &server->key_data;
 	unsigned char snonce[SCRAM_SERVER_NONCE_LEN+1];
 	string_t *str;
 	size_t i;
@@ -181,6 +182,10 @@ auth_scram_get_server_first(struct scram_auth_request *server,
 	                     ;; A positive number.
 	 */
 
+	i_assert(kdata->hmethod == hmethod);
+	i_assert(kdata->salt != NULL);
+	i_assert(kdata->iter_count != 0);
+
 	random_fill(snonce, sizeof(snonce)-1);
 
 	/* Make sure snonce is printable and does not contain ',' */
@@ -193,9 +198,9 @@ auth_scram_get_server_first(struct scram_auth_request *server,
 	server->snonce = p_strndup(server->pool, snonce, sizeof(snonce));
 
 	str = t_str_new(32 + strlen(server->cnonce) + sizeof(snonce) +
-			strlen(salt));
+			strlen(kdata->salt));
 	str_printfa(str, "r=%s%s,s=%s,i=%d", server->cnonce, server->snonce,
-		    salt, iter);
+		    kdata->salt, kdata->iter_count);
 	return str;
 }
 
@@ -203,12 +208,15 @@ static bool
 auth_scram_server_verify_credentials(struct scram_auth_request *server)
 {
 	const struct hash_method *hmethod = server->hash_method;
+	struct auth_scram_key_data *kdata = &server->key_data;
 	struct hmac_context ctx;
 	const char *auth_message;
 	unsigned char client_key[hmethod->digest_size];
 	unsigned char client_signature[hmethod->digest_size];
 	unsigned char stored_key[hmethod->digest_size];
 	size_t i;
+
+	i_assert(kdata->hmethod == hmethod);
 
 	/* RFC 5802, Section 3:
 
@@ -221,7 +229,7 @@ auth_scram_server_verify_credentials(struct scram_auth_request *server)
 			server->server_first_message, ",",
 			server->client_final_message_without_proof, NULL);
 
-	hmac_init(&ctx, server->stored_key, hmethod->digest_size, hmethod);
+	hmac_init(&ctx, kdata->stored_key, hmethod->digest_size, hmethod);
 	hmac_update(&ctx, auth_message, strlen(auth_message));
 	hmac_final(&ctx, client_signature);
 
@@ -237,7 +245,7 @@ auth_scram_server_verify_credentials(struct scram_auth_request *server)
 	safe_memset(client_key, 0, sizeof(client_key));
 	safe_memset(client_signature, 0, sizeof(client_signature));
 
-	return mem_equals_timing_safe(stored_key, server->stored_key,
+	return mem_equals_timing_safe(stored_key, kdata->stored_key,
 				      sizeof(stored_key));
 }
 
@@ -328,6 +336,7 @@ static string_t *
 auth_scram_get_server_final(struct scram_auth_request *server)
 {
 	const struct hash_method *hmethod = server->hash_method;
+	struct auth_scram_key_data *kdata = &server->key_data;
 	struct hmac_context ctx;
 	const char *auth_message;
 	unsigned char server_signature[hmethod->digest_size];
@@ -344,7 +353,7 @@ auth_scram_get_server_final(struct scram_auth_request *server)
 			server->server_first_message, ",",
 			server->client_final_message_without_proof, NULL);
 
-	hmac_init(&ctx, server->server_key, hmethod->digest_size, hmethod);
+	hmac_init(&ctx, kdata->server_key, hmethod->digest_size, hmethod);
 	hmac_update(&ctx, auth_message, strlen(auth_message));
 	hmac_final(&ctx, server_signature);
 

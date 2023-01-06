@@ -18,6 +18,7 @@
 #include "strfuncs.h"
 #include "strnum.h"
 #include "password-scheme.h"
+#include "auth-scram.h"
 #include "mech.h"
 #include "mech-scram.h"
 
@@ -43,9 +44,8 @@ struct scram_auth_request {
 	const char *client_final_message_without_proof;
 	buffer_t *proof;
 
-	/* stored */
-	unsigned char *stored_key;
-	unsigned char *server_key;
+	/* looked up: */
+	struct auth_scram_key_data key_data;
 };
 
 #include "auth-scram-server.c"
@@ -57,15 +57,17 @@ credentials_callback(enum passdb_result result,
 {
 	struct scram_auth_request *request =
 		(struct scram_auth_request *)auth_request;
-	const char *salt, *error;
-	unsigned int iter_count;
+	struct auth_scram_key_data *key_data = &request->key_data;
+	const char *error;
 
 	switch (result) {
 	case PASSDB_RESULT_OK:
-		if (scram_scheme_parse(request->hash_method,
+		if (scram_scheme_parse(key_data->hmethod,
 				       request->password_scheme,
-				       credentials, size, &iter_count, &salt,
-				       request->stored_key, request->server_key,
+				       credentials, size,
+				       &key_data->iter_count, &key_data->salt,
+				       key_data->stored_key,
+				       key_data->server_key,
 				       &error) < 0) {
 			e_info(auth_request->mech_event,
 			       "%s", error);
@@ -74,7 +76,7 @@ credentials_callback(enum passdb_result result,
 		}
 
 		request->server_first_message = p_strdup(request->pool,
-			str_c(auth_scram_get_server_first(request, iter_count, salt)));
+			str_c(auth_scram_get_server_first(request)));
 
 		auth_request_handler_reply_continue(auth_request,
 					request->server_first_message,
@@ -145,8 +147,10 @@ mech_scram_auth_new(const struct hash_method *hash_method,
 	request->hash_method = hash_method;
 	request->password_scheme = password_scheme;
 
-	request->stored_key = p_malloc(pool, hash_method->digest_size);
-	request->server_key = p_malloc(pool, hash_method->digest_size);
+	i_zero(&request->key_data);
+	request->key_data.hmethod = hash_method;
+	request->key_data.stored_key = p_malloc(pool, hash_method->digest_size);
+	request->key_data.server_key = p_malloc(pool, hash_method->digest_size);
 
 	request->auth_request.pool = pool;
 	return &request->auth_request;
