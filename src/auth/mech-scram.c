@@ -117,7 +117,7 @@ void mech_scram_auth_continue(struct auth_request *auth_request,
 				       AUTH_LOG_MSG_PASSWORD_MISMATCH);
 			} else {
 				server_final_message =
-					auth_scram_get_server_final(request);
+					str_c(auth_scram_get_server_final(request));
 				len = strlen(server_final_message);
 				auth_request_success(auth_request,
 						     server_final_message, len);

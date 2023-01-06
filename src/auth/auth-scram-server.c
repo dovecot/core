@@ -324,7 +324,7 @@ auth_scram_parse_client_final(struct scram_auth_request *server,
 	return 0;
 }
 
-static const char *
+static string_t *
 auth_scram_get_server_final(struct scram_auth_request *server)
 {
 	const struct hash_method *hmethod = server->hash_method;
@@ -361,5 +361,5 @@ auth_scram_get_server_final(struct scram_auth_request *server)
 	str_append(str, "v=");
 	base64_encode(server_signature, sizeof(server_signature), str);
 
-	return str_c(str);
+	return str;
 }
