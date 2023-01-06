@@ -168,6 +168,11 @@ static struct auth_request *mech_scram_sha256_auth_new(void)
 	return mech_scram_auth_new(&hash_method_sha256, "SCRAM-SHA-256");
 }
 
+static void mech_scram_auth_free(struct auth_request *auth_request)
+{
+	pool_unref(&auth_request->pool);
+}
+
 const struct mech_module mech_scram_sha1 = {
 	"SCRAM-SHA-1",
 
@@ -177,7 +182,7 @@ const struct mech_module mech_scram_sha1 = {
 	mech_scram_sha1_auth_new,
 	mech_generic_auth_initial,
 	mech_scram_auth_continue,
-	mech_generic_auth_free
+	mech_scram_auth_free,
 };
 
 const struct mech_module mech_scram_sha256 = {
@@ -189,5 +194,5 @@ const struct mech_module mech_scram_sha256 = {
 	mech_scram_sha256_auth_new,
 	mech_generic_auth_initial,
 	mech_scram_auth_continue,
-	mech_generic_auth_free
+	mech_scram_auth_free,
 };
