@@ -46,9 +46,14 @@ auth_scram_parse_client_first(struct scram_auth_request *server,
 
 	   client-first-message = gs2-header client-first-message-bare
 	   gs2-header      = gs2-cbind-flag "," [ authzid ] ","
+	   gs2-cbind-flag  = ("p=" cb-name) / "n" / "y"
 
 	   client-first-message-bare = [reserved-mext ","]
 	                     username "," nonce ["," extensions]
+	   reserved-mext   = "m=" 1*(value-char)
+
+	   username        = "n=" saslname
+	   nonce           = "r=" c-nonce [s-nonce]
 
 	   extensions      = attr-val *("," attr-val)
 	                     ;; All extensions are optional,
