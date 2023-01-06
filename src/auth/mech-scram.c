@@ -101,7 +101,7 @@ void mech_scram_auth_continue(struct auth_request *auth_request,
 	if (request->client_first_message_bare == NULL) {
 		/* Received client-first-message */
 		if (auth_scram_parse_client_first(request, data,
-						  data_size, &error)) {
+						  data_size, &error) >= 0) {
 			auth_request_lookup_credentials(
 				&request->auth_request,
 				request->password_scheme,

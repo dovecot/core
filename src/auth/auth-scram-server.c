@@ -29,7 +29,7 @@ static const char *auth_scram_unescape_username(const char *in)
 	return str_c(out);
 }
 
-static bool
+static int
 auth_scram_parse_client_first(struct scram_auth_request *server,
 			      const unsigned char *data, size_t size,
 			      const char **error_r)
@@ -61,7 +61,7 @@ auth_scram_parse_client_first(struct scram_auth_request *server,
 	if (p == NULL) {
 		*error_r = "Invalid initial client message: "
 			"Missing first ',' in GS2 header";
-		return FALSE;
+		return -1;
 	}
 	gs2_cbind_flag = t_strdup_until(data_cstr, p);
 	data_cstr = p + 1;
@@ -70,7 +70,7 @@ auth_scram_parse_client_first(struct scram_auth_request *server,
 	if (p == NULL) {
 		*error_r = "Invalid initial client message: "
 			"Missing second ',' in GS2 header";
-		return FALSE;
+		return -1;
 	}
 	authzid = t_strdup_until(data_cstr, p);
 	gs2_header = t_strdup_until(gs2_header, p + 1);
@@ -80,7 +80,7 @@ auth_scram_parse_client_first(struct scram_auth_request *server,
 	if (str_array_length(fields) < 2) {
 		*error_r = "Invalid initial client message: "
 			"Missing nonce field";
-		return FALSE;
+		return -1;
 	}
 	username = fields[0];
 	nonce = fields[1];
@@ -90,13 +90,13 @@ auth_scram_parse_client_first(struct scram_auth_request *server,
 	switch (gs2_cbind_flag[0]) {
 	case 'p':
 		*error_r = "Channel binding not supported";
-		return FALSE;
+		return -1;
 	case 'y':
 	case 'n':
 		break;
 	default:
 		*error_r = "Invalid GS2 header";
-		return FALSE;
+		return -1;
 	}
 
 	/* authzid         = "a=" saslname
@@ -110,18 +110,18 @@ auth_scram_parse_client_first(struct scram_auth_request *server,
 
 		if (login_username == NULL) {
 			*error_r = "authzid escaping is invalid";
-			return FALSE;
+			return -1;
 		}
 	} else {
 		*error_r = "Invalid authzid field";
-		return FALSE;
+		return -1;
 	}
 
 	/* reserved-mext   = "m=" 1*(value-char)
 	 */
 	if (username[0] == 'm') {
 		*error_r = "Mandatory extension(s) not supported";
-		return FALSE;
+		return -1;
 	}
 	/* username        = "n=" saslname
 	 */
@@ -130,19 +130,19 @@ auth_scram_parse_client_first(struct scram_auth_request *server,
 		username = auth_scram_unescape_username(username + 2);
 		if (username == NULL) {
 			*error_r = "Username escaping is invalid";
-			return FALSE;
+			return -1;
 		}
 		if (!auth_request_set_username(&server->auth_request,
 					       username, error_r))
-			return FALSE;
+			return -1;
 	} else {
 		*error_r = "Invalid username field";
-		return FALSE;
+		return -1;
 	}
 	if (login_username != NULL) {
 		if (!auth_request_set_login_username(&server->auth_request,
 						     login_username, error_r))
-			return FALSE;
+			return -1;
 	}
 
 	/* nonce           = "r=" c-nonce [s-nonce] */
@@ -150,13 +150,13 @@ auth_scram_parse_client_first(struct scram_auth_request *server,
 		server->cnonce = p_strdup(server->pool, nonce+2);
 	else {
 		*error_r = "Invalid client nonce";
-		return FALSE;
+		return -1;
 	}
 
 	server->gs2_header = p_strdup(server->pool, gs2_header);
 	server->client_first_message_bare =
 		p_strdup(server->pool, cfm_bare);
-	return TRUE;
+	return 0;
 }
 
 static const char *
