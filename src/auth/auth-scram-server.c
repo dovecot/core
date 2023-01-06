@@ -1,4 +1,4 @@
-static const char *scram_unescape_username(const char *in)
+static const char *auth_scram_unescape_username(const char *in)
 {
 	string_t *out;
 
@@ -30,9 +30,9 @@ static const char *scram_unescape_username(const char *in)
 }
 
 static bool
-parse_scram_client_first(struct scram_auth_request *server,
-			 const unsigned char *data, size_t size,
-			 const char **error_r)
+auth_scram_parse_client_first(struct scram_auth_request *server,
+			      const unsigned char *data, size_t size,
+			      const char **error_r)
 {
 	const char *login_username = NULL;
 	const char *data_cstr, *p;
@@ -106,7 +106,7 @@ parse_scram_client_first(struct scram_auth_request *server,
 		;
 	else if (authzid[0] == 'a' && authzid[1] == '=') {
 		/* Unescape authzid */
-		login_username = scram_unescape_username(authzid + 2);
+		login_username = auth_scram_unescape_username(authzid + 2);
 
 		if (login_username == NULL) {
 			*error_r = "authzid escaping is invalid";
@@ -127,7 +127,7 @@ parse_scram_client_first(struct scram_auth_request *server,
 	 */
 	if (username[0] == 'n' && username[1] == '=') {
 		/* Unescape username */
-		username = scram_unescape_username(username + 2);
+		username = auth_scram_unescape_username(username + 2);
 		if (username == NULL) {
 			*error_r = "Username escaping is invalid";
 			return FALSE;
@@ -160,8 +160,8 @@ parse_scram_client_first(struct scram_auth_request *server,
 }
 
 static const char *
-get_scram_server_first(struct scram_auth_request *server,
-		       int iter, const char *salt)
+auth_scram_get_server_first(struct scram_auth_request *server,
+			    int iter, const char *salt)
 {
 	unsigned char snonce[SCRAM_SERVER_NONCE_LEN+1];
 	string_t *str;
@@ -199,7 +199,8 @@ get_scram_server_first(struct scram_auth_request *server,
 	return str_c(str);
 }
 
-static bool verify_credentials(struct scram_auth_request *server)
+static bool
+auth_scram_server_verify_credentials(struct scram_auth_request *server)
 {
 	const struct hash_method *hmethod = server->hash_method;
 	struct hmac_context ctx;
@@ -241,9 +242,9 @@ static bool verify_credentials(struct scram_auth_request *server)
 }
 
 static bool
-parse_scram_client_final(struct scram_auth_request *server,
-			 const unsigned char *data, size_t size,
-			 const char **error_r)
+auth_scram_parse_client_final(struct scram_auth_request *server,
+			      const unsigned char *data, size_t size,
+			      const char **error_r)
 {
 	const struct hash_method *hmethod = server->hash_method;
 	const char **fields, *cbind_input, *nonce_str;
@@ -323,7 +324,8 @@ parse_scram_client_final(struct scram_auth_request *server,
 	return TRUE;
 }
 
-static const char *get_scram_server_final(struct scram_auth_request *server)
+static const char *
+auth_scram_get_server_final(struct scram_auth_request *server)
 {
 	const struct hash_method *hmethod = server->hash_method;
 	struct hmac_context ctx;

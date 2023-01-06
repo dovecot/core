@@ -74,7 +74,7 @@ credentials_callback(enum passdb_result result,
 		}
 
 		request->server_first_message = p_strdup(request->pool,
-			get_scram_server_first(request, iter_count, salt));
+			auth_scram_get_server_first(request, iter_count, salt));
 
 		auth_request_handler_reply_continue(auth_request,
 					request->server_first_message,
@@ -100,8 +100,8 @@ void mech_scram_auth_continue(struct auth_request *auth_request,
 
 	if (request->client_first_message_bare == NULL) {
 		/* Received client-first-message */
-		if (parse_scram_client_first(request, data,
-					     data_size, &error)) {
+		if (auth_scram_parse_client_first(request, data,
+						  data_size, &error)) {
 			auth_request_lookup_credentials(
 				&request->auth_request,
 				request->password_scheme,
@@ -110,14 +110,14 @@ void mech_scram_auth_continue(struct auth_request *auth_request,
 		}
 	} else {
 		/* Received client-final-message */
-		if (parse_scram_client_final(request, data, data_size,
-					     &error)) {
-			if (!verify_credentials(request)) {
+		if (auth_scram_parse_client_final(request, data, data_size,
+						  &error)) {
+			if (!auth_scram_server_verify_credentials(request)) {
 				e_info(auth_request->mech_event,
 				       AUTH_LOG_MSG_PASSWORD_MISMATCH);
 			} else {
 				server_final_message =
-					get_scram_server_final(request);
+					auth_scram_get_server_final(request);
 				len = strlen(server_final_message);
 				auth_request_success(auth_request,
 						     server_final_message, len);
