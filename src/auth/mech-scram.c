@@ -74,7 +74,7 @@ credentials_callback(enum passdb_result result,
 		}
 
 		request->server_first_message = p_strdup(request->pool,
-			auth_scram_get_server_first(request, iter_count, salt));
+			str_c(auth_scram_get_server_first(request, iter_count, salt)));
 
 		auth_request_handler_reply_continue(auth_request,
 					request->server_first_message,

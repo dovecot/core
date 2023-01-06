@@ -159,7 +159,7 @@ auth_scram_parse_client_first(struct scram_auth_request *server,
 	return 0;
 }
 
-static const char *
+static string_t *
 auth_scram_get_server_first(struct scram_auth_request *server,
 			    int iter, const char *salt)
 {
@@ -196,7 +196,7 @@ auth_scram_get_server_first(struct scram_auth_request *server,
 			strlen(salt));
 	str_printfa(str, "r=%s%s,s=%s,i=%d", server->cnonce, server->snonce,
 		    salt, iter);
-	return str_c(str);
+	return str;
 }
 
 static bool
