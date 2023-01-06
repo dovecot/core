@@ -56,7 +56,8 @@ credentials_callback(enum passdb_result result,
 		     struct auth_request *auth_request)
 {
 	struct scram_auth_request *request =
-		(struct scram_auth_request *)auth_request;
+		container_of(auth_request, struct scram_auth_request,
+			     auth_request);
 	struct auth_scram_key_data *key_data = &request->key_data;
 	const char *error;
 
@@ -95,7 +96,8 @@ void mech_scram_auth_continue(struct auth_request *auth_request,
 			      const unsigned char *data, size_t data_size)
 {
 	struct scram_auth_request *request =
-		(struct scram_auth_request *)auth_request;
+		container_of(auth_request, struct scram_auth_request,
+			     auth_request);
 	const char *error = NULL;
 	const char *server_final_message;
 	size_t len;
