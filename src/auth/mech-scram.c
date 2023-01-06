@@ -111,7 +111,7 @@ void mech_scram_auth_continue(struct auth_request *auth_request,
 	} else {
 		/* Received client-final-message */
 		if (auth_scram_parse_client_final(request, data, data_size,
-						  &error)) {
+						  &error) >= 0) {
 			if (!auth_scram_server_verify_credentials(request)) {
 				e_info(auth_request->mech_event,
 				       AUTH_LOG_MSG_PASSWORD_MISMATCH);

@@ -241,7 +241,7 @@ auth_scram_server_verify_credentials(struct scram_auth_request *server)
 				      sizeof(stored_key));
 }
 
-static bool
+static int
 auth_scram_parse_client_final(struct scram_auth_request *server,
 			      const unsigned char *data, size_t size,
 			      const char **error_r)
@@ -263,7 +263,7 @@ auth_scram_parse_client_final(struct scram_auth_request *server,
 	field_count = str_array_length(fields);
 	if (field_count < 3) {
 		*error_r = "Invalid final client message";
-		return FALSE;
+		return -1;
 	}
 
 	/* channel-binding = "c=" base64
@@ -282,7 +282,7 @@ auth_scram_parse_client_final(struct scram_auth_request *server,
 
 	if (strcmp(fields[0], str_c(str)) != 0) {
 		*error_r = "Invalid channel binding data";
-		return FALSE;
+		return -1;
 	}
 
 	/* nonce           = "r=" c-nonce [s-nonce]
@@ -293,7 +293,7 @@ auth_scram_parse_client_final(struct scram_auth_request *server,
 	nonce_str = t_strconcat("r=", server->cnonce, server->snonce, NULL);
 	if (strcmp(fields[1], nonce_str) != 0) {
 		*error_r = "Wrong nonce";
-		return FALSE;
+		return -1;
 	}
 
 	/* proof           = "p=" base64
@@ -306,22 +306,22 @@ auth_scram_parse_client_final(struct scram_auth_request *server,
 		if (base64_decode(&fields[field_count-1][2], len,
 				  server->proof) < 0) {
 			*error_r = "Invalid base64 encoding";
-			return FALSE;
+			return -1;
 		}
 		if (server->proof->used != hmethod->digest_size) {
 			*error_r = "Invalid ClientProof length";
-			return FALSE;
+			return -1;
 		}
 	} else {
 		*error_r = "Invalid ClientProof";
-		return FALSE;
+		return -1;
 	}
 
 	(void)str_array_remove(fields, fields[field_count-1]);
 	server->client_final_message_without_proof =
 		p_strdup(server->pool, t_strarray_join(fields, ","));
 
-	return TRUE;
+	return 0;
 }
 
 static const char *
