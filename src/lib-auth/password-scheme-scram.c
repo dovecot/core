@@ -12,19 +12,12 @@
 #include "base64.h"
 #include "buffer.h"
 #include "hmac.h"
-#include "randgen.h"
 #include "hash-method.h"
 #include "sha1.h"
 #include "sha2.h"
 #include "str.h"
 #include "auth-scram.h"
 #include "password-scheme.h"
-
-/* SCRAM allowed iteration count range. RFC says it SHOULD be at least 4096 */
-#define SCRAM_MIN_ITERATE_COUNT 4096
-#define SCRAM_MAX_ITERATE_COUNT INT_MAX
-
-#define SCRAM_DEFAULT_ITERATE_COUNT 4096
 
 int scram_scheme_parse(const struct hash_method *hmethod, const char *name,
 		       const unsigned char *credentials, size_t size,
@@ -44,8 +37,8 @@ int scram_scheme_parse(const struct hash_method *hmethod, const char *name,
 		return -1;
 	}
 	if (str_to_uint(fields[0], iter_count_r) < 0 ||
-	    *iter_count_r < SCRAM_MIN_ITERATE_COUNT ||
-	    *iter_count_r > SCRAM_MAX_ITERATE_COUNT) {
+	    *iter_count_r < AUTH_SCRAM_MIN_ITERATE_COUNT ||
+	    *iter_count_r > AUTH_SCRAM_MAX_ITERATE_COUNT) {
 		*error_r = t_strdup_printf(
 			"Invalid %s iteration count in passdb", name);
 		return -1;
@@ -123,50 +116,23 @@ void scram_generate(const struct hash_method *hmethod, const char *plaintext,
 		    size_t *size_r)
 {
 	string_t *str;
-	struct hmac_context ctx;
-	unsigned char salt[16];
-	unsigned char salted_password[hmethod->digest_size];
-	unsigned char client_key[hmethod->digest_size];
+	unsigned int iter_count;
+	const char *salt;
 	unsigned char server_key[hmethod->digest_size];
 	unsigned char stored_key[hmethod->digest_size];
 
-	if (rounds == 0)
-		rounds = SCRAM_DEFAULT_ITERATE_COUNT;
-	else {
-		rounds = I_MAX(I_MIN(SCRAM_MAX_ITERATE_COUNT, rounds),
-			       SCRAM_MIN_ITERATE_COUNT);
-	}
-	random_fill(salt, sizeof(salt));
+	auth_scram_generate_key_data(hmethod, plaintext, rounds,
+				     &iter_count, &salt,
+				     stored_key, server_key);
 
-	str = t_str_new(MAX_BASE64_ENCODED_SIZE(sizeof(salt)));
-	str_printfa(str, "%d,", rounds);
-	base64_encode(salt, sizeof(salt), str);
-
-	/* FIXME: credentials should be SASLprepped UTF8 data here */
-	auth_scram_hi(hmethod,
-		      (const unsigned char *)plaintext, strlen(plaintext),
-		      salt, sizeof(salt), rounds, salted_password);
-
-	/* Calculate ClientKey */
-	hmac_init(&ctx, salted_password, sizeof(salted_password), hmethod);
-	hmac_update(&ctx, "Client Key", 10);
-	hmac_final(&ctx, client_key);
-
-	/* Calculate StoredKey */
-	hash_method_get_digest(hmethod, client_key, sizeof(client_key),
-			       stored_key);
+	str = t_str_new(strlen(salt) + 256);
+	str_printfa(str, "%d,", iter_count);
+	str_append(str, salt);
 	str_append_c(str, ',');
 	base64_encode(stored_key, sizeof(stored_key), str);
-
-	/* Calculate ServerKey */
-	hmac_init(&ctx, salted_password, sizeof(salted_password), hmethod);
-	hmac_update(&ctx, "Server Key", 10);
-	hmac_final(&ctx, server_key);
 	str_append_c(str, ',');
 	base64_encode(server_key, sizeof(server_key), str);
 
-	safe_memset(salted_password, 0, sizeof(salted_password));
-	safe_memset(client_key, 0, sizeof(client_key));
 	safe_memset(server_key, 0, sizeof(server_key));
 	safe_memset(stored_key, 0, sizeof(stored_key));
 
