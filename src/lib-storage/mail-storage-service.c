@@ -1218,10 +1218,9 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	const char *const *userdb_fields, *error;
 	struct auth_user_reply reply;
 	struct setting_parser_context *set_parser;
-	pool_t user_pool, temp_pool;
+	pool_t temp_pool;
 	int ret = 1;
 
-	user_pool = pool_alloconly_create(MEMPOOL_GROWING"mail storage service user", 1024*6);
 	flags = mail_storage_service_input_get_flags(ctx, input);
 
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0 &&
@@ -1242,7 +1241,6 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 			   config socket before dropping privileges */
 			i_fatal("%s", *error_r);
 		}
-		pool_unref(&user_pool);
 		return -1;
 	}
 
@@ -1261,8 +1259,13 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	   will be used for that. */
 	struct event *event = event_create(input->event_parent);
 
-	user_set = settings_parser_get_root_set(set_parser,
-						&mail_user_setting_parser_info);
+	if (master_service_settings_parser_get(event, set_parser,
+					       &mail_user_setting_parser_info,
+					       MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+					       &user_set, error_r) < 0) {
+		event_unref(&event);
+		return -1;
+	}
 
 	if (update_log_prefix)
 		mail_storage_service_set_log_prefix(ctx, user_set, NULL, input, NULL);
@@ -1271,7 +1274,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		mail_storage_service_first_init(ctx, user_set, flags);
 	/* load global plugins */
 	if (mail_storage_service_load_modules(ctx, user_set, error_r) < 0) {
-		pool_unref(&user_pool);
+		master_service_settings_free(user_set);
 		event_unref(&event);
 		return -1;
 	}
@@ -1282,6 +1285,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	event_set_forced_debug(event,
 		ctx->debug || (flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0);
 
+	pool_t user_pool = pool_alloconly_create(MEMPOOL_GROWING"mail storage service user", 1024*6);
 	const char *session_id = input->session_id != NULL ?
 		p_strdup(user_pool, input->session_id) :
 		mail_storage_service_generate_session_id(
@@ -1302,6 +1306,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 			ctx, input, temp_pool, event,
 			&username, &userdb_fields, error_r);
 		if (ret <= 0) {
+			master_service_settings_free(user_set);
 			event_unref(&event);
 			pool_unref(&temp_pool);
 			pool_unref(&user_pool);
@@ -1328,9 +1333,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	user->flags = flags;
 
 	user->set_parser = settings_parser_dup(set_parser, user_pool);
-
-	user->user_set = settings_parser_get_root_set(user->set_parser,
-				&mail_user_setting_parser_info);
+	user->user_set = user_set;
 	user->gid_source = "mail_gid setting";
 	user->uid_source = "mail_uid setting";
 
@@ -1351,20 +1354,6 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 			ret = -2;
 		}
 	}
-	if (ret > 0 && !settings_parser_check(user->set_parser, user_pool, &error)) {
-		*error_r = t_strdup_printf(
-			"Invalid settings (probably caused by userdb): %s", error);
-		ret = -2;
-	}
-	pool_unref(&temp_pool);
-
-	/* load per-user plugins */
-	if (ret > 0) {
-		if (mail_storage_service_load_modules(ctx, user->user_set,
-						      error_r) < 0) {
-			ret = -2;
-		}
-	}
 	if ((ctx->flags & MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS) != 0 &&
 	    user_set->mail_plugins[0] != '\0') {
 		/* mail_storage_service_load_modules() already avoids loading
@@ -1377,6 +1366,29 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		   prevent any of their hooks from being called. One easy way
 		   to do this is just to clear out the mail_plugins setting: */
 		(void)settings_parse_line(user->set_parser, "mail_plugins=");
+	}
+	if (ret > 0) {
+		/* Settings may have changed in the parser */
+		if (master_service_settings_parser_get(event, user->set_parser,
+				&mail_user_setting_parser_info,
+				MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+				&user_set, &error) < 0) {
+			*error_r = t_strdup_printf(
+				"%s (probably caused by userdb)", error);
+			ret = -2;
+		} else {
+			master_service_settings_free(user->user_set);
+			user->user_set = user_set;
+		}
+	}
+	pool_unref(&temp_pool);
+
+	/* load per-user plugins */
+	if (ret > 0) {
+		if (mail_storage_service_load_modules(ctx, user->user_set,
+						      error_r) < 0) {
+			ret = -2;
+		}
 	}
 
 	if (ret < 0)
@@ -1627,6 +1639,7 @@ void mail_storage_service_user_unref(struct mail_storage_service_user **_user)
 	if (user->master_service_user_set)
 		master_service_set_current_user(master_service, NULL);
 
+	master_service_settings_free(user->user_set);
 	settings_parser_unref(&user->set_parser);
 	event_unref(&user->event);
 	pool_unref(&user->pool);
@@ -1651,10 +1664,15 @@ void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 	if (mail_storage_service_read_settings(ctx, input,
 					       &set_parser, &error) < 0)
 		i_fatal("%s", error);
-	user_set = settings_parser_get_root_set(set_parser,
-						&mail_user_setting_parser_info);
+	struct event *event = input == NULL ? NULL : input->event_parent;
+	if (master_service_settings_parser_get(event, set_parser,
+			&mail_user_setting_parser_info,
+			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			&user_set, &error) < 0)
+		i_fatal("%s", error);
 
 	mail_storage_service_first_init(ctx, user_set, ctx->flags);
+	master_service_settings_free(user_set);
 }
 
 static int
