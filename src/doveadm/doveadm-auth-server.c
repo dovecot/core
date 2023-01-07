@@ -264,7 +264,6 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 	struct mail_storage_service_input service_input;
 	struct mail_user *user;
 	const char *error, *const *userdb_fields;
-	pool_t pool;
 	int ret;
 
 	i_zero(&service_input);
@@ -276,13 +275,8 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 	service_input.remote_port = input->info.remote_port;
 	service_input.debug = input->info.debug;
 
-	pool = pool_alloconly_create("userdb fields", 1024);
-	mail_storage_service_save_userdb_fields(storage_service, pool,
-						&userdb_fields);
-
 	if ((ret = mail_storage_service_lookup_next(storage_service, &service_input,
 						    &user, &error)) <= 0) {
-		pool_unref(&pool);
 		if (ret < 0)
 			return -1;
 		json_ostream_nwritef_string(json_output, "error",
@@ -292,6 +286,7 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 	}
 
 	if (expand_field == NULL) {
+		userdb_fields = mail_storage_service_user_get_userdb_fields(user->service_user);
 		cmd_user_mail_print_fields(input, user,
 			json_output, userdb_fields, show_field);
 	} else {
@@ -309,7 +304,6 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 	}
 
 	mail_user_deinit(&user);
-	pool_unref(&pool);
 	return 1;
 }
 

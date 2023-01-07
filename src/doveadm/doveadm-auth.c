@@ -665,7 +665,6 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 	struct mail_storage_service_input service_input;
 	struct mail_user *user;
 	const char *error, *const *userdb_fields;
-	pool_t pool;
 	int ret;
 
 	i_zero(&service_input);
@@ -677,13 +676,8 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 	service_input.remote_port = input->info.remote_port;
 	service_input.debug = input->info.debug;
 
-	pool = pool_alloconly_create("userdb fields", 1024);
-	mail_storage_service_save_userdb_fields(storage_service, pool,
-						&userdb_fields);
-
 	if ((ret = mail_storage_service_lookup_next(storage_service, &service_input,
 						    &user, &error)) <= 0) {
-		pool_unref(&pool);
 		if (ret < 0)
 			return -1;
 		fprintf(show_field == NULL && expand_field == NULL ? stdout : stderr,
@@ -692,9 +686,10 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 		return 0;
 	}
 
-	if (expand_field == NULL)
+	if (expand_field == NULL) {
+		userdb_fields = mail_storage_service_user_get_userdb_fields(user->service_user);
 		cmd_user_mail_print_fields(input, user, userdb_fields, show_field);
-	else {
+	} else {
 		string_t *str = t_str_new(128);
 		if (var_expand_with_funcs(str, expand_field,
 					  mail_user_var_expand_table(user),
@@ -707,7 +702,6 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 	}
 
 	mail_user_deinit(&user);
-	pool_unref(&pool);
 	return 1;
 }
 
