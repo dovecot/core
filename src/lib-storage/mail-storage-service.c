@@ -58,9 +58,6 @@ struct mail_storage_service_ctx {
 	ARRAY(const struct setting_parser_info *) set_roots;
 	enum mail_storage_service_flags flags;
 
-	pool_t userdb_next_pool;
-	const char *const **userdb_next_fieldsp;
-
 	bool debug:1;
 	bool log_initialized:1;
 	bool config_permission_denied:1;
@@ -1283,13 +1280,7 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 		return -1;
 	}
 
-	if (ctx->userdb_next_pool == NULL)
-		temp_pool = pool_alloconly_create("userdb lookup", 2048);
-	else {
-		temp_pool = ctx->userdb_next_pool;
-		ctx->userdb_next_pool = NULL;
-		pool_ref(temp_pool);
-	}
+	temp_pool = pool_alloconly_create("userdb lookup", 2048);
 
 	/* Create an event that will be used as the default event for logging.
 	   This event won't be a parent to any other events - mail_user.event
@@ -1324,8 +1315,6 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 			return ret;
 		}
 		event_add_str(event, "user", username);
-		if (ctx->userdb_next_fieldsp != NULL)
-			*ctx->userdb_next_fieldsp = userdb_fields;
 	} else {
 		userdb_fields = input->userdb_fields;
 	}
@@ -1445,17 +1434,6 @@ int mail_storage_service_lookup(struct mail_storage_service_ctx *ctx,
 	i_set_failure_prefix("%s", old_log_prefix);
 	i_free(old_log_prefix);
 	return ret;
-}
-
-void mail_storage_service_save_userdb_fields(struct mail_storage_service_ctx *ctx,
-					     pool_t pool, const char *const **userdb_fields_r)
-{
-	i_assert(pool != NULL);
-	i_assert(userdb_fields_r != NULL);
-
-	ctx->userdb_next_pool = pool;
-	ctx->userdb_next_fieldsp = userdb_fields_r;
-	*userdb_fields_r = NULL;
 }
 
 static int
