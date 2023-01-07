@@ -129,6 +129,9 @@ int mail_storage_service_lookup_next(struct mail_storage_service_ctx *ctx,
 				     const char **error_r);
 void mail_storage_service_user_ref(struct mail_storage_service_user *user);
 void mail_storage_service_user_unref(struct mail_storage_service_user **user);
+/* Return userdb fields for the user. */
+const char *const *
+mail_storage_service_user_get_userdb_fields(struct mail_storage_service_user *user);
 /* Initialize iterating through all users. */
 void mail_storage_service_all_init(struct mail_storage_service_ctx *ctx);
 /* Initialize iterating through all users with a user mask hint to the

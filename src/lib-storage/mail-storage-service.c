@@ -1664,6 +1664,12 @@ void mail_storage_service_user_unref(struct mail_storage_service_user **_user)
 	pool_unref(&user->pool);
 }
 
+const char *const *
+mail_storage_service_user_get_userdb_fields(struct mail_storage_service_user *user)
+{
+	return user->input.userdb_fields;
+}
+
 void mail_storage_service_init_settings(struct mail_storage_service_ctx *ctx,
 					const struct mail_storage_service_input *input)
 {
