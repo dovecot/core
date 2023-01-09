@@ -208,6 +208,9 @@ master_service_exec_config(struct master_service *service,
 	if (input->use_sysexits)
 		env_put("USE_SYSEXITS", "1");
 
+	if (input->service != NULL)
+		env_put("DOVECONF_SERVICE", input->service);
+
 	t_array_init(&conf_argv, 11 + (service->argc + 1) + 1);
 	strarr_push(&conf_argv, DOVECOT_CONFIG_BIN_PATH);
 	strarr_push(&conf_argv, "-c");
