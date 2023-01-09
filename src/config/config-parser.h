@@ -8,6 +8,7 @@
 enum config_parse_flags {
 	CONFIG_PARSE_FLAG_EXPAND_VALUES	= BIT(0),
 	CONFIG_PARSE_FLAG_HIDE_ERRORS	= BIT(1),
+	CONFIG_PARSE_FLAG_SKIP_SSL_SERVER = BIT(2), /* FIXME: temporary kludge - remove later */
 };
 
 struct config_module_parser {

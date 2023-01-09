@@ -974,6 +974,10 @@ int main(int argc, char *argv[])
 		flags |= CONFIG_PARSE_FLAG_EXPAND_VALUES;
 	if (disable_check_settings)
 		flags |= CONFIG_PARSE_FLAG_HIDE_ERRORS;
+	if (null_strcmp(getenv("DOVECONF_SERVICE"), "doveadm") == 0) {
+		/* FIXME: temporary kludge - remove later */
+		flags |= CONFIG_PARSE_FLAG_SKIP_SSL_SERVER;
+	}
 	if ((ret = config_parse_file(dump_defaults ? NULL : config_path,
 				     flags, &error)) == 0 &&
 	    access(EXAMPLE_CONFIG_DIR, X_OK) == 0) {

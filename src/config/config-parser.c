@@ -768,6 +768,20 @@ config_get_value(struct config_section_stack *section, const char *key,
 	return NULL;
 }
 
+static bool
+config_skip_key(struct config_parser_context *ctx, const char *key)
+{
+	if (ctx->skip_ssl_server_settings &&
+	    (strcmp(key, "ssl_cert") == 0 ||
+	     strcmp(key, "ssl_key") == 0 ||
+	     strcmp(key, "ssl_ca") == 0 ||
+	     strcmp(key, "ssl_verify_client_cert") == 0)) {
+		/* FIXME: temporary kludge - remove later */
+		return TRUE;
+	}
+	return FALSE;
+}
+
 static int config_write_keyvariable(struct config_parser_context *ctx,
 				    const char *key, const char *value,
 				    string_t *str)
@@ -915,6 +929,8 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 	case CONFIG_LINE_TYPE_KEYVALUE:
 	case CONFIG_LINE_TYPE_KEYFILE:
 	case CONFIG_LINE_TYPE_KEYVARIABLE:
+		if (config_skip_key(ctx, key))
+			break;
 		str_append(ctx->str, key);
 		config_parser_check_warnings(ctx, key);
 		str_append_c(ctx->str, '=');
@@ -1000,6 +1016,8 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	ctx.path = path;
 	ctx.hide_errors = fd == -1 ||
 		(flags & CONFIG_PARSE_FLAG_HIDE_ERRORS) != 0;
+	ctx.skip_ssl_server_settings =
+		(flags & CONFIG_PARSE_FLAG_SKIP_SSL_SERVER) != 0;
 
 	for (count = 0; all_roots[count] != NULL; count++) ;
 	ctx.root_parsers =

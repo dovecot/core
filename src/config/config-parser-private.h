@@ -59,6 +59,7 @@ struct config_parser_context {
 	struct config_filter_context *filter;
 	bool expand_values:1;
 	bool hide_errors:1;
+	bool skip_ssl_server_settings:1; /* FIXME: temporary kludge - remove later */
 };
 
 extern void (*hook_config_parser_begin)(struct config_parser_context *ctx);
