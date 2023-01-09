@@ -998,7 +998,7 @@ void config_parser_apply_line(struct config_parser_context *ctx,
 }
 
 int config_parse_file(const char *path, enum config_parse_flags flags,
-		      const char *const *modules, const char **error_r)
+		      const char **error_r)
 {
 	struct input_stack root;
 	struct config_parser_context ctx;
@@ -1040,7 +1040,6 @@ int config_parse_file(const char *path, enum config_parse_flags flags,
 	root.path = path;
 	ctx.cur_input = &root;
 	ctx.expand_values = (flags & CONFIG_PARSE_FLAG_EXPAND_VALUES) != 0;
-	ctx.modules = modules;
 	hash_table_create(&ctx.seen_settings, ctx.pool, 0, str_hash, strcmp);
 
 	p_array_init(&ctx.all_parsers, ctx.pool, 128);

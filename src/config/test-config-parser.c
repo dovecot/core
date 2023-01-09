@@ -117,7 +117,7 @@ static void test_config_parser(void)
 	putenv("bar=test2");
 	putenv("FOO$ENV:FOO=works");
 
-	test_assert(config_parse_file(TEST_CONFIG_FILE, CONFIG_PARSE_FLAG_EXPAND_VALUES, NULL, &error) == 1);
+	test_assert(config_parse_file(TEST_CONFIG_FILE, CONFIG_PARSE_FLAG_EXPAND_VALUES, &error) == 1);
 	if (error != NULL)
 		i_error("config_parse_file(): %s", error);
 
@@ -138,7 +138,7 @@ static void test_config_parser(void)
 	test_assert_strcmp(set->protocols, "pop3 imap");
 
 	/* try again unexpanded */
-	test_assert(config_parse_file(TEST_CONFIG_FILE, 0, NULL, &error) == 1);
+	test_assert(config_parse_file(TEST_CONFIG_FILE, 0, &error) == 1);
 	set = settings_parser_get(config_module_parsers[0].parser);
 
 	test_assert_strcmp(set->key, "value");

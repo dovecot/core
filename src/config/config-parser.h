@@ -23,7 +23,7 @@ extern struct module *modules;
 int config_parse_net(const char *value, struct ip_addr *ip_r,
 		     unsigned int *bits_r, const char **error_r);
 int config_parse_file(const char *path, enum config_parse_flags flags,
-		      const char *const *modules, const char **error_r)
+		      const char **error_r)
 	ATTR_NULL(3);
 
 void config_parse_load_modules(void);

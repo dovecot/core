@@ -969,8 +969,7 @@ int main(int argc, char *argv[])
 	if (expand_vars)
 		flags |= CONFIG_PARSE_FLAG_EXPAND_VALUES;
 	if ((ret = config_parse_file(dump_defaults ? NULL : config_path,
-				     flags, NULL,
-				     &error)) == 0 &&
+				     flags, &error)) == 0 &&
 	    access(EXAMPLE_CONFIG_DIR, X_OK) == 0) {
 		i_fatal("%s (copy example configs from "EXAMPLE_CONFIG_DIR"/)",
 			error);
