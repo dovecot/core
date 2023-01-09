@@ -625,6 +625,26 @@ static void imap_acl_cmd_getacl(struct mailbox *box, struct mail_namespace *ns,
 	}
 }
 
+static struct mail_namespace *
+imap_acl_find_namespace(struct client_command_context *cmd,
+			const char **mailbox)
+{
+	struct mail_namespace *ns;
+
+	ns = client_find_namespace(cmd, mailbox);
+	if (ns == NULL)
+		return NULL;
+
+	if (ACL_LIST_CONTEXT(ns->list) == NULL) {
+		client_send_tagline(cmd, t_strdup_printf(
+			"NO ["IMAP_RESP_CODE_NONEXISTENT"] "
+			MAIL_ERRSTR_MAILBOX_NOT_FOUND, *mailbox));
+		return NULL;
+	}
+
+	return ns;
+}
+
 static bool cmd_getacl(struct client_command_context *cmd)
 {
 	struct mail_namespace *ns;
@@ -635,7 +655,7 @@ static bool cmd_getacl(struct client_command_context *cmd)
 		return FALSE;
 	orig_mailbox = mailbox;
 
-	ns = client_find_namespace(cmd, &mailbox);
+	ns = imap_acl_find_namespace(cmd, &mailbox);
 	if (ns == NULL)
 		return TRUE;
 
@@ -695,7 +715,7 @@ static bool cmd_myrights(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	ns = client_find_namespace(cmd, &mailbox);
+	ns = imap_acl_find_namespace(cmd, &mailbox);
 	if (ns == NULL)
 		return TRUE;
 
@@ -722,7 +742,7 @@ static bool cmd_listrights(struct client_command_context *cmd)
 		return FALSE;
 	orig_mailbox = mailbox;
 
-	ns = client_find_namespace(cmd, &mailbox);
+	ns = imap_acl_find_namespace(cmd, &mailbox);
 	if (ns == NULL)
 		return TRUE;
 
@@ -1007,7 +1027,7 @@ static bool cmd_setacl(struct client_command_context *cmd)
 	/* Append original rights for proxy_cmd_args */
 	imap_append_astring(proxy_cmd_args, rights);
 
-	ns = client_find_namespace(cmd, &mailbox);
+	ns = imap_acl_find_namespace(cmd, &mailbox);
 	if (ns == NULL)
 		return TRUE;
 
@@ -1068,7 +1088,7 @@ static bool cmd_deleteacl(struct client_command_context *cmd)
 		return TRUE;
 	}
 
-	ns = client_find_namespace(cmd, &mailbox);
+	ns = imap_acl_find_namespace(cmd, &mailbox);
 	if (ns == NULL)
 		return TRUE;
 
