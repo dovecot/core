@@ -324,6 +324,10 @@ fts_tokenizer_email_address_next(struct fts_tokenizer *_tok,
 			/* no part of address found yet. remove possible
 			   earlier data */
 			str_truncate(tok->last_word, 0);
+                        if (fts_tokenizer_address_parent_data(tok, token_r)) {
+                               *skip_r = pos;
+                               return 1;
+                        }
 
 			/* fall through */
 		case EMAIL_ADDRESS_PARSER_STATE_LOCALPART:
