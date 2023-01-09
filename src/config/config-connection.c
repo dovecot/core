@@ -58,7 +58,7 @@ static int config_connection_request(struct config_connection *conn,
 		const char *path, *error;
 
 		path = master_service_get_config_path(master_service);
-		if (config_parse_file(path, TRUE, NULL, &error) <= 0) {
+		if (config_parse_file(path, CONFIG_PARSE_FLAG_EXPAND_VALUES, NULL, &error) <= 0) {
 			o_stream_nsend_str(conn->output,
 				t_strconcat("-", error, "\n", NULL));
 			return 0;

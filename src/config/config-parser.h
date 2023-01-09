@@ -5,6 +5,10 @@
 
 #define IS_WHITE(c) ((c) == ' ' || (c) == '\t')
 
+enum config_parse_flags {
+	CONFIG_PARSE_FLAG_EXPAND_VALUES	= BIT(0),
+};
+
 struct config_module_parser {
 	const struct setting_parser_info *root;
 	struct setting_parser_context *parser;
@@ -18,7 +22,7 @@ extern struct module *modules;
 
 int config_parse_net(const char *value, struct ip_addr *ip_r,
 		     unsigned int *bits_r, const char **error_r);
-int config_parse_file(const char *path, bool expand_values,
+int config_parse_file(const char *path, enum config_parse_flags flags,
 		      const char *const *modules, const char **error_r)
 	ATTR_NULL(3);
 
