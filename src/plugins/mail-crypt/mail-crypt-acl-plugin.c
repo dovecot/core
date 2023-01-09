@@ -147,15 +147,11 @@ mail_crypt_acl_user_create(struct mail_user *user, const char *dest_username,
 	const struct mail_storage_service_input *old_input;
 	struct mail_storage_service_input input;
 	struct mail_storage_service_ctx *service_ctx;
-	struct ioloop_context *cur_ioloop_ctx;
 
 	int ret;
 
 	service_ctx = mail_storage_service_user_get_service_ctx(user->service_user);
 	old_input = mail_storage_service_user_get_input(user->service_user);
-
-	if ((cur_ioloop_ctx = io_loop_get_current_context(current_ioloop)) != NULL)
-		io_loop_context_deactivate(cur_ioloop_ctx);
 
 	i_zero(&input);
 	input.service = old_input->service;
@@ -284,13 +280,6 @@ static int mail_crypt_acl_object_update(struct acl_object *aclobj,
 		ret = mail_crypt_acl_user_create(aclobj->backend->list->ns->user,
 						 username, &dest_user, &error);
 
-		/* to make sure we get correct logging context */
-		if (ret > 0)
-			mail_storage_service_io_deactivate_user(dest_user->service_user);
-		mail_storage_service_io_activate_user(
-			aclobj->backend->list->ns->user->service_user
-		);
-
 		if (ret <= 0) {
 			e_error(event,
 				"mail-crypt-acl-plugin: Cannot initialize destination user %s: %s",
@@ -314,12 +303,6 @@ static int mail_crypt_acl_object_update(struct acl_object *aclobj,
 					error);
 			}
 		}
-
-		/* logging context swap again */
-		mail_storage_service_io_deactivate_user(
-			aclobj->backend->list->ns->user->service_user
-		);
-		mail_storage_service_io_activate_user(dest_user->service_user);
 
 		mail_user_deinit(&dest_user);
 
