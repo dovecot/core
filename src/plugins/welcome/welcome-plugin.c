@@ -99,13 +99,6 @@ welcome_create_box(struct mailbox *box,
 	return 0;
 }
 
-static int welcome_open_box(struct mailbox *box)
-{
-	struct welcome_mailbox *wbox = WELCOME_CONTEXT(box);
-
-	return wbox->module_ctx.super.open(box);
-}
-
 static void welcome_mailbox_allocated(struct mailbox *box)
 {
 	struct mailbox_vfuncs *v = box->vlast;
@@ -119,7 +112,6 @@ static void welcome_mailbox_allocated(struct mailbox *box)
 	box->vlast = &wbox->module_ctx.super;
 
 	v->create_box = welcome_create_box;
-	v->open = welcome_open_box;
 	MODULE_CONTEXT_SET(box, welcome_storage_module, wbox);
 }
 
