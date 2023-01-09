@@ -14,10 +14,12 @@
 #include "str.h"
 #include "strescape.h"
 #include "str-parse.h"
+#include "env-util.h"
 #include "var-expand.h"
 #include "process-title.h"
 #include "settings-parser.h"
 #include "imap-util.h"
+#include "master-interface.h"
 #include "master-service.h"
 #include "master-service-settings.h"
 #include "master-service-ssl-settings.h"
@@ -197,6 +199,14 @@ run_cmd(struct dsync_cmd_context *ctx, const char *const *args)
 		    dup2(fd_out[1], STDOUT_FILENO) < 0 ||
 		    dup2(fd_err[1], STDERR_FILENO) < 0)
 			i_fatal("dup2() failed: %m");
+
+		/* If doveadm is executed locally, use the already parsed
+		   configuration. This also means that the dsync-server will
+		   use the same configuration as the main process without
+		   having to provide the same -c (etc.) parameters. */
+		int config_fd = doveadm_settings_get_config_fd();
+		fd_close_on_exec(config_fd, FALSE);
+		env_put(DOVECOT_CONFIG_FD_ENV, dec2str(config_fd));
 
 		i_close_fd(&fd_in[0]);
 		i_close_fd(&fd_in[1]);
