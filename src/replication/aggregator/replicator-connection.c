@@ -93,8 +93,8 @@ replicator_send_buf(struct replicator_connection *conn, buffer_t *buf)
 
 	/* try to send about IO_BLOCK_SIZE amount of data,
 	   but only full lines */
-	if (len > buf->used)
-		len = buf->used;
+	if (len >= buf->used)
+		len = buf->used - 1;
 	for (;; len++) {
 		i_assert(len < buf->used); /* there is always LF */
 		if (data[len] == '\n') {
