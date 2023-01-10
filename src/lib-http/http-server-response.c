@@ -311,16 +311,16 @@ http_server_response_flush_payload(struct http_server_response *resp)
 	struct http_server_connection *conn = req->conn;
 	int ret;
 
-	if (resp->payload_output != conn->conn.output &&
-	    (ret = o_stream_finish(resp->payload_output)) <= 0) {
-		if (ret < 0)
-			http_server_connection_handle_output_error(conn);
-		else
-			http_server_connection_start_idle_timeout(conn);
-		return ret;
-	}
+	if (resp->payload_output == conn->conn.output)
+		ret = o_stream_flush(resp->payload_output);
+	else
+		ret = o_stream_finish(resp->payload_output);
 
-	return 1;
+	if (ret < 0)
+		http_server_connection_handle_output_error(conn);
+	else if (ret == 0)
+		http_server_connection_start_idle_timeout(conn);
+	return ret;
 }
 
 void http_server_response_request_finished(struct http_server_response *resp)
@@ -351,6 +351,7 @@ int http_server_response_finish_payload_out(struct http_server_response *resp)
 		if (ret == 0) {
 			e_debug(resp->event,
 				"Not quite finished sending payload");
+			conn->output_locked = TRUE;
 			return 0;
 		}
 		o_stream_unref(&resp->payload_output);
