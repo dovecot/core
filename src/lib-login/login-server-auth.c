@@ -608,18 +608,14 @@ void login_server_auth_request(struct login_server_auth *auth,
 				    t_strdup_printf("request [%u]: ",
 						    login_req->id));
 
-	if (req->local_ip.family != 0) {
-		event_add_str(login_req->event, "local_ip",
-			      net_ip2addr(&req->local_ip));
-	}
+	if (req->local_ip.family != 0)
+		event_add_ip(login_req->event, "local_ip", &req->local_ip);
 	if (req->local_port != 0) {
 		event_add_int(login_req->event, "local_port",
 			      req->local_port);
 	}
-	if (req->remote_ip.family != 0) {
-		event_add_str(login_req->event, "remote_ip",
-			      net_ip2addr(&req->remote_ip));
-	}
+	if (req->remote_ip.family != 0)
+		event_add_ip(login_req->event, "remote_ip", &req->remote_ip);
 	if (req->remote_port != 0) {
 		event_add_int(login_req->event, "remote_port",
 			      req->remote_port);

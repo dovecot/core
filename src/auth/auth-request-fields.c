@@ -144,13 +144,13 @@ bool auth_request_import_info(struct auth_request *request,
 	} else if (strcmp(key, "lip") == 0) {
 		if (net_addr2ip(value, &fields->local_ip) < 0)
 			return TRUE;
-		event_add_str(event, "local_ip", value);
+		event_add_ip(event, "local_ip", &fields->local_ip);
 		if (fields->real_local_ip.family == 0)
 			auth_request_import_info(request, "real_lip", value);
 	} else if (strcmp(key, "rip") == 0) {
 		if (net_addr2ip(value, &fields->remote_ip) < 0)
 			return TRUE;
-		event_add_str(event, "remote_ip", value);
+		event_add_ip(event, "remote_ip", &fields->remote_ip);
 		if (fields->real_remote_ip.family == 0)
 			auth_request_import_info(request, "real_rip", value);
 	} else if (strcmp(key, "lport") == 0) {
@@ -169,10 +169,12 @@ bool auth_request_import_info(struct auth_request *request,
 		fields->ssl_ja3_hash = p_strdup(request->pool, value);
 	} else if (strcmp(key, "real_lip") == 0) {
 		if (net_addr2ip(value, &fields->real_local_ip) == 0)
-			event_add_str(event, "real_local_ip", value);
+			event_add_ip(event, "real_local_ip",
+				     &fields->real_local_ip);
 	} else if (strcmp(key, "real_rip") == 0) {
 		if (net_addr2ip(value, &fields->real_remote_ip) == 0)
-			event_add_str(event, "real_remote_ip", value);
+			event_add_ip(event, "real_remote_ip",
+				     &fields->real_remote_ip);
 	} else if (strcmp(key, "real_lport") == 0) {
 		if (net_str2port(value, &fields->real_local_port) == 0)
 			event_add_int(event, "real_local_port",

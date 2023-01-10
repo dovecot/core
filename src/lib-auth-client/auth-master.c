@@ -600,28 +600,26 @@ auth_master_user_event_create(struct auth_master_connection *conn,
 			event_add_str(conn->event, "session", info->session_id);
 		if (info->local_name != NULL)
 			event_add_str(conn->event, "local_name", info->local_name);
-		if (info->local_ip.family != 0) {
-			event_add_str(conn->event, "local_ip",
-				      net_ip2addr(&info->local_ip));
-		}
+		if (info->local_ip.family != 0)
+			event_add_ip(conn->event, "local_ip", &info->local_ip);
 		if (info->local_port != 0) {
 			event_add_int(conn->event, "local_port",
 				      info->local_port);
 		}
 		if (info->remote_ip.family != 0) {
-			event_add_str(conn->event, "remote_ip",
-				      net_ip2addr(&info->remote_ip));
+			event_add_ip(conn->event, "remote_ip",
+				     &info->remote_ip);
 		}
 		if (info->remote_port != 0) {
 			event_add_int(conn->event, "remote_port",
 				      info->remote_port);
 		}
 		if (info->real_local_ip.family != 0)
-			event_add_str(conn->event, "real_local_ip",
-				      net_ip2addr(&info->real_local_ip));
+			event_add_ip(conn->event, "real_local_ip",
+				     &info->real_local_ip);
 		if (info->real_remote_ip.family != 0)
-			event_add_str(conn->event, "real_remote_ip",
-				    net_ip2addr(&info->real_remote_ip));
+			event_add_ip(conn->event, "real_remote_ip",
+				     &info->real_remote_ip);
 		if (info->real_local_port != 0)
 			event_add_int(conn->event, "real_local_port",
 				      info->real_local_port);

@@ -585,8 +585,8 @@ lmtp_proxy_rcpt_get_connection(struct lmtp_proxy_recipient *lprcpt,
 
 	event_add_str(lprcpt->rcpt->rcpt->event, "dest_host", set->set.host);
 	if (set->set.host_ip.family != 0) {
-		event_add_str(lprcpt->rcpt->rcpt->event, "dest_ip",
-			      net_ip2addr(&set->set.host_ip));
+		event_add_ip(lprcpt->rcpt->rcpt->event, "dest_ip",
+			     &set->set.host_ip);
 	}
 	*conn_r = lprcpt->conn = conn;
 	return 0;

@@ -56,11 +56,11 @@ static void auth_server_send_new_request(struct auth_client_connection *conn,
 	}
 	if (info->local_ip.family != 0) {
 		str_printfa(str, "\tlip=%s", net_ip2addr(&info->local_ip));
-		event_add_str(request->event, "local_ip", net_ip2addr(&info->local_ip));
+		event_add_ip(request->event, "local_ip", &info->local_ip);
 	}
 	if (info->remote_ip.family != 0) {
 		str_printfa(str, "\trip=%s", net_ip2addr(&info->remote_ip));
-		event_add_str(request->event, "remote_ip", net_ip2addr(&info->remote_ip));
+		event_add_ip(request->event, "remote_ip", &info->remote_ip);
 	}
 	if (info->local_port != 0) {
 		str_printfa(str, "\tlport=%u", info->local_port);
@@ -76,12 +76,12 @@ static void auth_server_send_new_request(struct auth_client_connection *conn,
 		event_add_str(request->event, "ssl_ja3_hash", info->ssl_ja3_hash);
 	}
 	if (info->real_local_ip.family != 0) {
-		event_add_str(request->event, "real_local_ip",
-			      net_ip2addr(&info->real_local_ip));
+		event_add_ip(request->event, "real_local_ip",
+			     &info->real_local_ip);
 	}
 	if (info->real_remote_ip.family != 0) {
-		event_add_str(request->event, "real_remote_ip",
-			      net_ip2addr(&info->real_remote_ip));
+		event_add_ip(request->event, "real_remote_ip",
+			     &info->real_remote_ip);
 	}
 	if (info->real_local_port != 0) {
 		event_add_int(request->event, "real_local_port",

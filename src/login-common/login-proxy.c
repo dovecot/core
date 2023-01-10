@@ -458,9 +458,9 @@ int login_proxy_new(struct client *client, struct event *event,
 	login_proxy_set_destination(proxy, set->host, &set->ip, set->port);
 
 	/* add event fields */
-	event_add_str(proxy->event, "source_ip",
-		      login_proxy_get_source_host(proxy));
-	event_add_str(proxy->event, "dest_ip", net_ip2addr(&set->ip));
+	event_add_ip(proxy->event, "source_ip",
+		     login_proxy_get_source_host(proxy));
+	event_add_ip(proxy->event, "dest_ip", &set->ip);
 	event_add_int(proxy->event, "dest_port", set->port);
 	event_add_str(event, "dest_host", set->host);
 	event_add_str(event, "master_user", client->proxy_master_user);
@@ -876,9 +876,10 @@ struct event *login_proxy_get_event(struct login_proxy *proxy)
 	return proxy->event;
 }
 
-const char *login_proxy_get_source_host(const struct login_proxy *proxy)
+const struct ip_addr *
+login_proxy_get_source_host(const struct login_proxy *proxy)
 {
-	return net_ip2addr(&proxy->source_ip);
+	return &proxy->source_ip;
 }
 
 const char *login_proxy_get_host(const struct login_proxy *proxy)

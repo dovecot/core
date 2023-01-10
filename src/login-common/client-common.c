@@ -209,9 +209,9 @@ client_alloc(int fd, pool_t pool,
 	/* This event must exist before client_is_trusted() is called */
 	client->event = event_create(NULL);
 	event_add_category(client->event, &login_binary->event_category);
-	event_add_str(client->event, "local_ip", net_ip2addr(&conn->local_ip));
+	event_add_ip(client->event, "local_ip", &conn->local_ip);
 	event_add_int(client->event, "local_port", conn->local_port);
-	event_add_str(client->event, "remote_ip", net_ip2addr(&conn->remote_ip));
+	event_add_ip(client->event, "remote_ip", &conn->remote_ip);
 	event_add_int(client->event, "remote_port", conn->remote_port);
 	event_add_str(client->event, "service", login_binary->protocol);
 	event_set_log_message_callback(client->event, client_log_msg_callback,

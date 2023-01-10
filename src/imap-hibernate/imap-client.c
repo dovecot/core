@@ -599,13 +599,11 @@ imap_client_create(int fd, const struct imap_client_state *state)
 	if (state->mailbox_vname != NULL)
 		event_add_str(client->event, "mailbox", state->mailbox_vname);
 	if (state->local_ip.family != 0)
-		event_add_str(client->event, "local_ip",
-			      net_ip2addr(&state->local_ip));
+		event_add_ip(client->event, "local_ip", &state->local_ip);
 	if (state->local_port != 0)
 		event_add_int(client->event, "local_port", state->local_port);
 	if (state->remote_ip.family != 0)
-		event_add_str(client->event, "remote_ip",
-			      net_ip2addr(&state->remote_ip));
+		event_add_ip(client->event, "remote_ip", &state->remote_ip);
 	if (state->remote_port != 0)
 		event_add_int(client->event, "remote_port", state->remote_port);
 
