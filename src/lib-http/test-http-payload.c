@@ -8,6 +8,7 @@
 #include "ioloop.h"
 #include "istream.h"
 #include "ostream.h"
+#include "ostream-final-trickle.h"
 #include "istream-crlf.h"
 #include "iostream-temp.h"
 #include "iostream-ssl.h"
@@ -18,7 +19,7 @@
 #include "test-subprocess.h"
 #include "http-url.h"
 #include "http-request.h"
-#include "http-server.h"
+#include "http-server-private.h"
 #include "http-client.h"
 
 #include <sys/types.h>
@@ -60,6 +61,7 @@ static struct test_settings {
 	enum payload_handling server_payload_handling;
 	size_t read_server_partial;
 	bool server_cork;
+	bool trickle_final_byte;
 
 	bool ssl;
 } tset;
@@ -327,7 +329,13 @@ client_handle_download_request(struct client_request *creq,
 		o_stream_destroy(&output);
 	} else {
 		http_server_response_set_payload(resp, fstream);
-		http_server_response_submit(resp);
+		if (!tset.trickle_final_byte)
+			http_server_response_submit(resp);
+		else {
+			/* close connection immediately, so ostream-delay can
+			   catch bugs with too early disconnects. */
+			http_server_response_submit_close(resp);
+		}
 		/* seeking the payload stream shouldn't affect lib-http */
 		i_stream_seek(fstream, 1);
 	}
@@ -859,6 +867,15 @@ static void client_accept(void *context ATTR_UNUSED)
 	}
 }
 
+static void test_http_server_connection_init(struct connection *conn)
+{
+	if (!tset.trickle_final_byte)
+		return;
+	struct ostream *output = o_stream_create_final_trickle(conn->output);
+	o_stream_unref(&conn->output);
+	conn->output = output;
+}
+
 /* */
 
 static void test_server_init(const struct http_server_settings *server_set)
@@ -867,6 +884,7 @@ static void test_server_init(const struct http_server_settings *server_set)
 	io_listen = io_add(fd_listen, IO_READ, client_accept, NULL);
 
 	http_server = http_server_init(server_set);
+	http_server->conn_list->v.init = test_http_server_connection_init;
 }
 
 static void test_server_deinit(void)
@@ -1922,6 +1940,14 @@ static void test_download_server_nonblocking(void)
 {
 	test_begin("http payload download (server non-blocking)");
 	test_init_defaults();
+	test_run_sequential(test_client_download);
+	test_run_pipeline(test_client_download);
+	test_run_parallel(test_client_download);
+	test_end();
+
+	test_begin("http payload download (server non-blocking; trickle final byte)");
+	test_init_defaults();
+	tset.trickle_final_byte = TRUE;
 	test_run_sequential(test_client_download);
 	test_run_pipeline(test_client_download);
 	test_run_parallel(test_client_download);
