@@ -20,7 +20,7 @@
 #include "http-url.h"
 #include "http-request.h"
 #include "http-server-private.h"
-#include "http-client.h"
+#include "http-client-private.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -53,6 +53,7 @@ static struct test_settings {
 	unsigned int parallel_clients;
 	bool parallel_clients_global;
 	size_t read_client_partial;
+	bool client_trickle_final_byte;
 	bool unknown_size;
 
 	/* server */
@@ -1013,6 +1014,22 @@ static void test_client_deinit(void)
 }
 
 static void
+(*old_test_http_client_connection_connected)(struct connection *, bool) = NULL;
+
+static void
+test_http_client_connection_connected(struct connection *conn, bool success)
+{
+	old_test_http_client_connection_connected(conn, success);
+
+	if (!tset.client_trickle_final_byte)
+		return;
+
+	struct ostream *output = o_stream_create_final_trickle(conn->output);
+	o_stream_unref(&conn->output);
+	conn->output = output;
+}
+
+static void
 test_client_create_clients(const struct http_client_settings *client_set)
 {
 	struct http_client_context *http_context = NULL;
@@ -1028,6 +1045,12 @@ test_client_create_clients(const struct http_client_settings *client_set)
 		http_clients[i] = (tset.parallel_clients_global ?
 				   http_client_init(client_set) :
 				   http_client_init_shared(http_context, NULL));
+		if (old_test_http_client_connection_connected == NULL) {
+			old_test_http_client_connection_connected =
+				http_clients[i]->cctx->conn_list->v.client_connected;
+		}
+		http_clients[i]->cctx->conn_list->v.client_connected =
+			test_http_client_connection_connected;
 	}
 
 	if (http_context != NULL)
@@ -1953,6 +1976,14 @@ static void test_download_server_nonblocking(void)
 	test_run_parallel(test_client_download);
 	test_end();
 
+	test_begin("http payload download (server non-blocking; client trickle)");
+	test_init_defaults();
+	tset.client_trickle_final_byte = TRUE;
+	test_run_sequential(test_client_download);
+	test_run_pipeline(test_client_download);
+	test_run_parallel(test_client_download);
+	test_end();
+
 	test_begin("http payload download (server non-blocking; server trickle)");
 	test_init_defaults();
 	tset.server_trickle_final_byte = TRUE;
@@ -2006,6 +2037,17 @@ static void test_echo_server_nonblocking(void)
 	test_init_defaults();
 	tset.unknown_size = TRUE;
 	tset.server_payload_handling = PAYLOAD_HANDLING_FORWARD;
+	test_run_sequential(test_client_echo);
+	test_run_pipeline(test_client_echo);
+	test_run_parallel(test_client_echo);
+	test_end();
+
+	test_begin("http payload echo "
+		   "(server non-blocking; size unknown; client trickle)");
+	test_init_defaults();
+	tset.unknown_size = TRUE;
+	tset.server_payload_handling = PAYLOAD_HANDLING_FORWARD;
+	tset.client_trickle_final_byte = TRUE;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
@@ -2373,6 +2415,16 @@ static void test_echo_ssl(void)
 	test_init_defaults();
 	tset.unknown_size = TRUE;
 	tset.ssl = TRUE;
+	test_run_sequential(test_client_echo);
+	test_run_pipeline(test_client_echo);
+	test_run_parallel(test_client_echo);
+	test_end();
+
+	test_begin("http payload echo (ssl; unknown size; client trickle)");
+	test_init_defaults();
+	tset.unknown_size = TRUE;
+	tset.ssl = TRUE;
+	tset.client_trickle_final_byte = TRUE;
 	test_run_sequential(test_client_echo);
 	test_run_pipeline(test_client_echo);
 	test_run_parallel(test_client_echo);
