@@ -29,6 +29,7 @@ enum connection_disconnect_reason {
 };
 
 struct connection_vfuncs {
+	void (*init)(struct connection *conn);
 	void (*destroy)(struct connection *conn);
 	/* For UNIX socket clients this gets called immediately (unless
 	   delayed_unix_client_connected_callback=TRUE) with success=TRUE,
