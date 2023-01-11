@@ -6,6 +6,7 @@ AM_CPPFLAGS = \
 
 libtest_la_SOURCES = \
 	fuzzer.c \
+	ostream-final-trickle.c \
 	test-common.c \
 	test-istream.c \
 	test-ostream.c \
@@ -13,6 +14,7 @@ libtest_la_SOURCES = \
 
 headers = \
 	fuzzer.h \
+	ostream-final-trickle.h \
 	test-common.h \
 	test-subprocess.h
 
