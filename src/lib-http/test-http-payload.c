@@ -199,7 +199,9 @@ test_file_open(const char *path, unsigned int *status_r, const char **reason_r)
 		return NULL;
 	}
 
-	return i_stream_create_fd_autoclose(&fd, 40960);
+	struct istream *input = i_stream_create_fd_autoclose(&fd, 40960);
+	i_stream_set_name(input, path);
+	return input;
 }
 
 /*
@@ -1036,7 +1038,8 @@ test_client_download_payload_input(struct test_client_request *tcreq)
 			if (memcmp(pdata, fdata, fsize) != 0) {
 				i_fatal("test client: download: "
 					"received data does not match file "
-					"(%"PRIuUOFF_T":%"PRIuUOFF_T")",
+					"(%s, %"PRIuUOFF_T":%"PRIuUOFF_T")",
+					i_stream_get_name(tcreq->file_in),
 					payload->v_offset,
 					tcreq->file_in->v_offset);
 			}
@@ -1289,7 +1292,8 @@ static void test_client_echo_payload_input(struct test_client_request *tcreq)
 			if (memcmp(pdata, fdata, fsize) != 0) {
 				i_fatal("test client: echo: "
 					"received data does not match file "
-					"(%"PRIuUOFF_T":%"PRIuUOFF_T")",
+					"(%s, %"PRIuUOFF_T":%"PRIuUOFF_T")",
+					i_stream_get_name(tcreq->file_in),
 					payload->v_offset,
 					tcreq->file_in->v_offset);
 			}
