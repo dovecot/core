@@ -585,8 +585,11 @@ static void imapc_sync_handle_untagged_fetches(struct imapc_mailbox *mbox)
 			continue;
 		}
 
-		imapc_untagged_fetch_update_flags(mbox, untagged_fetch_context,
-						  updated_view, lseq);
+		T_BEGIN {
+			imapc_untagged_fetch_update_flags(mbox,
+				untagged_fetch_context,
+				updated_view, lseq);
+		} T_END;
 		imapc_untagged_fetch_ctx_free(&untagged_fetch_context);
 	}
 
