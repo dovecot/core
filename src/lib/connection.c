@@ -591,6 +591,8 @@ void connection_init_server(struct connection_list *list,
 	e_debug(e->event(), "Server accepted connection (fd=%d)", fd_in);
 
 	connection_init_streams(conn);
+	if (conn->v.init != NULL)
+		conn->v.init(conn);
 }
 
 void connection_init_server_ip(struct connection_list *list,
@@ -622,6 +624,8 @@ void connection_init_client_fd(struct connection_list *list,
 	   also be obvious that fd_out=1. */
 	e_debug(e->event(), "Client connected (fd=%d)", fd_in);
 
+	if (conn->v.init != NULL)
+		conn->v.init(conn);
 	connection_client_connected(conn, TRUE);
 }
 
@@ -650,6 +654,9 @@ void connection_init_client_ip_from(struct connection_list *list,
 	if (hostname != NULL)
 		event_add_str(conn->event, "dest_host", hostname);
 	connection_update_event(conn);
+
+	if (conn->v.init != NULL)
+		conn->v.init(conn);
 }
 
 void connection_init_client_ip(struct connection_list *list,
@@ -668,6 +675,9 @@ void connection_init_client_unix(struct connection_list *list,
 
 	connection_init(list, conn, path);
 	event_add_str(conn->event, "socket_path", path);
+
+	if (conn->v.init != NULL)
+		conn->v.init(conn);
 }
 
 void connection_init_from_streams(struct connection_list *list,
