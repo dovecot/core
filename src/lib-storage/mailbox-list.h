@@ -95,6 +95,8 @@ enum mailbox_list_path_type {
 	/* Return mailbox list index directory (usually same as
 	   MAILBOX_LIST_PATH_TYPE_INDEX) */
 	MAILBOX_LIST_PATH_TYPE_LIST_INDEX,
+    /* Return mailbox fts index directory path */
+    MAILBOX_LIST_PATH_TYPE_FTS_INDEX,
 
 	MAILBOX_LIST_PATH_TYPE_COUNT
 };
@@ -115,6 +117,7 @@ struct mailbox_list_settings {
 	const char *layout; /* FIXME: shouldn't be here */
 	const char *root_dir;
 	const char *index_dir;
+	const char *fts_index_dir;
 	const char *index_pvt_dir;
 	const char *index_cache_dir;
 	const char *control_dir;

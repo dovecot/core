@@ -3008,6 +3008,15 @@ const char *mailbox_get_index_path(struct mailbox *box)
 	return box->_index_path;
 }
 
+int mailbox_path_exists(struct mailbox *box, enum mailbox_list_path_type type)
+{
+    const char *path;
+    if (get_path_to(box, type, NULL, &path) < 0)
+        return 0;
+
+    return 1;
+}
+
 static void mailbox_get_permissions_if_not_set(struct mailbox *box)
 {
 	if (box->_perm.file_create_mode != 0)

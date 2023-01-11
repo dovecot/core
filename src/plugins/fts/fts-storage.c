@@ -959,7 +959,9 @@ fts_mailbox_list_created(struct mailbox_list *list)
 		return;
 	}
 
-	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX, &path)) {
+    /* TODO: Create config item for MAILBOX_LIST_PATH_TYPE... FTS_INDEX||=INDEX */
+    bool has_fts_index_path = mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_FTS_INDEX, &path);
+	if (!mailbox_list_get_root_path(list, MAILBOX_LIST_PATH_TYPE_INDEX, &path) && !has_fts_index_path) {
 		e_debug(list->ns->user->event,
 			"fts: Indexes disabled for namespace '%s'",
 			list->ns->prefix);

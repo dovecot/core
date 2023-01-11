@@ -856,6 +856,8 @@ int mailbox_mark_index_deleted(struct mailbox *box, bool del);
 const char *mailbox_get_path(struct mailbox *box) ATTR_PURE;
 /* Similar to mailbox_get_path() but for MAILBOX_LIST_PATH_TYPE_INDEX. */
 const char *mailbox_get_index_path(struct mailbox *box) ATTR_PURE;
+/* Check if mailbox path for type exists. */
+int mailbox_path_exists(struct mailbox *box, enum mailbox_list_path_type type);
 /* Wrapper to mailbox_list_get_path() */
 int mailbox_get_path_to(struct mailbox *box, enum mailbox_list_path_type type,
 			const char **path_r);

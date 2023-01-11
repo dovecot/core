@@ -210,10 +210,11 @@ int mailbox_list_create(const char *driver, struct mail_namespace *ns,
 	}
 
 	e_debug(ns->user->event,
-		"%s: root=%s, index=%s, indexpvt=%s, control=%s, inbox=%s, alt=%s",
+		"%s: root=%s, index=%s, fts_index=%s, indexpvt=%s, control=%s, inbox=%s, alt=%s",
 		list->name,
 		list->set.root_dir == NULL ? "" : list->set.root_dir,
 		list->set.index_dir == NULL ? "" : list->set.index_dir,
+		list->set.fts_index_dir == NULL ? "" : list->set.fts_index_dir,
 		list->set.index_pvt_dir == NULL ? "" : list->set.index_pvt_dir,
 		list->set.control_dir == NULL ?
 		"" : list->set.control_dir,
@@ -333,6 +334,8 @@ mailbox_list_settings_parse_full(struct mail_user *user, const char *data,
 			dest = &set_r->inbox_path;
 		else if (strcmp(key, "INDEX") == 0)
 			dest = &set_r->index_dir;
+        else if (strcmp(key, "FTS_INDEX") == 0)
+			dest = &set_r->fts_index_dir;
 		else if (strcmp(key, "INDEXPVT") == 0)
 			dest = &set_r->index_pvt_dir;
 		else if (strcmp(key, "INDEXCACHE") == 0)
@@ -1485,6 +1488,22 @@ bool mailbox_list_set_get_root_path(const struct mailbox_list_settings *set,
 			path = set->root_dir;
 		}
 		break;
+    case MAILBOX_LIST_PATH_TYPE_FTS_INDEX:
+        if (set->fts_index_dir != NULL) {
+            if (set->fts_index_dir[0] == '\0') {
+                /* in-memory indexes */
+                return 0;
+            }
+            path = set->fts_index_dir;
+
+        /* Preserve the old behavior of using the index directory if
+         * fts_index_dir is not set. */
+        } else if (set->index_dir != NULL) {
+            path = set->index_dir;
+        } else {
+            path = set->root_dir;
+        }
+        break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
 		path = set->index_pvt_dir;
 		break;

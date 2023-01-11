@@ -63,7 +63,7 @@ struct path_cmd_context {
 
 static const char *mailbox_list_path_type_names[] = {
 	"dir", "alt-dir", "mailbox", "alt-mailbox",
-	"control", "index", "index-private", "index-cache", "list-index",
+	"control", "index", "fts-index", "index-private", "index-cache", "list-index",
 };
 static_assert_array_size(mailbox_list_path_type_names, MAILBOX_LIST_PATH_TYPE_COUNT);
 

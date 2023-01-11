@@ -146,6 +146,7 @@ mbox_list_get_path(struct mailbox_list *list, const char *name,
 		*path_r = t_strconcat(t_strdup_until(path, p),
 				      "/"MBOX_INDEX_DIR_NAME"/", p+1, NULL);
 		break;
+    case MAILBOX_LIST_PATH_TYPE_FTS_INDEX:
 	case MAILBOX_LIST_PATH_TYPE_DIR:
 	case MAILBOX_LIST_PATH_TYPE_ALT_DIR:
 	case MAILBOX_LIST_PATH_TYPE_MAILBOX:

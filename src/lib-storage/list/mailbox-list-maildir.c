@@ -152,6 +152,15 @@ maildir_list_get_path(struct mailbox_list *_list, const char *name,
 			return 1;
 		}
 		break;
+    case MAILBOX_LIST_PATH_TYPE_FTS_INDEX:
+        if (_list->set.fts_index_dir != NULL) {
+            if (*_list->set.fts_index_dir == '\0')
+                return 0;
+            *path_r = maildir_list_get_dirname_path(_list,
+                        _list->set.fts_index_dir, name);
+            return 1;
+        }
+        break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
 		if (_list->set.index_pvt_dir == NULL)
 			return 0;
