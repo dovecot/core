@@ -130,14 +130,14 @@ fs_list_get_path(struct mailbox_list *_list, const char *name,
 			return 1;
 		}
 		break;
-    case MAILBOX_LIST_PATH_TYPE_FTS_INDEX:
-        if (set->fts_index_dir != NULL) {
-            if (*set->fts_index_dir == '\0')
-                return 0;
-            *path_r = fs_list_get_path_to(set, set->fts_index_dir, name);
-            return 1;
-        }
-        break;
+	case MAILBOX_LIST_PATH_TYPE_FTS_INDEX:
+		if (set->fts_index_dir != NULL) {
+			if (*set->fts_index_dir == '\0')
+				return 0;
+			*path_r = fs_list_get_path_to(set, set->fts_index_dir, name);
+			return 1;
+		}
+		break;
 	case MAILBOX_LIST_PATH_TYPE_INDEX_PRIVATE:
 		if (set->index_pvt_dir == NULL)
 			return 0;

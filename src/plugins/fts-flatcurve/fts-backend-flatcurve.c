@@ -126,20 +126,20 @@ fts_backend_flatcurve_set_mailbox(struct flatcurve_fts_backend *backend,
 	}
 
 	if (mailbox_open(box) < 0
-        || (mailbox_path_exists(box, MAILBOX_LIST_PATH_TYPE_INDEX) == 0 &&
-            mailbox_path_exists(box, MAILBOX_LIST_PATH_TYPE_FTS_INDEX) == 0)
-        ) {
+		|| (mailbox_path_exists(box, MAILBOX_LIST_PATH_TYPE_INDEX) == 0 &&
+			mailbox_path_exists(box, MAILBOX_LIST_PATH_TYPE_FTS_INDEX) == 0)
+		) {
 		*error_r = t_strdup_printf("Could not open mailbox: %s: %s",
-					   box->vname,
-					   mailbox_get_last_internal_error(box, NULL));
+						box->vname,
+						mailbox_get_last_internal_error(box, NULL));
 		return -1;
 	}
 
-    if (mailbox_path_exists(box, MAILBOX_LIST_PATH_TYPE_FTS_INDEX)) {
-        mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_FTS_INDEX, &path);
-    } else {
-        mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX, &path);
-    }
+	if (mailbox_path_exists(box, MAILBOX_LIST_PATH_TYPE_FTS_INDEX)) {
+		mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_FTS_INDEX, &path);
+	} else {
+		mailbox_get_path_to(box, MAILBOX_LIST_PATH_TYPE_INDEX, &path);
+	}
 
 	str_append(backend->boxname, box->vname);
 	str_printfa(backend->db_path, "%s/%s/", path, FTS_FLATCURVE_LABEL);
