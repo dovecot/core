@@ -33,8 +33,7 @@ static int mail_lua_call_hook(struct dlua_script *script,
 	if (!dlua_script_has_function(script, hook))
 		return 0;
 
-	if (user->mail_debug)
-		e_debug(user->event, "mail-lua: Calling %s(user)", hook);
+	e_debug(user->event, "mail-lua: Calling %s(user)", hook);
 
 	dlua_push_mail_user(script->L, user);
 

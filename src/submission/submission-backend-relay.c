@@ -138,7 +138,7 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *rbackend,
 			if (smtp_reply_is_remote(reply)) {
 				e_error(backend->event, "%s: %s",
 					log_msg, smtp_reply_log(reply));
-			} else if (user->mail_debug) {
+			} else {
 				e_debug(backend->event, "%s: %s",
 					log_msg, smtp_reply_log(reply));
 			}
