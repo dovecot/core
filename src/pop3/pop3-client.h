@@ -90,7 +90,6 @@ struct client {
 
 	/* settings: */
 	const struct pop3_settings *set;
-	const struct mail_storage_settings *mail_set;
 	pool_t uidl_pool;
 	enum uidl_keys uidl_keymask;
 
