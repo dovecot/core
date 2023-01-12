@@ -40,8 +40,7 @@ static void mail_user_deinit_base(struct mail_user *user)
 		dict_deinit(&user->_attr_dict);
 	}
 	mail_namespaces_deinit(&user->namespaces);
-	if (user->_service_user != NULL)
-		mail_storage_service_user_unref(&user->_service_user);
+	mail_storage_service_user_unref(&user->service_user);
 }
 
 static void mail_user_deinit_pre_base(struct mail_user *user ATTR_UNUSED)
@@ -63,7 +62,7 @@ mail_user_alloc_int(struct mail_storage_service_user *service_user,
 	user = p_new(pool, struct mail_user, 1);
 	user->pool = pool;
 	user->refcount = 1;
-	user->_service_user = service_user;
+	user->service_user = service_user;
 	mail_storage_service_user_ref(service_user);
 	user->username = p_strdup(pool, username);
 	user->unexpanded_set_parser = unexpanded_set_parser;
@@ -165,9 +164,7 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 	i_assert(!user->initialized);
 
 	struct mail_storage_service_ctx *service_ctx =
-		user->_service_user != NULL ?
-		mail_storage_service_user_get_service_ctx(user->_service_user) :
-		mail_storage_service_get_global();
+		mail_storage_service_user_get_service_ctx(user->service_user);
 	const struct setting_parser_info *const *set_roots =
 		mail_storage_service_get_set_roots(service_ctx);
 	for (unsigned int i = 0; set_roots[i] != NULL; i++) {
@@ -770,7 +767,7 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 {
 	struct mail_user *user2;
 
-	user2 = mail_user_alloc(user->_service_user,
+	user2 = mail_user_alloc(user->service_user,
 				user->unexpanded_set_parser);
 	if (user->_home != NULL)
 		mail_user_set_home(user2, user->_home);
@@ -792,15 +789,8 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 void mail_user_init_ssl_client_settings(struct mail_user *user,
 	struct ssl_iostream_settings *ssl_set_r)
 {
-	if (user->_service_user == NULL) {
-		/* Internal test user that should never actually need any
-		   SSL settings. */
-		i_zero(ssl_set_r);
-		return;
-	}
-
 	const struct master_service_ssl_settings *ssl_set =
-		mail_storage_service_user_get_ssl_settings(user->_service_user);
+		mail_storage_service_user_get_ssl_settings(user->service_user);
 
 	master_service_ssl_client_settings_to_iostream_set(ssl_set,
 		pool_datastack_create(), ssl_set_r);

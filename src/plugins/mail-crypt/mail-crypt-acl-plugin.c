@@ -151,9 +151,8 @@ mail_crypt_acl_user_create(struct mail_user *user, const char *dest_username,
 
 	int ret;
 
-	i_assert(user->_service_user != NULL);
-	service_ctx = mail_storage_service_user_get_service_ctx(user->_service_user);
-	old_input = mail_storage_service_user_get_input(user->_service_user);
+	service_ctx = mail_storage_service_user_get_service_ctx(user->service_user);
+	old_input = mail_storage_service_user_get_input(user->service_user);
 
 	if ((cur_ioloop_ctx = io_loop_get_current_context(current_ioloop)) != NULL)
 		io_loop_context_deactivate(cur_ioloop_ctx);
@@ -287,7 +286,7 @@ static int mail_crypt_acl_object_update(struct acl_object *aclobj,
 		if (ret > 0)
 			mail_storage_service_io_deactivate_user(dest_service_user);
 		mail_storage_service_io_activate_user(
-			aclobj->backend->list->ns->user->_service_user
+			aclobj->backend->list->ns->user->service_user
 		);
 
 		if (ret <= 0) {
@@ -316,7 +315,7 @@ static int mail_crypt_acl_object_update(struct acl_object *aclobj,
 
 		/* logging context swap again */
 		mail_storage_service_io_deactivate_user(
-			aclobj->backend->list->ns->user->_service_user
+			aclobj->backend->list->ns->user->service_user
 		);
 		mail_storage_service_io_activate_user(dest_service_user);
 
@@ -326,7 +325,7 @@ static int mail_crypt_acl_object_update(struct acl_object *aclobj,
 		if ((cur_ioloop_ctx = io_loop_get_current_context(current_ioloop)) != NULL)
 			io_loop_context_deactivate(cur_ioloop_ctx);
 		mail_storage_service_io_activate_user(
-			aclobj->backend->list->ns->user->_service_user
+			aclobj->backend->list->ns->user->service_user
 		);
 		break;
 	case ACL_ID_OWNER:

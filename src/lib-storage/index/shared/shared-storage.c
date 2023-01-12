@@ -255,9 +255,9 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	struct ioloop_context *old_ioloop_ctx =
 		io_loop_get_current_context(current_ioloop);
 	struct mail_storage_service_ctx *storage_service =
-		mail_storage_service_user_get_service_ctx(user->_service_user);
+		mail_storage_service_user_get_service_ctx(user->service_user);
 	struct event *service_user_event =
-		mail_storage_service_user_get_event(user->_service_user);
+		mail_storage_service_user_get_event(user->service_user);
 	const struct mail_storage_service_input input = {
 		.event_parent = event_get_parent(service_user_event),
 		.username = userdomain,

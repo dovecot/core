@@ -82,9 +82,8 @@ mcp_user_create(struct mail_user *user, const char *dest_username,
 
 	int ret;
 
-	i_assert(user->_service_user != NULL);
-	service_ctx = mail_storage_service_user_get_service_ctx(user->_service_user);
-	old_input = mail_storage_service_user_get_input(user->_service_user);
+	service_ctx = mail_storage_service_user_get_service_ctx(user->service_user);
+	old_input = mail_storage_service_user_get_input(user->service_user);
 
 	if ((cur_ioloop_ctx = io_loop_get_current_context(current_ioloop)) != NULL)
 		io_loop_context_deactivate(cur_ioloop_ctx);
@@ -129,7 +128,7 @@ mcp_update_shared_key(struct mailbox_transaction_context *t,
 	/* to make sure we get correct logging context */
 	if (ret > 0)
 		mail_storage_service_io_deactivate_user(dest_service_user);
-	mail_storage_service_io_activate_user(user->_service_user);
+	mail_storage_service_io_activate_user(user->service_user);
 
 	if (ret <= 0) {
 		e_error(user->event, "Cannot initialize destination user %s: %s",
@@ -166,7 +165,7 @@ mcp_update_shared_key(struct mailbox_transaction_context *t,
 	}
 
 	/* logging context swap again */
-	mail_storage_service_io_deactivate_user(user->_service_user);
+	mail_storage_service_io_deactivate_user(user->service_user);
 	mail_storage_service_io_activate_user(dest_service_user);
 
 	mail_user_deinit(&dest_user);
@@ -175,7 +174,7 @@ mcp_update_shared_key(struct mailbox_transaction_context *t,
 	if ((cur_ioloop_ctx = io_loop_get_current_context(current_ioloop)) != NULL)
 		io_loop_context_deactivate(cur_ioloop_ctx);
 
-	mail_storage_service_io_activate_user(user->_service_user);
+	mail_storage_service_io_activate_user(user->service_user);
 
 	return ret;
 }

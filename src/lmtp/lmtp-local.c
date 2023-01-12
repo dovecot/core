@@ -636,20 +636,20 @@ lmtp_local_deliver_to_rcpts(struct lmtp_local *local,
 		    (ret != 0 && local->rcpt_user != NULL)) {
 			if (i == (count - 1))
 				mail_user_autoexpunge(local->rcpt_user);
-			mail_storage_service_io_deactivate_user(local->rcpt_user->_service_user);
+			mail_storage_service_io_deactivate_user(local->rcpt_user->service_user);
 			mail_user_deinit(&local->rcpt_user);
 		} else if (ret == 0) {
 			/* use the first saved message to save it elsewhere too.
 			   this might allow hard linking the files.
 			   mail_user is saved in first_saved_mail,
 			   will be unreferenced later on */
-			mail_storage_service_io_deactivate_user(local->rcpt_user->_service_user);
+			mail_storage_service_io_deactivate_user(local->rcpt_user->service_user);
 			local->rcpt_user = NULL;
 			src_mail = local->first_saved_mail;
 			first_uid = geteuid();
 			i_assert(first_uid != 0);
 		} else if (local->rcpt_user != NULL) {
-			mail_storage_service_io_deactivate_user(local->rcpt_user->_service_user);
+			mail_storage_service_io_deactivate_user(local->rcpt_user->service_user);
 		}
 	}
 	return first_uid;
@@ -722,12 +722,12 @@ void lmtp_local_data(struct client *client,
 				i_fatal("seteuid() failed: %m");
 		}
 
-		mail_storage_service_io_activate_user(user->_service_user);
+		mail_storage_service_io_activate_user(user->service_user);
 		mail_free(&mail);
 		mailbox_transaction_rollback(&trans);
 		mailbox_free(&box);
 		mail_user_autoexpunge(user);
-		mail_storage_service_io_deactivate_user(user->_service_user);
+		mail_storage_service_io_deactivate_user(user->service_user);
 		mail_user_deinit(&user);
 	}
 

@@ -34,8 +34,7 @@ struct mail_user {
 	/* User's creator if such exists. For example for autocreated shared
 	   mailbox users their creator is the logged in user. */
 	struct mail_user *creator;
-	/* Set if user was created via mail_storage_service. */
-	struct mail_storage_service_user *_service_user;
+	struct mail_storage_service_user *service_user;
 
 	const char *username;
 	/* don't access the home directly. It may be set lazily. */
