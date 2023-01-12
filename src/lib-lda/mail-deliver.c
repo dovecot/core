@@ -506,13 +506,11 @@ const char *mail_deliver_get_new_message_id(struct mail_deliver_context *ctx)
 {
 	static int count = 0;
 	struct mail_user *user = ctx->rcpt_user;
-	const struct mail_storage_settings *mail_set =
-		mail_user_set_get_storage_set(user);
 
 	return t_strdup_printf("<dovecot-%s-%s-%d@%s>",
 			       dec2str(ioloop_timeval.tv_sec),
 			       dec2str(ioloop_timeval.tv_usec),
-			       count++, mail_set->hostname);
+			       count++, user->set->hostname);
 }
 
 static bool mail_deliver_is_tempfailed(struct mail_deliver_context *ctx,
