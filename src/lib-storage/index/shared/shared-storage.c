@@ -252,30 +252,54 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 		return 0;
 	}
 
-	owner = mail_user_alloc(event_get_parent(user->event), userdomain,
-				user->unexpanded_set_parser);
-	owner->_service_user = user->_service_user;
-	mail_storage_service_user_ref(owner->_service_user);
-	owner->creator = user;
-	owner->autocreated = TRUE;
-	owner->session_id = p_strdup(owner->pool, user->session_id);
-	if (mail_user_init(owner, &error) < 0) {
-		if (!owner->nonexistent) {
+	struct ioloop_context *old_ioloop_ctx =
+		io_loop_get_current_context(current_ioloop);
+	struct mail_storage_service_ctx *storage_service =
+		mail_storage_service_user_get_service_ctx(user->_service_user);
+	struct event *service_user_event =
+		mail_storage_service_user_get_event(user->_service_user);
+	const struct mail_storage_service_input input = {
+		.event_parent = event_get_parent(service_user_event),
+		.username = userdomain,
+		.unexpanded_set_parser = user->unexpanded_set_parser,
+		.session_id = user->session_id,
+		.autocreated = TRUE,
+		.no_userdb_lookup = TRUE,
+		.no_free_init_failure = TRUE,
+		.flags_override_add =
+			MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS |
+			MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR |
+			MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
+			MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS |
+			MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES,
+	};
+	struct mail_storage_service_user *service_user;
+	if (mail_storage_service_lookup_next(storage_service, &input,
+					     &service_user, &owner,
+					     &error) < 0) {
+		if (owner != NULL && !owner->nonexistent) {
 			mailbox_list_set_critical(list,
 				"Couldn't create namespace '%s' for user %s: %s",
 				ns->prefix, owner->username, error);
 			mail_user_deinit(&owner);
+			mail_storage_service_user_unref(&service_user);
+			io_loop_context_switch(old_ioloop_ctx);
 			return -1;
 		}
 	}
-	if (shared_mail_user_init(_storage, user, owner, &ns, tab,
-				  str_c(prefix)) < 0)
-		return -1;
-	*_ns = ns;
-	*_name = mailbox_list_get_storage_name(ns->list,
+	mail_storage_service_user_unref(&service_user);
+
+	owner->creator = user;
+	int ret = shared_mail_user_init(_storage, user, owner, &ns, tab,
+					str_c(prefix));
+	if (ret == 0) {
+		*_ns = ns;
+		*_name = mailbox_list_get_storage_name(ns->list,
 				t_strconcat(ns->prefix, name, NULL));
-	mail_user_add_namespace(user, &ns);
-	return 0;
+		mail_user_add_namespace(user, &ns);
+	}
+	io_loop_context_switch(old_ioloop_ctx);
+	return ret;
 }
 
 static int
