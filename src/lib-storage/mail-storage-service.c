@@ -876,6 +876,18 @@ mail_storage_service_user_get_log_prefix(struct mail_storage_service_user *user)
 	return user->log_prefix;
 }
 
+struct event *
+mail_storage_service_user_get_event(const struct mail_storage_service_user *user)
+{
+	return user->event;
+}
+
+const char *
+mail_storage_service_user_get_username(const struct mail_storage_service_user *user)
+{
+	return user->input.username;
+}
+
 static void
 mail_storage_service_init_log(struct mail_storage_service_ctx *ctx,
 			      struct mail_storage_service_user *user,
