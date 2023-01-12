@@ -357,6 +357,12 @@ int http_server_response_finish_payload_out(struct http_server_response *resp)
 		o_stream_unref(&resp->payload_output);
 		resp->payload_output = NULL;
 	}
+	if (o_stream_get_buffer_used_size(conn->conn.output) > 0) {
+		e_debug(resp->event,
+			"Not quite finished sending response");
+		conn->output_locked = TRUE;
+		return 0;
+	}
 
 	e_debug(resp->event, "Finished sending payload");
 
@@ -504,12 +510,12 @@ int http_server_response_send_more(struct http_server_response *resp)
 	struct ostream *output = resp->payload_output;
 	enum ostream_send_istream_result res;
 
-	i_assert(resp->payload_output != NULL);
-
 	if (resp->payload_finished) {
 		e_debug(resp->event, "Finish sending payload (more)");
 		return http_server_response_finish_payload_out(resp);
 	}
+
+	i_assert(resp->payload_output != NULL);
 
 	if (resp->payload_stream != NULL) {
 		conn->output_locked = TRUE;
