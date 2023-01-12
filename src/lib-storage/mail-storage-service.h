@@ -60,6 +60,9 @@ struct mail_storage_service_input {
 
 	const char *forward_fields;
 
+	/* Use this settings parser instead of looking it up. */
+	struct setting_parser_context *unexpanded_set_parser;
+
 	/* Override specified global flags */
 	enum mail_storage_service_flags flags_override_add;
 	enum mail_storage_service_flags flags_override_remove;
