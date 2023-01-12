@@ -1,6 +1,47 @@
 /* Copyright (c) 2021 Dovecot authors, see the included COPYING file */
 
 #include "test-lib.h"
+#include "array.h"
+
+static void test_event_fields(void)
+{
+	test_begin("event fields");
+	struct event *event = event_create(NULL);
+	struct event_field *field;
+
+	event_add_str(event, "key", NULL);
+	test_assert(event_find_field_nonrecursive(event, "key") == NULL);
+
+	event_add_str(event, "key", "value1");
+	field = event_find_field_nonrecursive(event, "key");
+	test_assert(field != NULL && field->value_type == EVENT_FIELD_VALUE_TYPE_STR &&
+		    strcmp(field->value.str, "value1") == 0);
+
+	event_add_str(event, "key", NULL);
+	field = event_find_field_nonrecursive(event, "key");
+	test_assert(field != NULL && field->value_type == EVENT_FIELD_VALUE_TYPE_STR &&
+		    field->value.str[0] == '\0');
+
+	event_add_int(event, "key", -1234);
+	field = event_find_field_nonrecursive(event, "key");
+	test_assert(field != NULL && field->value_type == EVENT_FIELD_VALUE_TYPE_INTMAX &&
+		    field->value.intmax == -1234);
+
+	struct timeval tv = { .tv_sec = 123456789, .tv_usec = 654321 };
+	event_add_timeval(event, "key", &tv);
+	field = event_find_field_nonrecursive(event, "key");
+	test_assert(field != NULL && field->value_type == EVENT_FIELD_VALUE_TYPE_TIMEVAL &&
+		    field->value.timeval.tv_sec == tv.tv_sec &&
+		    field->value.timeval.tv_usec == tv.tv_usec);
+
+	event_strlist_append(event, "key", "strlist1");
+	field = event_find_field_nonrecursive(event, "key");
+	test_assert(field != NULL && field->value_type == EVENT_FIELD_VALUE_TYPE_STRLIST &&
+		    strcmp(array_idx_elem(&field->value.strlist, 0), "strlist1") == 0);
+
+	event_unref(&event);
+	test_end();
+}
 
 static void test_event_strlist(void)
 {
@@ -41,6 +82,7 @@ static void test_lib_event_reason_code(void)
 
 void test_lib_event(void)
 {
+	test_event_fields();
 	test_event_strlist();
 	test_lib_event_reason_code();
 }

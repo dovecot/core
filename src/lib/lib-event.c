@@ -1053,8 +1053,12 @@ event_add_str(struct event *event, const char *key, const char *value)
 	struct event_field *field;
 
 	if (value == NULL) {
-		/* silently ignoring is perhaps better than assert-crashing? */
-		return event;
+		/* Silently ignoring is perhaps better than assert-crashing?
+		   However, if the field already exists, this should be the
+		   same as event_field_clear() */
+		if (event_find_field_recursive(event, key) == NULL)
+			return event;
+		value = "";
 	}
 
 	field = event_get_field(event, key, TRUE);
