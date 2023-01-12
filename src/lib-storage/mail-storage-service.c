@@ -686,13 +686,10 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 
 	/* NOTE: if more user initialization is added, add it also to
 	   mail_user_dup() */
-	mail_user = mail_user_alloc_nodup_set(user->event, user->input.username,
-					      user->set_parser);
+	mail_user = mail_user_alloc_nodup_set(user, user->set_parser);
 	*mail_user_r = mail_user;
-	mail_user->_service_user = user;
 	if (user->input.autocreated)
 		mail_user->autocreated = TRUE;
-	mail_storage_service_user_ref(user);
 	if (!user->input.no_userdb_lookup || user->home_from_userdb) {
 		/* userdb lookup is done. The (lack of) home directory is now
 		   known. */

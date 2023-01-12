@@ -49,19 +49,22 @@ static void mail_user_deinit_pre_base(struct mail_user *user ATTR_UNUSED)
 }
 
 static struct mail_user *
-mail_user_alloc_int(struct event *parent_event,
-		    const char *username,
+mail_user_alloc_int(struct mail_storage_service_user *service_user,
 		    struct setting_parser_context *unexpanded_set_parser,
 		    pool_t pool)
 {
 	struct mail_user *user;
-
-	i_assert(username != NULL);
+	struct event *parent_event =
+		mail_storage_service_user_get_event(service_user);
+	const char *username =
+		mail_storage_service_user_get_username(service_user);
 	i_assert(*username != '\0');
 
 	user = p_new(pool, struct mail_user, 1);
 	user->pool = pool;
 	user->refcount = 1;
+	user->_service_user = service_user;
+	mail_storage_service_user_ref(service_user);
 	user->username = p_strdup(pool, username);
 	user->unexpanded_set_parser = unexpanded_set_parser;
 	settings_parser_ref(user->unexpanded_set_parser);
@@ -85,19 +88,16 @@ mail_user_alloc_int(struct event *parent_event,
 }
 
 struct mail_user *
-mail_user_alloc_nodup_set(struct event *parent_event,
-			  const char *username,
+mail_user_alloc_nodup_set(struct mail_storage_service_user *service_user,
 			  struct setting_parser_context *unexpanded_set_parser)
 {
 	pool_t pool;
 
 	pool = pool_alloconly_create(MEMPOOL_GROWING"mail user", 16*1024);
-	return mail_user_alloc_int(parent_event, username,
-				   unexpanded_set_parser, pool);
+	return mail_user_alloc_int(service_user, unexpanded_set_parser, pool);
 }
 
-struct mail_user *mail_user_alloc(struct event *parent_event,
-				  const char *username,
+struct mail_user *mail_user_alloc(struct mail_storage_service_user *service_user,
 				  struct setting_parser_context *unexpanded_set_parser)
 {
 	pool_t pool;
@@ -106,7 +106,7 @@ struct mail_user *mail_user_alloc(struct event *parent_event,
 	struct setting_parser_context *set_parser =
 		settings_parser_dup(unexpanded_set_parser, pool);
 	struct mail_user *user =
-		mail_user_alloc_int(parent_event, username, set_parser, pool);
+		mail_user_alloc_int(service_user, set_parser, pool);
 	settings_parser_unref(&set_parser);
 	return user;
 }
@@ -770,12 +770,8 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 {
 	struct mail_user *user2;
 
-	user2 = mail_user_alloc(event_get_parent(user->event), user->username,
+	user2 = mail_user_alloc(user->_service_user,
 				user->unexpanded_set_parser);
-	if (user2->_service_user != NULL) {
-		user2->_service_user = user->_service_user;
-		mail_storage_service_user_ref(user2->_service_user);
-	}
 	if (user->_home != NULL)
 		mail_user_set_home(user2, user->_home);
 	mail_user_set_vars(user2, user->service, &user->conn);

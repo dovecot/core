@@ -127,12 +127,11 @@ extern struct mail_user_module_register mail_user_module_register;
 extern struct auth_master_connection *mail_user_auth_master_conn;
 extern const struct var_expand_func_table *mail_user_var_expand_func_table;
 
-struct mail_user *mail_user_alloc(struct event *parent_event,
-				  const char *username,
-				  struct setting_parser_context *unexpanded_set_parser);
 struct mail_user *
-mail_user_alloc_nodup_set(struct event *parent_event,
-			  const char *username,
+mail_user_alloc(struct mail_storage_service_user *service_user,
+		struct setting_parser_context *unexpanded_set_parser);
+struct mail_user *
+mail_user_alloc_nodup_set(struct mail_storage_service_user *service_user,
 			  struct setting_parser_context *set_parser);
 /* Returns -1 if settings were invalid. */
 int mail_user_init(struct mail_user *user, const char **error_r);
