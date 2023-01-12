@@ -308,7 +308,6 @@ static void imapc_storage_client_login(struct imapc_storage_client *client,
 
 int imapc_storage_client_create(struct mail_namespace *ns,
 				const struct imapc_settings *imapc_set,
-				const struct mail_storage_settings *mail_set,
 				struct imapc_storage_client **client_r,
 				const char **error_r)
 {
@@ -345,7 +344,7 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	set.dns_client_socket_path = *ns->user->set->base_dir == '\0' ? "" :
 		t_strconcat(ns->user->set->base_dir, "/",
 			    DNS_CLIENT_SOCKET_NAME, NULL);
-	set.debug = mail_set->mail_debug;
+	set.debug = event_want_debug(ns->user->event);
 	set.rawlog_dir = mail_user_home_expand(ns->user,
 					       imapc_set->imapc_rawlog_dir);
 	if ((imapc_set->parsed_features & IMAPC_FEATURE_SEND_ID) != 0)
@@ -447,7 +446,7 @@ imapc_storage_create(struct mail_storage *_storage,
 		storage->client = imapc_list->client;
 		storage->client->refcount++;
 	} else {
-		if (imapc_storage_client_create(ns, storage->set, _storage->set,
+		if (imapc_storage_client_create(ns, storage->set,
 						&storage->client, error_r) < 0)
 			return -1;
 	}

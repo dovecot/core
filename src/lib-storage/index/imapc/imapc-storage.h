@@ -200,7 +200,6 @@ struct imapc_simple_context {
 
 int imapc_storage_client_create(struct mail_namespace *ns,
 				const struct imapc_settings *imapc_set,
-				const struct mail_storage_settings *mail_set,
 				struct imapc_storage_client **client_r,
 				const char **error_r);
 void imapc_storage_client_unref(struct imapc_storage_client **client);

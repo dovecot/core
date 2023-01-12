@@ -97,7 +97,7 @@ static int imapc_list_init(struct mailbox_list *_list, const char **error_r)
 
 	list->set = settings_parser_get_root_set(_list->ns->user->set_parser,
 						 imapc_get_setting_parser_info());
-	if (imapc_storage_client_create(_list->ns, list->set, _list->mail_set,
+	if (imapc_storage_client_create(_list->ns, list->set,
 					&list->client, error_r) < 0)
 		return -1;
 	list->client->_list = list;
