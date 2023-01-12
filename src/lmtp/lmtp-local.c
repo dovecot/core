@@ -434,8 +434,16 @@ lmtp_local_deliver(struct lmtp_local *local,
 	input = mail_storage_service_user_get_input(service_user);
 	username = t_strdup(input->username);
 
-	mail_set = mail_storage_service_user_get_mail_set(service_user);
 	set_parser = mail_storage_service_user_get_settings_parser(service_user);
+	if (master_service_settings_parser_get(rcpt->event, set_parser,
+			&mail_storage_setting_parser_info,
+			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			&mail_set, &error) < 0) {
+		e_error(rcpt->event, "%s", error);
+		smtp_server_recipient_reply(rcpt, 451, "4.3.0",
+					    "Temporary internal error");
+		return -1;
+	}
 
 	smtp_server_connection_get_proxy_data
 		(client->conn, &proxy_data);
@@ -452,6 +460,7 @@ lmtp_local_deliver(struct lmtp_local *local,
 		if (settings_parse_line(set_parser, line) < 0)
 			i_unreached();
 	}
+	master_service_settings_free(mail_set);
 
 	i_zero(&lldctx);
 	lldctx.session_id = lrcpt->session_id;
