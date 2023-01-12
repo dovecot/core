@@ -1,6 +1,7 @@
 /* Copyright (c) 2006-2018 Dovecot authors, see the included COPYING file */
 
 #include "lib.h"
+#include "eacces-error.h"
 #include "array.h"
 #include "ioloop.h"
 #include "str.h"
@@ -11,6 +12,7 @@
 
 #ifdef BUILD_SQLITE
 #include <sqlite3.h>
+#include <sys/stat.h>
 
 /* retry time if db is busy (in ms) */
 static const int sqlite_busy_timeout = 1000;
@@ -50,6 +52,7 @@ static struct event_category event_category_sqlite = {
 
 static int driver_sqlite_connect(struct sql_db *_db)
 {
+	struct stat st;
 	struct sqlite_db *db = container_of(_db, struct sqlite_db, api);
 	/* this is default for sqlite_open */
 	int flags;
@@ -71,16 +74,29 @@ static int driver_sqlite_connect(struct sql_db *_db)
 		db->connected = TRUE;
 		sqlite3_busy_timeout(db->sqlite, sqlite_busy_timeout);
 		return 1;
+	case SQLITE_READONLY:
+	case SQLITE_CANTOPEN:
+	case SQLITE_PERM:
+		if (stat(db->dbfile, &st) == -1 && errno == ENOENT) {
+			e_error(_db->event, "%s",
+				eacces_error_get_creating("creat", db->dbfile));
+		} else {
+			e_error(_db->event, "%s",
+				eacces_error_get("open", db->dbfile));
+		}
+		break;
 	case SQLITE_NOMEM:
 		i_fatal_status(FATAL_OUTOFMEM, "open(%s) failed: %s",
 			       db->dbfile, sqlite3_errmsg(db->sqlite));
 	default:
 		e_error(_db->event, "open(%s) failed: %s", db->dbfile,
 			sqlite3_errmsg(db->sqlite));
-		sqlite3_close(db->sqlite);
-		db->sqlite = NULL;
-		return -1;
+		break;
 	}
+
+	sqlite3_close(db->sqlite);
+	db->sqlite = NULL;
+	return -1;
 }
 
 static void driver_sqlite_disconnect(struct sql_db *_db)
