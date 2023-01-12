@@ -673,7 +673,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 
 	/* NOTE: if more user initialization is added, add it also to
 	   mail_user_dup() */
-	mail_user = mail_user_alloc_nodup_set(user, user->set_parser);
+	mail_user = mail_user_alloc(user);
 	*mail_user_r = mail_user;
 	if (user->input.autocreated)
 		mail_user->autocreated = TRUE;

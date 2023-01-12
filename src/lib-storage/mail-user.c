@@ -61,29 +61,28 @@ void mail_user_add_event_fields(struct mail_user *user)
 	}
 }
 
-static struct mail_user *
-mail_user_alloc_int(struct mail_storage_service_user *service_user,
-		    struct setting_parser_context *unexpanded_set_parser,
-		    pool_t pool)
+struct mail_user *
+mail_user_alloc(struct mail_storage_service_user *service_user)
 {
 	struct mail_user *user;
 	struct event *parent_event =
 		mail_storage_service_user_get_event(service_user);
 	const char *username =
 		mail_storage_service_user_get_username(service_user);
+	struct setting_parser_context *service_user_set_parser =
+		mail_storage_service_user_get_settings_parser(service_user);
 	i_assert(*username != '\0');
 
+	pool_t pool = pool_alloconly_create(MEMPOOL_GROWING"mail user", 16*1024);
 	user = p_new(pool, struct mail_user, 1);
 	user->pool = pool;
 	user->refcount = 1;
 	user->service_user = service_user;
 	mail_storage_service_user_ref(service_user);
 	user->username = p_strdup(pool, username);
-	user->unexpanded_set_parser = unexpanded_set_parser;
-	settings_parser_ref(user->unexpanded_set_parser);
-	user->set_parser = settings_parser_dup(unexpanded_set_parser, pool);
+	user->set_parser = settings_parser_dup(service_user_set_parser, pool);
 	user->unexpanded_set =
-		settings_parser_get_root_set(unexpanded_set_parser,
+		settings_parser_get_root_set(service_user_set_parser,
 					     &mail_user_setting_parser_info);
 	user->set = settings_parser_get_root_set(user->set_parser,
 						 &mail_user_setting_parser_info);
@@ -97,30 +96,6 @@ mail_user_alloc_int(struct mail_storage_service_user *service_user,
 	user->v.deinit = mail_user_deinit_base;
 	user->v.deinit_pre = mail_user_deinit_pre_base;
 	p_array_init(&user->module_contexts, user->pool, 5);
-	return user;
-}
-
-struct mail_user *
-mail_user_alloc_nodup_set(struct mail_storage_service_user *service_user,
-			  struct setting_parser_context *unexpanded_set_parser)
-{
-	pool_t pool;
-
-	pool = pool_alloconly_create(MEMPOOL_GROWING"mail user", 16*1024);
-	return mail_user_alloc_int(service_user, unexpanded_set_parser, pool);
-}
-
-struct mail_user *mail_user_alloc(struct mail_storage_service_user *service_user,
-				  struct setting_parser_context *unexpanded_set_parser)
-{
-	pool_t pool;
-
-	pool = pool_alloconly_create(MEMPOOL_GROWING"mail user", 16*1024);
-	struct setting_parser_context *set_parser =
-		settings_parser_dup(unexpanded_set_parser, pool);
-	struct mail_user *user =
-		mail_user_alloc_int(service_user, set_parser, pool);
-	settings_parser_unref(&set_parser);
 	return user;
 }
 
@@ -278,7 +253,6 @@ void mail_user_unref(struct mail_user **_user)
 		user->v.deinit(user);
 	} T_END;
 	settings_parser_unref(&user->set_parser);
-	settings_parser_unref(&user->unexpanded_set_parser);
 	event_unref(&user->event);
 	i_assert(user->refcount == 1);
 	pool_unref(&user->pool);
@@ -780,8 +754,7 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 {
 	struct mail_user *user2;
 
-	user2 = mail_user_alloc(user->service_user,
-				user->unexpanded_set_parser);
+	user2 = mail_user_alloc(user->service_user);
 	if (user->_home != NULL)
 		mail_user_set_home(user2, user->_home);
 	mail_user_set_vars(user2, user->service, &user->conn);
