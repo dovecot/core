@@ -75,7 +75,6 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(BOOL, mailbox_list_index),
 	DEF(BOOL, mailbox_list_index_very_dirty_syncs),
 	DEF(BOOL, mailbox_list_index_include_inbox),
-	DEF(BOOL, mail_debug),
 	DEF(BOOL, mail_full_filesystem_access),
 	DEF(BOOL, maildir_stat_dirs),
 	DEF(BOOL, mail_shared_explicit_inbox),
@@ -133,7 +132,6 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.mailbox_list_index = TRUE,
 	.mailbox_list_index_very_dirty_syncs = FALSE,
 	.mailbox_list_index_include_inbox = FALSE,
-	.mail_debug = FALSE,
 	.mail_full_filesystem_access = FALSE,
 	.maildir_stat_dirs = FALSE,
 	.mail_shared_explicit_inbox = FALSE,
@@ -272,6 +270,7 @@ static const struct setting_define mail_user_setting_defines[] = {
 	DEF(STR, base_dir),
 	DEF(STR, auth_socket_path),
 	DEF(STR_VARS, mail_temp_dir),
+	DEF(BOOL, mail_debug),
 
 	DEF(STR, mail_uid),
 	DEF(STR, mail_gid),
@@ -305,6 +304,7 @@ static const struct mail_user_settings mail_user_default_settings = {
 	.base_dir = PKG_RUNDIR,
 	.auth_socket_path = "auth-userdb",
 	.mail_temp_dir = "/tmp",
+	.mail_debug = FALSE,
 
 	.mail_uid = "",
 	.mail_gid = "",

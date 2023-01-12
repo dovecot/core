@@ -172,7 +172,6 @@ int mail_user_var_expand(struct mail_user *user,
 
 int mail_user_init(struct mail_user *user, const char **error_r)
 {
-	const struct mail_storage_settings *mail_set;
 	const char *error;
 
 	i_assert(!user->initialized);
@@ -206,8 +205,7 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 	/* autocreated users for shared mailboxes need to be fully initialized
 	   if they don't exist, since they're going to be used anyway */
 	if (user->error == NULL || user->nonexistent) {
-		mail_set = mail_user_set_get_storage_set(user);
-		user->mail_debug = mail_set->mail_debug;
+		user->mail_debug = user->set->mail_debug;
 
 		user->initialized = TRUE;
 		hook_mail_user_created(user);

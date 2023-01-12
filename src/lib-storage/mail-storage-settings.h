@@ -56,7 +56,6 @@ struct mail_storage_settings {
 	bool mailbox_list_index;
 	bool mailbox_list_index_very_dirty_syncs;
 	bool mailbox_list_index_include_inbox;
-	bool mail_debug;
 	bool mail_full_filesystem_access;
 	bool maildir_stat_dirs;
 	bool mail_shared_explicit_inbox;
@@ -119,6 +118,7 @@ struct mail_user_settings {
 	const char *base_dir;
 	const char *auth_socket_path;
 	const char *mail_temp_dir;
+	bool mail_debug;
 
 	const char *mail_uid;
 	const char *mail_gid;
