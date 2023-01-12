@@ -83,7 +83,7 @@ pop3c_client_create_from_set(struct mail_storage *storage,
 	client_set.rawlog_dir =
 		mail_user_home_expand(storage->user, set->pop3c_rawlog_dir);
 
-	mail_user_init_ssl_client_settings(storage->user, &client_set.ssl_set);
+	client_set.ssl_set = *storage->user->ssl_set;
 
 	if (!set->pop3c_ssl_verify)
 		client_set.ssl_set.allow_invalid_cert = TRUE;

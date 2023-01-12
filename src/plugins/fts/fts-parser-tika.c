@@ -42,7 +42,6 @@ tika_get_http_client_url(struct fts_parser_context *parser_context, struct http_
 	struct event *event = parser_context->event;
 	struct fts_parser_tika_user *tuser = TIKA_USER_CONTEXT(user);
 	struct http_client_settings http_set;
-	struct ssl_iostream_settings ssl_set;
 	const char *url, *error;
 
 	url = mail_user_plugin_getenv(user, "fts_tika");
@@ -66,8 +65,6 @@ tika_get_http_client_url(struct fts_parser_context *parser_context, struct http_
 	}
 
 	if (tika_http_client == NULL) {
-		mail_user_init_ssl_client_settings(user, &ssl_set);
-
 		i_zero(&http_set);
 		http_set.max_idle_time_msecs = 100;
 		http_set.max_parallel_connections = 1;
@@ -76,7 +73,7 @@ tika_get_http_client_url(struct fts_parser_context *parser_context, struct http_
 		http_set.max_attempts = 3;
 		http_set.connect_timeout_msecs = 5*1000;
 		http_set.request_timeout_msecs = 60*1000;
-		http_set.ssl = &ssl_set;
+		http_set.ssl = user->ssl_set;
 		http_set.debug = event_want_debug(user->event);
 		http_set.event_parent = user->event;
 

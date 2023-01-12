@@ -202,6 +202,13 @@ int mail_user_init(struct mail_user *user, const char **error_r)
 	user->settings_expanded = TRUE;
 	mail_user_expand_plugins_envs(user);
 
+	user->ssl_set = p_new(user->pool, struct ssl_iostream_settings, 1);
+	if (user->error == NULL &&
+	    mail_storage_service_user_init_ssl_client_settings(
+			user->service_user, user->pool,
+			user->ssl_set, &error) < 0)
+		user->error = p_strdup(user->pool, error);
+
 	/* autocreated users for shared mailboxes need to be fully initialized
 	   if they don't exist, since they're going to be used anyway */
 	if (user->error == NULL || user->nonexistent) {
@@ -792,16 +799,6 @@ struct mail_user *mail_user_dup(struct mail_user *user)
 	return user2;
 }
 
-void mail_user_init_ssl_client_settings(struct mail_user *user,
-	struct ssl_iostream_settings *ssl_set_r)
-{
-	const struct master_service_ssl_settings *ssl_set =
-		mail_storage_service_user_get_ssl_settings(user->service_user);
-
-	master_service_ssl_client_settings_to_iostream_set(ssl_set,
-		pool_datastack_create(), ssl_set_r);
-}
-
 void mail_user_init_fs_settings(struct mail_user *user,
 				struct fs_settings *fs_set,
 				struct ssl_iostream_settings *ssl_set_r)
@@ -815,7 +812,7 @@ void mail_user_init_fs_settings(struct mail_user *user,
 	fs_set->enable_timing = user->stats_enabled;
 
 	fs_set->ssl_client_set = ssl_set_r;
-	mail_user_init_ssl_client_settings(user, ssl_set_r);
+	*ssl_set_r = *user->ssl_set;
 }
 
 static int

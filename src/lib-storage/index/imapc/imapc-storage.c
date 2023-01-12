@@ -354,7 +354,7 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	mail_user_set_get_temp_prefix(str, ns->user->set);
 	set.temp_path_prefix = str_c(str);
 
-	mail_user_init_ssl_client_settings(ns->user, &set.ssl_set);
+	set.ssl_set = *ns->user->ssl_set;
 	if (!imapc_set->imapc_ssl_verify)
 		set.ssl_set.allow_invalid_cert = TRUE;
 

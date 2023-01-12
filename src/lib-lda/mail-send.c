@@ -51,7 +51,6 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 			const char *reason)
 {
 	struct mail_user *user = ctx->rcpt_user;
-	struct ssl_iostream_settings ssl_set;
 	struct mail *mail = ctx->src_mail;
 	struct istream *input;
 	struct smtp_submit_input smtp_input;
@@ -98,10 +97,8 @@ int mail_send_rejection(struct mail_deliver_context *ctx,
 
 	vtable = get_var_expand_table(mail, recipient, reason);
 
-	mail_user_init_ssl_client_settings(user, &ssl_set);
-
 	i_zero(&smtp_input);
-	smtp_input.ssl = &ssl_set;
+	smtp_input.ssl = user->ssl_set;
 	smtp_submit = smtp_submit_init_simple(&smtp_input, ctx->smtp_set, NULL);
 	smtp_submit_add_rcpt(smtp_submit, return_addr);
 	output = smtp_submit_send(smtp_submit);
