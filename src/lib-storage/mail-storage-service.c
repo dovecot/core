@@ -79,7 +79,6 @@ struct mail_storage_service_user {
 	const char *system_groups_user, *uid_source, *gid_source;
 	const char *chdir_path;
 	const struct mail_user_settings *user_set;
-	const struct master_service_ssl_settings *ssl_set;
 	struct setting_parser_context *set_parser;
 
 	unsigned int session_id_counter;
@@ -1328,8 +1327,6 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 
 	user->user_set = settings_parser_get_root_set(user->set_parser,
 				&mail_user_setting_parser_info);
-	user->ssl_set = settings_parser_get_root_set(user->set_parser,
-				&master_service_ssl_setting_parser_info);
 	user->gid_source = "mail_gid setting";
 	user->uid_source = "mail_uid setting";
 
@@ -1733,12 +1730,6 @@ struct setting_parser_context *
 mail_storage_service_user_get_settings_parser(struct mail_storage_service_user *user)
 {
 	return user->set_parser;
-}
-
-const struct master_service_ssl_settings *
-mail_storage_service_user_get_ssl_settings(struct mail_storage_service_user *user)
-{
-	return user->ssl_set;
 }
 
 int mail_storage_service_user_init_ssl_client_settings(

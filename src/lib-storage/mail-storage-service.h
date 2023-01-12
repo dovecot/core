@@ -158,8 +158,6 @@ const struct mail_storage_service_input *
 mail_storage_service_user_get_input(struct mail_storage_service_user *user);
 struct setting_parser_context *
 mail_storage_service_user_get_settings_parser(struct mail_storage_service_user *user);
-const struct master_service_ssl_settings *
-mail_storage_service_user_get_ssl_settings(struct mail_storage_service_user *user);
 int mail_storage_service_user_init_ssl_client_settings(
 	struct mail_storage_service_user *user, pool_t pool,
 	struct ssl_iostream_settings *ssl_set_r, const char **error_r);
