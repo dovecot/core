@@ -59,6 +59,7 @@ struct imapc_storage_client {
 	struct imapc_mailbox_list *_list;
 
 	struct imapc_client *client;
+	const struct imapc_settings *set;
 
 	ARRAY(struct imapc_storage_event_callback) untagged_callbacks;
 
@@ -74,7 +75,7 @@ struct imapc_storage_client {
 
 struct imapc_storage {
 	struct mail_storage storage;
-	const struct imapc_settings *set;
+	const struct imapc_settings *set; /* points to client->set */
 
 	struct ioloop *root_ioloop;
 	struct imapc_storage_client *client;
@@ -199,7 +200,6 @@ struct imapc_simple_context {
 #define IMAPC_MAILBOX(s)	container_of(s, struct imapc_mailbox, box)
 
 int imapc_storage_client_create(struct mail_namespace *ns,
-				const struct imapc_settings *imapc_set,
 				struct imapc_storage_client **client_r,
 				const char **error_r);
 void imapc_storage_client_unref(struct imapc_storage_client **client);

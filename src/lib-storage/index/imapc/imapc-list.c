@@ -95,12 +95,11 @@ static int imapc_list_init(struct mailbox_list *_list, const char **error_r)
 {
 	struct imapc_mailbox_list *list = (struct imapc_mailbox_list *)_list;
 
-	list->set = settings_parser_get_root_set(_list->ns->user->set_parser,
-						 imapc_get_setting_parser_info());
-	if (imapc_storage_client_create(_list->ns, list->set,
+	if (imapc_storage_client_create(_list->ns,
 					&list->client, error_r) < 0)
 		return -1;
 	list->client->_list = list;
+	list->set = list->client->set;
 
 	imapc_storage_client_register_untagged(list->client, "LIST",
 					       imapc_untagged_list);

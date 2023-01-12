@@ -307,13 +307,16 @@ static void imapc_storage_client_login(struct imapc_storage_client *client,
 }
 
 int imapc_storage_client_create(struct mail_namespace *ns,
-				const struct imapc_settings *imapc_set,
 				struct imapc_storage_client **client_r,
 				const char **error_r)
 {
+	const struct imapc_settings *imapc_set;
 	struct imapc_storage_client *client;
 	struct imapc_client_settings set;
 	string_t *str;
+
+	imapc_set = settings_parser_get_root_set(ns->user->set_parser,
+		imapc_get_setting_parser_info());
 
 	i_zero(&set);
 	set.host = imapc_set->imapc_host;
@@ -371,6 +374,7 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 
 	client = i_new(struct imapc_storage_client, 1);
 	client->refcount = 1;
+	client->set = imapc_set;
 	i_array_init(&client->untagged_callbacks, 16);
 	/* FIXME: storage->event would be better, but we first get here when
 	   creating mailbox_list, and storage doesn't even exist yet. */
@@ -416,8 +420,21 @@ imapc_storage_create(struct mail_storage *_storage,
 	struct imapc_storage *storage = IMAPC_STORAGE(_storage);
 	struct imapc_mailbox_list *imapc_list = NULL;
 
-	storage->set = settings_parser_get_root_set(_storage->user->set_parser,
-		imapc_get_setting_parser_info());
+	if (strcmp(ns->list->name, MAILBOX_LIST_NAME_IMAPC) == 0) {
+		imapc_list = (struct imapc_mailbox_list *)ns->list;
+		storage->client = imapc_list->client;
+		storage->client->refcount++;
+	} else {
+		if (imapc_storage_client_create(ns, &storage->client, error_r) < 0)
+			return -1;
+	}
+	storage->client->_storage = storage;
+	storage->set = storage->client->set;
+	p_array_init(&storage->remote_namespaces, _storage->pool, 4);
+	if (!IMAPC_HAS_FEATURE(storage, IMAPC_FEATURE_NO_FETCH_BODYSTRUCTURE)) {
+		_storage->nonbody_access_fields |=
+			MAIL_FETCH_IMAP_BODY | MAIL_FETCH_IMAP_BODYSTRUCTURE;
+	}
 
 	/* serialize all the settings */
 	_storage->unique_root_dir = p_strdup_printf(_storage->pool,
@@ -440,22 +457,6 @@ imapc_storage_create(struct mail_storage *_storage,
 						    (size_t) storage->set->imapc_max_line_length,
 						    storage->set->pop3_deleted_flag,
 						    ns->list->set.root_dir);
-
-	if (strcmp(ns->list->name, MAILBOX_LIST_NAME_IMAPC) == 0) {
-		imapc_list = (struct imapc_mailbox_list *)ns->list;
-		storage->client = imapc_list->client;
-		storage->client->refcount++;
-	} else {
-		if (imapc_storage_client_create(ns, storage->set,
-						&storage->client, error_r) < 0)
-			return -1;
-	}
-	storage->client->_storage = storage;
-	p_array_init(&storage->remote_namespaces, _storage->pool, 4);
-	if (!IMAPC_HAS_FEATURE(storage, IMAPC_FEATURE_NO_FETCH_BODYSTRUCTURE)) {
-		_storage->nonbody_access_fields |=
-			MAIL_FETCH_IMAP_BODY | MAIL_FETCH_IMAP_BODYSTRUCTURE;
-	}
 
 	imapc_storage_client_register_untagged(storage->client, "STATUS",
 					       imapc_untagged_status);
