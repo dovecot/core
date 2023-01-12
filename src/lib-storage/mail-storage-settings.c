@@ -150,6 +150,7 @@ const struct setting_parser_info mail_storage_setting_parser_info = {
 	.defaults = &mail_storage_default_settings,
 
 	.struct_size = sizeof(struct mail_storage_settings),
+	.pool_offset1 = 1 + offsetof(struct mail_storage_settings, pool),
 	.parent = &mail_user_setting_parser_info,
 	.check_func = mail_storage_settings_check,
 };
