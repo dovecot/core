@@ -62,7 +62,6 @@ void dlua_push_mail_user(lua_State *L, struct mail_user *user)
 	LUA_TABLE_SET_BOOL(nonexistent);
 	LUA_TABLE_SET_BOOL(anonymous);
 	LUA_TABLE_SET_BOOL(autocreated);
-	LUA_TABLE_SET_BOOL(mail_debug);
 	LUA_TABLE_SET_BOOL(fuzzy_search);
 	LUA_TABLE_SET_BOOL(dsyncing);
 	LUA_TABLE_SET_BOOL(admin);
