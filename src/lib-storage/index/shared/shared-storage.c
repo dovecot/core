@@ -137,12 +137,11 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	struct mailbox_list *list = (*_ns)->list;
 	struct shared_storage *storage = SHARED_STORAGE(_storage);
 	struct mail_user *user = _storage->user;
-	struct mail_namespace *new_ns, *ns = *_ns;
-	struct mail_namespace_settings *ns_set;
+	struct mail_namespace *ns = *_ns;
 	struct mail_user *owner;
 	const char *domain = NULL, *username = NULL, *userdomain = NULL;
 	const char *name, *p, *next, **dest, *error;
-	string_t *prefix, *location;
+	string_t *prefix;
 	char ns_sep = mail_namespace_get_sep(ns);
 	int ret;
 
@@ -259,28 +258,31 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 		if (!owner->nonexistent) {
 			mailbox_list_set_critical(list,
 				"Couldn't create namespace '%s' for user %s: %s",
-				ns->prefix, userdomain, error);
-			mail_user_deinit(&owner);
-			return -1;
-		}
-		ret = 0;
-	} else if (!var_has_key(storage->location, 'h', "home")) {
-		ret = 1;
-	} else {
-		/* we'll need to look up the user's home directory */
-		if ((ret = mail_user_get_home(owner, &tab[3].value)) < 0) {
-			mailbox_list_set_critical(list, "Namespace '%s': "
-				"Could not lookup home for user %s",
-				ns->prefix, userdomain);
+				ns->prefix, owner->username, error);
 			mail_user_deinit(&owner);
 			return -1;
 		}
 	}
 
-	location = t_str_new(256);
+	if (owner->nonexistent)
+		ret = 0;
+	else if (!var_has_key(storage->location, 'h', "home")) {
+		ret = 1;
+	} else {
+		/* we'll need to look up the user's home directory */
+		if ((ret = mail_user_get_home(owner, &tab[3].value)) < 0) {
+			mailbox_list_set_critical(ns->list, "Namespace '%s': "
+				"Could not lookup home for user %s",
+				ns->prefix, owner->username);
+			mail_user_deinit(&owner);
+			return -1;
+		}
+	}
+
+	string_t *location = t_str_new(256);
 	if (ret > 0 &&
 	    var_expand(location, storage->location, tab, &error) <= 0) {
-		mailbox_list_set_critical(list,
+		mailbox_list_set_critical(ns->list,
 			"Failed to expand namespace location '%s': %s",
 			storage->location, error);
 		mail_user_deinit(&owner);
@@ -288,7 +290,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	}
 
 	/* create the new namespace */
-	new_ns = i_new(struct mail_namespace, 1);
+	struct mail_namespace *new_ns = i_new(struct mail_namespace, 1);
 	new_ns->refcount = 1;
 	new_ns->type = MAIL_NAMESPACE_TYPE_SHARED;
 	new_ns->user = user;
@@ -302,16 +304,18 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	i_array_init(&new_ns->all_storages, 2);
 
 	if (ret <= 0) {
-		get_nonexistent_user_location(storage, userdomain, location);
+		get_nonexistent_user_location(storage, owner->username, location);
 		new_ns->flags |= NAMESPACE_FLAG_UNUSABLE;
 		e_debug(ns->user->event,
 			"shared: Tried to access mails of "
-			"nonexistent user %s", userdomain);
+			"nonexistent user %s", owner->username);
 	}
 
-	ns_set = p_new(user->pool, struct mail_namespace_settings, 1);
+	struct mail_namespace_settings *ns_set =
+		p_new(user->pool, struct mail_namespace_settings, 1);
 	ns_set->type = "shared";
-	ns_set->separator = p_strdup_printf(user->pool, "%c", ns_sep);
+	ns_set->separator = p_strdup_printf(user->pool, "%c",
+					    mail_namespace_get_sep(ns));
 	ns_set->prefix = new_ns->prefix;
 	ns_set->location = p_strdup(user->pool, str_c(location));
 	ns_set->unexpanded_location =
@@ -329,7 +333,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 
 	if (mail_storage_create(new_ns, NULL, _storage->flags |
 				MAIL_STORAGE_FLAG_NO_AUTOVERIFY, &error) < 0) {
-		mailbox_list_set_critical(list, "Namespace '%s': %s",
+		mailbox_list_set_critical(ns->list, "Namespace '%s': %s",
 					  new_ns->prefix, error);
 		/* owner gets freed by namespace deinit */
 		mail_namespace_destroy(new_ns);
@@ -343,15 +347,15 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	/* mark the shared namespace root as usable, since it now has
 	   child namespaces */
 	ns->flags |= NAMESPACE_FLAG_USABLE;
-	*_name = mailbox_list_get_storage_name(new_ns->list,
-				t_strconcat(new_ns->prefix, name, NULL));
-	*_ns = new_ns;
 	if (_storage->class_flags == 0) {
 		/* flags are unset if we were using "auto" storage */
 		_storage->class_flags =
 			mail_namespace_get_default_storage(new_ns)->class_flags;
 	}
 
+	*_name = mailbox_list_get_storage_name(new_ns->list,
+				t_strconcat(new_ns->prefix, name, NULL));
+	*_ns = new_ns;
 	mail_user_add_namespace(user, &new_ns);
 	return 0;
 }
