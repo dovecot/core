@@ -153,7 +153,10 @@ lda_raw_mail_open(struct mail_deliver_input *dinput, const char *path)
 	time_t mtime;
 	int ret;
 
-	raw_mail_user = raw_storage_create_from_set(dinput->rcpt_user->unexpanded_set_parser);
+	struct mail_storage_service_ctx *storage_service =
+		mail_storage_service_user_get_service_ctx(dinput->rcpt_user->_service_user);
+	raw_mail_user = raw_storage_create_from_set(storage_service,
+				dinput->rcpt_user->unexpanded_set_parser);
 
 	mail_from = (dinput->mail_from != NULL ?
 		     dinput->mail_from : &default_envelope_sender);

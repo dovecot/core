@@ -119,7 +119,8 @@ static void client_read_settings(struct client *client, bool ssl)
 		i_fatal("%s", error);
 
 	/* create raw user before duplicating the settings parser */
-	client->raw_mail_user = raw_storage_create_from_set(set_parser);
+	client->raw_mail_user =
+		raw_storage_create_from_set(storage_service, set_parser);
 
 	set_parser = settings_parser_dup(set_parser, client->pool);
 	lmtp_settings_get(set_parser, client->pool, &lmtp_set, &lda_set);

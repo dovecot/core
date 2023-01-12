@@ -3,8 +3,11 @@
 #include "lib.h"
 #include "ioloop.h"
 #include "istream.h"
+#include "master-service.h"
+#include "master-service-settings.h"
 #include "index-mail.h"
 #include "mail-copy.h"
+#include "mail-storage-service.h"
 #include "mailbox-list-private.h"
 #include "raw-sync.h"
 #include "raw-storage.h"
@@ -13,26 +16,51 @@ extern struct mail_storage raw_storage;
 extern struct mailbox raw_mailbox;
 
 struct mail_user *
-raw_storage_create_from_set(struct setting_parser_context *unexpanded_set_parser)
+raw_storage_create_from_set(struct mail_storage_service_ctx *ctx,
+			    struct setting_parser_context *unexpanded_set_parser)
 {
+	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
 	struct mail_namespace *ns;
 	struct mail_namespace_settings *ns_set;
-	struct mail_storage_settings *mail_set;
 	struct event *event;
 	const char *error;
+
+	struct ioloop_context *old_ioloop_ctx =
+		io_loop_get_current_context(current_ioloop);
 
 	event = event_create(NULL);
 	/* Don't include raw user's events in statistics or anything else.
 	   They would just cause confusion. */
 	event_disable_callbacks(event);
-	user = mail_user_alloc(event, "raw-mail-user", unexpanded_set_parser);
-	event_unref(&event);
 
-	user->autocreated = TRUE;
-	mail_user_set_home(user, "/");
-	if (mail_user_init(user, &error) < 0)
+	const struct master_service_settings *service_set =
+		master_service_settings_get(master_service);
+	const char *const userdb_fields[] = {
+		/* use unwritable home directory */
+		t_strdup_printf("home=%s/empty", service_set->base_dir),
+		/* absolute paths are ok with raw storage */
+		"mail_full_filesystem_access=yes",
+		NULL,
+	};
+	struct mail_storage_service_input input = {
+		.event_parent = event,
+		.username = "raw-mail-user",
+		.unexpanded_set_parser = unexpanded_set_parser,
+		.autocreated = TRUE,
+		.no_userdb_lookup = TRUE,
+		.userdb_fields = userdb_fields,
+		.flags_override_add =
+			MAIL_STORAGE_SERVICE_FLAG_NO_RESTRICT_ACCESS |
+			MAIL_STORAGE_SERVICE_FLAG_NO_CHDIR |
+			MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT |
+			MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS |
+			MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES,
+	};
+	if (mail_storage_service_lookup_next(ctx, &input, &service_user,
+					     &user, &error) < 0)
 		i_fatal("Raw user initialization failed: %s", error);
+	event_unref(&event);
 
 	ns_set = p_new(user->pool, struct mail_namespace_settings, 1);
 	ns_set->name = "raw-storage";
@@ -45,16 +73,17 @@ raw_storage_create_from_set(struct setting_parser_context *unexpanded_set_parser
 	ns->flags &= ENUM_NEGATE(NAMESPACE_FLAG_INBOX_USER);
 	ns->flags |= NAMESPACE_FLAG_NOQUOTA | NAMESPACE_FLAG_NOACL;
 	ns->set = ns_set;
-	/* absolute paths are ok with raw storage */
-	mail_set = p_new(user->pool, struct mail_storage_settings, 1);
-	*mail_set = *ns->mail_set;
-	mail_set->mail_full_filesystem_access = TRUE;
-	ns->mail_set = mail_set;
 
 	if (mail_storage_create(ns, "raw", 0, &error) < 0)
 		i_fatal("Couldn't create internal raw storage: %s", error);
 	if (mail_namespaces_init_finish(ns, &error) < 0)
 		i_fatal("Couldn't create internal raw namespace: %s", error);
+
+	if (old_ioloop_ctx != NULL)
+		io_loop_context_switch(old_ioloop_ctx);
+	else
+		mail_storage_service_io_deactivate_user(service_user);
+	mail_storage_service_user_unref(&service_user);
 	return user;
 }
 
