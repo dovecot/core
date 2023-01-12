@@ -283,6 +283,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 		mailbox_list_set_critical(list,
 			"Failed to expand namespace location '%s': %s",
 			storage->location, error);
+		mail_user_deinit(&owner);
 		return -1;
 	}
 
