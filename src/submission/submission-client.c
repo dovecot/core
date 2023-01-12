@@ -216,7 +216,7 @@ client_create(int fd_in, int fd_out, struct event *event,
 	smtp_set.max_message_size = set->submission_max_mail_size;
 	smtp_set.rawlog_dir = set->rawlog_dir;
 	smtp_set.no_greeting = no_greeting;
-	smtp_set.debug = user->mail_debug;
+	smtp_set.debug = event_want_debug(client->event);
 	smtp_set.event_parent = event;
 
 	if ((workarounds & SUBMISSION_WORKAROUND_WHITESPACE_BEFORE_PATH) != 0) {

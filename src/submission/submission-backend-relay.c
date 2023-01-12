@@ -49,8 +49,6 @@ backend_relay_handle_relay_reply(struct submission_backend_relay *rbackend,
 				 struct smtp_reply *reply_r) ATTR_NULL(2)
 {
 	struct submission_backend *backend = &rbackend->backend;
-	struct client *client = rbackend->backend.client;
-	struct mail_user *user = client->user;
 	const char *enh_code, *msg, *log_msg = NULL;
 	const char *const *reply_lines;
 	bool result = TRUE;
@@ -1101,7 +1099,7 @@ submission_backend_relay_create(
 	smtp_set.my_hostname = set->my_hostname;
 	smtp_set.extra_capabilities = set->extra_capabilities;
 	smtp_set.ssl = &ssl_set;
-	smtp_set.debug = user->mail_debug;
+	smtp_set.debug = event_want_debug(rbackend->backend.event);
 	smtp_set.event_parent = rbackend->backend.event;
 
 	if (set->rawlog_dir != NULL) {

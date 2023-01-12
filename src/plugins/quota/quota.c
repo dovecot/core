@@ -306,7 +306,7 @@ int quota_user_read_settings(struct mail_user *user,
 	quota_set->pool = pool;
 	quota_set->event = event_create(user->event);
 	quota_set->test_alloc = quota_default_test_alloc;
-	quota_set->debug = user->mail_debug;
+	quota_set->debug = event_want_debug(quota_set->event);
 	quota_set->quota_exceeded_msg =
 		mail_user_plugin_getenv(user, "quota_exceeded_message");
 	if (quota_set->quota_exceeded_msg == NULL)
@@ -1043,7 +1043,7 @@ static void quota_warning_execute(struct quota_root *root, const char *cmd,
 
 	struct program_client_settings set = {
 		.client_connect_timeout_msecs = 1000,
-		.debug = root->quota->user->mail_debug,
+		.debug = event_want_debug(root->quota->event),
 	};
 	struct program_client *pc;
 

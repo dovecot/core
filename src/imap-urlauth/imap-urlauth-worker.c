@@ -569,7 +569,7 @@ client_handle_user_command(struct client *client, const char *cmd,
 		return 0;
 	}
 
-	event_set_forced_debug(client->event, mail_user->mail_debug);
+	event_set_forced_debug(client->event, event_want_debug(mail_user->event));
 
 	/* drop privileges */
 	restrict_access_allow_coredumps(TRUE);

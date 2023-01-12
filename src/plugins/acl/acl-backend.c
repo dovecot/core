@@ -61,7 +61,7 @@ acl_backend_init(const char *data, struct mailbox_list *list,
 	backend->event = event_create(user->event);
 	event_add_category(backend->event, &event_category_acl);
 
-	backend->debug = user->mail_debug;
+	backend->debug = event_want_debug(backend->event);
 	backend->v = acl_backend_vfile;
 	backend->list = list;
 	backend->username = p_strdup(backend->pool, acl_username);

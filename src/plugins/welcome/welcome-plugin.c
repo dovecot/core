@@ -55,7 +55,7 @@ static void script_execute(struct mail_user *user, const char *cmd, bool wait)
 	struct program_client_settings set = {
 		.client_connect_timeout_msecs = 1000,
 		.event = user->event,
-		.debug = user->mail_debug,
+		.debug = event_want_debug(user->event),
 		.home = home,
 	};
 

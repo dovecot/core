@@ -79,7 +79,7 @@ pop3c_client_create_from_set(struct mail_storage *storage,
 	mail_user_set_get_temp_prefix(str, storage->user->set);
 	client_set.temp_path_prefix = str_c(str);
 
-	client_set.debug = storage->user->mail_debug;
+	client_set.debug = event_want_debug(storage->event);
 	client_set.rawlog_dir =
 		mail_user_home_expand(storage->user, set->pop3c_rawlog_dir);
 

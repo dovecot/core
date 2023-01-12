@@ -732,7 +732,7 @@ mail_user_try_load_class_plugin(struct mail_user *user, const char *name)
 	mod_set.binary_name = master_service_get_name(master_service);
 	mod_set.setting_name = "<built-in storage lookup>";
 	mod_set.require_init_funcs = TRUE;
-	mod_set.debug = user->mail_debug;
+	mod_set.debug = event_want_debug(user->event);
 
 	mail_storage_service_modules =
 		module_dir_load_missing(mail_storage_service_modules,
@@ -815,7 +815,7 @@ void mail_user_init_fs_settings(struct mail_user *user,
 	fs_set->session_id = user->session_id;
 	fs_set->base_dir = user->set->base_dir;
 	fs_set->temp_dir = user->set->mail_temp_dir;
-	fs_set->debug = user->mail_debug;
+	fs_set->debug = event_want_debug(user->event);
 	fs_set->enable_timing = user->stats_enabled;
 
 	fs_set->ssl_client_set = ssl_set_r;
