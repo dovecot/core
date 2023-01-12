@@ -94,8 +94,6 @@ struct mail_user {
 	   This happens near the beginning of the user initialization,
 	   so this is rarely needed to be checked. */
 	bool settings_expanded:1;
-	/* Shortcut to mail_storage_settings.mail_debug */
-	bool mail_debug:1;
 	/* If INBOX can't be opened, log an error, but only once. */
 	bool inbox_open_error_logged:1;
 	/* Fuzzy search works for this user (FTS enabled) */
