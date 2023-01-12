@@ -4,6 +4,7 @@
 #include "net.h"
 
 struct master_service;
+struct ssl_iostream_settings;
 struct mail_user;
 struct setting_parser_context;
 struct setting_parser_info;
@@ -159,6 +160,9 @@ struct setting_parser_context *
 mail_storage_service_user_get_settings_parser(struct mail_storage_service_user *user);
 const struct master_service_ssl_settings *
 mail_storage_service_user_get_ssl_settings(struct mail_storage_service_user *user);
+int mail_storage_service_user_init_ssl_client_settings(
+	struct mail_storage_service_user *user, pool_t pool,
+	struct ssl_iostream_settings *ssl_set_r, const char **error_r);
 struct mail_storage_service_ctx *
 mail_storage_service_user_get_service_ctx(struct mail_storage_service_user *user);
 pool_t mail_storage_service_user_get_pool(struct mail_storage_service_user *user);
