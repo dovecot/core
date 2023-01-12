@@ -66,11 +66,15 @@ static int driver_sqlite_connect(struct sql_db *_db)
 
 	db->rc = sqlite3_open_v2(db->dbfile, &db->sqlite, flags, NULL);
 
-	if (db->rc == SQLITE_OK) {
+	switch (db->rc) {
+	case SQLITE_OK:
 		db->connected = TRUE;
 		sqlite3_busy_timeout(db->sqlite, sqlite_busy_timeout);
 		return 1;
-	} else {
+	case SQLITE_NOMEM:
+		i_fatal_status(FATAL_OUTOFMEM, "open(%s) failed: %s",
+			       db->dbfile, sqlite3_errmsg(db->sqlite));
+	default:
 		e_error(_db->event, "open(%s) failed: %s", db->dbfile,
 			sqlite3_errmsg(db->sqlite));
 		sqlite3_close(db->sqlite);
@@ -213,6 +217,11 @@ static void driver_sqlite_result_log(const struct sql_result *result, const char
 	if (!db->connected) {
 		suffix = ": Cannot connect to database";
 		e->add_str("error", "Cannot connect to database");
+	} else if (db->rc == SQLITE_NOMEM) {
+		suffix = t_strdup_printf(": %s (%d)", sqlite3_errmsg(db->sqlite),
+					 db->rc);
+		i_fatal_status(FATAL_OUTOFMEM, SQL_QUERY_FINISHED_FMT"%s", query,
+			       duration, suffix);
 	} else if (db->rc != SQLITE_OK) {
 		suffix = t_strdup_printf(": %s (%d)", sqlite3_errmsg(db->sqlite),
 					 db->rc);
@@ -308,7 +317,11 @@ static void driver_sqlite_result_free(struct sql_result *_result)
 		return;
 
 	if (result->stmt != NULL) {
-		if ((rc = sqlite3_finalize(result->stmt)) != SQLITE_OK) {
+		rc = sqlite3_finalize(result->stmt);
+		if (rc == SQLITE_NOMEM) {
+			i_fatal_status(FATAL_OUTOFMEM, "finalize failed: %s (%d)",
+				       sqlite3_errmsg(db->sqlite), rc);
+		} else if (rc != SQLITE_OK) {
 			e_warning(_result->event, "finalize failed: %s (%d)",
 				  sqlite3_errmsg(db->sqlite), rc);
 		}
@@ -322,12 +335,16 @@ static int driver_sqlite_result_next_row(struct sql_result *_result)
 {
 	struct sqlite_result *result =
 		container_of(_result, struct sqlite_result, api);
-
+	struct sqlite_db *db =
+		container_of(result->api.db, struct sqlite_db, api);
 	switch (sqlite3_step(result->stmt)) {
 	case SQLITE_ROW:
 		return 1;
 	case SQLITE_DONE:
 		return 0;
+	case SQLITE_NOMEM:
+		i_fatal_status(FATAL_OUTOFMEM, "sqlite3_step() failed: %s(%d)",
+			       sqlite3_errmsg(db->sqlite), SQLITE_NOMEM);
 	default:
 		return -1;
 	}
