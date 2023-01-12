@@ -1714,10 +1714,10 @@ void mail_storage_service_deinit(struct mail_storage_service_ctx **_ctx)
 	dict_drivers_unregister_builtin();
 }
 
-void *mail_storage_service_user_get_set(struct mail_storage_service_user *user,
-					const struct setting_parser_info *root)
+const struct mail_user_settings *
+mail_storage_service_user_get_set(struct mail_storage_service_user *user)
 {
-	return settings_parser_get_root_set(user->set_parser, root);
+	return user->user_set;
 }
 
 const struct mail_storage_service_input *
