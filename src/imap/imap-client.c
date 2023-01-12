@@ -114,7 +114,6 @@ static bool user_has_special_use_mailboxes(struct mail_user *user)
 
 struct client *client_create(int fd_in, int fd_out, bool unhibernated,
 			     struct event *event, struct mail_user *user,
-			     struct mail_storage_service_user *service_user,
 			     const struct imap_settings *set,
 			     const struct smtp_submit_settings *smtp_set)
 {
@@ -135,7 +134,6 @@ struct client *client_create(int fd_in, int fd_out, bool unhibernated,
 	client->unhibernated = unhibernated;
 	client->set = set;
 	client->smtp_set = smtp_set;
-	client->service_user = service_user;
 	client->fd_in = fd_in;
 	client->fd_out = fd_out;
 	client->input = i_stream_create_fd(fd_in,
@@ -547,7 +545,6 @@ static void client_default_destroy(struct client *client, const char *reason)
 	if (array_is_created(&client->search_updates))
 		array_free(&client->search_updates);
 	pool_unref(&client->command_pool);
-	mail_storage_service_user_unref(&client->service_user);
 
 	imap_client_count--;
 	DLLIST_REMOVE(&imap_clients, client);
@@ -1670,7 +1667,7 @@ void clients_init(void)
 
 void client_kick(struct client *client)
 {
-	mail_storage_service_io_activate_user(client->service_user);
+	mail_storage_service_io_activate_user(client->user->service_user);
 	if (client->output_cmd_lock == NULL) {
 		client_send_line(client,
 				 "* BYE "MASTER_SERVICE_SHUTTING_DOWN_MSG".");

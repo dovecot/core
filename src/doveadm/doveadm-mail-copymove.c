@@ -14,7 +14,6 @@ struct copy_cmd_context {
 	struct doveadm_mail_cmd_context ctx;
 
 	const char *source_username;
-	struct mail_storage_service_user *source_service_user;
 	struct mail_user *source_user;
 
 	const char *destname;
@@ -88,11 +87,10 @@ cmd_copy_alloc_source_user(struct copy_cmd_context *ctx)
 
 	mail_storage_service_io_deactivate_user(ctx->ctx.cur_service_user);
 	if (mail_storage_service_lookup_next(ctx->ctx.storage_service, &input,
-					     &ctx->source_service_user,
 					     &ctx->source_user,
 					     &error) < 0)
 		i_fatal("Couldn't lookup user %s: %s", input.username, error);
-	mail_storage_service_io_deactivate_user(ctx->source_service_user);
+	mail_storage_service_io_deactivate_user(ctx->source_user->service_user);
 	mail_storage_service_io_activate_user(ctx->ctx.cur_service_user);
 }
 
@@ -173,10 +171,8 @@ static void cmd_copy_deinit(struct doveadm_mail_cmd_context *_ctx)
 	struct copy_cmd_context *ctx =
 		container_of(_ctx, struct copy_cmd_context, ctx);
 
-	if (ctx->source_user != NULL) {
-		mail_storage_service_user_unref(&ctx->source_service_user);
+	if (ctx->source_user != NULL)
 		mail_user_deinit(&ctx->source_user);
-	}
 }
 
 static struct doveadm_mail_cmd_context *cmd_copy_alloc(void)

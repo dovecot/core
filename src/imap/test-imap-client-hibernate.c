@@ -140,7 +140,6 @@ static void test_imap_client_hibernate(void)
 {
 	struct client *client;
 	struct smtp_submit_settings smtp_set;
-	struct mail_storage_service_user *service_user;
 	struct mail_user *mail_user;
 	struct test_imap_client_hibernate ctx;
 	const char *error;
@@ -165,7 +164,7 @@ static void test_imap_client_hibernate(void)
 	test_assert(net_addr2ip("127.0.0.1", &input.local_ip) == 0);
 	test_assert(net_addr2ip("127.0.0.2", &input.remote_ip) == 0);
 	test_assert(mail_storage_service_lookup_next(storage_service, &input,
-		&service_user, &mail_user, &error) == 1);
+						     &mail_user, &error) == 1);
 	mail_user->set->base_dir = tmpdir;
 	mail_user->set->mail_log_prefix = EVILSTR"%u";
 	mail_user->session_id = EVILSTR"session";
@@ -174,8 +173,7 @@ static void test_imap_client_hibernate(void)
 
 	struct event *event = event_create(NULL);
 	int client_fd = dup(dev_null_fd);
-	client = client_create(client_fd, client_fd, FALSE, event,
-			       mail_user, service_user,
+	client = client_create(client_fd, client_fd, FALSE, event, mail_user,
 			       imap_setting_parser_info.defaults, &smtp_set);
 	ctx.client = client;
 

@@ -94,7 +94,6 @@ struct client {
 	ARRAY(struct submission_recipient *) rcpt_to;
 	ARRAY(struct submission_backend *) rcpt_backends;
 
-	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
 
 	/* IMAP URLAUTH context (RFC4467) for BURL (RFC4468) */
@@ -138,7 +137,6 @@ extern unsigned int submission_client_count;
 struct client *
 client_create(int fd_in, int fd_out, struct event *event,
 	      struct mail_user *user,
-	      struct mail_storage_service_user *service_user,
 	      const struct submission_settings *set, const char *helo,
 	      const struct smtp_proxy_data *proxy_data,
 	      const unsigned char *pdata, unsigned int pdata_len,

@@ -296,7 +296,6 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 		    const char *show_field, const char *expand_field)
 {
 	struct mail_storage_service_input service_input;
-	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
 	const char *error, *const *userdb_fields;
 	pool_t pool;
@@ -317,8 +316,7 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 						&userdb_fields);
 
 	if ((ret = mail_storage_service_lookup_next(storage_service, &service_input,
-						    &service_user, &user,
-						    &error)) <= 0) {
+						    &user, &error)) <= 0) {
 		pool_unref(&pool);
 		if (ret < 0)
 			return -1;
@@ -358,7 +356,6 @@ cmd_user_mail_input(struct mail_storage_service_ctx *storage_service,
 	}
 
 	mail_user_deinit(&user);
-	mail_storage_service_user_unref(&service_user);
 	pool_unref(&pool);
 	return 1;
 }

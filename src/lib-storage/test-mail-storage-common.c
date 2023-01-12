@@ -104,8 +104,7 @@ void test_mail_storage_init_user(struct test_mail_storage_ctx *ctx,
 	};
 
 	if (mail_storage_service_lookup_next(ctx->storage_service, &input,
-					     &ctx->service_user, &ctx->user,
-					     &error) < 0) {
+					     &ctx->user, &error) < 0) {
 		 i_fatal("mail_storage_service_lookup_next(%s) failed: %s",
 			 username, error);
 	}
@@ -114,5 +113,4 @@ void test_mail_storage_init_user(struct test_mail_storage_ctx *ctx,
 void test_mail_storage_deinit_user(struct test_mail_storage_ctx *ctx)
 {
 	mail_user_deinit(&ctx->user);
-	mail_storage_service_user_unref(&ctx->service_user);
 }

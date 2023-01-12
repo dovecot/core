@@ -57,7 +57,6 @@ struct client {
 	char *access_user, *access_service;
 	ARRAY_TYPE(string) access_apps;
 
-	struct mail_storage_service_user *service_user;
 	struct mail_user *mail_user;
 
 	struct imap_urlauth_context *urlauth_ctx;
@@ -254,8 +253,6 @@ static void client_destroy(struct client *client)
 	if (client->fd_ctrl >= 0)
 		net_disconnect(client->fd_ctrl);
 
-	if (client->service_user != NULL)
-		mail_storage_service_user_unref(&client->service_user);
 	i_free(client->access_user);
 	i_free(client->access_service);
 	array_foreach_elem(&client->access_apps, app)
@@ -539,7 +536,6 @@ client_handle_user_command(struct client *client, const char *cmd,
 {
 	struct mail_storage_service_input input;
 	struct imap_urlauth_worker_settings *set;
-	struct mail_storage_service_user *user;
 	struct imap_urlauth_config config;
 	struct mail_user *mail_user;
 	const char *error;
@@ -571,7 +567,7 @@ client_handle_user_command(struct client *client, const char *cmd,
 	e_debug(client->event, "Looking up user %s", input.username);
 
 	ret = mail_storage_service_lookup_next(storage_service, &input,
-					       &user, &mail_user, &error);
+					       &mail_user, &error);
 	if (ret < 0) {
 		e_error(client->event,
 			"Failed to lookup user %s: %s", input.username, error);
@@ -596,7 +592,6 @@ client_handle_user_command(struct client *client, const char *cmd,
 		imap_urlauth_worker_refresh_proctitle();
 	}
 
-	client->service_user = user;
 	client->mail_user = mail_user;
 	client->set = set;
 

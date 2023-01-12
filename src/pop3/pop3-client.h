@@ -48,7 +48,6 @@ struct client {
 	void *cmd_context;
 
 	pool_t pool;
-	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
 	struct mail_namespace *inbox_ns;
 	struct mailbox *mailbox;
@@ -125,7 +124,6 @@ extern unsigned int pop3_client_count;
    if the handle is a socket. */
 struct client *client_create(int fd_in, int fd_out,
 			     struct event *event, struct mail_user *user,
-			     struct mail_storage_service_user *service_user,
 			     const struct pop3_settings *set);
 void client_create_finish(struct client *client);
 int client_init_mailbox(struct client *client, const char **error_r);

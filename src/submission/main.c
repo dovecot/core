@@ -150,7 +150,6 @@ client_create_from_input(const struct mail_storage_service_input *input,
 			 const char **error_r)
 {
 	struct mail_storage_service_input service_input;
-	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
 	struct submission_settings *set;
 	bool no_greeting = HAS_ALL_BITS(login_flags,
@@ -179,7 +178,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	service_input = *input;
 	service_input.event_parent = event;
 	if (mail_storage_service_lookup_next(storage_service, &service_input,
-					     &user, &mail_user, error_r) <= 0) {
+					     &mail_user, error_r) <= 0) {
 		send_error(fd_out, event, my_hostname,
 			"4.7.0", MAIL_ERRSTR_CRITICAL_MSG);
 		event_unref(&event);
@@ -203,7 +202,6 @@ client_create_from_input(const struct mail_storage_service_input *input,
 		send_error(fd_out, event, set->hostname,
 			   "4.3.5", MAIL_ERRSTR_CRITICAL_MSG);
 		mail_user_deinit(&mail_user);
-		mail_storage_service_user_unref(&user);
 		event_unref(&event);
 		return -1;
 	}
@@ -228,7 +226,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	}
 
 	(void)client_create(fd_in, fd_out, event, mail_user,
-			    user, set, helo, &proxy_data, data, data_len,
+			    set, helo, &proxy_data, data, data_len,
 			    no_greeting);
 	event_unref(&event);
 	return 0;

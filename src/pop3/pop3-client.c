@@ -338,7 +338,7 @@ static void pop3_lock_session_refresh(struct client *client)
 int pop3_lock_session(struct client *client)
 {
 	const struct mail_storage_settings *mail_set =
-		mail_storage_service_user_get_mail_set(client->service_user);
+		mail_storage_service_user_get_mail_set(client->user->service_user);
 	struct dotlock_settings dotlock_set;
 	enum mailbox_list_path_type type;
 	const char *dir, *path;
@@ -383,7 +383,6 @@ int pop3_lock_session(struct client *client)
 
 struct client *client_create(int fd_in, int fd_out,
 			     struct event *event, struct mail_user *user,
-			     struct mail_storage_service_user *service_user,
 			     const struct pop3_settings *set)
 {
 	struct client *client;
@@ -398,7 +397,6 @@ struct client *client_create(int fd_in, int fd_out,
 	client->pool = pool;
 	client->event = event;
 	event_ref(client->event);
-	client->service_user = service_user;
 	client->v = pop3_client_vfuncs;
 	client->set = set;
 	client->fd_in = fd_in;
@@ -645,7 +643,6 @@ static void client_default_destroy(struct client *client, const char *reason)
 	pop3_refresh_proctitle();
 	mail_user_autoexpunge(client->user);
 	mail_user_deinit(&client->user);
-	mail_storage_service_user_unref(&client->service_user);
 
 	pop3_client_count--;
 	DLLIST_REMOVE(&pop3_clients, client);
@@ -862,7 +859,7 @@ static int client_output(struct client *client)
 
 void client_kick(struct client *client)
 {
-	mail_storage_service_io_activate_user(client->service_user);
+	mail_storage_service_io_activate_user(client->user->service_user);
 	if (client->cmd == NULL) {
 		client_send_line(client,
 			"-ERR [SYS/TEMP] "MASTER_SERVICE_SHUTTING_DOWN_MSG".");

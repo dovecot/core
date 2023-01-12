@@ -178,7 +178,6 @@ static void client_init_urlauth(struct client *client)
 struct client *
 client_create(int fd_in, int fd_out, struct event *event,
 	      struct mail_user *user,
-	      struct mail_storage_service_user *service_user,
 	      const struct submission_settings *set, const char *helo,
 	      const struct smtp_proxy_data *proxy_data,
 	      const unsigned char *pdata, unsigned int pdata_len,
@@ -202,7 +201,6 @@ client_create(int fd_in, int fd_out, struct event *event,
 	client->event = event;
 	event_ref(client->event);
 	client->user = user;
-	client->service_user = service_user;
 	client->set = set;
 
 	i_array_init(&client->pending_backends, 4);
@@ -328,7 +326,6 @@ client_default_destroy(struct client *client)
 		imap_urlauth_deinit(&client->urlauth_ctx);
 
 	mail_user_deinit(&client->user);
-	mail_storage_service_user_unref(&client->service_user);
 
 	client_state_reset(client);
 
@@ -504,7 +501,7 @@ void client_add_extra_capability(struct client *client, const char *capability,
 
 void client_kick(struct client *client)
 {
-	mail_storage_service_io_activate_user(client->service_user);
+	mail_storage_service_io_activate_user(client->user->service_user);
 	client_destroy(&client, "4.3.2", MASTER_SERVICE_SHUTTING_DOWN_MSG);
 }
 

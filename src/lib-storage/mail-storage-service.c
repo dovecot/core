@@ -1636,26 +1636,21 @@ void mail_storage_service_restrict_setenv(struct mail_storage_service_ctx *ctx,
 
 int mail_storage_service_lookup_next(struct mail_storage_service_ctx *ctx,
 				     const struct mail_storage_service_input *input,
-				     struct mail_storage_service_user **user_r,
 				     struct mail_user **mail_user_r,
 				     const char **error_r)
 {
+	struct mail_storage_service_user *user;
 	int ret;
 
-	ret = mail_storage_service_lookup(ctx, input, user_r, error_r);
+	ret = mail_storage_service_lookup(ctx, input, &user, error_r);
 	if (ret <= 0) {
-		*user_r = NULL;
 		*mail_user_r = NULL;
 		return ret;
 	}
 
-	ret = mail_storage_service_next(ctx, *user_r, mail_user_r, error_r);
-	if (ret < 0) {
-		if (*mail_user_r == NULL)
-			mail_storage_service_user_unref(user_r);
-		return ret;
-	}
-	return 1;
+	ret = mail_storage_service_next(ctx, user, mail_user_r, error_r);
+	mail_storage_service_user_unref(&user);
+	return ret < 0 ? -1 : 1;
 }
 
 void mail_storage_service_user_ref(struct mail_storage_service_user *user)

@@ -349,7 +349,6 @@ int main(int argc, char *argv[])
 	const char *user, *errstr, *path;
 	struct smtp_address *rcpt_to, *final_rcpt_to, *mail_from;
 	struct mail_storage_service_ctx *storage_service;
-	struct mail_storage_service_user *service_user;
 	struct mail_storage_service_input service_input;
 	struct event *event;
 	const char *user_source = "", *rcpt_to_source = "", *mail_from_error;
@@ -533,7 +532,7 @@ int main(int argc, char *argv[])
 	   _lookup() and _next(), but don't bother) */
 	dinput.delivery_time_started = ioloop_timeval;
 	ret = mail_storage_service_lookup_next(storage_service,
-					       &service_input, &service_user,
+					       &service_input,
 					       &dinput.rcpt_user,
 					       &errstr);
 	if (ret <= 0) {
@@ -567,7 +566,6 @@ int main(int argc, char *argv[])
 		mailbox_free(&box);
 
 		mail_user_deinit(&dinput.rcpt_user);
-		mail_storage_service_user_unref(&service_user);
 	}
 
 	mail_deliver_session_deinit(&dinput.session);

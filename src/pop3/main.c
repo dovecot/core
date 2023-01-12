@@ -116,7 +116,6 @@ client_create_from_input(const struct mail_storage_service_input *input,
 {
 	const char *lookup_error_str =
 		"-ERR [SYS/TEMP] "MAIL_ERRSTR_CRITICAL_MSG"\r\n";
-	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
 	struct pop3_settings *set;
 
@@ -139,7 +138,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	service_input.event_parent = event;
 
 	if (mail_storage_service_lookup_next(storage_service, &service_input,
-					     &user, &mail_user, error_r) <= 0) {
+					     &mail_user, error_r) <= 0) {
 		if (write(fd_out, lookup_error_str, strlen(lookup_error_str)) < 0) {
 			/* ignored */
 		}
@@ -152,7 +151,7 @@ client_create_from_input(const struct mail_storage_service_input *input,
 	if (set->verbose_proctitle)
 		verbose_proctitle = TRUE;
 
-	*client_r = client_create(fd_in, fd_out, event, mail_user, user, set);
+	*client_r = client_create(fd_in, fd_out, event, mail_user, set);
 	event_unref(&event);
 	return 0;
 }

@@ -72,7 +72,6 @@ p_as_null_terminated_array(pool_t pool, const char *value)
 static int
 mcp_user_create(struct mail_user *user, const char *dest_username,
 		struct mail_user **dest_user_r,
-		struct mail_storage_service_user **dest_service_user_r,
 		const char **error_r)
 {
 	const struct mail_storage_service_input *old_input;
@@ -97,7 +96,6 @@ mcp_user_create(struct mail_user *user, const char *dest_username,
 				   MAIL_STORAGE_SERVICE_FLAG_NO_LOG_INIT;
 
 	ret = mail_storage_service_lookup_next(service_ctx, &input,
-						dest_service_user_r,
 						dest_user_r, error_r);
 
 	if (ret == 0)
@@ -113,7 +111,6 @@ mcp_update_shared_key(struct mailbox_transaction_context *t,
 {
 	const char *error;
 	struct mail_user *dest_user;
-	struct mail_storage_service_user *dest_service_user;
 	struct ioloop_context *cur_ioloop_ctx;
 	struct dcrypt_public_key *pkey;
 	const char *dest_username;
@@ -122,12 +119,11 @@ mcp_update_shared_key(struct mailbox_transaction_context *t,
 	bool disallow_insecure =
 		mail_user_plugin_getenv_bool(user, MAIL_CRYPT_ACL_SECURE_SHARE_SETTING);
 
-	ret = mcp_user_create(user, target_uid, &dest_user,
-			      &dest_service_user, &error);
+	ret = mcp_user_create(user, target_uid, &dest_user, &error);
 
 	/* to make sure we get correct logging context */
 	if (ret > 0)
-		mail_storage_service_io_deactivate_user(dest_service_user);
+		mail_storage_service_io_deactivate_user(dest_user->service_user);
 	mail_storage_service_io_activate_user(user->service_user);
 
 	if (ret <= 0) {
@@ -166,10 +162,9 @@ mcp_update_shared_key(struct mailbox_transaction_context *t,
 
 	/* logging context swap again */
 	mail_storage_service_io_deactivate_user(user->service_user);
-	mail_storage_service_io_activate_user(dest_service_user);
+	mail_storage_service_io_activate_user(dest_user->service_user);
 
 	mail_user_deinit(&dest_user);
-	mail_storage_service_user_unref(&dest_service_user);
 
 	if ((cur_ioloop_ctx = io_loop_get_current_context(current_ioloop)) != NULL)
 		io_loop_context_deactivate(cur_ioloop_ctx);

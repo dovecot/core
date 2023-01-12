@@ -128,7 +128,6 @@ void mail_storage_service_restrict_setenv(struct mail_storage_service_ctx *ctx,
 /* Combine lookup() and next() into one call. */
 int mail_storage_service_lookup_next(struct mail_storage_service_ctx *ctx,
 				     const struct mail_storage_service_input *input,
-				     struct mail_storage_service_user **user_r,
 				     struct mail_user **mail_user_r,
 				     const char **error_r);
 void mail_storage_service_user_ref(struct mail_storage_service_user *user);

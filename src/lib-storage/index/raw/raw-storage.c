@@ -19,7 +19,6 @@ struct mail_user *
 raw_storage_create_from_set(struct mail_storage_service_ctx *ctx,
 			    struct setting_parser_context *unexpanded_set_parser)
 {
-	struct mail_storage_service_user *service_user;
 	struct mail_user *user;
 	struct mail_namespace *ns;
 	struct mail_namespace_settings *ns_set;
@@ -57,7 +56,7 @@ raw_storage_create_from_set(struct mail_storage_service_ctx *ctx,
 			MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS |
 			MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES,
 	};
-	if (mail_storage_service_lookup_next(ctx, &input, &service_user,
+	if (mail_storage_service_lookup_next(ctx, &input,
 					     &user, &error) < 0)
 		i_fatal("Raw user initialization failed: %s", error);
 	event_unref(&event);
@@ -82,8 +81,7 @@ raw_storage_create_from_set(struct mail_storage_service_ctx *ctx,
 	if (old_ioloop_ctx != NULL)
 		io_loop_context_switch(old_ioloop_ctx);
 	else
-		mail_storage_service_io_deactivate_user(service_user);
-	mail_storage_service_user_unref(&service_user);
+		mail_storage_service_io_deactivate_user(user->service_user);
 	return user;
 }
 

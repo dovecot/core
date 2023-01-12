@@ -7,7 +7,6 @@ struct test_mail_storage_ctx {
 	pool_t pool;
 	struct mail_storage_service_ctx *storage_service;
 	struct mail_user *user;
-	struct mail_storage_service_user *service_user;
 	struct ioloop *ioloop;
 	const char *home_root;
 };

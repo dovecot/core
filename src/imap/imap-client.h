@@ -167,7 +167,6 @@ struct client {
 	guid_128_t anvil_conn_guid;
 
 	pool_t pool;
-	struct mail_storage_service_user *service_user;
 	const struct imap_settings *set;
 	const struct smtp_submit_settings *smtp_set;
 	string_t *capability_string;
@@ -270,7 +269,6 @@ extern unsigned int imap_feature_qresync;
    if the handle is a socket. */
 struct client *client_create(int fd_in, int fd_out, bool unhibernated,
 			     struct event *event, struct mail_user *user,
-			     struct mail_storage_service_user *service_user,
 			     const struct imap_settings *set,
 			     const struct smtp_submit_settings *smtp_set);
 void client_create_finish_io(struct client *client);

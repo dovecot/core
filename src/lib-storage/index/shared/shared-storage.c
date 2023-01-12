@@ -273,21 +273,17 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 			MAIL_STORAGE_SERVICE_FLAG_NO_PLUGINS |
 			MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES,
 	};
-	struct mail_storage_service_user *service_user;
 	if (mail_storage_service_lookup_next(storage_service, &input,
-					     &service_user, &owner,
-					     &error) < 0) {
+					     &owner, &error) < 0) {
 		if (owner != NULL && !owner->nonexistent) {
 			mailbox_list_set_critical(list,
 				"Couldn't create namespace '%s' for user %s: %s",
 				ns->prefix, owner->username, error);
 			mail_user_deinit(&owner);
-			mail_storage_service_user_unref(&service_user);
 			io_loop_context_switch(old_ioloop_ctx);
 			return -1;
 		}
 	}
-	mail_storage_service_user_unref(&service_user);
 
 	owner->creator = user;
 	int ret = shared_mail_user_init(_storage, user, owner, &ns, tab,

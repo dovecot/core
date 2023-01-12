@@ -125,7 +125,7 @@ static void client_kill_idle(struct client *client)
 	if (client->output_cmd_lock != NULL)
 		return;
 
-	mail_storage_service_io_activate_user(client->service_user);
+	mail_storage_service_io_activate_user(client->user->service_user);
 	client_send_line(client, "* BYE "MASTER_SERVICE_SHUTTING_DOWN_MSG".");
 	client_destroy(client, MASTER_SERVICE_SHUTTING_DOWN_MSG);
 }
@@ -242,7 +242,6 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 			     struct client **client_r, const char **error_r)
 {
 	struct mail_storage_service_input service_input;
-	struct mail_storage_service_user *user;
 	struct mail_user *mail_user;
 	struct client *client;
 	struct imap_settings *imap_set;
@@ -267,7 +266,7 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 	service_input = *input;
 	service_input.event_parent = event;
 	if (mail_storage_service_lookup_next(storage_service, &service_input,
-					     &user, &mail_user, error_r) <= 0) {
+					     &mail_user, error_r) <= 0) {
 		event_unref(&event);
 		return -1;
 	}
@@ -285,7 +284,7 @@ int client_create_from_input(const struct mail_storage_service_input *input,
 		verbose_proctitle = TRUE;
 
 	client = client_create(fd_in, fd_out, unhibernated,
-			       event, mail_user, user, imap_set, smtp_set);
+			       event, mail_user, imap_set, smtp_set);
 	client->userdb_fields = input->userdb_fields == NULL ? NULL :
 		p_strarray_dup(client->pool, input->userdb_fields);
 	event_unref(&event);
