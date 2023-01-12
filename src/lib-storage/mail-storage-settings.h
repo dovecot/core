@@ -62,7 +62,6 @@ struct mail_storage_settings {
 	const char *lock_method;
 	const char *pop3_uidl_format;
 
-	const char *hostname;
 	const char *recipient_delimiter;
 
 	const char *mail_attachment_detection_options;

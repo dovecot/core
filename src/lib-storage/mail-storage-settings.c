@@ -81,7 +81,6 @@ static const struct setting_define mail_storage_setting_defines[] = {
 	DEF(ENUM, lock_method),
 	DEF(STR, pop3_uidl_format),
 
-	DEF(STR, hostname),
 	DEF(STR, recipient_delimiter),
 
 	SETTING_DEFINE_LIST_END
@@ -138,7 +137,6 @@ const struct mail_storage_settings mail_storage_default_settings = {
 	.lock_method = "fcntl:flock:dotlock",
 	.pop3_uidl_format = "%08Xu%08Xv",
 
-	.hostname = "",
 	.recipient_delimiter = "+",
 };
 
@@ -482,11 +480,6 @@ static bool mail_storage_settings_check(void *_set, pool_t pool,
 	hash_format_deinit_free(&format);
 
 	// FIXME: check set->mail_server_admin syntax (RFC 5464, Section 6.2.2)
-
-#ifndef CONFIG_BINARY
-	if (*set->hostname == '\0')
-		set->hostname = p_strdup(pool, my_hostdomain());
-#endif
 
 	/* parse mail_attachment_indicator_options */
 	if (*set->mail_attachment_detection_options != '\0') {
