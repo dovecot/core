@@ -130,6 +130,12 @@ static bool shared_namespace_exists(struct mail_namespace *ns)
 	return stat(path, &st) == 0;
 }
 
+static int
+shared_mail_user_init(struct mail_storage *_storage,
+		      struct mail_user *user, struct mail_user *owner,
+		      struct mail_namespace **_ns, struct var_expand_table *tab,
+		      const char *new_ns_prefix);
+
 int shared_storage_get_namespace(struct mail_namespace **_ns,
 				 const char **_name)
 {
@@ -143,7 +149,6 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	const char *name, *p, *next, **dest, *error;
 	string_t *prefix;
 	char ns_sep = mail_namespace_get_sep(ns);
-	int ret;
 
 	p = storage->ns_prefix_pattern;
 	for (name = *_name; *p != '\0';) {
@@ -263,6 +268,26 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 			return -1;
 		}
 	}
+	if (shared_mail_user_init(_storage, user, owner, &ns, tab,
+				  str_c(prefix)) < 0)
+		return -1;
+	*_ns = ns;
+	*_name = mailbox_list_get_storage_name(ns->list,
+				t_strconcat(ns->prefix, name, NULL));
+	mail_user_add_namespace(user, &ns);
+	return 0;
+}
+
+static int
+shared_mail_user_init(struct mail_storage *_storage,
+		      struct mail_user *user, struct mail_user *owner,
+		      struct mail_namespace **_ns, struct var_expand_table *tab,
+		      const char *new_ns_prefix)
+{
+	struct mail_namespace *ns = *_ns;
+	struct shared_storage *storage = SHARED_STORAGE(_storage);
+	const char *error;
+	int ret;
 
 	if (owner->nonexistent)
 		ret = 0;
@@ -294,7 +319,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 	new_ns->refcount = 1;
 	new_ns->type = MAIL_NAMESPACE_TYPE_SHARED;
 	new_ns->user = user;
-	new_ns->prefix = i_strdup(str_c(prefix));
+	new_ns->prefix = i_strdup(new_ns_prefix);
 	new_ns->owner = owner;
 	new_ns->flags = (NAMESPACE_FLAG_SUBSCRIPTIONS & ns->flags) |
 		NAMESPACE_FLAG_LIST_PREFIX | NAMESPACE_FLAG_HIDDEN |
@@ -353,10 +378,7 @@ int shared_storage_get_namespace(struct mail_namespace **_ns,
 			mail_namespace_get_default_storage(new_ns)->class_flags;
 	}
 
-	*_name = mailbox_list_get_storage_name(new_ns->list,
-				t_strconcat(new_ns->prefix, name, NULL));
 	*_ns = new_ns;
-	mail_user_add_namespace(user, &new_ns);
 	return 0;
 }
 
