@@ -1557,6 +1557,9 @@ static void test_client_echo_continue(void *context ATTR_UNUSED)
 		struct istream *fstream;
 		const char *path = paths[client_files_last];
 
+		if (path == NULL)
+			continue;
+
 		fstream = test_file_open(path, NULL, NULL);
 		if (fstream == NULL) {
 			paths[client_files_last] = NULL;
