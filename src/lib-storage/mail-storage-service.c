@@ -685,6 +685,7 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	   mail_user_dup() */
 	mail_user = mail_user_alloc_nodup_set(user->event, user->input.username,
 					      user->set_parser);
+	*mail_user_r = mail_user;
 	mail_user->_service_user = user;
 	mail_storage_service_user_ref(user);
 	mail_user_set_home(mail_user, *home == '\0' ? NULL : home);
@@ -769,18 +770,13 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 	T_BEGIN {
 		ret = mail_user_init(mail_user, error_r);
 	} T_END_PASS_STR_IF(ret < 0, error_r);
-	if (ret < 0) {
-		mail_user_unref(&mail_user);
+	if (ret < 0)
 		return -1;
-	}
-	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES) == 0) {
-		if (mail_namespaces_init(mail_user, error_r) < 0) {
-			mail_user_deinit(&mail_user);
-			return -1;
-		}
-	}
 
-	*mail_user_r = mail_user;
+	if ((user->flags & MAIL_STORAGE_SERVICE_FLAG_NO_NAMESPACES) == 0) {
+		if (mail_namespaces_init(mail_user, error_r) < 0)
+			return -1;
+	}
 	return 0;
 }
 
@@ -1502,6 +1498,8 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 		(user->flags & MAIL_STORAGE_SERVICE_FLAG_TEMP_PRIV_DROP) != 0;
 	bool use_chroot;
 
+	*mail_user_r = NULL;
+
 	if (service_parse_privileges(ctx, user, &priv, error_r) < 0)
 		return -2;
 
@@ -1579,6 +1577,8 @@ mail_storage_service_next_real(struct mail_storage_service_ctx *ctx,
 					   session_id_suffix,
 					   mail_user_r, error_r) < 0) {
 		mail_storage_service_io_deactivate_user(user);
+		if (*mail_user_r != NULL && !user->input.no_free_init_failure)
+			mail_user_unref(mail_user_r);
 		return -2;
 	}
 	if (master_service_get_client_limit(master_service) == 1) {
@@ -1642,19 +1642,21 @@ int mail_storage_service_lookup_next(struct mail_storage_service_ctx *ctx,
 				     struct mail_user **mail_user_r,
 				     const char **error_r)
 {
-	struct mail_storage_service_user *user;
 	int ret;
 
-	ret = mail_storage_service_lookup(ctx, input, &user, error_r);
-	if (ret <= 0)
-		return ret;
-
-	ret = mail_storage_service_next(ctx, user, mail_user_r, error_r);
-	if (ret < 0) {
-		mail_storage_service_user_unref(&user);
+	ret = mail_storage_service_lookup(ctx, input, user_r, error_r);
+	if (ret <= 0) {
+		*user_r = NULL;
+		*mail_user_r = NULL;
 		return ret;
 	}
-	*user_r = user;
+
+	ret = mail_storage_service_next(ctx, *user_r, mail_user_r, error_r);
+	if (ret < 0) {
+		if (*mail_user_r == NULL)
+			mail_storage_service_user_unref(user_r);
+		return ret;
+	}
 	return 1;
 }
 
