@@ -1723,13 +1723,6 @@ void *mail_storage_service_user_get_set(struct mail_storage_service_user *user,
 	return settings_parser_get_root_set(user->set_parser, root);
 }
 
-const struct mail_storage_settings *
-mail_storage_service_user_get_mail_set(struct mail_storage_service_user *user)
-{
-	return settings_parser_get_root_set(user->set_parser,
-				&mail_storage_setting_parser_info);
-}
-
 const struct mail_storage_service_input *
 mail_storage_service_user_get_input(struct mail_storage_service_user *user)
 {

@@ -153,8 +153,6 @@ void mail_storage_service_io_deactivate_user(struct mail_storage_service_user *u
    changes done by userdb lookups. */
 void *mail_storage_service_user_get_set(struct mail_storage_service_user *user,
 					const struct setting_parser_info *root);
-const struct mail_storage_settings *
-mail_storage_service_user_get_mail_set(struct mail_storage_service_user *user);
 const struct mail_storage_service_input *
 mail_storage_service_user_get_input(struct mail_storage_service_user *user);
 struct setting_parser_context *
