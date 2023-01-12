@@ -21,7 +21,6 @@ struct lmtp_local_deliver_context {
 
 	const struct mail_storage_settings *mail_set;
 	const struct smtp_submit_settings *smtp_set;
-	const struct lda_settings *lda_set;
 
 	struct mail_deliver_session *session;
 };
