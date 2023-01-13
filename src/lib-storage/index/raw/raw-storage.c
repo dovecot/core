@@ -26,7 +26,7 @@ raw_storage_create_from_set(struct setting_parser_context *unexpanded_set_parser
 	/* Don't include raw user's events in statistics or anything else.
 	   They would just cause confusion. */
 	event_disable_callbacks(event);
-	user = mail_user_alloc(event, "raw mail user", unexpanded_set_parser);
+	user = mail_user_alloc(event, "raw-mail-user", unexpanded_set_parser);
 	event_unref(&event);
 
 	user->autocreated = TRUE;
