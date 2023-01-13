@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "str.h"
 #include "settings-parser.h"
+#include "master-service-settings.h"
 #include "imap-arg.h"
 #include "imap-resp-code.h"
 #include "mailbox-tree.h"
@@ -315,13 +316,17 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	struct imapc_client_settings set;
 	string_t *str;
 
-	imapc_set = settings_parser_get_root_set(ns->user->set_parser,
-		imapc_get_setting_parser_info());
+	if (master_service_settings_parser_get(ns->user->event,
+			ns->user->set_parser, imapc_get_setting_parser_info(),
+			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			&imapc_set, error_r) < 0)
+		return -1;
 
 	i_zero(&set);
 	set.host = imapc_set->imapc_host;
 	if (*set.host == '\0') {
 		*error_r = "missing imapc_host";
+		master_service_settings_free(imapc_set);
 		return -1;
 	}
 	set.port = imapc_set->imapc_port;
@@ -335,6 +340,7 @@ int imapc_storage_client_create(struct mail_namespace *ns,
 	set.password = imapc_set->imapc_password;
 	if (*set.password == '\0') {
 		*error_r = "missing imapc_password";
+		master_service_settings_free(imapc_set);
 		return -1;
 	}
 	set.sasl_mechanisms = imapc_set->imapc_sasl_mechanisms;
@@ -405,6 +411,7 @@ void imapc_storage_client_unref(struct imapc_storage_client **_client)
 	if (--client->refcount > 0)
 		return;
 	imapc_client_deinit(&client->client);
+	master_service_settings_free(client->set);
 	array_foreach_modifiable(&client->untagged_callbacks, cb)
 		i_free(cb->name);
 	array_free(&client->untagged_callbacks);

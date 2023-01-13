@@ -2,6 +2,7 @@
 #define MBOX_SETTINGS_H
 
 struct mbox_settings {
+	pool_t pool;
 	const char *mbox_read_locks;
 	const char *mbox_write_locks;
 	unsigned int mbox_lock_timeout;

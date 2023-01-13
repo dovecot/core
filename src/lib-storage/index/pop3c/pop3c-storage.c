@@ -4,6 +4,7 @@
 #include "ioloop.h"
 #include "str.h"
 #include "settings-parser.h"
+#include "master-service-settings.h"
 #include "mail-copy.h"
 #include "mail-user.h"
 #include "mailbox-list-private.h"
@@ -41,8 +42,13 @@ pop3c_storage_create(struct mail_storage *_storage,
 {
 	struct pop3c_storage *storage = POP3C_STORAGE(_storage);
 
-	storage->set = settings_parser_get_root_set(_storage->user->set_parser,
-		pop3c_get_setting_parser_info());
+	if (master_service_settings_parser_get(_storage->event,
+			_storage->user->set_parser,
+			pop3c_get_setting_parser_info(),
+			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			&storage->set, error_r) < 0)
+		return -1;
+
 	if (storage->set->pop3c_host[0] == '\0') {
 		*error_r = "missing pop3c_host";
 		return -1;
@@ -56,6 +62,14 @@ pop3c_storage_create(struct mail_storage *_storage,
 		storage->set->pop3c_host, storage->set->pop3c_port));
 
 	return 0;
+}
+
+static void pop3c_storage_destroy(struct mail_storage *_storage)
+{
+	struct pop3c_storage *storage = POP3C_STORAGE(_storage);
+
+	master_service_settings_free(storage->set);
+	index_storage_destroy(_storage);
 }
 
 static struct pop3c_client *
@@ -313,7 +327,7 @@ struct mail_storage pop3c_storage = {
 		pop3c_get_setting_parser_info,
 		pop3c_storage_alloc,
 		pop3c_storage_create,
-		index_storage_destroy,
+		pop3c_storage_destroy,
 		NULL,
 		pop3c_storage_get_list_settings,
 		NULL,

@@ -6,6 +6,7 @@
 #include "eacces-error.h"
 #include "unlink-old-files.h"
 #include "settings-parser.h"
+#include "master-service-settings.h"
 #include "mailbox-uidvalidity.h"
 #include "mailbox-list-private.h"
 #include "maildir-storage.h"
@@ -56,8 +57,12 @@ maildir_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	struct mailbox_list *list = ns->list;
 	const char *dir;
 
-	storage->set = settings_parser_get_root_set(_storage->user->set_parser,
-		maildir_get_setting_parser_info());
+	if (master_service_settings_parser_get(_storage->event,
+			_storage->user->set_parser,
+			maildir_get_setting_parser_info(),
+			MASTER_SERVICE_SETTINGS_GET_FLAG_NO_EXPAND,
+			&storage->set, error_r) < 0)
+		return -1;
 
 	storage->temp_prefix = p_strdup(_storage->pool,
 					mailbox_list_get_temp_prefix(list));
@@ -75,6 +80,14 @@ maildir_storage_create(struct mail_storage *_storage, struct mail_namespace *ns,
 	_storage->temp_path_prefix = p_strconcat(_storage->pool, dir, "/",
 						 storage->temp_prefix, NULL);
 	return 0;
+}
+
+static void maildir_storage_destroy(struct mail_storage *_storage)
+{
+	struct maildir_storage *storage = MAILDIR_STORAGE(_storage);
+
+	master_service_settings_free(storage->set);
+	index_storage_destroy(_storage);
 }
 
 static void maildir_storage_get_list_settings(const struct mail_namespace *ns,
@@ -728,7 +741,7 @@ struct mail_storage maildir_storage = {
                 maildir_get_setting_parser_info,
 		maildir_storage_alloc,
 		maildir_storage_create,
-		index_storage_destroy,
+		maildir_storage_destroy,
 		maildir_storage_add_list,
 		maildir_storage_get_list_settings,
 		maildir_storage_autodetect,

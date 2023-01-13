@@ -69,6 +69,7 @@ static const struct setting_parser_info imapc_setting_parser_info = {
 	.defaults = &imapc_default_settings,
 
 	.struct_size = sizeof(struct imapc_settings),
+	.pool_offset1 = 1 + offsetof(struct imapc_settings, pool),
 	.parent = &mail_user_setting_parser_info,
 
 	.check_func = imapc_settings_check

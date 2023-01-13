@@ -30,6 +30,7 @@ enum imapc_features {
  * serialization of settings.
  */
 struct imapc_settings {
+	pool_t pool;
 	const char *imapc_host;
 	in_port_t imapc_port;
 

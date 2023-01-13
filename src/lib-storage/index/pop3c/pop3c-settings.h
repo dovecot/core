@@ -11,6 +11,7 @@ enum pop3c_features {
 
 
 struct pop3c_settings {
+	pool_t pool;
 	const char *pop3c_host;
 	in_port_t pop3c_port;
 
