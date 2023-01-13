@@ -1377,12 +1377,6 @@ mail_storage_service_lookup_real(struct mail_storage_service_ctx *ctx,
 	if ((flags & MAIL_STORAGE_SERVICE_FLAG_DEBUG) != 0)
 		(void)settings_parse_line(user->set_parser, "mail_debug=yes");
 
-	if ((flags & MAIL_STORAGE_SERVICE_FLAG_USERDB_LOOKUP) == 0) {
-		const char *home = getenv("HOME");
-		if (home != NULL)
-			set_keyval(ctx, user, "mail_home", home);
-	}
-
 	if (userdb_fields != NULL) {
 		int ret2 = auth_user_fields_parse(userdb_fields, temp_pool,
 						  &reply, &error);
