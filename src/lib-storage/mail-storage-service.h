@@ -74,6 +74,8 @@ struct mail_storage_service_input {
 	/* The end client connection (not just the previous hop proxy
 	   connection) is using TLS. */
 	bool end_client_tls_secured:1;
+	/* User is autocreated (e.g. raw storage user) */
+	bool autocreated:1;
 	/* Don't free the user if user initialization fails. The caller is
 	   expected to free the user. */
 	bool no_free_init_failure:1;

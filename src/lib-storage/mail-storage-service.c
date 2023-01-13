@@ -687,6 +687,8 @@ mail_storage_service_init_post(struct mail_storage_service_ctx *ctx,
 					      user->set_parser);
 	*mail_user_r = mail_user;
 	mail_user->_service_user = user;
+	if (user->input.autocreated)
+		mail_user->autocreated = TRUE;
 	mail_storage_service_user_ref(user);
 	mail_user_set_home(mail_user, *home == '\0' ? NULL : home);
 	mail_user_set_vars(mail_user, service_name, &conn_data);
