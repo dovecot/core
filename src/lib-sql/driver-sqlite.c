@@ -238,13 +238,17 @@ static void driver_sqlite_result_log(const struct sql_result *result, const char
 					 db->rc);
 		i_fatal_status(FATAL_OUTOFMEM, SQL_QUERY_FINISHED_FMT"%s", query,
 			       duration, suffix);
+	} else if (db->rc == SQLITE_READONLY) {
+		const char *eacces_err = eacces_error_get("write", db->dbfile);
+		suffix = t_strconcat(": ", eacces_err, NULL);
+		e->add_str("error", eacces_err);
+		e->add_int("error_code", db->rc);
 	} else if (db->rc != SQLITE_OK) {
 		suffix = t_strdup_printf(": %s (%d)", sqlite3_errmsg(db->sqlite),
 					 db->rc);
 		e->add_str("error", sqlite3_errmsg(db->sqlite));
 		e->add_int("error_code", db->rc);
 	}
-
 	e_debug(e->event(), SQL_QUERY_FINISHED_FMT"%s", query, duration, suffix);
 }
 
@@ -457,10 +461,15 @@ static const char *driver_sqlite_result_get_error(struct sql_result *_result)
 	struct sqlite_db *db =
 		container_of(result->api.db, struct sqlite_db, api);
 
-	if (db->connected)
-		return sqlite3_errmsg(db->sqlite);
-	else
+	if (db->connected) {
+		const char *err = sqlite3_errmsg(db->sqlite);
+		if (db->rc == SQLITE_READONLY)
+			err = t_strconcat(err, ": ",
+					  eacces_error_get("write", db->dbfile), NULL);
+		return err;
+	} else {
 		return "Cannot connect to database";
+	}
 }
 
 static struct sql_transaction_context *
